@@ -19,10 +19,9 @@ We are using [devspace](https://www.devspace.sh/docs/getting-started/installatio
 
 Configure the cluster, see `deployments.app.helm.values` and [values.yaml](./values.yaml) comments for more details
 
-Configure your `cluster` setup (one time setup, internal usage only)
+Set up your K8s access
 ```
 export DEVSPACE_IMAGE="..."
-cd charts/chainlink-cluster
 ./setup.sh ${my-personal-namespace-name-crib}
 ```
 
@@ -31,12 +30,19 @@ Build and deploy current commit
 devspace deploy
 ```
 
-If you don't need a build use
+Default `ttl` is `72h`, use `ttl` command to update if you need more time
+
+Valid values are `1h`, `2m`, `3s`, etc. Go time format is invalid `1h2m3s`
+```
+devspace run ttl ${namespace} 120h
+```
+
+If you don't need to build use
 ```
 devspace deploy --skip-build
 ```
 
-To deploy particular commit (must be in registry) use
+To deploy particular commit (must be in the registry) use
 ```
 devspace deploy --skip-build ${short_sha_of_image}
 ```
@@ -46,22 +52,12 @@ Forward ports to check UI or run tests
 devspace run connect ${my-personal-namespace-name-crib}
 ```
 
-Connect to your environment, by replacing container with label `node-1` with your local repository files
+Update some Go code of Chainlink node and quickly sync your cluster
 ```
-devspace dev -p node
-make chainlink
-make chainlink-local-start
-```
-Fix something in the code locally, it'd automatically sync, rebuild it inside container and run again
-```
-make chainlink
-make chainlink-local-start
+devspace dev
 ```
 
-Reset the pod to original image
-```
-devspace reset pods
-```
+To reset pods to original image just checkout needed commit and do `devspace deploy` again
 
 Destroy the cluster
 ```
@@ -129,15 +125,23 @@ helm uninstall cl-cluster
 ```
 
 # Grafana dashboard
-We are using [Grabana]() lib to create dashboards programmatically
+We are using [Grabana](https://github.com/K-Phoen/grabana) lib to create dashboards programmatically
+
+You can select `PANELS_INCLUDED`, options are `core`, `wasp`, comma separated
+
+You can also select dashboard platform in `INFRA_PLATFORM` either `kubernetes` or `docker`
 ```
+export LOKI_TENANT_ID=promtail
+export LOKI_URL=...
 export GRAFANA_URL=...
 export GRAFANA_TOKEN=...
-export LOKI_DATA_SOURCE_NAME=Loki
 export PROMETHEUS_DATA_SOURCE_NAME=Thanos
-export DASHBOARD_FOLDER=CRIB
-export DASHBOARD_NAME=ChainlinkCluster
+export LOKI_DATA_SOURCE_NAME=Loki
+export PANELS_INCLUDED=core,wasp
+export INFRA_PLATFORM=kubernetes|docker
+export GRAFANA_FOLDER=DashboardCoreDebug
+export DASHBOARD_NAME=ChainlinkClusterDebug
 
-cd dashboard/cmd && go run dashboard_deploy.go
+go run dashboard/cmd/dashboard_deploy.go
 ```
-Open Grafana folder `CRIB` and find dashboard `ChainlinkCluster`
+Open Grafana folder `DashboardCoreDebug` and find dashboard `ChainlinkClusterDebug`

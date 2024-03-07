@@ -175,7 +175,7 @@ func TestETHKeysController_Index_NotDev(t *testing.T) {
 	defer cleanup()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
-	expectedKeys, err := app.KeyStore.Eth().GetAll()
+	expectedKeys, err := app.KeyStore.Eth().GetAll(testutils.Context(t))
 	require.NoError(t, err)
 	var actualBalances []webpresenters.ETHKeyResource
 	err = cltest.ParseJSONAPIResponse(t, resp, &actualBalances)

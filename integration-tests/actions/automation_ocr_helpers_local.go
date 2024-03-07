@@ -18,13 +18,12 @@ import (
 	ocr2keepers20config "github.com/smartcontractkit/chainlink-automation/pkg/v2/config"
 	ocr2keepers30config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 func BuildAutoOCR2ConfigVarsLocal(
@@ -34,8 +33,10 @@ func BuildAutoOCR2ConfigVarsLocal(
 	registrar string,
 	deltaStage time.Duration,
 	registryOwnerAddress common.Address,
+	chainModuleAddress common.Address,
+	reorgProtectionEnabled bool,
 ) (contracts.OCRv2Config, error) {
-	return BuildAutoOCR2ConfigVarsWithKeyIndexLocal(l, chainlinkNodes, registryConfig, registrar, deltaStage, 0, registryOwnerAddress)
+	return BuildAutoOCR2ConfigVarsWithKeyIndexLocal(l, chainlinkNodes, registryConfig, registrar, deltaStage, 0, registryOwnerAddress, chainModuleAddress, reorgProtectionEnabled)
 }
 
 func BuildAutoOCR2ConfigVarsWithKeyIndexLocal(
@@ -46,6 +47,8 @@ func BuildAutoOCR2ConfigVarsWithKeyIndexLocal(
 	deltaStage time.Duration,
 	keyIndex int,
 	registryOwnerAddress common.Address,
+	chainModuleAddress common.Address,
+	reorgProtectionEnabled bool,
 ) (contracts.OCRv2Config, error) {
 	S, oracleIdentities, err := GetOracleIdentitiesWithKeyIndexLocal(chainlinkNodes, keyIndex)
 	if err != nil {
@@ -59,7 +62,7 @@ func BuildAutoOCR2ConfigVarsWithKeyIndexLocal(
 	var offchainConfigVersion uint64
 	var offchainConfig []byte
 
-	if registryConfig.RegistryVersion == ethereum.RegistryVersion_2_1 {
+	if registryConfig.RegistryVersion == ethereum.RegistryVersion_2_1 || registryConfig.RegistryVersion == ethereum.RegistryVersion_2_2 {
 		offC, err = json.Marshal(ocr2keepers30config.OffchainConfig{
 			TargetProbability:    "0.999",
 			TargetInRounds:       1,
@@ -149,7 +152,7 @@ func BuildAutoOCR2ConfigVarsWithKeyIndexLocal(
 		transmitters = append(transmitters, common.HexToAddress(string(transmitter)))
 	}
 
-	onchainConfig, err := registryConfig.EncodeOnChainConfig(registrar, registryOwnerAddress)
+	onchainConfig, err := registryConfig.EncodeOnChainConfig(registrar, registryOwnerAddress, chainModuleAddress, reorgProtectionEnabled)
 	if err != nil {
 		return contracts.OCRv2Config{}, err
 	}
@@ -183,12 +186,14 @@ func CreateOCRKeeperJobsLocal(
 	bootstrapP2PId := bootstrapP2PIds.Data[0].Attributes.PeerID
 
 	var contractVersion string
-	if registryVersion == ethereum.RegistryVersion_2_1 {
+	if registryVersion == ethereum.RegistryVersion_2_2 {
+		contractVersion = "v2.1+"
+	} else if registryVersion == ethereum.RegistryVersion_2_1 {
 		contractVersion = "v2.1"
 	} else if registryVersion == ethereum.RegistryVersion_2_0 {
 		contractVersion = "v2.0"
 	} else {
-		return fmt.Errorf("v2.0 and v2.1 are the only supported versions")
+		return fmt.Errorf("v2.0, v2.1, and v2.2 are the only supported versions")
 	}
 
 	bootstrapSpec := &client.OCR2TaskJobSpec{

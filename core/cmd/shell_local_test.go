@@ -181,7 +181,7 @@ func TestShell_RunNodeWithAPICredentialsFile(t *testing.T) {
 			pgtest.MustExec(t, db, "DELETE FROM users;")
 
 			keyStore := cltest.NewKeyStore(t, db, cfg.Database())
-			_, err := keyStore.Eth().Create(&cltest.FixtureChainID)
+			_, err := keyStore.Eth().Create(testutils.Context(t), &cltest.FixtureChainID)
 			require.NoError(t, err)
 
 			ethClient := evmtest.NewEthClientMock(t)
@@ -436,7 +436,6 @@ func TestShell_RebroadcastTransactions_AddressCheck(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-
 			config, sqlxDB := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.Database.Dialect = dialects.Postgres
 
@@ -450,7 +449,7 @@ func TestShell_RebroadcastTransactions_AddressCheck(t *testing.T) {
 			_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth())
 
 			if !test.enableAddress {
-				err := keyStore.Eth().Disable(fromAddress, testutils.FixtureChainID)
+				err := keyStore.Eth().Disable(testutils.Context(t), fromAddress, testutils.FixtureChainID)
 				require.NoError(t, err, "failed to disable test key")
 			}
 
