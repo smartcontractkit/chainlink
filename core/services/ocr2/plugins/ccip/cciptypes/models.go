@@ -10,10 +10,8 @@ import (
 
 type Address string
 
-// TODO: make JSON marshal/unmarshal non-evm specific.
-// Make sure we have casing compatibility with old versions.
-func (a *Address) UnmarshalJSON(bytes []byte) error {
-	vStr := strings.Trim(string(bytes), `"`)
+func (a *Address) UnmarshalJSON(b []byte) error {
+	vStr := strings.Trim(string(b), `"`)
 	if !common.IsHexAddress(vStr) {
 		return fmt.Errorf("invalid address: %s", vStr)
 	}
@@ -21,8 +19,21 @@ func (a *Address) UnmarshalJSON(bytes []byte) error {
 	return nil
 }
 
-func (a *Address) MarshalJSON() ([]byte, error) {
-	return []byte(`"` + strings.ToLower(string(*a)) + `"`), nil
+func (a Address) MarshalJSON() ([]byte, error) {
+	return []byte(`"` + strings.ToLower(string(a)) + `"`), nil
+}
+
+func (a Address) MarshalText() (text []byte, err error) {
+	return []byte(strings.ToLower(string(a))), nil
+}
+
+func (a *Address) UnmarshalText(text []byte) error {
+	vStr := string(text)
+	if !common.IsHexAddress(vStr) {
+		return fmt.Errorf("invalid address: %s", vStr)
+	}
+	*a = Address(common.HexToAddress(vStr).String())
+	return nil
 }
 
 type Hash [32]byte
