@@ -11,7 +11,7 @@ import { IAutomationRegistryConsumer__factory as IAutomationRegistryConsumerFact
 import { MigratableKeeperRegistryInterface__factory as MigratableKeeperRegistryInterfaceFactory } from '../../../typechain/factories/MigratableKeeperRegistryInterface__factory'
 import { MigratableKeeperRegistryInterfaceV2__factory as MigratableKeeperRegistryInterfaceV2Factory } from '../../../typechain/factories/MigratableKeeperRegistryInterfaceV2__factory'
 import { OCR2Abstract__factory as OCR2AbstractFactory } from '../../../typechain/factories/OCR2Abstract__factory'
-import { IAutomationV2Common__factory as IAutomationV2CommonFactory } from '../../../typechain/factories/IAutomationV2Common__factory'
+import { IAutomationV21PlusCommon__factory as IAutomationV21PlusCommonFactory } from '../../../typechain/factories/IAutomationV21PlusCommon__factory'
 import {
   assertSatisfiesEvents,
   assertSatisfiesInterface,
@@ -103,14 +103,14 @@ describe('IAutomationRegistryMaster', () => {
   it('satisfies the IAutomationV2Common interface', async () => {
     assertSatisfiesInterface(
       IAutomationRegistryMasterFactory.abi,
-      IAutomationV2CommonFactory.abi,
+      IAutomationV21PlusCommonFactory.abi,
     )
   })
 
   it('satisfies the IAutomationV2Common events', async () => {
     assertSatisfiesEvents(
       IAutomationRegistryMasterFactory.abi,
-      IAutomationV2CommonFactory.abi,
+      IAutomationV21PlusCommonFactory.abi,
     )
   })
 })
