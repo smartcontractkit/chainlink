@@ -416,7 +416,7 @@ func TestETHKeysController_ChainSuccess_ResetWithAbandon(t *testing.T) {
 	assert.NoError(t, err)
 
 	db := app.GetSqlxDB()
-	txStore := txmgr.NewTxStore(db, logger.TestLogger(t), cfg.Database())
+	txStore := txmgr.NewTxStore(db, logger.TestLogger(t))
 
 	txes, err := txStore.FindTxesByFromAddressAndState(testutils.Context(t), addr, "fatal_error")
 	require.NoError(t, err)

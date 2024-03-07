@@ -20,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
@@ -158,8 +157,7 @@ func TestShell_SendEther_From_Txm(t *testing.T) {
 	)
 	client, r := app.NewShellAndRenderer()
 	db := app.GetSqlxDB()
-	cfg := pgtest.NewQConfig(false)
-	txStore := txmgr.NewTxStore(db, logger.TestLogger(t), cfg)
+	txStore := txmgr.NewTxStore(db, logger.TestLogger(t))
 	set := flag.NewFlagSet("sendether", 0)
 	flagSetApplyFromAction(client.SendEther, set, "")
 
@@ -224,8 +222,7 @@ func TestShell_SendEther_From_Txm_WEI(t *testing.T) {
 	)
 	client, r := app.NewShellAndRenderer()
 	db := app.GetSqlxDB()
-	cfg := pgtest.NewQConfig(false)
-	txStore := txmgr.NewTxStore(db, logger.TestLogger(t), cfg)
+	txStore := txmgr.NewTxStore(db, logger.TestLogger(t))
 
 	set := flag.NewFlagSet("sendether", 0)
 	flagSetApplyFromAction(client.SendEther, set, "")
