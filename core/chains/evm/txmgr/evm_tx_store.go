@@ -536,7 +536,8 @@ func (o *evmTxStore) InsertTx(ctx context.Context, etx *Tx) error {
 	var dbTx DbEthTx
 	dbTx.FromTx(etx)
 
-	_, err := o.q.(*sqlx.DB).NamedExecContext(ctx, insertEthTxSQL, &dbTx)
+	query, args, _ := o.q.BindNamed(insertEthTxSQL, &dbTx)
+	err := o.q.GetContext(ctx, &dbTx, query, args...)
 	dbTx.ToTx(etx)
 	return pkgerrors.Wrap(err, "InsertTx failed")
 }
@@ -545,7 +546,8 @@ func (o *evmTxStore) InsertTx(ctx context.Context, etx *Tx) error {
 func (o *evmTxStore) InsertTxAttempt(ctx context.Context, attempt *TxAttempt) error {
 	var dbTxAttempt DbEthTxAttempt
 	dbTxAttempt.FromTxAttempt(attempt)
-	_, err := o.q.(*sqlx.DB).NamedExecContext(ctx, insertIntoEthTxAttemptsQuery, &dbTxAttempt)
+	query, args, _ := o.q.BindNamed(insertIntoEthTxAttemptsQuery, &dbTxAttempt)
+	err := o.q.GetContext(ctx, &dbTxAttempt, query, args...)
 	dbTxAttempt.ToTxAttempt(attempt)
 	return pkgerrors.Wrap(err, "InsertTxAttempt failed")
 }
@@ -558,7 +560,8 @@ func (o *evmTxStore) InsertReceipt(ctx context.Context, receipt *evmtypes.Receip
 	const insertEthReceiptSQL = `INSERT INTO evm.receipts (tx_hash, block_hash, block_number, transaction_index, receipt, created_at) VALUES (
 :tx_hash, :block_hash, :block_number, :transaction_index, :receipt, NOW()
 ) RETURNING *`
-	_, err := o.q.(*sqlx.DB).NamedExecContext(ctx, insertEthReceiptSQL, &r)
+	query, args, _ := o.q.BindNamed(insertEthReceiptSQL, &r)
+	err := o.q.GetContext(ctx, &r, query, args...)
 	return r.ID, pkgerrors.Wrap(err, "InsertReceipt failed")
 }
 
@@ -586,7 +589,6 @@ func (o *evmTxStore) GetFatalTransactions(ctx context.Context) (txes []*Tx, err 
 
 // FindTxWithAttempts finds the Tx with its attempts and receipts preloaded
 func (o *evmTxStore) FindTxWithAttempts(ctx context.Context, etxID int64) (etx Tx, err error) {
-	fmt.Println("FindTxWithAttempts; ID:", etxID)
 	err = o.Transaction(ctx, func(orm *evmTxStore) error {
 		var dbEtx DbEthTx
 		if err = orm.q.GetContext(ctx, &dbEtx, `SELECT * FROM evm.txes WHERE id = $1 ORDER BY created_at ASC, id ASC`, etxID); err != nil {
