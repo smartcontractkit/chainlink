@@ -20,6 +20,11 @@ on:
         required: false
         type: string
         default: 'true'
+      run_solana:
+        description: 'Run solana tests'
+        required: false
+        type: string
+        default: 'false'
   workflow_call:
     inputs:
       cl_ref:
