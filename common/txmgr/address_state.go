@@ -172,7 +172,7 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) applyT
 
 	// if txStates is empty then apply the filter to only the as.allTransactions map
 	if len(txStates) == 0 {
-		as.applyToTxs(as.allTxs, fn, txIDs...)
+		as._applyToTxs(as.allTxs, fn, txIDs...)
 		return
 	}
 
@@ -183,13 +183,13 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) applyT
 				fn(as.inprogressTx)
 			}
 		case TxUnconfirmed:
-			as.applyToTxs(as.unconfirmedTxs, fn, txIDs...)
+			as._applyToTxs(as.unconfirmedTxs, fn, txIDs...)
 		case TxConfirmedMissingReceipt:
-			as.applyToTxs(as.confirmedMissingReceiptTxs, fn, txIDs...)
+			as._applyToTxs(as.confirmedMissingReceiptTxs, fn, txIDs...)
 		case TxConfirmed:
-			as.applyToTxs(as.confirmedTxs, fn, txIDs...)
+			as._applyToTxs(as.confirmedTxs, fn, txIDs...)
 		case TxFatalError:
-			as.applyToTxs(as.fatalErroredTxs, fn, txIDs...)
+			as._applyToTxs(as.fatalErroredTxs, fn, txIDs...)
 		default:
 			panic("applyToTxsByState: unknown transaction state")
 		}
@@ -386,22 +386,23 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) abando
 
 	for as.unstartedTxs.Len() > 0 {
 		tx := as.unstartedTxs.RemoveNextTx()
-		as.abandonTx(tx)
+		as._abandonTx(tx)
 	}
 
 	if as.inprogressTx != nil {
 		tx := as.inprogressTx
-		as.abandonTx(tx)
+		as._abandonTx(tx)
 		as.inprogressTx = nil
 	}
 	for _, tx := range as.unconfirmedTxs {
-		as.abandonTx(tx)
+		as._abandonTx(tx)
 	}
 
 	clear(as.unconfirmedTxs)
 }
 
-func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) abandonTx(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) {
+// This method is not concurrent safe and should only be called from within a lock
+func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) _abandonTx(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) {
 	if tx == nil {
 		return
 	}
@@ -413,7 +414,8 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) abando
 	as.fatalErroredTxs[tx.ID] = tx
 }
 
-func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) applyToTxs(
+// This method is not concurrent safe and should only be called from within a lock
+func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) _applyToTxs(
 	txIDsToTx map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	fn func(*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]),
 	txIDs ...int64,
