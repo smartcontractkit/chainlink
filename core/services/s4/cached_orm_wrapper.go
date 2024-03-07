@@ -23,7 +23,7 @@ const (
 )
 
 // CachedORM is a cached orm wrapper that implements the ORM interface.
-// It adds a cache layer in order to remove unnecessary preassure to the underlaying implementation
+// It adds a cache layer in order to remove unnecessary pressure to the underlaying implementation
 type CachedORM struct {
 	underlayingORM ORM
 	cache          *cache.Cache
@@ -71,7 +71,7 @@ func (c CachedORM) GetSnapshot(addressRange *AddressRange, qopts ...pg.QOpt) ([]
 		return cached.([]*SnapshotRow), nil
 	}
 
-	c.lggr.Info("Snapshot not found in cache, fetching it from underlaying implementation")
+	c.lggr.Debug("Snapshot not found in cache, fetching it from underlaying implementation")
 	data, err := c.underlayingORM.GetSnapshot(addressRange, qopts...)
 	if err != nil {
 		return nil, err
