@@ -166,6 +166,8 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) applyT
 			as._applyToTxs(as.confirmedTxs, fn, txIDs...)
 		case TxFatalError:
 			as._applyToTxs(as.fatalErroredTxs, fn, txIDs...)
+		default:
+			panic("apply_to_txs_by_state: unknown transaction state")
 		}
 	}
 }
@@ -216,6 +218,8 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) findTx
 			txs = append(txs, as._findTxs(as.confirmedTxs, filter, txIDs...)...)
 		case TxFatalError:
 			txs = append(txs, as._findTxs(as.fatalErroredTxs, filter, txIDs...)...)
+		default:
+			panic("find_txs: unknown transaction state")
 		}
 	}
 
@@ -302,6 +306,10 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) moveTx
 		as.inprogressTx = nil
 	case TxConfirmedMissingReceipt:
 		delete(as.confirmedMissingReceiptTxs, tx.ID)
+	case TxUnconfirmed:
+		delete(as.unconfirmedTxs, tx.ID)
+	case TxConfirmed:
+		delete(as.confirmedTxs, tx.ID)
 	default:
 		return fmt.Errorf("move_tx_to_fatal_error: transaction with ID %d is in an unexpected state: %s", txID, tx.State)
 	}
