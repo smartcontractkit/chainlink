@@ -1134,8 +1134,7 @@ func SetupLogPollerTestDocker(
 
 	ethBuilder := ctf_test_env.NewEthereumNetworkBuilder()
 	cfg, err := ethBuilder.
-		WithConsensusType(ctf_test_env.ConsensusType_PoS).
-		WithConsensusLayer(ctf_test_env.ConsensusLayer_Prysm).
+		WithEthereumVersion(ctf_test_env.EthereumVersion_Eth2).
 		WithExecutionLayer(ctf_test_env.ExecutionLayer_Geth).
 		WithEthereumChainConfig(ctf_test_env.EthereumChainConfig{
 			SecondsPerSlot: 4,
