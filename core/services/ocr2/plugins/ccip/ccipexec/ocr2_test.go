@@ -29,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache"
+	ccipcachemocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/batchreader"
@@ -46,36 +47,60 @@ import (
 
 func TestExecutionReportingPlugin_Observation(t *testing.T) {
 	testCases := []struct {
-		name              string
-		commitStorePaused bool
-		sourceChainCursed bool
-		inflightReports   []InflightInternalExecutionReport
-		unexpiredReports  []cciptypes.CommitStoreReportWithTxMeta
-		sendRequests      []cciptypes.EVM2EVMMessageWithTxMeta
-		executedSeqNums   []uint64
-		tokenPoolsMapping map[common.Address]common.Address
-		blessedRoots      map[[32]byte]bool
-		senderNonce       uint64
-		rateLimiterState  cciptypes.TokenBucketRateLimit
-		expErr            bool
+		name               string
+		commitStorePaused  bool
+		sourceChainCursed  bool
+		inflightReports    []InflightInternalExecutionReport
+		unexpiredReports   []cciptypes.CommitStoreReportWithTxMeta
+		sendRequests       []cciptypes.EVM2EVMMessageWithTxMeta
+		executedSeqNums    []uint64
+		tokenPoolsMapping  map[common.Address]common.Address
+		blessedRoots       map[[32]byte]bool
+		senderNonce        uint64
+		rateLimiterState   cciptypes.TokenBucketRateLimit
+		expErr             bool
+		sourceChainHealthy bool
+		destChainHealthy   bool
 	}{
 		{
-			name:              "commit store is down",
-			commitStorePaused: true,
-			sourceChainCursed: false,
-			expErr:            true,
+			name:               "commit store is down",
+			commitStorePaused:  true,
+			sourceChainCursed:  false,
+			sourceChainHealthy: true,
+			destChainHealthy:   true,
+			expErr:             true,
 		},
 		{
-			name:              "source chain is cursed",
-			commitStorePaused: false,
-			sourceChainCursed: true,
-			expErr:            true,
+			name:               "source chain is cursed",
+			commitStorePaused:  false,
+			sourceChainCursed:  true,
+			sourceChainHealthy: true,
+			destChainHealthy:   true,
+			expErr:             true,
 		},
 		{
-			name:              "happy flow",
-			commitStorePaused: false,
-			sourceChainCursed: false,
-			inflightReports:   []InflightInternalExecutionReport{},
+			name:               "source chain not healthy",
+			commitStorePaused:  false,
+			sourceChainCursed:  false,
+			sourceChainHealthy: false,
+			destChainHealthy:   true,
+			expErr:             true,
+		},
+		{
+			name:               "dest chain not healthy",
+			commitStorePaused:  false,
+			sourceChainCursed:  false,
+			sourceChainHealthy: true,
+			destChainHealthy:   false,
+			expErr:             true,
+		},
+		{
+			name:               "happy flow",
+			commitStorePaused:  false,
+			sourceChainCursed:  false,
+			sourceChainHealthy: true,
+			destChainHealthy:   true,
+			inflightReports:    []InflightInternalExecutionReport{},
 			unexpiredReports: []cciptypes.CommitStoreReportWithTxMeta{
 				{
 					CommitStoreReport: cciptypes.CommitStoreReport{
@@ -118,7 +143,8 @@ func TestExecutionReportingPlugin_Observation(t *testing.T) {
 			p.metricsCollector = ccip.NoopMetricsCollector
 
 			commitStoreReader := ccipdatamocks.NewCommitStoreReader(t)
-			commitStoreReader.On("IsDown", mock.Anything).Return(tc.commitStorePaused, nil)
+			commitStoreReader.On("IsDown", mock.Anything).Return(tc.commitStorePaused, nil).Maybe()
+			commitStoreReader.On("IsDestChainHealthy", mock.Anything).Return(tc.destChainHealthy, nil).Maybe()
 			// Blessed roots return true
 			for root, blessed := range tc.blessedRoots {
 				commitStoreReader.On("IsBlessed", mock.Anything, root).Return(blessed, nil).Maybe()
@@ -159,6 +185,7 @@ func TestExecutionReportingPlugin_Observation(t *testing.T) {
 
 			mockOnRampReader := ccipdatamocks.NewOnRampReader(t)
 			mockOnRampReader.On("IsSourceCursed", ctx).Return(tc.sourceChainCursed, nil).Maybe()
+			mockOnRampReader.On("IsSourceChainHealthy", ctx).Return(tc.sourceChainHealthy, nil).Maybe()
 			mockOnRampReader.On("GetSendRequestsBetweenSeqNums", ctx, mock.Anything, mock.Anything, false).
 				Return(tc.sendRequests, nil).Maybe()
 			sourcePriceRegistryAddress := cciptypes.Address(utils.RandomAddress().String())
@@ -186,6 +213,7 @@ func TestExecutionReportingPlugin_Observation(t *testing.T) {
 			p.sourcePriceRegistryProvider = mockOnRampPriceRegistryProvider
 
 			p.snoozedRoots = cache.NewSnoozedRoots(time.Minute, time.Minute)
+			p.chainHealthcheck = cache.NewChainHealthcheck(p.lggr, mockOnRampReader, commitStoreReader)
 
 			_, err = p.Observation(ctx, types.ReportTimestamp{}, types.Query{})
 			if tc.expErr {
@@ -237,6 +265,9 @@ func TestExecutionReportingPlugin_Report(t *testing.T) {
 			p.F = tc.f
 
 			p.commitStoreReader = ccipdatamocks.NewCommitStoreReader(t)
+			chainHealthcheck := ccipcachemocks.NewChainHealthcheck(t)
+			chainHealthcheck.On("IsHealthy", ctx, false).Return(true, nil)
+			p.chainHealthcheck = chainHealthcheck
 
 			observations := make([]types.AttributedObservation, len(tc.observations))
 			for i := range observations {
@@ -281,10 +312,14 @@ func TestExecutionReportingPlugin_ShouldAcceptFinalizedReport(t *testing.T) {
 	mockOffRampReader := ccipdatamocks.NewOffRampReader(t)
 	mockOffRampReader.On("DecodeExecutionReport", encodedReport).Return(report, nil)
 
+	chainHealthcheck := ccipcachemocks.NewChainHealthcheck(t)
+	chainHealthcheck.On("IsHealthy", mock.Anything, false).Return(true, nil)
+
 	plugin := ExecutionReportingPlugin{
-		offRampReader:   mockOffRampReader,
-		lggr:            logger.TestLogger(t),
-		inflightReports: newInflightExecReportsContainer(1 * time.Hour),
+		offRampReader:    mockOffRampReader,
+		lggr:             logger.TestLogger(t),
+		inflightReports:  newInflightExecReportsContainer(1 * time.Hour),
+		chainHealthcheck: chainHealthcheck,
 	}
 
 	mockedExecState := mockOffRampReader.On("GetExecutionState", mock.Anything, uint64(12)).Return(uint8(cciptypes.ExecutionStateUntouched), nil).Once()
@@ -327,11 +362,15 @@ func TestExecutionReportingPlugin_ShouldTransmitAcceptedReport(t *testing.T) {
 	mockOffRampReader.On("DecodeExecutionReport", encodedReport).Return(report, nil)
 	mockedExecState := mockOffRampReader.On("GetExecutionState", mock.Anything, uint64(12)).Return(uint8(cciptypes.ExecutionStateUntouched), nil).Once()
 
+	chainHealthcheck := ccipcachemocks.NewChainHealthcheck(t)
+	chainHealthcheck.On("IsHealthy", mock.Anything, true).Return(true, nil)
+
 	plugin := ExecutionReportingPlugin{
 		commitStoreReader: mockCommitStoreReader,
 		offRampReader:     mockOffRampReader,
 		lggr:              logger.TestLogger(t),
 		inflightReports:   newInflightExecReportsContainer(1 * time.Hour),
+		chainHealthcheck:  chainHealthcheck,
 	}
 
 	should, err := plugin.ShouldTransmitAcceptedReport(testutils.Context(t), ocrtypes.ReportTimestamp{}, encodedReport)
