@@ -55,10 +55,6 @@ chainlink-dev: ## Build a dev build of chainlink binary.
 chainlink-test: ## Build a test build of chainlink binary.
 	go build $(GOFLAGS) .
 
-.PHONY: chainlink-local-start
-chainlink-local-start:
-	./chainlink -c /etc/node-secrets-volume/default.toml -c /etc/node-secrets-volume/overrides.toml -secrets /etc/node-secrets-volume/secrets.toml node start -d -p /etc/node-secrets-volume/node-password -a /etc/node-secrets-volume/apicredentials --vrfpassword=/etc/node-secrets-volume/apicredentials
-
 .PHONY: install-medianpoc
 install-medianpoc: ## Build & install the chainlink-medianpoc binary.
 	go install $(GOFLAGS) ./plugins/cmd/chainlink-medianpoc
@@ -145,7 +141,7 @@ config-docs: ## Generate core node configuration documentation
 .PHONY: golangci-lint
 golangci-lint: ## Run golangci-lint for all issues.
 	[ -d "./golangci-lint" ] || mkdir ./golangci-lint && \
-	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v1.55.2 golangci-lint run --max-issues-per-linter 0 --max-same-issues 0 > ./golangci-lint/$(shell date +%Y-%m-%d_%H:%M:%S).txt
+	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v1.56.2 golangci-lint run --max-issues-per-linter 0 --max-same-issues 0 > ./golangci-lint/$(shell date +%Y-%m-%d_%H:%M:%S).txt
 
 
 GORELEASER_CONFIG ?= .goreleaser.yaml

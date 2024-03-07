@@ -18,8 +18,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
-func newMockRpc(t *testing.T) *mocks.RPCCLient {
-	mockRpc := mocks.NewRPCCLient(t)
+func newMockRpc(t *testing.T) *mocks.RPCClient {
+	mockRpc := mocks.NewRPCClient(t)
 	mockRpc.On("Dial", mock.Anything).Return(nil).Once()
 	mockRpc.On("Close").Return(nil).Once()
 	mockRpc.On("ChainID", mock.Anything).Return(testutils.FixtureChainID, nil).Once()

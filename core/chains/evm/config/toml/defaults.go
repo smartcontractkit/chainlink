@@ -140,6 +140,9 @@ func (c *Chain) SetFrom(f *Chain) {
 	if v := f.LogPrunePageSize; v != nil {
 		c.LogPrunePageSize = v
 	}
+	if v := f.BackupLogPollerBlockDelay; v != nil {
+		c.BackupLogPollerBlockDelay = v
+	}
 	if v := f.MinIncomingConfirmations; v != nil {
 		c.MinIncomingConfirmations = v
 	}

@@ -18,7 +18,8 @@ on:
 
 jobs:
   golangci:
-    if: ${{ github.event_name == 'pull_request' ||  github.event_name == 'schedule' }}
+    # We don't directly merge dependabot PRs, so let's not waste the resources
+    if: ${{ github.event_name == 'pull_request' ||  github.event_name == 'schedule' && github.actor != 'dependabot[bot]'}}
     name: lint
     runs-on: ubuntu20.04-8cores-32GB
     steps:
@@ -26,8 +27,9 @@ jobs:
       - name: Golang Lint
         uses: ./.github/actions/golangci-lint
         with:
-          gc-basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          gc-host: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          gc-basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          gc-host: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          gc-org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
       - name: Notify Slack
         if: ${{ failure() && (github.event_name == 'merge_group' || github.event.branch == 'develop')}}
         uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
@@ -43,6 +45,8 @@ jobs:
       matrix:
         cmd: ["go_core_tests", "go_core_race_tests", "go_core_fuzz"]
     name: Core Tests (${{ matrix.cmd }})
+    # We don't directly merge dependabot PRs, so let's not waste the resources
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu20.04-64cores-256GB
     env:
       CL_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
