@@ -146,6 +146,7 @@ jobs:
           cd ./integration-tests
           JOB_MATRIX_JSON=$(./scripts/buildEvmClientTestMatrixList.sh ./evm_node_compatibility_test_list.json ubuntu-latest)
           echo "JOB_MATRIX_JSON=${JOB_MATRIX_JSON}" >> $GITHUB_ENV
+          echo $JOB_MATRIX_JSON | jq .
 
   # End Build Test Dependencies
 

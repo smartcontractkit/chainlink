@@ -97,12 +97,13 @@ runs:
         custom_images=""
 
         if [ -n "$CUSTOM_DOCKER_IMAGES" ]; then
-          custom_images+="[PrivateEthereumNetwork.CustomDockerImages]"
-          IFS=',' read -r -a array <<< "$CUSTOM_DOCKER_IMAGES"
+            custom_images+="[PrivateEthereumNetwork.CustomDockerImages]"
+            IFS=',' read -r -a array <<< "$CUSTOM_DOCKER_IMAGES"
 
-          for element in "${array[@]}"; do
-              custom_images+=$'\n'"$element"
-          done
+            for element in "${array[@]}"; do
+                IFS='=' read -r key value <<< "$element"
+                custom_images+=$'\n'"$key=\"$value\""
+            done
         fi
 
         if [ -n "$ETH_EXECUTION_CLIENT" ]; then
