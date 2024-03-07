@@ -297,21 +297,9 @@ func (cr *chainReader) remapQueryFilter(queryFilter commontypes.QueryFilter) (co
 		}
 		return &commontypes.AndFilter{Filters: remappedFilters}, nil
 	case *commontypes.KeysByValueFilter:
-		var searchEventTopicsByValueFilter *logpoller.EventTopicsByValueFilter
-		for i, key := range filter.Keys {
-			eventSig, _, index, err := cr.eventIndexBindings.Get(key)
-			if err != nil {
-				return nil, err
-			}
-			searchEventTopicsByValueFilter.EventSigs = append(searchEventTopicsByValueFilter.EventSigs, eventSig)
-			searchEventTopicsByValueFilter.Topics = append(searchEventTopicsByValueFilter.Topics, []int{index})
-			searchEventTopicsByValueFilter.Values = append(searchEventTopicsByValueFilter.Values, filter.Values[i])
-
-		}
-		return searchEventTopicsByValueFilter, nil
-		//TODO remap chain agnostic confirmations filter into EVM finality filter
+		return logpoller.NewEventTopicsByValueFilter(filter, cr.eventIndexBindings)
 	case *commontypes.ConfirmationFilter:
-		return &logpoller.FinalityFilter{}, nil
+		return logpoller.NewFinalityFilter(filter)
 	default:
 		return filter, nil
 	}

@@ -78,12 +78,14 @@ func NewORM(chainID *big.Int, db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) *
 
 // InsertBlock is idempotent to support replays.
 func (o *DbORM) InsertBlock(blockHash common.Hash, blockNumber int64, blockTimestamp time.Time, finalizedBlock int64, qopts ...pg.QOpt) error {
-	args := map[string]interface{}{
-		"evm_chain_id":           ubig.New(o.chainID),
-		"block_hash":             blockHash.Bytes(),
-		"block_number":           blockNumber,
-		"block_timestamp":        blockTimestamp,
-		"finalized_block_number": finalizedBlock,
+	args, err := newQueryArgs(o.chainID).
+		withCustomHashArg("block_hash", blockHash).
+		withCustomArg("block_number", blockNumber).
+		withCustomArg("block_timestamp", blockTimestamp).
+		withCustomArg("finalized_block_number", finalizedBlock).
+		toArgs()
+	if err != nil {
+		return err
 	}
 	return o.q.WithOpts(qopts...).ExecQNamed(`
 			INSERT INTO evm.log_poller_blocks 
