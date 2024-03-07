@@ -18,7 +18,8 @@ on:
 
 jobs:
   golangci:
-    if: ${{ github.event_name == 'pull_request' ||  github.event_name == 'schedule' }}
+    # We don't directly merge dependabot PRs, so let's not waste the resources
+    if: ${{ github.event_name == 'pull_request' ||  github.event_name == 'schedule' && github.actor != 'dependabot[bot]'}}
     name: lint
     runs-on: ubuntu20.04-8cores-32GB
     steps:
@@ -44,6 +45,8 @@ jobs:
       matrix:
         cmd: ["go_core_tests", "go_core_race_tests", "go_core_fuzz"]
     name: Core Tests (${{ matrix.cmd }})
+    # We don't directly merge dependabot PRs, so let's not waste the resources
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu20.04-64cores-256GB
     env:
       CL_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
