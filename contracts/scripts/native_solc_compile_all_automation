@@ -86,7 +86,6 @@ solc-select use $SOLC_VERSION
 export SOLC_VERSION=$SOLC_VERSION
 
 # v0.8.19
-compileContract automation/dev/v2_2/AutomationRegistrar2_2.sol
 compileContract automation/dev/v2_2/AutomationRegistry2_2.sol
 compileContract automation/dev/v2_2/AutomationRegistryLogicA2_2.sol
 compileContract automation/dev/v2_2/AutomationRegistryLogicB2_2.sol
