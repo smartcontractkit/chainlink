@@ -7,6 +7,7 @@ import {Address} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/ut
 import {UpkeepFormat} from "../../interfaces/UpkeepTranscoderInterface.sol";
 import {IAutomationForwarder} from "../../interfaces/IAutomationForwarder.sol";
 import {IChainModule} from "../../interfaces/IChainModule.sol";
+import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
 contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
   using Address for address;
@@ -309,11 +310,11 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
     return i_allowedReadOnlyAddress;
   }
 
-  function getBillingTokens() external view returns (address[] memory) {
+  function getBillingTokens() external view returns (IERC20[] memory) {
     return s_billingTokens;
   }
 
-  function getBillingTokenConfig(address token) external view returns (BillingConfig memory) {
+  function getBillingTokenConfig(IERC20 token) external view returns (BillingConfig memory) {
     return s_billingConfigs[token];
   }
 

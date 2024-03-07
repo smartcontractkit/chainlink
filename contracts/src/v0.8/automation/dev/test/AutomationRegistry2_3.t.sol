@@ -95,31 +95,32 @@ contract AutomationRegistry2_3_SetConfig is AutomationRegistry2_3_SetUp {
   );
 
   address module = address(new ChainModuleBase());
-  AutomationRegistryBase2_3.OnchainConfig cfg = AutomationRegistryBase2_3.OnchainConfig({
-    paymentPremiumPPB: 10_000,
-    flatFeeMicroLink: 40_000,
-    checkGasLimit: 5_000_000,
-    stalenessSeconds: 90_000,
-    gasCeilingMultiplier: 0,
-    minUpkeepSpend: 0,
-    maxPerformGas: 10_000_000,
-    maxCheckDataSize: 5_000,
-    maxPerformDataSize: 5_000,
-    maxRevertDataSize: 5_000,
-    fallbackGasPrice: 20_000_000_000,
-    fallbackLinkPrice: 200_000_000_000,
-    transcoder: 0xB1e66855FD67f6e85F0f0fA38cd6fBABdf00923c,
-    registrars: s_registrars,
-    upkeepPrivilegeManager: 0xD9c855F08A7e460691F41bBDDe6eC310bc0593D8,
-    chainModule: module,
-    reorgProtectionEnabled: true
-  });
+  AutomationRegistryBase2_3.OnchainConfig cfg =
+    AutomationRegistryBase2_3.OnchainConfig({
+      paymentPremiumPPB: 10_000,
+      flatFeeMicroLink: 40_000,
+      checkGasLimit: 5_000_000,
+      stalenessSeconds: 90_000,
+      gasCeilingMultiplier: 0,
+      minUpkeepSpend: 0,
+      maxPerformGas: 10_000_000,
+      maxCheckDataSize: 5_000,
+      maxPerformDataSize: 5_000,
+      maxRevertDataSize: 5_000,
+      fallbackGasPrice: 20_000_000_000,
+      fallbackLinkPrice: 200_000_000_000,
+      transcoder: 0xB1e66855FD67f6e85F0f0fA38cd6fBABdf00923c,
+      registrars: s_registrars,
+      upkeepPrivilegeManager: 0xD9c855F08A7e460691F41bBDDe6eC310bc0593D8,
+      chainModule: module,
+      reorgProtectionEnabled: true
+    });
 
   function testSetConfigSuccess() public {
     (uint32 configCount, , ) = registryMaster.latestConfigDetails();
     assertEq(configCount, 0);
 
-    address billingTokenAddress = 0x1111111111111111111111111111111111111111;
+    address billingTokenAddress = address(0x1111111111111111111111111111111111111111);
     address[] memory billingTokens = new address[](1);
     billingTokens[0] = billingTokenAddress;
 
@@ -134,7 +135,7 @@ contract AutomationRegistry2_3_SetConfig is AutomationRegistry2_3_SetUp {
     bytes memory onchainConfigBytesWithBilling = abi.encode(cfg, billingTokens, billingConfigs);
 
     uint256 a = 1234;
-    address b = address(0);
+    address b = ZERO_ADDRESS;
     bytes memory offchainConfigBytes = abi.encode(a, b);
     bytes32 configDigest = _configDigestFromConfigData(
       block.chainid,
@@ -189,8 +190,8 @@ contract AutomationRegistry2_3_SetConfig is AutomationRegistry2_3_SetUp {
     (uint32 configCount, , ) = registryMaster.latestConfigDetails();
     assertEq(configCount, 0);
 
-    address billingTokenAddress1 = 0x1111111111111111111111111111111111111111;
-    address billingTokenAddress2 = 0x1111111111111111111111111111111111111112;
+    address billingTokenAddress1 = address(0x1111111111111111111111111111111111111111);
+    address billingTokenAddress2 = address(0x1111111111111111111111111111111111111112);
     address[] memory billingTokens = new address[](2);
     billingTokens[0] = billingTokenAddress1;
     billingTokens[1] = billingTokenAddress2;
@@ -210,7 +211,7 @@ contract AutomationRegistry2_3_SetConfig is AutomationRegistry2_3_SetUp {
     bytes memory onchainConfigBytesWithBilling = abi.encode(cfg, billingTokens, billingConfigs);
 
     uint256 a = 1234;
-    address b = address(0);
+    address b = ZERO_ADDRESS;
     bytes memory offchainConfigBytes = abi.encode(a, b);
 
     registryMaster.setConfig(
@@ -247,7 +248,7 @@ contract AutomationRegistry2_3_SetConfig is AutomationRegistry2_3_SetUp {
     assertEq(configCount, 0);
 
     // BillingConfig1
-    address billingTokenAddress1 = 0x1111111111111111111111111111111111111111;
+    address billingTokenAddress1 = address(0x1111111111111111111111111111111111111111);
     address[] memory billingTokens1 = new address[](1);
     billingTokens1[0] = billingTokenAddress1;
 
@@ -261,7 +262,7 @@ contract AutomationRegistry2_3_SetConfig is AutomationRegistry2_3_SetUp {
     bytes memory onchainConfigBytesWithBilling1 = abi.encode(cfg, billingTokens1, billingConfigs1);
 
     // BillingConfig2
-    address billingTokenAddress2 = 0x1111111111111111111111111111111111111112;
+    address billingTokenAddress2 = address(0x1111111111111111111111111111111111111112);
     address[] memory billingTokens2 = new address[](1);
     billingTokens2[0] = billingTokenAddress2;
 
@@ -275,7 +276,7 @@ contract AutomationRegistry2_3_SetConfig is AutomationRegistry2_3_SetUp {
     bytes memory onchainConfigBytesWithBilling2 = abi.encode(cfg, billingTokens2, billingConfigs2);
 
     uint256 a = 1234;
-    address b = address(0);
+    address b = ZERO_ADDRESS;
     bytes memory offchainConfigBytes = abi.encode(a, b);
 
     // set config once
@@ -317,8 +318,8 @@ contract AutomationRegistry2_3_SetConfig is AutomationRegistry2_3_SetUp {
     (uint32 configCount, , ) = registryMaster.latestConfigDetails();
     assertEq(configCount, 0);
 
-    address billingTokenAddress1 = 0x1111111111111111111111111111111111111111;
-    address billingTokenAddress2 = 0x1111111111111111111111111111111111111111;
+    address billingTokenAddress1 = address(0x1111111111111111111111111111111111111111);
+    address billingTokenAddress2 = address(0x1111111111111111111111111111111111111111);
     address[] memory billingTokens = new address[](2);
     billingTokens[0] = billingTokenAddress1;
     billingTokens[1] = billingTokenAddress2;
@@ -338,7 +339,7 @@ contract AutomationRegistry2_3_SetConfig is AutomationRegistry2_3_SetUp {
     bytes memory onchainConfigBytesWithBilling = abi.encode(cfg, billingTokens, billingConfigs);
 
     uint256 a = 1234;
-    address b = address(0);
+    address b = ZERO_ADDRESS;
     bytes memory offchainConfigBytes = abi.encode(a, b);
 
     // expect revert because of duplicate tokens
