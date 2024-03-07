@@ -22,14 +22,15 @@ jobs:
   # Check if go.mod has changed
   check-dependency-bump:
       runs-on: ubuntu-latest
+      outputs:
+        sha: ${{ steps.changes.outputs.dependency_bumped }}
       steps:
       - name: Checkout code
         uses: actions/checkout@v2
-
       - name: Fetch develop branch
         run: git fetch --depth=1 origin develop:develop
-
       - name: Check for go.mod changes
+        id: changes
         run: |
           if git diff origin/develop -- go.mod | grep -q 'github.com/ethereum/go-ethereum'; then
             echo "Dependency ethereum/go-ethereum was changed"
@@ -38,6 +39,7 @@ jobs:
             echo "No relevant dependency bump detected."
             echo "dependency_bumped=false" >> "$GITHUB_OUTPUT"
           fi
+          cat "$GITHUB_OUTPUT"
       - name: Confirm output
         run: cat "$GITHUB_OUTPUT"
 
