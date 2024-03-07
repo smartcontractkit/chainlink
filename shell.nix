@@ -9,7 +9,7 @@ in
 mkShell {
   nativeBuildInputs = [
     go
-
+    goreleaser
     postgresql
 
     python3

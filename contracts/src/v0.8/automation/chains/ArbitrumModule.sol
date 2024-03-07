@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
-import {ArbSys} from "../../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
-import {ArbGasInfo} from "../../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbGasInfo.sol";
+import {ArbSys} from "../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
+import {ArbGasInfo} from "../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbGasInfo.sol";
 import {ChainModuleBase} from "./ChainModuleBase.sol";
 
 contract ArbitrumModule is ChainModuleBase {
@@ -36,8 +36,8 @@ contract ArbitrumModule is ChainModuleBase {
   }
 
   function getMaxL1Fee(uint256 dataSize) external view override returns (uint256) {
-    (, uint256 perL1CalldataUnit, , , , ) = ARB_GAS.getPricesInWei();
-    return perL1CalldataUnit * dataSize;
+    (, uint256 perL1CalldataByte, , , , ) = ARB_GAS.getPricesInWei();
+    return perL1CalldataByte * dataSize;
   }
 
   function getGasOverhead()

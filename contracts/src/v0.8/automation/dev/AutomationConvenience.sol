@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
-import {IChainModule} from "./interfaces/v2_2/IChainModule.sol";
+import {IChainModule} from "../interfaces/IChainModule.sol";
 import {Log} from "../interfaces/ILogAutomation.sol";
 import {IAutomationV2Common} from "./interfaces/IAutomationV2Common.sol";
 

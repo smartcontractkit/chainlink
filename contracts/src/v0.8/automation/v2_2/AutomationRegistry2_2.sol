@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
-import {EnumerableSet} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
-import {Address} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
+import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
+import {Address} from "../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
 import {AutomationRegistryBase2_2} from "./AutomationRegistryBase2_2.sol";
 import {AutomationRegistryLogicB2_2} from "./AutomationRegistryLogicB2_2.sol";
-import {Chainable} from "../../Chainable.sol";
-import {IERC677Receiver} from "../../../shared/interfaces/IERC677Receiver.sol";
-import {OCR2Abstract} from "../../../shared/ocr2/OCR2Abstract.sol";
+import {Chainable} from "../Chainable.sol";
+import {IERC677Receiver} from "../../shared/interfaces/IERC677Receiver.sol";
+import {OCR2Abstract} from "../../shared/ocr2/OCR2Abstract.sol";
 
 /**
  * @notice Registry for adding work for Chainlink nodes to perform on client
@@ -52,7 +52,7 @@ contract AutomationRegistry2_2 is AutomationRegistryBase2_2, OCR2Abstract, Chain
       logicA.getLinkNativeFeedAddress(),
       logicA.getFastGasFeedAddress(),
       logicA.getAutomationForwarderLogic(),
-      logicA.getAllowedReadOnlyAddresses()
+      logicA.getAllowedReadOnlyAddress()
     )
     Chainable(address(logicA))
   {}

@@ -3,8 +3,8 @@ pragma solidity 0.8.19;
 
 import {EnumerableSet} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
 import {Address} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
-import {AutomationRegistryBase2_2} from "./AutomationRegistryBase2_2.sol";
-import {AutomationRegistryLogicB2_2} from "./AutomationRegistryLogicB2_2.sol";
+import {AutomationRegistryBase2_3} from "./AutomationRegistryBase2_3.sol";
+import {AutomationRegistryLogicB2_3} from "./AutomationRegistryLogicB2_3.sol";
 import {Chainable} from "../../Chainable.sol";
 import {AutomationForwarder} from "../../AutomationForwarder.sol";
 import {IAutomationForwarder} from "../../interfaces/IAutomationForwarder.sol";
@@ -14,7 +14,7 @@ import {MigratableKeeperRegistryInterfaceV2} from "../../interfaces/MigratableKe
 /**
  * @notice Logic contract, works in tandem with AutomationRegistry as a proxy
  */
-contract AutomationRegistryLogicA2_2 is AutomationRegistryBase2_2, Chainable {
+contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
   using Address for address;
   using EnumerableSet for EnumerableSet.UintSet;
   using EnumerableSet for EnumerableSet.AddressSet;
@@ -23,14 +23,14 @@ contract AutomationRegistryLogicA2_2 is AutomationRegistryBase2_2, Chainable {
    * @param logicB the address of the second logic contract
    */
   constructor(
-    AutomationRegistryLogicB2_2 logicB
+    AutomationRegistryLogicB2_3 logicB
   )
-    AutomationRegistryBase2_2(
+    AutomationRegistryBase2_3(
       logicB.getLinkAddress(),
       logicB.getLinkNativeFeedAddress(),
       logicB.getFastGasFeedAddress(),
       logicB.getAutomationForwarderLogic(),
-      logicB.getAllowedReadOnlyAddresses()
+      logicB.getAllowedReadOnlyAddress()
     )
     Chainable(address(logicB))
   {}
@@ -275,11 +275,11 @@ contract AutomationRegistryLogicA2_2 is AutomationRegistryBase2_2, Chainable {
    */
   function cancelUpkeep(uint256 id) external {
     Upkeep memory upkeep = s_upkeep[id];
-    bool canceled = upkeep.maxValidBlocknumber != UINT32_MAX;
     bool isOwner = msg.sender == owner();
 
     uint256 height = s_hotVars.chainModule.blockNumber();
-    if (canceled && !(isOwner && upkeep.maxValidBlocknumber > height)) revert CannotCancel();
+    if (upkeep.maxValidBlocknumber == 0) revert CannotCancel();
+    if (upkeep.maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
     if (!isOwner && msg.sender != s_upkeepAdmin[id]) revert OnlyCallableByOwnerOrAdmin();
 
     if (!isOwner) {

@@ -337,7 +337,7 @@ func StartNewNode(
 
 		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
 		c.EVM[0].Transactions.ForwardersEnabled = ptr(false)
-		c.EVM[0].GasEstimator.LimitDefault = ptr(maxGas)
+		c.EVM[0].GasEstimator.LimitDefault = ptr(uint64(maxGas))
 		c.EVM[0].GasEstimator.Mode = ptr("FixedPrice")
 		c.EVM[0].GasEstimator.PriceDefault = assets.NewWei(big.NewInt(int64(DefaultGasPrice)))
 

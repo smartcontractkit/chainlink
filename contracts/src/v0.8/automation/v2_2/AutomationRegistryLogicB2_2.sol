@@ -2,11 +2,11 @@
 pragma solidity 0.8.19;
 
 import {AutomationRegistryBase2_2} from "./AutomationRegistryBase2_2.sol";
-import {EnumerableSet} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
-import {Address} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
-import {UpkeepFormat} from "../../interfaces/UpkeepTranscoderInterface.sol";
-import {IAutomationForwarder} from "../../interfaces/IAutomationForwarder.sol";
-import {IChainModule} from "../interfaces/v2_2/IChainModule.sol";
+import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
+import {Address} from "../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
+import {UpkeepFormat} from "../interfaces/UpkeepTranscoderInterface.sol";
+import {IAutomationForwarder} from "../interfaces/IAutomationForwarder.sol";
+import {IChainModule} from "../interfaces/IChainModule.sol";
 
 contract AutomationRegistryLogicB2_2 is AutomationRegistryBase2_2 {
   using Address for address;
@@ -21,8 +21,8 @@ contract AutomationRegistryLogicB2_2 is AutomationRegistryBase2_2 {
     address linkNativeFeed,
     address fastGasFeed,
     address automationForwarderLogic,
-    address[] memory allowedReadOnlyAddresses
-  ) AutomationRegistryBase2_2(link, linkNativeFeed, fastGasFeed, automationForwarderLogic, allowedReadOnlyAddresses) {}
+    address allowedReadOnlyAddress
+  ) AutomationRegistryBase2_2(link, linkNativeFeed, fastGasFeed, automationForwarderLogic, allowedReadOnlyAddress) {}
 
   // ================================================================
   // |                      UPKEEP MANAGEMENT                       |
@@ -257,18 +257,6 @@ contract AutomationRegistryLogicB2_2 is AutomationRegistryBase2_2 {
     emit AdminPrivilegeConfigSet(admin, newPrivilegeConfig);
   }
 
-  /**
-   * @notice sets an array of allowed read only addresses
-   * @param addresses the new allowed read only addresses
-   */
-  function setAllowedReadOnlyAddresses(address[] calldata addresses) external onlyOwner {
-    if (addresses.length == 0) {
-      revert EmptyAllowedReadOnlyAddresses();
-    }
-    s_allowedReadOnlyAddresses = addresses;
-    emit AllowedReadOnlyAddressesUpdated(addresses);
-  }
-
   // ================================================================
   // |                           GETTERS                            |
   // ================================================================
@@ -317,8 +305,8 @@ contract AutomationRegistryLogicB2_2 is AutomationRegistryBase2_2 {
     return i_automationForwarderLogic;
   }
 
-  function getAllowedReadOnlyAddresses() external view returns (address[] memory) {
-    return s_allowedReadOnlyAddresses;
+  function getAllowedReadOnlyAddress() external view returns (address) {
+    return i_allowedReadOnlyAddress;
   }
 
   function upkeepTranscoderVersion() public pure returns (UpkeepFormat) {

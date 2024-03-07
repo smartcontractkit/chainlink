@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
-import {EnumerableSet} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
-import {Address} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
-import {StreamsLookupCompatibleInterface} from "../../interfaces/StreamsLookupCompatibleInterface.sol";
-import {ILogAutomation, Log} from "../../interfaces/ILogAutomation.sol";
-import {IAutomationForwarder} from "../../interfaces/IAutomationForwarder.sol";
-import {ConfirmedOwner} from "../../../shared/access/ConfirmedOwner.sol";
-import {AggregatorV3Interface} from "../../../shared/interfaces/AggregatorV3Interface.sol";
-import {LinkTokenInterface} from "../../../shared/interfaces/LinkTokenInterface.sol";
-import {KeeperCompatibleInterface} from "../../interfaces/KeeperCompatibleInterface.sol";
-import {UpkeepFormat} from "../../interfaces/UpkeepTranscoderInterface.sol";
-import {IChainModule} from "../interfaces/v2_2/IChainModule.sol";
+import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
+import {Address} from "../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
+import {StreamsLookupCompatibleInterface} from "../interfaces/StreamsLookupCompatibleInterface.sol";
+import {ILogAutomation, Log} from "../interfaces/ILogAutomation.sol";
+import {IAutomationForwarder} from "../interfaces/IAutomationForwarder.sol";
+import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
+import {AggregatorV3Interface} from "../../shared/interfaces/AggregatorV3Interface.sol";
+import {LinkTokenInterface} from "../../shared/interfaces/LinkTokenInterface.sol";
+import {KeeperCompatibleInterface} from "../interfaces/KeeperCompatibleInterface.sol";
+import {UpkeepFormat} from "../interfaces/UpkeepTranscoderInterface.sol";
+import {IChainModule} from "../interfaces/IChainModule.sol";
 
 /**
  * @notice Base Keeper Registry contract, contains shared logic between
@@ -70,6 +70,7 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
   AggregatorV3Interface internal immutable i_linkNativeFeed;
   AggregatorV3Interface internal immutable i_fastGasFeed;
   address internal immutable i_automationForwarderLogic;
+  address internal immutable i_allowedReadOnlyAddress;
 
   /**
    * @dev - The storage is gas optimised for one and only one function - transmit. All the storage accessed in transmit
@@ -102,7 +103,6 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
   mapping(uint256 => bytes) internal s_upkeepOffchainConfig; // general config set by users for each upkeep
   mapping(uint256 => bytes) internal s_upkeepPrivilegeConfig; // general config set by an administrative role for an upkeep
   mapping(address => bytes) internal s_adminPrivilegeConfig; // general config set by an administrative role for an admin
-  address[] internal s_allowedReadOnlyAddresses;
 
   error ArrayHasNoEntries();
   error CannotCancel();
@@ -139,7 +139,7 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
   error OnlyCallableByProposedPayee();
   error OnlyCallableByUpkeepPrivilegeManager();
   error OnlyPausedUpkeep();
-  error OnlySimulatedBackend(address unsupportedReadOnlyAddress);
+  error OnlySimulatedBackend();
   error OnlyUnpausedUpkeep();
   error ParameterLengthError();
   error PaymentGreaterThanAllLINK();
@@ -155,7 +155,6 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
   error UpkeepNotCanceled();
   error UpkeepNotNeeded();
   error ValueNotChanged();
-  error EmptyAllowedReadOnlyAddresses();
 
   enum MigrationPermission {
     NONE,
@@ -484,27 +483,26 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
   event UpkeepTriggerConfigSet(uint256 indexed id, bytes triggerConfig);
   event UpkeepUnpaused(uint256 indexed id);
   event Unpaused(address account);
-  event AllowedReadOnlyAddressesUpdated(address[] addresses);
 
   /**
    * @param link address of the LINK Token
    * @param linkNativeFeed address of the LINK/Native price feed
    * @param fastGasFeed address of the Fast Gas price feed
    * @param automationForwarderLogic the address of automation forwarder logic
-   * @param allowedReadOnlyAddresses an array of allowed read only addresses
+   * @param allowedReadOnlyAddress the address of the allowed read only address
    */
   constructor(
     address link,
     address linkNativeFeed,
     address fastGasFeed,
     address automationForwarderLogic,
-    address[] memory allowedReadOnlyAddresses
+    address allowedReadOnlyAddress
   ) ConfirmedOwner(msg.sender) {
     i_link = LinkTokenInterface(link);
     i_linkNativeFeed = AggregatorV3Interface(linkNativeFeed);
     i_fastGasFeed = AggregatorV3Interface(fastGasFeed);
     i_automationForwarderLogic = automationForwarderLogic;
-    s_allowedReadOnlyAddresses = allowedReadOnlyAddresses;
+    i_allowedReadOnlyAddress = allowedReadOnlyAddress;
   }
 
   // ================================================================
@@ -951,12 +949,8 @@ abstract contract AutomationRegistryBase2_2 is ConfirmedOwner {
    * @notice only allows a pre-configured address to initiate offchain read
    */
   function _preventExecution() internal view {
-    uint256 len = s_allowedReadOnlyAddresses.length;
-    for (uint256 i = 0; i < len; i++) {
-      if (tx.origin == s_allowedReadOnlyAddresses[i]) {
-        return;
-      }
+    if (tx.origin != i_allowedReadOnlyAddress) {
+      revert OnlySimulatedBackend();
     }
-    revert OnlySimulatedBackend(tx.origin);
   }
 }

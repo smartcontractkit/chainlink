@@ -3,18 +3,18 @@ pragma solidity 0.8.19;
 
 import {AutomationForwarderLogic} from "../../AutomationForwarderLogic.sol";
 import {BaseTest} from "./BaseTest.t.sol";
-import {AutomationRegistry2_2} from "../v2_2/AutomationRegistry2_2.sol";
-import {AutomationRegistryBase2_2} from "../v2_2/AutomationRegistryBase2_2.sol";
-import {AutomationRegistryLogicA2_2} from "../v2_2/AutomationRegistryLogicA2_2.sol";
-import {AutomationRegistryLogicB2_2} from "../v2_2/AutomationRegistryLogicB2_2.sol";
-import {IAutomationRegistryMaster} from "../interfaces/v2_2/IAutomationRegistryMaster.sol";
-import {ChainModuleBase} from "../chains/ChainModuleBase.sol";
+import {AutomationRegistry2_3} from "../v2_3/AutomationRegistry2_3.sol";
+import {AutomationRegistryBase2_3} from "../v2_3/AutomationRegistryBase2_3.sol";
+import {AutomationRegistryLogicA2_3} from "../v2_3/AutomationRegistryLogicA2_3.sol";
+import {AutomationRegistryLogicB2_3} from "../v2_3/AutomationRegistryLogicB2_3.sol";
+import {IAutomationRegistryMaster} from "../interfaces/v2_3/IAutomationRegistryMaster2_3.sol";
+import {ChainModuleBase} from "../../chains/ChainModuleBase.sol";
 
-contract AutomationRegistry2_2_SetUp is BaseTest {
+contract AutomationRegistry2_3_SetUp is BaseTest {
   address internal constant LINK_ETH_FEED = 0x1111111111111111111111111111111111111110;
   address internal constant FAST_GAS_FEED = 0x1111111111111111111111111111111111111112;
   address internal constant LINK_TOKEN = 0x1111111111111111111111111111111111111113;
-  address[] internal ALLOWED_READ_ONLY_ADDRESSES = [address(0)];
+  address internal constant ZERO_ADDRESS = address(0);
 
   // Signer private keys used for these test
   uint256 internal constant PRIVATE0 = 0x7b2e97fe057e6de99d6872a2ef2abf52c9b4469bc848c2465ac3fcd8d336e81d;
@@ -47,21 +47,21 @@ contract AutomationRegistry2_2_SetUp is BaseTest {
     s_registrars[0] = 0x3a0eDE26aa188BFE00b9A0C9A431A1a0CA5f7966;
 
     AutomationForwarderLogic forwarderLogic = new AutomationForwarderLogic();
-    AutomationRegistryLogicB2_2 logicB2_2 = new AutomationRegistryLogicB2_2(
+    AutomationRegistryLogicB2_3 logicB2_3 = new AutomationRegistryLogicB2_3(
       LINK_TOKEN,
       LINK_ETH_FEED,
       FAST_GAS_FEED,
       address(forwarderLogic),
-      ALLOWED_READ_ONLY_ADDRESSES
+      ZERO_ADDRESS
     );
-    AutomationRegistryLogicA2_2 logicA2_2 = new AutomationRegistryLogicA2_2(logicB2_2);
+    AutomationRegistryLogicA2_3 logicA2_3 = new AutomationRegistryLogicA2_3(logicB2_3);
     registryMaster = IAutomationRegistryMaster(
-      address(new AutomationRegistry2_2(AutomationRegistryLogicB2_2(address(logicA2_2))))
+      address(new AutomationRegistry2_3(AutomationRegistryLogicB2_3(address(logicA2_3))))
     );
   }
 }
 
-contract AutomationRegistry2_2_LatestConfigDetails is AutomationRegistry2_2_SetUp {
+contract AutomationRegistry2_3_LatestConfigDetails is AutomationRegistry2_3_SetUp {
   function testGet() public {
     (uint32 configCount, uint32 blockNumber, bytes32 configDigest) = registryMaster.latestConfigDetails();
     assertEq(configCount, 0);
@@ -70,24 +70,19 @@ contract AutomationRegistry2_2_LatestConfigDetails is AutomationRegistry2_2_SetU
   }
 }
 
-contract AutomationRegistry2_2_CheckUpkeep is AutomationRegistry2_2_SetUp {
+contract AutomationRegistry2_3_CheckUpkeep is AutomationRegistry2_3_SetUp {
   function testPreventExecutionOnCheckUpkeep() public {
     uint256 id = 1;
     bytes memory triggerData = abi.encodePacked("trigger_data");
 
     // The tx.origin is the DEFAULT_SENDER (0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38) of foundry
     // Expecting a revert since the tx.origin is not address(0)
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        IAutomationRegistryMaster.OnlySimulatedBackend.selector,
-        0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38
-      )
-    );
+    vm.expectRevert(abi.encodeWithSelector(IAutomationRegistryMaster.OnlySimulatedBackend.selector));
     registryMaster.checkUpkeep(id, triggerData);
   }
 }
 
-contract AutomationRegistry2_2_SetConfig is AutomationRegistry2_2_SetUp {
+contract AutomationRegistry2_3_SetConfig is AutomationRegistry2_3_SetUp {
   event ConfigSet(
     uint32 previousConfigBlockNumber,
     bytes32 configDigest,
@@ -105,7 +100,7 @@ contract AutomationRegistry2_2_SetConfig is AutomationRegistry2_2_SetUp {
     assertEq(configCount, 0);
     ChainModuleBase module = new ChainModuleBase();
 
-    AutomationRegistryBase2_2.OnchainConfig memory cfg = AutomationRegistryBase2_2.OnchainConfig({
+    AutomationRegistryBase2_3.OnchainConfig memory cfg = AutomationRegistryBase2_3.OnchainConfig({
       paymentPremiumPPB: 10_000,
       flatFeeMicroLink: 40_000,
       checkGasLimit: 5_000_000,
@@ -199,21 +194,5 @@ contract AutomationRegistry2_2_SetConfig is AutomationRegistry2_2_SetUp {
     uint256 prefixMask = type(uint256).max << (256 - 16); // 0xFFFF00..00
     uint256 prefix = 0x0001 << (256 - 16); // 0x000100..00
     return bytes32((prefix & prefixMask) | (h & ~prefixMask));
-  }
-}
-
-contract AutomationRegistry2_2_SetAllowedReadOnlyAddresses is AutomationRegistry2_2_SetUp {
-  event AllowedReadOnlyAddressesUpdated(address[] addresses);
-
-  function testSetAllowedReadOnlyAddresses() public {
-    address[] memory addresses = new address[](3);
-    addresses[0] = address(0);
-    addresses[1] = address(1);
-    addresses[2] = address(2);
-
-    vm.expectEmit();
-    emit AllowedReadOnlyAddressesUpdated(addresses);
-
-    registryMaster.setAllowedReadOnlyAddresses(addresses);
   }
 }
