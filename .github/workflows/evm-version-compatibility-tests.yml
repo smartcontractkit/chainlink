@@ -30,17 +30,16 @@ jobs:
         run: git fetch --depth=1 origin develop:develop
 
       - name: Check for go.mod changes
-        id: go_mod_changed
         run: |
           if git diff origin/develop -- go.mod | grep -q 'github.com/ethereum/go-ethereum'; then
             echo "Dependency ethereum/go-ethereum was changed"
-            echo "dependency_bumped=true" >> $GITHUB_OUTPUT
+            echo "dependency_bumped=true" >> "$GITHUB_OUTPUT"
           else
             echo "No relevant dependency bump detected."
-            echo "dependency_bumped=false" >> $GITHUB_OUTPUT
+            echo "dependency_bumped=false" >> "$GITHUB_OUTPUT"
           fi
       - name: Confirm output
-        run: cat $GITHUB_OUTPUT
+        run: cat "$GITHUB_OUTPUT"
 
   # Build Test Dependencies
 
