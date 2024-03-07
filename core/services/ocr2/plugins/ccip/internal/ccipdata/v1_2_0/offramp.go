@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -63,9 +64,6 @@ func (d ExecOnchainConfig) Validate() error {
 	}
 	if d.MaxNumberOfTokensPerMsg == 0 {
 		return errors.New("must set MaxNumberOfTokensPerMsg")
-	}
-	if d.MaxDataBytes == 0 {
-		return errors.New("must set MaxDataBytes")
 	}
 	if d.MaxPoolReleaseOrMintGas == 0 {
 		return errors.New("must set MaxPoolReleaseOrMintGas")
