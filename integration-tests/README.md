@@ -14,9 +14,9 @@ If you have previously run these smoke tests using GitHub Actions or some sort o
 
 ## Configure
 
-We have finished first pass at moving the configuration from env vars to TOML files. Currently all product-related configuration is already in TOML files, but env vars still are used to control things like log level, Slack notifications and Kubernetes-related settings. See the [example.env](./example.env) file for environment variables.
+We have finished the first pass at moving all test configuration from env vars to TOML files. All product-related configuration is already in TOML files, but env vars are still used to control the log level, Slack notifications, and Kubernetes-related settings. See the [example.env](./example.env) file for how to set these environment variables.
 
-We have added what we think are sensible defaults for all products, you can find them in `./testconfig/<product>/<product>.toml` files. Each product folder contains also an `example.toml` file with all possible TOML keys and some description. Detailed description of TOML configuration can be found in [README.md](./testconfig/README.md), but if you want to run some tests using default value all you need to do is provide Chainlink image and version:
+We have defined some sensible defaults for all products, you can find them in `./testconfig/<product>/<product>.toml` files. Each product folder contains an `example.toml` file that describes all options. If you wish to override these values, you can do so by creating a `./testconfig/overrides.toml`. A detailed description of TOML configuration can be found in the [testconfig README](./testconfig/README.md), but if you want to run some tests using default values all you need to do is provide the Chainlink image and version you want to run tests on:
 ```toml
 # ./testconfig/overrides.toml
 
@@ -25,15 +25,7 @@ image = "your image name"
 version = "your tag"
 ```
 
-You could also think about that config this way:
-```toml
-# ./testconfig/overrides.toml
-[ChainlinkImage]
-image = "${CHAINLINK_IMAGE}"
-version = "${CHAINLINK_VERSION}"
-```
-
-Of course above just and example, in real world no substitution will take place unless you use some templating tool, but it should give you an idea on how to move from env vars to TOML files. **Remember** your runtime configuration needs to be placed in `./testconfig/overrides.toml` file **that should never be committed**.
+The `./testconfig/overrides.toml` file **should never be committed** and has been added to the [.gitignore](../.gitignore) file as it can often contain secrets like private keys and RPC URLs.
 
 ## Build
 
@@ -47,7 +39,7 @@ e.g.
 
 ## Run
 
-Make sure you have `./testconfig/overrides.toml` file with your Chainlink image and version.
+Ensure you have created a `./testconfig/overrides.toml` file with your desired Chainlink image and version.
 
 `go test ./smoke/<product>_test.go`
 
