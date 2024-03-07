@@ -67,6 +67,7 @@ type CommitPluginStaticConfig struct {
 	// Offchain
 	priceGetter      pricegetter.PriceGetter
 	metricsCollector ccip.PluginMetricsCollector
+	chainHealthcheck cache.ChainHealthcheck
 }
 
 type CommitReportingPlugin struct {

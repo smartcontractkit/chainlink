@@ -70,10 +70,9 @@ func (rf *ExecutionReportingPluginFactory) NewReportingPlugin(config types.Repor
 	}
 
 	offchainConfig := rf.config.offRampReader.OffchainConfig()
-	lggr := rf.config.lggr.Named("ExecutionReportingPlugin")
 	return &ExecutionReportingPlugin{
 			F:                           config.F,
-			lggr:                        lggr,
+			lggr:                        rf.config.lggr.Named("ExecutionReportingPlugin"),
 			offchainConfig:              offchainConfig,
 			tokenDataWorker:             rf.config.tokenDataWorker,
 			gasPriceEstimator:           rf.config.offRampReader.GasPriceEstimator(),
@@ -90,7 +89,7 @@ func (rf *ExecutionReportingPluginFactory) NewReportingPlugin(config types.Repor
 			inflightReports:             newInflightExecReportsContainer(offchainConfig.InflightCacheExpiry.Duration()),
 			snoozedRoots:                cache.NewSnoozedRoots(rf.config.offRampReader.OnchainConfig().PermissionLessExecutionThresholdSeconds, offchainConfig.RootSnoozeTime.Duration()),
 			metricsCollector:            rf.config.metricsCollector,
-			chainHealthcheck:            cache.NewChainHealthcheck(lggr, rf.config.onRampReader, rf.config.commitStoreReader),
+			chainHealthcheck:            rf.config.chainHealthcheck,
 		}, types.ReportingPluginInfo{
 			Name: "CCIPExecution",
 			// Setting this to false saves on calldata since OffRamp doesn't require agreement between NOPs

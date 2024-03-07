@@ -19,6 +19,7 @@ import (
 	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -235,6 +236,24 @@ func jobSpecToExecPluginConfig(ctx context.Context, lggr logger.Logger, jb job.J
 		return nil, nil, fmt.Errorf("new token pool batched reader: %w", err)
 	}
 
+	chainHealthcheck := cache.NewObservedChainHealthCheck(
+		cache.NewChainHealthcheck(
+			// Adding more details to Logger to make healthcheck logs more informative
+			// It's safe because healthcheck logs only in case of unhealthy state
+			lggr.With(
+				"onramp", params.offRampConfig.OnRamp,
+				"commitStore", params.offRampConfig.CommitStore,
+				"offramp", params.offRampReader.Address(),
+			),
+			onRampReader,
+			commitStoreReader,
+		),
+		ccip.ExecPluginLabel,
+		sourceChainID,
+		destChainID,
+		params.offRampConfig.OnRamp,
+	)
+
 	return &ExecutionPluginStaticConfig{
 			lggr:                        execLggr,
 			onRampReader:                onRampReader,
@@ -253,6 +272,7 @@ func jobSpecToExecPluginConfig(ctx context.Context, lggr logger.Logger, jb job.J
 				offRampReader.OnchainConfig().PermissionLessExecutionThresholdSeconds,
 			),
 			metricsCollector: metricsCollector,
+			chainHealthcheck: chainHealthcheck,
 		}, &ccipcommon.BackfillArgs{
 			SourceLP:         params.sourceChain.LogPoller(),
 			DestLP:           params.destChain.LogPoller(),
