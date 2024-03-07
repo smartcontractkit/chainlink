@@ -22,6 +22,8 @@ jobs:
 
   check-dependency-bump:
       runs-on: ubuntu-latest
+      outputs:
+        dependency_bumped: ${{ steps.dependency-check.outputs.dependency_bumped }}
       steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -35,6 +37,7 @@ jobs:
 
       - name: Fetch previous go.mod for comparison (if changed)
         if: steps.go_mod_changed.outputs.changed == 'true'
+        id: dependency-check
         run: |
           git show ${{ github.event.before }}:./go.mod > go.mod.before
           echo "Comparing go-ethereum dependency versions..."
@@ -45,16 +48,17 @@ jobs:
           # Check if the current version matches the target version
           if [ "$PREVIOUS_VERSION" != "$CURRENT_VERSION" ]; then
             echo "Dependency ethereum/go-ethereum was changed to $CURRENT_VERSION"
-            echo "dependency_bumped=true" >> $GITHUB_ENV
+            echo "dependency_bumped=true" >> $GITHUB_OUTPUT
           else
             echo "No relevant dependency bump detected."
-            echo "dependency_bumped=false" >> $GITHUB_ENV
+            echo "dependency_bumped=false" >> $GITHUB_OUTPUT
           fi
 
   # Build Test Dependencies
 
   build-chainlink:
-    if: env.dependency_bumped == 'true'
+    if: needs.check-dependency-bump.outputs.dependency_bumped == 'true'
+    needs: [check-dependency-bump]
     environment: integration
     permissions:
       id-token: write
@@ -85,7 +89,8 @@ jobs:
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
 
   build-tests:
-    if: env.dependency_bumped == 'true'
+    if: needs.check-dependency-bump.outputs.dependency_bumped == 'true'
+    needs: [check-dependency-bump]
     environment: integration
     permissions:
       id-token: write
@@ -118,6 +123,7 @@ jobs:
           binary_name: tests
 
   build-test-matrix:
+    if: needs.check-dependency-bump.outputs.dependency_bumped == 'true'
     needs: [check-dependency-bump]
     runs-on: ubuntu-latest
     name: Build Test Matrix
