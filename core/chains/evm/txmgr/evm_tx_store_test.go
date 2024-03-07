@@ -1620,7 +1620,7 @@ func TestORM_CheckTxQueueCapacity(t *testing.T) {
 
 	toAddress := testutils.NewAddress()
 	encodedPayload := []byte{1, 2, 3}
-	feeLimit := uint32(1000000000)
+	feeLimit := uint64(1000000000)
 	value := big.Int(assets.NewEthValue(142))
 	var maxUnconfirmedTransactions uint64 = 2
 
@@ -1713,7 +1713,7 @@ func TestORM_CreateTransaction(t *testing.T) {
 
 	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
 	toAddress := testutils.NewAddress()
-	gasLimit := uint32(1000)
+	gasLimit := uint64(1000)
 	payload := []byte{1, 2, 3}
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
