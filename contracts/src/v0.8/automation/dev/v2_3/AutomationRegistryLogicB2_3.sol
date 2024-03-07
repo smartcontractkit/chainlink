@@ -6,7 +6,7 @@ import {EnumerableSet} from "../../../vendor/openzeppelin-solidity/v4.7.3/contra
 import {Address} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
 import {UpkeepFormat} from "../../interfaces/UpkeepTranscoderInterface.sol";
 import {IAutomationForwarder} from "../../interfaces/IAutomationForwarder.sol";
-import {IChainModule} from "../interfaces/IChainModule.sol";
+import {IChainModule} from "../../interfaces/IChainModule.sol";
 
 contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
   using Address for address;
