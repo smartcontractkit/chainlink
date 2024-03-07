@@ -43,14 +43,10 @@ Valid values are `1h`, `2m`, `3s`, etc. Go time format is invalid `1h2m3s`
 devspace run ttl ${namespace} 120h
 ```
 
-If you don't need to build use
+If you want to deploy an image tag that is already available in ECR, use: 
 ```
-devspace deploy --skip-build
-```
-
-If you want to deploy an image that is already available in ECR, use: 
-```
-devspace deploy --skip-build ${image}
+# -o is override-image-tag
+devspace deploy -o "<image-tag>" 
 ```
 
 Forward ports to check UI or run tests
