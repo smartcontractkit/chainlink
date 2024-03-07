@@ -6,7 +6,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
 )
 
-var _ Client = &mockClient{}
+var _ WsrpcClient = &mockClient{}
 
 type mockClient struct {
 	resp *pb.LatestReportResponse

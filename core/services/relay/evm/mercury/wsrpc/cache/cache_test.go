@@ -31,14 +31,14 @@ func Test_Cache(t *testing.T) {
 	feedID1Hex := mercuryutils.BytesToFeedID(req1.FeedId).String()
 
 	t.Run("errors with nil req", func(t *testing.T) {
-		c := newMemCache(lggr, client, cfg)
+		c := newMemCacheWsrpc(lggr, client, cfg)
 
 		_, err := c.LatestReport(ctx, nil)
 		assert.EqualError(t, err, "req must not be nil")
 	})
 
 	t.Run("with LatestReportTTL=0 does no caching", func(t *testing.T) {
-		c := newMemCache(lggr, client, cfg)
+		c := newMemCacheWsrpc(lggr, client, cfg)
 
 		req := &pb.LatestReportRequest{}
 		for i := 0; i < 5; i++ {
@@ -60,7 +60,7 @@ func Test_Cache(t *testing.T) {
 	t.Run("caches repeated calls to LatestReport, keyed by request", func(t *testing.T) {
 		cfg.LatestReportTTL = neverExpireTTL
 		client.err = nil
-		c := newMemCache(lggr, client, cfg)
+		c := newMemCacheWsrpc(lggr, client, cfg)
 
 		t.Run("if cache is unstarted, returns error", func(t *testing.T) {
 			// starting the cache is required for state management if we
@@ -169,7 +169,7 @@ func Test_Cache(t *testing.T) {
 	})
 
 	t.Run("timeouts", func(t *testing.T) {
-		c := newMemCache(lggr, client, cfg)
+		c := newMemCacheWsrpc(lggr, client, cfg)
 		// simulate fetch already executing in background
 		v := &cacheVal{
 			fetching:  true,

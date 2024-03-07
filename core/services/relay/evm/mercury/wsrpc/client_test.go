@@ -18,18 +18,18 @@ import (
 )
 
 // simulate start without dialling
-func simulateStart(ctx context.Context, t *testing.T, c *client) {
+func simulateStart(ctx context.Context, t *testing.T, c *WsrpcClient) {
 	require.NoError(t, c.StartOnce("Mock WSRPC Client", func() (err error) {
 		c.cache, err = c.cacheSet.Get(ctx, c)
 		return err
 	}))
 }
 
-var _ cache.CacheSet = &mockCacheSet{}
+var _ cache.WsrpcCacheSet = &mockCacheSet{}
 
 type mockCacheSet struct{}
 
-func (m *mockCacheSet) Get(ctx context.Context, client cache.Client) (cache.Fetcher, error) {
+func (m *mockCacheSet) Get(ctx context.Context, client cache.WsrpcClient) (cache.WsrpcFetcher, error) {
 	return nil, nil
 }
 func (m *mockCacheSet) Start(context.Context) error    { return nil }
@@ -38,7 +38,7 @@ func (m *mockCacheSet) HealthReport() map[string]error { return nil }
 func (m *mockCacheSet) Name() string                   { return "" }
 func (m *mockCacheSet) Close() error                   { return nil }
 
-var _ cache.Cache = &mockCache{}
+var _ cache.WsrpcCache = &mockCache{}
 
 type mockCache struct{}
 
@@ -51,7 +51,7 @@ func (m *mockCache) HealthReport() map[string]error { return nil }
 func (m *mockCache) Name() string                   { return "" }
 func (m *mockCache) Close() error                   { return nil }
 
-func newNoopCacheSet() cache.CacheSet {
+func newNoopCacheSet() cache.WsrpcCacheSet {
 	return &mockCacheSet{}
 }
 
@@ -143,7 +143,7 @@ func Test_Client_LatestReport(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			req := &pb.LatestReportRequest{}
 
-			cacheSet := cache.NewCacheSet(lggr, cache.Config{LatestReportTTL: tt.ttl})
+			cacheSet := cache.NewWsrpcCacheSet(lggr, cache.Config{LatestReportTTL: tt.ttl})
 
 			resp := &pb.LatestReportResponse{}
 

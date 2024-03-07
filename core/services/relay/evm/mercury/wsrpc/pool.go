@@ -105,6 +105,12 @@ func (conn *connection) forceCloseAll() (err error) {
 	return
 }
 
+// TlsConfig holds the TLS configuration for gRPC clients
+type tlsConfig struct {
+	CertFile *string
+	Enabled  bool
+}
+
 type Pool interface {
 	services.ServiceCtx
 	// Checkout gets a wsrpc.Client for the given arguments
@@ -121,31 +127,37 @@ type pool struct {
 	connections map[string]map[credentials.StaticSizedPublicKey]*connection
 
 	// embedding newClient makes testing/mocking easier
-	newClient func(lggr logger.Logger, privKey csakey.KeyV2, serverPubKey []byte, serverURL string, cacheSet cache.CacheSet) Client
+	newClient func(lggr logger.Logger, privKey csakey.KeyV2, serverPubKey []byte, serverURL string, cacheSet cache.WsrpcCacheSet) Client
 
 	mu sync.RWMutex
 
-	cacheSet cache.CacheSet
+	cacheSet cache.WsrpcCacheSet
 
 	closed bool
 }
 
-func NewPool(lggr logger.Logger, cacheCfg cache.Config) Pool {
-	lggr = lggr.Named("Mercury.WSRPCPool")
-	p := newPool(lggr)
-	p.newClient = NewClient
-	p.cacheSet = cache.NewCacheSet(lggr, cacheCfg)
+// NewPool creates a pool of clients to communicate with the Mercury Ingestion Server
+// Each relayer has its own pool.
+func NewPool(lggr logger.Logger, cacheCfg cache.Config, tlsCfg tlsConfig) *pool {
+	lggrName := "Mercury.WSRPCPool"
+	newClient := NewWSRPCClient
+
+	if tlsCfg.Enabled {
+		lggrName = "Mercury.GRPCPool"
+		newClient = NewGRPCClient
+	}
+
+	lggr = lggr.Named(lggrName)
+	p := &pool{
+		lggr:        lggr,
+		connections: make(map[string]map[credentials.StaticSizedPublicKey]*connection),
+		newClient:   newClient,
+		cacheSet:    cache.NewWsrpcCacheSet(lggr, cacheCfg),
+	}
 	return p
 }
 
-func newPool(lggr logger.Logger) *pool {
-	return &pool{
-		lggr:        lggr,
-		connections: make(map[string]map[credentials.StaticSizedPublicKey]*connection),
-	}
-}
-
-func (p *pool) Checkout(ctx context.Context, clientPrivKey csakey.KeyV2, serverPubKey []byte, serverURL string) (client Client, err error) {
+func (p *pool) Checkout(ctx context.Context, clientPrivKey csakey.KeyV2, serverPubKey []byte, serverURL string) (client *clientCheckout, err error) {
 	clientPubKey := clientPrivKey.StaticSizedPublicKey()
 
 	p.mu.Lock()

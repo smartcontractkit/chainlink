@@ -22,7 +22,7 @@ func Test_CacheSet(t *testing.T) {
 		c := &mockClient{}
 
 		var err error
-		var f Fetcher
+		var f WsrpcFetcher
 		t.Run("with caching disabled, returns nil, nil", func(t *testing.T) {
 			assert.Len(t, disabledCs.caches, 0)
 
@@ -39,17 +39,17 @@ func Test_CacheSet(t *testing.T) {
 			f, err = cs.Get(ctx, c)
 			require.NoError(t, err)
 
-			assert.IsType(t, f, &memCache{})
+			assert.IsType(t, f, &memCacheWsrpc{})
 			assert.Len(t, cs.caches, 1)
 		})
 		t.Run("with existing cache for value, returns that", func(t *testing.T) {
-			var f2 Fetcher
+			var f2 WsrpcFetcher
 			assert.Len(t, cs.caches, 1)
 
 			f2, err = cs.Get(ctx, c)
 			require.NoError(t, err)
 
-			assert.IsType(t, f, &memCache{})
+			assert.IsType(t, f, &memCacheWsrpc{})
 			assert.Equal(t, f, f2)
 			assert.Len(t, cs.caches, 1)
 		})
