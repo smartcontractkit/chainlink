@@ -8,7 +8,7 @@ import {AutomationRegistryBase2_3} from "../v2_3/AutomationRegistryBase2_3.sol";
 import {AutomationRegistryLogicA2_3} from "../v2_3/AutomationRegistryLogicA2_3.sol";
 import {AutomationRegistryLogicB2_3} from "../v2_3/AutomationRegistryLogicB2_3.sol";
 import {IAutomationRegistryMaster} from "../interfaces/v2_3/IAutomationRegistryMaster2_3.sol";
-import {ChainModuleBase} from "../chains/ChainModuleBase.sol";
+import {ChainModuleBase} from "../../chains/ChainModuleBase.sol";
 
 contract AutomationRegistry2_3_SetUp is BaseTest {
   address internal constant LINK_ETH_FEED = 0x1111111111111111111111111111111111111110;
