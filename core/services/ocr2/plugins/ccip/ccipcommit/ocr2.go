@@ -5,10 +5,10 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
-	"slices"
 	"sort"
 	"time"
 
+	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
 
@@ -435,6 +435,9 @@ func validateObservations(ctx context.Context, lggr logger.Logger, destTokens []
 			lggr.Warnw("Skipping observation due to token count mismatch", "expecting", len(destTokens), "got", len(obs.TokenPricesUSD))
 			continue
 		}
+
+		destTokensSet := mapset.NewSet[cciptypes.Address](destTokens...)
+
 		// If any of the observed token prices is reported as nil, or not supported on dest chain, the observation is faulty, skip the observation.
 		// Printing all faulty prices instead of short-circuiting to make log more informative.
 		skipObservation := false
@@ -443,8 +446,11 @@ func validateObservations(ctx context.Context, lggr logger.Logger, destTokens []
 				lggr.Warnw("Nil value in observed TokenPricesUSD", "token", token)
 				skipObservation = true
 			}
-			if !slices.Contains(destTokens, token) {
-				lggr.Warnw("Unsupported token in observed TokenPricesUSD", "token", token)
+
+			if !destTokensSet.Contains(token) {
+				lggr.Warnw("Unsupported token in observed TokenPricesUSD",
+					"token", token,
+					"destTokens", destTokensSet.String())
 				skipObservation = true
 			}
 		}

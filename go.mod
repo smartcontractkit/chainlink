@@ -25,6 +25,7 @@ require (
 	github.com/gin-gonic/gin v1.9.1
 	github.com/go-ldap/ldap/v3 v3.4.6
 	github.com/go-webauthn/webauthn v0.9.4
+	github.com/goccy/go-json v0.10.2
 	github.com/google/pprof v0.0.0-20231023181126-ff6d637d2a7b
 	github.com/google/uuid v1.4.0
 	github.com/gorilla/securecookie v1.1.2
@@ -194,7 +195,6 @@ require (
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/go-playground/validator/v10 v10.15.5 // indirect
 	github.com/go-webauthn/x v0.1.5 // indirect
-	github.com/goccy/go-json v0.10.2 // indirect
 	github.com/godbus/dbus v0.0.0-20190726142602-4481cbc300e2 // indirect
 	github.com/gofrs/flock v0.8.1 // indirect
 	github.com/gofrs/uuid v4.3.1+incompatible // indirect
