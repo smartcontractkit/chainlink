@@ -144,9 +144,9 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) countT
 		return len(as.confirmedTxs)
 	case TxFatalError:
 		return len(as.fatalErroredTxs)
+	default:
+		panic("countTransactionByState: unknown transaction state")
 	}
-
-	panic("countTransactionByState: unknown transaction state")
 }
 
 // findTxWithIdempotencyKey returns the transaction with the given idempotency key.
