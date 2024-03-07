@@ -253,15 +253,13 @@ func (oc *contractTransmitter) HealthReport() map[string]error {
 }
 func (oc *contractTransmitter) Name() string { return oc.lggr.Name() }
 
-func (oc *contractTransmitter) UpdateRoutes(activeCoordinator common.Address, proposedCoordinator common.Address) error {
+func (oc *contractTransmitter) UpdateRoutes(ctx context.Context, activeCoordinator common.Address, proposedCoordinator common.Address) error {
 	// transmitter only cares about the active coordinator
 	previousContract := oc.contractAddress.Swap(&activeCoordinator)
 	if previousContract != nil && *previousContract == activeCoordinator {
 		return nil
 	}
 	oc.lggr.Debugw("FunctionsContractTransmitter: updating routes", "previousContract", previousContract, "activeCoordinator", activeCoordinator)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 	err := oc.lp.RegisterFilter(ctx, logpoller.Filter{Name: transmitterFilterName(activeCoordinator), EventSigs: []common.Hash{oc.transmittedEventSig}, Addresses: []common.Address{activeCoordinator}})
 	if err != nil {
 		return err

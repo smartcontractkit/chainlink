@@ -10,7 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -772,13 +772,13 @@ func (n *NullBroadcaster) TrackedAddressesCount() uint32 {
 	return 0
 }
 func (n *NullBroadcaster) WasAlreadyConsumed(ctx context.Context, lb Broadcast) (bool, error) {
-	return false, errors.New(n.ErrMsg)
+	return false, pkgerrors.New(n.ErrMsg)
 }
 func (n *NullBroadcaster) MarkConsumed(ctx context.Context, lb Broadcast) error {
-	return errors.New(n.ErrMsg)
+	return pkgerrors.New(n.ErrMsg)
 }
 func (n *NullBroadcaster) MarkManyConsumed(ctx context.Context, lbs []Broadcast) error {
-	return errors.New(n.ErrMsg)
+	return pkgerrors.New(n.ErrMsg)
 }
 
 func (n *NullBroadcaster) AddDependents(int) {}

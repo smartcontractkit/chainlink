@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/jmoiron/sqlx"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
@@ -76,7 +76,7 @@ func (o *orm) WasBroadcastConsumed(ctx context.Context, blockHash common.Hash, l
 		o.evmChainID,
 	}
 	err = o.db.GetContext(ctx, &consumed, query, args...)
-	if errors.Is(err, sql.ErrNoRows) {
+	if pkgerrors.Is(err, sql.ErrNoRows) {
 		return false, nil
 	}
 	return consumed, err
@@ -92,7 +92,7 @@ func (o *orm) FindBroadcasts(ctx context.Context, fromBlockNum int64, toBlockNum
 	`
 	err := o.db.SelectContext(ctx, &broadcasts, query, fromBlockNum, toBlockNum, o.evmChainID)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to find log broadcasts")
+		return nil, pkgerrors.Wrap(err, "failed to find log broadcasts")
 	}
 	return broadcasts, err
 }
@@ -102,7 +102,7 @@ func (o *orm) CreateBroadcast(ctx context.Context, blockHash common.Hash, blockN
         INSERT INTO log_broadcasts (block_hash, block_number, log_index, job_id, created_at, updated_at, consumed, evm_chain_id)
 		VALUES ($1, $2, $3, $4, NOW(), NOW(), false, $5)
     `, blockHash, blockNumber, logIndex, jobID, o.evmChainID)
-	return errors.Wrap(err, "failed to create log broadcast")
+	return pkgerrors.Wrap(err, "failed to create log broadcast")
 }
 
 func (o *orm) MarkBroadcastConsumed(ctx context.Context, blockHash common.Hash, blockNumber uint64, logIndex uint, jobID int32) error {
@@ -112,7 +112,7 @@ func (o *orm) MarkBroadcastConsumed(ctx context.Context, blockHash common.Hash, 
 		ON CONFLICT (job_id, block_hash, log_index, evm_chain_id) DO UPDATE
 		SET consumed = true, updated_at = NOW()
     `, blockHash, blockNumber, logIndex, jobID, o.evmChainID)
-	return errors.Wrap(err, "failed to mark log broadcast as consumed")
+	return pkgerrors.Wrap(err, "failed to mark log broadcast as consumed")
 }
 
 // MarkBroadcastsConsumed marks many broadcasts as consumed.
@@ -148,7 +148,7 @@ SET consumed = true, updated_at = NOW();
 		}
 	}
 	_, err := o.db.(*sqlx.DB).NamedExecContext(ctx, query, inputs)
-	return errors.Wrap(err, "mark broadcasts consumed")
+	return pkgerrors.Wrap(err, "mark broadcasts consumed")
 }
 
 // MarkBroadcastsUnconsumed implements the ORM interface.
@@ -159,7 +159,7 @@ func (o *orm) MarkBroadcastsUnconsumed(ctx context.Context, fromBlock int64) err
         WHERE block_number >= $1
 		AND evm_chain_id = $2
         `, fromBlock, o.evmChainID)
-	return errors.Wrap(err, "failed to mark broadcasts unconsumed")
+	return pkgerrors.Wrap(err, "failed to mark broadcasts unconsumed")
 }
 
 func (o *orm) Reinitialize(ctx context.Context) (*int64, error) {
@@ -197,7 +197,7 @@ func (o *orm) SetPendingMinBlock(ctx context.Context, blockNumber *int64) error 
         INSERT INTO log_broadcasts_pending (evm_chain_id, block_number, created_at, updated_at) VALUES ($1, $2, NOW(), NOW())
 		ON CONFLICT (evm_chain_id) DO UPDATE SET block_number = $3, updated_at = NOW() 
     `, o.evmChainID, blockNumber, blockNumber)
-	return errors.Wrap(err, "failed to set pending broadcast block number")
+	return pkgerrors.Wrap(err, "failed to set pending broadcast block number")
 }
 
 func (o *orm) GetPendingMinBlock(ctx context.Context) (*int64, error) {
@@ -205,10 +205,10 @@ func (o *orm) GetPendingMinBlock(ctx context.Context) (*int64, error) {
 	err := o.db.GetContext(ctx, &blockNumber, `
         SELECT block_number FROM log_broadcasts_pending WHERE evm_chain_id = $1
     `, o.evmChainID)
-	if errors.Is(err, sql.ErrNoRows) {
+	if pkgerrors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	} else if err != nil {
-		return nil, errors.Wrap(err, "failed to get broadcasts pending number")
+		return nil, pkgerrors.Wrap(err, "failed to get broadcasts pending number")
 	}
 	return blockNumber, nil
 }
@@ -221,10 +221,10 @@ func (o *orm) getUnconsumedMinBlock(ctx context.Context) (*int64, error) {
 			AND consumed = false
 			AND block_number IS NOT NULL
     `, o.evmChainID)
-	if errors.Is(err, sql.ErrNoRows) {
+	if pkgerrors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	} else if err != nil {
-		return nil, errors.Wrap(err, "failed to get unconsumed broadcasts min block number")
+		return nil, pkgerrors.Wrap(err, "failed to get unconsumed broadcasts min block number")
 	}
 	return blockNumber, nil
 }
@@ -236,7 +236,7 @@ func (o *orm) removeUnconsumed(ctx context.Context) error {
 			AND consumed = false
 			AND block_number IS NOT NULL
     `, o.evmChainID)
-	return errors.Wrap(err, "failed to delete unconsumed broadcasts")
+	return pkgerrors.Wrap(err, "failed to delete unconsumed broadcasts")
 }
 
 // LogBroadcast - data from log_broadcasts table columns

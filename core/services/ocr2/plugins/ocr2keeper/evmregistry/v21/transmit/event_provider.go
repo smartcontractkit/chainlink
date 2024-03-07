@@ -48,6 +48,7 @@ func EventProviderFilterName(addr common.Address) string {
 }
 
 func NewTransmitEventProvider(
+	ctx context.Context,
 	logger logger.Logger,
 	logPoller logpoller.LogPoller,
 	registryAddress common.Address,
@@ -60,8 +61,6 @@ func NewTransmitEventProvider(
 	if err != nil {
 		return nil, err
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 	err = logPoller.RegisterFilter(ctx, logpoller.Filter{
 		Name: EventProviderFilterName(contract.Address()),
 		EventSigs: []common.Hash{

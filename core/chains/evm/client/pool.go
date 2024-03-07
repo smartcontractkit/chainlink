@@ -11,7 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
@@ -133,12 +133,12 @@ func NewPool(lggr logger.Logger, selectionMode string, leaseDuration time.Durati
 func (p *Pool) Dial(ctx context.Context) error {
 	return p.StartOnce("Pool", func() (merr error) {
 		if len(p.nodes) == 0 {
-			return errors.Errorf("no available nodes for chain %s", p.chainID.String())
+			return pkgerrors.Errorf("no available nodes for chain %s", p.chainID.String())
 		}
 		var ms services.MultiStart
 		for _, n := range p.nodes {
 			if n.ChainID().Cmp(p.chainID) != 0 {
-				return ms.CloseBecause(errors.Errorf("node %s has chain ID %s which does not match pool chain ID of %s", n.String(), n.ChainID().String(), p.chainID.String()))
+				return ms.CloseBecause(pkgerrors.Errorf("node %s has chain ID %s which does not match pool chain ID of %s", n.String(), n.ChainID().String(), p.chainID.String()))
 			}
 			rawNode, ok := n.(*node)
 			if ok {
@@ -155,7 +155,7 @@ func (p *Pool) Dial(ctx context.Context) error {
 		}
 		for _, s := range p.sendonlys {
 			if s.ChainID().Cmp(p.chainID) != 0 {
-				return ms.CloseBecause(errors.Errorf("sendonly node %s has chain ID %s which does not match pool chain ID of %s", s.String(), s.ChainID().String(), p.chainID.String()))
+				return ms.CloseBecause(pkgerrors.Errorf("sendonly node %s has chain ID %s which does not match pool chain ID of %s", s.String(), s.ChainID().String(), p.chainID.String()))
 			}
 			if err := ms.Start(ctx, s); err != nil {
 				return err

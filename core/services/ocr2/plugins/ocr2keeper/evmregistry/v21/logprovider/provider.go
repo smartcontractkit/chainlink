@@ -61,13 +61,13 @@ type LogTriggersLifeCycle interface {
 	// RegisterFilter registers the filter (if valid) for the given upkeepID.
 	RegisterFilter(ctx context.Context, opts FilterOptions) error
 	// UnregisterFilter removes the filter for the given upkeepID.
-	UnregisterFilter(upkeepID *big.Int) error
+	UnregisterFilter(ctx context.Context, upkeepID *big.Int) error
 }
 type LogEventProvider interface {
 	ocr2keepers.LogEventProvider
 	LogTriggersLifeCycle
 
-	RefreshActiveUpkeeps(ids ...*big.Int) ([]*big.Int, error)
+	RefreshActiveUpkeeps(ctx context.Context, ids ...*big.Int) ([]*big.Int, error)
 
 	Start(context.Context) error
 	io.Closer

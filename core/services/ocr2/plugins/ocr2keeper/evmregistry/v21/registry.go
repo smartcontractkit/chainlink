@@ -303,7 +303,7 @@ func (r *EvmRegistry) refreshActiveUpkeeps() error {
 		}
 	}
 
-	_, err = r.logEventProvider.RefreshActiveUpkeeps(logTriggerIDs...)
+	_, err = r.logEventProvider.RefreshActiveUpkeeps(r.ctx, logTriggerIDs...)
 	if err != nil {
 		return fmt.Errorf("failed to refresh active upkeep ids in log event provider: %w", err)
 	}
@@ -338,13 +338,11 @@ func (r *EvmRegistry) refreshLogTriggerUpkeepsBatch(logTriggerIDs []*big.Int) er
 		logTriggerHashes = append(logTriggerHashes, common.BigToHash(id))
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	unpausedLogs, err := r.poller.IndexedLogs(ctx, iregistry21.IKeeperRegistryMasterUpkeepUnpaused{}.Topic(), r.addr, 1, logTriggerHashes, logpoller.Confirmations(r.finalityDepth))
+	unpausedLogs, err := r.poller.IndexedLogs(r.ctx, iregistry21.IKeeperRegistryMasterUpkeepUnpaused{}.Topic(), r.addr, 1, logTriggerHashes, logpoller.Confirmations(r.finalityDepth))
 	if err != nil {
 		return err
 	}
-	configSetLogs, err := r.poller.IndexedLogs(ctx, iregistry21.IKeeperRegistryMasterUpkeepTriggerConfigSet{}.Topic(), r.addr, 1, logTriggerHashes, logpoller.Confirmations(r.finalityDepth))
+	configSetLogs, err := r.poller.IndexedLogs(r.ctx, iregistry21.IKeeperRegistryMasterUpkeepTriggerConfigSet{}.Topic(), r.addr, 1, logTriggerHashes, logpoller.Confirmations(r.finalityDepth))
 	if err != nil {
 		return err
 	}
@@ -422,10 +420,8 @@ func (r *EvmRegistry) pollUpkeepStateLogs() error {
 	}
 
 	var logs []logpoller.Log
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 	if logs, err = r.poller.LogsWithSigs(
-		ctx,
+		r.ctx,
 		end.BlockNumber-logEventLookback,
 		end.BlockNumber,
 		upkeepStateEvents,
@@ -461,13 +457,13 @@ func (r *EvmRegistry) processUpkeepStateLog(l logpoller.Log) error {
 	switch l := abilog.(type) {
 	case *iregistry21.IKeeperRegistryMasterUpkeepPaused:
 		r.lggr.Debugf("KeeperRegistryUpkeepPaused log detected for upkeep ID %s in transaction %s", l.Id.String(), txHash)
-		r.removeFromActive(l.Id)
+		r.removeFromActive(r.ctx, l.Id)
 	case *iregistry21.IKeeperRegistryMasterUpkeepCanceled:
 		r.lggr.Debugf("KeeperRegistryUpkeepCanceled log detected for upkeep ID %s in transaction %s", l.Id.String(), txHash)
-		r.removeFromActive(l.Id)
+		r.removeFromActive(r.ctx, l.Id)
 	case *iregistry21.IKeeperRegistryMasterUpkeepMigrated:
 		r.lggr.Debugf("KeeperRegistryMasterUpkeepMigrated log detected for upkeep ID %s in transaction %s", l.Id.String(), txHash)
-		r.removeFromActive(l.Id)
+		r.removeFromActive(r.ctx, l.Id)
 	case *iregistry21.IKeeperRegistryMasterUpkeepTriggerConfigSet:
 		r.lggr.Debugf("KeeperRegistryUpkeepTriggerConfigSet log detected for upkeep ID %s in transaction %s", l.Id.String(), txHash)
 		if err := r.updateTriggerConfig(l.Id, l.TriggerConfig, rawLog.BlockNumber); err != nil {
@@ -508,9 +504,7 @@ func RegistryUpkeepFilterName(addr common.Address) string {
 // registerEvents registers upkeep state events from keeper registry on log poller
 func (r *EvmRegistry) registerEvents(_ uint64, addr common.Address) error {
 	// Add log filters for the log poller so that it can poll and find the logs that we need
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	return r.poller.RegisterFilter(ctx, logpoller.Filter{
+	return r.poller.RegisterFilter(r.ctx, logpoller.Filter{
 		Name:      RegistryUpkeepFilterName(addr),
 		EventSigs: upkeepStateEvents,
 		Addresses: []common.Address{addr},
@@ -518,7 +512,7 @@ func (r *EvmRegistry) registerEvents(_ uint64, addr common.Address) error {
 }
 
 // removeFromActive removes an upkeepID from active list and unregisters the log filter for log upkeeps
-func (r *EvmRegistry) removeFromActive(id *big.Int) {
+func (r *EvmRegistry) removeFromActive(ctx context.Context, id *big.Int) {
 	r.active.Remove(id)
 
 	uid := &ocr2keepers.UpkeepIdentifier{}
@@ -526,7 +520,7 @@ func (r *EvmRegistry) removeFromActive(id *big.Int) {
 	trigger := core.GetUpkeepType(*uid)
 	switch trigger {
 	case types2.LogTrigger:
-		if err := r.logEventProvider.UnregisterFilter(id); err != nil {
+		if err := r.logEventProvider.UnregisterFilter(ctx, id); err != nil {
 			r.lggr.Warnw("failed to unregister log filter", "upkeepID", id.String())
 		}
 		r.lggr.Debugw("unregistered log filter", "upkeepID", id.String())

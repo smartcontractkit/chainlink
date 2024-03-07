@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -32,7 +32,7 @@ func Test_NonceSyncer_Sync(t *testing.T) {
 
 		ns := txmgr.NewNonceSyncer(txStore, logger.Test(t), ethClient)
 
-		ethClient.On("PendingNonceAt", mock.Anything, from).Return(uint64(0), errors.New("something exploded"))
+		ethClient.On("PendingNonceAt", mock.Anything, from).Return(uint64(0), pkgerrors.New("something exploded"))
 		_, err := ns.Sync(testutils.Context(t), from, types.Nonce(0))
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "something exploded")

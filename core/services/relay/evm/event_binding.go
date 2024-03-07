@@ -43,7 +43,7 @@ func (e *eventBinding) SetCodec(codec commontypes.RemoteCodec) {
 	e.codec = codec
 }
 
-func (e *eventBinding) Register() error {
+func (e *eventBinding) Register(ctx context.Context) error {
 	e.lock.Lock()
 	defer e.lock.Unlock()
 
@@ -52,8 +52,6 @@ func (e *eventBinding) Register() error {
 		return nil
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 	if err := e.lp.RegisterFilter(ctx, logpoller.Filter{
 		Name:      e.id,
 		EventSigs: evmtypes.HashArray{e.hash},
@@ -64,7 +62,7 @@ func (e *eventBinding) Register() error {
 	return nil
 }
 
-func (e *eventBinding) Unregister() error {
+func (e *eventBinding) Unregister(ctx context.Context) error {
 	e.lock.Lock()
 	defer e.lock.Unlock()
 
@@ -72,8 +70,6 @@ func (e *eventBinding) Unregister() error {
 		return nil
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 	if err := e.lp.UnregisterFilter(ctx, e.id); err != nil {
 		return fmt.Errorf("%w: %w", commontypes.ErrInternal, err)
 	}
@@ -97,8 +93,8 @@ func (e *eventBinding) GetLatestValue(ctx context.Context, params, into any) err
 	return e.getLatestValueWithFilters(ctx, confs, params, into)
 }
 
-func (e *eventBinding) Bind(binding commontypes.BoundContract) error {
-	if err := e.Unregister(); err != nil {
+func (e *eventBinding) Bind(ctx context.Context, binding commontypes.BoundContract) error {
+	if err := e.Unregister(ctx); err != nil {
 		return err
 	}
 
@@ -107,7 +103,7 @@ func (e *eventBinding) Bind(binding commontypes.BoundContract) error {
 	e.bound = true
 
 	if e.registerCalled {
-		return e.Register()
+		return e.Register(ctx)
 	}
 	return nil
 }
