@@ -22,8 +22,6 @@ jobs:
 
   check-dependency-bump:
       runs-on: ubuntu-latest
-      outputs:
-        dependency_bumped: ${{ steps.dependency-check.outputs.dependency_bumped }}
       steps:
       - name: Checkout code
         uses: actions/checkout@v2
