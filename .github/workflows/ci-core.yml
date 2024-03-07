@@ -25,6 +25,7 @@ jobs:
     name: lint
     runs-on: ubuntu20.04-8cores-32GB
     steps:
+      # DEBUG: Experiments
       - name: Collect Workflow Telemetry
         uses: catchpoint/workflow-telemetry-action@v2
         with:
@@ -57,6 +58,7 @@ jobs:
     env:
       CL_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
     steps:
+      # DEBUG: Experiments
       - name: Collect Workflow Telemetry
         uses: catchpoint/workflow-telemetry-action@v2
         with:
