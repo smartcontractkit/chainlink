@@ -296,6 +296,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '0s'
 
 [EVM.OCR]
 ContractConfirmations = 4
@@ -385,6 +386,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '0s'
 
 [EVM.OCR]
 ContractConfirmations = 4
@@ -468,6 +470,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '0s'
 
 [EVM.OCR]
 ContractConfirmations = 4

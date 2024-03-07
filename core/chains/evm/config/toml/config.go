@@ -398,6 +398,11 @@ func (c *Chain) ValidateConfig() (err error) {
 		err = multierr.Append(err, commonconfig.ErrInvalid{Name: "MinIncomingConfirmations", Value: *c.MinIncomingConfirmations,
 			Msg: "must be greater than or equal to 1"})
 	}
+
+	if c.NodePool.FinalizedBlockPollInterval.Duration() > 0 && !(*c.FinalityTagEnabled) {
+		err = multierr.Append(err, commonconfig.ErrInvalid{Name: "NodePool.FinalizedBlockPollInterval", Value: *c.NodePool.FinalizedBlockPollInterval,
+			Msg: "finalized block polling requires FinalityTagEnabled=true"})
+	}
 	return
 }
 
@@ -700,12 +705,13 @@ func (t *HeadTracker) setFrom(f *HeadTracker) {
 }
 
 type NodePool struct {
-	PollFailureThreshold *uint32
-	PollInterval         *commonconfig.Duration
-	SelectionMode        *string
-	SyncThreshold        *uint32
-	LeaseDuration        *commonconfig.Duration
-	NodeIsSyncingEnabled *bool
+	PollFailureThreshold       *uint32
+	PollInterval               *commonconfig.Duration
+	SelectionMode              *string
+	SyncThreshold              *uint32
+	LeaseDuration              *commonconfig.Duration
+	NodeIsSyncingEnabled       *bool
+	FinalizedBlockPollInterval *commonconfig.Duration
 }
 
 func (p *NodePool) setFrom(f *NodePool) {
@@ -726,6 +732,9 @@ func (p *NodePool) setFrom(f *NodePool) {
 	}
 	if v := f.NodeIsSyncingEnabled; v != nil {
 		p.NodeIsSyncingEnabled = v
+	}
+	if v := f.FinalizedBlockPollInterval; v != nil {
+		p.FinalizedBlockPollInterval = v
 	}
 }
 

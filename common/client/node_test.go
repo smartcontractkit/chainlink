@@ -3,57 +3,29 @@ package client
 import (
 	"net/url"
 	"testing"
-	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	clientMocks "github.com/smartcontractkit/chainlink/v2/common/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 )
-
-type testNodeConfig struct {
-	pollFailureThreshold uint32
-	pollInterval         time.Duration
-	selectionMode        string
-	syncThreshold        uint32
-	nodeIsSyncingEnabled bool
-}
-
-func (n testNodeConfig) PollFailureThreshold() uint32 {
-	return n.pollFailureThreshold
-}
-
-func (n testNodeConfig) PollInterval() time.Duration {
-	return n.pollInterval
-}
-
-func (n testNodeConfig) SelectionMode() string {
-	return n.selectionMode
-}
-
-func (n testNodeConfig) SyncThreshold() uint32 {
-	return n.syncThreshold
-}
-
-func (n testNodeConfig) NodeIsSyncingEnabled() bool {
-	return n.nodeIsSyncingEnabled
-}
 
 type testNode struct {
 	*node[types.ID, Head, NodeClient[types.ID, Head]]
 }
 
 type testNodeOpts struct {
-	config              testNodeConfig
-	noNewHeadsThreshold time.Duration
-	lggr                logger.Logger
-	wsuri               url.URL
-	httpuri             *url.URL
-	name                string
-	id                  int32
-	chainID             types.ID
-	nodeOrder           int32
-	rpc                 *mockNodeClient[types.ID, Head]
-	chainFamily         string
+	config      clientMocks.NodeConfig
+	chainConfig clientMocks.ChainConfig
+	lggr        logger.Logger
+	wsuri       url.URL
+	httpuri     *url.URL
+	name        string
+	id          int32
+	chainID     types.ID
+	nodeOrder   int32
+	rpc         *mockNodeClient[types.ID, Head]
+	chainFamily string
 }
 
 func newTestNode(t *testing.T, opts testNodeOpts) testNode {
@@ -77,7 +49,7 @@ func newTestNode(t *testing.T, opts testNodeOpts) testNode {
 		opts.id = 42
 	}
 
-	nodeI := NewNode[types.ID, Head, NodeClient[types.ID, Head]](opts.config, opts.noNewHeadsThreshold, opts.lggr,
+	nodeI := NewNode[types.ID, Head, NodeClient[types.ID, Head]](opts.config, opts.chainConfig, opts.lggr,
 		opts.wsuri, opts.httpuri, opts.name, opts.id, opts.chainID, opts.nodeOrder, opts.rpc, opts.chainFamily)
 
 	return testNode{

@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	clientMocks "github.com/smartcontractkit/chainlink/v2/common/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 )
 
@@ -28,7 +29,7 @@ func TestUnit_Node_StateTransitions(t *testing.T) {
 	t.Parallel()
 
 	t.Run("setState", func(t *testing.T) {
-		n := newTestNode(t, testNodeOpts{rpc: nil, config: testNodeConfig{nodeIsSyncingEnabled: true}})
+		n := newTestNode(t, testNodeOpts{rpc: nil, config: clientMocks.NodeConfig{NodeIsSyncingEnabledVal: true}})
 		assert.Equal(t, nodeStateUndialed, n.State())
 		n.setState(nodeStateAlive)
 		assert.Equal(t, nodeStateAlive, n.State())
@@ -91,7 +92,7 @@ func TestUnit_Node_StateTransitions(t *testing.T) {
 }
 
 func testTransition(t *testing.T, rpc *mockNodeClient[types.ID, Head], transition func(node testNode, fn func()), destinationState nodeState, allowedStates ...nodeState) {
-	node := newTestNode(t, testNodeOpts{rpc: rpc, config: testNodeConfig{nodeIsSyncingEnabled: true}})
+	node := newTestNode(t, testNodeOpts{rpc: rpc, config: clientMocks.NodeConfig{NodeIsSyncingEnabledVal: true}})
 	for _, allowedState := range allowedStates {
 		m := new(fnMock)
 		node.setState(allowedState)

@@ -324,6 +324,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 13
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '0s'
 
 [EVM.OCR]
 ContractConfirmations = 11

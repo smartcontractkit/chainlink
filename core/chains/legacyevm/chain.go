@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math/big"
 	"net/url"
-	"time"
 
 	gotoml "github.com/pelletier/go-toml/v2"
 	"go.uber.org/multierr"
@@ -218,7 +217,7 @@ func newChain(ctx context.Context, cfg *evmconfig.ChainScoped, nodes []*toml.Nod
 	if !cfg.EVMRPCEnabled() {
 		client = evmclient.NewNullClient(chainID, l)
 	} else if opts.GenEthClient == nil {
-		client = newEthClientFromCfg(cfg.EVM().NodePool(), cfg.EVM().NodeNoNewHeadsThreshold(), l, chainID, chainType, nodes)
+		client = newEthClientFromCfg(cfg.EVM().NodePool(), cfg.EVM(), l, chainID, chainType, nodes)
 	} else {
 		client = opts.GenEthClient(chainID)
 	}
@@ -469,7 +468,7 @@ func (c *chain) Logger() logger.Logger                    { return c.logger }
 func (c *chain) BalanceMonitor() monitor.BalanceMonitor   { return c.balanceMonitor }
 func (c *chain) GasEstimator() gas.EvmFeeEstimator        { return c.gasEstimator }
 
-func newEthClientFromCfg(cfg evmconfig.NodePool, noNewHeadsThreshold time.Duration, lggr logger.Logger, chainID *big.Int, chainType commonconfig.ChainType, nodes []*toml.Node) evmclient.Client {
+func newEthClientFromCfg(cfg evmconfig.NodePool, chainCfg evmconfig.EVM, lggr logger.Logger, chainID *big.Int, chainType commonconfig.ChainType, nodes []*toml.Node) evmclient.Client {
 	var empty url.URL
 	var primaries []commonclient.Node[*big.Int, *evmtypes.Head, evmclient.RPCClient]
 	var sendonlys []commonclient.SendOnlyNode[*big.Int, evmclient.RPCClient]
@@ -483,11 +482,11 @@ func newEthClientFromCfg(cfg evmconfig.NodePool, noNewHeadsThreshold time.Durati
 		} else {
 			rpc := evmclient.NewRPCClient(lggr, (url.URL)(*node.WSURL), (*url.URL)(node.HTTPURL), *node.Name, int32(i),
 				chainID, commonclient.Primary)
-			primaryNode := commonclient.NewNode[*big.Int, *evmtypes.Head, evmclient.RPCClient](cfg, noNewHeadsThreshold,
+			primaryNode := commonclient.NewNode[*big.Int, *evmtypes.Head, evmclient.RPCClient](cfg, chainCfg,
 				lggr, (url.URL)(*node.WSURL), (*url.URL)(node.HTTPURL), *node.Name, int32(i), chainID, *node.Order,
 				rpc, "EVM")
 			primaries = append(primaries, primaryNode)
 		}
 	}
-	return evmclient.NewChainClient(lggr, cfg.SelectionMode(), cfg.LeaseDuration(), noNewHeadsThreshold, primaries, sendonlys, chainID, chainType)
+	return evmclient.NewChainClient(lggr, cfg.SelectionMode(), cfg.LeaseDuration(), chainCfg.NodeNoNewHeadsThreshold(), primaries, sendonlys, chainID, chainType)
 }
