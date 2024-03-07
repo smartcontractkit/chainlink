@@ -71,7 +71,7 @@ func (r *InsufficientFundTransferRetrier) Retry(ctx context.Context, logger zero
 
 		payload.Amount = newAmount
 
-		retryErr := SendFunds(logger, client, payload)
+		_, retryErr := SendFunds(logger, client, payload)
 		if retryErr == nil {
 			logger.Info().
 				Str("retier", "InsufficientFundTransferRetrier").
@@ -135,7 +135,7 @@ func (r *GasTooLowTransferRetrier) Retry(ctx context.Context, logger zerolog.Log
 
 		payload.GasLimit = &newGasLimit
 
-		retryErr := SendFunds(logger, client, payload)
+		_, retryErr := SendFunds(logger, client, payload)
 		if retryErr == nil {
 			logger.Info().
 				Str("retier", "GasTooLowTransferRetrier").
@@ -204,7 +204,7 @@ func (r *OvershotTransferRetrier) Retry(ctx context.Context, logger zerolog.Logg
 
 		payload.Amount = newAmount
 
-		retryErr := SendFunds(logger, client, payload)
+		_, retryErr := SendFunds(logger, client, payload)
 		if retryErr == nil {
 			logger.Info().
 				Str("retier", "OvershotTransferRetrier").
@@ -275,7 +275,7 @@ func ReturnFunds(log zerolog.Logger, seth *seth.Client, chainlinkNodes []contrac
 
 			payload := FundsToSendPayload{ToAddress: seth.Addresses[0], Amount: toSend, PrivateKey: decryptedKey.PrivateKey}
 
-			err = SendFunds(log, seth, payload)
+			_, err = SendFunds(log, seth, payload)
 			if err != nil {
 				handler := OvershotTransferRetrier{maxRetries: 3, nextRetrier: &InsufficientFundTransferRetrier{maxRetries: 3, nextRetrier: &GasTooLowTransferRetrier{maxGasLimit: seth.Cfg.Network.GasLimit * 3}}}
 				return handler.Retry(context.Background(), log, seth, err, payload, 0)

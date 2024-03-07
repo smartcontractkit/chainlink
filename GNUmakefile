@@ -55,10 +55,6 @@ chainlink-dev: ## Build a dev build of chainlink binary.
 chainlink-test: ## Build a test build of chainlink binary.
 	go build $(GOFLAGS) .
 
-.PHONY: chainlink-local-start
-chainlink-local-start:
-	./chainlink -c /etc/node-secrets-volume/default.toml -c /etc/node-secrets-volume/overrides.toml -secrets /etc/node-secrets-volume/secrets.toml node start -d -p /etc/node-secrets-volume/node-password -a /etc/node-secrets-volume/apicredentials --vrfpassword=/etc/node-secrets-volume/apicredentials
-
 .PHONY: install-medianpoc
 install-medianpoc: ## Build & install the chainlink-medianpoc binary.
 	go install $(GOFLAGS) ./plugins/cmd/chainlink-medianpoc

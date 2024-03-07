@@ -120,6 +120,12 @@ type NetworkConfig struct {
 	funding    *big.Float
 }
 
+var defaultNetworkConfig = NetworkConfig{
+	upkeepSLA:  int64(120),
+	blockTime:  time.Second,
+	deltaStage: time.Duration(0),
+}
+
 func TestAutomationBenchmark(t *testing.T) {
 	l := logging.GetTestLogger(t)
 	testType, err := tc.GetConfigurationNameFromEnv()
@@ -237,7 +243,7 @@ func getNetworkConfig(networkName string, config *tc.TestConfig) NetworkConfig {
 	var nc NetworkConfig
 	var ok bool
 	if nc, ok = networkConfig[networkName]; !ok {
-		return NetworkConfig{}
+		return defaultNetworkConfig
 	}
 
 	if networkName == "SimulatedGeth" || networkName == "geth" {
@@ -300,6 +306,11 @@ var networkConfig = map[string]NetworkConfig{
 	"LineaGoerli": {
 		upkeepSLA:  int64(120),
 		blockTime:  time.Second,
+		deltaStage: 20 * time.Second,
+	},
+	"GnosisChiado": {
+		upkeepSLA:  int64(120),
+		blockTime:  6 * time.Second,
 		deltaStage: 20 * time.Second,
 	},
 }

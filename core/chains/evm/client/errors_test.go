@@ -155,6 +155,7 @@ func Test_Eth_Errors(t *testing.T) {
 			{"transaction underpriced", true, "Klaytn"},
 			{"intrinsic gas too low", true, "Klaytn"},
 			{"max fee per gas less than block base fee", true, "zkSync"},
+			{"virtual machine entered unexpected state. please contact developers and provide transaction details that caused this error. Error description: The operator included transaction with an unacceptable gas price", true, "zkSync"},
 		}
 
 		for _, test := range tests {
@@ -212,6 +213,7 @@ func Test_Eth_Errors(t *testing.T) {
 	t.Run("IsServiceUnavailable", func(t *testing.T) {
 		tests := []errorCase{
 			{"call failed: 503 Service Unavailable: <html>\r\n<head><title>503 Service Temporarily Unavailable</title></head>\r\n<body>\r\n<center><h1>503 Service Temporarily Unavailable</h1></center>\r\n</body>\r\n</html>\r\n", true, "Nethermind"},
+			{"call failed: 502 Bad Gateway: <html>\r\n<head><title>502 Bad Gateway</title></head>\r\n<body>\r\n<center><h1>502 Bad Gateway</h1></center>\r\n<hr><center>", true, "Arbitrum"},
 		}
 		for _, test := range tests {
 			err = evmclient.NewSendErrorS(test.message)
