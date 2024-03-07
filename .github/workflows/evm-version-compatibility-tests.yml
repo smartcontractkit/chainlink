@@ -154,7 +154,7 @@ jobs:
           cp ./smoke/evm_node_compatibility_test_list.json .
 
       - name: Set Matrix from Decoded Input
-        id: build-test-matrix-list
+        id: set-test-matrix-list
         run: |
           cd ./integration-tests
           JOB_MATRIX_JSON=$(./scripts/buildEvmClientTestMatrixList.sh ./evm_node_compatibility_test_list.json ubuntu-latest)
