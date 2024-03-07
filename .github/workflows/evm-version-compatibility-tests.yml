@@ -33,7 +33,7 @@ jobs:
       - name: Check for go.mod changes
         id: go_mod_changed
         run: |
-          git diff --name-only 401149e8b5c2b896ea00ccd585490249b6cb1d20 7d6d818f4dca1b69133fcb168c5c2b4421545fc1 | grep go.mod && echo "changed=true" >> $GITHUB_OUTPUT || echo "changed=false" >> $GITHUB_OUTPUT
+          git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep go.mod && echo "changed=true" >> $GITHUB_OUTPUT || echo "changed=false" >> $GITHUB_OUTPUT
 
       - name: Fetch previous go.mod for comparison (if changed)
         if: steps.go_mod_changed.outputs.changed == 'true'
