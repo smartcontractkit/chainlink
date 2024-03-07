@@ -28,6 +28,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
+      - name: Fetch develop branch
+        run: git fetch --depth=1 origin develop:develop
+
       - name: Check for go.mod changes
         id: go_mod_changed
         run: |
