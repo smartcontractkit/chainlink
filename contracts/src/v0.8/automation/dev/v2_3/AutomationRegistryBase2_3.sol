@@ -11,7 +11,7 @@ import {AggregatorV3Interface} from "../../../shared/interfaces/AggregatorV3Inte
 import {LinkTokenInterface} from "../../../shared/interfaces/LinkTokenInterface.sol";
 import {KeeperCompatibleInterface} from "../../interfaces/KeeperCompatibleInterface.sol";
 import {UpkeepFormat} from "../../interfaces/UpkeepTranscoderInterface.sol";
-import {IChainModule} from "../interfaces/IChainModule.sol";
+import {IChainModule} from "../../interfaces/IChainModule.sol";
 
 /**
  * @notice Base Keeper Registry contract, contains shared logic between
