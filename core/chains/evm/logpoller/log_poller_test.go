@@ -984,6 +984,86 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	}
 }
 
+func TestLogPoller_ReorgDeeperThanFinality(t *testing.T) {
+	tests := []struct {
+		name          string
+		finalityDepth int64
+		finalityTag   bool
+	}{
+		{
+			name:          "fixed finality depth without finality tag",
+			finalityDepth: 1,
+			finalityTag:   false,
+		},
+		{
+			name:          "chain finality in use",
+			finalityDepth: 0,
+			finalityTag:   true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			th := SetupTH(t, tt.finalityTag, tt.finalityDepth, 3, 2, 1000)
+			// Set up a log poller listening for log emitter logs.
+			err := th.LogPoller.RegisterFilter(logpoller.Filter{
+				Name:      "Test Emitter",
+				EventSigs: []common.Hash{EmitterABI.Events["Log1"].ID},
+				Addresses: []common.Address{th.EmitterAddress1},
+			})
+			require.NoError(t, err)
+
+			// Test scenario
+			// Chain gen <- 1 <- 2 <- 3 (finalized) <- 4 (L1_1)
+			_, err = th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(1)})
+			require.NoError(t, err)
+			th.Client.Commit()
+			th.Client.Commit()
+			th.Client.Commit()
+			markBlockAsFinalized(t, th, 3)
+
+			// Polling should get us the L1 log.
+			firstPoll := th.PollAndSaveLogs(testutils.Context(t), 1)
+			assert.Equal(t, int64(5), firstPoll)
+			assert.NoError(t, th.LogPoller.Healthy())
+
+			// Fork deeper than finality depth
+			// Chain gen <- 1 <- 2 <- 3 (finalized) <- 4 (L1_1)
+			//              \  2' <- 3' <- 4' <- 5' <- 6' (finalized) <- 7' <- 8' <- 9' <- 10' (L1_2)
+			lca, err := th.Client.BlockByNumber(testutils.Context(t), big.NewInt(1))
+			require.NoError(t, err)
+			require.NoError(t, th.Client.Fork(testutils.Context(t), lca.Hash()))
+
+			// Create 2'
+			_, err = th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(2)})
+			require.NoError(t, err)
+			th.Client.Commit()
+
+			// Create 3-10
+			for i := 3; i < 10; i++ {
+				_, err = th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(int64(i))})
+				require.NoError(t, err)
+				th.Client.Commit()
+			}
+			markBlockAsFinalized(t, th, 6)
+
+			secondPoll := th.PollAndSaveLogs(testutils.Context(t), firstPoll)
+			assert.Equal(t, firstPoll, secondPoll)
+			assert.Equal(t, logpoller.ErrFinalityViolated, th.LogPoller.Healthy())
+
+			// Manually remove latest block from the log poller to bring it back to life
+			// LogPoller should be healthy again after first poll
+			// Chain gen <- 1
+			//              \  2' <- 3' <- 4' <- 5' <- 6' (finalized) <- 7' <- 8' <- 9' <- 10' (L1_2)
+			require.NoError(t, th.ORM.DeleteLogsAndBlocksAfter(2))
+			// Poll from latest
+			recoveryPoll := th.PollAndSaveLogs(testutils.Context(t), 1)
+			assert.Equal(t, int64(10), recoveryPoll)
+			assert.NoError(t, th.LogPoller.Healthy())
+		})
+	}
+}
+
 func TestLogPoller_PollAndSaveLogsDeepReorg(t *testing.T) {
 	t.Parallel()
 
@@ -1027,6 +1107,7 @@ func TestLogPoller_PollAndSaveLogsDeepReorg(t *testing.T) {
 			// Polling should get us the L1 log.
 			newStart := th.PollAndSaveLogs(testutils.Context(t), 1)
 			assert.Equal(t, int64(3), newStart)
+			assert.NoError(t, th.LogPoller.Healthy())
 			// Check that L1_1 has a proper data payload
 			lgs, err := th.ORM.SelectLogsByBlockRange(2, 2)
 			require.NoError(t, err)
@@ -1052,6 +1133,7 @@ func TestLogPoller_PollAndSaveLogsDeepReorg(t *testing.T) {
 
 			newStart = th.PollAndSaveLogs(testutils.Context(t), newStart)
 			assert.Equal(t, int64(10), newStart)
+			assert.NoError(t, th.LogPoller.Healthy())
 
 			// Expect L1_2 to be properly updated
 			lgs, err = th.ORM.SelectLogsByBlockRange(2, 2)

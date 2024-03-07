@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
@@ -34,6 +35,7 @@ import (
 //go:generate mockery --quiet --name LogPoller --output ./mocks/ --case=underscore --structname LogPoller --filename log_poller.go
 type LogPoller interface {
 	services.Service
+	Healthy() error
 	Replay(ctx context.Context, fromBlock int64) error
 	ReplayAsync(fromBlock int64)
 	RegisterFilter(filter Filter, qopts ...pg.QOpt) error
@@ -69,6 +71,8 @@ const (
 	Finalized   = Confirmations(-1)
 	Unconfirmed = Confirmations(0)
 )
+
+var ErrFinalityViolated = errors.New("finality violated")
 
 type LogPollerTest interface {
 	LogPoller
@@ -118,6 +122,12 @@ type logPoller struct {
 	ctx            context.Context
 	cancel         context.CancelFunc
 	wg             sync.WaitGroup
+	// This flag is raised whenever the log poller detects that the chain's finality has been violated.
+	// It can happen when reorg is deeper than the latest finalized block that LogPoller saw in a previous PollAndSave tick.
+	// Usually the only way to recover is to manually remove the offending logs and block from the database.
+	// LogPoller keeps running in infinite loop, so whenever the invalid state is removed from the database it should
+	// recover automatically without needing to restart the LogPoller.
+	finalityViolated *atomic.Bool
 }
 
 // NewLogPoller creates a log poller. Note there is an assumption
@@ -149,6 +159,7 @@ func NewLogPoller(orm ORM, ec Client, lggr logger.Logger, pollPeriod time.Durati
 		keepFinalizedBlocksDepth: keepFinalizedBlocksDepth,
 		filters:                  make(map[string]Filter),
 		filterDirty:              true, // Always build Filter on first call to cache an empty filter if nothing registered yet.
+		finalityViolated:         new(atomic.Bool),
 	}
 }
 
@@ -201,6 +212,13 @@ func (filter *Filter) Contains(other *Filter) bool {
 		}
 	}
 	return true
+}
+
+func (lp *logPoller) Healthy() error {
+	if lp.finalityViolated.Load() {
+		return ErrFinalityViolated
+	}
+	return nil
 }
 
 // RegisterFilter adds the provided EventSigs and Addresses to the log poller's log filter query.
@@ -758,9 +776,11 @@ func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, curren
 			// We return an error here which will cause us to restart polling from lastBlockSaved + 1
 			return nil, err2
 		}
+		lp.finalityViolated.Store(false)
 		return blockAfterLCA, nil
 	}
 	// No reorg, return current block.
+	lp.finalityViolated.Store(false)
 	return currentBlock, nil
 }
 
@@ -924,6 +944,7 @@ func (lp *logPoller) findBlockAfterLCA(ctx context.Context, current *evmtypes.He
 	lp.lggr.Criticalw("Reorg greater than finality depth detected", "finalityTag", lp.useFinalityTag, "current", current.Number, "latestFinalized", latestFinalizedBlockNumber)
 	rerr := errors.New("Reorg greater than finality depth")
 	lp.SvcErrBuffer.Append(rerr)
+	lp.finalityViolated.Store(true)
 	return nil, rerr
 }
 
