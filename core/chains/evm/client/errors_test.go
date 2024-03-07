@@ -127,6 +127,7 @@ func Test_Eth_Errors(t *testing.T) {
 			{"call failed: AlreadyKnown", true, "Nethermind"},
 			{"call failed: OwnNonceAlreadyUsed", true, "Nethermind"},
 			{"known transaction", true, "Klaytn"},
+			{"known transaction. transaction with hash 0x6013…3053 is already in the system", true, "zkSync"},
 		}
 		for _, test := range tests {
 			err = evmclient.NewSendErrorS(test.message)
