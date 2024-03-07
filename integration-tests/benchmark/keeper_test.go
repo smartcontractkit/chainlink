@@ -314,7 +314,7 @@ var networkConfig = map[string]NetworkConfig{
 		deltaStage: 20 * time.Second,
 	},
 
-	"PolygonZkEvmCardona": {
+	"PolygonzkEVMCardona": {
 		upkeepSLA:  int64(120),
 		blockTime:  3 * time.Second,
 		deltaStage: 20 * time.Second,
