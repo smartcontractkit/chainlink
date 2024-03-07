@@ -23,7 +23,7 @@ jobs:
   check-dependency-bump:
       runs-on: ubuntu-latest
       outputs:
-        sha: ${{ steps.changes.outputs.dependency_bumped }}
+        dependency_bumped: ${{ steps.changes.outputs.dependency_bumped }}
       steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -46,7 +46,7 @@ jobs:
   # Build Test Dependencies
 
   build-chainlink:
-    if: needs.check-dependency-bump.outputs.dependency_bumped == 'true'
+    if: needs.check-dependency-bump.outputs.dependency_bumped == 'true' || github.event_name == 'workflow_dispatch'
     needs: [check-dependency-bump]
     environment: integration
     permissions:
@@ -78,7 +78,7 @@ jobs:
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
 
   build-tests:
-    if: needs.check-dependency-bump.outputs.dependency_bumped == 'true'
+    if: needs.check-dependency-bump.outputs.dependency_bumped == 'true' || github.event_name == 'workflow_dispatch'
     needs: [check-dependency-bump]
     environment: integration
     permissions:
@@ -112,7 +112,7 @@ jobs:
           binary_name: tests
 
   build-test-matrix:
-    if: needs.check-dependency-bump.outputs.dependency_bumped == 'true'
+    if: needs.check-dependency-bump.outputs.dependency_bumped == 'true' || github.event_name == 'workflow_dispatch'
     needs: [check-dependency-bump]
     runs-on: ubuntu-latest
     name: Build Test Matrix
