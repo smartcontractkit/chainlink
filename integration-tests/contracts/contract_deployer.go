@@ -43,6 +43,7 @@ import (
 	iregistry22 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_registry_master_wrapper_2_2"
 	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_v21_plus_common"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_chain_module"
+	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_consumer_performance_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_consumer_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registrar_wrapper1_2"
@@ -1206,7 +1207,7 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 			return nil, err
 		}
 
-		registryMaster, err := ac.NewIAutomationV21PlusCommon(
+		registryMaster, err := iregistry21.NewIKeeperRegistryMaster(
 			*address,
 			e.client.Backend(),
 		)
@@ -1329,7 +1330,7 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 			return nil, err
 		}
 
-		registryMaster, err := ac.NewIAutomationV21PlusCommon(
+		registryMaster, err := iregistry22.NewIAutomationRegistryMaster(
 			*address,
 			e.client.Backend(),
 		)
@@ -1455,7 +1456,7 @@ func (e *EthereumContractDeployer) LoadKeeperRegistry(address common.Address, re
 		return &EthereumKeeperRegistry{
 			address:     &address,
 			client:      e.client,
-			registry2_1: instance.(*ac.IAutomationV21PlusCommon),
+			registry2_1: instance.(*iregistry21.IKeeperRegistryMaster),
 			version:     registryVersion,
 		}, err
 	case eth_contracts.RegistryVersion_2_2: // why the contract name is not the same as the actual contract name?
@@ -1471,7 +1472,7 @@ func (e *EthereumContractDeployer) LoadKeeperRegistry(address common.Address, re
 		return &EthereumKeeperRegistry{
 			address:     &address,
 			client:      e.client,
-			registry2_2: instance.(*ac.IAutomationV21PlusCommon),
+			registry2_2: instance.(*iregistry22.IAutomationRegistryMaster),
 			version:     registryVersion,
 		}, err
 	default:

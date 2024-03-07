@@ -938,13 +938,12 @@ describe('AutomationRegistry2_2', () => {
       offchainBytes,
     ]
 
-    const allowedReadOnlyAddresses = [zeroAddress]
     registry = await deployRegistry22(
       owner,
       linkToken.address,
       linkEthFeed.address,
       gasPriceFeed.address,
-      allowedReadOnlyAddresses,
+      zeroAddress,
     )
 
     arbRegistry = await deployRegistry22(
@@ -952,7 +951,7 @@ describe('AutomationRegistry2_2', () => {
       linkToken.address,
       linkEthFeed.address,
       gasPriceFeed.address,
-      allowedReadOnlyAddresses,
+      zeroAddress,
     )
 
     opRegistry = await deployRegistry22(
@@ -960,7 +959,7 @@ describe('AutomationRegistry2_2', () => {
       linkToken.address,
       linkEthFeed.address,
       gasPriceFeed.address,
-      allowedReadOnlyAddresses,
+      zeroAddress,
     )
 
     mgRegistry = await deployRegistry22(
@@ -968,7 +967,7 @@ describe('AutomationRegistry2_2', () => {
       linkToken.address,
       linkEthFeed.address,
       gasPriceFeed.address,
-      allowedReadOnlyAddresses,
+      zeroAddress,
     )
 
     blankRegistry = await deployRegistry22(
@@ -976,7 +975,7 @@ describe('AutomationRegistry2_2', () => {
       linkToken.address,
       linkEthFeed.address,
       gasPriceFeed.address,
-      allowedReadOnlyAddresses,
+      zeroAddress,
     )
 
     registryConditionalOverhead = await registry.getConditionalGasOverhead()
