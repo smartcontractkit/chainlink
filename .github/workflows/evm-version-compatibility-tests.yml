@@ -27,27 +27,12 @@ jobs:
       steps:
       - name: Checkout code
         uses: actions/checkout@v2
-        with:
-          fetch-depth: 2 # Fetches the commit history to compare changes
 
       - name: Check for go.mod changes
         id: go_mod_changed
         run: |
-          git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep go.mod && echo "changed=true" >> $GITHUB_OUTPUT || echo "changed=false" >> $GITHUB_OUTPUT
-
-      - name: Fetch previous go.mod for comparison (if changed)
-        if: steps.go_mod_changed.outputs.changed == 'true'
-        id: dependency-check
-        run: |
-          git show ${{ github.event.before }}:./go.mod > go.mod.before
-          echo "Comparing go-ethereum dependency versions..."
-          # Extract the specific dependency version from the current go.mod
-          CURRENT_VERSION=$(grep "ethereum/go-ethereum" go.mod | awk '{print $2}')
-          # Extract the specific dependency version from the previous go.mod
-          PREVIOUS_VERSION=$(grep "ethereum/go-ethereum" go.mod.before | awk '{print $2}')
-          # Check if the current version matches the target version
-          if [ "$PREVIOUS_VERSION" != "$CURRENT_VERSION" ]; then
-            echo "Dependency ethereum/go-ethereum was changed to $CURRENT_VERSION"
+          if git diff HEAD^ HEAD -- go.mod | grep -q 'go-ethereum'; then
+            echo "Dependency ethereum/go-ethereum was changed"
             echo "dependency_bumped=true" >> $GITHUB_OUTPUT
           else
             echo "No relevant dependency bump detected."
