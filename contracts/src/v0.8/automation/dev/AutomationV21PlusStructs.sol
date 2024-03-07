@@ -1,0 +1,132 @@
+// SPDX-License-Identifier: BUSL-1.1
+pragma solidity 0.8.19;
+
+/**
+ * @dev this file defines some shared structs across automation 2.1 & plus contracts
+ */
+
+/// @dev upkeep info used across all 2.1 & plus automation contracts
+struct UpkeepInfo {
+  address target;
+  uint32 performGas;
+  bytes checkData;
+  uint96 balance;
+  address admin;
+  uint64 maxValidBlocknumber;
+  uint32 lastPerformedBlockNumber;
+  uint96 amountSpent;
+  bool paused;
+  bytes offchainConfig;
+}
+
+/// @dev Report transmitted by OCR to transmit function
+struct Report {
+  uint256 fastGasWei;
+  uint256 linkNative;
+  uint256[] upkeepIds;
+  uint256[] gasLimits;
+  bytes[] triggers;
+  bytes[] performDatas;
+}
+
+/**
+ * @notice structure of trigger for log triggers
+ */
+struct LogTriggerConfig {
+  address contractAddress;
+  uint8 filterSelector; // denotes which topics apply to filter ex 000, 101, 111...only last 3 bits apply
+  bytes32 topic0;
+  bytes32 topic1;
+  bytes32 topic2;
+  bytes32 topic3;
+}
+
+/**
+ * @notice the trigger structure of log upkeeps
+ * @dev NOTE that blockNum / blockHash describe the block used for the callback,
+ * not necessarily the block number that the log was emitted in!!!!
+ */
+struct LogTrigger {
+  bytes32 logBlockHash;
+  bytes32 txHash;
+  uint32 logIndex;
+  uint32 blockNum;
+  bytes32 blockHash;
+}
+
+/**
+ * @notice the trigger structure conditional trigger type
+ */
+struct ConditionalTrigger {
+  uint32 blockNum;
+  bytes32 blockHash;
+}
+
+/**
+ * @notice the legacy state of the registry
+ * @dev only used in params and return values
+ * @dev this will likely be deprecated in a future version of the registry in favor of individual getters
+ * @member nonce used for ID generation
+ * @member ownerLinkBalance withdrawable balance of LINK by contract owner
+ * @member expectedLinkBalance the expected balance of LINK of the registry
+ * @member totalPremium the total premium collected on registry so far
+ * @member numUpkeeps total number of upkeeps on the registry
+ * @member configCount ordinal number of current config, out of all configs applied to this contract so far
+ * @member latestConfigBlockNumber last block at which this config was set
+ * @member latestConfigDigest domain-separation tag for current config
+ * @member latestEpoch for which a report was transmitted
+ * @member paused freeze on execution scoped to the entire registry
+ */
+struct StateV21Legacy {
+  uint32 nonce;
+  uint96 ownerLinkBalance;
+  uint256 expectedLinkBalance;
+  uint96 totalPremium;
+  uint256 numUpkeeps;
+  uint32 configCount;
+  uint32 latestConfigBlockNumber;
+  bytes32 latestConfigDigest;
+  uint32 latestEpoch;
+  bool paused;
+}
+
+/**
+ * @notice OnchainConfigV21 of the registry v2.1
+ * @member paymentPremiumPPB payment premium rate oracles receive on top of
+ * being reimbursed for gas, measured in parts per billion
+ * @member flatFeeMicroLink flat fee paid to oracles for performing upkeeps,
+ * priced in MicroLink; can be used in conjunction with or independently of
+ * paymentPremiumPPB
+ * @member checkGasLimit gas limit when checking for upkeep
+ * @member stalenessSeconds number of seconds that is allowed for feed data to
+ * be stale before switching to the fallback pricing
+ * @member gasCeilingMultiplier multiplier to apply to the fast gas feed price
+ * when calculating the payment ceiling for keepers
+ * @member minUpkeepSpend minimum LINK that an upkeep must spend before cancelling
+ * @member maxPerformGas max performGas allowed for an upkeep on this registry
+ * @member maxCheckDataSize max length of checkData bytes
+ * @member maxPerformDataSize max length of performData bytes
+ * @member maxRevertDataSize max length of revertData bytes
+ * @member fallbackGasPrice gas price used if the gas price feed is stale
+ * @member fallbackLinkPrice LINK price used if the LINK price feed is stale
+ * @member transcoder address of the transcoder contract
+ * @member registrars addresses of the registrar contracts
+ * @member upkeepPrivilegeManager address which can set privilege for upkeeps
+ */
+struct OnchainConfigV21Legacy {
+  uint32 paymentPremiumPPB;
+  uint32 flatFeeMicroLink; // min 0.000001 LINK, max 4294 LINK
+  uint32 checkGasLimit;
+  uint24 stalenessSeconds;
+  uint16 gasCeilingMultiplier;
+  uint96 minUpkeepSpend;
+  uint32 maxPerformGas;
+  uint32 maxCheckDataSize;
+  uint32 maxPerformDataSize;
+  uint32 maxRevertDataSize;
+  uint256 fallbackGasPrice;
+  uint256 fallbackLinkPrice;
+  address transcoder;
+  address[] registrars;
+  address upkeepPrivilegeManager;
+}

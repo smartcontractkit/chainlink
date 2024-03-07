@@ -74,12 +74,6 @@ export const entryID = (entry: Entry) => {
   return ethers.utils.id(JSON.stringify(preimage))
 }
 
-/**
- * @dev because the keeper master interface is a composite of several different contracts,
- * it is possible that an interface could be satisfied by functions across different
- * contracts, and therefore not enforceable by the compiler directly. Instead, we use this
- * test to assert that the master interface satisfies the constraints of an individual interface
- */
 export const assertSatisfiesInterface = (
   contractABI: InterfaceABI,
   expectedABI: InterfaceABI,

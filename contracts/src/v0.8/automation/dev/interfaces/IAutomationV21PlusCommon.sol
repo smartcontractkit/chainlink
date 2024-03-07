@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.4;
 
-import {OnchainConfigV21} from "../AutomationConvenience.sol";
+import {StateV21Legacy, OnchainConfigV21Legacy, UpkeepInfo} from "../AutomationV21PlusStructs.sol";
 
-interface IAutomationV2Common {
+interface IAutomationV21PlusCommon {
   // registry events
   event AdminPrivilegeConfigSet(address indexed admin, bytes privilegeConfig);
   event CancelledUpkeepReport(uint256 indexed id, bytes trigger);
@@ -57,90 +57,6 @@ interface IAutomationV2Common {
   event UpkeepRegistered(uint256 indexed id, uint32 performGas, address admin);
   event UpkeepTriggerConfigSet(uint256 indexed id, bytes triggerConfig);
   event UpkeepUnpaused(uint256 indexed id);
-
-  struct UpkeepInfo {
-    address target;
-    uint32 performGas;
-    bytes checkData;
-    uint96 balance;
-    address admin;
-    uint64 maxValidBlocknumber;
-    uint32 lastPerformedBlockNumber;
-    uint96 amountSpent;
-    bool paused;
-    bytes offchainConfig;
-  }
-
-  /// @dev Report transmitted by OCR to transmit function
-  struct Report {
-    uint256 fastGasWei;
-    uint256 linkNative;
-    uint256[] upkeepIds;
-    uint256[] gasLimits;
-    bytes[] triggers;
-    bytes[] performDatas;
-  }
-
-  /**
-   * @notice structure of trigger for log triggers
-   */
-  struct LogTriggerConfig {
-    address contractAddress;
-    uint8 filterSelector; // denotes which topics apply to filter ex 000, 101, 111...only last 3 bits apply
-    bytes32 topic0;
-    bytes32 topic1;
-    bytes32 topic2;
-    bytes32 topic3;
-  }
-
-  /**
-   * @notice the trigger structure of log upkeeps
-   * @dev NOTE that blockNum / blockHash describe the block used for the callback,
-   * not necessarily the block number that the log was emitted in!!!!
-   */
-  struct LogTrigger {
-    bytes32 logBlockHash;
-    bytes32 txHash;
-    uint32 logIndex;
-    uint32 blockNum;
-    bytes32 blockHash;
-  }
-
-  /**
-   * @notice the trigger structure conditional trigger type
-   */
-  struct ConditionalTrigger {
-    uint32 blockNum;
-    bytes32 blockHash;
-  }
-
-  /**
-   * @notice state of the registry
-   * @dev only used in params and return values
-   * @dev this will likely be deprecated in a future version of the registry in favor of individual getters
-   * @member nonce used for ID generation
-   * @member ownerLinkBalance withdrawable balance of LINK by contract owner
-   * @member expectedLinkBalance the expected balance of LINK of the registry
-   * @member totalPremium the total premium collected on registry so far
-   * @member numUpkeeps total number of upkeeps on the registry
-   * @member configCount ordinal number of current config, out of all configs applied to this contract so far
-   * @member latestConfigBlockNumber last block at which this config was set
-   * @member latestConfigDigest domain-separation tag for current config
-   * @member latestEpoch for which a report was transmitted
-   * @member paused freeze on execution scoped to the entire registry
-   */
-  struct State {
-    uint32 nonce;
-    uint96 ownerLinkBalance;
-    uint256 expectedLinkBalance;
-    uint96 totalPremium;
-    uint256 numUpkeeps;
-    uint32 configCount;
-    uint32 latestConfigBlockNumber;
-    bytes32 latestConfigDigest;
-    uint32 latestEpoch;
-    bool paused;
-  }
 
   function checkUpkeep(
     uint256 id,
@@ -197,8 +113,8 @@ interface IAutomationV2Common {
     external
     view
     returns (
-      State memory state,
-      OnchainConfigV21 memory config,
+      StateV21Legacy memory state,
+      OnchainConfigV21Legacy memory config,
       address[] memory signers,
       address[] memory transmitters,
       uint8 f
@@ -220,14 +136,6 @@ interface IAutomationV2Common {
   function pause() external;
   function setUpkeepCheckData(uint256 id, bytes memory newCheckData) external;
   function setUpkeepTriggerConfig(uint256 id, bytes memory triggerConfig) external;
-  function setConfig(
-    address[] memory signers,
-    address[] memory transmitters,
-    uint8 f,
-    bytes memory onchainConfigBytes,
-    uint64 offchainConfigVersion,
-    bytes memory offchainConfig
-  ) external;
   function owner() external view returns (address);
   function getTriggerType(uint256 upkeepId) external pure returns (uint8);
 }

@@ -7,11 +7,11 @@ import (
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	autov2common "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_v2_common"
+	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_v21_plus_common"
 )
 
 // defaultLogParser parses logs from the registry contract
-func defaultLogParser(registry *autov2common.IAutomationV2Common, log logpoller.Log) (transmitEventLog, error) {
+func defaultLogParser(registry *ac.IAutomationV21PlusCommon, log logpoller.Log) (transmitEventLog, error) {
 	rawLog := log.ToGethLog()
 	abilog, err := registry.ParseLog(rawLog)
 	if err != nil {
@@ -19,7 +19,7 @@ func defaultLogParser(registry *autov2common.IAutomationV2Common, log logpoller.
 	}
 
 	switch l := abilog.(type) {
-	case *autov2common.IAutomationV2CommonUpkeepPerformed:
+	case *ac.IAutomationV21PlusCommonUpkeepPerformed:
 		if l == nil {
 			break
 		}
@@ -27,7 +27,7 @@ func defaultLogParser(registry *autov2common.IAutomationV2Common, log logpoller.
 			Log:       log,
 			Performed: l,
 		}, nil
-	case *autov2common.IAutomationV2CommonReorgedUpkeepReport:
+	case *ac.IAutomationV21PlusCommonReorgedUpkeepReport:
 		if l == nil {
 			break
 		}
@@ -35,7 +35,7 @@ func defaultLogParser(registry *autov2common.IAutomationV2Common, log logpoller.
 			Log:     log,
 			Reorged: l,
 		}, nil
-	case *autov2common.IAutomationV2CommonStaleUpkeepReport:
+	case *ac.IAutomationV21PlusCommonStaleUpkeepReport:
 		if l == nil {
 			break
 		}
@@ -43,7 +43,7 @@ func defaultLogParser(registry *autov2common.IAutomationV2Common, log logpoller.
 			Log:   log,
 			Stale: l,
 		}, nil
-	case *autov2common.IAutomationV2CommonInsufficientFundsUpkeepReport:
+	case *ac.IAutomationV21PlusCommonInsufficientFundsUpkeepReport:
 		if l == nil {
 			break
 		}
@@ -60,10 +60,10 @@ func defaultLogParser(registry *autov2common.IAutomationV2Common, log logpoller.
 // transmitEventLog is a wrapper around logpoller.Log and the parsed log
 type transmitEventLog struct {
 	logpoller.Log
-	Performed         *autov2common.IAutomationV2CommonUpkeepPerformed
-	Stale             *autov2common.IAutomationV2CommonStaleUpkeepReport
-	Reorged           *autov2common.IAutomationV2CommonReorgedUpkeepReport
-	InsufficientFunds *autov2common.IAutomationV2CommonInsufficientFundsUpkeepReport
+	Performed         *ac.IAutomationV21PlusCommonUpkeepPerformed
+	Stale             *ac.IAutomationV21PlusCommonStaleUpkeepReport
+	Reorged           *ac.IAutomationV21PlusCommonReorgedUpkeepReport
+	InsufficientFunds *ac.IAutomationV21PlusCommonInsufficientFundsUpkeepReport
 }
 
 func (l transmitEventLog) Id() *big.Int {

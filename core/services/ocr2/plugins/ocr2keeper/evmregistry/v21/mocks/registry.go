@@ -9,7 +9,7 @@ import (
 
 	generated "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
 
-	i_automation_v2_common "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_v2_common"
+	i_automation_v21_plus_common "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_v21_plus_common"
 
 	mock "github.com/stretchr/testify/mock"
 
@@ -22,22 +22,22 @@ type Registry struct {
 }
 
 // CheckCallback provides a mock function with given fields: opts, id, values, extraData
-func (_m *Registry) CheckCallback(opts *bind.CallOpts, id *big.Int, values [][]byte, extraData []byte) (i_automation_v2_common.CheckCallback, error) {
+func (_m *Registry) CheckCallback(opts *bind.CallOpts, id *big.Int, values [][]byte, extraData []byte) (i_automation_v21_plus_common.CheckCallback, error) {
 	ret := _m.Called(opts, id, values, extraData)
 
 	if len(ret) == 0 {
 		panic("no return value specified for CheckCallback")
 	}
 
-	var r0 i_automation_v2_common.CheckCallback
+	var r0 i_automation_v21_plus_common.CheckCallback
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts, *big.Int, [][]byte, []byte) (i_automation_v2_common.CheckCallback, error)); ok {
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts, *big.Int, [][]byte, []byte) (i_automation_v21_plus_common.CheckCallback, error)); ok {
 		return rf(opts, id, values, extraData)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts, *big.Int, [][]byte, []byte) i_automation_v2_common.CheckCallback); ok {
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts, *big.Int, [][]byte, []byte) i_automation_v21_plus_common.CheckCallback); ok {
 		r0 = rf(opts, id, values, extraData)
 	} else {
-		r0 = ret.Get(0).(i_automation_v2_common.CheckCallback)
+		r0 = ret.Get(0).(i_automation_v21_plus_common.CheckCallback)
 	}
 
 	if rf, ok := ret.Get(1).(func(*bind.CallOpts, *big.Int, [][]byte, []byte) error); ok {
@@ -80,22 +80,22 @@ func (_m *Registry) GetActiveUpkeepIDs(opts *bind.CallOpts, startIndex *big.Int,
 }
 
 // GetState provides a mock function with given fields: opts
-func (_m *Registry) GetState(opts *bind.CallOpts) (i_automation_v2_common.GetState, error) {
+func (_m *Registry) GetState(opts *bind.CallOpts) (i_automation_v21_plus_common.GetState, error) {
 	ret := _m.Called(opts)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetState")
 	}
 
-	var r0 i_automation_v2_common.GetState
+	var r0 i_automation_v21_plus_common.GetState
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts) (i_automation_v2_common.GetState, error)); ok {
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts) (i_automation_v21_plus_common.GetState, error)); ok {
 		return rf(opts)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts) i_automation_v2_common.GetState); ok {
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts) i_automation_v21_plus_common.GetState); ok {
 		r0 = rf(opts)
 	} else {
-		r0 = ret.Get(0).(i_automation_v2_common.GetState)
+		r0 = ret.Get(0).(i_automation_v21_plus_common.GetState)
 	}
 
 	if rf, ok := ret.Get(1).(func(*bind.CallOpts) error); ok {
@@ -108,22 +108,22 @@ func (_m *Registry) GetState(opts *bind.CallOpts) (i_automation_v2_common.GetSta
 }
 
 // GetUpkeep provides a mock function with given fields: opts, id
-func (_m *Registry) GetUpkeep(opts *bind.CallOpts, id *big.Int) (i_automation_v2_common.IAutomationV2CommonUpkeepInfo, error) {
+func (_m *Registry) GetUpkeep(opts *bind.CallOpts, id *big.Int) (i_automation_v21_plus_common.UpkeepInfo, error) {
 	ret := _m.Called(opts, id)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetUpkeep")
 	}
 
-	var r0 i_automation_v2_common.IAutomationV2CommonUpkeepInfo
+	var r0 i_automation_v21_plus_common.UpkeepInfo
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts, *big.Int) (i_automation_v2_common.IAutomationV2CommonUpkeepInfo, error)); ok {
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts, *big.Int) (i_automation_v21_plus_common.UpkeepInfo, error)); ok {
 		return rf(opts, id)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts, *big.Int) i_automation_v2_common.IAutomationV2CommonUpkeepInfo); ok {
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts, *big.Int) i_automation_v21_plus_common.UpkeepInfo); ok {
 		r0 = rf(opts, id)
 	} else {
-		r0 = ret.Get(0).(i_automation_v2_common.IAutomationV2CommonUpkeepInfo)
+		r0 = ret.Get(0).(i_automation_v21_plus_common.UpkeepInfo)
 	}
 
 	if rf, ok := ret.Get(1).(func(*bind.CallOpts, *big.Int) error); ok {

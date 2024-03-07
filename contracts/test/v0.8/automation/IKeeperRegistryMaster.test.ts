@@ -24,6 +24,12 @@ const compositeABIs = [
   KeeperRegistryLogicBFactory.abi,
 ]
 
+/**
+ * @dev because the keeper master interface is a composite of several different contracts,
+ * it is possible that an interface could be satisfied by functions across different
+ * contracts, and therefore not enforceable by the compiler directly. Instead, we use this
+ * test to assert that the master interface satisfies the constraints of an individual interface
+ */
 describe('IKeeperRegistryMaster', () => {
   it('is up to date', async () => {
     const checksum = ethers.utils.id(compositeABIs.join(''))

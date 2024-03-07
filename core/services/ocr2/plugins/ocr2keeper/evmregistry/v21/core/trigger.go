@@ -12,7 +12,7 @@ import (
 	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_convenience"
 )
 
-type triggerWrapper = ac.IAutomationV2CommonLogTrigger
+type triggerWrapper = ac.LogTrigger
 
 var ErrABINotParsable = fmt.Errorf("error parsing abi")
 
@@ -34,13 +34,13 @@ func PackTrigger(id *big.Int, trig triggerWrapper) ([]byte, error) {
 	}
 	switch upkeepType {
 	case types.ConditionTrigger:
-		trig := ac.IAutomationV2CommonConditionalTrigger{
+		trig := ac.ConditionalTrigger{
 			BlockNum:  trig.BlockNum,
 			BlockHash: trig.BlockHash,
 		}
 		trigger, err = utilsABI.Pack("_conditionalTrigger", &trig)
 	case types.LogTrigger:
-		logTrig := ac.IAutomationV2CommonLogTrigger{
+		logTrig := ac.LogTrigger{
 			BlockNum:     trig.BlockNum,
 			BlockHash:    trig.BlockHash,
 			LogBlockHash: trig.LogBlockHash,
@@ -75,7 +75,7 @@ func UnpackTrigger(id *big.Int, raw []byte) (triggerWrapper, error) {
 		if err != nil {
 			return triggerWrapper{}, fmt.Errorf("%w: failed to unpack conditional trigger", err)
 		}
-		converted, ok := abi.ConvertType(unpacked[0], new(ac.IAutomationV2CommonConditionalTrigger)).(*ac.IAutomationV2CommonConditionalTrigger)
+		converted, ok := abi.ConvertType(unpacked[0], new(ac.ConditionalTrigger)).(*ac.ConditionalTrigger)
 		if !ok {
 			return triggerWrapper{}, fmt.Errorf("failed to convert type")
 		}
@@ -89,7 +89,7 @@ func UnpackTrigger(id *big.Int, raw []byte) (triggerWrapper, error) {
 		if err != nil {
 			return triggerWrapper{}, fmt.Errorf("%w: failed to unpack log trigger", err)
 		}
-		converted, ok := abi.ConvertType(unpacked[0], new(ac.IAutomationV2CommonLogTrigger)).(*ac.IAutomationV2CommonLogTrigger)
+		converted, ok := abi.ConvertType(unpacked[0], new(ac.LogTrigger)).(*ac.LogTrigger)
 		if !ok {
 			return triggerWrapper{}, fmt.Errorf("failed to convert type")
 		}

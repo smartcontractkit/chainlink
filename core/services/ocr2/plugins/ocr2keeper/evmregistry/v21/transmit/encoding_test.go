@@ -11,7 +11,7 @@ import (
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	autov2common "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_v2_common"
+	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_v21_plus_common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 )
 
@@ -30,7 +30,7 @@ func TestTransmitEventLog(t *testing.T) {
 					BlockNumber: 1,
 					BlockHash:   common.HexToHash("0x010203040"),
 				},
-				Performed: &autov2common.IAutomationV2CommonUpkeepPerformed{
+				Performed: &ac.IAutomationV21PlusCommonUpkeepPerformed{
 					Id:      uid.BigInt(),
 					Trigger: []byte{1, 2, 3, 4, 5, 6, 7, 8},
 				},
@@ -44,7 +44,7 @@ func TestTransmitEventLog(t *testing.T) {
 					BlockNumber: 1,
 					BlockHash:   common.HexToHash("0x010203040"),
 				},
-				Stale: &autov2common.IAutomationV2CommonStaleUpkeepReport{
+				Stale: &ac.IAutomationV21PlusCommonStaleUpkeepReport{
 					Id:      uid.BigInt(),
 					Trigger: []byte{1, 2, 3, 4, 5, 6, 7, 8},
 				},
@@ -58,7 +58,7 @@ func TestTransmitEventLog(t *testing.T) {
 					BlockNumber: 1,
 					BlockHash:   common.HexToHash("0x010203040"),
 				},
-				InsufficientFunds: &autov2common.IAutomationV2CommonInsufficientFundsUpkeepReport{
+				InsufficientFunds: &ac.IAutomationV21PlusCommonInsufficientFundsUpkeepReport{
 					Id:      uid.BigInt(),
 					Trigger: []byte{1, 2, 3, 4, 5, 6, 7, 8},
 				},
@@ -72,7 +72,7 @@ func TestTransmitEventLog(t *testing.T) {
 					BlockNumber: 1,
 					BlockHash:   common.HexToHash("0x010203040"),
 				},
-				Reorged: &autov2common.IAutomationV2CommonReorgedUpkeepReport{
+				Reorged: &ac.IAutomationV21PlusCommonReorgedUpkeepReport{
 					Id:      uid.BigInt(),
 					Trigger: []byte{1, 2, 3, 4, 5, 6, 7, 8},
 				},

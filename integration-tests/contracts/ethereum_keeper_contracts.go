@@ -26,8 +26,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_consumer_benchmark"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_convenience"
 	registrar21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_registrar_wrapper2_1"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_v2_common"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_registry_master_wrapper_2_2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_chain_module"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_consumer_performance_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_consumer_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registrar_wrapper1_2"
@@ -212,8 +213,8 @@ type EthereumKeeperRegistry struct {
 	registry1_2 *keeper_registry_wrapper1_2.KeeperRegistry
 	registry1_3 *keeper_registry_wrapper1_3.KeeperRegistry
 	registry2_0 *keeper_registry_wrapper2_0.KeeperRegistry
-	registry2_1 *i_automation_v2_common.IAutomationV2Common
-	registry2_2 *i_automation_v2_common.IAutomationV2Common
+	registry2_1 *i_keeper_registry_master_wrapper_2_1.IKeeperRegistryMaster
+	registry2_2 *i_automation_registry_master_wrapper_2_2.IAutomationRegistryMaster
 	chainModule *i_chain_module.IChainModule
 	address     *common.Address
 	l           zerolog.Logger
@@ -246,7 +247,7 @@ func (v *EthereumKeeperRegistry) Fund(ethAmount *big.Float) error {
 
 func (rcs *KeeperRegistrySettings) EncodeOnChainConfig(registrar string, registryOwnerAddress, chainModuleAddress common.Address, reorgProtectionEnabled bool) ([]byte, error) {
 	if rcs.RegistryVersion == ethereum.RegistryVersion_2_1 {
-		onchainConfigStruct := automation_convenience.OnchainConfigV21{
+		onchainConfigStruct := automation_convenience.OnchainConfigV21Legacy{
 			PaymentPremiumPPB:      rcs.PaymentPremiumPPB,
 			FlatFeeMicroLink:       rcs.FlatFeeMicroLINK,
 			CheckGasLimit:          rcs.CheckGasLimit,
@@ -2231,7 +2232,7 @@ func (v *EthereumKeeperRegistrar) EncodeRegisterRequest(name string, email []byt
 				}
 			}
 
-			logTriggerConfigStruct := automation_convenience.IAutomationV2CommonLogTriggerConfig{
+			logTriggerConfigStruct := automation_convenience.LogTriggerConfig{
 				ContractAddress: common.HexToAddress(upkeepAddr),
 				FilterSelector:  0,
 				Topic0:          topic0InBytes,

@@ -15,7 +15,7 @@ import (
 
 // triggerWrapper is a wrapper for the different trigger types (log and condition triggers).
 // NOTE: we use log trigger because it extends condition trigger,
-type triggerWrapper = ac.IAutomationV2CommonLogTrigger
+type triggerWrapper = ac.LogTrigger
 
 type abiPacker struct {
 	autoV2CommonABI abi.ABI
@@ -81,15 +81,15 @@ func (p *abiPacker) UnpackPerformResult(raw string) (PipelineExecutionState, boo
 }
 
 // UnpackLogTriggerConfig unpacks the log trigger config from the given raw data
-func (p *abiPacker) UnpackLogTriggerConfig(raw []byte) (ac.IAutomationV2CommonLogTriggerConfig, error) {
-	var cfg ac.IAutomationV2CommonLogTriggerConfig
+func (p *abiPacker) UnpackLogTriggerConfig(raw []byte) (ac.LogTriggerConfig, error) {
+	var cfg ac.LogTriggerConfig
 
 	out, err := core.ConvenienceABI.Methods["_logTriggerConfig"].Inputs.UnpackValues(raw)
 	if err != nil {
 		return cfg, fmt.Errorf("%w: unpack _logTriggerConfig return: %s", err, raw)
 	}
 
-	converted, ok := abi.ConvertType(out[0], new(ac.IAutomationV2CommonLogTriggerConfig)).(*ac.IAutomationV2CommonLogTriggerConfig)
+	converted, ok := abi.ConvertType(out[0], new(ac.LogTriggerConfig)).(*ac.LogTriggerConfig)
 	if !ok {
 		return cfg, fmt.Errorf("failed to convert type during UnpackLogTriggerConfig")
 	}
@@ -97,7 +97,7 @@ func (p *abiPacker) UnpackLogTriggerConfig(raw []byte) (ac.IAutomationV2CommonLo
 }
 
 // PackReport packs the report with abi definitions from the contract.
-func (p *abiPacker) PackReport(report ac.IAutomationV2CommonReport) ([]byte, error) {
+func (p *abiPacker) PackReport(report ac.Report) ([]byte, error) {
 	bts, err := p.utilsABI.Methods["_report"].Inputs.Pack(&report)
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to pack report", err)
@@ -106,16 +106,16 @@ func (p *abiPacker) PackReport(report ac.IAutomationV2CommonReport) ([]byte, err
 }
 
 // UnpackReport unpacks the report from the given raw data.
-func (p *abiPacker) UnpackReport(raw []byte) (ac.IAutomationV2CommonReport, error) {
+func (p *abiPacker) UnpackReport(raw []byte) (ac.Report, error) {
 	unpacked, err := p.utilsABI.Methods["_report"].Inputs.Unpack(raw)
 	if err != nil {
-		return ac.IAutomationV2CommonReport{}, fmt.Errorf("%w: failed to unpack report", err)
+		return ac.Report{}, fmt.Errorf("%w: failed to unpack report", err)
 	}
-	converted, ok := abi.ConvertType(unpacked[0], new(ac.IAutomationV2CommonReport)).(*ac.IAutomationV2CommonReport)
+	converted, ok := abi.ConvertType(unpacked[0], new(ac.Report)).(*ac.Report)
 	if !ok {
-		return ac.IAutomationV2CommonReport{}, fmt.Errorf("failed to convert type")
+		return ac.Report{}, fmt.Errorf("failed to convert type")
 	}
-	report := ac.IAutomationV2CommonReport{
+	report := ac.Report{
 		FastGasWei:   converted.FastGasWei,
 		LinkNative:   converted.LinkNative,
 		UpkeepIds:    make([]*big.Int, len(converted.UpkeepIds)),
