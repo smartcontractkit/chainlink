@@ -25,6 +25,7 @@ import (
 
 const (
 	CCIPSendRequestedEventName = "CCIPSendRequested"
+	ConfigSetEventName         = "ConfigSet"
 )
 
 var _ ccipdata.OnRampReader = &OnRamp{}
@@ -52,6 +53,7 @@ func NewOnRamp(lggr logger.Logger, sourceSelector, destSelector uint64, onRampAd
 	}
 	onRampABI := abihelpers.MustParseABI(evm_2_evm_onramp_1_0_0.EVM2EVMOnRampABI)
 	eventSig := abihelpers.MustGetEventID(CCIPSendRequestedEventName, onRampABI)
+	configSetEventSig := abihelpers.MustGetEventID(ConfigSetEventName, onRampABI)
 	filters := []logpoller.Filter{
 		{
 			Name:      logpoller.FilterName(ccipdata.COMMIT_CCIP_SENDS, onRampAddress),
@@ -60,7 +62,7 @@ func NewOnRamp(lggr logger.Logger, sourceSelector, destSelector uint64, onRampAd
 		},
 		{
 			Name:      logpoller.FilterName(ccipdata.CONFIG_CHANGED, onRampAddress),
-			EventSigs: []common.Hash{abihelpers.MustGetEventID("ConfigSet", onRampABI)},
+			EventSigs: []common.Hash{configSetEventSig},
 			Addresses: []common.Address{onRampAddress},
 		},
 	}
@@ -80,7 +82,7 @@ func NewOnRamp(lggr logger.Logger, sourceSelector, destSelector uint64, onRampAd
 		sendRequestedEventSig:      eventSig,
 		cachedSourcePriceRegistryAddress: cache.NewLogpollerEventsBased[cciptypes.Address](
 			sourceLP,
-			[]common.Hash{abihelpers.MustGetEventID("ConfigSet", onRampABI)},
+			[]common.Hash{configSetEventSig},
 			onRampAddress,
 		),
 		cachedStaticConfig: cachedStaticConfig,
