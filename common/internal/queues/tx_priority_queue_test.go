@@ -41,7 +41,7 @@ func TestTxPriorityQueue(t *testing.T) {
 		assert.Equal(t, txs[0].ID, pq.RemoveNextTx().ID)
 		assert.Equal(t, txs[1].ID, pq.PeekNextTx().ID)
 		assert.Equal(t, txs[1].ID, pq.RemoveNextTx().ID)
-
+		assert.Equal(t, capacity, pq.Cap())
 	})
 	t.Run("transactions get ordered by createdAt", func(t *testing.T) {
 		pq := queues.NewTxPriorityQueue[
@@ -76,6 +76,7 @@ func TestTxPriorityQueue(t *testing.T) {
 		assert.Equal(t, txs[4].ID, pq.RemoveNextTx().ID)
 		assert.Equal(t, txs[0].ID, pq.PeekNextTx().ID)
 		assert.Equal(t, txs[0].ID, pq.RemoveNextTx().ID)
+		assert.Equal(t, capacity, pq.Cap())
 	})
 	t.Run("transactions can be added to full queue and keep capacity limits", func(t *testing.T) {
 		pq := queues.NewTxPriorityQueue[
@@ -112,6 +113,7 @@ func TestTxPriorityQueue(t *testing.T) {
 		assert.Equal(t, txs[5].ID, pq.RemoveNextTx().ID)
 		assert.Equal(t, txs[6].ID, pq.PeekNextTx().ID)
 		assert.Equal(t, txs[6].ID, pq.RemoveNextTx().ID)
+		assert.Equal(t, capacity, pq.Cap())
 	})
 	t.Run("remove oldest transactions first if over capacity", func(t *testing.T) {
 		pq := queues.NewTxPriorityQueue[
@@ -139,6 +141,7 @@ func TestTxPriorityQueue(t *testing.T) {
 		assert.Equal(t, capacity, pq.Len())
 
 		assert.Equal(t, txs[1].ID, pq.PeekNextTx().ID)
+		assert.Equal(t, capacity, pq.Cap())
 	})
 	t.Run("access oldest transactions when using peek and RemoveNextTx", func(t *testing.T) {
 		pq := queues.NewTxPriorityQueue[
@@ -172,6 +175,7 @@ func TestTxPriorityQueue(t *testing.T) {
 		assert.Nil(t, pq.PeekNextTx())
 		assert.Nil(t, pq.RemoveNextTx())
 		assert.Equal(t, 0, pq.Len())
+		assert.Equal(t, capacity, pq.Cap())
 	})
 	t.Run("transactions can be removed by using RemoveTxByID", func(t *testing.T) {
 		pq := queues.NewTxPriorityQueue[
@@ -207,6 +211,7 @@ func TestTxPriorityQueue(t *testing.T) {
 		assert.Equal(t, txs[3].ID, pq.RemoveNextTx().ID)
 		assert.Equal(t, txs[4].ID, pq.RemoveNextTx().ID)
 		assert.Nil(t, pq.PeekNextTx())
+		assert.Equal(t, capacity, pq.Cap())
 	})
 	t.Run("transactions can be removed by using PruneByTxIDs", func(t *testing.T) {
 		pq := queues.NewTxPriorityQueue[
@@ -241,6 +246,7 @@ func TestTxPriorityQueue(t *testing.T) {
 		assert.Equal(t, txs[1].ID, pq.RemoveNextTx().ID)
 		assert.Equal(t, txs[3].ID, pq.RemoveNextTx().ID)
 		assert.Nil(t, pq.PeekNextTx())
+		assert.Equal(t, capacity, pq.Cap())
 	})
 
 }
