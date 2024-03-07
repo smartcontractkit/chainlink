@@ -24,7 +24,7 @@
       {
         "product": "ocr",
         "name": "TestOCRBasic",
-        "eth_client": "besu",
+        "eth_client": "erigon",
         "docker_image": "thorax/erigon:latest_stable",
         "label": "ubuntu-latest"
       }

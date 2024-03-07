@@ -95,9 +95,11 @@ runs:
         fi
 
         custom_images=""
+        ethereum_version=""
 
         if [ -n "$CUSTOM_DOCKER_IMAGES" ]; then
             custom_images+="[PrivateEthereumNetwork.CustomDockerImages]"
+            ethereum_version="ethereum_version=\"auto\""
             IFS=',' read -r -a array <<< "$CUSTOM_DOCKER_IMAGES"
 
             for element in "${array[@]}"; do
@@ -145,6 +147,7 @@ runs:
 
         [PrivateEthereumNetwork]
         execution_layer="$execution_layer"
+        $ethereum_version
 
         $custom_images
         EOF
