@@ -138,6 +138,8 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) findTx
 // If txIDs are provided, only the transactions with those IDs are considered.
 // If no txIDs are provided, all transactions in the given states are considered.
 // If no txStates are provided, all transactions are considered.
+// This method does not handle transactions in the UnstartedTx state.
+// Any transaction states that are unknown will cause a panic including UnstartedTx.
 func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) applyToTxsByState(
 	txStates []txmgrtypes.TxState,
 	fn func(*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]),
@@ -286,6 +288,7 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) moveUn
 // moveTxToFatalError moves a transaction to the fatal error state.
 // It returns an error if there is no transaction with the given ID.
 // It returns an error if the transaction is not in an expected state.
+// Unknown transaction states will cause a panic this includes Unconfirmed and Confirmed transactions.
 func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) moveTxToFatalError(
 	txID int64, txError null.String,
 ) error {
@@ -306,12 +309,8 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) moveTx
 		as.inprogressTx = nil
 	case TxConfirmedMissingReceipt:
 		delete(as.confirmedMissingReceiptTxs, tx.ID)
-	case TxUnconfirmed:
-		delete(as.unconfirmedTxs, tx.ID)
-	case TxConfirmed:
-		delete(as.confirmedTxs, tx.ID)
 	default:
-		return fmt.Errorf("move_tx_to_fatal_error: transaction with ID %d is in an unexpected state: %s", txID, tx.State)
+		panic("move_tx_to_fatal_error: unknown transaction state")
 	}
 
 	return nil
