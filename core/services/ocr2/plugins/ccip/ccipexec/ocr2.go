@@ -100,6 +100,12 @@ func (r *ExecutionReportingPlugin) Observation(ctx context.Context, timestamp ty
 	if err := ccipcommon.VerifyNotDown(ctx, r.lggr, r.commitStoreReader, r.onRampReader); err != nil {
 		return nil, err
 	}
+
+	// Ensure that the source price registry is synchronized with the onRamp.
+	if err := r.ensurePriceRegistrySynchronization(ctx); err != nil {
+		return nil, fmt.Errorf("ensuring price registry synchronization: %w", err)
+	}
+
 	// Expire any inflight reports.
 	r.inflightReports.expire(lggr)
 	inFlight := r.inflightReports.getAll()
@@ -1040,11 +1046,6 @@ func (r *ExecutionReportingPlugin) prepareTokenExecData(ctx context.Context) (ex
 	rateLimiterTokenBucket, err := r.offRampReader.CurrentRateLimiterState(ctx)
 	if err != nil {
 		return execTokenData{}, err
-	}
-
-	// Ensure that the source price registry is synchronized with the onRamp.
-	if err = r.ensurePriceRegistrySynchronization(ctx); err != nil {
-		return execTokenData{}, fmt.Errorf("ensuring price registry synchronization: %w", err)
 	}
 
 	sourceFeeTokens, err := r.sourcePriceRegistry.GetFeeTokens(ctx)
