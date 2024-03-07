@@ -30,6 +30,7 @@ jobs:
         uses: catchpoint/workflow-telemetry-action@v2
         with:
           comment_on_pr: false
+          theme: dark
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1 
       - name: Golang Lint
         uses: ./.github/actions/golangci-lint
@@ -63,6 +64,7 @@ jobs:
         uses: catchpoint/workflow-telemetry-action@v2
         with:
           comment_on_pr: false
+          theme: dark
       - name: Checkout the repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
       - name: Setup node
