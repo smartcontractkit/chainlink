@@ -31,7 +31,7 @@ jobs:
       - name: Check for go.mod changes
         id: go_mod_changed
         run: |
-          if git diff HEAD^ HEAD -- go.mod | grep -q 'go-ethereum'; then
+          if git diff origin/develop -- go.mod | grep -q 'github.com/ethereum/go-ethereum'; then
             echo "Dependency ethereum/go-ethereum was changed"
             echo "dependency_bumped=true" >> $GITHUB_OUTPUT
           else
