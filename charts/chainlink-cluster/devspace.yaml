@@ -13,7 +13,7 @@ pipelines:
         description: "If specified, the specified tag will be used instead of building a new image"
 
     run: |-
-      tagOverride=($(get_flag "override-image-tag"))
+      tagOverride=$(get_flag "override-image-tag")
       run_dependencies --all
 
       if [ -n "$tagOverride" ]; then
