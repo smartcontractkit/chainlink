@@ -10,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 )
@@ -84,6 +85,7 @@ func (rf *CommitReportingPluginFactory) NewReportingPlugin(config types.Reportin
 
 	pluginOffChainConfig := rf.config.commitStore.OffchainConfig()
 
+	lggr := rf.config.lggr.Named("CommitReportingPlugin")
 	return &CommitReportingPlugin{
 			sourceChainSelector:     rf.config.sourceChainSelector,
 			sourceNative:            rf.config.sourceNative,
@@ -91,13 +93,14 @@ func (rf *CommitReportingPluginFactory) NewReportingPlugin(config types.Reportin
 			commitStoreReader:       rf.config.commitStore,
 			priceGetter:             rf.config.priceGetter,
 			F:                       config.F,
-			lggr:                    rf.config.lggr.Named("CommitReportingPlugin"),
+			lggr:                    lggr,
 			inflightReports:         newInflightCommitReportsContainer(rf.config.commitStore.OffchainConfig().InflightCacheExpiry),
 			destPriceRegistryReader: rf.destPriceRegReader,
 			offRampReader:           rf.config.offRamp,
 			gasPriceEstimator:       rf.config.commitStore.GasPriceEstimator(),
 			offchainConfig:          pluginOffChainConfig,
 			metricsCollector:        rf.config.metricsCollector,
+			chainHealthcheck:        cache.NewChainHealthcheck(lggr, rf.config.onRampReader, rf.config.commitStore),
 		},
 		types.ReportingPluginInfo{
 			Name:          "CCIPCommit",

@@ -1,7 +1,6 @@
 package ccipcommon
 
 import (
-	"errors"
 	"math/rand"
 	"strconv"
 	"testing"
@@ -9,11 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/mocks"
 )
 
 func TestGetMessageIDsAsHexString(t *testing.T) {
@@ -61,62 +56,6 @@ func TestFlattenUniqueSlice(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			res := FlattenUniqueSlice(tc.inputSlices...)
 			assert.Equal(t, tc.expectedOutput, res)
-		})
-	}
-}
-
-func TestVerifyNotDown(t *testing.T) {
-	ctx := tests.Context(t)
-
-	testCases := []struct {
-		name            string
-		commitStoreDown bool
-		commitStoreErr  error
-		onRampCursed    bool
-		onRampErr       error
-		expectedErr     bool
-	}{
-		{
-			name:        "Neither down nor cursed",
-			expectedErr: false,
-		},
-		{
-			name:            "CommitStore is down",
-			commitStoreDown: true,
-			expectedErr:     true,
-		},
-		{
-			name:         "OnRamp is cursed",
-			onRampCursed: true,
-			expectedErr:  true,
-		},
-		{
-			name:           "CommitStore error",
-			commitStoreErr: errors.New("commit store error"),
-			expectedErr:    true,
-		},
-		{
-			name:        "OnRamp error",
-			onRampErr:   errors.New("onramp error"),
-			expectedErr: true,
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			mockCommitStore := mocks.NewCommitStoreReader(t)
-			mockOnRamp := mocks.NewOnRampReader(t)
-
-			mockCommitStore.On("IsDown", ctx).Return(tc.commitStoreDown, tc.commitStoreErr)
-			mockOnRamp.On("IsSourceCursed", ctx).Return(tc.onRampCursed, tc.onRampErr)
-
-			err := VerifyNotDown(ctx, logger.TestLogger(t), mockCommitStore, mockOnRamp)
-
-			if tc.expectedErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-			}
 		})
 	}
 }

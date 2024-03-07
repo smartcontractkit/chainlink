@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -365,6 +366,13 @@ func (c *CommitStore) GetExpectedNextSequenceNumber(ctx context.Context) (uint64
 
 func (c *CommitStore) GetLatestPriceEpochAndRound(ctx context.Context) (uint64, error) {
 	return c.commitStore.GetLatestPriceEpochAndRound(&bind.CallOpts{Context: ctx})
+}
+
+func (c *CommitStore) IsDestChainHealthy(context.Context) (bool, error) {
+	if err := c.lp.Healthy(); err != nil {
+		return false, nil
+	}
+	return true, nil
 }
 
 func (c *CommitStore) IsDown(ctx context.Context) (bool, error) {

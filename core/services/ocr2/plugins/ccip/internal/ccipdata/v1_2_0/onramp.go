@@ -179,6 +179,13 @@ func (o *OnRamp) RouterAddress() (cciptypes.Address, error) {
 	return cciptypes.Address(config.Router.String()), nil
 }
 
+func (o *OnRamp) IsSourceChainHealthy(context.Context) (bool, error) {
+	if err := o.lp.Healthy(); err != nil {
+		return false, nil
+	}
+	return true, nil
+}
+
 func (o *OnRamp) IsSourceCursed(ctx context.Context) (bool, error) {
 	staticConfig, err := o.cachedStaticConfig(ctx)
 	if err != nil {
