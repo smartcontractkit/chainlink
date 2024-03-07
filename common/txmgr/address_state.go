@@ -114,7 +114,8 @@ func newAddressState[
 		if tx.IdempotencyKey != nil {
 			as.idempotencyKeyToTx[*tx.IdempotencyKey] = &tx
 		}
-		for _, txAttempt := range tx.TxAttempts {
+		for i := 0; i < len(tx.TxAttempts); i++ {
+			txAttempt := tx.TxAttempts[i]
 			as.attemptHashToTxAttempt[txAttempt.Hash] = &txAttempt
 		}
 	}
