@@ -20,6 +20,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
@@ -1228,7 +1229,7 @@ func TestSelectLatestBlockNumberEventSigsAddrsWithConfs(t *testing.T) {
 		name                string
 		events              []common.Hash
 		addrs               []common.Address
-		confs               logpoller.Confirmations
+		confs               evmtypes.Confirmations
 		fromBlock           int64
 		expectedBlockNumber int64
 	}{
@@ -1260,7 +1261,7 @@ func TestSelectLatestBlockNumberEventSigsAddrsWithConfs(t *testing.T) {
 			name:                "only finalized log is picked",
 			events:              []common.Hash{event1, event2},
 			addrs:               []common.Address{address1, address2},
-			confs:               logpoller.Finalized,
+			confs:               evmtypes.Finalized,
 			fromBlock:           0,
 			expectedBlockNumber: 1,
 		},
@@ -1332,7 +1333,7 @@ func TestSelectLogsCreatedAfter(t *testing.T) {
 
 	tests := []struct {
 		name         string
-		confs        logpoller.Confirmations
+		confs        evmtypes.Confirmations
 		after        time.Time
 		expectedLogs []expectedLog
 	}{
@@ -1377,7 +1378,7 @@ func TestSelectLogsCreatedAfter(t *testing.T) {
 		},
 		{
 			name:  "returns only finalized log",
-			confs: logpoller.Finalized,
+			confs: evmtypes.Finalized,
 			after: block1ts,
 			expectedLogs: []expectedLog{
 				{block: 2, log: 1},
@@ -1420,7 +1421,7 @@ func TestNestedLogPollerBlocksQuery(t *testing.T) {
 	}))
 
 	// Empty logs when block are not persisted
-	logs, err := th.ORM.SelectIndexedLogs(address, event, 1, []common.Hash{event}, logpoller.Unconfirmed)
+	logs, err := th.ORM.SelectIndexedLogs(address, event, 1, []common.Hash{event}, evmtypes.Unconfirmed)
 	require.NoError(t, err)
 	require.Len(t, logs, 0)
 
@@ -1428,12 +1429,12 @@ func TestNestedLogPollerBlocksQuery(t *testing.T) {
 	require.NoError(t, th.ORM.InsertBlock(utils.RandomHash(), 10, time.Now(), 0))
 
 	// Check if query actually works well with provided dataset
-	logs, err = th.ORM.SelectIndexedLogs(address, event, 1, []common.Hash{event}, logpoller.Unconfirmed)
+	logs, err = th.ORM.SelectIndexedLogs(address, event, 1, []common.Hash{event}, evmtypes.Unconfirmed)
 	require.NoError(t, err)
 	require.Len(t, logs, 1)
 
 	// Empty logs when number of confirmations is too deep
-	logs, err = th.ORM.SelectIndexedLogs(address, event, 1, []common.Hash{event}, logpoller.Confirmations(4))
+	logs, err = th.ORM.SelectIndexedLogs(address, event, 1, []common.Hash{event}, evmtypes.Confirmations(4))
 	require.NoError(t, err)
 	require.Len(t, logs, 0)
 }
@@ -1619,7 +1620,7 @@ func TestSelectLogsDataWordBetween(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			logs, err1 := th.ORM.SelectLogsDataWordBetween(address, eventSig, 0, 1, logpoller.EvmWord(tt.wordValue), logpoller.Unconfirmed)
+			logs, err1 := th.ORM.SelectLogsDataWordBetween(address, eventSig, 0, 1, logpoller.EvmWord(tt.wordValue), evmtypes.Unconfirmed)
 			assert.NoError(t, err1)
 			assert.Len(t, logs, len(tt.expectedLogs))
 
@@ -1675,7 +1676,7 @@ func Benchmark_LogsDataWordBetween(b *testing.B) {
 			2,
 			3,
 			logpoller.EvmWord(uint64(numberOfReports*numberOfMessagesPerReport/2)), // Pick the middle report
-			logpoller.Unconfirmed,
+			evmtypes.Unconfirmed,
 		)
 		assert.NoError(b, err)
 		assert.Len(b, logs, 1)

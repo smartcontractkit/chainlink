@@ -254,7 +254,7 @@ func (f *FwdMgr) runLoop() {
 				f.latestBlock,
 				[]common.Hash{authChangedTopic},
 				addrs,
-				evmlogpoller.Confirmations(f.cfg.FinalityDepth()),
+				evmtypes.Confirmations(f.cfg.FinalityDepth()),
 				pg.WithParentCtx(f.ctx),
 			)
 			if err != nil {

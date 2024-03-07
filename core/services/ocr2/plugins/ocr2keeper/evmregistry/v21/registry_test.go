@@ -9,6 +9,7 @@ import (
 	"time"
 
 	types2 "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -221,7 +222,7 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 				},
 			},
 			poller: &mockLogPoller{
-				IndexedLogsFn: func(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs logpoller.Confirmations, qopts ...pg.QOpt) ([]logpoller.Log, error) {
+				IndexedLogsFn: func(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs evmtypes.Confirmations, qopts ...pg.QOpt) ([]logpoller.Log, error) {
 					if eventSig == (iregistry21.IKeeperRegistryMasterUpkeepUnpaused{}.Topic()) {
 						return nil, errors.New("indexed logs boom")
 					}
@@ -246,7 +247,7 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 				},
 			},
 			poller: &mockLogPoller{
-				IndexedLogsFn: func(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs logpoller.Confirmations, qopts ...pg.QOpt) ([]logpoller.Log, error) {
+				IndexedLogsFn: func(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs evmtypes.Confirmations, qopts ...pg.QOpt) ([]logpoller.Log, error) {
 					if eventSig == (iregistry21.IKeeperRegistryMasterUpkeepTriggerConfigSet{}.Topic()) {
 						return nil, errors.New("indexed logs boom")
 					}
@@ -271,7 +272,7 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 				},
 			},
 			poller: &mockLogPoller{
-				IndexedLogsFn: func(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs logpoller.Confirmations, qopts ...pg.QOpt) ([]logpoller.Log, error) {
+				IndexedLogsFn: func(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs evmtypes.Confirmations, qopts ...pg.QOpt) ([]logpoller.Log, error) {
 					return []logpoller.Log{
 						{},
 					}, nil
@@ -303,7 +304,7 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 				},
 			},
 			poller: &mockLogPoller{
-				IndexedLogsFn: func(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs logpoller.Confirmations, qopts ...pg.QOpt) ([]logpoller.Log, error) {
+				IndexedLogsFn: func(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs evmtypes.Confirmations, qopts ...pg.QOpt) ([]logpoller.Log, error) {
 					return []logpoller.Log{
 						{
 							BlockNumber: 1,
@@ -357,7 +358,7 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 				},
 			},
 			poller: &mockLogPoller{
-				IndexedLogsFn: func(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs logpoller.Confirmations, qopts ...pg.QOpt) ([]logpoller.Log, error) {
+				IndexedLogsFn: func(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs evmtypes.Confirmations, qopts ...pg.QOpt) ([]logpoller.Log, error) {
 					return []logpoller.Log{
 						{
 							BlockNumber: 2,
@@ -409,7 +410,7 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 				},
 			},
 			poller: &mockLogPoller{
-				IndexedLogsFn: func(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs logpoller.Confirmations, qopts ...pg.QOpt) ([]logpoller.Log, error) {
+				IndexedLogsFn: func(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs evmtypes.Confirmations, qopts ...pg.QOpt) ([]logpoller.Log, error) {
 					return []logpoller.Log{
 						{
 							BlockNumber: 2,
@@ -463,7 +464,7 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 				},
 			},
 			poller: &mockLogPoller{
-				IndexedLogsFn: func(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs logpoller.Confirmations, qopts ...pg.QOpt) ([]logpoller.Log, error) {
+				IndexedLogsFn: func(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs evmtypes.Confirmations, qopts ...pg.QOpt) ([]logpoller.Log, error) {
 					return []logpoller.Log{
 						{
 							BlockNumber: 2,

@@ -297,9 +297,9 @@ func (cr *chainReader) remapQueryFilter(queryFilter commontypes.QueryFilter) (co
 		}
 		return &commontypes.AndFilter{Filters: remappedFilters}, nil
 	case *commontypes.KeysByValueFilter:
-		return logpoller.NewEventTopicsByValueFilter(filter, cr.eventIndexBindings)
+		return NewEventTopicsByValueFilter(filter, cr.eventIndexBindings)
 	case *commontypes.ConfirmationFilter:
-		return logpoller.NewFinalityFilter(filter)
+		return NewFinalityFilter(filter)
 	default:
 		return filter, nil
 	}

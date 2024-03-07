@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/logprovider"
@@ -79,7 +80,7 @@ func (s *performedEventsScanner) ScanWorkIDs(ctx context.Context, workID ...stri
 			end = len(ids)
 		}
 		batch := ids[i:end]
-		batchLogs, err := s.poller.IndexedLogs(iregistry21.IKeeperRegistryMasterDedupKeyAdded{}.Topic(), s.registryAddress, 1, batch, logpoller.Confirmations(s.finalityDepth), pg.WithParentCtx(ctx))
+		batchLogs, err := s.poller.IndexedLogs(iregistry21.IKeeperRegistryMasterDedupKeyAdded{}.Topic(), s.registryAddress, 1, batch, evmtypes.Confirmations(s.finalityDepth), pg.WithParentCtx(ctx))
 		if err != nil {
 			return nil, fmt.Errorf("error fetching logs: %w", err)
 		}

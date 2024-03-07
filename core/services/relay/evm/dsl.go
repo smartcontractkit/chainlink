@@ -1,4 +1,4 @@
-package logpoller
+package evm
 
 import (
 	"fmt"
@@ -6,8 +6,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
 type EventTopicsByValueFilter struct {
@@ -16,7 +16,7 @@ type EventTopicsByValueFilter struct {
 	Values    [][]string
 }
 
-func NewEventTopicsByValueFilter(filter *commontypes.KeysByValueFilter, eventIndexBindings evm.EventIndexBindings) (*EventTopicsByValueFilter, error) {
+func NewEventTopicsByValueFilter(filter *commontypes.KeysByValueFilter, eventIndexBindings EventIndexBindings) (*EventTopicsByValueFilter, error) {
 	var searchEventTopicsByValueFilter *EventTopicsByValueFilter
 	for i, key := range filter.Keys {
 		eventSig, _, index, err := eventIndexBindings.Get(key)
@@ -32,21 +32,21 @@ func NewEventTopicsByValueFilter(filter *commontypes.KeysByValueFilter, eventInd
 
 func (f *EventTopicsByValueFilter) Accept(visitor commontypes.Visitor) {
 	switch v := visitor.(type) {
-	case *PgParserVisitor:
+	case *PgDSLParser:
 		v.VisitEventTopicsByValueFilter(f)
 	}
 }
 
 type FinalityFilter struct {
-	Confs Confirmations
+	Confs evmtypes.Confirmations
 }
 
 func NewFinalityFilter(filter *commontypes.ConfirmationFilter) (*FinalityFilter, error) {
 	switch filter.Confirmations {
 	case commontypes.Finalized:
-		return &FinalityFilter{Finalized}, nil
+		return &FinalityFilter{evmtypes.Finalized}, nil
 	case commontypes.Unconfirmed:
-		return &FinalityFilter{Unconfirmed}, nil
+		return &FinalityFilter{evmtypes.Unconfirmed}, nil
 	default:
 		return nil, fmt.Errorf("invalid finality confirmations filter value %v", filter.Confirmations)
 	}
@@ -54,7 +54,7 @@ func NewFinalityFilter(filter *commontypes.ConfirmationFilter) (*FinalityFilter,
 
 func (f *FinalityFilter) Accept(visitor commontypes.Visitor) {
 	switch v := visitor.(type) {
-	case *PgParserVisitor:
+	case *PgDSLParser:
 		v.VisitFinalityFilter(f)
 	}
 }
@@ -65,7 +65,7 @@ type ChainIdFilter struct {
 
 func (f *ChainIdFilter) accept(visitor commontypes.Visitor) {
 	switch v := visitor.(type) {
-	case *PgParserVisitor:
+	case *PgDSLParser:
 		v.VisitChainIdFilter(f)
 	}
 }

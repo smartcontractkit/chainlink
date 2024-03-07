@@ -25,6 +25,7 @@ import (
 	evmClientMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/streams_lookup_compatible_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -216,14 +217,14 @@ func TestRegistry_VerifyCheckBlock(t *testing.T) {
 type mockLogPoller struct {
 	logpoller.LogPoller
 	GetBlocksRangeFn func(ctx context.Context, numbers []uint64, qopts ...pg.QOpt) ([]logpoller.LogPollerBlock, error)
-	IndexedLogsFn    func(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs logpoller.Confirmations, qopts ...pg.QOpt) ([]logpoller.Log, error)
+	IndexedLogsFn    func(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs evmtypes.Confirmations, qopts ...pg.QOpt) ([]logpoller.Log, error)
 }
 
 func (p *mockLogPoller) GetBlocksRange(ctx context.Context, numbers []uint64, qopts ...pg.QOpt) ([]logpoller.LogPollerBlock, error) {
 	return p.GetBlocksRangeFn(ctx, numbers, qopts...)
 }
 
-func (p *mockLogPoller) IndexedLogs(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs logpoller.Confirmations, qopts ...pg.QOpt) ([]logpoller.Log, error) {
+func (p *mockLogPoller) IndexedLogs(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs evmtypes.Confirmations, qopts ...pg.QOpt) ([]logpoller.Log, error) {
 	return p.IndexedLogsFn(eventSig, address, topicIndex, topicValues, confs, qopts...)
 }
 

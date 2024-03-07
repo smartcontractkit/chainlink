@@ -104,9 +104,9 @@ func (e *eventBinding) GetLatestValue(ctx context.Context, params, into any) err
 		return fmt.Errorf("%w: event not bound", commontypes.ErrInvalidType)
 	}
 
-	confs := logpoller.Finalized
+	confs := evmtypes.Finalized
 	if e.pending {
-		confs = logpoller.Unconfirmed
+		confs = evmtypes.Unconfirmed
 	}
 
 	if len(e.inputInfo.Args()) == 0 {
@@ -131,7 +131,7 @@ func (e *eventBinding) Bind(binding commontypes.BoundContract) error {
 	return nil
 }
 
-func (e *eventBinding) getLatestValueWithoutFilters(ctx context.Context, confs logpoller.Confirmations, into any) error {
+func (e *eventBinding) getLatestValueWithoutFilters(ctx context.Context, confs evmtypes.Confirmations, into any) error {
 	log, err := e.lp.LatestLogByEventSigWithConfs(e.hash, e.address, confs)
 	if err = wrapInternalErr(err); err != nil {
 		return err
@@ -141,7 +141,7 @@ func (e *eventBinding) getLatestValueWithoutFilters(ctx context.Context, confs l
 }
 
 func (e *eventBinding) getLatestValueWithFilters(
-	ctx context.Context, confs logpoller.Confirmations, params, into any) error {
+	ctx context.Context, confs evmtypes.Confirmations, params, into any) error {
 	offChain, err := e.convertToOffChainType(params)
 	if err != nil {
 		return err

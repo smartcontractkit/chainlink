@@ -913,7 +913,7 @@ func (c *coordinator) DKGVRFCommittees(ctx context.Context) (dkgCommittee, vrfCo
 	latestVRF, err := c.lp.LatestLogByEventSigWithConfs(
 		c.configSetTopic,
 		c.beaconAddress,
-		logpoller.Confirmations(c.finalityDepth),
+		evmtypes.Confirmations(c.finalityDepth),
 		pg.WithParentCtx(ctx),
 	)
 	if err != nil {
@@ -924,7 +924,7 @@ func (c *coordinator) DKGVRFCommittees(ctx context.Context) (dkgCommittee, vrfCo
 	latestDKG, err := c.lp.LatestLogByEventSigWithConfs(
 		c.configSetTopic,
 		c.dkgAddress,
-		logpoller.Confirmations(c.finalityDepth),
+		evmtypes.Confirmations(c.finalityDepth),
 		pg.WithParentCtx(ctx),
 	)
 	if err != nil {
