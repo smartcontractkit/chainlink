@@ -146,7 +146,7 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) countT
 		return len(as.fatalErroredTxs)
 	}
 
-	return -1
+	panic("countTransactionByState: unknown transaction state")
 }
 
 // findTxWithIdempotencyKey returns the transaction with the given idempotency key.
@@ -190,6 +190,8 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) applyT
 			as.applyToTxs(as.confirmedTxs, fn, txIDs...)
 		case TxFatalError:
 			as.applyToTxs(as.fatalErroredTxs, fn, txIDs...)
+		default:
+			panic("applyToTxsByState: unknown transaction state")
 		}
 	}
 }
@@ -233,6 +235,8 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) findTx
 			txAttempts = append(txAttempts, as._findTxAttempts(as.confirmedTxs, txFilter, txAttemptFilter, txIDs...)...)
 		case TxFatalError:
 			txAttempts = append(txAttempts, as._findTxAttempts(as.fatalErroredTxs, txFilter, txAttemptFilter, txIDs...)...)
+		default:
+			panic("findTxAttempts: unknown transaction state")
 		}
 	}
 
@@ -271,6 +275,8 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) findTx
 			txs = append(txs, as._findTxs(as.confirmedTxs, filter, txIDs...)...)
 		case TxFatalError:
 			txs = append(txs, as._findTxs(as.fatalErroredTxs, filter, txIDs...)...)
+		default:
+			panic("findTxs: unknown transaction state")
 		}
 	}
 
