@@ -327,13 +327,13 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) moveUn
 	if !ok || tx == nil {
 		return fmt.Errorf("move_unconfirmed_to_confirmed_missing_receipt: no unconfirmed transaction with ID %d", txAttempt.TxID)
 	}
+	if len(tx.TxAttempts) == 0 {
+		return fmt.Errorf("move_unconfirmed_to_confirmed_missing_receipt: no attempts for transaction with ID %d", txAttempt.TxID)
+	}
 	if tx.BroadcastAt.Before(broadcastAt) {
 		tx.BroadcastAt = &broadcastAt
 	}
 	tx.State = TxConfirmedMissingReceipt
-	if len(tx.TxAttempts) == 0 {
-		tx.TxAttempts = []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
-	}
 	txAttempt.State = txmgrtypes.TxAttemptBroadcast
 	tx.TxAttempts = append(tx.TxAttempts, txAttempt)
 
@@ -353,13 +353,13 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) moveIn
 	if tx == nil {
 		return fmt.Errorf("move_in_progress_to_confirmed_missing_receipt: no transaction in progress")
 	}
+	if len(tx.TxAttempts) == 0 {
+		return fmt.Errorf("move_in_progress_to_confirmed_missing_receipt: no attempts for transaction with ID %d", tx.ID)
+	}
 	if tx.BroadcastAt.Before(broadcastAt) {
 		tx.BroadcastAt = &broadcastAt
 	}
 	tx.State = TxConfirmedMissingReceipt
-	if len(tx.TxAttempts) == 0 {
-		tx.TxAttempts = []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
-	}
 	txAttempt.State = txmgrtypes.TxAttemptBroadcast
 	tx.TxAttempts = append(tx.TxAttempts, txAttempt)
 
@@ -382,6 +382,9 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) moveCo
 	if !ok || tx == nil {
 		return fmt.Errorf("move_confirmed_to_unconfirmed: no confirmed transaction with ID %d", txAttempt.TxID)
 	}
+	if len(tx.TxAttempts) == 0 {
+		return fmt.Errorf("move_confirmed_to_unconfirmed: no attempts for transaction with ID %d", txAttempt.TxID)
+	}
 	tx.State = TxUnconfirmed
 
 	// Delete the receipt from the attempt
@@ -389,9 +392,6 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) moveCo
 	// Reset the broadcast information for the attempt
 	txAttempt.State = txmgrtypes.TxAttemptInProgress
 	txAttempt.BroadcastBeforeBlockNum = nil
-	if len(tx.TxAttempts) == 0 {
-		tx.TxAttempts = []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
-	}
 	tx.TxAttempts = append(tx.TxAttempts, txAttempt)
 
 	as.unconfirmedTxs[tx.ID] = tx
