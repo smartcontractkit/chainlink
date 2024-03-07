@@ -2,7 +2,7 @@
 pragma solidity 0.8.19;
 
 import {AutomationRegistryBase2_2} from "./AutomationRegistryBase2_2.sol";
-import {Log} from "../../interfaces/ILogAutomation.sol";
+import {Log} from "../interfaces/ILogAutomation.sol";
 
 /**
  * @notice this file exposes structs that are otherwise internal to the automation registry

@@ -1,4 +1,4 @@
-ChainID = '324'
+ChainID = '300'
 ChainType = 'zksync'
 FinalityDepth = 1
 LogPollInterval = '5s'

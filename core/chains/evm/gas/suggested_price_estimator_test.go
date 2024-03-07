@@ -24,7 +24,7 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 	maxGasPrice := assets.NewWeiI(100)
 
 	calldata := []byte{0x00, 0x00, 0x01, 0x02, 0x03}
-	const gasLimit uint32 = 80000
+	const gasLimit uint64 = 80000
 
 	cfg := &gas.MockGasEstimatorConfig{BumpPercentF: 10, BumpMinF: assets.NewWei(big.NewInt(1)), BumpThresholdF: 1}
 
@@ -64,7 +64,7 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 		require.Error(t, err)
 		assert.EqualError(t, err, "estimated gas price: 42 wei is greater than the maximum gas price configured: 40 wei")
 		assert.Nil(t, gasPrice)
-		assert.Equal(t, uint32(0), chainSpecificGasLimit)
+		assert.Equal(t, uint64(0), chainSpecificGasLimit)
 	})
 
 	t.Run("gas price is lower than global max gas price", func(t *testing.T) {
@@ -80,7 +80,7 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 		gasPrice, chainSpecificGasLimit, err := o.GetLegacyGas(testutils.Context(t), calldata, gasLimit, assets.NewWeiI(110))
 		assert.EqualError(t, err, "estimated gas price: 120 wei is greater than the maximum gas price configured: 110 wei")
 		assert.Nil(t, gasPrice)
-		assert.Equal(t, uint32(0), chainSpecificGasLimit)
+		assert.Equal(t, uint64(0), chainSpecificGasLimit)
 	})
 
 	t.Run("calling GetLegacyGas on started estimator if initial call failed returns error", func(t *testing.T) {
@@ -180,7 +180,7 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 		require.Error(t, err)
 		assert.EqualError(t, err, "estimated gas price: 42 wei is greater than the maximum gas price configured: 40 wei")
 		assert.Nil(t, gasPrice)
-		assert.Equal(t, uint32(0), chainSpecificGasLimit)
+		assert.Equal(t, uint64(0), chainSpecificGasLimit)
 	})
 
 	t.Run("calling BumpLegacyGas on started estimator returns max gas price when suggested price under max but the buffer exceeds it", func(t *testing.T) {

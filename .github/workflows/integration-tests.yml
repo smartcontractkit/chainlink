@@ -60,6 +60,8 @@ jobs:
   enforce-ctf-version:
     name: Enforce CTF Version
     runs-on: ubuntu-latest
+    # We don't directly merge dependabot PRs, so let's not waste the resources
+    if: github.actor != 'dependabot[bot]'
     steps:
       - run: echo "${{github.event_name}}"
       - name: Checkout the repo
@@ -93,6 +95,8 @@ jobs:
     environment: integration
     name: Check Paths That Require Tests To Run
     runs-on: ubuntu-latest
+    # We don't directly merge dependabot PRs, so let's not waste the resources
+    if: github.actor != 'dependabot[bot]'
     steps:
       - name: Checkout the repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
@@ -127,6 +131,8 @@ jobs:
   build-lint-integration-tests:
     name: Build and Lint integration-tests
     runs-on: ubuntu20.04-16cores-64GB
+    # We don't directly merge dependabot PRs, so let's not waste the resources
+    if: github.actor != 'dependabot[bot]'
     strategy:
       matrix:
         project:
@@ -853,6 +859,8 @@ jobs:
     name: Get Solana Sha From Go Mod
     environment: Integration
     runs-on: ubuntu-latest
+    # We don't directly merge dependabot PRs, so let's not waste the resources
+    if: github.actor != 'dependabot[bot]'
     outputs:
       sha: ${{ steps.getsha.outputs.sha }}
     steps:
