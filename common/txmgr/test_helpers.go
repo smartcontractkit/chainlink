@@ -51,7 +51,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) XXXTestAba
 	return b.abandon(addr)
 }
 
-func (b *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) XXXTestInsertTx(fromAddr ADDR, tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
+func (b *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) XXXTestInsertTx(fromAddr ADDR, tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
 	as, ok := b.addressStates[fromAddr]
 	if !ok {
 		return fmt.Errorf("address not found: %s", fromAddr)
@@ -63,7 +63,7 @@ func (b *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) XXXTes
 	}
 	for i := 0; i < len(tx.TxAttempts); i++ {
 		txAttempt := tx.TxAttempts[i]
-		as.attemptHashToTxAttempt[txAttempt.Hash] = txAttempt
+		as.attemptHashToTxAttempt[txAttempt.Hash] = &txAttempt
 	}
 
 	switch tx.State {
@@ -84,14 +84,14 @@ func (b *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) XXXTes
 	return nil
 }
 
-func (b *InMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) XXXTestFindTxs(
+func (b *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) XXXTestFindTxs(
 	txStates []txmgrtypes.TxState,
 	filter func(*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool,
 	txIDs ...int64,
 ) []txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {
 	txs := []txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
 	for _, as := range b.addressStates {
-		txs = append(txs, as.FindTxs(txStates, filter, txIDs...)...)
+		txs = append(txs, as.findTxs(txStates, filter, txIDs...)...)
 	}
 
 	return txs
