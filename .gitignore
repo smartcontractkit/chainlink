@@ -29,6 +29,7 @@ tools/clroot/db.sqlite3-wal
 .vscode/
 *.iml
 debug.env
+*.txt
 
 # codeship
 *.aes
@@ -111,3 +112,6 @@ tools/flakeytests/coverage.txt
 
 # Runtime test configuration that might contain secrets
 overrides.toml
+
+# Temp Changelog migration
+CHANGELOG.md
