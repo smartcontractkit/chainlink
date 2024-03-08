@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
-import {EnumerableSet} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
-import {Address} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
+import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
+import {Address} from "../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
 import {AutomationRegistryBase2_2} from "./AutomationRegistryBase2_2.sol";
 import {AutomationRegistryLogicB2_2} from "./AutomationRegistryLogicB2_2.sol";
-import {Chainable} from "../../Chainable.sol";
-import {AutomationForwarder} from "../../AutomationForwarder.sol";
-import {IAutomationForwarder} from "../../interfaces/IAutomationForwarder.sol";
-import {UpkeepTranscoderInterfaceV2} from "../../interfaces/UpkeepTranscoderInterfaceV2.sol";
-import {MigratableKeeperRegistryInterfaceV2} from "../../interfaces/MigratableKeeperRegistryInterfaceV2.sol";
+import {Chainable} from "../Chainable.sol";
+import {AutomationForwarder} from "../AutomationForwarder.sol";
+import {IAutomationForwarder} from "../interfaces/IAutomationForwarder.sol";
+import {UpkeepTranscoderInterfaceV2} from "../interfaces/UpkeepTranscoderInterfaceV2.sol";
+import {MigratableKeeperRegistryInterfaceV2} from "../interfaces/MigratableKeeperRegistryInterfaceV2.sol";
 
 /**
  * @notice Logic contract, works in tandem with AutomationRegistry as a proxy
