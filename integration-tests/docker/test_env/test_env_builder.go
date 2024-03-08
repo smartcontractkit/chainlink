@@ -331,6 +331,9 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		if err != nil {
 			return nil, err
 		}
+
+		b.te.isSimulatedNetwork = true
+
 		return b.te, nil
 	}
 
@@ -395,8 +398,6 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 
 			b.te.SethClient = seth
 		}
-
-		b.te.isSimulatedNetwork = true
 	}
 
 	var nodeCsaKeys []string
@@ -433,8 +434,6 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 					}
 				}
 			}
-
-			b.te.isSimulatedNetwork = true
 		}
 
 		err := b.te.StartClCluster(cfg, b.clNodesCount, b.secretsConfig, b.testConfig, b.clNodesOpts...)
@@ -462,8 +461,6 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 				return nil, err
 			}
 		}
-
-		b.te.isSimulatedNetwork = true
 	}
 
 	var enDesc string
