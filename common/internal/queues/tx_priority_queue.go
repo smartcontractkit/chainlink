@@ -27,11 +27,9 @@ func NewTxPriorityQueue[
 	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ](capacity int) *TxPriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
-	pq := TxPriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{
+	return &TxPriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{
 		ph: NewPriorityHeap[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE](capacity),
 	}
-
-	return &pq
 }
 
 // AddTx adds a transaction to the queue

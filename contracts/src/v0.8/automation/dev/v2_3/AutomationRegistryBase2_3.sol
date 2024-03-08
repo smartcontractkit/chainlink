@@ -11,7 +11,8 @@ import {AggregatorV3Interface} from "../../../shared/interfaces/AggregatorV3Inte
 import {LinkTokenInterface} from "../../../shared/interfaces/LinkTokenInterface.sol";
 import {KeeperCompatibleInterface} from "../../interfaces/KeeperCompatibleInterface.sol";
 import {UpkeepFormat} from "../../interfaces/UpkeepTranscoderInterface.sol";
-import {IChainModule} from "../interfaces/IChainModule.sol";
+import {IChainModule} from "../../interfaces/IChainModule.sol";
+import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
 /**
  * @notice Base Keeper Registry contract, contains shared logic between
@@ -103,6 +104,9 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   mapping(uint256 => bytes) internal s_upkeepOffchainConfig; // general config set by users for each upkeep
   mapping(uint256 => bytes) internal s_upkeepPrivilegeConfig; // general config set by an administrative role for an upkeep
   mapping(address => bytes) internal s_adminPrivilegeConfig; // general config set by an administrative role for an admin
+  // billing
+  mapping(IERC20 billingToken => BillingConfig billingConfig) internal s_billingConfigs; // billing configurations for different tokens
+  IERC20[] internal s_billingTokens; // list of billing tokens
 
   error ArrayHasNoEntries();
   error CannotCancel();
@@ -155,6 +159,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   error UpkeepNotCanceled();
   error UpkeepNotNeeded();
   error ValueNotChanged();
+  error ZeroAddressNotAllowed();
 
   enum MigrationPermission {
     NONE,
@@ -446,6 +451,15 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     bytes32 blockHash;
   }
 
+  /**
+   * @notice the billing config of a token
+   */
+  struct BillingConfig {
+    uint32 gasFeePPB;
+    uint24 flatFeeMicroLink;
+    address priceFeed;
+  }
+
   event AdminPrivilegeConfigSet(address indexed admin, bytes privilegeConfig);
   event CancelledUpkeepReport(uint256 indexed id, bytes trigger);
   event ChainSpecificModuleUpdated(address newModule);
@@ -483,6 +497,8 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   event UpkeepTriggerConfigSet(uint256 indexed id, bytes triggerConfig);
   event UpkeepUnpaused(uint256 indexed id);
   event Unpaused(address account);
+  // Event to emit when a billing configuration is set
+  event BillingConfigSet(IERC20 indexed token, BillingConfig config);
 
   /**
    * @param link address of the LINK Token
@@ -951,6 +967,39 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   function _preventExecution() internal view {
     if (tx.origin != i_allowedReadOnlyAddress) {
       revert OnlySimulatedBackend();
+    }
+  }
+
+  /**
+   * @notice sets billing configuration for a token
+   * @param billingTokens the addresses of tokens
+   * @param billingConfigs the configs for tokens
+   */
+  function _setBillingConfig(IERC20[] memory billingTokens, BillingConfig[] memory billingConfigs) internal {
+    // Clear existing data
+    for (uint256 i = 0; i < s_billingTokens.length; i++) {
+      delete s_billingConfigs[s_billingTokens[i]];
+    }
+    delete s_billingTokens;
+
+    for (uint256 i = 0; i < billingTokens.length; i++) {
+      IERC20 token = billingTokens[i];
+      BillingConfig memory config = billingConfigs[i];
+
+      if (address(token) == ZERO_ADDRESS || config.priceFeed == ZERO_ADDRESS) {
+        revert ZeroAddressNotAllowed();
+      }
+
+      // if this is a new token, add it to tokens list. Otherwise revert
+      if (s_billingConfigs[token].priceFeed != ZERO_ADDRESS) {
+        revert DuplicateEntry();
+      }
+      s_billingTokens.push(token);
+
+      // update the billing config for an existing token or add a new one
+      s_billingConfigs[token] = config;
+
+      emit BillingConfigSet(token, config);
     }
   }
 }
