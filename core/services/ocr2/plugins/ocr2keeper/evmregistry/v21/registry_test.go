@@ -21,7 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
-	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_convenience"
+	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_compatible_utils"
 	autov2common "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_v21_plus_common"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
@@ -331,8 +331,8 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 				},
 			},
 			packer: &mockPacker{
-				UnpackLogTriggerConfigFn: func(raw []byte) (ac.LogTriggerConfig, error) {
-					return ac.LogTriggerConfig{}, nil
+				UnpackLogTriggerConfigFn: func(raw []byte) (ac.IAutomationV21PlusCommonLogTriggerConfig, error) {
+					return ac.IAutomationV21PlusCommonLogTriggerConfig{}, nil
 				},
 			},
 			expectsErr: true,
@@ -385,8 +385,8 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 				},
 			},
 			packer: &mockPacker{
-				UnpackLogTriggerConfigFn: func(raw []byte) (ac.LogTriggerConfig, error) {
-					return ac.LogTriggerConfig{}, nil
+				UnpackLogTriggerConfigFn: func(raw []byte) (ac.IAutomationV21PlusCommonLogTriggerConfig, error) {
+					return ac.IAutomationV21PlusCommonLogTriggerConfig{}, nil
 				},
 			},
 		},
@@ -437,8 +437,8 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 				},
 			},
 			packer: &mockPacker{
-				UnpackLogTriggerConfigFn: func(raw []byte) (ac.LogTriggerConfig, error) {
-					return ac.LogTriggerConfig{}, nil
+				UnpackLogTriggerConfigFn: func(raw []byte) (ac.IAutomationV21PlusCommonLogTriggerConfig, error) {
+					return ac.IAutomationV21PlusCommonLogTriggerConfig{}, nil
 				},
 			},
 		},
@@ -491,8 +491,8 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 				},
 			},
 			packer: &mockPacker{
-				UnpackLogTriggerConfigFn: func(raw []byte) (ac.LogTriggerConfig, error) {
-					return ac.LogTriggerConfig{}, nil
+				UnpackLogTriggerConfigFn: func(raw []byte) (ac.IAutomationV21PlusCommonLogTriggerConfig, error) {
+					return ac.IAutomationV21PlusCommonLogTriggerConfig{}, nil
 				},
 			},
 		},
@@ -556,9 +556,9 @@ func (r *mockRegistry) GetUpkeepTriggerConfig(opts *bind.CallOpts, upkeepId *big
 
 type mockPacker struct {
 	encoding.Packer
-	UnpackLogTriggerConfigFn func(raw []byte) (ac.LogTriggerConfig, error)
+	UnpackLogTriggerConfigFn func(raw []byte) (ac.IAutomationV21PlusCommonLogTriggerConfig, error)
 }
 
-func (p *mockPacker) UnpackLogTriggerConfig(raw []byte) (ac.LogTriggerConfig, error) {
+func (p *mockPacker) UnpackLogTriggerConfig(raw []byte) (ac.IAutomationV21PlusCommonLogTriggerConfig, error) {
 	return p.UnpackLogTriggerConfigFn(raw)
 }

@@ -5,7 +5,7 @@ import (
 
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
-	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_convenience"
+	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_compatible_utils"
 	autov2common "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_v21_plus_common"
 )
 
@@ -85,12 +85,12 @@ func HttpToStreamsErrCode(statusCode int) ErrCode {
 	}
 }
 
-type UpkeepInfo = autov2common.UpkeepInfo
+type UpkeepInfo = autov2common.IAutomationV21PlusCommonUpkeepInfo
 
 type Packer interface {
 	UnpackCheckResult(payload ocr2keepers.UpkeepPayload, raw string) (ocr2keepers.CheckResult, error)
 	UnpackPerformResult(raw string) (PipelineExecutionState, bool, error)
-	UnpackLogTriggerConfig(raw []byte) (ac.LogTriggerConfig, error)
-	PackReport(report ac.Report) ([]byte, error)
-	UnpackReport(raw []byte) (ac.Report, error)
+	UnpackLogTriggerConfig(raw []byte) (ac.IAutomationV21PlusCommonLogTriggerConfig, error)
+	PackReport(report ac.IAutomationV21PlusCommonReport) ([]byte, error)
+	UnpackReport(raw []byte) (ac.IAutomationV21PlusCommonReport, error)
 }

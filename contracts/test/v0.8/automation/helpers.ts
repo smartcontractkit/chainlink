@@ -86,6 +86,8 @@ export const assertSatisfiesInterface = (
       `missing function ${functionName}`,
     )
 
+    // these are technically pure in those interfaces. but in the master interface, they are view functions
+    // bc the underlying contracts define constants for these values and return them in these getters
     if (
       functionName === 'typeAndVersion()' ||
       functionName === 'upkeepVersion()' ||

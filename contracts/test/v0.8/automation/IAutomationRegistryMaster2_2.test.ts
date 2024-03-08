@@ -30,7 +30,7 @@ const compositeABIs = [
  * contracts, and therefore not enforceable by the compiler directly. Instead, we use this
  * test to assert that the master interface satisfies the constraints of an individual interface
  */
-describe('IAutomationRegistryMaster', () => {
+describe('IAutomationRegistryMaster2_2', () => {
   it('is up to date', async () => {
     const checksum = ethers.utils.id(compositeABIs.join(''))
     const knownChecksum = fs

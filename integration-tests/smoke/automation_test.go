@@ -32,12 +32,10 @@ import (
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/types"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
-	cltypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_convenience"
+	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_compatible_utils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury/streams"
 )
-
-var convenienceABI = cltypes.MustGetABI(automation_convenience.AutomationConvenienceABI)
 
 const (
 	automationDefaultUpkeepGasLimit = uint32(2500000)
@@ -313,7 +311,7 @@ func TestSetUpkeepTriggerConfig(t *testing.T) {
 			for i := 0; i < len(consumers); i++ {
 				upkeepAddr := consumers[i].Address()
 
-				logTriggerConfigStruct := automation_convenience.LogTriggerConfig{
+				logTriggerConfigStruct := ac.IAutomationV21PlusCommonLogTriggerConfig{
 					ContractAddress: common.HexToAddress(upkeepAddr),
 					FilterSelector:  0,
 					Topic0:          topic0InBytesNoMatch,
@@ -321,7 +319,7 @@ func TestSetUpkeepTriggerConfig(t *testing.T) {
 					Topic2:          bytes0,
 					Topic3:          bytes0,
 				}
-				encodedLogTriggerConfig, err := convenienceABI.Methods["_logTriggerConfig"].Inputs.Pack(&logTriggerConfigStruct)
+				encodedLogTriggerConfig, err := core.CompatibleUtilsABI.Methods["_logTriggerConfig"].Inputs.Pack(&logTriggerConfigStruct)
 				if err != nil {
 					return
 				}
@@ -361,7 +359,7 @@ func TestSetUpkeepTriggerConfig(t *testing.T) {
 			for i := 0; i < len(consumers); i++ {
 				upkeepAddr := consumers[i].Address()
 
-				logTriggerConfigStruct := automation_convenience.LogTriggerConfig{
+				logTriggerConfigStruct := ac.IAutomationV21PlusCommonLogTriggerConfig{
 					ContractAddress: common.HexToAddress(upkeepAddr),
 					FilterSelector:  0,
 					Topic0:          topic0InBytesMatch,
@@ -369,7 +367,7 @@ func TestSetUpkeepTriggerConfig(t *testing.T) {
 					Topic2:          bytes0,
 					Topic3:          bytes0,
 				}
-				encodedLogTriggerConfig, err := convenienceABI.Methods["_logTriggerConfig"].Inputs.Pack(&logTriggerConfigStruct)
+				encodedLogTriggerConfig, err := core.CompatibleUtilsABI.Methods["_logTriggerConfig"].Inputs.Pack(&logTriggerConfigStruct)
 				if err != nil {
 					return
 				}

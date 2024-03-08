@@ -30,8 +30,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
 	"github.com/smartcontractkit/chainlink/core/scripts/common"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_convenience"
-	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_v21_plus_common"
+	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_compatible_utils"
+	autov2common "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_v21_plus_common"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
@@ -75,7 +75,7 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 
 	// connect to registry contract
 	registryAddress := gethcommon.HexToAddress(k.cfg.RegistryAddress)
-	v2common, err := ac.NewIAutomationV21PlusCommon(registryAddress, k.client)
+	v2common, err := autov2common.NewIAutomationV21PlusCommon(registryAddress, k.client)
 	if err != nil {
 		failUnknown("failed to connect to the registry contract", err)
 	}
@@ -106,8 +106,8 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 	}
 
 	// local state for pipeline results
-	var upkeepInfo ac.UpkeepInfo
-	var checkResult ac.CheckUpkeep
+	var upkeepInfo autov2common.IAutomationV21PlusCommonUpkeepInfo
+	var checkResult autov2common.CheckUpkeep
 	var blockNum uint64
 	var performData []byte
 	var workID [32]byte
@@ -134,12 +134,12 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 		// do basic checks
 		upkeepInfo = getUpkeepInfoAndRunBasicChecks(v2common, triggerCallOpts, upkeepID, chainID)
 
-		var tmpCheckResult ac.CheckUpkeep0
+		var tmpCheckResult autov2common.CheckUpkeep0
 		tmpCheckResult, err = v2common.CheckUpkeep0(triggerCallOpts, upkeepID)
 		if err != nil {
 			failUnknown("failed to check upkeep: ", err)
 		}
-		checkResult = ac.CheckUpkeep(tmpCheckResult)
+		checkResult = autov2common.CheckUpkeep(tmpCheckResult)
 		// do tenderly simulation
 		var rawCall []byte
 		rawCall, err = core.AutoV2CommonABI.Pack("checkUpkeep", upkeepID, []byte{})
@@ -213,7 +213,7 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 		if err != nil {
 			failUnknown("failed to fetch trigger config for upkeep", err)
 		}
-		var triggerConfig automation_convenience.LogTriggerConfig
+		var triggerConfig ac.IAutomationV21PlusCommonLogTriggerConfig
 		triggerConfig, err = packer.UnpackLogTriggerConfig(rawTriggerConfig)
 		if err != nil {
 			failUnknown("failed to unpack trigger config", err)
@@ -380,7 +380,7 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 	}
 }
 
-func getUpkeepInfoAndRunBasicChecks(keeperRegistry21 *ac.IAutomationV21PlusCommon, callOpts *bind.CallOpts, upkeepID *big.Int, chainID int64) ac.UpkeepInfo {
+func getUpkeepInfoAndRunBasicChecks(keeperRegistry21 *autov2common.IAutomationV21PlusCommon, callOpts *bind.CallOpts, upkeepID *big.Int, chainID int64) autov2common.IAutomationV21PlusCommonUpkeepInfo {
 	// get upkeep info
 	upkeepInfo, err := keeperRegistry21.GetUpkeep(callOpts, upkeepID)
 	if err != nil {
@@ -436,7 +436,7 @@ func getCheckUpkeepFailureReason(reasonIndex uint8) string {
 	return fmt.Sprintf("Unknown : %d", reasonIndex)
 }
 
-func mustAutomationCheckResult(upkeepID *big.Int, checkResult ac.CheckUpkeep, trigger ocr2keepers.Trigger) ocr2keepers.CheckResult {
+func mustAutomationCheckResult(upkeepID *big.Int, checkResult autov2common.CheckUpkeep, trigger ocr2keepers.Trigger) ocr2keepers.CheckResult {
 	upkeepIdentifier := mustUpkeepIdentifier(upkeepID)
 	checkResult2 := ocr2keepers.CheckResult{
 		Eligible:            checkResult.UpkeepNeeded,
@@ -469,7 +469,7 @@ func (bs *blockSubscriber) LatestBlock() *ocr2keepers.BlockKey {
 	}
 }
 
-func logMatchesTriggerConfig(log *types.Log, config automation_convenience.LogTriggerConfig) bool {
+func logMatchesTriggerConfig(log *types.Log, config ac.IAutomationV21PlusCommonLogTriggerConfig) bool {
 	if log.Topics[0] != config.Topic0 {
 		return false
 	}
@@ -490,7 +490,7 @@ func packTriggerData(log *types.Log, blockTime uint64) ([]byte, error) {
 	for _, topic := range log.Topics {
 		topics = append(topics, topic)
 	}
-	b, err := core.ConvenienceABI.Methods["_log"].Inputs.Pack(&automation_convenience.Log{
+	b, err := core.CompatibleUtilsABI.Methods["_log"].Inputs.Pack(&ac.Log{
 		Index:       big.NewInt(int64(log.Index)),
 		Timestamp:   big.NewInt(int64(blockTime)),
 		TxHash:      log.TxHash,

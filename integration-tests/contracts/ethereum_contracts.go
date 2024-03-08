@@ -15,13 +15,13 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_coordinator"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_load_test_client"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_router"
@@ -33,6 +33,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/functions_oracle_events_mock"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/gas_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/gas_wrapper_mock"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_registry_master_wrapper_2_2"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registrar_wrapper1_2_mock"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_1_mock"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
@@ -1934,12 +1936,14 @@ type LegacyEthereumOffchainAggregatorV2 struct {
 
 // OCRv2Config represents the config for the OCRv2 contract
 type OCRv2Config struct {
-	Signers               []common.Address
-	Transmitters          []common.Address
-	F                     uint8
-	OnchainConfig         []byte
-	OffchainConfigVersion uint64
-	OffchainConfig        []byte
+	Signers                  []common.Address
+	Transmitters             []common.Address
+	F                        uint8
+	OnchainConfig            []byte
+	TypedOnchainConfigLegacy i_keeper_registry_master_wrapper_2_1.KeeperRegistryBase21OnchainConfig
+	TypedOnchainConfig       i_automation_registry_master_wrapper_2_2.AutomationRegistryBase22OnchainConfig
+	OffchainConfigVersion    uint64
+	OffchainConfig           []byte
 }
 
 func (e *LegacyEthereumOffchainAggregatorV2) Address() string {

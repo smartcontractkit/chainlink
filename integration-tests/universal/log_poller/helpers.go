@@ -41,7 +41,7 @@ import (
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	cltypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_convenience"
+	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_compatible_utils"
 	le "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_emitter"
 	core_logger "github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -52,7 +52,7 @@ import (
 
 var (
 	EmitterABI, _     = abi.JSON(strings.NewReader(le.LogEmitterABI))
-	automatoinConvABI = cltypes.MustGetABI(automation_convenience.AutomationConvenienceABI)
+	automatoinConvABI = cltypes.MustGetABI(ac.AutomationCompatibleUtilsABI)
 	bytes0            = [32]byte{
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 	} // bytes representation of 0x0000000000000000000000000000000000000000000000000000000000000000
@@ -60,7 +60,7 @@ var (
 )
 
 var registerSingleTopicFilter = func(registry contracts.KeeperRegistry, upkeepID *big.Int, emitterAddress common.Address, topic common.Hash) error {
-	logTriggerConfigStruct := automation_convenience.LogTriggerConfig{
+	logTriggerConfigStruct := ac.IAutomationV21PlusCommonLogTriggerConfig{
 		ContractAddress: emitterAddress,
 		FilterSelector:  0,
 		Topic0:          topic,
