@@ -625,16 +625,18 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_OptimisticLockingOnEthTx(t *testi
 		<-chBlock
 	}).Once()
 	ethClient.On("PendingNonceAt", mock.Anything, fromAddress).Return(uint64(0), nil)
+	txmClient := txmgr.NewEvmTxmClient(ethClient)
+	nonceTracker := txmgr.NewNonceTracker(logger.Test(t), txStore, txmClient)
 	eb := txmgr.NewEvmBroadcaster(
 		txStore,
-		txmgr.NewEvmTxmClient(ethClient),
+		txmClient,
 		evmcfg,
 		txmgr.NewEvmTxmFeeConfig(ccfg.EVM().GasEstimator()),
 		ccfg.EVM().Transactions(),
 		cfg.Database().Listener(),
 		ethKeyStore,
 		txBuilder,
-		nil,
+		nonceTracker,
 		logger.Test(t),
 		&testCheckerFactory{},
 		false,
@@ -1020,7 +1022,8 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	ethClient.On("PendingNonceAt", mock.Anything, fromAddress).Return(uint64(0), nil).Once()
 	lggr := logger.Test(t)
-	nonceTracker := txmgr.NewNonceTracker(lggr, txStore, txmgr.NewEvmTxmClient(ethClient))
+	txmClient := txmgr.NewEvmTxmClient(ethClient)
+	nonceTracker := txmgr.NewNonceTracker(lggr, txStore, txmClient)
 	eb := NewTestEthBroadcaster(t, txStore, ethClient, ethKeyStore, evmcfg, &testCheckerFactory{}, false, nonceTracker)
 	ctx := testutils.Context(t)
 
@@ -1156,7 +1159,8 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 					txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), evmcfg.EVM().GasEstimator(), ethKeyStore, estimator)
 					localNextNonce = getLocalNextNonce(t, nonceTracker, fromAddress)
 					ethClient.On("PendingNonceAt", mock.Anything, fromAddress).Return(localNextNonce, nil).Once()
-					eb2 := txmgr.NewEvmBroadcaster(txStore, txmgr.NewEvmTxmClient(ethClient), txmgr.NewEvmTxmConfig(evmcfg.EVM()), txmgr.NewEvmTxmFeeConfig(evmcfg.EVM().GasEstimator()), evmcfg.EVM().Transactions(), evmcfg.Database().Listener(), ethKeyStore, txBuilder, nil, lggr, &testCheckerFactory{}, false)
+					nonceTracker2 := txmgr.NewNonceTracker(lggr, txStore, txmClient)
+					eb2 := txmgr.NewEvmBroadcaster(txStore, txmClient, txmgr.NewEvmTxmConfig(evmcfg.EVM()), txmgr.NewEvmTxmFeeConfig(evmcfg.EVM().GasEstimator()), evmcfg.EVM().Transactions(), evmcfg.Database().Listener(), ethKeyStore, txBuilder, nonceTracker2, lggr, &testCheckerFactory{}, false)
 					retryable, err := eb2.ProcessUnstartedTxs(ctx, fromAddress)
 					assert.NoError(t, err)
 					assert.False(t, retryable)
