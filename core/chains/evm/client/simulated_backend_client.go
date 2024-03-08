@@ -186,6 +186,9 @@ func (c *SimulatedBackendClient) blockNumber(number interface{}) (blockNumber *b
 			return blockNumber, nil
 		}
 	case *big.Int:
+		if n == nil {
+			return nil, nil
+		}
 		if n.Sign() < 0 {
 			return nil, fmt.Errorf("block number must be non-negative")
 		}
