@@ -31,6 +31,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
   error ProvingKeyAlreadyRegistered(bytes32 keyHash);
   error NoSuchProvingKey(bytes32 keyHash);
   error InvalidLinkWeiPrice(int256 linkWei);
+  error InvalidGasAfterPaymentCalculation(uint32 gasAfterPaymentCalculation, uint32 min);
   error LinkDiscountTooHigh(uint32 flatFeeLinkDiscountPPM, uint32 flatFeeNativePPM);
   error InsufficientGasForConsumer(uint256 have, uint256 want);
   error NoCorrespondingRequest();
@@ -177,8 +178,15 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     if (fallbackWeiPerUnitLink <= 0) {
       revert InvalidLinkWeiPrice(fallbackWeiPerUnitLink);
     }
-    if (fulfillmentFlatFeeNativePPM > 0 && fulfillmentFlatFeeLinkDiscountPPM >= fulfillmentFlatFeeNativePPM) {
+    if (
+      fulfillmentFlatFeeLinkDiscountPPM > fulfillmentFlatFeeNativePPM ||
+      (fulfillmentFlatFeeNativePPM > 0 && fulfillmentFlatFeeLinkDiscountPPM == fulfillmentFlatFeeNativePPM)
+    ) {
       revert LinkDiscountTooHigh(fulfillmentFlatFeeLinkDiscountPPM, fulfillmentFlatFeeNativePPM);
+    }
+    // After payment, there is at least one SLOAD and one SSTORE
+    if (gasAfterPaymentCalculation < 4000) {
+      revert InvalidGasAfterPaymentCalculation(gasAfterPaymentCalculation, 4000);
     }
     s_config = Config({
       minimumRequestConfirmations: minimumRequestConfirmations,
