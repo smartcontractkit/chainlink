@@ -1771,9 +1771,8 @@ func (destCCIP *DestCCIPModule) AssertSeqNumberExecuted(
 			}
 			seqNumberAfter, err := destCCIP.CommitStore.Instance.GetExpectedNextSequenceNumber(nil)
 			if err != nil {
-				reqStat.UpdateState(lggr, seqNumberBefore, testreporters.Commit, time.Since(timeNow), testreporters.Failure)
-				return fmt.Errorf("error %w in GetNextExpectedSeqNumber by commitStore for seqNum %d lane %d-->%d",
-					err, seqNumberBefore+1, destCCIP.SourceChainId, destCCIP.Common.ChainClient.GetChainID())
+				// if we get error instead of returning error we continue, in case it's a temporary RPC failure .
+				continue
 			}
 			if seqNumberAfter > seqNumberBefore {
 				destCCIP.NextSeqNumToCommit.Store(seqNumberAfter)
