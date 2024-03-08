@@ -304,11 +304,11 @@ jobs:
       id-token: write
       contents: read
     runs-on: ubuntu-latest
-    needs: [start-slack-thread]
+    needs: [start-slack-thread, build-test-matrix]
     strategy:
       fail-fast: false
       matrix:
-        product: ["geth", "besu", "nethermind", "erigon"]
+        evm_node: ${{fromJson(needs.build-test-matrix.outputs.matrix)}}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
@@ -320,8 +320,8 @@ jobs:
           github_token: ${{ github.token }}
           github_repository: ${{ github.repository }}
           workflow_run_id: ${{ github.run_id }}
-          github_job_name_regex: ^Client Compatibility Test ${{ matrix.product }}-(?<cap>.*?)$
-          message_title: ${{ matrix.product }}
+          github_job_name_regex: ^EVM node compatibility test (?<cap>.*?)$
+          message_title: ${{ matrix.evm_node.docker_image  }}
           slack_channel_id: ${{ secrets.QA_SLACK_CHANNEL }}
           slack_bot_token: ${{ secrets.QA_SLACK_API_KEY }}
           slack_thread_ts: ${{ needs.start-slack-thread.outputs.thread_ts }}
