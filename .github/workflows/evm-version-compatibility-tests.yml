@@ -308,7 +308,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        evm_node: ${{fromJson(needs.build-test-matrix.outputs.matrix)}}
+        # this basically works as group by in SQL; we should update it when we update the test list JSON file
+        product: [ocr, ocr2]
     steps:
       - name: Checkout the repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
@@ -320,8 +321,8 @@ jobs:
           github_token: ${{ github.token }}
           github_repository: ${{ github.repository }}
           workflow_run_id: ${{ github.run_id }}
-          github_job_name_regex: ^EVM node compatibility of ${{ matrix.evm_node.product }} with (?<cap>.*?)$
-          message_title: ${{ matrix.evm_node.product  }}
+          github_job_name_regex: ^EVM node compatibility of ${{ matrix.product }} with (?<cap>.*?)$
+          message_title: ${{ matrix.product  }}
           slack_channel_id: ${{ secrets.QA_SLACK_CHANNEL }}
           slack_bot_token: ${{ secrets.QA_SLACK_API_KEY }}
           slack_thread_ts: ${{ needs.start-slack-thread.outputs.thread_ts }}
