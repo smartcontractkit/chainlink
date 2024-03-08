@@ -92,12 +92,7 @@ type CommitReportingPlugin struct {
 }
 
 // Query is not used by the CCIP Commit plugin.
-func (r *CommitReportingPlugin) Query(ctx context.Context, _ types.ReportTimestamp) (types.Query, error) {
-	if healthy, err := r.chainHealthcheck.IsHealthy(ctx, false); err != nil {
-		return nil, err
-	} else if !healthy {
-		return nil, ccip.ErrChainIsNotHealthy
-	}
+func (r *CommitReportingPlugin) Query(context.Context, types.ReportTimestamp) (types.Query, error) {
 	return types.Query{}, nil
 }
 
