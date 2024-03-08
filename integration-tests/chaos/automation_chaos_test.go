@@ -280,7 +280,7 @@ func TestAutomationChaos(t *testing.T) {
 					defaultOCRRegistryConfig.RegistryVersion = registryVersion
 					ocrConfig, err := actions.BuildAutoOCR2ConfigVars(t, nodesWithoutBootstrap, defaultOCRRegistryConfig, registrar.Address(), 30*time.Second, registry.ChainModuleAddress(), registry.ReorgProtectionEnabled())
 					require.NoError(t, err, "Error building OCR config vars")
-					err = registry.SetConfigTypeSafe(defaultOCRRegistryConfig, ocrConfig)
+					err = registry.SetConfigTypeSafe(ocrConfig)
 					require.NoError(t, err, "Registry config should be be set successfully")
 					require.NoError(t, chainClient.WaitForEvents(), "Waiting for config to be set")
 
