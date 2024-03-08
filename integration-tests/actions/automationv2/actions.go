@@ -511,6 +511,10 @@ func (a *AutomationTest) SetConfigOnRegistry() error {
 
 	if a.RegistrySettings.RegistryVersion == ethereum.RegistryVersion_2_0 {
 		ocrConfig.OnchainConfig = a.RegistrySettings.Encode20OnchainConfig(a.Registrar.Address())
+		err = a.Registry.SetConfig(a.RegistrySettings, ocrConfig)
+		if err != nil {
+			return errors.Join(err, fmt.Errorf("failed to set config on registry"))
+		}
 	} else if a.RegistrySettings.RegistryVersion == ethereum.RegistryVersion_2_1 {
 		ocrConfig.TypedOnchainConfigLegacy = a.RegistrySettings.Create21OnchainConfig(a.Registrar.Address(), a.UpkeepPrivilegeManager)
 	} else if a.RegistrySettings.RegistryVersion == ethereum.RegistryVersion_2_2 {

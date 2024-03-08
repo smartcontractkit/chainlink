@@ -1019,7 +1019,11 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 			ocrConfig, err := actions.BuildAutoOCR2ConfigVarsLocal(l, nodesWithoutBootstrap, highCheckGasLimit, a.Registrar.Address(), 30*time.Second, a.Registry.RegistryOwnerAddress(), a.Registry.ChainModuleAddress(), a.Registry.ReorgProtectionEnabled())
 			require.NoError(t, err, "Error building OCR config")
 
-			err = a.Registry.SetConfig(highCheckGasLimit, ocrConfig)
+			if a.RegistrySettings.RegistryVersion == ethereum.RegistryVersion_2_0 {
+				err = a.Registry.SetConfig(highCheckGasLimit, ocrConfig)
+			} else {
+				err = a.Registry.SetConfigTypeSafe(ocrConfig)
+			}
 			require.NoError(t, err, "Registry config should be set successfully!")
 			err = a.ChainClient.WaitForEvents()
 			require.NoError(t, err, "Error waiting for set config tx")
