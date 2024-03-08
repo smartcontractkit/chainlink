@@ -93,12 +93,7 @@ type ExecutionReportingPlugin struct {
 	chainHealthcheck cache.ChainHealthcheck
 }
 
-func (r *ExecutionReportingPlugin) Query(ctx context.Context, _ types.ReportTimestamp) (types.Query, error) {
-	if healthy, err := r.chainHealthcheck.IsHealthy(ctx, false); err != nil {
-		return nil, err
-	} else if !healthy {
-		return nil, ccip.ErrChainIsNotHealthy
-	}
+func (r *ExecutionReportingPlugin) Query(context.Context, types.ReportTimestamp) (types.Query, error) {
 	return types.Query{}, nil
 }
 
