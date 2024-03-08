@@ -2,7 +2,7 @@
 pragma solidity 0.8.19;
 
 import {LinkTokenInterface} from "../../../shared/interfaces/LinkTokenInterface.sol";
-import {IAutomationRegistryMaster} from "../interfaces/v2_3/IAutomationRegistryMaster2_3.sol";
+import {IAutomationRegistryMaster2_3} from "../interfaces/v2_3/IAutomationRegistryMaster2_3.sol";
 import {TypeAndVersionInterface} from "../../../interfaces/TypeAndVersionInterface.sol";
 import {ConfirmedOwner} from "../../../shared/access/ConfirmedOwner.sol";
 import {IERC677Receiver} from "../../../shared/interfaces/IERC677Receiver.sol";
@@ -76,7 +76,7 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
   }
 
   struct RegistrarConfig {
-    IAutomationRegistryMaster AutomationRegistry;
+    IAutomationRegistryMaster2_3 AutomationRegistry;
     uint96 minLINKJuels;
   }
 
@@ -292,7 +292,7 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
   function setConfig(address AutomationRegistry, uint96 minLINKJuels) public onlyOwner {
     s_config = RegistrarConfig({
       minLINKJuels: minLINKJuels,
-      AutomationRegistry: IAutomationRegistryMaster(AutomationRegistry)
+      AutomationRegistry: IAutomationRegistryMaster2_3(AutomationRegistry)
     });
     emit ConfigChanged(AutomationRegistry, minLINKJuels);
   }
@@ -437,7 +437,7 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
    * @dev register upkeep on AutomationRegistry contract and emit RegistrationApproved event
    */
   function _approve(RegistrationParams memory params, bytes32 hash) private returns (uint256) {
-    IAutomationRegistryMaster AutomationRegistry = s_config.AutomationRegistry;
+    IAutomationRegistryMaster2_3 AutomationRegistry = s_config.AutomationRegistry;
     uint256 upkeepId = AutomationRegistry.registerUpkeep(
       params.upkeepContract,
       params.gasLimit,

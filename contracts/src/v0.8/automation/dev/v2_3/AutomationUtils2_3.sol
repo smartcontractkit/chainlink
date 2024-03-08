@@ -26,7 +26,11 @@ contract AutomationUtils2_3 {
   /**
    * @dev this can be removed as OnchainConfig is now exposed directly from the registry
    */
-  function _onChainConfig(AutomationRegistryBase2_3.OnchainConfig memory) external {} // 0x2ff92a81
+  function _onChainConfig(
+    AutomationRegistryBase2_3.OnchainConfig memory,
+    address[] memory,
+    AutomationRegistryBase2_3.BillingConfig[] memory
+  ) external {}
 
   function _report(AutomationRegistryBase2_3.Report memory) external {} // 0xe65d6546
 

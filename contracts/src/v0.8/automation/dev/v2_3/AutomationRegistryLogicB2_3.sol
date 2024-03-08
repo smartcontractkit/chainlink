@@ -7,6 +7,7 @@ import {Address} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/ut
 import {UpkeepFormat} from "../../interfaces/UpkeepTranscoderInterface.sol";
 import {IAutomationForwarder} from "../../interfaces/IAutomationForwarder.sol";
 import {IChainModule} from "../../interfaces/IChainModule.sol";
+import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
 contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
   using Address for address;
@@ -18,11 +19,21 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
    */
   constructor(
     address link,
-    address linkNativeFeed,
+    address linkUSDFeed,
+    address nativeUSDFeed,
     address fastGasFeed,
     address automationForwarderLogic,
     address allowedReadOnlyAddress
-  ) AutomationRegistryBase2_3(link, linkNativeFeed, fastGasFeed, automationForwarderLogic, allowedReadOnlyAddress) {}
+  )
+    AutomationRegistryBase2_3(
+      link,
+      linkUSDFeed,
+      nativeUSDFeed,
+      fastGasFeed,
+      automationForwarderLogic,
+      allowedReadOnlyAddress
+    )
+  {}
 
   // ================================================================
   // |                      UPKEEP MANAGEMENT                       |
@@ -293,8 +304,12 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
     return address(i_link);
   }
 
-  function getLinkNativeFeedAddress() external view returns (address) {
-    return address(i_linkNativeFeed);
+  function getLinkUSDFeedAddress() external view returns (address) {
+    return address(i_linkUSDFeed);
+  }
+
+  function getNativeUSDFeedAddress() external view returns (address) {
+    return address(i_nativeUSDFeed);
   }
 
   function getFastGasFeedAddress() external view returns (address) {
@@ -307,6 +322,14 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
 
   function getAllowedReadOnlyAddress() external view returns (address) {
     return i_allowedReadOnlyAddress;
+  }
+
+  function getBillingTokens() external view returns (IERC20[] memory) {
+    return s_billingTokens;
+  }
+
+  function getBillingTokenConfig(IERC20 token) external view returns (BillingConfig memory) {
+    return s_billingConfigs[token];
   }
 
   function upkeepTranscoderVersion() public pure returns (UpkeepFormat) {
@@ -498,8 +521,8 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
    */
   function getMaxPaymentForGas(Trigger triggerType, uint32 gasLimit) public view returns (uint96 maxPayment) {
     HotVars memory hotVars = s_hotVars;
-    (uint256 fastGasWei, uint256 linkNative) = _getFeedData(hotVars);
-    return _getMaxLinkPayment(hotVars, triggerType, gasLimit, fastGasWei, linkNative);
+    (uint256 fastGasWei, uint256 linkUSD, uint256 nativeUSD) = _getFeedData(hotVars);
+    return _getMaxLinkPayment(hotVars, triggerType, gasLimit, fastGasWei, linkUSD, nativeUSD);
   }
 
   /**
@@ -535,5 +558,12 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
    */
   function hasDedupKey(bytes32 dedupKey) external view returns (bool) {
     return s_dedupKeys[dedupKey];
+  }
+
+  /**
+   * @notice returns the fallback native price
+   */
+  function getFallbackNativePrice() external view returns (uint256) {
+    return s_fallbackNativePrice;
   }
 }

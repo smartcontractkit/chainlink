@@ -40,7 +40,7 @@ const checksum = utils.id(abis.join(''))
 fs.writeFileSync(`${tmpDest}`, JSON.stringify(combinedABI))
 
 const cmd = `
-cat ${tmpDest} | pnpm abi-to-sol --solidity-version ^0.8.4 --license MIT > ${srcDest} IAutomationRegistryMaster;
+cat ${tmpDest} | pnpm abi-to-sol --solidity-version ^0.8.4 --license MIT > ${srcDest} IAutomationRegistryMaster2_3;
 echo "// abi-checksum: ${checksum}" | cat - ${srcDest} > ${tmpDest} && mv ${tmpDest} ${srcDest};
 pnpm prettier --write ${srcDest};
 `
