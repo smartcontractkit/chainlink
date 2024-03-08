@@ -66,7 +66,7 @@ type KeeperRegistry interface {
 	Address() string
 	Fund(ethAmount *big.Float) error
 	SetConfig(config KeeperRegistrySettings, ocrConfig OCRv2Config) error
-	SetConfigTypeSafe(config KeeperRegistrySettings, ocrConfig OCRv2Config) error
+	SetConfigTypeSafe(ocrConfig OCRv2Config) error
 	SetRegistrar(registrarAddr string) error
 	AddUpkeepFunds(id *big.Int, amount *big.Int) error
 	GetUpkeepInfo(ctx context.Context, id *big.Int) (*UpkeepInfo, error)

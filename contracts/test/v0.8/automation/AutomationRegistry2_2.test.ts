@@ -409,7 +409,9 @@ describe('AutomationRegistry2_2', () => {
   before(async () => {
     personas = (await getUsers()).personas
 
-    const convFactory = await ethers.getContractFactory('AutomationCompatibleUtils')
+    const convFactory = await ethers.getContractFactory(
+      'AutomationCompatibleUtils',
+    )
     automationConv = await convFactory.deploy()
 
     linkTokenFactory = await ethers.getContractFactory(
