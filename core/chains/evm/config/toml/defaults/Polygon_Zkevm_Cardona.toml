@@ -1,4 +1,4 @@
-ChainID = '1442'
+ChainID = '2442'
 FinalityDepth = 500
 NoNewHeadsThreshold = '12m'
 MinIncomingConfirmations = 1
