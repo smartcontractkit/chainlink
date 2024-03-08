@@ -60,7 +60,7 @@ func Test_CreateFeedsManagerChainConfig(t *testing.T) {
 				"ocr2IsBootstrap":      false,
 				"ocr2P2PPeerID":        peerID.String,
 				"ocr2KeyBundleID":      keyBundleID.String,
-				"ocr2Plugins":          `{"commit":true,"execute":true,"median":false,"mercury":true}`,
+				"ocr2Plugins":          `{"commit":true,"execute":true,"median":false,"mercury":true,"rebalancer":true}`,
 				"ocr2ForwarderAddress": forwarderAddr,
 			},
 		}
@@ -93,10 +93,11 @@ func Test_CreateFeedsManagerChainConfig(t *testing.T) {
 						KeyBundleID:      keyBundleID,
 						ForwarderAddress: null.StringFrom(forwarderAddr),
 						Plugins: feeds.Plugins{
-							Commit:  true,
-							Execute: true,
-							Median:  false,
-							Mercury: true,
+							Commit:     true,
+							Execute:    true,
+							Median:     false,
+							Mercury:    true,
+							Rebalancer: true,
 						},
 					},
 				}).Return(cfgID, nil)
@@ -120,10 +121,11 @@ func Test_CreateFeedsManagerChainConfig(t *testing.T) {
 						KeyBundleID:      keyBundleID,
 						ForwarderAddress: null.StringFrom(forwarderAddr),
 						Plugins: feeds.Plugins{
-							Commit:  true,
-							Execute: true,
-							Median:  false,
-							Mercury: true,
+							Commit:     true,
+							Execute:    true,
+							Median:     false,
+							Mercury:    true,
+							Rebalancer: true,
 						},
 					},
 				}, nil)
@@ -311,7 +313,7 @@ func Test_UpdateFeedsManagerChainConfig(t *testing.T) {
 				"ocr2IsBootstrap":      false,
 				"ocr2P2PPeerID":        peerID.String,
 				"ocr2KeyBundleID":      keyBundleID.String,
-				"ocr2Plugins":          `{"commit":true,"execute":true,"median":false,"mercury":true}`,
+				"ocr2Plugins":          `{"commit":true,"execute":true,"median":false,"mercury":true,"rebalancer":true}`,
 				"ocr2ForwarderAddress": forwarderAddr,
 			},
 		}
@@ -342,10 +344,11 @@ func Test_UpdateFeedsManagerChainConfig(t *testing.T) {
 						KeyBundleID:      keyBundleID,
 						ForwarderAddress: null.StringFrom(forwarderAddr),
 						Plugins: feeds.Plugins{
-							Commit:  true,
-							Execute: true,
-							Median:  false,
-							Mercury: true,
+							Commit:     true,
+							Execute:    true,
+							Median:     false,
+							Mercury:    true,
+							Rebalancer: true,
 						},
 					},
 				}).Return(cfgID, nil)
@@ -367,10 +370,11 @@ func Test_UpdateFeedsManagerChainConfig(t *testing.T) {
 						KeyBundleID:      keyBundleID,
 						ForwarderAddress: null.StringFrom(forwarderAddr),
 						Plugins: feeds.Plugins{
-							Commit:  true,
-							Execute: true,
-							Median:  false,
-							Mercury: true,
+							Commit:     true,
+							Execute:    true,
+							Median:     false,
+							Mercury:    true,
+							Rebalancer: true,
 						},
 					},
 				}, nil)

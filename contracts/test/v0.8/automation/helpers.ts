@@ -6,6 +6,9 @@ import { IKeeperRegistryMaster__factory as IKeeperRegistryMasterFactory } from '
 import { AutomationRegistryLogicB2_2__factory as AutomationRegistryLogicBFactory } from '../../../typechain/factories/AutomationRegistryLogicB2_2__factory'
 import { IAutomationRegistryMaster as IAutomationRegistry } from '../../../typechain/IAutomationRegistryMaster'
 import { IAutomationRegistryMaster__factory as IAutomationRegistryMasterFactory } from '../../../typechain/factories/IAutomationRegistryMaster__factory'
+import { AutomationRegistryLogicB2_3__factory as AutomationRegistryLogicB2_3Factory } from '../../../typechain/factories/AutomationRegistryLogicB2_3__factory'
+import { IAutomationRegistryMaster2_3 as IAutomationRegistry2_3 } from '../../../typechain/IAutomationRegistryMaster2_3'
+import { IAutomationRegistryMaster2_3__factory as IAutomationRegistryMaster2_3Factory } from '../../../typechain/factories/IAutomationRegistryMaster2_3__factory'
 
 export const deployRegistry21 = async (
   from: Signer,
@@ -71,13 +74,13 @@ export const deployRegistry22 = async (
 
 export const deployRegistry23 = async (
   from: Signer,
-  link: Parameters<AutomationRegistryLogicBFactory['deploy']>[0],
-  linkNative: Parameters<AutomationRegistryLogicBFactory['deploy']>[1],
-  fastgas: Parameters<AutomationRegistryLogicBFactory['deploy']>[2],
+  link: Parameters<AutomationRegistryLogicB2_3Factory['deploy']>[0],
+  linkNative: Parameters<AutomationRegistryLogicB2_3Factory['deploy']>[1],
+  fastgas: Parameters<AutomationRegistryLogicB2_3Factory['deploy']>[2],
   allowedReadOnlyAddress: Parameters<
-    AutomationRegistryLogicBFactory['deploy']
+    AutomationRegistryLogicB2_3Factory['deploy']
   >[3],
-): Promise<IAutomationRegistry> => {
+): Promise<IAutomationRegistry2_3> => {
   const logicBFactory = await ethers.getContractFactory(
     'AutomationRegistryLogicB2_3',
   )
@@ -102,5 +105,5 @@ export const deployRegistry23 = async (
     )
   const logicA = await logicAFactory.connect(from).deploy(logicB.address)
   const master = await registryFactory.connect(from).deploy(logicA.address)
-  return IAutomationRegistryMasterFactory.connect(master.address, from)
+  return IAutomationRegistryMaster2_3Factory.connect(master.address, from)
 }
