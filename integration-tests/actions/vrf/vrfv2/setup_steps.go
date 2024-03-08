@@ -418,25 +418,14 @@ func SetupVRFV2ForExistingEnv(ctx context.Context, t *testing.T, testConfig tc.T
 		if err != nil {
 			return nil, nil, nil, nil, fmt.Errorf("%s, err: %w", "error loading LinkToken", err)
 		}
-		consumers, err = DeployVRFV2Consumers(env.ContractDeployer, coordinator.Address(), 1)
-		if err != nil {
-			return nil, nil, nil, nil, fmt.Errorf("err: %w", err)
-		}
-		err = env.EVMClient.WaitForEvents()
-		if err != nil {
-			return nil, nil, nil, nil, fmt.Errorf("%s, err: %w", vrfcommon.ErrWaitTXsComplete, err)
-		}
-		l.Info().
-			Str("Coordinator", *commonExistingEnvConfig.CoordinatorAddress).
-			Int("Number of Subs to create", *testConfig.VRFv2.General.NumberOfSubToCreate).
-			Msg("Creating and funding subscriptions, deploying and adding consumers to subs")
-		subIDs, err = CreateFundSubsAndAddConsumers(
+		consumers, subIDs, err = SetupNewConsumersAndSubs(
 			env,
-			big.NewFloat(*testConfig.VRFv2.General.SubscriptionFundingAmountLink),
-			linkToken,
 			coordinator,
-			consumers,
+			testConfig,
+			linkToken,
+			1,
 			*testConfig.VRFv2.General.NumberOfSubToCreate,
+			l,
 		)
 		if err != nil {
 			return nil, nil, nil, nil, fmt.Errorf("err: %w", err)
@@ -468,25 +457,4 @@ func SetupVRFV2ForExistingEnv(ctx context.Context, t *testing.T, testConfig tc.T
 		KeyHash:           common.HexToHash(*commonExistingEnvConfig.KeyHash),
 	}
 	return vrfContracts, subIDs, vrfKey, env, nil
-}
-
-func CancelSubsAndReturnFunds(ctx context.Context, vrfContracts *vrfcommon.VRFContracts, eoaWalletAddress string, subIDs []uint64, l zerolog.Logger) {
-	for _, subID := range subIDs {
-		l.Info().
-			Uint64("Returning funds from SubID", subID).
-			Str("Returning funds to", eoaWalletAddress).
-			Msg("Canceling subscription and returning funds to subscription owner")
-		pendingRequestsExist, err := vrfContracts.CoordinatorV2.PendingRequestsExist(ctx, subID)
-		if err != nil {
-			l.Error().Err(err).Msg("Error checking if pending requests exist")
-		}
-		if !pendingRequestsExist {
-			_, err := vrfContracts.CoordinatorV2.CancelSubscription(subID, common.HexToAddress(eoaWalletAddress))
-			if err != nil {
-				l.Error().Err(err).Msg("Error canceling subscription")
-			}
-		} else {
-			l.Error().Uint64("Sub ID", subID).Msg("Pending requests exist for subscription, cannot cancel subscription and return funds")
-		}
-	}
 }

@@ -11,16 +11,67 @@ import (
 	vrfcommon "github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/common"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/vrfv2plus"
 	vrfv2plus_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2plus"
-	"github.com/smartcontractkit/chainlink/integration-tests/types"
 )
 
-/* SingleHashGun is a gun that constantly requests randomness for one feed  */
+type BHSTestGun struct {
+	contracts  *vrfcommon.VRFContracts
+	keyHash    [32]byte
+	subIDs     []*big.Int
+	testConfig *vrfv2plus_config.Config
+	logger     zerolog.Logger
+}
 
+func NewBHSTestGun(
+	contracts *vrfcommon.VRFContracts,
+	keyHash [32]byte,
+	subIDs []*big.Int,
+	testConfig *vrfv2plus_config.Config,
+	logger zerolog.Logger,
+) *BHSTestGun {
+	return &BHSTestGun{
+		contracts:  contracts,
+		subIDs:     subIDs,
+		keyHash:    keyHash,
+		testConfig: testConfig,
+		logger:     logger,
+	}
+}
+
+// Call implements example gun call, assertions on response bodies should be done here
+func (m *BHSTestGun) Call(_ *wasp.Generator) *wasp.Response {
+	vrfv2PlusConfig := m.testConfig.General
+	billingType, err := selectBillingType(*vrfv2PlusConfig.SubscriptionBillingType)
+	if err != nil {
+		return &wasp.Response{Error: err.Error(), Failed: true}
+	}
+	_, err = vrfv2plus.RequestRandomnessAndWaitForRequestedEvent(
+		m.contracts.VRFV2PlusConsumer[0],
+		m.contracts.CoordinatorV2Plus,
+		&vrfcommon.VRFKeyData{KeyHash: m.keyHash},
+		m.subIDs[0],
+		//randomly pick payment type
+		billingType,
+		*vrfv2PlusConfig.MinimumConfirmations,
+		*vrfv2PlusConfig.CallbackGasLimit,
+		*vrfv2PlusConfig.NumberOfWords,
+		*vrfv2PlusConfig.RandomnessRequestCountPerRequest,
+		*vrfv2PlusConfig.RandomnessRequestCountPerRequestDeviation,
+		vrfv2PlusConfig.RandomWordsFulfilledEventTimeout.Duration,
+		m.logger,
+	)
+	//todo - might need to store randRequestBlockNumber and blockhash to verify that it was stored in BHS contract at the end of the test
+	if err != nil {
+		return &wasp.Response{Error: err.Error(), Failed: true}
+	}
+	return &wasp.Response{}
+}
+
+/* SingleHashGun is a gun that constantly requests randomness for one feed  */
 type SingleHashGun struct {
 	contracts  *vrfcommon.VRFContracts
 	keyHash    [32]byte
 	subIDs     []*big.Int
-	testConfig types.VRFv2PlusTestConfig
+	testConfig *vrfv2plus_config.Config
 	logger     zerolog.Logger
 }
 
@@ -28,7 +79,7 @@ func NewSingleHashGun(
 	contracts *vrfcommon.VRFContracts,
 	keyHash [32]byte,
 	subIDs []*big.Int,
-	testConfig types.VRFv2PlusTestConfig,
+	testConfig *vrfv2plus_config.Config,
 	logger zerolog.Logger,
 ) *SingleHashGun {
 	return &SingleHashGun{
@@ -43,14 +94,14 @@ func NewSingleHashGun(
 // Call implements example gun call, assertions on response bodies should be done here
 func (m *SingleHashGun) Call(_ *wasp.Generator) *wasp.Response {
 	//todo - should work with multiple consumers and consumers having different keyhashes and wallets
-
-	billingType, err := selectBillingType(*m.testConfig.GetVRFv2PlusConfig().General.SubscriptionBillingType)
+	vrfv2PlusConfig := m.testConfig.General
+	billingType, err := selectBillingType(*vrfv2PlusConfig.SubscriptionBillingType)
 	if err != nil {
 		return &wasp.Response{Error: err.Error(), Failed: true}
 	}
 
 	//randomly increase/decrease randomness request count per TX
-	randomnessRequestCountPerRequest := deviateValue(*m.testConfig.GetVRFv2PlusConfig().General.RandomnessRequestCountPerRequest, *m.testConfig.GetVRFv2PlusConfig().General.RandomnessRequestCountPerRequestDeviation)
+	randomnessRequestCountPerRequest := deviateValue(*vrfv2PlusConfig.General.RandomnessRequestCountPerRequest, *vrfv2PlusConfig.RandomnessRequestCountPerRequestDeviation)
 	_, err = vrfv2plus.RequestRandomnessAndWaitForFulfillment(
 		//the same consumer is used for all requests and in all subs
 		m.contracts.VRFV2PlusConsumer[0],
@@ -60,12 +111,12 @@ func (m *SingleHashGun) Call(_ *wasp.Generator) *wasp.Response {
 		m.subIDs[randInRange(0, len(m.subIDs)-1)],
 		//randomly pick payment type
 		billingType,
-		*m.testConfig.GetVRFv2PlusConfig().General.MinimumConfirmations,
-		*m.testConfig.GetVRFv2PlusConfig().General.CallbackGasLimit,
-		*m.testConfig.GetVRFv2PlusConfig().General.NumberOfWords,
+		*vrfv2PlusConfig.MinimumConfirmations,
+		*vrfv2PlusConfig.CallbackGasLimit,
+		*vrfv2PlusConfig.NumberOfWords,
 		randomnessRequestCountPerRequest,
-		*m.testConfig.GetVRFv2PlusConfig().General.RandomnessRequestCountPerRequestDeviation,
-		m.testConfig.GetVRFv2PlusConfig().General.RandomWordsFulfilledEventTimeout.Duration,
+		*vrfv2PlusConfig.RandomnessRequestCountPerRequestDeviation,
+		vrfv2PlusConfig.RandomWordsFulfilledEventTimeout.Duration,
 		m.logger,
 	)
 	if err != nil {

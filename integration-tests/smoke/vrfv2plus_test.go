@@ -990,7 +990,8 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 	require.NoError(t, err)
 
 	//Underfund Subscription
-	config.VRFv2Plus.General.SubscriptionFundingAmountLink = ptr.Ptr(float64(0.000000000000000001)) // 1 Juel
+	config.VRFv2Plus.General.SubscriptionFundingAmountLink = ptr.Ptr(float64(0.000000000000000001))   // 1 Juel
+	config.VRFv2Plus.General.SubscriptionFundingAmountNative = ptr.Ptr(float64(0.000000000000000001)) // 1 Wei
 
 	//decrease default span for checking blockhashes for unfulfilled requests
 	config.VRFv2Plus.General.BHSJobWaitBlocks = ptr.Ptr(2)
@@ -1052,8 +1053,8 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 		require.NoError(t, err)
 		err = vrfv2plus.FundSubscriptions(
 			env,
-			big.NewFloat(*configCopy.VRFv2Plus.General.SubscriptionFundingAmountNative),
-			big.NewFloat(*configCopy.VRFv2Plus.General.SubscriptionFundingAmountLink),
+			big.NewFloat(*configCopy.VRFv2Plus.General.SubscriptionRefundingAmountLink),
+			big.NewFloat(*configCopy.VRFv2Plus.General.SubscriptionRefundingAmountLink),
 			linkToken,
 			vrfContracts.CoordinatorV2Plus,
 			subIDs,

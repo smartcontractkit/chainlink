@@ -14,6 +14,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_test_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_mock_ethlink_aggregator"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_owner"
@@ -440,6 +441,14 @@ func (v *EthereumVRFCoordinatorV2) OwnerCancelSubscription(subID uint64) (*types
 		return nil, err
 	}
 	return tx, v.client.ProcessTransaction(tx)
+}
+
+func (v *EthereumVRFCoordinatorV2) ParseSubscriptionCanceled(log types.Log) (*vrf_coordinator_v2.VRFCoordinatorV2SubscriptionCanceled, error) {
+	return v.coordinator.ParseSubscriptionCanceled(log)
+}
+
+func (v *EthereumVRFCoordinatorV2) ParseLog(log types.Log) (generated.AbigenLog, error) {
+	return v.coordinator.ParseLog(log)
 }
 
 // CancelSubscription cancels subscription by Sub owner,

@@ -404,32 +404,21 @@ func SetupVRFV2PlusForExistingEnv(ctx context.Context, t *testing.T, testConfig 
 		return nil, nil, nil, nil, fmt.Errorf("%s, err: %w", "error loading VRFCoordinator2_5", err)
 	}
 
+	var linkToken contracts.LinkToken
 	var consumers []contracts.VRFv2PlusLoadTestConsumer
 	if *commonExistingEnvConfig.CreateFundSubsAndAddConsumers {
-		linkToken, err := env.ContractLoader.LoadLINKToken(*commonExistingEnvConfig.LinkAddress)
+		linkToken, err = env.ContractLoader.LoadLINKToken(*commonExistingEnvConfig.LinkAddress)
 		if err != nil {
 			return nil, nil, nil, nil, fmt.Errorf("%s, err: %w", "error loading LinkToken", err)
 		}
-		consumers, err = DeployVRFV2PlusConsumers(env.ContractDeployer, coordinator, 1)
-		if err != nil {
-			return nil, nil, nil, nil, fmt.Errorf("err: %w", err)
-		}
-		err = env.EVMClient.WaitForEvents()
-		if err != nil {
-			return nil, nil, nil, nil, fmt.Errorf("%s, err: %w", vrfcommon.ErrWaitTXsComplete, err)
-		}
-		l.Info().
-			Str("Coordinator", *commonExistingEnvConfig.CoordinatorAddress).
-			Int("Number of Subs to create", *testConfig.VRFv2Plus.General.NumberOfSubToCreate).
-			Msg("Creating and funding subscriptions, deploying and adding consumers to subs")
-		subIDs, err = CreateFundSubsAndAddConsumers(
+		consumers, subIDs, err = SetupNewConsumersAndSubs(
 			env,
-			big.NewFloat(*testConfig.GetVRFv2PlusConfig().General.SubscriptionFundingAmountNative),
-			big.NewFloat(*testConfig.GetVRFv2PlusConfig().General.SubscriptionFundingAmountLink),
-			linkToken,
 			coordinator,
-			consumers,
+			testConfig,
+			linkToken,
+			1,
 			*testConfig.VRFv2Plus.General.NumberOfSubToCreate,
+			l,
 		)
 		if err != nil {
 			return nil, nil, nil, nil, fmt.Errorf("err: %w", err)
@@ -456,6 +445,7 @@ func SetupVRFV2PlusForExistingEnv(ctx context.Context, t *testing.T, testConfig 
 	vrfContracts := &vrfcommon.VRFContracts{
 		CoordinatorV2Plus: coordinator,
 		VRFV2PlusConsumer: consumers,
+		LinkToken:         linkToken,
 		BHS:               nil,
 	}
 
@@ -465,25 +455,4 @@ func SetupVRFV2PlusForExistingEnv(ctx context.Context, t *testing.T, testConfig 
 		KeyHash:           common.HexToHash(*commonExistingEnvConfig.KeyHash),
 	}
 	return vrfContracts, subIDs, vrfKey, env, nil
-}
-
-func CancelSubsAndReturnFunds(ctx context.Context, vrfContracts *vrfcommon.VRFContracts, eoaWalletAddress string, subIDs []*big.Int, l zerolog.Logger) {
-	for _, subID := range subIDs {
-		l.Info().
-			Str("Returning funds from SubID", subID.String()).
-			Str("Returning funds to", eoaWalletAddress).
-			Msg("Canceling subscription and returning funds to subscription owner")
-		pendingRequestsExist, err := vrfContracts.CoordinatorV2Plus.PendingRequestsExist(ctx, subID)
-		if err != nil {
-			l.Error().Err(err).Msg("Error checking if pending requests exist")
-		}
-		if !pendingRequestsExist {
-			_, err := vrfContracts.CoordinatorV2Plus.CancelSubscription(subID, common.HexToAddress(eoaWalletAddress))
-			if err != nil {
-				l.Error().Err(err).Msg("Error canceling subscription")
-			}
-		} else {
-			l.Error().Str("Sub ID", subID.String()).Msg("Pending requests exist for subscription, cannot cancel subscription and return funds")
-		}
-	}
 }
