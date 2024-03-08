@@ -72,22 +72,21 @@ func FundChainlinkNodes(
 		if err != nil {
 			fundingErrors = append(fundingErrors, err)
 
-			txHash := "(none)"
-			if receipt != nil {
-				txHash = receipt.TxHash.String()
-			}
-
 			logger.Err(err).
 				Str("From", fromAddress.Hex()).
 				Str("To", toAddress).
-				Str("TxHash", txHash).
 				Msg("Failed to fund Chainlink node")
+		}
+
+		txHash := "(none)"
+		if receipt != nil {
+			txHash = receipt.TxHash.String()
 		}
 
 		logger.Info().
 			Str("From", fromAddress.Hex()).
 			Str("To", toAddress).
-			Str("TxHash", receipt.TxHash.String()).
+			Str("TxHash", txHash).
 			Str("Amount", amount.String()).
 			Msg("Funded Chainlink node")
 	}
