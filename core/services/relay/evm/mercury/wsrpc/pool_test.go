@@ -55,7 +55,7 @@ func Test_Pool(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	t.Run("Checkout", func(t *testing.T) {
-		p := NewPool(lggr, cache.Config{}, tlsConfig{nil, false})
+		p := NewWsrpcPool(lggr, cache.Config{}, tlsConfig{nil, false})
 		p.cacheSet = &mockCacheSet{}
 
 		t.Run("checks out one started client", func(t *testing.T) {
@@ -135,21 +135,21 @@ func Test_Pool(t *testing.T) {
 			assert.Len(t, p.connections[serverURLs[0]], 2)
 			assert.Len(t, p.connections[serverURLs[1]], 1)
 
-			conn1 := c1.(*clientCheckout).connection
-			assert.Same(t, conn1, c2.(*clientCheckout).connection)
-			assert.Same(t, conn1, c3.(*clientCheckout).connection)
+			conn1 := c1.(*clientCheckout).connectionImpl
+			assert.Same(t, conn1, c2.(*clientCheckout).connectionImpl)
+			assert.Same(t, conn1, c3.(*clientCheckout).connectionImpl)
 			assert.Len(t, conn1.checkouts, 3)
 			assert.True(t, conn1.Client.(*mockClient).started)
 
-			conn2 := c4.(*clientCheckout).connection
+			conn2 := c4.(*clientCheckout).connectionImpl
 			assert.NotEqual(t, conn1, conn2)
 			assert.Len(t, conn2.checkouts, 1)
 			assert.True(t, conn2.Client.(*mockClient).started)
 
-			conn3 := c5.(*clientCheckout).connection
+			conn3 := c5.(*clientCheckout).connectionImpl
 			assert.NotEqual(t, conn1, conn3)
 			assert.NotEqual(t, conn2, conn3)
-			assert.Same(t, conn3, c6.(*clientCheckout).connection)
+			assert.Same(t, conn3, c6.(*clientCheckout).connectionImpl)
 			assert.Len(t, conn3.checkouts, 2)
 			assert.True(t, conn3.Client.(*mockClient).started)
 
@@ -176,9 +176,9 @@ func Test_Pool(t *testing.T) {
 
 			c7 := mustCheckout(t, p, clientPrivKeys[0], serverPubKey, serverURLs[0])
 			// Not the same one, since previously all checkouts were checked in, the original connection was deleted from the map and a new one created
-			assert.NotSame(t, conn1, c7.(*clientCheckout).connection)
+			assert.NotSame(t, conn1, c7.(*clientCheckout).connectionImpl)
 			assert.Len(t, conn1.checkouts, 0) // actually, conn1 has already been removed from the map and will be garbage collected
-			conn4 := c7.(*clientCheckout).connection
+			conn4 := c7.(*clientCheckout).connectionImpl
 			assert.Len(t, conn4.checkouts, 1)
 			assert.NotNil(t, conn4.Client)
 			assert.Len(t, p.connections, 2)

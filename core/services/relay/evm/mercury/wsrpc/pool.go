@@ -15,10 +15,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-var _ Client = &clientCheckout{}
+//var _ Client = &clientCheckout{}
 
 type clientCheckout struct {
-	*connection // inherit all methods from client, with override on Start/Close
+	connection // inherit all methods from client, with override on Start/Close
 }
 
 func (cco *clientCheckout) Start(_ context.Context) error {
@@ -30,23 +30,50 @@ func (cco *clientCheckout) Close() error {
 	return nil
 }
 
-type connection struct {
-	// Client will be nil when checkouts is empty, if len(checkouts) > 0 then it is expected to be a non-nil, started client
-	Client
-
+type baseConnection struct {
 	lggr          logger.Logger
 	clientPrivKey csakey.KeyV2
 	serverPubKey  []byte
 	serverURL     string
-
-	pool *pool
 
 	checkouts []*clientCheckout // reference count, if this goes to zero the connection should be closed and *client nilified
 
 	mu sync.Mutex
 }
 
-func (conn *connection) checkout(ctx context.Context) (cco *clientCheckout, err error) {
+type wsrpcConnection struct {
+	*baseConnection
+	pool   *wsrpcPool
+	Client *WsrpcClient
+}
+
+type grpcConnection struct {
+	*baseConnection
+	pool      *grpcPool
+	Client    *GrpcClient
+	tlsConfig *tlsConfig
+}
+
+// connection is a convenience interface to support both wsrpc and grpc connections
+type connection interface {
+	checkout(ctx context.Context) (*clientCheckout, error)
+	checkin(checkinCco *clientCheckout)
+	ensureStartedClient(ctx context.Context) error
+	forceCloseAll() error
+}
+
+func (conn *wsrpcConnection) checkout(ctx context.Context) (cco *clientCheckout, err error) {
+	conn.mu.Lock()
+	defer conn.mu.Unlock()
+	if err = conn.ensureStartedClient(ctx); err != nil {
+		return nil, err
+	}
+	cco = &clientCheckout{conn}
+	conn.checkouts = append(conn.checkouts, cco)
+	return cco, nil
+}
+
+func (conn *grpcConnection) checkout(ctx context.Context) (cco *clientCheckout, err error) {
 	conn.mu.Lock()
 	defer conn.mu.Unlock()
 	if err = conn.ensureStartedClient(ctx); err != nil {
@@ -58,7 +85,7 @@ func (conn *connection) checkout(ctx context.Context) (cco *clientCheckout, err 
 }
 
 // not thread-safe, access must be serialized
-func (conn *connection) ensureStartedClient(ctx context.Context) error {
+func (conn *wsrpcConnection) ensureStartedClient(ctx context.Context) error {
 	if len(conn.checkouts) == 0 {
 		conn.Client = conn.pool.newClient(conn.lggr, conn.clientPrivKey, conn.serverPubKey, conn.serverURL, conn.pool.cacheSet)
 		return conn.Client.Start(ctx)
@@ -66,7 +93,16 @@ func (conn *connection) ensureStartedClient(ctx context.Context) error {
 	return nil
 }
 
-func (conn *connection) checkin(checkinCco *clientCheckout) {
+// not thread-safe, access must be serialized
+func (conn *grpcConnection) ensureStartedClient(ctx context.Context) error {
+	if len(conn.checkouts) == 0 {
+		conn.Client = conn.pool.newClient(conn.lggr, conn.clientPrivKey, conn.serverPubKey, conn.serverURL, conn.pool.cacheSet, conn.tlsConfig.CertFile)
+		return conn.Client.Start(ctx)
+	}
+	return nil
+}
+
+func (conn *wsrpcConnection) checkin(checkinCco *clientCheckout) {
 	conn.mu.Lock()
 	defer conn.mu.Unlock()
 	var removed bool
@@ -90,7 +126,46 @@ func (conn *connection) checkin(checkinCco *clientCheckout) {
 	}
 }
 
-func (conn *connection) forceCloseAll() (err error) {
+func (conn *grpcConnection) checkin(checkinCco *clientCheckout) {
+	conn.mu.Lock()
+	defer conn.mu.Unlock()
+	var removed bool
+	for i, cco := range conn.checkouts {
+		if cco == checkinCco {
+			conn.checkouts = utils.DeleteUnstable(conn.checkouts, i)
+			removed = true
+			break
+		}
+	}
+	if !removed {
+		panic("tried to check in client that was never checked out")
+	}
+	if len(conn.checkouts) == 0 {
+		if err := conn.Client.Close(); err != nil {
+			// programming error if we hit this
+			panic(err)
+		}
+		conn.Client = nil
+		conn.pool.remove(conn.serverURL, conn.clientPrivKey.StaticSizedPublicKey())
+	}
+}
+
+func (conn *wsrpcConnection) forceCloseAll() (err error) {
+	conn.mu.Lock()
+	defer conn.mu.Unlock()
+	if conn.Client != nil {
+		err = conn.Client.Close()
+		if errors.Is(err, utils.ErrAlreadyStopped) {
+			// ignore error if it has already been stopped; no problem
+			err = nil
+		}
+		conn.Client = nil
+		conn.checkouts = nil
+	}
+	return
+}
+
+func (conn *grpcConnection) forceCloseAll() (err error) {
 	conn.mu.Lock()
 	defer conn.mu.Unlock()
 	if conn.Client != nil {
@@ -124,40 +199,51 @@ type Pool interface {
 type pool struct {
 	lggr logger.Logger
 	// server url => client public key => connection
-	connections map[string]map[credentials.StaticSizedPublicKey]*connection
-
-	// embedding newClient makes testing/mocking easier
-	newClient func(lggr logger.Logger, privKey csakey.KeyV2, serverPubKey []byte, serverURL string, cacheSet cache.WsrpcCacheSet) Client
-
-	mu sync.RWMutex
-
-	cacheSet cache.WsrpcCacheSet
+	connections map[string]map[credentials.StaticSizedPublicKey]connection
+	mu          sync.RWMutex
 
 	closed bool
 }
 
-// NewPool creates a pool of clients to communicate with the Mercury Ingestion Server
-// Each relayer has its own pool.
-func NewPool(lggr logger.Logger, cacheCfg cache.Config, tlsCfg tlsConfig) *pool {
-	lggrName := "Mercury.WSRPCPool"
-	newClient := NewWSRPCClient
+type grpcPool struct {
+	*pool
 
-	if tlsCfg.Enabled {
-		lggrName = "Mercury.GRPCPool"
-		newClient = NewGRPCClient
-	}
-
-	lggr = lggr.Named(lggrName)
-	p := &pool{
-		lggr:        lggr,
-		connections: make(map[string]map[credentials.StaticSizedPublicKey]*connection),
-		newClient:   newClient,
-		cacheSet:    cache.NewWsrpcCacheSet(lggr, cacheCfg),
-	}
-	return p
+	// embedding newClient makes testing/mocking easier
+	newClient func(lggr logger.Logger, privKey csakey.KeyV2, serverPubKey []byte, serverURL string, cacheSet cache.GrpcCacheSet, tlsCertFile *string) *GrpcClient
+	cacheSet  cache.GrpcCacheSet
 }
 
-func (p *pool) Checkout(ctx context.Context, clientPrivKey csakey.KeyV2, serverPubKey []byte, serverURL string) (client *clientCheckout, err error) {
+type wsrpcPool struct {
+	*pool
+
+	// embedding newClient makes testing/mocking easier
+	newClient func(lggr logger.Logger, privKey csakey.KeyV2, serverPubKey []byte, serverURL string, cacheSet cache.WsrpcCacheSet) *WsrpcClient
+	cacheSet  cache.WsrpcCacheSet
+}
+
+func NewWsrpcPool(lggr logger.Logger, cacheCfg cache.Config) *wsrpcPool {
+	return &wsrpcPool{
+		&pool{
+			lggr:        lggr.Named("Mercury.WSRPCPool"),
+			connections: make(map[string]map[credentials.StaticSizedPublicKey]connection),
+		},
+		NewWsrpcClient,
+		cache.NewWsrpcCacheSet(lggr, cacheCfg),
+	}
+}
+
+func NewGrpcPool(lggr logger.Logger, cacheCfg cache.Config, tlsCfg tlsConfig) *grpcPool {
+	return &grpcPool{
+		&pool{
+			lggr:        lggr.Named("Mercury.GRPCPool"),
+			connections: make(map[string]map[credentials.StaticSizedPublicKey]connection),
+		},
+		NewGrpcClient,
+		cache.NewGrpcCacheSet(lggr, cacheCfg),
+	}
+}
+
+func (p *wsrpcPool) Checkout(ctx context.Context, clientPrivKey csakey.KeyV2, serverPubKey []byte, serverURL string) (client *clientCheckout, err error) {
 	clientPubKey := clientPrivKey.StaticSizedPublicKey()
 
 	p.mu.Lock()
@@ -169,12 +255,40 @@ func (p *pool) Checkout(ctx context.Context, clientPrivKey csakey.KeyV2, serverP
 
 	server, exists := p.connections[serverURL]
 	if !exists {
-		server = make(map[credentials.StaticSizedPublicKey]*connection)
+		server = make(map[credentials.StaticSizedPublicKey]connection)
 		p.connections[serverURL] = server
 	}
 	conn, exists := server[clientPubKey]
 	if !exists {
-		conn = p.newConnection(p.lggr, clientPrivKey, serverPubKey, serverURL)
+		conn = p.newWsrpcConnection(p.lggr, clientPrivKey, serverPubKey, serverURL)
+		server[clientPubKey] = conn
+	}
+	p.mu.Unlock()
+
+	// checkout outside of pool lock since it might take non-trivial time
+	// the clientCheckout will be checked in again when its Close() method is called
+	// this also should avoid deadlocks between conn.mu and pool.mu
+	return conn.checkout(ctx)
+}
+
+func (p *grpcPool) Checkout(ctx context.Context, clientPrivKey csakey.KeyV2, serverPubKey []byte, serverURL string) (client *clientCheckout, err error) {
+	clientPubKey := clientPrivKey.StaticSizedPublicKey()
+
+	p.mu.Lock()
+
+	if p.closed {
+		p.mu.Unlock()
+		return nil, errors.New("pool is closed")
+	}
+
+	server, exists := p.connections[serverURL]
+	if !exists {
+		server = make(map[credentials.StaticSizedPublicKey]connection)
+		p.connections[serverURL] = server
+	}
+	conn, exists := server[clientPubKey]
+	if !exists {
+		conn = p.newGrpcConnection(p.lggr, clientPrivKey, serverPubKey, serverURL)
 		server[clientPubKey] = conn
 	}
 	p.mu.Unlock()
@@ -196,21 +310,52 @@ func (p *pool) remove(serverURL string, clientPubKey credentials.StaticSizedPubl
 
 }
 
-func (p *pool) newConnection(lggr logger.Logger, clientPrivKey csakey.KeyV2, serverPubKey []byte, serverURL string) *connection {
-	return &connection{
-		lggr:          lggr,
-		clientPrivKey: clientPrivKey,
-		serverPubKey:  serverPubKey,
-		serverURL:     serverURL,
-		pool:          p,
+func (p *wsrpcPool) newWsrpcConnection(lggr logger.Logger, clientPrivKey csakey.KeyV2, serverPubKey []byte, serverURL string) *wsrpcConnection {
+	return &wsrpcConnection{
+		baseConnection: &baseConnection{
+			lggr:          lggr,
+			clientPrivKey: clientPrivKey,
+			serverPubKey:  serverPubKey,
+			serverURL:     serverURL,
+		},
+		pool: p,
 	}
 }
 
-func (p *pool) Start(ctx context.Context) error {
+func (p *grpcPool) newGrpcConnection(lggr logger.Logger, clientPrivKey csakey.KeyV2, serverPubKey []byte, serverURL string) *grpcConnection {
+	return &grpcConnection{
+		baseConnection: &baseConnection{
+			lggr:          lggr,
+			clientPrivKey: clientPrivKey,
+			serverPubKey:  serverPubKey,
+			serverURL:     serverURL,
+		},
+		pool: p,
+	}
+}
+
+func (p *wsrpcPool) Start(ctx context.Context) error {
 	return p.cacheSet.Start(ctx)
 }
 
-func (p *pool) Close() (merr error) {
+func (p *grpcPool) Start(ctx context.Context) error {
+	return p.cacheSet.Start(ctx)
+}
+
+func (p *wsrpcPool) Close() (merr error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.closed = true
+	for _, clientPubKeys := range p.connections {
+		for _, conn := range clientPubKeys {
+			merr = errors.Join(merr, conn.forceCloseAll())
+		}
+	}
+	merr = errors.Join(merr, p.cacheSet.Close())
+	return
+}
+
+func (p *grpcPool) Close() (merr error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.closed = true
@@ -236,7 +381,13 @@ func (p *pool) Ready() error {
 	return nil
 }
 
-func (p *pool) HealthReport() map[string]error {
+func (p *wsrpcPool) HealthReport() map[string]error {
+	hp := map[string]error{p.Name(): p.Ready()}
+	maps.Copy(hp, p.cacheSet.HealthReport())
+	return hp
+}
+
+func (p *grpcPool) HealthReport() map[string]error {
 	hp := map[string]error{p.Name(): p.Ready()}
 	maps.Copy(hp, p.cacheSet.HealthReport())
 	return hp

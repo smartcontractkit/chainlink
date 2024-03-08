@@ -46,10 +46,6 @@ var (
 	)
 )
 
-type GrpcFetcher interface {
-	LatestReport(ctx context.Context, req *pb_grpc.LatestReportRequest) (resp *pb_grpc.LatestReportResponse, err error)
-}
-
 type GrpcClient interface {
 	GrpcFetcher
 	ServerURL() string
@@ -65,6 +61,10 @@ type GrpcCache interface {
 
 type WsrpcFetcher interface {
 	LatestReport(ctx context.Context, req *pb.LatestReportRequest) (resp *pb.LatestReportResponse, err error)
+}
+
+type GrpcFetcher interface {
+	LatestReport(ctx context.Context, req *pb_grpc.LatestReportRequest) (resp *pb_grpc.LatestReportResponse, err error)
 }
 
 type WsrpcClient interface {

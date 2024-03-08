@@ -93,7 +93,6 @@ type baseClient struct {
 	serverURL    string
 
 	logger logger.Logger
-	conn   Conn
 
 	consecutiveTimeoutCnt atomic.Int32
 	wg                    sync.WaitGroup
@@ -124,8 +123,8 @@ type WsrpcClient struct {
 	cacheSet  cache.WsrpcCacheSet
 }
 
-// Consumers of wsrpc package should not usually call NewWSRPCClient directly, but instead use the Pool
-func NewWSRPCClient(lggr logger.Logger, clientPrivKey csakey.KeyV2, serverPubKey []byte, serverURL string, cacheSet cache.WsrpcCacheSet) *WsrpcClient {
+// Consumers of wsrpc package should not usually call NewWsrpcClient directly, but instead use the Pool
+func NewWsrpcClient(lggr logger.Logger, clientPrivKey csakey.KeyV2, serverPubKey []byte, serverURL string, cacheSet cache.WsrpcCacheSet) *WsrpcClient {
 	return &WsrpcClient{
 		baseClient: baseClient{
 			csaKey:                     clientPrivKey,
@@ -144,7 +143,7 @@ func NewWSRPCClient(lggr logger.Logger, clientPrivKey csakey.KeyV2, serverPubKey
 	}
 }
 
-func NewGRPCClient(lggr logger.Logger, clientPrivKey csakey.KeyV2, serverPubKey []byte, serverURL string, cacheSet cache.GrpcCacheSet, tlsCertFile *string) *GrpcClient {
+func NewGrpcClient(lggr logger.Logger, clientPrivKey csakey.KeyV2, serverPubKey []byte, serverURL string, cacheSet cache.GrpcCacheSet, tlsCertFile *string) *GrpcClient {
 	return &GrpcClient{
 		baseClient: baseClient{
 			csaKey:                     clientPrivKey,
@@ -159,7 +158,7 @@ func NewGRPCClient(lggr logger.Logger, clientPrivKey csakey.KeyV2, serverPubKey 
 			dialErrorCountMetric:       dialErrorCount.WithLabelValues(serverURL),
 			connectionResetCountMetric: connectionResetCount.WithLabelValues(serverURL),
 		},
-		cacheSet: cacheSet,
+		cacheSet:    cacheSet,
 		tlsCertFile: tlsCertFile,
 	}
 }
