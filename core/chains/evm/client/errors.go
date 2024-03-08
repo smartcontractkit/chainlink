@@ -140,6 +140,7 @@ var arbitrum = ClientErrors{
 	Fatal:                 arbitrumFatal,
 	L2FeeTooLow:           regexp.MustCompile(`(: |^)max fee per gas less than block base fee(:|$)`),
 	L2Full:                regexp.MustCompile(`(: |^)(queue full|sequencer pending tx pool full, please try again)(:|$)`),
+	ServiceUnavailable:    regexp.MustCompile(`(: |^)502 Bad Gateway: [\s\S]*$`),
 }
 
 var celo = ClientErrors{
@@ -213,7 +214,7 @@ var harmony = ClientErrors{
 var zkSync = ClientErrors{
 	NonceTooLow:           regexp.MustCompile(`(?:: |^)nonce too low\..+actual: \d*$`),
 	NonceTooHigh:          regexp.MustCompile(`(?:: |^)nonce too high\..+actual: \d*$`),
-	TerminallyUnderpriced: regexp.MustCompile(`(?:: |^)max fee per gas less than block base fee$`),
+	TerminallyUnderpriced: regexp.MustCompile(`(?:: |^)(max fee per gas less than block base fee|virtual machine entered unexpected state. please contact developers and provide transaction details that caused this error. Error description: The operator included transaction with an unacceptable gas price)$`),
 	InsufficientEth:       regexp.MustCompile(`(?:: |^)(?:insufficient balance for transfer$|insufficient funds for gas + value)`),
 	TxFeeExceedsCap:       regexp.MustCompile(`(?:: |^)max priority fee per gas higher than max fee per gas$`),
 	// intrinsic gas too low 						- gas limit less than 14700
