@@ -100,7 +100,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   uint256 internal s_fallbackGasPrice;
   uint256 internal s_fallbackLinkPrice;
   uint256 internal s_fallbackNativePrice;
-  uint256 internal s_expectedLinkBalance; // Used in case of erroneous LINK transfers to contract
+  uint256 internal s_reserveLinkBalance; // Unspent user deposits + unwithdrawn NOP payments
   mapping(address => MigrationPermission) internal s_peerRegistryMigrationPermission; // Permissions for migration to and fro
   mapping(uint256 => bytes) internal s_upkeepTriggerConfig; // upkeep triggers
   mapping(uint256 => bytes) internal s_upkeepOffchainConfig; // general config set by users for each upkeep
@@ -285,7 +285,6 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
    * @dev only used in params and return values
    * @dev this will likely be deprecated in a future version of the registry in favor of individual getters
    * @member nonce used for ID generation
-   * @member ownerLinkBalance withdrawable balance of LINK by contract owner
    * @member expectedLinkBalance the expected balance of LINK of the registry
    * @member totalPremium the total premium collected on registry so far
    * @member numUpkeeps total number of upkeeps on the registry
@@ -297,7 +296,6 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
    */
   struct State {
     uint32 nonce;
-    uint96 ownerLinkBalance;
     uint256 expectedLinkBalance;
     uint96 totalPremium;
     uint256 numUpkeeps;
@@ -378,7 +376,6 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     uint96 minUpkeepSpend; // Minimum amount an upkeep must spend
     address transcoder; // Address of transcoder contract used in migrations
     // 1 EVM word full
-    uint96 ownerLinkBalance; // Balance of owner, accumulates minUpkeepSpend in case it is not spent
     uint32 checkGasLimit; // Gas limit allowed in checkUpkeep
     uint32 maxPerformGas; // Max gas an upkeep can use on this registry
     uint32 nonce; // Nonce for each upkeep created
@@ -593,7 +590,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     s_upkeep[id] = upkeep;
     s_upkeepAdmin[id] = admin;
     s_checkData[id] = checkData;
-    s_expectedLinkBalance = s_expectedLinkBalance + upkeep.balance;
+    s_reserveLinkBalance = s_reserveLinkBalance + upkeep.balance;
     s_upkeepTriggerConfig[id] = triggerConfig;
     s_upkeepOffchainConfig[id] = offchainConfig;
     s_upkeepIDs.add(id);

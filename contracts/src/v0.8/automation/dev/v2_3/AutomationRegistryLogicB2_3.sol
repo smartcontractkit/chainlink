@@ -130,7 +130,7 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
     if (s_upkeepAdmin[id] != msg.sender) revert OnlyCallableByAdmin();
     if (upkeep.maxValidBlocknumber > s_hotVars.chainModule.blockNumber()) revert UpkeepNotCanceled();
     uint96 amountToWithdraw = s_upkeep[id].balance;
-    s_expectedLinkBalance = s_expectedLinkBalance - amountToWithdraw;
+    s_reserveLinkBalance = s_reserveLinkBalance - amountToWithdraw;
     s_upkeep[id].balance = 0;
     i_link.transfer(to, amountToWithdraw);
     emit FundsWithdrawn(id, amountToWithdraw, to);
@@ -173,7 +173,7 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
     if (s_transmitterPayees[from] != msg.sender) revert OnlyCallableByPayee();
     uint96 balance = _updateTransmitterBalanceFromPool(from, s_hotVars.totalPremium, uint96(s_transmittersList.length));
     s_transmitters[from].balance = 0;
-    s_expectedLinkBalance = s_expectedLinkBalance - balance;
+    s_reserveLinkBalance = s_reserveLinkBalance - balance;
     i_link.transfer(to, balance);
     emit PaymentWithdrawn(from, balance, to, msg.sender);
   }
@@ -196,20 +196,20 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
   /**
    * @notice withdraws the owner's LINK balance
    */
-  function withdrawOwnerFunds() external onlyOwner {
-    uint96 amount = s_storage.ownerLinkBalance;
-    s_expectedLinkBalance = s_expectedLinkBalance - amount;
-    s_storage.ownerLinkBalance = 0;
-    emit OwnerFundsWithdrawn(amount);
-    i_link.transfer(msg.sender, amount);
-  }
+  //  function withdrawOwnerFunds() external onlyOwner {
+  //    uint96 amount = s_storage.ownerLinkBalance;
+  //    s_reserveLinkBalance = s_reserveLinkBalance - amount;
+  //    s_storage.ownerLinkBalance = 0;
+  //    emit OwnerFundsWithdrawn(amount);
+  //    i_link.transfer(msg.sender, amount);
+  //  }
 
   /**
    * @notice allows the owner to withdraw any LINK accidentally sent to the contract
    */
   function recoverFunds() external onlyOwner {
     uint256 total = i_link.balanceOf(address(this));
-    i_link.transfer(msg.sender, total - s_expectedLinkBalance);
+    i_link.transfer(msg.sender, total - s_reserveLinkBalance);
   }
 
   /**
@@ -444,8 +444,8 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
   {
     state = State({
       nonce: s_storage.nonce,
-      ownerLinkBalance: s_storage.ownerLinkBalance,
-      expectedLinkBalance: s_expectedLinkBalance,
+      //      ownerLinkBalance: s_storage.ownerLinkBalance,
+      expectedLinkBalance: s_reserveLinkBalance,
       totalPremium: s_hotVars.totalPremium,
       numUpkeeps: s_upkeepIDs.length(),
       configCount: s_storage.configCount,

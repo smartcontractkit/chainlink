@@ -234,7 +234,7 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
     uint256 id = abi.decode(data, (uint256));
     if (s_upkeep[id].maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
     s_upkeep[id].balance = s_upkeep[id].balance + uint96(amount);
-    s_expectedLinkBalance = s_expectedLinkBalance + amount;
+    s_reserveLinkBalance = s_reserveLinkBalance + amount;
     emit FundsAdded(id, sender, uint96(amount));
   }
 
@@ -360,8 +360,8 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
       financeAdmin: onchainConfig.financeAdmin,
       nonce: s_storage.nonce,
       configCount: s_storage.configCount,
-      latestConfigBlockNumber: s_storage.latestConfigBlockNumber,
-      ownerLinkBalance: s_storage.ownerLinkBalance
+      latestConfigBlockNumber: s_storage.latestConfigBlockNumber
+      //      ownerLinkBalance: s_storage.ownerLinkBalance
     });
     s_fallbackGasPrice = onchainConfig.fallbackGasPrice;
     s_fallbackLinkPrice = onchainConfig.fallbackLinkPrice;

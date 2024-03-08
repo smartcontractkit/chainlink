@@ -295,7 +295,8 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
       }
     }
     s_upkeep[id].balance = upkeep.balance - cancellationFee;
-    s_storage.ownerLinkBalance = s_storage.ownerLinkBalance + cancellationFee;
+    s_reserveLinkBalance = s_reserveLinkBalance + cancellationFee;
+    //    s_storage.ownerLinkBalance = s_storage.ownerLinkBalance + cancellationFee;
 
     emit UpkeepCanceled(id, uint64(height));
   }
@@ -309,7 +310,7 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
     Upkeep memory upkeep = s_upkeep[id];
     if (upkeep.maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
     s_upkeep[id].balance = upkeep.balance + amount;
-    s_expectedLinkBalance = s_expectedLinkBalance + amount;
+    s_reserveLinkBalance = s_reserveLinkBalance + amount;
     i_link.transferFrom(msg.sender, address(this), amount);
     emit FundsAdded(id, msg.sender, amount);
   }
@@ -357,7 +358,7 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
       s_upkeepIDs.remove(id);
       emit UpkeepMigrated(id, upkeep.balance, destination);
     }
-    s_expectedLinkBalance = s_expectedLinkBalance - totalBalanceRemaining;
+    s_reserveLinkBalance = s_reserveLinkBalance - totalBalanceRemaining;
     bytes memory encodedUpkeeps = abi.encode(
       ids,
       upkeeps,
