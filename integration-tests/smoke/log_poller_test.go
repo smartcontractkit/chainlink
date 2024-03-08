@@ -277,7 +277,8 @@ func prepareEnvironment(l zerolog.Logger, t *testing.T, testConfig *tc.TestConfi
 		ethereum.RegistryVersion_2_1,
 		logpoller.DefaultOCRRegistryConfig,
 		upKeepsNeeded,
-		time.Duration(500*time.Millisecond),
+		cfg.General.LogPollInterval.Duration,
+		*cfg.General.BackupLogPollerBlockDelay,
 		*cfg.General.UseFinalityTag,
 		testConfig,
 	)

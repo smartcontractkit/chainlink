@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [dev]
 
+...
+
+## 2.10.0 - UNRELEASED
+
 ### Added
 
 - Gas bumping logic to the `SuggestedPriceEstimator`. The bumping mechanism for this estimator refetches the price from the RPC and adds a buffer on top using the greater of `BumpPercent` and `BumpMin`.
@@ -20,14 +24,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - `P2P.V2` is required in configuration when either `OCR` or `OCR2` are enabled. The node will fail to boot if `P2P.V2` is not enabled.
+- Removed unnecessary gas price warnings in gas estimators when EIP-1559 mode is enabled.
 
 ### Changed
 
 - Minimum required version of Postgres is now >= 12. Postgres 11 was EOL'd in November 2023. Added a new version check that will prevent Chainlink from running on EOL'd Postgres. If you are running Postgres <= 11 you should upgrade to the latest version. The check can be forcibly overridden by setting SKIP_PG_VERSION_CHECK=true.
 - HeadTracker now respects the `FinalityTagEnabled` config option. If the flag is enabled, HeadTracker backfills blocks up to the latest finalized block provided by the corresponding RPC call. To address potential misconfigurations, `HistoryDepth` is now calculated from the latest finalized block instead of the head. NOTE: Consumers (e.g. TXM and LogPoller) do not fully utilize Finality Tag yet.
-
+- Updated the `LimitDefault` and `LimitMax` configs types to `uint64`
 
 <!-- unreleasedstop -->
+
+## 2.9.1 - 2024-03-07
+
+### Changed
+
+- `eth_call` RPC requests are now sent with both `input` and `data` fields to increase compatibility with servers that recognize only one.
+- GasEstimator will now include Type `0x3` (Blob) transactions in the gas calculations to estimate it more accurately.
 
 ## 2.9.0 - 2024-02-22
 
