@@ -25,6 +25,14 @@ package rebalancer
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.19/IArbitrumTokenGateway/IArbitrumTokenGateway.abi ../../../contracts/solc/v0.8.19/IArbitrumTokenGateway/IArbitrumTokenGateway.bin ArbitrumTokenGateway arbitrum_token_gateway
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.19/IAbstractArbitrumTokenGateway/IAbstractArbitrumTokenGateway.abi ../../../contracts/solc/v0.8.19/IAbstractArbitrumTokenGateway/IAbstractArbitrumTokenGateway.bin AbstractArbitrumTokenGateway abstract_arbitrum_token_gateway
 
+// Optimism helpers
+//go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.19/IOptimismPortal/IOptimismPortal.abi ../../../contracts/solc/v0.8.19/IOptimismPortal/IOptimismPortal.bin OptimismPortal optimism_portal
+//go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.19/IOptimismL2OutputOracle/IOptimismL2OutputOracle.abi ../../../contracts/solc/v0.8.19/IOptimismL2OutputOracle/IOptimismL2OutputOracle.bin OptimismL2OutputOracle optimism_l2_output_oracle
+//go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.19/IOptimismL2ToL1MessagePasser/IOptimismL2ToL1MessagePasser.abi ../../../contracts/solc/v0.8.19/IOptimismL2ToL1MessagePasser/IOptimismL2ToL1MessagePasser.bin OptimismL2ToL1MessagePasser optimism_l2_to_l1_message_passer
+//go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.19/IOptimismCrossDomainMessenger/IOptimismCrossDomainMessenger.abi ../../../contracts/solc/v0.8.19/IOptimismCrossDomainMessenger/IOptimismCrossDomainMessenger.bin OptimismCrossDomainMessenger optimism_cross_domain_messenger
+//go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.19/IOptimismPortal2/IOptimismPortal2.abi ../../../contracts/solc/v0.8.19/IOptimismPortal2/IOptimismPortal2.bin OptimismPortal2 optimism_portal_2
+//go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.19/IOptimismDisputeGameFactory/IOptimismDisputeGameFactory.abi ../../../contracts/solc/v0.8.19/IOptimismDisputeGameFactory/IOptimismDisputeGameFactory.bin OptimismDisputeGameFactory optimism_dispute_game_factory
+
 // Generate mocks for tests
 //go:generate mockery --quiet --dir ./generated/arbitrum_l1_bridge_adapter/ --name ArbitrumL1BridgeAdapterInterface --output ./mocks/mock_arbitrum_l1_bridge_adapter --outpkg mock_arbitrum_l1_bridge_adapter --case=underscore
 //go:generate mockery --quiet --dir ./generated/arbitrum_l2_bridge_adapter/ --name ArbitrumL2BridgeAdapterInterface --output ./mocks/mock_arbitrum_l2_bridge_adapter --outpkg mock_arbitrum_l2_bridge_adapter --case=underscore
@@ -35,3 +43,7 @@ package rebalancer
 //go:generate mockery --quiet --dir ./generated/arb_node_interface/ --name NodeInterfaceInterface --output ./mocks/mock_node_interface --outpkg mock_node_interface --case=underscore
 //go:generate mockery --quiet --dir ./generated/l2_arbitrum_messenger/ --name L2ArbitrumMessengerInterface --output ./mocks/mock_l2_arbitrum_messenger --outpkg mock_l2_arbitrum_messenger --case=underscore
 //go:generate mockery --quiet --dir ./generated/arbitrum_rollup_core/ --name ArbRollupCoreInterface --output ./mocks/mock_arbitrum_rollup_core --outpkg mock_arbitrum_rollup_core --case=underscore
+//go:generate mockery --quiet --dir ./generated/optimism_portal/ --name OptimismPortalInterface --output ./mocks/mock_optimism_portal --outpkg mock_optimism_portal --case=underscore
+//go:generate mockery --quiet --dir ./generated/optimism_l2_output_oracle/ --name OptimismL2OutputOracleInterface --output ./mocks/mock_optimism_l2_output_oracle --outpkg mock_optimism_l2_output_oracle --case=underscore
+//go:generate mockery --quiet --dir ./generated/optimism_portal_2/ --name OptimismPortal2Interface --output ./mocks/mock_optimism_portal_2 --outpkg mock_optimism_portal_2 --case=underscore
+//go:generate mockery --quiet --dir ./generated/optimism_dispute_game_factory/ --name OptimismDisputeGameFactoryInterface --output ./mocks/mock_optimism_dispute_game_factory --outpkg mock_optimism_dispute_game_factory --case=underscore

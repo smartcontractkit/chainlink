@@ -30,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/rebalancer/generated/l2_arbitrum_gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/rebalancer/generated/rebalancer"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/abiutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/models"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
@@ -449,13 +450,13 @@ func matchingExecutionExists(
 	// decode the send log's bridgeReturnData, which should be the l1 -> l2 tx id when using arbitrum.
 	// The LiquidityTransferred logs on L2 will have the same l1 -> l2 tx id
 	// as part of the bridgeSpecificData field.
-	sendL1ToL2TxId, err := unpackUint256(readyCandidate.BridgeReturnData)
+	sendL1ToL2TxId, err := abiutils.UnpackUint256(readyCandidate.BridgeReturnData)
 	if err != nil {
 		return false, fmt.Errorf("unpack L1 to L2 tx id from L1 LiquidityTransferred log (%s): %w, data: %s",
 			readyCandidate.Raw.TxHash, err, hexutil.Encode(readyCandidate.BridgeReturnData))
 	}
 	for _, recvLog := range receivedLogs {
-		recvL1ToL2TxId, err := unpackUint256(recvLog.BridgeSpecificData)
+		recvL1ToL2TxId, err := abiutils.UnpackUint256(recvLog.BridgeSpecificData)
 		if err != nil {
 			return false, fmt.Errorf("unpack bridge specific data from LiquidityTransferred log: %w, data: %s",
 				err, hexutil.Encode(recvLog.BridgeSpecificData))

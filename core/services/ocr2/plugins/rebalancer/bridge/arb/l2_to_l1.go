@@ -28,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/rebalancer/generated/l2_arbitrum_messenger"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/rebalancer/generated/rebalancer"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/abiutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/models"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
@@ -376,7 +377,7 @@ func filterUnfinalizedTransfers(sentLogs, receivedLogs []*rebalancer.RebalancerL
 			if err != nil {
 				return nil, fmt.Errorf("unpack finalization payload (bridgeSpecificData) from recv event: %w", err)
 			}
-			l2ToL1Id, err := unpackUint256(sent.BridgeReturnData)
+			l2ToL1Id, err := abiutils.UnpackUint256(sent.BridgeReturnData)
 			if err != nil {
 				return nil, fmt.Errorf("unpack l2ToL1TxId (bridgeReturnData) from send event: %w", err)
 			}
