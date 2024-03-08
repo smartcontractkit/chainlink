@@ -39,8 +39,6 @@ type ChainContractReader struct {
 	ContractABI string `json:"contractABI" toml:"contractABI"`
 	// key is genericName from config
 	Configs map[string]*ChainReaderDefinition `json:"configs" toml:"configs"`
-	// QueryingKeys creates key pairs in form of genericName-
-	KeysMappings map[string]*ChainReaderDefinition
 }
 
 type ChainReaderDefinition chainReaderDefinitionFields
