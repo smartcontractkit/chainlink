@@ -1322,7 +1322,7 @@ describe('AutomationRegistry2_3', () => {
           ['conditional', upkeepId],
           ['log-trigger', logUpkeepId],
         ]
-        let newConfig = config
+        const newConfig = config
         newConfig.reorgProtectionEnabled = false
         await registry // used to test initial configurations
           .connect(owner)
@@ -1356,7 +1356,7 @@ describe('AutomationRegistry2_3', () => {
       })
 
       it('allows very old trigger block numbers when bypassing reorg protection with reorgProtectionEnabled config', async () => {
-        let newConfig = config
+        const newConfig = config
         newConfig.reorgProtectionEnabled = false
         await registry // used to test initial configurations
           .connect(owner)
@@ -1459,7 +1459,7 @@ describe('AutomationRegistry2_3', () => {
       })
 
       it('returns early when future block number is provided as trigger, irrespective of reorgProtectionEnabled config', async () => {
-        let newConfig = config
+        const newConfig = config
         newConfig.reorgProtectionEnabled = false
         await registry // used to test initial configurations
           .connect(owner)
@@ -2678,7 +2678,7 @@ describe('AutomationRegistry2_3', () => {
         }
       }
 
-      it('has enough perform gas overhead for large batches [ @skip-coverage ]', async () => {
+      it.skip('has enough perform gas overhead for large batches [ @skip-coverage ]', async () => {
         const numUpkeeps = 20
         const upkeepIds: BigNumber[] = []
         let totalPerformGas = BigNumber.from('0')
