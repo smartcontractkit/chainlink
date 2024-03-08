@@ -59,8 +59,8 @@ interface IAutomationV21PlusCommon {
   event UpkeepUnpaused(uint256 indexed id);
 
   /**
- * @notice structure of trigger for log triggers
- */
+   * @notice structure of trigger for log triggers
+   */
   struct LogTriggerConfig {
     address contractAddress;
     uint8 filterSelector; // denotes which topics apply to filter ex 000, 101, 111...only last 3 bits apply
@@ -70,7 +70,7 @@ interface IAutomationV21PlusCommon {
     bytes32 topic3;
   }
 
-/// @dev Report transmitted by OCR to transmit function
+  /// @dev Report transmitted by OCR to transmit function
   struct Report {
     uint256 fastGasWei;
     uint256 linkNative;
@@ -80,7 +80,7 @@ interface IAutomationV21PlusCommon {
     bytes[] performDatas;
   }
 
-/**
+  /**
    * @notice all information about an upkeep
    * @dev only used in return values
    * @dev this will likely be deprecated in a future version of the registry
@@ -108,7 +108,7 @@ interface IAutomationV21PlusCommon {
     bytes offchainConfig;
   }
 
-/**
+  /**
    * @notice the trigger structure conditional trigger type
    */
   struct ConditionalTrigger {
@@ -116,8 +116,8 @@ interface IAutomationV21PlusCommon {
     bytes32 blockHash;
   }
 
-/**
- * @notice the trigger structure of log upkeeps
+  /**
+   * @notice the trigger structure of log upkeeps
    * @dev NOTE that blockNum / blockHash describe the block used for the callback,
    * not necessarily the block number that the log was emitted in!!!!
    */
