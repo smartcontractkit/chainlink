@@ -68,7 +68,8 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   uint256 internal constant ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD = 7_000; // Overhead per upkeep performed in batch
 
   LinkTokenInterface internal immutable i_link;
-  AggregatorV3Interface internal immutable i_linkNativeFeed;
+  AggregatorV3Interface internal immutable i_linkUSDFeed;
+  AggregatorV3Interface internal immutable i_nativeUSDFeed;
   AggregatorV3Interface internal immutable i_fastGasFeed;
   address internal immutable i_automationForwarderLogic;
   address internal immutable i_allowedReadOnlyAddress;
@@ -98,6 +99,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   Storage internal s_storage; // Mixture of config and state, not used in transmit
   uint256 internal s_fallbackGasPrice;
   uint256 internal s_fallbackLinkPrice;
+  uint256 internal s_fallbackNativePrice;
   uint256 internal s_expectedLinkBalance; // Used in case of erroneous LINK transfers to contract
   mapping(address => MigrationPermission) internal s_peerRegistryMigrationPermission; // Permissions for migration to and fro
   mapping(uint256 => bytes) internal s_upkeepTriggerConfig; // upkeep triggers
@@ -121,6 +123,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   error IncorrectNumberOfSigners();
   error IndexOutOfRange();
   error InvalidDataLength();
+  error InvalidFeed();
   error InvalidTrigger();
   error InvalidPayee();
   error InvalidRecipient();
@@ -267,6 +270,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     uint32 maxRevertDataSize;
     uint256 fallbackGasPrice;
     uint256 fallbackLinkPrice;
+    uint256 fallbackNativePrice;
     address transcoder;
     address[] registrars;
     address upkeepPrivilegeManager;
@@ -390,7 +394,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   /// @dev Report transmitted by OCR to transmit function
   struct Report {
     uint256 fastGasWei;
-    uint256 linkNative;
+    uint256 linkUSD;
     uint256[] upkeepIds;
     uint256[] gasLimits;
     bytes[] triggers;
@@ -460,6 +464,36 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     address priceFeed;
   }
 
+  /**
+   * @notice struct containing price & payment information used in calculating payment amount
+   * @member gasLimit the amount of gas used
+   * @member gasOverhead the amount of gas overhead
+   * @member l1CostWei the amount to be charged for L1 fee in wei
+   * @member fastGasWei the fast gas price
+   * @member linkUSD the exchange ratio between LINK and USD
+   * @member nativeUSD the exchange ratio between the chain's native token and USD
+   * @member isTransaction is this an eth_call or a transaction
+   */
+  struct PaymentParams {
+    uint256 gasLimit;
+    uint256 gasOverhead;
+    uint256 l1CostWei;
+    uint256 fastGasWei;
+    uint256 linkUSD;
+    uint256 nativeUSD;
+    bool isTransaction;
+  }
+
+  /**
+   * @notice struct containing receipt information after a payment is made
+   * @member reimbursement the amount to reimburse a node for gas spent
+   * @member premium the premium charged to the user, shared between all nodes
+   */
+  struct PaymentReceipt {
+    uint96 reimbursement;
+    uint96 premium;
+  }
+
   event AdminPrivilegeConfigSet(address indexed admin, bytes privilegeConfig);
   event CancelledUpkeepReport(uint256 indexed id, bytes trigger);
   event ChainSpecificModuleUpdated(address newModule);
@@ -502,23 +536,29 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
 
   /**
    * @param link address of the LINK Token
-   * @param linkNativeFeed address of the LINK/Native price feed
+   * @param linkUSDFeed address of the LINK/USD price feed
+   * @param nativeUSDFeed address of the Native/USD price feed
    * @param fastGasFeed address of the Fast Gas price feed
    * @param automationForwarderLogic the address of automation forwarder logic
    * @param allowedReadOnlyAddress the address of the allowed read only address
    */
   constructor(
     address link,
-    address linkNativeFeed,
+    address linkUSDFeed,
+    address nativeUSDFeed,
     address fastGasFeed,
     address automationForwarderLogic,
     address allowedReadOnlyAddress
   ) ConfirmedOwner(msg.sender) {
     i_link = LinkTokenInterface(link);
-    i_linkNativeFeed = AggregatorV3Interface(linkNativeFeed);
+    i_linkUSDFeed = AggregatorV3Interface(linkUSDFeed);
+    i_nativeUSDFeed = AggregatorV3Interface(nativeUSDFeed);
     i_fastGasFeed = AggregatorV3Interface(fastGasFeed);
     i_automationForwarderLogic = automationForwarderLogic;
     i_allowedReadOnlyAddress = allowedReadOnlyAddress;
+    if (i_linkUSDFeed.decimals() != i_nativeUSDFeed.decimals()) {
+      revert InvalidFeed();
+    }
   }
 
   // ================================================================
@@ -587,7 +627,9 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
    * for gas it takes the min of gas price in the transaction or the fast gas
    * price in order to reduce costs for the upkeep clients.
    */
-  function _getFeedData(HotVars memory hotVars) internal view returns (uint256 gasWei, uint256 linkNative) {
+  function _getFeedData(
+    HotVars memory hotVars
+  ) internal view returns (uint256 gasWei, uint256 linkUSD, uint256 nativeUSD) {
     uint32 stalenessSeconds = hotVars.stalenessSeconds;
     bool staleFallback = stalenessSeconds > 0;
     uint256 timestamp;
@@ -600,43 +642,57 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     } else {
       gasWei = uint256(feedValue);
     }
-    (, feedValue, , timestamp, ) = i_linkNativeFeed.latestRoundData();
+    (, feedValue, , timestamp, ) = i_linkUSDFeed.latestRoundData();
     if (
       feedValue <= 0 || block.timestamp < timestamp || (staleFallback && stalenessSeconds < block.timestamp - timestamp)
     ) {
-      linkNative = s_fallbackLinkPrice;
+      linkUSD = s_fallbackLinkPrice;
     } else {
-      linkNative = uint256(feedValue);
+      linkUSD = uint256(feedValue);
     }
-    return (gasWei, linkNative);
+    (, feedValue, , timestamp, ) = i_nativeUSDFeed.latestRoundData();
+    return (gasWei, linkUSD, _getNativeUSD(hotVars));
+  }
+
+  /**
+   * @dev this price has it's own getter for use in the transmit() hot path
+   * in the future, all price data should be included in the report instead of
+   * getting read during execution
+   */
+  function _getNativeUSD(HotVars memory hotVars) internal view returns (uint256) {
+    (, int256 feedValue, , uint256 timestamp, ) = i_nativeUSDFeed.latestRoundData();
+    if (
+      feedValue <= 0 ||
+      block.timestamp < timestamp ||
+      (hotVars.stalenessSeconds > 0 && hotVars.stalenessSeconds < block.timestamp - timestamp)
+    ) {
+      return s_fallbackNativePrice;
+    } else {
+      return uint256(feedValue);
+    }
   }
 
   /**
    * @dev calculates LINK paid for gas spent plus a configure premium percentage
-   * @param gasLimit the amount of gas used
-   * @param gasOverhead the amount of gas overhead
-   * @param l1CostWei the amount to be charged for L1 fee in wei
-   * @param fastGasWei the fast gas price
-   * @param linkNative the exchange ratio between LINK and Native token
-   * @param isExecution if this is triggered by a perform upkeep function
+   * @param hotVars the hot path variables
+   * @param paymentParams the pricing data and gas usage data
+   * @dev use of PaymentParams is solely to avoid stack too deep errors
    */
   function _calculatePaymentAmount(
     HotVars memory hotVars,
-    uint256 gasLimit,
-    uint256 gasOverhead,
-    uint256 l1CostWei,
-    uint256 fastGasWei,
-    uint256 linkNative,
-    bool isExecution
+    PaymentParams memory paymentParams
   ) internal view returns (uint96, uint96) {
-    uint256 gasWei = fastGasWei * hotVars.gasCeilingMultiplier;
+    uint256 gasWei = paymentParams.fastGasWei * hotVars.gasCeilingMultiplier;
     // in case it's actual execution use actual gas price, capped by fastGasWei * gasCeilingMultiplier
-    if (isExecution && tx.gasprice < gasWei) {
+    if (paymentParams.isTransaction && tx.gasprice < gasWei) {
       gasWei = tx.gasprice;
     }
-    uint256 gasPayment = ((gasWei * (gasLimit + gasOverhead) + l1CostWei) * 1e18) / linkNative;
-    uint256 premium = (((gasWei * gasLimit) + l1CostWei) * 1e9 * hotVars.paymentPremiumPPB) /
-      linkNative +
+    uint256 gasPayment = ((gasWei * (paymentParams.gasLimit + paymentParams.gasOverhead) + paymentParams.l1CostWei) *
+      paymentParams.nativeUSD) / paymentParams.linkUSD;
+    uint256 premium = (((gasWei * paymentParams.gasLimit) + paymentParams.l1CostWei) *
+      hotVars.paymentPremiumPPB *
+      paymentParams.nativeUSD) /
+      (paymentParams.linkUSD * 1e9) +
       uint256(hotVars.flatFeeMicroLink) *
       1e12;
     // LINK_TOTAL_SUPPLY < UINT96_MAX
@@ -653,7 +709,8 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     Trigger triggerType,
     uint32 performGas,
     uint256 fastGasWei,
-    uint256 linkNative
+    uint256 linkUSD,
+    uint256 nativeUSD
   ) internal view returns (uint96) {
     uint256 maxGasOverhead;
     if (triggerType == Trigger.CONDITION) {
@@ -676,12 +733,15 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
 
     (uint96 reimbursement, uint96 premium) = _calculatePaymentAmount(
       hotVars,
-      performGas,
-      maxGasOverhead,
-      maxL1Fee,
-      fastGasWei,
-      linkNative,
-      false //isExecution
+      PaymentParams({
+        gasLimit: performGas,
+        gasOverhead: maxGasOverhead,
+        l1CostWei: maxL1Fee,
+        fastGasWei: fastGasWei,
+        linkUSD: linkUSD,
+        nativeUSD: nativeUSD,
+        isTransaction: false
+      })
     );
 
     return reimbursement + premium;
@@ -901,27 +961,15 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   }
 
   /**
-   * @dev does postPerform payment processing for an upkeep. Deducts upkeep's balance and increases
-   * amount spent.
+   * @dev handles the payment processing after an upkeep has been performed.
+   * Deducts an upkeep's balance and increases the amount spent.
    */
-  function _postPerformPayment(
+  function _handlePayment(
     HotVars memory hotVars,
-    uint256 upkeepId,
-    uint256 gasUsed,
-    uint256 fastGasWei,
-    uint256 linkNative,
-    uint256 gasOverhead,
-    uint256 l1Fee
-  ) internal returns (uint96 gasReimbursement, uint96 premium) {
-    (gasReimbursement, premium) = _calculatePaymentAmount(
-      hotVars,
-      gasUsed,
-      gasOverhead,
-      l1Fee,
-      fastGasWei,
-      linkNative,
-      true // isExecution
-    );
+    PaymentParams memory paymentParams,
+    uint256 upkeepId
+  ) internal returns (PaymentReceipt memory) {
+    (uint96 gasReimbursement, uint96 premium) = _calculatePaymentAmount(hotVars, paymentParams);
 
     uint96 balance = s_upkeep[upkeepId].balance;
     uint96 payment = gasReimbursement + premium;
@@ -940,7 +988,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     s_upkeep[upkeepId].balance -= payment;
     s_upkeep[upkeepId].amountSpent += payment;
 
-    return (gasReimbursement, premium);
+    return PaymentReceipt({reimbursement: gasReimbursement, premium: premium});
   }
 
   /**
