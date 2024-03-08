@@ -83,7 +83,7 @@ func (c *Config) deprecationWarnings() (err error) {
 			err = multierr.Append(err, config.ErrInvalid{
 				Name:  "EVM.ChainType",
 				Value: *evm.ChainType,
-				Msg:   "deprecated and will be removed in v2.12.0, use 'gnosis' instead",
+				Msg:   "deprecated and will be removed in v2.13.0, use 'gnosis' instead",
 			})
 		}
 	}
