@@ -299,7 +299,6 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
    */
   struct State {
     uint32 nonce;
-    uint96 ownerLinkBalance;
     uint256 expectedLinkBalance;
     uint96 totalPremium;
     uint256 numUpkeeps;
