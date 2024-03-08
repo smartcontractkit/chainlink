@@ -169,7 +169,7 @@ jobs:
       matrix:
         evm_node: ${{fromJson(needs.build-test-matrix.outputs.matrix)}}
     runs-on: ${{ matrix.evm_node.os }}
-    name: EVM node compatibility ${{ matrix.evm_node.name }} (${{ matrix.evm_node.docker_image }})
+    name: EVM node compatibility of ${{ matrix.evm_node.product }} with ${{ matrix.evm_node.docker_image }}
     steps:
       - name: Collect Metrics
         if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
@@ -320,8 +320,8 @@ jobs:
           github_token: ${{ github.token }}
           github_repository: ${{ github.repository }}
           workflow_run_id: ${{ github.run_id }}
-          github_job_name_regex: ^EVM node compatibility (?<cap>.*?) \(.*$
-          message_title: ${{ matrix.evm_node.docker_image  }}
+          github_job_name_regex: ^EVM node compatibility of ${{ matrix.evm_node.product }} with (?<cap>.*?)$
+          message_title: ${{ matrix.evm_node.product  }}
           slack_channel_id: ${{ secrets.QA_SLACK_CHANNEL }}
           slack_bot_token: ${{ secrets.QA_SLACK_API_KEY }}
           slack_thread_ts: ${{ needs.start-slack-thread.outputs.thread_ts }}
