@@ -222,7 +222,6 @@ func TestAutomationReorg(t *testing.T) {
 			} else {
 				err = registry.SetConfigTypeSafe(ocrConfig)
 			}
-			err = registry.SetConfigTypeSafe(ocrConfig)
 			require.NoError(t, err, "Registry config should be be set successfully")
 			require.NoError(t, chainClient.WaitForEvents(), "Waiting for config to be set")
 
