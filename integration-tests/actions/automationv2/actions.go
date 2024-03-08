@@ -515,15 +515,16 @@ func (a *AutomationTest) SetConfigOnRegistry() error {
 		if err != nil {
 			return errors.Join(err, fmt.Errorf("failed to set config on registry"))
 		}
-	} else if a.RegistrySettings.RegistryVersion == ethereum.RegistryVersion_2_1 {
-		ocrConfig.TypedOnchainConfigLegacy = a.RegistrySettings.Create21OnchainConfig(a.Registrar.Address(), a.UpkeepPrivilegeManager)
-	} else if a.RegistrySettings.RegistryVersion == ethereum.RegistryVersion_2_2 {
-		ocrConfig.TypedOnchainConfig = a.RegistrySettings.Create22OnchainConfig(a.Registrar.Address(), a.UpkeepPrivilegeManager, a.Registry.ChainModuleAddress(), a.Registry.ReorgProtectionEnabled())
-	}
-
-	err = a.Registry.SetConfigTypeSafe(ocrConfig)
-	if err != nil {
-		return errors.Join(err, fmt.Errorf("failed to set config on registry"))
+	} else {
+		if a.RegistrySettings.RegistryVersion == ethereum.RegistryVersion_2_1 {
+			ocrConfig.TypedOnchainConfigLegacy = a.RegistrySettings.Create21OnchainConfig(a.Registrar.Address(), a.UpkeepPrivilegeManager)
+		} else if a.RegistrySettings.RegistryVersion == ethereum.RegistryVersion_2_2 {
+			ocrConfig.TypedOnchainConfig = a.RegistrySettings.Create22OnchainConfig(a.Registrar.Address(), a.UpkeepPrivilegeManager, a.Registry.ChainModuleAddress(), a.Registry.ReorgProtectionEnabled())
+		}
+		err = a.Registry.SetConfigTypeSafe(ocrConfig)
+		if err != nil {
+			return errors.Join(err, fmt.Errorf("failed to set config on registry"))
+		}
 	}
 	return nil
 }
