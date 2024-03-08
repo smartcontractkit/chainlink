@@ -18,12 +18,15 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
+	internalTest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	chainlinkmocks "github.com/smartcontractkit/chainlink/v2/core/services/chainlink/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/web/testutils"
 )
 
 func TestResolver_EthTransaction(t *testing.T) {
 	t.Parallel()
+	// Get context for test
+	ctx := internalTest.Context(t)
 
 	query := `
 		query GetEthTransaction($hash: ID!) {
@@ -67,7 +70,7 @@ func TestResolver_EthTransaction(t *testing.T) {
 			name:          "success",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-				f.Mocks.txmStore.On("FindTxByHash", hash).Return(&txmgr.Tx{
+				f.Mocks.txmStore.On("FindTxByHash", ctx, hash).Return(&txmgr.Tx{
 					ID:             1,
 					ToAddress:      common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
 					FromAddress:    common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
@@ -78,7 +81,7 @@ func TestResolver_EthTransaction(t *testing.T) {
 					ChainID:        big.NewInt(22),
 					Sequence:       nil,
 				}, nil)
-				f.Mocks.txmStore.On("FindTxAttemptConfirmedByTxIDs", []int64{1}).Return([]txmgr.TxAttempt{
+				f.Mocks.txmStore.On("FindTxAttemptConfirmedByTxIDs", ctx, []int64{1}).Return([]txmgr.TxAttempt{
 					{
 						TxID:                    1,
 						Hash:                    hash,
@@ -132,7 +135,7 @@ func TestResolver_EthTransaction(t *testing.T) {
 				num := int64(2)
 				nonce := evmtypes.Nonce(num)
 
-				f.Mocks.txmStore.On("FindTxByHash", hash).Return(&txmgr.Tx{
+				f.Mocks.txmStore.On("FindTxByHash", ctx, hash).Return(&txmgr.Tx{
 					ID:             1,
 					ToAddress:      common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
 					FromAddress:    common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
@@ -143,7 +146,7 @@ func TestResolver_EthTransaction(t *testing.T) {
 					ChainID:        big.NewInt(22),
 					Sequence:       &nonce,
 				}, nil)
-				f.Mocks.txmStore.On("FindTxAttemptConfirmedByTxIDs", []int64{1}).Return([]txmgr.TxAttempt{
+				f.Mocks.txmStore.On("FindTxAttemptConfirmedByTxIDs", ctx, []int64{1}).Return([]txmgr.TxAttempt{
 					{
 						TxID:                    1,
 						Hash:                    hash,
@@ -194,7 +197,7 @@ func TestResolver_EthTransaction(t *testing.T) {
 			name:          "not found error",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-				f.Mocks.txmStore.On("FindTxByHash", hash).Return(nil, sql.ErrNoRows)
+				f.Mocks.txmStore.On("FindTxByHash", ctx, hash).Return(nil, sql.ErrNoRows)
 				f.App.On("TxmStorageService").Return(f.Mocks.txmStore)
 			},
 			query:     query,
@@ -211,7 +214,7 @@ func TestResolver_EthTransaction(t *testing.T) {
 			name:          "generic error",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-				f.Mocks.txmStore.On("FindTxByHash", hash).Return(nil, gError)
+				f.Mocks.txmStore.On("FindTxByHash", ctx, hash).Return(nil, gError)
 				f.App.On("TxmStorageService").Return(f.Mocks.txmStore)
 			},
 			query:     query,
@@ -233,6 +236,7 @@ func TestResolver_EthTransaction(t *testing.T) {
 
 func TestResolver_EthTransactions(t *testing.T) {
 	t.Parallel()
+	ctx := internalTest.Context(t)
 
 	query := `
 		query GetEthTransactions {
@@ -267,7 +271,7 @@ func TestResolver_EthTransactions(t *testing.T) {
 			before: func(f *gqlTestFramework) {
 				num := int64(2)
 
-				f.Mocks.txmStore.On("Transactions", PageDefaultOffset, PageDefaultLimit).Return([]txmgr.Tx{
+				f.Mocks.txmStore.On("Transactions", ctx, PageDefaultOffset, PageDefaultLimit).Return([]txmgr.Tx{
 					{
 						ID:             1,
 						ToAddress:      common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
@@ -279,7 +283,7 @@ func TestResolver_EthTransactions(t *testing.T) {
 						ChainID:        big.NewInt(22),
 					},
 				}, 1, nil)
-				f.Mocks.txmStore.On("FindTxAttemptConfirmedByTxIDs", []int64{1}).Return([]txmgr.TxAttempt{
+				f.Mocks.txmStore.On("FindTxAttemptConfirmedByTxIDs", ctx, []int64{1}).Return([]txmgr.TxAttempt{
 					{
 						TxID:                    1,
 						Hash:                    hash,
@@ -318,7 +322,7 @@ func TestResolver_EthTransactions(t *testing.T) {
 			name:          "generic error",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-				f.Mocks.txmStore.On("Transactions", PageDefaultOffset, PageDefaultLimit).Return(nil, 0, gError)
+				f.Mocks.txmStore.On("Transactions", ctx, PageDefaultOffset, PageDefaultLimit).Return(nil, 0, gError)
 				f.App.On("TxmStorageService").Return(f.Mocks.txmStore)
 			},
 			query:  query,
@@ -339,6 +343,7 @@ func TestResolver_EthTransactions(t *testing.T) {
 
 func TestResolver_EthTransactionsAttempts(t *testing.T) {
 	t.Parallel()
+	ctx := internalTest.Context(t)
 
 	query := `
 		query GetEthTransactionsAttempts {
@@ -365,7 +370,7 @@ func TestResolver_EthTransactionsAttempts(t *testing.T) {
 			before: func(f *gqlTestFramework) {
 				num := int64(2)
 
-				f.Mocks.txmStore.On("TxAttempts", PageDefaultOffset, PageDefaultLimit).Return([]txmgr.TxAttempt{
+				f.Mocks.txmStore.On("TxAttempts", ctx, PageDefaultOffset, PageDefaultLimit).Return([]txmgr.TxAttempt{
 					{
 						Hash:                    hash,
 						TxFee:                   gas.EvmFee{Legacy: assets.NewWeiI(12)},
@@ -396,7 +401,7 @@ func TestResolver_EthTransactionsAttempts(t *testing.T) {
 			name:          "success with nil values",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-				f.Mocks.txmStore.On("TxAttempts", PageDefaultOffset, PageDefaultLimit).Return([]txmgr.TxAttempt{
+				f.Mocks.txmStore.On("TxAttempts", ctx, PageDefaultOffset, PageDefaultLimit).Return([]txmgr.TxAttempt{
 					{
 						Hash:                    hash,
 						TxFee:                   gas.EvmFee{Legacy: assets.NewWeiI(12)},
@@ -426,7 +431,7 @@ func TestResolver_EthTransactionsAttempts(t *testing.T) {
 			name:          "generic error",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-				f.Mocks.txmStore.On("TxAttempts", PageDefaultOffset, PageDefaultLimit).Return(nil, 0, gError)
+				f.Mocks.txmStore.On("TxAttempts", ctx, PageDefaultOffset, PageDefaultLimit).Return(nil, 0, gError)
 				f.App.On("TxmStorageService").Return(f.Mocks.txmStore)
 			},
 			query:  query,
