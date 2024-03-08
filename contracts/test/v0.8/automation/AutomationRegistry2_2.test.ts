@@ -171,7 +171,7 @@ let chainModuleBase: ChainModuleBase
 let arbitrumModule: ArbitrumModule
 let optimismModule: OptimismModule
 let streamsLookupUpkeep: StreamsLookupUpkeep
-let automationConv: AutomationCompatibleUtils
+let automationUtils: AutomationCompatibleUtils
 
 function now() {
   return Math.floor(Date.now() / 1000)
@@ -204,7 +204,7 @@ const getTriggerType = (upkeepId: BigNumber): Trigger => {
 const encodeBlockTrigger = (conditionalTrigger: ConditionalTrigger) => {
   return (
     '0x' +
-    automationConv.interface
+    automationUtils.interface
       .encodeFunctionData('_conditionalTrigger', [conditionalTrigger])
       .slice(10)
   )
@@ -213,7 +213,7 @@ const encodeBlockTrigger = (conditionalTrigger: ConditionalTrigger) => {
 const encodeLogTrigger = (logTrigger: LogTrigger) => {
   return (
     '0x' +
-    automationConv.interface
+    automationUtils.interface
       .encodeFunctionData('_logTrigger', [logTrigger])
       .slice(10)
   )
@@ -221,14 +221,14 @@ const encodeLogTrigger = (logTrigger: LogTrigger) => {
 
 const encodeLog = (log: Log) => {
   return (
-    '0x' + automationConv.interface.encodeFunctionData('_log', [log]).slice(10)
+    '0x' + automationUtils.interface.encodeFunctionData('_log', [log]).slice(10)
   )
 }
 
 const encodeReport = (report: Report) => {
   return (
     '0x' +
-    automationConv.interface.encodeFunctionData('_report', [report]).slice(10)
+    automationUtils.interface.encodeFunctionData('_report', [report]).slice(10)
   )
 }
 
@@ -412,7 +412,7 @@ describe('AutomationRegistry2_2', () => {
     const convFactory = await ethers.getContractFactory(
       'AutomationCompatibleUtils',
     )
-    automationConv = await convFactory.deploy()
+    automationUtils = await convFactory.deploy()
 
     linkTokenFactory = await ethers.getContractFactory(
       'src/v0.4/LinkToken.sol:LinkToken',
@@ -496,7 +496,7 @@ describe('AutomationRegistry2_2', () => {
 
     logTriggerConfig =
       '0x' +
-      automationConv.interface
+      automationUtils.interface
         .encodeFunctionData('_logTriggerConfig', [
           {
             contractAddress: randomAddress(),
