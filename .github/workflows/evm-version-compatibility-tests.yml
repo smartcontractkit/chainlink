@@ -169,7 +169,7 @@ jobs:
       matrix:
         evm_node: ${{fromJson(needs.build-test-matrix.outputs.matrix)}}
     runs-on: ${{ matrix.evm_node.os }}
-    name: EVM node compatibility test for ${{ matrix.evm_node.eth_client }} (${{ matrix.evm_node.docker_image }})
+    name: EVM node compatibility ${{ matrix.evm_node.name }} (${{ matrix.evm_node.docker_image }})
     steps:
       - name: Collect Metrics
         if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
@@ -179,7 +179,7 @@ jobs:
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          this-job-name: EVM node compatibility test ${{ matrix.evm_node.docker_image }}
+          this-job-name: EVM node compatibility ${{ matrix.evm_node.name }} ${{ matrix.evm_node.docker_image }}
           test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
         continue-on-error: true
       - name: Checkout the repo
@@ -320,7 +320,7 @@ jobs:
           github_token: ${{ github.token }}
           github_repository: ${{ github.repository }}
           workflow_run_id: ${{ github.run_id }}
-          github_job_name_regex: ^EVM node compatibility test (?<cap>.*?)$
+          github_job_name_regex: ^EVM node compatibility (?<cap>.*?) \(.*$
           message_title: ${{ matrix.evm_node.docker_image  }}
           slack_channel_id: ${{ secrets.QA_SLACK_CHANNEL }}
           slack_bot_token: ${{ secrets.QA_SLACK_API_KEY }}
