@@ -47,12 +47,12 @@ func NewTxm(
 	// create tx attempt builder
 	txAttemptBuilder := NewEvmTxAttemptBuilder(*client.ConfiguredChainID(), fCfg, keyStore, estimator)
 	txStore := NewTxStore(sqlxDB, lggr, dbConfig)
-	nonceTracker := NewNonceTracker(lggr, txStore, client)
 
 	txmCfg := NewEvmTxmConfig(chainConfig) // wrap Evm specific config
 	feeCfg := NewEvmTxmFeeConfig(fCfg)     // wrap Evm specific config
 	txmClient := NewEvmTxmClient(client)   // wrap Evm specific client
 	chainID := txmClient.ConfiguredChainID()
+	nonceTracker := NewNonceTracker(lggr, txStore, txmClient)
 	evmBroadcaster := NewEvmBroadcaster(txStore, txmClient, txmCfg, feeCfg, txConfig, listenerConfig, keyStore, txAttemptBuilder, nonceTracker, lggr, checker, chainConfig.NonceAutoSync())
 	evmTracker := NewEvmTracker(txStore, keyStore, chainID, lggr)
 	evmConfirmer := NewEvmConfirmer(txStore, txmClient, txmCfg, feeCfg, txConfig, dbConfig, keyStore, txAttemptBuilder, lggr)

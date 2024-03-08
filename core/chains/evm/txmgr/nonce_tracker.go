@@ -22,7 +22,7 @@ type NonceTrackerTxStore interface {
 
 type NonceTrackerClient interface {
 	ConfiguredChainID() *big.Int
-	PendingNonceAt(context.Context, common.Address) (uint64, error)
+	PendingNonceAt(context.Context, common.Address) (evmtypes.Nonce, error)
 }
 
 type nonceTracker struct {
@@ -37,6 +37,7 @@ type nonceTracker struct {
 }
 
 func NewNonceTracker(lggr logger.Logger, txStore NonceTrackerTxStore, client NonceTrackerClient) *nonceTracker {
+	lggr = logger.Named(lggr, "NonceTracker")
 	return &nonceTracker{
 		lggr:    logger.Sugared(lggr),
 		txStore: txStore,
@@ -72,7 +73,7 @@ func (s *nonceTracker) getSequenceForAddr(ctx context.Context, address common.Ad
 	// Returns the nonce that should be used for the next transaction so no need to increment
 	nonce, err := s.client.PendingNonceAt(ctx, address)
 	if err == nil {
-		return evmtypes.Nonce(nonce), nil
+		return nonce, nil
 	}
 	s.lggr.Criticalw("failed to retrieve next sequence from on-chain for address: ", "address", address.String())
 	return seq, err
@@ -117,11 +118,10 @@ func (s *nonceTracker) SyncSequence(ctx context.Context, addr common.Address, ch
 }
 
 func (s *nonceTracker) SyncOnChain(ctx context.Context, addr common.Address, localSequence evmtypes.Nonce) error {
-	chainSequence, err := s.client.PendingNonceAt(ctx, addr)
+	nonce, err := s.client.PendingNonceAt(ctx, addr)
 	if err != nil {
 		return err
 	}
-	nonce := evmtypes.Nonce(chainSequence)
 	if nonce > localSequence {
 		s.lggr.Warnw(fmt.Sprintf("address %s has been used before, either by an external wallet or a different Chainlink node. "+
 			"Local nonce is %v but the on-chain nonce for this account was %v. "+
