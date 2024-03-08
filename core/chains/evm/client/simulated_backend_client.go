@@ -17,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
@@ -757,7 +758,6 @@ func (c *SimulatedBackendClient) ethGetLogs(ctx context.Context, result interfac
 	default:
 		return fmt.Errorf("SimulatedBackendClient unexpected Type %T", r)
 	}
-	panic("can't reach here")
 }
 
 func toCallMsg(params map[string]interface{}) ethereum.CallMsg {
@@ -873,7 +873,6 @@ func interfaceToHash(value interface{}) (*common.Hash, error) {
 		if err != nil || len(b) != 32 {
 			return nil, fmt.Errorf("string does not represent a 32-byte hexadecimal number")
 		}
-
 		h := common.Hash(b)
 		return &h, nil
 	default:
