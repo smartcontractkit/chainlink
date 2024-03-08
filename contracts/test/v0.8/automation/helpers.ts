@@ -163,7 +163,8 @@ export const deployRegistry22 = async (
 export const deployRegistry23 = async (
   from: Signer,
   link: Parameters<AutomationRegistryLogicB2_3Factory['deploy']>[0],
-  linkNative: Parameters<AutomationRegistryLogicB2_3Factory['deploy']>[1],
+  linkUSD: Parameters<AutomationRegistryLogicB2_3Factory['deploy']>[1],
+  nativeUSD: Parameters<AutomationRegistryLogicB2_3Factory['deploy']>[2],
   fastgas: Parameters<AutomationRegistryLogicB2_3Factory['deploy']>[2],
   allowedReadOnlyAddress: Parameters<
     AutomationRegistryLogicB2_3Factory['deploy']
@@ -186,7 +187,8 @@ export const deployRegistry23 = async (
     .connect(from)
     .deploy(
       link,
-      linkNative,
+      linkUSD,
+      nativeUSD,
       fastgas,
       forwarderLogic.address,
       allowedReadOnlyAddress,
