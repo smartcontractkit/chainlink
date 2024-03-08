@@ -99,7 +99,7 @@ runs:
 
         if [ -n "$CUSTOM_DOCKER_IMAGES" ]; then
             custom_images+="[PrivateEthereumNetwork.CustomDockerImages]"
-            ethereum_version="ethereum_version=\"auto\""
+            ethereum_version="ethereum_version=\"\""
             IFS=',' read -r -a array <<< "$CUSTOM_DOCKER_IMAGES"
 
             for element in "${array[@]}"; do
