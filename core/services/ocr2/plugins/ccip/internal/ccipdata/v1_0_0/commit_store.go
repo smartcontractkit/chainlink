@@ -352,9 +352,7 @@ func (c *CommitStore) IsDestChainHealthy(context.Context) (bool, error) {
 func (c *CommitStore) IsDown(ctx context.Context) (bool, error) {
 	unPausedAndHealthy, err := c.commitStore.IsUnpausedAndARMHealthy(&bind.CallOpts{Context: ctx})
 	if err != nil {
-		// If we cannot read the state, assume the worst
-		c.lggr.Errorw("Unable to read CommitStore IsUnpausedAndARMHealthy", "err", err)
-		return true, nil
+		return true, err
 	}
 	return !unPausedAndHealthy, nil
 }
