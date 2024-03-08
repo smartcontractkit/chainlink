@@ -704,7 +704,6 @@ func TestVRFOwner(t *testing.T) {
 			1,
 		)
 		require.NoError(t, err)
-
 		subIDForCancelling := subIDsForCancelling[0]
 
 		subscriptionForCancelling, err := vrfContracts.CoordinatorV2.GetSubscription(testcontext.Get(t), subIDForCancelling)
