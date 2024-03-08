@@ -517,7 +517,7 @@ func (a *AutomationTest) SetConfigOnRegistry() error {
 		ocrConfig.TypedOnchainConfig = a.RegistrySettings.Create22OnchainConfig(a.Registrar.Address(), a.UpkeepPrivilegeManager, a.Registry.ChainModuleAddress(), a.Registry.ReorgProtectionEnabled())
 	}
 
-	err = a.Registry.SetConfigTypeSafe(a.RegistrySettings, ocrConfig)
+	err = a.Registry.SetConfigTypeSafe(ocrConfig)
 	if err != nil {
 		return errors.Join(err, fmt.Errorf("failed to set config on registry"))
 	}
