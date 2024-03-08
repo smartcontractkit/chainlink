@@ -1132,21 +1132,13 @@ func SetupLogPollerTestDocker(
 		return network
 	}
 
-	ethBuilder := ctf_test_env.NewEthereumNetworkBuilder()
-	cfg, err := ethBuilder.
-		WithEthereumVersion(ctf_test_env.EthereumVersion_Eth2).
-		WithExecutionLayer(ctf_test_env.ExecutionLayer_Geth).
-		WithEthereumChainConfig(ctf_test_env.EthereumChainConfig{
-			SecondsPerSlot: 4,
-			SlotsPerEpoch:  2,
-		}).
-		Build()
+	privateNetwork, err := actions.EthereumNetworkConfigFromConfig(l, testConfig)
 	require.NoError(t, err, "Error building ethereum network config")
 
 	env, err = test_env.NewCLTestEnvBuilder().
 		WithTestConfig(testConfig).
 		WithTestInstance(t).
-		WithPrivateEthereumNetwork(cfg).
+		WithPrivateEthereumNetwork(privateNetwork).
 		WithCLNodes(clNodesCount).
 		WithCLNodeConfig(clNodeConfig).
 		WithFunding(big.NewFloat(chainlinkNodeFunding)).
