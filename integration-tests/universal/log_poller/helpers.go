@@ -1205,7 +1205,7 @@ func SetupLogPollerTestDocker(
 	require.NoError(t, err, "Error creating OCR Keeper Jobs")
 	ocrConfig, err := actions.BuildAutoOCR2ConfigVarsLocal(l, workerNodes, registryConfig, registrar.Address(), 30*time.Second, registry.RegistryOwnerAddress(), registry.ChainModuleAddress(), registry.ReorgProtectionEnabled())
 	require.NoError(t, err, "Error building OCR config vars")
-	err = registry.SetConfig(automationDefaultRegistryConfig, ocrConfig)
+	err = registry.SetConfigTypeSafe(ocrConfig)
 	require.NoError(t, err, "Registry config should be set successfully")
 	require.NoError(t, env.EVMClient.WaitForEvents(), "Waiting for config to be set")
 
