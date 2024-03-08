@@ -53,7 +53,7 @@ jobs:
           cat << EOF > config.toml
           server_url="$PYROSCOPE_SERVER"
           environment="$PYROSCOPE_ENVIRONMENT"
-          key="$PYROSCOPE_KEY"
+          key_secret="$PYROSCOPE_KEY"
           EOF
 
           echo "$decoded_toml" >> final_config.toml

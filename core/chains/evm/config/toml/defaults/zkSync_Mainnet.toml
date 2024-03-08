@@ -6,7 +6,7 @@ MinIncomingConfirmations = 1
 NoNewHeadsThreshold = '1m'
 
 [GasEstimator]
-LimitDefault = 3_500_000
+LimitDefault = 100_000_000
 PriceMax = 18446744073709551615
 PriceMin = 0
 

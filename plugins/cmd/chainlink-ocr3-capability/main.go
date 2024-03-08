@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+
 	"github.com/hashicorp/go-plugin"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3"
@@ -19,7 +21,15 @@ func main() {
 	s := loop.MustNewStartedServer(loggerName)
 	defer s.Stop()
 
-	p := ocr3.NewOCR3(s.Logger, evm.NewEVMEncoder)
+	c := ocr3.Config{
+		Logger:         s.Logger,
+		EncoderFactory: evm.NewEVMEncoder,
+	}
+	p := ocr3.NewOCR3(c)
+	if err := p.Start(context.Background()); err != nil {
+		s.Logger.Fatal("Failed to start OCR3 capability", err)
+	}
+
 	defer s.Logger.ErrorIfFn(p.Close, "Failed to close")
 
 	s.MustRegister(p)

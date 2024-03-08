@@ -18,7 +18,8 @@ on:
 
 jobs:
   golangci:
-    if: ${{ github.event_name == 'pull_request' ||  github.event_name == 'schedule' }}
+    # We don't directly merge dependabot PRs, so let's not waste the resources
+    if: ${{ github.event_name == 'pull_request' ||  github.event_name == 'schedule' && github.actor != 'dependabot[bot]'}}
     name: lint
     runs-on: ubuntu20.04-8cores-32GB
     steps:
@@ -26,11 +27,12 @@ jobs:
       - name: Golang Lint
         uses: ./.github/actions/golangci-lint
         with:
-          gc-basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          gc-host: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          gc-basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          gc-host: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          gc-org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
       - name: Notify Slack
         if: ${{ failure() && (github.event_name == 'merge_group' || github.event.branch == 'develop')}}
-        uses: slackapi/slack-github-action@e28cf165c92ffef168d23c5c9000cffc8a25e117 # v1.24.0
+        uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
         env:
           SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
         with:
@@ -43,6 +45,8 @@ jobs:
       matrix:
         cmd: ["go_core_tests", "go_core_race_tests", "go_core_fuzz"]
     name: Core Tests (${{ matrix.cmd }})
+    # We don't directly merge dependabot PRs, so let's not waste the resources
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu20.04-64cores-256GB
     env:
       CL_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
@@ -50,7 +54,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
       - name: Setup node
-        uses: actions/setup-node@b39b52d1213e96004bfcb1c61a8a6fa8ab84f3e8 # v4.0.1
+        uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8 # v4.0.2
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
         with:
@@ -122,7 +126,7 @@ jobs:
             ./postgres_logs.txt
       - name: Notify Slack
         if: ${{ failure() && matrix.cmd == 'go_core_race_tests' && (github.event_name == 'merge_group' || github.event.branch == 'develop') }}
-        uses: slackapi/slack-github-action@e28cf165c92ffef168d23c5c9000cffc8a25e117 # v1.24.0
+        uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
         env:
           SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
         with:
@@ -151,7 +155,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
       - name: Setup node
-        uses: actions/setup-node@b39b52d1213e96004bfcb1c61a8a6fa8ab84f3e8 # v4.0.1
+        uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8 # v4.0.2
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
         with:
@@ -176,16 +180,18 @@ jobs:
         run: go build ./tools/flakeytests/cmd/runner
       - name: Re-run tests
         env:
-          GRAFANA_CLOUD_BASIC_AUTH: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          GRAFANA_CLOUD_HOST: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          GRAFANA_INTERNAL_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          GRAFANA_INTERNAL_HOST: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          GRAFANA_INTERNAL_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           GITHUB_EVENT_PATH: ${{ github.event_path }}
           GITHUB_EVENT_NAME: ${{ github.event_name }}
           GITHUB_REPO: ${{ github.repository }}
           GITHUB_RUN_ID: ${{ github.run_id }}
         run: |
           ./runner \
-            -grafana_auth=$GRAFANA_CLOUD_BASIC_AUTH \
-            -grafana_host=$GRAFANA_CLOUD_HOST \
+            -grafana_auth=$GRAFANA_INTERNAL_BASIC_AUTH \
+            -grafana_host=$GRAFANA_INTERNAL_HOST \
+            -grafana_org_id=$GRAFANA_INTERNAL_TENANT_ID \
             -gh_sha=$GITHUB_SHA \
             -gh_event_path=$GITHUB_EVENT_PATH \
             -gh_event_name=$GITHUB_EVENT_NAME \

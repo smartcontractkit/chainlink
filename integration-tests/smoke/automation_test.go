@@ -182,7 +182,7 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool, automationTestConfig t
 				expect := 5
 				// Upgrade the nodes one at a time and check that the upkeeps are still being performed
 				for i := 0; i < 5; i++ {
-					err = actions.UpgradeChainlinkNodeVersionsLocal(*cfg.GetChainlinkImageConfig().Image, *cfg.GetChainlinkImageConfig().Version, a.DockerEnv.ClCluster.Nodes[i])
+					err = actions.UpgradeChainlinkNodeVersionsLocal(*cfg.GetChainlinkUpgradeImageConfig().Image, *cfg.GetChainlinkUpgradeImageConfig().Version, a.DockerEnv.ClCluster.Nodes[i])
 					require.NoError(t, err, "Error when upgrading node %d", i)
 					time.Sleep(time.Second * 10)
 					expect = expect + 5

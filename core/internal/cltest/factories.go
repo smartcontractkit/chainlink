@@ -142,7 +142,7 @@ func NewEthTx(fromAddress common.Address) txmgr.Tx {
 		ToAddress:      testutils.NewAddress(),
 		EncodedPayload: []byte{1, 2, 3},
 		Value:          big.Int(assets.NewEthValue(142)),
-		FeeLimit:       uint32(1000000000),
+		FeeLimit:       uint64(1000000000),
 		State:          txmgrcommon.TxUnstarted,
 	}
 }
@@ -258,18 +258,19 @@ type RandomKey struct {
 }
 
 func (r RandomKey) MustInsert(t testing.TB, keystore keystore.Eth) (ethkey.KeyV2, common.Address) {
+	ctx := testutils.Context(t)
 	if r.chainIDs == nil {
 		r.chainIDs = []ubig.Big{*ubig.New(&FixtureChainID)}
 	}
 
 	key := MustGenerateRandomKey(t)
-	keystore.XXXTestingOnlyAdd(key)
+	keystore.XXXTestingOnlyAdd(ctx, key)
 
 	for _, cid := range r.chainIDs {
-		require.NoError(t, keystore.Add(key.Address, cid.ToInt()))
-		require.NoError(t, keystore.Enable(key.Address, cid.ToInt()))
+		require.NoError(t, keystore.Add(ctx, key.Address, cid.ToInt()))
+		require.NoError(t, keystore.Enable(ctx, key.Address, cid.ToInt()))
 		if r.Disabled {
-			require.NoError(t, keystore.Disable(key.Address, cid.ToInt()))
+			require.NoError(t, keystore.Disable(ctx, key.Address, cid.ToInt()))
 		}
 	}
 
@@ -277,8 +278,9 @@ func (r RandomKey) MustInsert(t testing.TB, keystore keystore.Eth) (ethkey.KeyV2
 }
 
 func (r RandomKey) MustInsertWithState(t testing.TB, keystore keystore.Eth) (ethkey.State, common.Address) {
+	ctx := testutils.Context(t)
 	k, address := r.MustInsert(t, keystore)
-	state, err := keystore.GetStateForKey(k)
+	state, err := keystore.GetStateForKey(ctx, k)
 	require.NoError(t, err)
 	return state, address
 }

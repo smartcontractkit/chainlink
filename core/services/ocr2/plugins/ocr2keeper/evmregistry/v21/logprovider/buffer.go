@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/prommetrics"
 )
 
 var (
@@ -230,6 +231,7 @@ func (b *logEventBuffer) enqueue(id *big.Int, logs ...logpoller.Log) int {
 	}
 	if added > 0 {
 		lggr.Debugw("Added logs to buffer", "addedLogs", added, "dropped", dropped, "latestBlock", latestBlock)
+		prommetrics.AutomationLogsInLogBuffer.Add(float64(added - dropped))
 	}
 
 	return added - dropped
@@ -331,6 +333,7 @@ func (b *logEventBuffer) dequeueRange(start, end int64, upkeepLimit, totalLimit 
 
 	if len(results) > 0 {
 		b.lggr.Debugw("Dequeued logs", "results", len(results), "start", start, "end", end)
+		prommetrics.AutomationLogsInLogBuffer.Sub(float64(len(results)))
 	}
 
 	return results

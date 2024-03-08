@@ -1079,6 +1079,7 @@ func SetupLogPollerTestDocker(
 	registryConfig contracts.KeeperRegistrySettings,
 	upkeepsNeeded int,
 	lpPollingInterval time.Duration,
+	backupPollingInterval uint64,
 	finalityTagEnabled bool,
 	testConfig *tc.TestConfig,
 ) (
@@ -1121,6 +1122,7 @@ func SetupLogPollerTestDocker(
 		chain.LogPollInterval = commonconfig.MustNewDuration(lpPollingInterval)
 		chain.FinalityDepth = ptr.Ptr[uint32](uint32(finalityDepth))
 		chain.FinalityTagEnabled = ptr.Ptr[bool](finalityTagEnabled)
+		chain.BackupLogPollerBlockDelay = ptr.Ptr[uint64](backupPollingInterval)
 		return chain
 	}
 
