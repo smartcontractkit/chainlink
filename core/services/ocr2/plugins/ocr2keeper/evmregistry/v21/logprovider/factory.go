@@ -37,6 +37,8 @@ type LogTriggersOptions struct {
 	BlockLimitBurst int
 	// Finality depth is the number of blocks to wait before considering a block final.
 	FinalityDepth int64
+
+	BufferVersion string
 }
 
 func NewOptions(finalityDepth int64) LogTriggersOptions {

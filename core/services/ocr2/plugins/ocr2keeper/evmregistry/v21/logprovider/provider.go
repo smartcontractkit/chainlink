@@ -99,6 +99,7 @@ type logEventProvider struct {
 
 	filterStore UpkeepFilterStore
 	buffer      *logEventBuffer
+	bufferV2    LogBuffer
 
 	opts LogTriggersOptions
 
@@ -111,6 +112,7 @@ func NewLogProvider(lggr logger.Logger, poller logpoller.LogPoller, packer LogDa
 		lggr:        lggr.Named("KeepersRegistry.LogEventProvider"),
 		packer:      packer,
 		buffer:      newLogEventBuffer(lggr, int(opts.LookbackBlocks), defaultNumOfLogUpkeeps, defaultFastExecLogsHigh),
+		bufferV2:    NewLogBuffer(lggr, int(opts.LookbackBlocks), defaultFastExecLogsHigh),
 		poller:      poller,
 		opts:        opts,
 		filterStore: filterStore,
@@ -164,33 +166,55 @@ func (p *logEventProvider) GetLatestPayloads(ctx context.Context) ([]ocr2keepers
 		return nil, fmt.Errorf("%w: %s", ErrHeadNotAvailable, err)
 	}
 	prommetrics.AutomationLogProviderLatestBlock.Set(float64(latest.BlockNumber))
-	start := latest.BlockNumber - p.opts.LookbackBlocks
+	payloads := p.getPayloadsFromBuffer(latest.BlockNumber)
+
+	return payloads, nil
+}
+
+func (p *logEventProvider) createPayload(id *big.Int, log logpoller.Log) (ocr2keepers.UpkeepPayload, error) {
+	trig := logToTrigger(log)
+	checkData, err := p.packer.PackLogData(log)
+	if err != nil {
+		p.lggr.Warnw("failed to pack log data", "err", err, "log", log, "id", id)
+		return ocr2keepers.UpkeepPayload{}, err
+	}
+	payload, err := core.NewUpkeepPayload(id, trig, checkData)
+	if err != nil {
+		p.lggr.Warnw("failed to create upkeep payload", "err", err, "id", id, "trigger", trig, "checkData", checkData)
+		return ocr2keepers.UpkeepPayload{}, err
+	}
+	return payload, nil
+}
+
+func (p *logEventProvider) getPayloadsFromBuffer(latestBlock int64) []ocr2keepers.UpkeepPayload {
+	var payloads []ocr2keepers.UpkeepPayload
+
+	start := latestBlock - p.opts.LookbackBlocks
 	if start <= 0 {
 		start = 1
 	}
-	logs := p.buffer.dequeueRange(start, latest.BlockNumber, AllowedLogsPerUpkeep, MaxPayloads)
 
-	// p.lggr.Debugw("got latest logs from buffer", "latest", latest, "diff", diff, "logs", len(logs))
-
-	var payloads []ocr2keepers.UpkeepPayload
-	for _, l := range logs {
-		log := l.log
-		trig := logToTrigger(log)
-		checkData, err := p.packer.PackLogData(log)
-		if err != nil {
-			p.lggr.Warnw("failed to pack log data", "err", err, "log", log)
-			continue
+	switch p.opts.BufferVersion {
+	case "v2":
+		blockRate, upkeepLimit, maxResults := 4, 10, MaxPayloads // TODO: use config
+		logs, _ := p.bufferV2.Dequeue(start, blockRate, upkeepLimit, maxResults, DefaultUpkeepSelector)
+		for _, l := range logs {
+			payload, err := p.createPayload(l.ID, l.Log)
+			if err == nil {
+				payloads = append(payloads, payload)
+			}
 		}
-		payload, err := core.NewUpkeepPayload(l.upkeepID, trig, checkData)
-		if err != nil {
-			p.lggr.Warnw("failed to create upkeep payload", "err", err, "id", l.upkeepID, "trigger", trig, "checkData", checkData)
-			continue
+	default:
+		logs := p.buffer.dequeueRange(start, latestBlock, AllowedLogsPerUpkeep, MaxPayloads)
+		for _, l := range logs {
+			payload, err := p.createPayload(l.upkeepID, l.log)
+			if err == nil {
+				payloads = append(payloads, payload)
+			}
 		}
-
-		payloads = append(payloads, payload)
 	}
 
-	return payloads, nil
+	return payloads
 }
 
 // ReadLogs fetches the logs for the given upkeeps.
@@ -400,7 +424,12 @@ func (p *logEventProvider) readLogs(ctx context.Context, latest int64, filters [
 			filter.blockLimiter.SetBurst(p.opts.BlockLimitBurst)
 		}
 
-		p.buffer.enqueue(filter.upkeepID, filteredLogs...)
+		switch p.opts.BufferVersion {
+		case "v2":
+			p.bufferV2.Enqueue(filter.upkeepID, filteredLogs...)
+		default:
+			p.buffer.enqueue(filter.upkeepID, filteredLogs...)
+		}
 
 		// Update the lastPollBlock for filter in slice this is then
 		// updated into filter store in updateFiltersLastPoll
