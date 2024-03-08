@@ -95,11 +95,8 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
   );
 
   event FallbackWeiPerUnitLinkUsed(
-    int256 fallbackWeiPerUnitLink,
-    int256 weiPerUniLink,
-    uint256 stalenessSeconds,
-    uint256 blockTimestamp,
-    uint256 timestamp
+    uint256 requestId,
+    int256 fallbackWeiPerUnitLink
   );
 
   constructor(address blockhashStore) SubscriptionAPI() {
@@ -474,10 +471,17 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
 
     bool nativePayment = uint8(rc.extraArgs[rc.extraArgs.length - 1]) == 1;
 
-    // We want to charge users exactly for how much gas they use in their callback.
-    // The gasAfterPaymentCalculation is meant to cover these additional operations where we
-    // decrement the subscription balance and increment the oracles withdrawable balance.
-    payment = _calculatePaymentAmount(startGas, gasPrice, nativePayment, onlyPremium);
+    // stack too deep error
+    {
+      // We want to charge users exactly for how much gas they use in their callback.
+      // The gasAfterPaymentCalculation is meant to cover these additional operations where we
+      // decrement the subscription balance and increment the oracles withdrawable balance.
+      bool isFeedStale;
+      (payment, isFeedStale) = _calculatePaymentAmount(startGas, gasPrice, nativePayment, onlyPremium);
+      if (isFeedStale) {
+        emit FallbackWeiPerUnitLinkUsed(output.requestId, s_fallbackWeiPerUnitLink);
+      }
+    }
 
     _chargePayment(payment, nativePayment, rc.subId);
 
@@ -511,9 +515,9 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     uint256 weiPerUnitGas,
     bool nativePayment,
     bool onlyPremium
-  ) internal returns (uint96) {
+  ) internal view returns (uint96, bool) {
     if (nativePayment) {
-      return _calculatePaymentAmountNative(startGas, weiPerUnitGas, onlyPremium);
+      return (_calculatePaymentAmountNative(startGas, weiPerUnitGas, onlyPremium), false);
     }
     return _calculatePaymentAmountLink(startGas, weiPerUnitGas, onlyPremium);
   }
@@ -541,9 +545,8 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     uint256 startGas,
     uint256 weiPerUnitGas,
     bool onlyPremium
-  ) internal returns (uint96) {
-    int256 weiPerUnitLink;
-    weiPerUnitLink = _getFeedData();
+  ) internal view returns (uint96, bool) {
+    (int256 weiPerUnitLink, bool isFeedStale) = _getFeedData();
     if (weiPerUnitLink <= 0) {
       revert InvalidLinkWeiPrice(weiPerUnitLink);
     }
@@ -566,23 +569,18 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     if (payment > 1e27) {
       revert PaymentTooLarge(); // Payment + fee cannot be more than all of the link in existence.
     }
-    return uint96(payment);
+    return (uint96(payment), isFeedStale);
   }
 
-  function _getFeedData() private returns (int256 weiPerUnitLink) {
+  function _getFeedData() private view returns (int256 weiPerUnitLink, bool isFeedStale) {
     uint32 stalenessSeconds = s_config.stalenessSeconds;
     uint256 timestamp;
     (, weiPerUnitLink, , timestamp, ) = LINK_NATIVE_FEED.latestRoundData();
     // solhint-disable-next-line not-rely-on-time
-    if (stalenessSeconds > 0 && stalenessSeconds < block.timestamp - timestamp) {
-      int256 fallbackWeiPerUnitLink = s_fallbackWeiPerUnitLink;
-
-      // Emit event first before weiPerUnitLink is overwritten.
-      emit FallbackWeiPerUnitLinkUsed(fallbackWeiPerUnitLink, weiPerUnitLink, stalenessSeconds, block.timestamp, timestamp);
-
-      weiPerUnitLink = fallbackWeiPerUnitLink;
+    isFeedStale = stalenessSeconds > 0 && stalenessSeconds < block.timestamp - timestamp;
+    if (isFeedStale) {
+      weiPerUnitLink = s_fallbackWeiPerUnitLink;
     }
-    return weiPerUnitLink;
   }
 
   /**

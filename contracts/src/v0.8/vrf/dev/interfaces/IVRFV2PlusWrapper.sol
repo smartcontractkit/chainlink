@@ -17,11 +17,8 @@ interface IVRFV2PlusWrapper {
     uint32 fulfillmentFlatFeeNativePPM
   );
   event FallbackWeiPerUnitLinkUsed(
-    int256 fallbackWeiPerUnitLink,
-    int256 weiPerUniLink,
-    uint256 stalenessSeconds,
-    uint256 blockTimestamp,
-    uint256 timestamp
+    uint256 requestId,
+    int256 fallbackWeiPerUnitLink
   );
 
   /**
@@ -39,7 +36,7 @@ interface IVRFV2PlusWrapper {
    *
    * @param _callbackGasLimit is the gas limit used to estimate the price.
    */
-  function calculateRequestPrice(uint32 _callbackGasLimit) external returns (uint256);
+  function calculateRequestPrice(uint32 _callbackGasLimit) external view returns (uint256 requestPrice, bool isFeedStale);
 
   /**
    * @notice Calculates the price of a VRF request in native with the given callbackGasLimit at the current
@@ -61,7 +58,7 @@ interface IVRFV2PlusWrapper {
    * @param _callbackGasLimit is the gas limit used to estimate the price.
    * @param _requestGasPriceWei is the gas price in wei used for the estimation.
    */
-  function estimateRequestPrice(uint32 _callbackGasLimit, uint256 _requestGasPriceWei) external returns (uint256);
+  function estimateRequestPrice(uint32 _callbackGasLimit, uint256 _requestGasPriceWei) external view returns (uint256 requestPrice, bool isFeedStale);
 
   /**
    * @notice Estimates the price of a VRF request in native with a specific gas limit and gas price.

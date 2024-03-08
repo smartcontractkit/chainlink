@@ -82,11 +82,12 @@ abstract contract VRFV2PlusWrapperConsumerBase {
     uint32 _numWords,
     bytes memory extraArgs
   ) internal returns (uint256 requestId, uint256 reqPrice) {
-    reqPrice = i_vrfV2PlusWrapper.calculateRequestPrice(_callbackGasLimit);
+    bool isFeedStale;
+    (reqPrice, isFeedStale) = i_vrfV2PlusWrapper.calculateRequestPrice(_callbackGasLimit);
     s_linkToken.transferAndCall(
       address(i_vrfV2PlusWrapper),
       reqPrice,
-      abi.encode(_callbackGasLimit, _requestConfirmations, _numWords, extraArgs)
+      abi.encode(_callbackGasLimit, _requestConfirmations, _numWords, extraArgs, isFeedStale)
     );
     return (i_vrfV2PlusWrapper.lastRequestId(), reqPrice);
   }

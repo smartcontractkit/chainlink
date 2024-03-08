@@ -317,11 +317,8 @@ contract VRFV2Plus is BaseTest {
     bool success
   );
   event FallbackWeiPerUnitLinkUsed(
-    int256 fallbackWeiPerUnitLink,
-    int256 weiPerUniLink,
-    uint256 stalenessSeconds,
-    uint256 blockTimestamp,
-    uint256 timestamp
+    uint256 requestId,
+    int256 fallbackWeiPerUnitLink
   );
 
   function testRequestAndFulfillRandomWordsNative() public {
@@ -410,7 +407,7 @@ contract VRFV2Plus is BaseTest {
   }
 
   function testRequestAndFulfillRandomWordsLINK_FallbackWeiPerUnitLinkUsed() public {
-    (VRF.Proof memory proof, VRFCoordinatorV2_5.RequestCommitment memory rc, ,) = setupSubAndRequestRandomnessLINKPayment();
+    (VRF.Proof memory proof, VRFCoordinatorV2_5.RequestCommitment memory rc, , uint256 requestId) = setupSubAndRequestRandomnessLINKPayment();
 
     (, ,, uint32 stalenessSeconds, , , , ,) = s_testCoordinator.s_config();
     int256 fallbackWeiPerUnitLink = s_testCoordinator.s_fallbackWeiPerUnitLink();
@@ -421,7 +418,7 @@ contract VRFV2Plus is BaseTest {
     s_linkNativeFeed.updateRoundData(roundId, answer, timestamp, startedAt);
 
     vm.expectEmit(false, false, false, true, address(s_testCoordinator));
-    emit FallbackWeiPerUnitLinkUsed(fallbackWeiPerUnitLink, answer, stalenessSeconds, block.timestamp, timestamp);
+    emit FallbackWeiPerUnitLinkUsed(requestId, fallbackWeiPerUnitLink);
     s_testCoordinator.fulfillRandomWords(proof, rc, false);
   }
 

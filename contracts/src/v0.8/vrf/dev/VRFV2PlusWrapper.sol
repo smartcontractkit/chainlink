@@ -311,9 +311,10 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
    */
   function calculateRequestPrice(
     uint32 _callbackGasLimit
-  ) external override onlyConfiguredNotDisabled returns (uint256) {
-    int256 weiPerUnitLink = _getFeedData();
-    return _calculateRequestPrice(_callbackGasLimit, tx.gasprice, weiPerUnitLink);
+  ) external view override onlyConfiguredNotDisabled returns (uint256 requestPrice, bool isFeedStale) {
+    int256 weiPerUnitLink;
+    (weiPerUnitLink, isFeedStale) = _getFeedData();
+    requestPrice = _calculateRequestPrice(_callbackGasLimit, tx.gasprice, weiPerUnitLink);
   }
 
   function calculateRequestPriceNative(
@@ -334,9 +335,10 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   function estimateRequestPrice(
     uint32 _callbackGasLimit,
     uint256 _requestGasPriceWei
-  ) external override onlyConfiguredNotDisabled returns (uint256) {
-    int256 weiPerUnitLink = _getFeedData();
-    return _calculateRequestPrice(_callbackGasLimit, _requestGasPriceWei, weiPerUnitLink);
+  ) external view override onlyConfiguredNotDisabled returns (uint256 requestPrice, bool isFeedStale) {
+    int256 weiPerUnitLink;
+    (weiPerUnitLink, isFeedStale) = _getFeedData();
+    requestPrice = _calculateRequestPrice(_callbackGasLimit, _requestGasPriceWei, weiPerUnitLink);
   }
 
   function estimateRequestPriceNative(
@@ -403,13 +405,13 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     // solhint-disable-next-line custom-errors
     require(msg.sender == address(s_link), "only callable from LINK");
 
-    (uint32 callbackGasLimit, uint16 requestConfirmations, uint32 numWords, bytes memory extraArgs) = abi.decode(
+    (uint32 callbackGasLimit, uint16 requestConfirmations, uint32 numWords, bytes memory extraArgs, bool isFeedStale) = abi.decode(
       _data,
-      (uint32, uint16, uint32, bytes)
+      (uint32, uint16, uint32, bytes, bool)
     );
     checkPaymentMode(extraArgs, true);
     uint32 eip150Overhead = _getEIP150Overhead(callbackGasLimit);
-    int256 weiPerUnitLink = _getFeedData();
+    (int256 weiPerUnitLink, ) = _getFeedData();
     uint256 price = _calculateRequestPrice(callbackGasLimit, tx.gasprice, weiPerUnitLink);
     // solhint-disable-next-line custom-errors
     require(_amount >= price, "fee too low");
@@ -430,6 +432,10 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
       requestGasPrice: uint64(tx.gasprice)
     });
     lastRequestId = requestId;
+
+    if (isFeedStale) {
+      emit FallbackWeiPerUnitLinkUsed(requestId, s_fallbackWeiPerUnitLink);
+    }
   }
 
   function checkPaymentMode(bytes memory extraArgs, bool isLinkMode) public pure {
@@ -545,22 +551,17 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     }
   }
 
-  function _getFeedData() private returns (int256 weiPerUnitLink) {
+  function _getFeedData() private view returns (int256 weiPerUnitLink, bool isFeedStale) {
     uint32 stalenessSeconds = s_stalenessSeconds;
     uint256 timestamp;
     (, weiPerUnitLink, , timestamp, ) = s_linkNativeFeed.latestRoundData();
     // solhint-disable-next-line not-rely-on-time
-    if (stalenessSeconds > 0 && stalenessSeconds < block.timestamp - timestamp) {
-      int256 fallbackWeiPerUnitLink = s_fallbackWeiPerUnitLink;
-
-      // Emit event first before weiPerUnitLink is overwritten.
-      emit FallbackWeiPerUnitLinkUsed(fallbackWeiPerUnitLink, weiPerUnitLink, stalenessSeconds, block.timestamp, timestamp);
-
-      weiPerUnitLink = fallbackWeiPerUnitLink;
+    isFeedStale = stalenessSeconds > 0 && stalenessSeconds < block.timestamp - timestamp;
+    if (isFeedStale) {
+      weiPerUnitLink = s_fallbackWeiPerUnitLink;
     }
     // solhint-disable-next-line custom-errors
     require(weiPerUnitLink >= 0, "Invalid LINK wei price");
-    return weiPerUnitLink;
   }
 
   /**

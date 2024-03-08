@@ -132,6 +132,10 @@ contract VRFV2PlusWrapperTest is BaseTest {
     uint32 fulfillmentFlatFeeLinkPPM,
     uint32 fulfillmentFlatFeeNativePPM
   );
+  event FallbackWeiPerUnitLinkUsed(
+    uint256 requestId,
+    int256 fallbackWeiPerUnitLink
+  );
 
   // VRFV2PlusWrapperConsumerBase events
   event LinkTokenSet(address link);
@@ -272,8 +276,8 @@ contract VRFV2PlusWrapperTest is BaseTest {
     // Assert that the request was made correctly.
     (uint256 paid, bool fulfilled, bool native) = s_consumer.s_requests(requestId);
     uint32 expectedPaid = (callbackGasLimit + wrapperGasOverhead + coordinatorGasOverhead) * 2;
-    uint256 wrapperCostEstimate = s_wrapper.estimateRequestPrice(callbackGasLimit, tx.gasprice);
-    uint256 wrapperCostCalculation = s_wrapper.calculateRequestPrice(callbackGasLimit);
+    (uint256 wrapperCostEstimate, ) = s_wrapper.estimateRequestPrice(callbackGasLimit, tx.gasprice);
+    (uint256 wrapperCostCalculation, ) = s_wrapper.calculateRequestPrice(callbackGasLimit);
     assertEq(paid, expectedPaid); // 1_030_000 * 2 for link/native ratio
     assertEq(uint256(paid), wrapperCostEstimate);
     assertEq(wrapperCostEstimate, wrapperCostCalculation);
@@ -298,5 +302,42 @@ contract VRFV2PlusWrapperTest is BaseTest {
     s_wrapper.withdraw(LINK_WHALE, paid);
     assertEq(s_linkToken.balanceOf(LINK_WHALE), priorWhaleBalance + paid);
     assertEq(s_linkToken.balanceOf(address(s_wrapper)), 0);
+  }
+
+  function testRequestRandomWordsLINKWrapper_FallbackWeiPerUnitLinkUsed() public {
+    // Fund subscription.
+    s_linkToken.transferAndCall(address(s_testCoordinator), 10 ether, abi.encode(s_wrapper.SUBSCRIPTION_ID()));
+    s_linkToken.transfer(address(s_consumer), 10 ether);
+
+    // Set the link feed to be stale.
+    (, ,, uint32 stalenessSeconds, , , , ,) = s_testCoordinator.s_config();
+    int256 fallbackWeiPerUnitLink = s_testCoordinator.s_fallbackWeiPerUnitLink();
+    (uint80 roundId, int256 answer, uint256 startedAt, ,) = s_linkNativeFeed.latestRoundData();
+    uint256 timestamp = block.timestamp - stalenessSeconds - 1;
+    s_linkNativeFeed.updateRoundData(roundId, answer, timestamp, startedAt);
+
+    // Request randomness from wrapper.
+    uint32 callbackGasLimit = 1_000_000;
+    (uint256 requestId, uint256 preSeed) = s_testCoordinator.computeRequestIdExternal(
+      vrfKeyHash,
+      address(s_wrapper),
+      s_wrapper.SUBSCRIPTION_ID(),
+      2
+    );
+    uint32 EIP150Overhead = callbackGasLimit / 63 + 1;
+    vm.expectEmit(true, true, true, true);
+    emit FallbackWeiPerUnitLinkUsed(requestId, fallbackWeiPerUnitLink);
+    emit RandomWordsRequested(
+      vrfKeyHash,
+      requestId,
+      preSeed,
+      s_wrapper.SUBSCRIPTION_ID(), // subId
+      0, // minConfirmations
+      callbackGasLimit + EIP150Overhead + wrapperGasOverhead, // callbackGasLimit - accounts for EIP 150
+      1, // numWords
+      VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: false})), // extraArgs
+      address(s_wrapper) // requester
+    );
+    s_consumer.makeRequest(callbackGasLimit, 0, 1);
   }
 }
