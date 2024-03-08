@@ -10,22 +10,29 @@
       {
         "product": "ocr",
         "name": "TestOCRBasic",
-        "eth_client": "besu",
-        "docker_image": "hyperledger/besu:latest_stable",
+        "eth_client": "geth",
+        "docker_image": "ethereum/client-go:v1.13.0",
         "label": "ubuntu-latest"
       },
       {
         "product": "ocr",
         "name": "TestOCRBasic",
-        "eth_client": "nethermind",
-        "docker_image": "nethermind/nethermind:latest_stable",
+        "eth_client": "geth",
+        "docker_image": "ethereum/client-go:1.12.0",
         "label": "ubuntu-latest"
       },
       {
         "product": "ocr",
         "name": "TestOCRBasic",
-        "eth_client": "erigon",
-        "docker_image": "thorax/erigon:latest_stable",
+        "eth_client": "geth",
+        "docker_image": "ethereum/client-go:1.11.0",
+        "label": "ubuntu-latest"
+      },
+      {
+        "product": "ocr",
+        "name": "TestOCRBasic",
+        "eth_client": "geth",
+        "docker_image": "ethereum/client-go:1.10.0",
         "label": "ubuntu-latest"
       }
     ]
