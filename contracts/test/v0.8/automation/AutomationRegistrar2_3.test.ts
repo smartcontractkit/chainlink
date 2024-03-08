@@ -13,10 +13,7 @@ import { toWei } from '../../test-helpers/helpers'
 import { ChainModuleBase } from '../../../typechain/ChainModuleBase'
 import { AutomationRegistrar2_3 as Registrar } from '../../../typechain/AutomationRegistrar2_3'
 import { deployRegistry23 } from './helpers'
-import {
-  // AutomationRegistryLogicB2_2__factory as AutomationRegistryLogicBFactory,
-  IAutomationRegistryMaster as IAutomationRegistry,
-} from '../../../typechain'
+import { IAutomationRegistryMaster2_3 as IAutomationRegistry } from '../../../typechain'
 
 // copied from KeeperRegistryBase2_3.sol
 enum Trigger {
@@ -177,7 +174,7 @@ describe('AutomationRegistrar2_3', () => {
     }
     await registry
       .connect(owner)
-      .setConfigTypeSafe(keepers, keepers, 1, onchainConfig, 1, '0x')
+      .setConfigTypeSafe(keepers, keepers, 1, onchainConfig, 1, '0x', [], [])
   })
 
   describe('#typeAndVersion', () => {
