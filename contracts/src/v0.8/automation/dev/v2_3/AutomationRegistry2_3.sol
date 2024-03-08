@@ -357,6 +357,7 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
       maxPerformDataSize: onchainConfig.maxPerformDataSize,
       maxRevertDataSize: onchainConfig.maxRevertDataSize,
       upkeepPrivilegeManager: onchainConfig.upkeepPrivilegeManager,
+      financeAdmin: onchainConfig.financeAdmin,
       nonce: s_storage.nonce,
       configCount: s_storage.configCount,
       latestConfigBlockNumber: s_storage.latestConfigBlockNumber,

@@ -15,6 +15,7 @@ contract AutomationRegistry2_3_SetUp is BaseTest {
   address internal NATIVE_USD_FEED;
   address internal FAST_GAS_FEED;
   address internal constant LINK_TOKEN = 0x1111111111111111111111111111111111111113;
+  address internal constant FINANCE_ADMIN_ADDRESS = 0x1111111111111111111111111111111111111114;
   address internal constant ZERO_ADDRESS = address(0);
 
   // Signer private keys used for these test
@@ -121,7 +122,8 @@ contract AutomationRegistry2_3_SetConfig is AutomationRegistry2_3_SetUp {
       registrars: s_registrars,
       upkeepPrivilegeManager: 0xD9c855F08A7e460691F41bBDDe6eC310bc0593D8,
       chainModule: module,
-      reorgProtectionEnabled: true
+      reorgProtectionEnabled: true,
+      financeAdmin: FINANCE_ADMIN_ADDRESS
     });
 
   function testSetConfigSuccess() public {

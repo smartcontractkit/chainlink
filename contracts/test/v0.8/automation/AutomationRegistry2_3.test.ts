@@ -425,6 +425,7 @@ describe('AutomationRegistry2_3', () => {
   let arbConfigParams: Parameters<IAutomationRegistry['setConfig']>
   let opConfigParams: Parameters<IAutomationRegistry['setConfig']>
   let upkeepManager: string
+  let financeAdmin: string
 
   before(async () => {
     personas = (await getUsers()).personas
@@ -467,6 +468,7 @@ describe('AutomationRegistry2_3', () => {
     payee4 = personas.Eddy
     payee5 = personas.Carol
     upkeepManager = await personas.Norbert.getAddress()
+    financeAdmin = await personas.Norbert.getAddress()
     // signers
     signer1 = new ethers.Wallet(
       '0x7777777000000000000000000000000000000000000000000000000000000001',
@@ -661,6 +663,7 @@ describe('AutomationRegistry2_3', () => {
             upkeepPrivilegeManager: upkeepManager,
             chainModule: chainModule.address,
             reorgProtectionEnabled: true,
+            financeAdmin,
           },
           [],
           [],
@@ -925,6 +928,7 @@ describe('AutomationRegistry2_3', () => {
       upkeepPrivilegeManager: upkeepManager,
       chainModule: chainModuleBase.address,
       reorgProtectionEnabled: true,
+      financeAdmin,
     }
 
     arbConfig = { ...config }
@@ -2914,7 +2918,7 @@ describe('AutomationRegistry2_3', () => {
       await registry.connect(owner).addFunds(upkeepID, minBalance1)
 
       // upkeep check should return false, 2 should return true
-      let checkUpkeepResult = await registry
+      const checkUpkeepResult = await registry
         .connect(zeroAddress)
         .callStatic['checkUpkeep(uint256)'](upkeepID)
       assert.equal(checkUpkeepResult.upkeepNeeded, false)
@@ -3701,6 +3705,7 @@ describe('AutomationRegistry2_3', () => {
     const newTranscoder = randomAddress()
     const newRegistrars = [randomAddress(), randomAddress()]
     const upkeepManager = randomAddress()
+    const financeAdmin = randomAddress()
 
     const newConfig: OnChainConfig = {
       paymentPremiumPPB: payment,
@@ -3721,6 +3726,7 @@ describe('AutomationRegistry2_3', () => {
       upkeepPrivilegeManager: upkeepManager,
       chainModule: chainModuleBase.address,
       reorgProtectionEnabled: true,
+      financeAdmin,
     }
 
     it('reverts when called by anyone but the proposed owner', async () => {
@@ -4743,6 +4749,7 @@ describe('AutomationRegistry2_3', () => {
           upkeepPrivilegeManager: upkeepManager,
           chainModule: chainModuleBase.address,
           reorgProtectionEnabled: true,
+          financeAdmin,
         },
         offchainVersion,
         offchainBytes,
@@ -5392,6 +5399,7 @@ describe('AutomationRegistry2_3', () => {
               upkeepPrivilegeManager: upkeepManager,
               chainModule: chainModuleBase.address,
               reorgProtectionEnabled: true,
+              financeAdmin,
             },
             offchainVersion,
             offchainBytes,
@@ -5450,6 +5458,7 @@ describe('AutomationRegistry2_3', () => {
               upkeepPrivilegeManager: upkeepManager,
               chainModule: chainModuleBase.address,
               reorgProtectionEnabled: true,
+              financeAdmin,
             },
             offchainVersion,
             offchainBytes,
@@ -5503,6 +5512,7 @@ describe('AutomationRegistry2_3', () => {
               upkeepPrivilegeManager: upkeepManager,
               chainModule: chainModuleBase.address,
               reorgProtectionEnabled: true,
+              financeAdmin,
             },
             offchainVersion,
             offchainBytes,

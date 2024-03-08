@@ -163,6 +163,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   error UpkeepNotNeeded();
   error ValueNotChanged();
   error ZeroAddressNotAllowed();
+  error OnlyFinanceAdmin();
 
   enum MigrationPermission {
     NONE,
@@ -276,6 +277,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     address upkeepPrivilegeManager;
     IChainModule chainModule;
     bool reorgProtectionEnabled;
+    address financeAdmin;
   }
 
   /**
@@ -389,6 +391,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     uint32 maxRevertDataSize; // max length of revertData bytes
     address upkeepPrivilegeManager; // address which can set privilege for upkeeps
     // 3 EVM word full
+    address financeAdmin; // address which can withdraw funds from the contract
   }
 
   /// @dev Report transmitted by OCR to transmit function
@@ -1015,6 +1018,15 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   function _preventExecution() internal view {
     if (tx.origin != i_allowedReadOnlyAddress) {
       revert OnlySimulatedBackend();
+    }
+  }
+
+  /**
+   * @notice only allows finance admin to call the function
+   */
+  function _onlyFinanceAdminAllowed() internal view {
+    if (msg.sender != s_storage.financeAdmin) {
+      revert OnlyFinanceAdmin();
     }
   }
 
