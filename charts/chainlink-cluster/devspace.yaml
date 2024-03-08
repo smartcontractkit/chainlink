@@ -51,6 +51,9 @@ pipelines:
       kubectl delete ns ${DEVSPACE_NAMESPACE}
 
 commands:
+  ingress-hosts: |-
+    kubectl get ingress -n ${DEVSPACE_NAMESPACE} \
+      -o=jsonpath="{range .items[*].spec.rules[*]}{.host}{'\n'}{end}"
   connect: |-
     sudo kubefwd svc -n $1
   ttl: |-
@@ -69,7 +72,7 @@ images:
 
         image=${runtime.images.app}
         MACOS_SDK_DIR=$(pwd)/tools/bin/MacOSX12.3.sdk IMAGE=$image ./tools/bin/goreleaser_wrapper release --snapshot --clean --config .goreleaser.devspace.yaml
-        docker push $image 
+        docker push $image
 hooks:
   - wait:
       running: true
