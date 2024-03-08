@@ -25,7 +25,13 @@ export DEVSPACE_IMAGE="..."
 ./setup.sh ${my-personal-namespace-name-crib}
 ```
 
-Build and deploy current commit
+Create a .env file based on the .env.sample file
+```sh
+cp .env.sample .env
+# Fill in the required values in .env
+```
+
+Build and deploy the current state of your repository 
 ```
 devspace deploy
 ```
@@ -37,27 +43,16 @@ Valid values are `1h`, `2m`, `3s`, etc. Go time format is invalid `1h2m3s`
 devspace run ttl ${namespace} 120h
 ```
 
-If you don't need to build use
+If you want to deploy an image tag that is already available in ECR, use: 
 ```
-devspace deploy --skip-build
-```
-
-To deploy particular commit (must be in the registry) use
-```
-devspace deploy --skip-build ${short_sha_of_image}
+# -o is override-image-tag
+devspace deploy -o "<image-tag>" 
 ```
 
 Forward ports to check UI or run tests
 ```
 devspace run connect ${my-personal-namespace-name-crib}
 ```
-
-Update some Go code of Chainlink node and quickly sync your cluster
-```
-devspace dev
-```
-
-To reset pods to original image just checkout needed commit and do `devspace deploy` again
 
 Destroy the cluster
 ```
@@ -68,19 +63,6 @@ devspace purge
 Check this [doc](../../integration-tests/load/ocr/README.md)
 
 If you used `devspace dev ...` always use `devspace reset pods` to switch the pods back
-
-## Debug existing cluster
-If you need to debug CL node that is already deployed change `dev.app.container` and `dev.app.labelSelector` in [devspace.yaml](devspace.yaml) if they are not default and run:
-```
-devspace dev -p node
-```
-
-## Automatic file sync
-When you run `devspace dev` your files described in `dev.app.sync` of [devspace.yaml](devspace.yaml) will be uploaded to the switched container
-
-After that all the changes will be synced automatically
-
-Check `.profiles` to understand what is uploaded in profiles `runner` and `node`
 
 # Helm
 If you would like to use `helm` directly, please uncomment data in `values.yaml`

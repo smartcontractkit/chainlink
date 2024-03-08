@@ -27,7 +27,7 @@ import { OptimismModule__factory as OptimismModuleFactory } from '../../../typec
 import { ILogAutomation__factory as ILogAutomationactory } from '../../../typechain/factories/ILogAutomation__factory'
 import { IAutomationForwarder__factory as IAutomationForwarderFactory } from '../../../typechain/factories/IAutomationForwarder__factory'
 import { MockArbSys__factory as MockArbSysFactory } from '../../../typechain/factories/MockArbSys__factory'
-import { AutomationConvenience } from '../../../typechain/AutomationConvenience'
+import { AutomationCompatibleUtils } from '../../../typechain/AutomationCompatibleUtils'
 import { MockArbGasInfo } from '../../../typechain/MockArbGasInfo'
 import { MockOVMGasPriceOracle } from '../../../typechain/MockOVMGasPriceOracle'
 import { StreamsLookupUpkeep } from '../../../typechain/StreamsLookupUpkeep'
@@ -75,13 +75,12 @@ enum Trigger {
 }
 
 // un-exported types that must be extracted from the utils contract
-type Report = Parameters<AutomationConvenience['_report']>[0]
-type OnChainConfig = Parameters<AutomationConvenience['_onChainConfig22']>[0]
-type LogTrigger = Parameters<AutomationConvenience['_logTrigger']>[0]
+type Report = Parameters<AutomationCompatibleUtils['_report']>[0]
+type LogTrigger = Parameters<AutomationCompatibleUtils['_logTrigger']>[0]
 type ConditionalTrigger = Parameters<
-  AutomationConvenience['_conditionalTrigger']
+  AutomationCompatibleUtils['_conditionalTrigger']
 >[0]
-type Log = Parameters<AutomationConvenience['_log']>[0]
+type Log = Parameters<AutomationCompatibleUtils['_log']>[0]
 
 // -----------------------------------------------------------------------------------------------
 
@@ -172,7 +171,7 @@ let chainModuleBase: ChainModuleBase
 let arbitrumModule: ArbitrumModule
 let optimismModule: OptimismModule
 let streamsLookupUpkeep: StreamsLookupUpkeep
-let automationConv: AutomationConvenience
+let automationConv: AutomationCompatibleUtils
 
 function now() {
   return Math.floor(Date.now() / 1000)
@@ -200,15 +199,6 @@ const getTriggerType = (upkeepId: BigNumber): Trigger => {
     }
   }
   return bytes[15] as Trigger
-}
-
-const encodeConfig = (onchainConfig: OnChainConfig) => {
-  return (
-    '0x' +
-    automationConv.interface
-      .encodeFunctionData('_onChainConfig22', [onchainConfig])
-      .slice(10)
-  )
 }
 
 const encodeBlockTrigger = (conditionalTrigger: ConditionalTrigger) => {
@@ -411,15 +401,15 @@ describe('AutomationRegistry2_2', () => {
   let config: any
   let arbConfig: any
   let opConfig: any
-  let baseConfig: Parameters<IAutomationRegistry['setConfig']>
-  let arbConfigParams: Parameters<IAutomationRegistry['setConfig']>
-  let opConfigParams: Parameters<IAutomationRegistry['setConfig']>
+  let baseConfig: Parameters<IAutomationRegistry['setConfigTypeSafe']>
+  let arbConfigParams: Parameters<IAutomationRegistry['setConfigTypeSafe']>
+  let opConfigParams: Parameters<IAutomationRegistry['setConfigTypeSafe']>
   let upkeepManager: string
 
   before(async () => {
     personas = (await getUsers()).personas
 
-    const convFactory = await ethers.getContractFactory('AutomationConvenience')
+    const convFactory = await ethers.getContractFactory('AutomationCompatibleUtils')
     automationConv = await convFactory.deploy()
 
     linkTokenFactory = await ethers.getContractFactory(
@@ -627,11 +617,11 @@ describe('AutomationRegistry2_2', () => {
       .add(chainModuleOverheads.chainModuleFixedOverhead)
 
     for (const test of tests) {
-      await registry.connect(owner).setConfig(
+      await registry.connect(owner).setConfigTypeSafe(
         signerAddresses,
         keeperAddresses,
         f,
-        encodeConfig({
+        {
           paymentPremiumPPB: test.premium,
           flatFeeMicroLink: test.flatFee,
           checkGasLimit,
@@ -649,7 +639,7 @@ describe('AutomationRegistry2_2', () => {
           upkeepPrivilegeManager: upkeepManager,
           chainModule: chainModule.address,
           reorgProtectionEnabled: true,
-        }),
+        },
         offchainVersion,
         offchainBytes,
       )
@@ -917,7 +907,7 @@ describe('AutomationRegistry2_2', () => {
       signerAddresses,
       keeperAddresses,
       f,
-      encodeConfig(config),
+      config,
       offchainVersion,
       offchainBytes,
     ]
@@ -925,7 +915,7 @@ describe('AutomationRegistry2_2', () => {
       signerAddresses,
       keeperAddresses,
       f,
-      encodeConfig(arbConfig),
+      arbConfig,
       offchainVersion,
       offchainBytes,
     ]
@@ -933,7 +923,7 @@ describe('AutomationRegistry2_2', () => {
       signerAddresses,
       keeperAddresses,
       f,
-      encodeConfig(opConfig),
+      opConfig,
       offchainVersion,
       offchainBytes,
     ]
@@ -989,10 +979,10 @@ describe('AutomationRegistry2_2', () => {
       await registry.getTransmitCalldataPerSignerBytesOverhead()
     cancellationDelay = (await registry.getCancellationDelay()).toNumber()
 
-    await registry.connect(owner).setConfig(...baseConfig)
-    await mgRegistry.connect(owner).setConfig(...baseConfig)
-    await arbRegistry.connect(owner).setConfig(...arbConfigParams)
-    await opRegistry.connect(owner).setConfig(...opConfigParams)
+    await registry.connect(owner).setConfigTypeSafe(...baseConfig)
+    await mgRegistry.connect(owner).setConfigTypeSafe(...baseConfig)
+    await arbRegistry.connect(owner).setConfigTypeSafe(...arbConfigParams)
+    await opRegistry.connect(owner).setConfigTypeSafe(...opConfigParams)
     for (const reg of [registry, arbRegistry, opRegistry, mgRegistry]) {
       await reg.connect(owner).setPayees(payees)
       await linkToken.connect(admin).approve(reg.address, toWei('1000'))
@@ -3681,7 +3671,7 @@ describe('AutomationRegistry2_2', () => {
     const newRegistrars = [randomAddress(), randomAddress()]
     const upkeepManager = randomAddress()
 
-    const newConfig: OnChainConfig = {
+    const newConfig = {
       paymentPremiumPPB: payment,
       flatFeeMicroLink: flatFee,
       checkGasLimit: maxGas,
