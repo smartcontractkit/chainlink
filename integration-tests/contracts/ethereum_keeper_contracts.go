@@ -365,9 +365,9 @@ func (v *EthereumKeeperRegistry) SetConfigTypeSafe(ocrConfig OCRv2Config) error 
 			return err
 		}
 		return v.client.ProcessTransaction(tx)
+	default:
+		return fmt.Errorf("SetConfigTypeSafe is not supported in keeper registry version %d", v.version)
 	}
-
-	return fmt.Errorf("SetConfigTypeSafe is not supported in keeper registry version %d", v.version)
 }
 
 func (v *EthereumKeeperRegistry) SetConfig(config KeeperRegistrySettings, ocrConfig OCRv2Config) error {
