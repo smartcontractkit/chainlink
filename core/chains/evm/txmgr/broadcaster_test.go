@@ -84,6 +84,7 @@ func TestEthBroadcaster_Lifecycle(t *testing.T) {
 	cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
 	estimator := gasmocks.NewEvmFeeEstimator(t)
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), evmcfg.EVM().GasEstimator(), ethKeyStore, estimator)
+	nonceTracker := txmgr.NewNonceTracker(logger.Test(t), txStore, ethClient)
 	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil)
 	eb := txmgr.NewEvmBroadcaster(
 		txStore,
@@ -94,7 +95,7 @@ func TestEthBroadcaster_Lifecycle(t *testing.T) {
 		evmcfg.Database().Listener(),
 		ethKeyStore,
 		txBuilder,
-		nil,
+		nonceTracker,
 		logger.Test(t),
 		&testCheckerFactory{},
 		false,
@@ -1147,7 +1148,6 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 
 				// same as the parent test, but callback is set by ctor
 				t.Run("callback set by ctor", func(t *testing.T) {
-					lggr := logger.Test(t)
 					estimator := gas.NewWrappedEvmEstimator(lggr, func(lggr logger.Logger) gas.EvmEstimator {
 						return gas.NewFixedPriceEstimator(evmcfg.EVM().GasEstimator(), evmcfg.EVM().GasEstimator().BlockHistory(), lggr)
 					}, evmcfg.EVM().GasEstimator().EIP1559DynamicFees(), nil)

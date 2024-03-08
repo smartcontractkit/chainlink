@@ -65,7 +65,7 @@ func (s *nonceTracker) getSequenceForAddr(ctx context.Context, address common.Ad
 	// Will need to be incremented since this sequence is already used
 	seq, err = s.txStore.FindLatestSequence(ctx, address, s.chainID)
 	if err == nil {
-		seq += 1
+		seq++
 		return seq, nil
 	}
 	// Look for nonce on-chain if no tx found for address in TxStore or if error occurred
