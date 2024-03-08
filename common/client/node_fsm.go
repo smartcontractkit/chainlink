@@ -243,6 +243,9 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToUnreachable(fn func()) {
 }
 
 func (n *node[CHAIN_ID, HEAD, RPC]) declareState(state nodeState) {
+	if n.State() == nodeStateClosed {
+		return
+	}
 	switch state {
 	case nodeStateInvalidChainID:
 		n.declareInvalidChainID()
