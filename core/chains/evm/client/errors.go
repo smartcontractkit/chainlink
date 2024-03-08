@@ -63,6 +63,7 @@ const (
 	TransactionAlreadyMined
 	Fatal
 	ServiceUnavailable
+	BadGateway
 )
 
 type ClientErrors = map[int]*regexp.Regexp
@@ -77,6 +78,7 @@ var parity = ClientErrors{
 	TransactionAlreadyInMempool:       regexp.MustCompile("Transaction with the same hash was already imported."),
 	TerminallyUnderpriced:             regexp.MustCompile("^Transaction gas price is too low. It does not satisfy your node's minimal gas price"),
 	InsufficientEth:                   regexp.MustCompile("^(Insufficient funds. The account you tried to send transaction from does not have enough funds.|Insufficient balance for transaction.)"),
+	BadGateway:                        regexp.MustCompile(`(: |^)502 Bad Gateway: [\s\S]*$`),
 	Fatal:                             parFatal,
 }
 
@@ -91,6 +93,7 @@ var geth = ClientErrors{
 	TerminallyUnderpriced:             regexp.MustCompile(`(: |^)transaction underpriced$`),
 	InsufficientEth:                   regexp.MustCompile(`(: |^)(insufficient funds for transfer|insufficient funds for gas \* price \+ value|insufficient balance for transfer)$`),
 	TxFeeExceedsCap:                   regexp.MustCompile(`(: |^)tx fee \([0-9\.]+ [a-zA-Z]+\) exceeds the configured cap \([0-9\.]+ [a-zA-Z]+\)$`),
+	BadGateway:                        regexp.MustCompile(`(: |^)502 Bad Gateway: [\s\S]*$`),
 	Fatal:                             gethFatal,
 }
 
@@ -104,6 +107,7 @@ var besu = ClientErrors{
 	TerminallyUnderpriced:             regexp.MustCompile(`^Gas price below configured minimum gas price$`),
 	InsufficientEth:                   regexp.MustCompile(`^Upfront cost exceeds account balance$`),
 	TxFeeExceedsCap:                   regexp.MustCompile(`^Transaction fee cap exceeded$`),
+	BadGateway:                        regexp.MustCompile(`(: |^)502 Bad Gateway: [\s\S]*$`),
 	Fatal:                             besuFatal,
 }
 
@@ -123,6 +127,7 @@ var erigon = ClientErrors{
 	TerminallyUnderpriced:             regexp.MustCompile(`(: |^)transaction underpriced$`),
 	InsufficientEth:                   regexp.MustCompile(`(: |^)(insufficient funds for transfer|insufficient funds for gas \* price \+ value|insufficient balance for transfer)$`),
 	TxFeeExceedsCap:                   regexp.MustCompile(`(: |^)tx fee \([0-9\.]+ [a-zA-Z]+\) exceeds the configured cap \([0-9\.]+ [a-zA-Z]+\)$`),
+	BadGateway:                        regexp.MustCompile(`(: |^)502 Bad Gateway: [\s\S]*$`),
 	Fatal:                             erigonFatal,
 }
 
@@ -140,7 +145,7 @@ var arbitrum = ClientErrors{
 	Fatal:                 arbitrumFatal,
 	L2FeeTooLow:           regexp.MustCompile(`(: |^)max fee per gas less than block base fee(:|$)`),
 	L2Full:                regexp.MustCompile(`(: |^)(queue full|sequencer pending tx pool full, please try again)(:|$)`),
-	ServiceUnavailable:    regexp.MustCompile(`(: |^)502 Bad Gateway: [\s\S]*$`),
+	BadGateway:            regexp.MustCompile(`(: |^)502 Bad Gateway: [\s\S]*$`),
 }
 
 var celo = ClientErrors{
@@ -148,20 +153,24 @@ var celo = ClientErrors{
 	TerminallyUnderpriced: regexp.MustCompile(`(: |^)gasprice is less than gas price minimum floor`),
 	InsufficientEth:       regexp.MustCompile(`(: |^)insufficient funds for gas \* price \+ value \+ gatewayFee$`),
 	LimitReached:          regexp.MustCompile(`(: |^)txpool is full`),
+	BadGateway:            regexp.MustCompile(`(: |^)502 Bad Gateway: [\s\S]*$`),
 }
 
 var metis = ClientErrors{
 	L2FeeTooLow: regexp.MustCompile(`(: |^)gas price too low: \d+ wei, use at least tx.gasPrice = \d+ wei$`),
+	BadGateway:  regexp.MustCompile(`(: |^)502 Bad Gateway: [\s\S]*$`),
 }
 
 // Substrate (Moonriver)
 var substrate = ClientErrors{
 	NonceTooLow:                 regexp.MustCompile(`(: |^)Pool\(Stale\)$`),
 	TransactionAlreadyInMempool: regexp.MustCompile(`(: |^)Pool\(AlreadyImported\)$`),
+	BadGateway:                  regexp.MustCompile(`(: |^)502 Bad Gateway: [\s\S]*$`),
 }
 
 var avalanche = ClientErrors{
 	NonceTooLow: regexp.MustCompile(`(: |^)nonce too low: address 0x[0-9a-fA-F]{40} current nonce \([\d]+\) > tx nonce \([\d]+\)$`),
+	BadGateway:  regexp.MustCompile(`(: |^)502 Bad Gateway: [\s\S]*$`),
 }
 
 // Klaytn
@@ -175,6 +184,7 @@ var klaytn = ClientErrors{
 	LimitReached:                      regexp.MustCompile(`(: |^)txpool is full`),                                                                                    // retry with few seconds wait
 	InsufficientEth:                   regexp.MustCompile(`(: |^)insufficient funds`),                                                                                // stop to send a tx. The sender address doesn't have enough KLAY
 	TxFeeExceedsCap:                   regexp.MustCompile(`(: |^)(invalid gas fee cap|max fee per gas higher than max priority fee per gas)`),                        // retry with a valid gasPrice, maxFeePerGas, or maxPriorityFeePerGas. The new value can get from the return of `eth_gasPrice`
+	BadGateway:                        regexp.MustCompile(`(: |^)502 Bad Gateway: [\s\S]*$`),
 	Fatal:                             gethFatal,
 }
 
@@ -200,6 +210,7 @@ var nethermind = ClientErrors{
 	// InsufficientFunds: Sender account has not enough balance to execute this transaction.
 	InsufficientEth:    regexp.MustCompile(`(: |^)InsufficientFunds(, Account balance: \d+, cumulative cost: \d+|, Balance is \d+ less than sending value \+ gas \d+)?$`),
 	ServiceUnavailable: regexp.MustCompile(`(: |^)503 Service Unavailable: [\s\S]*$`),
+	BadGateway:         regexp.MustCompile(`(: |^)502 Bad Gateway: [\s\S]*$`),
 	Fatal:              nethermindFatal,
 }
 
@@ -208,6 +219,7 @@ var nethermind = ClientErrors{
 var harmonyFatal = regexp.MustCompile("(: |^)(invalid shard|staking message does not match directive message|`from` address of transaction in blacklist|`to` address of transaction in blacklist)$")
 var harmony = ClientErrors{
 	TransactionAlreadyMined: regexp.MustCompile(`(: |^)transaction already finalized$`),
+	BadGateway:              regexp.MustCompile(`(: |^)502 Bad Gateway: [\s\S]*$`),
 	Fatal:                   harmonyFatal,
 }
 
@@ -217,6 +229,7 @@ var zkSync = ClientErrors{
 	TerminallyUnderpriced: regexp.MustCompile(`(?:: |^)(max fee per gas less than block base fee|virtual machine entered unexpected state. please contact developers and provide transaction details that caused this error. Error description: The operator included transaction with an unacceptable gas price)$`),
 	InsufficientEth:       regexp.MustCompile(`(?:: |^)(?:insufficient balance for transfer$|insufficient funds for gas + value)`),
 	TxFeeExceedsCap:       regexp.MustCompile(`(?:: |^)max priority fee per gas higher than max fee per gas$`),
+	BadGateway:            regexp.MustCompile(`(: |^)502 Bad Gateway: [\s\S]*$`),
 	// intrinsic gas too low 						- gas limit less than 14700
 	// Not enough gas for transaction validation 	- gas limit less than L2 fee
 	// Failed to pay the fee to the operator 		- gas limit less than L2+L1 fee
@@ -307,6 +320,11 @@ func (s *SendError) IsL2Full() bool {
 // IsServiceUnavailable indicates if the error was caused by a service being unavailable
 func (s *SendError) IsServiceUnavailable() bool {
 	return s.is(ServiceUnavailable)
+}
+
+// IsBadGateway indicates if the error was caused by a bad gateway
+func (s *SendError) IsBadGateway() bool {
+	return s.is(BadGateway)
 }
 
 // IsTimeout indicates if the error was caused by an exceeded context deadline
@@ -493,6 +511,10 @@ func ClassifySendError(err error, lggr logger.SugaredLogger, tx *types.Transacti
 	}
 	if sendError.IsServiceUnavailable() {
 		lggr.Errorw(fmt.Sprintf("service unavailable while sending transaction %x", tx.Hash()), "err", sendError, "etx", tx)
+		return commonclient.Retryable
+	}
+	if sendError.IsBadGateway() {
+		lggr.Errorw(fmt.Sprintf("bad gateway while sending transaction %x", tx.Hash()), "err", sendError, "etx", tx)
 		return commonclient.Retryable
 	}
 	if sendError.IsTimeout() {
