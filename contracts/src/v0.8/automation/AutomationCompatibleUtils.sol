@@ -5,10 +5,6 @@ import {Log} from "./interfaces/ILogAutomation.sol";
 import {IAutomationV21PlusCommon} from "./interfaces/IAutomationV21PlusCommon.sol";
 
 contract AutomationCompatibleUtils {
-  //  function _onChainConfig22(AutomationRegistryBase2_2.OnchainConfig memory) external {}
-  //
-  //  function _onChainConfig21(AutomationRegistryBase2_2.OnchainConfigLegacy memory) external {}
-
   function _report(IAutomationV21PlusCommon.Report memory) external {}
 
   function _logTriggerConfig(IAutomationV21PlusCommon.LogTriggerConfig memory) external {}
