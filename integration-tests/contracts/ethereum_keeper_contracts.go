@@ -331,7 +331,6 @@ func (v *EthereumKeeperRegistry) RegistryOwnerAddress() common.Address {
 	return common.HexToAddress(v.client.GetDefaultWallet().Address())
 }
 
-
 func (v *EthereumKeeperRegistry) SetConfigTypeSafe(ocrConfig OCRv2Config) error {
 	txOpts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
 	if err != nil {
