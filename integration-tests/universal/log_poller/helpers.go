@@ -1055,21 +1055,6 @@ var (
 		MaxCheckDataSize:     uint32(5000),
 		MaxPerformDataSize:   uint32(5000),
 	}
-
-	automationDefaultRegistryConfig = contracts.KeeperRegistrySettings{
-		PaymentPremiumPPB:    uint32(200000000),
-		FlatFeeMicroLINK:     uint32(0),
-		BlockCountPerTurn:    big.NewInt(10),
-		CheckGasLimit:        uint32(2500000),
-		StalenessSeconds:     big.NewInt(90000),
-		GasCeilingMultiplier: uint16(1),
-		MinUpkeepSpend:       big.NewInt(0),
-		MaxPerformGas:        uint32(5000000),
-		FallbackGasPrice:     big.NewInt(2e11),
-		FallbackLinkPrice:    big.NewInt(2e18),
-		MaxCheckDataSize:     uint32(5000),
-		MaxPerformDataSize:   uint32(5000),
-	}
 )
 
 // SetupLogPollerTestDocker starts the DON and private Ethereum network
