@@ -25,8 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 )
 
-// TODO: CLEANUP?
-
 func TestInMemoryStore_FindTxWithIdempotencyKey(t *testing.T) {
 	t.Parallel()
 
@@ -66,10 +64,10 @@ func TestInMemoryStore_FindTxWithIdempotencyKey(t *testing.T) {
 		hasErr bool
 		hasTx  bool
 	}{
-		{"no idempotency key", "", chainID, true, true},
-		{"wrong idempotency key", "wrong", chainID, true, true},
-		{"finds tx with idempotency key", idempotencyKey, chainID, false, false},
-		{"wrong chain", idempotencyKey, big.NewInt(999), true, true},
+		{"no idempotency key", "", chainID, false, false},
+		{"wrong idempotency key", "wrong", chainID, false, false},
+		{"finds tx with idempotency key", idempotencyKey, chainID, false, true},
+		{"wrong chain", idempotencyKey, big.NewInt(999), false, false},
 	}
 
 	for _, tc := range tcs {
