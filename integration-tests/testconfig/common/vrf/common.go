@@ -13,12 +13,8 @@ type Config struct {
 	Performance       *PerformanceConfig `toml:"Performance"`
 }
 
-type PerfTestName string
-
 const (
-	ErrDeviationShouldBeLessThanOriginal              = "`RandomnessRequestCountPerRequestDeviation` should be less than `RandomnessRequestCountPerRequest`"
-	VRFPerfTest                          PerfTestName = "vrf_perf_test"
-	BHSPerfTest                          PerfTestName = "bhs_perf_test"
+	ErrDeviationShouldBeLessThanOriginal = "`RandomnessRequestCountPerRequestDeviation` should be less than `RandomnessRequestCountPerRequest`"
 )
 
 func (c *Config) Validate() error {
@@ -48,8 +44,6 @@ type PerformanceConfig struct {
 	BHSTestDuration              *blockchain.StrDuration `toml:"bhs_test_duration"`
 	BHSTestRPS                   *int64                  `toml:"bhs_test_rps"`
 	BHSTestRateLimitUnitDuration *blockchain.StrDuration `toml:"bhs_test_rate_limit_unit_duration"`
-
-	PerfTestsToRun *[]PerfTestName `toml:"perf_tests_to_run"`
 }
 
 func (c *PerformanceConfig) Validate() error {
@@ -72,9 +66,6 @@ func (c *PerformanceConfig) Validate() error {
 		return errors.New("bhs_test_rate_limit_unit_duration must be set ")
 	}
 
-	if c.PerfTestsToRun == nil {
-		return errors.New("perf_tests_to_run must be set")
-	}
 	return nil
 }
 

@@ -2,7 +2,6 @@ package loadvrfv2
 
 import (
 	"math/big"
-	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -18,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/vrfv2"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
-	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/common/vrf"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 
 	"github.com/stretchr/testify/require"
@@ -114,9 +112,6 @@ func TestVRFV2Performance(t *testing.T) {
 
 	// is our "job" stable at all, no memory leaks, no flaking performance under some RPS?
 	t.Run("vrfv2 performance test", func(t *testing.T) {
-		if !slices.Contains(*vrfv2Config.Performance.PerfTestsToRun, vrf.VRFPerfTest) {
-			t.Skip("Test is not listed to run in the configuration file")
-		}
 		require.Len(t, vrfContracts.VRFV2Consumer, 1, "only one consumer should be created for Load Test")
 		consumer := vrfContracts.VRFV2Consumer[0]
 		err = consumer.ResetMetrics()
@@ -163,9 +158,6 @@ func TestVRFV2Performance(t *testing.T) {
 	})
 
 	t.Run("vrfv2 and bhs performance test", func(t *testing.T) {
-		if !slices.Contains(*vrfv2Config.Performance.PerfTestsToRun, vrf.BHSPerfTest) {
-			t.Skip("Test is not listed to run in the configuration file")
-		}
 		configCopy := testConfig.MustCopy().(tc.TestConfig)
 		//Underfund Subscription
 		configCopy.VRFv2.General.SubscriptionFundingAmountLink = ptr.Ptr(float64(0.000000000000000001)) // 1 Juel

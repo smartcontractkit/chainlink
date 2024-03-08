@@ -71,7 +71,6 @@ node_sending_keys = []
 bhs_test_duration = "1m"
 bhs_test_rate_limit_unit_duration = "3s"
 bhs_test_rps = 1
-perf_tests_to_run= ["vrf_perf_test"]
 
 #SOAK TEST CONFIG
 [Soak.Common]

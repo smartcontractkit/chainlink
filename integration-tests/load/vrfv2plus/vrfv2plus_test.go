@@ -2,7 +2,6 @@ package loadvrfv2plus
 
 import (
 	"math/big"
-	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -17,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/vrfv2plus"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/common/vrf"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 
 	vrfcommon "github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/common"
@@ -110,9 +108,6 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 
 	// is our "job" stable at all, no memory leaks, no flaking performance under some RPS?
 	t.Run("vrfv2plus performance test", func(t *testing.T) {
-		if !slices.Contains(*vrfv2PlusConfig.Performance.PerfTestsToRun, vrf.VRFPerfTest) {
-			t.Skip("Test is not listed to run in the configuration file")
-		}
 		singleFeedConfig := &wasp.Config{
 			T:                     t,
 			LoadType:              wasp.RPS,
@@ -157,10 +152,7 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 			Msg("Final Request/Fulfilment Stats")
 	})
 
-	t.Run("vrfv2 and bhs performance test", func(t *testing.T) {
-		if !slices.Contains(*vrfv2PlusConfig.Performance.PerfTestsToRun, vrf.BHSPerfTest) {
-			t.Skip("Test is not listed to run in the configuration file")
-		}
+	t.Run("vrfv2plus and bhs performance test", func(t *testing.T) {
 		configCopy := testConfig.MustCopy().(tc.TestConfig)
 		//Underfund Subscription
 		configCopy.VRFv2Plus.General.SubscriptionFundingAmountLink = ptr.Ptr(float64(0.000000000000000001)) // 1 Juel
