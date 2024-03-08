@@ -426,6 +426,7 @@ describe('AutomationRegistry2_3', () => {
   let arbConfigParams: Parameters<IAutomationRegistry['setConfig']>
   let opConfigParams: Parameters<IAutomationRegistry['setConfig']>
   let upkeepManager: string
+  let financeAdmin: string
 
   before(async () => {
     personas = (await getUsers()).personas
@@ -2902,7 +2903,7 @@ describe('AutomationRegistry2_3', () => {
       await registry.connect(owner).addFunds(upkeepID, minBalance1)
 
       // upkeep check should return false, 2 should return true
-      let checkUpkeepResult = await registry
+      const checkUpkeepResult = await registry
         .connect(zeroAddress)
         .callStatic['checkUpkeep(uint256)'](upkeepID)
       assert.equal(checkUpkeepResult.upkeepNeeded, false)

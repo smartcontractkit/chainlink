@@ -166,6 +166,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   error UpkeepNotNeeded();
   error ValueNotChanged();
   error ZeroAddressNotAllowed();
+  error OnlyFinanceAdmin();
 
   enum MigrationPermission {
     NONE,
