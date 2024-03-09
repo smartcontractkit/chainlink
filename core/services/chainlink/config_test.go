@@ -1559,7 +1559,7 @@ func TestConfig_warnings(t *testing.T) {
 			config: Config{
 				EVM: evmcfg.EVMConfigs{{Chain: evmcfg.Chain{ChainType: ptr(string(commonconfig.ChainXDai))}}},
 			},
-			expectedErrors: []string{"EVM.ChainType: invalid value (xdai): deprecated and will be removed in v2.12.0, use 'gnosis' instead"},
+			expectedErrors: []string{"EVM.ChainType: invalid value (xdai): deprecated and will be removed in v2.13.0, use 'gnosis' instead"},
 		},
 	}
 
