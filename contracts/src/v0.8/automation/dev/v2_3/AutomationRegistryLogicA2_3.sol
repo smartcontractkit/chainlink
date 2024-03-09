@@ -295,8 +295,7 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
       }
     }
     s_upkeep[id].balance = upkeep.balance - cancellationFee;
-    s_reserveLinkBalance = s_reserveLinkBalance + cancellationFee;
-    //    s_storage.ownerLinkBalance = s_storage.ownerLinkBalance + cancellationFee;
+    s_reserveLinkBalance = s_reserveLinkBalance - cancellationFee;
 
     emit UpkeepCanceled(id, uint64(height));
   }

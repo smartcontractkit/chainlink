@@ -164,6 +164,8 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   error ValueNotChanged();
   error ZeroAddressNotAllowed();
   error OnlyFinanceAdmin();
+  error TransferFailed();
+  error InsufficientBalance(uint256 available, uint256 requested);
 
   enum MigrationPermission {
     NONE,
@@ -501,7 +503,6 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   event FundsAdded(uint256 indexed id, address indexed from, uint96 amount);
   event FundsWithdrawn(uint256 indexed id, uint256 amount, address to);
   event InsufficientFundsUpkeepReport(uint256 indexed id, bytes trigger);
-  event OwnerFundsWithdrawn(uint96 amount);
   event Paused(address account);
   event PayeesUpdated(address[] transmitters, address[] payees);
   event PayeeshipTransferRequested(address indexed transmitter, address indexed from, address indexed to);
@@ -533,6 +534,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   event Unpaused(address account);
   // Event to emit when a billing configuration is set
   event BillingConfigSet(IERC20 indexed token, BillingConfig config);
+  event FeesWithdrawn(address indexed recipient, address indexed assetAddress, uint256 amount);
 
   /**
    * @param link address of the LINK Token

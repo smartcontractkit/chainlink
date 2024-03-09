@@ -361,7 +361,6 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
       nonce: s_storage.nonce,
       configCount: s_storage.configCount,
       latestConfigBlockNumber: s_storage.latestConfigBlockNumber
-      //      ownerLinkBalance: s_storage.ownerLinkBalance
     });
     s_fallbackGasPrice = onchainConfig.fallbackGasPrice;
     s_fallbackLinkPrice = onchainConfig.fallbackLinkPrice;
