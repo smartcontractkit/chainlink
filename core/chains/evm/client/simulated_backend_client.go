@@ -466,22 +466,24 @@ func (c *SimulatedBackendClient) BatchCallContext(ctx context.Context, b []rpc.B
 	}
 
 	for i, elem := range b {
+		var method func(context.Context, interface{}, ...interface{}) error
 		switch elem.Method {
 		case "eth_getTransactionReceipt":
-			b[i].Error = c.ethGetTransactionReceipt(ctx, b[i].Result, b[i].Args...)
+			method = c.ethGetTransactionReceipt
 		case "eth_getBlockByNumber":
-			b[i].Error = c.ethGetBlockByNumber(ctx, b[i].Result, b[i].Args...)
+			method = c.ethGetBlockByNumber
 		case "eth_call":
-			b[i].Error = c.ethCall(ctx, b[i].Result, b[i].Args...)
+			method = c.ethCall
 		case "eth_getHeaderByNumber":
-			b[i].Error = c.ethGetHeaderByNumber(ctx, b[i].Result, b[i].Args...)
+			method = c.ethGetHeaderByNumber
 		case "eth_estimateGas":
-			b[i].Error = c.ethEstimateGas(ctx, b[i].Result, b[i].Args...)
+			method = c.ethEstimateGas
 		case "eth_getLogs":
-			b[i].Error = c.ethGetLogs(ctx, b[i].Result, b[i].Args...)
+			method = c.ethGetLogs
 		default:
 			return fmt.Errorf("SimulatedBackendClient got unsupported method %s", elem.Method)
 		}
+		b[i].Error = method(ctx, b[i].Result, b[i].Args...)
 	}
 
 	return nil
