@@ -874,6 +874,6 @@ func interfaceToHash(value interface{}) (*common.Hash, error) {
 		h := common.Hash(b)
 		return &h, nil
 	default:
-		return nil, fmt.Errorf("unrecognized value type: #{v} for converting value to common.Hash; use hex encoded string or common.Hash")
+		return nil, fmt.Errorf("unrecognized value type: %T for converting value to common.Hash; use hex encoded string or common.Hash", v)
 	}
 }
