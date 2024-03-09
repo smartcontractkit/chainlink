@@ -194,8 +194,9 @@ func (c *SimulatedBackendClient) blockNumber(number interface{}) (blockNumber *b
 			return nil, fmt.Errorf("block number must be non-negative")
 		}
 		return n, nil
+	default:
+		return nil, fmt.Errorf("invalid type %T for block number, must be string or *big.Int", n)
 	}
-	panic("can never reach here")
 }
 
 // HeadByNumber returns our own header type.
