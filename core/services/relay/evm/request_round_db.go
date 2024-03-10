@@ -6,10 +6,10 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 // RequestRoundDB stores requested rounds for querying by the median plugin.
@@ -20,7 +20,7 @@ type RequestRoundDB interface {
 
 var _ RequestRoundDB = &requestRoundDB{}
 
-//go:generate mockery --name RequestRoundDB --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name RequestRoundDB --output ./mocks/ --case=underscore
 type requestRoundDB struct {
 	*sql.DB
 	oracleSpecID int32
@@ -61,6 +61,7 @@ LIMIT 1
 	if err != nil {
 		return rr, errors.Wrap(err, "LoadLatestRoundRequested failed to query rows")
 	}
+	defer rows.Close()
 
 	for rows.Next() {
 		var configDigest []byte

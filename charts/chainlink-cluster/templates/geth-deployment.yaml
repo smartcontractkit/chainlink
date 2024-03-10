@@ -1,0 +1,126 @@
+{{ if (hasKey .Values "geth") }}
+{{- range $cfg := .Values.geth.chains }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: geth-{{ $cfg.networkId }}
+spec:
+  selector:
+    matchLabels:
+      app: geth
+      release: {{ $.Release.Name }}
+      instance: geth-{{ $cfg.networkId }}
+      # Used for testing.
+      # havoc-component-group and havoc-network-group are used by "havoc" chaos testing tool
+      havoc-component-group: "blockchain"
+      havoc-network-group: "blockchain"
+  template:
+    metadata:
+      labels:
+        app: geth
+        instance: geth-{{ $cfg.networkId }}
+        release: {{ $.Release.Name }}
+        # Used for testing.
+        # havoc-component-group and havoc-network-group are used by "havoc" chaos testing tool
+        havoc-component-group: "blockchain"
+        havoc-network-group: "blockchain"
+      annotations:
+        {{- range $key, $value := $.Values.podAnnotations }}
+        {{ $key }}: {{ $value | quote }}
+        {{- end }}
+    spec:
+      volumes:
+      - name: configmap-volume
+        configMap:
+          name: geth-{{ $cfg.networkId }}-cm
+      - name: devchain-volume
+        emptyDir: {}
+      securityContext:
+        {{- toYaml $.Values.geth.podSecurityContext | nindent 8 }}
+      containers:
+      - name: geth-network
+        securityContext:
+          {{- toYaml $.Values.geth.securityContext | nindent 12 }}
+        image: "{{ default "ethereum/client-go" $.Values.geth.image }}:{{ default "stable" $.Values.geth.version }}"
+        command: [ "sh", "/chain/init.sh" ]
+        volumeMounts:
+        - name: devchain-volume
+          mountPath: /chain/chain-data
+        - name : configmap-volume
+          mountPath: /chain/genesis.json
+          subPath: genesis.json
+        - name : configmap-volume
+          mountPath: /chain/init.sh
+          subPath: init.sh
+        - name: configmap-volume
+          mountPath: /chain/config
+        args:
+          - '--password'
+          - '/chain/config/password.txt'
+          - '--datadir'
+          - '/chain/chain-data/'
+          - '--unlock'
+          - '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266'
+          - '--mine'
+          - '--miner.etherbase'
+          - '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266'
+          - '--ipcdisable'
+          - '--http.api'
+          - 'admin,debug,clique,eth,miner,net,personal,txpool,web3'
+          - '--http'
+          - '--http.vhosts'
+          - '*'
+          - '--http.addr'
+          - '0.0.0.0'
+          - '--http.port=8544'
+          - '--ws'
+          - '--ws.origins'
+          - '*'
+          - '--ws.addr'
+          - '0.0.0.0'
+          - '--ws.port=8546'
+          - '--graphql'
+          - '-graphql.corsdomain'
+          - '*'
+          - '--allow-insecure-unlock'
+          - '--rpc.allow-unprotected-txs'
+          - '--http.corsdomain'
+          - '*'
+          - '--vmdebug'
+          - '--networkid={{ $cfg.networkId }}'
+          - '--rpc.txfeecap'
+          - '0'
+          - '--dev.period'
+          - '{{ $.Values.geth.blocktime }}'
+          - '--miner.gasprice'
+          - '10000000000'
+        ports:
+        - name: http-rpc
+          containerPort: 8544
+        - name: ws-rpc
+          containerPort: 8546
+        {{ if (hasKey $.Values.geth "resources") }}
+        resources:
+          requests:
+            memory: {{ default "1024Mi" $.Values.geth.resources.requests.memory }}
+            cpu: {{ default "1000m" $.Values.geth.resources.requests.cpu }}
+          limits:
+            memory: {{ default "1024Mi" $.Values.geth.resources.limits.memory }}
+            cpu: {{ default "1000m" $.Values.geth.resources.limits.cpu }}
+        {{ else }}
+        {{ end }}
+{{- with $.Values.nodeSelector }}
+      nodeSelector:
+        {{ toYaml . | indent 8 }}
+{{- end }}
+{{- with $.Values.affinity }}
+      affinity:
+        {{ toYaml . | indent 8 }}
+{{- end }}
+{{- with $.Values.tolerations }}
+      tolerations:
+{{ toYaml . | indent 8 }}
+{{- end }}
+---
+{{- end }}
+{{ end }}

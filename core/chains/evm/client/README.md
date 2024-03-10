@@ -8,6 +8,7 @@ stateDiagram-v2
     
     state Started {
         [*] --> Undialed
+        Undialed --> Unusable
         Undialed --> Unreachable
         Undialed --> Dialed
         

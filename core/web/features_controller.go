@@ -3,8 +3,8 @@ package web
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
 // FeaturesController manages the feature flags
@@ -22,8 +22,8 @@ const (
 // "GET <application>/features"
 func (fc *FeaturesController) Index(c *gin.Context) {
 	resources := []presenters.FeatureResource{
-		*presenters.NewFeatureResource(FeatureKeyCSA, fc.App.GetConfig().FeatureUICSAKeys()),
-		*presenters.NewFeatureResource(FeatureKeyFeedsManager, fc.App.GetConfig().FeatureFeedsManager()),
+		*presenters.NewFeatureResource(FeatureKeyCSA, fc.App.GetConfig().Feature().UICSAKeys()),
+		*presenters.NewFeatureResource(FeatureKeyFeedsManager, fc.App.GetConfig().Feature().FeedsManager()),
 	}
 
 	jsonAPIResponse(c, resources, "features")

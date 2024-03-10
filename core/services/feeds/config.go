@@ -3,22 +3,27 @@ package feeds
 import (
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 )
 
-//go:generate mockery --name Config --output ./mocks/ --case=underscore
+type JobConfig interface {
+	DefaultHTTPTimeout() commonconfig.Duration
+}
 
-type Config interface {
-	Dev() bool
-	FeatureOffchainReporting() bool
-	DefaultHTTPTimeout() models.Duration
-	OCRBlockchainTimeout() time.Duration
-	OCRContractConfirmations() uint16
-	OCRContractPollInterval() time.Duration
-	OCRContractSubscribeInterval() time.Duration
-	OCRContractTransmitterTransmitTimeout() time.Duration
-	OCRDatabaseTimeout() time.Duration
-	OCRObservationTimeout() time.Duration
-	OCRObservationGracePeriod() time.Duration
-	LogSQL() bool
+type InsecureConfig interface {
+	OCRDevelopmentMode() bool
+}
+
+type OCRConfig interface {
+	Enabled() bool
+}
+
+type OCR2Config interface {
+	Enabled() bool
+	BlockchainTimeout() time.Duration
+	ContractConfirmations() uint16
+	ContractPollInterval() time.Duration
+	ContractTransmitterTransmitTimeout() time.Duration
+	DatabaseTimeout() time.Duration
+	TraceLogging() bool
 }

@@ -4,11 +4,14 @@ import (
 	"bytes"
 	"crypto/ed25519"
 	"encoding/binary"
+	"errors"
 	"io"
+
+	"golang.org/x/crypto/nacl/box"
 
 	"golang.org/x/crypto/curve25519"
 
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
 
 var _ ocrtypes.OffchainKeyring = &OffchainKeyring{}
@@ -47,9 +50,25 @@ func newOffchainKeyring(encryptionMaterial, signingMaterial io.Reader) (*Offchai
 	return ok, nil
 }
 
+// NaclBoxOpenAnonymous decrypts a message that was encrypted using the OCR2 Offchain public key
+func (ok *OffchainKeyring) NaclBoxOpenAnonymous(ciphertext []byte) (plaintext []byte, err error) {
+	if len(ciphertext) < box.Overhead {
+		return nil, errors.New("ciphertext too short")
+	}
+
+	publicKey := [curve25519.PointSize]byte(ok.ConfigEncryptionPublicKey())
+
+	decrypted, success := box.OpenAnonymous(nil, ciphertext, &publicKey, &ok.encryptionKey)
+	if !success {
+		return nil, errors.New("decryption failed")
+	}
+
+	return decrypted, nil
+}
+
 // OffchainSign signs message using private key
 func (ok *OffchainKeyring) OffchainSign(msg []byte) (signature []byte, err error) {
-	return ed25519.Sign(ed25519.PrivateKey(ok.signingKey), msg), nil
+	return ed25519.Sign(ok.signingKey, msg), nil
 }
 
 // ConfigDiffieHellman returns the shared point obtained by multiplying someone's

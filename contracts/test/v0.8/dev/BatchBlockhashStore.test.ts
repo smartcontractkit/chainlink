@@ -17,14 +17,14 @@ describe('BatchBlockhashStore', () => {
     owner = accounts[0]
 
     const bhFactory = await ethers.getContractFactory(
-      'src/v0.6/dev/BlockhashStore.sol:BlockhashStore',
+      'src/v0.6/BlockhashStore.sol:BlockhashStore',
       accounts[0],
     )
 
     blockhashStore = await bhFactory.deploy()
 
     const batchBHSFactory = await ethers.getContractFactory(
-      'src/v0.8/BatchBlockhashStore.sol:BatchBlockhashStore',
+      'src/v0.8/vrf/BatchBlockhashStore.sol:BatchBlockhashStore',
       accounts[0],
     )
 
@@ -161,7 +161,7 @@ describe('BatchBlockhashStore', () => {
           block.transactionsRoot,
           block.receiptsRoot,
           block.logsBloom,
-          block.difficulty,
+          block.difficulty == '0x0' ? '0x' : block.difficulty,
           block.number,
           block.gasLimit,
           block.gasUsed == '0x0' ? '0x' : block.gasUsed,
@@ -240,7 +240,7 @@ describe('BatchBlockhashStore', () => {
             block.transactionsRoot,
             block.receiptsRoot,
             block.logsBloom,
-            block.difficulty,
+            block.difficulty == '0x0' ? '0x' : block.difficulty,
             block.number,
             block.gasLimit,
             block.gasUsed == '0x0' ? '0x' : block.gasUsed,
@@ -295,7 +295,7 @@ describe('BatchBlockhashStore', () => {
             block.transactionsRoot,
             block.receiptsRoot,
             block.logsBloom,
-            block.difficulty,
+            block.difficulty == '0x0' ? '0x' : block.difficulty,
             block.number,
             block.gasLimit,
             block.gasUsed, // incorrect: in cases where it's 0x0 it should be 0x instead.

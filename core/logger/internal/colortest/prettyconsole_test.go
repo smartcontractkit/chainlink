@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func init() {
@@ -61,13 +61,19 @@ func TestPrettyConsole_Write(t *testing.T) {
 			"2018-04-12T12:55:28Z \x1b[91m[FATAL] \x1b[0mtop level                                          \x1b[34m\x1b[0m                        \n",
 			false,
 		},
+		{
+			"control",
+			`{"ts":1523537728, "level":"fatal", "msg":"\u0008\t\n\r\u000b\u000c\ufffd\ufffd", "hash":"nuances"}`,
+			"2018-04-12T12:55:28Z \x1b[91m[FATAL] \x1b[0m\\b\t\n\r\\v\\f��                                        \x1b[34m\x1b[0m                        \n",
+			false,
+		},
 		{"broken", `{"broken":}`, `{}`, true},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tr := &testReader{}
-			pc := logger.PrettyConsole{tr}
+			pc := logger.PrettyConsole{Sink: tr}
 			_, err := pc.Write([]byte(tt.input))
 
 			if tt.wantError {

@@ -19,13 +19,15 @@ describe('KeeperCompatible', () => {
         publicAbi(contract, [
           'checkUpkeep',
           'performUpkeep',
-          'testCannotExecute',
+          'verifyCannotExecute',
         ])
       })
 
       it('prevents execution of protected functions', async () => {
-        await contract.connect(ethers.constants.AddressZero).testCannotExecute() // succeeds
-        await expect(contract.testCannotExecute()).to.be.reverted
+        await contract
+          .connect(ethers.constants.AddressZero)
+          .verifyCannotExecute() // succeeds
+        await expect(contract.verifyCannotExecute()).to.be.reverted
       })
     })
   }

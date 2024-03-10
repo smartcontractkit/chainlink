@@ -11,18 +11,19 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/jmoiron/sqlx"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
-	"github.com/smartcontractkit/sqlx"
+
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 type db struct {
 	q            pg.Q
 	oracleSpecID int32
-	lggr         logger.Logger
+	lggr         logger.SugaredLogger
 }
 
 var (
@@ -31,13 +32,13 @@ var (
 )
 
 // NewDB returns a new DB scoped to this oracleSpecID
-func NewDB(sqlxDB *sqlx.DB, oracleSpecID int32, lggr logger.Logger, cfg pg.LogConfig) *db {
+func NewDB(sqlxDB *sqlx.DB, oracleSpecID int32, lggr logger.Logger, cfg pg.QConfig) *db {
 	namedLogger := lggr.Named("OCR.DB")
 
 	return &db{
 		q:            pg.NewQ(sqlxDB, namedLogger, cfg),
 		oracleSpecID: oracleSpecID,
-		lggr:         lggr,
+		lggr:         logger.Sugared(lggr),
 	}
 }
 
@@ -159,8 +160,8 @@ func (d *db) WriteConfig(ctx context.Context, c ocrtypes.ContractConfig) error {
 	return errors.Wrap(err, "WriteConfig failed")
 }
 
-func (d *db) StorePendingTransmission(ctx context.Context, k ocrtypes.PendingTransmissionKey, p ocrtypes.PendingTransmission) error {
-	median := utils.NewBig(p.Median)
+func (d *db) StorePendingTransmission(ctx context.Context, k ocrtypes.ReportTimestamp, p ocrtypes.PendingTransmission) error {
+	median := big.New(p.Median)
 	var rs [][]byte
 	var ss [][]byte
 	// Note: p.Rs and p.Ss are of type [][32]byte.
@@ -205,7 +206,8 @@ func (d *db) StorePendingTransmission(ctx context.Context, k ocrtypes.PendingTra
 	return errors.Wrap(err, "StorePendingTransmission failed")
 }
 
-func (d *db) PendingTransmissionsWithConfigDigest(ctx context.Context, cd ocrtypes.ConfigDigest) (map[ocrtypes.PendingTransmissionKey]ocrtypes.PendingTransmission, error) {
+func (d *db) PendingTransmissionsWithConfigDigest(ctx context.Context, cd ocrtypes.ConfigDigest) (map[ocrtypes.ReportTimestamp]ocrtypes.PendingTransmission, error) {
+	//nolint sqlclosecheck false positive
 	rows, err := d.q.QueryContext(ctx, `
 SELECT
 	config_digest,
@@ -223,15 +225,15 @@ WHERE ocr_oracle_spec_id = $1 AND config_digest = $2
 	if err != nil {
 		return nil, errors.Wrap(err, "PendingTransmissionsWithConfigDigest failed to query rows")
 	}
-	defer d.lggr.ErrorIfClosing(rows, "ocr_pending_transmissions rows")
+	defer d.lggr.ErrorIfFn(rows.Close, "Error closing ocr_pending_transmissions rows")
 
-	m := make(map[ocrtypes.PendingTransmissionKey]ocrtypes.PendingTransmission)
+	m := make(map[ocrtypes.ReportTimestamp]ocrtypes.PendingTransmission)
 
 	for rows.Next() {
-		k := ocrtypes.PendingTransmissionKey{}
+		k := ocrtypes.ReportTimestamp{}
 		p := ocrtypes.PendingTransmission{}
 
-		var median utils.Big
+		var median big.Big
 		var rs [][]byte
 		var ss [][]byte
 		var vs []byte
@@ -266,7 +268,7 @@ WHERE ocr_oracle_spec_id = $1 AND config_digest = $2
 	return m, nil
 }
 
-func (d *db) DeletePendingTransmission(ctx context.Context, k ocrtypes.PendingTransmissionKey) (err error) {
+func (d *db) DeletePendingTransmission(ctx context.Context, k ocrtypes.ReportTimestamp) (err error) {
 	_, err = d.q.WithOpts(pg.WithLongQueryTimeout()).ExecContext(ctx, `
 DELETE FROM ocr_pending_transmissions
 WHERE ocr_oracle_spec_id = $1 AND  config_digest = $2 AND epoch = $3 AND round = $4
@@ -316,6 +318,7 @@ LIMIT 1
 	if err != nil {
 		return rr, errors.Wrap(err, "LoadLatestRoundRequested failed to query rows")
 	}
+	defer func() { err = multierr.Combine(err, rows.Close()) }()
 
 	for rows.Next() {
 		var configDigest []byte
@@ -335,8 +338,6 @@ LIMIT 1
 	if err = rows.Err(); err != nil {
 		return
 	}
-
-	err = multierr.Combine(err, rows.Close())
 
 	return
 }

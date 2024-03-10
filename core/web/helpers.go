@@ -4,23 +4,28 @@ import (
 	"database/sql"
 	"fmt"
 	"net/http"
+	"testing"
 
+	"github.com/Depado/ginprom"
 	"github.com/gin-gonic/gin"
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 // jsonAPIError adds an error to the gin context and sets
 // the JSON value of errors.
 func jsonAPIError(c *gin.Context, statusCode int, err error) {
 	_ = c.Error(err).SetType(gin.ErrorTypePublic)
-	switch v := err.(type) {
-	case *models.JSONAPIErrors:
-		c.JSON(statusCode, v)
-	default:
-		c.JSON(statusCode, models.NewJSONAPIErrorsWith(err.Error()))
+	var jsonErr *models.JSONAPIErrors
+	if errors.As(err, &jsonErr) {
+		c.JSON(statusCode, jsonErr)
+		return
 	}
+	c.JSON(statusCode, models.NewJSONAPIErrorsWith(err.Error()))
 }
 
 func paginatedResponse(
@@ -67,4 +72,10 @@ func jsonAPIResponseWithStatus(c *gin.Context, resource interface{}, name string
 
 func jsonAPIResponse(c *gin.Context, resource interface{}, name string) {
 	jsonAPIResponseWithStatus(c, resource, name, http.StatusOK)
+}
+
+func Router(t testing.TB, app chainlink.Application, prometheus *ginprom.Prometheus) *gin.Engine {
+	r, err := NewRouter(app, prometheus)
+	require.NoError(t, err)
+	return r
 }

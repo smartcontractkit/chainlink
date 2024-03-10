@@ -2,7 +2,8 @@ package fluxmonitorv2
 
 import (
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/chainlink/core/null"
+
+	"github.com/smartcontractkit/chainlink/v2/core/null"
 )
 
 // FluxMonitorRoundStatsV2 defines the stats for a round

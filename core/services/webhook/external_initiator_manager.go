@@ -2,33 +2,35 @@ package webhook
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 
+	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
-	uuid "github.com/satori/go.uuid"
 
-	"github.com/smartcontractkit/chainlink/core/bridges"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/static"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
+
+	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/static"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
-//go:generate mockery --name ExternalInitiatorManager --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name ExternalInitiatorManager --output ./mocks/ --case=underscore
 
 // ExternalInitiatorManager manages HTTP requests to remote external initiators
 type ExternalInitiatorManager interface {
-	Notify(webhookSpecID int32) error
-	DeleteJob(webhookSpecID int32) error
+	Notify(ctx context.Context, webhookSpecID int32) error
+	DeleteJob(ctx context.Context, webhookSpecID int32) error
 	FindExternalInitiatorByName(name string) (bridges.ExternalInitiator, error)
 }
 
-//go:generate mockery --name HTTPClient --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name HTTPClient --output ./mocks/ --case=underscore
 type HTTPClient interface {
 	Do(req *http.Request) (*http.Response, error)
 }
@@ -41,7 +43,7 @@ type externalInitiatorManager struct {
 var _ ExternalInitiatorManager = (*externalInitiatorManager)(nil)
 
 // NewExternalInitiatorManager returns the concrete externalInitiatorManager
-func NewExternalInitiatorManager(db *sqlx.DB, httpclient HTTPClient, lggr logger.Logger, cfg pg.LogConfig) *externalInitiatorManager {
+func NewExternalInitiatorManager(db *sqlx.DB, httpclient HTTPClient, lggr logger.Logger, cfg pg.QConfig) *externalInitiatorManager {
 	namedLogger := lggr.Named("ExternalInitiatorManager")
 	return &externalInitiatorManager{
 		q:          pg.NewQ(db, namedLogger, cfg),
@@ -51,7 +53,7 @@ func NewExternalInitiatorManager(db *sqlx.DB, httpclient HTTPClient, lggr logger
 
 // Notify sends a POST notification to the External Initiator
 // responsible for initiating the Job Spec.
-func (m externalInitiatorManager) Notify(webhookSpecID int32) error {
+func (m externalInitiatorManager) Notify(ctx context.Context, webhookSpecID int32) error {
 	eiWebhookSpecs, jobID, err := m.Load(webhookSpecID)
 	if err != nil {
 		return err
@@ -70,7 +72,7 @@ func (m externalInitiatorManager) Notify(webhookSpecID int32) error {
 		if err != nil {
 			return errors.Wrap(err, "new Job Spec notification")
 		}
-		req, err := newNotifyHTTPRequest(buf, ei)
+		req, err := newNotifyHTTPRequest(ctx, buf, ei)
 		if err != nil {
 			return errors.Wrap(err, "creating notify HTTP request")
 		}
@@ -82,7 +84,7 @@ func (m externalInitiatorManager) Notify(webhookSpecID int32) error {
 			return err
 		}
 		if !(resp.StatusCode >= 200 && resp.StatusCode < 300) {
-			return fmt.Errorf(" notify '%s' (%s) received bad response '%s'", ei.Name, ei.URL, resp.Status)
+			return fmt.Errorf(" notify '%s' (%s) received bad response '%d: %s'", ei.Name, ei.URL, resp.StatusCode, resp.Status)
 		}
 	}
 	return nil
@@ -135,7 +137,7 @@ func (m externalInitiatorManager) eagerLoadExternalInitiator(q pg.Queryer, txs [
 	return nil
 }
 
-func (m externalInitiatorManager) DeleteJob(webhookSpecID int32) error {
+func (m externalInitiatorManager) DeleteJob(ctx context.Context, webhookSpecID int32) error {
 	eiWebhookSpecs, jobID, err := m.Load(webhookSpecID)
 	if err != nil {
 		return err
@@ -146,7 +148,7 @@ func (m externalInitiatorManager) DeleteJob(webhookSpecID int32) error {
 			continue
 		}
 
-		req, err := newDeleteJobFromExternalInitiatorHTTPRequest(ei, jobID)
+		req, err := newDeleteJobFromExternalInitiatorHTTPRequest(ctx, ei, jobID)
 		if err != nil {
 			return errors.Wrap(err, "creating delete HTTP request")
 		}
@@ -158,7 +160,7 @@ func (m externalInitiatorManager) DeleteJob(webhookSpecID int32) error {
 			return err
 		}
 		if !(resp.StatusCode >= 200 && resp.StatusCode < 300) {
-			return fmt.Errorf(" notify '%s' (%s) received bad response '%s'", ei.Name, ei.URL, resp.Status)
+			return fmt.Errorf(" delete '%s' (%s) received bad response '%d: %s'", ei.Name, ei.URL, resp.StatusCode, resp.Status)
 		}
 	}
 	return nil
@@ -177,8 +179,8 @@ type JobSpecNotice struct {
 	Params models.JSON `json:"params,omitempty"`
 }
 
-func newNotifyHTTPRequest(buf []byte, ei bridges.ExternalInitiator) (*http.Request, error) {
-	req, err := http.NewRequest(http.MethodPost, ei.URL.String(), bytes.NewBuffer(buf))
+func newNotifyHTTPRequest(ctx context.Context, buf []byte, ei bridges.ExternalInitiator) (*http.Request, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, ei.URL.String(), bytes.NewBuffer(buf))
 	if err != nil {
 		return nil, err
 	}
@@ -186,10 +188,10 @@ func newNotifyHTTPRequest(buf []byte, ei bridges.ExternalInitiator) (*http.Reque
 	return req, nil
 }
 
-func newDeleteJobFromExternalInitiatorHTTPRequest(ei bridges.ExternalInitiator, jobID uuid.UUID) (*http.Request, error) {
+func newDeleteJobFromExternalInitiatorHTTPRequest(ctx context.Context, ei bridges.ExternalInitiator, jobID uuid.UUID) (*http.Request, error) {
 	url := fmt.Sprintf("%s/%s", ei.URL.String(), jobID)
 
-	req, err := http.NewRequest(http.MethodDelete, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, url, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -207,8 +209,8 @@ type NullExternalInitiatorManager struct{}
 
 var _ ExternalInitiatorManager = (*NullExternalInitiatorManager)(nil)
 
-func (NullExternalInitiatorManager) Notify(int32) error    { return nil }
-func (NullExternalInitiatorManager) DeleteJob(int32) error { return nil }
+func (NullExternalInitiatorManager) Notify(context.Context, int32) error    { return nil }
+func (NullExternalInitiatorManager) DeleteJob(context.Context, int32) error { return nil }
 func (NullExternalInitiatorManager) FindExternalInitiatorByName(name string) (bridges.ExternalInitiator, error) {
 	return bridges.ExternalInitiator{}, nil
 }

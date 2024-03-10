@@ -5,9 +5,10 @@ import (
 
 	"github.com/graph-gophers/dataloader"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
 
 type nodeBatcher struct {
@@ -18,25 +19,23 @@ func (b *nodeBatcher) loadByChainIDs(ctx context.Context, keys dataloader.Keys) 
 	// Create a map for remembering the order of keys passed in
 	keyOrder := make(map[string]int, len(keys))
 	// Collect the keys to search for
-	var chainIDs []utils.Big
-	for ix, key := range keys {
-		id := utils.Big{}
-		if err := id.UnmarshalText([]byte(key.String())); err == nil {
-			chainIDs = append(chainIDs, id)
-		}
+	// note backward compatibility -- this only ever supported evm chains
+	evmrelayIDs := make([]relay.ID, 0, len(keys))
 
+	for ix, key := range keys {
+		rid := relay.ID{Network: relay.EVM, ChainID: key.String()}
+		evmrelayIDs = append(evmrelayIDs, rid)
 		keyOrder[key.String()] = ix
 	}
 
-	nodes, err := b.app.GetChains().EVM.GetNodesByChainIDs(ctx, chainIDs)
+	allNodes, _, err := b.app.GetRelayers().NodeStatuses(ctx, 0, -1, evmrelayIDs...)
 	if err != nil {
 		return []*dataloader.Result{{Data: nil, Error: err}}
 	}
-
 	// Generate a map of nodes to chainIDs
-	nodesForChain := map[string][]types.Node{}
-	for _, n := range nodes {
-		nodesForChain[n.EVMChainID.String()] = append(nodesForChain[n.EVMChainID.String()], n)
+	nodesForChain := map[string][]types.NodeStatus{}
+	for _, n := range allNodes {
+		nodesForChain[n.ChainID] = append(nodesForChain[n.ChainID], n)
 	}
 
 	// Construct the output array of dataloader results
@@ -52,7 +51,7 @@ func (b *nodeBatcher) loadByChainIDs(ctx context.Context, keys dataloader.Keys) 
 
 	// fill array positions without any nodes as an empty slice
 	for _, ix := range keyOrder {
-		results[ix] = &dataloader.Result{Data: []types.Node{}, Error: nil}
+		results[ix] = &dataloader.Result{Data: []types.NodeStatus{}, Error: nil}
 	}
 
 	return results

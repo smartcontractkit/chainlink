@@ -1,0 +1,15 @@
+.DS_Store
+.github
+.envrc
+.vscode/
+*.log
+node_modules/
+**/node_modules/
+vendor/
+tmp/
+
+contracts/node_modules
+examples/
+tools/
+docs/
+operator_ui/

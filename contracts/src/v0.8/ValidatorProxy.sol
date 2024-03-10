@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "./ConfirmedOwner.sol";
-import "./interfaces/AggregatorValidatorInterface.sol";
-import "./interfaces/TypeAndVersionInterface.sol";
+import {ConfirmedOwner} from "./shared/access/ConfirmedOwner.sol";
+import {AggregatorValidatorInterface} from "./shared/interfaces/AggregatorValidatorInterface.sol";
+import {TypeAndVersionInterface} from "./interfaces/TypeAndVersionInterface.sol";
 
+// solhint-disable custom-errors
 contract ValidatorProxy is AggregatorValidatorInterface, TypeAndVersionInterface, ConfirmedOwner {
   /// @notice Uses a single storage slot to store the current address
   struct AggregatorConfiguration {
@@ -97,6 +98,7 @@ contract ValidatorProxy is AggregatorValidatorInterface, TypeAndVersionInterface
     ValidatorConfiguration memory currentValidator = s_currentValidator;
     address currentValidatorAddress = address(currentValidator.target);
     require(currentValidatorAddress != address(0), "No validator set");
+    // solhint-disable-next-line avoid-low-level-calls
     currentValidatorAddress.call(
       abi.encodeWithSelector(
         AggregatorValidatorInterface.validate.selector,
@@ -108,6 +110,7 @@ contract ValidatorProxy is AggregatorValidatorInterface, TypeAndVersionInterface
     );
     // If there is a new proposed validator, send the validate call to that validator also
     if (currentValidator.hasNewProposal) {
+      // solhint-disable-next-line avoid-low-level-calls
       address(s_proposedValidator).call(
         abi.encodeWithSelector(
           AggregatorValidatorInterface.validate.selector,
@@ -160,18 +163,11 @@ contract ValidatorProxy is AggregatorValidatorInterface, TypeAndVersionInterface
    * @return hasProposal bool
    * @return proposed address
    */
-  function getAggregators()
-    external
-    view
-    returns (
-      address current,
-      bool hasProposal,
-      address proposed
-    )
-  {
+  function getAggregators() external view returns (address current, bool hasProposal, address proposed) {
     current = s_currentAggregator.target;
     hasProposal = s_currentAggregator.hasNewProposal;
     proposed = s_proposedAggregator;
+    return (current, hasProposal, proposed);
   }
 
   /** VALIDATOR CONFIGURATION FUNCTIONS **/
@@ -216,15 +212,12 @@ contract ValidatorProxy is AggregatorValidatorInterface, TypeAndVersionInterface
   function getValidators()
     external
     view
-    returns (
-      AggregatorValidatorInterface current,
-      bool hasProposal,
-      AggregatorValidatorInterface proposed
-    )
+    returns (AggregatorValidatorInterface current, bool hasProposal, AggregatorValidatorInterface proposed)
   {
     current = s_currentValidator.target;
     hasProposal = s_currentValidator.hasNewProposal;
     proposed = s_proposedValidator;
+    return (current, hasProposal, proposed);
   }
 
   /**

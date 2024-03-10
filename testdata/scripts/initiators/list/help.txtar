@@ -1,0 +1,9 @@
+exec chainlink initiators list --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink initiators list - List all external initiators
+
+USAGE:
+   chainlink initiators list [arguments...]

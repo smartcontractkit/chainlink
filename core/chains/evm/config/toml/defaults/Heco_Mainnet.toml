@@ -1,0 +1,34 @@
+# Heco uses BSC's settings.
+ChainID = '128'
+FinalityDepth = 50
+LinkContractAddress = '0x404460C6A5EdE2D891e8297795264fDe62ADBB75'
+LogPollInterval = '3s'
+MinIncomingConfirmations = 3
+NoNewHeadsThreshold = '30s'
+RPCBlockQueryDelay = 2
+Transactions.ResendAfterThreshold = '1m'
+
+
+[BalanceMonitor]
+Enabled = true
+
+[GasEstimator]
+PriceDefault = '5 gwei'
+PriceMin = '1 gwei'
+BumpMin = '5 gwei'
+BumpThreshold = 5
+
+[GasEstimator.BlockHistory]
+BlockHistorySize = 24
+
+[HeadTracker]
+HistoryDepth = 100
+SamplingInterval = '1s'
+
+[OCR]
+DatabaseTimeout = '2s'
+ContractTransmitterTransmitTimeout = '2s'
+ObservationGracePeriod = '500ms'
+
+[NodePool]
+SyncThreshold = 10

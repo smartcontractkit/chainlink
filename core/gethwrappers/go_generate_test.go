@@ -5,7 +5,6 @@ package gethwrappers
 import (
 	"crypto/sha256"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -15,7 +14,8 @@ import (
 	gethParams "github.com/ethereum/go-ethereum/params"
 	"github.com/fatih/color"
 
-	"github.com/smartcontractkit/chainlink/core/utils"
+	cutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -46,7 +46,7 @@ func TestCheckContractHashesFromLastGoGenerate(t *testing.T) {
 		compareCurrentCompilerArtifactAgainstRecordsAndSoliditySources(t, contractVersionInfo)
 	}
 	// Just check that LinkToken details haven't changed (they never ought to)
-	linkDetails, err := ioutil.ReadFile(filepath.Join(getProjectRoot(t), "contracts/LinkToken.json"))
+	linkDetails, err := os.ReadFile(filepath.Join(getProjectRoot(t), "contracts/LinkToken.json"))
 	require.NoError(t, err, "could not read link contract details")
 	require.Equal(t, fmt.Sprintf("%x", sha256.Sum256(linkDetails)),
 		"27c0e17a79553fccc63a4400c6bbe415ff710d9cc7c25757bff0f7580205c922",
@@ -72,7 +72,7 @@ func init() { // compute rootDir
 	if err != nil {
 		panic(err)
 	}
-	rootDir, err = filepath.Abs(filepath.Join(thisDir, "../../.."))
+	rootDir, err = filepath.Abs(filepath.Join(thisDir, "../.."))
 	if err != nil {
 		panic(err)
 	}
@@ -84,9 +84,9 @@ func init() { // compute rootDir
 // compiler artifact matches the current solidity contracts.
 //
 // Most of the compiler artifacts should contain output from sol-compiler, or
-// "yarn compile". The relevant parts of its schema are
+// "pnpm compile". The relevant parts of its schema are
 //
-//    { "sourceCodes": { "<filePath>": "<code>", ... } }
+//	{ "sourceCodes": { "<filePath>": "<code>", ... } }
 //
 // where <filePath> is the path to the contract, below the truffle contracts/
 // directory, and <code> is the source code of the contract at the time the JSON
@@ -95,7 +95,7 @@ func compareCurrentCompilerArtifactAgainstRecordsAndSoliditySources(
 	t *testing.T, versionInfo ContractVersion,
 ) {
 	hash := VersionHash(versionInfo.AbiPath, versionInfo.BinaryPath)
-	recompileCommand := fmt.Sprintf("(cd %s; make go-solidity-wrappers)", rootDir)
+	recompileCommand := fmt.Sprintf("(cd %s/contracts; make wrappers-all)", rootDir)
 	assert.Equal(t, versionInfo.Hash, hash,
 		utils.BoxOutput(`compiled %s and/or %s has changed; please rerun
 %s,
@@ -113,7 +113,7 @@ func init() {
 	for db.Scan() {
 		line := strings.Fields(db.Text())
 		if stripTrailingColon(line[0], "") != "GETH_VERSION" {
-			if os.IsNotExist(utils.JustError(os.Stat(line[1]))) {
+			if os.IsNotExist(cutils.JustError(os.Stat(line[1]))) {
 				solidityArtifactsMissing = append(solidityArtifactsMissing, line[1])
 			}
 		}
@@ -123,7 +123,7 @@ func init() {
 	}
 	fmt.Printf("some solidity artifacts missing (%s); rebuilding...",
 		solidityArtifactsMissing)
-	// Don't want to run "make go-solidity-wrappers" here, because that would
+	// Don't want to run "make wrappers-all" here, because that would
 	// result in an infinite loop
 	cmd := exec.Command("bash", "-c", compileCommand)
 	cmd.Stdout = os.Stdout
@@ -138,12 +138,11 @@ func getProjectRoot(t *testing.T) (rootPath string) {
 	root, err := os.Getwd()
 	require.NoError(t, err, "could not get current working directory")
 	for root != "/" { // Walk up path to find dir containing go.mod
-		if _, err := os.Stat(filepath.Join(root, "go.mod")); os.IsNotExist(err) {
-			root = filepath.Dir(root)
-		} else {
+		if _, err := os.Stat(filepath.Join(root, "go.mod")); !os.IsNotExist(err) {
 			return root
 		}
+		root = filepath.Dir(root)
 	}
 	t.Fatal("could not find project root")
-	panic("can't get here") // Appease staticcheck
+	return
 }

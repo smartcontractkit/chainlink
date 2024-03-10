@@ -9,7 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 var privateIPBlocks []*net.IPNet
@@ -33,7 +33,7 @@ func init() {
 	}
 }
 
-func isRestrictedIP(ip net.IP, cfg httpClientConfig, lggr logger.Logger) bool {
+func isRestrictedIP(ip net.IP, cfg httpClientConfig) (bool, error) {
 	if !ip.IsGlobalUnicast() ||
 		ip.IsLoopback() ||
 		ip.IsLinkLocalUnicast() ||
@@ -45,30 +45,29 @@ func isRestrictedIP(ip net.IP, cfg httpClientConfig, lggr logger.Logger) bool {
 		ip.Equal(net.IPv4allrouter) ||
 		ip.Equal(net.IPv4zero) ||
 		ip.IsMulticast() {
-		return true
+		return true, nil
 	}
 
 	for _, block := range privateIPBlocks {
 		if block.Contains(ip) {
-			return true
+			return true, nil
 		}
 	}
 
 	blacklisted, err := isBlacklistedIP(ip, cfg)
 	if err != nil {
-		lggr.Errorw("Failed to check IP blacklist status, this IP will be blocked", "err", err, "ip", ip)
-		return true
+		return false, errors.Wrapf(err, "failed to check IP blacklist status")
 	}
 
-	return blacklisted
+	return blacklisted, nil
 }
 
 func isBlacklistedIP(ip net.IP, cfg httpClientConfig) (bool, error) {
-	dbURL := cfg.DatabaseURL()
+	dbURL := cfg.URL()
 	if dbURL.String() == "" {
 		return false, nil
 	}
-	ips, err := net.LookupIP(dbURL.String())
+	ips, err := net.LookupIP(dbURL.Host)
 	if err != nil {
 		return true, errors.Wrapf(err, "failed to lookup IP for DB URL")
 	}
@@ -99,7 +98,9 @@ func makeRestrictedDialContext(cfg httpClientConfig, lggr logger.Logger) func(co
 			// If a connection could be established, ensure it's not local or private
 			a, _ := con.RemoteAddr().(*net.TCPAddr)
 
-			if isRestrictedIP(a.IP, cfg, lggr) {
+			if restrict, rerr := isRestrictedIP(a.IP, cfg); rerr != nil {
+				lggr.Errorw("Restricted IP check failed, this IP will be allowed", "ip", a.IP, "err", rerr)
+			} else if restrict {
 				return nil, multierr.Combine(
 					errors.Wrapf(ErrDisallowedIP, "disallowed IP %s. Connections to local/private and multicast networks are disabled by default for security reasons", a.IP.String()),
 					con.Close())

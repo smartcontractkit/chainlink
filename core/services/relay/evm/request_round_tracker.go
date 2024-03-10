@@ -8,29 +8,32 @@ import (
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
-	"github.com/smartcontractkit/sqlx"
 
-	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
-	offchain_aggregator_wrapper "github.com/smartcontractkit/chainlink/core/internal/gethwrappers2/generated/offchainaggregator"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/jmoiron/sqlx"
+
+	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
+	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
+	offchain_aggregator_wrapper "github.com/smartcontractkit/chainlink/v2/core/internal/gethwrappers2/generated/offchainaggregator"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 // RequestRoundTracker subscribes to new request round logs.
 type RequestRoundTracker struct {
-	utils.StartStopOnce
+	services.StateMachine
 
 	ethClient        evmclient.Client
 	contract         *offchain_aggregator_wrapper.OffchainAggregator
 	contractFilterer *ocr2aggregator.OCR2AggregatorFilterer
 	logBroadcaster   log.Broadcaster
 	jobID            int32
-	lggr             logger.Logger
+	lggr             logger.SugaredLogger
 	odb              RequestRoundDB
 	q                pg.Q
 	blockTranslator  ocrcommon.BlockTranslator
@@ -56,6 +59,7 @@ func NewRequestRoundTracker(
 	db *sqlx.DB,
 	odb RequestRoundDB,
 	chain ocrcommon.Config,
+	qConfig pg.QConfig,
 ) (o *RequestRoundTracker) {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &RequestRoundTracker{
@@ -64,9 +68,9 @@ func NewRequestRoundTracker(
 		contractFilterer: contractFilterer,
 		logBroadcaster:   logBroadcaster,
 		jobID:            jobID,
-		lggr:             lggr,
+		lggr:             logger.Sugared(lggr),
 		odb:              odb,
-		q:                pg.NewQ(db, lggr, chain),
+		q:                pg.NewQ(db, lggr, qConfig),
 		blockTranslator:  ocrcommon.NewBlockTranslator(chain, ethClient, lggr),
 		ctx:              ctx,
 		ctxCancel:        cancel,
@@ -108,7 +112,7 @@ func (t *RequestRoundTracker) Close() error {
 func (t *RequestRoundTracker) HandleLog(lb log.Broadcast) {
 	was, err := t.logBroadcaster.WasAlreadyConsumed(lb)
 	if err != nil {
-		t.lggr.Errorw("OCRContract: could not determine if log was already consumed", "error", err)
+		t.lggr.Errorw("OCRContract: could not determine if log was already consumed", "err", err)
 		return
 	} else if was {
 		return

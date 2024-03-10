@@ -3,42 +3,44 @@ package telemetry
 import (
 	"context"
 
-	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	ocrtypes "github.com/smartcontractkit/libocr/commontypes"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 )
 
 var _ MonitoringEndpointGenerator = &IngressAgentWrapper{}
 
 type IngressAgentWrapper struct {
-	telemetryIngressClient synchronization.TelemetryIngressClient
+	telemetryIngressClient synchronization.TelemetryService
 }
 
-func NewIngressAgentWrapper(telemetryIngressClient synchronization.TelemetryIngressClient) *IngressAgentWrapper {
+func NewIngressAgentWrapper(telemetryIngressClient synchronization.TelemetryService) *IngressAgentWrapper {
 	return &IngressAgentWrapper{telemetryIngressClient}
 }
 
-func (t *IngressAgentWrapper) GenMonitoringEndpoint(contractID string) ocrtypes.MonitoringEndpoint {
-	return NewIngressAgent(t.telemetryIngressClient, contractID)
+func (t *IngressAgentWrapper) GenMonitoringEndpoint(network, chainID string, contractID string, telemType synchronization.TelemetryType) ocrtypes.MonitoringEndpoint {
+	return NewIngressAgent(t.telemetryIngressClient, network, chainID, contractID, telemType)
 }
 
 type IngressAgent struct {
-	telemetryIngressClient synchronization.TelemetryIngressClient
+	telemetryIngressClient synchronization.TelemetryService
+	network                string
+	chainID                string
 	contractID             string
+	telemType              synchronization.TelemetryType
 }
 
-func NewIngressAgent(telemetryIngressClient synchronization.TelemetryIngressClient, contractID string) *IngressAgent {
+func NewIngressAgent(telemetryIngressClient synchronization.TelemetryService, network string, chainID string, contractID string, telemType synchronization.TelemetryType) *IngressAgent {
 	return &IngressAgent{
 		telemetryIngressClient,
+		network,
+		chainID,
 		contractID,
+		telemType,
 	}
 }
 
 // SendLog sends a telemetry log to the ingress server
 func (t *IngressAgent) SendLog(telemetry []byte) {
-	payload := synchronization.TelemPayload{
-		Ctx:        context.Background(),
-		Telemetry:  telemetry,
-		ContractID: t.contractID,
-	}
-	t.telemetryIngressClient.Send(payload)
+	t.telemetryIngressClient.Send(context.Background(), telemetry, t.contractID, t.telemType)
 }

@@ -11,7 +11,7 @@ import (
 func TestNewCache(t *testing.T) {
 	b := NewBlockCache[int](time.Second)
 
-	assert.Equal(t, time.Second, time.Duration(b.evictionWindow), "must set correct blockEvictionWindow")
+	assert.Equal(t, time.Second, b.evictionWindow, "must set correct blockEvictionWindow")
 }
 
 func TestCache(t *testing.T) {
@@ -30,7 +30,7 @@ func TestCache(t *testing.T) {
 			{Key: common.HexToHash("0x4"), Value: 5},
 		}
 
-		c := NewBlockCache[int](time.Second * 100)
+		c := NewBlockCache[int](100 * time.Second)
 
 		// Populate cache with ordered items.
 		for i, test := range tests {
@@ -43,16 +43,25 @@ func TestCache(t *testing.T) {
 		assert.Equal(t, 5, len(c.cache), "cache should contain 5 keys")
 
 		// Evict all items.
-		c.EvictExpiredItems(getSecondsAfterNow(now, 105))
+		evictionTime := getSecondsAfterNow(now, 105)
+		c.EvictExpiredItems(evictionTime)
 		assert.Equal(t, 0, len(c.cache), "cache should contain 0 keys")
 
 		// Cache a new item.
-		c.CacheItem(tests[0].Value, tests[0].Key, getSecondsAfterNow(now, 110))
+		c.CacheItem(tests[0].Value, tests[0].Key, getSecondsAfterNow(now, 10))
 		item := c.GetItem(tests[0].Key)
 		assert.Equal(t, tests[0].Value, *item)
 
-		// Ensure cache has 1 item, with the newest and oldest pointers correct.
+		// Attempting a new eviction should have no effect.
+		c.EvictExpiredItems(evictionTime)
 		assert.Equal(t, 1, len(c.cache), "cache should contain 1 key")
+
+		// Reduce eviction window.
+		c.SetEvictonWindow(time.Second * 50)
+
+		// Attempting a new eviction will remove the added item.
+		c.EvictExpiredItems(evictionTime)
+		assert.Equal(t, 0, len(c.cache), "cache should contain 0 keys")
 	})
 
 	t.Run("Happy path, override middle item.", func(t *testing.T) {
@@ -70,7 +79,7 @@ func TestCache(t *testing.T) {
 			{Key: common.HexToHash("0x1"), Value: 5},
 		}
 
-		c := NewBlockCache[int](time.Duration(time.Second * 100))
+		c := NewBlockCache[int](100 * time.Second)
 
 		// Populate cache with items.
 		for i, test := range tests {
@@ -110,7 +119,7 @@ func TestCache(t *testing.T) {
 			{Key: common.HexToHash("0x0"), Value: 5},
 		}
 
-		c := NewBlockCache[int](time.Duration(time.Second * 100))
+		c := NewBlockCache[int](100 * time.Second)
 
 		// Populate cache with items.
 		for i, test := range tests {

@@ -6,34 +6,37 @@ import (
 	"reflect"
 	"sync"
 
-	starkkey "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/keys"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/dkgencryptkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/dkgsignkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocr2key"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/terrakey"
-
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/cosmoskey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/dkgencryptkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/dkgsignkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/solkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/starkkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-var ErrLocked = errors.New("Keystore is locked")
+var (
+	ErrLocked      = errors.New("Keystore is locked")
+	ErrKeyNotFound = errors.New("Key not found")
+	ErrKeyExists   = errors.New("Key already exists")
+)
 
 // DefaultEVMChainIDFunc is a func for getting a default evm chain ID -
 // necessary because it is lazily evaluated
 type DefaultEVMChainIDFunc func() (defaultEVMChainID *big.Int, err error)
 
-//go:generate mockery --name Master --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name Master --output ./mocks/ --case=underscore
 
 type Master interface {
 	CSA() CSA
@@ -44,36 +47,37 @@ type Master interface {
 	OCR2() OCR2
 	P2P() P2P
 	Solana() Solana
-	Terra() Terra
+	Cosmos() Cosmos
 	StarkNet() StarkNet
 	VRF() VRF
 	Unlock(password string) error
-	Migrate(vrfPassword string, f DefaultEVMChainIDFunc) error
 	IsEmpty() (bool, error)
 }
 
 type master struct {
 	*keyManager
+	cosmos     *cosmos
 	csa        *csa
 	eth        *eth
 	ocr        *ocr
 	ocr2       ocr2
 	p2p        *p2p
 	solana     *solana
-	terra      *terra
 	starknet   *starknet
 	vrf        *vrf
 	dkgSign    *dkgSign
 	dkgEncrypt *dkgEncrypt
 }
 
-func New(db *sqlx.DB, scryptParams utils.ScryptParams, lggr logger.Logger, cfg pg.LogConfig) Master {
+func New(db *sqlx.DB, scryptParams utils.ScryptParams, lggr logger.Logger, cfg pg.QConfig) Master {
 	return newMaster(db, scryptParams, lggr, cfg)
 }
 
-func newMaster(db *sqlx.DB, scryptParams utils.ScryptParams, lggr logger.Logger, cfg pg.LogConfig) *master {
+func newMaster(db *sqlx.DB, scryptParams utils.ScryptParams, lggr logger.Logger, cfg pg.QConfig) *master {
+	orm := NewORM(db, lggr, cfg)
 	km := &keyManager{
-		orm:          NewORM(db, lggr, cfg),
+		orm:          orm,
+		keystateORM:  orm,
 		scryptParams: scryptParams,
 		lock:         &sync.RWMutex{},
 		logger:       lggr.Named("KeyStore"),
@@ -81,13 +85,13 @@ func newMaster(db *sqlx.DB, scryptParams utils.ScryptParams, lggr logger.Logger,
 
 	return &master{
 		keyManager: km,
+		cosmos:     newCosmosKeyStore(km),
 		csa:        newCSAKeyStore(km),
-		eth:        newEthKeyStore(km),
+		eth:        newEthKeyStore(km, orm, orm.q),
 		ocr:        newOCRKeyStore(km),
 		ocr2:       newOCR2KeyStore(km),
 		p2p:        newP2PKeyStore(km),
 		solana:     newSolanaKeyStore(km),
-		terra:      newTerraKeyStore(km),
 		starknet:   newStarkNetKeyStore(km),
 		vrf:        newVRFKeyStore(km),
 		dkgSign:    newDKGSignKeyStore(km),
@@ -127,8 +131,8 @@ func (ks *master) Solana() Solana {
 	return ks.solana
 }
 
-func (ks *master) Terra() Terra {
-	return ks.terra
+func (ks *master) Cosmos() Cosmos {
+	return ks.cosmos
 }
 
 func (ks *master) StarkNet() StarkNet {
@@ -139,110 +143,29 @@ func (ks *master) VRF() VRF {
 	return ks.vrf
 }
 
-func (ks *master) IsEmpty() (bool, error) {
-	var count int64
-	err := ks.orm.q.QueryRow("SELECT count(*) FROM encrypted_key_rings").Scan(&count)
-	if err != nil {
-		return false, err
-	}
-	return count == 0, nil
+type ORM interface {
+	isEmpty() (bool, error)
+	saveEncryptedKeyRing(*encryptedKeyRing, ...func(pg.Queryer) error) error
+	getEncryptedKeyRing() (encryptedKeyRing, error)
 }
 
-func (ks *master) Migrate(vrfPssword string, f DefaultEVMChainIDFunc) error {
-	ks.lock.Lock()
-	defer ks.lock.Unlock()
-	if ks.isLocked() {
-		return ErrLocked
-	}
-	csaKeys, err := ks.csa.GetV1KeysAsV2()
-	if err != nil {
-		return err
-	}
-	for _, csaKey := range csaKeys {
-		if _, exists := ks.keyRing.CSA[csaKey.ID()]; exists {
-			continue
-		}
-		ks.logger.Debugf("Migrating CSA key %s", csaKey.ID())
-		ks.keyRing.CSA[csaKey.ID()] = csaKey
-	}
-	ocrKeys, err := ks.ocr.GetV1KeysAsV2()
-	if err != nil {
-		return err
-	}
-	for _, ocrKey := range ocrKeys {
-		if _, exists := ks.keyRing.OCR[ocrKey.ID()]; exists {
-			continue
-		}
-		ks.logger.Debugf("Migrating OCR key %s", ocrKey.ID())
-		ks.keyRing.OCR[ocrKey.ID()] = ocrKey
-	}
-	p2pKeys, err := ks.p2p.GetV1KeysAsV2()
-	if err != nil {
-		return err
-	}
-	for _, p2pKey := range p2pKeys {
-		if _, exists := ks.keyRing.P2P[p2pKey.ID()]; exists {
-			continue
-		}
-		ks.logger.Debugf("Migrating P2P key %s", p2pKey.ID())
-		ks.keyRing.P2P[p2pKey.ID()] = p2pKey
-	}
-	vrfKeys, err := ks.vrf.GetV1KeysAsV2(vrfPssword)
-	if err != nil {
-		return err
-	}
-	for _, vrfKey := range vrfKeys {
-		if _, exists := ks.keyRing.VRF[vrfKey.ID()]; exists {
-			continue
-		}
-		ks.logger.Debugf("Migrating VRF key %s", vrfKey.ID())
-		ks.keyRing.VRF[vrfKey.ID()] = vrfKey
-	}
-	if err = ks.keyManager.save(); err != nil {
-		return err
-	}
-	ethKeys, nonces, fundings, err := ks.eth.getV1KeysAsV2()
-	if err != nil {
-		return err
-	}
-	if len(ethKeys) > 0 {
-		chainID, err := f()
-		if err != nil {
-			return errors.Wrapf(err, `%d legacy eth keys detected, but no default EVM chain ID was specified
-
-PLEASE READ THIS ADDITIONAL INFO
-
-If you are running Chainlink with EVM_ENABLED=false and don't care about EVM keys at all, you can run the following SQL to remove any lingering eth keys that may have been autogenerated by an older version of Chainlink, and boot the node again:
-
-pqsl> TRUNCATE keys;
-
-WARNING: This will PERMANENTLY AND IRRECOVERABLY delete any legacy eth keys, so please be absolutely sure this is what you want before you run this. Consider taking a database backup first`, len(ethKeys))
-		}
-		for i, ethKey := range ethKeys {
-			if _, exists := ks.keyRing.Eth[ethKey.ID()]; exists {
-				continue
-			}
-			ks.logger.Debugf("Migrating Eth key %s (and pegging to chain ID %s)", ethKey.ID(), chainID.String())
-			// Note that V1 keys that were "funding" will be migrated as "disabled"
-			if err = ks.eth.addWithNonce(ethKey, chainID, nonces[i], fundings[i]); err != nil {
-				return err
-			}
-			if err = ks.keyManager.save(); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
+type keystateORM interface {
+	loadKeyStates() (*keyStates, error)
 }
 
 type keyManager struct {
-	orm          ksORM
+	orm          ORM
+	keystateORM  keystateORM
 	scryptParams utils.ScryptParams
 	keyRing      *keyRing
 	keyStates    *keyStates
 	lock         *sync.RWMutex
 	password     string
 	logger       logger.Logger
+}
+
+func (km *keyManager) IsEmpty() (bool, error) {
+	return km.orm.isEmpty()
 }
 
 func (km *keyManager) Unlock(password string) error {
@@ -266,7 +189,7 @@ func (km *keyManager) Unlock(password string) error {
 	kr.logPubKeys(km.logger)
 	km.keyRing = kr
 
-	ks, err := km.orm.loadKeyStates()
+	ks, err := km.keystateORM.loadKeyStates()
 	if err != nil {
 		return errors.Wrap(err, "unable to load key states")
 	}
@@ -287,7 +210,7 @@ func (km *keyManager) save(callbacks ...func(pg.Queryer) error) error {
 
 // caller must hold lock!
 func (km *keyManager) safeAddKey(unknownKey Key, callbacks ...func(pg.Queryer) error) error {
-	fieldName, err := getFieldNameForKey(unknownKey)
+	fieldName, err := GetFieldNameForKey(unknownKey)
 	if err != nil {
 		return err
 	}
@@ -309,7 +232,7 @@ func (km *keyManager) safeAddKey(unknownKey Key, callbacks ...func(pg.Queryer) e
 
 // caller must hold lock!
 func (km *keyManager) safeRemoveKey(unknownKey Key, callbacks ...func(pg.Queryer) error) (err error) {
-	fieldName, err := getFieldNameForKey(unknownKey)
+	fieldName, err := GetFieldNameForKey(unknownKey)
 	if err != nil {
 		return err
 	}
@@ -333,8 +256,10 @@ func (km *keyManager) isLocked() bool {
 	return len(km.password) == 0
 }
 
-func getFieldNameForKey(unknownKey Key) (string, error) {
+func GetFieldNameForKey(unknownKey Key) (string, error) {
 	switch unknownKey.(type) {
+	case cosmoskey.Key:
+		return "Cosmos", nil
 	case csakey.KeyV2:
 		return "CSA", nil
 	case ethkey.KeyV2:
@@ -347,8 +272,6 @@ func getFieldNameForKey(unknownKey Key) (string, error) {
 		return "P2P", nil
 	case solkey.Key:
 		return "Solana", nil
-	case terrakey.Key:
-		return "Terra", nil
 	case starkkey.Key:
 		return "StarkNet", nil
 	case vrfkey.KeyV2:

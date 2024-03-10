@@ -13,66 +13,87 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/libocr/commontypes"
-
-	evmconfigmocks "github.com/smartcontractkit/chainlink/core/chains/evm/config/mocks"
-	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	ocr2mocks "github.com/smartcontractkit/chainlink/core/services/ocr2/mocks"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/validate"
-
-	"github.com/smartcontractkit/chainlink/core/auth"
-	"github.com/smartcontractkit/chainlink/core/bridges"
-	pkgconfig "github.com/smartcontractkit/chainlink/core/config"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
-	clhttptest "github.com/smartcontractkit/chainlink/core/internal/testutils/httptest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/ocr"
-	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/telemetry"
-	"github.com/smartcontractkit/chainlink/core/services/webhook"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/web"
-
+	"github.com/google/uuid"
+	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
-	uuid "github.com/satori/go.uuid"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
+
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
+
+	"github.com/smartcontractkit/chainlink/v2/core/auth"
+	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	clhttptest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/httptest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
+	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/web"
 )
 
 var monitoringEndpoint = telemetry.MonitoringEndpointGenerator(&telemetry.NoopAgent{})
 
 func TestRunner(t *testing.T) {
-	config := cltest.NewTestGeneralConfig(t)
 	db := pgtest.NewSqlxDB(t)
+	keyStore := cltest.NewKeyStore(t, db, pgtest.NewQConfig(true))
 
-	keyStore := cltest.NewKeyStore(t, db, config)
 	ethKeyStore := keyStore.Eth()
+	_, transmitterAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
+	require.NoError(t, keyStore.OCR().Add(cltest.DefaultOCRKey))
+
+	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.P2P.V2.Enabled = ptr(true)
+		c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", freeport.GetOne(t))}
+		kb, err := keyStore.OCR().Create()
+		require.NoError(t, err)
+		kbid := models.MustSha256HashFromHex(kb.ID())
+		c.OCR.KeyBundleID = &kbid
+		taddress := ethkey.EIP55AddressFromAddress(transmitterAddress)
+		c.OCR.TransmitterAddress = &taddress
+		c.OCR2.DatabaseTimeout = commonconfig.MustNewDuration(time.Second)
+		c.OCR2.ContractTransmitterTransmitTimeout = commonconfig.MustNewDuration(time.Second)
+		c.Insecure.OCRDevelopmentMode = ptr(true)
+	})
 
 	ethClient := cltest.NewEthMocksWithDefaultChain(t)
 	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(cltest.Head(10), nil)
 	ethClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(nil, nil)
 
-	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, Client: ethClient, GeneralConfig: config})
+	ctx := testutils.Context(t)
+	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config.Database(), config.JobPipeline().MaxSuccessfulRuns())
+	require.NoError(t, pipelineORM.Start(ctx))
+	t.Cleanup(func() { assert.NoError(t, pipelineORM.Close()) })
+	btORM := bridges.NewORM(db, logger.TestLogger(t), config.Database())
+	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, Client: ethClient, GeneralConfig: config, KeyStore: ethKeyStore})
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
-	runner := pipeline.NewRunner(pipelineORM, config, cc, nil, nil, logger.TestLogger(t), c, c)
-	jobORM := job.NewTestORM(t, db, cc, pipelineORM, keyStore, config)
 
-	runner.Start(testutils.Context(t))
-	defer runner.Close()
+	runner := pipeline.NewRunner(pipelineORM, btORM, config.JobPipeline(), config.WebServer(), legacyChains, nil, nil, logger.TestLogger(t), c, c)
+	jobORM := NewTestORM(t, db, pipelineORM, btORM, keyStore, config.Database())
+	t.Cleanup(func() { assert.NoError(t, jobORM.Close()) })
 
-	_, transmitterAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
-	keyStore.OCR().Add(cltest.DefaultOCRKey)
+	_, placeHolderAddress := cltest.MustInsertRandomKey(t, keyStore.Eth())
+
+	servicetest.Run(t, runner)
 
 	t.Run("gets the election result winner", func(t *testing.T) {
 		var httpURL string
@@ -94,13 +115,12 @@ func TestRunner(t *testing.T) {
 		mockHTTP := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", `{"turnout": 61.942}`)
 
 		httpURL = mockHTTP.URL
-		_, bridgeER := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: mockElectionWinner.URL}, config)
-		_, bridgeVT := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: mockVoterTurnout.URL}, config)
+		_, bridgeER := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: mockElectionWinner.URL}, config.Database())
+		_, bridgeVT := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: mockVoterTurnout.URL}, config.Database())
 
 		// Need a job in order to create a run
 		jb := MakeVoterTurnoutOCRJobSpecWithHTTPURL(t, transmitterAddress, httpURL, bridgeVT.Name.String(), bridgeER.Name.String())
-		err := jobORM.CreateJob(jb)
-		require.NoError(t, err)
+		require.NoError(t, jobORM.CreateJob(jb))
 		require.NotNil(t, jb.PipelineSpec)
 
 		m, err := bridges.MarshalBridgeMetaData(big.NewInt(10), big.NewInt(100))
@@ -147,16 +167,16 @@ func TestRunner(t *testing.T) {
 	})
 
 	t.Run("must delete job before deleting bridge", func(t *testing.T) {
-		_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
+		_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config.Database())
 		jb := makeOCRJobSpecFromToml(t, fmt.Sprintf(`
 			type               = "offchainreporting"
 			schemaVersion      = 1
+			evmChainID		   = "0"
 			observationSource = """
 				ds1          [type=bridge name="%s"];
 			"""
 		`, bridge.Name.String()))
-		err := jobORM.CreateJob(jb)
-		require.NoError(t, err)
+		require.NoError(t, jobORM.CreateJob(jb))
 		// Should not be able to delete a bridge in use.
 		jids, err := jobORM.FindJobIDsWithBridge(bridge.Name.String())
 		require.NoError(t, err)
@@ -171,31 +191,26 @@ func TestRunner(t *testing.T) {
 
 	t.Run("referencing a non-existent bridge should error", func(t *testing.T) {
 		// Create a random bridge name
-		_, b := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
+		_, b := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config.Database())
 
 		// Reference a different one
-		cfg := new(evmconfigmocks.ChainScopedConfig)
-		cfg.On("Dev").Return(true)
-		cfg.On("ChainType").Return(pkgconfig.ChainType(""))
-		c := new(evmmocks.Chain)
-		c.On("Config").Return(cfg)
-		cs := new(evmmocks.ChainSet)
-		cs.On("Get", mock.Anything).Return(c, nil)
+		legacyChains := cltest.NewLegacyChainsWithMockChain(t, nil, config)
 
-		jb, err := ocr.ValidatedOracleSpecToml(cs, `
+		jb, err := ocr.ValidatedOracleSpecToml(legacyChains, fmt.Sprintf(`
 			type               = "offchainreporting"
 			schemaVersion      = 1
-			evmChainID         = 1
+			evmChainID         = 0
+			transmitterID 	   = "%s"	
 			contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
 			isBootstrapPeer    = false
 			blockchainTimeout  = "1s"
 			observationTimeout = "10s"
 			databaseTimeout    = "2s"
-			contractConfigTrackerPollInterval="1s"
+			contractConfigTrackerPollInterval="15s"
 			contractConfigConfirmations=1
 			observationGracePeriod = "2s"
-			contractTransmitterTransmitTimeout = "500ms"
-			contractConfigTrackerSubscribeInterval="1s"
+			contractTransmitterTransmitTimeout = "5s"
+			contractConfigTrackerSubscribeInterval="1m"
 			observationSource = """
 			ds1          [type=bridge name=blah];
 			ds1_parse    [type=jsonparse path="one,two"];
@@ -203,7 +218,7 @@ func TestRunner(t *testing.T) {
 			ds1 -> ds1_parse -> ds1_multiply -> answer1;
 			answer1      [type=median index=0];
 			"""
-		`)
+		`, placeHolderAddress.String()))
 		require.NoError(t, err)
 		// Should error creating it
 		err = jobORM.CreateJob(&jb)
@@ -211,18 +226,15 @@ func TestRunner(t *testing.T) {
 		assert.Contains(t, err.Error(), "not all bridges exist")
 
 		// Same for ocr2
-		cfg2 := new(ocr2mocks.Config)
-		cfg2.On("OCR2ContractTransmitterTransmitTimeout").Return(time.Second)
-		cfg2.On("OCR2DatabaseTimeout").Return(time.Second)
-		cfg2.On("Dev").Return(true)
-		jb2, err := validate.ValidatedOracleSpecToml(cfg2, fmt.Sprintf(`
+		jb2, err := validate.ValidatedOracleSpecToml(config.OCR2(), config.Insecure(), fmt.Sprintf(`
 type               = "offchainreporting2"
 pluginType         = "median"
 schemaVersion      = 1
 relay              = "evm"
 contractID         = "0x613a38AC1659769640aaE063C651F48E0250454C"
+transmitterID 	   = "%s"
 blockchainTimeout = "1s"
-contractConfigTrackerPollInterval = "2s"
+contractConfigTrackerPollInterval = "15s"
 contractConfigConfirmations = 1
 observationSource  = """
 ds1          [type=bridge name="%s"];
@@ -241,7 +253,7 @@ ds1_multiply [type=multiply times=1.23];
 ds1 -> ds1_parse -> ds1_multiply -> answer1;
 answer1      [type=median index=0];
 """
-`, b.Name.String()))
+`, placeHolderAddress.String(), b.Name.String()))
 		require.NoError(t, err)
 		// Should error creating it because of the juels per fee coin non-existent bridge
 		err = jobORM.CreateJob(&jb2)
@@ -249,17 +261,15 @@ answer1      [type=median index=0];
 		assert.Contains(t, err.Error(), "not all bridges exist")
 
 		// Duplicate bridge names that exist is ok
-		cfg2.On("OCR2ContractTransmitterTransmitTimeout").Return(time.Second)
-		cfg2.On("OCR2DatabaseTimeout").Return(time.Second)
-		cfg2.On("Dev").Return(true)
-		jb3, err := validate.ValidatedOracleSpecToml(cfg2, fmt.Sprintf(`
+		jb3, err := validate.ValidatedOracleSpecToml(config.OCR2(), config.Insecure(), fmt.Sprintf(`
 type               = "offchainreporting2"
 pluginType         = "median"
 schemaVersion      = 1
 relay              = "evm"
 contractID         = "0x613a38AC1659769640aaE063C651F48E0250454C"
+transmitterID 	   = "%s"
 blockchainTimeout = "1s"
-contractConfigTrackerPollInterval = "2s"
+contractConfigTrackerPollInterval = "15s"
 contractConfigConfirmations = 1
 observationSource  = """
 ds1          [type=bridge name="%s"];
@@ -282,7 +292,7 @@ ds2_multiply [type=multiply times=1.23];
 ds2 -> ds2_parse -> ds2_multiply -> answer1;
 answer1      [type=median index=0];
 """
-`, b.Name.String(), b.Name.String(), b.Name.String()))
+`, placeHolderAddress, b.Name.String(), b.Name.String(), b.Name.String()))
 		require.NoError(t, err)
 		// Should not error with duplicate bridges
 		err = jobORM.CreateJob(&jb3)
@@ -421,67 +431,28 @@ answer1      [type=median index=0];
 		}
 	})
 
-	t.Run("missing required env vars", func(t *testing.T) {
-		s := `
-		type               = "offchainreporting"
-		schemaVersion      = 1
-		contractAddress    = "%s"
-		isBootstrapPeer    = false
-		observationSource = """
-ds1          [type=http method=GET url="%s" allowunrestrictednetworkaccess="true" %s];
-ds1_parse    [type=jsonparse path="USD" lax=true];
-ds1 -> ds1_parse;
-"""
-`
-		s = fmt.Sprintf(s, cltest.NewEIP55Address(), "http://blah.com", "")
-		jb, err := ocr.ValidatedOracleSpecToml(cc, s)
-		require.NoError(t, err)
-		err = toml.Unmarshal([]byte(s), &jb)
-		require.NoError(t, err)
-		jb.MaxTaskDuration = models.Interval(cltest.MustParseDuration(t, "1s"))
-		err = jobORM.CreateJob(&jb)
-		require.NoError(t, err)
-		// Required to create job spawner delegate.
-		config.Overrides.P2PListenPort = null.IntFrom(2000)
-		sd := ocr.NewDelegate(
-			db,
-			jobORM,
-			keyStore,
-			nil,
-			nil,
-			nil,
-			cc,
-			logger.TestLogger(t),
-			config,
-		)
-		_, err = sd.ServicesForSpec(jb)
-		// We expect this to fail as neither the required vars are not set either via the env nor the job itself.
-		require.Error(t, err)
-	})
-
-	t.Run("use env for minimal bootstrap", func(t *testing.T) {
+	t.Run("minimal bootstrap", func(t *testing.T) {
 		s := `
 		type               = "offchainreporting"
 		schemaVersion      = 1
 		contractAddress    = "%s"
 		isBootstrapPeer    = true
+		evmChainID		   = "0"
 `
 		s = fmt.Sprintf(s, cltest.NewEIP55Address())
-		jb, err := ocr.ValidatedOracleSpecToml(cc, s)
+		jb, err := ocr.ValidatedOracleSpecToml(legacyChains, s)
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &jb)
 		require.NoError(t, err)
 		jb.MaxTaskDuration = models.Interval(cltest.MustParseDuration(t, "1s"))
 		err = jobORM.CreateJob(&jb)
 		require.NoError(t, err)
-		// Required to create job spawner delegate.
-		config.Overrides.P2PListenPort = null.IntFrom(2000)
 
 		lggr := logger.TestLogger(t)
 		_, err = keyStore.P2P().Create()
 		assert.NoError(t, err)
-		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config, db, lggr)
-		require.NoError(t, pw.Start(testutils.Context(t)))
+		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config.P2P(), config.OCR(), config.Database(), db, lggr)
+		servicetest.Run(t, pw)
 		sd := ocr.NewDelegate(
 			db,
 			jobORM,
@@ -489,65 +460,12 @@ ds1 -> ds1_parse;
 			nil,
 			pw,
 			monitoringEndpoint,
-			cc,
+			legacyChains,
 			lggr,
-			config,
+			config.Database(),
+			servicetest.Run(t, mailboxtest.NewMonitor(t)),
 		)
-		_, err = sd.ServicesForSpec(jb)
-		require.NoError(t, err)
-	})
-
-	t.Run("use env for minimal non-bootstrap", func(t *testing.T) {
-		kb, err := keyStore.OCR().Create()
-		require.NoError(t, err)
-		s := `
-		type               = "offchainreporting"
-		schemaVersion      = 1
-		contractAddress    = "%s"
-		isBootstrapPeer    = false
-		observationTimeout = "15s"
-		observationSource = """
-ds1          [type=http method=GET url="%s" allowunrestrictednetworkaccess="true" %s];
-ds1_parse    [type=jsonparse path="USD" lax=true];
-ds1 -> ds1_parse;
-"""
-`
-		s = fmt.Sprintf(s, cltest.NewEIP55Address(), "http://blah.com", "")
-		tAddress := ethkey.EIP55AddressFromAddress(transmitterAddress)
-		config.Overrides.P2PBootstrapPeers = []string{"/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju", "/dns4/chain.link/tcp/1235/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju"}
-		config.Overrides.P2PV2Bootstrappers = []commontypes.BootstrapperLocator{}
-		config.Overrides.OCRKeyBundleID = null.NewString(kb.ID(), true)
-		config.Overrides.OCRTransmitterAddress = &tAddress
-		jb, err := ocr.ValidatedOracleSpecToml(cc, s)
-		require.NoError(t, err)
-		err = toml.Unmarshal([]byte(s), &jb)
-		require.NoError(t, err)
-		jb.MaxTaskDuration = models.Interval(cltest.MustParseDuration(t, "1s"))
-		err = jobORM.CreateJob(&jb)
-		require.NoError(t, err)
-		// Assert the override
-		assert.Equal(t, jb.OCROracleSpec.ObservationTimeout, models.Interval(cltest.MustParseDuration(t, "15s")))
-		// Assert that this is default
-		assert.Equal(t, models.Interval(20000000000), jb.OCROracleSpec.BlockchainTimeout)
-		assert.Equal(t, models.Interval(cltest.MustParseDuration(t, "1s")), jb.MaxTaskDuration)
-
-		// Required to create job spawner delegate.
-		config.Overrides.P2PListenPort = null.IntFrom(2000)
-		lggr := logger.TestLogger(t)
-		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config, db, lggr)
-		require.NoError(t, pw.Start(testutils.Context(t)))
-		sd := ocr.NewDelegate(
-			db,
-			jobORM,
-			keyStore,
-			nil,
-			pw,
-			monitoringEndpoint,
-			cc,
-			lggr,
-			config,
-		)
-		_, err = sd.ServicesForSpec(jb)
+		_, err = sd.ServicesForSpec(testutils.Context(t), jb)
 		require.NoError(t, err)
 	})
 
@@ -556,7 +474,7 @@ ds1 -> ds1_parse;
 		require.NoError(t, err)
 
 		s := fmt.Sprintf(minimalNonBootstrapTemplate, cltest.NewEIP55Address(), transmitterAddress.Hex(), kb.ID(), "http://blah.com", "")
-		jb, err := ocr.ValidatedOracleSpecToml(cc, s)
+		jb, err := ocr.ValidatedOracleSpecToml(legacyChains, s)
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &jb)
 		require.NoError(t, err)
@@ -566,11 +484,9 @@ ds1 -> ds1_parse;
 		require.NoError(t, err)
 		assert.Equal(t, jb.MaxTaskDuration, models.Interval(cltest.MustParseDuration(t, "1s")))
 
-		// Required to create job spawner delegate.
-		config.Overrides.P2PListenPort = null.IntFrom(2000)
 		lggr := logger.TestLogger(t)
-		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config, db, lggr)
-		require.NoError(t, pw.Start(testutils.Context(t)))
+		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config.P2P(), config.OCR(), config.Database(), db, lggr)
+		servicetest.Run(t, pw)
 		sd := ocr.NewDelegate(
 			db,
 			jobORM,
@@ -578,28 +494,27 @@ ds1 -> ds1_parse;
 			nil,
 			pw,
 			monitoringEndpoint,
-			cc,
+			legacyChains,
 			lggr,
-			config,
+			config.Database(),
+			servicetest.Run(t, mailboxtest.NewMonitor(t)),
 		)
-		_, err = sd.ServicesForSpec(jb)
+		_, err = sd.ServicesForSpec(testutils.Context(t), jb)
 		require.NoError(t, err)
 	})
 
 	t.Run("test min bootstrap", func(t *testing.T) {
 		s := fmt.Sprintf(minimalBootstrapTemplate, cltest.NewEIP55Address())
-		jb, err := ocr.ValidatedOracleSpecToml(cc, s)
+		jb, err := ocr.ValidatedOracleSpecToml(legacyChains, s)
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &jb)
 		require.NoError(t, err)
 		err = jobORM.CreateJob(&jb)
 		require.NoError(t, err)
 
-		// Required to create job spawner delegate.
-		config.Overrides.P2PListenPort = null.IntFrom(2000)
 		lggr := logger.TestLogger(t)
-		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config, db, lggr)
-		require.NoError(t, pw.Start(testutils.Context(t)))
+		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config.P2P(), config.OCR(), config.Database(), db, lggr)
+		servicetest.Run(t, pw)
 		sd := ocr.NewDelegate(
 			db,
 			jobORM,
@@ -607,12 +522,82 @@ ds1 -> ds1_parse;
 			nil,
 			pw,
 			monitoringEndpoint,
-			cc,
+			legacyChains,
 			lggr,
-			config,
+			config.Database(),
+			servicetest.Run(t, mailboxtest.NewMonitor(t)),
 		)
-		_, err = sd.ServicesForSpec(jb)
+		_, err = sd.ServicesForSpec(testutils.Context(t), jb)
 		require.NoError(t, err)
+	})
+
+	t.Run("test enhanced telemetry service creation", func(t *testing.T) {
+		testCases := []struct {
+			jbCaptureEATelemetry   bool
+			specCaptureEATelemetry bool
+			expected               bool
+		}{{false, false, false},
+			{true, false, false},
+			{false, true, true},
+			{true, true, true},
+		}
+
+		for _, tc := range testCases {
+
+			config = configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+				c.P2P.V2.Enabled = ptr(true)
+				c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", freeport.GetOne(t))}
+				c.OCR.CaptureEATelemetry = ptr(tc.specCaptureEATelemetry)
+			})
+
+			relayExtenders = evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, Client: ethClient, GeneralConfig: config, KeyStore: ethKeyStore})
+			legacyChains = evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+
+			kb, err := keyStore.OCR().Create()
+			require.NoError(t, err)
+
+			s := fmt.Sprintf(minimalNonBootstrapTemplate, cltest.NewEIP55Address(), transmitterAddress.Hex(), kb.ID(), "http://blah.com", "")
+			jb, err := ocr.ValidatedOracleSpecToml(legacyChains, s)
+			require.NoError(t, err)
+			err = toml.Unmarshal([]byte(s), &jb)
+			require.NoError(t, err)
+
+			jb.MaxTaskDuration = models.Interval(cltest.MustParseDuration(t, "1s"))
+			err = jobORM.CreateJob(&jb)
+			require.NoError(t, err)
+			assert.Equal(t, jb.MaxTaskDuration, models.Interval(cltest.MustParseDuration(t, "1s")))
+
+			lggr := logger.TestLogger(t)
+			pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config.P2P(), config.OCR(), config.Database(), db, lggr)
+			servicetest.Run(t, pw)
+			sd := ocr.NewDelegate(
+				db,
+				jobORM,
+				keyStore,
+				nil,
+				pw,
+				monitoringEndpoint,
+				legacyChains,
+				lggr,
+				config.Database(),
+				servicetest.Run(t, mailboxtest.NewMonitor(t)),
+			)
+
+			jb.OCROracleSpec.CaptureEATelemetry = tc.jbCaptureEATelemetry
+			services, err := sd.ServicesForSpec(testutils.Context(t), jb)
+			require.NoError(t, err)
+
+			enhancedTelemetryServiceCreated := false
+			for _, service := range services {
+				_, ok := service.(*ocrcommon.EnhancedTelemetryService[ocrcommon.EnhancedTelemetryData])
+				enhancedTelemetryServiceCreated = ok
+				if enhancedTelemetryServiceCreated {
+					break
+				}
+			}
+
+			require.Equal(t, tc.expected, enhancedTelemetryServiceCreated)
+		}
 	})
 
 	t.Run("test job spec error is created", func(t *testing.T) {
@@ -626,13 +611,9 @@ ds1 -> ds1_parse;
 		err = jobORM.CreateJob(jb)
 		require.NoError(t, err)
 
-		// Required to create job spawner delegate.
-		config.Overrides.P2PListenPort = null.IntFrom(2000)
-		config.Overrides.P2PV2Bootstrappers = []commontypes.BootstrapperLocator{}
 		lggr := logger.TestLogger(t)
-		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config, db, lggr)
-		require.NoError(t, pw.Start(testutils.Context(t)))
-
+		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config.P2P(), config.OCR(), config.Database(), db, lggr)
+		servicetest.Run(t, pw)
 		sd := ocr.NewDelegate(
 			db,
 			jobORM,
@@ -640,11 +621,12 @@ ds1 -> ds1_parse;
 			nil,
 			pw,
 			monitoringEndpoint,
-			cc,
+			legacyChains,
 			lggr,
-			config,
+			config.Database(),
+			servicetest.Run(t, mailboxtest.NewMonitor(t)),
 		)
-		services, err := sd.ServicesForSpec(*jb)
+		services, err := sd.ServicesForSpec(testutils.Context(t), *jb)
 		require.NoError(t, err)
 
 		// Return an error getting the contract code.
@@ -693,7 +675,8 @@ ds1 -> ds1_parse;
 		serv := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 			time.Sleep(1 * time.Millisecond)
 			res.WriteHeader(http.StatusOK)
-			res.Write([]byte(`{"USD":10.1}`))
+			_, err := res.Write([]byte(`{"USD":10.1}`))
+			require.NoError(t, err)
 		}))
 		defer serv.Close()
 
@@ -761,13 +744,13 @@ func TestRunner_Success_Callback_AsyncJob(t *testing.T) {
 
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
 
-	cfg := cltest.NewTestGeneralConfig(t)
-	cfg.Overrides.FeatureExternalInitiators = null.BoolFrom(true)
-	cfg.Overrides.SetTriggerFallbackDBPollInterval(10 * time.Millisecond)
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		t := true
+		c.JobPipeline.ExternalInitiatorsEnabled = &t
+		c.Database.Listener.FallbackPollInterval = commonconfig.MustNewDuration(10 * time.Millisecond)
+	})
 
 	app := cltest.NewApplicationWithConfig(t, cfg, ethClient, cltest.UseRealExternalInitiatorManager)
-
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: app.GetSqlxDB(), Client: ethClient, GeneralConfig: cfg})
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	var (
@@ -775,7 +758,7 @@ func TestRunner_Success_Callback_AsyncJob(t *testing.T) {
 		eiSpec    = map[string]interface{}{"foo": "bar"}
 		eiRequest = map[string]interface{}{"result": 42}
 
-		jobUUID = uuid.FromStringOrNil("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46")
+		jobUUID = uuid.MustParse("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46")
 
 		expectedCreateJobRequest = map[string]interface{}{
 			"jobId":  jobUUID.String(),
@@ -850,10 +833,11 @@ func TestRunner_Success_Callback_AsyncJob(t *testing.T) {
 
 			w.WriteHeader(http.StatusOK)
 			require.NoError(t, err)
-			io.WriteString(w, `{"pending": true}`)
+			_, err = io.WriteString(w, `{"pending": true}`)
+			require.NoError(t, err)
 			bridgeCalled <- struct{}{}
 		}))
-		_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{URL: bridgeServer.URL}, app.GetConfig())
+		_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{URL: bridgeServer.URL}, app.GetConfig().Database())
 		bridgeName = bridge.Name.String()
 		defer bridgeServer.Close()
 	}
@@ -895,8 +879,9 @@ func TestRunner_Success_Callback_AsyncJob(t *testing.T) {
 
 		_ = cltest.CreateJobRunViaExternalInitiatorV2(t, app, jobUUID, *eia, cltest.MustJSONMarshal(t, eiRequest))
 
-		pipelineORM := pipeline.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg)
-		jobORM := job.NewTestORM(t, app.GetSqlxDB(), cc, pipelineORM, app.KeyStore, cfg)
+		pipelineORM := pipeline.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
+		bridgesORM := bridges.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg.Database())
+		jobORM := NewTestORM(t, app.GetSqlxDB(), pipelineORM, bridgesORM, app.KeyStore, cfg.Database())
 
 		// Trigger v2/resume
 		select {
@@ -908,7 +893,7 @@ func TestRunner_Success_Callback_AsyncJob(t *testing.T) {
 		{
 			url, err := url.Parse(responseURL)
 			require.NoError(t, err)
-			client := app.NewHTTPClient(cltest.APIEmailAdmin)
+			client := app.NewHTTPClient(nil)
 			body := strings.NewReader(`{"value": {"data":{"result":"123.45"}}}`)
 			response, cleanup := client.Patch(url.Path, body)
 			defer cleanup()
@@ -938,13 +923,13 @@ func TestRunner_Error_Callback_AsyncJob(t *testing.T) {
 
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
 
-	cfg := cltest.NewTestGeneralConfig(t)
-	cfg.Overrides.FeatureExternalInitiators = null.BoolFrom(true)
-	cfg.Overrides.SetTriggerFallbackDBPollInterval(10 * time.Millisecond)
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		t := true
+		c.JobPipeline.ExternalInitiatorsEnabled = &t
+		c.Database.Listener.FallbackPollInterval = commonconfig.MustNewDuration(10 * time.Millisecond)
+	})
 
 	app := cltest.NewApplicationWithConfig(t, cfg, ethClient, cltest.UseRealExternalInitiatorManager)
-
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: app.GetSqlxDB(), Client: ethClient, GeneralConfig: cfg})
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	var (
@@ -952,7 +937,7 @@ func TestRunner_Error_Callback_AsyncJob(t *testing.T) {
 		eiSpec    = map[string]interface{}{"foo": "bar"}
 		eiRequest = map[string]interface{}{"result": 42}
 
-		jobUUID = uuid.FromStringOrNil("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F47")
+		jobUUID = uuid.MustParse("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F47")
 
 		expectedCreateJobRequest = map[string]interface{}{
 			"jobId":  jobUUID.String(),
@@ -1027,10 +1012,11 @@ func TestRunner_Error_Callback_AsyncJob(t *testing.T) {
 
 			w.WriteHeader(http.StatusOK)
 			require.NoError(t, err)
-			io.WriteString(w, `{"pending": true}`)
+			_, err = io.WriteString(w, `{"pending": true}`)
+			require.NoError(t, err)
 			bridgeCalled <- struct{}{}
 		}))
-		_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{URL: bridgeServer.URL}, app.GetConfig())
+		_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{URL: bridgeServer.URL}, app.GetConfig().Database())
 		bridgeName = bridge.Name.String()
 		defer bridgeServer.Close()
 	}
@@ -1070,8 +1056,9 @@ func TestRunner_Error_Callback_AsyncJob(t *testing.T) {
 	t.Run("simulate request from EI -> Core node with erroring callback", func(t *testing.T) {
 		_ = cltest.CreateJobRunViaExternalInitiatorV2(t, app, jobUUID, *eia, cltest.MustJSONMarshal(t, eiRequest))
 
-		pipelineORM := pipeline.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg)
-		jobORM := job.NewTestORM(t, app.GetSqlxDB(), cc, pipelineORM, app.KeyStore, cfg)
+		pipelineORM := pipeline.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
+		bridgesORM := bridges.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg.Database())
+		jobORM := NewTestORM(t, app.GetSqlxDB(), pipelineORM, bridgesORM, app.KeyStore, cfg.Database())
 
 		// Trigger v2/resume
 		select {
@@ -1083,7 +1070,7 @@ func TestRunner_Error_Callback_AsyncJob(t *testing.T) {
 		{
 			url, err := url.Parse(responseURL)
 			require.NoError(t, err)
-			client := app.NewHTTPClient(cltest.APIEmailAdmin)
+			client := app.NewHTTPClient(nil)
 			body := strings.NewReader(`{"error": "something exploded in EA"}`)
 			response, cleanup := client.Patch(url.Path, body)
 			defer cleanup()
@@ -1108,3 +1095,5 @@ func TestRunner_Error_Callback_AsyncJob(t *testing.T) {
 		require.Eventually(t, func() bool { return eiNotifiedOfDelete }, 5*time.Second, 10*time.Millisecond, "expected external initiator to be notified of deleted job")
 	}
 }
+
+func ptr[T any](t T) *T { return &t }

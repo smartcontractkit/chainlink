@@ -8,13 +8,15 @@ import (
 	"fmt"
 	"io"
 	"net/url"
-	"os"
 	"strings"
 	"sync"
 	"testing"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
 	"go.uber.org/multierr"
+
+	"github.com/smartcontractkit/chainlink/v2/core/config/env"
+	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
 )
 
 // txdb is a simplified version of https://github.com/DATA-DOG/go-txdb
@@ -42,9 +44,9 @@ func init() {
 		// -short tests don't need a DB
 		return
 	}
-	dbURL := os.Getenv("DATABASE_URL")
+	dbURL := string(env.DatabaseURL.Get())
 	if dbURL == "" {
-		panic("you must provide a DATABASE_URL environment variable")
+		panic("you must provide a CL_DATABASE_URL environment variable")
 	}
 
 	parsed, err := url.Parse(dbURL)
@@ -52,21 +54,25 @@ func init() {
 		panic(err)
 	}
 	if parsed.Path == "" {
-		msg := fmt.Sprintf("invalid DATABASE_URL: `%s`. You must set DATABASE_URL env var to point to your test database. Note that the test database MUST end in `_test` to differentiate from a possible production DB. HINT: Try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable", parsed.String())
+		msg := fmt.Sprintf("invalid %[1]s: `%[2]s`. You must set %[1]s env var to point to your test database. Note that the test database MUST end in `_test` to differentiate from a possible production DB. HINT: Try %[1]s=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable", env.DatabaseURL, parsed.String())
 		panic(msg)
 	}
 	if !strings.HasSuffix(parsed.Path, "_test") {
-		msg := fmt.Sprintf("cannot run tests against database named `%s`. Note that the test database MUST end in `_test` to differentiate from a possible production DB. HINT: Try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable", parsed.Path[1:])
+		msg := fmt.Sprintf("cannot run tests against database named `%s`. Note that the test database MUST end in `_test` to differentiate from a possible production DB. HINT: Try %s=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable", parsed.Path[1:], env.DatabaseURL)
 		panic(msg)
 	}
-	sql.Register("txdb", &txDriver{
+	name := string(dialects.TransactionWrappedPostgres)
+	sql.Register(name, &txDriver{
 		dbURL: dbURL,
 		conns: make(map[string]*conn),
 	})
-	sqlx.BindDriver("txdb", sqlx.DOLLAR)
+	sqlx.BindDriver(name, sqlx.DOLLAR)
 }
 
 var _ driver.Conn = &conn{}
+
+var _ driver.Validator = &conn{}
+var _ driver.SessionResetter = &conn{}
 
 // txDriver is an sql driver which runs on single transaction
 // when the Close is called, transaction is rolled back
@@ -95,7 +101,7 @@ func (d *txDriver) Open(dsn string) (driver.Conn, error) {
 		if err != nil {
 			return nil, err
 		}
-		c = &conn{tx: tx, opened: 1}
+		c = &conn{tx: tx, opened: 1, dsn: dsn}
 		c.removeSelf = func() error {
 			return d.deleteConn(c)
 		}
@@ -144,8 +150,9 @@ func (c *conn) Begin() (driver.Tx, error) {
 }
 
 // Implement the "ConnBeginTx" interface
-func (c *conn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
-	// TODO: Fix context handling
+func (c *conn) BeginTx(_ context.Context, opts driver.TxOptions) (driver.Tx, error) {
+	// Context is ignored, because single transaction is shared by all callers, thus caller should not be able to
+	// control it with local context
 	return c.Begin()
 }
 
@@ -171,6 +178,27 @@ func (c *conn) PrepareContext(ctx context.Context, query string) (driver.Stmt, e
 		return nil, err
 	}
 	return &stmt{st, c}, nil
+}
+
+// IsValid is called prior to placing the connection into the
+// connection pool by database/sql. The connection will be discarded if false is returned.
+func (c *conn) IsValid() bool {
+	c.Lock()
+	defer c.Unlock()
+	return !c.closed
+}
+
+func (c *conn) ResetSession(ctx context.Context) error {
+	// Ensure bad connections are reported: From database/sql/driver:
+	// If a connection is never returned to the connection pool but immediately reused, then
+	// ResetSession is called prior to reuse but IsValid is not called.
+	c.Lock()
+	defer c.Unlock()
+	if c.closed {
+		return driver.ErrBadConn
+	}
+
+	return nil
 }
 
 // pgx returns nil

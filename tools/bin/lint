@@ -2,6 +2,6 @@
 
 set -euo pipefail
 
-cd "$(dirname "$0")"/../../core
+cd "$(dirname "$0")"/../..
 
 golangci-lint --tests=false run

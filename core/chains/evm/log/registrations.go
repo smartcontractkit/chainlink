@@ -7,19 +7,19 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 // 1. Each listener being registered can specify a custom NumConfirmations - number of block confirmations required for any log being sent to it.
 //
 // 2. All received logs are kept in an array and deleted ONLY after they are outside the confirmation range for all subscribers
-// (when given log height is lower than (latest height - max(highestNumConfirmations, ETH_FINALITY_DEPTH)) ) -> see: pool.go
+// (when given log height is lower than (latest height - max(highestNumConfirmations, EVM.FinalityDepth)) ) -> see: pool.go
 //
 // 3. Information about already consumed logs is fetched from the database and used as a filter
 //
@@ -46,7 +46,7 @@ type (
 
 		// handlersByConfs maps numConfirmations => *handler
 		handlersByConfs map[uint32]*handler
-		logger          logger.Logger
+		logger          logger.SugaredLogger
 		evmChainID      big.Int
 
 		// highest 'NumConfirmations' per all listeners, used to decide about deleting older logs if it's higher than EvmFinalityDepth
@@ -57,7 +57,7 @@ type (
 	handler struct {
 		lookupSubs map[common.Address]map[common.Hash]subscribers // contractAddress => logTopic => *subscriber => topicValueFilters
 		evmChainID big.Int
-		logger     logger.Logger
+		logger     logger.SugaredLogger
 	}
 
 	// The Listener responds to log events through HandleLog.
@@ -70,13 +70,13 @@ type (
 	subscribers map[*subscriber][][]Topic
 )
 
-func newRegistrations(logger logger.Logger, evmChainID big.Int) *registrations {
+func newRegistrations(lggr logger.Logger, evmChainID big.Int) *registrations {
 	return &registrations{
 		registeredSubs:  make(map[*subscriber]struct{}),
 		jobIDAddrs:      make(map[int32]map[common.Address]struct{}),
 		handlersByConfs: make(map[uint32]*handler),
 		evmChainID:      evmChainID,
-		logger:          logger.Named("Registrations"),
+		logger:          logger.Sugared(logger.Named(lggr, "Registrations")),
 	}
 }
 
@@ -119,12 +119,12 @@ func (r *registrations) handlersWithGreaterConfs(confs uint32) (handlersWithGrea
 // maps modified are only used for checks
 func (r *registrations) checkAddSubscriber(sub *subscriber) error {
 	if sub.opts.MinIncomingConfirmations <= 0 {
-		return errors.Errorf("LogBroadcaster requires that MinIncomingConfirmations must be at least 1 (got %v). Logs must have been confirmed in at least 1 block, it does not support reading logs from the mempool before they have been mined", sub.opts.MinIncomingConfirmations)
+		return pkgerrors.Errorf("LogBroadcaster requires that MinIncomingConfirmations must be at least 1 (got %v). Logs must have been confirmed in at least 1 block, it does not support reading logs from the mempool before they have been mined", sub.opts.MinIncomingConfirmations)
 	}
 
 	jobID := sub.listener.JobID()
 	if _, exists := r.registeredSubs[sub]; exists {
-		return errors.Errorf("Cannot add subscriber %p for job ID %v: already added", sub, jobID)
+		return pkgerrors.Errorf("Cannot add subscriber %p for job ID %v: already added", sub, jobID)
 	}
 	r.registeredSubs[sub] = struct{}{}
 	addrs, exists := r.jobIDAddrs[jobID]
@@ -132,7 +132,7 @@ func (r *registrations) checkAddSubscriber(sub *subscriber) error {
 		r.jobIDAddrs[jobID] = make(map[common.Address]struct{})
 	}
 	if _, exists := addrs[sub.opts.Contract]; exists {
-		return errors.Errorf("Cannot add subscriber %p: only one subscription is allowed per jobID/contract address. There is already a subscription with job ID %v listening on %s", sub, jobID, sub.opts.Contract.Hex())
+		return pkgerrors.Errorf("Cannot add subscriber %p: only one subscription is allowed per jobID/contract address. There is already a subscription with job ID %v listening on %s", sub, jobID, sub.opts.Contract.Hex())
 	}
 	r.jobIDAddrs[jobID][sub.opts.Contract] = struct{}{}
 	return nil
@@ -165,16 +165,16 @@ func (r *registrations) removeSubscriber(sub *subscriber) (needsResubscribe bool
 func (r *registrations) checkRemoveSubscriber(sub *subscriber) error {
 	jobID := sub.listener.JobID()
 	if _, exists := r.registeredSubs[sub]; !exists {
-		return errors.Errorf("Cannot remove subscriber %p for job ID %v: not registered", sub, jobID)
+		return pkgerrors.Errorf("Cannot remove subscriber %p for job ID %v: not registered", sub, jobID)
 	}
 	delete(r.registeredSubs, sub)
 	addrs, exists := r.jobIDAddrs[jobID]
 	if !exists {
-		return errors.Errorf("Cannot remove subscriber %p: jobIDAddrs was missing job ID %v", sub, jobID)
+		return pkgerrors.Errorf("Cannot remove subscriber %p: jobIDAddrs was missing job ID %v", sub, jobID)
 	}
 	_, exists = addrs[sub.opts.Contract]
 	if !exists {
-		return errors.Errorf("Cannot remove subscriber %p: jobIDAddrs was missing address %s", sub, sub.opts.Contract.Hex())
+		return pkgerrors.Errorf("Cannot remove subscriber %p: jobIDAddrs was missing address %s", sub, sub.opts.Contract.Hex())
 	}
 	delete(r.jobIDAddrs[jobID], sub.opts.Contract)
 	if len(r.jobIDAddrs[jobID]) == 0 {
@@ -263,7 +263,7 @@ func filtersContainValues(topicValues []common.Hash, filters [][]Topic) bool {
 	return true
 }
 
-func newHandler(lggr logger.Logger, evmChainID big.Int) *handler {
+func newHandler(lggr logger.SugaredLogger, evmChainID big.Int) *handler {
 	return &handler{
 		lookupSubs: make(map[common.Address]map[common.Hash]subscribers),
 		evmChainID: evmChainID,
@@ -427,7 +427,7 @@ func (r *handler) sendLog(log types.Log, latestHead evmtypes.Head,
 			// Create unconsumed broadcast
 			if err := bc.CreateBroadcast(log.BlockHash, log.BlockNumber, log.Index, jobID); err != nil {
 				logger.Errorw("Could not create broadcast log", "blockNumber", log.BlockNumber,
-					"blockHash", log.BlockHash, "address", log.Address, "jobID", jobID, "error", err)
+					"blockHash", log.BlockHash, "address", log.Address, "jobID", jobID, "err", err)
 				continue
 			}
 		}

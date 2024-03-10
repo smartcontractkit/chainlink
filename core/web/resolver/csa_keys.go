@@ -1,11 +1,13 @@
 package resolver
 
 import (
+	"fmt"
+
 	"github.com/graph-gophers/graphql-go"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
 )
 
 // CSAKeyResolver resolves the single CSA Key object
@@ -24,7 +26,7 @@ func (r *CSAKeyResolver) ID() graphql.ID {
 
 // PubKey resolves the CSA Key public key string.
 func (r *CSAKeyResolver) PublicKey() string {
-	return r.key.PublicKeyString()
+	return fmt.Sprintf("csa_%s", r.key.PublicKeyString())
 }
 
 // Version resolves the CSA Key version number.

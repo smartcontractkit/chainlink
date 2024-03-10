@@ -10,10 +10,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 )
 
 // GetUpkeepFailure implements the upkeepGetter interface with an induced error and nil
@@ -42,7 +42,7 @@ func TestSyncUpkeepWithCallback_UpkeepNotFound(t *testing.T) {
 		t.FailNow()
 	}
 
-	id := utils.NewBig(o)
+	id := ubig.New(o)
 	count := 0
 	doneFunc := func() {
 		count++
@@ -57,19 +57,20 @@ func TestSyncUpkeepWithCallback_UpkeepNotFound(t *testing.T) {
 	keys := map[string]bool{}
 	for _, entry := range logObserver.All() {
 		for _, field := range entry.Context {
-			keys[field.Key] = true
-
 			switch field.Key {
-			case "error":
+			case "err":
 				require.Equal(t, "failed to get upkeep config: failure in calling contract [chain connection error example]: getConfig v1.2", field.String)
 			case "upkeepID":
 				require.Equal(t, fmt.Sprintf("UPx%064s", "429ab990419450db80821"), field.String)
 			case "registryContract":
 				require.Equal(t, addr.Hex(), field.String)
+			default:
+				continue
 			}
+			keys[field.Key] = true
 		}
 	}
 
-	require.Equal(t, map[string]bool{"upkeepID": true, "error": true, "registryContract": true}, keys)
+	require.Equal(t, map[string]bool{"upkeepID": true, "err": true, "registryContract": true}, keys)
 	require.Equal(t, 1, count, "callback function should run")
 }

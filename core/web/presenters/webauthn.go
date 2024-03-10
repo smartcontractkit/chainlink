@@ -1,7 +1,7 @@
 package presenters
 
 import (
-	"github.com/duo-labs/webauthn/protocol"
+	"github.com/go-webauthn/webauthn/protocol"
 )
 
 // RegistrationSettings represents an enrollment settings object

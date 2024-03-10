@@ -2,28 +2,19 @@ package cmd_test
 
 import (
 	"bytes"
-	"flag"
-	"strconv"
+	"strings"
 	"testing"
 
+	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/urfave/cli"
-	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/cmd"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/core/cmd"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
-
-func mustInsertEVMChain(t *testing.T, orm types.ORM) types.DBChain {
-	id := utils.NewBig(testutils.NewRandomEVMChainID())
-	chain, err := orm.CreateChain(*id, nil)
-	require.NoError(t, err)
-	return chain
-}
 
 func assertTableRenders(t *testing.T, r *cltest.RendererMock) {
 	// Should be no error rendering any of the responses as tables
@@ -34,126 +25,70 @@ func assertTableRenders(t *testing.T, r *cltest.RendererMock) {
 	}
 }
 
-func TestClient_IndexEVMNodes(t *testing.T) {
+func TestShell_IndexEVMNodes(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t)
-	client, r := app.NewClientAndRenderer()
-
-	orm := app.EVMORM()
-	_, initialCount, err := orm.Nodes(0, 25)
-	require.NoError(t, err)
-	chain := mustInsertEVMChain(t, orm)
-
-	params := types.Node{
-		Name:       "Test node",
-		EVMChainID: chain.ID,
-		WSURL:      null.StringFrom("ws://localhost:8546"),
-		HTTPURL:    null.StringFrom("http://localhost:8546"),
-		SendOnly:   false,
+	chainID := newRandChainID()
+	node1 := evmcfg.Node{
+		Name:     ptr("Test node 1"),
+		WSURL:    commonconfig.MustParseURL("ws://localhost:8546"),
+		HTTPURL:  commonconfig.MustParseURL("http://localhost:8546"),
+		SendOnly: ptr(false),
+		Order:    ptr(int32(15)),
 	}
-	node, err := orm.CreateNode(params)
-	require.NoError(t, err)
+	node2 := evmcfg.Node{
+		Name:     ptr("Test node 2"),
+		WSURL:    commonconfig.MustParseURL("ws://localhost:8547"),
+		HTTPURL:  commonconfig.MustParseURL("http://localhost:8547"),
+		SendOnly: ptr(false),
+		Order:    ptr(int32(36)),
+	}
+	chain := evmcfg.EVMConfig{
+		ChainID: chainID,
+		Chain:   evmcfg.Defaults(chainID),
+		Nodes:   evmcfg.EVMNodes{&node1, &node2},
+	}
+	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM = evmcfg.EVMConfigs{&chain}
+	})
+	client, r := app.NewShellAndRenderer()
 
 	require.Nil(t, cmd.NewEVMNodeClient(client).IndexNodes(cltest.EmptyCLIContext()))
 	require.NotEmpty(t, r.Renders)
 	nodes := *r.Renders[0].(*cmd.EVMNodePresenters)
-	require.Len(t, nodes, initialCount+1)
-	n := nodes[initialCount]
-	assert.Equal(t, strconv.FormatInt(int64(node.ID), 10), n.ID)
-	assert.Equal(t, params.Name, n.Name)
-	assert.Equal(t, params.EVMChainID, n.EVMChainID)
-	assert.Equal(t, params.WSURL, n.WSURL)
-	assert.Equal(t, params.HTTPURL, n.HTTPURL)
+	require.Len(t, nodes, 2)
+	n1 := nodes[0]
+	n2 := nodes[1]
+	assert.Equal(t, chainID.String(), n1.ChainID)
+	assert.Equal(t, cltest.FormatWithPrefixedChainID(chainID.String(), *node1.Name), n1.ID)
+	assert.Equal(t, *node1.Name, n1.Name)
+	wantConfig, err := toml.Marshal(node1)
+	require.NoError(t, err)
+	assert.Equal(t, string(wantConfig), n1.Config)
+	assert.Equal(t, chainID.String(), n2.ChainID)
+	assert.Equal(t, cltest.FormatWithPrefixedChainID(chainID.String(), *node2.Name), n2.ID)
+	assert.Equal(t, *node2.Name, n2.Name)
+	wantConfig2, err := toml.Marshal(node2)
+	require.NoError(t, err)
+	assert.Equal(t, string(wantConfig2), n2.Config)
 	assertTableRenders(t, r)
-}
 
-func TestClient_CreateEVMNode(t *testing.T) {
-	t.Parallel()
-
-	app := startNewApplication(t)
-	client, r := app.NewClientAndRenderer()
-
-	orm := app.EVMORM()
-	_, initialNodesCount, err := orm.Nodes(0, 25)
-	require.NoError(t, err)
-
-	chain := mustInsertEVMChain(t, orm)
-
-	// successful primary
-	set := flag.NewFlagSet("cli", 0)
-	set.String("name", "Example", "")
-	set.String("type", "primary", "")
-	set.String("ws-url", "ws://TestClient_CreateEVMNode1.invalid", "")
-	set.String("http-url", "http://TestClient_CreateEVMNode2.invalid", "")
-	set.Int64("chain-id", chain.ID.ToInt().Int64(), "")
-	c := cli.NewContext(nil, set, nil)
-	err = cmd.NewEVMNodeClient(client).CreateNode(c)
-	require.NoError(t, err)
-
-	// successful send-only
-	set = flag.NewFlagSet("cli", 0)
-	set.String("name", "Send only", "")
-	set.String("type", "sendonly", "")
-	set.String("http-url", "http://TestClient_CreateEVMNode3.invalid", "")
-	set.Int64("chain-id", chain.ID.ToInt().Int64(), "")
-	c = cli.NewContext(nil, set, nil)
-	err = cmd.NewEVMNodeClient(client).CreateNode(c)
-	require.NoError(t, err)
-
-	nodes, _, err := orm.Nodes(0, 25)
-	require.NoError(t, err)
-	require.Len(t, nodes, initialNodesCount+2)
-	n := nodes[initialNodesCount]
-	assert.Equal(t, "Example", n.Name)
-	assert.Equal(t, false, n.SendOnly)
-	assert.Equal(t, null.StringFrom("ws://TestClient_CreateEVMNode1.invalid"), n.WSURL)
-	assert.Equal(t, null.StringFrom("http://TestClient_CreateEVMNode2.invalid"), n.HTTPURL)
-	assert.Equal(t, chain.ID, n.EVMChainID)
-	n = nodes[initialNodesCount+1]
-	assert.Equal(t, "Send only", n.Name)
-	assert.Equal(t, true, n.SendOnly)
-	assert.Equal(t, null.String{}, n.WSURL)
-	assert.Equal(t, null.StringFrom("http://TestClient_CreateEVMNode3.invalid"), n.HTTPURL)
-	assert.Equal(t, chain.ID, n.EVMChainID)
-
-	assertTableRenders(t, r)
-}
-
-func TestClient_RemoveEVMNode(t *testing.T) {
-	t.Parallel()
-
-	app := startNewApplication(t)
-	client, r := app.NewClientAndRenderer()
-
-	orm := app.EVMORM()
-	_, initialCount, err := orm.Nodes(0, 25)
-	require.NoError(t, err)
-
-	chain := mustInsertEVMChain(t, orm)
-
-	params := types.Node{
-		Name:       "Test node",
-		EVMChainID: chain.ID,
-		WSURL:      null.StringFrom("ws://localhost:8546"),
-		HTTPURL:    null.StringFrom("http://localhost:8546"),
-		SendOnly:   false,
-	}
-	node, err := orm.CreateNode(params)
-	require.NoError(t, err)
-	chains, _, err := orm.Nodes(0, 25)
-	require.NoError(t, err)
-	require.Len(t, chains, initialCount+1)
-
-	set := flag.NewFlagSet("cli", 0)
-	set.Parse([]string{strconv.FormatInt(int64(node.ID), 10)})
-	c := cli.NewContext(nil, set, nil)
-
-	err = cmd.NewEVMNodeClient(client).RemoveNode(c)
-	require.NoError(t, err)
-
-	chains, _, err = orm.Nodes(0, 25)
-	require.NoError(t, err)
-	require.Len(t, chains, initialCount)
-	assertTableRenders(t, r)
+	//Render table and check the fields order
+	b := new(bytes.Buffer)
+	rt := cmd.RendererTable{b}
+	require.NoError(t, nodes.RenderTable(rt))
+	renderLines := strings.Split(b.String(), "\n")
+	assert.Equal(t, 23, len(renderLines))
+	assert.Contains(t, renderLines[2], "Name")
+	assert.Contains(t, renderLines[2], n1.Name)
+	assert.Contains(t, renderLines[3], "Chain ID")
+	assert.Contains(t, renderLines[3], n1.ChainID)
+	assert.Contains(t, renderLines[4], "State")
+	assert.Contains(t, renderLines[4], n1.State)
+	assert.Contains(t, renderLines[12], "Name")
+	assert.Contains(t, renderLines[12], n2.Name)
+	assert.Contains(t, renderLines[13], "Chain ID")
+	assert.Contains(t, renderLines[13], n2.ChainID)
+	assert.Contains(t, renderLines[14], "State")
+	assert.Contains(t, renderLines[14], n2.State)
 }

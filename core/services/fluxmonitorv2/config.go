@@ -3,23 +3,35 @@ package fluxmonitorv2
 import (
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink-common/pkg/assets"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 )
 
 // Config defines the Flux Monitor configuration.
 type Config interface {
-	DefaultHTTPTimeout() models.Duration
-	FlagsContractAddress() string
-	MinimumContractPayment() *assets.Link
-	EvmGasLimitDefault() uint32
-	EvmGasLimitFMJobType() *uint32
-	EvmMaxQueuedTransactions() uint64
-	FMDefaultTransactionQueueDepth() uint32
-	LogSQL() bool
+	FlagsContractAddress() string     // Evm
+	MinContractPayment() *assets.Link // Evm
+}
+
+type EvmFeeConfig interface {
+	LimitDefault() uint64 // Evm
+	LimitJobType() config.LimitJobType
+}
+
+type EvmTransactionsConfig interface {
+	MaxQueued() uint64 // Evm
+}
+
+type FluxMonitorConfig interface {
+	DefaultTransactionQueueDepth() uint32
+}
+
+type JobPipelineConfig interface {
+	DefaultHTTPTimeout() commonconfig.Duration
 }
 
 // MinimumPollingInterval returns the minimum duration between polling ticks
-func MinimumPollingInterval(c Config) time.Duration {
+func MinimumPollingInterval(c JobPipelineConfig) time.Duration {
 	return c.DefaultHTTPTimeout().Duration()
 }

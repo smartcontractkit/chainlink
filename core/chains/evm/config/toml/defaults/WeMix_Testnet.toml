@@ -1,0 +1,14 @@
+ChainID = '1112'
+ChainType = 'wemix'
+FinalityDepth = 1
+MinIncomingConfirmations = 1
+# WeMix emits a block every 1 second, regardless of transactions
+LogPollInterval = '3s'
+NoNewHeadsThreshold = '30s'
+
+[OCR]
+ContractConfirmations = 1
+
+[GasEstimator]
+EIP1559DynamicFees = true
+TipCapDefault = '100 gwei'

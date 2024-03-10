@@ -3,11 +3,11 @@ package job
 import (
 	"context"
 	"net/url"
-	"time"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
-//go:generate mockery --name Service --output ./mocks/ --case=underscore
-//go:generate mockery --name ServiceCtx --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name ServiceCtx --output ./mocks/ --case=underscore
 
 type Service interface {
 	Start() error
@@ -21,9 +21,8 @@ type ServiceCtx interface {
 }
 
 type Config interface {
-	DatabaseURL() url.URL
-	TriggerFallbackDBPollInterval() time.Duration
-	LogSQL() bool
+	URL() url.URL
+	pg.QConfig
 }
 
 // ServiceAdapter is a helper introduced for transitioning from Service to ServiceCtx.

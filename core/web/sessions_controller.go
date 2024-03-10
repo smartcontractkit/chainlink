@@ -5,13 +5,14 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/gin-gonic/contrib/sessions"
+	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	clsessions "github.com/smartcontractkit/chainlink/core/sessions"
-	"github.com/smartcontractkit/chainlink/core/web/auth"
+	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	clsessions "github.com/smartcontractkit/chainlink/v2/core/sessions"
+	"github.com/smartcontractkit/chainlink/v2/core/web/auth"
 )
 
 // SessionsController manages session requests.
@@ -38,7 +39,7 @@ func (sc *SessionsController) Create(c *gin.Context) {
 	}
 
 	// Does this user have 2FA enabled?
-	userWebAuthnTokens, err := sc.App.SessionORM().GetUserWebAuthn(sr.Email)
+	userWebAuthnTokens, err := sc.App.AuthenticationProvider().GetUserWebAuthn(sr.Email)
 	if err != nil {
 		sc.App.GetLogger().Errorf("Error loading user WebAuthn data: %s", err)
 		jsonAPIError(c, http.StatusInternalServerError, errors.New("internal Server Error"))
@@ -49,11 +50,10 @@ func (sc *SessionsController) Create(c *gin.Context) {
 	// required for successful WebAuthn authentication
 	if len(userWebAuthnTokens) > 0 {
 		sr.SessionStore = sc.sessions
-		sr.RequestContext = c
 		sr.WebAuthnConfig = sc.App.GetWebAuthnConfiguration()
 	}
 
-	sid, err := sc.App.SessionORM().CreateSession(sr)
+	sid, err := sc.App.AuthenticationProvider().CreateSession(sr)
 	if err != nil {
 		jsonAPIError(c, http.StatusUnauthorized, err)
 		return
@@ -78,11 +78,12 @@ func (sc *SessionsController) Destroy(c *gin.Context) {
 		jsonAPIResponse(c, Session{Authenticated: false}, "session")
 		return
 	}
-	if err := sc.App.SessionORM().DeleteUserSession(sessionID); err != nil {
+	if err := sc.App.AuthenticationProvider().DeleteUserSession(sessionID); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
 
+	sc.App.GetAuditLogger().Audit(audit.AuthSessionDeleted, map[string]interface{}{"sessionID": sessionID})
 	jsonAPIResponse(c, Session{Authenticated: false}, "session")
 }
 

@@ -3,28 +3,27 @@ package starkkey
 import (
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 
-	stark "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/keys"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const keyTypeIdentifier = "StarkNet"
 
 // FromEncryptedJSON gets key from json and password
-func FromEncryptedJSON(keyJSON []byte, password string) (stark.Key, error) {
+func FromEncryptedJSON(keyJSON []byte, password string) (Key, error) {
 	return keys.FromEncryptedJSON(
 		keyTypeIdentifier,
 		keyJSON,
 		password,
 		adulteratedPassword,
-		func(_ keys.EncryptedKeyExport, rawPrivKey []byte) (stark.Key, error) {
-			return stark.Raw(rawPrivKey).Key(), nil
+		func(_ keys.EncryptedKeyExport, rawPrivKey []byte) (Key, error) {
+			return Raw(rawPrivKey).Key(), nil
 		},
 	)
 }
 
 // ToEncryptedJSON returns encrypted JSON representing key
-func ToEncryptedJSON(key stark.Key, password string, scryptParams utils.ScryptParams) (export []byte, err error) {
+func ToEncryptedJSON(key Key, password string, scryptParams utils.ScryptParams) (export []byte, err error) {
 	return keys.ToEncryptedJSON(
 		keyTypeIdentifier,
 		key.Raw(),
@@ -32,12 +31,12 @@ func ToEncryptedJSON(key stark.Key, password string, scryptParams utils.ScryptPa
 		password,
 		scryptParams,
 		adulteratedPassword,
-		func(id string, key stark.Key, cryptoJSON keystore.CryptoJSON) (keys.EncryptedKeyExport, error) {
+		func(id string, key Key, cryptoJSON keystore.CryptoJSON) keys.EncryptedKeyExport {
 			return keys.EncryptedKeyExport{
 				KeyType:   id,
-				PublicKey: key.AccountAddressStr(),
+				PublicKey: key.StarkKeyStr(),
 				Crypto:    cryptoJSON,
-			}, nil
+			}
 		},
 	)
 }

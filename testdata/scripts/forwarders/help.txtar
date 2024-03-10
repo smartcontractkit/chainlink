@@ -1,0 +1,18 @@
+exec chainlink forwarders --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink forwarders - Commands for managing forwarder addresses.
+
+USAGE:
+   chainlink forwarders command [command options] [arguments...]
+
+COMMANDS:
+   list    List all stored forwarders addresses
+   track   Track a new forwarder
+   delete  Delete a forwarder address
+
+OPTIONS:
+   --help, -h  show help
+   

@@ -6,15 +6,16 @@ package proof
 import (
 	"math/big"
 
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus_interface"
+	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
 )
 
 // ProofResponse is the data which is sent back to the VRFCoordinator, so that
@@ -134,6 +135,44 @@ func GenerateProofResponseFromProofV2(p vrfkey.Proof, s PreSeedDataV2) (vrf_coor
 		}, nil
 }
 
+func GenerateProofResponseFromProofV2Plus(
+	p vrfkey.Proof,
+	s PreSeedDataV2Plus) (
+	vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalProof,
+	vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalRequestCommitment,
+	error) {
+	var proof vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalProof
+	var rc vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalRequestCommitment
+	solidityProof, err := SolidityPrecalculations(&p)
+	if err != nil {
+		return proof, rc, errors.Wrap(err,
+			"while marshaling proof for VRFCoordinatorV2Plus")
+	}
+	solidityProof.P.Seed = common.BytesToHash(s.PreSeed[:]).Big()
+	x, y := secp256k1.Coordinates(solidityProof.P.PublicKey)
+	gx, gy := secp256k1.Coordinates(solidityProof.P.Gamma)
+	cgx, cgy := secp256k1.Coordinates(solidityProof.CGammaWitness)
+	shx, shy := secp256k1.Coordinates(solidityProof.SHashWitness)
+	return vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalProof{
+			Pk:            [2]*big.Int{x, y},
+			Gamma:         [2]*big.Int{gx, gy},
+			C:             solidityProof.P.C,
+			S:             solidityProof.P.S,
+			Seed:          common.BytesToHash(s.PreSeed[:]).Big(),
+			UWitness:      solidityProof.UWitness,
+			CGammaWitness: [2]*big.Int{cgx, cgy},
+			SHashWitness:  [2]*big.Int{shx, shy},
+			ZInv:          solidityProof.ZInv,
+		}, vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalRequestCommitment{
+			BlockNum:         s.BlockNum,
+			SubId:            s.SubId,
+			CallbackGasLimit: s.CallbackGasLimit,
+			NumWords:         s.NumWords,
+			Sender:           s.Sender,
+			ExtraArgs:        s.ExtraArgs,
+		}, nil
+}
+
 func GenerateProofResponse(keystore keystore.VRF, id string, s PreSeedData) (
 	MarshaledOnChainResponse, error) {
 	seed := FinalSeed(s)
@@ -153,4 +192,15 @@ func GenerateProofResponseV2(keystore keystore.VRF, id string, s PreSeedDataV2) 
 		return vrf_coordinator_v2.VRFProof{}, vrf_coordinator_v2.VRFCoordinatorV2RequestCommitment{}, err
 	}
 	return GenerateProofResponseFromProofV2(proof, s)
+}
+
+func GenerateProofResponseV2Plus(keystore keystore.VRF, id string, s PreSeedDataV2Plus) (
+	vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalProof, vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalRequestCommitment, error) {
+	seedHashMsg := append(s.PreSeed[:], s.BlockHash.Bytes()...)
+	seed := utils.MustHash(string(seedHashMsg)).Big()
+	proof, err := keystore.GenerateProof(id, seed)
+	if err != nil {
+		return vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalProof{}, vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalRequestCommitment{}, err
+	}
+	return GenerateProofResponseFromProofV2Plus(proof, s)
 }

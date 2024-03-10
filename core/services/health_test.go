@@ -1,64 +1,33 @@
 package services_test
 
 import (
-	"fmt"
+	"net/http"
 	"testing"
+	"time"
 
-	"github.com/pkg/errors"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink/core/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services"
 )
 
-var ErrUnhealthy = errors.New("Unhealthy")
+func TestNewInBackupHealthReport(t *testing.T) {
+	lggr, observed := logger.TestLoggerObserved(t, zapcore.InfoLevel)
+	ibhr := services.NewInBackupHealthReport(1234, lggr)
 
-type boolCheck bool
+	ibhr.Start()
+	require.Eventually(t, func() bool { return observed.Len() >= 1 }, time.Second*5, time.Millisecond*100)
+	require.Equal(t, "Starting InBackupHealthReport", observed.TakeAll()[0].Message)
 
-func (b boolCheck) Ready() error {
-	if b {
-		return nil
-	}
-	return errors.New("Not ready")
-}
+	req, err := http.NewRequestWithContext(tests.Context(t), "GET", "http://localhost:1234/health", nil)
+	require.NoError(t, err)
+	res, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusNoContent, res.StatusCode)
 
-func (b boolCheck) Healthy() error {
-	if b {
-		return nil
-	}
-	return ErrUnhealthy
-}
-
-func TestCheck(t *testing.T) {
-	for i, test := range []struct {
-		checks   []services.Checkable
-		healthy  bool
-		expected map[string]error
-	}{
-		{[]services.Checkable{}, true, map[string]error{}},
-
-		{[]services.Checkable{boolCheck(true)}, true, map[string]error{"0": nil}},
-
-		{[]services.Checkable{boolCheck(true), boolCheck(true)}, true, map[string]error{"0": nil, "1": nil}},
-
-		{[]services.Checkable{boolCheck(true), boolCheck(false)}, false, map[string]error{"0": nil, "1": ErrUnhealthy}},
-
-		{[]services.Checkable{boolCheck(true), boolCheck(false), boolCheck(false)}, false, map[string]error{
-			"0": nil,
-			"1": ErrUnhealthy,
-			"2": ErrUnhealthy,
-		}},
-	} {
-		c := services.NewChecker()
-		for i, check := range test.checks {
-			require.NoError(t, c.Register(fmt.Sprint(i), check))
-		}
-
-		require.NoError(t, c.Start())
-
-		healthy, results := c.IsHealthy()
-
-		assert.Equal(t, test.healthy, healthy, "case %d", i)
-		assert.Equal(t, test.expected, results, "case %d", i)
-	}
+	ibhr.Stop()
+	require.Eventually(t, func() bool { return observed.Len() >= 1 }, time.Second*5, time.Millisecond*100)
+	require.Equal(t, "InBackupHealthReport shutdown complete", observed.TakeAll()[0].Message)
 }

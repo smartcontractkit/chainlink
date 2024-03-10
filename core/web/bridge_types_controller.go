@@ -8,11 +8,12 @@ import (
 
 	"github.com/jackc/pgconn"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/bridges"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	"github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
@@ -82,22 +83,28 @@ func (btc *BridgeTypesController) Create(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, e)
 		return
 	}
-	switch e := err.(type) {
-	case *pgconn.PgError:
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
 		var apiErr error
-		if e.ConstraintName == "external_initiators_name_key" {
+		if pgErr.ConstraintName == "external_initiators_name_key" {
 			apiErr = fmt.Errorf("bridge Type %v conflict", bt.Name)
 		} else {
 			apiErr = err
 		}
 		jsonAPIError(c, http.StatusConflict, apiErr)
 		return
-	default:
-		resource := presenters.NewBridgeResource(*bt)
-		resource.IncomingToken = bta.IncomingToken
-
-		jsonAPIResponse(c, resource, "bridge")
 	}
+	resource := presenters.NewBridgeResource(*bt)
+	resource.IncomingToken = bta.IncomingToken
+
+	btc.App.GetAuditLogger().Audit(audit.BridgeCreated, map[string]interface{}{
+		"bridgeName":                   bta.Name,
+		"bridgeConfirmations":          bta.Confirmations,
+		"bridgeMinimumContractPayment": bta.MinimumContractPayment,
+		"bridgeURL":                    bta.URL,
+	})
+
+	jsonAPIResponse(c, resource, "bridge")
 }
 
 // Index lists Bridges, one page at a time.
@@ -170,6 +177,13 @@ func (btc *BridgeTypesController) Update(c *gin.Context) {
 		return
 	}
 
+	btc.App.GetAuditLogger().Audit(audit.BridgeUpdated, map[string]interface{}{
+		"bridgeName":                   bt.Name,
+		"bridgeConfirmations":          bt.Confirmations,
+		"bridgeMinimumContractPayment": bt.MinimumContractPayment,
+		"bridgeURL":                    bt.URL,
+	})
+
 	jsonAPIResponse(c, presenters.NewBridgeResource(bt), "bridge")
 }
 
@@ -206,6 +220,8 @@ func (btc *BridgeTypesController) Destroy(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("failed to delete bridge: %+v", err))
 		return
 	}
+
+	btc.App.GetAuditLogger().Audit(audit.BridgeDeleted, map[string]interface{}{"name": name})
 
 	jsonAPIResponse(c, presenters.NewBridgeResource(bt), "bridge")
 }

@@ -2,14 +2,15 @@ package keystore
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
-//go:generate mockery --name P2P --output ./mocks/ --case=underscore --filename p2p.go
+//go:generate mockery --quiet --name P2P --output ./mocks/ --case=underscore --filename p2p.go
 
 type P2P interface {
 	Get(id p2pkey.PeerID) (p2pkey.KeyV2, error)
@@ -20,8 +21,6 @@ type P2P interface {
 	Import(keyJSON []byte, password string) (p2pkey.KeyV2, error)
 	Export(id p2pkey.PeerID, password string) ([]byte, error)
 	EnsureKey() error
-
-	GetV1KeysAsV2() ([]p2pkey.KeyV2, error)
 
 	GetOrFirst(id p2pkey.PeerID) (p2pkey.KeyV2, error)
 }
@@ -151,21 +150,6 @@ func (ks *p2p) EnsureKey() error {
 	return ks.safeAddKey(key)
 }
 
-func (ks *p2p) GetV1KeysAsV2() (keys []p2pkey.KeyV2, _ error) {
-	v1Keys, err := ks.orm.GetEncryptedV1P2PKeys()
-	if err != nil {
-		return keys, err
-	}
-	for _, keyV1 := range v1Keys {
-		pk, err := keyV1.Decrypt(ks.password)
-		if err != nil {
-			return keys, err
-		}
-		keys = append(keys, pk.ToV2())
-	}
-	return keys, nil
-}
-
 var (
 	ErrNoP2PKey = errors.New("no p2p keys exist")
 )
@@ -176,19 +160,25 @@ func (ks *p2p) GetOrFirst(id p2pkey.PeerID) (p2pkey.KeyV2, error) {
 	if ks.isLocked() {
 		return p2pkey.KeyV2{}, ErrLocked
 	}
-	if id != "" {
+	if id != (p2pkey.PeerID{}) {
 		return ks.getByID(id)
 	} else if len(ks.keyRing.P2P) == 1 {
-		ks.logger.Warn("No P2P_PEER_ID set, defaulting to first key in database")
+		ks.logger.Warn("No P2P.PeerID set, defaulting to first key in database")
 		for _, key := range ks.keyRing.P2P {
 			return key, nil
 		}
 	} else if len(ks.keyRing.P2P) == 0 {
 		return p2pkey.KeyV2{}, ErrNoP2PKey
 	}
+	possibleKeys := make([]string, 0, len(ks.keyRing.P2P))
+	for _, key := range ks.keyRing.P2P {
+		possibleKeys = append(possibleKeys, key.ID())
+	}
+	//To avoid ambiguity, we require the user to specify a peer ID if there are multiple keys
 	return p2pkey.KeyV2{}, errors.New(
-		"multiple p2p keys found but peer ID was not set - you must specify a P2P_PEER_ID " +
-			"env var if you have more than one key, or delete the keys you aren't using",
+		"multiple p2p keys found but peer ID was not set - you must specify a P2P.PeerID " +
+			"config var if you have more than one key, or delete the keys you aren't using" +
+			" (possible keys: " + strings.Join(possibleKeys, ", ") + ")",
 	)
 }
 

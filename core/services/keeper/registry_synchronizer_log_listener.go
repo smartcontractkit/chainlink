@@ -3,7 +3,7 @@ package keeper
 import (
 	"reflect"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 )
 
 func (rs *RegistrySynchronizer) JobID() int32 {

@@ -14,11 +14,7 @@ interface ENSInterface {
   // Logged when the TTL of a node changes
   event NewTTL(bytes32 indexed node, uint64 ttl);
 
-  function setSubnodeOwner(
-    bytes32 node,
-    bytes32 label,
-    address owner
-  ) external;
+  function setSubnodeOwner(bytes32 node, bytes32 label, address owner) external;
 
   function setResolver(bytes32 node, address resolver) external;
 

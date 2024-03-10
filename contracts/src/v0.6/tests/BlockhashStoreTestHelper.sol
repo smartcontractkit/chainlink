@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.6.6;
 
-import "../dev/BlockhashStore.sol";
+import "../BlockhashStore.sol";
 
 contract BlockhashStoreTestHelper is BlockhashStore {
   function godmodeSetHash(uint256 n, bytes32 h) public {

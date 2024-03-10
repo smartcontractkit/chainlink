@@ -1,111 +1,68 @@
 package web_test
 
 import (
-	"bytes"
-	"database/sql"
-	"encoding/json"
 	"fmt"
+	"math/big"
 	"net/http"
+	"sort"
 	"testing"
 
 	"github.com/manyminds/api2go/jsonapi"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/core/web"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/web"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
-
-func Test_EVMChainsController_Create(t *testing.T) {
-	t.Parallel()
-
-	controller := setupEVMChainsControllerTest(t)
-
-	newChainId := *utils.NewBigI(42)
-
-	body, err := json.Marshal(web.NewCreateChainRequest(newChainId,
-		&types.ChainCfg{
-			BlockHistoryEstimatorBlockDelay:       null.IntFrom(1),
-			BlockHistoryEstimatorBlockHistorySize: null.IntFrom(12),
-			EvmEIP1559DynamicFees:                 null.BoolFrom(false),
-			MinIncomingConfirmations:              null.IntFrom(10),
-		}))
-	require.NoError(t, err)
-
-	resp, cleanup := controller.client.Post("/v2/chains/evm", bytes.NewReader(body))
-	t.Cleanup(cleanup)
-	require.Equal(t, http.StatusCreated, resp.StatusCode)
-
-	chainSet := controller.app.GetChains().EVM
-	dbChain, err := chainSet.ORM().Chain(newChainId)
-	require.NoError(t, err)
-
-	resource := presenters.EVMChainResource{}
-	err = web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, resp), &resource)
-	require.NoError(t, err)
-
-	assert.Equal(t, resource.ID, dbChain.ID.String())
-	assert.Equal(t, resource.Config.BlockHistoryEstimatorBlockDelay, dbChain.Cfg.BlockHistoryEstimatorBlockDelay)
-	assert.Equal(t, resource.Config.BlockHistoryEstimatorBlockHistorySize, dbChain.Cfg.BlockHistoryEstimatorBlockHistorySize)
-	assert.Equal(t, resource.Config.EvmEIP1559DynamicFees, dbChain.Cfg.EvmEIP1559DynamicFees)
-	assert.Equal(t, resource.Config.MinIncomingConfirmations, dbChain.Cfg.MinIncomingConfirmations)
-}
 
 func Test_EVMChainsController_Show(t *testing.T) {
 	t.Parallel()
 
-	validId := utils.NewBigI(12)
+	validId := ubig.New(testutils.NewRandomEVMChainID())
 
 	testCases := []struct {
 		name           string
 		inputId        string
 		wantStatusCode int
-		want           func(t *testing.T, app *cltest.TestApplication) *types.DBChain
+		want           *evmcfg.EVMConfig
 	}{
 		{
 			inputId: validId.String(),
 			name:    "success",
-			want: func(t *testing.T, app *cltest.TestApplication) *types.DBChain {
-				newChainConfig := types.ChainCfg{
-					BlockHistoryEstimatorBlockDelay:       null.IntFrom(23),
-					BlockHistoryEstimatorBlockHistorySize: null.IntFrom(50),
-					EvmEIP1559DynamicFees:                 null.BoolFrom(true),
-					MinIncomingConfirmations:              null.IntFrom(12),
-					LinkContractAddress:                   null.StringFrom(testutils.NewAddress().String()),
-				}
-
-				chain := types.DBChain{
-					ID:      *validId,
-					Enabled: true,
-					Cfg:     &newChainConfig,
-				}
-				evmtest.MustInsertChain(t, app.GetSqlxDB(), &chain)
-
-				return &chain
+			want: &evmcfg.EVMConfig{
+				ChainID: validId,
+				Enabled: ptr(true),
+				Chain: evmcfg.Defaults(nil, &evmcfg.Chain{
+					GasEstimator: evmcfg.GasEstimator{
+						EIP1559DynamicFees: ptr(true),
+						BlockHistory: evmcfg.BlockHistoryEstimator{
+							BlockHistorySize: ptr[uint16](50),
+						},
+					},
+					RPCBlockQueryDelay:       ptr[uint16](23),
+					MinIncomingConfirmations: ptr[uint32](12),
+					LinkContractAddress:      ptr(ethkey.EIP55AddressFromAddress(testutils.NewAddress())),
+				}),
 			},
 			wantStatusCode: http.StatusOK,
 		},
 		{
-			inputId: "invalidid",
-			name:    "invalid id",
-			want: func(t *testing.T, app *cltest.TestApplication) *types.DBChain {
-				return nil
-			},
-			wantStatusCode: http.StatusUnprocessableEntity,
+			inputId:        "invalidid",
+			name:           "invalid id",
+			want:           nil,
+			wantStatusCode: http.StatusBadRequest,
 		},
 		{
-			inputId: "234",
-			name:    "not found",
-			want: func(t *testing.T, app *cltest.TestApplication) *types.DBChain {
-				return nil
-			},
+			inputId:        "234",
+			name:           "not found",
+			want:           nil,
 			wantStatusCode: http.StatusBadRequest,
 		},
 	}
@@ -116,9 +73,13 @@ func Test_EVMChainsController_Show(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			controller := setupEVMChainsControllerTest(t)
+			controller := setupEVMChainsControllerTest(t, configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+				if tc.want != nil {
+					c.EVM = evmcfg.EVMConfigs{tc.want}
+				}
+			}))
 
-			wantedResult := tc.want(t, controller.app)
+			wantedResult := tc.want
 			resp, cleanup := controller.client.Get(
 				fmt.Sprintf("/v2/chains/evm/%s", tc.inputId),
 			)
@@ -130,12 +91,10 @@ func Test_EVMChainsController_Show(t *testing.T) {
 				err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, resp), &resource1)
 				require.NoError(t, err)
 
-				assert.Equal(t, resource1.ID, wantedResult.ID.String())
-				assert.Equal(t, resource1.Config.BlockHistoryEstimatorBlockDelay, wantedResult.Cfg.BlockHistoryEstimatorBlockDelay)
-				assert.Equal(t, resource1.Config.BlockHistoryEstimatorBlockHistorySize, wantedResult.Cfg.BlockHistoryEstimatorBlockHistorySize)
-				assert.Equal(t, resource1.Config.EvmEIP1559DynamicFees, wantedResult.Cfg.EvmEIP1559DynamicFees)
-				assert.Equal(t, resource1.Config.MinIncomingConfirmations, wantedResult.Cfg.MinIncomingConfirmations)
-				assert.Equal(t, resource1.Config.LinkContractAddress, wantedResult.Cfg.LinkContractAddress)
+				assert.Equal(t, resource1.ID, wantedResult.ChainID.String())
+				toml, err := wantedResult.TOMLString()
+				require.NoError(t, err)
+				assert.Equal(t, toml, resource1.Config)
 			}
 		})
 	}
@@ -144,37 +103,47 @@ func Test_EVMChainsController_Show(t *testing.T) {
 func Test_EVMChainsController_Index(t *testing.T) {
 	t.Parallel()
 
-	controller := setupEVMChainsControllerTest(t)
+	// sort test chain ids to make expected comparison easy
+	chainIDs := []*big.Int{testutils.NewRandomEVMChainID(), testutils.NewRandomEVMChainID(), testutils.NewRandomEVMChainID()}
+	sort.Slice(chainIDs, func(i, j int) bool {
 
-	newChains := []web.CreateChainRequest[utils.Big, *types.ChainCfg]{
+		return chainIDs[i].String() < chainIDs[j].String()
+	})
+
+	configuredChains := evmcfg.EVMConfigs{
+		{ChainID: ubig.New(chainIDs[0]), Chain: evmcfg.Defaults(nil)},
 		{
-			ID: *utils.NewBigI(24),
-			Config: &types.ChainCfg{
-				BlockHistoryEstimatorBlockDelay:       null.IntFrom(13),
-				BlockHistoryEstimatorBlockHistorySize: null.IntFrom(1),
-				EvmEIP1559DynamicFees:                 null.BoolFrom(true),
-				MinIncomingConfirmations:              null.IntFrom(120),
-			},
+			ChainID: ubig.New(chainIDs[1]),
+			Chain: evmcfg.Defaults(nil, &evmcfg.Chain{
+				RPCBlockQueryDelay: ptr[uint16](13),
+				GasEstimator: evmcfg.GasEstimator{
+					EIP1559DynamicFees: ptr(true),
+					BlockHistory: evmcfg.BlockHistoryEstimator{
+						BlockHistorySize: ptr[uint16](1),
+					},
+				},
+				MinIncomingConfirmations: ptr[uint32](120),
+			}),
 		},
 		{
-			ID: *utils.NewBigI(30),
-			Config: &types.ChainCfg{
-				BlockHistoryEstimatorBlockDelay:       null.IntFrom(5),
-				BlockHistoryEstimatorBlockHistorySize: null.IntFrom(2),
-				EvmEIP1559DynamicFees:                 null.BoolFrom(false),
-				MinIncomingConfirmations:              null.IntFrom(30),
-			},
+			ChainID: ubig.New(chainIDs[2]),
+			Chain: evmcfg.Defaults(nil, &evmcfg.Chain{
+				RPCBlockQueryDelay: ptr[uint16](5),
+				GasEstimator: evmcfg.GasEstimator{
+					EIP1559DynamicFees: ptr(false),
+					BlockHistory: evmcfg.BlockHistoryEstimator{
+						BlockHistorySize: ptr[uint16](2),
+					},
+				},
+				MinIncomingConfirmations: ptr[uint32](30),
+			}),
 		},
 	}
 
-	for _, newChain := range newChains {
-		ch := newChain
-		evmtest.MustInsertChain(t, controller.app.GetSqlxDB(), &types.DBChain{
-			ID:      ch.ID,
-			Enabled: true,
-			Cfg:     ch.Config,
-		})
-	}
+	assert.Len(t, configuredChains, 3)
+	controller := setupEVMChainsControllerTest(t, configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM = append(c.EVM, configuredChains...)
+	}))
 
 	badResp, cleanup := controller.client.Get("/v2/chains/evm?size=asd")
 	t.Cleanup(cleanup)
@@ -188,202 +157,40 @@ func Test_EVMChainsController_Index(t *testing.T) {
 
 	metaCount, err := cltest.ParseJSONAPIResponseMetaCount(body)
 	require.NoError(t, err)
-	// fixtures.sql specifies two chains by default
-	require.Equal(t, 2+len(newChains), metaCount)
+	require.Equal(t, 1+len(configuredChains), metaCount)
 
 	var links jsonapi.Links
 
-	var chains []presenters.EVMChainResource
-	err = web.ParsePaginatedResponse(body, &chains, &links)
+	var gotChains []presenters.EVMChainResource
+	err = web.ParsePaginatedResponse(body, &gotChains, &links)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, links["next"].Href)
 	assert.Empty(t, links["prev"].Href)
 
 	assert.Len(t, links, 1)
-	assert.Equal(t, newChains[0].ID.String(), chains[2].ID)
-	assert.Equal(t, newChains[0].Config.BlockHistoryEstimatorBlockDelay, chains[2].Config.BlockHistoryEstimatorBlockDelay)
-	assert.Equal(t, newChains[0].Config.BlockHistoryEstimatorBlockHistorySize, chains[2].Config.BlockHistoryEstimatorBlockHistorySize)
-	assert.Equal(t, newChains[0].Config.EvmEIP1559DynamicFees, chains[2].Config.EvmEIP1559DynamicFees)
-	assert.Equal(t, newChains[0].Config.MinIncomingConfirmations, chains[2].Config.MinIncomingConfirmations)
+	// the difference in index value here seems to be due to the fact
+	// that cltest always has a default EVM chain, which is the off-by-one
+	// in the indices
+	assert.Equal(t, gotChains[2].ID, configuredChains[1].ChainID.String())
+	toml, err := configuredChains[1].TOMLString()
+	require.NoError(t, err)
+	assert.Equal(t, toml, gotChains[2].Config)
 
 	resp, cleanup = controller.client.Get(links["next"].Href)
 	t.Cleanup(cleanup)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
-	chains = []presenters.EVMChainResource{}
-	err = web.ParsePaginatedResponse(cltest.ParseResponseBody(t, resp), &chains, &links)
+	gotChains = []presenters.EVMChainResource{}
+	err = web.ParsePaginatedResponse(cltest.ParseResponseBody(t, resp), &gotChains, &links)
 	assert.NoError(t, err)
 	assert.Empty(t, links["next"].Href)
 	assert.NotEmpty(t, links["prev"].Href)
 
 	assert.Len(t, links, 1)
-	assert.Equal(t, newChains[1].ID.String(), chains[0].ID)
-	assert.Equal(t, newChains[1].Config.BlockHistoryEstimatorBlockDelay, chains[0].Config.BlockHistoryEstimatorBlockDelay)
-	assert.Equal(t, newChains[1].Config.BlockHistoryEstimatorBlockHistorySize, chains[0].Config.BlockHistoryEstimatorBlockHistorySize)
-	assert.Equal(t, newChains[1].Config.EvmEIP1559DynamicFees, chains[0].Config.EvmEIP1559DynamicFees)
-	assert.Equal(t, newChains[1].Config.MinIncomingConfirmations, chains[0].Config.MinIncomingConfirmations)
-}
-
-func Test_EVMChainsController_Update(t *testing.T) {
-	t.Parallel()
-
-	chainUpdate := web.UpdateChainRequest[*types.ChainCfg]{
-		Enabled: true,
-		Config: &types.ChainCfg{
-			BlockHistoryEstimatorBlockDelay:       null.IntFrom(55),
-			BlockHistoryEstimatorBlockHistorySize: null.IntFrom(33),
-			EvmEIP1559DynamicFees:                 null.BoolFrom(true),
-			MinIncomingConfirmations:              null.IntFrom(100),
-			LinkContractAddress:                   null.StringFrom(utils.ZeroAddress.String()),
-		},
-	}
-
-	validId := utils.NewBigI(12)
-
-	testCases := []struct {
-		name              string
-		inputId           string
-		wantStatusCode    int
-		chainBeforeUpdate func(t *testing.T, app *cltest.TestApplication) *types.DBChain
-	}{
-		{
-			inputId: validId.String(),
-			name:    "success",
-			chainBeforeUpdate: func(t *testing.T, app *cltest.TestApplication) *types.DBChain {
-				newChainConfig := types.ChainCfg{
-					BlockHistoryEstimatorBlockDelay:       null.IntFrom(5),
-					BlockHistoryEstimatorBlockHistorySize: null.IntFrom(2),
-					EvmEIP1559DynamicFees:                 null.BoolFrom(false),
-					MinIncomingConfirmations:              null.IntFrom(30),
-				}
-
-				chain := types.DBChain{
-					ID:      *validId,
-					Enabled: true,
-					Cfg:     &newChainConfig,
-				}
-				evmtest.MustInsertChain(t, app.GetSqlxDB(), &chain)
-
-				return &chain
-			},
-			wantStatusCode: http.StatusOK,
-		},
-		{
-			inputId: "invalidid",
-			name:    "invalid id",
-			chainBeforeUpdate: func(t *testing.T, app *cltest.TestApplication) *types.DBChain {
-				return nil
-			},
-			wantStatusCode: http.StatusUnprocessableEntity,
-		},
-		{
-			inputId: "341212",
-			name:    "not found",
-			chainBeforeUpdate: func(t *testing.T, app *cltest.TestApplication) *types.DBChain {
-				return nil
-			},
-			wantStatusCode: http.StatusNotFound,
-		},
-	}
-
-	for _, testCase := range testCases {
-		tc := testCase
-
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			controller := setupEVMChainsControllerTest(t)
-
-			beforeUpdate := tc.chainBeforeUpdate(t, controller.app)
-
-			body, err := json.Marshal(chainUpdate)
-			require.NoError(t, err)
-
-			resp, cleanup := controller.client.Patch(
-				fmt.Sprintf("/v2/chains/evm/%s", tc.inputId),
-				bytes.NewReader(body),
-			)
-			t.Cleanup(cleanup)
-			require.Equal(t, tc.wantStatusCode, resp.StatusCode)
-
-			if beforeUpdate != nil {
-				resource1 := presenters.EVMChainResource{}
-				err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, resp), &resource1)
-				require.NoError(t, err)
-
-				assert.Equal(t, resource1.ID, beforeUpdate.ID.String())
-				assert.Equal(t, resource1.Enabled, chainUpdate.Enabled)
-				assert.Equal(t, resource1.Config.BlockHistoryEstimatorBlockDelay, chainUpdate.Config.BlockHistoryEstimatorBlockDelay)
-				assert.Equal(t, resource1.Config.BlockHistoryEstimatorBlockHistorySize, chainUpdate.Config.BlockHistoryEstimatorBlockHistorySize)
-				assert.Equal(t, resource1.Config.EvmEIP1559DynamicFees, chainUpdate.Config.EvmEIP1559DynamicFees)
-				assert.Equal(t, resource1.Config.MinIncomingConfirmations, chainUpdate.Config.MinIncomingConfirmations)
-				assert.Equal(t, resource1.Config.LinkContractAddress, chainUpdate.Config.LinkContractAddress)
-			}
-		})
-	}
-}
-
-func Test_EVMChainsController_Delete(t *testing.T) {
-	t.Parallel()
-
-	controller := setupEVMChainsControllerTest(t)
-
-	newChainConfig := types.ChainCfg{
-		BlockHistoryEstimatorBlockDelay:       null.IntFrom(5),
-		BlockHistoryEstimatorBlockHistorySize: null.IntFrom(2),
-		EvmEIP1559DynamicFees:                 null.BoolFrom(false),
-		MinIncomingConfirmations:              null.IntFrom(30),
-	}
-
-	chainId := *utils.NewBigI(50)
-	chain := types.DBChain{
-		ID:      chainId,
-		Enabled: true,
-		Cfg:     &newChainConfig,
-	}
-	evmtest.MustInsertChain(t, controller.app.GetSqlxDB(), &chain)
-
-	_, countBefore, err := controller.app.EVMORM().Chains(0, 10)
+	assert.Equal(t, gotChains[0].ID, configuredChains[2].ChainID.String())
+	toml, err = configuredChains[2].TOMLString()
 	require.NoError(t, err)
-	// 3 with the default chains
-	require.Equal(t, 3, countBefore)
-
-	t.Run("invalid id", func(t *testing.T) {
-		t.Parallel()
-
-		resp, cleanup := controller.client.Delete("/v2/chains/evm/invalid_id")
-		t.Cleanup(cleanup)
-		require.Equal(t, http.StatusUnprocessableEntity, resp.StatusCode)
-	})
-
-	t.Run("non-existing chain", func(t *testing.T) {
-		resp, cleanup := controller.client.Delete("/v2/chains/evm/121231")
-		t.Cleanup(cleanup)
-		require.Equal(t, http.StatusInternalServerError, resp.StatusCode)
-
-		_, countAfter, err := controller.app.EVMORM().Chains(0, 10)
-		require.NoError(t, err)
-		// 3 with the default chains
-		require.Equal(t, 3, countAfter)
-	})
-
-	t.Run("existing chain", func(t *testing.T) {
-		resp, cleanup := controller.client.Delete(
-			fmt.Sprintf("/v2/chains/evm/%d", chain.ID.ToInt()),
-		)
-		t.Cleanup(cleanup)
-		require.Equal(t, http.StatusNoContent, resp.StatusCode)
-
-		_, countAfter, err := controller.app.EVMORM().Chains(0, 10)
-		require.NoError(t, err)
-		// 3 with the default chains
-		require.Equal(t, 2, countAfter)
-
-		_, err = controller.app.EVMORM().Chain(chain.ID)
-
-		assert.Error(t, err)
-		assert.True(t, errors.Is(err, sql.ErrNoRows))
-	})
+	assert.Equal(t, toml, gotChains[0].Config)
 }
 
 type TestEVMChainsController struct {
@@ -391,16 +198,18 @@ type TestEVMChainsController struct {
 	client cltest.HTTPClientCleaner
 }
 
-func setupEVMChainsControllerTest(t *testing.T) *TestEVMChainsController {
+func setupEVMChainsControllerTest(t *testing.T, cfg chainlink.GeneralConfig) *TestEVMChainsController {
 	// Using this instead of `NewApplicationEVMDisabled` since we need the chain set to be loaded in the app
 	// for the sake of the API endpoints to work properly
-	app := cltest.NewApplication(t)
+	app := cltest.NewApplicationWithConfig(t, cfg)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(nil)
 
 	return &TestEVMChainsController{
 		app:    app,
 		client: client,
 	}
 }
+
+func ptr[T any](t T) *T { return &t }

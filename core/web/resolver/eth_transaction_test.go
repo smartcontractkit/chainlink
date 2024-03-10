@@ -3,15 +3,23 @@ package resolver
 import (
 	"database/sql"
 	"errors"
+	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
 	gqlerrors "github.com/graph-gophers/graphql-go/errors"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
+	chainlinkmocks "github.com/smartcontractkit/chainlink/v2/core/services/chainlink/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/web/testutils"
 )
 
 func TestResolver_EthTransaction(t *testing.T) {
@@ -50,7 +58,7 @@ func TestResolver_EthTransaction(t *testing.T) {
 		"hash": "0x5431F5F973781809D18643b87B44921b11355d81",
 	}
 	hash := common.HexToHash("0x5431F5F973781809D18643b87B44921b11355d81")
-	chainID := *utils.NewBigI(22)
+	chainID := *ubig.NewI(22)
 	gError := errors.New("error")
 
 	testCases := []GQLTestCase{
@@ -59,29 +67,37 @@ func TestResolver_EthTransaction(t *testing.T) {
 			name:          "success",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-				f.Mocks.txmORM.On("FindEthTxByHash", hash).Return(&txmgr.EthTx{
+				f.Mocks.txmStore.On("FindTxByHash", hash).Return(&txmgr.Tx{
 					ID:             1,
 					ToAddress:      common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
 					FromAddress:    common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
-					State:          txmgr.EthTxInProgress,
+					State:          txmgrcommon.TxInProgress,
 					EncodedPayload: []byte("encoded payload"),
-					GasLimit:       100,
-					Value:          assets.NewEthValue(100),
-					EVMChainID:     *utils.NewBigI(22),
-					Nonce:          nil,
+					FeeLimit:       100,
+					Value:          big.Int(assets.NewEthValue(100)),
+					ChainID:        big.NewInt(22),
+					Sequence:       nil,
 				}, nil)
-				f.Mocks.txmORM.On("FindEthTxAttemptsByEthTxIDs", []int64{1}).Return([]txmgr.EthTxAttempt{
+				f.Mocks.txmStore.On("FindTxAttemptConfirmedByTxIDs", []int64{1}).Return([]txmgr.TxAttempt{
 					{
-						EthTxID:                 1,
+						TxID:                    1,
 						Hash:                    hash,
-						GasPrice:                utils.NewBigI(12),
+						TxFee:                   gas.EvmFee{Legacy: assets.NewWeiI(12)},
 						SignedRawTx:             []byte("something"),
 						BroadcastBeforeBlockNum: nil,
 					},
 				}, nil)
-				f.App.On("TxmORM").Return(f.Mocks.txmORM)
-				f.Mocks.evmORM.PutChains(types.DBChain{ID: chainID})
-				f.App.On("EVMORM").Return(f.Mocks.evmORM)
+				f.App.On("TxmStorageService").Return(f.Mocks.txmStore)
+				f.Mocks.evmORM.PutChains(toml.EVMConfig{ChainID: &chainID})
+				f.App.On("GetRelayers").Return(&chainlinkmocks.FakeRelayerChainInteroperators{
+					Relayers: []loop.Relayer{
+						testutils.MockRelayer{ChainStatus: types.ChainStatus{
+							ID:      "22",
+							Enabled: true,
+							Config:  "",
+						}},
+					},
+				})
 			},
 			query:     query,
 			variables: variables,
@@ -114,30 +130,39 @@ func TestResolver_EthTransaction(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				num := int64(2)
+				nonce := evmtypes.Nonce(num)
 
-				f.Mocks.txmORM.On("FindEthTxByHash", hash).Return(&txmgr.EthTx{
+				f.Mocks.txmStore.On("FindTxByHash", hash).Return(&txmgr.Tx{
 					ID:             1,
 					ToAddress:      common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
 					FromAddress:    common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
-					State:          txmgr.EthTxInProgress,
+					State:          txmgrcommon.TxInProgress,
 					EncodedPayload: []byte("encoded payload"),
-					GasLimit:       100,
-					Value:          assets.NewEthValue(100),
-					EVMChainID:     *utils.NewBigI(22),
-					Nonce:          &num,
+					FeeLimit:       100,
+					Value:          big.Int(assets.NewEthValue(100)),
+					ChainID:        big.NewInt(22),
+					Sequence:       &nonce,
 				}, nil)
-				f.Mocks.txmORM.On("FindEthTxAttemptsByEthTxIDs", []int64{1}).Return([]txmgr.EthTxAttempt{
+				f.Mocks.txmStore.On("FindTxAttemptConfirmedByTxIDs", []int64{1}).Return([]txmgr.TxAttempt{
 					{
-						EthTxID:                 1,
+						TxID:                    1,
 						Hash:                    hash,
-						GasPrice:                utils.NewBigI(12),
+						TxFee:                   gas.EvmFee{Legacy: assets.NewWeiI(12)},
 						SignedRawTx:             []byte("something"),
 						BroadcastBeforeBlockNum: &num,
 					},
 				}, nil)
-				f.App.On("TxmORM").Return(f.Mocks.txmORM)
-				f.Mocks.evmORM.PutChains(types.DBChain{ID: chainID})
-				f.App.On("EVMORM").Return(f.Mocks.evmORM)
+				f.App.On("TxmStorageService").Return(f.Mocks.txmStore)
+				f.Mocks.evmORM.PutChains(toml.EVMConfig{ChainID: &chainID})
+				f.App.On("GetRelayers").Return(&chainlinkmocks.FakeRelayerChainInteroperators{
+					Relayers: []loop.Relayer{
+						testutils.MockRelayer{ChainStatus: types.ChainStatus{
+							ID:      "22",
+							Enabled: true,
+							Config:  "",
+						}},
+					},
+				})
 			},
 			query:     query,
 			variables: variables,
@@ -169,8 +194,8 @@ func TestResolver_EthTransaction(t *testing.T) {
 			name:          "not found error",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-				f.Mocks.txmORM.On("FindEthTxByHash", hash).Return(nil, sql.ErrNoRows)
-				f.App.On("TxmORM").Return(f.Mocks.txmORM)
+				f.Mocks.txmStore.On("FindTxByHash", hash).Return(nil, sql.ErrNoRows)
+				f.App.On("TxmStorageService").Return(f.Mocks.txmStore)
 			},
 			query:     query,
 			variables: variables,
@@ -186,8 +211,8 @@ func TestResolver_EthTransaction(t *testing.T) {
 			name:          "generic error",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-				f.Mocks.txmORM.On("FindEthTxByHash", hash).Return(nil, gError)
-				f.App.On("TxmORM").Return(f.Mocks.txmORM)
+				f.Mocks.txmStore.On("FindTxByHash", hash).Return(nil, gError)
+				f.App.On("TxmStorageService").Return(f.Mocks.txmStore)
 			},
 			query:     query,
 			variables: variables,
@@ -242,28 +267,28 @@ func TestResolver_EthTransactions(t *testing.T) {
 			before: func(f *gqlTestFramework) {
 				num := int64(2)
 
-				f.Mocks.txmORM.On("EthTransactions", PageDefaultOffset, PageDefaultLimit).Return([]txmgr.EthTx{
+				f.Mocks.txmStore.On("Transactions", PageDefaultOffset, PageDefaultLimit).Return([]txmgr.Tx{
 					{
 						ID:             1,
 						ToAddress:      common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
 						FromAddress:    common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
-						State:          txmgr.EthTxInProgress,
+						State:          txmgrcommon.TxInProgress,
 						EncodedPayload: []byte("encoded payload"),
-						GasLimit:       100,
-						Value:          assets.NewEthValue(100),
-						EVMChainID:     *utils.NewBigI(22),
+						FeeLimit:       100,
+						Value:          big.Int(assets.NewEthValue(100)),
+						ChainID:        big.NewInt(22),
 					},
 				}, 1, nil)
-				f.Mocks.txmORM.On("FindEthTxAttemptsByEthTxIDs", []int64{1}).Return([]txmgr.EthTxAttempt{
+				f.Mocks.txmStore.On("FindTxAttemptConfirmedByTxIDs", []int64{1}).Return([]txmgr.TxAttempt{
 					{
-						EthTxID:                 1,
+						TxID:                    1,
 						Hash:                    hash,
-						GasPrice:                utils.NewBigI(12),
+						TxFee:                   gas.EvmFee{Legacy: assets.NewWeiI(12)},
 						SignedRawTx:             []byte("something"),
 						BroadcastBeforeBlockNum: &num,
 					},
 				}, nil)
-				f.App.On("TxmORM").Return(f.Mocks.txmORM)
+				f.App.On("TxmStorageService").Return(f.Mocks.txmStore)
 			},
 			query: query,
 			result: `
@@ -293,8 +318,8 @@ func TestResolver_EthTransactions(t *testing.T) {
 			name:          "generic error",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-				f.Mocks.txmORM.On("EthTransactions", PageDefaultOffset, PageDefaultLimit).Return(nil, 0, gError)
-				f.App.On("TxmORM").Return(f.Mocks.txmORM)
+				f.Mocks.txmStore.On("Transactions", PageDefaultOffset, PageDefaultLimit).Return(nil, 0, gError)
+				f.App.On("TxmStorageService").Return(f.Mocks.txmStore)
 			},
 			query:  query,
 			result: `null`,
@@ -340,16 +365,16 @@ func TestResolver_EthTransactionsAttempts(t *testing.T) {
 			before: func(f *gqlTestFramework) {
 				num := int64(2)
 
-				f.Mocks.txmORM.On("EthTxAttempts", PageDefaultOffset, PageDefaultLimit).Return([]txmgr.EthTxAttempt{
+				f.Mocks.txmStore.On("TxAttempts", PageDefaultOffset, PageDefaultLimit).Return([]txmgr.TxAttempt{
 					{
 						Hash:                    hash,
-						GasPrice:                utils.NewBigI(12),
+						TxFee:                   gas.EvmFee{Legacy: assets.NewWeiI(12)},
 						SignedRawTx:             []byte("something"),
 						BroadcastBeforeBlockNum: &num,
-						EthTx:                   txmgr.EthTx{},
+						Tx:                      txmgr.Tx{},
 					},
 				}, 1, nil)
-				f.App.On("TxmORM").Return(f.Mocks.txmORM)
+				f.App.On("TxmStorageService").Return(f.Mocks.txmStore)
 			},
 			query: query,
 			result: `
@@ -371,15 +396,15 @@ func TestResolver_EthTransactionsAttempts(t *testing.T) {
 			name:          "success with nil values",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-				f.Mocks.txmORM.On("EthTxAttempts", PageDefaultOffset, PageDefaultLimit).Return([]txmgr.EthTxAttempt{
+				f.Mocks.txmStore.On("TxAttempts", PageDefaultOffset, PageDefaultLimit).Return([]txmgr.TxAttempt{
 					{
 						Hash:                    hash,
-						GasPrice:                utils.NewBigI(12),
+						TxFee:                   gas.EvmFee{Legacy: assets.NewWeiI(12)},
 						SignedRawTx:             []byte("something"),
 						BroadcastBeforeBlockNum: nil,
 					},
 				}, 1, nil)
-				f.App.On("TxmORM").Return(f.Mocks.txmORM)
+				f.App.On("TxmStorageService").Return(f.Mocks.txmStore)
 			},
 			query: query,
 			result: `
@@ -401,8 +426,8 @@ func TestResolver_EthTransactionsAttempts(t *testing.T) {
 			name:          "generic error",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-				f.Mocks.txmORM.On("EthTxAttempts", PageDefaultOffset, PageDefaultLimit).Return(nil, 0, gError)
-				f.App.On("TxmORM").Return(f.Mocks.txmORM)
+				f.Mocks.txmStore.On("TxAttempts", PageDefaultOffset, PageDefaultLimit).Return(nil, 0, gError)
+				f.App.On("TxmStorageService").Return(f.Mocks.txmStore)
 			},
 			query:  query,
 			result: `null`,

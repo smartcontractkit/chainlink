@@ -3,8 +3,8 @@ package config
 import (
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	dkgconfig "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/dkg/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	dkgconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/dkg/config"
 )
 
 // PluginConfig contains custom arguments for the OCR2VRF plugin.
@@ -23,8 +23,8 @@ type PluginConfig struct {
 	DKGContractAddress     string `json:"dkgContractAddress"`
 
 	// VRF configuration fields
-	LinkEthFeedAddress string `json:"linkEthFeedAddress"`
-	LookbackBlocks     int64  `json:"lookbackBlocks"`
+	VRFCoordinatorAddress string `json:"vrfCoordinatorAddress"`
+	LinkEthFeedAddress    string `json:"linkEthFeedAddress"`
 }
 
 // ValidatePluginConfig validates that the given OCR2VRF plugin configuration is correct.
@@ -44,13 +44,13 @@ func ValidatePluginConfig(config PluginConfig, dkgSignKs keystore.DKGSign, dkgEn
 		return errors.New("dkgContractAddress field must be provided")
 	}
 
+	if config.VRFCoordinatorAddress == "" {
+		return errors.New("vrfCoordinatorAddress field must be provided")
+	}
+
 	// NOTE: similar to the above.
 	if config.LinkEthFeedAddress == "" {
 		return errors.New("linkEthFieldAddress field must be provided")
-	}
-
-	if config.LookbackBlocks <= 0 {
-		return errors.New("lookbackBlocks field must be positive")
 	}
 
 	return nil

@@ -6,17 +6,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
-	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/cmd"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
+	"github.com/smartcontractkit/chainlink/v2/core/cmd"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
 func TestEVMForwarderPresenter_RenderTable(t *testing.T) {
@@ -24,8 +23,8 @@ func TestEVMForwarderPresenter_RenderTable(t *testing.T) {
 
 	var (
 		id         = "1"
-		address    = common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81")
-		evmChainID = utils.NewBigI(4)
+		address    = utils.RandomAddress()
+		evmChainID = big.NewI(4)
 		createdAt  = time.Now()
 		updatedAt  = time.Now().Add(time.Second)
 		buffer     = bytes.NewBufferString("")
@@ -63,27 +62,24 @@ func TestEVMForwarderPresenter_RenderTable(t *testing.T) {
 	assert.Contains(t, output, createdAt.Format(time.RFC3339))
 }
 
-func TestClient_TrackEVMForwarder(t *testing.T) {
+func TestShell_TrackEVMForwarder(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t, withConfigSet(func(c *configtest.TestGeneralConfig) {
-		c.Overrides.EVMEnabled = null.BoolFrom(true)
-	}))
-	client, r := app.NewClientAndRenderer()
-
-	// Create chain
-	orm := app.EVMORM()
 	id := newRandChainID()
-	chain, err := orm.CreateChain(*id, nil)
-	require.NoError(t, err)
+	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].ChainID = id
+		c.EVM[0].Enabled = ptr(true)
+	})
+	client, r := app.NewShellAndRenderer()
 
 	// Create the fwdr
 	set := flag.NewFlagSet("test", 0)
-	set.String("file", "../internal/fixtures/apicredentials", "")
-	set.Bool("bypass-version-check", true, "")
-	set.String("address", "0x5431F5F973781809D18643b87B44921b11355d81", "")
-	set.Int("evmChainID", int(chain.ID.ToInt().Int64()), "")
-	err = client.TrackForwarder(cli.NewContext(nil, set, nil))
+	flagSetApplyFromAction(client.TrackForwarder, set, "")
+
+	require.NoError(t, set.Set("address", utils.RandomAddress().Hex()))
+	require.NoError(t, set.Set("evm-chain-id", id.String()))
+
+	err := client.TrackForwarder(cli.NewContext(nil, set, nil))
 	require.NoError(t, err)
 	require.Len(t, r.Renders, 1)
 	createOutput, ok := r.Renders[0].(*cmd.EVMForwarderPresenter)
@@ -97,7 +93,10 @@ func TestClient_TrackEVMForwarder(t *testing.T) {
 
 	// Delete fwdr
 	set = flag.NewFlagSet("test", 0)
-	set.Parse([]string{createOutput.ID})
+	flagSetApplyFromAction(client.DeleteForwarder, set, "")
+
+	require.NoError(t, set.Parse([]string{createOutput.ID}))
+
 	c := cli.NewContext(nil, set, nil)
 	require.NoError(t, client.DeleteForwarder(c))
 
@@ -108,43 +107,39 @@ func TestClient_TrackEVMForwarder(t *testing.T) {
 	require.Equal(t, 0, len(fwds))
 }
 
-func TestClient_TrackEVMForwarder_BadAddress(t *testing.T) {
+func TestShell_TrackEVMForwarder_BadAddress(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t, withConfigSet(func(c *configtest.TestGeneralConfig) {
-		c.Overrides.EVMEnabled = null.BoolFrom(true)
-	}))
-	client, _ := app.NewClientAndRenderer()
-
-	// Create chain
-	orm := app.EVMORM()
-	_, _, err := orm.Chains(0, 25)
-	require.NoError(t, err)
-
 	id := newRandChainID()
-	chain, err := orm.CreateChain(*id, nil)
-	require.NoError(t, err)
+	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].ChainID = id
+		c.EVM[0].Enabled = ptr(true)
+	})
+	client, _ := app.NewShellAndRenderer()
 
 	// Create the fwdr
 	set := flag.NewFlagSet("test", 0)
-	set.String("file", "../internal/fixtures/apicredentials", "")
-	set.Bool("bypass-version-check", true, "")
-	set.String("address", "0xWrongFormatAddress", "")
-	set.Int("evmChainID", int(chain.ID.ToInt().Int64()), "")
-	err = client.TrackForwarder(cli.NewContext(nil, set, nil))
+	flagSetApplyFromAction(client.TrackForwarder, set, "")
+
+	require.NoError(t, set.Set("address", "0xWrongFormatAddress"))
+	require.NoError(t, set.Set("evm-chain-id", id.String()))
+
+	err := client.TrackForwarder(cli.NewContext(nil, set, nil))
 	require.Contains(t, err.Error(), "could not decode address: invalid hex string")
 }
 
-func TestClient_DeleteEVMForwarders_MissingFwdId(t *testing.T) {
+func TestShell_DeleteEVMForwarders_MissingFwdId(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t, withConfigSet(func(c *configtest.TestGeneralConfig) {
-		c.Overrides.EVMEnabled = null.BoolFrom(true)
-	}))
-	client, _ := app.NewClientAndRenderer()
+	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].Enabled = ptr(true)
+	})
+	client, _ := app.NewShellAndRenderer()
 
 	// Delete fwdr without id
 	set := flag.NewFlagSet("test", 0)
+	flagSetApplyFromAction(client.DeleteForwarder, set, "")
+
 	c := cli.NewContext(nil, set, nil)
 	require.Equal(t, "must pass the forwarder id to be archived", client.DeleteForwarder(c).Error())
 }

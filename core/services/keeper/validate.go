@@ -3,10 +3,11 @@ package keeper
 import (
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
-	uuid "github.com/satori/go.uuid"
-	"github.com/smartcontractkit/chainlink/core/services/job"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
 // ValidatedKeeperSpec analyses the tomlString passed as parameter and
@@ -14,7 +15,7 @@ import (
 func ValidatedKeeperSpec(tomlString string) (job.Job, error) {
 	// Create a new job with a randomly generated uuid, which can be replaced with the one from tomlString.
 	var j = job.Job{
-		ExternalJobID: uuid.NewV4(),
+		ExternalJobID: uuid.New(),
 	}
 
 	tree, err := toml.Load(tomlString)

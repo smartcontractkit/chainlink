@@ -1,5 +1,5 @@
 {
-  description = "Hello world";
+  description = "Chainlink development shell";
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
@@ -10,9 +10,9 @@
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = import nixpkgs { inherit system; overlays = [ ]; };
-      in rec {
-        # packages.hello = 
-        # defaultPackage = packages.hello;
-        devShell = pkgs.callPackage ./shell.nix {};
+      in
+      rec {
+        devShell = pkgs.callPackage ./shell.nix { };
+        formatter = pkgs.nixpkgs-fmt;
       });
 }

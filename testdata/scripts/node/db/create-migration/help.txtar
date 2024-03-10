@@ -1,0 +1,14 @@
+exec chainlink node db create-migration --help
+cmp stdout out.txt
+! stderr .
+
+-- out.txt --
+NAME:
+   chainlink node db create-migration - Create a new migration.
+
+USAGE:
+   chainlink node db create-migration [command options] [arguments...]
+
+OPTIONS:
+   --type go  set to go to generate a .go migration (instead of .sql)
+   

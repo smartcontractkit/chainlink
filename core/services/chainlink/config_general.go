@@ -1,107 +1,288 @@
 package chainlink
 
 import (
+	_ "embed"
 	"fmt"
-	"net"
-	"net/url"
+	"os"
 	"path/filepath"
-	"strconv"
+	"strings"
 	"sync"
 	"time"
 
-	"github.com/gin-gonic/contrib/sessions"
-	"github.com/pelletier/go-toml/v2"
-	uuid "github.com/satori/go.uuid"
-	"github.com/urfave/cli"
+	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/libocr/commontypes"
-	ocrnetworking "github.com/smartcontractkit/libocr/networking"
+	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
+	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
+	starknet "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 
-	coreconfig "github.com/smartcontractkit/chainlink/core/config"
-	v2 "github.com/smartcontractkit/chainlink/core/config/v2"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/core/store/dialects"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
+	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
+	"github.com/smartcontractkit/chainlink/v2/core/config/env"
+	"github.com/smartcontractkit/chainlink/v2/core/config/parse"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // generalConfig is a wrapper to adapt Config to the config.GeneralConfig interface.
 type generalConfig struct {
 	inputTOML     string // user input, normalized via de/re-serialization
 	effectiveTOML string // with default values included
-	c             *Config
-	secrets       *Secrets
+	secretsTOML   string // with env overrides includes, redacted
 
-	// state
-	appID     uuid.UUID
-	appIDOnce sync.Once
+	c       *Config // all fields non-nil (unless the legacy method signature return a pointer)
+	secrets *Secrets
+
+	warning error // warnings about inputTOML, e.g. deprecated fields
 
 	logLevelDefault zapcore.Level
-	logLevel        zapcore.Level
-	logSQL          bool
-	logMu           sync.RWMutex
+
+	appIDOnce sync.Once
+
+	logMu sync.RWMutex // for the mutable fields Log.Level & Log.SQL
+
+	passwordMu sync.RWMutex // passwords are set after initialization
 }
 
-func NewGeneralConfig(configToml string, secretsToml string, context *cli.Context) (coreconfig.GeneralConfig, error) {
+// GeneralConfigOpts holds configuration options for creating a coreconfig.GeneralConfig via New().
+//
+// See ParseTOML to initilialize Config and Secrets from TOML.
+type GeneralConfigOpts struct {
+	ConfigStrings  []string
+	SecretsStrings []string
+
+	Config
+	Secrets
+
+	// OverrideFn is a *test-only* hook to override effective values.
+	OverrideFn func(*Config, *Secrets)
+
+	SkipEnv bool
+}
+
+func (o *GeneralConfigOpts) Setup(configFiles []string, secretsFiles []string) error {
+	configs := []string{}
+	for _, fileName := range configFiles {
+		b, err := os.ReadFile(fileName)
+		if err != nil {
+			return errors.Wrapf(err, "failed to read config file: %s", fileName)
+		}
+		configs = append(configs, string(b))
+	}
+
+	if configTOML := env.Config.Get(); configTOML != "" {
+		configs = append(configs, configTOML)
+	}
+
+	o.ConfigStrings = configs
+
+	secrets := []string{}
+	for _, fileName := range secretsFiles {
+		b, err := os.ReadFile(fileName)
+		if err != nil {
+			return errors.Wrapf(err, "failed to read secrets file: %s", fileName)
+		}
+		secrets = append(secrets, string(b))
+	}
+
+	o.SecretsStrings = secrets
+	return nil
+}
+
+// parseConfig sets Config from the given TOML string, overriding any existing duplicate Config fields.
+func (o *GeneralConfigOpts) parseConfig(config string) error {
 	var c Config
-	err := toml.Unmarshal([]byte(configToml), &c)
-	if err != nil {
-		return nil, err
-	}
-	input, err := c.TOMLString()
-	if err != nil {
-		return nil, err
+	if err2 := commonconfig.DecodeTOML(strings.NewReader(config), &c); err2 != nil {
+		return fmt.Errorf("failed to decode config TOML: %w", err2)
 	}
 
-	c.SetDefaults()
-
-	effective, err := c.TOMLString()
-	if err != nil {
-		return nil, err
+	// Overrides duplicate fields
+	if err4 := o.Config.SetFrom(&c); err4 != nil {
+		return fmt.Errorf("invalid configuration: %w", err4)
 	}
+	return nil
+}
 
+// parseSecrets sets Secrets from the given TOML string. Errors on overrides
+func (o *GeneralConfigOpts) parseSecrets(secrets string) error {
 	var s Secrets
-	err = toml.Unmarshal([]byte(secretsToml), &s)
-	if err != nil {
-		return nil, err
+	if err2 := commonconfig.DecodeTOML(strings.NewReader(secrets), &s); err2 != nil {
+		return fmt.Errorf("failed to decode secrets TOML: %w", err2)
 	}
-	err = s.SetOverrides(context)
+
+	// merge fields and err on overrides
+	if err4 := o.Secrets.SetFrom(&s); err4 != nil {
+		return fmt.Errorf("invalid secrets: %w", err4)
+	}
+
+	return nil
+}
+
+// New returns a GeneralConfig for the given options.
+func (o GeneralConfigOpts) New() (GeneralConfig, error) {
+	err := o.parse()
 	if err != nil {
 		return nil, err
 	}
 
-	return &generalConfig{c: &c, inputTOML: input, effectiveTOML: effective, secrets: &s}, nil
+	input, err := o.Config.TOMLString()
+	if err != nil {
+		return nil, err
+	}
+
+	_, warning := utils.MultiErrorList(o.Config.warnings())
+
+	o.Config.setDefaults()
+	if !o.SkipEnv {
+		err = o.Secrets.setEnv()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if fn := o.OverrideFn; fn != nil {
+		fn(&o.Config, &o.Secrets)
+	}
+
+	effective, err := o.Config.TOMLString()
+	if err != nil {
+		return nil, err
+	}
+
+	secrets, err := o.Secrets.TOMLString()
+	if err != nil {
+		return nil, err
+	}
+
+	cfg := &generalConfig{
+		inputTOML:     input,
+		effectiveTOML: effective,
+		secretsTOML:   secrets,
+		c:             &o.Config,
+		secrets:       &o.Secrets,
+		warning:       warning,
+	}
+	if lvl := o.Config.Log.Level; lvl != nil {
+		cfg.logLevelDefault = zapcore.Level(*lvl)
+	}
+
+	return cfg, nil
+}
+
+func (o *GeneralConfigOpts) parse() (err error) {
+	for _, c := range o.ConfigStrings {
+		err := o.parseConfig(c)
+		if err != nil {
+			return err
+		}
+	}
+
+	for _, s := range o.SecretsStrings {
+		err := o.parseSecrets(s)
+		if err != nil {
+			return err
+		}
+	}
+
+	o.Secrets.setDefaults()
+	return
+}
+
+func (g *generalConfig) EVMConfigs() evmcfg.EVMConfigs {
+	return g.c.EVM
+}
+
+func (g *generalConfig) CosmosConfigs() coscfg.TOMLConfigs {
+	return g.c.Cosmos
+}
+
+func (g *generalConfig) SolanaConfigs() solana.TOMLConfigs {
+	return g.c.Solana
+}
+
+func (g *generalConfig) StarknetConfigs() starknet.TOMLConfigs {
+	return g.c.Starknet
 }
 
 func (g *generalConfig) Validate() error {
-	return multierr.Combine(g.c.Validate(), g.secrets.Validate())
+	return g.validate(g.secrets.Validate)
 }
 
-func (g *generalConfig) LogConfiguration(log coreconfig.LogFn) {
-	log("Input Configuration:\n", g.inputTOML)
-	log("Effective Configuration, with defaults applied:\n", g.effectiveTOML)
+func (g *generalConfig) validate(secretsValidationFn func() error) error {
+	err := multierr.Combine(
+		validateEnv(),
+		g.c.Validate(),
+		secretsValidationFn(),
+	)
+
+	_, errList := utils.MultiErrorList(err)
+	return errList
 }
 
-func (g *generalConfig) Dev() bool {
-	return v2.CLDev
+func (g *generalConfig) ValidateDB() error {
+	return g.validate(g.secrets.ValidateDB)
 }
 
-func (g *generalConfig) FeatureExternalInitiators() bool {
-	return *g.c.JobPipeline.ExternalInitiatorsEnabled
+//go:embed legacy.env
+var emptyStringsEnv string
+
+// validateEnv returns an error if any legacy environment variables are set, unless a v2 equivalent exists with the same value.
+func validateEnv() (err error) {
+	defer func() {
+		if err != nil {
+			_, err = utils.MultiErrorList(err)
+			err = fmt.Errorf("invalid environment: %w", err)
+		}
+	}()
+	for _, kv := range strings.Split(emptyStringsEnv, "\n") {
+		if strings.TrimSpace(kv) == "" {
+			continue
+		}
+		i := strings.Index(kv, "=")
+		if i == -1 {
+			return errors.Errorf("malformed .env file line: %s", kv)
+		}
+		k := kv[:i]
+		_, ok := os.LookupEnv(k)
+		if ok {
+			err = multierr.Append(err, fmt.Errorf("environment variable %s must not be set: %v", k, v2.ErrUnsupported))
+		}
+	}
+	return
+}
+
+func (g *generalConfig) LogConfiguration(log, warn coreconfig.LogfFn) {
+	log("# Secrets:\n%s\n", g.secretsTOML)
+	log("# Input Configuration:\n%s\n", g.inputTOML)
+	log("# Effective Configuration, with defaults applied:\n%s\n", g.effectiveTOML)
+	if g.warning != nil {
+		warn("# Configuration warning:\n%s\n", g.warning)
+	}
+}
+
+// ConfigTOML implements chainlink.ConfigV2
+func (g *generalConfig) ConfigTOML() (user, effective string) {
+	return g.inputTOML, g.effectiveTOML
+}
+
+func (g *generalConfig) Feature() coreconfig.Feature {
+	return &featureConfig{c: g.c.Feature}
 }
 
 func (g *generalConfig) FeatureFeedsManager() bool {
 	return *g.c.Feature.FeedsManager
 }
 
-func (g *generalConfig) FeatureOffchainReporting() bool {
-	return *g.c.OCR.Enabled
+func (g *generalConfig) OCR() config.OCR {
+	return &ocrConfig{c: g.c.OCR}
 }
 
-func (g *generalConfig) FeatureOffchainReporting2() bool {
+func (g *generalConfig) OCR2Enabled() bool {
 	return *g.c.OCR2.Enabled
 }
 
@@ -113,40 +294,42 @@ func (g *generalConfig) FeatureUICSAKeys() bool {
 	return *g.c.Feature.UICSAKeys
 }
 
-func (g *generalConfig) AutoPprofEnabled() bool {
-	return *g.c.AutoPprof.Enabled
+func (g *generalConfig) AutoPprof() config.AutoPprof {
+	return &autoPprofConfig{c: g.c.AutoPprof, rootDir: g.RootDir}
 }
 
 func (g *generalConfig) EVMEnabled() bool {
 	for _, c := range g.c.EVM {
-		if e := c.Enabled; e != nil && *e {
+		if c.IsEnabled() {
 			return true
 		}
 	}
 	return false
 }
 
-func (g *generalConfig) KeeperCheckUpkeepGasPriceFeatureEnabled() bool {
-	return *g.c.Keeper.UpkeepCheckGasPriceEnabled
-}
-
-func (g *generalConfig) P2PEnabled() bool {
-	p := g.c.P2P
-	return p.V1 != nil || p.V2 != nil //TODO or Disabled off switch?
+func (g *generalConfig) EVMRPCEnabled() bool {
+	for _, c := range g.c.EVM {
+		if c.IsEnabled() {
+			if len(c.Nodes) > 0 {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (g *generalConfig) SolanaEnabled() bool {
 	for _, c := range g.c.Solana {
-		if e := c.Enabled; e != nil && *e {
+		if c.IsEnabled() {
 			return true
 		}
 	}
 	return false
 }
 
-func (g *generalConfig) TerraEnabled() bool {
-	for _, c := range g.c.Terra {
-		if e := c.Enabled; e != nil && *e {
+func (g *generalConfig) CosmosEnabled() bool {
+	for _, c := range g.c.Cosmos {
+		if c.IsEnabled() {
 			return true
 		}
 	}
@@ -155,23 +338,15 @@ func (g *generalConfig) TerraEnabled() bool {
 
 func (g *generalConfig) StarkNetEnabled() bool {
 	for _, c := range g.c.Starknet {
-		if e := c.Enabled; e != nil && *e {
+		if c.IsEnabled() {
 			return true
 		}
 	}
 	return false
 }
 
-func (g *generalConfig) AllowOrigins() string {
-	return *g.c.WebServer.AllowOrigins
-}
-
-func (g *generalConfig) AuthenticatedRateLimit() int64 {
-	return *g.c.WebServer.RateLimit.Authenticated
-}
-
-func (g *generalConfig) AuthenticatedRateLimitPeriod() models.Duration {
-	return *g.c.WebServer.RateLimit.AuthenticatedPeriod
+func (g *generalConfig) WebServer() config.WebServer {
+	return &webServerConfig{c: g.c.WebServer, s: g.secrets.WebServer, rootDir: g.RootDir}
 }
 
 func (g *generalConfig) AutoPprofBlockProfileRate() int {
@@ -182,12 +357,12 @@ func (g *generalConfig) AutoPprofCPUProfileRate() int {
 	return int(*g.c.AutoPprof.CPUProfileRate)
 }
 
-func (g *generalConfig) AutoPprofGatherDuration() models.Duration {
-	return models.MustMakeDuration(g.c.AutoPprof.GatherDuration.Duration())
+func (g *generalConfig) AutoPprofGatherDuration() commonconfig.Duration {
+	return *commonconfig.MustNewDuration(g.c.AutoPprof.GatherDuration.Duration())
 }
 
-func (g *generalConfig) AutoPprofGatherTraceDuration() models.Duration {
-	return models.MustMakeDuration(g.c.AutoPprof.GatherTraceDuration.Duration())
+func (g *generalConfig) AutoPprofGatherTraceDuration() commonconfig.Duration {
+	return *commonconfig.MustNewDuration(g.c.AutoPprof.GatherTraceDuration.Duration())
 }
 
 func (g *generalConfig) AutoPprofGoroutineThreshold() int {
@@ -210,410 +385,68 @@ func (g *generalConfig) AutoPprofMutexProfileFraction() int {
 	return int(*g.c.AutoPprof.MutexProfileFraction)
 }
 
-func (g *generalConfig) AutoPprofPollInterval() models.Duration {
+func (g *generalConfig) AutoPprofPollInterval() commonconfig.Duration {
 	return *g.c.AutoPprof.PollInterval
 }
 
 func (g *generalConfig) AutoPprofProfileRoot() string {
-	return *g.c.AutoPprof.ProfileRoot
+	s := *g.c.AutoPprof.ProfileRoot
+	if s == "" {
+		s = filepath.Join(g.RootDir(), "pprof")
+	}
+	return s
 }
 
-func (g *generalConfig) PyroscopeAuthToken() string {
-	return *g.c.Pyroscope.AuthToken
-}
-
-func (g *generalConfig) PyroscopeServerAddress() string {
-	return *g.c.Pyroscope.ServerAddress
-}
-
-func (g *generalConfig) PyroscopeEnvironment() string {
-	return *g.c.Pyroscope.Environment
-}
-
-func (g *generalConfig) BlockBackfillDepth() uint64 {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (g *generalConfig) BlockBackfillSkip() bool {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (g *generalConfig) BridgeResponseURL() *url.URL {
-	return (*url.URL)(g.c.WebServer.BridgeResponseURL)
-}
-
-func (g *generalConfig) CertFile() string {
-	return *g.c.WebServer.TLS.CertPath
-}
-
-func (g *generalConfig) DatabaseBackupDir() string {
-	return *g.c.Database.Backup.Dir
-}
-
-func (g *generalConfig) DatabaseBackupFrequency() time.Duration {
-	return g.c.Database.Backup.Frequency.Duration()
-}
-
-func (g *generalConfig) DatabaseBackupMode() coreconfig.DatabaseBackupMode {
-	return *g.c.Database.Backup.Mode
-}
-
-func (g *generalConfig) DatabaseBackupOnVersionUpgrade() bool {
-	return *g.c.Database.Backup.OnVersionUpgrade
-}
-
-func (g *generalConfig) DatabaseListenerMaxReconnectDuration() time.Duration {
-	return g.c.Database.Listener.MaxReconnectDuration.Duration()
-}
-
-func (g *generalConfig) DatabaseListenerMinReconnectInterval() time.Duration {
-	return g.c.Database.Listener.MinReconnectInterval.Duration()
-}
-
-func (g *generalConfig) DefaultHTTPLimit() int64 {
-	return int64(*g.c.JobPipeline.HTTPRequestMaxSize)
-}
-
-func (g *generalConfig) DefaultHTTPTimeout() models.Duration {
-	return *g.c.JobPipeline.DefaultHTTPRequestTimeout
+func (g *generalConfig) Database() coreconfig.Database {
+	return &databaseConfig{c: g.c.Database, s: g.secrets.Secrets.Database, logSQL: g.logSQL}
 }
 
 func (g *generalConfig) ShutdownGracePeriod() time.Duration {
 	return g.c.ShutdownGracePeriod.Duration()
 }
 
-func (g *generalConfig) ExplorerURL() *url.URL {
-	return (*url.URL)(g.c.ExplorerURL)
-}
-
-func (g *generalConfig) FMDefaultTransactionQueueDepth() uint32 {
-	return *g.c.FluxMonitor.DefaultTransactionQueueDepth
-}
-
-func (g *generalConfig) FMSimulateTransactions() bool {
-	return *g.c.FluxMonitor.SimulateTransactions
-}
-
-func (g *generalConfig) GetDatabaseDialectConfiguredOrDefault() dialects.DialectName {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (g *generalConfig) HTTPServerWriteTimeout() time.Duration {
-	return g.c.WebServer.HTTPWriteTimeout.Duration()
+func (g *generalConfig) FluxMonitor() config.FluxMonitor {
+	return &fluxMonitorConfig{c: g.c.FluxMonitor}
 }
 
 func (g *generalConfig) InsecureFastScrypt() bool {
 	return *g.c.InsecureFastScrypt
 }
 
-func (g *generalConfig) JSONConsole() bool {
-	return *g.c.Log.JSONConsole
-}
-
-func (g *generalConfig) JobPipelineMaxRunDuration() time.Duration {
-	return g.c.JobPipeline.MaxRunDuration.Duration()
-}
-
 func (g *generalConfig) JobPipelineReaperInterval() time.Duration {
 	return g.c.JobPipeline.ReaperInterval.Duration()
-}
-
-func (g *generalConfig) JobPipelineReaperThreshold() time.Duration {
-	return g.c.JobPipeline.ReaperThreshold.Duration()
 }
 
 func (g *generalConfig) JobPipelineResultWriteQueueDepth() uint64 {
 	return uint64(*g.c.JobPipeline.ResultWriteQueueDepth)
 }
 
-func (g *generalConfig) KeeperDefaultTransactionQueueDepth() uint32 {
-	return *g.c.Keeper.DefaultTransactionQueueDepth
+func (g *generalConfig) JobPipeline() coreconfig.JobPipeline {
+	return &jobPipelineConfig{c: g.c.JobPipeline}
 }
 
-func (g *generalConfig) KeeperGasPriceBufferPercent() uint32 {
-	return *g.c.Keeper.GasPriceBufferPercent
+func (g *generalConfig) Keeper() config.Keeper {
+	return &keeperConfig{c: g.c.Keeper}
 }
 
-func (g *generalConfig) KeeperGasTipCapBufferPercent() uint32 {
-	return *g.c.Keeper.GasTipCapBufferPercent
+func (g *generalConfig) Log() config.Log {
+	return &logConfig{c: g.c.Log, rootDir: g.RootDir, level: g.logLevel, defaultLevel: g.logLevelDefault}
 }
 
-func (g *generalConfig) KeeperBaseFeeBufferPercent() uint32 {
-	return *g.c.Keeper.BaseFeeBufferPercent
+func (g *generalConfig) OCR2() config.OCR2 {
+	return &ocr2Config{c: g.c.OCR2}
 }
 
-func (g *generalConfig) KeeperMaximumGracePeriod() int64 {
-	return *g.c.Keeper.MaximumGracePeriod
-}
-
-func (g *generalConfig) KeeperRegistryCheckGasOverhead() uint32 {
-	return *g.c.Keeper.RegistryCheckGasOverhead
-}
-
-func (g *generalConfig) KeeperRegistryPerformGasOverhead() uint32 {
-	return *g.c.Keeper.RegistryPerformGasOverhead
-}
-
-func (g *generalConfig) KeeperRegistryMaxPerformDataSize() uint32 {
-	return *g.c.Keeper.RegistryMaxPerformDataSize
-}
-
-func (g *generalConfig) KeeperRegistrySyncInterval() time.Duration {
-	return g.c.Keeper.RegistrySyncInterval.Duration()
-}
-
-func (g *generalConfig) KeeperRegistrySyncUpkeepQueueSize() uint32 {
-	return *g.c.Keeper.RegistrySyncUpkeepQueueSize
-}
-
-func (g *generalConfig) KeeperTurnLookBack() int64 {
-	return *g.c.Keeper.TurnLookBack
-}
-
-func (g *generalConfig) KeeperTurnFlagEnabled() bool {
-	return *g.c.Keeper.TurnFlagEnabled
-}
-
-func (g *generalConfig) KeyFile() string {
-	if g.TLSKeyPath() == "" {
-		return filepath.Join(g.TLSDir(), "server.key")
-	}
-	return g.TLSKeyPath()
-}
-
-func (g *generalConfig) LeaseLockDuration() time.Duration {
-	return g.c.Database.Lock.LeaseDuration.Duration()
-}
-
-func (g *generalConfig) LeaseLockRefreshInterval() time.Duration {
-	return g.c.Database.Lock.LeaseRefreshInterval.Duration()
-}
-
-func (g *generalConfig) LogFileDir() string {
-	return *g.c.Log.FileDir
-}
-
-func (g *generalConfig) LogFileMaxSize() utils.FileSize {
-	return *g.c.Log.FileMaxSize
-}
-
-func (g *generalConfig) LogFileMaxAge() int64 {
-	return *g.c.Log.FileMaxAgeDays
-}
-
-func (g *generalConfig) LogFileMaxBackups() int64 {
-	return *g.c.Log.FileMaxBackups
-}
-
-func (g *generalConfig) LogUnixTimestamps() bool {
-	return *g.c.Log.UnixTS
-}
-
-func (g *generalConfig) MigrateDatabase() bool {
-	return *g.c.Database.MigrateOnStartup
-}
-
-func (g *generalConfig) ORMMaxIdleConns() int {
-	return int(*g.c.Database.ORMMaxIdleConns)
-}
-
-func (g *generalConfig) ORMMaxOpenConns() int {
-	return int(*g.c.Database.ORMMaxOpenConns)
-}
-
-func (g *generalConfig) Port() uint16 {
-	return *g.c.WebServer.HTTPPort
-}
-
-func (g *generalConfig) RPID() string {
-	return *g.c.WebServer.MFA.RPID
-}
-
-func (g *generalConfig) RPOrigin() string {
-	return *g.c.WebServer.MFA.RPOrigin
-}
-
-func (g *generalConfig) ReaperExpiration() models.Duration {
-	return *g.c.WebServer.SessionReaperExpiration
-}
-
-func (g *generalConfig) RootDir() string {
-	return *g.c.RootDir
-}
-
-func (g *generalConfig) SecureCookies() bool {
-	return *g.c.WebServer.SecureCookies
-}
-
-func (g *generalConfig) SessionOptions() sessions.Options {
-	return sessions.Options{
-		Secure:   g.SecureCookies(),
-		HttpOnly: true,
-		MaxAge:   86400 * 30,
-	}
-}
-
-func (g *generalConfig) SessionTimeout() models.Duration {
-	return models.MustMakeDuration(g.c.WebServer.SessionTimeout.Duration())
-}
-
-func (g *generalConfig) TLSCertPath() string {
-	return *g.c.WebServer.TLS.CertPath
-}
-
-func (g *generalConfig) TLSDir() string {
-	return filepath.Join(*g.c.RootDir, "tls")
-}
-
-func (g *generalConfig) TLSHost() string {
-	return *g.c.WebServer.TLS.Host
-}
-
-func (g *generalConfig) TLSKeyPath() string {
-	return *g.c.WebServer.TLS.KeyPath
-}
-
-func (g *generalConfig) TLSPort() uint16 {
-	return *g.c.WebServer.TLS.HTTPSPort
-}
-
-func (g *generalConfig) TLSRedirect() bool {
-	return *g.c.WebServer.TLS.ForceRedirect
-}
-
-func (g *generalConfig) TelemetryIngressLogging() bool {
-	return *g.c.TelemetryIngress.Logging
-}
-
-func (g *generalConfig) TelemetryIngressUniConn() bool {
-	return *g.c.TelemetryIngress.UniConn
-}
-
-func (g *generalConfig) TelemetryIngressServerPubKey() string {
-	return *g.c.TelemetryIngress.ServerPubKey
-}
-
-func (g *generalConfig) TelemetryIngressURL() *url.URL {
-	return (*url.URL)(g.c.TelemetryIngress.URL)
-}
-
-func (g *generalConfig) TelemetryIngressBufferSize() uint {
-	return uint(*g.c.TelemetryIngress.BufferSize)
-}
-
-func (g *generalConfig) TelemetryIngressMaxBatchSize() uint {
-	return uint(*g.c.TelemetryIngress.MaxBatchSize)
-}
-
-func (g *generalConfig) TelemetryIngressSendInterval() time.Duration {
-	return g.c.TelemetryIngress.SendInterval.Duration()
-}
-
-func (g *generalConfig) TelemetryIngressSendTimeout() time.Duration {
-	return g.c.TelemetryIngress.SendTimeout.Duration()
-}
-
-func (g *generalConfig) TelemetryIngressUseBatchSend() bool {
-	return *g.c.TelemetryIngress.UseBatchSend
-}
-
-func (g *generalConfig) TriggerFallbackDBPollInterval() time.Duration {
-	return g.c.Database.Listener.FallbackPollInterval.Duration()
-}
-
-func (g *generalConfig) UnAuthenticatedRateLimit() int64 {
-	return *g.c.WebServer.RateLimit.Unauthenticated
-}
-
-func (g *generalConfig) UnAuthenticatedRateLimitPeriod() models.Duration {
-	return *g.c.WebServer.RateLimit.UnauthenticatedPeriod
-}
-
-func (g *generalConfig) OCRBlockchainTimeout() time.Duration {
-	return g.c.OCR.BlockchainTimeout.Duration()
-}
-
-func (g *generalConfig) OCRContractPollInterval() time.Duration {
-	return g.c.OCR.ContractPollInterval.Duration()
-}
-
-func (g *generalConfig) OCRContractSubscribeInterval() time.Duration {
-	return g.c.OCR.ContractSubscribeInterval.Duration()
-}
-
-func (g *generalConfig) OCRKeyBundleID() (string, error) {
-	return g.c.OCR.KeyBundleID.String(), nil
-}
-
-func (g *generalConfig) OCRObservationTimeout() time.Duration {
-	return g.c.OCR.ObservationTimeout.Duration()
-}
-
-func (g *generalConfig) OCRSimulateTransactions() bool {
-	return *g.c.OCR.SimulateTransactions
-}
-
-func (g *generalConfig) OCRTransmitterAddress() (ethkey.EIP55Address, error) {
-	return *g.c.OCR.TransmitterAddress, nil
-}
-
-func (g *generalConfig) OCRTraceLogging() bool {
-	return *g.c.P2P.TraceLogging
-}
-
-func (g *generalConfig) OCRDefaultTransactionQueueDepth() uint32 {
-	return *g.c.OCR.DefaultTransactionQueueDepth
-}
-
-func (g *generalConfig) OCR2ContractConfirmations() uint16 {
-	return uint16(*g.c.OCR2.ContractConfirmations)
-}
-
-func (g *generalConfig) OCR2ContractTransmitterTransmitTimeout() time.Duration {
-	return g.c.OCR2.ContractTransmitterTransmitTimeout.Duration()
-}
-
-func (g *generalConfig) OCR2BlockchainTimeout() time.Duration {
-	return g.c.OCR2.BlockchainTimeout.Duration()
-}
-
-func (g *generalConfig) OCR2DatabaseTimeout() time.Duration {
-	return g.c.OCR2.DatabaseTimeout.Duration()
-}
-
-func (g *generalConfig) OCR2ContractPollInterval() time.Duration {
-	return g.c.OCR2.ContractPollInterval.Duration()
-}
-
-func (g *generalConfig) OCR2ContractSubscribeInterval() time.Duration {
-	return g.c.OCR2.ContractSubscribeInterval.Duration()
-}
-
-func (g *generalConfig) OCR2KeyBundleID() (string, error) {
-	return g.c.OCR2.KeyBundleID.String(), nil
-}
-
-func (g *generalConfig) OCR2TraceLogging() bool {
-	return *g.c.P2P.TraceLogging
-}
-
-func (g *generalConfig) P2PNetworkingStack() (n ocrnetworking.NetworkingStack) {
-	return g.c.P2P.NetworkStack()
-}
-
-func (g *generalConfig) P2PNetworkingStackRaw() string {
-	return g.c.P2P.NetworkStack().String()
+func (g *generalConfig) P2P() config.P2P {
+	return &p2p{c: g.c.P2P}
 }
 
 func (g *generalConfig) P2PPeerID() p2pkey.PeerID {
-	return *g.c.P2P.V1.PeerID
+	return *g.c.P2P.PeerID
 }
 
 func (g *generalConfig) P2PPeerIDRaw() string {
-	return g.c.P2P.V1.PeerID.String()
+	return g.c.P2P.PeerID.String()
 }
 
 func (g *generalConfig) P2PIncomingMessageBufferSize() int {
@@ -624,139 +457,55 @@ func (g *generalConfig) P2POutgoingMessageBufferSize() int {
 	return int(*g.c.P2P.OutgoingMessageBufferSize)
 }
 
-func (g *generalConfig) OCRNewStreamTimeout() time.Duration {
-	return g.c.P2P.V1.NewStreamTimeout.Duration()
+func (g *generalConfig) Pyroscope() config.Pyroscope {
+	return &pyroscopeConfig{c: g.c.Pyroscope, s: g.secrets.Pyroscope}
 }
 
-func (g *generalConfig) OCRBootstrapCheckInterval() time.Duration {
-	return g.c.P2P.V1.BootstrapCheckInterval.Duration()
-}
-
-func (g *generalConfig) OCRDHTLookupInterval() int {
-	return int(*g.c.P2P.V1.DHTLookupInterval)
-}
-
-func (g *generalConfig) OCRIncomingMessageBufferSize() int {
-	return int(*g.c.P2P.IncomingMessageBufferSize)
-}
-
-func (g *generalConfig) OCROutgoingMessageBufferSize() int {
-	return int(*g.c.P2P.OutgoingMessageBufferSize)
-}
-
-func (g *generalConfig) P2PAnnounceIP() net.IP {
-	return *g.c.P2P.V1.AnnounceIP
-}
-
-func (g *generalConfig) P2PAnnouncePort() uint16 {
-	return *g.c.P2P.V1.AnnouncePort
-}
-
-func (g *generalConfig) P2PBootstrapPeers() ([]string, error) {
-	return *g.c.P2P.V1.DefaultBootstrapPeers, nil
-}
-
-func (g *generalConfig) P2PDHTAnnouncementCounterUserPrefix() uint32 {
-	return *g.c.P2P.V1.DHTAnnouncementCounterUserPrefix
-}
-
-func (g *generalConfig) P2PListenIP() net.IP {
-	return *g.c.P2P.V1.ListenIP
-}
-
-func (g *generalConfig) P2PListenPort() uint16 {
-	return *g.c.P2P.V1.ListenPort
-}
-
-func (g *generalConfig) P2PListenPortRaw() string {
-	return strconv.Itoa(int(*g.c.P2P.V1.ListenPort))
-}
-
-func (g *generalConfig) P2PNewStreamTimeout() time.Duration {
-	return g.c.P2P.V1.NewStreamTimeout.Duration()
-}
-
-func (g *generalConfig) P2PBootstrapCheckInterval() time.Duration {
-	return g.c.P2P.V1.BootstrapCheckInterval.Duration()
-}
-
-func (g *generalConfig) P2PDHTLookupInterval() int {
-	return int(*g.c.P2P.V1.DHTLookupInterval)
-}
-
-func (g *generalConfig) P2PPeerstoreWriteInterval() time.Duration {
-	return g.c.P2P.V1.PeerstoreWriteInterval.Duration()
-}
-
-func (g *generalConfig) P2PV2AnnounceAddresses() []string {
-	if p := g.c.P2P; p != nil {
-		if v2 := p.V2; v2 != nil {
-			if v := v2.AnnounceAddresses; v != nil {
-				return *v
-			}
-		}
+func (g *generalConfig) RootDir() string {
+	d := *g.c.RootDir
+	h, err := parse.HomeDir(d)
+	if err != nil {
+		panic(err) // never happens since we validate that the RootDir is expandable in config.Core.ValidateConfig().
 	}
-	return nil
+	return h
 }
 
-func (g *generalConfig) P2PV2Bootstrappers() (locators []commontypes.BootstrapperLocator) {
-	if p := g.c.P2P; p != nil {
-		if v2 := p.V2; v2 != nil {
-			if v := v2.DefaultBootstrappers; v != nil {
-				return *v
-			}
-		}
+func (g *generalConfig) TelemetryIngress() coreconfig.TelemetryIngress {
+	return &telemetryIngressConfig{
+		c: g.c.TelemetryIngress,
 	}
-	return nil
 }
 
-func (g *generalConfig) P2PV2BootstrappersRaw() (s []string) {
-	if p := g.c.P2P; p != nil {
-		if v2 := p.V2; v2 != nil {
-			if v := v2.DefaultBootstrappers; v != nil {
-				for _, b := range *v {
-					t, err := b.MarshalText()
-					if err != nil {
-						// log panic matches old behavior - only called for UI presentation
-						panic(fmt.Sprintf("Failed to marshal bootstrapper: %v", err))
-					}
-					s = append(s, string(t))
-				}
-			}
-		}
-	}
-	return
+func (g *generalConfig) AuditLogger() coreconfig.AuditLogger {
+	return auditLoggerConfig{c: g.c.AuditLogger}
 }
 
-func (g *generalConfig) P2PV2DeltaDial() models.Duration {
-	if p := g.c.P2P; p != nil {
-		if v2 := p.V2; v2 != nil {
-			if v := v2.DeltaDial; v != nil {
-				return *v
-			}
-		}
-	}
-	return models.Duration{}
+func (g *generalConfig) Insecure() config.Insecure {
+	return &insecureConfig{c: g.c.Insecure}
 }
 
-func (g *generalConfig) P2PV2DeltaReconcile() models.Duration {
-	if p := g.c.P2P; p != nil {
-		if v2 := p.V2; v2 != nil {
-			if v := v2.DeltaReconcile; v != nil {
-				return *v
-			}
-		}
-	}
-	return models.Duration{}
+func (g *generalConfig) Sentry() coreconfig.Sentry {
+	return sentryConfig{g.c.Sentry}
 }
 
-func (g *generalConfig) P2PV2ListenAddresses() []string {
-	if p := g.c.P2P; p != nil {
-		if v2 := p.V2; v2 != nil {
-			if v := v2.ListenAddresses; v != nil {
-				return *v
-			}
-		}
-	}
-	return nil
+func (g *generalConfig) Password() coreconfig.Password {
+	return &passwordConfig{keystore: g.keystorePassword, vrf: g.vrfPassword}
 }
+
+func (g *generalConfig) Prometheus() coreconfig.Prometheus {
+	return &prometheusConfig{s: g.secrets.Prometheus}
+}
+
+func (g *generalConfig) Mercury() coreconfig.Mercury {
+	return &mercuryConfig{c: g.c.Mercury, s: g.secrets.Mercury}
+}
+
+func (g *generalConfig) Threshold() coreconfig.Threshold {
+	return &thresholdConfig{s: g.secrets.Threshold}
+}
+
+func (g *generalConfig) Tracing() coreconfig.Tracing {
+	return &tracingConfig{s: g.c.Tracing}
+}
+
+var zeroSha256Hash = models.Sha256Hash{}

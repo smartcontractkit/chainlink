@@ -1,0 +1,25 @@
+{
+  "type": "solidity",
+  "basePath": "./contracts/test/",
+  "splits": [
+    {
+      "dir": "cross-version",
+      "numOfSplits": 1
+    },
+    {
+      "dir": "v0.8",
+      "numOfSplits": 6,
+      "slowTests": [
+        "Cron",
+        "CronUpkeep",
+        "VRFSubscriptionBalanceMonitor",
+        "EthBalanceMonitor",
+        "KeeperRegistrar",
+        "KeeperRegistry1_2",
+        "KeeperRegistry1_3",
+        "KeeperRegistry2_0",
+        "KeeperRegistry2_1"
+      ]
+    }
+  ]
+}

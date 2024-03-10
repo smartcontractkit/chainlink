@@ -7,36 +7,37 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/onsi/gomega"
 	"github.com/pkg/errors"
-	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v4"
-
 	"github.com/smartcontractkit/libocr/gethwrappers/link_token_interface"
+	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/forwarders"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/authorized_forwarder"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/basic_upkeep_contract"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_logic1_3"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_1"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_2"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_3"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/mock_v3_aggregator_contract"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/keeper"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/basic_upkeep_contract"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic1_3"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_1"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_2"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_3"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_v3_aggregator_contract"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	webpresenters "github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
 var (
@@ -53,7 +54,7 @@ func deployKeeperRegistry(
 	t *testing.T,
 	version keeper.RegistryVersion,
 	auth *bind.TransactOpts,
-	backend *backends.SimulatedBackend,
+	backend *client.SimulatedBackendClient,
 	linkAddr, linkFeedAddr, gasFeedAddr common.Address,
 ) (common.Address, *keeper.RegistryWrapper) {
 	switch version {
@@ -75,6 +76,7 @@ func deployKeeperRegistry(
 		)
 		require.NoError(t, err)
 		backend.Commit()
+
 		wrapper, err := keeper.NewRegistryWrapper(ethkey.EIP55AddressFromAddress(regAddr), backend)
 		require.NoError(t, err)
 		return regAddr, wrapper
@@ -146,7 +148,7 @@ func deployKeeperRegistry(
 	}
 }
 
-func getUpkeepIdFromTx(t *testing.T, registryWrapper *keeper.RegistryWrapper, registrationTx *types.Transaction, backend *backends.SimulatedBackend) *big.Int {
+func getUpkeepIdFromTx(t *testing.T, registryWrapper *keeper.RegistryWrapper, registrationTx *types.Transaction, backend *client.SimulatedBackendClient) *big.Int {
 	receipt, err := backend.TransactionReceipt(testutils.Context(t), registrationTx.Hash())
 	require.NoError(t, err)
 	upkeepId, err := registryWrapper.GetUpkeepIdFromRawRegistrationLog(*receipt.Logs[0])
@@ -155,23 +157,25 @@ func getUpkeepIdFromTx(t *testing.T, registryWrapper *keeper.RegistryWrapper, re
 }
 
 func TestKeeperEthIntegration(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name            string
 		eip1559         bool
 		registryVersion keeper.RegistryVersion
 	}{
 		// name should be a valid ORM name, only containing alphanumeric/underscore
-		{"legacy_mode_registry1_1", false, keeper.RegistryVersion_1_1},
-		{"eip1559_mode_registry1_1", true, keeper.RegistryVersion_1_1},
-		{"legacy_mode_registry1_2", false, keeper.RegistryVersion_1_2},
-		{"eip1559_mode_registry1_2", true, keeper.RegistryVersion_1_2},
-		{"legacy_mode_registry1_3", false, keeper.RegistryVersion_1_3},
-		{"eip1559_mode_registry1_3", true, keeper.RegistryVersion_1_3},
+		{"legacy_registry1_1", false, keeper.RegistryVersion_1_1},
+		{"eip1559_registry1_1", true, keeper.RegistryVersion_1_1},
+		{"legacy_registry1_2", false, keeper.RegistryVersion_1_2},
+		{"eip1559_registry1_2", true, keeper.RegistryVersion_1_2},
+		{"legacy_registry1_3", false, keeper.RegistryVersion_1_3},
+		{"eip1559_registry1_3", true, keeper.RegistryVersion_1_3},
 	}
 
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			g := gomega.NewWithT(t)
 
 			// setup node key
@@ -186,18 +190,19 @@ func TestKeeperEthIntegration(t *testing.T) {
 			nelly := testutils.MustNewSimTransactor(t)  // other keeper operator 1
 			nick := testutils.MustNewSimTransactor(t)   // other keeper operator 2
 			genesisData := core.GenesisAlloc{
-				sergey.From: {Balance: assets.Ether(1000)},
-				steve.From:  {Balance: assets.Ether(1000)},
-				carrol.From: {Balance: assets.Ether(1000)},
-				nelly.From:  {Balance: assets.Ether(1000)},
-				nick.From:   {Balance: assets.Ether(1000)},
-				nodeAddress: {Balance: assets.Ether(1000)},
+				sergey.From: {Balance: assets.Ether(1000).ToInt()},
+				steve.From:  {Balance: assets.Ether(1000).ToInt()},
+				carrol.From: {Balance: assets.Ether(1000).ToInt()},
+				nelly.From:  {Balance: assets.Ether(1000).ToInt()},
+				nick.From:   {Balance: assets.Ether(1000).ToInt()},
+				nodeAddress: {Balance: assets.Ether(1000).ToInt()},
 			}
 
 			gasLimit := uint32(ethconfig.Defaults.Miner.GasCeil * 2)
-			backend := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
+			b := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
+			backend := client.NewSimulatedBackendClient(t, b, testutils.SimulatedChainID)
 
-			stopMining := cltest.Mine(backend, 1*time.Second) // >> 2 seconds and the test gets slow, << 1 second and the app may miss heads
+			stopMining := cltest.Mine(backend.Backend(), 1*time.Second) // >> 2 seconds and the test gets slow, << 1 second and the app may miss heads
 			defer stopMining()
 
 			linkAddr, _, linkToken, err := link_token_interface.DeployLinkToken(sergey, backend)
@@ -231,28 +236,21 @@ func TestKeeperEthIntegration(t *testing.T) {
 			backend.Commit()
 
 			// setup app
-			config, db := heavyweight.FullTestDB(t, fmt.Sprintf("keeper_eth_integration_%s", test.name))
-			korm := keeper.NewORM(db, logger.TestLogger(t), nil, nil)
-			config.Overrides.GlobalEvmEIP1559DynamicFees = null.BoolFrom(test.eip1559)
-			d := 24 * time.Hour
-			// disable full sync ticker for test
-			config.Overrides.KeeperRegistrySyncInterval = &d
-			// backfill will trigger sync on startup
-			config.Overrides.BlockBackfillDepth = null.IntFrom(0)
-			// disable reorg protection for this test
-			config.Overrides.GlobalMinIncomingConfirmations = null.IntFrom(1)
-			// avoid waiting to re-submit for upkeeps
-			config.Overrides.KeeperMaximumGracePeriod = null.IntFrom(0)
-			// test with gas price feature enabled
-			config.Overrides.KeeperCheckUpkeepGasPriceFeatureEnabled = null.BoolFrom(true)
-			// testing doesn't need to do far look back
-			config.Overrides.KeeperTurnLookBack = null.IntFrom(0)
-			// testing new turn taking
-			config.Overrides.KeeperTurnFlagEnabled = null.BoolFrom(true)
-			// helps prevent missed heads
-			config.Overrides.GlobalEvmHeadTrackerMaxBufferSize = null.IntFrom(100)
+			config, db := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+				c.EVM[0].GasEstimator.EIP1559DynamicFees = &test.eip1559
+				c.Keeper.MaxGracePeriod = ptr[int64](0)                                       // avoid waiting to re-submit for upkeeps
+				c.Keeper.Registry.SyncInterval = commonconfig.MustNewDuration(24 * time.Hour) // disable full sync ticker for test
 
-			app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, backend, nodeKey)
+				c.Keeper.TurnLookBack = ptr[int64](0) // testing doesn't need to do far look back
+
+				c.EVM[0].BlockBackfillDepth = ptr[uint32](0)          // backfill will trigger sync on startup
+				c.EVM[0].MinIncomingConfirmations = ptr[uint32](1)    // disable reorg protection for this test
+				c.EVM[0].HeadTracker.MaxBufferSize = ptr[uint32](100) // helps prevent missed heads
+			})
+			scopedConfig := evmtest.NewChainScopedConfig(t, config)
+			korm := keeper.NewORM(db, logger.TestLogger(t), scopedConfig.Database())
+
+			app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, backend.Backend(), nodeKey)
 			require.NoError(t, app.Start(testutils.Context(t)))
 
 			// create job
@@ -328,6 +326,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 }
 
 func TestKeeperForwarderEthIntegration(t *testing.T) {
+	t.Parallel()
 	t.Run("keeper_forwarder_flow", func(t *testing.T) {
 		g := gomega.NewWithT(t)
 
@@ -343,18 +342,19 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 		nelly := testutils.MustNewSimTransactor(t)  // other keeper operator 1
 		nick := testutils.MustNewSimTransactor(t)   // other keeper operator 2
 		genesisData := core.GenesisAlloc{
-			sergey.From: {Balance: assets.Ether(1000)},
-			steve.From:  {Balance: assets.Ether(1000)},
-			carrol.From: {Balance: assets.Ether(1000)},
-			nelly.From:  {Balance: assets.Ether(1000)},
-			nick.From:   {Balance: assets.Ether(1000)},
-			nodeAddress: {Balance: assets.Ether(1000)},
+			sergey.From: {Balance: assets.Ether(1000).ToInt()},
+			steve.From:  {Balance: assets.Ether(1000).ToInt()},
+			carrol.From: {Balance: assets.Ether(1000).ToInt()},
+			nelly.From:  {Balance: assets.Ether(1000).ToInt()},
+			nick.From:   {Balance: assets.Ether(1000).ToInt()},
+			nodeAddress: {Balance: assets.Ether(1000).ToInt()},
 		}
 
 		gasLimit := uint32(ethconfig.Defaults.Miner.GasCeil * 2)
-		backend := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
+		b := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
+		backend := client.NewSimulatedBackendClient(t, b, testutils.SimulatedChainID)
 
-		stopMining := cltest.Mine(backend, 1*time.Second) // >> 2 seconds and the test gets slow, << 1 second and the app may miss heads
+		stopMining := cltest.Mine(backend.Backend(), 1*time.Second) // >> 2 seconds and the test gets slow, << 1 second and the app may miss heads
 		defer stopMining()
 
 		linkAddr, _, linkToken, err := link_token_interface.DeployLinkToken(sergey, backend)
@@ -393,38 +393,32 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 		backend.Commit()
 
 		// setup app
-		config, db := heavyweight.FullTestDB(t, "keeper_forwarder_eth_integration")
-		korm := keeper.NewORM(db, logger.TestLogger(t), nil, nil)
-		config.Overrides.GlobalEvmEIP1559DynamicFees = null.BoolFrom(true)
-		d := 24 * time.Hour
-		// disable full sync ticker for test
-		config.Overrides.KeeperRegistrySyncInterval = &d
-		// backfill will trigger sync on startup
-		config.Overrides.BlockBackfillDepth = null.IntFrom(0)
-		// disable reorg protection for this test
-		config.Overrides.GlobalMinIncomingConfirmations = null.IntFrom(1)
-		// avoid waiting to re-submit for upkeeps
-		config.Overrides.KeeperMaximumGracePeriod = null.IntFrom(0)
-		// test with gas price feature enabled
-		config.Overrides.KeeperCheckUpkeepGasPriceFeatureEnabled = null.BoolFrom(true)
-		// testing doesn't need to do far look back
-		config.Overrides.KeeperTurnLookBack = null.IntFrom(0)
-		// testing new turn taking
-		config.Overrides.KeeperTurnFlagEnabled = null.BoolFrom(true)
-		// helps prevent missed heads
-		config.Overrides.GlobalEvmHeadTrackerMaxBufferSize = null.IntFrom(100)
-		// Enable Operator Forwarder flow
-		config.Overrides.GlobalEvmUseForwarders = null.BoolFrom(true)
+		config, db := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+			c.Feature.LogPoller = ptr(true)
+			c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(true)
+			c.Keeper.MaxGracePeriod = ptr[int64](0)                                       // avoid waiting to re-submit for upkeeps
+			c.Keeper.Registry.SyncInterval = commonconfig.MustNewDuration(24 * time.Hour) // disable full sync ticker for test
 
-		app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, backend, nodeKey)
+			c.Keeper.TurnLookBack = ptr[int64](0) // testing doesn't need to do far look back
+
+			c.EVM[0].BlockBackfillDepth = ptr[uint32](0)          // backfill will trigger sync on startup
+			c.EVM[0].MinIncomingConfirmations = ptr[uint32](1)    // disable reorg protection for this test
+			c.EVM[0].HeadTracker.MaxBufferSize = ptr[uint32](100) // helps prevent missed heads
+			c.EVM[0].Transactions.ForwardersEnabled = ptr(true)   // Enable Operator Forwarder flow
+			c.EVM[0].ChainID = (*ubig.Big)(testutils.SimulatedChainID)
+		})
+		scopedConfig := evmtest.NewChainScopedConfig(t, config)
+		korm := keeper.NewORM(db, logger.TestLogger(t), scopedConfig.Database())
+
+		app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, backend.Backend(), nodeKey)
 		require.NoError(t, app.Start(testutils.Context(t)))
 
-		forwarderORM := forwarders.NewORM(db, logger.TestLogger(t), config)
-		chainID := utils.Big(*backend.Blockchain().Config().ChainID)
+		forwarderORM := forwarders.NewORM(db, logger.TestLogger(t), config.Database())
+		chainID := ubig.Big(*backend.ConfiguredChainID())
 		_, err = forwarderORM.CreateForwarder(fwdrAddress, chainID)
 		require.NoError(t, err)
 
-		addr, err := app.Chains.EVM.Chains()[0].TxManager().GetForwarderForEOA(nodeAddress)
+		addr, err := app.GetRelayers().LegacyEVMChains().Slice()[0].TxManager().GetForwarderForEOA(nodeAddress)
 		require.NoError(t, err)
 		require.Equal(t, addr, fwdrAddress)
 
@@ -437,6 +431,7 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 			KeeperSpec: &job.KeeperSpec{
 				FromAddress:     nodeAddressEIP55,
 				ContractAddress: regAddrEIP55,
+				EVMChainID:      (*ubig.Big)(testutils.SimulatedChainID),
 			},
 			SchemaVersion:     1,
 			ForwardingAllowed: true,
@@ -486,6 +481,7 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 }
 
 func TestMaxPerformDataSize(t *testing.T) {
+	t.Parallel()
 	t.Run("max_perform_data_size_test", func(t *testing.T) {
 		maxPerformDataSize := 1000 // Will be set as config override
 		g := gomega.NewWithT(t)
@@ -502,18 +498,19 @@ func TestMaxPerformDataSize(t *testing.T) {
 		nelly := testutils.MustNewSimTransactor(t)  // other keeper operator 1
 		nick := testutils.MustNewSimTransactor(t)   // other keeper operator 2
 		genesisData := core.GenesisAlloc{
-			sergey.From: {Balance: assets.Ether(1000)},
-			steve.From:  {Balance: assets.Ether(1000)},
-			carrol.From: {Balance: assets.Ether(1000)},
-			nelly.From:  {Balance: assets.Ether(1000)},
-			nick.From:   {Balance: assets.Ether(1000)},
-			nodeAddress: {Balance: assets.Ether(1000)},
+			sergey.From: {Balance: assets.Ether(1000).ToInt()},
+			steve.From:  {Balance: assets.Ether(1000).ToInt()},
+			carrol.From: {Balance: assets.Ether(1000).ToInt()},
+			nelly.From:  {Balance: assets.Ether(1000).ToInt()},
+			nick.From:   {Balance: assets.Ether(1000).ToInt()},
+			nodeAddress: {Balance: assets.Ether(1000).ToInt()},
 		}
 
 		gasLimit := uint32(ethconfig.Defaults.Miner.GasCeil * 2)
-		backend := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
+		b := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
+		backend := client.NewSimulatedBackendClient(t, b, testutils.SimulatedChainID)
 
-		stopMining := cltest.Mine(backend, 1*time.Second) // >> 2 seconds and the test gets slow, << 1 second and the app may miss heads
+		stopMining := cltest.Mine(backend.Backend(), 1*time.Second) // >> 2 seconds and the test gets slow, << 1 second and the app may miss heads
 		defer stopMining()
 
 		linkAddr, _, linkToken, err := link_token_interface.DeployLinkToken(sergey, backend)
@@ -543,29 +540,21 @@ func TestMaxPerformDataSize(t *testing.T) {
 		backend.Commit()
 
 		// setup app
-		config, db := heavyweight.FullTestDB(t, fmt.Sprintf("keeper_max_perform_data_test"))
-		korm := keeper.NewORM(db, logger.TestLogger(t), nil, nil)
-		d := 24 * time.Hour
-		// disable full sync ticker for test
-		config.Overrides.KeeperRegistrySyncInterval = &d
-		// backfill will trigger sync on startup
-		config.Overrides.BlockBackfillDepth = null.IntFrom(0)
-		// disable reorg protection for this test
-		config.Overrides.GlobalMinIncomingConfirmations = null.IntFrom(1)
-		// avoid waiting to re-submit for upkeeps
-		config.Overrides.KeeperMaximumGracePeriod = null.IntFrom(0)
-		// test with gas price feature enabled
-		config.Overrides.KeeperCheckUpkeepGasPriceFeatureEnabled = null.BoolFrom(true)
-		// testing doesn't need to do far look back
-		config.Overrides.KeeperTurnLookBack = null.IntFrom(0)
-		// testing new turn taking
-		config.Overrides.KeeperTurnFlagEnabled = null.BoolFrom(true)
-		// helps prevent missed heads
-		config.Overrides.GlobalEvmHeadTrackerMaxBufferSize = null.IntFrom(100)
-		// set the max perform data size
-		config.Overrides.KeeperRegistryMaxPerformDataSize = null.IntFrom(int64(maxPerformDataSize))
+		config, db := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+			c.Keeper.MaxGracePeriod = ptr[int64](0)                                       // avoid waiting to re-submit for upkeeps
+			c.Keeper.Registry.SyncInterval = commonconfig.MustNewDuration(24 * time.Hour) // disable full sync ticker for test
+			c.Keeper.Registry.MaxPerformDataSize = ptr(uint32(maxPerformDataSize))        // set the max perform data size
 
-		app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, backend, nodeKey)
+			c.Keeper.TurnLookBack = ptr[int64](0) // testing doesn't need to do far look back
+
+			c.EVM[0].BlockBackfillDepth = ptr[uint32](0)          // backfill will trigger sync on startup
+			c.EVM[0].MinIncomingConfirmations = ptr[uint32](1)    // disable reorg protection for this test
+			c.EVM[0].HeadTracker.MaxBufferSize = ptr[uint32](100) // helps prevent missed heads
+		})
+		scopedConfig := evmtest.NewChainScopedConfig(t, config)
+		korm := keeper.NewORM(db, logger.TestLogger(t), scopedConfig.Database())
+
+		app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, backend.Backend(), nodeKey)
 		require.NoError(t, app.Start(testutils.Context(t)))
 
 		// create job

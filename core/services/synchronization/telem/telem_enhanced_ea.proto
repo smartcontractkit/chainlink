@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+option go_package = "github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem";
+
+package telem;
+
+message EnhancedEA {
+  string data_source=1;
+  double value=2;
+  int64 bridge_task_run_started_timestamp=3;
+  int64 bridge_task_run_ended_timestamp=4;
+  int64 provider_requested_timestamp=5;
+  int64 provider_received_timestamp=6;
+  int64 provider_data_stream_established=7;
+  int64 provider_indicated_time=8;
+  string feed=9;
+  string chain_id=10;
+  int64 observation=11;
+  string config_digest = 12;
+  int64 round=13;
+  int64 epoch=14;
+}

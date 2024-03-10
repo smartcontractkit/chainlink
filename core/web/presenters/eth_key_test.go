@@ -5,9 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/manyminds/api2go/jsonapi"
@@ -30,24 +31,22 @@ func TestETHKeyResource(t *testing.T) {
 
 	state := ethkey.State{
 		ID:         1,
-		EVMChainID: *utils.NewBigI(42),
-		NextNonce:  99,
+		EVMChainID: *big.NewI(42),
 		Address:    eip55address,
 		CreatedAt:  now,
 		UpdatedAt:  now,
 		Disabled:   true,
 	}
 
-	r, err := NewETHKeyResource(key, state,
+	r := NewETHKeyResource(key, state,
 		SetETHKeyEthBalance(assets.NewEth(1)),
-		SetETHKeyLinkBalance(assets.NewLinkFromJuels(1)),
-		SetETHKeyMaxGasPriceWei(*utils.NewBigI(12345)),
+		SetETHKeyLinkBalance(commonassets.NewLinkFromJuels(1)),
+		SetETHKeyMaxGasPriceWei(big.NewI(12345)),
 	)
-	require.NoError(t, err)
 
 	assert.Equal(t, assets.NewEth(1), r.EthBalance)
-	assert.Equal(t, assets.NewLinkFromJuels(1), r.LinkBalance)
-	assert.Equal(t, *utils.NewBigI(12345), r.MaxGasPriceWei)
+	assert.Equal(t, commonassets.NewLinkFromJuels(1), r.LinkBalance)
+	assert.Equal(t, big.NewI(12345), r.MaxGasPriceWei)
 
 	b, err := jsonapi.Marshal(r)
 	require.NoError(t, err)
@@ -56,11 +55,10 @@ func TestETHKeyResource(t *testing.T) {
 	{
 		"data":{
 		   "type":"eTHKeys",
-		   "id":"%s",
+		   "id":"42/%s",
 		   "attributes":{
 			  "address":"%s",
 			  "evmChainID":"42",
-			  "nextNonce": 99,
 			  "ethBalance":"1",
 			  "linkBalance":"1",
 			  "disabled":true,
@@ -74,12 +72,11 @@ func TestETHKeyResource(t *testing.T) {
 
 	assert.JSONEq(t, expected, string(b))
 
-	r, err = NewETHKeyResource(key, state,
-		SetETHKeyEthBalance(assets.NewEth(1)),
-		SetETHKeyLinkBalance(assets.NewLinkFromJuels(1)),
-		SetETHKeyMaxGasPriceWei(*utils.NewBigI(12345)),
+	r = NewETHKeyResource(key, state,
+		SetETHKeyEthBalance(nil),
+		SetETHKeyLinkBalance(nil),
+		SetETHKeyMaxGasPriceWei(nil),
 	)
-	require.NoError(t, err)
 	b, err = jsonapi.Marshal(r)
 	require.NoError(t, err)
 
@@ -87,17 +84,16 @@ func TestETHKeyResource(t *testing.T) {
 	{
 		"data": {
 			"type":"eTHKeys",
-			"id":"%s",
+			"id":"42/%s",
 			"attributes":{
 				"address":"%s",
 			  	"evmChainID":"42",
-			    "nextNonce": 99,
-				"ethBalance":"1",
-				"linkBalance":"1",
+				"ethBalance":null,
+				"linkBalance":null,
 				"disabled":true,
 				"createdAt":"2000-01-01T00:00:00Z",
 				"updatedAt":"2000-01-01T00:00:00Z",
-				"maxGasPriceWei":"12345"
+				"maxGasPriceWei":null
 			}
 		}
 	}`,

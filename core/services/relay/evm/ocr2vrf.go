@@ -1,39 +1,39 @@
 package evm
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
-	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
-	"github.com/smartcontractkit/libocr/offchainreporting2/chains/evmutil"
-	"github.com/smartcontractkit/libocr/offchainreporting2/types"
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
 
-	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/dkg/config"
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/dkg/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 // DKGProvider provides all components needed for a DKG plugin.
 type DKGProvider interface {
-	relaytypes.Plugin
+	commontypes.Plugin
 }
 
 // OCR2VRFProvider provides all components needed for a OCR2VRF plugin.
 type OCR2VRFProvider interface {
-	relaytypes.Plugin
+	commontypes.Plugin
 }
 
 // OCR2VRFRelayer contains the relayer and instantiating functions for OCR2VRF providers.
 type OCR2VRFRelayer interface {
-	NewDKGProvider(rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs) (DKGProvider, error)
-	NewOCR2VRFProvider(rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs) (OCR2VRFProvider, error)
+	NewDKGProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (DKGProvider, error)
+	NewOCR2VRFProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (OCR2VRFProvider, error)
 }
 
 var (
@@ -44,25 +44,31 @@ var (
 
 // Relayer with added DKG and OCR2VRF provider functions.
 type ocr2vrfRelayer struct {
-	db    *sqlx.DB
-	chain evm.Chain
-	lggr  logger.Logger
+	db          *sqlx.DB
+	chain       legacyevm.Chain
+	lggr        logger.Logger
+	ethKeystore keystore.Eth
 }
 
-func NewOCR2VRFRelayer(db *sqlx.DB, chain evm.Chain, lggr logger.Logger) OCR2VRFRelayer {
+func NewOCR2VRFRelayer(db *sqlx.DB, chain legacyevm.Chain, lggr logger.Logger, ethKeystore keystore.Eth) OCR2VRFRelayer {
 	return &ocr2vrfRelayer{
-		db:    db,
-		chain: chain,
-		lggr:  lggr,
+		db:          db,
+		chain:       chain,
+		lggr:        lggr,
+		ethKeystore: ethKeystore,
 	}
 }
 
-func (r *ocr2vrfRelayer) NewDKGProvider(rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs) (DKGProvider, error) {
-	configWatcher, err := newOCR2VRFConfigProvider(r.lggr, r.chain, rargs.ContractID)
+func (r *ocr2vrfRelayer) NewDKGProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (DKGProvider, error) {
+
+	// TODO https://smartcontract-it.atlassian.net/browse/BCF-2887
+	ctx := context.Background()
+
+	configWatcher, err := newOCR2VRFConfigProvider(r.lggr, r.chain, rargs)
 	if err != nil {
 		return nil, err
 	}
-	contractTransmitter, err := newContractTransmitter(r.lggr, rargs, pargs.TransmitterID, configWatcher)
+	contractTransmitter, err := newOnChainContractTransmitter(ctx, r.lggr, rargs, pargs.TransmitterID, r.ethKeystore, configWatcher, configTransmitterOpts{}, OCR2AggregatorTransmissionContractABI)
 	if err != nil {
 		return nil, err
 	}
@@ -80,12 +86,16 @@ func (r *ocr2vrfRelayer) NewDKGProvider(rargs relaytypes.RelayArgs, pargs relayt
 	}, nil
 }
 
-func (r *ocr2vrfRelayer) NewOCR2VRFProvider(rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs) (OCR2VRFProvider, error) {
-	configWatcher, err := newOCR2VRFConfigProvider(r.lggr, r.chain, rargs.ContractID)
+func (r *ocr2vrfRelayer) NewOCR2VRFProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (OCR2VRFProvider, error) {
+
+	// TODO https://smartcontract-it.atlassian.net/browse/BCF-2887
+	ctx := context.Background()
+
+	configWatcher, err := newOCR2VRFConfigProvider(r.lggr, r.chain, rargs)
 	if err != nil {
 		return nil, err
 	}
-	contractTransmitter, err := newContractTransmitter(r.lggr, rargs, pargs.TransmitterID, configWatcher)
+	contractTransmitter, err := newOnChainContractTransmitter(ctx, r.lggr, rargs, pargs.TransmitterID, r.ethKeystore, configWatcher, configTransmitterOpts{}, OCR2AggregatorTransmissionContractABI)
 	if err != nil {
 		return nil, err
 	}
@@ -97,51 +107,77 @@ func (r *ocr2vrfRelayer) NewOCR2VRFProvider(rargs relaytypes.RelayArgs, pargs re
 
 type dkgProvider struct {
 	*configWatcher
-	contractTransmitter *ContractTransmitter
+	contractTransmitter ContractTransmitter
 	pluginConfig        config.PluginConfig
 }
 
-func (c *dkgProvider) ContractTransmitter() types.ContractTransmitter {
+func (c *dkgProvider) ContractTransmitter() ocrtypes.ContractTransmitter {
 	return c.contractTransmitter
+}
+
+func (c *dkgProvider) ChainReader() commontypes.ChainReader {
+	return nil
+}
+
+func (c *dkgProvider) Codec() commontypes.Codec {
+	return nil
 }
 
 type ocr2vrfProvider struct {
 	*configWatcher
-	contractTransmitter *ContractTransmitter
+	contractTransmitter ContractTransmitter
 }
 
-func (c *ocr2vrfProvider) ContractTransmitter() types.ContractTransmitter {
+func (c *ocr2vrfProvider) ContractTransmitter() ocrtypes.ContractTransmitter {
 	return c.contractTransmitter
 }
 
-func newOCR2VRFConfigProvider(lggr logger.Logger, chain evm.Chain, contractID string) (*configWatcher, error) {
-	if !common.IsHexAddress(contractID) {
-		return nil, fmt.Errorf("invalid contract address '%s'", contractID)
+func (c *ocr2vrfProvider) ChainReader() commontypes.ChainReader {
+	return nil
+}
+
+func (c *ocr2vrfProvider) Codec() commontypes.Codec {
+	return nil
+}
+
+func newOCR2VRFConfigProvider(lggr logger.Logger, chain legacyevm.Chain, rargs commontypes.RelayArgs) (*configWatcher, error) {
+	var relayConfig types.RelayConfig
+	err := json.Unmarshal(rargs.RelayConfig, &relayConfig)
+	if err != nil {
+		return nil, err
+	}
+	if !common.IsHexAddress(rargs.ContractID) {
+		return nil, fmt.Errorf("invalid contract address '%s'", rargs.ContractID)
 	}
 
-	contractAddress := common.HexToAddress(contractID)
-	contractABI, err := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorABI))
-	if err != nil {
-		return nil, errors.Wrap(err, "could not get OCR2Aggregator ABI JSON")
-	}
+	contractAddress := common.HexToAddress(rargs.ContractID)
 	configPoller, err := NewConfigPoller(
-		lggr.With("contractID", contractID),
-		chain.LogPoller(),
-		contractAddress)
+		lggr.With("contractID", rargs.ContractID),
+		CPConfig{
+			chain.Client(),
+			chain.LogPoller(),
+			contractAddress,
+			// TODO: Does ocr2vrf need to support config contract? DF-19182
+			nil,
+			OCR2AggregatorLogDecoder,
+		},
+	)
 	if err != nil {
 		return nil, err
 	}
 
 	offchainConfigDigester := evmutil.EVMOffchainConfigDigester{
-		ChainID:         chain.Config().ChainID().Uint64(),
+		ChainID:         chain.Config().EVM().ChainID().Uint64(),
 		ContractAddress: contractAddress,
 	}
 
-	return &configWatcher{
-		contractAddress:  contractAddress,
-		contractABI:      contractABI,
-		configPoller:     configPoller,
-		offchainDigester: offchainConfigDigester,
-		chain:            chain,
-	}, nil
+	return newConfigWatcher(
+		lggr,
+		contractAddress,
+		offchainConfigDigester,
+		configPoller,
+		chain,
+		relayConfig.FromBlock,
+		rargs.New,
+	), nil
 }

@@ -1,0 +1,13 @@
+exec chainlink health --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink health - Prints a health report
+
+USAGE:
+   chainlink health [command options] [arguments...]
+
+OPTIONS:
+   --json, -j  json output
+   

@@ -1,0 +1,9 @@
+exec chainlink txs evm show --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink txs evm show - get information on a specific Ethereum Transaction
+
+USAGE:
+   chainlink txs evm show [arguments...]

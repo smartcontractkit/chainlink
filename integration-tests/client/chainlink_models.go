@@ -6,10 +6,11 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/lib/pq"
-	"github.com/smartcontractkit/chainlink/core/services/relay"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/pelletier/go-toml/v2"
 	"gopkg.in/guregu/null.v4"
+
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
 // EIServiceConfig represents External Initiator service config
@@ -19,10 +20,11 @@ type EIServiceConfig struct {
 
 // ChainlinkConfig represents the variables needed to connect to a Chainlink node
 type ChainlinkConfig struct {
-	URL      string
-	Email    string
-	Password string
-	RemoteIP string
+	URL         string         `toml:",omitempty"`
+	Email       string         `toml:",omitempty"`
+	Password    string         `toml:",omitempty"`
+	InternalIP  string         `toml:",omitempty"`
+	HTTPTimeout *time.Duration `toml:"-"`
 }
 
 // ResponseSlice is the generic model that can be used for all Chainlink API responses that are an slice
@@ -106,6 +108,11 @@ type BridgeTypeData struct {
 	Attributes BridgeTypeAttributes `json:"attributes"`
 }
 
+// Bridges is the model that represents the bridges when read on a Chainlink node
+type Bridges struct {
+	Data []BridgeTypeData `json:"data"`
+}
+
 // BridgeTypeAttributes is the model that represents the bridge when read or created on a Chainlink node
 type BridgeTypeAttributes struct {
 	Name        string `json:"name"`
@@ -117,6 +124,29 @@ type BridgeTypeAttributes struct {
 type Session struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
+}
+
+// ExportedEVMKey holds all details needed to recreate a private key of the Chainlink node
+type ExportedEVMKey struct {
+	Address string `json:"address"`
+	Crypto  struct {
+		Cipher       string `json:"cipher"`
+		CipherText   string `json:"ciphertext"`
+		CipherParams struct {
+			Iv string `json:"iv"`
+		} `json:"cipherparams"`
+		Kdf       string `json:"kdf"`
+		KDFParams struct {
+			DkLen int    `json:"dklen"`
+			N     int    `json:"n"`
+			P     int    `json:"p"`
+			R     int    `json:"r"`
+			Salt  string `json:"salt"`
+		} `json:"kdfparams"`
+		Mac string `json:"mac"`
+	} `json:"crypto"`
+	ID      string `json:"id"`
+	Version int    `json:"version"`
 }
 
 // VRFExportKey is the model that represents the exported VRF key
@@ -169,6 +199,50 @@ type VRFKey struct {
 // VRFKeys is the model that represents the created VRF keys when read
 type VRFKeys struct {
 	Data []VRFKey `json:"data"`
+}
+
+// DKGSignKeyAttributes is the model that represents the created DKG Sign key attributes when read
+type DKGSignKeyAttributes struct {
+	PublicKey string `json:"publicKey"`
+}
+
+// DKGSignKeyData is the model that represents the created DKG Sign key's data when read
+type DKGSignKeyData struct {
+	Type       string               `json:"type"`
+	ID         string               `json:"id"`
+	Attributes DKGSignKeyAttributes `json:"attributes"`
+}
+
+// DKGSignKey is the model that represents the created DKG Sign key when read
+type DKGSignKey struct {
+	Data DKGSignKeyData `json:"data"`
+}
+
+// DKGSignKeys is the model that represents the created DKGSignData key when read
+type DKGSignKeys struct {
+	Data []DKGSignKey `json:"data"`
+}
+
+// DKGEncryptKeyAttributes is the model that represents the created DKG Encrypt key attributes when read
+type DKGEncryptKeyAttributes struct {
+	PublicKey string `json:"publicKey"`
+}
+
+// DKGEncryptKeyData is the model that represents the created DKG Encrypt key's data when read
+type DKGEncryptKeyData struct {
+	Type       string                  `json:"type"`
+	ID         string                  `json:"id"`
+	Attributes DKGEncryptKeyAttributes `json:"attributes"`
+}
+
+// DKGEncryptKey is the model that represents the created DKG Encrypt key when read
+type DKGEncryptKey struct {
+	Data DKGEncryptKeyData `json:"data"`
+}
+
+// DKGEncryptKeys is the model that represents the created DKGEncryptKeys key when read
+type DKGEncryptKeys struct {
+	Data []DKGEncryptKey `json:"data"`
 }
 
 // OCRKeys is the model that represents the created OCR keys when read
@@ -306,10 +380,8 @@ type TxKeyData struct {
 // TxKeyAttributes is the model that represents the created keys when read
 type TxKeyAttributes struct {
 	PublicKey string `json:"publicKey"`
-
-	// starknet specific (uses contract model instead of EOA)
-	AccountAddr string `json:"accountAddr,omitempty"`
-	StarkKey    string `json:"starkPubKey,omitempty"`
+	Address   string `json:"address"`
+	StarkKey  string `json:"starkPubKey,omitempty"`
 }
 
 type SingleTransactionDataWrapper struct {
@@ -350,7 +422,7 @@ type EIKey struct {
 	Attributes EIAttributes `json:"attributes"`
 }
 
-type TerraChainConfig struct {
+type CosmosChainConfig struct {
 	BlockRate             null.String
 	BlocksUntilTxTimeout  null.Int
 	ConfirmPollPeriod     null.String
@@ -359,38 +431,37 @@ type TerraChainConfig struct {
 	MaxMsgsPerBatch       null.Int
 }
 
-// TerraChainAttributes is the model that represents the terra chain
-type TerraChainAttributes struct {
-	ChainID string           `json:"chainID"`
-	Config  TerraChainConfig `json:"config"`
-	FCDURL  string           `json:"fcdURL" db:"fcd_url"`
+// CosmosChainAttributes is the model that represents the terra chain
+type CosmosChainAttributes struct {
+	ChainID string            `json:"chainID"`
+	Config  CosmosChainConfig `json:"config"`
 }
 
-// TerraChain is the model that represents the terra chain when read
-type TerraChain struct {
-	Attributes TerraChainAttributes `json:"attributes"`
+// CosmosChain is the model that represents the terra chain when read
+type CosmosChain struct {
+	Attributes CosmosChainAttributes `json:"attributes"`
 }
 
-// TerraChainCreate is the model that represents the terra chain when created
-type TerraChainCreate struct {
-	Data TerraChain `json:"data"`
+// CosmosChainCreate is the model that represents the terra chain when created
+type CosmosChainCreate struct {
+	Data CosmosChain `json:"data"`
 }
 
-// TerraNodeAttributes is the model that represents the terra noded
-type TerraNodeAttributes struct {
+// CosmosNodeAttributes is the model that represents the terra noded
+type CosmosNodeAttributes struct {
 	Name          string `json:"name"`
-	TerraChainID  string `json:"terraChainId"`
+	CosmosChainID string `json:"cosmosChainId"`
 	TendermintURL string `json:"tendermintURL" db:"tendermint_url"`
 }
 
-// TerraNode is the model that represents the terra node when read
-type TerraNode struct {
-	Attributes TerraNodeAttributes `json:"attributes"`
+// CosmosNode is the model that represents the terra node when read
+type CosmosNode struct {
+	Attributes CosmosNodeAttributes `json:"attributes"`
 }
 
-// TerraNodeCreate is the model that represents the terra node when created
-type TerraNodeCreate struct {
-	Data TerraNode `json:"data"`
+// CosmosNodeCreate is the model that represents the terra node when created
+type CosmosNodeCreate struct {
+	Data CosmosNode `json:"data"`
 }
 
 type SolanaChainConfig struct {
@@ -533,7 +604,7 @@ schedule          = "{{.Schedule}}"
 observationSource = """
 {{.ObservationSource}}
 """`
-	return marshallTemplate(c, "CRON Job", cronJobTemplateString)
+	return MarshallTemplate(c, "CRON Job", cronJobTemplateString)
 }
 
 // PipelineSpec common API call pipeline
@@ -553,12 +624,75 @@ func (d *PipelineSpec) String() (string, error) {
 		fetch [type=bridge name="{{.BridgeTypeAttributes.Name}}" requestData="{{.BridgeTypeAttributes.RequestData}}"];
 		parse [type=jsonparse path="{{.DataPath}}"];
 		fetch -> parse;`
-	return marshallTemplate(d, "API call pipeline template", sourceString)
+	return MarshallTemplate(d, "API call pipeline template", sourceString)
+}
+
+func getOptionalSimBlock(simBlock *string) (string, error) {
+	optionalSimBlock := ""
+	if simBlock != nil {
+		if *simBlock != "latest" && *simBlock != "pending" {
+			return "", fmt.Errorf("invalid simulation block value: %s", *simBlock)
+		}
+		optionalSimBlock = fmt.Sprintf("block=\"%s\"", *simBlock)
+	}
+	return optionalSimBlock, nil
+}
+
+// VRFV2TxPipelineSpec VRFv2 request with tx callback
+type VRFV2PlusTxPipelineSpec struct {
+	Address               string
+	EstimateGasMultiplier float64
+	FromAddress           string
+	SimulationBlock       *string // can be nil, "latest" or "pending".
+}
+
+// Type returns the type of the pipeline
+func (d *VRFV2PlusTxPipelineSpec) Type() string {
+	return "vrf_pipeline_v2plus"
+}
+
+// String representation of the pipeline
+func (d *VRFV2PlusTxPipelineSpec) String() (string, error) {
+	optionalSimBlock, err := getOptionalSimBlock(d.SimulationBlock)
+	if err != nil {
+		return "", err
+	}
+	sourceTemplate := `
+decode_log   [type=ethabidecodelog
+             abi="RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint256 indexed subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,bytes extraArgs,address indexed sender)"
+             data="$(jobRun.logData)"
+             topics="$(jobRun.logTopics)"]
+generate_proof [type=vrfv2plus
+                publicKey="$(jobSpec.publicKey)"
+                requestBlockHash="$(jobRun.logBlockHash)"
+                requestBlockNumber="$(jobRun.logBlockNumber)"
+                topics="$(jobRun.logTopics)"]
+estimate_gas [type=estimategaslimit
+             to="{{ .Address }}"
+             multiplier="{{ .EstimateGasMultiplier }}"
+             data="$(generate_proof.output)"
+			 %s]
+simulate_fulfillment [type=ethcall
+					  from="{{ .FromAddress }}"	
+                      to="{{ .Address }}"
+                      gas="$(estimate_gas)"
+                      gasPrice="$(jobSpec.maxGasPrice)"
+                      extractRevertReason=true
+                      contract="{{ .Address }}"
+                      data="$(generate_proof.output)"
+					  %s]
+decode_log->generate_proof->estimate_gas->simulate_fulfillment`
+
+	sourceString := fmt.Sprintf(sourceTemplate, optionalSimBlock, optionalSimBlock)
+	return MarshallTemplate(d, "VRFV2 Plus pipeline template", sourceString)
 }
 
 // VRFV2TxPipelineSpec VRFv2 request with tx callback
 type VRFV2TxPipelineSpec struct {
-	Address string
+	Address               string
+	EstimateGasMultiplier float64
+	FromAddress           string
+	SimulationBlock       *string // can be nil, "latest" or "pending".
 }
 
 // Type returns the type of the pipeline
@@ -568,7 +702,11 @@ func (d *VRFV2TxPipelineSpec) Type() string {
 
 // String representation of the pipeline
 func (d *VRFV2TxPipelineSpec) String() (string, error) {
-	sourceString := `
+	optionalSimBlock, err := getOptionalSimBlock(d.SimulationBlock)
+	if err != nil {
+		return "", err
+	}
+	sourceTemplate := `
 decode_log   [type=ethabidecodelog
              abi="RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint64 indexed subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,address indexed sender)"
              data="$(jobRun.logData)"
@@ -580,17 +718,22 @@ vrf          [type=vrfv2
              topics="$(jobRun.logTopics)"]
 estimate_gas [type=estimategaslimit
              to="{{ .Address }}"
-             multiplier="1.1"
-             data="$(vrf.output)"]
+             multiplier="{{ .EstimateGasMultiplier }}"
+             data="$(vrf.output)"
+			 %s]
 simulate [type=ethcall
+          from="{{ .FromAddress }}"
           to="{{ .Address }}"
           gas="$(estimate_gas)"
           gasPrice="$(jobSpec.maxGasPrice)"
           extractRevertReason=true
           contract="{{ .Address }}"
-          data="$(vrf.output)"]
+          data="$(vrf.output)"
+		  %s]
 decode_log->vrf->estimate_gas->simulate`
-	return marshallTemplate(d, "VRFV2 pipeline template", sourceString)
+
+	sourceString := fmt.Sprintf(sourceTemplate, optionalSimBlock, optionalSimBlock)
+	return MarshallTemplate(d, "VRFV2 pipeline template", sourceString)
 }
 
 // VRFTxPipelineSpec VRF request with tx callback
@@ -622,7 +765,7 @@ submit_tx  [type=ethtx to="{{.Address}}"
             data="$(encode_tx)"
             txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(decode_log.requestID),\\"jobID\\": $(jobSpec.databaseID)}"]
 decode_log->vrf->encode_tx->submit_tx`
-	return marshallTemplate(d, "VRF pipeline template", sourceString)
+	return MarshallTemplate(d, "VRF pipeline template", sourceString)
 }
 
 // DirectRequestTxPipelineSpec oracle request with tx callback
@@ -654,13 +797,14 @@ func (d *DirectRequestTxPipelineSpec) String() (string, error) {
 			parse  [type=jsonparse path="{{.DataPath}}"]
             submit [type=ethtx to="$(decode_log.requester)" data="$(encode_tx)" failOnRevert=true]
 			decode_log -> fetch -> parse -> encode_tx -> submit`
-	return marshallTemplate(d, "Direct request pipeline template", sourceString)
+	return MarshallTemplate(d, "Direct request pipeline template", sourceString)
 }
 
 // DirectRequestJobSpec represents a direct request spec
 type DirectRequestJobSpec struct {
 	Name                     string `toml:"name"`
 	ContractAddress          string `toml:"contractAddress"`
+	EVMChainID               string `toml:"evmChainID"`
 	ExternalJobID            string `toml:"externalJobID"`
 	MinIncomingConfirmations string `toml:"minIncomingConfirmations"`
 	ObservationSource        string `toml:"observationSource"` // List of commands for the Chainlink node
@@ -676,18 +820,20 @@ schemaVersion     = 1
 name              = "{{.Name}}"
 maxTaskDuration   = "99999s"
 contractAddress   = "{{.ContractAddress}}"
+evmChainID		  = "{{.EVMChainID}}"
 externalJobID     = "{{.ExternalJobID}}"
 minIncomingConfirmations = {{.MinIncomingConfirmations}}
 observationSource = """
 {{.ObservationSource}}
 """`
-	return marshallTemplate(d, "Direct Request Job", directRequestTemplateString)
+	return MarshallTemplate(d, "Direct Request Job", directRequestTemplateString)
 }
 
 // FluxMonitorJobSpec represents a flux monitor spec
 type FluxMonitorJobSpec struct {
 	Name              string        `toml:"name"`
 	ContractAddress   string        `toml:"contractAddress"`   // Address of the Flux Monitor script
+	EVMChainID        string        `toml:"evmChainID"`        // Not optional
 	Precision         int           `toml:"precision"`         // Optional
 	Threshold         float32       `toml:"threshold"`         // Optional
 	AbsoluteThreshold float32       `toml:"absoluteThreshold"` // Optional
@@ -708,6 +854,7 @@ func (f *FluxMonitorJobSpec) String() (string, error) {
 schemaVersion     = 1
 name              = "{{.Name}}"
 contractAddress   = "{{.ContractAddress}}"
+evmChainID		  = "{{.EVMChainID}}"
 precision         ={{if not .Precision}} 0 {{else}} {{.Precision}} {{end}}
 threshold         ={{if not .Threshold}} 0.5 {{else}} {{.Threshold}} {{end}}
 absoluteThreshold ={{if not .AbsoluteThreshold}} 0.1 {{else}} {{.AbsoluteThreshold}} {{end}}
@@ -723,7 +870,7 @@ maxTaskDuration = {{if not .Precision}} "180s" {{else}} {{.Precision}} {{end}}
 observationSource = """
 {{.ObservationSource}}
 """`
-	return marshallTemplate(f, "Flux Monitor Job", fluxMonitorTemplateString)
+	return MarshallTemplate(f, "Flux Monitor Job", fluxMonitorTemplateString)
 }
 
 // KeeperJobSpec represents a V2 keeper spec
@@ -731,6 +878,7 @@ type KeeperJobSpec struct {
 	Name                     string `toml:"name"`
 	ContractAddress          string `toml:"contractAddress"`
 	FromAddress              string `toml:"fromAddress"` // Hex representation of the from address
+	EVMChainID               string `toml:"evmChainID"`  // Not optional
 	MinIncomingConfirmations int    `toml:"minIncomingConfirmations"`
 }
 
@@ -745,9 +893,10 @@ schemaVersion            = 1
 name                     = "{{.Name}}"
 contractAddress          = "{{.ContractAddress}}"
 fromAddress              = "{{.FromAddress}}"
+evmChainID		 		 = "{{.EVMChainID}}"
 minIncomingConfirmations = {{.MinIncomingConfirmations}}
 `
-	return marshallTemplate(k, "Keeper Job", keeperTemplateString)
+	return MarshallTemplate(k, "Keeper Job", keeperTemplateString)
 }
 
 // OCRBootstrapJobSpec represents the spec for bootstrapping an OCR job, given to one node that then must be linked
@@ -759,8 +908,9 @@ type OCRBootstrapJobSpec struct {
 	TrackerPollInterval      time.Duration `toml:"contractConfigTrackerPollInterval"`      // Optional
 	TrackerSubscribeInterval time.Duration `toml:"contractConfigTrackerSubscribeInterval"` // Optional
 	ContractAddress          string        `toml:"contractAddress"`                        // Address of the OCR contract
-	IsBootstrapPeer          bool          `toml:"isBootstrapPeer"`                        // Typically true
-	P2PPeerID                string        `toml:"p2pPeerID"`                              // This node's P2P ID
+	EVMChainID               string        `toml:"evmChainID"`
+	IsBootstrapPeer          bool          `toml:"isBootstrapPeer"` // Typically true
+	P2PPeerID                string        `toml:"p2pPeerID"`       // This node's P2P ID
 }
 
 // Type returns the type of the job
@@ -775,42 +925,45 @@ contractConfigConfirmations            ={{if not .ContractConfirmations}} 3 {{el
 contractConfigTrackerPollInterval      ={{if not .TrackerPollInterval}} "1m" {{else}} {{.TrackerPollInterval}} {{end}}
 contractConfigTrackerSubscribeInterval ={{if not .TrackerSubscribeInterval}} "2m" {{else}} {{.TrackerSubscribeInterval}} {{end}}
 contractAddress                        = "{{.ContractAddress}}"
+evmChainID		 		 			               = "{{.EVMChainID}}"
 p2pBootstrapPeers                      = []
 isBootstrapPeer                        = {{.IsBootstrapPeer}}
 p2pPeerID                              = "{{.P2PPeerID}}"`
-	return marshallTemplate(o, "OCR Bootstrap Job", ocrTemplateString)
+	return MarshallTemplate(o, "OCR Bootstrap Job", ocrTemplateString)
 }
 
 // OCRTaskJobSpec represents an OCR job that is given to other nodes, meant to communicate with the bootstrap node,
 // and provide their answers
 type OCRTaskJobSpec struct {
-	Name                     string        `toml:"name"`
-	BlockChainTimeout        time.Duration `toml:"blockchainTimeout"`                      // Optional
-	ContractConfirmations    int           `toml:"contractConfigConfirmations"`            // Optional
-	TrackerPollInterval      time.Duration `toml:"contractConfigTrackerPollInterval"`      // Optional
-	TrackerSubscribeInterval time.Duration `toml:"contractConfigTrackerSubscribeInterval"` // Optional
-	ContractAddress          string        `toml:"contractAddress"`                        // Address of the OCR contract
-	P2PBootstrapPeers        []*Chainlink  `toml:"p2pBootstrapPeers"`                      // P2P ID of the bootstrap node
-	IsBootstrapPeer          bool          `toml:"isBootstrapPeer"`                        // Typically false
-	P2PPeerID                string        `toml:"p2pPeerID"`                              // This node's P2P ID
-	KeyBundleID              string        `toml:"keyBundleID"`                            // ID of this node's OCR key bundle
-	MonitoringEndpoint       string        `toml:"monitoringEndpoint"`                     // Typically "chain.link:4321"
-	TransmitterAddress       string        `toml:"transmitterAddress"`                     // ETH address this node will use to transmit its answer
-	ObservationSource        string        `toml:"observationSource"`                      // List of commands for the Chainlink node
+	Name                     string             `toml:"name"`
+	BlockChainTimeout        time.Duration      `toml:"blockchainTimeout"`                      // Optional
+	ContractConfirmations    int                `toml:"contractConfigConfirmations"`            // Optional
+	TrackerPollInterval      time.Duration      `toml:"contractConfigTrackerPollInterval"`      // Optional
+	TrackerSubscribeInterval time.Duration      `toml:"contractConfigTrackerSubscribeInterval"` // Optional
+	ForwardingAllowed        bool               `toml:"forwardingAllowed"`                      // Optional, by default false
+	ContractAddress          string             `toml:"contractAddress"`                        // Address of the OCR contract
+	EVMChainID               string             `toml:"evmChainID"`
+	P2PBootstrapPeers        []*ChainlinkClient `toml:"p2pBootstrapPeers"`  // P2P ID of the bootstrap node
+	IsBootstrapPeer          bool               `toml:"isBootstrapPeer"`    // Typically false
+	P2PPeerID                string             `toml:"p2pPeerID"`          // This node's P2P ID
+	KeyBundleID              string             `toml:"keyBundleID"`        // ID of this node's OCR key bundle
+	MonitoringEndpoint       string             `toml:"monitoringEndpoint"` // Typically "chain.link:4321"
+	TransmitterAddress       string             `toml:"transmitterAddress"` // ETH address this node will use to transmit its answer
+	ObservationSource        string             `toml:"observationSource"`  // List of commands for the Chainlink node
 }
 
 // P2PData holds the remote ip and the peer id and port
 type P2PData struct {
-	RemoteIP   string
-	RemotePort string
-	PeerID     string
+	InternalIP   string
+	InternalPort string
+	PeerID       string
 }
 
-func (p P2PData) P2PV2Bootstrapper() string {
-	if p.RemotePort == "" {
-		p.RemotePort = "6690"
+func (p *P2PData) P2PV2Bootstrapper() string {
+	if p.InternalPort == "" {
+		p.InternalPort = "6690"
 	}
-	return fmt.Sprintf("%s@%s:%s", p.PeerID, p.RemoteIP, p.RemotePort)
+	return fmt.Sprintf("%s@%s:%s", p.PeerID, p.InternalIP, p.InternalPort)
 }
 
 // Type returns the type of the job
@@ -826,8 +979,8 @@ func (o *OCRTaskJobSpec) String() (string, error) {
 			return "", err
 		}
 		peers = append(peers, P2PData{
-			RemoteIP: peer.RemoteIP(),
-			PeerID:   p2pKeys.Data[0].Attributes.PeerID,
+			InternalIP: peer.InternalIP(),
+			PeerID:     p2pKeys.Data[0].Attributes.PeerID,
 		})
 	}
 	specWrap := struct {
@@ -837,6 +990,7 @@ func (o *OCRTaskJobSpec) String() (string, error) {
 		TrackerPollInterval      time.Duration
 		TrackerSubscribeInterval time.Duration
 		ContractAddress          string
+		EVMChainID               string
 		P2PBootstrapPeers        []P2PData
 		IsBootstrapPeer          bool
 		P2PPeerID                string
@@ -844,6 +998,7 @@ func (o *OCRTaskJobSpec) String() (string, error) {
 		MonitoringEndpoint       string
 		TransmitterAddress       string
 		ObservationSource        string
+		ForwardingAllowed        bool
 	}{
 		Name:                     o.Name,
 		BlockChainTimeout:        o.BlockChainTimeout,
@@ -851,6 +1006,7 @@ func (o *OCRTaskJobSpec) String() (string, error) {
 		TrackerPollInterval:      o.TrackerPollInterval,
 		TrackerSubscribeInterval: o.TrackerSubscribeInterval,
 		ContractAddress:          o.ContractAddress,
+		EVMChainID:               o.EVMChainID,
 		P2PBootstrapPeers:        peers,
 		IsBootstrapPeer:          o.IsBootstrapPeer,
 		P2PPeerID:                o.P2PPeerID,
@@ -858,6 +1014,7 @@ func (o *OCRTaskJobSpec) String() (string, error) {
 		MonitoringEndpoint:       o.MonitoringEndpoint,
 		TransmitterAddress:       o.TransmitterAddress,
 		ObservationSource:        o.ObservationSource,
+		ForwardingAllowed:        o.ForwardingAllowed,
 	}
 	// Results in /dns4//tcp/6690/p2p/12D3KooWAuC9xXBnadsYJpqzZZoB4rMRWqRGpxCrr2mjS7zCoAdN\
 	ocrTemplateString := `type = "offchainreporting"
@@ -867,55 +1024,23 @@ contractConfigConfirmations            ={{if not .ContractConfirmations}} 3 {{el
 contractConfigTrackerPollInterval      ={{if not .TrackerPollInterval}} "1m" {{else}} {{.TrackerPollInterval}} {{end}}
 contractConfigTrackerSubscribeInterval ={{if not .TrackerSubscribeInterval}} "2m" {{else}} {{.TrackerSubscribeInterval}} {{end}}
 contractAddress                        = "{{.ContractAddress}}"
+evmChainID							               = "{{.EVMChainID}}"
 {{if .P2PBootstrapPeers}}
-p2pBootstrapPeers                      = [
-  {{range $peer := .P2PBootstrapPeers}}
-  "/dns4/{{$peer.RemoteIP}}/tcp/6690/p2p/{{$peer.PeerID}}",
-  {{end}}
-]
+p2pv2Bootstrappers                      = [{{range $peer := .P2PBootstrapPeers}}"{{$peer.PeerID}}@{{$peer.InternalIP}}:6690",{{end}}]
 {{else}}
-p2pBootstrapPeers                      = []
+p2pv2Bootstrappers                      = []
 {{end}}
 isBootstrapPeer                        = {{.IsBootstrapPeer}}
 p2pPeerID                              = "{{.P2PPeerID}}"
 keyBundleID                            = "{{.KeyBundleID}}"
 monitoringEndpoint                     ={{if not .MonitoringEndpoint}} "chain.link:4321" {{else}} "{{.MonitoringEndpoint}}" {{end}}
 transmitterAddress                     = "{{.TransmitterAddress}}"
+forwardingAllowed					             = {{.ForwardingAllowed}}
 observationSource                      = """
 {{.ObservationSource}}
 """`
 
-	return marshallTemplate(specWrap, "OCR Job", ocrTemplateString)
-}
-
-// These are temporarily here until we find a fix for issue 53656/soak-test-compilation-broken-on-macos-m1
-// there is some compilation issue with cosmwasm
-// once fixed replace with /core/services/job/models.go versions again
-type TempOCR2PluginType string
-
-const (
-	Median  TempOCR2PluginType = "median"
-	DKG     TempOCR2PluginType = "dkg"
-	OCR2VRF TempOCR2PluginType = "ocr2vrf"
-)
-
-type TempJSONConfig map[string]interface{}
-type TempOCR2OracleSpec struct {
-	ID                                int32              `toml:"-"`
-	ContractID                        string             `toml:"contractID"`
-	Relay                             relay.Network      `toml:"relay"`
-	RelayConfig                       TempJSONConfig     `toml:"relayConfig"`
-	P2PV2Bootstrappers                pq.StringArray     `toml:"p2pv2Bootstrappers"`
-	OCRKeyBundleID                    null.String        `toml:"ocrKeyBundleID"`
-	MonitoringEndpoint                null.String        `toml:"monitoringEndpoint"`
-	TransmitterID                     null.String        `toml:"transmitterID"`
-	BlockchainTimeout                 models.Interval    `toml:"blockchainTimeout"`
-	ContractConfigTrackerPollInterval models.Interval    `toml:"contractConfigTrackerPollInterval"`
-	ContractConfigConfirmations       uint16             `toml:"contractConfigConfirmations"`
-	PluginConfig                      TempJSONConfig     `toml:"pluginConfig"`
-	PluginType                        TempOCR2PluginType `toml:"pluginType"`
-	CreatedAt                         time.Time          `toml:"-"`
-	UpdatedAt                         time.Time          `toml:"-"`
+	return MarshallTemplate(specWrap, "OCR Job", ocrTemplateString)
 }
 
 // OCR2TaskJobSpec represents an OCR2 job that is given to other nodes, meant to communicate with the bootstrap node,
@@ -923,7 +1048,9 @@ type TempOCR2OracleSpec struct {
 type OCR2TaskJobSpec struct {
 	Name              string `toml:"name"`
 	JobType           string `toml:"type"`
-	OCR2OracleSpec    TempOCR2OracleSpec
+	MaxTaskDuration   string `toml:"maxTaskDuration"` // Optional
+	ForwardingAllowed bool   `toml:"forwardingAllowed"`
+	OCR2OracleSpec    job.OCR2OracleSpec
 	ObservationSource string `toml:"observationSource"` // List of commands for the Chainlink node
 }
 
@@ -932,13 +1059,26 @@ func (o *OCR2TaskJobSpec) Type() string { return o.JobType }
 
 // String representation of the job
 func (o *OCR2TaskJobSpec) String() (string, error) {
+	var feedID string
+	if o.OCR2OracleSpec.FeedID != nil {
+		feedID = o.OCR2OracleSpec.FeedID.Hex()
+	}
+	relayConfig, err := toml.Marshal(struct {
+		RelayConfig job.JSONConfig `toml:"relayConfig"`
+	}{RelayConfig: o.OCR2OracleSpec.RelayConfig})
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal relay config: %w", err)
+	}
 	specWrap := struct {
 		Name                     string
 		JobType                  string
+		MaxTaskDuration          string
+		ForwardingAllowed        bool
 		ContractID               string
+		FeedID                   string
 		Relay                    string
 		PluginType               string
-		RelayConfig              map[string]interface{}
+		RelayConfig              string
 		PluginConfig             map[string]interface{}
 		P2PV2Bootstrappers       []string
 		OCRKeyBundleID           string
@@ -952,10 +1092,13 @@ func (o *OCR2TaskJobSpec) String() (string, error) {
 	}{
 		Name:                  o.Name,
 		JobType:               o.JobType,
+		ForwardingAllowed:     o.ForwardingAllowed,
+		MaxTaskDuration:       o.MaxTaskDuration,
 		ContractID:            o.OCR2OracleSpec.ContractID,
+		FeedID:                feedID,
 		Relay:                 string(o.OCR2OracleSpec.Relay),
 		PluginType:            string(o.OCR2OracleSpec.PluginType),
-		RelayConfig:           o.OCR2OracleSpec.RelayConfig,
+		RelayConfig:           string(relayConfig),
 		PluginConfig:          o.OCR2OracleSpec.PluginConfig,
 		P2PV2Bootstrappers:    o.OCR2OracleSpec.P2PV2Bootstrappers,
 		OCRKeyBundleID:        o.OCR2OracleSpec.OCRKeyBundleID.String,
@@ -966,58 +1109,120 @@ func (o *OCR2TaskJobSpec) String() (string, error) {
 		TrackerPollInterval:   o.OCR2OracleSpec.ContractConfigTrackerPollInterval.Duration(),
 		ObservationSource:     o.ObservationSource,
 	}
-	ocr2TemplateString := `type = "{{ .JobType }}"
+	ocr2TemplateString := `
+type                                   = "{{ .JobType }}"
+name                                   = "{{.Name}}"
+forwardingAllowed                      = {{.ForwardingAllowed}}
+{{- if .MaxTaskDuration}}
+maxTaskDuration                        = "{{ .MaxTaskDuration }}" {{end}}
+{{- if .PluginType}}
+pluginType                             = "{{ .PluginType }}" {{end}}
+relay                                  = "{{.Relay}}"
 schemaVersion                          = 1
-blockchainTimeout                      ={{if not .BlockchainTimeout}} "20s" {{else}} "{{.BlockchainTimeout}}" {{end}}
-contractConfigConfirmations            ={{if not .ContractConfirmations}} 3 {{else}} {{.ContractConfirmations}} {{end}}
-contractConfigTrackerPollInterval      ={{if not .TrackerPollInterval}} "1m" {{else}} "{{.TrackerPollInterval}}" {{end}}
-contractConfigTrackerSubscribeInterval ={{if not .TrackerSubscribeInterval}} "2m" {{else}} "{{.TrackerSubscribeInterval}}" {{end}}
-name 																	 = "{{.Name}}"
-relay																	 = "{{.Relay}}"
-contractID		                         = "{{.ContractID}}"
-{{if .P2PV2Bootstrappers}}
-p2pv2Bootstrappers                      = [
-  {{range .P2PV2Bootstrappers}}"{{.}}",
-  {{end}}
-]
-{{else}}
-p2pv2Bootstrappers                      = []
+contractID                             = "{{.ContractID}}"
+{{- if .FeedID}}
+feedID                                 = "{{.FeedID}}" 
 {{end}}
-monitoringEndpoint                     ={{if not .MonitoringEndpoint}} "chain.link:4321" {{else}} "{{.MonitoringEndpoint}}" {{end}}
-{{if eq .JobType "offchainreporting2" }}
-pluginType                             = "{{ .PluginType }}"
-ocrKeyBundleID                         = "{{.OCRKeyBundleID}}"
-transmitterID                     		 = "{{.TransmitterID}}"
+{{- if eq .JobType "offchainreporting2" }}
+ocrKeyBundleID                         = "{{.OCRKeyBundleID}}" {{end}}
+{{- if eq .JobType "offchainreporting2" }}
+transmitterID                          = "{{.TransmitterID}}" {{end}}
+{{- if .BlockchainTimeout}}
+blockchainTimeout                      = "{{.BlockchainTimeout}}" 
+{{end}}
+{{- if .ContractConfirmations}}
+contractConfigConfirmations            = {{.ContractConfirmations}} 
+{{end}}
+{{- if .TrackerPollInterval}}
+contractConfigTrackerPollInterval      = "{{.TrackerPollInterval}}"
+{{end}}
+{{- if .TrackerSubscribeInterval}}
+contractConfigTrackerSubscribeInterval = "{{.TrackerSubscribeInterval}}"
+{{end}}
+{{- if .P2PV2Bootstrappers}}
+p2pv2Bootstrappers                     = [{{range .P2PV2Bootstrappers}}"{{.}}",{{end}}]{{end}}
+{{- if .MonitoringEndpoint}}
+monitoringEndpoint                     = "{{.MonitoringEndpoint}}" {{end}}
+{{- if .ObservationSource}}
 observationSource                      = """
 {{.ObservationSource}}
+"""{{end}}
+{{if eq .JobType "offchainreporting2" }}
+[pluginConfig]{{range $key, $value := .PluginConfig}}
+{{$key}} = {{$value}}{{end}}
+{{end}}
+{{.RelayConfig}}
+`
+	return MarshallTemplate(specWrap, "OCR2 Job", ocr2TemplateString)
+}
+
+// VRFV2PlusJobSpec represents a VRFV2 job
+type VRFV2PlusJobSpec struct {
+	Name                          string        `toml:"name"`
+	CoordinatorAddress            string        `toml:"coordinatorAddress"` // Address of the VRF CoordinatorV2 contract
+	PublicKey                     string        `toml:"publicKey"`          // Public key of the proving key
+	ExternalJobID                 string        `toml:"externalJobID"`
+	ObservationSource             string        `toml:"observationSource"` // List of commands for the Chainlink node
+	MinIncomingConfirmations      int           `toml:"minIncomingConfirmations"`
+	FromAddresses                 []string      `toml:"fromAddresses"`
+	EVMChainID                    string        `toml:"evmChainID"`
+	ForwardingAllowed             bool          `toml:"forwardingAllowed"`
+	BatchFulfillmentEnabled       bool          `toml:"batchFulfillmentEnabled"`
+	BatchFulfillmentGasMultiplier float64       `toml:"batchFulfillmentGasMultiplier"`
+	BackOffInitialDelay           time.Duration `toml:"backOffInitialDelay"`
+	BackOffMaxDelay               time.Duration `toml:"backOffMaxDelay"`
+	PollPeriod                    time.Duration `toml:"pollPeriod"`
+	RequestTimeout                time.Duration `toml:"requestTimeout"`
+}
+
+// Type returns the type of the job
+func (v *VRFV2PlusJobSpec) Type() string { return "vrf" }
+
+// String representation of the job
+func (v *VRFV2PlusJobSpec) String() (string, error) {
+	vrfTemplateString := `
+type                     = "vrf"
+schemaVersion            = 1
+name                     = "{{.Name}}"
+coordinatorAddress       = "{{.CoordinatorAddress}}"
+fromAddresses            = [{{range .FromAddresses}}"{{.}}",{{end}}]
+evmChainID               = "{{.EVMChainID}}"
+minIncomingConfirmations = {{.MinIncomingConfirmations}}
+publicKey                = "{{.PublicKey}}"
+externalJobID            = "{{.ExternalJobID}}"
+batchFulfillmentEnabled = {{.BatchFulfillmentEnabled}}
+batchFulfillmentGasMultiplier = {{.BatchFulfillmentGasMultiplier}}
+backoffInitialDelay     = "{{.BackOffInitialDelay}}"
+backoffMaxDelay         = "{{.BackOffMaxDelay}}"
+pollPeriod              = "{{.PollPeriod}}"
+requestTimeout          = "{{.RequestTimeout}}"
+observationSource = """
+{{.ObservationSource}}
 """
-[pluginConfig]
-{{range $key, $value := .PluginConfig}}
-{{$key}} = {{$value}}
-{{end}}
-{{end}}
-
-[relayConfig]
-{{range $key, $value := .RelayConfig}}
-{{$key}} = {{$value}}
-{{end}}`
-
-	return marshallTemplate(specWrap, "OCR2 Job", ocr2TemplateString)
+`
+	return MarshallTemplate(v, "VRFV2 PLUS Job", vrfTemplateString)
 }
 
 // VRFV2JobSpec represents a VRFV2 job
 type VRFV2JobSpec struct {
-	Name                     string        `toml:"name"`
-	CoordinatorAddress       string        `toml:"coordinatorAddress"` // Address of the VRF Coordinator contract
-	PublicKey                string        `toml:"publicKey"`          // Public key of the proving key
-	ExternalJobID            string        `toml:"externalJobID"`
-	ObservationSource        string        `toml:"observationSource"` // List of commands for the Chainlink node
-	MinIncomingConfirmations int           `toml:"minIncomingConfirmations"`
-	FromAddress              string        `toml:"fromAddress"`
-	EVMChainID               string        `toml:"evmChainID"`
-	BatchFulfillmentEnabled  bool          `toml:"batchFulfillmentEnabled"`
-	BackOffInitialDelay      time.Duration `toml:"backOffInitialDelay"`
-	BackOffMaxDelay          time.Duration `toml:"backOffMaxDelay"`
+	Name                          string        `toml:"name"`
+	CoordinatorAddress            string        `toml:"coordinatorAddress"` // Address of the VRF CoordinatorV2 contract
+	PublicKey                     string        `toml:"publicKey"`          // Public key of the proving key
+	ExternalJobID                 string        `toml:"externalJobID"`
+	ObservationSource             string        `toml:"observationSource"` // List of commands for the Chainlink node
+	MinIncomingConfirmations      int           `toml:"minIncomingConfirmations"`
+	FromAddresses                 []string      `toml:"fromAddresses"`
+	EVMChainID                    string        `toml:"evmChainID"`
+	UseVRFOwner                   bool          `toml:"useVRFOwner"`
+	VRFOwner                      string        `toml:"vrfOwnerAddress"`
+	ForwardingAllowed             bool          `toml:"forwardingAllowed"`
+	CustomRevertsPipelineEnabled  bool          `toml:"customRevertsPipelineEnabled"`
+	PollPeriod                    time.Duration `toml:"pollPeriod"`
+	RequestTimeout                time.Duration `toml:"requestTimeout"`
+	BatchFulfillmentEnabled       bool          `toml:"batchFulfillmentEnabled"`
+	BatchFulfillmentGasMultiplier float64       `toml:"batchFulfillmentGasMultiplier"`
+	BackOffInitialDelay           time.Duration `toml:"backOffInitialDelay"`
+	BackOffMaxDelay               time.Duration `toml:"backOffMaxDelay"`
 }
 
 // Type returns the type of the job
@@ -1029,27 +1234,34 @@ func (v *VRFV2JobSpec) String() (string, error) {
 type                     = "vrf"
 schemaVersion            = 1
 name                     = "{{.Name}}"
+forwardingAllowed        = {{.ForwardingAllowed}}
 coordinatorAddress       = "{{.CoordinatorAddress}}"
-fromAddress              = "{{.FromAddress}}"
+fromAddresses            = [{{range .FromAddresses}}"{{.}}",{{end}}]
 evmChainID               = "{{.EVMChainID}}"
 minIncomingConfirmations = {{.MinIncomingConfirmations}}
 publicKey                = "{{.PublicKey}}"
 externalJobID            = "{{.ExternalJobID}}"
 batchFulfillmentEnabled = {{.BatchFulfillmentEnabled}}
+batchFulfillmentGasMultiplier = {{.BatchFulfillmentGasMultiplier}}
 backoffInitialDelay     = "{{.BackOffInitialDelay}}"
 backoffMaxDelay         = "{{.BackOffMaxDelay}}"
+pollPeriod              = "{{.PollPeriod}}"
+requestTimeout          = "{{.RequestTimeout}}"
+customRevertsPipelineEnabled = true
+{{ if .UseVRFOwner }}vrfOwnerAddress                = "{{.VRFOwner}}"{{ else }}{{ end }}
 observationSource = """
 {{.ObservationSource}}
 """
 `
-	return marshallTemplate(v, "VRFV2 Job", vrfTemplateString)
+	return MarshallTemplate(v, "VRFV2 Job", vrfTemplateString)
 }
 
 // VRFJobSpec represents a VRF job
 type VRFJobSpec struct {
 	Name                     string `toml:"name"`
-	CoordinatorAddress       string `toml:"coordinatorAddress"` // Address of the VRF Coordinator contract
+	CoordinatorAddress       string `toml:"coordinatorAddress"` // Address of the VRF CoordinatorV2 contract
 	PublicKey                string `toml:"publicKey"`          // Public key of the proving key
+	EVMChainID               string `toml:"evmChainID"`
 	ExternalJobID            string `toml:"externalJobID"`
 	ObservationSource        string `toml:"observationSource"` // List of commands for the Chainlink node
 	MinIncomingConfirmations int    `toml:"minIncomingConfirmations"`
@@ -1067,24 +1279,29 @@ name                     = "{{.Name}}"
 coordinatorAddress       = "{{.CoordinatorAddress}}"
 minIncomingConfirmations = {{.MinIncomingConfirmations}}
 publicKey                = "{{.PublicKey}}"
+evmChainID               = "{{.EVMChainID}}"
 externalJobID            = "{{.ExternalJobID}}"
 observationSource = """
 {{.ObservationSource}}
 """
 `
-	return marshallTemplate(v, "VRF Job", vrfTemplateString)
+	return MarshallTemplate(v, "VRF Job", vrfTemplateString)
 }
 
 // BlockhashStoreJobSpec represents a blockhashstore job
 type BlockhashStoreJobSpec struct {
-	Name                  string `toml:"name"`
-	CoordinatorV2Address  string `toml:"coordinatorV2Address"` // Address of the VRF Coordinator contract
-	WaitBlocks            int    `toml:"waitBlocks"`
-	LookbackBlocks        int    `toml:"lookbackBlocks"`
-	BlockhashStoreAddress string `toml:"blockhashStoreAddress"`
-	PollPeriod            string `toml:"pollPeriod"`
-	RunTimeout            string `toml:"runTimeout"`
-	EVMChainID            string `toml:"evmChainID"`
+	Name                     string        `toml:"name"`
+	CoordinatorV2Address     string        `toml:"coordinatorV2Address"`
+	CoordinatorV2PlusAddress string        `toml:"coordinatorV2PlusAddress"`
+	BlockhashStoreAddress    string        `toml:"blockhashStoreAddress"`
+	ExternalJobID            string        `toml:"externalJobID"`
+	FromAddresses            []string      `toml:"fromAddresses"`
+	EVMChainID               string        `toml:"evmChainID"`
+	ForwardingAllowed        bool          `toml:"forwardingAllowed"`
+	PollPeriod               time.Duration `toml:"pollPeriod"`
+	RunTimeout               time.Duration `toml:"runTimeout"`
+	WaitBlocks               int           `toml:"waitBlocks"`
+	LookbackBlocks           int           `toml:"lookbackBlocks"`
 }
 
 // Type returns the type of the job
@@ -1096,15 +1313,19 @@ func (b *BlockhashStoreJobSpec) String() (string, error) {
 type                     = "blockhashstore"
 schemaVersion            = 1
 name                     = "{{.Name}}"
-coordinatorV2Address     = "{{.CoordinatorV2Address}}"
-waitBlocks               = {{.WaitBlocks}}
-lookbackBlocks           = {{.LookbackBlocks}}
-blockhashStoreAddress    = "{{.BlockhashStoreAddress}}"
-pollPeriod               = "{{.PollPeriod}}"
-runTimeout               = "{{.RunTimeout}}"
+forwardingAllowed        = {{.ForwardingAllowed}}
+coordinatorV2Address       = "{{.CoordinatorV2Address}}"
+coordinatorV2PlusAddress       = "{{.CoordinatorV2PlusAddress}}"
+blockhashStoreAddress	   = "{{.BlockhashStoreAddress}}"
+fromAddresses            = [{{range .FromAddresses}}"{{.}}",{{end}}]
 evmChainID               = "{{.EVMChainID}}"
+externalJobID            = "{{.ExternalJobID}}"
+waitBlocks               = {{.WaitBlocks}}
+lookbackBlocks            = {{.LookbackBlocks}}
+pollPeriod              = "{{.PollPeriod}}"
+runTimeout          = "{{.RunTimeout}}"
 `
-	return marshallTemplate(b, "BlockhashStore Job", vrfTemplateString)
+	return MarshallTemplate(b, "BlockhashStore Job", vrfTemplateString)
 }
 
 // WebhookJobSpec reprsents a webhook job
@@ -1129,7 +1350,7 @@ externalInitiators = [
 observationSource = """
 {{.ObservationSource}}
 """`
-	return marshallTemplate(w, "Webhook Job", webHookTemplateString)
+	return MarshallTemplate(w, "Webhook Job", webHookTemplateString)
 }
 
 // ObservationSourceSpecHTTP creates a http GET task spec for json data
@@ -1141,7 +1362,7 @@ func ObservationSourceSpecHTTP(url string) string {
 }
 
 // ObservationSourceSpecBridge creates a bridge task spec for json data
-func ObservationSourceSpecBridge(bta BridgeTypeAttributes) string {
+func ObservationSourceSpecBridge(bta *BridgeTypeAttributes) string {
 	return fmt.Sprintf(`
 		fetch [type=bridge name="%s" requestData="%s"];
 		parse [type=jsonparse path="data,result"];
@@ -1149,7 +1370,7 @@ func ObservationSourceSpecBridge(bta BridgeTypeAttributes) string {
 }
 
 // marshallTemplate Helper to marshall templates
-func marshallTemplate(jobSpec interface{}, name, templateString string) (string, error) {
+func MarshallTemplate(jobSpec interface{}, name, templateString string) (string, error) {
 	var buf bytes.Buffer
 	tmpl, err := template.New(name).Parse(templateString)
 	if err != nil {
@@ -1229,6 +1450,44 @@ func NewBlankChainlinkProfileResults() *ChainlinkProfileResults {
 }
 
 type CLNodesWithKeys struct {
-	Node       *Chainlink
+	Node       *ChainlinkClient
 	KeysBundle NodeKeysBundle
+}
+
+// Forwarders is the model that represents the created Forwarders when read
+type Forwarders struct {
+	Data []ForwarderData `json:"data"`
+}
+
+// Forwarder the model that represents the created Forwarder when created
+type Forwarder struct {
+	Data ForwarderData `json:"data"`
+}
+
+// ForwarderData is the model that represents the created Forwarder when read
+type ForwarderData struct {
+	Type       string              `json:"type"`
+	ID         string              `json:"id"`
+	Attributes ForwarderAttributes `json:"attributes"`
+}
+
+// ForwarderAttributes is the model that represents attributes of a Forwarder
+type ForwarderAttributes struct {
+	Address   string    `json:"address"`
+	ChainID   string    `json:"evmChainId"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+type ReplayResponse struct {
+	Data ReplayResponseData `json:"data"`
+}
+
+type ReplayResponseData struct {
+	Attributes ReplayResponseAttributes `json:"attributes"`
+}
+
+type ReplayResponseAttributes struct {
+	Message    string   `json:"message"`
+	EVMChainID *big.Big `json:"evmChainID"`
 }

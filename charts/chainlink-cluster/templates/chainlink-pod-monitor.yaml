@@ -1,0 +1,18 @@
+{{- if $.Values.prometheusMonitor }}
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: {{ $.Release.Name }}-pod-monitor
+  labels:
+    release: grafana-agent
+spec:
+  namespaceSelector:
+    matchNames:
+      - {{ $.Release.Namespace }}
+  podMetricsEndpoints:
+    - port: access
+  selector:
+    matchLabels:
+      app: {{ $.Release.Name }}
+{{- end }}
+---

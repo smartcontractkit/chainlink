@@ -2,113 +2,57 @@
 
 Here lives the integration tests for chainlink, utilizing our [chainlink-testing-framework](https://github.com/smartcontractkit/chainlink-testing-framework).
 
-## Setup
+## NOTE: Move to Testcontainers
 
-Prerequisites to run the tests.
+If you have previously run these smoke tests using GitHub Actions or some sort of Kubernetes setup, that method is no longer necessary. We have moved the majority of our tests to utilize plain Docker containers (with the help of [Testcontainers](https://golang.testcontainers.org/)). This should make tests faster, more stable, and enable you to run them on your local machine without much hassle.
 
-### Install Dependencies
+## Requirements
 
-<details>
-  <summary>Install Go</summary>
+1. [Go](https://go.dev/)
+2. [Docker](https://www.docker.com/)
+3. You'll probably want to [increase the resources available to Docker](https://stackoverflow.com/questions/44533319/how-to-assign-more-memory-to-docker-container) as most tests require quite a few containers (e.g. OCR requires 6 Chainlink nodes, 6 databases, a simulated blockchain, and a mock server).
 
-  [Install](https://go.dev/doc/install)
-</details>
+## Configure
 
-<details>
-  <summary>Install Ginkgo</summary>
+We have finished the first pass at moving all test configuration from env vars to TOML files. All product-related configuration is already in TOML files, but env vars are still used to control the log level, Slack notifications, and Kubernetes-related settings. See the [example.env](./example.env) file for how to set these environment variables.
 
-  [Ginkgo](https://onsi.github.io/ginkgo/) is the testing framework we use to compile and run our tests. It comes with a lot of handy testing setups and goodies on top of the standard Go testing packages.
+We have defined some sensible defaults for all products, you can find them in `./testconfig/<product>/<product>.toml` files. Each product folder contains an `example.toml` file that describes all options. If you wish to override these values, you can do so by creating a `./testconfig/overrides.toml`. A detailed description of TOML configuration can be found in the [testconfig README](./testconfig/README.md), but if you want to run some tests using default values all you need to do is provide the Chainlink image and version you want to run tests on:
+```toml
+# ./testconfig/overrides.toml
 
-  `go install github.com/onsi/ginkgo/v2/ginkgo`
-</details>
-
-<details>
-  <summary>Install NodeJS</summary>
-
-  [Install](https://nodejs.org/en/download/)
-</details>
-
-<details>
-  <summary>Install Helm Charts</summary>
-
-  [Install Helm](https://helm.sh/docs/intro/install/#through-package-managers) if you don't already have it. Then add necessary charts with the below commands.
-
-  ```sh
-  helm repo add chainlink-qa https://raw.githubusercontent.com/smartcontractkit/qa-charts/gh-pages/
-  helm repo add bitnami https://charts.bitnami.com/bitnami
-  helm repo update
-  ```
-
-</details>
-
-## Connect to a Kubernetes Cluster
-
-Integration tests require a connection to an actively running kubernetes cluster. [Minikube](https://minikube.sigs.k8s.io/docs/start/)
-can work fine for some tests, but in order to run more rigorous tests, or to run with any parallelism, you'll need to either
-increase minikube's resources significantly, or get a more substantial cluster.
-This is necessary to deploy ephemeral testing environments, which include external adapters, chainlink nodes and their DBs,
-as well as some simulated blockchains, all depending on the types of tests and networks being used.
-
-## Configure Environment
-
-See the [example.env](./example.env) file and use it as a template for your own `.env` file. This allows you to configure general settings like what name to associate with your tests, and which Chainlink version to use when running them.
-
-You can also specify `EVM_PRIVATE_KEYS` and `EVM_URLS` for running on live chains.
-
-Other `EVM_*` variables are retrieved when running with the `@general` tag, and is helpful for doing quick sanity checks on new chains or when tweaking variables.
-
-**The tests will not automatically load your .env file. Remember to run `source .env` for changes to take effect.**
-
-## How to Run
-
-Most of the time, you'll want to run tests on a simulated chain, for the purposes of speed and cost.
-
-### Smoke
-
-Run all smoke tests with the below command. By default, we only use simulated blockchains, as running on live chains takes more configuration.
-
-```sh
-make test_smoke
+[ChainlinkImage]
+image = "your image name"
+version = "your tag"
 ```
 
-Run all smoke tests in parallel, only using simulated blockchains. *Note: As of now, you can only run tests in parallel on simulated chains, not on live ones.*
+The `./testconfig/overrides.toml` file **should never be committed** and has been added to the [.gitignore](../.gitignore) file as it can often contain secrets like private keys and RPC URLs.
 
-```sh
-make test_smoke args="-nodes=<number-of-parallel-tests>"
-```
+## Build
 
-You can also run specific tests or specific networks using `make test_smoke_raw` and a `focus` tag.
+If you'd like to run the tests on a local build of Chainlink, you can point to your own docker image, or build a fresh one with `make`.
 
-```sh
-make test_smoke_raw args="-focus=@metis" # Runs all the smoke tests on the Metis Stardust network
-make test_smoke_raw args="-focus=@general" # Runs all smoke tests for a network that you define in environment vars
-```
+`make build_docker_image image=<image-name> tag=<tag>`
 
-[Check out](https://onsi.github.io/ginkgo/#description-based-filtering) how Ginkgo handles focus and skip tags if you're looking for more precise behavior.
+e.g.
 
-### Soak
+`make build_docker_image image=chainlink tag=test-tag`
 
-Currently we have 2 soak tests, both can be triggered using make commands.
+## Run
 
-```sh
-make test_soak_ocr
-make test_soak_keeper
-```
+Ensure you have created a `./testconfig/overrides.toml` file with your desired Chainlink image and version.
 
-Soak tests will pull all their network information from the env vars that you can set in the `.env` file. *Reminder to run `source .env` for changes to take effect.*
+`go test ./smoke/<product>_test.go`
 
-To configure specific parameters of how the soak tests run (e.g. test length, number of contracts), see the [./soak/tests](./soak/tests/) test specifications.
+Most test files have a couple of tests, it's recommended to look into the file and focus on a specific one if possible. 90% of the time this will probably be the `Basic` test. See [ocr_test.go](./smoke/ocr_test.go) for example, which contains the `TestOCRBasic` test.
 
-See the [soak_runner](./soak/soak_runner_test.go) for more info on how the tests are run and configured.
+`go test ./smoke/ocr_test.go -run TestOCRBasic`
 
-### Performance
+It's generally recommended to run only one test at a time on a local machine as it needs a lot of docker containers and can peg your resources otherwise. You will see docker containers spin up on your machine for each component of the test where you can inspect logs.
 
-Currently, all performance tests are only run on simulated blockchains.
+## Analyze
 
-```sh
-make test_perf
-```
+You can see the results of each test in the terminal with normal `go test` output. If a test fails, logs of each Chainlink container will dump into the `smoke/logs/` folder for later analysis. You can also see these logs in CI uploaded as GitHub artifacts.
 
-## Common Issues
+## Running Soak, Performance, Benchmark, and Chaos Tests
 
-When upgrading to a new version, it's possible the helm charts have changed. There are a myriad of errors that can result from this, so it's best to just try running `helm repo update` when encountering an error you're unsure of.
+These tests remain bound to a Kubernetes run environment, and require more complex setup and running instructions not documented here. We endeavor to make these easier to run and configure, but for the time being please seek a member of the QA/Test Tooling team if you want to run these.

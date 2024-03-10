@@ -4,8 +4,9 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/solidity_vrf_verifier_wrapper"
-	proof2 "github.com/smartcontractkit/chainlink/core/services/vrf/proof"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_verifier_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
+	proof2 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -15,17 +16,17 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 )
 
 func TestMarshaledProof(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
-	keyStore := cltest.NewKeyStore(t, db, cfg)
+	cfg := configtest.NewGeneralConfig(t, nil)
+	keyStore := cltest.NewKeyStore(t, db, cfg.Database())
 	key := cltest.DefaultVRFKey
-	keyStore.VRF().Add(key)
+	require.NoError(t, keyStore.VRF().Add(key))
 	blockHash := common.Hash{}
 	blockNum := 0
 	preSeed := big.NewInt(1)
@@ -43,7 +44,7 @@ func TestMarshaledProof(t *testing.T) {
 	ethereumKey, _ := crypto.GenerateKey()
 	auth, err := bind.NewKeyedTransactorWithChainID(ethereumKey, big.NewInt(1337))
 	require.NoError(t, err)
-	genesisData := core.GenesisAlloc{auth.From: {Balance: assets.Ether(100)}}
+	genesisData := core.GenesisAlloc{auth.From: {Balance: assets.Ether(100).ToInt()}}
 	gasLimit := uint32(ethconfig.Defaults.Miner.GasCeil)
 	backend := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
 	_, _, verifier, err := solidity_vrf_verifier_wrapper.DeployVRFTestHelper(auth, backend)

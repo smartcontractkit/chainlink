@@ -26,8 +26,13 @@ else
   echo "$latest_tag" >"$tag_file"
   echo "Tag updated $current_tag -> $latest_tag"
   if [ "$CI" ]; then
-    echo "::set-output name=current_tag::$current_tag"
-    echo "::set-output name=latest_tag::$latest_tag"
-    echo "::set-output name=body::$body"
+    echo "current_tag=$current_tag" >>$GITHUB_OUTPUT
+    echo "latest_tag=$latest_tag" >>$GITHUB_OUTPUT
+
+    # See https://github.com/orgs/community/discussions/26288#discussioncomment-3876281
+    delimiter="$(openssl rand -hex 8)"
+    echo "body<<${delimiter}" >>"${GITHUB_OUTPUT}"
+    echo "$body" >>"${GITHUB_OUTPUT}"
+    echo "${delimiter}" >>"${GITHUB_OUTPUT}"
   fi
 fi

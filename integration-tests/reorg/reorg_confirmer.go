@@ -2,20 +2,20 @@ package reorg
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
-	"go.uber.org/atomic"
 
-	"github.com/smartcontractkit/chainlink-env/chaos"
-	"github.com/smartcontractkit/chainlink-env/environment"
-	a "github.com/smartcontractkit/chainlink-env/pkg/alias"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/reorg"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/chaos"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/reorg"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
 )
 
 // The steps are:
@@ -50,7 +50,7 @@ type ReorgController struct {
 	forkBlockNumber       int64
 	currentAltBlocks      int
 	currentVerifiedBlocks int
-	networkStep           *atomic.Int64
+	networkStep           atomic.Int64
 	altBlockNumbers       []int64
 	blocksByNode          map[int]map[int64]blockchain.NodeHeader
 	blockHashes           map[int64][]common.Hash
@@ -58,7 +58,7 @@ type ReorgController struct {
 	initConsensusReady    chan struct{}
 	reorgStarted          chan struct{}
 	depthReached          chan struct{}
-	once                  *sync.Once
+	once                  sync.Once
 	mutex                 sync.Mutex
 	ctx                   context.Context
 	cancel                context.CancelFunc
@@ -69,7 +69,7 @@ type ReorgController struct {
 // NewReorgController creates a type that can create reorg chaos and confirm reorg has happened
 func NewReorgController(cfg *ReorgConfig) (*ReorgController, error) {
 	if len(cfg.Network.GetClients()) == 1 {
-		return nil, errors.New("need at least 3 nodes to re-org")
+		return nil, fmt.Errorf("need at least 3 nodes to re-org")
 	}
 	ctx, ctxCancel := context.WithTimeout(context.Background(), cfg.Timeout)
 	rc := &ReorgController{
@@ -82,14 +82,13 @@ func NewReorgController(cfg *ReorgConfig) (*ReorgController, error) {
 		initConsensusReady: make(chan struct{}, 100),
 		reorgStarted:       make(chan struct{}, 100),
 		depthReached:       make(chan struct{}, 100),
-		once:               &sync.Once{},
-		mutex:              sync.Mutex{},
 		ctx:                ctx,
 		cancel:             ctxCancel,
-		networkStep:        atomic.NewInt64(InitConsensus),
-		complete:           false,
 	}
-	cfg.Network.AddHeaderEventSubscription("reorg", rc)
+	rc.networkStep.Store(InitConsensus)
+	for _, c := range cfg.Network.GetClients() {
+		c.AddHeaderEventSubscription("reorg", rc)
+	}
 	<-rc.initConsensusReady
 	return rc, nil
 }
@@ -157,15 +156,15 @@ func (rc *ReorgController) VerifyReorgComplete() error {
 		}
 		log.Info().
 			Int64("Number", bb.Number.Int64()).
-			Str("Hash before", bb.Hash().String()).
+			Str("Hash before", bb.Hash.String()).
 			Str("Hash after", h).
 			Msg("Comparing block")
-		if bb.Hash().String() != h {
+		if bb.Hash.String() != h {
 			rc.currentVerifiedBlocks++
 		}
 	}
 	if rc.currentVerifiedBlocks+1 < rc.ReorgDepth {
-		return errors.New("Reorg depth has not met")
+		return fmt.Errorf("Reorg depth has not met")
 	}
 	return nil
 }
@@ -194,7 +193,7 @@ func (rc *ReorgController) compareBlocks(blk blockchain.NodeHeader) error {
 		rc.currentAltBlocks++
 		log.Info().
 			Int64("Number", blk.Number.Int64()).
-			Str("Hash", blk.Hash().String()).
+			Str("Hash", blk.Hash.String()).
 			Int("Node", blk.NodeID).
 			Int("BlocksLeft", rc.ReorgDepth-rc.currentAltBlocks).
 			Msg("Mined alternative block")
@@ -217,7 +216,7 @@ func (rc *ReorgController) Wait() error {
 	if rc.complete {
 		return nil
 	}
-	return errors.New("timeout waiting for reorg to complete")
+	return fmt.Errorf("timeout waiting for reorg to complete")
 }
 
 // forkNetwork stomp the network between target reorged node and the rest
@@ -232,8 +231,8 @@ func (rc *ReorgController) forkNetwork(header blockchain.NodeHeader) error {
 			rc.cfg.Env.Cfg.Namespace,
 			&chaos.Props{
 				DurationStr: "999h",
-				FromLabels:  &map[string]*string{"app": a.Str(reorg.TXNodesAppLabel)},
-				ToLabels:    &map[string]*string{"app": a.Str(reorg.MinerNodesAppLabel)},
+				FromLabels:  &map[string]*string{"app": ptr.Ptr(reorg.TXNodesAppLabel)},
+				ToLabels:    &map[string]*string{"app": ptr.Ptr(reorg.MinerNodesAppLabel)},
 			},
 		))
 	rc.chaosExperimentName = expName
@@ -276,7 +275,7 @@ func (rc *ReorgController) appendBlockHeader(header blockchain.NodeHeader) {
 	if _, ok := rc.blockHashes[bn]; !ok {
 		rc.blockHashes[bn] = []common.Hash{}
 	}
-	rc.blockHashes[bn] = append(rc.blockHashes[bn], header.Hash())
+	rc.blockHashes[bn] = append(rc.blockHashes[bn], header.Hash)
 
 	if _, ok := rc.blocksByNode[header.NodeID]; !ok {
 		rc.blocksByNode[header.NodeID] = make(map[int64]blockchain.NodeHeader)

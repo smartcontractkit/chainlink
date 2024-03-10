@@ -5,10 +5,11 @@ import (
 	"testing"
 
 	"github.com/manyminds/api2go/jsonapi"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
-	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func TestCSAKeyResource(t *testing.T) {
@@ -26,7 +27,7 @@ func TestCSAKeyResource(t *testing.T) {
 			"type":"csaKeys",
 			"id":"%s",
 			"attributes":{
-				"publicKey": "%s",
+				"publicKey": "csa_%s",
 				"version": 1
 			}
 		}

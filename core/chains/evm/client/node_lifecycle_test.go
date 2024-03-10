@@ -3,31 +3,37 @@ package client
 import (
 	"fmt"
 	"math/big"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
-	"go.uber.org/atomic"
 	"go.uber.org/zap"
 
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
-func standardHandler(method string, params gjson.Result) (string, string) {
-	return "", ""
+func standardHandler(method string, _ gjson.Result) (resp testutils.JSONRPCResponse) {
+	if method == "eth_subscribe" {
+		resp.Result = `"0x00"`
+		resp.Notify = HeadResult
+		return
+	}
+	return
 }
 
-func newTestNode(t *testing.T, cfg NodeConfig) *node {
-	return newTestNodeWithCallback(t, cfg, standardHandler)
+func newTestNode(t *testing.T, cfg config.NodePool, noNewHeadsThresholds time.Duration) *node {
+	return newTestNodeWithCallback(t, cfg, noNewHeadsThresholds, standardHandler)
 }
 
-func newTestNodeWithCallback(t *testing.T, cfg NodeConfig, callback testutils.JSONRPCHandler) *node {
+func newTestNodeWithCallback(t *testing.T, cfg config.NodePool, noNewHeadsThreshold time.Duration, callback testutils.JSONRPCHandler) *node {
 	s := testutils.NewWSServer(t, testutils.FixtureChainID, callback)
-	iN := NewNode(cfg, logger.TestLogger(t), *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID)
+	iN := NewNode(cfg, noNewHeadsThreshold, logger.Test(t), *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID, 1)
 	n := iN.(*node)
 	return n
 }
@@ -62,8 +68,8 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 	t.Parallel()
 
 	t.Run("with no poll and sync timeouts, exits on close", func(t *testing.T) {
-		pollAndSyncTimeoutsDisabledCfg := TestNodeConfig{}
-		n := newTestNode(t, pollAndSyncTimeoutsDisabledCfg)
+		pollAndSyncTimeoutsDisabledCfg := TestNodePoolConfig{}
+		n := newTestNode(t, pollAndSyncTimeoutsDisabledCfg, 0*time.Second)
 		dial(t, n)
 
 		ch := make(chan struct{})
@@ -72,30 +78,39 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 			defer close(ch)
 			n.aliveLoop()
 		}()
-		n.Close()
+		assert.NoError(t, n.Close())
 		testutils.WaitWithTimeout(t, ch, "expected aliveLoop to exit")
 	})
 
 	t.Run("with no poll failures past threshold, stays alive", func(t *testing.T) {
 		threshold := 5
-		cfg := TestNodeConfig{PollFailureThreshold: uint32(threshold), PollInterval: testutils.TestInterval}
+		cfg := TestNodePoolConfig{NodePollFailureThreshold: uint32(threshold), NodePollInterval: testutils.TestInterval}
 		var calls atomic.Int32
-		n := newTestNodeWithCallback(t, cfg, func(method string, params gjson.Result) (respResult string, notifyResult string) {
+		n := newTestNodeWithCallback(t, cfg, time.Second*0, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
 			switch method {
+			case "eth_subscribe":
+				resp.Result = `"0x00"`
+				resp.Notify = makeHeadResult(0)
+				return
+			case "eth_unsubscribe":
+				resp.Result = "true"
+				return
 			case "web3_clientVersion":
-				defer calls.Inc()
+				defer calls.Add(1)
 				// It starts working right before it hits threshold
 				if int(calls.Load())+1 >= threshold {
-					return `"test client version"`, ""
+					resp.Result = `"test client version"`
+					return
 				}
-				return "this will error", ""
+				resp.Result = "this will error"
+				return
 			default:
 				t.Errorf("unexpected RPC method: %s", method)
 			}
-			return "", ""
+			return
 		})
 		dial(t, n)
-		defer n.Close()
+		defer func() { assert.NoError(t, n.Close()) }()
 
 		n.wg.Add(1)
 		go n.aliveLoop()
@@ -110,10 +125,10 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 	})
 
 	t.Run("with threshold poll failures, transitions to unreachable", func(t *testing.T) {
-		syncTimeoutsDisabledCfg := TestNodeConfig{PollFailureThreshold: 3, PollInterval: testutils.TestInterval}
-		n := newTestNode(t, syncTimeoutsDisabledCfg)
+		syncTimeoutsDisabledCfg := TestNodePoolConfig{NodePollFailureThreshold: 3, NodePollInterval: testutils.TestInterval}
+		n := newTestNode(t, syncTimeoutsDisabledCfg, time.Second*0)
 		dial(t, n)
-		defer n.Close()
+		defer func() { assert.NoError(t, n.Close()) }()
 
 		n.wg.Add(1)
 		go n.aliveLoop()
@@ -125,21 +140,29 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 
 	t.Run("with threshold poll failures, but we are the last node alive, forcibly keeps it alive", func(t *testing.T) {
 		threshold := 3
-		cfg := TestNodeConfig{PollFailureThreshold: uint32(threshold), PollInterval: testutils.TestInterval}
+		cfg := TestNodePoolConfig{NodePollFailureThreshold: uint32(threshold), NodePollInterval: testutils.TestInterval}
 		var calls atomic.Int32
-		n := newTestNodeWithCallback(t, cfg, func(method string, params gjson.Result) (respResult string, notifyResult string) {
+		n := newTestNodeWithCallback(t, cfg, time.Second*0, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
 			switch method {
+			case "eth_subscribe":
+				resp.Result = `"0x00"`
+				resp.Notify = HeadResult
+				return
+			case "eth_unsubscribe":
+				resp.Result = "true"
+				return
 			case "web3_clientVersion":
-				defer calls.Inc()
-				return "this will error", ""
+				defer calls.Add(1)
+				resp.Error.Message = "this will error"
+				return
 			default:
 				t.Errorf("unexpected RPC method: %s", method)
 			}
-			return "", ""
+			return
 		})
-		n.nLiveNodes = func() int { return 1 }
+		n.nLiveNodes = func() (int, int64, *big.Int) { return 1, 0, nil }
 		dial(t, n)
-		defer n.Close()
+		defer func() { assert.NoError(t, n.Close()) }()
 
 		n.wg.Add(1)
 		go n.aliveLoop()
@@ -154,10 +177,10 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 	})
 
 	t.Run("if initial subscribe fails, transitions to unreachable", func(t *testing.T) {
-		pollDisabledCfg := TestNodeConfig{NoNewHeadsThreshold: testutils.TestInterval}
-		n := newTestNode(t, pollDisabledCfg)
+		pollDisabledCfg := TestNodePoolConfig{}
+		n := newTestNodeWithCallback(t, pollDisabledCfg, testutils.TestInterval, func(string, gjson.Result) (resp testutils.JSONRPCResponse) { return })
 		dial(t, n)
-		defer n.Close()
+		defer func() { assert.NoError(t, n.Close()) }()
 
 		_, err := n.EthSubscribe(testutils.Context(t), make(chan *evmtypes.Head))
 		assert.Error(t, err)
@@ -174,35 +197,35 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		// NoNewHeadsThreshold needs to be positive but must be very large so
 		// we don't time out waiting for a new head before we have a chance to
 		// handle the server disconnect
-		cfg := TestNodeConfig{NoNewHeadsThreshold: testutils.WaitTimeout(t), PollInterval: 1 * time.Second}
-		chSubbed := make(chan struct{})
+		cfg := TestNodePoolConfig{NodePollInterval: 1 * time.Second}
+		chSubbed := make(chan struct{}, 1)
 		chPolled := make(chan struct{})
 		s := testutils.NewWSServer(t, testutils.FixtureChainID,
-			func(method string, params gjson.Result) (respResult string, notifyResult string) {
+			func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
 				switch method {
 				case "eth_subscribe":
-					select {
-					case chSubbed <- struct{}{}:
-					default:
-					}
-					return `"0x00"`, makeHeadResult(0)
+					chSubbed <- struct{}{}
+					resp.Result = `"0x00"`
+					resp.Notify = makeHeadResult(0)
+					return
 				case "web3_clientVersion":
 					select {
 					case chPolled <- struct{}{}:
 					default:
 					}
-					return `"test client version 2"`, ""
+					resp.Result = `"test client version 2"`
+					return
 				default:
 					t.Errorf("unexpected RPC method: %s", method)
 				}
-				return "", ""
+				return
 			})
 
-		iN := NewNode(cfg, logger.TestLogger(t), *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID)
+		iN := NewNode(cfg, testutils.WaitTimeout(t), logger.Test(t), *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID, 1)
 		n := iN.(*node)
 
 		dial(t, n)
-		defer n.Close()
+		defer func() { assert.NoError(t, n.Close()) }()
 
 		n.wg.Add(1)
 		go n.aliveLoop()
@@ -222,30 +245,33 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 	})
 
 	t.Run("when no new heads received for threshold, transitions to out of sync", func(t *testing.T) {
-		cfg := TestNodeConfig{NoNewHeadsThreshold: 1 * time.Second}
+		cfg := TestNodePoolConfig{}
 		chSubbed := make(chan struct{}, 2)
 		s := testutils.NewWSServer(t, testutils.FixtureChainID,
-			func(method string, params gjson.Result) (respResult string, notifyResult string) {
+			func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
 				switch method {
 				case "eth_subscribe":
-					select {
-					case chSubbed <- struct{}{}:
-					default:
-					}
-					return `"0x00"`, makeHeadResult(0)
+					chSubbed <- struct{}{}
+					resp.Result = `"0x00"`
+					resp.Notify = makeHeadResult(0)
+					return
+				case "eth_unsubscribe":
+					resp.Result = "true"
+					return
 				case "web3_clientVersion":
-					return `"test client version 2"`, ""
+					resp.Result = `"test client version 2"`
+					return
 				default:
 					t.Errorf("unexpected RPC method: %s", method)
 				}
-				return "", ""
+				return
 			})
 
-		iN := NewNode(cfg, logger.TestLogger(t), *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID)
+		iN := NewNode(cfg, 1*time.Second, logger.Test(t), *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID, 1)
 		n := iN.(*node)
 
 		dial(t, n)
-		defer n.Close()
+		defer func() { assert.NoError(t, n.Close()) }()
 
 		n.wg.Add(1)
 		go n.aliveLoop()
@@ -261,33 +287,222 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 	})
 
 	t.Run("when no new heads received for threshold but we are the last live node, forcibly stays alive", func(t *testing.T) {
-		lggr, observedLogs := logger.TestLoggerObserved(t, zap.ErrorLevel)
-		pollDisabledCfg := TestNodeConfig{NoNewHeadsThreshold: testutils.TestInterval}
+		lggr, observedLogs := logger.TestObserved(t, zap.ErrorLevel)
+		pollDisabledCfg := TestNodePoolConfig{}
 		s := testutils.NewWSServer(t, testutils.FixtureChainID,
-			func(method string, params gjson.Result) (respResult string, notifyResult string) {
+			func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
 				switch method {
 				case "eth_subscribe":
-					return `"0x00"`, makeHeadResult(0)
+					resp.Result = `"0x00"`
+					resp.Notify = makeHeadResult(0)
+					return
+				case "eth_unsubscribe":
+					resp.Result = "true"
+					return
 				default:
 					t.Errorf("unexpected RPC method: %s", method)
 				}
-				return "", ""
+				return
 			})
 
-		iN := NewNode(pollDisabledCfg, lggr, *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID)
+		iN := NewNode(pollDisabledCfg, testutils.TestInterval, lggr, *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID, 1)
 		n := iN.(*node)
-		n.nLiveNodes = func() int { return 1 }
+		n.nLiveNodes = func() (int, int64, *big.Int) { return 1, 0, nil }
 		dial(t, n)
-		defer n.Close()
+		defer func() { assert.NoError(t, n.Close()) }()
 
 		n.wg.Add(1)
 		go n.aliveLoop()
 
 		// to avoid timing-dependent tests, simply wait for the log message instead
 		// wait for the log twice to be sure we have fully completed the code path and gone around the loop
-		testutils.WaitForLogMessageCount(t, observedLogs, "RPC endpoint detected out of sync; but cannot disable this connection because there are no other RPC endpoints, or all other RPC endpoints dead. Chainlink is now operating in a degraded state and urgent action is required to resolve the issue", 2)
+		testutils.WaitForLogMessageCount(t, observedLogs, msgCannotDisable, 2)
 
 		assert.Equal(t, NodeStateAlive, n.State())
+	})
+
+	t.Run("when behind more than SyncThreshold, transitions to out of sync", func(t *testing.T) {
+		cfg := TestNodePoolConfig{NodeSyncThreshold: 10, NodePollFailureThreshold: 2, NodePollInterval: 100 * time.Millisecond, NodeSelectionMode: NodeSelectionMode_HighestHead}
+		chSubbed := make(chan struct{}, 2)
+		var highestHead atomic.Int64
+		const stall = 10
+		s := testutils.NewWSServer(t, testutils.FixtureChainID,
+			func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
+				switch method {
+				case "eth_subscribe":
+					chSubbed <- struct{}{}
+					resp.Result = `"0x00"`
+					resp.Notify = makeHeadResult(int(highestHead.Load()))
+					return
+				case "eth_unsubscribe":
+					resp.Result = "true"
+					return
+				case "web3_clientVersion":
+					resp.Result = `"test client version 2"`
+					// always tick each poll, but only signal back up to stall
+					if n := highestHead.Add(1); n <= stall {
+						resp.Notify = makeHeadResult(int(n))
+					}
+					return
+				default:
+					t.Errorf("unexpected RPC method: %s", method)
+				}
+				return
+			})
+
+		iN := NewNode(cfg, 0*time.Second, logger.Test(t), *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID, 1)
+		n := iN.(*node)
+		n.nLiveNodes = func() (count int, blockNumber int64, totalDifficulty *big.Int) {
+			return 2, highestHead.Load(), nil
+		}
+
+		dial(t, n)
+		defer func() { assert.NoError(t, n.Close()) }()
+
+		n.wg.Add(1)
+		go n.aliveLoop()
+
+		testutils.WaitWithTimeout(t, chSubbed, "timed out waiting for initial subscription for InSync")
+
+		// ensure alive up to stall
+		testutils.AssertEventually(t, func() bool {
+			state, num, _ := n.StateAndLatest()
+			if num < stall {
+				require.Equal(t, NodeStateAlive, state)
+			}
+			return num == stall
+		})
+
+		testutils.AssertEventually(t, func() bool {
+			state, num, _ := n.StateAndLatest()
+			return state == NodeStateOutOfSync && num == stall
+		})
+		assert.GreaterOrEqual(t, highestHead.Load(), int64(stall+cfg.SyncThreshold()))
+
+		// Otherwise, there may be data race on dial() vs Close() (accessing ws.rpc)
+		testutils.WaitWithTimeout(t, chSubbed, "timed out waiting for initial subscription for OutOfSync")
+	})
+
+	t.Run("when behind but SyncThreshold=0, stay alive", func(t *testing.T) {
+		cfg := TestNodePoolConfig{NodeSyncThreshold: 0, NodePollFailureThreshold: 2, NodePollInterval: 100 * time.Millisecond, NodeSelectionMode: NodeSelectionMode_HighestHead}
+		chSubbed := make(chan struct{}, 1)
+		var highestHead atomic.Int64
+		const stall = 10
+		s := testutils.NewWSServer(t, testutils.FixtureChainID,
+			func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
+				switch method {
+				case "eth_subscribe":
+					chSubbed <- struct{}{}
+					resp.Result = `"0x00"`
+					resp.Notify = makeHeadResult(int(highestHead.Load()))
+					return
+				case "eth_unsubscribe":
+					resp.Result = "true"
+					return
+				case "web3_clientVersion":
+					resp.Result = `"test client version 2"`
+					// always tick each poll, but only signal back up to stall
+					if n := highestHead.Add(1); n <= stall {
+						resp.Notify = makeHeadResult(int(n))
+					}
+					return
+				default:
+					t.Errorf("unexpected RPC method: %s", method)
+				}
+				return
+			})
+
+		iN := NewNode(cfg, 0*time.Second, logger.Test(t), *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID, 1)
+		n := iN.(*node)
+		n.nLiveNodes = func() (count int, blockNumber int64, totalDifficulty *big.Int) {
+			return 2, highestHead.Load(), nil
+		}
+
+		dial(t, n)
+		defer func() { assert.NoError(t, n.Close()) }()
+
+		n.wg.Add(1)
+		go n.aliveLoop()
+
+		testutils.WaitWithTimeout(t, chSubbed, "timed out waiting for initial subscription for InSync")
+
+		// ensure alive up to stall
+		testutils.AssertEventually(t, func() bool {
+			state, num, _ := n.StateAndLatest()
+			require.Equal(t, NodeStateAlive, state)
+			return num == stall
+		})
+
+		assert.Equal(t, NodeStateAlive, n.state)
+		assert.GreaterOrEqual(t, highestHead.Load(), int64(stall+cfg.SyncThreshold()))
+	})
+
+	t.Run("when behind more than SyncThreshold but we are the last live node, forcibly stays alive", func(t *testing.T) {
+		lggr, observedLogs := logger.TestObserved(t, zap.ErrorLevel)
+		cfg := TestNodePoolConfig{NodeSyncThreshold: 5, NodePollFailureThreshold: 2, NodePollInterval: 100 * time.Millisecond, NodeSelectionMode: NodeSelectionMode_HighestHead}
+		chSubbed := make(chan struct{}, 1)
+		var highestHead atomic.Int64
+		const stall = 10
+		s := testutils.NewWSServer(t, testutils.FixtureChainID,
+			func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
+				switch method {
+				case "eth_subscribe":
+					chSubbed <- struct{}{}
+					resp.Result = `"0x00"`
+					n := highestHead.Load()
+					if n > stall {
+						n = stall
+					}
+					resp.Notify = makeHeadResult(int(n))
+					return
+				case "eth_unsubscribe":
+					resp.Result = "true"
+					return
+				case "web3_clientVersion":
+					resp.Result = `"test client version 2"`
+					// always tick each poll, but only signal back up to stall
+					if n := highestHead.Add(1); n <= stall {
+						resp.Notify = makeHeadResult(int(n))
+					}
+					return
+				default:
+					t.Errorf("unexpected RPC method: %s", method)
+				}
+				return
+			})
+
+		iN := NewNode(cfg, 0*time.Second, lggr, *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID, 1)
+		n := iN.(*node)
+		n.nLiveNodes = func() (count int, blockNumber int64, totalDifficulty *big.Int) {
+			return 1, highestHead.Load(), nil
+		}
+
+		dial(t, n)
+		defer func() { assert.NoError(t, n.Close()) }()
+
+		n.wg.Add(1)
+		go n.aliveLoop()
+
+		testutils.WaitWithTimeout(t, chSubbed, "timed out waiting for initial subscription for InSync")
+
+		// ensure alive up to stall
+		testutils.AssertEventually(t, func() bool {
+			state, num, _ := n.StateAndLatest()
+			require.Equal(t, NodeStateAlive, state)
+			return num == stall
+		})
+
+		assert.Equal(t, NodeStateAlive, n.state)
+		testutils.AssertEventually(t, func() bool {
+			return highestHead.Load() >= int64(stall+cfg.SyncThreshold())
+		})
+
+		testutils.WaitForLogMessageCount(t, observedLogs, msgCannotDisable, 1)
+
+		state, num, _ := n.StateAndLatest()
+		assert.Equal(t, NodeStateAlive, state)
+		assert.Equal(t, int64(stall), num)
+
 	})
 }
 
@@ -295,8 +510,8 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 	t.Parallel()
 
 	t.Run("exits on close", func(t *testing.T) {
-		cfg := TestNodeConfig{}
-		n := newTestNode(t, cfg)
+		cfg := TestNodePoolConfig{}
+		n := newTestNode(t, cfg, time.Second*0)
 		dial(t, n)
 		n.setState(NodeStateOutOfSync)
 
@@ -305,52 +520,51 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		n.wg.Add(1)
 		go func() {
 			defer close(ch)
-			n.aliveLoop()
+			n.outOfSyncLoop(func(num int64, td *big.Int) bool { return false })
 		}()
-		n.Close()
+		assert.NoError(t, n.Close())
 		testutils.WaitWithTimeout(t, ch, "expected outOfSyncLoop to exit")
 	})
 
 	t.Run("if initial subscribe fails, transitions to unreachable", func(t *testing.T) {
-		cfg := TestNodeConfig{}
-		n := newTestNode(t, cfg)
+		cfg := TestNodePoolConfig{}
+		n := newTestNodeWithCallback(t, cfg, time.Second*0, func(string, gjson.Result) (resp testutils.JSONRPCResponse) { return })
 		dial(t, n)
 		n.setState(NodeStateOutOfSync)
-		defer n.Close()
+		defer func() { assert.NoError(t, n.Close()) }()
 
 		n.wg.Add(1)
-		n.outOfSyncLoop(0)
 
+		n.outOfSyncLoop(func(num int64, td *big.Int) bool { return num == 0 })
 		assert.Equal(t, NodeStateUnreachable, n.State())
 	})
 
 	t.Run("transitions to unreachable if remote RPC subscription channel closed", func(t *testing.T) {
-		cfg := TestNodeConfig{}
-		chSubbed := make(chan struct{})
+		cfg := TestNodePoolConfig{}
+		chSubbed := make(chan struct{}, 1)
 		s := testutils.NewWSServer(t, testutils.FixtureChainID,
-			func(method string, params gjson.Result) (respResult string, notifyResult string) {
+			func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
 				switch method {
 				case "eth_subscribe":
-					select {
-					case chSubbed <- struct{}{}:
-					default:
-					}
-					return `"0x00"`, makeHeadResult(0)
+					chSubbed <- struct{}{}
+					resp.Result = `"0x00"`
+					resp.Notify = makeHeadResult(0)
+					return
 				default:
 					t.Errorf("unexpected RPC method: %s", method)
 				}
-				return "", ""
+				return
 			})
 
-		iN := NewNode(cfg, logger.TestLogger(t), *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID)
+		iN := NewNode(cfg, time.Second, logger.Test(t), *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID, 1)
 		n := iN.(*node)
 
 		dial(t, n)
 		n.setState(NodeStateOutOfSync)
-		defer n.Close()
+		defer func() { assert.NoError(t, n.Close()) }()
 
 		n.wg.Add(1)
-		go n.outOfSyncLoop(0)
+		go n.outOfSyncLoop(func(num int64, td *big.Int) bool { return num == 0 })
 
 		testutils.WaitWithTimeout(t, chSubbed, "timed out waiting for initial subscription")
 
@@ -369,34 +583,35 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		// NoNewHeadsThreshold needs to be positive but must be very large so
 		// we don't time out waiting for a new head before we have a chance to
 		// handle the server disconnect
-		lggr, observedLogs := logger.TestLoggerObserved(t, zap.DebugLevel)
-		cfg := TestNodeConfig{}
-		chSubbed := make(chan struct{})
+		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
+		cfg := TestNodePoolConfig{}
+		chSubbed := make(chan struct{}, 1)
 		s := testutils.NewWSServer(t, testutils.FixtureChainID,
-			func(method string, params gjson.Result) (respResult string, notifyResult string) {
+			func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
 				switch method {
 				case "eth_subscribe":
-					select {
-					case chSubbed <- struct{}{}:
-					default:
-					}
-					return `"0x00"`, makeNewHeadWSMessage(42)
+					chSubbed <- struct{}{}
+					resp.Result = `"0x00"`
+					resp.Notify = makeNewHeadWSMessage(42)
+					return
 				case "eth_unsubscribe":
+					resp.Result = "true"
+					return
 				default:
 					t.Errorf("unexpected RPC method: %s", method)
 				}
-				return "", ""
+				return
 			})
 
-		iN := NewNode(cfg, lggr, *s.WSURL(), nil, "test node", 0, testutils.FixtureChainID)
+		iN := NewNode(cfg, time.Second*0, lggr, *s.WSURL(), nil, "test node", 0, testutils.FixtureChainID, 1)
 		n := iN.(*node)
 
 		start(t, n)
 		n.setState(NodeStateOutOfSync)
-		defer n.Close()
+		defer func() { assert.NoError(t, n.Close()) }()
 
 		n.wg.Add(1)
-		go n.outOfSyncLoop(42)
+		go n.outOfSyncLoop(func(num int64, td *big.Int) bool { return num < 43 })
 
 		testutils.WaitWithTimeout(t, chSubbed, "timed out waiting for initial subscription")
 
@@ -406,48 +621,109 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		for i := 0; i < 43; i++ {
 			msg := makeNewHeadWSMessage(i)
 			s.MustWriteBinaryMessageSync(t, msg)
-			testutils.WaitForLogMessageCount(t, observedLogs, "Received previously seen block for RPC node", i+1)
+			testutils.WaitForLogMessageCount(t, observedLogs, msgReceivedBlock, i+1)
 			assert.Equal(t, NodeStateOutOfSync, n.State())
 		}
 
 		msg := makeNewHeadWSMessage(43)
 		s.MustWriteBinaryMessageSync(t, msg)
 
-		testutils.WaitForLogMessage(t, observedLogs, "Received new block for RPC node")
-
 		testutils.AssertEventually(t, func() bool {
-			return n.State() == NodeStateAlive
+			s, n, td := n.StateAndLatest()
+			return s == NodeStateAlive && n != -1 && td != nil
 		})
+
+		testutils.WaitForLogMessage(t, observedLogs, msgInSync)
 	})
 
-	t.Run("if no live nodes are available, forcibly marks this one alive again", func(t *testing.T) {
-		cfg := TestNodeConfig{NoNewHeadsThreshold: testutils.TestInterval}
-		chSubbed := make(chan struct{})
+	t.Run("transitions to alive if back in-sync", func(t *testing.T) {
+		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
+		cfg := TestNodePoolConfig{NodeSyncThreshold: 5, NodeSelectionMode: NodeSelectionMode_HighestHead}
+		chSubbed := make(chan struct{}, 1)
+		const stall = 42
 		s := testutils.NewWSServer(t, testutils.FixtureChainID,
-			func(method string, params gjson.Result) (respResult string, notifyResult string) {
+			func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
 				switch method {
 				case "eth_subscribe":
-					select {
-					case chSubbed <- struct{}{}:
-					default:
-					}
-					return `"0x00"`, makeHeadResult(0)
+					chSubbed <- struct{}{}
+					resp.Result = `"0x00"`
+					resp.Notify = makeNewHeadWSMessage(stall)
+					return
+				case "eth_unsubscribe":
+					resp.Result = "true"
+					return
 				default:
 					t.Errorf("unexpected RPC method: %s", method)
 				}
-				return "", ""
+				return
 			})
 
-		iN := NewNode(cfg, logger.TestLogger(t), *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID)
+		iN := NewNode(cfg, time.Second*0, lggr, *s.WSURL(), nil, "test node", 0, testutils.FixtureChainID, 1)
 		n := iN.(*node)
-		n.nLiveNodes = func() int { return 0 }
+		n.nLiveNodes = func() (count int, blockNumber int64, totalDifficulty *big.Int) {
+			return 2, stall + int64(cfg.SyncThreshold()), nil
+		}
+
+		start(t, n)
+		n.setState(NodeStateOutOfSync)
+		defer func() { assert.NoError(t, n.Close()) }()
+
+		n.wg.Add(1)
+		go n.outOfSyncLoop(n.isOutOfSync)
+
+		testutils.WaitWithTimeout(t, chSubbed, "timed out waiting for initial subscription")
+
+		assert.Equal(t, NodeStateOutOfSync, n.State())
+
+		// heads less than stall (latest seen head - SyncThreshold) are ignored; they do not make the node live
+		for i := 0; i < stall; i++ {
+			msg := makeNewHeadWSMessage(i)
+			s.MustWriteBinaryMessageSync(t, msg)
+			testutils.WaitForLogMessageCount(t, observedLogs, msgReceivedBlock, i+1)
+			assert.Equal(t, NodeStateOutOfSync, n.State())
+		}
+
+		msg := makeNewHeadWSMessage(stall)
+		s.MustWriteBinaryMessageSync(t, msg)
+
+		testutils.AssertEventually(t, func() bool {
+			s, n, td := n.StateAndLatest()
+			return s == NodeStateAlive && n != -1 && td != nil
+		})
+
+		testutils.WaitForLogMessage(t, observedLogs, msgInSync)
+	})
+
+	t.Run("if no live nodes are available, forcibly marks this one alive again", func(t *testing.T) {
+		cfg := TestNodePoolConfig{}
+		chSubbed := make(chan struct{}, 1)
+		s := testutils.NewWSServer(t, testutils.FixtureChainID,
+			func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
+				switch method {
+				case "eth_subscribe":
+					chSubbed <- struct{}{}
+					resp.Result = `"0x00"`
+					resp.Notify = makeHeadResult(0)
+					return
+				case "eth_unsubscribe":
+					resp.Result = "true"
+					return
+				default:
+					t.Errorf("unexpected RPC method: %s", method)
+				}
+				return
+			})
+
+		iN := NewNode(cfg, testutils.TestInterval, logger.Test(t), *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID, 1)
+		n := iN.(*node)
+		n.nLiveNodes = func() (int, int64, *big.Int) { return 0, 0, nil }
 
 		dial(t, n)
 		n.setState(NodeStateOutOfSync)
-		defer n.Close()
+		defer func() { assert.NoError(t, n.Close()) }()
 
 		n.wg.Add(1)
-		go n.outOfSyncLoop(0)
+		go n.outOfSyncLoop(func(num int64, td *big.Int) bool { return num == 0 })
 
 		testutils.WaitWithTimeout(t, chSubbed, "timed out waiting for initial subscription")
 
@@ -456,12 +732,13 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		})
 	})
 }
+
 func TestUnit_NodeLifecycle_unreachableLoop(t *testing.T) {
 	t.Parallel()
 
 	t.Run("exits on close", func(t *testing.T) {
-		cfg := TestNodeConfig{}
-		n := newTestNode(t, cfg)
+		cfg := TestNodePoolConfig{}
+		n := newTestNode(t, cfg, time.Second*0)
 		start(t, n)
 		n.setState(NodeStateUnreachable)
 
@@ -471,15 +748,15 @@ func TestUnit_NodeLifecycle_unreachableLoop(t *testing.T) {
 			n.unreachableLoop()
 			close(ch)
 		}()
-		n.Close()
+		assert.NoError(t, n.Close())
 		testutils.WaitWithTimeout(t, ch, "expected unreachableLoop to exit")
 	})
 
 	t.Run("on successful redial and verify, transitions to alive", func(t *testing.T) {
-		cfg := TestNodeConfig{}
-		n := newTestNode(t, cfg)
+		cfg := TestNodePoolConfig{}
+		n := newTestNode(t, cfg, time.Second*0)
 		start(t, n)
-		defer n.Close()
+		defer func() { assert.NoError(t, n.Close()) }()
 		n.setState(NodeStateUnreachable)
 		n.wg.Add(1)
 
@@ -491,12 +768,12 @@ func TestUnit_NodeLifecycle_unreachableLoop(t *testing.T) {
 	})
 
 	t.Run("on successful redial but failed verify, transitions to invalid chain ID", func(t *testing.T) {
-		cfg := TestNodeConfig{}
+		cfg := TestNodePoolConfig{}
 		s := testutils.NewWSServer(t, testutils.FixtureChainID, standardHandler)
-		lggr, observedLogs := logger.TestLoggerObserved(t, zap.ErrorLevel)
-		iN := NewNode(cfg, lggr, *s.WSURL(), nil, "test node", 0, big.NewInt(42))
+		lggr, observedLogs := logger.TestObserved(t, zap.ErrorLevel)
+		iN := NewNode(cfg, time.Second*0, lggr, *s.WSURL(), nil, "test node", 0, big.NewInt(42), 1)
 		n := iN.(*node)
-		defer n.Close()
+		defer func() { assert.NoError(t, n.Close()) }()
 		start(t, n)
 		n.setState(NodeStateUnreachable)
 		n.wg.Add(1)
@@ -511,11 +788,11 @@ func TestUnit_NodeLifecycle_unreachableLoop(t *testing.T) {
 	})
 
 	t.Run("on failed redial, keeps trying to redial", func(t *testing.T) {
-		cfg := TestNodeConfig{}
-		lggr, observedLogs := logger.TestLoggerObserved(t, zap.DebugLevel)
-		iN := NewNode(cfg, lggr, *testutils.MustParseURL(t, "ws://test.invalid"), nil, "test node", 0, big.NewInt(42))
+		cfg := TestNodePoolConfig{}
+		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
+		iN := NewNode(cfg, time.Second*0, lggr, *testutils.MustParseURL(t, "ws://test.invalid"), nil, "test node", 0, big.NewInt(42), 1)
 		n := iN.(*node)
-		defer n.Close()
+		defer func() { assert.NoError(t, n.Close()) }()
 		start(t, n)
 		n.setState(NodeStateUnreachable)
 		n.wg.Add(1)
@@ -531,8 +808,8 @@ func TestUnit_NodeLifecycle_invalidChainIDLoop(t *testing.T) {
 	t.Parallel()
 
 	t.Run("exits on close", func(t *testing.T) {
-		cfg := TestNodeConfig{}
-		n := newTestNode(t, cfg)
+		cfg := TestNodePoolConfig{}
+		n := newTestNode(t, cfg, time.Second*0)
 		start(t, n)
 		n.setState(NodeStateInvalidChainID)
 
@@ -542,15 +819,15 @@ func TestUnit_NodeLifecycle_invalidChainIDLoop(t *testing.T) {
 			n.invalidChainIDLoop()
 			close(ch)
 		}()
-		n.Close()
+		assert.NoError(t, n.Close())
 		testutils.WaitWithTimeout(t, ch, "expected invalidChainIDLoop to exit")
 	})
 
 	t.Run("on successful verify, transitions to alive", func(t *testing.T) {
-		cfg := TestNodeConfig{}
-		n := newTestNode(t, cfg)
+		cfg := TestNodePoolConfig{}
+		n := newTestNode(t, cfg, time.Second*0)
 		dial(t, n)
-		defer n.Close()
+		defer func() { assert.NoError(t, n.Close()) }()
 		n.setState(NodeStateInvalidChainID)
 		n.wg.Add(1)
 
@@ -562,12 +839,12 @@ func TestUnit_NodeLifecycle_invalidChainIDLoop(t *testing.T) {
 	})
 
 	t.Run("on failed verify, keeps checking", func(t *testing.T) {
-		cfg := TestNodeConfig{}
+		cfg := TestNodePoolConfig{}
 		s := testutils.NewWSServer(t, testutils.FixtureChainID, standardHandler)
-		lggr, observedLogs := logger.TestLoggerObserved(t, zap.ErrorLevel)
-		iN := NewNode(cfg, lggr, *s.WSURL(), nil, "test node", 0, big.NewInt(42))
+		lggr, observedLogs := logger.TestObserved(t, zap.ErrorLevel)
+		iN := NewNode(cfg, time.Second*0, lggr, *s.WSURL(), nil, "test node", 0, big.NewInt(42), 1)
 		n := iN.(*node)
-		defer n.Close()
+		defer func() { assert.NoError(t, n.Close()) }()
 		dial(t, n)
 		n.setState(NodeStateUnreachable)
 		n.wg.Add(1)

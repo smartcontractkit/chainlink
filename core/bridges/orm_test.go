@@ -2,24 +2,32 @@ package bridges_test
 
 import (
 	"testing"
+	"time"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/auth"
-	"github.com/smartcontractkit/chainlink/core/bridges"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/jmoiron/sqlx"
+
+	"github.com/smartcontractkit/chainlink/v2/core/auth"
+	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 func setupORM(t *testing.T) (*sqlx.DB, bridges.ORM) {
 	t.Helper()
 
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewGeneralConfig(t, nil)
 	db := pgtest.NewSqlxDB(t)
-	orm := bridges.NewORM(db, logger.TestLogger(t), cfg)
+	orm := bridges.NewORM(db, logger.TestLogger(t), cfg.Database())
 
 	return db, orm
 }
@@ -128,12 +136,34 @@ func TestORM_UpdateBridgeType(t *testing.T) {
 	require.Len(t, bs, 0)
 }
 
+func TestORM_TestCachedResponse(t *testing.T) {
+	cfg := configtest.NewGeneralConfig(t, nil)
+	db := pgtest.NewSqlxDB(t)
+	orm := bridges.NewORM(db, logger.TestLogger(t), cfg.Database())
+
+	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
+	specID, err := trORM.CreateSpec(pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute), pg.WithParentCtx(testutils.Context(t)))
+	require.NoError(t, err)
+
+	_, err = orm.GetCachedResponse("dot", specID, 1*time.Second)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "no rows in result set")
+
+	err = orm.UpsertBridgeResponse("dot", specID, []byte{111, 222, 2})
+	require.NoError(t, err)
+
+	val, err := orm.GetCachedResponse("dot", specID, 1*time.Second)
+	require.NoError(t, err)
+	require.Equal(t, []byte{111, 222, 2}, val)
+}
+
 func TestORM_CreateExternalInitiator(t *testing.T) {
 	_, orm := setupORM(t)
 
 	token := auth.NewToken()
+	name := uuid.New().String()
 	req := bridges.ExternalInitiatorRequest{
-		Name: "externalinitiator",
+		Name: name,
 	}
 	exi, err := bridges.NewExternalInitiator(token, &req)
 	require.NoError(t, err)
@@ -148,8 +178,9 @@ func TestORM_DeleteExternalInitiator(t *testing.T) {
 	_, orm := setupORM(t)
 
 	token := auth.NewToken()
+	name := uuid.New().String()
 	req := bridges.ExternalInitiatorRequest{
-		Name: "externalinitiator",
+		Name: name,
 	}
 	exi, err := bridges.NewExternalInitiator(token, &req)
 	require.NoError(t, err)

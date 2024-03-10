@@ -2,7 +2,8 @@ package resolver
 
 import (
 	"github.com/graph-gophers/graphql-go"
-	"github.com/smartcontractkit/chainlink/core/services/feeds"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
 )
 
 type FeedsManagerChainConfigResolver struct {
@@ -95,7 +96,7 @@ func (r *OCR1JobConfigResolver) KeyBundleID() *string {
 }
 
 type OCR2JobConfigResolver struct {
-	cfg feeds.OCR2Config
+	cfg feeds.OCR2ConfigModel
 }
 
 func (r *OCR2JobConfigResolver) Enabled() bool {
@@ -110,12 +111,20 @@ func (r *OCR2JobConfigResolver) Multiaddr() *string {
 	return r.cfg.Multiaddr.Ptr()
 }
 
+func (r *OCR2JobConfigResolver) ForwarderAddress() *string {
+	return r.cfg.ForwarderAddress.Ptr()
+}
+
 func (r *OCR2JobConfigResolver) P2PPeerID() *string {
 	return r.cfg.P2PPeerID.Ptr()
 }
 
 func (r *OCR2JobConfigResolver) KeyBundleID() *string {
 	return r.cfg.KeyBundleID.Ptr()
+}
+
+func (r *OCR2JobConfigResolver) Plugins() *PluginsResolver {
+	return &PluginsResolver{plugins: r.cfg.Plugins}
 }
 
 // -- CreateFeedsManagerChainConfig Mutation --

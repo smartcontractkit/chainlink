@@ -25,6 +25,7 @@ var (
 	_ = common.Big1
 	_ = types.BloomLookup
 	_ = event.NewSubscription
+	_ = abi.ConvertType
 )
 
 var VRFOwnerlessConsumerExampleMetaData = &bind.MetaData{
@@ -49,7 +50,7 @@ func DeployVRFOwnerlessConsumerExample(auth *bind.TransactOpts, backend bind.Con
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &VRFOwnerlessConsumerExample{VRFOwnerlessConsumerExampleCaller: VRFOwnerlessConsumerExampleCaller{contract: contract}, VRFOwnerlessConsumerExampleTransactor: VRFOwnerlessConsumerExampleTransactor{contract: contract}, VRFOwnerlessConsumerExampleFilterer: VRFOwnerlessConsumerExampleFilterer{contract: contract}}, nil
+	return address, tx, &VRFOwnerlessConsumerExample{address: address, abi: *parsed, VRFOwnerlessConsumerExampleCaller: VRFOwnerlessConsumerExampleCaller{contract: contract}, VRFOwnerlessConsumerExampleTransactor: VRFOwnerlessConsumerExampleTransactor{contract: contract}, VRFOwnerlessConsumerExampleFilterer: VRFOwnerlessConsumerExampleFilterer{contract: contract}}, nil
 }
 
 type VRFOwnerlessConsumerExample struct {
@@ -137,11 +138,11 @@ func NewVRFOwnerlessConsumerExampleFilterer(address common.Address, filterer bin
 }
 
 func bindVRFOwnerlessConsumerExample(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
-	parsed, err := abi.JSON(strings.NewReader(VRFOwnerlessConsumerExampleABI))
+	parsed, err := VRFOwnerlessConsumerExampleMetaData.GetAbi()
 	if err != nil {
 		return nil, err
 	}
-	return bind.NewBoundContract(address, parsed, caller, transactor, filterer), nil
+	return bind.NewBoundContract(address, *parsed, caller, transactor, filterer), nil
 }
 
 func (_VRFOwnerlessConsumerExample *VRFOwnerlessConsumerExampleRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {

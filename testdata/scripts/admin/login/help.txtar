@@ -1,0 +1,14 @@
+exec chainlink admin login --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink admin login - Login to remote client by creating a session cookie
+
+USAGE:
+   chainlink admin login [command options] [arguments...]
+
+OPTIONS:
+   --file value, -f value  text file holding the API email and password needed to create a session cookie
+   --bypass-version-check  Bypass versioning check for compatibility of remote node
+   

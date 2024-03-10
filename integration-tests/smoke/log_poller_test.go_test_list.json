@@ -1,0 +1,44 @@
+{
+  "tests": [
+    {
+      "name": "TestLogPollerFewFiltersFixedDepth",
+      "label": "ubuntu-latest"
+    },
+    {
+      "name": "TestLogPollerFewFiltersFinalityTag",
+      "label": "ubuntu-latest"
+    },
+    {
+      "name": "TestLogPollerWithChaosFixedDepth",
+      "label": "ubuntu-latest"
+    },
+    {
+      "name": "TestLogPollerWithChaosFinalityTag",
+      "label": "ubuntu-latest"
+    },
+    {
+      "name": "TestLogPollerWithChaosPostgresFinalityTag",
+      "label": "ubuntu-latest"
+    },
+    {
+      "name": "TestLogPollerWithChaosPostgresFixedDepth",
+      "label": "ubuntu-latest"
+    },
+    {
+      "name": "TestLogPollerReplayFixedDepth",
+      "label": "ubuntu-latest"
+    },
+    {
+      "name": "TestLogPollerReplayFinalityTag",
+      "label": "ubuntu-latest"
+    },
+    {
+      "name": "TestLogPollerManyFiltersFixedDepth",
+      "label": "ubuntu-latest"
+    },
+    {
+      "name": "TestLogPollerManyFiltersFinalityTag",
+      "label": "ubuntu-latest"
+    }
+  ]
+}

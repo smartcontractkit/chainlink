@@ -1,0 +1,12 @@
+type            = "webhook"
+schemaVersion   = 1
+externalJobID   = "%s"
+name            = "%s"
+observationSource   = """
+    fetch          [type=bridge name="fetch_bridge"]
+    parse_request  [type=jsonparse path="data,result"];
+    multiply       [type=multiply times="100"];
+    submit         [type=bridge name="submit_bridge" includeInputAtKey="result", data=<{}>];
+
+    fetch -> parse_request -> multiply -> submit;
+"""

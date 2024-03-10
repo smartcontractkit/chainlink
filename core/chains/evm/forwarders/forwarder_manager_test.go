@@ -8,21 +8,25 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/forwarders"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/authorized_forwarder"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/authorized_receiver"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/operator_wrapper"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils"
+
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_receiver"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 var GetAuthorisedSendersABI = evmtypes.MustGetABI(authorized_receiver.AuthorizedReceiverABI).Methods["getAuthorizedSenders"]
@@ -30,7 +34,7 @@ var GetAuthorisedSendersABI = evmtypes.MustGetABI(authorized_receiver.Authorized
 var SimpleOracleCallABI = evmtypes.MustGetABI(operator_wrapper.OperatorABI).Methods["getChainlinkToken"]
 
 func TestFwdMgr_MaybeForwardTransaction(t *testing.T) {
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
@@ -56,28 +60,48 @@ func TestFwdMgr_MaybeForwardTransaction(t *testing.T) {
 	t.Log(authorized)
 
 	evmClient := client.NewSimulatedBackendClient(t, ec, testutils.FixtureChainID)
-	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewPGCfg(true)),
-		evmClient, lggr, 100*time.Millisecond, 2, 3, 2)
-	fwdMgr := forwarders.NewFwdMgr(db, evmClient, lp, lggr, evmcfg)
-	fwdMgr.ORM = forwarders.NewORM(db, logger.TestLogger(t), cfg)
 
-	_, err = fwdMgr.ORM.CreateForwarder(forwarderAddr, utils.Big(*testutils.FixtureChainID))
+	lpOpts := logpoller.Opts{
+		PollPeriod:               100 * time.Millisecond,
+		FinalityDepth:            2,
+		BackfillBatchSize:        3,
+		RpcBatchSize:             2,
+		KeepFinalizedBlocksDepth: 1000,
+	}
+	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewQConfig(true)), evmClient, lggr, lpOpts)
+	fwdMgr := forwarders.NewFwdMgr(db, evmClient, lp, lggr, evmcfg.EVM(), evmcfg.Database())
+	fwdMgr.ORM = forwarders.NewORM(db, logger.Test(t), cfg.Database())
+
+	fwd, err := fwdMgr.ORM.CreateForwarder(forwarderAddr, ubig.Big(*testutils.FixtureChainID))
 	require.NoError(t, err)
-	lst, err := fwdMgr.ORM.FindForwardersByChain(utils.Big(*testutils.FixtureChainID))
+	lst, err := fwdMgr.ORM.FindForwardersByChain(ubig.Big(*testutils.FixtureChainID))
 	require.NoError(t, err)
 	require.Equal(t, len(lst), 1)
 	require.Equal(t, lst[0].Address, forwarderAddr)
 
 	require.NoError(t, fwdMgr.Start(testutils.Context(t)))
-	addr, err := fwdMgr.GetForwarderForEOA(owner.From)
+	addr, err := fwdMgr.ForwarderFor(owner.From)
 	require.NoError(t, err)
-	require.Equal(t, addr, forwarderAddr)
+	require.Equal(t, addr.String(), forwarderAddr.String())
 	err = fwdMgr.Close()
 	require.NoError(t, err)
+
+	cleanupCalled := false
+	cleanup := func(tx pg.Queryer, evmChainId int64, addr common.Address) error {
+		require.Equal(t, testutils.FixtureChainID.Int64(), evmChainId)
+		require.Equal(t, forwarderAddr, addr)
+		require.NotNil(t, tx)
+		cleanupCalled = true
+		return nil
+	}
+
+	err = fwdMgr.ORM.DeleteForwarder(fwd.ID, cleanup)
+	assert.NoError(t, err)
+	assert.True(t, cleanupCalled)
 }
 
 func TestFwdMgr_AccountUnauthorizedToForward_SkipsForwarding(t *testing.T) {
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
@@ -97,23 +121,29 @@ func TestFwdMgr_AccountUnauthorizedToForward_SkipsForwarding(t *testing.T) {
 	ec.Commit()
 
 	evmClient := client.NewSimulatedBackendClient(t, ec, testutils.FixtureChainID)
-	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewPGCfg(true)),
-		evmClient, lggr, 100*time.Millisecond, 2, 3, 2)
-	fwdMgr := forwarders.NewFwdMgr(db, evmClient, lp, lggr, evmcfg)
-	fwdMgr.ORM = forwarders.NewORM(db, logger.TestLogger(t), cfg)
+	lpOpts := logpoller.Opts{
+		PollPeriod:               100 * time.Millisecond,
+		FinalityDepth:            2,
+		BackfillBatchSize:        3,
+		RpcBatchSize:             2,
+		KeepFinalizedBlocksDepth: 1000,
+	}
+	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewQConfig(true)), evmClient, lggr, lpOpts)
+	fwdMgr := forwarders.NewFwdMgr(db, evmClient, lp, lggr, evmcfg.EVM(), evmcfg.Database())
+	fwdMgr.ORM = forwarders.NewORM(db, logger.Test(t), cfg.Database())
 
-	_, err = fwdMgr.ORM.CreateForwarder(forwarderAddr, utils.Big(*testutils.FixtureChainID))
+	_, err = fwdMgr.ORM.CreateForwarder(forwarderAddr, ubig.Big(*testutils.FixtureChainID))
 	require.NoError(t, err)
-	lst, err := fwdMgr.ORM.FindForwardersByChain(utils.Big(*testutils.FixtureChainID))
+	lst, err := fwdMgr.ORM.FindForwardersByChain(ubig.Big(*testutils.FixtureChainID))
 	require.NoError(t, err)
 	require.Equal(t, len(lst), 1)
 	require.Equal(t, lst[0].Address, forwarderAddr)
 
 	err = fwdMgr.Start(testutils.Context(t))
 	require.NoError(t, err)
-	addr, err := fwdMgr.GetForwarderForEOA(owner.From)
+	addr, err := fwdMgr.ForwarderFor(owner.From)
 	require.ErrorContains(t, err, "Cannot find forwarder for given EOA")
-	require.Equal(t, addr, common.Address{})
+	require.True(t, utils.IsZero(addr))
 	err = fwdMgr.Close()
 	require.NoError(t, err)
 }

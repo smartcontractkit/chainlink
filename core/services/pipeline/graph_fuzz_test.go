@@ -5,7 +5,7 @@ package pipeline_test
 import (
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
 func FuzzParse(f *testing.F) {

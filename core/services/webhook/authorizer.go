@@ -4,13 +4,14 @@ import (
 	"context"
 	"database/sql"
 
-	uuid "github.com/satori/go.uuid"
-	"github.com/smartcontractkit/chainlink/core/bridges"
-	"github.com/smartcontractkit/chainlink/core/sessions"
+	"github.com/google/uuid"
+
+	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 )
 
 type AuthorizerConfig interface {
-	FeatureExternalInitiators() bool
+	ExternalInitiatorsEnabled() bool
 }
 
 type Authorizer interface {
@@ -42,7 +43,7 @@ func NewEIAuthorizer(db *sql.DB, ei bridges.ExternalInitiator) *eiAuthorizer {
 }
 
 func (ea *eiAuthorizer) CanRun(ctx context.Context, config AuthorizerConfig, jobUUID uuid.UUID) (can bool, err error) {
-	if !config.FeatureExternalInitiators() {
+	if !config.ExternalInitiatorsEnabled() {
 		return false, nil
 	}
 	row := ea.db.QueryRowContext(ctx, `

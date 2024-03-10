@@ -1,0 +1,432 @@
+# override resources for keys "chainlink", "db", or "geth" if needed
+#  resources:
+#    requests:
+#      cpu: 350m
+#      memory: 1024Mi
+#    limits:
+#      cpu: 350m
+#      memory: 1024Mi
+# images can be overriden for the same keys:
+#   image: ethereum/client-go
+#   version: stable
+chainlink:
+  podSecurityContext:
+    fsGroup: 14933
+  securityContext:
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: false
+    runAsNonRoot: true
+    runAsUser: 14933
+    runAsGroup: 14933
+  web_port: 6688
+  p2p_port: 6690
+  nodes:
+    - name: node-1
+      image: "public.ecr.aws/chainlink/chainlink:latest"
+      # default resources are 300m/1Gi
+      # first node need more resources to build faster inside container
+      # at least 2Gi of memory is required otherwise build will fail (OOM)
+      resources:
+        requests:
+          cpu: 2000m
+          memory: 2048Mi
+        limits:
+          cpu: 2000m
+          memory: 2048Mi
+    # override default config per node
+    # for example, use OCRv2 P2P setup, the whole config
+    #      toml: |
+    #        RootDir = './clroot'
+    #        [Log]
+    #        JSONConsole = true
+    #        Level = 'debug'
+    #        [WebServer]
+    #        AllowOrigins = '*'
+    #        SecureCookies = false
+    #        SessionTimeout = '999h0m0s'
+    #        [OCR2]
+    #        Enabled = true
+    #        [P2P]
+    #        [P2P.V2]
+    #        Enabled = false
+    #        AnnounceAddresses = []
+    #        DefaultBootstrappers = []
+    #        DeltaDial = '15s'
+    #        DeltaReconcile = '1m0s'
+    #        ListenAddresses = []
+    #        [[EVM]]
+    #        ChainID = '1337'
+    #        MinContractPayment = '0'
+    #        [[EVM.Nodes]]
+    #        Name = 'node-0'
+    #        WSURL = 'ws://geth:8546'
+    #        HTTPURL = 'http://geth:8544'
+    #        [WebServer.TLS]
+    #        HTTPSPort = 0
+    # or use overridesToml to override some part of configuration
+    #      overridesToml: |
+    - name: node-2
+    - name: node-3
+    - name: node-4
+    - name: node-5
+    - name: node-6
+  resources:
+    requests:
+      cpu: 350m
+      memory: 1024Mi
+    limits:
+      cpu: 350m
+      memory: 1024Mi
+
+# each CL node have a dedicated PostgreSQL 11.15
+# use StatefulSet by setting:
+#
+# stateful: true
+# capacity 10Gi
+#
+# if you are running long tests
+db:
+  podSecurityContext:
+    fsGroup: 999
+  securityContext:
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: false
+    runAsNonRoot: true
+    runAsUser: 999
+    runAsGroup: 999
+  stateful: false
+  image: "postgres:15.6"
+  resources:
+    requests:
+      cpu: 1
+      memory: 1024Mi
+    limits:
+      cpu: 1
+      memory: 1024Mi
+# default cluster shipped with latest Geth ( dev mode by default )
+geth:
+  podSecurityContext:
+    fsGroup: 999
+  securityContext:
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: false
+    runAsNonRoot: true
+    runAsUser: 999
+    runAsGroup: 999
+  version: v1.12.0
+  wsrpc-port: 8546
+  httprpc-port: 8544
+  blocktime: 1
+  chains:
+    - networkId: 1337
+    # use to inject custom configuration for each chain, e.g. GasEstimator
+    # - customEVMConfigToml: |
+    #     [EVM.GasEstimator]
+    #     PriceMax = '200 gwei'
+    #     LimitDefault = 6000000
+    #     FeeCapDefault = '200 gwei'
+    #     [EVM.GasEstimator.BlockHistory]
+    #     BlockHistorySize = 200
+    #     EIP1559FeeCapBufferBlocks = 0
+    - networkId: 2337
+  resources:
+    requests:
+      cpu: 1
+      memory: 1024Mi
+    limits:
+      cpu: 1
+      memory: 1024Mi
+# mockserver is https://www.mock-server.com/where/kubernetes.html
+# used to stub External Adapters
+mockserver:
+  enabled: true
+  releasenameOverride: mockserver
+  service:
+    type: ClusterIP
+  app:
+    runAsUser: 999
+    readOnlyRootFilesystem: false
+  port: 1080
+  resources:
+    requests:
+      cpu: 1
+      memory: 1024Mi
+    limits:
+      cpu: 1
+      memory: 1024Mi
+opentelemetry-collector:
+  enabled: true
+  mode: deployment
+  image:
+    repository: otel/opentelemetry-collector
+    tag: 0.95.0
+  command:
+    name: otelcol
+  extraVolumes:
+    - name: trace-data
+      emptyDir: {}
+  extraVolumeMounts:
+    - name: trace-data
+      mountPath: /tracing
+  podSecurityContext:
+    fsGroup: 10001
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 10001
+    runAsGroup: 10001
+  config:
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: "0.0.0.0:4317"
+          http:
+            endpoint: "0.0.0.0:3100"
+    exporters:
+      file:
+        path: /tracing/trace-data.json
+      otlp:
+        endpoint: tempo:4317
+        tls:
+          insecure: true
+    service:
+      telemetry:
+        logs:
+          level: "debug"
+      pipelines:
+        traces:
+          receivers: [otlp]
+          exporters: [file, otlp]
+
+tempo:
+  enabled: true
+  image:
+    tag: "1.7.2"
+  server:
+    http_listen_port: 3200
+  # default storage path: /var/tempo/
+  readinessProbe:
+    httpGet:
+      path: /ready
+      port: 3200
+    initialDelaySeconds: 10
+    periodSeconds: 5
+  livenessProbe:
+    httpGet:
+      path: /ready
+      port: 3200
+    initialDelaySeconds: 20
+    periodSeconds: 10
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 10001
+    runAsGroup: 10001
+  tempo:
+    storage:
+      trace:
+        backend: local # backend configuration to use
+        wal:
+          path: /tmp/tempo/wal # where to store the the wal locally
+        local:
+          path: /tmp/tempo/blocks
+
+grafana:
+  enabled: true
+  image:
+    tag: 7.3.2
+  rbac:
+    namespaced: true
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+        - name: Tempo
+          type: tempo
+          access: proxy
+          orgId: 1
+          url: http://tempo:3200
+          basicAuth: false
+          isDefault: true
+          version: 1
+          editable: false
+          uid: tempo
+          jsonData:
+            httpMethod: GET
+            serviceMap:
+              datasourceUid: prometheus
+  env:
+    GF_AUTH_ANONYMOUS_ENABLED: "true"
+    GF_AUTH_ANONYMOUS_ORG_ROLE: "Admin"
+    GF_AUTH_DISABLE_LOGIN_FORM: "true"
+    GF_FEATURE_TOGGLES_ENABLE: "traceqlEditor"
+
+ingress:
+  enabled: false
+  annotations: {}
+  ingressClassName: alb
+  hosts:
+    - host: chainlink-node-1.local
+      http:
+        paths:
+          - path: /
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: chainlink-node-1
+                port:
+                  number: 6688
+    - host: chainlink-node-2.local
+      http:
+        paths:
+          - path: /
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: chainlink-node-2
+                port:
+                  number: 6688
+    - host: chainlink-node-3.local
+      http:
+        paths:
+          - path: /
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: chainlink-node-3
+                port:
+                  number: 6688
+    - host: chainlink-node-4.local
+      http:
+        paths:
+          - path: /
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: chainlink-node-4
+                port:
+                  number: 6688
+    - host: chainlink-node-5.local
+      http:
+        paths:
+          - path: /
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: chainlink-node-5
+                port:
+                  number: 6688
+    - host: chainlink-node-6.local
+      http:
+        paths:
+          - path: /
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: chainlink-node-6
+                port:
+                  number: 6688
+    - host: chainlink-geth-http.local
+      http:
+        paths:
+          - path: /
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: geth
+                port:
+                  number: 8544
+    - host: chainlink-geth-ws.local
+      http:
+        paths:
+          - path: /
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: geth
+                port:
+                  number: 8546
+    - host: chainlink-mockserver.local
+      http:
+        paths:
+          - path: /
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: mockserver
+                port:
+                  number: 1080
+# monitoring.coreos.com/v1 PodMonitor for each node
+prometheusMonitor: true
+
+# deployment placement, standard helm stuff
+podAnnotations:
+nodeSelector:
+tolerations:
+affinity:
+
+networkPolicies:
+  enabled: true
+  customPolicies:
+    grafanaToTempoEgress:
+      podSelector:
+        matchLabels:
+          app: grafana
+      egress:
+        - to:
+            - podSelector:
+                matchLabels:
+                  app: tempo
+          ports:
+            - protocol: TCP
+              port: 3100
+    tempoIngressFromGrafana:
+      podSelector:
+        matchLabels:
+          app: tempo
+      ingress:
+        - from:
+            - podSelector:
+                matchLabels:
+                  app: grafana
+          ports:
+            - protocol: TCP
+              port: 3100
+    chainlinkToOtelCollectorEgress:
+      podSelector:
+        matchLabels:
+          app: chainlink
+      egress:
+        - to:
+            - podSelector:
+                matchLabels:
+                  app: otel-collector
+          ports:
+            - protocol: TCP
+              port: 4317
+    otelCollectorToTempoEgress:
+      podSelector:
+        matchLabels:
+          app: otel-collector
+      egress:
+        - to:
+            - podSelector:
+                matchLabels:
+                  app: tempo
+          ports:
+            - protocol: TCP
+              port: 3100
+
+# Configure the default network policy.
+networkPolicyDefault:
+  ingress:
+    allowCustomCidrs: false
+    # String of comma separated CIDRs
+    customCidrs: null
+    # Example:
+    # customCidrs: "10.0.0.0/16,192.168.0.1/24"

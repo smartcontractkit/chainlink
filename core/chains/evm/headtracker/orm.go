@@ -6,14 +6,14 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
 
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 type ORM interface {
@@ -32,32 +32,32 @@ type ORM interface {
 
 type orm struct {
 	q       pg.Q
-	chainID utils.Big
+	chainID ubig.Big
 }
 
-func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig, chainID big.Int) ORM {
-	return &orm{pg.NewQ(db, lggr.Named("HeadTrackerORM"), cfg), utils.Big(chainID)}
+func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, chainID big.Int) ORM {
+	return &orm{pg.NewQ(db, logger.Named(lggr, "HeadTrackerORM"), cfg), ubig.Big(chainID)}
 }
 
 func (orm *orm) IdempotentInsertHead(ctx context.Context, head *evmtypes.Head) error {
 	// listener guarantees head.EVMChainID to be equal to orm.chainID
 	q := orm.q.WithOpts(pg.WithParentCtx(ctx))
 	query := `
-	INSERT INTO evm_heads (hash, number, parent_hash, created_at, timestamp, l1_block_number, evm_chain_id, base_fee_per_gas) VALUES (
+	INSERT INTO evm.heads (hash, number, parent_hash, created_at, timestamp, l1_block_number, evm_chain_id, base_fee_per_gas) VALUES (
 	:hash, :number, :parent_hash, :created_at, :timestamp, :l1_block_number, :evm_chain_id, :base_fee_per_gas)
 	ON CONFLICT (evm_chain_id, hash) DO NOTHING`
 	err := q.ExecQNamed(query, head)
-	return errors.Wrap(err, "IdempotentInsertHead failed to insert head")
+	return pkgerrors.Wrap(err, "IdempotentInsertHead failed to insert head")
 }
 
 func (orm *orm) TrimOldHeads(ctx context.Context, n uint) (err error) {
 	q := orm.q.WithOpts(pg.WithParentCtx(ctx))
 	return q.ExecQ(`
-	DELETE FROM evm_heads
+	DELETE FROM evm.heads
 	WHERE evm_chain_id = $1 AND number < (
 		SELECT min(number) FROM (
 			SELECT number
-			FROM evm_heads
+			FROM evm.heads
 			WHERE evm_chain_id = $1
 			ORDER BY number DESC
 			LIMIT $2
@@ -68,26 +68,26 @@ func (orm *orm) TrimOldHeads(ctx context.Context, n uint) (err error) {
 func (orm *orm) LatestHead(ctx context.Context) (head *evmtypes.Head, err error) {
 	head = new(evmtypes.Head)
 	q := orm.q.WithOpts(pg.WithParentCtx(ctx))
-	err = q.Get(head, `SELECT * FROM evm_heads WHERE evm_chain_id = $1 ORDER BY number DESC, created_at DESC, id DESC LIMIT 1`, orm.chainID)
-	if errors.Is(err, sql.ErrNoRows) {
+	err = q.Get(head, `SELECT * FROM evm.heads WHERE evm_chain_id = $1 ORDER BY number DESC, created_at DESC, id DESC LIMIT 1`, orm.chainID)
+	if pkgerrors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
-	err = errors.Wrap(err, "LatestHead failed")
+	err = pkgerrors.Wrap(err, "LatestHead failed")
 	return
 }
 
 func (orm *orm) LatestHeads(ctx context.Context, limit uint) (heads []*evmtypes.Head, err error) {
 	q := orm.q.WithOpts(pg.WithParentCtx(ctx))
-	err = q.Select(&heads, `SELECT * FROM evm_heads WHERE evm_chain_id = $1 ORDER BY number DESC, created_at DESC, id DESC LIMIT $2`, orm.chainID, limit)
-	err = errors.Wrap(err, "LatestHeads failed")
+	err = q.Select(&heads, `SELECT * FROM evm.heads WHERE evm_chain_id = $1 ORDER BY number DESC, created_at DESC, id DESC LIMIT $2`, orm.chainID, limit)
+	err = pkgerrors.Wrap(err, "LatestHeads failed")
 	return
 }
 
 func (orm *orm) HeadByHash(ctx context.Context, hash common.Hash) (head *evmtypes.Head, err error) {
 	q := orm.q.WithOpts(pg.WithParentCtx(ctx))
 	head = new(evmtypes.Head)
-	err = q.Get(head, `SELECT * FROM evm_heads WHERE evm_chain_id = $1 AND hash = $2`, orm.chainID, hash)
-	if errors.Is(err, sql.ErrNoRows) {
+	err = q.Get(head, `SELECT * FROM evm.heads WHERE evm_chain_id = $1 AND hash = $2`, orm.chainID, hash)
+	if pkgerrors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	return head, err

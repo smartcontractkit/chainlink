@@ -1,6 +1,7 @@
 package migrations
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"log"
@@ -12,7 +13,7 @@ import (
 )
 
 func init() {
-	goose.AddMigration(Up56, Down56)
+	goose.AddMigrationContext(Up56, Down56)
 }
 
 const up56 = `
@@ -47,9 +48,9 @@ DROP TABLE nodes;
 DROP TABLE evm_chains;
 `
 
-//nolint
-func Up56(tx *sql.Tx) error {
-	if _, err := tx.Exec(up56); err != nil {
+// nolint
+func Up56(ctx context.Context, tx *sql.Tx) error {
+	if _, err := tx.ExecContext(ctx, up56); err != nil {
 		return err
 	}
 	evmDisabled := os.Getenv("EVM_ENABLED") == "false"
@@ -67,16 +68,16 @@ func Up56(tx *sql.Tx) error {
 			if !ok {
 				panic(fmt.Sprintf("ETH_CHAIN_ID was invalid, expected a number, got: %s", chainIDStr))
 			}
-			_, err := tx.Exec("INSERT INTO evm_chains (id, created_at, updated_at) VALUES ($1, NOW(), NOW());", chainID.String())
+			_, err := tx.ExecContext(ctx, "INSERT INTO evm_chains (id, created_at, updated_at) VALUES ($1, NOW(), NOW());", chainID.String())
 			return err
 		}
 	}
 	return nil
 }
 
-//nolint
-func Down56(tx *sql.Tx) error {
-	_, err := tx.Exec(down56)
+// nolint
+func Down56(ctx context.Context, tx *sql.Tx) error {
+	_, err := tx.ExecContext(ctx, down56)
 	if err != nil {
 		return err
 	}

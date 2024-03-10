@@ -11,27 +11,27 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
 func TestNullClient(t *testing.T) {
 	t.Parallel()
 
 	t.Run("chain id", func(t *testing.T) {
-		lggr := logger.TestLogger(t)
+		lggr := logger.Test(t)
 		cid := big.NewInt(123)
 		nc := client.NewNullClient(cid, lggr)
-		require.Equal(t, cid, nc.ChainID())
+		require.Equal(t, cid, nc.ConfiguredChainID())
 
 		nc = client.NewNullClient(nil, lggr)
-		require.Equal(t, big.NewInt(client.NullClientChainID), nc.ChainID())
+		require.Equal(t, big.NewInt(client.NullClientChainID), nc.ConfiguredChainID())
 	})
 
 	t.Run("CL client methods", func(t *testing.T) {
-		lggr, logs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+		lggr, logs := logger.TestObserved(t, zapcore.DebugLevel)
 		nc := client.NewNullClient(nil, lggr)
 		ctx := testutils.Context(t)
 
@@ -42,15 +42,15 @@ func TestNullClient(t *testing.T) {
 		nc.Close()
 		require.Equal(t, 1, logs.FilterMessage("Close").Len())
 
-		b, err := nc.GetERC20Balance(ctx, common.Address{}, common.Address{})
+		b, err := nc.TokenBalance(ctx, common.Address{}, common.Address{})
 		require.NoError(t, err)
 		require.Zero(t, b.Int64())
-		require.Equal(t, 1, logs.FilterMessage("GetERC20Balance").Len())
+		require.Equal(t, 1, logs.FilterMessage("TokenBalance").Len())
 
-		l, err := nc.GetLINKBalance(ctx, common.Address{}, common.Address{})
+		l, err := nc.LINKBalance(ctx, common.Address{}, common.Address{})
 		require.NoError(t, err)
 		require.True(t, l.IsZero())
-		require.Equal(t, 1, logs.FilterMessage("GetLINKBalance").Len())
+		require.Equal(t, 1, logs.FilterMessage("LINKBalance").Len())
 
 		err = nc.CallContext(ctx, nil, "")
 		require.NoError(t, err)
@@ -77,7 +77,7 @@ func TestNullClient(t *testing.T) {
 	})
 
 	t.Run("Geth client methods", func(t *testing.T) {
-		lggr, logs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+		lggr, logs := logger.TestObserved(t, zapcore.DebugLevel)
 		nc := client.NewNullClient(nil, lggr)
 		ctx := testutils.Context(t)
 
@@ -100,10 +100,10 @@ func TestNullClient(t *testing.T) {
 		require.Zero(t, n)
 		require.Equal(t, 1, logs.FilterMessage("PendingNonceAt").Len())
 
-		n, err = nc.NonceAt(ctx, common.Address{}, nil)
+		s, err := nc.SequenceAt(ctx, common.Address{}, nil)
 		require.NoError(t, err)
-		require.Zero(t, n)
-		require.Equal(t, 1, logs.FilterMessage("NonceAt").Len())
+		require.Zero(t, s)
+		require.Equal(t, 1, logs.FilterMessage("SequenceAt").Len())
 
 		r, err := nc.TransactionReceipt(ctx, common.Hash{})
 		require.NoError(t, err)

@@ -5,27 +5,28 @@ import (
 	"fmt"
 	"math/big"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/pkg/errors"
-	"go.uber.org/atomic"
+	pkgerrors "github.com/pkg/errors"
 
-	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/null"
-	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+
+	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
+	"github.com/smartcontractkit/chainlink/v2/core/null"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
-//go:generate mockery --name Broadcaster --output ./mocks/ --case=underscore --structname Broadcaster --filename broadcaster.go
-//go:generate mockery --name Listener --output ./mocks/ --case=underscore --structname Listener --filename listener.go
-//go:generate mockery --name Config --output ./mocks/ --case=underscore --structname Config --filename config.go
+//go:generate mockery --quiet --name Broadcaster --output ./mocks/ --case=underscore --structname Broadcaster --filename broadcaster.go
 
 type (
 	// The Broadcaster manages log subscription requests for the Chainlink node.  Instead
@@ -46,7 +47,7 @@ type (
 	// Of course, these backfilled logs + any new logs will only be sent after the NumConfirmations for given subscriber.
 	Broadcaster interface {
 		utils.DependentAwaiter
-		services.ServiceCtx
+		services.Service
 		httypes.HeadTrackable
 
 		// ReplayFromBlock enqueues a replay from the provided block number. If forceBroadcast is
@@ -90,6 +91,7 @@ type (
 	}
 
 	broadcaster struct {
+		services.StateMachine
 		orm        ORM
 		config     Config
 		connected  atomic.Bool
@@ -102,15 +104,15 @@ type (
 		registrations *registrations
 		logPool       *logPool
 
+		mailMon *mailbox.Monitor
 		// Use the same channel for subs/unsubs so ordering is preserved
 		// (unsubscribe must happen after subscribe)
-		changeSubscriberStatus *utils.Mailbox[changeSubscriberStatus]
-		newHeads               *utils.Mailbox[*evmtypes.Head]
+		changeSubscriberStatus *mailbox.Mailbox[changeSubscriberStatus]
+		newHeads               *mailbox.Mailbox[*evmtypes.Head]
 
-		utils.StartStopOnce
 		utils.DependentAwaiter
 
-		chStop                chan struct{}
+		chStop                services.StopChan
 		wgDone                sync.WaitGroup
 		trackedAddressesCount atomic.Uint32
 		replayChannel         chan replayRequest
@@ -125,8 +127,8 @@ type (
 	Config interface {
 		BlockBackfillDepth() uint64
 		BlockBackfillSkip() bool
-		EvmFinalityDepth() uint32
-		EvmLogBackfillBatchSize() uint32
+		FinalityDepth() uint32
+		LogBackfillBatchSize() uint32
 	}
 
 	ListenerOpts struct {
@@ -165,19 +167,21 @@ const (
 var _ Broadcaster = (*broadcaster)(nil)
 
 // NewBroadcaster creates a new instance of the broadcaster
-func NewBroadcaster(orm ORM, ethClient evmclient.Client, config Config, lggr logger.Logger, highestSavedHead *evmtypes.Head) *broadcaster {
+func NewBroadcaster(orm ORM, ethClient evmclient.Client, config Config, lggr logger.Logger, highestSavedHead *evmtypes.Head, mailMon *mailbox.Monitor) *broadcaster {
 	chStop := make(chan struct{})
-	lggr = lggr.Named("LogBroadcaster")
+	lggr = logger.Named(lggr, "LogBroadcaster")
+	chainId := ethClient.ConfiguredChainID()
 	return &broadcaster{
 		orm:                    orm,
 		config:                 config,
 		logger:                 lggr,
-		evmChainID:             *ethClient.ChainID(),
+		evmChainID:             *chainId,
 		ethSubscriber:          newEthSubscriber(ethClient, config, lggr, chStop),
-		registrations:          newRegistrations(lggr, *ethClient.ChainID()),
+		registrations:          newRegistrations(lggr, *chainId),
 		logPool:                newLogPool(lggr),
-		changeSubscriberStatus: utils.NewMailbox[changeSubscriberStatus](100000), // Seems unlikely we'd subscribe more than 100,000 times before LB start
-		newHeads:               utils.NewMailbox[*evmtypes.Head](1),
+		mailMon:                mailMon,
+		changeSubscriberStatus: mailbox.NewHighCapacity[changeSubscriberStatus](),
+		newHeads:               mailbox.NewSingle[*evmtypes.Head](),
 		DependentAwaiter:       utils.NewDependentAwaiter(),
 		chStop:                 chStop,
 		highestSavedHead:       highestSavedHead,
@@ -187,8 +191,9 @@ func NewBroadcaster(orm ORM, ethClient evmclient.Client, config Config, lggr log
 
 func (b *broadcaster) Start(context.Context) error {
 	return b.StartOnce("LogBroadcaster", func() error {
-		b.wgDone.Add(2)
+		b.wgDone.Add(1)
 		go b.awaitInitialSubscribers()
+		b.mailMon.Monitor(b.changeSubscriberStatus, "LogBroadcaster", "ChangeSubscriber", b.evmChainID.String())
 		return nil
 	})
 }
@@ -209,8 +214,16 @@ func (b *broadcaster) Close() error {
 	return b.StopOnce("LogBroadcaster", func() error {
 		close(b.chStop)
 		b.wgDone.Wait()
-		return nil
+		return b.changeSubscriberStatus.Close()
 	})
+}
+
+func (b *broadcaster) Name() string {
+	return b.logger.Name()
+}
+
+func (b *broadcaster) HealthReport() map[string]error {
+	return map[string]error{b.Name(): b.Healthy()}
 }
 
 func (b *broadcaster) awaitInitialSubscribers() {
@@ -224,11 +237,11 @@ func (b *broadcaster) awaitInitialSubscribers() {
 		case <-b.DependentAwaiter.AwaitDependents():
 			// ensure that any queued dependent subscriptions are registered first
 			b.onChangeSubscriberStatus()
+			b.wgDone.Add(1)
 			go b.startResubscribeLoop()
 			return
 
 		case <-b.chStop:
-			b.wgDone.Done() // because startResubscribeLoop won't be called
 			return
 		}
 	}
@@ -379,10 +392,10 @@ func (b *broadcaster) startResubscribeLoop() {
 }
 
 func (b *broadcaster) reinitialize() (backfillStart *int64, abort bool) {
-	ctx, cancel := utils.ContextFromChan(b.chStop)
+	ctx, cancel := b.chStop.NewCtx()
 	defer cancel()
 
-	utils.RetryWithBackoff(ctx, func() bool {
+	evmutils.RetryWithBackoff(ctx, func() bool {
 		var err error
 		backfillStart, err = b.orm.Reinitialize(pg.WithParentCtx(ctx))
 		if err != nil {
@@ -432,7 +445,7 @@ func (b *broadcaster) eventLoop(chRawLogs <-chan types.Log, chErr <-chan error) 
 			// Do we have logs in the pool?
 			// They are are invalid, since we may have missed 'removed' logs.
 			if blockNum := b.invalidatePool(); blockNum > 0 {
-				lggr = lggr.With("blockNumber", blockNum)
+				lggr = logger.With(lggr, "blockNumber", blockNum)
 			}
 			lggr.Debugw("Subscription terminated. Backfilling after resubscribing")
 			return true, err
@@ -479,12 +492,15 @@ func (b *broadcaster) onReplayRequest(replayReq replayRequest) {
 	// manually by someone who knows what he is doing
 	b.backfillBlockNumber.SetValid(replayReq.fromBlock)
 	if replayReq.forceBroadcast {
-		ctx, cancel := utils.ContextFromChan(b.chStop)
+		ctx, cancel := b.chStop.NewCtx()
 		defer cancel()
-		err := b.orm.MarkBroadcastsUnconsumed(replayReq.fromBlock, pg.WithParentCtx(ctx))
+
+		// Use a longer timeout in the event that a very large amount of logs need to be marked
+		// as consumed.
+		err := b.orm.MarkBroadcastsUnconsumed(replayReq.fromBlock, pg.WithParentCtx(ctx), pg.WithLongQueryTimeout())
 		if err != nil {
 			b.logger.Errorw("Error marking broadcasts as unconsumed",
-				"error", err, "fromBlock", replayReq.fromBlock)
+				"err", err, "fromBlock", replayReq.fromBlock)
 		}
 	}
 	b.logger.Debugw(
@@ -519,7 +535,7 @@ func (b *broadcaster) onNewLog(log types.Log) {
 	}
 	if b.logPool.addLog(log) {
 		// First or new lowest block number
-		ctx, cancel := utils.ContextFromChan(b.chStop)
+		ctx, cancel := b.chStop.NewCtx()
 		defer cancel()
 		blockNumber := int64(log.BlockNumber)
 		if err := b.orm.SetPendingMinBlock(&blockNumber, pg.WithParentCtx(ctx)); err != nil {
@@ -548,7 +564,7 @@ func (b *broadcaster) onNewHeads() {
 
 		b.lastSeenHeadNumber.Store(latestHead.Number)
 
-		keptLogsDepth := uint32(b.config.EvmFinalityDepth())
+		keptLogsDepth := b.config.FinalityDepth()
 		if b.registrations.highestNumConfirmations > keptLogsDepth {
 			keptLogsDepth = b.registrations.highestNumConfirmations
 		}
@@ -559,7 +575,7 @@ func (b *broadcaster) onNewHeads() {
 			keptDepth = 0
 		}
 
-		ctx, cancel := utils.ContextFromChan(b.chStop)
+		ctx, cancel := b.chStop.NewCtx()
 		defer cancel()
 
 		// if all subscribers requested 0 confirmations, we always get and delete all logs from the pool,
@@ -757,13 +773,13 @@ func (n *NullBroadcaster) TrackedAddressesCount() uint32 {
 	return 0
 }
 func (n *NullBroadcaster) WasAlreadyConsumed(lb Broadcast, qopts ...pg.QOpt) (bool, error) {
-	return false, errors.New(n.ErrMsg)
+	return false, pkgerrors.New(n.ErrMsg)
 }
 func (n *NullBroadcaster) MarkConsumed(lb Broadcast, qopts ...pg.QOpt) error {
-	return errors.New(n.ErrMsg)
+	return pkgerrors.New(n.ErrMsg)
 }
 func (n *NullBroadcaster) MarkManyConsumed(lbs []Broadcast, qopts ...pg.QOpt) error {
-	return errors.New(n.ErrMsg)
+	return pkgerrors.New(n.ErrMsg)
 }
 
 func (n *NullBroadcaster) AddDependents(int) {}
@@ -776,11 +792,13 @@ func (n *NullBroadcaster) AwaitDependents() <-chan struct{} {
 // DependentReady does noop for NullBroadcaster.
 func (n *NullBroadcaster) DependentReady() {}
 
+func (n *NullBroadcaster) Name() string { return "NullBroadcaster" }
+
 // Start does noop for NullBroadcaster.
 func (n *NullBroadcaster) Start(context.Context) error                       { return nil }
 func (n *NullBroadcaster) Close() error                                      { return nil }
-func (n *NullBroadcaster) Healthy() error                                    { return nil }
 func (n *NullBroadcaster) Ready() error                                      { return nil }
+func (n *NullBroadcaster) HealthReport() map[string]error                    { return nil }
 func (n *NullBroadcaster) OnNewLongestChain(context.Context, *evmtypes.Head) {}
 func (n *NullBroadcaster) Pause()                                            {}
 func (n *NullBroadcaster) Resume()                                           {}

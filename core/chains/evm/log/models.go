@@ -7,10 +7,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
 )
 
-//go:generate mockery --name Broadcast --output ./mocks/ --case=underscore --structname Broadcast --filename broadcast.go
+//go:generate mockery --quiet --name Broadcast --output ./mocks/ --case=underscore --structname Broadcast --filename broadcast.go
 
 type (
 	// The Broadcast type wraps a types.Log but provides additional functionality
@@ -100,7 +100,7 @@ func NewLogBroadcast(rawLog types.Log, evmChainID big.Int, decodedLog interface{
 	}
 }
 
-//go:generate mockery --name AbigenContract --output ./mocks --case=underscore
+//go:generate mockery --quiet --name AbigenContract --output ./mocks --case=underscore
 
 type AbigenContract interface {
 	Address() common.Address

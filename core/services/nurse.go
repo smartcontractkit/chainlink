@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"fmt"
-	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -17,13 +17,14 @@ import (
 
 	"github.com/google/pprof/profile"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type Nurse struct {
-	utils.StartStopOnce
+	services.StateMachine
 
 	cfg Config
 	log logger.Logger
@@ -37,17 +38,17 @@ type Nurse struct {
 }
 
 type Config interface {
-	AutoPprofProfileRoot() string
-	AutoPprofPollInterval() models.Duration
-	AutoPprofGatherDuration() models.Duration
-	AutoPprofGatherTraceDuration() models.Duration
-	AutoPprofMaxProfileSize() utils.FileSize
-	AutoPprofCPUProfileRate() int
-	AutoPprofMemProfileRate() int
-	AutoPprofBlockProfileRate() int
-	AutoPprofMutexProfileFraction() int
-	AutoPprofMemThreshold() utils.FileSize
-	AutoPprofGoroutineThreshold() int
+	BlockProfileRate() int
+	CPUProfileRate() int
+	GatherDuration() commonconfig.Duration
+	GatherTraceDuration() commonconfig.Duration
+	GoroutineThreshold() int
+	MaxProfileSize() utils.FileSize
+	MemProfileRate() int
+	MemThreshold() utils.FileSize
+	MutexProfileFraction() int
+	PollInterval() commonconfig.Duration
+	ProfileRoot() string
 }
 
 type CheckFunc func() (unwell bool, meta Meta)
@@ -59,12 +60,15 @@ type gatherRequest struct {
 
 type Meta map[string]interface{}
 
-const profilePerms = 0666
+const (
+	cpuProfName   = "cpu"
+	traceProfName = "trace"
+)
 
 func NewNurse(cfg Config, log logger.Logger) *Nurse {
 	return &Nurse{
 		cfg:      cfg,
-		log:      log.Named("nurse"),
+		log:      log.Named("Nurse"),
 		checks:   make(map[string]CheckFunc),
 		chGather: make(chan gatherRequest, 1),
 		chStop:   make(chan struct{}),
@@ -72,15 +76,18 @@ func NewNurse(cfg Config, log logger.Logger) *Nurse {
 }
 
 func (n *Nurse) Start() error {
-	return n.StartOnce("nurse", func() error {
+	return n.StartOnce("Nurse", func() error {
 		// This must be set *once*, and it must occur as early as possible
-		runtime.MemProfileRate = n.cfg.AutoPprofMemProfileRate()
+		if n.cfg.MemProfileRate() != runtime.MemProfileRate {
+			runtime.MemProfileRate = n.cfg.BlockProfileRate()
+		}
 
-		runtime.SetCPUProfileRate(n.cfg.AutoPprofCPUProfileRate())
-		runtime.SetBlockProfileRate(n.cfg.AutoPprofBlockProfileRate())
-		runtime.SetMutexProfileFraction(n.cfg.AutoPprofMutexProfileFraction())
+		n.log.Debugf("Starting nurse with config %+v", n.cfg)
+		runtime.SetCPUProfileRate(n.cfg.CPUProfileRate())
+		runtime.SetBlockProfileRate(n.cfg.BlockProfileRate())
+		runtime.SetMutexProfileFraction(n.cfg.MutexProfileFraction())
 
-		err := utils.EnsureDirAndMaxPerms(n.cfg.AutoPprofProfileRoot(), 0644)
+		err := utils.EnsureDirAndMaxPerms(n.cfg.ProfileRoot(), 0744)
 		if err != nil {
 			return err
 		}
@@ -88,8 +95,7 @@ func (n *Nurse) Start() error {
 		n.AddCheck("mem", n.checkMem)
 		n.AddCheck("goroutines", n.checkGoroutines)
 
-		n.wgDone.Add(2)
-
+		n.wgDone.Add(1)
 		// Checker
 		go func() {
 			defer n.wgDone.Done()
@@ -97,7 +103,7 @@ func (n *Nurse) Start() error {
 				select {
 				case <-n.chStop:
 					return
-				case <-time.After(n.cfg.AutoPprofPollInterval().Duration()):
+				case <-time.After(n.cfg.PollInterval().Duration()):
 				}
 
 				func() {
@@ -113,6 +119,7 @@ func (n *Nurse) Start() error {
 			}
 		}()
 
+		n.wgDone.Add(1)
 		// Responder
 		go func() {
 			defer n.wgDone.Done()
@@ -131,7 +138,9 @@ func (n *Nurse) Start() error {
 }
 
 func (n *Nurse) Close() error {
-	return n.StopOnce("nurse", func() error {
+	return n.StopOnce("Nurse", func() error {
+		n.log.Debug("Nurse closing...")
+		defer n.log.Debug("Nurse closed")
 		close(n.chStop)
 		n.wgDone.Wait()
 		return nil
@@ -155,25 +164,25 @@ func (n *Nurse) GatherVitals(reason string, meta Meta) {
 func (n *Nurse) checkMem() (bool, Meta) {
 	var memStats runtime.MemStats
 	runtime.ReadMemStats(&memStats)
-	unwell := memStats.Alloc >= uint64(n.cfg.AutoPprofMemThreshold())
+	unwell := memStats.Alloc >= uint64(n.cfg.MemThreshold())
 	if !unwell {
 		return false, nil
 	}
 	return true, Meta{
 		"mem_alloc": utils.FileSize(memStats.Alloc),
-		"threshold": n.cfg.AutoPprofMemThreshold(),
+		"threshold": n.cfg.MemThreshold(),
 	}
 }
 
 func (n *Nurse) checkGoroutines() (bool, Meta) {
 	num := runtime.NumGoroutine()
-	unwell := num >= n.cfg.AutoPprofGoroutineThreshold()
+	unwell := num >= n.cfg.GoroutineThreshold()
 	if !unwell {
 		return false, nil
 	}
 	return true, Meta{
 		"num_goroutine": num,
-		"threshold":     n.cfg.AutoPprofGoroutineThreshold(),
+		"threshold":     n.cfg.GoroutineThreshold(),
 	}
 }
 
@@ -184,36 +193,52 @@ func (n *Nurse) gatherVitals(reason string, meta Meta) {
 
 	size, err := n.totalProfileBytes()
 	if err != nil {
-		n.log.Errorw("could not fetch total profile bytes", loggerFields.With("error", err).Slice()...)
+		n.log.Errorw("could not fetch total profile bytes", loggerFields.With("err", err).Slice()...)
 		return
-	} else if size >= uint64(n.cfg.AutoPprofMaxProfileSize()) {
+	} else if size >= uint64(n.cfg.MaxProfileSize()) {
 		n.log.Warnw("cannot write pprof profile, total profile size exceeds configured PPROF_MAX_PROFILE_SIZE",
-			loggerFields.With("total", size, "max", n.cfg.AutoPprofMaxProfileSize()).Slice()...,
+			loggerFields.With("total", size, "max", n.cfg.MaxProfileSize()).Slice()...,
 		)
 		return
 	}
 
 	now := time.Now()
 
-	var wg sync.WaitGroup
-	wg.Add(9)
-
 	err = n.appendLog(now, reason, meta)
 	if err != nil {
-		n.log.Warnw("cannot write pprof profile", loggerFields.With("error", err).Slice()...)
+		n.log.Warnw("cannot write pprof profile", loggerFields.With("err", err).Slice()...)
 		return
 	}
+	var wg sync.WaitGroup
+	wg.Add(1)
 	go n.gatherCPU(now, &wg)
+	wg.Add(1)
 	go n.gatherTrace(now, &wg)
+	wg.Add(1)
 	go n.gather("allocs", now, &wg)
+	wg.Add(1)
 	go n.gather("block", now, &wg)
+	wg.Add(1)
 	go n.gather("goroutine", now, &wg)
-	go n.gather("heap", now, &wg)
+
+	// pprof docs state memory profile is not
+	// created if the MemProfileRate is zero
+	if runtime.MemProfileRate != 0 {
+		wg.Add(1)
+		go n.gather("heap", now, &wg)
+	} else {
+		n.log.Info("skipping heap collection because runtime.MemProfileRate = 0")
+	}
+
+	wg.Add(1)
 	go n.gather("mutex", now, &wg)
+	wg.Add(1)
 	go n.gather("threadcreate", now, &wg)
 
 	ch := make(chan struct{})
+	n.wgDone.Add(1)
 	go func() {
+		defer n.wgDone.Done()
 		defer close(ch)
 		wg.Wait()
 	}()
@@ -225,19 +250,21 @@ func (n *Nurse) gatherVitals(reason string, meta Meta) {
 }
 
 func (n *Nurse) appendLog(now time.Time, reason string, meta Meta) error {
-	filename := filepath.Join(n.cfg.AutoPprofProfileRoot(), "nurse.log")
-	mode := os.O_APPEND | os.O_CREATE | os.O_WRONLY
+	filename := filepath.Join(n.cfg.ProfileRoot(), "nurse.log")
 
-	file, err := os.OpenFile(filename, mode, profilePerms)
+	n.log.Debugf("creating nurse log %s", filename)
+	file, err := os.Create(filename)
+
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	wc := utils.NewDeferableWriteCloser(file)
+	defer wc.Close()
 
-	if _, err = file.Write([]byte(fmt.Sprintf("==== %v\n", now))); err != nil {
+	if _, err = wc.Write([]byte(fmt.Sprintf("==== %v\n", now))); err != nil {
 		return err
 	}
-	if _, err = file.Write([]byte(fmt.Sprintf("reason: %v\n", reason))); err != nil {
+	if _, err = wc.Write([]byte(fmt.Sprintf("reason: %v\n", reason))); err != nil {
 		return err
 	}
 	ks := make([]string, len(meta))
@@ -248,62 +275,89 @@ func (n *Nurse) appendLog(now time.Time, reason string, meta Meta) error {
 	}
 	sort.Strings(ks)
 	for _, k := range ks {
-		if _, err = file.Write([]byte(fmt.Sprintf("- %v: %v\n", k, meta[k]))); err != nil {
+		if _, err = wc.Write([]byte(fmt.Sprintf("- %v: %v\n", k, meta[k]))); err != nil {
 			return err
 		}
 	}
-	_, err = file.Write([]byte("\n"))
-	return err
+	_, err = wc.Write([]byte("\n"))
+	if err != nil {
+		return err
+	}
+	return wc.Close()
 }
 
 func (n *Nurse) gatherCPU(now time.Time, wg *sync.WaitGroup) {
 	defer wg.Done()
-
-	file, err := n.openFile(now, "cpu", false)
+	n.log.Debugf("gather cpu %d ...", now.UnixMicro())
+	defer n.log.Debugf("gather cpu %d done", now.UnixMicro())
+	wc, err := n.createFile(now, cpuProfName, false)
 	if err != nil {
-		n.log.Errorw("could not write cpu profile", "error", err)
+		n.log.Errorw("could not write cpu profile", "err", err)
 		return
 	}
-	defer file.Close()
+	defer wc.Close()
 
-	err = pprof.StartCPUProfile(file)
+	err = pprof.StartCPUProfile(wc)
 	if err != nil {
-		n.log.Errorw("could not start cpu profile", "error", err)
+		n.log.Errorw("could not start cpu profile", "err", err)
 		return
 	}
-	defer pprof.StopCPUProfile()
 
 	select {
 	case <-n.chStop:
-	case <-time.After(n.cfg.AutoPprofGatherDuration().Duration()):
+		n.log.Debug("gather cpu received stop")
+
+	case <-time.After(n.cfg.GatherDuration().Duration()):
+		n.log.Debugf("gather cpu duration elapsed %s. stoping profiling.", n.cfg.GatherDuration().Duration().String())
 	}
+
+	pprof.StopCPUProfile()
+
+	err = wc.Close()
+	if err != nil {
+		n.log.Errorw("could not close cpu profile", "err", err)
+		return
+	}
+
 }
 
 func (n *Nurse) gatherTrace(now time.Time, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	file, err := n.openFile(now, "trace", true)
+	n.log.Debugf("gather trace %d ...", now.UnixMicro())
+	defer n.log.Debugf("gather trace %d done", now.UnixMicro())
+	wc, err := n.createFile(now, traceProfName, true)
 	if err != nil {
-		n.log.Errorw("could not write trace profile", "error", err)
+		n.log.Errorw("could not write trace profile", "err", err)
 		return
 	}
-	defer file.Close()
+	defer wc.Close()
 
-	err = trace.Start(file)
+	err = trace.Start(wc)
 	if err != nil {
-		n.log.Errorw("could not start trace profile", "error", err)
+		n.log.Errorw("could not start trace profile", "err", err)
 		return
 	}
-	defer trace.Stop()
 
 	select {
 	case <-n.chStop:
-	case <-time.After(n.cfg.AutoPprofGatherTraceDuration().Duration()):
+	case <-time.After(n.cfg.GatherTraceDuration().Duration()):
+	}
+
+	trace.Stop()
+
+	err = wc.Close()
+	if err != nil {
+		n.log.Errorw("could not close trace profile", "err", err)
+		return
 	}
 }
 
 func (n *Nurse) gather(typ string, now time.Time, wg *sync.WaitGroup) {
 	defer wg.Done()
+
+	n.log.Debugf("gather %s %d ...", typ, now.UnixMicro())
+	n.log.Debugf("gather %s %d done", typ, now.UnixMicro())
 
 	p := pprof.Lookup(typ)
 	if p == nil {
@@ -313,11 +367,11 @@ func (n *Nurse) gather(typ string, now time.Time, wg *sync.WaitGroup) {
 
 	p0, err := collectProfile(p)
 	if err != nil {
-		n.log.Errorw(fmt.Sprintf("could not collect %v profile", typ), "error", err)
+		n.log.Errorw(fmt.Sprintf("could not collect %v profile", typ), "err", err)
 		return
 	}
 
-	t := time.NewTimer(n.cfg.AutoPprofGatherDuration().Duration())
+	t := time.NewTimer(n.cfg.GatherDuration().Duration())
 	defer t.Stop()
 
 	select {
@@ -328,7 +382,7 @@ func (n *Nurse) gather(typ string, now time.Time, wg *sync.WaitGroup) {
 
 	p1, err := collectProfile(p)
 	if err != nil {
-		n.log.Errorw(fmt.Sprintf("could not collect %v profile", typ), "error", err)
+		n.log.Errorw(fmt.Sprintf("could not collect %v profile", typ), "err", err)
 		return
 	}
 	ts := p1.TimeNanos
@@ -338,23 +392,28 @@ func (n *Nurse) gather(typ string, now time.Time, wg *sync.WaitGroup) {
 
 	p1, err = profile.Merge([]*profile.Profile{p0, p1})
 	if err != nil {
-		n.log.Errorw(fmt.Sprintf("could not compute delta for %v profile", typ), "error", err)
+		n.log.Errorw(fmt.Sprintf("could not compute delta for %v profile", typ), "err", err)
 		return
 	}
 
 	p1.TimeNanos = ts // set since we don't know what profile.Merge set for TimeNanos.
 	p1.DurationNanos = dur
 
-	file, err := n.openFile(now, typ, false)
+	wc, err := n.createFile(now, typ, false)
 	if err != nil {
-		n.log.Errorw(fmt.Sprintf("could not write %v profile", typ), "error", err)
+		n.log.Errorw(fmt.Sprintf("could not write %v profile", typ), "err", err)
 		return
 	}
-	defer file.Close()
+	defer wc.Close()
 
-	err = p1.Write(file)
+	err = p1.Write(wc)
 	if err != nil {
-		n.log.Errorw(fmt.Sprintf("could not write %v profile", typ), "error", err)
+		n.log.Errorw(fmt.Sprintf("could not write %v profile", typ), "err", err)
+		return
+	}
+	err = wc.Close()
+	if err != nil {
+		n.log.Errorw(fmt.Sprintf("could not close file for %v profile", typ), "err", err)
 		return
 	}
 }
@@ -373,29 +432,45 @@ func collectProfile(p *pprof.Profile) (*profile.Profile, error) {
 	return p0, nil
 }
 
-func (n *Nurse) openFile(now time.Time, typ string, shouldGzip bool) (io.WriteCloser, error) {
-	filename := fmt.Sprintf("%v.%v.pprof", now, typ)
+func (n *Nurse) createFile(now time.Time, typ string, shouldGzip bool) (*utils.DeferableWriteCloser, error) {
+	filename := fmt.Sprintf("%v.%v.pprof", now.UnixMicro(), typ)
 	if shouldGzip {
 		filename += ".gz"
 	}
-	fullpath := filepath.Join(n.cfg.AutoPprofProfileRoot(), filename)
-	mode := os.O_WRONLY | os.O_CREATE | os.O_TRUNC
-	file, err := os.OpenFile(fullpath, mode, profilePerms)
+	fullpath := filepath.Join(n.cfg.ProfileRoot(), filename)
+	n.log.Debugf("creating file %s", fullpath)
+
+	file, err := os.Create(fullpath)
 	if err != nil {
 		return nil, err
 	}
 	if shouldGzip {
-		return gzip.NewWriter(file), nil
+		gw := gzip.NewWriter(file)
+		return utils.NewDeferableWriteCloser(gw), nil
 	}
-	return file, nil
+
+	return utils.NewDeferableWriteCloser(file), nil
 }
 
 func (n *Nurse) totalProfileBytes() (uint64, error) {
-	entries, err := os.ReadDir(n.cfg.AutoPprofProfileRoot())
+	profiles, err := n.listProfiles()
 	if err != nil {
 		return 0, err
 	}
 	var size uint64
+	for _, p := range profiles {
+		size += uint64(p.Size())
+	}
+	return size, nil
+}
+
+func (n *Nurse) listProfiles() ([]fs.FileInfo, error) {
+	out := make([]fs.FileInfo, 0)
+	entries, err := os.ReadDir(n.cfg.ProfileRoot())
+
+	if err != nil {
+		return nil, err
+	}
 	for _, entry := range entries {
 		if entry.IsDir() ||
 			(filepath.Ext(entry.Name()) != ".pprof" &&
@@ -405,9 +480,10 @@ func (n *Nurse) totalProfileBytes() (uint64, error) {
 		}
 		info, err := entry.Info()
 		if err != nil {
-			return 0, err
+			return nil, err
 		}
-		size += uint64(info.Size())
+		out = append(out, info)
 	}
-	return size, nil
+	return out, nil
+
 }

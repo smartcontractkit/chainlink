@@ -13,22 +13,25 @@ import (
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/sqlx"
+
+	"github.com/jmoiron/sqlx"
 
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
-	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/config"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/offchain_aggregator_wrapper"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+
+	"github.com/smartcontractkit/chainlink/v2/common/config"
+	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/offchain_aggregator_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 // configMailboxSanityLimit is the maximum number of configs that can be held
@@ -46,12 +49,12 @@ var (
 	OCRContractLatestRoundRequested = getEventTopic("RoundRequested")
 )
 
-//go:generate mockery --name OCRContractTrackerDB --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name OCRContractTrackerDB --output ./mocks/ --case=underscore
 type (
 	// OCRContractTracker complies with ContractConfigTracker interface and
 	// handles log events related to the contract more generally
 	OCRContractTracker struct {
-		utils.StartStopOnce
+		services.StateMachine
 
 		ethClient        evmclient.Client
 		contract         *offchain_aggregator_wrapper.OffchainAggregator
@@ -64,13 +67,14 @@ type (
 		q                pg.Q
 		blockTranslator  ocrcommon.BlockTranslator
 		cfg              ocrcommon.Config
+		mailMon          *mailbox.Monitor
 
 		// HeadBroadcaster
 		headBroadcaster  httypes.HeadBroadcaster
 		unsubscribeHeads func()
 
 		// Start/Stop lifecycle
-		chStop          chan struct{}
+		chStop          services.StopChan
 		wg              sync.WaitGroup
 		unsubscribeLogs func()
 
@@ -79,7 +83,7 @@ type (
 		lrrMu                sync.RWMutex
 
 		// ContractConfig
-		configsMB utils.Mailbox[ocrtypes.ContractConfig]
+		configsMB *mailbox.Mailbox[ocrtypes.ContractConfig]
 		chConfigs chan ocrtypes.ContractConfig
 
 		// LatestBlockHeight
@@ -93,6 +97,12 @@ type (
 	}
 )
 
+func (t *OCRContractTracker) HealthReport() map[string]error {
+	return map[string]error{t.Name(): t.Healthy()}
+}
+
+func (t *OCRContractTracker) Name() string { return t.logger.Name() }
+
 // NewOCRContractTracker makes a new OCRContractTracker
 func NewOCRContractTracker(
 	contract *offchain_aggregator_wrapper.OffchainAggregator,
@@ -105,33 +115,30 @@ func NewOCRContractTracker(
 	db *sqlx.DB,
 	ocrDB OCRContractTrackerDB,
 	cfg ocrcommon.Config,
+	q pg.QConfig,
 	headBroadcaster httypes.HeadBroadcaster,
+	mailMon *mailbox.Monitor,
 ) (o *OCRContractTracker) {
 	logger = logger.Named("OCRContractTracker")
 	return &OCRContractTracker{
-		utils.StartStopOnce{},
-		ethClient,
-		contract,
-		contractFilterer,
-		contractCaller,
-		logBroadcaster,
-		jobID,
-		logger,
-		ocrDB,
-		pg.NewQ(db, logger, cfg),
-		ocrcommon.NewBlockTranslator(cfg, ethClient, logger),
-		cfg,
-		headBroadcaster,
-		nil,
-		make(chan struct{}),
-		sync.WaitGroup{},
-		nil,
-		offchainaggregator.OffchainAggregatorRoundRequested{},
-		sync.RWMutex{},
-		*utils.NewMailbox[ocrtypes.ContractConfig](configMailboxSanityLimit),
-		make(chan ocrtypes.ContractConfig),
-		-1,
-		sync.RWMutex{},
+		ethClient:            ethClient,
+		contract:             contract,
+		contractFilterer:     contractFilterer,
+		contractCaller:       contractCaller,
+		logBroadcaster:       logBroadcaster,
+		jobID:                jobID,
+		logger:               logger,
+		ocrDB:                ocrDB,
+		q:                    pg.NewQ(db, logger, q),
+		blockTranslator:      ocrcommon.NewBlockTranslator(cfg, ethClient, logger),
+		cfg:                  cfg,
+		mailMon:              mailMon,
+		headBroadcaster:      headBroadcaster,
+		chStop:               make(services.StopChan),
+		latestRoundRequested: offchainaggregator.OffchainAggregatorRoundRequested{},
+		configsMB:            mailbox.New[ocrtypes.ContractConfig](configMailboxSanityLimit),
+		chConfigs:            make(chan ocrtypes.ContractConfig),
+		latestBlockHeight:    -1,
 	}
 }
 
@@ -162,6 +169,9 @@ func (t *OCRContractTracker) Start(context.Context) error {
 
 		t.wg.Add(1)
 		go t.processLogs()
+
+		t.mailMon.Monitor(t.configsMB, "OCRContractTracker", "Configs", fmt.Sprint(t.jobID))
+
 		return nil
 	})
 }
@@ -174,7 +184,7 @@ func (t *OCRContractTracker) Close() error {
 		t.unsubscribeHeads()
 		t.unsubscribeLogs()
 		close(t.chConfigs)
-		return nil
+		return t.configsMB.Close()
 	})
 }
 
@@ -233,7 +243,7 @@ func (t *OCRContractTracker) processLogs() {
 func (t *OCRContractTracker) HandleLog(lb log.Broadcast) {
 	was, err := t.logBroadcaster.WasAlreadyConsumed(lb)
 	if err != nil {
-		t.logger.Errorw("could not determine if log was already consumed", "error", err)
+		t.logger.Errorw("could not determine if log was already consumed", "err", err)
 		return
 	} else if was {
 		return
@@ -243,14 +253,14 @@ func (t *OCRContractTracker) HandleLog(lb log.Broadcast) {
 	if raw.Address != t.contract.Address() {
 		t.logger.Errorf("log address of 0x%x does not match configured contract address of 0x%x", raw.Address, t.contract.Address())
 		if err2 := t.logBroadcaster.MarkConsumed(lb); err2 != nil {
-			t.logger.Errorw("failed to mark log consumed", "error", err2)
+			t.logger.Errorw("failed to mark log consumed", "err", err2)
 		}
 		return
 	}
 	topics := raw.Topics
 	if len(topics) == 0 {
 		if err2 := t.logBroadcaster.MarkConsumed(lb); err2 != nil {
-			t.logger.Errorw("failed to mark log consumed", "error", err2)
+			t.logger.Errorw("failed to mark log consumed", "err", err2)
 		}
 		return
 	}
@@ -263,7 +273,7 @@ func (t *OCRContractTracker) HandleLog(lb log.Broadcast) {
 		if err != nil {
 			t.logger.Errorw("could not parse config set", "err", err)
 			if err2 := t.logBroadcaster.MarkConsumed(lb); err2 != nil {
-				t.logger.Errorw("failed to mark log consumed", "error", err2)
+				t.logger.Errorw("failed to mark log consumed", "err", err2)
 			}
 			return
 		}
@@ -280,7 +290,7 @@ func (t *OCRContractTracker) HandleLog(lb log.Broadcast) {
 		if err != nil {
 			t.logger.Errorw("could not parse round requested", "err", err)
 			if err2 := t.logBroadcaster.MarkConsumed(lb); err2 != nil {
-				t.logger.Errorw("failed to mark log consumed", "error", err2)
+				t.logger.Errorw("failed to mark log consumed", "err", err2)
 			}
 			return
 		}
@@ -308,7 +318,7 @@ func (t *OCRContractTracker) HandleLog(lb log.Broadcast) {
 	}
 	if !consumed {
 		if err := t.logBroadcaster.MarkConsumed(lb); err != nil {
-			t.logger.Errorw("failed to mark log consumed", "error", err)
+			t.logger.Errorw("failed to mark log consumed", "err", err)
 		}
 	}
 }
@@ -334,7 +344,7 @@ func (t *OCRContractTracker) SubscribeToNewConfigs(context.Context) (ocrtypes.Co
 // LatestConfigDetails queries the eth node
 func (t *OCRContractTracker) LatestConfigDetails(ctx context.Context) (changedInBlock uint64, configDigest ocrtypes.ConfigDigest, err error) {
 	var cancel context.CancelFunc
-	ctx, cancel = utils.WithCloseChan(ctx, t.chStop)
+	ctx, cancel = t.chStop.Ctx(ctx)
 	defer cancel()
 
 	opts := bind.CallOpts{Context: ctx, Pending: false}
@@ -362,7 +372,7 @@ func (t *OCRContractTracker) ConfigFromLogs(ctx context.Context, changedInBlock 
 	}
 
 	var cancel context.CancelFunc
-	ctx, cancel = utils.WithCloseChan(ctx, t.chStop)
+	ctx, cancel = t.chStop.Ctx(ctx)
 	defer cancel()
 
 	logs, err := t.ethClient.FilterLogs(ctx, q)
@@ -387,12 +397,12 @@ func (t *OCRContractTracker) ConfigFromLogs(ctx context.Context, changedInBlock 
 // LatestBlockHeight queries the eth node for the most recent header
 func (t *OCRContractTracker) LatestBlockHeight(ctx context.Context) (blockheight uint64, err error) {
 	switch t.cfg.ChainType() {
-	case config.ChainMetis, config.ChainOptimism:
+	case config.ChainMetis:
 		// We skip confirmation checking anyway on these L2s so there's no need to
 		// care about the block height; we have no way of getting the L1 block
 		// height anyway
 		return 0, nil
-	case "", config.ChainArbitrum, config.ChainXDai:
+	case "", config.ChainArbitrum, config.ChainCelo, config.ChainOptimismBedrock, config.ChainXDai, config.ChainKroma, config.ChainWeMix, config.ChainZkSync, config.ChainScroll:
 		// continue
 	}
 	latestBlockHeight := t.getLatestBlockHeight()
@@ -403,7 +413,7 @@ func (t *OCRContractTracker) LatestBlockHeight(ctx context.Context) (blockheight
 	t.logger.Debugw("still waiting for first head, falling back to on-chain lookup")
 
 	var cancel context.CancelFunc
-	ctx, cancel = utils.WithCloseChan(ctx, t.chStop)
+	ctx, cancel = t.chStop.Ctx(ctx)
 	defer cancel()
 
 	h, err := t.ethClient.HeadByNumber(ctx, nil)
@@ -434,7 +444,7 @@ func (t *OCRContractTracker) LatestBlockHeight(ctx context.Context) (blockheight
 // RoundRequested event has been emitted after the latest NewTransmission event.
 func (t *OCRContractTracker) LatestRoundRequested(_ context.Context, lookback time.Duration) (configDigest ocrtypes.ConfigDigest, epoch uint32, round uint8, err error) {
 	// NOTE: This should be "good enough" 99% of the time.
-	// It guarantees validity up to `BLOCK_BACKFILL_DEPTH` blocks ago
+	// It guarantees validity up to `EVM.BlockBackfillDepth` blocks ago
 	// Some further improvements could be made:
 	t.lrrMu.RLock()
 	defer t.lrrMu.RUnlock()

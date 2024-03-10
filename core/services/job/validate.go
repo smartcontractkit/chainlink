@@ -12,16 +12,22 @@ var (
 	ErrInvalidJobType       = errors.New("invalid job type")
 	ErrInvalidSchemaVersion = errors.New("invalid schema version")
 	jobTypes                = map[Type]struct{}{
-		Cron:               {},
-		DirectRequest:      {},
-		FluxMonitor:        {},
-		OffchainReporting:  {},
-		OffchainReporting2: {},
-		Keeper:             {},
-		VRF:                {},
-		Webhook:            {},
-		BlockhashStore:     {},
-		Bootstrap:          {},
+		BlockHeaderFeeder:       {},
+		BlockhashStore:          {},
+		Bootstrap:               {},
+		Cron:                    {},
+		DirectRequest:           {},
+		FluxMonitor:             {},
+		Gateway:                 {},
+		Keeper:                  {},
+		LegacyGasStationServer:  {},
+		LegacyGasStationSidecar: {},
+		OffchainReporting2:      {},
+		OffchainReporting:       {},
+		Stream:                  {},
+		VRF:                     {},
+		Webhook:                 {},
+		Workflow:                {},
 	}
 )
 
@@ -59,6 +65,7 @@ func ValidateSpec(ts string) (Type, error) {
 	if jb.Pipeline.RequiresPreInsert() && !jb.Type.SupportsAsync() {
 		return "", errors.Errorf("async=true tasks are not supported for %v", jb.Type)
 	}
+	// spec.CustomRevertsPipelineEnabled == false, default is custom reverted txns pipeline disabled
 
 	if strings.Contains(ts, "<{}>") {
 		return "", errors.Errorf("'<{}>' syntax is not supported. Please use \"{}\" instead")

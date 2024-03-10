@@ -2,14 +2,14 @@ package client
 
 import (
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/tidwall/gjson"
 
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
 type fnMock struct{ calls int }
@@ -42,10 +42,8 @@ func (s *subMock) Err() <-chan error { return nil }
 func TestUnit_Node_StateTransitions(t *testing.T) {
 	t.Parallel()
 
-	s := testutils.NewWSServer(t, testutils.FixtureChainID, func(method string, params gjson.Result) (string, string) {
-		return "", ""
-	})
-	iN := NewNode(TestNodeConfig{}, logger.TestLogger(t), *s.WSURL(), nil, "test node", 42, nil)
+	s := testutils.NewWSServer(t, testutils.FixtureChainID, nil)
+	iN := NewNode(TestNodePoolConfig{}, time.Second*0, logger.Test(t), *s.WSURL(), nil, "test node", 42, nil, 1)
 	n := iN.(*node)
 
 	assert.Equal(t, NodeStateUndialed, n.State())
@@ -161,15 +159,15 @@ func TestUnit_Node_StateTransitions(t *testing.T) {
 		assert.True(t, sub.unsubbed)
 	})
 	t.Run("Close", func(t *testing.T) {
-		// first attempt panics due to node being unstarted
-		assert.Panics(t, n.Close)
+		// first attempt errors due to node being unstarted
+		assert.Error(t, n.Close())
 		// must start to allow closing
 		err := n.StartOnce("test node", func() error { return nil })
 		assert.NoError(t, err)
-		n.Close()
+		assert.NoError(t, n.Close())
 
 		assert.Equal(t, NodeStateClosed, n.State())
-		// second attempt panics due to node being stopped twice
-		assert.Panics(t, n.Close)
+		// second attempt errors due to node being stopped twice
+		assert.Error(t, n.Close())
 	})
 }

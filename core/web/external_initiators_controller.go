@@ -6,11 +6,12 @@ import (
 	"net/http"
 	"regexp"
 
-	"github.com/smartcontractkit/chainlink/core/auth"
-	"github.com/smartcontractkit/chainlink/core/bridges"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	"github.com/smartcontractkit/chainlink/v2/core/auth"
+	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
@@ -57,7 +58,7 @@ func (eic *ExternalInitiatorsController) Index(c *gin.Context, size, page, offse
 // Create builds and saves a new external initiator
 func (eic *ExternalInitiatorsController) Create(c *gin.Context) {
 	eir := &bridges.ExternalInitiatorRequest{}
-	if !eic.App.GetConfig().Dev() && !eic.App.GetConfig().FeatureExternalInitiators() {
+	if !eic.App.GetConfig().JobPipeline().ExternalInitiatorsEnabled() {
 		err := errors.New("The External Initiator feature is disabled by configuration")
 		jsonAPIError(c, http.StatusMethodNotAllowed, err)
 		return
@@ -84,6 +85,12 @@ func (eic *ExternalInitiatorsController) Create(c *gin.Context) {
 		return
 	}
 
+	eic.App.GetAuditLogger().Audit(audit.ExternalInitiatorCreated, map[string]interface{}{
+		"externalInitiatorID":   ei.ID,
+		"externalInitiatorName": ei.Name,
+		"externalInitiatorURL":  ei.URL,
+	})
+
 	resp := presenters.NewExternalInitiatorAuthentication(*ei, *eia)
 	jsonAPIResponseWithStatus(c, resp, "external initiator authentication", http.StatusCreated)
 }
@@ -101,5 +108,6 @@ func (eic *ExternalInitiatorsController) Destroy(c *gin.Context) {
 		return
 	}
 
+	eic.App.GetAuditLogger().Audit(audit.ExternalInitiatorDeleted, map[string]interface{}{"name": name})
 	jsonAPIResponseWithStatus(c, nil, "external initiator", http.StatusNoContent)
 }

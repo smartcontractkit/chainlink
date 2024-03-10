@@ -43,7 +43,7 @@ describe('OptimismSequencerUptimeFeed', () => {
   beforeEach(async () => {
     const optimismSequencerStatusRecorderFactory =
       await ethers.getContractFactory(
-        'src/v0.8/dev/OptimismSequencerUptimeFeed.sol:OptimismSequencerUptimeFeed',
+        'src/v0.8/l2ep/dev/optimism/OptimismSequencerUptimeFeed.sol:OptimismSequencerUptimeFeed',
         deployer,
       )
     optimismUptimeFeed = await optimismSequencerStatusRecorderFactory.deploy(
@@ -108,8 +108,7 @@ describe('OptimismSequencerUptimeFeed', () => {
         .updateStatus(true, timestamp.add(200))
 
       // Submit another status update with the same status
-      const currentBlock = await ethers.provider.getBlockNumber()
-      const latestBlock = await ethers.provider.getBlock(currentBlock)
+      const latestBlock = await ethers.provider.getBlock('latest')
 
       await expect(tx)
         .to.emit(optimismUptimeFeed, 'RoundUpdated')

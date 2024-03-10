@@ -25,6 +25,7 @@ var (
 	_ = common.Big1
 	_ = types.BloomLookup
 	_ = event.NewSubscription
+	_ = abi.ConvertType
 )
 
 var VRFSingleConsumerExampleMetaData = &bind.MetaData{
@@ -49,7 +50,7 @@ func DeployVRFSingleConsumerExample(auth *bind.TransactOpts, backend bind.Contra
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &VRFSingleConsumerExample{VRFSingleConsumerExampleCaller: VRFSingleConsumerExampleCaller{contract: contract}, VRFSingleConsumerExampleTransactor: VRFSingleConsumerExampleTransactor{contract: contract}, VRFSingleConsumerExampleFilterer: VRFSingleConsumerExampleFilterer{contract: contract}}, nil
+	return address, tx, &VRFSingleConsumerExample{address: address, abi: *parsed, VRFSingleConsumerExampleCaller: VRFSingleConsumerExampleCaller{contract: contract}, VRFSingleConsumerExampleTransactor: VRFSingleConsumerExampleTransactor{contract: contract}, VRFSingleConsumerExampleFilterer: VRFSingleConsumerExampleFilterer{contract: contract}}, nil
 }
 
 type VRFSingleConsumerExample struct {
@@ -137,11 +138,11 @@ func NewVRFSingleConsumerExampleFilterer(address common.Address, filterer bind.C
 }
 
 func bindVRFSingleConsumerExample(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
-	parsed, err := abi.JSON(strings.NewReader(VRFSingleConsumerExampleABI))
+	parsed, err := VRFSingleConsumerExampleMetaData.GetAbi()
 	if err != nil {
 		return nil, err
 	}
-	return bind.NewBoundContract(address, parsed, caller, transactor, filterer), nil
+	return bind.NewBoundContract(address, *parsed, caller, transactor, filterer), nil
 }
 
 func (_VRFSingleConsumerExample *VRFSingleConsumerExampleRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {

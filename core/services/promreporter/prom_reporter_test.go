@@ -2,34 +2,75 @@ package promreporter_test
 
 import (
 	"math/big"
+	"sync/atomic"
 	"testing"
 	"time"
 
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/services/promreporter"
-
+	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/atomic"
 
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/mocks"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/promreporter"
 )
 
 func newHead() evmtypes.Head {
-	return evmtypes.Head{Number: 42, EVMChainID: utils.NewBigI(0)}
+	return evmtypes.Head{Number: 42, EVMChainID: ubig.NewI(0)}
+}
+
+func newLegacyChainContainer(t *testing.T, db *sqlx.DB) legacyevm.LegacyChainContainer {
+	config, dbConfig, evmConfig := txmgr.MakeTestConfigs(t)
+	keyStore := cltest.NewKeyStore(t, db, dbConfig).Eth()
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	estimator := gas.NewEstimator(logger.TestLogger(t), ethClient, config, evmConfig.GasEstimator())
+	lggr := logger.TestLogger(t)
+	lpOpts := logpoller.Opts{
+		PollPeriod:               100 * time.Millisecond,
+		FinalityDepth:            2,
+		BackfillBatchSize:        3,
+		RpcBatchSize:             2,
+		KeepFinalizedBlocksDepth: 1000,
+	}
+	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewQConfig(true)), ethClient, lggr, lpOpts)
+
+	txm, err := txmgr.NewTxm(
+		db,
+		evmConfig,
+		evmConfig.GasEstimator(),
+		evmConfig.Transactions(),
+		dbConfig,
+		dbConfig.Listener(),
+		ethClient,
+		lggr,
+		lp,
+		keyStore,
+		estimator)
+	require.NoError(t, err)
+
+	cfg := configtest.NewGeneralConfig(t, nil)
+	return cltest.NewLegacyChainsWithMockChainAndTxManager(t, ethClient, cfg, txm)
 }
 
 func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 	t.Run("with nothing in the database", func(t *testing.T) {
-		d := pgtest.NewSqlDB(t)
+		db := pgtest.NewSqlxDB(t)
 
 		backend := mocks.NewPrometheusBackend(t)
-		reporter := promreporter.NewPromReporter(d, logger.TestLogger(t), backend, 10*time.Millisecond)
+		reporter := promreporter.NewPromReporter(db.DB, newLegacyChainContainer(t, db), logger.TestLogger(t), backend, 10*time.Millisecond)
 
 		var subscribeCalls atomic.Int32
 
@@ -39,12 +80,11 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 		backend.On("SetPipelineTaskRunsQueued", 0).Return()
 		backend.On("SetPipelineRunsQueued", 0).
 			Run(func(args mock.Arguments) {
-				subscribeCalls.Inc()
+				subscribeCalls.Add(1)
 			}).
 			Return()
 
-		reporter.Start(testutils.Context(t))
-		defer reporter.Close()
+		servicetest.Run(t, reporter)
 
 		head := newHead()
 		reporter.OnNewLongestChain(testutils.Context(t), &head)
@@ -52,12 +92,12 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 		require.Eventually(t, func() bool { return subscribeCalls.Load() >= 1 }, 12*time.Second, 100*time.Millisecond)
 	})
 
-	t.Run("with unconfirmed eth_txes", func(t *testing.T) {
+	t.Run("with unconfirmed evm.txes", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
-		cfg := cltest.NewTestGeneralConfig(t)
-		borm := cltest.NewTxmORM(t, db, cfg)
-		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
-		_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
+		cfg := configtest.NewGeneralConfig(t, nil)
+		txStore := cltest.NewTestTxStore(t, db, cfg.Database())
+		ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
+		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 
 		var subscribeCalls atomic.Int32
 
@@ -70,17 +110,16 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 		backend.On("SetPipelineTaskRunsQueued", 0).Return()
 		backend.On("SetPipelineRunsQueued", 0).
 			Run(func(args mock.Arguments) {
-				subscribeCalls.Inc()
+				subscribeCalls.Add(1)
 			}).
 			Return()
-		reporter := promreporter.NewPromReporter(db.DB, logger.TestLogger(t), backend, 10*time.Millisecond)
-		reporter.Start(testutils.Context(t))
-		defer reporter.Close()
+		reporter := promreporter.NewPromReporter(db.DB, newLegacyChainContainer(t, db), logger.TestLogger(t), backend, 10*time.Millisecond)
+		servicetest.Run(t, reporter)
 
-		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 0, fromAddress)
-		cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 1, fromAddress)
-		cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 2, fromAddress)
-		require.NoError(t, utils.JustError(db.Exec(`UPDATE eth_tx_attempts SET broadcast_before_block_num = 7 WHERE eth_tx_id = $1`, etx.ID)))
+		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 0, fromAddress)
+		cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 1, fromAddress)
+		cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 2, fromAddress)
+		require.NoError(t, txStore.UpdateTxAttemptBroadcastBeforeBlockNum(testutils.Context(t), etx.ID, 7))
 
 		head := newHead()
 		reporter.OnNewLongestChain(testutils.Context(t), &head)
@@ -90,11 +129,10 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 
 	t.Run("with unfinished pipeline task runs", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
-
 		pgtest.MustExec(t, db, `SET CONSTRAINTS pipeline_task_runs_pipeline_run_id_fkey DEFERRED`)
 
 		backend := mocks.NewPrometheusBackend(t)
-		reporter := promreporter.NewPromReporter(db.DB, logger.TestLogger(t), backend, 10*time.Millisecond)
+		reporter := promreporter.NewPromReporter(db.DB, newLegacyChainContainer(t, db), logger.TestLogger(t), backend, 10*time.Millisecond)
 
 		cltest.MustInsertUnfinishedPipelineTaskRun(t, db, 1)
 		cltest.MustInsertUnfinishedPipelineTaskRun(t, db, 1)
@@ -108,11 +146,10 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 		backend.On("SetPipelineTaskRunsQueued", 3).Return()
 		backend.On("SetPipelineRunsQueued", 2).
 			Run(func(args mock.Arguments) {
-				subscribeCalls.Inc()
+				subscribeCalls.Add(1)
 			}).
 			Return()
-		reporter.Start(testutils.Context(t))
-		defer reporter.Close()
+		servicetest.Run(t, reporter)
 
 		head := newHead()
 		reporter.OnNewLongestChain(testutils.Context(t), &head)

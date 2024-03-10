@@ -7,7 +7,7 @@ import (
 	"go/format"
 	"go/parser"
 	"go/token"
-	"io/ioutil"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
@@ -17,7 +17,7 @@ import (
 	gethParams "github.com/ethereum/go-ethereum/params"
 	"golang.org/x/tools/go/ast/astutil"
 
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 )
 
 const headerComment = `// Code generated - DO NOT EDIT.
@@ -75,7 +75,7 @@ func Abigen(a AbigenArgs) {
 }
 
 func ImproveAbigenOutput(path string, abiPath string) {
-	abiBytes, err := ioutil.ReadFile(abiPath)
+	abiBytes, err := os.ReadFile(abiPath)
 	if err != nil {
 		Exit("Error while improving abigen output", err)
 	}
@@ -84,7 +84,7 @@ func ImproveAbigenOutput(path string, abiPath string) {
 		Exit("Error while improving abigen output", err)
 	}
 
-	bs, err := ioutil.ReadFile(path)
+	bs, err := os.ReadFile(path)
 	if err != nil {
 		Exit("Error while improving abigen output", err)
 	}
@@ -93,14 +93,14 @@ func ImproveAbigenOutput(path string, abiPath string) {
 	logNames := getLogNames(fileNode)
 	if len(logNames) > 0 {
 		astutil.AddImport(fset, fileNode, "fmt")
-		astutil.AddImport(fset, fileNode, "github.com/smartcontractkit/chainlink/core/gethwrappers/generated")
+		astutil.AddImport(fset, fileNode, "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated")
 	}
 	contractName := getContractName(fileNode)
 	fileNode = addContractStructFields(contractName, fileNode)
 	fileNode = replaceAnonymousStructs(contractName, fileNode)
 	bs = generateCode(fset, fileNode)
 	bs = writeAdditionalMethods(contractName, logNames, abi, bs)
-	err = ioutil.WriteFile(path, bs, 0600)
+	err = os.WriteFile(path, bs, 0600)
 	if err != nil {
 		Exit("Error while writing improved abigen source", err)
 	}
@@ -110,7 +110,7 @@ func ImproveAbigenOutput(path string, abiPath string) {
 	bs = generateCode(fset, fileNode)
 	bs = addHeader(bs)
 
-	err = ioutil.WriteFile(path, bs, 0600)
+	err = os.WriteFile(path, bs, 0600)
 	if err != nil {
 		Exit("Error while writing improved abigen source", err)
 	}
@@ -147,11 +147,10 @@ func getContractName(fileNode *ast.File) string {
 				if len(n.Name) < 3 {
 					return true
 				}
-				if n.Name[len(n.Name)-3:] == "ABI" {
-					contractName = n.Name[:len(n.Name)-3]
-				} else {
+				if n.Name[len(n.Name)-3:] != "ABI" {
 					return true
 				}
+				contractName = n.Name[:len(n.Name)-3]
 			}
 		}
 		return false
@@ -159,9 +158,17 @@ func getContractName(fileNode *ast.File) string {
 	return contractName
 }
 
+// Add the `.address` and `.abi` fields to the contract struct.
 func addContractStructFields(contractName string, fileNode *ast.File) *ast.File {
-	// Add the `.address` and `.abi` fields to the contract struct
-	fileNode = astutil.Apply(fileNode, func(cursor *astutil.Cursor) bool {
+	fileNode = addContractStructFieldsToStruct(contractName, fileNode)
+	fileNode = addContractStructFieldsToConstructor(contractName, fileNode)
+	fileNode = addContractStructFieldsToDeployMethod(contractName, fileNode)
+	return fileNode
+}
+
+// Add the fields to the contract struct.
+func addContractStructFieldsToStruct(contractName string, fileNode *ast.File) *ast.File {
+	return astutil.Apply(fileNode, func(cursor *astutil.Cursor) bool {
 		x, is := cursor.Node().(*ast.StructType)
 		if !is {
 			return true
@@ -188,14 +195,14 @@ func addContractStructFields(contractName string, fileNode *ast.File) *ast.File 
 				Sel: ast.NewIdent("ABI"),
 			},
 		}
-
 		x.Fields.List = append([]*ast.Field{addrField, abiField}, x.Fields.List...)
-
 		return false
 	}, nil).(*ast.File)
+}
 
-	// Add the fields to the return value of the constructor
-	fileNode = astutil.Apply(fileNode, func(cursor *astutil.Cursor) bool {
+// Add the fields to the return value of the constructor.
+func addContractStructFieldsToConstructor(contractName string, fileNode *ast.File) *ast.File {
+	return astutil.Apply(fileNode, func(cursor *astutil.Cursor) bool {
 		x, is := cursor.Node().(*ast.FuncDecl)
 		if !is {
 			return true
@@ -260,11 +267,48 @@ func addContractStructFields(contractName string, fileNode *ast.File) *ast.File 
 		}
 
 		x.Body.List = append([]ast.Stmt{parseABIStmt, checkParseABIErrStmt}, x.Body.List...)
-
 		return false
 	}, nil).(*ast.File)
+}
 
-	return fileNode
+// Add the fields to the returned struct in the 'Deploy<contractName>' method.
+func addContractStructFieldsToDeployMethod(contractName string, fileNode *ast.File) *ast.File {
+	return astutil.Apply(fileNode, func(cursor *astutil.Cursor) bool {
+		x, is := cursor.Node().(*ast.FuncDecl)
+		if !is {
+			return true
+		} else if x.Name.Name != "Deploy"+contractName {
+			return false
+		}
+
+		for _, stmt := range x.Body.List {
+			returnStmt, is := stmt.(*ast.ReturnStmt)
+			if !is {
+				continue
+			}
+			if len(returnStmt.Results) < 3 {
+				continue
+			}
+			rs, is := returnStmt.Results[2].(*ast.UnaryExpr)
+			if !is {
+				return true
+			}
+			lit, is := rs.X.(*ast.CompositeLit)
+			if !is {
+				continue
+			}
+			addressExpr := &ast.KeyValueExpr{
+				Key:   ast.NewIdent("address"),
+				Value: ast.NewIdent("address"),
+			}
+			abiExpr := &ast.KeyValueExpr{
+				Key:   ast.NewIdent("abi"),
+				Value: ast.NewIdent("*parsed"),
+			}
+			lit.Elts = append([]ast.Expr{addressExpr, abiExpr}, lit.Elts...)
+		}
+		return false
+	}, nil).(*ast.File)
 }
 
 func getLogNames(fileNode *ast.File) []string {

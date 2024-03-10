@@ -16,6 +16,7 @@ outpath="${pkgdir}/${pkgname}.go"
 abi="${pkgdir}/${basefilename}.abi"
 bin="${pkgdir}/${basefilename}.bin"
 
+solc-select use 0.7.6
 solc --version | grep 0.7.6 || ( echo "You need solc version 0.7.6" && exit 1 )
 
 # FIXME: solc seems to find and compile every .sol file in this path, so invoking this once for every file produces n*3 artifacts

@@ -4,126 +4,36 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"math/big"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/pkg/errors"
+	"github.com/jackc/pgtype"
+	pkgerrors "github.com/pkg/errors"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/chains"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
+
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
 
-type NewNode struct {
-	Name       string      `json:"name"`
-	EVMChainID utils.Big   `json:"evmChainId"`
-	WSURL      null.String `json:"wsURL" db:"ws_url"`
-	HTTPURL    null.String `json:"httpURL" db:"http_url"`
-	SendOnly   bool        `json:"sendOnly"`
+type Configs interface {
+	Chains(ids ...string) ([]types.ChainStatus, int, error)
+	Node(name string) (Node, error)
+	Nodes(chainID string) (nodes []Node, err error)
+	NodeStatus(name string) (types.NodeStatus, error)
 }
-
-type ChainConfigORM interface {
-	StoreString(chainID utils.Big, key, val string) error
-	Clear(chainID utils.Big, key string) error
-}
-
-type ORM interface {
-	Chain(id utils.Big, qopts ...pg.QOpt) (chain DBChain, err error)
-	Chains(offset, limit int, qopts ...pg.QOpt) ([]DBChain, int, error)
-	CreateChain(id utils.Big, config *ChainCfg, qopts ...pg.QOpt) (DBChain, error)
-	UpdateChain(id utils.Big, enabled bool, config *ChainCfg, qopts ...pg.QOpt) (DBChain, error)
-	DeleteChain(id utils.Big, qopts ...pg.QOpt) error
-	GetChainsByIDs(ids []utils.Big) (chains []DBChain, err error)
-	EnabledChains(...pg.QOpt) ([]DBChain, error)
-
-	CreateNode(data Node, qopts ...pg.QOpt) (Node, error)
-	DeleteNode(id int32, qopts ...pg.QOpt) error
-	GetNodesByChainIDs(chainIDs []utils.Big, qopts ...pg.QOpt) (nodes []Node, err error)
-	Node(id int32, qopts ...pg.QOpt) (Node, error)
-	Nodes(offset, limit int, qopts ...pg.QOpt) ([]Node, int, error)
-	NodesForChain(chainID utils.Big, offset, limit int, qopts ...pg.QOpt) ([]Node, int, error)
-
-	ChainConfigORM
-
-	SetupNodes([]Node, []utils.Big) error
-}
-
-type ChainCfg struct {
-	BlockHistoryEstimatorBlockDelay                null.Int
-	BlockHistoryEstimatorBlockHistorySize          null.Int
-	BlockHistoryEstimatorEIP1559FeeCapBufferBlocks null.Int
-	ChainType                                      null.String
-	EthTxReaperThreshold                           *models.Duration
-	EthTxResendAfterThreshold                      *models.Duration
-	EvmEIP1559DynamicFees                          null.Bool
-	EvmFinalityDepth                               null.Int
-	EvmGasBumpPercent                              null.Int
-	EvmGasBumpTxDepth                              null.Int
-	EvmGasBumpWei                                  *utils.Big
-	EvmGasFeeCapDefault                            *utils.Big
-	EvmGasLimitDefault                             null.Int
-	EvmGasLimitMax                                 null.Int
-	EvmGasLimitMultiplier                          null.Float
-	EvmGasLimitOCRJobType                          null.Int
-	EvmGasLimitDRJobType                           null.Int
-	EvmGasLimitVRFJobType                          null.Int
-	EvmGasLimitFMJobType                           null.Int
-	EvmGasLimitKeeperJobType                       null.Int
-	EvmGasPriceDefault                             *utils.Big
-	EvmGasTipCapDefault                            *utils.Big
-	EvmGasTipCapMinimum                            *utils.Big
-	EvmHeadTrackerHistoryDepth                     null.Int
-	EvmHeadTrackerMaxBufferSize                    null.Int
-	EvmHeadTrackerSamplingInterval                 *models.Duration
-	EvmLogBackfillBatchSize                        null.Int
-	EvmLogPollInterval                             *models.Duration
-	EvmMaxGasPriceWei                              *utils.Big
-	EvmNonceAutoSync                               null.Bool
-	EvmUseForwarders                               null.Bool
-	EvmRPCDefaultBatchSize                         null.Int
-	FlagsContractAddress                           null.String
-	GasEstimatorMode                               null.String
-	KeySpecific                                    map[string]ChainCfg
-	LinkContractAddress                            null.String
-	OperatorFactoryAddress                         null.String
-	MinIncomingConfirmations                       null.Int
-	MinimumContractPayment                         *assets.Link
-	OCRObservationTimeout                          *models.Duration
-	NodeNoNewHeadsThreshold                        *models.Duration
-}
-
-func (c *ChainCfg) Scan(value interface{}) error {
-	b, ok := value.([]byte)
-	if !ok {
-		return errors.New("type assertion to []byte failed")
-	}
-
-	return json.Unmarshal(b, c)
-}
-
-func (c *ChainCfg) Value() (driver.Value, error) {
-	return json.Marshal(c)
-}
-
-type DBChain = chains.DBChain[utils.Big, *ChainCfg]
 
 type Node struct {
-	ID         int32
 	Name       string
-	EVMChainID utils.Big
-	WSURL      null.String `db:"ws_url"`
-	HTTPURL    null.String `db:"http_url"`
+	EVMChainID ubig.Big
+	WSURL      null.String
+	HTTPURL    null.String
 	SendOnly   bool
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
-	// State doesn't exist in the DB, it's used to hold an in-memory state for
-	// rendering
-	State string `db:"-"`
+	Order      int32
+
+	State string
 }
 
 // Receipt represents an ethereum receipt.
@@ -175,14 +85,14 @@ func FromGethReceipt(gr *gethTypes.Receipt) *Receipt {
 // Batch calls to the RPC will return a pointer to an empty Receipt struct
 // Easiest way to check if the receipt was missing is to see if the hash is 0x0
 // Real receipts will always have the TxHash set
-func (r Receipt) IsZero() bool {
+func (r *Receipt) IsZero() bool {
 	return r.TxHash == utils.EmptyHash
 }
 
 // IsUnmined returns true if the receipt is for a TX that has not been mined yet.
 // Supposedly according to the spec this should never happen, but Parity does
 // it anyway.
-func (r Receipt) IsUnmined() bool {
+func (r *Receipt) IsUnmined() bool {
 	return r.BlockHash == utils.EmptyHash
 }
 
@@ -234,7 +144,7 @@ func (r *Receipt) UnmarshalJSON(input []byte) error {
 	}
 	var dec Receipt
 	if err := json.Unmarshal(input, &dec); err != nil {
-		return errors.Wrap(err, "could not unmarshal receipt")
+		return pkgerrors.Wrap(err, "could not unmarshal receipt")
 	}
 	if dec.PostState != nil {
 		r.PostState = *dec.PostState
@@ -273,7 +183,7 @@ func (r *Receipt) UnmarshalJSON(input []byte) error {
 func (r *Receipt) Scan(value interface{}) error {
 	b, ok := value.([]byte)
 	if !ok {
-		return errors.New("type assertion to []byte failed")
+		return pkgerrors.New("type assertion to []byte failed")
 	}
 
 	return json.Unmarshal(b, r)
@@ -281,6 +191,30 @@ func (r *Receipt) Scan(value interface{}) error {
 
 func (r *Receipt) Value() (driver.Value, error) {
 	return json.Marshal(r)
+}
+
+func (r *Receipt) GetStatus() uint64 {
+	return r.Status
+}
+
+func (r *Receipt) GetTxHash() common.Hash {
+	return r.TxHash
+}
+
+func (r *Receipt) GetBlockNumber() *big.Int {
+	return r.BlockNumber
+}
+
+func (r *Receipt) GetFeeUsed() uint64 {
+	return r.GasUsed
+}
+
+func (r *Receipt) GetTransactionIndex() uint {
+	return r.TransactionIndex
+}
+
+func (r *Receipt) GetBlockHash() common.Hash {
+	return r.BlockHash
 }
 
 // Log represents a contract log event.
@@ -361,7 +295,7 @@ func (l *Log) UnmarshalJSON(input []byte) error {
 	}
 	var dec Log
 	if err := json.Unmarshal(input, &dec); err != nil {
-		return errors.Wrap(err, "could not unmarshal log")
+		return pkgerrors.Wrap(err, "could not unmarshal log")
 	}
 	if dec.Address != nil {
 		l.Address = *dec.Address
@@ -389,4 +323,65 @@ func (l *Log) UnmarshalJSON(input []byte) error {
 		l.Removed = *dec.Removed
 	}
 	return nil
+}
+
+type AddressArray []common.Address
+
+func (a *AddressArray) Scan(src interface{}) error {
+	baArray := pgtype.ByteaArray{}
+	err := baArray.Scan(src)
+	if err != nil {
+		return pkgerrors.Wrap(err, "Expected BYTEA[] column for AddressArray")
+	}
+	if baArray.Status != pgtype.Present {
+		*a = nil
+		return nil
+	}
+	if len(baArray.Dimensions) > 1 {
+		return pkgerrors.Errorf("Expected AddressArray to be 1-dimensional. Dimensions = %v", baArray.Dimensions)
+	}
+
+	for i, ba := range baArray.Elements {
+		addr := common.Address{}
+		if ba.Status != pgtype.Present {
+			return pkgerrors.Errorf("Expected all addresses in AddressArray to be non-NULL.  Got AddressArray[%d] = NULL", i)
+		}
+		err = addr.Scan(ba.Bytes)
+		if err != nil {
+			return err
+		}
+		*a = append(*a, addr)
+	}
+
+	return nil
+}
+
+type HashArray []common.Hash
+
+func (h *HashArray) Scan(src interface{}) error {
+	baArray := pgtype.ByteaArray{}
+	err := baArray.Scan(src)
+	if err != nil {
+		return pkgerrors.Wrap(err, "Expected BYTEA[] column for HashArray")
+	}
+	if baArray.Status != pgtype.Present {
+		*h = nil
+		return nil
+	}
+	if len(baArray.Dimensions) > 1 {
+		return pkgerrors.Errorf("Expected HashArray to be 1-dimensional. Dimensions = %v", baArray.Dimensions)
+	}
+
+	for i, ba := range baArray.Elements {
+		hash := common.Hash{}
+		if ba.Status != pgtype.Present {
+			return pkgerrors.Errorf("Expected all hashes in HashArray to be non-NULL.  Got HashArray[%d] = NULL", i)
+		}
+		err = hash.Scan(ba.Bytes)
+		if err != nil {
+			return err
+		}
+		*h = append(*h, hash)
+	}
+	return err
 }

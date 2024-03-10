@@ -3,24 +3,24 @@ package presenters
 import (
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 )
 
 // ETHKeyResource represents a ETH key JSONAPI resource. It holds the hex
 // representation of the address plus its ETH & LINK balances
 type ETHKeyResource struct {
 	JAID
-	EVMChainID     utils.Big    `json:"evmChainID"`
-	Address        string       `json:"address"`
-	NextNonce      int64        `json:"nextNonce"`
-	EthBalance     *assets.Eth  `json:"ethBalance"`
-	LinkBalance    *assets.Link `json:"linkBalance"`
-	Disabled       bool         `json:"disabled"`
-	CreatedAt      time.Time    `json:"createdAt"`
-	UpdatedAt      time.Time    `json:"updatedAt"`
-	MaxGasPriceWei utils.Big    `json:"maxGasPriceWei"`
+	EVMChainID     big.Big            `json:"evmChainID"`
+	Address        string             `json:"address"`
+	EthBalance     *assets.Eth        `json:"ethBalance"`
+	LinkBalance    *commonassets.Link `json:"linkBalance"`
+	Disabled       bool               `json:"disabled"`
+	CreatedAt      time.Time          `json:"createdAt"`
+	UpdatedAt      time.Time          `json:"updatedAt"`
+	MaxGasPriceWei *big.Big           `json:"maxGasPriceWei"`
 }
 
 // GetName implements the api2go EntityNamer interface
@@ -33,16 +33,15 @@ func (r ETHKeyResource) GetName() string {
 
 // NewETHKeyOption defines a functional option which allows customisation of the
 // EthKeyResource
-type NewETHKeyOption func(*ETHKeyResource) error
+type NewETHKeyOption func(*ETHKeyResource)
 
 // NewETHKeyResource constructs a new ETHKeyResource from a Key.
 //
 // Use the functional options to inject the ETH and LINK balances
-func NewETHKeyResource(k ethkey.KeyV2, state ethkey.State, opts ...NewETHKeyOption) (*ETHKeyResource, error) {
+func NewETHKeyResource(k ethkey.KeyV2, state ethkey.State, opts ...NewETHKeyOption) *ETHKeyResource {
 	r := &ETHKeyResource{
-		JAID:        NewJAID(k.Address.Hex()),
+		JAID:        NewPrefixedJAID(k.Address.Hex(), state.EVMChainID.String()),
 		EVMChainID:  state.EVMChainID,
-		NextNonce:   state.NextNonce,
 		Address:     k.Address.Hex(),
 		EthBalance:  nil,
 		LinkBalance: nil,
@@ -52,36 +51,26 @@ func NewETHKeyResource(k ethkey.KeyV2, state ethkey.State, opts ...NewETHKeyOpti
 	}
 
 	for _, opt := range opts {
-		err := opt(r)
-
-		if err != nil {
-			return nil, err
-		}
+		opt(r)
 	}
 
-	return r, nil
+	return r
 }
 
 func SetETHKeyEthBalance(ethBalance *assets.Eth) NewETHKeyOption {
-	return func(r *ETHKeyResource) error {
+	return func(r *ETHKeyResource) {
 		r.EthBalance = ethBalance
-
-		return nil
 	}
 }
 
-func SetETHKeyLinkBalance(linkBalance *assets.Link) NewETHKeyOption {
-	return func(r *ETHKeyResource) error {
+func SetETHKeyLinkBalance(linkBalance *commonassets.Link) NewETHKeyOption {
+	return func(r *ETHKeyResource) {
 		r.LinkBalance = linkBalance
-
-		return nil
 	}
 }
 
-func SetETHKeyMaxGasPriceWei(maxGasPriceWei utils.Big) NewETHKeyOption {
-	return func(r *ETHKeyResource) error {
+func SetETHKeyMaxGasPriceWei(maxGasPriceWei *big.Big) NewETHKeyOption {
+	return func(r *ETHKeyResource) {
 		r.MaxGasPriceWei = maxGasPriceWei
-
-		return nil
 	}
 }

@@ -5,21 +5,649 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+<!-- unreleased -->
+
+## [dev]
+
+...
+
+## 2.10.0 - UNRELEASED
+
+### Added
+
+- Gas bumping logic to the `SuggestedPriceEstimator`. The bumping mechanism for this estimator refetches the price from the RPC and adds a buffer on top using the greater of `BumpPercent` and `BumpMin`.
+- Added a new configuration field named `NodeIsSyncingEnabled` for `EVM.NodePool` that will check on every reconnection to an RPC if it's syncing and should not be transitioned to `Alive` state. Disabled by default.
+- Add preliminary support for "llo" job type (Data Streams V1)
+- Add `LogPrunePageSize` parameter to the EVM configuration. This parameter controls the number of logs removed during prune phase in LogPoller. Default value is 0, which deletes all logs at once - exactly how it used to work, so it doesn't require any changes on the product's side.
+- Add Juels Fee Per Coin data source caching for OCR2 Feeds. Cache is time based and is turned on by default with default cache refresh of 5 minutes. Cache can be configured through pluginconfig using "juelsPerFeeCoinCacheDuration" and "juelsPerFeeCoinCacheDisabled" tags. Duration tag accepts values between "30s" and "20m" with default of "0s" that is overridden on cache startup to 5 minutes.
+
+### Fixed
+
+- `P2P.V2` is required in configuration when either `OCR` or `OCR2` are enabled. The node will fail to boot if `P2P.V2` is not enabled.
+- Removed unnecessary gas price warnings in gas estimators when EIP-1559 mode is enabled.
+
+### Changed
+
+- Minimum required version of Postgres is now >= 12. Postgres 11 was EOL'd in November 2023. Added a new version check that will prevent Chainlink from running on EOL'd Postgres. If you are running Postgres <= 11 you should upgrade to the latest version. The check can be forcibly overridden by setting SKIP_PG_VERSION_CHECK=true.
+- Updated the `LimitDefault` and `LimitMax` configs types to `uint64`
+
+<!-- unreleasedstop -->
+
+## 2.9.1 - 2024-03-07
+
+### Changed
+
+- `eth_call` RPC requests are now sent with both `input` and `data` fields to increase compatibility with servers that recognize only one.
+- GasEstimator will now include Type `0x3` (Blob) transactions in the gas calculations to estimate it more accurately.
+
+## 2.9.0 - 2024-02-22
+
+### Added
+
+- `chainlink health` CLI command and HTML `/health` endpoint, to provide human-readable views of the underlying JSON health data.
+- New job type `stream` to represent streamspecs. This job type is not yet used anywhere but will be required for Data Streams V1.
+- Environment variables `CL_MEDIAN_ENV`, `CL_SOLANA_ENV`, and `CL_STARKNET_ENV` for setting environment variables in LOOP Plugins with an `.env` file.
+  ```
+  echo "Foo=Bar" >> median.env
+  echo "Baz=Val" >> median.env  
+  CL_MEDIAN_ENV="median.env"
+  ```
+
+### Fixed
+
+- Fixed the encoding used for transactions when resending in batches
+
+### Removed
+
+- `P2P.V1` is no longer supported and must not be set in TOML configuration in order to boot. Use `P2P.V2` instead. If you are using both, `V1` can simply be removed.
+- Removed `TelemetryIngress.URL` and `TelemetryIngress.ServerPubKey` from TOML configuration, these fields are replaced by `[[TelemetryIngress.Endpoints]]`:
+```toml
+  [[TelemetryIngress.Endpoints]]
+  Network = '...' # e.g. EVM. Solana, Starknet, Cosmos
+  ChainID = '...' # e.g. 1, 5, devnet, mainnet-beta
+  URL = '...'
+  ServerPubKey = '...'
+```
+
+## 2.8.0 - 2024-01-24
+
+### Added
+
+- Added distributed tracing in the OpenTelemetry trace format to the node, currently focused at the LOOPP Plugin development effort. This includes a new set of `Tracing` TOML configurations. The default for collecting traces is off - you must explicitly enable traces and setup a valid OpenTelemetry collector. Refer to `.github/tracing/README.md` for more details.
+- Added a new, optional WebServer authentication option that supports LDAP as a user identity provider. This enables user login access and user roles to be managed and provisioned via a centralized remote server that supports the LDAP protocol, which can be helpful when running multiple nodes. See the documentation for more information and config setup instructions. There is a new `[WebServer].AuthenticationMethod` config option, when set to `ldap` requires the new `[WebServer.LDAP]` config section to be defined, see the reference `docs/core.toml`.
+- New prom metrics for mercury transmit queue:
+    `mercury_transmit_queue_delete_error_count`
+    `mercury_transmit_queue_insert_error_count`
+    `mercury_transmit_queue_push_error_count`
+    Nops should consider alerting on these.
+- Mercury now implements a local cache for fetching prices for fees, which ought to reduce latency and load on the mercury server, as well as increasing performance. It is enabled by default and can be configured with the following new config variables:
+    ```
+    [Mercury]
+    
+    # Mercury.Cache controls settings for the price retrieval cache querying a mercury server
+    [Mercury.Cache]
+    # LatestReportTTL controls how "stale" we will allow a price to be e.g. if
+    # set to 1s, a new price will always be fetched if the last result was
+    # from 1 second ago or older.
+    # 
+    # Another way of looking at it is such: the cache will _never_ return a
+    # price that was queried from now-LatestReportTTL or before.
+    # 
+    # Setting to zero disables caching entirely.
+    LatestReportTTL = "1s" # Default
+    # MaxStaleAge is that maximum amount of time that a value can be stale
+    # before it is deleted from the cache (a form of garbage collection).
+    # 
+    # This should generally be set to something much larger than
+    # LatestReportTTL. Setting to zero disables garbage collection.
+    MaxStaleAge = "1h" # Default
+    # LatestReportDeadline controls how long to wait for a response from the
+    # mercury server before retrying. Setting this to zero will wait indefinitely.
+    LatestReportDeadline = "5s" # Default
+    ```
+- New prom metrics for the mercury cache:
+    `mercury_cache_fetch_failure_count`
+    `mercury_cache_hit_count`
+    `mercury_cache_wait_count`
+    `mercury_cache_miss_count`
+- Added new `EVM.OCR` TOML config fields `DeltaCOverride` and `DeltaCJitterOverride` for overriding the config DeltaC.
+- Mercury v0.2 has improved consensus around current block that uses the most recent 5 blocks instead of only the latest one
+- Two new prom metrics for mercury, nops should consider adding alerting on these:
+    - `mercury_insufficient_blocks_count`
+    - `mercury_zero_blocks_count`
+- Added new `Mercury.TLS` TOML config field `CertFile` for configuring transport credentials when the node acts as a client and initiates a TLS handshake.
+
+### Changed
+
+- `PromReporter` no longer directly reads txm related status from the db, and instead uses the txStore API.
+- `L2Suggested` mode is now called `SuggestedPrice`
+- Console logs will now escape (non-whitespace) control characters
+- Following EVM Pool metrics were renamed:
+  - `evm_pool_rpc_node_states` &rarr; `multi_node_states`
+  - `evm_pool_rpc_node_num_transitions_to_alive` &rarr; `pool_rpc_node_num_transitions_to_alive`
+  - `evm_pool_rpc_node_num_transitions_to_in_sync` &rarr; `pool_rpc_node_num_transitions_to_in_sync`
+  - `evm_pool_rpc_node_num_transitions_to_out_of_sync` &rarr; `pool_rpc_node_num_transitions_to_out_of_sync`
+  - `evm_pool_rpc_node_num_transitions_to_unreachable` &rarr; `pool_rpc_node_num_transitions_to_unreachable`
+  - `evm_pool_rpc_node_num_transitions_to_invalid_chain_id` &rarr; `pool_rpc_node_num_transitions_to_invalid_chain_id`
+  - `evm_pool_rpc_node_num_transitions_to_unusable` &rarr; `pool_rpc_node_num_transitions_to_unusable`
+  - `evm_pool_rpc_node_highest_seen_block` &rarr; `pool_rpc_node_highest_seen_block`
+  - `evm_pool_rpc_node_num_seen_blocks` &rarr; `pool_rpc_node_num_seen_blocks`
+  - `evm_pool_rpc_node_polls_total` &rarr; `pool_rpc_node_polls_total`
+  - `evm_pool_rpc_node_polls_failed` &rarr; `pool_rpc_node_polls_failed`
+  - `evm_pool_rpc_node_polls_success` &rarr; `pool_rpc_node_polls_success`
+
+### Removed
+
+- Removed `Optimism2` as a supported gas estimator mode
+
+### Fixed
+
+- Corrected Ethereum Sepolia `LinkContractAddress` to `0x779877A7B0D9E8603169DdbD7836e478b4624789`
+- Fixed a bug that caused the Telemetry Manager to report incorrect health
+
+### Upcoming Required Configuration Changes
+Starting in `v2.9.0`:
+- `TelemetryIngress.URL` and `TelemetryIngress.ServerPubKey` will no longer be allowed. Any TOML configuration that sets this fields will prevent the node from booting. These fields will be replaced by `[[TelemetryIngress.Endpoints]]`
+- `P2P.V1` will no longer be supported and must not be set in TOML configuration in order to boot. Use `P2P.V2` instead. If you are using both, `V1` can simply be removed.
+
+## 2.7.2 - 2023-12-14
+
+### Fixed
+
+- Fixed a bug that caused nodes without OCR or OCR2 enabled to fail config validation if `P2P.V2` was not explicitly disabled. With this fix, NOPs will not have to make changes to their config. 
+
+## 2.7.1 - 2023-11-21
+
+### Fixed
+
+- Fixed a bug that causes the node to shutdown if all configured RPC's are unreachable during startup.
+
+## 2.7.0 - 2023-11-14
+
+### Added
+
+- Added new configuration field named `LeaseDuration` for `EVM.NodePool` that will periodically check if internal subscriptions are connected to the "best" (as defined by the `SelectionMode`) node and switch to it if necessary. Setting this value to `0s` will disable this feature.
+- Added multichain telemetry support. Each network/chainID pair must be configured using the new fields:
+```toml
+[[TelemetryIngress.Endpoints]]
+Network = '...' # e.g. EVM. Solana, Starknet, Cosmos
+ChainID = '...' # e.g. 1, 5, devnet, mainnet-beta
+URL = '...'
+ServerPubKey = '...'
+```
+These will eventually replace `TelemetryIngress.URL` and `TelemetryIngress.ServerPubKey`. Setting `TelemetryIngress.URL` and `TelemetryIngress.ServerPubKey` alongside `[[TelemetryIngress.Endpoints]]` will prevent the node from booting. Only one way of configuring telemetry endpoints is supported.
+- Added bridge_name label to `pipeline_tasks_total_finished` prometheus metric. This should make it easier to see directly what bridge was failing out from the CL NODE perspective.
+
+- LogPoller will now use finality tags to dynamically determine finality on evm chains if `EVM.FinalityTagEnabled=true`, rather than the fixed `EVM.FinalityDepth` specified in toml config
+
+### Changed
+
+- `P2P.V1` is now disabled (`Enabled = false`) by default. It must be explicitly enabled with `true` to be used. However, it is deprecated and will be removed in the future.
+- `P2P.V2` is now enabled (`Enabled = true`) by default.
+
+### Upcoming Required Configuration Changes
+Starting in `v2.9.0`:
+- `TelemetryIngress.URL` and `TelemetryIngress.ServerPubKey` will no longer be allowed. Any TOML configuration that sets this fields will prevent the node from booting. These fields will be replaced by `[[TelemetryIngress.Endpoints]]`
+- `P2P.V1` will no longer be supported and must not be set in TOML configuration in order to boot. Use `P2P.V2` instead. If you are using both, `V1` can simply be removed.
+
+### Removed
+
+- Removed the ability to set a next nonce value for an address through CLI
+
+## 2.6.0 - 2023-10-18
+
+### Added
+
+- Simple password use in production builds is now disallowed - nodes with this configuration will not boot and will not pass config validation.
+- Helper migrations function for injecting env vars into goose migrations. This was done to inject chainID into evm chain id not null in specs migrations.
+- OCR2 jobs now support querying the state contract for configurations if it has been deployed. This can help on chains such as BSC which "manage" state bloat by arbitrarily deleting logs older than a certain date. In this case, if logs are missing we will query the contract directly and retrieve the latest config from chain state. Chainlink will perform no extra RPC calls unless the job spec has this feature explicitly enabled. On chains that require this, nops may see an increase in RPC calls. This can be enabled for OCR2 jobs by specifying `ConfigContractAddress` in the relay config TOML.
+
+### Removed
+
+- Removed support for sending telemetry to the deprecated Explorer service. All nodes will have to remove `Explorer` related keys from TOML configuration and env vars.
+- Removed default evmChainID logic where evmChainID was implicitly injected into the jobspecs based on node EVM chainID toml configuration. All newly created jobs(that have evmChainID field) will have to explicitly define evmChainID in the jobspec.
+- Removed keyset migration that migrated v1 keys to v2 keys. All keys should've been migrated by now, and we don't permit creation of new v1 keys anymore
+
+All nodes will have to remove the following secret configurations:
+
+- `Explorer.AccessKey`
+- `Explorer.Secret`
+
+All nodes will have to remove the following configuration field: `ExplorerURL`
+
+### Fixed
+
+- Unauthenticated users executing CLI commands previously generated a confusing error log, which is now removed:
+  `[ERROR] Error in transaction, rolling back: session missing or expired, please login again pg/transaction.go:118 `
+- Fixed a bug that was preventing job runs to be displayed when the job `chainID` was disabled.
+- `chainlink txs evm create` returns a transaction hash for the attempted transaction in the CLI. Previously only the sender, recipient and `unstarted` state were returned.
+- Fixed a bug where `evmChainId` is requested instead of `id` or `evm-chain-id` in CLI error verbatim
+- Fixed a bug that would cause the node to shut down while performing backup
+- Fixed health checker to include more services in the prometheus `health` metric and HTTP `/health` endpoint
+- Fixed a bug where prices would not be parsed correctly in telemetry data
+
+## 2.5.0 - 2023-09-13
+
+### Added
+
+- New prometheus metrics for mercury:
+  - `mercury_price_feed_missing`
+  - `mercury_price_feed_errors`
+    Nops may wish to add alerting on these.
+
+### Upcoming Required Configuration Change
+
+- Starting in 2.6.0, chainlink nodes will no longer allow insecure configuration for production builds. Any TOML configuration that sets the following line will fail validation checks in `node start` or `node validate`:
+
+```
+AllowSimplePasswords=true
+```
+
+- To migrate on production builds, update the database password set in Database.URL to be 16 - 50 characters without leading or trailing whitespace. URI parsing rules apply to the chosen password - refer to [RFC 3986](https://datatracker.ietf.org/doc/html/rfc3986) for special character escape rules.
+
+### Added
+
+- Various Functions improvements
+
+## 2.4.0 - 2023-08-21
+
+### Fixed
+
+- Updated `v2/keys/evm` and `v2/keys/eth` routes to return 400 and 404 status codes where appropriate. Previously 500s were returned when requested resources were not found or client requests could not be parsed.
+- Fixed withdrawing ETH from CL node for EIP1559 enabled chains. Previously would error out unless validation was overridden with `allowHigherAmounts`.
+
+### Added
+
+- Added the ability to specify and merge fields from multiple secrets files. Overrides of fields and keys are not allowed.
+- Added new database table `evm_upkeep_states` to persist eligibility state for recently checked upkeeps.
+
+### Upcoming Required Configuration Change
+
+- Starting in 2.6.0, chainlink nodes will no longer allow insecure configuration for production builds. Any TOML configuration that sets the following line will fail validation checks in `node start` or `node validate`:
+
+```
+AllowSimplePasswords=true
+```
+
+- To migrate on production builds, update the database password set in Database.URL to be 16 - 50 characters without leading or trailing whitespace. URI parsing rules apply to the chosen password - refer to [RFC 3986](https://datatracker.ietf.org/doc/html/rfc3986) for special character escape rules.
+
+## 2.3.0 - 2023-07-28
+
+### Added
+
+- Add a new field called `Order` (range from 1 to 100) to `EVM.Nodes` that is used for the `PriorityLevel` node selector and also as a tie-breaker for `HighestHead` and `TotalDifficulty`. `Order` levels are considered in ascending order. If not defined it will default to `Order = 100` (last level).
+- Added new node selection mode called `PriorityLevel` for EVM, it is a tiered round-robin in ascending order of the`Order` field. Example:
+
+```
+[EVM.NodePool]
+SelectionMode = 'PriorityLevel'
+
+[[EVM.Nodes]]
+Name = '...'
+WSURL = '...'
+HTTPURL = '...'
+Order = 5
+```
+
+- The config keys `WebServer.StartTimeout` and `WebServer.HTTPMaxSize`. These keys respectively set a timeout for the node server to
+  start and set the max request size for HTTP requests. Previously these attributes were set by
+  `JobPipeline.DefaultHTTPLimit`/`JobPipeline.DefaultHTTPTimeout`. To migrate to these new fields, set their values to be identical to
+  `JobPipeline.DefaultHTTPLimit`/`JobPipeline.DefaultHTTPTimeout`.
+
+- Low latency oracle jobs now support in-protocol block range guarantees. This
+  is necessary in order to produce reports with block number ranges that do not
+  overlap. It can now be guaranteed at the protocol level, so we can use local
+  state instead of relying on an unreliable round-trip to the Mercury server.
+
+- New settings `Evm.GasEstimator.LimitJobType.OCR2`, `OCR2.DefaultTransactionQueueDepth`, `OCR2.SimulateTransactions` for OCR2
+  jobs. These replace the settings `Evm.GasEstimator.LimitJobType.OCR`, `OCR.DefaultTransactionQueueDepth`, and `OCR.SimulateTransactions`
+  for OCR2.
+
+- Add new config parameter to OCR and OCR2 named `TraceLogging` that enables trace logging of OCR and OCR2 jobs, previously this behavior was controlled from the `P2P.TraceLogging` parameter. To maintain the same behavior set `OCR.TraceLogging` and `OCR2.TraceLogging` to the same value `P2P.TraceLogging` was set.
+
+- Add two new config parameters `WebServer.ListenIP` and `WebServer.TLS.ListenIP` which allows binding Chainlink HTTP/HTTPS servers to a particular IP. The default is '0.0.0.0' which listens to all IP addresses (same behavior as before). Set to '127.0.0.1' to only allow connections from the local machine (this can be handy for local development).
+- Add several new metrics for mercury feeds, related to WSRPC connections:
+  - `mercury_transmit_timeout_count`
+  - `mercury_dial_count`
+  - `mercury_dial_success_count`
+  - `mercury_dial_error_count`
+  - `mercury_connection_reset_count`
+
+Node operators may wish to add alerting based around these metrics.
+
+### Fixed
+
+- Fixed a bug in the `nodes xxx list` command that caused results to not be displayed correctly
+
+### Changed
+
+- Assumption violations for MaxFeePerGas >= BaseFeePerGas and MaxFeePerGas >= MaxPriorityFeePerGas in EIP-1559 effective gas price calculation will now use a gas price if specified
+- Config validation now enforces protection against duplicate chain ids and node fields per provided TOML file. Duplicates accross multiple configuration files are still valid. If you have specified duplicate chain ids or nodes in a given configuration file, this change will error out of all `node` subcommands.
+- Restricted scope of the `Evm.GasEstimator.LimitJobType.OCR`, `OCR.DefaultTransactionQueueDepth`, and `OCR.SimulateTransactions` settings so they
+  apply only to OCR. Previously these settings would apply to OCR2 as well as OCR. You must use the OCR2 equivalents added above if you
+  want your settings to apply to OCR2.
+
+### Removed
+
+- Legacy chain types Optimism and Optimism2. OptimismBedrock is now used to handle Optimism's special cases.
+- Optimism Kovan configurations along with legacy error messages.
+
+# 2.2.0 - 2023-06-12
+
+### Added
+
+- New prometheus metric for mercury transmit queue: `mercury_transmit_queue_load`. This is a gauge, scoped by feed ID, that measures how many pending transmissions are in the queue. This should generally speaking be small (< 10 or so). Nops may wish to add alerting if this exceeds some amount.
+- Experimental support of runtime process isolation for Solana data feeds. Requires plugin binaries to be installed and
+  configured via the env vars `CL_SOLANA_CMD` and `CL_MEDIAN_CMD`. See [plugins/README.md](../plugins/README.md).
+
+### Fixed
+
+- Fixed a bug which made it impossible to re-send the same transaction after abandoning it while manually changing the nonce.
+
+### Changed
+
+- Set default for EVM.GasEstimator.BumpTxDepth to EVM.Transactions.MaxInFlight.
+- Bumped batch size defaults for EVM specific configuration. If you are overriding any of these fields in your local config, please consider if it is necessary:
+  - `LogBackfillBatchSize = 1000`
+  - `RPCDefaultBatchSize = 250`
+  - `GasEstimator.BatchSize = 25`
+- Dropped support for Development Mode configuration. `CL_DEV` is now ignored on production builds.
+- Updated Docker image's PostgreSQL client (used for backups) to v15 in order to support PostgreSQL v15 servers.
+
+<!-- unreleasedstop -->
+
+## 1.13.3 - 2023-06-06
+
+### Fixed
+
+- The 1.13.2 release showed the 1.13.1 version in its VERSION file. This updates the VERSION file to now show 1.13.3.
+
+## 1.13.2 - 2023-06-05
+
+### Fixed
+
+- Made logging level improvements for the Solana Transaction Manager to reduce excessive noise
+- Fixed race condition in Solana TXM for sanity check and preventing misfired errors
+
+## 2.1.1 - 2023-05-22
+
+### Updated
+
+- Upgraded WSRPC to v0.7.2
+
+### Fixed
+
+- Fixed a bug that would cause telemetry to be sent with the wrong type.
+
+## 2.1.0 - 2023-05-16
+
+### Changed
+
+- Database commands `chainlink db ...` validate TOML configuration and secrets before executing. This change of behavior will report errors
+  if any Database-specific configuration is invalid.
+
+## 2.0.0 - 2023-04-20
+
+### Added
+
+- Add OCR2 Plugin selection for FMS
+- Added kebab case aliases for the following flags:
+  - `evm-chain-id` alias for `evmChainID` in commands: `chainlink blocks replay`, `chainlink forwarders track`, `chainlink keys ... chain`
+  - `old-password` alias for `oldpassword` in commands: `chainlink keys ... import`
+  - `new-password` alias for `newpassword` in commands: `chainlink keys ... export`
+  - `new-role` alias for `newrole` in commands: `admin users chrole`
+  - `set-next-nonce` alias for `setNextNonce` in commands: `chainlink keys ... chain`
+
+### Changed
+
+- TOML configuration and secrets are now scoped to `chainlink node` command rather than being global flags.
+- TOML configuration validation has been moved from `chainlink config validate` to `chainlink node validate`.
+- Move `chainlink node {status,profile}` to `chainlink admin {status,profile}`.
+
+### Removed
+
+- Configuration with legacy environment variables is no longer supported. TOML is required.
+
+## 1.13.1 - 2023-04-06
+
+### Fixed
+
+- Bumped the WSPRC dependency version to fix a bug that could lead to race conditions
+
+## 1.13.0 - 2023-03-16
+
+### Added
+
+- Support for sending Bootstrap job specs to the feeds manager
+- Support for sending OCR2 job specs to the feeds manager
+- Log poller filters now saved in db, restored on node startup to guard against missing logs during periods where services are temporarily unable to start
+- Add support for new job type `mercury` (low-latency oracle)
+- New config option for EVM-based chains `AutoCreateKey`. If set to false, chainlink will not automatically create any keys for this chain. This can be used in conjunction with mercury to prevent creating useless keys. Example:
+
+```
+[[EVM]]
+ChainID = "1"
+AutoCreateKey = false
+```
+
+- Add new option for relayConfig `feedID` that handles multi-config contracts. Can be applied to any OCR2 job.
+
+### Updated
+
+- TOML env var `CL_CONFIG` always processed as the last configuration, with the effect of being the final override
+  of any values provided via configuration files.
+
+### Changed
+
+- The config option `FeatureFeedsManager`/`FEATURE_FEEDS_MANAGER` is now true by default.
+
+### Removed
+
+- Terra is no longer supported
+
+## 1.12.0 - 2023-02-15
+
+### Added
+
+- Prometheus gauge `mailbox_load_percent` for percent of "`Mailbox`" capacity used.
+- New config option, `JobPipeline.MaxSuccessfulRuns` caps the total number of
+  saved completed runs per job. This is done in response to the `pipeline_runs`
+  table potentially becoming large, which can cause performance degradation.
+  The default is set to 10,000. You can set it to 0 to disable run saving
+  entirely. **NOTE**: This can only be configured via TOML and not with an
+  environment variable.
+- Prometheus gauge vector `feeds_job_proposal_count` to track counts of job proposals partitioned by proposal status.
+- Support for variable expression for the `minConfirmations` parameter on the `ethtx` task.
+
+### Updated
+
+- Removed `KEEPER_TURN_FLAG_ENABLED` as all networks/nodes have switched this to `true` now. The variable should be completely removed my NOPs.
+- Removed `Keeper.UpkeepCheckGasPriceEnabled` config (`KEEPER_CHECK_UPKEEP_GAS_PRICE_FEATURE_ENABLED` in old env var configuration) as this feature is deprecated now. The variable should be completely removed by NOPs.
+
+### Fixed
+
+- Fixed (SQLSTATE 42P18) error on Job Runs page, when attempting to view specific older or infrequenty run jobs
+- The `config dump` subcommand was fixed to dump the correct config data.
+  - The `P2P.V1.Enabled` config logic incorrectly matched V2, by only setting explicit true values so that otherwise the default is used. The `V1.Enabled` default value is actually true already, and is now updated to only set explicit false values.
+  - The `[EVM.Transactions]` config fields `MaxQueued` & `MaxInFlight` will now correctly match `ETH_MAX_QUEUED_TRANSACTIONS` & `ETH_MAX_IN_FLIGHT_TRANSACTIONS`.
+
+## 1.11.0 - 2022-12-12
+
+### Added
+
+- New `EVM.NodePool.SelectionMode` `TotalDifficulty` to use the node with the greatest total difficulty.
+- Add the following prometheus metrics (labelled by bridge name) for monitoring external adapter queries:
+  - `bridge_latency_seconds`
+  - `bridge_errors_total`
+  - `bridge_cache_hits_total`
+  - `bridge_cache_errors_total`
+- `EVM.NodePool.SyncThreshold` to ensure that live nodes do not lag too far behind.
+
+> ```toml
+> SyncThreshold = 5 # Default
+> ```
+>
+> SyncThreshold controls how far a node may lag behind the best node before being marked out-of-sync.
+> Depending on `SelectionMode`, this represents a difference in the number of blocks (`HighestHead`, `RoundRobin`), or total difficulty (`TotalDifficulty`).
+>
+> Set to 0 to disable this check.
+
+#### TOML Configuration (experimental)
+
+Chainlink now supports static configuration via TOML files as an alternative to the existing combination of environment variables and persisted database configurations.
+
+This is currently _experimental_, but in the future (with `v2.0.0`), it will become _mandatory_ as the only supported configuration method. Avoid using TOML for configuration unless running on a test network for this release.
+
+##### How to use
+
+TOML configuration can be enabled by simply using the new `-config <filename>` flag or `CL_CONFIG` environment variable.
+Multiple files can be used (`-c configA.toml -c configB.toml`), and will be applied in order with duplicated fields overriding any earlier values.
+
+Existing nodes can automatically generate their equivalent TOML configuration via the `config dump` subcommand.
+Secrets must be configured manually and passed via `-secrets <filename>` or equivalent environment variables.
+
+Format details: [CONFIG.md](../docs/CONFIG.md) • [SECRETS.md](../docs/SECRETS.md)
+
+**Note:** You _cannot_ mix legacy environment variables with TOML configuration. Leaving any legacy env vars set will fail validation and prevent boot.
+
+##### Examples
+
+Dump your current configuration as TOML.
+
+```bash
+chainlink config dump > config.toml
+```
+
+Inspect your full effective configuration, and ensure it is valid. This includes defaults.
+
+```bash
+chainlink --config config.toml --secrets secrets.toml config validate
+```
+
+Run the node.
+
+```bash
+chainlink -c config.toml -s secrets.toml node start
+```
+
+#### Bridge caching
+
+##### BridgeCacheTTL
+
+- Default: 0s
+
+When set to `d` units of time, this variable enables using cached bridge responses that are at most `d` units old. Caching is disabled by default.
+
+Example `BridgeCacheTTL=10s`, `BridgeCacheTTL=1m`
+
+### Fixed
+
+- Fixed a minor bug whereby Chainlink would not always resend all pending transactions when using multiple keys
+
+### Updated
+
+- `NODE_NO_NEW_HEADS_THRESHOLD=0` no longer requires `NODE_SELECTION_MODE=RoundRobin`.
+
+## 1.10.0 - 2022-11-15
+
+### Added
+
+#### New optional external logger added
+
+##### AUDIT_LOGGER_FORWARD_TO_URL
+
+- Default: _none_
+
+When set, this environment variable configures and enables an optional HTTP logger which is used specifically to send audit log events. Audit logs events are emitted when specific actions are performed by any of the users through the node's API. The value of this variable should be a full URL. Log items will be sent via POST
+
+There are audit log implemented for the following events:
+
+- Auth & Sessions (new session, login success, login failed, 2FA enrolled, 2FA failed, password reset, password reset failed, etc.)
+- CRUD actions for all resources (add/create/delete resources such as bridges, nodes, keys)
+- Sensitive actions (keys exported/imported, config changed, log level changed, environment dumped)
+
+A full list of audit log enum types can be found in the source within the `audit` package (`audit_types.go`).
+
+The following `AUDIT_LOGGER_*` environment variables below configure this optional audit log HTTP forwarder.
+
+##### AUDIT_LOGGER_HEADERS
+
+- Default: _none_
+
+An optional list of HTTP headers to be added for every optional audit log event. If the above `AUDIT_LOGGER_FORWARD_TO_URL` is set, audit log events will be POSTed to that URL, and will include headers specified in this environment variable. One example use case is auth for example: `AUDIT_LOGGER_HEADERS="Authorization||{{token}}"`.
+
+Header keys and values are delimited on ||, and multiple headers can be added with a forward slash delimiter ('\\'). An example of multiple key value pairs:
+`AUDIT_LOGGER_HEADERS="Authorization||{{token}}\Some-Other-Header||{{token2}}"`
+
+##### AUDIT_LOGGER_JSON_WRAPPER_KEY
+
+- Default: _none_
+
+When the audit log HTTP forwarder is enabled, if there is a value set for this optional environment variable then the POST body will be wrapped in a dictionary in a field specified by the value of set variable. This is to help enable specific logging service integrations that may require the event JSON in a special shape. For example: `AUDIT_LOGGER_JSON_WRAPPER_KEY=event` will create the POST body:
+
+```
+{
+  "event": {
+    "eventID":  EVENT_ID_ENUM,
+    "data": ...
+  }
+}
+```
+
+#### Automatic connectivity detection; Chainlink will no longer bump excessively if the network is broken
+
+This feature only applies on EVM chains when using BlockHistoryEstimator (the most common case).
+
+Chainlink will now try to automatically detect if there is a transaction propagation/connectivity issue and prevent bumping in these cases. This can help avoid the situation where RPC nodes are not propagating transactions for some reason (e.g. go-ethereum bug, networking issue etc) and Chainlink responds in a suboptimal way by bumping transactions to a very high price in an effort to get them mined. This can lead to unnecessary expense when the connectivity issue is resolved and the transactions are finally propagated into the mempool.
+
+This feature is enabled by default with fairly conservative settings: if a transaction has been priced above the 90th percentile of the past 12 blocks, but still wants to bump due to not being mined, a connectivity/propagation issue is assumed and all further bumping will be prevented for this transaction. In this situation, Chainlink will start firing the `block_history_estimator_connectivity_failure_count` prometheus counter and logging at critical level until the transaction is mined.
+
+The default settings should work fine for most users. For advanced users, the values can be tweaked by changing `BLOCK_HISTORY_ESTIMATOR_CHECK_INCLUSION_BLOCKS` and `BLOCK_HISTORY_ESTIMATOR_CHECK_INCLUSION_PERCENTILE`.
+
+To disable connectivity checking completely, set `BLOCK_HISTORY_ESTIMATOR_CHECK_INCLUSION_BLOCKS=0`.
+
+### Changed
+
+- The default maximum gas price on most networks is now effectively unlimited.
+
+  - Chainlink will bump as high as necessary to get a transaction included. The connectivity checker is relied on to prevent excessive bumping when there is a connectivity failure.
+  - If you want to change this, you can manually set `ETH_MAX_GAS_PRICE_WEI`.
+
+- EVMChainID field will be auto-added with default chain id to job specs of newly created OCR jobs, if not explicitly included.
+  - Old OCR jobs missing EVMChainID will continue to run on any chain ETH_CHAIN_ID is set to (or first chain if unset), which may be changed after a restart.
+  - Newly created OCR jobs will only run on a single fixed chain, unaffected by changes to ETH_CHAIN_ID after the job is added.
+  - It should no longer be possible to end up with multiple OCR jobs for a single contract running on the same chain; only one job per contract per chain is allowed
+  - If there are any existing duplicate jobs (per contract per chain), all but the job with the latest creation date will be pruned during upgrade.
+
+### Fixed
+
+- Fixed minor bug where Chainlink would attempt (and fail) to estimate a tip cap higher than the maximum configured gas price in EIP1559 mode. It now caps the tipcap to the max instead of erroring.
+- Fixed bug whereby it was impossible to remove eth keys that had extant transactions. Now, removing an eth key will drop all associated data automatically including past transactions.
+
+## 1.9.0 - 2022-10-12
 
 ### Added
 
 - Added `length` and `lessthan` tasks (pipeline).
-- Added `gasUnlimited` parameter to `ethcall` task. 
-- `GAS_ESTIMATOR_MODE` `Arbitrum` to support Nitro's multi-dimensional gas model, with dynamic gas pricing and limits.
-This new, default estimator for Arbitrum networks uses the suggested gas price (up to `ETH_MAX_GAS_PRICE_WEI`, with `1000 gwei` default) as well 
-as an estimated gas limit (up to `ETH_GAS_LIMIT_MAX`, with `1,000,000,000` default).  
-- `ETH_GAS_LIMIT_MAX` to put a maximum on the gas limit returned by the `Arbitrum` estimator.
+- Added `gasUnlimited` parameter to `ethcall` task.
 - `/keys` page in Operator UI now exposes several admin commands, namely:
   - "abandon" to abandon all current txes
   - enable/disable a key for a given chain
   - manually set the nonce for a key
-  See [this PR](https://github.com/smartcontractkit/chainlink/pull/7406) for a screenshot example.
+    See [this PR](https://github.com/smartcontractkit/chainlink/pull/7406) for a screenshot example.
+
+## 1.8.1 - 2022-09-29
+
+### Added
+
+- New `GAS_ESTIMATOR_MODE` for Arbitrum to support Nitro's multi-dimensional gas model, with dynamic gas pricing and limits.
+  - NOTE: It is recommended to remove `GAS_ESTIMATOR_MODE` as an env var if you have it set in order to use the new default.
+  - This new, default estimator for Arbitrum networks uses the suggested gas price (up to `ETH_MAX_GAS_PRICE_WEI`, with `1000 gwei` default) as well as an estimated gas limit (up to `ETH_GAS_LIMIT_MAX`, with `1,000,000,000` default).
+- `ETH_GAS_LIMIT_MAX` to put a maximum on the gas limit returned by the `Arbitrum` estimator.
+
+### Changed
+
+- EIP1559 is now enabled by default on Goerli network
 
 ## 1.8.0 - 2022-09-01
 
@@ -35,7 +663,7 @@ as an estimated gas limit (up to `ETH_GAS_LIMIT_MAX`, with `1,000,000,000` defau
 - `NODE_SELECTION_MODE` (`EVM.NodePool.SelectionMode`) controls node picking strategy. Supported values: `HighestHead` (default) and `RoundRobin`:
   - `RoundRobin` mode simply iterates among available alive nodes. This was the default behavior prior to this release.
   - `HighestHead` mode picks a node having the highest reported head number among other alive nodes. When several nodes have the same latest head number, the strategy sticks to the last used node.
-  For chains having `NODE_NO_NEW_HEADS_THRESHOLD=0` (such as Arbitrum, Optimism), the implementation will fall back to `RoundRobin` mode.
+    For chains having `NODE_NO_NEW_HEADS_THRESHOLD=0` (such as Arbitrum, Optimism), the implementation will fall back to `RoundRobin` mode.
 - New `keys eth chain` command
   - This can also be accessed at `/v2/keys/evm/chain`.
   - Usage examples:
@@ -99,6 +727,7 @@ ETH_GAS_LIMIT_KEEPER_JOB_TYPE # EVM.GasEstimator.LimitKeeperJobType
 ### Changed
 
 - After feedback from users, password complexity requirements have been simplified. These are the new, simplified requirements for any kind of password used with Chainlink:
+
 1. Must be 16 characters or more
 2. Must not contain leading or trailing whitespace
 3. User passwords must not contain the user's API email
@@ -118,6 +747,7 @@ ETH_GAS_LIMIT_KEEPER_JOB_TYPE # EVM.GasEstimator.LimitKeeperJobType
 ### Changed
 
 - Chainlink will now log a warning if the postgres database password is missing or too insecure. Passwords should conform to the following rules:
+
 ```
 Must be longer than 12 characters
 Must comprise at least 3 of:
@@ -129,6 +759,7 @@ Must not comprise:
 	More than three identical consecutive characters
 	Leading or trailing whitespace (note that a trailing newline in the password file, if present, will be ignored)
 ```
+
 For backward compatibility all insecure passwords will continue to work, however in a future version of Chainlink insecure passwords will prevent application boot. To bypass this check at your own risk, you may set `SKIP_DATABASE_PASSWORD_COMPLEXITY_CHECK=true`.
 
 - `MIN_OUTGOING_CONFIRMATIONS` has been removed and no longer has any effect. `ETH_FINALITY_DEPTH` is now used as the default for `ethtx` confirmations instead. You may override this on a per-task basis by setting `minConfirmations` in the task definition e.g. `foo [type=ethtx minConfirmations=42 ...]`. NOTE: This may have a minor impact on performance on very high throughput chains. If you don't care about reporting task status in the UI, it is recommended to set `minConfirmations=0` in your job specs. For more details, see the [relevant section of the performance tuning guide](https://www.notion.so/chainlink/EVM-performance-configuration-handbook-a36b9f84dcac4569ba68772aa0c1368c#e9998c2f722540b597301a640f53cfd4).
@@ -139,7 +770,8 @@ For backward compatibility all insecure passwords will continue to work, however
 
 - The `p2pBootstrapPeers` property on OCR2 job specs has been renamed to `p2pv2Bootstrappers`.
 
-### Added 
+### Added
+
 - Added `ETH_USE_FORWARDERS` config option to enable transactions forwarding contracts.
 - In job pipeline (direct request) the three new block variables are exposed:
   - `$(jobRun.blockReceiptsRoot)` : the root of the receipts trie of the block (hash)
@@ -159,8 +791,8 @@ If `minConfirmations` is not set on the task, the chain default will be used whi
 
 - `http` task now allows specification of request headers. Use like so: `foo [type=http headers="[\\"X-Header-1\\", \\"value1\\", \\"X-Header-2\\", \\"value2\\"]"]`.
 
-
 ### Fixed
+
 - Fixed `max_unconfirmed_age` metric. Previously this would incorrectly report the max time since the last rebroadcast, capping the upper limit to the EthResender interval. This now reports the correct value of total time elapsed since the _first_ broadcast.
 - Correctly handle the case where bumped gas would exceed the RPC node's configured maximum on Fantom (note that node operators should check their Fantom RPC node configuration and remove the fee cap if there is one)
 - Fixed handling of Metis internal fee change
@@ -173,7 +805,7 @@ If `minConfirmations` is not set on the task, the chain default will be used whi
 
 ### Fixed
 
-- Ensure failed EthSubscribe didn't register a (*rpc.ClientSubscription)(nil) which would lead to a panic on Unsubscribe
+- Ensure failed EthSubscribe didn't register a (\*rpc.ClientSubscription)(nil) which would lead to a panic on Unsubscribe
 - Fixes parsing of float values on job specs
 
 ## [1.4.0] - 2022-05-02
@@ -198,7 +830,7 @@ If `minConfirmations` is not set on the task, the chain default will be used whi
 ### Added
 
 - Added support for Keeper registry v1.2 in keeper jobs
-- Added disk rotating logs. Chainlink will now always log to disk at debug level. The default output directory for debug logs is Chainlink's root directory (ROOT_DIR) but can be configured by setting LOG_FILE_DIR. This makes it easier for node operators to report useful debugging information to Chainlink's team, since all the debug logs are conveniently located in one directory. Regular logging to STDOUT still works as before and respects the LOG_LEVEL env var. If you want to log in disk at a particular level, you can pipe STDOUT to disk. This automatic debug-logs-to-disk feature is enabled by default, and will remain enabled as long as the `LOG_FILE_MAX_SIZE` ENV var is set to a value greater than zero. The amount of disk space required for this feature to work can be calculated with the following formula: `LOG_FILE_MAX_SIZE` * (`LOG_FILE_MAX_BACKUPS` + 1). If your disk doesn't have enough disk space, the logging will pause and the application will log Errors until space is available again. New environment variables related to this feature:
+- Added disk rotating logs. Chainlink will now always log to disk at debug level. The default output directory for debug logs is Chainlink's root directory (ROOT_DIR) but can be configured by setting LOG_FILE_DIR. This makes it easier for node operators to report useful debugging information to Chainlink's team, since all the debug logs are conveniently located in one directory. Regular logging to STDOUT still works as before and respects the LOG_LEVEL env var. If you want to log in disk at a particular level, you can pipe STDOUT to disk. This automatic debug-logs-to-disk feature is enabled by default, and will remain enabled as long as the `LOG_FILE_MAX_SIZE` ENV var is set to a value greater than zero. The amount of disk space required for this feature to work can be calculated with the following formula: `LOG_FILE_MAX_SIZE` \* (`LOG_FILE_MAX_BACKUPS` + 1). If your disk doesn't have enough disk space, the logging will pause and the application will log Errors until space is available again. New environment variables related to this feature:
   - `LOG_FILE_MAX_SIZE` (default: 5120mb) - this env var allows you to override the log file's max size (in megabytes) before file rotation.
   - `LOG_FILE_MAX_AGE` (default: 0) - if `LOG_FILE_MAX_SIZE` is set, this env var allows you to override the log file's max age (in days) before file rotation. Keeping this config with the default value means not to remove old log files.
   - `LOG_FILE_MAX_BACKUPS` (default: 1) - if `LOG_FILE_MAX_SIZE` is set, this env var allows you to override the max amount of old log files to retain. Keeping this config with the default value means to retain 1 old log file at most (though `LOG_FILE_MAX_AGE` may still cause them to get deleted). If this is set to 0, the node will retain all old log files instead.
@@ -353,12 +985,14 @@ Fixed issues with EIP-1559 related to gas bumping. Due to [go-ethereum's impleme
 The new EIP-1559 implementation works as follows:
 
 If you are using FixedPriceEstimator:
+
 - With gas bumping disabled, it will submit all transactions with `feecap=ETH_MAX_GAS_PRICE_WEI` and `tipcap=EVM_GAS_TIP_CAP_DEFAULT`
 - With gas bumping enabled, it will submit all transactions initially with `feecap=EVM_GAS_FEE_CAP_DEFAULT` and `tipcap=EVM_GAS_TIP_CAP_DEFAULT`.
 
 If you are using BlockHistoryEstimator (default for most chains):
+
 - With gas bumping disabled, it will submit all transactions with `feecap=ETH_MAX_GAS_PRICE_WEI` and `tipcap=<calculated using past blocks>`
-- With gas bumping enabled (default for most chains) it will submit all transactions initially with `feecap=current block base fee * (1.125 ^ N)` where N is configurable by setting BLOCK_HISTORY_ESTIMATOR_EIP1559_FEE_CAP_BUFFER_BLOCKS but defaults to `gas bump threshold+1` and `tipcap=<calculated using past blocks>`
+- With gas bumping enabled (default for most chains) it will submit all transactions initially with `feecap = ( current block base fee * (1.125 ^ N) + tipcap )` where N is configurable by setting BLOCK_HISTORY_ESTIMATOR_EIP1559_FEE_CAP_BUFFER_BLOCKS but defaults to `gas bump threshold+1` and `tipcap=<calculated using past blocks>`
 
 Bumping works as follows:
 
@@ -381,8 +1015,8 @@ Bumping works as follows:
 
 Two new log levels have been added.
 
-- `[crit]`: *Critical* level logs are more severe than `[error]` and require quick action from the node operator.
-- `[debug] [trace]`: *Trace* level logs contain extra `[debug]` information for development, and must be compiled in via `-tags trace`.
+- `[crit]`: _Critical_ level logs are more severe than `[error]` and require quick action from the node operator.
+- `[debug] [trace]`: _Trace_ level logs contain extra `[debug]` information for development, and must be compiled in via `-tags trace`.
 
 #### [Beta] Multichain support added
 
@@ -515,10 +1149,9 @@ SUCCESS CASE:
 
 ERROR CASE:
 
-
 ```json
 {
-    "error": "some error string"
+  "error": "some error string"
 }
 ```
 
@@ -563,12 +1196,14 @@ Ideally, node operators would be using a container orchestration system (e.g. Ku
 However, we are aware that many node operators do not have the technical capacity to do this. So a common use case is to run multiple Chainlink instances in failover mode (as recommended by our official documentation, although this will be changing in future). The first instance will take some kind of lock on the database and subsequent instances will wait trying to take this lock in case the first instance disappears or dies.
 
 Traditionally Chainlink has used an advisory lock to manage this. However, advisory locks come with several problems, notably:
+
 - Postgres does not really like it when you hold locks open for a very long time (hours/days). It hampers certain internal cleanup tasks and is explicitly discouraged by the postgres maintainers.
 - The advisory lock can silently disappear on postgres upgrade, meaning that a new instance can take over even while the old one is still running.
 - Advisory locks do not play nicely with pooling tools such as pgbouncer.
 - If the application crashes, the advisory lock can be left hanging around for a while (sometimes hours) and can require manual intervention to remove it before another instance of Chainlink will allow itself to boot.
 
 For this reason, we have introduced a new locking mode, `lease`, which is likely to become the default in the future. `lease`-mode works as follows:
+
 - Have one row in a database which is updated periodically with the client ID.
 - CL node A will run a background process on start that updates this e.g. once per second.
 - CL node B will spinlock, checking periodically to see if the update got too old. If it goes more than a set period without updating, it assumes that node A is dead and takes over. Now CL node B is the owner of the row, and it updates this every second.
@@ -609,7 +1244,6 @@ Added new automatic pprof profiling service. Profiling is triggered when the nod
 #### `merge` task type
 
 A new task type has been added, called `merge`. It can be used to merge two maps/JSON values together. Merge direction is from right to left such that `right` will clobber values of `left`. If no `left` is provided, it uses the input of the previous task. Example usage as such:
-
 
 ```
 decode_log   [type=ethabidecodelog ...]
@@ -740,7 +1374,6 @@ check_upkeep_tx          [type=ethcall
                           data="$(encode_check_upkeep_tx)"]
 ```
 
-
 NOTE: AccessLists are part of the 0x2 transaction type spec and Chainlink also implements support for these internally. This is not currently exposed in any way, if there is demand for this it ought to be straightforward enough to do so.
 
 Avalanche AP4 defaults have been added (you can remove manually set ENV vars controlling gas pricing).
@@ -817,8 +1450,8 @@ This release will DROP legacy job tables so please take a backup before upgradin
 
 #### KeyStore changes
 
-* We no longer support "soft deleting", or archiving keys. From now on, keys can only be hard-deleted.
-* Eth keys can no longer be imported directly to the database. If you with to import an eth key, you _must_ start the node first and import through the remote client.
+- We no longer support "soft deleting", or archiving keys. From now on, keys can only be hard-deleted.
+- Eth keys can no longer be imported directly to the database. If you with to import an eth key, you _must_ start the node first and import through the remote client.
 
 #### New env vars
 
@@ -894,11 +1527,11 @@ This is useful if the node has been offline for a longer time and after startup 
 
 Three new configuration variables are added for the new telemetry ingress service support. `TELEMETRY_INGRESS_URL` sets the URL to connect to for telemetry ingress, `TELEMETRY_INGRESS_SERVER_PUB_KEY` sets the public key of the telemetry ingress server, and `TELEMETRY_INGRESS_LOGGING` toggles verbose logging of the raw telemetry messages being sent.
 
-* Fixes the logging configuration form not displaying the current values
-* Updates the design of the configuration cards to be easier on the eyes
-* View Coordinator Service Authentication keys in the Operator UI. This is hidden
+- Fixes the logging configuration form not displaying the current values
+- Updates the design of the configuration cards to be easier on the eyes
+- View Coordinator Service Authentication keys in the Operator UI. This is hidden
   behind a feature flag until usage is enabled.
-* Adds support for the new telemetry ingress service.
+- Adds support for the new telemetry ingress service.
 
 ### Changed
 
@@ -930,10 +1563,10 @@ Only the External Initiators listed in the toml spec may trigger a run for that 
 #### Migrating Jobs
 
 - OCR
-All OCR jobs are already using v2 pipeline by default - no need to do anything here.
+  All OCR jobs are already using v2 pipeline by default - no need to do anything here.
 
 - Flux Monitor v1
-We have created a tool to help you automigrate flux monitor specs in JSON format to the new TOML format. You can migrate a job like this:
+  We have created a tool to help you automigrate flux monitor specs in JSON format to the new TOML format. You can migrate a job like this:
 
 ```
 chainlink jobs migrate <job id>
@@ -946,10 +1579,10 @@ POST http://yournode.example/v2/migrate/<job id>
 ```
 
 - VRF v1
-Automigration is not supported for VRF jobs. They must be manually converted into v2 format.
+  Automigration is not supported for VRF jobs. They must be manually converted into v2 format.
 
 - Ethlog/Runlog/Cron/web
-All other job types must also be manually converted into v2 format.
+  All other job types must also be manually converted into v2 format.
 
 #### Technical details
 
@@ -961,9 +1594,9 @@ The v2 pipeline has now been extensively tested in production and proved itself 
 
 #### KeyStore changes
 
-* Key export files are changing format and will not be compatible between versions. Ex, a key exported in 0.10.12, will not be importable by a node running 1.0.0, and vice-versa.
-* We no longer support "soft deleting", or archiving keys. From now on, keys can only be hard-deleted.
-* Eth keys can no longer be imported directly to the database. If you with to import an eth key, you _must_ start the node first and import through the remote client.
+- Key export files are changing format and will not be compatible between versions. Ex, a key exported in 0.10.12, will not be importable by a node running 1.0.0, and vice-versa.
+- We no longer support "soft deleting", or archiving keys. From now on, keys can only be hard-deleted.
+- Eth keys can no longer be imported directly to the database. If you with to import an eth key, you _must_ start the node first and import through the remote client.
 
 ## [0.10.10] - 2021-07-19
 
@@ -1071,121 +1704,127 @@ Note that it has no effect on FMv1 jobs. Node operators will need to upgrade to 
 - HTTP and Bridge tasks (v2 pipeline) now log the request parameters (including the body) upon making the request when `LOG_LEVEL=debug`.
 
 - Webhook v2 jobs now support two new parameters, `externalInitiatorName` and `externalInitiatorSpec`. The v2 version of the following v1 spec:
-    ```
-    {
-      "initiators": [
-        {
-          "type": "external",
-          "params": {
-            "name": "substrate",
-            "body": {
-              "endpoint": "substrate",
-              "feed_id": 0,
-              "account_id": "0x7c522c8273973e7bcf4a5dbfcc745dba4a3ab08c1e410167d7b1bdf9cb924f6c",
-              "fluxmonitor": {
-                "requestData": {
-                  "data": { "from": "DOT", "to": "USD" }
-                },
-                "feeds": [{ "url": "http://adapter1:8080" }],
-                "threshold": 0.5,
-                "absoluteThreshold": 0,
-                "precision": 8,
-                "pollTimer": { "period": "30s" },
-                "idleTimer": { "duration": "1m" }
-              }
+
+  ```
+  {
+    "initiators": [
+      {
+        "type": "external",
+        "params": {
+          "name": "substrate",
+          "body": {
+            "endpoint": "substrate",
+            "feed_id": 0,
+            "account_id": "0x7c522c8273973e7bcf4a5dbfcc745dba4a3ab08c1e410167d7b1bdf9cb924f6c",
+            "fluxmonitor": {
+              "requestData": {
+                "data": { "from": "DOT", "to": "USD" }
+              },
+              "feeds": [{ "url": "http://adapter1:8080" }],
+              "threshold": 0.5,
+              "absoluteThreshold": 0,
+              "precision": 8,
+              "pollTimer": { "period": "30s" },
+              "idleTimer": { "duration": "1m" }
             }
           }
         }
-      ],
-      "tasks": [
-        {
-          "type": "substrate-adapter1",
-          "params": { "multiply": 1e8 }
-        }
-      ]
-    }
-    ```
-    is:
-    ```
-    type            = "webhook"
-    schemaVersion   = 1
-    jobID           = "0EEC7E1D-D0D2-475C-A1A8-72DFB6633F46"
-    externalInitiatorName = "substrate"
-    externalInitiatorSpec = """
-        {
-          "endpoint": "substrate",
-          "feed_id": 0,
-          "account_id": "0x7c522c8273973e7bcf4a5dbfcc745dba4a3ab08c1e410167d7b1bdf9cb924f6c",
-          "fluxmonitor": {
-            "requestData": {
-              "data": { "from": "DOT", "to": "USD" }
-            },
-            "feeds": [{ "url": "http://adapter1:8080" }],
-            "threshold": 0.5,
-            "absoluteThreshold": 0,
-            "precision": 8,
-            "pollTimer": { "period": "30s" },
-            "idleTimer": { "duration": "1m" }
-          }
-        }
-    """
-    observationSource   = """
-        submit [type=bridge name="substrate-adapter1" requestData=<{ "multiply": 1e8 }>]
-    """
-    ```
+      }
+    ],
+    "tasks": [
+      {
+        "type": "substrate-adapter1",
+        "params": { "multiply": 1e8 }
+      }
+    ]
+  }
+  ```
 
+  is:
+
+  ```
+  type            = "webhook"
+  schemaVersion   = 1
+  jobID           = "0EEC7E1D-D0D2-475C-A1A8-72DFB6633F46"
+  externalInitiatorName = "substrate"
+  externalInitiatorSpec = """
+      {
+        "endpoint": "substrate",
+        "feed_id": 0,
+        "account_id": "0x7c522c8273973e7bcf4a5dbfcc745dba4a3ab08c1e410167d7b1bdf9cb924f6c",
+        "fluxmonitor": {
+          "requestData": {
+            "data": { "from": "DOT", "to": "USD" }
+          },
+          "feeds": [{ "url": "http://adapter1:8080" }],
+          "threshold": 0.5,
+          "absoluteThreshold": 0,
+          "precision": 8,
+          "pollTimer": { "period": "30s" },
+          "idleTimer": { "duration": "1m" }
+        }
+      }
+  """
+  observationSource   = """
+      submit [type=bridge name="substrate-adapter1" requestData=<{ "multiply": 1e8 }>]
+  """
+  ```
 
 - Task definitions in v2 jobs (those with TOML specs) now support quoting strings with angle brackets (which DOT already permitted). This is particularly useful when defining JSON blobs to post to external adapters. For example:
 
-    ```
-    my_bridge [type=bridge name="my_bridge" requestData="{\\"hi\\": \\"hello\\"}"]
-    ```
-    ... can now be written as:
-    ```
-    my_bridge [type=bridge name="my_bridge" requestData=<{"hi": "hello"}>]
-    ```
-    Multiline strings are supported with this syntax as well:
-    ```
-    my_bridge [type=bridge
-               name="my_bridge"
-               requestData=<{
-                   "hi": "hello",
-                   "foo": "bar"
-               }>]
-    ```
+  ```
+  my_bridge [type=bridge name="my_bridge" requestData="{\\"hi\\": \\"hello\\"}"]
+  ```
+
+  ... can now be written as:
+
+  ```
+  my_bridge [type=bridge name="my_bridge" requestData=<{"hi": "hello"}>]
+  ```
+
+  Multiline strings are supported with this syntax as well:
+
+  ```
+  my_bridge [type=bridge
+             name="my_bridge"
+             requestData=<{
+                 "hi": "hello",
+                 "foo": "bar"
+             }>]
+  ```
 
 - v2 jobs (those with TOML specs) now support variable interpolation in pipeline definitions. For example:
 
-    ```
-    fetch1    [type=bridge name="fetch"]
-    parse1    [type=jsonparse path="foo,bar"]
-    fetch2    [type=bridge name="fetch"]
-    parse2    [type=jsonparse path="foo,bar"]
-    medianize [type=median]
-    submit    [type=bridge name="submit"
-               requestData=<{
-                              "result": $(medianize),
-                              "fetchedData": [ $(parse1), $(parse2) ]
-                            }>]
+  ```
+  fetch1    [type=bridge name="fetch"]
+  parse1    [type=jsonparse path="foo,bar"]
+  fetch2    [type=bridge name="fetch"]
+  parse2    [type=jsonparse path="foo,bar"]
+  medianize [type=median]
+  submit    [type=bridge name="submit"
+             requestData=<{
+                            "result": $(medianize),
+                            "fetchedData": [ $(parse1), $(parse2) ]
+                          }>]
 
-    fetch1 -> parse1 -> medianize
-    fetch2 -> parse2 -> medianize
-    medianize -> submit
-    ```
+  fetch1 -> parse1 -> medianize
+  fetch2 -> parse2 -> medianize
+  medianize -> submit
+  ```
 
-    This syntax is supported by the following tasks/parameters:
+  This syntax is supported by the following tasks/parameters:
 
-    - `bridge`
-        - `requestData`
-    - `http`
-        - `requestData`
-    - `jsonparse`
-        - `data` (falls back to the first input if unspecified)
-    - `median`
-        - `values` (falls back to the array of inputs if unspecified)
-    - `multiply`
-        - `input` (falls back to the first input if unspecified)
-        - `times`
+  - `bridge`
+    - `requestData`
+  - `http`
+    - `requestData`
+  - `jsonparse`
+    - `data` (falls back to the first input if unspecified)
+  - `median`
+    - `values` (falls back to the array of inputs if unspecified)
+  - `multiply`
+    - `input` (falls back to the first input if unspecified)
+    - `times`
 
 - Add `ETH_MAX_IN_FLIGHT_TRANSACTIONS` configuration option. This defaults to 16 and controls how many unconfirmed transactions may be in-flight at any given moment. This is set conservatively by default, node operators running many jobs on high throughput chains will probably need to increase this above the default to avoid lagging behind. However, before increasing this value, you MUST first ensure your ethereum node is configured not to ever evict local transactions that exceed this number otherwise your node may get permanently stuck. Set to 0 to disable the limit entirely (the old behaviour). Disabling this setting is not recommended.
 
@@ -1222,6 +1861,7 @@ tx_queue_no_unfamiliar_locals = false # This is disabled by default but might as
 ```
 
 - Keeper jobs now support prometheus metrics, they are considered a pipeline with a single `keeper` task type. Example:
+
 ```
 pipeline_run_errors{job_id="1",job_name="example keeper spec"} 1
 pipeline_run_total_time_to_completion{job_id="1",job_name="example keeper spec"} 8.470456e+06
@@ -1240,6 +1880,7 @@ pipeline_tasks_total_finished{job_id="1",job_name="example keeper spec",status="
 - Rename `ETH_MAX_UNCONFIRMED_TRANSACTIONS` to `ETH_MAX_QUEUED_TRANSACTIONS`. It still performs the same function but the name was misleading and would have caused confusion with the new `ETH_MAX_IN_FLIGHT_TRANSACTIONS`.
 
 - The VRF keys are now managed remotely through the node only. Example commands:
+
 ```
 // Starting a node with a vrf key
 chainlink node start -p path/to/passwordfile -vp path/to/vrfpasswordfile
@@ -1263,8 +1904,6 @@ chainlink keys vrf export 0x78845e23b6b22c47e4c81426fdf6fc4087c4c6a6443eba90eb92
 // Will be re-encrypted with the nodes vrf password file i.e. "-vp"
 chainlink keys vrf import -p path/to/vrfpasswordfile 0x788_exported_key
 ```
-
-
 
 ## [0.10.7] - 2021-05-24
 
@@ -1317,8 +1956,9 @@ ds -> ds_parse;
 ```
 
 - New CLI command to convert v1 flux monitor jobs (JSON) to
-v2 flux monitor jobs (TOML). Running it will archive the v1
-job and create a new v2 job. Example:
+  v2 flux monitor jobs (TOML). Running it will archive the v1
+  job and create a new v2 job. Example:
+
 ```
 // Get v1 job ID:
 chainlink job_specs list
@@ -1346,6 +1986,7 @@ Adding an HTTP endpoint is particularly recommended for BSC, which is hitting we
 
 - Add `MockOracle.sol` for testing contracts
 - Cron jobs can now be created for the v2 job pipeline:
+
 ```
 type            = "cron"
 schemaVersion   = 1
@@ -1362,7 +2003,7 @@ ds -> ds_parse;
 - Default for `JOB_PIPELINE_REAPER_THRESHOLD` has been reduced from 1 week to 1 day to save database space. This variable controls how long past job run history for OCR is kept. To keep the old behaviour, you can set `JOB_PIPELINE_REAPER_THRESHOLD=168h`
 - Removed support for the env var `JOB_PIPELINE_PARALLELISM`.
 - OCR jobs no longer show `TaskRuns` in success cases. This reduces
-DB load and significantly improves the performance of archiving OCR jobs.
+  DB load and significantly improves the performance of archiving OCR jobs.
 - Archiving OCR jobs should be 5-10x faster.
 
 ### Fixed
@@ -1379,27 +2020,30 @@ DB load and significantly improves the performance of archiving OCR jobs.
 
 - Experimental: Add `DATABASE_BACKUP_MODE`, `DATABASE_BACKUP_FREQUENCY` and `DATABASE_BACKUP_URL` configuration variables
 
-    - It's now possible to configure database backups: on node start and separately, to be run at given frequency. `DATABASE_BACKUP_MODE` enables the initial backup on node start (with one of the values: `none`, `lite`, `full` where `lite` excludes
+  - It's now possible to configure database backups: on node start and separately, to be run at given frequency. `DATABASE_BACKUP_MODE` enables the initial backup on node start (with one of the values: `none`, `lite`, `full` where `lite` excludes
     potentially large tables related to job runs, among others). Additionally, if `DATABASE_BACKUP_FREQUENCY` variable is set to a duration of
     at least '1m', it enables periodic backups.
-    - `DATABASE_BACKUP_URL` can be optionally set to point to e.g. a database replica, in order to avoid excessive load on the main one. Example settings:
-        1. `DATABASE_BACKUP_MODE="full"` and `DATABASE_BACKUP_FREQUENCY` not set, will run a full back only at the start of the node.
-        2. `DATABASE_BACKUP_MODE="lite"` and `DATABASE_BACKUP_FREQUENCY="1h"` will lead to a partial backup on node start and then again a partial backup every one hour.
+  - `DATABASE_BACKUP_URL` can be optionally set to point to e.g. a database replica, in order to avoid excessive load on the main one. Example settings:
+    1. `DATABASE_BACKUP_MODE="full"` and `DATABASE_BACKUP_FREQUENCY` not set, will run a full back only at the start of the node.
+    2. `DATABASE_BACKUP_MODE="lite"` and `DATABASE_BACKUP_FREQUENCY="1h"` will lead to a partial backup on node start and then again a partial backup every one hour.
 
 - Added periodic resending of eth transactions. This means that we no longer rely exclusively on gas bumping to resend unconfirmed transactions that got "lost" for whatever reason. This has two advantages:
-    1. Chainlink no longer relies on gas bumping settings to ensure our transactions always end up in the mempool
-    2. Chainlink will continue to resend existing transactions even in the event that heads are delayed. This is especially useful on chains like Arbitrum which have very long wait times between heads.
-    - Periodic resending can be controlled using the `ETH_TX_RESEND_AFTER_THRESHOLD` env var (default 30s). Unconfirmed transactions will be resent periodically at this interval. It is recommended to leave this at the default setting, but it can be set to any [valid duration](https://golang.org/pkg/time/#ParseDuration) or to 0 to disable periodic resending.
+
+  1. Chainlink no longer relies on gas bumping settings to ensure our transactions always end up in the mempool
+  2. Chainlink will continue to resend existing transactions even in the event that heads are delayed. This is especially useful on chains like Arbitrum which have very long wait times between heads.
+
+  - Periodic resending can be controlled using the `ETH_TX_RESEND_AFTER_THRESHOLD` env var (default 30s). Unconfirmed transactions will be resent periodically at this interval. It is recommended to leave this at the default setting, but it can be set to any [valid duration](https://golang.org/pkg/time/#ParseDuration) or to 0 to disable periodic resending.
 
 - Logging can now be configured in the Operator UI.
 
 - Tuned defaults for certain Eth-compatible chains
 
 - Chainlink node now uses different sets of default values depending on the given Chain ID. Tuned configs are built-in for the following chains:
-    - Ethereum Mainnet and test chains
-    - Polygon (Matic)
-    - BSC
-    - HECO
+
+  - Ethereum Mainnet and test chains
+  - Polygon (Matic)
+  - BSC
+  - HECO
 
 - If you have manually set ENV vars specific to these chains, you may want to remove those and allow the node to use its configured defaults instead.
 
@@ -1414,13 +2058,12 @@ DB load and significantly improves the performance of archiving OCR jobs.
 - Flux monitor jobs should now work correctly with [outlier-detection](https://github.com/smartcontractkit/external-adapters-js/tree/develop/composite/outlier-detection) and [market-closure](https://github.com/smartcontractkit/external-adapters-js/tree/develop/composite/market-closure) external adapters.
 
 - Performance improvements to OCR job adds. Removed the pipeline_task_specs table
-and added a new column `dot_id` to the pipeline_task_runs table which links a pipeline_task_run
-to a dotID in the pipeline_spec.dot_dag_source.
+  and added a new column `dot_id` to the pipeline_task_runs table which links a pipeline_task_run
+  to a dotID in the pipeline_spec.dot_dag_source.
 
 - Fixed bug where node will occasionally submit an invalid OCR transmission which reverts with "address not authorized to sign".
 
 - Fixed bug where a node will sometimes double submit on runlog jobs causing reverted transactions on-chain
-
 
 ## [0.10.3] - 2021-03-22
 
@@ -1478,8 +2121,7 @@ transactions that started hitting this limit and instead continue to resubmit
 at the highest price that worked.
 
 Node operators should check their geth nodes and remove this cap if configured,
-you can do this by running your geth node with `--rpc.gascap=0
---rpc.txfeecap=0` or setting these values in your config toml.
+you can do this by running your geth node with `--rpc.gascap=0 --rpc.txfeecap=0` or setting these values in your config toml.
 
 - Make head backfill asynchronous. This should eliminate some harmless but
   annoying errors related to backfilling heads, logged on startup and
@@ -1506,7 +2148,7 @@ period after a reboot, until the gas updater caught up.
 Each Chainlink node will now use a maximum of 23 database connections (up from previous max of 13). Make sure your postgres database is tuned accordingly, especially if you are running multiple Chainlink nodes on a single database. If you find yourself hitting connection limits, you can consider reducing `ORM_MAX_OPEN_CONNS` but this may result in degraded performance.
 
 - The global env var `JOB_PIPELINE_MAX_TASK_DURATION` is no longer supported
-for OCR jobs.
+  for OCR jobs.
 
 ## [0.10.2] - 2021-02-26
 

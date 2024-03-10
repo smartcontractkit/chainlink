@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -20,36 +20,43 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
-	clhttptest "github.com/smartcontractkit/chainlink/core/internal/testutils/httptest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	bridgesMocks "github.com/smartcontractkit/chainlink/v2/core/bridges/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	clhttptest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/httptest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
+
+	"github.com/jmoiron/sqlx"
 )
 
-func newRunner(t testing.TB, db *sqlx.DB, cfg *configtest.TestGeneralConfig) (pipeline.Runner, *mocks.ORM) {
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg})
+func newRunner(t testing.TB, db *sqlx.DB, bridgeORM bridges.ORM, cfg chainlink.GeneralConfig) (pipeline.Runner, *mocks.ORM) {
+	lggr := logger.TestLogger(t)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
+	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, KeyStore: ethKeyStore})
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 	orm := mocks.NewORM(t)
-	q := pg.NewQ(db, logger.TestLogger(t), cfg)
+	q := pg.NewQ(db, lggr, cfg.Database())
 
 	orm.On("GetQ").Return(q).Maybe()
-	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
-	r := pipeline.NewRunner(orm, cfg, cc, ethKeyStore, nil, logger.TestLogger(t), c, c)
+	r := pipeline.NewRunner(orm, bridgeORM, cfg.JobPipeline(), cfg.WebServer(), legacyChains, ethKeyStore, nil, logger.TestLogger(t), c, c)
 	return r, orm
 }
 
 func Test_PipelineRunner_ExecuteTaskRuns(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewTestGeneralConfig(t)
 
 	btcUSDPairing := utils.MustUnmarshalToMap(`{"data":{"coin":"BTC","market":"USD"}}`)
 
@@ -60,7 +67,10 @@ func Test_PipelineRunner_ExecuteTaskRuns(t *testing.T) {
 	bridgeFeedURL, err := url.ParseRequestURI(s1.URL)
 	require.NoError(t, err)
 
-	bt, _ := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: bridgeFeedURL.String()}, cfg)
+	_, bt := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: bridgeFeedURL.String()}, cfg.Database())
+
+	btORM := bridgesMocks.NewORM(t)
+	btORM.On("FindBridge", bt.Name).Return(*bt, nil).Once()
 
 	// 2. Setup success HTTP
 	s2 := httptest.NewServer(fakePriceResponder(t, btcUSDPairing, decimal.NewFromInt(9600), "", nil))
@@ -71,7 +81,7 @@ func Test_PipelineRunner_ExecuteTaskRuns(t *testing.T) {
 	s5 := httptest.NewServer(fakeStringResponder(t, "bar-index-2"))
 	defer s5.Close()
 
-	r, _ := newRunner(t, db, cfg)
+	r, _ := newRunner(t, db, btORM, cfg)
 
 	s := fmt.Sprintf(`
 ds1 [type=bridge name="%s" timeout=0 requestData=<{"data": {"coin": "BTC", "market": "USD"}}>]
@@ -211,7 +221,7 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 			t.Parallel()
 
 			db := pgtest.NewSqlxDB(t)
-			cfg := cltest.NewTestGeneralConfig(t)
+			cfg := configtest.NewTestGeneralConfig(t)
 
 			expectedRequestDS1 := map[string]interface{}{"data": test.vars["foo"]}
 			expectedRequestDS2 := map[string]interface{}{"data": []interface{}{test.vars["bar"], test.vars["baz"]}}
@@ -229,8 +239,10 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 				expectedRequestSubmit[test.includeInputAtKey] = "9650000000000000000000"
 			}
 
+			btORM := bridgesMocks.NewORM(t)
+
 			// 1. Setup bridge
-			ds1, bridgeName := makeBridge(t, db, expectedRequestDS1, map[string]interface{}{
+			ds1, bridge := makeBridge(t, db, expectedRequestDS1, map[string]interface{}{
 				"data": map[string]interface{}{
 					"result": map[string]interface{}{
 						"result": decimal.NewFromInt(9700),
@@ -238,8 +250,10 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 					},
 				},
 			},
-				cfg)
+				cfg.Database())
 			defer ds1.Close()
+
+			btORM.On("FindBridge", bridge.Name).Return(bridge, nil).Once()
 
 			// 2. Setup success HTTP
 			ds2 := httptest.NewServer(fakeExternalAdapter(t, expectedRequestDS2, map[string]interface{}{
@@ -254,15 +268,17 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 			defer ds4.Close()
 
 			// 3. Setup final bridge task
-			submit, submitBridgeName := makeBridge(t, db, expectedRequestSubmit, map[string]interface{}{"ok": true}, cfg)
+			submit, submitBt := makeBridge(t, db, expectedRequestSubmit, map[string]interface{}{"ok": true}, cfg.Database())
 			defer submit.Close()
 
-			runner, _ := newRunner(t, db, cfg)
+			btORM.On("FindBridge", submitBt.Name).Return(submitBt, nil).Once()
+
+			runner, _ := newRunner(t, db, btORM, cfg)
 			specStr := taskRunWithVars{
-				bridgeName:        bridgeName,
+				bridgeName:        bridge.Name.String(),
 				ds2URL:            ds2.URL,
 				ds4URL:            ds4.URL,
-				submitBridgeName:  submitBridgeName,
+				submitBridgeName:  submitBt.Name.String(),
 				includeInputAtKey: test.includeInputAtKey,
 			}.String()
 			p, err := pipeline.Parse(specStr)
@@ -336,8 +352,9 @@ decode_log -> decode_cbor;
 
 func Test_PipelineRunner_CBORParse(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
-	r, _ := newRunner(t, db, cfg)
+	cfg := configtest.NewTestGeneralConfig(t)
+	btORM := bridgesMocks.NewORM(t)
+	r, _ := newRunner(t, db, btORM, cfg)
 
 	t.Run("diet mode, empty CBOR", func(t *testing.T) {
 		s := CBORDietEmpty
@@ -402,7 +419,7 @@ func Test_PipelineRunner_HandleFaults(t *testing.T) {
 	// and so we can still obtain a median.
 	db := pgtest.NewSqlxDB(t)
 	orm := mocks.NewORM(t)
-	q := pg.NewQ(db, logger.TestLogger(t), cltest.NewTestGeneralConfig(t))
+	q := pg.NewQ(db, logger.TestLogger(t), configtest.NewTestGeneralConfig(t).Database())
 
 	orm.On("GetQ").Return(q).Maybe()
 	m1 := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
@@ -430,9 +447,9 @@ ds2 -> ds2_parse -> ds2_multiply -> answer1;
 
 answer1 [type=median                      index=0];
 `, m1.URL, m2.URL)
-	cfg := cltest.NewTestGeneralConfig(t)
-
-	r, _ := newRunner(t, db, cfg)
+	cfg := configtest.NewTestGeneralConfig(t)
+	btORM := bridgesMocks.NewORM(t)
+	r, _ := newRunner(t, db, btORM, cfg)
 
 	// If we cancel before an API is finished, we should still get a median.
 	ctx, cancel := context.WithTimeout(testutils.Context(t), 50*time.Millisecond)
@@ -453,18 +470,20 @@ answer1 [type=median                      index=0];
 func Test_PipelineRunner_HandleFaultsPersistRun(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	orm := mocks.NewORM(t)
-	q := pg.NewQ(db, logger.TestLogger(t), cltest.NewTestGeneralConfig(t))
+	btORM := bridgesMocks.NewORM(t)
+	q := pg.NewQ(db, logger.TestLogger(t), configtest.NewTestGeneralConfig(t).Database())
 	orm.On("GetQ").Return(q).Maybe()
 	orm.On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
 			args.Get(0).(*pipeline.Run).ID = 1
 		}).
 		Return(nil)
-	cfg := cltest.NewTestGeneralConfig(t)
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg})
-	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+	cfg := configtest.NewTestGeneralConfig(t)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
+	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, KeyStore: ethKeyStore})
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 	lggr := logger.TestLogger(t)
-	r := pipeline.NewRunner(orm, cfg, cc, ethKeyStore, nil, lggr, nil, nil)
+	r := pipeline.NewRunner(orm, btORM, cfg.JobPipeline(), cfg.WebServer(), legacyChains, ethKeyStore, nil, lggr, nil, nil)
 
 	spec := pipeline.Spec{DotDagSource: `
 fail_but_i_dont_care [type=fail]
@@ -488,8 +507,9 @@ succeed2 -> final;
 
 func Test_PipelineRunner_MultipleOutputs(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
-	r, _ := newRunner(t, db, cfg)
+	cfg := configtest.NewTestGeneralConfig(t)
+	btORM := bridgesMocks.NewORM(t)
+	r, _ := newRunner(t, db, btORM, cfg)
 	input := map[string]interface{}{"val": 2}
 	lggr := logger.TestLogger(t)
 	_, trrs, err := r.ExecuteRun(testutils.Context(t), pipeline.Spec{
@@ -515,8 +535,9 @@ a->b2->c;`,
 }
 
 func Test_PipelineRunner_MultipleTerminatingOutputs(t *testing.T) {
-	cfg := cltest.NewTestGeneralConfig(t)
-	r, _ := newRunner(t, pgtest.NewSqlxDB(t), cfg)
+	cfg := configtest.NewTestGeneralConfig(t)
+	btORM := bridgesMocks.NewORM(t)
+	r, _ := newRunner(t, pgtest.NewSqlxDB(t), btORM, cfg)
 	input := map[string]interface{}{"val": 2}
 	lggr := logger.TestLogger(t)
 	_, trrs, err := r.ExecuteRun(testutils.Context(t), pipeline.Spec{
@@ -543,7 +564,7 @@ func Test_PipelineRunner_AsyncJob_Basic(t *testing.T) {
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var reqBody adapterRequest
-		payload, err := ioutil.ReadAll(r.Body)
+		payload, err := io.ReadAll(r.Body)
 		require.NoError(t, err)
 		defer r.Body.Close()
 		err = json.Unmarshal(payload, &reqBody)
@@ -563,8 +584,8 @@ func Test_PipelineRunner_AsyncJob_Basic(t *testing.T) {
 	bridgeFeedURL, err := url.ParseRequestURI(s1.URL)
 	require.NoError(t, err)
 
-	cfg := cltest.NewTestGeneralConfig(t)
-	bt, _ := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: bridgeFeedURL.String()}, cfg)
+	cfg := configtest.NewTestGeneralConfig(t)
+	_, bt := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: bridgeFeedURL.String()}, cfg.Database())
 
 	// 2. Setup success HTTP
 	s2 := httptest.NewServer(fakePriceResponder(t, btcUSDPairing, decimal.NewFromInt(9600), "", nil))
@@ -575,7 +596,9 @@ func Test_PipelineRunner_AsyncJob_Basic(t *testing.T) {
 	s5 := httptest.NewServer(fakeStringResponder(t, "bar-index-2"))
 	defer s5.Close()
 
-	r, orm := newRunner(t, db, cfg)
+	btORM := bridgesMocks.NewORM(t)
+	btORM.On("FindBridge", bt.Name).Return(*bt, nil)
+	r, orm := newRunner(t, db, btORM, cfg)
 
 	s := fmt.Sprintf(`
 ds1 [type=bridge async=true name="%s" timeout=0 requestData=<{"data": {"coin": "BTC", "market": "USD"}}>]
@@ -612,7 +635,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 	}).Once()
 	orm.On("StoreRun", mock.AnythingOfType("*pipeline.Run"), mock.Anything).Return(false, nil).Once()
 	lggr := logger.TestLogger(t)
-	incomplete, err := r.Run(testutils.Context(t), &run, lggr, false, nil)
+	incomplete, err := r.Run(testutils.Context(t), run, lggr, false, nil)
 	require.NoError(t, err)
 	require.Len(t, run.PipelineTaskRuns, 9) // 3 tasks are suspended: ds1_parse, ds1_multiply, median. ds1 is present, but contains ErrPending
 	require.Equal(t, true, incomplete)      // still incomplete
@@ -621,7 +644,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 
 	// Trigger run resumption with no new data
 	orm.On("StoreRun", mock.AnythingOfType("*pipeline.Run")).Return(false, nil).Once()
-	incomplete, err = r.Run(testutils.Context(t), &run, lggr, false, nil)
+	incomplete, err = r.Run(testutils.Context(t), run, lggr, false, nil)
 	require.NoError(t, err)
 	require.Equal(t, true, incomplete) // still incomplete
 
@@ -634,7 +657,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 	}
 	// Trigger run resumption
 	orm.On("StoreRun", mock.AnythingOfType("*pipeline.Run"), mock.Anything).Return(false, nil).Once()
-	incomplete, err = r.Run(testutils.Context(t), &run, lggr, false, nil)
+	incomplete, err = r.Run(testutils.Context(t), run, lggr, false, nil)
 	require.NoError(t, err)
 	require.Equal(t, false, incomplete) // done
 	require.Len(t, run.PipelineTaskRuns, 12)
@@ -667,7 +690,7 @@ func Test_PipelineRunner_AsyncJob_InstantRestart(t *testing.T) {
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var reqBody adapterRequest
-		payload, err := ioutil.ReadAll(r.Body)
+		payload, err := io.ReadAll(r.Body)
 		require.NoError(t, err)
 		defer r.Body.Close()
 		err = json.Unmarshal(payload, &reqBody)
@@ -687,8 +710,8 @@ func Test_PipelineRunner_AsyncJob_InstantRestart(t *testing.T) {
 	bridgeFeedURL, err := url.ParseRequestURI(s1.URL)
 	require.NoError(t, err)
 
-	cfg := cltest.NewTestGeneralConfig(t)
-	bt, _ := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: bridgeFeedURL.String()}, cfg)
+	cfg := configtest.NewTestGeneralConfig(t)
+	_, bt := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: bridgeFeedURL.String()}, cfg.Database())
 
 	// 2. Setup success HTTP
 	s2 := httptest.NewServer(fakePriceResponder(t, btcUSDPairing, decimal.NewFromInt(9600), "", nil))
@@ -699,7 +722,10 @@ func Test_PipelineRunner_AsyncJob_InstantRestart(t *testing.T) {
 	s5 := httptest.NewServer(fakeStringResponder(t, "bar-index-2"))
 	defer s5.Close()
 
-	r, orm := newRunner(t, db, cfg)
+	btORM := bridgesMocks.NewORM(t)
+	btORM.On("FindBridge", bt.Name).Return(*bt, nil)
+
+	r, orm := newRunner(t, db, btORM, cfg)
 
 	s := fmt.Sprintf(`
 ds1 [type=bridge async=true name="%s" timeout=0 requestData=<{"data": {"coin": "BTC", "market": "USD"}}>]
@@ -747,7 +773,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 	}).Once()
 	// StoreRun is called again to store the final result
 	orm.On("StoreRun", mock.AnythingOfType("*pipeline.Run"), mock.Anything).Return(false, nil).Once()
-	incomplete, err := r.Run(testutils.Context(t), &run, logger.TestLogger(t), false, nil)
+	incomplete, err := r.Run(testutils.Context(t), run, logger.TestLogger(t), false, nil)
 	require.NoError(t, err)
 	require.Len(t, run.PipelineTaskRuns, 12)
 	require.Equal(t, false, incomplete) // run is complete
@@ -774,8 +800,9 @@ ds5 [type=http method="GET" url="%s" index=2]
 
 func Test_PipelineRunner_LowercaseOutputs(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
-	r, _ := newRunner(t, db, cfg)
+	cfg := configtest.NewTestGeneralConfig(t)
+	btORM := bridgesMocks.NewORM(t)
+	r, _ := newRunner(t, db, btORM, cfg)
 	input := map[string]interface{}{
 		"first":  "camelCase",
 		"second": "UPPERCASE",
@@ -797,8 +824,9 @@ a [type=lowercase input="$(first)"]
 
 func Test_PipelineRunner_UppercaseOutputs(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
-	r, _ := newRunner(t, db, cfg)
+	cfg := configtest.NewTestGeneralConfig(t)
+	btORM := bridgesMocks.NewORM(t)
+	r, _ := newRunner(t, db, btORM, cfg)
 	input := map[string]interface{}{
 		"first": "somerAnDomTEST",
 	}
@@ -819,8 +847,9 @@ a [type=uppercase input="$(first)"]
 
 func Test_PipelineRunner_HexDecodeOutputs(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
-	r, _ := newRunner(t, db, cfg)
+	cfg := configtest.NewTestGeneralConfig(t)
+	btORM := bridgesMocks.NewORM(t)
+	r, _ := newRunner(t, db, btORM, cfg)
 	input := map[string]interface{}{
 		"astring": "0x12345678",
 	}
@@ -841,8 +870,9 @@ a [type=hexdecode input="$(astring)"]
 
 func Test_PipelineRunner_HexEncodeAndDecode(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
-	r, _ := newRunner(t, db, cfg)
+	cfg := configtest.NewTestGeneralConfig(t)
+	btORM := bridgesMocks.NewORM(t)
+	r, _ := newRunner(t, db, btORM, cfg)
 	inputBytes := []byte("Lorem ipsum dolor sit amet, consectetur adipiscing elit")
 	input := map[string]interface{}{
 		"input_val": inputBytes,
@@ -866,8 +896,9 @@ en->de
 
 func Test_PipelineRunner_Base64DecodeOutputs(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
-	r, _ := newRunner(t, db, cfg)
+	cfg := configtest.NewTestGeneralConfig(t)
+	btORM := bridgesMocks.NewORM(t)
+	r, _ := newRunner(t, db, btORM, cfg)
 	input := map[string]interface{}{
 		"astring": "SGVsbG8sIHBsYXlncm91bmQ=",
 	}
@@ -888,8 +919,9 @@ a [type=base64decode input="$(astring)"]
 
 func Test_PipelineRunner_Base64EncodeAndDecode(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
-	r, _ := newRunner(t, db, cfg)
+	cfg := configtest.NewTestGeneralConfig(t)
+	btORM := bridgesMocks.NewORM(t)
+	r, _ := newRunner(t, db, btORM, cfg)
 	inputBytes := []byte("[{\"add\": \"weather\", \"during\": true}, 1478647067]")
 	input := map[string]interface{}{
 		"input_val": inputBytes,
@@ -909,4 +941,44 @@ en->de
 	result, err := trrs.FinalResult(lggr).SingularResult()
 	require.NoError(t, err)
 	assert.Equal(t, inputBytes, result.Value)
+}
+
+func Test_PipelineRunner_ExecuteRun(t *testing.T) {
+	t.Run("uses cached *Pipeline if available", func(t *testing.T) {
+		db := pgtest.NewSqlxDB(t)
+		cfg := configtest.NewTestGeneralConfig(t)
+		ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
+		relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, KeyStore: ethKeyStore})
+		legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+		lggr := logger.TestLogger(t)
+		r := pipeline.NewRunner(nil, nil, cfg.JobPipeline(), cfg.WebServer(), legacyChains, ethKeyStore, nil, lggr, nil, nil)
+
+		template := `
+succeed             [type=memo value=%d]
+succeed;
+`
+
+		spec := pipeline.Spec{DotDagSource: fmt.Sprintf(template, 1)}
+		vars := pipeline.NewVarsFrom(nil)
+
+		_, trrs, err := r.ExecuteRun(testutils.Context(t), spec, vars, lggr)
+		require.NoError(t, err)
+		require.Len(t, trrs, 1)
+		assert.Equal(t, "1", trrs[0].Result.Value.(pipeline.ObjectParam).DecimalValue.Decimal().String())
+
+		// does not automatically cache
+		require.Nil(t, spec.Pipeline)
+
+		// initialize it
+		spec.Pipeline, err = spec.ParsePipeline()
+		require.NoError(t, err)
+
+		// even though this is set to 2, it should use the cached version
+		spec.DotDagSource = fmt.Sprintf(template, 2)
+
+		_, trrs, err = r.ExecuteRun(testutils.Context(t), spec, vars, lggr)
+		require.NoError(t, err)
+		require.Len(t, trrs, 1)
+		assert.Equal(t, "1", trrs[0].Result.Value.(pipeline.ObjectParam).DecimalValue.Decimal().String())
+	})
 }

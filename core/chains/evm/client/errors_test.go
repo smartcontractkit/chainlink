@@ -3,14 +3,14 @@ package client_test
 import (
 	"testing"
 
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 
-	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
+	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 )
 
 func newSendErrorWrapped(s string) *evmclient.SendError {
-	return evmclient.NewSendError(errors.Wrap(errors.New(s), "wrapped with some old bollocks"))
+	return evmclient.NewSendError(pkgerrors.Wrap(pkgerrors.New(s), "wrapped with some old bollocks"))
 }
 
 type errorCase struct {
@@ -33,12 +33,14 @@ func Test_Eth_Errors(t *testing.T) {
 			{"nonce too low: address 0x336394A3219e71D9d9bd18201d34E95C1Bb7122C, tx: 8089 state: 8090", true, "Arbitrum"},
 			{"Nonce too low", true, "Besu"},
 			{"nonce too low", true, "Erigon"},
+			{"nonce too low", true, "Klaytn"},
 			{"Transaction nonce is too low. Try incrementing the nonce.", true, "Parity"},
 			{"transaction rejected: nonce too low", true, "Arbitrum"},
 			{"invalid transaction nonce", true, "Arbitrum"},
-			{"invalid transaction: nonce too low", true, "Optimism"},
 			{"call failed: nonce too low: address 0x0499BEA33347cb62D79A9C0b1EDA01d8d329894c current nonce (5833) > tx nonce (5511)", true, "Avalanche"},
 			{"call failed: OldNonce", true, "Nethermind"},
+			{"call failed: OldNonce, Current nonce: 22, nonce of rejected tx: 17", true, "Nethermind"},
+			{"nonce too low. allowed nonce range: 427 - 447, actual: 426", true, "zkSync"},
 		}
 
 		for _, test := range tests {
@@ -48,6 +50,25 @@ func Test_Eth_Errors(t *testing.T) {
 				err = newSendErrorWrapped(test.message)
 				assert.Equal(t, err.IsNonceTooLowError(), test.expect)
 			})
+		}
+	})
+
+	t.Run("IsNonceTooHigh", func(t *testing.T) {
+
+		tests := []errorCase{
+			{"call failed: NonceGap", true, "Nethermind"},
+			{"call failed: NonceGap, Future nonce. Expected nonce: 10", true, "Nethermind"},
+			{"nonce too high: address 0x336394A3219e71D9d9bd18201d34E95C1Bb7122C, tx: 8089 state: 8090", true, "Arbitrum"},
+			{"nonce too high", true, "Geth"},
+			{"nonce too high", true, "Erigon"},
+			{"nonce too high. allowed nonce range: 427 - 477, actual: 527", true, "zkSync"},
+		}
+
+		for _, test := range tests {
+			err = evmclient.NewSendErrorS(test.message)
+			assert.Equal(t, err.IsNonceTooHighError(), test.expect)
+			err = newSendErrorWrapped(test.message)
+			assert.Equal(t, err.IsNonceTooHighError(), test.expect)
 		}
 	})
 
@@ -74,6 +95,8 @@ func Test_Eth_Errors(t *testing.T) {
 			{"replacement transaction underpriced", true, "geth"},
 			{"Replacement transaction underpriced", true, "Besu"},
 			{"replacement transaction underpriced", true, "Erigon"},
+			{"replacement transaction underpriced", true, "Klaytn"},
+			{"there is another tx which has the same nonce in the tx pool", true, "Klaytn"},
 			{"Transaction gas price 100wei is too low. There is another transaction with same nonce in the queue with gas price 150wei. Try increasing the gas price or incrementing the nonce.", true, "Parity"},
 			{"There are too many transactions in the queue. Your transaction was dropped due to limit. Try increasing the fee.", false, "Parity"},
 			{"gas price too low", false, "Arbitrum"},
@@ -103,6 +126,7 @@ func Test_Eth_Errors(t *testing.T) {
 			{"Transaction with the same hash was already imported.", true, "Parity"},
 			{"call failed: AlreadyKnown", true, "Nethermind"},
 			{"call failed: OwnNonceAlreadyUsed", true, "Nethermind"},
+			{"known transaction", true, "Klaytn"},
 		}
 		for _, test := range tests {
 			err = evmclient.NewSendErrorS(test.message)
@@ -124,7 +148,14 @@ func Test_Eth_Errors(t *testing.T) {
 			{"Transaction gas price is too low. It does not satisfy your node's minimal gas price (minimal: 100 got: 50). Try increasing the gas price.", true, "Parity"},
 			{"gas price too low", true, "Arbitrum"},
 			{"FeeTooLow", true, "Nethermind"},
+			{"FeeTooLow, MaxFeePerGas too low. MaxFeePerGas: 50, BaseFee: 100, MaxPriorityFeePerGas:200, Block number: 5", true, "Nethermind"},
+			{"FeeTooLow, EffectivePriorityFeePerGas too low 10 < 20, BaseFee: 30", true, "Nethermind"},
+			{"FeeTooLow, FeePerGas needs to be higher than 100 to be added to the TxPool. Affordable FeePerGas of rejected tx: 50.", true, "Nethermind"},
 			{"FeeTooLowToCompete", true, "Nethermind"},
+			{"transaction underpriced", true, "Klaytn"},
+			{"intrinsic gas too low", true, "Klaytn"},
+			{"max fee per gas less than block base fee", true, "zkSync"},
+			{"virtual machine entered unexpected state. please contact developers and provide transaction details that caused this error. Error description: The operator included transaction with an unacceptable gas price", true, "zkSync"},
 		}
 
 		for _, test := range tests {
@@ -163,14 +194,32 @@ func Test_Eth_Errors(t *testing.T) {
 			{"transaction rejected: insufficient funds for gas * price + value", true, "Arbitrum"},
 			{"not enough funds for gas", true, "Arbitrum"},
 			{"insufficient funds for gas * price + value: address 0xb68D832c1241bc50db1CF09e96c0F4201D5539C9 have 9934612900000000 want 9936662900000000", true, "Arbitrum"},
-			{"invalid transaction: insufficient funds for gas * price + value", true, "Optimism"},
 			{"call failed: InsufficientFunds", true, "Nethermind"},
+			{"call failed: InsufficientFunds, Account balance: 4740799397601480913, cumulative cost: 22019342038993800000", true, "Nethermind"},
+			{"call failed: InsufficientFunds, Balance is 1092404690719251702 less than sending value + gas 7165512000464000000", true, "Nethermind"},
+			{"insufficient funds", true, "Klaytn"},
+			{"insufficient funds for gas * price + value + gatewayFee", true, "celo"},
+			{"insufficient balance for transfer", true, "zkSync"},
+			{"insufficient funds for gas + value. balance: 42719769622667482000, fee: 48098250000000, value: 42719769622667482000", true, "celo"},
 		}
 		for _, test := range tests {
 			err = evmclient.NewSendErrorS(test.message)
 			assert.Equal(t, err.IsInsufficientEth(), test.expect)
 			err = newSendErrorWrapped(test.message)
 			assert.Equal(t, err.IsInsufficientEth(), test.expect)
+		}
+	})
+
+	t.Run("IsServiceUnavailable", func(t *testing.T) {
+		tests := []errorCase{
+			{"call failed: 503 Service Unavailable: <html>\r\n<head><title>503 Service Temporarily Unavailable</title></head>\r\n<body>\r\n<center><h1>503 Service Temporarily Unavailable</h1></center>\r\n</body>\r\n</html>\r\n", true, "Nethermind"},
+			{"call failed: 502 Bad Gateway: <html>\r\n<head><title>502 Bad Gateway</title></head>\r\n<body>\r\n<center><h1>502 Bad Gateway</h1></center>\r\n<hr><center>", true, "Arbitrum"},
+		}
+		for _, test := range tests {
+			err = evmclient.NewSendErrorS(test.message)
+			assert.Equal(t, err.IsServiceUnavailable(), test.expect)
+			err = newSendErrorWrapped(test.message)
+			assert.Equal(t, err.IsServiceUnavailable(), test.expect)
 		}
 	})
 
@@ -181,6 +230,10 @@ func Test_Eth_Errors(t *testing.T) {
 			{"tx fee (1.10 foocoin) exceeds the configured cap (1.00 foocoin)", true, "geth"},
 			{"Transaction fee cap exceeded", true, "Besu"},
 			{"tx fee (1.10 ether) exceeds the configured cap (1.00 ether)", true, "Erigon"},
+			{"invalid gas fee cap", true, "Klaytn"},
+			{"max fee per gas higher than max priority fee per gas", true, "Klaytn"},
+			{"tx fee (1.10 of currency celo) exceeds the configured cap (1.00 celo)", true, "celo"},
+			{"max priority fee per gas higher than max fee per gas", true, "zkSync"},
 		}
 		for _, test := range tests {
 			err = evmclient.NewSendErrorS(test.message)
@@ -196,17 +249,10 @@ func Test_Eth_Errors(t *testing.T) {
 	})
 
 	t.Run("L2 Fees errors", func(t *testing.T) {
-		err := evmclient.NewSendErrorS("primary websocket (wss://ws-mainnet.optimism.io) call failed: fee too high: 5835750750000000, use less than 467550750000000 * 0.700000")
-		assert.True(t, err.IsL2FeeTooHigh())
-		assert.False(t, err.L2FeeTooLow())
-		err = newSendErrorWrapped("primary websocket (wss://ws-mainnet.optimism.io) call failed: fee too high: 5835750750000000, use less than 467550750000000 * 0.700000")
-		assert.True(t, err.IsL2FeeTooHigh())
-		assert.False(t, err.L2FeeTooLow())
-
-		err = evmclient.NewSendErrorS("fee too low: 30365610000000, use at least tx.gasLimit = 5874374 and tx.gasPrice = 15000000")
+		err = evmclient.NewSendErrorS("max fee per gas less than block base fee")
 		assert.False(t, err.IsL2FeeTooHigh())
 		assert.True(t, err.L2FeeTooLow())
-		err = newSendErrorWrapped("fee too low: 30365610000000, use at least tx.gasLimit = 5874374 and tx.gasPrice = 15000000")
+		err = newSendErrorWrapped("max fee per gas less than block base fee")
 		assert.False(t, err.IsL2FeeTooHigh())
 		assert.True(t, err.L2FeeTooLow())
 
@@ -224,9 +270,9 @@ func Test_Eth_Errors(t *testing.T) {
 	})
 
 	t.Run("Metis gas price errors", func(t *testing.T) {
-		err := evmclient.NewSendErrorS("primary websocket (wss://ws-mainnet.optimism.io) call failed: gas price too low: 18000000000 wei, use at least tx.gasPrice = 19500000000 wei")
+		err := evmclient.NewSendErrorS("primary websocket (wss://ws-mainnet.metis.io) call failed: gas price too low: 18000000000 wei, use at least tx.gasPrice = 19500000000 wei")
 		assert.True(t, err.L2FeeTooLow())
-		err = newSendErrorWrapped("primary websocket (wss://ws-mainnet.optimism.io) call failed: gas price too low: 18000000000 wei, use at least tx.gasPrice = 19500000000 wei")
+		err = newSendErrorWrapped("primary websocket (wss://ws-mainnet.metis.io) call failed: gas price too low: 18000000000 wei, use at least tx.gasPrice = 19500000000 wei")
 		assert.True(t, err.L2FeeTooLow())
 
 		assert.False(t, randomError.L2FeeTooLow())
@@ -260,7 +306,6 @@ func Test_Eth_Errors_Fatal(t *testing.T) {
 		{"oversized data", true, "Geth"},
 		{"gas uint64 overflow", true, "Geth"},
 		{"intrinsic gas too low", true, "Geth"},
-		{"nonce too high", true, "Geth"},
 
 		{"Intrinsic gas exceeds gas limit", true, "Besu"},
 		{"Transaction gas limit exceeds block gas limit", true, "Besu"},
@@ -273,7 +318,6 @@ func Test_Eth_Errors_Fatal(t *testing.T) {
 		{"oversized data", true, "Erigon"},
 		{"gas uint64 overflow", true, "Erigon"},
 		{"intrinsic gas too low", true, "Erigon"},
-		{"nonce too high", true, "Erigon"},
 
 		{"Insufficient funds. The account you tried to send transaction from does not have enough funds. Required 100 and got: 50.", false, "Parity"},
 		{"Supplied gas is beyond limit.", true, "Parity"},
@@ -293,23 +337,34 @@ func Test_Eth_Errors_Fatal(t *testing.T) {
 		{"execution reverted: error code", true, "Arbitrum"},
 		{"execution reverted: stale report", true, "Arbitrum"},
 		{"execution reverted", true, "Arbitrum"},
-		{"nonce too high: address 0x336394A3219e71D9d9bd18201d34E95C1Bb7122C, tx: 8089 state: 8090", true, "Arbitrum"},
 
 		{"call failed: SenderIsContract", true, "Nethermind"},
 		{"call failed: Invalid", true, "Nethermind"},
+		{"call failed: Invalid, transaction Hash is null", true, "Nethermind"},
 		{"call failed: Int256Overflow", true, "Nethermind"},
 		{"call failed: FailedToResolveSender", true, "Nethermind"},
 		{"call failed: GasLimitExceeded", true, "Nethermind"},
+		{"call failed: GasLimitExceeded, Gas limit: 100, gas limit of rejected tx: 150", true, "Nethermind"},
 
 		{"invalid shard", true, "Harmony"},
 		{"`to` address of transaction in blacklist", true, "Harmony"},
 		{"`from` address of transaction in blacklist", true, "Harmony"},
 		{"staking message does not match directive message", true, "Harmony"},
+
+		{"intrinsic gas too low", true, "zkSync"},
+		{"failed to validate the transaction. reason: Validation revert: Account validation error: Not enough gas for transaction validation", true, "zkSync"},
+		{"failed to validate the transaction. reason: Validation revert: Failed to pay for the transaction: Failed to pay the fee to the operator", true, "zkSync"},
+		{"failed to validate the transaction. reason: Validation revert: Account validation error: Error function_selector = 0x, data = 0x", true, "zkSync"},
+		{"invalid sender. can't start a transaction from a non-account", true, "zkSync"},
+		{"Failed to serialize transaction: max fee per gas higher than 2^64-1", true, "zkSync"},
+		{"Failed to serialize transaction: max fee per pubdata byte higher than 2^64-1", true, "zkSync"},
+		{"Failed to serialize transaction: max priority fee per gas higher than 2^64-1", true, "zkSync"},
+		{"Failed to serialize transaction: oversized data. max: 1000000; actual: 1000000", true, "zkSync"},
 	}
 
 	for _, test := range tests {
 		t.Run(test.message, func(t *testing.T) {
-			err := evmclient.NewSendError(errors.New(test.message))
+			err := evmclient.NewSendError(pkgerrors.New(test.message))
 			assert.Equal(t, test.expect, err.Fatal())
 		})
 	}

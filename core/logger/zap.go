@@ -1,11 +1,9 @@
 package logger
 
 import (
-	"fmt"
-	"io"
 	"os"
 
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -15,15 +13,14 @@ var _ Logger = &zapLogger{}
 type zapLogger struct {
 	*zap.SugaredLogger
 	level      zap.AtomicLevel
-	name       string
 	fields     []interface{}
 	callerSkip int
 }
 
-func makeEncoderConfig(cfg Config) zapcore.EncoderConfig {
+func makeEncoderConfig(unixTS bool) zapcore.EncoderConfig {
 	encoderConfig := zap.NewProductionEncoderConfig()
 
-	if !cfg.UnixTS {
+	if !unixTS {
 		encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 	}
 
@@ -51,16 +48,8 @@ func copyFields(fields []interface{}, add ...interface{}) []interface{} {
 	return f
 }
 
-func joinName(old, new string) string {
-	if old == "" {
-		return new
-	}
-	return old + "." + new
-}
-
 func (l *zapLogger) Named(name string) Logger {
 	newLogger := *l
-	newLogger.name = joinName(l.name, name)
 	newLogger.SugaredLogger = l.SugaredLogger.Named(name)
 	newLogger.Trace("Named logger created")
 	return &newLogger
@@ -73,20 +62,12 @@ func (l *zapLogger) Helper(skip int) Logger {
 	return &newLogger
 }
 
+func (l *zapLogger) Name() string {
+	return l.Desugar().Name()
+}
+
 func (l *zapLogger) sugaredHelper(skip int) *zap.SugaredLogger {
 	return l.SugaredLogger.WithOptions(zap.AddCallerSkip(skip))
-}
-
-func (l *zapLogger) ErrorIf(err error, msg string) {
-	if err != nil {
-		l.Helper(1).Errorw(msg, "err", err)
-	}
-}
-
-func (l *zapLogger) ErrorIfClosing(c io.Closer, name string) {
-	if err := c.Close(); err != nil {
-		l.Helper(1).Errorw(fmt.Sprintf("Error closing %s", name), "err", err)
-	}
 }
 
 func (l *zapLogger) Sync() error {
@@ -95,7 +76,7 @@ func (l *zapLogger) Sync() error {
 		return nil
 	}
 	var msg string
-	if uw := errors.Unwrap(err); uw != nil {
+	if uw := pkgerrors.Unwrap(err); uw != nil {
 		msg = uw.Error()
 	} else {
 		msg = err.Error()

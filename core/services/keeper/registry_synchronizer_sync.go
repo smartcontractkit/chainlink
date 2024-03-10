@@ -7,8 +7,9 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 )
 
 func (rs *RegistrySynchronizer) fullSync() {
@@ -52,24 +53,16 @@ func (rs *RegistrySynchronizer) fullSyncUpkeeps(reg Registry) error {
 		return errors.Wrap(err, "unable to fetch existing upkeep IDs from DB")
 	}
 
-	existingSet := make(map[string]bool)
 	activeSet := make(map[string]bool)
-
-	// New upkeeps are all elements in activeUpkeepIDs which are not in existingUpkeepIDs
-	newUpkeeps := make([]utils.Big, 0)
-	for _, upkeepID := range existingUpkeepIDs {
-		existingSet[upkeepID.ToInt().String()] = true
-	}
+	allActiveUpkeeps := make([]big.Big, 0)
 	for _, upkeepID := range activeUpkeepIDs {
 		activeSet[upkeepID.String()] = true
-		if _, found := existingSet[upkeepID.String()]; !found {
-			newUpkeeps = append(newUpkeeps, *utils.NewBig(upkeepID))
-		}
+		allActiveUpkeeps = append(allActiveUpkeeps, *big.New(upkeepID))
 	}
-	rs.batchSyncUpkeepsOnRegistry(reg, newUpkeeps)
+	rs.batchSyncUpkeepsOnRegistry(reg, allActiveUpkeeps)
 
 	// All upkeeps in existingUpkeepIDs, not in activeUpkeepIDs should be deleted
-	canceled := make([]utils.Big, 0)
+	canceled := make([]big.Big, 0)
 	for _, upkeepID := range existingUpkeepIDs {
 		if _, found := activeSet[upkeepID.ToInt().String()]; !found {
 			canceled = append(canceled, upkeepID)
@@ -83,7 +76,7 @@ func (rs *RegistrySynchronizer) fullSyncUpkeeps(reg Registry) error {
 
 // batchSyncUpkeepsOnRegistry syncs <syncUpkeepQueueSize> upkeeps at a time in parallel
 // for all the IDs within newUpkeeps slice
-func (rs *RegistrySynchronizer) batchSyncUpkeepsOnRegistry(reg Registry, newUpkeeps []utils.Big) {
+func (rs *RegistrySynchronizer) batchSyncUpkeepsOnRegistry(reg Registry, newUpkeeps []big.Big) {
 	wg := sync.WaitGroup{}
 	wg.Add(len(newUpkeeps))
 	chSyncUpkeepQueue := make(chan struct{}, rs.syncUpkeepQueueSize)
@@ -101,22 +94,27 @@ func (rs *RegistrySynchronizer) batchSyncUpkeepsOnRegistry(reg Registry, newUpke
 	wg.Wait()
 }
 
-func (rs *RegistrySynchronizer) syncUpkeepWithCallback(getter upkeepGetter, registry Registry, upkeepID *utils.Big, doneCallback func()) {
+func (rs *RegistrySynchronizer) syncUpkeepWithCallback(getter upkeepGetter, registry Registry, upkeepID *big.Big, doneCallback func()) {
 	defer doneCallback()
 
 	if err := rs.syncUpkeep(getter, registry, upkeepID); err != nil {
-		rs.logger.With("error", err.Error()).With(
+		rs.logger.With("err", err.Error()).With(
 			"upkeepID", NewUpkeepIdentifier(upkeepID).String(),
 			"registryContract", registry.ContractAddress.Hex(),
 		).Error("unable to sync upkeep on registry")
 	}
 }
 
-func (rs *RegistrySynchronizer) syncUpkeep(getter upkeepGetter, registry Registry, upkeepID *utils.Big) error {
+func (rs *RegistrySynchronizer) syncUpkeep(getter upkeepGetter, registry Registry, upkeepID *big.Big) error {
 	upkeep, err := getter.GetUpkeep(nil, upkeepID.ToInt())
 	if err != nil {
 		return errors.Wrap(err, "failed to get upkeep config")
 	}
+
+	if upkeep.ExecuteGas <= uint32(0) {
+		return errors.Errorf("execute gas is zero for upkeep %s", NewUpkeepIdentifier(upkeepID).String())
+	}
+
 	positioningConstant, err := CalcPositioningConstant(upkeepID, registry.ContractAddress)
 	if err != nil {
 		return errors.Wrap(err, "failed to calc positioning constant")
@@ -176,9 +174,9 @@ func (rs *RegistrySynchronizer) newRegistryFromChain() (Registry, error) {
 
 // CalcPositioningConstant calculates a positioning constant.
 // The positioning constant is fixed because upkeepID and registryAddress are immutable
-func CalcPositioningConstant(upkeepID *utils.Big, registryAddress ethkey.EIP55Address) (int32, error) {
+func CalcPositioningConstant(upkeepID *big.Big, registryAddress ethkey.EIP55Address) (int32, error) {
 	upkeepBytes := make([]byte, binary.MaxVarintLen64)
-	binary.PutVarint(upkeepBytes, upkeepID.Mod(math.MaxInt64).Int64())
+	binary.PutVarint(upkeepBytes, upkeepID.Mod(big.NewI(math.MaxInt64)).Int64())
 	bytesToHash := utils.ConcatBytes(upkeepBytes, registryAddress.Bytes())
 	checksum, err := utils.Keccak256(bytesToHash)
 	if err != nil {

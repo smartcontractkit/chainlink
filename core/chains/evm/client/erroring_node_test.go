@@ -5,9 +5,10 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
 func TestErroringNode(t *testing.T) {
@@ -22,7 +23,7 @@ func TestErroringNode(t *testing.T) {
 	err := n.Start(ctx)
 	require.Equal(t, n.errMsg, err.Error())
 
-	defer n.Close()
+	defer func() { assert.NoError(t, n.Close()) }()
 
 	err = n.Verify(ctx, nil)
 	require.Equal(t, n.errMsg, err.Error())
@@ -87,7 +88,7 @@ func TestErroringNode(t *testing.T) {
 	require.Equal(t, "<erroring node>", n.String())
 	require.Equal(t, NodeStateUnreachable, n.State())
 
-	state, num := n.StateAndLatestBlockNumber()
+	state, num, _ := n.StateAndLatest()
 	require.Equal(t, NodeStateUnreachable, state)
 	require.Equal(t, int64(-1), num)
 
@@ -95,6 +96,6 @@ func TestErroringNode(t *testing.T) {
 	n.DeclareOutOfSync()
 	n.DeclareUnreachable()
 
-	require.Zero(t, n.ID())
+	require.Zero(t, n.Name())
 	require.Nil(t, n.NodeStates())
 }

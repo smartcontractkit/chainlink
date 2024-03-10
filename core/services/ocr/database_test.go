@@ -2,35 +2,36 @@ package ocr_test
 
 import (
 	"bytes"
-	"fmt"
 	"math/big"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/services/ocr"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 )
 
 func Test_DB_ReadWriteState(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 
 	configDigest := cltest.MakeConfigDigest(t)
-	cfg := cltest.NewTestGeneralConfig(t)
-	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+	cfg := configtest.NewTestGeneralConfig(t)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	key, _ := cltest.MustInsertRandomKey(t, ethKeyStore)
 	spec := cltest.MustInsertOffchainreportingOracleSpec(t, db, key.EIP55Address)
 
 	t.Run("reads and writes state", func(t *testing.T) {
-		fmt.Println("creating DB")
+		t.Log("creating DB")
 		odb := ocr.NewTestDB(t, db, spec.ID)
 		state := ocrtypes.PersistentState{
 			Epoch:                1,
@@ -105,7 +106,7 @@ func Test_DB_ReadWriteState(t *testing.T) {
 func Test_DB_ReadWriteConfig(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	sqlDB := db
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := configtest.NewTestGeneralConfig(t)
 
 	config := ocrtypes.ContractConfig{
 		ConfigDigest:         cltest.MakeConfigDigest(t),
@@ -115,7 +116,7 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 		EncodedConfigVersion: uint64(987654),
 		Encoded:              []byte{1, 2, 3, 4, 5},
 	}
-	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	key, _ := cltest.MustInsertRandomKey(t, ethKeyStore)
 	spec := cltest.MustInsertOffchainreportingOracleSpec(t, db, key.EIP55Address)
 	transmitterAddress := key.Address
@@ -187,8 +188,8 @@ func assertPendingTransmissionEqual(t *testing.T, pt1, pt2 ocrtypes.PendingTrans
 func Test_DB_PendingTransmissions(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	sqlDB := db
-	cfg := cltest.NewTestGeneralConfig(t)
-	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+	cfg := configtest.NewTestGeneralConfig(t)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	key, _ := cltest.MustInsertRandomKey(t, ethKeyStore)
 
 	spec := cltest.MustInsertOffchainreportingOracleSpec(t, db, key.EIP55Address)
@@ -197,12 +198,12 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 	odb2 := ocr.NewTestDB(t, sqlDB, spec2.ID)
 	configDigest := cltest.MakeConfigDigest(t)
 
-	k := ocrtypes.PendingTransmissionKey{
+	k := ocrtypes.ReportTimestamp{
 		ConfigDigest: configDigest,
 		Epoch:        0,
 		Round:        1,
 	}
-	k2 := ocrtypes.PendingTransmissionKey{
+	k2 := ocrtypes.ReportTimestamp{
 		ConfigDigest: configDigest,
 		Epoch:        1,
 		Round:        2,
@@ -251,7 +252,7 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 		err = odb.StorePendingTransmission(testutils.Context(t), k2, p2)
 		require.NoError(t, err)
 
-		kRedHerring := ocrtypes.PendingTransmissionKey{
+		kRedHerring := ocrtypes.ReportTimestamp{
 			ConfigDigest: ocrtypes.ConfigDigest{43},
 			Epoch:        1,
 			Round:        2,

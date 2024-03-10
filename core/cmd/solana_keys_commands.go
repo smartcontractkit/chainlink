@@ -1,9 +1,9 @@
 package cmd
 
 import (
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/solkey"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
 type SolanaKeyPresenter struct {
@@ -52,6 +52,6 @@ func (ps SolanaKeyPresenters) RenderTable(rt RendererTable) error {
 	return utils.JustError(rt.Write([]byte("\n")))
 }
 
-func NewSolanaKeysClient(c *Client) KeysClient {
-	return newKeysClient[solkey.Key, SolanaKeyPresenter, SolanaKeyPresenters]("Solana", c)
+func NewSolanaKeysClient(s *Shell) KeysClient {
+	return newKeysClient[solkey.Key, SolanaKeyPresenter, SolanaKeyPresenters]("Solana", s)
 }

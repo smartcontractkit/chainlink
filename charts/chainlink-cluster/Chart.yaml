@@ -1,0 +1,22 @@
+apiVersion: v2
+name: chainlink-cluster
+description: Chainlink nodes cluster
+version: 0.4.0
+appVersion: "2.6.0"
+dependencies:
+  - name: mockserver
+    version: "5.14.0"
+    repository: "https://www.mock-server.com"
+    condition: mockserver.enabled
+  - name: opentelemetry-collector
+    version: "0.82.0"
+    repository: "https://open-telemetry.github.io/opentelemetry-helm-charts"
+    condition: opentelemetry-collector.enabled
+  - name: tempo
+    version: "1.7.2"
+    repository: "https://grafana.github.io/helm-charts"
+    condition: tempo.enabled
+  - name: grafana
+    version: "7.3.2"
+    repository: "https://grafana.github.io/helm-charts"
+    condition: grafana.enabled

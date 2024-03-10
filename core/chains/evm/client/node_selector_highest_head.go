@@ -2,54 +2,31 @@ package client
 
 import (
 	"math"
-	"sync"
 )
 
-type highestHeadNodeSelector struct {
-	nodes          []Node
-	lastBestNodeMu sync.Mutex
-	lastBestNode   Node
-}
+type highestHeadNodeSelector []Node
 
+// Deprecated: use [pkg/github.com/smartcontractkit/chainlink/v2/common/client.NewHighestHeadNodeSelector]
 func NewHighestHeadNodeSelector(nodes []Node) NodeSelector {
-	return &highestHeadNodeSelector{
-		nodes:          nodes,
-		lastBestNodeMu: sync.Mutex{},
-		lastBestNode:   nil,
-	}
+	return highestHeadNodeSelector(nodes)
 }
 
-func (s *highestHeadNodeSelector) Select() Node {
-	s.lastBestNodeMu.Lock()
-	defer s.lastBestNodeMu.Unlock()
-
-	var node Node
-	// NodeNoNewHeadsThreshold may not be enabled, in this case all nodes have latestReceivedBlockNumber == -1
+func (s highestHeadNodeSelector) Select() Node {
 	var highestHeadNumber int64 = math.MinInt64
-	if s.lastBestNode != nil {
-		state, latestReceivedBlockNumber := s.lastBestNode.StateAndLatestBlockNumber()
-		if state == NodeStateAlive {
-			node = s.lastBestNode
-			highestHeadNumber = latestReceivedBlockNumber
+	var highestHeadNodes []Node
+	for _, n := range s {
+		state, currentHeadNumber, _ := n.StateAndLatest()
+		if state == NodeStateAlive && currentHeadNumber >= highestHeadNumber {
+			if highestHeadNumber < currentHeadNumber {
+				highestHeadNumber = currentHeadNumber
+				highestHeadNodes = nil
+			}
+			highestHeadNodes = append(highestHeadNodes, n)
 		}
 	}
-
-	for _, n := range s.nodes {
-		if n == s.lastBestNode {
-			continue
-		}
-		state, latestReceivedBlockNumber := n.StateAndLatestBlockNumber()
-		if state == NodeStateAlive && latestReceivedBlockNumber > highestHeadNumber {
-			node = n
-			highestHeadNumber = latestReceivedBlockNumber
-		}
-	}
-
-	s.lastBestNode = node
-
-	return node
+	return firstOrHighestPriority(highestHeadNodes)
 }
 
-func (s *highestHeadNodeSelector) Name() string {
+func (s highestHeadNodeSelector) Name() string {
 	return NodeSelectionMode_HighestHead
 }

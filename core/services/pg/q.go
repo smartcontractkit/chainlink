@@ -9,13 +9,15 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/lib/pq"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
 var promSQLQueryTime = promauto.NewHistogram(prometheus.HistogramOpts{
@@ -56,12 +58,8 @@ var promSQLQueryTime = promauto.NewHistogram(prometheus.HistogramOpts{
 //	orm.GetFoo(q, pg.WithQueryer(tx), pg.WithParentCtx(ctx)) // options can be combined
 type QOpt func(*Q)
 
-type LogConfig interface {
-	LogSQL() bool
-}
-
 // WithQueryer sets the queryer
-func WithQueryer(queryer Queryer) func(q *Q) {
+func WithQueryer(queryer Queryer) QOpt {
 	return func(q *Q) {
 		if q.Queryer != nil {
 			panic("queryer already set")
@@ -71,14 +69,14 @@ func WithQueryer(queryer Queryer) func(q *Q) {
 }
 
 // WithParentCtx sets or overwrites the parent ctx
-func WithParentCtx(ctx context.Context) func(q *Q) {
+func WithParentCtx(ctx context.Context) QOpt {
 	return func(q *Q) {
 		q.ParentCtx = ctx
 	}
 }
 
 // If the parent has a timeout, just use that instead of DefaultTimeout
-func WithParentCtxInheritTimeout(ctx context.Context) func(q *Q) {
+func WithParentCtxInheritTimeout(ctx context.Context) QOpt {
 	return func(q *Q) {
 		q.ParentCtx = ctx
 		deadline, ok := q.ParentCtx.Deadline()
@@ -90,21 +88,18 @@ func WithParentCtxInheritTimeout(ctx context.Context) func(q *Q) {
 
 // WithLongQueryTimeout prevents the usage of the `DefaultQueryTimeout` duration and uses `OneMinuteQueryTimeout` instead
 // Some queries need to take longer when operating over big chunks of data, like deleting jobs, but we need to keep some upper bound timeout
-func WithLongQueryTimeout() func(q *Q) {
+func WithLongQueryTimeout() QOpt {
 	return func(q *Q) {
-		q.QueryTimeout = LongQueryTimeout
-	}
-}
-
-// MergeCtx allows callers to combine a ctx with a previously set parent context
-// Responsibility for cancelling the passed context lies with caller
-func MergeCtx(fn func(parentCtx context.Context) context.Context) func(q *Q) {
-	return func(q *Q) {
-		q.ParentCtx = fn(q.ParentCtx)
+		q.QueryTimeout = longQueryTimeout
 	}
 }
 
 var _ Queryer = Q{}
+
+type QConfig interface {
+	LogSQL() bool
+	DefaultQueryTimeout() time.Duration
+}
 
 // Q wraps an underlying queryer (either a *sqlx.DB or a *sqlx.Tx)
 //
@@ -123,26 +118,35 @@ type Q struct {
 	Queryer
 	ParentCtx    context.Context
 	db           *sqlx.DB
-	logger       logger.Logger
-	config       LogConfig
+	logger       logger.SugaredLogger
+	config       QConfig
 	QueryTimeout time.Duration
 }
 
-func NewQ(db *sqlx.DB, logger logger.Logger, config LogConfig, qopts ...QOpt) (q Q) {
+func NewQ(db *sqlx.DB, lggr logger.Logger, config QConfig, qopts ...QOpt) (q Q) {
 	for _, opt := range qopts {
 		opt(&q)
 	}
+
+	q.db = db
+	// skip two levels since we use internal helpers and also want to point up the stack to the caller of the Q method.
+	q.logger = logger.Sugared(logger.Helper(lggr, 2))
+	q.config = config
+
 	if q.Queryer == nil {
 		q.Queryer = db
 	}
-	q.db = db
-	q.logger = logger.Helper(2)
-	q.config = config
+	if q.ParentCtx == nil {
+		q.ParentCtx = context.Background()
+	}
+	if q.QueryTimeout <= 0 {
+		q.QueryTimeout = q.config.DefaultQueryTimeout()
+	}
 	return
 }
 
 func (q Q) originalLogger() logger.Logger {
-	return q.logger.Helper(-2)
+	return logger.Helper(q.logger, -2)
 }
 
 func PrepareQueryRowx(q Queryer, sql string, dest interface{}, arg interface{}) error {
@@ -150,6 +154,7 @@ func PrepareQueryRowx(q Queryer, sql string, dest interface{}, arg interface{}) 
 	if err != nil {
 		return errors.Wrap(err, "error preparing named statement")
 	}
+	defer stmt.Close()
 	return errors.Wrap(stmt.QueryRowx(arg).Scan(dest), "error querying row")
 }
 
@@ -158,21 +163,10 @@ func (q Q) WithOpts(qopts ...QOpt) Q {
 }
 
 func (q Q) Context() (context.Context, context.CancelFunc) {
-	if q.QueryTimeout > 0 {
-		ctx := q.ParentCtx
-		if ctx == nil {
-			ctx = context.Background()
-		}
-		return context.WithTimeout(ctx, q.QueryTimeout)
-	}
-
-	if q.ParentCtx == nil {
-		return DefaultQueryCtx()
-	}
-	return DefaultQueryCtxWithParent(q.ParentCtx)
+	return context.WithTimeout(q.ParentCtx, q.QueryTimeout)
 }
 
-func (q Q) Transaction(fc func(q Queryer) error, txOpts ...TxOptions) error {
+func (q Q) Transaction(fc func(q Queryer) error, txOpts ...TxOption) error {
 	ctx, cancel := q.Context()
 	defer cancel()
 	return SqlxTransaction(ctx, q.Queryer, q.originalLogger(), fc, txOpts...)
@@ -204,6 +198,16 @@ func (q Q) ExecQIter(query string, args ...interface{}) (sql.Result, context.Can
 
 	res, err := q.Queryer.ExecContext(ctx, query, args...)
 	return res, cancel, ql.withLogError(err)
+}
+func (q Q) ExecQWithRowsAffected(query string, args ...interface{}) (int64, error) {
+	res, cancel, err := q.ExecQIter(query, args...)
+	defer cancel()
+	if err != nil {
+		return 0, err
+	}
+
+	rowsDeleted, err := res.RowsAffected()
+	return rowsDeleted, err
 }
 func (q Q) ExecQ(query string, args ...interface{}) error {
 	ctx, cancel := q.Context()
@@ -244,6 +248,15 @@ func (q Q) Select(dest interface{}, query string, args ...interface{}) error {
 
 	return ql.withLogError(q.Queryer.SelectContext(ctx, dest, query, args...))
 }
+
+func (q Q) SelectNamed(dest interface{}, query string, arg interface{}) error {
+	query, args, err := q.BindNamed(query, arg)
+	if err != nil {
+		return errors.Wrap(err, "error binding arg")
+	}
+	return q.Select(dest, query, args...)
+}
+
 func (q Q) Get(dest interface{}, query string, args ...interface{}) error {
 	ctx, cancel := q.Context()
 	defer cancel()
@@ -254,6 +267,7 @@ func (q Q) Get(dest interface{}, query string, args ...interface{}) error {
 
 	return ql.withLogError(q.Queryer.GetContext(ctx, dest, query, args...))
 }
+
 func (q Q) GetNamed(sql string, dest interface{}, arg interface{}) error {
 	query, args, err := q.BindNamed(sql, arg)
 	if err != nil {
@@ -270,7 +284,9 @@ func (q Q) GetNamed(sql string, dest interface{}, arg interface{}) error {
 }
 
 func (q Q) newQueryLogger(query string, args []interface{}) *queryLogger {
-	return &queryLogger{Q: q, query: query, args: args}
+	return &queryLogger{Q: q, query: query, args: args, str: sync.OnceValue(func() string {
+		return sprintQ(query, args)
+	})}
 }
 
 // sprintQ formats the query with the given args and returns the resulting string.
@@ -280,10 +296,40 @@ func sprintQ(query string, args []interface{}) string {
 	}
 	var pairs []string
 	for i, arg := range args {
-		pairs = append(pairs, fmt.Sprintf("$%d", i+1), fmt.Sprintf("%v", arg))
+		// We print by type so one can directly take the logged query string and execute it manually in pg.
+		// Annoyingly it seems as though the logger itself will add an extra \, so you still have to remove that.
+		switch v := arg.(type) {
+		case []byte:
+			pairs = append(pairs, fmt.Sprintf("$%d", i+1), fmt.Sprintf("'\\x%x'", v))
+		case common.Address:
+			pairs = append(pairs, fmt.Sprintf("$%d", i+1), fmt.Sprintf("'\\x%x'", v.Bytes()))
+		case common.Hash:
+			pairs = append(pairs, fmt.Sprintf("$%d", i+1), fmt.Sprintf("'\\x%x'", v.Bytes()))
+		case pq.ByteaArray:
+			pairs = append(pairs, fmt.Sprintf("$%d", i+1))
+			if v == nil {
+				pairs = append(pairs, "NULL")
+				continue
+			}
+			if len(v) == 0 {
+				pairs = append(pairs, "ARRAY[]")
+				continue
+			}
+			var s strings.Builder
+			fmt.Fprintf(&s, "ARRAY['\\x%x'", v[0])
+			for j := 1; j < len(v); j++ {
+				fmt.Fprintf(&s, ",'\\x%x'", v[j])
+			}
+			pairs = append(pairs, fmt.Sprintf("%s]", s.String()))
+		case string:
+			pairs = append(pairs, fmt.Sprintf("$%d", i+1), fmt.Sprintf("'%s'", v))
+		default:
+			pairs = append(pairs, fmt.Sprintf("$%d", i+1), fmt.Sprintf("%v", v))
+		}
 	}
 	replacer := strings.NewReplacer(pairs...)
-	return replacer.Replace(query)
+	queryWithVals := replacer.Replace(query)
+	return strings.ReplaceAll(strings.ReplaceAll(queryWithVals, "\n", " "), "\t", " ")
 }
 
 // queryLogger extends Q with logging helpers for a particular query w/ args.
@@ -293,15 +339,11 @@ type queryLogger struct {
 	query string
 	args  []interface{}
 
-	str     string
-	strOnce sync.Once
+	str func() string
 }
 
 func (q *queryLogger) String() string {
-	q.strOnce.Do(func() {
-		q.str = sprintQ(q.query, q.args)
-	})
-	return q.str
+	return q.str()
 }
 
 func (q *queryLogger) logSqlQuery() {

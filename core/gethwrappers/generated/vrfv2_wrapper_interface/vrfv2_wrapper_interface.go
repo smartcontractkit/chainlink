@@ -25,6 +25,7 @@ var (
 	_ = common.Big1
 	_ = types.BloomLookup
 	_ = event.NewSubscription
+	_ = abi.ConvertType
 )
 
 var VRFV2WrapperInterfaceMetaData = &bind.MetaData{
@@ -118,11 +119,11 @@ func NewVRFV2WrapperInterfaceFilterer(address common.Address, filterer bind.Cont
 }
 
 func bindVRFV2WrapperInterface(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
-	parsed, err := abi.JSON(strings.NewReader(VRFV2WrapperInterfaceABI))
+	parsed, err := VRFV2WrapperInterfaceMetaData.GetAbi()
 	if err != nil {
 		return nil, err
 	}
-	return bind.NewBoundContract(address, parsed, caller, transactor, filterer), nil
+	return bind.NewBoundContract(address, *parsed, caller, transactor, filterer), nil
 }
 
 func (_VRFV2WrapperInterface *VRFV2WrapperInterfaceRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {

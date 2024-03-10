@@ -3,8 +3,8 @@ package dkgencryptkey
 import (
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const keyTypeIdentifier = "DKGEncrypt"
@@ -30,12 +30,12 @@ func (k Key) ToEncryptedJSON(password string, scryptParams utils.ScryptParams) (
 		password,
 		scryptParams,
 		adulteratedPassword,
-		func(id string, key Key, cryptoJSON keystore.CryptoJSON) (keys.EncryptedKeyExport, error) {
+		func(id string, key Key, cryptoJSON keystore.CryptoJSON) keys.EncryptedKeyExport {
 			return keys.EncryptedKeyExport{
 				KeyType:   id,
 				PublicKey: key.PublicKeyString(),
 				Crypto:    cryptoJSON,
-			}, nil
+			}
 		})
 }
 

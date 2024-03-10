@@ -13,7 +13,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 // Go's new embed feature doesn't allow us to embed things outside of the current module.
@@ -21,10 +21,7 @@ import (
 // inside this module. To achieve this, we direct webpack to output all of the compiled assets
 // in this module's folder under the "assets" directory.
 
-// HINT: if you are coming here because of this error:
-// `web/middleware.go:28:12: pattern assets: no matching files found`
-// then you must first run `make operator-ui` in the root dir to fetch the frontend
-//nolint
+//go:generate ../../operator_ui/install.sh
 //go:embed "assets"
 var uiEmbedFs embed.FS
 
@@ -93,14 +90,14 @@ func (e *EmbedFileSystem) Open(name string) (http.File, error) {
 // existence of the file
 type gzipFileHandler struct {
 	root ServeFileSystem
-	lggr logger.Logger
+	lggr logger.SugaredLogger
 }
 
 // GzipFileServer is a drop-in replacement for Go's standard http.FileServer
 // which adds support for static resources precompressed with gzip, at
 // the cost of removing the support for directory browsing.
 func GzipFileServer(root ServeFileSystem, lggr logger.Logger) http.Handler {
-	return &gzipFileHandler{root, lggr.Named("GzipFilehandler")}
+	return &gzipFileHandler{root, logger.Sugared(lggr.Named("GzipFilehandler"))}
 }
 
 func (f *gzipFileHandler) openAndStat(path string) (http.File, os.FileInfo, error) {
@@ -218,7 +215,7 @@ func (f *gzipFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Find the best acceptable file, including trying uncompressed
 	if file, info, err := f.findBestFile(w, r, fpath); err == nil {
 		http.ServeContent(w, r, fpath, info.ModTime(), file)
-		f.lggr.ErrorIfClosing(file, "file")
+		f.lggr.ErrorIfFn(file.Close, "Error closing file")
 		return
 	}
 

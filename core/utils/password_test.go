@@ -1,14 +1,13 @@
 package utils_test
 
 import (
-	"io/ioutil"
 	"os"
 	"testing"
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func TestVerifyPasswordComplexity(t *testing.T) {
@@ -70,7 +69,7 @@ func TestPasswordFromFile(t *testing.T) {
 		t.Run(test.password, func(t *testing.T) {
 			t.Parallel()
 
-			pwdFile, err := ioutil.TempFile("", "")
+			pwdFile, err := os.CreateTemp("", "")
 			assert.NoError(t, err)
 			defer os.Remove(pwdFile.Name())
 			_, err = pwdFile.WriteString(test.password)

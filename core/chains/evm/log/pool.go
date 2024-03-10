@@ -8,10 +8,8 @@ import (
 	heaps "github.com/theodesp/go-heaps"
 	pairingHeap "github.com/theodesp/go-heaps/pairing"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
-
-//go:generate mockery --name iLogPool --output ./ --inpackage --testonly
 
 // The Log Pool interface.
 type iLogPool interface {
@@ -61,7 +59,7 @@ func newLogPool(lggr logger.Logger) *logPool {
 		hashesByBlockNumbers: make(map[uint64]map[common.Hash]struct{}),
 		logsByBlockHash:      make(map[common.Hash]map[uint]map[uint]types.Log),
 		heap:                 pairingHeap.New(),
-		logger:               lggr.Named("LogPool"),
+		logger:               logger.Named(lggr, "LogPool"),
 	}
 }
 

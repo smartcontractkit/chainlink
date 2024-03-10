@@ -1,30 +1,30 @@
 package resolver
 
-import "github.com/smartcontractkit/chainlink/core/config"
+import "github.com/smartcontractkit/chainlink/v2/core/config"
 
 type FeaturesResolver struct {
-	cfg config.GeneralConfig
+	cfg config.Feature
 }
 
-func NewFeaturesResolver(cfg config.GeneralConfig) *FeaturesResolver {
+func NewFeaturesResolver(cfg config.Feature) *FeaturesResolver {
 	return &FeaturesResolver{cfg: cfg}
 }
 
 // CSA resolves to whether CSA Keys are enabled
 func (r *FeaturesResolver) CSA() bool {
-	return r.cfg.FeatureUICSAKeys()
+	return r.cfg.UICSAKeys()
 }
 
 // FeedsManager resolves to whether the Feeds Manager is enabled for the UI
 func (r *FeaturesResolver) FeedsManager() bool {
-	return r.cfg.FeatureFeedsManager()
+	return r.cfg.FeedsManager()
 }
 
 type FeaturesPayloadResolver struct {
-	cfg config.GeneralConfig
+	cfg config.Feature
 }
 
-func NewFeaturesPayloadResolver(cfg config.GeneralConfig) *FeaturesPayloadResolver {
+func NewFeaturesPayloadResolver(cfg config.Feature) *FeaturesPayloadResolver {
 	return &FeaturesPayloadResolver{cfg: cfg}
 }
 

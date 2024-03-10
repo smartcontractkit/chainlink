@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils/tomlutils"
+	"github.com/smartcontractkit/chainlink-common/pkg/assets"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/tomlutils"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -16,7 +16,9 @@ import (
 
 type testcfg struct{}
 
-func (testcfg) DefaultHTTPTimeout() models.Duration { return models.MustMakeDuration(2 * time.Second) }
+func (testcfg) DefaultHTTPTimeout() commonconfig.Duration {
+	return *commonconfig.MustNewDuration(2 * time.Second)
+}
 
 func TestValidate(t *testing.T) {
 	var tt = []struct {
@@ -135,7 +137,7 @@ ds1 -> ds1_parse;
 `,
 			assertion: func(t *testing.T, s job.Job, err error) {
 				require.Error(t, err)
-				assert.EqualError(t, err, "PollTimerPeriod (400ms) must be equal or greater than the smallest value of MaxTaskDuration param, DEFAULT_HTTP_TIMEOUT config var, or MinTimeout of all tasks (500ms)")
+				assert.EqualError(t, err, "PollTimerPeriod (400ms) must be equal or greater than the smallest value of MaxTaskDuration param, JobPipeline.HTTPRequest.DefaultTimeout config var, or MinTimeout of all tasks (500ms)")
 			},
 		},
 		{

@@ -1,49 +1,63 @@
 package web
 
 import (
+	"context"
 	"net/http"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/manyminds/api2go/jsonapi"
 
-	"github.com/smartcontractkit/chainlink/core/chains"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
+
+	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
 
 type NodesController interface {
 	// Index lists nodes, and optionally filters by chain id.
 	Index(c *gin.Context, size, page, offset int)
-	// Create adds a new node.
-	Create(*gin.Context)
-	// Delete removes a node.
-	Delete(*gin.Context)
 }
 
-type nodesController[I chains.ID, N chains.Node, R jsonapi.EntityNamer] struct {
-	nodeSet       chains.DBNodeSet[I, N]
-	parseChainID  func(string) (I, error)
-	errNotEnabled error
-	newResource   func(N) R
-	createNode    func(*gin.Context) (N, error)
+type NetworkScopedNodeStatuser struct {
+	network  relay.Network
+	relayers chainlink.RelayerChainInteroperators
 }
 
-func newNodesController[I chains.ID, N chains.Node, R jsonapi.EntityNamer](
-	nodeSet chains.DBNodeSet[I, N],
-	errNotEnabled error,
-	parseChainID func(string) (I, error),
-	newResource func(N) R,
-	createNode func(*gin.Context) (N, error),
-) NodesController {
-	return &nodesController[I, N, R]{
-		nodeSet:       nodeSet,
-		errNotEnabled: errNotEnabled,
-		parseChainID:  parseChainID,
-		newResource:   newResource,
-		createNode:    createNode,
+func NewNetworkScopedNodeStatuser(relayers chainlink.RelayerChainInteroperators, network relay.Network) *NetworkScopedNodeStatuser {
+	scoped := relayers.List(chainlink.FilterRelayersByType(network))
+	return &NetworkScopedNodeStatuser{
+		network:  network,
+		relayers: scoped,
 	}
 }
 
-func (n *nodesController[I, N, R]) Index(c *gin.Context, size, page, offset int) {
+func (n *NetworkScopedNodeStatuser) NodeStatuses(ctx context.Context, offset, limit int, relayIDs ...relay.ID) (nodes []types.NodeStatus, count int, err error) {
+	return n.relayers.NodeStatuses(ctx, offset, limit, relayIDs...)
+}
+
+type nodesController[R jsonapi.EntityNamer] struct {
+	nodeSet       *NetworkScopedNodeStatuser
+	errNotEnabled error
+	newResource   func(status types.NodeStatus) R
+	auditLogger   audit.AuditLogger
+}
+
+func newNodesController[R jsonapi.EntityNamer](
+	nodeSet *NetworkScopedNodeStatuser,
+	errNotEnabled error,
+	newResource func(status types.NodeStatus) R,
+	auditLogger audit.AuditLogger,
+) NodesController {
+	return &nodesController[R]{
+		nodeSet:       nodeSet,
+		errNotEnabled: errNotEnabled,
+		newResource:   newResource,
+		auditLogger:   auditLogger,
+	}
+}
+
+func (n *nodesController[R]) Index(c *gin.Context, size, page, offset int) {
 	if n.nodeSet == nil {
 		jsonAPIError(c, http.StatusBadRequest, n.errNotEnabled)
 		return
@@ -51,21 +65,23 @@ func (n *nodesController[I, N, R]) Index(c *gin.Context, size, page, offset int)
 
 	id := c.Param("ID")
 
-	var nodes []N
+	var nodes []types.NodeStatus
 	var count int
 	var err error
 
 	if id == "" {
 		// fetch all nodes
-		nodes, count, err = n.nodeSet.GetNodes(c, offset, size)
+		nodes, count, err = n.nodeSet.NodeStatuses(c, offset, size)
 	} else {
 		// fetch nodes for chain ID
-		chainID, err2 := n.parseChainID(id)
-		if err2 != nil {
-			jsonAPIError(c, http.StatusBadRequest, err2)
-			return
+		// backward compatibility
+		var rid relay.ID
+		err = rid.UnmarshalString(id)
+		if err != nil {
+			rid.ChainID = id
+			rid.Network = n.nodeSet.network
 		}
-		nodes, count, err = n.nodeSet.GetNodesForChain(c, chainID, offset, size)
+		nodes, count, err = n.nodeSet.NodeStatuses(c, offset, size, rid)
 	}
 
 	var resources []R
@@ -75,46 +91,4 @@ func (n *nodesController[I, N, R]) Index(c *gin.Context, size, page, offset int)
 	}
 
 	paginatedResponse(c, "node", size, page, resources, count, err)
-}
-
-func (n *nodesController[I, N, R]) Create(c *gin.Context) {
-	if n.nodeSet == nil {
-		jsonAPIError(c, http.StatusBadRequest, n.errNotEnabled)
-		return
-	}
-
-	request, err := n.createNode(c)
-	if err != nil {
-		jsonAPIError(c, http.StatusUnprocessableEntity, err)
-		return
-	}
-	node, err := n.nodeSet.CreateNode(c, request)
-	if err != nil {
-		jsonAPIError(c, http.StatusBadRequest, err)
-		return
-	}
-
-	jsonAPIResponse(c, n.newResource(node), "node")
-}
-
-func (n *nodesController[I, N, R]) Delete(c *gin.Context) {
-	if n.nodeSet == nil {
-		jsonAPIError(c, http.StatusBadRequest, n.errNotEnabled)
-		return
-	}
-
-	id, err := strconv.ParseInt(c.Param("ID"), 10, 32)
-	if err != nil {
-		jsonAPIError(c, http.StatusUnprocessableEntity, err)
-		return
-	}
-
-	err = n.nodeSet.DeleteNode(c, int32(id))
-
-	if err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, err)
-		return
-	}
-
-	jsonAPIResponseWithStatus(c, nil, "node", http.StatusNoContent)
 }

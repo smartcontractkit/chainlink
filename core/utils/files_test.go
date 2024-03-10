@@ -1,28 +1,34 @@
 package utils
 
 import (
+	"crypto/rand"
 	"encoding/hex"
-	"math/rand"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func tempFileName() string {
 	randBytes := make([]byte, 16)
-	rand.Read(randBytes)
+	_, err := rand.Read(randBytes)
+	if err != nil {
+		panic(err)
+	}
 	return filepath.Join(os.TempDir(), hex.EncodeToString(randBytes))
 }
 
 func TestFileExists(t *testing.T) {
 	t.Parallel()
 
-	exists := FileExists(tempFileName())
+	exists, err := FileExists(tempFileName())
+	require.NoError(t, err)
 	assert.False(t, exists)
 
-	exists = FileExists(os.Args[0])
+	exists, err = FileExists(os.Args[0])
+	require.NoError(t, err)
 	assert.True(t, exists)
 }
 

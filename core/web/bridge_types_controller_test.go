@@ -6,15 +6,15 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/bridges"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/web"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	"github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/web"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/stretchr/testify/assert"
@@ -105,7 +105,8 @@ func TestValidateBridgeType(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) {
-			result := web.ValidateBridgeType(&test.request)
+			req := test.request
+			result := web.ValidateBridgeType(&req)
 			assert.Equal(t, test.want, result)
 		})
 	}
@@ -115,7 +116,7 @@ func TestValidateBridgeNotExist(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	cfg := pgtest.NewQConfig(true)
 	orm := bridges.NewORM(db, logger.TestLogger(t), cfg)
 
 	// Create a duplicate
@@ -134,12 +135,12 @@ func TestValidateBridgeNotExist(t *testing.T) {
 
 func BenchmarkBridgeTypesController_Index(b *testing.B) {
 	app := cltest.NewApplication(b)
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(nil)
 
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
 		resp, cleanup := client.Get("/v2/bridge_types")
-		defer cleanup()
+		b.Cleanup(cleanup)
 		assert.Equal(b, http.StatusOK, resp.StatusCode, "Response should be successful")
 	}
 }
@@ -149,7 +150,7 @@ func TestBridgeTypesController_Index(t *testing.T) {
 
 	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(nil)
 
 	bt, err := setupBridgeControllerIndex(t, app.BridgeORM())
 	assert.NoError(t, err)
@@ -217,7 +218,7 @@ func TestBridgeTypesController_Create_Success(t *testing.T) {
 
 	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(nil)
 
 	resp, cleanup := client.Post(
 		"/v2/bridge_types",
@@ -245,7 +246,7 @@ func TestBridgeTypesController_Update_Success(t *testing.T) {
 
 	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(nil)
 
 	bridgeName := testutils.RandomizeName("BRidgea")
 	bt := &bridges.BridgeType{
@@ -271,7 +272,7 @@ func TestBridgeController_Show(t *testing.T) {
 	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(nil)
 
 	bt := &bridges.BridgeType{
 		Name:          bridges.MustParseBridgeName(testutils.RandomizeName("showbridge")),
@@ -301,7 +302,7 @@ func TestBridgeTypesController_Create_AdapterExistsError(t *testing.T) {
 	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(nil)
 
 	resp, cleanup := client.Post(
 		"/v2/bridge_types",
@@ -317,7 +318,7 @@ func TestBridgeTypesController_Create_BindJSONError(t *testing.T) {
 	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(nil)
 
 	resp, cleanup := client.Post(
 		"/v2/bridge_types",
@@ -333,7 +334,7 @@ func TestBridgeTypesController_Create_DatabaseError(t *testing.T) {
 	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(nil)
 
 	resp, cleanup := client.Post(
 		"/v2/bridge_types",

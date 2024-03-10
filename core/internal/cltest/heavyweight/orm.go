@@ -1,75 +1,86 @@
+// Package heavyweight contains test helpers that are costly and you should
+// think **real carefully** before using in your tests.
 package heavyweight
 
-// The heavyweight package contains cltest items that are costly and you should
-// think **real carefully** before using in your tests.
-
 import (
-	"database/sql"
-	"errors"
-	"fmt"
-	"net/url"
 	"os"
 	"path"
 	"runtime"
+	"strings"
 	"testing"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/cmd"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/store/dialects"
+	"github.com/jmoiron/sqlx"
+
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/internal/testdb"
 )
 
-// FullTestDB creates a pristine DB which runs in a separate database than the normal
+// FullTestDBV2 creates a pristine DB which runs in a separate database than the normal
 // unit tests, so you can do things like use other Postgres connection types with it.
-func FullTestDB(t *testing.T, name string) (*configtest.TestGeneralConfig, *sqlx.DB) {
-	return prepareFullTestDB(t, name, false, true)
+func FullTestDBV2(t testing.TB, overrideFn func(c *chainlink.Config, s *chainlink.Secrets)) (chainlink.GeneralConfig, *sqlx.DB) {
+	return KindFixtures.PrepareDB(t, overrideFn)
 }
 
-// FullTestDBNoFixtures is the same as FullTestDB, but it does not load fixtures.
-func FullTestDBNoFixtures(t *testing.T, name string) (*configtest.TestGeneralConfig, *sqlx.DB) {
-	return prepareFullTestDB(t, name, false, false)
+// FullTestDBNoFixturesV2 is the same as FullTestDB, but it does not load fixtures.
+func FullTestDBNoFixturesV2(t testing.TB, overrideFn func(c *chainlink.Config, s *chainlink.Secrets)) (chainlink.GeneralConfig, *sqlx.DB) {
+	return KindTemplate.PrepareDB(t, overrideFn)
 }
 
-// FullTestDBEmpty creates an empty DB (without migrations).
-func FullTestDBEmpty(t *testing.T, name string) (*configtest.TestGeneralConfig, *sqlx.DB) {
-	return prepareFullTestDB(t, name, true, false)
+// FullTestDBEmptyV2 creates an empty DB (without migrations).
+func FullTestDBEmptyV2(t testing.TB, overrideFn func(c *chainlink.Config, s *chainlink.Secrets)) (chainlink.GeneralConfig, *sqlx.DB) {
+	return KindEmpty.PrepareDB(t, overrideFn)
 }
 
-func prepareFullTestDB(t *testing.T, name string, empty bool, loadFixtures bool) (*configtest.TestGeneralConfig, *sqlx.DB) {
+func generateName() string {
+	return strings.ReplaceAll(uuid.New().String(), "-", "")
+}
+
+type Kind int
+
+const (
+	KindEmpty Kind = iota
+	KindTemplate
+	KindFixtures
+)
+
+func (c Kind) PrepareDB(t testing.TB, overrideFn func(c *chainlink.Config, s *chainlink.Secrets)) (chainlink.GeneralConfig, *sqlx.DB) {
 	testutils.SkipShort(t, "FullTestDB")
 
-	if empty && loadFixtures {
-		t.Fatal("could not load fixtures into an empty DB")
-	}
-
-	overrides := configtest.GeneralConfigOverrides{}
-	gcfg := configtest.NewTestGeneralConfigWithOverrides(t, overrides)
-	gcfg.Overrides.Dialect = dialects.Postgres
+	gcfg := configtest.NewGeneralConfigSimulated(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.Database.Dialect = dialects.Postgres
+		if overrideFn != nil {
+			overrideFn(c, s)
+		}
+	})
 
 	require.NoError(t, os.MkdirAll(gcfg.RootDir(), 0700))
-	migrationTestDBURL, err := dropAndCreateThrowawayTestDB(gcfg.DatabaseURL(), name, empty)
+	migrationTestDBURL, err := testdb.CreateOrReplace(gcfg.Database().URL(), generateName(), c != KindEmpty)
 	require.NoError(t, err)
-	lggr := logger.TestLogger(t)
-	db, err := pg.NewConnection(migrationTestDBURL, string(dialects.Postgres), pg.Config{
-		Logger:       lggr,
-		MaxOpenConns: gcfg.ORMMaxOpenConns(),
-		MaxIdleConns: gcfg.ORMMaxIdleConns(),
-	})
+	db, err := pg.NewConnection(migrationTestDBURL, dialects.Postgres, gcfg.Database())
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		assert.NoError(t, db.Close())
 		os.RemoveAll(gcfg.RootDir())
 	})
-	gcfg.Overrides.DatabaseURL = null.StringFrom(migrationTestDBURL)
 
-	if loadFixtures {
+	gcfg = configtest.NewGeneralConfigSimulated(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.Database.Dialect = dialects.Postgres
+		s.Database.URL = models.MustSecretURL(migrationTestDBURL)
+		if overrideFn != nil {
+			overrideFn(c, s)
+		}
+	})
+
+	if c == KindFixtures {
 		_, filename, _, ok := runtime.Caller(1)
 		if !ok {
 			t.Fatal("could not get runtime.Caller(1)")
@@ -82,39 +93,4 @@ func prepareFullTestDB(t *testing.T, name string, empty bool, loadFixtures bool)
 	}
 
 	return gcfg, db
-}
-
-func dropAndCreateThrowawayTestDB(parsed url.URL, postfix string, empty bool) (string, error) {
-	if parsed.Path == "" {
-		return "", errors.New("path missing from database URL")
-	}
-
-	dbname := fmt.Sprintf("%s_%s", parsed.Path[1:], postfix)
-	if len(dbname) > 62 {
-		return "", fmt.Errorf("dbname %v too long, max is 63 bytes. Try a shorter postfix", dbname)
-	}
-	// Cannot drop test database if we are connected to it, so we must connect
-	// to a different one. 'postgres' should be present on all postgres installations
-	parsed.Path = "/postgres"
-	db, err := sql.Open(string(dialects.Postgres), parsed.String())
-	if err != nil {
-		return "", fmt.Errorf("In order to drop the test database, we need to connect to a separate database"+
-			" called 'postgres'. But we are unable to open 'postgres' database: %+v\n", err)
-	}
-	defer db.Close()
-
-	_, err = db.Exec(fmt.Sprintf("DROP DATABASE IF EXISTS %s", dbname))
-	if err != nil {
-		return "", fmt.Errorf("unable to drop postgres migrations test database: %v", err)
-	}
-	if empty {
-		_, err = db.Exec(fmt.Sprintf("CREATE DATABASE %s", dbname))
-	} else {
-		_, err = db.Exec(fmt.Sprintf("CREATE DATABASE %s WITH TEMPLATE %s", dbname, cmd.PristineDBName))
-	}
-	if err != nil {
-		return "", fmt.Errorf("unable to create postgres test database with name '%s': %v", dbname, err)
-	}
-	parsed.Path = fmt.Sprintf("/%s", dbname)
-	return parsed.String(), nil
 }

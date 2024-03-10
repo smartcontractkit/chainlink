@@ -2,13 +2,12 @@ package fluxmonitorv2
 
 import (
 	"fmt"
+	"sync/atomic"
 	"time"
 
-	"go.uber.org/atomic"
-
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/flux_aggregator_wrapper"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type PollManagerConfig struct {
@@ -52,7 +51,7 @@ type PollManagerConfig struct {
 type PollManager struct {
 	cfg PollManagerConfig
 
-	isHibernating    *atomic.Bool
+	isHibernating    atomic.Bool
 	hibernationTimer utils.ResettableTimer
 	pollTicker       utils.PausableTicker
 	idleTimer        utils.ResettableTimer
@@ -81,28 +80,26 @@ func NewPollManager(cfg PollManagerConfig, logger logger.Logger) (*PollManager, 
 		idleTimer.Reset(cfg.IdleTimerPeriod)
 	}
 
-	var drumbeatTicker utils.CronTicker
-	var err error
-	if cfg.DrumbeatEnabled {
-		drumbeatTicker, err = utils.NewCronTicker(cfg.DrumbeatSchedule)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return &PollManager{
+	p := &PollManager{
 		cfg:    cfg,
 		logger: logger.Named("PollManager"),
 
-		isHibernating:    atomic.NewBool(cfg.IsHibernating),
 		hibernationTimer: utils.NewResettableTimer(),
 		pollTicker:       utils.NewPausableTicker(cfg.PollTickerInterval),
 		idleTimer:        idleTimer,
 		roundTimer:       utils.NewResettableTimer(),
 		retryTicker:      utils.NewBackoffTicker(minBackoffDuration, maxBackoffDuration),
-		drumbeat:         drumbeatTicker,
 		chPoll:           make(chan PollRequest),
-	}, nil
+	}
+	var err error
+	if cfg.DrumbeatEnabled {
+		p.drumbeat, err = utils.NewCronTicker(cfg.DrumbeatSchedule)
+		if err != nil {
+			return nil, err
+		}
+	}
+	p.isHibernating.Store(cfg.IsHibernating)
+	return p, nil
 }
 
 // PollTickerTicks ticks on a given interval

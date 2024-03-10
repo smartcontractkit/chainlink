@@ -1,13 +1,13 @@
 package cmd
 
-import "github.com/smartcontractkit/chainlink/core/logger"
+import "github.com/smartcontractkit/chainlink/v2/core/logger"
 
 // CheckRemoteBuildCompatibility exposes checkRemoteBuildCompatibility for testing.
-func (cli *Client) CheckRemoteBuildCompatibility(lggr logger.Logger, onlyWarn bool, cliVersion, cliSha string) error {
-	return cli.checkRemoteBuildCompatibility(lggr, onlyWarn, cliVersion, cliSha)
+func (s *Shell) CheckRemoteBuildCompatibility(lggr logger.Logger, onlyWarn bool, cliVersion, cliSha string) error {
+	return s.checkRemoteBuildCompatibility(lggr, onlyWarn, cliVersion, cliSha)
 }
 
-// ConfigDumpStr exposes configDumpStr for testing.
-func (cli *Client) ConfigDumpStr() (string, error) {
-	return cli.configDumpStr()
+// ConfigV2Str exposes configV2Str for testing.
+func (s *Shell) ConfigV2Str(userOnly bool) (string, error) {
+	return s.configV2Str(userOnly)
 }

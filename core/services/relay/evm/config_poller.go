@@ -3,192 +3,231 @@ package evm
 import (
 	"context"
 	"database/sql"
+	"fmt"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
+	"github.com/smartcontractkit/libocr/gethwrappers2/ocrconfigurationstoreevmsimple"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	evmRelayTypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
-// Common to all OCR2 evm based contracts: https://github.com/smartcontractkit/libocr/blob/master/contract2/OCR2Abstract.sol#L23
-var ConfigSet = common.HexToHash("0x1591690b8638f5fb2dbec82ac741805ac5da8b45dc5263f4875b0496fdce4e05")
+var (
+	failedRPCContractCalls = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "ocr2_failed_rpc_contract_calls",
+		Help: "Running count of failed RPC contract calls by chain/contract",
+	},
+		[]string{"chainID", "contractAddress"},
+	)
+)
 
-type OCR2AbstractConfigSet struct {
-	PreviousConfigBlockNumber uint32
-	ConfigDigest              [32]byte
-	ConfigCount               uint64
-	Signers                   []common.Address
-	Transmitters              []common.Address
-	F                         uint8
-	OnchainConfig             []byte
-	OffchainConfigVersion     uint64
-	OffchainConfig            []byte
+type LogDecoder interface {
+	EventSig() common.Hash
+	Decode(rawLog []byte) (ocrtypes.ContractConfig, error)
 }
 
-func makeConfigSetMsgArgs() abi.Arguments {
-	return []abi.Argument{
-		{
-			Name: "previousConfigBlockNumber",
-			Type: utils.MustAbiType("uint32", nil),
-		},
-		{
-			Name: "configDigest",
-			Type: utils.MustAbiType("bytes32", nil),
-		},
-		{
-			Name: "configCount",
-			Type: utils.MustAbiType("uint64", nil),
-		},
-		{
-			Name: "signers",
-			Type: utils.MustAbiType("address[]", nil),
-		},
-		{
-			Name: "transmitters",
-			Type: utils.MustAbiType("address[]", nil),
-		},
-		{
-			Name: "f",
-			Type: utils.MustAbiType("uint8", nil),
-		},
-		{
-			Name: "onchainConfig",
-			Type: utils.MustAbiType("bytes", nil),
-		},
-		{
-			Name: "offchainConfigVersion",
-			Type: utils.MustAbiType("uint64", nil),
-		},
-		{
-			Name: "offchainConfig",
-			Type: utils.MustAbiType("bytes", nil),
-		},
-	}
-}
+type configPoller struct {
+	services.StateMachine
 
-func ConfigFromLog(logData []byte) (ocrtypes.ContractConfig, error) {
-	unpacked, err := makeConfigSetMsgArgs().Unpack(logData)
-	if err != nil {
-		return ocrtypes.ContractConfig{}, err
-	}
-	if len(unpacked) != 9 {
-		return ocrtypes.ContractConfig{}, errors.Errorf("invalid number of fields, got %v", len(unpacked))
-	}
-	configDigest, ok := unpacked[1].([32]byte)
-	if !ok {
-		return ocrtypes.ContractConfig{}, errors.Errorf("invalid config digest, got %T", unpacked[1])
-	}
-	configCount, ok := unpacked[2].(uint64)
-	if !ok {
-		return ocrtypes.ContractConfig{}, errors.Errorf("invalid config count, got %T", unpacked[2])
-	}
-	signersAddresses, ok := unpacked[3].([]common.Address)
-	if !ok {
-		return ocrtypes.ContractConfig{}, errors.Errorf("invalid signers, got %T", unpacked[3])
-	}
-	transmitters, ok := unpacked[4].([]common.Address)
-	if !ok {
-		return ocrtypes.ContractConfig{}, errors.Errorf("invalid transmitters, got %T", unpacked[4])
-	}
-	f, ok := unpacked[5].(uint8)
-	if !ok {
-		return ocrtypes.ContractConfig{}, errors.Errorf("invalid f, got %T", unpacked[5])
-	}
-	onchainConfig, ok := unpacked[6].([]byte)
-	if !ok {
-		return ocrtypes.ContractConfig{}, errors.Errorf("invalid onchain config, got %T", unpacked[6])
-	}
-	offchainConfigVersion, ok := unpacked[7].(uint64)
-	if !ok {
-		return ocrtypes.ContractConfig{}, errors.Errorf("invalid config digest, got %T", unpacked[7])
-	}
-	offchainConfig, ok := unpacked[8].([]byte)
-	if !ok {
-		return ocrtypes.ContractConfig{}, errors.Errorf("invalid offchainConfig, got %T", unpacked[8])
-	}
-	var transmitAccounts []ocrtypes.Account
-	for _, addr := range transmitters {
-		transmitAccounts = append(transmitAccounts, ocrtypes.Account(addr.Hex()))
-	}
-	var signers []ocrtypes.OnchainPublicKey
-	for _, addr := range signersAddresses {
-		addr := addr
-		signers = append(signers, addr[:])
-	}
-	return ocrtypes.ContractConfig{
-		ConfigDigest:          configDigest,
-		ConfigCount:           configCount,
-		Signers:               signers,
-		Transmitters:          transmitAccounts,
-		F:                     f,
-		OnchainConfig:         onchainConfig,
-		OffchainConfigVersion: offchainConfigVersion,
-		OffchainConfig:        offchainConfig,
-	}, nil
-}
-
-type ConfigPoller struct {
 	lggr               logger.Logger
+	filterName         string
 	destChainLogPoller logpoller.LogPoller
-	addr               common.Address
+	client             client.Client
+
+	aggregatorContractAddr common.Address
+	aggregatorContract     *ocr2aggregator.OCR2Aggregator
+
+	// Some chains "manage" state bloat by deleting older logs. The ConfigStore
+	// contract allows us work around such restrictions.
+	configStoreContractAddr *common.Address
+	configStoreContract     *ocrconfigurationstoreevmsimple.OCRConfigurationStoreEVMSimple
+
+	// Depending on the exact contract used, the raw config log may be shaped
+	// in different ways
+	ld LogDecoder
 }
 
-func NewConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, addr common.Address) (*ConfigPoller, error) {
-	if err := destChainPoller.MergeFilter([]common.Hash{ConfigSet}, []common.Address{addr}); err != nil {
+func configPollerFilterName(addr common.Address) string {
+	return logpoller.FilterName("OCR2ConfigPoller", addr.String())
+}
+
+type CPConfig struct {
+	Client                    client.Client
+	DestinationChainPoller    logpoller.LogPoller
+	AggregatorContractAddress common.Address
+	ConfigStoreAddress        *common.Address
+	LogDecoder                LogDecoder
+}
+
+func NewConfigPoller(lggr logger.Logger, cfg CPConfig) (evmRelayTypes.ConfigPoller, error) {
+	return newConfigPoller(lggr, cfg.Client, cfg.DestinationChainPoller, cfg.AggregatorContractAddress, cfg.ConfigStoreAddress, cfg.LogDecoder)
+}
+
+func newConfigPoller(lggr logger.Logger, client client.Client, destChainPoller logpoller.LogPoller, aggregatorContractAddr common.Address, configStoreAddr *common.Address, ld LogDecoder) (*configPoller, error) {
+	err := destChainPoller.RegisterFilter(logpoller.Filter{Name: configPollerFilterName(aggregatorContractAddr), EventSigs: []common.Hash{ld.EventSig()}, Addresses: []common.Address{aggregatorContractAddr}})
+	if err != nil {
 		return nil, err
 	}
-	return &ConfigPoller{
-		lggr:               lggr,
-		destChainLogPoller: destChainPoller,
-		addr:               addr,
-	}, nil
+
+	aggregatorContract, err := ocr2aggregator.NewOCR2Aggregator(aggregatorContractAddr, client)
+	if err != nil {
+		return nil, err
+	}
+
+	cp := &configPoller{
+		lggr:                   lggr,
+		filterName:             configPollerFilterName(aggregatorContractAddr),
+		destChainLogPoller:     destChainPoller,
+		aggregatorContractAddr: aggregatorContractAddr,
+		client:                 client,
+		aggregatorContract:     aggregatorContract,
+		ld:                     ld,
+	}
+
+	if configStoreAddr != nil {
+		cp.configStoreContractAddr = configStoreAddr
+		cp.configStoreContract, err = ocrconfigurationstoreevmsimple.NewOCRConfigurationStoreEVMSimple(*configStoreAddr, client)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return cp, nil
 }
 
-func (lp *ConfigPoller) Notify() <-chan struct{} {
+func (cp *configPoller) Start() {}
+
+func (cp *configPoller) Close() error {
 	return nil
 }
 
-func (lp *ConfigPoller) LatestConfigDetails(ctx context.Context) (changedInBlock uint64, configDigest ocrtypes.ConfigDigest, err error) {
-	latest, err := lp.destChainLogPoller.LatestLogByEventSigWithConfs(ConfigSet, lp.addr, 0, pg.WithParentCtx(ctx))
+// Notify noop method
+func (cp *configPoller) Notify() <-chan struct{} {
+	return nil
+}
+
+// Replay abstracts the logpoller.LogPoller Replay() implementation
+func (cp *configPoller) Replay(ctx context.Context, fromBlock int64) error {
+	return cp.destChainLogPoller.Replay(ctx, fromBlock)
+}
+
+// LatestConfigDetails returns the latest config details from the logs
+func (cp *configPoller) LatestConfigDetails(ctx context.Context) (changedInBlock uint64, configDigest ocrtypes.ConfigDigest, err error) {
+	latest, err := cp.destChainLogPoller.LatestLogByEventSigWithConfs(cp.ld.EventSig(), cp.aggregatorContractAddr, 1, pg.WithParentCtx(ctx))
 	if err != nil {
-		// If contract is not configured, we will not have the log.
 		if errors.Is(err, sql.ErrNoRows) {
+			if cp.isConfigStoreAvailable() {
+				// Fallback to RPC call in case logs have been pruned and configStoreContract is available
+				return cp.callLatestConfigDetails(ctx)
+			}
+			// log not found means return zero config digest
 			return 0, ocrtypes.ConfigDigest{}, nil
 		}
 		return 0, ocrtypes.ConfigDigest{}, err
 	}
-	latestConfigSet, err := ConfigFromLog(latest.Data)
+	latestConfigSet, err := cp.ld.Decode(latest.Data)
 	if err != nil {
 		return 0, ocrtypes.ConfigDigest{}, err
 	}
 	return uint64(latest.BlockNumber), latestConfigSet.ConfigDigest, nil
 }
 
-func (lp *ConfigPoller) LatestConfig(ctx context.Context, changedInBlock uint64) (ocrtypes.ContractConfig, error) {
-	lgs, err := lp.destChainLogPoller.Logs(int64(changedInBlock), int64(changedInBlock), ConfigSet, lp.addr, pg.WithParentCtx(ctx))
+// LatestConfig returns the latest config from the logs on a certain block
+func (cp *configPoller) LatestConfig(ctx context.Context, changedInBlock uint64) (ocrtypes.ContractConfig, error) {
+	lgs, err := cp.destChainLogPoller.Logs(int64(changedInBlock), int64(changedInBlock), cp.ld.EventSig(), cp.aggregatorContractAddr, pg.WithParentCtx(ctx))
 	if err != nil {
 		return ocrtypes.ContractConfig{}, err
 	}
-	latestConfigSet, err := ConfigFromLog(lgs[len(lgs)-1].Data)
+	if len(lgs) == 0 {
+		if cp.isConfigStoreAvailable() {
+			// Fallback to RPC call in case logs have been pruned
+			return cp.callReadConfigFromStore(ctx)
+		}
+		return ocrtypes.ContractConfig{}, fmt.Errorf("no logs found for config on contract %s (chain %s) at block %d", cp.aggregatorContractAddr.Hex(), cp.client.ConfiguredChainID().String(), changedInBlock)
+	}
+	latestConfigSet, err := cp.ld.Decode(lgs[len(lgs)-1].Data)
 	if err != nil {
 		return ocrtypes.ContractConfig{}, err
 	}
-	lp.lggr.Infof("LatestConfig %+v\n", latestConfigSet)
+	cp.lggr.Infow("LatestConfig", "latestConfig", latestConfigSet)
 	return latestConfigSet, nil
 }
 
-func (lp *ConfigPoller) LatestBlockHeight(ctx context.Context) (blockHeight uint64, err error) {
-	latest, err := lp.destChainLogPoller.LatestBlock(pg.WithParentCtx(ctx))
+// LatestBlockHeight returns the latest block height from the logs
+func (cp *configPoller) LatestBlockHeight(ctx context.Context) (blockHeight uint64, err error) {
+	latest, err := cp.destChainLogPoller.LatestBlock(pg.WithParentCtx(ctx))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return 0, nil
 		}
 		return 0, err
 	}
-	return uint64(latest), nil
+	return uint64(latest.BlockNumber), nil
+}
+
+func (cp *configPoller) isConfigStoreAvailable() bool {
+	return cp.configStoreContract != nil
+}
+
+// RPC call for latest config details
+func (cp *configPoller) callLatestConfigDetails(ctx context.Context) (changedInBlock uint64, configDigest ocrtypes.ConfigDigest, err error) {
+	details, err := cp.aggregatorContract.LatestConfigDetails(&bind.CallOpts{
+		Context: ctx,
+	})
+	if err != nil {
+		failedRPCContractCalls.WithLabelValues(cp.client.ConfiguredChainID().String(), cp.aggregatorContractAddr.Hex()).Inc()
+	}
+	return uint64(details.BlockNumber), details.ConfigDigest, err
+}
+
+// RPC call to read config from config store contract
+func (cp *configPoller) callReadConfigFromStore(ctx context.Context) (cfg ocrtypes.ContractConfig, err error) {
+	_, configDigest, err := cp.LatestConfigDetails(ctx)
+	if err != nil {
+		failedRPCContractCalls.WithLabelValues(cp.client.ConfiguredChainID().String(), cp.aggregatorContractAddr.Hex()).Inc()
+		return cfg, fmt.Errorf("failed to get latest config details: %w", err)
+	}
+	if configDigest == (ocrtypes.ConfigDigest{}) {
+		return cfg, fmt.Errorf("config details missing while trying to lookup config in store; no logs found for contract %s (chain %s)", cp.aggregatorContractAddr.Hex(), cp.client.ConfiguredChainID().String())
+	}
+
+	storedConfig, err := cp.configStoreContract.ReadConfig(&bind.CallOpts{
+		Context: ctx,
+	}, configDigest)
+	if err != nil {
+		failedRPCContractCalls.WithLabelValues(cp.client.ConfiguredChainID().String(), cp.configStoreContractAddr.Hex()).Inc()
+		return cfg, fmt.Errorf("failed to read config from config store contract: %w", err)
+	}
+
+	signers := make([]ocrtypes.OnchainPublicKey, len(storedConfig.Signers))
+	for i := range signers {
+		signers[i] = storedConfig.Signers[i].Bytes()
+	}
+	transmitters := make([]ocrtypes.Account, len(storedConfig.Transmitters))
+	for i := range transmitters {
+		transmitters[i] = ocrtypes.Account(storedConfig.Transmitters[i].Hex())
+	}
+
+	return ocrtypes.ContractConfig{
+		ConfigDigest:          configDigest,
+		ConfigCount:           uint64(storedConfig.ConfigCount),
+		Signers:               signers,
+		Transmitters:          transmitters,
+		F:                     storedConfig.F,
+		OnchainConfig:         storedConfig.OnchainConfig,
+		OffchainConfigVersion: storedConfig.OffchainConfigVersion,
+		OffchainConfig:        storedConfig.OffchainConfig,
+	}, err
 }

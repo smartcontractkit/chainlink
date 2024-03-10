@@ -1,25 +1,30 @@
 package keeper
 
 import (
-	"github.com/pkg/errors"
-	"github.com/smartcontractkit/sqlx"
+	"context"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/pkg/errors"
+
+	"github.com/jmoiron/sqlx"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
 // To make sure Delegate struct implements job.Delegate interface
 var _ job.Delegate = (*Delegate)(nil)
 
 type Delegate struct {
-	logger   logger.Logger
-	db       *sqlx.DB
-	jrm      job.ORM
-	pr       pipeline.Runner
-	chainSet evm.ChainSet
+	logger       logger.Logger
+	db           *sqlx.DB
+	jrm          job.ORM
+	pr           pipeline.Runner
+	legacyChains legacyevm.LegacyChainContainer
+	mailMon      *mailbox.Monitor
 }
 
 // NewDelegate is the constructor of Delegate
@@ -28,14 +33,16 @@ func NewDelegate(
 	jrm job.ORM,
 	pr pipeline.Runner,
 	logger logger.Logger,
-	chainSet evm.ChainSet,
+	legacyChains legacyevm.LegacyChainContainer,
+	mailMon *mailbox.Monitor,
 ) *Delegate {
 	return &Delegate{
-		logger:   logger,
-		db:       db,
-		jrm:      jrm,
-		pr:       pr,
-		chainSet: chainSet,
+		logger:       logger,
+		db:           db,
+		jrm:          jrm,
+		pr:           pr,
+		legacyChains: legacyChains,
+		mailMon:      mailMon,
 	}
 }
 
@@ -44,23 +51,22 @@ func (d *Delegate) JobType() job.Type {
 	return job.Keeper
 }
 
-func (Delegate) AfterJobCreated(spec job.Job) {}
-
-func (Delegate) BeforeJobDeleted(spec job.Job) {}
+func (d *Delegate) BeforeJobCreated(spec job.Job)                {}
+func (d *Delegate) AfterJobCreated(spec job.Job)                 {}
+func (d *Delegate) BeforeJobDeleted(spec job.Job)                {}
+func (d *Delegate) OnDeleteJob(spec job.Job, q pg.Queryer) error { return nil }
 
 // ServicesForSpec satisfies the job.Delegate interface.
-func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.ServiceCtx, err error) {
+func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services []job.ServiceCtx, err error) {
 	if spec.KeeperSpec == nil {
 		return nil, errors.Errorf("Delegate expects a *job.KeeperSpec to be present, got %v", spec)
 	}
-	chain, err := d.chainSet.Get(spec.KeeperSpec.EVMChainID.ToInt())
+	chain, err := d.legacyChains.Get(spec.KeeperSpec.EVMChainID.String())
 	if err != nil {
 		return nil, err
 	}
 	registryAddress := spec.KeeperSpec.ContractAddress
-
-	strategy := txmgr.NewQueueingTxStrategy(spec.ExternalJobID, chain.Config().KeeperDefaultTransactionQueueDepth())
-	orm := NewORM(d.db, d.logger, chain.Config(), strategy)
+	orm := NewORM(d.db, d.logger, chain.Config().Database())
 	svcLogger := d.logger.With(
 		"jobID", spec.ID,
 		"registryAddress", registryAddress.Hex(),
@@ -72,7 +78,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.ServiceCtx, err
 	}
 	svcLogger.Info("Registry version is: ", registryWrapper.Version)
 
-	minIncomingConfirmations := chain.Config().MinIncomingConfirmations()
+	minIncomingConfirmations := chain.Config().EVM().MinIncomingConfirmations()
 	if spec.KeeperSpec.MinIncomingConfirmations != nil {
 		minIncomingConfirmations = *spec.KeeperSpec.MinIncomingConfirmations
 	}
@@ -89,18 +95,20 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.ServiceCtx, err
 		}
 	}
 
+	keeper := chain.Config().Keeper()
+	registry := keeper.Registry()
 	registrySynchronizer := NewRegistrySynchronizer(RegistrySynchronizerOptions{
 		Job:                      spec,
 		RegistryWrapper:          *registryWrapper,
 		ORM:                      orm,
 		JRM:                      d.jrm,
 		LogBroadcaster:           chain.LogBroadcaster(),
-		SyncInterval:             chain.Config().KeeperRegistrySyncInterval(),
+		MailMon:                  d.mailMon,
+		SyncInterval:             registry.SyncInterval(),
 		MinIncomingConfirmations: minIncomingConfirmations,
 		Logger:                   svcLogger,
-		SyncUpkeepQueueSize:      chain.Config().KeeperRegistrySyncUpkeepQueueSize(),
+		SyncUpkeepQueueSize:      registry.SyncUpkeepQueueSize(),
 		EffectiveKeeperAddress:   effectiveKeeperAddress,
-		newTurnEnabled:           chain.Config().KeeperTurnFlagEnabled(),
 	})
 	upkeepExecuter := NewUpkeepExecuter(
 		spec,
@@ -108,9 +116,9 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.ServiceCtx, err
 		d.pr,
 		chain.Client(),
 		chain.HeadBroadcaster(),
-		chain.TxManager().GetGasEstimator(),
+		chain.GasEstimator(),
 		svcLogger,
-		chain.Config(),
+		chain.Config().Keeper(),
 		effectiveKeeperAddress,
 	)
 

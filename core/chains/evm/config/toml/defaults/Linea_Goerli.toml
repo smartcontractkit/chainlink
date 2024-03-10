@@ -1,0 +1,12 @@
+ChainID = '59140'
+# Block time 12s, finality < 3m
+FinalityDepth = 15
+# Blocks are only emitted when a transaction happens / no empty blocks
+NoNewHeadsThreshold = '0'
+
+[GasEstimator]
+BumpPercent = 40
+
+[Transactions]
+# increase resend time to align with finality
+ResendAfterThreshold = '3m'

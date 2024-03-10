@@ -2,6 +2,9 @@ package testutils
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/rand"
+	"encoding/base64"
 	"flag"
 	"fmt"
 	"math"
@@ -19,16 +22,17 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
-	uuid "github.com/satori/go.uuid"
-	"github.com/smartcontractkit/sqlx"
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap/zaptest/observer"
+
+	"github.com/jmoiron/sqlx"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	// NOTE: To avoid circular dependencies, this package MUST NOT import
-	// anything from "github.com/smartcontractkit/chainlink/core"
+	// anything from "github.com/smartcontractkit/chainlink/v2/core"
 )
 
 const (
@@ -46,7 +50,7 @@ var SimulatedChainID = big.NewInt(1337)
 
 // MustNewSimTransactor returns a transactor for interacting with the
 // geth simulated backend.
-func MustNewSimTransactor(t *testing.T) *bind.TransactOpts {
+func MustNewSimTransactor(t testing.TB) *bind.TransactOpts {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err)
 	transactor, err := bind.NewKeyedTransactorWithChainID(key, SimulatedChainID)
@@ -64,6 +68,19 @@ func NewAddressPtr() *common.Address {
 	return &a
 }
 
+// NewPrivateKeyAndAddress returns a new private key and the corresponding address
+func NewPrivateKeyAndAddress(t testing.TB) (*ecdsa.PrivateKey, common.Address) {
+	privateKey, err := crypto.GenerateKey()
+	require.NoError(t, err)
+
+	publicKey := privateKey.Public()
+	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
+	require.True(t, ok)
+
+	address := crypto.PubkeyToAddress(*publicKeyECDSA)
+	return privateKey, address
+}
+
 // NewRandomPositiveInt64 returns a (non-cryptographically secure) random positive int64
 func NewRandomPositiveInt64() int64 {
 	id := mrand.Int63()
@@ -79,7 +96,10 @@ func NewRandomEVMChainID() *big.Int {
 
 func randomBytes(n int) []byte {
 	b := make([]byte, n)
-	_, _ = mrand.Read(b) // Assignment for errcheck. Only used in tests so we can ignore.
+	_, err := rand.Read(b)
+	if err != nil {
+		panic(err)
+	}
 	return b
 }
 
@@ -91,7 +111,7 @@ func Random32Byte() (b [32]byte) {
 
 // RandomizeName appends a random UUID to the provided name
 func RandomizeName(n string) string {
-	id := uuid.NewV4().String()
+	id := uuid.New().String()
 	return n + id
 }
 
@@ -149,7 +169,16 @@ func MustParseBigInt(t *testing.T, input string) *big.Int {
 
 // JSONRPCHandler is called with the method and request param(s).
 // respResult will be sent immediately. notifyResult is optional, and sent after a short delay.
-type JSONRPCHandler func(reqMethod string, reqParams gjson.Result) (respResult, notifyResult string)
+type JSONRPCHandler func(reqMethod string, reqParams gjson.Result) JSONRPCResponse
+
+type JSONRPCResponse struct {
+	Result, Notify string // raw JSON (i.e. quoted strings etc.)
+
+	Error struct {
+		Code    int
+		Message string
+	}
+}
 
 type testWSServer struct {
 	t       *testing.T
@@ -208,6 +237,9 @@ func (ts *testWSServer) MustWriteBinaryMessageSync(t *testing.T, msg string) {
 }
 
 func (ts *testWSServer) newWSHandler(chainID *big.Int, callback JSONRPCHandler) (handler http.HandlerFunc) {
+	if callback == nil {
+		callback = func(method string, params gjson.Result) (resp JSONRPCResponse) { return }
+	}
 	t := ts.t
 	upgrader := websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool { return true },
@@ -246,8 +278,8 @@ func (ts *testWSServer) newWSHandler(chainID *big.Int, callback JSONRPCHandler) 
 				return
 			}
 			if e := req.Get("error"); e.Exists() {
-				ts.t.Logf("Received jsonrpc error message: %v", e)
-				break
+				ts.t.Logf("Received jsonrpc error: %v", e)
+				continue
 			}
 			m := req.Get("method")
 			if m.Type != gjson.String {
@@ -255,14 +287,21 @@ func (ts *testWSServer) newWSHandler(chainID *big.Int, callback JSONRPCHandler) 
 				return
 			}
 
-			var resp, notify string
+			var resp JSONRPCResponse
 			if chainID != nil && m.String() == "eth_chainId" {
-				resp = `"0x` + chainID.Text(16) + `"`
+				resp.Result = `"0x` + chainID.Text(16) + `"`
+			} else if m.String() == "eth_syncing" {
+				resp.Result = "false"
 			} else {
-				resp, notify = callback(m.String(), req.Get("params"))
+				resp = callback(m.String(), req.Get("params"))
 			}
 			id := req.Get("id")
-			msg := fmt.Sprintf(`{"jsonrpc":"2.0","id":%s,"result":%s}`, id, resp)
+			var msg string
+			if resp.Error.Message != "" {
+				msg = fmt.Sprintf(`{"jsonrpc":"2.0","id":%s,"error":{"code":%d,"message":"%s"}}`, id, resp.Error.Code, resp.Error.Message)
+			} else {
+				msg = fmt.Sprintf(`{"jsonrpc":"2.0","id":%s,"result":%s}`, id, resp.Result)
+			}
 			ts.t.Logf("Sending message: %v", msg)
 			ts.mu.Lock()
 			err = conn.WriteMessage(websocket.BinaryMessage, []byte(msg))
@@ -272,9 +311,9 @@ func (ts *testWSServer) newWSHandler(chainID *big.Int, callback JSONRPCHandler) 
 				return
 			}
 
-			if notify != "" {
+			if resp.Notify != "" {
 				time.Sleep(100 * time.Millisecond)
-				msg := fmt.Sprintf(`{"jsonrpc":"2.0","method":"eth_subscription","params":{"subscription":"0x00","result":%s}}`, notify)
+				msg := fmt.Sprintf(`{"jsonrpc":"2.0","method":"eth_subscription","params":{"subscription":"0x00","result":%s}}`, resp.Notify)
 				ts.t.Log("Sending message", msg)
 				ts.mu.Lock()
 				err = conn.WriteMessage(websocket.BinaryMessage, []byte(msg))
@@ -313,7 +352,7 @@ func IntToHex(n int) string {
 
 // TestInterval is just a sensible poll interval that gives fast tests without
 // risk of spamming
-const TestInterval = 10 * time.Millisecond
+const TestInterval = 100 * time.Millisecond
 
 // AssertEventually waits for f to return true
 func AssertEventually(t *testing.T, f func() bool) {
@@ -354,8 +393,8 @@ func WaitForLogMessage(t *testing.T, observedLogs *observer.ObservedLogs, msg st
 // WaitForLogMessageCount waits until at least count log message containing the
 // specified msg is emitted
 func WaitForLogMessageCount(t *testing.T, observedLogs *observer.ObservedLogs, msg string, count int) {
-	i := 0
 	AssertEventually(t, func() bool {
+		i := 0
 		for _, l := range observedLogs.All() {
 			if strings.Contains(l.Message, msg) {
 				i++
@@ -390,4 +429,31 @@ func AssertCount(t *testing.T, db *sqlx.DB, tableName string, expected int64) {
 
 func NewTestFlagSet() *flag.FlagSet {
 	return flag.NewFlagSet("test", flag.PanicOnError)
+}
+
+// Ptr takes pointer of anything
+func Ptr[T any](v T) *T {
+	return &v
+}
+
+func MustDecodeBase64(s string) (b []byte) {
+	var err error
+	b, err = base64.StdEncoding.DecodeString(s)
+	if err != nil {
+		panic(err)
+	}
+	return
+}
+
+func SkipFlakey(t *testing.T, ticketURL string) {
+	t.Skip("Flakey", ticketURL)
+}
+
+func MustRandBytes(n int) (b []byte) {
+	b = make([]byte, n)
+	_, err := rand.Read(b)
+	if err != nil {
+		panic(err)
+	}
+	return
 }

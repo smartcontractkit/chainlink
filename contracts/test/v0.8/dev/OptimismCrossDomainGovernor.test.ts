@@ -28,7 +28,7 @@ before(async () => {
 
   // Contract factories
   governorFactory = await ethers.getContractFactory(
-    'src/v0.8/dev/OptimismCrossDomainGovernor.sol:OptimismCrossDomainGovernor',
+    'src/v0.8/l2ep/dev/optimism/OptimismCrossDomainGovernor.sol:OptimismCrossDomainGovernor',
     owner,
   )
   greeterFactory = await ethers.getContractFactory(
@@ -36,19 +36,18 @@ before(async () => {
     owner,
   )
   multisendFactory = await ethers.getContractFactory(
-    'src/v0.8/tests/vendor/MultiSend.sol:MultiSend',
+    'src/v0.8/vendor/MultiSend.sol:MultiSend',
     owner,
   )
   crossDomainMessengerFactory = await ethers.getContractFactory(
-    'src/v0.8/tests/vendor/MockOVMCrossDomainMessenger.sol:MockOVMCrossDomainMessenger',
+    'src/v0.8/vendor/MockOVMCrossDomainMessenger.sol:MockOVMCrossDomainMessenger',
   )
 })
 
 describe('OptimismCrossDomainGovernor', () => {
   beforeEach(async () => {
-    crossDomainMessenger = await crossDomainMessengerFactory.deploy(
-      l1OwnerAddress,
-    )
+    crossDomainMessenger =
+      await crossDomainMessengerFactory.deploy(l1OwnerAddress)
     governor = await governorFactory.deploy(
       crossDomainMessenger.address,
       l1OwnerAddress,

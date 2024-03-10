@@ -5,6 +5,7 @@ echo "compiling contracts"
 CDIR="$(dirname "$0")"
 COMPILE_COMMAND="$CDIR/../../../contracts/scripts/native_solc_compile_all"
 
+
 # Only print compilation output on failure.
 OUT="$(bash -c "${COMPILE_COMMAND}" 2>&1)"
 ERR="$?"

@@ -1,0 +1,23 @@
+exec chainlink node db --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink node db - Potentially destructive commands for managing the database.
+
+USAGE:
+   chainlink node db command [command options] [arguments...]
+
+COMMANDS:
+   reset             Drop, create and migrate database. Useful for setting up the database in order to run tests or resetting the dev database. WARNING: This will ERASE ALL DATA for the specified database, referred to by CL_DATABASE_URL env variable or by the Database.URL field in a secrets TOML config.
+   preparetest       Reset database and load fixtures.
+   version           Display the current database version.
+   status            Display the current database migration status.
+   migrate           Migrate the database to the latest version.
+   rollback          Roll back the database to a previous <version>. Rolls back a single migration if no version specified.
+   create-migration  Create a new migration.
+   delete-chain      Commands for cleaning up chain specific db tables. WARNING: This will ERASE ALL chain specific data referred to by --type and --id options for the specified database, referred to by CL_DATABASE_URL env variable or by the Database.URL field in a secrets TOML config.
+
+OPTIONS:
+   --help, -h  show help
+   

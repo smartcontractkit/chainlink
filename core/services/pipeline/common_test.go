@@ -12,9 +12,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
 func TestTimeoutAttribute(t *testing.T) {
@@ -146,6 +149,7 @@ func TestUnmarshalTaskFromMap(t *testing.T) {
 		{pipeline.TaskTypeAny, &pipeline.AnyTask{}},
 		{pipeline.TaskTypeVRF, &pipeline.VRFTask{}},
 		{pipeline.TaskTypeVRFV2, &pipeline.VRFTaskV2{}},
+		{pipeline.TaskTypeVRFV2Plus, &pipeline.VRFTaskV2Plus{}},
 		{pipeline.TaskTypeEstimateGasLimit, &pipeline.EstimateGasLimitTask{}},
 		{pipeline.TaskTypeETHCall, &pipeline.ETHCallTask{}},
 		{pipeline.TaskTypeETHTx, &pipeline.ETHTxTask{}},
@@ -319,48 +323,95 @@ func TestTaskRunResult_IsPending(t *testing.T) {
 func TestSelectGasLimit(t *testing.T) {
 	t.Parallel()
 
-	gcfg := cltest.NewTestGeneralConfig(t)
-	gcfg.Overrides.GlobalEvmGasLimitDefault = null.IntFrom(999)
-	gcfg.Overrides.GlobalEvmGasLimitDRJobType = null.IntFrom(100)
-	gcfg.Overrides.GlobalEvmGasLimitVRFJobType = null.IntFrom(101)
-	gcfg.Overrides.GlobalEvmGasLimitFMJobType = null.IntFrom(102)
-	gcfg.Overrides.GlobalEvmGasLimitOCRJobType = null.IntFrom(103)
-	gcfg.Overrides.GlobalEvmGasLimitKeeperJobType = null.IntFrom(103)
+	gcfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].GasEstimator.LimitDefault = ptr(uint64(999))
+		c.EVM[0].GasEstimator.LimitJobType = toml.GasLimitJobType{
+			DR:     ptr(uint32(100)),
+			VRF:    ptr(uint32(101)),
+			FM:     ptr(uint32(102)),
+			OCR:    ptr(uint32(103)),
+			Keeper: ptr(uint32(104)),
+			OCR2:   ptr(uint32(105)),
+		}
+	})
 	cfg := evmtest.NewChainScopedConfig(t, gcfg)
 
 	t.Run("spec defined gas limit", func(t *testing.T) {
 		var specGasLimit uint32 = 1
-		gasLimit := pipeline.SelectGasLimit(cfg, pipeline.DirectRequestJobType, &specGasLimit)
-		assert.Equal(t, uint32(1), gasLimit)
+		gasLimit := pipeline.SelectGasLimit(cfg.EVM().GasEstimator(), pipeline.DirectRequestJobType, &specGasLimit)
+		assert.Equal(t, uint64(1), gasLimit)
 	})
 
 	t.Run("direct request specific gas limit", func(t *testing.T) {
-		gasLimit := pipeline.SelectGasLimit(cfg, pipeline.DirectRequestJobType, nil)
-		assert.Equal(t, uint32(gcfg.Overrides.GlobalEvmGasLimitDRJobType.Int64), gasLimit)
+		gasLimit := pipeline.SelectGasLimit(cfg.EVM().GasEstimator(), pipeline.DirectRequestJobType, nil)
+		assert.Equal(t, uint64(100), gasLimit)
 	})
 
 	t.Run("OCR specific gas limit", func(t *testing.T) {
-		gasLimit := pipeline.SelectGasLimit(cfg, pipeline.OffchainReportingJobType, nil)
-		assert.Equal(t, uint32(gcfg.Overrides.GlobalEvmGasLimitOCRJobType.Int64), gasLimit)
+		gasLimit := pipeline.SelectGasLimit(cfg.EVM().GasEstimator(), pipeline.OffchainReportingJobType, nil)
+		assert.Equal(t, uint64(103), gasLimit)
+	})
+
+	t.Run("OCR2 specific gas limit", func(t *testing.T) {
+		gasLimit := pipeline.SelectGasLimit(cfg.EVM().GasEstimator(), pipeline.OffchainReporting2JobType, nil)
+		assert.Equal(t, uint64(105), gasLimit)
 	})
 
 	t.Run("VRF specific gas limit", func(t *testing.T) {
-		gasLimit := pipeline.SelectGasLimit(cfg, pipeline.VRFJobType, nil)
-		assert.Equal(t, uint32(gcfg.Overrides.GlobalEvmGasLimitVRFJobType.Int64), gasLimit)
+		gasLimit := pipeline.SelectGasLimit(cfg.EVM().GasEstimator(), pipeline.VRFJobType, nil)
+		assert.Equal(t, uint64(101), gasLimit)
 	})
 
 	t.Run("flux monitor specific gas limit", func(t *testing.T) {
-		gasLimit := pipeline.SelectGasLimit(cfg, pipeline.FluxMonitorJobType, nil)
-		assert.Equal(t, uint32(gcfg.Overrides.GlobalEvmGasLimitFMJobType.Int64), gasLimit)
+		gasLimit := pipeline.SelectGasLimit(cfg.EVM().GasEstimator(), pipeline.FluxMonitorJobType, nil)
+		assert.Equal(t, uint64(102), gasLimit)
 	})
 
 	t.Run("keeper specific gas limit", func(t *testing.T) {
-		gasLimit := pipeline.SelectGasLimit(cfg, pipeline.KeeperJobType, nil)
-		assert.Equal(t, uint32(gcfg.Overrides.GlobalEvmGasLimitKeeperJobType.Int64), gasLimit)
+		gasLimit := pipeline.SelectGasLimit(cfg.EVM().GasEstimator(), pipeline.KeeperJobType, nil)
+		assert.Equal(t, uint64(104), gasLimit)
 	})
 
 	t.Run("fallback to default gas limit", func(t *testing.T) {
-		gasLimit := pipeline.SelectGasLimit(cfg, pipeline.WebhookJobType, nil)
-		assert.Equal(t, uint32(gcfg.Overrides.GlobalEvmGasLimitDefault.Int64), gasLimit)
+		gasLimit := pipeline.SelectGasLimit(cfg.EVM().GasEstimator(), pipeline.WebhookJobType, nil)
+		assert.Equal(t, uint64(999), gasLimit)
 	})
+}
+func TestGetNextTaskOf(t *testing.T) {
+	trrs := pipeline.TaskRunResults{
+		{
+			Task: &pipeline.BridgeTask{
+				BaseTask: pipeline.NewBaseTask(1, "t1", nil, nil, 0),
+			},
+		},
+		{
+			Task: &pipeline.HTTPTask{
+				BaseTask: pipeline.NewBaseTask(2, "t2", nil, nil, 0),
+			},
+		},
+		{
+			Task: &pipeline.ETHABIDecodeTask{
+				BaseTask: pipeline.NewBaseTask(3, "t3", nil, nil, 0),
+			},
+		},
+		{
+			Task: &pipeline.JSONParseTask{
+				BaseTask: pipeline.NewBaseTask(4, "t4", nil, nil, 0),
+			},
+		},
+	}
+
+	firstTask := trrs[0]
+	nextTask := trrs.GetNextTaskOf(firstTask)
+	assert.Equal(t, nextTask.Task.ID(), 2)
+
+	nextTask = trrs.GetNextTaskOf(*nextTask)
+	assert.Equal(t, nextTask.Task.ID(), 3)
+
+	nextTask = trrs.GetNextTaskOf(*nextTask)
+	assert.Equal(t, nextTask.Task.ID(), 4)
+
+	nextTask = trrs.GetNextTaskOf(*nextTask)
+	assert.Empty(t, nextTask)
+
 }

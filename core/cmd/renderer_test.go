@@ -2,16 +2,14 @@ package cmd_test
 
 import (
 	"bytes"
-	"io/ioutil"
-	"regexp"
+	"io"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/cmd"
-	"github.com/smartcontractkit/chainlink/core/config"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/web"
-	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
+	"github.com/smartcontractkit/chainlink/v2/core/cmd"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/web"
+	webpresenters "github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -20,7 +18,7 @@ import (
 func TestRendererJSON_RenderVRFKeys(t *testing.T) {
 	t.Parallel()
 
-	r := cmd.RendererJSON{Writer: ioutil.Discard}
+	r := cmd.RendererJSON{Writer: io.Discard}
 	keys := []cmd.VRFKeyPresenter{
 		{
 			VRFKeyResource: webpresenters.VRFKeyResource{
@@ -33,20 +31,31 @@ func TestRendererJSON_RenderVRFKeys(t *testing.T) {
 	assert.NoError(t, r.Render(&keys))
 }
 
-func TestRendererTable_RenderConfiguration(t *testing.T) {
+func TestRendererTable_RenderConfigurationV2(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationEVMDisabled(t)
+	wantUser, wantEffective := app.Config.ConfigTOML()
 	require.NoError(t, app.Start(testutils.Context(t)))
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(nil)
 
-	resp, cleanup := client.Get("/v2/config")
-	defer cleanup()
-	cp := config.ConfigPrinter{}
-	require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &cp))
+	t.Run("effective", func(t *testing.T) {
+		resp, cleanup := client.Get("/v2/config/v2")
+		t.Cleanup(cleanup)
+		var effective web.ConfigV2Resource
+		require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &effective))
 
-	r := cmd.RendererTable{Writer: ioutil.Discard}
-	assert.NoError(t, r.Render(&cp))
+		assert.Equal(t, wantEffective, effective.Config)
+	})
+
+	t.Run("user", func(t *testing.T) {
+		resp, cleanup := client.Get("/v2/config/v2?userOnly=true")
+		t.Cleanup(cleanup)
+		var user web.ConfigV2Resource
+		require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &user))
+
+		assert.Equal(t, wantUser, user.Config)
+	})
 }
 
 type testWriter struct {
@@ -95,28 +104,9 @@ func TestRendererTable_RenderExternalInitiatorAuthentication(t *testing.T) {
 	}
 }
 
-func TestRendererTable_PatchResponse(t *testing.T) {
-	t.Parallel()
-
-	buffer := bytes.NewBufferString("")
-	r := cmd.RendererTable{Writer: buffer}
-
-	patchResponse := web.ConfigPatchResponse{
-		EvmGasPriceDefault: web.Change{
-			From: "98721",
-			To:   "53276",
-		},
-	}
-
-	assert.NoError(t, r.Render(&patchResponse))
-	output := buffer.String()
-	assert.Regexp(t, regexp.MustCompile("98721"), output)
-	assert.Regexp(t, regexp.MustCompile("53276"), output)
-}
-
 func TestRendererTable_RenderUnknown(t *testing.T) {
 	t.Parallel()
-	r := cmd.RendererTable{Writer: ioutil.Discard}
+	r := cmd.RendererTable{Writer: io.Discard}
 	anon := struct{ Name string }{"Romeo"}
 	assert.Error(t, r.Render(&anon))
 }

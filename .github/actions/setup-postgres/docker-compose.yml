@@ -1,0 +1,16 @@
+name: gha_postgres
+version: "3.8"
+services:
+  postgres:
+    ports:
+      - "5432:5432"
+    container_name: cl_pg
+    image: postgres:14-alpine
+    command: postgres ${POSTGRES_OPTIONS}
+    env_file:
+      - .env
+    healthcheck:
+      test: "pg_isready -d ${POSTGRES_DB} -U ${POSTGRES_USER}"
+      interval: 2s
+      timeout: 5s
+      retries: 5

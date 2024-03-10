@@ -1,9 +1,9 @@
 package cmd
 
 import (
-	starkkey "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/keys"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/starkkey"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
 type StarkNetKeyPresenter struct {
@@ -13,7 +13,7 @@ type StarkNetKeyPresenter struct {
 
 // RenderTable implements TableRenderer
 func (p StarkNetKeyPresenter) RenderTable(rt RendererTable) error {
-	headers := []string{"ID", "Account Address", "Stark Public Key"}
+	headers := []string{"ID", "Stark Public Key"}
 	rows := [][]string{p.ToRow()}
 
 	if _, err := rt.Write([]byte("🔑 StarkNet Keys\n")); err != nil {
@@ -27,7 +27,6 @@ func (p StarkNetKeyPresenter) RenderTable(rt RendererTable) error {
 func (p *StarkNetKeyPresenter) ToRow() []string {
 	row := []string{
 		p.ID,
-		p.AccountAddr,
 		p.StarkKey,
 	}
 
@@ -38,7 +37,7 @@ type StarkNetKeyPresenters []StarkNetKeyPresenter
 
 // RenderTable implements TableRenderer
 func (ps StarkNetKeyPresenters) RenderTable(rt RendererTable) error {
-	headers := []string{"ID", "Account Address", "Stark Public Key"}
+	headers := []string{"ID", "Stark Public Key"}
 	rows := [][]string{}
 
 	for _, p := range ps {
@@ -53,6 +52,6 @@ func (ps StarkNetKeyPresenters) RenderTable(rt RendererTable) error {
 	return utils.JustError(rt.Write([]byte("\n")))
 }
 
-func NewStarkNetKeysClient(c *Client) KeysClient {
-	return newKeysClient[starkkey.Key, StarkNetKeyPresenter, StarkNetKeyPresenters]("StarkNet", c)
+func NewStarkNetKeysClient(s *Shell) KeysClient {
+	return newKeysClient[starkkey.Key, StarkNetKeyPresenter, StarkNetKeyPresenters]("StarkNet", s)
 }

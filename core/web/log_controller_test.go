@@ -10,12 +10,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
-	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/web"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/web"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
 type testCase struct {
@@ -31,22 +33,18 @@ type testCase struct {
 func TestLogController_GetLogConfig(t *testing.T) {
 	t.Parallel()
 
-	cfg := cltest.NewTestGeneralConfig(t)
-	cfg.Overrides.EVMRPCEnabled = null.BoolFrom(false)
-	logLevel := zapcore.WarnLevel
-	cfg.Overrides.LogLevel = &logLevel
-	sqlEnabled := true
-	cfg.Overrides.LogSQL = null.BoolFrom(sqlEnabled)
-	defaultLogLevel := zapcore.WarnLevel
-	cfg.Overrides.DefaultLogLevel = &defaultLogLevel
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.Log.Level = ptr(toml.LogLevel(zapcore.WarnLevel))
+		c.Database.LogQueries = ptr(true)
+	})
 
 	app := cltest.NewApplicationWithConfig(t, cfg)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(nil)
 
-	resp, err := client.HTTPClient.Get("/v2/log")
-	require.NoError(t, err)
+	resp, clean := client.Get("/v2/log")
+	t.Cleanup(clean)
 
 	svcLogConfig := presenters.ServiceLogConfigResource{}
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
@@ -57,11 +55,11 @@ func TestLogController_GetLogConfig(t *testing.T) {
 	for i, svcName := range svcLogConfig.ServiceName {
 
 		if svcName == "Global" {
-			assert.Equal(t, logLevel.String(), svcLogConfig.LogLevel[i])
+			assert.Equal(t, zapcore.WarnLevel.String(), svcLogConfig.LogLevel[i])
 		}
 
 		if svcName == "IsSqlEnabled" {
-			assert.Equal(t, strconv.FormatBool(sqlEnabled), svcLogConfig.LogLevel[i])
+			assert.Equal(t, strconv.FormatBool(true), svcLogConfig.LogLevel[i])
 		}
 	}
 }
@@ -114,7 +112,7 @@ func TestLogController_PatchLogConfig(t *testing.T) {
 		t.Run(tc.Description, func(t *testing.T) {
 			app := cltest.NewApplicationEVMDisabled(t)
 			require.NoError(t, app.Start(testutils.Context(t)))
-			client := app.NewHTTPClient(cltest.APIEmailAdmin)
+			client := app.NewHTTPClient(nil)
 
 			request := web.LogPatchRequest{Level: tc.logLevel, SqlEnabled: tc.logSql}
 

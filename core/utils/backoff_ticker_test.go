@@ -1,11 +1,11 @@
 package utils
 
 import (
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"go.uber.org/atomic"
 )
 
 func TestBackoffTicker_Bounds(t *testing.T) {
@@ -131,7 +131,7 @@ func TestBackoffTicker_Restart(t *testing.T) {
 	var newTimerCount atomic.Int32
 
 	newFakeTimer := func(d time.Duration) *time.Timer {
-		newTimerCount.Inc()
+		newTimerCount.Add(1)
 		assert.Equal(t, min, d)
 		return time.NewTimer(max)
 	}

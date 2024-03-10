@@ -1,23 +1,23 @@
 package fluxmonitorv2
 
 import (
+	"context"
 	"math/big"
 
 	"github.com/pkg/errors"
 
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/flux_aggregator_wrapper"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
 )
 
-//go:generate mockery --name ContractSubmitter --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name ContractSubmitter --output ./mocks/ --case=underscore
 
 // FluxAggregatorABI initializes the Flux Aggregator ABI
 var FluxAggregatorABI = evmtypes.MustGetABI(flux_aggregator_wrapper.FluxAggregatorABI)
 
 // ContractSubmitter defines an interface to submit an eth tx.
 type ContractSubmitter interface {
-	Submit(roundID *big.Int, submission *big.Int, qopts ...pg.QOpt) error
+	Submit(ctx context.Context, roundID *big.Int, submission *big.Int, idempotencyKey *string) error
 }
 
 // FluxAggregatorContractSubmitter submits the polled answer in an eth tx.
@@ -25,7 +25,7 @@ type FluxAggregatorContractSubmitter struct {
 	flux_aggregator_wrapper.FluxAggregatorInterface
 	orm               ORM
 	keyStore          KeyStoreInterface
-	gasLimit          uint32
+	gasLimit          uint64
 	forwardingAllowed bool
 	chainID           *big.Int
 }
@@ -35,7 +35,7 @@ func NewFluxAggregatorContractSubmitter(
 	contract flux_aggregator_wrapper.FluxAggregatorInterface,
 	orm ORM,
 	keyStore KeyStoreInterface,
-	gasLimit uint32,
+	gasLimit uint64,
 	forwardingAllowed bool,
 	chainID *big.Int,
 ) *FluxAggregatorContractSubmitter {
@@ -51,8 +51,8 @@ func NewFluxAggregatorContractSubmitter(
 
 // Submit submits the answer by writing a EthTx for the txmgr to
 // pick up
-func (c *FluxAggregatorContractSubmitter) Submit(roundID *big.Int, submission *big.Int, qopts ...pg.QOpt) error {
-	fromAddress, err := c.keyStore.GetRoundRobinAddress(c.chainID)
+func (c *FluxAggregatorContractSubmitter) Submit(ctx context.Context, roundID *big.Int, submission *big.Int, idempotencyKey *string) error {
+	fromAddress, err := c.keyStore.GetRoundRobinAddress(ctx, c.chainID)
 	if err != nil {
 		return err
 	}
@@ -63,7 +63,7 @@ func (c *FluxAggregatorContractSubmitter) Submit(roundID *big.Int, submission *b
 	}
 
 	return errors.Wrap(
-		c.orm.CreateEthTransaction(fromAddress, c.Address(), payload, c.gasLimit, qopts...),
+		c.orm.CreateEthTransaction(ctx, fromAddress, c.Address(), payload, c.gasLimit, idempotencyKey),
 		"failed to send Eth transaction",
 	)
 }

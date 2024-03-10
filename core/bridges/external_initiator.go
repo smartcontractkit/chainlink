@@ -5,11 +5,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/auth"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	pkgerrors "github.com/pkg/errors"
 
-	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/v2/core/auth"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // ExternalInitiatorRequest is the incoming record used to create an ExternalInitiator.
@@ -42,7 +42,7 @@ func NewExternalInitiator(
 	salt := utils.NewSecret(utils.DefaultSecretSize)
 	hashedSecret, err := auth.HashedSecret(eia, salt)
 	if err != nil {
-		return nil, errors.Wrap(err, "error hashing secret for external initiator")
+		return nil, pkgerrors.Wrap(err, "error hashing secret for external initiator")
 	}
 
 	return &ExternalInitiator{

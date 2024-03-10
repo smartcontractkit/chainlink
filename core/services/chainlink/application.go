@@ -3,92 +3,97 @@ package chainlink
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"math/big"
 	"net/http"
-	"reflect"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/google/uuid"
+	"github.com/grafana/pyroscope-go"
 	"github.com/pkg/errors"
-	"github.com/pyroscope-io/client/pyroscope"
-	uuid "github.com/satori/go.uuid"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
 
-	pkgsolana "github.com/smartcontractkit/chainlink-solana/pkg/solana"
-	starknetrelay "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink"
-	pkgterra "github.com/smartcontractkit/chainlink-terra/pkg/terra"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
+	"github.com/smartcontractkit/chainlink/v2/core/static"
 
-	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
-
-	"github.com/smartcontractkit/chainlink/core/bridges"
-	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/chains/solana"
-	"github.com/smartcontractkit/chainlink/core/chains/starknet"
-	"github.com/smartcontractkit/chainlink/core/chains/terra"
-	"github.com/smartcontractkit/chainlink/core/config"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/services/blockhashstore"
-	"github.com/smartcontractkit/chainlink/core/services/cron"
-	"github.com/smartcontractkit/chainlink/core/services/directrequest"
-	"github.com/smartcontractkit/chainlink/core/services/feeds"
-	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/keeper"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/ocr"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2"
-	"github.com/smartcontractkit/chainlink/core/services/ocrbootstrap"
-	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
-	"github.com/smartcontractkit/chainlink/core/services/periodicbackup"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/promreporter"
-	"github.com/smartcontractkit/chainlink/core/services/relay"
-	evmrelay "github.com/smartcontractkit/chainlink/core/services/relay/evm"
-	"github.com/smartcontractkit/chainlink/core/services/synchronization"
-	"github.com/smartcontractkit/chainlink/core/services/telemetry"
-	"github.com/smartcontractkit/chainlink/core/services/vrf"
-	"github.com/smartcontractkit/chainlink/core/services/webhook"
-	"github.com/smartcontractkit/chainlink/core/sessions"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/build"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
+	"github.com/smartcontractkit/chainlink/v2/core/services"
+	"github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/blockheaderfeeder"
+	"github.com/smartcontractkit/chainlink/v2/core/services/cron"
+	"github.com/smartcontractkit/chainlink/v2/core/services/directrequest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
+	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
+	"github.com/smartcontractkit/chainlink/v2/core/services/periodicbackup"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/promreporter"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
+	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
+	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
+	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
+	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
+	"github.com/smartcontractkit/chainlink/v2/core/sessions"
+	"github.com/smartcontractkit/chainlink/v2/core/sessions/ldapauth"
+	"github.com/smartcontractkit/chainlink/v2/core/sessions/localauth"
+	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
-//go:generate mockery --name Application --output ../../internal/mocks/ --case=underscore
-
 // Application implements the common functions used in the core node.
+//
+//go:generate mockery --quiet --name Application --output ../../internal/mocks/ --case=underscore
 type Application interface {
 	Start(ctx context.Context) error
 	Stop() error
-	GetLogger() logger.Logger
+	GetLogger() logger.SugaredLogger
+	GetAuditLogger() audit.AuditLogger
 	GetHealthChecker() services.Checker
 	GetSqlxDB() *sqlx.DB
-	GetConfig() config.GeneralConfig
-	// ConfigDump returns a TOML configuration from the current environment and database configuration.
-	ConfigDump(context.Context) (string, error)
+	GetConfig() GeneralConfig
 	SetLogLevel(lvl zapcore.Level) error
 	GetKeyStore() keystore.Master
-	GetEventBroadcaster() pg.EventBroadcaster
 	WakeSessionReaper()
 	GetWebAuthnConfiguration() sessions.WebAuthnConfiguration
 
 	GetExternalInitiatorManager() webhook.ExternalInitiatorManager
-	GetChains() Chains
+	GetRelayers() RelayerChainInteroperators
+	GetLoopRegistry() *plugins.LoopRegistry
 
 	// V2 Jobs (TOML specified)
 	JobSpawner() job.Spawner
 	JobORM() job.ORM
-	EVMORM() evmtypes.ORM
+	EVMORM() evmtypes.Configs
 	PipelineORM() pipeline.ORM
 	BridgeORM() bridges.ORM
-	SessionORM() sessions.ORM
-	TxmORM() txmgr.ORM
+	BasicAdminUsersORM() sessions.BasicAdminUsersORM
+	AuthenticationProvider() sessions.AuthenticationProvider
+	TxmStorageService() txmgr.EvmTxStore
 	AddJobV2(ctx context.Context, job *job.Job) error
 	DeleteJob(ctx context.Context, jobID int32) error
 	RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta pipeline.JSONSerializable) (int64, error)
@@ -113,73 +118,54 @@ type Application interface {
 // and Store. The JobSubscriber and Scheduler are also available
 // in the services package, but the Store has its own package.
 type ChainlinkApplication struct {
-	Chains                   Chains
-	EventBroadcaster         pg.EventBroadcaster
+	relayers                 *CoreRelayerChainInteroperators
 	jobORM                   job.ORM
 	jobSpawner               job.Spawner
 	pipelineORM              pipeline.ORM
 	pipelineRunner           pipeline.Runner
 	bridgeORM                bridges.ORM
-	sessionORM               sessions.ORM
-	txmORM                   txmgr.ORM
+	localAdminUsersORM       sessions.BasicAdminUsersORM
+	authenticationProvider   sessions.AuthenticationProvider
+	txmStorageService        txmgr.EvmTxStore
 	FeedsService             feeds.Service
 	webhookJobRunner         webhook.JobRunner
-	Config                   config.GeneralConfig
+	Config                   GeneralConfig
 	KeyStore                 keystore.Master
 	ExternalInitiatorManager webhook.ExternalInitiatorManager
-	SessionReaper            utils.SleeperTask
+	SessionReaper            *utils.SleeperTask
 	shutdownOnce             sync.Once
-	explorerClient           synchronization.ExplorerClient
 	srvcs                    []services.ServiceCtx
 	HealthChecker            services.Checker
 	Nurse                    *services.Nurse
-	logger                   logger.Logger
+	logger                   logger.SugaredLogger
+	AuditLogger              audit.AuditLogger
 	closeLogger              func() error
 	sqlxDB                   *sqlx.DB
 	secretGenerator          SecretGenerator
 	profiler                 *pyroscope.Profiler
+	loopRegistry             *plugins.LoopRegistry
 
 	started     bool
 	startStopMu sync.Mutex
 }
 
 type ApplicationOpts struct {
-	Config                   config.GeneralConfig
-	EventBroadcaster         pg.EventBroadcaster
-	SqlxDB                   *sqlx.DB
-	KeyStore                 keystore.Master
-	Chains                   Chains
-	Logger                   logger.Logger
-	CloseLogger              func() error
-	ExternalInitiatorManager webhook.ExternalInitiatorManager
-	Version                  string
-	RestrictedHTTPClient     *http.Client
-	UnrestrictedHTTPClient   *http.Client
-	SecretGenerator          SecretGenerator
-}
-
-// Chains holds a ChainSet for each type of chain.
-type Chains struct {
-	EVM      evm.ChainSet
-	Solana   solana.ChainSet   // nil if disabled
-	Terra    terra.ChainSet    // nil if disabled
-	StarkNet starknet.ChainSet // nil if disabled
-}
-
-func (c *Chains) services() (s []services.ServiceCtx) {
-	if c.EVM != nil {
-		s = append(s, c.EVM)
-	}
-	if c.Solana != nil {
-		s = append(s, c.Solana)
-	}
-	if c.Terra != nil {
-		s = append(s, c.Terra)
-	}
-	if c.StarkNet != nil {
-		s = append(s, c.StarkNet)
-	}
-	return
+	Config                     GeneralConfig
+	Logger                     logger.Logger
+	MailMon                    *mailbox.Monitor
+	SqlxDB                     *sqlx.DB
+	KeyStore                   keystore.Master
+	RelayerChainInteroperators *CoreRelayerChainInteroperators
+	AuditLogger                audit.AuditLogger
+	CloseLogger                func() error
+	ExternalInitiatorManager   webhook.ExternalInitiatorManager
+	Version                    string
+	RestrictedHTTPClient       *http.Client
+	UnrestrictedHTTPClient     *http.Client
+	SecretGenerator            SecretGenerator
+	LoopRegistry               *plugins.LoopRegistry
+	GRPCOpts                   loop.GRPCOpts
+	MercuryPool                wsrpc.Pool
 }
 
 // NewApplication initializes a new store if one is not already
@@ -189,21 +175,37 @@ func (c *Chains) services() (s []services.ServiceCtx) {
 // TODO: Inject more dependencies here to save booting up useless stuff in tests
 func NewApplication(opts ApplicationOpts) (Application, error) {
 	var srvcs []services.ServiceCtx
+	auditLogger := opts.AuditLogger
 	db := opts.SqlxDB
 	cfg := opts.Config
-	keyStore := opts.KeyStore
-	chains := opts.Chains
-	globalLogger := opts.Logger
-	eventBroadcaster := opts.EventBroadcaster
+	relayerChainInterops := opts.RelayerChainInteroperators
+	mailMon := opts.MailMon
 	externalInitiatorManager := opts.ExternalInitiatorManager
+	globalLogger := logger.Sugared(opts.Logger)
+	keyStore := opts.KeyStore
 	restrictedHTTPClient := opts.RestrictedHTTPClient
 	unrestrictedHTTPClient := opts.UnrestrictedHTTPClient
+	registry := capabilities.NewRegistry(globalLogger)
+
+	// LOOPs can be created as options, in the  case of LOOP relayers, or
+	// as OCR2 job implementations, in the case of Median today.
+	// We will have a non-nil registry here in LOOP relayers are being used, otherwise
+	// we need to initialize in case we serve OCR2 LOOPs
+	loopRegistry := opts.LoopRegistry
+	if loopRegistry == nil {
+		loopRegistry = plugins.NewLoopRegistry(globalLogger, opts.Config.Tracing())
+	}
+
+	// If the audit logger is enabled
+	if auditLogger.Ready() == nil {
+		srvcs = append(srvcs, auditLogger)
+	}
 
 	var profiler *pyroscope.Profiler
-	if cfg.PyroscopeServerAddress() != "" {
+	if cfg.Pyroscope().ServerAddress() != "" {
 		globalLogger.Debug("Pyroscope (automatic pprof profiling) is enabled")
 		var err error
-		profiler, err = logger.StartPyroscope(cfg)
+		profiler, err = logger.StartPyroscope(cfg.Pyroscope(), cfg.AutoPprof())
 		if err != nil {
 			return nil, errors.Wrap(err, "starting pyroscope (automatic pprof profiling) failed")
 		}
@@ -211,10 +213,11 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		globalLogger.Debug("Pyroscope (automatic pprof profiling) is disabled")
 	}
 
+	ap := cfg.AutoPprof()
 	var nurse *services.Nurse
-	if cfg.AutoPprofEnabled() {
+	if ap.Enabled() {
 		globalLogger.Info("Nurse service (automatic pprof profiling) is enabled")
-		nurse = services.NewNurse(cfg, globalLogger)
+		nurse = services.NewNurse(ap, globalLogger)
 		err := nurse.Start()
 		if err != nil {
 			return nil, err
@@ -223,67 +226,83 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		globalLogger.Info("Nurse service (automatic pprof profiling) is disabled")
 	}
 
-	healthChecker := services.NewChecker()
+	telemetryManager := telemetry.NewManager(cfg.TelemetryIngress(), keyStore.CSA(), globalLogger)
+	srvcs = append(srvcs, telemetryManager)
 
-	telemetryIngressClient := synchronization.TelemetryIngressClient(&synchronization.NoopTelemetryIngressClient{})
-	telemetryIngressBatchClient := synchronization.TelemetryIngressBatchClient(&synchronization.NoopTelemetryIngressBatchClient{})
-	explorerClient := synchronization.ExplorerClient(&synchronization.NoopExplorerClient{})
-	monitoringEndpointGen := telemetry.MonitoringEndpointGenerator(&telemetry.NoopAgent{})
+	backupCfg := cfg.Database().Backup()
+	if backupCfg.Mode() != config.DatabaseBackupModeNone && backupCfg.Frequency() > 0 {
+		globalLogger.Infow("DatabaseBackup: periodic database backups are enabled", "frequency", backupCfg.Frequency())
 
-	if cfg.ExplorerURL() != nil && cfg.TelemetryIngressURL() != nil {
-		globalLogger.Warn("Both EXPLORER_URL and TELEMETRY_INGRESS_URL are set, defaulting to Explorer")
-	}
-
-	if cfg.ExplorerURL() != nil {
-		explorerClient = synchronization.NewExplorerClient(cfg.ExplorerURL(), cfg.ExplorerAccessKey(), cfg.ExplorerSecret(), globalLogger)
-		monitoringEndpointGen = telemetry.NewExplorerAgent(explorerClient)
-	}
-
-	// Use Explorer over TelemetryIngress if both URLs are set
-	if cfg.ExplorerURL() == nil && cfg.TelemetryIngressURL() != nil {
-		if cfg.TelemetryIngressUseBatchSend() {
-			telemetryIngressBatchClient = synchronization.NewTelemetryIngressBatchClient(cfg.TelemetryIngressURL(),
-				cfg.TelemetryIngressServerPubKey(), keyStore.CSA(), cfg.TelemetryIngressLogging(), globalLogger, cfg.TelemetryIngressBufferSize(), cfg.TelemetryIngressMaxBatchSize(), cfg.TelemetryIngressSendInterval(), cfg.TelemetryIngressSendTimeout(), cfg.TelemetryIngressUniConn())
-			monitoringEndpointGen = telemetry.NewIngressAgentBatchWrapper(telemetryIngressBatchClient)
-
-		} else {
-			telemetryIngressClient = synchronization.NewTelemetryIngressClient(cfg.TelemetryIngressURL(),
-				cfg.TelemetryIngressServerPubKey(), keyStore.CSA(), cfg.TelemetryIngressLogging(), globalLogger)
-			monitoringEndpointGen = telemetry.NewIngressAgentWrapper(telemetryIngressClient)
-		}
-	}
-	srvcs = append(srvcs, explorerClient, telemetryIngressClient, telemetryIngressBatchClient)
-
-	if cfg.DatabaseBackupMode() != config.DatabaseBackupModeNone && cfg.DatabaseBackupFrequency() > 0 {
-		globalLogger.Infow("DatabaseBackup: periodic database backups are enabled", "frequency", cfg.DatabaseBackupFrequency())
-
-		databaseBackup, err := periodicbackup.NewDatabaseBackup(cfg, globalLogger)
+		databaseBackup, err := periodicbackup.NewDatabaseBackup(cfg.Database().URL(), cfg.RootDir(), backupCfg, globalLogger)
 		if err != nil {
 			return nil, errors.Wrap(err, "NewApplication: failed to initialize database backup")
 		}
 		srvcs = append(srvcs, databaseBackup)
 	} else {
-		globalLogger.Info("DatabaseBackup: periodic database backups are disabled. To enable automatic backups, set DATABASE_BACKUP_MODE=lite or DATABASE_BACKUP_MODE=full")
+		globalLogger.Info("DatabaseBackup: periodic database backups are disabled. To enable automatic backups, set Database.Backup.Mode=lite or Database.Backup.Mode=full")
 	}
 
-	srvcs = append(srvcs, eventBroadcaster)
-	srvcs = append(srvcs, chains.services()...)
-	promReporter := promreporter.NewPromReporter(db.DB, globalLogger)
+	// pool must be started before all relayers and stopped after them
+	if opts.MercuryPool != nil {
+		srvcs = append(srvcs, opts.MercuryPool)
+	}
+
+	// EVM chains are used all over the place. This will need to change for fully EVM extraction
+	// TODO: BCF-2510, BCF-2511
+
+	legacyEVMChains := relayerChainInterops.LegacyEVMChains()
+	if legacyEVMChains == nil {
+		return nil, fmt.Errorf("no evm chains found")
+	}
+
+	srvcs = append(srvcs, mailMon)
+	srvcs = append(srvcs, relayerChainInterops.Services()...)
+	promReporter := promreporter.NewPromReporter(db.DB, legacyEVMChains, globalLogger)
 	srvcs = append(srvcs, promReporter)
 
+	// Initialize Local Users ORM and Authentication Provider specified in config
+	// BasicAdminUsersORM is initialized and required regardless of separate Authentication Provider
+	localAdminUsersORM := localauth.NewORM(db, cfg.WebServer().SessionTimeout().Duration(), globalLogger, cfg.Database(), auditLogger)
+
+	// Initialize Sessions ORM based on environment configured authenticator
+	// localDB auth or remote LDAP auth
+	authMethod := cfg.WebServer().AuthenticationMethod()
+	var authenticationProvider sessions.AuthenticationProvider
+	var sessionReaper *utils.SleeperTask
+
+	switch sessions.AuthenticationProviderName(authMethod) {
+	case sessions.LDAPAuth:
+		var err error
+		authenticationProvider, err = ldapauth.NewLDAPAuthenticator(
+			db, cfg.Database(), cfg.WebServer().LDAP(), cfg.Insecure().DevWebServer(), globalLogger, auditLogger,
+		)
+		if err != nil {
+			return nil, errors.Wrap(err, "NewApplication: failed to initialize LDAP Authentication module")
+		}
+		sessionReaper = ldapauth.NewLDAPServerStateSync(db, cfg.Database(), cfg.WebServer().LDAP(), globalLogger)
+	case sessions.LocalAuth:
+		authenticationProvider = localauth.NewORM(db, cfg.WebServer().SessionTimeout().Duration(), globalLogger, cfg.Database(), auditLogger)
+		sessionReaper = localauth.NewSessionReaper(db.DB, cfg.WebServer(), globalLogger)
+	default:
+		return nil, errors.Errorf("NewApplication: Unexpected 'AuthenticationMethod': %s supported values: %s, %s", authMethod, sessions.LocalAuth, sessions.LDAPAuth)
+	}
+
 	var (
-		pipelineORM    = pipeline.NewORM(db, globalLogger, cfg)
-		bridgeORM      = bridges.NewORM(db, globalLogger, cfg)
-		sessionORM     = sessions.NewORM(db, cfg.SessionTimeout().Duration(), globalLogger, cfg)
-		pipelineRunner = pipeline.NewRunner(pipelineORM, cfg, chains.EVM, keyStore.Eth(), keyStore.VRF(), globalLogger, restrictedHTTPClient, unrestrictedHTTPClient)
-		jobORM         = job.NewORM(db, chains.EVM, pipelineORM, keyStore, globalLogger, cfg)
-		txmORM         = txmgr.NewORM(db, globalLogger, cfg)
+		pipelineORM    = pipeline.NewORM(db, globalLogger, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
+		bridgeORM      = bridges.NewORM(db, globalLogger, cfg.Database())
+		mercuryORM     = mercury.NewORM(db, globalLogger, cfg.Database())
+		pipelineRunner = pipeline.NewRunner(pipelineORM, bridgeORM, cfg.JobPipeline(), cfg.WebServer(), legacyEVMChains, keyStore.Eth(), keyStore.VRF(), globalLogger, restrictedHTTPClient, unrestrictedHTTPClient)
+		jobORM         = job.NewORM(db, pipelineORM, bridgeORM, keyStore, globalLogger, cfg.Database())
+		txmORM         = txmgr.NewTxStore(db, globalLogger, cfg.Database())
+		streamRegistry = streams.NewRegistry(globalLogger, pipelineRunner)
 	)
 
-	for _, chain := range chains.EVM.Chains() {
+	for _, chain := range legacyEVMChains.Slice() {
 		chain.HeadBroadcaster().Subscribe(promReporter)
 		chain.TxManager().RegisterResumeCallback(pipelineRunner.ResumeRun)
 	}
+
+	srvcs = append(srvcs, pipelineORM)
 
 	var (
 		delegates = map[job.Type]job.Delegate{
@@ -291,21 +310,24 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				globalLogger,
 				pipelineRunner,
 				pipelineORM,
-				chains.EVM),
+				legacyEVMChains,
+				mailMon),
 			job.Keeper: keeper.NewDelegate(
 				db,
 				jobORM,
 				pipelineRunner,
 				globalLogger,
-				chains.EVM),
+				legacyEVMChains,
+				mailMon),
 			job.VRF: vrf.NewDelegate(
 				db,
 				keyStore,
 				pipelineRunner,
 				pipelineORM,
-				chains.EVM,
+				legacyEVMChains,
 				globalLogger,
-				cfg),
+				cfg.Database(),
+				mailMon),
 			job.Webhook: webhook.NewDelegate(
 				pipelineRunner,
 				externalInitiatorManager,
@@ -315,8 +337,28 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				globalLogger),
 			job.BlockhashStore: blockhashstore.NewDelegate(
 				globalLogger,
-				chains.EVM,
+				legacyEVMChains,
 				keyStore.Eth()),
+			job.BlockHeaderFeeder: blockheaderfeeder.NewDelegate(
+				globalLogger,
+				legacyEVMChains,
+				keyStore.Eth()),
+			job.Gateway: gateway.NewDelegate(
+				legacyEVMChains,
+				keyStore.Eth(),
+				db,
+				cfg.Database(),
+				globalLogger),
+			job.Stream: streams.NewDelegate(
+				globalLogger,
+				streamRegistry,
+				pipelineRunner,
+				cfg.JobPipeline()),
+			job.Workflow: workflows.NewDelegate(
+				globalLogger,
+				registry,
+				legacyEVMChains,
+			),
 		}
 		webhookJobRunner = delegates[job.Webhook].(*webhook.Delegate).WebhookJobRunner()
 	)
@@ -331,155 +373,155 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			pipelineORM,
 			pipelineRunner,
 			db,
-			chains.EVM,
+			legacyEVMChains,
 			globalLogger,
 		)
 	}
 
 	var peerWrapper *ocrcommon.SingletonPeerWrapper
-	if cfg.P2PEnabled() {
-		if err := ocrcommon.ValidatePeerWrapperConfig(cfg); err != nil {
+	if !cfg.OCR().Enabled() && !cfg.OCR2().Enabled() {
+		globalLogger.Debug("P2P stack not needed")
+	} else if cfg.P2P().Enabled() {
+		if err := ocrcommon.ValidatePeerWrapperConfig(cfg.P2P()); err != nil {
 			return nil, err
 		}
-		peerWrapper = ocrcommon.NewSingletonPeerWrapper(keyStore, cfg, db, globalLogger)
+		peerWrapper = ocrcommon.NewSingletonPeerWrapper(keyStore, cfg.P2P(), cfg.OCR(), cfg.Database(), db, globalLogger)
 		srvcs = append(srvcs, peerWrapper)
 	} else {
-		globalLogger.Debug("P2P stack disabled")
+		return nil, fmt.Errorf("P2P stack required for OCR or OCR2")
 	}
 
-	if cfg.FeatureOffchainReporting() {
+	if cfg.OCR().Enabled() {
 		delegates[job.OffchainReporting] = ocr.NewDelegate(
 			db,
 			jobORM,
 			keyStore,
 			pipelineRunner,
 			peerWrapper,
-			monitoringEndpointGen,
-			chains.EVM,
+			telemetryManager,
+			legacyEVMChains,
 			globalLogger,
-			cfg,
+			cfg.Database(),
+			mailMon,
 		)
 	} else {
 		globalLogger.Debug("Off-chain reporting disabled")
 	}
-	if cfg.FeatureOffchainReporting2() {
+	if cfg.OCR2().Enabled() {
 		globalLogger.Debug("Off-chain reporting v2 enabled")
-		relayers := make(map[relay.Network]relaytypes.Relayer)
-		if cfg.EVMEnabled() {
-			evmRelayer := evmrelay.NewRelayer(db, chains.EVM, globalLogger.Named("EVM"))
-			relayers[relay.EVM] = evmRelayer
-			srvcs = append(srvcs, evmRelayer)
-		}
-		if cfg.SolanaEnabled() {
-			solanaRelayer := pkgsolana.NewRelayer(globalLogger.Named("Solana.Relayer"), chains.Solana)
-			relayers[relay.Solana] = solanaRelayer
-			srvcs = append(srvcs, solanaRelayer)
-		}
-		if cfg.TerraEnabled() {
-			terraRelayer := pkgterra.NewRelayer(globalLogger.Named("Terra.Relayer"), chains.Terra)
-			relayers[relay.Terra] = terraRelayer
-			srvcs = append(srvcs, terraRelayer)
-		}
-		if cfg.StarkNetEnabled() {
-			starknetRelayer := starknetrelay.NewRelayer(globalLogger.Named("StarkNet.Relayer"), chains.StarkNet)
-			relayers[relay.StarkNet] = starknetRelayer
-			srvcs = append(srvcs, starknetRelayer)
-		}
+		registrarConfig := plugins.NewRegistrarConfig(opts.GRPCOpts, opts.LoopRegistry.Register)
+		ocr2DelegateConfig := ocr2.NewDelegateConfig(cfg.OCR2(), cfg.Mercury(), cfg.Threshold(), cfg.Insecure(), cfg.JobPipeline(), cfg.Database(), registrarConfig)
 		delegates[job.OffchainReporting2] = ocr2.NewDelegate(
 			db,
 			jobORM,
+			bridgeORM,
+			mercuryORM,
 			pipelineRunner,
+			streamRegistry,
 			peerWrapper,
-			monitoringEndpointGen,
-			chains.EVM,
+			telemetryManager,
+			legacyEVMChains,
 			globalLogger,
-			cfg,
+			ocr2DelegateConfig,
 			keyStore.OCR2(),
 			keyStore.DKGSign(),
 			keyStore.DKGEncrypt(),
-			relayers,
+			keyStore.Eth(),
+			opts.RelayerChainInteroperators,
+			mailMon,
+			registry,
 		)
 		delegates[job.Bootstrap] = ocrbootstrap.NewDelegateBootstrap(
 			db,
 			jobORM,
 			peerWrapper,
 			globalLogger,
-			cfg,
-			relayers,
+			cfg.OCR2(),
+			cfg.Insecure(),
+			opts.RelayerChainInteroperators,
 		)
 	} else {
 		globalLogger.Debug("Off-chain reporting v2 disabled")
 	}
 
+	healthChecker := commonservices.NewChecker(static.Version, static.Sha)
+
 	var lbs []utils.DependentAwaiter
-	for _, c := range chains.EVM.Chains() {
+	for _, c := range legacyEVMChains.Slice() {
 		lbs = append(lbs, c.LogBroadcaster())
 	}
-	jobSpawner := job.NewSpawner(jobORM, cfg, delegates, db, globalLogger, lbs)
+	jobSpawner := job.NewSpawner(jobORM, cfg.Database(), healthChecker, delegates, db, globalLogger, lbs)
 	srvcs = append(srvcs, jobSpawner, pipelineRunner)
 
 	// We start the log poller after the job spawner
 	// so jobs have a chance to apply their initial log filters.
-	if cfg.FeatureLogPoller() {
-		for _, c := range chains.EVM.Chains() {
+	if cfg.Feature().LogPoller() {
+		for _, c := range legacyEVMChains.Slice() {
 			srvcs = append(srvcs, c.LogPoller())
 		}
 	}
 
-	// TODO: Make feeds manager compatible with multiple chains
-	// See: https://app.clubhouse.io/chainlinklabs/story/14615/add-ability-to-set-chain-id-in-all-pipeline-tasks-that-interact-with-evm
 	var feedsService feeds.Service
-	if cfg.FeatureFeedsManager() {
-		feedsORM := feeds.NewORM(db, opts.Logger, cfg)
-		chain, err := chains.EVM.Default()
-		if err != nil {
-			globalLogger.Warnw("Unable to load feeds service; no default chain available", "err", err)
-			feedsService = &feeds.NullService{}
-		} else {
-			feedsService = feeds.NewService(feedsORM, jobORM, db, jobSpawner, keyStore, chain.Config(), chains.EVM, globalLogger, opts.Version)
-		}
+	if cfg.Feature().FeedsManager() {
+		feedsORM := feeds.NewORM(db, opts.Logger, cfg.Database())
+		feedsService = feeds.NewService(
+			feedsORM,
+			jobORM,
+			db,
+			jobSpawner,
+			keyStore,
+			cfg.Insecure(),
+			cfg.JobPipeline(),
+			cfg.OCR(),
+			cfg.OCR2(),
+			cfg.Database(),
+			legacyEVMChains,
+			globalLogger,
+			opts.Version,
+		)
 	} else {
 		feedsService = &feeds.NullService{}
 	}
 
-	app := &ChainlinkApplication{
-		Chains:                   chains,
-		EventBroadcaster:         eventBroadcaster,
+	for _, s := range srvcs {
+		if s == nil {
+			panic("service unexpectedly nil")
+		}
+		if err := healthChecker.Register(s); err != nil {
+			return nil, err
+		}
+	}
+
+	return &ChainlinkApplication{
+		relayers:                 opts.RelayerChainInteroperators,
 		jobORM:                   jobORM,
 		jobSpawner:               jobSpawner,
 		pipelineRunner:           pipelineRunner,
 		pipelineORM:              pipelineORM,
 		bridgeORM:                bridgeORM,
-		sessionORM:               sessionORM,
-		txmORM:                   txmORM,
+		localAdminUsersORM:       localAdminUsersORM,
+		authenticationProvider:   authenticationProvider,
+		txmStorageService:        txmORM,
 		FeedsService:             feedsService,
 		Config:                   cfg,
 		webhookJobRunner:         webhookJobRunner,
 		KeyStore:                 keyStore,
-		SessionReaper:            sessions.NewSessionReaper(db.DB, cfg, globalLogger),
+		SessionReaper:            sessionReaper,
 		ExternalInitiatorManager: externalInitiatorManager,
-		explorerClient:           explorerClient,
 		HealthChecker:            healthChecker,
 		Nurse:                    nurse,
 		logger:                   globalLogger,
+		AuditLogger:              auditLogger,
 		closeLogger:              opts.CloseLogger,
 		secretGenerator:          opts.SecretGenerator,
 		profiler:                 profiler,
+		loopRegistry:             loopRegistry,
 
 		sqlxDB: opts.SqlxDB,
 
 		// NOTE: Can keep things clean by putting more things in srvcs instead of manually start/closing
 		srvcs: srvcs,
-	}
-
-	for _, service := range app.srvcs {
-		checkable := service.(services.Checkable)
-		if err := app.HealthChecker.Register(reflect.TypeOf(service).String(), checkable); err != nil {
-			return nil, err
-		}
-	}
-
-	return app, nil
+	}, nil
 }
 
 func (app *ChainlinkApplication) SetLogLevel(lvl zapcore.Level) error {
@@ -501,7 +543,8 @@ func (app *ChainlinkApplication) Start(ctx context.Context) error {
 
 	if app.FeedsService != nil {
 		if err := app.FeedsService.Start(ctx); err != nil {
-			app.logger.Infof("[Feeds Service] %v", err)
+			app.logger.Errorf("[Feeds Service] Failed to start %v", err)
+			app.FeedsService = &feeds.NullService{} // so we don't try to Close() later
 		}
 	}
 
@@ -512,7 +555,7 @@ func (app *ChainlinkApplication) Start(ctx context.Context) error {
 			return multierr.Combine(err, ms.Close())
 		}
 
-		app.logger.Debugw("Starting service...", "serviceType", reflect.TypeOf(service))
+		app.logger.Debugw("Starting service...", "name", service.Name())
 
 		if err := ms.Start(ctx, service); err != nil {
 			return err
@@ -539,6 +582,10 @@ func (app *ChainlinkApplication) StopIfStarted() error {
 	return nil
 }
 
+func (app *ChainlinkApplication) GetLoopRegistry() *plugins.LoopRegistry {
+	return app.loopRegistry
+}
+
 // Stop allows the application to exit by halting schedules, closing
 // logs, and closing the DB connection.
 func (app *ChainlinkApplication) Stop() error {
@@ -553,6 +600,9 @@ func (app *ChainlinkApplication) stop() (err error) {
 	}
 	app.shutdownOnce.Do(func() {
 		defer func() {
+			if app.closeLogger == nil {
+				return
+			}
 			if lerr := app.closeLogger(); lerr != nil {
 				err = multierr.Append(err, lerr)
 			}
@@ -562,7 +612,7 @@ func (app *ChainlinkApplication) stop() (err error) {
 		// Stop services in the reverse order from which they were started
 		for i := len(app.srvcs) - 1; i >= 0; i-- {
 			service := app.srvcs[i]
-			app.logger.Debugw("Closing service...", "serviceType", reflect.TypeOf(service))
+			app.logger.Debugw("Closing service...", "name", service.Name())
 			err = multierr.Append(err, service.Close())
 		}
 
@@ -590,7 +640,7 @@ func (app *ChainlinkApplication) stop() (err error) {
 	return err
 }
 
-func (app *ChainlinkApplication) GetConfig() config.GeneralConfig {
+func (app *ChainlinkApplication) GetConfig() GeneralConfig {
 	return app.Config
 }
 
@@ -598,8 +648,12 @@ func (app *ChainlinkApplication) GetKeyStore() keystore.Master {
 	return app.KeyStore
 }
 
-func (app *ChainlinkApplication) GetLogger() logger.Logger {
+func (app *ChainlinkApplication) GetLogger() logger.SugaredLogger {
 	return app.logger
+}
+
+func (app *ChainlinkApplication) GetAuditLogger() audit.AuditLogger {
+	return app.AuditLogger
 }
 
 func (app *ChainlinkApplication) GetHealthChecker() services.Checker {
@@ -618,20 +672,25 @@ func (app *ChainlinkApplication) BridgeORM() bridges.ORM {
 	return app.bridgeORM
 }
 
-func (app *ChainlinkApplication) SessionORM() sessions.ORM {
-	return app.sessionORM
+func (app *ChainlinkApplication) BasicAdminUsersORM() sessions.BasicAdminUsersORM {
+	return app.localAdminUsersORM
 }
 
-func (app *ChainlinkApplication) EVMORM() evmtypes.ORM {
-	return app.Chains.EVM.ORM()
+func (app *ChainlinkApplication) AuthenticationProvider() sessions.AuthenticationProvider {
+	return app.authenticationProvider
+}
+
+// TODO BCF-2516 remove this all together remove EVM specifics
+func (app *ChainlinkApplication) EVMORM() evmtypes.Configs {
+	return app.GetRelayers().LegacyEVMChains().ChainNodeConfigs()
 }
 
 func (app *ChainlinkApplication) PipelineORM() pipeline.ORM {
 	return app.pipelineORM
 }
 
-func (app *ChainlinkApplication) TxmORM() txmgr.ORM {
-	return app.txmORM
+func (app *ChainlinkApplication) TxmStorageService() txmgr.EvmTxStore {
+	return app.txmStorageService
 }
 
 func (app *ChainlinkApplication) GetExternalInitiatorManager() webhook.ExternalInitiatorManager {
@@ -675,8 +734,8 @@ func (app *ChainlinkApplication) RunJobV2(
 	jobID int32,
 	meta map[string]interface{},
 ) (int64, error) {
-	if !app.GetConfig().Dev() {
-		return 0, errors.New("manual job runs only supported in dev mode - export CHAINLINK_DEV=true to use")
+	if build.IsProd() {
+		return 0, errors.New("manual job runs not supported on secure builds")
 	}
 	jb, err := app.jobORM.FindJob(ctx, jobID)
 	if err != nil {
@@ -696,14 +755,14 @@ func (app *ChainlinkApplication) RunJobV2(
 				Data: bytes.Join([][]byte{
 					jb.VRFSpec.PublicKey.MustHash().Bytes(),  // key hash
 					common.BigToHash(big.NewInt(42)).Bytes(), // seed
-					utils.NewHash().Bytes(),                  // sender
-					utils.NewHash().Bytes(),                  // fee
-					utils.NewHash().Bytes()},                 // requestID
+					evmutils.NewHash().Bytes(),               // sender
+					evmutils.NewHash().Bytes(),               // fee
+					evmutils.NewHash().Bytes()},              // requestID
 					[]byte{}),
 				Topics:      []common.Hash{{}, jb.ExternalIDEncodeBytesToTopic()}, // jobID BYTES
-				TxHash:      utils.NewHash(),
+				TxHash:      evmutils.NewHash(),
 				BlockNumber: 10,
-				BlockHash:   utils.NewHash(),
+				BlockHash:   evmutils.NewHash(),
 			}
 			vars = map[string]interface{}{
 				"jobSpec": map[string]interface{}{
@@ -711,6 +770,7 @@ func (app *ChainlinkApplication) RunJobV2(
 					"externalJobID": jb.ExternalJobID,
 					"name":          jb.Name.ValueOrZero(),
 					"publicKey":     jb.VRFSpec.PublicKey[:],
+					"evmChainID":    jb.VRFSpec.EVMChainID.String(),
 				},
 				"jobRun": map[string]interface{}{
 					"meta":           meta,
@@ -747,26 +807,19 @@ func (app *ChainlinkApplication) GetFeedsService() feeds.Service {
 
 // ReplayFromBlock implements the Application interface.
 func (app *ChainlinkApplication) ReplayFromBlock(chainID *big.Int, number uint64, forceBroadcast bool) error {
-	chain, err := app.Chains.EVM.Get(chainID)
+	chain, err := app.GetRelayers().LegacyEVMChains().Get(chainID.String())
 	if err != nil {
 		return err
 	}
 	chain.LogBroadcaster().ReplayFromBlock(int64(number), forceBroadcast)
-	if app.Config.FeatureLogPoller() {
-		if err := chain.LogPoller().Replay(context.Background(), int64(number)); err != nil {
-			return err
-		}
+	if app.Config.Feature().LogPoller() {
+		chain.LogPoller().ReplayAsync(int64(number))
 	}
 	return nil
 }
 
-// GetChains returns Chains.
-func (app *ChainlinkApplication) GetChains() Chains {
-	return app.Chains
-}
-
-func (app *ChainlinkApplication) GetEventBroadcaster() pg.EventBroadcaster {
-	return app.EventBroadcaster
+func (app *ChainlinkApplication) GetRelayers() RelayerChainInteroperators {
+	return app.relayers
 }
 
 func (app *ChainlinkApplication) GetSqlxDB() *sqlx.DB {
@@ -776,8 +829,8 @@ func (app *ChainlinkApplication) GetSqlxDB() *sqlx.DB {
 // Returns the configuration to use for creating and authenticating
 // new WebAuthn credentials
 func (app *ChainlinkApplication) GetWebAuthnConfiguration() sessions.WebAuthnConfiguration {
-	rpid := app.Config.RPID()
-	rporigin := app.Config.RPOrigin()
+	rpid := app.Config.WebServer().MFA().RPID()
+	rporigin := app.Config.WebServer().MFA().RPOrigin()
 	if rpid == "" {
 		app.GetLogger().Errorf("RPID is not set, WebAuthn will likely not work as intended")
 	}

@@ -25,6 +25,7 @@ var (
 	_ = common.Big1
 	_ = types.BloomLookup
 	_ = event.NewSubscription
+	_ = abi.ConvertType
 )
 
 type VRFProof struct {
@@ -61,7 +62,7 @@ func DeployVRFV08TestHelper(auth *bind.TransactOpts, backend bind.ContractBacken
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &VRFV08TestHelper{VRFV08TestHelperCaller: VRFV08TestHelperCaller{contract: contract}, VRFV08TestHelperTransactor: VRFV08TestHelperTransactor{contract: contract}, VRFV08TestHelperFilterer: VRFV08TestHelperFilterer{contract: contract}}, nil
+	return address, tx, &VRFV08TestHelper{address: address, abi: *parsed, VRFV08TestHelperCaller: VRFV08TestHelperCaller{contract: contract}, VRFV08TestHelperTransactor: VRFV08TestHelperTransactor{contract: contract}, VRFV08TestHelperFilterer: VRFV08TestHelperFilterer{contract: contract}}, nil
 }
 
 type VRFV08TestHelper struct {
@@ -149,11 +150,11 @@ func NewVRFV08TestHelperFilterer(address common.Address, filterer bind.ContractF
 }
 
 func bindVRFV08TestHelper(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
-	parsed, err := abi.JSON(strings.NewReader(VRFV08TestHelperABI))
+	parsed, err := VRFV08TestHelperMetaData.GetAbi()
 	if err != nil {
 		return nil, err
 	}
-	return bind.NewBoundContract(address, parsed, caller, transactor, filterer), nil
+	return bind.NewBoundContract(address, *parsed, caller, transactor, filterer), nil
 }
 
 func (_VRFV08TestHelper *VRFV08TestHelperRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {

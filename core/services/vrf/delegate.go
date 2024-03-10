@@ -1,53 +1,46 @@
 package vrf
 
 import (
-	"encoding/hex"
-	"math/big"
-	"strings"
+	"context"
+	"fmt"
+	"time"
 
+	"github.com/avast/retry-go/v4"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/theodesp/go-heaps/pairing"
+	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/aggregator_v3_interface"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/batch_vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
-	"github.com/smartcontractkit/chainlink/core/gethwrappers/generated/vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/aggregator_v3_interface"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_owner"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	v1 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/v1"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 )
 
 type Delegate struct {
-	q    pg.Q
-	pr   pipeline.Runner
-	porm pipeline.ORM
-	ks   keystore.Master
-	cc   evm.ChainSet
-	lggr logger.Logger
-}
-
-//go:generate mockery --name GethKeyStore --output ./mocks/ --case=underscore
-type GethKeyStore interface {
-	GetRoundRobinAddress(chainID *big.Int, addresses ...common.Address) (common.Address, error)
-}
-
-//go:generate mockery --name Config --output ./mocks/ --case=underscore
-type Config interface {
-	EvmFinalityDepth() uint32
-	EvmGasLimitDefault() uint32
-	EvmGasLimitVRFJobType() *uint32
-	KeySpecificMaxGasPriceWei(addr common.Address) *big.Int
-	MinIncomingConfirmations() uint32
+	q            pg.Q
+	pr           pipeline.Runner
+	porm         pipeline.ORM
+	ks           keystore.Master
+	legacyChains legacyevm.LegacyChainContainer
+	lggr         logger.Logger
+	mailMon      *mailbox.Monitor
 }
 
 func NewDelegate(
@@ -55,16 +48,18 @@ func NewDelegate(
 	ks keystore.Master,
 	pr pipeline.Runner,
 	porm pipeline.ORM,
-	chainSet evm.ChainSet,
+	legacyChains legacyevm.LegacyChainContainer,
 	lggr logger.Logger,
-	cfg pg.LogConfig) *Delegate {
+	cfg pg.QConfig,
+	mailMon *mailbox.Monitor) *Delegate {
 	return &Delegate{
-		q:    pg.NewQ(db, lggr, cfg),
-		ks:   ks,
-		pr:   pr,
-		porm: porm,
-		cc:   chainSet,
-		lggr: lggr,
+		q:            pg.NewQ(db, lggr, cfg),
+		ks:           ks,
+		pr:           pr,
+		porm:         porm,
+		legacyChains: legacyChains,
+		lggr:         lggr.Named("VRF"),
+		mailMon:      mailMon,
 	}
 }
 
@@ -72,19 +67,21 @@ func (d *Delegate) JobType() job.Type {
 	return job.VRF
 }
 
-func (d *Delegate) AfterJobCreated(spec job.Job)  {}
-func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
+func (d *Delegate) BeforeJobCreated(job.Job)              {}
+func (d *Delegate) AfterJobCreated(job.Job)               {}
+func (d *Delegate) BeforeJobDeleted(job.Job)              {}
+func (d *Delegate) OnDeleteJob(job.Job, pg.Queryer) error { return nil }
 
 // ServicesForSpec satisfies the job.Delegate interface.
-func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
+func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.ServiceCtx, error) {
 	if jb.VRFSpec == nil || jb.PipelineSpec == nil {
 		return nil, errors.Errorf("vrf.Delegate expects a VRFSpec and PipelineSpec to be present, got %+v", jb)
 	}
-	pl, err := jb.PipelineSpec.Pipeline()
+	pl, err := jb.PipelineSpec.ParsePipeline()
 	if err != nil {
 		return nil, err
 	}
-	chain, err := d.cc.Get(jb.VRFSpec.EVMChainID.ToInt())
+	chain, err := d.legacyChains.Get(jb.VRFSpec.EVMChainID.String())
 	if err != nil {
 		return nil, err
 	}
@@ -93,6 +90,10 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		return nil, err
 	}
 	coordinatorV2, err := vrf_coordinator_v2.NewVRFCoordinatorV2(jb.VRFSpec.CoordinatorAddress.Address(), chain.Client())
+	if err != nil {
+		return nil, err
+	}
+	coordinatorV2Plus, err := vrf_coordinator_v2_5.NewVRFCoordinatorV25(jb.VRFSpec.CoordinatorAddress.Address(), chain.Client())
 	if err != nil {
 		return nil, err
 	}
@@ -107,205 +108,205 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		}
 	}
 
-	l := d.lggr.With(
+	var vrfOwner *vrf_owner.VRFOwner
+	if jb.VRFSpec.VRFOwnerAddress != nil {
+		vrfOwner, err = vrf_owner.NewVRFOwner(
+			jb.VRFSpec.VRFOwnerAddress.Address(), chain.Client(),
+		)
+		if err != nil {
+			return nil, errors.Wrap(err, "create vrf owner wrapper")
+		}
+	}
+
+	l := d.lggr.Named(jb.ExternalJobID.String()).With(
 		"jobID", jb.ID,
 		"externalJobID", jb.ExternalJobID,
 		"coordinatorAddress", jb.VRFSpec.CoordinatorAddress,
 	)
 	lV1 := l.Named("VRFListener")
 	lV2 := l.Named("VRFListenerV2")
-
-	// This is not a terminal error, but it isn't ideal.
-	// We can operate under these potentially degraded conditions, however.
-	err = setMaxGasPriceGWei(
-		toAddrSlice(jb.VRFSpec.FromAddresses),
-		jb.VRFSpec.MaxGasPriceGWei,
-		d.cc,
-		chain.ID())
-	if err != nil {
-		l.With("err", err).Warn("unable to set max gas price gwei on from addresses, continuing anyway")
-	}
+	lV2Plus := l.Named("VRFListenerV2Plus")
 
 	for _, task := range pl.Tasks {
-		if _, ok := task.(*pipeline.VRFTaskV2); ok {
-			linkEthFeedAddress, err := coordinatorV2.LINKETHFEED(nil)
+		if _, ok := task.(*pipeline.VRFTaskV2Plus); ok {
+			if err2 := CheckFromAddressesExist(ctx, jb, d.ks.Eth()); err != nil {
+				return nil, err2
+			}
+
+			if !FromAddressMaxGasPricesAllEqual(jb, chain.Config().EVM().GasEstimator().PriceMaxKey) {
+				return nil, errors.New("key-specific max gas prices of all fromAddresses are not equal, please set them to equal values")
+			}
+
+			if err2 := CheckFromAddressMaxGasPrices(jb, chain.Config().EVM().GasEstimator().PriceMaxKey); err != nil {
+				return nil, err2
+			}
+			if vrfOwner != nil {
+				return nil, errors.New("VRF Owner is not supported for VRF V2 Plus")
+			}
+			if jb.VRFSpec.CustomRevertsPipelineEnabled {
+				return nil, errors.New("Custom Reverted Txns Pipeline is not supported for VRF V2 Plus")
+			}
+
+			// Get the LINKNATIVEFEED address with retries
+			// This is needed because the RPC endpoint may be down so we need to
+			// switch over to another one.
+			var linkNativeFeedAddress common.Address
+			err = retry.Do(func() error {
+				linkNativeFeedAddress, err = coordinatorV2Plus.LINKNATIVEFEED(nil)
+				return err
+			}, retry.Attempts(10), retry.Delay(500*time.Millisecond))
 			if err != nil {
-				return nil, err
+				return nil, errors.Wrap(err, "can't call LINKNATIVEFEED")
+			}
+
+			aggregator, err2 := aggregator_v3_interface.NewAggregatorV3Interface(linkNativeFeedAddress, chain.Client())
+			if err2 != nil {
+				return nil, errors.Wrap(err2, "NewAggregatorV3Interface")
+			}
+
+			return []job.ServiceCtx{
+				v2.New(
+					chain.Config().EVM(),
+					chain.Config().EVM().GasEstimator(),
+					lV2Plus,
+					chain,
+					chain.ID(),
+					d.q,
+					v2.NewCoordinatorV2_5(coordinatorV2Plus),
+					batchCoordinatorV2,
+					vrfOwner,
+					aggregator,
+					d.pr,
+					d.ks.Eth(),
+					jb,
+					func() {},
+					// the lookback in the deduper must be >= the lookback specified for the log poller
+					// otherwise we will end up re-delivering logs that were already delivered.
+					vrfcommon.NewInflightCache(int(chain.Config().EVM().FinalityDepth())),
+					vrfcommon.NewLogDeduper(int(chain.Config().EVM().FinalityDepth())),
+				),
+			}, nil
+		}
+		if _, ok := task.(*pipeline.VRFTaskV2); ok {
+			if err2 := CheckFromAddressesExist(ctx, jb, d.ks.Eth()); err != nil {
+				return nil, err2
+			}
+
+			if !FromAddressMaxGasPricesAllEqual(jb, chain.Config().EVM().GasEstimator().PriceMaxKey) {
+				return nil, errors.New("key-specific max gas prices of all fromAddresses are not equal, please set them to equal values")
+			}
+
+			if err2 := CheckFromAddressMaxGasPrices(jb, chain.Config().EVM().GasEstimator().PriceMaxKey); err != nil {
+				return nil, err2
+			}
+
+			// Get the LINKETHFEED address with retries
+			// This is needed because the RPC endpoint may be down so we need to
+			// switch over to another one.
+			var linkEthFeedAddress common.Address
+			err = retry.Do(func() error {
+				linkEthFeedAddress, err = coordinatorV2.LINKETHFEED(nil)
+				return err
+			}, retry.Attempts(10), retry.Delay(500*time.Millisecond))
+			if err != nil {
+				return nil, errors.Wrap(err, "LINKETHFEED")
 			}
 			aggregator, err := aggregator_v3_interface.NewAggregatorV3Interface(linkEthFeedAddress, chain.Client())
 			if err != nil {
-				return nil, err
+				return nil, errors.Wrap(err, "NewAggregatorV3Interface")
+			}
+			if vrfOwner == nil {
+				lV2.Infow("Running without VRFOwnerAddress set on the spec")
 			}
 
-			return []job.ServiceCtx{newListenerV2(
-				chain.Config(),
+			return []job.ServiceCtx{v2.New(
+				chain.Config().EVM(),
+				chain.Config().EVM().GasEstimator(),
 				lV2,
-				chain.Client(),
+				chain,
 				chain.ID(),
-				d.cc,
-				chain.LogBroadcaster(),
 				d.q,
-				coordinatorV2,
+				v2.NewCoordinatorV2(coordinatorV2),
 				batchCoordinatorV2,
+				vrfOwner,
 				aggregator,
-				chain.TxManager(),
 				d.pr,
 				d.ks.Eth(),
 				jb,
-				utils.NewHighCapacityMailbox[log.Broadcast](),
 				func() {},
-				GetStartingResponseCountsV2(d.q, lV2, chain.Client().ChainID().Uint64(), chain.Config().EvmFinalityDepth()),
-				chain.HeadBroadcaster(),
-				newLogDeduper(int(chain.Config().EvmFinalityDepth())))}, nil
+				// the lookback in the deduper must be >= the lookback specified for the log poller
+				// otherwise we will end up re-delivering logs that were already delivered.
+				vrfcommon.NewInflightCache(int(chain.Config().EVM().FinalityDepth())),
+				vrfcommon.NewLogDeduper(int(chain.Config().EVM().FinalityDepth())),
+			),
+			}, nil
 		}
 		if _, ok := task.(*pipeline.VRFTask); ok {
-			return []job.ServiceCtx{&listenerV1{
-				cfg:             chain.Config(),
-				l:               lV1,
-				headBroadcaster: chain.HeadBroadcaster(),
-				logBroadcaster:  chain.LogBroadcaster(),
-				q:               d.q,
-				txm:             chain.TxManager(),
-				coordinator:     coordinator,
-				pipelineRunner:  d.pr,
-				gethks:          d.ks.Eth(),
-				job:             jb,
+			return []job.ServiceCtx{&v1.Listener{
+				Cfg:            chain.Config().EVM(),
+				FeeCfg:         chain.Config().EVM().GasEstimator(),
+				L:              logger.Sugared(lV1),
+				Q:              d.q,
+				Coordinator:    coordinator,
+				PipelineRunner: d.pr,
+				GethKs:         d.ks.Eth(),
+				Job:            jb,
+				MailMon:        d.mailMon,
 				// Note the mailbox size effectively sets a limit on how many logs we can replay
 				// in the event of a VRF outage.
-				reqLogs:            utils.NewHighCapacityMailbox[log.Broadcast](),
-				chStop:             make(chan struct{}),
-				waitOnStop:         make(chan struct{}),
-				newHead:            make(chan struct{}, 1),
-				respCount:          GetStartingResponseCountsV1(d.q, lV1, chain.Client().ChainID().Uint64(), chain.Config().EvmFinalityDepth()),
-				blockNumberToReqID: pairing.New(),
-				reqAdded:           func() {},
-				deduper:            newLogDeduper(int(chain.Config().EvmFinalityDepth())),
+				ReqLogs:            mailbox.NewHighCapacity[log.Broadcast](),
+				ChStop:             make(chan struct{}),
+				WaitOnStop:         make(chan struct{}),
+				NewHead:            make(chan struct{}, 1),
+				BlockNumberToReqID: pairing.New(),
+				ReqAdded:           func() {},
+				Deduper:            vrfcommon.NewLogDeduper(int(chain.Config().EVM().FinalityDepth())),
+				Chain:              chain,
 			}}, nil
 		}
 	}
 	return nil, errors.New("invalid job spec expected a vrf task")
 }
 
-func GetStartingResponseCountsV1(q pg.Q, l logger.Logger, chainID uint64, evmFinalityDepth uint32) map[[32]byte]uint64 {
-	respCounts := map[[32]byte]uint64{}
-
-	// Only check as far back as the evm finality depth for completed transactions.
-	counts, err := getRespCounts(q, chainID, evmFinalityDepth)
-	if err != nil {
-		// Continue with an empty map, do not block job on this.
-		l.Errorw("Unable to read previous confirmed fulfillments", "err", err)
-		return respCounts
+// CheckFromAddressesExist returns an error if and only if one of the addresses
+// in the VRF spec's fromAddresses field does not exist in the keystore.
+func CheckFromAddressesExist(ctx context.Context, jb job.Job, gethks keystore.Eth) (err error) {
+	for _, a := range jb.VRFSpec.FromAddresses {
+		_, err2 := gethks.Get(ctx, a.Hex())
+		err = multierr.Append(err, err2)
 	}
-
-	for _, c := range counts {
-		// Remove the quotes from the json
-		req := strings.Replace(c.RequestID, `"`, ``, 2)
-		// Remove the 0x prefix
-		b, err := hex.DecodeString(req[2:])
-		if err != nil {
-			l.Errorw("Unable to read fulfillment", "err", err, "reqID", c.RequestID)
-			continue
-		}
-		var reqID [32]byte
-		copy(reqID[:], b)
-		respCounts[reqID] = uint64(c.Count)
-	}
-
-	return respCounts
+	return
 }
 
-func GetStartingResponseCountsV2(
-	q pg.Q,
-	l logger.Logger,
-	chainID uint64,
-	evmFinalityDepth uint32,
-) map[string]uint64 {
-	respCounts := map[string]uint64{}
-
-	// Only check as far back as the evm finality depth for completed transactions.
-	counts, err := getRespCounts(q, chainID, evmFinalityDepth)
-	if err != nil {
-		// Continue with an empty map, do not block job on this.
-		l.Errorw("Unable to read previous confirmed fulfillments", "err", err)
-		return respCounts
-	}
-
-	for _, c := range counts {
-		// Remove the quotes from the json
-		req := strings.Replace(c.RequestID, `"`, ``, 2)
-		// Remove the 0x prefix
-		b, err := hex.DecodeString(req[2:])
-		if err != nil {
-			l.Errorw("Unable to read fulfillment", "err", err, "reqID", c.RequestID)
-			continue
-		}
-		bi := new(big.Int).SetBytes(b)
-		respCounts[bi.String()] = uint64(c.Count)
-	}
-	return respCounts
-}
-
-func getRespCounts(q pg.Q, chainID uint64, evmFinalityDepth uint32) (
-	[]struct {
-		RequestID string
-		Count     int
-	},
-	error,
-) {
-	counts := []struct {
-		RequestID string
-		Count     int
-	}{}
-	// This query should use the idx_eth_txes_state_from_address_evm_chain_id
-	// index, since the quantity of unconfirmed/unstarted/in_progress transactions _should_ be small
-	// relative to the rest of the data.
-	unconfirmedQuery := `
-SELECT meta->'RequestID' AS request_id, count(meta->'RequestID') AS count
-FROM eth_txes et
-WHERE et.meta->'RequestID' IS NOT NULL
-AND et.state IN ('unconfirmed', 'unstarted', 'in_progress')
-GROUP BY meta->'RequestID'
-	`
-	// Fetch completed transactions only as far back as the given cutoffBlockNumber. This avoids
-	// a table scan of the eth_txes table, which could be large if it is unpruned.
-	confirmedQuery := `
-SELECT meta->'RequestID' AS request_id, count(meta->'RequestID') AS count
-FROM eth_txes et JOIN eth_tx_attempts eta on et.id = eta.eth_tx_id
-	join eth_receipts er on eta.hash = er.tx_hash
-WHERE et.meta->'RequestID' is not null
-AND er.block_number >= (SELECT number FROM evm_heads WHERE evm_chain_id = $1 ORDER BY number DESC LIMIT 1) - $2
-GROUP BY meta->'RequestID'
-	`
-	query := unconfirmedQuery + "\nUNION ALL\n" + confirmedQuery
-	err := q.Select(&counts, query, chainID, evmFinalityDepth)
-	if err != nil {
-		return nil, err
-	}
-	return counts, nil
-}
-
-// setMaxGasPriceGWei attempts to set the max gas price for each key in the fromAddresses slice
-// of the VRF job spec to the given maxGasPriceGWei parameter.
-// If maxGasPriceGWei is nil, this is a no-op.
-func setMaxGasPriceGWei(fromAddresses []common.Address, maxGasPriceGWei *uint32, keyUpdater keyConfigUpdater, chainID *big.Int) error {
-	if maxGasPriceGWei == nil {
-		return nil
-	}
-
-	for _, addr := range fromAddresses {
-		updater := evm.UpdateKeySpecificMaxGasPrice(addr, assets.GWei(int64(*maxGasPriceGWei)))
-		err := keyUpdater.UpdateConfig(chainID, updater)
-		if err != nil {
-			return errors.Wrap(err, "update key specific max gas price")
+// CheckFromAddressMaxGasPrices checks if the provided gas price in the job spec gas lane parameter
+// matches what is set for the  provided from addresses.
+// If they don't match, this is a configuration error. An error is returned with all the keys that do
+// not match the provided gas lane price.
+func CheckFromAddressMaxGasPrices(jb job.Job, keySpecificMaxGas keySpecificMaxGasFn) (err error) {
+	if jb.VRFSpec.GasLanePrice != nil {
+		for _, a := range jb.VRFSpec.FromAddresses {
+			if keySpecific := keySpecificMaxGas(a.Address()); !keySpecific.Equal(jb.VRFSpec.GasLanePrice) {
+				err = multierr.Append(err,
+					fmt.Errorf(
+						"key-specific max gas price of from address %s (%s) does not match gasLanePriceGWei (%s) specified in job spec",
+						a.Hex(), keySpecific.String(), jb.VRFSpec.GasLanePrice.String()))
+			}
 		}
 	}
-
-	return nil
+	return
 }
 
-func toAddrSlice(addrs []ethkey.EIP55Address) (r []common.Address) {
-	for _, a := range addrs {
-		r = append(r, a.Address())
+type keySpecificMaxGasFn func(common.Address) *assets.Wei
+
+// FromAddressMaxGasPricesAllEqual returns true if and only if all the specified from
+// addresses in the fromAddresses field of the VRF v2 job have the same key-specific max
+// gas price.
+func FromAddressMaxGasPricesAllEqual(jb job.Job, keySpecificMaxGasPriceWei keySpecificMaxGasFn) (allEqual bool) {
+	allEqual = true
+	for i := range jb.VRFSpec.FromAddresses {
+		allEqual = allEqual && keySpecificMaxGasPriceWei(jb.VRFSpec.FromAddresses[i].Address()).Equal(
+			keySpecificMaxGasPriceWei(jb.VRFSpec.FromAddresses[0].Address()),
+		)
 	}
 	return
 }

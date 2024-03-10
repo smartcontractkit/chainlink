@@ -5,10 +5,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 
-	starknet "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/keys"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/starkkey"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const keyTypeIdentifier = "OCR2"
@@ -40,12 +40,12 @@ func FromEncryptedJSON(keyJSON []byte, password string) (KeyBundle, error) {
 			switch export.ChainType {
 			case chaintype.EVM:
 				kb = newKeyBundle(new(evmKeyring))
+			case chaintype.Cosmos:
+				kb = newKeyBundle(new(cosmosKeyring))
 			case chaintype.Solana:
 				kb = newKeyBundle(new(solanaKeyring))
-			case chaintype.Terra:
-				kb = newKeyBundle(new(terraKeyring))
 			case chaintype.StarkNet:
-				kb = newKeyBundle(new(starknet.OCR2Key))
+				kb = newKeyBundle(new(starkkey.OCR2Key))
 			default:
 				return nil, chaintype.NewErrInvalidChainType(export.ChainType)
 			}
@@ -66,7 +66,7 @@ func ToEncryptedJSON(key KeyBundle, password string, scryptParams utils.ScryptPa
 		password,
 		scryptParams,
 		adulteratedPassword,
-		func(id string, key KeyBundle, cryptoJSON keystore.CryptoJSON) (EncryptedOCRKeyExport, error) {
+		func(id string, key KeyBundle, cryptoJSON keystore.CryptoJSON) EncryptedOCRKeyExport {
 			pubKeyConfig := key.ConfigEncryptionPublicKey()
 			pubKey := key.OffchainPublicKey()
 			return EncryptedOCRKeyExport{
@@ -77,7 +77,7 @@ func ToEncryptedJSON(key KeyBundle, password string, scryptParams utils.ScryptPa
 				OffChainPublicKey: hex.EncodeToString(pubKey[:]),
 				ConfigPublicKey:   hex.EncodeToString(pubKeyConfig[:]),
 				Crypto:            cryptoJSON,
-			}, nil
+			}
 		},
 	)
 }

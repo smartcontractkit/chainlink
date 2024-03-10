@@ -1,7 +1,9 @@
 // Package secp256k1 is an implementation of the kyber.{Group,Point,Scalar}
-////////////////////////////////////////////////////////////////////////////////
-//       XXX: Do not use in production until this code has been audited.
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
+//
+//	XXX: Do not use in production until this code has been audited.
+//
+// //////////////////////////////////////////////////////////////////////////////
 // interfaces, based on btcd/btcec and kyber/group/mod
 //
 // XXX: NOT CONSTANT TIME!
@@ -10,7 +12,7 @@ package secp256k1
 import (
 	"math/big"
 
-	secp256k1BTCD "github.com/btcsuite/btcd/btcec"
+	secp256k1BTCD "github.com/btcsuite/btcd/btcec/v2"
 
 	"go.dedis.ch/kyber/v3"
 )

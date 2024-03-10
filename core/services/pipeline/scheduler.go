@@ -9,7 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func (s *scheduler) newMemoryTaskRun(task Task, vars Vars) *memoryTaskRun {
@@ -33,7 +33,7 @@ func (s *scheduler) newMemoryTaskRun(task Task, vars Vars) *memoryTaskRun {
 		// if we're confident that indices are within range
 		for _, i := range task.Inputs() {
 			if i.PropagateResult {
-				inputs = append(inputs, input{index: int32(i.InputTask.OutputIndex()), result: s.results[i.InputTask.ID()].Result})
+				inputs = append(inputs, input{index: i.InputTask.OutputIndex(), result: s.results[i.InputTask.ID()].Result})
 			}
 		}
 		sort.Slice(inputs, func(i, j int) bool {
@@ -49,8 +49,6 @@ func (s *scheduler) newMemoryTaskRun(task Task, vars Vars) *memoryTaskRun {
 }
 
 type scheduler struct {
-	ctx          context.Context
-	cancel       context.CancelFunc
 	pipeline     *Pipeline
 	run          *Run
 	dependencies map[int]uint
@@ -74,11 +72,7 @@ func newScheduler(p *Pipeline, run *Run, vars Vars, lggr logger.Logger) *schedul
 		dependencies[id] = uint(len(task.Inputs()))
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-
 	s := &scheduler{
-		ctx:          ctx,
-		cancel:       cancel,
 		pipeline:     p,
 		run:          run,
 		dependencies: dependencies,
@@ -108,7 +102,7 @@ func newScheduler(p *Pipeline, run *Run, vars Vars, lggr logger.Logger) *schedul
 
 		run := s.newMemoryTaskRun(task, s.vars.Copy())
 
-		lggr.Debugw("scheduling task run", "dot_id", task.DotID(), "attempts", run.attempts)
+		lggr.Tracew("scheduling task run", "dot_id", task.DotID(), "attempts", run.attempts)
 
 		s.taskCh <- run
 		s.waiting++
@@ -167,6 +161,8 @@ func (s *scheduler) reconstructResults() {
 }
 
 func (s *scheduler) Run() {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	for s.waiting > 0 {
 		// we don't "for result in resultCh" because it would stall if the
 		// pipeline is completely empty
@@ -212,7 +208,7 @@ func (s *scheduler) Run() {
 		if result.Result.Error != nil && result.Task.Base().FailEarly {
 			// drain remaining jobs (continue the loop until waiting = 0) then exit
 			s.exiting = true
-			s.cancel() // cleanup: terminate pending retries
+			cancel() // cleanup: terminate pending retries
 
 			// mark remaining jobs as cancelled
 			s.markRemaining(ErrCancelled)
@@ -237,7 +233,7 @@ func (s *scheduler) Run() {
 
 			go func(vars Vars) {
 				select {
-				case <-s.ctx.Done():
+				case <-ctx.Done():
 					// report back so the waiting counter gets decreased
 					now := time.Now()
 					s.report(context.Background(), TaskRunResult{
@@ -250,7 +246,7 @@ func (s *scheduler) Run() {
 					// schedule a new attempt
 					run := s.newMemoryTaskRun(result.Task, vars)
 					run.attempts = result.Attempts
-					s.logger.Debugw("scheduling task run", "dot_id", run.task.DotID(), "attempts", run.attempts)
+					s.logger.Tracew("scheduling task run", "dot_id", run.task.DotID(), "attempts", run.attempts)
 					s.taskCh <- run
 				}
 			}(s.vars.Copy()) // must Copy() from current goroutine
@@ -268,7 +264,7 @@ func (s *scheduler) Run() {
 				task := s.pipeline.Tasks[id]
 				run := s.newMemoryTaskRun(task, s.vars.Copy())
 
-				s.logger.Debugw("scheduling task run", "dot_id", run.task.DotID(), "attempts", run.attempts)
+				s.logger.Tracew("scheduling task run", "dot_id", run.task.DotID(), "attempts", run.attempts)
 				s.taskCh <- run
 				s.waiting++
 			}

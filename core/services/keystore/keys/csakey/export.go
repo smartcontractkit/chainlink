@@ -3,8 +3,8 @@ package csakey
 import (
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const keyTypeIdentifier = "CSA"
@@ -21,20 +21,20 @@ func FromEncryptedJSON(keyJSON []byte, password string) (KeyV2, error) {
 	)
 }
 
-func (key KeyV2) ToEncryptedJSON(password string, scryptParams utils.ScryptParams) (export []byte, err error) {
+func (k KeyV2) ToEncryptedJSON(password string, scryptParams utils.ScryptParams) (export []byte, err error) {
 	return keys.ToEncryptedJSON(
 		keyTypeIdentifier,
-		key.Raw(),
-		key,
+		k.Raw(),
+		k,
 		password,
 		scryptParams,
 		adulteratedPassword,
-		func(id string, key KeyV2, cryptoJSON keystore.CryptoJSON) (keys.EncryptedKeyExport, error) {
+		func(id string, key KeyV2, cryptoJSON keystore.CryptoJSON) keys.EncryptedKeyExport {
 			return keys.EncryptedKeyExport{
 				KeyType:   id,
 				PublicKey: key.PublicKeyString(),
 				Crypto:    cryptoJSON,
-			}, nil
+			}
 		},
 	)
 }

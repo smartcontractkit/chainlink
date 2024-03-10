@@ -10,11 +10,15 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
 func Test_ParseCBOR(t *testing.T) {
 	t.Parallel()
+
+	address, err := hex.DecodeString("0x8bd112d3f8f92e41c861939545ad387307af9703")
+	require.NoError(t, err)
 
 	tests := []struct {
 		name        string
@@ -44,6 +48,18 @@ func Test_ParseCBOR(t *testing.T) {
 			"missing initial start map marker",
 			`0x636B65796576616C7565ff`,
 			jsonMustUnmarshal(t, `{"key":"value"}`),
+			false,
+		},
+		{
+			"with address encoded",
+			`0x6d72656d6f7465436861696e4964186a6e6c69627261727956657273696f6e016f636f6e747261637441646472657373548bd112d3f8f92e41c861939545ad387307af97036d636f6e6669726d6174696f6e730a68626c6f636b4e756d69307831336261626264`,
+			map[string]interface{}{
+				"blockNum":        "0x13babbd",
+				"confirmations":   uint64(10),
+				"contractAddress": address,
+				"libraryVersion":  uint64(1),
+				"remoteChainId":   uint64(106),
+			},
 			false,
 		},
 		{
@@ -133,6 +149,55 @@ func Test_ParseCBOR(t *testing.T) {
 			}
 		})
 	}
+}
+
+func Test_ParseCBORToStruct_Success(t *testing.T) {
+	t.Parallel()
+
+	hexCBOR := `0xbf6375726c781a68747470733a2f2f657468657270726963652e636f6d2f61706964706174689f66726563656e7463757364ffff000000`
+	bytesCBOR, err := hexutil.Decode(hexCBOR)
+	assert.NoError(t, err)
+
+	parsed := struct {
+		Url  string   `cbor:"url"`
+		Path []string `cbor:"path"`
+	}{}
+	err = ParseDietCBORToStruct(bytesCBOR, &parsed)
+
+	require.NoError(t, err)
+	require.Equal(t, "https://etherprice.com/api", parsed.Url)
+	require.Equal(t, []string{"recent", "usd"}, parsed.Path)
+}
+
+func Test_ParseCBORToStruct_WrongFieldType(t *testing.T) {
+	t.Parallel()
+
+	hexCBOR := `0xbf6375726c781a68747470733a2f2f657468657270726963652e636f6d2f61706964706174689f66726563656e7463757364ffff000000`
+	bytesCBOR, err := hexutil.Decode(hexCBOR)
+	assert.NoError(t, err)
+
+	parsed := struct {
+		Url  string `cbor:"url"`
+		Path []int  `cbor:"path"` // exect int but get string
+	}{}
+	err = ParseDietCBORToStruct(bytesCBOR, &parsed)
+
+	require.Error(t, err)
+}
+
+func Test_ParseCBORToStruct_BinaryStringOfWrongType(t *testing.T) {
+	t.Parallel()
+
+	// {"key":"value"} but with last byte replaced with invalid unicode (0x88)
+	hexCBOR := `0x636B65796576616C7588`
+	bytesCBOR, err := hexutil.Decode(hexCBOR)
+	assert.NoError(t, err)
+
+	parsed := struct {
+		Key string `cbor:"key"`
+	}{}
+	err = ParseDietCBORToStruct(bytesCBOR, &parsed)
+	require.Error(t, err)
 }
 
 func Test_autoAddMapDelimiters(t *testing.T) {

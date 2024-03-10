@@ -1,192 +1,104 @@
 package smoke
 
-//revive:disable:dot-imports
 import (
-	"context"
 	"fmt"
 	"math/big"
+	"net/http"
 	"strings"
+	"testing"
 
-	"github.com/smartcontractkit/chainlink-env/environment"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
-	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
-	networks "github.com/smartcontractkit/chainlink/integration-tests"
-	"github.com/smartcontractkit/chainlink/integration-tests/actions"
+	"github.com/google/uuid"
+	"github.com/onsi/gomega"
+	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	"github.com/rs/zerolog/log"
-	uuid "github.com/satori/go.uuid"
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
-var _ = Describe("Direct request suite @runlog", func() {
-	var (
-		testScenarios = []TableEntry{
-			Entry("Runlog suite on Simulated Network @simulated",
-				networks.SimulatedEVM,
-				big.NewFloat(10),
-				defaultRunlogEnv(networks.SimulatedEVM),
-			),
-			Entry("Runlog suite on General EVM @general",
-				networks.GeneralEVM(),
-				big.NewFloat(.1),
-				defaultRunlogEnv(networks.GeneralEVM()),
-			),
-			Entry("Runlog suite on Metis Stardust @metis",
-				networks.MetisStardust,
-				big.NewFloat(.01),
-				defaultRunlogEnv(networks.MetisStardust),
-			),
-			Entry("Runlog suite on Sepolia Testnet @sepolia",
-				networks.SepoliaTestnet,
-				big.NewFloat(.1),
-				defaultRunlogEnv(networks.SepoliaTestnet),
-			),
-			Entry("Runlog suite on on Görli Testnet @goerli",
-				networks.GoerliTestnet,
-				big.NewFloat(.1),
-				defaultRunlogEnv(networks.GoerliTestnet),
-			),
-			Entry("Runlog suite on Klaytn Baobab @klaytn",
-				networks.KlaytnBaobab,
-				big.NewFloat(1),
-				defaultRunlogEnv(networks.KlaytnBaobab),
-			),
-		}
+func TestRunLogBasic(t *testing.T) {
+	t.Parallel()
+	l := logging.GetTestLogger(t)
 
-		err              error
-		chainClient      blockchain.EVMClient
-		contractDeployer contracts.ContractDeployer
-		chainlinkNodes   []*client.Chainlink
-		oracle           contracts.Oracle
-		consumer         contracts.APIConsumer
-		jobUUID          uuid.UUID
-		mockServer       *ctfClient.MockserverClient
-		testEnvironment  *environment.Environment
-	)
-
-	AfterEach(func() {
-		By("Tearing down the environment")
-		chainClient.GasStats().PrintStats()
-		err = actions.TeardownSuite(testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, chainClient)
-		Expect(err).ShouldNot(HaveOccurred(), "Environment teardown shouldn't fail")
-	})
-
-	DescribeTable("Direct request suite on different EVM networks", func(
-		testNetwork *blockchain.EVMNetwork,
-		funding *big.Float,
-		env *environment.Environment,
-	) {
-		By("Deploying the environment")
-		testEnvironment = env
-		testEnvironment.Cfg.NamespacePrefix = fmt.Sprintf("smoke-runlog-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-"))
-
-		err = testEnvironment.Run()
-		Expect(err).ShouldNot(HaveOccurred())
-
-		By("Connecting to launched resources")
-		chainClient, err = blockchain.NewEVMClient(testNetwork, testEnvironment)
-		Expect(err).ShouldNot(HaveOccurred(), "Connecting to blockchain nodes shouldn't fail")
-		contractDeployer, err = contracts.NewContractDeployer(chainClient)
-		Expect(err).ShouldNot(HaveOccurred(), "Deploying contracts shouldn't fail")
-		chainlinkNodes, err = client.ConnectChainlinkNodes(testEnvironment)
-		Expect(err).ShouldNot(HaveOccurred(), "Connecting to chainlink nodes shouldn't fail")
-		mockServer, err = ctfClient.ConnectMockServer(testEnvironment)
-		Expect(err).ShouldNot(HaveOccurred())
-
-		By("Funding Chainlink nodes")
-		err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, funding)
-		Expect(err).ShouldNot(HaveOccurred(), "Funding chainlink nodes with ETH shouldn't fail")
-
-		By("Deploying contracts")
-		lt, err := contractDeployer.DeployLinkTokenContract()
-		Expect(err).ShouldNot(HaveOccurred(), "Deploying Link Token Contract shouldn't fail")
-		oracle, err = contractDeployer.DeployOracle(lt.Address())
-		Expect(err).ShouldNot(HaveOccurred(), "Deploying Oracle Contract shouldn't fail")
-		consumer, err = contractDeployer.DeployAPIConsumer(lt.Address())
-		Expect(err).ShouldNot(HaveOccurred(), "Deploying Consumer Contract shouldn't fail")
-		err = chainClient.SetDefaultWallet(0)
-		Expect(err).ShouldNot(HaveOccurred(), "Setting default wallet shouldn't fail")
-		err = lt.Transfer(consumer.Address(), big.NewInt(2e18))
-		Expect(err).ShouldNot(HaveOccurred(), "Transferring %d to consumer contract shouldn't fail", big.NewInt(2e18))
-
-		By("Creating directrequest job")
-		err = mockServer.SetValuePath("/variable", 5)
-		Expect(err).ShouldNot(HaveOccurred(), "Setting mockserver value path shouldn't fail")
-
-		jobUUID = uuid.NewV4()
-
-		bta := client.BridgeTypeAttributes{
-			Name: fmt.Sprintf("five-%s", jobUUID.String()),
-			URL:  fmt.Sprintf("%s/variable", mockServer.Config.ClusterURL),
-		}
-		err = chainlinkNodes[0].MustCreateBridge(&bta)
-		Expect(err).ShouldNot(HaveOccurred(), "Creating bridge shouldn't fail")
-
-		os := &client.DirectRequestTxPipelineSpec{
-			BridgeTypeAttributes: bta,
-			DataPath:             "data,result",
-		}
-		ost, err := os.String()
-		Expect(err).ShouldNot(HaveOccurred(), "Building observation source spec shouldn't fail")
-
-		_, err = chainlinkNodes[0].MustCreateJob(&client.DirectRequestJobSpec{
-			Name:                     "direct_request",
-			MinIncomingConfirmations: "1",
-			ContractAddress:          oracle.Address(),
-			ExternalJobID:            jobUUID.String(),
-			ObservationSource:        ost,
-		})
-		Expect(err).ShouldNot(HaveOccurred(), "Creating direct_request job shouldn't fail")
-
-		By("Calling oracle contract")
-		jobUUIDReplaces := strings.Replace(jobUUID.String(), "-", "", 4)
-		var jobID [32]byte
-		copy(jobID[:], jobUUIDReplaces)
-		err = consumer.CreateRequestTo(
-			oracle.Address(),
-			jobID,
-			big.NewInt(1e18),
-			fmt.Sprintf("%s/variable", mockServer.Config.ClusterURL),
-			"data,result",
-			big.NewInt(100),
-		)
-		Expect(err).ShouldNot(HaveOccurred(), "Calling oracle contract shouldn't fail")
-
-		By("receives API call data on-chain")
-		Eventually(func(g Gomega) {
-			d, err := consumer.Data(context.Background())
-			g.Expect(err).ShouldNot(HaveOccurred(), "Getting data from consumer contract shouldn't fail")
-			g.Expect(d).ShouldNot(BeNil(), "Expected the initial on chain data to be nil")
-			log.Debug().Int64("Data", d.Int64()).Msg("Found on chain")
-			g.Expect(d.Int64()).Should(BeNumerically("==", 5), "Expected the on-chain data to be 5, but found %d", d.Int64())
-		}, "2m", "1s").Should(Succeed())
-	},
-		testScenarios,
-	)
-})
-
-func defaultRunlogEnv(network *blockchain.EVMNetwork) *environment.Environment {
-	evmConfig := ethereum.New(nil)
-	if !network.Simulated {
-		evmConfig = ethereum.New(&ethereum.Props{
-			NetworkName: network.Name,
-			Simulated:   network.Simulated,
-			WsURLs:      network.URLs,
-		})
+	config, err := tc.GetConfig("Smoke", tc.RunLog)
+	if err != nil {
+		t.Fatal(err)
 	}
-	return environment.New(&environment.Config{}).
-		AddHelm(mockservercfg.New(nil)).
-		AddHelm(mockserver.New(nil)).
-		AddHelm(evmConfig).
-		AddHelm(chainlink.New(0, map[string]interface{}{
-			"env": network.ChainlinkValuesMap(),
-		}))
+
+	env, err := test_env.NewCLTestEnvBuilder().
+		WithTestInstance(t).
+		WithTestConfig(&config).
+		WithGeth().
+		WithMockAdapter().
+		WithCLNodes(1).
+		WithFunding(big.NewFloat(.1)).
+		WithStandardCleanup().
+		Build()
+	require.NoError(t, err)
+
+	lt, err := env.ContractDeployer.DeployLinkTokenContract()
+	require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
+	oracle, err := env.ContractDeployer.DeployOracle(lt.Address())
+	require.NoError(t, err, "Deploying Oracle Contract shouldn't fail")
+	consumer, err := env.ContractDeployer.DeployAPIConsumer(lt.Address())
+	require.NoError(t, err, "Deploying Consumer Contract shouldn't fail")
+	err = env.EVMClient.SetDefaultWallet(0)
+	require.NoError(t, err, "Setting default wallet shouldn't fail")
+	err = lt.Transfer(consumer.Address(), big.NewInt(2e18))
+	require.NoError(t, err, "Transferring %d to consumer contract shouldn't fail", big.NewInt(2e18))
+
+	err = env.MockAdapter.SetAdapterBasedIntValuePath("/variable", []string{http.MethodPost}, 5)
+	require.NoError(t, err, "Setting mock adapter value path shouldn't fail")
+
+	jobUUID := uuid.New()
+
+	bta := client.BridgeTypeAttributes{
+		Name: fmt.Sprintf("five-%s", jobUUID.String()),
+		URL:  fmt.Sprintf("%s/variable", env.MockAdapter.InternalEndpoint),
+	}
+	err = env.ClCluster.Nodes[0].API.MustCreateBridge(&bta)
+	require.NoError(t, err, "Creating bridge shouldn't fail")
+
+	os := &client.DirectRequestTxPipelineSpec{
+		BridgeTypeAttributes: bta,
+		DataPath:             "data,result",
+	}
+	ost, err := os.String()
+	require.NoError(t, err, "Building observation source spec shouldn't fail")
+
+	_, err = env.ClCluster.Nodes[0].API.MustCreateJob(&client.DirectRequestJobSpec{
+		Name:                     fmt.Sprintf("direct-request-%s", uuid.NewString()),
+		MinIncomingConfirmations: "1",
+		ContractAddress:          oracle.Address(),
+		EVMChainID:               env.EVMClient.GetChainID().String(),
+		ExternalJobID:            jobUUID.String(),
+		ObservationSource:        ost,
+	})
+	require.NoError(t, err, "Creating direct_request job shouldn't fail")
+
+	jobUUIDReplaces := strings.Replace(jobUUID.String(), "-", "", 4)
+	var jobID [32]byte
+	copy(jobID[:], jobUUIDReplaces)
+	err = consumer.CreateRequestTo(
+		oracle.Address(),
+		jobID,
+		big.NewInt(1e18),
+		fmt.Sprintf("%s/variable", env.MockAdapter.InternalEndpoint),
+		"data,result",
+		big.NewInt(100),
+	)
+	require.NoError(t, err, "Calling oracle contract shouldn't fail")
+
+	gom := gomega.NewGomegaWithT(t)
+	gom.Eventually(func(g gomega.Gomega) {
+		d, err := consumer.Data(testcontext.Get(t))
+		g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Getting data from consumer contract shouldn't fail")
+		g.Expect(d).ShouldNot(gomega.BeNil(), "Expected the initial on chain data to be nil")
+		l.Debug().Int64("Data", d.Int64()).Msg("Found on chain")
+		g.Expect(d.Int64()).Should(gomega.BeNumerically("==", 5), "Expected the on-chain data to be 5, but found %d", d.Int64())
+	}, "2m", "1s").Should(gomega.Succeed())
 }

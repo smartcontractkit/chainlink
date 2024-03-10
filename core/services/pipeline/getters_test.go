@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
 func TestGetters_VarExpr(t *testing.T) {
@@ -186,6 +186,40 @@ func TestGetters_NonemptyString(t *testing.T) {
 		assert.Equal(t, pipeline.ErrParameterEmpty, errors.Cause(err))
 		_, err = pipeline.NonemptyString(" ")()
 		assert.Equal(t, pipeline.ErrParameterEmpty, errors.Cause(err))
+	})
+}
+
+func TestGetters_ValidDurationInSeconds(t *testing.T) {
+	t.Parallel()
+
+	t.Run("returns duration in seconds", func(t *testing.T) {
+		val, err := pipeline.ValidDurationInSeconds("10s")()
+		assert.NoError(t, err)
+		assert.Equal(t, 10, val)
+
+		val, err = pipeline.ValidDurationInSeconds("1m")()
+		assert.NoError(t, err)
+		assert.Equal(t, 60, val)
+
+		val, err = pipeline.ValidDurationInSeconds("1h")()
+		assert.NoError(t, err)
+		assert.Equal(t, 3600, val)
+	})
+
+	t.Run("returns ErrParameterEmpty when given an empty string (including only spaces)", func(t *testing.T) {
+		_, err := pipeline.ValidDurationInSeconds("")()
+		assert.Equal(t, pipeline.ErrParameterEmpty, errors.Cause(err))
+		_, err = pipeline.ValidDurationInSeconds(" ")()
+		assert.Equal(t, pipeline.ErrParameterEmpty, errors.Cause(err))
+	})
+
+	t.Run("returns duration errors when given invalid durations", func(t *testing.T) {
+		_, err := pipeline.ValidDurationInSeconds("1b")()
+		assert.Contains(t, err.Error(), "unknown unit")
+		_, err = pipeline.ValidDurationInSeconds("5")()
+		assert.Contains(t, err.Error(), "missing unit")
+		_, err = pipeline.ValidDurationInSeconds("!m")()
+		assert.Contains(t, err.Error(), "invalid duration")
 	})
 }
 

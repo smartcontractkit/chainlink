@@ -9,21 +9,24 @@ import (
 	"strconv"
 	"time"
 
-	homedir "github.com/mitchellh/go-homedir"
+	"github.com/mitchellh/go-homedir"
+	pkgerrors "github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/static"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func String(str string) (string, error) {
 	return str, nil
 }
 
-func Link(str string) (*assets.Link, error) {
-	i, ok := new(assets.Link).SetString(str, 10)
+func Link(str string) (*commonassets.Link, error) {
+	i, ok := new(commonassets.Link).SetString(str, 10)
 	if !ok {
-		return i, fmt.Errorf("unable to parse '%v' into *assets.Link(base 10)", str)
+		return i, fmt.Errorf("unable to parse '%s'", str)
 	}
 	return i, nil
 }
@@ -93,10 +96,28 @@ func BigInt(str string) (*big.Int, error) {
 	return i, nil
 }
 
+func Wei(str string) (w *assets.Wei, err error) {
+	w = new(assets.Wei)
+	err = w.UnmarshalText([]byte(str))
+	return w, err
+}
+
 func HomeDir(str string) (string, error) {
 	exp, err := homedir.Expand(str)
 	if err != nil {
 		return "", err
 	}
 	return filepath.ToSlash(exp), nil
+}
+
+func DatabaseURL(s string) (url.URL, error) {
+	uri, err := url.Parse(s)
+	if err != nil {
+		return url.URL{}, pkgerrors.Wrapf(err, "invalid database url %s", s)
+	}
+	if uri.String() == "" {
+		return *uri, nil
+	}
+	static.SetConsumerName(uri, "Default", nil)
+	return *uri, nil
 }

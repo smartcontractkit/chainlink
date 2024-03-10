@@ -3,7 +3,6 @@ package gethwrappers
 import (
 	"crypto/sha256"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -13,13 +12,13 @@ import (
 
 // VersionHash is the hash used to detect changes in the underlying contract
 func VersionHash(abiPath string, binPath string) (hash string) {
-	abi, err := ioutil.ReadFile(abiPath)
+	abi, err := os.ReadFile(abiPath)
 	if err != nil {
 		Exit("Could not read abi path to create version hash", err)
 	}
 	bin := []byte("")
 	if binPath != "-" {
-		bin, err = ioutil.ReadFile(binPath)
+		bin, err = os.ReadFile(binPath)
 		if err != nil {
 			Exit("Could not read abi path to create version hash", err)
 		}
@@ -45,18 +44,17 @@ func GetProjectRoot() (rootPath string) {
 			err)
 	}
 	for root != "/" { // Walk up path to find dir containing go.mod
-		if _, err := os.Stat(filepath.Join(root, "go.mod")); os.IsNotExist(err) {
-			root = filepath.Dir(root)
-		} else {
+		if _, err := os.Stat(filepath.Join(root, "go.mod")); !os.IsNotExist(err) {
 			return root
 		}
+		root = filepath.Dir(root)
 	}
 	Exit("could not find project root", nil)
 	panic("can't get here")
 }
 
 func TempDir(dirPrefix string) (string, func()) {
-	tmpDir, err := ioutil.TempDir("", dirPrefix+"-contractWrapper")
+	tmpDir, err := os.MkdirTemp("", dirPrefix+"-contractWrapper")
 	if err != nil {
 		Exit("failed to create temporary working directory", err)
 	}

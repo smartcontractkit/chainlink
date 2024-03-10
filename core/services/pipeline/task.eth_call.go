@@ -2,6 +2,8 @@ package pipeline
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
@@ -11,10 +13,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 // Return types:
@@ -32,9 +34,10 @@ type ETHCallTask struct {
 	GasUnlimited        string `json:"gasUnlimited"`
 	ExtractRevertReason bool   `json:"extractRevertReason"`
 	EVMChainID          string `json:"evmChainID" mapstructure:"evmChainID"`
+	Block               string `json:"block"`
 
 	specGasLimit *uint32
-	chainSet     evm.ChainSet
+	legacyChains legacyevm.LegacyChainContainer
 	config       Config
 	jobType      string
 }
@@ -54,6 +57,13 @@ func (t *ETHCallTask) Type() TaskType {
 	return TaskTypeETHCall
 }
 
+func (t *ETHCallTask) getEvmChainID() string {
+	if t.EVMChainID == "" {
+		t.EVMChainID = "$(jobSpec.evmChainID)"
+	}
+	return t.EVMChainID
+}
+
 func (t *ETHCallTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
 	_, err := CheckInputs(inputs, -1, -1, 0)
 	if err != nil {
@@ -70,6 +80,7 @@ func (t *ETHCallTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, in
 		gasFeeCap    MaybeBigIntParam
 		gasUnlimited BoolParam
 		chainID      StringParam
+		block        StringParam
 	)
 	err = multierr.Combine(
 		errors.Wrap(ResolveParam(&contractAddr, From(VarExpr(t.Contract, vars), NonemptyString(t.Contract))), "contract"),
@@ -79,8 +90,9 @@ func (t *ETHCallTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, in
 		errors.Wrap(ResolveParam(&gasPrice, From(VarExpr(t.GasPrice, vars), t.GasPrice)), "gasPrice"),
 		errors.Wrap(ResolveParam(&gasTipCap, From(VarExpr(t.GasTipCap, vars), t.GasTipCap)), "gasTipCap"),
 		errors.Wrap(ResolveParam(&gasFeeCap, From(VarExpr(t.GasFeeCap, vars), t.GasFeeCap)), "gasFeeCap"),
-		errors.Wrap(ResolveParam(&chainID, From(VarExpr(t.EVMChainID, vars), NonemptyString(t.EVMChainID), "")), "evmChainID"),
+		errors.Wrap(ResolveParam(&chainID, From(VarExpr(t.getEvmChainID(), vars), NonemptyString(t.getEvmChainID()), "")), "evmChainID"),
 		errors.Wrap(ResolveParam(&gasUnlimited, From(VarExpr(t.GasUnlimited, vars), NonemptyString(t.GasUnlimited), false)), "gasUnlimited"),
+		errors.Wrap(ResolveParam(&block, From(VarExpr(t.Block, vars), t.Block)), "block"),
 	)
 	if err != nil {
 		return Result{Error: err}, runInfo
@@ -88,20 +100,22 @@ func (t *ETHCallTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, in
 		return Result{Error: errors.Wrapf(ErrBadInput, "data param must not be empty")}, runInfo
 	}
 
-	chain, err := getChainByString(t.chainSet, string(chainID))
+	chain, err := t.legacyChains.Get(string(chainID))
 	if err != nil {
+		err = fmt.Errorf("%w: %s: %w", ErrInvalidEVMChainID, chainID, err)
 		return Result{Error: err}, runInfo
 	}
-	var selectedGas uint32
+
+	var selectedGas uint64
 	if gasUnlimited {
 		if gas > 0 {
 			return Result{Error: errors.Wrapf(ErrBadInput, "gas must be zero when gasUnlimited is true")}, runInfo
 		}
 	} else {
 		if gas > 0 {
-			selectedGas = uint32(gas)
+			selectedGas = uint64(gas)
 		} else {
-			selectedGas = SelectGasLimit(chain.Config(), t.jobType, t.specGasLimit)
+			selectedGas = SelectGasLimit(chain.Config().EVM().GasEstimator(), t.jobType, t.specGasLimit)
 		}
 	}
 
@@ -109,7 +123,7 @@ func (t *ETHCallTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, in
 		To:        (*common.Address)(&contractAddr),
 		From:      (common.Address)(from),
 		Data:      []byte(data),
-		Gas:       uint64(selectedGas),
+		Gas:       selectedGas,
 		GasPrice:  gasPrice.BigInt(),
 		GasTipCap: gasTipCap.BigInt(),
 		GasFeeCap: gasFeeCap.BigInt(),
@@ -121,17 +135,25 @@ func (t *ETHCallTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, in
 		With("gasFeeCap", call.GasFeeCap)
 
 	start := time.Now()
-	resp, err := chain.Client().CallContract(ctx, call, nil)
+
+	var resp []byte
+	blockStr := block.String()
+	if blockStr == "" || strings.ToLower(blockStr) == "latest" {
+		resp, err = chain.Client().CallContract(ctx, call, nil)
+	} else if strings.ToLower(blockStr) == "pending" {
+		resp, err = chain.Client().PendingCallContract(ctx, call)
+	}
+
 	elapsed := time.Since(start)
 	if err != nil {
 		if t.ExtractRevertReason {
 			rpcError, errExtract := evmclient.ExtractRPCError(err)
-			if err != nil {
-				lggr.Warnw("failed to extract rpc error", "err", err, "errExtract", errExtract)
-				// Leave error as is.
-			} else {
+			if errExtract == nil {
 				// Update error to unmarshalled RPCError with revert data.
 				err = rpcError
+			} else {
+				lggr.Warnw("failed to extract rpc error", "err", err, "errExtract", errExtract)
+				// Leave error as is.
 			}
 		}
 
@@ -139,6 +161,5 @@ func (t *ETHCallTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, in
 	}
 
 	promETHCallTime.WithLabelValues(t.DotID()).Set(float64(elapsed))
-
 	return Result{Value: resp}, runInfo
 }

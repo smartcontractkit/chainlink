@@ -7,25 +7,31 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
-	"github.com/smartcontractkit/sqlx"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	offchain_aggregator_wrapper "github.com/smartcontractkit/chainlink/core/internal/gethwrappers2/generated/offchainaggregator"
-	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
+	offchain_aggregator_wrapper "github.com/smartcontractkit/chainlink/v2/core/internal/gethwrappers2/generated/offchainaggregator"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 var _ median.MedianContract = &medianContract{}
 
 type medianContract struct {
-	contractCaller *ocr2aggregator.OCR2AggregatorCaller
-	tracker        *RequestRoundTracker
+	services.StateMachine
+	lggr                logger.Logger
+	configTracker       types.ContractConfigTracker
+	contractCaller      *ocr2aggregator.OCR2AggregatorCaller
+	requestRoundTracker *RequestRoundTracker
 }
 
-func newMedianContract(contractAddress common.Address, chain evm.Chain, specID int32, db *sqlx.DB, lggr logger.Logger) (*medianContract, error) {
+func newMedianContract(configTracker types.ContractConfigTracker, contractAddress common.Address, chain legacyevm.Chain, specID int32, db *sqlx.DB, lggr logger.Logger) (*medianContract, error) {
+	lggr = lggr.Named("MedianContract")
 	contract, err := offchain_aggregator_wrapper.NewOffchainAggregator(contractAddress, chain.Client())
 	if err != nil {
 		return nil, errors.Wrap(err, "could not instantiate NewOffchainAggregator")
@@ -42,8 +48,10 @@ func newMedianContract(contractAddress common.Address, chain evm.Chain, specID i
 	}
 
 	return &medianContract{
+		lggr:           lggr,
+		configTracker:  configTracker,
 		contractCaller: contractCaller,
-		tracker: NewRequestRoundTracker(
+		requestRoundTracker: NewRequestRoundTracker(
 			contract,
 			contractFilterer,
 			chain.Client(),
@@ -52,17 +60,27 @@ func newMedianContract(contractAddress common.Address, chain evm.Chain, specID i
 			lggr,
 			db,
 			NewRoundRequestedDB(db.DB, specID, lggr),
-			chain.Config(),
+			chain.Config().EVM(),
+			chain.Config().Database(),
 		),
 	}, nil
 }
-
-func (oc *medianContract) Start() error {
-	return oc.tracker.Start()
+func (oc *medianContract) Start(context.Context) error {
+	return oc.StartOnce("MedianContract", func() error {
+		return oc.requestRoundTracker.Start()
+	})
 }
 
 func (oc *medianContract) Close() error {
-	return oc.tracker.Close()
+	return oc.StopOnce("MedianContract", func() error {
+		return oc.requestRoundTracker.Close()
+	})
+}
+
+func (oc *medianContract) Name() string { return oc.lggr.Name() }
+
+func (oc *medianContract) HealthReport() map[string]error {
+	return map[string]error{oc.Name(): oc.Ready()}
 }
 
 func (oc *medianContract) LatestTransmissionDetails(ctx context.Context) (ocrtypes.ConfigDigest, uint32, uint8, *big.Int, time.Time, error) {
@@ -83,5 +101,5 @@ func (oc *medianContract) LatestTransmissionDetails(ctx context.Context) (ocrtyp
 // As an optimization, this function may also return zero values, if no
 // RoundRequested event has been emitted after the latest NewTransmission event.
 func (oc *medianContract) LatestRoundRequested(ctx context.Context, lookback time.Duration) (ocrtypes.ConfigDigest, uint32, uint8, error) {
-	return oc.tracker.LatestRoundRequested(ctx, lookback)
+	return oc.requestRoundTracker.LatestRoundRequested(ctx, lookback)
 }

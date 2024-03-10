@@ -24,6 +24,7 @@ export interface Roles {
   oracleNode4: Signer
   stranger: Signer
   consumer: Signer
+  consumer2: Signer
 }
 
 export interface Personas {
@@ -45,7 +46,7 @@ export interface Users {
 }
 
 export async function getUsers() {
-  let accounts = await ethers.getSigners()
+  const accounts = await ethers.getSigners()
 
   const personas: Personas = {
     Default: accounts[0],
@@ -79,6 +80,7 @@ export async function getUsers() {
     oracleNode4: accounts[5],
     stranger: accounts[6],
     consumer: accounts[7],
+    consumer2: accounts[8],
   }
 
   const users: Users = {

@@ -1,6 +1,7 @@
 package txmgr_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -8,395 +9,289 @@ import (
 	"testing"
 	"time"
 
-	gethCommon "github.com/ethereum/go-ethereum/common"
-	gethcommon "github.com/ethereum/go-ethereum/common"
-	gethtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/pkg/errors"
-	uuid "github.com/satori/go.uuid"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/atomic"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/forwarders"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	txmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr/mocks"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	ksmocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	pgmocks "github.com/smartcontractkit/chainlink/core/services/pg/mocks"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/jmoiron/sqlx"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
+
+	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
+	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
+	commontxmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/types/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	ksmocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
-func TestTxm_SendEther_DoesNotSendToZero(t *testing.T) {
+func makeTestEvmTxm(
+	t *testing.T, db *sqlx.DB, ethClient evmclient.Client, estimator gas.EvmFeeEstimator, ccfg txmgr.ChainConfig, fcfg txmgr.FeeConfig, txConfig evmconfig.Transactions, dbConfig txmgr.DatabaseConfig, listenerConfig txmgr.ListenerConfig, keyStore keystore.Eth) (txmgr.TxManager, error) {
+	lggr := logger.Test(t)
+	lpOpts := logpoller.Opts{
+		PollPeriod:               100 * time.Millisecond,
+		FinalityDepth:            2,
+		BackfillBatchSize:        3,
+		RpcBatchSize:             2,
+		KeepFinalizedBlocksDepth: 1000,
+	}
+	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewQConfig(true)), ethClient, lggr, lpOpts)
+
+	// logic for building components (from evm/evm_txm.go) -------
+	lggr.Infow("Initializing EVM transaction manager",
+		"bumpTxDepth", fcfg.BumpTxDepth(),
+		"maxInFlightTransactions", txConfig.MaxInFlight(),
+		"maxQueuedTransactions", txConfig.MaxQueued(),
+		"nonceAutoSync", ccfg.NonceAutoSync(),
+		"limitDefault", fcfg.LimitDefault(),
+	)
+
+	return txmgr.NewTxm(
+		db,
+		ccfg,
+		fcfg,
+		txConfig,
+		dbConfig,
+		listenerConfig,
+		ethClient,
+		lggr,
+		lp,
+		keyStore,
+		estimator)
+}
+
+func TestTxm_SendNativeToken_DoesNotSendToZero(t *testing.T) {
 	t.Parallel()
 	db := pgtest.NewSqlxDB(t)
 
 	from := utils.ZeroAddress
 	to := utils.ZeroAddress
-	value := assets.NewEth(1)
+	value := assets.NewEth(1).ToInt()
 
-	config := newMockConfig(t)
-	config.On("EthTxResendAfterThreshold").Return(time.Duration(0))
-	config.On("EthTxReaperThreshold").Return(time.Duration(0))
-	config.On("GasEstimatorMode").Return("FixedPrice")
+	config, dbConfig, evmConfig := txmgr.MakeTestConfigs(t)
 
+	keyStore := cltest.NewKeyStore(t, db, dbConfig).Eth()
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-	lggr := logger.TestLogger(t)
-	checkerFactory := &testCheckerFactory{}
-	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewPGCfg(true)),
-		ethClient, lggr, 100*time.Millisecond, 2, 3, 2)
-	txm := txmgr.NewTxm(db, ethClient, config, nil, nil, lggr, checkerFactory, lp)
+	estimator := gas.NewEstimator(logger.Test(t), ethClient, config, evmConfig.GasEstimator())
+	txm, err := makeTestEvmTxm(t, db, ethClient, estimator, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), dbConfig, dbConfig.Listener(), keyStore)
+	require.NoError(t, err)
 
-	_, err := txm.SendEther(big.NewInt(0), from, to, *value, 21000)
+	_, err = txm.SendNativeToken(testutils.Context(t), big.NewInt(0), from, to, *value, 21000)
 	require.Error(t, err)
-	require.EqualError(t, err, "cannot send ether to zero address")
+	require.EqualError(t, err, "cannot send native token to zero address")
 }
 
-func TestTxm_CheckEthTxQueueCapacity(t *testing.T) {
+func TestTxm_CreateTransaction(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
-	borm := cltest.NewTxmORM(t, db, cfg)
-	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+	cfg := configtest.NewGeneralConfig(t, nil)
+	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
+	kst := cltest.NewKeyStore(t, db, cfg.Database())
 
-	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
-	_, otherAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
-
-	var maxUnconfirmedTransactions uint64 = 2
-
-	t.Run("with no eth_txes returns nil", func(t *testing.T) {
-		err := txmgr.CheckEthTxQueueCapacity(db, fromAddress, maxUnconfirmedTransactions, cltest.FixtureChainID)
-		require.NoError(t, err)
-	})
-
-	// deliberately one extra to exceed limit
-	for i := 0; i <= int(maxUnconfirmedTransactions); i++ {
-		cltest.MustInsertUnstartedEthTx(t, borm, otherAddress)
-	}
-
-	t.Run("with eth_txes from another address returns nil", func(t *testing.T) {
-		err := txmgr.CheckEthTxQueueCapacity(db, fromAddress, maxUnconfirmedTransactions, cltest.FixtureChainID)
-		require.NoError(t, err)
-	})
-
-	for i := 0; i <= int(maxUnconfirmedTransactions); i++ {
-		cltest.MustInsertFatalErrorEthTx(t, borm, otherAddress)
-	}
-
-	t.Run("ignores fatally_errored transactions", func(t *testing.T) {
-		err := txmgr.CheckEthTxQueueCapacity(db, fromAddress, maxUnconfirmedTransactions, cltest.FixtureChainID)
-		require.NoError(t, err)
-	})
-
-	var n int64
-	cltest.MustInsertInProgressEthTxWithAttempt(t, borm, n, fromAddress)
-	n++
-	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, n, fromAddress)
-	n++
-
-	t.Run("unconfirmed and in_progress transactions do not count", func(t *testing.T) {
-		err := txmgr.CheckEthTxQueueCapacity(db, fromAddress, 1, cltest.FixtureChainID)
-		require.NoError(t, err)
-	})
-
-	// deliberately one extra to exceed limit
-	for i := 0; i <= int(maxUnconfirmedTransactions); i++ {
-		cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, n, 42, fromAddress)
-		n++
-	}
-
-	t.Run("with many confirmed eth_txes from the same address returns nil", func(t *testing.T) {
-		err := txmgr.CheckEthTxQueueCapacity(db, fromAddress, maxUnconfirmedTransactions, cltest.FixtureChainID)
-		require.NoError(t, err)
-	})
-
-	for i := 0; i < int(maxUnconfirmedTransactions)-1; i++ {
-		cltest.MustInsertUnstartedEthTx(t, borm, fromAddress)
-	}
-
-	t.Run("with fewer unstarted eth_txes than limit returns nil", func(t *testing.T) {
-		err := txmgr.CheckEthTxQueueCapacity(db, fromAddress, maxUnconfirmedTransactions, cltest.FixtureChainID)
-		require.NoError(t, err)
-	})
-
-	cltest.MustInsertUnstartedEthTx(t, borm, fromAddress)
-
-	t.Run("with equal or more unstarted eth_txes than limit returns error", func(t *testing.T) {
-		err := txmgr.CheckEthTxQueueCapacity(db, fromAddress, maxUnconfirmedTransactions, cltest.FixtureChainID)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), fmt.Sprintf("cannot create transaction; too many unstarted transactions in the queue (2/%d). WARNING: Hitting ETH_MAX_QUEUED_TRANSACTIONS", maxUnconfirmedTransactions))
-
-		cltest.MustInsertUnstartedEthTx(t, borm, fromAddress)
-		err = txmgr.CheckEthTxQueueCapacity(db, fromAddress, maxUnconfirmedTransactions, cltest.FixtureChainID)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), fmt.Sprintf("cannot create transaction; too many unstarted transactions in the queue (3/%d). WARNING: Hitting ETH_MAX_QUEUED_TRANSACTIONS", maxUnconfirmedTransactions))
-	})
-
-	t.Run("with different chain ID ignores txes", func(t *testing.T) {
-		err := txmgr.CheckEthTxQueueCapacity(db, fromAddress, maxUnconfirmedTransactions, *big.NewInt(42))
-		require.NoError(t, err)
-	})
-
-	t.Run("disables check with 0 limit", func(t *testing.T) {
-		err := txmgr.CheckEthTxQueueCapacity(db, fromAddress, 0, cltest.FixtureChainID)
-		require.NoError(t, err)
-	})
-}
-
-func TestTxm_CountUnconfirmedTransactions(t *testing.T) {
-	t.Parallel()
-
-	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
-	borm := cltest.NewTxmORM(t, db, cfg)
-	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
-
-	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
-	_, otherAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
-
-	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 0, otherAddress)
-	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 0, fromAddress)
-	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 1, fromAddress)
-	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 2, fromAddress)
-
-	q := pg.NewQ(db, logger.TestLogger(t), cfg)
-	count, err := txmgr.CountUnconfirmedTransactions(q, fromAddress, cltest.FixtureChainID)
-	require.NoError(t, err)
-	assert.Equal(t, int(count), 3)
-}
-
-func TestTxm_CountUnstartedTransactions(t *testing.T) {
-	t.Parallel()
-
-	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
-	borm := cltest.NewTxmORM(t, db, cfg)
-	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
-
-	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
-	_, otherAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
-
-	cltest.MustInsertUnstartedEthTx(t, borm, fromAddress)
-	cltest.MustInsertUnstartedEthTx(t, borm, fromAddress)
-	cltest.MustInsertUnstartedEthTx(t, borm, otherAddress)
-	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 2, fromAddress)
-
-	q := pg.NewQ(db, logger.TestLogger(t), cfg)
-	count, err := txmgr.CountUnstartedTransactions(q, fromAddress, cltest.FixtureChainID)
-	require.NoError(t, err)
-	assert.Equal(t, int(count), 2)
-}
-func TestTxm_CreateEthTransaction(t *testing.T) {
-	t.Parallel()
-
-	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
-	borm := cltest.NewTxmORM(t, db, cfg)
-	kst := cltest.NewKeyStore(t, db, cfg)
-
-	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth(), 0)
+	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
 	toAddress := testutils.NewAddress()
-	gasLimit := uint32(1000)
+	gasLimit := uint64(1000)
 	payload := []byte{1, 2, 3}
 
-	config := newMockConfig(t)
-	config.On("EthTxResendAfterThreshold").Return(time.Duration(0))
-	config.On("EthTxReaperThreshold").Return(time.Duration(0))
-	config.On("GasEstimatorMode").Return("FixedPrice")
-	config.On("LogSQL").Return(false)
+	config, dbConfig, evmConfig := txmgr.MakeTestConfigs(t)
+
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
-	lggr := logger.TestLogger(t)
-	checkerFactory := &testCheckerFactory{}
-	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewPGCfg(true)),
-		ethClient, lggr, 100*time.Millisecond, 2, 3, 2)
-	txm := txmgr.NewTxm(db, ethClient, config, kst.Eth(), nil, lggr, checkerFactory, lp)
+	estimator := gas.NewEstimator(logger.Test(t), ethClient, config, evmConfig.GasEstimator())
+	txm, err := makeTestEvmTxm(t, db, ethClient, estimator, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), dbConfig, dbConfig.Listener(), kst.Eth())
+	require.NoError(t, err)
 
 	t.Run("with queue under capacity inserts eth_tx", func(t *testing.T) {
-		subject := uuid.NewV4()
+		subject := uuid.New()
 		strategy := newMockTxStrategy(t)
 		strategy.On("Subject").Return(uuid.NullUUID{UUID: subject, Valid: true})
-		strategy.On("PruneQueue", mock.AnythingOfType("*sqlx.Tx")).Return(int64(0), nil)
-		config.On("EvmMaxQueuedTransactions").Return(uint64(1)).Once()
-		etx, err := txm.CreateEthTransaction(txmgr.NewTx{
+		strategy.On("PruneQueue", mock.Anything, mock.Anything).Return(nil, nil)
+		evmConfig.MaxQueued = uint64(1)
+		etx, err := txm.CreateTransaction(testutils.Context(t), txmgr.TxRequest{
 			FromAddress:    fromAddress,
 			ToAddress:      toAddress,
 			EncodedPayload: payload,
-			GasLimit:       gasLimit,
+			FeeLimit:       gasLimit,
 			Meta:           nil,
 			Strategy:       strategy,
 		})
 		assert.NoError(t, err)
-
 		assert.Greater(t, etx.ID, int64(0))
-		assert.Equal(t, etx.State, txmgr.EthTxUnstarted)
-		assert.Equal(t, gasLimit, etx.GasLimit)
+		assert.Equal(t, etx.State, txmgrcommon.TxUnstarted)
+		assert.Equal(t, gasLimit, etx.FeeLimit)
 		assert.Equal(t, fromAddress, etx.FromAddress)
 		assert.Equal(t, toAddress, etx.ToAddress)
 		assert.Equal(t, payload, etx.EncodedPayload)
-		assert.Equal(t, assets.NewEthValue(0), etx.Value)
+		assert.Equal(t, big.Int(assets.NewEthValue(0)), etx.Value)
 		assert.Equal(t, subject, etx.Subject.UUID)
 
-		cltest.AssertCount(t, db, "eth_txes", 1)
+		cltest.AssertCount(t, db, "evm.txes", 1)
 
-		require.NoError(t, db.Get(&etx, `SELECT * FROM eth_txes ORDER BY id ASC LIMIT 1`))
+		var dbEtx txmgr.DbEthTx
+		require.NoError(t, db.Get(&dbEtx, `SELECT * FROM evm.txes ORDER BY id ASC LIMIT 1`))
 
-		assert.Equal(t, etx.State, txmgr.EthTxUnstarted)
-		assert.Equal(t, gasLimit, etx.GasLimit)
+		assert.Equal(t, etx.State, txmgrcommon.TxUnstarted)
+		assert.Equal(t, gasLimit, etx.FeeLimit)
 		assert.Equal(t, fromAddress, etx.FromAddress)
 		assert.Equal(t, toAddress, etx.ToAddress)
 		assert.Equal(t, payload, etx.EncodedPayload)
-		assert.Equal(t, assets.NewEthValue(0), etx.Value)
+		assert.Equal(t, big.Int(assets.NewEthValue(0)), etx.Value)
 		assert.Equal(t, subject, etx.Subject.UUID)
-
-		config.AssertExpectations(t)
 	})
 
-	cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, borm, 0, fromAddress)
+	mustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, txStore, 0, fromAddress)
 
 	t.Run("with queue at capacity does not insert eth_tx", func(t *testing.T) {
-		config.On("EvmMaxQueuedTransactions").Return(uint64(1)).Once()
-		_, err := txm.CreateEthTransaction(txmgr.NewTx{
+		evmConfig.MaxQueued = uint64(1)
+		_, err := txm.CreateTransaction(testutils.Context(t), txmgr.TxRequest{
 			FromAddress:    fromAddress,
 			ToAddress:      testutils.NewAddress(),
 			EncodedPayload: []byte{1, 2, 3},
-			GasLimit:       21000,
+			FeeLimit:       21000,
 			Meta:           nil,
-			Strategy:       txmgr.SendEveryStrategy{},
+			Strategy:       txmgrcommon.NewSendEveryStrategy(),
 		})
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "Txm#CreateEthTransaction: cannot create transaction; too many unstarted transactions in the queue (1/1). WARNING: Hitting ETH_MAX_QUEUED_TRANSACTIONS")
-
-		config.AssertExpectations(t)
+		assert.Contains(t, err.Error(), "Txm#CreateTransaction: cannot create transaction; too many unstarted transactions in the queue (1/1). WARNING: Hitting EVM.Transactions.MaxQueued")
 	})
 
 	t.Run("doesn't insert eth_tx if a matching tx already exists for that pipeline_task_run_id", func(t *testing.T) {
-		config.On("EvmMaxQueuedTransactions").Return(uint64(3)).Once()
-		id := uuid.NewV4()
-		tx1, err := txm.CreateEthTransaction(txmgr.NewTx{
+		evmConfig.MaxQueued = uint64(3)
+		id := uuid.New()
+		tx1, err := txm.CreateTransaction(testutils.Context(t), txmgr.TxRequest{
 			FromAddress:       fromAddress,
 			ToAddress:         testutils.NewAddress(),
 			EncodedPayload:    []byte{1, 2, 3},
-			GasLimit:          21000,
+			FeeLimit:          21000,
 			PipelineTaskRunID: &id,
-			Strategy:          txmgr.SendEveryStrategy{},
+			Strategy:          txmgrcommon.NewSendEveryStrategy(),
 		})
 		assert.NoError(t, err)
 
-		config.On("EvmMaxQueuedTransactions").Return(uint64(3)).Once()
-		tx2, err := txm.CreateEthTransaction(txmgr.NewTx{
+		tx2, err := txm.CreateTransaction(testutils.Context(t), txmgr.TxRequest{
 			FromAddress:       fromAddress,
 			ToAddress:         testutils.NewAddress(),
 			EncodedPayload:    []byte{1, 2, 3},
-			GasLimit:          21000,
+			FeeLimit:          21000,
 			PipelineTaskRunID: &id,
-			Strategy:          txmgr.SendEveryStrategy{},
+			Strategy:          txmgrcommon.NewSendEveryStrategy(),
 		})
 		assert.NoError(t, err)
 
-		assert.Equal(t, tx1.ID, tx2.ID)
-
-		config.AssertExpectations(t)
+		assert.Equal(t, tx1.GetID(), tx2.GetID())
 	})
 
 	t.Run("returns error if eth key state is missing or doesn't match chain ID", func(t *testing.T) {
 		rndAddr := testutils.NewAddress()
-		_, err := txm.CreateEthTransaction(txmgr.NewTx{
+		_, err := txm.CreateTransaction(testutils.Context(t), txmgr.TxRequest{
 			FromAddress:    rndAddr,
 			ToAddress:      testutils.NewAddress(),
 			EncodedPayload: []byte{1, 2, 3},
-			GasLimit:       21000,
-			Strategy:       txmgr.SendEveryStrategy{},
+			FeeLimit:       21000,
+			Strategy:       txmgrcommon.NewSendEveryStrategy(),
 		})
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), fmt.Sprintf("no eth key exists with address %s", rndAddr.Hex()))
+		assert.Contains(t, err.Error(), fmt.Sprintf("no eth key exists with address %s", rndAddr.String()))
 
-		_, otherAddress := cltest.MustInsertRandomKey(t, kst.Eth(), *utils.NewBigI(1337))
+		_, otherAddress := cltest.MustInsertRandomKey(t, kst.Eth(), *ubig.NewI(1337))
 
-		_, err = txm.CreateEthTransaction(txmgr.NewTx{
+		_, err = txm.CreateTransaction(testutils.Context(t), txmgr.TxRequest{
 			FromAddress:    otherAddress,
 			ToAddress:      testutils.NewAddress(),
 			EncodedPayload: []byte{1, 2, 3},
-			GasLimit:       21000,
-			Strategy:       txmgr.SendEveryStrategy{},
+			FeeLimit:       21000,
+			Strategy:       txmgrcommon.NewSendEveryStrategy(),
 		})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), fmt.Sprintf("cannot send transaction from %s on chain ID 0: eth key with address %s exists but is has not been enabled for chain 0 (enabled only for chain IDs: 1337)", otherAddress.Hex(), otherAddress.Hex()))
-
-		config.AssertExpectations(t)
 	})
 
 	t.Run("simulate transmit checker", func(t *testing.T) {
-		pgtest.MustExec(t, db, `DELETE FROM eth_txes`)
+		pgtest.MustExec(t, db, `DELETE FROM evm.txes`)
 
 		checker := txmgr.TransmitCheckerSpec{
 			CheckerType: txmgr.TransmitCheckerTypeSimulate,
 		}
-		config.On("EvmMaxQueuedTransactions").Return(uint64(1)).Once()
-		etx, err := txm.CreateEthTransaction(txmgr.NewTx{
+		evmConfig.MaxQueued = uint64(1)
+		etx, err := txm.CreateTransaction(testutils.Context(t), txmgr.TxRequest{
 			FromAddress:    fromAddress,
 			ToAddress:      toAddress,
 			EncodedPayload: payload,
-			GasLimit:       gasLimit,
-			Strategy:       txmgr.NewSendEveryStrategy(),
+			FeeLimit:       gasLimit,
+			Strategy:       txmgrcommon.NewSendEveryStrategy(),
 			Checker:        checker,
 		})
 		assert.NoError(t, err)
-		cltest.AssertCount(t, db, "eth_txes", 1)
-
-		require.NoError(t, db.Get(&etx, `SELECT * FROM eth_txes ORDER BY id ASC LIMIT 1`))
+		cltest.AssertCount(t, db, "evm.txes", 1)
+		var dbEtx txmgr.DbEthTx
+		require.NoError(t, db.Get(&dbEtx, `SELECT * FROM evm.txes ORDER BY id ASC LIMIT 1`))
 
 		var c txmgr.TransmitCheckerSpec
 		require.NotNil(t, etx.TransmitChecker)
 		require.NoError(t, json.Unmarshal(*etx.TransmitChecker, &c))
 		require.Equal(t, checker, c)
-
-		config.AssertExpectations(t)
 	})
 
 	t.Run("meta and vrf checker", func(t *testing.T) {
-		pgtest.MustExec(t, db, `DELETE FROM eth_txes`)
+		pgtest.MustExec(t, db, `DELETE FROM evm.txes`)
 		testDefaultSubID := uint64(2)
 		testDefaultMaxLink := "1000000000000000000"
+		testDefaultMaxEth := "2000000000000000000"
+		// max uint256 is 1.1579209e+77
+		testDefaultGlobalSubID := crypto.Keccak256Hash([]byte("sub id")).String()
 		jobID := int32(25)
-		requestID := gethcommon.HexToHash("abcd")
-		requestTxHash := gethcommon.HexToHash("dcba")
-		meta := &txmgr.EthTxMeta{
+		requestID := common.HexToHash("abcd")
+		requestTxHash := common.HexToHash("dcba")
+		meta := &txmgr.TxMeta{
 			JobID:         &jobID,
 			RequestID:     &requestID,
 			RequestTxHash: &requestTxHash,
 			MaxLink:       &testDefaultMaxLink, // 1e18
+			MaxEth:        &testDefaultMaxEth,  // 2e18
 			SubID:         &testDefaultSubID,
+			GlobalSubID:   &testDefaultGlobalSubID,
 		}
-		config.On("EvmMaxQueuedTransactions").Return(uint64(1)).Once()
+		evmConfig.MaxQueued = uint64(1)
 		checker := txmgr.TransmitCheckerSpec{
 			CheckerType:           txmgr.TransmitCheckerTypeVRFV2,
 			VRFCoordinatorAddress: testutils.NewAddressPtr(),
 		}
-		etx, err := txm.CreateEthTransaction(txmgr.NewTx{
+		etx, err := txm.CreateTransaction(testutils.Context(t), txmgr.TxRequest{
 			FromAddress:    fromAddress,
 			ToAddress:      toAddress,
 			EncodedPayload: payload,
-			GasLimit:       gasLimit,
+			FeeLimit:       gasLimit,
 			Meta:           meta,
-			Strategy:       txmgr.NewSendEveryStrategy(),
+			Strategy:       txmgrcommon.NewSendEveryStrategy(),
 			Checker:        checker,
 		})
 		assert.NoError(t, err)
-		cltest.AssertCount(t, db, "eth_txes", 1)
-
-		require.NoError(t, db.Get(&etx, `SELECT * FROM eth_txes ORDER BY id ASC LIMIT 1`))
+		cltest.AssertCount(t, db, "evm.txes", 1)
+		var dbEtx txmgr.DbEthTx
+		require.NoError(t, db.Get(&dbEtx, `SELECT * FROM evm.txes ORDER BY id ASC LIMIT 1`))
 
 		m, err := etx.GetMeta()
 		require.NoError(t, err)
@@ -406,118 +301,125 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 		require.NotNil(t, etx.TransmitChecker)
 		require.NoError(t, json.Unmarshal(*etx.TransmitChecker, &c))
 		require.Equal(t, checker, c)
-
-		config.AssertExpectations(t)
 	})
 
 	t.Run("forwards tx when a proper forwarder is set up", func(t *testing.T) {
-		pgtest.MustExec(t, db, `DELETE FROM eth_txes`)
-		pgtest.MustExec(t, db, `DELETE FROM evm_forwarders`)
-		config.On("EvmMaxQueuedTransactions").Return(uint64(1)).Once()
+		pgtest.MustExec(t, db, `DELETE FROM evm.txes`)
+		pgtest.MustExec(t, db, `DELETE FROM evm.forwarders`)
+		evmConfig.MaxQueued = uint64(1)
 
 		// Create mock forwarder, mock authorizedsenders call.
-		form := forwarders.NewORM(db, logger.TestLogger(t), cfg)
+		form := forwarders.NewORM(db, logger.Test(t), cfg.Database())
 		fwdrAddr := testutils.NewAddress()
-		fwdr, err := form.CreateForwarder(fwdrAddr, utils.Big(cltest.FixtureChainID))
+		fwdr, err := form.CreateForwarder(fwdrAddr, ubig.Big(cltest.FixtureChainID))
 		require.NoError(t, err)
 		require.Equal(t, fwdr.Address, fwdrAddr)
 
-		etx, err := txm.CreateEthTransaction(txmgr.NewTx{
+		etx, err := txm.CreateTransaction(testutils.Context(t), txmgr.TxRequest{
 			FromAddress:      fromAddress,
 			ToAddress:        toAddress,
 			EncodedPayload:   payload,
-			GasLimit:         gasLimit,
+			FeeLimit:         gasLimit,
 			ForwarderAddress: fwdr.Address,
-			Strategy:         txmgr.NewSendEveryStrategy(),
+			Strategy:         txmgrcommon.NewSendEveryStrategy(),
 		})
 		assert.NoError(t, err)
-		cltest.AssertCount(t, db, "eth_txes", 1)
+		cltest.AssertCount(t, db, "evm.txes", 1)
 
-		require.NoError(t, db.Get(&etx, `SELECT * FROM eth_txes ORDER BY id ASC LIMIT 1`))
+		var dbEtx txmgr.DbEthTx
+		require.NoError(t, db.Get(&dbEtx, `SELECT * FROM evm.txes ORDER BY id ASC LIMIT 1`))
 
 		m, err := etx.GetMeta()
 		require.NoError(t, err)
 		require.NotNil(t, m.FwdrDestAddress)
-		require.Equal(t, etx.ToAddress, fwdrAddr)
+		require.Equal(t, etx.ToAddress.String(), fwdrAddr.String())
+	})
 
-		config.AssertExpectations(t)
+	t.Run("insert Tx successfully with a IdempotencyKey", func(t *testing.T) {
+		evmConfig.MaxQueued = uint64(3)
+		id := uuid.New()
+		idempotencyKey := "1"
+		_, err := txm.CreateTransaction(testutils.Context(t), txmgr.TxRequest{
+			IdempotencyKey:    &idempotencyKey,
+			FromAddress:       fromAddress,
+			ToAddress:         testutils.NewAddress(),
+			EncodedPayload:    []byte{1, 2, 3},
+			FeeLimit:          21000,
+			PipelineTaskRunID: &id,
+			Strategy:          txmgrcommon.NewSendEveryStrategy(),
+		})
+		assert.NoError(t, err)
+	})
+
+	t.Run("doesn't insert eth_tx if a matching tx already exists for that IdempotencyKey", func(t *testing.T) {
+		evmConfig.MaxQueued = uint64(3)
+		id := uuid.New()
+		idempotencyKey := "2"
+		tx1, err := txm.CreateTransaction(testutils.Context(t), txmgr.TxRequest{
+			IdempotencyKey:    &idempotencyKey,
+			FromAddress:       fromAddress,
+			ToAddress:         testutils.NewAddress(),
+			EncodedPayload:    []byte{1, 2, 3},
+			FeeLimit:          21000,
+			PipelineTaskRunID: &id,
+			Strategy:          txmgrcommon.NewSendEveryStrategy(),
+		})
+		assert.NoError(t, err)
+
+		tx2, err := txm.CreateTransaction(testutils.Context(t), txmgr.TxRequest{
+			IdempotencyKey:    &idempotencyKey,
+			FromAddress:       fromAddress,
+			ToAddress:         testutils.NewAddress(),
+			EncodedPayload:    []byte{1, 2, 3},
+			FeeLimit:          21000,
+			PipelineTaskRunID: &id,
+			Strategy:          txmgrcommon.NewSendEveryStrategy(),
+		})
+		assert.NoError(t, err)
+
+		assert.Equal(t, tx1.GetID(), tx2.GetID())
 	})
 }
 
-func newMockTxStrategy(t *testing.T) *txmmocks.TxStrategy {
-	return txmmocks.NewTxStrategy(t)
+func newMockTxStrategy(t *testing.T) *commontxmmocks.TxStrategy {
+	return commontxmmocks.NewTxStrategy(t)
 }
 
-func newMockConfig(t *testing.T) *txmmocks.Config {
-	// These are only used for logging, the exact value doesn't matter
-	// It can be overridden in the test that uses it
-	cfg := txmmocks.NewConfig(t)
-	cfg.On("EvmGasBumpTxDepth").Return(uint16(42)).Maybe().Once()
-	cfg.On("EvmMaxInFlightTransactions").Return(uint32(42)).Maybe()
-	cfg.On("EvmMaxQueuedTransactions").Return(uint64(42)).Maybe().Once()
-	cfg.On("EvmNonceAutoSync").Return(true).Maybe()
-	cfg.On("EvmGasLimitDefault").Return(uint32(42)).Maybe().Once()
-	cfg.On("BlockHistoryEstimatorBatchSize").Return(uint32(42)).Maybe().Once()
-	cfg.On("BlockHistoryEstimatorBlockDelay").Return(uint16(42)).Maybe().Once()
-	cfg.On("BlockHistoryEstimatorBlockHistorySize").Return(uint16(42)).Maybe().Once()
-	cfg.On("BlockHistoryEstimatorEIP1559FeeCapBufferBlocks").Return(uint16(42)).Maybe().Once()
-	cfg.On("BlockHistoryEstimatorTransactionPercentile").Return(uint16(42)).Maybe().Once()
-	cfg.On("EvmEIP1559DynamicFees").Return(false).Maybe().Once()
-	cfg.On("EvmGasBumpPercent").Return(uint16(42)).Maybe().Once()
-	cfg.On("EvmGasBumpThreshold").Return(uint64(42)).Maybe()
-	cfg.On("EvmGasBumpWei").Return(big.NewInt(42)).Maybe().Once()
-	cfg.On("EvmGasFeeCapDefault").Return(big.NewInt(42)).Maybe().Once()
-	cfg.On("EvmGasLimitMultiplier").Return(float32(42)).Maybe().Once()
-	cfg.On("EvmGasPriceDefault").Return(big.NewInt(42)).Maybe().Once()
-	cfg.On("EvmGasTipCapDefault").Return(big.NewInt(42)).Maybe().Once()
-	cfg.On("EvmGasTipCapMinimum").Return(big.NewInt(42)).Maybe().Once()
-	cfg.On("EvmMaxGasPriceWei").Return(big.NewInt(42)).Maybe().Once()
-	cfg.On("EvmMinGasPriceWei").Return(big.NewInt(42)).Maybe().Once()
-	cfg.On("EvmUseForwarders").Return(true).Maybe()
-	cfg.On("LogSQL").Maybe().Return(false)
-
-	return cfg
-}
-
-func TestTxm_CreateEthTransaction_OutOfEth(t *testing.T) {
+func TestTxm_CreateTransaction_OutOfEth(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
-	borm := cltest.NewTxmORM(t, db, cfg)
-	etKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+	cfg := configtest.NewGeneralConfig(t, nil)
+	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
+	etKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 
-	thisKey, _ := cltest.MustInsertRandomKey(t, etKeyStore, 1)
-	otherKey, _ := cltest.MustInsertRandomKey(t, etKeyStore, 1)
+	thisKey, _ := cltest.RandomKey{Nonce: 1}.MustInsert(t, etKeyStore)
+	otherKey, _ := cltest.RandomKey{Nonce: 1}.MustInsert(t, etKeyStore)
 
 	fromAddress := thisKey.Address
-	gasLimit := uint32(1000)
+	evmFromAddress := fromAddress
+	gasLimit := uint64(1000)
 	toAddress := testutils.NewAddress()
 
-	config := newMockConfig(t)
-	config.On("EthTxResendAfterThreshold").Return(time.Duration(0))
-	config.On("EthTxReaperThreshold").Return(time.Duration(0))
-	config.On("GasEstimatorMode").Return("FixedPrice")
-	config.On("LogSQL").Return(false)
+	config, dbConfig, evmConfig := txmgr.MakeTestConfigs(t)
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-	lggr := logger.TestLogger(t)
-	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewPGCfg(true)),
-		ethClient, lggr, 100*time.Millisecond, 2, 3, 2)
-	kst := cltest.NewKeyStore(t, db, cfg)
-	txm := txmgr.NewTxm(db, ethClient, config, kst.Eth(), nil, lggr, &testCheckerFactory{}, lp)
+	estimator := gas.NewEstimator(logger.Test(t), ethClient, config, evmConfig.GasEstimator())
+	txm, err := makeTestEvmTxm(t, db, ethClient, estimator, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), dbConfig, dbConfig.Listener(), etKeyStore)
+	require.NoError(t, err)
 
 	t.Run("if another key has any transactions with insufficient eth errors, transmits as normal", func(t *testing.T) {
 		payload := cltest.MustRandomBytes(t, 100)
-		config.On("EvmMaxQueuedTransactions").Return(uint64(1))
-		cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, borm, 0, otherKey.Address)
+
+		evmConfig.MaxQueued = uint64(1)
+		mustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, txStore, 0, otherKey.Address)
 		strategy := newMockTxStrategy(t)
 		strategy.On("Subject").Return(uuid.NullUUID{})
-		strategy.On("PruneQueue", mock.AnythingOfType("*sqlx.Tx")).Return(int64(0), nil)
+		strategy.On("PruneQueue", mock.Anything, mock.Anything).Return(nil, nil)
 
-		etx, err := txm.CreateEthTransaction(txmgr.NewTx{
-			FromAddress:    fromAddress,
+		etx, err := txm.CreateTransaction(testutils.Context(t), txmgr.TxRequest{
+			FromAddress:    evmFromAddress,
 			ToAddress:      toAddress,
 			EncodedPayload: payload,
-			GasLimit:       gasLimit,
+			FeeLimit:       gasLimit,
 			Meta:           nil,
 			Strategy:       strategy,
 		})
@@ -526,49 +428,48 @@ func TestTxm_CreateEthTransaction_OutOfEth(t *testing.T) {
 		require.Equal(t, payload, etx.EncodedPayload)
 	})
 
-	require.NoError(t, utils.JustError(db.Exec(`DELETE FROM eth_txes WHERE from_address = $1`, thisKey.Address)))
+	require.NoError(t, commonutils.JustError(db.Exec(`DELETE FROM evm.txes WHERE from_address = $1`, thisKey.Address)))
 
 	t.Run("if this key has any transactions with insufficient eth errors, inserts it anyway", func(t *testing.T) {
 		payload := cltest.MustRandomBytes(t, 100)
-		config.On("EvmMaxQueuedTransactions").Return(uint64(1))
-		cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, borm, 0, thisKey.Address)
+		evmConfig.MaxQueued = uint64(1)
+
+		mustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, txStore, 0, thisKey.Address)
 		strategy := newMockTxStrategy(t)
 		strategy.On("Subject").Return(uuid.NullUUID{})
-		strategy.On("PruneQueue", mock.AnythingOfType("*sqlx.Tx")).Return(int64(0), nil)
+		strategy.On("PruneQueue", mock.Anything, mock.Anything).Return(nil, nil)
 
-		etx, err := txm.CreateEthTransaction(txmgr.NewTx{
-			FromAddress:    fromAddress,
+		etx, err := txm.CreateTransaction(testutils.Context(t), txmgr.TxRequest{
+			FromAddress:    evmFromAddress,
 			ToAddress:      toAddress,
 			EncodedPayload: payload,
-			GasLimit:       gasLimit,
+			FeeLimit:       gasLimit,
 			Meta:           nil,
 			Strategy:       strategy,
 		})
-		assert.NoError(t, err)
-
+		require.NoError(t, err)
 		require.Equal(t, payload, etx.EncodedPayload)
 	})
 
-	require.NoError(t, utils.JustError(db.Exec(`DELETE FROM eth_txes WHERE from_address = $1`, thisKey.Address)))
+	require.NoError(t, commonutils.JustError(db.Exec(`DELETE FROM evm.txes WHERE from_address = $1`, thisKey.Address)))
 
 	t.Run("if this key has transactions but no insufficient eth errors, transmits as normal", func(t *testing.T) {
 		payload := cltest.MustRandomBytes(t, 100)
-		cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, 0, 42, thisKey.Address)
+		cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 0, 42, thisKey.Address)
 		strategy := newMockTxStrategy(t)
 		strategy.On("Subject").Return(uuid.NullUUID{})
-		strategy.On("PruneQueue", mock.AnythingOfType("*sqlx.Tx")).Return(int64(0), nil)
+		strategy.On("PruneQueue", mock.Anything, mock.Anything).Return(nil, nil)
 
-		config.On("EvmMaxQueuedTransactions").Return(uint64(1))
-		etx, err := txm.CreateEthTransaction(txmgr.NewTx{
-			FromAddress:    fromAddress,
+		evmConfig.MaxQueued = uint64(1)
+		etx, err := txm.CreateTransaction(testutils.Context(t), txmgr.TxRequest{
+			FromAddress:    evmFromAddress,
 			ToAddress:      toAddress,
 			EncodedPayload: payload,
-			GasLimit:       gasLimit,
+			FeeLimit:       gasLimit,
 			Meta:           nil,
 			Strategy:       strategy,
 		})
-		assert.NoError(t, err)
-
+		require.NoError(t, err)
 		require.Equal(t, payload, etx.EncodedPayload)
 	})
 }
@@ -577,38 +478,30 @@ func TestTxm_Lifecycle(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-	config := newMockConfig(t)
 	kst := ksmocks.NewEth(t)
-	eventBroadcaster := pgmocks.NewEventBroadcaster(t)
 
-	config.On("EthTxResendAfterThreshold").Return(1 * time.Hour)
-	config.On("EthTxReaperThreshold").Return(1 * time.Hour)
-	config.On("EthTxReaperInterval").Return(1 * time.Hour)
-	config.On("EvmMaxInFlightTransactions").Return(uint32(42))
-	config.On("EvmFinalityDepth").Maybe().Return(uint32(42))
-	config.On("GasEstimatorMode").Return("FixedPrice")
-	config.On("LogSQL").Return(false).Maybe()
-	config.On("EvmRPCDefaultBatchSize").Return(uint32(4)).Maybe()
-	kst.On("GetStatesForChain", &cltest.FixtureChainID).Return([]ethkey.State{}, nil).Once()
+	config, dbConfig, evmConfig := txmgr.MakeTestConfigs(t)
+	config.SetFinalityDepth(uint32(42))
+	config.RpcDefaultBatchSize = uint32(4)
+
+	evmConfig.ResendAfterThreshold = 1 * time.Hour
+	evmConfig.ReaperThreshold = 1 * time.Hour
+	evmConfig.ReaperInterval = 1 * time.Hour
+
+	kst.On("EnabledAddressesForChain", mock.Anything, &cltest.FixtureChainID).Return([]common.Address{}, nil)
 
 	keyChangeCh := make(chan struct{})
 	unsub := cltest.NewAwaiter()
-	kst.On("SubscribeToKeyChanges").Return(keyChangeCh, unsub.ItHappened)
-	lggr := logger.TestLogger(t)
-	checkerFactory := &testCheckerFactory{}
-
-	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewPGCfg(true)),
-		ethClient, lggr, 100*time.Millisecond, 2, 3, 2)
-	txm := txmgr.NewTxm(db, ethClient, config, kst, eventBroadcaster, lggr, checkerFactory, lp)
+	kst.On("SubscribeToKeyChanges", mock.Anything).Return(keyChangeCh, unsub.ItHappened)
+	estimator := gas.NewEstimator(logger.Test(t), ethClient, config, evmConfig.GasEstimator())
+	txm, err := makeTestEvmTxm(t, db, ethClient, estimator, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), dbConfig, dbConfig.Listener(), kst)
+	require.NoError(t, err)
 
 	head := cltest.Head(42)
 	// It should not hang or panic
 	txm.OnNewLongestChain(testutils.Context(t), head)
 
-	sub := pgmocks.NewSubscription(t)
-	sub.On("Events").Return(make(<-chan pg.Event))
-	eventBroadcaster.On("Subscribe", "insert_on_eth_txes", "").Return(sub, nil)
-	config.On("EvmGasBumpThreshold").Return(uint64(1))
+	evmConfig.BumpThreshold = uint64(1)
 
 	require.NoError(t, txm.Start(testutils.Context(t)))
 
@@ -619,70 +512,13 @@ func TestTxm_Lifecycle(t *testing.T) {
 
 	keyState := cltest.MustGenerateRandomKeyState(t)
 
-	kst.On("GetStatesForChain", &cltest.FixtureChainID).Return([]ethkey.State{keyState}, nil).Once()
-	sub.On("Close").Return()
-	ethClient.On("PendingNonceAt", mock.AnythingOfType("*context.cancelCtx"), keyState.Address.Address()).Return(uint64(0), nil).Maybe()
-	config.On("TriggerFallbackDBPollInterval").Return(1 * time.Hour).Maybe()
+	addr := []common.Address{keyState.Address.Address()}
+	kst.On("EnabledAddressesForChain", mock.Anything, &cltest.FixtureChainID).Return(addr, nil)
+	ethClient.On("PendingNonceAt", mock.AnythingOfType("*context.cancelCtx"), common.Address{}).Return(uint64(0), nil).Maybe()
 	keyChangeCh <- struct{}{}
 
 	require.NoError(t, txm.Close())
 	unsub.AwaitOrFail(t, 1*time.Second)
-}
-
-func TestTxm_SignTx(t *testing.T) {
-	t.Parallel()
-
-	addr := gethcommon.HexToAddress("0xb921F7763960b296B9cbAD586ff066A18D749724")
-	to := gethcommon.HexToAddress("0xb921F7763960b296B9cbAD586ff066A18D749724")
-	tx := gethtypes.NewTx(&gethtypes.LegacyTx{
-		Nonce:    42,
-		To:       &to,
-		Value:    big.NewInt(142),
-		Gas:      242,
-		GasPrice: big.NewInt(342),
-		Data:     []byte{1, 2, 3},
-	})
-
-	t.Run("returns correct hash for non-okex chains", func(t *testing.T) {
-		chainID := big.NewInt(1)
-		cfg := txmmocks.NewConfig(t)
-		kst := ksmocks.NewEth(t)
-		kst.On("SignTx", to, tx, chainID).Return(tx, nil).Once()
-		cks := txmgr.NewChainKeyStore(*chainID, cfg, kst)
-		hash, rawBytes, err := cks.SignTx(addr, tx)
-		require.NoError(t, err)
-		require.NotNil(t, rawBytes)
-		require.Equal(t, "0xdd68f554373fdea7ec6713a6e437e7646465d553a6aa0b43233093366cc87ef0", hash.Hex())
-	})
-	// okex used to have a custom hash but now this just verifies that is it the same
-	t.Run("returns correct hash for okex chains", func(t *testing.T) {
-		chainID := big.NewInt(1)
-		cfg := txmmocks.NewConfig(t)
-		kst := ksmocks.NewEth(t)
-		kst.On("SignTx", to, tx, chainID).Return(tx, nil).Once()
-		cks := txmgr.NewChainKeyStore(*chainID, cfg, kst)
-		hash, rawBytes, err := cks.SignTx(addr, tx)
-		require.NoError(t, err)
-		require.NotNil(t, rawBytes)
-		require.Equal(t, "0xdd68f554373fdea7ec6713a6e437e7646465d553a6aa0b43233093366cc87ef0", hash.Hex())
-	})
-}
-
-type fnMock struct{ called atomic.Bool }
-
-func (fm *fnMock) Fn() {
-	swapped := fm.called.CAS(false, true)
-	if !swapped {
-		panic("func called more than once")
-	}
-}
-
-func (fm *fnMock) AssertNotCalled(t *testing.T) {
-	assert.False(t, fm.called.Load())
-}
-
-func (fm *fnMock) AssertCalled(t *testing.T) {
-	assert.True(t, fm.called.Load())
 }
 
 func TestTxm_Reset(t *testing.T) {
@@ -692,148 +528,310 @@ func TestTxm_Reset(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	gcfg := configtest.NewTestGeneralConfig(t)
 	cfg := evmtest.NewChainScopedConfig(t, gcfg)
-	kst := cltest.NewKeyStore(t, db, cfg)
+	kst := cltest.NewKeyStore(t, db, cfg.Database())
 
-	_, addr := cltest.MustInsertRandomKey(t, kst.Eth(), 5)
-	_, addr2 := cltest.MustInsertRandomKey(t, kst.Eth(), 3)
-	borm := cltest.NewTxmORM(t, db, cfg)
+	_, addr := cltest.RandomKey{}.MustInsert(t, kst.Eth())
+	_, addr2 := cltest.RandomKey{}.MustInsert(t, kst.Eth())
+	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
 	// 4 confirmed tx from addr1
 	for i := int64(0); i < 4; i++ {
-		cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, i, i*42+1, addr)
+		cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, i, i*42+1, addr)
 	}
 	// 2 confirmed from addr2
 	for i := int64(0); i < 2; i++ {
-		cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, i, i*42+1, addr2)
+		cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, i, i*42+1, addr2)
 	}
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-	ethClient.On("PendingNonceAt", mock.Anything, addr).Return(uint64(0), nil)
-	ethClient.On("PendingNonceAt", mock.Anything, addr2).Return(uint64(0), nil)
 	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(nil, nil)
-	eventBroadcaster := pgmocks.NewEventBroadcaster(t)
-	sub := pgmocks.NewSubscription(t)
-	sub.On("Events").Return(make(<-chan pg.Event))
-	sub.On("Close")
-	eventBroadcaster.On("Subscribe", "insert_on_eth_txes", "").Return(sub, nil)
+	ethClient.On("BatchCallContextAll", mock.Anything, mock.Anything).Return(nil).Maybe()
+	ethClient.On("PendingNonceAt", mock.Anything, addr).Return(uint64(128), nil).Maybe()
+	ethClient.On("PendingNonceAt", mock.Anything, addr2).Return(uint64(44), nil).Maybe()
 
-	lggr := logger.TestLogger(t)
-	txm := txmgr.NewTxm(db, ethClient, cfg, kst.Eth(), eventBroadcaster, lggr, nil, nil)
+	estimator := gas.NewEstimator(logger.Test(t), ethClient, cfg.EVM(), cfg.EVM().GasEstimator())
+	txm, err := makeTestEvmTxm(t, db, ethClient, estimator, cfg.EVM(), cfg.EVM().GasEstimator(), cfg.EVM().Transactions(), cfg.Database(), cfg.Database().Listener(), kst.Eth())
+	require.NoError(t, err)
 
-	// 1 unconfirmed on each addr
-	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 4, addr)
-	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 2, addr2)
+	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 2, addr2)
+	for i := 0; i < 1000; i++ {
+		cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 4+int64(i), addr)
+	}
 
 	t.Run("returns error if not started", func(t *testing.T) {
-		f := new(fnMock)
-
-		err := txm.Reset(f.Fn, addr, false)
+		err := txm.Reset(addr, false)
 		require.Error(t, err)
 		assert.EqualError(t, err, "not started")
-
-		f.AssertNotCalled(t)
 	})
 
-	require.NoError(t, txm.Start(testutils.Context(t)))
+	servicetest.Run(t, txm)
 
-	t.Run("calls function if started", func(t *testing.T) {
-		f := new(fnMock)
-
-		err := txm.Reset(f.Fn, addr, false)
+	t.Run("returns no error if started", func(t *testing.T) {
+		err := txm.Reset(addr, false)
 		require.NoError(t, err)
-
-		f.AssertCalled(t)
 	})
 
-	t.Run("calls function and deletes relevant eth_txes if abandon=true", func(t *testing.T) {
-		f := new(fnMock)
-
-		err := txm.Reset(f.Fn, addr, true)
+	t.Run("deletes relevant evm.txes if abandon=true", func(t *testing.T) {
+		err := txm.Reset(addr, true)
 		require.NoError(t, err)
-
-		f.AssertCalled(t)
 
 		var s string
-		err = db.Get(&s, `SELECT error FROM eth_txes WHERE from_address = $1 AND state = 'fatal_error'`, addr)
+		err = db.Get(&s, `SELECT error FROM evm.txes WHERE from_address = $1 AND state = 'fatal_error'`, addr)
 		require.NoError(t, err)
 		assert.Equal(t, "abandoned", s)
 
 		// the other address didn't get touched
 		var count int
-		err = db.Get(&count, `SELECT count(*) FROM eth_txes WHERE from_address = $1 AND state = 'fatal_error'`, addr2)
+		err = db.Get(&count, `SELECT count(*) FROM evm.txes WHERE from_address = $1 AND state = 'fatal_error'`, addr2)
 		require.NoError(t, err)
 		assert.Equal(t, 0, count)
 	})
 }
 
-func TestTxmgr_AssignsNonceOnStart(t *testing.T) {
+func newTxStore(t *testing.T, db *sqlx.DB, cfg pg.QConfig) txmgr.EvmTxStore {
+	return txmgr.NewTxStore(db, logger.Test(t), cfg)
+}
+
+func newEthReceipt(blockNumber int64, blockHash common.Hash, txHash common.Hash, status uint64) txmgr.Receipt {
+	transactionIndex := uint(cltest.NewRandomPositiveInt64())
+
+	receipt := evmtypes.Receipt{
+		BlockNumber:      big.NewInt(blockNumber),
+		BlockHash:        blockHash,
+		TxHash:           txHash,
+		TransactionIndex: transactionIndex,
+		Status:           status,
+	}
+
+	r := txmgr.Receipt{
+		BlockNumber:      blockNumber,
+		BlockHash:        blockHash,
+		TxHash:           txHash,
+		TransactionIndex: transactionIndex,
+		Receipt:          receipt,
+	}
+	return r
+}
+
+func mustInsertEthReceipt(t *testing.T, txStore txmgr.TestEvmTxStore, blockNumber int64, blockHash common.Hash, txHash common.Hash) txmgr.Receipt {
+	r := newEthReceipt(blockNumber, blockHash, txHash, 0x1)
+	id, err := txStore.InsertReceipt(&r.Receipt)
+	require.NoError(t, err)
+	r.ID = id
+	return r
+}
+
+func mustInsertRevertedEthReceipt(t *testing.T, txStore txmgr.TestEvmTxStore, blockNumber int64, blockHash common.Hash, txHash common.Hash) txmgr.Receipt {
+	r := newEthReceipt(blockNumber, blockHash, txHash, 0x0)
+	id, err := txStore.InsertReceipt(&r.Receipt)
+	require.NoError(t, err)
+	r.ID = id
+	return r
+}
+
+// Inserts into evm.receipts but does not update evm.txes or evm.tx_attempts
+func mustInsertConfirmedEthTxWithReceipt(t *testing.T, txStore txmgr.TestEvmTxStore, fromAddress common.Address, nonce, blockNum int64) (etx txmgr.Tx) {
+	etx = cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, nonce, blockNum, fromAddress)
+	mustInsertEthReceipt(t, txStore, blockNum, utils.NewHash(), etx.TxAttempts[0].Hash)
+	return etx
+}
+
+func mustInsertConfirmedEthTxBySaveFetchedReceipts(t *testing.T, txStore txmgr.TestEvmTxStore, fromAddress common.Address, nonce int64, blockNum int64, chainID big.Int) (etx txmgr.Tx) {
+	etx = cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, nonce, blockNum, fromAddress)
+	receipt := evmtypes.Receipt{
+		TxHash:           etx.TxAttempts[0].Hash,
+		BlockHash:        utils.NewHash(),
+		BlockNumber:      big.NewInt(nonce),
+		TransactionIndex: uint(1),
+	}
+	err := txStore.SaveFetchedReceipts(testutils.Context(t), []*evmtypes.Receipt{&receipt}, &chainID)
+	require.NoError(t, err)
+	return etx
+}
+
+func mustInsertFatalErrorEthTx(t *testing.T, txStore txmgr.TestEvmTxStore, fromAddress common.Address) txmgr.Tx {
+	etx := cltest.NewEthTx(fromAddress)
+	etx.Error = null.StringFrom("something exploded")
+	etx.State = txmgrcommon.TxFatalError
+
+	require.NoError(t, txStore.InsertTx(&etx))
+	return etx
+}
+
+func mustInsertUnconfirmedEthTxWithAttemptState(t *testing.T, txStore txmgr.TestEvmTxStore, nonce int64, fromAddress common.Address, txAttemptState txmgrtypes.TxAttemptState, opts ...interface{}) txmgr.Tx {
+	etx := cltest.MustInsertUnconfirmedEthTx(t, txStore, nonce, fromAddress, opts...)
+	attempt := cltest.NewLegacyEthTxAttempt(t, etx.ID)
+
+	tx := cltest.NewLegacyTransaction(uint64(nonce), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
+	rlp := new(bytes.Buffer)
+	require.NoError(t, tx.EncodeRLP(rlp))
+	attempt.SignedRawTx = rlp.Bytes()
+
+	attempt.State = txAttemptState
+	require.NoError(t, txStore.InsertTxAttempt(&attempt))
 	var err error
-	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
+	etx, err = txStore.FindTxWithAttempts(etx.ID)
+	require.NoError(t, err)
+	return etx
+}
 
-	kst := cltest.NewKeyStore(t, db, cfg).Eth()
-	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, kst, true)
-	_, disabledAddress := cltest.MustInsertRandomKeyReturningState(t, kst, false)
+func mustInsertUnconfirmedEthTxWithBroadcastDynamicFeeAttempt(t *testing.T, txStore txmgr.TestEvmTxStore, nonce int64, fromAddress common.Address, opts ...interface{}) txmgr.Tx {
+	etx := cltest.MustInsertUnconfirmedEthTx(t, txStore, nonce, fromAddress, opts...)
+	attempt := cltest.NewDynamicFeeEthTxAttempt(t, etx.ID)
 
-	cfg.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(true)
-	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
+	addr := testutils.NewAddress()
+	dtx := types.DynamicFeeTx{
+		ChainID:   big.NewInt(0),
+		Nonce:     uint64(nonce),
+		GasTipCap: big.NewInt(1),
+		GasFeeCap: big.NewInt(1),
+		Gas:       242,
+		To:        &addr,
+		Value:     big.NewInt(342),
+		Data:      []byte{2, 3, 4},
+	}
+	tx := types.NewTx(&dtx)
+	rlp := new(bytes.Buffer)
+	require.NoError(t, tx.EncodeRLP(rlp))
+	attempt.SignedRawTx = rlp.Bytes()
 
-	ethNodeNonce := uint64(22)
+	attempt.State = txmgrtypes.TxAttemptBroadcast
+	require.NoError(t, txStore.InsertTxAttempt(&attempt))
+	var err error
+	etx, err = txStore.FindTxWithAttempts(etx.ID)
+	require.NoError(t, err)
+	return etx
+}
 
-	eventBroadcaster := pgmocks.NewEventBroadcaster(t)
-	sub := pgmocks.NewSubscription(t)
-	sub.On("Events").Return(make(<-chan pg.Event))
-	sub.On("Close")
-	eventBroadcaster.On("Subscribe", "insert_on_eth_txes", "").Return(sub, nil)
-	checkerFactory := &testCheckerFactory{}
+func mustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t *testing.T, txStore txmgr.TestEvmTxStore, nonce int64, fromAddress common.Address) txmgr.Tx {
+	timeNow := time.Now()
+	etx := cltest.NewEthTx(fromAddress)
 
-	t.Run("when eth node returns error", func(t *testing.T) {
-		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	etx.BroadcastAt = &timeNow
+	etx.InitialBroadcastAt = &timeNow
+	n := evmtypes.Nonce(nonce)
+	etx.Sequence = &n
+	etx.State = txmgrcommon.TxUnconfirmed
+	require.NoError(t, txStore.InsertTx(&etx))
+	attempt := cltest.NewLegacyEthTxAttempt(t, etx.ID)
 
-		txm := txmgr.NewTxm(db, ethClient, evmcfg, kst, eventBroadcaster, logger.TestLogger(t), checkerFactory, nil)
+	tx := cltest.NewLegacyTransaction(uint64(nonce), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
+	rlp := new(bytes.Buffer)
+	require.NoError(t, tx.EncodeRLP(rlp))
+	attempt.SignedRawTx = rlp.Bytes()
 
-		ethClient.On("PendingNonceAt", mock.Anything, mock.MatchedBy(func(account gethCommon.Address) bool {
-			return account.Hex() == fromAddress.Hex()
-		})).Return(ethNodeNonce, errors.New("something exploded")).Once()
+	attempt.State = txmgrtypes.TxAttemptInsufficientFunds
+	require.NoError(t, txStore.InsertTxAttempt(&attempt))
+	var err error
+	etx, err = txStore.FindTxWithAttempts(etx.ID)
+	require.NoError(t, err)
+	return etx
+}
 
-		err = txm.Start(testutils.Context(t))
-		require.Error(t, err)
-		defer txm.Close()
-		require.Contains(t, err.Error(), "something exploded")
+func mustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(
+	t *testing.T, txStore txmgr.TestEvmTxStore, nonce int64, broadcastBeforeBlockNum int64,
+	broadcastAt time.Time, fromAddress common.Address) txmgr.Tx {
+	etx := cltest.NewEthTx(fromAddress)
 
-		// disabled address did not get updated
-		var n int
-		err := db.Get(&n, `SELECT next_nonce FROM evm_key_states WHERE address = $1`, disabledAddress)
-		require.NoError(t, err)
-		require.Equal(t, 0, n)
+	etx.BroadcastAt = &broadcastAt
+	etx.InitialBroadcastAt = &broadcastAt
+	n := evmtypes.Nonce(nonce)
+	etx.Sequence = &n
+	etx.State = txmgrcommon.TxConfirmedMissingReceipt
+	require.NoError(t, txStore.InsertTx(&etx))
+	attempt := cltest.NewLegacyEthTxAttempt(t, etx.ID)
+	attempt.BroadcastBeforeBlockNum = &broadcastBeforeBlockNum
+	attempt.State = txmgrtypes.TxAttemptBroadcast
+	require.NoError(t, txStore.InsertTxAttempt(&attempt))
+	etx.TxAttempts = append(etx.TxAttempts, attempt)
+	return etx
+}
 
-		// real address did not update (it errored)
-		err = db.Get(&n, `SELECT next_nonce FROM evm_key_states WHERE address = $1`, fromAddress)
-		require.NoError(t, err)
-		require.Equal(t, 0, n)
-	})
+func mustInsertInProgressEthTxWithAttempt(t *testing.T, txStore txmgr.TestEvmTxStore, nonce evmtypes.Nonce, fromAddress common.Address) txmgr.Tx {
+	etx := cltest.NewEthTx(fromAddress)
 
-	t.Run("when eth node returns nonce", func(t *testing.T) {
-		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	etx.Sequence = &nonce
+	etx.State = txmgrcommon.TxInProgress
+	require.NoError(t, txStore.InsertTx(&etx))
+	attempt := cltest.NewLegacyEthTxAttempt(t, etx.ID)
+	tx := cltest.NewLegacyTransaction(uint64(nonce), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
+	rlp := new(bytes.Buffer)
+	require.NoError(t, tx.EncodeRLP(rlp))
+	attempt.SignedRawTx = rlp.Bytes()
+	attempt.State = txmgrtypes.TxAttemptInProgress
+	require.NoError(t, txStore.InsertTxAttempt(&attempt))
+	var err error
+	etx, err = txStore.FindTxWithAttempts(etx.ID)
+	require.NoError(t, err)
+	return etx
+}
 
-		txm := txmgr.NewTxm(db, ethClient, evmcfg, kst, eventBroadcaster, logger.TestLogger(t), checkerFactory, nil)
+func mustCreateUnstartedGeneratedTx(t testing.TB, txStore txmgr.EvmTxStore, fromAddress common.Address, chainID *big.Int, opts ...func(*txmgr.TxRequest)) (tx txmgr.Tx) {
+	txRequest := txmgr.TxRequest{
+		FromAddress: fromAddress,
+	}
 
-		ethClient.On("PendingNonceAt", mock.Anything, mock.MatchedBy(func(account gethCommon.Address) bool {
-			return account.Hex() == fromAddress.Hex()
-		})).Return(ethNodeNonce, nil).Once()
-		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(nil, nil)
+	// Apply the default options
+	withDefaults()(&txRequest)
+	// Apply the optional parameters
+	for _, opt := range opts {
+		opt(&txRequest)
+	}
+	return mustCreateUnstartedTxFromEvmTxRequest(t, txStore, txRequest, chainID)
+}
 
-		require.NoError(t, txm.Start(testutils.Context(t)))
-		defer txm.Close()
+func withDefaults() func(*txmgr.TxRequest) {
+	return func(tx *txmgr.TxRequest) {
+		tx.ToAddress = testutils.NewAddress()
+		tx.EncodedPayload = []byte{1, 2, 3}
+		tx.Value = big.Int(assets.NewEthValue(142))
+		tx.FeeLimit = uint64(1000000000)
+		tx.Strategy = txmgrcommon.NewSendEveryStrategy()
+		// Set default values for other fields if needed
+	}
+}
 
-		// Check keyState to make sure it has correct nonce assigned
-		var nonce int64
-		err := db.Get(&nonce, `SELECT next_nonce FROM evm_key_states WHERE address = $1 ORDER BY created_at ASC, id ASC`, fromAddress)
-		require.NoError(t, err)
-		assert.Equal(t, int64(ethNodeNonce), nonce)
+func mustCreateUnstartedTx(t testing.TB, txStore txmgr.EvmTxStore, fromAddress common.Address, toAddress common.Address, encodedPayload []byte, gasLimit uint64, value big.Int, chainID *big.Int) (tx txmgr.Tx) {
+	txRequest := txmgr.TxRequest{
+		FromAddress:    fromAddress,
+		ToAddress:      toAddress,
+		EncodedPayload: encodedPayload,
+		Value:          value,
+		FeeLimit:       gasLimit,
+		Strategy:       txmgrcommon.NewSendEveryStrategy(),
+	}
 
-		// The disabled key did not get updated
-		err = db.Get(&nonce, `SELECT next_nonce FROM evm_key_states WHERE address = $1 ORDER BY created_at ASC, id ASC`, disabledAddress)
-		require.NoError(t, err)
-		assert.Equal(t, int64(0), nonce)
-	})
+	return mustCreateUnstartedTxFromEvmTxRequest(t, txStore, txRequest, chainID)
+}
+
+func mustCreateUnstartedTxFromEvmTxRequest(t testing.TB, txStore txmgr.EvmTxStore, txRequest txmgr.TxRequest, chainID *big.Int) (tx txmgr.Tx) {
+	tx, err := txStore.CreateTransaction(testutils.Context(t), txRequest, chainID)
+	require.NoError(t, err)
+
+	_, err = txRequest.Strategy.PruneQueue(testutils.Context(t), txStore)
+	require.NoError(t, err)
+
+	return tx
+}
+
+func txRequestWithStrategy(strategy txmgrtypes.TxStrategy) func(*txmgr.TxRequest) {
+	return func(tx *txmgr.TxRequest) {
+		tx.Strategy = strategy
+	}
+}
+
+func txRequestWithChecker(checker txmgr.TransmitCheckerSpec) func(*txmgr.TxRequest) {
+	return func(tx *txmgr.TxRequest) {
+		tx.Checker = checker
+	}
+}
+func txRequestWithValue(value big.Int) func(*txmgr.TxRequest) {
+	return func(tx *txmgr.TxRequest) {
+		tx.Value = value
+	}
+}
+
+func txRequestWithIdempotencyKey(idempotencyKey string) func(*txmgr.TxRequest) {
+	return func(tx *txmgr.TxRequest) {
+		tx.IdempotencyKey = &idempotencyKey
+	}
 }

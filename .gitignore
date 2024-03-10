@@ -23,10 +23,14 @@ tools/clroot/db.sqlite3-wal
 .DS_Store
 .envrc
 .env*
+!charts/chainlink-cluster/.env.example
+!.github/actions/setup-postgres/.env
 .direnv
 .idea
 .vscode/
 *.iml
+debug.env
+*.txt
 
 # codeship
 *.aes
@@ -43,19 +47,56 @@ cl_backup_*.tar.gz
 core/cmd/TestClient_ImportExportP2PKeyBundle_test_key.json
 output.txt
 race.*
+golangci-lint-output.txt
+/golangci-lint/
 
 # DB state
-db/
+./db/
 .s.PGSQL.5432.lock
 
 # can be left behind by tests
 core/cmd/vrfkey1
-
-# left behind by webpack - compiled frontend assets
-core/web/assets
 
 # Integration Tests
 integration-tests/**/logs/
 tests-*.xml
 *.test
 tmp-manifest-*.yaml
+ztarrepo.tar.gz
+**/test-ledger/*
+__debug_bin*
+
+# goreleaser builds
+cosign.*
+dist/
+MacOSX*
+
+# Test & linter reports
+*report.xml
+*report.json
+*.out
+
+contracts/yarn.lock
+
+# Ignore DevSpace cache and log folder
+.devspace/
+go.work*
+
+# This sometimes shows up for some reason
+tools/flakeytests/coverage.txt
+
+# Integration tests create these files
+.test_summary/
+.run.id
+
+# Fuzz tests can create these files
+**/testdata/fuzz/*
+
+# Runtime test configuration that might contain secrets
+override*.toml
+
+# Pythin venv
+.venv/
+
+# Temp Changelog migration
+CHANGELOG.md

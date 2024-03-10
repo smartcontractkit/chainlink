@@ -1,0 +1,101 @@
+<style>
+    details {
+        margin: 0.0em 0.0em 0.0em 0.4em;
+        padding: 0.3em 0.0em 0.0em 0.4em;
+    }
+    pre {
+        margin-left:1em;
+        margin-top: 0;
+    }
+    summary {
+        padding-bottom: 0.4em;
+    }
+    details {
+        border: thin solid black;
+        border-bottom-color: rgba(0,0,0,0);
+        border-right-color: rgba(0,0,0,0);
+    }
+    .passing:after {
+        color: blue;
+        content: " - (Passing)";
+        font-size:small;
+        text-transform: uppercase;
+    }
+    .failing:after {
+        color: red;
+        content: " - (Failing)";
+        font-weight: bold;
+        font-size:small;
+        text-transform: uppercase;
+    }
+    summary.noexpand::marker {
+        color: rgba(100,101,10,0);
+    }
+</style>
+<details open>
+    <summary title=""><span class="">EVM</span></summary>
+    <details open>
+        <summary title="EVM.0"><span class="passing">0</span></summary>
+        <details open>
+            <summary title="EVM.0.BalanceMonitor" class="noexpand"><span class="passing">BalanceMonitor</span></summary>
+        </details>
+        <details open>
+            <summary title="EVM.0.HeadBroadcaster" class="noexpand"><span class="passing">HeadBroadcaster</span></summary>
+        </details>
+        <details open>
+            <summary title="EVM.0.HeadTracker"><span class="passing">HeadTracker</span></summary>
+            <details open>
+                <summary title="EVM.0.HeadTracker.HeadListener"><span class="failing">HeadListener</span></summary>
+                <pre>Listener is not connected</pre>
+            </details>
+        </details>
+        <details open>
+            <summary title="EVM.0.LogBroadcaster" class="noexpand"><span class="passing">LogBroadcaster</span></summary>
+        </details>
+        <details open>
+            <summary title="EVM.0.Txm"><span class="passing">Txm</span></summary>
+            <details open>
+                <summary title="EVM.0.Txm.BlockHistoryEstimator" class="noexpand"><span class="passing">BlockHistoryEstimator</span></summary>
+            </details>
+            <details open>
+                <summary title="EVM.0.Txm.Broadcaster" class="noexpand"><span class="passing">Broadcaster</span></summary>
+            </details>
+            <details open>
+                <summary title="EVM.0.Txm.Confirmer" class="noexpand"><span class="passing">Confirmer</span></summary>
+            </details>
+            <details open>
+                <summary title="EVM.0.Txm.WrappedEvmEstimator" class="noexpand"><span class="passing">WrappedEvmEstimator</span></summary>
+            </details>
+        </details>
+    </details>
+</details>
+<details open>
+    <summary title="JobSpawner" class="noexpand"><span class="passing">JobSpawner</span></summary>
+</details>
+<details open>
+    <summary title=""><span class="">Mailbox</span></summary>
+    <details open>
+        <summary title="Mailbox.Monitor" class="noexpand"><span class="passing">Monitor</span></summary>
+    </details>
+</details>
+<details open>
+    <summary title=""><span class="">Mercury</span></summary>
+    <details open>
+        <summary title="Mercury.WSRPCPool"><span class="passing">WSRPCPool</span></summary>
+        <details open>
+            <summary title="Mercury.WSRPCPool.CacheSet" class="noexpand"><span class="passing">CacheSet</span></summary>
+        </details>
+    </details>
+</details>
+<details open>
+    <summary title="PipelineORM" class="noexpand"><span class="passing">PipelineORM</span></summary>
+</details>
+<details open>
+    <summary title="PipelineRunner" class="noexpand"><span class="passing">PipelineRunner</span></summary>
+</details>
+<details open>
+    <summary title="PromReporter" class="noexpand"><span class="passing">PromReporter</span></summary>
+</details>
+<details open>
+    <summary title="TelemetryManager" class="noexpand"><span class="passing">TelemetryManager</span></summary>
+</details>

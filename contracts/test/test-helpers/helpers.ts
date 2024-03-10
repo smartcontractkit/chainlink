@@ -4,10 +4,11 @@ import { assert, expect } from 'chai'
 import hre, { ethers, network } from 'hardhat'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 import cbor from 'cbor'
+import { LinkToken } from '../../typechain'
 
 /**
  * Convert string to hex bytes
- * @param data string to onvert to hex bytes
+ * @param data string to convert to hex bytes
  */
 export function stringToBytes(data: string): string {
   return ethers.utils.hexlify(ethers.utils.toUtf8Bytes(data))
@@ -218,7 +219,10 @@ export function evmWordToAddress(hex?: string): string {
  * @param contract The contract with the actual abi to check the expected exposed methods and getters against.
  * @param expectedPublic The expected public exposed methods and getters to match against the actual abi.
  */
-export function publicAbi(contract: Contract, expectedPublic: string[]) {
+export function publicAbi(
+  contract: Contract,
+  expectedPublic: string[],
+): boolean {
   const actualPublic = []
   for (const m in contract.functions) {
     if (!m.includes('(')) {
@@ -235,6 +239,8 @@ export function publicAbi(contract: Contract, expectedPublic: string[]) {
     const index = actualPublic.indexOf(method)
     assert.isAtLeast(index, 0, `#${method} is expected to be public`)
   }
+
+  return true
 }
 
 /**
@@ -281,6 +287,27 @@ export async function assertBalance(
   expect(await ethers.provider.getBalance(address)).equal(balance, msg)
 }
 
+export async function assertLinkTokenBalance(
+  lt: LinkToken,
+  address: string,
+  balance: BigNumberish,
+  msg?: string,
+) {
+  expect(await lt.balanceOf(address)).equal(balance, msg)
+}
+
+export async function assertSubscriptionBalance(
+  coordinator: Contract,
+  subID: BigNumberish,
+  balance: BigNumberish,
+  msg?: string,
+) {
+  expect((await coordinator.getSubscription(subID)).balance).deep.equal(
+    balance,
+    msg,
+  )
+}
+
 export async function setTimestamp(timestamp: number) {
   await network.provider.request({
     method: 'evm_setNextBlockTimestamp',
@@ -308,4 +335,8 @@ export async function reset() {
     method: 'hardhat_reset',
     params: [],
   })
+}
+
+export function randomAddress() {
+  return ethers.Wallet.createRandom().address
 }

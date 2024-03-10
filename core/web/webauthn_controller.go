@@ -1,16 +1,18 @@
 package web
 
 import (
+	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/sessions"
-	"github.com/smartcontractkit/chainlink/core/web/auth"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/sessions"
+	"github.com/smartcontractkit/chainlink/v2/core/web/auth"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
 // WebAuthnController manages registers new keys as well as authentication
@@ -34,7 +36,7 @@ func (c *WebAuthnController) BeginRegistration(ctx *gin.Context) {
 		return
 	}
 
-	orm := c.App.SessionORM()
+	orm := c.App.AuthenticationProvider()
 	uwas, err := orm.GetUserWebAuthn(user.Email)
 	if err != nil {
 		c.App.GetLogger().Errorf("failed to obtain current user MFA tokens: error in GetUserWebAuthn: %+v", err)
@@ -64,7 +66,7 @@ func (c *WebAuthnController) FinishRegistration(ctx *gin.Context) {
 		return
 	}
 
-	orm := c.App.SessionORM()
+	orm := c.App.AuthenticationProvider()
 	uwas, err := orm.GetUserWebAuthn(user.Email)
 	if err != nil {
 		c.App.GetLogger().Errorf("failed to obtain current user MFA tokens: error in GetUserWebAuthn: %s", err)
@@ -81,11 +83,20 @@ func (c *WebAuthnController) FinishRegistration(ctx *gin.Context) {
 		return
 	}
 
-	if sessions.AddCredentialToUser(c.App.SessionORM(), user.Email, credential) != nil {
+	if sessions.AddCredentialToUser(c.App.AuthenticationProvider(), user.Email, credential) != nil {
 		c.App.GetLogger().Errorf("Could not save WebAuthn credential to DB for user: %s", user.Email)
 		jsonAPIError(ctx, http.StatusInternalServerError, errors.New("internal Server Error"))
 		return
 	}
+
+	// Forward registered credentials for audit logs
+	credj, err := json.Marshal(credential)
+	if err != nil {
+		c.App.GetLogger().Errorf("error in Marshal credentials: %s", err)
+		jsonAPIError(ctx, http.StatusBadRequest, errors.New("registration was unsuccessful"))
+		return
+	}
+	c.App.GetAuditLogger().Audit(audit.Auth2FAEnrolled, map[string]interface{}{"email": user.Email, "credential": string(credj)})
 
 	ctx.String(http.StatusOK, "{}")
 }

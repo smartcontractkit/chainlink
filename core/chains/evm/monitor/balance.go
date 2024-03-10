@@ -9,32 +9,32 @@ import (
 	"time"
 
 	gethCommon "github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils"
+
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 )
 
-//go:generate mockery --name BalanceMonitor --output ../mocks/ --case=underscore
+//go:generate mockery --quiet --name BalanceMonitor --output ../mocks/ --case=underscore
 type (
 	// BalanceMonitor checks the balance for each key on every new head
 	BalanceMonitor interface {
 		httypes.HeadTrackable
 		GetEthBalance(gethCommon.Address) *assets.Eth
-		services.ServiceCtx
+		services.Service
 	}
 
 	balanceMonitor struct {
-		utils.StartStopOnce
+		services.StateMachine
 		logger         logger.Logger
 		ethClient      evmclient.Client
 		chainID        *big.Int
@@ -42,20 +42,23 @@ type (
 		ethKeyStore    keystore.Eth
 		ethBalances    map[gethCommon.Address]*assets.Eth
 		ethBalancesMtx *sync.RWMutex
-		sleeperTask    utils.SleeperTask
+		sleeperTask    *utils.SleeperTask
 	}
 
 	NullBalanceMonitor struct{}
 )
 
+var _ BalanceMonitor = (*balanceMonitor)(nil)
+
 // NewBalanceMonitor returns a new balanceMonitor
-func NewBalanceMonitor(ethClient evmclient.Client, ethKeyStore keystore.Eth, logger logger.Logger) BalanceMonitor {
+func NewBalanceMonitor(ethClient evmclient.Client, ethKeyStore keystore.Eth, lggr logger.Logger) *balanceMonitor {
+	chainId := ethClient.ConfiguredChainID()
 	bm := &balanceMonitor{
-		utils.StartStopOnce{},
-		logger,
+		services.StateMachine{},
+		logger.Named(lggr, "BalanceMonitor"),
 		ethClient,
-		ethClient.ChainID(),
-		ethClient.ChainID().String(),
+		chainId,
+		chainId.String(),
 		ethKeyStore,
 		make(map[gethCommon.Address]*assets.Eth),
 		new(sync.RWMutex),
@@ -84,8 +87,12 @@ func (bm *balanceMonitor) Ready() error {
 	return nil
 }
 
-func (bm *balanceMonitor) Healthy() error {
-	return nil
+func (bm *balanceMonitor) Name() string {
+	return bm.logger.Name()
+}
+
+func (bm *balanceMonitor) HealthReport() map[string]error {
+	return map[string]error{bm.Name(): bm.Healthy()}
 }
 
 // OnNewLongestChain checks the balance for each key
@@ -112,7 +119,8 @@ func (bm *balanceMonitor) updateBalance(ethBal assets.Eth, address gethCommon.Ad
 	bm.ethBalances[address] = &ethBal
 	bm.ethBalancesMtx.Unlock()
 
-	lgr := bm.logger.Named("balance_log").With(
+	lgr := logger.Named(bm.logger, "BalanceLog")
+	lgr = logger.With(lgr,
 		"address", address.Hex(),
 		"ethBalance", ethBal.String(),
 		"weiBalance", ethBal.ToInt())
@@ -166,19 +174,19 @@ func (w *worker) Work() {
 }
 
 func (w *worker) WorkCtx(ctx context.Context) {
-	keys, err := w.bm.ethKeyStore.EnabledKeysForChain(w.bm.chainID)
+	enabledAddresses, err := w.bm.ethKeyStore.EnabledAddressesForChain(ctx, w.bm.chainID)
 	if err != nil {
 		w.bm.logger.Error("BalanceMonitor: error getting keys", err)
 	}
 
 	var wg sync.WaitGroup
 
-	wg.Add(len(keys))
-	for _, key := range keys {
-		go func(k ethkey.KeyV2) {
+	wg.Add(len(enabledAddresses))
+	for _, address := range enabledAddresses {
+		go func(k gethCommon.Address) {
 			defer wg.Done()
 			w.checkAccountBalance(ctx, k)
-		}(key)
+		}(address)
 	}
 	wg.Wait()
 }
@@ -186,24 +194,24 @@ func (w *worker) WorkCtx(ctx context.Context) {
 // Approximately ETH block time
 const ethFetchTimeout = 15 * time.Second
 
-func (w *worker) checkAccountBalance(ctx context.Context, k ethkey.KeyV2) {
+func (w *worker) checkAccountBalance(ctx context.Context, address gethCommon.Address) {
 	ctx, cancel := context.WithTimeout(ctx, ethFetchTimeout)
 	defer cancel()
 
-	bal, err := w.bm.ethClient.BalanceAt(ctx, k.Address, nil)
+	bal, err := w.bm.ethClient.BalanceAt(ctx, address, nil)
 	if err != nil {
-		w.bm.logger.Errorw(fmt.Sprintf("BalanceMonitor: error getting balance for key %s", k.Address.Hex()),
-			"error", err,
-			"address", k.Address,
+		w.bm.logger.Errorw(fmt.Sprintf("BalanceMonitor: error getting balance for key %s", address.Hex()),
+			"err", err,
+			"address", address,
 		)
 	} else if bal == nil {
-		w.bm.logger.Errorw(fmt.Sprintf("BalanceMonitor: error getting balance for key %s: invariant violation, bal may not be nil", k.Address.Hex()),
-			"error", err,
-			"address", k.Address,
+		w.bm.logger.Errorw(fmt.Sprintf("BalanceMonitor: error getting balance for key %s: invariant violation, bal may not be nil", address.Hex()),
+			"err", err,
+			"address", address,
 		)
 	} else {
 		ethBal := assets.Eth(*bal)
-		w.bm.updateBalance(ethBal, k.Address)
+		w.bm.updateBalance(ethBal, address)
 	}
 }
 
@@ -215,7 +223,6 @@ func (*NullBalanceMonitor) GetEthBalance(gethCommon.Address) *assets.Eth {
 func (*NullBalanceMonitor) Start(context.Context) error                                { return nil }
 func (*NullBalanceMonitor) Close() error                                               { return nil }
 func (*NullBalanceMonitor) Ready() error                                               { return nil }
-func (*NullBalanceMonitor) Healthy() error                                             { return nil }
 func (*NullBalanceMonitor) OnNewLongestChain(ctx context.Context, head *evmtypes.Head) {}
 
 func ApproximateFloat64(e *assets.Eth) (float64, error) {
@@ -224,7 +231,7 @@ func ApproximateFloat64(e *assets.Eth) (float64, error) {
 	bf := new(big.Float).Quo(ef, weif)
 	f64, _ := bf.Float64()
 	if f64 == math.Inf(1) || f64 == math.Inf(-1) {
-		return math.Inf(1), errors.New("assets.Eth.Float64: Could not approximate Eth value into float")
+		return math.Inf(1), pkgerrors.New("assets.Eth.Float64: Could not approximate Eth value into float")
 	}
 	return f64, nil
 }

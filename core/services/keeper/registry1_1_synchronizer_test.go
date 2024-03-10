@@ -8,19 +8,23 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/onsi/gomega"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	logmocks "github.com/smartcontractkit/chainlink/core/chains/evm/log/mocks"
-	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
-	registry1_1 "github.com/smartcontractkit/chainlink/core/gethwrappers/generated/keeper_registry_wrapper1_1"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/keeper"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
+	logmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
+	registry1_1 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_1"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
 )
 
 var registryConfig1_1 = registry1_1.GetConfig{
@@ -44,7 +48,7 @@ var upkeepConfig1_1 = registry1_1.GetUpkeep{
 
 func mockRegistry1_1(
 	t *testing.T,
-	ethMock *evmmocks.Client,
+	ethMock *evmclimocks.Client,
 	contractAddress common.Address,
 	config registry1_1.GetConfig,
 	keeperList []common.Address,
@@ -55,8 +59,8 @@ func mockRegistry1_1(
 ) {
 	registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_1ABI, contractAddress)
 
-	ethMock.On("HeaderByNumber", mock.Anything, mock.Anything).
-		Return(&types.Header{Number: big.NewInt(10)}, nil)
+	ethMock.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).
+		Return(&evmtypes.Head{Number: 10}, nil)
 	registryMock.MockResponse("getConfig", config).Once()
 	registryMock.MockResponse("getKeeperList", keeperList).Once()
 	registryMock.MockResponse("getCanceledUpkeepList", cancelledUpkeeps).Once()
@@ -68,7 +72,8 @@ func mockRegistry1_1(
 
 func Test_LogListenerOpts1_1(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	korm := keeper.NewORM(db, logger.TestLogger(t), nil, nil)
+	scopedConfig := evmtest.NewChainScopedConfig(t, configtest.NewGeneralConfig(t, nil))
+	korm := keeper.NewORM(db, logger.TestLogger(t), scopedConfig.Database())
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	j := cltest.MustInsertKeeperJob(t, db, korm, cltest.NewEIP55Address(), cltest.NewEIP55Address())
 
@@ -107,7 +112,7 @@ func Test_RegistrySynchronizer1_1_Start(t *testing.T) {
 
 	err := synchronizer.Start(testutils.Context(t))
 	require.NoError(t, err)
-	defer synchronizer.Close()
+	defer func() { assert.NoError(t, synchronizer.Close()) }()
 
 	cltest.WaitForCount(t, db, "keeper_registries", 1)
 
@@ -118,7 +123,7 @@ func Test_RegistrySynchronizer1_1_Start(t *testing.T) {
 func Test_RegistrySynchronizer_CalcPositioningConstant(t *testing.T) {
 	t.Parallel()
 	for _, upkeepID := range []int64{0, 1, 100, 10_000} {
-		_, err := keeper.CalcPositioningConstant(utils.NewBigI(upkeepID), cltest.NewEIP55Address())
+		_, err := keeper.CalcPositioningConstant(ubig.NewI(upkeepID), cltest.NewEIP55Address())
 		require.NoError(t, err)
 	}
 }
@@ -188,7 +193,7 @@ func Test_RegistrySynchronizer1_1_FullSync(t *testing.T) {
 		canceledUpkeeps,
 		big.NewInt(5),
 		upkeepConfig1_1,
-		1) // only one new upkeep to sync (#4)
+		2) // sync all 2 upkeeps (#2, #4)
 	synchronizer.ExportedFullSync()
 
 	cltest.AssertCount(t, db, "keeper_registries", 1)
@@ -213,8 +218,7 @@ func Test_RegistrySynchronizer1_1_ConfigSetLog(t *testing.T) {
 		upkeepConfig1_1,
 		0)
 
-	require.NoError(t, synchronizer.Start(testutils.Context(t)))
-	defer synchronizer.Close()
+	servicetest.Run(t, synchronizer)
 	cltest.WaitForCount(t, db, "keeper_registries", 1)
 	var registry keeper.Registry
 	require.NoError(t, db.Get(&registry, `SELECT * FROM keeper_registries`))
@@ -225,8 +229,8 @@ func Test_RegistrySynchronizer1_1_ConfigSetLog(t *testing.T) {
 	registryMock.MockResponse("getKeeperList", []common.Address{fromAddress}).Once()
 	registryMock.MockResponse("getConfig", newConfig).Once()
 
-	cfg := cltest.NewTestGeneralConfig(t)
-	head := cltest.MustInsertHead(t, db, cfg, 1)
+	cfg := configtest.NewGeneralConfig(t, nil)
+	head := cltest.MustInsertHead(t, db, cfg.Database(), 1)
 	rawLog := types.Log{BlockHash: head.Hash}
 	log := registry1_1.KeeperRegistryConfigSet{}
 	logBroadcast := logmocks.NewBroadcast(t)
@@ -262,8 +266,7 @@ func Test_RegistrySynchronizer1_1_KeepersUpdatedLog(t *testing.T) {
 		upkeepConfig1_1,
 		0)
 
-	require.NoError(t, synchronizer.Start(testutils.Context(t)))
-	defer synchronizer.Close()
+	servicetest.Run(t, synchronizer)
 	cltest.WaitForCount(t, db, "keeper_registries", 1)
 	var registry keeper.Registry
 	require.NoError(t, db.Get(&registry, `SELECT * FROM keeper_registries`))
@@ -273,8 +276,8 @@ func Test_RegistrySynchronizer1_1_KeepersUpdatedLog(t *testing.T) {
 	registryMock.MockResponse("getConfig", registryConfig1_1).Once()
 	registryMock.MockResponse("getKeeperList", addresses).Once()
 
-	cfg := cltest.NewTestGeneralConfig(t)
-	head := cltest.MustInsertHead(t, db, cfg, 1)
+	cfg := configtest.NewGeneralConfig(t, nil)
+	head := cltest.MustInsertHead(t, db, cfg.Database(), 1)
 	rawLog := types.Log{BlockHash: head.Hash}
 	log := registry1_1.KeeperRegistryKeepersUpdated{}
 	logBroadcast := logmocks.NewBroadcast(t)
@@ -309,13 +312,12 @@ func Test_RegistrySynchronizer1_1_UpkeepCanceledLog(t *testing.T) {
 		upkeepConfig1_1,
 		3)
 
-	require.NoError(t, synchronizer.Start(testutils.Context(t)))
-	defer func() { require.NoError(t, synchronizer.Close()) }()
+	servicetest.Run(t, synchronizer)
 	cltest.WaitForCount(t, db, "keeper_registries", 1)
 	cltest.WaitForCount(t, db, "upkeep_registrations", 3)
 
-	cfg := cltest.NewTestGeneralConfig(t)
-	head := cltest.MustInsertHead(t, db, cfg, 1)
+	cfg := configtest.NewGeneralConfig(t, nil)
+	head := cltest.MustInsertHead(t, db, cfg.Database(), 1)
 	rawLog := types.Log{BlockHash: head.Hash}
 	log := registry1_1.KeeperRegistryUpkeepCanceled{Id: big.NewInt(1)}
 	logBroadcast := logmocks.NewBroadcast(t)
@@ -348,16 +350,15 @@ func Test_RegistrySynchronizer1_1_UpkeepRegisteredLog(t *testing.T) {
 		upkeepConfig1_1,
 		1)
 
-	require.NoError(t, synchronizer.Start(testutils.Context(t)))
-	defer synchronizer.Close()
+	servicetest.Run(t, synchronizer)
 	cltest.WaitForCount(t, db, "keeper_registries", 1)
 	cltest.WaitForCount(t, db, "upkeep_registrations", 1)
 
 	registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_1ABI, contractAddress)
 	registryMock.MockResponse("getUpkeep", upkeepConfig1_1).Once()
 
-	cfg := cltest.NewTestGeneralConfig(t)
-	head := cltest.MustInsertHead(t, db, cfg, 1)
+	cfg := configtest.NewGeneralConfig(t, nil)
+	head := cltest.MustInsertHead(t, db, cfg.Database(), 1)
 	rawLog := types.Log{BlockHash: head.Hash}
 	log := registry1_1.KeeperRegistryUpkeepRegistered{Id: big.NewInt(1)}
 	logBroadcast := logmocks.NewBroadcast(t)
@@ -392,15 +393,14 @@ func Test_RegistrySynchronizer1_1_UpkeepPerformedLog(t *testing.T) {
 		upkeepConfig1_1,
 		1)
 
-	require.NoError(t, synchronizer.Start(testutils.Context(t)))
-	defer synchronizer.Close()
+	servicetest.Run(t, synchronizer)
 	cltest.WaitForCount(t, db, "keeper_registries", 1)
 	cltest.WaitForCount(t, db, "upkeep_registrations", 1)
 
 	pgtest.MustExec(t, db, `UPDATE upkeep_registrations SET last_run_block_height = 100`)
 
-	cfg := cltest.NewTestGeneralConfig(t)
-	head := cltest.MustInsertHead(t, db, cfg, 1)
+	cfg := configtest.NewGeneralConfig(t, nil)
+	head := cltest.MustInsertHead(t, db, cfg.Database(), 1)
 	rawLog := types.Log{BlockHash: head.Hash, BlockNumber: 200}
 	log := registry1_1.KeeperRegistryUpkeepPerformed{Id: big.NewInt(0), From: fromAddress}
 	logBroadcast := logmocks.NewBroadcast(t)

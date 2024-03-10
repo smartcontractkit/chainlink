@@ -1,0 +1,88 @@
+{
+  "tests": [
+    {
+      "name": "TestAutomationBasic",
+      "label": "ubuntu-latest",
+      "nodes": 3,
+      "run":[
+        {"name":"registry_2_0"},
+        {"name":"registry_2_1_conditional"},
+        {"name":"registry_2_1_logtrigger"}
+      ]
+    },
+    {
+      "name": "TestAutomationBasic",
+      "label": "ubuntu-latest",
+      "nodes": 3,
+      "run":[
+        {"name":"registry_2_1_with_mercury_v02"},
+        {"name":"registry_2_1_with_mercury_v03"},
+        {"name":"registry_2_1_with_logtrigger_and_mercury_v02"}
+      ]
+    },
+    {
+      "name": "TestAutomationBasic",
+      "label": "ubuntu-latest",
+      "nodes": 3,
+      "run":[
+        {"name":"registry_2_2_conditional"},
+        {"name":"registry_2_2_logtrigger"},
+        {"name":"registry_2_2_with_mercury_v02"}
+      ]
+    },
+    {
+      "name": "TestAutomationBasic",
+      "label": "ubuntu-latest",
+      "nodes": 2,
+      "run":[
+        {"name":"registry_2_2_with_mercury_v03"},
+        {"name":"registry_2_2_with_logtrigger_and_mercury_v02"}
+      ]
+    },
+    {
+      "name": "TestSetUpkeepTriggerConfig",
+      "label": "ubuntu-latest",
+      "nodes": 2
+    },
+    {
+      "name": "TestAutomationAddFunds",
+      "label": "ubuntu-latest",
+      "nodes": 3
+    },
+    {
+      "name": "TestAutomationPauseUnPause",
+      "label": "ubuntu-latest",
+      "nodes": 3
+    },
+    {
+      "name": "TestAutomationRegisterUpkeep",
+      "label": "ubuntu-latest",
+      "nodes": 3
+    },
+    {
+      "name": "TestAutomationPauseRegistry",
+      "label": "ubuntu-latest",
+      "nodes": 3
+    },
+    {
+      "name": "TestAutomationKeeperNodesDown",
+      "label": "ubuntu-latest",
+      "nodes": 3
+    },
+    {
+      "name": "TestAutomationPerformSimulation",
+      "label": "ubuntu-latest",
+      "nodes": 3
+    },
+    {
+      "name": "TestAutomationCheckPerformGasLimit",
+      "label": "ubuntu-latest",
+      "nodes": 3
+    },
+    {
+      "name": "TestUpdateCheckData",
+      "label": "ubuntu-latest",
+      "nodes": 3
+    }
+  ]
+}

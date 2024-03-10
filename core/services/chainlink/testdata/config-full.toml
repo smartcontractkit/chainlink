@@ -1,4 +1,3 @@
-ExplorerURL = 'http://explorer.url'
 InsecureFastScrypt = true
 RootDir = 'test/root/dir'
 ShutdownGracePeriod = '10s'
@@ -12,9 +11,10 @@ UICSAKeys = true
 DefaultIdleInTxSessionTimeout = '1m0s'
 DefaultLockTimeout = '1h0m0s'
 DefaultQueryTimeout = '1s'
+LogQueries = true
+MaxIdleConns = 7
+MaxOpenConns = 13
 MigrateOnStartup = true
-ORMMaxIdleConns = 7
-ORMMaxOpenConns = 13
 
 [Database.Backup]
 Dir = 'test/backup/dir'
@@ -28,37 +28,74 @@ MinReconnectInterval = '5m0s'
 FallbackPollInterval = '2m0s'
 
 [Database.Lock]
+Enabled = false
 LeaseDuration = '1m0s'
 LeaseRefreshInterval = '1s'
 
 [TelemetryIngress]
 UniConn = true
 Logging = true
-ServerPubKey = 'test-pub-key'
-URL = 'https://prom.test'
 BufferSize = 1234
 MaxBatchSize = 4321
 SendInterval = '1m0s'
 SendTimeout = '5s'
 UseBatchSend = true
 
+[[TelemetryIngress.Endpoints]]
+Network = 'EVM'
+ChainID = '1'
+URL = 'prom.test'
+ServerPubKey = 'test-pub-key'
+
+[AuditLogger]
+Enabled = true
+ForwardToUrl = 'http://localhost:9898'
+JsonWrapperKey = 'event'
+Headers = ['Authorization: token', 'X-SomeOther-Header: value with spaces | and a bar+*']
+
 [Log]
-DatabaseQueries = true
-FileDir = 'log/file/dir'
-FileMaxSize = '100.00gb'
-FileMaxAgeDays = 17
-FileMaxBackups = 9
+Level = 'crit'
 JSONConsole = true
 UnixTS = true
 
+[Log.File]
+Dir = 'log/file/dir'
+MaxSize = '100.00gb'
+MaxAgeDays = 17
+MaxBackups = 9
+
 [WebServer]
+AuthenticationMethod = 'local'
 AllowOrigins = '*'
 BridgeResponseURL = 'https://bridge.response'
+BridgeCacheTTL = '10s'
 HTTPWriteTimeout = '1m0s'
 HTTPPort = 56
 SecureCookies = true
 SessionTimeout = '1h0m0s'
 SessionReaperExpiration = '168h0m0s'
+HTTPMaxSize = '32.77kb'
+StartTimeout = '15s'
+ListenIP = '192.158.1.37'
+
+[WebServer.LDAP]
+ServerTLS = true
+SessionTimeout = '15m0s'
+QueryTimeout = '2m0s'
+BaseUserAttr = 'uid'
+BaseDN = 'dc=custom,dc=example,dc=com'
+UsersDN = 'ou=users'
+GroupsDN = 'ou=groups'
+ActiveAttribute = 'organizationalStatus'
+ActiveAttributeAllowedValue = 'ACTIVE'
+AdminUserGroupCN = 'NodeAdmins'
+EditUserGroupCN = 'NodeEditors'
+RunUserGroupCN = 'NodeRunners'
+ReadUserGroupCN = 'NodeReadOnly'
+UserApiTokenEnabled = false
+UserAPITokenDuration = '240h0m0s'
+UpstreamSyncInterval = '0s'
+UpstreamSyncRateLimit = '2m0s'
 
 [WebServer.MFA]
 RPID = 'test-rpid'
@@ -76,15 +113,19 @@ ForceRedirect = true
 Host = 'tls-host'
 HTTPSPort = 6789
 KeyPath = 'tls/key/path'
+ListenIP = '192.158.1.38'
 
 [JobPipeline]
-DefaultHTTPRequestTimeout = '1m0s'
 ExternalInitiatorsEnabled = true
-HTTPRequestMaxSize = '100.00mb'
 MaxRunDuration = '1h0m0s'
+MaxSuccessfulRuns = 123456
 ReaperInterval = '4h0m0s'
 ReaperThreshold = '168h0m0s'
 ResultWriteQueueDepth = 10
+
+[JobPipeline.HTTPRequest]
+DefaultTimeout = '1m0s'
+MaxSize = '100.00mb'
 
 [FluxMonitor]
 DefaultTransactionQueueDepth = 100
@@ -99,6 +140,11 @@ ContractSubscribeInterval = '1m0s'
 ContractTransmitterTransmitTimeout = '1m0s'
 DatabaseTimeout = '8s'
 KeyBundleID = '7a5f66bbe6594259325bf2b4f5b1a9c900000000000000000000000000000000'
+CaptureEATelemetry = false
+CaptureAutomationCustomTelemetry = true
+DefaultTransactionQueueDepth = 1
+SimulateTransactions = false
+TraceLogging = false
 
 [OCR]
 Enabled = true
@@ -110,26 +156,17 @@ DefaultTransactionQueueDepth = 12
 KeyBundleID = 'acdd42797a8b921b2910497badc5000600000000000000000000000000000000'
 SimulateTransactions = true
 TransmitterAddress = '0xa0788FC17B1dEe36f057c42B6F373A34B014687e'
+CaptureEATelemetry = false
+TraceLogging = false
 
 [P2P]
 IncomingMessageBufferSize = 13
 OutgoingMessageBufferSize = 17
+PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw'
 TraceLogging = true
 
-[P2P.V1]
-AnnounceIP = '1.2.3.4'
-AnnouncePort = 1234
-BootstrapCheckInterval = '1m0s'
-DefaultBootstrapPeers = ['foo', 'bar', 'should', 'these', 'be', 'typed']
-DHTAnnouncementCounterUserPrefix = 4321
-DHTLookupInterval = 9
-ListenIP = '4.3.2.1'
-ListenPort = 9
-NewStreamTimeout = '1s'
-PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw'
-PeerstoreWriteInterval = '1m0s'
-
 [P2P.V2]
+Enabled = false
 AnnounceAddresses = ['a', 'b', 'c']
 DefaultBootstrappers = ['12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw@foo:42/bar:10', '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw@test:99']
 DeltaDial = '1m0s'
@@ -141,15 +178,15 @@ DefaultTransactionQueueDepth = 17
 GasPriceBufferPercent = 12
 GasTipCapBufferPercent = 43
 BaseFeeBufferPercent = 89
-MaximumGracePeriod = 31
-RegistryCheckGasOverhead = 90
-RegistryPerformGasOverhead = 4294967295
-RegistryMaxPerformDataSize = 5000
-RegistrySyncInterval = '1h0m0s'
-RegistrySyncUpkeepQueueSize = 31
+MaxGracePeriod = 31
 TurnLookBack = 91
-TurnFlagEnabled = true
-UpkeepCheckGasPriceEnabled = true
+
+[Keeper.Registry]
+CheckGasOverhead = 90
+PerformGasOverhead = 4294967295
+MaxPerformDataSize = 5000
+SyncInterval = '1h0m0s'
+SyncUpkeepQueueSize = 31
 
 [AutoPprof]
 Enabled = true
@@ -166,7 +203,6 @@ MemThreshold = '1.00gb'
 GoroutineThreshold = 999
 
 [Pyroscope]
-AuthToken = 'pyroscope-token'
 ServerAddress = 'http://localhost:4040'
 Environment = 'tests'
 
@@ -176,36 +212,70 @@ DSN = 'sentry-dsn'
 Environment = 'dev'
 Release = 'v1.2.3'
 
+[Insecure]
+DevWebServer = false
+OCRDevelopmentMode = false
+InfiniteDepthQueries = false
+DisableRateLimiting = false
+
+[Tracing]
+Enabled = true
+CollectorTarget = 'localhost:4317'
+NodeID = 'clc-ocr-sol-devnet-node-1'
+SamplingRatio = 1.0
+Mode = 'tls'
+TLSCertPath = '/path/to/cert.pem'
+
+[Tracing.Attributes]
+env = 'dev'
+test = 'load'
+
+[Mercury]
+[Mercury.Cache]
+LatestReportTTL = '1m40s'
+MaxStaleAge = '1m41s'
+LatestReportDeadline = '1m42s'
+
+[Mercury.TLS]
+CertFile = '/path/to/cert.pem'
+
 [[EVM]]
 ChainID = '1'
 Enabled = false
+AutoCreateKey = false
 BlockBackfillDepth = 100
 BlockBackfillSkip = true
 ChainType = 'Optimism'
 FinalityDepth = 42
+FinalityTagEnabled = false
 FlagsContractAddress = '0xae4E781a6218A8031764928E88d457937A954fC3'
 LinkContractAddress = '0x538aAaB4ea120b2bC2fe5D296852D948F07D849e'
 LogBackfillBatchSize = 17
 LogPollInterval = '1m0s'
-MaxInFlightTransactions = 19
-MaxQueuedTransactions = 99
+LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 532
 MinIncomingConfirmations = 13
-MinimumContractPayment = '9.223372036854775807 link'
+MinContractPayment = '9.223372036854775807 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '1m0s'
 OperatorFactoryAddress = '0xa5B85635Be42F21f94F28034B7DA440EeFF0F418'
 RPCDefaultBatchSize = 17
 RPCBlockQueryDelay = 10
-TxReaperInterval = '1m0s'
-TxReaperThreshold = '1m0s'
-TxResendAfterThreshold = '1h0m0s'
-UseForwarders = true
+
+[EVM.Transactions]
+ForwardersEnabled = true
+MaxInFlight = 19
+MaxQueued = 99
+ReaperInterval = '1m0s'
+ReaperThreshold = '1m0s'
+ResendAfterThreshold = '1h0m0s'
 
 [EVM.BalanceMonitor]
 Enabled = true
 
 [EVM.GasEstimator]
-Mode = 'L2Suggested'
+Mode = 'SuggestedPrice'
 PriceDefault = '9.223372036854775807 ether'
 PriceMax = '281.474976710655 micro'
 PriceMin = '13 wei'
@@ -213,11 +283,6 @@ LimitDefault = 12
 LimitMax = 17
 LimitMultiplier = '1.234'
 LimitTransfer = 100
-LimitOCRJobType = 1001
-LimitDRJobType = 1002
-LimitVRFJobType = 1003
-LimitFMJobType = 1004
-LimitKeeperJobType = 1005
 BumpMin = '100 wei'
 BumpPercent = 10
 BumpThreshold = 6
@@ -225,11 +290,21 @@ BumpTxDepth = 6
 EIP1559DynamicFees = true
 FeeCapDefault = '9.223372036854775807 ether'
 TipCapDefault = '2 wei'
-TipCapMinimum = '1 wei'
+TipCapMin = '1 wei'
+
+[EVM.GasEstimator.LimitJobType]
+OCR = 1001
+OCR2 = 1006
+DR = 1002
+VRF = 1003
+FM = 1004
+Keeper = 1005
 
 [EVM.GasEstimator.BlockHistory]
 BatchSize = 17
 BlockHistorySize = 12
+CheckInclusionBlocks = 18
+CheckInclusionPercentile = 19
 EIP1559FeeCapBufferBlocks = 13
 TransactionPercentile = 15
 
@@ -248,28 +323,63 @@ PriceMax = '79.228162514264337593543950335 gether'
 PollFailureThreshold = 5
 PollInterval = '1m0s'
 SelectionMode = 'HighestHead'
+SyncThreshold = 13
+LeaseDuration = '0s'
+NodeIsSyncingEnabled = true
 
 [EVM.OCR]
 ContractConfirmations = 11
 ContractTransmitterTransmitTimeout = '1m0s'
 DatabaseTimeout = '1s'
-ObservationTimeout = '1s'
+DeltaCOverride = '1h0m0s'
+DeltaCJitterOverride = '1s'
 ObservationGracePeriod = '1s'
+
+[EVM.OCR2]
+[EVM.OCR2.Automation]
+GasLimit = 540
 
 [[EVM.Nodes]]
 Name = 'foo'
-WSURL = 'wss://web.socket/test'
+WSURL = 'wss://web.socket/test/foo'
 HTTPURL = 'https://foo.web'
 
 [[EVM.Nodes]]
 Name = 'bar'
-WSURL = 'wss://web.socket/test'
+WSURL = 'wss://web.socket/test/bar'
 HTTPURL = 'https://bar.com'
 
 [[EVM.Nodes]]
 Name = 'broadcast'
 HTTPURL = 'http://broadcast.mirror'
 SendOnly = true
+
+[[Cosmos]]
+ChainID = 'Malaga-420'
+Enabled = true
+Bech32Prefix = 'wasm'
+BlockRate = '1m0s'
+BlocksUntilTxTimeout = 12
+ConfirmPollPeriod = '1s'
+FallbackGasPrice = '0.001'
+GasToken = 'ucosm'
+GasLimitMultiplier = '1.2'
+MaxMsgsPerBatch = 17
+OCR2CachePollPeriod = '1m0s'
+OCR2CacheTTL = '1h0m0s'
+TxMsgTimeout = '1s'
+
+[[Cosmos.Nodes]]
+Name = 'primary'
+TendermintURL = 'http://tender.mint'
+
+[[Cosmos.Nodes]]
+Name = 'foo'
+TendermintURL = 'http://foo.url'
+
+[[Cosmos.Nodes]]
+Name = 'bar'
+TendermintURL = 'http://bar.web'
 
 [[Solana]]
 ChainID = 'mainnet'
@@ -284,6 +394,11 @@ TxConfirmTimeout = '1s'
 SkipPreflight = true
 Commitment = 'banana'
 MaxRetries = 7
+FeeEstimatorMode = 'fixed'
+ComputeUnitPriceMax = 1000
+ComputeUnitPriceMin = 10
+ComputeUnitPriceDefault = 100
+FeeBumpPeriod = '1m0s'
 
 [[Solana.Nodes]]
 Name = 'primary'
@@ -304,35 +419,8 @@ OCR2CachePollPeriod = '6h0m0s'
 OCR2CacheTTL = '3m0s'
 RequestTimeout = '1m3s'
 TxTimeout = '13s'
-TxSendFrequency = '42s'
-TxMaxBatchSize = 17
+ConfirmationPoll = '42s'
 
 [[Starknet.Nodes]]
 Name = 'primary'
 URL = 'http://stark.node'
-
-[[Terra]]
-ChainID = 'Bombay-12'
-Enabled = true
-BlockRate = '1m0s'
-BlocksUntilTxTimeout = 12
-ConfirmPollPeriod = '1s'
-FallbackGasPriceULuna = '0.001'
-FCDURL = 'http://terra.com'
-GasLimitMultiplier = '1.2'
-MaxMsgsPerBatch = 17
-OCR2CachePollPeriod = '1m0s'
-OCR2CacheTTL = '1h0m0s'
-TxMsgTimeout = '1s'
-
-[[Terra.Nodes]]
-Name = 'primary'
-TendermintURL = 'http://tender.mint'
-
-[[Terra.Nodes]]
-Name = 'foo'
-TendermintURL = 'http://foo.url'
-
-[[Terra.Nodes]]
-Name = 'bar'
-TendermintURL = 'http://bar.web'

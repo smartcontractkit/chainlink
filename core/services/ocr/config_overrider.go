@@ -9,15 +9,18 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type ConfigOverriderImpl struct {
-	utils.StartStopOnce
+	services.StateMachine
 	logger          logger.Logger
 	flags           *ContractFlags
 	contractAddress ethkey.EIP55Address
@@ -38,8 +41,14 @@ type ConfigOverriderImpl struct {
 // InitialHibernationStatus - hibernation state set until the first successful update from the chain
 const InitialHibernationStatus = false
 
+type DeltaCConfig interface {
+	DeltaCOverride() time.Duration
+	DeltaCJitterOverride() time.Duration
+}
+
 func NewConfigOverriderImpl(
 	logger logger.Logger,
+	cfg DeltaCConfig,
 	contractAddress ethkey.EIP55Address,
 	flags *ContractFlags,
 	pollTicker utils.TickerBase,
@@ -47,16 +56,17 @@ func NewConfigOverriderImpl(
 
 	if !flags.ContractExists() {
 		return nil, errors.Errorf("OCRConfigOverrider: Flags contract instance is missing, the contract does not exist: %s. "+
-			"Please create the contract or remove the FLAGS_CONTRACT_ADDRESS configuration variable", contractAddress.Address())
+			"Please create the contract or remove the OCR.TransmitterAddress configuration variable", contractAddress.Address())
 	}
 
 	addressBig := contractAddress.Big()
-	addressSeconds := addressBig.Mod(addressBig, big.NewInt(3600)).Uint64()
-	deltaC := 23*time.Hour + time.Duration(addressSeconds)*time.Second
+	jitterSeconds := int64(cfg.DeltaCJitterOverride() / time.Second)
+	addressSeconds := addressBig.Mod(addressBig, big.NewInt(jitterSeconds)).Uint64()
+	deltaC := cfg.DeltaCOverride() + time.Duration(addressSeconds)*time.Second
 
 	ctx, cancel := context.WithCancel(context.Background())
 	co := ConfigOverriderImpl{
-		utils.StartStopOnce{},
+		services.StateMachine{},
 		logger,
 		flags,
 		contractAddress,

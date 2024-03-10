@@ -3,7 +3,7 @@ package presenters
 import (
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/sessions"
+	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 )
 
 // UserResource represents a User JSONAPI resource.
@@ -32,7 +32,7 @@ func NewUserResource(u sessions.User) *UserResource {
 	return &UserResource{
 		JAID:              NewJAID(u.Email),
 		Email:             u.Email,
-		Role:              sessions.UserRole(u.Role),
+		Role:              u.Role,
 		HasActiveApiToken: hasToken,
 		CreatedAt:         u.CreatedAt,
 		UpdatedAt:         u.UpdatedAt,

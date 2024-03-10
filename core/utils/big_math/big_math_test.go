@@ -8,86 +8,26 @@ import (
 )
 
 func TestMax(t *testing.T) {
-	testCases := []struct {
-		x        interface{}
-		y        interface{}
-		expected *big.Int
-	}{
-		{
-			x:        int32(1),
-			y:        int32(2),
-			expected: big.NewInt(2),
-		},
-		{
-			x:        big.NewInt(1),
-			y:        big.NewInt(2),
-			expected: big.NewInt(2),
-		},
-		{
-			x:        float64(1.0),
-			y:        float64(2.0),
-			expected: big.NewInt(2),
-		},
-		{
-			x:        "1",
-			y:        "2",
-			expected: big.NewInt(2),
-		},
-		{
-			x:        uint(1),
-			y:        uint(2),
-			expected: big.NewInt(2),
-		},
-	}
-	for _, testCase := range testCases {
-		m := Max(testCase.x, testCase.y)
-		require.Equal(t, 0, testCase.expected.Cmp(m))
-	}
+	m := Max(big.NewInt(1), big.NewInt(2))
+	require.Equal(t, 0, big.NewInt(2).Cmp(m))
 }
 
 func TestMin(t *testing.T) {
-	testCases := []struct {
-		x        interface{}
-		y        interface{}
-		expected *big.Int
-	}{
-		{
-			x:        int32(1),
-			y:        int32(2),
-			expected: big.NewInt(1),
-		},
-		{
-			x:        big.NewInt(1),
-			y:        big.NewInt(2),
-			expected: big.NewInt(1),
-		},
-		{
-			x:        float64(1.0),
-			y:        float64(2.0),
-			expected: big.NewInt(1),
-		},
-		{
-			x:        "2",
-			y:        "1",
-			expected: big.NewInt(1),
-		},
-		{
-			x:        uint(2),
-			y:        uint(1),
-			expected: big.NewInt(1),
-		},
-	}
-	for _, testCase := range testCases {
-		m := Min(testCase.x, testCase.y)
-		require.Equal(t, 0, testCase.expected.Cmp(m))
-	}
+	m := Min(big.NewInt(1), big.NewInt(2))
+	require.Equal(t, 0, big.NewInt(1).Cmp(m))
 }
 
 func TestAccumulate(t *testing.T) {
-	s := []interface{}{1, 2, 3, 4, 5}
+	s := []*big.Int{
+		big.NewInt(1),
+		big.NewInt(2),
+		big.NewInt(3),
+		big.NewInt(4),
+		big.NewInt(5),
+	}
 	expected := big.NewInt(15)
 	require.Equal(t, expected, Accumulate(s))
-	s = []interface{}{}
+	s = []*big.Int{}
 	expected = big.NewInt(0)
 	require.Equal(t, expected, Accumulate(s))
 }

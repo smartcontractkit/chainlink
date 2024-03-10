@@ -1,0 +1,59 @@
+name: Operator UI CD
+
+on:
+  push:
+    branches:
+      - develop
+  workflow_dispatch:
+  schedule:
+    - cron: "0 */1 * * *" # Run every hour
+
+jobs:
+  update-version:
+    permissions:
+      id-token: write
+    name: Update Version
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      - name: Update version
+        id: update
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ./operator_ui/check.sh
+
+      - name: Assume role capable of dispatching action
+        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_CHAINLINK_CI_AUTO_PR_TOKEN_ISSUER_ROLE_ARN }}
+          role-duration-seconds: ${{ secrets.aws-role-duration-seconds }}
+          role-session-name: operator-ui-cd.update-version
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Get Github Token
+        id: get-gh-token
+        uses: smartcontractkit/chainlink-github-actions/github-app-token-issuer@chore/update-github-app-token-issuer
+        with:
+          url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+
+      - name: Open PR
+        uses: peter-evans/create-pull-request@b1ddad2c994a25fbc81a28b3ec0e368bb2021c50 # v6.0.0
+        with:
+          title: Update Operator UI from ${{ steps.update.outputs.current_tag }} to ${{ steps.update.outputs.latest_tag }}
+          token: ${{ steps.get-gh-token.outputs.access-token }}
+          branch: chore/update-operator-ui
+          commit-message: Update Operator UI from ${{ steps.update.outputs.current_tag }} to ${{ steps.update.outputs.latest_tag }}
+          body: ${{ steps.update.outputs.body }}
+
+      - name: Collect Metrics
+        if: always()
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@0281b09807758be1dcc41651e44e62b353808c47 # v2.1.0
+        with:
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: Update Version
+        continue-on-error: true

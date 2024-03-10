@@ -1,0 +1,148 @@
+{{- range $cfg := .Values.chainlink.nodes }}
+apiVersion: apps/v1
+{{ if $.Values.db.stateful }}
+kind: StatefulSet
+{{ else }}
+kind: Deployment
+{{ end }}
+metadata:
+  name: {{ $.Release.Name }}-{{ $cfg.name }}-db
+spec:
+  {{ if $.Values.db.stateful }}
+  serviceName: {{ $.Release.Name }}-db-${{ $cfg.name }}
+  podManagementPolicy: Parallel
+  volumeClaimTemplates:
+    - metadata:
+        name: postgres
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: {{ .Values.db.capacity }}
+  {{ end }}
+  selector:
+    matchLabels:
+      app: {{ $.Release.Name }}-db
+      # Used for testing.
+      # havoc-component-group and havoc-network-group are used by "havoc" chaos testing tool
+      havoc-component-group: db
+      havoc-network-group: db
+      instance: {{ $cfg.name }}-db
+      release: {{ $.Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ $.Release.Name }}-db
+        # Used for testing.
+        # havoc-component-group and havoc-network-group are used by "havoc" chaos testing tool
+        havoc-component-group: db
+        havoc-network-group: db
+        instance: {{ $cfg.name }}-db
+        release: {{ $.Release.Name }}
+        {{- range $key, $value := $.Values.labels }}
+        {{ $key }}: {{ $value | quote }}
+        {{- end }}
+      annotations:
+        prometheus.io/scrape: 'true'
+        app.kubernetes.io/managed-by: "Helm"
+        meta.helm.sh/release-namespace: "{{ $.Release.Namespace }}"
+        {{- range $key, $value := $.Values.podAnnotations }}
+        {{ $key }}: {{ $value | quote }}
+        {{- end }}
+    spec:
+      volumes:
+        # TODO: breakout this config map into a separate one for the db.
+        - name: {{ $.Release.Name }}-{{ $cfg.name }}-cm
+          configMap:
+            name: {{ $.Release.Name }}-{{ $cfg.name }}-cm
+      securityContext:
+        {{- toYaml $.Values.db.podSecurityContext | nindent 8 }}
+      containers:
+        - name: chainlink-db
+          securityContext:
+            {{- toYaml $.Values.db.securityContext | nindent 12 }}
+          image: {{ default "postgres:11.15" $.Values.db.image }}
+          command:
+            - docker-entrypoint.sh
+          args:
+            - "-c"
+            - "shared_preload_libraries=pg_stat_statements"
+            - "-c"
+            - "pg_stat_statements.track=all"
+          ports:
+            - name: postgres
+              containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: chainlink
+            - name: POSTGRES_PASSWORD
+              value: verylongdatabasepassword
+            - name: PGPASSWORD
+              value: verylongdatabasepassword
+            - name: PGUSER
+              value: postgres
+          lifecycle:
+            preStop:
+              exec:
+                command: [ "/bin/sh", "-c", "while $(psql -d chainlink -c \"SELECT COUNT(*) FROM pg_stat_activity WHERE datname = 'chainlink' AND state = 'active';\" -tA ); echo \"waiting for connection to become 0\"; sleep 10; fi; done" ]
+          livenessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - postgres
+            initialDelaySeconds: 1
+            periodSeconds: 5
+            timeoutSeconds: 10
+          readinessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - postgres
+            initialDelaySeconds: 1
+            periodSeconds: 5
+            timeoutSeconds: 10
+          startupProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - postgres
+            initialDelaySeconds: 15
+            periodSeconds: 5
+            failureThreshold: 20
+          {{ if (hasKey $.Values.db "resources") }}
+          resources:
+            requests:
+              memory: {{ default "256Mi" $.Values.db.resources.requests.memory }}
+              cpu: {{ default "250m" $.Values.db.resources.requests.cpu }}
+            limits:
+              memory: {{ default "256Mi" $.Values.db.resources.limits.memory }}
+              cpu: {{ default "250m" $.Values.db.resources.limits.cpu }}
+          {{ else }}
+          {{ end }}
+          volumeMounts:
+            - mountPath: /docker-entrypoint-initdb.d/init.sql
+              name: {{ $.Release.Name }}-{{ $cfg.name }}-cm
+              subPath: init.sql
+            {{ if $.Values.db.stateful }}
+            - mountPath: /var/lib/postgresql/data
+              name: postgres
+              subPath: postgres-db
+            {{ end }}
+{{- with $.Values.nodeSelector }}
+      nodeSelector:
+        {{ toYaml . | indent 8 }}
+{{- end }}
+{{- with $.Values.affinity }}
+      affinity:
+        {{ toYaml . | indent 8 }}
+{{- end }}
+{{- with $.Values.tolerations }}
+      tolerations:
+{{ toYaml . | indent 8 }}
+{{- end }}
+---
+{{- end }}

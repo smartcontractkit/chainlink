@@ -1,79 +1,169 @@
-##
-# NOTE: any changes to the event triggers or the paths here should be reflected in:
-#       solidity-paths-ignore.yml
-##
-
 name: Solidity
 
 on:
+  merge_group:
   push:
-    branches:
-      - staging
-      - trying
-      - rollup
-    paths:
-      - 'contracts/**'
-      - yarn.lock
-      - 'tools/ci/**'
-  pull_request:
-    paths:
-      - 'contracts/**'
-      - yarn.lock
-      - 'tools/ci/**'
+
+defaults:
+  run:
+    shell: bash
 
 jobs:
-  solidity-coverage:
-    name: Solidity Coverage
+  changes:
+    name: Detect changes
     runs-on: ubuntu-latest
+    outputs:
+      changes: ${{ steps.changes.outputs.src }}
     steps:
-      - name: Collect Metrics
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@v1
-        with:
-          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: Solidity Coverage
-        continue-on-error: true
       - name: Checkout the repo
-        uses: actions/checkout@v2
-      - name: Setup node
-        uses: actions/setup-node@v3
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - uses: dorny/paths-filter@0bc4621a3135347011ad047f9ecf449bf72ce2bd # v3.0.0
+        id: changes
         with:
-          node-version: "16"
-          cache: yarn
-      - run: yarn install --frozen-lockfile
-      - name: Run coverage
-        env:
-          NODE_OPTIONS: "--max-old-space-size=8192"
-        run: ./tools/ci/solidity_coverage
+          list-files: "csv"
+          filters: |
+            src:
+              - 'contracts/**/*'
+              - '.github/workflows/solidity.yml'
+              - '.github/workflows/solidity-foundry.yml'
+            old_sol:
+              - 'contracts/src/v0.4/**/*'
+              - 'contracts/src/v0.5/**/*'
+              - 'contracts/src/v0.6/**/*'
+              - 'contracts/src/v0.7/**/*'
 
-  solidity:
-    name: Solidity
+      - name: Fail if read-only files have changed
+        if: ${{ steps.changes.outputs.old_sol == 'true' }}
+        run: |
+          echo "One or more read-only Solidity file(s) has changed."
+          for file in ${{ steps.changes.outputs.old_sol_files }}; do
+            echo "$file was changed"
+          done
+          exit 1
+
+  prepublish-test:
+    needs: [changes]
+    if: needs.changes.outputs.changes == 'true'
+    name: Prepublish Test ${{ fromJSON('["(skipped)", ""]')[needs.changes.outputs.changes == 'true'] }}
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout the repo
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - name: Setup NodeJS
+        uses: ./.github/actions/setup-nodejs
+      - name: Run Prepublish test
+        working-directory: contracts
+        run: pnpm prepublishOnly
       - name: Collect Metrics
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@v1
+        uses: smartcontractkit/push-gha-metrics-action@0281b09807758be1dcc41651e44e62b353808c47 # v2.1.0
         with:
-          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: Solidity
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: Prepublish Test
         continue-on-error: true
+
+  native-compile:
+    needs: [changes]
+    if: needs.changes.outputs.changes == 'true'
+    name: Native Compilation ${{ fromJSON('["(skipped)", ""]')[needs.changes.outputs.changes == 'true'] }}
+    runs-on: ubuntu-latest
+    steps:
       - name: Checkout the repo
-        uses: actions/checkout@v2
-      - name: Setup node
-        uses: actions/setup-node@v3
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - name: Checkout diff-so-fancy
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
-          node-version: "16"
-          cache: 'yarn'
-      - run: yarn install --frozen-lockfile
-      - name: Compile all contracts
-        run: ./contracts/scripts/native_solc_compile_all
+          repository: so-fancy/diff-so-fancy
+          ref: a673cb4d2707f64d92b86498a2f5f71c8e2643d5 # v1.4.3
+          path: diff-so-fancy
+      - name: Install diff-so-fancy
+        run: echo "$GITHUB_WORKSPACE/diff-so-fancy" >> $GITHUB_PATH
+      - name: Setup NodeJS
+        uses: ./.github/actions/setup-nodejs
+        with:
+          prod: "true"
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
+      - name: Run native compile and generate wrappers
+        run: make wrappers-all
+        working-directory: ./contracts
       - name: Verify local solc binaries
         run: ./tools/ci/check_solc_hashes
-      - name: Run tests
+      - name: Check if Go solidity wrappers are updated
+        if: ${{ needs.changes.outputs.changes == 'true' }}
+        run: git diff --minimal --color --exit-code | diff-so-fancy
+      - name: Comment on fix instructions
         env:
-          NODE_OPTIONS: "--max-old-space-size=8192"
-        run: ./tools/ci/solidity_test_hardhat
-      - name: Run prepublish NPM test
-        run: ./tools/ci/prepublish_npm_test
+          GITHUB_TOKEN: ${{ github.token }}
+        if: ${{ failure() }}
+        run: gh pr comment -b 'Go solidity wrappers are out-of-date, regenerate them via the `make wrappers-all` command'
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@0281b09807758be1dcc41651e44e62b353808c47 # v2.1.0
+        with:
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: Native Compilation
+        continue-on-error: true
+
+  # The if statements for steps after checkout repo is a workaround for
+  # passing required check for PRs that don't have filtered changes.
+  lint:
+    defaults:
+      run:
+        working-directory: contracts
+    needs: [changes]
+    name: Solidity Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - name: Setup NodeJS
+        if: needs.changes.outputs.changes == 'true'
+        uses: ./.github/actions/setup-nodejs
+      - name: Run pnpm lint
+        if: needs.changes.outputs.changes == 'true'
+        run: pnpm lint
+      - name: Run solhint
+        if: needs.changes.outputs.changes == 'true'
+        run: pnpm solhint
+      - name: Collect Metrics
+        if: needs.changes.outputs.changes == 'true'
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@0281b09807758be1dcc41651e44e62b353808c47 # v2.1.0
+        with:
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: Lint
+        continue-on-error: true
+
+  prettier:
+    defaults:
+      run:
+        working-directory: contracts
+    needs: [changes]
+    name: Prettier Formatting
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - name: Setup NodeJS
+        if: needs.changes.outputs.changes == 'true'
+        uses: ./.github/actions/setup-nodejs
+      - name: Run prettier check
+        if: needs.changes.outputs.changes == 'true'
+        run: pnpm prettier:check
+      - name: Collect Metrics
+        if: needs.changes.outputs.changes == 'true'
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@0281b09807758be1dcc41651e44e62b353808c47 # v2.1.0
+        with:
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: Prettier Formatting
+        continue-on-error: true

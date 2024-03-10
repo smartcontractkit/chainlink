@@ -5,7 +5,7 @@ import (
 	"net/url"
 	"time"
 
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 )
 
 // Version and Sha are set at compile time via build arguments.

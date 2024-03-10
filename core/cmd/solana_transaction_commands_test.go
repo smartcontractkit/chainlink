@@ -3,60 +3,54 @@
 package cmd_test
 
 import (
+	"bytes"
 	"flag"
-	"fmt"
+	"os/exec"
 	"strconv"
 	"testing"
 	"time"
 
-	"github.com/gagliardetto/solana-go"
+	solanago "github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	solanaClient "github.com/smartcontractkit/chainlink-solana/pkg/solana/client"
-	solanadb "github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
+	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 
-	"github.com/smartcontractkit/chainlink/core/cmd"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 )
 
-func TestClient_SolanaSendSol(t *testing.T) {
+func TestShell_SolanaSendSol(t *testing.T) {
 	chainID := "localnet"
 	url := solanaClient.SetupLocalSolNode(t)
-	app := solanaStartNewApplication(t)
+	node := solcfg.Node{
+		Name: ptr(t.Name()),
+		URL:  config.MustParseURL(url),
+	}
+	cfg := solana.TOMLConfig{
+		ChainID: &chainID,
+		Nodes:   solana.SolanaNodes{&node},
+		Enabled: ptr(true),
+	}
+	app := solanaStartNewApplication(t, &cfg)
 	from, err := app.GetKeyStore().Solana().Create()
 	require.NoError(t, err)
-	to, err := solana.NewRandomPrivateKey()
+	to, err := solanago.NewRandomPrivateKey()
 	require.NoError(t, err)
-	solanaClient.FundTestAccounts(t, []solana.PublicKey{from.PublicKey()}, url)
-
-	chains := app.GetChains()
-	_, err = chains.Solana.Add(testutils.Context(t), chainID, nil)
-	require.NoError(t, err)
-	chain, err := chains.Solana.Chain(testutils.Context(t), chainID)
-	require.NoError(t, err)
-
-	ctx := testutils.Context(t)
-	_, err = chains.Solana.CreateNode(ctx, solanadb.Node{
-		Name:          t.Name(),
-		SolanaChainID: chainID,
-		SolanaURL:     url,
-	})
-	require.NoError(t, err)
-
-	reader, err := chain.Reader()
-	require.NoError(t, err)
+	solanaClient.FundTestAccounts(t, []solanago.PublicKey{from.PublicKey()}, url)
 
 	require.Eventually(t, func() bool {
-		coin, err := reader.Balance(from.PublicKey())
-		if !assert.NoError(t, err) {
+		coin, err := balance(from.PublicKey(), url)
+		if err != nil {
 			return false
 		}
-		return coin == 100*solana.LAMPORTS_PER_SOL
+		return coin == 100*solanago.LAMPORTS_PER_SOL
 	}, time.Minute, 5*time.Second)
 
-	client, r := app.NewClientAndRenderer()
+	client, r := app.NewShellAndRenderer()
 	cliapp := cli.NewApp()
 
 	for _, tt := range []struct {
@@ -70,12 +64,15 @@ func TestClient_SolanaSendSol(t *testing.T) {
 	} {
 		tt := tt
 		t.Run(tt.amount, func(t *testing.T) {
-			startBal, err := reader.Balance(from.PublicKey())
+			startBal, err := balance(from.PublicKey(), url)
 			require.NoError(t, err)
 
 			set := flag.NewFlagSet("sendsolcoins", 0)
-			set.String("id", chainID, "")
-			set.Parse([]string{tt.amount, from.PublicKey().String(), to.PublicKey().String()})
+			flagSetApplyFromAction(client.SolanaSendSol, set, "solana")
+
+			require.NoError(t, set.Set("id", chainID))
+			require.NoError(t, set.Parse([]string{tt.amount, from.PublicKey().String(), to.PublicKey().String()}))
+
 			c := cli.NewContext(cliapp, set, nil)
 			err = client.SolanaSendSol(c)
 			if tt.expErr == "" {
@@ -90,7 +87,7 @@ func TestClient_SolanaSendSol(t *testing.T) {
 			require.Greater(t, len(r.Renders), 0)
 			renderer := r.Renders[len(r.Renders)-1]
 			renderedMsg := renderer.(*cmd.SolanaMsgPresenter)
-			fmt.Printf("%+v\n", renderedMsg)
+			t.Logf("%+v\n", renderedMsg)
 			require.NotEmpty(t, renderedMsg.ID)
 			assert.Equal(t, chainID, renderedMsg.ChainID)
 			assert.Equal(t, from.PublicKey().String(), renderedMsg.From)
@@ -104,7 +101,8 @@ func TestClient_SolanaSendSol(t *testing.T) {
 				time.Sleep(time.Second) // wait for tx execution
 
 				// Check balance
-				endBal, err = reader.Balance(from.PublicKey())
+				endBal, err = balance(from.PublicKey(), url)
+				require.NoError(t, err)
 				require.NoError(t, err)
 
 				// exit if difference found
@@ -118,11 +116,24 @@ func TestClient_SolanaSendSol(t *testing.T) {
 			// Check balance
 			if assert.NotEqual(t, 0, startBal) && assert.NotEqual(t, 0, endBal) {
 				diff := startBal - endBal
-				receiveBal, err := reader.Balance(to.PublicKey())
+				receiveBal, err := balance(to.PublicKey(), url)
 				require.NoError(t, err)
 				assert.Equal(t, tt.amount, strconv.FormatUint(receiveBal, 10))
 				assert.Greater(t, diff, receiveBal)
 			}
 		})
 	}
+}
+
+func balance(key solanago.PublicKey, url string) (uint64, error) {
+	b, err := exec.Command("solana", "balance", "--lamports", key.String(), "--url", url).Output()
+	if err != nil {
+		return 0, err
+	}
+	b = bytes.TrimSuffix(b, []byte(" lamports\n"))
+	i, err := strconv.ParseUint(string(b), 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	return i, nil
 }

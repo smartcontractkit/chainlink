@@ -10,11 +10,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 
-	"github.com/smartcontractkit/chainlink/core/bridges"
-	"github.com/smartcontractkit/chainlink/core/cmd"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/cmd"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
 func TestBridgePresenter_RenderTable(t *testing.T) {
@@ -61,11 +61,11 @@ func TestBridgePresenter_RenderTable(t *testing.T) {
 	assert.NotContains(t, output, outgoingToken)
 }
 
-func TestClient_IndexBridges(t *testing.T) {
+func TestShell_IndexBridges(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t)
-	client, r := app.NewClientAndRenderer()
+	app := startNewApplicationV2(t, nil)
+	client, r := app.NewShellAndRenderer()
 
 	bt1 := &bridges.BridgeType{
 		Name:          bridges.MustParseBridgeName("cliindexbridges1"),
@@ -97,11 +97,11 @@ func TestClient_IndexBridges(t *testing.T) {
 	assert.Equal(t, bt2.Confirmations, p.Confirmations)
 }
 
-func TestClient_ShowBridge(t *testing.T) {
+func TestShell_ShowBridge(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t)
-	client, r := app.NewClientAndRenderer()
+	app := startNewApplicationV2(t, nil)
+	client, r := app.NewShellAndRenderer()
 
 	bt := &bridges.BridgeType{
 		Name:          bridges.MustParseBridgeName(testutils.RandomizeName("showbridge")),
@@ -111,7 +111,10 @@ func TestClient_ShowBridge(t *testing.T) {
 	require.NoError(t, app.BridgeORM().CreateBridgeType(bt))
 
 	set := flag.NewFlagSet("test", 0)
-	set.Parse([]string{bt.Name.String()})
+	flagSetApplyFromAction(client.ShowBridge, set, "")
+
+	require.NoError(t, set.Parse([]string{bt.Name.String()}))
+
 	c := cli.NewContext(nil, set, nil)
 
 	require.NoError(t, client.ShowBridge(c))
@@ -122,11 +125,11 @@ func TestClient_ShowBridge(t *testing.T) {
 	assert.Equal(t, bt.Confirmations, p.Confirmations)
 }
 
-func TestClient_CreateBridge(t *testing.T) {
+func TestShell_CreateBridge(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t)
-	client, _ := app.NewClientAndRenderer()
+	app := startNewApplicationV2(t, nil)
+	client, _ := app.NewShellAndRenderer()
 
 	tests := []struct {
 		name    string
@@ -145,7 +148,10 @@ func TestClient_CreateBridge(t *testing.T) {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
 			set := flag.NewFlagSet("bridge", 0)
-			set.Parse([]string{test.param})
+			flagSetApplyFromAction(client.CreateBridge, set, "")
+
+			require.NoError(t, set.Parse([]string{test.param}))
+
 			c := cli.NewContext(nil, set, nil)
 			if test.errored {
 				assert.Error(t, client.CreateBridge(c))
@@ -156,11 +162,11 @@ func TestClient_CreateBridge(t *testing.T) {
 	}
 }
 
-func TestClient_RemoveBridge(t *testing.T) {
+func TestShell_RemoveBridge(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t)
-	client, r := app.NewClientAndRenderer()
+	app := startNewApplicationV2(t, nil)
+	client, r := app.NewShellAndRenderer()
 
 	bt := &bridges.BridgeType{
 		Name:          bridges.MustParseBridgeName(testutils.RandomizeName("removebridge")),
@@ -171,7 +177,10 @@ func TestClient_RemoveBridge(t *testing.T) {
 	require.NoError(t, err)
 
 	set := flag.NewFlagSet("test", 0)
-	set.Parse([]string{bt.Name.String()})
+	flagSetApplyFromAction(client.RemoveBridge, set, "")
+
+	require.NoError(t, set.Parse([]string{bt.Name.String()}))
+
 	c := cli.NewContext(nil, set, nil)
 	require.NoError(t, client.RemoveBridge(c))
 

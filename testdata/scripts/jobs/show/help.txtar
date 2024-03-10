@@ -1,0 +1,9 @@
+exec chainlink jobs show --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink jobs show - Show a job
+
+USAGE:
+   chainlink jobs show [arguments...]

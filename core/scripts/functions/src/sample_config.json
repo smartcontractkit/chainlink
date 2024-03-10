@@ -1,0 +1,47 @@
+{
+  "OracleConfig": {
+    "MaxQueryLengthBytes": 10000,
+    "MaxObservationLengthBytes": 10000,
+    "MaxReportLengthBytes": 10000,
+    "MaxRequestBatchSize": 10,
+    "DefaultAggregationMethod": 0,
+    "UniqueReports": true,
+    "MaxReportTotalCallbackGas": 2000000,
+
+    "ThresholdOffchainConfig": {
+      "MaxQueryLengthBytes": 10000,
+      "MaxObservationLengthBytes": 10000,
+      "MaxReportLengthBytes": 10000,
+      "RequestCountLimit": 100,
+      "RequestTotalBytesLimit": 100000,
+      "RequireLocalRequestCheck": true,
+      "K": 3
+    },
+
+    "S4ReportingPluginConfig": {
+      "MaxQueryLengthBytes": 50000,
+      "MaxObservationLengthBytes": 50000,
+      "MaxReportLengthBytes": 50000,
+      "NSnapshotShards": 1,
+      "MaxObservationEntries": 1000,
+      "MaxReportEntries": 1000,
+      "MaxDeleteExpiredEntries": 1000
+    },
+
+    "DeltaProgressMillis": 30000,
+    "DeltaResendMillis": 10000,
+    "DeltaRoundMillis": 10000,
+    "DeltaGraceMillis": 2000,
+    "DeltaStageMillis": 30000,
+    "MaxRoundsPerEpoch": 5,
+    "TransmissionSchedule": [1, 1, 1, 1],
+
+    "MaxDurationQueryMillis": 5000,
+    "MaxDurationObservationMillis": 5000,
+    "MaxDurationReportMillis": 5000,
+    "MaxDurationAcceptMillis": 5000,
+    "MaxDurationTransmitMillis": 5000,
+
+    "MaxFaultyOracles": 1
+  }
+}

@@ -3,39 +3,38 @@ package webhook_test
 import (
 	"testing"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
 
-	"github.com/smartcontractkit/chainlink/core/bridges"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/services/webhook"
-	"github.com/smartcontractkit/chainlink/core/sessions"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
+	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 )
 
-func newBridgeORM(t *testing.T, db *sqlx.DB, cfg pg.LogConfig) bridges.ORM {
+func newBridgeORM(t *testing.T, db *sqlx.DB, cfg pg.QConfig) bridges.ORM {
 	return bridges.NewORM(db, logger.TestLogger(t), cfg)
 }
 
 type eiEnabledCfg struct{}
 
-func (eiEnabledCfg) FeatureExternalInitiators() bool { return true }
+func (eiEnabledCfg) ExternalInitiatorsEnabled() bool { return true }
 
 type eiDisabledCfg struct{}
 
-func (eiDisabledCfg) FeatureExternalInitiators() bool { return false }
+func (eiDisabledCfg) ExternalInitiatorsEnabled() bool { return false }
 
 func Test_Authorizer(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
-	borm := newBridgeORM(t, db, cfg)
+	borm := newBridgeORM(t, db, pgtest.NewQConfig(true))
 
 	eiFoo := cltest.MustInsertExternalInitiator(t, borm)
 	eiBar := cltest.MustInsertExternalInitiator(t, borm)
@@ -60,7 +59,7 @@ func Test_Authorizer(t *testing.T) {
 		can, err = a.CanRun(testutils.Context(t), nil, jobWithNoEI.ExternalJobID)
 		require.NoError(t, err)
 		assert.False(t, can)
-		can, err = a.CanRun(testutils.Context(t), nil, uuid.NewV4())
+		can, err = a.CanRun(testutils.Context(t), nil, uuid.New())
 		require.NoError(t, err)
 		assert.False(t, can)
 	})
@@ -74,7 +73,7 @@ func Test_Authorizer(t *testing.T) {
 		can, err = a.CanRun(testutils.Context(t), nil, jobWithNoEI.ExternalJobID)
 		require.NoError(t, err)
 		assert.True(t, can)
-		can, err = a.CanRun(testutils.Context(t), nil, uuid.NewV4())
+		can, err = a.CanRun(testutils.Context(t), nil, uuid.New())
 		require.NoError(t, err)
 		assert.True(t, can)
 	})
@@ -94,7 +93,7 @@ func Test_Authorizer(t *testing.T) {
 		can, err = a.CanRun(testutils.Context(t), eiEnabledCfg{}, jobWithNoEI.ExternalJobID)
 		require.NoError(t, err)
 		assert.False(t, can)
-		can, err = a.CanRun(testutils.Context(t), eiEnabledCfg{}, uuid.NewV4())
+		can, err = a.CanRun(testutils.Context(t), eiEnabledCfg{}, uuid.New())
 		require.NoError(t, err)
 		assert.False(t, can)
 	})

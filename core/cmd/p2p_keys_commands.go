@@ -3,16 +3,78 @@ package cmd
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
 	"github.com/urfave/cli"
 	"go.uber.org/multierr"
+
+	cutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
+
+func initP2PKeysSubCmd(s *Shell) cli.Command {
+	return cli.Command{
+		Name:  "p2p",
+		Usage: "Remote commands for administering the node's p2p keys",
+		Subcommands: cli.Commands{
+			{
+				Name:   "create",
+				Usage:  format(`Create a p2p key, encrypted with password from the password file, and store it in the database.`),
+				Action: s.CreateP2PKey,
+			},
+			{
+				Name:  "delete",
+				Usage: format(`Delete the encrypted P2P key by id`),
+				Flags: []cli.Flag{
+					cli.BoolFlag{
+						Name:  "yes, y",
+						Usage: "skip the confirmation prompt",
+					},
+					cli.BoolFlag{
+						Name:  "hard",
+						Usage: "hard-delete the key instead of archiving (irreversible!)",
+					},
+				},
+				Action: s.DeleteP2PKey,
+			},
+			{
+				Name:   "list",
+				Usage:  format(`List available P2P keys`),
+				Action: s.ListP2PKeys,
+			},
+			{
+				Name:  "import",
+				Usage: format(`Imports a P2P key from a JSON file`),
+				Flags: []cli.Flag{
+					cli.StringFlag{
+						Name:  "old-password, oldpassword, p",
+						Usage: "`FILE` containing the password used to encrypt the key in the JSON file",
+					},
+				},
+				Action: s.ImportP2PKey,
+			},
+			{
+				Name:  "export",
+				Usage: format(`Exports a P2P key to a JSON file`),
+				Flags: []cli.Flag{
+					cli.StringFlag{
+						Name:  "new-password, newpassword, p",
+						Usage: "`FILE` containing the password to encrypt the key (required)",
+					},
+					cli.StringFlag{
+						Name:  "output, o",
+						Usage: "`FILE` where the JSON file will be saved (required)",
+					},
+				},
+				Action: s.ExportP2PKey,
+			},
+		},
+	}
+}
 
 type P2PKeyPresenter struct {
 	JAID
@@ -29,7 +91,7 @@ func (p *P2PKeyPresenter) RenderTable(rt RendererTable) error {
 	}
 	renderList(headers, rows, rt.Writer)
 
-	return utils.JustError(rt.Write([]byte("\n")))
+	return cutils.JustError(rt.Write([]byte("\n")))
 }
 
 func (p *P2PKeyPresenter) ToRow() []string {
@@ -58,14 +120,14 @@ func (ps P2PKeyPresenters) RenderTable(rt RendererTable) error {
 	}
 	renderList(headers, rows, rt.Writer)
 
-	return utils.JustError(rt.Write([]byte("\n")))
+	return cutils.JustError(rt.Write([]byte("\n")))
 }
 
 // ListP2PKeys retrieves a list of all P2P keys
-func (cli *Client) ListP2PKeys(c *cli.Context) (err error) {
-	resp, err := cli.HTTP.Get("/v2/keys/p2p", nil)
+func (s *Shell) ListP2PKeys(_ *cli.Context) (err error) {
+	resp, err := s.HTTP.Get(s.ctx(), "/v2/keys/p2p", nil)
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
@@ -73,14 +135,14 @@ func (cli *Client) ListP2PKeys(c *cli.Context) (err error) {
 		}
 	}()
 
-	return cli.renderAPIResponse(resp, &P2PKeyPresenters{})
+	return s.renderAPIResponse(resp, &P2PKeyPresenters{})
 }
 
 // CreateP2PKey creates a new P2P key
-func (cli *Client) CreateP2PKey(c *cli.Context) (err error) {
-	resp, err := cli.HTTP.Post("/v2/keys/p2p", nil)
+func (s *Shell) CreateP2PKey(_ *cli.Context) (err error) {
+	resp, err := s.HTTP.Post(s.ctx(), "/v2/keys/p2p", nil)
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
@@ -88,14 +150,14 @@ func (cli *Client) CreateP2PKey(c *cli.Context) (err error) {
 		}
 	}()
 
-	return cli.renderAPIResponse(resp, &P2PKeyPresenter{}, "Created P2P keypair")
+	return s.renderAPIResponse(resp, &P2PKeyPresenter{}, "Created P2P keypair")
 }
 
 // DeleteP2PKey deletes a P2P key,
 // key ID must be passed
-func (cli *Client) DeleteP2PKey(c *cli.Context) (err error) {
+func (s *Shell) DeleteP2PKey(c *cli.Context) (err error) {
 	if !c.Args().Present() {
-		return cli.errorOut(errors.New("Must pass the key ID to be deleted"))
+		return s.errorOut(errors.New("Must pass the key ID to be deleted"))
 	}
 	id := c.Args().Get(0)
 
@@ -108,9 +170,9 @@ func (cli *Client) DeleteP2PKey(c *cli.Context) (err error) {
 		queryStr = "?hard=true"
 	}
 
-	resp, err := cli.HTTP.Delete(fmt.Sprintf("/v2/keys/p2p/%s%s", id, queryStr))
+	resp, err := s.HTTP.Delete(s.ctx(), fmt.Sprintf("/v2/keys/p2p/%s%s", id, queryStr))
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
@@ -118,35 +180,35 @@ func (cli *Client) DeleteP2PKey(c *cli.Context) (err error) {
 		}
 	}()
 
-	return cli.renderAPIResponse(resp, &P2PKeyPresenter{}, "P2P key deleted")
+	return s.renderAPIResponse(resp, &P2PKeyPresenter{}, "P2P key deleted")
 }
 
 // ImportP2PKey imports and stores a P2P key,
 // path to key must be passed
-func (cli *Client) ImportP2PKey(c *cli.Context) (err error) {
+func (s *Shell) ImportP2PKey(c *cli.Context) (err error) {
 	if !c.Args().Present() {
-		return cli.errorOut(errors.New("Must pass the filepath of the key to be imported"))
+		return s.errorOut(errors.New("Must pass the filepath of the key to be imported"))
 	}
 
-	oldPasswordFile := c.String("oldpassword")
+	oldPasswordFile := c.String("old-password")
 	if len(oldPasswordFile) == 0 {
-		return cli.errorOut(errors.New("Must specify --oldpassword/-p flag"))
+		return s.errorOut(errors.New("Must specify --old-password/-p flag"))
 	}
-	oldPassword, err := ioutil.ReadFile(oldPasswordFile)
+	oldPassword, err := os.ReadFile(oldPasswordFile)
 	if err != nil {
-		return cli.errorOut(errors.Wrap(err, "Could not read password file"))
+		return s.errorOut(errors.Wrap(err, "Could not read password file"))
 	}
 
 	filepath := c.Args().Get(0)
-	keyJSON, err := ioutil.ReadFile(filepath)
+	keyJSON, err := os.ReadFile(filepath)
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 
 	normalizedPassword := normalizePassword(string(oldPassword))
-	resp, err := cli.HTTP.Post("/v2/keys/p2p/import?oldpassword="+normalizedPassword, bytes.NewReader(keyJSON))
+	resp, err := s.HTTP.Post(s.ctx(), "/v2/keys/p2p/import?oldpassword="+normalizedPassword, bytes.NewReader(keyJSON))
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
@@ -154,36 +216,36 @@ func (cli *Client) ImportP2PKey(c *cli.Context) (err error) {
 		}
 	}()
 
-	return cli.renderAPIResponse(resp, &P2PKeyPresenter{}, "🔑 Imported P2P key")
+	return s.renderAPIResponse(resp, &P2PKeyPresenter{}, "🔑 Imported P2P key")
 }
 
 // ExportP2PKey exports a P2P key,
 // key ID must be passed
-func (cli *Client) ExportP2PKey(c *cli.Context) (err error) {
+func (s *Shell) ExportP2PKey(c *cli.Context) (err error) {
 	if !c.Args().Present() {
-		return cli.errorOut(errors.New("Must pass the ID of the key to export"))
+		return s.errorOut(errors.New("Must pass the ID of the key to export"))
 	}
 
-	newPasswordFile := c.String("newpassword")
+	newPasswordFile := c.String("new-password")
 	if len(newPasswordFile) == 0 {
-		return cli.errorOut(errors.New("Must specify --newpassword/-p flag"))
+		return s.errorOut(errors.New("Must specify --new-password/-p flag"))
 	}
-	newPassword, err := ioutil.ReadFile(newPasswordFile)
+	newPassword, err := os.ReadFile(newPasswordFile)
 	if err != nil {
-		return cli.errorOut(errors.Wrap(err, "Could not read password file"))
+		return s.errorOut(errors.Wrap(err, "Could not read password file"))
 	}
 
 	filepath := c.String("output")
 	if len(filepath) == 0 {
-		return cli.errorOut(errors.New("Must specify --output/-o flag"))
+		return s.errorOut(errors.New("Must specify --output/-o flag"))
 	}
 
 	ID := c.Args().Get(0)
 
 	normalizedPassword := normalizePassword(string(newPassword))
-	resp, err := cli.HTTP.Post("/v2/keys/p2p/export/"+ID+"?newpassword="+normalizedPassword, nil)
+	resp, err := s.HTTP.Post(s.ctx(), "/v2/keys/p2p/export/"+ID+"?newpassword="+normalizedPassword, nil)
 	if err != nil {
-		return cli.errorOut(errors.Wrap(err, "Could not make HTTP request"))
+		return s.errorOut(errors.Wrap(err, "Could not make HTTP request"))
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
@@ -192,22 +254,22 @@ func (cli *Client) ExportP2PKey(c *cli.Context) (err error) {
 	}()
 
 	if resp.StatusCode != http.StatusOK {
-		return cli.errorOut(errors.New("Error exporting"))
+		return s.errorOut(fmt.Errorf("error exporting: %w", httpError(resp)))
 	}
 
-	keyJSON, err := ioutil.ReadAll(resp.Body)
+	keyJSON, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return cli.errorOut(errors.Wrap(err, "Could not read response body"))
+		return s.errorOut(errors.Wrap(err, "Could not read response body"))
 	}
 
-	err = utils.WriteFileWithMaxPerms(filepath, keyJSON, 0600)
+	err = utils.WriteFileWithMaxPerms(filepath, keyJSON, 0o600)
 	if err != nil {
-		return cli.errorOut(errors.Wrapf(err, "Could not write %v", filepath))
+		return s.errorOut(errors.Wrapf(err, "Could not write %v", filepath))
 	}
 
 	_, err = os.Stderr.WriteString(fmt.Sprintf("🔑 Exported P2P key %s to %s\n", ID, filepath))
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 
 	return nil

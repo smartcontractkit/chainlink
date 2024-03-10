@@ -1,0 +1,14 @@
+exec chainlink keys eth create --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink keys eth create - Create a key in the node's keystore alongside the existing key; to create an original key, just run the node
+
+USAGE:
+   chainlink keys eth create [command options] [arguments...]
+
+OPTIONS:
+   --evm-chain-id value, --evmChainID value             Chain ID for the key. If left blank, default chain will be used.
+   --max-gas-price-gwei value, --maxGasPriceGWei value  Optional maximum gas price (GWei) for the creating key. (default: 0)
+   

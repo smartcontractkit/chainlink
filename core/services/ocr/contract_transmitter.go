@@ -5,15 +5,16 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 )
 
 var (
@@ -22,12 +23,13 @@ var (
 
 type (
 	OCRContractTransmitter struct {
-		contractAddress gethCommon.Address
-		contractABI     abi.ABI
-		transmitter     ocrcommon.Transmitter
-		contractCaller  *offchainaggregator.OffchainAggregatorCaller
-		tracker         *OCRContractTracker
-		chainID         *big.Int
+		contractAddress             gethCommon.Address
+		contractABI                 abi.ABI
+		transmitter                 ocrcommon.Transmitter
+		contractCaller              *offchainaggregator.OffchainAggregatorCaller
+		tracker                     *OCRContractTracker
+		chainID                     *big.Int
+		effectiveTransmitterAddress gethCommon.Address
 	}
 )
 
@@ -39,14 +41,16 @@ func NewOCRContractTransmitter(
 	logBroadcaster log.Broadcaster,
 	tracker *OCRContractTracker,
 	chainID *big.Int,
+	effectiveTransmitterAddress gethCommon.Address,
 ) *OCRContractTransmitter {
 	return &OCRContractTransmitter{
-		contractAddress: address,
-		contractABI:     contractABI,
-		transmitter:     transmitter,
-		contractCaller:  contractCaller,
-		tracker:         tracker,
-		chainID:         chainID,
+		contractAddress:             address,
+		contractABI:                 contractABI,
+		transmitter:                 transmitter,
+		contractCaller:              contractCaller,
+		tracker:                     tracker,
+		chainID:                     chainID,
+		effectiveTransmitterAddress: effectiveTransmitterAddress,
 	}
 }
 
@@ -56,7 +60,7 @@ func (oc *OCRContractTransmitter) Transmit(ctx context.Context, report []byte, r
 		return errors.Wrap(err, "abi.Pack failed")
 	}
 
-	return errors.Wrap(oc.transmitter.CreateEthTransaction(ctx, oc.contractAddress, payload), "failed to send Eth transaction")
+	return errors.Wrap(oc.transmitter.CreateEthTransaction(ctx, oc.contractAddress, payload, nil), "failed to send Eth transaction")
 }
 
 func (oc *OCRContractTransmitter) LatestTransmissionDetails(ctx context.Context) (configDigest ocrtypes.ConfigDigest, epoch uint32, round uint8, latestAnswer ocrtypes.Observation, latestTimestamp time.Time, err error) {
@@ -69,7 +73,7 @@ func (oc *OCRContractTransmitter) LatestTransmissionDetails(ctx context.Context)
 }
 
 func (oc *OCRContractTransmitter) FromAddress() gethCommon.Address {
-	return oc.transmitter.FromAddress()
+	return oc.effectiveTransmitterAddress
 }
 
 func (oc *OCRContractTransmitter) ChainID() *big.Int {

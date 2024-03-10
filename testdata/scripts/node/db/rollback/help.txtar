@@ -1,0 +1,10 @@
+exec chainlink node db rollback --help
+cmp stdout out.txt
+! stderr .
+
+-- out.txt --
+NAME:
+   chainlink node db rollback - Roll back the database to a previous <version>. Rolls back a single migration if no version specified.
+
+USAGE:
+   chainlink node db rollback [arguments...]

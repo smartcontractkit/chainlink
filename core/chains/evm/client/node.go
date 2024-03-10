@@ -14,14 +14,16 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/pkg/errors"
+	"github.com/google/uuid"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	uuid "github.com/satori/go.uuid"
 
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
 var (
@@ -78,20 +80,25 @@ var (
 	}, []string{"evmChainID", "nodeName", "rpcHost", "isSendOnly", "success", "rpcCallName"})
 )
 
-//go:generate mockery --name Node --output ../mocks/ --case=underscore
+//go:generate mockery --quiet --name Node --output ../mocks/ --case=underscore
 
 // Node represents a client that connects to an ethereum-compatible RPC node
+//
+// Deprecated: use [pkg/github.com/smartcontractkit/chainlink/v2/common/client.Node]
 type Node interface {
 	Start(ctx context.Context) error
-	Close()
+	Close() error
 
-	// State() returns NodeState
+	// State returns NodeState
 	State() NodeState
-	// StateAndLatestBlockNumber() returns NodeState and the latest received block number
-	StateAndLatestBlockNumber() (NodeState, int64)
-	// Unique identifier for node
-	ID() int32
+	// StateAndLatest returns NodeState with the latest received block number & total difficulty.
+	StateAndLatest() (state NodeState, blockNum int64, totalDifficulty *big.Int)
+	// Name is a unique identifier for this node.
+	Name() string
 	ChainID() *big.Int
+	Order() int32
+	SubscribersCount() int32
+	UnsubscribeAllExceptAliveLoop()
 
 	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
 	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
@@ -100,14 +107,17 @@ type Node interface {
 	PendingNonceAt(ctx context.Context, account common.Address) (uint64, error)
 	NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (uint64, error)
 	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
+	TransactionByHash(ctx context.Context, txHash common.Hash) (*types.Transaction, error)
 	BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error)
 	BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error)
+	BlockNumber(ctx context.Context) (uint64, error)
 	BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error)
 	FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error)
 	SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error)
 	EstimateGas(ctx context.Context, call ethereum.CallMsg) (uint64, error)
 	SuggestGasPrice(ctx context.Context) (*big.Int, error)
 	CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error)
+	PendingCallContract(ctx context.Context, msg ethereum.CallMsg) ([]byte, error)
 	CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error)
 	HeaderByNumber(context.Context, *big.Int) (*types.Header, error)
 	HeaderByHash(context.Context, common.Hash) (*types.Header, error)
@@ -126,25 +136,31 @@ type rawclient struct {
 // Node represents one ethereum node.
 // It must have a ws url and may have a http url
 type node struct {
-	utils.StartStopOnce
-	ws      rawclient
-	http    *rawclient
-	lfcLog  logger.Logger
-	rpcLog  logger.Logger
-	name    string
-	id      int32
-	chainID *big.Int
-	cfg     NodeConfig
+	services.StateMachine
+	lfcLog              logger.Logger
+	rpcLog              logger.SugaredLogger
+	name                string
+	id                  int32
+	chainID             *big.Int
+	nodePoolCfg         config.NodePool
+	noNewHeadsThreshold time.Duration
+	order               int32
 
+	ws   rawclient
+	http *rawclient
+
+	stateMu sync.RWMutex // protects state* fields
 	state   NodeState
-	stateMu sync.RWMutex
-
-	// Each node is tracking the last received head number
-	latestReceivedBlockNumber int64
+	// Each node is tracking the last received head number and total difficulty
+	stateLatestBlockNumber     int64
+	stateLatestTotalDifficulty *big.Int
 
 	// Need to track subscriptions because closing the RPC does not (always?)
 	// close the underlying subscription
 	subs []ethereum.Subscription
+
+	// Need to track the aliveLoop subscription, so we do not cancel it when checking lease
+	aliveLoopSub ethereum.Subscription
 
 	// chStopInFlight can be closed to immediately cancel all in-flight requests on
 	// this node. Closing and replacing should be serialized through
@@ -157,44 +173,43 @@ type node struct {
 	// wg waits for subsidiary goroutines
 	wg sync.WaitGroup
 
-	// nLiveNodes is a passed in function that allows this node to
-	// query a parent object to see how many live nodes there are in total.
-	// This is done so we can prevent the last alive node in a pool from being
-	// moved to out-of-sync state. It is better to have one out-of-sync node
-	// than no nodes at all.
-	nLiveNodes func() int
-}
-
-// NodeConfig allows configuration of the node
-type NodeConfig interface {
-	NodeNoNewHeadsThreshold() time.Duration
-	NodePollFailureThreshold() uint32
-	NodePollInterval() time.Duration
-	NodeSelectionMode() string
+	// nLiveNodes is a passed in function that allows this node to:
+	//  1. see how many live nodes there are in total, so we can prevent the last alive node in a pool from being
+	//  moved to out-of-sync state. It is better to have one out-of-sync node than no nodes at all.
+	//  2. compare against the highest head (by number or difficulty) to ensure we don't fall behind too far.
+	nLiveNodes func() (count int, blockNumber int64, totalDifficulty *big.Int)
 }
 
 // NewNode returns a new *node as Node
-func NewNode(nodeCfg NodeConfig, lggr logger.Logger, wsuri url.URL, httpuri *url.URL, name string, id int32, chainID *big.Int) Node {
+//
+// Deprecated: use [pkg/github.com/smartcontractkit/chainlink/v2/common/client.NewNode]
+func NewNode(nodeCfg config.NodePool, noNewHeadsThreshold time.Duration, lggr logger.Logger, wsuri url.URL, httpuri *url.URL, name string, id int32, chainID *big.Int, nodeOrder int32) Node {
 	n := new(node)
 	n.name = name
 	n.id = id
 	n.chainID = chainID
-	n.cfg = nodeCfg
+	n.nodePoolCfg = nodeCfg
+	n.noNewHeadsThreshold = noNewHeadsThreshold
 	n.ws.uri = wsuri
+	n.order = nodeOrder
 	if httpuri != nil {
 		n.http = &rawclient{uri: *httpuri}
 	}
 	n.chStopInFlight = make(chan struct{})
 	n.nodeCtx, n.cancelNodeCtx = context.WithCancel(context.Background())
-	lggr = lggr.Named("Node").With(
+	lggr = logger.Named(lggr, "Node")
+	lggr = logger.With(lggr,
 		"nodeTier", "primary",
 		"nodeName", name,
 		"node", n.String(),
 		"evmChainID", chainID,
+		"nodeOrder", n.order,
+		"mode", n.getNodeMode(),
 	)
-	n.lfcLog = lggr.Named("Lifecycle")
-	n.rpcLog = lggr.Named("RPC")
-	n.latestReceivedBlockNumber = -1
+	n.lfcLog = logger.Named(lggr, "Lifecycle")
+	n.rpcLog = logger.Sugared(lggr).Named("RPC")
+	n.stateLatestBlockNumber = -1
+
 	return n
 }
 
@@ -230,7 +245,7 @@ func (n *node) start(startCtx context.Context) {
 
 	verifyCtx, verifyCancel := n.makeQueryCtx(startCtx)
 	defer verifyCancel()
-	if err := n.verify(verifyCtx); errors.Is(err, errInvalidChainID) {
+	if err := n.verify(verifyCtx); pkgerrors.Is(err, errInvalidChainID) {
 		n.lfcLog.Errorw("Verify failed: EVM Node has the wrong chain ID", "err", err)
 		n.declareInvalidChainID()
 		return
@@ -250,16 +265,16 @@ func (n *node) dial(callerCtx context.Context) error {
 	defer cancel()
 
 	promEVMPoolRPCNodeDials.WithLabelValues(n.chainID.String(), n.name).Inc()
-	lggr := n.lfcLog.With("wsuri", n.ws.uri.Redacted())
+	lggr := logger.With(n.lfcLog, "wsuri", n.ws.uri.Redacted())
 	if n.http != nil {
-		lggr = lggr.With("httpuri", n.http.uri.Redacted())
+		lggr = logger.With(lggr, "httpuri", n.http.uri.Redacted())
 	}
 	lggr.Debugw("RPC dial: evmclient.Client#dial")
 
 	wsrpc, err := rpc.DialWebsocket(ctx, n.ws.uri.String(), "")
 	if err != nil {
 		promEVMPoolRPCNodeDialsFailed.WithLabelValues(n.chainID.String(), n.name).Inc()
-		return errors.Wrapf(err, "error while dialing websocket: %v", n.ws.uri.Redacted())
+		return pkgerrors.Wrapf(err, "error while dialing websocket: %v", n.ws.uri.Redacted())
 	}
 
 	var httprpc *rpc.Client
@@ -267,7 +282,7 @@ func (n *node) dial(callerCtx context.Context) error {
 		httprpc, err = rpc.DialHTTP(n.http.uri.String())
 		if err != nil {
 			promEVMPoolRPCNodeDialsFailed.WithLabelValues(n.chainID.String(), n.name).Inc()
-			return errors.Wrapf(err, "error while dialing HTTP: %v", n.http.uri.Redacted())
+			return pkgerrors.Wrapf(err, "error while dialing HTTP: %v", n.http.uri.Redacted())
 		}
 	}
 
@@ -279,13 +294,12 @@ func (n *node) dial(callerCtx context.Context) error {
 		n.http.geth = ethclient.NewClient(httprpc)
 	}
 
-	n.lfcLog.Debugw("RPC dial: success")
 	promEVMPoolRPCNodeDialsSuccess.WithLabelValues(n.chainID.String(), n.name).Inc()
 
 	return nil
 }
 
-var errInvalidChainID = errors.New("invalid chain id")
+var errInvalidChainID = pkgerrors.New("invalid chain id")
 
 // verify checks that all connections to eth nodes match the given chain ID
 // Not thread-safe
@@ -309,10 +323,10 @@ func (n *node) verify(callerCtx context.Context) (err error) {
 	var chainID *big.Int
 	if chainID, err = n.ws.geth.ChainID(ctx); err != nil {
 		promFailed()
-		return errors.Wrapf(err, "failed to verify chain ID for node %s", n.name)
+		return pkgerrors.Wrapf(err, "failed to verify chain ID for node %s", n.name)
 	} else if chainID.Cmp(n.chainID) != 0 {
 		promFailed()
-		return errors.Wrapf(
+		return pkgerrors.Wrapf(
 			errInvalidChainID,
 			"websocket rpc ChainID doesn't match local chain ID: RPC ID=%s, local ID=%s, node name=%s",
 			chainID.String(),
@@ -323,10 +337,10 @@ func (n *node) verify(callerCtx context.Context) (err error) {
 	if n.http != nil {
 		if chainID, err = n.http.geth.ChainID(ctx); err != nil {
 			promFailed()
-			return errors.Wrapf(err, "failed to verify chain ID for node %s", n.name)
+			return pkgerrors.Wrapf(err, "failed to verify chain ID for node %s", n.name)
 		} else if chainID.Cmp(n.chainID) != 0 {
 			promFailed()
-			return errors.Wrapf(
+			return pkgerrors.Wrapf(
 				errInvalidChainID,
 				"http rpc ChainID doesn't match local chain ID: RPC ID=%s, local ID=%s, node name=%s",
 				chainID.String(),
@@ -341,9 +355,14 @@ func (n *node) verify(callerCtx context.Context) (err error) {
 	return nil
 }
 
-func (n *node) Close() {
-	err := n.StopOnce(n.name, func() error {
-		defer n.wg.Wait()
+func (n *node) Close() error {
+	return n.StopOnce(n.name, func() error {
+		defer func() {
+			n.wg.Wait()
+			if n.ws.rpc != nil {
+				n.ws.rpc.Close()
+			}
+		}()
 
 		n.stateMu.Lock()
 		defer n.stateMu.Unlock()
@@ -351,14 +370,8 @@ func (n *node) Close() {
 		n.cancelNodeCtx()
 		n.cancelInflightRequests()
 		n.state = NodeStateClosed
-		if n.ws.rpc != nil {
-			n.ws.rpc.Close()
-		}
 		return nil
 	})
-	if err != nil {
-		panic(err)
-	}
 }
 
 // registerSub adds the sub to the node list
@@ -377,6 +390,26 @@ func (n *node) disconnectAll() {
 	}
 	n.cancelInflightRequests()
 	n.unsubscribeAll()
+}
+
+// SubscribersCount returns the number of client subscribed to the node
+func (n *node) SubscribersCount() int32 {
+	n.stateMu.RLock()
+	defer n.stateMu.RUnlock()
+	return int32(len(n.subs))
+}
+
+// UnsubscribeAllExceptAliveLoop disconnects all subscriptions to the node except the alive loop subscription
+// while holding the n.stateMu lock
+func (n *node) UnsubscribeAllExceptAliveLoop() {
+	n.stateMu.Lock()
+	defer n.stateMu.Unlock()
+
+	for _, s := range n.subs {
+		if s != n.aliveLoopSub {
+			s.Unsubscribe()
+		}
+	}
 }
 
 // cancelInflightRequests closes and replaces the chStopInFlight
@@ -416,22 +449,22 @@ func (n *node) getRPCDomain() string {
 
 // CallContext implementation
 func (n *node) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
-	ctx, cancel, err := n.makeLiveQueryCtx(ctx)
+	ctx, cancel, ws, http, err := n.makeLiveQueryCtxAndSafeGetClients(ctx)
 	if err != nil {
 		return err
 	}
 	defer cancel()
-	lggr := n.newRqLggr(switching(n)).With(
+	lggr := n.newRqLggr().With(
 		"method", method,
 		"args", args,
 	)
 
 	lggr.Debug("RPC call: evmclient.Client#CallContext")
 	start := time.Now()
-	if n.http != nil {
-		err = n.wrapHTTP(n.http.rpc.CallContext(ctx, result, method, args...))
+	if http != nil {
+		err = n.wrapHTTP(http.rpc.CallContext(ctx, result, method, args...))
 	} else {
-		err = n.wrapWS(n.ws.rpc.CallContext(ctx, result, method, args...))
+		err = n.wrapWS(ws.rpc.CallContext(ctx, result, method, args...))
 	}
 	duration := time.Since(start)
 
@@ -441,19 +474,19 @@ func (n *node) CallContext(ctx context.Context, result interface{}, method strin
 }
 
 func (n *node) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
-	ctx, cancel, err := n.makeLiveQueryCtx(ctx)
+	ctx, cancel, ws, http, err := n.makeLiveQueryCtxAndSafeGetClients(ctx)
 	if err != nil {
 		return err
 	}
 	defer cancel()
-	lggr := n.newRqLggr(switching(n)).With("nBatchElems", len(b), "batchElems", b)
+	lggr := n.newRqLggr().With("nBatchElems", len(b), "batchElems", b)
 
-	lggr.Debug("RPC call: evmclient.Client#BatchCallContext")
+	lggr.Trace("RPC call: evmclient.Client#BatchCallContext")
 	start := time.Now()
-	if n.http != nil {
-		err = n.wrapHTTP(n.http.rpc.BatchCallContext(ctx, b))
+	if http != nil {
+		err = n.wrapHTTP(http.rpc.BatchCallContext(ctx, b))
 	} else {
-		err = n.wrapWS(n.ws.rpc.BatchCallContext(ctx, b))
+		err = n.wrapWS(ws.rpc.BatchCallContext(ctx, b))
 	}
 	duration := time.Since(start)
 
@@ -463,16 +496,16 @@ func (n *node) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
 }
 
 func (n *node) EthSubscribe(ctx context.Context, channel chan<- *evmtypes.Head, args ...interface{}) (ethereum.Subscription, error) {
-	ctx, cancel, err := n.makeLiveQueryCtx(ctx)
+	ctx, cancel, ws, _, err := n.makeLiveQueryCtxAndSafeGetClients(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer cancel()
-	lggr := n.newRqLggr("websocket").With("args", args)
+	lggr := n.newRqLggr().With("args", args)
 
 	lggr.Debug("RPC call: evmclient.Client#EthSubscribe")
 	start := time.Now()
-	sub, err := n.ws.rpc.EthSubscribe(ctx, channel, args...)
+	sub, err := ws.rpc.EthSubscribe(ctx, channel, args...)
 	if err == nil {
 		n.registerSub(sub)
 	}
@@ -486,21 +519,21 @@ func (n *node) EthSubscribe(ctx context.Context, channel chan<- *evmtypes.Head, 
 // GethClient wrappers
 
 func (n *node) TransactionReceipt(ctx context.Context, txHash common.Hash) (receipt *types.Receipt, err error) {
-	ctx, cancel, err := n.makeLiveQueryCtx(ctx)
+	ctx, cancel, ws, http, err := n.makeLiveQueryCtxAndSafeGetClients(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer cancel()
-	lggr := n.newRqLggr(switching(n)).With("txHash", txHash)
+	lggr := n.newRqLggr().With("txHash", txHash)
 
 	lggr.Debug("RPC call: evmclient.Client#TransactionReceipt")
 
 	start := time.Now()
-	if n.http != nil {
-		receipt, err = n.http.geth.TransactionReceipt(ctx, txHash)
+	if http != nil {
+		receipt, err = http.geth.TransactionReceipt(ctx, txHash)
 		err = n.wrapHTTP(err)
 	} else {
-		receipt, err = n.ws.geth.TransactionReceipt(ctx, txHash)
+		receipt, err = ws.geth.TransactionReceipt(ctx, txHash)
 		err = n.wrapWS(err)
 	}
 	duration := time.Since(start)
@@ -512,21 +545,48 @@ func (n *node) TransactionReceipt(ctx context.Context, txHash common.Hash) (rece
 	return
 }
 
-func (n *node) HeaderByNumber(ctx context.Context, number *big.Int) (header *types.Header, err error) {
-	ctx, cancel, err := n.makeLiveQueryCtx(ctx)
+func (n *node) TransactionByHash(ctx context.Context, txHash common.Hash) (tx *types.Transaction, err error) {
+	ctx, cancel, ws, http, err := n.makeLiveQueryCtxAndSafeGetClients(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer cancel()
-	lggr := n.newRqLggr(switching(n)).With("number", number)
+	lggr := n.newRqLggr().With("txHash", txHash)
+
+	lggr.Debug("RPC call: evmclient.Client#TransactionByHash")
+
+	start := time.Now()
+	if http != nil {
+		tx, _, err = http.geth.TransactionByHash(ctx, txHash)
+		err = n.wrapHTTP(err)
+	} else {
+		tx, _, err = ws.geth.TransactionByHash(ctx, txHash)
+		err = n.wrapWS(err)
+	}
+	duration := time.Since(start)
+
+	n.logResult(lggr, err, duration, n.getRPCDomain(), "TransactionByHash",
+		"receipt", tx,
+	)
+
+	return
+}
+
+func (n *node) HeaderByNumber(ctx context.Context, number *big.Int) (header *types.Header, err error) {
+	ctx, cancel, ws, http, err := n.makeLiveQueryCtxAndSafeGetClients(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer cancel()
+	lggr := n.newRqLggr().With("number", number)
 
 	lggr.Debug("RPC call: evmclient.Client#HeaderByNumber")
 	start := time.Now()
-	if n.http != nil {
-		header, err = n.http.geth.HeaderByNumber(ctx, number)
+	if http != nil {
+		header, err = http.geth.HeaderByNumber(ctx, number)
 		err = n.wrapHTTP(err)
 	} else {
-		header, err = n.ws.geth.HeaderByNumber(ctx, number)
+		header, err = ws.geth.HeaderByNumber(ctx, number)
 		err = n.wrapWS(err)
 	}
 	duration := time.Since(start)
@@ -537,20 +597,20 @@ func (n *node) HeaderByNumber(ctx context.Context, number *big.Int) (header *typ
 }
 
 func (n *node) HeaderByHash(ctx context.Context, hash common.Hash) (header *types.Header, err error) {
-	ctx, cancel, err := n.makeLiveQueryCtx(ctx)
+	ctx, cancel, ws, http, err := n.makeLiveQueryCtxAndSafeGetClients(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer cancel()
-	lggr := n.newRqLggr(switching(n)).With("hash", hash)
+	lggr := n.newRqLggr().With("hash", hash)
 
 	lggr.Debug("RPC call: evmclient.Client#HeaderByHash")
 	start := time.Now()
-	if n.http != nil {
-		header, err = n.http.geth.HeaderByHash(ctx, hash)
+	if http != nil {
+		header, err = http.geth.HeaderByHash(ctx, hash)
 		err = n.wrapHTTP(err)
 	} else {
-		header, err = n.ws.geth.HeaderByHash(ctx, hash)
+		header, err = ws.geth.HeaderByHash(ctx, hash)
 		err = n.wrapWS(err)
 	}
 	duration := time.Since(start)
@@ -563,19 +623,19 @@ func (n *node) HeaderByHash(ctx context.Context, hash common.Hash) (header *type
 }
 
 func (n *node) SendTransaction(ctx context.Context, tx *types.Transaction) error {
-	ctx, cancel, err := n.makeLiveQueryCtx(ctx)
+	ctx, cancel, ws, http, err := n.makeLiveQueryCtxAndSafeGetClients(ctx)
 	if err != nil {
 		return err
 	}
 	defer cancel()
-	lggr := n.newRqLggr(switching(n)).With("tx", tx)
+	lggr := n.newRqLggr().With("tx", tx)
 
 	lggr.Debug("RPC call: evmclient.Client#SendTransaction")
 	start := time.Now()
-	if n.http != nil {
-		err = n.wrapHTTP(n.http.geth.SendTransaction(ctx, tx))
+	if http != nil {
+		err = n.wrapHTTP(http.geth.SendTransaction(ctx, tx))
 	} else {
-		err = n.wrapWS(n.ws.geth.SendTransaction(ctx, tx))
+		err = n.wrapWS(ws.geth.SendTransaction(ctx, tx))
 	}
 	duration := time.Since(start)
 
@@ -586,20 +646,20 @@ func (n *node) SendTransaction(ctx context.Context, tx *types.Transaction) error
 
 // PendingNonceAt returns one higher than the highest nonce from both mempool and mined transactions
 func (n *node) PendingNonceAt(ctx context.Context, account common.Address) (nonce uint64, err error) {
-	ctx, cancel, err := n.makeLiveQueryCtx(ctx)
+	ctx, cancel, ws, http, err := n.makeLiveQueryCtxAndSafeGetClients(ctx)
 	if err != nil {
 		return 0, err
 	}
 	defer cancel()
-	lggr := n.newRqLggr(switching(n)).With("account", account)
+	lggr := n.newRqLggr().With("account", account)
 
 	lggr.Debug("RPC call: evmclient.Client#PendingNonceAt")
 	start := time.Now()
-	if n.http != nil {
-		nonce, err = n.http.geth.PendingNonceAt(ctx, account)
+	if http != nil {
+		nonce, err = http.geth.PendingNonceAt(ctx, account)
 		err = n.wrapHTTP(err)
 	} else {
-		nonce, err = n.ws.geth.PendingNonceAt(ctx, account)
+		nonce, err = ws.geth.PendingNonceAt(ctx, account)
 		err = n.wrapWS(err)
 	}
 	duration := time.Since(start)
@@ -615,20 +675,20 @@ func (n *node) PendingNonceAt(ctx context.Context, account common.Address) (nonc
 // mined nonce at the given block number, but it actually returns the total
 // transaction count which is the highest mined nonce + 1
 func (n *node) NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (nonce uint64, err error) {
-	ctx, cancel, err := n.makeLiveQueryCtx(ctx)
+	ctx, cancel, ws, http, err := n.makeLiveQueryCtxAndSafeGetClients(ctx)
 	if err != nil {
 		return 0, err
 	}
 	defer cancel()
-	lggr := n.newRqLggr(switching(n)).With("account", account, "blockNumber", blockNumber)
+	lggr := n.newRqLggr().With("account", account, "blockNumber", blockNumber)
 
 	lggr.Debug("RPC call: evmclient.Client#NonceAt")
 	start := time.Now()
-	if n.http != nil {
-		nonce, err = n.http.geth.NonceAt(ctx, account, blockNumber)
+	if http != nil {
+		nonce, err = http.geth.NonceAt(ctx, account, blockNumber)
 		err = n.wrapHTTP(err)
 	} else {
-		nonce, err = n.ws.geth.NonceAt(ctx, account, blockNumber)
+		nonce, err = ws.geth.NonceAt(ctx, account, blockNumber)
 		err = n.wrapWS(err)
 	}
 	duration := time.Since(start)
@@ -641,20 +701,20 @@ func (n *node) NonceAt(ctx context.Context, account common.Address, blockNumber 
 }
 
 func (n *node) PendingCodeAt(ctx context.Context, account common.Address) (code []byte, err error) {
-	ctx, cancel, err := n.makeLiveQueryCtx(ctx)
+	ctx, cancel, ws, http, err := n.makeLiveQueryCtxAndSafeGetClients(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer cancel()
-	lggr := n.newRqLggr(switching(n)).With("account", account)
+	lggr := n.newRqLggr().With("account", account)
 
 	lggr.Debug("RPC call: evmclient.Client#PendingCodeAt")
 	start := time.Now()
-	if n.http != nil {
-		code, err = n.http.geth.PendingCodeAt(ctx, account)
+	if http != nil {
+		code, err = http.geth.PendingCodeAt(ctx, account)
 		err = n.wrapHTTP(err)
 	} else {
-		code, err = n.ws.geth.PendingCodeAt(ctx, account)
+		code, err = ws.geth.PendingCodeAt(ctx, account)
 		err = n.wrapWS(err)
 	}
 	duration := time.Since(start)
@@ -667,20 +727,20 @@ func (n *node) PendingCodeAt(ctx context.Context, account common.Address) (code 
 }
 
 func (n *node) CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) (code []byte, err error) {
-	ctx, cancel, err := n.makeLiveQueryCtx(ctx)
+	ctx, cancel, ws, http, err := n.makeLiveQueryCtxAndSafeGetClients(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer cancel()
-	lggr := n.newRqLggr(switching(n)).With("account", account, "blockNumber", blockNumber)
+	lggr := n.newRqLggr().With("account", account, "blockNumber", blockNumber)
 
 	lggr.Debug("RPC call: evmclient.Client#CodeAt")
 	start := time.Now()
-	if n.http != nil {
-		code, err = n.http.geth.CodeAt(ctx, account, blockNumber)
+	if http != nil {
+		code, err = http.geth.CodeAt(ctx, account, blockNumber)
 		err = n.wrapHTTP(err)
 	} else {
-		code, err = n.ws.geth.CodeAt(ctx, account, blockNumber)
+		code, err = ws.geth.CodeAt(ctx, account, blockNumber)
 		err = n.wrapWS(err)
 	}
 	duration := time.Since(start)
@@ -693,20 +753,20 @@ func (n *node) CodeAt(ctx context.Context, account common.Address, blockNumber *
 }
 
 func (n *node) EstimateGas(ctx context.Context, call ethereum.CallMsg) (gas uint64, err error) {
-	ctx, cancel, err := n.makeLiveQueryCtx(ctx)
+	ctx, cancel, ws, http, err := n.makeLiveQueryCtxAndSafeGetClients(ctx)
 	if err != nil {
 		return 0, err
 	}
 	defer cancel()
-	lggr := n.newRqLggr(switching(n)).With("call", call)
+	lggr := n.newRqLggr().With("call", call)
 
 	lggr.Debug("RPC call: evmclient.Client#EstimateGas")
 	start := time.Now()
-	if n.http != nil {
-		gas, err = n.http.geth.EstimateGas(ctx, call)
+	if http != nil {
+		gas, err = http.geth.EstimateGas(ctx, call)
 		err = n.wrapHTTP(err)
 	} else {
-		gas, err = n.ws.geth.EstimateGas(ctx, call)
+		gas, err = ws.geth.EstimateGas(ctx, call)
 		err = n.wrapWS(err)
 	}
 	duration := time.Since(start)
@@ -719,20 +779,20 @@ func (n *node) EstimateGas(ctx context.Context, call ethereum.CallMsg) (gas uint
 }
 
 func (n *node) SuggestGasPrice(ctx context.Context) (price *big.Int, err error) {
-	ctx, cancel, err := n.makeLiveQueryCtx(ctx)
+	ctx, cancel, ws, http, err := n.makeLiveQueryCtxAndSafeGetClients(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer cancel()
-	lggr := n.newRqLggr(switching(n))
+	lggr := n.newRqLggr()
 
 	lggr.Debug("RPC call: evmclient.Client#SuggestGasPrice")
 	start := time.Now()
-	if n.http != nil {
-		price, err = n.http.geth.SuggestGasPrice(ctx)
+	if http != nil {
+		price, err = http.geth.SuggestGasPrice(ctx)
 		err = n.wrapHTTP(err)
 	} else {
-		price, err = n.ws.geth.SuggestGasPrice(ctx)
+		price, err = ws.geth.SuggestGasPrice(ctx)
 		err = n.wrapWS(err)
 	}
 	duration := time.Since(start)
@@ -745,20 +805,20 @@ func (n *node) SuggestGasPrice(ctx context.Context) (price *big.Int, err error) 
 }
 
 func (n *node) CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) (val []byte, err error) {
-	ctx, cancel, err := n.makeLiveQueryCtx(ctx)
+	ctx, cancel, ws, http, err := n.makeLiveQueryCtxAndSafeGetClients(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer cancel()
-	lggr := n.newRqLggr(switching(n)).With("callMsg", msg, "blockNumber", blockNumber)
+	lggr := n.newRqLggr().With("callMsg", msg, "blockNumber", blockNumber)
 
 	lggr.Debug("RPC call: evmclient.Client#CallContract")
 	start := time.Now()
-	if n.http != nil {
-		val, err = n.http.geth.CallContract(ctx, msg, blockNumber)
+	if http != nil {
+		val, err = http.geth.CallContract(ctx, msg, blockNumber)
 		err = n.wrapHTTP(err)
 	} else {
-		val, err = n.ws.geth.CallContract(ctx, msg, blockNumber)
+		val, err = ws.geth.CallContract(ctx, msg, blockNumber)
 		err = n.wrapWS(err)
 	}
 	duration := time.Since(start)
@@ -771,21 +831,48 @@ func (n *node) CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumb
 
 }
 
-func (n *node) BlockByNumber(ctx context.Context, number *big.Int) (b *types.Block, err error) {
-	ctx, cancel, err := n.makeLiveQueryCtx(ctx)
+func (n *node) PendingCallContract(ctx context.Context, msg ethereum.CallMsg) (val []byte, err error) {
+	ctx, cancel, ws, http, err := n.makeLiveQueryCtxAndSafeGetClients(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer cancel()
-	lggr := n.newRqLggr(switching(n)).With("number", number)
+	lggr := n.newRqLggr().With("callMsg", msg)
+
+	lggr.Debug("RPC call: evmclient.Client#PendingCallContract")
+	start := time.Now()
+	if http != nil {
+		val, err = http.geth.PendingCallContract(ctx, msg)
+		err = n.wrapHTTP(err)
+	} else {
+		val, err = ws.geth.PendingCallContract(ctx, msg)
+		err = n.wrapWS(err)
+	}
+	duration := time.Since(start)
+
+	n.logResult(lggr, err, duration, n.getRPCDomain(), "PendingCallContract",
+		"val", val,
+	)
+
+	return
+
+}
+
+func (n *node) BlockByNumber(ctx context.Context, number *big.Int) (b *types.Block, err error) {
+	ctx, cancel, ws, http, err := n.makeLiveQueryCtxAndSafeGetClients(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer cancel()
+	lggr := n.newRqLggr().With("number", number)
 
 	lggr.Debug("RPC call: evmclient.Client#BlockByNumber")
 	start := time.Now()
-	if n.http != nil {
-		b, err = n.http.geth.BlockByNumber(ctx, number)
+	if http != nil {
+		b, err = http.geth.BlockByNumber(ctx, number)
 		err = n.wrapHTTP(err)
 	} else {
-		b, err = n.ws.geth.BlockByNumber(ctx, number)
+		b, err = ws.geth.BlockByNumber(ctx, number)
 		err = n.wrapWS(err)
 	}
 	duration := time.Since(start)
@@ -798,20 +885,20 @@ func (n *node) BlockByNumber(ctx context.Context, number *big.Int) (b *types.Blo
 }
 
 func (n *node) BlockByHash(ctx context.Context, hash common.Hash) (b *types.Block, err error) {
-	ctx, cancel, err := n.makeLiveQueryCtx(ctx)
+	ctx, cancel, ws, http, err := n.makeLiveQueryCtxAndSafeGetClients(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer cancel()
-	lggr := n.newRqLggr(switching(n)).With("hash", hash)
+	lggr := n.newRqLggr().With("hash", hash)
 
 	lggr.Debug("RPC call: evmclient.Client#BlockByHash")
 	start := time.Now()
-	if n.http != nil {
-		b, err = n.http.geth.BlockByHash(ctx, hash)
+	if http != nil {
+		b, err = http.geth.BlockByHash(ctx, hash)
 		err = n.wrapHTTP(err)
 	} else {
-		b, err = n.ws.geth.BlockByHash(ctx, hash)
+		b, err = ws.geth.BlockByHash(ctx, hash)
 		err = n.wrapWS(err)
 	}
 	duration := time.Since(start)
@@ -823,21 +910,47 @@ func (n *node) BlockByHash(ctx context.Context, hash common.Hash) (b *types.Bloc
 	return
 }
 
+func (n *node) BlockNumber(ctx context.Context) (height uint64, err error) {
+	ctx, cancel, ws, http, err := n.makeLiveQueryCtxAndSafeGetClients(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer cancel()
+	lggr := n.newRqLggr()
+
+	lggr.Debug("RPC call: evmclient.Client#BlockNumber")
+	start := time.Now()
+	if http != nil {
+		height, err = http.geth.BlockNumber(ctx)
+		err = n.wrapHTTP(err)
+	} else {
+		height, err = ws.geth.BlockNumber(ctx)
+		err = n.wrapWS(err)
+	}
+	duration := time.Since(start)
+
+	n.logResult(lggr, err, duration, n.getRPCDomain(), "BlockNumber",
+		"height", height,
+	)
+
+	return
+}
+
 func (n *node) BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (balance *big.Int, err error) {
-	ctx, cancel, err := n.makeLiveQueryCtx(ctx)
+	ctx, cancel, ws, http, err := n.makeLiveQueryCtxAndSafeGetClients(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer cancel()
-	lggr := n.newRqLggr(switching(n)).With("account", account.Hex(), "blockNumber", blockNumber)
+	lggr := n.newRqLggr().With("account", account.Hex(), "blockNumber", blockNumber)
 
 	lggr.Debug("RPC call: evmclient.Client#BalanceAt")
 	start := time.Now()
-	if n.http != nil {
-		balance, err = n.http.geth.BalanceAt(ctx, account, blockNumber)
+	if http != nil {
+		balance, err = http.geth.BalanceAt(ctx, account, blockNumber)
 		err = n.wrapHTTP(err)
 	} else {
-		balance, err = n.ws.geth.BalanceAt(ctx, account, blockNumber)
+		balance, err = ws.geth.BalanceAt(ctx, account, blockNumber)
 		err = n.wrapWS(err)
 	}
 	duration := time.Since(start)
@@ -850,20 +963,20 @@ func (n *node) BalanceAt(ctx context.Context, account common.Address, blockNumbe
 }
 
 func (n *node) FilterLogs(ctx context.Context, q ethereum.FilterQuery) (l []types.Log, err error) {
-	ctx, cancel, err := n.makeLiveQueryCtx(ctx)
+	ctx, cancel, ws, http, err := n.makeLiveQueryCtxAndSafeGetClients(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer cancel()
-	lggr := n.newRqLggr(switching(n)).With("q", q)
+	lggr := n.newRqLggr().With("q", q)
 
 	lggr.Debug("RPC call: evmclient.Client#FilterLogs")
 	start := time.Now()
-	if n.http != nil {
-		l, err = n.http.geth.FilterLogs(ctx, q)
+	if http != nil {
+		l, err = http.geth.FilterLogs(ctx, q)
 		err = n.wrapHTTP(err)
 	} else {
-		l, err = n.ws.geth.FilterLogs(ctx, q)
+		l, err = ws.geth.FilterLogs(ctx, q)
 		err = n.wrapWS(err)
 	}
 	duration := time.Since(start)
@@ -876,16 +989,16 @@ func (n *node) FilterLogs(ctx context.Context, q ethereum.FilterQuery) (l []type
 }
 
 func (n *node) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (sub ethereum.Subscription, err error) {
-	ctx, cancel, err := n.makeLiveQueryCtx(ctx)
+	ctx, cancel, ws, _, err := n.makeLiveQueryCtxAndSafeGetClients(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer cancel()
-	lggr := n.newRqLggr("websocket").With("q", q)
+	lggr := n.newRqLggr().With("q", q)
 
 	lggr.Debug("RPC call: evmclient.Client#SubscribeFilterLogs")
 	start := time.Now()
-	sub, err = n.ws.geth.SubscribeFilterLogs(ctx, q, ch)
+	sub, err = ws.geth.SubscribeFilterLogs(ctx, q, ch)
 	if err == nil {
 		n.registerSub(sub)
 	}
@@ -898,20 +1011,20 @@ func (n *node) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, 
 }
 
 func (n *node) SuggestGasTipCap(ctx context.Context) (tipCap *big.Int, err error) {
-	ctx, cancel, err := n.makeLiveQueryCtx(ctx)
+	ctx, cancel, ws, http, err := n.makeLiveQueryCtxAndSafeGetClients(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer cancel()
-	lggr := n.newRqLggr(switching(n))
+	lggr := n.newRqLggr()
 
 	lggr.Debug("RPC call: evmclient.Client#SuggestGasTipCap")
 	start := time.Now()
-	if n.http != nil {
-		tipCap, err = n.http.geth.SuggestGasTipCap(ctx)
+	if http != nil {
+		tipCap, err = http.geth.SuggestGasTipCap(ctx)
 		err = n.wrapHTTP(err)
 	} else {
-		tipCap, err = n.ws.geth.SuggestGasTipCap(ctx)
+		tipCap, err = ws.geth.SuggestGasTipCap(ctx)
 		err = n.wrapWS(err)
 	}
 	duration := time.Since(start)
@@ -926,11 +1039,8 @@ func (n *node) SuggestGasTipCap(ctx context.Context) (tipCap *big.Int, err error
 func (n *node) ChainID() (chainID *big.Int) { return n.chainID }
 
 // newRqLggr generates a new logger with a unique request ID
-func (n *node) newRqLggr(mode string) logger.Logger {
-	return n.rpcLog.With(
-		"requestID", uuid.NewV4(),
-		"mode", mode,
-	)
+func (n *node) newRqLggr() logger.SugaredLogger {
+	return n.rpcLog.With("requestID", uuid.New())
 }
 
 func (n *node) logResult(
@@ -941,17 +1051,14 @@ func (n *node) logResult(
 	callName string,
 	results ...interface{},
 ) {
-	lggr = lggr.With("duration", callDuration, "rpcDomain", rpcDomain, "callName", callName)
+	slggr := logger.Sugared(lggr).With("duration", callDuration, "rpcDomain", rpcDomain, "callName", callName)
 	promEVMPoolRPCNodeCalls.WithLabelValues(n.chainID.String(), n.name).Inc()
 	if err == nil {
 		promEVMPoolRPCNodeCallsSuccess.WithLabelValues(n.chainID.String(), n.name).Inc()
-		lggr.Debugw(
-			fmt.Sprintf("evmclient.Client#%s RPC call success", callName),
-			results...,
-		)
+		slggr.Tracew(fmt.Sprintf("evmclient.Client#%s RPC call success", callName), results...)
 	} else {
 		promEVMPoolRPCNodeCallsFailed.WithLabelValues(n.chainID.String(), n.name).Inc()
-		lggr.Debugw(
+		slggr.Debugw(
 			fmt.Sprintf("evmclient.Client#%s RPC call failure", callName),
 			append(results, "err", err)...,
 		)
@@ -987,24 +1094,28 @@ func wrap(err error, tp string) error {
 	if err == nil {
 		return nil
 	}
-	if errors.Cause(err).Error() == "context deadline exceeded" {
-		err = errors.Wrap(err, "remote eth node timed out")
+	if pkgerrors.Cause(err).Error() == "context deadline exceeded" {
+		err = pkgerrors.Wrap(err, "remote eth node timed out")
 	}
-	return errors.Wrapf(err, "%s call failed", tp)
+	return pkgerrors.Wrapf(err, "%s call failed", tp)
 }
 
-// makeLiveQueryCtx wraps makeQueryCtx but returns error if node is not
-// "alive".
-func (n *node) makeLiveQueryCtx(parentCtx context.Context) (ctx context.Context, cancel context.CancelFunc, err error) {
+// makeLiveQueryCtxAndSafeGetClients wraps makeQueryCtx but returns error if node is not NodeStateAlive.
+func (n *node) makeLiveQueryCtxAndSafeGetClients(parentCtx context.Context) (ctx context.Context, cancel context.CancelFunc, ws rawclient, http *rawclient, err error) {
 	// Need to wrap in mutex because state transition can cancel and replace the
 	// context
 	n.stateMu.RLock()
 	if n.state != NodeStateAlive {
-		err = errors.Errorf("cannot execute RPC call on node with state: %s", n.state)
+		err = pkgerrors.Errorf("cannot execute RPC call on node with state: %s", n.state)
 		n.stateMu.RUnlock()
 		return
 	}
 	cancelCh := n.chStopInFlight
+	ws = n.ws
+	if n.http != nil {
+		cp := *n.http
+		http = &cp
+	}
 	n.stateMu.RUnlock()
 	ctx, cancel = makeQueryCtx(parentCtx, cancelCh)
 	return
@@ -1018,9 +1129,9 @@ func (n *node) makeQueryCtx(ctx context.Context) (context.Context, context.Cance
 // 1. Passed in ctx cancels
 // 2. Passed in channel is closed
 // 3. Default timeout is reached (queryTimeout)
-func makeQueryCtx(ctx context.Context, ch chan struct{}) (context.Context, context.CancelFunc) {
+func makeQueryCtx(ctx context.Context, ch services.StopChan) (context.Context, context.CancelFunc) {
 	var chCancel, timeoutCancel context.CancelFunc
-	ctx, chCancel = utils.WithCloseChan(ctx, ch)
+	ctx, chCancel = ch.Ctx(ctx)
 	ctx, timeoutCancel = context.WithTimeout(ctx, queryTimeout)
 	cancel := func() {
 		chCancel()
@@ -1029,7 +1140,7 @@ func makeQueryCtx(ctx context.Context, ch chan struct{}) (context.Context, conte
 	return ctx, cancel
 }
 
-func switching(n *node) string {
+func (n *node) getNodeMode() string {
 	if n.http != nil {
 		return "http"
 	}
@@ -1044,6 +1155,10 @@ func (n *node) String() string {
 	return s
 }
 
-func (n *node) ID() int32 {
-	return n.id
+func (n *node) Name() string {
+	return n.name
+}
+
+func (n *node) Order() int32 {
+	return n.order
 }

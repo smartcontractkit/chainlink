@@ -11,12 +11,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 
-	"github.com/smartcontractkit/chainlink/core/cmd"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/dkgsignkey"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/cmd"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/dkgsignkey"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
 func TestDKGSignKeyPresenter_RenderTable(t *testing.T) {
@@ -54,8 +54,8 @@ func TestDKGSignKeyPresenter_RenderTable(t *testing.T) {
 	assert.Contains(t, output, pubKey)
 }
 
-func TestClient_DKGSignKeys(t *testing.T) {
-	app := startNewApplication(t)
+func TestShell_DKGSignKeys(t *testing.T) {
+	app := startNewApplicationV2(t, nil)
 	ks := app.GetKeyStore().DKGSign()
 	cleanup := func() {
 		keys, err := ks.GetAll()
@@ -68,7 +68,7 @@ func TestClient_DKGSignKeys(t *testing.T) {
 
 	t.Run("ListDKGSignKeys", func(tt *testing.T) {
 		defer cleanup()
-		client, r := app.NewClientAndRenderer()
+		client, r := app.NewShellAndRenderer()
 		key, err := app.GetKeyStore().DKGSign().Create()
 		assert.NoError(tt, err)
 		requireDKGSignKeyCount(t, app, 1)
@@ -80,7 +80,7 @@ func TestClient_DKGSignKeys(t *testing.T) {
 
 	t.Run("CreateDKGSignKey", func(tt *testing.T) {
 		defer cleanup()
-		client, _ := app.NewClientAndRenderer()
+		client, _ := app.NewShellAndRenderer()
 		assert.NoError(tt, cmd.NewDKGSignKeysClient(client).CreateKey(nilContext))
 		keys, err := app.GetKeyStore().DKGSign().GetAll()
 		assert.NoError(tt, err)
@@ -89,14 +89,17 @@ func TestClient_DKGSignKeys(t *testing.T) {
 
 	t.Run("DeleteDKGSignKey", func(tt *testing.T) {
 		defer cleanup()
-		client, _ := app.NewClientAndRenderer()
+		client, _ := app.NewShellAndRenderer()
 		key, err := app.GetKeyStore().DKGSign().Create()
 		assert.NoError(tt, err)
 		requireDKGSignKeyCount(tt, app, 1)
 		set := flag.NewFlagSet("test", 0)
-		set.Bool("yes", true, "")
+		flagSetApplyFromAction(cmd.NewDKGSignKeysClient(client).DeleteKey, set, "")
+
+		require.NoError(tt, set.Set("yes", "true"))
 		strID := key.ID()
-		set.Parse([]string{strID})
+		err = set.Parse([]string{strID})
+		require.NoError(t, err)
 		c := cli.NewContext(nil, set, nil)
 		err = cmd.NewDKGSignKeysClient(client).DeleteKey(c)
 		assert.NoError(tt, err)
@@ -106,7 +109,7 @@ func TestClient_DKGSignKeys(t *testing.T) {
 	t.Run("ImportExportDKGSignKey", func(tt *testing.T) {
 		defer cleanup()
 		defer deleteKeyExportFile(tt)
-		client, _ := app.NewClientAndRenderer()
+		client, _ := app.NewShellAndRenderer()
 
 		_, err := app.GetKeyStore().DKGSign().Create()
 		require.NoError(tt, err)
@@ -118,9 +121,12 @@ func TestClient_DKGSignKeys(t *testing.T) {
 
 		// Export test invalid id
 		set := flag.NewFlagSet("test DKGSign export", 0)
-		set.Parse([]string{"0"})
-		set.String("newpassword", "../internal/fixtures/incorrect_password.txt", "")
-		set.String("output", keyName, "")
+		flagSetApplyFromAction(cmd.NewDKGSignKeysClient(client).ExportKey, set, "")
+
+		require.NoError(tt, set.Parse([]string{"0"}))
+		require.NoError(tt, set.Set("new-password", "../internal/fixtures/incorrect_password.txt"))
+		require.NoError(tt, set.Set("output", keyName))
+
 		c := cli.NewContext(nil, set, nil)
 		err = cmd.NewDKGSignKeysClient(client).ExportKey(c)
 		require.Error(tt, err)
@@ -128,9 +134,12 @@ func TestClient_DKGSignKeys(t *testing.T) {
 
 		// Export test
 		set = flag.NewFlagSet("test DKGSign export", 0)
-		set.Parse([]string{fmt.Sprint(key.ID())})
-		set.String("newpassword", "../internal/fixtures/incorrect_password.txt", "")
-		set.String("output", keyName, "")
+		flagSetApplyFromAction(cmd.NewDKGSignKeysClient(client).ExportKey, set, "")
+
+		require.NoError(tt, set.Parse([]string{fmt.Sprint(key.ID())}))
+		require.NoError(tt, set.Set("new-password", "../internal/fixtures/incorrect_password.txt"))
+		require.NoError(tt, set.Set("output", keyName))
+
 		c = cli.NewContext(nil, set, nil)
 
 		require.NoError(tt, cmd.NewDKGSignKeysClient(client).ExportKey(c))
@@ -140,8 +149,11 @@ func TestClient_DKGSignKeys(t *testing.T) {
 		requireDKGSignKeyCount(tt, app, 0)
 
 		set = flag.NewFlagSet("test DKGSign import", 0)
-		set.Parse([]string{keyName})
-		set.String("oldpassword", "../internal/fixtures/incorrect_password.txt", "")
+		flagSetApplyFromAction(cmd.NewDKGSignKeysClient(client).ImportKey, set, "")
+
+		require.NoError(tt, set.Parse([]string{keyName}))
+		require.NoError(tt, set.Set("old-password", "../internal/fixtures/incorrect_password.txt"))
+
 		c = cli.NewContext(nil, set, nil)
 		require.NoError(tt, cmd.NewDKGSignKeysClient(client).ImportKey(c))
 

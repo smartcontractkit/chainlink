@@ -2,40 +2,50 @@ package client
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"strings"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
+	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
+	"github.com/smartcontractkit/chainlink/v2/common/config"
+	htrktypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 )
 
 const queryTimeout = 10 * time.Second
+const BALANCE_OF_ADDRESS_FUNCTION_SELECTOR = "0x70a08231"
 
-//go:generate mockery --name Client --output ../mocks/ --case=underscore
-//go:generate mockery --name Subscription --output ../mocks/ --case=underscore
+//go:generate mockery --quiet --name Client --output ./mocks/ --case=underscore
 
 // Client is the interface used to interact with an ethereum node.
 type Client interface {
 	Dial(ctx context.Context) error
 	Close()
-	ChainID() *big.Int
-	// NodeStates returns a map of node ID->node state
-	// It might be nil or empty, e.g. for mock clients etc
-	NodeStates() map[int32]string
+	// ChainID locally stored for quick access
+	ConfiguredChainID() *big.Int
+	// ChainID RPC call
+	ChainID() (*big.Int, error)
 
-	GetERC20Balance(ctx context.Context, address common.Address, contractAddress common.Address) (*big.Int, error)
-	GetLINKBalance(ctx context.Context, linkAddress common.Address, address common.Address) (*assets.Link, error)
-	GetEthBalance(ctx context.Context, account common.Address, blockNumber *big.Int) (*assets.Eth, error)
+	// NodeStates returns a map of node Name->node state
+	// It might be nil or empty, e.g. for mock clients etc
+	NodeStates() map[string]string
+
+	TokenBalance(ctx context.Context, address common.Address, contractAddress common.Address) (*big.Int, error)
+	BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error)
+	LINKBalance(ctx context.Context, address common.Address, linkAddress common.Address) (*assets.Link, error)
 
 	// Wrapped RPC methods
 	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
@@ -46,69 +56,68 @@ type Client interface {
 	// might have unexpected effects to use it for anything else.
 	BatchCallContextAll(ctx context.Context, b []rpc.BatchElem) error
 
-	// HeadByNumber is a reimplemented version of HeaderByNumber due to a
+	// HeadByNumber and HeadByHash is a reimplemented version due to a
 	// difference in how block header hashes are calculated by Parity nodes
-	// running on Kovan. We have to return our own wrapper type to capture the
+	// running on Kovan, Avalanche and potentially others. We have to return our own wrapper type to capture the
 	// correct hash from the RPC response.
 	HeadByNumber(ctx context.Context, n *big.Int) (*evmtypes.Head, error)
+	HeadByHash(ctx context.Context, n common.Hash) (*evmtypes.Head, error)
 	SubscribeNewHead(ctx context.Context, ch chan<- *evmtypes.Head) (ethereum.Subscription, error)
 
+	SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (commonclient.SendTxReturnCode, error)
+
 	// Wrapped Geth client methods
+	// blockNumber can be specified as `nil` to imply latest block
+	// if blocks, transactions, or receipts are not found - a nil result and an error are returned
+	// these methods may not be compatible with non Ethereum chains as return types may follow different formats
+	// suggested options: use HeadByNumber/HeadByHash (above) or CallContext and parse with custom types
 	SendTransaction(ctx context.Context, tx *types.Transaction) error
+	CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error)
 	PendingCodeAt(ctx context.Context, account common.Address) ([]byte, error)
 	PendingNonceAt(ctx context.Context, account common.Address) (uint64, error)
-	NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (uint64, error)
+	SequenceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (evmtypes.Nonce, error)
+	TransactionByHash(ctx context.Context, txHash common.Hash) (*types.Transaction, error)
 	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
 	BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error)
 	BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error)
-	BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error)
 	FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error)
 	SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error)
 	EstimateGas(ctx context.Context, call ethereum.CallMsg) (uint64, error)
 	SuggestGasPrice(ctx context.Context) (*big.Int, error)
-	CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error)
-	CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error)
-
-	// bind.ContractBackend methods
-	HeaderByNumber(context.Context, *big.Int) (*types.Header, error)
-	HeaderByHash(context.Context, common.Hash) (*types.Header, error)
 	SuggestGasTipCap(ctx context.Context) (*big.Int, error)
+	LatestBlockHeight(ctx context.Context) (*big.Int, error)
+
+	HeaderByNumber(ctx context.Context, n *big.Int) (*types.Header, error)
+	HeaderByHash(ctx context.Context, h common.Hash) (*types.Header, error)
+
+	CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error)
+	PendingCallContract(ctx context.Context, msg ethereum.CallMsg) ([]byte, error)
+
+	IsL2() bool
 }
 
-// This interface only exists so that we can generate a mock for it.  It is
-// identical to `ethereum.Subscription`.
-type Subscription interface {
-	Err() <-chan error
-	Unsubscribe()
-}
-
-// WithDefaultTimeout returns a context inherited from parent with a sensible sanity limit timeout for
-// queries to the eth node
-// This is a sanity limit to try to work around poorly behaved remote WS endpoints that fail to send us data that we requested
-// NO QUERY should ever take longer than this
-func WithDefaultTimeout(parent context.Context) (ctx context.Context, cancel context.CancelFunc) {
-	return context.WithTimeout(parent, queryTimeout)
-}
-
-func ContextWithDefaultTimeoutFromChan(chStop <-chan struct{}) (ctx context.Context, cancel context.CancelFunc) {
-	return utils.ContextFromChanWithDeadline(chStop, queryTimeout)
+func ContextWithDefaultTimeout() (ctx context.Context, cancel context.CancelFunc) {
+	return context.WithTimeout(context.Background(), queryTimeout)
 }
 
 // client represents an abstract client that manages connections to
 // multiple nodes for a single chain id
 type client struct {
-	logger logger.Logger
+	logger logger.SugaredLogger
 	pool   *Pool
 }
 
 var _ Client = (*client)(nil)
+var _ htrktypes.Client[*evmtypes.Head, ethereum.Subscription, *big.Int, common.Hash] = (*client)(nil)
 
 // NewClientWithNodes instantiates a client from a list of nodes
 // Currently only supports one primary
-func NewClientWithNodes(logger logger.Logger, cfg PoolConfig, primaryNodes []Node, sendOnlyNodes []SendOnlyNode, chainID *big.Int) (*client, error) {
-	pool := NewPool(logger, cfg, primaryNodes, sendOnlyNodes, chainID)
+//
+// Deprecated: use [NewChainClient]
+func NewClientWithNodes(lggr logger.Logger, selectionMode string, leaseDuration time.Duration, noNewHeadsThreshold time.Duration, primaryNodes []Node, sendOnlyNodes []SendOnlyNode, chainID *big.Int, chainType config.ChainType) (*client, error) {
+	pool := NewPool(lggr, selectionMode, leaseDuration, noNewHeadsThreshold, primaryNodes, sendOnlyNodes, chainID, chainType)
 	return &client{
-		logger: logger,
+		logger: logger.Sugared(lggr),
 		pool:   pool,
 	}, nil
 }
@@ -117,7 +126,7 @@ func NewClientWithNodes(logger logger.Logger, cfg PoolConfig, primaryNodes []Nod
 // node's remote chain ID matches the local one
 func (client *client) Dial(ctx context.Context) error {
 	if err := client.pool.Dial(ctx); err != nil {
-		return errors.Wrap(err, "failed to dial pool")
+		return pkgerrors.Wrap(err, "failed to dial pool")
 	}
 	return nil
 }
@@ -126,10 +135,13 @@ func (client *client) Close() {
 	client.pool.Close()
 }
 
-func (client *client) NodeStates() (states map[int32]string) {
-	states = make(map[int32]string)
+func (client *client) NodeStates() (states map[string]string) {
+	states = make(map[string]string)
 	for _, n := range client.pool.nodes {
-		states[n.ID()] = n.State().String()
+		states[n.Name()] = n.State().String()
+	}
+	for _, s := range client.pool.sendonlys {
+		states[s.Name()] = s.State().String()
 	}
 	return
 }
@@ -143,11 +155,11 @@ type CallArgs struct {
 	Data hexutil.Bytes  `json:"data"`
 }
 
-// GetERC20Balance returns the balance of the given address for the token contract address.
-func (client *client) GetERC20Balance(ctx context.Context, address common.Address, contractAddress common.Address) (*big.Int, error) {
+// TokenBalance returns the balance of the given address for the token contract address.
+func (client *client) TokenBalance(ctx context.Context, address common.Address, contractAddress common.Address) (*big.Int, error) {
 	result := ""
 	numLinkBigInt := new(big.Int)
-	functionSelector := evmtypes.HexToFunctionSelector("0x70a08231") // balanceOf(address)
+	functionSelector := evmtypes.HexToFunctionSelector(BALANCE_OF_ADDRESS_FUNCTION_SELECTOR) // balanceOf(address)
 	data := utils.ConcatBytes(functionSelector.Bytes(), common.LeftPadBytes(address.Bytes(), utils.EVMWordByteLen))
 	args := CallArgs{
 		To:   contractAddress,
@@ -157,25 +169,23 @@ func (client *client) GetERC20Balance(ctx context.Context, address common.Addres
 	if err != nil {
 		return numLinkBigInt, err
 	}
-	numLinkBigInt.SetString(result, 0)
+	if _, ok := numLinkBigInt.SetString(result, 0); !ok {
+		return nil, fmt.Errorf("failed to parse int: %s", result)
+	}
 	return numLinkBigInt, nil
 }
 
-// GetLINKBalance returns the balance of LINK at the given address
-func (client *client) GetLINKBalance(ctx context.Context, linkAddress common.Address, address common.Address) (*assets.Link, error) {
-	balance, err := client.GetERC20Balance(ctx, address, linkAddress)
+// LINKBalance returns the balance of LINK at the given address
+func (client *client) LINKBalance(ctx context.Context, address common.Address, linkAddress common.Address) (*assets.Link, error) {
+	balance, err := client.TokenBalance(ctx, address, linkAddress)
 	if err != nil {
 		return assets.NewLinkFromJuels(0), err
 	}
 	return (*assets.Link)(balance), nil
 }
 
-func (client *client) GetEthBalance(ctx context.Context, account common.Address, blockNumber *big.Int) (*assets.Eth, error) {
-	balance, err := client.BalanceAt(ctx, account, blockNumber)
-	if err != nil {
-		return assets.NewEth(0), err
-	}
-	return (*assets.Eth)(balance), nil
+func (client *client) BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error) {
+	return client.pool.BalanceAt(ctx, account, blockNumber)
 }
 
 // We wrap the GethClient's `TransactionReceipt` method so that we can ignore the error that arises
@@ -189,8 +199,16 @@ func (client *client) TransactionReceipt(ctx context.Context, txHash common.Hash
 	return
 }
 
-func (client *client) ChainID() *big.Int {
+func (client *client) TransactionByHash(ctx context.Context, txHash common.Hash) (tx *types.Transaction, err error) {
+	return client.pool.TransactionByHash(ctx, txHash)
+}
+
+func (client *client) ConfiguredChainID() *big.Int {
 	return client.pool.chainID
+}
+
+func (client *client) ChainID() (*big.Int, error) {
+	return client.pool.ChainID(), nil
 }
 
 func (client *client) HeaderByNumber(ctx context.Context, n *big.Int) (*types.Header, error) {
@@ -199,6 +217,12 @@ func (client *client) HeaderByNumber(ctx context.Context, n *big.Int) (*types.He
 
 func (client *client) HeaderByHash(ctx context.Context, h common.Hash) (*types.Header, error) {
 	return client.pool.HeaderByHash(ctx, h)
+}
+
+func (client *client) SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (commonclient.SendTxReturnCode, error) {
+	err := client.SendTransaction(ctx, tx)
+	returnCode := ClassifySendError(err, client.logger, tx, fromAddress, client.pool.ChainType().IsL2())
+	return returnCode, err
 }
 
 // SendTransaction also uses the sendonly HTTP RPC URLs if set
@@ -210,8 +234,9 @@ func (client *client) PendingNonceAt(ctx context.Context, account common.Address
 	return client.pool.PendingNonceAt(ctx, account)
 }
 
-func (client *client) NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (uint64, error) {
-	return client.pool.NonceAt(ctx, account, blockNumber)
+func (client *client) SequenceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (evmtypes.Nonce, error) {
+	nonce, err := client.pool.NonceAt(ctx, account, blockNumber)
+	return evmtypes.Nonce(nonce), err
 }
 
 func (client *client) PendingCodeAt(ctx context.Context, account common.Address) ([]byte, error) {
@@ -236,6 +261,10 @@ func (client *client) CallContract(ctx context.Context, msg ethereum.CallMsg, bl
 	return client.pool.CallContract(ctx, msg, blockNumber)
 }
 
+func (client *client) PendingCallContract(ctx context.Context, msg ethereum.CallMsg) ([]byte, error) {
+	return client.pool.PendingCallContract(ctx, msg)
+}
+
 func (client *client) CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error) {
 	return client.pool.CodeAt(ctx, account, blockNumber)
 }
@@ -248,6 +277,12 @@ func (client *client) BlockByHash(ctx context.Context, hash common.Hash) (*types
 	return client.pool.BlockByHash(ctx, hash)
 }
 
+func (client *client) LatestBlockHeight(ctx context.Context) (*big.Int, error) {
+	var height big.Int
+	h, err := client.pool.BlockNumber(ctx)
+	return height.SetUint64(h), err
+}
+
 func (client *client) HeadByNumber(ctx context.Context, number *big.Int) (head *evmtypes.Head, err error) {
 	hex := ToBlockNumArg(number)
 	err = client.pool.CallContext(ctx, &head, "eth_getBlockByNumber", hex, false)
@@ -258,7 +293,20 @@ func (client *client) HeadByNumber(ctx context.Context, number *big.Int) (head *
 		err = ethereum.NotFound
 		return
 	}
-	head.EVMChainID = utils.NewBig(client.ChainID())
+	head.EVMChainID = ubig.New(client.ConfiguredChainID())
+	return
+}
+
+func (client *client) HeadByHash(ctx context.Context, hash common.Hash) (head *evmtypes.Head, err error) {
+	err = client.pool.CallContext(ctx, &head, "eth_getBlockByHash", hash.Hex(), false)
+	if err != nil {
+		return nil, err
+	}
+	if head == nil {
+		err = ethereum.NotFound
+		return
+	}
+	head.EVMChainID = ubig.New(client.ConfiguredChainID())
 	return
 }
 
@@ -267,10 +315,6 @@ func ToBlockNumArg(number *big.Int) string {
 		return "latest"
 	}
 	return hexutil.EncodeBig(number)
-}
-
-func (client *client) BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error) {
-	return client.pool.BalanceAt(ctx, account, blockNumber)
 }
 
 func (client *client) FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error) {
@@ -285,7 +329,7 @@ func (client *client) SubscribeFilterLogs(ctx context.Context, q ethereum.Filter
 }
 
 func (client *client) SubscribeNewHead(ctx context.Context, ch chan<- *evmtypes.Head) (ethereum.Subscription, error) {
-	csf := newChainIDSubForwarder(client.ChainID(), ch)
+	csf := newChainIDSubForwarder(client.ConfiguredChainID(), ch)
 	err := csf.start(client.pool.EthSubscribe(ctx, csf.srcCh, "newHeads"))
 	if err != nil {
 		return nil, err
@@ -317,4 +361,8 @@ func (client *client) BatchCallContextAll(ctx context.Context, b []rpc.BatchElem
 // instead.
 func (client *client) SuggestGasTipCap(ctx context.Context) (tipCap *big.Int, err error) {
 	return client.pool.SuggestGasTipCap(ctx)
+}
+
+func (client *client) IsL2() bool {
+	return client.pool.ChainType().IsL2()
 }

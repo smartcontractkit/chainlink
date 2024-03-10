@@ -7,11 +7,11 @@ import (
 	"github.com/pkg/errors"
 	mapper "github.com/scylladb/go-reflectx"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
-//go:generate mockery --name Queryer --output ./mocks/ --case=underscore
 type Queryer interface {
 	sqlx.Ext
 	sqlx.ExtContext
@@ -35,13 +35,7 @@ func WrapDbWithSqlx(rdb *sql.DB) *sqlx.DB {
 	return db
 }
 
-func SqlxTransactionWithDefaultCtx(q Queryer, lggr logger.Logger, fc func(q Queryer) error, txOpts ...TxOptions) (err error) {
-	ctx, cancel := DefaultQueryCtx()
-	defer cancel()
-	return SqlxTransaction(ctx, q, lggr, fc, txOpts...)
-}
-
-func SqlxTransaction(ctx context.Context, q Queryer, lggr logger.Logger, fc func(q Queryer) error, txOpts ...TxOptions) (err error) {
+func SqlxTransaction(ctx context.Context, q Queryer, lggr logger.Logger, fc func(q Queryer) error, txOpts ...TxOption) (err error) {
 	switch db := q.(type) {
 	case *sqlx.Tx:
 		// nested transaction: just use the outer transaction

@@ -66,6 +66,10 @@ func (l *ocrCache[T]) CacheItem(item T, itemKey common.Hash, timeStored time.Tim
 	l.cache[itemKey] = newItem
 }
 
+func (l *ocrCache[T]) SetEvictonWindow(newWindow time.Duration) {
+	l.evictionWindow = newWindow
+}
+
 // AddItem adds an item to the cache.
 func (l *ocrCache[T]) GetItem(itemKey common.Hash) (item *T) {
 

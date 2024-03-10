@@ -6,8 +6,10 @@ import (
 	"net/url"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/fatih/color"
 	"github.com/tidwall/gjson"
@@ -72,7 +74,7 @@ func generateHeadline(js gjson.Result) string {
 		tsStr,
 		" ",
 		coloredLevel(js.Get("level")),
-		fmt.Sprintf("%-50s", js.Get("msg")),
+		fmt.Sprintf("%-50s", sanitized(js.Get("msg").String())),
 		" ",
 		fmt.Sprintf("%-32s", blue(js.Get("caller"))),
 	}
@@ -105,7 +107,7 @@ func generateDetails(js gjson.Result) string {
 	var details strings.Builder
 
 	for _, v := range keys {
-		details.WriteString(fmt.Sprintf("%s=%v ", green(v), data[v]))
+		details.WriteString(fmt.Sprintf("%s=%v ", green(sanitized(v)), sanitized(data[v].String())))
 	}
 
 	return details.String()
@@ -128,4 +130,27 @@ func prettyConsoleSink(s zap.Sink) func(*url.URL) (zap.Sink, error) {
 	return func(*url.URL) (zap.Sink, error) {
 		return PrettyConsole{s}, nil
 	}
+}
+
+type sanitized string
+
+// String replaces control characters with Go escape sequences, except for newlines and tabs.
+// See strconv.QuoteRune.
+func (s sanitized) String() string {
+	var out string
+	for _, r := range s {
+		switch r {
+		case '\n', '\r', '\t':
+			// allowed
+		default:
+			// escape others
+			if unicode.IsControl(r) {
+				q := strconv.QuoteRune(r)
+				out += q[1 : len(q)-1] // trim quotes
+				continue
+			}
+		}
+		out += string(r)
+	}
+	return out
 }

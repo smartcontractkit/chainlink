@@ -1,0 +1,32 @@
+name: Helm Chart
+
+on:
+  pull_request:
+    paths:
+      - "charts/**"
+      - ".github/workflows/helm-chart.yml"
+
+jobs:
+  ci-lint-helm-charts:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+      actions: read
+    steps:
+      - name: Add repositories
+        run: |
+          helm repo add mockserver https://www.mock-server.com
+          helm repo add opentelemetry-collector https://open-telemetry.github.io/opentelemetry-helm-charts
+          helm repo add tempo https://grafana.github.io/helm-charts
+          helm repo add grafana https://grafana.github.io/helm-charts
+      - name: ci-lint-helm-charts
+        uses: smartcontractkit/.github/actions/ci-lint-charts@6b08487b176ef7cad086526d0b54ddff6691c044 # ci-lint-charts@0.1.2
+        with:
+          # chart testing inputs
+          chart-testing-extra-args: "--lint-conf=lintconf.yaml"
+          # grafana inputs
+          metrics-job-name: ci-lint-helm-charts
+          gc-basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          gc-host: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          gc-org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}

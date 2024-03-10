@@ -38,13 +38,13 @@ describe('ArbitrumSequencerUptimeFeed', () => {
 
   beforeEach(async () => {
     const accessControllerFactory = await ethers.getContractFactory(
-      'src/v0.8/SimpleWriteAccessController.sol:SimpleWriteAccessController',
+      'src/v0.8/shared/access/SimpleWriteAccessController.sol:SimpleWriteAccessController',
       deployer,
     )
     accessController = await accessControllerFactory.deploy()
 
     const flagsHistoryFactory = await ethers.getContractFactory(
-      'src/v0.8/dev/Flags.sol:Flags',
+      'src/v0.8/l2ep/dev/Flags.sol:Flags',
       deployer,
     )
     flags = await flagsHistoryFactory.deploy(
@@ -55,7 +55,7 @@ describe('ArbitrumSequencerUptimeFeed', () => {
 
     const arbitrumSequencerStatusRecorderFactory =
       await ethers.getContractFactory(
-        'src/v0.8/dev/ArbitrumSequencerUptimeFeed.sol:ArbitrumSequencerUptimeFeed',
+        'src/v0.8/l2ep/dev/arbitrum/ArbitrumSequencerUptimeFeed.sol:ArbitrumSequencerUptimeFeed',
         deployer,
       )
     arbitrumSequencerUptimeFeed =

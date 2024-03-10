@@ -1,0 +1,14 @@
+exec chainlink forwarders track --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink forwarders track - Track a new forwarder
+
+USAGE:
+   chainlink forwarders track [command options] [arguments...]
+
+OPTIONS:
+   --evm-chain-id value, --evmChainID value, -c value  chain ID, if left empty, EVM.ChainID will be used (default: 0)
+   --address value, -a value                           The forwarding address (in hex format)
+   

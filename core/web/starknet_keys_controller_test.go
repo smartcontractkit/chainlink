@@ -5,12 +5,12 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/core/web"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/web"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -33,7 +33,6 @@ func TestStarkNetKeysController_Index_HappyPath(t *testing.T) {
 	require.Len(t, resources, len(keys))
 
 	assert.Equal(t, keys[0].ID(), resources[0].ID)
-	assert.Equal(t, keys[0].AccountAddressStr(), resources[0].AccountAddr)
 	assert.Equal(t, keys[0].StarkKeyStr(), resources[0].StarkKey)
 }
 
@@ -42,7 +41,7 @@ func TestStarkNetKeysController_Create_HappyPath(t *testing.T) {
 
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(nil)
 	keyStore := app.GetKeyStore()
 
 	response, cleanup := client.Post("/v2/keys/starknet", nil)
@@ -57,7 +56,6 @@ func TestStarkNetKeysController_Create_HappyPath(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Equal(t, keys[0].ID(), resource.ID)
-	assert.Equal(t, keys[0].AccountAddressStr(), resource.AccountAddr)
 	assert.Equal(t, keys[0].StarkKeyStr(), resource.StarkKey)
 
 	_, err = keyStore.StarkNet().Get(resource.ID)
@@ -98,10 +96,10 @@ func setupStarkNetKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, k
 
 	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
-	app.KeyStore.OCR().Add(cltest.DefaultOCRKey)
-	app.KeyStore.StarkNet().Add(cltest.DefaultStarkNetKey)
+	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
+	require.NoError(t, app.KeyStore.StarkNet().Add(cltest.DefaultStarkNetKey))
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(nil)
 
 	return client, app.GetKeyStore()
 }

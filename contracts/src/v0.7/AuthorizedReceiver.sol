@@ -14,7 +14,7 @@ abstract contract AuthorizedReceiver is AuthorizedReceiverInterface {
    * @param senders The addresses of the authorized Chainlink node
    */
   function setAuthorizedSenders(address[] calldata senders) external override validateAuthorizedSenderSetter {
-    require(senders.length > 0, "Must have at least 1 authorized sender");
+    require(senders.length > 0, "Must have at least 1 sender");
     // Set previous authorized senders to false
     uint256 authorizedSendersLength = s_authorizedSenderList.length;
     for (uint256 i = 0; i < authorizedSendersLength; i++) {
@@ -22,6 +22,7 @@ abstract contract AuthorizedReceiver is AuthorizedReceiverInterface {
     }
     // Set new to true
     for (uint256 i = 0; i < senders.length; i++) {
+      require(s_authorizedSenders[senders[i]] == false, "Must not have duplicate senders");
       s_authorizedSenders[senders[i]] = true;
     }
     // Replace list

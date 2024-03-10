@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 )
@@ -38,6 +39,21 @@ func NonemptyString(s string) GetterFunc {
 			return nil, ErrParameterEmpty
 		}
 		return trimmed, nil
+	}
+}
+
+// ValidDurationInSeconds creates a getter to ensure the string is a valid duration and return duration in seconds.
+func ValidDurationInSeconds(s string) GetterFunc {
+	return func() (interface{}, error) {
+		trimmed := strings.TrimSpace(s)
+		if len(trimmed) == 0 {
+			return nil, ErrParameterEmpty
+		}
+		dr, err := time.ParseDuration(s)
+		if err != nil {
+			return nil, err
+		}
+		return int(dr.Seconds()), nil
 	}
 }
 

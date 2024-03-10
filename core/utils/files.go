@@ -13,11 +13,14 @@ import (
 )
 
 // FileExists returns true if a file at the passed string exists.
-func FileExists(name string) bool {
-	if _, err := os.Stat(name); os.IsNotExist(err) {
-		return false
+func FileExists(name string) (bool, error) {
+	if _, err := os.Stat(name); err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, errors.Wrapf(err, "failed to check if file exists %q", name)
 	}
-	return true
+	return true, nil
 }
 
 // TooPermissive checks if the file has more than the allowed permissions
@@ -101,7 +104,7 @@ func EnsureFilepathMaxPerms(filepath string, perms os.FileMode) (err error) {
 // FileSize repesents a file size in bytes.
 type FileSize uint64
 
-//nolint
+// nolint
 const (
 	KB = 1000
 	MB = 1000 * KB

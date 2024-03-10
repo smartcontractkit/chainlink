@@ -1,0 +1,16 @@
+ChainID = '250'
+LinkContractAddress = '0x6F43FF82CCA38001B6699a8AC47A2d0E66939407'
+LogPollInterval = '1s'
+MinIncomingConfirmations = 3
+NoNewHeadsThreshold = '30s'
+RPCBlockQueryDelay = 2
+
+[BalanceMonitor]
+Enabled = true
+
+[GasEstimator]
+# Fantom network has been slow to include txs at times when using the BlockHistory estimator, and the recommendation is to use SuggestedPrice mode.
+Mode = 'SuggestedPrice'
+
+[OCR2.Automation]
+GasLimit = 3800000

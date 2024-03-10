@@ -20,8 +20,8 @@ import (
 
 	"github.com/tidwall/gjson"
 
-	gethwrappers2 "github.com/smartcontractkit/chainlink/core/gethwrappers"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	gethwrappers2 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func main() {

@@ -3,8 +3,8 @@ package ocrkey
 import (
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const keyTypeIdentifier = "OCR"
@@ -42,7 +42,7 @@ func (key KeyV2) ToEncryptedJSON(password string, scryptParams utils.ScryptParam
 		password,
 		scryptParams,
 		adulteratedPassword,
-		func(id string, key KeyV2, cryptoJSON keystore.CryptoJSON) (EncryptedOCRKeyExport, error) {
+		func(id string, key KeyV2, cryptoJSON keystore.CryptoJSON) EncryptedOCRKeyExport {
 			return EncryptedOCRKeyExport{
 				KeyType:               id,
 				ID:                    key.ID(),
@@ -50,7 +50,7 @@ func (key KeyV2) ToEncryptedJSON(password string, scryptParams utils.ScryptParam
 				OffChainPublicKey:     key.OffChainSigning.PublicKey(),
 				ConfigPublicKey:       key.PublicKeyConfig(),
 				Crypto:                cryptoJSON,
-			}, nil
+			}
 		},
 	)
 }

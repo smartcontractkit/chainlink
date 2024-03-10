@@ -1,0 +1,71 @@
+{{- range $cfg := .Values.chainlink.nodes }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    app: {{ $.Release.Name }}-{{ $cfg.name }}-cm
+    release: {{ $.Release.Name }}
+  name: {{ $.Release.Name }}-{{ $cfg.name }}-cm
+data:
+  apicredentials: |
+    notreal@fakeemail.ch
+    fj293fbBnlQ!f9vNs
+  node-password: T.tLHkcmwePT/p,]sYuntjwHKAsrhm#4eRs4LuKHwvHejWYAC2JP4M8HimwgmbaZ
+  init.sql: |
+    CREATE
+    EXTENSION pg_stat_statements;
+  default.toml: |
+  {{ if (hasKey $cfg "toml") }}
+    {{ $cfg.toml | nindent 4 }}
+  {{ else }}
+    RootDir = './clroot'
+    [Log]
+    JSONConsole = true
+    Level = 'debug'
+    [WebServer]
+    AllowOrigins = '*'
+    SecureCookies = false
+    SessionTimeout = '999h0m0s'
+    [Feature]
+    FeedsManager = true
+    LogPoller = true
+    UICSAKeys = true
+    [OCR]
+    Enabled = true
+    DefaultTransactionQueueDepth = 0
+    [P2P]
+    [P2P.V2]
+    Enabled = true
+    ListenAddresses = ['0.0.0.0:6690']
+    AnnounceAddresses = ['0.0.0.0:6690']
+    DeltaDial = '500ms'
+    DeltaReconcile = '5s'
+    {{- range $chainCfg := $.Values.geth.chains }}
+    [[EVM]]
+    ChainID = {{ $chainCfg.networkId | quote }}
+    MinContractPayment = '0'
+    AutoCreateKey = true
+    FinalityDepth = 1
+    {{- if (hasKey $chainCfg "customEVMConfigToml") }}
+    {{- $chainCfg.customEVMConfigToml | nindent 4 }}
+    {{- end }}
+    [[EVM.Nodes]]
+    Name = 'node-{{ $chainCfg.networkId }}'
+    WSURL = 'ws://geth-{{ $chainCfg.networkId }}:8546'
+    HTTPURL = 'http://geth-{{ $chainCfg.networkId }}:8544'
+    {{- end }}
+    [WebServer.TLS]
+    HTTPSPort = 0
+    {{ end }}
+  overrides.toml: |
+  {{ if (hasKey $cfg "overridesToml") }}
+    {{ $cfg.overridesToml | nindent 4 }}
+  {{ else }}
+  {{ end }}
+  secrets.toml: |
+  {{ if (hasKey $cfg "secretsToml") }}
+    {{ $cfg.secretsToml | nindent 4 }}
+  {{ else }}
+  {{ end }}
+---
+{{- end }}

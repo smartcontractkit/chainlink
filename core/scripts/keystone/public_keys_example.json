@@ -1,0 +1,38 @@
+[
+  {
+    "EthAddress": "0x9639dCc7D0ca4468B5f684ef89F12F0B365c9F6d",
+    "P2PPeerID": "12D3KooWBCF1XT5Wi8FzfgNCqRL76Swv8TRU3TiD4QiJm8NMNX7N",
+    "OCR2BundleID": "29e8dd8c916eac1fc6df8ac6f449481f5db1cf3714e7cb629e16d7b499af5603",
+    "OCR2OnchainPublicKey": "049b55674e2485b9a6788c0796b74f2c33667670",
+    "OCR2OffchainPublicKey": "f4f13ca3053e0f44f869648857f0c0ebc20045f9b51d6a5712c867f5920def01",
+    "OCR2ConfigPublicKey": "17a60b694f7cfb0a02da3da5e79f87b071e518d1f4a27aeb181776969b766e1e",
+    "CSAPublicKey": "csa_2245bbbee39f75f22e12c345a0ac76bad1f3214b7020a47324a1634dee285761"
+   },
+   {
+    "EthAddress": "0x8f0fAE64f5f75067833ed5deDC2804B62b21383d",
+    "P2PPeerID": "12D3KooWG1AyvwmCpZ93J8pBQUE1SuzrjDXnT4BeouncHR3jWLCG",
+    "OCR2BundleID": "9b19ff8196aec2cdf70f6ac2c3617ea9b03dfb426e0938aee0af2b37459f86eb",
+    "OCR2OnchainPublicKey": "8405c2b28fcab284f08ed0028f1f511cd57a16b7",
+    "OCR2OffchainPublicKey": "29e41861f005a0b1bc3156ecd40992a5b552b3182f73f4adec43b4e3052ac2c7",
+    "OCR2ConfigPublicKey": "0a0c21b14924ee28afad15c96b3a5be372870cdf9b13f002b63fb4ba8942c461",
+    "CSAPublicKey": "csa_d329bfff7b7835aec205a6ac09bb217e46c754c3ab6730d09b709c7bc395dc3f"
+   },
+   {
+    "EthAddress": "0xf09A863D920840c13277e76F43CFBdfB22b8FB7C",
+    "P2PPeerID": "12D3KooWGeUKZBRMbx27FUTgBwZa9Ap9Ym92mywwpuqkEtz8XWyv",
+    "OCR2BundleID": "200e5d187b4fc8e2d263c13cd28d37c914f275aba1aee91199d5c7766ada9d63",
+    "OCR2OnchainPublicKey": "4a5199a4e65acfd07b690493ec02bdba3c44c1ec",
+    "OCR2OffchainPublicKey": "f535037b9ca113d61eb0548e62c28d5abc201bfe36a803ea5f1e94f66da64c9e",
+    "OCR2ConfigPublicKey": "d62623257ebf3e805ee77162a1b1df0d1b3f57c7dc1dc28b88acb6c9b4f5455f",
+    "CSAPublicKey": "csa_35ff548c85ada4dbd09b5f02ea3421217d15ebec00a63cab7e529f8bb90542a1"
+   },
+   {
+    "EthAddress": "0x7eD90b519bC3054a575C464dBf39946b53Ff90EF",
+    "P2PPeerID": "12D3KooW9zYWQv3STmDeNDidyzxsJSTxoCTLicafgfeEz9nhwhC4",
+    "OCR2BundleID": "25b40149256109e6036f27b11969c61ba9e765fc60a13324410588c4801f0466",
+    "OCR2OnchainPublicKey": "07183b1fe36c8f3885a3ce4131b9151a2c7e86b4",
+    "OCR2OffchainPublicKey": "c64252067d48efe341745cff9aad2f20990158dfe31548322a0bf2921e9428b8",
+    "OCR2ConfigPublicKey": "893f61aa755f356a248d66b58974742b22518db962ab036b440a33c3eb86ea5b",
+    "CSAPublicKey": "csa_541f97026a2be5e460276ba4eddebce6e74ccb1d1cfb1550fe54ef615c0534c9"
+   }
+]

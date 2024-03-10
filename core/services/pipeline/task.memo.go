@@ -5,8 +5,12 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
+
+// Memo task returns its value as a result
+//
+// e.g. [type=memo value=10] => 10
 
 type MemoTask struct {
 	BaseTask `mapstructure:",squash"`

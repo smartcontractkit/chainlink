@@ -10,12 +10,61 @@ import (
 	"github.com/urfave/cli"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/core/utils/stringutils"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/stringutils"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
+
+func initEVMTxSubCmd(s *Shell) cli.Command {
+	return cli.Command{
+		Name:  "evm",
+		Usage: "Commands for handling EVM transactions",
+		Subcommands: []cli.Command{
+			{
+				Name:   "create",
+				Usage:  "Send <amount> ETH (or wei) from node ETH account <fromAddress> to destination <toAddress>.",
+				Action: s.SendEther,
+				Flags: []cli.Flag{
+					cli.BoolFlag{
+						Name:  "force",
+						Usage: "allows to send a higher amount than the account's balance",
+					},
+					cli.BoolFlag{
+						Name:  "eth",
+						Usage: "allows to send ETH amounts (Default behavior)",
+					},
+					cli.BoolFlag{
+						Name:  "wei",
+						Usage: "allows to send WEI amounts",
+					},
+					cli.Int64Flag{
+						Name:  "id",
+						Usage: "chain ID",
+					},
+				},
+			},
+			{
+				Name:   "list",
+				Usage:  "List the Ethereum Transactions in descending order",
+				Action: s.IndexTransactions,
+				Flags: []cli.Flag{
+					cli.IntFlag{
+						Name:  "page",
+						Usage: "page of results to display",
+					},
+				},
+			},
+			{
+				Name:   "show",
+				Usage:  "get information on a specific Ethereum Transaction",
+				Action: s.ShowTransaction,
+			},
+		},
+	}
+}
 
 type EthTxPresenter struct {
 	JAID
@@ -58,19 +107,19 @@ func (ps EthTxPresenters) RenderTable(rt RendererTable) error {
 
 // IndexTransactions returns the list of transactions in descending order,
 // taking an optional page parameter
-func (cli *Client) IndexTransactions(c *cli.Context) error {
-	return cli.getPage("/v2/transactions/evm", c.Int("page"), &EthTxPresenters{})
+func (s *Shell) IndexTransactions(c *cli.Context) error {
+	return s.getPage("/v2/transactions/evm", c.Int("page"), &EthTxPresenters{})
 }
 
 // ShowTransaction returns the info for the given transaction hash
-func (cli *Client) ShowTransaction(c *cli.Context) (err error) {
+func (s *Shell) ShowTransaction(c *cli.Context) (err error) {
 	if !c.Args().Present() {
-		return cli.errorOut(errors.New("must pass the hash of the transaction"))
+		return s.errorOut(errors.New("must pass the hash of the transaction"))
 	}
 	hash := c.Args().First()
-	resp, err := cli.HTTP.Get("/v2/transactions/evm/" + hash)
+	resp, err := s.HTTP.Get(s.ctx(), "/v2/transactions/evm/"+hash)
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
@@ -78,20 +127,14 @@ func (cli *Client) ShowTransaction(c *cli.Context) (err error) {
 		}
 	}()
 
-	err = cli.renderAPIResponse(resp, &EthTxPresenter{})
+	err = s.renderAPIResponse(resp, &EthTxPresenter{})
 	return err
 }
 
-// IndexTxAttempts returns the list of transactions in descending order,
-// taking an optional page parameter
-func (cli *Client) IndexTxAttempts(c *cli.Context) error {
-	return cli.getPage("/v2/tx_attempts/evm", c.Int("page"), &EthTxPresenters{})
-}
-
 // SendEther transfers ETH from the node's account to a specified address.
-func (cli *Client) SendEther(c *cli.Context) (err error) {
+func (s *Shell) SendEther(c *cli.Context) (err error) {
 	if c.NArg() < 3 {
-		return cli.errorOut(errors.New("three arguments expected: amount, fromAddress and toAddress"))
+		return s.errorOut(errors.New("the following arguments expected: (chain) id (in multi-chain setup), amount, fromAddress and toAddress"))
 	}
 
 	var amount assets.Eth
@@ -101,7 +144,7 @@ func (cli *Client) SendEther(c *cli.Context) (err error) {
 
 		value, err = stringutils.ToInt64(c.Args().Get(0))
 		if err != nil {
-			return cli.errorOut(multierr.Combine(
+			return s.errorOut(multierr.Combine(
 				errors.New("while parsing WEI transfer amount"), err))
 		}
 
@@ -109,7 +152,7 @@ func (cli *Client) SendEther(c *cli.Context) (err error) {
 	} else {
 		amount, err = assets.NewEthValueS(c.Args().Get(0))
 		if err != nil {
-			return cli.errorOut(multierr.Combine(
+			return s.errorOut(multierr.Combine(
 				errors.New("while parsing ETH transfer amount"), err))
 		}
 	}
@@ -117,7 +160,7 @@ func (cli *Client) SendEther(c *cli.Context) (err error) {
 	unparsedFromAddress := c.Args().Get(1)
 	fromAddress, err := utils.ParseEthereumAddress(unparsedFromAddress)
 	if err != nil {
-		return cli.errorOut(multierr.Combine(
+		return s.errorOut(multierr.Combine(
 			fmt.Errorf("while parsing withdrawal source address %v",
 				unparsedFromAddress), err))
 	}
@@ -125,18 +168,18 @@ func (cli *Client) SendEther(c *cli.Context) (err error) {
 	unparsedDestinationAddress := c.Args().Get(2)
 	destinationAddress, err := utils.ParseEthereumAddress(unparsedDestinationAddress)
 	if err != nil {
-		return cli.errorOut(multierr.Combine(
+		return s.errorOut(multierr.Combine(
 			fmt.Errorf("while parsing withdrawal destination address %v",
 				unparsedDestinationAddress), err))
 	}
 
 	var evmChainID *big.Int
 	if c.IsSet("id") {
-		s := c.String("id")
+		str := c.String("id")
 		var ok bool
-		evmChainID, ok = new(big.Int).SetString(s, 10)
+		evmChainID, ok = new(big.Int).SetString(str, 10)
 		if !ok {
-			return cli.errorOut(errors.New(""))
+			return s.errorOut(errors.New(""))
 		}
 	}
 
@@ -144,20 +187,20 @@ func (cli *Client) SendEther(c *cli.Context) (err error) {
 		DestinationAddress: destinationAddress,
 		FromAddress:        fromAddress,
 		Amount:             amount,
-		EVMChainID:         (*utils.Big)(evmChainID),
+		EVMChainID:         (*ubig.Big)(evmChainID),
 		AllowHigherAmounts: c.IsSet("force"),
 	}
 
 	requestData, err := json.Marshal(request)
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 
 	buf := bytes.NewBuffer(requestData)
 
-	resp, err := cli.HTTP.Post("/v2/transfers/evm", buf)
+	resp, err := s.HTTP.Post(s.ctx(), "/v2/transfers/evm", buf)
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
@@ -165,6 +208,6 @@ func (cli *Client) SendEther(c *cli.Context) (err error) {
 		}
 	}()
 
-	err = cli.renderAPIResponse(resp, &EthTxPresenter{})
+	err = s.renderAPIResponse(resp, &EthTxPresenter{})
 	return err
 }

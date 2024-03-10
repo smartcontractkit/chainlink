@@ -3,14 +3,15 @@ package feeds
 import (
 	"database/sql/driver"
 	"encoding/json"
+	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
-	uuid "github.com/satori/go.uuid"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/utils/crypto"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 )
 
 const (
@@ -18,6 +19,59 @@ const (
 	JobTypeOffchainReporting  = "ocr"
 	JobTypeOffchainReporting2 = "ocr2"
 )
+
+type PluginType string
+
+const (
+	PluginTypeCommit     PluginType = "COMMIT"
+	PluginTypeExecute    PluginType = "EXECUTE"
+	PluginTypeMedian     PluginType = "MEDIAN"
+	PluginTypeMercury    PluginType = "MERCURY"
+	PluginTypeRebalancer PluginType = "REBALANCER"
+	PluginTypeUnknown    PluginType = "UNKNOWN"
+)
+
+func FromPluginTypeInput(pt PluginType) string {
+	return strings.ToLower(string(pt))
+}
+
+func ToPluginType(s string) (PluginType, error) {
+	switch s {
+	case "commit":
+		return PluginTypeCommit, nil
+	case "execute":
+		return PluginTypeExecute, nil
+	case "median":
+		return PluginTypeMedian, nil
+	case "mercury":
+		return PluginTypeMercury, nil
+	case "rebalancer":
+		return PluginTypeRebalancer, nil
+	default:
+		return PluginTypeUnknown, errors.New("unknown plugin type")
+	}
+}
+
+type Plugins struct {
+	Commit     bool `json:"commit"`
+	Execute    bool `json:"execute"`
+	Median     bool `json:"median"`
+	Mercury    bool `json:"mercury"`
+	Rebalancer bool `json:"rebalancer"`
+}
+
+func (p Plugins) Value() (driver.Value, error) {
+	return json.Marshal(p)
+}
+
+func (p *Plugins) Scan(value interface{}) error {
+	b, ok := value.(string)
+	if !ok {
+		return errors.New("type assertion to []byte failed")
+	}
+
+	return json.Unmarshal([]byte(b), &p)
+}
 
 type ChainType string
 
@@ -57,7 +111,7 @@ type ChainConfig struct {
 	AdminAddress      string
 	FluxMonitorConfig FluxMonitorConfig
 	OCR1Config        OCR1Config
-	OCR2Config        OCR2Config
+	OCR2Config        OCR2ConfigModel
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
 }
@@ -102,20 +156,22 @@ func (c *OCR1Config) Scan(value interface{}) error {
 	return json.Unmarshal(b, &c)
 }
 
-// OCR2Config defines configuration for OCR2 Jobs.
-type OCR2Config struct {
-	Enabled     bool        `json:"enabled"`
-	IsBootstrap bool        `json:"is_bootstrap"`
-	Multiaddr   null.String `json:"multiaddr"`
-	P2PPeerID   null.String `json:"p2p_peer_id"`
-	KeyBundleID null.String `json:"key_bundle_id"`
+// OCR2ConfigModel defines configuration for OCR2 Jobs.
+type OCR2ConfigModel struct {
+	Enabled          bool        `json:"enabled"`
+	IsBootstrap      bool        `json:"is_bootstrap"`
+	Multiaddr        null.String `json:"multiaddr"`
+	ForwarderAddress null.String `json:"forwarder_address"`
+	P2PPeerID        null.String `json:"p2p_peer_id"`
+	KeyBundleID      null.String `json:"key_bundle_id"`
+	Plugins          Plugins     `json:"plugins"`
 }
 
-func (c OCR2Config) Value() (driver.Value, error) {
+func (c OCR2ConfigModel) Value() (driver.Value, error) {
 	return json.Marshal(c)
 }
 
-func (c *OCR2Config) Scan(value interface{}) error {
+func (c *OCR2ConfigModel) Scan(value interface{}) error {
 	b, ok := value.([]byte)
 	if !ok {
 		return errors.New("type assertion to []byte failed")
@@ -132,6 +188,8 @@ const (
 	JobProposalStatusApproved  JobProposalStatus = "approved"
 	JobProposalStatusRejected  JobProposalStatus = "rejected"
 	JobProposalStatusCancelled JobProposalStatus = "cancelled"
+	JobProposalStatusDeleted   JobProposalStatus = "deleted"
+	JobProposalStatusRevoked   JobProposalStatus = "revoked"
 )
 
 // JobProposal represents a proposal which has been sent by a Feeds Manager.
@@ -140,6 +198,7 @@ const (
 // the Feeds Manager sends a new proposal version.
 type JobProposal struct {
 	ID             int64
+	Name           null.String
 	RemoteUUID     uuid.UUID // RemoteUUID is the uuid of the proposal in FMS.
 	Status         JobProposalStatus
 	ExternalJobID  uuid.NullUUID // ExternalJobID is the external job id in the job spec.
@@ -154,7 +213,7 @@ type JobProposal struct {
 type SpecStatus string
 
 const (
-	// SpecStatusPending defines a spec status  which has been proposed by the
+	// SpecStatusPending defines a spec status which has been proposed by the
 	// FMS.
 	SpecStatusPending SpecStatus = "pending"
 	// SpecStatusApproved defines a spec status which the node op has approved.
@@ -167,6 +226,9 @@ const (
 	// but cancelled by the node op. A cancelled spec is not being run by the
 	// node.
 	SpecStatusCancelled SpecStatus = "cancelled"
+	// SpecStatusRevoked defines a spec status which was revoked. A revoked spec cannot be
+	// approved.
+	SpecStatusRevoked SpecStatus = "revoked"
 )
 
 // JobProposalSpec defines a versioned proposed spec for a JobProposal.
@@ -185,4 +247,27 @@ type JobProposalSpec struct {
 func (s *JobProposalSpec) CanEditDefinition() bool {
 	return s.Status == SpecStatusPending ||
 		s.Status == SpecStatusCancelled
+}
+
+// JobProposalCounts defines the counts for job proposals of each status.
+type JobProposalCounts struct {
+	Pending   int64
+	Cancelled int64
+	Approved  int64
+	Rejected  int64
+	Deleted   int64
+	Revoked   int64
+}
+
+// toMetrics transforms JobProposalCounts into a map with float64 values for setting metrics
+// in prometheus.
+func (jpc *JobProposalCounts) toMetrics() map[JobProposalStatus]float64 {
+	metrics := make(map[JobProposalStatus]float64, 6)
+	metrics[JobProposalStatusPending] = float64(jpc.Pending)
+	metrics[JobProposalStatusApproved] = float64(jpc.Approved)
+	metrics[JobProposalStatusCancelled] = float64(jpc.Cancelled)
+	metrics[JobProposalStatusRejected] = float64(jpc.Rejected)
+	metrics[JobProposalStatusRevoked] = float64(jpc.Revoked)
+	metrics[JobProposalStatusDeleted] = float64(jpc.Deleted)
+	return metrics
 }

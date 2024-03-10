@@ -1,11 +1,13 @@
 package models
 
 import (
+	"bytes"
 	"database/sql/driver"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
 
@@ -13,9 +15,10 @@ import (
 	"github.com/pkg/errors"
 	"github.com/robfig/cron/v3"
 	"github.com/tidwall/gjson"
+	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
 
 // CronParser is the global parser for crontabs.
@@ -194,119 +197,6 @@ func (c Cron) String() string {
 	return string(c)
 }
 
-// Duration is a non-negative time duration.
-type Duration struct{ d time.Duration }
-
-func MakeDuration(d time.Duration) (Duration, error) {
-	if d < time.Duration(0) {
-		return Duration{}, fmt.Errorf("cannot make negative time duration: %s", d)
-	}
-	return Duration{d: d}, nil
-}
-
-func ParseDuration(s string) (Duration, error) {
-	d, err := time.ParseDuration(s)
-	if err != nil {
-		return Duration{}, err
-	}
-
-	return MakeDuration(d)
-}
-
-func MustMakeDuration(d time.Duration) Duration {
-	rv, err := MakeDuration(d)
-	if err != nil {
-		panic(err)
-	}
-	return rv
-}
-
-func MustNewDuration(d time.Duration) *Duration {
-	rv := MustMakeDuration(d)
-	return &rv
-}
-
-// Duration returns the value as the standard time.Duration value.
-func (d Duration) Duration() time.Duration {
-	return d.d
-}
-
-// Before returns the time d units before time t
-func (d Duration) Before(t time.Time) time.Time {
-	return t.Add(-d.Duration())
-}
-
-// Shorter returns true if and only if d is shorter than od.
-func (d Duration) Shorter(od Duration) bool { return d.d < od.d }
-
-// IsInstant is true if and only if d is of duration 0
-func (d Duration) IsInstant() bool { return d.d == 0 }
-
-// String returns a string representing the duration in the form "72h3m0.5s".
-// Leading zero units are omitted. As a special case, durations less than one
-// second format use a smaller unit (milli-, micro-, or nanoseconds) to ensure
-// that the leading digit is non-zero. The zero duration formats as 0s.
-func (d Duration) String() string {
-	return d.Duration().String()
-}
-
-// MarshalJSON implements the json.Marshaler interface.
-func (d Duration) MarshalJSON() ([]byte, error) {
-	return json.Marshal(d.String())
-}
-
-// UnmarshalJSON implements the json.Unmarshaler interface.
-func (d *Duration) UnmarshalJSON(input []byte) error {
-	var txt string
-	err := json.Unmarshal(input, &txt)
-	if err != nil {
-		return err
-	}
-	v, err := time.ParseDuration(string(txt))
-	if err != nil {
-		return err
-	}
-	*d, err = MakeDuration(v)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (d *Duration) Scan(v interface{}) (err error) {
-	switch tv := v.(type) {
-	case int64:
-		*d, err = MakeDuration(time.Duration(tv))
-		return err
-	default:
-		return errors.Errorf(`don't know how to parse "%s" of type %T as a `+
-			`models.Duration`, tv, tv)
-	}
-}
-
-func (d Duration) Value() (driver.Value, error) {
-	return int64(d.d), nil
-}
-
-// MarshalText implements the text.Marshaler interface.
-func (d Duration) MarshalText() ([]byte, error) {
-	return []byte(d.d.String()), nil
-}
-
-// UnmarshalText implements the text.Unmarshaler interface.
-func (d *Duration) UnmarshalText(input []byte) error {
-	v, err := time.ParseDuration(string(input))
-	if err != nil {
-		return err
-	}
-	pd, err := MakeDuration(v)
-	if err != nil {
-		return err
-	}
-	*d = pd
-	return nil
-}
-
 // Interval represents a time.Duration stored as a Postgres interval type
 type Interval time.Duration
 
@@ -362,8 +252,10 @@ type SendEtherRequest struct {
 	DestinationAddress common.Address `json:"address"`
 	FromAddress        common.Address `json:"from"`
 	Amount             assets.Eth     `json:"amount"`
-	EVMChainID         *utils.Big     `json:"evmChainID"`
+	EVMChainID         *big.Big       `json:"evmChainID"`
 	AllowHigherAmounts bool           `json:"allowHigherAmounts"`
+	SkipWaitTxAttempt  bool           `json:"skipWaitTxAttempt"`
+	WaitAttemptTimeout *time.Duration `json:"waitAttemptTimeout"`
 }
 
 // AddressCollection is an array of common.Address
@@ -508,26 +400,98 @@ func (s Sha256Hash) Value() (driver.Value, error) {
 	return b, nil
 }
 
-// URL extends url.URL to implement encoding.TextMarshaler.
-type URL url.URL
-
-func ParseURL(s string) (*URL, error) {
-	u, err := url.Parse(s)
-	if err != nil {
-		return nil, err
-	}
-	return (*URL)(u), nil
+// ServiceHeader is an HTTP header to include in POST to log service.
+type ServiceHeader struct {
+	Header string
+	Value  string
 }
 
-func (u *URL) MarshalText() ([]byte, error) {
-	return []byte((*url.URL)(u).String()), nil
+func (h *ServiceHeader) UnmarshalText(input []byte) error {
+	parts := strings.SplitN(string(input), ":", 2)
+	h.Header = parts[0]
+	if len(parts) > 1 {
+		h.Value = strings.TrimSpace(parts[1])
+	}
+	return h.Validate()
 }
 
-func (u *URL) UnmarshalText(input []byte) error {
-	v, err := url.Parse(string(input))
-	if err != nil {
-		return err
+func (h *ServiceHeader) MarshalText() ([]byte, error) {
+	var b bytes.Buffer
+	fmt.Fprintf(&b, "%s: %s", h.Header, h.Value)
+	return b.Bytes(), nil
+}
+
+type ServiceHeaders []ServiceHeader
+
+func (sh *ServiceHeaders) UnmarshalText(input []byte) error {
+	if sh == nil {
+		return errors.New("Cannot unmarshal to a nil receiver")
 	}
-	*u = URL(*v)
+
+	headers := string(input)
+
+	var parsedHeaders []ServiceHeader
+	if headers != "" {
+		headerLines := strings.Split(headers, "\\")
+		for _, header := range headerLines {
+			keyValue := strings.Split(header, "||")
+			if len(keyValue) != 2 {
+				return errors.Errorf("invalid headers provided for the audit logger. Value, single pair split on || required, got: %s", keyValue)
+			}
+			h := ServiceHeader{
+				Header: keyValue[0],
+				Value:  keyValue[1],
+			}
+
+			if err := h.Validate(); err != nil {
+				return err
+			}
+			parsedHeaders = append(parsedHeaders, h)
+		}
+	}
+
+	*sh = parsedHeaders
 	return nil
+}
+
+func (sh *ServiceHeaders) MarshalText() ([]byte, error) {
+	if sh == nil {
+		return nil, errors.New("Cannot marshal to a nil receiver")
+	}
+
+	sb := strings.Builder{}
+	for _, header := range *sh {
+		sb.WriteString(header.Header)
+		sb.WriteString("||")
+		sb.WriteString(header.Value)
+		sb.WriteString("\\")
+	}
+
+	serialized := sb.String()
+
+	if len(serialized) > 0 {
+		serialized = serialized[:len(serialized)-1]
+	}
+
+	return []byte(serialized), nil
+}
+
+// We act slightly more strictly than the HTTP specifications
+// technically allow instead following the guidelines of
+// cloudflare transforms.
+// https://developers.cloudflare.com/rules/transform/request-header-modification/reference/header-format
+var (
+	headerNameRegex  = regexp.MustCompile(`^[A-Za-z\-]+$`)
+	headerValueRegex = regexp.MustCompile("^[A-Za-z_ :;.,\\/\"'?!(){}[\\]@<>=\\-+*#$&`|~^%]+$")
+)
+
+func (h ServiceHeader) Validate() (err error) {
+	if !headerNameRegex.MatchString(h.Header) {
+		err = multierr.Append(err, errors.Errorf("invalid header name: %s", h.Header))
+	}
+
+	if !headerValueRegex.MatchString(h.Value) {
+		err = multierr.Append(err, errors.Errorf("invalid header value: %s", h.Value))
+	}
+	return
 }

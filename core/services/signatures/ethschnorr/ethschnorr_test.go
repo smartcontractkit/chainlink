@@ -5,7 +5,6 @@ package ethschnorr
 
 import (
 	crand "crypto/rand"
-	"fmt"
 	"math/big"
 	mrand "math/rand"
 	"testing"
@@ -15,8 +14,8 @@ import (
 	"go.dedis.ch/kyber/v3"
 	"go.dedis.ch/kyber/v3/group/curve25519"
 
-	"github.com/smartcontractkit/chainlink/core/services/signatures/cryptotest"
-	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
+	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/cryptotest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 )
 
 var numSignatures = 5
@@ -30,7 +29,7 @@ func printTest(t *testing.T, msg *big.Int, private kyber.Scalar,
 	privateBytes, err := private.MarshalBinary()
 	require.Nil(t, err)
 	pX, pY := secp256k1.Coordinates(public)
-	fmt.Printf("  ['%064x',\n   '%064x',\n   '%064x',\n   '%064x',\n   "+
+	t.Logf("  ['%064x',\n   '%064x',\n   '%064x',\n   '%064x',\n   "+
 		"'%064x',\n   '%040x'],\n",
 		msg, privateBytes, pX, pY, signature.Signature,
 		signature.CommitmentPublicAddress)
@@ -38,7 +37,7 @@ func printTest(t *testing.T, msg *big.Int, private kyber.Scalar,
 
 func TestShortSchnorr_SignAndVerify(t *testing.T) {
 	if printTests {
-		fmt.Printf("tests = [\n")
+		t.Log("tests = [\n")
 	}
 	for i := 0; i < numSignatures; i++ {
 		rand := mrand.New(mrand.NewSource(0))
@@ -76,7 +75,7 @@ func TestShortSchnorr_SignAndVerify(t *testing.T) {
 			"failed to reject signature with bad public commitment")
 	}
 	if printTests {
-		fmt.Println("]")
+		t.Log("]")
 	}
 	// Check other validations
 	edSuite := curve25519.NewBlakeSHA256Curve25519(false)

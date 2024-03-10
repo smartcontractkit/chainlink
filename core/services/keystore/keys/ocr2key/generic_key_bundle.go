@@ -9,15 +9,16 @@ import (
 	"io"
 
 	"github.com/pkg/errors"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 type (
 	keyring interface {
 		ocrtypes.OnchainKeyring
+		OCR3SignerVerifier
 		Marshal() ([]byte, error)
 		Unmarshal(in []byte) error
 	}
@@ -36,7 +37,7 @@ type (
 		// old chain specific format for migrating
 		EVMKeyring    []byte `json:",omitempty"`
 		SolanaKeyring []byte `json:",omitempty"`
-		TerraKeyring  []byte `json:",omitempty"`
+		CosmosKeyring []byte `json:",omitempty"`
 	}
 )
 
@@ -92,8 +93,16 @@ func (kb *keyBundle[K]) Sign(reportCtx ocrtypes.ReportContext, report ocrtypes.R
 	return kb.keyring.Sign(reportCtx, report)
 }
 
+func (kb *keyBundle[K]) Sign3(digest ocrtypes.ConfigDigest, seqNr uint64, r ocrtypes.Report) (signature []byte, err error) {
+	return kb.keyring.Sign3(digest, seqNr, r)
+}
+
 func (kb *keyBundle[K]) Verify(publicKey ocrtypes.OnchainPublicKey, reportCtx ocrtypes.ReportContext, report ocrtypes.Report, signature []byte) bool {
 	return kb.keyring.Verify(publicKey, reportCtx, report, signature)
+}
+
+func (kb *keyBundle[K]) Verify3(publicKey ocrtypes.OnchainPublicKey, cd ocrtypes.ConfigDigest, seqNr uint64, r ocrtypes.Report, signature []byte) bool {
+	return kb.keyring.Verify3(publicKey, cd, seqNr, r, signature)
 }
 
 // OnChainPublicKey returns public component of the keypair used on chain
@@ -153,15 +162,13 @@ func (kb *keyBundle[K]) Raw() Raw {
 
 // migration code
 func (kbraw *keyBundleRawData) Migrate(b []byte) error {
-	// if key is not stored in Keyring param, use EVM, Solana, Terra as Keyring
+	// if key is not stored in Keyring param, use EVM or Solana as Keyring
 	// for migrating, key will only be marshalled into Keyring
 	if len(kbraw.Keyring) == 0 {
 		if len(kbraw.EVMKeyring) != 0 {
 			kbraw.Keyring = kbraw.EVMKeyring
 		} else if len(kbraw.SolanaKeyring) != 0 {
 			kbraw.Keyring = kbraw.SolanaKeyring
-		} else if len(kbraw.TerraKeyring) != 0 {
-			kbraw.Keyring = kbraw.TerraKeyring
 		}
 	}
 

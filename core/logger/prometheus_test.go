@@ -1,7 +1,6 @@
 package logger
 
 import (
-	"errors"
 	"fmt"
 	"math/rand"
 	"testing"
@@ -71,8 +70,7 @@ func TestPrometheusLogger_Counters(t *testing.T) {
 
 	l.Errorf("msg")
 	l.Errorf("msg")
-	l.ErrorIfClosing(&errorCloser{}, "foo")
-	assertCounterValue(t, errorCounter, 7)
+	assertCounterValue(t, errorCounter, 6)
 
 	l.Criticalf("msg")
 	l.Criticalw("msg")
@@ -99,10 +97,4 @@ func repeat(f func(args ...interface{}), c int) {
 	for ; c > 0; c-- {
 		f()
 	}
-}
-
-type errorCloser struct{}
-
-func (c errorCloser) Close() error {
-	return errors.New("error")
 }

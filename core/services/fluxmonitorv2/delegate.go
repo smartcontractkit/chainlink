@@ -1,15 +1,20 @@
 package fluxmonitorv2
 
 import (
-	"github.com/pkg/errors"
-	"github.com/smartcontractkit/sqlx"
+	"context"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/pkg/errors"
+
+	"github.com/jmoiron/sqlx"
+
+	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
 // Delegate represents a Flux Monitor delegate
@@ -19,7 +24,7 @@ type Delegate struct {
 	jobORM         job.ORM
 	pipelineORM    pipeline.ORM
 	pipelineRunner pipeline.Runner
-	chainSet       evm.ChainSet
+	legacyChains   legacyevm.LegacyChainContainer
 	lggr           logger.Logger
 }
 
@@ -32,17 +37,17 @@ func NewDelegate(
 	pipelineORM pipeline.ORM,
 	pipelineRunner pipeline.Runner,
 	db *sqlx.DB,
-	chainSet evm.ChainSet,
+	legacyChains legacyevm.LegacyChainContainer,
 	lggr logger.Logger,
 ) *Delegate {
 	return &Delegate{
-		db,
-		ethKeyStore,
-		jobORM,
-		pipelineORM,
-		pipelineRunner,
-		chainSet,
-		lggr.Named("FluxMonitor"),
+		db:             db,
+		ethKeyStore:    ethKeyStore,
+		jobORM:         jobORM,
+		pipelineORM:    pipelineORM,
+		pipelineRunner: pipelineRunner,
+		legacyChains:   legacyChains,
+		lggr:           lggr.Named("FluxMonitor"),
 	}
 }
 
@@ -51,35 +56,43 @@ func (d *Delegate) JobType() job.Type {
 	return job.FluxMonitor
 }
 
-func (Delegate) AfterJobCreated(spec job.Job)  {}
-func (Delegate) BeforeJobDeleted(spec job.Job) {}
+func (d *Delegate) BeforeJobCreated(spec job.Job)                {}
+func (d *Delegate) AfterJobCreated(spec job.Job)                 {}
+func (d *Delegate) BeforeJobDeleted(spec job.Job)                {}
+func (d *Delegate) OnDeleteJob(spec job.Job, q pg.Queryer) error { return nil }
 
 // ServicesForSpec returns the flux monitor service for the job spec
-func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err error) {
+func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) (services []job.ServiceCtx, err error) {
 	if jb.FluxMonitorSpec == nil {
 		return nil, errors.Errorf("Delegate expects a *job.FluxMonitorSpec to be present, got %v", jb)
 	}
-	chain, err := d.chainSet.Get(jb.FluxMonitorSpec.EVMChainID.ToInt())
+	chain, err := d.legacyChains.Get(jb.FluxMonitorSpec.EVMChainID.String())
 	if err != nil {
 		return nil, err
 	}
-	strategy := txmgr.NewQueueingTxStrategy(jb.ExternalJobID, chain.Config().FMDefaultTransactionQueueDepth())
+	cfg := chain.Config()
+	strategy := txmgrcommon.NewQueueingTxStrategy(jb.ExternalJobID, cfg.FluxMonitor().DefaultTransactionQueueDepth(), cfg.Database().DefaultQueryTimeout())
 	var checker txmgr.TransmitCheckerSpec
-	if chain.Config().FMSimulateTransactions() {
+	if chain.Config().FluxMonitor().SimulateTransactions() {
 		checker.CheckerType = txmgr.TransmitCheckerTypeSimulate
 	}
 
 	fm, err := NewFromJobSpec(
 		jb,
 		d.db,
-		NewORM(d.db, d.lggr, chain.Config(), chain.TxManager(), strategy, checker),
+		NewORM(d.db, d.lggr, chain.Config().Database(), chain.TxManager(), strategy, checker),
 		d.jobORM,
 		d.pipelineORM,
 		NewKeyStore(d.ethKeyStore),
 		chain.Client(),
 		chain.LogBroadcaster(),
 		d.pipelineRunner,
-		chain.Config(),
+		chain.Config().EVM(),
+		chain.Config().EVM().GasEstimator(),
+		chain.Config().EVM().Transactions(),
+		chain.Config().FluxMonitor(),
+		chain.Config().JobPipeline(),
+		chain.Config().Database(),
 		d.lggr,
 	)
 	if err != nil {

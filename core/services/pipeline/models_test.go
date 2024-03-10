@@ -1,7 +1,6 @@
 package pipeline_test
 
 import (
-	"fmt"
 	"math/big"
 	"testing"
 	"time"
@@ -11,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
 func TestRun_Status(t *testing.T) {
@@ -122,7 +121,7 @@ func TestRun_StringOutputs(t *testing.T) {
 					Val:   []interface{}{tc.val},
 				},
 			}
-			fmt.Println(tc.val)
+			t.Log(tc.val)
 			outputs, err := run.StringOutputs()
 			assert.NoError(t, err)
 			assert.NotNil(t, outputs)

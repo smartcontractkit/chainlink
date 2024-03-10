@@ -3,10 +3,10 @@ package ocr
 import (
 	"testing"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/jmoiron/sqlx"
 
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
-	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func (c *ConfigOverriderImpl) ExportedUpdateFlagsStatus() error {
@@ -14,5 +14,5 @@ func (c *ConfigOverriderImpl) ExportedUpdateFlagsStatus() error {
 }
 
 func NewTestDB(t *testing.T, sqldb *sqlx.DB, oracleSpecID int32) *db {
-	return NewDB(sqldb, oracleSpecID, logger.TestLogger(t), configtest.NewTestGeneralConfig(t))
+	return NewDB(sqldb, oracleSpecID, logger.TestLogger(t), pgtest.NewQConfig(true))
 }

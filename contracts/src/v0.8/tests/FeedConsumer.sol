@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {AggregatorV2V3Interface} from "../interfaces/AggregatorV2V3Interface.sol";
+import {AggregatorV2V3Interface} from "../shared/interfaces/AggregatorV2V3Interface.sol";
 
 contract FeedConsumer {
   AggregatorV2V3Interface public immutable AGGREGATOR;
@@ -42,16 +42,12 @@ contract FeedConsumer {
     return AGGREGATOR.version();
   }
 
-  function getRoundData(uint80 _roundId)
+  function getRoundData(
+    uint80 _roundId
+  )
     external
     view
-    returns (
-      uint80 roundId,
-      int256 answer,
-      uint256 startedAt,
-      uint256 updatedAt,
-      uint80 answeredInRound
-    )
+    returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
   {
     return AGGREGATOR.getRoundData(_roundId);
   }
@@ -59,13 +55,7 @@ contract FeedConsumer {
   function latestRoundData()
     external
     view
-    returns (
-      uint80 roundId,
-      int256 answer,
-      uint256 startedAt,
-      uint256 updatedAt,
-      uint80 answeredInRound
-    )
+    returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
   {
     return AGGREGATOR.latestRoundData();
   }

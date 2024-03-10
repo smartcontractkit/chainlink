@@ -1,0 +1,48 @@
+version: "3"
+services:
+
+  # ... the OpenTelemetry Collector configured to receive traces and export to Tempo ...
+  otel-collector:
+    image: otel/opentelemetry-collector:0.61.0
+    command: [ "--config=/etc/otel-collector.yaml" ]
+    volumes:
+      - ./otel-collector-dev.yaml:/etc/otel-collector.yaml
+      - ../../integration-tests/smoke/traces/trace-data.json:/etc/trace-data.json # local trace data stored consistent with smoke/logs
+    ports:
+      - "4317:4317" # otlp grpc
+      - "3100:3100"
+    depends_on:
+      - tempo
+    networks:
+      - tracing-network
+
+  # .. Which accepts requests from grafana ...
+  tempo:
+    image: grafana/tempo:latest
+    command: [ "-config.file=/etc/tempo.yaml" ]
+    volumes:
+      - ./tempo.yaml:/etc/tempo.yaml
+      - ./tempo-data:/tmp/tempo
+    ports:
+      - "4317"  # otlp grpc
+    networks:
+      - tracing-network
+
+  grafana:
+    image: grafana/grafana:9.4.3
+    volumes:
+      - ./grafana-datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_AUTH_DISABLE_LOGIN_FORM=true
+      - GF_FEATURE_TOGGLES_ENABLE=traceqlEditor
+    ports:
+      - "3000:3000"
+    networks:
+      - tracing-network
+
+networks:
+  tracing-network:
+    name: tracing
+    driver: bridge

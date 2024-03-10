@@ -3,8 +3,8 @@ package client_test
 import (
 	"testing"
 
-	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
+	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -27,10 +27,10 @@ func TestRoundRobinNodeSelector(t *testing.T) {
 	}
 
 	selector := evmclient.NewRoundRobinSelector(nodes)
-	assert.Equal(t, nodes[1], selector.Select())
-	assert.Equal(t, nodes[2], selector.Select())
-	assert.Equal(t, nodes[1], selector.Select())
-	assert.Equal(t, nodes[2], selector.Select())
+	assert.Same(t, nodes[1], selector.Select())
+	assert.Same(t, nodes[2], selector.Select())
+	assert.Same(t, nodes[1], selector.Select())
+	assert.Same(t, nodes[2], selector.Select())
 }
 
 func TestRoundRobinNodeSelector_None(t *testing.T) {
