@@ -89,13 +89,13 @@ func UnregisterExecPluginLpFilters(ctx context.Context, lggr logger.Logger, jb j
 	versionFinder := factory.NewEvmVersionFinder()
 	unregisterFuncs := []func() error{
 		func() error {
-			return factory.CloseCommitStoreReader(lggr, versionFinder, params.offRampConfig.CommitStore, params.destChain.Client(), params.destChain.LogPoller(), params.sourceChain.GasEstimator(), qopts...)
+			return factory.CloseCommitStoreReader(lggr, versionFinder, params.offRampConfig.CommitStore, params.destChain.Client(), params.destChain.LogPoller(), params.sourceChain.GasEstimator(), params.sourceChain.Config().EVM().GasEstimator().PriceMax().ToInt(), qopts...)
 		},
 		func() error {
 			return factory.CloseOnRampReader(lggr, versionFinder, params.offRampConfig.SourceChainSelector, params.offRampConfig.ChainSelector, params.offRampConfig.OnRamp, params.sourceChain.LogPoller(), params.sourceChain.Client(), qopts...)
 		},
 		func() error {
-			return factory.CloseOffRampReader(lggr, versionFinder, params.offRampReader.Address(), params.destChain.Client(), params.destChain.LogPoller(), params.destChain.GasEstimator(), qopts...)
+			return factory.CloseOffRampReader(lggr, versionFinder, params.offRampReader.Address(), params.destChain.Client(), params.destChain.LogPoller(), params.destChain.GasEstimator(), params.destChain.Config().EVM().GasEstimator().PriceMax().ToInt(), qopts...)
 		},
 		func() error { // usdc token data reader
 			if usdcDisabled := params.pluginConfig.USDCConfig.AttestationAPI == ""; usdcDisabled {
@@ -197,7 +197,7 @@ func jobSpecToExecPluginConfig(ctx context.Context, lggr logger.Logger, jb job.J
 		return nil, nil, errors.Wrap(err, "could not get source native token")
 	}
 
-	commitStoreReader, err := factory.NewCommitStoreReader(lggr, versionFinder, params.offRampConfig.CommitStore, params.destChain.Client(), params.destChain.LogPoller(), params.sourceChain.GasEstimator(), qopts...)
+	commitStoreReader, err := factory.NewCommitStoreReader(lggr, versionFinder, params.offRampConfig.CommitStore, params.destChain.Client(), params.destChain.LogPoller(), params.sourceChain.GasEstimator(), params.sourceChain.Config().EVM().GasEstimator().PriceMax().ToInt(), qopts...)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "could not load commitStoreReader reader")
 	}
@@ -307,7 +307,7 @@ func extractJobSpecParams(lggr logger.Logger, jb job.Job, chainSet legacyevm.Leg
 
 	versionFinder := factory.NewEvmVersionFinder()
 	offRampAddress := ccipcalc.HexToAddress(spec.ContractID)
-	offRampReader, err := factory.NewOffRampReader(lggr, versionFinder, offRampAddress, destChain.Client(), destChain.LogPoller(), destChain.GasEstimator(), registerFilters, qopts...)
+	offRampReader, err := factory.NewOffRampReader(lggr, versionFinder, offRampAddress, destChain.Client(), destChain.LogPoller(), destChain.GasEstimator(), destChain.Config().EVM().GasEstimator().PriceMax().ToInt(), registerFilters, qopts...)
 	if err != nil {
 		return nil, errors.Wrap(err, "create offRampReader")
 	}

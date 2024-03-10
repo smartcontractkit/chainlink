@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
+
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 )
 
@@ -25,7 +26,6 @@ func TestExecOffchainConfig100_Encoding(t *testing.T) {
 				DestFinalityDepth:           3,
 				BatchGasLimit:               5_000_000,
 				RelativeBoostPerWaitHour:    0.07,
-				MaxGasPrice:                 200e9,
 				InflightCacheExpiry:         *config.MustNewDuration(64 * time.Second),
 				RootSnoozeTime:              *config.MustNewDuration(128 * time.Minute),
 			},
@@ -38,7 +38,6 @@ func TestExecOffchainConfig100_Encoding(t *testing.T) {
 				DestOptimisticConfirmations: 0,
 				BatchGasLimit:               0,
 				RelativeBoostPerWaitHour:    0,
-				MaxGasPrice:                 0,
 				InflightCacheExpiry:         *config.MustNewDuration(0),
 				RootSnoozeTime:              *config.MustNewDuration(0),
 			},
@@ -82,7 +81,6 @@ func TestExecOffchainConfig100_AllFieldsRequired(t *testing.T) {
 		DestFinalityDepth:           3,
 		BatchGasLimit:               5_000_000,
 		RelativeBoostPerWaitHour:    0.07,
-		MaxGasPrice:                 200e9,
 		InflightCacheExpiry:         *config.MustNewDuration(64 * time.Second),
 		RootSnoozeTime:              *config.MustNewDuration(128 * time.Minute),
 	}

@@ -116,13 +116,7 @@ func (r *CommitReportingPlugin) Observation(ctx context.Context, epochAndRound t
 		return nil, err
 	}
 
-	feeTokens, bridgeableTokens, err := ccipcommon.GetDestinationTokens(ctx, r.offRampReader, r.destPriceRegistryReader)
-	if err != nil {
-		return nil, fmt.Errorf("get destination tokens: %w", err)
-	}
-	destTokens := ccipcommon.FlattenUniqueSlice(feeTokens, bridgeableTokens)
-
-	sourceGasPriceUSD, tokenPricesUSD, err := r.generatePriceUpdates(ctx, lggr, destTokens)
+	sourceGasPriceUSD, tokenPricesUSD, err := r.observePriceUpdates(ctx, lggr)
 	if err != nil {
 		return nil, err
 	}
@@ -208,6 +202,24 @@ func (r *CommitReportingPlugin) nextMinSeqNum(ctx context.Context, lggr logger.L
 		return nextMinOnChain, nextMinOnChain, nil
 	}
 	return mathutil.Max(nextMinOnChain, maxInflight+1), nextMinOnChain, nil
+}
+
+// observePriceUpdates only observes price updates if price reporting is enabled
+func (r *CommitReportingPlugin) observePriceUpdates(
+	ctx context.Context,
+	lggr logger.Logger,
+) (sourceGasPriceUSD *big.Int, tokenPricesUSD map[cciptypes.Address]*big.Int, err error) {
+	if r.offchainConfig.PriceReportingDisabled {
+		return nil, nil, nil
+	}
+
+	feeTokens, bridgeableTokens, err := ccipcommon.GetDestinationTokens(ctx, r.offRampReader, r.destPriceRegistryReader)
+	if err != nil {
+		return nil, nil, fmt.Errorf("get destination tokens: %w", err)
+	}
+	destTokens := ccipcommon.FlattenUniqueSlice(feeTokens, bridgeableTokens)
+
+	return r.generatePriceUpdates(ctx, lggr, destTokens)
 }
 
 // All prices are USD ($1=1e18) denominated. All prices must be not nil.
@@ -375,7 +387,7 @@ func (r *CommitReportingPlugin) Report(ctx context.Context, epochAndRound types.
 	destTokens := ccipcommon.FlattenUniqueSlice(feeTokens, bridgeableTokens)
 
 	// Filters out parsable but faulty observations
-	validObservations, err := validateObservations(ctx, lggr, destTokens, r.F, parsableObservations)
+	validObservations, err := validateObservations(ctx, lggr, destTokens, r.F, parsableObservations, r.offchainConfig.PriceReportingDisabled)
 	if err != nil {
 		return false, nil, err
 	}
@@ -390,17 +402,7 @@ func (r *CommitReportingPlugin) Report(ctx context.Context, epochAndRound types.
 		return false, nil, err
 	}
 
-	latestGasPrice, err := r.getLatestGasPriceUpdate(ctx, now, true)
-	if err != nil {
-		return false, nil, err
-	}
-
-	latestTokenPrices, err := r.getLatestTokenPriceUpdates(ctx, now, true)
-	if err != nil {
-		return false, nil, err
-	}
-
-	tokenPrices, gasPrices, err := r.calculatePriceUpdates(validObservations, latestGasPrice, latestTokenPrices)
+	tokenPrices, gasPrices, err := r.selectPriceUpdates(ctx, now, validObservations)
 	if err != nil {
 		return false, nil, err
 	}
@@ -433,8 +435,18 @@ func (r *CommitReportingPlugin) Report(ctx context.Context, epochAndRound types.
 // validateObservations validates the given observations.
 // An observation is rejected if any of its gas price or token price is nil. With current CommitObservation implementation, prices
 // are checked to ensure no nil values before adding to Observation, hence an observation that contains nil values comes from a faulty node.
-func validateObservations(ctx context.Context, lggr logger.Logger, destTokens []cciptypes.Address, f int, observations []ccip.CommitObservation) (validObs []ccip.CommitObservation, err error) {
+func validateObservations(ctx context.Context, lggr logger.Logger, destTokens []cciptypes.Address, f int, observations []ccip.CommitObservation, priceReportingDisabled bool) (validObs []ccip.CommitObservation, err error) {
 	for _, obs := range observations {
+		// If price reporting is disabled, a valid observations should not contain price data
+		if priceReportingDisabled {
+			if obs.SourceGasPriceUSD != nil || len(obs.TokenPricesUSD) > 0 {
+				lggr.Warnw("Skipping observation due to it containing price data when price reporting is disabled")
+				continue
+			}
+			validObs = append(validObs, obs)
+			continue
+		}
+
 		// If gas price is reported as nil, the observation is faulty, skip the observation.
 		if obs.SourceGasPriceUSD == nil {
 			lggr.Warnw("Skipping observation due to nil SourceGasPriceUSD")
@@ -540,6 +552,25 @@ func calculateIntervalConsensus(intervals []cciptypes.CommitStoreInterval, f int
 		Min: minSeqNum,
 		Max: maxSeqNum,
 	}, nil
+}
+
+// selectPriceUpdates filters out gas and token price updates that are already inflight
+func (r *CommitReportingPlugin) selectPriceUpdates(ctx context.Context, now time.Time, observations []ccip.CommitObservation) ([]cciptypes.TokenPrice, []cciptypes.GasPrice, error) {
+	if r.offchainConfig.PriceReportingDisabled {
+		return nil, nil, nil
+	}
+
+	latestGasPrice, err := r.getLatestGasPriceUpdate(ctx, now, true)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	latestTokenPrices, err := r.getLatestTokenPriceUpdates(ctx, now, true)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return r.calculatePriceUpdates(observations, latestGasPrice, latestTokenPrices)
 }
 
 // Note priceUpdates must be deterministic.
@@ -731,6 +762,7 @@ func (r *CommitReportingPlugin) ShouldTransmitAcceptedReport(ctx context.Context
 // If there is no merkle root but there is a gas update, only this gas update is used for staleness checks.
 // If only price updates are included, the price updates are used to check for staleness
 // If nothing is included the report is always considered stale.
+// If PriceReportingDisabled is set, this effectively only checks merkle root, as prices will always be empty.
 func (r *CommitReportingPlugin) isStaleReport(ctx context.Context, lggr logger.Logger, report cciptypes.CommitStoreReport, checkInflight bool, reportTimestamp types.ReportTimestamp) bool {
 	// If there is a merkle root, ignore all other staleness checks and only check for sequence number staleness
 	if report.MerkleRoot != [32]byte{} {

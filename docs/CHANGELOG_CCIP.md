@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## 1.5.0 - Unreleased
 
+### Changed
+- `CommitStore` offchain config changed:
+  - `MaxGasPrice` and `SourceMaxGasPrice` will be ignored if specified. SourceMaxGasPrice will be read from PriceMax in chain TOML.
+  - Added optional `PriceReportingDisabled` to signal lane should not report gas and token prices.
+- `OffRamp` offchain config changed:
+  - `MaxGasPrice` and `DestMaxGasPrice` will be ignored if specified. DestMaxGasPrice will be read from PriceMax in chain TOML.
+
 
 ## 1.4.0 - 2024-02-16
 
