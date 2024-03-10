@@ -107,8 +107,6 @@ type ExecOffchainConfig struct {
 	BatchGasLimit uint32
 	// See [ccipdata.ExecOffchainConfig.RelativeBoostPerWaitHour]
 	RelativeBoostPerWaitHour float64
-	// MaxGasPrice is the max gas price in the native currency (e.g., wei/gas) that a node will pay for executing a transaction on the destination chain.
-	MaxGasPrice uint64
 	// See [ccipdata.ExecOffchainConfig.InflightCacheExpiry]
 	InflightCacheExpiry config.Duration
 	// See [ccipdata.ExecOffchainConfig.RootSnoozeTime]
@@ -131,9 +129,6 @@ func (c ExecOffchainConfig) Validate() error {
 	if c.RelativeBoostPerWaitHour == 0 {
 		return errors.New("must set RelativeBoostPerWaitHour")
 	}
-	if c.MaxGasPrice == 0 {
-		return errors.New("must set MaxGasPrice")
-	}
 	if c.InflightCacheExpiry.Duration() == 0 {
 		return errors.New("must set InflightCacheExpiry")
 	}
@@ -153,6 +148,7 @@ type OffRamp struct {
 	evmBatchCaller          rpclib.EvmBatchCaller
 	filters                 []logpoller.Filter
 	Estimator               gas.EvmFeeEstimator
+	DestMaxGasPrice         *big.Int
 	ExecutionReportArgs     abi.Arguments
 	eventIndex              int
 	eventSig                common.Hash
@@ -407,7 +403,7 @@ func (o *OffRamp) ChangeConfig(onchainConfigBytes []byte, offchainConfigBytes []
 		RootSnoozeTime:              offchainConfigParsed.RootSnoozeTime,
 	}
 	onchainConfig := cciptypes.ExecOnchainConfig{PermissionLessExecutionThresholdSeconds: time.Second * time.Duration(onchainConfigParsed.PermissionLessExecutionThresholdSeconds)}
-	gasPriceEstimator := prices.NewExecGasPriceEstimator(o.Estimator, big.NewInt(int64(offchainConfigParsed.MaxGasPrice)), 0)
+	gasPriceEstimator := prices.NewExecGasPriceEstimator(o.Estimator, o.DestMaxGasPrice, 0)
 	o.UpdateDynamicConfig(onchainConfig, offchainConfig, gasPriceEstimator)
 
 	o.Logger.Infow("Starting exec plugin",
@@ -615,7 +611,7 @@ func (o *OffRamp) RegisterFilters(qopts ...pg.QOpt) error {
 	return logpollerutil.RegisterLpFilters(o.lp, o.filters, qopts...)
 }
 
-func NewOffRamp(lggr logger.Logger, addr common.Address, ec client.Client, lp logpoller.LogPoller, estimator gas.EvmFeeEstimator) (*OffRamp, error) {
+func NewOffRamp(lggr logger.Logger, addr common.Address, ec client.Client, lp logpoller.LogPoller, estimator gas.EvmFeeEstimator, destMaxGasPrice *big.Int) (*OffRamp, error) {
 	offRamp, err := evm_2_evm_offramp_1_0_0.NewEVM2EVMOffRamp(addr, ec)
 	if err != nil {
 		return nil, err
@@ -649,6 +645,7 @@ func NewOffRamp(lggr logger.Logger, addr common.Address, ec client.Client, lp lo
 		lp:                  lp,
 		filters:             filters,
 		Estimator:           estimator,
+		DestMaxGasPrice:     destMaxGasPrice,
 		ExecutionReportArgs: executionReportArgs,
 		eventSig:            ExecutionStateChangedEvent,
 		eventIndex:          executionStateChangedSequenceNumberIndex,

@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclientmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
@@ -53,7 +54,6 @@ func TestCommitOffchainConfig_Encoding(t *testing.T) {
 				ExecGasPriceDeviationPPB: 5e7,
 				TokenPriceHeartBeat:      *config.MustNewDuration(1 * time.Hour),
 				TokenPriceDeviationPPB:   5e7,
-				MaxGasPrice:              200e9,
 				InflightCacheExpiry:      *config.MustNewDuration(23456 * time.Second),
 			},
 		},
@@ -66,7 +66,6 @@ func TestCommitOffchainConfig_Encoding(t *testing.T) {
 				ExecGasPriceDeviationPPB: 0,
 				TokenPriceHeartBeat:      *config.MustNewDuration(0),
 				TokenPriceDeviationPPB:   0,
-				MaxGasPrice:              0,
 				InflightCacheExpiry:      *config.MustNewDuration(0),
 			},
 			expectErr: true,
@@ -83,7 +82,6 @@ func TestCommitOffchainConfig_Encoding(t *testing.T) {
 				ExecGasPriceDeviationPPB: 5e7,
 				TokenPriceHeartBeat:      *config.MustNewDuration(1 * time.Hour),
 				TokenPriceDeviationPPB:   5e7,
-				MaxGasPrice:              200e9,
 			},
 			expectErr: true,
 		},
@@ -178,10 +176,14 @@ func TestCommitStoreReaders(t *testing.T) {
 	require.NoError(t, err)
 	commitAndGetBlockTs(ec) // Deploy these
 	ge := new(gasmocks.EvmFeeEstimator)
-	c10r, err := factory.NewCommitStoreReader(lggr, factory.NewEvmVersionFinder(), ccipcalc.EvmAddrToGeneric(addr), ec, lp, ge)
+	lm := new(rollupMocks.L1Oracle)
+	ge.On("L1Oracle").Return(lm)
+
+	maxGasPrice := big.NewInt(1e8)
+	c10r, err := factory.NewCommitStoreReader(lggr, factory.NewEvmVersionFinder(), ccipcalc.EvmAddrToGeneric(addr), ec, lp, ge, maxGasPrice)
 	require.NoError(t, err)
 	assert.Equal(t, reflect.TypeOf(c10r).String(), reflect.TypeOf(&v1_0_0.CommitStore{}).String())
-	c12r, err := factory.NewCommitStoreReader(lggr, factory.NewEvmVersionFinder(), ccipcalc.EvmAddrToGeneric(addr2), ec, lp, ge)
+	c12r, err := factory.NewCommitStoreReader(lggr, factory.NewEvmVersionFinder(), ccipcalc.EvmAddrToGeneric(addr2), ec, lp, ge, maxGasPrice)
 	require.NoError(t, err)
 	assert.Equal(t, reflect.TypeOf(c12r).String(), reflect.TypeOf(&v1_2_0.CommitStore{}).String())
 
@@ -201,14 +203,13 @@ func TestCommitStoreReaders(t *testing.T) {
 		TokenPriceDeviationPPB: 1e6,
 		TokenPriceHeartBeat:    1 * time.Hour,
 		InflightCacheExpiry:    3 * time.Hour,
+		PriceReportingDisabled: false,
 	}
-	maxGas := uint64(1e9)
 	offchainConfig, err := ccipconfig.EncodeOffchainConfig[v1_0_0.CommitOffchainConfig](v1_0_0.CommitOffchainConfig{
 		SourceFinalityDepth:   sourceFinalityDepth,
 		DestFinalityDepth:     destFinalityDepth,
 		FeeUpdateHeartBeat:    *config.MustNewDuration(commonOffchain.GasPriceHeartBeat),
 		FeeUpdateDeviationPPB: commonOffchain.GasPriceDeviationPPB,
-		MaxGasPrice:           maxGas,
 		InflightCacheExpiry:   *config.MustNewDuration(commonOffchain.InflightCacheExpiry),
 	})
 	require.NoError(t, err)
@@ -221,7 +222,6 @@ func TestCommitStoreReaders(t *testing.T) {
 	offchainConfig2, err := ccipconfig.EncodeOffchainConfig[v1_2_0.JSONCommitOffchainConfig](v1_2_0.JSONCommitOffchainConfig{
 		SourceFinalityDepth:      sourceFinalityDepth,
 		DestFinalityDepth:        destFinalityDepth,
-		MaxGasPrice:              maxGas,
 		GasPriceHeartBeat:        *config.MustNewDuration(commonOffchain.GasPriceHeartBeat),
 		DAGasPriceDeviationPPB:   1e7,
 		ExecGasPriceDeviationPPB: commonOffchain.GasPriceDeviationPPB,
@@ -262,10 +262,8 @@ func TestCommitStoreReaders(t *testing.T) {
 	}
 	gasPrice := big.NewInt(10)
 	daPrice := big.NewInt(20)
-	ge.On("GetFee", mock.Anything, mock.Anything, mock.Anything, assets.NewWei(big.NewInt(int64(maxGas)))).Return(gas.EvmFee{Legacy: assets.NewWei(gasPrice)}, uint32(0), nil)
-	lm := new(rollupMocks.L1Oracle)
+	ge.On("GetFee", mock.Anything, mock.Anything, mock.Anything, assets.NewWei(maxGasPrice)).Return(gas.EvmFee{Legacy: assets.NewWei(gasPrice)}, uint32(0), nil)
 	lm.On("GasPrice", mock.Anything).Return(assets.NewWei(daPrice), nil)
-	ge.On("L1Oracle").Return(lm)
 
 	for v, cr := range crs {
 		cr := cr
@@ -386,7 +384,7 @@ func TestNewCommitStoreReader(t *testing.T) {
 			if tc.expectedErr == "" {
 				lp.On("RegisterFilter", mock.Anything).Return(nil)
 			}
-			_, err = factory.NewCommitStoreReader(logger.TestLogger(t), factory.NewEvmVersionFinder(), addr, c, lp, nil)
+			_, err = factory.NewCommitStoreReader(logger.TestLogger(t), factory.NewEvmVersionFinder(), addr, c, lp, nil, nil)
 			if tc.expectedErr != "" {
 				require.EqualError(t, err, tc.expectedErr)
 			} else {

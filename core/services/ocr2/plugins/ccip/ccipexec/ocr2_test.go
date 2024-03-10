@@ -423,7 +423,7 @@ func TestExecutionReportingPlugin_buildReport(t *testing.T) {
 	p.commitStoreReader = commitStore
 
 	lp := lpMocks.NewLogPoller(t)
-	offRampReader, err := v1_0_0.NewOffRamp(logger.TestLogger(t), utils.RandomAddress(), nil, lp, nil)
+	offRampReader, err := v1_0_0.NewOffRamp(logger.TestLogger(t), utils.RandomAddress(), nil, lp, nil, nil)
 	assert.NoError(t, err)
 	p.offRampReader = offRampReader
 
@@ -1924,7 +1924,7 @@ func Test_prepareTokenExecData(t *testing.T) {
 }
 
 func encodeExecutionReport(t *testing.T, report cciptypes.ExecReport) []byte {
-	reader, err := v1_2_0.NewOffRamp(logger.TestLogger(t), utils.RandomAddress(), nil, nil, nil)
+	reader, err := v1_2_0.NewOffRamp(logger.TestLogger(t), utils.RandomAddress(), nil, nil, nil, nil)
 	require.NoError(t, err)
 	encodedReport, err := reader.EncodeExecutionReport(report)
 	require.NoError(t, err)

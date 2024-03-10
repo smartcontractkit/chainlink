@@ -41,6 +41,7 @@ func NewCommitOffchainConfig(
 	tokenPriceDeviationPPB uint32,
 	tokenPriceHeartBeat time.Duration,
 	inflightCacheExpiry time.Duration,
+	priceReportingDisabled bool,
 ) cciptypes.CommitOffchainConfig {
 	return cciptypes.CommitOffchainConfig{
 		GasPriceDeviationPPB:   gasPriceDeviationPPB,
@@ -48,6 +49,7 @@ func NewCommitOffchainConfig(
 		TokenPriceDeviationPPB: tokenPriceDeviationPPB,
 		TokenPriceHeartBeat:    tokenPriceHeartBeat,
 		InflightCacheExpiry:    inflightCacheExpiry,
+		PriceReportingDisabled: priceReportingDisabled,
 	}
 }
 

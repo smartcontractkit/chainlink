@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
@@ -35,7 +36,6 @@ func (c *CCIPContracts) createCommitOffchainConfig(t *testing.T, feeUpdateHearBe
 		1,
 		*config.MustNewDuration(feeUpdateHearBeat),
 		1,
-		200e9,
 		*config.MustNewDuration(inflightCacheExpiry),
 	).Encode()
 	require.NoError(t, err)
@@ -64,7 +64,6 @@ func (c *CCIPContracts) createExecOffchainConfig(t *testing.T, inflightCacheExpi
 		1,
 		5_000_000,
 		0.07,
-		200e9,
 		*config.MustNewDuration(inflightCacheExpiry),
 		*config.MustNewDuration(rootSnoozeTime),
 	).Encode()

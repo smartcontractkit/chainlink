@@ -25,7 +25,7 @@ func TestExecutionReportEncodingV120(t *testing.T) {
 		ProofFlagBits:     big.NewInt(133),
 	}
 
-	offRamp, err := v1_2_0.NewOffRamp(logger.TestLogger(t), utils.RandomAddress(), nil, lpmocks.NewLogPoller(t), nil)
+	offRamp, err := v1_2_0.NewOffRamp(logger.TestLogger(t), utils.RandomAddress(), nil, lpmocks.NewLogPoller(t), nil, nil)
 	require.NoError(t, err)
 
 	encodeExecutionReport, err := offRamp.EncodeExecutionReport(report)
