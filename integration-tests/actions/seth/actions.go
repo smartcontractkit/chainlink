@@ -52,27 +52,49 @@ func FundChainlinkNodes(
 	privateKey *ecdsa.PrivateKey,
 	amount *big.Float,
 ) error {
-	refundErrors := []error{}
+	fundingErrors := []error{}
 	for _, cl := range nodes {
 		toAddress, err := cl.PrimaryEthAddress()
 		if err != nil {
 			return err
 		}
 
-		err = SendFunds(logger, client, FundsToSendPayload{
+		fromAddress, err := privateKeyToAddress(privateKey)
+		if err != nil {
+			return err
+		}
+
+		receipt, err := SendFunds(logger, client, FundsToSendPayload{
 			ToAddress:  common.HexToAddress(toAddress),
 			Amount:     conversions.EtherToWei(amount),
 			PrivateKey: privateKey,
 		})
 		if err != nil {
-			refundErrors = append(refundErrors, err)
+			fundingErrors = append(fundingErrors, err)
+
+			logger.Err(err).
+				Str("From", fromAddress.Hex()).
+				Str("To", toAddress).
+				Msg("Failed to fund Chainlink node")
 		}
+
+		txHash := "(none)"
+		if receipt != nil {
+			txHash = receipt.TxHash.String()
+		}
+
+		logger.Info().
+			Str("From", fromAddress.Hex()).
+			Str("To", toAddress).
+			Str("TxHash", txHash).
+			Str("Amount", amount.String()).
+			Msg("Funded Chainlink node")
 	}
 
-	if len(refundErrors) > 0 {
+	if len(fundingErrors) > 0 {
 		var wrapped error
-		for _, e := range refundErrors {
-			wrapped = errors.Wrapf(e, ", ")
+		for _, e := range fundingErrors {
+			wrapped = errors.Wrapf(e, ",")
 		}
 		return fmt.Errorf("failed to fund chainlink nodes due to following errors: %w", wrapped)
 	}
@@ -90,19 +112,17 @@ type FundsToSendPayload struct {
 // TODO: move to CTF?
 // SendFunds sends native token amount (expressed in human-scale) from address controlled by private key
 // to given address. If no gas limit is set, then network's default will be used.
-func SendFunds(logger zerolog.Logger, client *seth.Client, payload FundsToSendPayload) error {
-	ctx, cancel := context.WithTimeout(context.Background(), client.Cfg.Network.TxnTimeout.Duration())
-
-	publicKey := payload.PrivateKey.Public()
-	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
-	if !ok {
-		return errors.New("error casting public key to ECDSA")
+func SendFunds(logger zerolog.Logger, client *seth.Client, payload FundsToSendPayload) (*types.Receipt, error) {
+	fromAddress, err := privateKeyToAddress(payload.PrivateKey)
+	if err != nil {
+		return nil, err
 	}
-	fromAddress := crypto.PubkeyToAddress(*publicKeyECDSA)
+
+	ctx, cancel := context.WithTimeout(context.Background(), client.Cfg.Network.TxnTimeout.Duration())
 	nonce, err := client.Client.PendingNonceAt(ctx, fromAddress)
 	defer cancel()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	gasLimit := uint64(client.Cfg.Network.GasLimit)
@@ -119,17 +139,27 @@ func SendFunds(logger zerolog.Logger, client *seth.Client, payload FundsToSendPa
 	}
 	signedTx, err := types.SignNewTx(payload.PrivateKey, types.NewEIP155Signer(big.NewInt(client.ChainID)), rawTx)
 	if err != nil {
-		return errors.Wrap(err, "failed to sign tx")
+		return nil, errors.Wrap(err, "failed to sign tx")
 	}
 
 	ctx, cancel = context.WithTimeout(ctx, client.Cfg.Network.TxnTimeout.Duration())
 	defer cancel()
 	err = client.Client.SendTransaction(ctx, signedTx)
 	if err != nil {
-		return errors.Wrap(err, "failed to send transaction")
+		return nil, errors.Wrap(err, "failed to send transaction")
 	}
-	_, err = client.WaitMined(ctx, logger, client.Client, signedTx)
-	return err
+
+	logger.Debug().
+		Str("From", fromAddress.Hex()).
+		Str("To", payload.ToAddress.Hex()).
+		Str("TxHash", signedTx.Hash().String()).
+		Str("Amount", conversions.WeiToEther(payload.Amount).String()).
+		Uint64("Nonce", nonce).
+		Uint64("Gas Limit", gasLimit).
+		Int64("Gas Price", client.Cfg.Network.GasPrice).
+		Msg("Sent funds")
+
+	return client.WaitMined(ctx, logger, client.Client, signedTx)
 }
 
 // DeployForwarderContracts first deploys Operator Factory and then uses it to deploy given number of
@@ -525,4 +555,13 @@ func deployAnyOCRv1Contracts(
 	}
 
 	return ocrInstances, nil
+}
+
+func privateKeyToAddress(privateKey *ecdsa.PrivateKey) (common.Address, error) {
+	publicKey := privateKey.Public()
+	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
+	if !ok {
+		return common.Address{}, errors.New("error casting public key to ECDSA")
+	}
+	return crypto.PubkeyToAddress(*publicKeyECDSA), nil
 }

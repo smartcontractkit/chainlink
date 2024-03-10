@@ -6,6 +6,41 @@ on:
     tags:
       - "*"
   workflow_dispatch:
+    inputs:
+      cl_ref:
+        description: 'The ref to checkout, defaults to the calling branch'
+        required: false
+        type: string
+      dep_evm_sha:
+        description: 'The sha of the chainlink-evm commit to use if wanted'
+        required: false
+        type: string
+      set_changes_output:
+        description: 'Set the changes output'
+        required: false
+        type: string
+        default: 'true'
+  workflow_call:
+    inputs:
+      cl_ref:
+        description: 'The ref to checkout'
+        required: false
+        type: string
+        default: 'develop'
+      dep_evm_sha:
+        description: 'The sha of the chainlink-evm commit to use if wanted'
+        required: false
+        type: string
+      set_changes_output:
+        description: 'Set the changes output'
+        required: false
+        type: string
+        default: 'true'
+      run_solana:
+        description: 'Run solana tests'
+        required: false
+        type: string
+        default: 'false'
 
 # Only run 1 of this workflow at a time per PR
 concurrency:
@@ -25,9 +60,15 @@ jobs:
   enforce-ctf-version:
     name: Enforce CTF Version
     runs-on: ubuntu-latest
+    # We don't directly merge dependabot PRs, so let's not waste the resources
+    if: github.actor != 'dependabot[bot]'
     steps:
+      - run: echo "${{github.event_name}}"
       - name: Checkout the repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          repository: smartcontractkit/chainlink
+          ref: ${{ inputs.cl_ref }}
       - name: Check Merge Group Condition
         id: condition-check
         run: |
@@ -54,9 +95,14 @@ jobs:
     environment: integration
     name: Check Paths That Require Tests To Run
     runs-on: ubuntu-latest
+    # We don't directly merge dependabot PRs, so let's not waste the resources
+    if: github.actor != 'dependabot[bot]'
     steps:
       - name: Checkout the repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          repository: smartcontractkit/chainlink
+          ref: ${{ inputs.cl_ref }}
       - uses: dorny/paths-filter@0bc4621a3135347011ad047f9ecf449bf72ce2bd # v3.0.0
         id: changes
         with:
@@ -80,11 +126,13 @@ jobs:
           this-job-name: Check Paths That Require Tests To Run
         continue-on-error: true
     outputs:
-      src: ${{ steps.changes.outputs.src }}
+      src: ${{ inputs.set_changes_output || steps.changes.outputs.src }}
 
   build-lint-integration-tests:
     name: Build and Lint integration-tests
     runs-on: ubuntu20.04-16cores-64GB
+    # We don't directly merge dependabot PRs, so let's not waste the resources
+    if: github.actor != 'dependabot[bot]'
     strategy:
       matrix:
         project:
@@ -97,6 +145,9 @@ jobs:
     steps:
       - name: Checkout the repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          repository: smartcontractkit/chainlink
+          ref: ${{ inputs.cl_ref }}
       - name: Setup Go
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-go@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
         with:
@@ -152,7 +203,8 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+          repository: smartcontractkit/chainlink
+          ref: ${{ inputs.cl_ref || github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       - name: Build Chainlink Image
         if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
         uses: ./.github/actions/build-chainlink-image
@@ -160,10 +212,9 @@ jobs:
           tag_suffix: ${{ matrix.image.tag-suffix }}
           dockerfile: ${{ matrix.image.dockerfile }}
           git_commit_sha: ${{ github.sha }}
-          GRAFANA_CLOUD_BASIC_AUTH: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          GRAFANA_CLOUD_HOST: ${{ secrets.GRAFANA_CLOUD_HOST }}
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          dep_evm_sha: ${{ inputs.dep_evm_sha }}
 
   build-test-image:
     if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'schedule' || contains(join(github.event.pull_request.labels.*.name, ' '), 'build-test-image')
@@ -188,7 +239,8 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+          repository: smartcontractkit/chainlink
+          ref: ${{ inputs.cl_ref || github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       - name: Build Test Image
         if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
         uses: ./.github/actions/build-test-image
@@ -212,6 +264,9 @@ jobs:
           exit 0
       - name: Checkout the repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          repository: smartcontractkit/chainlink
+          ref: ${{ inputs.cl_ref }}
       - name: Compare Test Lists
         run: |
           cd ./integration-tests
@@ -270,17 +325,19 @@ jobs:
       - name: Collect Metrics
         if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d1618b772a97fd87e6505de97b872ee0b1f1729a # v2.0.2
+        uses: smartcontractkit/push-gha-metrics-action@0281b09807758be1dcc41651e44e62b353808c47 # v2.1.0
         with:
-          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           this-job-name: ETH Smoke Tests ${{ matrix.product.name }}
           test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
         continue-on-error: true
       - name: Checkout the repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+          repository: smartcontractkit/chainlink
+          ref: ${{ inputs.cl_ref || github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       - name: Build Go Test Command
         id: build-go-test-command
         run: |
@@ -301,9 +358,9 @@ jobs:
           pyroscopeServer: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
           pyroscopeEnvironment: ${{ matrix.product.pyroscope_env }}
           pyroscopeKey: ${{ secrets.QA_PYROSCOPE_KEY }}
-          lokiEndpoint: ${{ secrets.LOKI_URL }}
-          lokiTenantId: ${{ vars.LOKI_TENANT_ID }}
-          lokiBasicAuth: ${{ secrets.LOKI_BASIC_AUTH }}
+          lokiEndpoint: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
+          lokiTenantId: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          lokiBasicAuth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
           grafanaUrl: ${{ vars.GRAFANA_URL }}
           grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
@@ -368,7 +425,8 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+          repository: smartcontractkit/chainlink
+          ref: ${{ inputs.cl_ref || github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       - name: Build Go Test Command
         id: build-go-test-command
         run: |
@@ -389,9 +447,9 @@ jobs:
           pyroscopeServer: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
           pyroscopeEnvironment: ${{ matrix.product.pyroscope_env }}
           pyroscopeKey: ${{ secrets.QA_PYROSCOPE_KEY }}
-          lokiEndpoint: ${{ secrets.LOKI_URL }}
-          lokiTenantId: ${{ vars.LOKI_TENANT_ID }}
-          lokiBasicAuth: ${{ secrets.LOKI_BASIC_AUTH }}
+          lokiEndpoint: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
+          lokiTenantId: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          lokiBasicAuth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
           grafanaUrl: ${{ vars.GRAFANA_URL }}
           grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
@@ -420,6 +478,7 @@ jobs:
     if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
     environment: integration
     permissions:
+      actions: read
       checks: write
       pull-requests: write
       id-token: write
@@ -453,12 +512,12 @@ jobs:
             pyroscope_env: ci-smoke-ocr-evm-simulated
           - name: ocr2
             nodes: 6
-            os: ubuntu-latest
+            os: ubuntu20.04-16cores-64GB
             file: ocr2
             pyroscope_env: ci-smoke-ocr2-evm-simulated
           - name: ocr2
             nodes: 6
-            os: ubuntu-latest
+            os: ubuntu20.04-16cores-64GB
             pyroscope_env: ci-smoke-ocr2-plugins-evm-simulated
             tag_suffix: "-plugins"
           - name: vrf
@@ -484,6 +543,9 @@ jobs:
     runs-on: ${{ matrix.product.os }}
     name: ETH Smoke Tests ${{ matrix.product.name }}${{ matrix.product.tag_suffix }}
     steps:
+      # Handy for debugging resource usage
+      # - name: Collect Workflow Telemetry
+      #   uses: catchpoint/workflow-telemetry-action@v2
       - name: Collect Metrics
         if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
         id: collect-gha-metrics
@@ -498,7 +560,8 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+          repository: smartcontractkit/chainlink
+          ref: ${{ inputs.cl_ref || github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       - name: Build Go Test Command
         id: build-go-test-command
         run: |
@@ -571,9 +634,9 @@ jobs:
           pyroscopeServer: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
           pyroscopeEnvironment: ${{ matrix.product.pyroscope_env }}
           pyroscopeKey: ${{ secrets.QA_PYROSCOPE_KEY }}
-          lokiEndpoint: ${{ secrets.LOKI_URL }}
-          lokiTenantId: ${{ vars.LOKI_TENANT_ID }}
-          lokiBasicAuth: ${{ secrets.LOKI_BASIC_AUTH }}
+          lokiEndpoint: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
+          lokiTenantId: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          lokiBasicAuth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
           grafanaUrl: ${{ vars.GRAFANA_URL }}
           grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
@@ -665,6 +728,9 @@ jobs:
       - name: Checkout repo
         if: ${{ github.event_name == 'pull_request' }}
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          repository: smartcontractkit/chainlink
+          ref: ${{ inputs.cl_ref }}
 
       - name: 🧼 Clean up Environment
         if: ${{ github.event_name == 'pull_request' }}
@@ -696,7 +762,8 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+          repository: smartcontractkit/chainlink
+          ref: ${{ inputs.cl_ref || github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       - name: Run Setup
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-go@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
         with:
@@ -735,7 +802,8 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+          repository: smartcontractkit/chainlink
+          ref: ${{ inputs.cl_ref || github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       - name: Get Latest Version
         id: get_latest_version
         run: |
@@ -791,6 +859,8 @@ jobs:
 
   ## Solana Section
   get_solana_sha:
+    # We don't directly merge dependabot PRs, so let's not waste the resources
+    if: ${{ github.actor != 'dependabot[bot]' && inputs.run_solana != 'false' }}
     name: Get Solana Sha From Go Mod
     environment: Integration
     runs-on: ubuntu-latest
@@ -800,7 +870,8 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+          repository: smartcontractkit/chainlink
+          ref: ${{ inputs.cl_ref || github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       - name: Setup Go
         uses: ./.github/actions/setup-go
         with:

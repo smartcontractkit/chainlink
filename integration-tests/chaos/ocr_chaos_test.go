@@ -64,8 +64,8 @@ func TestOCRChaos(t *testing.T) {
 	require.NoError(t, err, "Error getting config")
 
 	var overrideFn = func(_ interface{}, target interface{}) {
-		ctf_config.MustConfigOverrideChainlinkVersion(config.ChainlinkImage, target)
-		ctf_config.MightConfigOverridePyroscopeKey(config.Pyroscope, target)
+		ctf_config.MustConfigOverrideChainlinkVersion(config.GetChainlinkImageConfig(), target)
+		ctf_config.MightConfigOverridePyroscopeKey(config.GetPyroscopeConfig(), target)
 	}
 
 	chainlinkCfg := chainlink.NewWithOverride(0, getDefaultOcrSettings(&config), config.ChainlinkImage, overrideFn)

@@ -71,7 +71,7 @@ contract ExposedVRFCoordinatorV2_5 is VRFCoordinatorV2_5 {
     uint256 weiPerUnitGas,
     bool nativePayment,
     bool onlyPremium
-  ) external returns (uint96) {
+  ) external view returns (uint96) {
     return _calculatePaymentAmount(startGas, weiPerUnitGas, nativePayment, onlyPremium);
   }
 }
