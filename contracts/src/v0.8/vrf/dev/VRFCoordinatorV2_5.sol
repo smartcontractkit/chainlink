@@ -181,10 +181,6 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     if (fulfillmentFlatFeeLinkDiscountPPM > fulfillmentFlatFeeNativePPM) {
       revert LinkDiscountTooHigh(fulfillmentFlatFeeLinkDiscountPPM, fulfillmentFlatFeeNativePPM);
     }
-    // After payment, there is at least one SLOAD and one SSTORE
-    if (gasAfterPaymentCalculation < 4000) {
-      revert InvalidGasAfterPaymentCalculation(gasAfterPaymentCalculation, 4000);
-    }
     s_config = Config({
       minimumRequestConfirmations: minimumRequestConfirmations,
       maxGasLimit: maxGasLimit,
