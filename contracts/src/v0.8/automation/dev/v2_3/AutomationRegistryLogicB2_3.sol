@@ -150,11 +150,14 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
     uint256 available = linkAvailableForPayment();
     if (amount > available) revert InsufficientBalance(available, amount);
 
-    i_link.transfer(to, amount);
+    bool transferStatus = i_link.transfer(to, amount);
+    if (!transferStatus) {
+      revert TransferFailed();
+    }
     emit FeesWithdrawn(to, address(i_link), amount);
   }
 
-  function withdrawNonLinkFees(address assetAddress, address to, uint256 amount) external {
+  function withdrawERC20Fees(address assetAddress, address to, uint256 amount) external {
     _onlyFinanceAdminAllowed();
     if (to == ZERO_ADDRESS) revert InvalidRecipient();
 
@@ -455,6 +458,7 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
   {
     state = State({
       nonce: s_storage.nonce,
+      ownerLinkBalance: 0,
       expectedLinkBalance: s_reserveLinkBalance,
       totalPremium: s_hotVars.totalPremium,
       numUpkeeps: s_upkeepIDs.length(),

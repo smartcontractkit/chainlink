@@ -9,14 +9,15 @@ import {AutomationRegistryLogicB2_3} from "../v2_3/AutomationRegistryLogicB2_3.s
 import {IAutomationRegistryMaster2_3, AutomationRegistryBase2_3} from "../interfaces/v2_3/IAutomationRegistryMaster2_3.sol";
 import {ChainModuleBase} from "../../chains/ChainModuleBase.sol";
 import {MockV3Aggregator} from "../../../tests/MockV3Aggregator.sol";
+import {ERC20Mock} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/mocks/ERC20Mock.sol";
 
 contract AutomationRegistry2_3_SetUp is BaseTest {
   address internal LINK_USD_FEED;
   address internal NATIVE_USD_FEED;
   address internal FAST_GAS_FEED;
-  address internal constant LINK_TOKEN = 0x1111111111111111111111111111111111111113;
   address internal constant FINANCE_ADMIN_ADDRESS = 0x1111111111111111111111111111111111111114;
   address internal constant ZERO_ADDRESS = address(0);
+  address internal constant UPKEEP_ADMIN = address(uint160(uint256(keccak256("ADMIN"))));
 
   // Signer private keys used for these test
   uint256 internal constant PRIVATE0 = 0x7b2e97fe057e6de99d6872a2ef2abf52c9b4469bc848c2465ac3fcd8d336e81d;
@@ -32,11 +33,16 @@ contract AutomationRegistry2_3_SetUp is BaseTest {
   address[] internal s_registrars;
 
   IAutomationRegistryMaster2_3 internal registryMaster;
+  ERC20Mock internal link; // the link token
+  ERC20Mock internal mockERC20; // the supported ERC20 tokens except link
 
   function setUp() public override {
     LINK_USD_FEED = address(new MockV3Aggregator(8, 2_000_000_000)); // $20
     NATIVE_USD_FEED = address(new MockV3Aggregator(8, 400_000_000_000)); // $4,000
     FAST_GAS_FEED = address(new MockV3Aggregator(0, 1_000_000_000)); // 1 gwei
+
+    link = new ERC20Mock("LINK", "LINK", UPKEEP_ADMIN, 0);
+    mockERC20 = new ERC20Mock("MOCK_ERC20", "MOCK_ERC20", UPKEEP_ADMIN, 0);
 
     s_valid_transmitters = new address[](4);
     for (uint160 i = 0; i < 4; ++i) {
@@ -54,7 +60,7 @@ contract AutomationRegistry2_3_SetUp is BaseTest {
 
     AutomationForwarderLogic forwarderLogic = new AutomationForwarderLogic();
     AutomationRegistryLogicB2_3 logicB2_3 = new AutomationRegistryLogicB2_3(
-      LINK_TOKEN,
+      address(link),
       LINK_USD_FEED,
       NATIVE_USD_FEED,
       FAST_GAS_FEED,
@@ -86,6 +92,146 @@ contract AutomationRegistry2_3_CheckUpkeep is AutomationRegistry2_3_SetUp {
     // Expecting a revert since the tx.origin is not address(0)
     vm.expectRevert(abi.encodeWithSelector(IAutomationRegistryMaster2_3.OnlySimulatedBackend.selector));
     registryMaster.checkUpkeep(id, triggerData);
+  }
+}
+
+contract AutomationRegistry2_3_Withdraw is AutomationRegistry2_3_SetUp {
+  address internal aMockAddress = address(0x1111111111111111111111111111111111111113);
+
+  function mintLink(address recipient, uint256 amount) public {
+    vm.prank(UPKEEP_ADMIN);
+    //mint the link to the recipient
+    link.mint(recipient, amount);
+  }
+
+  function mintERC20(address recipient, uint256 amount) public {
+    vm.prank(UPKEEP_ADMIN);
+    //mint the ERC20 to the recipient
+    mockERC20.mint(recipient, amount);
+  }
+
+  function setConfigForWithdraw() public {
+    address module = address(new ChainModuleBase());
+    AutomationRegistryBase2_3.OnchainConfig memory cfg = AutomationRegistryBase2_3.OnchainConfig({
+      paymentPremiumPPB: 10_000,
+      flatFeeMicroLink: 40_000,
+      checkGasLimit: 5_000_000,
+      stalenessSeconds: 90_000,
+      gasCeilingMultiplier: 0,
+      minUpkeepSpend: 0,
+      maxPerformGas: 10_000_000,
+      maxCheckDataSize: 5_000,
+      maxPerformDataSize: 5_000,
+      maxRevertDataSize: 5_000,
+      fallbackGasPrice: 20_000_000_000,
+      fallbackLinkPrice: 2_000_000_000, // $20
+      fallbackNativePrice: 400_000_000_000, // $4,000
+      transcoder: 0xB1e66855FD67f6e85F0f0fA38cd6fBABdf00923c,
+      registrars: s_registrars,
+      upkeepPrivilegeManager: 0xD9c855F08A7e460691F41bBDDe6eC310bc0593D8,
+      chainModule: module,
+      reorgProtectionEnabled: true,
+      financeAdmin: FINANCE_ADMIN_ADDRESS
+    });
+    bytes memory offchainConfigBytes = abi.encode(1234, ZERO_ADDRESS);
+
+    registryMaster.setConfigTypeSafe(
+      s_valid_signers,
+      s_valid_transmitters,
+      F,
+      cfg,
+      OFFCHAIN_CONFIG_VERSION,
+      offchainConfigBytes,
+      new address[](0),
+      new AutomationRegistryBase2_3.BillingConfig[](0)
+    );
+  }
+
+  function testLinkAvailableForPaymentReturnsLinkBalance() public {
+    //simulate a deposit of link to the liquidity pool
+    mintLink(address(registryMaster), 1e10);
+
+    //check there's a balance
+    assertGt(link.balanceOf(address(registryMaster)), 0);
+
+    //check the link available for payment is the link balance
+    assertEq(registryMaster.linkAvailableForPayment(), link.balanceOf(address(registryMaster)));
+  }
+
+  function testWithdrawLinkFeesRevertsBecauseOnlyFinanceAdminAllowed() public {
+    // set config with the finance admin
+    setConfigForWithdraw();
+
+    vm.expectRevert(abi.encodeWithSelector(IAutomationRegistryMaster2_3.OnlyFinanceAdmin.selector));
+    registryMaster.withdrawLinkFees(aMockAddress, 1);
+  }
+
+  function testWithdrawLinkFeesRevertsBecauseOfInsufficientBalance() public {
+    // set config with the finance admin
+    setConfigForWithdraw();
+
+    vm.startPrank(FINANCE_ADMIN_ADDRESS);
+
+    // try to withdraw 1 link while there is 0 balance
+    vm.expectRevert(abi.encodeWithSelector(IAutomationRegistryMaster2_3.InsufficientBalance.selector, 0, 1));
+    registryMaster.withdrawLinkFees(aMockAddress, 1);
+
+    vm.stopPrank();
+  }
+
+  function testWithdrawLinkFeesRevertsBecauseOfInvalidRecipient() public {
+    // set config with the finance admin
+    setConfigForWithdraw();
+
+    vm.startPrank(FINANCE_ADMIN_ADDRESS);
+
+    // try to withdraw 1 link while there is 0 balance
+    vm.expectRevert(abi.encodeWithSelector(IAutomationRegistryMaster2_3.InvalidRecipient.selector));
+    registryMaster.withdrawLinkFees(ZERO_ADDRESS, 1);
+
+    vm.stopPrank();
+  }
+
+  function testWithdrawLinkFeeSuccess() public {
+    // set config with the finance admin
+    setConfigForWithdraw();
+
+    //simulate a deposit of link to the liquidity pool
+    mintLink(address(registryMaster), 1e10);
+
+    //check there's a balance
+    assertGt(link.balanceOf(address(registryMaster)), 0);
+
+    vm.startPrank(FINANCE_ADMIN_ADDRESS);
+
+    // try to withdraw 1 link while there is a ton of link available
+    registryMaster.withdrawLinkFees(aMockAddress, 1);
+
+    vm.stopPrank();
+
+    assertEq(link.balanceOf(address(aMockAddress)), 1);
+    assertEq(link.balanceOf(address(registryMaster)), 1e10 - 1);
+  }
+
+  function testWithdrawERC20FeeSuccess() public {
+    // set config with the finance admin
+    setConfigForWithdraw();
+
+    // simulate a deposit of ERC20 to the liquidity pool
+    mintERC20(address(registryMaster), 1e10);
+
+    // check there's a balance
+    assertGt(mockERC20.balanceOf(address(registryMaster)), 0);
+
+    vm.startPrank(FINANCE_ADMIN_ADDRESS);
+
+    // try to withdraw 1 link while there is a ton of link available
+    registryMaster.withdrawERC20Fees(address(mockERC20), aMockAddress, 1);
+
+    vm.stopPrank();
+
+    assertEq(mockERC20.balanceOf(address(aMockAddress)), 1);
+    assertEq(mockERC20.balanceOf(address(registryMaster)), 1e10 - 1);
   }
 }
 

@@ -179,6 +179,7 @@ describe('AutomationRegistrar2_3', () => {
       upkeepPrivilegeManager: upkeepManager,
       chainModule: chainModuleBase.address,
       reorgProtectionEnabled: true,
+      financeAdmin: await admin.getAddress(),
     }
     await registry
       .connect(owner)

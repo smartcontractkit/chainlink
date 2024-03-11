@@ -122,6 +122,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   error IncorrectNumberOfSignatures();
   error IncorrectNumberOfSigners();
   error IndexOutOfRange();
+  error InsufficientBalance(uint256 available, uint256 requested);
   error InvalidDataLength();
   error InvalidFeed();
   error InvalidTrigger();
@@ -145,6 +146,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   error OnlyCallableByProposedAdmin();
   error OnlyCallableByProposedPayee();
   error OnlyCallableByUpkeepPrivilegeManager();
+  error OnlyFinanceAdmin();
   error OnlyPausedUpkeep();
   error OnlySimulatedBackend();
   error OnlyUnpausedUpkeep();
@@ -157,15 +159,13 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   error TargetCheckReverted(bytes reason);
   error TooManyOracles();
   error TranscoderNotSet();
+  error TransferFailed();
   error UpkeepAlreadyExists();
   error UpkeepCancelled();
   error UpkeepNotCanceled();
   error UpkeepNotNeeded();
   error ValueNotChanged();
   error ZeroAddressNotAllowed();
-  error OnlyFinanceAdmin();
-  error TransferFailed();
-  error InsufficientBalance(uint256 available, uint256 requested);
 
   enum MigrationPermission {
     NONE,
@@ -279,7 +279,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     address upkeepPrivilegeManager;
     IChainModule chainModule;
     bool reorgProtectionEnabled;
-    address financeAdmin;
+    address financeAdmin; // TODO: pack this struct better
   }
 
   /**
@@ -298,6 +298,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
    */
   struct State {
     uint32 nonce;
+    uint96 ownerLinkBalance;
     uint256 expectedLinkBalance;
     uint96 totalPremium;
     uint256 numUpkeeps;
