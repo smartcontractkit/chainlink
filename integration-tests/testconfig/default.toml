@@ -86,7 +86,8 @@ gas_tip_cap = 10_000_000_000
 name = "Mumbai"
 chain_id = "80001"
 transaction_timeout = "3m"
-transfer_gas_fee = 21_000
+transfer_gas_fee = 40_000
+gas_limit = 10_000_000
 # legacy transactions
 #gas_price = 1_800_000_000
 # EIP-1559 transactions
