@@ -87,12 +87,12 @@ name = "Mumbai"
 chain_id = "80001"
 transaction_timeout = "3m"
 transfer_gas_fee = 40_000
-gas_limit = 10_000_000
+gas_limit = 6_000_000
 # legacy transactions
 #gas_price = 1_800_000_000
 # EIP-1559 transactions
 eip_1559_dynamic_fees = true
-gas_fee_cap = 1_800_000_000
+gas_fee_cap = 3_800_000_000
 gas_tip_cap = 1_800_000_000
 
 [[Seth.networks]]
@@ -105,5 +105,5 @@ gas_limit = 3_000_000
 gas_price = 50_000_000
 # EIP-1559 transactions
 #eip_1559_dynamic_fees = true
-gas_fee_cap = 1_800_000_000
+gas_fee_cap = 3_800_000_000
 gas_tip_cap = 1_800_000_000
