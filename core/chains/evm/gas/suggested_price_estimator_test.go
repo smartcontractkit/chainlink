@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -87,7 +87,7 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 		client := mocks.NewRPCClient(t)
 		o := gas.NewSuggestedPriceEstimator(logger.Test(t), client, cfg)
 
-		client.On("CallContext", mock.Anything, mock.Anything, "eth_gasPrice").Return(errors.New("kaboom"))
+		client.On("CallContext", mock.Anything, mock.Anything, "eth_gasPrice").Return(pkgerrors.New("kaboom"))
 
 		servicetest.RunHealthy(t, o)
 
@@ -203,7 +203,7 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 		client := mocks.NewRPCClient(t)
 		o := gas.NewSuggestedPriceEstimator(logger.Test(t), client, cfg)
 
-		client.On("CallContext", mock.Anything, mock.Anything, "eth_gasPrice").Return(errors.New("kaboom"))
+		client.On("CallContext", mock.Anything, mock.Anything, "eth_gasPrice").Return(pkgerrors.New("kaboom"))
 
 		servicetest.RunHealthy(t, o)
 
@@ -219,7 +219,7 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 			res := args.Get(1).(*hexutil.Big)
 			(*big.Int)(res).SetInt64(40)
 		}).Once()
-		client.On("CallContext", mock.Anything, mock.Anything, "eth_gasPrice").Return(errors.New("kaboom"))
+		client.On("CallContext", mock.Anything, mock.Anything, "eth_gasPrice").Return(pkgerrors.New("kaboom"))
 
 		servicetest.RunHealthy(t, o)
 

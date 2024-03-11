@@ -92,3 +92,6 @@ tools/flakeytests/coverage.txt
 
 # Runtime test configuration that might contain secrets
 overrides.toml
+
+# Pythin venv
+.venv/
