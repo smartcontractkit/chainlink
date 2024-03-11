@@ -268,8 +268,8 @@ func (rcs *KeeperRegistrySettings) Create22OnchainConfig(registrar string, regis
 	}
 }
 
-func (rcs *KeeperRegistrySettings) Create21OnchainConfig(registrar string, registryOwnerAddress common.Address) i_keeper_registry_master_wrapper_2_1.KeeperRegistryBase21OnchainConfig {
-	return i_keeper_registry_master_wrapper_2_1.KeeperRegistryBase21OnchainConfig{
+func (rcs *KeeperRegistrySettings) Create21OnchainConfig(registrar string, registryOwnerAddress common.Address) i_keeper_registry_master_wrapper_2_1.IAutomationV21PlusCommonOnchainConfigLegacy {
+	return i_keeper_registry_master_wrapper_2_1.IAutomationV21PlusCommonOnchainConfigLegacy{
 		PaymentPremiumPPB:      rcs.PaymentPremiumPPB,
 		FlatFeeMicroLink:       rcs.FlatFeeMicroLINK,
 		CheckGasLimit:          rcs.CheckGasLimit,

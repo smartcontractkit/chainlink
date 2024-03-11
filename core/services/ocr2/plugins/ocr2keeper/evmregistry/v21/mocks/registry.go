@@ -108,22 +108,22 @@ func (_m *Registry) GetState(opts *bind.CallOpts) (i_automation_v21_plus_common.
 }
 
 // GetUpkeep provides a mock function with given fields: opts, id
-func (_m *Registry) GetUpkeep(opts *bind.CallOpts, id *big.Int) (i_automation_v21_plus_common.IAutomationV21PlusCommonUpkeepInfo, error) {
+func (_m *Registry) GetUpkeep(opts *bind.CallOpts, id *big.Int) (i_automation_v21_plus_common.IAutomationV21PlusCommonUpkeepInfoLegacy, error) {
 	ret := _m.Called(opts, id)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetUpkeep")
 	}
 
-	var r0 i_automation_v21_plus_common.IAutomationV21PlusCommonUpkeepInfo
+	var r0 i_automation_v21_plus_common.IAutomationV21PlusCommonUpkeepInfoLegacy
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts, *big.Int) (i_automation_v21_plus_common.IAutomationV21PlusCommonUpkeepInfo, error)); ok {
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts, *big.Int) (i_automation_v21_plus_common.IAutomationV21PlusCommonUpkeepInfoLegacy, error)); ok {
 		return rf(opts, id)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts, *big.Int) i_automation_v21_plus_common.IAutomationV21PlusCommonUpkeepInfo); ok {
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts, *big.Int) i_automation_v21_plus_common.IAutomationV21PlusCommonUpkeepInfoLegacy); ok {
 		r0 = rf(opts, id)
 	} else {
-		r0 = ret.Get(0).(i_automation_v21_plus_common.IAutomationV21PlusCommonUpkeepInfo)
+		r0 = ret.Get(0).(i_automation_v21_plus_common.IAutomationV21PlusCommonUpkeepInfoLegacy)
 	}
 
 	if rf, ok := ret.Get(1).(func(*bind.CallOpts, *big.Int) error); ok {

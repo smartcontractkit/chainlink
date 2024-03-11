@@ -1940,7 +1940,7 @@ type OCRv2Config struct {
 	Transmitters          []common.Address
 	F                     uint8
 	OnchainConfig         []byte
-	TypedOnchainConfig21  i_keeper_registry_master_wrapper_2_1.KeeperRegistryBase21OnchainConfig
+	TypedOnchainConfig21  i_keeper_registry_master_wrapper_2_1.IAutomationV21PlusCommonOnchainConfigLegacy
 	TypedOnchainConfig22  i_automation_registry_master_wrapper_2_2.AutomationRegistryBase22OnchainConfig
 	OffchainConfigVersion uint64
 	OffchainConfig        []byte
