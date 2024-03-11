@@ -104,7 +104,7 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool, automationTestConfig t
 		name := n
 		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
-			cfg := tc.MustCopy(automationTestConfig)
+			cfg := tc.MustCopyTomlStruct(automationTestConfig)
 			t.Parallel()
 			l := logging.GetTestLogger(t)
 

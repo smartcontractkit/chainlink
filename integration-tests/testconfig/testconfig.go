@@ -156,19 +156,24 @@ func (c *TestConfig) Save() (string, error) {
 }
 
 // MustCopy Returns a deep copy of the Test Config or panics on error
-func (c *TestConfig) MustCopy() TestConfig {
-	asBytes, err := toml.Marshal(c)
+func (c TestConfig) MustCopy() TestConfig {
+	return MustCopyTomlStruct(c)
+}
+
+// MustCopyTomlStruct Returns a deep copy of the given TOML struct or panics on error
+func MustCopyTomlStruct[T any](structure T) T {
+	asBytes, err := toml.Marshal(structure)
 	if err != nil {
 		panic(err)
 	}
 
-	var copy TestConfig
-	err = toml.Unmarshal(asBytes, &copy)
+	var c T
+	err = toml.Unmarshal(asBytes, &c)
 	if err != nil {
 		panic(err)
 	}
 
-	return copy
+	return c
 }
 
 func (c *TestConfig) GetLoggingConfig() *ctf_config.LoggingConfig {
