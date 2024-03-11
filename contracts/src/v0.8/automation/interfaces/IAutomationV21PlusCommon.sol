@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.4;
 
-import {AutomationRegistryBase2_2} from "../v2_2/AutomationRegistryBase2_2.sol";
-
 interface IAutomationV21PlusCommon {
   // registry events
   event AdminPrivilegeConfigSet(address indexed admin, bytes privilegeConfig);
@@ -129,6 +127,76 @@ interface IAutomationV21PlusCommon {
     bytes32 blockHash;
   }
 
+  /**
+   * @notice state of the registry
+   * @dev only used in params and return values
+   * @dev this will likely be deprecated in a future version of the registry in favor of individual getters
+   * @member nonce used for ID generation
+   * @member ownerLinkBalance withdrawable balance of LINK by contract owner
+   * @member expectedLinkBalance the expected balance of LINK of the registry
+   * @member totalPremium the total premium collected on registry so far
+   * @member numUpkeeps total number of upkeeps on the registry
+   * @member configCount ordinal number of current config, out of all configs applied to this contract so far
+   * @member latestConfigBlockNumber last block at which this config was set
+   * @member latestConfigDigest domain-separation tag for current config
+   * @member latestEpoch for which a report was transmitted
+   * @member paused freeze on execution scoped to the entire registry
+   */
+  struct State {
+    uint32 nonce;
+    uint96 ownerLinkBalance;
+    uint256 expectedLinkBalance;
+    uint96 totalPremium;
+    uint256 numUpkeeps;
+    uint32 configCount;
+    uint32 latestConfigBlockNumber;
+    bytes32 latestConfigDigest;
+    uint32 latestEpoch;
+    bool paused;
+  }
+
+  /**
+   * @notice OnchainConfigLegacy of the registry
+   * @dev only used in params and return values
+   * @member paymentPremiumPPB payment premium rate oracles receive on top of
+   * being reimbursed for gas, measured in parts per billion
+   * @member flatFeeMicroLink flat fee paid to oracles for performing upkeeps,
+   * priced in MicroLink; can be used in conjunction with or independently of
+   * paymentPremiumPPB
+   * @member checkGasLimit gas limit when checking for upkeep
+   * @member stalenessSeconds number of seconds that is allowed for feed data to
+   * be stale before switching to the fallback pricing
+   * @member gasCeilingMultiplier multiplier to apply to the fast gas feed price
+   * when calculating the payment ceiling for keepers
+   * @member minUpkeepSpend minimum LINK that an upkeep must spend before cancelling
+   * @member maxPerformGas max performGas allowed for an upkeep on this registry
+   * @member maxCheckDataSize max length of checkData bytes
+   * @member maxPerformDataSize max length of performData bytes
+   * @member maxRevertDataSize max length of revertData bytes
+   * @member fallbackGasPrice gas price used if the gas price feed is stale
+   * @member fallbackLinkPrice LINK price used if the LINK price feed is stale
+   * @member transcoder address of the transcoder contract
+   * @member registrars addresses of the registrar contracts
+   * @member upkeepPrivilegeManager address which can set privilege for upkeeps
+   */
+  struct OnchainConfigLegacy {
+    uint32 paymentPremiumPPB;
+    uint32 flatFeeMicroLink; // min 0.000001 LINK, max 4294 LINK
+    uint32 checkGasLimit;
+    uint24 stalenessSeconds;
+    uint16 gasCeilingMultiplier;
+    uint96 minUpkeepSpend;
+    uint32 maxPerformGas;
+    uint32 maxCheckDataSize;
+    uint32 maxPerformDataSize;
+    uint32 maxRevertDataSize;
+    uint256 fallbackGasPrice;
+    uint256 fallbackLinkPrice;
+    address transcoder;
+    address[] registrars;
+    address upkeepPrivilegeManager;
+  }
+
   function checkUpkeep(
     uint256 id,
     bytes memory triggerData
@@ -184,8 +252,8 @@ interface IAutomationV21PlusCommon {
     external
     view
     returns (
-      AutomationRegistryBase2_2.State memory state,
-      AutomationRegistryBase2_2.OnchainConfigLegacy memory config,
+      State memory state,
+      OnchainConfigLegacy memory config,
       address[] memory signers,
       address[] memory transmitters,
       uint8 f

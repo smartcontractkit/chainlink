@@ -343,7 +343,7 @@ func (v *EthereumKeeperRegistry) SetConfigTypeSafe(ocrConfig OCRv2Config) error 
 			ocrConfig.Signers,
 			ocrConfig.Transmitters,
 			ocrConfig.F,
-			ocrConfig.TypedOnchainConfigLegacy,
+			ocrConfig.TypedOnchainConfig21,
 			ocrConfig.OffchainConfigVersion,
 			ocrConfig.OffchainConfig,
 		)
@@ -356,7 +356,7 @@ func (v *EthereumKeeperRegistry) SetConfigTypeSafe(ocrConfig OCRv2Config) error 
 			ocrConfig.Signers,
 			ocrConfig.Transmitters,
 			ocrConfig.F,
-			ocrConfig.TypedOnchainConfig,
+			ocrConfig.TypedOnchainConfig22,
 			ocrConfig.OffchainConfigVersion,
 			ocrConfig.OffchainConfig,
 		)

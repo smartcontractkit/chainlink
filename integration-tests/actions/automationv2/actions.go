@@ -517,9 +517,9 @@ func (a *AutomationTest) SetConfigOnRegistry() error {
 		}
 	} else {
 		if a.RegistrySettings.RegistryVersion == ethereum.RegistryVersion_2_1 {
-			ocrConfig.TypedOnchainConfigLegacy = a.RegistrySettings.Create21OnchainConfig(a.Registrar.Address(), a.UpkeepPrivilegeManager)
+			ocrConfig.TypedOnchainConfig21 = a.RegistrySettings.Create21OnchainConfig(a.Registrar.Address(), a.UpkeepPrivilegeManager)
 		} else if a.RegistrySettings.RegistryVersion == ethereum.RegistryVersion_2_2 {
-			ocrConfig.TypedOnchainConfig = a.RegistrySettings.Create22OnchainConfig(a.Registrar.Address(), a.UpkeepPrivilegeManager, a.Registry.ChainModuleAddress(), a.Registry.ReorgProtectionEnabled())
+			ocrConfig.TypedOnchainConfig22 = a.RegistrySettings.Create22OnchainConfig(a.Registrar.Address(), a.UpkeepPrivilegeManager, a.Registry.ChainModuleAddress(), a.Registry.ReorgProtectionEnabled())
 		}
 		err = a.Registry.SetConfigTypeSafe(ocrConfig)
 		if err != nil {

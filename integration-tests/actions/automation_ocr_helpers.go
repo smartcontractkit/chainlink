@@ -164,9 +164,9 @@ func BuildAutoOCR2ConfigVarsWithKeyIndex(
 	if registryConfig.RegistryVersion == ethereum.RegistryVersion_2_0 {
 		ocrConfig.OnchainConfig = registryConfig.Encode20OnchainConfig(registrar)
 	} else if registryConfig.RegistryVersion == ethereum.RegistryVersion_2_1 {
-		ocrConfig.TypedOnchainConfigLegacy = registryConfig.Create21OnchainConfig(registrar, registryOwnerAddress)
+		ocrConfig.TypedOnchainConfig21 = registryConfig.Create21OnchainConfig(registrar, registryOwnerAddress)
 	} else if registryConfig.RegistryVersion == ethereum.RegistryVersion_2_2 {
-		ocrConfig.TypedOnchainConfig = registryConfig.Create22OnchainConfig(registrar, registryOwnerAddress, chainModuleAddress, reorgProtectionEnabled)
+		ocrConfig.TypedOnchainConfig22 = registryConfig.Create22OnchainConfig(registrar, registryOwnerAddress, chainModuleAddress, reorgProtectionEnabled)
 	}
 
 	l.Info().Msg("Done building OCR config")
