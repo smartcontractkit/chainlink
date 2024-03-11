@@ -304,12 +304,7 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 		case Automation:
 			return handleAutomationConfigOverride(logger, filename, configurationName, target, content)
 		default:
-			err := ctf_config.BytesToAnyTomlStruct(logger, filename, configurationName, &testConfig, content)
-			if err != nil {
-				return errors.Wrapf(err, "error reading file %s", filename)
-			}
-
-			return nil
+			return handleDefaultConfigOverride(logger, filename, configurationName, target, content)
 		}
 	}
 
@@ -384,6 +379,8 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 	logger.Debug().Msg("Validating test config")
 	err = testConfig.Validate()
 	if err != nil {
+		logger.Error().
+			Msg("Error validating test config. You might want refer to integration-tests/testconfig/README.md for more information.")
 		return TestConfig{}, errors.Wrapf(err, "error validating test config")
 	}
 
@@ -397,7 +394,7 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 
 func (c *TestConfig) readNetworkConfiguration() error {
 	// currently we need to read that kind of secrets only for network configuration
-	if c == nil {
+	if c.Network == nil {
 		c.Network = &ctf_config.NetworkConfig{}
 	}
 
@@ -418,22 +415,25 @@ func (c *TestConfig) readNetworkConfiguration() error {
 func (c *TestConfig) Validate() error {
 	defer func() {
 		if r := recover(); r != nil {
-			panic(fmt.Errorf("Panic during test config validation: '%v'. Most probably due to presence of partial product config", r))
+			panic(fmt.Errorf("panic during test config validation: '%v'. Most probably due to presence of partial product config", r))
 		}
 	}()
+
 	if c.ChainlinkImage == nil {
-		return fmt.Errorf("chainlink image config must be set")
+		return MissingImageInfoAsError("chainlink image config must be set")
 	}
-	if err := c.ChainlinkImage.Validate(); err != nil {
-		return errors.Wrapf(err, "chainlink image config validation failed")
+	if c.ChainlinkImage != nil {
+		if err := c.ChainlinkImage.Validate(); err != nil {
+			return MissingImageInfoAsError(fmt.Sprintf("chainlink image config validation failed: %s", err.Error()))
+		}
 	}
 	if c.ChainlinkUpgradeImage != nil {
 		if err := c.ChainlinkUpgradeImage.Validate(); err != nil {
-			return errors.Wrapf(err, "chainlink upgrade image config validation failed")
+			return MissingImageInfoAsError(fmt.Sprintf("chainlink upgrade image config validation failed: %s", err.Error()))
 		}
 	}
 	if err := c.Network.Validate(); err != nil {
-		return errors.Wrapf(err, "network config validation failed")
+		return NoSelectedNetworkInfoAsError(fmt.Sprintf("network config validation failed: %s", err.Error()))
 	}
 
 	if c.Logging == nil {
@@ -561,6 +561,36 @@ func handleAutomationConfigOverride(logger zerolog.Logger, filename, configurati
 	// override instead of merging
 	if (newConfig.Automation != nil && len(newConfig.Automation.Load) > 0) && (oldConfig != nil && oldConfig.Automation != nil && len(oldConfig.Automation.Load) > 0) {
 		target.Automation.Load = newConfig.Automation.Load
+	}
+
+	return nil
+}
+
+func handleDefaultConfigOverride(logger zerolog.Logger, filename, configurationName string, target *TestConfig, content []byte) error {
+	logger.Debug().Msgf("Handling default config override for %s", filename)
+	oldConfig := MustCopy(target)
+	newConfig := TestConfig{}
+
+	err := ctf_config.BytesToAnyTomlStruct(logger, filename, configurationName, &target, content)
+	if err != nil {
+		return errors.Wrapf(err, "error reading file %s", filename)
+	}
+
+	err = ctf_config.BytesToAnyTomlStruct(logger, filename, configurationName, &newConfig, content)
+	if err != nil {
+		return errors.Wrapf(err, "error reading file %s", filename)
+	}
+
+	// override instead of merging
+	if (newConfig.Seth != nil && len(newConfig.Seth.Networks) > 0) && (oldConfig != nil && oldConfig.Seth != nil && len(oldConfig.Seth.Networks) > 0) {
+		for i, old_network := range oldConfig.Seth.Networks {
+			for _, new_network := range newConfig.Seth.Networks {
+				if old_network.ChainID == new_network.ChainID {
+					oldConfig.Seth.Networks[i] = new_network
+				}
+			}
+		}
+		target.Seth.Networks = oldConfig.Seth.Networks
 	}
 
 	return nil
