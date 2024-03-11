@@ -179,8 +179,8 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
       revert InvalidLinkWeiPrice(fallbackWeiPerUnitLink);
     }
     if (
-      fulfillmentFlatFeeLinkDiscountPPM > fulfillmentFlatFeeNativePPM ||
-      (fulfillmentFlatFeeNativePPM > 0 && fulfillmentFlatFeeLinkDiscountPPM == fulfillmentFlatFeeNativePPM)
+      fulfillmentFlatFeeLinkDiscountPPM >= fulfillmentFlatFeeNativePPM &&
+      !(fulfillmentFlatFeeNativePPM == 0 && fulfillmentFlatFeeLinkDiscountPPM == 0)
     ) {
       revert LinkDiscountTooHigh(fulfillmentFlatFeeLinkDiscountPPM, fulfillmentFlatFeeNativePPM);
     }
