@@ -30,12 +30,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	legacy "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink/cfgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -209,8 +209,8 @@ func TestConfig_Marshal(t *testing.T) {
 		require.NoError(t, err)
 		return &d
 	}
-	mustAddress := func(s string) *ethkey.EIP55Address {
-		a, err := ethkey.NewEIP55Address(s)
+	mustAddress := func(s string) *types.EIP55Address {
+		a, err := types.NewEIP55Address(s)
 		require.NoError(t, err)
 		return &a
 	}
@@ -403,7 +403,7 @@ func TestConfig_Marshal(t *testing.T) {
 		DefaultTransactionQueueDepth: ptr[uint32](12),
 		KeyBundleID:                  ptr(models.MustSha256HashFromHex("acdd42797a8b921b2910497badc50006")),
 		SimulateTransactions:         ptr(true),
-		TransmitterAddress:           ptr(ethkey.MustEIP55Address("0xa0788FC17B1dEe36f057c42B6F373A34B014687e")),
+		TransmitterAddress:           ptr(types.MustEIP55Address("0xa0788FC17B1dEe36f057c42B6F373A34B014687e")),
 		CaptureEATelemetry:           ptr(false),
 		TraceLogging:                 ptr(false),
 	}
@@ -1130,7 +1130,7 @@ func TestConfig_full(t *testing.T) {
 	require.NoError(t, config.DecodeTOML(strings.NewReader(fullTOML), &got))
 	// Except for some EVM node fields.
 	for c := range got.EVM {
-		addr, err := ethkey.NewEIP55Address("0x2a3e23c6f242F5345320814aC8a1b4E58707D292")
+		addr, err := types.NewEIP55Address("0x2a3e23c6f242F5345320814aC8a1b4E58707D292")
 		require.NoError(t, err)
 		if got.EVM[c].ChainWriter.FromAddress == nil {
 			got.EVM[c].ChainWriter.FromAddress = &addr

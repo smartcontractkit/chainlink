@@ -17,10 +17,10 @@ import (
 	ocr2keepers20runner "github.com/smartcontractkit/chainlink-automation/pkg/v2/runner"
 	ocr2keepers21 "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	evmregistry20 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v20"
 	evmregistry21 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21"
 	evmregistry21transmit "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/transmit"
@@ -84,7 +84,7 @@ func EVMDependencies20(
 		return nil, nil, nil, nil, err
 	}
 
-	rAddr := ethkey.MustEIP55Address(spec.OCR2OracleSpec.ContractID).Address()
+	rAddr := evmtypes.MustEIP55Address(spec.OCR2OracleSpec.ContractID).Address()
 	if registry, err = evmregistry20.NewEVMRegistryService(rAddr, chain, lggr); err != nil {
 		return nil, nil, nil, nil, err
 	}
@@ -101,7 +101,7 @@ func EVMDependencies20(
 }
 
 func FilterNamesFromSpec20(spec *job.OCR2OracleSpec) (names []string, err error) {
-	addr, err := ethkey.NewEIP55Address(spec.ContractID)
+	addr, err := evmtypes.NewEIP55Address(spec.ContractID)
 	if err != nil {
 		return nil, err
 	}
@@ -115,7 +115,7 @@ func EVMDependencies21(
 }
 
 func FilterNamesFromSpec21(spec *job.OCR2OracleSpec) (names []string, err error) {
-	addr, err := ethkey.NewEIP55Address(spec.ContractID)
+	addr, err := evmtypes.NewEIP55Address(spec.ContractID)
 	if err != nil {
 		return nil, err
 	}

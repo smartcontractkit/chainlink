@@ -64,7 +64,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/keystest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
@@ -815,7 +814,7 @@ func TestIntegration_OCR(t *testing.T) {
 			ports := freeport.GetN(t, numOracles)
 			for i := 0; i < numOracles; i++ {
 				app, peerID, transmitter, key := setupNode(t, owner, ports[i], b, func(c *chainlink.Config, s *chainlink.Secrets) {
-					c.EVM[0].FlagsContractAddress = ptr(ethkey.EIP55AddressFromAddress(flagsContractAddress))
+					c.EVM[0].FlagsContractAddress = ptr(evmtypes.EIP55AddressFromAddress(flagsContractAddress))
 					c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(test.eip1559)
 
 					c.P2P.V2.DefaultBootstrappers = &[]ocrcommontypes.BootstrapperLocator{
@@ -1036,7 +1035,7 @@ func TestIntegration_OCR_ForwarderFlow(t *testing.T) {
 		for i := 0; i < numOracles; i++ {
 			app, peerID, transmitter, forwarder, key := setupForwarderEnabledNode(t, owner, ports[i], b, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.Feature.LogPoller = ptr(true)
-				c.EVM[0].FlagsContractAddress = ptr(ethkey.EIP55AddressFromAddress(flagsContractAddress))
+				c.EVM[0].FlagsContractAddress = ptr(evmtypes.EIP55AddressFromAddress(flagsContractAddress))
 				c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(true)
 				c.P2P.V2.DefaultBootstrappers = &[]ocrcommontypes.BootstrapperLocator{
 					{PeerID: bootstrapPeerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapNodePortV2)}},

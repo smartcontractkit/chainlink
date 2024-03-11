@@ -1,4 +1,4 @@
-package ethkey
+package types
 
 import (
 	"database/sql/driver"

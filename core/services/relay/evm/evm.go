@@ -25,10 +25,10 @@ import (
 
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txm "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/bm"
 	lloconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/llo/config"
@@ -356,8 +356,8 @@ func (r *Relayer) NewConfigProvider(args commontypes.RelayArgs) (configProvider 
 }
 
 func FilterNamesFromRelayArgs(args commontypes.RelayArgs) (filterNames []string, err error) {
-	var addr ethkey.EIP55Address
-	if addr, err = ethkey.NewEIP55Address(args.ContractID); err != nil {
+	var addr evmtypes.EIP55Address
+	if addr, err = evmtypes.NewEIP55Address(args.ContractID); err != nil {
 		return nil, err
 	}
 	var relayConfig types.RelayConfig

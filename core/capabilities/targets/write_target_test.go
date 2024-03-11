@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/targets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder"
@@ -17,7 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -34,12 +34,12 @@ func TestEvmWrite(t *testing.T) {
 
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		a := testutils.NewAddress()
-		addr, err := ethkey.NewEIP55Address(a.Hex())
+		addr, err := types.NewEIP55Address(a.Hex())
 		require.NoError(t, err)
 		c.EVM[0].ChainWriter.FromAddress = &addr
 
 		forwarderA := testutils.NewAddress()
-		forwarderAddr, err := ethkey.NewEIP55Address(forwarderA.Hex())
+		forwarderAddr, err := types.NewEIP55Address(forwarderA.Hex())
 		require.NoError(t, err)
 		c.EVM[0].ChainWriter.ForwarderAddress = &forwarderAddr
 	})
