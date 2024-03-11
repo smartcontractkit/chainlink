@@ -42,6 +42,11 @@ type insecureConfig interface {
 	OCRDevelopmentMode() bool
 }
 
+type GeneralConfig interface {
+	OCR() coreconfig.OCR
+	Insecure() coreconfig.Insecure
+}
+
 // ValidatedOracleSpecToml validates an oracle spec that came from TOML
 func ValidatedOracleSpecToml(gcfg GeneralConfig, legacyChains legacyevm.LegacyChainContainer, tomlString string) (job.Job, error) {
 	return ValidatedOracleSpecTomlCfg(gcfg, func(id *big.Int) (evmconfig.ChainScopedConfig, error) {

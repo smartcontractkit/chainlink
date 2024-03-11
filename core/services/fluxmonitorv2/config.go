@@ -8,8 +8,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 )
 
-// Config defines the Flux Monitor configuration.
-type Config interface {
+// JobConfig defines the Flux Monitor configuration.
+type JobConfig interface {
 	FlagsContractAddress() string     // Evm
 	MinContractPayment() *assets.Link // Evm
 }
