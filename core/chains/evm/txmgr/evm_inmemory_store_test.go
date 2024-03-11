@@ -46,6 +46,43 @@ func TestInMemoryStore_PruneUnstartedTxQueue(t *testing.T) {
 	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
 	require.NoError(t, err)
 
+	t.Run("doesnt prune unstarted transactions if under maxQueueSize", func(t *testing.T) {
+		maxQueueSize := uint32(5)
+		nTxs := 3
+		subject := uuid.NullUUID{UUID: uuid.New(), Valid: true}
+		strat := commontxmgr.NewDropOldestStrategy(subject.UUID, maxQueueSize, dbcfg.DefaultQueryTimeout())
+		for i := 0; i < nTxs; i++ {
+			inTx := cltest.NewEthTx(fromAddress)
+			inTx.Subject = subject
+			// insert the transaction into the persistent store
+			require.NoError(t, persistentStore.InsertTx(&inTx))
+			// insert the transaction into the in-memory store
+			require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
+		}
+
+		ids, err := strat.PruneQueue(ctx, inMemoryStore)
+		require.NoError(t, err)
+		assert.Equal(t, 0, len(ids))
+
+		AssertCountPerSubject(t, persistentStore, int64(nTxs), subject.UUID)
+		fn := func(tx *evmtxmgr.Tx) bool { return true }
+		states := []txmgrtypes.TxState{commontxmgr.TxUnstarted}
+		actTxs := inMemoryStore.XXXTestFindTxs(states, fn)
+		expTxs, err := persistentStore.FindTxesByFromAddressAndState(ctx, fromAddress, "unstarted")
+		require.NoError(t, err)
+		require.Equal(t, len(expTxs), len(actTxs))
+
+		// sort by ID to ensure the order is the same for comparison
+		sort.SliceStable(actTxs, func(i, j int) bool {
+			return actTxs[i].ID < actTxs[j].ID
+		})
+		sort.SliceStable(expTxs, func(i, j int) bool {
+			return expTxs[i].ID < expTxs[j].ID
+		})
+		for i := 0; i < len(expTxs); i++ {
+			assertTxEqual(t, *expTxs[i], actTxs[i])
+		}
+	})
 	t.Run("prunes unstarted transactions", func(t *testing.T) {
 		maxQueueSize := uint32(5)
 		nTxs := 5
