@@ -30,6 +30,10 @@ func NewPriorityHeap[
 	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ](capacity int) *priorityHeap[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+	if capacity == 0 {
+		panic("priority_heap: capacity must be greater than 0")
+	}
+
 	pq := priorityHeap[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{
 		txs:       make([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], 0, capacity),
 		idToIndex: make(map[int64]int),

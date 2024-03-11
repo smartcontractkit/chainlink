@@ -68,7 +68,7 @@ func (g *TestGasEstimatorConfig) BlockHistory() evmconfig.BlockHistory {
 }
 
 func (g *TestGasEstimatorConfig) EIP1559DynamicFees() bool   { return false }
-func (g *TestGasEstimatorConfig) LimitDefault() uint32       { return 42 }
+func (g *TestGasEstimatorConfig) LimitDefault() uint64       { return 42 }
 func (g *TestGasEstimatorConfig) BumpPercent() uint16        { return 42 }
 func (g *TestGasEstimatorConfig) BumpThreshold() uint64      { return g.bumpThreshold }
 func (g *TestGasEstimatorConfig) BumpMin() *assets.Wei       { return assets.NewWeiI(42) }
@@ -76,7 +76,7 @@ func (g *TestGasEstimatorConfig) FeeCapDefault() *assets.Wei { return assets.New
 func (g *TestGasEstimatorConfig) PriceDefault() *assets.Wei  { return assets.NewWeiI(42) }
 func (g *TestGasEstimatorConfig) TipCapDefault() *assets.Wei { return assets.NewWeiI(42) }
 func (g *TestGasEstimatorConfig) TipCapMin() *assets.Wei     { return assets.NewWeiI(42) }
-func (g *TestGasEstimatorConfig) LimitMax() uint32           { return 0 }
+func (g *TestGasEstimatorConfig) LimitMax() uint64           { return 0 }
 func (g *TestGasEstimatorConfig) LimitMultiplier() float32   { return 0 }
 func (g *TestGasEstimatorConfig) BumpTxDepth() uint32        { return 42 }
 func (g *TestGasEstimatorConfig) LimitTransfer() uint32      { return 42 }
