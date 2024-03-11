@@ -8,10 +8,12 @@ import {AutomationRegistryLogicA2_3} from "../v2_3/AutomationRegistryLogicA2_3.s
 import {AutomationRegistryLogicB2_3} from "../v2_3/AutomationRegistryLogicB2_3.sol";
 import {IAutomationRegistryMaster2_3, AutomationRegistryBase2_3} from "../interfaces/v2_3/IAutomationRegistryMaster2_3.sol";
 import {ChainModuleBase} from "../../chains/ChainModuleBase.sol";
+import {MockV3Aggregator} from "../../../tests/MockV3Aggregator.sol";
 
 contract AutomationRegistry2_3_SetUp is BaseTest {
-  address internal constant LINK_ETH_FEED = 0x1111111111111111111111111111111111111110;
-  address internal constant FAST_GAS_FEED = 0x1111111111111111111111111111111111111112;
+  address internal LINK_USD_FEED;
+  address internal NATIVE_USD_FEED;
+  address internal FAST_GAS_FEED;
   address internal constant LINK_TOKEN = 0x1111111111111111111111111111111111111113;
   address internal constant ZERO_ADDRESS = address(0);
 
@@ -31,6 +33,10 @@ contract AutomationRegistry2_3_SetUp is BaseTest {
   IAutomationRegistryMaster2_3 internal registryMaster;
 
   function setUp() public override {
+    LINK_USD_FEED = address(new MockV3Aggregator(8, 2_000_000_000)); // $20
+    NATIVE_USD_FEED = address(new MockV3Aggregator(8, 400_000_000_000)); // $4,000
+    FAST_GAS_FEED = address(new MockV3Aggregator(0, 1_000_000_000)); // 1 gwei
+
     s_valid_transmitters = new address[](4);
     for (uint160 i = 0; i < 4; ++i) {
       s_valid_transmitters[i] = address(4 + i);
@@ -48,7 +54,8 @@ contract AutomationRegistry2_3_SetUp is BaseTest {
     AutomationForwarderLogic forwarderLogic = new AutomationForwarderLogic();
     AutomationRegistryLogicB2_3 logicB2_3 = new AutomationRegistryLogicB2_3(
       LINK_TOKEN,
-      LINK_ETH_FEED,
+      LINK_USD_FEED,
+      NATIVE_USD_FEED,
       FAST_GAS_FEED,
       address(forwarderLogic),
       ZERO_ADDRESS
@@ -108,7 +115,8 @@ contract AutomationRegistry2_3_SetConfig is AutomationRegistry2_3_SetUp {
       maxPerformDataSize: 5_000,
       maxRevertDataSize: 5_000,
       fallbackGasPrice: 20_000_000_000,
-      fallbackLinkPrice: 200_000_000_000,
+      fallbackLinkPrice: 2_000_000_000, // $20
+      fallbackNativePrice: 400_000_000_000, // $4,000
       transcoder: 0xB1e66855FD67f6e85F0f0fA38cd6fBABdf00923c,
       registrars: s_registrars,
       upkeepPrivilegeManager: 0xD9c855F08A7e460691F41bBDDe6eC310bc0593D8,

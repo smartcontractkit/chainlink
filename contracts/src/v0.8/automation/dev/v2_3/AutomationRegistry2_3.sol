@@ -44,14 +44,15 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
   string public constant override typeAndVersion = "AutomationRegistry 2.3.0";
 
   /**
-   * @param logicA the address of the first logic contract, but cast as logicB in order to call logicB functions
+   * @param logicA the address of the first logic contract, but cast as logicB in order to call logicB functions (via fallback)
    */
   constructor(
     AutomationRegistryLogicB2_3 logicA
   )
     AutomationRegistryBase2_3(
       logicA.getLinkAddress(),
-      logicA.getLinkNativeFeedAddress(),
+      logicA.getLinkUSDFeedAddress(),
+      logicA.getNativeUSDFeedAddress(),
       logicA.getFastGasFeedAddress(),
       logicA.getAutomationForwarderLogic(),
       logicA.getAllowedReadOnlyAddress()
@@ -168,26 +169,28 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
     gasOverhead = gasOverhead / transmitVars.numUpkeepsPassedChecks + ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD;
 
     {
-      uint96 reimbursement;
-      uint96 premium;
       for (uint256 i = 0; i < report.upkeepIds.length; i++) {
         if (upkeepTransmitInfo[i].earlyChecksPassed) {
-          (reimbursement, premium) = _postPerformPayment(
+          PaymentReceipt memory receipt = _handlePayment(
             hotVars,
-            report.upkeepIds[i],
-            upkeepTransmitInfo[i].gasUsed,
-            report.fastGasWei,
-            report.linkNative,
-            gasOverhead,
-            (l1Fee * upkeepTransmitInfo[i].calldataWeight) / transmitVars.totalCalldataWeight
+            PaymentParams({
+              gasLimit: upkeepTransmitInfo[i].gasUsed,
+              gasOverhead: gasOverhead,
+              l1CostWei: (l1Fee * upkeepTransmitInfo[i].calldataWeight) / transmitVars.totalCalldataWeight,
+              fastGasWei: report.fastGasWei,
+              linkUSD: report.linkUSD,
+              nativeUSD: _getNativeUSD(hotVars),
+              isTransaction: true
+            }),
+            report.upkeepIds[i]
           );
-          transmitVars.totalPremium += premium;
-          transmitVars.totalReimbursement += reimbursement;
+          transmitVars.totalPremium += receipt.premium;
+          transmitVars.totalReimbursement += receipt.reimbursement;
 
           emit UpkeepPerformed(
             report.upkeepIds[i],
             upkeepTransmitInfo[i].performSuccess,
-            reimbursement + premium,
+            receipt.reimbursement + receipt.premium,
             upkeepTransmitInfo[i].gasUsed,
             gasOverhead,
             report.triggers[i]
@@ -361,6 +364,7 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
     });
     s_fallbackGasPrice = onchainConfig.fallbackGasPrice;
     s_fallbackLinkPrice = onchainConfig.fallbackLinkPrice;
+    s_fallbackNativePrice = onchainConfig.fallbackNativePrice;
 
     uint32 previousConfigBlockNumber = s_storage.latestConfigBlockNumber;
     s_storage.latestConfigBlockNumber = uint32(onchainConfig.chainModule.blockNumber());
