@@ -1936,14 +1936,14 @@ type LegacyEthereumOffchainAggregatorV2 struct {
 
 // OCRv2Config represents the config for the OCRv2 contract
 type OCRv2Config struct {
-	Signers                  []common.Address
-	Transmitters             []common.Address
-	F                        uint8
-	OnchainConfig            []byte
-	TypedOnchainConfig21     i_keeper_registry_master_wrapper_2_1.KeeperRegistryBase21OnchainConfig
-	TypedOnchainConfig22     i_automation_registry_master_wrapper_2_2.AutomationRegistryBase22OnchainConfig
-	OffchainConfigVersion    uint64
-	OffchainConfig           []byte
+	Signers               []common.Address
+	Transmitters          []common.Address
+	F                     uint8
+	OnchainConfig         []byte
+	TypedOnchainConfig21  i_keeper_registry_master_wrapper_2_1.KeeperRegistryBase21OnchainConfig
+	TypedOnchainConfig22  i_automation_registry_master_wrapper_2_2.AutomationRegistryBase22OnchainConfig
+	OffchainConfigVersion uint64
+	OffchainConfig        []byte
 }
 
 func (e *LegacyEthereumOffchainAggregatorV2) Address() string {

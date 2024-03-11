@@ -106,7 +106,7 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 	}
 
 	// local state for pipeline results
-	var upkeepInfo autov2common.IAutomationV21PlusCommonUpkeepInfo
+	var upkeepInfo autov2common.IAutomationV21PlusCommonUpkeepInfoLegacy
 	var checkResult autov2common.CheckUpkeep
 	var blockNum uint64
 	var performData []byte
@@ -380,7 +380,7 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 	}
 }
 
-func getUpkeepInfoAndRunBasicChecks(keeperRegistry21 *autov2common.IAutomationV21PlusCommon, callOpts *bind.CallOpts, upkeepID *big.Int, chainID int64) autov2common.IAutomationV21PlusCommonUpkeepInfo {
+func getUpkeepInfoAndRunBasicChecks(keeperRegistry21 *autov2common.IAutomationV21PlusCommon, callOpts *bind.CallOpts, upkeepID *big.Int, chainID int64) autov2common.IAutomationV21PlusCommonUpkeepInfoLegacy {
 	// get upkeep info
 	upkeepInfo, err := keeperRegistry21.GetUpkeep(callOpts, upkeepID)
 	if err != nil {

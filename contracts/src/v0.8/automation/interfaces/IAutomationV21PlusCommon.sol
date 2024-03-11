@@ -93,7 +93,7 @@ interface IAutomationV21PlusCommon {
    * @member paused if this upkeep has been paused
    * @member offchainConfig the off-chain config of this upkeep
    */
-  struct UpkeepInfo {
+  struct UpkeepInfoLegacy {
     address target;
     uint32 performGas;
     bytes checkData;
@@ -142,7 +142,7 @@ interface IAutomationV21PlusCommon {
    * @member latestEpoch for which a report was transmitted
    * @member paused freeze on execution scoped to the entire registry
    */
-  struct State {
+  struct StateLegacy {
     uint32 nonce;
     uint96 ownerLinkBalance;
     uint256 expectedLinkBalance;
@@ -246,13 +246,13 @@ interface IAutomationV21PlusCommon {
   function getUpkeepPrivilegeConfig(uint256 upkeepId) external view returns (bytes memory);
   function hasDedupKey(bytes32 dedupKey) external view returns (bool);
   function getUpkeepTriggerConfig(uint256 upkeepId) external view returns (bytes memory);
-  function getUpkeep(uint256 id) external view returns (UpkeepInfo memory upkeepInfo);
+  function getUpkeep(uint256 id) external view returns (UpkeepInfoLegacy memory upkeepInfo);
   function getMinBalance(uint256 id) external view returns (uint96);
   function getState()
     external
     view
     returns (
-      State memory state,
+      StateLegacy memory state,
       OnchainConfigLegacy memory config,
       address[] memory signers,
       address[] memory transmitters,

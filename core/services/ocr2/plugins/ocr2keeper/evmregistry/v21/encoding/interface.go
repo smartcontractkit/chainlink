@@ -85,7 +85,7 @@ func HttpToStreamsErrCode(statusCode int) ErrCode {
 	}
 }
 
-type UpkeepInfo = autov2common.IAutomationV21PlusCommonUpkeepInfo
+type UpkeepInfo = autov2common.IAutomationV21PlusCommonUpkeepInfoLegacy
 
 type Packer interface {
 	UnpackCheckResult(payload ocr2keepers.UpkeepPayload, raw string) (ocr2keepers.CheckResult, error)
