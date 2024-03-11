@@ -93,6 +93,77 @@ func TestInMemoryStore_GetTxInProgress(t *testing.T) {
 	}
 }
 
+func TestInMemoryStore_FindNextUnstartedTransactionFromAddress(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
+	persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+	kst := cltest.NewKeyStore(t, db, dbcfg)
+	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
+	_, otherAddress := cltest.MustInsertRandomKey(t, kst.Eth())
+
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	lggr := logger.TestSugared(t)
+	chainID := ethClient.ConfiguredChainID()
+	ctx := context.Background()
+
+	inMemoryStore, err := commontxmgr.NewInMemoryStore[
+		*big.Int,
+		common.Address, common.Hash, common.Hash,
+		*evmtypes.Receipt,
+		evmtypes.Nonce,
+		evmgas.EvmFee,
+	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	require.NoError(t, err)
+
+	// insert the transaction into the persistent store
+	inTx := mustCreateUnstartedGeneratedTx(t, persistentStore, fromAddress, chainID)
+	// insert the transaction into the in-memory store
+	require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
+
+	// insert non in-progress transaction for another address
+	otherTx := mustInsertInProgressEthTxWithAttempt(t, persistentStore, 13, otherAddress)
+	require.NoError(t, inMemoryStore.XXXTestInsertTx(otherAddress, &otherTx))
+
+	tcs := []struct {
+		name        string
+		fromAddress common.Address
+		chainID     *big.Int
+
+		hasErr bool
+		hasTx  bool
+	}{
+		{"finds the correct inprogress transaction", fromAddress, chainID, false, true},
+		{"no unstarted transaction", otherAddress, chainID, true, false},
+		{"wrong chainID", fromAddress, big.NewInt(123), true, false},
+		{"unknown address", common.Address{}, chainID, true, false},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := testutils.Context(t)
+			actTx, actErr := inMemoryStore.FindNextUnstartedTransactionFromAddress(ctx, tc.fromAddress, tc.chainID)
+			expTx, expErr := persistentStore.FindNextUnstartedTransactionFromAddress(ctx, tc.fromAddress, tc.chainID)
+			if tc.hasErr {
+				require.NotNil(t, actErr)
+				require.NotNil(t, expErr)
+			} else {
+				require.Nil(t, actErr)
+				require.Nil(t, expErr)
+			}
+			if tc.hasTx {
+				require.NotNil(t, actTx)
+				require.NotNil(t, expTx)
+				assertTxEqual(t, *expTx, *actTx)
+			} else {
+				require.Nil(t, actTx)
+				require.Nil(t, expTx)
+			}
+		})
+	}
+}
+
 // assertTxEqual asserts that two transactions are equal
 func assertTxEqual(t *testing.T, exp, act evmtxmgr.Tx) {
 	assert.Equal(t, exp.ID, act.ID)

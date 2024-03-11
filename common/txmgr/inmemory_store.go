@@ -180,24 +180,27 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Updat
 }
 
 // FindNextUnstartedTransactionFromAddress returns the next unstarted transaction for a given address.
-func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindNextUnstartedTransactionFromAddress(_ context.Context, tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], fromAddress ADDR, chainID CHAIN_ID) error {
+func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindNextUnstartedTransactionFromAddress(_ context.Context, fromAddress ADDR, chainID CHAIN_ID) (
+	*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
+	error,
+) {
 	if ms.chainID.String() != chainID.String() {
-		return fmt.Errorf("find_next_unstarted_transaction_from_address: %w", ErrInvalidChainID)
+		return nil, fmt.Errorf("find_next_unstarted_transaction_from_address: %w: %q", ErrInvalidChainID, chainID)
 	}
 	ms.addressStatesLock.RLock()
 	defer ms.addressStatesLock.RUnlock()
 	as, ok := ms.addressStates[fromAddress]
 	if !ok {
-		return fmt.Errorf("find_next_unstarted_transaction_from_address: %w", ErrAddressNotFound)
+		return nil, fmt.Errorf("find_next_unstarted_transaction_from_address: %w: %q", ErrAddressNotFound, fromAddress)
 	}
 
 	etx := as.peekNextUnstartedTx()
 	if etx == nil {
-		return fmt.Errorf("find_next_unstarted_transaction_from_address: %w", ErrTxnNotFound)
+		return nil, fmt.Errorf("find_next_unstarted_transaction_from_address: %w", ErrTxnNotFound)
 	}
-	tx = ms.deepCopyTx(*etx)
+	tx := ms.deepCopyTx(*etx)
 
-	return nil
+	return tx, nil
 }
 
 // SaveReplacementInProgressAttempt saves a replacement attempt for a transaction that is in_progress.
