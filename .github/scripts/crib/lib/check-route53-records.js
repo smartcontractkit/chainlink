@@ -21,11 +21,12 @@ const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 async function route53RecordsExist(
   hostedZoneId,
   recordNames,
-  maxRetries = 7,
+  maxRetries = 8,
   initialBackoff = 2000 // 2 seconds
 ) {
   let attempts = 0;
 
+  console.info("Checking DNS records in Route 53...");
   while (attempts < maxRetries) {
     try {
       let isTruncated = true;
@@ -56,7 +57,6 @@ async function route53RecordsExist(
         allRecordSets.some((r) => r.Name.includes(name))
       );
 
-      console.info("Checking DNS records in Route 53...");
       if (recordExists) {
         console.info("All records found in Route 53.");
         return true;

@@ -87,7 +87,7 @@ async function run() {
 
     // Check if DNS records exist in Route 53 before printing out the subdomains.
     try {
-      const maxRetries = 7; // Maximum number of retries
+      const maxRetries = 8;
       const recordsExist = await route53RecordsExist(
         route53ZoneId,
         subdomains,
