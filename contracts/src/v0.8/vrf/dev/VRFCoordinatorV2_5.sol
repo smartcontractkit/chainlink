@@ -94,10 +94,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     uint8 linkPremiumPercentage
   );
 
-  event FallbackWeiPerUnitLinkUsed(
-    uint256 requestId,
-    int256 fallbackWeiPerUnitLink
-  );
+  event FallbackWeiPerUnitLinkUsed(uint256 requestId, int256 fallbackWeiPerUnitLink);
 
   constructor(address blockhashStore) SubscriptionAPI() {
     BLOCKHASH_STORE = BlockhashStoreInterface(blockhashStore);
@@ -581,6 +578,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     if (isFeedStale) {
       weiPerUnitLink = s_fallbackWeiPerUnitLink;
     }
+    return (weiPerUnitLink, isFeedStale);
   }
 
   /**

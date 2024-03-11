@@ -65,17 +65,7 @@ contract VRFV2PlusWrapperTest is BaseTest {
 
   function setConfigWrapper() internal {
     vm.expectEmit(false, false, false, true, address(s_wrapper));
-    emit ConfigSet(
-      wrapperGasOverhead,
-      coordinatorGasOverhead,
-      0,
-      vrfKeyHash,
-      10,
-      1,
-      50000000000000000,
-      0,
-      0
-    );
+    emit ConfigSet(wrapperGasOverhead, coordinatorGasOverhead, 0, vrfKeyHash, 10, 1, 50000000000000000, 0, 0);
     s_wrapper.setConfig(
       wrapperGasOverhead, // wrapper gas overhead
       coordinatorGasOverhead, // coordinator gas overhead
@@ -132,10 +122,7 @@ contract VRFV2PlusWrapperTest is BaseTest {
     uint32 fulfillmentFlatFeeLinkPPM,
     uint32 fulfillmentFlatFeeNativePPM
   );
-  event FallbackWeiPerUnitLinkUsed(
-    uint256 requestId,
-    int256 fallbackWeiPerUnitLink
-  );
+  event FallbackWeiPerUnitLinkUsed(uint256 requestId, int256 fallbackWeiPerUnitLink);
   event Withdrawn(address indexed to, uint256 amount);
   event NativeWithdrawn(address indexed to, uint256 amount);
   event Enabled();
@@ -322,9 +309,9 @@ contract VRFV2PlusWrapperTest is BaseTest {
     s_linkToken.transfer(address(s_consumer), 10 ether);
 
     // Set the link feed to be stale.
-    (, ,, uint32 stalenessSeconds, , , , ,) = s_testCoordinator.s_config();
+    (, , , uint32 stalenessSeconds, , , , , ) = s_testCoordinator.s_config();
     int256 fallbackWeiPerUnitLink = s_testCoordinator.s_fallbackWeiPerUnitLink();
-    (uint80 roundId, int256 answer, uint256 startedAt, ,) = s_linkNativeFeed.latestRoundData();
+    (uint80 roundId, int256 answer, uint256 startedAt, , ) = s_linkNativeFeed.latestRoundData();
     uint256 timestamp = block.timestamp - stalenessSeconds - 1;
     s_linkNativeFeed.updateRoundData(roundId, answer, timestamp, startedAt);
 

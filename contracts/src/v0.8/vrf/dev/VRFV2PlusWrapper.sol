@@ -315,6 +315,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     int256 weiPerUnitLink;
     (weiPerUnitLink, isFeedStale) = _getFeedData();
     requestPrice = _calculateRequestPrice(_callbackGasLimit, tx.gasprice, weiPerUnitLink);
+    return (requestPrice, isFeedStale);
   }
 
   function calculateRequestPriceNative(
@@ -339,6 +340,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     int256 weiPerUnitLink;
     (weiPerUnitLink, isFeedStale) = _getFeedData();
     requestPrice = _calculateRequestPrice(_callbackGasLimit, _requestGasPriceWei, weiPerUnitLink);
+    return (requestPrice, isFeedStale);
   }
 
   function estimateRequestPriceNative(
@@ -405,10 +407,13 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     // solhint-disable-next-line custom-errors
     require(msg.sender == address(s_link), "only callable from LINK");
 
-    (uint32 callbackGasLimit, uint16 requestConfirmations, uint32 numWords, bytes memory extraArgs, bool isFeedStale) = abi.decode(
-      _data,
-      (uint32, uint16, uint32, bytes, bool)
-    );
+    (
+      uint32 callbackGasLimit,
+      uint16 requestConfirmations,
+      uint32 numWords,
+      bytes memory extraArgs,
+      bool isFeedStale
+    ) = abi.decode(_data, (uint32, uint16, uint32, bytes, bool));
     checkPaymentMode(extraArgs, true);
     uint32 eip150Overhead = _getEIP150Overhead(callbackGasLimit);
     (int256 weiPerUnitLink, ) = _getFeedData();
@@ -570,6 +575,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     }
     // solhint-disable-next-line custom-errors
     require(weiPerUnitLink >= 0, "Invalid LINK wei price");
+    return (weiPerUnitLink, isFeedStale);
   }
 
   /**
