@@ -181,7 +181,7 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) pruneU
 	defer as.Unlock()
 
 	txs := as.unstartedTxs.PruneByTxIDs(ids)
-	as.deleteTxs(txs...)
+	as._deleteTxs(txs...)
 }
 
 // deleteTxs removes the transactions with the given IDs from the address state.
