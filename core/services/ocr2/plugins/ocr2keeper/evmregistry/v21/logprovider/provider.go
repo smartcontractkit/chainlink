@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/prommetrics"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -162,6 +163,7 @@ func (p *logEventProvider) GetLatestPayloads(ctx context.Context) ([]ocr2keepers
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrHeadNotAvailable, err)
 	}
+	prommetrics.AutomationLogProviderLatestBlock.Set(float64(latest.BlockNumber))
 	start := latest.BlockNumber - p.opts.LookbackBlocks
 	if start <= 0 {
 		start = 1

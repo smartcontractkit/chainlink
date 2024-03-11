@@ -90,11 +90,13 @@ func (l *LoopedConfig) Validate() error {
 }
 
 type General struct {
-	Generator      *string     `toml:"generator"`
-	EventsToEmit   []abi.Event `toml:"-"`
-	Contracts      *int        `toml:"contracts"`
-	EventsPerTx    *int        `toml:"events_per_tx"`
-	UseFinalityTag *bool       `toml:"use_finality_tag"`
+	Generator                 *string                 `toml:"generator"`
+	EventsToEmit              []abi.Event             `toml:"-"`
+	Contracts                 *int                    `toml:"contracts"`
+	EventsPerTx               *int                    `toml:"events_per_tx"`
+	UseFinalityTag            *bool                   `toml:"use_finality_tag"`
+	BackupLogPollerBlockDelay *uint64                 `toml:"backup_log_poller_block_delay"`
+	LogPollInterval           *blockchain.StrDuration `toml:"log_poll_interval"`
 }
 
 func (g *General) Validate() error {

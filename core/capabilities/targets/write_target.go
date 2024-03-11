@@ -22,14 +22,15 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
 var forwardABI = evmtypes.MustGetABI(forwarder.KeystoneForwarderMetaData.ABI)
 
-func InitializeWrite(registry commontypes.CapabilitiesRegistry, legacyEVMChains legacyevm.LegacyChainContainer) error {
+func InitializeWrite(registry commontypes.CapabilitiesRegistry, legacyEVMChains legacyevm.LegacyChainContainer, lggr logger.Logger) error {
 	for _, chain := range legacyEVMChains.Slice() {
-		capability := NewEvmWrite(chain)
+		capability := NewEvmWrite(chain, lggr)
 		if err := registry.Add(context.TODO(), capability); err != nil {
 			return err
 		}
@@ -41,12 +42,15 @@ var (
 	_ capabilities.ActionCapability = &EvmWrite{}
 )
 
+const defaultGasLimit = 200000
+
 type EvmWrite struct {
 	chain legacyevm.Chain
 	capabilities.CapabilityInfo
+	lggr logger.Logger
 }
 
-func NewEvmWrite(chain legacyevm.Chain) *EvmWrite {
+func NewEvmWrite(chain legacyevm.Chain, lggr logger.Logger) *EvmWrite {
 	// generate ID based on chain selector
 	name := fmt.Sprintf("write_%v", chain.ID())
 	chainName, err := chainselectors.NameFromChainId(chain.ID().Uint64())
@@ -64,6 +68,7 @@ func NewEvmWrite(chain legacyevm.Chain) *EvmWrite {
 	return &EvmWrite{
 		chain,
 		info,
+		lggr.Named("EvmWrite"),
 	}
 }
 
@@ -153,6 +158,7 @@ func encodePayload(args []any, rawSelector string) ([]byte, error) {
 }
 
 func (cap *EvmWrite) Execute(ctx context.Context, callback chan<- capabilities.CapabilityResponse, request capabilities.CapabilityRequest) error {
+	cap.lggr.Debugw("Execute", "request", request)
 	// TODO: idempotency
 
 	// TODO: extract into ChainWriter?
@@ -184,8 +190,6 @@ func (cap *EvmWrite) Execute(ctx context.Context, callback chan<- capabilities.C
 
 	// TODO: validate encoded report is prefixed with workflowID and executionID that match the request meta
 
-	// unlimited gas in the MVP demo
-	gasLimit := 0
 	// No signature validation in the MVP demo
 	signatures := [][]byte{}
 
@@ -208,7 +212,7 @@ func (cap *EvmWrite) Execute(ctx context.Context, callback chan<- capabilities.C
 		FromAddress:    config.FromAddress().Address(),
 		ToAddress:      config.ForwarderAddress().Address(),
 		EncodedPayload: calldata,
-		FeeLimit:       uint32(gasLimit),
+		FeeLimit:       uint64(defaultGasLimit),
 		Meta:           txMeta,
 		Strategy:       strategy,
 		Checker:        checker,

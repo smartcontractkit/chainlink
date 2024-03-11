@@ -65,3 +65,5 @@ compileContract vrf/dev/TrustedBlockhashStore.sol
 compileContract vrf/dev/testhelpers/VRFV2PlusLoadTestWithMetrics.sol
 compileContractAltOpts vrf/dev/testhelpers/VRFCoordinatorV2PlusUpgradedVersion.sol 5
 compileContract vrf/dev/testhelpers/VRFV2PlusWrapperLoadTestConsumer.sol
+compileContract vrf/testhelpers/VRFMockETHLINKAggregator.sol
+compileContract vrf/dev/testhelpers/VRFV2PlusLoadTestWithMetrics.sol
