@@ -37,7 +37,12 @@ message Report {
   AggregationOutcome outcome = 2;
 }
 
+message ReportInfo {
+  Id id = 1;
+  bool should_report = 2;
+}
+
 message Outcome {
   map<string, AggregationOutcome> outcomes = 1;
-  repeated Report reports_to_generate = 2;
+  repeated Report current_reports = 2;
 }

@@ -142,10 +142,10 @@ func (r *reportingPlugin) Outcome(outctx ocr3types.OutcomeContext, query types.Q
 		o.Outcomes = map[string]*pbtypes.AggregationOutcome{}
 	}
 
-	// Wipe out the ReportsToGenerate. This gets regenerated
+	// Wipe out the CurrentReports. This gets regenerated
 	// every time since we only want to transmit reports that
 	// are part of the current Query.
-	o.ReportsToGenerate = []*pbtypes.Report{}
+	o.CurrentReports = []*pbtypes.Report{}
 
 	for _, weid := range q.Ids {
 		obs, ok := m[weid.WorkflowExecutionId]
@@ -176,18 +176,16 @@ func (r *reportingPlugin) Outcome(outctx ocr3types.OutcomeContext, query types.Q
 			return nil, err
 		}
 
-		if outcome.ShouldReport {
-			report := &pbtypes.Report{
-				Outcome: outcome,
-				Id:      weid,
-			}
-			o.ReportsToGenerate = append(o.ReportsToGenerate, report)
+		report := &pbtypes.Report{
+			Outcome: outcome,
+			Id:      weid,
 		}
+		o.CurrentReports = append(o.CurrentReports, report)
 
 		o.Outcomes[weid.WorkflowId] = outcome
 	}
 
-	r.lggr.Debugw("Outcome complete", "len", len(o.Outcomes), "nReportsToGenerate", len(o.ReportsToGenerate))
+	r.lggr.Debugw("Outcome complete", "len", len(o.Outcomes), "nCurrentReports", len(o.CurrentReports))
 	return proto.Marshal(o)
 }
 
@@ -200,31 +198,39 @@ func (r *reportingPlugin) Reports(seqNr uint64, outcome ocr3types.Outcome) ([]oc
 
 	reports := []ocr3types.ReportWithInfo[[]byte]{}
 
-	// This doesn't handle a query which contains the same workflowId multiple times.
-	for _, report := range o.ReportsToGenerate {
+	for _, report := range o.CurrentReports {
 		outcome, id := report.Outcome, report.Id
-		outcome, err := pbtypes.AppendWorkflowIDs(outcome, id.WorkflowId, id.WorkflowExecutionId)
-		if err != nil {
-			r.lggr.Errorw("could not append IDs")
-			continue
+
+		info := &pbtypes.ReportInfo{
+			Id:           id,
+			ShouldReport: outcome.ShouldReport,
 		}
 
-		enc, err := r.r.getEncoder(id.WorkflowId)
-		if err != nil {
-			r.lggr.Errorw("could not retrieve encoder for workflow", "error", err, "workflowID", id.WorkflowId)
-			continue
+		var report []byte
+		if info.ShouldReport {
+			newOutcome, err := pbtypes.AppendWorkflowIDs(outcome, id.WorkflowId, id.WorkflowExecutionId)
+			if err != nil {
+				r.lggr.Errorw("could not append IDs")
+				continue
+			}
+
+			enc, err := r.r.getEncoder(id.WorkflowId)
+			if err != nil {
+				r.lggr.Errorw("could not retrieve encoder for workflow", "error", err, "workflowID", id.WorkflowId)
+				continue
+			}
+
+			mv := values.FromMapValueProto(newOutcome.EncodableOutcome)
+			report, err = enc.Encode(context.Background(), *mv)
+			if err != nil {
+				r.lggr.Errorw("could not encode report for workflow", "error", err, "workflowID", id.WorkflowId)
+				continue
+			}
 		}
 
-		mv := values.FromMapValueProto(outcome.EncodableOutcome)
-		report, err := enc.Encode(context.Background(), *mv)
+		p, err := proto.Marshal(info)
 		if err != nil {
-			r.lggr.Errorw("could not encode report for workflow", "error", err, "workflowID", id.WorkflowId)
-			continue
-		}
-
-		p, err := proto.Marshal(id)
-		if err != nil {
-			r.lggr.Errorw("could not marshal id into ReportWithInfo", "error", err, "workflowID", id.WorkflowId)
+			r.lggr.Errorw("could not marshal id into ReportWithInfo", "error", err, "workflowID", id.WorkflowId, "shouldReport", info.ShouldReport)
 			continue
 		}
 
@@ -239,23 +245,35 @@ func (r *reportingPlugin) Reports(seqNr uint64, outcome ocr3types.Outcome) ([]oc
 }
 
 func (r *reportingPlugin) ShouldAcceptAttestedReport(ctx context.Context, seqNr uint64, rwi ocr3types.ReportWithInfo[[]byte]) (bool, error) {
-	id := &pbtypes.Id{}
-	err := proto.Unmarshal(rwi.Info, id)
+	info := &pbtypes.ReportInfo{}
+	err := proto.Unmarshal(rwi.Info, info)
 	if err != nil {
-		r.lggr.Error("could not unmarshal id")
+		r.lggr.Error("could not unmarshal info")
 		return false, err
 	}
 
-	b := values.NewBytes(rwi.Report)
-	r.lggr.Debugw("ShouldAcceptAttestedReport transmitting", "len", len(b.Underlying))
+	resp := map[string]any{}
+	if info.ShouldReport {
+		resp["report"] = []byte(rwi.Report)
+	} else {
+		resp["report"] = nil
+	}
+
+	v, err := values.Wrap(resp)
+	if err != nil {
+		r.lggr.Error("could not wrap report", "payload", resp)
+		return false, err
+	}
+
+	r.lggr.Debugw("ShouldAcceptAttestedReport transmitting", "shouldReport", info.ShouldReport, "len", len(rwi.Report))
 	err = r.r.transmitResponse(ctx, &response{
 		CapabilityResponse: capabilities.CapabilityResponse{
-			Value: b,
+			Value: v,
 		},
-		WorkflowExecutionID: id.WorkflowExecutionId,
+		WorkflowExecutionID: info.Id.WorkflowExecutionId,
 	})
 	if err != nil {
-		r.lggr.Errorw("could not transmit response", "error", err, "weid", id.WorkflowExecutionId)
+		r.lggr.Errorw("could not transmit response", "error", err, "weid", info.Id.WorkflowExecutionId)
 		return false, err
 	}
 
