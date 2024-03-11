@@ -13,10 +13,7 @@ import { toWei } from '../../test-helpers/helpers'
 import { ChainModuleBase } from '../../../typechain/ChainModuleBase'
 import { AutomationRegistrar2_3 as Registrar } from '../../../typechain/AutomationRegistrar2_3'
 import { deployRegistry23 } from './helpers'
-import {
-  // AutomationRegistryLogicB2_2__factory as AutomationRegistryLogicBFactory,
-  IAutomationRegistryMaster as IAutomationRegistry,
-} from '../../../typechain'
+import { IAutomationRegistryMaster2_3 as IAutomationRegistry } from '../../../typechain'
 
 // copied from KeeperRegistryBase2_3.sol
 enum Trigger {
@@ -53,7 +50,8 @@ const errorMsgs = {
 describe('AutomationRegistrar2_3', () => {
   const upkeepName = 'SampleUpkeep'
 
-  const linkEth = BigNumber.from(300000000)
+  const linkUSD = BigNumber.from('2000000000') // 1 LINK = $20
+  const nativeUSD = BigNumber.from('400000000000') // 1 ETH = $4000
   const gasWei = BigNumber.from(100)
   const performGas = BigNumber.from(100000)
   const paymentPremiumPPB = BigNumber.from(250000000)
@@ -68,6 +66,7 @@ describe('AutomationRegistrar2_3', () => {
   const checkGasLimit = BigNumber.from(20000000)
   const fallbackGasPrice = BigNumber.from(200)
   const fallbackLinkPrice = BigNumber.from(200000000)
+  const fallbackNativePrice = BigNumber.from(200000000)
   const maxCheckDataSize = BigNumber.from(10000)
   const maxPerformDataSize = BigNumber.from(10000)
   const maxRevertDataSize = BigNumber.from(1000)
@@ -91,7 +90,8 @@ describe('AutomationRegistrar2_3', () => {
   let requestSender: Signer
 
   let linkToken: Contract
-  let linkEthFeed: MockV3Aggregator
+  let linkUSDFeed: MockV3Aggregator
+  let nativeUSDFeed: MockV3Aggregator
   let gasPriceFeed: MockV3Aggregator
   let mock: UpkeepMock
   let registry: IAutomationRegistry
@@ -111,9 +111,12 @@ describe('AutomationRegistrar2_3', () => {
     gasPriceFeed = await mockV3AggregatorFactory
       .connect(owner)
       .deploy(0, gasWei)
-    linkEthFeed = await mockV3AggregatorFactory
+    linkUSDFeed = await mockV3AggregatorFactory
       .connect(owner)
-      .deploy(9, linkEth)
+      .deploy(8, linkUSD)
+    nativeUSDFeed = await mockV3AggregatorFactory
+      .connect(owner)
+      .deploy(8, nativeUSD)
 
     chainModuleBaseFactory = await ethers.getContractFactory('ChainModuleBase')
     chainModuleBase = await chainModuleBaseFactory.connect(owner).deploy()
@@ -121,7 +124,8 @@ describe('AutomationRegistrar2_3', () => {
     registry = await deployRegistry23(
       owner,
       linkToken.address,
-      linkEthFeed.address,
+      linkUSDFeed.address,
+      nativeUSDFeed.address,
       gasPriceFeed.address,
       zeroAddress,
     )
@@ -169,6 +173,7 @@ describe('AutomationRegistrar2_3', () => {
       maxPerformGas,
       fallbackGasPrice,
       fallbackLinkPrice,
+      fallbackNativePrice,
       transcoder,
       registrars: [registrar.address],
       upkeepPrivilegeManager: upkeepManager,
@@ -177,7 +182,7 @@ describe('AutomationRegistrar2_3', () => {
     }
     await registry
       .connect(owner)
-      .setConfigTypeSafe(keepers, keepers, 1, onchainConfig, 1, '0x')
+      .setConfigTypeSafe(keepers, keepers, 1, onchainConfig, 1, '0x', [], [])
   })
 
   describe('#typeAndVersion', () => {
