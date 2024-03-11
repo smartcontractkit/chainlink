@@ -23,6 +23,10 @@ type TransactionManagerTransactionsConfig interface {
 	MaxQueued() uint64
 }
 
+type InMemoryStoreConfig interface {
+	MaxQueued() uint64
+}
+
 type BroadcasterChainConfig interface {
 	IsL2() bool
 }

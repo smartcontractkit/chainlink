@@ -387,7 +387,7 @@ func (lsn *listenerV2) processRequestsPerSubBatchHelper(
 				"blockHash", p.req.req.Raw().BlockHash,
 			)
 			fromAddresses := lsn.fromAddresses()
-			fromAddress, err := lsn.gethks.GetRoundRobinAddress(lsn.chainID, fromAddresses...)
+			fromAddress, err := lsn.gethks.GetRoundRobinAddress(ctx, lsn.chainID, fromAddresses...)
 			if err != nil {
 				l.Errorw("Couldn't get next from address", "err", err)
 				continue
@@ -717,7 +717,7 @@ func (lsn *listenerV2) processRequestsPerSubHelper(
 				"blockNumber", p.req.req.Raw().BlockNumber,
 				"blockHash", p.req.req.Raw().BlockHash,
 			)
-			fromAddress, err := lsn.gethks.GetRoundRobinAddress(lsn.chainID, fromAddresses...)
+			fromAddress, err := lsn.gethks.GetRoundRobinAddress(ctx, lsn.chainID, fromAddresses...)
 			if err != nil {
 				l.Errorw("Couldn't get next from address", "err", err)
 				continue

@@ -5,7 +5,7 @@ import (
 	"net/mail"
 	"time"
 
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -58,7 +58,7 @@ func NewUser(email string, plainPwd string, role UserRole) (User, error) {
 // ValidateEmail is the single point of logic for user email validations
 func ValidateEmail(email string) error {
 	if len(email) == 0 {
-		return errors.New("Must enter an email")
+		return pkgerrors.New("Must enter an email")
 	}
 	_, err := mail.ParseAddress(email)
 	return err
@@ -67,10 +67,10 @@ func ValidateEmail(email string) error {
 // ValidateAndHashPassword is the single point of logic for user password validations
 func ValidateAndHashPassword(plainPwd string) (string, error) {
 	if err := utils.VerifyPasswordComplexity(plainPwd); err != nil {
-		return "", errors.Wrapf(err, "password insufficiently complex:\n%s", utils.PasswordComplexityRequirements)
+		return "", pkgerrors.Wrapf(err, "password insufficiently complex:\n%s", utils.PasswordComplexityRequirements)
 	}
 	if len(plainPwd) > MaxBcryptPasswordLength {
-		return "", errors.Errorf("must enter a password less than %v characters", MaxBcryptPasswordLength)
+		return "", pkgerrors.Errorf("must enter a password less than %v characters", MaxBcryptPasswordLength)
 	}
 
 	pwd, err := utils.HashPassword(plainPwd)
@@ -104,5 +104,5 @@ func GetUserRole(role string) (UserRole, error) {
 		UserRoleRun,
 		UserRoleView,
 	)
-	return UserRole(""), errors.New(errStr)
+	return UserRole(""), pkgerrors.New(errStr)
 }

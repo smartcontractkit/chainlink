@@ -11,8 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
-
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
@@ -24,16 +22,19 @@ import (
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_registrar_wrapper2_1"
+
 	ocr2keepers20config "github.com/smartcontractkit/chainlink-automation/pkg/v2/config"
 	ocr2keepers30config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_registrar_wrapper2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registrar_wrapper2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
@@ -371,12 +372,14 @@ func (a *AutomationTest) AddBootstrapJob() error {
 
 func (a *AutomationTest) AddAutomationJobs() error {
 	var contractVersion string
-	if a.RegistrySettings.RegistryVersion == ethereum.RegistryVersion_2_1 {
+	if a.RegistrySettings.RegistryVersion == ethereum.RegistryVersion_2_2 {
+		contractVersion = "v2.1+"
+	} else if a.RegistrySettings.RegistryVersion == ethereum.RegistryVersion_2_1 {
 		contractVersion = "v2.1"
 	} else if a.RegistrySettings.RegistryVersion == ethereum.RegistryVersion_2_0 {
 		contractVersion = "v2.0"
 	} else {
-		return fmt.Errorf("v2.0 and v2.1 are the only supported versions")
+		return fmt.Errorf("v2.0, v2.1, and v2.2 are the only supported versions")
 	}
 	for i := 1; i < len(a.ChainlinkNodes); i++ {
 		autoOCR2JobSpec := client.OCR2TaskJobSpec{
@@ -411,7 +414,6 @@ func (a *AutomationTest) SetConfigOnRegistry() error {
 	donNodes := a.NodeDetails[1:]
 	S := make([]int, len(donNodes))
 	oracleIdentities := make([]confighelper.OracleIdentityExtra, len(donNodes))
-	var offC []byte
 	var signerOnchainPublicKeys []types.OnchainPublicKey
 	var transmitterAccounts []types.Account
 	var f uint8
@@ -470,63 +472,17 @@ func (a *AutomationTest) SetConfigOnRegistry() error {
 
 	switch a.RegistrySettings.RegistryVersion {
 	case ethereum.RegistryVersion_2_0:
-		offC, err = json.Marshal(ocr2keepers20config.OffchainConfig{
-			TargetProbability:    a.PluginConfig.TargetProbability,
-			TargetInRounds:       a.PluginConfig.TargetInRounds,
-			PerformLockoutWindow: a.PluginConfig.PerformLockoutWindow,
-			GasLimitPerReport:    a.PluginConfig.GasLimitPerReport,
-			GasOverheadPerUpkeep: a.PluginConfig.GasOverheadPerUpkeep,
-			MinConfirmations:     a.PluginConfig.MinConfirmations,
-			MaxUpkeepBatchSize:   a.PluginConfig.MaxUpkeepBatchSize,
-		})
-		if err != nil {
-			return errors.Join(err, fmt.Errorf("failed to marshal plugin config"))
-		}
-
-		signerOnchainPublicKeys, transmitterAccounts, f, _, offchainConfigVersion, offchainConfig, err = ocr2.ContractSetConfigArgsForTests(
-			a.PublicConfig.DeltaProgress, a.PublicConfig.DeltaResend,
-			a.PublicConfig.DeltaRound, a.PublicConfig.DeltaGrace,
-			a.PublicConfig.DeltaStage, uint8(a.PublicConfig.RMax),
-			S, oracleIdentities, offC,
-			a.PublicConfig.MaxDurationQuery, a.PublicConfig.MaxDurationObservation,
-			1200*time.Millisecond,
-			a.PublicConfig.MaxDurationShouldAcceptAttestedReport,
-			a.PublicConfig.MaxDurationShouldTransmitAcceptedReport,
-			a.PublicConfig.F, a.PublicConfig.OnchainConfig,
-		)
+		signerOnchainPublicKeys, transmitterAccounts, f, _, offchainConfigVersion, offchainConfig, err = calculateOCR2ConfigArgs(a, S, oracleIdentities)
 		if err != nil {
 			return errors.Join(err, fmt.Errorf("failed to build config args"))
 		}
-
-	case ethereum.RegistryVersion_2_1:
-		offC, err = json.Marshal(ocr2keepers30config.OffchainConfig{
-			TargetProbability:    a.PluginConfig.TargetProbability,
-			TargetInRounds:       a.PluginConfig.TargetInRounds,
-			PerformLockoutWindow: a.PluginConfig.PerformLockoutWindow,
-			GasLimitPerReport:    a.PluginConfig.GasLimitPerReport,
-			GasOverheadPerUpkeep: a.PluginConfig.GasOverheadPerUpkeep,
-			MinConfirmations:     a.PluginConfig.MinConfirmations,
-			MaxUpkeepBatchSize:   a.PluginConfig.MaxUpkeepBatchSize,
-		})
-		if err != nil {
-			return errors.Join(err, fmt.Errorf("failed to marshal plugin config"))
-		}
-
-		signerOnchainPublicKeys, transmitterAccounts, f, _, offchainConfigVersion, offchainConfig, err = ocr3.ContractSetConfigArgsForTests(
-			a.PublicConfig.DeltaProgress, a.PublicConfig.DeltaResend, a.PublicConfig.DeltaInitial,
-			a.PublicConfig.DeltaRound, a.PublicConfig.DeltaGrace, a.PublicConfig.DeltaCertifiedCommitRequest,
-			a.PublicConfig.DeltaStage, a.PublicConfig.RMax,
-			S, oracleIdentities, offC,
-			a.PublicConfig.MaxDurationQuery, a.PublicConfig.MaxDurationObservation,
-			a.PublicConfig.MaxDurationShouldAcceptAttestedReport,
-			a.PublicConfig.MaxDurationShouldTransmitAcceptedReport,
-			a.PublicConfig.F, a.PublicConfig.OnchainConfig,
-		)
+	case ethereum.RegistryVersion_2_1, ethereum.RegistryVersion_2_2:
+		signerOnchainPublicKeys, transmitterAccounts, f, _, offchainConfigVersion, offchainConfig, err = calculateOCR3ConfigArgs(a, S, oracleIdentities)
 		if err != nil {
 			return errors.Join(err, fmt.Errorf("failed to build config args"))
 		}
 	default:
-		return fmt.Errorf("v2.0 and v2.1 are the only supported versions")
+		return fmt.Errorf("v2.0, v2.1, and v2.2 are the only supported versions")
 	}
 
 	var signers []common.Address
@@ -545,7 +501,7 @@ func (a *AutomationTest) SetConfigOnRegistry() error {
 		transmitters = append(transmitters, common.HexToAddress(string(transmitter)))
 	}
 
-	onchainConfig, err := a.RegistrySettings.EncodeOnChainConfig(a.Registrar.Address(), a.UpkeepPrivilegeManager)
+	onchainConfig, err := a.RegistrySettings.EncodeOnChainConfig(a.Registrar.Address(), a.UpkeepPrivilegeManager, a.Registry.ChainModuleAddress(), a.Registry.ReorgProtectionEnabled())
 	if err != nil {
 		return errors.Join(err, fmt.Errorf("failed to encode onchain config"))
 	}
@@ -564,6 +520,69 @@ func (a *AutomationTest) SetConfigOnRegistry() error {
 		return errors.Join(err, fmt.Errorf("failed to set config on registry"))
 	}
 	return nil
+}
+
+func calculateOCR2ConfigArgs(a *AutomationTest, S []int, oracleIdentities []confighelper.OracleIdentityExtra) (
+	signers []types.OnchainPublicKey,
+	transmitters []types.Account,
+	f_ uint8,
+	onchainConfig_ []byte,
+	offchainConfigVersion uint64,
+	offchainConfig []byte,
+	err error,
+) {
+	offC, _ := json.Marshal(ocr2keepers20config.OffchainConfig{
+		TargetProbability:    a.PluginConfig.TargetProbability,
+		TargetInRounds:       a.PluginConfig.TargetInRounds,
+		PerformLockoutWindow: a.PluginConfig.PerformLockoutWindow,
+		GasLimitPerReport:    a.PluginConfig.GasLimitPerReport,
+		GasOverheadPerUpkeep: a.PluginConfig.GasOverheadPerUpkeep,
+		MinConfirmations:     a.PluginConfig.MinConfirmations,
+		MaxUpkeepBatchSize:   a.PluginConfig.MaxUpkeepBatchSize,
+	})
+
+	return ocr2.ContractSetConfigArgsForTests(
+		a.PublicConfig.DeltaProgress, a.PublicConfig.DeltaResend,
+		a.PublicConfig.DeltaRound, a.PublicConfig.DeltaGrace,
+		a.PublicConfig.DeltaStage, uint8(a.PublicConfig.RMax),
+		S, oracleIdentities, offC,
+		a.PublicConfig.MaxDurationQuery, a.PublicConfig.MaxDurationObservation,
+		1200*time.Millisecond,
+		a.PublicConfig.MaxDurationShouldAcceptAttestedReport,
+		a.PublicConfig.MaxDurationShouldTransmitAcceptedReport,
+		a.PublicConfig.F, a.PublicConfig.OnchainConfig,
+	)
+}
+
+func calculateOCR3ConfigArgs(a *AutomationTest, S []int, oracleIdentities []confighelper.OracleIdentityExtra) (
+	signers []types.OnchainPublicKey,
+	transmitters []types.Account,
+	f_ uint8,
+	onchainConfig_ []byte,
+	offchainConfigVersion uint64,
+	offchainConfig []byte,
+	err error,
+) {
+	offC, _ := json.Marshal(ocr2keepers30config.OffchainConfig{
+		TargetProbability:    a.PluginConfig.TargetProbability,
+		TargetInRounds:       a.PluginConfig.TargetInRounds,
+		PerformLockoutWindow: a.PluginConfig.PerformLockoutWindow,
+		GasLimitPerReport:    a.PluginConfig.GasLimitPerReport,
+		GasOverheadPerUpkeep: a.PluginConfig.GasOverheadPerUpkeep,
+		MinConfirmations:     a.PluginConfig.MinConfirmations,
+		MaxUpkeepBatchSize:   a.PluginConfig.MaxUpkeepBatchSize,
+	})
+
+	return ocr3.ContractSetConfigArgsForTests(
+		a.PublicConfig.DeltaProgress, a.PublicConfig.DeltaResend, a.PublicConfig.DeltaInitial,
+		a.PublicConfig.DeltaRound, a.PublicConfig.DeltaGrace, a.PublicConfig.DeltaCertifiedCommitRequest,
+		a.PublicConfig.DeltaStage, a.PublicConfig.RMax,
+		S, oracleIdentities, offC,
+		a.PublicConfig.MaxDurationQuery, a.PublicConfig.MaxDurationObservation,
+		a.PublicConfig.MaxDurationShouldAcceptAttestedReport,
+		a.PublicConfig.MaxDurationShouldTransmitAcceptedReport,
+		a.PublicConfig.F, a.PublicConfig.OnchainConfig,
+	)
 }
 
 func (a *AutomationTest) RegisterUpkeeps(upkeepConfigs []UpkeepConfig) ([]common.Hash, error) {
@@ -588,7 +607,7 @@ func (a *AutomationTest) RegisterUpkeeps(upkeepConfigs []UpkeepConfig) ([]common
 			if err != nil {
 				return nil, errors.Join(err, fmt.Errorf("failed to pack registrar request"))
 			}
-		case ethereum.RegistryVersion_2_1:
+		case ethereum.RegistryVersion_2_1, ethereum.RegistryVersion_2_2: // 2.1 and 2.2 use the same registrar
 			registrarABI, err = automation_registrar_wrapper2_1.AutomationRegistrarMetaData.GetAbi()
 			if err != nil {
 				return nil, errors.Join(err, fmt.Errorf("failed to get registrar abi"))
@@ -603,7 +622,7 @@ func (a *AutomationTest) RegisterUpkeeps(upkeepConfigs []UpkeepConfig) ([]common
 				return nil, errors.Join(err, fmt.Errorf("failed to pack registrar request"))
 			}
 		default:
-			return nil, fmt.Errorf("v2.0 and v2.1 are the only supported versions")
+			return nil, fmt.Errorf("v2.0, v2.1, and v2.2 are the only supported versions")
 		}
 		tx, err := a.LinkToken.TransferAndCall(a.Registrar.Address(), upkeepConfig.FundingAmount, registrationRequest)
 		if err != nil {

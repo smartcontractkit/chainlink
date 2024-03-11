@@ -655,7 +655,7 @@ func (lsn *listenerV2) enqueueForceFulfillmentForRevertedTxn(
 	reqCommitment := revertedTxn.Commitment
 
 	fromAddresses := lsn.fromAddresses()
-	fromAddress, err := lsn.gethks.GetRoundRobinAddress(lsn.chainID, fromAddresses...)
+	fromAddress, err := lsn.gethks.GetRoundRobinAddress(ctx, lsn.chainID, fromAddresses...)
 	if err != nil {
 		return txmgr.Tx{}, errors.Wrap(err, "failed_to_get_vrf_listener_from_address")
 	}

@@ -98,50 +98,27 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 			failCheckArgs("invalid upkeep ID", nil)
 		}
 	}
-	// get upkeep info
+
+	// get trigger type, trigger type is immutable after its first setup
 	triggerType, err := keeperRegistry21.GetTriggerType(latestCallOpts, upkeepID)
 	if err != nil {
 		failUnknown("failed to get trigger type: ", err)
 	}
-	upkeepInfo, err := keeperRegistry21.GetUpkeep(latestCallOpts, upkeepID)
-	if err != nil {
-		failUnknown("failed to get trigger type: ", err)
-	}
-	minBalance, err := keeperRegistry21.GetMinBalance(latestCallOpts, upkeepID)
-	if err != nil {
-		failUnknown("failed to get min balance: ", err)
-	}
-	// do basic sanity checks
-	if (upkeepInfo.Target == gethcommon.Address{}) {
-		failCheckArgs("this upkeep does not exist on this registry", nil)
-	}
-	addLink("upkeep link", common.UpkeepLink(chainID, upkeepID))
-	addLink("upkeep contract address", common.ContractExplorerLink(chainID, upkeepInfo.Target))
-	if upkeepInfo.Paused {
-		resolveIneligible("upkeep is paused")
-	}
-	if upkeepInfo.MaxValidBlocknumber != math.MaxUint32 {
-		resolveIneligible("upkeep is cancelled")
-	}
-	message("upkeep is active (not paused or cancelled)")
-	if upkeepInfo.Balance.Cmp(minBalance) == -1 {
-		resolveIneligible("minBalance is < upkeep balance")
-	}
-	message("upkeep is funded above the min balance")
-	if bigmath.Div(bigmath.Mul(bigmath.Sub(upkeepInfo.Balance, minBalance), big.NewInt(100)), minBalance).Cmp(big.NewInt(5)) == -1 {
-		warning("upkeep balance is < 5% larger than minBalance")
-	}
+
 	// local state for pipeline results
+	var upkeepInfo iregistry21.KeeperRegistryBase21UpkeepInfo
 	var checkResult iregistry21.CheckUpkeep
 	var blockNum uint64
 	var performData []byte
 	var workID [32]byte
 	var trigger ocr2keepers.Trigger
 	upkeepNeeded := false
-	// check upkeep
+
+	// run basic checks and check upkeep by trigger type
 	if triggerType == ConditionTrigger {
 		message("upkeep identified as conditional trigger")
 
+		// validate inputs
 		if len(args) > 1 {
 			// if a block number is provided, use that block for both checkUpkeep and simulatePerformUpkeep
 			blockNum, err = strconv.ParseUint(args[1], 10, 64)
@@ -153,6 +130,9 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 			// if no block number is provided, use latest block for both checkUpkeep and simulatePerformUpkeep
 			triggerCallOpts = latestCallOpts
 		}
+
+		// do basic checks
+		upkeepInfo = getUpkeepInfoAndRunBasicChecks(keeperRegistry21, triggerCallOpts, upkeepID, chainID)
 
 		var tmpCheckResult iregistry21.CheckUpkeep0
 		tmpCheckResult, err = keeperRegistry21.CheckUpkeep0(triggerCallOpts, upkeepID)
@@ -214,6 +194,7 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 		trigger = mustAutomationTrigger(txHash, logIndex, blockNum, receipt.BlockHash)
 		workID = mustUpkeepWorkID(upkeepID, trigger)
 		message(fmt.Sprintf("workID computed: %s", hex.EncodeToString(workID[:])))
+
 		var hasKey bool
 		hasKey, err = keeperRegistry21.HasDedupKey(latestCallOpts, workID)
 		if err != nil {
@@ -223,6 +204,10 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 			resolveIneligible("upkeep was already performed")
 		}
 		triggerCallOpts = &bind.CallOpts{Context: ctx, BlockNumber: big.NewInt(receipt.BlockNumber.Int64())}
+
+		// do basic checks
+		upkeepInfo = getUpkeepInfoAndRunBasicChecks(keeperRegistry21, triggerCallOpts, upkeepID, chainID)
+
 		var rawTriggerConfig []byte
 		rawTriggerConfig, err = keeperRegistry21.GetUpkeepTriggerConfig(triggerCallOpts, upkeepID)
 		if err != nil {
@@ -265,10 +250,10 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 	} else {
 		resolveIneligible(fmt.Sprintf("invalid trigger type: %d", triggerType))
 	}
-	upkeepNeeded, performData = checkResult.UpkeepNeeded, checkResult.PerformData
 
+	upkeepNeeded, performData = checkResult.UpkeepNeeded, checkResult.PerformData
 	if checkResult.UpkeepFailureReason != 0 {
-		message(fmt.Sprintf("checkUpkeep failed with UpkeepFailureReason %s", getCheckUpkeepFailureReason(checkResult.UpkeepFailureReason)))
+		message(fmt.Sprintf("checkUpkeep reverted with UpkeepFailureReason %s", getCheckUpkeepFailureReason(checkResult.UpkeepFailureReason)))
 	}
 
 	// handle data streams lookup
@@ -316,7 +301,7 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 			}
 
 			if k.cfg.DataStreamsLegacyURL == "" || k.cfg.DataStreamsURL == "" || k.cfg.DataStreamsID == "" || k.cfg.DataStreamsKey == "" {
-				failCheckConfig("Data streams configs not set properly, check your DATA_STREAMS_LEGACY_URL, DATA_STREAMS_URL, DATA_STREAMS_ID and DATA_STREAMS_KEY", nil)
+				failCheckConfig("Data streams configs not set properly for this network, check your DATA_STREAMS settings in .env", nil)
 			}
 
 			// do mercury request
@@ -324,16 +309,17 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 			checkResults := []ocr2keepers.CheckResult{automationCheckResult}
 
 			var values [][]byte
-			values, err = streams.DoMercuryRequest(ctx, streamsLookup, checkResults, 0)
+			var errCode encoding.ErrCode
+			values, errCode, err = streams.DoMercuryRequest(ctx, streamsLookup, checkResults, 0)
 
 			if checkResults[0].IneligibilityReason == uint8(encoding.UpkeepFailureReasonInvalidRevertDataInput) {
 				resolveIneligible("upkeep used invalid revert data")
 			}
-			if checkResults[0].PipelineExecutionState == uint8(encoding.InvalidMercuryRequest) {
-				resolveIneligible("the data streams request data is invalid")
-			}
 			if err != nil {
-				failCheckConfig("failed to do data streams request ", err)
+				failCheckConfig("pipeline execution error, failed to do data streams request ", err)
+			}
+			if errCode != encoding.ErrCodeNil {
+				failCheckConfig(fmt.Sprintf("data streams error, failed to do data streams request with error code %d", errCode), nil)
 			}
 
 			// do checkCallback
@@ -392,6 +378,40 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 			resolveIneligible("simulate perform upkeep unsuccessful")
 		}
 	}
+}
+
+func getUpkeepInfoAndRunBasicChecks(keeperRegistry21 *iregistry21.IKeeperRegistryMaster, callOpts *bind.CallOpts, upkeepID *big.Int, chainID int64) iregistry21.KeeperRegistryBase21UpkeepInfo {
+	// get upkeep info
+	upkeepInfo, err := keeperRegistry21.GetUpkeep(callOpts, upkeepID)
+	if err != nil {
+		failUnknown("failed to get upkeep info: ", err)
+	}
+	// get min balance
+	minBalance, err := keeperRegistry21.GetMinBalance(callOpts, upkeepID)
+	if err != nil {
+		failUnknown("failed to get min balance: ", err)
+	}
+	// do basic sanity checks
+	if (upkeepInfo.Target == gethcommon.Address{}) {
+		failCheckArgs("this upkeep does not exist on this registry", nil)
+	}
+	addLink("upkeep link", common.UpkeepLink(chainID, upkeepID))
+	addLink("upkeep contract address", common.ContractExplorerLink(chainID, upkeepInfo.Target))
+	if upkeepInfo.Paused {
+		resolveIneligible("upkeep is paused")
+	}
+	if upkeepInfo.MaxValidBlocknumber != math.MaxUint32 {
+		resolveIneligible("upkeep is canceled")
+	}
+	message("upkeep is active (not paused or canceled)")
+	if upkeepInfo.Balance.Cmp(minBalance) == -1 {
+		resolveIneligible("minBalance is < upkeep balance")
+	}
+	message("upkeep is funded above the min balance")
+	if bigmath.Div(bigmath.Mul(bigmath.Sub(upkeepInfo.Balance, minBalance), big.NewInt(100)), minBalance).Cmp(big.NewInt(5)) == -1 {
+		warning("upkeep balance is < 5% larger than minBalance")
+	}
+	return upkeepInfo
 }
 
 func getCheckUpkeepFailureReason(reasonIndex uint8) string {

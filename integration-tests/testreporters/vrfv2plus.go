@@ -15,31 +15,30 @@ import (
 )
 
 type VRFV2PlusTestReporter struct {
-	TestType                     string
-	RequestCount                 *big.Int
-	FulfilmentCount              *big.Int
-	AverageFulfillmentInMillions *big.Int
-	SlowestFulfillment           *big.Int
-	FastestFulfillment           *big.Int
-	VRFv2PlusTestConfig          types.VRFv2PlusTestConfig
+	TestType            string
+	LoadTestMetrics     VRFLoadTestMetrics
+	VRFv2PlusTestConfig types.VRFv2PlusTestConfig
+}
+
+type VRFLoadTestMetrics struct {
+	RequestCount                         *big.Int
+	FulfilmentCount                      *big.Int
+	AverageFulfillmentInMillions         *big.Int
+	SlowestFulfillment                   *big.Int
+	FastestFulfillment                   *big.Int
+	AverageResponseTimeInSecondsMillions *big.Int
+	SlowestResponseTimeInSeconds         *big.Int
+	FastestResponseTimeInSeconds         *big.Int
 }
 
 func (o *VRFV2PlusTestReporter) SetReportData(
 	testType string,
-	RequestCount *big.Int,
-	FulfilmentCount *big.Int,
-	AverageFulfillmentInMillions *big.Int,
-	SlowestFulfillment *big.Int,
-	FastestFulfillment *big.Int,
-	vtfv2PlusTestConfig types.VRFv2PlusTestConfig,
+	metrics VRFLoadTestMetrics,
+	testConfig types.VRFv2PlusTestConfig,
 ) {
 	o.TestType = testType
-	o.RequestCount = RequestCount
-	o.FulfilmentCount = FulfilmentCount
-	o.AverageFulfillmentInMillions = AverageFulfillmentInMillions
-	o.SlowestFulfillment = SlowestFulfillment
-	o.FastestFulfillment = FastestFulfillment
-	o.VRFv2PlusTestConfig = vtfv2PlusTestConfig
+	o.LoadTestMetrics = metrics
+	o.VRFv2PlusTestConfig = testConfig
 }
 
 // SendSlackNotification sends a slack message to a slack webhook
@@ -63,21 +62,27 @@ func (o *VRFV2PlusTestReporter) SendSlackNotification(t *testing.T, slackClient 
 				"Use Existing Env: %t\n"+
 				"Request Count: %s\n"+
 				"Fulfilment Count: %s\n"+
-				"AverageFulfillmentInMillions: %s\n"+
-				"Slowest Fulfillment: %s\n"+
-				"Fastest Fulfillment: %s \n"+
+				"AverageFulfillmentInMillions (blocks): %s\n"+
+				"Slowest Fulfillment (blocks): %s\n"+
+				"Fastest Fulfillment (blocks): %s \n"+
+				"AverageFulfillmentInMillions (seconds): %s\n"+
+				"Slowest Fulfillment (seconds): %s\n"+
+				"Fastest Fulfillment (seconds): %s \n"+
 				"RPS: %d\n"+
 				"RateLimitUnitDuration: %s\n"+
 				"RandomnessRequestCountPerRequest: %d\n"+
 				"RandomnessRequestCountPerRequestDeviation: %d\n",
 			o.TestType,
 			vrfv2lusConfig.TestDuration.Duration.Truncate(time.Second).String(),
-			*vrfv2lusConfig.UseExistingEnv,
-			o.RequestCount.String(),
-			o.FulfilmentCount.String(),
-			o.AverageFulfillmentInMillions.String(),
-			o.SlowestFulfillment.String(),
-			o.FastestFulfillment.String(),
+			*o.VRFv2PlusTestConfig.GetVRFv2PlusConfig().General.UseExistingEnv,
+			o.LoadTestMetrics.RequestCount.String(),
+			o.LoadTestMetrics.FulfilmentCount.String(),
+			o.LoadTestMetrics.AverageFulfillmentInMillions.String(),
+			o.LoadTestMetrics.SlowestFulfillment.String(),
+			o.LoadTestMetrics.FastestFulfillment.String(),
+			o.LoadTestMetrics.AverageResponseTimeInSecondsMillions.String(),
+			o.LoadTestMetrics.SlowestResponseTimeInSeconds.String(),
+			o.LoadTestMetrics.FastestResponseTimeInSeconds.String(),
 			*vrfv2lusConfig.RPS,
 			vrfv2lusConfig.RateLimitUnitDuration.String(),
 			*o.VRFv2PlusTestConfig.GetVRFv2PlusConfig().General.RandomnessRequestCountPerRequest,
