@@ -3,6 +3,7 @@ package ocrcommon
 import (
 	"context"
 	errjoin "errors"
+	"fmt"
 	"math/big"
 	"sync"
 	"time"
@@ -101,7 +102,9 @@ func NewInMemoryDataSource(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, l
 
 const defaultInMemoryCacheDuration = time.Minute * 5
 
-func NewInMemoryDataSourceCache(ds median.DataSource, cacheExpiryDuration time.Duration) (median.DataSource, error) {
+const dataSourceCacheKey = "dscache"
+
+func NewInMemoryDataSourceCache(ds median.DataSource, kvStore job.KVStore, cacheExpiryDuration time.Duration) (median.DataSource, error) {
 	inMemoryDS, ok := ds.(*inMemoryDataSource)
 	if !ok {
 		return nil, errors.Errorf("unsupported data source type: %T, only inMemoryDataSource supported", ds)
@@ -112,6 +115,7 @@ func NewInMemoryDataSourceCache(ds median.DataSource, cacheExpiryDuration time.D
 	}
 
 	dsCache := &inMemoryDataSourceCache{
+		kvStore:            kvStore,
 		cacheExpiration:    cacheExpiryDuration,
 		inMemoryDataSource: inMemoryDS,
 	}
@@ -222,6 +226,7 @@ type inMemoryDataSourceCache struct {
 	latestUpdateErr error
 	latestTrrs      pipeline.TaskRunResults
 	latestResult    pipeline.FinalResult
+	kvStore         job.KVStore
 }
 
 // updater periodically updates data source cache.
