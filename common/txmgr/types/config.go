@@ -46,7 +46,7 @@ type BroadcasterListenerConfig interface {
 
 type ConfirmerFeeConfig interface {
 	BumpTxDepth() uint32
-	LimitDefault() uint32
+	LimitDefault() uint64
 
 	// from gas.Config
 	BumpThreshold() uint64
