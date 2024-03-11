@@ -4389,6 +4389,28 @@ describe('AutomationRegistry2_3', () => {
       )
     })
 
+    it('reverts if the billing token is not configured', async () => {
+      let longBytes = '0x'
+      for (let i = 0; i < 10000; i++) {
+        longBytes += '1'
+      }
+      await evmRevert(
+        registry
+          .connect(owner)
+          .registerUpkeep(
+            mock.address,
+            performGas,
+            await admin.getAddress(),
+            Trigger.CONDITION,
+            randomAddress(),
+            '0x',
+            '0x',
+            '0x',
+          ),
+        'UnsupportedBillingToken()',
+      )
+    })
+
     it('creates a record of the registration', async () => {
       const performGases = [100000, 500000]
       const checkDatas = [emptyBytes, '0x12']
@@ -4442,6 +4464,10 @@ describe('AutomationRegistry2_3', () => {
           assert.equal(registration.paused, false)
           assert.equal(registration.offchainConfig, '0x')
           assert(registration.maxValidBlocknumber.eq('0xffffffff'))
+          assert.equal(
+            await registry.getBillingToken(testUpkeepId),
+            linkToken.address,
+          )
         }
       }
     })

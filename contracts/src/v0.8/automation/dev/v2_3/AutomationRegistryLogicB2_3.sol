@@ -339,6 +339,10 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
     return i_allowedReadOnlyAddress;
   }
 
+  function getBillingToken(uint256 upkeepID) external view returns (IERC20) {
+    return s_upkeep[upkeepID].billingToken;
+  }
+
   function getBillingTokens() external view returns (IERC20[] memory) {
     return s_billingTokens;
   }
