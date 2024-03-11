@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -46,7 +47,8 @@ type inMemoryStore[
 	keyStore          txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
 	persistentTxStore txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 
-	addressStates map[ADDR]*addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
+	addressStatesLock sync.RWMutex
+	addressStates     map[ADDR]*addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 }
 
 // NewInMemoryStore returns a new inMemoryStore
@@ -107,18 +109,18 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Creat
 	defer ms.addressStatesLock.RUnlock()
 	as, ok := ms.addressStates[txRequest.FromAddress]
 	if !ok {
-		return tx, fmt.Errorf("create_transaction: %w", ErrAddressNotFound)
+		return tx, fmt.Errorf("create_transaction: %w: %q", ErrAddressNotFound, txRequest.FromAddress)
 	}
 
 	// Persist Transaction to persistent storage
-	tx, err := ms.txStore.CreateTransaction(ctx, txRequest, chainID)
+	tx, err := ms.persistentTxStore.CreateTransaction(ctx, txRequest, chainID)
 	if err != nil {
 		return tx, fmt.Errorf("create_transaction: %w", err)
 	}
 
 	// Update in memory store
 	// Add the request to the Unstarted channel to be processed by the Broadcaster
-	if err := as.AddTxToUnstartedQueue(&tx); err != nil {
+	if err := as.addTxToUnstartedQueue(&tx); err != nil {
 		return *ms.deepCopyTx(tx), fmt.Errorf("create_transaction: %w", err)
 	}
 

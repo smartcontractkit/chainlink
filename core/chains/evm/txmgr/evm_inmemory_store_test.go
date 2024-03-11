@@ -18,7 +18,6 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 )
@@ -27,14 +26,10 @@ func TestInMemoryStore_CreateTransaction(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := configtest.NewGeneralConfig(t, nil)
-	persistentStore := cltest.NewTestTxStore(t, db, cfg.Database())
-	kst := cltest.NewKeyStore(t, db, cfg.Database())
-
+	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
+	persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+	kst := cltest.NewKeyStore(t, db, dbcfg)
 	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
-	toAddress := testutils.NewAddress()
-	gasLimit := uint32(1000)
-	payload := []byte{1, 2, 3}
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	lggr := logger.TestSugared(t)
@@ -47,8 +42,12 @@ func TestInMemoryStore_CreateTransaction(t *testing.T) {
 		*evmtypes.Receipt,
 		evmtypes.Nonce,
 		evmgas.EvmFee,
-	](ctx, lggr, chainID, kst.Eth(), persistentStore)
+	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
 	require.NoError(t, err)
+
+	toAddress := testutils.NewAddress()
+	gasLimit := uint32(1000)
+	payload := []byte{1, 2, 3}
 
 	t.Run("with queue under capacity inserts eth_tx", func(t *testing.T) {
 		subject := uuid.New()
@@ -64,15 +63,7 @@ func TestInMemoryStore_CreateTransaction(t *testing.T) {
 		}, chainID)
 		require.NoError(t, err)
 
-		assert.Greater(t, actTx.ID, int64(0))
-		assert.Equal(t, commontxmgr.TxUnstarted, actTx.State)
-		assert.Equal(t, gasLimit, actTx.FeeLimit)
-		assert.Equal(t, fromAddress, actTx.FromAddress)
-		assert.Equal(t, toAddress, actTx.ToAddress)
-		assert.Equal(t, payload, actTx.EncodedPayload)
-		assert.Equal(t, big.Int(evmassets.NewEthValue(0)), actTx.Value)
-		assert.Equal(t, subject, actTx.Subject.UUID)
-
+		// check that the transaction was inserted into the persistent store
 		cltest.AssertCount(t, db, "evm.txes", 1)
 
 		var dbEthTx evmtxmgr.DbEthTx
@@ -88,6 +79,8 @@ func TestInMemoryStore_CreateTransaction(t *testing.T) {
 
 		var expTx evmtxmgr.Tx
 		dbEthTx.ToTx(&expTx)
+
+		// check that the in-memory store has the same transaction data as the persistent store
 		assertTxEqual(t, expTx, actTx)
 	})
 }
