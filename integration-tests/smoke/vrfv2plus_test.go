@@ -83,7 +83,7 @@ func TestVRFv2Plus(t *testing.T) {
 	vrfv2plus.LogSubDetails(l, subscription, subID, vrfv2PlusContracts.CoordinatorV2Plus)
 
 	t.Run("Link Billing", func(t *testing.T) {
-		configCopy := config.MustCopy().(tc.TestConfig)
+		configCopy := config.MustCopy()
 		var isNativeBilling = false
 		subBalanceBeforeRequest := subscription.Balance
 
@@ -133,7 +133,7 @@ func TestVRFv2Plus(t *testing.T) {
 		}
 	})
 	t.Run("Native Billing", func(t *testing.T) {
-		configCopy := config.MustCopy().(tc.TestConfig)
+		configCopy := config.MustCopy()
 		testConfig := configCopy.VRFv2Plus.General
 		var isNativeBilling = true
 		subNativeTokenBalanceBeforeRequest := subscription.NativeBalance
@@ -182,7 +182,7 @@ func TestVRFv2Plus(t *testing.T) {
 		}
 	})
 	t.Run("Direct Funding (VRFV2PlusWrapper)", func(t *testing.T) {
-		configCopy := config.MustCopy().(tc.TestConfig)
+		configCopy := config.MustCopy()
 		wrapperContracts, wrapperSubID, err := vrfv2plus.SetupVRFV2PlusWrapperEnvironment(
 			env,
 			&configCopy,
@@ -195,7 +195,7 @@ func TestVRFv2Plus(t *testing.T) {
 		require.NoError(t, err)
 
 		t.Run("Link Billing", func(t *testing.T) {
-			configCopy := config.MustCopy().(tc.TestConfig)
+			configCopy := config.MustCopy()
 			testConfig := configCopy.VRFv2Plus.General
 			var isNativeBilling = false
 
@@ -249,7 +249,7 @@ func TestVRFv2Plus(t *testing.T) {
 			}
 		})
 		t.Run("Native Billing", func(t *testing.T) {
-			configCopy := config.MustCopy().(tc.TestConfig)
+			configCopy := config.MustCopy()
 			testConfig := configCopy.VRFv2Plus.General
 			var isNativeBilling = true
 
@@ -304,7 +304,7 @@ func TestVRFv2Plus(t *testing.T) {
 		})
 	})
 	t.Run("Canceling Sub And Returning Funds", func(t *testing.T) {
-		configCopy := config.MustCopy().(tc.TestConfig)
+		configCopy := config.MustCopy()
 		subIDsForCancelling, err := vrfv2plus.CreateFundSubsAndAddConsumers(
 			env,
 			big.NewFloat(*configCopy.GetVRFv2PlusConfig().General.SubscriptionFundingAmountNative),
@@ -397,7 +397,7 @@ func TestVRFv2Plus(t *testing.T) {
 
 	})
 	t.Run("Owner Canceling Sub And Returning Funds While Having Pending Requests", func(t *testing.T) {
-		configCopy := config.MustCopy().(tc.TestConfig)
+		configCopy := config.MustCopy()
 		testConfig := configCopy.VRFv2Plus.General
 
 		//underfund subs in order rand fulfillments to fail
@@ -560,7 +560,7 @@ func TestVRFv2Plus(t *testing.T) {
 		)
 	})
 	t.Run("Owner Withdraw", func(t *testing.T) {
-		configCopy := config.MustCopy().(tc.TestConfig)
+		configCopy := config.MustCopy()
 		subIDsForWithdraw, err := vrfv2plus.CreateFundSubsAndAddConsumers(
 			env,
 			big.NewFloat(*configCopy.GetVRFv2PlusConfig().General.SubscriptionFundingAmountNative),
@@ -700,7 +700,7 @@ func TestVRFv2PlusMultipleSendingKeys(t *testing.T) {
 	vrfv2plus.LogSubDetails(l, subscription, subID, vrfv2PlusContracts.CoordinatorV2Plus)
 
 	t.Run("Request Randomness with multiple sending keys", func(t *testing.T) {
-		configCopy := config.MustCopy().(tc.TestConfig)
+		configCopy := config.MustCopy()
 		var isNativeBilling = true
 		txKeys, _, err := nodesMap[vrfcommon.VRF].CLNode.API.ReadTxKeys("evm")
 		require.NoError(t, err, "error reading tx keys")
@@ -969,7 +969,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 	// are moved correctly and requests can be made successfully in the subscription in
 	// new coordinator
 	t.Run("Test migration of direct billing using VRFV2PlusWrapper subID", func(t *testing.T) {
-		configCopy := config.MustCopy().(tc.TestConfig)
+		configCopy := config.MustCopy()
 		wrapperContracts, wrapperSubID, err := vrfv2plus.SetupVRFV2PlusWrapperEnvironment(
 			env,
 			&configCopy,
@@ -1226,7 +1226,7 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 		vrfv2plus.LogSubDetails(l, subscription, subID, vrfContracts.CoordinatorV2Plus)
 
 		//BHS node should fill in blockhashes into BHS contract depending on the waitBlocks and lookBackBlocks settings
-		configCopy := config.MustCopy().(tc.TestConfig)
+		configCopy := config.MustCopy()
 		_, err = vrfContracts.VRFV2PlusConsumer[0].RequestRandomness(
 			vrfKeyData.KeyHash,
 			subID,
@@ -1293,7 +1293,7 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 		vrfv2plus.LogSubDetails(l, subscription, subID, vrfContracts.CoordinatorV2Plus)
 
 		//BHS node should fill in blockhashes into BHS contract depending on the waitBlocks and lookBackBlocks settings
-		configCopy := config.MustCopy().(tc.TestConfig)
+		configCopy := config.MustCopy()
 		_, err = vrfContracts.VRFV2PlusConsumer[0].RequestRandomness(
 			vrfKeyData.KeyHash,
 			subID,

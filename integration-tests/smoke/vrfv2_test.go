@@ -85,7 +85,7 @@ func TestVRFv2Basic(t *testing.T) {
 	vrfv2.LogSubDetails(l, subscription, subID, vrfv2Contracts.CoordinatorV2)
 
 	t.Run("Request Randomness", func(t *testing.T) {
-		configCopy := config.MustCopy().(tc.TestConfig)
+		configCopy := config.MustCopy()
 		subBalanceBeforeRequest := subscription.Balance
 
 		jobRunsBeforeTest, err := nodesMap[vrfcommon.VRF].CLNode.API.MustReadRunsByJob(nodesMap[vrfcommon.VRF].Job.Data.ID)
@@ -130,7 +130,7 @@ func TestVRFv2Basic(t *testing.T) {
 	})
 
 	t.Run("Direct Funding (VRFV2Wrapper)", func(t *testing.T) {
-		configCopy := config.MustCopy().(tc.TestConfig)
+		configCopy := config.MustCopy()
 		wrapperContracts, wrapperSubID, err := vrfv2.SetupVRFV2WrapperEnvironment(
 			env,
 			&configCopy,
@@ -206,7 +206,7 @@ func TestVRFv2Basic(t *testing.T) {
 	})
 
 	t.Run("Oracle Withdraw", func(t *testing.T) {
-		configCopy := config.MustCopy().(tc.TestConfig)
+		configCopy := config.MustCopy()
 		subIDsForOracleWithDraw, err := vrfv2.CreateFundSubsAndAddConsumers(
 			env,
 			big.NewFloat(*configCopy.VRFv2.General.SubscriptionFundingAmountLink),
@@ -262,7 +262,7 @@ func TestVRFv2Basic(t *testing.T) {
 	})
 
 	t.Run("Canceling Sub And Returning Funds", func(t *testing.T) {
-		configCopy := config.MustCopy().(tc.TestConfig)
+		configCopy := config.MustCopy()
 		subIDsForCancelling, err := vrfv2.CreateFundSubsAndAddConsumers(
 			env,
 			big.NewFloat(*configCopy.VRFv2.General.SubscriptionFundingAmountLink),
@@ -336,7 +336,7 @@ func TestVRFv2Basic(t *testing.T) {
 	})
 
 	t.Run("Owner Canceling Sub And Returning Funds While Having Pending Requests", func(t *testing.T) {
-		configCopy := config.MustCopy().(tc.TestConfig)
+		configCopy := config.MustCopy()
 		// Underfund subscription to force fulfillments to fail
 		configCopy.VRFv2.General.SubscriptionFundingAmountLink = ptr.Ptr(float64(0.000000000000000001)) // 1 Juel
 
@@ -607,7 +607,7 @@ func TestVRFOwner(t *testing.T) {
 	vrfv2.LogSubDetails(l, subscription, subID, vrfv2Contracts.CoordinatorV2)
 
 	t.Run("Request Randomness With Force-Fulfill", func(t *testing.T) {
-		configCopy := config.MustCopy().(tc.TestConfig)
+		configCopy := config.MustCopy()
 
 		vrfCoordinatorOwner, err := vrfv2Contracts.CoordinatorV2.GetOwner(testcontext.Get(t))
 		require.NoError(t, err)
@@ -749,7 +749,7 @@ func TestVRFV2WithBHS(t *testing.T) {
 	t.Run("BHS Job with complete E2E - wait 256 blocks to see if Rand Request is fulfilled", func(t *testing.T) {
 		t.Skip("Skipped since should be run on-demand on live testnet due to long execution time")
 		//BHS node should fill in blockhashes into BHS contract depending on the waitBlocks and lookBackBlocks settings
-		configCopy := config.MustCopy().(tc.TestConfig)
+		configCopy := config.MustCopy()
 		_, err := vrfv2Contracts.VRFV2Consumer[0].RequestRandomness(
 			vrfv2KeyData.KeyHash,
 			subID,
@@ -791,7 +791,7 @@ func TestVRFV2WithBHS(t *testing.T) {
 
 	t.Run("BHS Job should fill in blockhashes into BHS contract for unfulfilled requests", func(t *testing.T) {
 		//BHS node should fill in blockhashes into BHS contract depending on the waitBlocks and lookBackBlocks settings
-		configCopy := config.MustCopy().(tc.TestConfig)
+		configCopy := config.MustCopy()
 		_, err := vrfv2Contracts.VRFV2Consumer[0].RequestRandomness(
 			vrfv2KeyData.KeyHash,
 			subID,

@@ -163,7 +163,7 @@ func TestOCRChaos(t *testing.T) {
 			err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, "instance=node-", 2, 5, ChaosGroupMajorityPlus)
 			require.NoError(t, err)
 
-			cfg := config.MustCopy().(tc.TestConfig)
+			cfg := config.MustCopy()
 			readSethCfg := cfg.GetSethConfig()
 			require.NotNil(t, readSethCfg, "Seth config shouldn't be nil")
 

@@ -86,6 +86,9 @@ func MustReplaceSimulatedNetworkUrlWithK8(l zerolog.Logger, network blockchain.E
 
 // ValidateSethNetworkConfig validates the Seth network config
 func ValidateSethNetworkConfig(cfg *seth.Network) error {
+	if cfg == nil {
+		return fmt.Errorf("Network cannot be nil")
+	}
 	if cfg.ChainID == "" {
 		return fmt.Errorf("ChainID is required")
 	}

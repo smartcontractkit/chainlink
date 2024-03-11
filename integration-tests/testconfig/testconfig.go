@@ -8,7 +8,6 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/barkimedes/go-deepcopy"
 	"github.com/google/uuid"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
@@ -157,13 +156,19 @@ func (c *TestConfig) Save() (string, error) {
 }
 
 // MustCopy Returns a deep copy of the Test Config or panics on error
-func (c TestConfig) MustCopy() any {
-	return deepcopy.MustAnything(c).(TestConfig)
-}
+func (c *TestConfig) MustCopy() TestConfig {
+	asBytes, err := toml.Marshal(c)
+	if err != nil {
+		panic(err)
+	}
 
-// MustCopy Returns a deep copy of struct passed to it and returns a typed copy (or panics on error)
-func MustCopy[T any](c T) T {
-	return deepcopy.MustAnything(c).(T)
+	var copy TestConfig
+	err = toml.Unmarshal(asBytes, &copy)
+	if err != nil {
+		panic(err)
+	}
+
+	return copy
 }
 
 func (c *TestConfig) GetLoggingConfig() *ctf_config.LoggingConfig {
@@ -545,7 +550,7 @@ func readFile(filePath string) ([]byte, error) {
 
 func handleAutomationConfigOverride(logger zerolog.Logger, filename, configurationName string, target *TestConfig, content []byte) error {
 	logger.Debug().Msgf("Handling automation config override for %s", filename)
-	oldConfig := MustCopy(target)
+	oldConfig := target.MustCopy()
 	newConfig := TestConfig{}
 
 	err := ctf_config.BytesToAnyTomlStruct(logger, filename, configurationName, &target, content)
@@ -559,7 +564,7 @@ func handleAutomationConfigOverride(logger zerolog.Logger, filename, configurati
 	}
 
 	// override instead of merging
-	if (newConfig.Automation != nil && len(newConfig.Automation.Load) > 0) && (oldConfig != nil && oldConfig.Automation != nil && len(oldConfig.Automation.Load) > 0) {
+	if (newConfig.Automation != nil && len(newConfig.Automation.Load) > 0) && (oldConfig.Automation != nil && len(oldConfig.Automation.Load) > 0) {
 		target.Automation.Load = newConfig.Automation.Load
 	}
 
@@ -568,7 +573,7 @@ func handleAutomationConfigOverride(logger zerolog.Logger, filename, configurati
 
 func handleDefaultConfigOverride(logger zerolog.Logger, filename, configurationName string, target *TestConfig, content []byte) error {
 	logger.Debug().Msgf("Handling default config override for %s", filename)
-	oldConfig := MustCopy(target)
+	oldConfig := target.MustCopy()
 	newConfig := TestConfig{}
 
 	err := ctf_config.BytesToAnyTomlStruct(logger, filename, configurationName, &target, content)
@@ -582,7 +587,7 @@ func handleDefaultConfigOverride(logger zerolog.Logger, filename, configurationN
 	}
 
 	// override instead of merging
-	if (newConfig.Seth != nil && len(newConfig.Seth.Networks) > 0) && (oldConfig != nil && oldConfig.Seth != nil && len(oldConfig.Seth.Networks) > 0) {
+	if (newConfig.Seth != nil && len(newConfig.Seth.Networks) > 0) && (oldConfig.Seth != nil && len(oldConfig.Seth.Networks) > 0) {
 		for i, old_network := range oldConfig.Seth.Networks {
 			for _, new_network := range newConfig.Seth.Networks {
 				if old_network.ChainID == new_network.ChainID {
