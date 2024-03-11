@@ -34,7 +34,7 @@ func main() {
 	})
 }
 
-func printGetLegacyGas(ctx context.Context, e gas.EvmEstimator, calldata []byte, l2GasLimit uint32, maxGasPrice *assets.Wei, opts ...feetypes.Opt) {
+func printGetLegacyGas(ctx context.Context, e gas.EvmEstimator, calldata []byte, l2GasLimit uint64, maxGasPrice *assets.Wei, opts ...feetypes.Opt) {
 	price, limit, err := e.GetLegacyGas(ctx, calldata, l2GasLimit, maxGasPrice, opts...)
 	if err != nil {
 		log.Println("failed to get legacy gas:", err)
@@ -67,12 +67,12 @@ func withEstimator(ctx context.Context, lggr logger.SugaredLogger, url string, f
 var _ gas.ArbConfig = &config{}
 
 type config struct {
-	max         uint32
+	max         uint64
 	bumpPercent uint16
 	bumpMin     *assets.Wei
 }
 
-func (c *config) LimitMax() uint32 {
+func (c *config) LimitMax() uint64 {
 	return c.max
 }
 
