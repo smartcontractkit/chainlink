@@ -197,12 +197,15 @@ func (p *logEventProvider) getPayloadsFromBuffer(latestBlock int64) []ocr2keeper
 	switch p.opts.BufferVersion {
 	case "v2":
 		blockRate, upkeepLimit, maxResults := 4, 10, MaxPayloads // TODO: use config
-		logs, _ := p.bufferV2.Dequeue(start, blockRate, upkeepLimit, maxResults, DefaultUpkeepSelector)
-		for _, l := range logs {
-			payload, err := p.createPayload(l.ID, l.Log)
-			if err == nil {
-				payloads = append(payloads, payload)
+		for len(payloads) < MaxPayloads && start < latestBlock {
+			logs, _ := p.bufferV2.Dequeue(start, blockRate, upkeepLimit, maxResults-len(payloads), DefaultUpkeepSelector)
+			for _, l := range logs {
+				payload, err := p.createPayload(l.ID, l.Log)
+				if err == nil {
+					payloads = append(payloads, payload)
+				}
 			}
+			start += int64(blockRate)
 		}
 	default:
 		logs := p.buffer.dequeueRange(start, latestBlock, AllowedLogsPerUpkeep, MaxPayloads)

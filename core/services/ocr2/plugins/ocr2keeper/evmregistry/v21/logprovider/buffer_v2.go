@@ -88,11 +88,11 @@ func (b *logBuffer) Enqueue(uid *big.Int, logs ...logpoller.Log) (int, int) {
 	if b.lastBlockSeen.Load() < lastBlockSeen {
 		b.lastBlockSeen.Store(lastBlockSeen)
 	}
-	offsetBlock := b.lastBlockSeen.Load() - int64(b.bufferSize.Load())
-	if offsetBlock <= 0 {
-		offsetBlock = 1
+	blockThreshold := b.lastBlockSeen.Load() - int64(b.bufferSize.Load())
+	if blockThreshold <= 0 {
+		blockThreshold = 1
 	}
-	return buf.enqueue(offsetBlock, logs...)
+	return buf.enqueue(blockThreshold, logs...)
 }
 
 // Dequeue greedly pulls logs from the buffers.
@@ -252,12 +252,12 @@ func (ub *upkeepLogBuffer) enqueue(blockThreshold int64, logsToAdd ...logpoller.
 	var added int
 	for _, log := range logsToAdd {
 		if log.BlockNumber < blockThreshold {
-			ub.lggr.Debugw("Skipping log from old block", "offsetBlock", blockThreshold, "logBlock", log.BlockNumber)
+			ub.lggr.Debugw("Skipping log from old block", "blockThreshold", blockThreshold, "logBlock", log.BlockNumber)
 			continue
 		}
 		logid := logID(log)
 		if _, ok := ub.visited[logid]; ok {
-			ub.lggr.Debugw("Skipping known log", "offsetBlock", blockThreshold, "logBlock", log.BlockNumber)
+			ub.lggr.Debugw("Skipping known log", "blockThreshold", blockThreshold, "logBlock", log.BlockNumber)
 			continue
 		}
 		added++
