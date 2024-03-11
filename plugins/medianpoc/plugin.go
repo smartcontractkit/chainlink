@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
-
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -24,10 +23,17 @@ func NewPlugin(lggr logger.Logger) *Plugin {
 	}
 }
 
+//var _ types.ReportingPluginClient = (*Plugin)(*nil)
+
 type Plugin struct {
 	loop.Plugin
 	stop services.StopChan
 	reportingplugins.MedianProviderServer
+}
+
+func (p *Plugin) ValidateConfig(ctx context.Context, config types.ReportingPluginServiceConfig) error {
+	p.Logger.Errorw("Some error in validation")
+	return fmt.Errorf("validation error")
 }
 
 type pipelineSpec struct {

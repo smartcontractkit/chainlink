@@ -1,17 +1,23 @@
 package validate
 
 import (
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os/exec"
 
 	"github.com/lib/pq"
 	"github.com/pelletier/go-toml"
 	pkgerrors "github.com/pkg/errors"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	dkgconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/dkg/config"
 	lloconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/llo/config"
@@ -19,6 +25,7 @@ import (
 	ocr2vrfconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2vrf/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
+	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
 // ValidatedOracleSpecToml validates an oracle spec that came from TOML
@@ -117,7 +124,7 @@ func validateSpec(tree *toml.Tree, spec job.Job) error {
 	case types.LLO:
 		return validateOCR2LLOSpec(spec.OCR2OracleSpec.PluginConfig)
 	case types.GenericPlugin:
-		return validateOCR2GenericPluginSpec(spec.OCR2OracleSpec.PluginConfig)
+		return validateGenericPluginSpec(spec)
 	case "":
 		return errors.New("no plugin specified")
 	default:
@@ -167,9 +174,9 @@ func (o *OCR2GenericPluginConfig) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func validateOCR2GenericPluginSpec(jsonConfig job.JSONConfig) error {
+func validateGenericPluginSpec(job job.Job) error {
 	p := OCR2GenericPluginConfig{}
-	err := json.Unmarshal(jsonConfig.Bytes(), &p)
+	err := json.Unmarshal(job.OCR2OracleSpec.PluginConfig.Bytes(), &p)
 	if err != nil {
 		return err
 	}
@@ -178,11 +185,48 @@ func validateOCR2GenericPluginSpec(jsonConfig job.JSONConfig) error {
 		return errors.New("generic config invalid: must provide plugin name")
 	}
 
-	if p.TelemetryType == "" {
-		return errors.New("generic config invalid: must provide telemetry type")
+	plugEnv := env.NewPlugin(p.PluginName)
+
+	command := p.Command
+	if command == "" {
+		command = plugEnv.Cmd.Get()
 	}
 
-	return nil
+	envVars, err := plugins.ParseEnvFile(plugEnv.Env.Get())
+	if err != nil {
+		return fmt.Errorf("failed to parse median env file: %w", err)
+	}
+	if len(p.EnvVars) > 0 {
+		for k, v := range p.EnvVars {
+			envVars = append(envVars, k+"="+v)
+		}
+	}
+
+	pluginLggr, _ := logger.New()
+
+	if err != nil {
+		return fmt.Errorf("failed to register loop: %w", err)
+	}
+
+	//TODO: pass proper registry
+	cmdFn := func() *exec.Cmd {
+		cmd := exec.Command(p.Command) //#nosec G204 -- we control the value of the cmd so the lint/sec error is a false positive
+		return cmd
+	}
+	plugin := reportingplugins.NewLOOPPServiceValidation(pluginLggr, loop.GRPCOpts{}, cmdFn)
+
+	//TODO: use different context
+	//TODO: wait for plugin to start
+	plugin.Start(context.Background())
+	defer plugin.Close()
+
+	//TODO: pass the plugin config
+	return plugin.ValidateConfig(context.Background(), types.ReportingPluginServiceConfig{
+		ProviderType:  p.ProviderType,
+		Command:       p.Command,
+		PluginName:    p.PluginName,
+		TelemetryType: p.TelemetryType,
+	})
 }
 
 func validateDKGSpec(jsonConfig job.JSONConfig) error {

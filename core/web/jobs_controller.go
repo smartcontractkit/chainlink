@@ -219,7 +219,6 @@ func (jc *JobsController) validateJobSpec(tomlString string) (jb job.Job, status
 	if err != nil {
 		return jb, http.StatusUnprocessableEntity, errors.Wrap(err, "failed to parse TOML")
 	}
-
 	config := jc.App.GetConfig()
 	switch jobType {
 	case job.OffchainReporting:
@@ -228,7 +227,7 @@ func (jc *JobsController) validateJobSpec(tomlString string) (jb job.Job, status
 			return jb, http.StatusNotImplemented, errors.New("The Offchain Reporting feature is disabled by configuration")
 		}
 	case job.OffchainReporting2:
-		jb, err = validate.ValidatedOracleSpecToml(config.OCR2(), config.Insecure(), tomlString)
+		jb, err = validate.ValidatedOracleSpecToml(config.OCR2(), config.Insecure(), tomlString, jc.App.GetLoopRegistrarConfig())
 		if !config.OCR2().Enabled() {
 			return jb, http.StatusNotImplemented, errors.New("The Offchain Reporting 2 feature is disabled by configuration")
 		}
