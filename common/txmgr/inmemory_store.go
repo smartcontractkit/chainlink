@@ -149,12 +149,12 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetTx
 	defer ms.addressStatesLock.RUnlock()
 	as, ok := ms.addressStates[fromAddress]
 	if !ok {
-		return nil, fmt.Errorf("get_tx_in_progress: %w", ErrAddressNotFound)
+		return nil, nil
 	}
 
 	tx := as.peekInProgressTx()
 	if tx == nil {
-		return nil, fmt.Errorf("get_tx_in_progress: %w", ErrTxnNotFound)
+		return nil, nil
 	}
 
 	if len(tx.TxAttempts) != 1 || tx.TxAttempts[0].State != txmgrtypes.TxAttemptInProgress {
