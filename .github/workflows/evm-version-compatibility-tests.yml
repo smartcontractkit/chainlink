@@ -210,7 +210,7 @@ jobs:
           grafanaUrl: ${{ vars.GRAFANA_URL }}
           grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
           ethExecutionClient: ${{ matrix.evm_node.eth_client }}
-          customEthClientDockerImages: ${{ matrix.evm_node.eth_client }}=${{ matrix.evm_node.docker_image }}
+          customEthClientDockerImages: ${{ matrix.evm_node.docker_image }}
 
       ## Run this step when changes that require tests to be run are made
       - name: Run Tests

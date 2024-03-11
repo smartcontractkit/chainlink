@@ -37,8 +37,8 @@ inputs:
     description: Grafana dashboard URL
   ethExecutionClient:
     description: Ethereum execution client to use (geth, besu, nethermind or erigon)
-  customEthClientDockerImages:
-    description: key-value pairs of custom docker images to use (e.g. execution_layer=hyperledger/besu:21.10.0)
+  customEthClientDockerImage:
+    description: custom docker image to use for eth client (e.g. hyperledger/besu:21.10.0)
 
 runs:
   using: composite
@@ -63,7 +63,7 @@ runs:
         GRAFANA_URL: ${{ inputs.grafanaUrl }}
         GRAFANA_DASHBOARD_URL: ${{ inputs.grafanaDashboardUrl }}
         ETH_EXECUTION_CLIENT: ${{ inputs.ethExecutionClient }}
-        CUSTOM_ETH_CLIENT_DOCKER_IMAGES: ${{ inputs.customEthClientDockerImages }}
+        CUSTOM_ETH_CLIENT_DOCKER_IMAGE: ${{ inputs.customEthClientDockerImage }}
       run: |
         echo ::add-mask::$CHAINLINK_IMAGE
         function convert_to_toml_array() {
@@ -97,14 +97,10 @@ runs:
         custom_images=""
         ethereum_version=""
 
-        if [ -n "$CUSTOM_ETH_CLIENT_DOCKER_IMAGES" ]; then
-            custom_images+="[PrivateEthereumNetwork.CustomDockerImages]"
+        if [ -n "$CUSTOM_ETH_CLIENT_DOCKER_IMAGE" ]; then
             ethereum_version="ethereum_version=\"\""
-            IFS=',' read -r -a array <<< "$CUSTOM_ETH_CLIENT_DOCKER_IMAGES"
-
-            for element in "${array[@]}"; do
-                custom_images+=$'\n'"execution_layer=\"$element\""
-            done
+            custom_images+="[PrivateEthereumNetwork.CustomDockerImages]"
+            custom_images+=$'\n'"execution_layer=\"$CUSTOM_ETH_CLIENT_DOCKER_IMAGE\""
         fi
 
         if [ -n "$ETH_EXECUTION_CLIENT" ]; then
