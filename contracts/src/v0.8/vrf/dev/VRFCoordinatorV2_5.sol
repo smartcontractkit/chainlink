@@ -178,10 +178,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     if (fallbackWeiPerUnitLink <= 0) {
       revert InvalidLinkWeiPrice(fallbackWeiPerUnitLink);
     }
-    if (
-      fulfillmentFlatFeeLinkDiscountPPM >= fulfillmentFlatFeeNativePPM &&
-      !(fulfillmentFlatFeeNativePPM == 0 && fulfillmentFlatFeeLinkDiscountPPM == 0)
-    ) {
+    if (fulfillmentFlatFeeLinkDiscountPPM > fulfillmentFlatFeeNativePPM) {
       revert LinkDiscountTooHigh(fulfillmentFlatFeeLinkDiscountPPM, fulfillmentFlatFeeNativePPM);
     }
     // After payment, there is at least one SLOAD and one SSTORE
