@@ -28,14 +28,16 @@ func main() {
 			},
 		),
 	)
-	db.Add(
-		k8spods.New(
-			k8spods.Props{
-				PrometheusDataSource: cfg.DataSources.Prometheus,
-				LokiDataSource:       cfg.DataSources.Loki,
-			},
-		),
-	)
+	if cfg.Platform == "kubernetes" {
+		db.Add(
+			k8spods.New(
+				k8spods.Props{
+					PrometheusDataSource: cfg.DataSources.Prometheus,
+					LokiDataSource:       cfg.DataSources.Loki,
+				},
+			),
+		)
+	}
 	// TODO: refactor as a component later
 	addWASPRows(db, cfg)
 	if err := db.Deploy(); err != nil {
