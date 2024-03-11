@@ -26,14 +26,21 @@ func TestLogEventBufferV2_Clean(t *testing.T) {
 			logpoller.Log{BlockNumber: 2, TxHash: common.HexToHash("0x1"), LogIndex: 1},
 		)
 		buf.Enqueue(big.NewInt(1),
-			logpoller.Log{BlockNumber: 17, TxHash: common.HexToHash("0x171"), LogIndex: 0},
-			logpoller.Log{BlockNumber: 17, TxHash: common.HexToHash("0x171"), LogIndex: 1},
+			logpoller.Log{BlockNumber: 11, TxHash: common.HexToHash("0x111"), LogIndex: 0},
+			logpoller.Log{BlockNumber: 11, TxHash: common.HexToHash("0x111"), LogIndex: 1},
 		)
 
 		upkeepBuf, ok := buf.(*logBuffer).getUpkeepBuffer(big.NewInt(1))
 		require.True(t, ok)
 		require.Equal(t, 4, upkeepBuf.size())
-		require.Equal(t, 0, upkeepBuf.clean(10))
+
+		buf.Enqueue(big.NewInt(1),
+			logpoller.Log{BlockNumber: 17, TxHash: common.HexToHash("0x171"), LogIndex: 0},
+			logpoller.Log{BlockNumber: 17, TxHash: common.HexToHash("0x171"), LogIndex: 1},
+		)
+
+		require.Equal(t, 4, upkeepBuf.size())
+		require.Equal(t, 0, upkeepBuf.clean(12))
 		require.Equal(t, 2, upkeepBuf.size())
 	})
 }

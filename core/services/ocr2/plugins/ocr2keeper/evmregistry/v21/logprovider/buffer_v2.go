@@ -312,14 +312,14 @@ func (ub *upkeepLogBuffer) clean(blockThreshold int64) int {
 	var dropped int
 	for _, l := range ub.q {
 		if l.BlockNumber > blockThreshold {
-			if len(updated) > maxLogs-1 {
+			if len(updated) < maxLogs {
+				updated = append(updated, l)
+			} else {
 				prommetrics.AutomationLogsInLogBuffer.Dec()
 				// TODO: check if we should clean visited as well
 				ub.lggr.Debugw("Reached log buffer limits, dropping log", "blockNumber", l.BlockNumber,
 					"blockHash", l.BlockHash, "txHash", l.TxHash, "logIndex", l.LogIndex, "len updated", len(updated), "maxLogs", maxLogs)
 				dropped++
-			} else {
-				updated = append(updated, l)
 			}
 		} else {
 			prommetrics.AutomationLogsInLogBuffer.Dec()
