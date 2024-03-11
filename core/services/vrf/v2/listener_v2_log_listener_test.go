@@ -17,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/jmoiron/sqlx"
 	"github.com/onsi/gomega"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -132,6 +133,7 @@ func setupVRFLogPollerListenerTH(t *testing.T,
 		l:             logger.Sugared(lggr),
 		coordinator:   coordinator,
 		inflightCache: vrfcommon.NewInflightCache(10),
+		chStop:        make(chan struct{}),
 	}
 	ctx := testutils.Context(t)
 
@@ -252,6 +254,13 @@ func TestLogPollerFilterRegistered(t *testing.T) {
 	gomega.NewWithT(t).Consistently(func() bool {
 		return th.Listener.chain.LogPoller().HasFilter(filterName)
 	}, 5*time.Second, 1*time.Second).Should(gomega.BeTrue())
+
+	// Close the listener to avoid an orphaned goroutine.
+	close(th.Listener.chStop)
+
+	// Assert channel is closed.
+	_, ok := (<-th.Listener.chStop)
+	assert.False(t, ok)
 }
 
 func TestInitProcessedBlock_NoUnfulfilledVRFReqs(t *testing.T) {
