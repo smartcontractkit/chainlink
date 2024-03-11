@@ -1,8 +1,6 @@
 package values
 
 import (
-	"fmt"
-
 	"github.com/shopspring/decimal"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/values/pb"
@@ -25,15 +23,5 @@ func (d *Decimal) Unwrap() (any, error) {
 }
 
 func (d *Decimal) UnwrapTo(to any) error {
-	dv, ok := to.(*decimal.Decimal)
-	if !ok {
-		return fmt.Errorf("cannot unwrap to non-pointer type %T", to)
-	}
-
-	if dv == nil {
-		return fmt.Errorf("cannot unwrap to nil pointer: %+v", to)
-	}
-
-	*dv = d.Underlying
-	return nil
+	return unwrapTo(d.Underlying, to)
 }

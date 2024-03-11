@@ -40,6 +40,10 @@ func Wrap(v any) (Value, error) {
 		return NewInt64(tv), nil
 	case int:
 		return NewInt64(int64(tv)), nil
+	case uint64:
+		return NewInt64(int64(tv)), nil
+	case uint:
+		return NewInt64(int64(tv)), nil
 	case big.Int:
 		return NewBigInt(tv), nil
 	case nil:
@@ -181,4 +185,23 @@ func createMapFromStruct(v any) (Value, error) {
 		return nil, err
 	}
 	return NewMap(resultMap)
+}
+
+func unwrapTo[T any](underlying T, to any) error {
+	switch tb := to.(type) {
+	case *T:
+		if tb == nil {
+			return fmt.Errorf("cannot unwrap to nil pointer")
+		}
+		*tb = underlying
+	case *any:
+		if tb == nil {
+			return fmt.Errorf("cannot unwrap to nil pointer")
+		}
+		*tb = underlying
+	default:
+		return fmt.Errorf("cannot unwrap to value of type: %T", to)
+	}
+
+	return nil
 }

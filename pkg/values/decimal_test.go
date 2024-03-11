@@ -25,4 +25,9 @@ func Test_DecimalUnwrapTo(t *testing.T) {
 	decn := (*decimal.Decimal)(nil)
 	err = tr.UnwrapTo(decn)
 	assert.ErrorContains(t, err, "unwrap to nil pointer")
+
+	var varAny any
+	err = tr.UnwrapTo(&varAny)
+	require.NoError(t, err)
+	assert.Equal(t, dv, varAny)
 }

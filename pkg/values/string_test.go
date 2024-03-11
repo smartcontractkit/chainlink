@@ -20,4 +20,8 @@ func Test_StringUnwrapTo(t *testing.T) {
 	gotn := (*string)(nil)
 	err = v.UnwrapTo(gotn)
 	assert.ErrorContains(t, err, "cannot unwrap to nil pointer")
+
+	var varAny any
+	err = v.UnwrapTo(&varAny)
+	assert.Equal(t, expected, varAny)
 }

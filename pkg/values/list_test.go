@@ -51,6 +51,33 @@ func Test_ListUnwrapTo(t *testing.T) {
 		got := []big.Int{}
 		sliceTest[big.Int](t, expected, got)
 	})
+
+	t.Run("[]any", func(t *testing.T) {
+		expected := []any{int64(1), *big.NewInt(0)}
+		got := []any{}
+		sliceTest[any](t, expected, got)
+	})
+
+	t.Run("[]any nested map", func(t *testing.T) {
+		expected := []any{map[string]any{"hello": "world"}}
+		got := []any{}
+		sliceTest[any](t, expected, got)
+	})
+
+	t.Run("any list with nested list", func(t *testing.T) {
+		expected := []any{[]any{"foo", "bar"}}
+		got := []any{}
+		sliceTest[any](t, expected, got)
+	})
+
+	t.Run("cant be assigned to passed in var", func(t *testing.T) {
+		a := struct{}{}
+		l, err := Wrap([]int{1, 2, 3})
+		require.NoError(t, err)
+
+		err = l.UnwrapTo(&a)
+		assert.ErrorContains(t, err, "cannot unwrap to type *struct {}")
+	})
 }
 
 func sliceTest[T any](t *testing.T, expected []T, got []T) {

@@ -178,6 +178,29 @@ func TestMap_UnwrapTo_OtherMapTypes(t *testing.T) {
 			},
 			got: map[string]bool{},
 		},
+		{
+			name: "map[string]any",
+			expected: map[string]any{
+				"nested": map[string]any{
+					"inner": "value",
+				},
+			},
+			got: map[string]any{},
+		},
+		{
+			name: "map[string]any nested list",
+			expected: map[string]any{
+				"nested": []any{
+					map[string]any{
+						"inner": "value",
+					},
+					map[string]any{
+						"inner2": "value2",
+					},
+				},
+			},
+			got: map[string]any{},
+		},
 	}
 
 	for _, tc := range testCases {

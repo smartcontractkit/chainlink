@@ -45,16 +45,7 @@ func (m *Map) proto() *pb.Value {
 
 func (m *Map) Unwrap() (any, error) {
 	nm := map[string]any{}
-	for k, v := range m.Underlying {
-		uv, err := Unwrap(v)
-		if err != nil {
-			return nil, err
-		}
-
-		nm[k] = uv
-	}
-
-	return nm, nil
+	return nm, m.UnwrapTo(&nm)
 }
 
 func (m *Map) UnwrapTo(to any) error {
@@ -80,7 +71,11 @@ func mapValueToMap(f reflect.Type, t reflect.Type, data any) (any, error) {
 	}
 
 	switch t {
-	case reflect.TypeOf(map[string]any{}):
+	// If the destination type is `map[string]any` or `any`,
+	// fully unwrap the values.Map.
+	// We have to handle the `any` case here as otherwise UnwrapTo won't work on
+	// maps recursively
+	case reflect.TypeOf(map[string]any{}), reflect.TypeOf((*any)(nil)).Elem():
 		dv := data.(map[string]Value)
 		d := map[string]any{}
 		for k, v := range dv {
@@ -110,11 +105,29 @@ func unwrapsValues(f reflect.Type, t reflect.Type, data any) (any, error) {
 		case reflect.TypeOf(unw):
 			return unw, nil
 
-		// Handle ints exceptionally;
+		// Handle integer types exceptionally;
 		// This is because ints are handled as int64s
 		// in the values library.
+		// TODO: refactor this so that we inspect the destination type
+		// and just call UnwrapTo using an instantiated pointer of that type.
 		case reflect.TypeOf(int(0)):
 			var i int
+			err := dv.UnwrapTo(&i)
+			if err != nil {
+				return nil, err
+			}
+
+			return i, nil
+		case reflect.TypeOf(uint(0)):
+			var i uint
+			err := dv.UnwrapTo(&i)
+			if err != nil {
+				return nil, err
+			}
+
+			return i, nil
+		case reflect.TypeOf(uint64(0)):
+			var i uint
 			err := dv.UnwrapTo(&i)
 			if err != nil {
 				return nil, err

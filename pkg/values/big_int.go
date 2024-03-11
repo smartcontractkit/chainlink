@@ -1,7 +1,6 @@
 package values
 
 import (
-	"fmt"
 	"math/big"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/values/pb"
@@ -24,15 +23,5 @@ func (b *BigInt) Unwrap() (any, error) {
 }
 
 func (b *BigInt) UnwrapTo(to any) error {
-	tb, ok := to.(*big.Int)
-	if !ok {
-		return fmt.Errorf("cannot unwrap to value of type: %T", to)
-	}
-
-	if tb == nil {
-		return fmt.Errorf("cannot unwrap to nil pointer: %+v", to)
-	}
-
-	*tb = b.Underlying
-	return nil
+	return unwrapTo(b.Underlying, to)
 }

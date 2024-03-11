@@ -22,4 +22,9 @@ func Test_IntUnwrapTo(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, expected, gotInt64)
+
+	var varAny any
+	err = v.UnwrapTo(&varAny)
+	require.NoError(t, err)
+	assert.Equal(t, expected, varAny)
 }

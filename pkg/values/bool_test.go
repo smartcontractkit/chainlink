@@ -31,4 +31,10 @@ func Test_BoolUnwrapTo(t *testing.T) {
 	nilb := (*bool)(nil)
 	err = fa.UnwrapTo(nilb)
 	assert.ErrorContains(t, err, "cannot unwrap to nil pointer")
+
+	var varAny any
+	err = fa.UnwrapTo(&varAny)
+	require.NoError(t, err)
+	assert.False(t, varAny.(bool))
+
 }

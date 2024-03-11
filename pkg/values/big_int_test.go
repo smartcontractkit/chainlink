@@ -21,4 +21,13 @@ func Test_BigIntUnwrapTo(t *testing.T) {
 	gotInt := (*big.Int)(nil)
 	err = v.UnwrapTo(gotInt)
 	assert.ErrorContains(t, err, "cannot unwrap to nil pointer")
+
+	var varAny any
+	err = v.UnwrapTo(&varAny)
+	require.NoError(t, err)
+	assert.Equal(t, expected, varAny)
+
+	var varStr string
+	err = v.UnwrapTo(&varStr)
+	assert.ErrorContains(t, err, "cannot unwrap to value of type: *string")
 }
