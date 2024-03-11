@@ -1,0 +1,14 @@
+{
+  "name": "dashboard-tests",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.ts",
+  "scripts": {},
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@grafana/e2e-selectors": "^10.4.0",
+    "chalk": "^4.1.2"
+  }
+}
