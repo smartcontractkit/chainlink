@@ -347,6 +347,10 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
     return s_billingTokens;
   }
 
+  function supportsBillingToken(IERC20 token) external view returns (bool) {
+    return s_billingConfigs[token].priceFeed != address(0);
+  }
+
   function getBillingTokenConfig(IERC20 token) external view returns (BillingConfig memory) {
     return s_billingConfigs[token];
   }

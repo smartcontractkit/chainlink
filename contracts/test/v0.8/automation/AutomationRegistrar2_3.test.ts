@@ -648,6 +648,37 @@ describe('AutomationRegistrar2_3', () => {
       )
     })
 
+    it('reverts if the billing token is not supported', async () => {
+      await linkToken
+        .connect(requestSender)
+        .approve(registrar.address, minUpkeepSpend)
+
+      await registrar
+        .connect(registrarOwner)
+        .setTriggerConfig(
+          Trigger.CONDITION,
+          autoApproveType_ENABLED_ALL,
+          maxAllowedAutoApprove,
+        )
+
+      await evmRevert(
+        registrar.connect(requestSender).registerUpkeep({
+          name: upkeepName,
+          upkeepContract: mock.address,
+          gasLimit: performGas,
+          adminAddress: await admin.getAddress(),
+          triggerType: Trigger.CONDITION,
+          checkData: emptyBytes,
+          triggerConfig: trigger,
+          offchainConfig: emptyBytes,
+          amount: minUpkeepSpend,
+          encryptedEmail: emptyBytes,
+          billingToken: randomAddress(),
+        }),
+        'InvalidBillingToken()',
+      )
+    })
+
     it('Auto Approve ON - registers an upkeep on KeeperRegistry instantly and emits both RegistrationRequested and RegistrationApproved events', async () => {
       //set auto approve ON with high threshold limits
       await registrar

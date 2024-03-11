@@ -141,15 +141,15 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
 
   event TriggerConfigSet(uint8 triggerType, AutoApproveType autoApproveType, uint32 autoApproveMaxAllowed);
 
-  error InvalidAdminAddress();
-  error RequestNotFound();
   error HashMismatch();
-  error OnlyAdminOrOwner();
   error InsufficientPayment();
-  error OnlyLink();
-  error FunctionNotPermitted();
-  error LinkTransferFailed(address to);
+  error InvalidAdminAddress();
+  error InvalidBillingToken();
   error InvalidDataLength();
+  error LinkTransferFailed(address to);
+  error OnlyAdminOrOwner();
+  error OnlyLink();
+  error RequestNotFound();
 
   /**
    * @param LINKAddress Address of Link token
@@ -321,6 +321,9 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
     }
     if (params.adminAddress == address(0)) {
       revert InvalidAdminAddress();
+    }
+    if (!s_config.AutomationRegistry.supportsBillingToken(address(params.billingToken))) {
+      revert InvalidBillingToken();
     }
     bytes32 hash = keccak256(abi.encode(params));
 
