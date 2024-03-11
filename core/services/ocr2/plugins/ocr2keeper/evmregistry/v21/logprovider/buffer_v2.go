@@ -28,8 +28,6 @@ type LogBuffer interface {
 	// Returns logs (associated to upkeeps) and the number of remaining
 	// logs in that window for the involved upkeeps.
 	Dequeue(block int64, blockRate, upkeepLimit, maxResults int, upkeepSelector func(id *big.Int) bool) ([]BufferedLog, int)
-	// Size returns the total number of logs in the buffer.
-	Size() int
 	// SetConfig sets the buffer size and the maximum number of logs to keep for each upkeep.
 	SetConfig(lookback, maxUpkeepLogs int)
 }
@@ -75,18 +73,6 @@ func (b *logBuffer) SetConfig(lookback, logLimitHigh int) {
 	for _, ub := range b.upkeepBuffers {
 		ub.setConfig(logLimitHigh)
 	}
-}
-
-func (b *logBuffer) Size() int {
-	b.lock.RLock()
-	defer b.lock.RUnlock()
-
-	size := 0
-	for _, ub := range b.upkeepBuffers {
-		size += ub.size()
-	}
-
-	return size
 }
 
 // Enqueue adds logs to the buffer and might also drop logs if the limit for the
