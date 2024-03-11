@@ -37,9 +37,7 @@ interface IVRFV2PlusWrapper {
    *
    * @param _callbackGasLimit is the gas limit used to estimate the price.
    */
-  function calculateRequestPrice(
-    uint32 _callbackGasLimit
-  ) external view returns (uint256 requestPrice, bool isFeedStale);
+  function calculateRequestPrice(uint32 _callbackGasLimit) external view returns (uint256);
 
   /**
    * @notice Calculates the price of a VRF request in native with the given callbackGasLimit at the current
@@ -61,10 +59,7 @@ interface IVRFV2PlusWrapper {
    * @param _callbackGasLimit is the gas limit used to estimate the price.
    * @param _requestGasPriceWei is the gas price in wei used for the estimation.
    */
-  function estimateRequestPrice(
-    uint32 _callbackGasLimit,
-    uint256 _requestGasPriceWei
-  ) external view returns (uint256 requestPrice, bool isFeedStale);
+  function estimateRequestPrice(uint32 _callbackGasLimit, uint256 _requestGasPriceWei) external view returns (uint256);
 
   /**
    * @notice Estimates the price of a VRF request in native with a specific gas limit and gas price.

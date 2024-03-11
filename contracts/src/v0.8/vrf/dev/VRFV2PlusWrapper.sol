@@ -311,11 +311,9 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
    */
   function calculateRequestPrice(
     uint32 _callbackGasLimit
-  ) external view override onlyConfiguredNotDisabled returns (uint256 requestPrice, bool isFeedStale) {
-    int256 weiPerUnitLink;
-    (weiPerUnitLink, isFeedStale) = _getFeedData();
-    requestPrice = _calculateRequestPrice(_callbackGasLimit, tx.gasprice, weiPerUnitLink);
-    return (requestPrice, isFeedStale);
+  ) external view override onlyConfiguredNotDisabled returns (uint256) {
+    (int256 weiPerUnitLink, ) = _getFeedData();
+    return _calculateRequestPrice(_callbackGasLimit, tx.gasprice, weiPerUnitLink);
   }
 
   function calculateRequestPriceNative(
@@ -336,11 +334,9 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   function estimateRequestPrice(
     uint32 _callbackGasLimit,
     uint256 _requestGasPriceWei
-  ) external view override onlyConfiguredNotDisabled returns (uint256 requestPrice, bool isFeedStale) {
-    int256 weiPerUnitLink;
-    (weiPerUnitLink, isFeedStale) = _getFeedData();
-    requestPrice = _calculateRequestPrice(_callbackGasLimit, _requestGasPriceWei, weiPerUnitLink);
-    return (requestPrice, isFeedStale);
+  ) external view override onlyConfiguredNotDisabled returns (uint256) {
+    (int256 weiPerUnitLink, ) = _getFeedData();
+    return _calculateRequestPrice(_callbackGasLimit, _requestGasPriceWei, weiPerUnitLink);
   }
 
   function estimateRequestPriceNative(
@@ -407,16 +403,13 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     // solhint-disable-next-line custom-errors
     require(msg.sender == address(s_link), "only callable from LINK");
 
-    (
-      uint32 callbackGasLimit,
-      uint16 requestConfirmations,
-      uint32 numWords,
-      bytes memory extraArgs,
-      bool isFeedStale
-    ) = abi.decode(_data, (uint32, uint16, uint32, bytes, bool));
+    (uint32 callbackGasLimit, uint16 requestConfirmations, uint32 numWords, bytes memory extraArgs) = abi.decode(
+      _data,
+      (uint32, uint16, uint32, bytes)
+    );
     checkPaymentMode(extraArgs, true);
     uint32 eip150Overhead = _getEIP150Overhead(callbackGasLimit);
-    (int256 weiPerUnitLink, ) = _getFeedData();
+    (int256 weiPerUnitLink, bool isFeedStale) = _getFeedData();
     uint256 price = _calculateRequestPrice(callbackGasLimit, tx.gasprice, weiPerUnitLink);
     // solhint-disable-next-line custom-errors
     require(_amount >= price, "fee too low");
