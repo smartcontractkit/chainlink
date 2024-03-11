@@ -61,17 +61,11 @@ func (pq *priorityHeap[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Peek()
 
 // Cap returns the capacity of the queue
 func (pq *priorityHeap[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Cap() int {
-	if pq.txs == nil {
-		return 0
-	}
 	return cap(pq.txs)
 }
 
 // Len, Less, Swap, Push, and Pop methods implement the heap interface
 func (pq *priorityHeap[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Len() int {
-	if pq.txs == nil {
-		return 0
-	}
 	return len(pq.txs)
 }
 func (pq *priorityHeap[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Less(i, j int) bool {
