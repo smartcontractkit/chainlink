@@ -505,6 +505,8 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     if (!s_link.transfer(_recipient, _amount)) {
       revert FailedToTransferLink();
     }
+
+    emit Withdrawn(_recipient, _amount);
   }
 
   /**
@@ -518,6 +520,8 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     (bool success, ) = payable(_recipient).call{value: _amount}("");
     // solhint-disable-next-line custom-errors
     require(success, "failed to withdraw native");
+
+    emit NativeWithdrawn(_recipient, _amount);
   }
 
   /**
@@ -525,6 +529,8 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
    */
   function enable() external onlyOwner {
     s_disabled = false;
+
+    emit Enabled();
   }
 
   /**
@@ -533,6 +539,8 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
    */
   function disable() external onlyOwner {
     s_disabled = true;
+
+    emit Disabled();
   }
 
   // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore

@@ -20,6 +20,10 @@ interface IVRFV2PlusWrapper {
     uint256 requestId,
     int256 fallbackWeiPerUnitLink
   );
+  event Withdrawn(address indexed to, uint256 amount);
+  event NativeWithdrawn(address indexed to, uint256 amount);
+  event Enabled();
+  event Disabled();
 
   /**
    * @return the request ID of the most recent VRF V2 request made by this wrapper. This should only

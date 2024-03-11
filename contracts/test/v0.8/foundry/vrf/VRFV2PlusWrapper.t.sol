@@ -136,6 +136,10 @@ contract VRFV2PlusWrapperTest is BaseTest {
     uint256 requestId,
     int256 fallbackWeiPerUnitLink
   );
+  event Withdrawn(address indexed to, uint256 amount);
+  event NativeWithdrawn(address indexed to, uint256 amount);
+  event Enabled();
+  event Disabled();
 
   // VRFV2PlusWrapperConsumerBase events
   event LinkTokenSet(address link);
@@ -187,9 +191,13 @@ contract VRFV2PlusWrapperTest is BaseTest {
     assertEq(s_wrapper.typeAndVersion(), "VRFV2Wrapper 1.0.0");
 
     // Cannot make request while disabled.
+    vm.expectEmit(false, false, false, true, address(s_wrapper));
+    emit Disabled();
     s_wrapper.disable();
     vm.expectRevert("wrapper is disabled");
     s_consumer.makeRequestNative(500_000, 0, 1);
+    vm.expectEmit(false, false, false, true, address(s_wrapper));
+    emit Enabled();
     s_wrapper.enable();
 
     // Request randomness from wrapper.
@@ -240,6 +248,8 @@ contract VRFV2PlusWrapperTest is BaseTest {
     // Withdraw funds from wrapper.
     changePrank(LINK_WHALE);
     uint256 priorWhaleBalance = LINK_WHALE.balance;
+    vm.expectEmit(true, false, false, true, address(s_wrapper));
+    emit NativeWithdrawn(LINK_WHALE, paid);
     s_wrapper.withdrawNative(LINK_WHALE, paid);
     assertEq(LINK_WHALE.balance, priorWhaleBalance + paid);
     assertEq(address(s_wrapper).balance, 0);
@@ -299,6 +309,8 @@ contract VRFV2PlusWrapperTest is BaseTest {
     // Withdraw funds from wrapper.
     changePrank(LINK_WHALE);
     uint256 priorWhaleBalance = s_linkToken.balanceOf(LINK_WHALE);
+    vm.expectEmit(true, false, false, true, address(s_wrapper));
+    emit Withdrawn(LINK_WHALE, paid);
     s_wrapper.withdraw(LINK_WHALE, paid);
     assertEq(s_linkToken.balanceOf(LINK_WHALE), priorWhaleBalance + paid);
     assertEq(s_linkToken.balanceOf(address(s_wrapper)), 0);

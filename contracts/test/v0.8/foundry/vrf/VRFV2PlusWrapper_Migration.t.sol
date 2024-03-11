@@ -127,6 +127,11 @@ contract VRFV2PlusWrapper_MigrationTest is BaseTest {
     address indexed sender
   );
 
+  // IVRFV2PlusWrapper events
+  event Withdrawn(address indexed to, uint256 amount);
+  event NativeWithdrawn(address indexed to, uint256 amount);
+
+  // IVRFMigratableConsumerV2Plus events
   event CoordinatorSet(address vrfCoordinator);
 
   function testMigrateWrapperLINKPayment() public {
@@ -237,6 +242,8 @@ contract VRFV2PlusWrapper_MigrationTest is BaseTest {
     /// Withdraw funds from wrapper.
     vm.startPrank(LINK_WHALE);
     uint256 priorWhaleBalance = s_linkToken.balanceOf(LINK_WHALE);
+    vm.expectEmit(true, false, false, true, address(s_wrapper));
+    emit Withdrawn(LINK_WHALE, paid);
     s_wrapper.withdraw(LINK_WHALE, paid);
     assertEq(s_linkToken.balanceOf(LINK_WHALE), priorWhaleBalance + paid);
     assertEq(s_linkToken.balanceOf(address(s_wrapper)), 0);
@@ -352,6 +359,8 @@ contract VRFV2PlusWrapper_MigrationTest is BaseTest {
     // Withdraw funds from wrapper.
     vm.startPrank(LINK_WHALE);
     uint256 priorWhaleBalance = LINK_WHALE.balance;
+    vm.expectEmit(true, false, false, true, address(s_wrapper));
+    emit NativeWithdrawn(LINK_WHALE, paid);
     s_wrapper.withdrawNative(LINK_WHALE, paid);
     assertEq(LINK_WHALE.balance, priorWhaleBalance + paid);
     assertEq(address(s_wrapper).balance, 0);
