@@ -27,7 +27,8 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
   )
     AutomationRegistryBase2_3(
       logicB.getLinkAddress(),
-      logicB.getLinkNativeFeedAddress(),
+      logicB.getLinkUSDFeedAddress(),
+      logicB.getNativeUSDFeedAddress(),
       logicB.getFastGasFeedAddress(),
       logicB.getAutomationForwarderLogic(),
       logicB.getAllowedReadOnlyAddress()
@@ -56,7 +57,7 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
       uint256 gasUsed,
       uint256 gasLimit,
       uint256 fastGasWei,
-      uint256 linkNative
+      uint256 linkUSD
     )
   {
     _preventExecution();
@@ -65,15 +66,18 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
     HotVars memory hotVars = s_hotVars;
     Upkeep memory upkeep = s_upkeep[id];
 
-    if (hotVars.paused) return (false, bytes(""), UpkeepFailureReason.REGISTRY_PAUSED, 0, upkeep.performGas, 0, 0);
-    if (upkeep.maxValidBlocknumber != UINT32_MAX)
-      return (false, bytes(""), UpkeepFailureReason.UPKEEP_CANCELLED, 0, upkeep.performGas, 0, 0);
-    if (upkeep.paused) return (false, bytes(""), UpkeepFailureReason.UPKEEP_PAUSED, 0, upkeep.performGas, 0, 0);
-
-    (fastGasWei, linkNative) = _getFeedData(hotVars);
-    uint96 maxLinkPayment = _getMaxLinkPayment(hotVars, triggerType, upkeep.performGas, fastGasWei, linkNative);
-    if (upkeep.balance < maxLinkPayment) {
-      return (false, bytes(""), UpkeepFailureReason.INSUFFICIENT_BALANCE, 0, upkeep.performGas, 0, 0);
+    {
+      uint256 nativeUSD;
+      uint96 maxLinkPayment;
+      if (hotVars.paused) return (false, bytes(""), UpkeepFailureReason.REGISTRY_PAUSED, 0, upkeep.performGas, 0, 0);
+      if (upkeep.maxValidBlocknumber != UINT32_MAX)
+        return (false, bytes(""), UpkeepFailureReason.UPKEEP_CANCELLED, 0, upkeep.performGas, 0, 0);
+      if (upkeep.paused) return (false, bytes(""), UpkeepFailureReason.UPKEEP_PAUSED, 0, upkeep.performGas, 0, 0);
+      (fastGasWei, linkUSD, nativeUSD) = _getFeedData(hotVars);
+      maxLinkPayment = _getMaxLinkPayment(hotVars, triggerType, upkeep.performGas, fastGasWei, linkUSD, nativeUSD);
+      if (upkeep.balance < maxLinkPayment) {
+        return (false, bytes(""), UpkeepFailureReason.INSUFFICIENT_BALANCE, 0, upkeep.performGas, 0, 0);
+      }
     }
 
     bytes memory callData = _checkPayload(id, triggerType, triggerData);
@@ -92,7 +96,7 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
           gasUsed,
           upkeep.performGas,
           fastGasWei,
-          linkNative
+          linkUSD
         );
       }
       return (
@@ -102,21 +106,13 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
         gasUsed,
         upkeep.performGas,
         fastGasWei,
-        linkNative
+        linkUSD
       );
     }
 
     (upkeepNeeded, performData) = abi.decode(result, (bool, bytes));
     if (!upkeepNeeded)
-      return (
-        false,
-        bytes(""),
-        UpkeepFailureReason.UPKEEP_NOT_NEEDED,
-        gasUsed,
-        upkeep.performGas,
-        fastGasWei,
-        linkNative
-      );
+      return (false, bytes(""), UpkeepFailureReason.UPKEEP_NOT_NEEDED, gasUsed, upkeep.performGas, fastGasWei, linkUSD);
 
     if (performData.length > s_storage.maxPerformDataSize)
       return (
@@ -126,10 +122,10 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
         gasUsed,
         upkeep.performGas,
         fastGasWei,
-        linkNative
+        linkUSD
       );
 
-    return (upkeepNeeded, performData, upkeepFailureReason, gasUsed, upkeep.performGas, fastGasWei, linkNative);
+    return (upkeepNeeded, performData, upkeepFailureReason, gasUsed, upkeep.performGas, fastGasWei, linkUSD);
   }
 
   /**
@@ -147,7 +143,7 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
       uint256 gasUsed,
       uint256 gasLimit,
       uint256 fastGasWei,
-      uint256 linkNative
+      uint256 linkUSD
     )
   {
     return checkUpkeep(id, bytes(""));
