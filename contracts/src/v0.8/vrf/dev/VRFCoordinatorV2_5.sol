@@ -27,6 +27,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
   error InvalidRequestConfirmations(uint16 have, uint16 min, uint16 max);
   error GasLimitTooBig(uint32 have, uint32 want);
   error NumWordsTooBig(uint32 have, uint32 want);
+  error MsgDataTooBig(uint256 have, uint32 max);
   error ProvingKeyAlreadyRegistered(bytes32 keyHash);
   error NoSuchProvingKey(bytes32 keyHash);
   error InvalidLinkWeiPrice(int256 linkWei);
@@ -444,6 +445,32 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     bool onlyPremium
   ) external nonReentrant returns (uint96 payment) {
     uint256 startGas = gasleft();
+    // fulfillRandomWords msg.data has 772 bytes and with an additional
+    // buffer of 32 bytes, we get 804 bytes.
+    /* Data size split:
+     * fulfillRandomWords function signature - 4 bytes
+     * proof - 416 bytes
+     *   pk - 64 bytes
+     *   gamma - 64 bytes
+     *   c - 32 bytes
+     *   s - 32 bytes
+     *   seed - 32 bytes
+     *   uWitness - 32 bytes
+     *   cGammaWitness - 64 bytes
+     *   sHashWitness - 64 bytes
+     *   zInv - 32 bytes
+     * requestCommitment - 320 bytes
+     *   blockNum - 32 bytes
+     *   subId - 32 bytes
+     *   callbackGasLimit - 32 bytes
+     *   numWords - 32 bytes
+     *   sender - 32 bytes
+     *   extraArgs - 128 bytes
+     * onlyPremium - 32 bytes
+     */
+    if (msg.data.length > 804) {
+      revert MsgDataTooBig(msg.data.length, 804);
+    }
     Output memory output = _getRandomnessFromProof(proof, rc);
     uint256 gasPrice = _getValidatedGasPrice(onlyPremium, output.provingKey.maxGas);
 
