@@ -165,6 +165,7 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 			*configCopy.VRFv2Plus.General.NumberOfSubToCreate,
 			l,
 		)
+		require.NoError(t, err, "error setting up new consumers and subs for Load Test")
 		vrfContracts.VRFV2PlusConsumer = consumers
 		require.Len(t, vrfContracts.VRFV2PlusConsumer, 1, "only one consumer should be created for Load Test")
 		consumer := vrfContracts.VRFV2PlusConsumer[0]

@@ -170,11 +170,12 @@ func TestVRFV2Performance(t *testing.T) {
 			*configCopy.VRFv2.General.NumberOfSubToCreate,
 			l,
 		)
+		require.NoError(t, err, "error setting up new consumers and subscriptions")
 		vrfContracts.VRFV2Consumer = consumers
 		require.Len(t, vrfContracts.VRFV2Consumer, 1, "only one consumer should be created for Load Test")
 		consumer := vrfContracts.VRFV2Consumer[0]
 		err = consumer.ResetMetrics()
-		require.NoError(t, err)
+		require.NoError(t, err, "error resetting consumer metrics")
 		MonitorLoadStats(lc, consumer, updatedLabels)
 
 		singleFeedConfig := &wasp.Config{
@@ -210,9 +211,9 @@ func TestVRFV2Performance(t *testing.T) {
 		require.NoError(t, err, "error getting latest block number")
 		_, err = actions.WaitForBlockNumberToBe(latestBlockNumber+uint64(256), testEnv.EVMClient, &wgBlockNumberTobe, configCopy.VRFv2.General.WaitFor256BlocksTimeout.Duration, t)
 		wgBlockNumberTobe.Wait()
-		require.NoError(t, err)
+		require.NoError(t, err, "error waiting for block number to be")
 		err = vrfv2.FundSubscriptions(testEnv, big.NewFloat(*configCopy.VRFv2.General.SubscriptionRefundingAmountLink), vrfContracts.LinkToken, vrfContracts.CoordinatorV2, subIDs)
-
+		require.NoError(t, err, "error funding subscriptions")
 		var wgAllRequestsFulfilled sync.WaitGroup
 		wgAllRequestsFulfilled.Add(1)
 		requestCount, fulfilmentCount, err := vrfcommon.WaitForRequestCountEqualToFulfilmentCount(testcontext.Get(t), consumer, 2*time.Minute, &wgAllRequestsFulfilled)
