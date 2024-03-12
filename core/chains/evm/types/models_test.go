@@ -2,6 +2,7 @@ package types_test
 
 import (
 	"bytes"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -17,7 +18,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/null"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
@@ -330,7 +330,7 @@ func TestHead_UnmarshalJSON(t *testing.T) {
 				Number:           0x15156,
 				ParentHash:       common.HexToHash("0x923ad1e27c1d43cb2d2fb09e26d2502ca4b4914a2e0599161d279c6c06117d34"),
 				Timestamp:        time.Unix(0x60d0952d, 0).UTC(),
-				L1BlockNumber:    null.Int64From(0x8652f9),
+				L1BlockNumber:    sql.NullInt64{Int64: 0x8652f9, Valid: true},
 				ReceiptsRoot:     common.HexToHash("0x2c292672b8fc9d223647a2569e19721f0757c96a1421753a93e141f8e56cf504"),
 				TransactionsRoot: common.HexToHash("0x71448077f5ce420a8e24db62d4d58e8d8e6ad2c7e76318868e089d41f7e0faf3"),
 				StateRoot:        common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000"),

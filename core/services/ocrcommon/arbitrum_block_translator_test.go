@@ -1,11 +1,11 @@
 package ocrcommon_test
 
 import (
+	"database/sql"
 	"math/big"
 	mrand "math/rand"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/null"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -239,7 +239,7 @@ func generateDeterministicL2Blocks() (heads []evmtypes.Head) {
 	for i := 0; i <= l2max; i++ {
 		head := evmtypes.Head{
 			Number:        int64(i),
-			L1BlockNumber: null.Int64From(l1BlockNumber),
+			L1BlockNumber: sql.NullInt64{Int64: l1BlockNumber, Valid: true},
 			Hash:          utils.NewHash(),
 			ParentHash:    parentHash,
 		}
