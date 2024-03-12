@@ -10,7 +10,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -23,7 +22,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var forwardABI = evmtypes.MustGetABI(forwarder.KeystoneForwarderMetaData.ABI)
+var forwardABI = types.MustGetABI(forwarder.KeystoneForwarderMetaData.ABI)
 
 func TestEvmWrite(t *testing.T) {
 	chain := evmmocks.NewChain(t)
