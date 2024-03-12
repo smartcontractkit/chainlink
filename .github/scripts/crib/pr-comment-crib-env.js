@@ -37,24 +37,25 @@ async function run() {
   try {
     const token = process.env.GITHUB_TOKEN;
     const route53ZoneId = process.env.ROUTE53_ZONE_ID;
+    const subdomainPrefix = process.env.SUBDOMAIN_PREFIX || "crib-chainlink";
 
     // Check for the existence of GITHUB_TOKEN and ROUTE53_ZONE_ID
     if (!token || !route53ZoneId) {
-      core.setFailed("Error: Missing required environment variables.");
-      if (!token) core.setFailed("GITHUB_TOKEN is required.");
-      if (!route53ZoneId) core.setFailed("ROUTE53_ZONE_ID is required.");
+      core.setFailed(
+        "Error: Missing required environment variables: GITHUB_TOKEN or ROUTE53_ZONE_ID."
+      );
       return;
     }
 
     const octokit = github.getOctokit(token);
     const context = github.context;
-    const subdomainPrefix = process.env.SUBDOMAIN_PREFIX || "crib-chainlink";
+
     const labelsToCheck = ["crib"];
     const { owner, repo } = context.repo;
     const prNumber = context.issue.number;
 
     if (!prNumber) {
-      core.setFailed("Could not get PR number from context");
+      core.setFailed("Error: Could not get PR number from context");
       return;
     }
 
