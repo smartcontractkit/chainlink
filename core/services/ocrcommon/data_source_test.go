@@ -49,7 +49,6 @@ func Test_InMemoryDataSource(t *testing.T) {
 }
 
 func Test_CachedInMemoryDataSourceErrHandling(t *testing.T) {
-
 	changeResultValue := func(runner *pipelinemocks.Runner, value string, returnErr, once bool) {
 		result := pipeline.Result{
 			Value: value,

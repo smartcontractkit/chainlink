@@ -56,12 +56,11 @@ func (kv jobKVStore) Store(key string, val interface{}) error {
 }
 
 func (kv jobKVStore) Get(key string, dest interface{}) error {
-	var ret types.JSONText
-
+	var ret json.RawMessage
 	sql := "SELECT val FROM job_kv_store WHERE id = $1 AND key = $2"
 	if err := kv.q.Get(&ret, sql, kv.jobID, key); err != nil {
 		return fmt.Errorf("failed to get value by key: %s for jobID: %d : %w", key, kv.jobID, err)
 	}
-
-	return ret.Unmarshal(dest)
+	
+	return json.Unmarshal(ret, dest)
 }
