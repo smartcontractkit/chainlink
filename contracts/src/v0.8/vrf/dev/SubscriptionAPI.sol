@@ -409,8 +409,7 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
     if (consumers.length == MAX_CONSUMERS) {
       revert TooManyConsumers();
     }
-    mapping(uint256 => ConsumerConfig) storage consumerConfigs = s_consumers[consumer];
-    ConsumerConfig memory consumerConfig = consumerConfigs[subId];
+    ConsumerConfig storage consumerConfig = s_consumers[consumer][subId];
     if (consumerConfig.active) {
       // Idempotence - do nothing if already added.
       // Ensures uniqueness in s_subscriptions[subId].consumers.
@@ -420,7 +419,6 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
     // otherwise, consumerConfig.nonce is non-zero
     // in both cases, use consumerConfig.nonce as is and set active status to true
     consumerConfig.active = true;
-    consumerConfigs[subId] = consumerConfig;
     consumers.push(consumer);
 
     emit SubscriptionConsumerAdded(subId, consumer);
@@ -434,8 +432,7 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
     // If no consumers, does nothing.
     uint256 consumersLength = consumers.length;
     for (uint256 i = 0; i < consumersLength; ++i) {
-      // TODO: should be safe to hard delete here because sub IDs are unique anyways
-      s_consumers[consumers[i]][subId].active = false;
+      delete s_consumers[consumers[i]][subId];
     }
     delete s_subscriptionConfigs[subId];
     delete s_subscriptions[subId];
