@@ -2,13 +2,13 @@
 
 CREATE TABLE job_kv_store (
       id SERIAL PRIMARY KEY,
-      key varchar,
+      key VARCHAR,
       val JSONB,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       FOREIGN KEY (id) REFERENCES jobs(id),
-      CONSTRAINT unique_id_key UNIQUE (id, key)
+      CONSTRAINT uk_id_key UNIQUE (id, key)
 );
 
 -- +goose Down
-Drop table job_kv_store;
+DROP TABLE job_kv_store;
