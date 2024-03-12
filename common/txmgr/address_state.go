@@ -302,7 +302,7 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) moveUn
 	if !ok {
 		return fmt.Errorf("move_unconfirmed_to_confirmed: no attempt found with receipt %v", receipt)
 	}
-	// TODO(jtw): not sure how to set blocknumber, transactionindex, and receipt on conflict
+
 	txAttempt.Receipts = []txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH]{receipt}
 	tx, ok := as.unconfirmedTxs[txAttempt.TxID]
 	if !ok {
