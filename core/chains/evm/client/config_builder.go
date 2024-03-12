@@ -52,17 +52,20 @@ func NewClientConfigs(
 
 func parseNodeConfigs(nodeCfgs []nodeConfig) ([]*toml.Node, error) {
 	nodes := make([]*toml.Node, len(nodeCfgs))
-	for _, nodeCfg := range nodeCfgs {
+	for i, nodeCfg := range nodeCfgs {
+		if nodeCfg.WSURL == nil || nodeCfg.HTTPURL == nil {
+			return nil, fmt.Errorf("node config [%d]: missing WS or HTTP URL", i)
+		}
 		wsUrl := commonconfig.MustParseURL(*nodeCfg.WSURL)
 		httpUrl := commonconfig.MustParseURL(*nodeCfg.HTTPURL)
-		node := toml.Node{
+		node := &toml.Node{
 			Name:     nodeCfg.Name,
 			WSURL:    wsUrl,
 			HTTPURL:  httpUrl,
 			SendOnly: nodeCfg.SendOnly,
 			Order:    nodeCfg.Order,
 		}
-		nodes = append(nodes, &node)
+		nodes[i] = node
 	}
 
 	if err := validateNodeConfigs(nodes); err != nil {
