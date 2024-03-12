@@ -84,7 +84,6 @@ func interpolateKey(key string, state *executionState) (any, error) {
 			if d < 0 {
 				return "", fmt.Errorf("could not interpolate ref part `%s` in `%+v`: index %d must be a positive number", r, v, d)
 			}
-
 			val = v[d]
 		default:
 			return "", fmt.Errorf("could not interpolate ref part `%s` in `%+v`", r, val)
