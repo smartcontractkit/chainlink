@@ -4,10 +4,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/stretchr/testify/require"
 )
 
 func TestNewEvmClient(t *testing.T) {
@@ -23,8 +24,8 @@ func TestNewEvmClient(t *testing.T) {
 	chainTypeStr := ""
 	nodeConfigs := []client.TestNodeConfig{
 		{
-			Name: ptr("foo"),
-			WSURL: ptr("ws://foo.test"),
+			Name:    ptr("foo"),
+			WSURL:   ptr("ws://foo.test"),
 			HTTPURL: ptr("http://foo.test"),
 		},
 	}
