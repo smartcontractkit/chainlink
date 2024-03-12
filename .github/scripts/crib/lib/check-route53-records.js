@@ -36,16 +36,16 @@ export async function route53RecordsExist(
       let allRecordSets = [];
 
       while (isTruncated) {
-        const params = {
-          HostedZoneId: hostedZoneId,
-          MaxItems: "300",
-          ...(nextRecordName && { StartRecordName: nextRecordName }),
-          ...(nextRecordType && { StartRecordType: nextRecordType }),
-        };
-
-        const data = await route53Client.send(
-          new ListResourceRecordSetsCommand(params)
+        const listResourceRecordSetsCommand = new ListResourceRecordSetsCommand(
+          {
+            HostedZoneId: hostedZoneId,
+            MaxItems: "300",
+            ...(nextRecordName && { StartRecordName: nextRecordName }),
+            ...(nextRecordType && { StartRecordType: nextRecordType }),
+          }
         );
+
+        const data = await route53Client.send(listResourceRecordSetsCommand);
         allRecordSets = allRecordSets.concat(data.ResourceRecordSets);
         isTruncated = data.IsTruncated;
         if (isTruncated) {
@@ -62,12 +62,11 @@ export async function route53RecordsExist(
         console.info("All records found in Route 53.");
         return true;
       }
-      
-        // If any record is not found, throw an error to trigger a retry
-        throw new Error(
-          "One or more DNS records not found in Route 53, retrying..."
-        );
-      
+
+      // If any record is not found, throw an error to trigger a retry
+      throw new Error(
+        "One or more DNS records not found in Route 53, retrying..."
+      );
     } catch (error) {
       console.error(`Attempt ${attempts + 1}:`, error.message);
       if (attempts === maxRetries - 1) {
