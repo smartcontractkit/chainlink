@@ -270,11 +270,6 @@ func FundSubscriptions(
 		}
 		//Link Billing
 		amountJuels := conversions.EtherToWei(subscriptionFundingAmountLink)
-		fmt.Println("linkAddress", linkAddress)
-		fmt.Println("coordinator", coordinator)
-		fmt.Println("subID", subID)
-		fmt.Println("amountJuels", amountJuels)
-		fmt.Println("env.EVMClient", env.EVMClient)
 		err = FundVRFCoordinatorV2_5Subscription(linkAddress, coordinator, env.EVMClient, subID, amountJuels)
 		if err != nil {
 			return fmt.Errorf("%s, err %w", vrfcommon.ErrFundSubWithLinkToken, err)
