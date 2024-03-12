@@ -1,6 +1,7 @@
 package fluxmonitorv2
 
 import (
+	"context"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -13,8 +14,8 @@ import (
 
 // KeyStoreInterface defines an interface to interact with the keystore
 type KeyStoreInterface interface {
-	EnabledKeysForChain(chainID *big.Int) ([]ethkey.KeyV2, error)
-	GetRoundRobinAddress(chainID *big.Int, addrs ...common.Address) (common.Address, error)
+	EnabledKeysForChain(ctx context.Context, chainID *big.Int) ([]ethkey.KeyV2, error)
+	GetRoundRobinAddress(ctx context.Context, chainID *big.Int, addrs ...common.Address) (common.Address, error)
 }
 
 // KeyStore implements KeyStoreInterface

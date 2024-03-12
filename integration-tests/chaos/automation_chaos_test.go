@@ -126,6 +126,7 @@ func TestAutomationChaos(t *testing.T) {
 	registryVersions := map[string]eth_contracts.KeeperRegistryVersion{
 		"registry_2_0": eth_contracts.RegistryVersion_2_0,
 		"registry_2_1": eth_contracts.RegistryVersion_2_1,
+		"registry_2_2": eth_contracts.RegistryVersion_2_2,
 	}
 
 	for name, registryVersion := range registryVersions {
@@ -139,8 +140,8 @@ func TestAutomationChaos(t *testing.T) {
 			}
 
 			var overrideFn = func(_ interface{}, target interface{}) {
-				ctf_config.MustConfigOverrideChainlinkVersion(config.ChainlinkImage, target)
-				ctf_config.MightConfigOverridePyroscopeKey(config.Pyroscope, target)
+				ctf_config.MustConfigOverrideChainlinkVersion(config.GetChainlinkImageConfig(), target)
+				ctf_config.MightConfigOverridePyroscopeKey(config.GetPyroscopeConfig(), target)
 			}
 
 			chainlinkCfg := chainlink.NewWithOverride(0, getDefaultAutomationSettings(&config), config.ChainlinkImage, overrideFn)
@@ -276,17 +277,23 @@ func TestAutomationChaos(t *testing.T) {
 
 					actions.CreateOCRKeeperJobs(t, chainlinkNodes, registry.Address(), network.ChainID, 0, registryVersion)
 					nodesWithoutBootstrap := chainlinkNodes[1:]
-					ocrConfig, err := actions.BuildAutoOCR2ConfigVars(t, nodesWithoutBootstrap, defaultOCRRegistryConfig, registrar.Address(), 30*time.Second)
+					defaultOCRRegistryConfig.RegistryVersion = registryVersion
+					ocrConfig, err := actions.BuildAutoOCR2ConfigVars(t, nodesWithoutBootstrap, defaultOCRRegistryConfig, registrar.Address(), 30*time.Second, registry.ChainModuleAddress(), registry.ReorgProtectionEnabled())
 					require.NoError(t, err, "Error building OCR config vars")
 					err = registry.SetConfig(defaultOCRRegistryConfig, ocrConfig)
 					require.NoError(t, err, "Registry config should be be set successfully")
 					require.NoError(t, chainClient.WaitForEvents(), "Waiting for config to be set")
 
-					consumers_conditional, upkeepIDs_conditional := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, numberOfUpkeeps, big.NewInt(defaultLinkFunds), defaultUpkeepGasLimit, false, false)
-					consumers_logtrigger, upkeepIDs_logtrigger := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, numberOfUpkeeps, big.NewInt(defaultLinkFunds), defaultUpkeepGasLimit, true, false)
+					consumersConditional, upkeepidsConditional := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, numberOfUpkeeps, big.NewInt(defaultLinkFunds), defaultUpkeepGasLimit, false, false)
+					consumersLogtrigger, upkeepidsLogtrigger := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, numberOfUpkeeps, big.NewInt(defaultLinkFunds), defaultUpkeepGasLimit, true, false)
 
-					consumers := append(consumers_conditional, consumers_logtrigger...)
-					upkeepIDs := append(upkeepIDs_conditional, upkeepIDs_logtrigger...)
+					consumers := append(consumersConditional, consumersLogtrigger...)
+					upkeepIDs := append(upkeepidsConditional, upkeepidsLogtrigger...)
+
+					for _, c := range consumersLogtrigger {
+						err = c.Start()
+						require.NoError(t, err, "Error starting consumer")
+					}
 
 					l.Info().Msg("Waiting for all upkeeps to be performed")
 

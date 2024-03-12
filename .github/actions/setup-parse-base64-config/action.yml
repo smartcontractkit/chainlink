@@ -8,13 +8,21 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Install dasel
+      shell: bash
+      run: |
+        if ! which dasel > /dev/null; then
+          curl -L -o dasel "https://github.com/TomWright/dasel/releases/download/v2.6.0/dasel_linux_amd64" && chmod +x dasel && sudo mv dasel /usr/local/bin/
+        else
+          echo "Dasel is already installed."
+        fi
     - name: Add masks and export base64 config
       shell: bash
       run: |
         decoded_toml=$(echo $BASE64_CONFIG_OVERRIDE | base64 -d)
-        CHAINLINK_IMAGE=$(echo "$decoded_toml" | awk -F'=' '/^[[:space:]]*image[[:space:]]*=/ {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2}' 2>/dev/null)
+        CHAINLINK_IMAGE=$(echo "$decoded_toml" | dasel -r toml 'ChainlinkImage.image')
         echo ::add-mask::$CHAINLINK_IMAGE
-        CHAINLINK_VERSION=$(echo "$decoded_toml" | awk -F'=' '/^[[:space:]]*version[[:space:]]*=/ {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2}' 2>/dev/null)
+        CHAINLINK_VERSION=$(echo "$decoded_toml" | dasel -r toml 'ChainlinkImage.version')
         NETWORKS=$(echo "$decoded_toml" | awk -F'=' '/^[[:space:]]*selected_networks[[:space:]]*=/ {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2}' 2>/dev/null)
         ETH2_EL_CLIENT=$(echo "$decoded_toml" | awk -F'=' '/^[[:space:]]*execution_layer[[:space:]]*=/ {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2}' 2>/dev/null)
 
