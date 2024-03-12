@@ -255,10 +255,10 @@ func newVRFCoordinatorV2PlusUniverse(t *testing.T, key ethkey.KeyV2, numConsumer
 		uint32(60*60*24),                       // stalenessSeconds
 		uint32(v22.GasAfterPaymentCalculation), // gasAfterPaymentCalculation
 		big.NewInt(1e16),                       // 0.01 eth per link fallbackLinkPrice
-		vrf_coordinator_v2_5.VRFCoordinatorV25FeeConfig{
-			FulfillmentFlatFeeLinkPPM:   uint32(1000), // 0.001 LINK premium
-			FulfillmentFlatFeeNativePPM: uint32(5),    // 0.000005 ETH premium
-		},
+		uint32(5),                              // 0.000005 ETH premium
+		uint32(1),                              // 0.000001 LINK premium discount denominated in ETH
+		uint8(10),                              // 10% native payment percentage
+		uint8(5),                               // 5% LINK payment percentage
 	)
 	require.NoError(t, err, "failed to set coordinator configuration")
 	backend.Commit()
@@ -727,10 +727,17 @@ func TestVRFV2PlusIntegration_ExternalOwnerConsumerExample(t *testing.T) {
 		vrf_coordinator_v2_5.DeployVRFCoordinatorV25(
 			owner, backend, common.Address{}) //bhs not needed for this test
 	require.NoError(t, err)
-	_, err = coordinator.SetConfig(owner, uint16(1), uint32(10000), 1, 1, big.NewInt(10), vrf_coordinator_v2_5.VRFCoordinatorV25FeeConfig{
-		FulfillmentFlatFeeLinkPPM:   0,
-		FulfillmentFlatFeeNativePPM: 0,
-	})
+	_, err = coordinator.SetConfig(owner,
+		uint16(1),      // minimumRequestConfirmations
+		uint32(10000),  // maxGasLimit
+		1,              // stalenessSeconds
+		1,              // gasAfterPaymentCalculation
+		big.NewInt(10), // fallbackWeiPerUnitLink
+		0,              // fulfillmentFlatFeeNativePPM
+		0,              // fulfillmentFlatFeeLinkDiscountPPM
+		0,              // nativePremiumPercentage
+		0,              // linkPremiumPercentage
+	)
 	require.NoError(t, err)
 	backend.Commit()
 	_, err = coordinator.SetLINKAndLINKNativeFeed(owner, linkAddress, linkEthFeed)
@@ -849,7 +856,7 @@ func TestVRFV2PlusIntegration_RequestCost(t *testing.T) {
 
 	vrfkey, err := app.GetKeyStore().VRF().Create()
 	require.NoError(t, err)
-	registerProvingKeyHelper(t, uni.coordinatorV2UniverseCommon, uni.rootContract, vrfkey)
+	registerProvingKeyHelper(t, uni.coordinatorV2UniverseCommon, uni.rootContract, vrfkey, &defaultMaxGasPrice)
 	t.Run("non-proxied consumer", func(tt *testing.T) {
 		carol := uni.vrfConsumers[0]
 		carolContract := uni.consumerContracts[0]
@@ -970,7 +977,7 @@ func requestAndEstimateFulfillmentCost(
 		uni.backend.Commit()
 	}
 
-	requestLog := FindLatestRandomnessRequestedLog(t, uni.rootContract, vrfkey.PublicKey.MustHash())
+	requestLog := FindLatestRandomnessRequestedLog(t, uni.rootContract, vrfkey.PublicKey.MustHash(), nil)
 	s, err := proof.BigToSeed(requestLog.PreSeed())
 	require.NoError(t, err)
 	extraArgs, err := extraargs.ExtraArgsV1(nativePayment)
@@ -988,7 +995,7 @@ func requestAndEstimateFulfillmentCost(
 	require.NoError(t, err)
 	gasEstimate := estimateGas(t, uni.backend, common.Address{},
 		uni.rootContractAddress, uni.coordinatorABI,
-		"fulfillRandomWords", proof, rc)
+		"fulfillRandomWords", proof, rc, false)
 	t.Log("consumer fulfillment gas estimate:", gasEstimate)
 	assert.Greater(t, gasEstimate, lowerBound)
 	assert.Less(t, gasEstimate, upperBound)
@@ -1004,7 +1011,7 @@ func TestVRFV2PlusIntegration_FulfillmentCost(t *testing.T) {
 
 	vrfkey, err := app.GetKeyStore().VRF().Create()
 	require.NoError(t, err)
-	registerProvingKeyHelper(t, uni.coordinatorV2UniverseCommon, uni.rootContract, vrfkey)
+	registerProvingKeyHelper(t, uni.coordinatorV2UniverseCommon, uni.rootContract, vrfkey, &defaultMaxGasPrice)
 
 	t.Run("non-proxied consumer", func(tt *testing.T) {
 		carol := uni.vrfConsumers[0]
@@ -1144,7 +1151,7 @@ func TestVRFV2PlusIntegration_Migration(t *testing.T) {
 			Key:          ptr(key1.EIP55Address),
 			GasEstimator: toml.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
-		c.EVM[0].GasEstimator.LimitDefault = ptr[uint32](5_000_000)
+		c.EVM[0].GasEstimator.LimitDefault = ptr[uint64](5_000_000)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 		c.Feature.LogPoller = ptr(true)
 		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
@@ -1338,4 +1345,25 @@ func TestVRFV2PlusIntegration_CancelSubscription(t *testing.T) {
 
 	AssertLinkBalance(t, uni.linkContract, uni.neil.From, linkBalanceBeforeCancel.Add(linkBalanceBeforeCancel, linkAmount))
 	AssertNativeBalance(t, uni.backend, uni.neil.From, nativeBalanceBeforeCancel.Add(nativeBalanceBeforeCancel, nativeAmount))
+}
+
+func TestVRFV2PlusIntegration_ReplayOldRequestsOnStartUp(t *testing.T) {
+	t.Parallel()
+	ownerKey := cltest.MustGenerateRandomKey(t)
+	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)
+
+	testReplayOldRequestsOnStartUp(
+		t,
+		ownerKey,
+		uni.coordinatorV2UniverseCommon,
+		uni.vrfConsumers[0],
+		uni.consumerContracts[0],
+		uni.consumerContractAddresses[0],
+		uni.rootContract,
+		uni.rootContractAddress,
+		uni.batchCoordinatorContractAddress,
+		nil,
+		vrfcommon.V2Plus,
+		false,
+	)
 }

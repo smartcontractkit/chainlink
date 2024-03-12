@@ -380,6 +380,17 @@ func TestSetupSolanaRelayer(t *testing.T) {
 		}
 	})
 
+	t2Config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.Solana = solana.TOMLConfigs{
+			&solana.TOMLConfig{
+				ChainID: ptr[string]("solana-id-1"),
+				Enabled: ptr(true),
+				Chain:   solcfg.Chain{},
+				Nodes:   []*solcfg.Node{},
+			},
+		}
+	})
+
 	rf := chainlink.RelayerFactory{
 		Logger:       lggr,
 		LoopRegistry: reg,
@@ -435,6 +446,23 @@ func TestSetupSolanaRelayer(t *testing.T) {
 		_, err := rf.NewSolana(ks, duplicateConfig.SolanaConfigs())
 		require.Error(t, err)
 	})
+
+	t.Run("plugin env parsing fails", func(t *testing.T) {
+		t.Setenv("CL_SOLANA_CMD", "phony_solana_cmd")
+		t.Setenv("CL_SOLANA_ENV", "fake_path")
+
+		_, err := rf.NewSolana(ks, t2Config.SolanaConfigs())
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to parse Solana env file")
+	})
+
+	t.Run("plugin already registered", func(t *testing.T) {
+		t.Setenv("CL_SOLANA_CMD", "phony_solana_cmd")
+
+		_, err := rf.NewSolana(ks, tConfig.SolanaConfigs())
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to create Solana LOOP command")
+	})
 }
 
 func TestSetupStarkNetRelayer(t *testing.T) {
@@ -460,6 +488,17 @@ func TestSetupStarkNetRelayer(t *testing.T) {
 			&stkcfg.TOMLConfig{
 				ChainID: ptr[string]("disabled-starknet-id-1"),
 				Enabled: ptr(false),
+				Chain:   stkcfg.Chain{},
+				Nodes:   []*config.Node{},
+			},
+		}
+	})
+
+	t2Config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.Starknet = stkcfg.TOMLConfigs{
+			&stkcfg.TOMLConfig{
+				ChainID: ptr[string]("starknet-id-3"),
+				Enabled: ptr(true),
 				Chain:   stkcfg.Chain{},
 				Nodes:   []*config.Node{},
 			},
@@ -519,6 +558,23 @@ func TestSetupStarkNetRelayer(t *testing.T) {
 		t.Setenv("CL_STARKNET_CMD", "phony_starknet_cmd")
 		_, err := rf.NewStarkNet(ks, duplicateConfig.StarknetConfigs())
 		require.Error(t, err)
+	})
+
+	t.Run("plugin env parsing fails", func(t *testing.T) {
+		t.Setenv("CL_STARKNET_CMD", "phony_starknet_cmd")
+		t.Setenv("CL_STARKNET_ENV", "fake_path")
+
+		_, err := rf.NewStarkNet(ks, t2Config.StarknetConfigs())
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to parse Starknet env file")
+	})
+
+	t.Run("plugin already registered", func(t *testing.T) {
+		t.Setenv("CL_STARKNET_CMD", "phony_starknet_cmd")
+
+		_, err := rf.NewStarkNet(ks, tConfig.StarknetConfigs())
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to create StarkNet LOOP command")
 	})
 }
 

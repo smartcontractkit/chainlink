@@ -31,7 +31,7 @@ var (
 			Data: append(append(append(append(
 				keyHash.Bytes(),
 				common.BigToHash(seed).Bytes()...),
-				sender.Hash().Bytes()...),
+				common.BytesToHash(sender.Bytes()).Bytes()...),
 				common.BigToHash(fee).Bytes()...),
 				requestID.Bytes()...),
 			Topics: []common.Hash{{}, jobID},

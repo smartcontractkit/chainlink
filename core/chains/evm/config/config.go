@@ -7,9 +7,11 @@ import (
 	gethcommon "github.com/ethereum/go-ethereum/common"
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
+
 	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 )
 
 type EVM interface {
@@ -19,6 +21,7 @@ type EVM interface {
 	GasEstimator() GasEstimator
 	OCR() OCR
 	OCR2() OCR2
+	ChainWriter() ChainWriter
 	NodePool() NodePool
 
 	AutoCreateKey() bool
@@ -33,7 +36,9 @@ type EVM interface {
 	LinkContractAddress() string
 	LogBackfillBatchSize() uint32
 	LogKeepBlocksDepth() uint32
+	BackupLogPollerBlockDelay() uint64
 	LogPollInterval() time.Duration
+	LogPrunePageSize() uint32
 	MinContractPayment() *commonassets.Link
 	MinIncomingConfirmations() uint32
 	NonceAutoSync() bool
@@ -92,8 +97,8 @@ type GasEstimator interface {
 	BumpTxDepth() uint32
 	BumpMin() *assets.Wei
 	FeeCapDefault() *assets.Wei
-	LimitDefault() uint32
-	LimitMax() uint32
+	LimitDefault() uint64
+	LimitMax() uint64
 	LimitMultiplier() float32
 	LimitTransfer() uint32
 	PriceDefault() *assets.Wei
@@ -124,12 +129,18 @@ type BlockHistory interface {
 	TransactionPercentile() uint16
 }
 
+type ChainWriter interface {
+	FromAddress() *ethkey.EIP55Address
+	ForwarderAddress() *ethkey.EIP55Address
+}
+
 type NodePool interface {
 	PollFailureThreshold() uint32
 	PollInterval() time.Duration
 	SelectionMode() string
 	SyncThreshold() uint32
 	LeaseDuration() time.Duration
+	NodeIsSyncingEnabled() bool
 }
 
 // TODO BCF-2509 does the chainscopedconfig really need the entire app config?

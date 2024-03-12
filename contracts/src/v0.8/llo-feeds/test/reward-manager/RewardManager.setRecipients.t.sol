@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.16;
+pragma solidity 0.8.19;
 
 import {BaseRewardManagerTest} from "./BaseRewardManager.t.sol";
 import {Common} from "../../libraries/Common.sol";
@@ -26,6 +26,21 @@ contract RewardManagerSetRecipientsTest is BaseRewardManagerTest {
 
     //should revert if the recipients array is empty
     vm.expectRevert(INVALID_ADDRESS_ERROR_SELECTOR);
+
+    //set the recipients
+    setRewardRecipients(PRIMARY_POOL_ID, recipients, ADMIN);
+  }
+
+  function test_setRewardRecipientWithZeroWeight() public {
+    //array of recipients
+    Common.AddressAndWeight[] memory recipients = new Common.AddressAndWeight[](5);
+
+    //init each recipient with even weights
+    recipients[0] = Common.AddressAndWeight(DEFAULT_RECIPIENT_1, ONE_PERCENT * 25);
+    recipients[1] = Common.AddressAndWeight(DEFAULT_RECIPIENT_2, ONE_PERCENT * 25);
+    recipients[2] = Common.AddressAndWeight(DEFAULT_RECIPIENT_3, ONE_PERCENT * 25);
+    recipients[3] = Common.AddressAndWeight(DEFAULT_RECIPIENT_4, ONE_PERCENT * 25);
+    recipients[4] = Common.AddressAndWeight(DEFAULT_RECIPIENT_5, 0);
 
     //set the recipients
     setRewardRecipients(PRIMARY_POOL_ID, recipients, ADMIN);

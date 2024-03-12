@@ -2,45 +2,76 @@ version: v2beta1
 name: chainlink
 
 vars:
-  NS_TTL: 72h
-  DEVSPACE_IMAGE:
-    source: env
+  DEVSPACE_ENV_FILE: .env
 
-# This is a list of `pipelines` that DevSpace can execute (you can define your own)
 pipelines:
-  #       create_deployments --all  can be used to apply manifests again
-  # This is the pipeline for the main command: `devspace dev` (or `devspace run-pipeline dev`)
-  dev:
-    run: |-
-      run_dependencies --all       # 1. Deploy any projects this project needs (see "dependencies")
-      ensure_pull_secrets --all    # 2. Ensure pull secrets
-      start_dev app                # 3. Start dev mode "app" (see "dev" section)
-  # You can run this pipeline via `devspace deploy` (or `devspace run-pipeline deploy`)
   deploy:
+    flags:
+      - name: override-image-tag
+        short: o
+        type: string
+        description: "If specified, the specified tag will be used instead of building a new image"
+
     run: |-
-      run_dependencies --all                           
-      ensure_pull_secrets --all                         
-      build_images ---var DOCKER_DEFAULT_PLATFORM=linux/amd64  --all -t $(git rev-parse --short HEAD)
-      kubectl annotate namespace ${DEVSPACE_NAMESPACE} janitor/ttl=${NS_TTL}
-      kubectl label namespace/${DEVSPACE_NAMESPACE} network=crib
-      create_deployments --all                          
+      tagOverride=$(get_flag "override-image-tag")
+      run_dependencies --all
+
+      if [ -n "$tagOverride" ]; then
+        image=${DEVSPACE_IMAGE}:${tagOverride}
+        echo "Using user provided image: $image" 
+
+        args=""
+        for i in {0..5}; do
+          args+="--set=helm.values.chainlink.nodes[$i].image=$image "
+        done
+
+        create_deployments app $args
+      else
+        build_images --all
+        create_deployments app 
+      fi
+
+      echo
       echo "Namespace ${DEVSPACE_NAMESPACE} will be deleted in ${NS_TTL}"
+      echo "To extend the TTL for e.g. 72 hours, run:"
+      echo "devspace run ttl ${DEVSPACE_NAMESPACE} 72h"
+      echo
+      kubectl label namespace ${DEVSPACE_NAMESPACE} cleanup.kyverno.io/ttl=${NS_TTL} > /dev/null 2>&1 || true
+      kubectl label namespace/${DEVSPACE_NAMESPACE} network=crib > /dev/null 2>&1 || true
+
   purge:
     run: |-
       kubectl delete ns ${DEVSPACE_NAMESPACE}
 
 commands:
+  ingress-hosts: |-
+    kubectl get ingress -n ${DEVSPACE_NAMESPACE} \
+      -o=jsonpath="{range .items[*].spec.rules[*]}{.host}{'\n'}{end}"
   connect: |-
-    sudo kubefwd svc -n ${DEVSPACE_NAMESPACE}
+    sudo kubefwd svc -n $1
+  ttl: |-
+    kubectl label namespace $1 cleanup.kyverno.io/ttl=$2 --overwrite
+  workload: |-
+    cd ../../integration-tests/load/ocr && go test -v -run TestOCRLoad || cd -
+  dashboard_deploy: |-
+    go run dashboard/cmd/deploy.go
+  dashboard_test: |-
+    cd dashboard/tests && npx playwright test || cd -
 
 images:
   app:
     image: ${DEVSPACE_IMAGE}
-    dockerfile: ../../core/chainlink.devspace.Dockerfile
-    context: ../..
-    docker:
-      disableFallback: true
+    tags:
+      - ${devspace.namespace}-${devspace.timestamp}
+    custom:
+      skipImageArg: true
+      command: |-
+        GIT_ROOT=$(git rev-parse --show-toplevel)
+        cd $GIT_ROOT
 
+        image=${runtime.images.app}
+        MACOS_SDK_DIR=$(pwd)/tools/bin/MacOSX12.3.sdk IMAGE=$image ./tools/bin/goreleaser_wrapper release --snapshot --clean --config .goreleaser.devspace.yaml
+        docker push $image
 hooks:
   - wait:
       running: true
@@ -51,11 +82,17 @@ hooks:
         # vars don't work here, = releaseName
         release: "app"
     events: ["after:deploy:app"]
-    name: "wait-for-pod-hook"
+
+  # Check that the ingress was created successfully, and print ingress hostnames.
+  - name: "ingress-check-hook"
+    command: ./scripts/ingress_check.sh
+    args: ["app"] # Ingress name.
+    events: ["after:deploy:app"]
 
 # This is a list of `deployments` that DevSpace can create for this project
 deployments:
   app:
+    updateImageTags: false
     namespace: ${DEVSPACE_NAMESPACE}
     helm:
       releaseName: "app"
@@ -64,7 +101,7 @@ deployments:
         path: .
       # for simplicity, we define all the values here
       # they can be defined the same way in values.yml
-      # devspace merging this "values" and "values.yml" before deploy
+      # devspace merges these "values" with the "values.yaml" before deploy
       values:
         podSecurityContext:
           fsGroup: 999
@@ -82,8 +119,7 @@ deployments:
           p2p_port: 6690
           nodes:
             - name: node-1
-              image: ${DEVSPACE_IMAGE}
-              version: latest
+              image: ${runtime.images.app}
               # default resources are 300m/1Gi
               # first node need more resources to build faster inside container
               # at least 2Gi of memory is required otherwise build will fail (OOM)
@@ -127,20 +163,15 @@ deployments:
               # or use overridesToml to override some part of configuration
               #      overridesToml: |
             - name: node-2
-              image: ${DEVSPACE_IMAGE}
-              version: latest
+              image: ${runtime.images.app}
             - name: node-3
-              image: ${DEVSPACE_IMAGE}
-              version: latest
+              image: ${runtime.images.app}
             - name: node-4
-              image: ${DEVSPACE_IMAGE}
-              version: latest
+              image: ${runtime.images.app}
             - name: node-5
-              image: ${DEVSPACE_IMAGE}
-              version: latest
+              image: ${runtime.images.app}
             - name: node-6
-              image: ${DEVSPACE_IMAGE}
-              version: latest
+              image: ${runtime.images.app}
 
         # each CL node have a dedicated PostgreSQL 11.15
         # use StatefulSet by setting:
@@ -179,7 +210,9 @@ deployments:
           version: v1.12.0
           wsrpc-port: 8546
           httprpc-port: 8544
-          networkid: 1337
+          chains:
+            - networkId: 1337
+            - networkId: 2337
           blocktime: 1
           resources:
             requests:
@@ -214,110 +247,123 @@ deployments:
             limits:
               cpu: 1
               memory: 1024Mi
-        runner:
-          securityContext:
-            capabilities:
-              drop:
-                - ALL
-            readOnlyRootFilesystem: false
-            runAsNonRoot: true
-            runAsUser: 999
-            runAsGroup: 999
-          stateful: false
-          resources:
-            requests:
-              cpu: 1
-              memory: 512Mi
-            limits:
-              cpu: 1
-              memory: 512Mi
-          affinity: { }
-          tolerations: [ ]
-          nodeSelector: { }
-          ingress:
-            enabled: false
-            className: ""
-            hosts: [ ]
-            tls: [ ]
-            annotations: { }
-          service:
-            type: NodePort
-            port: 8080
-
-
         # monitoring.coreos.com/v1 PodMonitor for each node
         prometheusMonitor: true
 
+        # These ingresses create AWS ALB resources and Route 53 Records.
+        ingress:
+          enabled: true
+          annotation_certificate_arn: ${DEVSPACE_INGRESS_CERT_ARN}
+          annotation_group_name: ${DEVSPACE_NAMESPACE}
+          hosts:
+            - host: ${DEVSPACE_NAMESPACE}-node1.${DEVSPACE_INGRESS_BASE_DOMAIN}
+              http:
+                paths:
+                  - path: /
+                    backend:
+                      service:
+                        name: app-node-1
+                        port:
+                          number: 6688
+            - host: ${DEVSPACE_NAMESPACE}-node2.${DEVSPACE_INGRESS_BASE_DOMAIN}
+              http:
+                paths:
+                  - path: /
+                    backend:
+                      service:
+                        name: app-node-2
+                        port:
+                          number: 6688
+            - host: ${DEVSPACE_NAMESPACE}-node3.${DEVSPACE_INGRESS_BASE_DOMAIN}
+              http:
+                paths:
+                  - path: /
+                    backend:
+                      service:
+                        name: app-node-3
+                        port:
+                          number: 6688
+            - host: ${DEVSPACE_NAMESPACE}-node4.${DEVSPACE_INGRESS_BASE_DOMAIN}
+              http:
+                paths:
+                  - path: /
+                    backend:
+                      service:
+                        name: app-node-4
+                        port:
+                          number: 6688
+            - host: ${DEVSPACE_NAMESPACE}-node5.${DEVSPACE_INGRESS_BASE_DOMAIN}
+              http:
+                paths:
+                  - path: /
+                    backend:
+                      service:
+                        name: app-node-5
+                        port:
+                          number: 6688
+            - host: ${DEVSPACE_NAMESPACE}-node6.${DEVSPACE_INGRESS_BASE_DOMAIN}
+              http:
+                paths:
+                  - path: /
+                    backend:
+                      service:
+                        name: app-node-6
+                        port:
+                          number: 6688
+            - host: ${DEVSPACE_NAMESPACE}-geth-1337-http.${DEVSPACE_INGRESS_BASE_DOMAIN}
+              http:
+                paths:
+                  - path: /
+                    backend:
+                      service:
+                        name: geth-1337
+                        port:
+                          number: 8544
+            - host: ${DEVSPACE_NAMESPACE}-geth-1337-ws.${DEVSPACE_INGRESS_BASE_DOMAIN}
+              http:
+                paths:
+                  - path: /
+                    backend:
+                      service:
+                        name: geth-1337
+                        port:
+                          number: 8546
+            - host: ${DEVSPACE_NAMESPACE}-geth-2337-http.${DEVSPACE_INGRESS_BASE_DOMAIN}
+              http:
+                paths:
+                  - path: /
+                    backend:
+                      service:
+                        name: geth-2337
+                        port:
+                          number: 8544
+            - host: ${DEVSPACE_NAMESPACE}-geth-2337-ws.${DEVSPACE_INGRESS_BASE_DOMAIN}
+              http:
+                paths:
+                  - path: /
+                    backend:
+                      service:
+                        name: geth-2337
+                        port:
+                          number: 8546
+            - host: ${DEVSPACE_NAMESPACE}-mockserver.${DEVSPACE_INGRESS_BASE_DOMAIN}
+              http:
+                paths:
+                  - path: /
+                    backend:
+                      service:
+                        name: mockserver
+                        port:
+                          number: 1080
+        networkPolicyDefault:
+          ingress:
+            allowCustomCidrs: true
+            # Should be a comma separated list of CIDR blocks. To include
+            # AWS ALB private CIDRs and optionally other custom CIDRs.
+            # Example format: 10.0.0.0/16,192.168.0.1/24
+            customCidrs: ${DEVSPACE_INGRESS_CIDRS}
         # deployment placement, standard helm stuff
         podAnnotations:
         nodeSelector:
         tolerations:
         affinity:
-
-profiles:
-  # this replaces only "runner" pod, usable when you'd like to run some system level tests inside k8s
-  - name: runner
-    patches:
-      - op: replace
-        path: dev.app.workingDir
-        value: /home/chainlink/integration-tests
-      - op: replace
-        path: dev.app.container
-        value: runner
-      - op: replace
-        path: dev.app.labelSelector.instance
-        value: runner-1
-      - op: remove
-        path: dev.app.sync[1].uploadExcludePaths[0]
-      - op: remove
-        path: dev.app.open
-      - op: remove
-        path: dev.app.ports[1]
-  - name: node
-    patches:
-      - op: replace
-        path: dev.app.container
-        value: node
-      - op: replace
-        path: dev.app.labelSelector.instance
-        value: node-1
-
-# This is a list of `dev` containers that are based on the containers created by your deployments
-dev:
-  app:
-    workingDir: /home/chainlink
-    container: node
-    labelSelector:
-      instance: node-1
-    # Sync files between the local filesystem and the development container
-    sync:
-      - path: ../../core/services/chainlink:/home/chainlink/core/services/chainlink
-        printLogs: true
-        disableDownload: true
-      - path: ../..:/home/chainlink
-        printLogs: true
-        disableDownload: true
-        uploadExcludePaths:
-          - integration-tests/
-          - .github/
-          - belt/
-          - charts/
-          - contracts/
-          - node_modules/
-          - integration/
-          - integration-scripts/
-          - testdata/
-          - evm-test-helpers/
-    # Open a terminal and use the following command
-    terminal:
-      command: bash
-    ssh:
-      enabled: true
-    proxyCommands:
-#       TODO: access issues
-#      - command: devspace
-#      - command: kubectl
-#      - command: helm
-      - gitCredentials: true
-    ports:
-      - port: "2345"

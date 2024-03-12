@@ -378,7 +378,7 @@ func (s *Shell) runNode(c *cli.Context) error {
 		for _, ch := range chainList {
 			if ch.Config().EVM().AutoCreateKey() {
 				lggr.Debugf("AutoCreateKey=true, will ensure EVM key for chain %s", ch.ID())
-				err2 := app.GetKeyStore().Eth().EnsureKeys(ch.ID())
+				err2 := app.GetKeyStore().Eth().EnsureKeys(rootCtx, ch.ID())
 				if err2 != nil {
 					return errors.Wrap(err2, "failed to ensure keystore keys")
 				}
@@ -625,7 +625,7 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 		return s.errorOut(errors.Wrap(err, "error authenticating keystore"))
 	}
 
-	if err = keyStore.Eth().CheckEnabled(address, chain.ID()); err != nil {
+	if err = keyStore.Eth().CheckEnabled(ctx, address, chain.ID()); err != nil {
 		return s.errorOut(err)
 	}
 
@@ -641,7 +641,7 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 	for i := int64(0); i < totalNonces; i++ {
 		nonces[i] = evmtypes.Nonce(beginningNonce + i)
 	}
-	err = ec.ForceRebroadcast(ctx, nonces, gas.EvmFee{Legacy: assets.NewWeiI(int64(gasPriceWei))}, address, uint32(overrideGasLimit))
+	err = ec.ForceRebroadcast(ctx, nonces, gas.EvmFee{Legacy: assets.NewWeiI(int64(gasPriceWei))}, address, uint64(overrideGasLimit))
 	return s.errorOut(err)
 }
 
@@ -1002,37 +1002,36 @@ func (s *Shell) CleanupChainTables(c *cli.Context) error {
 	// some tables with evm_chain_id (mostly job specs) are in public schema
 	tablesToDeleteFromQuery := `SELECT table_name, table_schema FROM information_schema.columns WHERE "column_name"=$1;`
 	// Delete rows from each table based on the chain_id.
-	if strings.EqualFold("EVM", c.String("type")) {
-		rows, err := db.Query(tablesToDeleteFromQuery, "evm_chain_id")
-		if err != nil {
+	if !strings.EqualFold("EVM", c.String("type")) {
+		return s.errorOut(errors.New("unknown chain type"))
+	}
+	rows, err := db.Query(tablesToDeleteFromQuery, "evm_chain_id")
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	var tablesToDeleteFrom []string
+	for rows.Next() {
+		var name string
+		var schema string
+		if err = rows.Scan(&name, &schema); err != nil {
 			return err
 		}
-		defer rows.Close()
+		tablesToDeleteFrom = append(tablesToDeleteFrom, schema+"."+name)
+	}
+	if rows.Err() != nil {
+		return rows.Err()
+	}
 
-		var tablesToDeleteFrom []string
-		for rows.Next() {
-			var name string
-			var schema string
-			if err = rows.Scan(&name, &schema); err != nil {
-				return err
-			}
-			tablesToDeleteFrom = append(tablesToDeleteFrom, schema+"."+name)
+	for _, tableName := range tablesToDeleteFrom {
+		query := fmt.Sprintf(`DELETE FROM %s WHERE "evm_chain_id"=$1;`, tableName)
+		_, err = db.Exec(query, c.String("id"))
+		if err != nil {
+			fmt.Printf("Error deleting rows containing evm_chain_id from %s: %v\n", tableName, err)
+		} else {
+			fmt.Printf("Rows with evm_chain_id %s deleted from %s.\n", c.String("id"), tableName)
 		}
-		if rows.Err() != nil {
-			return rows.Err()
-		}
-
-		for _, tableName := range tablesToDeleteFrom {
-			query := fmt.Sprintf(`DELETE FROM %s WHERE "evm_chain_id"=$1;`, tableName)
-			_, err = db.Exec(query, c.String("id"))
-			if err != nil {
-				fmt.Printf("Error deleting rows containing evm_chain_id from %s: %v\n", tableName, err)
-			} else {
-				fmt.Printf("Rows with evm_chain_id %s deleted from %s.\n", c.String("id"), tableName)
-			}
-		}
-	} else {
-		return s.errorOut(errors.New("unknown chain type"))
 	}
 	return nil
 }

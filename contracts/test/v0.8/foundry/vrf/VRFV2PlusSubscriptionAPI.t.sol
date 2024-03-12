@@ -609,6 +609,14 @@ contract VRFV2PlusSubscriptionAPITest is BaseTest {
     changePrank(subOwner);
     uint256 subId = s_subscriptionAPI.createSubscription();
     assertEq(s_subscriptionAPI.getSubscriptionConfig(subId).consumers.length, 0);
+
+    // only subscription owner can add a consumer
+    address notSubOwner = makeAddr("notSubOwner");
+    changePrank(notSubOwner);
+    vm.expectRevert(abi.encodeWithSelector(SubscriptionAPI.MustBeSubOwner.selector, subOwner));
+    s_subscriptionAPI.addConsumer(subId, consumer);
+
+    // subscription owner is able to add a consumer
     changePrank(subOwner);
     vm.expectEmit(true, false, false, true);
     emit SubscriptionConsumerAdded(subId, consumer);

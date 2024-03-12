@@ -28,7 +28,8 @@ interface IVRFCoordinatorV2PlusInternal is IVRFCoordinatorV2Plus {
     uint256 outputSeed,
     uint256 indexed subId,
     uint96 payment,
-    bool success
+    bool success,
+    bool onlyPremium
   );
 
   struct RequestCommitment {
@@ -55,7 +56,11 @@ interface IVRFCoordinatorV2PlusInternal is IVRFCoordinatorV2Plus {
   // solhint-disable-next-line func-name-mixedcase
   function s_requestCommitments(uint256 requestID) external view returns (bytes32);
 
-  function fulfillRandomWords(Proof memory proof, RequestCommitment memory rc) external returns (uint96);
+  function fulfillRandomWords(
+    Proof memory proof,
+    RequestCommitment memory rc,
+    bool onlyPremium
+  ) external returns (uint96);
 
   // solhint-disable-next-line func-name-mixedcase
   function LINK_NATIVE_FEED() external view returns (address);

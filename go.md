@@ -22,6 +22,8 @@ flowchart LR
 
   chainlink/v2 --> caigo
   click caigo href "https://github.com/smartcontractkit/caigo"
+  chainlink/v2 --> chain-selectors
+  click chain-selectors href "https://github.com/smartcontractkit/chain-selectors"
   chainlink/v2 --> chainlink-automation
   click chainlink-automation href "https://github.com/smartcontractkit/chainlink-automation"
   chainlink/v2 --> chainlink-common
@@ -46,10 +48,12 @@ flowchart LR
   click tdh2/go/tdh2 href "https://github.com/smartcontractkit/tdh2"
   chainlink/v2 --> wsrpc
   click wsrpc href "https://github.com/smartcontractkit/wsrpc"
+  chainlink-automation --> chainlink-common
   chainlink-automation --> libocr
   chainlink-common --> libocr
   chainlink-cosmos --> chainlink-common
   chainlink-cosmos --> libocr
+  chainlink-data-streams --> chain-selectors
   chainlink-data-streams --> chainlink-common
   chainlink-data-streams --> libocr
   chainlink-feeds --> chainlink-common

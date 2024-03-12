@@ -3,10 +3,12 @@ package transmit
 import (
 	"testing"
 
+	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
-	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
@@ -14,7 +16,7 @@ import (
 )
 
 func TestTransmitEventLog(t *testing.T) {
-	uid := core.GenUpkeepID(ocr2keepers.ConditionTrigger, "111")
+	uid := core.GenUpkeepID(types.ConditionTrigger, "111")
 
 	tests := []struct {
 		name  string

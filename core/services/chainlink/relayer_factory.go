@@ -116,7 +116,7 @@ func (r *RelayerFactory) NewSolana(ks keystore.Solana, chainCfgs solana.TOMLConf
 
 		lggr := solLggr.Named(relayID.ChainID)
 
-		if cmdName := env.SolanaPluginCmd.Get(); cmdName != "" {
+		if cmdName := env.SolanaPlugin.Cmd.Get(); cmdName != "" {
 
 			// setup the solana relayer to be a LOOP
 			cfgTOML, err := toml.Marshal(struct {
@@ -126,10 +126,14 @@ func (r *RelayerFactory) NewSolana(ks keystore.Solana, chainCfgs solana.TOMLConf
 			if err != nil {
 				return nil, fmt.Errorf("failed to marshal Solana configs: %w", err)
 			}
-
+			envVars, err := plugins.ParseEnvFile(env.SolanaPlugin.Env.Get())
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse Solana env file: %w", err)
+			}
 			solCmdFn, err := plugins.NewCmdFactory(r.Register, plugins.CmdConfig{
 				ID:  relayID.Name(),
 				Cmd: cmdName,
+				Env: envVars,
 			})
 			if err != nil {
 				return nil, fmt.Errorf("failed to create Solana LOOP command: %w", err)
@@ -187,7 +191,7 @@ func (r *RelayerFactory) NewStarkNet(ks keystore.StarkNet, chainCfgs config.TOML
 
 		lggr := starkLggr.Named(relayID.ChainID)
 
-		if cmdName := env.StarknetPluginCmd.Get(); cmdName != "" {
+		if cmdName := env.StarknetPlugin.Cmd.Get(); cmdName != "" {
 			// setup the starknet relayer to be a LOOP
 			cfgTOML, err := toml.Marshal(struct {
 				Starknet config.TOMLConfig
@@ -196,9 +200,14 @@ func (r *RelayerFactory) NewStarkNet(ks keystore.StarkNet, chainCfgs config.TOML
 				return nil, fmt.Errorf("failed to marshal StarkNet configs: %w", err)
 			}
 
+			envVars, err := plugins.ParseEnvFile(env.StarknetPlugin.Env.Get())
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse Starknet env file: %w", err)
+			}
 			starknetCmdFn, err := plugins.NewCmdFactory(r.Register, plugins.CmdConfig{
 				ID:  relayID.Name(),
 				Cmd: cmdName,
+				Env: envVars,
 			})
 			if err != nil {
 				return nil, fmt.Errorf("failed to create StarkNet LOOP command: %w", err)

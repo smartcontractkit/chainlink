@@ -13,6 +13,7 @@ linters:
     - unconvert
     - sqlclosecheck
     - noctx
+    - depguard
 linters-settings:
   exhaustive:
     default-signifies-exhaustive: true
@@ -71,13 +72,41 @@ linters-settings:
       - name: identical-branches
       - name: get-return
       # - name: flag-parameter
-      # - name: early-return
+      - name: early-return
       - name: defer
       - name: constant-logical-expr
       # - name: confusing-naming
       # - name: confusing-results
       - name: bool-literal-in-expr
       - name: atomic
+  depguard:
+    rules:
+      main:
+        list-mode: lax
+        deny:
+          - pkg: cosmossdk.io/errors
+            desc: Use the standard library instead
+          - pkg: github.com/gofrs/uuid
+            desc: Use github.com/google/uuid instead
+          - pkg: github.com/satori/go.uuid
+            desc: Use github.com/google/uuid instead
+          - pkg: github.com/test-go/testify/assert
+            desc: Use github.com/stretchr/testify/assert instead
+          - pkg: github.com/test-go/testify/mock
+            desc: Use github.com/stretchr/testify/mock instead
+          - pkg: github.com/test-go/testify/require
+            desc: Use github.com/stretchr/testify/require instead
+# TODO https://smartcontract-it.atlassian.net/browse/BCI-2589
+#          - pkg: go.uber.org/multierr
+#            desc: Use the standard library instead, for example https://pkg.go.dev/errors#Join
+          - pkg: gopkg.in/guregu/null.v1
+            desc: Use gopkg.in/guregu/null.v4 instead
+          - pkg: gopkg.in/guregu/null.v2
+            desc: Use gopkg.in/guregu/null.v4 instead
+          - pkg: gopkg.in/guregu/null.v3
+            desc: Use gopkg.in/guregu/null.v4 instead
+          - pkg: https://github.com/go-gorm/gorm
+            desc: Use github.com/jmoiron/sqlx directly instead
 issues:
   exclude-rules:
     - path: test

@@ -29,3 +29,7 @@ func (n *nodePoolConfig) SyncThreshold() uint32 {
 func (n *nodePoolConfig) LeaseDuration() time.Duration {
 	return n.c.LeaseDuration.Duration()
 }
+
+func (n *nodePoolConfig) NodeIsSyncingEnabled() bool {
+	return *n.c.NodeIsSyncingEnabled
+}

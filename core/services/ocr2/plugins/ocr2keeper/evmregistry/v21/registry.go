@@ -9,6 +9,10 @@ import (
 	"sync"
 	"time"
 
+	types2 "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -19,7 +23,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
-	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -27,7 +31,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/logprovider"
@@ -81,7 +84,7 @@ func NewEvmRegistry(
 	addr common.Address,
 	client legacyevm.Chain,
 	registry *iregistry21.IKeeperRegistryMaster,
-	mc *models.MercuryCredentials,
+	mc *types.MercuryCredentials,
 	al ActiveUpkeepList,
 	logEventProvider logprovider.LogEventProvider,
 	packer encoding.Packer,
@@ -129,14 +132,14 @@ var upkeepStateEvents = []common.Hash{
 }
 
 type MercuryConfig struct {
-	cred *models.MercuryCredentials
+	cred *types.MercuryCredentials
 	Abi  abi.ABI
 	// AllowListCache stores the upkeeps privileges. In 2.1, this only includes a JSON bytes for allowed to use mercury
 	AllowListCache   *cache.Cache
 	pluginRetryCache *cache.Cache
 }
 
-func NewMercuryConfig(credentials *models.MercuryCredentials, abi abi.ABI) *MercuryConfig {
+func NewMercuryConfig(credentials *types.MercuryCredentials, abi abi.ABI) *MercuryConfig {
 	return &MercuryConfig{
 		cred:             credentials,
 		Abi:              abi,
@@ -145,7 +148,7 @@ func NewMercuryConfig(credentials *models.MercuryCredentials, abi abi.ABI) *Merc
 	}
 }
 
-func (c *MercuryConfig) Credentials() *models.MercuryCredentials {
+func (c *MercuryConfig) Credentials() *types.MercuryCredentials {
 	return c.cred
 }
 
@@ -295,7 +298,7 @@ func (r *EvmRegistry) refreshActiveUpkeeps() error {
 			continue
 		}
 		switch core.GetUpkeepType(*uid) {
-		case ocr2keepers.LogTrigger:
+		case types2.LogTrigger:
 			logTriggerIDs = append(logTriggerIDs, id)
 		default:
 		}
@@ -517,7 +520,7 @@ func (r *EvmRegistry) removeFromActive(id *big.Int) {
 	uid.FromBigInt(id)
 	trigger := core.GetUpkeepType(*uid)
 	switch trigger {
-	case ocr2keepers.LogTrigger:
+	case types2.LogTrigger:
 		if err := r.logEventProvider.UnregisterFilter(id); err != nil {
 			r.lggr.Warnw("failed to unregister log filter", "upkeepID", id.String())
 		}
@@ -585,7 +588,7 @@ func (r *EvmRegistry) updateTriggerConfig(id *big.Int, cfg []byte, logBlock uint
 	uid := &ocr2keepers.UpkeepIdentifier{}
 	uid.FromBigInt(id)
 	switch core.GetUpkeepType(*uid) {
-	case ocr2keepers.LogTrigger:
+	case types2.LogTrigger:
 		if len(cfg) == 0 {
 			fetched, err := r.fetchTriggerConfig(id)
 			if err != nil {

@@ -3,9 +3,10 @@ package chainlink
 import (
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
 )
 
 var _ config.MercuryCache = (*mercuryCacheConfig)(nil)
@@ -37,9 +38,9 @@ type mercuryConfig struct {
 	s toml.MercurySecrets
 }
 
-func (m *mercuryConfig) Credentials(credName string) *models.MercuryCredentials {
+func (m *mercuryConfig) Credentials(credName string) *types.MercuryCredentials {
 	if mc, ok := m.s.Credentials[credName]; ok {
-		c := &models.MercuryCredentials{
+		c := &types.MercuryCredentials{
 			URL:      mc.URL.URL().String(),
 			Password: string(*mc.Password),
 			Username: string(*mc.Username),

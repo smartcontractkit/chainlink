@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/big"
 	mrand "math/rand"
-	"os"
 	"strconv"
 	"time"
 
@@ -18,6 +17,8 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
+	"github.com/smartcontractkit/chainlink/integration-tests/types"
 	chainlinkutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 )
 
@@ -50,8 +51,9 @@ type S4SecretsCfg struct {
 	S4SetPayload          string
 }
 
-func SetupLocalLoadTestEnv(cfg *PerformanceConfig) (*FunctionsTest, error) {
-	bc, err := blockchain.NewEVMClientFromNetwork(networks.MustGetSelectedNetworksFromEnv()[0], log.Logger)
+func SetupLocalLoadTestEnv(globalConfig tc.GlobalTestConfig, functionsConfig types.FunctionsTestConfig) (*FunctionsTest, error) {
+	selectedNetwork := networks.MustGetSelectedNetworkConfig(globalConfig.GetNetworkConfig())[0]
+	bc, err := blockchain.NewEVMClientFromNetwork(selectedNetwork, log.Logger)
 	if err != nil {
 		return nil, err
 	}
@@ -67,28 +69,31 @@ func SetupLocalLoadTestEnv(cfg *PerformanceConfig) (*FunctionsTest, error) {
 	if err != nil {
 		return nil, err
 	}
-	lt, err := cl.LoadLINKToken(cfg.Common.LINKTokenAddr)
+
+	cfg := functionsConfig.GetFunctionsConfig()
+
+	lt, err := cl.LoadLINKToken(*cfg.Common.LINKTokenAddr)
 	if err != nil {
 		return nil, err
 	}
-	coord, err := cl.LoadFunctionsCoordinator(cfg.Common.Coordinator)
+	coord, err := cl.LoadFunctionsCoordinator(*cfg.Common.Coordinator)
 	if err != nil {
 		return nil, err
 	}
-	router, err := cl.LoadFunctionsRouter(cfg.Common.Router)
+	router, err := cl.LoadFunctionsRouter(*cfg.Common.Router)
 	if err != nil {
 		return nil, err
 	}
 	var loadTestClient contracts.FunctionsLoadTestClient
-	if cfg.Common.LoadTestClient != "" {
-		loadTestClient, err = cl.LoadFunctionsLoadTestClient(cfg.Common.LoadTestClient)
+	if cfg.Common.LoadTestClient != nil && *cfg.Common.LoadTestClient != "" {
+		loadTestClient, err = cl.LoadFunctionsLoadTestClient(*cfg.Common.LoadTestClient)
 	} else {
-		loadTestClient, err = cd.DeployFunctionsLoadTestClient(cfg.Common.Router)
+		loadTestClient, err = cd.DeployFunctionsLoadTestClient(*cfg.Common.Router)
 	}
 	if err != nil {
 		return nil, err
 	}
-	if cfg.Common.SubscriptionID == 0 {
+	if cfg.Common.SubscriptionID == nil {
 		log.Info().Msg("Creating new subscription")
 		subID, err := router.CreateSubscriptionWithConsumer(loadTestClient.Address())
 		if err != nil {
@@ -98,13 +103,13 @@ func SetupLocalLoadTestEnv(cfg *PerformanceConfig) (*FunctionsTest, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to encode subscription ID for funding: %w", err)
 		}
-		_, err = lt.TransferAndCall(router.Address(), big.NewInt(0).Mul(cfg.Common.Funding.SubFunds, big.NewInt(1e18)), encodedSubId)
+		_, err = lt.TransferAndCall(router.Address(), big.NewInt(0).Mul(cfg.Common.SubFunds, big.NewInt(1e18)), encodedSubId)
 		if err != nil {
 			return nil, fmt.Errorf("failed to transferAndCall router, LINK funding: %w", err)
 		}
-		cfg.Common.SubscriptionID = subID
+		cfg.Common.SubscriptionID = &subID
 	}
-	pKey, pubKey, err := parseEthereumPrivateKey(os.Getenv("MUMBAI_KEYS"))
+	pKey, pubKey, err := parseEthereumPrivateKey(selectedNetwork.PrivateKeys[0])
 	if err != nil {
 		return nil, fmt.Errorf("failed to load Ethereum private key: %w", err)
 	}
@@ -123,17 +128,17 @@ func SetupLocalLoadTestEnv(cfg *PerformanceConfig) (*FunctionsTest, error) {
 		return nil, fmt.Errorf("failed to unmarshal tdh2 public key: %w", err)
 	}
 	var encryptedSecrets string
-	if cfg.Common.Secrets != "" {
-		encryptedSecrets, err = EncryptS4Secrets(pKey, tdh2pk, donPubKey, cfg.Common.Secrets)
+	if cfg.Common.Secrets != nil && *cfg.Common.Secrets != "" {
+		encryptedSecrets, err = EncryptS4Secrets(pKey, tdh2pk, donPubKey, *cfg.Common.Secrets)
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate tdh2 secrets: %w", err)
 		}
 		slotID, slotVersion, err := UploadS4Secrets(resty.New(), &S4SecretsCfg{
-			GatewayURL:            cfg.Common.GatewayURL,
-			PrivateKey:            cfg.MumbaiPrivateKey,
+			GatewayURL:            *cfg.Common.GatewayURL,
+			PrivateKey:            selectedNetwork.PrivateKeys[0],
 			MessageID:             strconv.Itoa(mrand.Intn(100000-1) + 1),
 			Method:                "secrets_set",
-			DonID:                 cfg.Common.DONID,
+			DonID:                 *cfg.Common.DONID,
 			S4SetSlotID:           uint(mrand.Intn(5)),
 			S4SetVersion:          uint64(time.Now().UnixNano()),
 			S4SetExpirationPeriod: 60 * 60 * 1000,
@@ -142,8 +147,8 @@ func SetupLocalLoadTestEnv(cfg *PerformanceConfig) (*FunctionsTest, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to upload secrets to S4: %w", err)
 		}
-		cfg.Common.SecretsSlotID = slotID
-		cfg.Common.SecretsVersionID = slotVersion
+		cfg.Common.SecretsSlotID = &slotID
+		cfg.Common.SecretsVersionID = &slotVersion
 		log.Info().
 			Uint8("SlotID", slotID).
 			Uint64("SlotVersion", slotVersion).

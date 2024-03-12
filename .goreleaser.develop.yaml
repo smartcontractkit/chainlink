@@ -10,6 +10,7 @@ env:
 
 before:
   hooks:
+    - go mod tidy
     - ./tools/bin/goreleaser_utils before_hook
 
 # See https://goreleaser.com/customization/build/
@@ -62,6 +63,7 @@ dockers:
     goarch: amd64
     extra_files:
       - tmp/linux_amd64/libs
+      - tools/bin/ldd_fix
     build_flag_templates:
       - "--platform=linux/amd64"
       - "--pull"
@@ -84,6 +86,7 @@ dockers:
     goarch: arm64
     extra_files:
       - tmp/linux_arm64/libs
+      - tools/bin/ldd_fix
     build_flag_templates:
       - "--platform=linux/arm64"
       - "--pull"
@@ -106,6 +109,7 @@ dockers:
     goarch: amd64
     extra_files:
       - tmp/linux_amd64/libs
+      - tools/bin/ldd_fix
     build_flag_templates:
       - "--platform=linux/amd64"
       - "--pull"
@@ -129,6 +133,7 @@ dockers:
     goarch: arm64
     extra_files:
       - tmp/linux_arm64/libs
+      - tools/bin/ldd_fix
     build_flag_templates:
       - "--platform=linux/arm64"
       - "--pull"
@@ -169,13 +174,6 @@ docker_manifests:
 docker_signs:
   - artifacts: all
     stdin: "{{ .Env.COSIGN_PASSWORD }}"
-
-archives:
-  - rlcp: true
-    files:
-      - src: tmp/{{ .Os }}_{{ .Arch }}/libs/*
-        dst: libs
-        strip_parent: true
 
 checksum:
   name_template: "checksums.txt"

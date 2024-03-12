@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -x
+set -euo pipefail
 
 ENABLE_COSIGN=${ENABLE_COSIGN:-false}
 ENABLE_GORELEASER_SNAPSHOT=${ENABLE_GORELEASER_SNAPSHOT:-false}
@@ -70,9 +71,6 @@ goreleaser_release() {
     rm -rf cosign.pub
     rm -rf cosign.key
   fi
-
-  echo "metadata=$(cat dist/metadata.json)" >> "$GITHUB_OUTPUT"
-  echo "artifacts=$(cat dist/artifacts.json)" >> "$GITHUB_OUTPUT"
 }
 
 "$@"

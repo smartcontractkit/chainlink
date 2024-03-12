@@ -19,6 +19,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
+
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	registry12 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_2"
@@ -377,13 +378,13 @@ func (k *Keeper) createOCR2KeeperJob(ctx context.Context, client cmd.HTTPClient,
 
 	request, err := json.Marshal(web.CreateJobRequest{
 		TOML: fmt.Sprintf(ocr2keeperJobTemplate,
-			contractAddr,            // contractID
-			ocr2KeyConfig.ID,        // ocrKeyBundleID
-			nodeAddr,                // transmitterID - node wallet address
-			k.cfg.BootstrapNodeAddr, // bootstrap node key and address
-			k.cfg.ChainID,           // chainID
-			contractVersion,         // contractVersion
-			k.cfg.MercuryCredName,   // mercury credential name
+			contractAddr,              // contractID
+			ocr2KeyConfig.ID,          // ocrKeyBundleID
+			nodeAddr,                  // transmitterID - node wallet address
+			k.cfg.BootstrapNodeAddr,   // bootstrap node key and address
+			k.cfg.ChainID,             // chainID
+			contractVersion,           // contractVersion
+			k.cfg.DataStreamsCredName, // mercury credential name
 		),
 	})
 	if err != nil {

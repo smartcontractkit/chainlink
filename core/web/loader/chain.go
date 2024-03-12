@@ -2,9 +2,11 @@ package loader
 
 import (
 	"context"
+	"slices"
 
 	"github.com/graph-gophers/dataloader"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
@@ -14,7 +16,7 @@ type chainBatcher struct {
 	app chainlink.Application
 }
 
-func (b *chainBatcher) loadByIDs(_ context.Context, keys dataloader.Keys) []*dataloader.Result {
+func (b *chainBatcher) loadByIDs(ctx context.Context, keys dataloader.Keys) []*dataloader.Result {
 	// Create a map for remembering the order of keys passed in
 	keyOrder := make(map[string]int, len(keys))
 	// Collect the keys to search for
@@ -24,13 +26,20 @@ func (b *chainBatcher) loadByIDs(_ context.Context, keys dataloader.Keys) []*dat
 		keyOrder[key.String()] = ix
 	}
 
-	// Fetch the chains
-	cs, _, err := b.app.EVMORM().Chains(chainIDs...)
-	if err != nil {
-		return []*dataloader.Result{{Data: nil, Error: err}}
+	var cs []types.ChainStatus
+	relayers := b.app.GetRelayers().Slice()
+
+	for _, r := range relayers {
+		s, err := r.GetChainStatus(ctx)
+		if err != nil {
+			return []*dataloader.Result{{Data: nil, Error: err}}
+		}
+
+		if slices.Contains(chainIDs, s.ID) {
+			cs = append(cs, s)
+		}
 	}
 
-	// Construct the output array of dataloader results
 	results := make([]*dataloader.Result, len(keys))
 	for _, c := range cs {
 		ix, ok := keyOrder[c.ID]

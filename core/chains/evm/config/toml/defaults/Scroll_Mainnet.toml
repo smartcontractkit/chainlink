@@ -1,5 +1,6 @@
 ChainID = '534352'
 FinalityDepth = 1
+ChainType = 'scroll'
 LogPollInterval = '3s'
 MinIncomingConfirmations = 1
 # Scroll only emits blocks when a new tx is received, so this method of liveness detection is not useful

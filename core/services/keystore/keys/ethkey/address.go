@@ -53,10 +53,10 @@ func EIP55AddressFromAddress(a common.Address) EIP55Address {
 func (a EIP55Address) Bytes() []byte { return a.Address().Bytes() }
 
 // Big returns a big.Int representation
-func (a EIP55Address) Big() *big.Int { return a.Address().Hash().Big() }
+func (a EIP55Address) Big() *big.Int { return a.Address().Big() }
 
 // Hash returns the Hash
-func (a EIP55Address) Hash() common.Hash { return a.Address().Hash() }
+func (a EIP55Address) Hash() common.Hash { return common.BytesToHash(a.Bytes()) }
 
 // Address returns EIP55Address as a go-ethereum Address type
 func (a EIP55Address) Address() common.Address { return common.HexToAddress(a.String()) }

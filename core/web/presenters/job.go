@@ -452,6 +452,7 @@ func NewJobError(e job.SpecError) JobError {
 type JobResource struct {
 	JAID
 	Name                   string                  `json:"name"`
+	StreamID               *uint32                 `json:"streamID,omitempty"`
 	Type                   JobSpecType             `json:"type"`
 	SchemaVersion          uint32                  `json:"schemaVersion"`
 	GasLimit               clnull.Uint32           `json:"gasLimit"`
@@ -479,6 +480,7 @@ func NewJobResource(j job.Job) *JobResource {
 	resource := &JobResource{
 		JAID:              NewJAIDInt32(j.ID),
 		Name:              j.Name.ValueOrZero(),
+		StreamID:          j.StreamID,
 		Type:              JobSpecType(j.Type),
 		SchemaVersion:     j.SchemaVersion,
 		GasLimit:          j.GasLimit,
@@ -514,6 +516,8 @@ func NewJobResource(j job.Job) *JobResource {
 	case job.Gateway:
 		resource.GatewaySpec = NewGatewaySpec(j.GatewaySpec)
 	case job.Stream:
+		// no spec; nothing to do
+	case job.Workflow:
 		// no spec; nothing to do
 	case job.LegacyGasStationServer, job.LegacyGasStationSidecar:
 		// unsupported

@@ -22,6 +22,22 @@ interface ITermsOfServiceAllowList {
   /// @return addresses - all allowed addresses
   function getAllAllowedSenders() external view returns (address[] memory);
 
+  /// @notice Get details about the total number of allowed senders
+  /// @return count - total number of allowed senders in the system
+  function getAllowedSendersCount() external view returns (uint64);
+
+  /// @notice Retrieve a list of allowed senders using an inclusive range
+  /// @dev WARNING: getAllowedSendersInRange uses EnumerableSet .length() and .at() methods to iterate over the list
+  /// without the need for an extra mapping. These method can not guarantee the ordering when new elements are added.
+  /// Evaluate if eventual consistency will satisfy your usecase before using it.
+  /// @param allowedSenderIdxStart - index of the allowed sender to start the range at
+  /// @param allowedSenderIdxEnd - index of the allowed sender to end the range at
+  /// @return allowedSenders - allowed addresses in the range provided
+  function getAllowedSendersInRange(
+    uint64 allowedSenderIdxStart,
+    uint64 allowedSenderIdxEnd
+  ) external view returns (address[] memory allowedSenders);
+
   /// @notice Allows access to the sender based on acceptance of the Terms of Service
   /// @param acceptor - The wallet address that has accepted the Terms of Service on the UI
   /// @param recipient - The recipient address that the acceptor is taking responsibility for
@@ -37,6 +53,22 @@ interface ITermsOfServiceAllowList {
   /// @notice Re-allows a previously blocked sender to accept the Terms of Service
   /// @param sender - Address of the sender to unblock
   function unblockSender(address sender) external;
+
+  /// @notice Get details about the total number of blocked senders
+  /// @return count - total number of blocked senders in the system
+  function getBlockedSendersCount() external view returns (uint64);
+
+  /// @notice Retrieve a list of blocked senders using an inclusive range
+  /// @dev WARNING: getBlockedSendersInRange uses EnumerableSet .length() and .at() methods to iterate over the list
+  /// without the need for an extra mapping. These method can not guarantee the ordering when new elements are added.
+  /// Evaluate if eventual consistency will satisfy your usecase before using it.
+  /// @param blockedSenderIdxStart - index of the blocked sender to start the range at
+  /// @param blockedSenderIdxEnd - index of the blocked sender to end the range at
+  /// @return blockedSenders - blocked addresses in the range provided
+  function getBlockedSendersInRange(
+    uint64 blockedSenderIdxStart,
+    uint64 blockedSenderIdxEnd
+  ) external view returns (address[] memory blockedSenders);
 }
 
 // ================================================================

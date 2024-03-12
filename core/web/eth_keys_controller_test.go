@@ -175,7 +175,7 @@ func TestETHKeysController_Index_NotDev(t *testing.T) {
 	defer cleanup()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
-	expectedKeys, err := app.KeyStore.Eth().GetAll()
+	expectedKeys, err := app.KeyStore.Eth().GetAll(testutils.Context(t))
 	require.NoError(t, err)
 	var actualBalances []webpresenters.ETHKeyResource
 	err = cltest.ParseJSONAPIResponse(t, resp, &actualBalances)
@@ -284,7 +284,8 @@ func TestETHKeysController_ChainSuccess_UpdateNonce(t *testing.T) {
 	err := cltest.ParseJSONAPIResponse(t, resp, &updatedKey)
 	assert.NoError(t, err)
 
-	assert.Equal(t, key.ID(), updatedKey.ID)
+	assert.Equal(t, cltest.FormatWithPrefixedChainID(cltest.FixtureChainID.String(), key.Address.String()), updatedKey.ID)
+	assert.Equal(t, key.Address.String(), updatedKey.Address)
 	assert.Equal(t, cltest.FixtureChainID.String(), updatedKey.EVMChainID.String())
 	assert.Equal(t, false, updatedKey.Disabled)
 }
@@ -328,7 +329,8 @@ func TestETHKeysController_ChainSuccess_Disable(t *testing.T) {
 	err := cltest.ParseJSONAPIResponse(t, resp, &updatedKey)
 	assert.NoError(t, err)
 
-	assert.Equal(t, key.ID(), updatedKey.ID)
+	assert.Equal(t, cltest.FormatWithPrefixedChainID(updatedKey.EVMChainID.String(), key.Address.String()), updatedKey.ID)
+	assert.Equal(t, key.Address.String(), updatedKey.Address)
 	assert.Equal(t, cltest.FixtureChainID.String(), updatedKey.EVMChainID.String())
 	assert.Equal(t, true, updatedKey.Disabled)
 }
@@ -371,7 +373,8 @@ func TestETHKeysController_ChainSuccess_Enable(t *testing.T) {
 	err := cltest.ParseJSONAPIResponse(t, resp, &updatedKey)
 	assert.NoError(t, err)
 
-	assert.Equal(t, key.ID(), updatedKey.ID)
+	assert.Equal(t, cltest.FormatWithPrefixedChainID(cltest.FixtureChainID.String(), key.Address.String()), updatedKey.ID)
+	assert.Equal(t, key.Address.String(), updatedKey.Address)
 	assert.Equal(t, cltest.FixtureChainID.String(), updatedKey.EVMChainID.String())
 	assert.Equal(t, false, updatedKey.Disabled)
 }
@@ -401,12 +404,12 @@ func TestETHKeysController_ChainSuccess_ResetWithAbandon(t *testing.T) {
 	subject := uuid.New()
 	strategy := commontxmmocks.NewTxStrategy(t)
 	strategy.On("Subject").Return(uuid.NullUUID{UUID: subject, Valid: true})
-	strategy.On("PruneQueue", mock.Anything, mock.AnythingOfType("*txmgr.evmTxStore")).Return(int64(0), nil)
+	strategy.On("PruneQueue", mock.Anything, mock.AnythingOfType("*txmgr.evmTxStore")).Return(nil, nil)
 	_, err := chain.TxManager().CreateTransaction(testutils.Context(t), txmgr.TxRequest{
 		FromAddress:    addr,
 		ToAddress:      testutils.NewAddress(),
 		EncodedPayload: []byte{1, 2, 3},
-		FeeLimit:       uint32(1000),
+		FeeLimit:       uint64(1000),
 		Meta:           nil,
 		Strategy:       strategy,
 	})
@@ -436,7 +439,8 @@ func TestETHKeysController_ChainSuccess_ResetWithAbandon(t *testing.T) {
 	err = cltest.ParseJSONAPIResponse(t, resp, &updatedKey)
 	assert.NoError(t, err)
 
-	assert.Equal(t, key.ID(), updatedKey.ID)
+	assert.Equal(t, cltest.FormatWithPrefixedChainID(cltest.FixtureChainID.String(), key.Address.String()), updatedKey.ID)
+	assert.Equal(t, key.Address.String(), updatedKey.Address)
 	assert.Equal(t, cltest.FixtureChainID.String(), updatedKey.EVMChainID.String())
 	assert.Equal(t, false, updatedKey.Disabled)
 
@@ -663,7 +667,8 @@ func TestETHKeysController_DeleteSuccess(t *testing.T) {
 	err := cltest.ParseJSONAPIResponse(t, resp, &deletedKey)
 	assert.NoError(t, err)
 
-	assert.Equal(t, key0.ID(), deletedKey.ID)
+	assert.Equal(t, cltest.FormatWithPrefixedChainID(cltest.FixtureChainID.String(), key0.Address.String()), deletedKey.ID)
+	assert.Equal(t, key0.Address.String(), deletedKey.Address)
 	assert.Equal(t, cltest.FixtureChainID.String(), deletedKey.EVMChainID.String())
 	assert.Equal(t, false, deletedKey.Disabled)
 

@@ -91,30 +91,35 @@ func NewTracker[
 	}
 }
 
-func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Start(_ context.Context) (err error) {
-	tr.lock.Lock()
-	defer tr.lock.Unlock()
+func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Start(ctx context.Context) (err error) {
+	tr.lggr.Info("Abandoned transaction tracking enabled")
 	return tr.StartOnce("Tracker", func() error {
-		return tr.startInternal()
+		return tr.startInternal(ctx)
 	})
 }
 
-func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) startInternal() (err error) {
+func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) startInternal(ctx context.Context) (err error) {
+	tr.lock.Lock()
+	defer tr.lock.Unlock()
+
 	tr.ctx, tr.ctxCancel = context.WithCancel(context.Background())
 
-	if err := tr.setEnabledAddresses(); err != nil {
+	if err := tr.setEnabledAddresses(ctx); err != nil {
 		return fmt.Errorf("failed to set enabled addresses: %w", err)
 	}
+	tr.lggr.Info("Enabled addresses set")
 
-	if err := tr.trackAbandonedTxes(tr.ctx); err != nil {
+	if err := tr.trackAbandonedTxes(ctx); err != nil {
 		return fmt.Errorf("failed to track abandoned txes: %w", err)
 	}
 
 	tr.isStarted = true
 	if len(tr.txCache) == 0 {
-		tr.lggr.Infow("no abandoned txes found, skipping runLoop")
+		tr.lggr.Info("no abandoned txes found, skipping runLoop")
 		return nil
 	}
+
+	tr.lggr.Infof("%d abandoned txes found, starting runLoop", len(tr.txCache))
 	tr.wg.Add(1)
 	go tr.runLoop()
 	return nil
@@ -129,7 +134,7 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Close() err
 }
 
 func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) closeInternal() error {
-	tr.lggr.Infow("stopping tracker")
+	tr.lggr.Info("stopping tracker")
 	if !tr.isStarted {
 		return fmt.Errorf("tracker not started")
 	}
@@ -159,7 +164,7 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() {
 				}
 			}
 		case <-ttlExceeded.C:
-			tr.lggr.Infow("ttl exceeded")
+			tr.lggr.Info("ttl exceeded")
 			tr.MarkAllTxesFatal(tr.ctx)
 			return
 		case <-tr.ctx.Done():
@@ -189,8 +194,8 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) IsStarted()
 	return tr.isStarted
 }
 
-func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) setEnabledAddresses() error {
-	enabledAddrs, err := tr.keyStore.EnabledAddressesForChain(tr.chainID)
+func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) setEnabledAddresses(ctx context.Context) error {
+	enabledAddrs, err := tr.keyStore.EnabledAddressesForChain(ctx, tr.chainID)
 	if err != nil {
 		return fmt.Errorf("failed to get enabled addresses for chain: %w", err)
 	}
@@ -211,6 +216,7 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) trackAbando
 		return fmt.Errorf("tracker already started")
 	}
 
+	tr.lggr.Info("Retrieving non fatal transactions from txStore")
 	nonFatalTxes, err := tr.txStore.GetNonFatalTransactions(ctx, tr.chainID)
 	if err != nil {
 		return fmt.Errorf("failed to get non fatal txes from txStore: %w", err)
@@ -239,6 +245,8 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) HandleTxesB
 }
 
 func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) handleTxesByState(ctx context.Context, blockHeight int64) error {
+	tr.lggr.Info("Handling transactions by state")
+
 	for id, atx := range tr.txCache {
 		tx, err := tr.txStore.GetTxByID(ctx, atx.id)
 		if err != nil {

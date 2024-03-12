@@ -1,0 +1,109 @@
+[Logging]
+test_log_collect=false
+
+[Logging.LogStream]
+log_targets=["file"]
+log_producer_timeout="10s"
+log_producer_retry_limit=10
+
+[ChainlinkImage]
+postgres_version="15.6"
+
+[Network]
+selected_networks=["simulated"]
+
+[PrivateEthereumNetwork]
+consensus_type="pow"
+execution_layer="geth"
+
+[PrivateEthereumNetwork.EthereumChainConfig]
+seconds_per_slot=3
+slots_per_epoch=2
+genesis_delay=15
+validator_count=4
+chain_id=1337
+addresses_to_fund=["0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"]
+
+[PrivateEthereumNetwork.EthereumChainConfig.HardForkEpochs]
+Deneb=500
+
+[Seth]
+# enables automatic tracing of all transactions that are decoded via Decode() method
+tracing_enabled = false
+# saves each tracing result to json file in ./traces/<tx_hash>.json
+trace_to_json = false
+# number of addresses to be generated and runtime, if set to 0, no addresses will be generated
+# each generated address will receive a proportion of native tokens from root private key's balance
+# with the value equal to (root_balance / ephemeral_addresses_number) - transfer_fee * ephemeral_addresses_number
+ephemeral_addresses_number = 0
+
+[Seth.nonce_manager]
+key_sync_rate_limit_per_sec = 10
+key_sync_timeout = "2s"
+key_sync_retry_delay = "1s"
+key_sync_retries = 10
+
+[[Seth.networks]]
+name = "Geth"
+chain_id = "1337"
+transaction_timeout = "30s"
+urls = ["ws://localhost:8546"]
+transfer_gas_fee = 21_000
+gas_limit = 8_000_000
+# legacy transactions
+gas_price = 1_000_000_000
+# EIP-1559 transactions
+#eip_1559_dynamic_fees = true
+gas_fee_cap = 10_000_000_000
+gas_tip_cap = 3_000_000_000
+
+[[Seth.networks]]
+name = "Fuji"
+chain_id = "43113"
+transaction_timeout = "3m"
+transfer_gas_fee = 21_000
+# legacy transactions
+gas_price = 30_000_000_000
+# EIP-1559 transactions
+eip_1559_dynamic_fees = true
+gas_fee_cap = 30_000_000_000
+gas_tip_cap = 1_800_000_000
+
+[[Seth.networks]]
+name = "Sepolia"
+chain_id = "11155111"
+transaction_timeout = "3m"
+transfer_gas_fee = 40_000
+gas_limit = 30_000_000
+# legacy transactions
+gas_price = 50_000_000_000
+# EIP-1559 transactions
+# eip_1559_dynamic_fees = true
+gas_fee_cap = 45_000_000_000
+gas_tip_cap = 10_000_000_000
+
+[[Seth.networks]]
+name = "Mumbai"
+chain_id = "80001"
+transaction_timeout = "3m"
+transfer_gas_fee = 40_000
+gas_limit = 6_000_000
+# legacy transactions
+#gas_price = 1_800_000_000
+# EIP-1559 transactions
+eip_1559_dynamic_fees = true
+gas_fee_cap = 3_800_000_000
+gas_tip_cap = 1_800_000_000
+
+[[Seth.networks]]
+name = "zkEVM"
+chain_id = "1442"
+transaction_timeout = "3m"
+transfer_gas_fee = 21_000
+gas_limit = 3_000_000
+# legacy transactions
+gas_price = 50_000_000
+# EIP-1559 transactions
+#eip_1559_dynamic_fees = true
+gas_fee_cap = 3_800_000_000
+gas_tip_cap = 1_800_000_000
