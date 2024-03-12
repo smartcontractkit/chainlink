@@ -12,8 +12,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
+// KVStore is a simple KV store that can store and retrieve serializable data.
+//
 //go:generate mockery --quiet --name KVStore --output ./mocks/ --case=underscore
-
 type KVStore interface {
 	Store(key string, val interface{}) error
 	Get(key string, dest interface{}) error
@@ -36,6 +37,7 @@ func NewJobKVStore(jobID int32, db *sqlx.DB, cfg pg.QConfig, lggr logger.Logger)
 	}
 }
 
+// Store saves serializable value by key.
 func (kv jobKVStore) Store(key string, val interface{}) error {
 	jsonVal, err := json.Marshal(val)
 	if err != nil {
@@ -55,12 +57,13 @@ func (kv jobKVStore) Store(key string, val interface{}) error {
 	return nil
 }
 
+// Get retrieves serializable value by key.
 func (kv jobKVStore) Get(key string, dest interface{}) error {
 	var ret json.RawMessage
 	sql := "SELECT val FROM job_kv_store WHERE id = $1 AND key = $2"
 	if err := kv.q.Get(&ret, sql, kv.jobID, key); err != nil {
 		return fmt.Errorf("failed to get value by key: %s for jobID: %d : %w", key, kv.jobID, err)
 	}
-	
+
 	return json.Unmarshal(ret, dest)
 }
