@@ -206,16 +206,17 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 		require.NoError(t, err, "error getting latest block number")
 		_, err = actions.WaitForBlockNumberToBe(latestBlockNumber+uint64(256), testEnv.EVMClient, &wgBlockNumberTobe, configCopy.VRFv2Plus.General.WaitFor256BlocksTimeout.Duration, t)
 		wgBlockNumberTobe.Wait()
-		require.NoError(t, err)
+		require.NoError(t, err, "error waiting for block number to be")
 
 		err = vrfv2plus.FundSubscriptions(
 			testEnv,
-			big.NewFloat(*configCopy.VRFv2Plus.General.SubscriptionRefundingAmountLink),
+			big.NewFloat(*configCopy.VRFv2Plus.General.SubscriptionRefundingAmountNative),
 			big.NewFloat(*configCopy.VRFv2Plus.General.SubscriptionRefundingAmountLink),
 			vrfContracts.LinkToken,
 			vrfContracts.CoordinatorV2Plus,
 			subIDs,
 		)
+		require.NoError(t, err, "error funding subscriptions")
 
 		var wgAllRequestsFulfilled sync.WaitGroup
 		wgAllRequestsFulfilled.Add(1)
