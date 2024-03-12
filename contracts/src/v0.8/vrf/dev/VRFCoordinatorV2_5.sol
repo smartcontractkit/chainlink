@@ -262,9 +262,9 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     // Its important to ensure that the consumer is in fact who they say they
     // are, otherwise they could use someone else's subscription balance.
     // A nonce of 0 indicates consumer is not allocated to the sub.
-    mapping(uint256 => uint64) storage nonces = s_consumers[msg.sender];
-    uint64 nonce = nonces[subId];
-    if (nonce == 0) {
+    mapping(uint256 => ConsumerConfig) storage consumerConfigs = s_consumers[msg.sender];
+    ConsumerConfig memory consumerConfig = consumerConfigs[subId];
+    if (!consumerConfig.active) {
       revert InvalidConsumer(subId, msg.sender);
     }
     // Input validation using the config storage word.
@@ -291,9 +291,9 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     // Note we do not check whether the keyHash is valid to save gas.
     // The consequence for users is that they can send requests
     // for invalid keyHashes which will simply not be fulfilled.
-    ++nonce;
+    ++consumerConfig.nonce;
     uint256 preSeed;
-    (requestId, preSeed) = _computeRequestId(req.keyHash, msg.sender, subId, nonce);
+    (requestId, preSeed) = _computeRequestId(req.keyHash, msg.sender, subId, consumerConfig.nonce);
 
     bytes memory extraArgsBytes = VRFV2PlusClient._argsToBytes(_fromBytes(req.extraArgs));
     s_requestCommitments[requestId] = keccak256(
@@ -318,7 +318,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
       extraArgsBytes,
       msg.sender
     );
-    nonces[subId] = nonce;
+    consumerConfigs[subId] = consumerConfig;
 
     return requestId;
   }
@@ -621,7 +621,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     for (uint256 i = 0; i < consumersLength; ++i) {
       address consumer = consumers[i];
       for (uint256 j = 0; j < provingKeyHashesLength; ++j) {
-        (uint256 reqId, ) = _computeRequestId(s_provingKeyHashes[j], consumer, subId, s_consumers[consumer][subId]);
+        (uint256 reqId, ) = _computeRequestId(s_provingKeyHashes[j], consumer, subId, s_consumers[consumer][subId].nonce);
         if (s_requestCommitments[reqId] != 0) {
           return true;
         }
@@ -637,7 +637,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     if (pendingRequestExists(subId)) {
       revert PendingRequestExists();
     }
-    if (s_consumers[consumer][subId] == 0) {
+    if (!s_consumers[consumer][subId].active) {
       revert InvalidConsumer(subId, consumer);
     }
     // Note bounded by MAX_CONSUMERS
@@ -653,7 +653,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
         break;
       }
     }
-    delete s_consumers[consumer][subId];
+    s_consumers[consumer][subId].active = false;
     emit SubscriptionConsumerRemoved(subId, consumer);
   }
 
