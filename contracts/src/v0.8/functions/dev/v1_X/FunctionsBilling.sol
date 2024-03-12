@@ -124,8 +124,9 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   /// @inheritdoc IFunctionsBilling
   function getWeiPerUnitLink() public view returns (uint256) {
     (, int256 weiPerUnitLink, , uint256 timestamp, ) = s_linkToNativeFeed.latestRoundData();
+    // Only fallback if feedStalenessSeconds is set
     // solhint-disable-next-line not-rely-on-time
-    if (s_config.feedStalenessSeconds < block.timestamp - timestamp && s_config.feedStalenessSeconds > 0) {
+    if (s_config.feedStalenessSeconds < block.timestamp - timestamp && s_config.feedStalenessSeconds > 0 ) {
       return s_config.fallbackNativePerUnitLink;
     }
     if (weiPerUnitLink <= 0) {
@@ -143,6 +144,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   /// @inheritdoc IFunctionsBilling
   function getUsdPerUnitLink() public view returns (uint256, uint8) {
     (, int256 usdPerUnitLink, , uint256 timestamp, ) = s_linkToUsdFeed.latestRoundData();
+    // Only fallback if feedStalenessSeconds is set
     // solhint-disable-next-line not-rely-on-time
     if (s_config.feedStalenessSeconds < block.timestamp - timestamp && s_config.feedStalenessSeconds > 0) {
       return (s_config.fallbackUsdPerUnitLink, s_config.fallbackUsdPerUnitLinkDecimals);
