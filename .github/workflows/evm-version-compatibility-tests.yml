@@ -65,7 +65,9 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
-          ref: develop/958e2c62d6
+          fetch-depth: 0
+      - name: Checkout branch
+        run: git checkout 958e2c62d6
       - name: Build Chainlink Image
         uses: ./.github/actions/build-chainlink-image
         with:
