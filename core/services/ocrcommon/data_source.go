@@ -257,7 +257,7 @@ func (ds *inMemoryDataSourceCache) updateCache(ctx context.Context) error {
 		ds.latestUpdateErr = latestUpdateErr
 		// raise log severity
 		if previousUpdateErr != nil {
-			ds.lggr.Errorf("consecutive cache updates errored: previous err: %s new err: %s", previousUpdateErr.Error(), ds.latestUpdateErr.Error())
+			ds.lggr.Errorf("consecutive cache updates errored: previous err: %w new err: %w", previousUpdateErr, ds.latestUpdateErr)
 		}
 		return errors.Wrapf(ds.latestUpdateErr, "error executing run for spec ID %v", ds.spec.ID)
 	}
