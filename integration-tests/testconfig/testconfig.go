@@ -581,6 +581,17 @@ func handleDefaultConfigOverride(logger zerolog.Logger, filename, configurationN
 		return errors.Wrapf(err, "error reading file %s", filename)
 	}
 
+	// temporary fix for Duration not being correctly copied
+	if oldConfig != nil && oldConfig.Seth != nil && oldConfig.Seth.Networks != nil {
+		for i, old_network := range oldConfig.Seth.Networks {
+			for _, target_network := range target.Seth.Networks {
+				if old_network.ChainID == target_network.ChainID {
+					oldConfig.Seth.Networks[i].TxnTimeout = old_network.TxnTimeout
+				}
+			}
+		}
+	}
+
 	// override instead of merging
 	if (newConfig.Seth != nil && len(newConfig.Seth.Networks) > 0) && (oldConfig != nil && oldConfig.Seth != nil && len(oldConfig.Seth.Networks) > 0) {
 		for i, old_network := range oldConfig.Seth.Networks {
