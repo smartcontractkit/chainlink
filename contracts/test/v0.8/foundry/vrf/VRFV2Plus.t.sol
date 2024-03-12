@@ -162,6 +162,40 @@ contract VRFV2Plus is BaseTest {
       15, // nativePremiumPercentage
       10 // linkPremiumPercentage
     );
+
+    // Test that setting native premium percentage higher than 155 will revert
+    vm.expectRevert(
+      abi.encodeWithSelector(VRFCoordinatorV2_5.InvalidPremiumPercentage.selector, uint8(156), uint8(155))
+    );
+
+    s_testCoordinator.setConfig(
+      0,
+      2_500_000,
+      1,
+      50_000,
+      500,
+      500_000, // fulfillmentFlatFeeNativePPM
+      100_000, // fulfillmentFlatFeeLinkDiscountPPM
+      156, // nativePremiumPercentage
+      10 // linkPremiumPercentage
+    );
+
+    // Test that setting LINK premium percentage higher than 155 will revert
+    vm.expectRevert(
+      abi.encodeWithSelector(VRFCoordinatorV2_5.InvalidPremiumPercentage.selector, uint8(202), uint8(155))
+    );
+
+    s_testCoordinator.setConfig(
+      0,
+      2_500_000,
+      1,
+      50_000,
+      500,
+      500_000, // fulfillmentFlatFeeNativePPM
+      100_000, // fulfillmentFlatFeeLinkDiscountPPM
+      15, // nativePremiumPercentage
+      202 // linkPremiumPercentage
+    );
   }
 
   function testRegisterProvingKey() public {
