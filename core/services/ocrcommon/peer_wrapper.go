@@ -6,6 +6,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 	ocr1types "github.com/smartcontractkit/libocr/offchainreporting/types"
@@ -137,6 +138,7 @@ func (p *SingletonPeerWrapper) peerConfig() (ocrnetworking.PeerConfig, error) {
 			IncomingMessageBufferSize: config.IncomingMessageBufferSize(),
 			OutgoingMessageBufferSize: config.OutgoingMessageBufferSize(),
 		},
+		MetricsRegisterer: prometheus.DefaultRegisterer,
 	}
 
 	return peerConfig, nil

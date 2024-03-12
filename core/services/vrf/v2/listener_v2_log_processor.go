@@ -387,7 +387,7 @@ func (lsn *listenerV2) processRequestsPerSubBatchHelper(
 				"blockHash", p.req.req.Raw().BlockHash,
 			)
 			fromAddresses := lsn.fromAddresses()
-			fromAddress, err := lsn.gethks.GetRoundRobinAddress(lsn.chainID, fromAddresses...)
+			fromAddress, err := lsn.gethks.GetRoundRobinAddress(ctx, lsn.chainID, fromAddresses...)
 			if err != nil {
 				l.Errorw("Couldn't get next from address", "err", err)
 				continue
@@ -591,8 +591,8 @@ func (lsn *listenerV2) enqueueForceFulfillment(
 
 		lsn.l.Infow("Estimated gas limit on force fulfillment",
 			"estimateGasLimit", estimateGasLimit, "pipelineGasLimit", p.gasLimit)
-		if estimateGasLimit < uint64(p.gasLimit) {
-			estimateGasLimit = uint64(p.gasLimit)
+		if estimateGasLimit < p.gasLimit {
+			estimateGasLimit = p.gasLimit
 		}
 
 		requestID := common.BytesToHash(p.req.req.RequestID().Bytes())
@@ -602,7 +602,7 @@ func (lsn *listenerV2) enqueueForceFulfillment(
 			FromAddress:    fromAddress,
 			ToAddress:      lsn.vrfOwner.Address(),
 			EncodedPayload: txData,
-			FeeLimit:       uint32(estimateGasLimit),
+			FeeLimit:       estimateGasLimit,
 			Strategy:       txmgrcommon.NewSendEveryStrategy(),
 			Meta: &txmgr.TxMeta{
 				RequestID:     &requestID,
@@ -717,7 +717,7 @@ func (lsn *listenerV2) processRequestsPerSubHelper(
 				"blockNumber", p.req.req.Raw().BlockNumber,
 				"blockHash", p.req.req.Raw().BlockHash,
 			)
-			fromAddress, err := lsn.gethks.GetRoundRobinAddress(lsn.chainID, fromAddresses...)
+			fromAddress, err := lsn.gethks.GetRoundRobinAddress(ctx, lsn.chainID, fromAddresses...)
 			if err != nil {
 				l.Errorw("Couldn't get next from address", "err", err)
 				continue
@@ -1205,7 +1205,7 @@ func (lsn *listenerV2) simulateFulfillment(
 		}
 
 		if trr.Task.Type() == pipeline.TaskTypeEstimateGasLimit {
-			res.gasLimit = trr.Result.Value.(uint32)
+			res.gasLimit = trr.Result.Value.(uint64)
 		}
 	}
 	return res

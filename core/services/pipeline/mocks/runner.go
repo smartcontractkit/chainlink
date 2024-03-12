@@ -132,6 +132,36 @@ func (_m *Runner) HealthReport() map[string]error {
 	return r0
 }
 
+// InitializePipeline provides a mock function with given fields: spec
+func (_m *Runner) InitializePipeline(spec pipeline.Spec) (*pipeline.Pipeline, error) {
+	ret := _m.Called(spec)
+
+	if len(ret) == 0 {
+		panic("no return value specified for InitializePipeline")
+	}
+
+	var r0 *pipeline.Pipeline
+	var r1 error
+	if rf, ok := ret.Get(0).(func(pipeline.Spec) (*pipeline.Pipeline, error)); ok {
+		return rf(spec)
+	}
+	if rf, ok := ret.Get(0).(func(pipeline.Spec) *pipeline.Pipeline); ok {
+		r0 = rf(spec)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*pipeline.Pipeline)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(pipeline.Spec) error); ok {
+		r1 = rf(spec)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // InsertFinishedRun provides a mock function with given fields: run, saveSuccessfulTaskRuns, qopts
 func (_m *Runner) InsertFinishedRun(run *pipeline.Run, saveSuccessfulTaskRuns bool, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))
