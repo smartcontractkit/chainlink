@@ -56,6 +56,7 @@ const (
 	FunctionsBridgeName                   string = "ea_bridge"
 	FunctionsS4Namespace                  string = "functions"
 	MaxAdapterResponseBytes               int64  = 1_000_000
+	MaxAdapterRetry                       int    = 5
 	DefaultOffchainTransmitterChannelSize uint32 = 1000
 )
 
@@ -106,7 +107,7 @@ func NewFunctionsServices(ctx context.Context, functionsOracleArgs, thresholdOra
 
 	offchainTransmitter := functions.NewOffchainTransmitter(DefaultOffchainTransmitterChannelSize)
 	listenerLogger := conf.Logger.Named("FunctionsListener")
-	bridgeAccessor := functions.NewBridgeAccessor(conf.BridgeORM, FunctionsBridgeName, MaxAdapterResponseBytes)
+	bridgeAccessor := functions.NewBridgeAccessor(conf.BridgeORM, FunctionsBridgeName, MaxAdapterResponseBytes, MaxAdapterRetry)
 	functionsListener := functions.NewFunctionsListener(
 		conf.Job,
 		conf.Chain.Client(),

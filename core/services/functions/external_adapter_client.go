@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/hashicorp/go-retryablehttp"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -44,6 +45,7 @@ type ExternalAdapterClient interface {
 type externalAdapterClient struct {
 	adapterURL       url.URL
 	maxResponseBytes int64
+	maxRetry         int
 }
 
 var _ ExternalAdapterClient = (*externalAdapterClient)(nil)
@@ -57,6 +59,7 @@ type bridgeAccessor struct {
 	bridgeORM        bridges.ORM
 	bridgeName       string
 	maxResponseBytes int64
+	maxRetry         int
 }
 
 var _ BridgeAccessor = (*bridgeAccessor)(nil)
@@ -112,10 +115,11 @@ var (
 	)
 )
 
-func NewExternalAdapterClient(adapterURL url.URL, maxResponseBytes int64) ExternalAdapterClient {
+func NewExternalAdapterClient(adapterURL url.URL, maxResponseBytes int64, maxRetry int) ExternalAdapterClient {
 	return &externalAdapterClient{
 		adapterURL:       adapterURL,
 		maxResponseBytes: maxResponseBytes,
+		maxRetry:         maxRetry,
 	}
 }
 
@@ -190,7 +194,10 @@ func (ea *externalAdapterClient) request(
 	req.Header.Set("Content-Type", "application/json")
 
 	start := time.Now()
-	client := &http.Client{}
+	retryClient := retryablehttp.NewClient()
+	retryClient.RetryMax = ea.maxRetry
+
+	client := retryClient.StandardClient()
 	resp, err := client.Do(req)
 	if err != nil {
 		promEAClientErrors.WithLabelValues(label).Inc()
@@ -244,11 +251,12 @@ func (ea *externalAdapterClient) request(
 	}
 }
 
-func NewBridgeAccessor(bridgeORM bridges.ORM, bridgeName string, maxResponseBytes int64) BridgeAccessor {
+func NewBridgeAccessor(bridgeORM bridges.ORM, bridgeName string, maxResponseBytes int64, maxRetry int) BridgeAccessor {
 	return &bridgeAccessor{
 		bridgeORM:        bridgeORM,
 		bridgeName:       bridgeName,
 		maxResponseBytes: maxResponseBytes,
+		maxRetry:         maxRetry,
 	}
 }
 
@@ -257,5 +265,5 @@ func (b *bridgeAccessor) NewExternalAdapterClient() (ExternalAdapterClient, erro
 	if err != nil {
 		return nil, err
 	}
-	return NewExternalAdapterClient(url.URL(bridge.URL), b.maxResponseBytes), nil
+	return NewExternalAdapterClient(url.URL(bridge.URL), b.maxResponseBytes, b.maxRetry), nil
 }
