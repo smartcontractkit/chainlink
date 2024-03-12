@@ -60,12 +60,13 @@ async function route53RecordsExist(
       if (recordExists) {
         console.info("All records found in Route 53.");
         return true;
-      } else {
+      }
+      
         // If any record is not found, throw an error to trigger a retry
         throw new Error(
           "One or more DNS records not found in Route 53, retrying..."
         );
-      }
+      
     } catch (error) {
       console.error(`Attempt ${attempts + 1}:`, error.message);
       if (attempts === maxRetries - 1) {
