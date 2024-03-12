@@ -147,7 +147,7 @@ contract VRFV2PlusWrapperTest is BaseTest {
       vrfKeyHash,
       address(s_wrapper),
       s_wrapper.SUBSCRIPTION_ID(),
-      2
+      1
     );
     uint32 EIP150Overhead = callbackGasLimit / 63 + 1;
     emit RandomWordsRequested(
@@ -205,7 +205,7 @@ contract VRFV2PlusWrapperTest is BaseTest {
       vrfKeyHash,
       address(s_wrapper),
       s_wrapper.SUBSCRIPTION_ID(),
-      2
+      1
     );
     uint32 EIP150Overhead = callbackGasLimit / 63 + 1;
     emit RandomWordsRequested(
