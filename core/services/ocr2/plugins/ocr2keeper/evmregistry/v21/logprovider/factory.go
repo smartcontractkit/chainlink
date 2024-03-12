@@ -17,6 +17,9 @@ func New(lggr logger.Logger, poller logpoller.LogPoller, c client.Client, stateS
 	filterStore := NewUpkeepFilterStore()
 	packer := NewLogEventsPacker()
 	opts := NewOptions(int64(finalityDepth))
+	if len(opts.BufferVersion) == 0 { // TODO: remove once config is ready
+		opts.BufferVersion = "v1"
+	}
 	provider := NewLogProvider(lggr, poller, packer, filterStore, opts)
 	recoverer := NewLogRecoverer(lggr, poller, c, stateStore, packer, filterStore, opts)
 
