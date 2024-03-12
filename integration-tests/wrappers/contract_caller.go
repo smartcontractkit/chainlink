@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 )
 
-// It needs to be kept up do date with `core/chains/evm/client/rpc_client.go` !!!!!
+// It needs to be kept up do date with core/chains/evm/client/rpc_client.go !!!!!
 
 // WrappedContractBackend is a wrapper around the go-ethereum ContractBackend interface. It's a thin wrapper
 // around the go-ethereum/ethclient.Client, which replaces only CallContract and PendingCallContract calls with
@@ -156,7 +156,7 @@ func toCallArg(msg ethereum.CallMsg) interface{} {
 	}
 	if len(msg.Data) > 0 {
 		arg["input"] = hexutil.Bytes(msg.Data)
-		arg["data"] = hexutil.Bytes(msg.Data) // duplicate legacy field for compatibility
+		arg["data"] = hexutil.Bytes(msg.Data) // duplicate legacy field for compatibility (required by Geth < v1.11.0)
 	}
 	if msg.Value != nil {
 		arg["value"] = (*hexutil.Big)(msg.Value)

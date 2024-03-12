@@ -32,14 +32,13 @@ jobs:
       - name: Check for go.mod changes
         id: changes
         run: |
-          echo "dependency_bumped=true" >> "$GITHUB_OUTPUT"
-          # if git diff origin/develop -- go.mod | grep -q 'github.com/ethereum/go-ethereum'; then
-          #   echo "Dependency ethereum/go-ethereum was changed"
-          #   echo "dependency_bumped=true" >> "$GITHUB_OUTPUT"
-          # else
-          #   echo "No relevant dependency bump detected."
-          #   echo "dependency_bumped=false" >> "$GITHUB_OUTPUT"
-          # fi
+          if git diff origin/develop -- go.mod | grep -q 'github.com/ethereum/go-ethereum'; then
+            echo "Dependency ethereum/go-ethereum was changed"
+            echo "dependency_bumped=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No relevant dependency bump detected."
+            echo "dependency_bumped=false" >> "$GITHUB_OUTPUT"
+          fi
 
   # Build Test Dependencies
 
@@ -65,15 +64,13 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
-          fetch-depth: 0
-      - name: Checkout branch
-        run: git checkout 958e2c62d6
+          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       - name: Build Chainlink Image
         uses: ./.github/actions/build-chainlink-image
         with:
           tag_suffix: ""
           dockerfile: core/chainlink.Dockerfile
-          git_commit_sha: 958e2c62d6
+          git_commit_sha: ${{ github.sha }}
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
 
@@ -205,7 +202,7 @@ jobs:
           testLogCollect: ${{ vars.TEST_LOG_COLLECT }}
           selectedNetworks: ${{ env.SELECTED_NETWORKS }}
           chainlinkImage: ${{ env.CHAINLINK_IMAGE }}
-          chainlinkVersion: 958e2c62d6
+          chainlinkVersion: ${{ github.sha }}
           lokiEndpoint: ${{ secrets.LOKI_URL }}
           lokiTenantId: ${{ vars.LOKI_TENANT_ID }}
           lokiBasicAuth: ${{ secrets.LOKI_BASIC_AUTH }}
@@ -222,7 +219,7 @@ jobs:
           test_command_to_run: cd ./integration-tests && go test -timeout 45m -count=1 -json -test.parallel=2 ${{ steps.build-go-test-command.outputs.run_command }} 2>&1 | tee /tmp/gotest.log | gotestfmt
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
-          cl_image_tag: 958e2c62d6
+          cl_image_tag: ${{ github.sha }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           artifacts_location: ./integration-tests/smoke/logs/
           publish_check_name: ${{ matrix.evm_node.product }}-compatibility-${{ matrix.evm_node.eth_client }}-${{ matrix.evm_node.docker_image }}
