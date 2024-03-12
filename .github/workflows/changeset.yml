@@ -20,14 +20,21 @@ jobs:
         id: files-changed
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          predicate-quantifier: every
           filters: |
             shared: &shared
               - common/**
+              - '!common/**/*_test.go'
               - plugins/**
+              - '!plugins/**/*_test.go'
             core:
               - *shared
               - core/**
+              - '!core/**/*_test.go'
+              - '!core/**/*.md'
+              - '!core/**/*.json'
               - '!core/chainlink.goreleaser.Dockerfile'
+              - '!core/chainlink.Dockerfile'
             changeset:
               - added: '.changeset/**'
       - name: Make a comment
