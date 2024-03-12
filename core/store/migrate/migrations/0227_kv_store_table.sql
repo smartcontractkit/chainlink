@@ -1,13 +1,12 @@
 -- +goose Up
 
 CREATE TABLE job_kv_store (
-      id SERIAL PRIMARY KEY,
-      key VARCHAR,
-      val JSONB,
+      job_id INTEGER NOT NULL REFERENCES jobs(id),
+      key TEXT NOT NULL,
+      val JSONB NOT NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      FOREIGN KEY (id) REFERENCES jobs(id),
-      CONSTRAINT uk_keyperjob UNIQUE (id, key)
+      PRIMARY KEY (job_id, key)
 );
 
 -- +goose Down
