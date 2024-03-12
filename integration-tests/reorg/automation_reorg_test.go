@@ -25,7 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
-
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
@@ -129,14 +128,16 @@ func TestAutomationReorg(t *testing.T) {
 	l := logging.GetTestLogger(t)
 
 	registryVersions := map[string]ethereum.KeeperRegistryVersion{
-		"registry_2_0": ethereum.RegistryVersion_2_0,
-		// "registry_2_1_conditional": ethereum.RegistryVersion_2_1,
-		// "registry_2_1_logtrigger":  ethereum.RegistryVersion_2_1,
+		"registry_2_0":             ethereum.RegistryVersion_2_0,
+		"registry_2_1_conditional": ethereum.RegistryVersion_2_1,
+		"registry_2_1_logtrigger":  ethereum.RegistryVersion_2_1,
+		"registry_2_2_conditional": ethereum.RegistryVersion_2_2,
+		"registry_2_2_logtrigger":  ethereum.RegistryVersion_2_2,
 	}
 
-	for name, registryVersion := range registryVersions {
-		name := name
-		registryVersion := registryVersion
+	for n, rv := range registryVersions {
+		name := n
+		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			config, err := tc.GetConfig("Reorg", tc.Automation)
@@ -150,8 +151,8 @@ func TestAutomationReorg(t *testing.T) {
 			defaultAutomationSettings["toml"] = networks.AddNetworkDetailedConfig(baseTOML, config.Pyroscope, networkTOML, network)
 
 			var overrideFn = func(_ interface{}, target interface{}) {
-				ctf_config.MustConfigOverrideChainlinkVersion(config.ChainlinkImage, target)
-				ctf_config.MightConfigOverridePyroscopeKey(config.Pyroscope, target)
+				ctf_config.MustConfigOverrideChainlinkVersion(config.GetChainlinkImageConfig(), target)
+				ctf_config.MightConfigOverridePyroscopeKey(config.GetPyroscopeConfig(), target)
 			}
 
 			cd := chainlink.NewWithOverride(0, defaultAutomationSettings, config.ChainlinkImage, overrideFn)
@@ -213,7 +214,8 @@ func TestAutomationReorg(t *testing.T) {
 
 			actions.CreateOCRKeeperJobs(t, chainlinkNodes, registry.Address(), network.ChainID, 0, registryVersion)
 			nodesWithoutBootstrap := chainlinkNodes[1:]
-			ocrConfig, err := actions.BuildAutoOCR2ConfigVars(t, nodesWithoutBootstrap, defaultOCRRegistryConfig, registrar.Address(), 5*time.Second)
+			defaultOCRRegistryConfig.RegistryVersion = registryVersion
+			ocrConfig, err := actions.BuildAutoOCR2ConfigVars(t, nodesWithoutBootstrap, defaultOCRRegistryConfig, registrar.Address(), 5*time.Second, registry.ChainModuleAddress(), registry.ReorgProtectionEnabled())
 			require.NoError(t, err, "OCR2 config should be built successfully")
 			err = registry.SetConfig(defaultOCRRegistryConfig, ocrConfig)
 			require.NoError(t, err, "Registry config should be be set successfully")
