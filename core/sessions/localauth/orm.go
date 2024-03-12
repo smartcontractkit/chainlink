@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mathutil"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
@@ -69,7 +69,7 @@ func (o *orm) ListUsers() (users []sessions.User, err error) {
 func (o *orm) findValidSession(sessionID string) (email string, err error) {
 	if err := o.q.Get(&email, "SELECT email FROM sessions WHERE id = $1 AND last_used + $2 >= now() FOR UPDATE", sessionID, o.sessionDuration); err != nil {
 		o.lggr.Infof("query result: %v", email)
-		return email, errors.Wrap(err, "no matching user for provided session token")
+		return email, pkgerrors.Wrap(err, "no matching user for provided session token")
 	}
 	return email, nil
 }
@@ -152,12 +152,12 @@ func (o *orm) CreateSession(sr sessions.SessionRequest) (string, error) {
 	// for MFA tokens leaking if an account has MFA tokens or not.
 	if !constantTimeEmailCompare(strings.ToLower(sr.Email), strings.ToLower(user.Email)) {
 		o.auditLogger.Audit(audit.AuthLoginFailedEmail, map[string]interface{}{"email": sr.Email})
-		return "", errors.New("Invalid email")
+		return "", pkgerrors.New("Invalid email")
 	}
 
 	if !utils.CheckPasswordHash(sr.Password, user.HashedPassword) {
 		o.auditLogger.Audit(audit.AuthLoginFailedPassword, map[string]interface{}{"email": sr.Email})
-		return "", errors.New("Invalid password")
+		return "", pkgerrors.New("Invalid password")
 	}
 
 	// Load all valid MFA tokens associated with user's email
@@ -165,7 +165,7 @@ func (o *orm) CreateSession(sr sessions.SessionRequest) (string, error) {
 	if err != nil {
 		// There was an error with the database query
 		lggr.Errorf("Could not fetch user's MFA data: %v", err)
-		return "", errors.New("MFA Error")
+		return "", pkgerrors.New("MFA Error")
 	}
 
 	// No webauthn tokens registered for the current user, so normal authentication is now complete
@@ -185,16 +185,16 @@ func (o *orm) CreateSession(sr sessions.SessionRequest) (string, error) {
 		options, webauthnError := sessions.BeginWebAuthnLogin(user, uwas, sr)
 		if webauthnError != nil {
 			lggr.Errorf("Could not begin WebAuthn verification: %v", webauthnError)
-			return "", errors.New("MFA Error")
+			return "", pkgerrors.New("MFA Error")
 		}
 
 		j, jsonError := json.Marshal(options)
 		if jsonError != nil {
 			lggr.Errorf("Could not serialize WebAuthn challenge: %v", jsonError)
-			return "", errors.New("MFA Error")
+			return "", pkgerrors.New("MFA Error")
 		}
 
-		return "", errors.New(string(j))
+		return "", pkgerrors.New(string(j))
 	}
 
 	// The user is at the final stage of logging in with MFA. We have an
@@ -206,7 +206,7 @@ func (o *orm) CreateSession(sr sessions.SessionRequest) (string, error) {
 		// The user does have WebAuthn enabled but failed the check
 		o.auditLogger.Audit(audit.AuthLoginFailed2FA, map[string]interface{}{"email": sr.Email, "error": err})
 		lggr.Errorf("User sent an invalid attestation: %v", err)
-		return "", errors.New("MFA Error")
+		return "", pkgerrors.New("MFA Error")
 	}
 
 	lggr.Infof("User passed MFA authentication and login will proceed")
@@ -256,13 +256,13 @@ func (o *orm) UpdateRole(email, newRole string) (sessions.User, error) {
 	var userToEdit sessions.User
 
 	if newRole == "" {
-		return userToEdit, errors.New("user role must be specified")
+		return userToEdit, pkgerrors.New("user role must be specified")
 	}
 
 	err := o.q.Transaction(func(tx pg.Queryer) error {
 		// First, attempt to load specified user by email
 		if err := tx.Get(&userToEdit, "SELECT * FROM users WHERE lower(email) = lower($1)", email); err != nil {
-			return errors.New("no matching user for provided email")
+			return pkgerrors.New("no matching user for provided email")
 		}
 
 		// Patch validated role
@@ -275,13 +275,13 @@ func (o *orm) UpdateRole(email, newRole string) (sessions.User, error) {
 		_, err = tx.Exec("DELETE FROM sessions WHERE email = lower($1)", email)
 		if err != nil {
 			o.lggr.Errorf("Failed to purge user sessions for UpdateRole", "err", err)
-			return errors.New("error updating API user")
+			return pkgerrors.New("error updating API user")
 		}
 
 		sql := "UPDATE users SET role = $1, updated_at = now() WHERE lower(email) = lower($2) RETURNING *"
 		if err := tx.Get(&userToEdit, sql, userToEdit.Role, email); err != nil {
 			o.lggr.Errorf("Error updating API user", "err", err)
-			return errors.New("error updating API user")
+			return pkgerrors.New("error updating API user")
 		}
 
 		return nil
@@ -304,10 +304,10 @@ func (o *orm) SetPassword(user *sessions.User, newPassword string) error {
 func (o *orm) TestPassword(email string, password string) error {
 	var hashedPassword string
 	if err := o.q.Get(&hashedPassword, "SELECT hashed_password FROM users WHERE lower(email) = lower($1)", email); err != nil {
-		return errors.New("no matching user for provided email")
+		return pkgerrors.New("no matching user for provided email")
 	}
 	if !utils.CheckPasswordHash(password, hashedPassword) {
-		return errors.New("passwords don't match")
+		return pkgerrors.New("passwords don't match")
 	}
 	return nil
 }
@@ -328,7 +328,7 @@ func (o *orm) SetAuthToken(user *sessions.User, token *auth.Token) error {
 	salt := utils.NewSecret(utils.DefaultSecretSize)
 	hashedSecret, err := auth.HashedSecret(token, salt)
 	if err != nil {
-		return errors.Wrap(err, "user")
+		return pkgerrors.Wrap(err, "user")
 	}
 	sql := "UPDATE users SET token_salt = $1, token_key = $2, token_hashed_secret = $3, updated_at = now() WHERE email = $4 RETURNING *"
 	return o.q.Get(user, sql, salt, token.AccessKey, hashedSecret, user.Email)

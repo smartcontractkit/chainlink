@@ -33,6 +33,10 @@ var (
 		Name: "pool_rpc_node_num_transitions_to_unusable",
 		Help: transitionString(nodeStateUnusable),
 	}, []string{"chainID", "nodeName"})
+	promPoolRPCNodeTransitionsToSyncing = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "pool_rpc_node_num_transitions_to_syncing",
+		Help: transitionString(nodeStateSyncing),
+	}, []string{"chainID", "nodeName"})
 )
 
 // nodeState represents the current state of the node
@@ -57,6 +61,8 @@ func (n nodeState) String() string {
 		return "OutOfSync"
 	case nodeStateClosed:
 		return "Closed"
+	case nodeStateSyncing:
+		return "Syncing"
 	default:
 		return fmt.Sprintf("nodeState(%d)", n)
 	}
@@ -87,6 +93,11 @@ const (
 	nodeStateUnusable
 	// nodeStateClosed is after the connection has been closed and the node is at the end of its lifecycle
 	nodeStateClosed
+	// nodeStateSyncing is a node that is actively back-filling blockchain. Usually, it's a newly set up node that is
+	// still syncing the chain. The main difference from `nodeStateOutOfSync` is that it represents state relative
+	// to other primary nodes configured in the MultiNode. In contrast, `nodeStateSyncing` represents the internal state of
+	// the node (RPC).
+	nodeStateSyncing
 	// nodeStateLen tracks the number of states
 	nodeStateLen
 )
@@ -144,7 +155,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToAlive(fn func()) {
 		return
 	}
 	switch n.state {
-	case nodeStateDialed, nodeStateInvalidChainID:
+	case nodeStateDialed, nodeStateInvalidChainID, nodeStateSyncing:
 		n.state = nodeStateAlive
 	default:
 		panic(transitionFail(n.state, nodeStateAlive))
@@ -171,7 +182,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToInSync(fn func()) {
 		return
 	}
 	switch n.state {
-	case nodeStateOutOfSync:
+	case nodeStateOutOfSync, nodeStateSyncing:
 		n.state = nodeStateAlive
 	default:
 		panic(transitionFail(n.state, nodeStateAlive))
@@ -222,13 +233,31 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToUnreachable(fn func()) {
 		return
 	}
 	switch n.state {
-	case nodeStateUndialed, nodeStateDialed, nodeStateAlive, nodeStateOutOfSync, nodeStateInvalidChainID:
+	case nodeStateUndialed, nodeStateDialed, nodeStateAlive, nodeStateOutOfSync, nodeStateInvalidChainID, nodeStateSyncing:
 		n.disconnectAll()
 		n.state = nodeStateUnreachable
 	default:
 		panic(transitionFail(n.state, nodeStateUnreachable))
 	}
 	fn()
+}
+
+func (n *node[CHAIN_ID, HEAD, RPC]) declareState(state nodeState) {
+	if n.State() == nodeStateClosed {
+		return
+	}
+	switch state {
+	case nodeStateInvalidChainID:
+		n.declareInvalidChainID()
+	case nodeStateUnreachable:
+		n.declareUnreachable()
+	case nodeStateSyncing:
+		n.declareSyncing()
+	case nodeStateAlive:
+		n.declareAlive()
+	default:
+		panic(fmt.Sprintf("%#v state declaration is not implemented", state))
+	}
 }
 
 func (n *node[CHAIN_ID, HEAD, RPC]) declareInvalidChainID() {
@@ -247,11 +276,40 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToInvalidChainID(fn func()) {
 		return
 	}
 	switch n.state {
-	case nodeStateDialed, nodeStateOutOfSync:
+	case nodeStateDialed, nodeStateOutOfSync, nodeStateSyncing:
 		n.disconnectAll()
 		n.state = nodeStateInvalidChainID
 	default:
 		panic(transitionFail(n.state, nodeStateInvalidChainID))
+	}
+	fn()
+}
+
+func (n *node[CHAIN_ID, HEAD, RPC]) declareSyncing() {
+	n.transitionToSyncing(func() {
+		n.lfcLog.Errorw("RPC Node is syncing", "nodeState", n.state)
+		n.wg.Add(1)
+		go n.syncingLoop()
+	})
+}
+
+func (n *node[CHAIN_ID, HEAD, RPC]) transitionToSyncing(fn func()) {
+	promPoolRPCNodeTransitionsToSyncing.WithLabelValues(n.chainID.String(), n.name).Inc()
+	n.stateMu.Lock()
+	defer n.stateMu.Unlock()
+	if n.state == nodeStateClosed {
+		return
+	}
+	switch n.state {
+	case nodeStateDialed, nodeStateOutOfSync, nodeStateInvalidChainID:
+		n.disconnectAll()
+		n.state = nodeStateSyncing
+	default:
+		panic(transitionFail(n.state, nodeStateSyncing))
+	}
+
+	if !n.nodePoolCfg.NodeIsSyncingEnabled() {
+		panic("unexpected transition to nodeStateSyncing, while it's disabled")
 	}
 	fn()
 }
