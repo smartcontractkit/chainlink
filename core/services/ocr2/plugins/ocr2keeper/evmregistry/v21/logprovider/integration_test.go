@@ -44,7 +44,7 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 		version string
 	}{
 		{"default version", ""},
-		{"v2", "v2"},
+		{"v1", "v1"},
 	}
 
 	for _, tc := range tests {
@@ -220,7 +220,7 @@ func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
 		bufferVersion string
 	}{
 		{"default version", ""},
-		{"v2", "v2"},
+		{"v1", "v1"},
 	}
 
 	for _, tc := range tests {

@@ -168,6 +168,10 @@ func (p *logEventProvider) GetLatestPayloads(ctx context.Context) ([]ocr2keepers
 	prommetrics.AutomationLogProviderLatestBlock.Set(float64(latest.BlockNumber))
 	payloads := p.getPayloadsFromBuffer(latest.BlockNumber)
 
+	if len(payloads) > 0 {
+		p.lggr.Debugw("Fetched payloads from buffer xxx", "latestBlock", latest.BlockNumber, "payloads", len(payloads))
+	}
+
 	return payloads, nil
 }
 
@@ -195,10 +199,13 @@ func (p *logEventProvider) getPayloadsFromBuffer(latestBlock int64) []ocr2keeper
 	}
 
 	switch p.opts.BufferVersion {
-	case "v2":
+	case "v1":
 		blockRate, upkeepLimit, maxResults := 4, 10, MaxPayloads // TODO: use config
-		for len(payloads) < MaxPayloads && start < latestBlock {
+		for len(payloads) < maxResults && start < latestBlock {
 			logs, _ := p.bufferV2.Dequeue(start, blockRate, upkeepLimit, maxResults-len(payloads), DefaultUpkeepSelector)
+			if len(logs) > 0 {
+				p.lggr.Debugw("Dequeued logs xxx", "start", start, "latestBlock", latestBlock, "logs", len(logs))
+			}
 			for _, l := range logs {
 				payload, err := p.createPayload(l.ID, l.Log)
 				if err == nil {
@@ -428,7 +435,7 @@ func (p *logEventProvider) readLogs(ctx context.Context, latest int64, filters [
 		}
 
 		switch p.opts.BufferVersion {
-		case "v2":
+		case "v1":
 			p.bufferV2.Enqueue(filter.upkeepID, filteredLogs...)
 		default:
 			p.buffer.enqueue(filter.upkeepID, filteredLogs...)

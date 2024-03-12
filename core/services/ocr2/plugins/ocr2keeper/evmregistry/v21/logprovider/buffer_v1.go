@@ -55,7 +55,7 @@ func NewLogBuffer(lggr logger.Logger, size, upkeepLogLimit int) LogBuffer {
 	l := new(atomic.Int32)
 	l.Add(int32(upkeepLogLimit))
 	return &logBuffer{
-		lggr:          lggr.Named("KeepersRegistry.LogEventBufferV2"),
+		lggr:          lggr.Named("KeepersRegistry.LogEventBufferV1"),
 		maxUpkeepLogs: l,
 		bufferSize:    s,
 		lastBlockSeen: new(atomic.Int64),
@@ -236,6 +236,7 @@ func (ub *upkeepLogBuffer) dequeue(start, end int64, limit int) ([]logpoller.Log
 		ub.q = updatedLogs
 	}
 
+	ub.lggr.Debugf("Dequeued %d logs, remaining %d", len(results), remaining)
 	prommetrics.AutomationLogsInLogBuffer.Sub(float64(len(results)))
 
 	return results, remaining
@@ -280,10 +281,12 @@ func (ub *upkeepLogBuffer) enqueue(blockThreshold int64, logsToAdd ...logpoller.
 		ub.visited[logid] = log.BlockNumber
 	}
 	ub.q = logs
+	dropped := ub.clean(blockThreshold)
 
+	ub.lggr.Debugf("Enqueued %d logs, dropped %d", added, dropped)
 	prommetrics.AutomationLogsInLogBuffer.Add(float64(added))
 
-	return added, ub.clean(blockThreshold)
+	return added, dropped
 }
 
 // clean removes logs that are older than blockThreshold and drops logs if the limit for the
@@ -310,6 +313,7 @@ func (ub *upkeepLogBuffer) clean(blockThreshold int64) int {
 		} else {
 			prommetrics.AutomationLogsInLogBuffer.Dec()
 			// old logs are ignored and removed from visited
+			ub.lggr.Debugw("Dropping old log", "blockNumber", l.BlockNumber, "blockThreshold", blockThreshold, "logIndex", l.LogIndex)
 			logid := logID(l)
 			delete(ub.visited, logid)
 		}
