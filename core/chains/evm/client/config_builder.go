@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 )
 
-type NodeConfig struct {
+type nodeConfig struct {
 	Name     *string
 	WSURL    *string
 	HTTPURL  *string
@@ -28,7 +28,7 @@ func NewClientConfigs(
 	selectionMode *string,
 	leaseDuration time.Duration,
 	chainType string,
-	nodeCfgs []NodeConfig,
+	nodeCfgs []nodeConfig,
 	pollFailureThreshold *uint32,
 	pollInterval time.Duration,
 	syncThreshold *uint32,
@@ -50,7 +50,7 @@ func NewClientConfigs(
 	return nodePoolCfg, nodes, config.ChainType(chainType), nil
 }
 
-func parseNodeConfigs(nodeCfgs []NodeConfig) ([]*toml.Node, error) {
+func parseNodeConfigs(nodeCfgs []nodeConfig) ([]*toml.Node, error) {
 	nodes := make([]*toml.Node, len(nodeCfgs))
 	for _, nodeCfg := range nodeCfgs {
 		wsUrl := commonconfig.MustParseURL(*nodeCfg.WSURL)
