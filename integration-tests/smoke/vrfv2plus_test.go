@@ -1262,7 +1262,7 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 		require.NoError(t, err)
 		err = vrfv2plus.FundSubscriptions(
 			env,
-			big.NewFloat(*configCopy.VRFv2Plus.General.SubscriptionRefundingAmountLink),
+			big.NewFloat(*configCopy.VRFv2Plus.General.SubscriptionFundingAmountNative),
 			big.NewFloat(*configCopy.VRFv2Plus.General.SubscriptionRefundingAmountLink),
 			linkToken,
 			vrfContracts.CoordinatorV2Plus,
