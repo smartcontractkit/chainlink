@@ -106,13 +106,13 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
 
   /// @inheritdoc IFunctionsBilling
   function getDONFeeJuels(bytes memory /* requestData */) public view override returns (uint72) {
-    // s_config.donFee is in cents of USD. Get Juel amount then convert to dollars.
+    // s_config.donFee is in cents of USD. Convert to dollars amount then get amount of Juels.
     return SafeCast.toUint72(_getJuelsFromUsd(s_config.donFeeCentsUsd) / 100);
   }
 
   /// @inheritdoc IFunctionsBilling
   function getOperationFeeJuels() public view override returns (uint72) {
-    // s_config.donFee is in cents of USD. Get Juel amount then convert to dollars.
+    // s_config.donFee is in cents of USD. Convert to dollars then get amount of Juels.
     return SafeCast.toUint72(_getJuelsFromUsd(s_config.operationFeeCentsUsd) / 100);
   }
 
