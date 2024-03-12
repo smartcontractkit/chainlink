@@ -128,10 +128,7 @@ contract TermsOfServiceAllowList is ITermsOfServiceAllowList, IAccessController,
     uint64 allowedSenderIdxStart,
     uint64 allowedSenderIdxEnd
   ) external view override returns (address[] memory allowedSenders) {
-    if (
-      allowedSenderIdxStart > allowedSenderIdxEnd ||
-      allowedSenderIdxEnd >= s_allowedSenders.length()
-    ) {
+    if (allowedSenderIdxStart > allowedSenderIdxEnd || allowedSenderIdxEnd >= s_allowedSenders.length()) {
       revert InvalidCalldata();
     }
 
