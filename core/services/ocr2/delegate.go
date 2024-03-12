@@ -375,7 +375,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 	}
 	lggr := logger.Sugared(d.lggr.Named(jb.ExternalJobID.String()).With(lggrCtx.Args()...))
 
-	kvStore := job.NewJobKVStore(jb.ID, d.db, d.cfg.Database(), lggr)
+	kvStore := job.NewKVStore(jb.ID, d.db, d.cfg.Database(), lggr)
 
 	rid, err := spec.RelayID()
 	if err != nil {

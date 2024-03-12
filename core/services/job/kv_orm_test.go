@@ -26,7 +26,7 @@ func TestJobKVStore(t *testing.T) {
 	bridgesORM := bridges.NewORM(db, logger.TestLogger(t), config.Database())
 
 	jobID := int32(1337)
-	kvStore := job.NewJobKVStore(jobID, db, config.Database(), lggr)
+	kvStore := job.NewKVStore(jobID, db, config.Database(), lggr)
 	jobORM := NewTestORM(t, db, pipelineORM, bridgesORM, cltest.NewKeyStore(t, db, config.Database()), config.Database())
 
 	jb, err := directrequest.ValidatedDirectRequestSpec(testspecs.GetDirectRequestSpec())

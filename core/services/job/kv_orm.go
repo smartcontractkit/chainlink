@@ -20,17 +20,17 @@ type KVStore interface {
 	Get(key string, dest interface{}) error
 }
 
-type jobKVStore struct {
+type kVStore struct {
 	jobID int32
 	q     pg.Q
 	lggr  logger.SugaredLogger
 }
 
-var _ KVStore = (*jobKVStore)(nil)
+var _ KVStore = (*kVStore)(nil)
 
-func NewJobKVStore(jobID int32, db *sqlx.DB, cfg pg.QConfig, lggr logger.Logger) KVStore {
+func NewKVStore(jobID int32, db *sqlx.DB, cfg pg.QConfig, lggr logger.Logger) kVStore {
 	namedLogger := logger.Sugared(lggr.Named("JobORM"))
-	return &jobKVStore{
+	return kVStore{
 		jobID: jobID,
 		q:     pg.NewQ(db, namedLogger, cfg),
 		lggr:  namedLogger,
@@ -38,7 +38,7 @@ func NewJobKVStore(jobID int32, db *sqlx.DB, cfg pg.QConfig, lggr logger.Logger)
 }
 
 // Store saves serializable value by key.
-func (kv jobKVStore) Store(key string, val interface{}) error {
+func (kv kVStore) Store(key string, val interface{}) error {
 	jsonVal, err := json.Marshal(val)
 	if err != nil {
 		return err
@@ -58,7 +58,7 @@ func (kv jobKVStore) Store(key string, val interface{}) error {
 }
 
 // Get retrieves serializable value by key.
-func (kv jobKVStore) Get(key string, dest interface{}) error {
+func (kv kVStore) Get(key string, dest interface{}) error {
 	var ret json.RawMessage
 	sql := "SELECT val FROM job_kv_store WHERE id = $1 AND key = $2"
 	if err := kv.q.Get(&ret, sql, kv.jobID, key); err != nil {
