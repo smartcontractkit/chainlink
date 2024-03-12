@@ -144,21 +144,23 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Updat
 	attempt *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 ) error {
 	if tx.Sequence == nil {
-		return fmt.Errorf("update_tx_unstarted_to_in_progress: in_progress transaction must have a sequence number")
+		return fmt.Errorf("in_progress transaction must have nonce")
 	}
 	if tx.State != TxUnstarted {
 		return fmt.Errorf("update_tx_unstarted_to_in_progress: can only transition to in_progress from unstarted, transaction is currently %s", tx.State)
 	}
 	if attempt.State != txmgrtypes.TxAttemptInProgress {
-		return fmt.Errorf("update_tx_unstarted_to_in_progress: attempt state must be in_progress")
+		return fmt.Errorf("attempt state must be in_progress")
 	}
 
 	ms.addressStatesLock.RLock()
 	defer ms.addressStatesLock.RUnlock()
+	fmt.Println("ms.addressStates", tx.FromAddress)
 	as, ok := ms.addressStates[tx.FromAddress]
 	if !ok {
-		return fmt.Errorf("update_tx_unstarted_to_in_progress: %w", ErrAddressNotFound)
+		return nil
 	}
+	fmt.Println("2ms.addressStates", tx.FromAddress)
 
 	// Persist to persistent storage
 	if err := ms.persistentTxStore.UpdateTxUnstartedToInProgress(ctx, tx, attempt); err != nil {
