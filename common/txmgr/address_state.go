@@ -55,6 +55,10 @@ func newAddressState[
 	maxUnstarted uint64,
 	txs []txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 ) *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+	if maxUnstarted == 0 {
+		panic("new_address_state: MaxUnstarted queue size must be greater than 0")
+	}
+
 	// Count the number of transactions in each state to reduce the number of map resizes
 	counts := map[txmgrtypes.TxState]int{
 		TxUnstarted:               0,

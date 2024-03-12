@@ -1,13 +1,14 @@
-## Docker environment
-This folder contains Chainlink cluster environment created with `testcontainers-go`
+# Docker environment
 
-### CLI for Local Testing Environment
+This folder contains a Chainlink cluster environment created with [testcontainers-go](https://github.com/testcontainers/testcontainers-go/tree/main).
+
+## CLI for Local Testing Environment
 
 The command-line interface (CLI) located at `./integration-tests/docker/cmd/test_env.go` can be utilized to initiate a local testing environment. It is intended to replace Docker Compose in the near future.
 
+Example:
 
-Example: 
-```
+```sh
 # Set required envs
 export CHAINLINK_IMAGE="<chainlink_node_docker_image_path>"
 export CHAINLINK_VERSION="<chainlink_node_docker_image_version>" 
