@@ -136,7 +136,7 @@ contract VRFV2Plus is BaseTest {
     );
 
     // Test that setting link discount flat fee higher than native flat fee reverts
-    vm.expectRevert(abi.encodeWithSelector(VRFCoordinatorV2_5.LinkDiscountTooHigh.selector, uint32(1000), uint32(500)));
+    vm.expectRevert(abi.encodeWithSelector(VRFCoordinatorV2_5.LinkDiscountTooHigh.selector, uint32(501), uint32(500)));
 
     s_testCoordinator.setConfig(
       0,
@@ -145,7 +145,20 @@ contract VRFV2Plus is BaseTest {
       50_000,
       500,
       500, // fulfillmentFlatFeeNativePPM
-      1000, // fulfillmentFlatFeeLinkDiscountPPM
+      501, // fulfillmentFlatFeeLinkDiscountPPM
+      15, // nativePremiumPercentage
+      10 // linkPremiumPercentage
+    );
+
+    // // Test that setting link discount flat fee equal to native flat fee does not revert
+    s_testCoordinator.setConfig(
+      0,
+      2_500_000,
+      1,
+      50_000,
+      500,
+      450, // fulfillmentFlatFeeNativePPM
+      450, // fulfillmentFlatFeeLinkDiscountPPM
       15, // nativePremiumPercentage
       10 // linkPremiumPercentage
     );
