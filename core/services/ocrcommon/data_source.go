@@ -13,6 +13,7 @@ import (
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	serializablebig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -256,7 +257,7 @@ func (ds *inMemoryDataSourceCache) updateCache(ctx context.Context) error {
 		ds.latestUpdateErr = latestUpdateErr
 		// raise log severity
 		if previousUpdateErr != nil {
-			ds.lggr.Errorf("consecutive cache updates errored: previous err: %w new err: %w", previousUpdateErr, ds.latestUpdateErr)
+			ds.lggr.Errorf("consecutive cache updates errored: previous err: %s new err: %s", previousUpdateErr.Error(), ds.latestUpdateErr.Error())
 		}
 		return errors.Wrapf(ds.latestUpdateErr, "error executing run for spec ID %v", ds.spec.ID)
 	}
@@ -269,7 +270,7 @@ func (ds *inMemoryDataSourceCache) updateCache(ctx context.Context) error {
 	}
 
 	// backup in case data source fails continuously and node gets rebooted
-	if err = ds.kvStore.Store(dataSourceCacheKey, value); err != nil {
+	if err = ds.kvStore.Store(dataSourceCacheKey, serializablebig.New(value)); err != nil {
 		ds.lggr.Errorf("failed to persist latest task run value", err)
 	}
 
@@ -294,11 +295,12 @@ func (ds *inMemoryDataSourceCache) get(ctx context.Context) (pipeline.FinalResul
 	return ds.latestResult, ds.latestTrrs
 }
 
-func (ds *inMemoryDataSourceCache) Observe(ctx context.Context, timestamp ocr2types.ReportTimestamp) (val *big.Int, err error) {
+func (ds *inMemoryDataSourceCache) Observe(ctx context.Context, timestamp ocr2types.ReportTimestamp) (*big.Int, error) {
+	var val serializablebig.Big
 	latestResult, latestTrrs := ds.get(ctx)
 	if latestTrrs == nil {
 		ds.lggr.Errorf("cache is empty, returning persisted value now")
-		return val, ds.kvStore.Get(dataSourceCacheKey, val)
+		return val.ToInt(), ds.kvStore.Get(dataSourceCacheKey, &val)
 	}
 
 	setEATelemetry(ds.inMemoryDataSource, latestResult, latestTrrs, ObservationTimestamp{
