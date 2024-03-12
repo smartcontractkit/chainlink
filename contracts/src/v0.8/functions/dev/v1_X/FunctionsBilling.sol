@@ -420,6 +420,10 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
       revert NoTransmittersSet();
     }
     uint96 feePoolShare = s_feePool / uint96(numberOfTransmitters);
+    if (feePoolShare == 0) {
+      // Dust cannot be evenly distributed to all transmitters
+      return;
+    }
     // Bounded by "maxNumOracles" on OCR2Abstract.sol
     for (uint256 i = 0; i < numberOfTransmitters; ++i) {
       s_withdrawableTokens[transmitters[i]] += feePoolShare;
