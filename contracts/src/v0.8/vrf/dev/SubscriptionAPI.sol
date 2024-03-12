@@ -60,8 +60,12 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
     // consumer is valid without reading all the consumers from storage.
     address[] consumers;
   }
+  struct ConsumerConfig {
+    bool active;
+    uint64 nonce;
+  }
   // Note a nonce of 0 indicates an the consumer is not assigned to that subscription.
-  mapping(address => mapping(uint256 => uint64)) /* consumer */ /* subId */ /* nonce */ internal s_consumers;
+  mapping(address => mapping(uint256 => ConsumerConfig)) /* consumerAddress */ /* subId */ /* consumerConfig */ internal s_consumers;
   mapping(uint256 => SubscriptionConfig) /* subId */ /* subscriptionConfig */ internal s_subscriptionConfigs;
   mapping(uint256 => Subscription) /* subId */ /* subscription */ internal s_subscriptions;
   // subscription nonce used to construct subId. Rises monotonically
@@ -405,14 +409,18 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
     if (consumers.length == MAX_CONSUMERS) {
       revert TooManyConsumers();
     }
-    mapping(uint256 => uint64) storage nonces = s_consumers[consumer];
-    if (nonces[subId] != 0) {
+    mapping(uint256 => ConsumerConfig) storage consumerConfigs = s_consumers[consumer];
+    ConsumerConfig consumerConfig = consumerConfigs[subId];
+    if (consumerConfig.active) {
       // Idempotence - do nothing if already added.
       // Ensures uniqueness in s_subscriptions[subId].consumers.
       return;
     }
-    // Initialize the nonce to 1, indicating the consumer is allocated.
-    nonces[subId] = 1;
+    // consumerConfig.nonce is 0 if the consumer had never sent a request to this subscription
+    // otherwise, consumerConfig.nonce is non-zero
+    // in both cases, use consumerConfig.nonce as is and set active status to true
+    consumerConfig.active = true;
+    consumerConfigs[subId] = consumerConfig;
     consumers.push(consumer);
 
     emit SubscriptionConsumerAdded(subId, consumer);
@@ -426,7 +434,8 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
     // If no consumers, does nothing.
     uint256 consumersLength = consumers.length;
     for (uint256 i = 0; i < consumersLength; ++i) {
-      delete s_consumers[consumers[i]][subId];
+      // TODO: should be safe to hard delete here because sub IDs are unique anyways
+      s_consumers[consumers[i]][subId].active = false;
     }
     delete s_subscriptionConfigs[subId];
     delete s_subscriptions[subId];
