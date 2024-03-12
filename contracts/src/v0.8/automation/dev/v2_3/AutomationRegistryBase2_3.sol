@@ -266,15 +266,13 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   /// @dev Config + State storage struct which is on hot transmit path
   struct HotVars {
     uint96 totalPremium; // ─────────╮ total historical payment to oracles for premium
-    uint32 paymentPremiumPPB; //     │ premium percentage charged to user over tx cost
-    uint32 flatFeeMicroLink; //      │ flat fee charged to user for every perform
     uint32 latestEpoch; //           │ latest epoch for which a report was transmitted
     uint24 stalenessSeconds; //      │ Staleness tolerance for feeds
     uint16 gasCeilingMultiplier; //  │ multiplier on top of fast gas feed for upper bound
     uint8 f; //                      │ maximum number of faulty oracles
     bool paused; //                  │ pause switch for all upkeeps in the registry
-    bool reentrancyGuard; // ────────╯ guard against reentrancy
-    bool reorgProtectionEnabled; //    if this registry should enable re-org protection mechanism
+    bool reentrancyGuard; //         | guard against reentrancy
+    bool reorgProtectionEnabled; // ─╯ if this registry should enable the re-org protection mechanism
     IChainModule chainModule; //       the interface of chain specific module
   }
 
@@ -368,7 +366,19 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   struct BillingConfig {
     uint32 gasFeePPB;
     uint24 flatFeeMicroLink;
-    address priceFeed;
+    AggregatorV3Interface priceFeed;
+    // 1 word, read in getPrice()
+    uint256 fallbackPrice;
+    // 2nd word only read if stale
+  }
+
+  /**
+   * @notice pricing params for a biling token
+   */
+  struct BillingTokenPaymentParams {
+    uint32 gasFeePPB;
+    uint24 flatFeeMicroLink;
+    uint256 priceUSD;
   }
 
   /**
@@ -379,26 +389,32 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
    * @member fastGasWei the fast gas price
    * @member linkUSD the exchange ratio between LINK and USD
    * @member nativeUSD the exchange ratio between the chain's native token and USD
+   * @member billingTokenParams the payment params specific to a particular payment token
    * @member isTransaction is this an eth_call or a transaction
    */
   struct PaymentParams {
     uint256 gasLimit;
     uint256 gasOverhead;
     uint256 l1CostWei;
-    uint256 fastGasWei;
-    uint256 linkUSD;
-    uint256 nativeUSD;
-    bool isTransaction;
+    uint256 fastGasWei; // TODO - move to hot vars
+    uint256 linkUSD; // TODO - move to hot vars
+    uint256 nativeUSD; // TODO - move to hot vars
+    BillingTokenPaymentParams billingToken;
+    bool isTransaction; // TODO - move to hot vars?
   }
 
   /**
-   * @notice struct containing receipt information after a payment is made
-   * @member reimbursement the amount to reimburse a node for gas spent
-   * @member premium the premium charged to the user, shared between all nodes
+   * @notice struct containing receipt information about a payment or cost estimation
+   * @member gasChargeWei the amount to charge a user for gas spent
+   * @member premiumWei the premium charged to the user, shared between all nodes
+   * @member gasReimbursementJuels the amount to reimburse a node for gas spent
+   * @member premiumJuels the premium paid to NOPs, shared between all nodes
    */
   struct PaymentReceipt {
-    uint96 reimbursement;
-    uint96 premium;
+    uint96 gasChargeWei;
+    uint96 premiumWei;
+    uint96 gasReimbursementJuels;
+    uint96 premiumJuels;
   }
 
   event AdminPrivilegeConfigSet(address indexed admin, bytes privilegeConfig);
@@ -494,7 +510,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     if (upkeep.performGas < PERFORM_GAS_MIN || upkeep.performGas > s_storage.maxPerformGas)
       revert GasLimitOutsideRange();
     if (address(s_upkeep[id].forwarder) != address(0)) revert UpkeepAlreadyExists();
-    if (s_billingConfigs[upkeep.billingToken].priceFeed == address(0)) revert UnsupportedBillingToken();
+    if (address(s_billingConfigs[upkeep.billingToken].priceFeed) == address(0)) revert UnsupportedBillingToken();
     s_upkeep[id] = upkeep;
     s_upkeepAdmin[id] = admin;
     s_checkData[id] = checkData;
@@ -558,7 +574,6 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     } else {
       linkUSD = uint256(feedValue);
     }
-    (, feedValue, , timestamp, ) = i_nativeUSDFeed.latestRoundData();
     return (gasWei, linkUSD, _getNativeUSD(hotVars));
   }
 
@@ -581,65 +596,98 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   }
 
   /**
+   * @dev gets the price and billing params for a specific billing token
+   */
+  function _getBillingTokenPaymentParams(
+    HotVars memory hotVars,
+    IERC20 billingToken
+  ) internal view returns (BillingTokenPaymentParams memory params) {
+    BillingConfig memory config = s_billingConfigs[billingToken];
+    params.flatFeeMicroLink = config.flatFeeMicroLink;
+    params.gasFeePPB = config.gasFeePPB;
+    (, int256 feedValue, , uint256 timestamp, ) = config.priceFeed.latestRoundData();
+    if (
+      feedValue <= 0 ||
+      block.timestamp < timestamp ||
+      (hotVars.stalenessSeconds > 0 && hotVars.stalenessSeconds < block.timestamp - timestamp)
+    ) {
+      params.priceUSD = config.fallbackPrice;
+    } else {
+      params.priceUSD = uint256(feedValue);
+    }
+    return params;
+  }
+
+  /**
    * @dev calculates LINK paid for gas spent plus a configure premium percentage
    * @param hotVars the hot path variables
    * @param paymentParams the pricing data and gas usage data
-   * @dev use of PaymentParams is solely to avoid stack too deep errors
+   * @return receipt the receipt of payment with pricing breakdown
+   * @dev use of PaymentParams struct is necessary to avoid stack too deep errors
    */
   function _calculatePaymentAmount(
     HotVars memory hotVars,
     PaymentParams memory paymentParams
-  ) internal view returns (uint96, uint96) {
+  ) internal view returns (PaymentReceipt memory receipt) {
     uint256 gasWei = paymentParams.fastGasWei * hotVars.gasCeilingMultiplier;
     // in case it's actual execution use actual gas price, capped by fastGasWei * gasCeilingMultiplier
     if (paymentParams.isTransaction && tx.gasprice < gasWei) {
       gasWei = tx.gasprice;
     }
-    uint256 gasPayment = ((gasWei * (paymentParams.gasLimit + paymentParams.gasOverhead) + paymentParams.l1CostWei) *
-      paymentParams.nativeUSD) / paymentParams.linkUSD;
-    uint256 premium = (((gasWei * paymentParams.gasLimit) + paymentParams.l1CostWei) *
-      hotVars.paymentPremiumPPB *
-      paymentParams.nativeUSD) /
-      (paymentParams.linkUSD * 1e9) +
-      uint256(hotVars.flatFeeMicroLink) *
-      1e12;
+
+    uint256 gasPaymentUSD = (gasWei * (paymentParams.gasLimit + paymentParams.gasOverhead) + paymentParams.l1CostWei) *
+      paymentParams.nativeUSD; // this is USD * 1e36 ??? TODO
+    receipt.gasChargeWei = uint96(gasPaymentUSD / paymentParams.billingToken.priceUSD);
+    receipt.gasReimbursementJuels = uint96(gasPaymentUSD / paymentParams.linkUSD);
+
+    uint256 flatFeeUSD = uint256(paymentParams.billingToken.flatFeeMicroLink) * 1e12 * paymentParams.linkUSD; // TODO - this should get replaced by flatFeeCents later
+    uint256 premiumUSD = ((((gasWei * paymentParams.gasLimit) + paymentParams.l1CostWei) *
+      paymentParams.billingToken.gasFeePPB *
+      paymentParams.nativeUSD) / 1e9) + flatFeeUSD; // this is USD * 1e18
+    receipt.premiumWei = uint96(premiumUSD / paymentParams.billingToken.priceUSD);
+    receipt.premiumJuels = uint96(premiumUSD / paymentParams.linkUSD);
+
     // LINK_TOTAL_SUPPLY < UINT96_MAX
-    if (gasPayment + premium > LINK_TOTAL_SUPPLY) revert PaymentGreaterThanAllLINK();
-    return (uint96(gasPayment), uint96(premium));
+    // if (gasPayment + premium > LINK_TOTAL_SUPPLY) revert PaymentGreaterThanAllLINK(); // TODO - Ryan
+    return receipt;
   }
 
   /**
-   * @dev calculates the max LINK payment for an upkeep. Called during checkUpkeep simulation and assumes
+   * @dev calculates the max payment for an upkeep. Called during checkUpkeep simulation and assumes
    * maximum gas overhead, L1 fee
    */
-  function _getMaxLinkPayment(
+  function _getMaxPayment(
     HotVars memory hotVars,
     Trigger triggerType,
     uint32 performGas,
     uint256 fastGasWei,
     uint256 linkUSD,
-    uint256 nativeUSD
+    uint256 nativeUSD,
+    IERC20 billingToken
   ) internal view returns (uint96) {
+    uint256 maxL1Fee;
     uint256 maxGasOverhead;
-    if (triggerType == Trigger.CONDITION) {
-      maxGasOverhead = REGISTRY_CONDITIONAL_OVERHEAD;
-    } else if (triggerType == Trigger.LOG) {
-      maxGasOverhead = REGISTRY_LOG_OVERHEAD;
-    } else {
-      revert InvalidTriggerType();
+
+    {
+      if (triggerType == Trigger.CONDITION) {
+        maxGasOverhead = REGISTRY_CONDITIONAL_OVERHEAD;
+      } else if (triggerType == Trigger.LOG) {
+        maxGasOverhead = REGISTRY_LOG_OVERHEAD;
+      } else {
+        revert InvalidTriggerType();
+      }
+      uint256 maxCalldataSize = s_storage.maxPerformDataSize +
+        TRANSMIT_CALLDATA_FIXED_BYTES_OVERHEAD +
+        (TRANSMIT_CALLDATA_PER_SIGNER_BYTES_OVERHEAD * (hotVars.f + 1));
+      (uint256 chainModuleFixedOverhead, uint256 chainModulePerByteOverhead) = s_hotVars.chainModule.getGasOverhead();
+      maxGasOverhead +=
+        (REGISTRY_PER_SIGNER_GAS_OVERHEAD * (hotVars.f + 1)) +
+        ((REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD + chainModulePerByteOverhead) * maxCalldataSize) +
+        chainModuleFixedOverhead;
+      maxL1Fee = hotVars.gasCeilingMultiplier * hotVars.chainModule.getMaxL1Fee(maxCalldataSize);
     }
-    uint256 maxCalldataSize = s_storage.maxPerformDataSize +
-      TRANSMIT_CALLDATA_FIXED_BYTES_OVERHEAD +
-      (TRANSMIT_CALLDATA_PER_SIGNER_BYTES_OVERHEAD * (hotVars.f + 1));
-    (uint256 chainModuleFixedOverhead, uint256 chainModulePerByteOverhead) = s_hotVars.chainModule.getGasOverhead();
-    maxGasOverhead +=
-      (REGISTRY_PER_SIGNER_GAS_OVERHEAD * (hotVars.f + 1)) +
-      ((REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD + chainModulePerByteOverhead) * maxCalldataSize) +
-      chainModuleFixedOverhead;
 
-    uint256 maxL1Fee = hotVars.gasCeilingMultiplier * hotVars.chainModule.getMaxL1Fee(maxCalldataSize);
-
-    (uint96 reimbursement, uint96 premium) = _calculatePaymentAmount(
+    PaymentReceipt memory receipt = _calculatePaymentAmount(
       hotVars,
       PaymentParams({
         gasLimit: performGas,
@@ -648,11 +696,12 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
         fastGasWei: fastGasWei,
         linkUSD: linkUSD,
         nativeUSD: nativeUSD,
+        billingToken: _getBillingTokenPaymentParams(hotVars, billingToken),
         isTransaction: false
       })
     );
 
-    return reimbursement + premium;
+    return receipt.gasChargeWei + receipt.premiumWei;
   }
 
   /**
@@ -877,26 +926,30 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     PaymentParams memory paymentParams,
     uint256 upkeepId
   ) internal returns (PaymentReceipt memory) {
-    (uint96 gasReimbursement, uint96 premium) = _calculatePaymentAmount(hotVars, paymentParams);
+    PaymentReceipt memory receipt = _calculatePaymentAmount(hotVars, paymentParams);
 
     uint96 balance = s_upkeep[upkeepId].balance;
-    uint96 payment = gasReimbursement + premium;
+    uint96 payment = receipt.gasChargeWei + receipt.premiumWei;
 
     // this shouldn't happen, but in rare edge cases, we charge the full balance in case the user
     // can't cover the amount owed
-    if (balance < gasReimbursement) {
+    if (balance < receipt.gasChargeWei) {
+      // if the user can't cover the gas fee, then direct all of the payment to the transmitter and distribute no premium to the DON
       payment = balance;
-      gasReimbursement = balance;
-      premium = 0;
+      receipt.gasReimbursementJuels = uint96((balance * paymentParams.billingToken.priceUSD) / paymentParams.linkUSD); // TODO uint96?
+      receipt.premiumJuels = 0;
     } else if (balance < payment) {
+      // if the user can cover the gas fee, but not the premium, then reduce the premium
       payment = balance;
-      premium = payment - gasReimbursement;
+      receipt.premiumJuels = uint96(
+        ((balance * paymentParams.billingToken.priceUSD) / paymentParams.linkUSD) - receipt.gasReimbursementJuels
+      ); // TODO uint96?
     }
 
     s_upkeep[upkeepId].balance -= payment;
     s_upkeep[upkeepId].amountSpent += payment;
 
-    return PaymentReceipt({reimbursement: gasReimbursement, premium: premium});
+    return receipt;
   }
 
   /**
@@ -951,12 +1004,12 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
       IERC20 token = billingTokens[i];
       BillingConfig memory config = billingConfigs[i];
 
-      if (address(token) == ZERO_ADDRESS || config.priceFeed == ZERO_ADDRESS) {
+      if (address(token) == ZERO_ADDRESS || address(config.priceFeed) == ZERO_ADDRESS) {
         revert ZeroAddressNotAllowed();
       }
 
       // if this is a new token, add it to tokens list. Otherwise revert
-      if (s_billingConfigs[token].priceFeed != ZERO_ADDRESS) {
+      if (address(s_billingConfigs[token].priceFeed) != ZERO_ADDRESS) {
         revert DuplicateEntry();
       }
       s_billingTokens.push(token);

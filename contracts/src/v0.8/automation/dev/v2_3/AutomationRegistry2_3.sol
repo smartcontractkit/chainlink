@@ -169,8 +169,10 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
     gasOverhead = gasOverhead / transmitVars.numUpkeepsPassedChecks + ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD;
 
     {
+      BillingTokenPaymentParams memory billingTokenParams;
       for (uint256 i = 0; i < report.upkeepIds.length; i++) {
         if (upkeepTransmitInfo[i].earlyChecksPassed) {
+          billingTokenParams = _getBillingTokenPaymentParams(hotVars, upkeepTransmitInfo[i].upkeep.billingToken); // TODO avoid doing this every time
           PaymentReceipt memory receipt = _handlePayment(
             hotVars,
             PaymentParams({
@@ -180,17 +182,19 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
               fastGasWei: report.fastGasWei,
               linkUSD: report.linkUSD,
               nativeUSD: _getNativeUSD(hotVars),
+              billingToken: billingTokenParams,
               isTransaction: true
             }),
             report.upkeepIds[i]
           );
-          transmitVars.totalPremium += receipt.premium;
-          transmitVars.totalReimbursement += receipt.reimbursement;
+          transmitVars.totalPremium += receipt.premiumJuels;
+          transmitVars.totalReimbursement += receipt.gasReimbursementJuels;
 
           emit UpkeepPerformed(
             report.upkeepIds[i],
             upkeepTransmitInfo[i].performSuccess,
-            receipt.reimbursement + receipt.premium,
+            // receipt.gasChargeWei + receipt.premiumWei, // TODO - this is currently the billing token amount, but should it be?
+            receipt.gasReimbursementJuels + receipt.premiumJuels, // TODO - this is currently the link tokn amount, but should it be billing token instead?
             upkeepTransmitInfo[i].gasUsed,
             gasOverhead,
             report.triggers[i]
@@ -336,8 +340,6 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
 
     s_hotVars = HotVars({
       f: f,
-      paymentPremiumPPB: onchainConfig.paymentPremiumPPB,
-      flatFeeMicroLink: onchainConfig.flatFeeMicroLink,
       stalenessSeconds: onchainConfig.stalenessSeconds,
       gasCeilingMultiplier: onchainConfig.gasCeilingMultiplier,
       paused: s_hotVars.paused,

@@ -666,6 +666,7 @@ describe('AutomationRegistry2_3', () => {
             gasFeePPB: paymentPremiumPPB,
             flatFeeMicroLink: flatFeeMicroLink,
             priceFeed: linkUSDFeed.address,
+            fallbackPrice: fallbackLinkPrice,
           },
         ],
       )
@@ -673,6 +674,7 @@ describe('AutomationRegistry2_3', () => {
       const conditionalPrice = await registry.getMaxPaymentForGas(
         Trigger.CONDITION,
         test.gas,
+        linkToken.address,
       )
       expect(conditionalPrice).to.equal(
         linkForGas(
@@ -685,7 +687,11 @@ describe('AutomationRegistry2_3', () => {
         ).total,
       )
 
-      const logPrice = await registry.getMaxPaymentForGas(Trigger.LOG, test.gas)
+      const logPrice = await registry.getMaxPaymentForGas(
+        Trigger.LOG,
+        test.gas,
+        linkToken.address,
+      )
       expect(logPrice).to.equal(
         linkForGas(
           BigNumber.from(test.gas),
@@ -949,6 +955,7 @@ describe('AutomationRegistry2_3', () => {
           gasFeePPB: paymentPremiumPPB,
           flatFeeMicroLink: flatFeeMicroLink,
           priceFeed: linkUSDFeed.address,
+          fallbackPrice: fallbackLinkPrice,
         },
       ],
     ]
@@ -966,6 +973,7 @@ describe('AutomationRegistry2_3', () => {
           gasFeePPB: paymentPremiumPPB,
           flatFeeMicroLink: flatFeeMicroLink,
           priceFeed: linkUSDFeed.address,
+          fallbackPrice: fallbackLinkPrice,
         },
       ],
     ]
@@ -983,6 +991,7 @@ describe('AutomationRegistry2_3', () => {
           gasFeePPB: paymentPremiumPPB,
           flatFeeMicroLink: flatFeeMicroLink,
           priceFeed: linkUSDFeed.address,
+          fallbackPrice: fallbackLinkPrice,
         },
       ],
     ]
@@ -1412,8 +1421,8 @@ describe('AutomationRegistry2_3', () => {
             newConfig,
             offchainVersion,
             offchainBytes,
-            [],
-            [],
+            baseConfig[6],
+            baseConfig[7],
           )
 
         for (const [type, id] of tests) {
@@ -1446,8 +1455,8 @@ describe('AutomationRegistry2_3', () => {
             newConfig,
             offchainVersion,
             offchainBytes,
-            [],
-            [],
+            baseConfig[6],
+            baseConfig[7],
           )
         for (let i = 0; i < 256; i++) {
           await ethers.provider.send('evm_mine', [])
@@ -1549,8 +1558,8 @@ describe('AutomationRegistry2_3', () => {
             newConfig,
             offchainVersion,
             offchainBytes,
-            [],
-            [],
+            baseConfig[6],
+            baseConfig[7],
           )
         const tests: [string, BigNumber][] = [
           ['conditional', upkeepId],
@@ -1675,8 +1684,8 @@ describe('AutomationRegistry2_3', () => {
       })
 
       it('uses actual execution price for payment and premium calculation', async () => {
-        // Actual multiplier is 2, but we set gasPrice to be 1x gasWei
-        const gasPrice = gasWei.mul(BigNumber.from('1'))
+        // Actual multiplier is 2, but we set gasPrice to be == gasWei
+        const gasPrice = gasWei
         await mock.setCanPerform(true)
         const registryPremiumBefore = (await registry.getState()).state
           .totalPremium
@@ -1805,6 +1814,7 @@ describe('AutomationRegistry2_3', () => {
         const maxPayment = await registry.getMaxPaymentForGas(
           Trigger.CONDITION,
           performGas,
+          linkToken.address,
         )
 
         // First set auto funding amount to 0 and verify that balance is deducted upon performUpkeep
@@ -1943,8 +1953,8 @@ describe('AutomationRegistry2_3', () => {
             config,
             offchainVersion,
             offchainBytes,
-            [],
-            [],
+            baseConfig[6],
+            baseConfig[7],
           )
           const tx = await registry.connect(owner).registerUpkeep(
             mock.address,
@@ -1991,8 +2001,8 @@ describe('AutomationRegistry2_3', () => {
                 config,
                 offchainVersion,
                 offchainBytes,
-                [],
-                [],
+                baseConfig[6],
+                baseConfig[7],
               )
             const checkBlock = await ethers.provider.getBlock('latest')
 
@@ -2135,8 +2145,8 @@ describe('AutomationRegistry2_3', () => {
                         config,
                         offchainVersion,
                         offchainBytes,
-                        [],
-                        [],
+                        baseConfig[6],
+                        baseConfig[7],
                       )
                     tx = await getTransmitTx(registry, keeper1, [upkeepId], {
                       numSigners: newF + 1,
@@ -2269,8 +2279,8 @@ describe('AutomationRegistry2_3', () => {
                 config,
                 offchainVersion,
                 offchainBytes,
-                [],
-                [],
+                baseConfig[6],
+                baseConfig[7],
               )
               tx = await getTransmitTx(registry, keeper1, [logUpkeepId], {
                 numSigners: newF + 1,
@@ -3623,7 +3633,11 @@ describe('AutomationRegistry2_3', () => {
       assert.equal(
         expectedFallbackMaxPayment.toString(),
         (
-          await registry.getMaxPaymentForGas(Trigger.CONDITION, performGas)
+          await registry.getMaxPaymentForGas(
+            Trigger.CONDITION,
+            performGas,
+            linkToken.address,
+          )
         ).toString(),
       )
 
@@ -3638,7 +3652,11 @@ describe('AutomationRegistry2_3', () => {
       assert.equal(
         expectedFallbackMaxPayment.toString(),
         (
-          await registry.getMaxPaymentForGas(Trigger.CONDITION, performGas)
+          await registry.getMaxPaymentForGas(
+            Trigger.CONDITION,
+            performGas,
+            linkToken.address,
+          )
         ).toString(),
       )
 
@@ -3653,7 +3671,11 @@ describe('AutomationRegistry2_3', () => {
       assert.equal(
         expectedFallbackMaxPayment.toString(),
         (
-          await registry.getMaxPaymentForGas(Trigger.CONDITION, performGas)
+          await registry.getMaxPaymentForGas(
+            Trigger.CONDITION,
+            performGas,
+            linkToken.address,
+          )
         ).toString(),
       )
     })
@@ -3696,7 +3718,11 @@ describe('AutomationRegistry2_3', () => {
       assert.equal(
         expectedFallbackMaxPayment.toString(),
         (
-          await registry.getMaxPaymentForGas(Trigger.CONDITION, performGas)
+          await registry.getMaxPaymentForGas(
+            Trigger.CONDITION,
+            performGas,
+            linkToken.address,
+          )
         ).toString(),
       )
 
@@ -3711,7 +3737,11 @@ describe('AutomationRegistry2_3', () => {
       assert.equal(
         expectedFallbackMaxPayment.toString(),
         (
-          await registry.getMaxPaymentForGas(Trigger.CONDITION, performGas)
+          await registry.getMaxPaymentForGas(
+            Trigger.CONDITION,
+            performGas,
+            linkToken.address,
+          )
         ).toString(),
       )
 
@@ -3726,7 +3756,11 @@ describe('AutomationRegistry2_3', () => {
       assert.equal(
         expectedFallbackMaxPayment.toString(),
         (
-          await registry.getMaxPaymentForGas(Trigger.CONDITION, performGas)
+          await registry.getMaxPaymentForGas(
+            Trigger.CONDITION,
+            performGas,
+            linkToken.address,
+          )
         ).toString(),
       )
     })
@@ -3845,8 +3879,8 @@ describe('AutomationRegistry2_3', () => {
             newConfig,
             offchainVersion,
             offchainBytes,
-            [],
-            [],
+            baseConfig[6],
+            baseConfig[7],
           ),
         'Only callable by owner',
       )
@@ -3868,8 +3902,8 @@ describe('AutomationRegistry2_3', () => {
             newConfig,
             offchainVersion,
             offchainBytes,
-            [],
-            [],
+            baseConfig[6],
+            baseConfig[7],
           ),
         'InvalidSigner()',
       )
@@ -3889,8 +3923,8 @@ describe('AutomationRegistry2_3', () => {
             newConfig,
             offchainVersion,
             offchainBytes,
-            [],
-            [],
+            baseConfig[6],
+            baseConfig[7],
           ),
         'InvalidTransmitter()',
       )
@@ -4027,8 +4061,8 @@ describe('AutomationRegistry2_3', () => {
             config,
             offchainVersion,
             offchainBytes,
-            [],
-            [],
+            baseConfig[6],
+            baseConfig[7],
           ),
         'Only callable by owner',
       )
@@ -4048,8 +4082,8 @@ describe('AutomationRegistry2_3', () => {
             config,
             offchainVersion,
             offchainBytes,
-            [],
-            [],
+            baseConfig[6],
+            baseConfig[7],
           ),
         'TooManyOracles()',
       )
@@ -4066,8 +4100,8 @@ describe('AutomationRegistry2_3', () => {
             config,
             offchainVersion,
             offchainBytes,
-            [],
-            [],
+            baseConfig[6],
+            baseConfig[7],
           ),
         'IncorrectNumberOfFaultyOracles()',
       )
@@ -4085,8 +4119,8 @@ describe('AutomationRegistry2_3', () => {
             config,
             offchainVersion,
             offchainBytes,
-            [],
-            [],
+            baseConfig[6],
+            baseConfig[7],
           ),
         'IncorrectNumberOfSigners()',
       )
@@ -4104,8 +4138,8 @@ describe('AutomationRegistry2_3', () => {
             config,
             offchainVersion,
             offchainBytes,
-            [],
-            [],
+            baseConfig[6],
+            baseConfig[7],
           ),
         'IncorrectNumberOfSigners()',
       )
@@ -4128,8 +4162,8 @@ describe('AutomationRegistry2_3', () => {
             config,
             offchainVersion,
             offchainBytes,
-            [],
-            [],
+            baseConfig[6],
+            baseConfig[7],
           ),
         'RepeatedSigner()',
       )
@@ -4152,8 +4186,8 @@ describe('AutomationRegistry2_3', () => {
             config,
             offchainVersion,
             offchainBytes,
-            [],
-            [],
+            baseConfig[6],
+            baseConfig[7],
           ),
         'RepeatedTransmitter()',
       )
@@ -5593,8 +5627,8 @@ describe('AutomationRegistry2_3', () => {
             },
             offchainVersion,
             offchainBytes,
-            [],
-            [],
+            baseConfig[6],
+            baseConfig[7],
           )
 
           const payee1Before = await linkToken.balanceOf(
@@ -5654,8 +5688,8 @@ describe('AutomationRegistry2_3', () => {
             },
             offchainVersion,
             offchainBytes,
-            [],
-            [],
+            baseConfig[6],
+            baseConfig[7],
           )
           const payee1Before = await linkToken.balanceOf(
             await payee1.getAddress(),
@@ -5710,8 +5744,8 @@ describe('AutomationRegistry2_3', () => {
             },
             offchainVersion,
             offchainBytes,
-            [],
-            [],
+            baseConfig[6],
+            baseConfig[7],
           )
           const payee1Before = await linkToken.balanceOf(
             await payee1.getAddress(),

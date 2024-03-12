@@ -69,14 +69,22 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
 
     {
       uint256 nativeUSD;
-      uint96 maxLinkPayment;
+      uint96 maxPayment;
       if (hotVars.paused) return (false, bytes(""), UpkeepFailureReason.REGISTRY_PAUSED, 0, upkeep.performGas, 0, 0);
       if (upkeep.maxValidBlocknumber != UINT32_MAX)
         return (false, bytes(""), UpkeepFailureReason.UPKEEP_CANCELLED, 0, upkeep.performGas, 0, 0);
       if (upkeep.paused) return (false, bytes(""), UpkeepFailureReason.UPKEEP_PAUSED, 0, upkeep.performGas, 0, 0);
       (fastGasWei, linkUSD, nativeUSD) = _getFeedData(hotVars);
-      maxLinkPayment = _getMaxLinkPayment(hotVars, triggerType, upkeep.performGas, fastGasWei, linkUSD, nativeUSD);
-      if (upkeep.balance < maxLinkPayment) {
+      maxPayment = _getMaxPayment(
+        hotVars,
+        triggerType,
+        upkeep.performGas,
+        fastGasWei,
+        linkUSD,
+        nativeUSD,
+        upkeep.billingToken
+      );
+      if (upkeep.balance < maxPayment) {
         return (false, bytes(""), UpkeepFailureReason.INSUFFICIENT_BALANCE, 0, upkeep.performGas, 0, 0);
       }
     }
@@ -292,7 +300,7 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
   /**
    * @notice adds fund to an upkeep
    * @param id the upkeepID
-   * @param amount the amount of LINK to fund, in jules (jules = "wei" of LINK)
+   * @param amount the amount of LINK to fund, in juels (juels = "wei" of LINK)
    */
   function addFunds(uint256 id, uint96 amount) external {
     Upkeep memory upkeep = s_upkeep[id];

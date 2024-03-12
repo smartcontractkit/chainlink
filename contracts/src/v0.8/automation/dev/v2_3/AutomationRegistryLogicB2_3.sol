@@ -348,7 +348,7 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
   }
 
   function supportsBillingToken(IERC20 token) external view returns (bool) {
-    return s_billingConfigs[token].priceFeed != address(0);
+    return address(s_billingConfigs[token].priceFeed) != address(0);
   }
 
   function getBillingTokenConfig(IERC20 token) external view returns (BillingConfig memory) {
@@ -479,8 +479,8 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
     });
 
     config = IAutomationV21PlusCommon.OnchainConfigLegacy({
-      paymentPremiumPPB: s_hotVars.paymentPremiumPPB,
-      flatFeeMicroLink: s_hotVars.flatFeeMicroLink,
+      paymentPremiumPPB: 0, // replaced by BillingConfig
+      flatFeeMicroLink: 0, // replaced by BillingConfig
       checkGasLimit: s_storage.checkGasLimit,
       stalenessSeconds: s_hotVars.stalenessSeconds,
       gasCeilingMultiplier: s_hotVars.gasCeilingMultiplier,
@@ -535,17 +535,22 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
    * @dev this will be deprecated in a future version in favor of getMinBalance
    */
   function getMinBalanceForUpkeep(uint256 id) public view returns (uint96 minBalance) {
-    return getMaxPaymentForGas(_getTriggerType(id), s_upkeep[id].performGas);
+    Upkeep memory upkeep = s_upkeep[id];
+    return getMaxPaymentForGas(_getTriggerType(id), upkeep.performGas, upkeep.billingToken);
   }
 
   /**
    * @notice calculates the maximum payment for a given gas limit
    * @param gasLimit the gas to calculate payment for
    */
-  function getMaxPaymentForGas(Trigger triggerType, uint32 gasLimit) public view returns (uint96 maxPayment) {
+  function getMaxPaymentForGas(
+    Trigger triggerType,
+    uint32 gasLimit,
+    IERC20 billingToken
+  ) public view returns (uint96 maxPayment) {
     HotVars memory hotVars = s_hotVars;
     (uint256 fastGasWei, uint256 linkUSD, uint256 nativeUSD) = _getFeedData(hotVars);
-    return _getMaxLinkPayment(hotVars, triggerType, gasLimit, fastGasWei, linkUSD, nativeUSD);
+    return _getMaxPayment(hotVars, triggerType, gasLimit, fastGasWei, linkUSD, nativeUSD, billingToken);
   }
 
   /**
