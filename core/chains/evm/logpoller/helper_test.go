@@ -15,11 +15,12 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/ethdb"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_emitter"
@@ -45,7 +46,7 @@ type TestHarness struct {
 	EthDB                            ethdb.Database
 }
 
-func SetupTH(t testing.TB, useFinalityTag bool, finalityDepth, backfillBatchSize, rpcBatchSize, keepFinalizedBlocksDepth int64) TestHarness {
+func SetupTH(t testing.TB, opts logpoller.Opts) TestHarness {
 	lggr := logger.Test(t)
 	chainID := testutils.NewRandomEVMChainID()
 	chainID2 := testutils.NewRandomEVMChainID()
@@ -66,7 +67,11 @@ func SetupTH(t testing.TB, useFinalityTag bool, finalityDepth, backfillBatchSize
 	// Mark genesis block as finalized to avoid any nulls in the tests
 	head := esc.Backend().Blockchain().CurrentHeader()
 	esc.Backend().Blockchain().SetFinalized(head)
-	lp := logpoller.NewLogPoller(o, esc, lggr, 1*time.Hour, useFinalityTag, finalityDepth, backfillBatchSize, rpcBatchSize, keepFinalizedBlocksDepth)
+
+	if opts.PollPeriod == 0 {
+		opts.PollPeriod = 1 * time.Hour
+	}
+	lp := logpoller.NewLogPoller(o, esc, lggr, opts)
 	emitterAddress1, _, emitter1, err := log_emitter.DeployLogEmitter(owner, ec)
 	require.NoError(t, err)
 	emitterAddress2, _, emitter2, err := log_emitter.DeployLogEmitter(owner, ec)
@@ -98,7 +103,7 @@ func (th *TestHarness) PollAndSaveLogs(ctx context.Context, currentBlockNumber i
 func (th *TestHarness) assertDontHave(t *testing.T, start, end int) {
 	for i := start; i < end; i++ {
 		_, err := th.ORM.SelectBlockByNumber(int64(i))
-		assert.True(t, errors.Is(err, sql.ErrNoRows))
+		assert.True(t, pkgerrors.Is(err, sql.ErrNoRows))
 	}
 }
 

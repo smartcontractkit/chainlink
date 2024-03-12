@@ -47,7 +47,7 @@ type ETHTxTask struct {
 }
 
 type ETHKeyStore interface {
-	GetRoundRobinAddress(chainID *big.Int, addrs ...common.Address) (common.Address, error)
+	GetRoundRobinAddress(ctx context.Context, chainID *big.Int, addrs ...common.Address) (common.Address, error)
 }
 
 var _ Task = (*ETHTxTask)(nil)
@@ -127,7 +127,7 @@ func (t *ETHTxTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inpu
 		return Result{Error: err}, runInfo
 	}
 
-	fromAddr, err := t.keyStore.GetRoundRobinAddress(chain.ID(), fromAddrs...)
+	fromAddr, err := t.keyStore.GetRoundRobinAddress(ctx, chain.ID(), fromAddrs...)
 	if err != nil {
 		err = errors.Wrap(err, "ETHTxTask failed to get fromAddress")
 		lggr.Error(err)
@@ -150,7 +150,7 @@ func (t *ETHTxTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inpu
 		FromAddress:      fromAddr,
 		ToAddress:        common.Address(toAddr),
 		EncodedPayload:   []byte(data),
-		FeeLimit:         uint32(gasLimit),
+		FeeLimit:         uint64(gasLimit),
 		Meta:             txMeta,
 		ForwarderAddress: forwarderAddress,
 		Strategy:         strategy,
