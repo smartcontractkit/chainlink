@@ -23,7 +23,6 @@ type jobKVStore struct {
 	jobID int32
 	q     pg.Q
 	lggr  logger.SugaredLogger
-	cfg   pg.QConfig
 }
 
 var _ KVStore = (*jobKVStore)(nil)
