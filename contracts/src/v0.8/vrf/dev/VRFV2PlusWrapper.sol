@@ -20,7 +20,11 @@ import {ChainSpecificUtil} from "../../ChainSpecificUtil.sol";
 contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBaseV2Plus, IVRFV2PlusWrapper {
   event WrapperFulfillmentFailed(uint256 indexed requestId, address indexed consumer);
 
+  // upper bound limit for premium percentages to make sure fee calculations don't overflow
+  uint8 private constant PREMIUM_PERCENTAGE_MAX = 155;
   error LinkAlreadySet();
+  error LinkDiscountTooHigh(uint32 flatFeeLinkDiscountPPM, uint32 flatFeeNativePPM);
+  error InvalidPremiumPercentage(uint8 premiumPercentage, uint8 max);
   error FailedToTransferLink();
   error IncorrectExtraArgsLength(uint16 expectedMinimumLength, uint16 actualLength);
   error NativePaymentInOnTokenTransfer();
@@ -60,13 +64,13 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   // fallback to fallbackWeiPerUnitLink.
   uint32 private s_stalenessSeconds;
 
-  // s_fulfillmentFlatFeeLinkPPM is the flat fee in millionths of LINK that VRFCoordinatorV2
-  // charges.
-  uint32 private s_fulfillmentFlatFeeLinkPPM;
-
-  // s_fulfillmentFlatFeeLinkPPM is the flat fee in millionths of LINK that VRFCoordinatorV2
-  // charges.
+  // s_fulfillmentFlatFeeLinkPPM is the flat fee in millionths of native that VRFCoordinatorV2
+  // charges for native payment.
   uint32 private s_fulfillmentFlatFeeNativePPM;
+
+  // s_fulfillmentFlatFeeLinkDiscountPPM is the flat fee discount in millionths of native that VRFCoordinatorV2
+  // charges for link payment.
+  uint32 private s_fulfillmentFlatFeeLinkDiscountPPM;
 
   LinkTokenInterface public s_link;
   /* Storage Slot 6: END */
@@ -104,9 +108,13 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   // but existing ones can still be fulfilled.
   bool public s_disabled;
 
-  // s_wrapperPremiumPercentage is the premium ratio in percentage. For example, a value of 0
+  // s_wrapperNativePremiumPercentage is the premium ratio in percentage for native payment. For example, a value of 0
   // indicates no premium. A value of 15 indicates a 15 percent premium.
-  uint8 private s_wrapperPremiumPercentage;
+  uint8 private s_wrapperNativePremiumPercentage;
+
+  // s_wrapperLinkPremiumPercentage is the premium ratio in percentage for link payment. For example, a value of 0
+  // indicates no premium. A value of 15 indicates a 15 percent premium.
+  uint8 private s_wrapperLinkPremiumPercentage;
 
   // s_maxNumWords is the max number of words that can be requested in a single wrapped VRF request.
   uint8 internal s_maxNumWords;
@@ -177,7 +185,9 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
    * @param _coordinatorGasOverhead reflects the gas overhead of the coordinator's
    *        fulfillRandomWords function.
    *
-   * @param _wrapperPremiumPercentage is the premium ratio in percentage for wrapper requests.
+   * @param _wrapperNativePremiumPercentage is the premium ratio in percentage for wrapper requests paid in native.
+   *
+   * @param _wrapperLinkPremiumPercentage is the premium ratio in percentage for wrapper requests paid in link.
    *
    * @param _keyHash to use for requesting randomness.
    * @param _maxNumWords is the max number of words that can be requested in a single wrapped VRF request
@@ -187,26 +197,38 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
    * @param _fallbackWeiPerUnitLink is the backup LINK exchange rate used when the LINK/NATIVE feed
    *        is stale.
    *
-   * @param _fulfillmentFlatFeeLinkPPM is the flat fee in millionths of LINK that VRFCoordinatorV2Plus
-   *        charges.
-   *
    * @param _fulfillmentFlatFeeNativePPM is the flat fee in millionths of native that VRFCoordinatorV2Plus
-   *        charges.
+   *        charges for native payment.
+   *
+   * @param _fulfillmentFlatFeeLinkDiscountPPM is the flat fee discount in millionths of native that VRFCoordinatorV2Plus
+   *        charges for link payment.
    */
   function setConfig(
     uint32 _wrapperGasOverhead,
     uint32 _coordinatorGasOverhead,
-    uint8 _wrapperPremiumPercentage,
+    uint8 _wrapperNativePremiumPercentage,
+    uint8 _wrapperLinkPremiumPercentage,
     bytes32 _keyHash,
     uint8 _maxNumWords,
     uint32 _stalenessSeconds,
     int256 _fallbackWeiPerUnitLink,
-    uint32 _fulfillmentFlatFeeLinkPPM,
-    uint32 _fulfillmentFlatFeeNativePPM
+    uint32 _fulfillmentFlatFeeNativePPM,
+    uint32 _fulfillmentFlatFeeLinkDiscountPPM
   ) external onlyOwner {
+    if (_fulfillmentFlatFeeLinkDiscountPPM > _fulfillmentFlatFeeNativePPM) {
+      revert LinkDiscountTooHigh(_fulfillmentFlatFeeLinkDiscountPPM, _fulfillmentFlatFeeNativePPM);
+    }
+    if (_wrapperNativePremiumPercentage > PREMIUM_PERCENTAGE_MAX) {
+      revert InvalidPremiumPercentage(_wrapperNativePremiumPercentage, PREMIUM_PERCENTAGE_MAX);
+    }
+    if (_wrapperLinkPremiumPercentage > PREMIUM_PERCENTAGE_MAX) {
+      revert InvalidPremiumPercentage(_wrapperLinkPremiumPercentage, PREMIUM_PERCENTAGE_MAX);
+    }
+
     s_wrapperGasOverhead = _wrapperGasOverhead;
     s_coordinatorGasOverhead = _coordinatorGasOverhead;
-    s_wrapperPremiumPercentage = _wrapperPremiumPercentage;
+    s_wrapperNativePremiumPercentage = _wrapperNativePremiumPercentage;
+    s_wrapperLinkPremiumPercentage = _wrapperLinkPremiumPercentage;
     s_keyHash = _keyHash;
     s_maxNumWords = _maxNumWords;
     s_configured = true;
@@ -214,8 +236,8 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     // Get other configuration from coordinator
     s_stalenessSeconds = _stalenessSeconds;
     s_fallbackWeiPerUnitLink = _fallbackWeiPerUnitLink;
-    s_fulfillmentFlatFeeLinkPPM = _fulfillmentFlatFeeLinkPPM;
     s_fulfillmentFlatFeeNativePPM = _fulfillmentFlatFeeNativePPM;
+    s_fulfillmentFlatFeeLinkDiscountPPM = _fulfillmentFlatFeeLinkDiscountPPM;
   }
 
   /**
@@ -227,11 +249,11 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
    * @return stalenessSeconds is the number of seconds before we consider the feed price to be stale
    *         and fallback to fallbackWeiPerUnitLink.
    *
-   * @return fulfillmentFlatFeeLinkPPM is the flat fee in millionths of LINK that VRFCoordinatorV2Plus
-   *         charges.
-   *
    * @return fulfillmentFlatFeeNativePPM is the flat fee in millionths of native that VRFCoordinatorV2Plus
-   *         charges.
+   *         charges for native payment.
+   *
+   * @return fulfillmentFlatFeeLinkDiscountPPM is the flat fee discount in millionths of native that VRFCoordinatorV2Plus
+   *         charges for link payment.
    *
    * @return wrapperGasOverhead reflects the gas overhead of the wrapper's fulfillRandomWords
    *         function. The cost for this gas is passed to the user.
@@ -239,7 +261,10 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
    * @return coordinatorGasOverhead reflects the gas overhead of the coordinator's
    *         fulfillRandomWords function.
    *
-   * @return wrapperPremiumPercentage is the premium ratio in percentage. For example, a value of 0
+   * @return wrapperNativePremiumPercentage is the premium ratio in percentage for native payment. For example, a value of 0
+   *         indicates no premium. A value of 15 indicates a 15 percent premium.
+   *
+   * @return wrapperLinkPremiumPercentage is the premium ratio in percentage for link payment. For example, a value of 0
    *         indicates no premium. A value of 15 indicates a 15 percent premium.
    *
    * @return keyHash is the key hash to use when requesting randomness. Fees are paid based on
@@ -254,11 +279,12 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     returns (
       int256 fallbackWeiPerUnitLink,
       uint32 stalenessSeconds,
-      uint32 fulfillmentFlatFeeLinkPPM,
       uint32 fulfillmentFlatFeeNativePPM,
+      uint32 fulfillmentFlatFeeLinkDiscountPPM,
       uint32 wrapperGasOverhead,
       uint32 coordinatorGasOverhead,
-      uint8 wrapperPremiumPercentage,
+      uint8 wrapperNativePremiumPercentage,
+      uint8 wrapperLinkPremiumPercentage,
       bytes32 keyHash,
       uint8 maxNumWords
     )
@@ -266,11 +292,12 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     return (
       s_fallbackWeiPerUnitLink,
       s_stalenessSeconds,
-      s_fulfillmentFlatFeeLinkPPM,
       s_fulfillmentFlatFeeNativePPM,
+      s_fulfillmentFlatFeeLinkDiscountPPM,
       s_wrapperGasOverhead,
       s_coordinatorGasOverhead,
-      s_wrapperPremiumPercentage,
+      s_wrapperNativePremiumPercentage,
+      s_wrapperLinkPremiumPercentage,
       s_keyHash,
       s_maxNumWords
     );
@@ -324,20 +351,21 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
 
   function _calculateRequestPriceNative(uint256 _gas, uint256 _requestGasPrice) internal view returns (uint256) {
     // costWei is the base fee denominated in wei (native)
-    // costWei takes into account the L1 posting costs of the VRF fulfillment
-    // transaction, if we are on an L2.
-    uint256 costWei = (_requestGasPrice *
-      (_gas + s_wrapperGasOverhead + s_coordinatorGasOverhead) +
-      ChainSpecificUtil._getL1CalldataGasCost(s_fulfillmentTxSizeBytes));
-    // ((wei/gas * (gas)) + l1wei)
-    // baseFee is the base fee denominated in wei
-    uint256 baseFee = costWei;
-    // feeWithPremium is the fee after the percentage premium is applied
-    uint256 feeWithPremium = (baseFee * (s_wrapperPremiumPercentage + 100)) / 100;
-    // feeWithFlatFee is the fee after the flat fee is applied on top of the premium
-    uint256 feeWithFlatFee = feeWithPremium + (1e12 * uint256(s_fulfillmentFlatFeeNativePPM));
+    // (wei/gas) * gas
+    uint256 wrapperCostWei = _requestGasPrice * s_wrapperGasOverhead;
 
-    return feeWithFlatFee;
+    // coordinatorCostWei takes into account the L1 posting costs of the VRF fulfillment transaction, if we are on an L2.
+    // (wei/gas) * gas + l1wei
+    uint256 coordinatorCostWei = _requestGasPrice *
+      (_gas + s_coordinatorGasOverhead) +
+      ChainSpecificUtil._getL1CalldataGasCost(s_fulfillmentTxSizeBytes);
+
+    // coordinatorCostWithPremiumAndFlatFeeWei is the coordinator cost with the percentage premium and flat fee applied
+    // coordinator cost * premium multiplier + flat fee
+    uint256 coordinatorCostWithPremiumAndFlatFeeWei = ((coordinatorCostWei * (s_wrapperLinkPremiumPercentage + 100)) /
+      100) + (1e12 * uint256(s_fulfillmentFlatFeeNativePPM));
+
+    return wrapperCostWei + coordinatorCostWithPremiumAndFlatFeeWei;
   }
 
   function _calculateRequestPrice(
@@ -346,20 +374,23 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     int256 _weiPerUnitLink
   ) internal view returns (uint256) {
     // costWei is the base fee denominated in wei (native)
-    // costWei takes into account the L1 posting costs of the VRF fulfillment
-    // transaction, if we are on an L2.
-    uint256 costWei = (_requestGasPrice *
-      (_gas + s_wrapperGasOverhead + s_coordinatorGasOverhead) +
-      ChainSpecificUtil._getL1CalldataGasCost(s_fulfillmentTxSizeBytes));
-    // (1e18 juels/link) * ((wei/gas * (gas)) + l1wei) / (wei/link) == 1e18 juels * wei/link / (wei/link) == 1e18 juels * wei/link * link/wei == juels
-    // baseFee is the base fee denominated in juels (link)
-    uint256 baseFee = (1e18 * costWei) / uint256(_weiPerUnitLink);
-    // feeWithPremium is the fee after the percentage premium is applied
-    uint256 feeWithPremium = (baseFee * (s_wrapperPremiumPercentage + 100)) / 100;
-    // feeWithFlatFee is the fee after the flat fee is applied on top of the premium
-    uint256 feeWithFlatFee = feeWithPremium + (1e12 * uint256(s_fulfillmentFlatFeeLinkPPM));
+    // (wei/gas) * gas
+    uint256 wrapperCostWei = _requestGasPrice * s_wrapperGasOverhead;
 
-    return feeWithFlatFee;
+    // coordinatorCostWei takes into account the L1 posting costs of the VRF fulfillment transaction, if we are on an L2.
+    // (wei/gas) * gas + l1wei
+    uint256 coordinatorCostWei = _requestGasPrice *
+      (_gas + s_coordinatorGasOverhead) +
+      ChainSpecificUtil._getL1CalldataGasCost(s_fulfillmentTxSizeBytes);
+
+    // coordinatorCostWithPremiumAndFlatFeeWei is the coordinator cost with the percentage premium and flat fee applied
+    // coordinator cost * premium multiplier + flat fee
+    uint256 coordinatorCostWithPremiumAndFlatFeeWei = ((coordinatorCostWei * (s_wrapperLinkPremiumPercentage + 100)) /
+      100) + (1e12 * uint256(s_fulfillmentFlatFeeNativePPM - s_fulfillmentFlatFeeLinkDiscountPPM));
+
+    // requestPrice is denominated in juels (link)
+    // (1e18 juels/link) * wei / (wei/link) = juels
+    return (1e18 * (wrapperCostWei + coordinatorCostWithPremiumAndFlatFeeWei)) / uint256(_weiPerUnitLink);
   }
 
   /**
