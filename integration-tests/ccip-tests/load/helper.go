@@ -1,6 +1,7 @@
 package load
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"math/big"
@@ -10,10 +11,10 @@ import (
 
 	"github.com/AlekSi/pointer"
 	"github.com/rs/zerolog"
-	"github.com/stretchr/testify/require"
-	"golang.org/x/sync/errgroup"
-
 	"github.com/smartcontractkit/wasp"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/atomic"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/chaos"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
@@ -21,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testsetups"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 )
 
 type ChaosConfig struct {
@@ -32,6 +34,7 @@ type ChaosConfig struct {
 
 type LoadArgs struct {
 	t                *testing.T
+	Ctx              context.Context
 	lggr             zerolog.Logger
 	schedules        []*wasp.Segment
 	RunnerWg         *errgroup.Group // to wait on individual load generators run
@@ -41,6 +44,7 @@ type LoadArgs struct {
 	ChaosExps        []ChaosConfig
 	LoadgenTearDowns []func()
 	Labels           map[string]string
+	pauseLoad        *atomic.Bool
 }
 
 func (l *LoadArgs) SetReportParams() {
@@ -111,6 +115,113 @@ func (l *LoadArgs) SanityCheck() {
 	}
 }
 
+// ValidateCurseFollowedByUncurse assumes the lanes under test are bi-directional.
+// It assumes requests in both direction are in flight when this is called.
+// It assumes the ARM is not already cursed, it will fail the test if it is in cursed state.
+// It curses source ARM for forward lanes so that destination curse is also validated for reverse lanes.
+// It waits for 5 minutes for curse to be seen by ccip plugins and contracts.
+// It captures the curse timestamp to verify no execution state changed event is emitted after the cure is applied.
+// It uncurses the source ARM at the end so that it can be verified that rest of the requests are processed as expected.
+// Validates that even after uncursing the lane should not function for 30 more minutes.
+func (l *LoadArgs) ValidateCurseFollowedByUncurse() {
+	var lanes []*actions.CCIPLane
+	for _, lane := range l.TestSetupArgs.Lanes {
+		lanes = append(lanes, lane.ForwardLane)
+	}
+	// check if source is already cursed
+	for _, lane := range lanes {
+		cursed, err := lane.Source.Common.IsCursed()
+		require.NoError(l.t, err, "cannot get cursed state")
+		if cursed {
+			require.Fail(l.t, "test will not work if ARM is already cursed")
+		}
+	}
+	// before cursing set pause
+	l.pauseLoad.Store(true)
+	// wait for some time for pause to be active in wasp
+	l.lggr.Info().Msg("Waiting for 1 minute after applying pause on load")
+	time.Sleep(1 * time.Minute)
+	curseTimeStamps := make(map[string]time.Time)
+	for _, lane := range lanes {
+		if _, exists := curseTimeStamps[lane.SourceNetworkName]; exists {
+			continue
+		}
+		curseTx, err := lane.Source.Common.CurseARM()
+		require.NoError(l.t, err, "error in cursing arm")
+		require.NotNil(l.t, curseTx, "invalid cursetx")
+		receipt, err := lane.Source.Common.ChainClient.GetTxReceipt(curseTx.Hash())
+		require.NoError(l.t, err)
+		hdr, err := lane.Source.Common.ChainClient.HeaderByNumber(context.Background(), receipt.BlockNumber)
+		require.NoError(l.t, err)
+		curseTimeStamps[lane.SourceNetworkName] = hdr.Timestamp
+		l.lggr.Info().Str("Source", lane.SourceNetworkName).Msg("Curse is applied on source")
+		l.lggr.Info().Str("Destination", lane.SourceNetworkName).Msg("Curse is applied on destination")
+	}
+
+	l.lggr.Info().Msg("Curse is applied on all lanes. Waiting for 2 minutes")
+	time.Sleep(2 * time.Minute)
+
+	for _, lane := range lanes {
+		// try to send requests on lanes on which curse is applied on source RMN and the request should revert
+		failedTx, _, _, err := lane.Source.SendRequest(
+			lane.Dest.ReceiverDapp.EthAddress,
+			actions.TokenTransfer, "msg sent when ARM is cursed",
+			big.NewInt(600_000), // gas limit
+		)
+		if lane.Source.Common.ChainClient.GetNetworkConfig().MinimumConfirmations > 0 {
+			require.Error(l.t, err)
+		} else {
+			require.NoError(l.t, err)
+		}
+		errReason, v, err := lane.Source.Common.ChainClient.RevertReasonFromTx(failedTx, router.RouterABI)
+		require.NoError(l.t, err)
+		require.Equal(l.t, "BadARMSignal", errReason)
+		lane.Logger.Info().
+			Str("Revert Reason", errReason).
+			Interface("Args", v).
+			Str("FailedTx", failedTx.Hex()).
+			Msg("Msg sent while source ARM is cursed")
+	}
+
+	// now uncurse all
+	for _, lane := range lanes {
+		require.NoError(l.t, lane.Source.Common.UnvoteToCurseARM(), "error to unvote in cursing arm")
+	}
+	l.lggr.Info().Msg("Curse is lifted on all lanes")
+	// lift the pause on load test
+	l.pauseLoad.Store(false)
+
+	// now add the reverse lanes so that destination curse is also verified
+	// we add the reverse lanes now to verify absence of commit and execution for the reverse lanes
+	for _, lane := range l.TestSetupArgs.Lanes {
+		lanes = append(lanes, lane.ReverseLane)
+	}
+
+	// verify that even after uncursing the lane should not function for 30 more minutes,
+	// i.e no execution state changed or commit report accepted event is generated
+	errGrp := &errgroup.Group{}
+	for _, lane := range lanes {
+		lane := lane
+		curseTimeStamp, exists := curseTimeStamps[lane.SourceNetworkName]
+		// if curse timestamp does not exist for source, it will exist for destination
+		if !exists {
+			curseTimeStamp, exists = curseTimeStamps[lane.DestNetworkName]
+			require.Truef(l.t, exists, "did not find curse time stamp for lane %s->%s", lane.SourceNetworkName, lane.DestNetworkName)
+		}
+		errGrp.Go(func() error {
+			lane.Logger.Info().Msg("Validating no CommitReportAccepted event is received for 29 minutes")
+			return lane.Dest.AssertNoReportAcceptedEventReceived(lane.Logger, 29*time.Minute, curseTimeStamp.Add(30*time.Second))
+		})
+		errGrp.Go(func() error {
+			lane.Logger.Info().Msg("Validating no ExecutionStateChanged event is received for 29 minutes")
+			return lane.Dest.AssertNoExecutionStateChangedEventReceived(lane.Logger, 29*time.Minute, curseTimeStamp.Add(30*time.Second))
+		})
+	}
+
+	err := errGrp.Wait()
+	require.NoError(l.t, err, "error received to validate no commit/execution is generated after lane is cursed")
+}
+
 func (l *LoadArgs) TriggerLoadByLane() {
 	l.setSchedule()
 	l.TestSetupArgs.Reporter.SetDuration(l.TestCfg.TestGroupInput.TestDuration.Duration())
@@ -170,6 +281,28 @@ func (l *LoadArgs) TriggerLoadByLane() {
 }
 
 func (l *LoadArgs) AddToRunnerGroup(gen *wasp.Generator) {
+	// watch for pause signal
+	go func(gen *wasp.Generator) {
+		ticker := time.NewTicker(time.Second)
+		pausedOnce := false
+		resumedAlready := false
+		for {
+			select {
+			case <-ticker.C:
+				if l.pauseLoad.Load() && !pausedOnce {
+					gen.Pause()
+					pausedOnce = true
+					continue
+				}
+				if pausedOnce && !resumedAlready && !l.pauseLoad.Load() {
+					gen.Resume()
+					resumedAlready = true
+				}
+			case <-l.Ctx.Done():
+				return
+			}
+		}
+	}(gen)
 	l.RunnerWg.Go(func() error {
 		_, failed := gen.Wait()
 		if failed {
@@ -286,12 +419,15 @@ func (l *LoadArgs) TriggerLoadBySource() {
 
 func NewLoadArgs(t *testing.T, lggr zerolog.Logger, chaosExps ...ChaosConfig) *LoadArgs {
 	wg, _ := errgroup.WithContext(testcontext.Get(t))
+	ctx := testcontext.Get(t)
 	return &LoadArgs{
 		t:             t,
+		Ctx:           ctx,
 		lggr:          lggr,
 		RunnerWg:      wg,
 		TestCfg:       testsetups.NewCCIPTestConfig(t, lggr, testconfig.Load),
 		ChaosExps:     chaosExps,
 		LoadStarterWg: &sync.WaitGroup{},
+		pauseLoad:     atomic.NewBool(false),
 	}
 }

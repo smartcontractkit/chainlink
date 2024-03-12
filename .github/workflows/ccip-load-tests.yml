@@ -35,7 +35,7 @@ jobs:
         uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
       - name: Check if image exists
         id: check-image
-        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
+        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
         with:
           repository: chainlink
           tag: ${{ env.CHAINLINK_VERSION }}
@@ -43,7 +43,7 @@ jobs:
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
       - name: Build Image
         if: steps.check-image.outputs.exists == 'false'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
         env:
           GH_TOKEN: ${{ github.token }}
         with:
@@ -111,7 +111,15 @@ jobs:
       REF_NAME: ${{ github.head_ref || github.ref_name }}
       ENV_JOB_IMAGE_BASE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-ccip-tests
       BASE64_NETWORK_CONFIG: ${{ secrets.BASE64_NETWORK_CONFIG }}
-
+    strategy:
+      fail-fast: false
+      matrix:
+        type:
+          - name: stable-load
+            run: ^TestLoadCCIPStableRPS$
+          - name: load-with-arm-curse-uncurse
+            run: ^TestLoadCCIPStableRPSAfterARMCurseAndUncurse$
+            config_path: ./integration-tests/ccip-tests/testconfig/tomls/load-with-arm-curse-uncurse.toml
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
@@ -129,11 +137,18 @@ jobs:
       - name: Sets env vars
         shell: bash
         run: |
+          # if the matrix.type.config_path is set, use it as the override config
+          if [ -n "${{ matrix.type.config_path }}" ]; then
+              echo "BASE64_CCIP_CONFIG_OVERRIDE=$(base64 -i ${{ matrix.type.config_path }})" >> $GITHUB_ENV
+              echo "TEST_BASE64_CCIP_CONFIG_OVERRIDE=$(base64 -i ${{ matrix.type.config_path }})" >> $GITHUB_ENV
+          fi
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             BASE64_CCIP_CONFIG_OVERRIDE=$(jq -r '.inputs.base64_test_input' $GITHUB_EVENT_PATH)
             echo ::add-mask::$BASE64_CCIP_CONFIG_OVERRIDE
-            echo "BASE64_CCIP_CONFIG_OVERRIDE=$BASE64_CCIP_CONFIG_OVERRIDE" >> $GITHUB_ENV
-            echo "TEST_BASE64_CCIP_CONFIG_OVERRIDE=$BASE64_CCIP_CONFIG_OVERRIDE" >> $GITHUB_ENV
+            if [ -n "${BASE64_CCIP_CONFIG_OVERRIDE}" &&  "$BASE64_CCIP_CONFIG_OVERRIDE" != "null"]; then
+              echo "BASE64_CCIP_CONFIG_OVERRIDE=$BASE64_CCIP_CONFIG_OVERRIDE" >> $GITHUB_ENV
+              echo "TEST_BASE64_CCIP_CONFIG_OVERRIDE=$BASE64_CCIP_CONFIG_OVERRIDE" >> $GITHUB_ENV
+            fi
           fi
       - name: step summary
         shell: bash
@@ -155,7 +170,7 @@ jobs:
           grafanaUrl: ${{ vars.GRAFANA_URL }}
           grafanaDashboardUrl: "/d/6vjVx-1V8/ccip-long-running-tests"
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
         env:
           TEST_SUITE: load
           TEST_ARGS: -test.timeout 900h
@@ -164,7 +179,7 @@ jobs:
           RR_CPU: 4
           TEST_TRIGGERED_BY: ccip-load-test-ci
         with:
-          test_command_to_run: cd ./integration-tests/ccip-tests && go test -v -timeout 70m -count=1 -json -run ^TestLoadCCIPStableRPS$ ./load 2>&1 | tee /tmp/gotest.log | gotestfmt
+          test_command_to_run: cd ./integration-tests/ccip-tests && go test -v -timeout 70m -count=1 -json -run ${{ matrix.type.run }} ./load 2>&1 | tee /tmp/gotest.log | gotestfmt
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ env.CHAINLINK_VERSION }}
@@ -174,6 +189,7 @@ jobs:
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
           triggered_by: ${{ env.TEST_TRIGGERED_BY }}
+          publish_check_name: ${{ matrix.type.name }}
           artifacts_location: ./integration-tests/load/logs/payload_ccip.json
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           cache_key_id: ccip-load-${{ env.MOD_CACHE_VERSION }}
@@ -252,7 +268,7 @@ jobs:
           grafanaUrl: ${{ vars.GRAFANA_URL }}
           grafanaDashboardUrl: "/d/6vjVx-1V8/ccip-long-running-tests"
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@ea889b3133bd7f16ab19ba4ba130de5d9162c669 # v2.3.4
         env:
           TEST_SUITE: load
           TEST_ARGS: -test.timeout 900h

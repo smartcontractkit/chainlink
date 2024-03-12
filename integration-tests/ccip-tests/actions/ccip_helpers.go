@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/AlekSi/pointer"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -37,7 +38,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/contracts/laneconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testconfig"
@@ -49,6 +49,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_arm_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
@@ -149,6 +150,79 @@ func (ccipModule *CCIPCommon) StopWatchingPriceUpdates() {
 	for _, sub := range ccipModule.priceUpdateSubs {
 		sub.Unsubscribe()
 	}
+}
+
+func (ccipModule *CCIPCommon) UnvoteToCurseARM() error {
+	if ccipModule.ARM != nil {
+		return fmt.Errorf("real ARM deployed. cannot curse through test")
+	}
+	if ccipModule.ARMContract == nil {
+		return fmt.Errorf("no ARM contract is set")
+	}
+	arm, err := mock_arm_contract.NewMockARMContract(*ccipModule.ARMContract, ccipModule.ChainClient.Backend())
+	if err != nil {
+		return fmt.Errorf("error instantiating arm %w", err)
+	}
+	opts, err := ccipModule.ChainClient.TransactionOpts(ccipModule.ChainClient.GetDefaultWallet())
+	if err != nil {
+		return fmt.Errorf("error getting owners for ARM OwnerUnvoteToCurse %w", err)
+	}
+	tx, err := arm.OwnerUnvoteToCurse(opts, []mock_arm_contract.ARMUnvoteToCurseRecord{})
+	if err != nil {
+		return fmt.Errorf("error in calling OwnerUnvoteToCurse %w", err)
+	}
+	err = ccipModule.ChainClient.ProcessTransaction(tx)
+	if err != nil {
+		return err
+	}
+	log.Info().
+		Str("ARM", arm.Address().Hex()).
+		Msg("ARM is uncursed")
+	return ccipModule.ChainClient.WaitForEvents()
+}
+
+func (ccipModule *CCIPCommon) IsCursed() (bool, error) {
+	if ccipModule.ARM != nil {
+		return false, fmt.Errorf("real ARM deployed. cannot validate cursing")
+	}
+	if ccipModule.ARMContract == nil {
+		return false, fmt.Errorf("no ARM contract is set")
+	}
+	arm, err := mock_arm_contract.NewMockARMContract(*ccipModule.ARMContract, ccipModule.ChainClient.Backend())
+	if err != nil {
+		return false, fmt.Errorf("error instantiating arm %w", err)
+	}
+	return arm.IsCursed(nil)
+}
+
+func (ccipModule *CCIPCommon) CurseARM() (*types.Transaction, error) {
+	if ccipModule.ARM != nil {
+		return nil, fmt.Errorf("real ARM deployed. cannot curse through test")
+	}
+	if ccipModule.ARMContract == nil {
+		return nil, fmt.Errorf("no ARM contract is set")
+	}
+	arm, err := mock_arm_contract.NewMockARMContract(*ccipModule.ARMContract, ccipModule.ChainClient.Backend())
+	if err != nil {
+		return nil, fmt.Errorf("error instantiating arm %w", err)
+	}
+	opts, err := ccipModule.ChainClient.TransactionOpts(ccipModule.ChainClient.GetDefaultWallet())
+	if err != nil {
+		return nil, fmt.Errorf("error getting owners for ARM VoteToCurse %w", err)
+	}
+	tx, err := arm.VoteToCurse(opts, [32]byte{})
+	if err != nil {
+		return nil, fmt.Errorf("error in calling VoteToCurse %w", err)
+	}
+	err = ccipModule.ChainClient.ProcessTransaction(tx)
+	if err != nil {
+		return tx, err
+	}
+	log.Info().
+		Str("ARM", arm.Address().Hex()).
+		Str("Network", ccipModule.ChainClient.GetNetworkName()).
+		Msg("ARM is cursed")
+	return tx, ccipModule.ChainClient.WaitForEvents()
 }
 
 func (ccipModule *CCIPCommon) Copy(logger zerolog.Logger, chainClient blockchain.EVMClient) (*CCIPCommon, error) {
@@ -1268,12 +1342,20 @@ func (sourceCCIP *SourceCCIPModule) SendRequest(
 	if feeToken != (common.Address{}) {
 		sendTx, err = sourceCCIP.Common.Router.CCIPSendAndProcessTx(destChainSelector, msg, nil)
 		if err != nil {
-			return common.Hash{}, time.Since(timeNow), nil, fmt.Errorf("failed initiating the transfer ccip-send: %w", err)
+			txHash := common.Hash{}
+			if sendTx != nil {
+				txHash = sendTx.Hash()
+			}
+			return txHash, time.Since(timeNow), nil, fmt.Errorf("failed initiating the transfer ccip-send: %w", err)
 		}
 	} else {
 		sendTx, err = sourceCCIP.Common.Router.CCIPSendAndProcessTx(destChainSelector, msg, fee)
 		if err != nil {
-			return common.Hash{}, time.Since(timeNow), nil, fmt.Errorf("failed initiating the transfer ccip-send: %w", err)
+			txHash := common.Hash{}
+			if sendTx != nil {
+				txHash = sendTx.Hash()
+			}
+			return txHash, time.Since(timeNow), nil, fmt.Errorf("failed initiating the transfer ccip-send: %w", err)
 		}
 	}
 
@@ -1554,6 +1636,76 @@ func (destCCIP *DestCCIPModule) UpdateBalance(
 			Address: destCCIP.ReceiverDapp.EthAddress,
 			Getter:  GetterForLinkToken(destCCIP.Common.FeeToken.BalanceOf, destCCIP.ReceiverDapp.Address()),
 		})
+	}
+}
+
+// AssertNoReportAcceptedEventReceived validates that no ExecutionStateChangedEvent is emitted for mentioned timeRange after lastSeenTimestamp
+func (destCCIP *DestCCIPModule) AssertNoReportAcceptedEventReceived(lggr zerolog.Logger, timeRange time.Duration, lastSeenTimestamp time.Time) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeRange)
+	defer cancel()
+	ticker := time.NewTicker(time.Second)
+	for {
+		select {
+		case <-ticker.C:
+			eventFoundAfterCursing := false
+			// verify if CommitReportAccepted is received, it's not generated after provided lastSeenTimestamp
+			destCCIP.ReportAcceptedWatcher.Range(func(key, value any) bool {
+				e, exists := value.(*evm_2_evm_offramp.EVM2EVMOffRampExecutionStateChanged)
+				if exists {
+					vLogs := e.Raw
+					hdr, err := destCCIP.Common.ChainClient.HeaderByNumber(ctx, big.NewInt(int64(vLogs.BlockNumber)))
+					if err != nil {
+						return true
+					}
+					if hdr.Timestamp.After(lastSeenTimestamp) {
+						eventFoundAfterCursing = true
+						return false
+					}
+				}
+				return true
+			})
+			if eventFoundAfterCursing {
+				return fmt.Errorf("CommitReportAccepted Event detected after %s", lastSeenTimestamp)
+			}
+		case <-ctx.Done():
+			lggr.Info().Msgf("successfully validated that no CommitReportAccepted detected after %s for %s", lastSeenTimestamp, timeRange)
+			return nil
+		}
+	}
+}
+
+// AssertNoExecutionStateChangedEventReceived validates that no ExecutionStateChangedEvent is emitted for mentioned timeRange after lastSeenTimestamp
+func (destCCIP *DestCCIPModule) AssertNoExecutionStateChangedEventReceived(lggr zerolog.Logger, timeRange time.Duration, lastSeenTimestamp time.Time) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeRange)
+	defer cancel()
+	ticker := time.NewTicker(time.Second)
+	for {
+		select {
+		case <-ticker.C:
+			eventFoundAfterCursing := false
+			// verify if executionstate changed is received, it's not generated after provided lastSeenTimestamp
+			destCCIP.ExecStateChangedWatcher.Range(func(key, value any) bool {
+				e, exists := value.(*evm_2_evm_offramp.EVM2EVMOffRampExecutionStateChanged)
+				if exists {
+					vLogs := e.Raw
+					hdr, err := destCCIP.Common.ChainClient.HeaderByNumber(ctx, big.NewInt(int64(vLogs.BlockNumber)))
+					if err != nil {
+						return true
+					}
+					if hdr.Timestamp.After(lastSeenTimestamp) {
+						eventFoundAfterCursing = true
+						return false
+					}
+				}
+				return true
+			})
+			if eventFoundAfterCursing {
+				return fmt.Errorf("ExecutionStateChanged Event detected after %s", lastSeenTimestamp)
+			}
+		case <-ctx.Done():
+			lggr.Info().Msgf("successfully validated that no ExecutionStateChanged detected after %s for %s", lastSeenTimestamp, timeRange)
+			return nil
+		}
 	}
 }
 
@@ -2480,7 +2632,10 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 	if !configureCLNodes {
 		return lane.SrcNetworkLaneCfg, lane.DstNetworkLaneCfg, nil
 	}
-
+	err = lane.Source.Common.WatchForPriceUpdates()
+	if err != nil {
+		return lane.SrcNetworkLaneCfg, lane.DstNetworkLaneCfg, fmt.Errorf("error in starting price update watch")
+	}
 	if env == nil {
 		return lane.SrcNetworkLaneCfg, lane.DstNetworkLaneCfg, fmt.Errorf("test environment not set")
 	}
@@ -2645,11 +2800,11 @@ func SetOCR2Configs(commitNodes, execNodes []*client.CLNodesWithKeys, destCCIP D
 
 	signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig, err := contracts.NewOffChainAggregatorV2ConfigForCCIPPlugin(
 		commitNodes, testhelpers.NewCommitOffchainConfig(
-			*config2.MustNewDuration(10 * time.Second), // reduce the heartbeat to 10 sec for faster fee updates
-			1e6,
-			1e6,
-			*config2.MustNewDuration(10 * time.Second),
-			1e6,
+			*config2.MustNewDuration(5 * time.Second),
+			1,
+			1,
+			*config2.MustNewDuration(5 * time.Second),
+			1,
 			*inflightExpiry,
 		), testhelpers.NewCommitOnchainConfig(
 			destCCIP.Common.PriceRegistry.EthAddress,
@@ -3000,25 +3155,50 @@ func (c *CCIPTestEnv) SetUpNodeKeysAndFund(
 			}
 		}()
 		log.Info().Str("chain id", c1.GetChainID().String()).Msg("Funding Chainlink nodes for chain")
-		err = actions.FundChainlinkNodesAddresses(chainlinkNodes[1:], c1, nodeFund)
-		if err != nil {
-			return fmt.Errorf("funding nodes for chain %s %w", c1.GetNetworkName(), err)
+		for i := 1; i < len(chainlinkNodes); i++ {
+			cl := chainlinkNodes[i]
+			m := c.nodeMutexes[i]
+			toAddress, err := cl.EthAddressesForChain(c1.GetChainID().String())
+			if err != nil {
+				return err
+			}
+			for _, addr := range toAddress {
+				toAddr := common.HexToAddress(addr)
+				gasEstimates, err := c1.EstimateGas(ethereum.CallMsg{
+					To: &toAddr,
+				})
+				if err != nil {
+					return err
+				}
+				m.Lock()
+				err = c1.Fund(addr, nodeFund, gasEstimates)
+				m.Unlock()
+				if err != nil {
+					return err
+				}
+			}
 		}
-		return nil
+		return c1.WaitForEvents()
 	}
-
+	grp, _ := errgroup.WithContext(context.Background())
 	for _, chain := range chains {
 		err := populateKeys(chain)
 		if err != nil {
 			return err
 		}
-		err = fund(chain)
-		if err != nil {
-			return err
-		}
 	}
-
+	for _, chain := range chains {
+		chain := chain
+		grp.Go(func() error {
+			return fund(chain)
+		})
+	}
+	err := grp.Wait()
+	if err != nil {
+		return fmt.Errorf("error funding nodes %w", err)
+	}
 	c.CLNodesWithKeys = nodesWithKeys
+
 	return nil
 }
 

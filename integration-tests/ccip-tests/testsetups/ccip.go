@@ -568,24 +568,11 @@ func (o *CCIPTestSetUpOutputs) StartEventWatchers() {
 func (o *CCIPTestSetUpOutputs) WaitForPriceUpdates(ctx context.Context) {
 	t := o.Cfg.Test
 	priceUpdateGrp, _ := errgroup.WithContext(ctx)
-	priceUpdateTracker := sync.Map{}
 	for _, lanes := range o.ReadLanes() {
 		lanes := lanes
-		waitForUpdate := func(lane actions.CCIPLane) error {
-			if id, ok := priceUpdateTracker.Load(lane.Source.Common.PriceRegistry.Address()); ok &&
-				id.(uint64) == lane.Source.DestinationChainId {
-				return nil
-			}
-			priceUpdateTracker.Store(lane.Source.Common.PriceRegistry.Address(), lane.Source.DestinationChainId)
-			lane.Logger.Info().
-				Str("source_chain", lane.Source.Common.ChainClient.GetNetworkName()).
-				Uint64("dest_chain", lane.Source.DestinationChainId).
-				Str("price_registry", lane.Source.Common.PriceRegistry.Address()).
-				Msgf("Waiting for price update")
-			err := lane.Source.Common.WatchForPriceUpdates()
-			if err != nil {
-				return err
-			}
+		forwardLane := lanes.ForwardLane
+		reverseLane := lanes.ReverseLane
+		waitForUpdate := func(lane *actions.CCIPLane) error {
 			defer func() {
 				lane.Logger.Info().
 					Str("source_chain", lane.Source.Common.ChainClient.GetNetworkName()).
@@ -594,7 +581,12 @@ func (o *CCIPTestSetUpOutputs) WaitForPriceUpdates(ctx context.Context) {
 					Msg("Stopping price update watch")
 				lane.Source.Common.StopWatchingPriceUpdates()
 			}()
-			err = lane.Source.Common.WaitForPriceUpdates(
+			lane.Logger.Info().
+				Str("source_chain", lane.Source.Common.ChainClient.GetNetworkName()).
+				Uint64("dest_chain", lane.Source.DestinationChainId).
+				Str("price_registry", lane.Source.Common.PriceRegistry.Address()).
+				Msgf("Waiting for price update")
+			err := lane.Source.Common.WaitForPriceUpdates(
 				lane.Logger,
 				o.Cfg.TestGroupInput.TimeoutForPriceUpdate.Duration(),
 				lane.Source.DestinationChainId,
@@ -606,11 +598,11 @@ func (o *CCIPTestSetUpOutputs) WaitForPriceUpdates(ctx context.Context) {
 		}
 
 		priceUpdateGrp.Go(func() error {
-			return waitForUpdate(*lanes.ForwardLane)
+			return waitForUpdate(forwardLane)
 		})
 		if lanes.ReverseLane != nil {
 			priceUpdateGrp.Go(func() error {
-				return waitForUpdate(*lanes.ReverseLane)
+				return waitForUpdate(reverseLane)
 			})
 		}
 	}
@@ -733,6 +725,7 @@ func CCIPDefaultTestSetUp(
 			require.NoError(t, err, "failed to set up mock server for attestation")
 		}
 	}
+
 	// deploy all lane specific contracts
 	lggr.Info().Msg("Deploying chain specific contracts")
 	laneAddGrp, _ := errgroup.WithContext(parent)
@@ -769,7 +762,7 @@ func CCIPDefaultTestSetUp(
 		// wait for all jobs to get created
 		lggr.Info().Msg("Waiting for jobs to be created")
 		require.NoError(t, setUpArgs.JobAddGrp.Wait(), "Creating jobs shouldn't fail")
-		// wait for price updates to be available and start event watchers
+		// wait for price updates to be available
 		setUpArgs.WaitForPriceUpdates(parent)
 	}
 

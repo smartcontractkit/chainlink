@@ -1,0 +1,24 @@
+[CCIP]
+[CCIP.Env]
+TTL = '15h'
+[CCIP.Env.NewCLCluster]
+NoOfNodes = 17
+NodeMemory = '8Gi'
+NodeCPU = '4'
+DBMemory = '6Gi'
+DBCPU = '2'
+DBCapacity = '10Gi'
+IsStateful = true
+DBArgs = ['shared_buffers=1536MB', 'effective_cache_size=4096MB', 'work_mem=64MB']
+
+
+[CCIP.Groups]
+[CCIP.Groups.load]
+NoOfCommitNodes = 16
+KeepEnvAlive = true
+MsgType = 'WithToken'
+PhaseTimeout = '50m'
+TestDuration = '30m'
+NodeFunding = 1000.0
+RequestPerUnitTime = [1]
+TimeUnit = '10s'

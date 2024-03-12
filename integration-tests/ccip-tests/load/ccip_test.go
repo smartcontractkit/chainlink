@@ -295,3 +295,24 @@ func TestLoadCCIPStableWithPodChaosDiffCommitAndExec(t *testing.T) {
 		})
 	}
 }
+
+func TestLoadCCIPStableRPSAfterARMCurseAndUncurse(t *testing.T) {
+	t.Parallel()
+	lggr := logging.GetTestLogger(t)
+	testArgs := NewLoadArgs(t, lggr)
+	testArgs.Setup()
+	// if the test runs on remote runner
+	if len(testArgs.TestSetupArgs.Lanes) == 0 {
+		return
+	}
+	t.Cleanup(func() {
+		log.Info().Msg("Tearing down the environment")
+		require.NoError(t, testArgs.TestSetupArgs.TearDown())
+	})
+	testArgs.TriggerLoadByLane()
+	// wait for certain time so that few messages are sent
+	time.Sleep(2 * time.Minute)
+	// now validate the curse
+	testArgs.ValidateCurseFollowedByUncurse()
+	testArgs.Wait()
+}
