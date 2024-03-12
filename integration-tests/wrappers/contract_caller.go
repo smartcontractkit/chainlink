@@ -16,6 +16,8 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 )
 
+// It needs to be kept up do date with `core/chains/evm/client/rpc_client.go` !!!!
+
 // WrappedContractBackend is a wrapper around the go-ethereum ContractBackend interface. It's a thin wrapper
 // around the go-ethereum/ethclient.Client, which replaces only CallContract and PendingCallContract calls with
 // methods that send data both in "input" and "data" field for backwards compatibility with older clients. Other methods
