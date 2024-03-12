@@ -27,6 +27,7 @@ jobs:
             core:
               - *shared
               - core/**
+              - '!core/chainlink.goreleaser.Dockerfile'
             changeset:
               - added: '.changeset/**'
       - name: Make a comment
