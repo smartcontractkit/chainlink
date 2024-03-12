@@ -42,8 +42,6 @@ jobs:
           tag_suffix: ""
           dockerfile: core/chainlink.Dockerfile
           git_commit_sha: ${{ github.sha }}
-          GRAFANA_CLOUD_BASIC_AUTH: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          GRAFANA_CLOUD_HOST: ${{ secrets.GRAFANA_CLOUD_HOST }}
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
 
@@ -111,12 +109,13 @@ jobs:
             client: nethermind
             timeout: 30m
             pyroscope_env: ci-smoke-ocr-nethermind-simulated
-          - name: ocr-besu
-            test: TestOCRBasic
-            file: ocr
-            client: besu
-            timeout: 30m
-            pyroscope_env: ci-smoke-ocr-besu-simulated
+          # Will fail until https://github.com/hyperledger/besu/pull/6702 is merged and released
+          # - name: ocr-besu
+          #   test: TestOCRBasic
+          #   file: ocr
+          #   client: besu
+          #   timeout: 30m
+          #   pyroscope_env: ci-smoke-ocr-besu-simulated
           - name: ocr-erigon
             test: TestOCRBasic
             file: ocr
@@ -135,12 +134,13 @@ jobs:
             client: nethermind
             timeout: 30m
             pyroscope_env: ci-smoke-nethermind-evm-simulated
-          - name: ocr2-besu
-            test: "^TestOCRv2Basic/plugins$"
-            file: ocr2
-            client: besu
-            timeout: 30m
-            pyroscope_env: ci-smoke-ocr2-besu-simulated
+          # Will fail until https://github.com/hyperledger/besu/pull/6702 is merged and released
+          # - name: ocr2-besu
+          #   test: "^TestOCRv2Basic/plugins$"
+          #   file: ocr2
+          #   client: besu
+          #   timeout: 30m
+            # pyroscope_env: ci-smoke-ocr2-besu-simulated
           - name: ocr2-erigon
             test: "^TestOCRv2Basic/plugins$"
             file: ocr2

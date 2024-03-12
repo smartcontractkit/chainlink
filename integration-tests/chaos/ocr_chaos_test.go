@@ -64,8 +64,8 @@ func TestOCRChaos(t *testing.T) {
 	require.NoError(t, err, "Error getting config")
 
 	var overrideFn = func(_ interface{}, target interface{}) {
-		ctf_config.MustConfigOverrideChainlinkVersion(config.ChainlinkImage, target)
-		ctf_config.MightConfigOverridePyroscopeKey(config.Pyroscope, target)
+		ctf_config.MustConfigOverrideChainlinkVersion(config.GetChainlinkImageConfig(), target)
+		ctf_config.MightConfigOverridePyroscopeKey(config.GetPyroscopeConfig(), target)
 	}
 
 	chainlinkCfg := chainlink.NewWithOverride(0, getDefaultOcrSettings(&config), config.ChainlinkImage, overrideFn)
@@ -171,6 +171,8 @@ func TestOCRChaos(t *testing.T) {
 			network = utils.MustReplaceSimulatedNetworkUrlWithK8(l, network, *testEnvironment)
 
 			sethCfg := utils.MergeSethAndEvmNetworkConfigs(l, network, *readSethCfg)
+			err = utils.ValidateSethNetworkConfig(sethCfg.Network)
+			require.NoError(t, err, "Error validating seth network config")
 			seth, err := seth.NewClientWithConfig(&sethCfg)
 			require.NoError(t, err, "Error creating seth client")
 
