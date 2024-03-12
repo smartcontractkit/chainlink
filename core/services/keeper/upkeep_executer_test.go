@@ -337,8 +337,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Error(t *testing.T) {
 
 	g.Eventually(wasCalled.Load).Should(gomega.Equal(true))
 
-	cfg := pgtest.NewQConfig(false)
-	txStore := txmgr.NewTxStore(db, logger.TestLogger(t), cfg)
+	txStore := txmgr.NewTxStore(db, logger.TestLogger(t))
 	txes, err := txStore.GetAllTxes(testutils.Context(t))
 	require.NoError(t, err)
 	require.Len(t, txes, 0)
