@@ -3,6 +3,7 @@ package ccip
 import (
 	"encoding/json"
 	"math/big"
+	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -17,7 +18,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store_1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
 )
 
 func TestObservationFilter(t *testing.T) {
@@ -189,4 +192,76 @@ func TestNewExecutionObservation(t *testing.T) {
 
 func tokenData(value string) [][]byte {
 	return [][]byte{[]byte(value)}
+}
+
+func TestCommitObservationJsonSerializationDeserialization(t *testing.T) {
+	jsonEncoded := `{
+		"interval": {
+			"Min":1,
+			"Max":12
+		},
+		"tokensPerFeeCoin": {
+			"0x0000000000000000000000000000000000000001": 1,
+			"0x507877C2E26f1387432D067D2DaAfa7d0420d90a": 2,
+			"0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": 3
+		},
+		"sourceGasPrice": 3
+	}`
+
+	expectedObservation := CommitObservation{
+		Interval: cciptypes.CommitStoreInterval{
+			Min: 1,
+			Max: 12,
+		},
+		TokenPricesUSD: map[cciptypes.Address]*big.Int{
+			cciptypes.Address("0x0000000000000000000000000000000000000001"): big.NewInt(1),
+			cciptypes.Address("0x507877C2E26f1387432D067D2DaAfa7d0420d90a"): big.NewInt(2), // json eip55->eip55 parsed
+			cciptypes.Address("0xaAaAaAaaAaAaAaaAaAAAAAAAAaaaAaAaAaaAaaAa"): big.NewInt(3), // json lower->eip55 parsed
+		},
+		SourceGasPriceUSD: big.NewInt(3),
+	}
+
+	observations := GetParsableObservations[CommitObservation](logger.TestLogger(t), []types.AttributedObservation{
+		{Observation: []byte(jsonEncoded)},
+	})
+	assert.Equal(t, 1, len(observations))
+	assert.Equal(t, expectedObservation, observations[0])
+
+	backToJson, err := expectedObservation.Marshal()
+	// we expect the json encoded addresses to be lower-case
+	exp := strings.ReplaceAll(
+		jsonEncoded, "0x507877C2E26f1387432D067D2DaAfa7d0420d90a", strings.ToLower("0x507877C2E26f1387432D067D2DaAfa7d0420d90a"))
+	assert.NoError(t, err)
+	assert.JSONEq(t, exp, string(backToJson))
+
+	// and we expect to get the same results after we parse the lower-case addresses
+	observations = GetParsableObservations[CommitObservation](logger.TestLogger(t), []types.AttributedObservation{
+		{Observation: []byte(jsonEncoded)},
+	})
+	assert.Equal(t, 1, len(observations))
+	assert.Equal(t, expectedObservation, observations[0])
+}
+
+func TestAddressEncodingBackwardsCompatibility(t *testing.T) {
+	// The intention of this test is to remind including proper formatting of addresses after config is updated.
+	//
+	// The following tests will fail when a new cciptypes.Address field is added or removed.
+	// If you notice that the test is failing, make sure to apply proper address formatting
+	// after the struct is marshalled/unmarshalled and then include your new field in the expected fields slice to
+	// make this test pass or if you removed a field, remove it from the expected fields slice.
+
+	t.Run("job spec config", func(t *testing.T) {
+		exp := []string{"cciptypes.Address OffRamp"}
+
+		fields := testhelpers.FindStructFieldsOfCertainType("cciptypes.Address", config.CommitPluginJobSpecConfig{PriceGetterConfig: &config.DynamicPriceGetterConfig{}})
+		assert.Equal(t, exp, fields)
+	})
+
+	t.Run("commit observation", func(t *testing.T) {
+		exp := []string{"map[cciptypes.Address]*big.Int TokenPricesUSD"}
+
+		fields := testhelpers.FindStructFieldsOfCertainType("cciptypes.Address", CommitObservation{SourceGasPriceUSD: big.NewInt(0)})
+		assert.Equal(t, exp, fields)
+	})
+
 }

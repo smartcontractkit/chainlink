@@ -267,6 +267,8 @@ func extractJobSpecParams(jb job.Job, chainSet legacyevm.LegacyChainContainer) (
 	if err != nil {
 		return nil, err
 	}
+	// ensure addresses are formatted properly - (lowercase to eip55 for evm)
+	pluginConfig.OffRamp = ccipcalc.HexToAddress(string(pluginConfig.OffRamp))
 
 	destChain, _, err := ccipconfig.GetChainFromSpec(spec, chainSet)
 	if err != nil {
