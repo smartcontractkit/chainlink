@@ -261,7 +261,6 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     }
     // Its important to ensure that the consumer is in fact who they say they
     // are, otherwise they could use someone else's subscription balance.
-    // A nonce of 0 indicates consumer is not allocated to the sub.
     mapping(uint256 => ConsumerConfig) storage consumerConfigs = s_consumers[msg.sender];
     ConsumerConfig memory consumerConfig = consumerConfigs[subId];
     if (!consumerConfig.active) {
