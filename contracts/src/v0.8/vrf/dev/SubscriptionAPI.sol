@@ -65,7 +65,8 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
     uint64 nonce;
   }
   // Note a nonce of 0 indicates an the consumer is not assigned to that subscription.
-  mapping(address => mapping(uint256 => ConsumerConfig)) /* consumerAddress */ /* subId */ /* consumerConfig */ internal s_consumers;
+  mapping(address => mapping(uint256 => ConsumerConfig)) /* consumerAddress */ /* subId */ /* consumerConfig */
+    internal s_consumers;
   mapping(uint256 => SubscriptionConfig) /* subId */ /* subscriptionConfig */ internal s_subscriptionConfigs;
   mapping(uint256 => Subscription) /* subId */ /* subscription */ internal s_subscriptions;
   // subscription nonce used to construct subId. Rises monotonically

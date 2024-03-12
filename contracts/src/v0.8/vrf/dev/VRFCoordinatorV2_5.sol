@@ -621,7 +621,12 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     for (uint256 i = 0; i < consumersLength; ++i) {
       address consumer = consumers[i];
       for (uint256 j = 0; j < provingKeyHashesLength; ++j) {
-        (uint256 reqId, ) = _computeRequestId(s_provingKeyHashes[j], consumer, subId, s_consumers[consumer][subId].nonce);
+        (uint256 reqId, ) = _computeRequestId(
+          s_provingKeyHashes[j],
+          consumer,
+          subId,
+          s_consumers[consumer][subId].nonce
+        );
         if (s_requestCommitments[reqId] != 0) {
           return true;
         }

@@ -601,7 +601,7 @@ contract VRFV2PlusSubscriptionAPITest is BaseTest {
     changePrank(subOwner);
     VmSafe.Log[] memory events = vm.getRecordedLogs();
     s_subscriptionAPI.addConsumer(subId, consumer);
-    assertEq(events.length, 0); 
+    assertEq(events.length, 0);
     assertEq(s_subscriptionAPI.getSubscriptionConfig(subId).consumers.length, 1);
     assertEq(s_subscriptionAPI.getSubscriptionConfig(subId).consumers[0], consumer);
 

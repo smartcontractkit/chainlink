@@ -748,11 +748,11 @@ contract VRFV2Plus is BaseTest {
     changePrank(subOwner);
     uint256 subId = s_testCoordinator.createSubscription();
     VRFV2PlusLoadTestWithMetrics consumer = new VRFV2PlusLoadTestWithMetrics(address(s_testCoordinator));
-    
+
     // consumer is not added to the subscription
     vm.expectRevert(abi.encodeWithSelector(SubscriptionAPI.InvalidConsumer.selector, subId, address(consumer)));
     consumer.requestRandomWords(
-      subId, 
+      subId,
       MIN_CONFIRMATIONS,
       vrfKeyHash,
       CALLBACK_GAS_LIMIT,
@@ -787,11 +787,11 @@ contract VRFV2Plus is BaseTest {
       address(s_testConsumer) // requester
     );
     consumer.requestRandomWords(
-      subId, 
+      subId,
       MIN_CONFIRMATIONS,
       vrfKeyHash,
       CALLBACK_GAS_LIMIT,
-      false, /* nativePayment */
+      false /* nativePayment */,
       NUM_WORDS,
       1 /* requestCount */
     );
@@ -800,15 +800,15 @@ contract VRFV2Plus is BaseTest {
     s_testCoordinator.removeConsumer(subId, address(consumer));
     vm.expectRevert(abi.encodeWithSelector(SubscriptionAPI.InvalidConsumer.selector, subId, address(consumer)));
     consumer.requestRandomWords(
-      subId, 
+      subId,
       MIN_CONFIRMATIONS,
       vrfKeyHash,
       CALLBACK_GAS_LIMIT,
-      false, /* nativePayment */
+      false /* nativePayment */,
       NUM_WORDS,
       1 /* requestCount */
     );
-    
+
     // re-add consumer
     s_testCoordinator.addConsumer(subId, address(consumer));
     vm.expectEmit(true, true, false, true);
@@ -827,11 +827,11 @@ contract VRFV2Plus is BaseTest {
       address(s_testConsumer) // requester
     );
     consumer.requestRandomWords(
-      subId, 
+      subId,
       MIN_CONFIRMATIONS,
       vrfKeyHash,
       CALLBACK_GAS_LIMIT,
-      false, /* nativePayment */
+      false /* nativePayment */,
       NUM_WORDS,
       1 /* requestCount */
     );
