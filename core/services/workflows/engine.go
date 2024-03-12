@@ -2,7 +2,6 @@ package workflows
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -153,85 +152,96 @@ func (e *Engine) triggerHandlerLoop(ctx context.Context) {
 
 func (e *Engine) handleExecution(ctx context.Context, event capabilities.CapabilityResponse) {
 	e.logger.Debugw("executing on a trigger event", "event", event)
-	result, err := e.handleConsensus(ctx, event)
+	trigger := e.workflow.Triggers[0]
+	if event.Err != nil {
+		e.logger.Errorf("trigger event was an error; not executing", event.Err)
+		return
+	}
+
+	ec := &executionState{
+		steps: map[string]*stepState{
+			trigger.Ref: {
+				outputs: &stepOutput{
+					value: event.Value,
+				},
+			},
+		},
+		workflowID:  mockedWorkflowID,
+		executionID: mockedExecutionID,
+	}
+
+	consensus := e.workflow.Consensus[0]
+	err := e.handleStep(ctx, ec, consensus)
 	if err != nil {
 		e.logger.Errorf("error in handleConsensus %v", err)
 		return
 	}
-	err = e.handleTargets(ctx, result)
-	if err != nil {
-		e.logger.Error("error in handleTargets %v", err)
-	}
-}
 
-func (e *Engine) handleConsensus(ctx context.Context, event capabilities.CapabilityResponse) (values.Value, error) {
-	e.logger.Debugw("running consensus", "event", event)
-	consensus := e.workflow.Consensus[0]
-	cm, err := values.NewMap(consensus.Config)
-	if err != nil {
-		return nil, err
-	}
-	cr := capabilities.CapabilityRequest{
-		Metadata: capabilities.RequestMetadata{
-			WorkflowID:          mockedWorkflowID,
-			WorkflowExecutionID: mockedExecutionID,
-		},
-		Inputs: &values.Map{
-			Underlying: map[string]values.Value{
-				// each node provides a single observation - outputs of mercury trigger
-				"observations": &values.List{
-					Underlying: []values.Value{event.Value},
-				},
-			},
-		},
-		Config: cm,
-	}
-	chReports := make(chan capabilities.CapabilityResponse, 10)
-	newCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
-	err = e.consensus.Execute(newCtx, chReports, cr)
-	if err != nil {
-		return nil, err
-	}
-	select {
-	case resp := <-chReports:
-		if resp.Err != nil {
-			return nil, resp.Err
-		}
-		return resp.Value, nil
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	}
-}
-
-func (e *Engine) handleTargets(ctx context.Context, resp values.Value) error {
-	e.logger.Debugw("handle targets")
-	inputs := map[string]values.Value{
-		"report": resp,
-	}
-
-	var combinedErr error
-	for i, targetCapability := range e.targets {
-		target := e.workflow.Targets[i]
-		e.logger.Debugw("sending to target", "target", e.workflow.Targets[i], "inputs", inputs)
-		cm, err := values.NewMap(target.Config)
+	for _, trg := range e.workflow.Targets {
+		err := e.handleStep(ctx, ec, trg)
 		if err != nil {
-			combinedErr = errors.Join(combinedErr, err)
-			continue
+			e.logger.Errorf("error in handleTargets %v", err)
+			return
 		}
-
-		tr := capabilities.CapabilityRequest{
-			Inputs: &values.Map{Underlying: inputs},
-			Config: cm,
-			Metadata: capabilities.RequestMetadata{
-				WorkflowID:          mockedWorkflowID,
-				WorkflowExecutionID: mockedExecutionID,
-			},
-		}
-		_, err = capabilities.ExecuteSync(ctx, targetCapability, tr)
-		combinedErr = errors.Join(combinedErr, err)
 	}
-	return combinedErr
+}
+
+func (e *Engine) handleStep(ctx context.Context, es *executionState, node Capability) error {
+	stepState := &stepState{
+		outputs: &stepOutput{},
+	}
+	es.steps[node.Ref] = stepState
+
+	// Let's get the capability. If we fail here, we'll bail out
+	// and try to handle it at the next execution.
+	cp, err := e.registry.Get(ctx, node.Type)
+	if err != nil {
+		return err
+	}
+
+	api, ok := cp.(capabilities.CallbackExecutable)
+	if !ok {
+		return fmt.Errorf("capability %s must be an action, consensus or target", node.Type)
+	}
+
+	i, err := interpolateInputsFromState(node.Inputs, es)
+	if err != nil {
+		return err
+	}
+
+	inputs, err := values.NewMap(i.(map[string]any))
+	if err != nil {
+		return err
+	}
+
+	stepState.inputs = inputs
+
+	config, err := values.NewMap(node.Config)
+	if err != nil {
+		return err
+	}
+
+	tr := capabilities.CapabilityRequest{
+		Inputs: inputs,
+		Config: config,
+		Metadata: capabilities.RequestMetadata{
+			WorkflowID:          es.workflowID,
+			WorkflowExecutionID: es.executionID,
+		},
+	}
+
+	resp, err := capabilities.ExecuteSync(ctx, api, tr)
+	if err != nil {
+		stepState.outputs.err = err
+		return err
+	}
+
+	if len(resp.Underlying) > 1 {
+		stepState.outputs.value = resp
+	} else {
+		stepState.outputs.value = resp.Underlying[0]
+	}
+	return nil
 }
 
 func (e *Engine) Close() error {
@@ -272,7 +282,7 @@ consensus:
     ref: evm_median
     inputs:
       observations:
-        - report_data.outputs
+        - $(report_data.outputs)
     config:
       aggregation_method: data_feeds_2_0
       aggregation_config:
@@ -293,7 +303,7 @@ targets:
   - type: write_polygon-testnet-mumbai
     inputs:
       report:
-        - evm_median.outputs.reports
+        - $(evm_median.outputs.reports)
     config:
       address: "0x3F3554832c636721F1fD1822Ccca0354576741Ef"
       params: [($inputs.report)]
@@ -301,7 +311,7 @@ targets:
   - type: write_ethereum-testnet-sepolia
     inputs:
       report:
-        - evm_median.outputs.reports
+        - $(evm_median.outputs.reports)
     config:
       address: "0x54e220867af6683aE6DcBF535B4f952cB5116510"
       params: ["$(inputs.report)"]
