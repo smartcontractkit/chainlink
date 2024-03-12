@@ -410,7 +410,7 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
       revert TooManyConsumers();
     }
     mapping(uint256 => ConsumerConfig) storage consumerConfigs = s_consumers[consumer];
-    ConsumerConfig consumerConfig = consumerConfigs[subId];
+    ConsumerConfig memory consumerConfig = consumerConfigs[subId];
     if (consumerConfig.active) {
       // Idempotence - do nothing if already added.
       // Ensures uniqueness in s_subscriptions[subId].consumers.
