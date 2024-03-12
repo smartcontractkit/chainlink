@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 )
 
-func TestJobKVStore_Store(t *testing.T) {
+func TestJobKVStore(t *testing.T) {
 	config := configtest.NewTestGeneralConfig(t)
 	db := pgtest.NewSqlxDB(t)
 
