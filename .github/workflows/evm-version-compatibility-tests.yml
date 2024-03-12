@@ -32,13 +32,14 @@ jobs:
       - name: Check for go.mod changes
         id: changes
         run: |
-          if git diff origin/develop -- go.mod | grep -q 'github.com/ethereum/go-ethereum'; then
-            echo "Dependency ethereum/go-ethereum was changed"
-            echo "dependency_bumped=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "No relevant dependency bump detected."
-            echo "dependency_bumped=false" >> "$GITHUB_OUTPUT"
-          fi
+          echo "dependency_bumped=true" >> "$GITHUB_OUTPUT"
+          # if git diff origin/develop -- go.mod | grep -q 'github.com/ethereum/go-ethereum'; then
+          #   echo "Dependency ethereum/go-ethereum was changed"
+          #   echo "dependency_bumped=true" >> "$GITHUB_OUTPUT"
+          # else
+          #   echo "No relevant dependency bump detected."
+          #   echo "dependency_bumped=false" >> "$GITHUB_OUTPUT"
+          # fi
 
   # Build Test Dependencies
 
@@ -61,18 +62,18 @@ jobs:
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
           this-job-name: Build Chainlink Image
         continue-on-error: true
-      # - name: Checkout the repo
-      #   uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
-      #   with:
-      #     ref: 958e2c62d6
-      # - name: Build Chainlink Image
-      #   uses: ./.github/actions/build-chainlink-image
-      #   with:
-      #     tag_suffix: ""
-      #     dockerfile: core/chainlink.Dockerfile
-      #     git_commit_sha: 958e2c62d6
-      #     AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-      #     AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+      - name: Checkout the repo
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          ref: develop/958e2c62d6
+      - name: Build Chainlink Image
+        uses: ./.github/actions/build-chainlink-image
+        with:
+          tag_suffix: ""
+          dockerfile: core/chainlink.Dockerfile
+          git_commit_sha: 958e2c62d6
+          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
 
   build-tests:
     if: needs.check-dependency-bump.outputs.dependency_bumped == 'true' || github.event_name == 'workflow_dispatch'
