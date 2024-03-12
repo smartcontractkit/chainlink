@@ -1,13 +1,103 @@
 package txmgr_test
 
 import (
+	"context"
+	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	commontxmgr "github.com/smartcontractkit/chainlink/v2/common/txmgr"
+
+	evmgas "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	evmtxmgr "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 )
+
+func TestInMemoryStore_SetBroadcastBeforeBlockNum(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
+	persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+	kst := cltest.NewKeyStore(t, db, dbcfg)
+	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
+
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	lggr := logger.TestSugared(t)
+	chainID := ethClient.ConfiguredChainID()
+	ctx := context.Background()
+
+	inMemoryStore, err := commontxmgr.NewInMemoryStore[
+		*big.Int,
+		common.Address, common.Hash, common.Hash,
+		*evmtypes.Receipt,
+		evmtypes.Nonce,
+		evmgas.EvmFee,
+	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	require.NoError(t, err)
+
+	t.Run("saves block num to unconfirmed evm.tx_attempts without one", func(t *testing.T) {
+		// Insert a transaction into persistent store
+		inTx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, persistentStore, 1, fromAddress)
+		// Insert the transaction into the in-memory store
+		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
+
+		headNum := int64(9000)
+		err := inMemoryStore.SetBroadcastBeforeBlockNum(testutils.Context(t), headNum, chainID)
+		require.NoError(t, err)
+
+		expTx, err := persistentStore.FindTxWithAttempts(inTx.ID)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(expTx.TxAttempts))
+		assert.Equal(t, headNum, *expTx.TxAttempts[0].BroadcastBeforeBlockNum)
+		fn := func(tx *evmtxmgr.Tx) bool { return true }
+		actTxs := inMemoryStore.XXXTestFindTxs(nil, fn, inTx.ID)
+		require.Equal(t, 1, len(actTxs))
+		actTx := actTxs[0]
+		assertTxEqual(t, expTx, actTx)
+
+		// wrong chain ID
+		wrongChainID := big.NewInt(123)
+		actErr := inMemoryStore.SetBroadcastBeforeBlockNum(testutils.Context(t), headNum, wrongChainID)
+		expErr := persistentStore.SetBroadcastBeforeBlockNum(testutils.Context(t), headNum, wrongChainID)
+		assert.NoError(t, actErr)
+		assert.NoError(t, expErr)
+	})
+
+	t.Run("does not change evm.tx_attempts that already have BroadcastBeforeBlockNum set", func(t *testing.T) {
+		n := int64(42)
+		// Insert a transaction into persistent store
+		inTx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, persistentStore, 11, fromAddress)
+		inTxAttempt := newBroadcastLegacyEthTxAttempt(t, inTx.ID, 2)
+		inTxAttempt.BroadcastBeforeBlockNum = &n
+		require.NoError(t, persistentStore.InsertTxAttempt(&inTxAttempt))
+		// Insert the transaction into the in-memory store
+		inTx.TxAttempts = append([]evmtxmgr.TxAttempt{inTxAttempt}, inTx.TxAttempts...)
+		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
+
+		headNum := int64(9000)
+		err := inMemoryStore.SetBroadcastBeforeBlockNum(testutils.Context(t), headNum, chainID)
+		require.NoError(t, err)
+
+		expTx, err := persistentStore.FindTxWithAttempts(inTx.ID)
+		require.NoError(t, err)
+		require.Equal(t, 2, len(expTx.TxAttempts))
+		assert.Equal(t, n, *expTx.TxAttempts[0].BroadcastBeforeBlockNum)
+		fn := func(tx *evmtxmgr.Tx) bool { return true }
+		actTxs := inMemoryStore.XXXTestFindTxs(nil, fn, inTx.ID)
+		require.Equal(t, 1, len(actTxs))
+		actTx := actTxs[0]
+		assertTxEqual(t, expTx, actTx)
+	})
+}
 
 // assertTxEqual asserts that two transactions are equal
 func assertTxEqual(t *testing.T, exp, act evmtxmgr.Tx) {
