@@ -148,7 +148,7 @@ func (f *BlockHeaderFeeder) Run(ctx context.Context) error {
 	}
 
 	// use 1 sending key for all batches because ordering matters for StoreVerifyHeader
-	fromAddress, err := f.gethks.GetRoundRobinAddress(f.chainID, blockhashstore.SendingKeys(f.fromAddresses)...)
+	fromAddress, err := f.gethks.GetRoundRobinAddress(ctx, f.chainID, blockhashstore.SendingKeys(f.fromAddresses)...)
 	if err != nil {
 		return errors.Wrap(err, "getting round robin address")
 	}

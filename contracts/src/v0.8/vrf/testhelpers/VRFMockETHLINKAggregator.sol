@@ -7,24 +7,24 @@ contract VRFMockETHLINKAggregator is AggregatorV3Interface {
   int256 public answer;
   uint256 private blockTimestampDeduction = 0;
 
-  constructor(int256 _answer) public {
+  constructor(int256 _answer) {
     answer = _answer;
   }
 
-  function decimals() external view override returns (uint8) {
+  function decimals() external pure override returns (uint8) {
     return 18;
   }
 
-  function description() external view override returns (string memory) {
+  function description() external pure override returns (string memory) {
     return "VRFMockETHLINKAggregator";
   }
 
-  function version() external view override returns (uint256) {
+  function version() external pure override returns (uint256) {
     return 1;
   }
 
   function getRoundData(
-    uint80 _roundId
+    uint80 /*_roundId*/
   )
     external
     view

@@ -341,24 +341,26 @@ func (c *EVMConfig) TOMLString() (string, error) {
 }
 
 type Chain struct {
-	AutoCreateKey            *bool
-	BlockBackfillDepth       *uint32
-	BlockBackfillSkip        *bool
-	ChainType                *string
-	FinalityDepth            *uint32
-	FinalityTagEnabled       *bool
-	FlagsContractAddress     *ethkey.EIP55Address
-	LinkContractAddress      *ethkey.EIP55Address
-	LogBackfillBatchSize     *uint32
-	LogPollInterval          *commonconfig.Duration
-	LogKeepBlocksDepth       *uint32
-	MinIncomingConfirmations *uint32
-	MinContractPayment       *commonassets.Link
-	NonceAutoSync            *bool
-	NoNewHeadsThreshold      *commonconfig.Duration
-	OperatorFactoryAddress   *ethkey.EIP55Address
-	RPCDefaultBatchSize      *uint32
-	RPCBlockQueryDelay       *uint16
+	AutoCreateKey             *bool
+	BlockBackfillDepth        *uint32
+	BlockBackfillSkip         *bool
+	ChainType                 *string
+	FinalityDepth             *uint32
+	FinalityTagEnabled        *bool
+	FlagsContractAddress      *ethkey.EIP55Address
+	LinkContractAddress       *ethkey.EIP55Address
+	LogBackfillBatchSize      *uint32
+	LogPollInterval           *commonconfig.Duration
+	LogKeepBlocksDepth        *uint32
+	LogPrunePageSize          *uint32
+	BackupLogPollerBlockDelay *uint64
+	MinIncomingConfirmations  *uint32
+	MinContractPayment        *commonassets.Link
+	NonceAutoSync             *bool
+	NoNewHeadsThreshold       *commonconfig.Duration
+	OperatorFactoryAddress    *ethkey.EIP55Address
+	RPCDefaultBatchSize       *uint32
+	RPCBlockQueryDelay        *uint16
 
 	Transactions   Transactions      `toml:",omitempty"`
 	BalanceMonitor BalanceMonitor    `toml:",omitempty"`
@@ -479,8 +481,8 @@ type GasEstimator struct {
 	PriceMax     *assets.Wei
 	PriceMin     *assets.Wei
 
-	LimitDefault    *uint32
-	LimitMax        *uint32
+	LimitDefault    *uint64
+	LimitMax        *uint64
 	LimitMultiplier *decimal.Decimal
 	LimitTransfer   *uint32
 	LimitJobType    GasLimitJobType `toml:",omitempty"`
@@ -704,6 +706,7 @@ type NodePool struct {
 	SelectionMode        *string
 	SyncThreshold        *uint32
 	LeaseDuration        *commonconfig.Duration
+	NodeIsSyncingEnabled *bool
 }
 
 func (p *NodePool) setFrom(f *NodePool) {
@@ -721,6 +724,9 @@ func (p *NodePool) setFrom(f *NodePool) {
 	}
 	if v := f.LeaseDuration; v != nil {
 		p.LeaseDuration = v
+	}
+	if v := f.NodeIsSyncingEnabled; v != nil {
+		p.NodeIsSyncingEnabled = v
 	}
 }
 
