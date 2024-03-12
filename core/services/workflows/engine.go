@@ -47,6 +47,8 @@ func (e *Engine) init(ctx context.Context) {
 	ticker := time.NewTicker(time.Duration(retrySec) * time.Second)
 	defer ticker.Stop()
 
+	// Note: in our hardcoded workflow, there is only one trigger,
+	// and one consensus step.
 	trigger := e.workflow.Triggers[0]
 	consensus := e.workflow.Consensus[0]
 
@@ -204,7 +206,7 @@ func (e *Engine) handleStep(ctx context.Context, es *executionState, node Capabi
 		return fmt.Errorf("capability %s must be an action, consensus or target", node.Type)
 	}
 
-	i, err := interpolateInputsFromState(node.Inputs, es)
+	i, err := findAndInterpolateAllKeys(node.Inputs, es)
 	if err != nil {
 		return err
 	}
@@ -236,6 +238,9 @@ func (e *Engine) handleStep(ctx context.Context, es *executionState, node Capabi
 		return err
 	}
 
+	// `ExecuteSync` returns a `values.List` even if there was
+	// just one return value. If that is the case, let's unwrap the
+	// single value to make it easier to use in -- for example -- variable interpolation.
 	if len(resp.Underlying) > 1 {
 		stepState.outputs.value = resp
 	} else {

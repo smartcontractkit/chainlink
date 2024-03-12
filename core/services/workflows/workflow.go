@@ -1,6 +1,6 @@
 package workflows
 
-import "gopkg.in/yaml.v2"
+import "gopkg.in/yaml.v3"
 
 type Capability struct {
 	Type   string         `yaml:"type"`

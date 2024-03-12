@@ -158,6 +158,34 @@ func TestInterpolateKey(t *testing.T) {
 			},
 			errMsg: "could not interpolate ref part `notAString` in `[listElement]`: `notAString` is not convertible to an int",
 		},
+		{
+			name: "digging into an array with a negative index",
+			key:  "evm_median.outputs.reportsList.-1",
+			state: &executionState{
+				steps: map[string]*stepState{
+					"evm_median": {
+						outputs: &stepOutput{
+							value: val,
+						},
+					},
+				},
+			},
+			errMsg: "could not interpolate ref part `-1` in `[listElement]`: index -1 must be a positive number",
+		},
+		{
+			name: "empty element",
+			key:  "evm_median.outputs..notAString",
+			state: &executionState{
+				steps: map[string]*stepState{
+					"evm_median": {
+						outputs: &stepOutput{
+							value: val,
+						},
+					},
+				},
+			},
+			errMsg: "could not find ref part `` in",
+		},
 	}
 
 	for _, tc := range testCases {
@@ -225,7 +253,7 @@ func TestInterpolateInputsFromState(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(st *testing.T) {
-			got, err := interpolateInputsFromState(tc.inputs, tc.state)
+			got, err := findAndInterpolateAllKeys(tc.inputs, tc.state)
 			if tc.errMsg != "" {
 				require.ErrorContains(st, err, tc.errMsg)
 			} else {

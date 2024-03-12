@@ -42,27 +42,23 @@ func interpolateKey(key string, state *executionState) (any, error) {
 		return "", fmt.Errorf("could not find ref `%s`", parts[0])
 	}
 
-	var val any
+	var value values.Value
 	switch parts[1] {
 	case "inputs":
-		v, err := values.Unwrap(sc.inputs)
-		if err != nil {
-			return nil, err
-		}
-		val = v
+		value = sc.inputs
 	case "outputs":
 		if sc.outputs.err != nil {
-			return "", fmt.Errorf("cannot interpolate ref part `%s` in `%+v`: step has errored", parts[1], val)
+			return "", fmt.Errorf("cannot interpolate ref part `%s` in `%+v`: step has errored", parts[1], sc)
 		}
 
-		v, err := values.Unwrap(sc.outputs.value)
-		if err != nil {
-			return "", err
-		}
-
-		val = v
+		value = sc.outputs.value
 	default:
-		return "", fmt.Errorf("cannot interpolate ref part `%s` in `%+v`: second part must be `inputs` or `outputs`", parts[1], val)
+		return "", fmt.Errorf("cannot interpolate ref part `%s` in `%+v`: second part must be `inputs` or `outputs`", parts[1], sc)
+	}
+
+	val, err := values.Unwrap(value)
+	if err != nil {
+		return "", err
 	}
 
 	remainingParts := parts[2:]
@@ -85,6 +81,10 @@ func interpolateKey(key string, state *executionState) (any, error) {
 				return "", fmt.Errorf("could not interpolate ref part `%s` in `%+v`: cannot fetch index %d", r, v, d)
 			}
 
+			if d < 0 {
+				return "", fmt.Errorf("could not interpolate ref part `%s` in `%+v`: index %d must be a positive number", r, v, d)
+			}
+
 			val = v[d]
 		default:
 			return "", fmt.Errorf("could not interpolate ref part `%s` in `%+v`", r, val)
@@ -98,11 +98,11 @@ var (
 	interpolationTokenRe = regexp.MustCompile(`^\$\((\S+)\)$`)
 )
 
-// interpolateInputsFromState takes an `m` any value, and recursively
-// identifies any values that should be replaced from `es`.
+// findAndInterpolateAllKeys takes an `input` any value, and recursively
+// identifies any values that should be replaced from `state`.
 // A value `v` should be replaced if it is wrapped as follows `$(v)`.
-func interpolateInputsFromState(m any, es *executionState) (any, error) {
-	switch tv := m.(type) {
+func findAndInterpolateAllKeys(input any, state *executionState) (any, error) {
+	switch tv := input.(type) {
 	case string:
 		matches := interpolationTokenRe.FindStringSubmatch(tv)
 		if len(matches) < 2 {
@@ -110,7 +110,7 @@ func interpolateInputsFromState(m any, es *executionState) (any, error) {
 		}
 
 		interpolatedVar := matches[1]
-		nv, err := interpolateKey(interpolatedVar, es)
+		nv, err := interpolateKey(interpolatedVar, state)
 		if err != nil {
 			return nil, err
 		}
@@ -119,7 +119,7 @@ func interpolateInputsFromState(m any, es *executionState) (any, error) {
 	case map[string]any:
 		nm := map[string]any{}
 		for k, v := range tv {
-			nv, err := interpolateInputsFromState(v, es)
+			nv, err := findAndInterpolateAllKeys(v, state)
 			if err != nil {
 				return nil, err
 			}
@@ -130,7 +130,7 @@ func interpolateInputsFromState(m any, es *executionState) (any, error) {
 	case []any:
 		a := []any{}
 		for _, el := range tv {
-			ne, err := interpolateInputsFromState(el, es)
+			ne, err := findAndInterpolateAllKeys(el, state)
 			if err != nil {
 				return nil, err
 			}
@@ -140,5 +140,5 @@ func interpolateInputsFromState(m any, es *executionState) (any, error) {
 		return a, nil
 	}
 
-	return nil, fmt.Errorf("cannot interpolate item %+v of type %T", m, m)
+	return nil, fmt.Errorf("cannot interpolate item %+v of type %T", input, input)
 }
