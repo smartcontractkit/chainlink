@@ -286,7 +286,7 @@ func (n *ClNode) Fund(evmClient blockchain.EVMClient, amount *big.Float) error {
 }
 
 func (n *ClNode) StartContainer() error {
-	err := n.PostgresDb.StartContainer()
+	err := n.PostgresDb.RestartContainer()
 	if err != nil {
 		return err
 	}
