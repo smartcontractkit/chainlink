@@ -230,7 +230,7 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxCallbackCompleted(ctx context.Context, pipelineTaskRunRid uuid.UUID, chainId CHAIN_ID) error {
 	if ms.chainID.String() != chainId.String() {
-		return fmt.Errorf("update_tx_callback_completed: %w", ErrInvalidChainID)
+		return nil
 	}
 
 	// Persist to persistent storage

@@ -1,13 +1,89 @@
 package txmgr_test
 
 import (
+	"context"
+	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	commontxmgr "github.com/smartcontractkit/chainlink/v2/common/txmgr"
+
+	evmgas "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	evmtxmgr "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 )
+
+func TestInMemoryStore_UpdateTxCallbackCompleted(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
+	persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+	kst := cltest.NewKeyStore(t, db, dbcfg)
+	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
+
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	lggr := logger.TestSugared(t)
+	chainID := ethClient.ConfiguredChainID()
+	ctx := context.Background()
+
+	inMemoryStore, err := commontxmgr.NewInMemoryStore[
+		*big.Int,
+		common.Address, common.Hash, common.Hash,
+		*evmtypes.Receipt,
+		evmtypes.Nonce,
+		evmgas.EvmFee,
+	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	require.NoError(t, err)
+
+	t.Run("sets tx callback as completed", func(t *testing.T) {
+		// Insert a transaction into persistent store
+		inTx := cltest.NewEthTx(fromAddress)
+		inTx.PipelineTaskRunID = uuid.NullUUID{UUID: uuid.New(), Valid: true}
+		require.NoError(t, persistentStore.InsertTx(&inTx))
+		// Insert the transaction into the in-memory store
+		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
+
+		err := inMemoryStore.UpdateTxCallbackCompleted(
+			testutils.Context(t),
+			inTx.PipelineTaskRunID.UUID,
+			chainID,
+		)
+		require.NoError(t, err)
+
+		expTx, err := persistentStore.FindTxWithAttempts(inTx.ID)
+		require.NoError(t, err)
+		fn := func(tx *evmtxmgr.Tx) bool { return true }
+		actTxs := inMemoryStore.XXXTestFindTxs(nil, fn, inTx.ID)
+		require.Equal(t, 1, len(actTxs))
+		actTx := actTxs[0]
+		assertTxEqual(t, expTx, actTx)
+		assert.True(t, actTx.CallbackCompleted)
+
+		// wrong chain id
+		wrongChainID := big.NewInt(123)
+		actErr := inMemoryStore.UpdateTxCallbackCompleted(testutils.Context(t), inTx.PipelineTaskRunID.UUID, wrongChainID)
+		expErr := persistentStore.UpdateTxCallbackCompleted(testutils.Context(t), inTx.PipelineTaskRunID.UUID, wrongChainID)
+		assert.NoError(t, actErr)
+		assert.NoError(t, expErr)
+
+		// wrong PipelineTaskRunID
+		wrongPipelineTaskRunID := uuid.NullUUID{UUID: uuid.New(), Valid: true}
+		actErr = inMemoryStore.UpdateTxCallbackCompleted(testutils.Context(t), wrongPipelineTaskRunID.UUID, chainID)
+		expErr = persistentStore.UpdateTxCallbackCompleted(testutils.Context(t), wrongPipelineTaskRunID.UUID, chainID)
+		assert.NoError(t, actErr)
+		assert.NoError(t, expErr)
+	})
+}
 
 // assertTxEqual asserts that two transactions are equal
 func assertTxEqual(t *testing.T, exp, act evmtxmgr.Tx) {
