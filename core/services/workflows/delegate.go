@@ -1,6 +1,7 @@
 package workflows
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -34,7 +35,7 @@ func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
 func (d *Delegate) OnDeleteJob(jb job.Job, q pg.Queryer) error { return nil }
 
 // ServicesForSpec satisfies the job.Delegate interface.
-func (d *Delegate) ServicesForSpec(spec job.Job) ([]job.ServiceCtx, error) {
+func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.ServiceCtx, error) {
 	engine, err := NewEngine(d.logger, d.registry)
 	if err != nil {
 		return nil, err
@@ -44,7 +45,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job) ([]job.ServiceCtx, error) {
 
 func NewDelegate(logger logger.Logger, registry types.CapabilitiesRegistry, legacyEVMChains legacyevm.LegacyChainContainer) *Delegate {
 	// NOTE: we temporarily do registration inside NewDelegate, this will be moved out of job specs in the future
-	_ = targets.InitializeWrite(registry, legacyEVMChains)
+	_ = targets.InitializeWrite(registry, legacyEVMChains, logger)
 
 	return &Delegate{logger: logger, registry: registry}
 }

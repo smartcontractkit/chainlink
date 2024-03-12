@@ -11,7 +11,7 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -23,7 +23,7 @@ import (
 )
 
 type ArbConfig interface {
-	LimitMax() uint32
+	LimitMax() uint64
 	BumpPercent() uint16
 	BumpMin() *assets.Wei
 }
@@ -76,7 +76,7 @@ func (a *arbitrumEstimator) Name() string {
 func (a *arbitrumEstimator) Start(ctx context.Context) error {
 	return a.StartOnce("ArbitrumEstimator", func() error {
 		if err := a.EvmEstimator.Start(ctx); err != nil {
-			return errors.Wrap(err, "failed to start gas price estimator")
+			return pkgerrors.Wrap(err, "failed to start gas price estimator")
 		}
 		go a.run()
 		<-a.chInitialised
@@ -86,7 +86,7 @@ func (a *arbitrumEstimator) Start(ctx context.Context) error {
 func (a *arbitrumEstimator) Close() error {
 	return a.StopOnce("ArbitrumEstimator", func() (err error) {
 		close(a.chStop)
-		err = errors.Wrap(a.EvmEstimator.Close(), "failed to stop gas price estimator")
+		err = pkgerrors.Wrap(a.EvmEstimator.Close(), "failed to stop gas price estimator")
 		<-a.chDone
 		return
 	})
@@ -105,7 +105,7 @@ func (a *arbitrumEstimator) HealthReport() map[string]error {
 //   - Limit is computed from the dynamic values perL2Tx and perL1CalldataUnit, provided by the getPricesInArbGas() method
 //     of the precompilie contract at ArbGasInfoAddress. perL2Tx is a constant amount of gas, and perL1CalldataUnit is
 //     multiplied by the length of the tx calldata. The sum of these two values plus the original l2GasLimit is returned.
-func (a *arbitrumEstimator) GetLegacyGas(ctx context.Context, calldata []byte, l2GasLimit uint32, maxGasPriceWei *assets.Wei, opts ...feetypes.Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
+func (a *arbitrumEstimator) GetLegacyGas(ctx context.Context, calldata []byte, l2GasLimit uint64, maxGasPriceWei *assets.Wei, opts ...feetypes.Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint64, err error) {
 	gasPrice, _, err = a.EvmEstimator.GetLegacyGas(ctx, calldata, l2GasLimit, maxGasPriceWei, opts...)
 	if err != nil {
 		return
@@ -117,7 +117,7 @@ func (a *arbitrumEstimator) GetLegacyGas(ctx context.Context, calldata []byte, l
 			select {
 			case a.chForceRefetch <- ch:
 			case <-a.chStop:
-				err = errors.New("estimator stopped")
+				err = pkgerrors.New("estimator stopped")
 				return
 			case <-ctx.Done():
 				err = ctx.Err()
@@ -126,7 +126,7 @@ func (a *arbitrumEstimator) GetLegacyGas(ctx context.Context, calldata []byte, l
 			select {
 			case <-ch:
 			case <-a.chStop:
-				err = errors.New("estimator stopped")
+				err = pkgerrors.New("estimator stopped")
 				return
 			case <-ctx.Done():
 				err = ctx.Err()
@@ -134,12 +134,12 @@ func (a *arbitrumEstimator) GetLegacyGas(ctx context.Context, calldata []byte, l
 			}
 		}
 		perL2Tx, perL1CalldataUnit := a.getPricesInArbGas()
-		chainSpecificGasLimit = l2GasLimit + perL2Tx + uint32(len(calldata))*perL1CalldataUnit
+		chainSpecificGasLimit = l2GasLimit + uint64(perL2Tx) + uint64(len(calldata))*uint64(perL1CalldataUnit)
 		a.logger.Debugw("GetLegacyGas", "l2GasLimit", l2GasLimit, "calldataLen", len(calldata), "perL2Tx", perL2Tx,
 			"perL1CalldataUnit", perL1CalldataUnit, "chainSpecificGasLimit", chainSpecificGasLimit)
 	})
 	if !ok {
-		return nil, 0, errors.New("estimator is not started")
+		return nil, 0, pkgerrors.New("estimator is not started")
 	} else if err != nil {
 		return
 	}

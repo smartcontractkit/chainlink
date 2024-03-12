@@ -25,7 +25,7 @@ import (
 var _ BHS = &BulletproofBHS{}
 
 type bpBHSConfig interface {
-	LimitDefault() uint32
+	LimitDefault() uint64
 }
 
 type bpBHSDatabaseConfig interface {
@@ -91,7 +91,7 @@ func (c *BulletproofBHS) Store(ctx context.Context, blockNum uint64) error {
 		return errors.Wrap(err, "packing args")
 	}
 
-	fromAddress, err := c.gethks.GetRoundRobinAddress(c.chainID, SendingKeys(c.fromAddresses)...)
+	fromAddress, err := c.gethks.GetRoundRobinAddress(ctx, c.chainID, SendingKeys(c.fromAddresses)...)
 	if err != nil {
 		return errors.Wrap(err, "getting next from address")
 	}
@@ -132,7 +132,7 @@ func (c *BulletproofBHS) StoreTrusted(
 	}
 
 	// Create a transaction from the given batch and send it to the TXM.
-	fromAddress, err := c.gethks.GetRoundRobinAddress(c.chainID, SendingKeys(c.fromAddresses)...)
+	fromAddress, err := c.gethks.GetRoundRobinAddress(ctx, c.chainID, SendingKeys(c.fromAddresses)...)
 	if err != nil {
 		return errors.Wrap(err, "getting next from address")
 	}
@@ -186,7 +186,7 @@ func (c *BulletproofBHS) StoreEarliest(ctx context.Context) error {
 		return errors.Wrap(err, "packing args")
 	}
 
-	fromAddress, err := c.gethks.GetRoundRobinAddress(c.chainID, c.sendingKeys()...)
+	fromAddress, err := c.gethks.GetRoundRobinAddress(ctx, c.chainID, c.sendingKeys()...)
 	if err != nil {
 		return errors.Wrap(err, "getting next from address")
 	}

@@ -9,6 +9,7 @@ describe('ScrollValidator', () => {
   const L2_SEQ_STATUS_RECORDER_ADDRESS =
     '0x491B1dDA0A8fa069bbC1125133A975BF4e85a91b'
   let scrollValidator: Contract
+  let l1MessageQueue: Contract
   let scrollUptimeFeedFactory: ContractFactory
   let mockScrollL1CrossDomainMessenger: Contract
   let deployer: SignerWithAddress
@@ -35,6 +36,13 @@ describe('ScrollValidator', () => {
     mockScrollL1CrossDomainMessenger =
       await mockScrollL1CrossDomainMessengerFactory.deploy()
 
+    // Scroll Message Queue contract on L1
+    const l1MessageQueueFactory = await ethers.getContractFactory(
+      'src/v0.8/l2ep/test/mocks/scroll/MockScrollL1MessageQueue.sol:MockScrollL1MessageQueue',
+      deployer,
+    )
+    l1MessageQueue = await l1MessageQueueFactory.deploy()
+
     // Contract under test
     const scrollValidatorFactory = await ethers.getContractFactory(
       'src/v0.8/l2ep/dev/scroll/ScrollValidator.sol:ScrollValidator',
@@ -44,6 +52,7 @@ describe('ScrollValidator', () => {
     scrollValidator = await scrollValidatorFactory.deploy(
       mockScrollL1CrossDomainMessenger.address,
       L2_SEQ_STATUS_RECORDER_ADDRESS,
+      l1MessageQueue.address,
       GAS_LIMIT,
     )
   })

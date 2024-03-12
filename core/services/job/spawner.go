@@ -70,7 +70,7 @@ type (
 		// job. In case a given job type relies upon well-defined startup/shutdown
 		// ordering for services, they are started in the order they are given
 		// and stopped in reverse order.
-		ServicesForSpec(Job) ([]ServiceCtx, error)
+		ServicesForSpec(context.Context, Job) ([]ServiceCtx, error)
 		AfterJobCreated(Job)
 		BeforeJobDeleted(Job)
 		// OnDeleteJob will be called from within DELETE db transaction.  Any db
@@ -215,7 +215,7 @@ func (js *spawner) StartService(ctx context.Context, jb Job, qopts ...pg.QOpt) e
 		jb.PipelineSpec.GasLimit = &jb.GasLimit.Uint32
 	}
 
-	srvs, err := delegate.ServicesForSpec(jb)
+	srvs, err := delegate.ServicesForSpec(ctx, jb)
 	if err != nil {
 		lggr.Errorw("Error creating services for job", "err", err)
 		cctx, cancel := js.chStop.NewCtx()
@@ -391,7 +391,7 @@ func (n *NullDelegate) JobType() Type {
 }
 
 // ServicesForSpec does no-op.
-func (n *NullDelegate) ServicesForSpec(spec Job) (s []ServiceCtx, err error) {
+func (n *NullDelegate) ServicesForSpec(ctx context.Context, spec Job) (s []ServiceCtx, err error) {
 	return
 }
 
