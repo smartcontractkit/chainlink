@@ -2,7 +2,6 @@ package ccipcommit
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"math/big"
 	"math/rand"
@@ -659,9 +658,14 @@ func TestCommitReportingPlugin_validateObservations(t *testing.T) {
 	}
 	ob1Bytes, err := ob1.Marshal()
 	assert.NoError(t, err)
-	var ob2, ob3 ccip.CommitObservation
-	_ = json.Unmarshal(ob1Bytes, &ob2)
-	_ = json.Unmarshal(ob1Bytes, &ob3)
+	lggr := logger.TestLogger(t)
+	observations := ccip.GetParsableObservations[ccip.CommitObservation](lggr, []types.AttributedObservation{
+		{Observation: ob1Bytes},
+		{Observation: ob1Bytes},
+	})
+	assert.Len(t, observations, 2)
+	ob2 := observations[0]
+	ob3 := observations[1]
 
 	obWithNilGasPrice := ccip.CommitObservation{
 		Interval: cciptypes.CommitStoreInterval{Min: 0, Max: 0},
