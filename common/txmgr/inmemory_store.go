@@ -319,7 +319,23 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveC
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveInProgressAttempt(ctx context.Context, attempt *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
 	ms.addressStatesLock.RLock()
 	defer ms.addressStatesLock.RUnlock()
-	as, ok := ms.addressStates[attempt.Tx.FromAddress]
+
+	var tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	for _, as := range ms.addressStates {
+		fn := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
+			return true
+		}
+		txs := as.findTxs(nil, fn, attempt.TxID)
+		if len(txs) != 0 {
+			tx = &txs[0]
+			break
+		}
+	}
+	if tx == nil {
+		return fmt.Errorf("save_in_progress_attempt: %w: with attempt hash %q", ErrTxnNotFound, attempt.Hash)
+	}
+
+	as, ok := ms.addressStates[tx.FromAddress]
 	if !ok {
 		return fmt.Errorf("save_in_progress_attempt: %w", ErrAddressNotFound)
 	}
