@@ -172,6 +172,6 @@ func (o *orm) LatestReport(ctx context.Context, feedID [32]byte, qopts ...pg.QOp
 }
 
 func hashPayload(payload []byte) []byte {
-	h := sha256.New()
-	return h.Sum(payload)
+	checksum := sha256.Sum256(payload)
+	return checksum[:]
 }
