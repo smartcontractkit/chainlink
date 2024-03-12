@@ -9,6 +9,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	gqlerrors "github.com/graph-gophers/graphql-go/errors"
 
+	"github.com/stretchr/testify/mock"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
@@ -20,7 +22,6 @@ import (
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	chainlinkmocks "github.com/smartcontractkit/chainlink/v2/core/services/chainlink/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/web/testutils"
-	"github.com/stretchr/testify/mock"
 )
 
 func TestResolver_EthTransaction(t *testing.T) {
