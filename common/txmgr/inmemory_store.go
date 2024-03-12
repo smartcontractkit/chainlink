@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -46,7 +47,8 @@ type inMemoryStore[
 	keyStore          txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
 	persistentTxStore txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 
-	addressStates map[ADDR]*addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
+	addressStatesLock sync.RWMutex
+	addressStates     map[ADDR]*addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 }
 
 // NewInMemoryStore returns a new inMemoryStore
@@ -181,12 +183,12 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Updat
 	}
 
 	// Persist to persistent storage
-	if err := ms.txStore.UpdateTxAttemptInProgressToBroadcast(ctx, tx, attempt, newAttemptState); err != nil {
+	if err := ms.persistentTxStore.UpdateTxAttemptInProgressToBroadcast(ctx, tx, attempt, newAttemptState); err != nil {
 		return fmt.Errorf("update_tx_attempt_in_progress_to_broadcast: %w", err)
 	}
 
 	// Update in memory store
-	if err := as.MoveInProgressToUnconfirmed(tx.Error, *tx.BroadcastAt, *tx.InitialBroadcastAt, attempt.ID); err != nil {
+	if err := as.moveInProgressToUnconfirmed(tx.Error, *tx.BroadcastAt, *tx.InitialBroadcastAt, attempt.ID); err != nil {
 		return fmt.Errorf("update_tx_attempt_in_progress_to_broadcast: %w", err)
 	}
 
