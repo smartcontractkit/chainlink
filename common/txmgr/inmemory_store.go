@@ -166,7 +166,7 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Updat
 	}
 
 	// Update in address state in memory
-	if err := as.moveUnstartedToInProgress(tx.ID, *tx.Sequence, *tx.BroadcastAt, *tx.InitialBroadcastAt, *attempt); err != nil {
+	if err := as.moveUnstartedToInProgress(tx.ID, tx.Sequence, tx.BroadcastAt, tx.InitialBroadcastAt, *attempt); err != nil {
 		return fmt.Errorf("update_tx_unstarted_to_in_progress: %w", err)
 	}
 
