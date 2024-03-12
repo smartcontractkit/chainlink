@@ -1,13 +1,105 @@
 package txmgr_test
 
 import (
+	"context"
+	"math/big"
 	"testing"
+	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	commontxmgr "github.com/smartcontractkit/chainlink/v2/common/txmgr"
+
+	evmgas "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	evmtxmgr "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 )
+
+func TestInMemoryStore_UpdateBroadcastAts(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
+	persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+	kst := cltest.NewKeyStore(t, db, dbcfg)
+	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
+
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	lggr := logger.TestSugared(t)
+	chainID := ethClient.ConfiguredChainID()
+	ctx := context.Background()
+
+	inMemoryStore, err := commontxmgr.NewInMemoryStore[
+		*big.Int,
+		common.Address, common.Hash, common.Hash,
+		*evmtypes.Receipt,
+		evmtypes.Nonce,
+		evmgas.EvmFee,
+	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	require.NoError(t, err)
+
+	t.Run("does not update when broadcast_at is Null", func(t *testing.T) {
+		// Insert a transaction into persistent store
+		inTx := mustInsertInProgressEthTxWithAttempt(t, persistentStore, 1, fromAddress)
+		require.Nil(t, inTx.BroadcastAt)
+		now := time.Now()
+		// Insert the transaction into the in-memory store
+		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
+
+		err := inMemoryStore.UpdateBroadcastAts(
+			testutils.Context(t),
+			now,
+			[]int64{inTx.ID},
+		)
+		require.NoError(t, err)
+
+		expTx, err := persistentStore.FindTxWithAttempts(inTx.ID)
+		require.NoError(t, err)
+		fn := func(tx *evmtxmgr.Tx) bool { return true }
+		actTxs := inMemoryStore.XXXTestFindTxs(nil, fn, inTx.ID)
+		require.Equal(t, 1, len(actTxs))
+		actTx := actTxs[0]
+		assertTxEqual(t, expTx, actTx)
+		assert.Nil(t, actTx.BroadcastAt)
+	})
+
+	t.Run("updates broadcast_at when not null", func(t *testing.T) {
+		// Insert a transaction into persistent store
+		time1 := time.Now()
+		inTx := cltest.NewEthTx(fromAddress)
+		inTx.Sequence = new(evmtypes.Nonce)
+		inTx.State = commontxmgr.TxUnconfirmed
+		inTx.BroadcastAt = &time1
+		inTx.InitialBroadcastAt = &time1
+		require.NoError(t, persistentStore.InsertTx(&inTx))
+		// Insert the transaction into the in-memory store
+		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
+
+		time2 := time1.Add(1 * time.Hour)
+		err := inMemoryStore.UpdateBroadcastAts(
+			testutils.Context(t),
+			time2,
+			[]int64{inTx.ID},
+		)
+		require.NoError(t, err)
+
+		expTx, err := persistentStore.FindTxWithAttempts(inTx.ID)
+		require.NoError(t, err)
+		fn := func(tx *evmtxmgr.Tx) bool { return true }
+		actTxs := inMemoryStore.XXXTestFindTxs(nil, fn, inTx.ID)
+		require.Equal(t, 1, len(actTxs))
+		actTx := actTxs[0]
+		assertTxEqual(t, expTx, actTx)
+		assert.NotNil(t, actTx.BroadcastAt)
+	})
+}
 
 // assertTxEqual asserts that two transactions are equal
 func assertTxEqual(t *testing.T, exp, act evmtxmgr.Tx) {
@@ -20,7 +112,10 @@ func assertTxEqual(t *testing.T, exp, act evmtxmgr.Tx) {
 	assert.Equal(t, exp.Value, act.Value)
 	assert.Equal(t, exp.FeeLimit, act.FeeLimit)
 	assert.Equal(t, exp.Error, act.Error)
-	assert.Equal(t, exp.BroadcastAt, act.BroadcastAt)
+	if exp.BroadcastAt != nil {
+		require.NotNil(t, act.BroadcastAt)
+		assert.Equal(t, exp.BroadcastAt.Unix(), act.BroadcastAt.Unix())
+	}
 	assert.Equal(t, exp.InitialBroadcastAt, act.InitialBroadcastAt)
 	assert.Equal(t, exp.CreatedAt, act.CreatedAt)
 	assert.Equal(t, exp.State, act.State)
