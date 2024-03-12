@@ -2,21 +2,23 @@
 
 import * as core from "@actions/core";
 import * as github from "@actions/github";
-import { Octokit } from "@octokit/rest";
 import { route53RecordsExist } from "./lib/check-route53-records.js";
 
 function generateSubdomains(subdomainPrefix, prNumber) {
-  return [
-    `${subdomainPrefix}-${prNumber}-node1`,
-    `${subdomainPrefix}-${prNumber}-node2`,
-    `${subdomainPrefix}-${prNumber}-node3`,
-    `${subdomainPrefix}-${prNumber}-node4`,
-    `${subdomainPrefix}-${prNumber}-node5`,
-    `${subdomainPrefix}-${prNumber}-node6`,
-    `${subdomainPrefix}-${prNumber}-geth-http`,
-    `${subdomainPrefix}-${prNumber}-geth-ws`,
-    `${subdomainPrefix}-${prNumber}-mockserver`,
+  const subDomainSuffixes = [
+    "node1",
+    "node2",
+    "node3",
+    "node4",
+    "node5",
+    "node6",
+    "geth-http",
+    "geth-ws",
+    "mockserver",
   ];
+  return subDomainSuffixes.map(
+    (suffix) => `${subdomainPrefix}-${prNumber}-${suffix}`
+  );
 }
 
 async function commentExists(octokit, owner, repo, prNumber, uniqueIdentifier) {
@@ -44,7 +46,7 @@ async function run() {
       return;
     }
 
-    const octokit = new Octokit({ auth: token });
+    const octokit = github.getOctokit(token);
     const context = github.context;
     const subdomainPrefix = process.env.SUBDOMAIN_PREFIX || "crib-chainlink";
     const labelsToCheck = ["crib"];
