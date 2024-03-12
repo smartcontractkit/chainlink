@@ -22,12 +22,12 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
   // to extract config from logs.
 
   // Storing these fields used on the hot path in a ConfigInfo variable reduces the
-  // retrieval of all of them to a single SLOAD. If any further fields are
-  // added, make sure that storage of the struct still takes at most 32 bytes.
+  // retrieval of all of them into two SLOADs. If any further fields are
+  // added, make sure that storage of the struct still takes at most 64 bytes.
   struct ConfigInfo {
     bytes32 latestConfigDigest;
-    uint8 f; // TODO: could be optimized by squeezing into one slot
-    uint8 n;
+    uint8 f; // ───╮
+    uint8 n; // ───╯
   }
   ConfigInfo internal s_configInfo;
 
