@@ -171,6 +171,8 @@ func TestOCRChaos(t *testing.T) {
 			network = utils.MustReplaceSimulatedNetworkUrlWithK8(l, network, *testEnvironment)
 
 			sethCfg := utils.MergeSethAndEvmNetworkConfigs(l, network, *readSethCfg)
+			err = utils.ValidateSethNetworkConfig(sethCfg.Network)
+			require.NoError(t, err, "Error validating seth network config")
 			seth, err := seth.NewClientWithConfig(&sethCfg)
 			require.NoError(t, err, "Error creating seth client")
 
