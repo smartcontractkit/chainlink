@@ -174,6 +174,7 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
   /// in which case it will carry the proper dstChainSelector along with the 0x0 address
   function addToWatchListOrDecomission(address targetAddress, uint64 dstChainSelector) public onlyAdminOrExecutor {
     if (s_targets[targetAddress].isActive) revert DuplicateAddress(targetAddress);
+    if (targetAddress == address(0) && dstChainSelector == 0) revert InvalidAddress(targetAddress);
     bool onRampExists = s_onRampAddresses.contains(dstChainSelector);
     // if targetAddress is an existing onRamp, there's a need of cleaning the previous onRamp associated to this dstChainSelector
     // there's no need to remove any other address that's not an onRamp
@@ -183,7 +184,6 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
     }
     // only add the new address if it's not 0x0
     if (targetAddress != address(0)) {
-      s_onRampAddresses.set(dstChainSelector, targetAddress);
       s_targets[targetAddress] = MonitoredAddress({
         isActive: true,
         minBalance: DEFAULT_MIN_BALANCE_JUELS,
@@ -191,8 +191,12 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
         lastTopUpTimestamp: 0
       });
       s_watchList.add(targetAddress);
-    } else {
-      // if the address is 0x0, it means the onRamp has ben decomissioned and has to be cleaned
+      // add the contract to onRampAddresses if it carries a valid dstChainSelector
+      if (dstChainSelector > 0) {
+        s_onRampAddresses.set(dstChainSelector, targetAddress);
+      }
+      // else if is refundant as this is the only corner case left, maintaining it for legibility
+    } else if (targetAddress == address(0) && dstChainSelector > 0) {
       s_onRampAddresses.remove(dstChainSelector);
     }
   }
