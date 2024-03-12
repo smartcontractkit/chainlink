@@ -1,13 +1,93 @@
 package txmgr_test
 
 import (
+	"context"
+	"math/big"
 	"testing"
+	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	commontxmgr "github.com/smartcontractkit/chainlink/v2/common/txmgr"
+	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
+
+	evmgas "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	evmtxmgr "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 )
+
+func TestInMemoryStore_SaveInsufficientFundsAttempt(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
+	persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+	kst := cltest.NewKeyStore(t, db, dbcfg)
+	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
+
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	lggr := logger.TestSugared(t)
+	chainID := ethClient.ConfiguredChainID()
+	ctx := context.Background()
+
+	inMemoryStore, err := commontxmgr.NewInMemoryStore[
+		*big.Int,
+		common.Address, common.Hash, common.Hash,
+		*evmtypes.Receipt,
+		evmtypes.Nonce,
+		evmgas.EvmFee,
+	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	require.NoError(t, err)
+
+	defaultDuration := time.Second * 5
+	t.Run("updates attempt state and checks error returns", func(t *testing.T) {
+		// Insert a transaction into persistent store
+		inTx := mustInsertInProgressEthTxWithAttempt(t, persistentStore, 1, fromAddress)
+		now := time.Now()
+		// Insert the transaction into the in-memory store
+		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
+
+		err := inMemoryStore.SaveInsufficientFundsAttempt(
+			testutils.Context(t),
+			defaultDuration,
+			&inTx.TxAttempts[0],
+			now,
+		)
+		require.NoError(t, err)
+
+		expTx, err := persistentStore.FindTxWithAttempts(inTx.ID)
+		require.NoError(t, err)
+		fn := func(tx *evmtxmgr.Tx) bool { return true }
+		actTxs := inMemoryStore.XXXTestFindTxs(nil, fn, inTx.ID)
+		require.Equal(t, 1, len(actTxs))
+		actTx := actTxs[0]
+		assertTxEqual(t, expTx, actTx)
+		assert.Equal(t, txmgrtypes.TxAttemptInsufficientFunds, actTx.TxAttempts[0].State)
+
+		// wrong tx id
+		inTx.TxAttempts[0].TxID = 123
+		actErr := inMemoryStore.SaveInsufficientFundsAttempt(testutils.Context(t), defaultDuration, &inTx.TxAttempts[0], now)
+		expErr := persistentStore.SaveInsufficientFundsAttempt(testutils.Context(t), defaultDuration, &inTx.TxAttempts[0], now)
+		assert.NoError(t, actErr)
+		assert.NoError(t, expErr)
+		inTx.TxAttempts[0].TxID = inTx.ID // reset
+
+		// wrong attempt state
+		inTx.TxAttempts[0].State = txmgrtypes.TxAttemptBroadcast
+		actErr = inMemoryStore.SaveInsufficientFundsAttempt(testutils.Context(t), defaultDuration, &inTx.TxAttempts[0], now)
+		expErr = persistentStore.SaveInsufficientFundsAttempt(testutils.Context(t), defaultDuration, &inTx.TxAttempts[0], now)
+		assert.Error(t, actErr)
+		assert.Error(t, expErr)
+		inTx.TxAttempts[0].State = txmgrtypes.TxAttemptInsufficientFunds // reset
+	})
+}
 
 // assertTxEqual asserts that two transactions are equal
 func assertTxEqual(t *testing.T, exp, act evmtxmgr.Tx) {
