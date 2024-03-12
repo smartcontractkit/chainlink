@@ -21,6 +21,7 @@ const (
 	ErrWaitTXsComplete         = "error waiting for TXs to complete"
 	ErrRequestRandomness       = "error requesting randomness"
 	ErrLoadingCoordinator      = "error loading coordinator contract"
+	ErrCreatingVRFKey          = "error creating VRF key"
 
 	ErrWaitRandomWordsRequestedEvent = "error waiting for RandomWordsRequested event"
 	ErrWaitRandomWordsFulfilledEvent = "error waiting for RandomWordsFulfilled event"
