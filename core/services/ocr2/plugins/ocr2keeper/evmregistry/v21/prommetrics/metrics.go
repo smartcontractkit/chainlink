@@ -20,7 +20,7 @@ const (
 
 // Streams error labels
 const (
-	StreamsLookupErrorReasonNotReverted         = "error_reason_not_target_check_reverted"
+	StreamsLookupErrorReasonNotReverted         = "reason_not_target_check_reverted"
 	StreamsLookupErrorDecodeRequestFailed       = "decode_request_failed"
 	StreamsLookupErrorCredentialsNotConfigured  = "credentials_not_configured"
 	StreamsLookupErrorDoMercuryRequest          = "do_mercury_request"
@@ -85,7 +85,7 @@ var (
 	AutomationStreamsLookupError = promauto.NewCounterVec(prometheus.CounterOpts{
 		Namespace: NamespaceAutomationStreams,
 		Name:      "streams_lookup_error_count",
-		Help:      "Errors occured during a streams lookup attempt",
+		Help:      "Errors occurred during a streams lookup attempt",
 	}, []string{
 		"error",
 	})
