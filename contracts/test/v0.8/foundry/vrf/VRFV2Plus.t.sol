@@ -164,7 +164,9 @@ contract VRFV2Plus is BaseTest {
     );
 
     // Test that setting native premium percentage higher than 100 will revert
-    vm.expectRevert(abi.encodeWithSelector(VRFCoordinatorV2_5.InvalidPremiumPercentage.selector, uint32(150), uint32(10)));
+    vm.expectRevert(
+      abi.encodeWithSelector(VRFCoordinatorV2_5.InvalidPremiumPercentage.selector, uint32(150), uint32(10))
+    );
 
     s_testCoordinator.setConfig(
       0,
@@ -179,7 +181,9 @@ contract VRFV2Plus is BaseTest {
     );
 
     // Test that setting LINK premium percentage higher than 100 will revert
-    vm.expectRevert(abi.encodeWithSelector(VRFCoordinatorV2_5.InvalidPremiumPercentage.selector, uint32(15), uint32(102))); 
+    vm.expectRevert(
+      abi.encodeWithSelector(VRFCoordinatorV2_5.InvalidPremiumPercentage.selector, uint32(15), uint32(102))
+    );
 
     s_testCoordinator.setConfig(
       0,
