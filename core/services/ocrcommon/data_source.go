@@ -245,17 +245,23 @@ func (ds *inMemoryDataSourceCache) updateCache(ctx context.Context) error {
 	ds.mu.Lock()
 	defer ds.mu.Unlock()
 	previousUpdateErr := ds.latestUpdateErr
-	_, ds.latestTrrs, ds.latestUpdateErr = ds.executeRun(ctx)
-	if ds.latestUpdateErr != nil {
+
+	// check for any errors
+	_, latestTrrs, latestUpdateErr := ds.executeRun(ctx)
+	if latestTrrs.FinalResult(ds.lggr).HasErrors() {
+		latestUpdateErr = errjoin.Join(append(latestTrrs.FinalResult(ds.lggr).AllErrors, latestUpdateErr)...)
+	}
+
+	if latestUpdateErr != nil {
+		ds.latestUpdateErr = latestUpdateErr
+		// raise log severity
 		if previousUpdateErr != nil {
 			ds.lggr.Errorf("consecutive cache updates errored: previous err: %w new err: %w", previousUpdateErr, ds.latestUpdateErr)
 		}
 		return errors.Wrapf(ds.latestUpdateErr, "error executing run for spec ID %v", ds.spec.ID)
-	} else if ds.latestTrrs.FinalResult(ds.lggr).HasErrors() {
-		ds.latestUpdateErr = errjoin.Join(ds.latestTrrs.FinalResult(ds.lggr).AllErrors...)
-		return errors.Wrapf(ds.latestUpdateErr, "error executing run for spec ID %v", ds.spec.ID)
 	}
 
+	ds.latestTrrs = latestTrrs
 	ds.latestResult = ds.latestTrrs.FinalResult(ds.lggr)
 	value, err := ds.inMemoryDataSource.parse(ds.latestResult)
 	if err != nil {
