@@ -7,6 +7,31 @@ import {
 // us-east-1 is the global region used by Route 53.
 const route53Client = new Route53Client({ region: "us-east-1" });
 
+async function paginateListResourceRecordSets(route53Client, params) {
+  let isTruncated = true;
+  let nextRecordName, nextRecordType;
+  let allRecordSets = [];
+
+  while (isTruncated) {
+    const response = await route53Client.send(
+      new ListResourceRecordSetsCommand({
+        ...params,
+        ...(nextRecordName && { StartRecordName: nextRecordName }),
+        ...(nextRecordType && { StartRecordType: nextRecordType }),
+      })
+    );
+
+    allRecordSets = allRecordSets.concat(response.ResourceRecordSets);
+    isTruncated = response.IsTruncated;
+    if (isTruncated) {
+      nextRecordName = response.NextRecordName;
+      nextRecordType = response.NextRecordType;
+    }
+  }
+
+  return allRecordSets;
+}
+
 /**
  * Check if Route 53 records exist for a given Route 53 zone.
  *
@@ -30,29 +55,13 @@ export async function route53RecordsExist(
   console.info("Checking DNS records in Route 53...");
   while (attempts < maxRetries) {
     try {
-      let isTruncated = true;
-      let nextRecordName;
-      let nextRecordType;
-      let allRecordSets = [];
-
-      while (isTruncated) {
-        const listResourceRecordSetsCommand = new ListResourceRecordSetsCommand(
-          {
-            HostedZoneId: hostedZoneId,
-            MaxItems: "300",
-            ...(nextRecordName && { StartRecordName: nextRecordName }),
-            ...(nextRecordType && { StartRecordType: nextRecordType }),
-          }
-        );
-
-        const data = await route53Client.send(listResourceRecordSetsCommand);
-        allRecordSets = allRecordSets.concat(data.ResourceRecordSets);
-        isTruncated = data.IsTruncated;
-        if (isTruncated) {
-          nextRecordName = data.NextRecordName;
-          nextRecordType = data.NextRecordType;
+      const allRecordSets = await paginateListResourceRecordSets(
+        route53Client,
+        {
+          HostedZoneId: hostedZoneId,
+          MaxItems: "300",
         }
-      }
+      );
 
       const recordExists = recordNames.every((name) =>
         allRecordSets.some((r) => r.Name.includes(name))
