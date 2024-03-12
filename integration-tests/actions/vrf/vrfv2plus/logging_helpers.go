@@ -30,9 +30,11 @@ func LogRandomnessRequestedEventUpgraded(
 	l zerolog.Logger,
 	coordinator contracts.VRFCoordinatorV2PlusUpgradedVersion,
 	randomWordsRequestedEvent *vrf_v2plus_upgraded_version.VRFCoordinatorV2PlusUpgradedVersionRandomWordsRequested,
+	isNativeBilling bool,
 ) {
 	l.Debug().
 		Str("Coordinator", coordinator.Address()).
+		Bool("Native Billing", isNativeBilling).
 		Str("Request ID", randomWordsRequestedEvent.RequestId.String()).
 		Str("Subscription ID", randomWordsRequestedEvent.SubId.String()).
 		Str("Sender Address", randomWordsRequestedEvent.Sender.String()).
@@ -47,9 +49,11 @@ func LogRandomWordsFulfilledEventUpgraded(
 	l zerolog.Logger,
 	coordinator contracts.VRFCoordinatorV2PlusUpgradedVersion,
 	randomWordsFulfilledEvent *vrf_v2plus_upgraded_version.VRFCoordinatorV2PlusUpgradedVersionRandomWordsFulfilled,
+	isNativeBilling bool,
 ) {
 	l.Debug().
 		Str("Coordinator", coordinator.Address()).
+		Bool("Native Billing", isNativeBilling).
 		Str("Total Payment in Juels", randomWordsFulfilledEvent.Payment.String()).
 		Str("TX Hash", randomWordsFulfilledEvent.Raw.TxHash.String()).
 		Str("Subscription ID", randomWordsFulfilledEvent.SubID.String()).
