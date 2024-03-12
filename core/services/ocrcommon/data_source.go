@@ -245,7 +245,6 @@ func (ds *inMemoryDataSourceCache) updater() {
 func (ds *inMemoryDataSourceCache) updateCache(ctx context.Context) error {
 	ds.mu.Lock()
 	defer ds.mu.Unlock()
-	previousUpdateErr := ds.latestUpdateErr
 
 	// check for any errors
 	_, latestTrrs, latestUpdateErr := ds.executeRun(ctx)
@@ -254,6 +253,7 @@ func (ds *inMemoryDataSourceCache) updateCache(ctx context.Context) error {
 	}
 
 	if latestUpdateErr != nil {
+		previousUpdateErr := ds.latestUpdateErr
 		ds.latestUpdateErr = latestUpdateErr
 		// raise log severity
 		if previousUpdateErr != nil {
