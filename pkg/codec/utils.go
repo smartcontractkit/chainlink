@@ -152,24 +152,55 @@ func SliceToArrayVerifySizeHook(from reflect.Type, to reflect.Type, data any) (a
 	return data, nil
 }
 
-var i64Type = reflect.TypeOf(int64(0))
-var timeType = reflect.TypeOf(time.Time{})
-var timePtrType = reflect.PointerTo(timeType)
-var biType = reflect.TypeOf(&big.Int{})
+var (
+	i64Type     = reflect.TypeOf(int64(0))
+	timeType    = reflect.TypeOf(time.Time{})
+	timePtrType = reflect.PointerTo(timeType)
+	biType      = reflect.TypeOf(&big.Int{})
+	mapType     = reflect.TypeOf(map[string]interface{}{})
+	ptrMapType  = reflect.PointerTo(mapType)
+	interMapKey = "IntermediateEpochMapKey"
+)
 
-// epochToTimeHook is a mapstructure hook that converts a unix epoch to a [time.Time] and vice versa.
+// EpochToTimeHook is a mapstructure hook that converts a unix epoch to a [time.Time] and vice versa.
 // To do this, [time.Unix] and [time.Time.Unix] are used.
-func epochToTimeHook(from reflect.Type, to reflect.Type, data any) (any, error) {
-	if to == timeType {
-		return convertToTime(from, data), nil
-	} else if to == timePtrType {
-		if t, ok := convertToTime(from, data).(time.Time); ok {
-			return &t, nil
+func EpochToTimeHook(from reflect.Type, to reflect.Type, data any) (any, error) {
+	switch from {
+	case timeType, timePtrType:
+		if tData, ok := data.(time.Time); ok {
+			return convertToEpoch(to, tData), nil
+		} else if tData, ok := data.(*time.Time); ok {
+			return convertToEpoch(to, *tData), nil
 		}
-	} else if tData, ok := data.(time.Time); ok {
-		return convertToEpoch(to, tData), nil
-	} else if tData, ok := data.(*time.Time); ok {
-		return convertToEpoch(to, *tData), nil
+
+		return data, nil
+	case mapType, ptrMapType:
+		// map to int64
+		timeMap, ok := reflect.Indirect(reflect.ValueOf(data)).Interface().(map[string]interface{})
+		if !ok {
+			return data, nil
+		}
+
+		rawUnixTime, ok := timeMap[interMapKey]
+		if !ok {
+			return data, nil
+		}
+
+		unixTime, ok := rawUnixTime.(int64)
+		if !ok {
+			return data, nil
+		}
+
+		return convertToEpoch(to, time.Unix(unixTime, 0)), nil
+	default:
+		// value to time.Time
+		if to == timeType {
+			return convertToTime(from, data), nil
+		} else if to == timePtrType {
+			if t, ok := convertToTime(from, data).(time.Time); ok {
+				return &t, nil
+			}
+		}
 	}
 
 	return data, nil
@@ -191,6 +222,29 @@ func convertToTime(from reflect.Type, data any) any {
 }
 
 func convertToEpoch(to reflect.Type, data time.Time) any {
+	if to == mapType || to == ptrMapType {
+		tp := to
+		if tp == ptrMapType {
+			tp = tp.Elem()
+		}
+
+		newMap := reflect.MakeMap(tp)
+		reflect.Indirect(newMap).SetMapIndex(reflect.ValueOf(interMapKey), reflect.ValueOf(data.Unix()))
+
+		if to == mapType {
+			return reflect.Indirect(newMap).Interface()
+		}
+
+		return newMap.Interface()
+	}
+
+	if to == timePtrType {
+		output := reflect.New(timeType)
+		reflect.Indirect(output).Set(reflect.ValueOf(data))
+
+		return output.Interface()
+	}
+
 	if to.ConvertibleTo(i64Type) {
 		return reflect.ValueOf(data.Unix()).Convert(to).Interface()
 	} else if to.ConvertibleTo(biType) {

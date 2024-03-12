@@ -17,6 +17,7 @@ import (
 const (
 	anyUnmodifiedTypeName     = "Unmodified"
 	anyModifiedStructTypeName = "SecondItem"
+	anyExtractorTypeName      = "ExtractProperty"
 )
 
 var _ types.RemoteCodec = &ExampleStructJSONCodec{}
@@ -70,6 +71,9 @@ const config = `
   { "Type" : "epoch to time", "Fields" :  ["Ee"]}
 ]
 `
+const extractConfig = `[
+  { "Type" : "extract property", "FieldName" : "Bb" }
+]`
 
 // config converts the OnChainStruct to this structure
 type OffChainStruct struct {
@@ -144,11 +148,29 @@ func Example() {
 	}
 
 	fmt.Printf("Decoded with modifications: %+v\n", output2)
+
+	// using Encode for the extractor is a lossy operation and should not be used on writes
+	if b, err = c.Encode(ctx, "test", anyExtractorTypeName); err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	fmt.Printf("Encoded for Extraction: %+v\n", string(b))
+
+	var extractedVal string
+	if err = c.Decode(ctx, b, &extractedVal, anyExtractorTypeName); err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	fmt.Printf("Decoded to extracted value: %+v\n", extractedVal)
 	// Output:
 	// Encoded: {"Aa":10,"Bb":"20","Cc":true,"Dd":"great example","Ee":631515600,"Ff":"dog"}
 	// Decoded: &{Aa:10 Bb:20 Cc:true Dd:great example Ee:631515600 Ff:dog}
 	// Encoded with modifications: {"Aa":10,"Bb":"","Cc":true,"Dd":"great example","Ee":631515600,"Ff":"dog"}
 	// Decoded with modifications: &{Bb:10 Cc:true Dd:[great example] Ee:1990-01-05 05:00:00 +0000 UTC Zz:foo}
+	// Encoded for Extraction: {"Aa":0,"Bb":"test","Cc":false,"Dd":"","Ee":0,"Ff":""}
+	// Decoded to extracted value: test
 }
 
 func createModsFromConfig() (codec.Modifier, error) {
@@ -162,9 +184,20 @@ func createModsFromConfig() (codec.Modifier, error) {
 		return nil, err
 	}
 
+	extractorConfig := &codec.ModifiersConfig{}
+	if err = json.Unmarshal([]byte(extractConfig), extractorConfig); err != nil {
+		return nil, err
+	}
+
+	exMod, err := extractorConfig.ToModifier()
+	if err != nil {
+		return nil, err
+	}
+
 	modByItemType := map[string]codec.Modifier{
 		anyModifiedStructTypeName: mod,
 		anyUnmodifiedTypeName:     codec.MultiModifier{},
+		anyExtractorTypeName:      exMod,
 	}
 
 	return codec.NewByItemTypeModifier(modByItemType)

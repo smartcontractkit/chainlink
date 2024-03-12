@@ -47,6 +47,8 @@ func (m *ModifiersConfig) UnmarshalJSON(data []byte) error {
 			(*m)[i] = &ElementExtractorModifierConfig{}
 		case ModifierEpochToTime:
 			(*m)[i] = &EpochToTimeModifierConfig{}
+		case ModifierExtractProperty:
+			(*m)[i] = &PropertyExtractorConfig{}
 		default:
 			return fmt.Errorf("%w: unknown modifier type: %s", types.ErrInvalidConfig, mType)
 		}
@@ -73,11 +75,12 @@ func (m *ModifiersConfig) ToModifier(onChainHooks ...mapstructure.DecodeHookFunc
 type ModifierType string
 
 const (
-	ModifierRename         ModifierType = "rename"
-	ModifierDrop           ModifierType = "drop"
-	ModifierHardCode       ModifierType = "hard code"
-	ModifierExtractElement ModifierType = "extract element"
-	ModifierEpochToTime    ModifierType = "epoch to time"
+	ModifierRename          ModifierType = "rename"
+	ModifierDrop            ModifierType = "drop"
+	ModifierHardCode        ModifierType = "hard code"
+	ModifierExtractElement  ModifierType = "extract element"
+	ModifierEpochToTime     ModifierType = "epoch to time"
+	ModifierExtractProperty ModifierType = "extract property"
 )
 
 type ModifierConfig interface {
@@ -186,6 +189,21 @@ func (e *EpochToTimeModifierConfig) MarshalJSON() ([]byte, error) {
 	return json.Marshal(&modifierMarshaller[EpochToTimeModifierConfig]{
 		Type: ModifierEpochToTime,
 		T:    e,
+	})
+}
+
+type PropertyExtractorConfig struct {
+	FieldName string
+}
+
+func (c *PropertyExtractorConfig) ToModifier(_ ...mapstructure.DecodeHookFunc) (Modifier, error) {
+	return NewPropertyExtractor(upperFirstCharacter(c.FieldName)), nil
+}
+
+func (c *PropertyExtractorConfig) MarshalJSON() ([]byte, error) {
+	return json.Marshal(&modifierMarshaller[PropertyExtractorConfig]{
+		Type: ModifierExtractProperty,
+		T:    c,
 	})
 }
 

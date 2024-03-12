@@ -42,12 +42,12 @@ type timeToUnixModifier struct {
 
 func (t *timeToUnixModifier) TransformToOnChain(offChainValue any, itemType string) (any, error) {
 	// since the hook will convert time.Time to epoch, we don't need to worry about converting them in the maps
-	return transformWithMaps(offChainValue, t.offToOnChainType, t.fields, noop, epochToTimeHook, BigIntHook)
+	return transformWithMaps(offChainValue, t.offToOnChainType, t.fields, noop, EpochToTimeHook, BigIntHook)
 }
 
 func (t *timeToUnixModifier) TransformToOffChain(onChainValue any, itemType string) (any, error) {
 	// since the hook will convert epoch to time.Time, we don't need to worry about converting them in the maps
-	return transformWithMaps(onChainValue, t.onToOffChainType, t.fields, noop, epochToTimeHook, BigIntHook)
+	return transformWithMaps(onChainValue, t.onToOffChainType, t.fields, noop, EpochToTimeHook, BigIntHook)
 }
 
 func noop(_ map[string]any, _ string, _ bool) error {

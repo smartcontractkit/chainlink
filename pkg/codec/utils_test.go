@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/mitchellh/mapstructure"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -182,7 +183,7 @@ func TestEpochToTimeHook(t *testing.T) {
 	t.Run("converts epoch to time", func(t *testing.T) {
 		for _, testValue := range testValues {
 			t.Run(fmt.Sprintf("%T", testValue), func(t *testing.T) {
-				actual, err := epochToTimeHook(reflect.TypeOf(testValue), reflect.TypeOf(testTime), testValue)
+				actual, err := EpochToTimeHook(reflect.TypeOf(testValue), reflect.TypeOf(testTime), testValue)
 				require.NoError(t, err)
 				assert.Equal(t, testTime, actual)
 			})
@@ -192,7 +193,7 @@ func TestEpochToTimeHook(t *testing.T) {
 	t.Run("Converts timestamps to integer type", func(t *testing.T) {
 		for _, testValue := range testValues {
 			t.Run(fmt.Sprintf("%T", testValue), func(t *testing.T) {
-				actual, err := epochToTimeHook(reflect.TypeOf(testTime), reflect.TypeOf(testValue), testTime)
+				actual, err := EpochToTimeHook(reflect.TypeOf(testTime), reflect.TypeOf(testValue), testTime)
 				require.NoError(t, err)
 				assert.Equal(t, testValue, actual)
 			})
@@ -200,8 +201,78 @@ func TestEpochToTimeHook(t *testing.T) {
 	})
 
 	t.Run("returns data for non time types", func(t *testing.T) {
-		actual, err := epochToTimeHook(reflect.TypeOf(""), reflect.TypeOf(0), "foo")
+		actual, err := EpochToTimeHook(reflect.TypeOf(""), reflect.TypeOf(0), "foo")
 		require.NoError(t, err)
 		assert.Equal(t, "foo", actual)
+	})
+
+	t.Run("pointers are maintained in non-converstion scenarios", func(t *testing.T) {
+		t.Run("*time.Time to *time.Time", func(t *testing.T) {
+			tp := reflect.PointerTo(reflect.TypeOf(testTime))
+			output, err := EpochToTimeHook(tp, tp, &testTime)
+
+			require.NoError(t, err)
+
+			value, ok := output.(*time.Time)
+
+			require.True(t, ok)
+			require.Equal(t, testTime.Unix(), value.Unix())
+		})
+
+		t.Run("*time.Time to time.Time", func(t *testing.T) {
+			output, err := EpochToTimeHook(reflect.PointerTo(reflect.TypeOf(testTime)), reflect.TypeOf(testTime), &testTime)
+
+			require.NoError(t, err)
+
+			value, ok := output.(time.Time)
+
+			require.True(t, ok)
+			require.Equal(t, testTime.Unix(), value.Unix())
+		})
+
+		t.Run("time.Time to *time.Time", func(t *testing.T) {
+			output, err := EpochToTimeHook(reflect.TypeOf(testTime), reflect.PointerTo(reflect.TypeOf(testTime)), testTime)
+
+			require.NoError(t, err)
+
+			value, ok := output.(*time.Time)
+
+			require.True(t, ok)
+			require.Equal(t, testTime.Unix(), value.Unix())
+		})
+	})
+
+	t.Run("Converts timestamps to integer type using mapstructure", func(t *testing.T) {
+		type A struct {
+			Val1 time.Time
+			Val2 time.Time
+		}
+
+		type B struct {
+			Val1 int64
+			Val2 *big.Int
+		}
+
+		input := A{
+			Val1: testTime,
+			Val2: testTime.Add(time.Hour),
+		}
+
+		var output B
+
+		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
+			DecodeHook: EpochToTimeHook,
+			Result:     &output,
+		})
+
+		require.NoError(t, err)
+		require.NoError(t, decoder.Decode(input))
+
+		expected := B{
+			Val1: testTime.Unix(),
+			Val2: new(big.Int).SetInt64(testTime.Add(time.Hour).Unix()),
+		}
+
+		require.Equal(t, expected, output)
 	})
 }
