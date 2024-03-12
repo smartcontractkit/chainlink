@@ -7,7 +7,7 @@ CREATE TABLE job_kv_store (
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       FOREIGN KEY (id) REFERENCES jobs(id),
-      CONSTRAINT uk_keyPerJob UNIQUE (id, key)
+      CONSTRAINT uk_keyperjob UNIQUE (id, key)
 );
 
 -- +goose Down
