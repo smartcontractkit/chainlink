@@ -5,13 +5,11 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/rebalancer/generated/arb_node_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/rebalancer/generated/arbitrum_l1_bridge_adapter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/rebalancer/generated/arbitrum_rollup_core"
@@ -86,18 +84,6 @@ func parseLiquidityTransferred(parseFunc func(gethtypes.Log) (*rebalancer.Rebala
 		}] = lg
 	}
 	return transferred, toLP, nil
-}
-
-func unpackUint256(data []byte) (*big.Int, error) {
-	ifaces, err := utils.ABIDecode(`[{"type": "uint256"}]`, data)
-	if err != nil {
-		return nil, fmt.Errorf("decode uint256: %w", err)
-	}
-	if len(ifaces) != 1 {
-		return nil, fmt.Errorf("expected 1 argument, got %d", len(ifaces))
-	}
-	ret := *abi.ConvertType(ifaces[0], new(*big.Int)).(**big.Int)
-	return ret, nil
 }
 
 func toHash(selector models.NetworkSelector) common.Hash {

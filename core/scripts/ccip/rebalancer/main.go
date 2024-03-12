@@ -17,10 +17,13 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/scripts/ccip/rebalancer/arb"
 	"github.com/smartcontractkit/chainlink/core/scripts/ccip/rebalancer/multienv"
+	"github.com/smartcontractkit/chainlink/core/scripts/ccip/rebalancer/opstack"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/weth9"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/rebalancer/generated/arbitrum_l1_bridge_adapter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/rebalancer/generated/arbitrum_l2_bridge_adapter"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/rebalancer/generated/optimism_l1_bridge_adapter"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/rebalancer/generated/optimism_l2_bridge_adapter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/rebalancer/generated/rebalancer"
 )
 
@@ -327,6 +330,110 @@ func main() {
 		tx, err := weth.Transfer(env.Transactors[*chainID], common.HexToAddress(*toAddress), decimal.RequireFromString(*amount).BigInt())
 		helpers.PanicErr(err)
 		helpers.ConfirmTXMined(context.Background(), env.Clients[*chainID], tx, int64(*chainID))
+	case "deploy-op-l1-adapter":
+		cmd := flag.NewFlagSet("deploy-op-l1-adapter", flag.ExitOnError)
+		l1ChainID := cmd.Uint64("l1-chain-id", 0, "L1 Chain ID")
+		helpers.ParseArgs(cmd, os.Args[2:], "l1-chain-id", "weth-address")
+
+		env := multienv.New(false, false)
+		_, tx, _, err := optimism_l1_bridge_adapter.DeployOptimismL1BridgeAdapter(
+			env.Transactors[*l1ChainID],
+			env.Clients[*l1ChainID],
+			opstack.OptimismContracts[*l1ChainID]["L1StandardBridge"],
+			opstack.OptimismContracts[*l1ChainID]["WETH"],
+			opstack.OptimismContracts[*l1ChainID]["L1CrossDomainMessenger"],
+		)
+		helpers.PanicErr(err)
+		helpers.ConfirmContractDeployed(context.Background(), env.Clients[*l1ChainID], tx, int64(*l1ChainID))
+	case "deploy-op-l2-adapter":
+		cmd := flag.NewFlagSet("deploy-op-l2-adapter", flag.ExitOnError)
+		l2ChainID := cmd.Uint64("l2-chain-id", 0, "L2 Chain ID")
+		helpers.ParseArgs(cmd, os.Args[2:], "l2-chain-id", "weth-address")
+
+		env := multienv.New(false, false)
+		_, tx, _, err := optimism_l2_bridge_adapter.DeployOptimismL2BridgeAdapter(env.Transactors[*l2ChainID], env.Clients[*l2ChainID], opstack.OptimismContracts[*l2ChainID]["WETH"])
+		helpers.PanicErr(err)
+		helpers.ConfirmContractDeployed(context.Background(), env.Clients[*l2ChainID], tx, int64(*l2ChainID))
+	case "op-send-to-l2":
+		cmd := flag.NewFlagSet("op-send-to-l2", flag.ExitOnError)
+		l1ChainID := cmd.Uint64("l1-chain-id", 0, "L1 Chain ID")
+		l1BridgeAdapterAddress := cmd.String("l1-bridge-adapter-address", "", "L1 Bridge Adapter Address")
+		amount := cmd.String("amount", "1", "Amount")
+		l2ToAddress := cmd.String("l2-to-address", "", "L2 Receipient Address")
+		l1TokenAddress := cmd.String("l1-token-address", "", "L1 Token Address")
+		l2TokenAddress := cmd.String("l2-token-address", "", "L2 Token Address")
+		helpers.ParseArgs(cmd, os.Args[2:],
+			"l1-chain-id", "l1-bridge-adapter-address", "l2-to-address", "l1-token-address", "l2-token-address")
+
+		env := multienv.New(false, false)
+		opstack.SendToL2(
+			env,
+			*l1ChainID,
+			common.HexToAddress(*l1BridgeAdapterAddress),
+			common.HexToAddress(*l1TokenAddress),
+			common.HexToAddress(*l2TokenAddress),
+			common.HexToAddress(*l2ToAddress),
+			decimal.RequireFromString(*amount).BigInt(),
+		)
+
+		fmt.Println("check", fmt.Sprintf("https://sepolia-optimism.etherscan.io/address/%s#tokentxns", *l2ToAddress), "periodically to see the deposit on L2")
+	case "op-withdraw-from-l2":
+		cmd := flag.NewFlagSet("op-withdraw-from-l2", flag.ExitOnError)
+		l2ChainID := cmd.Uint64("l2-chain-id", 0, "L2 Chain ID")
+		l2BridgeAdapterAddress := cmd.String("l2-bridge-adapter-address", "", "L2 Bridge Adapter Address")
+		amount := cmd.String("amount", "1", "Amount")
+		l1ToAddress := cmd.String("l1-to-address", "", "L1 Address")
+		l2TokenAddress := cmd.String("l2-token-address", "", "Token Address")
+
+		helpers.ParseArgs(cmd, os.Args[2:],
+			"l2-chain-id", "l2-bridge-adapter-address", "l1-to-address", "l2-token-address")
+
+		env := multienv.New(false, false)
+		opstack.WithdrawFromL2(
+			env,
+			*l2ChainID,
+			common.HexToAddress(*l2BridgeAdapterAddress),
+			decimal.RequireFromString(*amount).BigInt(),
+			common.HexToAddress(*l1ToAddress),
+			common.HexToAddress(*l2TokenAddress),
+		)
+	case "op-prove-withdrawal-l1":
+		cmd := flag.NewFlagSet("op-prove-withdrawal-l1", flag.ExitOnError)
+		l1ChainID := cmd.Uint64("l1-chain-id", 0, "L1 Chain ID")
+		l2ChainID := cmd.Uint64("l2-chain-id", 0, "L2 Chain ID")
+		l2TxHash := cmd.String("l2-tx-hash", "", "L2 Tx Hash")
+		l1BridgeAdapterAddress := cmd.String("l1-bridge-adapter-address", "", "L1 Bridge Adapter Address")
+
+		helpers.ParseArgs(cmd, os.Args[2:], "l1-chain-id", "l2-chain-id", "l2-tx-hash", "l1-bridge-adapter-address")
+
+		env := multienv.New(false, false)
+
+		opstack.ProveWithdrawal(
+			env,
+			*l1ChainID,
+			*l2ChainID,
+			common.HexToAddress(*l1BridgeAdapterAddress),
+			opstack.OptimismContracts[*l1ChainID]["L2OutputOracle"],
+			opstack.OptimismContracts[*l1ChainID]["OptimismPortal"],
+			common.HexToHash(*l2TxHash))
+	case "op-finalize-l1":
+		cmd := flag.NewFlagSet("op-finalize-l1", flag.ExitOnError)
+		l1ChainID := cmd.Uint64("l1-chain-id", 0, "L1 Chain ID")
+		l2ChainID := cmd.Uint64("l2-chain-id", 0, "L2 Chain ID")
+		l2TxHash := cmd.String("l2-tx-hash", "", "L2 Tx Hash")
+		l1BridgeAdapterAddress := cmd.String("l1-bridge-adapter-address", "", "L1 Bridge Adapter Address")
+
+		helpers.ParseArgs(cmd, os.Args[2:], "l1-chain-id", "l2-chain-id", "l2-tx-hash", "l1-bridge-adapter-address")
+
+		env := multienv.New(false, false)
+
+		opstack.FinalizeL1(
+			env,
+			*l1ChainID,
+			*l2ChainID,
+			common.HexToAddress(*l1BridgeAdapterAddress),
+			opstack.OptimismContracts[*l1ChainID]["OptimismPortal"],
+			common.HexToHash(*l2TxHash))
 	}
 }
 

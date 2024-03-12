@@ -1771,9 +1771,8 @@ func (destCCIP *DestCCIPModule) AssertSeqNumberExecuted(
 			}
 			seqNumberAfter, err := destCCIP.CommitStore.Instance.GetExpectedNextSequenceNumber(nil)
 			if err != nil {
-				reqStat.UpdateState(lggr, seqNumberBefore, testreporters.Commit, time.Since(timeNow), testreporters.Failure)
-				return fmt.Errorf("error %w in GetNextExpectedSeqNumber by commitStore for seqNum %d lane %d-->%d",
-					err, seqNumberBefore+1, destCCIP.SourceChainId, destCCIP.Common.ChainClient.GetChainID())
+				// if we get error instead of returning error we continue, in case it's a temporary RPC failure .
+				continue
 			}
 			if seqNumberAfter > seqNumberBefore {
 				destCCIP.NextSeqNumToCommit.Store(seqNumberAfter)
@@ -2651,7 +2650,6 @@ func SetOCR2Configs(commitNodes, execNodes []*client.CLNodesWithKeys, destCCIP D
 			1e6,
 			*config2.MustNewDuration(10 * time.Second),
 			1e6,
-			200e9,
 			*inflightExpiry,
 		), testhelpers.NewCommitOnchainConfig(
 			destCCIP.Common.PriceRegistry.EthAddress,
@@ -2676,7 +2674,6 @@ func SetOCR2Configs(commitNodes, execNodes []*client.CLNodesWithKeys, destCCIP D
 				1,
 				5_000_000,
 				0.7,
-				200e9,
 				*inflightExpiry,
 				*rootSnooze,
 			), testhelpers.NewExecOnchainConfig(

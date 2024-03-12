@@ -106,7 +106,7 @@ func SendToL2(
 	sendERC20Calldata, err := l1AdapterABI.Pack("sendERC20", l1TokenAddress, common.HexToAddress("0x0"), l2Recipient, amount, bridgeCalldata)
 	helpers.PanicErr(err)
 
-	fmt.Println("Sending ERC20 to L2:", "\n",
+	fmt.Println("Sending ERC20 to Arbitrum L2:", "\n",
 		"l1TokenAddress:", l1TokenAddress.String(), "\n",
 		"l2Recipient:", l2Recipient.String(), "\n",
 		"amount:", amount, "\n",

@@ -44,6 +44,7 @@ type CommitStore struct {
 	lp                        logpoller.LogPoller
 	address                   common.Address
 	estimator                 gas.EvmFeeEstimator
+	sourceMaxGasPrice         *big.Int
 	filters                   []logpoller.Filter
 	reportAcceptedSig         common.Hash
 	reportAcceptedMaxSeqIndex int
@@ -183,12 +184,12 @@ func (c *CommitStore) GasPriceEstimator() cciptypes.GasPriceEstimatorCommit {
 
 // CommitOffchainConfig is a legacy version of CommitOffchainConfig, used for CommitStore version 1.0.0 and 1.1.0
 type CommitOffchainConfig struct {
-	SourceFinalityDepth   uint32
-	DestFinalityDepth     uint32
-	FeeUpdateHeartBeat    config.Duration
-	FeeUpdateDeviationPPB uint32
-	MaxGasPrice           uint64
-	InflightCacheExpiry   config.Duration
+	SourceFinalityDepth    uint32
+	DestFinalityDepth      uint32
+	FeeUpdateHeartBeat     config.Duration
+	FeeUpdateDeviationPPB  uint32
+	InflightCacheExpiry    config.Duration
+	PriceReportingDisabled bool
 }
 
 func (c CommitOffchainConfig) Validate() error {
@@ -203,9 +204,6 @@ func (c CommitOffchainConfig) Validate() error {
 	}
 	if c.FeeUpdateDeviationPPB == 0 {
 		return errors.New("must set FeeUpdateDeviationPPB")
-	}
-	if c.MaxGasPrice == 0 {
-		return errors.New("must set MaxGasPrice")
 	}
 	if c.InflightCacheExpiry.Duration() == 0 {
 		return errors.New("must set InflightCacheExpiry")
@@ -227,14 +225,15 @@ func (c *CommitStore) ChangeConfig(onchainConfig []byte, offchainConfig []byte) 
 	c.configMu.Lock()
 	c.gasPriceEstimator = prices.NewExecGasPriceEstimator(
 		c.estimator,
-		big.NewInt(int64(offchainConfigV1.MaxGasPrice)),
+		c.sourceMaxGasPrice,
 		int64(offchainConfigV1.FeeUpdateDeviationPPB))
 	c.offchainConfig = ccipdata.NewCommitOffchainConfig(
 		offchainConfigV1.FeeUpdateDeviationPPB,
 		offchainConfigV1.FeeUpdateHeartBeat.Duration(),
 		offchainConfigV1.FeeUpdateDeviationPPB,
 		offchainConfigV1.FeeUpdateHeartBeat.Duration(),
-		offchainConfigV1.InflightCacheExpiry.Duration())
+		offchainConfigV1.InflightCacheExpiry.Duration(),
+		offchainConfigV1.PriceReportingDisabled)
 	c.configMu.Unlock()
 	c.lggr.Infow("ChangeConfig",
 		"offchainConfig", offchainConfigV1,
@@ -352,9 +351,7 @@ func (c *CommitStore) IsDestChainHealthy(context.Context) (bool, error) {
 func (c *CommitStore) IsDown(ctx context.Context) (bool, error) {
 	unPausedAndHealthy, err := c.commitStore.IsUnpausedAndARMHealthy(&bind.CallOpts{Context: ctx})
 	if err != nil {
-		// If we cannot read the state, assume the worst
-		c.lggr.Errorw("Unable to read CommitStore IsUnpausedAndARMHealthy", "err", err)
-		return true, nil
+		return true, err
 	}
 	return !unPausedAndHealthy, nil
 }
@@ -381,7 +378,7 @@ func (c *CommitStore) RegisterFilters(qopts ...pg.QOpt) error {
 	return logpollerutil.RegisterLpFilters(c.lp, c.filters, qopts...)
 }
 
-func NewCommitStore(lggr logger.Logger, addr common.Address, ec client.Client, lp logpoller.LogPoller, estimator gas.EvmFeeEstimator) (*CommitStore, error) {
+func NewCommitStore(lggr logger.Logger, addr common.Address, ec client.Client, lp logpoller.LogPoller, estimator gas.EvmFeeEstimator, sourceMaxGasPrice *big.Int) (*CommitStore, error) {
 	commitStore, err := commit_store_1_0_0.NewCommitStore(addr, ec)
 	if err != nil {
 		return nil, err
@@ -402,6 +399,7 @@ func NewCommitStore(lggr logger.Logger, addr common.Address, ec client.Client, l
 		lggr:              lggr,
 		lp:                lp,
 		estimator:         estimator,
+		sourceMaxGasPrice: sourceMaxGasPrice,
 		filters:           filters,
 		commitReportArgs:  commitReportArgs,
 		reportAcceptedSig: eventSig,

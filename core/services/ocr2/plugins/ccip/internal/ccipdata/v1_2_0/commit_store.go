@@ -40,6 +40,7 @@ type CommitStore struct {
 	lp                        logpoller.LogPoller
 	address                   common.Address
 	estimator                 gas.EvmFeeEstimator
+	sourceMaxGasPrice         *big.Int
 	filters                   []logpoller.Filter
 	reportAcceptedSig         common.Hash
 	reportAcceptedMaxSeqIndex int
@@ -188,9 +189,8 @@ type JSONCommitOffchainConfig struct {
 	ExecGasPriceDeviationPPB uint32
 	TokenPriceHeartBeat      config.Duration
 	TokenPriceDeviationPPB   uint32
-	MaxGasPrice              uint64
-	SourceMaxGasPrice        uint64
 	InflightCacheExpiry      config.Duration
+	PriceReportingDisabled   bool
 }
 
 func (c JSONCommitOffchainConfig) Validate() error {
@@ -206,25 +206,12 @@ func (c JSONCommitOffchainConfig) Validate() error {
 	if c.TokenPriceDeviationPPB == 0 {
 		return errors.New("must set TokenPriceDeviationPPB")
 	}
-	if c.SourceMaxGasPrice == 0 && c.MaxGasPrice == 0 {
-		return errors.New("must set SourceMaxGasPrice")
-	}
-	if c.SourceMaxGasPrice != 0 && c.MaxGasPrice != 0 {
-		return errors.New("cannot set both MaxGasPrice and SourceMaxGasPrice")
-	}
 	if c.InflightCacheExpiry.Duration() == 0 {
 		return errors.New("must set InflightCacheExpiry")
 	}
 	// DAGasPriceDeviationPPB is not validated because it can be 0 on non-rollups
 
 	return nil
-}
-
-func (c *JSONCommitOffchainConfig) ComputeSourceMaxGasPrice() uint64 {
-	if c.SourceMaxGasPrice != 0 {
-		return c.SourceMaxGasPrice
-	}
-	return c.MaxGasPrice
 }
 
 func (c *CommitStore) ChangeConfig(onchainConfig []byte, offchainConfig []byte) (cciptypes.Address, error) {
@@ -239,10 +226,9 @@ func (c *CommitStore) ChangeConfig(onchainConfig []byte, offchainConfig []byte) 
 	}
 	c.configMu.Lock()
 
-	c.lggr.Infow("Initializing NewDAGasPriceEstimator", "estimator", c.estimator, "l1Oracle", c.estimator.L1Oracle())
 	c.gasPriceEstimator = prices.NewDAGasPriceEstimator(
 		c.estimator,
-		big.NewInt(int64(offchainConfigParsed.ComputeSourceMaxGasPrice())),
+		c.sourceMaxGasPrice,
 		int64(offchainConfigParsed.ExecGasPriceDeviationPPB),
 		int64(offchainConfigParsed.DAGasPriceDeviationPPB),
 	)
@@ -252,6 +238,7 @@ func (c *CommitStore) ChangeConfig(onchainConfig []byte, offchainConfig []byte) 
 		offchainConfigParsed.TokenPriceDeviationPPB,
 		offchainConfigParsed.TokenPriceHeartBeat.Duration(),
 		offchainConfigParsed.InflightCacheExpiry.Duration(),
+		offchainConfigParsed.PriceReportingDisabled,
 	)
 	c.configMu.Unlock()
 
@@ -378,9 +365,7 @@ func (c *CommitStore) IsDestChainHealthy(context.Context) (bool, error) {
 func (c *CommitStore) IsDown(ctx context.Context) (bool, error) {
 	unPausedAndHealthy, err := c.commitStore.IsUnpausedAndARMHealthy(&bind.CallOpts{Context: ctx})
 	if err != nil {
-		// If we cannot read the state, assume the worst
-		c.lggr.Errorw("Unable to read CommitStore IsUnpausedAndARMHealthy", "err", err)
-		return true, nil
+		return true, err
 	}
 	return !unPausedAndHealthy, nil
 }
@@ -407,7 +392,7 @@ func (c *CommitStore) RegisterFilters(qopts ...pg.QOpt) error {
 	return logpollerutil.RegisterLpFilters(c.lp, c.filters, qopts...)
 }
 
-func NewCommitStore(lggr logger.Logger, addr common.Address, ec client.Client, lp logpoller.LogPoller, estimator gas.EvmFeeEstimator) (*CommitStore, error) {
+func NewCommitStore(lggr logger.Logger, addr common.Address, ec client.Client, lp logpoller.LogPoller, estimator gas.EvmFeeEstimator, sourceMaxGasPrice *big.Int) (*CommitStore, error) {
 	commitStore, err := commit_store.NewCommitStore(addr, ec)
 	if err != nil {
 		return nil, err
@@ -422,7 +407,6 @@ func NewCommitStore(lggr logger.Logger, addr common.Address, ec client.Client, l
 			Addresses: []common.Address{addr},
 		},
 	}
-	lggr.Infow("Initializing CommitStore with estimator", "estimator", estimator)
 
 	return &CommitStore{
 		commitStore:       commitStore,
@@ -430,6 +414,7 @@ func NewCommitStore(lggr logger.Logger, addr common.Address, ec client.Client, l
 		lggr:              lggr,
 		lp:                lp,
 		estimator:         estimator,
+		sourceMaxGasPrice: sourceMaxGasPrice,
 		filters:           filters,
 		commitReportArgs:  commitReportArgs,
 		reportAcceptedSig: eventSig,

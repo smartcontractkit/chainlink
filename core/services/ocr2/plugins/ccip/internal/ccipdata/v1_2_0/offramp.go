@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -64,9 +65,6 @@ func (d ExecOnchainConfig) Validate() error {
 	if d.MaxNumberOfTokensPerMsg == 0 {
 		return errors.New("must set MaxNumberOfTokensPerMsg")
 	}
-	if d.MaxDataBytes == 0 {
-		return errors.New("must set MaxDataBytes")
-	}
 	if d.MaxPoolReleaseOrMintGas == 0 {
 		return errors.New("must set MaxPoolReleaseOrMintGas")
 	}
@@ -95,23 +93,10 @@ type JSONExecOffchainConfig struct {
 	BatchGasLimit uint32
 	// See [ccipdata.ExecOffchainConfig.RelativeBoostPerWaitHour]
 	RelativeBoostPerWaitHour float64
-	// Same as [DestMaxGasPrice].
-	//
-	// Deprecated: use [DestMaxGasPrice] instead.
-	MaxGasPrice uint64
-	// DestMaxGasPrice is the max gas price in the native currency (e.g., wei/gas) that a node will pay for executing a transaction on the destination chain.
-	DestMaxGasPrice uint64
 	// See [ccipdata.ExecOffchainConfig.InflightCacheExpiry]
 	InflightCacheExpiry config.Duration
 	// See [ccipdata.ExecOffchainConfig.RootSnoozeTime]
 	RootSnoozeTime config.Duration
-}
-
-func (c JSONExecOffchainConfig) ComputeDestMaxGasPrice() uint64 {
-	if c.DestMaxGasPrice != 0 {
-		return c.DestMaxGasPrice
-	}
-	return c.MaxGasPrice
 }
 
 func (c JSONExecOffchainConfig) Validate() error {
@@ -123,14 +108,6 @@ func (c JSONExecOffchainConfig) Validate() error {
 	}
 	if c.RelativeBoostPerWaitHour == 0 {
 		return errors.New("must set RelativeBoostPerWaitHour")
-	}
-	if c.DestMaxGasPrice == 0 {
-		if c.MaxGasPrice == 0 {
-			return errors.New("must set DestMaxGasPrice")
-		}
-	}
-	if c.MaxGasPrice != 0 && c.DestMaxGasPrice != 0 {
-		return errors.New("cannot set both MaxGasPrice and DestMaxGasPrice")
 	}
 	if c.InflightCacheExpiry.Duration() == 0 {
 		return errors.New("must set InflightCacheExpiry")
@@ -189,7 +166,7 @@ func (o *OffRamp) ChangeConfig(onchainConfigBytes []byte, offchainConfigBytes []
 		RootSnoozeTime:              offchainConfigParsed.RootSnoozeTime,
 	}
 	onchainConfig := cciptypes.ExecOnchainConfig{PermissionLessExecutionThresholdSeconds: time.Second * time.Duration(onchainConfigParsed.PermissionLessExecutionThresholdSeconds)}
-	priceEstimator := prices.NewDAGasPriceEstimator(o.Estimator, big.NewInt(int64(offchainConfigParsed.ComputeDestMaxGasPrice())), 0, 0)
+	priceEstimator := prices.NewDAGasPriceEstimator(o.Estimator, o.DestMaxGasPrice, 0, 0)
 
 	o.UpdateDynamicConfig(onchainConfig, offchainConfig, priceEstimator)
 
@@ -330,8 +307,8 @@ func (o *OffRamp) DecodeExecutionReport(report []byte) (cciptypes.ExecReport, er
 	return DecodeExecReport(o.ExecutionReportArgs, report)
 }
 
-func NewOffRamp(lggr logger.Logger, addr common.Address, ec client.Client, lp logpoller.LogPoller, estimator gas.EvmFeeEstimator) (*OffRamp, error) {
-	v100, err := v1_0_0.NewOffRamp(lggr, addr, ec, lp, estimator)
+func NewOffRamp(lggr logger.Logger, addr common.Address, ec client.Client, lp logpoller.LogPoller, estimator gas.EvmFeeEstimator, destMaxGasPrice *big.Int) (*OffRamp, error) {
+	v100, err := v1_0_0.NewOffRamp(lggr, addr, ec, lp, estimator, destMaxGasPrice)
 	if err != nil {
 		return nil, err
 	}

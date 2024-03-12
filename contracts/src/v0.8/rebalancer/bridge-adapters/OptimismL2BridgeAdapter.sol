@@ -38,17 +38,21 @@ contract OptimismL2BridgeAdapter is IBridgeAdapter {
 
     IERC20(localToken).safeTransferFrom(msg.sender, address(this), amount);
 
+    // Extra data for the L2 deposit.
+    // We encode the nonce in the extra data so that we can track the L2 deposit offchain.
+    bytes memory extraData = abi.encode(s_nonce++);
+
     // If the token is the wrapped native, we unwrap it and deposit native
     if (localToken == address(i_wrappedNative)) {
       i_wrappedNative.withdraw(amount);
-      _depositNativeToL1(recipient, amount);
-      return "";
+      i_L2Bridge.withdrawTo(Lib_PredeployAddresses.OVM_ETH, recipient, amount, 0, extraData);
+      return extraData;
     }
 
     // Token is normal ERC20
     IERC20(localToken).approve(address(i_L2Bridge), amount);
-    i_L2Bridge.withdrawTo(localToken, recipient, amount, 0, abi.encode(s_nonce++));
-    return "";
+    i_L2Bridge.withdrawTo(localToken, recipient, amount, 0, extraData);
+    return extraData;
   }
 
   /// @notice No-op since L1 -> L2 transfers do not need finalization.
@@ -61,14 +65,6 @@ contract OptimismL2BridgeAdapter is IBridgeAdapter {
   /// @notice There are no fees to bridge back to L1
   function getBridgeFeeInNative() external pure returns (uint256) {
     return 0;
-  }
-
-  function depositNativeToL1(address recipient) public payable {
-    _depositNativeToL1(recipient, msg.value);
-  }
-
-  function _depositNativeToL1(address recipient, uint256 amount) internal {
-    i_L2Bridge.withdrawTo(Lib_PredeployAddresses.OVM_ETH, recipient, amount, 0, abi.encode(s_nonce++));
   }
 
   /// @notice returns the address of the

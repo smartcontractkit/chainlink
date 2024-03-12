@@ -46,17 +46,22 @@ contract OptimismL1BridgeAdapter is IBridgeAdapter {
       revert MsgShouldNotContainValue(msg.value);
     }
 
+    // Extra data for the L2 deposit.
+    // We encode the nonce in the extra data so that we can track the L2 deposit offchain.
+    bytes memory extraData = abi.encode(s_nonce++);
+
     // If the token is the wrapped native, we unwrap it and deposit native
     if (localToken == address(i_wrappedNative)) {
       i_wrappedNative.withdraw(amount);
-      _depositNativeToL2(recipient, amount);
-      return "";
+      i_L1Bridge.depositETHTo{value: amount}(recipient, 0, extraData);
+      return extraData;
     }
 
-    // Token is normal ERC20
-    IERC20(localToken).approve(address(i_L1Bridge), amount);
-    i_L1Bridge.depositERC20To(localToken, remoteToken, recipient, amount, 0, abi.encode(s_nonce++));
-    return "";
+    // Token is a normal ERC20.
+    IERC20(localToken).safeApprove(address(i_L1Bridge), amount);
+    i_L1Bridge.depositERC20To(localToken, remoteToken, recipient, amount, 0, extraData);
+
+    return extraData;
   }
 
   /// @notice Bridging to Optimism is paid for with gas
@@ -65,18 +70,6 @@ contract OptimismL1BridgeAdapter is IBridgeAdapter {
   /// to avoid running out of gas.
   function getBridgeFeeInNative() public pure returns (uint256) {
     return 0;
-  }
-
-  function depositNativeToL2(address recipient, uint256 amount) public payable {
-    if (msg.value != amount) {
-      revert MsgValueDoesNotMatchAmount(msg.value, amount);
-    }
-
-    _depositNativeToL2(recipient, amount);
-  }
-
-  function _depositNativeToL2(address recipient, uint256 amount) internal {
-    i_L1Bridge.depositETHTo{value: amount}(recipient, 0, "");
   }
 
   struct OptimismFinalizationPayload {

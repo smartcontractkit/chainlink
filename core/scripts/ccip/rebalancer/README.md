@@ -266,6 +266,92 @@ Shortly thereafter, you should start seeing transmissions.
 
 ## Running Bridge Transfers Through the Adapter Contracts
 
+### Optimism
+
+First, you have to deploy the L1 and L2 bridge adapters:
+
+```shell
+# Switch into the rebalancer scripts dir
+cd core/scripts/ccip/rebalancer
+# Uses sepolia chain id, switch to 1 for mainnet, and sepolia weth contract address (same as arbitrum)
+go run . deploy-op-l1-adapter -l1-chain-id 11155111
+# Uses sepolia chain id, switch to 420 for OP mainnet
+go run . deploy-op-l2-adapter -l2-chain-id 11155420
+```
+
+Now you're ready to do some cross-chain transfers.
+
+#### L1 -> L2
+
+In order to send tokens from L1 to L2, pick a token ([FaucetTestingToken](https://sepolia.etherscan.io/address/0x5589bb8228c07c4e15558875faf2b859f678d129) is easiest).
+
+> NOTE: if you're using the [FaucetTestingToken](https://sepolia.etherscan.io/address/0x5589bb8228c07c4e15558875faf2b859f678d129) you can get some tokens by interacting
+with the [faucet](https://sepolia.etherscan.io/address/0x5589bb8228c07c4e15558875faf2b859f678d129#writeContract#F2) method using MetaMask.
+
+```shell
+# Uses sepolia chain id, switch to 1 for mainnet
+# All values are in the lowest denomination (i.e wei)
+go run . op-send-to-l2 -l1-chain-id $SEPOLIA_CHAIN_ID \
+    -l1-bridge-adapter-address <l1-adapter-address> \
+    -l2-to-address <to-address-on-L2> \
+    -l1-token-address 0x5589BB8228C07c4e15558875fAf2B859f678d129 \ # This is the L1 FaucetTestingToken address
+    -l2-token-address 0xD08a2917653d4E460893203471f0000826fb4034 \ # This is the L2 FaucetTestingToken address
+    -amount 1
+```
+
+The easiest way to see the status of the transaction is to visit the [tokentxns](https://sepolia-optimism.etherscan.io/address/0x77ffC73eD3B2614D21B3398fe368E989f318b412#tokentxns)
+page on Optimism Sepolia's Etherscan site (replace with your address) to see if the coins have been minted on L2.
+
+#### L2 -> L1
+
+In order to withdraw from L2 to L1, pick a token ([FaucetTestingToken](https://sepolia.etherscan.io/address/0x5589bb8228c07c4e15558875faf2b859f678d129) is easiest)
+and make sure you have enough balance.
+
+Then invoke the following function:
+
+```shell
+# Uses sepolia chain id, switch to 420 for mainnet
+# All values are in the lowest denomination (i.e wei)
+go run . op-withdraw-from-l2 -l2-chain-id 11155420 \
+    -l2-bridge-adapter-address <l2-adapter-address> \
+    -amount 1 \
+    -l1-to-address <l1-to-address> \
+    -l2-token-address 0xD08a2917653d4E460893203471f0000826fb4034 # This is the L2 FaucetTestingToken
+```
+
+Once the `op-withdraw-from-l2` executes successfully, you have to wait a few minutes (usually around 10) to prove the withdrawal on L1.
+
+#### Prove Withdrawal on L1
+
+In order to prove the withdrawal on L1, make sure you have the L2 Withdrawal Transaction Hash. This is printed by the `op-withdraw-from-l2` command if you used that to initiate a withdrawal.
+
+In order to be sure that the withdrawal can be proven, you can visit the transaction hash on the explorer, e.g [0x1569872053c27de1cffd11dc1951c49e03a61dba8131afe947c6bc5abe352c20](https://sepolia-optimism.etherscan.io/tx/0x1569872053c27de1cffd11dc1951c49e03a61dba8131afe947c6bc5abe352c20). If you see "L1 State Batch Index:" then that means the L2 batch that includes the withdrawal has been submitted to L1 and can be proven to be
+part of that batch.
+
+```shell
+go run . op-prove-withdrawal-l1 -l1-chain-id 11155111 \
+    -l2-chain-id 11155420 \
+    -l2-tx-hash <withdrawal-tx-hash> \
+    -l1-bridge-adapter-address <l1-bridge-adapter>
+```
+
+`op-prove-withdrawal-l1` will print some important debugging information and then send the withdrawal proof transaction to the L1 OptimismPortal contract.
+
+#### Finalize Withdrawal on L1
+
+In order to finalize a withdrawal from L2, you must first prove the withdrawal (see above) and wait a sufficient amount of time (usually 10+ minutes).
+
+The finalize command is as follows:
+
+```shell
+go run . op-finalize-l1 -l1-chain-id 11155111 \
+    -l2-chain-id 11155420 \
+    -l2-tx-hash <withdrawal-tx-hash> \
+    -l1-bridge-adapter-address <l1-bridge-adapter>
+```
+
+Once this transaction is mined you should have your funds back on L1. See the transaction's logs for more details or query your balance in the appropriate token contract.
+
 ### Arbitrum
 
 First, you have to deploy the L1 and L2 bridge adapters:

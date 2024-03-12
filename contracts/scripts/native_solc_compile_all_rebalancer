@@ -53,3 +53,11 @@ compileContract rebalancer/interfaces/arbitrum/IArbitrumInbox.sol
 compileContract rebalancer/interfaces/arbitrum/IArbitrumGatewayRouter.sol
 compileContract rebalancer/interfaces/arbitrum/IArbitrumTokenGateway.sol
 compileContract rebalancer/interfaces/arbitrum/IAbstractArbitrumTokenGateway.sol
+
+# Optimism helpers
+compileContract rebalancer/interfaces/optimism/IOptimismPortal.sol
+compileContract rebalancer/interfaces/optimism/IOptimismL2OutputOracle.sol
+compileContract rebalancer/interfaces/optimism/IOptimismL2ToL1MessagePasser.sol
+compileContract rebalancer/interfaces/optimism/IOptimismCrossDomainMessenger.sol
+compileContract rebalancer/interfaces/optimism/IOptimismPortal2.sol
+compileContract rebalancer/interfaces/optimism/IOptimismDisputeGameFactory.sol

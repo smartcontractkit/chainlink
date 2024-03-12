@@ -96,7 +96,6 @@ func NewCommitOffchainConfig(
 	ExecGasPriceDeviationPPB uint32,
 	TokenPriceHeartBeat config.Duration,
 	TokenPriceDeviationPPB uint32,
-	MaxGasPrice uint64,
 	InflightCacheExpiry config.Duration) CommitOffchainConfig {
 	return CommitOffchainConfig{v1_2_0.JSONCommitOffchainConfig{
 		GasPriceHeartBeat:        GasPriceHeartBeat,
@@ -104,7 +103,6 @@ func NewCommitOffchainConfig(
 		ExecGasPriceDeviationPPB: ExecGasPriceDeviationPPB,
 		TokenPriceHeartBeat:      TokenPriceHeartBeat,
 		TokenPriceDeviationPPB:   TokenPriceDeviationPPB,
-		SourceMaxGasPrice:        MaxGasPrice,
 		InflightCacheExpiry:      InflightCacheExpiry,
 	}}
 }
@@ -155,7 +153,6 @@ func NewExecOffchainConfig(
 	DestOptimisticConfirmations uint32,
 	BatchGasLimit uint32,
 	RelativeBoostPerWaitHour float64,
-	MaxGasPrice uint64,
 	InflightCacheExpiry config.Duration,
 	RootSnoozeTime config.Duration,
 ) ExecOffchainConfig {
@@ -163,7 +160,6 @@ func NewExecOffchainConfig(
 		DestOptimisticConfirmations: DestOptimisticConfirmations,
 		BatchGasLimit:               BatchGasLimit,
 		RelativeBoostPerWaitHour:    RelativeBoostPerWaitHour,
-		DestMaxGasPrice:             MaxGasPrice,
 		InflightCacheExpiry:         InflightCacheExpiry,
 		RootSnoozeTime:              RootSnoozeTime,
 	}}
