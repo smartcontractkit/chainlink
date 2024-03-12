@@ -8,8 +8,10 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-// Queryer is implemented by [*sqlx.DB], [*sqlx.Tx], & [*sqlx.Conn].
-type Queryer interface {
+type Queryer = DB
+
+// DB is implemented by [*sqlx.DB], [*sqlx.Tx], & [*sqlx.Conn].
+type DB interface {
 	sqlx.ExtContext
 	sqlx.PreparerContext
 	GetContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
@@ -25,21 +27,21 @@ type TxOptions struct {
 // A typical use looks like:
 //
 //	func (d *MyD) Transaction(ctx context.Context, fn func(*MyD) error) (err error) {
-//	  return sqlutil.Transact(ctx, d.new, d.q, nil, fn)
+//	  return sqlutil.Transact(ctx, d.new, d.db, nil, fn)
 //	}
-func Transact[D any](ctx context.Context, newD func(Queryer) D, q Queryer, opts *TxOptions, fn func(D) error) (err error) {
-	db, ok := q.(interface {
+func Transact[D any](ctx context.Context, newD func(DB) D, db DB, opts *TxOptions, fn func(D) error) (err error) {
+	txdb, ok := db.(interface {
 		// BeginTxx is implemented by *sqlx.DB & *sqlx.Conn, but not *sqlx.Tx.
 		BeginTxx(context.Context, *sql.TxOptions) (*sqlx.Tx, error)
 	})
 	if !ok {
 		// Unsupported or already inside another transaction.
-		return fn(newD(q))
+		return fn(newD(db))
 	}
 	if opts == nil {
 		opts = &TxOptions{}
 	}
-	tx, err := db.BeginTxx(ctx, &opts.TxOptions)
+	tx, err := txdb.BeginTxx(ctx, &opts.TxOptions)
 	if err != nil {
 		return err
 	}
