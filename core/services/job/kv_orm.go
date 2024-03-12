@@ -44,12 +44,11 @@ func (kv kVStore) Store(key string, val interface{}) error {
 		return err
 	}
 
-	sql := `INSERT INTO job_kv_store (id, key, val)
+	sql := `INSERT INTO job_kv_store (job_id, key, val)
        	 	VALUES ($1, $2, $3)
-        	ON CONFLICT (id, key) DO UPDATE SET
+        	ON CONFLICT (job_id, key) DO UPDATE SET
 				val = EXCLUDED.val,
-				updated_at = $4
-        	RETURNING id;`
+				updated_at = $4;`
 
 	if err = kv.q.ExecQ(sql, kv.jobID, key, types.JSONText(jsonVal), time.Now()); err != nil {
 		return fmt.Errorf("failed to store value: %s for key: %s for jobID: %d : %w", string(jsonVal), key, kv.jobID, err)
@@ -60,7 +59,7 @@ func (kv kVStore) Store(key string, val interface{}) error {
 // Get retrieves serializable value by key.
 func (kv kVStore) Get(key string, dest interface{}) error {
 	var ret json.RawMessage
-	sql := "SELECT val FROM job_kv_store WHERE id = $1 AND key = $2"
+	sql := "SELECT val FROM job_kv_store WHERE job_id = $1 AND key = $2"
 	if err := kv.q.Get(&ret, sql, kv.jobID, key); err != nil {
 		return fmt.Errorf("failed to get value by key: %s for jobID: %d : %w", key, kv.jobID, err)
 	}
