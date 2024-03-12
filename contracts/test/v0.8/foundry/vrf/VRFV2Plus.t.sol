@@ -136,7 +136,7 @@ contract VRFV2Plus is BaseTest {
     );
 
     // Test that setting link discount flat fee higher than native flat fee reverts
-    vm.expectRevert(abi.encodeWithSelector(VRFCoordinatorV2_5.LinkDiscountTooHigh.selector, uint32(1000), uint32(500)));
+    vm.expectRevert(abi.encodeWithSelector(VRFCoordinatorV2_5.LinkDiscountTooHigh.selector, uint32(501), uint32(500)));
 
     s_testCoordinator.setConfig(
       0,
@@ -145,9 +145,56 @@ contract VRFV2Plus is BaseTest {
       50_000,
       500,
       500, // fulfillmentFlatFeeNativePPM
-      1000, // fulfillmentFlatFeeLinkDiscountPPM
+      501, // fulfillmentFlatFeeLinkDiscountPPM
       15, // nativePremiumPercentage
       10 // linkPremiumPercentage
+    );
+
+    // // Test that setting link discount flat fee equal to native flat fee does not revert
+    s_testCoordinator.setConfig(
+      0,
+      2_500_000,
+      1,
+      50_000,
+      500,
+      450, // fulfillmentFlatFeeNativePPM
+      450, // fulfillmentFlatFeeLinkDiscountPPM
+      15, // nativePremiumPercentage
+      10 // linkPremiumPercentage
+    );
+
+    // Test that setting native premium percentage higher than 155 will revert
+    vm.expectRevert(
+      abi.encodeWithSelector(VRFCoordinatorV2_5.InvalidPremiumPercentage.selector, uint8(156), uint8(155))
+    );
+
+    s_testCoordinator.setConfig(
+      0,
+      2_500_000,
+      1,
+      50_000,
+      500,
+      500_000, // fulfillmentFlatFeeNativePPM
+      100_000, // fulfillmentFlatFeeLinkDiscountPPM
+      156, // nativePremiumPercentage
+      10 // linkPremiumPercentage
+    );
+
+    // Test that setting LINK premium percentage higher than 155 will revert
+    vm.expectRevert(
+      abi.encodeWithSelector(VRFCoordinatorV2_5.InvalidPremiumPercentage.selector, uint8(202), uint8(155))
+    );
+
+    s_testCoordinator.setConfig(
+      0,
+      2_500_000,
+      1,
+      50_000,
+      500,
+      500_000, // fulfillmentFlatFeeNativePPM
+      100_000, // fulfillmentFlatFeeLinkDiscountPPM
+      15, // nativePremiumPercentage
+      202 // linkPremiumPercentage
     );
   }
 
