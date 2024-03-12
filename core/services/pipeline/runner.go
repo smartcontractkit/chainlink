@@ -51,6 +51,7 @@ type Runner interface {
 	ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, vars Vars, l logger.Logger, saveSuccessfulTaskRuns bool) (runID int64, finalResult FinalResult, err error)
 
 	OnRunFinished(func(*Run))
+	InitializePipeline(spec Spec) (*Pipeline, error)
 }
 
 type runner struct {

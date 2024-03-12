@@ -9,12 +9,34 @@
 
 name: Live Testnet Tests
 on:
-  schedule:
-    - cron: "0 5 * * *" # Run every night at midnight EST
-  push:
-    tags:
-      - "*"
+  # Disable refular runs for now until we can fix some test client flakiness and improve stability
+  # schedule:
+  #   - cron: "0 5 * * *" # Run every night at midnight EST
+  # push:
+  #   tags:
+  #     - "*"
   workflow_dispatch:
+    inputs:
+      slack_user_id:
+        description: "The Slack member ID to notify"
+        required: true
+        type: string
+      network:
+        description: "The network to run tests on"
+        required: true
+        type: choice
+        options:
+          - "All"
+          - "Sepolia"
+          - "Optimism Sepolia"
+          - "Arbitrum Sepolia"
+          - "Base Sepolia"
+          - "Polygon Mumbai"
+          - "Avalanche Fuji"
+          - "Fantom Testnet"
+          - "Celo Alfajores"
+          - "Linea Goerli"
+          - "BSC Testnet"
 
 env:
   CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
@@ -64,8 +86,6 @@ jobs:
           tag_suffix: ""
           dockerfile: core/chainlink.Dockerfile
           git_commit_sha: ${{ github.sha }}
-          GRAFANA_CLOUD_BASIC_AUTH: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          GRAFANA_CLOUD_HOST: ${{ secrets.GRAFANA_CLOUD_HOST }}
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
 
@@ -91,7 +111,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       - name: Build Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-tests@92e0f299a87522c2a37bfc4686c4d8a96dc9d28b # v2.3.5
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-tests@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
         with:
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -122,7 +142,7 @@ jobs:
       - name: Debug Result
         run: echo ${{ join(needs.*.result, ',') }}
       - name: Main Slack Notification
-        uses: slackapi/slack-github-action@e28cf165c92ffef168d23c5c9000cffc8a25e117 # v1.24.0
+        uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
         id: slack
         with:
           channel-id: ${{ secrets.QA_SLACK_CHANNEL }}
@@ -144,7 +164,7 @@ jobs:
                       "type": "section",
                       "text": {
                         "type": "mrkdwn",
-                        "text": "${{ contains(join(needs.*.result, ','), 'failure') && 'Some tests failed, notifying <@U01Q4N37KFG>' || 'All Good!' }}"
+                        "text": "Notifying <@${{ inputs.slack_user_id }}>"
                       }
                     },
                     {
@@ -200,6 +220,7 @@ jobs:
 
   sepolia-smoke-tests:
     environment: integration
+    if: ${{ (github.event.inputs.network == 'All' || github.event.inputs.network == 'Sepolia') }}
     permissions:
       checks: write
       pull-requests: write
@@ -248,7 +269,7 @@ jobs:
         with:
           name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@92e0f299a87522c2a37bfc4686c4d8a96dc9d28b # v2.3.5
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -266,12 +287,13 @@ jobs:
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
       - name: Print failed test summary
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@92e0f299a87522c2a37bfc4686c4d8a96dc9d28b # v2.3.5
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
         with:
           test_directory: "./"
 
   bsc-testnet-smoke-tests:
     environment: integration
+    if: ${{ github.event.inputs.network == 'All' || github.event.inputs.network == 'BSC Testnet' }}
     permissions:
       checks: write
       pull-requests: write
@@ -320,7 +342,7 @@ jobs:
         with:
           name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@92e0f299a87522c2a37bfc4686c4d8a96dc9d28b # v2.3.5
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -338,12 +360,13 @@ jobs:
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
       - name: Print failed test summary
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@92e0f299a87522c2a37bfc4686c4d8a96dc9d28b # v2.3.5
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
         with:
           test_directory: "./"
 
   optimism-sepolia-smoke-tests:
     environment: integration
+    if: ${{ github.event.inputs.network == 'All' || github.event.inputs.network == 'Optimism Sepolia' }}
     permissions:
       checks: write
       pull-requests: write
@@ -392,7 +415,7 @@ jobs:
         with:
           name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@92e0f299a87522c2a37bfc4686c4d8a96dc9d28b # v2.3.5
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -410,12 +433,13 @@ jobs:
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
       - name: Print failed test summary
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@92e0f299a87522c2a37bfc4686c4d8a96dc9d28b # v2.3.5
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
         with:
           test_directory: "./"
 
   arbitrum-sepolia-smoke-tests:
     environment: integration
+    if: ${{ github.event.inputs.network == 'All' || github.event.inputs.network == 'Arbitrum Sepolia' }}
     permissions:
       checks: write
       pull-requests: write
@@ -464,7 +488,7 @@ jobs:
         with:
           name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@92e0f299a87522c2a37bfc4686c4d8a96dc9d28b # v2.3.5
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -482,12 +506,13 @@ jobs:
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
       - name: Print failed test summary
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@92e0f299a87522c2a37bfc4686c4d8a96dc9d28b # v2.3.5
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
         with:
           test_directory: "./"
 
   base-sepolia-smoke-tests:
     environment: integration
+    if: ${{ github.event.inputs.network == 'All' || github.event.inputs.network == 'Base Sepolia' }}
     permissions:
       checks: write
       pull-requests: write
@@ -532,7 +557,7 @@ jobs:
         with:
           name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@92e0f299a87522c2a37bfc4686c4d8a96dc9d28b # v2.3.5
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -550,12 +575,13 @@ jobs:
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
       - name: Print failed test summary
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@92e0f299a87522c2a37bfc4686c4d8a96dc9d28b # v2.3.5
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
         with:
           test_directory: "./"
 
   polygon-mumbai-smoke-tests:
     environment: integration
+    if: ${{ github.event.inputs.network == 'All' || github.event.inputs.network == 'Polygon Mumbai' }}
     permissions:
       checks: write
       pull-requests: write
@@ -604,7 +630,7 @@ jobs:
         with:
           name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@92e0f299a87522c2a37bfc4686c4d8a96dc9d28b # v2.3.5
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -622,12 +648,13 @@ jobs:
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
       - name: Print failed test summary
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@92e0f299a87522c2a37bfc4686c4d8a96dc9d28b # v2.3.5
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
         with:
           test_directory: "./"
 
   avalanche-fuji-smoke-tests:
     environment: integration
+    if: ${{ github.event.inputs.network == 'All' || github.event.inputs.network == 'Avalanche Fuji' }}
     permissions:
       checks: write
       pull-requests: write
@@ -676,7 +703,7 @@ jobs:
         with:
           name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@92e0f299a87522c2a37bfc4686c4d8a96dc9d28b # v2.3.5
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -694,12 +721,13 @@ jobs:
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
       - name: Print failed test summary
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@92e0f299a87522c2a37bfc4686c4d8a96dc9d28b # v2.3.5
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
         with:
           test_directory: "./"
 
   fantom-testnet-smoke-tests:
     environment: integration
+    if: ${{ github.event.inputs.network == 'All' || github.event.inputs.network == 'Fantom Testnet' }}
     permissions:
       checks: write
       pull-requests: write
@@ -748,7 +776,7 @@ jobs:
         with:
           name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@92e0f299a87522c2a37bfc4686c4d8a96dc9d28b # v2.3.5
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -766,12 +794,13 @@ jobs:
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
       - name: Print failed test summary
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@92e0f299a87522c2a37bfc4686c4d8a96dc9d28b # v2.3.5
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
         with:
           test_directory: "./"
 
   celo-alfajores-smoke-tests:
     environment: integration
+    if: ${{ github.event.inputs.network == 'All' || github.event.inputs.network == 'Celo Alfajores' }}
     permissions:
       checks: write
       pull-requests: write
@@ -816,7 +845,7 @@ jobs:
         with:
           name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@92e0f299a87522c2a37bfc4686c4d8a96dc9d28b # v2.3.5
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -834,7 +863,7 @@ jobs:
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
       - name: Print failed test summary
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@92e0f299a87522c2a37bfc4686c4d8a96dc9d28b # v2.3.5
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
         with:
           test_directory: "./"
 
@@ -885,7 +914,7 @@ jobs:
         with:
           name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@92e0f299a87522c2a37bfc4686c4d8a96dc9d28b # v2.3.5
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -903,12 +932,13 @@ jobs:
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
       - name: Print failed test summary
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@92e0f299a87522c2a37bfc4686c4d8a96dc9d28b # v2.3.5
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
         with:
           test_directory: "./"
 
   linea-goerli-smoke-tests:
     environment: integration
+    if: ${{ github.event.inputs.network == 'All' || github.event.inputs.network == 'Linea Goerli' }}
     permissions:
       checks: write
       pull-requests: write
@@ -953,7 +983,7 @@ jobs:
         with:
           name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@92e0f299a87522c2a37bfc4686c4d8a96dc9d28b # v2.3.5
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -971,6 +1001,6 @@ jobs:
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
       - name: Print failed test summary
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@92e0f299a87522c2a37bfc4686c4d8a96dc9d28b # v2.3.5
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
         with:
           test_directory: "./"

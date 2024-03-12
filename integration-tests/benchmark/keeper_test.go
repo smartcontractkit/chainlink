@@ -120,6 +120,12 @@ type NetworkConfig struct {
 	funding    *big.Float
 }
 
+var defaultNetworkConfig = NetworkConfig{
+	upkeepSLA:  int64(120),
+	blockTime:  time.Second,
+	deltaStage: time.Duration(0),
+}
+
 func TestAutomationBenchmark(t *testing.T) {
 	l := logging.GetTestLogger(t)
 	testType, err := tc.GetConfigurationNameFromEnv()
@@ -205,15 +211,21 @@ func addRegistry(config *tc.TestConfig) []eth_contracts.KeeperRegistryVersion {
 		return []eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_2_0}
 	case "2_1":
 		return []eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_2_1}
+	case "2_2":
+		return []eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_2_2}
 	case "2_0-1_3":
 		return []eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_2_0, eth_contracts.RegistryVersion_1_3}
 	case "2_1-2_0-1_3":
 		return []eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_2_1,
 			eth_contracts.RegistryVersion_2_0, eth_contracts.RegistryVersion_1_3}
+	case "2_2-2_1":
+		return []eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_2_2, eth_contracts.RegistryVersion_2_1}
 	case "2_0-Multiple":
 		return repeatRegistries(eth_contracts.RegistryVersion_2_0, *config.Keeper.Common.NumberOfRegistries)
 	case "2_1-Multiple":
 		return repeatRegistries(eth_contracts.RegistryVersion_2_1, *config.Keeper.Common.NumberOfRegistries)
+	case "2_2-Multiple":
+		return repeatRegistries(eth_contracts.RegistryVersion_2_2, *config.Keeper.Common.NumberOfRegistries)
 	default:
 		return []eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_2_0}
 	}
@@ -231,7 +243,7 @@ func getNetworkConfig(networkName string, config *tc.TestConfig) NetworkConfig {
 	var nc NetworkConfig
 	var ok bool
 	if nc, ok = networkConfig[networkName]; !ok {
-		return NetworkConfig{}
+		return defaultNetworkConfig
 	}
 
 	if networkName == "SimulatedGeth" || networkName == "geth" {
@@ -294,6 +306,11 @@ var networkConfig = map[string]NetworkConfig{
 	"LineaGoerli": {
 		upkeepSLA:  int64(120),
 		blockTime:  time.Second,
+		deltaStage: 20 * time.Second,
+	},
+	"GnosisChiado": {
+		upkeepSLA:  int64(120),
+		blockTime:  6 * time.Second,
 		deltaStage: 20 * time.Second,
 	},
 }

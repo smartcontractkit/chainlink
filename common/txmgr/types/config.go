@@ -23,6 +23,10 @@ type TransactionManagerTransactionsConfig interface {
 	MaxQueued() uint64
 }
 
+type InMemoryStoreConfig interface {
+	MaxQueued() uint64
+}
+
 type BroadcasterChainConfig interface {
 	IsL2() bool
 }
@@ -42,7 +46,7 @@ type BroadcasterListenerConfig interface {
 
 type ConfirmerFeeConfig interface {
 	BumpTxDepth() uint32
-	LimitDefault() uint32
+	LimitDefault() uint64
 
 	// from gas.Config
 	BumpThreshold() uint64

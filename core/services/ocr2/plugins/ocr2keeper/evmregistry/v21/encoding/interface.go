@@ -1,6 +1,8 @@
 package encoding
 
 import (
+	"net/http"
+
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
@@ -31,17 +33,57 @@ const (
 	UpkeepFailureReasonTxHashReorged           UpkeepFailureReason = 36
 
 	// pipeline execution error
-	NoPipelineError        PipelineExecutionState = 0
-	CheckBlockTooOld       PipelineExecutionState = 1
-	CheckBlockInvalid      PipelineExecutionState = 2
-	RpcFlakyFailure        PipelineExecutionState = 3
-	MercuryFlakyFailure    PipelineExecutionState = 4
-	PackUnpackDecodeFailed PipelineExecutionState = 5
-	MercuryUnmarshalError  PipelineExecutionState = 6
-	InvalidMercuryRequest  PipelineExecutionState = 7
-	InvalidMercuryResponse PipelineExecutionState = 8 // this will only happen if Mercury server sends bad responses
-	UpkeepNotAuthorized    PipelineExecutionState = 9
+	NoPipelineError               PipelineExecutionState = 0
+	CheckBlockTooOld              PipelineExecutionState = 1
+	CheckBlockInvalid             PipelineExecutionState = 2
+	RpcFlakyFailure               PipelineExecutionState = 3
+	MercuryFlakyFailure           PipelineExecutionState = 4
+	PackUnpackDecodeFailed        PipelineExecutionState = 5
+	PrivilegeConfigUnmarshalError PipelineExecutionState = 6
 )
+
+// ErrCode is used for invoking an error handler with a specific error code.
+type ErrCode uint32
+
+const (
+	ErrCodeNil                         ErrCode = 0
+	ErrCodeStreamsPartialContent       ErrCode = 808206
+	ErrCodeStreamsBadRequest           ErrCode = 808400
+	ErrCodeStreamsUnauthorized         ErrCode = 808401
+	ErrCodeStreamsNotFound             ErrCode = 808404
+	ErrCodeStreamsInternalError        ErrCode = 808500
+	ErrCodeStreamsBadGateway           ErrCode = 808502
+	ErrCodeStreamsServiceUnavailable   ErrCode = 808503
+	ErrCodeStreamsStatusGatewayTimeout ErrCode = 808504
+	ErrCodeStreamsBadResponse          ErrCode = 808600
+	ErrCodeStreamsTimeout              ErrCode = 808601
+	ErrCodeStreamsUnknownError         ErrCode = 808700
+)
+
+func HttpToStreamsErrCode(statusCode int) ErrCode {
+	switch statusCode {
+	case http.StatusOK:
+		return ErrCodeNil
+	case http.StatusPartialContent:
+		return ErrCodeStreamsPartialContent
+	case http.StatusBadRequest:
+		return ErrCodeStreamsBadRequest
+	case http.StatusUnauthorized:
+		return ErrCodeStreamsUnauthorized
+	case http.StatusNotFound:
+		return ErrCodeStreamsNotFound
+	case http.StatusInternalServerError:
+		return ErrCodeStreamsInternalError
+	case http.StatusBadGateway:
+		return ErrCodeStreamsBadGateway
+	case http.StatusServiceUnavailable:
+		return ErrCodeStreamsServiceUnavailable
+	case http.StatusGatewayTimeout:
+		return ErrCodeStreamsStatusGatewayTimeout
+	default:
+		return ErrCodeStreamsUnknownError
+	}
+}
 
 type UpkeepInfo = iregistry21.KeeperRegistryBase21UpkeepInfo
 

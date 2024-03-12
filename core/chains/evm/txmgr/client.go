@@ -145,15 +145,15 @@ func (c *evmTxmClient) BatchGetReceipts(ctx context.Context, attempts []TxAttemp
 // May be useful for clearing stuck nonces
 func (c *evmTxmClient) SendEmptyTransaction(
 	ctx context.Context,
-	newTxAttempt func(seq evmtypes.Nonce, feeLimit uint32, fee gas.EvmFee, fromAddress common.Address) (attempt TxAttempt, err error),
+	newTxAttempt func(ctx context.Context, seq evmtypes.Nonce, feeLimit uint64, fee gas.EvmFee, fromAddress common.Address) (attempt TxAttempt, err error),
 	seq evmtypes.Nonce,
-	gasLimit uint32,
+	gasLimit uint64,
 	fee gas.EvmFee,
 	fromAddress common.Address,
 ) (txhash string, err error) {
 	defer utils.WrapIfError(&err, "sendEmptyTransaction failed")
 
-	attempt, err := newTxAttempt(seq, gasLimit, fee, fromAddress)
+	attempt, err := newTxAttempt(ctx, seq, gasLimit, fee, fromAddress)
 	if err != nil {
 		return txhash, err
 	}
@@ -171,7 +171,7 @@ func (c *evmTxmClient) CallContract(ctx context.Context, a TxAttempt, blockNumbe
 	_, errCall := c.client.CallContract(ctx, ethereum.CallMsg{
 		From:       a.Tx.FromAddress,
 		To:         &a.Tx.ToAddress,
-		Gas:        uint64(a.Tx.FeeLimit),
+		Gas:        a.Tx.FeeLimit,
 		GasPrice:   a.TxFee.Legacy.ToInt(),
 		GasFeeCap:  a.TxFee.DynamicFeeCap.ToInt(),
 		GasTipCap:  a.TxFee.DynamicTipCap.ToInt(),
