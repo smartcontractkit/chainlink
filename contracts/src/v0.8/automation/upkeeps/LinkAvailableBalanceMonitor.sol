@@ -71,8 +71,8 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
 
   bytes32 private constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
   bytes32 private constant EXECUTOR_ROLE = keccak256("EXECUTOR_ROLE");
-  uint96 private constant DEFAULT_TOP_UP_AMOUNT_JULES = 9000000000000000000;
-  uint96 private constant DEFAULT_MIN_BALANCE_JULES = 1000000000000000000;
+  uint96 private constant DEFAULT_TOP_UP_AMOUNT_JUELS = 9000000000000000000;
+  uint96 private constant DEFAULT_MIN_BALANCE_JUELS = 1000000000000000000;
   IERC20 private immutable i_linkToken;
 
   uint256 private s_minWaitPeriodSeconds;
@@ -186,8 +186,8 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
       s_onRampAddresses.set(dstChainSelector, targetAddress);
       s_targets[targetAddress] = MonitoredAddress({
         isActive: true,
-        minBalance: DEFAULT_MIN_BALANCE_JULES,
-        topUpAmount: DEFAULT_TOP_UP_AMOUNT_JULES,
+        minBalance: DEFAULT_MIN_BALANCE_JUELS,
+        topUpAmount: DEFAULT_TOP_UP_AMOUNT_JUELS,
         lastTopUpTimestamp: 0
       });
       s_watchList.add(targetAddress);
@@ -249,19 +249,19 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
   /// @notice tries to fund an array of target addresses, checking if they're underfunded in the process
   /// @param targetAddresses is an array of contract addresses to be funded in case they're underfunded
   function topUp(address[] memory targetAddresses) public whenNotPaused {
-    MonitoredAddress memory target;
+    MonitoredAddress memory contractToFund;
     uint256 minWaitPeriod = s_minWaitPeriodSeconds;
     uint256 localBalance = i_linkToken.balanceOf(address(this));
     for (uint256 idx = 0; idx < targetAddresses.length; idx++) {
       address targetAddress = targetAddresses[idx];
-      target = s_targets[targetAddress];
+      contractToFund = s_targets[targetAddress];
       if (
-        localBalance >= target.topUpAmount &&
-        _needsFunding(targetAddress, target.lastTopUpTimestamp + minWaitPeriod, target.minBalance)
+        localBalance >= contractToFund.topUpAmount &&
+        _needsFunding(targetAddress, contractToFund.lastTopUpTimestamp + minWaitPeriod, contractToFund.minBalance)
       ) {
-        bool success = i_linkToken.transfer(targetAddress, target.topUpAmount);
+        bool success = i_linkToken.transfer(targetAddress, contractToFund.topUpAmount);
         if (success) {
-          localBalance -= target.topUpAmount;
+          localBalance -= contractToFund.topUpAmount;
           s_targets[targetAddress].lastTopUpTimestamp = uint56(block.timestamp);
           emit TopUpSucceeded(targetAddress);
         } else {
