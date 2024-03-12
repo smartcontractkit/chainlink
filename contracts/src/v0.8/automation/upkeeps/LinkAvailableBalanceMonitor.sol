@@ -230,7 +230,14 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
     ) {
       address targetAddress = s_watchList.at(idx);
       contractToFund = s_targets[targetAddress];
-      if (_needsFunding(targetAddress, contractToFund.lastTopUpTimestamp + minWaitPeriod, contractToFund.minBalance)) {
+      if (
+        _needsFunding(
+          targetAddress,
+          contractToFund.lastTopUpTimestamp + minWaitPeriod,
+          contractToFund.minBalance,
+          contractToFund.isActive
+        )
+      ) {
         targetsToFund[numFound] = targetAddress;
         numFound++;
         if (numFound == maxPerform) {
@@ -257,7 +264,12 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
       contractToFund = s_targets[targetAddress];
       if (
         localBalance >= contractToFund.topUpAmount &&
-        _needsFunding(targetAddress, contractToFund.lastTopUpTimestamp + minWaitPeriod, contractToFund.minBalance)
+        _needsFunding(
+          targetAddress,
+          contractToFund.lastTopUpTimestamp + minWaitPeriod,
+          contractToFund.minBalance,
+          contractToFund.isActive
+        )
       ) {
         bool success = i_linkToken.transfer(targetAddress, contractToFund.topUpAmount);
         if (success) {
@@ -282,7 +294,8 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
   function _needsFunding(
     address targetAddress,
     uint256 minWaitPeriodPassed,
-    uint256 minBalance
+    uint256 minBalance,
+    bool contractIsActive
   ) private view returns (bool) {
     // Explicitly check if the targetAddress is the zero address
     // or if it's not a contract. In both cases return with false,
@@ -291,7 +304,6 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
     if (targetAddress == address(0) || targetAddress.code.length == 0) {
       return false;
     }
-    MonitoredAddress memory addressToCheck = s_targets[targetAddress];
     ILinkAvailable target;
     IAggregatorProxy proxy = IAggregatorProxy(targetAddress);
     try proxy.aggregator() returns (address aggregatorAddress) {
@@ -302,7 +314,7 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
       target = ILinkAvailable(targetAddress);
     }
     try target.linkAvailableForPayment() returns (int256 balance) {
-      if (balance < int256(minBalance) && minWaitPeriodPassed <= block.timestamp && addressToCheck.isActive) {
+      if (balance < int256(minBalance) && minWaitPeriodPassed <= block.timestamp && contractIsActive) {
         return true;
       }
     } catch {}
