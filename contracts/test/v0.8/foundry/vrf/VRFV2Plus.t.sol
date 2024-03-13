@@ -367,6 +367,7 @@ contract VRFV2Plus is BaseTest {
     bytes extraArgs,
     bool success
   );
+  event FallbackWeiPerUnitLinkUsed(uint256 requestId, int256 fallbackWeiPerUnitLink);
 
   function testRequestAndFulfillRandomWordsNative() public {
     (
@@ -451,6 +452,27 @@ contract VRFV2Plus is BaseTest {
     // 1e15 is less than 1 percent discrepancy
     assertApproxEqAbs(payment, 8.2992 * 1e17, 1e15);
     assertApproxEqAbs(linkBalanceAfter, linkBalanceBefore - 8.2992 * 1e17, 1e15);
+  }
+
+  function testRequestAndFulfillRandomWordsLINK_FallbackWeiPerUnitLinkUsed() public {
+    (
+      VRF.Proof memory proof,
+      VRFCoordinatorV2_5.RequestCommitment memory rc,
+      ,
+      uint256 requestId
+    ) = setupSubAndRequestRandomnessLINKPayment();
+
+    (, , , uint32 stalenessSeconds, , , , , ) = s_testCoordinator.s_config();
+    int256 fallbackWeiPerUnitLink = s_testCoordinator.s_fallbackWeiPerUnitLink();
+
+    // Set the link feed to be stale.
+    (uint80 roundId, int256 answer, uint256 startedAt, , ) = s_linkNativeFeed.latestRoundData();
+    uint256 timestamp = block.timestamp - stalenessSeconds - 1;
+    s_linkNativeFeed.updateRoundData(roundId, answer, timestamp, startedAt);
+
+    vm.expectEmit(false, false, false, true, address(s_testCoordinator));
+    emit FallbackWeiPerUnitLinkUsed(requestId, fallbackWeiPerUnitLink);
+    s_testCoordinator.fulfillRandomWords(proof, rc, false);
   }
 
   function setupSubAndRequestRandomnessLINKPayment()
