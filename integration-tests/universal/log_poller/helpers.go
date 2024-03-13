@@ -43,22 +43,22 @@ import (
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	cltypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
+	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_compatible_utils"
 	le "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_emitter"
 	core_logger "github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 var (
-	EmitterABI, _      = abi.JSON(strings.NewReader(le.LogEmitterABI))
-	automationUtilsABI = cltypes.MustGetABI(automation_utils_2_1.AutomationUtilsABI)
-	bytes0             = [32]byte{
+	EmitterABI, _     = abi.JSON(strings.NewReader(le.LogEmitterABI))
+	automatoinConvABI = cltypes.MustGetABI(ac.AutomationCompatibleUtilsABI)
+	bytes0            = [32]byte{
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 	} // bytes representation of 0x0000000000000000000000000000000000000000000000000000000000000000
 
 )
 
 var registerSingleTopicFilter = func(registry contracts.KeeperRegistry, upkeepID *big.Int, emitterAddress common.Address, topic common.Hash) error {
-	logTriggerConfigStruct := automation_utils_2_1.LogTriggerConfig{
+	logTriggerConfigStruct := ac.IAutomationV21PlusCommonLogTriggerConfig{
 		ContractAddress: emitterAddress,
 		FilterSelector:  0,
 		Topic0:          topic,
@@ -66,7 +66,7 @@ var registerSingleTopicFilter = func(registry contracts.KeeperRegistry, upkeepID
 		Topic2:          bytes0,
 		Topic3:          bytes0,
 	}
-	encodedLogTriggerConfig, err := automationUtilsABI.Methods["_logTriggerConfig"].Inputs.Pack(&logTriggerConfigStruct)
+	encodedLogTriggerConfig, err := automatoinConvABI.Methods["_logTriggerConfig"].Inputs.Pack(&logTriggerConfigStruct)
 	if err != nil {
 		return err
 	}
@@ -116,7 +116,7 @@ var registerSingleTopicFilter = func(registry contracts.KeeperRegistry, upkeepID
 // 		return err
 // 	}
 
-// 	logTriggerConfigStruct := automation_utils_2_1.LogTriggerConfig{
+// 	logTriggerConfigStruct := automation_convenience.LogTriggerConfig{
 // 		ContractAddress: emitterAddress,
 // 		FilterSelector:  filterSelector,
 // 		Topic0:          getTopic(topics, 0),
@@ -124,7 +124,7 @@ var registerSingleTopicFilter = func(registry contracts.KeeperRegistry, upkeepID
 // 		Topic2:          getTopic(topics, 2),
 // 		Topic3:          getTopic(topics, 3),
 // 	}
-// 	encodedLogTriggerConfig, err := automationUtilsABI.Methods["_logTriggerConfig"].Inputs.Pack(&logTriggerConfigStruct)
+// 	encodedLogTriggerConfig, err := automatoinConvABI.Methods["_logTriggerConfig"].Inputs.Pack(&logTriggerConfigStruct)
 // 	if err != nil {
 // 		return err
 // 	}
@@ -1053,21 +1053,6 @@ var (
 		MaxCheckDataSize:     uint32(5000),
 		MaxPerformDataSize:   uint32(5000),
 	}
-
-	automationDefaultRegistryConfig = contracts.KeeperRegistrySettings{
-		PaymentPremiumPPB:    uint32(200000000),
-		FlatFeeMicroLINK:     uint32(0),
-		BlockCountPerTurn:    big.NewInt(10),
-		CheckGasLimit:        uint32(2500000),
-		StalenessSeconds:     big.NewInt(90000),
-		GasCeilingMultiplier: uint16(1),
-		MinUpkeepSpend:       big.NewInt(0),
-		MaxPerformGas:        uint32(5000000),
-		FallbackGasPrice:     big.NewInt(2e11),
-		FallbackLinkPrice:    big.NewInt(2e18),
-		MaxCheckDataSize:     uint32(5000),
-		MaxPerformDataSize:   uint32(5000),
-	}
 )
 
 // SetupLogPollerTestDocker starts the DON and private Ethereum network
@@ -1203,7 +1188,7 @@ func SetupLogPollerTestDocker(
 	require.NoError(t, err, "Error creating OCR Keeper Jobs")
 	ocrConfig, err := actions.BuildAutoOCR2ConfigVarsLocal(l, workerNodes, registryConfig, registrar.Address(), 30*time.Second, registry.RegistryOwnerAddress(), registry.ChainModuleAddress(), registry.ReorgProtectionEnabled())
 	require.NoError(t, err, "Error building OCR config vars")
-	err = registry.SetConfig(automationDefaultRegistryConfig, ocrConfig)
+	err = registry.SetConfigTypeSafe(ocrConfig)
 	require.NoError(t, err, "Registry config should be set successfully")
 	require.NoError(t, env.EVMClient.WaitForEvents(), "Waiting for config to be set")
 
