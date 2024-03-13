@@ -17,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 )
 
 func TestValidateOracleSpec(t *testing.T) {
@@ -373,7 +372,7 @@ answer1      [type=median index=0];
 				}
 			})
 
-			s, err := ocr.ValidatedOracleSpecTomlCfg(func(id *big.Int) (evmconfig.ChainScopedConfig, error) {
+			s, err := ocr.ValidatedOracleSpecTomlCfg(c, func(id *big.Int) (evmconfig.ChainScopedConfig, error) {
 				return evmtest.NewChainScopedConfig(t, c), nil
 			}, tc.toml)
 			tc.assertion(t, s, err)

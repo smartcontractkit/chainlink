@@ -33,7 +33,7 @@ func TestDelegate_JobType(t *testing.T) {
 	t.Parallel()
 
 	lggr := logger.TestLogger(t)
-	delegate := blockhashstore.NewDelegate(lggr, nil, nil)
+	delegate := blockhashstore.NewDelegate(nil, lggr, nil, nil)
 
 	assert.Equal(t, job.BlockhashStore, delegate.JobType())
 }
@@ -72,7 +72,7 @@ func createTestDelegate(t *testing.T) (*blockhashstore.Delegate, *testData) {
 		},
 	)
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
-	return blockhashstore.NewDelegate(lggr, legacyChains, kst), &testData{
+	return blockhashstore.NewDelegate(cfg, lggr, legacyChains, kst), &testData{
 		ethClient:    ethClient,
 		ethKeyStore:  kst,
 		legacyChains: legacyChains,

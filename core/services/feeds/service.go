@@ -110,6 +110,7 @@ type service struct {
 	ocr1KeyStore keystore.OCR
 	ocr2KeyStore keystore.OCR2
 	jobSpawner   job.Spawner
+	//TODO global instead
 	insecureCfg  InsecureConfig
 	jobCfg       JobConfig
 	ocrCfg       OCRConfig
@@ -1133,7 +1134,7 @@ func (s *service) generateJob(spec string) (*job.Job, error) {
 		if !s.ocrCfg.Enabled() {
 			return nil, ErrOCRDisabled
 		}
-		js, err = ocr.ValidatedOracleSpecToml(s.legacyChains, spec)
+		js, err = ocr.ValidatedOracleSpecToml(config, s.legacyChains, spec)
 	case job.OffchainReporting2:
 		if !s.ocr2cfg.Enabled() {
 			return nil, ErrOCR2Disabled

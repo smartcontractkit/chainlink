@@ -9,6 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -18,7 +19,13 @@ import (
 // To make sure Delegate struct implements job.Delegate interface
 var _ job.Delegate = (*Delegate)(nil)
 
+type DelegateConfig interface {
+	Database() config.Database
+	Keeper() config.Keeper
+}
+
 type Delegate struct {
+	cfg          DelegateConfig
 	logger       logger.Logger
 	db           *sqlx.DB
 	jrm          job.ORM
@@ -37,6 +44,7 @@ func NewDelegate(
 	mailMon *mailbox.Monitor,
 ) *Delegate {
 	return &Delegate{
+		//TODO cfg
 		logger:       logger,
 		db:           db,
 		jrm:          jrm,
@@ -66,7 +74,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 		return nil, err
 	}
 	registryAddress := spec.KeeperSpec.ContractAddress
-	orm := NewORM(d.db, d.logger, chain.Config().Database())
+	orm := NewORM(d.db, d.logger, d.cfg.Database())
 	svcLogger := d.logger.With(
 		"jobID", spec.ID,
 		"registryAddress", registryAddress.Hex(),
@@ -95,7 +103,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 		}
 	}
 
-	keeper := chain.Config().Keeper()
+	keeper := d.cfg.Keeper()
 	registry := keeper.Registry()
 	registrySynchronizer := NewRegistrySynchronizer(RegistrySynchronizerOptions{
 		Job:                      spec,
@@ -118,7 +126,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 		chain.HeadBroadcaster(),
 		chain.GasEstimator(),
 		svcLogger,
-		chain.Config().Keeper(),
+		keeper,
 		effectiveKeeperAddress,
 	)
 

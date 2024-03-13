@@ -10,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
 	v1 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/trusted_blockhash_store"
@@ -25,8 +26,14 @@ import (
 
 var _ job.ServiceCtx = &service{}
 
+type Config interface {
+	Feature() config.Feature
+	Database() config.Database
+}
+
 // Delegate creates BlockhashStore feeder jobs.
 type Delegate struct {
+	cfg          Config
 	logger       logger.Logger
 	legacyChains legacyevm.LegacyChainContainer
 	ks           keystore.Eth
@@ -34,11 +41,13 @@ type Delegate struct {
 
 // NewDelegate creates a new Delegate.
 func NewDelegate(
+	cfg Config,
 	logger logger.Logger,
 	legacyChains legacyevm.LegacyChainContainer,
 	ks keystore.Eth,
 ) *Delegate {
 	return &Delegate{
+		cfg:          cfg,
 		logger:       logger,
 		legacyChains: legacyChains,
 		ks:           ks,
@@ -63,7 +72,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 			"getting chain ID %d: %w", jb.BlockhashStoreSpec.EVMChainID.ToInt(), err)
 	}
 
-	if !chain.Config().Feature().LogPoller() {
+	if !d.cfg.Feature().LogPoller() {
 		return nil, errors.New("log poller must be enabled to run blockhashstore")
 	}
 
@@ -146,7 +155,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 
 	bpBHS, err := NewBulletproofBHS(
 		chain.Config().EVM().GasEstimator(),
-		chain.Config().Database(),
+		d.cfg.Database(),
 		fromAddresses,
 		chain.TxManager(),
 		bhs,

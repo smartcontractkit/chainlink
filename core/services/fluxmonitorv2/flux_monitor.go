@@ -157,7 +157,7 @@ func NewFromJobSpec(
 	ethClient evmclient.Client,
 	logBroadcaster log.Broadcaster,
 	pipelineRunner pipeline.Runner,
-	cfg Config,
+	cfg JobConfig,
 	fcfg EvmFeeConfig,
 	ecfg EvmTransactionsConfig,
 	fmcfg FluxMonitorConfig,

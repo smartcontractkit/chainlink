@@ -336,10 +336,12 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				pipelineRunner,
 				globalLogger),
 			job.BlockhashStore: blockhashstore.NewDelegate(
+				cfg,
 				globalLogger,
 				legacyEVMChains,
 				keyStore.Eth()),
 			job.BlockHeaderFeeder: blockheaderfeeder.NewDelegate(
+				cfg,
 				globalLogger,
 				legacyEVMChains,
 				keyStore.Eth()),
@@ -368,6 +370,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		delegates[job.FluxMonitor] = &job.NullDelegate{Type: job.FluxMonitor}
 	} else {
 		delegates[job.FluxMonitor] = fluxmonitorv2.NewDelegate(
+			cfg,
 			keyStore.Eth(),
 			jobORM,
 			pipelineORM,
@@ -401,7 +404,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			telemetryManager,
 			legacyEVMChains,
 			globalLogger,
-			cfg.Database(),
+			cfg,
 			mailMon,
 		)
 	} else {
@@ -470,6 +473,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			db,
 			jobSpawner,
 			keyStore,
+			//TODO just pass whole config
 			cfg.Insecure(),
 			cfg.JobPipeline(),
 			cfg.OCR(),
