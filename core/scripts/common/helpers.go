@@ -514,7 +514,20 @@ func GetRlpHeaders(env Environment, blockNumbers []*big.Int, getParentBlocks boo
 			//fmt.Println("Calculated BH:", bh.String(),
 			//	"fetched BH:", h.Hash(),
 			//	"block number:", new(big.Int).Set(blockNum).Add(blockNum, offset).String())
+		} else if IsAvaxSubnet(env.ChainID) {
+			var h AvaSubnetHeader
+			// Get child block since it's the one that has the parent hash in its header.
+			nextBlockNum := new(big.Int).Set(blockNum).Add(blockNum, offset)
+			err2 := env.Jc.CallContext(context.Background(), &h, "eth_getBlockByNumber", hexutil.EncodeBig(nextBlockNum), false)
+			if err2 != nil {
+				return nil, hashes, fmt.Errorf("failed to get header: %+v", err2)
+			}
+			rlpHeader, err2 = rlp.EncodeToBytes(h)
+			if err2 != nil {
+				return nil, hashes, fmt.Errorf("failed to encode rlp: %+v", err2)
+			}
 
+			hashes = append(hashes, h.Hash().String())
 		} else if IsPolygonEdgeNetwork(env.ChainID) {
 
 			// Get child block since it's the one that has the parent hash in its header.
@@ -586,12 +599,20 @@ func CalculateLatestBlockHeader(env Environment, blockNumberInput int) (err erro
 	return err
 }
 
-// IsAvaxNetwork returns true if the given chain ID corresponds to an avalanche network or subnet.
+// IsAvaxNetwork returns true if the given chain ID corresponds to an avalanche network.
 func IsAvaxNetwork(chainID int64) bool {
 	return chainID == 43114 || // C-chain mainnet
-		chainID == 43113 || // Fuji testnet
-		chainID == 335 || // DFK testnet
-		chainID == 53935 // DFK mainnet
+		chainID == 43113 // Fuji testnet
+}
+
+// IsAvaxSubnet returns true if the given chain ID corresponds to an avalanche subnet.
+func IsAvaxSubnet(chainID int64) bool {
+	return chainID == 335 || // DFK testnet
+		chainID == 53935 || // DFK mainnet
+		chainID == 955081 || // Nexon Dev
+		chainID == 595581 || // Nexon Test
+		chainID == 807424 || // Nexon QA
+		chainID == 847799 // Nexon Stage
 }
 
 func ToOffchainPublicKey(s string) (key types2.OffchainPublicKey) {

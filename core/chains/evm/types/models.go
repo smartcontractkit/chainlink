@@ -13,7 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/ugorji/go/codec"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
@@ -105,11 +105,10 @@ func (h *Head) IsInChain(blockHash common.Hash) bool {
 		if h.Hash == blockHash {
 			return true
 		}
-		if h.Parent != nil {
-			h = h.Parent
-		} else {
+		if h.Parent == nil {
 			break
 		}
+		h = h.Parent
 	}
 	return false
 }
@@ -121,11 +120,10 @@ func (h *Head) HashAtHeight(blockNum int64) common.Hash {
 		if h.Number == blockNum {
 			return h.Hash
 		}
-		if h.Parent != nil {
-			h = h.Parent
-		} else {
+		if h.Parent == nil {
 			break
 		}
+		h = h.Parent
 	}
 	return common.Hash{}
 }
@@ -138,15 +136,14 @@ func (h *Head) ChainLength() uint32 {
 	l := uint32(1)
 
 	for {
-		if h.Parent != nil {
-			l++
-			if h == h.Parent {
-				panic("circular reference detected")
-			}
-			h = h.Parent
-		} else {
+		if h.Parent == nil {
 			break
 		}
+		l++
+		if h == h.Parent {
+			panic("circular reference detected")
+		}
+		h = h.Parent
 	}
 	return l
 }
@@ -157,14 +154,13 @@ func (h *Head) ChainHashes() []common.Hash {
 
 	for {
 		hashes = append(hashes, h.Hash)
-		if h.Parent != nil {
-			if h == h.Parent {
-				panic("circular reference detected")
-			}
-			h = h.Parent
-		} else {
+		if h.Parent == nil {
 			break
 		}
+		if h == h.Parent {
+			panic("circular reference detected")
+		}
+		h = h.Parent
 	}
 	return hashes
 }
@@ -186,15 +182,14 @@ func (h *Head) ChainString() string {
 
 	for {
 		sb.WriteString(h.String())
-		if h.Parent != nil {
-			if h == h.Parent {
-				panic("circular reference detected")
-			}
-			sb.WriteString("->")
-			h = h.Parent
-		} else {
+		if h.Parent == nil {
 			break
 		}
+		if h == h.Parent {
+			panic("circular reference detected")
+		}
+		sb.WriteString("->")
+		h = h.Parent
 	}
 	sb.WriteString("->nil")
 	return sb.String()
@@ -360,7 +355,7 @@ func (b Block) MarshalJSON() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-var ErrMissingBlock = errors.New("missing block")
+var ErrMissingBlock = pkgerrors.New("missing block")
 
 // UnmarshalJSON unmarshals to a Block
 func (b *Block) UnmarshalJSON(data []byte) error {
@@ -375,12 +370,12 @@ func (b *Block) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	if bi.Empty() {
-		return errors.WithStack(ErrMissingBlock)
+		return pkgerrors.WithStack(ErrMissingBlock)
 	}
 
 	n, err := hexutil.DecodeBig(bi.Number)
 	if err != nil {
-		return errors.Wrapf(err, "failed to decode block number while unmarshalling block, got:  '%s' in '%s'", bi.Number, data)
+		return pkgerrors.Wrapf(err, "failed to decode block number while unmarshalling block, got:  '%s' in '%s'", bi.Number, data)
 	}
 	*b = Block{
 		Number:        n.Int64(),
@@ -426,7 +421,7 @@ func (t *Transaction) UnmarshalJSON(data []byte) error {
 	}
 
 	if ti.Gas == nil {
-		return errors.Errorf("expected 'gas' to not be null, got: '%s'", data)
+		return pkgerrors.Errorf("expected 'gas' to not be null, got: '%s'", data)
 	}
 	if ti.Type == nil {
 		tpe := LegacyTxType
@@ -507,7 +502,7 @@ func unmarshalFromString(s string, f *FunctionSelector) error {
 		}
 		bytes := common.FromHex(s)
 		if len(bytes) != FunctionSelectorLength {
-			return errors.New("function ID must be 4 bytes in length")
+			return pkgerrors.New("function ID must be 4 bytes in length")
 		}
 		f.SetBytes(bytes)
 	} else {
@@ -564,7 +559,7 @@ type UntrustedBytes []byte
 func (ary UntrustedBytes) SafeByteSlice(start int, end int) ([]byte, error) {
 	if end > len(ary) || start > end || start < 0 || end < 0 {
 		var empty []byte
-		return empty, errors.New("out of bounds slice access")
+		return empty, pkgerrors.New("out of bounds slice access")
 	}
 	return ary[start:end], nil
 }

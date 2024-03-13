@@ -27,7 +27,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 )
@@ -412,8 +411,8 @@ func TestORM_SetBroadcastBeforeBlockNum(t *testing.T) {
 	})
 
 	t.Run("only updates evm.tx_attempts for the current chain", func(t *testing.T) {
-		require.NoError(t, ethKeyStore.Add(fromAddress, testutils.SimulatedChainID))
-		require.NoError(t, ethKeyStore.Enable(fromAddress, testutils.SimulatedChainID))
+		require.NoError(t, ethKeyStore.Add(testutils.Context(t), fromAddress, testutils.SimulatedChainID))
+		require.NoError(t, ethKeyStore.Enable(testutils.Context(t), fromAddress, testutils.SimulatedChainID))
 		etxThisChain := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 1, fromAddress, cfg.EVM().ChainID())
 		etxOtherChain := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 0, fromAddress, testutils.SimulatedChainID)
 
@@ -1262,16 +1261,16 @@ func TestORM_FindNextUnstartedTransactionFromAddress(t *testing.T) {
 	t.Run("cannot find unstarted tx", func(t *testing.T) {
 		mustInsertInProgressEthTxWithAttempt(t, txStore, 13, fromAddress)
 
-		resultEtx := new(txmgr.Tx)
-		err := txStore.FindNextUnstartedTransactionFromAddress(testutils.Context(t), resultEtx, fromAddress, ethClient.ConfiguredChainID())
+		resultEtx, err := txStore.FindNextUnstartedTransactionFromAddress(testutils.Context(t), fromAddress, ethClient.ConfiguredChainID())
 		assert.ErrorIs(t, err, sql.ErrNoRows)
+		assert.Nil(t, resultEtx)
 	})
 
 	t.Run("finds unstarted tx", func(t *testing.T) {
 		mustCreateUnstartedGeneratedTx(t, txStore, fromAddress, &cltest.FixtureChainID)
-		resultEtx := new(txmgr.Tx)
-		err := txStore.FindNextUnstartedTransactionFromAddress(testutils.Context(t), resultEtx, fromAddress, ethClient.ConfiguredChainID())
+		resultEtx, err := txStore.FindNextUnstartedTransactionFromAddress(testutils.Context(t), fromAddress, ethClient.ConfiguredChainID())
 		require.NoError(t, err)
+		assert.NotNil(t, resultEtx)
 	})
 }
 
@@ -1621,7 +1620,7 @@ func TestORM_CheckTxQueueCapacity(t *testing.T) {
 
 	toAddress := testutils.NewAddress()
 	encodedPayload := []byte{1, 2, 3}
-	feeLimit := uint32(1000000000)
+	feeLimit := uint64(1000000000)
 	value := big.Int(assets.NewEthValue(142))
 	var maxUnconfirmedTransactions uint64 = 2
 
@@ -1714,7 +1713,7 @@ func TestORM_CreateTransaction(t *testing.T) {
 
 	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
 	toAddress := testutils.NewAddress()
-	gasLimit := uint32(1000)
+	gasLimit := uint64(1000)
 	payload := []byte{1, 2, 3}
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
@@ -1723,7 +1722,6 @@ func TestORM_CreateTransaction(t *testing.T) {
 		subject := uuid.New()
 		strategy := newMockTxStrategy(t)
 		strategy.On("Subject").Return(uuid.NullUUID{UUID: subject, Valid: true})
-		strategy.On("PruneQueue", mock.Anything, mock.AnythingOfType("*txmgr.evmTxStore")).Return(int64(0), nil)
 		etx, err := txStore.CreateTransaction(testutils.Context(t), txmgr.TxRequest{
 			FromAddress:    fromAddress,
 			ToAddress:      toAddress,
@@ -1780,7 +1778,6 @@ func TestORM_CreateTransaction(t *testing.T) {
 		subject := uuid.New()
 		strategy := newMockTxStrategy(t)
 		strategy.On("Subject").Return(uuid.NullUUID{UUID: subject, Valid: true})
-		strategy.On("PruneQueue", mock.Anything, mock.AnythingOfType("*txmgr.evmTxStore")).Return(int64(0), nil)
 		etx, err := txStore.CreateTransaction(testutils.Context(t), txmgr.TxRequest{
 			FromAddress:    fromAddress,
 			ToAddress:      toAddress,
@@ -1816,22 +1813,22 @@ func TestORM_PruneUnstartedTxQueue(t *testing.T) {
 	evmtest.NewEthClientMockWithDefaultChain(t)
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
 
-	t.Run("does not prune if queue has not exceeded capacity", func(t *testing.T) {
+	t.Run("does not prune if queue has not exceeded capacity-1", func(t *testing.T) {
 		subject1 := uuid.New()
 		strategy1 := txmgrcommon.NewDropOldestStrategy(subject1, uint32(5), cfg.Database().DefaultQueryTimeout())
 		for i := 0; i < 5; i++ {
 			mustCreateUnstartedGeneratedTx(t, txStore, fromAddress, &cltest.FixtureChainID, txRequestWithStrategy(strategy1))
 		}
-		AssertCountPerSubject(t, txStore, int64(5), subject1)
+		AssertCountPerSubject(t, txStore, int64(4), subject1)
 	})
 
-	t.Run("prunes if queue has exceeded capacity", func(t *testing.T) {
+	t.Run("prunes if queue has exceeded capacity-1", func(t *testing.T) {
 		subject2 := uuid.New()
 		strategy2 := txmgrcommon.NewDropOldestStrategy(subject2, uint32(3), cfg.Database().DefaultQueryTimeout())
 		for i := 0; i < 5; i++ {
 			mustCreateUnstartedGeneratedTx(t, txStore, fromAddress, &cltest.FixtureChainID, txRequestWithStrategy(strategy2))
 		}
-		AssertCountPerSubject(t, txStore, int64(3), subject2)
+		AssertCountPerSubject(t, txStore, int64(2), subject2)
 	})
 }
 

@@ -64,9 +64,9 @@ jobs:
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-          suites: benchmark load/automationv2_1 chaos reorg
+          suites: benchmark chaos reorg load
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
         env:
           DETACH_RUNNER: true
           TEST_SUITE: benchmark
@@ -95,5 +95,4 @@ jobs:
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
           this-job-name: Automation Benchmark Test
-          test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
         continue-on-error: true

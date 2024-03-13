@@ -27,6 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/prommetrics"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -305,7 +306,7 @@ func (r *logRecoverer) GetRecoveryProposals(ctx context.Context) ([]ocr2keepers.
 	var results, pending []ocr2keepers.UpkeepPayload
 	for _, payload := range r.pending {
 		if allLogsCounter >= MaxProposals {
-			// we have enough proposals, pushed the rest are pushed back to pending
+			// we have enough proposals, the rest are pushed back to pending
 			pending = append(pending, payload)
 			continue
 		}
@@ -321,6 +322,7 @@ func (r *logRecoverer) GetRecoveryProposals(ctx context.Context) ([]ocr2keepers.
 	}
 
 	r.pending = pending
+	prommetrics.AutomationRecovererPendingPayloads.Set(float64(len(r.pending)))
 
 	r.lggr.Debugf("found %d recoverable payloads", len(results))
 
@@ -417,6 +419,7 @@ func (r *logRecoverer) recoverFilter(ctx context.Context, f upkeepFilter, startB
 	added, alreadyPending, ok := r.populatePending(f, filteredLogs)
 	if added > 0 {
 		r.lggr.Debugw("found missed logs", "added", added, "alreadyPending", alreadyPending, "upkeepID", f.upkeepID)
+		prommetrics.AutomationRecovererMissedLogs.Add(float64(added))
 	}
 	if !ok {
 		r.lggr.Debugw("failed to add all logs to pending", "upkeepID", f.upkeepID)
@@ -542,7 +545,7 @@ func (r *logRecoverer) selectFilterBatch(filters []upkeepFilter) []upkeepFilter 
 	for len(results) < batchSize && len(filters) != 0 {
 		i, err := r.randIntn(len(filters))
 		if err != nil {
-			r.lggr.Debugw("error generating random number", "error", err.Error())
+			r.lggr.Debugw("error generating random number", "err", err.Error())
 			continue
 		}
 		results = append(results, filters[i])
@@ -673,6 +676,7 @@ func (r *logRecoverer) addPending(payload ocr2keepers.UpkeepPayload) error {
 	}
 	if !exist {
 		r.pending = append(pending, payload)
+		prommetrics.AutomationRecovererPendingPayloads.Inc()
 	}
 	return nil
 }
@@ -684,6 +688,8 @@ func (r *logRecoverer) removePending(workID string) {
 	for _, p := range r.pending {
 		if p.WorkID != workID {
 			updated = append(updated, p)
+		} else {
+			prommetrics.AutomationRecovererPendingPayloads.Dec()
 		}
 	}
 	r.pending = updated

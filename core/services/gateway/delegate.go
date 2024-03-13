@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"context"
 	"encoding/json"
 
 	"github.com/google/uuid"
@@ -46,7 +47,7 @@ func (d *Delegate) BeforeJobDeleted(spec job.Job)                {}
 func (d *Delegate) OnDeleteJob(spec job.Job, q pg.Queryer) error { return nil }
 
 // ServicesForSpec returns the scheduler to be used for running observer jobs
-func (d *Delegate) ServicesForSpec(spec job.Job, qopts ...pg.QOpt) (services []job.ServiceCtx, err error) {
+func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services []job.ServiceCtx, err error) {
 	if spec.GatewaySpec == nil {
 		return nil, errors.Errorf("services.Delegate expects a *jobSpec.GatewaySpec to be present, got %v", spec)
 	}

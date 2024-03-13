@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
 	v1 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
@@ -51,7 +52,7 @@ func (d *Delegate) JobType() job.Type {
 }
 
 // ServicesForSpec satisfies the job.Delegate interface.
-func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceCtx, error) {
+func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.ServiceCtx, error) {
 	if jb.BlockhashStoreSpec == nil {
 		return nil, errors.Errorf(
 			"blockhashstore.Delegate expects a BlockhashStoreSpec to be present, got %+v", jb)
@@ -67,7 +68,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceC
 		return nil, errors.New("log poller must be enabled to run blockhashstore")
 	}
 
-	keys, err := d.ks.EnabledKeysForChain(chain.ID())
+	keys, err := d.ks.EnabledKeysForChain(ctx, chain.ID())
 	if err != nil {
 		return nil, errors.Wrap(err, "getting sending keys")
 	}

@@ -15,14 +15,19 @@ vars:
   # This is a comma separated list of CIDR blocks that will be allowed to access the ingress.
   DEVSPACE_INGRESS_CIDRS:
     source: env
+  # Time to wait for pods to be in `Ready` condition
+  DEVSPACE_K8S_POD_WAIT_TIMEOUT: 600s
 
 # This is a list of `pipelines` that DevSpace can execute (you can define your own)
 pipelines:
   dev:
+    # We don't need a rollout here and image haven't been really changed,
+    # may not deserve to be commited, so we are just rebooting the app pods
     run: |-
-      run_dependencies --all       # 1. Deploy any projects this project needs (see "dependencies")
-      ensure_pull_secrets --all    # 2. Ensure pull secrets
-      start_dev app                # 3. Start dev mode "app" (see "dev" section)
+      devspace run-pipeline deploy
+      kubectl get pods -n ${DEVSPACE_NAMESPACE} --no-headers=true | grep '^app-node-' | awk '{print $1}' | xargs kubectl delete pod -n ${DEVSPACE_NAMESPACE}
+      kubectl wait pods -n ${DEVSPACE_NAMESPACE} --selector=app=app --for=condition=Ready --timeout=${DEVSPACE_K8S_POD_WAIT_TIMEOUT}
+  # You can run this pipeline via `devspace deploy` (or `devspace run-pipeline deploy`)
   deploy:
     run: |-
       set -o pipefail
@@ -36,20 +41,15 @@ pipelines:
 
       run_dependencies --all
       ensure_pull_secrets --all
-      build_images ---var DOCKER_DEFAULT_PLATFORM=linux/amd64  --all -t $(git rev-parse --short HEAD)
-      kubectl annotate namespace ${DEVSPACE_NAMESPACE} janitor/ttl=${NS_TTL} || true
+      
+      build_images --all
+      
+      kubectl label namespace ${DEVSPACE_NAMESPACE} cleanup.kyverno.io/ttl=${NS_TTL} || true
       kubectl label namespace/${DEVSPACE_NAMESPACE} network=crib || true
-      if [ -n "$1" ]; then
-        echo "Deploying tag $1"
-        tag=$1
-        image=${DEVSPACE_IMAGE}:$tag
-      else
-        echo "Deploying current commit tag: $(git rev-parse --short HEAD)"
-        tag=$(git rev-parse --short HEAD)
-        image=${DEVSPACE_IMAGE}:$tag
-      fi
 
-      echo "Checking tag: $tag"
+      tag=$(git rev-parse --short HEAD)
+      image=${DEVSPACE_IMAGE}:$tag
+      echo "Checking tag: '$tag'"
       repository_name="chainlink-devspace"
       desired_tag=$tag
 
@@ -71,7 +71,9 @@ pipelines:
       --set=helm.values.chainlink.nodes[3].image=$image \
       --set=helm.values.chainlink.nodes[4].image=$image \
       --set=helm.values.chainlink.nodes[5].image=$image
+      echo
       echo "Namespace ${DEVSPACE_NAMESPACE} will be deleted in ${NS_TTL}"
+      echo "To extend the TTL for e.g. 72 hours, run: devspace run ttl ${DEVSPACE_NAMESPACE} 72h"
 
       echo
       echo "############################################"
@@ -89,15 +91,31 @@ pipelines:
 commands:
   connect: |-
     sudo kubefwd svc -n $1
+  ttl: |-
+    kubectl label namespace $1 cleanup.kyverno.io/ttl=$2 --overwrite
 
 images:
   app:
     image: ${DEVSPACE_IMAGE}
-    dockerfile: ../../core/chainlink.devspace.Dockerfile
-    context: ../..
-    docker:
-      disableFallback: true
+    tags:
+      - $(git rev-parse --short HEAD)
+    custom:
+      skipImageArg: true
+      command: |-
+        TOPLEVEL=$(git rev-parse --show-toplevel)
+        pushd $TOPLEVEL
+        pwd
+        goreleaser --version
+        MACOS_SDK_DIR=$(pwd)/tools/bin/MacOSX12.3.sdk ./tools/bin/goreleaser_wrapper release --snapshot --clean --config .goreleaser.devspace.yaml
+        popd
+        BUILT_IMAGE=$(cat $TOPLEVEL/dist/artifacts.json | jq -r '.[] | select(.type == "Docker Image" and .goarch == "amd64" and (.name | contains("sha")) and ( .name | contains("root") | not) ) | .name')
 
+        echo "Tagging and pushing image"
+        tag=$(git rev-parse --short HEAD)
+        TAGGED_IMAGE=${DEVSPACE_IMAGE}:$tag
+        docker tag $BUILT_IMAGE ${runtime.images.app.image}:${runtime.images.app.tag}
+        echo "Tagged image: $TAGGED_IMAGE"
+        docker push $TAGGED_IMAGE
 hooks:
   - wait:
       running: true
@@ -546,35 +564,6 @@ deployments:
             limits:
               cpu: 1
               memory: 1024Mi
-        runner:
-          securityContext:
-            capabilities:
-              drop:
-                - ALL
-            readOnlyRootFilesystem: false
-            runAsNonRoot: true
-            runAsUser: 999
-            runAsGroup: 999
-          stateful: false
-          resources:
-            requests:
-              cpu: 1
-              memory: 512Mi
-            limits:
-              cpu: 1
-              memory: 512Mi
-          affinity: {}
-          tolerations: []
-          nodeSelector: {}
-          ingress:
-            enabled: false
-            className: ""
-            hosts: []
-            tls: []
-            annotations: {}
-          service:
-            type: NodePort
-            port: 8080
 
         # monitoring.coreos.com/v1 PodMonitor for each node
         prometheusMonitor: true
@@ -684,7 +673,6 @@ deployments:
                         name: mockserver
                         port:
                           number: 1080
-
         networkPolicyDefault:
           ingress:
             allowCustomCidrs: true
@@ -692,77 +680,8 @@ deployments:
             # AWS ALB private CIDRs and optionally other custom CIDRs.
             # Example format: 10.0.0.0/16,192.168.0.1/24
             customCidrs: ${DEVSPACE_INGRESS_CIDRS}
-
         # deployment placement, standard helm stuff
         podAnnotations:
         nodeSelector:
         tolerations:
         affinity:
-
-profiles:
-  # this replaces only "runner" pod, usable when you'd like to run some system level tests inside k8s
-  - name: runner
-    patches:
-      - op: replace
-        path: dev.app.workingDir
-        value: /home/chainlink/integration-tests
-      - op: replace
-        path: dev.app.container
-        value: runner
-      - op: replace
-        path: dev.app.labelSelector.instance
-        value: runner-1
-      - op: remove
-        path: dev.app.sync[1].uploadExcludePaths[0]
-      - op: remove
-        path: dev.app.open
-      - op: remove
-        path: dev.app.ports[1]
-  - name: node
-    patches:
-      - op: replace
-        path: dev.app.container
-        value: node
-      - op: replace
-        path: dev.app.labelSelector.instance
-        value: node-1
-
-# This is a list of `dev` containers that are based on the containers created by your deployments
-dev:
-  app:
-    workingDir: /home/chainlink
-    container: node
-    labelSelector:
-      instance: node-1
-    # Sync files between the local filesystem and the development container
-    sync:
-      - path: ../../core/services/chainlink:/home/chainlink/core/services/chainlink
-        printLogs: true
-        disableDownload: true
-      - path: ../..:/home/chainlink
-        printLogs: true
-        disableDownload: true
-        uploadExcludePaths:
-          - integration-tests/
-          - .github/
-          - belt/
-          - charts/
-          - contracts/
-          - node_modules/
-          - integration/
-          - integration-scripts/
-          - testdata/
-          - evm-test-helpers/
-    # Open a terminal and use the following command
-    terminal:
-      command: bash
-    ssh:
-      enabled: true
-    proxyCommands:
-      #       TODO: access issues
-      #      - command: devspace
-      #      - command: kubectl
-      #      - command: helm
-      - gitCredentials: true
-    ports:
-      - port: "2345"

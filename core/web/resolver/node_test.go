@@ -6,19 +6,16 @@ import (
 	gqlerrors "github.com/graph-gophers/graphql-go/errors"
 	"github.com/pkg/errors"
 
-	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
-	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	chainlinkmocks "github.com/smartcontractkit/chainlink/v2/core/services/chainlink/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/web/testutils"
 )
 
 func TestResolver_Nodes(t *testing.T) {
 	t.Parallel()
 
 	var (
-		chainID = *big.NewI(1)
-
 		query = `
 			query GetNodes {
 				nodes {
@@ -43,16 +40,24 @@ func TestResolver_Nodes(t *testing.T) {
 			name:          "success",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-				f.App.On("GetRelayers").Return(chainlink.RelayerChainInteroperators(f.Mocks.relayerChainInterops))
-				f.Mocks.relayerChainInterops.Nodes = []types.NodeStatus{
-					{
-						Name:    "node-name",
-						ChainID: chainID.String(),
-						Config:  `Name = 'node-name'`,
+				f.App.On("GetRelayers").Return(&chainlinkmocks.FakeRelayerChainInteroperators{
+					Nodes: []types.NodeStatus{
+						{
+							ChainID: "1",
+							Name:    "node-name",
+							Config:  "Name='node-name'\nOrder=11\nHTTPURL='http://some-url'\nWSURL='ws://some-url'",
+							State:   "alive",
+						},
 					},
-				}
-				f.App.On("EVMORM").Return(f.Mocks.evmORM)
-				f.Mocks.evmORM.PutChains(toml.EVMConfig{ChainID: &chainID})
+					Relayers: []loop.Relayer{
+						testutils.MockRelayer{ChainStatus: types.ChainStatus{
+							ID:      "1",
+							Enabled: true,
+							Config:  "",
+						}},
+					},
+				})
+
 			},
 			query: query,
 			result: `
@@ -113,21 +118,20 @@ func Test_NodeQuery(t *testing.T) {
 			}
 		}`
 
-	var name = "node-name"
-
 	testCases := []GQLTestCase{
 		unauthorizedTestCase(GQLTestCase{query: query}, "node"),
 		{
 			name:          "success",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-				f.App.On("EVMORM").Return(f.Mocks.evmORM)
-				f.Mocks.evmORM.PutChains(toml.EVMConfig{Nodes: []*toml.Node{{
-					Name:    &name,
-					WSURL:   commonconfig.MustParseURL("ws://some-url"),
-					HTTPURL: commonconfig.MustParseURL("http://some-url"),
-					Order:   ptr(int32(11)),
-				}}})
+				f.App.On("GetRelayers").Return(&chainlinkmocks.FakeRelayerChainInteroperators{Relayers: []loop.Relayer{
+					testutils.MockRelayer{NodeStatuses: []types.NodeStatus{
+						{
+							Name:   "node-name",
+							Config: "Name='node-name'\nOrder=11\nHTTPURL='http://some-url'\nWSURL='ws://some-url'",
+						},
+					}},
+				}})
 			},
 			query: query,
 			result: `
@@ -144,7 +148,7 @@ func Test_NodeQuery(t *testing.T) {
 			name:          "not found error",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-				f.App.On("EVMORM").Return(f.Mocks.evmORM)
+				f.App.On("GetRelayers").Return(&chainlinkmocks.FakeRelayerChainInteroperators{Relayers: []loop.Relayer{}})
 			},
 			query: query,
 			result: `
@@ -159,5 +163,3 @@ func Test_NodeQuery(t *testing.T) {
 
 	RunGQLTests(t, testCases)
 }
-
-func ptr[T any](t T) *T { return &t }

@@ -1,15 +1,15 @@
--foo
-!foo.bar
+ok foo
+!  foo.bar
 	example error message
--foo.bar.1
--foo.bar.1.A
--foo.bar.1.B
-!foo.bar.2
+ok foo.bar.1
+ok foo.bar.1.A
+ok foo.bar.1.B
+!  foo.bar.2
 	error:
 	this is a multi-line error:
 	new line:
 	original error
-!foo.bar.2.A
+!  foo.bar.2.A
 	failure!
--foo.bar.2.B
--foo.baz
+ok foo.bar.2.B
+ok foo.baz

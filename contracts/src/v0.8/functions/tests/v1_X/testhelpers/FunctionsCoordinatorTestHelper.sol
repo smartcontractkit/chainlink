@@ -9,23 +9,50 @@ contract FunctionsCoordinatorTestHelper is FunctionsCoordinator {
   constructor(
     address router,
     FunctionsBillingConfig memory config,
-    address linkToNativeFeed
-  ) FunctionsCoordinator(router, config, linkToNativeFeed) {}
+    address linkToNativeFeed,
+    address linkToUsdFeed
+  ) FunctionsCoordinator(router, config, linkToNativeFeed, linkToUsdFeed) {}
 
   function callReport(bytes calldata report) external {
     address[MAX_NUM_ORACLES] memory signers;
     signers[0] = msg.sender;
-    _report(gasleft(), msg.sender, 1, signers, report);
+    (
+      bytes32[] memory requestIds,
+      bytes[] memory results,
+      bytes[] memory errors,
+      bytes[] memory onchainMetadata,
+      bytes[] memory offchainMetadata
+    ) = abi.decode(report, (bytes32[], bytes[], bytes[], bytes[], bytes[]));
+    _report(
+      DecodedReport({
+        requestIds: requestIds,
+        results: results,
+        errors: errors,
+        onchainMetadata: onchainMetadata,
+        offchainMetadata: offchainMetadata
+      })
+    );
   }
 
   function callReportMultipleSigners(bytes calldata report, address secondSigner) external {
     address[MAX_NUM_ORACLES] memory signers;
     signers[0] = msg.sender;
     signers[1] = secondSigner;
-    _report(gasleft(), msg.sender, 2, signers, report);
-  }
-
-  function callReportWithSigners(bytes calldata report, address[MAX_NUM_ORACLES] memory signers) external {
-    _report(gasleft(), msg.sender, 2, signers, report);
+    (
+      bytes32[] memory requestIds,
+      bytes[] memory results,
+      bytes[] memory errors,
+      bytes[] memory onchainMetadata,
+      bytes[] memory offchainMetadata
+    ) = abi.decode(report, (bytes32[], bytes[], bytes[], bytes[], bytes[]));
+    _report(
+      DecodedReport({
+        requestIds: requestIds,
+        results: results,
+        errors: errors,
+        onchainMetadata: onchainMetadata,
+        offchainMetadata: offchainMetadata
+      })
+    );
   }
 }

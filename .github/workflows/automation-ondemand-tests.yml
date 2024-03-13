@@ -20,6 +20,16 @@ on:
         required: true
         default: public.ecr.aws/chainlink/chainlink
         type: string
+      enableChaos:
+        description: Check to enable chaos tests
+        type: boolean
+        default: false
+        required: true
+      enableReorg:
+        description: Check to enable reorg tests
+        type: boolean
+        default: false
+        required: true
 
 env:
   ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:${{ github.sha }}
@@ -60,7 +70,7 @@ jobs:
       - name: Check if image exists
         if: inputs.chainlinkImage == ''
         id: check-image
-        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
+        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
         with:
           repository: chainlink
           tag: ${{ github.sha }}${{ matrix.image.tag-suffix }}
@@ -68,7 +78,7 @@ jobs:
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
       - name: Build Image
         if: steps.check-image.outputs.exists == 'false' && inputs.chainlinkImage == ''
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
         with:
           cl_repo: smartcontractkit/chainlink
           cl_ref: ${{ github.sha }}
@@ -104,6 +114,7 @@ jobs:
         with:
           ref: ${{ github.head_ref || github.ref_name }}
       - name: Build Test Image
+        if: inputs.enableChaos || inputs.enableReorg
         uses: ./.github/actions/build-test-image
         with:
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -121,32 +132,54 @@ jobs:
     env:
       CHAINLINK_COMMIT_SHA: ${{ github.sha }}
       CHAINLINK_ENV_USER: ${{ github.actor }}
-      TEST_LOG_LEVEL: debug
+      TEST_LOG_LEVEL: info
     strategy:
       fail-fast: false
       matrix:
         tests:
           - name: chaos
             suite: chaos
-            nodes: 5
+            nodes: 15
             os: ubuntu-latest
+            enabled: ${{ inputs.enableChaos }}
             pyroscope_env: ci-automation-on-demand-chaos
             network: SIMULATED
             command: -run ^TestAutomationChaos$ ./chaos
           - name: reorg
             suite: reorg
-            nodes: 1
+            nodes: 5
             os: ubuntu-latest
+            enabled: ${{ inputs.enableReorg }}
             pyroscope_env: ci-automation-on-demand-reorg
             network: SIMULATED_NONDEV
             command: -run ^TestAutomationReorg$ ./reorg
-          - name: upgrade
+          - name: upgrade 2.0
+            type: upgrade
             suite: smoke
-            nodes: 6
+            nodes: 1
             os: ubuntu20.04-8cores-32GB
+            enabled: true
             pyroscope_env: ci-automation-on-demand-upgrade
             network: SIMULATED
-            command: -run ^TestAutomationNodeUpgrade$ ./smoke
+            command: -run ^TestAutomationNodeUpgrade/registry_2_0 ./smoke
+          - name: upgrade 2.1
+            type: upgrade
+            suite: smoke
+            nodes: 5
+            os: ubuntu20.04-8cores-32GB
+            enabled: true
+            pyroscope_env: ci-automation-on-demand-upgrade
+            network: SIMULATED
+            command: -run ^TestAutomationNodeUpgrade/registry_2_1 ./smoke
+          - name: upgrade 2.2
+            type: upgrade
+            suite: smoke
+            nodes: 5
+            os: ubuntu20.04-8cores-32GB
+            enabled: true
+            pyroscope_env: ci-automation-on-demand-upgrade
+            network: SIMULATED
+            command: -run ^TestAutomationNodeUpgrade/registry_2_2 ./smoke
     runs-on: ${{ matrix.tests.os }}
     name: Automation On Demand ${{ matrix.tests.name }} Test
     steps:
@@ -171,7 +204,7 @@ jobs:
             echo "upgrade_version=${{ inputs.chainlinkVersion }}" >>$GITHUB_OUTPUT
             echo "upgrade_image=$READ_CL_IMAGE" >>$GITHUB_OUTPUT
           fi
-          if [[ "${{ matrix.tests.name }}" == "upgrade" ]]; then
+          if [[ "${{ matrix.tests.type }}" == "upgrade" ]]; then
             READ_CL_UPGR_IMAGE=$(jq -r '.inputs.chainlinkImageUpdate' $GITHUB_EVENT_PATH)
             echo ::add-mask::$READ_CL_UPGR_IMAGE
             echo "image=$READ_CL_UPGR_IMAGE" >>$GITHUB_OUTPUT
@@ -225,7 +258,8 @@ jobs:
           echo ::add-mask::$BASE64_CONFIG_OVERRIDE
           echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV               
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
+        if: ${{ matrix.tests.enabled == true }}
         env:
           TEST_SUITE: ${{ matrix.tests.suite }}
         with:

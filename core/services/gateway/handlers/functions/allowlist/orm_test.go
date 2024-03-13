@@ -174,6 +174,71 @@ func TestORM_DeleteAllowedSenders(t *testing.T) {
 	})
 }
 
+func TestORM_PurgeAllowedSenders(t *testing.T) {
+	t.Parallel()
+
+	t.Run("OK-purge_allowed_list", func(t *testing.T) {
+		orm, err := setupORM(t)
+		require.NoError(t, err)
+		add1 := testutils.NewAddress()
+		add2 := testutils.NewAddress()
+		add3 := testutils.NewAddress()
+		err = orm.CreateAllowedSenders([]common.Address{add1, add2, add3})
+		require.NoError(t, err)
+
+		results, err := orm.GetAllowedSenders(0, 10)
+		require.NoError(t, err)
+		require.Equal(t, 3, len(results), "incorrect results length")
+		require.Equal(t, add1, results[0])
+
+		err = orm.PurgeAllowedSenders()
+		require.NoError(t, err)
+
+		results, err = orm.GetAllowedSenders(0, 10)
+		require.NoError(t, err)
+		require.Equal(t, 0, len(results), "incorrect results length")
+	})
+
+	t.Run("OK-purge_allowed_list_for_contract_address", func(t *testing.T) {
+		orm1, err := setupORM(t)
+		require.NoError(t, err)
+		add1 := testutils.NewAddress()
+		add2 := testutils.NewAddress()
+		err = orm1.CreateAllowedSenders([]common.Address{add1, add2})
+		require.NoError(t, err)
+
+		results, err := orm1.GetAllowedSenders(0, 10)
+		require.NoError(t, err)
+		require.Equal(t, 2, len(results), "incorrect results length")
+		require.Equal(t, add1, results[0])
+
+		orm2, err := setupORM(t)
+		require.NoError(t, err)
+		add3 := testutils.NewAddress()
+		add4 := testutils.NewAddress()
+		err = orm2.CreateAllowedSenders([]common.Address{add3, add4})
+		require.NoError(t, err)
+
+		results, err = orm2.GetAllowedSenders(0, 10)
+		require.NoError(t, err)
+		require.Equal(t, 2, len(results), "incorrect results length")
+		require.Equal(t, add3, results[0])
+
+		err = orm2.PurgeAllowedSenders()
+		require.NoError(t, err)
+
+		results, err = orm2.GetAllowedSenders(0, 10)
+		require.NoError(t, err)
+		require.Equal(t, 0, len(results), "incorrect results length")
+
+		results, err = orm1.GetAllowedSenders(0, 10)
+		require.NoError(t, err)
+		require.Equal(t, 2, len(results), "incorrect results length")
+		require.Equal(t, add1, results[0])
+		require.Equal(t, add2, results[1])
+	})
+}
+
 func Test_NewORM(t *testing.T) {
 	t.Run("OK-create_ORM", func(t *testing.T) {
 		_, err := allowlist.NewORM(pgtest.NewSqlxDB(t), logger.TestLogger(t), pgtest.NewQConfig(true), testutils.NewAddress())

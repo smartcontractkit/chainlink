@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/jonboulle/clockwork"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
@@ -51,7 +52,7 @@ type gatewayConnector struct {
 
 	config      *ConnectorConfig
 	codec       api.Codec
-	clock       utils.Clock
+	clock       clockwork.Clock
 	nodeAddress []byte
 	signer      Signer
 	handler     GatewayConnectorHandler
@@ -79,7 +80,7 @@ type gatewayState struct {
 	wsClient network.WebSocketClient
 }
 
-func NewGatewayConnector(config *ConnectorConfig, signer Signer, handler GatewayConnectorHandler, clock utils.Clock, lggr logger.Logger) (GatewayConnector, error) {
+func NewGatewayConnector(config *ConnectorConfig, signer Signer, handler GatewayConnectorHandler, clock clockwork.Clock, lggr logger.Logger) (GatewayConnector, error) {
 	if config == nil || signer == nil || handler == nil || clock == nil || lggr == nil {
 		return nil, errors.New("nil dependency")
 	}
@@ -159,7 +160,7 @@ func (c *gatewayConnector) readLoop(gatewayState *gatewayState) {
 				break
 			}
 			if err = msg.Validate(); err != nil {
-				c.lggr.Errorw("failed to validate message signature", "id", gatewayState.config.Id, "error", err)
+				c.lggr.Errorw("failed to validate message signature", "id", gatewayState.config.Id, "err", err)
 				break
 			}
 			c.handler.HandleGatewayMessage(ctx, gatewayState.config.Id, msg)
@@ -175,7 +176,7 @@ func (c *gatewayConnector) reconnectLoop(gatewayState *gatewayState) {
 	for {
 		conn, err := gatewayState.wsClient.Connect(ctx, gatewayState.url)
 		if err != nil {
-			c.lggr.Errorw("connection error", "url", gatewayState.url, "error", err)
+			c.lggr.Errorw("connection error", "url", gatewayState.url, "err", err)
 		} else {
 			c.lggr.Infow("connected successfully", "url", gatewayState.url)
 			closeCh := gatewayState.conn.Reset(conn)

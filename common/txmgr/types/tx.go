@@ -30,7 +30,7 @@ type TxStrategy interface {
 	// PruneQueue is called after tx insertion
 	// It accepts the service responsible for deleting
 	// unstarted txs and deletion options
-	PruneQueue(ctx context.Context, pruneService UnstartedTxQueuePruner) (n int64, err error)
+	PruneQueue(ctx context.Context, pruneService UnstartedTxQueuePruner) (ids []int64, err error)
 }
 
 type TxAttemptState int8
@@ -79,7 +79,7 @@ type TxRequest[ADDR types.Hashable, TX_HASH types.Hashable] struct {
 	ToAddress        ADDR
 	EncodedPayload   []byte
 	Value            big.Int
-	FeeLimit         uint32
+	FeeLimit         uint64
 	Meta             *TxMeta[ADDR, TX_HASH]
 	ForwarderAddress ADDR
 
@@ -146,6 +146,13 @@ type TxMeta[ADDR types.Hashable, TX_HASH types.Hashable] struct {
 	// Used for keepers
 	UpkeepID *string `json:"UpkeepID,omitempty"`
 
+	// Used for VRF to know if the txn is a ForceFulfilment txn
+	ForceFulfilled          *bool   `json:"ForceFulfilled,omitempty"`
+	ForceFulfillmentAttempt *uint64 `json:"ForceFulfillmentAttempt,omitempty"`
+
+	// Used for Keystone Workflows
+	WorkflowExecutionID *string `json:"WorkflowExecutionID,omitempty"`
+
 	// Used only for forwarded txs, tracks the original destination address.
 	// When this is set, it indicates tx is forwarded through To address.
 	FwdrDestAddress *ADDR `json:"ForwarderDestAddress,omitempty"`
@@ -168,7 +175,7 @@ type TxAttempt[
 	Tx    Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 	TxFee FEE
 	// ChainSpecificFeeLimit on the TxAttempt is always the same as the on-chain encoded value for fee limit
-	ChainSpecificFeeLimit   uint32
+	ChainSpecificFeeLimit   uint64
 	SignedRawTx             []byte
 	Hash                    TX_HASH
 	CreatedAt               time.Time
@@ -198,7 +205,7 @@ type Tx[
 	Value          big.Int
 	// FeeLimit on the Tx is always the conceptual gas limit, which is not
 	// necessarily the same as the on-chain encoded value (i.e. Optimism)
-	FeeLimit uint32
+	FeeLimit uint64
 	Error    null.String
 	// BroadcastAt is updated every time an attempt for this tx is re-sent
 	// In almost all cases it will be within a second or so of the actual send time.

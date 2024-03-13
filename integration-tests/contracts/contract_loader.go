@@ -81,6 +81,8 @@ func NewContractLoader(bcClient blockchain.EVMClient, logger zerolog.Logger) (Co
 		return &FantomContractLoader{NewEthereumContractLoader(clientImpl, logger)}, nil
 	case *blockchain.BSCClient:
 		return &BSCContractLoader{NewEthereumContractLoader(clientImpl, logger)}, nil
+	case *blockchain.GnosisClient:
+		return &GnosisContractLoader{NewEthereumContractLoader(clientImpl, logger)}, nil
 	}
 	return nil, errors.New("unknown blockchain client implementation for contract Loader, register blockchain client in NewContractLoader")
 }
@@ -151,6 +153,11 @@ type FantomContractLoader struct {
 
 // BSCContractLoader wraps for BSC
 type BSCContractLoader struct {
+	*EthereumContractLoader
+}
+
+// GnosisContractLoader wraps for Gnosis
+type GnosisContractLoader struct {
 	*EthereumContractLoader
 }
 
@@ -247,7 +254,7 @@ func (e *EthereumContractLoader) LoadOperatorContract(address common.Address) (O
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumOperator{
+	return &LegacyEthereumOperator{
 		address:  address,
 		client:   e.client,
 		operator: instance.(*operator_wrapper.Operator),
@@ -266,7 +273,7 @@ func (e *EthereumContractLoader) LoadAuthorizedForwarder(address common.Address)
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumAuthorizedForwarder{
+	return &LegacyEthereumAuthorizedForwarder{
 		address:             address,
 		client:              e.client,
 		authorizedForwarder: instance.(*authorized_forwarder.AuthorizedForwarder),

@@ -53,7 +53,7 @@ jobs:
           cat << EOF > config.toml
           server_url="$PYROSCOPE_SERVER"
           environment="$PYROSCOPE_ENVIRONMENT"
-          key="$PYROSCOPE_KEY"
+          key_secret="$PYROSCOPE_KEY"
           EOF
 
           echo "$decoded_toml" >> final_config.toml
@@ -80,9 +80,9 @@ jobs:
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-          suites: benchmark load/automationv2_1 chaos reorg
+          suites: benchmark chaos reorg load
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@e865e376b8c2d594028c8d645dd6c47169b72974 # v2.2.16
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
         env:
           RR_CPU: 4000m
           RR_MEM: 4Gi
@@ -94,7 +94,7 @@ jobs:
           PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
         with:
-          test_command_to_run: cd integration-tests && go test -timeout 1h -v -run TestLogTrigger ./load/automationv2_1 -count=1
+          test_command_to_run: cd integration-tests/load && go test -timeout 1h -v -run TestLogTrigger ./automationv2_1 -count=1
           test_download_vendor_packages_command: make gomod
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ env.CHAINLINK_VERSION }}
@@ -113,5 +113,4 @@ jobs:
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
           this-job-name: Automation Load Test
-          test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
         continue-on-error: true

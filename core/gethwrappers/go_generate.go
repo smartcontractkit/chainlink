@@ -56,12 +56,22 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/KeeperRegistryLogicB2_1/KeeperRegistryLogicB2_1.abi ../../contracts/solc/v0.8.16/KeeperRegistryLogicB2_1/KeeperRegistryLogicB2_1.bin KeeperRegistryLogicB keeper_registry_logic_b_wrapper_2_1
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/IKeeperRegistryMaster/IKeeperRegistryMaster.abi ../../contracts/solc/v0.8.16/IKeeperRegistryMaster/IKeeperRegistryMaster.bin IKeeperRegistryMaster i_keeper_registry_master_wrapper_2_1
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/AutomationUtils2_1/AutomationUtils2_1.abi ../../contracts/solc/v0.8.16/AutomationUtils2_1/AutomationUtils2_1.bin AutomationUtils automation_utils_2_1
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/AutomationRegistrar2_2/AutomationRegistrar2_2.abi ../../contracts/solc/v0.8.16/AutomationRegistrar2_2/AutomationRegistrar2_2.bin AutomationRegistrar automation_registrar_wrapper2_2
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/AutomationRegistry2_2/AutomationRegistry2_2.abi ../../contracts/solc/v0.8.16/AutomationRegistry2_2/AutomationRegistry2_2.bin AutomationRegistry keeper_registry_wrapper_2_2
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/AutomationRegistryLogicA2_2/AutomationRegistryLogicA2_2.abi ../../contracts/solc/v0.8.16/AutomationRegistryLogicA2_2/AutomationRegistryLogicA2_2.bin AutomationRegistryLogicA keeper_registry_logic_a_wrapper_2_2
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/AutomationRegistryLogicB2_2/AutomationRegistryLogicB2_2.abi ../../contracts/solc/v0.8.16/AutomationRegistryLogicB2_2/AutomationRegistryLogicB2_2.bin AutomationRegistryLogicB keeper_registry_logic_b_wrapper_2_2
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/IAutomationRegistryMaster/IAutomationRegistryMaster.abi ../../contracts/solc/v0.8.16/IAutomationRegistryMaster/IAutomationRegistryMaster.bin IAutomationRegistryMaster i_keeper_registry_master_wrapper_2_2
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/AutomationUtils2_2/AutomationUtils2_2.abi ../../contracts/solc/v0.8.16/AutomationUtils2_2/AutomationUtils2_2.bin AutomationUtils automation_utils_2_2
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/AutomationRegistry2_2/AutomationRegistry2_2.abi ../../contracts/solc/v0.8.19/AutomationRegistry2_2/AutomationRegistry2_2.bin AutomationRegistry automation_registry_wrapper_2_2
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/AutomationRegistryLogicA2_2/AutomationRegistryLogicA2_2.abi ../../contracts/solc/v0.8.19/AutomationRegistryLogicA2_2/AutomationRegistryLogicA2_2.bin AutomationRegistryLogicA automation_registry_logic_a_wrapper_2_2
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/AutomationRegistryLogicB2_2/AutomationRegistryLogicB2_2.abi ../../contracts/solc/v0.8.19/AutomationRegistryLogicB2_2/AutomationRegistryLogicB2_2.bin AutomationRegistryLogicB automation_registry_logic_b_wrapper_2_2
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/IAutomationRegistryMaster/IAutomationRegistryMaster.abi ../../contracts/solc/v0.8.19/IAutomationRegistryMaster/IAutomationRegistryMaster.bin IAutomationRegistryMaster i_automation_registry_master_wrapper_2_2
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/AutomationUtils2_2/AutomationUtils2_2.abi ../../contracts/solc/v0.8.19/AutomationUtils2_2/AutomationUtils2_2.bin AutomationUtils automation_utils_2_2
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/AutomationRegistrar2_3/AutomationRegistrar2_3.abi ../../contracts/solc/v0.8.19/AutomationRegistrar2_3/AutomationRegistrar2_3.bin AutomationRegistrar automation_registrar_wrapper2_3
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/AutomationRegistry2_3/AutomationRegistry2_3.abi ../../contracts/solc/v0.8.19/AutomationRegistry2_3/AutomationRegistry2_3.bin AutomationRegistry automation_registry_wrapper_2_3
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/AutomationRegistryLogicA2_3/AutomationRegistryLogicA2_3.abi ../../contracts/solc/v0.8.19/AutomationRegistryLogicA2_3/AutomationRegistryLogicA2_3.bin AutomationRegistryLogicA automation_registry_logic_a_wrapper_2_3
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/AutomationRegistryLogicB2_3/AutomationRegistryLogicB2_3.abi ../../contracts/solc/v0.8.19/AutomationRegistryLogicB2_3/AutomationRegistryLogicB2_3.bin AutomationRegistryLogicB automation_registry_logic_b_wrapper_2_3
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/IAutomationRegistryMaster2_3/IAutomationRegistryMaster.abi ../../contracts/solc/v0.8.19/IAutomationRegistryMaster2_3/IAutomationRegistryMaster.bin IAutomationRegistryMaster i_automation_registry_master_wrapper_2_3
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/AutomationUtils2_3/AutomationUtils2_3.abi ../../contracts/solc/v0.8.19/AutomationUtils2_3/AutomationUtils2_3.bin AutomationUtils automation_utils_2_3
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/ArbitrumModule/ArbitrumModule.abi ../../contracts/solc/v0.8.19/ArbitrumModule/ArbitrumModule.bin ArbitrumModule arbitrum_module
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/ChainModuleBase/ChainModuleBase.abi ../../contracts/solc/v0.8.19/ChainModuleBase/ChainModuleBase.bin ChainModuleBase chain_module_base
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/OptimismModule/OptimismModule.abi ../../contracts/solc/v0.8.19/OptimismModule/OptimismModule.bin OptimismModule optimism_module
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/ScrollModule/ScrollModule.abi ../../contracts/solc/v0.8.19/ScrollModule/ScrollModule.bin ScrollModule scroll_module
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/IChainModule/IChainModule.abi ../../contracts/solc/v0.8.19/IChainModule/IChainModule.bin IChainModule i_chain_module
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/ILogAutomation/ILogAutomation.abi ../../contracts/solc/v0.8.16/ILogAutomation/ILogAutomation.bin ILogAutomation i_log_automation
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/AutomationForwarderLogic/AutomationForwarderLogic.abi ../../contracts/solc/v0.8.16/AutomationForwarderLogic/AutomationForwarderLogic.bin AutomationForwarderLogic automation_forwarder_logic
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/LogUpkeepCounter/LogUpkeepCounter.abi ../../contracts/solc/v0.8.6/LogUpkeepCounter/LogUpkeepCounter.bin LogUpkeepCounter log_upkeep_counter_wrapper
@@ -153,6 +163,9 @@ package gethwrappers
 
 // Chainlink Functions
 //go:generate go generate ./functions
+
+// Chainlink Keystone
+//go:generate go generate ./keystone
 
 // Mercury
 //go:generate go generate ./llo-feeds

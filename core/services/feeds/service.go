@@ -439,6 +439,10 @@ func (s *service) DeleteJob(ctx context.Context, args *DeleteJobArgs) (int64, er
 		return 0, errors.Wrap(err, "GetJobProposalByRemoteUUID did not find any proposals to delete")
 	}
 
+	logger := s.lggr.With(
+		"job_proposal_id", proposal.ID,
+	)
+
 	// Ensure that if the job proposal exists, that it belongs to the feeds
 	// manager which previously proposed a job using the remote UUID.
 	if args.FeedsManagerID != proposal.FeedsManagerID {
@@ -453,7 +457,7 @@ func (s *service) DeleteJob(ctx context.Context, args *DeleteJobArgs) (int64, er
 	}
 
 	if err = s.observeJobProposalCounts(); err != nil {
-		return 0, err
+		logger.Errorw("Failed to push metrics for job proposal deletion", err)
 	}
 
 	return proposal.ID, nil
@@ -500,8 +504,13 @@ func (s *service) RevokeJob(ctx context.Context, args *RevokeJobArgs) (int64, er
 		return 0, errors.Wrap(err, "RevokeSpec failed")
 	}
 
+	logger := s.lggr.With(
+		"job_proposal_id", proposal.ID,
+		"job_proposal_spec_id", latest.ID,
+	)
+
 	if err = s.observeJobProposalCounts(); err != nil {
-		return 0, err
+		logger.Errorw("Failed to push metrics for revoke job", err)
 	}
 
 	return proposal.ID, nil
@@ -556,6 +565,10 @@ func (s *service) ProposeJob(ctx context.Context, args *ProposeJobArgs) (int64, 
 		}
 	}
 
+	logger := s.lggr.With(
+		"job_proposal_remote_uuid", args.RemoteUUID,
+	)
+
 	var id int64
 	q := s.q.WithOpts(pg.WithParentCtx(ctx))
 	err = q.Transaction(func(tx pg.Queryer) error {
@@ -597,7 +610,7 @@ func (s *service) ProposeJob(ctx context.Context, args *ProposeJobArgs) (int64, 
 	promJobProposalRequest.Inc()
 
 	if err = s.observeJobProposalCounts(); err != nil {
-		return 0, err
+		logger.Errorw("Failed to push metrics for propose job", err)
 	}
 
 	return id, nil
@@ -637,6 +650,11 @@ func (s *service) RejectSpec(ctx context.Context, id int64) error {
 		return errors.Wrap(err, "fms rpc client is not connected")
 	}
 
+	logger := s.lggr.With(
+		"job_proposal_id", proposal.ID,
+		"job_proposal_spec_id", id,
+	)
+
 	q := s.q.WithOpts(pctx)
 	err = q.Transaction(func(tx pg.Queryer) error {
 		if err = s.orm.RejectSpec(id, pg.WithQueryer(tx)); err != nil {
@@ -656,9 +674,11 @@ func (s *service) RejectSpec(ctx context.Context, id int64) error {
 		return errors.Wrap(err, "could not reject job proposal")
 	}
 
-	err = s.observeJobProposalCounts()
+	if err = s.observeJobProposalCounts(); err != nil {
+		logger.Errorw("Failed to push metrics for job rejection", err)
+	}
 
-	return err
+	return nil
 }
 
 // IsJobManaged determines is a job is managed by the Feeds Manager.
@@ -859,6 +879,11 @@ func (s *service) CancelSpec(ctx context.Context, id int64) error {
 		return errors.Wrap(err, "fms rpc client")
 	}
 
+	logger := s.lggr.With(
+		"job_proposal_id", jp.ID,
+		"job_proposal_spec_id", id,
+	)
+
 	q := s.q.WithOpts(pctx)
 	err = q.Transaction(func(tx pg.Queryer) error {
 		var (
@@ -902,9 +927,11 @@ func (s *service) CancelSpec(ctx context.Context, id int64) error {
 		return err
 	}
 
-	err = s.observeJobProposalCounts()
+	if err = s.observeJobProposalCounts(); err != nil {
+		logger.Errorw("Failed to push metrics for job cancellation", err)
+	}
 
-	return err
+	return nil
 }
 
 // ListSpecsByJobProposalIDs gets the specs which belong to the job proposal ids.
@@ -964,9 +991,11 @@ func (s *service) Start(ctx context.Context) error {
 		mgr := mgrs[0]
 		s.connectFeedManager(ctx, mgr, privkey)
 
-		err = s.observeJobProposalCounts()
+		if err = s.observeJobProposalCounts(); err != nil {
+			s.lggr.Error("failed to observe job proposal count when starting service", err)
+		}
 
-		return err
+		return nil
 	})
 }
 

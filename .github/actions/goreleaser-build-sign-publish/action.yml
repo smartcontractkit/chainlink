@@ -3,7 +3,10 @@ description: A composite action that allows building and publishing signed chain
 inputs:
   goreleaser-version:
     description: The goreleaser version
-    default: 1.15.2
+    default: 1.23.0
+    required: false
+  goreleaser-key:
+    description: The goreleaser key
     required: false
   zig-version:
     description: The zig version
@@ -11,13 +14,13 @@ inputs:
     required: false
   cosign-version:
     description: The cosign version
-    default: v1.13.1
+    default: v2.2.2
     required: false
   macos-sdk-dir:
     description: The macos sdk directory
     default: MacOSX12.3.sdk
     required: false
-  # publising inputs
+  # publishing inputs
   enable-docker-publish:
     description: Enable publishing of docker images / manifests
     default: "true"
@@ -75,16 +78,18 @@ runs:
     - name: Setup goreleaser
       uses: goreleaser/goreleaser-action@7ec5c2b0c6cdda6e8bbb49444bc797dd33d74dd8 # v5.0.0
       with:
-        distribution: goreleaser
+        distribution: goreleaser-pro
         install-only: true
         version: ${{ inputs.goreleaser-version }}
+      env:
+        GORELEASER_KEY: ${{ inputs.goreleaser-key }}
     - name: Setup zig
       uses: goto-bus-stop/setup-zig@7ab2955eb728f5440978d5824358023be3a2802d # v2.2.0
       with:
         version: ${{ inputs.zig-version }}
     - name: Setup cosign
       if: inputs.enable-cosign == 'true'
-      uses: sigstore/cosign-installer@11086d25041f77fe8fe7b9ea4e48e3b9192b8f19 # v3.1.2
+      uses: sigstore/cosign-installer@9614fae9e5c5eddabb09f90a270fcb487c9f7149 # v3.3.0
       with:
         cosign-release: ${{ inputs.cosign-version }}
     - name: Login to docker registry

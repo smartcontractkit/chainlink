@@ -39,8 +39,24 @@ contract TermsOfServiceAllowList is ITermsOfServiceAllowList, IAccessController,
   // |                       Initialization                         |
   // ================================================================
 
-  constructor(TermsOfServiceAllowListConfig memory config) ConfirmedOwner(msg.sender) {
+  constructor(
+    TermsOfServiceAllowListConfig memory config,
+    address[] memory initialAllowedSenders,
+    address[] memory initialBlockedSenders
+  ) ConfirmedOwner(msg.sender) {
     updateConfig(config);
+
+    for (uint256 i = 0; i < initialAllowedSenders.length; ++i) {
+      s_allowedSenders.add(initialAllowedSenders[i]);
+    }
+
+    for (uint256 j = 0; j < initialBlockedSenders.length; ++j) {
+      if (s_allowedSenders.contains(initialBlockedSenders[j])) {
+        // Allowed senders cannot also be blocked
+        revert InvalidCalldata();
+      }
+      s_blockedSenders.add(initialBlockedSenders[j]);
+    }
   }
 
   // ================================================================

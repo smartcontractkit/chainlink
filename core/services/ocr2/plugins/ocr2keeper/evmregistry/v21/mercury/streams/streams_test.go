@@ -3,6 +3,7 @@ package streams
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math/big"
@@ -11,27 +12,27 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
-	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury"
+	v02 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury/v02"
+	v03 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury/v03"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
 	evmClientMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury"
-	v02 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury/v02"
-	v03 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury/v03"
 )
 
 type MockMercuryConfigProvider struct {
@@ -118,6 +119,152 @@ func setupStreams(t *testing.T) *streams {
 	return streams
 }
 
+func TestStreams_CheckErrorHandler(t *testing.T) {
+	upkeepId := big.NewInt(123456789)
+	blockNumber := uint64(999)
+	tests := []struct {
+		name         string
+		lookup       *mercury.StreamsLookup
+		checkResults []ocr2keepers.CheckResult
+		errCode      encoding.ErrCode
+
+		callbackResp []byte
+		callbackErr  error
+
+		upkeepNeeded bool
+		performData  []byte
+		wantErr      assert.ErrorAssertionFunc
+
+		state     encoding.PipelineExecutionState
+		retryable bool
+	}{
+		{
+			name: "success - empty extra data",
+			lookup: &mercury.StreamsLookup{
+				StreamsLookupError: &mercury.StreamsLookupError{
+					FeedParamKey: mercury.FeedIdHex,
+					Feeds:        []string{"ETD-USD", "BTC-ETH"},
+					TimeParamKey: mercury.BlockNumber,
+					Time:         big.NewInt(100),
+					ExtraData:    []byte{48, 120, 48, 48},
+				},
+				UpkeepId: upkeepId,
+				Block:    blockNumber,
+			},
+			checkResults: []ocr2keepers.CheckResult{
+				{},
+			},
+			errCode:      encoding.ErrCodeNil,
+			callbackResp: []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 48, 120, 48, 48, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+			upkeepNeeded: true,
+			performData:  []byte{48, 120, 48, 48},
+			wantErr:      assert.NoError,
+		},
+		{
+			name: "success - with extra data",
+			lookup: &mercury.StreamsLookup{
+				StreamsLookupError: &mercury.StreamsLookupError{
+					FeedParamKey: mercury.FeedIdHex,
+					Feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
+					TimeParamKey: mercury.BlockNumber,
+					Time:         big.NewInt(18952430),
+					// this is the address of precompile contract ArbSys(0x0000000000000000000000000000000000000064)
+					ExtraData: []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100},
+				},
+				UpkeepId: upkeepId,
+				Block:    blockNumber,
+			},
+			checkResults: []ocr2keepers.CheckResult{
+				{},
+			},
+			errCode:      encoding.ErrCodeNil,
+			callbackResp: []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+			upkeepNeeded: true,
+			performData:  []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100},
+			wantErr:      assert.NoError,
+		},
+		{
+			name: "failure - checkCallback eth_call failure",
+			lookup: &mercury.StreamsLookup{
+				StreamsLookupError: &mercury.StreamsLookupError{
+					FeedParamKey: mercury.FeedIdHex,
+					Feeds:        []string{"ETD-USD", "BTC-ETH"},
+					TimeParamKey: mercury.BlockNumber,
+					Time:         big.NewInt(100),
+					ExtraData:    []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 48, 120, 48, 48, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+				},
+				UpkeepId: upkeepId,
+				Block:    blockNumber,
+			},
+			checkResults: []ocr2keepers.CheckResult{
+				{},
+			},
+			errCode:      encoding.ErrCodeNil,
+			callbackResp: []byte{},
+			callbackErr:  errors.New("bad response"),
+			wantErr:      assert.Error,
+			state:        encoding.RpcFlakyFailure,
+			retryable:    true,
+			upkeepNeeded: false,
+		},
+		{
+			name: "failure - unpack error because of invalid response bytes from checkCallback eth_call",
+			lookup: &mercury.StreamsLookup{
+				StreamsLookupError: &mercury.StreamsLookupError{
+					FeedParamKey: mercury.FeedIdHex,
+					Feeds:        []string{"ETD-USD", "BTC-ETH"},
+					TimeParamKey: mercury.BlockNumber,
+					Time:         big.NewInt(100),
+					ExtraData:    []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 48, 120, 48, 48, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+				},
+				UpkeepId: upkeepId,
+				Block:    blockNumber,
+			},
+			checkResults: []ocr2keepers.CheckResult{
+				{},
+			},
+			errCode:      encoding.ErrCodeNil,
+			callbackResp: []byte{0x01, 0xAB, 0x45, 0xFF, 0x32}, // invalid response bytes
+			wantErr:      assert.Error,
+			state:        encoding.PackUnpackDecodeFailed,
+			retryable:    false,
+			upkeepNeeded: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client := new(evmClientMocks.Client)
+			s := setupStreams(t)
+			defer s.Close()
+
+			userPayload, err := s.packer.PackUserCheckErrorHandler(tt.errCode, tt.lookup.ExtraData)
+			require.Nil(t, err)
+			payload, err := s.abi.Pack("executeCallback", tt.lookup.UpkeepId, userPayload)
+			require.Nil(t, err)
+
+			args := map[string]interface{}{
+				"from": zeroAddress,
+				"to":   s.registry.Address().Hex(),
+				"data": hexutil.Bytes(payload),
+			}
+			client.On("CallContext", mock.Anything, mock.AnythingOfType("*hexutil.Bytes"), "eth_call", args, hexutil.EncodeUint64(tt.lookup.Block)).Return(tt.callbackErr).
+				Run(func(args mock.Arguments) {
+					by := args.Get(1).(*hexutil.Bytes)
+					*by = tt.callbackResp
+				}).Once()
+			s.client = client
+
+			err = s.CheckErrorHandler(testutils.Context(t), tt.errCode, tt.lookup, tt.checkResults, 0)
+			tt.wantErr(t, err, fmt.Sprintf("Error assertion failed: %v", tt.name))
+			assert.Equal(t, uint8(tt.state), tt.checkResults[0].PipelineExecutionState)
+			assert.Equal(t, tt.retryable, tt.checkResults[0].Retryable)
+			assert.Equal(t, tt.upkeepNeeded, tt.checkResults[0].Eligible)
+			assert.Equal(t, tt.performData, tt.checkResults[0].PerformData)
+		})
+	}
+}
+
 func TestStreams_CheckCallback(t *testing.T) {
 	upkeepId := big.NewInt(123456789)
 	bn := uint64(999)
@@ -139,7 +286,7 @@ func TestStreams_CheckCallback(t *testing.T) {
 
 		state     encoding.PipelineExecutionState
 		retryable bool
-		registry  streamsRegistry
+		registry  streamRegistry
 	}{
 		{
 			name: "success - empty extra data",
@@ -246,15 +393,13 @@ func TestStreams_CheckCallback(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			r := setupStreams(t)
-			defer r.Close()
-			r.registry = tt.registry
-
 			client := new(evmClientMocks.Client)
 			s := setupStreams(t)
+			defer s.Close()
 			payload, err := s.abi.Pack("checkCallback", tt.lookup.UpkeepId, values, tt.lookup.ExtraData)
 			require.Nil(t, err)
 			args := map[string]interface{}{
+				"from": zeroAddress,
 				"to":   s.registry.Address().Hex(),
 				"data": hexutil.Bytes(payload),
 			}
@@ -269,6 +414,7 @@ func TestStreams_CheckCallback(t *testing.T) {
 			tt.wantErr(t, err, fmt.Sprintf("Error assertion failed: %v", tt.name))
 			assert.Equal(t, uint8(tt.state), tt.input[0].PipelineExecutionState)
 			assert.Equal(t, tt.retryable, tt.input[0].Retryable)
+			assert.Equal(t, tt.upkeepNeeded, tt.input[0].Eligible)
 		})
 	}
 }
@@ -284,7 +430,7 @@ func TestStreams_AllowedToUseMercury(t *testing.T) {
 		err        error
 		state      encoding.PipelineExecutionState
 		reason     encoding.UpkeepFailureReason
-		registry   streamsRegistry
+		registry   streamRegistry
 		retryable  bool
 		config     []byte
 	}{
@@ -341,7 +487,7 @@ func TestStreams_AllowedToUseMercury(t *testing.T) {
 		{
 			name:   "failure - cannot unmarshal privilege config",
 			err:    fmt.Errorf("failed to unmarshal privilege config: invalid character '\\x00' looking for beginning of value"),
-			state:  encoding.MercuryUnmarshalError,
+			state:  encoding.PrivilegeConfigUnmarshalError,
 			config: []byte{0, 1},
 			registry: &mockRegistry{
 				GetUpkeepPrivilegeConfigFn: func(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {
@@ -474,7 +620,7 @@ func TestStreams_StreamsLookup(t *testing.T) {
 		hasError          bool
 		hasPermission     bool
 		v3                bool
-		registry          streamsRegistry
+		registry          streamRegistry
 	}{
 		{
 			name: "success - happy path no cache",
@@ -805,6 +951,7 @@ func TestStreams_StreamsLookup(t *testing.T) {
 				payload, err := s.abi.Pack("checkCallback", upkeepId, tt.values, tt.extraData)
 				require.Nil(t, err)
 				args := map[string]interface{}{
+					"from": zeroAddress,
 					"to":   s.registry.Address().Hex(),
 					"data": hexutil.Bytes(payload),
 				}

@@ -170,11 +170,11 @@ func (lsn *listenerV2) Start(ctx context.Context) error {
 		gasLimit := lsn.feeCfg.LimitDefault()
 		vrfLimit := lsn.feeCfg.LimitJobType().VRF()
 		if vrfLimit != nil {
-			gasLimit = *vrfLimit
+			gasLimit = uint64(*vrfLimit)
 		}
 		if err != nil {
 			lsn.l.Criticalw("Error getting coordinator config for gas limit check, starting anyway.", "err", err)
-		} else if conf.MaxGasLimit()+(GasProofVerification*2) > gasLimit {
+		} else if uint64(conf.MaxGasLimit()+(GasProofVerification*2)) > gasLimit {
 			lsn.l.Criticalw("Node gas limit setting may not be high enough to fulfill all requests; it should be increased. Starting anyway.",
 				"currentGasLimit", gasLimit,
 				"neededGasLimit", conf.MaxGasLimit()+(GasProofVerification*2),
@@ -190,6 +190,15 @@ func (lsn *listenerV2) Start(ctx context.Context) error {
 			return err
 		}
 		lsn.respCount = respCount
+
+		if lsn.job.VRFSpec.CustomRevertsPipelineEnabled && lsn.vrfOwner != nil && lsn.job.VRFSpec.VRFOwnerAddress != nil {
+			// Start reverted txns handler in background
+			lsn.wg.Add(1)
+			go func() {
+				defer lsn.wg.Done()
+				lsn.runRevertedTxnsHandler(spec.PollPeriod)
+			}()
+		}
 
 		// Log listener gathers request logs and processes them
 		lsn.wg.Add(1)
