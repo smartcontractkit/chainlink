@@ -1,23 +1,16 @@
-name: Live VRF Tests
+# Funding address: 0xC1107e57082945E28d3202A81B1520DEA3AE6AEC
+name: Generic Live Smoke Tests
 on:
   workflow_dispatch:
     inputs:
-      slack_user_id:
-        description: "The Slack member ID to notify"
-        required: true
-        type: string
       networks:
-        description: "Remove any networks you don't want to run tests on"
+        description: "Comma-separated list of networks to run on"
         required: true
         default: "SEPOLIA,OPTIMISM_SEPOLIA,ARBITRUM_SEPOLIA"
-      test:
-        description: "Choose test you want to run"
+      test_list:
+        description: "Comma-separated list of tests to run"
         required: true
-        type: choice
-        options:
-          - "TestVRFBasic"
-          - "TestVRFv2Basic"
-          - "TestVRFv2Plus"
+        default: "TestVRFBasic,TestVRFv2Basic,TestVRFv2Plus"
 
 env:
   CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
@@ -79,6 +72,8 @@ jobs:
       contents: read
     name: Build Tests Binary
     runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.build-matrix.outputs.matrix }}
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
@@ -93,6 +88,12 @@ jobs:
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+      - name: Build Network Matrix
+        id: build-matrix
+        run: |
+          NETWORKS="[\"${{ github.event.inputs.networks }}\"]"
+          NETWORKS="${NETWORKS//,/\",\"}"
+          echo "matrix=${NETWORKS}" >> "$GITHUB_OUTPUT"
       - name: Build Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-tests@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
         with:
@@ -104,45 +105,34 @@ jobs:
           cache_restore_only: "true"
           binary_name: tests
 
-  build-matrix:
-    environment: integration
-    permissions:
-      id-token: write
-      contents: read
-    name: Build Matrix
-    runs-on: ubuntu-latest
-    outputs:
-      matrix: ${{ steps.build-matrix.outputs.matrix }}
-    steps:
-      - id: build-matrix
-        run: |
-          NETWORKS="[\"${{ github.event.inputs.networks }}\"]"
-          NETWORKS="${NETWORKS//,/\",\"}"
-          echo "matrix=${NETWORKS}"
 
   # End Build Test Dependencies
 
-  live-vrf-tests:
+  live-smoke-tests:
     environment: integration
     permissions:
       checks: write
       pull-requests: write
       id-token: write
       contents: read
-    needs: [build-chainlink, build-tests, build-matrix]
+    needs: [build-chainlink, build-tests]
     strategy:
-      max-parallel: 1
       fail-fast: false
       matrix: 
-        network: ${{fromJson(needs.build-matrix.outputs.matrix)}}
-    name: VRF Tests on ${{ matrix.network }}
+        network: ${{fromJson(needs.build-tests.outputs.matrix)}}
+    name: Smoke Tests on ${{ matrix.network }}
     runs-on: ubuntu-latest
     steps:
       - name: Build Secrets Names
         id: build-secrets-names
         run: |
-          echo "HTTP_URLS_SECRET_NAME=QA_${{ matrix }}_HTTP_URLS"
-          echo "URLS_SECRET_NAME=QA_${{ matrix }}_URLS"
+          echo "HTTP_URLS_SECRET_NAME=QA_${{ matrix.network }}_HTTP_URLS" >> $GITHUB_ENV
+          echo "URLS_SECRET_NAME=QA_${{ matrix.network }}_URLS" >> $GITHUB_ENV
+      - name: Split Test Names
+        id: split_list
+        run: |
+          IFS=',' read -ra ADDR <<< "${{ inputs.test_list }}"
+          echo "test_list=${ADDR[*]}" >> $GITHUB_ENV
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           fetch-depth: 0
@@ -170,7 +160,7 @@ jobs:
       - name: Run Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
         with:
-          test_command_to_run: ./tests -test.timeout 1h -test.count=1 -test.parallel=1 -test.run ${{ inputs.test }}
+          test_command_to_run: ./tests -test.v -test.timeout 4h -test.count=1 -test.parallel=1 -test.run ${{ env.test_list }}
           binary_name: tests
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ github.sha }}

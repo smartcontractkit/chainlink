@@ -1251,10 +1251,11 @@ func (s *service) newOCR2ConfigMsg(cfg OCR2ConfigModel) (*pb.OCR2Config, error) 
 		Multiaddr:        cfg.Multiaddr.ValueOrZero(),
 		ForwarderAddress: cfg.ForwarderAddress.Ptr(),
 		Plugins: &pb.OCR2Config_Plugins{
-			Commit:  cfg.Plugins.Commit,
-			Execute: cfg.Plugins.Execute,
-			Median:  cfg.Plugins.Median,
-			Mercury: cfg.Plugins.Mercury,
+			Commit:     cfg.Plugins.Commit,
+			Execute:    cfg.Plugins.Execute,
+			Median:     cfg.Plugins.Median,
+			Mercury:    cfg.Plugins.Mercury,
+			Rebalancer: cfg.Plugins.Rebalancer,
 		},
 	}
 
