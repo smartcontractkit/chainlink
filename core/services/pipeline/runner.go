@@ -16,6 +16,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
+
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
@@ -202,6 +203,7 @@ func (err ErrRunPanicked) Error() string {
 func NewRun(spec Spec, vars Vars) *Run {
 	return &Run{
 		State:          RunStatusRunning,
+		JobID:          spec.JobID,
 		PipelineSpec:   spec,
 		PipelineSpecID: spec.ID,
 		Inputs:         JSONSerializable{Val: vars.vars, Valid: true},

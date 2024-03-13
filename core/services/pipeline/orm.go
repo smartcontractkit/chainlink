@@ -194,11 +194,11 @@ func (o *orm) CreateRun(run *Run, qopts ...pg.QOpt) (err error) {
 // InsertRun inserts a run into the database
 func (o *orm) InsertRun(run *Run, qopts ...pg.QOpt) error {
 	if run.Status() == RunStatusCompleted {
-		defer o.Prune(o.q, run.PipelineSpecID)
+		defer o.Prune(o.q, run.JobID)
 	}
 	q := o.q.WithOpts(qopts...)
-	sql := `INSERT INTO pipeline_runs (pipeline_spec_id, meta, all_errors, fatal_errors, inputs, outputs, created_at, finished_at, state)
-		VALUES (:pipeline_spec_id, :meta, :all_errors, :fatal_errors, :inputs, :outputs, :created_at, :finished_at, :state)
+	sql := `INSERT INTO pipeline_runs (pipeline_spec_id, job_id, meta, all_errors, fatal_errors, inputs, outputs, created_at, finished_at, state)
+		VALUES (:pipeline_spec_id, :job_id, :meta, :all_errors, :fatal_errors, :inputs, :outputs, :created_at, :finished_at, :state)
 		RETURNING *;`
 	return q.GetNamed(sql, run, run)
 }
@@ -249,7 +249,7 @@ func (o *orm) StoreRun(run *Run, qopts ...pg.QOpt) (restart bool, err error) {
 				return errors.Wrap(err, "StoreRun")
 			}
 		} else {
-			defer o.Prune(tx, run.PipelineSpecID)
+			defer o.Prune(tx, run.JobID)
 			// Simply finish the run, no need to do any sort of locking
 			if run.Outputs.Val == nil || len(run.FatalErrors)+len(run.AllErrors) == 0 {
 				return errors.Errorf("run must have both Outputs and Errors, got Outputs: %#v, FatalErrors: %#v, AllErrors: %#v", run.Outputs.Val, run.FatalErrors, run.AllErrors)
@@ -337,9 +337,9 @@ func (o *orm) InsertFinishedRuns(runs []*Run, saveSuccessfulTaskRuns bool, qopts
 	err := q.Transaction(func(tx pg.Queryer) error {
 		pipelineRunsQuery := `
 INSERT INTO pipeline_runs 
-	(pipeline_spec_id, meta, all_errors, fatal_errors, inputs, outputs, created_at, finished_at, state)
+	(pipeline_spec_id, job_id, meta, all_errors, fatal_errors, inputs, outputs, created_at, finished_at, state)
 VALUES 
-	(:pipeline_spec_id, :meta, :all_errors, :fatal_errors, :inputs, :outputs, :created_at, :finished_at, :state) 
+	(:pipeline_spec_id, :job_id, :meta, :all_errors, :fatal_errors, :inputs, :outputs, :created_at, :finished_at, :state) 
 RETURNING id
 	`
 		rows, errQ := tx.NamedQuery(pipelineRunsQuery, runs)
@@ -357,17 +357,17 @@ RETURNING id
 			runIDs = append(runIDs, runID)
 		}
 
-		pipelineSpecIDm := make(map[int32]struct{})
+		jobIDm := make(map[int32]struct{})
 		for i, run := range runs {
-			pipelineSpecIDm[run.PipelineSpecID] = struct{}{}
+			jobIDm[run.JobID] = struct{}{}
 			for j := range run.PipelineTaskRuns {
 				run.PipelineTaskRuns[j].PipelineRunID = runIDs[i]
 			}
 		}
 
 		defer func() {
-			for pipelineSpecID := range pipelineSpecIDm {
-				o.Prune(tx, pipelineSpecID)
+			for jobID := range jobIDm {
+				o.Prune(tx, jobID)
 			}
 		}()
 
@@ -421,8 +421,8 @@ func (o *orm) InsertFinishedRun(run *Run, saveSuccessfulTaskRuns bool, qopts ...
 
 	q := o.q.WithOpts(qopts...)
 	err = q.Transaction(func(tx pg.Queryer) error {
-		sql := `INSERT INTO pipeline_runs (pipeline_spec_id, meta, all_errors, fatal_errors, inputs, outputs, created_at, finished_at, state)
-		VALUES (:pipeline_spec_id, :meta, :all_errors, :fatal_errors, :inputs, :outputs, :created_at, :finished_at, :state)
+		sql := `INSERT INTO pipeline_runs (pipeline_spec_id, job_id, meta, all_errors, fatal_errors, inputs, outputs, created_at, finished_at, state)
+		VALUES (:pipeline_spec_id, :job_id, :meta, :all_errors, :fatal_errors, :inputs, :outputs, :created_at, :finished_at, :state)
 		RETURNING id;`
 
 		query, args, e := tx.BindNamed(sql, run)
@@ -443,7 +443,7 @@ func (o *orm) InsertFinishedRun(run *Run, saveSuccessfulTaskRuns bool, qopts ...
 			return nil
 		}
 
-		defer o.Prune(tx, run.PipelineSpecID)
+		defer o.Prune(tx, run.JobID)
 		sql = `
 		INSERT INTO pipeline_task_runs (pipeline_run_id, id, type, index, output, error, dot_id, created_at, finished_at)
 		VALUES (:pipeline_run_id, :id, :type, :index, :output, :error, :dot_id, :created_at, :finished_at);`
@@ -633,39 +633,39 @@ func (o *orm) loadCount(pipelineSpecID int32) *atomic.Uint64 {
 const syncLimit = 1000
 
 // Prune attempts to keep the pipeline_runs table capped close to the
-// maxSuccessfulRuns length for each pipeline_spec_id.
+// maxSuccessfulRuns length for each job_id.
 //
 // It does this synchronously for small values and async/sampled for large
 // values.
 //
 // Note this does not guarantee the pipeline_runs table is kept to exactly the
 // max length, rather that it doesn't excessively larger than it.
-func (o *orm) Prune(tx pg.Queryer, pipelineSpecID int32) {
-	if pipelineSpecID == 0 {
-		o.lggr.Panic("expected a non-zero pipeline spec ID")
+func (o *orm) Prune(tx pg.Queryer, jobID int32) {
+	if jobID == 0 {
+		o.lggr.Panic("expected a non-zero job ID")
 	}
 	// For small maxSuccessfulRuns its fast enough to prune every time
 	if o.maxSuccessfulRuns < syncLimit {
-		o.execPrune(tx, pipelineSpecID)
+		o.execPrune(tx, jobID)
 		return
 	}
 	// for large maxSuccessfulRuns we do it async on a sampled basis
 	every := o.maxSuccessfulRuns / 20 // it can get up to 5% larger than maxSuccessfulRuns before a prune
-	cnt := o.loadCount(pipelineSpecID)
+	cnt := o.loadCount(jobID)
 	val := cnt.Add(1)
 	if val%every == 0 {
 		ok := o.IfStarted(func() {
 			o.wg.Add(1)
 			go func() {
-				o.lggr.Debugw("Pruning runs", "pipelineSpecID", pipelineSpecID, "count", val, "every", every, "maxSuccessfulRuns", o.maxSuccessfulRuns)
+				o.lggr.Debugw("Pruning runs", "pipelineSpecID", jobID, "count", val, "every", every, "maxSuccessfulRuns", o.maxSuccessfulRuns)
 				defer o.wg.Done()
 				// Must not use tx here since it's async and the transaction
 				// could be stale
-				o.execPrune(o.q.WithOpts(pg.WithLongQueryTimeout()), pipelineSpecID)
+				o.execPrune(o.q.WithOpts(pg.WithLongQueryTimeout()), jobID)
 			}()
 		})
 		if !ok {
-			o.lggr.Warnw("Cannot prune: ORM is not running", "pipelineSpecID", pipelineSpecID)
+			o.lggr.Warnw("Cannot prune: ORM is not running", "pipelineSpecID", jobID)
 			return
 		}
 	}

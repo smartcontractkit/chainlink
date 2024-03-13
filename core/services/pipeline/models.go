@@ -45,6 +45,7 @@ func (s *Spec) ParsePipeline() (*Pipeline, error) {
 
 type Run struct {
 	ID             int64            `json:"-"`
+	JobID          int32            `json:"-"`
 	PipelineSpecID int32            `json:"-"`
 	PipelineSpec   Spec             `json:"pipelineSpec"`
 	Meta           JSONSerializable `json:"meta"`
