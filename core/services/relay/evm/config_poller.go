@@ -70,13 +70,11 @@ type CPConfig struct {
 	LogDecoder                LogDecoder
 }
 
-func NewConfigPoller(lggr logger.Logger, cfg CPConfig) (evmRelayTypes.ConfigPoller, error) {
-	return newConfigPoller(lggr, cfg.Client, cfg.DestinationChainPoller, cfg.AggregatorContractAddress, cfg.ConfigStoreAddress, cfg.LogDecoder)
+func NewConfigPoller(ctx context.Context, lggr logger.Logger, cfg CPConfig) (evmRelayTypes.ConfigPoller, error) {
+	return newConfigPoller(ctx, lggr, cfg.Client, cfg.DestinationChainPoller, cfg.AggregatorContractAddress, cfg.ConfigStoreAddress, cfg.LogDecoder)
 }
 
-func newConfigPoller(lggr logger.Logger, client client.Client, destChainPoller logpoller.LogPoller, aggregatorContractAddr common.Address, configStoreAddr *common.Address, ld LogDecoder) (*configPoller, error) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+func newConfigPoller(ctx context.Context, lggr logger.Logger, client client.Client, destChainPoller logpoller.LogPoller, aggregatorContractAddr common.Address, configStoreAddr *common.Address, ld LogDecoder) (*configPoller, error) {
 	err := destChainPoller.RegisterFilter(ctx, logpoller.Filter{Name: configPollerFilterName(aggregatorContractAddr), EventSigs: []common.Hash{ld.EventSig()}, Addresses: []common.Address{aggregatorContractAddr}})
 	if err != nil {
 		return nil, err

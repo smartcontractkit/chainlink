@@ -97,8 +97,8 @@ type GasEstimator interface {
 	BumpTxDepth() uint32
 	BumpMin() *assets.Wei
 	FeeCapDefault() *assets.Wei
-	LimitDefault() uint32
-	LimitMax() uint32
+	LimitDefault() uint64
+	LimitMax() uint64
 	LimitMultiplier() float32
 	LimitTransfer() uint32
 	PriceDefault() *assets.Wei

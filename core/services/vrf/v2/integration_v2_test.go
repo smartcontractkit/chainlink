@@ -1009,7 +1009,7 @@ func testEoa(
 			Key:          ptr(key1.EIP55Address),
 			GasEstimator: toml.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
-		c.EVM[0].GasEstimator.LimitDefault = ptr(uint32(gasLimit))
+		c.EVM[0].GasEstimator.LimitDefault = ptr(uint64(gasLimit))
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 		c.EVM[0].FinalityDepth = ptr(finalityDepth)
 	})
@@ -1170,7 +1170,7 @@ func TestVRFV2Integration_SingleConsumer_Wrapper(t *testing.T) {
 			Key:          ptr(key1.EIP55Address),
 			GasEstimator: toml.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
-		c.EVM[0].GasEstimator.LimitDefault = ptr[uint32](3_500_000)
+		c.EVM[0].GasEstimator.LimitDefault = ptr[uint64](3_500_000)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 	})
 	ownerKey := cltest.MustGenerateRandomKey(t)
@@ -1250,7 +1250,7 @@ func TestVRFV2Integration_Wrapper_High_Gas(t *testing.T) {
 			Key:          ptr(key1.EIP55Address),
 			GasEstimator: toml.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
-		c.EVM[0].GasEstimator.LimitDefault = ptr[uint32](3_500_000)
+		c.EVM[0].GasEstimator.LimitDefault = ptr[uint64](3_500_000)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 		c.Feature.LogPoller = ptr(true)
 		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
@@ -1489,7 +1489,7 @@ func simulatedOverrides(t *testing.T, defaultGasPrice *assets.Wei, ks ...toml.Ke
 		if defaultGasPrice != nil {
 			c.EVM[0].GasEstimator.PriceDefault = defaultGasPrice
 		}
-		c.EVM[0].GasEstimator.LimitDefault = ptr[uint32](3_500_000)
+		c.EVM[0].GasEstimator.LimitDefault = ptr[uint64](3_500_000)
 
 		c.Feature.LogPoller = ptr(true)
 		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
@@ -2175,7 +2175,7 @@ func TestStartingCountsV1(t *testing.T) {
 			BroadcastBeforeBlockNum: &broadcastBlock,
 			State:                   txmgrtypes.TxAttemptBroadcast,
 			CreatedAt:               time.Now(),
-			ChainSpecificFeeLimit:   uint32(100),
+			ChainSpecificFeeLimit:   uint64(100),
 		})
 	}
 	// add tx attempt for unconfirmed
@@ -2187,7 +2187,7 @@ func TestStartingCountsV1(t *testing.T) {
 			Hash:                  evmutils.NewHash(),
 			State:                 txmgrtypes.TxAttemptInProgress,
 			CreatedAt:             time.Now(),
-			ChainSpecificFeeLimit: uint32(100),
+			ChainSpecificFeeLimit: uint64(100),
 		})
 	}
 	for _, txAttempt := range txAttempts {

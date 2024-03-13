@@ -245,7 +245,7 @@ func setupNodeOCR2(
 		c.OCR2.Enabled = ptr(true)
 
 		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(500 * time.Millisecond)
-		c.EVM[0].GasEstimator.LimitDefault = ptr[uint32](3_500_000)
+		c.EVM[0].GasEstimator.LimitDefault = ptr[uint64](3_500_000)
 		c.EVM[0].Transactions.ForwardersEnabled = &useForwarders
 		c.OCR2.ContractPollInterval = commonconfig.MustNewDuration(10 * time.Second)
 	})
@@ -285,7 +285,7 @@ func setupNodeOCR2(
 		b.Commit()
 
 		// Add the forwarder to the node's forwarder manager.
-		forwarderORM := forwarders.NewORM(app.GetSqlxDB())
+		forwarderORM := forwarders.NewORM(app.GetDB())
 		chainID := ubig.Big(*b.Blockchain().Config().ChainID)
 		_, err = forwarderORM.CreateForwarder(testutils.Context(t), faddr, chainID)
 		require.NoError(t, err)

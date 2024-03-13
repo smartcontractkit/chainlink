@@ -10,6 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	pkgerrors "github.com/pkg/errors"
 	"golang.org/x/exp/maps"
@@ -165,7 +166,7 @@ func (r *Relayer) NewPluginProvider(rargs commontypes.RelayArgs, pargs commontyp
 
 	lggr := r.lggr.Named("PluginProvider").Named(rargs.ExternalJobID.String())
 
-	configWatcher, err := newStandardConfigProvider(r.lggr, r.chain, types.NewRelayOpts(rargs))
+	configWatcher, err := newStandardConfigProvider(ctx, r.lggr, r.chain, types.NewRelayOpts(rargs))
 	if err != nil {
 		return nil, err
 	}
@@ -249,6 +250,10 @@ func (r *Relayer) NewMercuryProvider(rargs commontypes.RelayArgs, pargs commonty
 }
 
 func (r *Relayer) NewLLOProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.LLOProvider, error) {
+
+	// TODO https://smartcontract-it.atlassian.net/browse/BCF-2887
+	ctx := context.Background()
+
 	relayOpts := types.NewRelayOpts(rargs)
 	var relayConfig types.RelayConfig
 	{
@@ -270,7 +275,7 @@ func (r *Relayer) NewLLOProvider(rargs commontypes.RelayArgs, pargs commontypes.
 	if relayConfig.ChainID.String() != r.chain.ID().String() {
 		return nil, fmt.Errorf("internal error: chain id in spec does not match this relayer's chain: have %s expected %s", relayConfig.ChainID.String(), r.chain.ID().String())
 	}
-	cp, err := newLLOConfigProvider(r.lggr, r.chain, relayOpts)
+	cp, err := newLLOConfigProvider(ctx, r.lggr, r.chain, relayOpts)
 	if err != nil {
 		return nil, pkgerrors.WithStack(err)
 	}
@@ -343,11 +348,11 @@ func (r *Relayer) NewConfigProvider(args commontypes.RelayArgs) (configProvider 
 
 	switch args.ProviderType {
 	case "median":
-		configProvider, err = newStandardConfigProvider(lggr, r.chain, relayOpts)
+		configProvider, err = newStandardConfigProvider(ctx, lggr, r.chain, relayOpts)
 	case "mercury":
 		configProvider, err = newMercuryConfigProvider(ctx, lggr, r.chain, relayOpts)
 	case "llo":
-		configProvider, err = newLLOConfigProvider(lggr, r.chain, relayOpts)
+		configProvider, err = newLLOConfigProvider(ctx, lggr, r.chain, relayOpts)
 	default:
 		return nil, fmt.Errorf("unrecognized provider type: %q", args.ProviderType)
 	}
@@ -459,10 +464,13 @@ func (c *configWatcher) ContractConfigTracker() ocrtypes.ContractConfigTracker {
 }
 
 type configTransmitterOpts struct {
-	// override the gas limit default provided in the config watcher
+	// pluginGasLimit overrides the gas limit default provided in the config watcher.
 	pluginGasLimit *uint32
+	// subjectID overrides the queueing subject id (the job external id will be used by default).
+	subjectID *uuid.UUID
 }
 
+// newOnChainContractTransmitter creates a new contract transmitter.
 func newOnChainContractTransmitter(ctx context.Context, lggr logger.Logger, rargs commontypes.RelayArgs, transmitterID string, ethKeystore keystore.Eth, configWatcher *configWatcher, opts configTransmitterOpts, transmissionContractABI abi.ABI) (*contractTransmitter, error) {
 	var relayConfig types.RelayConfig
 	if err := json.Unmarshal(rargs.RelayConfig, &relayConfig); err != nil {
@@ -492,8 +500,12 @@ func newOnChainContractTransmitter(ctx context.Context, lggr logger.Logger, rarg
 		fromAddresses = append(fromAddresses, common.HexToAddress(s))
 	}
 
+	subject := rargs.ExternalJobID
+	if opts.subjectID != nil {
+		subject = *opts.subjectID
+	}
 	scoped := configWatcher.chain.Config()
-	strategy := txmgrcommon.NewQueueingTxStrategy(rargs.ExternalJobID, scoped.OCR2().DefaultTransactionQueueDepth(), scoped.Database().DefaultQueryTimeout())
+	strategy := txmgrcommon.NewQueueingTxStrategy(subject, scoped.OCR2().DefaultTransactionQueueDepth(), scoped.Database().DefaultQueryTimeout())
 
 	var checker txm.TransmitCheckerSpec
 	if configWatcher.chain.Config().OCR2().SimulateTransactions() {
@@ -503,10 +515,10 @@ func newOnChainContractTransmitter(ctx context.Context, lggr logger.Logger, rarg
 	gasLimit := configWatcher.chain.Config().EVM().GasEstimator().LimitDefault()
 	ocr2Limit := configWatcher.chain.Config().EVM().GasEstimator().LimitJobType().OCR2()
 	if ocr2Limit != nil {
-		gasLimit = *ocr2Limit
+		gasLimit = uint64(*ocr2Limit)
 	}
 	if opts.pluginGasLimit != nil {
-		gasLimit = *opts.pluginGasLimit
+		gasLimit = uint64(*opts.pluginGasLimit)
 	}
 
 	transmitter, err := ocrcommon.NewTransmitter(
@@ -555,7 +567,7 @@ func (r *Relayer) NewMedianProvider(rargs commontypes.RelayArgs, pargs commontyp
 	}
 	contractID := common.HexToAddress(relayOpts.ContractID)
 
-	configWatcher, err := newStandardConfigProvider(lggr, r.chain, relayOpts)
+	configWatcher, err := newStandardConfigProvider(ctx, lggr, r.chain, relayOpts)
 	if err != nil {
 		return nil, err
 	}

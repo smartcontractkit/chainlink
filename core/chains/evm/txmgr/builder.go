@@ -4,9 +4,8 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/jmoiron/sqlx"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -20,7 +19,7 @@ import (
 
 // NewTxm constructs the necessary dependencies for the EvmTxm (broadcaster, confirmer, etc) and returns a new EvmTxManager
 func NewTxm(
-	db *sqlx.DB,
+	db sqlutil.DB,
 	chainConfig ChainConfig,
 	fCfg FeeConfig,
 	txConfig config.Transactions,

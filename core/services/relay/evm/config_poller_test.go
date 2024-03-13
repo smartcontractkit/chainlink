@@ -55,6 +55,7 @@ func TestConfigPoller(t *testing.T) {
 	var b *backends.SimulatedBackend
 	var linkTokenAddress common.Address
 	var accessAddress common.Address
+	ctx := testutils.Context(t)
 
 	ld := OCR2AggregatorLogDecoder
 
@@ -103,7 +104,7 @@ func TestConfigPoller(t *testing.T) {
 	}
 
 	t.Run("LatestConfig errors if there is no config in logs and config store is unconfigured", func(t *testing.T) {
-		cp, err := NewConfigPoller(lggr, CPConfig{ethClient, lp, ocrAddress, nil, ld})
+		cp, err := NewConfigPoller(ctx, lggr, CPConfig{ethClient, lp, ocrAddress, nil, ld})
 		require.NoError(t, err)
 
 		_, err = cp.LatestConfig(testutils.Context(t), 0)
@@ -112,7 +113,7 @@ func TestConfigPoller(t *testing.T) {
 	})
 
 	t.Run("happy path (with config store)", func(t *testing.T) {
-		cp, err := NewConfigPoller(lggr, CPConfig{ethClient, lp, ocrAddress, &configStoreContractAddr, ld})
+		cp, err := NewConfigPoller(ctx, lggr, CPConfig{ethClient, lp, ocrAddress, &configStoreContractAddr, ld})
 		require.NoError(t, err)
 		// Should have no config to begin with.
 		_, configDigest, err := cp.LatestConfigDetails(testutils.Context(t))
@@ -183,7 +184,7 @@ func TestConfigPoller(t *testing.T) {
 		mp.On("LatestLogByEventSigWithConfs", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, sql.ErrNoRows)
 
 		t.Run("if callLatestConfigDetails succeeds", func(t *testing.T) {
-			cp, err := newConfigPoller(lggr, ethClient, mp, ocrAddress, &configStoreContractAddr, ld)
+			cp, err := newConfigPoller(ctx, lggr, ethClient, mp, ocrAddress, &configStoreContractAddr, ld)
 			require.NoError(t, err)
 
 			t.Run("when config has not been set, returns zero values", func(t *testing.T) {
@@ -220,7 +221,7 @@ func TestConfigPoller(t *testing.T) {
 			failingClient := new(evmClientMocks.Client)
 			failingClient.On("ConfiguredChainID").Return(big.NewInt(42))
 			failingClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("something exploded"))
-			cp, err := newConfigPoller(lggr, failingClient, mp, ocrAddress, &configStoreContractAddr, ld)
+			cp, err := newConfigPoller(ctx, lggr, failingClient, mp, ocrAddress, &configStoreContractAddr, ld)
 			require.NoError(t, err)
 
 			cp.configStoreContractAddr = &configStoreContractAddr
@@ -259,7 +260,7 @@ func TestConfigPoller(t *testing.T) {
 		mp.On("LatestLogByEventSigWithConfs", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, sql.ErrNoRows)
 
 		t.Run("if callReadConfig succeeds", func(t *testing.T) {
-			cp, err := newConfigPoller(lggr, ethClient, mp, ocrAddress, &configStoreContractAddr, ld)
+			cp, err := newConfigPoller(ctx, lggr, ethClient, mp, ocrAddress, &configStoreContractAddr, ld)
 			require.NoError(t, err)
 
 			t.Run("when config has not been set, returns error", func(t *testing.T) {
@@ -321,7 +322,7 @@ func TestConfigPoller(t *testing.T) {
 				// initial call to retrieve config store address from aggregator
 				return *callArgs.To == ocrAddress
 			}), mock.Anything).Return(nil, errors.New("something exploded")).Once()
-			cp, err := newConfigPoller(lggr, failingClient, mp, ocrAddress, &configStoreContractAddr, ld)
+			cp, err := newConfigPoller(ctx, lggr, failingClient, mp, ocrAddress, &configStoreContractAddr, ld)
 			require.NoError(t, err)
 
 			_, err = cp.LatestConfig(testutils.Context(t), 0)

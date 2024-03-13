@@ -188,9 +188,9 @@ func NewFromJobSpec(
 	gasLimit := fcfg.LimitDefault()
 	fmLimit := fcfg.LimitJobType().FM()
 	if jobSpec.GasLimit.Valid {
-		gasLimit = jobSpec.GasLimit.Uint32
+		gasLimit = uint64(jobSpec.GasLimit.Uint32)
 	} else if fmLimit != nil {
-		gasLimit = *fmLimit
+		gasLimit = uint64(*fmLimit)
 	}
 
 	contractSubmitter := NewFluxAggregatorContractSubmitter(

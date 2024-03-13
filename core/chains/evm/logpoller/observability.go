@@ -6,11 +6,11 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/jmoiron/sqlx"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 )
 
 type queryType string
@@ -76,7 +76,7 @@ type ObservedORM struct {
 
 // NewObservedORM creates an observed version of log poller's ORM created by NewORM
 // Please see ObservedLogPoller for more details on how latencies are measured
-func NewObservedORM(chainID *big.Int, db *sqlx.DB, lggr logger.Logger) *ObservedORM {
+func NewObservedORM(chainID *big.Int, db sqlutil.DB, lggr logger.Logger) *ObservedORM {
 	return &ObservedORM{
 		ORM:            NewORM(chainID, db, lggr),
 		queryDuration:  lpQueryDuration,

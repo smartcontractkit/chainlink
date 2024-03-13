@@ -19,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
 	evmRelayTypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type logPollerWrapper struct {
@@ -339,17 +338,16 @@ func (l *logPollerWrapper) checkForRouteUpdates() {
 
 	updateOnce := func() {
 		// NOTE: timeout == frequency here, could be changed to a separate config value
-		timeoutCtx, cancel := utils.ContextFromChanWithTimeout(l.stopCh, time.Duration(l.pluginConfig.ContractUpdateCheckFrequencySec)*time.Second)
+		timeout := time.Duration(l.pluginConfig.ContractUpdateCheckFrequencySec) * time.Second
+		ctx, cancel := l.stopCh.CtxCancel(context.WithTimeout(context.Background(), timeout))
 		defer cancel()
-		active, proposed, err := l.getCurrentCoordinators(timeoutCtx)
+		active, proposed, err := l.getCurrentCoordinators(ctx)
 		if err != nil {
 			l.lggr.Errorw("LogPollerWrapper: error calling getCurrentCoordinators", "err", err)
 			return
 		}
 
-		handleRouteCtx, handleRouteCancel := utils.ContextFromChan(l.stopCh)
-		defer handleRouteCancel()
-		l.handleRouteUpdate(handleRouteCtx, active, proposed)
+		l.handleRouteUpdate(ctx, active, proposed)
 	}
 
 	updateOnce() // update once right away
