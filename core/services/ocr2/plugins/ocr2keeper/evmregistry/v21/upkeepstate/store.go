@@ -71,6 +71,7 @@ type upkeepStateStore struct {
 
 	retention    time.Duration
 	cleanCadence time.Duration
+	rateLimits   map[string]time.Time
 
 	mu    sync.RWMutex
 	cache map[string]*upkeepStateRecord
@@ -93,6 +94,7 @@ func NewUpkeepStateStore(orm ORM, lggr logger.Logger, scanner PerformedLogsScann
 		pendingRecords: []persistedStateRecord{},
 		sem:            make(chan struct{}, concurrentBatchCalls),
 		batchSize:      batchSize,
+		rateLimits:     map[string]time.Time{},
 	}
 }
 
@@ -176,7 +178,31 @@ func (u *upkeepStateStore) HealthReport() map[string]error {
 // If an id is not found, the state is returned as StateUnknown.
 // We first check the cache, and if any ids are missing, we fetch them from the scanner and DB.
 func (u *upkeepStateStore) SelectByWorkIDs(ctx context.Context, workIDs ...string) ([]ocr2keepers.UpkeepState, error) {
-	states, missing := u.selectFromCache(workIDs...)
+
+	var allowedWorkIDs []bool
+	var workIDsToQuery []string
+
+	rateLimited := 0
+	for _, workID := range workIDs {
+		if tm, ok := u.rateLimits[workID]; ok {
+			if time.Now().Sub(tm).Seconds() >= 20 {
+				allowedWorkIDs = append(allowedWorkIDs, true)
+				workIDsToQuery = append(workIDsToQuery, workID)
+				u.rateLimits[workID] = time.Now()
+			} else {
+				allowedWorkIDs = append(allowedWorkIDs, false)
+				rateLimited++
+			}
+		} else {
+			u.rateLimits[workID] = time.Now()
+			workIDsToQuery = append(workIDsToQuery, workID)
+			allowedWorkIDs = append(allowedWorkIDs, true)
+		}
+	}
+
+	u.lggr.Debugw("rate limiting work IDs", "rateLimited", rateLimited, "allowed", len(workIDs)-rateLimited, "workIDsToQuery", len(workIDsToQuery))
+
+	states, missing := u.selectFromCache(workIDsToQuery...)
 	if len(missing) == 0 {
 		// all ids were found in the cache
 		return states, nil
@@ -190,9 +216,25 @@ func (u *upkeepStateStore) SelectByWorkIDs(ctx context.Context, workIDs ...strin
 
 	// at this point all values should be in the cache. if values are missing
 	// their state is indicated as unknown
-	states, _ = u.selectFromCache(workIDs...)
+	states, _ = u.selectFromCache(workIDsToQuery...)
 
-	return states, nil
+	u.lggr.Debugw("got states for workIDsToQuery", "workIDsToQuery", len(workIDsToQuery), "states", len(states))
+
+	var newStates []ocr2keepers.UpkeepState
+	storedState := 0
+	for i := 0; i < len(workIDs); i++ {
+		if !allowedWorkIDs[i] {
+			// use unknown
+			newStates = append(newStates, ocr2keepers.UnknownState)
+		} else {
+			newStates = append(newStates, states[storedState])
+			storedState++
+		}
+	}
+
+	u.lggr.Debugw("got newStates", "newStates", len(newStates), "states", len(states))
+
+	return newStates, nil
 }
 
 // SetUpkeepState updates the state of the upkeep.
