@@ -12,9 +12,8 @@ import (
 //go:generate mockery --quiet --name HeadTracker --output ../mocks/ --case=underscore
 type HeadTracker[H Head[BLOCK_HASH], BLOCK_HASH Hashable] interface {
 	services.Service
-	// Backfill given a head will fill in any missing heads up to the given depth
-	// (used for testing)
-	Backfill(ctx context.Context, headWithChain H, depth uint) (err error)
+	// Backfill given a head will fill in any missing heads up to latestFinalized
+	Backfill(ctx context.Context, headWithChain, latestFinalized H) (err error)
 	LatestChain() H
 }
 
@@ -37,12 +36,14 @@ type HeadSaver[H Head[BLOCK_HASH], BLOCK_HASH Hashable] interface {
 	// Save updates the latest block number, if indeed the latest, and persists
 	// this number in case of reboot.
 	Save(ctx context.Context, head H) error
-	// Load loads latest EvmHeadTrackerHistoryDepth heads, returns the latest chain.
-	Load(ctx context.Context) (H, error)
+	// Load loads latest heads up to latestFinalized - historyDepth, returns the latest chain.
+	Load(ctx context.Context, latestFinalized int64) (H, error)
 	// LatestChain returns the block header with the highest number that has been seen, or nil.
 	LatestChain() H
 	// Chain returns a head for the specified hash, or nil.
 	Chain(hash BLOCK_HASH) H
+	// MarkFinalized - marks matching block and all it's direct ancestors as finalized
+	MarkFinalized(ctx context.Context, latestFinalized H) error
 }
 
 // HeadListener is a chain agnostic interface that manages connection of Client that receives heads from the blockchain node
