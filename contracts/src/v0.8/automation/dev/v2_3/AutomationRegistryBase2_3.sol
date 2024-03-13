@@ -255,8 +255,8 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     uint32 maxValidBlocknumber;
     IAutomationForwarder forwarder;
     // 0 bytes left in 1st EVM word - read in transmit path
-    uint96 amountSpent;
-    uint96 balance;
+    uint96 amountSpent; // TODO - this probably needs to change to a uint256 - maaayyyybe we get get away with two 128s
+    uint96 balance; // TODO - this probably needs to change to a uint256 :(
     uint32 lastPerformedBlockNumber;
     // 2 bytes left in 2nd EVM word - written in transmit path
     IERC20 billingToken;
@@ -362,6 +362,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
 
   /**
    * @notice the billing config of a token
+   * @dev this is a storage struct
    */
   struct BillingConfig {
     uint32 gasFeePPB;
@@ -374,6 +375,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
 
   /**
    * @notice pricing params for a biling token
+   * @dev this is a memory-only struct, so struct packing is less important
    */
   struct BillingTokenPaymentParams {
     uint32 gasFeePPB;
@@ -396,11 +398,11 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     uint256 gasLimit;
     uint256 gasOverhead;
     uint256 l1CostWei;
-    uint256 fastGasWei; // TODO - move to hot vars
-    uint256 linkUSD; // TODO - move to hot vars
-    uint256 nativeUSD; // TODO - move to hot vars
+    uint256 fastGasWei;
+    uint256 linkUSD;
+    uint256 nativeUSD;
     BillingTokenPaymentParams billingToken;
-    bool isTransaction; // TODO - move to hot vars?
+    bool isTransaction;
   }
 
   /**
