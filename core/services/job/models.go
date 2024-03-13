@@ -235,7 +235,8 @@ func (j *SpecError) SetID(value string) error {
 }
 
 type PipelineRun struct {
-	ID int64 `json:"-"`
+	ID         int64 `json:"-"`
+	PruningKey int64 `json:"-"`
 }
 
 func (pr PipelineRun) GetID() string {

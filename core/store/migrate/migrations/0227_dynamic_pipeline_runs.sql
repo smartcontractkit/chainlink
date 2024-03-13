@@ -18,17 +18,38 @@ FROM public.jobs;
 
 
 ALTER TABLE public.jobs DROP COLUMN pipeline_spec_id; -- Do we use CASCADE here? Does it have any relationship with other tables?
+
+ALTER TABLE public.pipeline_runs ADD COLUMN pruning_key INT;
+
+UPDATE public.pipeline_runs
+SET pruning_key = pjps.job_id
+FROM public.job_pipeline_specs pjps
+WHERE pjps.pipeline_spec_id = public.pipeline_runs.pipeline_spec_id;
+
+ALTER TABLE public.pipeline_runs ALTER COLUMN pruning_key SET NOT NULL;
+
+ALTER TABLE public.pipeline_runs ADD CONSTRAINT fk_pipeline_runs_job FOREIGN KEY (pruning_key) REFERENCES public.jobs(id);
 -- +goose StatementEnd
 
 -- +goose Down
 -- +goose StatementBegin
 ALTER TABLE public.jobs ADD COLUMN pipeline_spec_id INT;
+ALTER TABLE public.pipeline_runs ADD COLUMN pipeline_spec_id INT;
 
 UPDATE public.jobs
 SET pipeline_spec_id = jps.pipeline_spec_id
 FROM public.job_pipeline_specs jps
 WHERE jps.job_id = public.jobs.id
   AND jps.is_primary = TRUE;
+
+UPDATE public.pipeline_runs
+SET pipeline_spec_id = jps.pipeline_spec_id
+FROM public.job_pipeline_specs jps
+WHERE jps.job_id = public.pipeline_runs.pruning_key;
+
+ALTER TABLE public.pipeline_runs DROP COLUMN pruning_key;
+
+DROP INDEX IF EXISTS public.idx_unique_primary_per_job;
 
 DROP TABLE IF EXISTS public.job_pipeline_specs; -- Do we use CASCADE here?
 -- +goose StatementEnd
