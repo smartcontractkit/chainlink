@@ -157,9 +157,10 @@ describe('AutomationRegistrar2_3', () => {
     const registrarFactory = await ethers.getContractFactory(
       'AutomationRegistrar2_3',
     )
-    registrar = await registrarFactory
-      .connect(registrarOwner)
-      .deploy(linkToken.address, registry.address, minUpkeepSpend, [
+    registrar = await registrarFactory.connect(registrarOwner).deploy(
+      linkToken.address,
+      registry.address,
+      [
         {
           triggerType: Trigger.CONDITION,
           autoApproveType: autoApproveType_DISABLED,
@@ -170,7 +171,10 @@ describe('AutomationRegistrar2_3', () => {
           autoApproveType: autoApproveType_DISABLED,
           autoApproveMaxAllowed: 0,
         },
-      ])
+      ],
+      [linkToken.address],
+      [minUpkeepSpend],
+    )
 
     await linkToken
       .connect(owner)

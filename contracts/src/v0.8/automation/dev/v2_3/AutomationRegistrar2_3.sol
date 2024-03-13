@@ -30,11 +30,6 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
     ENABLED_ALL
   }
 
-  mapping(bytes32 => PendingRequest) private s_pendingRequests;
-  mapping(uint8 => TriggerRegistrationStorage) private s_triggerRegistrations;
-
-  LinkTokenInterface public immutable LINK;
-
   /**
    * @notice versions:
    * - KeeperRegistrar 2.3.0: Update for compatability with registry 2.3.0
@@ -74,11 +69,6 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
     uint32 autoApproveMaxAllowed;
   }
 
-  struct RegistrarConfig {
-    IAutomationRegistryMaster2_3 AutomationRegistry;
-    uint96 minLINKJuels;
-  }
-
   struct PendingRequest {
     address admin;
     uint96 balance;
@@ -113,9 +103,14 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
     bytes offchainConfig;
   }
 
-  RegistrarConfig private s_config;
-  // Only applicable if s_config.configType is ENABLED_SENDER_ALLOWLIST
+  LinkTokenInterface public immutable LINK;
+  IAutomationRegistryMaster2_3 s_registry;
+
+  // Only applicable if trigger config is set to ENABLED_SENDER_ALLOWLIST
   mapping(address => bool) private s_autoApproveAllowedSenders;
+  mapping(IERC20 => uint256) private s_minRegistrationAmounts;
+  mapping(bytes32 => PendingRequest) private s_pendingRequests;
+  mapping(uint8 => TriggerRegistrationStorage) private s_triggerRegistrations;
 
   event RegistrationRequested(
     bytes32 indexed hash,
@@ -137,7 +132,7 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
 
   event AutoApproveAllowedSenderSet(address indexed senderAddress, bool allowed);
 
-  event ConfigChanged(address AutomationRegistry, uint96 minLINKJuels);
+  event ConfigChanged();
 
   event TriggerConfigSet(uint8 triggerType, AutoApproveType autoApproveType, uint32 autoApproveMaxAllowed);
 
@@ -153,18 +148,18 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
 
   /**
    * @param LINKAddress Address of Link token
-   * @param AutomationRegistry keeper registry address
-   * @param minLINKJuels minimum LINK that new registrations should fund their upkeep with
+   * @param registry keeper registry address
    * @param triggerConfigs the initial config for individual triggers
    */
   constructor(
     address LINKAddress,
-    address AutomationRegistry,
-    uint96 minLINKJuels,
-    InitialTriggerConfig[] memory triggerConfigs
+    IAutomationRegistryMaster2_3 registry,
+    InitialTriggerConfig[] memory triggerConfigs,
+    IERC20[] memory billingTokens,
+    uint256[] memory minRegistrationFees
   ) ConfirmedOwner(msg.sender) {
     LINK = LinkTokenInterface(LINKAddress);
-    setConfig(AutomationRegistry, minLINKJuels);
+    setConfig(registry, billingTokens, minRegistrationFees);
     for (uint256 idx = 0; idx < triggerConfigs.length; idx++) {
       setTriggerConfig(
         triggerConfigs[idx].triggerType,
@@ -225,15 +220,21 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
 
   /**
    * @notice owner calls this function to set contract config
-   * @param AutomationRegistry new keeper registry address
-   * @param minLINKJuels minimum LINK that new registrations should fund their upkeep with
+   * @param registry new keeper registry address
+   * @param billingTokens the billing tokens that this registrar supports (registy must also support these)
+   * @param minBalances minimum balances that users must supply to register with the corresponding billing token
    */
-  function setConfig(address AutomationRegistry, uint96 minLINKJuels) public onlyOwner {
-    s_config = RegistrarConfig({
-      minLINKJuels: minLINKJuels,
-      AutomationRegistry: IAutomationRegistryMaster2_3(AutomationRegistry)
-    });
-    emit ConfigChanged(AutomationRegistry, minLINKJuels);
+  function setConfig(
+    IAutomationRegistryMaster2_3 registry,
+    IERC20[] memory billingTokens,
+    uint256[] memory minBalances
+  ) public onlyOwner {
+    if (billingTokens.length != minBalances.length) revert InvalidDataLength();
+    s_registry = registry;
+    for (uint256 i = 0; i < billingTokens.length; i++) {
+      s_minRegistrationAmounts[billingTokens[i]] = minBalances[i];
+    }
+    emit ConfigChanged();
   }
 
   /**
@@ -272,11 +273,17 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
   }
 
   /**
-   * @notice read the current registration configuration
+   * @notice gets the registry that this registrar is pointed to
    */
-  function getConfig() external view returns (address AutomationRegistry, uint256 minLINKJuels) {
-    RegistrarConfig memory config = s_config;
-    return (address(config.AutomationRegistry), config.minLINKJuels);
+  function getRegistry() external view returns (IAutomationRegistryMaster2_3) {
+    return s_registry;
+  }
+
+  /**
+   * @notice get the minimum registration fee for a particular billing token
+   */
+  function getMinimumRegistrationAmount(IERC20 billingToken) external view returns (uint256) {
+    return s_minRegistrationAmounts[billingToken];
   }
 
   /**
@@ -317,13 +324,13 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
    * @dev verify registration request and emit RegistrationRequested event
    */
   function _register(RegistrationParams memory params, address sender) private returns (uint256) {
-    if (params.amount < s_config.minLINKJuels) {
+    if (params.amount < s_minRegistrationAmounts[params.billingToken]) {
       revert InsufficientPayment();
     }
     if (params.adminAddress == address(0)) {
       revert InvalidAdminAddress();
     }
-    if (!s_config.AutomationRegistry.supportsBillingToken(address(params.billingToken))) {
+    if (!s_registry.supportsBillingToken(address(params.billingToken))) {
       revert InvalidBillingToken();
     }
     bytes32 hash = keccak256(abi.encode(params));
@@ -358,7 +365,7 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
    * @dev register upkeep on AutomationRegistry contract and emit RegistrationApproved event
    */
   function _approve(RegistrationParams memory params, bytes32 hash) private returns (uint256) {
-    IAutomationRegistryMaster2_3 registry = s_config.AutomationRegistry;
+    IAutomationRegistryMaster2_3 registry = s_registry;
     uint256 upkeepId = registry.registerUpkeep(
       params.upkeepContract,
       params.gasLimit,
