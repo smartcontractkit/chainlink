@@ -281,7 +281,11 @@ func (ub *upkeepLogBuffer) enqueue(blockThreshold int64, logsToAdd ...logpoller.
 		ub.visited[logid] = log.BlockNumber
 	}
 	ub.q = logs
-	dropped := ub.clean(blockThreshold)
+
+	var dropped int
+	if added > 0 {
+		dropped = ub.clean(blockThreshold)
+	}
 
 	ub.lggr.Debugf("Enqueued %d logs, dropped %d with blockThreshold %d", added, dropped, blockThreshold)
 	prommetrics.AutomationLogsInLogBuffer.Add(float64(added))
@@ -297,7 +301,7 @@ func (ub *upkeepLogBuffer) clean(blockThreshold int64) int {
 	// sort.SliceStable(updated, func(i, j int) bool {
 	// 	return LogSorter(updated[i], updated[j])
 	// })
-	updated := make([]logpoller.Log, 0, maxLogs)
+	updated := make([]logpoller.Log, 0)
 	var dropped int
 	for _, l := range ub.q {
 		if l.BlockNumber > blockThreshold {
