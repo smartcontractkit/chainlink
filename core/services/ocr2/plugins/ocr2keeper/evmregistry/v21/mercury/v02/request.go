@@ -208,7 +208,7 @@ func (c *client) singleFeedRequest(ctx context.Context, ch chan<- mercury.Mercur
 				return nil
 			}
 
-			prommetrics.AutomationStreamsResponses.WithLabelValues(prommetrics.StreamsVersion02, http.StatusText(httpResponse.StatusCode)).Inc()
+			prommetrics.AutomationStreamsResponses.WithLabelValues(prommetrics.StreamsVersion02, fmt.Sprintf("%d", httpResponse.StatusCode)).Inc()
 			switch httpResponse.StatusCode {
 			case http.StatusNotFound, http.StatusInternalServerError, http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusGatewayTimeout:
 				// Considered as pipeline error, but if retry attempts go over threshold, is changed upstream to ErrCode
