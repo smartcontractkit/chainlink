@@ -47,7 +47,7 @@ import (
 const numTokenDataWorkers = 5
 
 func NewExecutionServices(ctx context.Context, lggr logger.Logger, jb job.Job, chainSet legacyevm.LegacyChainContainer, new bool, argsNoPlugin libocr2.OCR2OracleArgs, logError func(string), qopts ...pg.QOpt) ([]job.ServiceCtx, error) {
-	execPluginConfig, backfillArgs, err := jobSpecToExecPluginConfig(ctx, lggr, jb, chainSet, qopts...)
+	execPluginConfig, backfillArgs, chainHealthcheck, err := jobSpecToExecPluginConfig(ctx, lggr, jb, chainSet, qopts...)
 	if err != nil {
 		return nil, err
 	}
@@ -71,10 +71,15 @@ func NewExecutionServices(ctx context.Context, lggr logger.Logger, jb job.Job, c
 				backfillArgs.DestLP,
 				backfillArgs.SourceStartBlock,
 				backfillArgs.DestStartBlock,
-				job.NewServiceAdapter(oracle)),
+				job.NewServiceAdapter(oracle),
+			),
+			chainHealthcheck,
 		}, nil
 	}
-	return []job.ServiceCtx{job.NewServiceAdapter(oracle)}, nil
+	return []job.ServiceCtx{
+		job.NewServiceAdapter(oracle),
+		chainHealthcheck,
+	}, nil
 }
 
 // UnregisterExecPluginLpFilters unregisters all the registered filters for both source and dest chains.
@@ -153,10 +158,10 @@ func initTokenDataProviders(lggr logger.Logger, jobID string, pluginConfig ccipc
 	return tokenDataProviders, nil
 }
 
-func jobSpecToExecPluginConfig(ctx context.Context, lggr logger.Logger, jb job.Job, chainSet legacyevm.LegacyChainContainer, qopts ...pg.QOpt) (*ExecutionPluginStaticConfig, *ccipcommon.BackfillArgs, error) {
+func jobSpecToExecPluginConfig(ctx context.Context, lggr logger.Logger, jb job.Job, chainSet legacyevm.LegacyChainContainer, qopts ...pg.QOpt) (*ExecutionPluginStaticConfig, *ccipcommon.BackfillArgs, *cache.ObservedChainHealthcheck, error) {
 	params, err := extractJobSpecParams(lggr, jb, chainSet, true, qopts...)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	lggr.Infow("Initializing exec plugin",
@@ -172,39 +177,39 @@ func jobSpecToExecPluginConfig(ctx context.Context, lggr logger.Logger, jb job.J
 
 	sourceChainName, destChainName, err := ccipconfig.ResolveChainNames(sourceChainID, destChainID)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	execLggr := lggr.Named("CCIPExecution").With("sourceChain", sourceChainName, "destChain", destChainName)
 	onRampReader, err := factory.NewOnRampReader(execLggr, versionFinder, params.offRampConfig.SourceChainSelector, params.offRampConfig.ChainSelector, params.offRampConfig.OnRamp, params.sourceChain.LogPoller(), params.sourceChain.Client(), qopts...)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "create onramp reader")
+		return nil, nil, nil, errors.Wrap(err, "create onramp reader")
 	}
 	dynamicOnRampConfig, err := onRampReader.GetDynamicConfig()
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "get onramp dynamic config")
+		return nil, nil, nil, errors.Wrap(err, "get onramp dynamic config")
 	}
 
 	routerAddr, err := ccipcalc.GenericAddrToEvm(dynamicOnRampConfig.Router)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	sourceRouter, err := router.NewRouter(routerAddr, params.sourceChain.Client())
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed loading source router")
+		return nil, nil, nil, errors.Wrap(err, "failed loading source router")
 	}
 	sourceWrappedNative, err := sourceRouter.GetWrappedNative(&bind.CallOpts{})
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "could not get source native token")
+		return nil, nil, nil, errors.Wrap(err, "could not get source native token")
 	}
 
 	commitStoreReader, err := factory.NewCommitStoreReader(lggr, versionFinder, params.offRampConfig.CommitStore, params.destChain.Client(), params.destChain.LogPoller(), params.sourceChain.GasEstimator(), params.sourceChain.Config().EVM().GasEstimator().PriceMax().ToInt(), qopts...)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "could not load commitStoreReader reader")
+		return nil, nil, nil, errors.Wrap(err, "could not load commitStoreReader reader")
 	}
 
 	tokenDataProviders, err := initTokenDataProviders(lggr, jobIDToString(jb.ID), params.pluginConfig, params.sourceChain.LogPoller(), qopts...)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "could not get token data providers")
+		return nil, nil, nil, errors.Wrap(err, "could not get token data providers")
 	}
 
 	// Prom wrappers
@@ -215,11 +220,11 @@ func jobSpecToExecPluginConfig(ctx context.Context, lggr logger.Logger, jb job.J
 
 	destChainSelector, err := chainselectors.SelectorFromChainId(uint64(destChainID))
 	if err != nil {
-		return nil, nil, fmt.Errorf("get chain %d selector: %w", destChainID, err)
+		return nil, nil, nil, fmt.Errorf("get chain %d selector: %w", destChainID, err)
 	}
 	sourceChainSelector, err := chainselectors.SelectorFromChainId(uint64(sourceChainID))
 	if err != nil {
-		return nil, nil, fmt.Errorf("get chain %d selector: %w", sourceChainID, err)
+		return nil, nil, nil, fmt.Errorf("get chain %d selector: %w", sourceChainID, err)
 	}
 
 	execLggr.Infow("Initialized exec plugin",
@@ -233,7 +238,7 @@ func jobSpecToExecPluginConfig(ctx context.Context, lggr logger.Logger, jb job.J
 
 	tokenPoolBatchedReader, err := batchreader.NewEVMTokenPoolBatchedReader(execLggr, sourceChainSelector, offRampReader.Address(), batchCaller)
 	if err != nil {
-		return nil, nil, fmt.Errorf("new token pool batched reader: %w", err)
+		return nil, nil, nil, fmt.Errorf("new token pool batched reader: %w", err)
 	}
 
 	chainHealthcheck := cache.NewObservedChainHealthCheck(
@@ -278,7 +283,9 @@ func jobSpecToExecPluginConfig(ctx context.Context, lggr logger.Logger, jb job.J
 			DestLP:           params.destChain.LogPoller(),
 			SourceStartBlock: params.pluginConfig.SourceStartBlock,
 			DestStartBlock:   params.pluginConfig.DestStartBlock,
-		}, nil
+		},
+		chainHealthcheck,
+		nil
 }
 
 type jobSpecParams struct {

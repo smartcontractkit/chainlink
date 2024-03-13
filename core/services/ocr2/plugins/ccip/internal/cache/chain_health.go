@@ -2,13 +2,17 @@ package cache
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/patrickmn/go-cache"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 )
 
@@ -22,100 +26,174 @@ import (
 //
 // Whenever any of the above checks fail, the chain is considered unhealthy and the CCIP should stop
 // processing messages. Additionally, when the chain is unhealthy, this information is considered "sticky"
-// and is cached for a certain period of time based on defaultGlobalStatusDuration.
+// and is cached for a certain period of time based on defaultGlobalStatusExpirationDuration.
 // This may lead to some false-positives, but in this case we want to be extra cautious and avoid executing any reorged messages.
 //
-// Additionally, to reduce the number of calls to the RPC, we cache RMN curse state for a certain period of
-// time based on defaultRmnStatusDuration.
+// Additionally, to reduce the number of calls to the RPC, we refresh RMN state in the background based on defaultRMNStateRefreshInterval
 //
 //go:generate mockery --quiet --name ChainHealthcheck --filename chain_health_mock.go --case=underscore
 type ChainHealthcheck interface {
-	// IsHealthy checks if the chain is healthy and returns true if it is, false otherwise
-	// If forceRefresh is set to true, it will refresh the RMN curse state. Should be used in the Observation and ShouldTransmit phases of OCR2.
-	// Otherwise, it will use the cached value of the RMN curse state.
-	IsHealthy(ctx context.Context, forceRefresh bool) (bool, error)
+	job.ServiceCtx
+	IsHealthy(ctx context.Context) (bool, error)
 }
 
 const (
-	// RMN curse state is refreshed every 20 seconds or when ForceIsHealthy is called
-	defaultRmnStatusDuration    = 20 * time.Second
-	defaultGlobalStatusDuration = 30 * time.Minute
+	// RMN curse state is refreshed every 10 seconds
+	defaultRMNStateRefreshInterval = 10 * time.Second
+	// Whenever we mark the chain as unhealthy, we cache this information for 30 minutes
+	defaultGlobalStatusExpirationDuration = 30 * time.Minute
 
 	globalStatusKey = "globalStatus"
 	rmnStatusKey    = "rmnCurseCheck"
 )
 
 type chainHealthcheck struct {
-	cache                  *cache.Cache
-	globalStatusKey        string
-	rmnStatusKey           string
-	globalStatusExpiration time.Duration
-	rmnStatusExpiration    time.Duration
+	cache                    *cache.Cache
+	globalStatusKey          string
+	rmnStatusKey             string
+	globalStatusExpiration   time.Duration
+	rmnStatusRefreshInterval time.Duration
 
 	lggr        logger.Logger
 	onRamp      ccipdata.OnRampReader
 	commitStore ccipdata.CommitStoreReader
+
+	services.StateMachine
+	wg               *sync.WaitGroup
+	backgroundCtx    context.Context
+	backgroundCancel context.CancelFunc
 }
 
-func NewChainHealthcheck(
-	lggr logger.Logger,
-	onRamp ccipdata.OnRampReader,
-	commitStore ccipdata.CommitStoreReader,
-) *chainHealthcheck {
-	return &chainHealthcheck{
-		cache:                  cache.New(defaultRmnStatusDuration, 0),
-		globalStatusKey:        globalStatusKey,
-		rmnStatusKey:           rmnStatusKey,
-		globalStatusExpiration: defaultGlobalStatusDuration,
-		rmnStatusExpiration:    defaultRmnStatusDuration,
+func NewChainHealthcheck(lggr logger.Logger, onRamp ccipdata.OnRampReader, commitStore ccipdata.CommitStoreReader) *chainHealthcheck {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	ch := &chainHealthcheck{
+		// Different keys use different expiration times, so we don't need to worry about the default value
+		cache:                    cache.New(cache.NoExpiration, 0),
+		rmnStatusKey:             rmnStatusKey,
+		globalStatusKey:          globalStatusKey,
+		globalStatusExpiration:   defaultGlobalStatusExpirationDuration,
+		rmnStatusRefreshInterval: defaultRMNStateRefreshInterval,
 
 		lggr:        lggr,
 		onRamp:      onRamp,
 		commitStore: commitStore,
+
+		wg:               new(sync.WaitGroup),
+		backgroundCtx:    ctx,
+		backgroundCancel: cancel,
 	}
+	return ch
 }
 
-func newChainHealthcheckWithCustomEviction(
-	lggr logger.Logger,
-	onRamp ccipdata.OnRampReader,
-	commitStore ccipdata.CommitStoreReader,
-	globalStatusDuration time.Duration,
-	rmnStatusDuration time.Duration,
-) *chainHealthcheck {
-	return &chainHealthcheck{
-		cache:                  cache.New(rmnStatusDuration, 0),
-		rmnStatusKey:           rmnStatusKey,
-		globalStatusKey:        globalStatusKey,
-		globalStatusExpiration: globalStatusDuration,
-		rmnStatusExpiration:    rmnStatusDuration,
+// newChainHealthcheckWithCustomEviction is used for testing purposes only. It doesn't start background worker
+func newChainHealthcheckWithCustomEviction(lggr logger.Logger, onRamp ccipdata.OnRampReader, commitStore ccipdata.CommitStoreReader, globalStatusDuration time.Duration, rmnStatusRefreshInterval time.Duration) *chainHealthcheck {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	ch := &chainHealthcheck{
+		cache:                    cache.New(rmnStatusRefreshInterval, 0),
+		rmnStatusKey:             rmnStatusKey,
+		globalStatusKey:          globalStatusKey,
+		globalStatusExpiration:   globalStatusDuration,
+		rmnStatusRefreshInterval: rmnStatusRefreshInterval,
 
 		lggr:        lggr,
 		onRamp:      onRamp,
 		commitStore: commitStore,
+
+		wg:               new(sync.WaitGroup),
+		backgroundCtx:    ctx,
+		backgroundCancel: cancel,
 	}
+	return ch
 }
 
-func (c *chainHealthcheck) IsHealthy(ctx context.Context, forceRefresh bool) (bool, error) {
+type rmnResponse struct {
+	healthy bool
+	err     error
+}
+
+func (c *chainHealthcheck) IsHealthy(ctx context.Context) (bool, error) {
 	// Verify if flag is raised to indicate that the chain is not healthy
 	// If set to false then immediately return false without checking the chain
-	if healthy, found := c.cache.Get(c.globalStatusKey); found && !healthy.(bool) {
-		return false, nil
+	if cachedValue, found := c.cache.Get(c.globalStatusKey); found {
+		healthy, ok := cachedValue.(bool)
+		// If cached value is properly casted to bool and not healthy it means the sticky flag is raised
+		// and should be returned immediately
+		if !ok {
+			c.lggr.Criticalw("Failed to cast cached value to sticky healthcheck", "value", cachedValue)
+		} else if ok && !healthy {
+			return false, nil
+		}
 	}
 
+	// These checks are cheap and don't require any communication with the database or RPC
 	if healthy, err := c.checkIfReadersAreHealthy(ctx); err != nil {
 		return false, err
 	} else if !healthy {
-		c.cache.Set(c.globalStatusKey, false, c.globalStatusExpiration)
+		c.markStickyStatusUnhealthy()
 		return healthy, nil
 	}
 
-	if healthy, err := c.checkIfRMNsAreHealthy(ctx, forceRefresh); err != nil {
+	// First call might initialize cache if it's not initialized yet. Otherwise, it will use the cached value
+	if healthy, err := c.checkIfRMNsAreHealthy(ctx); err != nil {
 		return false, err
 	} else if !healthy {
-		c.cache.Set(c.globalStatusKey, false, c.globalStatusExpiration)
+		c.markStickyStatusUnhealthy()
 		return healthy, nil
 	}
 	return true, nil
+}
+
+func (c *chainHealthcheck) Start(context.Context) error {
+	return c.StateMachine.StartOnce("ChainHealthcheck", func() error {
+		c.lggr.Info("Starting ChainHealthcheck")
+		c.wg.Add(1)
+		c.run()
+		return nil
+	})
+}
+
+func (c *chainHealthcheck) Close() error {
+	return c.StateMachine.StopOnce("ChainHealthcheck", func() error {
+		c.lggr.Info("Closing ChainHealthcheck")
+		c.backgroundCancel()
+		c.wg.Wait()
+		return nil
+	})
+}
+
+func (c *chainHealthcheck) run() {
+	defer c.wg.Done()
+	ticker := time.NewTicker(c.rmnStatusRefreshInterval)
+	go func() {
+		// Refresh the RMN state immediately after starting the background refresher
+		_, _ = c.refresh(c.backgroundCtx)
+
+		for {
+			select {
+			case <-c.backgroundCtx.Done():
+				return
+			case <-ticker.C:
+				_, err := c.refresh(c.backgroundCtx)
+				if err != nil {
+					c.lggr.Errorw("Failed to refresh RMN state in the background", "err", err)
+				}
+			}
+		}
+	}()
+}
+
+func (c *chainHealthcheck) refresh(ctx context.Context) (bool, error) {
+	healthy, err := c.fetchRMNCurseState(ctx)
+	c.cache.Set(
+		c.rmnStatusKey,
+		rmnResponse{healthy, err},
+		// Cache the value for 3 refresh intervals, this is just a defensive approach
+		// that will enforce the RMN state to be refreshed in case of bg worker hiccup (it should never happen)
+		3*c.rmnStatusRefreshInterval,
+	)
+	return healthy, err
 }
 
 // checkIfReadersAreHealthy checks if the source and destination chains are healthy by calling underlying LogPoller
@@ -142,20 +220,19 @@ func (c *chainHealthcheck) checkIfReadersAreHealthy(ctx context.Context) (bool, 
 	return sourceChainHealthy && destChainHealthy, nil
 }
 
-func (c *chainHealthcheck) checkIfRMNsAreHealthy(ctx context.Context, forceFetch bool) (bool, error) {
-	if !forceFetch {
-		if healthy, found := c.cache.Get(c.rmnStatusKey); found {
-			return healthy.(bool), nil
-		}
+func (c *chainHealthcheck) checkIfRMNsAreHealthy(ctx context.Context) (bool, error) {
+	if cachedValue, found := c.cache.Get(c.rmnStatusKey); found {
+		rmn := cachedValue.(rmnResponse)
+		return rmn.healthy, rmn.err
 	}
 
-	healthy, err := c.fetchRMNCurseState(ctx)
-	if err != nil {
-		return false, err
-	}
+	// If the value is not found in the cache, fetch the RMN curse state in a sync manner for the first time
+	c.lggr.Info("Refreshing RMN state from the plugin routine, this should happen only once per lane during boot")
+	return c.refresh(ctx)
+}
 
-	c.cache.Set(c.rmnStatusKey, healthy, c.rmnStatusExpiration)
-	return healthy, nil
+func (c *chainHealthcheck) markStickyStatusUnhealthy() {
+	c.cache.Set(c.globalStatusKey, false, c.globalStatusExpiration)
 }
 
 func (c *chainHealthcheck) fetchRMNCurseState(ctx context.Context) (bool, error) {

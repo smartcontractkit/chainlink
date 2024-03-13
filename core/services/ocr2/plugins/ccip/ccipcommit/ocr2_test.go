@@ -229,7 +229,7 @@ func TestCommitReportingPlugin_Report(t *testing.T) {
 		offRampReader.On("GetTokens", ctx).Return(cciptypes.OffRampTokens{}, nil).Maybe()
 		destPriceRegReader.On("GetFeeTokens", ctx).Return(nil, nil).Maybe()
 		chainHealthcheck := ccipcachemocks.NewChainHealthcheck(t)
-		chainHealthcheck.On("IsHealthy", ctx, false).Return(true, nil).Maybe()
+		chainHealthcheck.On("IsHealthy", ctx).Return(true, nil).Maybe()
 		p.chainHealthcheck = chainHealthcheck
 
 		o := ccip.CommitObservation{Interval: cciptypes.CommitStoreInterval{Min: 1, Max: 1}, SourceGasPriceUSD: big.NewInt(0)}
@@ -401,7 +401,7 @@ func TestCommitReportingPlugin_Report(t *testing.T) {
 			assert.NoError(t, err)
 
 			healthCheck := ccipcachemocks.NewChainHealthcheck(t)
-			healthCheck.On("IsHealthy", ctx, false).Return(true, nil)
+			healthCheck.On("IsHealthy", ctx).Return(true, nil)
 
 			p := &CommitReportingPlugin{}
 			p.lggr = logger.TestLogger(t)
@@ -507,7 +507,7 @@ func TestCommitReportingPlugin_ShouldAcceptFinalizedReport(t *testing.T) {
 		commitStoreReader.On("GetExpectedNextSequenceNumber", mock.Anything).Return(onChainSeqNum, nil)
 
 		chainHealthCheck := ccipcachemocks.NewChainHealthcheck(t)
-		chainHealthCheck.On("IsHealthy", ctx, false).Return(true, nil)
+		chainHealthCheck.On("IsHealthy", ctx).Return(true, nil)
 		p.chainHealthcheck = chainHealthCheck
 
 		// stale since report interval is behind on chain seq num
@@ -560,7 +560,7 @@ func TestCommitReportingPlugin_ShouldAcceptFinalizedReport(t *testing.T) {
 		assert.NoError(t, err)
 
 		chainHealthCheck := ccipcachemocks.NewChainHealthcheck(t)
-		chainHealthCheck.On("IsHealthy", ctx, false).Return(true, nil)
+		chainHealthCheck.On("IsHealthy", ctx).Return(true, nil)
 		p.chainHealthcheck = chainHealthCheck
 
 		shouldAccept, err := p.ShouldAcceptFinalizedReport(ctx, types.ReportTimestamp{}, encodedReport)
@@ -599,7 +599,7 @@ func TestCommitReportingPlugin_ShouldTransmitAcceptedReport(t *testing.T) {
 	p.lggr = logger.TestLogger(t)
 
 	chainHealthCheck := ccipcachemocks.NewChainHealthcheck(t)
-	chainHealthCheck.On("IsHealthy", ctx, true).Return(true, nil).Maybe()
+	chainHealthCheck.On("IsHealthy", ctx).Return(true, nil).Maybe()
 	p.chainHealthcheck = chainHealthCheck
 
 	t.Run("should transmit when report is not stale", func(t *testing.T) {
