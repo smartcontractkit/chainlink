@@ -182,7 +182,7 @@ func (c *client) multiFeedsRequest(ctx context.Context, ch chan<- mercury.Mercur
 			}
 
 			c.lggr.Infof("at timestamp %s upkeep %s received status code %d from mercury v0.3", sl.Time.String(), sl.UpkeepId.String(), resp.StatusCode)
-			prommetrics.AutomationStreamsResponses.WithLabelValues(prommetrics.StreamsVersion03, http.StatusText(resp.StatusCode)).Inc()
+			prommetrics.AutomationStreamsResponses.WithLabelValues(prommetrics.StreamsVersion03, fmt.Sprintf("%d", resp.StatusCode)).Inc()
 			switch resp.StatusCode {
 			case http.StatusUnauthorized:
 				c.lggr.Errorf("at timestamp %s upkeep %s received status code %d from mercury v0.3, most likely this is caused by unauthorized upkeep", sl.Time.String(), sl.UpkeepId.String(), resp.StatusCode)
