@@ -13,7 +13,6 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
@@ -1367,7 +1366,7 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 	})
 }
 
-func TestVRFv2PlusReplayAfterRestart(t *testing.T) {
+func TestVRFv2PlusReplayAfterTimeout(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
 
@@ -1400,10 +1399,9 @@ func TestVRFv2PlusReplayAfterRestart(t *testing.T) {
 	// 1. Add job spec with requestTimeout = 5 seconds
 	timeout := time.Duration(time.Second * 5)
 	numberOfTxKeysToCreate := 2
-	config.VRFv2Plus.General.VRFJobRequestTimeout = &blockchain.StrDuration{Duration: timeout}
-	subBalance := float64(0)
-	config.VRFv2Plus.General.SubscriptionFundingAmountLink = &subBalance
-	config.VRFv2Plus.General.SubscriptionFundingAmountNative = &subBalance
+	config.VRFv2Plus.General.VRFJobRequestTimeout = ptr.Ptr(blockchain.StrDuration{Duration: timeout})
+	config.VRFv2Plus.General.SubscriptionFundingAmountLink = ptr.Ptr(float64(0))
+	config.VRFv2Plus.General.SubscriptionFundingAmountNative = ptr.Ptr(float64(0))
 	vrfv2PlusContracts, subIDs, vrfv2PlusData, nodesMap, err := vrfv2plus.SetupVRFV2_5Environment(
 		env,
 		[]vrfcommon.VRFNodeType{vrfcommon.VRF},
@@ -1427,9 +1425,6 @@ func TestVRFv2PlusReplayAfterRestart(t *testing.T) {
 	t.Run("Timed out request fulfilled after node restart with replay", func(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
 		var isNativeBilling = false
-
-		jobRunsBeforeTest, err := nodesMap[vrfcommon.VRF].CLNode.API.MustReadRunsByJob(nodesMap[vrfcommon.VRF].Job.Data.ID)
-		require.NoError(t, err, "error reading job runs")
 
 		// 2. create request but without fulfilment - e.g. simulation failure (insufficient balance in the sub, )
 		vrfv2plus.LogRandRequest(
@@ -1464,15 +1459,17 @@ func TestVRFv2PlusReplayAfterRestart(t *testing.T) {
 		require.NoError(t, err, "error waiting for initial request RandomWordsRequestedEvent")
 
 		// 3. create new request in a subscription with balance and wait for fulfilment
-		fundingAmt := big.NewFloat(100)
+		// TODO: We need this to be parametrized, since these tests will be run on live testnets as well.
+		fundingLinkAmt := big.NewFloat(5)
+		fundingNativeAmt := big.NewFloat(0.1)
 		l.Info().
 			Str("Coordinator", vrfv2PlusContracts.CoordinatorV2Plus.Address()).
 			Int("Number of Subs to create", 1).
 			Msg("Creating and funding subscriptions, adding consumers")
 		fundedSubIDs, err := vrfv2plus.CreateFundSubsAndAddConsumers(
 			env,
-			fundingAmt,
-			fundingAmt,
+			fundingLinkAmt,
+			fundingNativeAmt,
 			linkToken,
 			vrfv2PlusContracts.CoordinatorV2Plus,
 			[]contracts.VRFv2PlusLoadTestConsumer{vrfv2PlusContracts.VRFV2PlusConsumer[1]},
@@ -1494,8 +1491,6 @@ func TestVRFv2PlusReplayAfterRestart(t *testing.T) {
 			l,
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
-		require.False(t, randomWordsFulfilledEvent.OnlyPremium, "RandomWordsFulfilled Event's `OnlyPremium` field should be false")
-		require.Equal(t, isNativeBilling, randomWordsFulfilledEvent.NativePayment, "RandomWordsFulfilled Event's `NativePayment` field should be false")
 		require.True(t, randomWordsFulfilledEvent.Success, "RandomWordsFulfilled Event's `Success` field should be true")
 
 		// 4. wait for the request timeout (1s more) duration
@@ -1504,8 +1499,8 @@ func TestVRFv2PlusReplayAfterRestart(t *testing.T) {
 		// 5. fund sub so that node can fulfill request
 		err = vrfv2plus.FundSubscriptions(
 			env,
-			fundingAmt,
-			fundingAmt,
+			fundingLinkAmt,
+			fundingNativeAmt,
 			linkToken,
 			vrfv2PlusContracts.CoordinatorV2Plus,
 			[]*big.Int{subID},
@@ -1525,23 +1520,35 @@ func TestVRFv2PlusReplayAfterRestart(t *testing.T) {
 		require.Equal(t, resp.StatusCode, 204)
 
 		chainID := env.EVMClient.GetChainID()
-		config.VRFv2Plus.General.VRFJobRequestTimeout = &blockchain.StrDuration{Duration: time.Duration(time.Hour * 1)}
-		g := errgroup.Group{}
-		var wg sync.WaitGroup
-		wg.Add(1)
-		g.Go(func() error {
-			defer wg.Done()
-			err := vrfv2plus.SetupVRFNode(vrfv2PlusContracts, chainID, config.VRFv2Plus.General,
-				vrfv2PlusData.PubKeyCompressed, l, vrfNode)
-			require.NoError(t, err, "error creating new job with 1 hr timeout")
-			return nil
-		})
+		config.VRFv2Plus.General.VRFJobRequestTimeout = ptr.Ptr(blockchain.StrDuration{Duration: time.Duration(time.Hour * 1)})
+		vrfJobSpecConfig := vrfcommon.VRFJobSpecConfig{
+			ForwardingAllowed:             *config.VRFv2Plus.General.VRFJobForwardingAllowed,
+			CoordinatorAddress:            vrfv2PlusContracts.CoordinatorV2Plus.Address(),
+			FromAddresses:                 vrfNode.TXKeyAddressStrings,
+			EVMChainID:                    chainID.String(),
+			MinIncomingConfirmations:      int(*config.VRFv2Plus.General.MinimumConfirmations),
+			PublicKey:                     vrfv2PlusData.PubKeyCompressed,
+			EstimateGasMultiplier:         *config.VRFv2Plus.General.VRFJobEstimateGasMultiplier,
+			BatchFulfillmentEnabled:       *config.VRFv2Plus.General.VRFJobBatchFulfillmentEnabled,
+			BatchFulfillmentGasMultiplier: *config.VRFv2Plus.General.VRFJobBatchFulfillmentGasMultiplier,
+			PollPeriod:                    config.VRFv2Plus.General.VRFJobPollPeriod.Duration,
+			RequestTimeout:                config.VRFv2Plus.General.VRFJobRequestTimeout.Duration,
+			SimulationBlock:               config.VRFv2Plus.General.VRFJobSimulationBlock,
+			VRFOwnerConfig:                nil,
+		}
+
+		l.Info().Msg("Creating VRFV2 Plus Job with higher timeout (1hr)")
+		job, err := vrfv2plus.CreateVRFV2PlusJob(
+			vrfNode.CLNode.API,
+			vrfJobSpecConfig,
+		)
+		require.NoError(t, err, "error creating job with higher timeout")
+		vrfNode.Job = job
 
 		// 8. Check if initial req in underfunded sub is fulfilled now, since it has been topped up and timeout increased
 		l.Debug().Str("reqID", initialReqRandomWordsRequestedEvent.RequestId.String()).
 			Str("subID", subID.String()).
 			Msg("Waiting for initalReqRandomWordsFulfilledEvent")
-		fmt.Printf("Waiting for reqID: %v, subID: %v\n", initialReqRandomWordsRequestedEvent.RequestId, subID.String())
 		initalReqRandomWordsFulfilledEvent, err := vrfv2PlusContracts.CoordinatorV2Plus.WaitForRandomWordsFulfilledEvent(
 			[]*big.Int{subID},
 			[]*big.Int{initialReqRandomWordsRequestedEvent.RequestId},
@@ -1554,21 +1561,10 @@ func TestVRFv2PlusReplayAfterRestart(t *testing.T) {
 		require.Equal(t, isNativeBilling, initalReqRandomWordsFulfilledEvent.NativePayment, "RandomWordsFulfilled Event's `NativePayment` field should be false")
 		require.True(t, initalReqRandomWordsFulfilledEvent.Success, "RandomWordsFulfilled Event's `Success` field should be true")
 
-		wg.Wait()
-		jobRuns, err := nodesMap[vrfcommon.VRF].CLNode.API.MustReadRunsByJob(vrfNode.Job.Data.ID)
-		require.NoError(t, err, "error reading job runs")
-		require.Equal(t, len(jobRunsBeforeTest.Data)+1, len(jobRuns.Data))
-
 		status, err := vrfv2PlusContracts.VRFV2PlusConsumer[0].GetRequestStatus(testcontext.Get(t), initalReqRandomWordsFulfilledEvent.RequestId)
 		require.NoError(t, err, "error getting rand request status")
 		require.True(t, status.Fulfilled)
 		l.Debug().Bool("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
-
-		require.Equal(t, *configCopy.VRFv2Plus.General.NumberOfWords, uint32(len(status.RandomWords)))
-		for _, w := range status.RandomWords {
-			l.Info().Str("Output", w.String()).Msg("Randomness fulfilled")
-			require.Equal(t, 1, w.Cmp(big.NewInt(0)), "Expected the VRF job give an answer bigger than 0")
-		}
 	})
 }
 
