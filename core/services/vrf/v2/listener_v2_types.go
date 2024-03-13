@@ -72,7 +72,7 @@ type vrfPipelineResult struct {
 	fundsNeeded   *big.Int
 	run           *pipeline.Run
 	payload       string
-	gasLimit      uint32
+	gasLimit      uint64
 	req           pendingRequest
 	proof         VRFProof
 	reqCommitment RequestCommitment
@@ -83,7 +83,7 @@ type vrfPipelineResult struct {
 type batchFulfillment struct {
 	proofs        []VRFProof
 	commitments   []RequestCommitment
-	totalGasLimit uint32
+	totalGasLimit uint64
 	runs          []*pipeline.Run
 	reqIDs        []*big.Int
 	maxFees       []*big.Int
@@ -144,7 +144,7 @@ func (b *batchFulfillments) addRun(result vrfPipelineResult, fromAddress common.
 		b.fulfillments = append(b.fulfillments, newBatchFulfillment(result, fromAddress, b.version))
 	} else {
 		currBatch := b.fulfillments[b.currIndex]
-		if (currBatch.totalGasLimit + result.gasLimit) >= b.batchGasLimit {
+		if (currBatch.totalGasLimit + result.gasLimit) >= uint64(b.batchGasLimit) {
 			// don't add to curr batch, add new batch and increment index
 			b.fulfillments = append(b.fulfillments, newBatchFulfillment(result, fromAddress, b.version))
 			b.currIndex++
@@ -240,7 +240,7 @@ func (lsn *listenerV2) processBatch(
 			FromAddress:    fromAddress,
 			ToAddress:      lsn.batchCoordinator.Address(),
 			EncodedPayload: payload,
-			FeeLimit:       totalGasLimitBumped,
+			FeeLimit:       uint64(totalGasLimitBumped),
 			Strategy:       txmgrcommon.NewSendEveryStrategy(),
 			Meta: &txmgr.TxMeta{
 				RequestIDs:      reqIDHashes,
