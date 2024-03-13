@@ -405,16 +405,16 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
    * @inheritdoc IVRFSubscriptionV2Plus
    */
   function addConsumer(uint256 subId, address consumer) external override onlySubOwner(subId) nonReentrant {
-    // Already maxed, cannot add any more consumers.
-    address[] storage consumers = s_subscriptionConfigs[subId].consumers;
-    if (consumers.length == MAX_CONSUMERS) {
-      revert TooManyConsumers();
-    }
     ConsumerConfig storage consumerConfig = s_consumers[consumer][subId];
     if (consumerConfig.active) {
       // Idempotence - do nothing if already added.
       // Ensures uniqueness in s_subscriptions[subId].consumers.
       return;
+    }
+    // Already maxed, cannot add any more consumers.
+    address[] storage consumers = s_subscriptionConfigs[subId].consumers;
+    if (consumers.length == MAX_CONSUMERS) {
+      revert TooManyConsumers();
     }
     // consumerConfig.nonce is 0 if the consumer had never sent a request to this subscription
     // otherwise, consumerConfig.nonce is non-zero

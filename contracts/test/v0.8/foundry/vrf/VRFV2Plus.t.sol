@@ -230,6 +230,7 @@ contract VRFV2Plus is BaseTest {
     assertTrue(exists);
     assertEq(GAS_LANE_MAX_GAS, maxGas);
     assertEq(s_testCoordinator.s_provingKeyHashes(0), keyHash);
+    assertEq(keyHash, vrfKeyHash);
   }
 
   function testDeregisterProvingKey() public {
@@ -785,14 +786,21 @@ contract VRFV2Plus is BaseTest {
   }
 
   function testRequestRandomWords_ReAddConsumer_AssertRequestID() public {
+    // 1. setup consumer and subscription
     setConfig();
+    registerProvingKey();
     address subOwner = makeAddr("subOwner");
     changePrank(subOwner);
     uint256 subId = s_testCoordinator.createSubscription();
     VRFV2PlusLoadTestWithMetrics consumer = new VRFV2PlusLoadTestWithMetrics(address(s_testCoordinator));
     s_testCoordinator.addConsumer(subId, address(consumer));
+    uint32 requestBlock = 10;
+    vm.roll(requestBlock);
+    changePrank(LINK_WHALE);
+    s_testCoordinator.fundSubscriptionWithNative{value: 10 ether}(subId);
 
-    // Request random words.
+    // 2. Request random words.
+    changePrank(subOwner);
     vm.expectEmit(true, true, false, true);
     uint256 requestId;
     uint256 preSeed;
@@ -805,20 +813,77 @@ contract VRFV2Plus is BaseTest {
       MIN_CONFIRMATIONS,
       CALLBACK_GAS_LIMIT,
       NUM_WORDS,
-      VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: false})), // nativePayment, // nativePayment
-      address(s_testConsumer) // requester
+      VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: true})),
+      address(consumer) // requester
     );
     consumer.requestRandomWords(
       subId,
       MIN_CONFIRMATIONS,
       vrfKeyHash,
       CALLBACK_GAS_LIMIT,
-      false /* nativePayment */,
+      true /* nativePayment */,
       NUM_WORDS,
       1 /* requestCount */
     );
+    assertTrue(s_testCoordinator.pendingRequestExists(subId));
+    
+    // 3. Fulfill the request above
+    //console.log("requestId: ", requestId);
+    //console.log("preSeed: ", preSeed);
+    //console.log("sender: ", address(consumer));
 
-    // remove consumer and verify request random words doesn't work
+    // Move on to the next block.
+    // Store the previous block's blockhash, and assert that it is as expected.
+    vm.roll(requestBlock + 1);
+    s_bhs.store(requestBlock);
+    assertEq(hex"000000000000000000000000000000000000000000000000000000000000000a", s_bhs.getBlockhash(requestBlock));
+
+    // Fulfill the request.
+    // Proof generated via the generate-proof-v2-plus script command. Example usage:
+    /*
+      go run . generate-proof-v2-plus \
+      -key-hash 0x9f2353bde94264dbc3d554a94cceba2d7d2b4fdce4304d3e09a1fea9fbeb1528 \
+      -pre-seed 94043941380654896554739370173616551044559721638888689173752661912204412136884 \
+      -block-hash 0x000000000000000000000000000000000000000000000000000000000000000a \
+      -block-num 10 \
+      -sender 0x44CAfC03154A0708F9DCf988681821f648dA74aF \
+      -native-payment true
+    */
+    VRF.Proof memory proof = VRF.Proof({
+      pk: [
+        72488970228380509287422715226575535698893157273063074627791787432852706183111,
+        62070622898698443831883535403436258712770888294397026493185421712108624767191
+      ],
+      gamma: [
+        18593555375562408458806406536059989757338587469093035962641476877033456068708,
+        55675218112764789548330682504442195066741636758414578491295297591596761905475
+      ],
+      c: 56595337384472359782910435918403237878894172750128610188222417200315739516270,
+      s: 60666722370046279064490737533582002977678558769715798604164042022636022215663,
+      seed: 94043941380654896554739370173616551044559721638888689173752661912204412136884,
+      uWitness: 0xEdbE15fd105cfEFb9CCcbBD84403d1F62719E50d,
+      cGammaWitness: [
+        11752391553651713021860307604522059957920042356542944931263270793211985356642,
+        14713353048309058367510422609936133400473710094544154206129568172815229277104
+      ],
+      sHashWitness: [
+        109716108880570827107616596438987062129934448629902940427517663799192095060206,
+        79378277044196229730810703755304140279837983575681427317104232794580059801930
+      ],
+      zInv: 18898957977631212231148068121702167284572066246731769473720131179584458697812
+    });
+    VRFCoordinatorV2_5.RequestCommitment memory rc = VRFCoordinatorV2_5.RequestCommitment({
+      blockNum: requestBlock,
+      subId: subId,
+      callbackGasLimit: CALLBACK_GAS_LIMIT,
+      numWords: NUM_WORDS,
+      sender: address(consumer),
+      extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: true}))
+    });
+    s_testCoordinator.fulfillRandomWords(proof, rc, true /* onlyPremium */);
+    assertFalse(s_testCoordinator.pendingRequestExists(subId));
+
+    // 4. remove consumer and verify request random words doesn't work
     s_testCoordinator.removeConsumer(subId, address(consumer));
     vm.expectRevert(abi.encodeWithSelector(SubscriptionAPI.InvalidConsumer.selector, subId, address(consumer)));
     consumer.requestRandomWords(
@@ -831,7 +896,7 @@ contract VRFV2Plus is BaseTest {
       1 /* requestCount */
     );
 
-    // re-add consumer
+    // 5. re-add consumer and assert requestID nonce starts from 2 (nonce 1 was used before consumer removal)
     s_testCoordinator.addConsumer(subId, address(consumer));
     vm.expectEmit(true, true, false, true);
     uint256 requestId2;
@@ -846,7 +911,7 @@ contract VRFV2Plus is BaseTest {
       CALLBACK_GAS_LIMIT,
       NUM_WORDS,
       VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: false})), // nativePayment, // nativePayment
-      address(s_testConsumer) // requester
+      address(consumer) // requester
     );
     consumer.requestRandomWords(
       subId,
