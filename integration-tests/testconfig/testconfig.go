@@ -304,12 +304,7 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 		case Automation:
 			return handleAutomationConfigOverride(logger, filename, configurationName, target, content)
 		default:
-			err := ctf_config.BytesToAnyTomlStruct(logger, filename, configurationName, &testConfig, content)
-			if err != nil {
-				return errors.Wrapf(err, "error reading file %s", filename)
-			}
-
-			return nil
+			return handleDefaultConfigOverride(logger, filename, configurationName, target, content)
 		}
 	}
 
@@ -566,6 +561,47 @@ func handleAutomationConfigOverride(logger zerolog.Logger, filename, configurati
 	// override instead of merging
 	if (newConfig.Automation != nil && len(newConfig.Automation.Load) > 0) && (oldConfig != nil && oldConfig.Automation != nil && len(oldConfig.Automation.Load) > 0) {
 		target.Automation.Load = newConfig.Automation.Load
+	}
+
+	return nil
+}
+
+func handleDefaultConfigOverride(logger zerolog.Logger, filename, configurationName string, target *TestConfig, content []byte) error {
+	logger.Debug().Msgf("Handling default config override for %s", filename)
+	oldConfig := MustCopy(target)
+	newConfig := TestConfig{}
+
+	err := ctf_config.BytesToAnyTomlStruct(logger, filename, configurationName, &target, content)
+	if err != nil {
+		return errors.Wrapf(err, "error reading file %s", filename)
+	}
+
+	err = ctf_config.BytesToAnyTomlStruct(logger, filename, configurationName, &newConfig, content)
+	if err != nil {
+		return errors.Wrapf(err, "error reading file %s", filename)
+	}
+
+	// temporary fix for Duration not being correctly copied
+	if oldConfig != nil && oldConfig.Seth != nil && oldConfig.Seth.Networks != nil {
+		for i, old_network := range oldConfig.Seth.Networks {
+			for _, target_network := range target.Seth.Networks {
+				if old_network.ChainID == target_network.ChainID {
+					oldConfig.Seth.Networks[i].TxnTimeout = old_network.TxnTimeout
+				}
+			}
+		}
+	}
+
+	// override instead of merging
+	if (newConfig.Seth != nil && len(newConfig.Seth.Networks) > 0) && (oldConfig != nil && oldConfig.Seth != nil && len(oldConfig.Seth.Networks) > 0) {
+		for i, old_network := range oldConfig.Seth.Networks {
+			for _, new_network := range newConfig.Seth.Networks {
+				if old_network.ChainID == new_network.ChainID {
+					oldConfig.Seth.Networks[i] = new_network
+				}
+			}
+		}
+		target.Seth.Networks = oldConfig.Seth.Networks
 	}
 
 	return nil

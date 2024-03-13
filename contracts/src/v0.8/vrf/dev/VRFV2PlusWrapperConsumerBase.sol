@@ -29,6 +29,8 @@ import {IVRFV2PlusWrapper} from "./interfaces/IVRFV2PlusWrapper.sol";
  * @dev fulfillment with the randomness result.
  */
 abstract contract VRFV2PlusWrapperConsumerBase {
+  event LinkTokenSet(address link);
+
   error LINKAlreadySet();
   error OnlyVRFWrapperCanFulfill(address have, address want);
 
@@ -57,6 +59,8 @@ abstract contract VRFV2PlusWrapperConsumerBase {
     }
 
     s_linkToken = LinkTokenInterface(_link);
+
+    emit LinkTokenSet(_link);
   }
 
   /**
