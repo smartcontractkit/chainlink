@@ -705,7 +705,9 @@ jobs:
       - name: Check smoke test matrix status
         if: needs.eth-smoke-tests-matrix.result != 'success' || needs.eth-smoke-tests-matrix-automation.result != 'success' || needs.eth-smoke-tests-matrix-log-poller != 'success'
         run: |
-          echo "${{ needs.eth-smoke-tests-matrix.result }}"
+          echo "ETH Smoke Tests: ${{ needs.eth-smoke-tests-matrix.result }}"
+          echo "Automation: ${{ needs.eth-smoke-tests-matrix-automation.result }}"
+          echo "Log Poller: ${{ needs.eth-smoke-tests-matrix-log-poller.result }}"
           exit 1
       - name: Collect Metrics
         if: always()
