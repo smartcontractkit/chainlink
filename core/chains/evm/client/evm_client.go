@@ -10,12 +10,13 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/common/config"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
 func NewEvmClient(cfg evmconfig.NodePool, noNewHeadsThreshold time.Duration, lggr logger.Logger, chainID *big.Int, chainType config.ChainType, nodes []*toml.Node) Client {
 	var empty url.URL
-	var primaries []EvmNode
-	var sendonlys []EvmSendOnlyNode
+	var primaries []commonclient.Node[*big.Int, *evmtypes.Head, RPCClient]
+	var sendonlys []commonclient.SendOnlyNode[*big.Int, RPCClient]
 	for i, node := range nodes {
 		if node.SendOnly != nil && *node.SendOnly {
 			rpc := NewRPCClient(lggr, empty, (*url.URL)(node.HTTPURL), *node.Name, int32(i), chainID,
