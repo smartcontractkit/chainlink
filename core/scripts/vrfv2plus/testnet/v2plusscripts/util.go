@@ -224,13 +224,14 @@ func WrapperDeploy(
 func WrapperConfigure(
 	e helpers.Environment,
 	wrapperAddress common.Address,
-	wrapperGasOverhead, coordinatorGasOverhead, premiumPercentage uint,
+	wrapperGasOverhead, coordinatorGasOverhead uint,
+	nativePremiumPercentage, linkPremiumPercentage uint,
 	keyHash string,
 	maxNumWords uint,
 	fallbackWeiPerUnitLink *big.Int,
 	stalenessSeconds uint32,
-	fulfillmentFlatFeeLinkPPM uint32,
 	fulfillmentFlatFeeNativePPM uint32,
+	fulfillmentFlatFeeLinkDiscountPPM uint32,
 ) {
 	wrapper, err := vrfv2plus_wrapper.NewVRFV2PlusWrapper(wrapperAddress, e.Ec)
 	helpers.PanicErr(err)
@@ -239,13 +240,14 @@ func WrapperConfigure(
 		e.Owner,
 		uint32(wrapperGasOverhead),
 		uint32(coordinatorGasOverhead),
-		uint8(premiumPercentage),
+		uint8(nativePremiumPercentage),
+		uint8(linkPremiumPercentage),
 		common.HexToHash(keyHash),
 		uint8(maxNumWords),
 		stalenessSeconds,
 		fallbackWeiPerUnitLink,
-		fulfillmentFlatFeeLinkPPM,
 		fulfillmentFlatFeeNativePPM,
+		fulfillmentFlatFeeLinkDiscountPPM,
 	)
 
 	helpers.PanicErr(err)
