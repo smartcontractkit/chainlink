@@ -3,6 +3,7 @@ package log
 import (
 	"context"
 	"fmt"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"math/big"
 	"sync"
 	"sync/atomic"
@@ -496,7 +497,7 @@ func (b *broadcaster) onReplayRequest(replayReq replayRequest) {
 
 		// Use a longer timeout in the event that a very large amount of logs need to be marked
 		// as consumed.
-		err := b.orm.MarkBroadcastsUnconsumed(ctx, replayReq.fromBlock)
+		err := b.orm.MarkBroadcastsUnconsumed(sqlutil.WithoutDefaultTimeout(ctx), replayReq.fromBlock)
 		if err != nil {
 			b.logger.Errorw("Error marking broadcasts as unconsumed",
 				"err", err, "fromBlock", replayReq.fromBlock)
