@@ -1602,7 +1602,7 @@ func TestVRFv2PlusPendingBlockSimulationAndZeroConfirmationDelays(t *testing.T) 
 	linkToken, err := actions.DeployLINKToken(env.ContractDeployer)
 	require.NoError(t, err, "error deploying LINK contract")
 
-	numberOfTxKeysToCreate := 2
+	numberOfTxKeysToCreate := 0
 	vrfv2PlusContracts, subIDs, vrfv2PlusData, nodesMap, err := vrfv2plus.SetupVRFV2_5Environment(
 		env,
 		[]vrfcommon.VRFNodeType{vrfcommon.VRF},
