@@ -23,8 +23,9 @@ func newMockRpc(t *testing.T) *mocks.RPCClient {
 	mockRpc.On("Dial", mock.Anything).Return(nil).Once()
 	mockRpc.On("Close").Return(nil).Once()
 	mockRpc.On("ChainID", mock.Anything).Return(testutils.FixtureChainID, nil).Once()
-	mockRpc.On("Subscribe", mock.Anything, mock.Anything, mock.Anything).Return(client.NewMockSubscription(), nil).Once()
-	mockRpc.On("SetAliveLoopSub", mock.Anything).Return().Once()
+	// node does not always manage to fully setup aliveLoop, so we have to make calls optional to avoid flakes
+	mockRpc.On("Subscribe", mock.Anything, mock.Anything, mock.Anything).Return(client.NewMockSubscription(), nil).Maybe()
+	mockRpc.On("SetAliveLoopSub", mock.Anything).Return().Maybe()
 	return mockRpc
 }
 

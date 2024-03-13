@@ -18,7 +18,6 @@ interface IAutomationV21PlusCommon {
   );
   event DedupKeyAdded(bytes32 indexed dedupKey);
   event InsufficientFundsUpkeepReport(uint256 indexed id, bytes trigger);
-  event OwnerFundsWithdrawn(uint96 amount);
   event OwnershipTransferred(address indexed from, address indexed to);
   event OwnershipTransferRequested(address indexed from, address indexed to);
   event Paused(address account);

@@ -135,15 +135,16 @@ func TestUserSubscriptions_UpdateSubscription(t *testing.T) {
 
 	t.Run("no actual changes", func(t *testing.T) {
 		us := subscriptions.NewUserSubscriptions()
-		subscription := &functions_router.IFunctionsSubscriptionsSubscription{
+		subscription := functions_router.IFunctionsSubscriptionsSubscription{
 			Owner:          utils.RandomAddress(),
 			Balance:        big.NewInt(25),
 			BlockedBalance: big.NewInt(25),
 		}
-		updated := us.UpdateSubscription(5, subscription)
+		identicalSubscription := subscription
+		updated := us.UpdateSubscription(5, &subscription)
 		assert.True(t, updated)
 
-		updated = us.UpdateSubscription(5, subscription)
+		updated = us.UpdateSubscription(5, &identicalSubscription)
 		assert.False(t, updated)
 	})
 }

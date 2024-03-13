@@ -103,6 +103,7 @@ type UpkeepCounter interface {
 	Fund(ethAmount *big.Float) error
 	Counter(ctx context.Context) (*big.Int, error)
 	SetSpread(testRange *big.Int, interval *big.Int) error
+	Start() error
 }
 
 type UpkeepPerformCounterRestrictive interface {
@@ -1829,6 +1830,11 @@ func (v *EthereumUpkeepCounter) SetSpread(testRange *big.Int, interval *big.Int)
 		return err
 	}
 	return v.client.ProcessTransaction(tx)
+}
+
+// Just pass for non-logtrigger
+func (v *EthereumUpkeepCounter) Start() error {
+	return nil
 }
 
 // EthereumUpkeepPerformCounterRestrictive represents keeper consumer (upkeep) counter contract

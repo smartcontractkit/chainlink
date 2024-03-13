@@ -109,8 +109,6 @@ helm uninstall cl-cluster
 # Grafana dashboard
 We are using [Grabana](https://github.com/K-Phoen/grabana) lib to create dashboards programmatically
 
-You can select `PANELS_INCLUDED`, options are `core`, `wasp`, comma separated
-
 You can also select dashboard platform in `INFRA_PLATFORM` either `kubernetes` or `docker`
 ```
 export LOKI_TENANT_ID=promtail
@@ -119,11 +117,30 @@ export GRAFANA_URL=...
 export GRAFANA_TOKEN=...
 export PROMETHEUS_DATA_SOURCE_NAME=Thanos
 export LOKI_DATA_SOURCE_NAME=Loki
-export PANELS_INCLUDED=core,wasp
-export INFRA_PLATFORM=kubernetes|docker
-export GRAFANA_FOLDER=DashboardCoreDebug
-export DASHBOARD_NAME=ChainlinkClusterDebug
+export INFRA_PLATFORM=kubernetes
+export GRAFANA_FOLDER=CRIB
+export DASHBOARD_NAME=CL-Cluster
 
-go run dashboard/cmd/dashboard_deploy.go
+devspace run dashboard_deploy
 ```
 Open Grafana folder `DashboardCoreDebug` and find dashboard `ChainlinkClusterDebug`
+
+# Testing
+
+Deploy your dashboard and run soak/load [tests](../../integration-tests/load/), check [README](../../integration-tests/README.md) for further explanations
+
+```
+devspace run dashboard_deploy
+devspace run workload
+devspace run dashboard_test
+```
+
+# Local Testing
+Go to [dashboard-lib](../../dashboard) and link the modules locally
+```
+cd dashboard
+pnpm link --global
+cd charts/chainlink-cluster/dashboard/tests
+pnpm link --global dashboard-tests
+```
+Then run the tests with commands mentioned above
