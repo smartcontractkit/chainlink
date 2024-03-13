@@ -188,7 +188,7 @@ contract VRFV2PlusWrapperTest is BaseTest {
     // Withdraw funds from wrapper.
     changePrank(LINK_WHALE);
     uint256 priorWhaleBalance = LINK_WHALE.balance;
-    s_wrapper.withdrawNative(LINK_WHALE, paid);
+    s_wrapper.withdrawNative(LINK_WHALE);
     assertEq(LINK_WHALE.balance, priorWhaleBalance + paid);
     assertEq(address(s_wrapper).balance, 0);
   }
@@ -247,7 +247,7 @@ contract VRFV2PlusWrapperTest is BaseTest {
     // Withdraw funds from wrapper.
     changePrank(LINK_WHALE);
     uint256 priorWhaleBalance = s_linkToken.balanceOf(LINK_WHALE);
-    s_wrapper.withdraw(LINK_WHALE, paid);
+    s_wrapper.withdraw(LINK_WHALE);
     assertEq(s_linkToken.balanceOf(LINK_WHALE), priorWhaleBalance + paid);
     assertEq(s_linkToken.balanceOf(address(s_wrapper)), 0);
   }
