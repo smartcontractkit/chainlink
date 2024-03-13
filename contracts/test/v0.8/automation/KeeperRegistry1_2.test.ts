@@ -28,7 +28,7 @@ import { toWei } from '../../test-helpers/helpers'
 
 const BYTECODE = KeeperRegistryFactory.bytecode
 const BYTECODE_CHECKSUM =
-  '0x8e465b93eae52724b7edbef5bc133c96520dad33f959373e5d026549ca40158c'
+  '0x4a23953416a64a0fa4c943954d9a92059f862257440f2cbcf5f238314b89f416'
 
 describe('KeeperRegistry1_2 - Frozen [ @skip-coverage ]', () => {
   it('has not changed', () => {

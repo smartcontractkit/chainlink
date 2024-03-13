@@ -4,7 +4,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -22,7 +22,7 @@ func TestWrappedEvmEstimator(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	// fee values
-	gasLimit := uint32(10)
+	gasLimit := uint64(10)
 	legacyFee := assets.NewWeiI(10)
 	dynamicFee := gas.DynamicFee{
 		FeeCap: assets.NewWeiI(20),
@@ -201,9 +201,9 @@ func TestWrappedEvmEstimator(t *testing.T) {
 		oracle := rollupMocks.NewL1Oracle(t)
 
 		evmEstimatorKey := "evm"
-		evmEstimatorError := errors.New("evm error")
+		evmEstimatorError := pkgerrors.New("evm error")
 		oracleKey := "oracle"
-		oracleError := errors.New("oracle error")
+		oracleError := pkgerrors.New("oracle error")
 
 		evmEstimator.On("HealthReport").Return(map[string]error{evmEstimatorKey: evmEstimatorError}).Twice()
 		oracle.On("HealthReport").Return(map[string]error{oracleKey: oracleError}).Once()
@@ -211,14 +211,14 @@ func TestWrappedEvmEstimator(t *testing.T) {
 
 		estimator := gas.NewWrappedEvmEstimator(lggr, getEst, false, nil)
 		report := estimator.HealthReport()
-		require.True(t, errors.Is(report[evmEstimatorKey], evmEstimatorError))
+		require.True(t, pkgerrors.Is(report[evmEstimatorKey], evmEstimatorError))
 		require.Nil(t, report[oracleKey])
 		require.NotNil(t, report[mockEstimatorName])
 
 		estimator = gas.NewWrappedEvmEstimator(lggr, getEst, false, oracle)
 		report = estimator.HealthReport()
-		require.True(t, errors.Is(report[evmEstimatorKey], evmEstimatorError))
-		require.True(t, errors.Is(report[oracleKey], oracleError))
+		require.True(t, pkgerrors.Is(report[evmEstimatorKey], evmEstimatorError))
+		require.True(t, pkgerrors.Is(report[oracleKey], oracleError))
 		require.NotNil(t, report[mockEstimatorName])
 	})
 }

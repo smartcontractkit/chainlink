@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 
@@ -45,7 +46,7 @@ func TestEvmWrite(t *testing.T) {
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	chain.On("Config").Return(evmcfg)
 
-	capability := targets.NewEvmWrite(chain)
+	capability := targets.NewEvmWrite(chain, logger.TestLogger(t))
 	ctx := testutils.Context(t)
 
 	config, err := values.NewMap(map[string]any{

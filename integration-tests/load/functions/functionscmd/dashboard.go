@@ -4,12 +4,12 @@ import (
 	"github.com/K-Phoen/grabana/dashboard"
 	"github.com/K-Phoen/grabana/logs"
 	"github.com/K-Phoen/grabana/row"
-	"github.com/smartcontractkit/wasp"
+	db "github.com/smartcontractkit/wasp/dashboard"
 )
 
 func main() {
 	lokiDS := "grafanacloud-logs"
-	d, err := wasp.NewDashboard(nil,
+	d, err := db.NewDashboard(nil,
 		[]dashboard.Option{
 			dashboard.Row("DON logs (errors)",
 				row.Collapse(),

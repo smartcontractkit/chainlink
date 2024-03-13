@@ -656,6 +656,7 @@ type RandomWordsFulfilled interface {
 	SubID() *big.Int
 	Payment() *big.Int
 	Raw() types.Log
+	NativePayment() bool
 }
 
 func NewV2RandomWordsFulfilled(event *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled) RandomWordsFulfilled {
