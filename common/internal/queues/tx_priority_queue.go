@@ -2,6 +2,7 @@ package queues
 
 import (
 	"container/heap"
+	"sync"
 
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
@@ -16,6 +17,7 @@ type TxPriorityQueue[
 	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ] struct {
+	sync.RWMutex
 	ph *priorityHeap[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 }
 
@@ -32,13 +34,24 @@ func NewTxPriorityQueue[
 	}
 }
 
-// AddTx adds a transaction to the queue
+// AddTx adds a transaction to the queue.
+// If the queue is full, the oldest transaction is removed.
 func (pq *TxPriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) AddTx(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) {
+	pq.Lock()
+
+	if pq.ph.Len() == pq.ph.Cap() {
+		heap.Pop(pq.ph)
+	}
 	heap.Push(pq.ph, tx)
+
+	pq.Unlock()
 }
 
 // RemoveNextTx removes the next transaction to be processed from the queue
 func (pq *TxPriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) RemoveNextTx() *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {
+	pq.Lock()
+	defer pq.Unlock()
+
 	if pq.ph.Len() == 0 {
 		return nil
 	}
@@ -48,22 +61,28 @@ func (pq *TxPriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Rem
 
 // RemoveTxByID removes the transaction with the given ID from the queue
 func (pq *TxPriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) RemoveTxByID(id int64) *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {
+	pq.Lock()
+	defer pq.Unlock()
+
 	if pq.ph.Len() == 0 {
 		return nil
 	}
 
-	if i := pq.ph.FindIndexByID(id); i != -1 {
-		return heap.Remove(pq.ph, i-1).(*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE])
-	}
-
-	return nil
+	return pq._removeTxByID(id)
 }
 
 // PruneByTxIDs removes the transactions with the given IDs from the queue
 func (pq *TxPriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) PruneByTxIDs(ids []int64) []txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {
+	pq.Lock()
+	defer pq.Unlock()
+
+	if pq.ph.Len() == 0 {
+		return nil
+	}
+
 	removed := []txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
 	for _, id := range ids {
-		if tx := pq.RemoveTxByID(id); tx != nil {
+		if tx := pq._removeTxByID(id); tx != nil {
 			removed = append(removed, *tx)
 		}
 	}
@@ -73,20 +92,42 @@ func (pq *TxPriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Pru
 
 // PeekNextTx returns the next transaction to be processed without removing it from the queue
 func (pq *TxPriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) PeekNextTx() *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {
+	pq.RLock()
+	defer pq.RUnlock()
+
 	return pq.ph.Peek()
 }
 
 // Close clears the queue
 func (pq *TxPriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Close() {
+	pq.Lock()
+	defer pq.Unlock()
+
 	pq.ph.Close()
 }
 
 // Cap returns the capacity of the queue
 func (pq *TxPriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Cap() int {
+	pq.RLock()
+	defer pq.RUnlock()
+
 	return pq.ph.Cap()
 }
 
 // Len returns the length of the queue
 func (pq *TxPriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Len() int {
+	pq.RLock()
+	defer pq.RUnlock()
+
 	return pq.ph.Len()
+}
+
+// _removeTxByID removes the transaction with the given ID from the queue.
+// This method assumes that the caller holds the lock.
+func (pq *TxPriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) _removeTxByID(id int64) *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {
+	if i, ok := pq.ph.FindIndexByID(id); ok {
+		return heap.Remove(pq.ph, i).(*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE])
+	}
+
+	return nil
 }
