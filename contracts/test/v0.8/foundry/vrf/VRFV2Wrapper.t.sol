@@ -109,14 +109,13 @@ contract VRFV2PlusWrapperTest is BaseTest {
     VRFV2PlusWrapper wrapper = new VRFV2PlusWrapper(address(0), address(0), address(s_testCoordinator));
 
     // Set LINK and LINK/Native feed on wrapper.
-    wrapper.setLINK(address(s_linkToken));
-    wrapper.setLinkNativeFeed(address(s_linkNativeFeed));
+    wrapper.setLinkAndLinkNativeFeed(address(s_linkToken), address(s_linkNativeFeed));
     assertEq(address(wrapper.s_link()), address(s_linkToken));
     assertEq(address(wrapper.s_linkNativeFeed()), address(s_linkNativeFeed));
 
     // Revert for subsequent assignment.
     vm.expectRevert(VRFV2PlusWrapper.LinkAlreadySet.selector);
-    wrapper.setLINK(address(s_linkToken));
+    wrapper.setLinkAndLinkNativeFeed(address(s_linkToken), address(s_linkNativeFeed));
 
     // Consumer can set LINK token.
     VRFV2PlusWrapperConsumerExample consumer = new VRFV2PlusWrapperConsumerExample(address(0), address(wrapper));
@@ -189,7 +188,7 @@ contract VRFV2PlusWrapperTest is BaseTest {
     // Withdraw funds from wrapper.
     changePrank(LINK_WHALE);
     uint256 priorWhaleBalance = LINK_WHALE.balance;
-    s_wrapper.withdrawNative(LINK_WHALE, paid);
+    s_wrapper.withdrawNative(LINK_WHALE);
     assertEq(LINK_WHALE.balance, priorWhaleBalance + paid);
     assertEq(address(s_wrapper).balance, 0);
   }
@@ -248,7 +247,7 @@ contract VRFV2PlusWrapperTest is BaseTest {
     // Withdraw funds from wrapper.
     changePrank(LINK_WHALE);
     uint256 priorWhaleBalance = s_linkToken.balanceOf(LINK_WHALE);
-    s_wrapper.withdraw(LINK_WHALE, paid);
+    s_wrapper.withdraw(LINK_WHALE);
     assertEq(s_linkToken.balanceOf(LINK_WHALE), priorWhaleBalance + paid);
     assertEq(s_linkToken.balanceOf(address(s_wrapper)), 0);
   }
