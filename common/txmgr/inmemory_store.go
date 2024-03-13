@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -46,7 +47,8 @@ type inMemoryStore[
 	keyStore          txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
 	persistentTxStore txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 
-	addressStates map[ADDR]*addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
+	addressStatesLock sync.RWMutex
+	addressStates     map[ADDR]*addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 }
 
 // NewInMemoryStore returns a new inMemoryStore
@@ -186,12 +188,12 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveR
 	}
 
 	// Persist to persistent storage
-	if err := ms.txStore.SaveReplacementInProgressAttempt(ctx, oldAttempt, replacementAttempt); err != nil {
+	if err := ms.persistentTxStore.SaveReplacementInProgressAttempt(ctx, oldAttempt, replacementAttempt); err != nil {
 		return fmt.Errorf("save_replacement_in_progress_attempt: %w", err)
 	}
 
 	// Update in memory store
-	tx, err := as.PeekInProgressTx()
+	tx, err := as.peekInProgressTx()
 	if tx == nil {
 		return fmt.Errorf("save_replacement_in_progress_attempt: %w", err)
 	}
