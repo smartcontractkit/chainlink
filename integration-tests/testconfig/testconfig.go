@@ -586,7 +586,7 @@ func handleDefaultConfigOverride(logger zerolog.Logger, filename, configurationN
 		for i, old_network := range oldConfig.Seth.Networks {
 			for _, target_network := range target.Seth.Networks {
 				if old_network.ChainID == target_network.ChainID {
-					oldConfig.Seth.Networks[i].TxnTimeout = old_network.TxnTimeout
+					oldConfig.Seth.Networks[i].TxnTimeout = target_network.TxnTimeout
 				}
 			}
 		}
