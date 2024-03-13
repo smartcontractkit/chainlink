@@ -30,15 +30,6 @@ const (
 	StreamsLookupErrorPackExecuteCallback       = "pack_execute_callback"
 )
 
-// Streams response labels
-const (
-	StatusUnauthorized        = "status_unauthorized"
-	StatusBadRequest          = "status_bad_request"
-	StatusInternalServerError = "status_internal_server_error"
-	StatusPartialContent      = "status_partial_content"
-	StatusOK                  = "status_ok"
-)
-
 // Streams versions
 const (
 	StreamsVersion02 = "v02"
