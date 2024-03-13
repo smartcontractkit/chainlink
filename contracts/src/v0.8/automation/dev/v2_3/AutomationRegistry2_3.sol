@@ -8,6 +8,7 @@ import {AutomationRegistryLogicB2_3} from "./AutomationRegistryLogicB2_3.sol";
 import {Chainable} from "../../Chainable.sol";
 import {IERC677Receiver} from "../../../shared/interfaces/IERC677Receiver.sol";
 import {OCR2Abstract} from "../../../shared/ocr2/OCR2Abstract.sol";
+import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
 /**
  * @notice Registry for adding work for Chainlink nodes to perform on client
@@ -250,13 +251,20 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
     uint64 offchainConfigVersion,
     bytes memory offchainConfig
   ) external override {
+    (OnchainConfig memory config, IERC20[] memory billingTokens, BillingConfig[] memory billingConfigs) = abi.decode(
+      onchainConfigBytes,
+      (OnchainConfig, IERC20[], BillingConfig[])
+    );
+
     setConfigTypeSafe(
       signers,
       transmitters,
       f,
-      abi.decode(onchainConfigBytes, (OnchainConfig)),
+      config,
       offchainConfigVersion,
-      offchainConfig
+      offchainConfig,
+      billingTokens,
+      billingConfigs
     );
   }
 
@@ -266,23 +274,30 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
     uint8 f,
     OnchainConfig memory onchainConfig,
     uint64 offchainConfigVersion,
-    bytes memory offchainConfig
+    bytes memory offchainConfig,
+    IERC20[] memory billingTokens,
+    BillingConfig[] memory billingConfigs
   ) public onlyOwner {
     if (signers.length > MAX_NUM_ORACLES) revert TooManyOracles();
     if (f == 0) revert IncorrectNumberOfFaultyOracles();
     if (signers.length != transmitters.length || signers.length <= 3 * f) revert IncorrectNumberOfSigners();
+    if (billingTokens.length != billingConfigs.length) revert ParameterLengthError();
+    // set billing config for tokens
+    _setBillingConfig(billingTokens, billingConfigs);
 
     // move all pooled payments out of the pool to each transmitter's balance
-    uint96 totalPremium = s_hotVars.totalPremium;
-    uint96 oldLength = uint96(s_transmittersList.length);
-    for (uint256 i = 0; i < oldLength; i++) {
-      _updateTransmitterBalanceFromPool(s_transmittersList[i], totalPremium, oldLength);
+    for (uint256 i = 0; i < s_transmittersList.length; i++) {
+      _updateTransmitterBalanceFromPool(
+        s_transmittersList[i],
+        s_hotVars.totalPremium,
+        uint96(s_transmittersList.length)
+      );
     }
 
     // remove any old signer/transmitter addresses
     address signerAddress;
     address transmitterAddress;
-    for (uint256 i = 0; i < oldLength; i++) {
+    for (uint256 i = 0; i < s_transmittersList.length; i++) {
       signerAddress = s_signersList[i];
       transmitterAddress = s_transmittersList[i];
       delete s_signers[signerAddress];
@@ -309,7 +324,7 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
         transmitter.index = uint8(i);
         // new transmitters start afresh from current totalPremium
         // some spare change of premium from previous pool will be forfeited
-        transmitter.lastCollected = totalPremium;
+        transmitter.lastCollected = s_hotVars.totalPremium;
         s_transmitters[temp] = transmitter;
       }
     }
@@ -324,7 +339,7 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
       gasCeilingMultiplier: onchainConfig.gasCeilingMultiplier,
       paused: s_hotVars.paused,
       reentrancyGuard: s_hotVars.reentrancyGuard,
-      totalPremium: totalPremium,
+      totalPremium: s_hotVars.totalPremium,
       latestEpoch: 0, // DON restarts epoch
       reorgProtectionEnabled: onchainConfig.reorgProtectionEnabled,
       chainModule: onchainConfig.chainModule
