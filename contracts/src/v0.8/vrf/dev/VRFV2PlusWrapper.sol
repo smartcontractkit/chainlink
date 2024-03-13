@@ -143,22 +143,17 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   }
 
   /**
-   * @notice set the link token to be used by this wrapper
+   * @notice set the link token and link native feed to be used by this wrapper
    * @param link address of the link token
+   * @param linkNativeFeed address of the link native feed
    */
-  function setLINK(address link) external onlyOwner {
+  function setLinkAndLinkNativeFeed(address link, address linkNativeFeed) external onlyOwner {
     // Disallow re-setting link token because the logic wouldn't really make sense
     if (address(s_link) != address(0)) {
       revert LinkAlreadySet();
     }
     s_link = LinkTokenInterface(link);
-  }
 
-  /**
-   * @notice set the link native feed to be used by this wrapper
-   * @param linkNativeFeed address of the link native feed
-   */
-  function setLinkNativeFeed(address linkNativeFeed) external onlyOwner {
     s_linkNativeFeed = AggregatorV3Interface(linkNativeFeed);
   }
 
