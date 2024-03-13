@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -56,13 +57,17 @@ func TestORM_TrimOldHeads(t *testing.T) {
 		require.NoError(t, orm.IdempotentInsertHead(testutils.Context(t), head))
 	}
 
+	uncleHead := cltest.Head(5)
+	require.NoError(t, orm.IdempotentInsertHead(testutils.Context(t), uncleHead))
+
 	err := orm.TrimOldHeads(testutils.Context(t), 5)
 	require.NoError(t, err)
 
-	heads, err := orm.LatestHeads(testutils.Context(t), 10)
+	heads, err := orm.LatestHeads(testutils.Context(t), 0)
 	require.NoError(t, err)
 
-	require.Equal(t, 5, len(heads))
+	// uncle block was loaded too
+	require.Equal(t, 6, len(heads))
 	for i := 0; i < 5; i++ {
 		require.LessOrEqual(t, int64(5), heads[i].Number)
 	}
