@@ -49,7 +49,6 @@ func newLegacyChainContainer(t *testing.T, db *sqlx.DB) legacyevm.LegacyChainCon
 
 	txm, err := txmgr.NewTxm(
 		db,
-		db,
 		evmConfig,
 		evmConfig.GasEstimator(),
 		evmConfig.Transactions(),

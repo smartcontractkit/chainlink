@@ -53,7 +53,6 @@ func newEvmTxm(
 
 	if opts.GenTxManager == nil {
 		txm, err = txmgr.NewTxm(
-			sqlxDB,
 			db,
 			cfg,
 			txmgr.NewEvmTxmFeeConfig(cfg.GasEstimator()),

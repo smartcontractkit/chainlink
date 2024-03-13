@@ -3,11 +3,12 @@ package log
 import (
 	"context"
 	"fmt"
-	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"math/big"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
