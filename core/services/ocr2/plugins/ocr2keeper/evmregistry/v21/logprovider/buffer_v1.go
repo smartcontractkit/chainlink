@@ -283,7 +283,7 @@ func (ub *upkeepLogBuffer) enqueue(blockThreshold int64, logsToAdd ...logpoller.
 	ub.q = logs
 	dropped := ub.clean(blockThreshold)
 
-	ub.lggr.Debugf("Enqueued %d logs, dropped %d", added, dropped)
+	ub.lggr.Debugf("Enqueued %d logs, dropped %d with blockThreshold %d", added, dropped, blockThreshold)
 	prommetrics.AutomationLogsInLogBuffer.Add(float64(added))
 
 	return added, dropped
@@ -318,6 +318,9 @@ func (ub *upkeepLogBuffer) clean(blockThreshold int64) int {
 			delete(ub.visited, logid)
 		}
 	}
+
+	ub.lggr.Debugw("Cleaned logs", "dropped", dropped, "blockThreshold", blockThreshold, "len updated", len(updated), "len ub.q", len(ub.q), "maxLogs", maxLogs)
+
 	ub.q = updated
 
 	for lid, block := range ub.visited {

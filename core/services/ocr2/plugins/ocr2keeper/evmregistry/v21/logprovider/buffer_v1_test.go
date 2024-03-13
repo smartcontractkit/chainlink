@@ -68,6 +68,40 @@ func TestLogEventBufferV2_EnqueueDequeue(t *testing.T) {
 		require.Equal(t, 2, upkeepBuf.size())
 	})
 
+	t.Run("enqueue upkeeps limits", func(t *testing.T) {
+		buf := NewLogBuffer(logger.TestLogger(t), 3, 2)
+
+		added, dropped := buf.Enqueue(big.NewInt(1),
+			logpoller.Log{BlockNumber: 9, TxHash: common.HexToHash("0x9"), LogIndex: 0},
+			logpoller.Log{BlockNumber: 9, TxHash: common.HexToHash("0x9"), LogIndex: 1},
+			logpoller.Log{BlockNumber: 10, TxHash: common.HexToHash("0x10"), LogIndex: 0},
+			logpoller.Log{BlockNumber: 10, TxHash: common.HexToHash("0x10"), LogIndex: 1},
+			logpoller.Log{BlockNumber: 11, TxHash: common.HexToHash("0x11"), LogIndex: 1},
+			logpoller.Log{BlockNumber: 11, TxHash: common.HexToHash("0x11"), LogIndex: 2},
+			logpoller.Log{BlockNumber: 11, TxHash: common.HexToHash("0x11"), LogIndex: 3},
+		)
+		require.Equal(t, 7, added)
+		require.Equal(t, 1, dropped)
+		upkeepBuf, ok := buf.(*logBuffer).getUpkeepBuffer(big.NewInt(1))
+		require.True(t, ok)
+		require.Equal(t, 6, upkeepBuf.size())
+	})
+
+	t.Run("enqueue out of block range", func(t *testing.T) {
+		buf := NewLogBuffer(logger.TestLogger(t), 5, 4)
+
+		added, dropped := buf.Enqueue(big.NewInt(1),
+			logpoller.Log{BlockNumber: 1, TxHash: common.HexToHash("0x10"), LogIndex: 0},
+			logpoller.Log{BlockNumber: 10, TxHash: common.HexToHash("0x10"), LogIndex: 1},
+			logpoller.Log{BlockNumber: 11, TxHash: common.HexToHash("0x11"), LogIndex: 1},
+		)
+		require.Equal(t, 2, added)
+		require.Equal(t, 0, dropped)
+		upkeepBuf, ok := buf.(*logBuffer).getUpkeepBuffer(big.NewInt(1))
+		require.True(t, ok)
+		require.Equal(t, 2, upkeepBuf.size())
+	})
+
 	t.Run("enqueue dequeue", func(t *testing.T) {
 		buf := NewLogBuffer(logger.TestLogger(t), 10, 10)
 
