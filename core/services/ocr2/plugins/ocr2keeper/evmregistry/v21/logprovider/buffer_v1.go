@@ -220,7 +220,7 @@ func (ub *upkeepLogBuffer) dequeue(start, end int64, limit int) ([]logpoller.Log
 
 	var results []logpoller.Log
 	var remaining int
-	updatedLogs := make([]logpoller.Log, 0, ub.maxLogs.Load())
+	updatedLogs := make([]logpoller.Log, 0)
 	for _, l := range ub.q {
 		if l.BlockNumber >= start && l.BlockNumber <= end {
 			if len(results) < limit {
