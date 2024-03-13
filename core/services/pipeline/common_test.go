@@ -324,7 +324,7 @@ func TestSelectGasLimit(t *testing.T) {
 	t.Parallel()
 
 	gcfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].GasEstimator.LimitDefault = ptr(uint32(999))
+		c.EVM[0].GasEstimator.LimitDefault = ptr(uint64(999))
 		c.EVM[0].GasEstimator.LimitJobType = toml.GasLimitJobType{
 			DR:     ptr(uint32(100)),
 			VRF:    ptr(uint32(101)),
@@ -339,42 +339,42 @@ func TestSelectGasLimit(t *testing.T) {
 	t.Run("spec defined gas limit", func(t *testing.T) {
 		var specGasLimit uint32 = 1
 		gasLimit := pipeline.SelectGasLimit(cfg.EVM().GasEstimator(), pipeline.DirectRequestJobType, &specGasLimit)
-		assert.Equal(t, uint32(1), gasLimit)
+		assert.Equal(t, uint64(1), gasLimit)
 	})
 
 	t.Run("direct request specific gas limit", func(t *testing.T) {
 		gasLimit := pipeline.SelectGasLimit(cfg.EVM().GasEstimator(), pipeline.DirectRequestJobType, nil)
-		assert.Equal(t, uint32(100), gasLimit)
+		assert.Equal(t, uint64(100), gasLimit)
 	})
 
 	t.Run("OCR specific gas limit", func(t *testing.T) {
 		gasLimit := pipeline.SelectGasLimit(cfg.EVM().GasEstimator(), pipeline.OffchainReportingJobType, nil)
-		assert.Equal(t, uint32(103), gasLimit)
+		assert.Equal(t, uint64(103), gasLimit)
 	})
 
 	t.Run("OCR2 specific gas limit", func(t *testing.T) {
 		gasLimit := pipeline.SelectGasLimit(cfg.EVM().GasEstimator(), pipeline.OffchainReporting2JobType, nil)
-		assert.Equal(t, uint32(105), gasLimit)
+		assert.Equal(t, uint64(105), gasLimit)
 	})
 
 	t.Run("VRF specific gas limit", func(t *testing.T) {
 		gasLimit := pipeline.SelectGasLimit(cfg.EVM().GasEstimator(), pipeline.VRFJobType, nil)
-		assert.Equal(t, uint32(101), gasLimit)
+		assert.Equal(t, uint64(101), gasLimit)
 	})
 
 	t.Run("flux monitor specific gas limit", func(t *testing.T) {
 		gasLimit := pipeline.SelectGasLimit(cfg.EVM().GasEstimator(), pipeline.FluxMonitorJobType, nil)
-		assert.Equal(t, uint32(102), gasLimit)
+		assert.Equal(t, uint64(102), gasLimit)
 	})
 
 	t.Run("keeper specific gas limit", func(t *testing.T) {
 		gasLimit := pipeline.SelectGasLimit(cfg.EVM().GasEstimator(), pipeline.KeeperJobType, nil)
-		assert.Equal(t, uint32(104), gasLimit)
+		assert.Equal(t, uint64(104), gasLimit)
 	})
 
 	t.Run("fallback to default gas limit", func(t *testing.T) {
 		gasLimit := pipeline.SelectGasLimit(cfg.EVM().GasEstimator(), pipeline.WebhookJobType, nil)
-		assert.Equal(t, uint32(999), gasLimit)
+		assert.Equal(t, uint64(999), gasLimit)
 	})
 }
 func TestGetNextTaskOf(t *testing.T) {

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -67,7 +67,7 @@ func (o *orm) FindBridge(name BridgeName) (bt BridgeType, err error) {
 // Expects all bridges to be unique
 func (o *orm) FindBridges(names []BridgeName) (bts []BridgeType, err error) {
 	if len(names) == 0 {
-		return nil, errors.Errorf("at least one bridge name is required")
+		return nil, pkgerrors.Errorf("at least one bridge name is required")
 	}
 
 	var allFoundBts []BridgeType
@@ -99,7 +99,7 @@ func (o *orm) FindBridges(names []BridgeName) (bts []BridgeType, err error) {
 	}
 	allFoundBts = append(allFoundBts, bts...)
 	if len(allFoundBts) != len(names) {
-		return nil, errors.Errorf("not all bridges exist, asked for %v, exists %v", names, allFoundBts)
+		return nil, pkgerrors.Errorf("not all bridges exist, asked for %v, exists %v", names, allFoundBts)
 	}
 	return allFoundBts, nil
 }
@@ -128,11 +128,11 @@ func (o *orm) DeleteBridgeType(bt *BridgeType) error {
 func (o *orm) BridgeTypes(offset int, limit int) (bridges []BridgeType, count int, err error) {
 	err = o.q.Transaction(func(tx pg.Queryer) error {
 		if err = tx.Get(&count, "SELECT COUNT(*) FROM bridge_types"); err != nil {
-			return errors.Wrap(err, "BridgeTypes failed to get count")
+			return pkgerrors.Wrap(err, "BridgeTypes failed to get count")
 		}
 		sql := `SELECT * FROM bridge_types ORDER BY name asc LIMIT $1 OFFSET $2;`
 		if err = tx.Select(&bridges, sql, limit, offset); err != nil {
-			return errors.Wrap(err, "BridgeTypes failed to load bridge_types")
+			return pkgerrors.Wrap(err, "BridgeTypes failed to load bridge_types")
 		}
 		return nil
 	}, pg.OptReadOnlyTx())
@@ -157,7 +157,7 @@ func (o *orm) CreateBridgeType(bt *BridgeType) error {
 		o.bridgeTypesCache.Store(bt.Name, *bt)
 	}
 
-	return errors.Wrap(err, "CreateBridgeType failed")
+	return pkgerrors.Wrap(err, "CreateBridgeType failed")
 }
 
 // UpdateBridgeType updates the bridge type.
@@ -179,7 +179,7 @@ func (o *orm) GetCachedResponse(dotId string, specId int32, maxElapsed time.Dura
 				finished_at > ($3)	
 				ORDER BY finished_at 
 				DESC LIMIT 1;`
-	err = errors.Wrap(o.q.Get(&response, sql, dotId, specId, stalenessThreshold), fmt.Sprintf("failed to fetch last good value for task %s spec %d", dotId, specId))
+	err = pkgerrors.Wrap(o.q.Get(&response, sql, dotId, specId, stalenessThreshold), fmt.Sprintf("failed to fetch last good value for task %s spec %d", dotId, specId))
 	return
 }
 
@@ -190,7 +190,7 @@ func (o *orm) UpsertBridgeResponse(dotId string, specId int32, response []byte) 
 				DO UPDATE SET value = $3, finished_at = $4;`
 
 	err := o.q.ExecQ(sql, dotId, specId, response, time.Now())
-	return errors.Wrap(err, "failed to upsert bridge response")
+	return pkgerrors.Wrap(err, "failed to upsert bridge response")
 }
 
 // --- External Initiator
@@ -199,12 +199,12 @@ func (o *orm) UpsertBridgeResponse(dotId string, specId int32, response []byte) 
 func (o *orm) ExternalInitiators(offset int, limit int) (exis []ExternalInitiator, count int, err error) {
 	err = o.q.Transaction(func(tx pg.Queryer) error {
 		if err = tx.Get(&count, "SELECT COUNT(*) FROM external_initiators"); err != nil {
-			return errors.Wrap(err, "ExternalInitiators failed to get count")
+			return pkgerrors.Wrap(err, "ExternalInitiators failed to get count")
 		}
 
 		sql := `SELECT * FROM external_initiators ORDER BY name asc LIMIT $1 OFFSET $2;`
 		if err = tx.Select(&exis, sql, limit, offset); err != nil {
-			return errors.Wrap(err, "ExternalInitiators failed to load external_initiators")
+			return pkgerrors.Wrap(err, "ExternalInitiators failed to load external_initiators")
 		}
 		return nil
 	}, pg.OptReadOnlyTx())
@@ -221,12 +221,12 @@ func (o *orm) CreateExternalInitiator(externalInitiator *ExternalInitiator) (err
 		var stmt *sqlx.NamedStmt
 		stmt, err = tx.PrepareNamed(query)
 		if err != nil {
-			return errors.Wrap(err, "failed to prepare named stmt")
+			return pkgerrors.Wrap(err, "failed to prepare named stmt")
 		}
 		defer stmt.Close()
-		return errors.Wrap(stmt.Get(externalInitiator, externalInitiator), "failed to load external_initiator")
+		return pkgerrors.Wrap(stmt.Get(externalInitiator, externalInitiator), "failed to load external_initiator")
 	})
-	return errors.Wrap(err, "CreateExternalInitiator failed")
+	return pkgerrors.Wrap(err, "CreateExternalInitiator failed")
 }
 
 // DeleteExternalInitiator removes an external initiator
