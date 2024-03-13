@@ -160,9 +160,11 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     if (address(s_link) != address(0)) {
       revert LinkAlreadySet();
     }
-    s_link = LinkTokenInterface(link);
 
+    s_link = LinkTokenInterface(link);
     s_linkNativeFeed = AggregatorV3Interface(linkNativeFeed);
+
+    emit LinkAndLinkNativeFeedSet(link, linkNativeFeed);
   }
 
   /**
@@ -171,6 +173,8 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
    */
   function setFulfillmentTxSize(uint32 size) external onlyOwner {
     s_fulfillmentTxSizeBytes = size;
+
+    emit FulfillmentTxSizeSet(size);
   }
 
   /**
@@ -238,6 +242,19 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     s_fallbackWeiPerUnitLink = _fallbackWeiPerUnitLink;
     s_fulfillmentFlatFeeNativePPM = _fulfillmentFlatFeeNativePPM;
     s_fulfillmentFlatFeeLinkDiscountPPM = _fulfillmentFlatFeeLinkDiscountPPM;
+
+    emit ConfigSet(
+      _wrapperGasOverhead,
+      _coordinatorGasOverhead,
+      _wrapperNativePremiumPercentage,
+      _wrapperLinkPremiumPercentage,
+      _keyHash,
+      _maxNumWords,
+      _stalenessSeconds,
+      _fallbackWeiPerUnitLink,
+      _fulfillmentFlatFeeNativePPM,
+      s_fulfillmentFlatFeeLinkDiscountPPM
+    );
   }
 
   /**
@@ -315,7 +332,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   function calculateRequestPrice(
     uint32 _callbackGasLimit
   ) external view override onlyConfiguredNotDisabled returns (uint256) {
-    int256 weiPerUnitLink = _getFeedData();
+    (int256 weiPerUnitLink, ) = _getFeedData();
     return _calculateRequestPrice(_callbackGasLimit, tx.gasprice, weiPerUnitLink);
   }
 
@@ -338,7 +355,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     uint32 _callbackGasLimit,
     uint256 _requestGasPriceWei
   ) external view override onlyConfiguredNotDisabled returns (uint256) {
-    int256 weiPerUnitLink = _getFeedData();
+    (int256 weiPerUnitLink, ) = _getFeedData();
     return _calculateRequestPrice(_callbackGasLimit, _requestGasPriceWei, weiPerUnitLink);
   }
 
@@ -416,7 +433,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     );
     checkPaymentMode(extraArgs, true);
     uint32 eip150Overhead = _getEIP150Overhead(callbackGasLimit);
-    int256 weiPerUnitLink = _getFeedData();
+    (int256 weiPerUnitLink, bool isFeedStale) = _getFeedData();
     uint256 price = _calculateRequestPrice(callbackGasLimit, tx.gasprice, weiPerUnitLink);
     // solhint-disable-next-line custom-errors
     require(_amount >= price, "fee too low");
@@ -437,6 +454,10 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
       requestGasPrice: uint64(tx.gasprice)
     });
     lastRequestId = requestId;
+
+    if (isFeedStale) {
+      emit FallbackWeiPerUnitLinkUsed(requestId, s_fallbackWeiPerUnitLink);
+    }
   }
 
   function checkPaymentMode(bytes memory extraArgs, bool isLinkMode) public pure {
@@ -501,9 +522,12 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
    * @param _recipient is the address that should receive the LINK funds.
    */
   function withdraw(address _recipient) external onlyOwner {
-    if (!s_link.transfer(_recipient, s_link.balanceOf(address(this)))) {
+    uint256 amount = s_link.balanceOf(address(this));
+    if (!s_link.transfer(_recipient, amount)) {
       revert FailedToTransferLink();
     }
+
+    emit Withdrawn(_recipient, amount);
   }
 
   /**
@@ -512,9 +536,12 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
    * @param _recipient is the address that should receive the native funds.
    */
   function withdrawNative(address _recipient) external onlyOwner {
-    (bool success, ) = payable(_recipient).call{value: address(this).balance}("");
+    uint256 amount = address(this).balance;
+    (bool success, ) = payable(_recipient).call{value: amount}("");
     // solhint-disable-next-line custom-errors
     require(success, "failed to withdraw native");
+
+    emit NativeWithdrawn(_recipient, amount);
   }
 
   /**
@@ -522,6 +549,8 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
    */
   function enable() external onlyOwner {
     s_disabled = false;
+
+    emit Enabled();
   }
 
   /**
@@ -530,6 +559,8 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
    */
   function disable() external onlyOwner {
     s_disabled = true;
+
+    emit Disabled();
   }
 
   // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
@@ -548,18 +579,18 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     }
   }
 
-  function _getFeedData() private view returns (int256) {
-    bool staleFallback = s_stalenessSeconds > 0;
+  function _getFeedData() private view returns (int256 weiPerUnitLink, bool isFeedStale) {
+    uint32 stalenessSeconds = s_stalenessSeconds;
     uint256 timestamp;
-    int256 weiPerUnitLink;
     (, weiPerUnitLink, , timestamp, ) = s_linkNativeFeed.latestRoundData();
     // solhint-disable-next-line not-rely-on-time
-    if (staleFallback && s_stalenessSeconds < block.timestamp - timestamp) {
+    isFeedStale = stalenessSeconds > 0 && stalenessSeconds < block.timestamp - timestamp;
+    if (isFeedStale) {
       weiPerUnitLink = s_fallbackWeiPerUnitLink;
     }
     // solhint-disable-next-line custom-errors
     require(weiPerUnitLink >= 0, "Invalid LINK wei price");
-    return weiPerUnitLink;
+    return (weiPerUnitLink, isFeedStale);
   }
 
   /**
