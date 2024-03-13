@@ -97,7 +97,7 @@ async function run() {
         maxRetries
       );
       if (recordsExist) {
-        core.info("Route 53 DNS records exist:", recordsExist);
+        core.info("Route 53 DNS records exist.");
       } else {
         core.setFailed(
           "Route 53 DNS records do not exist. Please check the Route 53 hosted zone."
