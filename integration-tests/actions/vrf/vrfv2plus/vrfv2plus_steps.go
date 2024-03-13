@@ -234,7 +234,7 @@ func SetupVRFV2_5Environment(
 	g := errgroup.Group{}
 	if vrfNode, exists := nodeTypeToNodeMap[vrfcommon.VRF]; exists {
 		g.Go(func() error {
-			err := setupVRFNode(vrfContracts, chainID, configGeneral, pubKeyCompressed, l, vrfNode)
+			err := SetupVRFNode(vrfContracts, chainID, configGeneral, pubKeyCompressed, l, vrfNode)
 			if err != nil {
 				return err
 			}
@@ -270,6 +270,7 @@ func SetupVRFV2_5Environment(
 		VRFKey:            vrfKey,
 		EncodedProvingKey: provingKey,
 		KeyHash:           keyHash,
+		PubKeyCompressed:  pubKeyCompressed,
 	}
 
 	l.Info().Msg("VRFV2 Plus environment setup is finished")
@@ -334,7 +335,7 @@ func SetupVRFV2PlusContracts(
 	return vrfContracts, subIDs, nil
 }
 
-func setupVRFNode(contracts *vrfcommon.VRFContracts, chainID *big.Int, config *vrfv2plus_config.General, pubKeyCompressed string, l zerolog.Logger, vrfNode *vrfcommon.VRFNode) error {
+func SetupVRFNode(contracts *vrfcommon.VRFContracts, chainID *big.Int, config *vrfv2plus_config.General, pubKeyCompressed string, l zerolog.Logger, vrfNode *vrfcommon.VRFNode) error {
 	vrfJobSpecConfig := vrfcommon.VRFJobSpecConfig{
 		ForwardingAllowed:             *config.VRFJobForwardingAllowed,
 		CoordinatorAddress:            contracts.CoordinatorV2Plus.Address(),
@@ -571,7 +572,7 @@ func RequestRandomnessAndWaitForFulfillment(
 	randomWordsFulfilledEventTimeout time.Duration,
 	l zerolog.Logger,
 ) (*vrf_coordinator_v2_5.VRFCoordinatorV25RandomWordsFulfilled, error) {
-	logRandRequest(
+	LogRandRequest(
 		l,
 		consumer.Address(),
 		coordinator.Address(),
@@ -622,7 +623,7 @@ func RequestRandomnessAndWaitForFulfillmentUpgraded(
 	randomWordsFulfilledEventTimeout time.Duration,
 	l zerolog.Logger,
 ) (*vrf_v2plus_upgraded_version.VRFCoordinatorV2PlusUpgradedVersionRandomWordsFulfilled, error) {
-	logRandRequest(
+	LogRandRequest(
 		l,
 		consumer.Address(),
 		coordinator.Address(),
@@ -807,7 +808,7 @@ func WrapperRequestRandomness(
 	randomnessRequestCountPerRequest uint16,
 	randomnessRequestCountPerRequestDeviation uint16,
 	l zerolog.Logger) (string, error) {
-	logRandRequest(
+	LogRandRequest(
 		l,
 		consumer.Address(),
 		coordinatorAddress,
@@ -1161,7 +1162,7 @@ func LogFulfillmentDetailsNativeBilling(
 		Msg("Random Words Request Fulfilment Details For Native Billing")
 }
 
-func logRandRequest(
+func LogRandRequest(
 	l zerolog.Logger,
 	consumer string,
 	coordinator string,
