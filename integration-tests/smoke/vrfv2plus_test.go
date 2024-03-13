@@ -99,12 +99,7 @@ func TestVRFv2Plus(t *testing.T) {
 			vrfv2PlusData,
 			subID,
 			isNativeBilling,
-			*configCopy.VRFv2Plus.General.MinimumConfirmations,
-			*configCopy.VRFv2Plus.General.CallbackGasLimit,
-			*configCopy.VRFv2Plus.General.NumberOfWords,
-			*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequest,
-			*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequestDeviation,
-			configCopy.VRFv2Plus.General.RandomWordsFulfilledEventTimeout.Duration,
+			configCopy.VRFv2Plus.General,
 			l,
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
@@ -150,12 +145,7 @@ func TestVRFv2Plus(t *testing.T) {
 			vrfv2PlusData,
 			subID,
 			isNativeBilling,
-			*configCopy.VRFv2Plus.General.MinimumConfirmations,
-			*configCopy.VRFv2Plus.General.CallbackGasLimit,
-			*configCopy.VRFv2Plus.General.NumberOfWords,
-			*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequest,
-			*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequestDeviation,
-			configCopy.VRFv2Plus.General.RandomWordsFulfilledEventTimeout.Duration,
+			configCopy.VRFv2Plus.General,
 			l,
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
@@ -214,12 +204,7 @@ func TestVRFv2Plus(t *testing.T) {
 				vrfv2PlusData,
 				wrapperSubID,
 				isNativeBilling,
-				*configCopy.VRFv2Plus.General.MinimumConfirmations,
-				*configCopy.VRFv2Plus.General.CallbackGasLimit,
-				*configCopy.VRFv2Plus.General.NumberOfWords,
-				*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequest,
-				*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequestDeviation,
-				configCopy.VRFv2Plus.General.RandomWordsFulfilledEventTimeout.Duration,
+				configCopy.VRFv2Plus.General,
 				l,
 			)
 			require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
@@ -268,12 +253,7 @@ func TestVRFv2Plus(t *testing.T) {
 				vrfv2PlusData,
 				wrapperSubID,
 				isNativeBilling,
-				*configCopy.VRFv2Plus.General.MinimumConfirmations,
-				*configCopy.VRFv2Plus.General.CallbackGasLimit,
-				*configCopy.VRFv2Plus.General.NumberOfWords,
-				*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequest,
-				*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequestDeviation,
-				configCopy.VRFv2Plus.General.RandomWordsFulfilledEventTimeout.Duration,
+				configCopy.VRFv2Plus.General,
 				l,
 			)
 			require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
@@ -433,19 +413,14 @@ func TestVRFv2Plus(t *testing.T) {
 		require.NoError(t, err)
 		require.False(t, pendingRequestsExist, "Pending requests should not exist")
 
-		randomWordsFulfilledEventTimeout := 5 * time.Second
+		configCopy.VRFv2Plus.General.RandomWordsFulfilledEventTimeout = ptr.Ptr(blockchain.StrDuration{Duration: 5 * time.Second})
 		_, err = vrfv2plus.RequestRandomnessAndWaitForFulfillment(
 			vrfv2PlusContracts.VRFV2PlusConsumer[0],
 			vrfv2PlusContracts.CoordinatorV2Plus,
 			vrfv2PlusData,
 			subIDForCancelling,
 			false,
-			*configCopy.VRFv2Plus.General.MinimumConfirmations,
-			*configCopy.VRFv2Plus.General.CallbackGasLimit,
-			*configCopy.VRFv2Plus.General.NumberOfWords,
-			*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequest,
-			*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequestDeviation,
-			randomWordsFulfilledEventTimeout,
+			configCopy.VRFv2Plus.General,
 			l,
 		)
 
@@ -457,12 +432,7 @@ func TestVRFv2Plus(t *testing.T) {
 			vrfv2PlusData,
 			subIDForCancelling,
 			true,
-			*configCopy.VRFv2Plus.General.MinimumConfirmations,
-			*configCopy.VRFv2Plus.General.CallbackGasLimit,
-			*configCopy.VRFv2Plus.General.NumberOfWords,
-			*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequest,
-			*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequestDeviation,
-			randomWordsFulfilledEventTimeout,
+			configCopy.VRFv2Plus.General,
 			l,
 		)
 
@@ -581,12 +551,7 @@ func TestVRFv2Plus(t *testing.T) {
 			vrfv2PlusData,
 			subIDForWithdraw,
 			false,
-			*configCopy.VRFv2Plus.General.MinimumConfirmations,
-			*configCopy.VRFv2Plus.General.CallbackGasLimit,
-			*configCopy.VRFv2Plus.General.NumberOfWords,
-			*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequest,
-			*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequestDeviation,
-			configCopy.VRFv2Plus.General.RandomWordsFulfilledEventTimeout.Duration,
+			configCopy.VRFv2Plus.General,
 			l,
 		)
 		require.NoError(t, err)
@@ -597,12 +562,7 @@ func TestVRFv2Plus(t *testing.T) {
 			vrfv2PlusData,
 			subIDForWithdraw,
 			true,
-			*configCopy.VRFv2Plus.General.MinimumConfirmations,
-			*configCopy.VRFv2Plus.General.CallbackGasLimit,
-			*configCopy.VRFv2Plus.General.NumberOfWords,
-			*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequest,
-			*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequestDeviation,
-			configCopy.VRFv2Plus.General.RandomWordsFulfilledEventTimeout.Duration,
+			configCopy.VRFv2Plus.General,
 			l,
 		)
 		require.NoError(t, err)
@@ -717,12 +677,7 @@ func TestVRFv2PlusMultipleSendingKeys(t *testing.T) {
 				vrfv2PlusData,
 				subID,
 				isNativeBilling,
-				*configCopy.VRFv2Plus.General.MinimumConfirmations,
-				*configCopy.VRFv2Plus.General.CallbackGasLimit,
-				*configCopy.VRFv2Plus.General.NumberOfWords,
-				*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequest,
-				*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequestDeviation,
-				configCopy.VRFv2Plus.General.RandomWordsFulfilledEventTimeout.Duration,
+				configCopy.VRFv2Plus.General,
 				l,
 			)
 			require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
@@ -939,12 +894,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 			vrfv2PlusData,
 			subID,
 			false,
-			*config.VRFv2Plus.General.MinimumConfirmations,
-			*config.VRFv2Plus.General.CallbackGasLimit,
-			*config.VRFv2Plus.General.NumberOfWords,
-			*config.VRFv2Plus.General.RandomnessRequestCountPerRequest,
-			*config.VRFv2Plus.General.RandomnessRequestCountPerRequestDeviation,
-			config.VRFv2Plus.General.RandomWordsFulfilledEventTimeout.Duration,
+			config.VRFv2Plus.General,
 			l,
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
@@ -956,12 +906,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 			vrfv2PlusData,
 			subID,
 			true,
-			*config.VRFv2Plus.General.MinimumConfirmations,
-			*config.VRFv2Plus.General.CallbackGasLimit,
-			*config.VRFv2Plus.General.NumberOfWords,
-			*config.VRFv2Plus.General.RandomnessRequestCountPerRequest,
-			*config.VRFv2Plus.General.RandomnessRequestCountPerRequestDeviation,
-			config.VRFv2Plus.General.RandomWordsFulfilledEventTimeout.Duration,
+			config.VRFv2Plus.General,
 			l,
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
@@ -1131,12 +1076,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 			vrfv2PlusData,
 			subID,
 			isNativeBilling,
-			*configCopy.VRFv2Plus.General.MinimumConfirmations,
-			*configCopy.VRFv2Plus.General.CallbackGasLimit,
-			*configCopy.VRFv2Plus.General.NumberOfWords,
-			*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequest,
-			*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequestDeviation,
-			configCopy.VRFv2Plus.General.RandomWordsFulfilledEventTimeout.Duration,
+			configCopy.VRFv2Plus.General,
 			l,
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
@@ -1152,12 +1092,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 			vrfv2PlusData,
 			subID,
 			isNativeBilling,
-			*configCopy.VRFv2Plus.General.MinimumConfirmations,
-			*configCopy.VRFv2Plus.General.CallbackGasLimit,
-			*configCopy.VRFv2Plus.General.NumberOfWords,
-			*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequest,
-			*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequestDeviation,
-			configCopy.VRFv2Plus.General.RandomWordsFulfilledEventTimeout.Duration,
+			configCopy.VRFv2Plus.General,
 			l,
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
@@ -1433,12 +1368,8 @@ func TestVRFv2PlusReplayAfterTimeout(t *testing.T) {
 			vrfv2PlusContracts.CoordinatorV2Plus.Address(),
 			subID,
 			isNativeBilling,
-			*configCopy.VRFv2Plus.General.MinimumConfirmations,
-			*configCopy.VRFv2Plus.General.CallbackGasLimit,
-			*configCopy.VRFv2Plus.General.NumberOfWords,
 			vrfv2PlusData.KeyHash,
-			*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequest,
-			*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequestDeviation,
+			configCopy.VRFv2Plus.General,
 		)
 		_, err = vrfv2PlusContracts.VRFV2PlusConsumer[0].RequestRandomness(
 			vrfv2PlusData.KeyHash,
@@ -1482,12 +1413,7 @@ func TestVRFv2PlusReplayAfterTimeout(t *testing.T) {
 			vrfv2PlusData,
 			fundedSubIDs[0],
 			isNativeBilling,
-			*configCopy.VRFv2Plus.General.MinimumConfirmations,
-			*configCopy.VRFv2Plus.General.CallbackGasLimit,
-			*configCopy.VRFv2Plus.General.NumberOfWords,
-			*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequest,
-			*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequestDeviation,
-			configCopy.VRFv2Plus.General.RandomWordsFulfilledEventTimeout.Duration,
+			configCopy.VRFv2Plus.General,
 			l,
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
@@ -1637,12 +1563,7 @@ func TestVRFv2PlusPendingBlockSimulationAndZeroConfirmationDelays(t *testing.T) 
 		vrfv2PlusData,
 		subID,
 		isNativeBilling,
-		*config.VRFv2Plus.General.MinimumConfirmations,
-		*config.VRFv2Plus.General.CallbackGasLimit,
-		*config.VRFv2Plus.General.NumberOfWords,
-		*config.VRFv2Plus.General.RandomnessRequestCountPerRequest,
-		*config.VRFv2Plus.General.RandomnessRequestCountPerRequestDeviation,
-		config.VRFv2Plus.General.RandomWordsFulfilledEventTimeout.Duration,
+		config.VRFv2Plus.General,
 		l,
 	)
 	require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
