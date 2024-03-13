@@ -122,6 +122,7 @@ func SendFunds(logger zerolog.Logger, client *seth.Client, payload FundsToSendPa
 	}
 
 	var signedTx *types.Transaction
+	txOptions := client.NewTXOpts()
 
 	if client.Cfg.Network.EIP1559DynamicFees {
 		rawTx := &types.DynamicFeeTx{
@@ -129,9 +130,10 @@ func SendFunds(logger zerolog.Logger, client *seth.Client, payload FundsToSendPa
 			To:        &payload.ToAddress,
 			Value:     payload.Amount,
 			Gas:       gasLimit,
-			GasFeeCap: big.NewInt(client.Cfg.Network.GasFeeCap),
-			GasTipCap: big.NewInt(client.Cfg.Network.GasTipCap),
+			GasFeeCap: txOptions.GasFeeCap,
+			GasTipCap: txOptions.GasTipCap,
 		}
+		// in the future we might need to dynamically set the signer to reflect the hard fork for given chain
 		signedTx, err = types.SignNewTx(payload.PrivateKey, types.NewLondonSigner(big.NewInt(client.ChainID)), rawTx)
 	} else {
 		rawTx := &types.LegacyTx{
@@ -139,7 +141,7 @@ func SendFunds(logger zerolog.Logger, client *seth.Client, payload FundsToSendPa
 			To:       &payload.ToAddress,
 			Value:    payload.Amount,
 			Gas:      gasLimit,
-			GasPrice: big.NewInt(client.Cfg.Network.GasPrice),
+			GasPrice: txOptions.GasPrice,
 		}
 		signedTx, err = types.SignNewTx(payload.PrivateKey, types.NewEIP155Signer(big.NewInt(client.ChainID)), rawTx)
 	}
