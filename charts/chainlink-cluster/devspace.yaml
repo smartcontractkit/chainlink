@@ -33,28 +33,30 @@ pipelines:
 
       echo
       echo "Namespace ${DEVSPACE_NAMESPACE} will be deleted in ${NS_TTL}"
-      echo "To extend the TTL for e.g. 72 hours, run: devspace run ttl ${DEVSPACE_NAMESPACE} 72h"
-      kubectl label namespace ${DEVSPACE_NAMESPACE} cleanup.kyverno.io/ttl=${NS_TTL} || true
-      kubectl label namespace/${DEVSPACE_NAMESPACE} network=crib || true
-
+      echo "To extend the TTL for e.g. 72 hours, run:"
+      echo "devspace run ttl ${DEVSPACE_NAMESPACE} 72h"
       echo
-      echo "############################################"
-      echo "Ingress Domains"
-      echo "############################################"
-      ingress_names="node1 node2 node3 node4 node5 node6 geth-1337-http geth-1337-ws geth-2337-http geth-2337-ws"
-      for ingress in ${ingress_names}; do
-        echo "https://${DEVSPACE_NAMESPACE}-${ingress}.${DEVSPACE_INGRESS_BASE_DOMAIN}"
-      done
+      kubectl label namespace ${DEVSPACE_NAMESPACE} cleanup.kyverno.io/ttl=${NS_TTL} > /dev/null 2>&1 || true
+      kubectl label namespace/${DEVSPACE_NAMESPACE} network=crib > /dev/null 2>&1 || true
 
   purge:
     run: |-
       kubectl delete ns ${DEVSPACE_NAMESPACE}
 
 commands:
+  ingress-hosts: |-
+    kubectl get ingress -n ${DEVSPACE_NAMESPACE} \
+      -o=jsonpath="{range .items[*].spec.rules[*]}{.host}{'\n'}{end}"
   connect: |-
     sudo kubefwd svc -n $1
   ttl: |-
     kubectl label namespace $1 cleanup.kyverno.io/ttl=$2 --overwrite
+  workload: |-
+    cd ../../integration-tests/load/ocr && go test -v -run TestOCRLoad || cd -
+  dashboard_deploy: |-
+    go run dashboard/cmd/deploy.go
+  dashboard_test: |-
+    cd dashboard/tests && npx playwright test || cd -
 
 images:
   app:
@@ -69,7 +71,7 @@ images:
 
         image=${runtime.images.app}
         MACOS_SDK_DIR=$(pwd)/tools/bin/MacOSX12.3.sdk IMAGE=$image ./tools/bin/goreleaser_wrapper release --snapshot --clean --config .goreleaser.devspace.yaml
-        docker push $image 
+        docker push $image
 hooks:
   - wait:
       running: true
@@ -80,7 +82,12 @@ hooks:
         # vars don't work here, = releaseName
         release: "app"
     events: ["after:deploy:app"]
-    name: "wait-for-pod-hook"
+
+  # Check that the ingress was created successfully, and print ingress hostnames.
+  - name: "ingress-check-hook"
+    command: ./scripts/ingress_check.sh
+    args: ["app"] # Ingress name.
+    events: ["after:deploy:app"]
 
 # This is a list of `deployments` that DevSpace can create for this project
 deployments:
