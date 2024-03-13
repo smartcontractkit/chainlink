@@ -2,4 +2,4 @@
 "chainlink": patch
 ---
 
-Add OCR3 contract wrapper
+Add OCR3 capability contract wrapper
