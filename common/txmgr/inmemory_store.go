@@ -234,7 +234,7 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Updat
 
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveFetchedReceipts(ctx context.Context, receipts []R, chainID CHAIN_ID) error {
 	if ms.chainID.String() != chainID.String() {
-		return fmt.Errorf("save_fetched_receipts: %w", ErrInvalidChainID)
+		return fmt.Errorf("save_fetched_receipts: %w: %s", ErrInvalidChainID, chainID)
 	}
 
 	// Persist to persistent storage
@@ -243,25 +243,25 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveF
 	}
 
 	// Update in memory store
-	errsLock := sync.Mutex{}
 	var errs error
-	wg := sync.WaitGroup{}
 	ms.addressStatesLock.RLock()
 	defer ms.addressStatesLock.RUnlock()
-	for _, as := range ms.addressStates {
-		wg.Add(1)
-		go func(as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) {
-			for _, receipt := range receipts {
-				if err := as.moveUnconfirmedToConfirmed(receipt); err != nil {
-					errsLock.Lock()
-					errs = errors.Join(errs, err)
-					errsLock.Unlock()
-				}
+	for _, receipt := range receipts {
+		var found bool
+		var receiptErrs error
+		for _, as := range ms.addressStates {
+			err := as.moveTxToConfirmed(receipt)
+			if err == nil {
+				found = true
+				break
 			}
-			wg.Done()
-		}(as)
+			receiptErrs = errors.Join(receiptErrs, err)
+		}
+		if !found {
+			receiptErrs = fmt.Errorf("receipt was not found: %w", receiptErrs)
+			errs = errors.Join(errs, receiptErrs)
+		}
 	}
-	wg.Wait()
 
 	return errs
 }
