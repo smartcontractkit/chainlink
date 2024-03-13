@@ -362,7 +362,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
 
     // coordinatorCostWithPremiumAndFlatFeeWei is the coordinator cost with the percentage premium and flat fee applied
     // coordinator cost * premium multiplier + flat fee
-    uint256 coordinatorCostWithPremiumAndFlatFeeWei = ((coordinatorCostWei * (s_wrapperLinkPremiumPercentage + 100)) /
+    uint256 coordinatorCostWithPremiumAndFlatFeeWei = ((coordinatorCostWei * (s_wrapperNativePremiumPercentage + 100)) /
       100) + (1e12 * uint256(s_fulfillmentFlatFeeNativePPM));
 
     return wrapperCostWei + coordinatorCostWithPremiumAndFlatFeeWei;
