@@ -123,6 +123,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   error IncorrectNumberOfSigners();
   error IndexOutOfRange();
   error InsufficientBalance(uint256 available, uint256 requested);
+  error InvalidBillingToken();
   error InvalidDataLength();
   error InvalidFeed();
   error InvalidTrigger();
@@ -158,7 +159,6 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   error TooManyOracles();
   error TranscoderNotSet();
   error TransferFailed();
-  error UnsupportedBillingToken();
   error UpkeepAlreadyExists();
   error UpkeepCancelled();
   error UpkeepNotCanceled();
@@ -510,7 +510,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     if (upkeep.performGas < PERFORM_GAS_MIN || upkeep.performGas > s_storage.maxPerformGas)
       revert GasLimitOutsideRange();
     if (address(s_upkeep[id].forwarder) != address(0)) revert UpkeepAlreadyExists();
-    if (address(s_billingConfigs[upkeep.billingToken].priceFeed) == address(0)) revert UnsupportedBillingToken();
+    if (address(s_billingConfigs[upkeep.billingToken].priceFeed) == address(0)) revert InvalidBillingToken();
     s_upkeep[id] = upkeep;
     s_upkeepAdmin[id] = admin;
     s_checkData[id] = checkData;

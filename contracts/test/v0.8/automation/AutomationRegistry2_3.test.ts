@@ -4441,7 +4441,7 @@ describe('AutomationRegistry2_3', () => {
             '0x',
             '0x',
           ),
-        'UnsupportedBillingToken()',
+        'InvalidBillingToken()',
       )
     })
 
