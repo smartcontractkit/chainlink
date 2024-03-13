@@ -70,6 +70,7 @@ func makeTestEvmTxm(
 
 	return txmgr.NewTxm(
 		db,
+		db,
 		ccfg,
 		fcfg,
 		txConfig,
