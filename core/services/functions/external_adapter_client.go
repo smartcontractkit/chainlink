@@ -43,9 +43,10 @@ type ExternalAdapterClient interface {
 }
 
 type externalAdapterClient struct {
-	adapterURL       url.URL
-	maxResponseBytes int64
-	maxRetry         int
+	adapterURL             url.URL
+	maxResponseBytes       int64
+	maxRetry               int
+	exponentialBackoffBase time.Duration
 }
 
 var _ ExternalAdapterClient = (*externalAdapterClient)(nil)
@@ -56,10 +57,11 @@ type BridgeAccessor interface {
 }
 
 type bridgeAccessor struct {
-	bridgeORM        bridges.ORM
-	bridgeName       string
-	maxResponseBytes int64
-	maxRetry         int
+	bridgeORM              bridges.ORM
+	bridgeName             string
+	maxResponseBytes       int64
+	maxRetry               int
+	exponentialBackoffBase time.Duration
 }
 
 var _ BridgeAccessor = (*bridgeAccessor)(nil)
@@ -115,11 +117,12 @@ var (
 	)
 )
 
-func NewExternalAdapterClient(adapterURL url.URL, maxResponseBytes int64, maxRetry int) ExternalAdapterClient {
+func NewExternalAdapterClient(adapterURL url.URL, maxResponseBytes int64, maxRetry int, exponentialBackoffBase time.Duration) ExternalAdapterClient {
 	return &externalAdapterClient{
-		adapterURL:       adapterURL,
-		maxResponseBytes: maxResponseBytes,
-		maxRetry:         maxRetry,
+		adapterURL:             adapterURL,
+		maxResponseBytes:       maxResponseBytes,
+		maxRetry:               maxRetry,
+		exponentialBackoffBase: exponentialBackoffBase,
 	}
 }
 
@@ -196,6 +199,7 @@ func (ea *externalAdapterClient) request(
 	start := time.Now()
 	retryClient := retryablehttp.NewClient()
 	retryClient.RetryMax = ea.maxRetry
+	retryClient.RetryWaitMin = ea.exponentialBackoffBase
 
 	client := retryClient.StandardClient()
 	resp, err := client.Do(req)
@@ -251,12 +255,13 @@ func (ea *externalAdapterClient) request(
 	}
 }
 
-func NewBridgeAccessor(bridgeORM bridges.ORM, bridgeName string, maxResponseBytes int64, maxRetry int) BridgeAccessor {
+func NewBridgeAccessor(bridgeORM bridges.ORM, bridgeName string, maxResponseBytes int64, maxRetry int, exponentialBackoffBase time.Duration) BridgeAccessor {
 	return &bridgeAccessor{
-		bridgeORM:        bridgeORM,
-		bridgeName:       bridgeName,
-		maxResponseBytes: maxResponseBytes,
-		maxRetry:         maxRetry,
+		bridgeORM:              bridgeORM,
+		bridgeName:             bridgeName,
+		maxResponseBytes:       maxResponseBytes,
+		maxRetry:               maxRetry,
+		exponentialBackoffBase: exponentialBackoffBase,
 	}
 }
 
@@ -265,5 +270,5 @@ func (b *bridgeAccessor) NewExternalAdapterClient() (ExternalAdapterClient, erro
 	if err != nil {
 		return nil, err
 	}
-	return NewExternalAdapterClient(url.URL(bridge.URL), b.maxResponseBytes, b.maxRetry), nil
+	return NewExternalAdapterClient(url.URL(bridge.URL), b.maxResponseBytes, b.maxRetry, b.exponentialBackoffBase), nil
 }

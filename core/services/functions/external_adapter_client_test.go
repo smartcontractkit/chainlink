@@ -27,7 +27,7 @@ func runFetcherTest(t *testing.T, adapterJSONResponse, expectedSecrets, expected
 	adapterUrl, err := url.Parse(ts.URL)
 	assert.NoError(t, err, "Unexpected error")
 
-	ea := functions.NewExternalAdapterClient(*adapterUrl, 100_000, 0)
+	ea := functions.NewExternalAdapterClient(*adapterUrl, 100_000, 0, 0)
 	encryptedSecrets, userError, err := ea.FetchEncryptedSecrets(testutils.Context(t), []byte("urls to secrets"), "requestID1234", "TestJob")
 
 	if expectedError != nil {
@@ -50,7 +50,7 @@ func runRequestTest(t *testing.T, adapterJSONResponse, expectedUserResult, expec
 	adapterUrl, err := url.Parse(ts.URL)
 	assert.NoError(t, err, "Unexpected error")
 
-	ea := functions.NewExternalAdapterClient(*adapterUrl, 100_000, 0)
+	ea := functions.NewExternalAdapterClient(*adapterUrl, 100_000, 0, 0)
 	userResult, userError, domains, err := ea.RunComputation(testutils.Context(t), "requestID1234", "TestJob", "SubOwner", 1, functions.RequestFlags{}, "", &functions.RequestData{})
 
 	if expectedError != nil {
@@ -169,7 +169,7 @@ func TestRunComputation_CorrectAdapterRequest(t *testing.T) {
 	adapterUrl, err := url.Parse(ts.URL)
 	assert.NoError(t, err)
 
-	ea := functions.NewExternalAdapterClient(*adapterUrl, 100_000, 0)
+	ea := functions.NewExternalAdapterClient(*adapterUrl, 100_000, 0, 0)
 	reqData := &functions.RequestData{
 		Source:          "abcd",
 		Language:        7,
@@ -191,7 +191,7 @@ func TestRunComputation_HTTP500(t *testing.T) {
 	adapterUrl, err := url.Parse(ts.URL)
 	assert.NoError(t, err)
 
-	ea := functions.NewExternalAdapterClient(*adapterUrl, 100_000, 0)
+	ea := functions.NewExternalAdapterClient(*adapterUrl, 100_000, 0, 0)
 	_, _, _, err = ea.RunComputation(testutils.Context(t), "requestID1234", "TestJob", "SubOwner", 1, functions.RequestFlags{}, "secRETS", &functions.RequestData{})
 	assert.Error(t, err)
 }
@@ -206,7 +206,7 @@ func TestRunComputation_ContextRespected(t *testing.T) {
 	adapterUrl, err := url.Parse(ts.URL)
 	assert.NoError(t, err)
 
-	ea := functions.NewExternalAdapterClient(*adapterUrl, 100_000, 0)
+	ea := functions.NewExternalAdapterClient(*adapterUrl, 100_000, 0, 0)
 	ctx, cancel := context.WithTimeout(testutils.Context(t), 10*time.Millisecond)
 	defer cancel()
 	_, _, _, err = ea.RunComputation(ctx, "requestID1234", "TestJob", "SubOwner", 1, functions.RequestFlags{}, "secRETS", &functions.RequestData{})
@@ -238,7 +238,7 @@ func TestRunComputationRetrial(t *testing.T) {
 		adapterUrl, err := url.Parse(ts.URL)
 		assert.NoError(t, err)
 
-		ea := functions.NewExternalAdapterClient(*adapterUrl, 100_000, 1)
+		ea := functions.NewExternalAdapterClient(*adapterUrl, 100_000, 1, 1*time.Nanosecond)
 		_, _, _, err = ea.RunComputation(testutils.Context(t), "requestID1234", "TestJob", "SubOwner", 1, functions.RequestFlags{}, "secRETS", &functions.RequestData{})
 		assert.NoError(t, err)
 	})
@@ -261,7 +261,7 @@ func TestRunComputationRetrial(t *testing.T) {
 		adapterUrl, err := url.Parse(ts.URL)
 		assert.NoError(t, err)
 
-		ea := functions.NewExternalAdapterClient(*adapterUrl, 100_000, 1)
+		ea := functions.NewExternalAdapterClient(*adapterUrl, 100_000, 1, 1*time.Nanosecond)
 		_, _, _, err = ea.RunComputation(testutils.Context(t), "requestID1234", "TestJob", "SubOwner", 1, functions.RequestFlags{}, "secRETS", &functions.RequestData{})
 		assert.Error(t, err)
 	})
@@ -284,11 +284,10 @@ func TestRunComputationRetrial(t *testing.T) {
 		adapterUrl, err := url.Parse(ts.URL)
 		assert.NoError(t, err)
 
-		ea := functions.NewExternalAdapterClient(*adapterUrl, 100_000, 1)
+		ea := functions.NewExternalAdapterClient(*adapterUrl, 100_000, 1, 1*time.Nanosecond)
 		_, _, _, err = ea.RunComputation(testutils.Context(t), "requestID1234", "TestJob", "SubOwner", 1, functions.RequestFlags{}, "secRETS", &functions.RequestData{})
 		assert.Error(t, err)
 	})
-
 }
 
 const runComputationSuccessResponse = `{

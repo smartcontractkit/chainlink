@@ -56,8 +56,9 @@ const (
 	FunctionsBridgeName                   string = "ea_bridge"
 	FunctionsS4Namespace                  string = "functions"
 	MaxAdapterResponseBytes               int64  = 1_000_000
-	MaxAdapterRetry                       int    = 5
 	DefaultOffchainTransmitterChannelSize uint32 = 1000
+	DefaultMaxAdapterRetry                int    = 3
+	DefaultExponentialBackoffBase                = 1 * time.Second
 )
 
 // Create all OCR2 plugin Oracles and all extra services needed to run a Functions job.
@@ -107,7 +108,26 @@ func NewFunctionsServices(ctx context.Context, functionsOracleArgs, thresholdOra
 
 	offchainTransmitter := functions.NewOffchainTransmitter(DefaultOffchainTransmitterChannelSize)
 	listenerLogger := conf.Logger.Named("FunctionsListener")
-	bridgeAccessor := functions.NewBridgeAccessor(conf.BridgeORM, FunctionsBridgeName, MaxAdapterResponseBytes, MaxAdapterRetry)
+
+	var maxRetry int
+	if pluginConfig.ExternalAdapterMaxRetry != nil {
+		maxRetry = int(*pluginConfig.ExternalAdapterMaxRetry)
+		conf.Logger.Debugf("external adapter maxRetry configured to: %d", maxRetry)
+	} else {
+		maxRetry = DefaultMaxAdapterRetry
+		conf.Logger.Debugf("external adapter maxRetry configured to default: %d", maxRetry)
+	}
+
+	var exponentialBackoffBase time.Duration
+	if pluginConfig.ExternalAdapterExponentialBackoffBaseSec != nil {
+		exponentialBackoffBase = time.Duration(*pluginConfig.ExternalAdapterExponentialBackoffBaseSec) * time.Second
+		conf.Logger.Debugf("external adapter exponentialBackoffBase configured to: %g sec", exponentialBackoffBase.Seconds())
+	} else {
+		exponentialBackoffBase = DefaultExponentialBackoffBase
+		conf.Logger.Debugf("external adapter exponentialBackoffBase configured to default: %g sec", exponentialBackoffBase.Seconds())
+	}
+
+	bridgeAccessor := functions.NewBridgeAccessor(conf.BridgeORM, FunctionsBridgeName, MaxAdapterResponseBytes, maxRetry, exponentialBackoffBase)
 	functionsListener := functions.NewFunctionsListener(
 		conf.Job,
 		conf.Chain.Client(),
