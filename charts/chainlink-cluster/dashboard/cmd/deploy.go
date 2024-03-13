@@ -3,13 +3,14 @@ package main
 import (
 	"github.com/K-Phoen/grabana/dashboard"
 	lib "github.com/smartcontractkit/chainlink/dashboard-lib/lib"
+	atlas_don "github.com/smartcontractkit/chainlink/dashboard-lib/lib/atlas-don"
 	core_don "github.com/smartcontractkit/chainlink/dashboard-lib/lib/core-don"
 	k8spods "github.com/smartcontractkit/chainlink/dashboard-lib/lib/k8s-pods"
 	waspdb "github.com/smartcontractkit/wasp/dashboard"
 )
 
 const (
-	DashboardName = "Chainlink Cluster (DON)"
+	DashboardName = "ClementChainlinkCluster"
 )
 
 func main() {
@@ -38,8 +39,17 @@ func main() {
 			),
 		)
 	}
+	db.Add(
+		atlas_don.New(
+			atlas_don.Props{
+				PrometheusDataSource: cfg.DataSources.Prometheus,
+				PlatformOpts:         atlas_don.PlatformPanelOpts(cfg.Platform),
+				OcrVersion:           "ocr",
+			},
+		),
+	)
 	// TODO: refactor as a component later
-	addWASPRows(db, cfg)
+	// addWASPRows(db, cfg)
 	if err := db.Deploy(); err != nil {
 		lib.L.Fatal().Err(err).Msg("failed to deploy the dashboard")
 	}
