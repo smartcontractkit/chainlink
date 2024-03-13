@@ -9,7 +9,7 @@ in
 mkShell {
   nativeBuildInputs = [
     go
-
+    goreleaser
     postgresql
 
     python3
@@ -32,6 +32,7 @@ mkShell {
     jq
 
     # deployment
+    awscli2
     devspace
     kubectl
     kubernetes-helm

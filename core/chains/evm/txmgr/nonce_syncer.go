@@ -6,7 +6,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/common/txmgr"
@@ -76,13 +76,13 @@ func NewNonceSyncer(
 // Calling it later is not safe and could lead to races.
 func (s nonceSyncerImpl) Sync(ctx context.Context, addr common.Address, localNonce types.Nonce) (nonce types.Nonce, err error) {
 	nonce, err = s.fastForwardNonceIfNecessary(ctx, addr, localNonce)
-	return nonce, errors.Wrap(err, "NonceSyncer#fastForwardNoncesIfNecessary failed")
+	return nonce, pkgerrors.Wrap(err, "NonceSyncer#fastForwardNoncesIfNecessary failed")
 }
 
 func (s nonceSyncerImpl) fastForwardNonceIfNecessary(ctx context.Context, address common.Address, localNonce types.Nonce) (types.Nonce, error) {
 	chainNonce, err := s.pendingNonceFromEthClient(ctx, address)
 	if err != nil {
-		return localNonce, errors.Wrap(err, "GetNextNonce failed to loadInitialNonceFromEthClient")
+		return localNonce, pkgerrors.Wrap(err, "GetNextNonce failed to loadInitialNonceFromEthClient")
 	}
 	if chainNonce == 0 {
 		return localNonce, nil
@@ -102,5 +102,5 @@ func (s nonceSyncerImpl) fastForwardNonceIfNecessary(ctx context.Context, addres
 
 func (s nonceSyncerImpl) pendingNonceFromEthClient(ctx context.Context, account common.Address) (types.Nonce, error) {
 	nextNonce, err := s.client.PendingSequenceAt(ctx, account)
-	return nextNonce, errors.WithStack(err)
+	return nextNonce, pkgerrors.WithStack(err)
 }
