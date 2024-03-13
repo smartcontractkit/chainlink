@@ -160,16 +160,16 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Updat
 	newAttemptState txmgrtypes.TxAttemptState,
 ) error {
 	if tx.BroadcastAt == nil {
-		return fmt.Errorf("update_tx_attempt_in_progress_to_broadcast: unconfirmed transaction must have broadcast_at time")
+		return fmt.Errorf("unconfirmed transaction must have broadcast_at time")
 	}
 	if tx.InitialBroadcastAt == nil {
-		return fmt.Errorf("update_tx_attempt_in_progress_to_broadcast: unconfirmed transaction must have initial_broadcast_at time")
+		return fmt.Errorf("unconfirmed transaction must have initial_broadcast_at time")
 	}
 	if tx.State != TxInProgress {
 		return fmt.Errorf("update_tx_attempt_in_progress_to_broadcast: can only transition to unconfirmed from in_progress, transaction is currently %s", tx.State)
 	}
 	if attempt.State != txmgrtypes.TxAttemptInProgress {
-		return fmt.Errorf("update_tx_attempt_in_progress_to_broadcast: attempt must be in in_progress state")
+		return fmt.Errorf("attempt must be in in_progress state")
 	}
 	if newAttemptState != txmgrtypes.TxAttemptBroadcast {
 		return fmt.Errorf("update_tx_attempt_in_progress_to_broadcast: new attempt state must be broadcast, got: %s", newAttemptState)
@@ -183,6 +183,7 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Updat
 	}
 
 	// Persist to persistent storage
+	// TODO: THIS FUNCTION SIGNATURE NEEDS TO CHANGE... It modifies the tx and attempt in place
 	if err := ms.persistentTxStore.UpdateTxAttemptInProgressToBroadcast(ctx, tx, attempt, newAttemptState); err != nil {
 		return fmt.Errorf("update_tx_attempt_in_progress_to_broadcast: %w", err)
 	}
