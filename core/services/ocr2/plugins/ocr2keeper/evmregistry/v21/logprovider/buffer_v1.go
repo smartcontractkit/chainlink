@@ -13,6 +13,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/prommetrics"
 )
 
+const (
+	defaultLogLimitHigh = 10
+)
+
 type BufferedLog struct {
 	ID  *big.Int
 	Log logpoller.Log

@@ -99,7 +99,7 @@ type logEventProvider struct {
 
 	filterStore UpkeepFilterStore
 	buffer      *logEventBuffer
-	bufferV2    LogBuffer
+	bufferV1    LogBuffer
 
 	opts LogTriggersOptions
 
@@ -112,7 +112,7 @@ func NewLogProvider(lggr logger.Logger, poller logpoller.LogPoller, packer LogDa
 		lggr:        lggr.Named("KeepersRegistry.LogEventProvider"),
 		packer:      packer,
 		buffer:      newLogEventBuffer(lggr, int(opts.LookbackBlocks), defaultNumOfLogUpkeeps, defaultFastExecLogsHigh),
-		bufferV2:    NewLogBuffer(lggr, int(opts.LookbackBlocks), defaultFastExecLogsHigh),
+		bufferV1:    NewLogBuffer(lggr, int(opts.LookbackBlocks), defaultLogLimitHigh),
 		poller:      poller,
 		opts:        opts,
 		filterStore: filterStore,
@@ -200,9 +200,9 @@ func (p *logEventProvider) getPayloadsFromBuffer(latestBlock int64) []ocr2keeper
 
 	switch p.opts.BufferVersion {
 	case "v1":
-		blockRate, upkeepLimit, maxResults := 4, 10, MaxPayloads // TODO: use config
+		blockRate, upkeepLowLimit, maxResults := 4, 6, MaxPayloads // TODO: use config
 		for len(payloads) < maxResults && start < latestBlock {
-			logs, _ := p.bufferV2.Dequeue(start, blockRate, upkeepLimit, maxResults-len(payloads), DefaultUpkeepSelector)
+			logs, _ := p.bufferV1.Dequeue(start, blockRate, upkeepLowLimit, maxResults-len(payloads), DefaultUpkeepSelector)
 			if len(logs) > 0 {
 				p.lggr.Debugw("Dequeued logs xxx", "start", start, "latestBlock", latestBlock, "logs", len(logs))
 			}
@@ -436,7 +436,7 @@ func (p *logEventProvider) readLogs(ctx context.Context, latest int64, filters [
 
 		switch p.opts.BufferVersion {
 		case "v1":
-			p.bufferV2.Enqueue(filter.upkeepID, filteredLogs...)
+			p.bufferV1.Enqueue(filter.upkeepID, filteredLogs...)
 		default:
 			p.buffer.enqueue(filter.upkeepID, filteredLogs...)
 		}
