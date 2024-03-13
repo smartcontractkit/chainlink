@@ -468,11 +468,9 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
    * @notice withdraw is used by the VRFV2Wrapper's owner to withdraw LINK revenue.
    *
    * @param _recipient is the address that should receive the LINK funds.
-   *
-   * @param _amount is the amount of LINK in Juels that should be withdrawn.
    */
-  function withdraw(address _recipient, uint256 _amount) external onlyOwner {
-    if (!s_link.transfer(_recipient, _amount)) {
+  function withdraw(address _recipient) external onlyOwner {
+    if (!s_link.transfer(_recipient, s_link.balanceOf(address(this)))) {
       revert FailedToTransferLink();
     }
   }
@@ -481,11 +479,9 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
    * @notice withdraw is used by the VRFV2Wrapper's owner to withdraw native revenue.
    *
    * @param _recipient is the address that should receive the native funds.
-   *
-   * @param _amount is the amount of native in Wei that should be withdrawn.
    */
-  function withdrawNative(address _recipient, uint256 _amount) external onlyOwner {
-    (bool success, ) = payable(_recipient).call{value: _amount}("");
+  function withdrawNative(address _recipient) external onlyOwner {
+    (bool success, ) = payable(_recipient).call{value: address(this).balance}("");
     // solhint-disable-next-line custom-errors
     require(success, "failed to withdraw native");
   }
