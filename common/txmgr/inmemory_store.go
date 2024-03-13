@@ -267,7 +267,7 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Count
 
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) DeleteInProgressAttempt(ctx context.Context, attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
 	if attempt.State != txmgrtypes.TxAttemptInProgress {
-		return fmt.Errorf("delete_in_progress_attempt: expected attempt to be in_progress")
+		return fmt.Errorf("DeleteInProgressAttempt: expected attempt state to be in_progress")
 	}
 	if attempt.ID == 0 {
 		return fmt.Errorf("delete_in_progress_attempt: expected attempt to have an ID")
@@ -276,9 +276,21 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Delet
 	// Check if fromaddress enabled
 	ms.addressStatesLock.RLock()
 	defer ms.addressStatesLock.RUnlock()
-	as, ok := ms.addressStates[attempt.Tx.FromAddress]
-	if !ok {
-		return fmt.Errorf("delete_in_progress_attempt: %w", ErrAddressNotFound)
+	filter := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
+		return true
+	}
+	var as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
+	var tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	for _, vas := range ms.addressStates {
+		txs := vas.findTxs(nil, filter, attempt.TxID)
+		if len(txs) == 1 {
+			tx = &txs[0]
+			as = vas
+			break
+		}
+	}
+	if tx == nil {
+		return fmt.Errorf("delete_in_progress_attempt: %w", ErrTxnNotFound)
 	}
 
 	// Persist to persistent storage
@@ -287,19 +299,7 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Delet
 	}
 
 	// Update in memory store
-	filter := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
-		if tx.TxAttempts == nil || len(tx.TxAttempts) == 0 {
-			return false
-		}
-
-		for _, a := range tx.TxAttempts {
-			if a.ID == attempt.ID {
-				return true
-			}
-		}
-		return false
-	}
-	as.deleteTxs(as.findTxs(nil, filter)...)
+	as.deleteTxAttempts(attempt)
 
 	return nil
 }

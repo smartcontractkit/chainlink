@@ -244,6 +244,31 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) delete
 	as._deleteTxs(txs...)
 }
 
+// deleteTxAttempts removes the attempts with the given IDs from the address state.
+// It removes the attempts from the hash lookup map and from the transaction.
+// If an attempt is not found in the hash lookup map, it is ignored.
+// If a transaction is not found in the allTxs map, it is ignored.
+func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) deleteTxAttempts(txAttempts ...txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) {
+	as.Lock()
+	defer as.Unlock()
+
+	for _, txAttempt := range txAttempts {
+		// remove the attempt from the hash lookup map
+		delete(as.attemptHashToTxAttempt, txAttempt.Hash)
+		// remove the attempt from the transaction
+		if tx := as.allTxs[txAttempt.TxID]; tx != nil {
+			var removeIndex int
+			for i := 0; i < len(tx.TxAttempts); i++ {
+				if tx.TxAttempts[i].ID == txAttempt.ID {
+					removeIndex = i
+					break
+				}
+			}
+			tx.TxAttempts = append(tx.TxAttempts[:removeIndex], tx.TxAttempts[removeIndex+1:]...)
+		}
+	}
+}
+
 // peekNextUnstartedTx returns the next unstarted transaction in the queue without removing it from the unstarted queue.
 func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) peekNextUnstartedTx() (*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
 	return nil, nil
