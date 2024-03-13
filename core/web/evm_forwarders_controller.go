@@ -26,7 +26,7 @@ type EVMForwardersController struct {
 
 // Index lists EVM forwarders.
 func (cc *EVMForwardersController) Index(c *gin.Context, size, page, offset int) {
-	orm := forwarders.NewORM(cc.App.GetSqlxDB())
+	orm := forwarders.NewORM(cc.App.GetDB())
 	fwds, count, err := orm.FindForwarders(c.Request.Context(), 0, size)
 
 	if err != nil {
@@ -56,7 +56,7 @@ func (cc *EVMForwardersController) Track(c *gin.Context) {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return
 	}
-	orm := forwarders.NewORM(cc.App.GetSqlxDB())
+	orm := forwarders.NewORM(cc.App.GetDB())
 	fwd, err := orm.CreateForwarder(c.Request.Context(), request.Address, *request.EVMChainID)
 
 	if err != nil {
@@ -80,7 +80,7 @@ func (cc *EVMForwardersController) Delete(c *gin.Context) {
 		return
 	}
 
-	filterCleanup := func(tx sqlutil.Queryer, evmChainID int64, addr common.Address) error {
+	filterCleanup := func(tx sqlutil.DB, evmChainID int64, addr common.Address) error {
 		chain, err2 := cc.App.GetRelayers().LegacyEVMChains().Get(big.NewInt(evmChainID).String())
 		if err2 != nil {
 			// If the chain id doesn't even exist, or logpoller is disabled, then there isn't any filter to clean up.  Returning an error
@@ -95,7 +95,7 @@ func (cc *EVMForwardersController) Delete(c *gin.Context) {
 		return chain.LogPoller().UnregisterFilter(c.Request.Context(), forwarders.FilterName(addr))
 	}
 
-	orm := forwarders.NewORM(cc.App.GetSqlxDB())
+	orm := forwarders.NewORM(cc.App.GetDB())
 	err = orm.DeleteForwarder(c.Request.Context(), id, filterCleanup)
 
 	if err != nil {

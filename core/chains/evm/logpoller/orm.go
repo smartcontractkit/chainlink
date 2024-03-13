@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/jmoiron/sqlx"
 	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -62,14 +61,14 @@ type ORM interface {
 
 type DbORM struct {
 	chainID *big.Int
-	db      sqlutil.Queryer
+	db      sqlutil.DB
 	lggr    logger.Logger
 }
 
 var _ ORM = &DbORM{}
 
 // NewORM creates an DbORM scoped to chainID.
-func NewORM(chainID *big.Int, db sqlutil.Queryer, lggr logger.Logger) *DbORM {
+func NewORM(chainID *big.Int, db sqlutil.DB, lggr logger.Logger) *DbORM {
 	return &DbORM{
 		chainID: chainID,
 		db:      db,
@@ -82,7 +81,7 @@ func (o *DbORM) Transaction(ctx context.Context, fn func(*DbORM) error) (err err
 }
 
 // new returns a NewORM like o, but backed by q.
-func (o *DbORM) new(q sqlutil.Queryer) *DbORM { return NewORM(o.chainID, q, o.lggr) }
+func (o *DbORM) new(q sqlutil.DB) *DbORM { return NewORM(o.chainID, q, o.lggr) }
 
 // InsertBlock is idempotent to support replays.
 func (o *DbORM) InsertBlock(ctx context.Context, blockHash common.Hash, blockNumber int64, blockTimestamp time.Time, finalizedBlock int64) error {
@@ -333,7 +332,7 @@ func (o *DbORM) InsertLogs(ctx context.Context, logs []Log) error {
 		return err
 	}
 	return o.Transaction(ctx, func(orm *DbORM) error {
-		return orm.insertLogsWithinTx(ctx, logs, orm.db.(*sqlx.Tx))
+		return orm.insertLogsWithinTx(ctx, logs, orm.db)
 	})
 }
 
@@ -353,11 +352,11 @@ func (o *DbORM) InsertLogsWithBlock(ctx context.Context, logs []Log, block LogPo
 		if err != nil {
 			return err
 		}
-		return orm.insertLogsWithinTx(ctx, logs, orm.db.(*sqlx.Tx))
+		return orm.insertLogsWithinTx(ctx, logs, orm.db)
 	})
 }
 
-func (o *DbORM) insertLogsWithinTx(ctx context.Context, logs []Log, tx sqlutil.Queryer) error {
+func (o *DbORM) insertLogsWithinTx(ctx context.Context, logs []Log, tx sqlutil.DB) error {
 	batchInsertSize := 4000
 	for i := 0; i < len(logs); i += batchInsertSize {
 		start, end := i, i+batchInsertSize

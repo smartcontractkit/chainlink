@@ -137,8 +137,8 @@ var registerSingleTopicFilter = func(registry contracts.KeeperRegistry, upkeepID
 // 	return nil
 // }
 
-// NewOrm returns a new logpoller.orm instance
-func NewOrm(logger core_logger.SugaredLogger, chainID *big.Int, postgresDb *ctf_test_env.PostgresDb) (logpoller.ORM, *sqlx.DB, error) {
+// NewORM returns a new logpoller.orm instance
+func NewORM(logger core_logger.SugaredLogger, chainID *big.Int, postgresDb *ctf_test_env.PostgresDb) (logpoller.ORM, *sqlx.DB, error) {
 	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", "127.0.0.1", postgresDb.ExternalPort, postgresDb.User, postgresDb.Password, postgresDb.DbName)
 	db, err := sqlx.Open("postgres", dsn)
 	if err != nil {
@@ -171,7 +171,7 @@ func GetExpectedFilters(logEmitters []*contracts.LogEmitter, cfg *lp_config.Conf
 
 // NodeHasExpectedFilters returns true if the provided node has all the expected filters registered
 func NodeHasExpectedFilters(ctx context.Context, expectedFilters []ExpectedFilter, logger core_logger.SugaredLogger, chainID *big.Int, postgresDb *ctf_test_env.PostgresDb) (bool, string, error) {
-	orm, db, err := NewOrm(logger, chainID, postgresDb)
+	orm, db, err := NewORM(logger, chainID, postgresDb)
 	if err != nil {
 		return false, "", err
 	}
@@ -306,7 +306,7 @@ func LogPollerHasFinalisedEndBlock(endBlock int64, chainID *big.Int, l zerolog.L
 			case <-ctx.Done():
 				return
 			default:
-				orm, db, err := NewOrm(coreLogger, chainID, clNode.PostgresDb)
+				orm, db, err := NewORM(coreLogger, chainID, clNode.PostgresDb)
 				if err != nil {
 					r <- boolQueryResult{
 						nodeName:     clNode.ContainerName,
@@ -400,7 +400,7 @@ func ClNodesHaveExpectedLogCount(startBlock, endBlock int64, chainID *big.Int, e
 			case <-ctx.Done():
 				return
 			default:
-				orm, db, err := NewOrm(coreLogger, chainID, clNode.PostgresDb)
+				orm, db, err := NewORM(coreLogger, chainID, clNode.PostgresDb)
 				if err != nil {
 					resultChan <- logQueryResult{
 						nodeName:         clNode.ContainerName,
@@ -523,7 +523,7 @@ func GetMissingLogs(startBlock, endBlock int64, logEmitters []*contracts.LogEmit
 				nodeName := clnodeCluster.Nodes[i].ContainerName
 
 				l.Debug().Str("Node name", nodeName).Msg("Fetching log poller logs")
-				orm, db, err := NewOrm(coreLogger, evmClient.GetChainID(), clnodeCluster.Nodes[i].PostgresDb)
+				orm, db, err := NewORM(coreLogger, evmClient.GetChainID(), clnodeCluster.Nodes[i].PostgresDb)
 				if err != nil {
 					r <- dbQueryResult{
 						err:      err,
