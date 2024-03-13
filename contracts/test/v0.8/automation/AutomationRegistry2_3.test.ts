@@ -5219,9 +5219,9 @@ describe('AutomationRegistry2_3', () => {
         expect((await mgRegistry.getUpkeep(upkeepId)).balance).to.equal(
           toWei('100'),
         )
-        expect(
-          (await mgRegistry.getState()).state.expectedLinkBalance,
-        ).to.equal(toWei('100'))
+        expect(await mgRegistry.getReserveAmount(linkToken.address)).to.equal(
+          toWei('100'),
+        )
         expect((await mgRegistry.getUpkeep(upkeepId)).checkData).to.equal(
           randomBytes,
         )
@@ -5271,9 +5271,9 @@ describe('AutomationRegistry2_3', () => {
         expect((await mgRegistry.getUpkeep(upkeepId)).checkData).to.equal(
           randomBytes,
         )
-        expect(
-          (await mgRegistry.getState()).state.expectedLinkBalance,
-        ).to.equal(toWei('100'))
+        expect(await mgRegistry.getReserveAmount(linkToken.address)).to.equal(
+          toWei('100'),
+        )
         // verify the upkeep is still paused after migration
         expect((await mgRegistry.getUpkeep(upkeepId)).paused).to.equal(true)
       })

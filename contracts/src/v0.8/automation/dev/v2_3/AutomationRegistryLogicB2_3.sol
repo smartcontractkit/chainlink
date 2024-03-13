@@ -595,4 +595,11 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
   function getFallbackNativePrice() external view returns (uint256) {
     return s_fallbackNativePrice;
   }
+
+  /**
+   * @notice returns the fallback native price
+   */
+  function getReserveAmount(address billingToken) external view returns (uint256) {
+    return s_reserveAmounts[billingToken];
+  }
 }
