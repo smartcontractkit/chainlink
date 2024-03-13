@@ -46,8 +46,8 @@ func NewObservedChainHealthCheck(
 	}
 }
 
-func (o *ObservedChainHealthcheck) IsHealthy(ctx context.Context, forceFetch bool) (bool, error) {
-	healthy, err := o.ChainHealthcheck.IsHealthy(ctx, forceFetch)
+func (o *ObservedChainHealthcheck) IsHealthy(ctx context.Context) (bool, error) {
+	healthy, err := o.ChainHealthcheck.IsHealthy(ctx)
 	o.trackState(healthy, err)
 	return healthy, err
 }
