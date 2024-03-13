@@ -146,6 +146,8 @@ abstract contract VRFConsumerBaseV2Plus is IVRFMigratableConsumerV2Plus, Confirm
    */
   function setCoordinator(address _vrfCoordinator) public override onlyOwnerOrCoordinator {
     s_vrfCoordinator = IVRFCoordinatorV2Plus(_vrfCoordinator);
+
+    emit CoordinatorSet(_vrfCoordinator);
   }
 
   modifier onlyOwnerOrCoordinator() {
