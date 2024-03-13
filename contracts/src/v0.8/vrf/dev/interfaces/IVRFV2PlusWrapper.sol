@@ -2,8 +2,7 @@
 pragma solidity ^0.8.0;
 
 interface IVRFV2PlusWrapper {
-  event LinkSet(address link);
-  event LinkNativeFeedSet(address linkNativeFeed);
+  event LinkAndLinkNativeFeedSet(address link, address linkNativeFeed);
   event FulfillmentTxSizeSet(uint32 size);
   event ConfigSet(
     uint32 wrapperGasOverhead,

@@ -244,7 +244,7 @@ contract VRFV2PlusWrapper_MigrationTest is BaseTest {
     uint256 priorWhaleBalance = s_linkToken.balanceOf(LINK_WHALE);
     vm.expectEmit(true, false, false, true, address(s_wrapper));
     emit Withdrawn(LINK_WHALE, paid);
-    s_wrapper.withdraw(LINK_WHALE, paid);
+    s_wrapper.withdraw(LINK_WHALE);
     assertEq(s_linkToken.balanceOf(LINK_WHALE), priorWhaleBalance + paid);
     assertEq(s_linkToken.balanceOf(address(s_wrapper)), 0);
 
@@ -361,7 +361,7 @@ contract VRFV2PlusWrapper_MigrationTest is BaseTest {
     uint256 priorWhaleBalance = LINK_WHALE.balance;
     vm.expectEmit(true, false, false, true, address(s_wrapper));
     emit NativeWithdrawn(LINK_WHALE, paid);
-    s_wrapper.withdrawNative(LINK_WHALE, paid);
+    s_wrapper.withdrawNative(LINK_WHALE);
     assertEq(LINK_WHALE.balance, priorWhaleBalance + paid);
     assertEq(address(s_wrapper).balance, 0);
 

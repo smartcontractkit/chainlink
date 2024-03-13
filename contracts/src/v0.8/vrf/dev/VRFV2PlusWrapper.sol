@@ -143,28 +143,20 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   }
 
   /**
-   * @notice set the link token to be used by this wrapper
+   * @notice set the link token and link native feed to be used by this wrapper
    * @param link address of the link token
+   * @param linkNativeFeed address of the link native feed
    */
-  function setLINK(address link) external onlyOwner {
+  function setLinkAndLinkNativeFeed(address link, address linkNativeFeed) external onlyOwner {
     // Disallow re-setting link token because the logic wouldn't really make sense
     if (address(s_link) != address(0)) {
       revert LinkAlreadySet();
     }
 
     s_link = LinkTokenInterface(link);
-
-    emit LinkSet(link);
-  }
-
-  /**
-   * @notice set the link native feed to be used by this wrapper
-   * @param linkNativeFeed address of the link native feed
-   */
-  function setLinkNativeFeed(address linkNativeFeed) external onlyOwner {
     s_linkNativeFeed = AggregatorV3Interface(linkNativeFeed);
 
-    emit LinkNativeFeedSet(linkNativeFeed);
+    emit LinkAndLinkNativeFeedSet(link, linkNativeFeed);
   }
 
   /**
@@ -496,30 +488,28 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
    * @notice withdraw is used by the VRFV2Wrapper's owner to withdraw LINK revenue.
    *
    * @param _recipient is the address that should receive the LINK funds.
-   *
-   * @param _amount is the amount of LINK in Juels that should be withdrawn.
    */
-  function withdraw(address _recipient, uint256 _amount) external onlyOwner {
-    if (!s_link.transfer(_recipient, _amount)) {
+  function withdraw(address _recipient) external onlyOwner {
+    uint256 amount = s_link.balanceOf(address(this));
+    if (!s_link.transfer(_recipient, amount)) {
       revert FailedToTransferLink();
     }
 
-    emit Withdrawn(_recipient, _amount);
+    emit Withdrawn(_recipient, amount);
   }
 
   /**
    * @notice withdraw is used by the VRFV2Wrapper's owner to withdraw native revenue.
    *
    * @param _recipient is the address that should receive the native funds.
-   *
-   * @param _amount is the amount of native in Wei that should be withdrawn.
    */
-  function withdrawNative(address _recipient, uint256 _amount) external onlyOwner {
-    (bool success, ) = payable(_recipient).call{value: _amount}("");
+  function withdrawNative(address _recipient) external onlyOwner {
+    uint256 amount = address(this).balance;
+    (bool success, ) = payable(_recipient).call{value: amount}("");
     // solhint-disable-next-line custom-errors
     require(success, "failed to withdraw native");
 
-    emit NativeWithdrawn(_recipient, _amount);
+    emit NativeWithdrawn(_recipient, amount);
   }
 
   /**
