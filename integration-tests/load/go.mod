@@ -20,7 +20,7 @@ require (
 	github.com/smartcontractkit/chainlink/integration-tests v0.0.0-20240214231432-4ad5eb95178c
 	github.com/smartcontractkit/chainlink/v2 v2.9.0-beta0.0.20240216210048-da02459ddad8
 	github.com/smartcontractkit/libocr v0.0.0-20240229181116-bfb2432a7a66
-	github.com/smartcontractkit/seth v0.1.2
+	github.com/smartcontractkit/seth v0.1.3-0.20240313172139-8ccde1fd2f6d
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20230906073235-9e478e5e19f1
 	github.com/smartcontractkit/wasp v0.4.6
 	github.com/stretchr/testify v1.8.4
