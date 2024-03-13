@@ -107,7 +107,7 @@ install_remote_plugins() {
   local -r gobin=$(go env GOPATH)/bin
 
   for plugin in $(get_remote_plugin_paths); do
-  GOBIN=$gobin GOARCH=$goarch GOOS=$goos go install "$plugin"
+    GOBIN=$gobin GOARCH=$goarch GOOS=$goos go install "$plugin"
   done  
 
 }
