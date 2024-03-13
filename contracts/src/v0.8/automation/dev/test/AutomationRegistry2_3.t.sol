@@ -1,26 +1,13 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
-import {AutomationForwarderLogic} from "../../AutomationForwarderLogic.sol";
 import {BaseTest} from "./BaseTest.t.sol";
-import {AutomationRegistry2_3} from "../v2_3/AutomationRegistry2_3.sol";
-import {AutomationRegistryLogicA2_3} from "../v2_3/AutomationRegistryLogicA2_3.sol";
-import {AutomationRegistryLogicB2_3} from "../v2_3/AutomationRegistryLogicB2_3.sol";
 import {IAutomationRegistryMaster2_3, AutomationRegistryBase2_3} from "../interfaces/v2_3/IAutomationRegistryMaster2_3.sol";
 import {ChainModuleBase} from "../../chains/ChainModuleBase.sol";
-import {MockV3Aggregator} from "../../../tests/MockV3Aggregator.sol";
-import {ERC20Mock} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/mocks/ERC20Mock.sol";
 
 // forge test --match-path src/v0.8/automation/dev/test/AutomationRegistry2_3.t.sol
 
 contract AutomationRegistry2_3_SetUp is BaseTest {
-  address internal LINK_USD_FEED;
-  address internal NATIVE_USD_FEED;
-  address internal FAST_GAS_FEED;
-  address internal constant FINANCE_ADMIN_ADDRESS = 0x1111111111111111111111111111111111111114;
-  address internal constant ZERO_ADDRESS = address(0);
-  address internal constant UPKEEP_ADMIN = address(uint160(uint256(keccak256("ADMIN"))));
-
   // Signer private keys used for these test
   uint256 internal constant PRIVATE0 = 0x7b2e97fe057e6de99d6872a2ef2abf52c9b4469bc848c2465ac3fcd8d336e81d;
   uint256 internal constant PRIVATE1 = 0xab56160806b05ef1796789248e1d7f34a6465c5280899159d645218cd216cee6;
@@ -35,16 +22,9 @@ contract AutomationRegistry2_3_SetUp is BaseTest {
   address[] internal s_registrars;
 
   IAutomationRegistryMaster2_3 internal registryMaster;
-  ERC20Mock internal link; // the link token
-  ERC20Mock internal mockERC20; // the supported ERC20 tokens except link
 
   function setUp() public override {
-    LINK_USD_FEED = address(new MockV3Aggregator(8, 2_000_000_000)); // $20
-    NATIVE_USD_FEED = address(new MockV3Aggregator(8, 400_000_000_000)); // $4,000
-    FAST_GAS_FEED = address(new MockV3Aggregator(0, 1_000_000_000)); // 1 gwei
-
-    link = new ERC20Mock("LINK", "LINK", UPKEEP_ADMIN, 0);
-    mockERC20 = new ERC20Mock("MOCK_ERC20", "MOCK_ERC20", UPKEEP_ADMIN, 0);
+    super.setUp();
 
     s_valid_transmitters = new address[](4);
     for (uint160 i = 0; i < 4; ++i) {
@@ -60,19 +40,7 @@ contract AutomationRegistry2_3_SetUp is BaseTest {
     s_registrars = new address[](1);
     s_registrars[0] = 0x3a0eDE26aa188BFE00b9A0C9A431A1a0CA5f7966;
 
-    AutomationForwarderLogic forwarderLogic = new AutomationForwarderLogic();
-    AutomationRegistryLogicB2_3 logicB2_3 = new AutomationRegistryLogicB2_3(
-      address(link),
-      LINK_USD_FEED,
-      NATIVE_USD_FEED,
-      FAST_GAS_FEED,
-      address(forwarderLogic),
-      ZERO_ADDRESS
-    );
-    AutomationRegistryLogicA2_3 logicA2_3 = new AutomationRegistryLogicA2_3(logicB2_3);
-    registryMaster = IAutomationRegistryMaster2_3(
-      address(new AutomationRegistry2_3(AutomationRegistryLogicB2_3(address(logicA2_3))))
-    );
+    registryMaster = deployRegistry();
   }
 }
 
@@ -101,13 +69,13 @@ contract AutomationRegistry2_3_Withdraw is AutomationRegistry2_3_SetUp {
   address internal aMockAddress = address(0x1111111111111111111111111111111111111113);
 
   function mintLink(address recipient, uint256 amount) public {
-    vm.prank(UPKEEP_ADMIN);
+    vm.prank(OWNER);
     //mint the link to the recipient
-    link.mint(recipient, amount);
+    linkToken.mint(recipient, amount);
   }
 
   function mintERC20(address recipient, uint256 amount) public {
-    vm.prank(UPKEEP_ADMIN);
+    vm.prank(OWNER);
     //mint the ERC20 to the recipient
     mockERC20.mint(recipient, amount);
   }
@@ -133,7 +101,7 @@ contract AutomationRegistry2_3_Withdraw is AutomationRegistry2_3_SetUp {
       upkeepPrivilegeManager: 0xD9c855F08A7e460691F41bBDDe6eC310bc0593D8,
       chainModule: module,
       reorgProtectionEnabled: true,
-      financeAdmin: FINANCE_ADMIN_ADDRESS
+      financeAdmin: FINANCE_ADMIN
     });
     bytes memory offchainConfigBytes = abi.encode(1234, ZERO_ADDRESS);
 
@@ -154,10 +122,10 @@ contract AutomationRegistry2_3_Withdraw is AutomationRegistry2_3_SetUp {
     mintLink(address(registryMaster), 1e10);
 
     //check there's a balance
-    assertGt(link.balanceOf(address(registryMaster)), 0);
+    assertGt(linkToken.balanceOf(address(registryMaster)), 0);
 
     //check the link available for payment is the link balance
-    assertEq(registryMaster.linkAvailableForPayment(), link.balanceOf(address(registryMaster)));
+    assertEq(registryMaster.linkAvailableForPayment(), linkToken.balanceOf(address(registryMaster)));
   }
 
   function testWithdrawLinkFeesRevertsBecauseOnlyFinanceAdminAllowed() public {
@@ -172,7 +140,7 @@ contract AutomationRegistry2_3_Withdraw is AutomationRegistry2_3_SetUp {
     // set config with the finance admin
     setConfigForWithdraw();
 
-    vm.startPrank(FINANCE_ADMIN_ADDRESS);
+    vm.startPrank(FINANCE_ADMIN);
 
     // try to withdraw 1 link while there is 0 balance
     vm.expectRevert(abi.encodeWithSelector(IAutomationRegistryMaster2_3.InsufficientBalance.selector, 0, 1));
@@ -185,7 +153,7 @@ contract AutomationRegistry2_3_Withdraw is AutomationRegistry2_3_SetUp {
     // set config with the finance admin
     setConfigForWithdraw();
 
-    vm.startPrank(FINANCE_ADMIN_ADDRESS);
+    vm.startPrank(FINANCE_ADMIN);
 
     // try to withdraw 1 link while there is 0 balance
     vm.expectRevert(abi.encodeWithSelector(IAutomationRegistryMaster2_3.InvalidRecipient.selector));
@@ -202,17 +170,17 @@ contract AutomationRegistry2_3_Withdraw is AutomationRegistry2_3_SetUp {
     mintLink(address(registryMaster), 1e10);
 
     //check there's a balance
-    assertGt(link.balanceOf(address(registryMaster)), 0);
+    assertGt(linkToken.balanceOf(address(registryMaster)), 0);
 
-    vm.startPrank(FINANCE_ADMIN_ADDRESS);
+    vm.startPrank(FINANCE_ADMIN);
 
     // try to withdraw 1 link while there is a ton of link available
     registryMaster.withdrawLinkFees(aMockAddress, 1);
 
     vm.stopPrank();
 
-    assertEq(link.balanceOf(address(aMockAddress)), 1);
-    assertEq(link.balanceOf(address(registryMaster)), 1e10 - 1);
+    assertEq(linkToken.balanceOf(address(aMockAddress)), 1);
+    assertEq(linkToken.balanceOf(address(registryMaster)), 1e10 - 1);
   }
 
   function testWithdrawERC20FeeSuccess() public {
@@ -225,7 +193,7 @@ contract AutomationRegistry2_3_Withdraw is AutomationRegistry2_3_SetUp {
     // check there's a balance
     assertGt(mockERC20.balanceOf(address(registryMaster)), 0);
 
-    vm.startPrank(FINANCE_ADMIN_ADDRESS);
+    vm.startPrank(FINANCE_ADMIN);
 
     // try to withdraw 1 link while there is a ton of link available
     registryMaster.withdrawERC20Fees(address(mockERC20), aMockAddress, 1);
@@ -271,7 +239,7 @@ contract AutomationRegistry2_3_SetConfig is AutomationRegistry2_3_SetUp {
       upkeepPrivilegeManager: 0xD9c855F08A7e460691F41bBDDe6eC310bc0593D8,
       chainModule: module,
       reorgProtectionEnabled: true,
-      financeAdmin: FINANCE_ADMIN_ADDRESS
+      financeAdmin: FINANCE_ADMIN
     });
 
   function testSetConfigSuccess() public {

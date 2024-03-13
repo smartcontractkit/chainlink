@@ -216,6 +216,7 @@ describe('AutomationRegistrar2_3', () => {
           gasFeePPB: paymentPremiumPPB,
           flatFeeMicroLink: flatFeeMicroLink,
           priceFeed: await registry.getLinkUSDFeedAddress(),
+          fallbackPrice: 200,
         },
       ],
     )
