@@ -284,7 +284,7 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
     // charge the cancellation fee if the minUpkeepSpend is not met
     uint96 minUpkeepSpend = s_storage.minUpkeepSpend;
     uint96 cancellationFee = 0;
-    // cancellationFee is supposed to be min(max(minUpkeepSpend - amountSpent,0), amountLeft)
+    // cancellationFee is min(max(minUpkeepSpend - amountSpent, 0), amountLeft)
     if (upkeep.amountSpent < minUpkeepSpend) {
       cancellationFee = minUpkeepSpend - upkeep.amountSpent;
       if (cancellationFee > upkeep.balance) {
@@ -292,7 +292,7 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
       }
     }
     s_upkeep[id].balance = upkeep.balance - cancellationFee;
-    s_reserveAmounts[address(i_link)] = s_reserveAmounts[address(i_link)] - cancellationFee;
+    s_reserveAmounts[address(upkeep.billingToken)] = s_reserveAmounts[address(upkeep.billingToken)] - cancellationFee;
 
     emit UpkeepCanceled(id, uint64(height));
   }
@@ -300,14 +300,15 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
   /**
    * @notice adds fund to an upkeep
    * @param id the upkeepID
-   * @param amount the amount of LINK to fund, in juels (juels = "wei" of LINK)
+   * @param amount the amount of funds to add, in the upkeep's billing token
    */
   function addFunds(uint256 id, uint96 amount) external {
     Upkeep memory upkeep = s_upkeep[id];
     if (upkeep.maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
     s_upkeep[id].balance = upkeep.balance + amount;
-    s_reserveAmounts[address(i_link)] = s_reserveAmounts[address(i_link)] + amount;
-    i_link.transferFrom(msg.sender, address(this), amount);
+    s_reserveAmounts[address(upkeep.billingToken)] = s_reserveAmounts[address(upkeep.billingToken)] + amount;
+    bool success = upkeep.billingToken.transferFrom(msg.sender, address(this), amount);
+    if (!success) revert TransferFailed();
     emit FundsAdded(id, msg.sender, amount);
   }
 
@@ -354,7 +355,9 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
       s_upkeepIDs.remove(id);
       emit UpkeepMigrated(id, upkeep.balance, destination);
     }
-    s_reserveAmounts[address(i_link)] = s_reserveAmounts[address(i_link)] - totalBalanceRemaining;
+    s_reserveAmounts[address(upkeep.billingToken)] =
+      s_reserveAmounts[address(upkeep.billingToken)] -
+      totalBalanceRemaining;
     bytes memory encodedUpkeeps = abi.encode(
       ids,
       upkeeps,

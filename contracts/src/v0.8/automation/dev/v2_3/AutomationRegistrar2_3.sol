@@ -304,7 +304,8 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
   function onTokenTransfer(address sender, uint256 amount, bytes calldata data) external override {
     if (msg.sender != address(LINK)) revert OnlyLink();
     RegistrationParams memory params = abi.decode(data, (RegistrationParams));
-    params.amount = uint96(amount); // igore whatever is sent in registration params, use actual value
+    if (address(params.billingToken) != address(LINK)) revert OnlyLink();
+    params.amount = uint96(amount); // ignore whatever is sent in registration params, use actual value
     _register(params, sender);
   }
 

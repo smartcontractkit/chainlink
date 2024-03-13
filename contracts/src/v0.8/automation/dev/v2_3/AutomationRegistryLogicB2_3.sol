@@ -122,7 +122,7 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
   }
 
   /**
-   * @notice withdraws LINK funds from an upkeep
+   * @notice withdraws an upkeep's funds from an upkeep
    * @dev note that an upkeep must be cancelled first!!
    */
   function withdrawFunds(uint256 id, address to) external nonReentrant {
@@ -131,9 +131,10 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
     if (s_upkeepAdmin[id] != msg.sender) revert OnlyCallableByAdmin();
     if (upkeep.maxValidBlocknumber > s_hotVars.chainModule.blockNumber()) revert UpkeepNotCanceled();
     uint96 amountToWithdraw = s_upkeep[id].balance;
-    s_reserveAmounts[address(i_link)] = s_reserveAmounts[address(i_link)] - amountToWithdraw;
+    s_reserveAmounts[address(upkeep.billingToken)] = s_reserveAmounts[address(upkeep.billingToken)] - amountToWithdraw;
     s_upkeep[id].balance = 0;
-    i_link.transfer(to, amountToWithdraw);
+    bool success = upkeep.billingToken.transfer(to, amountToWithdraw);
+    if (!success) revert TransferFailed();
     emit FundsWithdrawn(id, amountToWithdraw, to);
   }
 
@@ -467,8 +468,8 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
   {
     state = IAutomationV21PlusCommon.StateLegacy({
       nonce: s_storage.nonce,
-      ownerLinkBalance: 0,
-      expectedLinkBalance: s_reserveAmounts[address(i_link)],
+      ownerLinkBalance: 0, // deprecated
+      expectedLinkBalance: 0, // deprecated
       totalPremium: s_hotVars.totalPremium,
       numUpkeeps: s_upkeepIDs.length(),
       configCount: s_storage.configCount,
@@ -479,8 +480,8 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
     });
 
     config = IAutomationV21PlusCommon.OnchainConfigLegacy({
-      paymentPremiumPPB: 0, // replaced by BillingConfig
-      flatFeeMicroLink: 0, // replaced by BillingConfig
+      paymentPremiumPPB: 0, // deprecated
+      flatFeeMicroLink: 0, // deprecated
       checkGasLimit: s_storage.checkGasLimit,
       stalenessSeconds: s_hotVars.stalenessSeconds,
       gasCeilingMultiplier: s_hotVars.gasCeilingMultiplier,
