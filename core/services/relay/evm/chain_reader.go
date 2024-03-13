@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/google/uuid"
@@ -118,8 +119,7 @@ func (cr *chainReader) Start(ctx context.Context) error {
 
 func (cr *chainReader) Close() error {
 	return cr.StopOnce("ChainReader", func() error {
-		// TODO: Propagate context
-		ctx, cancel := context.WithCancel(context.Background())
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
 		return cr.contractBindings.ForEach(ctx, readBinding.Unregister)
 	})
