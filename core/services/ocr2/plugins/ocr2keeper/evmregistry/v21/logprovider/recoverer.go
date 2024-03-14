@@ -418,9 +418,11 @@ func (r *logRecoverer) recoverFilter(ctx context.Context, f upkeepFilter, startB
 		if seen[i] {
 			// use unknownn
 			newStates = append(newStates, ocr2keepers.UnknownState)
-		} else {
+		} else if len(states) > storedState {
 			newStates = append(newStates, states[storedState])
 			storedState++
+		} else {
+			newStates = append(newStates, ocr2keepers.UnknownState)
 		}
 	}
 
