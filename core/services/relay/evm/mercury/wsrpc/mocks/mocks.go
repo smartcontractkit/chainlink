@@ -13,20 +13,20 @@ type MockWSRPCClient struct {
 	LatestReportF func(ctx context.Context, req *pb.LatestReportRequest) (resp *pb.LatestReportResponse, err error)
 }
 
-func (m MockWSRPCClient) Name() string                   { return "" }
-func (m MockWSRPCClient) Start(context.Context) error    { return nil }
-func (m MockWSRPCClient) Close() error                   { return nil }
-func (m MockWSRPCClient) HealthReport() map[string]error { return map[string]error{} }
-func (m MockWSRPCClient) Ready() error                   { return nil }
-func (m MockWSRPCClient) Transmit(ctx context.Context, in *pb.TransmitRequest) (*pb.TransmitResponse, error) {
+func (m *MockWSRPCClient) Name() string                   { return "" }
+func (m *MockWSRPCClient) Start(context.Context) error    { return nil }
+func (m *MockWSRPCClient) Close() error                   { return nil }
+func (m *MockWSRPCClient) HealthReport() map[string]error { return map[string]error{} }
+func (m *MockWSRPCClient) Ready() error                   { return nil }
+func (m *MockWSRPCClient) Transmit(ctx context.Context, in *pb.TransmitRequest) (*pb.TransmitResponse, error) {
 	return m.TransmitF(ctx, in)
 }
-func (m MockWSRPCClient) LatestReport(ctx context.Context, in *pb.LatestReportRequest) (*pb.LatestReportResponse, error) {
+func (m *MockWSRPCClient) LatestReport(ctx context.Context, in *pb.LatestReportRequest) (*pb.LatestReportResponse, error) {
 	return m.LatestReportF(ctx, in)
 }
-func (m MockWSRPCClient) ServerURL() string { return "mock server url" }
+func (m *MockWSRPCClient) ServerURL() string { return "mock server url" }
 
-func (m MockWSRPCClient) RawClient() pb.MercuryClient { return nil }
+func (m *MockWSRPCClient) RawClient() pb.MercuryClient { return nil }
 
 type MockConn struct {
 	State  connectivity.State
