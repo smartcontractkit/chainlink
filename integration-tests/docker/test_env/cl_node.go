@@ -158,7 +158,7 @@ func (n *ClNode) Restart(cfg *chainlink.Config) error {
 		return err
 	}
 	n.NodeConfig = cfg
-	return n.StartContainer()
+	return n.RestartContainer()
 }
 
 // UpgradeVersion restarts the cl node with new image and version
@@ -285,8 +285,13 @@ func (n *ClNode) Fund(evmClient blockchain.EVMClient, amount *big.Float) error {
 	return evmClient.Fund(toAddress, amount, gasEstimates)
 }
 
-func (n *ClNode) StartContainer() error {
-	err := n.PostgresDb.RestartContainer()
+func (n *ClNode) startContainer(restartDb bool) error {
+	var err error
+	if restartDb {
+		err = n.PostgresDb.RestartContainer()
+	} else {
+		err = n.PostgresDb.StartContainer()
+	}
 	if err != nil {
 		return err
 	}
@@ -357,6 +362,14 @@ func (n *ClNode) StartContainer() error {
 	n.API = clClient
 
 	return nil
+}
+
+func (n *ClNode) RestartContainer() error {
+	return n.startContainer(true)
+}
+
+func (n *ClNode) StartContainer() error {
+	return n.startContainer(false)
 }
 
 func (n *ClNode) ExecGetVersion() (string, error) {
