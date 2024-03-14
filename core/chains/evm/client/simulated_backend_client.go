@@ -241,7 +241,7 @@ func (c *SimulatedBackendClient) BlockByNumber(ctx context.Context, n *big.Int) 
 	return c.b.BlockByNumber(ctx, n)
 }
 
-// BlockByNumber returns a geth block type.
+// BlockByHash returns a geth block type.
 func (c *SimulatedBackendClient) BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
 	return c.b.BlockByHash(ctx, hash)
 }
