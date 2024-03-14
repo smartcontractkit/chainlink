@@ -257,15 +257,6 @@ interface IAutomationV21PlusCommon {
       address[] memory transmitters,
       uint8 f
     );
-  function registerUpkeep(
-    address target,
-    uint32 gasLimit,
-    address admin,
-    uint8 triggerType,
-    bytes memory checkData,
-    bytes memory triggerConfig,
-    bytes memory offchainConfig
-  ) external returns (uint256 id);
   function setUpkeepGasLimit(uint256 id, uint32 gasLimit) external;
   function setUpkeepPrivilegeConfig(uint256 upkeepId, bytes memory newPrivilegeConfig) external;
   function pauseUpkeep(uint256 id) external;
