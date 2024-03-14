@@ -65,9 +65,9 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
    */
   struct TransmitVars {
     uint16 numUpkeepsPassedChecks;
-    uint256 totalCalldataWeight;
     uint96 totalReimbursement;
     uint96 totalPremium;
+    uint256 totalCalldataWeight;
   }
 
   // ================================================================

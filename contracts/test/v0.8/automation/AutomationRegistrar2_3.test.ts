@@ -15,7 +15,7 @@ import { AutomationRegistrar2_3 as Registrar } from '../../../typechain/Automati
 import { deployRegistry23 } from './helpers'
 import { IAutomationRegistryMaster2_3 as IAutomationRegistry } from '../../../typechain'
 
-// copied from KeeperRegistryBase2_3.sol
+// copied from AutomationRegistryBase2_3.sol
 enum Trigger {
   CONDITION,
   LOG,

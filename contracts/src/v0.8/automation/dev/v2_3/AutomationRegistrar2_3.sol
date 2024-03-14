@@ -312,7 +312,7 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
     if (msg.sender != address(LINK)) revert OnlyLink();
     RegistrationParams memory params = abi.decode(data, (RegistrationParams));
     if (address(params.billingToken) != address(LINK)) revert OnlyLink();
-    params.amount = uint96(amount); // ignore whatever is sent in registration params, use actual value
+    params.amount = uint96(amount); // ignore whatever is sent in registration params, use actual value; casting safe because max supply LINK < 2^96
     _register(params, sender);
   }
 

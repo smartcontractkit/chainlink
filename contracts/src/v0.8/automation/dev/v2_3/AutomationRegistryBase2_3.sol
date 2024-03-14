@@ -13,6 +13,7 @@ import {KeeperCompatibleInterface} from "../../interfaces/KeeperCompatibleInterf
 import {UpkeepFormat} from "../../interfaces/UpkeepTranscoderInterface.sol";
 import {IChainModule} from "../../interfaces/IChainModule.sol";
 import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
+import {SafeCast} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/math/SafeCast.sol";
 
 /**
  * @notice Base Keeper Registry contract, contains shared logic between
@@ -35,7 +36,6 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   uint256 internal constant PERFORM_GAS_CUSHION = 5_000;
   uint256 internal constant PPB_BASE = 1_000_000_000;
   uint32 internal constant UINT32_MAX = type(uint32).max;
-  uint96 internal constant LINK_TOTAL_SUPPLY = 1e27;
   // The first byte of the mask can be 0, because we only ever have 31 oracles
   uint256 internal constant ORACLE_MASK = 0x0001010101010101010101010101010101010101010101010101010101010101;
   /**
@@ -150,7 +150,6 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   error OnlySimulatedBackend();
   error OnlyUnpausedUpkeep();
   error ParameterLengthError();
-  error PaymentGreaterThanAllLINK();
   error ReentrantCall();
   error RegistryPaused();
   error RepeatedSigner();
@@ -253,8 +252,8 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     uint32 maxValidBlocknumber;
     IAutomationForwarder forwarder;
     // 0 bytes left in 1st EVM word - read in transmit path
-    uint96 amountSpent; // TODO - this probably needs to change to a uint256 - maaayyyybe we get get away with two 128s
-    uint96 balance; // TODO - this probably needs to change to a uint256 :(
+    uint96 amountSpent;
+    uint96 balance;
     uint32 lastPerformedBlockNumber;
     // 2 bytes left in 2nd EVM word - written in transmit path
     IERC20 billingToken;
@@ -324,9 +323,17 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     bytes32 dedupID;
   }
 
+  /**
+   * @notice holds information about a transmiter / node in the DON
+   * @member active can this transmitter submit reports
+   * @member index of oracle in s_signersList/s_transmittersList
+   * @member balance a node's balance in LINK
+   * @member lastCollected the total balance at which the node last withdrew
+   @ @dev uint96 is safe for balance / last collected because transmitters are only ever paid in LINK
+   */
   struct Transmitter {
     bool active;
-    uint8 index; // Index of oracle in s_signersList/s_transmittersList
+    uint8 index;
     uint96 balance;
     uint96 lastCollected;
   }
@@ -637,18 +644,16 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
 
     uint256 gasPaymentUSD = (gasWei * (paymentParams.gasLimit + paymentParams.gasOverhead) + paymentParams.l1CostWei) *
       paymentParams.nativeUSD; // this is USD * 1e36 ??? TODO
-    receipt.gasChargeWei = uint96(gasPaymentUSD / paymentParams.billingToken.priceUSD);
-    receipt.gasReimbursementJuels = uint96(gasPaymentUSD / paymentParams.linkUSD);
+    receipt.gasChargeWei = SafeCast.toUint96(gasPaymentUSD / paymentParams.billingToken.priceUSD);
+    receipt.gasReimbursementJuels = SafeCast.toUint96(gasPaymentUSD / paymentParams.linkUSD);
 
     uint256 flatFeeUSD = uint256(paymentParams.billingToken.flatFeeMicroLink) * 1e12 * paymentParams.linkUSD; // TODO - this should get replaced by flatFeeCents later
     uint256 premiumUSD = ((((gasWei * paymentParams.gasLimit) + paymentParams.l1CostWei) *
       paymentParams.billingToken.gasFeePPB *
       paymentParams.nativeUSD) / 1e9) + flatFeeUSD; // this is USD * 1e18
-    receipt.premiumWei = uint96(premiumUSD / paymentParams.billingToken.priceUSD);
-    receipt.premiumJuels = uint96(premiumUSD / paymentParams.linkUSD);
+    receipt.premiumWei = SafeCast.toUint96(premiumUSD / paymentParams.billingToken.priceUSD);
+    receipt.premiumJuels = SafeCast.toUint96(premiumUSD / paymentParams.linkUSD);
 
-    // LINK_TOTAL_SUPPLY < UINT96_MAX
-    // if (gasPayment + premium > LINK_TOTAL_SUPPLY) revert PaymentGreaterThanAllLINK(); // TODO - Ryan
     return receipt;
   }
 
@@ -936,14 +941,16 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     if (balance < receipt.gasChargeWei) {
       // if the user can't cover the gas fee, then direct all of the payment to the transmitter and distribute no premium to the DON
       payment = balance;
-      receipt.gasReimbursementJuels = uint96((balance * paymentParams.billingToken.priceUSD) / paymentParams.linkUSD); // TODO uint96?
+      receipt.gasReimbursementJuels = SafeCast.toUint96(
+        (balance * paymentParams.billingToken.priceUSD) / paymentParams.linkUSD
+      );
       receipt.premiumJuels = 0;
     } else if (balance < payment) {
       // if the user can cover the gas fee, but not the premium, then reduce the premium
       payment = balance;
-      receipt.premiumJuels = uint96(
+      receipt.premiumJuels = SafeCast.toUint96(
         ((balance * paymentParams.billingToken.priceUSD) / paymentParams.linkUSD) - receipt.gasReimbursementJuels
-      ); // TODO uint96?
+      );
     }
 
     s_upkeep[upkeepId].balance -= payment;
