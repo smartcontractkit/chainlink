@@ -25,8 +25,7 @@ What are performance and capacity characteristics of Chainlink node(s) that run 
 - what are the limits if we add more and more products of the same type, each product have a stable RPS, we vary only amount of products
 - update test #3 with optimal params and workload to constantly run in CI
 
-Implementing test #1 is **mandatory** for each product.
-Tests #2,#3,#4 are optional if you need to figure out your product scaling or node/cluster capacity.
+Implementing test #1 is **mandatory** for each product. Tests 2, 3, and 4 are optional depending on what how you expect the product to operate and under what conditions.
 
 ## Usage
 
@@ -70,8 +69,10 @@ Gun should be working with one instance of your product.
 VU(Virtual user) creates a new instance of your product and works with it in `Call()`
 
 ### Cluster mode (k8s)
+
 Add configuration to `overrides.toml`
-```
+
+```toml
 [WaspAutoBuild]
 namespace = "wasp"
 update_image = true
