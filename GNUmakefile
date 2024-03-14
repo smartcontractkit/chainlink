@@ -114,7 +114,7 @@ presubmit: ## Format go files and imports.
 
 .PHONY: mockery
 mockery: $(mockery) ## Install mockery.
-	go install github.com/vektra/mockery/v2@v2.38.0
+	go install github.com/vektra/mockery/v2@v2.42.1
 
 .PHONY: codecgen
 codecgen: $(codecgen) ## Install codecgen
