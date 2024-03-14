@@ -54,7 +54,7 @@ type FwdMgr struct {
 	wg      sync.WaitGroup
 }
 
-func NewFwdMgr(db sqlutil.DB, client evmclient.Client, logpoller evmlogpoller.LogPoller, l logger.Logger, cfg Config) *FwdMgr {
+func NewFwdMgr(db sqlutil.DataSource, client evmclient.Client, logpoller evmlogpoller.LogPoller, l logger.Logger, cfg Config) *FwdMgr {
 	lggr := logger.Sugared(logger.Named(l, "EVMForwarderManager"))
 	fwdMgr := FwdMgr{
 		logger:       lggr,

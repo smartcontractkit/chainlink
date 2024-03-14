@@ -24,7 +24,7 @@ var (
 	_ Authorizer = &neverAuthorizer{}
 )
 
-func NewAuthorizer(db sqlutil.DB, user *sessions.User, ei *bridges.ExternalInitiator) Authorizer {
+func NewAuthorizer(db sqlutil.DataSource, user *sessions.User, ei *bridges.ExternalInitiator) Authorizer {
 	if user != nil {
 		return &alwaysAuthorizer{}
 	} else if ei != nil {
@@ -34,11 +34,11 @@ func NewAuthorizer(db sqlutil.DB, user *sessions.User, ei *bridges.ExternalIniti
 }
 
 type eiAuthorizer struct {
-	db sqlutil.DB
+	db sqlutil.DataSource
 	ei bridges.ExternalInitiator
 }
 
-func NewEIAuthorizer(db sqlutil.DB, ei bridges.ExternalInitiator) *eiAuthorizer {
+func NewEIAuthorizer(db sqlutil.DataSource, ei bridges.ExternalInitiator) *eiAuthorizer {
 	return &eiAuthorizer{db, ei}
 }
 

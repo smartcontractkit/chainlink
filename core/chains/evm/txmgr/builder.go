@@ -22,7 +22,7 @@ import (
 // NewTxm constructs the necessary dependencies for the EvmTxm (broadcaster, confirmer, etc) and returns a new EvmTxManager
 func NewTxm(
 	sqlxDB *sqlx.DB,
-	db sqlutil.DB,
+	db sqlutil.DataSource,
 	chainConfig ChainConfig,
 	fCfg FeeConfig,
 	txConfig config.Transactions,
