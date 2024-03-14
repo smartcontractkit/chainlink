@@ -29,15 +29,18 @@ type ChainReaderService interface {
 }
 
 type chainReader struct {
-	lggr               logger.Logger
-	lp                 logpoller.LogPoller
-	client             evmclient.Client
-	contractBindings   contractBindings
+	lggr             logger.Logger
+	lp               logpoller.LogPoller
+	client           evmclient.Client
+	contractBindings contractBindings
+	// TODO should keys that are bound just to event sigs also live here? Probably yes
 	eventIndexBindings EventIndexBindings
 	parsed             *parsedTypes
 	codec              commontypes.RemoteCodec
 	commonservices.StateMachine
 }
+
+var _ ChainReaderService = (*chainReader)(nil)
 
 // NewChainReaderService is a constructor for ChainReader, returns nil if there is any error
 func NewChainReaderService(lggr logger.Logger, lp logpoller.LogPoller, chain legacyevm.Chain, config types.ChainReaderConfig) (ChainReaderService, error) {
@@ -80,15 +83,54 @@ func (cr *chainReader) GetLatestValue(ctx context.Context, contractName, method 
 	return b.GetLatestValue(ctx, params, returnVal)
 }
 
-func (cr *chainReader) QueryKeys(_ context.Context, queryFilter commontypes.QueryFilter) ([]commontypes.Event, error) {
-	remappedFilters, err := cr.remapQueryFilter(queryFilter)
+func (cr *chainReader) QueryKey(ctx context.Context, key string, queryFilters []commontypes.QueryFilter, limitAndSort commontypes.LimitAndSort) ([]commontypes.Sequence, error) {
+	logFilters, err := remapQueryKeyFilters(key, cr.eventIndexBindings, queryFilters)
 	if err != nil {
 		return nil, err
 	}
+	_, err = cr.lp.FilteredLogs(logFilters, limitAndSort)
+	return nil, err
+}
 
-	// TODO chain agnostic chain reader sort and limit instead of default here
-	// TODO parse returned logs into chain agnostic form
-	_, err = cr.lp.FilteredLogs(remappedFilters, commontypes.DefaultSortAndLimit)
+// TODO if slice of keys then matrix of queryFilters?
+func (cr *chainReader) QueryKeys(ctx context.Context, keys []string, queryFilters []commontypes.QueryFilter, limitAndSort commontypes.LimitAndSort) ([][]commontypes.Sequence, error) {
+	var logFilters []commontypes.QueryFilter
+	for _, key := range keys {
+		filters, err := remapQueryKeyFilters(key, cr.eventIndexBindings, queryFilters)
+		if err != nil {
+			return nil, err
+		}
+		logFilters = append(logFilters, filters...)
+	}
+	_, err := cr.lp.FilteredLogs(logFilters, limitAndSort)
+	return nil, err
+}
+
+func (cr *chainReader) QueryKeyByValues(ctx context.Context, key string, values []string, queryFilters []commontypes.QueryFilter, limitAndSort commontypes.LimitAndSort) ([]commontypes.Sequence, error) {
+	logFilters, err := remapQueryKeyByValuesFilters(key, values, cr.eventIndexBindings, queryFilters)
+	if err != nil {
+		return nil, err
+	}
+	_, err = cr.lp.FilteredLogs(logFilters, limitAndSort)
+	return nil, err
+}
+
+// TODO if slice of keys then matrix of queryFilters?
+// TODO values shouldn't be string?
+func (cr *chainReader) QueryKeysByValues(ctx context.Context, keys []string, values [][]string, queryFilters []commontypes.QueryFilter, limitAndSort commontypes.LimitAndSort) ([][]commontypes.Sequence, error) {
+	var logFilters []commontypes.QueryFilter
+	for i, key := range keys {
+		// TODO should this be an error? how to handle.
+		if len(values) < i {
+			return nil, fmt.Errorf("")
+		}
+		filters, err := remapQueryKeyByValuesFilters(key, values[i], cr.eventIndexBindings, queryFilters)
+		if err != nil {
+			return nil, err
+		}
+		logFilters = append(logFilters, filters...)
+	}
+	_, err := cr.lp.FilteredLogs(logFilters, limitAndSort)
 	return nil, err
 }
 
@@ -283,22 +325,57 @@ func (cr *chainReader) addDecoderDef(contractName, methodName string, outputs ab
 	return output.Init()
 }
 
+func remapQueryKeyFilters(key string, eventIndexBindings EventIndexBindings, queryFilters []commontypes.QueryFilter) ([]commontypes.QueryFilter, error) {
+	eventSig, address, _, err := eventIndexBindings.Get(key)
+	if err != nil {
+		return nil, err
+	}
+
+	var logFilters []commontypes.QueryFilter
+	for _, queryFilter := range queryFilters {
+		filter, err := remapQueryFilter(queryFilter)
+		if err != nil {
+			return nil, err
+		}
+		logFilters = append(logFilters, filter)
+	}
+
+	return append(logFilters, NewEventFilter(address, eventSig)), nil
+}
+
+// TODO values can't be string?
+func remapQueryKeyByValuesFilters(key string, values []string, eventIndexBindings EventIndexBindings, queryFilters []commontypes.QueryFilter) ([]commontypes.QueryFilter, error) {
+	eventSig, address, topicIndex, err := eventIndexBindings.Get(key)
+	if err != nil {
+		return nil, err
+	}
+
+	var logFilters []commontypes.QueryFilter
+	for _, queryFilter := range queryFilters {
+		filter, err := remapQueryFilter(queryFilter)
+		if err != nil {
+			return nil, err
+		}
+		logFilters = append(logFilters, filter)
+	}
+
+	return append(logFilters, NewEventTopicsByValueFilter(address, values, eventSig, topicIndex)), nil
+}
+
 // remapQueryFilter, changes some chain agnostic filters to match evm specific filters.
-func (cr *chainReader) remapQueryFilter(queryFilter commontypes.QueryFilter) (commontypes.QueryFilter, error) {
+func remapQueryFilter(queryFilter commontypes.QueryFilter) (commontypes.QueryFilter, error) {
 	switch filter := queryFilter.(type) {
 	case *commontypes.AndFilter:
 		var remappedFilters []commontypes.QueryFilter
 		for _, f := range filter.Filters {
-			remappedFilter, err := cr.remapQueryFilter(f)
+			remappedFilter, err := remapQueryFilter(f)
 			if err != nil {
 				return nil, err
 			}
 			remappedFilters = append(remappedFilters, remappedFilter)
 		}
 		return &commontypes.AndFilter{Filters: remappedFilters}, nil
-	case *commontypes.KeysByValueFilter:
-		return NewEventTopicsByValueFilter(filter, cr.eventIndexBindings)
-	case *commontypes.ConfirmationFilter:
+	case *commontypes.ConfirmationsFilter:
 		return NewFinalityFilter(filter)
 	default:
 		return filter, nil

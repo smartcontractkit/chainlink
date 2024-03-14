@@ -21,19 +21,10 @@ func (v *PgDSLParser) VisitAndFilter(node commontypes.AndFilter) {
 	panic("implement me")
 }
 
+// TODO remove from common
 func (v *PgDSLParser) VisitAddressFilter(node commontypes.AddressFilter) {
 	//TODO implement me
 	panic("implement me")
-}
-
-func (v *PgDSLParser) VisitKeysFilter(node commontypes.KeysFilter) {
-	//TODO implement me
-	panic("implement me")
-}
-
-// VisitKeysByValueFilter is unused chain agnostic version of VisitEventTopicsByValueFilter.
-func (v *PgDSLParser) VisitKeysByValueFilter(node commontypes.KeysByValueFilter) {
-	return
 }
 
 func (v *PgDSLParser) VisitBlockFilter(node commontypes.BlockFilter) {
@@ -42,7 +33,7 @@ func (v *PgDSLParser) VisitBlockFilter(node commontypes.BlockFilter) {
 }
 
 // VisitConfirmationFilter is unused chain agnostic version of VisitFinalityFilter.
-func (v *PgDSLParser) VisitConfirmationFilter(node commontypes.ConfirmationFilter) {
+func (v *PgDSLParser) VisitConfirmationFilter(node commontypes.ConfirmationsFilter) {
 	return
 }
 
@@ -56,7 +47,12 @@ func (v *PgDSLParser) VisitTxHashFilter(node commontypes.TxHashFilter) {
 	panic("implement me")
 }
 
-func (v *PgDSLParser) VisitEventTopicsByValueFilter(filter *EventTopicsByValueFilter) {
+func (v *PgDSLParser) VisitEventTopicsByValueFilter(filter *EventTopicByValuesFilter) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (v *PgDSLParser) VisitEventFilter(filter *EventFilter) {
 	//TODO implement me
 	panic("implement me")
 }

@@ -19,7 +19,7 @@ var (
 
 type disabled struct{}
 
-func (d disabled) FilteredLogs(_ types.QueryFilter, _ types.SortAndLimit) ([]Log, error) {
+func (d disabled) FilteredLogs(_ []types.QueryFilter, _ types.LimitAndSort) ([]Log, error) {
 	return nil, nil
 }
 

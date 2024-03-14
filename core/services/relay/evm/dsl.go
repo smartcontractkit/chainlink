@@ -10,27 +10,43 @@ import (
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
 
-type EventTopicsByValueFilter struct {
-	EventSigs []common.Hash
-	Topics    [][]int
-	Values    [][]string
+type EventFilter struct {
+	Address  common.Address
+	EventSig common.Hash
 }
 
-func NewEventTopicsByValueFilter(filter *commontypes.KeysByValueFilter, eventIndexBindings EventIndexBindings) (*EventTopicsByValueFilter, error) {
-	var searchEventTopicsByValueFilter *EventTopicsByValueFilter
-	for i, key := range filter.Keys {
-		eventSig, _, index, err := eventIndexBindings.Get(key)
-		if err != nil {
-			return nil, err
-		}
-		searchEventTopicsByValueFilter.EventSigs = append(searchEventTopicsByValueFilter.EventSigs, eventSig)
-		searchEventTopicsByValueFilter.Topics = append(searchEventTopicsByValueFilter.Topics, []int{index})
-		searchEventTopicsByValueFilter.Values = append(searchEventTopicsByValueFilter.Values, filter.Values[i])
+func NewEventFilter(address common.Address, eventSig common.Hash) *EventFilter {
+	var searchEventFilter *EventFilter
+	searchEventFilter.Address = address
+	searchEventFilter.EventSig = eventSig
+	return searchEventFilter
+}
+
+func (f *EventFilter) Accept(visitor commontypes.Visitor) {
+	switch v := visitor.(type) {
+	case *PgDSLParser:
+		v.VisitEventFilter(f)
 	}
-	return searchEventTopicsByValueFilter, nil
 }
 
-func (f *EventTopicsByValueFilter) Accept(visitor commontypes.Visitor) {
+type EventTopicByValuesFilter struct {
+	Address  common.Address
+	EventSig common.Hash
+	Topics   []int
+	Values   []string
+}
+
+func NewEventTopicsByValueFilter(address common.Address, values []string, eventSig common.Hash, topicIndex int) *EventTopicByValuesFilter {
+	var searchEventTopicsByValueFilter *EventTopicByValuesFilter
+	searchEventTopicsByValueFilter.Address = address
+	searchEventTopicsByValueFilter.EventSig = eventSig
+	searchEventTopicsByValueFilter.Topics = append(searchEventTopicsByValueFilter.Topics, topicIndex)
+	searchEventTopicsByValueFilter.Values = append(searchEventTopicsByValueFilter.Values, values...)
+
+	return searchEventTopicsByValueFilter
+}
+
+func (f *EventTopicByValuesFilter) Accept(visitor commontypes.Visitor) {
 	switch v := visitor.(type) {
 	case *PgDSLParser:
 		v.VisitEventTopicsByValueFilter(f)
@@ -41,7 +57,7 @@ type FinalityFilter struct {
 	Confs evmtypes.Confirmations
 }
 
-func NewFinalityFilter(filter *commontypes.ConfirmationFilter) (*FinalityFilter, error) {
+func NewFinalityFilter(filter *commontypes.ConfirmationsFilter) (*FinalityFilter, error) {
 	switch filter.Confirmations {
 	case commontypes.Finalized:
 		return &FinalityFilter{evmtypes.Finalized}, nil
@@ -68,11 +84,4 @@ func (f *ChainIdFilter) accept(visitor commontypes.Visitor) {
 	case *PgDSLParser:
 		v.VisitChainIdFilter(f)
 	}
-}
-
-func AppendedNewFilter(root *commontypes.AndFilter, other ...commontypes.QueryFilter) *commontypes.AndFilter {
-	filters := make([]commontypes.QueryFilter, 0, len(root.Filters)+len(other))
-	filters = append(filters, root.Filters...)
-	filters = append(filters, other...)
-	return commontypes.NewAndFilter(filters...)
 }
