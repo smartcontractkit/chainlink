@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
@@ -23,17 +24,16 @@ func NewPlugin(lggr logger.Logger) *Plugin {
 	}
 }
 
-//var _ types.ReportingPluginClient = (*Plugin)(*nil)
-
 type Plugin struct {
 	loop.Plugin
 	stop services.StopChan
 	reportingplugins.MedianProviderServer
 }
 
-func (p *Plugin) ValidateConfig(ctx context.Context, config types.ReportingPluginServiceConfig) error {
-	p.Logger.Errorw("Some error in validation")
-	return fmt.Errorf("validation error")
+func (p *Plugin) NewValidationService(ctx context.Context) (types.ValidationService, error) {
+	s := &reportingPluginValidationService{lggr: p.Logger}
+	p.SubService(s)
+	return s, nil
 }
 
 type pipelineSpec struct {
@@ -133,5 +133,27 @@ func (r *reportingPluginFactoryService) Close() error {
 }
 
 func (r *reportingPluginFactoryService) HealthReport() map[string]error {
+	return map[string]error{r.Name(): r.Healthy()}
+}
+
+type reportingPluginValidationService struct {
+	services.StateMachine
+	lggr logger.Logger
+}
+
+func (r *reportingPluginValidationService) ValidateConfig(ctx context.Context, config map[string]interface{}) error {
+	return errors.Errorf("some error in validation, len %d", len(config))
+}
+func (r *reportingPluginValidationService) Name() string { return r.lggr.Name() }
+
+func (r *reportingPluginValidationService) Start(ctx context.Context) error {
+	return r.StartOnce("ValidationService", func() error { return nil })
+}
+
+func (r *reportingPluginValidationService) Close() error {
+	return r.StopOnce("ValidationService", func() error { return nil })
+}
+
+func (r *reportingPluginValidationService) HealthReport() map[string]error {
 	return map[string]error{r.Name(): r.Healthy()}
 }

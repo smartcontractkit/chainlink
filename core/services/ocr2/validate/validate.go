@@ -14,7 +14,6 @@ import (
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
@@ -29,7 +28,7 @@ import (
 )
 
 // ValidatedOracleSpecToml validates an oracle spec that came from TOML
-func ValidatedOracleSpecToml(config OCR2Config, insConf InsecureConfig, tomlString string) (job.Job, error) {
+func ValidatedOracleSpecToml(ctx context.Context, config OCR2Config, insConf InsecureConfig, tomlString string, rc plugins.RegistrarConfig) (job.Job, error) {
 	var jb = job.Job{}
 	var spec job.OCR2OracleSpec
 	tree, err := toml.Load(tomlString)
@@ -65,7 +64,7 @@ func ValidatedOracleSpecToml(config OCR2Config, insConf InsecureConfig, tomlStri
 		}
 	}
 
-	if err = validateSpec(tree, jb); err != nil {
+	if err = validateSpec(ctx, tree, jb, rc); err != nil {
 		return jb, err
 	}
 	if err = validateTimingParameters(config, insConf, spec); err != nil {
@@ -99,7 +98,7 @@ func validateTimingParameters(ocr2Conf OCR2Config, insConf InsecureConfig, spec 
 	return libocr2.SanityCheckLocalConfig(lc)
 }
 
-func validateSpec(tree *toml.Tree, spec job.Job) error {
+func validateSpec(ctx context.Context, tree *toml.Tree, spec job.Job, rc plugins.RegistrarConfig) error {
 	expected, notExpected := ocrcommon.CloneSet(params), ocrcommon.CloneSet(notExpectedParams)
 	if err := ocrcommon.ValidateExplicitlySetKeys(tree, expected, notExpected, "ocr2"); err != nil {
 		return err
@@ -124,7 +123,7 @@ func validateSpec(tree *toml.Tree, spec job.Job) error {
 	case types.LLO:
 		return validateOCR2LLOSpec(spec.OCR2OracleSpec.PluginConfig)
 	case types.GenericPlugin:
-		return validateGenericPluginSpec(spec)
+		return ValidateGenericPluginSpec(ctx, spec.OCR2OracleSpec, rc)
 	case "":
 		return errors.New("no plugin specified")
 	default:
@@ -174,9 +173,9 @@ func (o *OCR2GenericPluginConfig) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func validateGenericPluginSpec(job job.Job) error {
+func ValidateGenericPluginSpec(ctx context.Context, spec *job.OCR2OracleSpec, rc plugins.RegistrarConfig) error {
 	p := OCR2GenericPluginConfig{}
-	err := json.Unmarshal(job.OCR2OracleSpec.PluginConfig.Bytes(), &p)
+	err := json.Unmarshal(spec.PluginConfig.Bytes(), &p)
 	if err != nil {
 		return err
 	}
@@ -191,6 +190,10 @@ func validateGenericPluginSpec(job job.Job) error {
 	if command == "" {
 		command = plugEnv.Cmd.Get()
 	}
+	_, err = exec.LookPath(command)
+	if err != nil {
+		return fmt.Errorf("failed to find binary  %q", command)
+	}
 
 	envVars, err := plugins.ParseEnvFile(plugEnv.Env.Get())
 	if err != nil {
@@ -202,31 +205,26 @@ func validateGenericPluginSpec(job job.Job) error {
 		}
 	}
 
-	pluginLggr, _ := logger.New()
-
+	cmdFn, grpcOpts, err := rc.RegisterLOOP(plugins.CmdConfig{
+		ID:  fmt.Sprintf("%s-%s-%s", p.PluginName, spec.ContractID, spec.GetID()),
+		Cmd: command,
+		Env: envVars,
+	})
 	if err != nil {
 		return fmt.Errorf("failed to register loop: %w", err)
 	}
 
-	//TODO: pass proper registry
-	cmdFn := func() *exec.Cmd {
-		cmd := exec.Command(p.Command) //#nosec G204 -- we control the value of the cmd so the lint/sec error is a false positive
-		return cmd
-	}
-	plugin := reportingplugins.NewLOOPPServiceValidation(pluginLggr, loop.GRPCOpts{}, cmdFn)
+	pluginLggr, _ := logger.New()
+	plugin := reportingplugins.NewLOOPPServiceValidation(pluginLggr, grpcOpts, cmdFn)
 
-	//TODO: use different context
-	//TODO: wait for plugin to start
-	plugin.Start(context.Background())
+	err = plugin.Start(ctx)
+	if err != nil {
+		return err
+	}
 	defer plugin.Close()
 
-	//TODO: pass the plugin config
-	return plugin.ValidateConfig(context.Background(), types.ReportingPluginServiceConfig{
-		ProviderType:  p.ProviderType,
-		Command:       p.Command,
-		PluginName:    p.PluginName,
-		TelemetryType: p.TelemetryType,
-	})
+	err = plugin.ValidateConfig(ctx, spec.PluginConfig)
+	return err
 }
 
 func validateDKGSpec(jsonConfig job.JSONConfig) error {

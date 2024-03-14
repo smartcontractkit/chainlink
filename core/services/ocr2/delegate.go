@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"os/exec"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -352,6 +353,16 @@ func (d *Delegate) cleanupEVM(jb job.Job, q pg.Queryer, relayID relay.ID) error 
 	return nil
 }
 
+var _ plugins.RegistrarConfig = (*rWrapper)(nil)
+
+type rWrapper struct {
+	rFunc func(config plugins.CmdConfig) (func() *exec.Cmd, loop.GRPCOpts, error)
+}
+
+func (r *rWrapper) RegisterLOOP(config plugins.CmdConfig) (func() *exec.Cmd, loop.GRPCOpts, error) {
+	return r.rFunc(config)
+}
+
 // ServicesForSpec returns the OCR2 services that need to run for this job
 func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.ServiceCtx, error) {
 	spec := jb.OCR2OracleSpec
@@ -532,7 +543,6 @@ func (d *Delegate) newServicesGenericPlugin(
 	capabilitiesRegistry types.CapabilitiesRegistry,
 ) (srvs []job.ServiceCtx, err error) {
 	spec := jb.OCR2OracleSpec
-
 	// NOTE: we don't need to validate this config, since that happens as part of creating the job.
 	// See: validate/validate.go's `validateSpec`.
 	pCfg := validate.OCR2GenericPluginConfig{}

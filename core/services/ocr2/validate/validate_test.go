@@ -674,7 +674,7 @@ telemetryType = "median"
 					tc.overrides(c, s)
 				}
 			})
-			s, err := validate.ValidatedOracleSpecToml(c.OCR2(), c.Insecure(), tc.toml)
+			s, err := validate.ValidatedOracleSpecToml(testutils.Context(t), c.OCR2(), c.Insecure(), tc.toml, nil)
 			tc.assertion(t, s, err)
 		})
 	}
