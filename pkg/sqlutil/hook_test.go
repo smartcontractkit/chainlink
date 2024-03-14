@@ -23,12 +23,12 @@ const (
 	selDur = 200 * time.Millisecond
 )
 
-func TestNewInterceptedQueryer(t *testing.T) {
+func TestWrapDataSource(t *testing.T) {
 	lggr, ol := logger.TestObserved(t, zapcore.InfoLevel)
-	var db DB = &database{}
+	var ds DataSource = &dataSource{}
 	var sentinelErr = errors.New("intercepted error")
 	const fakeError = "fake warning"
-	db = NewWrappedDB(db, lggr, TimeoutHook(selDur/2), noopHook, MonitorHook(func() bool { return true }), noopHook, func(ctx context.Context, lggr logger.Logger, do func(context.Context) error, query string, args ...any) error {
+	ds = WrapDataSource(ds, lggr, TimeoutHook(selDur/2), noopHook, MonitorHook(func() bool { return true }), noopHook, func(ctx context.Context, lggr logger.Logger, do func(context.Context) error, query string, args ...any) error {
 		err := do(ctx)
 		if err != nil {
 			return err
@@ -39,7 +39,7 @@ func TestNewInterceptedQueryer(t *testing.T) {
 	ctx := tests.Context(t)
 
 	// Error intercepted
-	err := db.GetContext(ctx, "test", "foo", 42, "bar")
+	err := ds.GetContext(ctx, "test", "foo", 42, "bar")
 	_, file, line, ok := runtime.Caller(0)
 	require.True(t, ok)
 	expCaller := fmt.Sprintf("%s:%d", file, line-1)
@@ -55,7 +55,7 @@ func TestNewInterceptedQueryer(t *testing.T) {
 	_ = ol.TakeAll()
 
 	// Timeout applied
-	err = db.SelectContext(ctx, "test", "foo", 42, "bar")
+	err = ds.SelectContext(ctx, "test", "foo", 42, "bar")
 	require.ErrorIs(t, err, context.DeadlineExceeded)
 	logs = ol.FilterMessage(slowMsg).All()
 	require.Len(t, logs, 1)
@@ -63,49 +63,73 @@ func TestNewInterceptedQueryer(t *testing.T) {
 	_ = ol.TakeAll()
 
 	// Without default timeout
-	err = db.SelectContext(WithoutDefaultTimeout(ctx), "test", "foo", 42, "bar")
+	err = ds.SelectContext(WithoutDefaultTimeout(ctx), "test", "foo", 42, "bar")
 	require.ErrorIs(t, err, sentinelErr)
 
 	// W/o default, but with our own
 	ctx2, cancel := context.WithTimeout(WithoutDefaultTimeout(ctx), selDur/100)
 	t.Cleanup(cancel)
-	err = db.SelectContext(ctx2, "test", "foo", 42, "bar")
+	err = ds.SelectContext(ctx2, "test", "foo", 42, "bar")
 	require.ErrorIs(t, err, context.DeadlineExceeded)
 }
 
-var _ DB = &database{}
+func TestWrapDataSource_transactional(t *testing.T) {
+	lggr := logger.Test(t)
 
-type database struct{}
+	txional := (*transactional)(nil)
 
-func (q *database) DriverName() string { return "" }
+	var ds DataSource = (*sqlx.DB)(nil)
+	assert.Implements(t, txional, ds)
+	got := WrapDataSource(ds, lggr)
+	assert.Implements(t, txional, got)
+	got = WrapDataSource(ds, lggr, noopHook)
+	assert.Implements(t, txional, got)
+	got = WrapDataSource(ds, lggr, noopHook, noopHook)
+	assert.Implements(t, txional, got)
 
-func (q *database) Rebind(s string) string { return "" }
+	ds = (*sqlx.Tx)(nil)
+	assert.NotImplements(t, txional, ds)
+	got = WrapDataSource(ds, lggr)
+	assert.NotImplements(t, txional, got)
+	got = WrapDataSource(ds, lggr, noopHook)
+	assert.NotImplements(t, txional, got)
+	got = WrapDataSource(ds, lggr, noopHook, noopHook)
+	assert.NotImplements(t, txional, got)
+}
 
-func (q *database) BindNamed(s string, i interface{}) (string, []interface{}, error) {
+var _ DataSource = &dataSource{}
+
+type dataSource struct{}
+
+func (q *dataSource) DriverName() string { return "" }
+
+func (q *dataSource) Rebind(s string) string { return "" }
+
+func (q *dataSource) BindNamed(s string, i interface{}) (string, []interface{}, error) {
 	return "", nil, nil
 }
 
-func (q *database) QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error) {
+func (q *dataSource) QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error) {
 	return nil, nil
 }
 
-func (q *database) QueryxContext(ctx context.Context, query string, args ...interface{}) (*sqlx.Rows, error) {
+func (q *dataSource) QueryxContext(ctx context.Context, query string, args ...interface{}) (*sqlx.Rows, error) {
 	return nil, nil
 }
 
-func (q *database) QueryRowxContext(ctx context.Context, query string, args ...interface{}) *sqlx.Row {
+func (q *dataSource) QueryRowxContext(ctx context.Context, query string, args ...interface{}) *sqlx.Row {
 	return nil
 }
 
-func (q *database) ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error) {
+func (q *dataSource) ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error) {
 	return nil, nil
 }
 
-func (q *database) PrepareContext(ctx context.Context, query string) (*sql.Stmt, error) {
+func (q *dataSource) PrepareContext(ctx context.Context, query string) (*sql.Stmt, error) {
 	return nil, nil
 }
 
-func (q *database) GetContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error {
+func (q *dataSource) GetContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error {
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
@@ -114,7 +138,7 @@ func (q *database) GetContext(ctx context.Context, dest interface{}, query strin
 	return nil
 }
 
-func (q *database) SelectContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error {
+func (q *dataSource) SelectContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error {
 	select {
 	case <-ctx.Done():
 		return ctx.Err()

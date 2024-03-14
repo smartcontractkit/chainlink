@@ -9,11 +9,11 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
-var _ DB = &WrappedDB{}
+var _ DataSource = &wrappedDataSource{}
 
-// WrappedDB is a [DB] which invokes a [QueryHook] on each call.
-type WrappedDB struct {
-	db   DB
+// wrappedDataSource is a [DataSource] which invokes a [QueryHook] on each call.
+type wrappedDataSource struct {
+	db   DataSource
 	lggr logger.Logger
 	hook QueryHook
 }
@@ -25,35 +25,43 @@ type WrappedDB struct {
 // See [MonitorHook] and [TimeoutHook] for examples.
 type QueryHook func(ctx context.Context, lggr logger.Logger, do func(context.Context) error, query string, args ...any) error
 
-// NewWrappedDB returns a new [WrappedDB] that calls each [QueryHook] in the provided order.
-func NewWrappedDB(db DB, l logger.Logger, hs ...QueryHook) *WrappedDB {
-	iq := WrappedDB{db: db,
+// WrapDataSource returns a new [DataSource] that calls each [QueryHook] in the provided order.
+// If db implements [sqlx.BeginTxx], then the returned DataSource will also.
+func WrapDataSource(db DataSource, l logger.Logger, hs ...QueryHook) DataSource {
+	iq := wrappedDataSource{db: db,
 		lggr: logger.Helper(logger.Named(l, "WrappedDB"), 2), // skip our own wrapper and one interceptor
 		hook: noopHook,
 	}
 	switch len(hs) {
 	case 0:
-		return &iq
 	case 1:
 		iq.hook = hs[0]
-		return &iq
-	}
-
-	// Nest the QueryHook calls so that they are wrapped from first to last.
-	// Example:
-	// 	[A, B, C] => A(B(C(do())))
-	for i := len(hs) - 1; i >= 0; i-- {
-		next := hs[i]
-		prev := iq.hook
-		iq.hook = func(ctx context.Context, lggr logger.Logger, do func(context.Context) error, query string, args ...any) error {
-			// opt: cache the construction of these loggers
-			lggr = logger.Helper(lggr, 1) // skip one more for this wrapper
-			return next(ctx, lggr, func(ctx context.Context) error {
-				lggr = logger.Helper(lggr, 2) // skip two more for do() and this extra wrapper
-				return prev(ctx, lggr, do, query, args...)
-			}, query, args...)
+	default:
+		// Nest the QueryHook calls so that they are wrapped from first to last.
+		// Example:
+		// 	[A, B, C] => A(B(C(do())))
+		for i := len(hs) - 1; i >= 0; i-- {
+			next := hs[i]
+			prev := iq.hook
+			iq.hook = func(ctx context.Context, lggr logger.Logger, do func(context.Context) error, query string, args ...any) error {
+				// opt: cache the construction of these loggers
+				lggr = logger.Helper(lggr, 1) // skip one more for this wrapper
+				return next(ctx, lggr, func(ctx context.Context) error {
+					lggr = logger.Helper(lggr, 2) // skip two more for do() and this extra wrapper
+					return prev(ctx, lggr, do, query, args...)
+				}, query, args...)
+			}
 		}
 	}
+
+	if txdb, ok := db.(transactional); ok {
+		// extra wrapper to make BeginTxx available
+		return &wrappedTransactionalDataSource{
+			wrappedDataSource: iq,
+			txdb:              txdb,
+		}
+	}
+
 	return &iq
 }
 
@@ -61,19 +69,19 @@ func noopHook(ctx context.Context, lggr logger.Logger, do func(context.Context) 
 	return do(ctx)
 }
 
-func (w *WrappedDB) DriverName() string {
+func (w *wrappedDataSource) DriverName() string {
 	return w.db.DriverName()
 }
 
-func (w *WrappedDB) Rebind(s string) string {
+func (w *wrappedDataSource) Rebind(s string) string {
 	return w.db.Rebind(s)
 }
 
-func (w *WrappedDB) BindNamed(s string, i interface{}) (string, []any, error) {
+func (w *wrappedDataSource) BindNamed(s string, i interface{}) (string, []any, error) {
 	return w.db.BindNamed(s, i)
 }
 
-func (w *WrappedDB) QueryContext(ctx context.Context, query string, args ...any) (rows *sql.Rows, err error) {
+func (w *wrappedDataSource) QueryContext(ctx context.Context, query string, args ...any) (rows *sql.Rows, err error) {
 	err = w.hook(ctx, w.lggr, func(ctx context.Context) (err error) {
 		rows, err = w.db.QueryContext(ctx, query, args...) //nolint
 		return
@@ -81,7 +89,7 @@ func (w *WrappedDB) QueryContext(ctx context.Context, query string, args ...any)
 	return
 }
 
-func (w *WrappedDB) QueryxContext(ctx context.Context, query string, args ...any) (rows *sqlx.Rows, err error) {
+func (w *wrappedDataSource) QueryxContext(ctx context.Context, query string, args ...any) (rows *sqlx.Rows, err error) {
 	err = w.hook(ctx, w.lggr, func(ctx context.Context) (err error) {
 		rows, err = w.db.QueryxContext(ctx, query, args...) //nolint:sqlclosecheck
 		return
@@ -89,7 +97,7 @@ func (w *WrappedDB) QueryxContext(ctx context.Context, query string, args ...any
 	return
 }
 
-func (w *WrappedDB) QueryRowxContext(ctx context.Context, query string, args ...any) (row *sqlx.Row) {
+func (w *wrappedDataSource) QueryRowxContext(ctx context.Context, query string, args ...any) (row *sqlx.Row) {
 	_ = w.hook(ctx, w.lggr, func(ctx context.Context) error {
 		row = w.db.QueryRowxContext(ctx, query, args...)
 		return nil
@@ -97,7 +105,7 @@ func (w *WrappedDB) QueryRowxContext(ctx context.Context, query string, args ...
 	return
 }
 
-func (w *WrappedDB) ExecContext(ctx context.Context, query string, args ...any) (res sql.Result, err error) {
+func (w *wrappedDataSource) ExecContext(ctx context.Context, query string, args ...any) (res sql.Result, err error) {
 	err = w.hook(ctx, w.lggr, func(ctx context.Context) (err error) {
 		res, err = w.db.ExecContext(ctx, query, args...)
 		return
@@ -105,7 +113,7 @@ func (w *WrappedDB) ExecContext(ctx context.Context, query string, args ...any) 
 	return
 }
 
-func (w *WrappedDB) PrepareContext(ctx context.Context, query string) (stmt *sql.Stmt, err error) {
+func (w *wrappedDataSource) PrepareContext(ctx context.Context, query string) (stmt *sql.Stmt, err error) {
 	err = w.hook(ctx, w.lggr, func(ctx context.Context) (err error) {
 		stmt, err = w.db.PrepareContext(ctx, query) //nolint:sqlclosecheck
 		return
@@ -113,14 +121,54 @@ func (w *WrappedDB) PrepareContext(ctx context.Context, query string) (stmt *sql
 	return
 }
 
-func (w *WrappedDB) GetContext(ctx context.Context, dest interface{}, query string, args ...any) error {
+func (w *wrappedDataSource) GetContext(ctx context.Context, dest interface{}, query string, args ...any) error {
 	return w.hook(ctx, w.lggr, func(ctx context.Context) error {
 		return w.db.GetContext(ctx, dest, query, args...)
 	}, query, args...)
 }
 
-func (w *WrappedDB) SelectContext(ctx context.Context, dest interface{}, query string, args ...any) error {
+func (w *wrappedDataSource) SelectContext(ctx context.Context, dest interface{}, query string, args ...any) error {
 	return w.hook(ctx, w.lggr, func(ctx context.Context) error {
 		return w.db.SelectContext(ctx, dest, query, args...)
 	}, query, args...)
 }
+
+// wrappedTransactionalDataSource extends [wrappedDataSource] with BeginTxx and BeginWrappedTxx for initiating transactions.
+type wrappedTransactionalDataSource struct {
+	wrappedDataSource
+	txdb transactional
+}
+
+func (w *wrappedTransactionalDataSource) BeginTxx(ctx context.Context, opts *sql.TxOptions) (tx *sqlx.Tx, err error) {
+	err = w.hook(ctx, w.lggr, func(ctx context.Context) (err error) {
+		tx, err = w.txdb.BeginTxx(ctx, opts)
+		return
+	}, "START TRANSACTION", nil)
+	return
+}
+
+// BeginWrappedTxx is like BeginTxx, but wraps the returned tx with the same hook.
+func (w *wrappedTransactionalDataSource) BeginWrappedTxx(ctx context.Context, opts *sql.TxOptions) (tx transaction, err error) {
+	tx, err = w.BeginTxx(ctx, opts)
+	if err != nil {
+		return nil, err
+	}
+	return &wrappedTx{
+		wrappedDataSource: wrappedDataSource{
+			db:   tx,
+			lggr: w.lggr,
+			hook: w.hook,
+		},
+		tx: tx,
+	}, nil
+}
+
+// wrappedTx extends [wrappedDataSource] with Commit and Rollback for completing a transaction.
+type wrappedTx struct {
+	wrappedDataSource
+	tx transaction
+}
+
+func (w *wrappedTx) Commit() error { return w.tx.Commit() }
+
+func (w *wrappedTx) Rollback() error { return w.tx.Rollback() }
