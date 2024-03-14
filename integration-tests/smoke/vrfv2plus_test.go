@@ -1333,7 +1333,7 @@ func TestVRFv2PlusReplayAfterTimeout(t *testing.T) {
 
 	// 1. Add job spec with requestTimeout = 5 seconds
 	timeout := time.Duration(time.Second * 5)
-	numberOfTxKeysToCreate := 2
+	numberOfTxKeysToCreate := 0
 	config.VRFv2Plus.General.VRFJobRequestTimeout = ptr.Ptr(blockchain.StrDuration{Duration: timeout})
 	config.VRFv2Plus.General.SubscriptionFundingAmountLink = ptr.Ptr(float64(0))
 	config.VRFv2Plus.General.SubscriptionFundingAmountNative = ptr.Ptr(float64(0))
@@ -1463,16 +1463,18 @@ func TestVRFv2PlusReplayAfterTimeout(t *testing.T) {
 			VRFOwnerConfig:                nil,
 		}
 
-		l.Info().Msg("Creating VRFV2 Plus Job with higher timeout (1hr)")
-		job, err := vrfv2plus.CreateVRFV2PlusJob(
-			vrfNode.CLNode.API,
-			vrfJobSpecConfig,
-		)
-		require.NoError(t, err, "error creating job with higher timeout")
-		vrfNode.Job = job
+		go func() {
+			l.Info().Msg("Creating VRFV2 Plus Job with higher timeout (1hr)")
+			job, err := vrfv2plus.CreateVRFV2PlusJob(
+				vrfNode.CLNode.API,
+				vrfJobSpecConfig,
+			)
+			require.NoError(t, err, "error creating job with higher timeout")
+			vrfNode.Job = job
+		}()
 
 		// 8. Check if initial req in underfunded sub is fulfilled now, since it has been topped up and timeout increased
-		l.Debug().Str("reqID", initialReqRandomWordsRequestedEvent.RequestId.String()).
+		l.Info().Str("reqID", initialReqRandomWordsRequestedEvent.RequestId.String()).
 			Str("subID", subID.String()).
 			Msg("Waiting for initalReqRandomWordsFulfilledEvent")
 		initalReqRandomWordsFulfilledEvent, err := vrfv2PlusContracts.CoordinatorV2Plus.WaitForRandomWordsFulfilledEvent(
@@ -1490,7 +1492,7 @@ func TestVRFv2PlusReplayAfterTimeout(t *testing.T) {
 		status, err := vrfv2PlusContracts.VRFV2PlusConsumer[0].GetRequestStatus(testcontext.Get(t), initalReqRandomWordsFulfilledEvent.RequestId)
 		require.NoError(t, err, "error getting rand request status")
 		require.True(t, status.Fulfilled)
-		l.Debug().Bool("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
+		l.Info().Bool("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
 	})
 }
 
@@ -1528,7 +1530,7 @@ func TestVRFv2PlusPendingBlockSimulationAndZeroConfirmationDelays(t *testing.T) 
 	linkToken, err := actions.DeployLINKToken(env.ContractDeployer)
 	require.NoError(t, err, "error deploying LINK contract")
 
-	numberOfTxKeysToCreate := 0
+	numberOfTxKeysToCreate := 2
 	vrfv2PlusContracts, subIDs, vrfv2PlusData, nodesMap, err := vrfv2plus.SetupVRFV2_5Environment(
 		env,
 		[]vrfcommon.VRFNodeType{vrfcommon.VRF},
