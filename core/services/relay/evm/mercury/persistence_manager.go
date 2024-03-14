@@ -20,8 +20,9 @@ var (
 )
 
 type PersistenceManager struct {
-	lggr logger.Logger
-	orm  ORM
+	lggr      logger.Logger
+	orm       ORM
+	serverURL string
 
 	once   services.StateMachine
 	stopCh services.StopChan
@@ -37,10 +38,11 @@ type PersistenceManager struct {
 	pruneFrequency        time.Duration
 }
 
-func NewPersistenceManager(lggr logger.Logger, orm ORM, jobID int32, maxTransmitQueueSize int, flushDeletesFrequency, pruneFrequency time.Duration) *PersistenceManager {
+func NewPersistenceManager(lggr logger.Logger, serverURL string, orm ORM, jobID int32, maxTransmitQueueSize int, flushDeletesFrequency, pruneFrequency time.Duration) *PersistenceManager {
 	return &PersistenceManager{
-		lggr:                  lggr.Named("MercuryPersistenceManager"),
+		lggr:                  lggr.Named("MercuryPersistenceManager").With("serverURL", serverURL),
 		orm:                   orm,
+		serverURL:             serverURL,
 		stopCh:                make(services.StopChan),
 		jobID:                 jobID,
 		maxTransmitQueueSize:  maxTransmitQueueSize,
@@ -67,11 +69,11 @@ func (pm *PersistenceManager) Close() error {
 }
 
 func (pm *PersistenceManager) Insert(ctx context.Context, req *pb.TransmitRequest, reportCtx ocrtypes.ReportContext) error {
-	return pm.orm.InsertTransmitRequest(req, pm.jobID, reportCtx, pg.WithParentCtx(ctx))
+	return pm.orm.InsertTransmitRequest(pm.serverURL, req, pm.jobID, reportCtx, pg.WithParentCtx(ctx))
 }
 
 func (pm *PersistenceManager) Delete(ctx context.Context, req *pb.TransmitRequest) error {
-	return pm.orm.DeleteTransmitRequests([]*pb.TransmitRequest{req}, pg.WithParentCtx(ctx))
+	return pm.orm.DeleteTransmitRequests(pm.serverURL, []*pb.TransmitRequest{req}, pg.WithParentCtx(ctx))
 }
 
 func (pm *PersistenceManager) AsyncDelete(req *pb.TransmitRequest) {
@@ -79,7 +81,7 @@ func (pm *PersistenceManager) AsyncDelete(req *pb.TransmitRequest) {
 }
 
 func (pm *PersistenceManager) Load(ctx context.Context) ([]*Transmission, error) {
-	return pm.orm.GetTransmitRequests(pm.jobID, pg.WithParentCtx(ctx))
+	return pm.orm.GetTransmitRequests(pm.serverURL, pm.jobID, pg.WithParentCtx(ctx))
 }
 
 func (pm *PersistenceManager) runFlushDeletesLoop() {
@@ -96,7 +98,7 @@ func (pm *PersistenceManager) runFlushDeletesLoop() {
 			return
 		case <-ticker.C:
 			queuedReqs := pm.resetDeleteQueue()
-			if err := pm.orm.DeleteTransmitRequests(queuedReqs, pg.WithParentCtx(ctx)); err != nil {
+			if err := pm.orm.DeleteTransmitRequests(pm.serverURL, queuedReqs, pg.WithParentCtx(ctx)); err != nil {
 				pm.lggr.Errorw("Failed to delete queued transmit requests", "err", err)
 				pm.addToDeleteQueue(queuedReqs...)
 			} else {
@@ -119,7 +121,7 @@ func (pm *PersistenceManager) runPruneLoop() {
 			ticker.Stop()
 			return
 		case <-ticker.C:
-			if err := pm.orm.PruneTransmitRequests(pm.jobID, pm.maxTransmitQueueSize, pg.WithParentCtx(ctx), pg.WithLongQueryTimeout()); err != nil {
+			if err := pm.orm.PruneTransmitRequests(pm.serverURL, pm.jobID, pm.maxTransmitQueueSize, pg.WithParentCtx(ctx), pg.WithLongQueryTimeout()); err != nil {
 				pm.lggr.Errorw("Failed to prune transmit requests table", "err", err)
 			} else {
 				pm.lggr.Debugw("Pruned transmit requests table")
