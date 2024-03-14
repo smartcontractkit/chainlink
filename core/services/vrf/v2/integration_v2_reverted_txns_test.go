@@ -448,7 +448,7 @@ func createVRFJobsNew(
 		jb, err := vrfcommon.ValidatedVRFSpec(s)
 		t.Log(jb.VRFSpec.PublicKey.MustHash(), vrfkey.PublicKey.MustHash())
 		require.NoError(t, err)
-		err = app.JobSpawner().CreateJob(&jb)
+		err = app.JobSpawner().CreateJob(ctx, nil, &jb)
 		require.NoError(t, err)
 		registerProvingKeyHelper(t, uni.coordinatorV2UniverseCommon, coordinator, vrfkey, ptr(gasLanePrices[i].ToInt().Uint64()))
 		jobs = append(jobs, jb)

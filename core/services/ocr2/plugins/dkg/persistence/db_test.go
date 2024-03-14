@@ -22,7 +22,7 @@ import (
 func setup(t testing.TB) (ocr2vrftypes.DKGSharePersistence, *sqlx.DB) {
 	db := pgtest.NewSqlxDB(t)
 	lggr := logger.TestLogger(t)
-	return NewShareDB(db, lggr, pgtest.NewQConfig(true), big.NewInt(1337), types.NetworkEVM), db
+	return NewShareDB(db, lggr, big.NewInt(1337), types.NetworkEVM), db
 }
 
 func TestShareDB_WriteShareRecords(t *testing.T) {
