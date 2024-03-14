@@ -20,7 +20,7 @@ require (
 	github.com/pelletier/go-toml/v2 v2.1.1
 	github.com/prometheus/client_golang v1.17.0
 	github.com/shopspring/decimal v1.3.1
-	github.com/smartcontractkit/chainlink-automation v1.0.2-0.20240118014648-1ab6a88c9429
+	github.com/smartcontractkit/chainlink-automation v1.0.2-0.20240311111125-22812a072c35
 	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240306173252-5cbf83ca3a69
 	github.com/smartcontractkit/chainlink-vrf v0.0.0-20231120191722-fef03814f868
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
@@ -157,8 +157,8 @@ require (
 	github.com/gorilla/securecookie v1.1.2 // indirect
 	github.com/gorilla/sessions v1.2.2 // indirect
 	github.com/gorilla/websocket v1.5.1 // indirect
-	github.com/grafana/pyroscope-go v1.0.4 // indirect
-	github.com/grafana/pyroscope-go/godeltaprof v0.1.4 // indirect
+	github.com/grafana/pyroscope-go v1.1.1 // indirect
+	github.com/grafana/pyroscope-go/godeltaprof v0.1.6 // indirect
 	github.com/graph-gophers/dataloader v5.0.0+incompatible // indirect
 	github.com/graph-gophers/graphql-go v1.3.0 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0 // indirect
@@ -195,7 +195,7 @@ require (
 	github.com/jmhodges/levigo v1.0.0 // indirect
 	github.com/jpillora/backoff v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/klauspost/compress v1.17.2 // indirect
+	github.com/klauspost/compress v1.17.3 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.5 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/kr/text v0.2.0 // indirect

@@ -408,6 +408,7 @@ describe('AutomationRegistry2_3', () => {
   let payee3: Signer
   let payee4: Signer
   let payee5: Signer
+  let financeAdmin: Signer
 
   let upkeepId: BigNumber // conditional upkeep
   let afUpkeepId: BigNumber // auto funding upkeep
@@ -467,6 +468,7 @@ describe('AutomationRegistry2_3', () => {
     payee4 = personas.Eddy
     payee5 = personas.Carol
     upkeepManager = await personas.Norbert.getAddress()
+    financeAdmin = personas.Nick
     // signers
     signer1 = new ethers.Wallet(
       '0x7777777000000000000000000000000000000000000000000000000000000001',
@@ -636,6 +638,8 @@ describe('AutomationRegistry2_3', () => {
       )
       .add(chainModuleOverheads.chainModuleFixedOverhead)
 
+    const financeAdminAddress = await financeAdmin.getAddress()
+
     for (const test of tests) {
       await registry.connect(owner).setConfig(
         signerAddresses,
@@ -661,6 +665,7 @@ describe('AutomationRegistry2_3', () => {
             upkeepPrivilegeManager: upkeepManager,
             chainModule: chainModule.address,
             reorgProtectionEnabled: true,
+            financeAdmin: financeAdminAddress,
           },
           [],
           [],
@@ -711,19 +716,20 @@ describe('AutomationRegistry2_3', () => {
         (await registry.getTransmitterInfo(keeperAddresses[i])).balance,
       )
     }
-    const ownerBalance = (await registry.getState()).state.ownerLinkBalance
+
+    const linkAvailableForPayment = await registry.linkAvailableForPayment()
     assert.isTrue(expectedLinkBalance.eq(linkTokenBalance))
     assert.isTrue(
       upkeepIdBalance
         .add(totalKeeperBalance)
-        .add(ownerBalance)
+        .add(linkAvailableForPayment)
         .lte(expectedLinkBalance),
     )
     assert.isTrue(
       expectedLinkBalance
         .sub(upkeepIdBalance)
         .sub(totalKeeperBalance)
-        .sub(ownerBalance)
+        .sub(linkAvailableForPayment)
         .lte(maxAllowedSpareChange),
     )
   }
@@ -905,6 +911,7 @@ describe('AutomationRegistry2_3', () => {
       '0x0000000000000000000000000000000000000064',
       arbSysCode,
     ])
+    const financeAdminAddress = await financeAdmin.getAddress()
 
     config = {
       paymentPremiumPPB,
@@ -925,6 +932,7 @@ describe('AutomationRegistry2_3', () => {
       upkeepPrivilegeManager: upkeepManager,
       chainModule: chainModuleBase.address,
       reorgProtectionEnabled: true,
+      financeAdmin: financeAdminAddress,
     }
 
     arbConfig = { ...config }
@@ -2849,26 +2857,6 @@ describe('AutomationRegistry2_3', () => {
         .connect(admin)
         .withdrawFunds(id1, await nonkeeper.getAddress())
     })
-
-    it('reverts if not called by owner', async () => {
-      await evmRevert(
-        registry.connect(keeper1).recoverFunds(),
-        'Only callable by owner',
-      )
-    })
-
-    it('allows any funds that have been accidentally transfered to be moved', async () => {
-      const balanceBefore = await linkToken.balanceOf(registry.address)
-      const ownerBefore = await linkToken.balanceOf(await owner.getAddress())
-
-      await registry.connect(owner).recoverFunds()
-
-      const balanceAfter = await linkToken.balanceOf(registry.address)
-      const ownerAfter = await linkToken.balanceOf(await owner.getAddress())
-
-      assert.isTrue(balanceBefore.eq(balanceAfter.add(sent)))
-      assert.isTrue(ownerAfter.eq(ownerBefore.add(sent)))
-    })
   })
 
   describe('#getMinBalanceForUpkeep / #checkUpkeep / #transmit', () => {
@@ -3701,6 +3689,7 @@ describe('AutomationRegistry2_3', () => {
     const newTranscoder = randomAddress()
     const newRegistrars = [randomAddress(), randomAddress()]
     const upkeepManager = randomAddress()
+    const financeAdminAddress = randomAddress()
 
     const newConfig: OnChainConfig = {
       paymentPremiumPPB: payment,
@@ -3721,6 +3710,7 @@ describe('AutomationRegistry2_3', () => {
       upkeepPrivilegeManager: upkeepManager,
       chainModule: chainModuleBase.address,
       reorgProtectionEnabled: true,
+      financeAdmin: financeAdminAddress,
     }
 
     it('reverts when called by anyone but the proposed owner', async () => {
@@ -4709,15 +4699,16 @@ describe('AutomationRegistry2_3', () => {
   })
 
   describe('#withdrawOwnerFunds', () => {
-    it('can only be called by owner', async () => {
+    it('can only be called by finance admin', async () => {
       await evmRevert(
-        registry.connect(keeper1).withdrawOwnerFunds(),
-        'Only callable by owner',
+        registry.connect(keeper1).withdrawLinkFees(zeroAddress, 1),
+        'OnlyFinanceAdmin()',
       )
     })
 
     itMaybe('withdraws the collected fees to owner', async () => {
       await registry.connect(admin).addFunds(upkeepId, toWei('100'))
+      const financeAdminAddress = await financeAdmin.getAddress()
       // Very high min spend, whole balance as cancellation fees
       const minUpkeepSpend = toWei('1000')
       await registry.connect(owner).setConfigTypeSafe(
@@ -4743,6 +4734,7 @@ describe('AutomationRegistry2_3', () => {
           upkeepPrivilegeManager: upkeepManager,
           chainModule: chainModuleBase.address,
           reorgProtectionEnabled: true,
+          financeAdmin: financeAdminAddress,
         },
         offchainVersion,
         offchainBytes,
@@ -4755,14 +4747,15 @@ describe('AutomationRegistry2_3', () => {
       await registry.connect(owner).cancelUpkeep(upkeepId)
 
       // Transfered to owner balance on registry
-      let ownerRegistryBalance = (await registry.getState()).state
-        .ownerLinkBalance
+      let ownerRegistryBalance = await registry.linkAvailableForPayment()
       assert.isTrue(ownerRegistryBalance.eq(upkeepBalance))
 
       // Now withdraw
-      await registry.connect(owner).withdrawOwnerFunds()
+      await registry
+        .connect(financeAdmin)
+        .withdrawLinkFees(await owner.getAddress(), ownerRegistryBalance)
 
-      ownerRegistryBalance = (await registry.getState()).state.ownerLinkBalance
+      ownerRegistryBalance = await registry.linkAvailableForPayment()
       const ownerAfter = await linkToken.balanceOf(await owner.getAddress())
 
       // Owner registry balance should be changed to 0
@@ -5366,8 +5359,9 @@ describe('AutomationRegistry2_3', () => {
           await getTransmitTx(registry, keeper1, [upkeepId])
         })
 
-        it('deducts a cancellation fee from the upkeep and gives to owner', async () => {
+        it('deducts a cancellation fee from the upkeep and adds to reserve', async () => {
           const minUpkeepSpend = toWei('10')
+          const financeAdminAddress = await financeAdmin.getAddress()
 
           await registry.connect(owner).setConfigTypeSafe(
             signerAddresses,
@@ -5392,6 +5386,7 @@ describe('AutomationRegistry2_3', () => {
               upkeepPrivilegeManager: upkeepManager,
               chainModule: chainModuleBase.address,
               reorgProtectionEnabled: true,
+              financeAdmin: financeAdminAddress,
             },
             offchainVersion,
             offchainBytes,
@@ -5403,7 +5398,7 @@ describe('AutomationRegistry2_3', () => {
             await payee1.getAddress(),
           )
           const upkeepBefore = (await registry.getUpkeep(upkeepId)).balance
-          const ownerBefore = (await registry.getState()).state.ownerLinkBalance
+          const ownerBefore = await registry.linkAvailableForPayment()
 
           const amountSpent = toWei('100').sub(upkeepBefore)
           const cancellationFee = minUpkeepSpend.sub(amountSpent)
@@ -5414,7 +5409,7 @@ describe('AutomationRegistry2_3', () => {
             await payee1.getAddress(),
           )
           const upkeepAfter = (await registry.getUpkeep(upkeepId)).balance
-          const ownerAfter = (await registry.getState()).state.ownerLinkBalance
+          const ownerAfter = await registry.linkAvailableForPayment()
 
           // post upkeep balance should be previous balance minus cancellation fee
           assert.isTrue(upkeepBefore.sub(cancellationFee).eq(upkeepAfter))
@@ -5427,6 +5422,8 @@ describe('AutomationRegistry2_3', () => {
         it('deducts up to balance as cancellation fee', async () => {
           // Very high min spend, should deduct whole balance as cancellation fees
           const minUpkeepSpend = toWei('1000')
+          const financeAdminAddress = await financeAdmin.getAddress()
+
           await registry.connect(owner).setConfigTypeSafe(
             signerAddresses,
             keeperAddresses,
@@ -5450,6 +5447,7 @@ describe('AutomationRegistry2_3', () => {
               upkeepPrivilegeManager: upkeepManager,
               chainModule: chainModuleBase.address,
               reorgProtectionEnabled: true,
+              financeAdmin: financeAdminAddress,
             },
             offchainVersion,
             offchainBytes,
@@ -5460,13 +5458,13 @@ describe('AutomationRegistry2_3', () => {
             await payee1.getAddress(),
           )
           const upkeepBefore = (await registry.getUpkeep(upkeepId)).balance
-          const ownerBefore = (await registry.getState()).state.ownerLinkBalance
+          const ownerBefore = await registry.linkAvailableForPayment()
 
           await registry.connect(admin).cancelUpkeep(upkeepId)
           const payee1After = await linkToken.balanceOf(
             await payee1.getAddress(),
           )
-          const ownerAfter = (await registry.getState()).state.ownerLinkBalance
+          const ownerAfter = await registry.linkAvailableForPayment()
           const upkeepAfter = (await registry.getUpkeep(upkeepId)).balance
 
           // all upkeep balance is deducted for cancellation fee
@@ -5480,6 +5478,8 @@ describe('AutomationRegistry2_3', () => {
         it('does not deduct cancellation fee if more than minUpkeepSpend is spent', async () => {
           // Very low min spend, already spent in one perform upkeep
           const minUpkeepSpend = BigNumber.from(420)
+          const financeAdminAddress = await financeAdmin.getAddress()
+
           await registry.connect(owner).setConfigTypeSafe(
             signerAddresses,
             keeperAddresses,
@@ -5503,6 +5503,7 @@ describe('AutomationRegistry2_3', () => {
               upkeepPrivilegeManager: upkeepManager,
               chainModule: chainModuleBase.address,
               reorgProtectionEnabled: true,
+              financeAdmin: financeAdminAddress,
             },
             offchainVersion,
             offchainBytes,
@@ -5513,13 +5514,13 @@ describe('AutomationRegistry2_3', () => {
             await payee1.getAddress(),
           )
           const upkeepBefore = (await registry.getUpkeep(upkeepId)).balance
-          const ownerBefore = (await registry.getState()).state.ownerLinkBalance
+          const ownerBefore = await registry.linkAvailableForPayment()
 
           await registry.connect(admin).cancelUpkeep(upkeepId)
           const payee1After = await linkToken.balanceOf(
             await payee1.getAddress(),
           )
-          const ownerAfter = (await registry.getState()).state.ownerLinkBalance
+          const ownerAfter = await registry.linkAvailableForPayment()
           const upkeepAfter = (await registry.getUpkeep(upkeepId)).balance
 
           // upkeep does not pay cancellation fee after cancellation because minimum upkeep spent is met
@@ -5571,7 +5572,7 @@ describe('AutomationRegistry2_3', () => {
       const registryLinkBefore = await linkToken.balanceOf(registry.address)
       const registryPremiumBefore = (await registry.getState()).state
         .totalPremium
-      const ownerBefore = (await registry.getState()).state.ownerLinkBalance
+      const ownerBefore = await registry.linkAvailableForPayment()
 
       // Withdrawing for first time, last collected = 0
       assert.equal(keeperBefore.lastCollected.toString(), '0')
@@ -5589,7 +5590,7 @@ describe('AutomationRegistry2_3', () => {
       const registryLinkAfter = await linkToken.balanceOf(registry.address)
       const registryPremiumAfter = (await registry.getState()).state
         .totalPremium
-      const ownerAfter = (await registry.getState()).state.ownerLinkBalance
+      const ownerAfter = await registry.linkAvailableForPayment()
 
       // registry total premium should not change
       assert.isTrue(registryPremiumBefore.eq(registryPremiumAfter))
