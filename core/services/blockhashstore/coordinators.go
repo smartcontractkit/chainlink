@@ -250,7 +250,7 @@ type V2PlusCoordinator struct {
 	lp logpoller.LogPoller
 }
 
-// NewV2Coordinator creates a new V2Coordinator from the given contract.
+// NewV2PlusCoordinator creates a new V2Coordinator from the given contract.
 func NewV2PlusCoordinator(c v2plus.IVRFCoordinatorV2PlusInternalInterface, lp logpoller.LogPoller) (*V2PlusCoordinator, error) {
 	err := lp.RegisterFilter(logpoller.Filter{
 		Name: logpoller.FilterName("VRFv2PlusCoordinatorFeeder", c.Address()),

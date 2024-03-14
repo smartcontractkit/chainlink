@@ -274,7 +274,7 @@ func getPublicKey(c *cli.Context) (secp256k1.PublicKey, error) {
 	return publicKey, nil
 }
 
-// ListKeys Lists the keys in the db
+// ListVRFKeys Lists the keys in the db
 func (s *Shell) ListVRFKeys(_ *cli.Context) error {
 	resp, err := s.HTTP.Get(s.ctx(), "/v2/keys/vrf", nil)
 	if err != nil {

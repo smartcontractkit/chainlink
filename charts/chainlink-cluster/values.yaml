@@ -6,7 +6,7 @@
 #    limits:
 #      cpu: 350m
 #      memory: 1024Mi
-# images can be overriden for the same keys:
+# images can be overridden for the same keys:
 #   image: ethereum/client-go
 #   version: stable
 chainlink:
