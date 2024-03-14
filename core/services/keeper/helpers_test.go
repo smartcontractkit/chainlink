@@ -8,7 +8,15 @@ import (
 )
 
 func (rs *RegistrySynchronizer) ExportedFullSync() {
-	rs.fullSync()
+	ctx, cancel := rs.chStop.NewCtx()
+	defer cancel()
+	rs.fullSync(ctx)
+}
+
+func (rs *RegistrySynchronizer) ExportedProcessLogs() {
+	ctx, cancel := rs.chStop.NewCtx()
+	defer cancel()
+	rs.processLogs(ctx)
 }
 
 func (rw *RegistryWrapper) GetUpkeepIdFromRawRegistrationLog(rawLog types.Log) (*big.Int, error) {

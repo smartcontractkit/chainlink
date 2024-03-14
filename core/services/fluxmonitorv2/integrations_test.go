@@ -415,10 +415,11 @@ func checkLogWasConsumed(t *testing.T, fa fluxAggregatorUniverse, db *sqlx.DB, p
 
 	g := gomega.NewWithT(t)
 	g.Eventually(func() bool {
+		ctx := testutils.Context(t)
 		block := fa.backend.Blockchain().GetBlockByNumber(blockNumber)
 		require.NotNil(t, block)
 		orm := log.NewORM(db, fa.evmChainID)
-		consumed, err := orm.WasBroadcastConsumed(testutils.Context(t), block.Hash(), 0, pipelineSpecID)
+		consumed, err := orm.WasBroadcastConsumed(ctx, block.Hash(), 0, pipelineSpecID)
 		require.NoError(t, err)
 		fa.backend.Commit()
 		return consumed
@@ -483,7 +484,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 			)
 			t.Cleanup(mockServer.Close)
 			u, _ := url.Parse(mockServer.URL)
-			require.NoError(t, app.BridgeORM().CreateBridgeType(&bridges.BridgeType{
+			require.NoError(t, app.BridgeORM().CreateBridgeType(testutils.Context(t), &bridges.BridgeType{
 				Name: "bridge",
 				URL:  models.WebURL(*u),
 			}))

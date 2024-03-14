@@ -212,8 +212,8 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 					ChainOpts: legacyevm.ChainOpts{
 						AppConfig: cfg,
 						MailMon:   &mailbox.Monitor{},
-						SqlxDB:    db,
 						DB:        db,
+						DS:        db,
 					},
 					CSAETHKeystore: keyStore,
 				}),
@@ -287,8 +287,8 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 						AppConfig: cfg,
 
 						MailMon: &mailbox.Monitor{},
-						SqlxDB:  db,
 						DB:      db,
+						DS:      db,
 					},
 					CSAETHKeystore: keyStore,
 				}),

@@ -117,14 +117,14 @@ func (rs *RegistrySynchronizer) run() {
 	ctx, cancel := rs.chStop.NewCtx()
 	defer cancel()
 
-	rs.fullSync()
+	rs.fullSync(ctx)
 
 	for {
 		select {
 		case <-rs.chStop:
 			return
 		case <-syncTicker.Ticks():
-			rs.fullSync()
+			rs.fullSync(ctx)
 			syncTicker.Reset(rs.interval)
 		case <-rs.mbLogs.Notify():
 			rs.processLogs(ctx)

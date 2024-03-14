@@ -424,7 +424,7 @@ func AddBootstrapJob(t *testing.T, app *cltest.TestApplication, contractAddress 
 func AddOCR2Job(t *testing.T, app *cltest.TestApplication, contractAddress common.Address, keyBundleID string, transmitter common.Address, bridgeURL string) job.Job {
 	u, err := url.Parse(bridgeURL)
 	require.NoError(t, err)
-	require.NoError(t, app.BridgeORM().CreateBridgeType(&bridges.BridgeType{
+	require.NoError(t, app.BridgeORM().CreateBridgeType(testutils.Context(t), &bridges.BridgeType{
 		Name: "ea_bridge",
 		URL:  models.WebURL(*u),
 	}))

@@ -175,7 +175,7 @@ func TestIntegration_ExternalInitiatorV2(t *testing.T) {
 			require.NoError(t, err)
 		}))
 		u, _ := url.Parse(bridgeServer.URL)
-		err := app.BridgeORM().CreateBridgeType(&bridges.BridgeType{
+		err := app.BridgeORM().CreateBridgeType(testutils.Context(t), &bridges.BridgeType{
 			Name: bridges.BridgeName("substrate-adapter1"),
 			URL:  models.WebURL(*u),
 		})
@@ -236,9 +236,9 @@ observationSource   = """
 
 		_ = cltest.CreateJobRunViaExternalInitiatorV2(t, app, jobUUID, *eia, cltest.MustJSONMarshal(t, eiRequest))
 
-		pipelineORM := pipeline.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
-		bridgeORM := bridges.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg.Database())
-		jobORM := job.NewORM(app.GetSqlxDB(), pipelineORM, bridgeORM, app.KeyStore, logger.TestLogger(t), cfg.Database())
+		pipelineORM := pipeline.NewORM(app.GetDS(), logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
+		bridgeORM := bridges.NewORM(app.GetDS())
+		jobORM := job.NewORM(app.GetDS(), pipelineORM, bridgeORM, app.KeyStore, logger.TestLogger(t))
 
 		runs := cltest.WaitForPipelineComplete(t, 0, jobID, 1, 2, jobORM, 5*time.Second, 300*time.Millisecond)
 		require.Len(t, runs, 1)
@@ -773,7 +773,7 @@ func setupForwarderEnabledNode(t *testing.T, owner *bind.TransactOpts, portV2 in
 	b.Commit()
 
 	// add forwarder address to be tracked in db
-	forwarderORM := forwarders.NewORM(app.GetDB())
+	forwarderORM := forwarders.NewORM(app.GetDS())
 	chainID := ubig.Big(*b.Blockchain().Config().ChainID)
 	_, err = forwarderORM.CreateForwarder(testutils.Context(t), forwarder, chainID)
 	require.NoError(t, err)
@@ -927,7 +927,7 @@ isBootstrapPeer    = true
 				}))
 				t.Cleanup(servers[i].Close)
 				u, _ := url.Parse(servers[i].URL)
-				err := apps[i].BridgeORM().CreateBridgeType(&bridges.BridgeType{
+				err := apps[i].BridgeORM().CreateBridgeType(testutils.Context(t), &bridges.BridgeType{
 					Name: bridges.BridgeName(fmt.Sprintf("bridge%d", i)),
 					URL:  models.WebURL(*u),
 				})
@@ -989,8 +989,9 @@ observationSource = """
 				return answer.String()
 			}, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal("20"))
 
+			ctx := testutils.Context(t)
 			for _, app := range apps {
-				jobs, _, err := app.JobORM().FindJobs(0, 1000)
+				jobs, _, err := app.JobORM().FindJobs(ctx, 0, 1000)
 				require.NoError(t, err)
 				// No spec errors
 				for _, j := range jobs {
@@ -1153,7 +1154,7 @@ isBootstrapPeer    = true
 			}))
 			t.Cleanup(servers[i].Close)
 			u, _ := url.Parse(servers[i].URL)
-			err := apps[i].BridgeORM().CreateBridgeType(&bridges.BridgeType{
+			err := apps[i].BridgeORM().CreateBridgeType(testutils.Context(t), &bridges.BridgeType{
 				Name: bridges.BridgeName(fmt.Sprintf("bridge%d", i)),
 				URL:  models.WebURL(*u),
 			})
@@ -1217,8 +1218,9 @@ observationSource = """
 			return answer.String()
 		}, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal("20"))
 
+		ctx := testutils.Context(t)
 		for _, app := range apps {
-			jobs, _, err := app.JobORM().FindJobs(0, 1000)
+			jobs, _, err := app.JobORM().FindJobs(ctx, 0, 1000)
 			require.NoError(t, err)
 			// No spec errors
 			for _, j := range jobs {

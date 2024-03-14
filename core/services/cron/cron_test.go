@@ -27,9 +27,9 @@ func TestCronV2Pipeline(t *testing.T) {
 
 	keyStore := cltest.NewKeyStore(t, db, cfg.Database())
 	lggr := logger.TestLogger(t)
-	orm := pipeline.NewORM(db, lggr, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
-	btORM := bridges.NewORM(db, lggr, cfg.Database())
-	jobORM := job.NewORM(db, orm, btORM, keyStore, lggr, cfg.Database())
+	orm := pipeline.NewORM(db, lggr, cfg.JobPipeline().MaxSuccessfulRuns())
+	btORM := bridges.NewORM(db)
+	jobORM := job.NewORM(db, orm, btORM, keyStore, lggr)
 
 	jb := &job.Job{
 		Type:          job.Cron,
@@ -40,7 +40,7 @@ func TestCronV2Pipeline(t *testing.T) {
 	}
 	delegate := cron.NewDelegate(runner, lggr)
 
-	require.NoError(t, jobORM.CreateJob(jb))
+	require.NoError(t, jobORM.CreateJob(testutils.Context(t), jb))
 	serviceArray, err := delegate.ServicesForSpec(testutils.Context(t), *jb)
 	require.NoError(t, err)
 	assert.Len(t, serviceArray, 1)

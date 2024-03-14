@@ -49,6 +49,7 @@ nil Keystore`,
 		t.Run(tt.name, func(t *testing.T) {
 			c := evm.RelayerOpts{
 				DB:             tt.fields.DB,
+				DS:             tt.fields.DB,
 				QConfig:        tt.fields.QConfig,
 				CSAETHKeystore: tt.fields.CSAETHKeystore,
 			}

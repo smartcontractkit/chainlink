@@ -39,8 +39,8 @@ func TestAdapter_Integration(t *testing.T) {
 	require.NoError(t, err)
 
 	keystore := keystore.NewInMemory(db, utils.FastScryptParams, logger, cfg.Database())
-	pipelineORM := pipeline.NewORM(db, logger, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
-	bridgesORM := bridges.NewORM(db, logger, cfg.Database())
+	pipelineORM := pipeline.NewORM(db, logger, cfg.JobPipeline().MaxSuccessfulRuns())
+	bridgesORM := bridges.NewORM(db)
 	pr := pipeline.NewRunner(
 		pipelineORM,
 		bridgesORM,

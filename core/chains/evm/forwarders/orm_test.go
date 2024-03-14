@@ -18,7 +18,7 @@ import (
 
 type TestORM struct {
 	ORM
-	db sqlutil.DataSource
+	ds sqlutil.DataSource
 }
 
 func setupORM(t *testing.T) *TestORM {
@@ -29,7 +29,7 @@ func setupORM(t *testing.T) *TestORM {
 		orm = NewORM(db)
 	)
 
-	return &TestORM{ORM: orm, db: db}
+	return &TestORM{ORM: orm, ds: db}
 }
 
 // Tests the atomicity of cleanup function passed to DeleteForwarder, during DELETE operation

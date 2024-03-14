@@ -38,7 +38,7 @@ func (rs *RegistrySynchronizer) processLogs(ctx context.Context) {
 			*registry1_2.KeeperRegistryConfigSet,
 			*registry1_3.KeeperRegistryKeepersUpdated,
 			*registry1_3.KeeperRegistryConfigSet:
-			err = rs.handleSyncRegistryLog(broadcast)
+			err = rs.handleSyncRegistryLog(ctx, broadcast)
 
 		case *registry1_1.KeeperRegistryUpkeepCanceled,
 			*registry1_2.KeeperRegistryUpkeepCanceled,
@@ -82,20 +82,23 @@ func (rs *RegistrySynchronizer) processLogs(ctx context.Context) {
 		}
 
 		if err != nil {
+			if ctx.Err() != nil {
+				return
+			}
 			rs.logger.Error(err)
 		}
 
-		err = rs.logBroadcaster.MarkConsumed(ctx, broadcast)
+		err = rs.logBroadcaster.MarkConsumed(ctx, nil, broadcast)
 		if err != nil {
 			rs.logger.Error(errors.Wrapf(err, "unable to mark %T log as consumed, log: %v", broadcast.RawLog(), broadcast.String()))
 		}
 	}
 }
 
-func (rs *RegistrySynchronizer) handleSyncRegistryLog(broadcast log.Broadcast) error {
+func (rs *RegistrySynchronizer) handleSyncRegistryLog(ctx context.Context, broadcast log.Broadcast) error {
 	rs.logger.Debugw("processing SyncRegistry log", "txHash", broadcast.RawLog().TxHash.Hex())
 
-	_, err := rs.syncRegistry()
+	_, err := rs.syncRegistry(ctx)
 	if err != nil {
 		return errors.Wrap(err, "unable to sync registry")
 	}

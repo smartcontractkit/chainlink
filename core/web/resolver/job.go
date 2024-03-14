@@ -113,7 +113,7 @@ func (r *JobResolver) Runs(ctx context.Context, args struct {
 		limit = 100
 	}
 
-	ids, err := r.app.JobORM().FindPipelineRunIDsByJobID(r.j.ID, offset, limit)
+	ids, err := r.app.JobORM().FindPipelineRunIDsByJobID(ctx, r.j.ID, offset, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -123,7 +123,7 @@ func (r *JobResolver) Runs(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	count, err := r.app.JobORM().CountPipelineRunsByJobID(r.j.ID)
+	count, err := r.app.JobORM().CountPipelineRunsByJobID(ctx, r.j.ID)
 	if err != nil {
 		return nil, err
 	}

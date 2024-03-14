@@ -1,6 +1,7 @@
 package log
 
 import (
+	"context"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -18,8 +19,8 @@ type testListener struct {
 	jobID int32
 }
 
-func (tl testListener) JobID() int32        { return tl.jobID }
-func (tl testListener) HandleLog(Broadcast) { panic("not implemented") }
+func (tl testListener) JobID() int32                         { return tl.jobID }
+func (tl testListener) HandleLog(context.Context, Broadcast) { panic("not implemented") }
 
 func newTestListener(t *testing.T, jobID int32) testListener {
 	return testListener{jobID}

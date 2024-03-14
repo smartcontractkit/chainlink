@@ -78,14 +78,15 @@ func TestMigrate_0100_BootstrapConfigs(t *testing.T) {
 	err := goose.UpTo(db.DB, migrationDir, 99)
 	require.NoError(t, err)
 
-	pipelineORM := pipeline.NewORM(db, lggr, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
-	pipelineID, err := pipelineORM.CreateSpec(pipeline.Pipeline{}, 0)
+	pipelineORM := pipeline.NewORM(db, lggr, cfg.JobPipeline().MaxSuccessfulRuns())
+	ctx := testutils.Context(t)
+	pipelineID, err := pipelineORM.CreateSpec(ctx, pipeline.Pipeline{}, 0)
 	require.NoError(t, err)
-	pipelineID2, err := pipelineORM.CreateSpec(pipeline.Pipeline{}, 0)
+	pipelineID2, err := pipelineORM.CreateSpec(ctx, pipeline.Pipeline{}, 0)
 	require.NoError(t, err)
-	nonBootstrapPipelineID, err := pipelineORM.CreateSpec(pipeline.Pipeline{}, 0)
+	nonBootstrapPipelineID, err := pipelineORM.CreateSpec(ctx, pipeline.Pipeline{}, 0)
 	require.NoError(t, err)
-	newFormatBoostrapPipelineID2, err := pipelineORM.CreateSpec(pipeline.Pipeline{}, 0)
+	newFormatBoostrapPipelineID2, err := pipelineORM.CreateSpec(ctx, pipeline.Pipeline{}, 0)
 	require.NoError(t, err)
 
 	// OCR2 struct at migration v0099

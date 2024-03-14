@@ -207,12 +207,12 @@ func (_m *Application) GetConfig() chainlink.GeneralConfig {
 	return r0
 }
 
-// GetDB provides a mock function with given fields:
-func (_m *Application) GetDB() sqlutil.DataSource {
+// GetDS provides a mock function with given fields:
+func (_m *Application) GetDS() sqlutil.DataSource {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
-		panic("no return value specified for GetDB")
+		panic("no return value specified for GetDS")
 	}
 
 	var r0 sqlutil.DataSource

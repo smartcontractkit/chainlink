@@ -47,7 +47,7 @@ func makeBridge(t *testing.T, db *sqlx.DB, expectedRequest, response interface{}
 	bridgeFeedURL, err := url.ParseRequestURI(server.URL)
 	require.NoError(t, err)
 
-	_, bt := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: bridgeFeedURL.String()}, cfg)
+	_, bt := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: bridgeFeedURL.String()})
 
 	return server, *bt
 }

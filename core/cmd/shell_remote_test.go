@@ -225,7 +225,7 @@ func TestShell_DestroyExternalInitiator(t *testing.T) {
 		&bridges.ExternalInitiatorRequest{Name: uuid.New().String()},
 	)
 	require.NoError(t, err)
-	err = app.BridgeORM().CreateExternalInitiator(exi)
+	err = app.BridgeORM().CreateExternalInitiator(testutils.Context(t), exi)
 	require.NoError(t, err)
 
 	set := flag.NewFlagSet("test", 0)
@@ -579,8 +579,8 @@ func TestShell_RunOCRJob_HappyPath(t *testing.T) {
 
 	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
 
-	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig().Database())
-	_, bridge2 := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig().Database())
+	_, bridge := cltest.MustCreateBridge(t, app.GetDS(), cltest.BridgeOpts{})
+	_, bridge2 := cltest.MustCreateBridge(t, app.GetDS(), cltest.BridgeOpts{})
 
 	var jb job.Job
 	ocrspec := testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{DS1BridgeName: bridge.Name.String(), DS2BridgeName: bridge2.Name.String()})

@@ -26,7 +26,7 @@ type EVMForwardersController struct {
 
 // Index lists EVM forwarders.
 func (cc *EVMForwardersController) Index(c *gin.Context, size, page, offset int) {
-	orm := forwarders.NewORM(cc.App.GetDB())
+	orm := forwarders.NewORM(cc.App.GetDS())
 	fwds, count, err := orm.FindForwarders(c.Request.Context(), 0, size)
 
 	if err != nil {
@@ -56,7 +56,7 @@ func (cc *EVMForwardersController) Track(c *gin.Context) {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return
 	}
-	orm := forwarders.NewORM(cc.App.GetDB())
+	orm := forwarders.NewORM(cc.App.GetDS())
 	fwd, err := orm.CreateForwarder(c.Request.Context(), request.Address, *request.EVMChainID)
 
 	if err != nil {
@@ -95,7 +95,7 @@ func (cc *EVMForwardersController) Delete(c *gin.Context) {
 		return chain.LogPoller().UnregisterFilter(c.Request.Context(), forwarders.FilterName(addr))
 	}
 
-	orm := forwarders.NewORM(cc.App.GetDB())
+	orm := forwarders.NewORM(cc.App.GetDS())
 	err = orm.DeleteForwarder(c.Request.Context(), id, filterCleanup)
 
 	if err != nil {

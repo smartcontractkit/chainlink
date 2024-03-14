@@ -91,8 +91,8 @@ func TestShell_RunNodeWithPasswords(t *testing.T) {
 				ChainOpts: legacyevm.ChainOpts{
 					AppConfig: cfg,
 					MailMon:   &mailbox.Monitor{},
-					SqlxDB:    db,
 					DB:        db,
+					DS:        db,
 				},
 			}
 			testRelayers := genTestEVMRelayers(t, opts, keyStore)
@@ -196,8 +196,8 @@ func TestShell_RunNodeWithAPICredentialsFile(t *testing.T) {
 				ChainOpts: legacyevm.ChainOpts{
 					AppConfig: cfg,
 					MailMon:   &mailbox.Monitor{},
-					SqlxDB:    db,
 					DB:        db,
+					DS:        db,
 				},
 			}
 			testRelayers := genTestEVMRelayers(t, opts, keyStore)

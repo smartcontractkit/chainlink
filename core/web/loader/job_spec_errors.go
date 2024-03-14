@@ -7,7 +7,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/stringutils"
 )
 
@@ -29,7 +28,7 @@ func (b *jobSpecErrorsBatcher) loadByJobIDs(ctx context.Context, keys dataloader
 		keyOrder[key.String()] = ix
 	}
 
-	specErrors, err := b.app.JobORM().FindSpecErrorsByJobIDs(jobIDs, pg.WithParentCtx(ctx))
+	specErrors, err := b.app.JobORM().FindSpecErrorsByJobIDs(ctx, jobIDs)
 	if err != nil {
 		return []*dataloader.Result{{Data: nil, Error: err}}
 	}

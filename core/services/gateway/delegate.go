@@ -9,6 +9,7 @@ import (
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
@@ -41,10 +42,12 @@ func (d *Delegate) JobType() job.Type {
 	return job.Gateway
 }
 
-func (d *Delegate) BeforeJobCreated(spec job.Job)                                     {}
-func (d *Delegate) AfterJobCreated(spec job.Job)                                      {}
-func (d *Delegate) BeforeJobDeleted(spec job.Job)                                     {}
-func (d *Delegate) OnDeleteJob(ctx context.Context, spec job.Job, q pg.Queryer) error { return nil }
+func (d *Delegate) BeforeJobCreated(spec job.Job) {}
+func (d *Delegate) AfterJobCreated(spec job.Job)  {}
+func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
+func (d *Delegate) OnDeleteJob(ctx context.Context, spec job.Job, q sqlutil.DataSource) error {
+	return nil
+}
 
 // ServicesForSpec returns the scheduler to be used for running observer jobs
 func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services []job.ServiceCtx, err error) {

@@ -9,14 +9,13 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
@@ -60,12 +59,10 @@ type (
 		Register(listener Listener, opts ListenerOpts) (unsubscribe func())
 
 		WasAlreadyConsumed(ctx context.Context, lb Broadcast) (bool, error)
-		MarkConsumed(ctx context.Context, lb Broadcast) error
+		// ds is optional
+		MarkConsumed(ctx context.Context, ds sqlutil.DataSource, lb Broadcast) error
 
-		// MarkManyConsumed marks all the provided log broadcasts as consumed.
-		MarkManyConsumed(ctx context.Context, lbs []Broadcast) error
-
-		// NOTE: WasAlreadyConsumed, MarkConsumed and MarkManyConsumed MUST be used within a single goroutine in order for WasAlreadyConsumed to be accurate
+		// NOTE: WasAlreadyConsumed, and MarkConsumed MUST be used within a single goroutine in order for WasAlreadyConsumed to be accurate
 	}
 
 	BroadcasterInTest interface {
@@ -422,12 +419,15 @@ func (b *broadcaster) eventLoop(chRawLogs <-chan types.Log, chErr <-chan error) 
 	debounceResubscribe := time.NewTicker(1 * time.Second)
 	defer debounceResubscribe.Stop()
 
+	ctx, cancel := b.chStop.NewCtx()
+	defer cancel()
+
 	b.logger.Debug("Starting the event loop")
 	for {
 		// Replay requests take priority.
 		select {
 		case req := <-b.replayChannel:
-			b.onReplayRequest(req)
+			b.onReplayRequest(ctx, req)
 			return true, nil
 		default:
 		}
@@ -456,7 +456,7 @@ func (b *broadcaster) eventLoop(chRawLogs <-chan types.Log, chErr <-chan error) 
 			needsResubscribe = b.onChangeSubscriberStatus() || needsResubscribe
 
 		case req := <-b.replayChannel:
-			b.onReplayRequest(req)
+			b.onReplayRequest(ctx, req)
 			return true, nil
 
 		case <-debounceResubscribe.C:
@@ -480,7 +480,7 @@ func (b *broadcaster) eventLoop(chRawLogs <-chan types.Log, chErr <-chan error) 
 }
 
 // onReplayRequest clears the pool and sets the block backfill number.
-func (b *broadcaster) onReplayRequest(replayReq replayRequest) {
+func (b *broadcaster) onReplayRequest(ctx context.Context, replayReq replayRequest) {
 	// notify subscribers that we are about to replay.
 	for subscriber := range b.registrations.registeredSubs {
 		if subscriber.opts.ReplayStartedCallback != nil {
@@ -495,11 +495,11 @@ func (b *broadcaster) onReplayRequest(replayReq replayRequest) {
 	b.backfillBlockNumber.Int64 = replayReq.fromBlock
 	b.backfillBlockNumber.Valid = true
 	if replayReq.forceBroadcast {
-		ctx, cancel := b.chStop.CtxCancel(context.WithTimeout(context.Background(), time.Minute))
-		ctx = sqlutil.WithoutDefaultTimeout(ctx)
-		defer cancel()
 		// Use a longer timeout in the event that a very large amount of logs need to be marked
-		// as consumed.
+		// as unconsumed.
+		var cancel func()
+		ctx, cancel = context.WithTimeout(sqlutil.WithoutDefaultTimeout(ctx), time.Minute)
+		defer cancel()
 		err := b.orm.MarkBroadcastsUnconsumed(ctx, replayReq.fromBlock)
 		if err != nil {
 			b.logger.Errorw("Error marking broadcasts as unconsumed",
@@ -694,25 +694,12 @@ func (b *broadcaster) WasAlreadyConsumed(ctx context.Context, lb Broadcast) (boo
 }
 
 // MarkConsumed marks the log as having been successfully consumed by the subscriber
-func (b *broadcaster) MarkConsumed(ctx context.Context, lb Broadcast) error {
-	return b.orm.MarkBroadcastConsumed(ctx, lb.RawLog().BlockHash, lb.RawLog().BlockNumber, lb.RawLog().Index, lb.JobID())
-}
-
-// MarkManyConsumed marks the logs as having been successfully consumed by the subscriber
-func (b *broadcaster) MarkManyConsumed(ctx context.Context, lbs []Broadcast) (err error) {
-	var (
-		blockHashes  = make([]common.Hash, len(lbs))
-		blockNumbers = make([]uint64, len(lbs))
-		logIndexes   = make([]uint, len(lbs))
-		jobIDs       = make([]int32, len(lbs))
-	)
-	for i := range lbs {
-		blockHashes[i] = lbs[i].RawLog().BlockHash
-		blockNumbers[i] = lbs[i].RawLog().BlockNumber
-		logIndexes[i] = lbs[i].RawLog().Index
-		jobIDs[i] = lbs[i].JobID()
+func (b *broadcaster) MarkConsumed(ctx context.Context, ds sqlutil.DataSource, lb Broadcast) error {
+	orm := b.orm
+	if ds != nil {
+		orm = orm.WithDataSource(ds)
 	}
-	return b.orm.MarkBroadcastsConsumed(ctx, blockHashes, blockNumbers, logIndexes, jobIDs)
+	return orm.MarkBroadcastConsumed(ctx, lb.RawLog().BlockHash, lb.RawLog().BlockNumber, lb.RawLog().Index, lb.JobID())
 }
 
 // test only
@@ -779,10 +766,7 @@ func (n *NullBroadcaster) TrackedAddressesCount() uint32 {
 func (n *NullBroadcaster) WasAlreadyConsumed(ctx context.Context, lb Broadcast) (bool, error) {
 	return false, pkgerrors.New(n.ErrMsg)
 }
-func (n *NullBroadcaster) MarkConsumed(ctx context.Context, lb Broadcast) error {
-	return pkgerrors.New(n.ErrMsg)
-}
-func (n *NullBroadcaster) MarkManyConsumed(ctx context.Context, lbs []Broadcast) error {
+func (n *NullBroadcaster) MarkConsumed(ctx context.Context, ds sqlutil.DataSource, lb Broadcast) error {
 	return pkgerrors.New(n.ErrMsg)
 }
 

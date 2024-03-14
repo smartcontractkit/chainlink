@@ -20,6 +20,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
@@ -28,7 +29,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -565,55 +565,53 @@ func (lsn *listenerV2) enqueueForceFulfillment(
 	}
 
 	// fulfill the request through the VRF owner
-	err = lsn.q.Transaction(func(tx pg.Queryer) error {
-		lsn.l.Infow("VRFOwner.fulfillRandomWords vs. VRFCoordinatorV2.fulfillRandomWords",
-			"vrf_owner.fulfillRandomWords", hexutil.Encode(vrfOwnerABI.Methods["fulfillRandomWords"].ID),
-			"vrf_coordinator_v2.fulfillRandomWords", hexutil.Encode(coordinatorV2ABI.Methods["fulfillRandomWords"].ID),
-		)
+	lsn.l.Infow("VRFOwner.fulfillRandomWords vs. VRFCoordinatorV2.fulfillRandomWords",
+		"vrf_owner.fulfillRandomWords", hexutil.Encode(vrfOwnerABI.Methods["fulfillRandomWords"].ID),
+		"vrf_coordinator_v2.fulfillRandomWords", hexutil.Encode(coordinatorV2ABI.Methods["fulfillRandomWords"].ID),
+	)
 
-		vrfOwnerAddress1 := lsn.vrfOwner.Address()
-		vrfOwnerAddressSpec := lsn.job.VRFSpec.VRFOwnerAddress.Address()
-		lsn.l.Infow("addresses diff", "wrapper_address", vrfOwnerAddress1, "spec_address", vrfOwnerAddressSpec)
+	vrfOwnerAddress1 := lsn.vrfOwner.Address()
+	vrfOwnerAddressSpec := lsn.job.VRFSpec.VRFOwnerAddress.Address()
+	lsn.l.Infow("addresses diff", "wrapper_address", vrfOwnerAddress1, "spec_address", vrfOwnerAddressSpec)
 
-		lsn.l.Infow("fulfillRandomWords payload", "proof", p.proof, "commitment", p.reqCommitment.Get(), "payload", p.payload)
-		txData := hexutil.MustDecode(p.payload)
-		if err != nil {
-			return fmt.Errorf("abi pack VRFOwner.fulfillRandomWords: %w", err)
-		}
-		estimateGasLimit, err := lsn.chain.Client().EstimateGas(ctx, ethereum.CallMsg{
-			From: fromAddress,
-			To:   &vrfOwnerAddressSpec,
-			Data: txData,
-		})
-		if err != nil {
-			return fmt.Errorf("failed to estimate gas on VRFOwner.fulfillRandomWords: %w", err)
-		}
-
-		lsn.l.Infow("Estimated gas limit on force fulfillment",
-			"estimateGasLimit", estimateGasLimit, "pipelineGasLimit", p.gasLimit)
-		if estimateGasLimit < p.gasLimit {
-			estimateGasLimit = p.gasLimit
-		}
-
-		requestID := common.BytesToHash(p.req.req.RequestID().Bytes())
-		subID := p.req.req.SubID()
-		requestTxHash := p.req.req.Raw().TxHash
-		etx, err = lsn.chain.TxManager().CreateTransaction(ctx, txmgr.TxRequest{
-			FromAddress:    fromAddress,
-			ToAddress:      lsn.vrfOwner.Address(),
-			EncodedPayload: txData,
-			FeeLimit:       estimateGasLimit,
-			Strategy:       txmgrcommon.NewSendEveryStrategy(),
-			Meta: &txmgr.TxMeta{
-				RequestID:     &requestID,
-				SubID:         ptr(subID.Uint64()),
-				RequestTxHash: &requestTxHash,
-				// No max link since simulation failed
-			},
-		})
-		return err
+	lsn.l.Infow("fulfillRandomWords payload", "proof", p.proof, "commitment", p.reqCommitment.Get(), "payload", p.payload)
+	txData := hexutil.MustDecode(p.payload)
+	if err != nil {
+		err = fmt.Errorf("abi pack VRFOwner.fulfillRandomWords: %w", err)
+		return
+	}
+	estimateGasLimit, err := lsn.chain.Client().EstimateGas(ctx, ethereum.CallMsg{
+		From: fromAddress,
+		To:   &vrfOwnerAddressSpec,
+		Data: txData,
 	})
-	return
+	if err != nil {
+		err = fmt.Errorf("failed to estimate gas on VRFOwner.fulfillRandomWords: %w", err)
+		return
+	}
+
+	lsn.l.Infow("Estimated gas limit on force fulfillment",
+		"estimateGasLimit", estimateGasLimit, "pipelineGasLimit", p.gasLimit)
+	if estimateGasLimit < p.gasLimit {
+		estimateGasLimit = p.gasLimit
+	}
+
+	requestID := common.BytesToHash(p.req.req.RequestID().Bytes())
+	subID := p.req.req.SubID()
+	requestTxHash := p.req.req.Raw().TxHash
+	return lsn.chain.TxManager().CreateTransaction(ctx, txmgr.TxRequest{
+		FromAddress:    fromAddress,
+		ToAddress:      lsn.vrfOwner.Address(),
+		EncodedPayload: txData,
+		FeeLimit:       estimateGasLimit,
+		Strategy:       txmgrcommon.NewSendEveryStrategy(),
+		Meta: &txmgr.TxMeta{
+			RequestID:     &requestID,
+			SubID:         ptr(subID.Uint64()),
+			RequestTxHash: &requestTxHash,
+			// No max link since simulation failed
+		},
+	})
 }
 
 // For an errored pipeline run, wait until the finality depth of the chain to have elapsed,
@@ -786,8 +784,8 @@ func (lsn *listenerV2) processRequestsPerSubHelper(
 
 			ll.Infow("Enqueuing fulfillment")
 			var transaction txmgr.Tx
-			err = lsn.q.Transaction(func(tx pg.Queryer) error {
-				if err = lsn.pipelineRunner.InsertFinishedRun(p.run, true, pg.WithQueryer(tx)); err != nil {
+			err = sqlutil.TransactDataSource(ctx, lsn.ds, nil, func(tx sqlutil.DataSource) error {
+				if err = lsn.pipelineRunner.InsertFinishedRun(ctx, tx, p.run, true); err != nil {
 					return err
 				}
 

@@ -3,6 +3,8 @@
 package mocks
 
 import (
+	context "context"
+
 	functions "github.com/smartcontractkit/chainlink/v2/core/services/functions"
 	mock "github.com/stretchr/testify/mock"
 )
@@ -12,9 +14,9 @@ type BridgeAccessor struct {
 	mock.Mock
 }
 
-// NewExternalAdapterClient provides a mock function with given fields:
-func (_m *BridgeAccessor) NewExternalAdapterClient() (functions.ExternalAdapterClient, error) {
-	ret := _m.Called()
+// NewExternalAdapterClient provides a mock function with given fields: _a0
+func (_m *BridgeAccessor) NewExternalAdapterClient(_a0 context.Context) (functions.ExternalAdapterClient, error) {
+	ret := _m.Called(_a0)
 
 	if len(ret) == 0 {
 		panic("no return value specified for NewExternalAdapterClient")
@@ -22,19 +24,19 @@ func (_m *BridgeAccessor) NewExternalAdapterClient() (functions.ExternalAdapterC
 
 	var r0 functions.ExternalAdapterClient
 	var r1 error
-	if rf, ok := ret.Get(0).(func() (functions.ExternalAdapterClient, error)); ok {
-		return rf()
+	if rf, ok := ret.Get(0).(func(context.Context) (functions.ExternalAdapterClient, error)); ok {
+		return rf(_a0)
 	}
-	if rf, ok := ret.Get(0).(func() functions.ExternalAdapterClient); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(context.Context) functions.ExternalAdapterClient); ok {
+		r0 = rf(_a0)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(functions.ExternalAdapterClient)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func() error); ok {
-		r1 = rf()
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(_a0)
 	} else {
 		r1 = ret.Error(1)
 	}

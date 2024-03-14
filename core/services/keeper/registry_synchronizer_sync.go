@@ -1,6 +1,7 @@
 package keeper
 
 import (
+	"context"
 	"encoding/binary"
 	"math"
 	"sync"
@@ -12,10 +13,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
 
-func (rs *RegistrySynchronizer) fullSync() {
+func (rs *RegistrySynchronizer) fullSync(ctx context.Context) {
 	rs.logger.Debugf("fullSyncing registry %s", rs.job.KeeperSpec.ContractAddress.Hex())
 
-	registry, err := rs.syncRegistry()
+	registry, err := rs.syncRegistry(ctx)
 	if err != nil {
 		rs.logger.Error(errors.Wrap(err, "failed to sync registry during fullSyncing registry"))
 		return
@@ -28,8 +29,8 @@ func (rs *RegistrySynchronizer) fullSync() {
 	rs.logger.Debugf("fullSyncing registry successful %s", rs.job.KeeperSpec.ContractAddress.Hex())
 }
 
-func (rs *RegistrySynchronizer) syncRegistry() (Registry, error) {
-	registry, err := rs.newRegistryFromChain()
+func (rs *RegistrySynchronizer) syncRegistry(ctx context.Context) (Registry, error) {
+	registry, err := rs.newRegistryFromChain(ctx)
 	if err != nil {
 		return Registry{}, errors.Wrap(err, "failed to get new registry from chain")
 	}
@@ -138,13 +139,13 @@ func (rs *RegistrySynchronizer) syncUpkeep(getter upkeepGetter, registry Registr
 }
 
 // newRegistryFromChain returns a Registry struct with fields synched from those on chain
-func (rs *RegistrySynchronizer) newRegistryFromChain() (Registry, error) {
+func (rs *RegistrySynchronizer) newRegistryFromChain(ctx context.Context) (Registry, error) {
 	fromAddress := rs.effectiveKeeperAddress
 	contractAddress := rs.job.KeeperSpec.ContractAddress
 
 	registryConfig, err := rs.registryWrapper.GetConfig(nil)
 	if err != nil {
-		rs.jrm.TryRecordError(rs.job.ID, err.Error())
+		rs.jrm.TryRecordError(ctx, rs.job.ID, err.Error())
 		return Registry{}, errors.Wrap(err, "failed to get contract config")
 	}
 

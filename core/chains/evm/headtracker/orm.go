@@ -31,14 +31,14 @@ var _ ORM = &DbORM{}
 
 type DbORM struct {
 	chainID ubig.Big
-	db      sqlutil.DataSource
+	ds      sqlutil.DataSource
 }
 
 // NewORM creates an ORM scoped to chainID.
-func NewORM(chainID big.Int, db sqlutil.DataSource) *DbORM {
+func NewORM(chainID big.Int, ds sqlutil.DataSource) *DbORM {
 	return &DbORM{
 		chainID: ubig.Big(chainID),
-		db:      db,
+		ds:      ds,
 	}
 }
 
@@ -48,19 +48,19 @@ func (orm *DbORM) IdempotentInsertHead(ctx context.Context, head *evmtypes.Head)
 	INSERT INTO evm.heads (hash, number, parent_hash, created_at, timestamp, l1_block_number, evm_chain_id, base_fee_per_gas) VALUES (
 	$1, $2, $3, $4, $5, $6, $7, $8)
 	ON CONFLICT (evm_chain_id, hash) DO NOTHING`
-	_, err := orm.db.ExecContext(ctx, query, head.Hash, head.Number, head.ParentHash, head.CreatedAt, head.Timestamp, head.L1BlockNumber, orm.chainID, head.BaseFeePerGas)
+	_, err := orm.ds.ExecContext(ctx, query, head.Hash, head.Number, head.ParentHash, head.CreatedAt, head.Timestamp, head.L1BlockNumber, orm.chainID, head.BaseFeePerGas)
 	return pkgerrors.Wrap(err, "IdempotentInsertHead failed to insert head")
 }
 
 func (orm *DbORM) TrimOldHeads(ctx context.Context, minBlockNumber int64) (err error) {
 	query := `DELETE FROM evm.heads WHERE evm_chain_id = $1 AND number < $2`
-	_, err = orm.db.ExecContext(ctx, query, orm.chainID, minBlockNumber)
+	_, err = orm.ds.ExecContext(ctx, query, orm.chainID, minBlockNumber)
 	return err
 }
 
 func (orm *DbORM) LatestHead(ctx context.Context) (head *evmtypes.Head, err error) {
 	head = new(evmtypes.Head)
-	err = orm.db.GetContext(ctx, head, `SELECT * FROM evm.heads WHERE evm_chain_id = $1 ORDER BY number DESC, created_at DESC, id DESC LIMIT 1`, orm.chainID)
+	err = orm.ds.GetContext(ctx, head, `SELECT * FROM evm.heads WHERE evm_chain_id = $1 ORDER BY number DESC, created_at DESC, id DESC LIMIT 1`, orm.chainID)
 	if pkgerrors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -69,14 +69,14 @@ func (orm *DbORM) LatestHead(ctx context.Context) (head *evmtypes.Head, err erro
 }
 
 func (orm *DbORM) LatestHeads(ctx context.Context, minBlockNumer int64) (heads []*evmtypes.Head, err error) {
-	err = orm.db.SelectContext(ctx, &heads, `SELECT * FROM evm.heads WHERE evm_chain_id = $1 AND number >= $2 ORDER BY number DESC, created_at DESC, id DESC`, orm.chainID, minBlockNumer)
+	err = orm.ds.SelectContext(ctx, &heads, `SELECT * FROM evm.heads WHERE evm_chain_id = $1 AND number >= $2 ORDER BY number DESC, created_at DESC, id DESC`, orm.chainID, minBlockNumer)
 	err = pkgerrors.Wrap(err, "LatestHeads failed")
 	return
 }
 
 func (orm *DbORM) HeadByHash(ctx context.Context, hash common.Hash) (head *evmtypes.Head, err error) {
 	head = new(evmtypes.Head)
-	err = orm.db.GetContext(ctx, head, `SELECT * FROM evm.heads WHERE evm_chain_id = $1 AND hash = $2`, orm.chainID, hash)
+	err = orm.ds.GetContext(ctx, head, `SELECT * FROM evm.heads WHERE evm_chain_id = $1 AND hash = $2`, orm.chainID, hash)
 	if pkgerrors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
