@@ -31,6 +31,8 @@ import (
 
 	sessions "github.com/smartcontractkit/chainlink/v2/core/sessions"
 
+	sqlutil "github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+
 	sqlx "github.com/jmoiron/sqlx"
 
 	txmgr "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
@@ -199,6 +201,26 @@ func (_m *Application) GetConfig() chainlink.GeneralConfig {
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(chainlink.GeneralConfig)
+		}
+	}
+
+	return r0
+}
+
+// GetDB provides a mock function with given fields:
+func (_m *Application) GetDB() sqlutil.DB {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetDB")
+	}
+
+	var r0 sqlutil.DB
+	if rf, ok := ret.Get(0).(func() sqlutil.DB); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(sqlutil.DB)
 		}
 	}
 
