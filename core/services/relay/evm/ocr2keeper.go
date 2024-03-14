@@ -88,7 +88,7 @@ func (r *ocr2keeperRelayer) NewOCR2KeeperProvider(rargs commontypes.RelayArgs, p
 	// TODO https://smartcontract-it.atlassian.net/browse/BCF-2887
 	ctx := context.Background()
 
-	cfgWatcher, err := newOCR2KeeperConfigProvider(r.lggr, r.chain, rargs)
+	cfgWatcher, err := newOCR2KeeperConfigProvider(ctx, r.lggr, r.chain, rargs)
 	if err != nil {
 		return nil, err
 	}
@@ -114,7 +114,7 @@ func (r *ocr2keeperRelayer) NewOCR2KeeperProvider(rargs commontypes.RelayArgs, p
 	// lookback blocks for transmit event is hard coded and should provide ample time for logs
 	// to be detected in most cases
 	var transmitLookbackBlocks int64 = 250
-	transmitEventProvider, err := transmit.NewTransmitEventProvider(r.lggr, client.LogPoller(), addr, client.Client(), transmitLookbackBlocks)
+	transmitEventProvider, err := transmit.NewTransmitEventProvider(ctx, r.lggr, client.LogPoller(), addr, client.Client(), transmitLookbackBlocks)
 	if err != nil {
 		return nil, err
 	}
@@ -208,7 +208,7 @@ func (c *ocr2keeperProvider) Codec() commontypes.Codec {
 	return nil
 }
 
-func newOCR2KeeperConfigProvider(lggr logger.Logger, chain legacyevm.Chain, rargs commontypes.RelayArgs) (*configWatcher, error) {
+func newOCR2KeeperConfigProvider(ctx context.Context, lggr logger.Logger, chain legacyevm.Chain, rargs commontypes.RelayArgs) (*configWatcher, error) {
 	var relayConfig types.RelayConfig
 	err := json.Unmarshal(rargs.RelayConfig, &relayConfig)
 	if err != nil {
@@ -221,6 +221,7 @@ func newOCR2KeeperConfigProvider(lggr logger.Logger, chain legacyevm.Chain, rarg
 	contractAddress := common.HexToAddress(rargs.ContractID)
 
 	configPoller, err := NewConfigPoller(
+		ctx,
 		lggr.With("contractID", rargs.ContractID),
 		CPConfig{
 			chain.Client(),
