@@ -197,6 +197,8 @@ func (ea *externalAdapterClient) request(
 	req.Header.Set("Content-Type", "application/json")
 
 	start := time.Now()
+
+	// retry will only happen on a 5XX error response code (except 501)
 	retryClient := retryablehttp.NewClient()
 	retryClient.RetryMax = ea.maxRetries
 	retryClient.RetryWaitMin = ea.exponentialBackoffBase

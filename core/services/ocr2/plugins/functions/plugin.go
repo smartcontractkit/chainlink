@@ -58,7 +58,7 @@ const (
 	MaxAdapterResponseBytes               int64  = 1_000_000
 	DefaultOffchainTransmitterChannelSize uint32 = 1000
 	DefaultMaxAdapterRetry                int    = 3
-	DefaultExponentialBackoffBase                = 1 * time.Second
+	DefaultExponentialBackoffBase                = 5 * time.Second
 )
 
 // Create all OCR2 plugin Oracles and all extra services needed to run a Functions job.
@@ -112,11 +112,10 @@ func NewFunctionsServices(ctx context.Context, functionsOracleArgs, thresholdOra
 	var maxRetries int
 	if pluginConfig.ExternalAdapterMaxRetries != nil {
 		maxRetries = int(*pluginConfig.ExternalAdapterMaxRetries)
-		conf.Logger.Debugf("external adapter maxRetries configured to: %d", maxRetries)
 	} else {
 		maxRetries = DefaultMaxAdapterRetry
-		conf.Logger.Debugf("external adapter maxRetries configured to default: %d", maxRetries)
 	}
+	conf.Logger.Debugf("external adapter maxRetries configured to: %d", maxRetries)
 
 	var exponentialBackoffBase time.Duration
 	if pluginConfig.ExternalAdapterExponentialBackoffBaseSec != nil {
