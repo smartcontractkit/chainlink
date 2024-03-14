@@ -41,7 +41,15 @@ type LogTriggersOptions struct {
 	// Finality depth is the number of blocks to wait before considering a block final.
 	FinalityDepth int64
 
+	// v1 config
+
 	BufferVersion string
+
+	LogLimitLow int32
+
+	LogLimitHigh int32
+
+	BlockRate int64
 }
 
 func NewOptions(finalityDepth int64) LogTriggersOptions {
@@ -71,5 +79,14 @@ func (o *LogTriggersOptions) Defaults(finalityDepth int64) {
 	}
 	if o.FinalityDepth == 0 {
 		o.FinalityDepth = finalityDepth
+	}
+	if o.BlockRate == 0 {
+		o.BlockRate = 1
+	}
+	if o.LogLimitLow == 0 {
+		o.LogLimitLow = 5
+	}
+	if o.LogLimitHigh == 0 {
+		o.LogLimitHigh = o.LogLimitLow * 2
 	}
 }

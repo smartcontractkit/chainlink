@@ -112,7 +112,7 @@ func NewLogProvider(lggr logger.Logger, poller logpoller.LogPoller, packer LogDa
 		lggr:        lggr.Named("KeepersRegistry.LogEventProvider"),
 		packer:      packer,
 		buffer:      newLogEventBuffer(lggr, int(opts.LookbackBlocks), defaultNumOfLogUpkeeps, defaultFastExecLogsHigh),
-		bufferV1:    NewLogBuffer(lggr, int(opts.LookbackBlocks), defaultLogLimitHigh),
+		bufferV1:    NewLogBuffer(lggr, int(opts.LookbackBlocks), int(opts.LogLimitHigh)),
 		poller:      poller,
 		opts:        opts,
 		filterStore: filterStore,
@@ -169,7 +169,7 @@ func (p *logEventProvider) GetLatestPayloads(ctx context.Context) ([]ocr2keepers
 	payloads := p.getPayloadsFromBuffer(latest.BlockNumber)
 
 	if len(payloads) > 0 {
-		p.lggr.Debugw("Fetched payloads from buffer xxx", "latestBlock", latest.BlockNumber, "payloads", len(payloads))
+		p.lggr.Debugw("Fetched payloads from buffer", "latestBlock", latest.BlockNumber, "payloads", len(payloads))
 	}
 
 	return payloads, nil
@@ -200,17 +200,22 @@ func (p *logEventProvider) getPayloadsFromBuffer(latestBlock int64) []ocr2keeper
 
 	switch p.opts.BufferVersion {
 	case "v1":
-		blockRate, upkeepLowLimit, maxResults := 4, 6, MaxPayloads // TODO: use config
-		for len(payloads) < maxResults && start < latestBlock {
-			logs, _ := p.bufferV1.Dequeue(start, blockRate, upkeepLowLimit, maxResults-len(payloads), DefaultUpkeepSelector)
+		blockRate, logLimitLow, maxResults := int(p.opts.BlockRate), int(p.opts.LogLimitLow), MaxPayloads
+		for len(payloads) < maxResults && start <= latestBlock {
+			logs, remaining := p.bufferV1.Dequeue(start, blockRate, logLimitLow, maxResults-len(payloads), DefaultUpkeepSelector)
 			if len(logs) > 0 {
-				p.lggr.Debugw("Dequeued logs xxx", "start", start, "latestBlock", latestBlock, "logs", len(logs))
+				p.lggr.Debugw("Dequeued logs", "start", start, "latestBlock", latestBlock, "logs", len(logs))
 			}
 			for _, l := range logs {
 				payload, err := p.createPayload(l.ID, l.Log)
 				if err == nil {
 					payloads = append(payloads, payload)
 				}
+			}
+			if remaining > 0 {
+				p.lggr.Debugw("Remaining logs", "start", start, "latestBlock", latestBlock, "remaining", remaining)
+				// TODO: handle remaining logs in a better way than consuming the entire window
+				continue
 			}
 			start += int64(blockRate)
 		}
