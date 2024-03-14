@@ -5,7 +5,6 @@ import (
 	"math/big"
 	"math/rand"
 
-	"github.com/barkimedes/go-deepcopy"
 	"github.com/rs/zerolog"
 	"github.com/smartcontractkit/wasp"
 
@@ -51,9 +50,8 @@ func (m *SingleHashGun) Call(_ *wasp.Generator) *wasp.Response {
 	}
 
 	//randomly increase/decrease randomness request count per TX
-	configCopy := deepcopy.MustAnything(m.testConfig).(types.VRFv2PlusTestConfig)
 	reqCount := deviateValue(*m.testConfig.GetVRFv2PlusConfig().General.RandomnessRequestCountPerRequest, *m.testConfig.GetVRFv2PlusConfig().General.RandomnessRequestCountPerRequestDeviation)
-	configCopy.GetVRFv2PlusConfig().General.RandomnessRequestCountPerRequest = &reqCount
+	m.testConfig.GetVRFv2PlusConfig().General.RandomnessRequestCountPerRequest = &reqCount
 	_, err = vrfv2plus.RequestRandomnessAndWaitForFulfillment(
 		//the same consumer is used for all requests and in all subs
 		m.contracts.VRFV2PlusConsumer[0],
@@ -63,7 +61,7 @@ func (m *SingleHashGun) Call(_ *wasp.Generator) *wasp.Response {
 		m.subIDs[randInRange(0, len(m.subIDs)-1)],
 		//randomly pick payment type
 		billingType,
-		configCopy.GetVRFv2PlusConfig().General,
+		m.testConfig.GetVRFv2PlusConfig().General,
 		m.logger,
 	)
 	if err != nil {
