@@ -208,19 +208,19 @@ func (_m *Application) GetConfig() chainlink.GeneralConfig {
 }
 
 // GetDB provides a mock function with given fields:
-func (_m *Application) GetDB() sqlutil.DB {
+func (_m *Application) GetDB() sqlutil.DataSource {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetDB")
 	}
 
-	var r0 sqlutil.DB
-	if rf, ok := ret.Get(0).(func() sqlutil.DB); ok {
+	var r0 sqlutil.DataSource
+	if rf, ok := ret.Get(0).(func() sqlutil.DataSource); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(sqlutil.DB)
+			r0 = ret.Get(0).(sqlutil.DataSource)
 		}
 	}
 

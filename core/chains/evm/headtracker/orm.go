@@ -31,11 +31,11 @@ var _ ORM = &DbORM{}
 
 type DbORM struct {
 	chainID ubig.Big
-	db      sqlutil.DB
+	db      sqlutil.DataSource
 }
 
 // NewORM creates an ORM scoped to chainID.
-func NewORM(chainID big.Int, db sqlutil.DB) *DbORM {
+func NewORM(chainID big.Int, db sqlutil.DataSource) *DbORM {
 	return &DbORM{
 		chainID: ubig.Big(chainID),
 		db:      db,

@@ -163,7 +163,7 @@ type ChainOpts struct {
 	GasEstimator gas.EvmFeeEstimator
 
 	SqlxDB *sqlx.DB // Deprecated: use DB instead
-	DB     sqlutil.DB
+	DB     sqlutil.DataSource
 
 	// TODO BCF-2513 remove test code from the API
 	// Gen-functions are useful for dependency injection by tests

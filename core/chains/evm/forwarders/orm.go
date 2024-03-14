@@ -19,17 +19,17 @@ type ORM interface {
 	CreateForwarder(ctx context.Context, addr common.Address, evmChainId big.Big) (fwd Forwarder, err error)
 	FindForwarders(ctx context.Context, offset, limit int) ([]Forwarder, int, error)
 	FindForwardersByChain(ctx context.Context, evmChainId big.Big) ([]Forwarder, error)
-	DeleteForwarder(ctx context.Context, id int64, cleanup func(tx sqlutil.DB, evmChainId int64, addr common.Address) error) error
+	DeleteForwarder(ctx context.Context, id int64, cleanup func(tx sqlutil.DataSource, evmChainId int64, addr common.Address) error) error
 	FindForwardersInListByChain(ctx context.Context, evmChainId big.Big, addrs []common.Address) ([]Forwarder, error)
 }
 
 type DbORM struct {
-	db sqlutil.DB
+	db sqlutil.DataSource
 }
 
 var _ ORM = &DbORM{}
 
-func NewORM(db sqlutil.DB) *DbORM {
+func NewORM(db sqlutil.DataSource) *DbORM {
 	return &DbORM{db: db}
 }
 
@@ -38,7 +38,7 @@ func (o *DbORM) Transaction(ctx context.Context, fn func(*DbORM) error) (err err
 }
 
 // new returns a NewORM like o, but backed by q.
-func (o *DbORM) new(q sqlutil.DB) *DbORM { return NewORM(q) }
+func (o *DbORM) new(q sqlutil.DataSource) *DbORM { return NewORM(q) }
 
 // CreateForwarder creates the Forwarder address associated with the current EVM chain id.
 func (o *DbORM) CreateForwarder(ctx context.Context, addr common.Address, evmChainId big.Big) (fwd Forwarder, err error) {
@@ -50,7 +50,7 @@ func (o *DbORM) CreateForwarder(ctx context.Context, addr common.Address, evmCha
 // DeleteForwarder removes a forwarder address.
 // If cleanup is non-nil, it can be used to perform any chain- or contract-specific cleanup that need to happen atomically
 // on forwarder deletion.  If cleanup returns an error, forwarder deletion will be aborted.
-func (o *DbORM) DeleteForwarder(ctx context.Context, id int64, cleanup func(tx sqlutil.DB, evmChainID int64, addr common.Address) error) (err error) {
+func (o *DbORM) DeleteForwarder(ctx context.Context, id int64, cleanup func(tx sqlutil.DataSource, evmChainID int64, addr common.Address) error) (err error) {
 	return o.Transaction(ctx, func(orm *DbORM) error {
 		var dest struct {
 			EvmChainId int64

@@ -76,7 +76,7 @@ type Application interface {
 	GetAuditLogger() audit.AuditLogger
 	GetHealthChecker() services.Checker
 	GetSqlxDB() *sqlx.DB // Deprecated: use GetDB
-	GetDB() sqlutil.DB
+	GetDB() sqlutil.DataSource
 	GetConfig() GeneralConfig
 	SetLogLevel(lvl zapcore.Level) error
 	GetKeyStore() keystore.Master
@@ -143,7 +143,7 @@ type ChainlinkApplication struct {
 	AuditLogger              audit.AuditLogger
 	closeLogger              func() error
 	sqlxDB                   *sqlx.DB // Deprecated: use db instead
-	db                       sqlutil.DB
+	db                       sqlutil.DataSource
 	secretGenerator          SecretGenerator
 	profiler                 *pyroscope.Profiler
 	loopRegistry             *plugins.LoopRegistry
@@ -157,7 +157,7 @@ type ApplicationOpts struct {
 	Logger                     logger.Logger
 	MailMon                    *mailbox.Monitor
 	SqlxDB                     *sqlx.DB // Deprecated: use DB instead
-	DB                         sqlutil.DB
+	DB                         sqlutil.DataSource
 	KeyStore                   keystore.Master
 	RelayerChainInteroperators *CoreRelayerChainInteroperators
 	AuditLogger                audit.AuditLogger
@@ -831,7 +831,7 @@ func (app *ChainlinkApplication) GetSqlxDB() *sqlx.DB {
 	return app.sqlxDB
 }
 
-func (app *ChainlinkApplication) GetDB() sqlutil.DB {
+func (app *ChainlinkApplication) GetDB() sqlutil.DataSource {
 	return app.db
 }
 

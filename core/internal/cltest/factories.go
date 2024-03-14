@@ -315,7 +315,7 @@ func MustGenerateRandomKeyState(_ testing.TB) ethkey.State {
 	return ethkey.State{Address: NewEIP55Address()}
 }
 
-func MustInsertHead(t *testing.T, db sqlutil.DB, number int64) evmtypes.Head {
+func MustInsertHead(t *testing.T, db sqlutil.DataSource, number int64) evmtypes.Head {
 	h := evmtypes.NewHead(big.NewInt(number), evmutils.NewHash(), evmutils.NewHash(), 0, ubig.New(&FixtureChainID))
 	horm := headtracker.NewORM(FixtureChainID, db)
 

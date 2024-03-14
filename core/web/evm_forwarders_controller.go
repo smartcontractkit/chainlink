@@ -80,7 +80,7 @@ func (cc *EVMForwardersController) Delete(c *gin.Context) {
 		return
 	}
 
-	filterCleanup := func(tx sqlutil.DB, evmChainID int64, addr common.Address) error {
+	filterCleanup := func(tx sqlutil.DataSource, evmChainID int64, addr common.Address) error {
 		chain, err2 := cc.App.GetRelayers().LegacyEVMChains().Get(big.NewInt(evmChainID).String())
 		if err2 != nil {
 			// If the chain id doesn't even exist, or logpoller is disabled, then there isn't any filter to clean up.  Returning an error
