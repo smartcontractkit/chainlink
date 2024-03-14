@@ -89,7 +89,7 @@ func TestFwdMgr_MaybeForwardTransaction(t *testing.T) {
 	require.NoError(t, err)
 
 	cleanupCalled := false
-	cleanup := func(tx sqlutil.DB, evmChainId int64, addr common.Address) error {
+	cleanup := func(tx sqlutil.DataSource, evmChainId int64, addr common.Address) error {
 		require.Equal(t, testutils.FixtureChainID.Int64(), evmChainId)
 		require.Equal(t, forwarderAddr, addr)
 		require.NotNil(t, tx)

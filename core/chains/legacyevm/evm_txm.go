@@ -16,7 +16,7 @@ import (
 
 func newEvmTxm(
 	sqlxDB *sqlx.DB,
-	db sqlutil.DB,
+	db sqlutil.DataSource,
 	cfg evmconfig.EVM,
 	evmRPCEnabled bool,
 	databaseConfig txmgr.DatabaseConfig,
