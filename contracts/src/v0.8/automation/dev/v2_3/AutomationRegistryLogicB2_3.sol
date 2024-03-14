@@ -7,6 +7,7 @@ import {Address} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/ut
 import {UpkeepFormat} from "../../interfaces/UpkeepTranscoderInterface.sol";
 import {IAutomationForwarder} from "../../interfaces/IAutomationForwarder.sol";
 import {IChainModule} from "../../interfaces/IChainModule.sol";
+import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
 contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
   using Address for address;
@@ -18,11 +19,21 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
    */
   constructor(
     address link,
-    address linkNativeFeed,
+    address linkUSDFeed,
+    address nativeUSDFeed,
     address fastGasFeed,
     address automationForwarderLogic,
     address allowedReadOnlyAddress
-  ) AutomationRegistryBase2_3(link, linkNativeFeed, fastGasFeed, automationForwarderLogic, allowedReadOnlyAddress) {}
+  )
+    AutomationRegistryBase2_3(
+      link,
+      linkUSDFeed,
+      nativeUSDFeed,
+      fastGasFeed,
+      automationForwarderLogic,
+      allowedReadOnlyAddress
+    )
+  {}
 
   // ================================================================
   // |                      UPKEEP MANAGEMENT                       |
@@ -119,10 +130,43 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
     if (s_upkeepAdmin[id] != msg.sender) revert OnlyCallableByAdmin();
     if (upkeep.maxValidBlocknumber > s_hotVars.chainModule.blockNumber()) revert UpkeepNotCanceled();
     uint96 amountToWithdraw = s_upkeep[id].balance;
-    s_expectedLinkBalance = s_expectedLinkBalance - amountToWithdraw;
+    s_reserveAmounts[address(i_link)] = s_reserveAmounts[address(i_link)] - amountToWithdraw;
     s_upkeep[id].balance = 0;
     i_link.transfer(to, amountToWithdraw);
     emit FundsWithdrawn(id, amountToWithdraw, to);
+  }
+
+  /**
+   * @notice LINK available to withdraw by the finance team
+   */
+  function linkAvailableForPayment() public view returns (uint256) {
+    return i_link.balanceOf(address(this)) - s_reserveAmounts[address(i_link)];
+  }
+
+  function withdrawLinkFees(address to, uint256 amount) external {
+    _onlyFinanceAdminAllowed();
+    if (to == ZERO_ADDRESS) revert InvalidRecipient();
+
+    uint256 available = linkAvailableForPayment();
+    if (amount > available) revert InsufficientBalance(available, amount);
+
+    bool transferStatus = i_link.transfer(to, amount);
+    if (!transferStatus) {
+      revert TransferFailed();
+    }
+    emit FeesWithdrawn(to, address(i_link), amount);
+  }
+
+  function withdrawERC20Fees(address assetAddress, address to, uint256 amount) external {
+    _onlyFinanceAdminAllowed();
+    if (to == ZERO_ADDRESS) revert InvalidRecipient();
+
+    bool transferStatus = IERC20(assetAddress).transfer(to, amount);
+    if (!transferStatus) {
+      revert TransferFailed();
+    }
+
+    emit FeesWithdrawn(to, assetAddress, amount);
   }
 
   // ================================================================
@@ -162,7 +206,7 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
     if (s_transmitterPayees[from] != msg.sender) revert OnlyCallableByPayee();
     uint96 balance = _updateTransmitterBalanceFromPool(from, s_hotVars.totalPremium, uint96(s_transmittersList.length));
     s_transmitters[from].balance = 0;
-    s_expectedLinkBalance = s_expectedLinkBalance - balance;
+    s_reserveAmounts[address(i_link)] = s_reserveAmounts[address(i_link)] - balance;
     i_link.transfer(to, balance);
     emit PaymentWithdrawn(from, balance, to, msg.sender);
   }
@@ -180,25 +224,6 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
     }
     s_upkeepPrivilegeConfig[upkeepId] = newPrivilegeConfig;
     emit UpkeepPrivilegeConfigSet(upkeepId, newPrivilegeConfig);
-  }
-
-  /**
-   * @notice withdraws the owner's LINK balance
-   */
-  function withdrawOwnerFunds() external onlyOwner {
-    uint96 amount = s_storage.ownerLinkBalance;
-    s_expectedLinkBalance = s_expectedLinkBalance - amount;
-    s_storage.ownerLinkBalance = 0;
-    emit OwnerFundsWithdrawn(amount);
-    i_link.transfer(msg.sender, amount);
-  }
-
-  /**
-   * @notice allows the owner to withdraw any LINK accidentally sent to the contract
-   */
-  function recoverFunds() external onlyOwner {
-    uint256 total = i_link.balanceOf(address(this));
-    i_link.transfer(msg.sender, total - s_expectedLinkBalance);
   }
 
   /**
@@ -293,8 +318,12 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
     return address(i_link);
   }
 
-  function getLinkNativeFeedAddress() external view returns (address) {
-    return address(i_linkNativeFeed);
+  function getLinkUSDFeedAddress() external view returns (address) {
+    return address(i_linkUSDFeed);
+  }
+
+  function getNativeUSDFeedAddress() external view returns (address) {
+    return address(i_nativeUSDFeed);
   }
 
   function getFastGasFeedAddress() external view returns (address) {
@@ -307,6 +336,14 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
 
   function getAllowedReadOnlyAddress() external view returns (address) {
     return i_allowedReadOnlyAddress;
+  }
+
+  function getBillingTokens() external view returns (IERC20[] memory) {
+    return s_billingTokens;
+  }
+
+  function getBillingTokenConfig(IERC20 token) external view returns (BillingConfig memory) {
+    return s_billingConfigs[token];
   }
 
   function upkeepTranscoderVersion() public pure returns (UpkeepFormat) {
@@ -421,8 +458,8 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
   {
     state = State({
       nonce: s_storage.nonce,
-      ownerLinkBalance: s_storage.ownerLinkBalance,
-      expectedLinkBalance: s_expectedLinkBalance,
+      ownerLinkBalance: 0,
+      expectedLinkBalance: s_reserveAmounts[address(i_link)],
       totalPremium: s_hotVars.totalPremium,
       numUpkeeps: s_upkeepIDs.length(),
       configCount: s_storage.configCount,
@@ -498,8 +535,8 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
    */
   function getMaxPaymentForGas(Trigger triggerType, uint32 gasLimit) public view returns (uint96 maxPayment) {
     HotVars memory hotVars = s_hotVars;
-    (uint256 fastGasWei, uint256 linkNative) = _getFeedData(hotVars);
-    return _getMaxLinkPayment(hotVars, triggerType, gasLimit, fastGasWei, linkNative);
+    (uint256 fastGasWei, uint256 linkUSD, uint256 nativeUSD) = _getFeedData(hotVars);
+    return _getMaxLinkPayment(hotVars, triggerType, gasLimit, fastGasWei, linkUSD, nativeUSD);
   }
 
   /**
@@ -535,5 +572,12 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
    */
   function hasDedupKey(bytes32 dedupKey) external view returns (bool) {
     return s_dedupKeys[dedupKey];
+  }
+
+  /**
+   * @notice returns the fallback native price
+   */
+  function getFallbackNativePrice() external view returns (uint256) {
+    return s_fallbackNativePrice;
   }
 }

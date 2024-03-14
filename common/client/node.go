@@ -240,6 +240,10 @@ func (n *node[CHAIN_ID, HEAD, RPC]) verifyChainID(callerCtx context.Context, lgg
 
 	st := n.State()
 	switch st {
+	case nodeStateClosed:
+		// The node is already closed, and any subsequent transition is invalid.
+		// To make spotting such transitions a bit easier, return the invalid node state.
+		return nodeStateLen
 	case nodeStateDialed, nodeStateOutOfSync, nodeStateInvalidChainID, nodeStateSyncing:
 	default:
 		panic(fmt.Sprintf("cannot verify node in state %v", st))

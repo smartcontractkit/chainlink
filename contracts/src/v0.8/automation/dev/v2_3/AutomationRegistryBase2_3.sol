@@ -12,6 +12,7 @@ import {LinkTokenInterface} from "../../../shared/interfaces/LinkTokenInterface.
 import {KeeperCompatibleInterface} from "../../interfaces/KeeperCompatibleInterface.sol";
 import {UpkeepFormat} from "../../interfaces/UpkeepTranscoderInterface.sol";
 import {IChainModule} from "../../interfaces/IChainModule.sol";
+import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
 /**
  * @notice Base Keeper Registry contract, contains shared logic between
@@ -67,7 +68,8 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   uint256 internal constant ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD = 7_000; // Overhead per upkeep performed in batch
 
   LinkTokenInterface internal immutable i_link;
-  AggregatorV3Interface internal immutable i_linkNativeFeed;
+  AggregatorV3Interface internal immutable i_linkUSDFeed;
+  AggregatorV3Interface internal immutable i_nativeUSDFeed;
   AggregatorV3Interface internal immutable i_fastGasFeed;
   address internal immutable i_automationForwarderLogic;
   address internal immutable i_allowedReadOnlyAddress;
@@ -97,12 +99,16 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   Storage internal s_storage; // Mixture of config and state, not used in transmit
   uint256 internal s_fallbackGasPrice;
   uint256 internal s_fallbackLinkPrice;
-  uint256 internal s_expectedLinkBalance; // Used in case of erroneous LINK transfers to contract
+  uint256 internal s_fallbackNativePrice;
+  mapping(address billingToken => uint256 reserveAmount) internal s_reserveAmounts; // unspent user deposits + unwithdrawn NOP payments
   mapping(address => MigrationPermission) internal s_peerRegistryMigrationPermission; // Permissions for migration to and fro
   mapping(uint256 => bytes) internal s_upkeepTriggerConfig; // upkeep triggers
   mapping(uint256 => bytes) internal s_upkeepOffchainConfig; // general config set by users for each upkeep
   mapping(uint256 => bytes) internal s_upkeepPrivilegeConfig; // general config set by an administrative role for an upkeep
   mapping(address => bytes) internal s_adminPrivilegeConfig; // general config set by an administrative role for an admin
+  // billing
+  mapping(IERC20 billingToken => BillingConfig billingConfig) internal s_billingConfigs; // billing configurations for different tokens
+  IERC20[] internal s_billingTokens; // list of billing tokens
 
   error ArrayHasNoEntries();
   error CannotCancel();
@@ -116,7 +122,9 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   error IncorrectNumberOfSignatures();
   error IncorrectNumberOfSigners();
   error IndexOutOfRange();
+  error InsufficientBalance(uint256 available, uint256 requested);
   error InvalidDataLength();
+  error InvalidFeed();
   error InvalidTrigger();
   error InvalidPayee();
   error InvalidRecipient();
@@ -138,6 +146,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   error OnlyCallableByProposedAdmin();
   error OnlyCallableByProposedPayee();
   error OnlyCallableByUpkeepPrivilegeManager();
+  error OnlyFinanceAdmin();
   error OnlyPausedUpkeep();
   error OnlySimulatedBackend();
   error OnlyUnpausedUpkeep();
@@ -150,11 +159,13 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   error TargetCheckReverted(bytes reason);
   error TooManyOracles();
   error TranscoderNotSet();
+  error TransferFailed();
   error UpkeepAlreadyExists();
   error UpkeepCancelled();
   error UpkeepNotCanceled();
   error UpkeepNotNeeded();
   error ValueNotChanged();
+  error ZeroAddressNotAllowed();
 
   enum MigrationPermission {
     NONE,
@@ -262,11 +273,13 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     uint32 maxRevertDataSize;
     uint256 fallbackGasPrice;
     uint256 fallbackLinkPrice;
+    uint256 fallbackNativePrice;
     address transcoder;
     address[] registrars;
     address upkeepPrivilegeManager;
     IChainModule chainModule;
     bool reorgProtectionEnabled;
+    address financeAdmin; // TODO: pack this struct better
   }
 
   /**
@@ -274,7 +287,6 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
    * @dev only used in params and return values
    * @dev this will likely be deprecated in a future version of the registry in favor of individual getters
    * @member nonce used for ID generation
-   * @member ownerLinkBalance withdrawable balance of LINK by contract owner
    * @member expectedLinkBalance the expected balance of LINK of the registry
    * @member totalPremium the total premium collected on registry so far
    * @member numUpkeeps total number of upkeeps on the registry
@@ -367,7 +379,6 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     uint96 minUpkeepSpend; // Minimum amount an upkeep must spend
     address transcoder; // Address of transcoder contract used in migrations
     // 1 EVM word full
-    uint96 ownerLinkBalance; // Balance of owner, accumulates minUpkeepSpend in case it is not spent
     uint32 checkGasLimit; // Gas limit allowed in checkUpkeep
     uint32 maxPerformGas; // Max gas an upkeep can use on this registry
     uint32 nonce; // Nonce for each upkeep created
@@ -380,12 +391,13 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     uint32 maxRevertDataSize; // max length of revertData bytes
     address upkeepPrivilegeManager; // address which can set privilege for upkeeps
     // 3 EVM word full
+    address financeAdmin; // address which can withdraw funds from the contract
   }
 
   /// @dev Report transmitted by OCR to transmit function
   struct Report {
     uint256 fastGasWei;
-    uint256 linkNative;
+    uint256 linkUSD;
     uint256[] upkeepIds;
     uint256[] gasLimits;
     bytes[] triggers;
@@ -446,6 +458,45 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     bytes32 blockHash;
   }
 
+  /**
+   * @notice the billing config of a token
+   */
+  struct BillingConfig {
+    uint32 gasFeePPB;
+    uint24 flatFeeMicroLink;
+    address priceFeed;
+  }
+
+  /**
+   * @notice struct containing price & payment information used in calculating payment amount
+   * @member gasLimit the amount of gas used
+   * @member gasOverhead the amount of gas overhead
+   * @member l1CostWei the amount to be charged for L1 fee in wei
+   * @member fastGasWei the fast gas price
+   * @member linkUSD the exchange ratio between LINK and USD
+   * @member nativeUSD the exchange ratio between the chain's native token and USD
+   * @member isTransaction is this an eth_call or a transaction
+   */
+  struct PaymentParams {
+    uint256 gasLimit;
+    uint256 gasOverhead;
+    uint256 l1CostWei;
+    uint256 fastGasWei;
+    uint256 linkUSD;
+    uint256 nativeUSD;
+    bool isTransaction;
+  }
+
+  /**
+   * @notice struct containing receipt information after a payment is made
+   * @member reimbursement the amount to reimburse a node for gas spent
+   * @member premium the premium charged to the user, shared between all nodes
+   */
+  struct PaymentReceipt {
+    uint96 reimbursement;
+    uint96 premium;
+  }
+
   event AdminPrivilegeConfigSet(address indexed admin, bytes privilegeConfig);
   event CancelledUpkeepReport(uint256 indexed id, bytes trigger);
   event ChainSpecificModuleUpdated(address newModule);
@@ -453,7 +504,6 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   event FundsAdded(uint256 indexed id, address indexed from, uint96 amount);
   event FundsWithdrawn(uint256 indexed id, uint256 amount, address to);
   event InsufficientFundsUpkeepReport(uint256 indexed id, bytes trigger);
-  event OwnerFundsWithdrawn(uint96 amount);
   event Paused(address account);
   event PayeesUpdated(address[] transmitters, address[] payees);
   event PayeeshipTransferRequested(address indexed transmitter, address indexed from, address indexed to);
@@ -483,26 +533,35 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   event UpkeepTriggerConfigSet(uint256 indexed id, bytes triggerConfig);
   event UpkeepUnpaused(uint256 indexed id);
   event Unpaused(address account);
+  // Event to emit when a billing configuration is set
+  event BillingConfigSet(IERC20 indexed token, BillingConfig config);
+  event FeesWithdrawn(address indexed recipient, address indexed assetAddress, uint256 amount);
 
   /**
    * @param link address of the LINK Token
-   * @param linkNativeFeed address of the LINK/Native price feed
+   * @param linkUSDFeed address of the LINK/USD price feed
+   * @param nativeUSDFeed address of the Native/USD price feed
    * @param fastGasFeed address of the Fast Gas price feed
    * @param automationForwarderLogic the address of automation forwarder logic
    * @param allowedReadOnlyAddress the address of the allowed read only address
    */
   constructor(
     address link,
-    address linkNativeFeed,
+    address linkUSDFeed,
+    address nativeUSDFeed,
     address fastGasFeed,
     address automationForwarderLogic,
     address allowedReadOnlyAddress
   ) ConfirmedOwner(msg.sender) {
     i_link = LinkTokenInterface(link);
-    i_linkNativeFeed = AggregatorV3Interface(linkNativeFeed);
+    i_linkUSDFeed = AggregatorV3Interface(linkUSDFeed);
+    i_nativeUSDFeed = AggregatorV3Interface(nativeUSDFeed);
     i_fastGasFeed = AggregatorV3Interface(fastGasFeed);
     i_automationForwarderLogic = automationForwarderLogic;
     i_allowedReadOnlyAddress = allowedReadOnlyAddress;
+    if (i_linkUSDFeed.decimals() != i_nativeUSDFeed.decimals()) {
+      revert InvalidFeed();
+    }
   }
 
   // ================================================================
@@ -534,7 +593,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     s_upkeep[id] = upkeep;
     s_upkeepAdmin[id] = admin;
     s_checkData[id] = checkData;
-    s_expectedLinkBalance = s_expectedLinkBalance + upkeep.balance;
+    s_reserveAmounts[address(i_link)] = s_reserveAmounts[address(i_link)] + upkeep.balance;
     s_upkeepTriggerConfig[id] = triggerConfig;
     s_upkeepOffchainConfig[id] = offchainConfig;
     s_upkeepIDs.add(id);
@@ -571,7 +630,9 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
    * for gas it takes the min of gas price in the transaction or the fast gas
    * price in order to reduce costs for the upkeep clients.
    */
-  function _getFeedData(HotVars memory hotVars) internal view returns (uint256 gasWei, uint256 linkNative) {
+  function _getFeedData(
+    HotVars memory hotVars
+  ) internal view returns (uint256 gasWei, uint256 linkUSD, uint256 nativeUSD) {
     uint32 stalenessSeconds = hotVars.stalenessSeconds;
     bool staleFallback = stalenessSeconds > 0;
     uint256 timestamp;
@@ -584,43 +645,57 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     } else {
       gasWei = uint256(feedValue);
     }
-    (, feedValue, , timestamp, ) = i_linkNativeFeed.latestRoundData();
+    (, feedValue, , timestamp, ) = i_linkUSDFeed.latestRoundData();
     if (
       feedValue <= 0 || block.timestamp < timestamp || (staleFallback && stalenessSeconds < block.timestamp - timestamp)
     ) {
-      linkNative = s_fallbackLinkPrice;
+      linkUSD = s_fallbackLinkPrice;
     } else {
-      linkNative = uint256(feedValue);
+      linkUSD = uint256(feedValue);
     }
-    return (gasWei, linkNative);
+    (, feedValue, , timestamp, ) = i_nativeUSDFeed.latestRoundData();
+    return (gasWei, linkUSD, _getNativeUSD(hotVars));
+  }
+
+  /**
+   * @dev this price has it's own getter for use in the transmit() hot path
+   * in the future, all price data should be included in the report instead of
+   * getting read during execution
+   */
+  function _getNativeUSD(HotVars memory hotVars) internal view returns (uint256) {
+    (, int256 feedValue, , uint256 timestamp, ) = i_nativeUSDFeed.latestRoundData();
+    if (
+      feedValue <= 0 ||
+      block.timestamp < timestamp ||
+      (hotVars.stalenessSeconds > 0 && hotVars.stalenessSeconds < block.timestamp - timestamp)
+    ) {
+      return s_fallbackNativePrice;
+    } else {
+      return uint256(feedValue);
+    }
   }
 
   /**
    * @dev calculates LINK paid for gas spent plus a configure premium percentage
-   * @param gasLimit the amount of gas used
-   * @param gasOverhead the amount of gas overhead
-   * @param l1CostWei the amount to be charged for L1 fee in wei
-   * @param fastGasWei the fast gas price
-   * @param linkNative the exchange ratio between LINK and Native token
-   * @param isExecution if this is triggered by a perform upkeep function
+   * @param hotVars the hot path variables
+   * @param paymentParams the pricing data and gas usage data
+   * @dev use of PaymentParams is solely to avoid stack too deep errors
    */
   function _calculatePaymentAmount(
     HotVars memory hotVars,
-    uint256 gasLimit,
-    uint256 gasOverhead,
-    uint256 l1CostWei,
-    uint256 fastGasWei,
-    uint256 linkNative,
-    bool isExecution
+    PaymentParams memory paymentParams
   ) internal view returns (uint96, uint96) {
-    uint256 gasWei = fastGasWei * hotVars.gasCeilingMultiplier;
+    uint256 gasWei = paymentParams.fastGasWei * hotVars.gasCeilingMultiplier;
     // in case it's actual execution use actual gas price, capped by fastGasWei * gasCeilingMultiplier
-    if (isExecution && tx.gasprice < gasWei) {
+    if (paymentParams.isTransaction && tx.gasprice < gasWei) {
       gasWei = tx.gasprice;
     }
-    uint256 gasPayment = ((gasWei * (gasLimit + gasOverhead) + l1CostWei) * 1e18) / linkNative;
-    uint256 premium = (((gasWei * gasLimit) + l1CostWei) * 1e9 * hotVars.paymentPremiumPPB) /
-      linkNative +
+    uint256 gasPayment = ((gasWei * (paymentParams.gasLimit + paymentParams.gasOverhead) + paymentParams.l1CostWei) *
+      paymentParams.nativeUSD) / paymentParams.linkUSD;
+    uint256 premium = (((gasWei * paymentParams.gasLimit) + paymentParams.l1CostWei) *
+      hotVars.paymentPremiumPPB *
+      paymentParams.nativeUSD) /
+      (paymentParams.linkUSD * 1e9) +
       uint256(hotVars.flatFeeMicroLink) *
       1e12;
     // LINK_TOTAL_SUPPLY < UINT96_MAX
@@ -637,7 +712,8 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     Trigger triggerType,
     uint32 performGas,
     uint256 fastGasWei,
-    uint256 linkNative
+    uint256 linkUSD,
+    uint256 nativeUSD
   ) internal view returns (uint96) {
     uint256 maxGasOverhead;
     if (triggerType == Trigger.CONDITION) {
@@ -660,12 +736,15 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
 
     (uint96 reimbursement, uint96 premium) = _calculatePaymentAmount(
       hotVars,
-      performGas,
-      maxGasOverhead,
-      maxL1Fee,
-      fastGasWei,
-      linkNative,
-      false //isExecution
+      PaymentParams({
+        gasLimit: performGas,
+        gasOverhead: maxGasOverhead,
+        l1CostWei: maxL1Fee,
+        fastGasWei: fastGasWei,
+        linkUSD: linkUSD,
+        nativeUSD: nativeUSD,
+        isTransaction: false
+      })
     );
 
     return reimbursement + premium;
@@ -885,27 +964,15 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   }
 
   /**
-   * @dev does postPerform payment processing for an upkeep. Deducts upkeep's balance and increases
-   * amount spent.
+   * @dev handles the payment processing after an upkeep has been performed.
+   * Deducts an upkeep's balance and increases the amount spent.
    */
-  function _postPerformPayment(
+  function _handlePayment(
     HotVars memory hotVars,
-    uint256 upkeepId,
-    uint256 gasUsed,
-    uint256 fastGasWei,
-    uint256 linkNative,
-    uint256 gasOverhead,
-    uint256 l1Fee
-  ) internal returns (uint96 gasReimbursement, uint96 premium) {
-    (gasReimbursement, premium) = _calculatePaymentAmount(
-      hotVars,
-      gasUsed,
-      gasOverhead,
-      l1Fee,
-      fastGasWei,
-      linkNative,
-      true // isExecution
-    );
+    PaymentParams memory paymentParams,
+    uint256 upkeepId
+  ) internal returns (PaymentReceipt memory) {
+    (uint96 gasReimbursement, uint96 premium) = _calculatePaymentAmount(hotVars, paymentParams);
 
     uint96 balance = s_upkeep[upkeepId].balance;
     uint96 payment = gasReimbursement + premium;
@@ -924,7 +991,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     s_upkeep[upkeepId].balance -= payment;
     s_upkeep[upkeepId].amountSpent += payment;
 
-    return (gasReimbursement, premium);
+    return PaymentReceipt({reimbursement: gasReimbursement, premium: premium});
   }
 
   /**
@@ -951,6 +1018,48 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   function _preventExecution() internal view {
     if (tx.origin != i_allowedReadOnlyAddress) {
       revert OnlySimulatedBackend();
+    }
+  }
+
+  /**
+   * @notice only allows finance admin to call the function
+   */
+  function _onlyFinanceAdminAllowed() internal view {
+    if (msg.sender != s_storage.financeAdmin) {
+      revert OnlyFinanceAdmin();
+    }
+  }
+
+  /**
+   * @notice sets billing configuration for a token
+   * @param billingTokens the addresses of tokens
+   * @param billingConfigs the configs for tokens
+   */
+  function _setBillingConfig(IERC20[] memory billingTokens, BillingConfig[] memory billingConfigs) internal {
+    // Clear existing data
+    for (uint256 i = 0; i < s_billingTokens.length; i++) {
+      delete s_billingConfigs[s_billingTokens[i]];
+    }
+    delete s_billingTokens;
+
+    for (uint256 i = 0; i < billingTokens.length; i++) {
+      IERC20 token = billingTokens[i];
+      BillingConfig memory config = billingConfigs[i];
+
+      if (address(token) == ZERO_ADDRESS || config.priceFeed == ZERO_ADDRESS) {
+        revert ZeroAddressNotAllowed();
+      }
+
+      // if this is a new token, add it to tokens list. Otherwise revert
+      if (s_billingConfigs[token].priceFeed != ZERO_ADDRESS) {
+        revert DuplicateEntry();
+      }
+      s_billingTokens.push(token);
+
+      // update the billing config for an existing token or add a new one
+      s_billingConfigs[token] = config;
+
+      emit BillingConfigSet(token, config);
     }
   }
 }

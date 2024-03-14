@@ -30,6 +30,12 @@ var (
 	_ = abi.ConvertType
 )
 
+type AutomationRegistryBase23BillingConfig struct {
+	GasFeePPB        uint32
+	FlatFeeMicroLink *big.Int
+	PriceFeed        common.Address
+}
+
 type AutomationRegistryBase23OnchainConfig struct {
 	PaymentPremiumPPB      uint32
 	FlatFeeMicroLink       uint32
@@ -43,11 +49,13 @@ type AutomationRegistryBase23OnchainConfig struct {
 	MaxRevertDataSize      uint32
 	FallbackGasPrice       *big.Int
 	FallbackLinkPrice      *big.Int
+	FallbackNativePrice    *big.Int
 	Transcoder             common.Address
 	Registrars             []common.Address
 	UpkeepPrivilegeManager common.Address
 	ChainModule            common.Address
 	ReorgProtectionEnabled bool
+	FinanceAdmin           common.Address
 }
 
 type AutomationRegistryBase23OnchainConfigLegacy struct {
@@ -94,133 +102,133 @@ type AutomationRegistryBase23UpkeepInfo struct {
 	OffchainConfig           []byte
 }
 
-var IAutomationRegistryMasterMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[],\"name\":\"ArrayHasNoEntries\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"CannotCancel\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"CheckDataExceedsLimit\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ConfigDigestMismatch\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"DuplicateEntry\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"DuplicateSigners\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"GasLimitCanOnlyIncrease\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"GasLimitOutsideRange\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"IncorrectNumberOfFaultyOracles\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"IncorrectNumberOfSignatures\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"IncorrectNumberOfSigners\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"IndexOutOfRange\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidDataLength\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidPayee\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidRecipient\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidReport\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidSigner\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidTransmitter\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidTrigger\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidTriggerType\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"MaxCheckDataSizeCanOnlyIncrease\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"MaxPerformDataSizeCanOnlyIncrease\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"MigrationNotPermitted\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"NotAContract\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyActiveSigners\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyActiveTransmitters\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyCallableByAdmin\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyCallableByLINKToken\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyCallableByOwnerOrAdmin\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyCallableByOwnerOrRegistrar\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyCallableByPayee\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyCallableByProposedAdmin\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyCallableByProposedPayee\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyCallableByUpkeepPrivilegeManager\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyPausedUpkeep\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlySimulatedBackend\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyUnpausedUpkeep\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ParameterLengthError\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"PaymentGreaterThanAllLINK\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ReentrantCall\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"RegistryPaused\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"RepeatedSigner\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"RepeatedTransmitter\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"reason\",\"type\":\"bytes\"}],\"name\":\"TargetCheckReverted\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"TooManyOracles\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"TranscoderNotSet\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"UpkeepAlreadyExists\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"UpkeepCancelled\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"UpkeepNotCanceled\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"UpkeepNotNeeded\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ValueNotChanged\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"admin\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"privilegeConfig\",\"type\":\"bytes\"}],\"name\":\"AdminPrivilegeConfigSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"trigger\",\"type\":\"bytes\"}],\"name\":\"CancelledUpkeepReport\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"newModule\",\"type\":\"address\"}],\"name\":\"ChainSpecificModuleUpdated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint32\",\"name\":\"previousConfigBlockNumber\",\"type\":\"uint32\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"configDigest\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"configCount\",\"type\":\"uint64\"},{\"indexed\":false,\"internalType\":\"address[]\",\"name\":\"signers\",\"type\":\"address[]\"},{\"indexed\":false,\"internalType\":\"address[]\",\"name\":\"transmitters\",\"type\":\"address[]\"},{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"f\",\"type\":\"uint8\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"onchainConfig\",\"type\":\"bytes\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"offchainConfigVersion\",\"type\":\"uint64\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"offchainConfig\",\"type\":\"bytes\"}],\"name\":\"ConfigSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"dedupKey\",\"type\":\"bytes32\"}],\"name\":\"DedupKeyAdded\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint96\",\"name\":\"amount\",\"type\":\"uint96\"}],\"name\":\"FundsAdded\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"FundsWithdrawn\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"trigger\",\"type\":\"bytes\"}],\"name\":\"InsufficientFundsUpkeepReport\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint96\",\"name\":\"amount\",\"type\":\"uint96\"}],\"name\":\"OwnerFundsWithdrawn\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"OwnershipTransferRequested\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"}],\"name\":\"Paused\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address[]\",\"name\":\"transmitters\",\"type\":\"address[]\"},{\"indexed\":false,\"internalType\":\"address[]\",\"name\":\"payees\",\"type\":\"address[]\"}],\"name\":\"PayeesUpdated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"transmitter\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"PayeeshipTransferRequested\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"transmitter\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"PayeeshipTransferred\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"transmitter\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"payee\",\"type\":\"address\"}],\"name\":\"PaymentWithdrawn\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"trigger\",\"type\":\"bytes\"}],\"name\":\"ReorgedUpkeepReport\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"trigger\",\"type\":\"bytes\"}],\"name\":\"StaleUpkeepReport\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"configDigest\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"uint32\",\"name\":\"epoch\",\"type\":\"uint32\"}],\"name\":\"Transmitted\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"}],\"name\":\"Unpaused\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"UpkeepAdminTransferRequested\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"UpkeepAdminTransferred\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"uint64\",\"name\":\"atBlockHeight\",\"type\":\"uint64\"}],\"name\":\"UpkeepCanceled\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"newCheckData\",\"type\":\"bytes\"}],\"name\":\"UpkeepCheckDataSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint96\",\"name\":\"gasLimit\",\"type\":\"uint96\"}],\"name\":\"UpkeepGasLimitSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"remainingBalance\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"destination\",\"type\":\"address\"}],\"name\":\"UpkeepMigrated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"offchainConfig\",\"type\":\"bytes\"}],\"name\":\"UpkeepOffchainConfigSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"UpkeepPaused\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"bool\",\"name\":\"success\",\"type\":\"bool\"},{\"indexed\":false,\"internalType\":\"uint96\",\"name\":\"totalPayment\",\"type\":\"uint96\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"gasUsed\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"gasOverhead\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"trigger\",\"type\":\"bytes\"}],\"name\":\"UpkeepPerformed\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"privilegeConfig\",\"type\":\"bytes\"}],\"name\":\"UpkeepPrivilegeConfigSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"startingBalance\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"importedFrom\",\"type\":\"address\"}],\"name\":\"UpkeepReceived\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint32\",\"name\":\"performGas\",\"type\":\"uint32\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"admin\",\"type\":\"address\"}],\"name\":\"UpkeepRegistered\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"triggerConfig\",\"type\":\"bytes\"}],\"name\":\"UpkeepTriggerConfigSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"UpkeepUnpaused\",\"type\":\"event\"},{\"stateMutability\":\"nonpayable\",\"type\":\"fallback\"},{\"inputs\":[],\"name\":\"acceptOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"transmitter\",\"type\":\"address\"}],\"name\":\"acceptPayeeship\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"acceptUpkeepAdmin\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"uint96\",\"name\":\"amount\",\"type\":\"uint96\"}],\"name\":\"addFunds\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"cancelUpkeep\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"bytes[]\",\"name\":\"values\",\"type\":\"bytes[]\"},{\"internalType\":\"bytes\",\"name\":\"extraData\",\"type\":\"bytes\"}],\"name\":\"checkCallback\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"upkeepNeeded\",\"type\":\"bool\"},{\"internalType\":\"bytes\",\"name\":\"performData\",\"type\":\"bytes\"},{\"internalType\":\"uint8\",\"name\":\"upkeepFailureReason\",\"type\":\"uint8\"},{\"internalType\":\"uint256\",\"name\":\"gasUsed\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"triggerData\",\"type\":\"bytes\"}],\"name\":\"checkUpkeep\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"upkeepNeeded\",\"type\":\"bool\"},{\"internalType\":\"bytes\",\"name\":\"performData\",\"type\":\"bytes\"},{\"internalType\":\"uint8\",\"name\":\"upkeepFailureReason\",\"type\":\"uint8\"},{\"internalType\":\"uint256\",\"name\":\"gasUsed\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"gasLimit\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"fastGasWei\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"linkNative\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"checkUpkeep\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"upkeepNeeded\",\"type\":\"bool\"},{\"internalType\":\"bytes\",\"name\":\"performData\",\"type\":\"bytes\"},{\"internalType\":\"uint8\",\"name\":\"upkeepFailureReason\",\"type\":\"uint8\"},{\"internalType\":\"uint256\",\"name\":\"gasUsed\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"gasLimit\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"fastGasWei\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"linkNative\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"payload\",\"type\":\"bytes\"}],\"name\":\"executeCallback\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"upkeepNeeded\",\"type\":\"bool\"},{\"internalType\":\"bytes\",\"name\":\"performData\",\"type\":\"bytes\"},{\"internalType\":\"uint8\",\"name\":\"upkeepFailureReason\",\"type\":\"uint8\"},{\"internalType\":\"uint256\",\"name\":\"gasUsed\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"fallbackTo\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"startIndex\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"maxCount\",\"type\":\"uint256\"}],\"name\":\"getActiveUpkeepIDs\",\"outputs\":[{\"internalType\":\"uint256[]\",\"name\":\"\",\"type\":\"uint256[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"admin\",\"type\":\"address\"}],\"name\":\"getAdminPrivilegeConfig\",\"outputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getAllowedReadOnlyAddress\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getAutomationForwarderLogic\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"getBalance\",\"outputs\":[{\"internalType\":\"uint96\",\"name\":\"balance\",\"type\":\"uint96\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getCancellationDelay\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getChainModule\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"chainModule\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getConditionalGasOverhead\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getFastGasFeedAddress\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"upkeepID\",\"type\":\"uint256\"}],\"name\":\"getForwarder\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getLinkAddress\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getLinkNativeFeedAddress\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getLogGasOverhead\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint8\",\"name\":\"triggerType\",\"type\":\"uint8\"},{\"internalType\":\"uint32\",\"name\":\"gasLimit\",\"type\":\"uint32\"}],\"name\":\"getMaxPaymentForGas\",\"outputs\":[{\"internalType\":\"uint96\",\"name\":\"maxPayment\",\"type\":\"uint96\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"getMinBalance\",\"outputs\":[{\"internalType\":\"uint96\",\"name\":\"\",\"type\":\"uint96\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"getMinBalanceForUpkeep\",\"outputs\":[{\"internalType\":\"uint96\",\"name\":\"minBalance\",\"type\":\"uint96\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"peer\",\"type\":\"address\"}],\"name\":\"getPeerRegistryMigrationPermission\",\"outputs\":[{\"internalType\":\"uint8\",\"name\":\"\",\"type\":\"uint8\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getPerPerformByteGasOverhead\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getPerSignerGasOverhead\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getReorgProtectionEnabled\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"reorgProtectionEnabled\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"query\",\"type\":\"address\"}],\"name\":\"getSignerInfo\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"active\",\"type\":\"bool\"},{\"internalType\":\"uint8\",\"name\":\"index\",\"type\":\"uint8\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getState\",\"outputs\":[{\"components\":[{\"internalType\":\"uint32\",\"name\":\"nonce\",\"type\":\"uint32\"},{\"internalType\":\"uint96\",\"name\":\"ownerLinkBalance\",\"type\":\"uint96\"},{\"internalType\":\"uint256\",\"name\":\"expectedLinkBalance\",\"type\":\"uint256\"},{\"internalType\":\"uint96\",\"name\":\"totalPremium\",\"type\":\"uint96\"},{\"internalType\":\"uint256\",\"name\":\"numUpkeeps\",\"type\":\"uint256\"},{\"internalType\":\"uint32\",\"name\":\"configCount\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"latestConfigBlockNumber\",\"type\":\"uint32\"},{\"internalType\":\"bytes32\",\"name\":\"latestConfigDigest\",\"type\":\"bytes32\"},{\"internalType\":\"uint32\",\"name\":\"latestEpoch\",\"type\":\"uint32\"},{\"internalType\":\"bool\",\"name\":\"paused\",\"type\":\"bool\"}],\"internalType\":\"structAutomationRegistryBase2_3.State\",\"name\":\"state\",\"type\":\"tuple\"},{\"components\":[{\"internalType\":\"uint32\",\"name\":\"paymentPremiumPPB\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"flatFeeMicroLink\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"checkGasLimit\",\"type\":\"uint32\"},{\"internalType\":\"uint24\",\"name\":\"stalenessSeconds\",\"type\":\"uint24\"},{\"internalType\":\"uint16\",\"name\":\"gasCeilingMultiplier\",\"type\":\"uint16\"},{\"internalType\":\"uint96\",\"name\":\"minUpkeepSpend\",\"type\":\"uint96\"},{\"internalType\":\"uint32\",\"name\":\"maxPerformGas\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"maxCheckDataSize\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"maxPerformDataSize\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"maxRevertDataSize\",\"type\":\"uint32\"},{\"internalType\":\"uint256\",\"name\":\"fallbackGasPrice\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"fallbackLinkPrice\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"transcoder\",\"type\":\"address\"},{\"internalType\":\"address[]\",\"name\":\"registrars\",\"type\":\"address[]\"},{\"internalType\":\"address\",\"name\":\"upkeepPrivilegeManager\",\"type\":\"address\"}],\"internalType\":\"structAutomationRegistryBase2_3.OnchainConfigLegacy\",\"name\":\"config\",\"type\":\"tuple\"},{\"internalType\":\"address[]\",\"name\":\"signers\",\"type\":\"address[]\"},{\"internalType\":\"address[]\",\"name\":\"transmitters\",\"type\":\"address[]\"},{\"internalType\":\"uint8\",\"name\":\"f\",\"type\":\"uint8\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getTransmitCalldataFixedBytesOverhead\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getTransmitCalldataPerSignerBytesOverhead\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"query\",\"type\":\"address\"}],\"name\":\"getTransmitterInfo\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"active\",\"type\":\"bool\"},{\"internalType\":\"uint8\",\"name\":\"index\",\"type\":\"uint8\"},{\"internalType\":\"uint96\",\"name\":\"balance\",\"type\":\"uint96\"},{\"internalType\":\"uint96\",\"name\":\"lastCollected\",\"type\":\"uint96\"},{\"internalType\":\"address\",\"name\":\"payee\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"upkeepId\",\"type\":\"uint256\"}],\"name\":\"getTriggerType\",\"outputs\":[{\"internalType\":\"uint8\",\"name\":\"\",\"type\":\"uint8\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"getUpkeep\",\"outputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"target\",\"type\":\"address\"},{\"internalType\":\"uint32\",\"name\":\"performGas\",\"type\":\"uint32\"},{\"internalType\":\"bytes\",\"name\":\"checkData\",\"type\":\"bytes\"},{\"internalType\":\"uint96\",\"name\":\"balance\",\"type\":\"uint96\"},{\"internalType\":\"address\",\"name\":\"admin\",\"type\":\"address\"},{\"internalType\":\"uint64\",\"name\":\"maxValidBlocknumber\",\"type\":\"uint64\"},{\"internalType\":\"uint32\",\"name\":\"lastPerformedBlockNumber\",\"type\":\"uint32\"},{\"internalType\":\"uint96\",\"name\":\"amountSpent\",\"type\":\"uint96\"},{\"internalType\":\"bool\",\"name\":\"paused\",\"type\":\"bool\"},{\"internalType\":\"bytes\",\"name\":\"offchainConfig\",\"type\":\"bytes\"}],\"internalType\":\"structAutomationRegistryBase2_3.UpkeepInfo\",\"name\":\"upkeepInfo\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"upkeepId\",\"type\":\"uint256\"}],\"name\":\"getUpkeepPrivilegeConfig\",\"outputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"upkeepId\",\"type\":\"uint256\"}],\"name\":\"getUpkeepTriggerConfig\",\"outputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"dedupKey\",\"type\":\"bytes32\"}],\"name\":\"hasDedupKey\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"latestConfigDetails\",\"outputs\":[{\"internalType\":\"uint32\",\"name\":\"configCount\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"blockNumber\",\"type\":\"uint32\"},{\"internalType\":\"bytes32\",\"name\":\"configDigest\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"latestConfigDigestAndEpoch\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"scanLogs\",\"type\":\"bool\"},{\"internalType\":\"bytes32\",\"name\":\"configDigest\",\"type\":\"bytes32\"},{\"internalType\":\"uint32\",\"name\":\"epoch\",\"type\":\"uint32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256[]\",\"name\":\"ids\",\"type\":\"uint256[]\"},{\"internalType\":\"address\",\"name\":\"destination\",\"type\":\"address\"}],\"name\":\"migrateUpkeeps\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"data\",\"type\":\"bytes\"}],\"name\":\"onTokenTransfer\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"pause\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"pauseUpkeep\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"encodedUpkeeps\",\"type\":\"bytes\"}],\"name\":\"receiveUpkeeps\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"recoverFunds\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"target\",\"type\":\"address\"},{\"internalType\":\"uint32\",\"name\":\"gasLimit\",\"type\":\"uint32\"},{\"internalType\":\"address\",\"name\":\"admin\",\"type\":\"address\"},{\"internalType\":\"uint8\",\"name\":\"triggerType\",\"type\":\"uint8\"},{\"internalType\":\"bytes\",\"name\":\"checkData\",\"type\":\"bytes\"},{\"internalType\":\"bytes\",\"name\":\"triggerConfig\",\"type\":\"bytes\"},{\"internalType\":\"bytes\",\"name\":\"offchainConfig\",\"type\":\"bytes\"}],\"name\":\"registerUpkeep\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"target\",\"type\":\"address\"},{\"internalType\":\"uint32\",\"name\":\"gasLimit\",\"type\":\"uint32\"},{\"internalType\":\"address\",\"name\":\"admin\",\"type\":\"address\"},{\"internalType\":\"bytes\",\"name\":\"checkData\",\"type\":\"bytes\"},{\"internalType\":\"bytes\",\"name\":\"offchainConfig\",\"type\":\"bytes\"}],\"name\":\"registerUpkeep\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"admin\",\"type\":\"address\"},{\"internalType\":\"bytes\",\"name\":\"newPrivilegeConfig\",\"type\":\"bytes\"}],\"name\":\"setAdminPrivilegeConfig\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address[]\",\"name\":\"signers\",\"type\":\"address[]\"},{\"internalType\":\"address[]\",\"name\":\"transmitters\",\"type\":\"address[]\"},{\"internalType\":\"uint8\",\"name\":\"f\",\"type\":\"uint8\"},{\"internalType\":\"bytes\",\"name\":\"onchainConfigBytes\",\"type\":\"bytes\"},{\"internalType\":\"uint64\",\"name\":\"offchainConfigVersion\",\"type\":\"uint64\"},{\"internalType\":\"bytes\",\"name\":\"offchainConfig\",\"type\":\"bytes\"}],\"name\":\"setConfig\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address[]\",\"name\":\"signers\",\"type\":\"address[]\"},{\"internalType\":\"address[]\",\"name\":\"transmitters\",\"type\":\"address[]\"},{\"internalType\":\"uint8\",\"name\":\"f\",\"type\":\"uint8\"},{\"components\":[{\"internalType\":\"uint32\",\"name\":\"paymentPremiumPPB\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"flatFeeMicroLink\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"checkGasLimit\",\"type\":\"uint32\"},{\"internalType\":\"uint24\",\"name\":\"stalenessSeconds\",\"type\":\"uint24\"},{\"internalType\":\"uint16\",\"name\":\"gasCeilingMultiplier\",\"type\":\"uint16\"},{\"internalType\":\"uint96\",\"name\":\"minUpkeepSpend\",\"type\":\"uint96\"},{\"internalType\":\"uint32\",\"name\":\"maxPerformGas\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"maxCheckDataSize\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"maxPerformDataSize\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"maxRevertDataSize\",\"type\":\"uint32\"},{\"internalType\":\"uint256\",\"name\":\"fallbackGasPrice\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"fallbackLinkPrice\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"transcoder\",\"type\":\"address\"},{\"internalType\":\"address[]\",\"name\":\"registrars\",\"type\":\"address[]\"},{\"internalType\":\"address\",\"name\":\"upkeepPrivilegeManager\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"chainModule\",\"type\":\"address\"},{\"internalType\":\"bool\",\"name\":\"reorgProtectionEnabled\",\"type\":\"bool\"}],\"internalType\":\"structAutomationRegistryBase2_3.OnchainConfig\",\"name\":\"onchainConfig\",\"type\":\"tuple\"},{\"internalType\":\"uint64\",\"name\":\"offchainConfigVersion\",\"type\":\"uint64\"},{\"internalType\":\"bytes\",\"name\":\"offchainConfig\",\"type\":\"bytes\"}],\"name\":\"setConfigTypeSafe\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address[]\",\"name\":\"payees\",\"type\":\"address[]\"}],\"name\":\"setPayees\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"peer\",\"type\":\"address\"},{\"internalType\":\"uint8\",\"name\":\"permission\",\"type\":\"uint8\"}],\"name\":\"setPeerRegistryMigrationPermission\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"newCheckData\",\"type\":\"bytes\"}],\"name\":\"setUpkeepCheckData\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"uint32\",\"name\":\"gasLimit\",\"type\":\"uint32\"}],\"name\":\"setUpkeepGasLimit\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"config\",\"type\":\"bytes\"}],\"name\":\"setUpkeepOffchainConfig\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"upkeepId\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"newPrivilegeConfig\",\"type\":\"bytes\"}],\"name\":\"setUpkeepPrivilegeConfig\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"triggerConfig\",\"type\":\"bytes\"}],\"name\":\"setUpkeepTriggerConfig\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"performData\",\"type\":\"bytes\"}],\"name\":\"simulatePerformUpkeep\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"success\",\"type\":\"bool\"},{\"internalType\":\"uint256\",\"name\":\"gasUsed\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"transmitter\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"proposed\",\"type\":\"address\"}],\"name\":\"transferPayeeship\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"proposed\",\"type\":\"address\"}],\"name\":\"transferUpkeepAdmin\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32[3]\",\"name\":\"reportContext\",\"type\":\"bytes32[3]\"},{\"internalType\":\"bytes\",\"name\":\"rawReport\",\"type\":\"bytes\"},{\"internalType\":\"bytes32[]\",\"name\":\"rs\",\"type\":\"bytes32[]\"},{\"internalType\":\"bytes32[]\",\"name\":\"ss\",\"type\":\"bytes32[]\"},{\"internalType\":\"bytes32\",\"name\":\"rawVs\",\"type\":\"bytes32\"}],\"name\":\"transmit\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"typeAndVersion\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"unpause\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"unpauseUpkeep\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"upkeepTranscoderVersion\",\"outputs\":[{\"internalType\":\"uint8\",\"name\":\"\",\"type\":\"uint8\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"upkeepVersion\",\"outputs\":[{\"internalType\":\"uint8\",\"name\":\"\",\"type\":\"uint8\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"withdrawFunds\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"withdrawOwnerFunds\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"withdrawPayment\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
+var IAutomationRegistryMaster23MetaData = &bind.MetaData{
+	ABI: "[{\"inputs\":[],\"name\":\"ArrayHasNoEntries\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"CannotCancel\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"CheckDataExceedsLimit\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ConfigDigestMismatch\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"DuplicateEntry\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"DuplicateSigners\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"GasLimitCanOnlyIncrease\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"GasLimitOutsideRange\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"IncorrectNumberOfFaultyOracles\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"IncorrectNumberOfSignatures\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"IncorrectNumberOfSigners\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"IndexOutOfRange\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"available\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"requested\",\"type\":\"uint256\"}],\"name\":\"InsufficientBalance\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidDataLength\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidFeed\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidPayee\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidRecipient\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidReport\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidSigner\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidTransmitter\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidTrigger\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidTriggerType\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"MaxCheckDataSizeCanOnlyIncrease\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"MaxPerformDataSizeCanOnlyIncrease\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"MigrationNotPermitted\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"NotAContract\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyActiveSigners\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyActiveTransmitters\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyCallableByAdmin\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyCallableByLINKToken\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyCallableByOwnerOrAdmin\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyCallableByOwnerOrRegistrar\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyCallableByPayee\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyCallableByProposedAdmin\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyCallableByProposedPayee\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyCallableByUpkeepPrivilegeManager\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyFinanceAdmin\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyPausedUpkeep\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlySimulatedBackend\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyUnpausedUpkeep\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ParameterLengthError\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"PaymentGreaterThanAllLINK\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ReentrantCall\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"RegistryPaused\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"RepeatedSigner\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"RepeatedTransmitter\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"reason\",\"type\":\"bytes\"}],\"name\":\"TargetCheckReverted\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"TooManyOracles\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"TranscoderNotSet\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"TransferFailed\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"UpkeepAlreadyExists\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"UpkeepCancelled\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"UpkeepNotCanceled\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"UpkeepNotNeeded\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ValueNotChanged\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ZeroAddressNotAllowed\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"admin\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"privilegeConfig\",\"type\":\"bytes\"}],\"name\":\"AdminPrivilegeConfigSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"components\":[{\"internalType\":\"uint32\",\"name\":\"gasFeePPB\",\"type\":\"uint32\"},{\"internalType\":\"uint24\",\"name\":\"flatFeeMicroLink\",\"type\":\"uint24\"},{\"internalType\":\"address\",\"name\":\"priceFeed\",\"type\":\"address\"}],\"indexed\":false,\"internalType\":\"structAutomationRegistryBase2_3.BillingConfig\",\"name\":\"config\",\"type\":\"tuple\"}],\"name\":\"BillingConfigSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"trigger\",\"type\":\"bytes\"}],\"name\":\"CancelledUpkeepReport\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"newModule\",\"type\":\"address\"}],\"name\":\"ChainSpecificModuleUpdated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint32\",\"name\":\"previousConfigBlockNumber\",\"type\":\"uint32\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"configDigest\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"configCount\",\"type\":\"uint64\"},{\"indexed\":false,\"internalType\":\"address[]\",\"name\":\"signers\",\"type\":\"address[]\"},{\"indexed\":false,\"internalType\":\"address[]\",\"name\":\"transmitters\",\"type\":\"address[]\"},{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"f\",\"type\":\"uint8\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"onchainConfig\",\"type\":\"bytes\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"offchainConfigVersion\",\"type\":\"uint64\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"offchainConfig\",\"type\":\"bytes\"}],\"name\":\"ConfigSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"dedupKey\",\"type\":\"bytes32\"}],\"name\":\"DedupKeyAdded\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"assetAddress\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"FeesWithdrawn\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint96\",\"name\":\"amount\",\"type\":\"uint96\"}],\"name\":\"FundsAdded\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"FundsWithdrawn\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"trigger\",\"type\":\"bytes\"}],\"name\":\"InsufficientFundsUpkeepReport\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"OwnershipTransferRequested\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"}],\"name\":\"Paused\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address[]\",\"name\":\"transmitters\",\"type\":\"address[]\"},{\"indexed\":false,\"internalType\":\"address[]\",\"name\":\"payees\",\"type\":\"address[]\"}],\"name\":\"PayeesUpdated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"transmitter\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"PayeeshipTransferRequested\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"transmitter\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"PayeeshipTransferred\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"transmitter\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"payee\",\"type\":\"address\"}],\"name\":\"PaymentWithdrawn\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"trigger\",\"type\":\"bytes\"}],\"name\":\"ReorgedUpkeepReport\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"trigger\",\"type\":\"bytes\"}],\"name\":\"StaleUpkeepReport\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"configDigest\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"uint32\",\"name\":\"epoch\",\"type\":\"uint32\"}],\"name\":\"Transmitted\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"}],\"name\":\"Unpaused\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"UpkeepAdminTransferRequested\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"UpkeepAdminTransferred\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"uint64\",\"name\":\"atBlockHeight\",\"type\":\"uint64\"}],\"name\":\"UpkeepCanceled\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"newCheckData\",\"type\":\"bytes\"}],\"name\":\"UpkeepCheckDataSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint96\",\"name\":\"gasLimit\",\"type\":\"uint96\"}],\"name\":\"UpkeepGasLimitSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"remainingBalance\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"destination\",\"type\":\"address\"}],\"name\":\"UpkeepMigrated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"offchainConfig\",\"type\":\"bytes\"}],\"name\":\"UpkeepOffchainConfigSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"UpkeepPaused\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"bool\",\"name\":\"success\",\"type\":\"bool\"},{\"indexed\":false,\"internalType\":\"uint96\",\"name\":\"totalPayment\",\"type\":\"uint96\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"gasUsed\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"gasOverhead\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"trigger\",\"type\":\"bytes\"}],\"name\":\"UpkeepPerformed\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"privilegeConfig\",\"type\":\"bytes\"}],\"name\":\"UpkeepPrivilegeConfigSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"startingBalance\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"importedFrom\",\"type\":\"address\"}],\"name\":\"UpkeepReceived\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint32\",\"name\":\"performGas\",\"type\":\"uint32\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"admin\",\"type\":\"address\"}],\"name\":\"UpkeepRegistered\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"triggerConfig\",\"type\":\"bytes\"}],\"name\":\"UpkeepTriggerConfigSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"UpkeepUnpaused\",\"type\":\"event\"},{\"stateMutability\":\"nonpayable\",\"type\":\"fallback\"},{\"inputs\":[],\"name\":\"acceptOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"transmitter\",\"type\":\"address\"}],\"name\":\"acceptPayeeship\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"acceptUpkeepAdmin\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"uint96\",\"name\":\"amount\",\"type\":\"uint96\"}],\"name\":\"addFunds\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"cancelUpkeep\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"bytes[]\",\"name\":\"values\",\"type\":\"bytes[]\"},{\"internalType\":\"bytes\",\"name\":\"extraData\",\"type\":\"bytes\"}],\"name\":\"checkCallback\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"upkeepNeeded\",\"type\":\"bool\"},{\"internalType\":\"bytes\",\"name\":\"performData\",\"type\":\"bytes\"},{\"internalType\":\"uint8\",\"name\":\"upkeepFailureReason\",\"type\":\"uint8\"},{\"internalType\":\"uint256\",\"name\":\"gasUsed\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"triggerData\",\"type\":\"bytes\"}],\"name\":\"checkUpkeep\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"upkeepNeeded\",\"type\":\"bool\"},{\"internalType\":\"bytes\",\"name\":\"performData\",\"type\":\"bytes\"},{\"internalType\":\"uint8\",\"name\":\"upkeepFailureReason\",\"type\":\"uint8\"},{\"internalType\":\"uint256\",\"name\":\"gasUsed\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"gasLimit\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"fastGasWei\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"linkUSD\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"checkUpkeep\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"upkeepNeeded\",\"type\":\"bool\"},{\"internalType\":\"bytes\",\"name\":\"performData\",\"type\":\"bytes\"},{\"internalType\":\"uint8\",\"name\":\"upkeepFailureReason\",\"type\":\"uint8\"},{\"internalType\":\"uint256\",\"name\":\"gasUsed\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"gasLimit\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"fastGasWei\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"linkUSD\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"payload\",\"type\":\"bytes\"}],\"name\":\"executeCallback\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"upkeepNeeded\",\"type\":\"bool\"},{\"internalType\":\"bytes\",\"name\":\"performData\",\"type\":\"bytes\"},{\"internalType\":\"uint8\",\"name\":\"upkeepFailureReason\",\"type\":\"uint8\"},{\"internalType\":\"uint256\",\"name\":\"gasUsed\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"fallbackTo\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"startIndex\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"maxCount\",\"type\":\"uint256\"}],\"name\":\"getActiveUpkeepIDs\",\"outputs\":[{\"internalType\":\"uint256[]\",\"name\":\"\",\"type\":\"uint256[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"admin\",\"type\":\"address\"}],\"name\":\"getAdminPrivilegeConfig\",\"outputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getAllowedReadOnlyAddress\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getAutomationForwarderLogic\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"getBalance\",\"outputs\":[{\"internalType\":\"uint96\",\"name\":\"balance\",\"type\":\"uint96\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"}],\"name\":\"getBillingTokenConfig\",\"outputs\":[{\"components\":[{\"internalType\":\"uint32\",\"name\":\"gasFeePPB\",\"type\":\"uint32\"},{\"internalType\":\"uint24\",\"name\":\"flatFeeMicroLink\",\"type\":\"uint24\"},{\"internalType\":\"address\",\"name\":\"priceFeed\",\"type\":\"address\"}],\"internalType\":\"structAutomationRegistryBase2_3.BillingConfig\",\"name\":\"\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getBillingTokens\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getCancellationDelay\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getChainModule\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"chainModule\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getConditionalGasOverhead\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getFallbackNativePrice\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getFastGasFeedAddress\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"upkeepID\",\"type\":\"uint256\"}],\"name\":\"getForwarder\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getLinkAddress\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getLinkUSDFeedAddress\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getLogGasOverhead\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint8\",\"name\":\"triggerType\",\"type\":\"uint8\"},{\"internalType\":\"uint32\",\"name\":\"gasLimit\",\"type\":\"uint32\"}],\"name\":\"getMaxPaymentForGas\",\"outputs\":[{\"internalType\":\"uint96\",\"name\":\"maxPayment\",\"type\":\"uint96\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"getMinBalance\",\"outputs\":[{\"internalType\":\"uint96\",\"name\":\"\",\"type\":\"uint96\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"getMinBalanceForUpkeep\",\"outputs\":[{\"internalType\":\"uint96\",\"name\":\"minBalance\",\"type\":\"uint96\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getNativeUSDFeedAddress\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"peer\",\"type\":\"address\"}],\"name\":\"getPeerRegistryMigrationPermission\",\"outputs\":[{\"internalType\":\"uint8\",\"name\":\"\",\"type\":\"uint8\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getPerPerformByteGasOverhead\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getPerSignerGasOverhead\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getReorgProtectionEnabled\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"reorgProtectionEnabled\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"query\",\"type\":\"address\"}],\"name\":\"getSignerInfo\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"active\",\"type\":\"bool\"},{\"internalType\":\"uint8\",\"name\":\"index\",\"type\":\"uint8\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getState\",\"outputs\":[{\"components\":[{\"internalType\":\"uint32\",\"name\":\"nonce\",\"type\":\"uint32\"},{\"internalType\":\"uint96\",\"name\":\"ownerLinkBalance\",\"type\":\"uint96\"},{\"internalType\":\"uint256\",\"name\":\"expectedLinkBalance\",\"type\":\"uint256\"},{\"internalType\":\"uint96\",\"name\":\"totalPremium\",\"type\":\"uint96\"},{\"internalType\":\"uint256\",\"name\":\"numUpkeeps\",\"type\":\"uint256\"},{\"internalType\":\"uint32\",\"name\":\"configCount\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"latestConfigBlockNumber\",\"type\":\"uint32\"},{\"internalType\":\"bytes32\",\"name\":\"latestConfigDigest\",\"type\":\"bytes32\"},{\"internalType\":\"uint32\",\"name\":\"latestEpoch\",\"type\":\"uint32\"},{\"internalType\":\"bool\",\"name\":\"paused\",\"type\":\"bool\"}],\"internalType\":\"structAutomationRegistryBase2_3.State\",\"name\":\"state\",\"type\":\"tuple\"},{\"components\":[{\"internalType\":\"uint32\",\"name\":\"paymentPremiumPPB\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"flatFeeMicroLink\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"checkGasLimit\",\"type\":\"uint32\"},{\"internalType\":\"uint24\",\"name\":\"stalenessSeconds\",\"type\":\"uint24\"},{\"internalType\":\"uint16\",\"name\":\"gasCeilingMultiplier\",\"type\":\"uint16\"},{\"internalType\":\"uint96\",\"name\":\"minUpkeepSpend\",\"type\":\"uint96\"},{\"internalType\":\"uint32\",\"name\":\"maxPerformGas\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"maxCheckDataSize\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"maxPerformDataSize\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"maxRevertDataSize\",\"type\":\"uint32\"},{\"internalType\":\"uint256\",\"name\":\"fallbackGasPrice\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"fallbackLinkPrice\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"transcoder\",\"type\":\"address\"},{\"internalType\":\"address[]\",\"name\":\"registrars\",\"type\":\"address[]\"},{\"internalType\":\"address\",\"name\":\"upkeepPrivilegeManager\",\"type\":\"address\"}],\"internalType\":\"structAutomationRegistryBase2_3.OnchainConfigLegacy\",\"name\":\"config\",\"type\":\"tuple\"},{\"internalType\":\"address[]\",\"name\":\"signers\",\"type\":\"address[]\"},{\"internalType\":\"address[]\",\"name\":\"transmitters\",\"type\":\"address[]\"},{\"internalType\":\"uint8\",\"name\":\"f\",\"type\":\"uint8\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getTransmitCalldataFixedBytesOverhead\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getTransmitCalldataPerSignerBytesOverhead\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"query\",\"type\":\"address\"}],\"name\":\"getTransmitterInfo\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"active\",\"type\":\"bool\"},{\"internalType\":\"uint8\",\"name\":\"index\",\"type\":\"uint8\"},{\"internalType\":\"uint96\",\"name\":\"balance\",\"type\":\"uint96\"},{\"internalType\":\"uint96\",\"name\":\"lastCollected\",\"type\":\"uint96\"},{\"internalType\":\"address\",\"name\":\"payee\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"upkeepId\",\"type\":\"uint256\"}],\"name\":\"getTriggerType\",\"outputs\":[{\"internalType\":\"uint8\",\"name\":\"\",\"type\":\"uint8\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"getUpkeep\",\"outputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"target\",\"type\":\"address\"},{\"internalType\":\"uint32\",\"name\":\"performGas\",\"type\":\"uint32\"},{\"internalType\":\"bytes\",\"name\":\"checkData\",\"type\":\"bytes\"},{\"internalType\":\"uint96\",\"name\":\"balance\",\"type\":\"uint96\"},{\"internalType\":\"address\",\"name\":\"admin\",\"type\":\"address\"},{\"internalType\":\"uint64\",\"name\":\"maxValidBlocknumber\",\"type\":\"uint64\"},{\"internalType\":\"uint32\",\"name\":\"lastPerformedBlockNumber\",\"type\":\"uint32\"},{\"internalType\":\"uint96\",\"name\":\"amountSpent\",\"type\":\"uint96\"},{\"internalType\":\"bool\",\"name\":\"paused\",\"type\":\"bool\"},{\"internalType\":\"bytes\",\"name\":\"offchainConfig\",\"type\":\"bytes\"}],\"internalType\":\"structAutomationRegistryBase2_3.UpkeepInfo\",\"name\":\"upkeepInfo\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"upkeepId\",\"type\":\"uint256\"}],\"name\":\"getUpkeepPrivilegeConfig\",\"outputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"upkeepId\",\"type\":\"uint256\"}],\"name\":\"getUpkeepTriggerConfig\",\"outputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"dedupKey\",\"type\":\"bytes32\"}],\"name\":\"hasDedupKey\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"latestConfigDetails\",\"outputs\":[{\"internalType\":\"uint32\",\"name\":\"configCount\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"blockNumber\",\"type\":\"uint32\"},{\"internalType\":\"bytes32\",\"name\":\"configDigest\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"latestConfigDigestAndEpoch\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"scanLogs\",\"type\":\"bool\"},{\"internalType\":\"bytes32\",\"name\":\"configDigest\",\"type\":\"bytes32\"},{\"internalType\":\"uint32\",\"name\":\"epoch\",\"type\":\"uint32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"linkAvailableForPayment\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256[]\",\"name\":\"ids\",\"type\":\"uint256[]\"},{\"internalType\":\"address\",\"name\":\"destination\",\"type\":\"address\"}],\"name\":\"migrateUpkeeps\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"data\",\"type\":\"bytes\"}],\"name\":\"onTokenTransfer\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"pause\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"pauseUpkeep\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"encodedUpkeeps\",\"type\":\"bytes\"}],\"name\":\"receiveUpkeeps\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"target\",\"type\":\"address\"},{\"internalType\":\"uint32\",\"name\":\"gasLimit\",\"type\":\"uint32\"},{\"internalType\":\"address\",\"name\":\"admin\",\"type\":\"address\"},{\"internalType\":\"uint8\",\"name\":\"triggerType\",\"type\":\"uint8\"},{\"internalType\":\"bytes\",\"name\":\"checkData\",\"type\":\"bytes\"},{\"internalType\":\"bytes\",\"name\":\"triggerConfig\",\"type\":\"bytes\"},{\"internalType\":\"bytes\",\"name\":\"offchainConfig\",\"type\":\"bytes\"}],\"name\":\"registerUpkeep\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"target\",\"type\":\"address\"},{\"internalType\":\"uint32\",\"name\":\"gasLimit\",\"type\":\"uint32\"},{\"internalType\":\"address\",\"name\":\"admin\",\"type\":\"address\"},{\"internalType\":\"bytes\",\"name\":\"checkData\",\"type\":\"bytes\"},{\"internalType\":\"bytes\",\"name\":\"offchainConfig\",\"type\":\"bytes\"}],\"name\":\"registerUpkeep\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"admin\",\"type\":\"address\"},{\"internalType\":\"bytes\",\"name\":\"newPrivilegeConfig\",\"type\":\"bytes\"}],\"name\":\"setAdminPrivilegeConfig\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address[]\",\"name\":\"signers\",\"type\":\"address[]\"},{\"internalType\":\"address[]\",\"name\":\"transmitters\",\"type\":\"address[]\"},{\"internalType\":\"uint8\",\"name\":\"f\",\"type\":\"uint8\"},{\"internalType\":\"bytes\",\"name\":\"onchainConfigBytes\",\"type\":\"bytes\"},{\"internalType\":\"uint64\",\"name\":\"offchainConfigVersion\",\"type\":\"uint64\"},{\"internalType\":\"bytes\",\"name\":\"offchainConfig\",\"type\":\"bytes\"}],\"name\":\"setConfig\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address[]\",\"name\":\"signers\",\"type\":\"address[]\"},{\"internalType\":\"address[]\",\"name\":\"transmitters\",\"type\":\"address[]\"},{\"internalType\":\"uint8\",\"name\":\"f\",\"type\":\"uint8\"},{\"components\":[{\"internalType\":\"uint32\",\"name\":\"paymentPremiumPPB\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"flatFeeMicroLink\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"checkGasLimit\",\"type\":\"uint32\"},{\"internalType\":\"uint24\",\"name\":\"stalenessSeconds\",\"type\":\"uint24\"},{\"internalType\":\"uint16\",\"name\":\"gasCeilingMultiplier\",\"type\":\"uint16\"},{\"internalType\":\"uint96\",\"name\":\"minUpkeepSpend\",\"type\":\"uint96\"},{\"internalType\":\"uint32\",\"name\":\"maxPerformGas\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"maxCheckDataSize\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"maxPerformDataSize\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"maxRevertDataSize\",\"type\":\"uint32\"},{\"internalType\":\"uint256\",\"name\":\"fallbackGasPrice\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"fallbackLinkPrice\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"fallbackNativePrice\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"transcoder\",\"type\":\"address\"},{\"internalType\":\"address[]\",\"name\":\"registrars\",\"type\":\"address[]\"},{\"internalType\":\"address\",\"name\":\"upkeepPrivilegeManager\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"chainModule\",\"type\":\"address\"},{\"internalType\":\"bool\",\"name\":\"reorgProtectionEnabled\",\"type\":\"bool\"},{\"internalType\":\"address\",\"name\":\"financeAdmin\",\"type\":\"address\"}],\"internalType\":\"structAutomationRegistryBase2_3.OnchainConfig\",\"name\":\"onchainConfig\",\"type\":\"tuple\"},{\"internalType\":\"uint64\",\"name\":\"offchainConfigVersion\",\"type\":\"uint64\"},{\"internalType\":\"bytes\",\"name\":\"offchainConfig\",\"type\":\"bytes\"},{\"internalType\":\"address[]\",\"name\":\"billingTokens\",\"type\":\"address[]\"},{\"components\":[{\"internalType\":\"uint32\",\"name\":\"gasFeePPB\",\"type\":\"uint32\"},{\"internalType\":\"uint24\",\"name\":\"flatFeeMicroLink\",\"type\":\"uint24\"},{\"internalType\":\"address\",\"name\":\"priceFeed\",\"type\":\"address\"}],\"internalType\":\"structAutomationRegistryBase2_3.BillingConfig[]\",\"name\":\"billingConfigs\",\"type\":\"tuple[]\"}],\"name\":\"setConfigTypeSafe\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address[]\",\"name\":\"payees\",\"type\":\"address[]\"}],\"name\":\"setPayees\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"peer\",\"type\":\"address\"},{\"internalType\":\"uint8\",\"name\":\"permission\",\"type\":\"uint8\"}],\"name\":\"setPeerRegistryMigrationPermission\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"newCheckData\",\"type\":\"bytes\"}],\"name\":\"setUpkeepCheckData\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"uint32\",\"name\":\"gasLimit\",\"type\":\"uint32\"}],\"name\":\"setUpkeepGasLimit\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"config\",\"type\":\"bytes\"}],\"name\":\"setUpkeepOffchainConfig\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"upkeepId\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"newPrivilegeConfig\",\"type\":\"bytes\"}],\"name\":\"setUpkeepPrivilegeConfig\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"triggerConfig\",\"type\":\"bytes\"}],\"name\":\"setUpkeepTriggerConfig\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"performData\",\"type\":\"bytes\"}],\"name\":\"simulatePerformUpkeep\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"success\",\"type\":\"bool\"},{\"internalType\":\"uint256\",\"name\":\"gasUsed\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"transmitter\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"proposed\",\"type\":\"address\"}],\"name\":\"transferPayeeship\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"proposed\",\"type\":\"address\"}],\"name\":\"transferUpkeepAdmin\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32[3]\",\"name\":\"reportContext\",\"type\":\"bytes32[3]\"},{\"internalType\":\"bytes\",\"name\":\"rawReport\",\"type\":\"bytes\"},{\"internalType\":\"bytes32[]\",\"name\":\"rs\",\"type\":\"bytes32[]\"},{\"internalType\":\"bytes32[]\",\"name\":\"ss\",\"type\":\"bytes32[]\"},{\"internalType\":\"bytes32\",\"name\":\"rawVs\",\"type\":\"bytes32\"}],\"name\":\"transmit\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"typeAndVersion\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"unpause\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"unpauseUpkeep\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"upkeepTranscoderVersion\",\"outputs\":[{\"internalType\":\"uint8\",\"name\":\"\",\"type\":\"uint8\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"upkeepVersion\",\"outputs\":[{\"internalType\":\"uint8\",\"name\":\"\",\"type\":\"uint8\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"assetAddress\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"withdrawERC20Fees\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"withdrawFunds\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"withdrawLinkFees\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"withdrawPayment\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
 }
 
-var IAutomationRegistryMasterABI = IAutomationRegistryMasterMetaData.ABI
+var IAutomationRegistryMaster23ABI = IAutomationRegistryMaster23MetaData.ABI
 
-type IAutomationRegistryMaster struct {
+type IAutomationRegistryMaster23 struct {
 	address common.Address
 	abi     abi.ABI
-	IAutomationRegistryMasterCaller
-	IAutomationRegistryMasterTransactor
-	IAutomationRegistryMasterFilterer
+	IAutomationRegistryMaster23Caller
+	IAutomationRegistryMaster23Transactor
+	IAutomationRegistryMaster23Filterer
 }
 
-type IAutomationRegistryMasterCaller struct {
+type IAutomationRegistryMaster23Caller struct {
 	contract *bind.BoundContract
 }
 
-type IAutomationRegistryMasterTransactor struct {
+type IAutomationRegistryMaster23Transactor struct {
 	contract *bind.BoundContract
 }
 
-type IAutomationRegistryMasterFilterer struct {
+type IAutomationRegistryMaster23Filterer struct {
 	contract *bind.BoundContract
 }
 
-type IAutomationRegistryMasterSession struct {
-	Contract     *IAutomationRegistryMaster
+type IAutomationRegistryMaster23Session struct {
+	Contract     *IAutomationRegistryMaster23
 	CallOpts     bind.CallOpts
 	TransactOpts bind.TransactOpts
 }
 
-type IAutomationRegistryMasterCallerSession struct {
-	Contract *IAutomationRegistryMasterCaller
+type IAutomationRegistryMaster23CallerSession struct {
+	Contract *IAutomationRegistryMaster23Caller
 	CallOpts bind.CallOpts
 }
 
-type IAutomationRegistryMasterTransactorSession struct {
-	Contract     *IAutomationRegistryMasterTransactor
+type IAutomationRegistryMaster23TransactorSession struct {
+	Contract     *IAutomationRegistryMaster23Transactor
 	TransactOpts bind.TransactOpts
 }
 
-type IAutomationRegistryMasterRaw struct {
-	Contract *IAutomationRegistryMaster
+type IAutomationRegistryMaster23Raw struct {
+	Contract *IAutomationRegistryMaster23
 }
 
-type IAutomationRegistryMasterCallerRaw struct {
-	Contract *IAutomationRegistryMasterCaller
+type IAutomationRegistryMaster23CallerRaw struct {
+	Contract *IAutomationRegistryMaster23Caller
 }
 
-type IAutomationRegistryMasterTransactorRaw struct {
-	Contract *IAutomationRegistryMasterTransactor
+type IAutomationRegistryMaster23TransactorRaw struct {
+	Contract *IAutomationRegistryMaster23Transactor
 }
 
-func NewIAutomationRegistryMaster(address common.Address, backend bind.ContractBackend) (*IAutomationRegistryMaster, error) {
-	abi, err := abi.JSON(strings.NewReader(IAutomationRegistryMasterABI))
+func NewIAutomationRegistryMaster23(address common.Address, backend bind.ContractBackend) (*IAutomationRegistryMaster23, error) {
+	abi, err := abi.JSON(strings.NewReader(IAutomationRegistryMaster23ABI))
 	if err != nil {
 		return nil, err
 	}
-	contract, err := bindIAutomationRegistryMaster(address, backend, backend, backend)
+	contract, err := bindIAutomationRegistryMaster23(address, backend, backend, backend)
 	if err != nil {
 		return nil, err
 	}
-	return &IAutomationRegistryMaster{address: address, abi: abi, IAutomationRegistryMasterCaller: IAutomationRegistryMasterCaller{contract: contract}, IAutomationRegistryMasterTransactor: IAutomationRegistryMasterTransactor{contract: contract}, IAutomationRegistryMasterFilterer: IAutomationRegistryMasterFilterer{contract: contract}}, nil
+	return &IAutomationRegistryMaster23{address: address, abi: abi, IAutomationRegistryMaster23Caller: IAutomationRegistryMaster23Caller{contract: contract}, IAutomationRegistryMaster23Transactor: IAutomationRegistryMaster23Transactor{contract: contract}, IAutomationRegistryMaster23Filterer: IAutomationRegistryMaster23Filterer{contract: contract}}, nil
 }
 
-func NewIAutomationRegistryMasterCaller(address common.Address, caller bind.ContractCaller) (*IAutomationRegistryMasterCaller, error) {
-	contract, err := bindIAutomationRegistryMaster(address, caller, nil, nil)
+func NewIAutomationRegistryMaster23Caller(address common.Address, caller bind.ContractCaller) (*IAutomationRegistryMaster23Caller, error) {
+	contract, err := bindIAutomationRegistryMaster23(address, caller, nil, nil)
 	if err != nil {
 		return nil, err
 	}
-	return &IAutomationRegistryMasterCaller{contract: contract}, nil
+	return &IAutomationRegistryMaster23Caller{contract: contract}, nil
 }
 
-func NewIAutomationRegistryMasterTransactor(address common.Address, transactor bind.ContractTransactor) (*IAutomationRegistryMasterTransactor, error) {
-	contract, err := bindIAutomationRegistryMaster(address, nil, transactor, nil)
+func NewIAutomationRegistryMaster23Transactor(address common.Address, transactor bind.ContractTransactor) (*IAutomationRegistryMaster23Transactor, error) {
+	contract, err := bindIAutomationRegistryMaster23(address, nil, transactor, nil)
 	if err != nil {
 		return nil, err
 	}
-	return &IAutomationRegistryMasterTransactor{contract: contract}, nil
+	return &IAutomationRegistryMaster23Transactor{contract: contract}, nil
 }
 
-func NewIAutomationRegistryMasterFilterer(address common.Address, filterer bind.ContractFilterer) (*IAutomationRegistryMasterFilterer, error) {
-	contract, err := bindIAutomationRegistryMaster(address, nil, nil, filterer)
+func NewIAutomationRegistryMaster23Filterer(address common.Address, filterer bind.ContractFilterer) (*IAutomationRegistryMaster23Filterer, error) {
+	contract, err := bindIAutomationRegistryMaster23(address, nil, nil, filterer)
 	if err != nil {
 		return nil, err
 	}
-	return &IAutomationRegistryMasterFilterer{contract: contract}, nil
+	return &IAutomationRegistryMaster23Filterer{contract: contract}, nil
 }
 
-func bindIAutomationRegistryMaster(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
-	parsed, err := IAutomationRegistryMasterMetaData.GetAbi()
+func bindIAutomationRegistryMaster23(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
+	parsed, err := IAutomationRegistryMaster23MetaData.GetAbi()
 	if err != nil {
 		return nil, err
 	}
 	return bind.NewBoundContract(address, *parsed, caller, transactor, filterer), nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
-	return _IAutomationRegistryMaster.Contract.IAutomationRegistryMasterCaller.contract.Call(opts, result, method, params...)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Raw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
+	return _IAutomationRegistryMaster23.Contract.IAutomationRegistryMaster23Caller.contract.Call(opts, result, method, params...)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterRaw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.IAutomationRegistryMasterTransactor.contract.Transfer(opts)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Raw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.IAutomationRegistryMaster23Transactor.contract.Transfer(opts)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.IAutomationRegistryMasterTransactor.contract.Transact(opts, method, params...)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Raw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.IAutomationRegistryMaster23Transactor.contract.Transact(opts, method, params...)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCallerRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
-	return _IAutomationRegistryMaster.Contract.contract.Call(opts, result, method, params...)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
+	return _IAutomationRegistryMaster23.Contract.contract.Call(opts, result, method, params...)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactorRaw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.contract.Transfer(opts)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23TransactorRaw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.contract.Transfer(opts)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactorRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.contract.Transact(opts, method, params...)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23TransactorRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.contract.Transact(opts, method, params...)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) CheckCallback(opts *bind.CallOpts, id *big.Int, values [][]byte, extraData []byte) (CheckCallback,
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) CheckCallback(opts *bind.CallOpts, id *big.Int, values [][]byte, extraData []byte) (CheckCallback,
 
 	error) {
 	var out []interface{}
-	err := _IAutomationRegistryMaster.contract.Call(opts, &out, "checkCallback", id, values, extraData)
+	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "checkCallback", id, values, extraData)
 
 	outstruct := new(CheckCallback)
 	if err != nil {
@@ -236,23 +244,23 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) CheckCallback
 
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) CheckCallback(id *big.Int, values [][]byte, extraData []byte) (CheckCallback,
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) CheckCallback(id *big.Int, values [][]byte, extraData []byte) (CheckCallback,
 
 	error) {
-	return _IAutomationRegistryMaster.Contract.CheckCallback(&_IAutomationRegistryMaster.CallOpts, id, values, extraData)
+	return _IAutomationRegistryMaster23.Contract.CheckCallback(&_IAutomationRegistryMaster23.CallOpts, id, values, extraData)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCallerSession) CheckCallback(id *big.Int, values [][]byte, extraData []byte) (CheckCallback,
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) CheckCallback(id *big.Int, values [][]byte, extraData []byte) (CheckCallback,
 
 	error) {
-	return _IAutomationRegistryMaster.Contract.CheckCallback(&_IAutomationRegistryMaster.CallOpts, id, values, extraData)
+	return _IAutomationRegistryMaster23.Contract.CheckCallback(&_IAutomationRegistryMaster23.CallOpts, id, values, extraData)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) CheckUpkeep(opts *bind.CallOpts, id *big.Int, triggerData []byte) (CheckUpkeep,
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) CheckUpkeep(opts *bind.CallOpts, id *big.Int, triggerData []byte) (CheckUpkeep,
 
 	error) {
 	var out []interface{}
-	err := _IAutomationRegistryMaster.contract.Call(opts, &out, "checkUpkeep", id, triggerData)
+	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "checkUpkeep", id, triggerData)
 
 	outstruct := new(CheckUpkeep)
 	if err != nil {
@@ -265,29 +273,29 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) CheckUpkeep(o
 	outstruct.GasUsed = *abi.ConvertType(out[3], new(*big.Int)).(**big.Int)
 	outstruct.GasLimit = *abi.ConvertType(out[4], new(*big.Int)).(**big.Int)
 	outstruct.FastGasWei = *abi.ConvertType(out[5], new(*big.Int)).(**big.Int)
-	outstruct.LinkNative = *abi.ConvertType(out[6], new(*big.Int)).(**big.Int)
+	outstruct.LinkUSD = *abi.ConvertType(out[6], new(*big.Int)).(**big.Int)
 
 	return *outstruct, err
 
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) CheckUpkeep(id *big.Int, triggerData []byte) (CheckUpkeep,
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) CheckUpkeep(id *big.Int, triggerData []byte) (CheckUpkeep,
 
 	error) {
-	return _IAutomationRegistryMaster.Contract.CheckUpkeep(&_IAutomationRegistryMaster.CallOpts, id, triggerData)
+	return _IAutomationRegistryMaster23.Contract.CheckUpkeep(&_IAutomationRegistryMaster23.CallOpts, id, triggerData)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCallerSession) CheckUpkeep(id *big.Int, triggerData []byte) (CheckUpkeep,
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) CheckUpkeep(id *big.Int, triggerData []byte) (CheckUpkeep,
 
 	error) {
-	return _IAutomationRegistryMaster.Contract.CheckUpkeep(&_IAutomationRegistryMaster.CallOpts, id, triggerData)
+	return _IAutomationRegistryMaster23.Contract.CheckUpkeep(&_IAutomationRegistryMaster23.CallOpts, id, triggerData)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) CheckUpkeep0(opts *bind.CallOpts, id *big.Int) (CheckUpkeep0,
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) CheckUpkeep0(opts *bind.CallOpts, id *big.Int) (CheckUpkeep0,
 
 	error) {
 	var out []interface{}
-	err := _IAutomationRegistryMaster.contract.Call(opts, &out, "checkUpkeep0", id)
+	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "checkUpkeep0", id)
 
 	outstruct := new(CheckUpkeep0)
 	if err != nil {
@@ -300,27 +308,27 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) CheckUpkeep0(
 	outstruct.GasUsed = *abi.ConvertType(out[3], new(*big.Int)).(**big.Int)
 	outstruct.GasLimit = *abi.ConvertType(out[4], new(*big.Int)).(**big.Int)
 	outstruct.FastGasWei = *abi.ConvertType(out[5], new(*big.Int)).(**big.Int)
-	outstruct.LinkNative = *abi.ConvertType(out[6], new(*big.Int)).(**big.Int)
+	outstruct.LinkUSD = *abi.ConvertType(out[6], new(*big.Int)).(**big.Int)
 
 	return *outstruct, err
 
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) CheckUpkeep0(id *big.Int) (CheckUpkeep0,
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) CheckUpkeep0(id *big.Int) (CheckUpkeep0,
 
 	error) {
-	return _IAutomationRegistryMaster.Contract.CheckUpkeep0(&_IAutomationRegistryMaster.CallOpts, id)
+	return _IAutomationRegistryMaster23.Contract.CheckUpkeep0(&_IAutomationRegistryMaster23.CallOpts, id)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCallerSession) CheckUpkeep0(id *big.Int) (CheckUpkeep0,
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) CheckUpkeep0(id *big.Int) (CheckUpkeep0,
 
 	error) {
-	return _IAutomationRegistryMaster.Contract.CheckUpkeep0(&_IAutomationRegistryMaster.CallOpts, id)
+	return _IAutomationRegistryMaster23.Contract.CheckUpkeep0(&_IAutomationRegistryMaster23.CallOpts, id)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) FallbackTo(opts *bind.CallOpts) (common.Address, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) FallbackTo(opts *bind.CallOpts) (common.Address, error) {
 	var out []interface{}
-	err := _IAutomationRegistryMaster.contract.Call(opts, &out, "fallbackTo")
+	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "fallbackTo")
 
 	if err != nil {
 		return *new(common.Address), err
@@ -332,17 +340,17 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) FallbackTo(op
 
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) FallbackTo() (common.Address, error) {
-	return _IAutomationRegistryMaster.Contract.FallbackTo(&_IAutomationRegistryMaster.CallOpts)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) FallbackTo() (common.Address, error) {
+	return _IAutomationRegistryMaster23.Contract.FallbackTo(&_IAutomationRegistryMaster23.CallOpts)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCallerSession) FallbackTo() (common.Address, error) {
-	return _IAutomationRegistryMaster.Contract.FallbackTo(&_IAutomationRegistryMaster.CallOpts)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) FallbackTo() (common.Address, error) {
+	return _IAutomationRegistryMaster23.Contract.FallbackTo(&_IAutomationRegistryMaster23.CallOpts)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) GetActiveUpkeepIDs(opts *bind.CallOpts, startIndex *big.Int, maxCount *big.Int) ([]*big.Int, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) GetActiveUpkeepIDs(opts *bind.CallOpts, startIndex *big.Int, maxCount *big.Int) ([]*big.Int, error) {
 	var out []interface{}
-	err := _IAutomationRegistryMaster.contract.Call(opts, &out, "getActiveUpkeepIDs", startIndex, maxCount)
+	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "getActiveUpkeepIDs", startIndex, maxCount)
 
 	if err != nil {
 		return *new([]*big.Int), err
@@ -354,17 +362,17 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) GetActiveUpke
 
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) GetActiveUpkeepIDs(startIndex *big.Int, maxCount *big.Int) ([]*big.Int, error) {
-	return _IAutomationRegistryMaster.Contract.GetActiveUpkeepIDs(&_IAutomationRegistryMaster.CallOpts, startIndex, maxCount)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) GetActiveUpkeepIDs(startIndex *big.Int, maxCount *big.Int) ([]*big.Int, error) {
+	return _IAutomationRegistryMaster23.Contract.GetActiveUpkeepIDs(&_IAutomationRegistryMaster23.CallOpts, startIndex, maxCount)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCallerSession) GetActiveUpkeepIDs(startIndex *big.Int, maxCount *big.Int) ([]*big.Int, error) {
-	return _IAutomationRegistryMaster.Contract.GetActiveUpkeepIDs(&_IAutomationRegistryMaster.CallOpts, startIndex, maxCount)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) GetActiveUpkeepIDs(startIndex *big.Int, maxCount *big.Int) ([]*big.Int, error) {
+	return _IAutomationRegistryMaster23.Contract.GetActiveUpkeepIDs(&_IAutomationRegistryMaster23.CallOpts, startIndex, maxCount)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) GetAdminPrivilegeConfig(opts *bind.CallOpts, admin common.Address) ([]byte, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) GetAdminPrivilegeConfig(opts *bind.CallOpts, admin common.Address) ([]byte, error) {
 	var out []interface{}
-	err := _IAutomationRegistryMaster.contract.Call(opts, &out, "getAdminPrivilegeConfig", admin)
+	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "getAdminPrivilegeConfig", admin)
 
 	if err != nil {
 		return *new([]byte), err
@@ -376,17 +384,17 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) GetAdminPrivi
 
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) GetAdminPrivilegeConfig(admin common.Address) ([]byte, error) {
-	return _IAutomationRegistryMaster.Contract.GetAdminPrivilegeConfig(&_IAutomationRegistryMaster.CallOpts, admin)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) GetAdminPrivilegeConfig(admin common.Address) ([]byte, error) {
+	return _IAutomationRegistryMaster23.Contract.GetAdminPrivilegeConfig(&_IAutomationRegistryMaster23.CallOpts, admin)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCallerSession) GetAdminPrivilegeConfig(admin common.Address) ([]byte, error) {
-	return _IAutomationRegistryMaster.Contract.GetAdminPrivilegeConfig(&_IAutomationRegistryMaster.CallOpts, admin)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) GetAdminPrivilegeConfig(admin common.Address) ([]byte, error) {
+	return _IAutomationRegistryMaster23.Contract.GetAdminPrivilegeConfig(&_IAutomationRegistryMaster23.CallOpts, admin)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) GetAllowedReadOnlyAddress(opts *bind.CallOpts) (common.Address, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) GetAllowedReadOnlyAddress(opts *bind.CallOpts) (common.Address, error) {
 	var out []interface{}
-	err := _IAutomationRegistryMaster.contract.Call(opts, &out, "getAllowedReadOnlyAddress")
+	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "getAllowedReadOnlyAddress")
 
 	if err != nil {
 		return *new(common.Address), err
@@ -398,17 +406,17 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) GetAllowedRea
 
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) GetAllowedReadOnlyAddress() (common.Address, error) {
-	return _IAutomationRegistryMaster.Contract.GetAllowedReadOnlyAddress(&_IAutomationRegistryMaster.CallOpts)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) GetAllowedReadOnlyAddress() (common.Address, error) {
+	return _IAutomationRegistryMaster23.Contract.GetAllowedReadOnlyAddress(&_IAutomationRegistryMaster23.CallOpts)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCallerSession) GetAllowedReadOnlyAddress() (common.Address, error) {
-	return _IAutomationRegistryMaster.Contract.GetAllowedReadOnlyAddress(&_IAutomationRegistryMaster.CallOpts)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) GetAllowedReadOnlyAddress() (common.Address, error) {
+	return _IAutomationRegistryMaster23.Contract.GetAllowedReadOnlyAddress(&_IAutomationRegistryMaster23.CallOpts)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) GetAutomationForwarderLogic(opts *bind.CallOpts) (common.Address, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) GetAutomationForwarderLogic(opts *bind.CallOpts) (common.Address, error) {
 	var out []interface{}
-	err := _IAutomationRegistryMaster.contract.Call(opts, &out, "getAutomationForwarderLogic")
+	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "getAutomationForwarderLogic")
 
 	if err != nil {
 		return *new(common.Address), err
@@ -420,17 +428,17 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) GetAutomation
 
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) GetAutomationForwarderLogic() (common.Address, error) {
-	return _IAutomationRegistryMaster.Contract.GetAutomationForwarderLogic(&_IAutomationRegistryMaster.CallOpts)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) GetAutomationForwarderLogic() (common.Address, error) {
+	return _IAutomationRegistryMaster23.Contract.GetAutomationForwarderLogic(&_IAutomationRegistryMaster23.CallOpts)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCallerSession) GetAutomationForwarderLogic() (common.Address, error) {
-	return _IAutomationRegistryMaster.Contract.GetAutomationForwarderLogic(&_IAutomationRegistryMaster.CallOpts)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) GetAutomationForwarderLogic() (common.Address, error) {
+	return _IAutomationRegistryMaster23.Contract.GetAutomationForwarderLogic(&_IAutomationRegistryMaster23.CallOpts)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) GetBalance(opts *bind.CallOpts, id *big.Int) (*big.Int, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) GetBalance(opts *bind.CallOpts, id *big.Int) (*big.Int, error) {
 	var out []interface{}
-	err := _IAutomationRegistryMaster.contract.Call(opts, &out, "getBalance", id)
+	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "getBalance", id)
 
 	if err != nil {
 		return *new(*big.Int), err
@@ -442,17 +450,61 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) GetBalance(op
 
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) GetBalance(id *big.Int) (*big.Int, error) {
-	return _IAutomationRegistryMaster.Contract.GetBalance(&_IAutomationRegistryMaster.CallOpts, id)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) GetBalance(id *big.Int) (*big.Int, error) {
+	return _IAutomationRegistryMaster23.Contract.GetBalance(&_IAutomationRegistryMaster23.CallOpts, id)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCallerSession) GetBalance(id *big.Int) (*big.Int, error) {
-	return _IAutomationRegistryMaster.Contract.GetBalance(&_IAutomationRegistryMaster.CallOpts, id)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) GetBalance(id *big.Int) (*big.Int, error) {
+	return _IAutomationRegistryMaster23.Contract.GetBalance(&_IAutomationRegistryMaster23.CallOpts, id)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) GetCancellationDelay(opts *bind.CallOpts) (*big.Int, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) GetBillingTokenConfig(opts *bind.CallOpts, token common.Address) (AutomationRegistryBase23BillingConfig, error) {
 	var out []interface{}
-	err := _IAutomationRegistryMaster.contract.Call(opts, &out, "getCancellationDelay")
+	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "getBillingTokenConfig", token)
+
+	if err != nil {
+		return *new(AutomationRegistryBase23BillingConfig), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(AutomationRegistryBase23BillingConfig)).(*AutomationRegistryBase23BillingConfig)
+
+	return out0, err
+
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) GetBillingTokenConfig(token common.Address) (AutomationRegistryBase23BillingConfig, error) {
+	return _IAutomationRegistryMaster23.Contract.GetBillingTokenConfig(&_IAutomationRegistryMaster23.CallOpts, token)
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) GetBillingTokenConfig(token common.Address) (AutomationRegistryBase23BillingConfig, error) {
+	return _IAutomationRegistryMaster23.Contract.GetBillingTokenConfig(&_IAutomationRegistryMaster23.CallOpts, token)
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) GetBillingTokens(opts *bind.CallOpts) ([]common.Address, error) {
+	var out []interface{}
+	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "getBillingTokens")
+
+	if err != nil {
+		return *new([]common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([]common.Address)).(*[]common.Address)
+
+	return out0, err
+
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) GetBillingTokens() ([]common.Address, error) {
+	return _IAutomationRegistryMaster23.Contract.GetBillingTokens(&_IAutomationRegistryMaster23.CallOpts)
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) GetBillingTokens() ([]common.Address, error) {
+	return _IAutomationRegistryMaster23.Contract.GetBillingTokens(&_IAutomationRegistryMaster23.CallOpts)
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) GetCancellationDelay(opts *bind.CallOpts) (*big.Int, error) {
+	var out []interface{}
+	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "getCancellationDelay")
 
 	if err != nil {
 		return *new(*big.Int), err
@@ -464,17 +516,17 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) GetCancellati
 
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) GetCancellationDelay() (*big.Int, error) {
-	return _IAutomationRegistryMaster.Contract.GetCancellationDelay(&_IAutomationRegistryMaster.CallOpts)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) GetCancellationDelay() (*big.Int, error) {
+	return _IAutomationRegistryMaster23.Contract.GetCancellationDelay(&_IAutomationRegistryMaster23.CallOpts)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCallerSession) GetCancellationDelay() (*big.Int, error) {
-	return _IAutomationRegistryMaster.Contract.GetCancellationDelay(&_IAutomationRegistryMaster.CallOpts)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) GetCancellationDelay() (*big.Int, error) {
+	return _IAutomationRegistryMaster23.Contract.GetCancellationDelay(&_IAutomationRegistryMaster23.CallOpts)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) GetChainModule(opts *bind.CallOpts) (common.Address, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) GetChainModule(opts *bind.CallOpts) (common.Address, error) {
 	var out []interface{}
-	err := _IAutomationRegistryMaster.contract.Call(opts, &out, "getChainModule")
+	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "getChainModule")
 
 	if err != nil {
 		return *new(common.Address), err
@@ -486,17 +538,17 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) GetChainModul
 
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) GetChainModule() (common.Address, error) {
-	return _IAutomationRegistryMaster.Contract.GetChainModule(&_IAutomationRegistryMaster.CallOpts)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) GetChainModule() (common.Address, error) {
+	return _IAutomationRegistryMaster23.Contract.GetChainModule(&_IAutomationRegistryMaster23.CallOpts)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCallerSession) GetChainModule() (common.Address, error) {
-	return _IAutomationRegistryMaster.Contract.GetChainModule(&_IAutomationRegistryMaster.CallOpts)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) GetChainModule() (common.Address, error) {
+	return _IAutomationRegistryMaster23.Contract.GetChainModule(&_IAutomationRegistryMaster23.CallOpts)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) GetConditionalGasOverhead(opts *bind.CallOpts) (*big.Int, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) GetConditionalGasOverhead(opts *bind.CallOpts) (*big.Int, error) {
 	var out []interface{}
-	err := _IAutomationRegistryMaster.contract.Call(opts, &out, "getConditionalGasOverhead")
+	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "getConditionalGasOverhead")
 
 	if err != nil {
 		return *new(*big.Int), err
@@ -508,17 +560,39 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) GetConditiona
 
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) GetConditionalGasOverhead() (*big.Int, error) {
-	return _IAutomationRegistryMaster.Contract.GetConditionalGasOverhead(&_IAutomationRegistryMaster.CallOpts)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) GetConditionalGasOverhead() (*big.Int, error) {
+	return _IAutomationRegistryMaster23.Contract.GetConditionalGasOverhead(&_IAutomationRegistryMaster23.CallOpts)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCallerSession) GetConditionalGasOverhead() (*big.Int, error) {
-	return _IAutomationRegistryMaster.Contract.GetConditionalGasOverhead(&_IAutomationRegistryMaster.CallOpts)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) GetConditionalGasOverhead() (*big.Int, error) {
+	return _IAutomationRegistryMaster23.Contract.GetConditionalGasOverhead(&_IAutomationRegistryMaster23.CallOpts)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) GetFastGasFeedAddress(opts *bind.CallOpts) (common.Address, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) GetFallbackNativePrice(opts *bind.CallOpts) (*big.Int, error) {
 	var out []interface{}
-	err := _IAutomationRegistryMaster.contract.Call(opts, &out, "getFastGasFeedAddress")
+	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "getFallbackNativePrice")
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) GetFallbackNativePrice() (*big.Int, error) {
+	return _IAutomationRegistryMaster23.Contract.GetFallbackNativePrice(&_IAutomationRegistryMaster23.CallOpts)
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) GetFallbackNativePrice() (*big.Int, error) {
+	return _IAutomationRegistryMaster23.Contract.GetFallbackNativePrice(&_IAutomationRegistryMaster23.CallOpts)
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) GetFastGasFeedAddress(opts *bind.CallOpts) (common.Address, error) {
+	var out []interface{}
+	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "getFastGasFeedAddress")
 
 	if err != nil {
 		return *new(common.Address), err
@@ -530,17 +604,17 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) GetFastGasFee
 
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) GetFastGasFeedAddress() (common.Address, error) {
-	return _IAutomationRegistryMaster.Contract.GetFastGasFeedAddress(&_IAutomationRegistryMaster.CallOpts)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) GetFastGasFeedAddress() (common.Address, error) {
+	return _IAutomationRegistryMaster23.Contract.GetFastGasFeedAddress(&_IAutomationRegistryMaster23.CallOpts)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCallerSession) GetFastGasFeedAddress() (common.Address, error) {
-	return _IAutomationRegistryMaster.Contract.GetFastGasFeedAddress(&_IAutomationRegistryMaster.CallOpts)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) GetFastGasFeedAddress() (common.Address, error) {
+	return _IAutomationRegistryMaster23.Contract.GetFastGasFeedAddress(&_IAutomationRegistryMaster23.CallOpts)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) GetForwarder(opts *bind.CallOpts, upkeepID *big.Int) (common.Address, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) GetForwarder(opts *bind.CallOpts, upkeepID *big.Int) (common.Address, error) {
 	var out []interface{}
-	err := _IAutomationRegistryMaster.contract.Call(opts, &out, "getForwarder", upkeepID)
+	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "getForwarder", upkeepID)
 
 	if err != nil {
 		return *new(common.Address), err
@@ -552,17 +626,17 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) GetForwarder(
 
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) GetForwarder(upkeepID *big.Int) (common.Address, error) {
-	return _IAutomationRegistryMaster.Contract.GetForwarder(&_IAutomationRegistryMaster.CallOpts, upkeepID)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) GetForwarder(upkeepID *big.Int) (common.Address, error) {
+	return _IAutomationRegistryMaster23.Contract.GetForwarder(&_IAutomationRegistryMaster23.CallOpts, upkeepID)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCallerSession) GetForwarder(upkeepID *big.Int) (common.Address, error) {
-	return _IAutomationRegistryMaster.Contract.GetForwarder(&_IAutomationRegistryMaster.CallOpts, upkeepID)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) GetForwarder(upkeepID *big.Int) (common.Address, error) {
+	return _IAutomationRegistryMaster23.Contract.GetForwarder(&_IAutomationRegistryMaster23.CallOpts, upkeepID)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) GetLinkAddress(opts *bind.CallOpts) (common.Address, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) GetLinkAddress(opts *bind.CallOpts) (common.Address, error) {
 	var out []interface{}
-	err := _IAutomationRegistryMaster.contract.Call(opts, &out, "getLinkAddress")
+	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "getLinkAddress")
 
 	if err != nil {
 		return *new(common.Address), err
@@ -574,17 +648,17 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) GetLinkAddres
 
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) GetLinkAddress() (common.Address, error) {
-	return _IAutomationRegistryMaster.Contract.GetLinkAddress(&_IAutomationRegistryMaster.CallOpts)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) GetLinkAddress() (common.Address, error) {
+	return _IAutomationRegistryMaster23.Contract.GetLinkAddress(&_IAutomationRegistryMaster23.CallOpts)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCallerSession) GetLinkAddress() (common.Address, error) {
-	return _IAutomationRegistryMaster.Contract.GetLinkAddress(&_IAutomationRegistryMaster.CallOpts)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) GetLinkAddress() (common.Address, error) {
+	return _IAutomationRegistryMaster23.Contract.GetLinkAddress(&_IAutomationRegistryMaster23.CallOpts)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) GetLinkNativeFeedAddress(opts *bind.CallOpts) (common.Address, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) GetLinkUSDFeedAddress(opts *bind.CallOpts) (common.Address, error) {
 	var out []interface{}
-	err := _IAutomationRegistryMaster.contract.Call(opts, &out, "getLinkNativeFeedAddress")
+	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "getLinkUSDFeedAddress")
 
 	if err != nil {
 		return *new(common.Address), err
@@ -596,17 +670,17 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) GetLinkNative
 
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) GetLinkNativeFeedAddress() (common.Address, error) {
-	return _IAutomationRegistryMaster.Contract.GetLinkNativeFeedAddress(&_IAutomationRegistryMaster.CallOpts)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) GetLinkUSDFeedAddress() (common.Address, error) {
+	return _IAutomationRegistryMaster23.Contract.GetLinkUSDFeedAddress(&_IAutomationRegistryMaster23.CallOpts)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCallerSession) GetLinkNativeFeedAddress() (common.Address, error) {
-	return _IAutomationRegistryMaster.Contract.GetLinkNativeFeedAddress(&_IAutomationRegistryMaster.CallOpts)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) GetLinkUSDFeedAddress() (common.Address, error) {
+	return _IAutomationRegistryMaster23.Contract.GetLinkUSDFeedAddress(&_IAutomationRegistryMaster23.CallOpts)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) GetLogGasOverhead(opts *bind.CallOpts) (*big.Int, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) GetLogGasOverhead(opts *bind.CallOpts) (*big.Int, error) {
 	var out []interface{}
-	err := _IAutomationRegistryMaster.contract.Call(opts, &out, "getLogGasOverhead")
+	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "getLogGasOverhead")
 
 	if err != nil {
 		return *new(*big.Int), err
@@ -618,17 +692,17 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) GetLogGasOver
 
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) GetLogGasOverhead() (*big.Int, error) {
-	return _IAutomationRegistryMaster.Contract.GetLogGasOverhead(&_IAutomationRegistryMaster.CallOpts)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) GetLogGasOverhead() (*big.Int, error) {
+	return _IAutomationRegistryMaster23.Contract.GetLogGasOverhead(&_IAutomationRegistryMaster23.CallOpts)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCallerSession) GetLogGasOverhead() (*big.Int, error) {
-	return _IAutomationRegistryMaster.Contract.GetLogGasOverhead(&_IAutomationRegistryMaster.CallOpts)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) GetLogGasOverhead() (*big.Int, error) {
+	return _IAutomationRegistryMaster23.Contract.GetLogGasOverhead(&_IAutomationRegistryMaster23.CallOpts)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) GetMaxPaymentForGas(opts *bind.CallOpts, triggerType uint8, gasLimit uint32) (*big.Int, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) GetMaxPaymentForGas(opts *bind.CallOpts, triggerType uint8, gasLimit uint32) (*big.Int, error) {
 	var out []interface{}
-	err := _IAutomationRegistryMaster.contract.Call(opts, &out, "getMaxPaymentForGas", triggerType, gasLimit)
+	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "getMaxPaymentForGas", triggerType, gasLimit)
 
 	if err != nil {
 		return *new(*big.Int), err
@@ -640,17 +714,17 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) GetMaxPayment
 
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) GetMaxPaymentForGas(triggerType uint8, gasLimit uint32) (*big.Int, error) {
-	return _IAutomationRegistryMaster.Contract.GetMaxPaymentForGas(&_IAutomationRegistryMaster.CallOpts, triggerType, gasLimit)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) GetMaxPaymentForGas(triggerType uint8, gasLimit uint32) (*big.Int, error) {
+	return _IAutomationRegistryMaster23.Contract.GetMaxPaymentForGas(&_IAutomationRegistryMaster23.CallOpts, triggerType, gasLimit)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCallerSession) GetMaxPaymentForGas(triggerType uint8, gasLimit uint32) (*big.Int, error) {
-	return _IAutomationRegistryMaster.Contract.GetMaxPaymentForGas(&_IAutomationRegistryMaster.CallOpts, triggerType, gasLimit)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) GetMaxPaymentForGas(triggerType uint8, gasLimit uint32) (*big.Int, error) {
+	return _IAutomationRegistryMaster23.Contract.GetMaxPaymentForGas(&_IAutomationRegistryMaster23.CallOpts, triggerType, gasLimit)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) GetMinBalance(opts *bind.CallOpts, id *big.Int) (*big.Int, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) GetMinBalance(opts *bind.CallOpts, id *big.Int) (*big.Int, error) {
 	var out []interface{}
-	err := _IAutomationRegistryMaster.contract.Call(opts, &out, "getMinBalance", id)
+	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "getMinBalance", id)
 
 	if err != nil {
 		return *new(*big.Int), err
@@ -662,17 +736,17 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) GetMinBalance
 
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) GetMinBalance(id *big.Int) (*big.Int, error) {
-	return _IAutomationRegistryMaster.Contract.GetMinBalance(&_IAutomationRegistryMaster.CallOpts, id)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) GetMinBalance(id *big.Int) (*big.Int, error) {
+	return _IAutomationRegistryMaster23.Contract.GetMinBalance(&_IAutomationRegistryMaster23.CallOpts, id)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCallerSession) GetMinBalance(id *big.Int) (*big.Int, error) {
-	return _IAutomationRegistryMaster.Contract.GetMinBalance(&_IAutomationRegistryMaster.CallOpts, id)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) GetMinBalance(id *big.Int) (*big.Int, error) {
+	return _IAutomationRegistryMaster23.Contract.GetMinBalance(&_IAutomationRegistryMaster23.CallOpts, id)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) GetMinBalanceForUpkeep(opts *bind.CallOpts, id *big.Int) (*big.Int, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) GetMinBalanceForUpkeep(opts *bind.CallOpts, id *big.Int) (*big.Int, error) {
 	var out []interface{}
-	err := _IAutomationRegistryMaster.contract.Call(opts, &out, "getMinBalanceForUpkeep", id)
+	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "getMinBalanceForUpkeep", id)
 
 	if err != nil {
 		return *new(*big.Int), err
@@ -684,17 +758,39 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) GetMinBalance
 
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) GetMinBalanceForUpkeep(id *big.Int) (*big.Int, error) {
-	return _IAutomationRegistryMaster.Contract.GetMinBalanceForUpkeep(&_IAutomationRegistryMaster.CallOpts, id)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) GetMinBalanceForUpkeep(id *big.Int) (*big.Int, error) {
+	return _IAutomationRegistryMaster23.Contract.GetMinBalanceForUpkeep(&_IAutomationRegistryMaster23.CallOpts, id)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCallerSession) GetMinBalanceForUpkeep(id *big.Int) (*big.Int, error) {
-	return _IAutomationRegistryMaster.Contract.GetMinBalanceForUpkeep(&_IAutomationRegistryMaster.CallOpts, id)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) GetMinBalanceForUpkeep(id *big.Int) (*big.Int, error) {
+	return _IAutomationRegistryMaster23.Contract.GetMinBalanceForUpkeep(&_IAutomationRegistryMaster23.CallOpts, id)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) GetPeerRegistryMigrationPermission(opts *bind.CallOpts, peer common.Address) (uint8, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) GetNativeUSDFeedAddress(opts *bind.CallOpts) (common.Address, error) {
 	var out []interface{}
-	err := _IAutomationRegistryMaster.contract.Call(opts, &out, "getPeerRegistryMigrationPermission", peer)
+	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "getNativeUSDFeedAddress")
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) GetNativeUSDFeedAddress() (common.Address, error) {
+	return _IAutomationRegistryMaster23.Contract.GetNativeUSDFeedAddress(&_IAutomationRegistryMaster23.CallOpts)
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) GetNativeUSDFeedAddress() (common.Address, error) {
+	return _IAutomationRegistryMaster23.Contract.GetNativeUSDFeedAddress(&_IAutomationRegistryMaster23.CallOpts)
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) GetPeerRegistryMigrationPermission(opts *bind.CallOpts, peer common.Address) (uint8, error) {
+	var out []interface{}
+	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "getPeerRegistryMigrationPermission", peer)
 
 	if err != nil {
 		return *new(uint8), err
@@ -706,17 +802,17 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) GetPeerRegist
 
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) GetPeerRegistryMigrationPermission(peer common.Address) (uint8, error) {
-	return _IAutomationRegistryMaster.Contract.GetPeerRegistryMigrationPermission(&_IAutomationRegistryMaster.CallOpts, peer)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) GetPeerRegistryMigrationPermission(peer common.Address) (uint8, error) {
+	return _IAutomationRegistryMaster23.Contract.GetPeerRegistryMigrationPermission(&_IAutomationRegistryMaster23.CallOpts, peer)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCallerSession) GetPeerRegistryMigrationPermission(peer common.Address) (uint8, error) {
-	return _IAutomationRegistryMaster.Contract.GetPeerRegistryMigrationPermission(&_IAutomationRegistryMaster.CallOpts, peer)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) GetPeerRegistryMigrationPermission(peer common.Address) (uint8, error) {
+	return _IAutomationRegistryMaster23.Contract.GetPeerRegistryMigrationPermission(&_IAutomationRegistryMaster23.CallOpts, peer)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) GetPerPerformByteGasOverhead(opts *bind.CallOpts) (*big.Int, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) GetPerPerformByteGasOverhead(opts *bind.CallOpts) (*big.Int, error) {
 	var out []interface{}
-	err := _IAutomationRegistryMaster.contract.Call(opts, &out, "getPerPerformByteGasOverhead")
+	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "getPerPerformByteGasOverhead")
 
 	if err != nil {
 		return *new(*big.Int), err
@@ -728,17 +824,17 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) GetPerPerform
 
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) GetPerPerformByteGasOverhead() (*big.Int, error) {
-	return _IAutomationRegistryMaster.Contract.GetPerPerformByteGasOverhead(&_IAutomationRegistryMaster.CallOpts)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) GetPerPerformByteGasOverhead() (*big.Int, error) {
+	return _IAutomationRegistryMaster23.Contract.GetPerPerformByteGasOverhead(&_IAutomationRegistryMaster23.CallOpts)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCallerSession) GetPerPerformByteGasOverhead() (*big.Int, error) {
-	return _IAutomationRegistryMaster.Contract.GetPerPerformByteGasOverhead(&_IAutomationRegistryMaster.CallOpts)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) GetPerPerformByteGasOverhead() (*big.Int, error) {
+	return _IAutomationRegistryMaster23.Contract.GetPerPerformByteGasOverhead(&_IAutomationRegistryMaster23.CallOpts)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) GetPerSignerGasOverhead(opts *bind.CallOpts) (*big.Int, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) GetPerSignerGasOverhead(opts *bind.CallOpts) (*big.Int, error) {
 	var out []interface{}
-	err := _IAutomationRegistryMaster.contract.Call(opts, &out, "getPerSignerGasOverhead")
+	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "getPerSignerGasOverhead")
 
 	if err != nil {
 		return *new(*big.Int), err
@@ -750,17 +846,17 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) GetPerSignerG
 
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) GetPerSignerGasOverhead() (*big.Int, error) {
-	return _IAutomationRegistryMaster.Contract.GetPerSignerGasOverhead(&_IAutomationRegistryMaster.CallOpts)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) GetPerSignerGasOverhead() (*big.Int, error) {
+	return _IAutomationRegistryMaster23.Contract.GetPerSignerGasOverhead(&_IAutomationRegistryMaster23.CallOpts)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCallerSession) GetPerSignerGasOverhead() (*big.Int, error) {
-	return _IAutomationRegistryMaster.Contract.GetPerSignerGasOverhead(&_IAutomationRegistryMaster.CallOpts)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) GetPerSignerGasOverhead() (*big.Int, error) {
+	return _IAutomationRegistryMaster23.Contract.GetPerSignerGasOverhead(&_IAutomationRegistryMaster23.CallOpts)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) GetReorgProtectionEnabled(opts *bind.CallOpts) (bool, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) GetReorgProtectionEnabled(opts *bind.CallOpts) (bool, error) {
 	var out []interface{}
-	err := _IAutomationRegistryMaster.contract.Call(opts, &out, "getReorgProtectionEnabled")
+	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "getReorgProtectionEnabled")
 
 	if err != nil {
 		return *new(bool), err
@@ -772,19 +868,19 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) GetReorgProte
 
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) GetReorgProtectionEnabled() (bool, error) {
-	return _IAutomationRegistryMaster.Contract.GetReorgProtectionEnabled(&_IAutomationRegistryMaster.CallOpts)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) GetReorgProtectionEnabled() (bool, error) {
+	return _IAutomationRegistryMaster23.Contract.GetReorgProtectionEnabled(&_IAutomationRegistryMaster23.CallOpts)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCallerSession) GetReorgProtectionEnabled() (bool, error) {
-	return _IAutomationRegistryMaster.Contract.GetReorgProtectionEnabled(&_IAutomationRegistryMaster.CallOpts)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) GetReorgProtectionEnabled() (bool, error) {
+	return _IAutomationRegistryMaster23.Contract.GetReorgProtectionEnabled(&_IAutomationRegistryMaster23.CallOpts)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) GetSignerInfo(opts *bind.CallOpts, query common.Address) (GetSignerInfo,
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) GetSignerInfo(opts *bind.CallOpts, query common.Address) (GetSignerInfo,
 
 	error) {
 	var out []interface{}
-	err := _IAutomationRegistryMaster.contract.Call(opts, &out, "getSignerInfo", query)
+	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "getSignerInfo", query)
 
 	outstruct := new(GetSignerInfo)
 	if err != nil {
@@ -798,23 +894,23 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) GetSignerInfo
 
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) GetSignerInfo(query common.Address) (GetSignerInfo,
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) GetSignerInfo(query common.Address) (GetSignerInfo,
 
 	error) {
-	return _IAutomationRegistryMaster.Contract.GetSignerInfo(&_IAutomationRegistryMaster.CallOpts, query)
+	return _IAutomationRegistryMaster23.Contract.GetSignerInfo(&_IAutomationRegistryMaster23.CallOpts, query)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCallerSession) GetSignerInfo(query common.Address) (GetSignerInfo,
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) GetSignerInfo(query common.Address) (GetSignerInfo,
 
 	error) {
-	return _IAutomationRegistryMaster.Contract.GetSignerInfo(&_IAutomationRegistryMaster.CallOpts, query)
+	return _IAutomationRegistryMaster23.Contract.GetSignerInfo(&_IAutomationRegistryMaster23.CallOpts, query)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) GetState(opts *bind.CallOpts) (GetState,
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) GetState(opts *bind.CallOpts) (GetState,
 
 	error) {
 	var out []interface{}
-	err := _IAutomationRegistryMaster.contract.Call(opts, &out, "getState")
+	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "getState")
 
 	outstruct := new(GetState)
 	if err != nil {
@@ -831,21 +927,21 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) GetState(opts
 
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) GetState() (GetState,
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) GetState() (GetState,
 
 	error) {
-	return _IAutomationRegistryMaster.Contract.GetState(&_IAutomationRegistryMaster.CallOpts)
+	return _IAutomationRegistryMaster23.Contract.GetState(&_IAutomationRegistryMaster23.CallOpts)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCallerSession) GetState() (GetState,
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) GetState() (GetState,
 
 	error) {
-	return _IAutomationRegistryMaster.Contract.GetState(&_IAutomationRegistryMaster.CallOpts)
+	return _IAutomationRegistryMaster23.Contract.GetState(&_IAutomationRegistryMaster23.CallOpts)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) GetTransmitCalldataFixedBytesOverhead(opts *bind.CallOpts) (*big.Int, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) GetTransmitCalldataFixedBytesOverhead(opts *bind.CallOpts) (*big.Int, error) {
 	var out []interface{}
-	err := _IAutomationRegistryMaster.contract.Call(opts, &out, "getTransmitCalldataFixedBytesOverhead")
+	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "getTransmitCalldataFixedBytesOverhead")
 
 	if err != nil {
 		return *new(*big.Int), err
@@ -857,17 +953,17 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) GetTransmitCa
 
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) GetTransmitCalldataFixedBytesOverhead() (*big.Int, error) {
-	return _IAutomationRegistryMaster.Contract.GetTransmitCalldataFixedBytesOverhead(&_IAutomationRegistryMaster.CallOpts)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) GetTransmitCalldataFixedBytesOverhead() (*big.Int, error) {
+	return _IAutomationRegistryMaster23.Contract.GetTransmitCalldataFixedBytesOverhead(&_IAutomationRegistryMaster23.CallOpts)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCallerSession) GetTransmitCalldataFixedBytesOverhead() (*big.Int, error) {
-	return _IAutomationRegistryMaster.Contract.GetTransmitCalldataFixedBytesOverhead(&_IAutomationRegistryMaster.CallOpts)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) GetTransmitCalldataFixedBytesOverhead() (*big.Int, error) {
+	return _IAutomationRegistryMaster23.Contract.GetTransmitCalldataFixedBytesOverhead(&_IAutomationRegistryMaster23.CallOpts)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) GetTransmitCalldataPerSignerBytesOverhead(opts *bind.CallOpts) (*big.Int, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) GetTransmitCalldataPerSignerBytesOverhead(opts *bind.CallOpts) (*big.Int, error) {
 	var out []interface{}
-	err := _IAutomationRegistryMaster.contract.Call(opts, &out, "getTransmitCalldataPerSignerBytesOverhead")
+	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "getTransmitCalldataPerSignerBytesOverhead")
 
 	if err != nil {
 		return *new(*big.Int), err
@@ -879,19 +975,19 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) GetTransmitCa
 
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) GetTransmitCalldataPerSignerBytesOverhead() (*big.Int, error) {
-	return _IAutomationRegistryMaster.Contract.GetTransmitCalldataPerSignerBytesOverhead(&_IAutomationRegistryMaster.CallOpts)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) GetTransmitCalldataPerSignerBytesOverhead() (*big.Int, error) {
+	return _IAutomationRegistryMaster23.Contract.GetTransmitCalldataPerSignerBytesOverhead(&_IAutomationRegistryMaster23.CallOpts)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCallerSession) GetTransmitCalldataPerSignerBytesOverhead() (*big.Int, error) {
-	return _IAutomationRegistryMaster.Contract.GetTransmitCalldataPerSignerBytesOverhead(&_IAutomationRegistryMaster.CallOpts)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) GetTransmitCalldataPerSignerBytesOverhead() (*big.Int, error) {
+	return _IAutomationRegistryMaster23.Contract.GetTransmitCalldataPerSignerBytesOverhead(&_IAutomationRegistryMaster23.CallOpts)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) GetTransmitterInfo(opts *bind.CallOpts, query common.Address) (GetTransmitterInfo,
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) GetTransmitterInfo(opts *bind.CallOpts, query common.Address) (GetTransmitterInfo,
 
 	error) {
 	var out []interface{}
-	err := _IAutomationRegistryMaster.contract.Call(opts, &out, "getTransmitterInfo", query)
+	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "getTransmitterInfo", query)
 
 	outstruct := new(GetTransmitterInfo)
 	if err != nil {
@@ -908,21 +1004,21 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) GetTransmitte
 
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) GetTransmitterInfo(query common.Address) (GetTransmitterInfo,
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) GetTransmitterInfo(query common.Address) (GetTransmitterInfo,
 
 	error) {
-	return _IAutomationRegistryMaster.Contract.GetTransmitterInfo(&_IAutomationRegistryMaster.CallOpts, query)
+	return _IAutomationRegistryMaster23.Contract.GetTransmitterInfo(&_IAutomationRegistryMaster23.CallOpts, query)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCallerSession) GetTransmitterInfo(query common.Address) (GetTransmitterInfo,
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) GetTransmitterInfo(query common.Address) (GetTransmitterInfo,
 
 	error) {
-	return _IAutomationRegistryMaster.Contract.GetTransmitterInfo(&_IAutomationRegistryMaster.CallOpts, query)
+	return _IAutomationRegistryMaster23.Contract.GetTransmitterInfo(&_IAutomationRegistryMaster23.CallOpts, query)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) GetTriggerType(opts *bind.CallOpts, upkeepId *big.Int) (uint8, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) GetTriggerType(opts *bind.CallOpts, upkeepId *big.Int) (uint8, error) {
 	var out []interface{}
-	err := _IAutomationRegistryMaster.contract.Call(opts, &out, "getTriggerType", upkeepId)
+	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "getTriggerType", upkeepId)
 
 	if err != nil {
 		return *new(uint8), err
@@ -934,17 +1030,17 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) GetTriggerTyp
 
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) GetTriggerType(upkeepId *big.Int) (uint8, error) {
-	return _IAutomationRegistryMaster.Contract.GetTriggerType(&_IAutomationRegistryMaster.CallOpts, upkeepId)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) GetTriggerType(upkeepId *big.Int) (uint8, error) {
+	return _IAutomationRegistryMaster23.Contract.GetTriggerType(&_IAutomationRegistryMaster23.CallOpts, upkeepId)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCallerSession) GetTriggerType(upkeepId *big.Int) (uint8, error) {
-	return _IAutomationRegistryMaster.Contract.GetTriggerType(&_IAutomationRegistryMaster.CallOpts, upkeepId)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) GetTriggerType(upkeepId *big.Int) (uint8, error) {
+	return _IAutomationRegistryMaster23.Contract.GetTriggerType(&_IAutomationRegistryMaster23.CallOpts, upkeepId)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) GetUpkeep(opts *bind.CallOpts, id *big.Int) (AutomationRegistryBase23UpkeepInfo, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) GetUpkeep(opts *bind.CallOpts, id *big.Int) (AutomationRegistryBase23UpkeepInfo, error) {
 	var out []interface{}
-	err := _IAutomationRegistryMaster.contract.Call(opts, &out, "getUpkeep", id)
+	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "getUpkeep", id)
 
 	if err != nil {
 		return *new(AutomationRegistryBase23UpkeepInfo), err
@@ -956,17 +1052,17 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) GetUpkeep(opt
 
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) GetUpkeep(id *big.Int) (AutomationRegistryBase23UpkeepInfo, error) {
-	return _IAutomationRegistryMaster.Contract.GetUpkeep(&_IAutomationRegistryMaster.CallOpts, id)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) GetUpkeep(id *big.Int) (AutomationRegistryBase23UpkeepInfo, error) {
+	return _IAutomationRegistryMaster23.Contract.GetUpkeep(&_IAutomationRegistryMaster23.CallOpts, id)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCallerSession) GetUpkeep(id *big.Int) (AutomationRegistryBase23UpkeepInfo, error) {
-	return _IAutomationRegistryMaster.Contract.GetUpkeep(&_IAutomationRegistryMaster.CallOpts, id)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) GetUpkeep(id *big.Int) (AutomationRegistryBase23UpkeepInfo, error) {
+	return _IAutomationRegistryMaster23.Contract.GetUpkeep(&_IAutomationRegistryMaster23.CallOpts, id)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) GetUpkeepPrivilegeConfig(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) GetUpkeepPrivilegeConfig(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {
 	var out []interface{}
-	err := _IAutomationRegistryMaster.contract.Call(opts, &out, "getUpkeepPrivilegeConfig", upkeepId)
+	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "getUpkeepPrivilegeConfig", upkeepId)
 
 	if err != nil {
 		return *new([]byte), err
@@ -978,17 +1074,17 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) GetUpkeepPriv
 
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) GetUpkeepPrivilegeConfig(upkeepId *big.Int) ([]byte, error) {
-	return _IAutomationRegistryMaster.Contract.GetUpkeepPrivilegeConfig(&_IAutomationRegistryMaster.CallOpts, upkeepId)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) GetUpkeepPrivilegeConfig(upkeepId *big.Int) ([]byte, error) {
+	return _IAutomationRegistryMaster23.Contract.GetUpkeepPrivilegeConfig(&_IAutomationRegistryMaster23.CallOpts, upkeepId)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCallerSession) GetUpkeepPrivilegeConfig(upkeepId *big.Int) ([]byte, error) {
-	return _IAutomationRegistryMaster.Contract.GetUpkeepPrivilegeConfig(&_IAutomationRegistryMaster.CallOpts, upkeepId)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) GetUpkeepPrivilegeConfig(upkeepId *big.Int) ([]byte, error) {
+	return _IAutomationRegistryMaster23.Contract.GetUpkeepPrivilegeConfig(&_IAutomationRegistryMaster23.CallOpts, upkeepId)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) GetUpkeepTriggerConfig(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) GetUpkeepTriggerConfig(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {
 	var out []interface{}
-	err := _IAutomationRegistryMaster.contract.Call(opts, &out, "getUpkeepTriggerConfig", upkeepId)
+	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "getUpkeepTriggerConfig", upkeepId)
 
 	if err != nil {
 		return *new([]byte), err
@@ -1000,17 +1096,17 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) GetUpkeepTrig
 
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) GetUpkeepTriggerConfig(upkeepId *big.Int) ([]byte, error) {
-	return _IAutomationRegistryMaster.Contract.GetUpkeepTriggerConfig(&_IAutomationRegistryMaster.CallOpts, upkeepId)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) GetUpkeepTriggerConfig(upkeepId *big.Int) ([]byte, error) {
+	return _IAutomationRegistryMaster23.Contract.GetUpkeepTriggerConfig(&_IAutomationRegistryMaster23.CallOpts, upkeepId)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCallerSession) GetUpkeepTriggerConfig(upkeepId *big.Int) ([]byte, error) {
-	return _IAutomationRegistryMaster.Contract.GetUpkeepTriggerConfig(&_IAutomationRegistryMaster.CallOpts, upkeepId)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) GetUpkeepTriggerConfig(upkeepId *big.Int) ([]byte, error) {
+	return _IAutomationRegistryMaster23.Contract.GetUpkeepTriggerConfig(&_IAutomationRegistryMaster23.CallOpts, upkeepId)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) HasDedupKey(opts *bind.CallOpts, dedupKey [32]byte) (bool, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) HasDedupKey(opts *bind.CallOpts, dedupKey [32]byte) (bool, error) {
 	var out []interface{}
-	err := _IAutomationRegistryMaster.contract.Call(opts, &out, "hasDedupKey", dedupKey)
+	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "hasDedupKey", dedupKey)
 
 	if err != nil {
 		return *new(bool), err
@@ -1022,19 +1118,19 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) HasDedupKey(o
 
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) HasDedupKey(dedupKey [32]byte) (bool, error) {
-	return _IAutomationRegistryMaster.Contract.HasDedupKey(&_IAutomationRegistryMaster.CallOpts, dedupKey)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) HasDedupKey(dedupKey [32]byte) (bool, error) {
+	return _IAutomationRegistryMaster23.Contract.HasDedupKey(&_IAutomationRegistryMaster23.CallOpts, dedupKey)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCallerSession) HasDedupKey(dedupKey [32]byte) (bool, error) {
-	return _IAutomationRegistryMaster.Contract.HasDedupKey(&_IAutomationRegistryMaster.CallOpts, dedupKey)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) HasDedupKey(dedupKey [32]byte) (bool, error) {
+	return _IAutomationRegistryMaster23.Contract.HasDedupKey(&_IAutomationRegistryMaster23.CallOpts, dedupKey)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) LatestConfigDetails(opts *bind.CallOpts) (LatestConfigDetails,
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) LatestConfigDetails(opts *bind.CallOpts) (LatestConfigDetails,
 
 	error) {
 	var out []interface{}
-	err := _IAutomationRegistryMaster.contract.Call(opts, &out, "latestConfigDetails")
+	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "latestConfigDetails")
 
 	outstruct := new(LatestConfigDetails)
 	if err != nil {
@@ -1049,23 +1145,23 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) LatestConfigD
 
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) LatestConfigDetails() (LatestConfigDetails,
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) LatestConfigDetails() (LatestConfigDetails,
 
 	error) {
-	return _IAutomationRegistryMaster.Contract.LatestConfigDetails(&_IAutomationRegistryMaster.CallOpts)
+	return _IAutomationRegistryMaster23.Contract.LatestConfigDetails(&_IAutomationRegistryMaster23.CallOpts)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCallerSession) LatestConfigDetails() (LatestConfigDetails,
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) LatestConfigDetails() (LatestConfigDetails,
 
 	error) {
-	return _IAutomationRegistryMaster.Contract.LatestConfigDetails(&_IAutomationRegistryMaster.CallOpts)
+	return _IAutomationRegistryMaster23.Contract.LatestConfigDetails(&_IAutomationRegistryMaster23.CallOpts)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) LatestConfigDigestAndEpoch(opts *bind.CallOpts) (LatestConfigDigestAndEpoch,
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) LatestConfigDigestAndEpoch(opts *bind.CallOpts) (LatestConfigDigestAndEpoch,
 
 	error) {
 	var out []interface{}
-	err := _IAutomationRegistryMaster.contract.Call(opts, &out, "latestConfigDigestAndEpoch")
+	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "latestConfigDigestAndEpoch")
 
 	outstruct := new(LatestConfigDigestAndEpoch)
 	if err != nil {
@@ -1080,21 +1176,43 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) LatestConfigD
 
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) LatestConfigDigestAndEpoch() (LatestConfigDigestAndEpoch,
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) LatestConfigDigestAndEpoch() (LatestConfigDigestAndEpoch,
 
 	error) {
-	return _IAutomationRegistryMaster.Contract.LatestConfigDigestAndEpoch(&_IAutomationRegistryMaster.CallOpts)
+	return _IAutomationRegistryMaster23.Contract.LatestConfigDigestAndEpoch(&_IAutomationRegistryMaster23.CallOpts)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCallerSession) LatestConfigDigestAndEpoch() (LatestConfigDigestAndEpoch,
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) LatestConfigDigestAndEpoch() (LatestConfigDigestAndEpoch,
 
 	error) {
-	return _IAutomationRegistryMaster.Contract.LatestConfigDigestAndEpoch(&_IAutomationRegistryMaster.CallOpts)
+	return _IAutomationRegistryMaster23.Contract.LatestConfigDigestAndEpoch(&_IAutomationRegistryMaster23.CallOpts)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) Owner(opts *bind.CallOpts) (common.Address, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) LinkAvailableForPayment(opts *bind.CallOpts) (*big.Int, error) {
 	var out []interface{}
-	err := _IAutomationRegistryMaster.contract.Call(opts, &out, "owner")
+	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "linkAvailableForPayment")
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) LinkAvailableForPayment() (*big.Int, error) {
+	return _IAutomationRegistryMaster23.Contract.LinkAvailableForPayment(&_IAutomationRegistryMaster23.CallOpts)
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) LinkAvailableForPayment() (*big.Int, error) {
+	return _IAutomationRegistryMaster23.Contract.LinkAvailableForPayment(&_IAutomationRegistryMaster23.CallOpts)
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) Owner(opts *bind.CallOpts) (common.Address, error) {
+	var out []interface{}
+	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "owner")
 
 	if err != nil {
 		return *new(common.Address), err
@@ -1106,19 +1224,19 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) Owner(opts *b
 
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) Owner() (common.Address, error) {
-	return _IAutomationRegistryMaster.Contract.Owner(&_IAutomationRegistryMaster.CallOpts)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) Owner() (common.Address, error) {
+	return _IAutomationRegistryMaster23.Contract.Owner(&_IAutomationRegistryMaster23.CallOpts)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCallerSession) Owner() (common.Address, error) {
-	return _IAutomationRegistryMaster.Contract.Owner(&_IAutomationRegistryMaster.CallOpts)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) Owner() (common.Address, error) {
+	return _IAutomationRegistryMaster23.Contract.Owner(&_IAutomationRegistryMaster23.CallOpts)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) SimulatePerformUpkeep(opts *bind.CallOpts, id *big.Int, performData []byte) (SimulatePerformUpkeep,
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) SimulatePerformUpkeep(opts *bind.CallOpts, id *big.Int, performData []byte) (SimulatePerformUpkeep,
 
 	error) {
 	var out []interface{}
-	err := _IAutomationRegistryMaster.contract.Call(opts, &out, "simulatePerformUpkeep", id, performData)
+	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "simulatePerformUpkeep", id, performData)
 
 	outstruct := new(SimulatePerformUpkeep)
 	if err != nil {
@@ -1132,21 +1250,21 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) SimulatePerfo
 
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) SimulatePerformUpkeep(id *big.Int, performData []byte) (SimulatePerformUpkeep,
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) SimulatePerformUpkeep(id *big.Int, performData []byte) (SimulatePerformUpkeep,
 
 	error) {
-	return _IAutomationRegistryMaster.Contract.SimulatePerformUpkeep(&_IAutomationRegistryMaster.CallOpts, id, performData)
+	return _IAutomationRegistryMaster23.Contract.SimulatePerformUpkeep(&_IAutomationRegistryMaster23.CallOpts, id, performData)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCallerSession) SimulatePerformUpkeep(id *big.Int, performData []byte) (SimulatePerformUpkeep,
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) SimulatePerformUpkeep(id *big.Int, performData []byte) (SimulatePerformUpkeep,
 
 	error) {
-	return _IAutomationRegistryMaster.Contract.SimulatePerformUpkeep(&_IAutomationRegistryMaster.CallOpts, id, performData)
+	return _IAutomationRegistryMaster23.Contract.SimulatePerformUpkeep(&_IAutomationRegistryMaster23.CallOpts, id, performData)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) TypeAndVersion(opts *bind.CallOpts) (string, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) TypeAndVersion(opts *bind.CallOpts) (string, error) {
 	var out []interface{}
-	err := _IAutomationRegistryMaster.contract.Call(opts, &out, "typeAndVersion")
+	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "typeAndVersion")
 
 	if err != nil {
 		return *new(string), err
@@ -1158,17 +1276,17 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) TypeAndVersio
 
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) TypeAndVersion() (string, error) {
-	return _IAutomationRegistryMaster.Contract.TypeAndVersion(&_IAutomationRegistryMaster.CallOpts)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) TypeAndVersion() (string, error) {
+	return _IAutomationRegistryMaster23.Contract.TypeAndVersion(&_IAutomationRegistryMaster23.CallOpts)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCallerSession) TypeAndVersion() (string, error) {
-	return _IAutomationRegistryMaster.Contract.TypeAndVersion(&_IAutomationRegistryMaster.CallOpts)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) TypeAndVersion() (string, error) {
+	return _IAutomationRegistryMaster23.Contract.TypeAndVersion(&_IAutomationRegistryMaster23.CallOpts)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) UpkeepTranscoderVersion(opts *bind.CallOpts) (uint8, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) UpkeepTranscoderVersion(opts *bind.CallOpts) (uint8, error) {
 	var out []interface{}
-	err := _IAutomationRegistryMaster.contract.Call(opts, &out, "upkeepTranscoderVersion")
+	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "upkeepTranscoderVersion")
 
 	if err != nil {
 		return *new(uint8), err
@@ -1180,17 +1298,17 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) UpkeepTransco
 
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) UpkeepTranscoderVersion() (uint8, error) {
-	return _IAutomationRegistryMaster.Contract.UpkeepTranscoderVersion(&_IAutomationRegistryMaster.CallOpts)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) UpkeepTranscoderVersion() (uint8, error) {
+	return _IAutomationRegistryMaster23.Contract.UpkeepTranscoderVersion(&_IAutomationRegistryMaster23.CallOpts)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCallerSession) UpkeepTranscoderVersion() (uint8, error) {
-	return _IAutomationRegistryMaster.Contract.UpkeepTranscoderVersion(&_IAutomationRegistryMaster.CallOpts)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) UpkeepTranscoderVersion() (uint8, error) {
+	return _IAutomationRegistryMaster23.Contract.UpkeepTranscoderVersion(&_IAutomationRegistryMaster23.CallOpts)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) UpkeepVersion(opts *bind.CallOpts) (uint8, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Caller) UpkeepVersion(opts *bind.CallOpts) (uint8, error) {
 	var out []interface{}
-	err := _IAutomationRegistryMaster.contract.Call(opts, &out, "upkeepVersion")
+	err := _IAutomationRegistryMaster23.contract.Call(opts, &out, "upkeepVersion")
 
 	if err != nil {
 		return *new(uint8), err
@@ -1202,424 +1320,424 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterCaller) UpkeepVersion
 
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) UpkeepVersion() (uint8, error) {
-	return _IAutomationRegistryMaster.Contract.UpkeepVersion(&_IAutomationRegistryMaster.CallOpts)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) UpkeepVersion() (uint8, error) {
+	return _IAutomationRegistryMaster23.Contract.UpkeepVersion(&_IAutomationRegistryMaster23.CallOpts)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterCallerSession) UpkeepVersion() (uint8, error) {
-	return _IAutomationRegistryMaster.Contract.UpkeepVersion(&_IAutomationRegistryMaster.CallOpts)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23CallerSession) UpkeepVersion() (uint8, error) {
+	return _IAutomationRegistryMaster23.Contract.UpkeepVersion(&_IAutomationRegistryMaster23.CallOpts)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactor) AcceptOwnership(opts *bind.TransactOpts) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.contract.Transact(opts, "acceptOwnership")
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Transactor) AcceptOwnership(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.contract.Transact(opts, "acceptOwnership")
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) AcceptOwnership() (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.AcceptOwnership(&_IAutomationRegistryMaster.TransactOpts)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) AcceptOwnership() (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.AcceptOwnership(&_IAutomationRegistryMaster23.TransactOpts)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactorSession) AcceptOwnership() (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.AcceptOwnership(&_IAutomationRegistryMaster.TransactOpts)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23TransactorSession) AcceptOwnership() (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.AcceptOwnership(&_IAutomationRegistryMaster23.TransactOpts)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactor) AcceptPayeeship(opts *bind.TransactOpts, transmitter common.Address) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.contract.Transact(opts, "acceptPayeeship", transmitter)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Transactor) AcceptPayeeship(opts *bind.TransactOpts, transmitter common.Address) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.contract.Transact(opts, "acceptPayeeship", transmitter)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) AcceptPayeeship(transmitter common.Address) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.AcceptPayeeship(&_IAutomationRegistryMaster.TransactOpts, transmitter)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) AcceptPayeeship(transmitter common.Address) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.AcceptPayeeship(&_IAutomationRegistryMaster23.TransactOpts, transmitter)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactorSession) AcceptPayeeship(transmitter common.Address) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.AcceptPayeeship(&_IAutomationRegistryMaster.TransactOpts, transmitter)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23TransactorSession) AcceptPayeeship(transmitter common.Address) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.AcceptPayeeship(&_IAutomationRegistryMaster23.TransactOpts, transmitter)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactor) AcceptUpkeepAdmin(opts *bind.TransactOpts, id *big.Int) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.contract.Transact(opts, "acceptUpkeepAdmin", id)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Transactor) AcceptUpkeepAdmin(opts *bind.TransactOpts, id *big.Int) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.contract.Transact(opts, "acceptUpkeepAdmin", id)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) AcceptUpkeepAdmin(id *big.Int) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.AcceptUpkeepAdmin(&_IAutomationRegistryMaster.TransactOpts, id)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) AcceptUpkeepAdmin(id *big.Int) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.AcceptUpkeepAdmin(&_IAutomationRegistryMaster23.TransactOpts, id)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactorSession) AcceptUpkeepAdmin(id *big.Int) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.AcceptUpkeepAdmin(&_IAutomationRegistryMaster.TransactOpts, id)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23TransactorSession) AcceptUpkeepAdmin(id *big.Int) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.AcceptUpkeepAdmin(&_IAutomationRegistryMaster23.TransactOpts, id)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactor) AddFunds(opts *bind.TransactOpts, id *big.Int, amount *big.Int) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.contract.Transact(opts, "addFunds", id, amount)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Transactor) AddFunds(opts *bind.TransactOpts, id *big.Int, amount *big.Int) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.contract.Transact(opts, "addFunds", id, amount)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) AddFunds(id *big.Int, amount *big.Int) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.AddFunds(&_IAutomationRegistryMaster.TransactOpts, id, amount)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) AddFunds(id *big.Int, amount *big.Int) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.AddFunds(&_IAutomationRegistryMaster23.TransactOpts, id, amount)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactorSession) AddFunds(id *big.Int, amount *big.Int) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.AddFunds(&_IAutomationRegistryMaster.TransactOpts, id, amount)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23TransactorSession) AddFunds(id *big.Int, amount *big.Int) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.AddFunds(&_IAutomationRegistryMaster23.TransactOpts, id, amount)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactor) CancelUpkeep(opts *bind.TransactOpts, id *big.Int) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.contract.Transact(opts, "cancelUpkeep", id)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Transactor) CancelUpkeep(opts *bind.TransactOpts, id *big.Int) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.contract.Transact(opts, "cancelUpkeep", id)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) CancelUpkeep(id *big.Int) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.CancelUpkeep(&_IAutomationRegistryMaster.TransactOpts, id)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) CancelUpkeep(id *big.Int) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.CancelUpkeep(&_IAutomationRegistryMaster23.TransactOpts, id)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactorSession) CancelUpkeep(id *big.Int) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.CancelUpkeep(&_IAutomationRegistryMaster.TransactOpts, id)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23TransactorSession) CancelUpkeep(id *big.Int) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.CancelUpkeep(&_IAutomationRegistryMaster23.TransactOpts, id)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactor) ExecuteCallback(opts *bind.TransactOpts, id *big.Int, payload []byte) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.contract.Transact(opts, "executeCallback", id, payload)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Transactor) ExecuteCallback(opts *bind.TransactOpts, id *big.Int, payload []byte) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.contract.Transact(opts, "executeCallback", id, payload)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) ExecuteCallback(id *big.Int, payload []byte) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.ExecuteCallback(&_IAutomationRegistryMaster.TransactOpts, id, payload)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) ExecuteCallback(id *big.Int, payload []byte) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.ExecuteCallback(&_IAutomationRegistryMaster23.TransactOpts, id, payload)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactorSession) ExecuteCallback(id *big.Int, payload []byte) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.ExecuteCallback(&_IAutomationRegistryMaster.TransactOpts, id, payload)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23TransactorSession) ExecuteCallback(id *big.Int, payload []byte) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.ExecuteCallback(&_IAutomationRegistryMaster23.TransactOpts, id, payload)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactor) MigrateUpkeeps(opts *bind.TransactOpts, ids []*big.Int, destination common.Address) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.contract.Transact(opts, "migrateUpkeeps", ids, destination)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Transactor) MigrateUpkeeps(opts *bind.TransactOpts, ids []*big.Int, destination common.Address) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.contract.Transact(opts, "migrateUpkeeps", ids, destination)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) MigrateUpkeeps(ids []*big.Int, destination common.Address) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.MigrateUpkeeps(&_IAutomationRegistryMaster.TransactOpts, ids, destination)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) MigrateUpkeeps(ids []*big.Int, destination common.Address) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.MigrateUpkeeps(&_IAutomationRegistryMaster23.TransactOpts, ids, destination)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactorSession) MigrateUpkeeps(ids []*big.Int, destination common.Address) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.MigrateUpkeeps(&_IAutomationRegistryMaster.TransactOpts, ids, destination)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23TransactorSession) MigrateUpkeeps(ids []*big.Int, destination common.Address) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.MigrateUpkeeps(&_IAutomationRegistryMaster23.TransactOpts, ids, destination)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactor) OnTokenTransfer(opts *bind.TransactOpts, sender common.Address, amount *big.Int, data []byte) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.contract.Transact(opts, "onTokenTransfer", sender, amount, data)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Transactor) OnTokenTransfer(opts *bind.TransactOpts, sender common.Address, amount *big.Int, data []byte) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.contract.Transact(opts, "onTokenTransfer", sender, amount, data)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) OnTokenTransfer(sender common.Address, amount *big.Int, data []byte) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.OnTokenTransfer(&_IAutomationRegistryMaster.TransactOpts, sender, amount, data)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) OnTokenTransfer(sender common.Address, amount *big.Int, data []byte) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.OnTokenTransfer(&_IAutomationRegistryMaster23.TransactOpts, sender, amount, data)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactorSession) OnTokenTransfer(sender common.Address, amount *big.Int, data []byte) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.OnTokenTransfer(&_IAutomationRegistryMaster.TransactOpts, sender, amount, data)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23TransactorSession) OnTokenTransfer(sender common.Address, amount *big.Int, data []byte) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.OnTokenTransfer(&_IAutomationRegistryMaster23.TransactOpts, sender, amount, data)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactor) Pause(opts *bind.TransactOpts) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.contract.Transact(opts, "pause")
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Transactor) Pause(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.contract.Transact(opts, "pause")
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) Pause() (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.Pause(&_IAutomationRegistryMaster.TransactOpts)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) Pause() (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.Pause(&_IAutomationRegistryMaster23.TransactOpts)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactorSession) Pause() (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.Pause(&_IAutomationRegistryMaster.TransactOpts)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23TransactorSession) Pause() (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.Pause(&_IAutomationRegistryMaster23.TransactOpts)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactor) PauseUpkeep(opts *bind.TransactOpts, id *big.Int) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.contract.Transact(opts, "pauseUpkeep", id)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Transactor) PauseUpkeep(opts *bind.TransactOpts, id *big.Int) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.contract.Transact(opts, "pauseUpkeep", id)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) PauseUpkeep(id *big.Int) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.PauseUpkeep(&_IAutomationRegistryMaster.TransactOpts, id)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) PauseUpkeep(id *big.Int) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.PauseUpkeep(&_IAutomationRegistryMaster23.TransactOpts, id)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactorSession) PauseUpkeep(id *big.Int) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.PauseUpkeep(&_IAutomationRegistryMaster.TransactOpts, id)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23TransactorSession) PauseUpkeep(id *big.Int) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.PauseUpkeep(&_IAutomationRegistryMaster23.TransactOpts, id)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactor) ReceiveUpkeeps(opts *bind.TransactOpts, encodedUpkeeps []byte) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.contract.Transact(opts, "receiveUpkeeps", encodedUpkeeps)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Transactor) ReceiveUpkeeps(opts *bind.TransactOpts, encodedUpkeeps []byte) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.contract.Transact(opts, "receiveUpkeeps", encodedUpkeeps)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) ReceiveUpkeeps(encodedUpkeeps []byte) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.ReceiveUpkeeps(&_IAutomationRegistryMaster.TransactOpts, encodedUpkeeps)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) ReceiveUpkeeps(encodedUpkeeps []byte) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.ReceiveUpkeeps(&_IAutomationRegistryMaster23.TransactOpts, encodedUpkeeps)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactorSession) ReceiveUpkeeps(encodedUpkeeps []byte) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.ReceiveUpkeeps(&_IAutomationRegistryMaster.TransactOpts, encodedUpkeeps)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23TransactorSession) ReceiveUpkeeps(encodedUpkeeps []byte) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.ReceiveUpkeeps(&_IAutomationRegistryMaster23.TransactOpts, encodedUpkeeps)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactor) RecoverFunds(opts *bind.TransactOpts) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.contract.Transact(opts, "recoverFunds")
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Transactor) RegisterUpkeep(opts *bind.TransactOpts, target common.Address, gasLimit uint32, admin common.Address, triggerType uint8, checkData []byte, triggerConfig []byte, offchainConfig []byte) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.contract.Transact(opts, "registerUpkeep", target, gasLimit, admin, triggerType, checkData, triggerConfig, offchainConfig)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) RecoverFunds() (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.RecoverFunds(&_IAutomationRegistryMaster.TransactOpts)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) RegisterUpkeep(target common.Address, gasLimit uint32, admin common.Address, triggerType uint8, checkData []byte, triggerConfig []byte, offchainConfig []byte) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.RegisterUpkeep(&_IAutomationRegistryMaster23.TransactOpts, target, gasLimit, admin, triggerType, checkData, triggerConfig, offchainConfig)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactorSession) RecoverFunds() (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.RecoverFunds(&_IAutomationRegistryMaster.TransactOpts)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23TransactorSession) RegisterUpkeep(target common.Address, gasLimit uint32, admin common.Address, triggerType uint8, checkData []byte, triggerConfig []byte, offchainConfig []byte) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.RegisterUpkeep(&_IAutomationRegistryMaster23.TransactOpts, target, gasLimit, admin, triggerType, checkData, triggerConfig, offchainConfig)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactor) RegisterUpkeep(opts *bind.TransactOpts, target common.Address, gasLimit uint32, admin common.Address, triggerType uint8, checkData []byte, triggerConfig []byte, offchainConfig []byte) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.contract.Transact(opts, "registerUpkeep", target, gasLimit, admin, triggerType, checkData, triggerConfig, offchainConfig)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Transactor) RegisterUpkeep0(opts *bind.TransactOpts, target common.Address, gasLimit uint32, admin common.Address, checkData []byte, offchainConfig []byte) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.contract.Transact(opts, "registerUpkeep0", target, gasLimit, admin, checkData, offchainConfig)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) RegisterUpkeep(target common.Address, gasLimit uint32, admin common.Address, triggerType uint8, checkData []byte, triggerConfig []byte, offchainConfig []byte) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.RegisterUpkeep(&_IAutomationRegistryMaster.TransactOpts, target, gasLimit, admin, triggerType, checkData, triggerConfig, offchainConfig)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) RegisterUpkeep0(target common.Address, gasLimit uint32, admin common.Address, checkData []byte, offchainConfig []byte) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.RegisterUpkeep0(&_IAutomationRegistryMaster23.TransactOpts, target, gasLimit, admin, checkData, offchainConfig)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactorSession) RegisterUpkeep(target common.Address, gasLimit uint32, admin common.Address, triggerType uint8, checkData []byte, triggerConfig []byte, offchainConfig []byte) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.RegisterUpkeep(&_IAutomationRegistryMaster.TransactOpts, target, gasLimit, admin, triggerType, checkData, triggerConfig, offchainConfig)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23TransactorSession) RegisterUpkeep0(target common.Address, gasLimit uint32, admin common.Address, checkData []byte, offchainConfig []byte) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.RegisterUpkeep0(&_IAutomationRegistryMaster23.TransactOpts, target, gasLimit, admin, checkData, offchainConfig)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactor) RegisterUpkeep0(opts *bind.TransactOpts, target common.Address, gasLimit uint32, admin common.Address, checkData []byte, offchainConfig []byte) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.contract.Transact(opts, "registerUpkeep0", target, gasLimit, admin, checkData, offchainConfig)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Transactor) SetAdminPrivilegeConfig(opts *bind.TransactOpts, admin common.Address, newPrivilegeConfig []byte) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.contract.Transact(opts, "setAdminPrivilegeConfig", admin, newPrivilegeConfig)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) RegisterUpkeep0(target common.Address, gasLimit uint32, admin common.Address, checkData []byte, offchainConfig []byte) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.RegisterUpkeep0(&_IAutomationRegistryMaster.TransactOpts, target, gasLimit, admin, checkData, offchainConfig)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) SetAdminPrivilegeConfig(admin common.Address, newPrivilegeConfig []byte) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.SetAdminPrivilegeConfig(&_IAutomationRegistryMaster23.TransactOpts, admin, newPrivilegeConfig)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactorSession) RegisterUpkeep0(target common.Address, gasLimit uint32, admin common.Address, checkData []byte, offchainConfig []byte) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.RegisterUpkeep0(&_IAutomationRegistryMaster.TransactOpts, target, gasLimit, admin, checkData, offchainConfig)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23TransactorSession) SetAdminPrivilegeConfig(admin common.Address, newPrivilegeConfig []byte) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.SetAdminPrivilegeConfig(&_IAutomationRegistryMaster23.TransactOpts, admin, newPrivilegeConfig)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactor) SetAdminPrivilegeConfig(opts *bind.TransactOpts, admin common.Address, newPrivilegeConfig []byte) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.contract.Transact(opts, "setAdminPrivilegeConfig", admin, newPrivilegeConfig)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Transactor) SetConfig(opts *bind.TransactOpts, signers []common.Address, transmitters []common.Address, f uint8, onchainConfigBytes []byte, offchainConfigVersion uint64, offchainConfig []byte) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.contract.Transact(opts, "setConfig", signers, transmitters, f, onchainConfigBytes, offchainConfigVersion, offchainConfig)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) SetAdminPrivilegeConfig(admin common.Address, newPrivilegeConfig []byte) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.SetAdminPrivilegeConfig(&_IAutomationRegistryMaster.TransactOpts, admin, newPrivilegeConfig)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) SetConfig(signers []common.Address, transmitters []common.Address, f uint8, onchainConfigBytes []byte, offchainConfigVersion uint64, offchainConfig []byte) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.SetConfig(&_IAutomationRegistryMaster23.TransactOpts, signers, transmitters, f, onchainConfigBytes, offchainConfigVersion, offchainConfig)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactorSession) SetAdminPrivilegeConfig(admin common.Address, newPrivilegeConfig []byte) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.SetAdminPrivilegeConfig(&_IAutomationRegistryMaster.TransactOpts, admin, newPrivilegeConfig)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23TransactorSession) SetConfig(signers []common.Address, transmitters []common.Address, f uint8, onchainConfigBytes []byte, offchainConfigVersion uint64, offchainConfig []byte) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.SetConfig(&_IAutomationRegistryMaster23.TransactOpts, signers, transmitters, f, onchainConfigBytes, offchainConfigVersion, offchainConfig)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactor) SetConfig(opts *bind.TransactOpts, signers []common.Address, transmitters []common.Address, f uint8, onchainConfigBytes []byte, offchainConfigVersion uint64, offchainConfig []byte) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.contract.Transact(opts, "setConfig", signers, transmitters, f, onchainConfigBytes, offchainConfigVersion, offchainConfig)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Transactor) SetConfigTypeSafe(opts *bind.TransactOpts, signers []common.Address, transmitters []common.Address, f uint8, onchainConfig AutomationRegistryBase23OnchainConfig, offchainConfigVersion uint64, offchainConfig []byte, billingTokens []common.Address, billingConfigs []AutomationRegistryBase23BillingConfig) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.contract.Transact(opts, "setConfigTypeSafe", signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig, billingTokens, billingConfigs)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) SetConfig(signers []common.Address, transmitters []common.Address, f uint8, onchainConfigBytes []byte, offchainConfigVersion uint64, offchainConfig []byte) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.SetConfig(&_IAutomationRegistryMaster.TransactOpts, signers, transmitters, f, onchainConfigBytes, offchainConfigVersion, offchainConfig)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) SetConfigTypeSafe(signers []common.Address, transmitters []common.Address, f uint8, onchainConfig AutomationRegistryBase23OnchainConfig, offchainConfigVersion uint64, offchainConfig []byte, billingTokens []common.Address, billingConfigs []AutomationRegistryBase23BillingConfig) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.SetConfigTypeSafe(&_IAutomationRegistryMaster23.TransactOpts, signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig, billingTokens, billingConfigs)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactorSession) SetConfig(signers []common.Address, transmitters []common.Address, f uint8, onchainConfigBytes []byte, offchainConfigVersion uint64, offchainConfig []byte) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.SetConfig(&_IAutomationRegistryMaster.TransactOpts, signers, transmitters, f, onchainConfigBytes, offchainConfigVersion, offchainConfig)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23TransactorSession) SetConfigTypeSafe(signers []common.Address, transmitters []common.Address, f uint8, onchainConfig AutomationRegistryBase23OnchainConfig, offchainConfigVersion uint64, offchainConfig []byte, billingTokens []common.Address, billingConfigs []AutomationRegistryBase23BillingConfig) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.SetConfigTypeSafe(&_IAutomationRegistryMaster23.TransactOpts, signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig, billingTokens, billingConfigs)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactor) SetConfigTypeSafe(opts *bind.TransactOpts, signers []common.Address, transmitters []common.Address, f uint8, onchainConfig AutomationRegistryBase23OnchainConfig, offchainConfigVersion uint64, offchainConfig []byte) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.contract.Transact(opts, "setConfigTypeSafe", signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Transactor) SetPayees(opts *bind.TransactOpts, payees []common.Address) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.contract.Transact(opts, "setPayees", payees)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) SetConfigTypeSafe(signers []common.Address, transmitters []common.Address, f uint8, onchainConfig AutomationRegistryBase23OnchainConfig, offchainConfigVersion uint64, offchainConfig []byte) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.SetConfigTypeSafe(&_IAutomationRegistryMaster.TransactOpts, signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) SetPayees(payees []common.Address) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.SetPayees(&_IAutomationRegistryMaster23.TransactOpts, payees)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactorSession) SetConfigTypeSafe(signers []common.Address, transmitters []common.Address, f uint8, onchainConfig AutomationRegistryBase23OnchainConfig, offchainConfigVersion uint64, offchainConfig []byte) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.SetConfigTypeSafe(&_IAutomationRegistryMaster.TransactOpts, signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23TransactorSession) SetPayees(payees []common.Address) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.SetPayees(&_IAutomationRegistryMaster23.TransactOpts, payees)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactor) SetPayees(opts *bind.TransactOpts, payees []common.Address) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.contract.Transact(opts, "setPayees", payees)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Transactor) SetPeerRegistryMigrationPermission(opts *bind.TransactOpts, peer common.Address, permission uint8) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.contract.Transact(opts, "setPeerRegistryMigrationPermission", peer, permission)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) SetPayees(payees []common.Address) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.SetPayees(&_IAutomationRegistryMaster.TransactOpts, payees)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) SetPeerRegistryMigrationPermission(peer common.Address, permission uint8) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.SetPeerRegistryMigrationPermission(&_IAutomationRegistryMaster23.TransactOpts, peer, permission)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactorSession) SetPayees(payees []common.Address) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.SetPayees(&_IAutomationRegistryMaster.TransactOpts, payees)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23TransactorSession) SetPeerRegistryMigrationPermission(peer common.Address, permission uint8) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.SetPeerRegistryMigrationPermission(&_IAutomationRegistryMaster23.TransactOpts, peer, permission)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactor) SetPeerRegistryMigrationPermission(opts *bind.TransactOpts, peer common.Address, permission uint8) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.contract.Transact(opts, "setPeerRegistryMigrationPermission", peer, permission)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Transactor) SetUpkeepCheckData(opts *bind.TransactOpts, id *big.Int, newCheckData []byte) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.contract.Transact(opts, "setUpkeepCheckData", id, newCheckData)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) SetPeerRegistryMigrationPermission(peer common.Address, permission uint8) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.SetPeerRegistryMigrationPermission(&_IAutomationRegistryMaster.TransactOpts, peer, permission)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) SetUpkeepCheckData(id *big.Int, newCheckData []byte) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.SetUpkeepCheckData(&_IAutomationRegistryMaster23.TransactOpts, id, newCheckData)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactorSession) SetPeerRegistryMigrationPermission(peer common.Address, permission uint8) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.SetPeerRegistryMigrationPermission(&_IAutomationRegistryMaster.TransactOpts, peer, permission)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23TransactorSession) SetUpkeepCheckData(id *big.Int, newCheckData []byte) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.SetUpkeepCheckData(&_IAutomationRegistryMaster23.TransactOpts, id, newCheckData)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactor) SetUpkeepCheckData(opts *bind.TransactOpts, id *big.Int, newCheckData []byte) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.contract.Transact(opts, "setUpkeepCheckData", id, newCheckData)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Transactor) SetUpkeepGasLimit(opts *bind.TransactOpts, id *big.Int, gasLimit uint32) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.contract.Transact(opts, "setUpkeepGasLimit", id, gasLimit)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) SetUpkeepCheckData(id *big.Int, newCheckData []byte) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.SetUpkeepCheckData(&_IAutomationRegistryMaster.TransactOpts, id, newCheckData)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) SetUpkeepGasLimit(id *big.Int, gasLimit uint32) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.SetUpkeepGasLimit(&_IAutomationRegistryMaster23.TransactOpts, id, gasLimit)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactorSession) SetUpkeepCheckData(id *big.Int, newCheckData []byte) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.SetUpkeepCheckData(&_IAutomationRegistryMaster.TransactOpts, id, newCheckData)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23TransactorSession) SetUpkeepGasLimit(id *big.Int, gasLimit uint32) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.SetUpkeepGasLimit(&_IAutomationRegistryMaster23.TransactOpts, id, gasLimit)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactor) SetUpkeepGasLimit(opts *bind.TransactOpts, id *big.Int, gasLimit uint32) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.contract.Transact(opts, "setUpkeepGasLimit", id, gasLimit)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Transactor) SetUpkeepOffchainConfig(opts *bind.TransactOpts, id *big.Int, config []byte) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.contract.Transact(opts, "setUpkeepOffchainConfig", id, config)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) SetUpkeepGasLimit(id *big.Int, gasLimit uint32) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.SetUpkeepGasLimit(&_IAutomationRegistryMaster.TransactOpts, id, gasLimit)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) SetUpkeepOffchainConfig(id *big.Int, config []byte) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.SetUpkeepOffchainConfig(&_IAutomationRegistryMaster23.TransactOpts, id, config)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactorSession) SetUpkeepGasLimit(id *big.Int, gasLimit uint32) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.SetUpkeepGasLimit(&_IAutomationRegistryMaster.TransactOpts, id, gasLimit)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23TransactorSession) SetUpkeepOffchainConfig(id *big.Int, config []byte) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.SetUpkeepOffchainConfig(&_IAutomationRegistryMaster23.TransactOpts, id, config)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactor) SetUpkeepOffchainConfig(opts *bind.TransactOpts, id *big.Int, config []byte) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.contract.Transact(opts, "setUpkeepOffchainConfig", id, config)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Transactor) SetUpkeepPrivilegeConfig(opts *bind.TransactOpts, upkeepId *big.Int, newPrivilegeConfig []byte) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.contract.Transact(opts, "setUpkeepPrivilegeConfig", upkeepId, newPrivilegeConfig)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) SetUpkeepOffchainConfig(id *big.Int, config []byte) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.SetUpkeepOffchainConfig(&_IAutomationRegistryMaster.TransactOpts, id, config)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) SetUpkeepPrivilegeConfig(upkeepId *big.Int, newPrivilegeConfig []byte) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.SetUpkeepPrivilegeConfig(&_IAutomationRegistryMaster23.TransactOpts, upkeepId, newPrivilegeConfig)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactorSession) SetUpkeepOffchainConfig(id *big.Int, config []byte) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.SetUpkeepOffchainConfig(&_IAutomationRegistryMaster.TransactOpts, id, config)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23TransactorSession) SetUpkeepPrivilegeConfig(upkeepId *big.Int, newPrivilegeConfig []byte) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.SetUpkeepPrivilegeConfig(&_IAutomationRegistryMaster23.TransactOpts, upkeepId, newPrivilegeConfig)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactor) SetUpkeepPrivilegeConfig(opts *bind.TransactOpts, upkeepId *big.Int, newPrivilegeConfig []byte) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.contract.Transact(opts, "setUpkeepPrivilegeConfig", upkeepId, newPrivilegeConfig)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Transactor) SetUpkeepTriggerConfig(opts *bind.TransactOpts, id *big.Int, triggerConfig []byte) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.contract.Transact(opts, "setUpkeepTriggerConfig", id, triggerConfig)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) SetUpkeepPrivilegeConfig(upkeepId *big.Int, newPrivilegeConfig []byte) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.SetUpkeepPrivilegeConfig(&_IAutomationRegistryMaster.TransactOpts, upkeepId, newPrivilegeConfig)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) SetUpkeepTriggerConfig(id *big.Int, triggerConfig []byte) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.SetUpkeepTriggerConfig(&_IAutomationRegistryMaster23.TransactOpts, id, triggerConfig)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactorSession) SetUpkeepPrivilegeConfig(upkeepId *big.Int, newPrivilegeConfig []byte) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.SetUpkeepPrivilegeConfig(&_IAutomationRegistryMaster.TransactOpts, upkeepId, newPrivilegeConfig)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23TransactorSession) SetUpkeepTriggerConfig(id *big.Int, triggerConfig []byte) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.SetUpkeepTriggerConfig(&_IAutomationRegistryMaster23.TransactOpts, id, triggerConfig)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactor) SetUpkeepTriggerConfig(opts *bind.TransactOpts, id *big.Int, triggerConfig []byte) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.contract.Transact(opts, "setUpkeepTriggerConfig", id, triggerConfig)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Transactor) TransferOwnership(opts *bind.TransactOpts, to common.Address) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.contract.Transact(opts, "transferOwnership", to)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) SetUpkeepTriggerConfig(id *big.Int, triggerConfig []byte) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.SetUpkeepTriggerConfig(&_IAutomationRegistryMaster.TransactOpts, id, triggerConfig)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) TransferOwnership(to common.Address) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.TransferOwnership(&_IAutomationRegistryMaster23.TransactOpts, to)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactorSession) SetUpkeepTriggerConfig(id *big.Int, triggerConfig []byte) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.SetUpkeepTriggerConfig(&_IAutomationRegistryMaster.TransactOpts, id, triggerConfig)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23TransactorSession) TransferOwnership(to common.Address) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.TransferOwnership(&_IAutomationRegistryMaster23.TransactOpts, to)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactor) TransferOwnership(opts *bind.TransactOpts, to common.Address) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.contract.Transact(opts, "transferOwnership", to)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Transactor) TransferPayeeship(opts *bind.TransactOpts, transmitter common.Address, proposed common.Address) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.contract.Transact(opts, "transferPayeeship", transmitter, proposed)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) TransferOwnership(to common.Address) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.TransferOwnership(&_IAutomationRegistryMaster.TransactOpts, to)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) TransferPayeeship(transmitter common.Address, proposed common.Address) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.TransferPayeeship(&_IAutomationRegistryMaster23.TransactOpts, transmitter, proposed)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactorSession) TransferOwnership(to common.Address) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.TransferOwnership(&_IAutomationRegistryMaster.TransactOpts, to)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23TransactorSession) TransferPayeeship(transmitter common.Address, proposed common.Address) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.TransferPayeeship(&_IAutomationRegistryMaster23.TransactOpts, transmitter, proposed)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactor) TransferPayeeship(opts *bind.TransactOpts, transmitter common.Address, proposed common.Address) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.contract.Transact(opts, "transferPayeeship", transmitter, proposed)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Transactor) TransferUpkeepAdmin(opts *bind.TransactOpts, id *big.Int, proposed common.Address) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.contract.Transact(opts, "transferUpkeepAdmin", id, proposed)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) TransferPayeeship(transmitter common.Address, proposed common.Address) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.TransferPayeeship(&_IAutomationRegistryMaster.TransactOpts, transmitter, proposed)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) TransferUpkeepAdmin(id *big.Int, proposed common.Address) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.TransferUpkeepAdmin(&_IAutomationRegistryMaster23.TransactOpts, id, proposed)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactorSession) TransferPayeeship(transmitter common.Address, proposed common.Address) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.TransferPayeeship(&_IAutomationRegistryMaster.TransactOpts, transmitter, proposed)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23TransactorSession) TransferUpkeepAdmin(id *big.Int, proposed common.Address) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.TransferUpkeepAdmin(&_IAutomationRegistryMaster23.TransactOpts, id, proposed)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactor) TransferUpkeepAdmin(opts *bind.TransactOpts, id *big.Int, proposed common.Address) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.contract.Transact(opts, "transferUpkeepAdmin", id, proposed)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Transactor) Transmit(opts *bind.TransactOpts, reportContext [3][32]byte, rawReport []byte, rs [][32]byte, ss [][32]byte, rawVs [32]byte) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.contract.Transact(opts, "transmit", reportContext, rawReport, rs, ss, rawVs)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) TransferUpkeepAdmin(id *big.Int, proposed common.Address) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.TransferUpkeepAdmin(&_IAutomationRegistryMaster.TransactOpts, id, proposed)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) Transmit(reportContext [3][32]byte, rawReport []byte, rs [][32]byte, ss [][32]byte, rawVs [32]byte) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.Transmit(&_IAutomationRegistryMaster23.TransactOpts, reportContext, rawReport, rs, ss, rawVs)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactorSession) TransferUpkeepAdmin(id *big.Int, proposed common.Address) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.TransferUpkeepAdmin(&_IAutomationRegistryMaster.TransactOpts, id, proposed)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23TransactorSession) Transmit(reportContext [3][32]byte, rawReport []byte, rs [][32]byte, ss [][32]byte, rawVs [32]byte) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.Transmit(&_IAutomationRegistryMaster23.TransactOpts, reportContext, rawReport, rs, ss, rawVs)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactor) Transmit(opts *bind.TransactOpts, reportContext [3][32]byte, rawReport []byte, rs [][32]byte, ss [][32]byte, rawVs [32]byte) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.contract.Transact(opts, "transmit", reportContext, rawReport, rs, ss, rawVs)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Transactor) Unpause(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.contract.Transact(opts, "unpause")
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) Transmit(reportContext [3][32]byte, rawReport []byte, rs [][32]byte, ss [][32]byte, rawVs [32]byte) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.Transmit(&_IAutomationRegistryMaster.TransactOpts, reportContext, rawReport, rs, ss, rawVs)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) Unpause() (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.Unpause(&_IAutomationRegistryMaster23.TransactOpts)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactorSession) Transmit(reportContext [3][32]byte, rawReport []byte, rs [][32]byte, ss [][32]byte, rawVs [32]byte) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.Transmit(&_IAutomationRegistryMaster.TransactOpts, reportContext, rawReport, rs, ss, rawVs)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23TransactorSession) Unpause() (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.Unpause(&_IAutomationRegistryMaster23.TransactOpts)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactor) Unpause(opts *bind.TransactOpts) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.contract.Transact(opts, "unpause")
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Transactor) UnpauseUpkeep(opts *bind.TransactOpts, id *big.Int) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.contract.Transact(opts, "unpauseUpkeep", id)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) Unpause() (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.Unpause(&_IAutomationRegistryMaster.TransactOpts)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) UnpauseUpkeep(id *big.Int) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.UnpauseUpkeep(&_IAutomationRegistryMaster23.TransactOpts, id)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactorSession) Unpause() (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.Unpause(&_IAutomationRegistryMaster.TransactOpts)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23TransactorSession) UnpauseUpkeep(id *big.Int) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.UnpauseUpkeep(&_IAutomationRegistryMaster23.TransactOpts, id)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactor) UnpauseUpkeep(opts *bind.TransactOpts, id *big.Int) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.contract.Transact(opts, "unpauseUpkeep", id)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Transactor) WithdrawERC20Fees(opts *bind.TransactOpts, assetAddress common.Address, to common.Address, amount *big.Int) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.contract.Transact(opts, "withdrawERC20Fees", assetAddress, to, amount)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) UnpauseUpkeep(id *big.Int) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.UnpauseUpkeep(&_IAutomationRegistryMaster.TransactOpts, id)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) WithdrawERC20Fees(assetAddress common.Address, to common.Address, amount *big.Int) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.WithdrawERC20Fees(&_IAutomationRegistryMaster23.TransactOpts, assetAddress, to, amount)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactorSession) UnpauseUpkeep(id *big.Int) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.UnpauseUpkeep(&_IAutomationRegistryMaster.TransactOpts, id)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23TransactorSession) WithdrawERC20Fees(assetAddress common.Address, to common.Address, amount *big.Int) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.WithdrawERC20Fees(&_IAutomationRegistryMaster23.TransactOpts, assetAddress, to, amount)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactor) WithdrawFunds(opts *bind.TransactOpts, id *big.Int, to common.Address) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.contract.Transact(opts, "withdrawFunds", id, to)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Transactor) WithdrawFunds(opts *bind.TransactOpts, id *big.Int, to common.Address) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.contract.Transact(opts, "withdrawFunds", id, to)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) WithdrawFunds(id *big.Int, to common.Address) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.WithdrawFunds(&_IAutomationRegistryMaster.TransactOpts, id, to)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) WithdrawFunds(id *big.Int, to common.Address) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.WithdrawFunds(&_IAutomationRegistryMaster23.TransactOpts, id, to)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactorSession) WithdrawFunds(id *big.Int, to common.Address) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.WithdrawFunds(&_IAutomationRegistryMaster.TransactOpts, id, to)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23TransactorSession) WithdrawFunds(id *big.Int, to common.Address) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.WithdrawFunds(&_IAutomationRegistryMaster23.TransactOpts, id, to)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactor) WithdrawOwnerFunds(opts *bind.TransactOpts) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.contract.Transact(opts, "withdrawOwnerFunds")
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Transactor) WithdrawLinkFees(opts *bind.TransactOpts, to common.Address, amount *big.Int) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.contract.Transact(opts, "withdrawLinkFees", to, amount)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) WithdrawOwnerFunds() (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.WithdrawOwnerFunds(&_IAutomationRegistryMaster.TransactOpts)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) WithdrawLinkFees(to common.Address, amount *big.Int) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.WithdrawLinkFees(&_IAutomationRegistryMaster23.TransactOpts, to, amount)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactorSession) WithdrawOwnerFunds() (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.WithdrawOwnerFunds(&_IAutomationRegistryMaster.TransactOpts)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23TransactorSession) WithdrawLinkFees(to common.Address, amount *big.Int) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.WithdrawLinkFees(&_IAutomationRegistryMaster23.TransactOpts, to, amount)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactor) WithdrawPayment(opts *bind.TransactOpts, from common.Address, to common.Address) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.contract.Transact(opts, "withdrawPayment", from, to)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Transactor) WithdrawPayment(opts *bind.TransactOpts, from common.Address, to common.Address) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.contract.Transact(opts, "withdrawPayment", from, to)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) WithdrawPayment(from common.Address, to common.Address) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.WithdrawPayment(&_IAutomationRegistryMaster.TransactOpts, from, to)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) WithdrawPayment(from common.Address, to common.Address) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.WithdrawPayment(&_IAutomationRegistryMaster23.TransactOpts, from, to)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactorSession) WithdrawPayment(from common.Address, to common.Address) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.WithdrawPayment(&_IAutomationRegistryMaster.TransactOpts, from, to)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23TransactorSession) WithdrawPayment(from common.Address, to common.Address) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.WithdrawPayment(&_IAutomationRegistryMaster23.TransactOpts, from, to)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactor) Fallback(opts *bind.TransactOpts, calldata []byte) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.contract.RawTransact(opts, calldata)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Transactor) Fallback(opts *bind.TransactOpts, calldata []byte) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.contract.RawTransact(opts, calldata)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterSession) Fallback(calldata []byte) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.Fallback(&_IAutomationRegistryMaster.TransactOpts, calldata)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Session) Fallback(calldata []byte) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.Fallback(&_IAutomationRegistryMaster23.TransactOpts, calldata)
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterTransactorSession) Fallback(calldata []byte) (*types.Transaction, error) {
-	return _IAutomationRegistryMaster.Contract.Fallback(&_IAutomationRegistryMaster.TransactOpts, calldata)
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23TransactorSession) Fallback(calldata []byte) (*types.Transaction, error) {
+	return _IAutomationRegistryMaster23.Contract.Fallback(&_IAutomationRegistryMaster23.TransactOpts, calldata)
 }
 
-type IAutomationRegistryMasterAdminPrivilegeConfigSetIterator struct {
-	Event *IAutomationRegistryMasterAdminPrivilegeConfigSet
+type IAutomationRegistryMaster23AdminPrivilegeConfigSetIterator struct {
+	Event *IAutomationRegistryMaster23AdminPrivilegeConfigSet
 
 	contract *bind.BoundContract
 	event    string
@@ -1630,7 +1748,7 @@ type IAutomationRegistryMasterAdminPrivilegeConfigSetIterator struct {
 	fail error
 }
 
-func (it *IAutomationRegistryMasterAdminPrivilegeConfigSetIterator) Next() bool {
+func (it *IAutomationRegistryMaster23AdminPrivilegeConfigSetIterator) Next() bool {
 
 	if it.fail != nil {
 		return false
@@ -1639,7 +1757,7 @@ func (it *IAutomationRegistryMasterAdminPrivilegeConfigSetIterator) Next() bool 
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(IAutomationRegistryMasterAdminPrivilegeConfigSet)
+			it.Event = new(IAutomationRegistryMaster23AdminPrivilegeConfigSet)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -1654,7 +1772,7 @@ func (it *IAutomationRegistryMasterAdminPrivilegeConfigSetIterator) Next() bool 
 
 	select {
 	case log := <-it.logs:
-		it.Event = new(IAutomationRegistryMasterAdminPrivilegeConfigSet)
+		it.Event = new(IAutomationRegistryMaster23AdminPrivilegeConfigSet)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -1669,43 +1787,43 @@ func (it *IAutomationRegistryMasterAdminPrivilegeConfigSetIterator) Next() bool 
 	}
 }
 
-func (it *IAutomationRegistryMasterAdminPrivilegeConfigSetIterator) Error() error {
+func (it *IAutomationRegistryMaster23AdminPrivilegeConfigSetIterator) Error() error {
 	return it.fail
 }
 
-func (it *IAutomationRegistryMasterAdminPrivilegeConfigSetIterator) Close() error {
+func (it *IAutomationRegistryMaster23AdminPrivilegeConfigSetIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-type IAutomationRegistryMasterAdminPrivilegeConfigSet struct {
+type IAutomationRegistryMaster23AdminPrivilegeConfigSet struct {
 	Admin           common.Address
 	PrivilegeConfig []byte
 	Raw             types.Log
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) FilterAdminPrivilegeConfigSet(opts *bind.FilterOpts, admin []common.Address) (*IAutomationRegistryMasterAdminPrivilegeConfigSetIterator, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) FilterAdminPrivilegeConfigSet(opts *bind.FilterOpts, admin []common.Address) (*IAutomationRegistryMaster23AdminPrivilegeConfigSetIterator, error) {
 
 	var adminRule []interface{}
 	for _, adminItem := range admin {
 		adminRule = append(adminRule, adminItem)
 	}
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.FilterLogs(opts, "AdminPrivilegeConfigSet", adminRule)
+	logs, sub, err := _IAutomationRegistryMaster23.contract.FilterLogs(opts, "AdminPrivilegeConfigSet", adminRule)
 	if err != nil {
 		return nil, err
 	}
-	return &IAutomationRegistryMasterAdminPrivilegeConfigSetIterator{contract: _IAutomationRegistryMaster.contract, event: "AdminPrivilegeConfigSet", logs: logs, sub: sub}, nil
+	return &IAutomationRegistryMaster23AdminPrivilegeConfigSetIterator{contract: _IAutomationRegistryMaster23.contract, event: "AdminPrivilegeConfigSet", logs: logs, sub: sub}, nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchAdminPrivilegeConfigSet(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterAdminPrivilegeConfigSet, admin []common.Address) (event.Subscription, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) WatchAdminPrivilegeConfigSet(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23AdminPrivilegeConfigSet, admin []common.Address) (event.Subscription, error) {
 
 	var adminRule []interface{}
 	for _, adminItem := range admin {
 		adminRule = append(adminRule, adminItem)
 	}
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.WatchLogs(opts, "AdminPrivilegeConfigSet", adminRule)
+	logs, sub, err := _IAutomationRegistryMaster23.contract.WatchLogs(opts, "AdminPrivilegeConfigSet", adminRule)
 	if err != nil {
 		return nil, err
 	}
@@ -1715,8 +1833,8 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchAdminP
 			select {
 			case log := <-logs:
 
-				event := new(IAutomationRegistryMasterAdminPrivilegeConfigSet)
-				if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "AdminPrivilegeConfigSet", log); err != nil {
+				event := new(IAutomationRegistryMaster23AdminPrivilegeConfigSet)
+				if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "AdminPrivilegeConfigSet", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -1737,17 +1855,17 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchAdminP
 	}), nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) ParseAdminPrivilegeConfigSet(log types.Log) (*IAutomationRegistryMasterAdminPrivilegeConfigSet, error) {
-	event := new(IAutomationRegistryMasterAdminPrivilegeConfigSet)
-	if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "AdminPrivilegeConfigSet", log); err != nil {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) ParseAdminPrivilegeConfigSet(log types.Log) (*IAutomationRegistryMaster23AdminPrivilegeConfigSet, error) {
+	event := new(IAutomationRegistryMaster23AdminPrivilegeConfigSet)
+	if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "AdminPrivilegeConfigSet", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
 	return event, nil
 }
 
-type IAutomationRegistryMasterCancelledUpkeepReportIterator struct {
-	Event *IAutomationRegistryMasterCancelledUpkeepReport
+type IAutomationRegistryMaster23BillingConfigSetIterator struct {
+	Event *IAutomationRegistryMaster23BillingConfigSet
 
 	contract *bind.BoundContract
 	event    string
@@ -1758,7 +1876,7 @@ type IAutomationRegistryMasterCancelledUpkeepReportIterator struct {
 	fail error
 }
 
-func (it *IAutomationRegistryMasterCancelledUpkeepReportIterator) Next() bool {
+func (it *IAutomationRegistryMaster23BillingConfigSetIterator) Next() bool {
 
 	if it.fail != nil {
 		return false
@@ -1767,7 +1885,7 @@ func (it *IAutomationRegistryMasterCancelledUpkeepReportIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(IAutomationRegistryMasterCancelledUpkeepReport)
+			it.Event = new(IAutomationRegistryMaster23BillingConfigSet)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -1782,7 +1900,7 @@ func (it *IAutomationRegistryMasterCancelledUpkeepReportIterator) Next() bool {
 
 	select {
 	case log := <-it.logs:
-		it.Event = new(IAutomationRegistryMasterCancelledUpkeepReport)
+		it.Event = new(IAutomationRegistryMaster23BillingConfigSet)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -1797,43 +1915,171 @@ func (it *IAutomationRegistryMasterCancelledUpkeepReportIterator) Next() bool {
 	}
 }
 
-func (it *IAutomationRegistryMasterCancelledUpkeepReportIterator) Error() error {
+func (it *IAutomationRegistryMaster23BillingConfigSetIterator) Error() error {
 	return it.fail
 }
 
-func (it *IAutomationRegistryMasterCancelledUpkeepReportIterator) Close() error {
+func (it *IAutomationRegistryMaster23BillingConfigSetIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-type IAutomationRegistryMasterCancelledUpkeepReport struct {
+type IAutomationRegistryMaster23BillingConfigSet struct {
+	Token  common.Address
+	Config AutomationRegistryBase23BillingConfig
+	Raw    types.Log
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) FilterBillingConfigSet(opts *bind.FilterOpts, token []common.Address) (*IAutomationRegistryMaster23BillingConfigSetIterator, error) {
+
+	var tokenRule []interface{}
+	for _, tokenItem := range token {
+		tokenRule = append(tokenRule, tokenItem)
+	}
+
+	logs, sub, err := _IAutomationRegistryMaster23.contract.FilterLogs(opts, "BillingConfigSet", tokenRule)
+	if err != nil {
+		return nil, err
+	}
+	return &IAutomationRegistryMaster23BillingConfigSetIterator{contract: _IAutomationRegistryMaster23.contract, event: "BillingConfigSet", logs: logs, sub: sub}, nil
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) WatchBillingConfigSet(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23BillingConfigSet, token []common.Address) (event.Subscription, error) {
+
+	var tokenRule []interface{}
+	for _, tokenItem := range token {
+		tokenRule = append(tokenRule, tokenItem)
+	}
+
+	logs, sub, err := _IAutomationRegistryMaster23.contract.WatchLogs(opts, "BillingConfigSet", tokenRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+
+				event := new(IAutomationRegistryMaster23BillingConfigSet)
+				if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "BillingConfigSet", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) ParseBillingConfigSet(log types.Log) (*IAutomationRegistryMaster23BillingConfigSet, error) {
+	event := new(IAutomationRegistryMaster23BillingConfigSet)
+	if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "BillingConfigSet", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+type IAutomationRegistryMaster23CancelledUpkeepReportIterator struct {
+	Event *IAutomationRegistryMaster23CancelledUpkeepReport
+
+	contract *bind.BoundContract
+	event    string
+
+	logs chan types.Log
+	sub  ethereum.Subscription
+	done bool
+	fail error
+}
+
+func (it *IAutomationRegistryMaster23CancelledUpkeepReportIterator) Next() bool {
+
+	if it.fail != nil {
+		return false
+	}
+
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(IAutomationRegistryMaster23CancelledUpkeepReport)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+
+	select {
+	case log := <-it.logs:
+		it.Event = new(IAutomationRegistryMaster23CancelledUpkeepReport)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+func (it *IAutomationRegistryMaster23CancelledUpkeepReportIterator) Error() error {
+	return it.fail
+}
+
+func (it *IAutomationRegistryMaster23CancelledUpkeepReportIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+type IAutomationRegistryMaster23CancelledUpkeepReport struct {
 	Id      *big.Int
 	Trigger []byte
 	Raw     types.Log
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) FilterCancelledUpkeepReport(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMasterCancelledUpkeepReportIterator, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) FilterCancelledUpkeepReport(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMaster23CancelledUpkeepReportIterator, error) {
 
 	var idRule []interface{}
 	for _, idItem := range id {
 		idRule = append(idRule, idItem)
 	}
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.FilterLogs(opts, "CancelledUpkeepReport", idRule)
+	logs, sub, err := _IAutomationRegistryMaster23.contract.FilterLogs(opts, "CancelledUpkeepReport", idRule)
 	if err != nil {
 		return nil, err
 	}
-	return &IAutomationRegistryMasterCancelledUpkeepReportIterator{contract: _IAutomationRegistryMaster.contract, event: "CancelledUpkeepReport", logs: logs, sub: sub}, nil
+	return &IAutomationRegistryMaster23CancelledUpkeepReportIterator{contract: _IAutomationRegistryMaster23.contract, event: "CancelledUpkeepReport", logs: logs, sub: sub}, nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchCancelledUpkeepReport(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterCancelledUpkeepReport, id []*big.Int) (event.Subscription, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) WatchCancelledUpkeepReport(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23CancelledUpkeepReport, id []*big.Int) (event.Subscription, error) {
 
 	var idRule []interface{}
 	for _, idItem := range id {
 		idRule = append(idRule, idItem)
 	}
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.WatchLogs(opts, "CancelledUpkeepReport", idRule)
+	logs, sub, err := _IAutomationRegistryMaster23.contract.WatchLogs(opts, "CancelledUpkeepReport", idRule)
 	if err != nil {
 		return nil, err
 	}
@@ -1843,8 +2089,8 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchCancel
 			select {
 			case log := <-logs:
 
-				event := new(IAutomationRegistryMasterCancelledUpkeepReport)
-				if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "CancelledUpkeepReport", log); err != nil {
+				event := new(IAutomationRegistryMaster23CancelledUpkeepReport)
+				if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "CancelledUpkeepReport", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -1865,17 +2111,17 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchCancel
 	}), nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) ParseCancelledUpkeepReport(log types.Log) (*IAutomationRegistryMasterCancelledUpkeepReport, error) {
-	event := new(IAutomationRegistryMasterCancelledUpkeepReport)
-	if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "CancelledUpkeepReport", log); err != nil {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) ParseCancelledUpkeepReport(log types.Log) (*IAutomationRegistryMaster23CancelledUpkeepReport, error) {
+	event := new(IAutomationRegistryMaster23CancelledUpkeepReport)
+	if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "CancelledUpkeepReport", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
 	return event, nil
 }
 
-type IAutomationRegistryMasterChainSpecificModuleUpdatedIterator struct {
-	Event *IAutomationRegistryMasterChainSpecificModuleUpdated
+type IAutomationRegistryMaster23ChainSpecificModuleUpdatedIterator struct {
+	Event *IAutomationRegistryMaster23ChainSpecificModuleUpdated
 
 	contract *bind.BoundContract
 	event    string
@@ -1886,7 +2132,7 @@ type IAutomationRegistryMasterChainSpecificModuleUpdatedIterator struct {
 	fail error
 }
 
-func (it *IAutomationRegistryMasterChainSpecificModuleUpdatedIterator) Next() bool {
+func (it *IAutomationRegistryMaster23ChainSpecificModuleUpdatedIterator) Next() bool {
 
 	if it.fail != nil {
 		return false
@@ -1895,7 +2141,7 @@ func (it *IAutomationRegistryMasterChainSpecificModuleUpdatedIterator) Next() bo
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(IAutomationRegistryMasterChainSpecificModuleUpdated)
+			it.Event = new(IAutomationRegistryMaster23ChainSpecificModuleUpdated)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -1910,7 +2156,7 @@ func (it *IAutomationRegistryMasterChainSpecificModuleUpdatedIterator) Next() bo
 
 	select {
 	case log := <-it.logs:
-		it.Event = new(IAutomationRegistryMasterChainSpecificModuleUpdated)
+		it.Event = new(IAutomationRegistryMaster23ChainSpecificModuleUpdated)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -1925,32 +2171,32 @@ func (it *IAutomationRegistryMasterChainSpecificModuleUpdatedIterator) Next() bo
 	}
 }
 
-func (it *IAutomationRegistryMasterChainSpecificModuleUpdatedIterator) Error() error {
+func (it *IAutomationRegistryMaster23ChainSpecificModuleUpdatedIterator) Error() error {
 	return it.fail
 }
 
-func (it *IAutomationRegistryMasterChainSpecificModuleUpdatedIterator) Close() error {
+func (it *IAutomationRegistryMaster23ChainSpecificModuleUpdatedIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-type IAutomationRegistryMasterChainSpecificModuleUpdated struct {
+type IAutomationRegistryMaster23ChainSpecificModuleUpdated struct {
 	NewModule common.Address
 	Raw       types.Log
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) FilterChainSpecificModuleUpdated(opts *bind.FilterOpts) (*IAutomationRegistryMasterChainSpecificModuleUpdatedIterator, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) FilterChainSpecificModuleUpdated(opts *bind.FilterOpts) (*IAutomationRegistryMaster23ChainSpecificModuleUpdatedIterator, error) {
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.FilterLogs(opts, "ChainSpecificModuleUpdated")
+	logs, sub, err := _IAutomationRegistryMaster23.contract.FilterLogs(opts, "ChainSpecificModuleUpdated")
 	if err != nil {
 		return nil, err
 	}
-	return &IAutomationRegistryMasterChainSpecificModuleUpdatedIterator{contract: _IAutomationRegistryMaster.contract, event: "ChainSpecificModuleUpdated", logs: logs, sub: sub}, nil
+	return &IAutomationRegistryMaster23ChainSpecificModuleUpdatedIterator{contract: _IAutomationRegistryMaster23.contract, event: "ChainSpecificModuleUpdated", logs: logs, sub: sub}, nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchChainSpecificModuleUpdated(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterChainSpecificModuleUpdated) (event.Subscription, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) WatchChainSpecificModuleUpdated(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23ChainSpecificModuleUpdated) (event.Subscription, error) {
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.WatchLogs(opts, "ChainSpecificModuleUpdated")
+	logs, sub, err := _IAutomationRegistryMaster23.contract.WatchLogs(opts, "ChainSpecificModuleUpdated")
 	if err != nil {
 		return nil, err
 	}
@@ -1960,8 +2206,8 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchChainS
 			select {
 			case log := <-logs:
 
-				event := new(IAutomationRegistryMasterChainSpecificModuleUpdated)
-				if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "ChainSpecificModuleUpdated", log); err != nil {
+				event := new(IAutomationRegistryMaster23ChainSpecificModuleUpdated)
+				if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "ChainSpecificModuleUpdated", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -1982,17 +2228,17 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchChainS
 	}), nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) ParseChainSpecificModuleUpdated(log types.Log) (*IAutomationRegistryMasterChainSpecificModuleUpdated, error) {
-	event := new(IAutomationRegistryMasterChainSpecificModuleUpdated)
-	if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "ChainSpecificModuleUpdated", log); err != nil {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) ParseChainSpecificModuleUpdated(log types.Log) (*IAutomationRegistryMaster23ChainSpecificModuleUpdated, error) {
+	event := new(IAutomationRegistryMaster23ChainSpecificModuleUpdated)
+	if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "ChainSpecificModuleUpdated", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
 	return event, nil
 }
 
-type IAutomationRegistryMasterConfigSetIterator struct {
-	Event *IAutomationRegistryMasterConfigSet
+type IAutomationRegistryMaster23ConfigSetIterator struct {
+	Event *IAutomationRegistryMaster23ConfigSet
 
 	contract *bind.BoundContract
 	event    string
@@ -2003,7 +2249,7 @@ type IAutomationRegistryMasterConfigSetIterator struct {
 	fail error
 }
 
-func (it *IAutomationRegistryMasterConfigSetIterator) Next() bool {
+func (it *IAutomationRegistryMaster23ConfigSetIterator) Next() bool {
 
 	if it.fail != nil {
 		return false
@@ -2012,7 +2258,7 @@ func (it *IAutomationRegistryMasterConfigSetIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(IAutomationRegistryMasterConfigSet)
+			it.Event = new(IAutomationRegistryMaster23ConfigSet)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -2027,7 +2273,7 @@ func (it *IAutomationRegistryMasterConfigSetIterator) Next() bool {
 
 	select {
 	case log := <-it.logs:
-		it.Event = new(IAutomationRegistryMasterConfigSet)
+		it.Event = new(IAutomationRegistryMaster23ConfigSet)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -2042,16 +2288,16 @@ func (it *IAutomationRegistryMasterConfigSetIterator) Next() bool {
 	}
 }
 
-func (it *IAutomationRegistryMasterConfigSetIterator) Error() error {
+func (it *IAutomationRegistryMaster23ConfigSetIterator) Error() error {
 	return it.fail
 }
 
-func (it *IAutomationRegistryMasterConfigSetIterator) Close() error {
+func (it *IAutomationRegistryMaster23ConfigSetIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-type IAutomationRegistryMasterConfigSet struct {
+type IAutomationRegistryMaster23ConfigSet struct {
 	PreviousConfigBlockNumber uint32
 	ConfigDigest              [32]byte
 	ConfigCount               uint64
@@ -2064,18 +2310,18 @@ type IAutomationRegistryMasterConfigSet struct {
 	Raw                       types.Log
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) FilterConfigSet(opts *bind.FilterOpts) (*IAutomationRegistryMasterConfigSetIterator, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) FilterConfigSet(opts *bind.FilterOpts) (*IAutomationRegistryMaster23ConfigSetIterator, error) {
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.FilterLogs(opts, "ConfigSet")
+	logs, sub, err := _IAutomationRegistryMaster23.contract.FilterLogs(opts, "ConfigSet")
 	if err != nil {
 		return nil, err
 	}
-	return &IAutomationRegistryMasterConfigSetIterator{contract: _IAutomationRegistryMaster.contract, event: "ConfigSet", logs: logs, sub: sub}, nil
+	return &IAutomationRegistryMaster23ConfigSetIterator{contract: _IAutomationRegistryMaster23.contract, event: "ConfigSet", logs: logs, sub: sub}, nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchConfigSet(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterConfigSet) (event.Subscription, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) WatchConfigSet(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23ConfigSet) (event.Subscription, error) {
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.WatchLogs(opts, "ConfigSet")
+	logs, sub, err := _IAutomationRegistryMaster23.contract.WatchLogs(opts, "ConfigSet")
 	if err != nil {
 		return nil, err
 	}
@@ -2085,8 +2331,8 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchConfig
 			select {
 			case log := <-logs:
 
-				event := new(IAutomationRegistryMasterConfigSet)
-				if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "ConfigSet", log); err != nil {
+				event := new(IAutomationRegistryMaster23ConfigSet)
+				if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "ConfigSet", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -2107,17 +2353,17 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchConfig
 	}), nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) ParseConfigSet(log types.Log) (*IAutomationRegistryMasterConfigSet, error) {
-	event := new(IAutomationRegistryMasterConfigSet)
-	if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "ConfigSet", log); err != nil {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) ParseConfigSet(log types.Log) (*IAutomationRegistryMaster23ConfigSet, error) {
+	event := new(IAutomationRegistryMaster23ConfigSet)
+	if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "ConfigSet", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
 	return event, nil
 }
 
-type IAutomationRegistryMasterDedupKeyAddedIterator struct {
-	Event *IAutomationRegistryMasterDedupKeyAdded
+type IAutomationRegistryMaster23DedupKeyAddedIterator struct {
+	Event *IAutomationRegistryMaster23DedupKeyAdded
 
 	contract *bind.BoundContract
 	event    string
@@ -2128,7 +2374,7 @@ type IAutomationRegistryMasterDedupKeyAddedIterator struct {
 	fail error
 }
 
-func (it *IAutomationRegistryMasterDedupKeyAddedIterator) Next() bool {
+func (it *IAutomationRegistryMaster23DedupKeyAddedIterator) Next() bool {
 
 	if it.fail != nil {
 		return false
@@ -2137,7 +2383,7 @@ func (it *IAutomationRegistryMasterDedupKeyAddedIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(IAutomationRegistryMasterDedupKeyAdded)
+			it.Event = new(IAutomationRegistryMaster23DedupKeyAdded)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -2152,7 +2398,7 @@ func (it *IAutomationRegistryMasterDedupKeyAddedIterator) Next() bool {
 
 	select {
 	case log := <-it.logs:
-		it.Event = new(IAutomationRegistryMasterDedupKeyAdded)
+		it.Event = new(IAutomationRegistryMaster23DedupKeyAdded)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -2167,42 +2413,42 @@ func (it *IAutomationRegistryMasterDedupKeyAddedIterator) Next() bool {
 	}
 }
 
-func (it *IAutomationRegistryMasterDedupKeyAddedIterator) Error() error {
+func (it *IAutomationRegistryMaster23DedupKeyAddedIterator) Error() error {
 	return it.fail
 }
 
-func (it *IAutomationRegistryMasterDedupKeyAddedIterator) Close() error {
+func (it *IAutomationRegistryMaster23DedupKeyAddedIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-type IAutomationRegistryMasterDedupKeyAdded struct {
+type IAutomationRegistryMaster23DedupKeyAdded struct {
 	DedupKey [32]byte
 	Raw      types.Log
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) FilterDedupKeyAdded(opts *bind.FilterOpts, dedupKey [][32]byte) (*IAutomationRegistryMasterDedupKeyAddedIterator, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) FilterDedupKeyAdded(opts *bind.FilterOpts, dedupKey [][32]byte) (*IAutomationRegistryMaster23DedupKeyAddedIterator, error) {
 
 	var dedupKeyRule []interface{}
 	for _, dedupKeyItem := range dedupKey {
 		dedupKeyRule = append(dedupKeyRule, dedupKeyItem)
 	}
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.FilterLogs(opts, "DedupKeyAdded", dedupKeyRule)
+	logs, sub, err := _IAutomationRegistryMaster23.contract.FilterLogs(opts, "DedupKeyAdded", dedupKeyRule)
 	if err != nil {
 		return nil, err
 	}
-	return &IAutomationRegistryMasterDedupKeyAddedIterator{contract: _IAutomationRegistryMaster.contract, event: "DedupKeyAdded", logs: logs, sub: sub}, nil
+	return &IAutomationRegistryMaster23DedupKeyAddedIterator{contract: _IAutomationRegistryMaster23.contract, event: "DedupKeyAdded", logs: logs, sub: sub}, nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchDedupKeyAdded(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterDedupKeyAdded, dedupKey [][32]byte) (event.Subscription, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) WatchDedupKeyAdded(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23DedupKeyAdded, dedupKey [][32]byte) (event.Subscription, error) {
 
 	var dedupKeyRule []interface{}
 	for _, dedupKeyItem := range dedupKey {
 		dedupKeyRule = append(dedupKeyRule, dedupKeyItem)
 	}
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.WatchLogs(opts, "DedupKeyAdded", dedupKeyRule)
+	logs, sub, err := _IAutomationRegistryMaster23.contract.WatchLogs(opts, "DedupKeyAdded", dedupKeyRule)
 	if err != nil {
 		return nil, err
 	}
@@ -2212,8 +2458,8 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchDedupK
 			select {
 			case log := <-logs:
 
-				event := new(IAutomationRegistryMasterDedupKeyAdded)
-				if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "DedupKeyAdded", log); err != nil {
+				event := new(IAutomationRegistryMaster23DedupKeyAdded)
+				if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "DedupKeyAdded", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -2234,17 +2480,17 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchDedupK
 	}), nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) ParseDedupKeyAdded(log types.Log) (*IAutomationRegistryMasterDedupKeyAdded, error) {
-	event := new(IAutomationRegistryMasterDedupKeyAdded)
-	if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "DedupKeyAdded", log); err != nil {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) ParseDedupKeyAdded(log types.Log) (*IAutomationRegistryMaster23DedupKeyAdded, error) {
+	event := new(IAutomationRegistryMaster23DedupKeyAdded)
+	if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "DedupKeyAdded", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
 	return event, nil
 }
 
-type IAutomationRegistryMasterFundsAddedIterator struct {
-	Event *IAutomationRegistryMasterFundsAdded
+type IAutomationRegistryMaster23FeesWithdrawnIterator struct {
+	Event *IAutomationRegistryMaster23FeesWithdrawn
 
 	contract *bind.BoundContract
 	event    string
@@ -2255,7 +2501,7 @@ type IAutomationRegistryMasterFundsAddedIterator struct {
 	fail error
 }
 
-func (it *IAutomationRegistryMasterFundsAddedIterator) Next() bool {
+func (it *IAutomationRegistryMaster23FeesWithdrawnIterator) Next() bool {
 
 	if it.fail != nil {
 		return false
@@ -2264,7 +2510,7 @@ func (it *IAutomationRegistryMasterFundsAddedIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(IAutomationRegistryMasterFundsAdded)
+			it.Event = new(IAutomationRegistryMaster23FeesWithdrawn)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -2279,7 +2525,7 @@ func (it *IAutomationRegistryMasterFundsAddedIterator) Next() bool {
 
 	select {
 	case log := <-it.logs:
-		it.Event = new(IAutomationRegistryMasterFundsAdded)
+		it.Event = new(IAutomationRegistryMaster23FeesWithdrawn)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -2294,23 +2540,160 @@ func (it *IAutomationRegistryMasterFundsAddedIterator) Next() bool {
 	}
 }
 
-func (it *IAutomationRegistryMasterFundsAddedIterator) Error() error {
+func (it *IAutomationRegistryMaster23FeesWithdrawnIterator) Error() error {
 	return it.fail
 }
 
-func (it *IAutomationRegistryMasterFundsAddedIterator) Close() error {
+func (it *IAutomationRegistryMaster23FeesWithdrawnIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-type IAutomationRegistryMasterFundsAdded struct {
+type IAutomationRegistryMaster23FeesWithdrawn struct {
+	Recipient    common.Address
+	AssetAddress common.Address
+	Amount       *big.Int
+	Raw          types.Log
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) FilterFeesWithdrawn(opts *bind.FilterOpts, recipient []common.Address, assetAddress []common.Address) (*IAutomationRegistryMaster23FeesWithdrawnIterator, error) {
+
+	var recipientRule []interface{}
+	for _, recipientItem := range recipient {
+		recipientRule = append(recipientRule, recipientItem)
+	}
+	var assetAddressRule []interface{}
+	for _, assetAddressItem := range assetAddress {
+		assetAddressRule = append(assetAddressRule, assetAddressItem)
+	}
+
+	logs, sub, err := _IAutomationRegistryMaster23.contract.FilterLogs(opts, "FeesWithdrawn", recipientRule, assetAddressRule)
+	if err != nil {
+		return nil, err
+	}
+	return &IAutomationRegistryMaster23FeesWithdrawnIterator{contract: _IAutomationRegistryMaster23.contract, event: "FeesWithdrawn", logs: logs, sub: sub}, nil
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) WatchFeesWithdrawn(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23FeesWithdrawn, recipient []common.Address, assetAddress []common.Address) (event.Subscription, error) {
+
+	var recipientRule []interface{}
+	for _, recipientItem := range recipient {
+		recipientRule = append(recipientRule, recipientItem)
+	}
+	var assetAddressRule []interface{}
+	for _, assetAddressItem := range assetAddress {
+		assetAddressRule = append(assetAddressRule, assetAddressItem)
+	}
+
+	logs, sub, err := _IAutomationRegistryMaster23.contract.WatchLogs(opts, "FeesWithdrawn", recipientRule, assetAddressRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+
+				event := new(IAutomationRegistryMaster23FeesWithdrawn)
+				if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "FeesWithdrawn", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) ParseFeesWithdrawn(log types.Log) (*IAutomationRegistryMaster23FeesWithdrawn, error) {
+	event := new(IAutomationRegistryMaster23FeesWithdrawn)
+	if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "FeesWithdrawn", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+type IAutomationRegistryMaster23FundsAddedIterator struct {
+	Event *IAutomationRegistryMaster23FundsAdded
+
+	contract *bind.BoundContract
+	event    string
+
+	logs chan types.Log
+	sub  ethereum.Subscription
+	done bool
+	fail error
+}
+
+func (it *IAutomationRegistryMaster23FundsAddedIterator) Next() bool {
+
+	if it.fail != nil {
+		return false
+	}
+
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(IAutomationRegistryMaster23FundsAdded)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+
+	select {
+	case log := <-it.logs:
+		it.Event = new(IAutomationRegistryMaster23FundsAdded)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+func (it *IAutomationRegistryMaster23FundsAddedIterator) Error() error {
+	return it.fail
+}
+
+func (it *IAutomationRegistryMaster23FundsAddedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+type IAutomationRegistryMaster23FundsAdded struct {
 	Id     *big.Int
 	From   common.Address
 	Amount *big.Int
 	Raw    types.Log
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) FilterFundsAdded(opts *bind.FilterOpts, id []*big.Int, from []common.Address) (*IAutomationRegistryMasterFundsAddedIterator, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) FilterFundsAdded(opts *bind.FilterOpts, id []*big.Int, from []common.Address) (*IAutomationRegistryMaster23FundsAddedIterator, error) {
 
 	var idRule []interface{}
 	for _, idItem := range id {
@@ -2321,14 +2704,14 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) FilterFunds
 		fromRule = append(fromRule, fromItem)
 	}
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.FilterLogs(opts, "FundsAdded", idRule, fromRule)
+	logs, sub, err := _IAutomationRegistryMaster23.contract.FilterLogs(opts, "FundsAdded", idRule, fromRule)
 	if err != nil {
 		return nil, err
 	}
-	return &IAutomationRegistryMasterFundsAddedIterator{contract: _IAutomationRegistryMaster.contract, event: "FundsAdded", logs: logs, sub: sub}, nil
+	return &IAutomationRegistryMaster23FundsAddedIterator{contract: _IAutomationRegistryMaster23.contract, event: "FundsAdded", logs: logs, sub: sub}, nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchFundsAdded(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterFundsAdded, id []*big.Int, from []common.Address) (event.Subscription, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) WatchFundsAdded(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23FundsAdded, id []*big.Int, from []common.Address) (event.Subscription, error) {
 
 	var idRule []interface{}
 	for _, idItem := range id {
@@ -2339,7 +2722,7 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchFundsA
 		fromRule = append(fromRule, fromItem)
 	}
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.WatchLogs(opts, "FundsAdded", idRule, fromRule)
+	logs, sub, err := _IAutomationRegistryMaster23.contract.WatchLogs(opts, "FundsAdded", idRule, fromRule)
 	if err != nil {
 		return nil, err
 	}
@@ -2349,8 +2732,8 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchFundsA
 			select {
 			case log := <-logs:
 
-				event := new(IAutomationRegistryMasterFundsAdded)
-				if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "FundsAdded", log); err != nil {
+				event := new(IAutomationRegistryMaster23FundsAdded)
+				if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "FundsAdded", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -2371,17 +2754,17 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchFundsA
 	}), nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) ParseFundsAdded(log types.Log) (*IAutomationRegistryMasterFundsAdded, error) {
-	event := new(IAutomationRegistryMasterFundsAdded)
-	if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "FundsAdded", log); err != nil {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) ParseFundsAdded(log types.Log) (*IAutomationRegistryMaster23FundsAdded, error) {
+	event := new(IAutomationRegistryMaster23FundsAdded)
+	if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "FundsAdded", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
 	return event, nil
 }
 
-type IAutomationRegistryMasterFundsWithdrawnIterator struct {
-	Event *IAutomationRegistryMasterFundsWithdrawn
+type IAutomationRegistryMaster23FundsWithdrawnIterator struct {
+	Event *IAutomationRegistryMaster23FundsWithdrawn
 
 	contract *bind.BoundContract
 	event    string
@@ -2392,7 +2775,7 @@ type IAutomationRegistryMasterFundsWithdrawnIterator struct {
 	fail error
 }
 
-func (it *IAutomationRegistryMasterFundsWithdrawnIterator) Next() bool {
+func (it *IAutomationRegistryMaster23FundsWithdrawnIterator) Next() bool {
 
 	if it.fail != nil {
 		return false
@@ -2401,7 +2784,7 @@ func (it *IAutomationRegistryMasterFundsWithdrawnIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(IAutomationRegistryMasterFundsWithdrawn)
+			it.Event = new(IAutomationRegistryMaster23FundsWithdrawn)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -2416,7 +2799,7 @@ func (it *IAutomationRegistryMasterFundsWithdrawnIterator) Next() bool {
 
 	select {
 	case log := <-it.logs:
-		it.Event = new(IAutomationRegistryMasterFundsWithdrawn)
+		it.Event = new(IAutomationRegistryMaster23FundsWithdrawn)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -2431,44 +2814,44 @@ func (it *IAutomationRegistryMasterFundsWithdrawnIterator) Next() bool {
 	}
 }
 
-func (it *IAutomationRegistryMasterFundsWithdrawnIterator) Error() error {
+func (it *IAutomationRegistryMaster23FundsWithdrawnIterator) Error() error {
 	return it.fail
 }
 
-func (it *IAutomationRegistryMasterFundsWithdrawnIterator) Close() error {
+func (it *IAutomationRegistryMaster23FundsWithdrawnIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-type IAutomationRegistryMasterFundsWithdrawn struct {
+type IAutomationRegistryMaster23FundsWithdrawn struct {
 	Id     *big.Int
 	Amount *big.Int
 	To     common.Address
 	Raw    types.Log
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) FilterFundsWithdrawn(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMasterFundsWithdrawnIterator, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) FilterFundsWithdrawn(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMaster23FundsWithdrawnIterator, error) {
 
 	var idRule []interface{}
 	for _, idItem := range id {
 		idRule = append(idRule, idItem)
 	}
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.FilterLogs(opts, "FundsWithdrawn", idRule)
+	logs, sub, err := _IAutomationRegistryMaster23.contract.FilterLogs(opts, "FundsWithdrawn", idRule)
 	if err != nil {
 		return nil, err
 	}
-	return &IAutomationRegistryMasterFundsWithdrawnIterator{contract: _IAutomationRegistryMaster.contract, event: "FundsWithdrawn", logs: logs, sub: sub}, nil
+	return &IAutomationRegistryMaster23FundsWithdrawnIterator{contract: _IAutomationRegistryMaster23.contract, event: "FundsWithdrawn", logs: logs, sub: sub}, nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchFundsWithdrawn(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterFundsWithdrawn, id []*big.Int) (event.Subscription, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) WatchFundsWithdrawn(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23FundsWithdrawn, id []*big.Int) (event.Subscription, error) {
 
 	var idRule []interface{}
 	for _, idItem := range id {
 		idRule = append(idRule, idItem)
 	}
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.WatchLogs(opts, "FundsWithdrawn", idRule)
+	logs, sub, err := _IAutomationRegistryMaster23.contract.WatchLogs(opts, "FundsWithdrawn", idRule)
 	if err != nil {
 		return nil, err
 	}
@@ -2478,8 +2861,8 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchFundsW
 			select {
 			case log := <-logs:
 
-				event := new(IAutomationRegistryMasterFundsWithdrawn)
-				if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "FundsWithdrawn", log); err != nil {
+				event := new(IAutomationRegistryMaster23FundsWithdrawn)
+				if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "FundsWithdrawn", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -2500,17 +2883,17 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchFundsW
 	}), nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) ParseFundsWithdrawn(log types.Log) (*IAutomationRegistryMasterFundsWithdrawn, error) {
-	event := new(IAutomationRegistryMasterFundsWithdrawn)
-	if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "FundsWithdrawn", log); err != nil {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) ParseFundsWithdrawn(log types.Log) (*IAutomationRegistryMaster23FundsWithdrawn, error) {
+	event := new(IAutomationRegistryMaster23FundsWithdrawn)
+	if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "FundsWithdrawn", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
 	return event, nil
 }
 
-type IAutomationRegistryMasterInsufficientFundsUpkeepReportIterator struct {
-	Event *IAutomationRegistryMasterInsufficientFundsUpkeepReport
+type IAutomationRegistryMaster23InsufficientFundsUpkeepReportIterator struct {
+	Event *IAutomationRegistryMaster23InsufficientFundsUpkeepReport
 
 	contract *bind.BoundContract
 	event    string
@@ -2521,7 +2904,7 @@ type IAutomationRegistryMasterInsufficientFundsUpkeepReportIterator struct {
 	fail error
 }
 
-func (it *IAutomationRegistryMasterInsufficientFundsUpkeepReportIterator) Next() bool {
+func (it *IAutomationRegistryMaster23InsufficientFundsUpkeepReportIterator) Next() bool {
 
 	if it.fail != nil {
 		return false
@@ -2530,7 +2913,7 @@ func (it *IAutomationRegistryMasterInsufficientFundsUpkeepReportIterator) Next()
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(IAutomationRegistryMasterInsufficientFundsUpkeepReport)
+			it.Event = new(IAutomationRegistryMaster23InsufficientFundsUpkeepReport)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -2545,7 +2928,7 @@ func (it *IAutomationRegistryMasterInsufficientFundsUpkeepReportIterator) Next()
 
 	select {
 	case log := <-it.logs:
-		it.Event = new(IAutomationRegistryMasterInsufficientFundsUpkeepReport)
+		it.Event = new(IAutomationRegistryMaster23InsufficientFundsUpkeepReport)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -2560,43 +2943,43 @@ func (it *IAutomationRegistryMasterInsufficientFundsUpkeepReportIterator) Next()
 	}
 }
 
-func (it *IAutomationRegistryMasterInsufficientFundsUpkeepReportIterator) Error() error {
+func (it *IAutomationRegistryMaster23InsufficientFundsUpkeepReportIterator) Error() error {
 	return it.fail
 }
 
-func (it *IAutomationRegistryMasterInsufficientFundsUpkeepReportIterator) Close() error {
+func (it *IAutomationRegistryMaster23InsufficientFundsUpkeepReportIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-type IAutomationRegistryMasterInsufficientFundsUpkeepReport struct {
+type IAutomationRegistryMaster23InsufficientFundsUpkeepReport struct {
 	Id      *big.Int
 	Trigger []byte
 	Raw     types.Log
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) FilterInsufficientFundsUpkeepReport(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMasterInsufficientFundsUpkeepReportIterator, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) FilterInsufficientFundsUpkeepReport(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMaster23InsufficientFundsUpkeepReportIterator, error) {
 
 	var idRule []interface{}
 	for _, idItem := range id {
 		idRule = append(idRule, idItem)
 	}
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.FilterLogs(opts, "InsufficientFundsUpkeepReport", idRule)
+	logs, sub, err := _IAutomationRegistryMaster23.contract.FilterLogs(opts, "InsufficientFundsUpkeepReport", idRule)
 	if err != nil {
 		return nil, err
 	}
-	return &IAutomationRegistryMasterInsufficientFundsUpkeepReportIterator{contract: _IAutomationRegistryMaster.contract, event: "InsufficientFundsUpkeepReport", logs: logs, sub: sub}, nil
+	return &IAutomationRegistryMaster23InsufficientFundsUpkeepReportIterator{contract: _IAutomationRegistryMaster23.contract, event: "InsufficientFundsUpkeepReport", logs: logs, sub: sub}, nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchInsufficientFundsUpkeepReport(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterInsufficientFundsUpkeepReport, id []*big.Int) (event.Subscription, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) WatchInsufficientFundsUpkeepReport(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23InsufficientFundsUpkeepReport, id []*big.Int) (event.Subscription, error) {
 
 	var idRule []interface{}
 	for _, idItem := range id {
 		idRule = append(idRule, idItem)
 	}
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.WatchLogs(opts, "InsufficientFundsUpkeepReport", idRule)
+	logs, sub, err := _IAutomationRegistryMaster23.contract.WatchLogs(opts, "InsufficientFundsUpkeepReport", idRule)
 	if err != nil {
 		return nil, err
 	}
@@ -2606,8 +2989,8 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchInsuff
 			select {
 			case log := <-logs:
 
-				event := new(IAutomationRegistryMasterInsufficientFundsUpkeepReport)
-				if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "InsufficientFundsUpkeepReport", log); err != nil {
+				event := new(IAutomationRegistryMaster23InsufficientFundsUpkeepReport)
+				if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "InsufficientFundsUpkeepReport", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -2628,17 +3011,17 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchInsuff
 	}), nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) ParseInsufficientFundsUpkeepReport(log types.Log) (*IAutomationRegistryMasterInsufficientFundsUpkeepReport, error) {
-	event := new(IAutomationRegistryMasterInsufficientFundsUpkeepReport)
-	if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "InsufficientFundsUpkeepReport", log); err != nil {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) ParseInsufficientFundsUpkeepReport(log types.Log) (*IAutomationRegistryMaster23InsufficientFundsUpkeepReport, error) {
+	event := new(IAutomationRegistryMaster23InsufficientFundsUpkeepReport)
+	if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "InsufficientFundsUpkeepReport", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
 	return event, nil
 }
 
-type IAutomationRegistryMasterOwnerFundsWithdrawnIterator struct {
-	Event *IAutomationRegistryMasterOwnerFundsWithdrawn
+type IAutomationRegistryMaster23OwnershipTransferRequestedIterator struct {
+	Event *IAutomationRegistryMaster23OwnershipTransferRequested
 
 	contract *bind.BoundContract
 	event    string
@@ -2649,7 +3032,7 @@ type IAutomationRegistryMasterOwnerFundsWithdrawnIterator struct {
 	fail error
 }
 
-func (it *IAutomationRegistryMasterOwnerFundsWithdrawnIterator) Next() bool {
+func (it *IAutomationRegistryMaster23OwnershipTransferRequestedIterator) Next() bool {
 
 	if it.fail != nil {
 		return false
@@ -2658,7 +3041,7 @@ func (it *IAutomationRegistryMasterOwnerFundsWithdrawnIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(IAutomationRegistryMasterOwnerFundsWithdrawn)
+			it.Event = new(IAutomationRegistryMaster23OwnershipTransferRequested)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -2673,7 +3056,7 @@ func (it *IAutomationRegistryMasterOwnerFundsWithdrawnIterator) Next() bool {
 
 	select {
 	case log := <-it.logs:
-		it.Event = new(IAutomationRegistryMasterOwnerFundsWithdrawn)
+		it.Event = new(IAutomationRegistryMaster23OwnershipTransferRequested)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -2688,139 +3071,22 @@ func (it *IAutomationRegistryMasterOwnerFundsWithdrawnIterator) Next() bool {
 	}
 }
 
-func (it *IAutomationRegistryMasterOwnerFundsWithdrawnIterator) Error() error {
+func (it *IAutomationRegistryMaster23OwnershipTransferRequestedIterator) Error() error {
 	return it.fail
 }
 
-func (it *IAutomationRegistryMasterOwnerFundsWithdrawnIterator) Close() error {
+func (it *IAutomationRegistryMaster23OwnershipTransferRequestedIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-type IAutomationRegistryMasterOwnerFundsWithdrawn struct {
-	Amount *big.Int
-	Raw    types.Log
-}
-
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) FilterOwnerFundsWithdrawn(opts *bind.FilterOpts) (*IAutomationRegistryMasterOwnerFundsWithdrawnIterator, error) {
-
-	logs, sub, err := _IAutomationRegistryMaster.contract.FilterLogs(opts, "OwnerFundsWithdrawn")
-	if err != nil {
-		return nil, err
-	}
-	return &IAutomationRegistryMasterOwnerFundsWithdrawnIterator{contract: _IAutomationRegistryMaster.contract, event: "OwnerFundsWithdrawn", logs: logs, sub: sub}, nil
-}
-
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchOwnerFundsWithdrawn(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterOwnerFundsWithdrawn) (event.Subscription, error) {
-
-	logs, sub, err := _IAutomationRegistryMaster.contract.WatchLogs(opts, "OwnerFundsWithdrawn")
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-
-				event := new(IAutomationRegistryMasterOwnerFundsWithdrawn)
-				if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "OwnerFundsWithdrawn", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) ParseOwnerFundsWithdrawn(log types.Log) (*IAutomationRegistryMasterOwnerFundsWithdrawn, error) {
-	event := new(IAutomationRegistryMasterOwnerFundsWithdrawn)
-	if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "OwnerFundsWithdrawn", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
-type IAutomationRegistryMasterOwnershipTransferRequestedIterator struct {
-	Event *IAutomationRegistryMasterOwnershipTransferRequested
-
-	contract *bind.BoundContract
-	event    string
-
-	logs chan types.Log
-	sub  ethereum.Subscription
-	done bool
-	fail error
-}
-
-func (it *IAutomationRegistryMasterOwnershipTransferRequestedIterator) Next() bool {
-
-	if it.fail != nil {
-		return false
-	}
-
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(IAutomationRegistryMasterOwnershipTransferRequested)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-
-	select {
-	case log := <-it.logs:
-		it.Event = new(IAutomationRegistryMasterOwnershipTransferRequested)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-func (it *IAutomationRegistryMasterOwnershipTransferRequestedIterator) Error() error {
-	return it.fail
-}
-
-func (it *IAutomationRegistryMasterOwnershipTransferRequestedIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-type IAutomationRegistryMasterOwnershipTransferRequested struct {
+type IAutomationRegistryMaster23OwnershipTransferRequested struct {
 	From common.Address
 	To   common.Address
 	Raw  types.Log
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) FilterOwnershipTransferRequested(opts *bind.FilterOpts, from []common.Address, to []common.Address) (*IAutomationRegistryMasterOwnershipTransferRequestedIterator, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) FilterOwnershipTransferRequested(opts *bind.FilterOpts, from []common.Address, to []common.Address) (*IAutomationRegistryMaster23OwnershipTransferRequestedIterator, error) {
 
 	var fromRule []interface{}
 	for _, fromItem := range from {
@@ -2831,14 +3097,14 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) FilterOwner
 		toRule = append(toRule, toItem)
 	}
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.FilterLogs(opts, "OwnershipTransferRequested", fromRule, toRule)
+	logs, sub, err := _IAutomationRegistryMaster23.contract.FilterLogs(opts, "OwnershipTransferRequested", fromRule, toRule)
 	if err != nil {
 		return nil, err
 	}
-	return &IAutomationRegistryMasterOwnershipTransferRequestedIterator{contract: _IAutomationRegistryMaster.contract, event: "OwnershipTransferRequested", logs: logs, sub: sub}, nil
+	return &IAutomationRegistryMaster23OwnershipTransferRequestedIterator{contract: _IAutomationRegistryMaster23.contract, event: "OwnershipTransferRequested", logs: logs, sub: sub}, nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchOwnershipTransferRequested(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterOwnershipTransferRequested, from []common.Address, to []common.Address) (event.Subscription, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) WatchOwnershipTransferRequested(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23OwnershipTransferRequested, from []common.Address, to []common.Address) (event.Subscription, error) {
 
 	var fromRule []interface{}
 	for _, fromItem := range from {
@@ -2849,7 +3115,7 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchOwners
 		toRule = append(toRule, toItem)
 	}
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.WatchLogs(opts, "OwnershipTransferRequested", fromRule, toRule)
+	logs, sub, err := _IAutomationRegistryMaster23.contract.WatchLogs(opts, "OwnershipTransferRequested", fromRule, toRule)
 	if err != nil {
 		return nil, err
 	}
@@ -2859,8 +3125,8 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchOwners
 			select {
 			case log := <-logs:
 
-				event := new(IAutomationRegistryMasterOwnershipTransferRequested)
-				if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "OwnershipTransferRequested", log); err != nil {
+				event := new(IAutomationRegistryMaster23OwnershipTransferRequested)
+				if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "OwnershipTransferRequested", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -2881,17 +3147,17 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchOwners
 	}), nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) ParseOwnershipTransferRequested(log types.Log) (*IAutomationRegistryMasterOwnershipTransferRequested, error) {
-	event := new(IAutomationRegistryMasterOwnershipTransferRequested)
-	if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "OwnershipTransferRequested", log); err != nil {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) ParseOwnershipTransferRequested(log types.Log) (*IAutomationRegistryMaster23OwnershipTransferRequested, error) {
+	event := new(IAutomationRegistryMaster23OwnershipTransferRequested)
+	if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "OwnershipTransferRequested", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
 	return event, nil
 }
 
-type IAutomationRegistryMasterOwnershipTransferredIterator struct {
-	Event *IAutomationRegistryMasterOwnershipTransferred
+type IAutomationRegistryMaster23OwnershipTransferredIterator struct {
+	Event *IAutomationRegistryMaster23OwnershipTransferred
 
 	contract *bind.BoundContract
 	event    string
@@ -2902,7 +3168,7 @@ type IAutomationRegistryMasterOwnershipTransferredIterator struct {
 	fail error
 }
 
-func (it *IAutomationRegistryMasterOwnershipTransferredIterator) Next() bool {
+func (it *IAutomationRegistryMaster23OwnershipTransferredIterator) Next() bool {
 
 	if it.fail != nil {
 		return false
@@ -2911,7 +3177,7 @@ func (it *IAutomationRegistryMasterOwnershipTransferredIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(IAutomationRegistryMasterOwnershipTransferred)
+			it.Event = new(IAutomationRegistryMaster23OwnershipTransferred)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -2926,7 +3192,7 @@ func (it *IAutomationRegistryMasterOwnershipTransferredIterator) Next() bool {
 
 	select {
 	case log := <-it.logs:
-		it.Event = new(IAutomationRegistryMasterOwnershipTransferred)
+		it.Event = new(IAutomationRegistryMaster23OwnershipTransferred)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -2941,22 +3207,22 @@ func (it *IAutomationRegistryMasterOwnershipTransferredIterator) Next() bool {
 	}
 }
 
-func (it *IAutomationRegistryMasterOwnershipTransferredIterator) Error() error {
+func (it *IAutomationRegistryMaster23OwnershipTransferredIterator) Error() error {
 	return it.fail
 }
 
-func (it *IAutomationRegistryMasterOwnershipTransferredIterator) Close() error {
+func (it *IAutomationRegistryMaster23OwnershipTransferredIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-type IAutomationRegistryMasterOwnershipTransferred struct {
+type IAutomationRegistryMaster23OwnershipTransferred struct {
 	From common.Address
 	To   common.Address
 	Raw  types.Log
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) FilterOwnershipTransferred(opts *bind.FilterOpts, from []common.Address, to []common.Address) (*IAutomationRegistryMasterOwnershipTransferredIterator, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) FilterOwnershipTransferred(opts *bind.FilterOpts, from []common.Address, to []common.Address) (*IAutomationRegistryMaster23OwnershipTransferredIterator, error) {
 
 	var fromRule []interface{}
 	for _, fromItem := range from {
@@ -2967,14 +3233,14 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) FilterOwner
 		toRule = append(toRule, toItem)
 	}
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.FilterLogs(opts, "OwnershipTransferred", fromRule, toRule)
+	logs, sub, err := _IAutomationRegistryMaster23.contract.FilterLogs(opts, "OwnershipTransferred", fromRule, toRule)
 	if err != nil {
 		return nil, err
 	}
-	return &IAutomationRegistryMasterOwnershipTransferredIterator{contract: _IAutomationRegistryMaster.contract, event: "OwnershipTransferred", logs: logs, sub: sub}, nil
+	return &IAutomationRegistryMaster23OwnershipTransferredIterator{contract: _IAutomationRegistryMaster23.contract, event: "OwnershipTransferred", logs: logs, sub: sub}, nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchOwnershipTransferred(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterOwnershipTransferred, from []common.Address, to []common.Address) (event.Subscription, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) WatchOwnershipTransferred(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23OwnershipTransferred, from []common.Address, to []common.Address) (event.Subscription, error) {
 
 	var fromRule []interface{}
 	for _, fromItem := range from {
@@ -2985,7 +3251,7 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchOwners
 		toRule = append(toRule, toItem)
 	}
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.WatchLogs(opts, "OwnershipTransferred", fromRule, toRule)
+	logs, sub, err := _IAutomationRegistryMaster23.contract.WatchLogs(opts, "OwnershipTransferred", fromRule, toRule)
 	if err != nil {
 		return nil, err
 	}
@@ -2995,8 +3261,8 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchOwners
 			select {
 			case log := <-logs:
 
-				event := new(IAutomationRegistryMasterOwnershipTransferred)
-				if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "OwnershipTransferred", log); err != nil {
+				event := new(IAutomationRegistryMaster23OwnershipTransferred)
+				if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "OwnershipTransferred", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -3017,17 +3283,17 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchOwners
 	}), nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) ParseOwnershipTransferred(log types.Log) (*IAutomationRegistryMasterOwnershipTransferred, error) {
-	event := new(IAutomationRegistryMasterOwnershipTransferred)
-	if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "OwnershipTransferred", log); err != nil {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) ParseOwnershipTransferred(log types.Log) (*IAutomationRegistryMaster23OwnershipTransferred, error) {
+	event := new(IAutomationRegistryMaster23OwnershipTransferred)
+	if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "OwnershipTransferred", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
 	return event, nil
 }
 
-type IAutomationRegistryMasterPausedIterator struct {
-	Event *IAutomationRegistryMasterPaused
+type IAutomationRegistryMaster23PausedIterator struct {
+	Event *IAutomationRegistryMaster23Paused
 
 	contract *bind.BoundContract
 	event    string
@@ -3038,7 +3304,7 @@ type IAutomationRegistryMasterPausedIterator struct {
 	fail error
 }
 
-func (it *IAutomationRegistryMasterPausedIterator) Next() bool {
+func (it *IAutomationRegistryMaster23PausedIterator) Next() bool {
 
 	if it.fail != nil {
 		return false
@@ -3047,7 +3313,7 @@ func (it *IAutomationRegistryMasterPausedIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(IAutomationRegistryMasterPaused)
+			it.Event = new(IAutomationRegistryMaster23Paused)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -3062,7 +3328,7 @@ func (it *IAutomationRegistryMasterPausedIterator) Next() bool {
 
 	select {
 	case log := <-it.logs:
-		it.Event = new(IAutomationRegistryMasterPaused)
+		it.Event = new(IAutomationRegistryMaster23Paused)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -3077,32 +3343,32 @@ func (it *IAutomationRegistryMasterPausedIterator) Next() bool {
 	}
 }
 
-func (it *IAutomationRegistryMasterPausedIterator) Error() error {
+func (it *IAutomationRegistryMaster23PausedIterator) Error() error {
 	return it.fail
 }
 
-func (it *IAutomationRegistryMasterPausedIterator) Close() error {
+func (it *IAutomationRegistryMaster23PausedIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-type IAutomationRegistryMasterPaused struct {
+type IAutomationRegistryMaster23Paused struct {
 	Account common.Address
 	Raw     types.Log
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) FilterPaused(opts *bind.FilterOpts) (*IAutomationRegistryMasterPausedIterator, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) FilterPaused(opts *bind.FilterOpts) (*IAutomationRegistryMaster23PausedIterator, error) {
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.FilterLogs(opts, "Paused")
+	logs, sub, err := _IAutomationRegistryMaster23.contract.FilterLogs(opts, "Paused")
 	if err != nil {
 		return nil, err
 	}
-	return &IAutomationRegistryMasterPausedIterator{contract: _IAutomationRegistryMaster.contract, event: "Paused", logs: logs, sub: sub}, nil
+	return &IAutomationRegistryMaster23PausedIterator{contract: _IAutomationRegistryMaster23.contract, event: "Paused", logs: logs, sub: sub}, nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchPaused(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterPaused) (event.Subscription, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) WatchPaused(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23Paused) (event.Subscription, error) {
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.WatchLogs(opts, "Paused")
+	logs, sub, err := _IAutomationRegistryMaster23.contract.WatchLogs(opts, "Paused")
 	if err != nil {
 		return nil, err
 	}
@@ -3112,8 +3378,8 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchPaused
 			select {
 			case log := <-logs:
 
-				event := new(IAutomationRegistryMasterPaused)
-				if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "Paused", log); err != nil {
+				event := new(IAutomationRegistryMaster23Paused)
+				if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "Paused", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -3134,17 +3400,17 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchPaused
 	}), nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) ParsePaused(log types.Log) (*IAutomationRegistryMasterPaused, error) {
-	event := new(IAutomationRegistryMasterPaused)
-	if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "Paused", log); err != nil {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) ParsePaused(log types.Log) (*IAutomationRegistryMaster23Paused, error) {
+	event := new(IAutomationRegistryMaster23Paused)
+	if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "Paused", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
 	return event, nil
 }
 
-type IAutomationRegistryMasterPayeesUpdatedIterator struct {
-	Event *IAutomationRegistryMasterPayeesUpdated
+type IAutomationRegistryMaster23PayeesUpdatedIterator struct {
+	Event *IAutomationRegistryMaster23PayeesUpdated
 
 	contract *bind.BoundContract
 	event    string
@@ -3155,7 +3421,7 @@ type IAutomationRegistryMasterPayeesUpdatedIterator struct {
 	fail error
 }
 
-func (it *IAutomationRegistryMasterPayeesUpdatedIterator) Next() bool {
+func (it *IAutomationRegistryMaster23PayeesUpdatedIterator) Next() bool {
 
 	if it.fail != nil {
 		return false
@@ -3164,7 +3430,7 @@ func (it *IAutomationRegistryMasterPayeesUpdatedIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(IAutomationRegistryMasterPayeesUpdated)
+			it.Event = new(IAutomationRegistryMaster23PayeesUpdated)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -3179,7 +3445,7 @@ func (it *IAutomationRegistryMasterPayeesUpdatedIterator) Next() bool {
 
 	select {
 	case log := <-it.logs:
-		it.Event = new(IAutomationRegistryMasterPayeesUpdated)
+		it.Event = new(IAutomationRegistryMaster23PayeesUpdated)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -3194,33 +3460,33 @@ func (it *IAutomationRegistryMasterPayeesUpdatedIterator) Next() bool {
 	}
 }
 
-func (it *IAutomationRegistryMasterPayeesUpdatedIterator) Error() error {
+func (it *IAutomationRegistryMaster23PayeesUpdatedIterator) Error() error {
 	return it.fail
 }
 
-func (it *IAutomationRegistryMasterPayeesUpdatedIterator) Close() error {
+func (it *IAutomationRegistryMaster23PayeesUpdatedIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-type IAutomationRegistryMasterPayeesUpdated struct {
+type IAutomationRegistryMaster23PayeesUpdated struct {
 	Transmitters []common.Address
 	Payees       []common.Address
 	Raw          types.Log
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) FilterPayeesUpdated(opts *bind.FilterOpts) (*IAutomationRegistryMasterPayeesUpdatedIterator, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) FilterPayeesUpdated(opts *bind.FilterOpts) (*IAutomationRegistryMaster23PayeesUpdatedIterator, error) {
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.FilterLogs(opts, "PayeesUpdated")
+	logs, sub, err := _IAutomationRegistryMaster23.contract.FilterLogs(opts, "PayeesUpdated")
 	if err != nil {
 		return nil, err
 	}
-	return &IAutomationRegistryMasterPayeesUpdatedIterator{contract: _IAutomationRegistryMaster.contract, event: "PayeesUpdated", logs: logs, sub: sub}, nil
+	return &IAutomationRegistryMaster23PayeesUpdatedIterator{contract: _IAutomationRegistryMaster23.contract, event: "PayeesUpdated", logs: logs, sub: sub}, nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchPayeesUpdated(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterPayeesUpdated) (event.Subscription, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) WatchPayeesUpdated(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23PayeesUpdated) (event.Subscription, error) {
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.WatchLogs(opts, "PayeesUpdated")
+	logs, sub, err := _IAutomationRegistryMaster23.contract.WatchLogs(opts, "PayeesUpdated")
 	if err != nil {
 		return nil, err
 	}
@@ -3230,8 +3496,8 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchPayees
 			select {
 			case log := <-logs:
 
-				event := new(IAutomationRegistryMasterPayeesUpdated)
-				if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "PayeesUpdated", log); err != nil {
+				event := new(IAutomationRegistryMaster23PayeesUpdated)
+				if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "PayeesUpdated", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -3252,17 +3518,17 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchPayees
 	}), nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) ParsePayeesUpdated(log types.Log) (*IAutomationRegistryMasterPayeesUpdated, error) {
-	event := new(IAutomationRegistryMasterPayeesUpdated)
-	if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "PayeesUpdated", log); err != nil {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) ParsePayeesUpdated(log types.Log) (*IAutomationRegistryMaster23PayeesUpdated, error) {
+	event := new(IAutomationRegistryMaster23PayeesUpdated)
+	if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "PayeesUpdated", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
 	return event, nil
 }
 
-type IAutomationRegistryMasterPayeeshipTransferRequestedIterator struct {
-	Event *IAutomationRegistryMasterPayeeshipTransferRequested
+type IAutomationRegistryMaster23PayeeshipTransferRequestedIterator struct {
+	Event *IAutomationRegistryMaster23PayeeshipTransferRequested
 
 	contract *bind.BoundContract
 	event    string
@@ -3273,7 +3539,7 @@ type IAutomationRegistryMasterPayeeshipTransferRequestedIterator struct {
 	fail error
 }
 
-func (it *IAutomationRegistryMasterPayeeshipTransferRequestedIterator) Next() bool {
+func (it *IAutomationRegistryMaster23PayeeshipTransferRequestedIterator) Next() bool {
 
 	if it.fail != nil {
 		return false
@@ -3282,7 +3548,7 @@ func (it *IAutomationRegistryMasterPayeeshipTransferRequestedIterator) Next() bo
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(IAutomationRegistryMasterPayeeshipTransferRequested)
+			it.Event = new(IAutomationRegistryMaster23PayeeshipTransferRequested)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -3297,7 +3563,7 @@ func (it *IAutomationRegistryMasterPayeeshipTransferRequestedIterator) Next() bo
 
 	select {
 	case log := <-it.logs:
-		it.Event = new(IAutomationRegistryMasterPayeeshipTransferRequested)
+		it.Event = new(IAutomationRegistryMaster23PayeeshipTransferRequested)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -3312,23 +3578,23 @@ func (it *IAutomationRegistryMasterPayeeshipTransferRequestedIterator) Next() bo
 	}
 }
 
-func (it *IAutomationRegistryMasterPayeeshipTransferRequestedIterator) Error() error {
+func (it *IAutomationRegistryMaster23PayeeshipTransferRequestedIterator) Error() error {
 	return it.fail
 }
 
-func (it *IAutomationRegistryMasterPayeeshipTransferRequestedIterator) Close() error {
+func (it *IAutomationRegistryMaster23PayeeshipTransferRequestedIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-type IAutomationRegistryMasterPayeeshipTransferRequested struct {
+type IAutomationRegistryMaster23PayeeshipTransferRequested struct {
 	Transmitter common.Address
 	From        common.Address
 	To          common.Address
 	Raw         types.Log
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) FilterPayeeshipTransferRequested(opts *bind.FilterOpts, transmitter []common.Address, from []common.Address, to []common.Address) (*IAutomationRegistryMasterPayeeshipTransferRequestedIterator, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) FilterPayeeshipTransferRequested(opts *bind.FilterOpts, transmitter []common.Address, from []common.Address, to []common.Address) (*IAutomationRegistryMaster23PayeeshipTransferRequestedIterator, error) {
 
 	var transmitterRule []interface{}
 	for _, transmitterItem := range transmitter {
@@ -3343,14 +3609,14 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) FilterPayee
 		toRule = append(toRule, toItem)
 	}
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.FilterLogs(opts, "PayeeshipTransferRequested", transmitterRule, fromRule, toRule)
+	logs, sub, err := _IAutomationRegistryMaster23.contract.FilterLogs(opts, "PayeeshipTransferRequested", transmitterRule, fromRule, toRule)
 	if err != nil {
 		return nil, err
 	}
-	return &IAutomationRegistryMasterPayeeshipTransferRequestedIterator{contract: _IAutomationRegistryMaster.contract, event: "PayeeshipTransferRequested", logs: logs, sub: sub}, nil
+	return &IAutomationRegistryMaster23PayeeshipTransferRequestedIterator{contract: _IAutomationRegistryMaster23.contract, event: "PayeeshipTransferRequested", logs: logs, sub: sub}, nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchPayeeshipTransferRequested(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterPayeeshipTransferRequested, transmitter []common.Address, from []common.Address, to []common.Address) (event.Subscription, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) WatchPayeeshipTransferRequested(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23PayeeshipTransferRequested, transmitter []common.Address, from []common.Address, to []common.Address) (event.Subscription, error) {
 
 	var transmitterRule []interface{}
 	for _, transmitterItem := range transmitter {
@@ -3365,7 +3631,7 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchPayees
 		toRule = append(toRule, toItem)
 	}
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.WatchLogs(opts, "PayeeshipTransferRequested", transmitterRule, fromRule, toRule)
+	logs, sub, err := _IAutomationRegistryMaster23.contract.WatchLogs(opts, "PayeeshipTransferRequested", transmitterRule, fromRule, toRule)
 	if err != nil {
 		return nil, err
 	}
@@ -3375,8 +3641,8 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchPayees
 			select {
 			case log := <-logs:
 
-				event := new(IAutomationRegistryMasterPayeeshipTransferRequested)
-				if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "PayeeshipTransferRequested", log); err != nil {
+				event := new(IAutomationRegistryMaster23PayeeshipTransferRequested)
+				if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "PayeeshipTransferRequested", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -3397,17 +3663,17 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchPayees
 	}), nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) ParsePayeeshipTransferRequested(log types.Log) (*IAutomationRegistryMasterPayeeshipTransferRequested, error) {
-	event := new(IAutomationRegistryMasterPayeeshipTransferRequested)
-	if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "PayeeshipTransferRequested", log); err != nil {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) ParsePayeeshipTransferRequested(log types.Log) (*IAutomationRegistryMaster23PayeeshipTransferRequested, error) {
+	event := new(IAutomationRegistryMaster23PayeeshipTransferRequested)
+	if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "PayeeshipTransferRequested", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
 	return event, nil
 }
 
-type IAutomationRegistryMasterPayeeshipTransferredIterator struct {
-	Event *IAutomationRegistryMasterPayeeshipTransferred
+type IAutomationRegistryMaster23PayeeshipTransferredIterator struct {
+	Event *IAutomationRegistryMaster23PayeeshipTransferred
 
 	contract *bind.BoundContract
 	event    string
@@ -3418,7 +3684,7 @@ type IAutomationRegistryMasterPayeeshipTransferredIterator struct {
 	fail error
 }
 
-func (it *IAutomationRegistryMasterPayeeshipTransferredIterator) Next() bool {
+func (it *IAutomationRegistryMaster23PayeeshipTransferredIterator) Next() bool {
 
 	if it.fail != nil {
 		return false
@@ -3427,7 +3693,7 @@ func (it *IAutomationRegistryMasterPayeeshipTransferredIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(IAutomationRegistryMasterPayeeshipTransferred)
+			it.Event = new(IAutomationRegistryMaster23PayeeshipTransferred)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -3442,7 +3708,7 @@ func (it *IAutomationRegistryMasterPayeeshipTransferredIterator) Next() bool {
 
 	select {
 	case log := <-it.logs:
-		it.Event = new(IAutomationRegistryMasterPayeeshipTransferred)
+		it.Event = new(IAutomationRegistryMaster23PayeeshipTransferred)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -3457,23 +3723,23 @@ func (it *IAutomationRegistryMasterPayeeshipTransferredIterator) Next() bool {
 	}
 }
 
-func (it *IAutomationRegistryMasterPayeeshipTransferredIterator) Error() error {
+func (it *IAutomationRegistryMaster23PayeeshipTransferredIterator) Error() error {
 	return it.fail
 }
 
-func (it *IAutomationRegistryMasterPayeeshipTransferredIterator) Close() error {
+func (it *IAutomationRegistryMaster23PayeeshipTransferredIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-type IAutomationRegistryMasterPayeeshipTransferred struct {
+type IAutomationRegistryMaster23PayeeshipTransferred struct {
 	Transmitter common.Address
 	From        common.Address
 	To          common.Address
 	Raw         types.Log
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) FilterPayeeshipTransferred(opts *bind.FilterOpts, transmitter []common.Address, from []common.Address, to []common.Address) (*IAutomationRegistryMasterPayeeshipTransferredIterator, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) FilterPayeeshipTransferred(opts *bind.FilterOpts, transmitter []common.Address, from []common.Address, to []common.Address) (*IAutomationRegistryMaster23PayeeshipTransferredIterator, error) {
 
 	var transmitterRule []interface{}
 	for _, transmitterItem := range transmitter {
@@ -3488,14 +3754,14 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) FilterPayee
 		toRule = append(toRule, toItem)
 	}
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.FilterLogs(opts, "PayeeshipTransferred", transmitterRule, fromRule, toRule)
+	logs, sub, err := _IAutomationRegistryMaster23.contract.FilterLogs(opts, "PayeeshipTransferred", transmitterRule, fromRule, toRule)
 	if err != nil {
 		return nil, err
 	}
-	return &IAutomationRegistryMasterPayeeshipTransferredIterator{contract: _IAutomationRegistryMaster.contract, event: "PayeeshipTransferred", logs: logs, sub: sub}, nil
+	return &IAutomationRegistryMaster23PayeeshipTransferredIterator{contract: _IAutomationRegistryMaster23.contract, event: "PayeeshipTransferred", logs: logs, sub: sub}, nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchPayeeshipTransferred(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterPayeeshipTransferred, transmitter []common.Address, from []common.Address, to []common.Address) (event.Subscription, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) WatchPayeeshipTransferred(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23PayeeshipTransferred, transmitter []common.Address, from []common.Address, to []common.Address) (event.Subscription, error) {
 
 	var transmitterRule []interface{}
 	for _, transmitterItem := range transmitter {
@@ -3510,7 +3776,7 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchPayees
 		toRule = append(toRule, toItem)
 	}
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.WatchLogs(opts, "PayeeshipTransferred", transmitterRule, fromRule, toRule)
+	logs, sub, err := _IAutomationRegistryMaster23.contract.WatchLogs(opts, "PayeeshipTransferred", transmitterRule, fromRule, toRule)
 	if err != nil {
 		return nil, err
 	}
@@ -3520,8 +3786,8 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchPayees
 			select {
 			case log := <-logs:
 
-				event := new(IAutomationRegistryMasterPayeeshipTransferred)
-				if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "PayeeshipTransferred", log); err != nil {
+				event := new(IAutomationRegistryMaster23PayeeshipTransferred)
+				if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "PayeeshipTransferred", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -3542,17 +3808,17 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchPayees
 	}), nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) ParsePayeeshipTransferred(log types.Log) (*IAutomationRegistryMasterPayeeshipTransferred, error) {
-	event := new(IAutomationRegistryMasterPayeeshipTransferred)
-	if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "PayeeshipTransferred", log); err != nil {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) ParsePayeeshipTransferred(log types.Log) (*IAutomationRegistryMaster23PayeeshipTransferred, error) {
+	event := new(IAutomationRegistryMaster23PayeeshipTransferred)
+	if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "PayeeshipTransferred", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
 	return event, nil
 }
 
-type IAutomationRegistryMasterPaymentWithdrawnIterator struct {
-	Event *IAutomationRegistryMasterPaymentWithdrawn
+type IAutomationRegistryMaster23PaymentWithdrawnIterator struct {
+	Event *IAutomationRegistryMaster23PaymentWithdrawn
 
 	contract *bind.BoundContract
 	event    string
@@ -3563,7 +3829,7 @@ type IAutomationRegistryMasterPaymentWithdrawnIterator struct {
 	fail error
 }
 
-func (it *IAutomationRegistryMasterPaymentWithdrawnIterator) Next() bool {
+func (it *IAutomationRegistryMaster23PaymentWithdrawnIterator) Next() bool {
 
 	if it.fail != nil {
 		return false
@@ -3572,7 +3838,7 @@ func (it *IAutomationRegistryMasterPaymentWithdrawnIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(IAutomationRegistryMasterPaymentWithdrawn)
+			it.Event = new(IAutomationRegistryMaster23PaymentWithdrawn)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -3587,7 +3853,7 @@ func (it *IAutomationRegistryMasterPaymentWithdrawnIterator) Next() bool {
 
 	select {
 	case log := <-it.logs:
-		it.Event = new(IAutomationRegistryMasterPaymentWithdrawn)
+		it.Event = new(IAutomationRegistryMaster23PaymentWithdrawn)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -3602,16 +3868,16 @@ func (it *IAutomationRegistryMasterPaymentWithdrawnIterator) Next() bool {
 	}
 }
 
-func (it *IAutomationRegistryMasterPaymentWithdrawnIterator) Error() error {
+func (it *IAutomationRegistryMaster23PaymentWithdrawnIterator) Error() error {
 	return it.fail
 }
 
-func (it *IAutomationRegistryMasterPaymentWithdrawnIterator) Close() error {
+func (it *IAutomationRegistryMaster23PaymentWithdrawnIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-type IAutomationRegistryMasterPaymentWithdrawn struct {
+type IAutomationRegistryMaster23PaymentWithdrawn struct {
 	Transmitter common.Address
 	Amount      *big.Int
 	To          common.Address
@@ -3619,7 +3885,7 @@ type IAutomationRegistryMasterPaymentWithdrawn struct {
 	Raw         types.Log
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) FilterPaymentWithdrawn(opts *bind.FilterOpts, transmitter []common.Address, amount []*big.Int, to []common.Address) (*IAutomationRegistryMasterPaymentWithdrawnIterator, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) FilterPaymentWithdrawn(opts *bind.FilterOpts, transmitter []common.Address, amount []*big.Int, to []common.Address) (*IAutomationRegistryMaster23PaymentWithdrawnIterator, error) {
 
 	var transmitterRule []interface{}
 	for _, transmitterItem := range transmitter {
@@ -3634,14 +3900,14 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) FilterPayme
 		toRule = append(toRule, toItem)
 	}
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.FilterLogs(opts, "PaymentWithdrawn", transmitterRule, amountRule, toRule)
+	logs, sub, err := _IAutomationRegistryMaster23.contract.FilterLogs(opts, "PaymentWithdrawn", transmitterRule, amountRule, toRule)
 	if err != nil {
 		return nil, err
 	}
-	return &IAutomationRegistryMasterPaymentWithdrawnIterator{contract: _IAutomationRegistryMaster.contract, event: "PaymentWithdrawn", logs: logs, sub: sub}, nil
+	return &IAutomationRegistryMaster23PaymentWithdrawnIterator{contract: _IAutomationRegistryMaster23.contract, event: "PaymentWithdrawn", logs: logs, sub: sub}, nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchPaymentWithdrawn(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterPaymentWithdrawn, transmitter []common.Address, amount []*big.Int, to []common.Address) (event.Subscription, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) WatchPaymentWithdrawn(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23PaymentWithdrawn, transmitter []common.Address, amount []*big.Int, to []common.Address) (event.Subscription, error) {
 
 	var transmitterRule []interface{}
 	for _, transmitterItem := range transmitter {
@@ -3656,7 +3922,7 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchPaymen
 		toRule = append(toRule, toItem)
 	}
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.WatchLogs(opts, "PaymentWithdrawn", transmitterRule, amountRule, toRule)
+	logs, sub, err := _IAutomationRegistryMaster23.contract.WatchLogs(opts, "PaymentWithdrawn", transmitterRule, amountRule, toRule)
 	if err != nil {
 		return nil, err
 	}
@@ -3666,8 +3932,8 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchPaymen
 			select {
 			case log := <-logs:
 
-				event := new(IAutomationRegistryMasterPaymentWithdrawn)
-				if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "PaymentWithdrawn", log); err != nil {
+				event := new(IAutomationRegistryMaster23PaymentWithdrawn)
+				if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "PaymentWithdrawn", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -3688,17 +3954,17 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchPaymen
 	}), nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) ParsePaymentWithdrawn(log types.Log) (*IAutomationRegistryMasterPaymentWithdrawn, error) {
-	event := new(IAutomationRegistryMasterPaymentWithdrawn)
-	if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "PaymentWithdrawn", log); err != nil {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) ParsePaymentWithdrawn(log types.Log) (*IAutomationRegistryMaster23PaymentWithdrawn, error) {
+	event := new(IAutomationRegistryMaster23PaymentWithdrawn)
+	if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "PaymentWithdrawn", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
 	return event, nil
 }
 
-type IAutomationRegistryMasterReorgedUpkeepReportIterator struct {
-	Event *IAutomationRegistryMasterReorgedUpkeepReport
+type IAutomationRegistryMaster23ReorgedUpkeepReportIterator struct {
+	Event *IAutomationRegistryMaster23ReorgedUpkeepReport
 
 	contract *bind.BoundContract
 	event    string
@@ -3709,7 +3975,7 @@ type IAutomationRegistryMasterReorgedUpkeepReportIterator struct {
 	fail error
 }
 
-func (it *IAutomationRegistryMasterReorgedUpkeepReportIterator) Next() bool {
+func (it *IAutomationRegistryMaster23ReorgedUpkeepReportIterator) Next() bool {
 
 	if it.fail != nil {
 		return false
@@ -3718,7 +3984,7 @@ func (it *IAutomationRegistryMasterReorgedUpkeepReportIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(IAutomationRegistryMasterReorgedUpkeepReport)
+			it.Event = new(IAutomationRegistryMaster23ReorgedUpkeepReport)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -3733,7 +3999,7 @@ func (it *IAutomationRegistryMasterReorgedUpkeepReportIterator) Next() bool {
 
 	select {
 	case log := <-it.logs:
-		it.Event = new(IAutomationRegistryMasterReorgedUpkeepReport)
+		it.Event = new(IAutomationRegistryMaster23ReorgedUpkeepReport)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -3748,43 +4014,43 @@ func (it *IAutomationRegistryMasterReorgedUpkeepReportIterator) Next() bool {
 	}
 }
 
-func (it *IAutomationRegistryMasterReorgedUpkeepReportIterator) Error() error {
+func (it *IAutomationRegistryMaster23ReorgedUpkeepReportIterator) Error() error {
 	return it.fail
 }
 
-func (it *IAutomationRegistryMasterReorgedUpkeepReportIterator) Close() error {
+func (it *IAutomationRegistryMaster23ReorgedUpkeepReportIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-type IAutomationRegistryMasterReorgedUpkeepReport struct {
+type IAutomationRegistryMaster23ReorgedUpkeepReport struct {
 	Id      *big.Int
 	Trigger []byte
 	Raw     types.Log
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) FilterReorgedUpkeepReport(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMasterReorgedUpkeepReportIterator, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) FilterReorgedUpkeepReport(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMaster23ReorgedUpkeepReportIterator, error) {
 
 	var idRule []interface{}
 	for _, idItem := range id {
 		idRule = append(idRule, idItem)
 	}
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.FilterLogs(opts, "ReorgedUpkeepReport", idRule)
+	logs, sub, err := _IAutomationRegistryMaster23.contract.FilterLogs(opts, "ReorgedUpkeepReport", idRule)
 	if err != nil {
 		return nil, err
 	}
-	return &IAutomationRegistryMasterReorgedUpkeepReportIterator{contract: _IAutomationRegistryMaster.contract, event: "ReorgedUpkeepReport", logs: logs, sub: sub}, nil
+	return &IAutomationRegistryMaster23ReorgedUpkeepReportIterator{contract: _IAutomationRegistryMaster23.contract, event: "ReorgedUpkeepReport", logs: logs, sub: sub}, nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchReorgedUpkeepReport(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterReorgedUpkeepReport, id []*big.Int) (event.Subscription, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) WatchReorgedUpkeepReport(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23ReorgedUpkeepReport, id []*big.Int) (event.Subscription, error) {
 
 	var idRule []interface{}
 	for _, idItem := range id {
 		idRule = append(idRule, idItem)
 	}
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.WatchLogs(opts, "ReorgedUpkeepReport", idRule)
+	logs, sub, err := _IAutomationRegistryMaster23.contract.WatchLogs(opts, "ReorgedUpkeepReport", idRule)
 	if err != nil {
 		return nil, err
 	}
@@ -3794,8 +4060,8 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchReorge
 			select {
 			case log := <-logs:
 
-				event := new(IAutomationRegistryMasterReorgedUpkeepReport)
-				if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "ReorgedUpkeepReport", log); err != nil {
+				event := new(IAutomationRegistryMaster23ReorgedUpkeepReport)
+				if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "ReorgedUpkeepReport", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -3816,17 +4082,17 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchReorge
 	}), nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) ParseReorgedUpkeepReport(log types.Log) (*IAutomationRegistryMasterReorgedUpkeepReport, error) {
-	event := new(IAutomationRegistryMasterReorgedUpkeepReport)
-	if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "ReorgedUpkeepReport", log); err != nil {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) ParseReorgedUpkeepReport(log types.Log) (*IAutomationRegistryMaster23ReorgedUpkeepReport, error) {
+	event := new(IAutomationRegistryMaster23ReorgedUpkeepReport)
+	if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "ReorgedUpkeepReport", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
 	return event, nil
 }
 
-type IAutomationRegistryMasterStaleUpkeepReportIterator struct {
-	Event *IAutomationRegistryMasterStaleUpkeepReport
+type IAutomationRegistryMaster23StaleUpkeepReportIterator struct {
+	Event *IAutomationRegistryMaster23StaleUpkeepReport
 
 	contract *bind.BoundContract
 	event    string
@@ -3837,7 +4103,7 @@ type IAutomationRegistryMasterStaleUpkeepReportIterator struct {
 	fail error
 }
 
-func (it *IAutomationRegistryMasterStaleUpkeepReportIterator) Next() bool {
+func (it *IAutomationRegistryMaster23StaleUpkeepReportIterator) Next() bool {
 
 	if it.fail != nil {
 		return false
@@ -3846,7 +4112,7 @@ func (it *IAutomationRegistryMasterStaleUpkeepReportIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(IAutomationRegistryMasterStaleUpkeepReport)
+			it.Event = new(IAutomationRegistryMaster23StaleUpkeepReport)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -3861,7 +4127,7 @@ func (it *IAutomationRegistryMasterStaleUpkeepReportIterator) Next() bool {
 
 	select {
 	case log := <-it.logs:
-		it.Event = new(IAutomationRegistryMasterStaleUpkeepReport)
+		it.Event = new(IAutomationRegistryMaster23StaleUpkeepReport)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -3876,43 +4142,43 @@ func (it *IAutomationRegistryMasterStaleUpkeepReportIterator) Next() bool {
 	}
 }
 
-func (it *IAutomationRegistryMasterStaleUpkeepReportIterator) Error() error {
+func (it *IAutomationRegistryMaster23StaleUpkeepReportIterator) Error() error {
 	return it.fail
 }
 
-func (it *IAutomationRegistryMasterStaleUpkeepReportIterator) Close() error {
+func (it *IAutomationRegistryMaster23StaleUpkeepReportIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-type IAutomationRegistryMasterStaleUpkeepReport struct {
+type IAutomationRegistryMaster23StaleUpkeepReport struct {
 	Id      *big.Int
 	Trigger []byte
 	Raw     types.Log
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) FilterStaleUpkeepReport(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMasterStaleUpkeepReportIterator, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) FilterStaleUpkeepReport(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMaster23StaleUpkeepReportIterator, error) {
 
 	var idRule []interface{}
 	for _, idItem := range id {
 		idRule = append(idRule, idItem)
 	}
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.FilterLogs(opts, "StaleUpkeepReport", idRule)
+	logs, sub, err := _IAutomationRegistryMaster23.contract.FilterLogs(opts, "StaleUpkeepReport", idRule)
 	if err != nil {
 		return nil, err
 	}
-	return &IAutomationRegistryMasterStaleUpkeepReportIterator{contract: _IAutomationRegistryMaster.contract, event: "StaleUpkeepReport", logs: logs, sub: sub}, nil
+	return &IAutomationRegistryMaster23StaleUpkeepReportIterator{contract: _IAutomationRegistryMaster23.contract, event: "StaleUpkeepReport", logs: logs, sub: sub}, nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchStaleUpkeepReport(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterStaleUpkeepReport, id []*big.Int) (event.Subscription, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) WatchStaleUpkeepReport(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23StaleUpkeepReport, id []*big.Int) (event.Subscription, error) {
 
 	var idRule []interface{}
 	for _, idItem := range id {
 		idRule = append(idRule, idItem)
 	}
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.WatchLogs(opts, "StaleUpkeepReport", idRule)
+	logs, sub, err := _IAutomationRegistryMaster23.contract.WatchLogs(opts, "StaleUpkeepReport", idRule)
 	if err != nil {
 		return nil, err
 	}
@@ -3922,8 +4188,8 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchStaleU
 			select {
 			case log := <-logs:
 
-				event := new(IAutomationRegistryMasterStaleUpkeepReport)
-				if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "StaleUpkeepReport", log); err != nil {
+				event := new(IAutomationRegistryMaster23StaleUpkeepReport)
+				if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "StaleUpkeepReport", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -3944,17 +4210,17 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchStaleU
 	}), nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) ParseStaleUpkeepReport(log types.Log) (*IAutomationRegistryMasterStaleUpkeepReport, error) {
-	event := new(IAutomationRegistryMasterStaleUpkeepReport)
-	if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "StaleUpkeepReport", log); err != nil {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) ParseStaleUpkeepReport(log types.Log) (*IAutomationRegistryMaster23StaleUpkeepReport, error) {
+	event := new(IAutomationRegistryMaster23StaleUpkeepReport)
+	if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "StaleUpkeepReport", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
 	return event, nil
 }
 
-type IAutomationRegistryMasterTransmittedIterator struct {
-	Event *IAutomationRegistryMasterTransmitted
+type IAutomationRegistryMaster23TransmittedIterator struct {
+	Event *IAutomationRegistryMaster23Transmitted
 
 	contract *bind.BoundContract
 	event    string
@@ -3965,7 +4231,7 @@ type IAutomationRegistryMasterTransmittedIterator struct {
 	fail error
 }
 
-func (it *IAutomationRegistryMasterTransmittedIterator) Next() bool {
+func (it *IAutomationRegistryMaster23TransmittedIterator) Next() bool {
 
 	if it.fail != nil {
 		return false
@@ -3974,7 +4240,7 @@ func (it *IAutomationRegistryMasterTransmittedIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(IAutomationRegistryMasterTransmitted)
+			it.Event = new(IAutomationRegistryMaster23Transmitted)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -3989,7 +4255,7 @@ func (it *IAutomationRegistryMasterTransmittedIterator) Next() bool {
 
 	select {
 	case log := <-it.logs:
-		it.Event = new(IAutomationRegistryMasterTransmitted)
+		it.Event = new(IAutomationRegistryMaster23Transmitted)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -4004,33 +4270,33 @@ func (it *IAutomationRegistryMasterTransmittedIterator) Next() bool {
 	}
 }
 
-func (it *IAutomationRegistryMasterTransmittedIterator) Error() error {
+func (it *IAutomationRegistryMaster23TransmittedIterator) Error() error {
 	return it.fail
 }
 
-func (it *IAutomationRegistryMasterTransmittedIterator) Close() error {
+func (it *IAutomationRegistryMaster23TransmittedIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-type IAutomationRegistryMasterTransmitted struct {
+type IAutomationRegistryMaster23Transmitted struct {
 	ConfigDigest [32]byte
 	Epoch        uint32
 	Raw          types.Log
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) FilterTransmitted(opts *bind.FilterOpts) (*IAutomationRegistryMasterTransmittedIterator, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) FilterTransmitted(opts *bind.FilterOpts) (*IAutomationRegistryMaster23TransmittedIterator, error) {
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.FilterLogs(opts, "Transmitted")
+	logs, sub, err := _IAutomationRegistryMaster23.contract.FilterLogs(opts, "Transmitted")
 	if err != nil {
 		return nil, err
 	}
-	return &IAutomationRegistryMasterTransmittedIterator{contract: _IAutomationRegistryMaster.contract, event: "Transmitted", logs: logs, sub: sub}, nil
+	return &IAutomationRegistryMaster23TransmittedIterator{contract: _IAutomationRegistryMaster23.contract, event: "Transmitted", logs: logs, sub: sub}, nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchTransmitted(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterTransmitted) (event.Subscription, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) WatchTransmitted(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23Transmitted) (event.Subscription, error) {
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.WatchLogs(opts, "Transmitted")
+	logs, sub, err := _IAutomationRegistryMaster23.contract.WatchLogs(opts, "Transmitted")
 	if err != nil {
 		return nil, err
 	}
@@ -4040,8 +4306,8 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchTransm
 			select {
 			case log := <-logs:
 
-				event := new(IAutomationRegistryMasterTransmitted)
-				if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "Transmitted", log); err != nil {
+				event := new(IAutomationRegistryMaster23Transmitted)
+				if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "Transmitted", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -4062,17 +4328,17 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchTransm
 	}), nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) ParseTransmitted(log types.Log) (*IAutomationRegistryMasterTransmitted, error) {
-	event := new(IAutomationRegistryMasterTransmitted)
-	if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "Transmitted", log); err != nil {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) ParseTransmitted(log types.Log) (*IAutomationRegistryMaster23Transmitted, error) {
+	event := new(IAutomationRegistryMaster23Transmitted)
+	if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "Transmitted", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
 	return event, nil
 }
 
-type IAutomationRegistryMasterUnpausedIterator struct {
-	Event *IAutomationRegistryMasterUnpaused
+type IAutomationRegistryMaster23UnpausedIterator struct {
+	Event *IAutomationRegistryMaster23Unpaused
 
 	contract *bind.BoundContract
 	event    string
@@ -4083,7 +4349,7 @@ type IAutomationRegistryMasterUnpausedIterator struct {
 	fail error
 }
 
-func (it *IAutomationRegistryMasterUnpausedIterator) Next() bool {
+func (it *IAutomationRegistryMaster23UnpausedIterator) Next() bool {
 
 	if it.fail != nil {
 		return false
@@ -4092,7 +4358,7 @@ func (it *IAutomationRegistryMasterUnpausedIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(IAutomationRegistryMasterUnpaused)
+			it.Event = new(IAutomationRegistryMaster23Unpaused)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -4107,7 +4373,7 @@ func (it *IAutomationRegistryMasterUnpausedIterator) Next() bool {
 
 	select {
 	case log := <-it.logs:
-		it.Event = new(IAutomationRegistryMasterUnpaused)
+		it.Event = new(IAutomationRegistryMaster23Unpaused)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -4122,32 +4388,32 @@ func (it *IAutomationRegistryMasterUnpausedIterator) Next() bool {
 	}
 }
 
-func (it *IAutomationRegistryMasterUnpausedIterator) Error() error {
+func (it *IAutomationRegistryMaster23UnpausedIterator) Error() error {
 	return it.fail
 }
 
-func (it *IAutomationRegistryMasterUnpausedIterator) Close() error {
+func (it *IAutomationRegistryMaster23UnpausedIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-type IAutomationRegistryMasterUnpaused struct {
+type IAutomationRegistryMaster23Unpaused struct {
 	Account common.Address
 	Raw     types.Log
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) FilterUnpaused(opts *bind.FilterOpts) (*IAutomationRegistryMasterUnpausedIterator, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) FilterUnpaused(opts *bind.FilterOpts) (*IAutomationRegistryMaster23UnpausedIterator, error) {
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.FilterLogs(opts, "Unpaused")
+	logs, sub, err := _IAutomationRegistryMaster23.contract.FilterLogs(opts, "Unpaused")
 	if err != nil {
 		return nil, err
 	}
-	return &IAutomationRegistryMasterUnpausedIterator{contract: _IAutomationRegistryMaster.contract, event: "Unpaused", logs: logs, sub: sub}, nil
+	return &IAutomationRegistryMaster23UnpausedIterator{contract: _IAutomationRegistryMaster23.contract, event: "Unpaused", logs: logs, sub: sub}, nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchUnpaused(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterUnpaused) (event.Subscription, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) WatchUnpaused(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23Unpaused) (event.Subscription, error) {
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.WatchLogs(opts, "Unpaused")
+	logs, sub, err := _IAutomationRegistryMaster23.contract.WatchLogs(opts, "Unpaused")
 	if err != nil {
 		return nil, err
 	}
@@ -4157,8 +4423,8 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchUnpaus
 			select {
 			case log := <-logs:
 
-				event := new(IAutomationRegistryMasterUnpaused)
-				if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "Unpaused", log); err != nil {
+				event := new(IAutomationRegistryMaster23Unpaused)
+				if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "Unpaused", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -4179,17 +4445,17 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchUnpaus
 	}), nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) ParseUnpaused(log types.Log) (*IAutomationRegistryMasterUnpaused, error) {
-	event := new(IAutomationRegistryMasterUnpaused)
-	if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "Unpaused", log); err != nil {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) ParseUnpaused(log types.Log) (*IAutomationRegistryMaster23Unpaused, error) {
+	event := new(IAutomationRegistryMaster23Unpaused)
+	if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "Unpaused", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
 	return event, nil
 }
 
-type IAutomationRegistryMasterUpkeepAdminTransferRequestedIterator struct {
-	Event *IAutomationRegistryMasterUpkeepAdminTransferRequested
+type IAutomationRegistryMaster23UpkeepAdminTransferRequestedIterator struct {
+	Event *IAutomationRegistryMaster23UpkeepAdminTransferRequested
 
 	contract *bind.BoundContract
 	event    string
@@ -4200,7 +4466,7 @@ type IAutomationRegistryMasterUpkeepAdminTransferRequestedIterator struct {
 	fail error
 }
 
-func (it *IAutomationRegistryMasterUpkeepAdminTransferRequestedIterator) Next() bool {
+func (it *IAutomationRegistryMaster23UpkeepAdminTransferRequestedIterator) Next() bool {
 
 	if it.fail != nil {
 		return false
@@ -4209,7 +4475,7 @@ func (it *IAutomationRegistryMasterUpkeepAdminTransferRequestedIterator) Next() 
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(IAutomationRegistryMasterUpkeepAdminTransferRequested)
+			it.Event = new(IAutomationRegistryMaster23UpkeepAdminTransferRequested)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -4224,7 +4490,7 @@ func (it *IAutomationRegistryMasterUpkeepAdminTransferRequestedIterator) Next() 
 
 	select {
 	case log := <-it.logs:
-		it.Event = new(IAutomationRegistryMasterUpkeepAdminTransferRequested)
+		it.Event = new(IAutomationRegistryMaster23UpkeepAdminTransferRequested)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -4239,23 +4505,23 @@ func (it *IAutomationRegistryMasterUpkeepAdminTransferRequestedIterator) Next() 
 	}
 }
 
-func (it *IAutomationRegistryMasterUpkeepAdminTransferRequestedIterator) Error() error {
+func (it *IAutomationRegistryMaster23UpkeepAdminTransferRequestedIterator) Error() error {
 	return it.fail
 }
 
-func (it *IAutomationRegistryMasterUpkeepAdminTransferRequestedIterator) Close() error {
+func (it *IAutomationRegistryMaster23UpkeepAdminTransferRequestedIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-type IAutomationRegistryMasterUpkeepAdminTransferRequested struct {
+type IAutomationRegistryMaster23UpkeepAdminTransferRequested struct {
 	Id   *big.Int
 	From common.Address
 	To   common.Address
 	Raw  types.Log
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) FilterUpkeepAdminTransferRequested(opts *bind.FilterOpts, id []*big.Int, from []common.Address, to []common.Address) (*IAutomationRegistryMasterUpkeepAdminTransferRequestedIterator, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) FilterUpkeepAdminTransferRequested(opts *bind.FilterOpts, id []*big.Int, from []common.Address, to []common.Address) (*IAutomationRegistryMaster23UpkeepAdminTransferRequestedIterator, error) {
 
 	var idRule []interface{}
 	for _, idItem := range id {
@@ -4270,14 +4536,14 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) FilterUpkee
 		toRule = append(toRule, toItem)
 	}
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.FilterLogs(opts, "UpkeepAdminTransferRequested", idRule, fromRule, toRule)
+	logs, sub, err := _IAutomationRegistryMaster23.contract.FilterLogs(opts, "UpkeepAdminTransferRequested", idRule, fromRule, toRule)
 	if err != nil {
 		return nil, err
 	}
-	return &IAutomationRegistryMasterUpkeepAdminTransferRequestedIterator{contract: _IAutomationRegistryMaster.contract, event: "UpkeepAdminTransferRequested", logs: logs, sub: sub}, nil
+	return &IAutomationRegistryMaster23UpkeepAdminTransferRequestedIterator{contract: _IAutomationRegistryMaster23.contract, event: "UpkeepAdminTransferRequested", logs: logs, sub: sub}, nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchUpkeepAdminTransferRequested(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterUpkeepAdminTransferRequested, id []*big.Int, from []common.Address, to []common.Address) (event.Subscription, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) WatchUpkeepAdminTransferRequested(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23UpkeepAdminTransferRequested, id []*big.Int, from []common.Address, to []common.Address) (event.Subscription, error) {
 
 	var idRule []interface{}
 	for _, idItem := range id {
@@ -4292,7 +4558,7 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchUpkeep
 		toRule = append(toRule, toItem)
 	}
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.WatchLogs(opts, "UpkeepAdminTransferRequested", idRule, fromRule, toRule)
+	logs, sub, err := _IAutomationRegistryMaster23.contract.WatchLogs(opts, "UpkeepAdminTransferRequested", idRule, fromRule, toRule)
 	if err != nil {
 		return nil, err
 	}
@@ -4302,8 +4568,8 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchUpkeep
 			select {
 			case log := <-logs:
 
-				event := new(IAutomationRegistryMasterUpkeepAdminTransferRequested)
-				if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "UpkeepAdminTransferRequested", log); err != nil {
+				event := new(IAutomationRegistryMaster23UpkeepAdminTransferRequested)
+				if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "UpkeepAdminTransferRequested", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -4324,17 +4590,17 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchUpkeep
 	}), nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) ParseUpkeepAdminTransferRequested(log types.Log) (*IAutomationRegistryMasterUpkeepAdminTransferRequested, error) {
-	event := new(IAutomationRegistryMasterUpkeepAdminTransferRequested)
-	if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "UpkeepAdminTransferRequested", log); err != nil {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) ParseUpkeepAdminTransferRequested(log types.Log) (*IAutomationRegistryMaster23UpkeepAdminTransferRequested, error) {
+	event := new(IAutomationRegistryMaster23UpkeepAdminTransferRequested)
+	if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "UpkeepAdminTransferRequested", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
 	return event, nil
 }
 
-type IAutomationRegistryMasterUpkeepAdminTransferredIterator struct {
-	Event *IAutomationRegistryMasterUpkeepAdminTransferred
+type IAutomationRegistryMaster23UpkeepAdminTransferredIterator struct {
+	Event *IAutomationRegistryMaster23UpkeepAdminTransferred
 
 	contract *bind.BoundContract
 	event    string
@@ -4345,7 +4611,7 @@ type IAutomationRegistryMasterUpkeepAdminTransferredIterator struct {
 	fail error
 }
 
-func (it *IAutomationRegistryMasterUpkeepAdminTransferredIterator) Next() bool {
+func (it *IAutomationRegistryMaster23UpkeepAdminTransferredIterator) Next() bool {
 
 	if it.fail != nil {
 		return false
@@ -4354,7 +4620,7 @@ func (it *IAutomationRegistryMasterUpkeepAdminTransferredIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(IAutomationRegistryMasterUpkeepAdminTransferred)
+			it.Event = new(IAutomationRegistryMaster23UpkeepAdminTransferred)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -4369,7 +4635,7 @@ func (it *IAutomationRegistryMasterUpkeepAdminTransferredIterator) Next() bool {
 
 	select {
 	case log := <-it.logs:
-		it.Event = new(IAutomationRegistryMasterUpkeepAdminTransferred)
+		it.Event = new(IAutomationRegistryMaster23UpkeepAdminTransferred)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -4384,23 +4650,23 @@ func (it *IAutomationRegistryMasterUpkeepAdminTransferredIterator) Next() bool {
 	}
 }
 
-func (it *IAutomationRegistryMasterUpkeepAdminTransferredIterator) Error() error {
+func (it *IAutomationRegistryMaster23UpkeepAdminTransferredIterator) Error() error {
 	return it.fail
 }
 
-func (it *IAutomationRegistryMasterUpkeepAdminTransferredIterator) Close() error {
+func (it *IAutomationRegistryMaster23UpkeepAdminTransferredIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-type IAutomationRegistryMasterUpkeepAdminTransferred struct {
+type IAutomationRegistryMaster23UpkeepAdminTransferred struct {
 	Id   *big.Int
 	From common.Address
 	To   common.Address
 	Raw  types.Log
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) FilterUpkeepAdminTransferred(opts *bind.FilterOpts, id []*big.Int, from []common.Address, to []common.Address) (*IAutomationRegistryMasterUpkeepAdminTransferredIterator, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) FilterUpkeepAdminTransferred(opts *bind.FilterOpts, id []*big.Int, from []common.Address, to []common.Address) (*IAutomationRegistryMaster23UpkeepAdminTransferredIterator, error) {
 
 	var idRule []interface{}
 	for _, idItem := range id {
@@ -4415,14 +4681,14 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) FilterUpkee
 		toRule = append(toRule, toItem)
 	}
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.FilterLogs(opts, "UpkeepAdminTransferred", idRule, fromRule, toRule)
+	logs, sub, err := _IAutomationRegistryMaster23.contract.FilterLogs(opts, "UpkeepAdminTransferred", idRule, fromRule, toRule)
 	if err != nil {
 		return nil, err
 	}
-	return &IAutomationRegistryMasterUpkeepAdminTransferredIterator{contract: _IAutomationRegistryMaster.contract, event: "UpkeepAdminTransferred", logs: logs, sub: sub}, nil
+	return &IAutomationRegistryMaster23UpkeepAdminTransferredIterator{contract: _IAutomationRegistryMaster23.contract, event: "UpkeepAdminTransferred", logs: logs, sub: sub}, nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchUpkeepAdminTransferred(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterUpkeepAdminTransferred, id []*big.Int, from []common.Address, to []common.Address) (event.Subscription, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) WatchUpkeepAdminTransferred(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23UpkeepAdminTransferred, id []*big.Int, from []common.Address, to []common.Address) (event.Subscription, error) {
 
 	var idRule []interface{}
 	for _, idItem := range id {
@@ -4437,7 +4703,7 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchUpkeep
 		toRule = append(toRule, toItem)
 	}
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.WatchLogs(opts, "UpkeepAdminTransferred", idRule, fromRule, toRule)
+	logs, sub, err := _IAutomationRegistryMaster23.contract.WatchLogs(opts, "UpkeepAdminTransferred", idRule, fromRule, toRule)
 	if err != nil {
 		return nil, err
 	}
@@ -4447,8 +4713,8 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchUpkeep
 			select {
 			case log := <-logs:
 
-				event := new(IAutomationRegistryMasterUpkeepAdminTransferred)
-				if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "UpkeepAdminTransferred", log); err != nil {
+				event := new(IAutomationRegistryMaster23UpkeepAdminTransferred)
+				if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "UpkeepAdminTransferred", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -4469,17 +4735,17 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchUpkeep
 	}), nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) ParseUpkeepAdminTransferred(log types.Log) (*IAutomationRegistryMasterUpkeepAdminTransferred, error) {
-	event := new(IAutomationRegistryMasterUpkeepAdminTransferred)
-	if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "UpkeepAdminTransferred", log); err != nil {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) ParseUpkeepAdminTransferred(log types.Log) (*IAutomationRegistryMaster23UpkeepAdminTransferred, error) {
+	event := new(IAutomationRegistryMaster23UpkeepAdminTransferred)
+	if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "UpkeepAdminTransferred", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
 	return event, nil
 }
 
-type IAutomationRegistryMasterUpkeepCanceledIterator struct {
-	Event *IAutomationRegistryMasterUpkeepCanceled
+type IAutomationRegistryMaster23UpkeepCanceledIterator struct {
+	Event *IAutomationRegistryMaster23UpkeepCanceled
 
 	contract *bind.BoundContract
 	event    string
@@ -4490,7 +4756,7 @@ type IAutomationRegistryMasterUpkeepCanceledIterator struct {
 	fail error
 }
 
-func (it *IAutomationRegistryMasterUpkeepCanceledIterator) Next() bool {
+func (it *IAutomationRegistryMaster23UpkeepCanceledIterator) Next() bool {
 
 	if it.fail != nil {
 		return false
@@ -4499,7 +4765,7 @@ func (it *IAutomationRegistryMasterUpkeepCanceledIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(IAutomationRegistryMasterUpkeepCanceled)
+			it.Event = new(IAutomationRegistryMaster23UpkeepCanceled)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -4514,7 +4780,7 @@ func (it *IAutomationRegistryMasterUpkeepCanceledIterator) Next() bool {
 
 	select {
 	case log := <-it.logs:
-		it.Event = new(IAutomationRegistryMasterUpkeepCanceled)
+		it.Event = new(IAutomationRegistryMaster23UpkeepCanceled)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -4529,22 +4795,22 @@ func (it *IAutomationRegistryMasterUpkeepCanceledIterator) Next() bool {
 	}
 }
 
-func (it *IAutomationRegistryMasterUpkeepCanceledIterator) Error() error {
+func (it *IAutomationRegistryMaster23UpkeepCanceledIterator) Error() error {
 	return it.fail
 }
 
-func (it *IAutomationRegistryMasterUpkeepCanceledIterator) Close() error {
+func (it *IAutomationRegistryMaster23UpkeepCanceledIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-type IAutomationRegistryMasterUpkeepCanceled struct {
+type IAutomationRegistryMaster23UpkeepCanceled struct {
 	Id            *big.Int
 	AtBlockHeight uint64
 	Raw           types.Log
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) FilterUpkeepCanceled(opts *bind.FilterOpts, id []*big.Int, atBlockHeight []uint64) (*IAutomationRegistryMasterUpkeepCanceledIterator, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) FilterUpkeepCanceled(opts *bind.FilterOpts, id []*big.Int, atBlockHeight []uint64) (*IAutomationRegistryMaster23UpkeepCanceledIterator, error) {
 
 	var idRule []interface{}
 	for _, idItem := range id {
@@ -4555,14 +4821,14 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) FilterUpkee
 		atBlockHeightRule = append(atBlockHeightRule, atBlockHeightItem)
 	}
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.FilterLogs(opts, "UpkeepCanceled", idRule, atBlockHeightRule)
+	logs, sub, err := _IAutomationRegistryMaster23.contract.FilterLogs(opts, "UpkeepCanceled", idRule, atBlockHeightRule)
 	if err != nil {
 		return nil, err
 	}
-	return &IAutomationRegistryMasterUpkeepCanceledIterator{contract: _IAutomationRegistryMaster.contract, event: "UpkeepCanceled", logs: logs, sub: sub}, nil
+	return &IAutomationRegistryMaster23UpkeepCanceledIterator{contract: _IAutomationRegistryMaster23.contract, event: "UpkeepCanceled", logs: logs, sub: sub}, nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchUpkeepCanceled(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterUpkeepCanceled, id []*big.Int, atBlockHeight []uint64) (event.Subscription, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) WatchUpkeepCanceled(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23UpkeepCanceled, id []*big.Int, atBlockHeight []uint64) (event.Subscription, error) {
 
 	var idRule []interface{}
 	for _, idItem := range id {
@@ -4573,7 +4839,7 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchUpkeep
 		atBlockHeightRule = append(atBlockHeightRule, atBlockHeightItem)
 	}
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.WatchLogs(opts, "UpkeepCanceled", idRule, atBlockHeightRule)
+	logs, sub, err := _IAutomationRegistryMaster23.contract.WatchLogs(opts, "UpkeepCanceled", idRule, atBlockHeightRule)
 	if err != nil {
 		return nil, err
 	}
@@ -4583,8 +4849,8 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchUpkeep
 			select {
 			case log := <-logs:
 
-				event := new(IAutomationRegistryMasterUpkeepCanceled)
-				if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "UpkeepCanceled", log); err != nil {
+				event := new(IAutomationRegistryMaster23UpkeepCanceled)
+				if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "UpkeepCanceled", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -4605,17 +4871,17 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchUpkeep
 	}), nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) ParseUpkeepCanceled(log types.Log) (*IAutomationRegistryMasterUpkeepCanceled, error) {
-	event := new(IAutomationRegistryMasterUpkeepCanceled)
-	if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "UpkeepCanceled", log); err != nil {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) ParseUpkeepCanceled(log types.Log) (*IAutomationRegistryMaster23UpkeepCanceled, error) {
+	event := new(IAutomationRegistryMaster23UpkeepCanceled)
+	if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "UpkeepCanceled", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
 	return event, nil
 }
 
-type IAutomationRegistryMasterUpkeepCheckDataSetIterator struct {
-	Event *IAutomationRegistryMasterUpkeepCheckDataSet
+type IAutomationRegistryMaster23UpkeepCheckDataSetIterator struct {
+	Event *IAutomationRegistryMaster23UpkeepCheckDataSet
 
 	contract *bind.BoundContract
 	event    string
@@ -4626,7 +4892,7 @@ type IAutomationRegistryMasterUpkeepCheckDataSetIterator struct {
 	fail error
 }
 
-func (it *IAutomationRegistryMasterUpkeepCheckDataSetIterator) Next() bool {
+func (it *IAutomationRegistryMaster23UpkeepCheckDataSetIterator) Next() bool {
 
 	if it.fail != nil {
 		return false
@@ -4635,7 +4901,7 @@ func (it *IAutomationRegistryMasterUpkeepCheckDataSetIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(IAutomationRegistryMasterUpkeepCheckDataSet)
+			it.Event = new(IAutomationRegistryMaster23UpkeepCheckDataSet)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -4650,7 +4916,7 @@ func (it *IAutomationRegistryMasterUpkeepCheckDataSetIterator) Next() bool {
 
 	select {
 	case log := <-it.logs:
-		it.Event = new(IAutomationRegistryMasterUpkeepCheckDataSet)
+		it.Event = new(IAutomationRegistryMaster23UpkeepCheckDataSet)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -4665,43 +4931,43 @@ func (it *IAutomationRegistryMasterUpkeepCheckDataSetIterator) Next() bool {
 	}
 }
 
-func (it *IAutomationRegistryMasterUpkeepCheckDataSetIterator) Error() error {
+func (it *IAutomationRegistryMaster23UpkeepCheckDataSetIterator) Error() error {
 	return it.fail
 }
 
-func (it *IAutomationRegistryMasterUpkeepCheckDataSetIterator) Close() error {
+func (it *IAutomationRegistryMaster23UpkeepCheckDataSetIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-type IAutomationRegistryMasterUpkeepCheckDataSet struct {
+type IAutomationRegistryMaster23UpkeepCheckDataSet struct {
 	Id           *big.Int
 	NewCheckData []byte
 	Raw          types.Log
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) FilterUpkeepCheckDataSet(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMasterUpkeepCheckDataSetIterator, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) FilterUpkeepCheckDataSet(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMaster23UpkeepCheckDataSetIterator, error) {
 
 	var idRule []interface{}
 	for _, idItem := range id {
 		idRule = append(idRule, idItem)
 	}
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.FilterLogs(opts, "UpkeepCheckDataSet", idRule)
+	logs, sub, err := _IAutomationRegistryMaster23.contract.FilterLogs(opts, "UpkeepCheckDataSet", idRule)
 	if err != nil {
 		return nil, err
 	}
-	return &IAutomationRegistryMasterUpkeepCheckDataSetIterator{contract: _IAutomationRegistryMaster.contract, event: "UpkeepCheckDataSet", logs: logs, sub: sub}, nil
+	return &IAutomationRegistryMaster23UpkeepCheckDataSetIterator{contract: _IAutomationRegistryMaster23.contract, event: "UpkeepCheckDataSet", logs: logs, sub: sub}, nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchUpkeepCheckDataSet(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterUpkeepCheckDataSet, id []*big.Int) (event.Subscription, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) WatchUpkeepCheckDataSet(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23UpkeepCheckDataSet, id []*big.Int) (event.Subscription, error) {
 
 	var idRule []interface{}
 	for _, idItem := range id {
 		idRule = append(idRule, idItem)
 	}
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.WatchLogs(opts, "UpkeepCheckDataSet", idRule)
+	logs, sub, err := _IAutomationRegistryMaster23.contract.WatchLogs(opts, "UpkeepCheckDataSet", idRule)
 	if err != nil {
 		return nil, err
 	}
@@ -4711,8 +4977,8 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchUpkeep
 			select {
 			case log := <-logs:
 
-				event := new(IAutomationRegistryMasterUpkeepCheckDataSet)
-				if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "UpkeepCheckDataSet", log); err != nil {
+				event := new(IAutomationRegistryMaster23UpkeepCheckDataSet)
+				if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "UpkeepCheckDataSet", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -4733,17 +4999,17 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchUpkeep
 	}), nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) ParseUpkeepCheckDataSet(log types.Log) (*IAutomationRegistryMasterUpkeepCheckDataSet, error) {
-	event := new(IAutomationRegistryMasterUpkeepCheckDataSet)
-	if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "UpkeepCheckDataSet", log); err != nil {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) ParseUpkeepCheckDataSet(log types.Log) (*IAutomationRegistryMaster23UpkeepCheckDataSet, error) {
+	event := new(IAutomationRegistryMaster23UpkeepCheckDataSet)
+	if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "UpkeepCheckDataSet", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
 	return event, nil
 }
 
-type IAutomationRegistryMasterUpkeepGasLimitSetIterator struct {
-	Event *IAutomationRegistryMasterUpkeepGasLimitSet
+type IAutomationRegistryMaster23UpkeepGasLimitSetIterator struct {
+	Event *IAutomationRegistryMaster23UpkeepGasLimitSet
 
 	contract *bind.BoundContract
 	event    string
@@ -4754,7 +5020,7 @@ type IAutomationRegistryMasterUpkeepGasLimitSetIterator struct {
 	fail error
 }
 
-func (it *IAutomationRegistryMasterUpkeepGasLimitSetIterator) Next() bool {
+func (it *IAutomationRegistryMaster23UpkeepGasLimitSetIterator) Next() bool {
 
 	if it.fail != nil {
 		return false
@@ -4763,7 +5029,7 @@ func (it *IAutomationRegistryMasterUpkeepGasLimitSetIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(IAutomationRegistryMasterUpkeepGasLimitSet)
+			it.Event = new(IAutomationRegistryMaster23UpkeepGasLimitSet)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -4778,7 +5044,7 @@ func (it *IAutomationRegistryMasterUpkeepGasLimitSetIterator) Next() bool {
 
 	select {
 	case log := <-it.logs:
-		it.Event = new(IAutomationRegistryMasterUpkeepGasLimitSet)
+		it.Event = new(IAutomationRegistryMaster23UpkeepGasLimitSet)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -4793,43 +5059,43 @@ func (it *IAutomationRegistryMasterUpkeepGasLimitSetIterator) Next() bool {
 	}
 }
 
-func (it *IAutomationRegistryMasterUpkeepGasLimitSetIterator) Error() error {
+func (it *IAutomationRegistryMaster23UpkeepGasLimitSetIterator) Error() error {
 	return it.fail
 }
 
-func (it *IAutomationRegistryMasterUpkeepGasLimitSetIterator) Close() error {
+func (it *IAutomationRegistryMaster23UpkeepGasLimitSetIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-type IAutomationRegistryMasterUpkeepGasLimitSet struct {
+type IAutomationRegistryMaster23UpkeepGasLimitSet struct {
 	Id       *big.Int
 	GasLimit *big.Int
 	Raw      types.Log
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) FilterUpkeepGasLimitSet(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMasterUpkeepGasLimitSetIterator, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) FilterUpkeepGasLimitSet(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMaster23UpkeepGasLimitSetIterator, error) {
 
 	var idRule []interface{}
 	for _, idItem := range id {
 		idRule = append(idRule, idItem)
 	}
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.FilterLogs(opts, "UpkeepGasLimitSet", idRule)
+	logs, sub, err := _IAutomationRegistryMaster23.contract.FilterLogs(opts, "UpkeepGasLimitSet", idRule)
 	if err != nil {
 		return nil, err
 	}
-	return &IAutomationRegistryMasterUpkeepGasLimitSetIterator{contract: _IAutomationRegistryMaster.contract, event: "UpkeepGasLimitSet", logs: logs, sub: sub}, nil
+	return &IAutomationRegistryMaster23UpkeepGasLimitSetIterator{contract: _IAutomationRegistryMaster23.contract, event: "UpkeepGasLimitSet", logs: logs, sub: sub}, nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchUpkeepGasLimitSet(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterUpkeepGasLimitSet, id []*big.Int) (event.Subscription, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) WatchUpkeepGasLimitSet(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23UpkeepGasLimitSet, id []*big.Int) (event.Subscription, error) {
 
 	var idRule []interface{}
 	for _, idItem := range id {
 		idRule = append(idRule, idItem)
 	}
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.WatchLogs(opts, "UpkeepGasLimitSet", idRule)
+	logs, sub, err := _IAutomationRegistryMaster23.contract.WatchLogs(opts, "UpkeepGasLimitSet", idRule)
 	if err != nil {
 		return nil, err
 	}
@@ -4839,8 +5105,8 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchUpkeep
 			select {
 			case log := <-logs:
 
-				event := new(IAutomationRegistryMasterUpkeepGasLimitSet)
-				if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "UpkeepGasLimitSet", log); err != nil {
+				event := new(IAutomationRegistryMaster23UpkeepGasLimitSet)
+				if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "UpkeepGasLimitSet", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -4861,17 +5127,17 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchUpkeep
 	}), nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) ParseUpkeepGasLimitSet(log types.Log) (*IAutomationRegistryMasterUpkeepGasLimitSet, error) {
-	event := new(IAutomationRegistryMasterUpkeepGasLimitSet)
-	if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "UpkeepGasLimitSet", log); err != nil {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) ParseUpkeepGasLimitSet(log types.Log) (*IAutomationRegistryMaster23UpkeepGasLimitSet, error) {
+	event := new(IAutomationRegistryMaster23UpkeepGasLimitSet)
+	if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "UpkeepGasLimitSet", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
 	return event, nil
 }
 
-type IAutomationRegistryMasterUpkeepMigratedIterator struct {
-	Event *IAutomationRegistryMasterUpkeepMigrated
+type IAutomationRegistryMaster23UpkeepMigratedIterator struct {
+	Event *IAutomationRegistryMaster23UpkeepMigrated
 
 	contract *bind.BoundContract
 	event    string
@@ -4882,7 +5148,7 @@ type IAutomationRegistryMasterUpkeepMigratedIterator struct {
 	fail error
 }
 
-func (it *IAutomationRegistryMasterUpkeepMigratedIterator) Next() bool {
+func (it *IAutomationRegistryMaster23UpkeepMigratedIterator) Next() bool {
 
 	if it.fail != nil {
 		return false
@@ -4891,7 +5157,7 @@ func (it *IAutomationRegistryMasterUpkeepMigratedIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(IAutomationRegistryMasterUpkeepMigrated)
+			it.Event = new(IAutomationRegistryMaster23UpkeepMigrated)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -4906,7 +5172,7 @@ func (it *IAutomationRegistryMasterUpkeepMigratedIterator) Next() bool {
 
 	select {
 	case log := <-it.logs:
-		it.Event = new(IAutomationRegistryMasterUpkeepMigrated)
+		it.Event = new(IAutomationRegistryMaster23UpkeepMigrated)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -4921,44 +5187,44 @@ func (it *IAutomationRegistryMasterUpkeepMigratedIterator) Next() bool {
 	}
 }
 
-func (it *IAutomationRegistryMasterUpkeepMigratedIterator) Error() error {
+func (it *IAutomationRegistryMaster23UpkeepMigratedIterator) Error() error {
 	return it.fail
 }
 
-func (it *IAutomationRegistryMasterUpkeepMigratedIterator) Close() error {
+func (it *IAutomationRegistryMaster23UpkeepMigratedIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-type IAutomationRegistryMasterUpkeepMigrated struct {
+type IAutomationRegistryMaster23UpkeepMigrated struct {
 	Id               *big.Int
 	RemainingBalance *big.Int
 	Destination      common.Address
 	Raw              types.Log
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) FilterUpkeepMigrated(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMasterUpkeepMigratedIterator, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) FilterUpkeepMigrated(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMaster23UpkeepMigratedIterator, error) {
 
 	var idRule []interface{}
 	for _, idItem := range id {
 		idRule = append(idRule, idItem)
 	}
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.FilterLogs(opts, "UpkeepMigrated", idRule)
+	logs, sub, err := _IAutomationRegistryMaster23.contract.FilterLogs(opts, "UpkeepMigrated", idRule)
 	if err != nil {
 		return nil, err
 	}
-	return &IAutomationRegistryMasterUpkeepMigratedIterator{contract: _IAutomationRegistryMaster.contract, event: "UpkeepMigrated", logs: logs, sub: sub}, nil
+	return &IAutomationRegistryMaster23UpkeepMigratedIterator{contract: _IAutomationRegistryMaster23.contract, event: "UpkeepMigrated", logs: logs, sub: sub}, nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchUpkeepMigrated(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterUpkeepMigrated, id []*big.Int) (event.Subscription, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) WatchUpkeepMigrated(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23UpkeepMigrated, id []*big.Int) (event.Subscription, error) {
 
 	var idRule []interface{}
 	for _, idItem := range id {
 		idRule = append(idRule, idItem)
 	}
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.WatchLogs(opts, "UpkeepMigrated", idRule)
+	logs, sub, err := _IAutomationRegistryMaster23.contract.WatchLogs(opts, "UpkeepMigrated", idRule)
 	if err != nil {
 		return nil, err
 	}
@@ -4968,8 +5234,8 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchUpkeep
 			select {
 			case log := <-logs:
 
-				event := new(IAutomationRegistryMasterUpkeepMigrated)
-				if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "UpkeepMigrated", log); err != nil {
+				event := new(IAutomationRegistryMaster23UpkeepMigrated)
+				if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "UpkeepMigrated", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -4990,17 +5256,17 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchUpkeep
 	}), nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) ParseUpkeepMigrated(log types.Log) (*IAutomationRegistryMasterUpkeepMigrated, error) {
-	event := new(IAutomationRegistryMasterUpkeepMigrated)
-	if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "UpkeepMigrated", log); err != nil {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) ParseUpkeepMigrated(log types.Log) (*IAutomationRegistryMaster23UpkeepMigrated, error) {
+	event := new(IAutomationRegistryMaster23UpkeepMigrated)
+	if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "UpkeepMigrated", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
 	return event, nil
 }
 
-type IAutomationRegistryMasterUpkeepOffchainConfigSetIterator struct {
-	Event *IAutomationRegistryMasterUpkeepOffchainConfigSet
+type IAutomationRegistryMaster23UpkeepOffchainConfigSetIterator struct {
+	Event *IAutomationRegistryMaster23UpkeepOffchainConfigSet
 
 	contract *bind.BoundContract
 	event    string
@@ -5011,7 +5277,7 @@ type IAutomationRegistryMasterUpkeepOffchainConfigSetIterator struct {
 	fail error
 }
 
-func (it *IAutomationRegistryMasterUpkeepOffchainConfigSetIterator) Next() bool {
+func (it *IAutomationRegistryMaster23UpkeepOffchainConfigSetIterator) Next() bool {
 
 	if it.fail != nil {
 		return false
@@ -5020,7 +5286,7 @@ func (it *IAutomationRegistryMasterUpkeepOffchainConfigSetIterator) Next() bool 
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(IAutomationRegistryMasterUpkeepOffchainConfigSet)
+			it.Event = new(IAutomationRegistryMaster23UpkeepOffchainConfigSet)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -5035,7 +5301,7 @@ func (it *IAutomationRegistryMasterUpkeepOffchainConfigSetIterator) Next() bool 
 
 	select {
 	case log := <-it.logs:
-		it.Event = new(IAutomationRegistryMasterUpkeepOffchainConfigSet)
+		it.Event = new(IAutomationRegistryMaster23UpkeepOffchainConfigSet)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -5050,43 +5316,43 @@ func (it *IAutomationRegistryMasterUpkeepOffchainConfigSetIterator) Next() bool 
 	}
 }
 
-func (it *IAutomationRegistryMasterUpkeepOffchainConfigSetIterator) Error() error {
+func (it *IAutomationRegistryMaster23UpkeepOffchainConfigSetIterator) Error() error {
 	return it.fail
 }
 
-func (it *IAutomationRegistryMasterUpkeepOffchainConfigSetIterator) Close() error {
+func (it *IAutomationRegistryMaster23UpkeepOffchainConfigSetIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-type IAutomationRegistryMasterUpkeepOffchainConfigSet struct {
+type IAutomationRegistryMaster23UpkeepOffchainConfigSet struct {
 	Id             *big.Int
 	OffchainConfig []byte
 	Raw            types.Log
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) FilterUpkeepOffchainConfigSet(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMasterUpkeepOffchainConfigSetIterator, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) FilterUpkeepOffchainConfigSet(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMaster23UpkeepOffchainConfigSetIterator, error) {
 
 	var idRule []interface{}
 	for _, idItem := range id {
 		idRule = append(idRule, idItem)
 	}
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.FilterLogs(opts, "UpkeepOffchainConfigSet", idRule)
+	logs, sub, err := _IAutomationRegistryMaster23.contract.FilterLogs(opts, "UpkeepOffchainConfigSet", idRule)
 	if err != nil {
 		return nil, err
 	}
-	return &IAutomationRegistryMasterUpkeepOffchainConfigSetIterator{contract: _IAutomationRegistryMaster.contract, event: "UpkeepOffchainConfigSet", logs: logs, sub: sub}, nil
+	return &IAutomationRegistryMaster23UpkeepOffchainConfigSetIterator{contract: _IAutomationRegistryMaster23.contract, event: "UpkeepOffchainConfigSet", logs: logs, sub: sub}, nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchUpkeepOffchainConfigSet(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterUpkeepOffchainConfigSet, id []*big.Int) (event.Subscription, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) WatchUpkeepOffchainConfigSet(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23UpkeepOffchainConfigSet, id []*big.Int) (event.Subscription, error) {
 
 	var idRule []interface{}
 	for _, idItem := range id {
 		idRule = append(idRule, idItem)
 	}
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.WatchLogs(opts, "UpkeepOffchainConfigSet", idRule)
+	logs, sub, err := _IAutomationRegistryMaster23.contract.WatchLogs(opts, "UpkeepOffchainConfigSet", idRule)
 	if err != nil {
 		return nil, err
 	}
@@ -5096,8 +5362,8 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchUpkeep
 			select {
 			case log := <-logs:
 
-				event := new(IAutomationRegistryMasterUpkeepOffchainConfigSet)
-				if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "UpkeepOffchainConfigSet", log); err != nil {
+				event := new(IAutomationRegistryMaster23UpkeepOffchainConfigSet)
+				if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "UpkeepOffchainConfigSet", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -5118,17 +5384,17 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchUpkeep
 	}), nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) ParseUpkeepOffchainConfigSet(log types.Log) (*IAutomationRegistryMasterUpkeepOffchainConfigSet, error) {
-	event := new(IAutomationRegistryMasterUpkeepOffchainConfigSet)
-	if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "UpkeepOffchainConfigSet", log); err != nil {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) ParseUpkeepOffchainConfigSet(log types.Log) (*IAutomationRegistryMaster23UpkeepOffchainConfigSet, error) {
+	event := new(IAutomationRegistryMaster23UpkeepOffchainConfigSet)
+	if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "UpkeepOffchainConfigSet", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
 	return event, nil
 }
 
-type IAutomationRegistryMasterUpkeepPausedIterator struct {
-	Event *IAutomationRegistryMasterUpkeepPaused
+type IAutomationRegistryMaster23UpkeepPausedIterator struct {
+	Event *IAutomationRegistryMaster23UpkeepPaused
 
 	contract *bind.BoundContract
 	event    string
@@ -5139,7 +5405,7 @@ type IAutomationRegistryMasterUpkeepPausedIterator struct {
 	fail error
 }
 
-func (it *IAutomationRegistryMasterUpkeepPausedIterator) Next() bool {
+func (it *IAutomationRegistryMaster23UpkeepPausedIterator) Next() bool {
 
 	if it.fail != nil {
 		return false
@@ -5148,7 +5414,7 @@ func (it *IAutomationRegistryMasterUpkeepPausedIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(IAutomationRegistryMasterUpkeepPaused)
+			it.Event = new(IAutomationRegistryMaster23UpkeepPaused)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -5163,7 +5429,7 @@ func (it *IAutomationRegistryMasterUpkeepPausedIterator) Next() bool {
 
 	select {
 	case log := <-it.logs:
-		it.Event = new(IAutomationRegistryMasterUpkeepPaused)
+		it.Event = new(IAutomationRegistryMaster23UpkeepPaused)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -5178,42 +5444,42 @@ func (it *IAutomationRegistryMasterUpkeepPausedIterator) Next() bool {
 	}
 }
 
-func (it *IAutomationRegistryMasterUpkeepPausedIterator) Error() error {
+func (it *IAutomationRegistryMaster23UpkeepPausedIterator) Error() error {
 	return it.fail
 }
 
-func (it *IAutomationRegistryMasterUpkeepPausedIterator) Close() error {
+func (it *IAutomationRegistryMaster23UpkeepPausedIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-type IAutomationRegistryMasterUpkeepPaused struct {
+type IAutomationRegistryMaster23UpkeepPaused struct {
 	Id  *big.Int
 	Raw types.Log
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) FilterUpkeepPaused(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMasterUpkeepPausedIterator, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) FilterUpkeepPaused(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMaster23UpkeepPausedIterator, error) {
 
 	var idRule []interface{}
 	for _, idItem := range id {
 		idRule = append(idRule, idItem)
 	}
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.FilterLogs(opts, "UpkeepPaused", idRule)
+	logs, sub, err := _IAutomationRegistryMaster23.contract.FilterLogs(opts, "UpkeepPaused", idRule)
 	if err != nil {
 		return nil, err
 	}
-	return &IAutomationRegistryMasterUpkeepPausedIterator{contract: _IAutomationRegistryMaster.contract, event: "UpkeepPaused", logs: logs, sub: sub}, nil
+	return &IAutomationRegistryMaster23UpkeepPausedIterator{contract: _IAutomationRegistryMaster23.contract, event: "UpkeepPaused", logs: logs, sub: sub}, nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchUpkeepPaused(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterUpkeepPaused, id []*big.Int) (event.Subscription, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) WatchUpkeepPaused(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23UpkeepPaused, id []*big.Int) (event.Subscription, error) {
 
 	var idRule []interface{}
 	for _, idItem := range id {
 		idRule = append(idRule, idItem)
 	}
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.WatchLogs(opts, "UpkeepPaused", idRule)
+	logs, sub, err := _IAutomationRegistryMaster23.contract.WatchLogs(opts, "UpkeepPaused", idRule)
 	if err != nil {
 		return nil, err
 	}
@@ -5223,8 +5489,8 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchUpkeep
 			select {
 			case log := <-logs:
 
-				event := new(IAutomationRegistryMasterUpkeepPaused)
-				if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "UpkeepPaused", log); err != nil {
+				event := new(IAutomationRegistryMaster23UpkeepPaused)
+				if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "UpkeepPaused", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -5245,17 +5511,17 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchUpkeep
 	}), nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) ParseUpkeepPaused(log types.Log) (*IAutomationRegistryMasterUpkeepPaused, error) {
-	event := new(IAutomationRegistryMasterUpkeepPaused)
-	if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "UpkeepPaused", log); err != nil {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) ParseUpkeepPaused(log types.Log) (*IAutomationRegistryMaster23UpkeepPaused, error) {
+	event := new(IAutomationRegistryMaster23UpkeepPaused)
+	if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "UpkeepPaused", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
 	return event, nil
 }
 
-type IAutomationRegistryMasterUpkeepPerformedIterator struct {
-	Event *IAutomationRegistryMasterUpkeepPerformed
+type IAutomationRegistryMaster23UpkeepPerformedIterator struct {
+	Event *IAutomationRegistryMaster23UpkeepPerformed
 
 	contract *bind.BoundContract
 	event    string
@@ -5266,7 +5532,7 @@ type IAutomationRegistryMasterUpkeepPerformedIterator struct {
 	fail error
 }
 
-func (it *IAutomationRegistryMasterUpkeepPerformedIterator) Next() bool {
+func (it *IAutomationRegistryMaster23UpkeepPerformedIterator) Next() bool {
 
 	if it.fail != nil {
 		return false
@@ -5275,7 +5541,7 @@ func (it *IAutomationRegistryMasterUpkeepPerformedIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(IAutomationRegistryMasterUpkeepPerformed)
+			it.Event = new(IAutomationRegistryMaster23UpkeepPerformed)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -5290,7 +5556,7 @@ func (it *IAutomationRegistryMasterUpkeepPerformedIterator) Next() bool {
 
 	select {
 	case log := <-it.logs:
-		it.Event = new(IAutomationRegistryMasterUpkeepPerformed)
+		it.Event = new(IAutomationRegistryMaster23UpkeepPerformed)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -5305,16 +5571,16 @@ func (it *IAutomationRegistryMasterUpkeepPerformedIterator) Next() bool {
 	}
 }
 
-func (it *IAutomationRegistryMasterUpkeepPerformedIterator) Error() error {
+func (it *IAutomationRegistryMaster23UpkeepPerformedIterator) Error() error {
 	return it.fail
 }
 
-func (it *IAutomationRegistryMasterUpkeepPerformedIterator) Close() error {
+func (it *IAutomationRegistryMaster23UpkeepPerformedIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-type IAutomationRegistryMasterUpkeepPerformed struct {
+type IAutomationRegistryMaster23UpkeepPerformed struct {
 	Id           *big.Int
 	Success      bool
 	TotalPayment *big.Int
@@ -5324,7 +5590,7 @@ type IAutomationRegistryMasterUpkeepPerformed struct {
 	Raw          types.Log
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) FilterUpkeepPerformed(opts *bind.FilterOpts, id []*big.Int, success []bool) (*IAutomationRegistryMasterUpkeepPerformedIterator, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) FilterUpkeepPerformed(opts *bind.FilterOpts, id []*big.Int, success []bool) (*IAutomationRegistryMaster23UpkeepPerformedIterator, error) {
 
 	var idRule []interface{}
 	for _, idItem := range id {
@@ -5335,14 +5601,14 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) FilterUpkee
 		successRule = append(successRule, successItem)
 	}
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.FilterLogs(opts, "UpkeepPerformed", idRule, successRule)
+	logs, sub, err := _IAutomationRegistryMaster23.contract.FilterLogs(opts, "UpkeepPerformed", idRule, successRule)
 	if err != nil {
 		return nil, err
 	}
-	return &IAutomationRegistryMasterUpkeepPerformedIterator{contract: _IAutomationRegistryMaster.contract, event: "UpkeepPerformed", logs: logs, sub: sub}, nil
+	return &IAutomationRegistryMaster23UpkeepPerformedIterator{contract: _IAutomationRegistryMaster23.contract, event: "UpkeepPerformed", logs: logs, sub: sub}, nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchUpkeepPerformed(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterUpkeepPerformed, id []*big.Int, success []bool) (event.Subscription, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) WatchUpkeepPerformed(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23UpkeepPerformed, id []*big.Int, success []bool) (event.Subscription, error) {
 
 	var idRule []interface{}
 	for _, idItem := range id {
@@ -5353,7 +5619,7 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchUpkeep
 		successRule = append(successRule, successItem)
 	}
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.WatchLogs(opts, "UpkeepPerformed", idRule, successRule)
+	logs, sub, err := _IAutomationRegistryMaster23.contract.WatchLogs(opts, "UpkeepPerformed", idRule, successRule)
 	if err != nil {
 		return nil, err
 	}
@@ -5363,8 +5629,8 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchUpkeep
 			select {
 			case log := <-logs:
 
-				event := new(IAutomationRegistryMasterUpkeepPerformed)
-				if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "UpkeepPerformed", log); err != nil {
+				event := new(IAutomationRegistryMaster23UpkeepPerformed)
+				if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "UpkeepPerformed", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -5385,17 +5651,17 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchUpkeep
 	}), nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) ParseUpkeepPerformed(log types.Log) (*IAutomationRegistryMasterUpkeepPerformed, error) {
-	event := new(IAutomationRegistryMasterUpkeepPerformed)
-	if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "UpkeepPerformed", log); err != nil {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) ParseUpkeepPerformed(log types.Log) (*IAutomationRegistryMaster23UpkeepPerformed, error) {
+	event := new(IAutomationRegistryMaster23UpkeepPerformed)
+	if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "UpkeepPerformed", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
 	return event, nil
 }
 
-type IAutomationRegistryMasterUpkeepPrivilegeConfigSetIterator struct {
-	Event *IAutomationRegistryMasterUpkeepPrivilegeConfigSet
+type IAutomationRegistryMaster23UpkeepPrivilegeConfigSetIterator struct {
+	Event *IAutomationRegistryMaster23UpkeepPrivilegeConfigSet
 
 	contract *bind.BoundContract
 	event    string
@@ -5406,7 +5672,7 @@ type IAutomationRegistryMasterUpkeepPrivilegeConfigSetIterator struct {
 	fail error
 }
 
-func (it *IAutomationRegistryMasterUpkeepPrivilegeConfigSetIterator) Next() bool {
+func (it *IAutomationRegistryMaster23UpkeepPrivilegeConfigSetIterator) Next() bool {
 
 	if it.fail != nil {
 		return false
@@ -5415,7 +5681,7 @@ func (it *IAutomationRegistryMasterUpkeepPrivilegeConfigSetIterator) Next() bool
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(IAutomationRegistryMasterUpkeepPrivilegeConfigSet)
+			it.Event = new(IAutomationRegistryMaster23UpkeepPrivilegeConfigSet)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -5430,7 +5696,7 @@ func (it *IAutomationRegistryMasterUpkeepPrivilegeConfigSetIterator) Next() bool
 
 	select {
 	case log := <-it.logs:
-		it.Event = new(IAutomationRegistryMasterUpkeepPrivilegeConfigSet)
+		it.Event = new(IAutomationRegistryMaster23UpkeepPrivilegeConfigSet)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -5445,43 +5711,43 @@ func (it *IAutomationRegistryMasterUpkeepPrivilegeConfigSetIterator) Next() bool
 	}
 }
 
-func (it *IAutomationRegistryMasterUpkeepPrivilegeConfigSetIterator) Error() error {
+func (it *IAutomationRegistryMaster23UpkeepPrivilegeConfigSetIterator) Error() error {
 	return it.fail
 }
 
-func (it *IAutomationRegistryMasterUpkeepPrivilegeConfigSetIterator) Close() error {
+func (it *IAutomationRegistryMaster23UpkeepPrivilegeConfigSetIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-type IAutomationRegistryMasterUpkeepPrivilegeConfigSet struct {
+type IAutomationRegistryMaster23UpkeepPrivilegeConfigSet struct {
 	Id              *big.Int
 	PrivilegeConfig []byte
 	Raw             types.Log
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) FilterUpkeepPrivilegeConfigSet(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMasterUpkeepPrivilegeConfigSetIterator, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) FilterUpkeepPrivilegeConfigSet(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMaster23UpkeepPrivilegeConfigSetIterator, error) {
 
 	var idRule []interface{}
 	for _, idItem := range id {
 		idRule = append(idRule, idItem)
 	}
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.FilterLogs(opts, "UpkeepPrivilegeConfigSet", idRule)
+	logs, sub, err := _IAutomationRegistryMaster23.contract.FilterLogs(opts, "UpkeepPrivilegeConfigSet", idRule)
 	if err != nil {
 		return nil, err
 	}
-	return &IAutomationRegistryMasterUpkeepPrivilegeConfigSetIterator{contract: _IAutomationRegistryMaster.contract, event: "UpkeepPrivilegeConfigSet", logs: logs, sub: sub}, nil
+	return &IAutomationRegistryMaster23UpkeepPrivilegeConfigSetIterator{contract: _IAutomationRegistryMaster23.contract, event: "UpkeepPrivilegeConfigSet", logs: logs, sub: sub}, nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchUpkeepPrivilegeConfigSet(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterUpkeepPrivilegeConfigSet, id []*big.Int) (event.Subscription, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) WatchUpkeepPrivilegeConfigSet(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23UpkeepPrivilegeConfigSet, id []*big.Int) (event.Subscription, error) {
 
 	var idRule []interface{}
 	for _, idItem := range id {
 		idRule = append(idRule, idItem)
 	}
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.WatchLogs(opts, "UpkeepPrivilegeConfigSet", idRule)
+	logs, sub, err := _IAutomationRegistryMaster23.contract.WatchLogs(opts, "UpkeepPrivilegeConfigSet", idRule)
 	if err != nil {
 		return nil, err
 	}
@@ -5491,8 +5757,8 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchUpkeep
 			select {
 			case log := <-logs:
 
-				event := new(IAutomationRegistryMasterUpkeepPrivilegeConfigSet)
-				if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "UpkeepPrivilegeConfigSet", log); err != nil {
+				event := new(IAutomationRegistryMaster23UpkeepPrivilegeConfigSet)
+				if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "UpkeepPrivilegeConfigSet", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -5513,17 +5779,17 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchUpkeep
 	}), nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) ParseUpkeepPrivilegeConfigSet(log types.Log) (*IAutomationRegistryMasterUpkeepPrivilegeConfigSet, error) {
-	event := new(IAutomationRegistryMasterUpkeepPrivilegeConfigSet)
-	if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "UpkeepPrivilegeConfigSet", log); err != nil {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) ParseUpkeepPrivilegeConfigSet(log types.Log) (*IAutomationRegistryMaster23UpkeepPrivilegeConfigSet, error) {
+	event := new(IAutomationRegistryMaster23UpkeepPrivilegeConfigSet)
+	if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "UpkeepPrivilegeConfigSet", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
 	return event, nil
 }
 
-type IAutomationRegistryMasterUpkeepReceivedIterator struct {
-	Event *IAutomationRegistryMasterUpkeepReceived
+type IAutomationRegistryMaster23UpkeepReceivedIterator struct {
+	Event *IAutomationRegistryMaster23UpkeepReceived
 
 	contract *bind.BoundContract
 	event    string
@@ -5534,7 +5800,7 @@ type IAutomationRegistryMasterUpkeepReceivedIterator struct {
 	fail error
 }
 
-func (it *IAutomationRegistryMasterUpkeepReceivedIterator) Next() bool {
+func (it *IAutomationRegistryMaster23UpkeepReceivedIterator) Next() bool {
 
 	if it.fail != nil {
 		return false
@@ -5543,7 +5809,7 @@ func (it *IAutomationRegistryMasterUpkeepReceivedIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(IAutomationRegistryMasterUpkeepReceived)
+			it.Event = new(IAutomationRegistryMaster23UpkeepReceived)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -5558,7 +5824,7 @@ func (it *IAutomationRegistryMasterUpkeepReceivedIterator) Next() bool {
 
 	select {
 	case log := <-it.logs:
-		it.Event = new(IAutomationRegistryMasterUpkeepReceived)
+		it.Event = new(IAutomationRegistryMaster23UpkeepReceived)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -5573,44 +5839,44 @@ func (it *IAutomationRegistryMasterUpkeepReceivedIterator) Next() bool {
 	}
 }
 
-func (it *IAutomationRegistryMasterUpkeepReceivedIterator) Error() error {
+func (it *IAutomationRegistryMaster23UpkeepReceivedIterator) Error() error {
 	return it.fail
 }
 
-func (it *IAutomationRegistryMasterUpkeepReceivedIterator) Close() error {
+func (it *IAutomationRegistryMaster23UpkeepReceivedIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-type IAutomationRegistryMasterUpkeepReceived struct {
+type IAutomationRegistryMaster23UpkeepReceived struct {
 	Id              *big.Int
 	StartingBalance *big.Int
 	ImportedFrom    common.Address
 	Raw             types.Log
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) FilterUpkeepReceived(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMasterUpkeepReceivedIterator, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) FilterUpkeepReceived(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMaster23UpkeepReceivedIterator, error) {
 
 	var idRule []interface{}
 	for _, idItem := range id {
 		idRule = append(idRule, idItem)
 	}
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.FilterLogs(opts, "UpkeepReceived", idRule)
+	logs, sub, err := _IAutomationRegistryMaster23.contract.FilterLogs(opts, "UpkeepReceived", idRule)
 	if err != nil {
 		return nil, err
 	}
-	return &IAutomationRegistryMasterUpkeepReceivedIterator{contract: _IAutomationRegistryMaster.contract, event: "UpkeepReceived", logs: logs, sub: sub}, nil
+	return &IAutomationRegistryMaster23UpkeepReceivedIterator{contract: _IAutomationRegistryMaster23.contract, event: "UpkeepReceived", logs: logs, sub: sub}, nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchUpkeepReceived(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterUpkeepReceived, id []*big.Int) (event.Subscription, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) WatchUpkeepReceived(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23UpkeepReceived, id []*big.Int) (event.Subscription, error) {
 
 	var idRule []interface{}
 	for _, idItem := range id {
 		idRule = append(idRule, idItem)
 	}
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.WatchLogs(opts, "UpkeepReceived", idRule)
+	logs, sub, err := _IAutomationRegistryMaster23.contract.WatchLogs(opts, "UpkeepReceived", idRule)
 	if err != nil {
 		return nil, err
 	}
@@ -5620,8 +5886,8 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchUpkeep
 			select {
 			case log := <-logs:
 
-				event := new(IAutomationRegistryMasterUpkeepReceived)
-				if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "UpkeepReceived", log); err != nil {
+				event := new(IAutomationRegistryMaster23UpkeepReceived)
+				if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "UpkeepReceived", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -5642,17 +5908,17 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchUpkeep
 	}), nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) ParseUpkeepReceived(log types.Log) (*IAutomationRegistryMasterUpkeepReceived, error) {
-	event := new(IAutomationRegistryMasterUpkeepReceived)
-	if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "UpkeepReceived", log); err != nil {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) ParseUpkeepReceived(log types.Log) (*IAutomationRegistryMaster23UpkeepReceived, error) {
+	event := new(IAutomationRegistryMaster23UpkeepReceived)
+	if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "UpkeepReceived", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
 	return event, nil
 }
 
-type IAutomationRegistryMasterUpkeepRegisteredIterator struct {
-	Event *IAutomationRegistryMasterUpkeepRegistered
+type IAutomationRegistryMaster23UpkeepRegisteredIterator struct {
+	Event *IAutomationRegistryMaster23UpkeepRegistered
 
 	contract *bind.BoundContract
 	event    string
@@ -5663,7 +5929,7 @@ type IAutomationRegistryMasterUpkeepRegisteredIterator struct {
 	fail error
 }
 
-func (it *IAutomationRegistryMasterUpkeepRegisteredIterator) Next() bool {
+func (it *IAutomationRegistryMaster23UpkeepRegisteredIterator) Next() bool {
 
 	if it.fail != nil {
 		return false
@@ -5672,7 +5938,7 @@ func (it *IAutomationRegistryMasterUpkeepRegisteredIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(IAutomationRegistryMasterUpkeepRegistered)
+			it.Event = new(IAutomationRegistryMaster23UpkeepRegistered)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -5687,7 +5953,7 @@ func (it *IAutomationRegistryMasterUpkeepRegisteredIterator) Next() bool {
 
 	select {
 	case log := <-it.logs:
-		it.Event = new(IAutomationRegistryMasterUpkeepRegistered)
+		it.Event = new(IAutomationRegistryMaster23UpkeepRegistered)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -5702,44 +5968,44 @@ func (it *IAutomationRegistryMasterUpkeepRegisteredIterator) Next() bool {
 	}
 }
 
-func (it *IAutomationRegistryMasterUpkeepRegisteredIterator) Error() error {
+func (it *IAutomationRegistryMaster23UpkeepRegisteredIterator) Error() error {
 	return it.fail
 }
 
-func (it *IAutomationRegistryMasterUpkeepRegisteredIterator) Close() error {
+func (it *IAutomationRegistryMaster23UpkeepRegisteredIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-type IAutomationRegistryMasterUpkeepRegistered struct {
+type IAutomationRegistryMaster23UpkeepRegistered struct {
 	Id         *big.Int
 	PerformGas uint32
 	Admin      common.Address
 	Raw        types.Log
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) FilterUpkeepRegistered(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMasterUpkeepRegisteredIterator, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) FilterUpkeepRegistered(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMaster23UpkeepRegisteredIterator, error) {
 
 	var idRule []interface{}
 	for _, idItem := range id {
 		idRule = append(idRule, idItem)
 	}
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.FilterLogs(opts, "UpkeepRegistered", idRule)
+	logs, sub, err := _IAutomationRegistryMaster23.contract.FilterLogs(opts, "UpkeepRegistered", idRule)
 	if err != nil {
 		return nil, err
 	}
-	return &IAutomationRegistryMasterUpkeepRegisteredIterator{contract: _IAutomationRegistryMaster.contract, event: "UpkeepRegistered", logs: logs, sub: sub}, nil
+	return &IAutomationRegistryMaster23UpkeepRegisteredIterator{contract: _IAutomationRegistryMaster23.contract, event: "UpkeepRegistered", logs: logs, sub: sub}, nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchUpkeepRegistered(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterUpkeepRegistered, id []*big.Int) (event.Subscription, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) WatchUpkeepRegistered(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23UpkeepRegistered, id []*big.Int) (event.Subscription, error) {
 
 	var idRule []interface{}
 	for _, idItem := range id {
 		idRule = append(idRule, idItem)
 	}
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.WatchLogs(opts, "UpkeepRegistered", idRule)
+	logs, sub, err := _IAutomationRegistryMaster23.contract.WatchLogs(opts, "UpkeepRegistered", idRule)
 	if err != nil {
 		return nil, err
 	}
@@ -5749,8 +6015,8 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchUpkeep
 			select {
 			case log := <-logs:
 
-				event := new(IAutomationRegistryMasterUpkeepRegistered)
-				if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "UpkeepRegistered", log); err != nil {
+				event := new(IAutomationRegistryMaster23UpkeepRegistered)
+				if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "UpkeepRegistered", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -5771,17 +6037,17 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchUpkeep
 	}), nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) ParseUpkeepRegistered(log types.Log) (*IAutomationRegistryMasterUpkeepRegistered, error) {
-	event := new(IAutomationRegistryMasterUpkeepRegistered)
-	if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "UpkeepRegistered", log); err != nil {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) ParseUpkeepRegistered(log types.Log) (*IAutomationRegistryMaster23UpkeepRegistered, error) {
+	event := new(IAutomationRegistryMaster23UpkeepRegistered)
+	if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "UpkeepRegistered", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
 	return event, nil
 }
 
-type IAutomationRegistryMasterUpkeepTriggerConfigSetIterator struct {
-	Event *IAutomationRegistryMasterUpkeepTriggerConfigSet
+type IAutomationRegistryMaster23UpkeepTriggerConfigSetIterator struct {
+	Event *IAutomationRegistryMaster23UpkeepTriggerConfigSet
 
 	contract *bind.BoundContract
 	event    string
@@ -5792,7 +6058,7 @@ type IAutomationRegistryMasterUpkeepTriggerConfigSetIterator struct {
 	fail error
 }
 
-func (it *IAutomationRegistryMasterUpkeepTriggerConfigSetIterator) Next() bool {
+func (it *IAutomationRegistryMaster23UpkeepTriggerConfigSetIterator) Next() bool {
 
 	if it.fail != nil {
 		return false
@@ -5801,7 +6067,7 @@ func (it *IAutomationRegistryMasterUpkeepTriggerConfigSetIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(IAutomationRegistryMasterUpkeepTriggerConfigSet)
+			it.Event = new(IAutomationRegistryMaster23UpkeepTriggerConfigSet)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -5816,7 +6082,7 @@ func (it *IAutomationRegistryMasterUpkeepTriggerConfigSetIterator) Next() bool {
 
 	select {
 	case log := <-it.logs:
-		it.Event = new(IAutomationRegistryMasterUpkeepTriggerConfigSet)
+		it.Event = new(IAutomationRegistryMaster23UpkeepTriggerConfigSet)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -5831,43 +6097,43 @@ func (it *IAutomationRegistryMasterUpkeepTriggerConfigSetIterator) Next() bool {
 	}
 }
 
-func (it *IAutomationRegistryMasterUpkeepTriggerConfigSetIterator) Error() error {
+func (it *IAutomationRegistryMaster23UpkeepTriggerConfigSetIterator) Error() error {
 	return it.fail
 }
 
-func (it *IAutomationRegistryMasterUpkeepTriggerConfigSetIterator) Close() error {
+func (it *IAutomationRegistryMaster23UpkeepTriggerConfigSetIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-type IAutomationRegistryMasterUpkeepTriggerConfigSet struct {
+type IAutomationRegistryMaster23UpkeepTriggerConfigSet struct {
 	Id            *big.Int
 	TriggerConfig []byte
 	Raw           types.Log
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) FilterUpkeepTriggerConfigSet(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMasterUpkeepTriggerConfigSetIterator, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) FilterUpkeepTriggerConfigSet(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMaster23UpkeepTriggerConfigSetIterator, error) {
 
 	var idRule []interface{}
 	for _, idItem := range id {
 		idRule = append(idRule, idItem)
 	}
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.FilterLogs(opts, "UpkeepTriggerConfigSet", idRule)
+	logs, sub, err := _IAutomationRegistryMaster23.contract.FilterLogs(opts, "UpkeepTriggerConfigSet", idRule)
 	if err != nil {
 		return nil, err
 	}
-	return &IAutomationRegistryMasterUpkeepTriggerConfigSetIterator{contract: _IAutomationRegistryMaster.contract, event: "UpkeepTriggerConfigSet", logs: logs, sub: sub}, nil
+	return &IAutomationRegistryMaster23UpkeepTriggerConfigSetIterator{contract: _IAutomationRegistryMaster23.contract, event: "UpkeepTriggerConfigSet", logs: logs, sub: sub}, nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchUpkeepTriggerConfigSet(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterUpkeepTriggerConfigSet, id []*big.Int) (event.Subscription, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) WatchUpkeepTriggerConfigSet(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23UpkeepTriggerConfigSet, id []*big.Int) (event.Subscription, error) {
 
 	var idRule []interface{}
 	for _, idItem := range id {
 		idRule = append(idRule, idItem)
 	}
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.WatchLogs(opts, "UpkeepTriggerConfigSet", idRule)
+	logs, sub, err := _IAutomationRegistryMaster23.contract.WatchLogs(opts, "UpkeepTriggerConfigSet", idRule)
 	if err != nil {
 		return nil, err
 	}
@@ -5877,8 +6143,8 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchUpkeep
 			select {
 			case log := <-logs:
 
-				event := new(IAutomationRegistryMasterUpkeepTriggerConfigSet)
-				if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "UpkeepTriggerConfigSet", log); err != nil {
+				event := new(IAutomationRegistryMaster23UpkeepTriggerConfigSet)
+				if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "UpkeepTriggerConfigSet", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -5899,17 +6165,17 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchUpkeep
 	}), nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) ParseUpkeepTriggerConfigSet(log types.Log) (*IAutomationRegistryMasterUpkeepTriggerConfigSet, error) {
-	event := new(IAutomationRegistryMasterUpkeepTriggerConfigSet)
-	if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "UpkeepTriggerConfigSet", log); err != nil {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) ParseUpkeepTriggerConfigSet(log types.Log) (*IAutomationRegistryMaster23UpkeepTriggerConfigSet, error) {
+	event := new(IAutomationRegistryMaster23UpkeepTriggerConfigSet)
+	if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "UpkeepTriggerConfigSet", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
 	return event, nil
 }
 
-type IAutomationRegistryMasterUpkeepUnpausedIterator struct {
-	Event *IAutomationRegistryMasterUpkeepUnpaused
+type IAutomationRegistryMaster23UpkeepUnpausedIterator struct {
+	Event *IAutomationRegistryMaster23UpkeepUnpaused
 
 	contract *bind.BoundContract
 	event    string
@@ -5920,7 +6186,7 @@ type IAutomationRegistryMasterUpkeepUnpausedIterator struct {
 	fail error
 }
 
-func (it *IAutomationRegistryMasterUpkeepUnpausedIterator) Next() bool {
+func (it *IAutomationRegistryMaster23UpkeepUnpausedIterator) Next() bool {
 
 	if it.fail != nil {
 		return false
@@ -5929,7 +6195,7 @@ func (it *IAutomationRegistryMasterUpkeepUnpausedIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(IAutomationRegistryMasterUpkeepUnpaused)
+			it.Event = new(IAutomationRegistryMaster23UpkeepUnpaused)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -5944,7 +6210,7 @@ func (it *IAutomationRegistryMasterUpkeepUnpausedIterator) Next() bool {
 
 	select {
 	case log := <-it.logs:
-		it.Event = new(IAutomationRegistryMasterUpkeepUnpaused)
+		it.Event = new(IAutomationRegistryMaster23UpkeepUnpaused)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -5959,42 +6225,42 @@ func (it *IAutomationRegistryMasterUpkeepUnpausedIterator) Next() bool {
 	}
 }
 
-func (it *IAutomationRegistryMasterUpkeepUnpausedIterator) Error() error {
+func (it *IAutomationRegistryMaster23UpkeepUnpausedIterator) Error() error {
 	return it.fail
 }
 
-func (it *IAutomationRegistryMasterUpkeepUnpausedIterator) Close() error {
+func (it *IAutomationRegistryMaster23UpkeepUnpausedIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-type IAutomationRegistryMasterUpkeepUnpaused struct {
+type IAutomationRegistryMaster23UpkeepUnpaused struct {
 	Id  *big.Int
 	Raw types.Log
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) FilterUpkeepUnpaused(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMasterUpkeepUnpausedIterator, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) FilterUpkeepUnpaused(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMaster23UpkeepUnpausedIterator, error) {
 
 	var idRule []interface{}
 	for _, idItem := range id {
 		idRule = append(idRule, idItem)
 	}
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.FilterLogs(opts, "UpkeepUnpaused", idRule)
+	logs, sub, err := _IAutomationRegistryMaster23.contract.FilterLogs(opts, "UpkeepUnpaused", idRule)
 	if err != nil {
 		return nil, err
 	}
-	return &IAutomationRegistryMasterUpkeepUnpausedIterator{contract: _IAutomationRegistryMaster.contract, event: "UpkeepUnpaused", logs: logs, sub: sub}, nil
+	return &IAutomationRegistryMaster23UpkeepUnpausedIterator{contract: _IAutomationRegistryMaster23.contract, event: "UpkeepUnpaused", logs: logs, sub: sub}, nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchUpkeepUnpaused(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterUpkeepUnpaused, id []*big.Int) (event.Subscription, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) WatchUpkeepUnpaused(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23UpkeepUnpaused, id []*big.Int) (event.Subscription, error) {
 
 	var idRule []interface{}
 	for _, idItem := range id {
 		idRule = append(idRule, idItem)
 	}
 
-	logs, sub, err := _IAutomationRegistryMaster.contract.WatchLogs(opts, "UpkeepUnpaused", idRule)
+	logs, sub, err := _IAutomationRegistryMaster23.contract.WatchLogs(opts, "UpkeepUnpaused", idRule)
 	if err != nil {
 		return nil, err
 	}
@@ -6004,8 +6270,8 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchUpkeep
 			select {
 			case log := <-logs:
 
-				event := new(IAutomationRegistryMasterUpkeepUnpaused)
-				if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "UpkeepUnpaused", log); err != nil {
+				event := new(IAutomationRegistryMaster23UpkeepUnpaused)
+				if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "UpkeepUnpaused", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -6026,9 +6292,9 @@ func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) WatchUpkeep
 	}), nil
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMasterFilterer) ParseUpkeepUnpaused(log types.Log) (*IAutomationRegistryMasterUpkeepUnpaused, error) {
-	event := new(IAutomationRegistryMasterUpkeepUnpaused)
-	if err := _IAutomationRegistryMaster.contract.UnpackLog(event, "UpkeepUnpaused", log); err != nil {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23Filterer) ParseUpkeepUnpaused(log types.Log) (*IAutomationRegistryMaster23UpkeepUnpaused, error) {
+	event := new(IAutomationRegistryMaster23UpkeepUnpaused)
+	if err := _IAutomationRegistryMaster23.contract.UnpackLog(event, "UpkeepUnpaused", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
@@ -6048,7 +6314,7 @@ type CheckUpkeep struct {
 	GasUsed             *big.Int
 	GasLimit            *big.Int
 	FastGasWei          *big.Int
-	LinkNative          *big.Int
+	LinkUSD             *big.Int
 }
 type CheckUpkeep0 struct {
 	UpkeepNeeded        bool
@@ -6057,7 +6323,7 @@ type CheckUpkeep0 struct {
 	GasUsed             *big.Int
 	GasLimit            *big.Int
 	FastGasWei          *big.Int
-	LinkNative          *big.Int
+	LinkUSD             *big.Int
 }
 type GetSignerInfo struct {
 	Active bool
@@ -6092,223 +6358,229 @@ type SimulatePerformUpkeep struct {
 	GasUsed *big.Int
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMaster) ParseLog(log types.Log) (generated.AbigenLog, error) {
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23) ParseLog(log types.Log) (generated.AbigenLog, error) {
 	switch log.Topics[0] {
-	case _IAutomationRegistryMaster.abi.Events["AdminPrivilegeConfigSet"].ID:
-		return _IAutomationRegistryMaster.ParseAdminPrivilegeConfigSet(log)
-	case _IAutomationRegistryMaster.abi.Events["CancelledUpkeepReport"].ID:
-		return _IAutomationRegistryMaster.ParseCancelledUpkeepReport(log)
-	case _IAutomationRegistryMaster.abi.Events["ChainSpecificModuleUpdated"].ID:
-		return _IAutomationRegistryMaster.ParseChainSpecificModuleUpdated(log)
-	case _IAutomationRegistryMaster.abi.Events["ConfigSet"].ID:
-		return _IAutomationRegistryMaster.ParseConfigSet(log)
-	case _IAutomationRegistryMaster.abi.Events["DedupKeyAdded"].ID:
-		return _IAutomationRegistryMaster.ParseDedupKeyAdded(log)
-	case _IAutomationRegistryMaster.abi.Events["FundsAdded"].ID:
-		return _IAutomationRegistryMaster.ParseFundsAdded(log)
-	case _IAutomationRegistryMaster.abi.Events["FundsWithdrawn"].ID:
-		return _IAutomationRegistryMaster.ParseFundsWithdrawn(log)
-	case _IAutomationRegistryMaster.abi.Events["InsufficientFundsUpkeepReport"].ID:
-		return _IAutomationRegistryMaster.ParseInsufficientFundsUpkeepReport(log)
-	case _IAutomationRegistryMaster.abi.Events["OwnerFundsWithdrawn"].ID:
-		return _IAutomationRegistryMaster.ParseOwnerFundsWithdrawn(log)
-	case _IAutomationRegistryMaster.abi.Events["OwnershipTransferRequested"].ID:
-		return _IAutomationRegistryMaster.ParseOwnershipTransferRequested(log)
-	case _IAutomationRegistryMaster.abi.Events["OwnershipTransferred"].ID:
-		return _IAutomationRegistryMaster.ParseOwnershipTransferred(log)
-	case _IAutomationRegistryMaster.abi.Events["Paused"].ID:
-		return _IAutomationRegistryMaster.ParsePaused(log)
-	case _IAutomationRegistryMaster.abi.Events["PayeesUpdated"].ID:
-		return _IAutomationRegistryMaster.ParsePayeesUpdated(log)
-	case _IAutomationRegistryMaster.abi.Events["PayeeshipTransferRequested"].ID:
-		return _IAutomationRegistryMaster.ParsePayeeshipTransferRequested(log)
-	case _IAutomationRegistryMaster.abi.Events["PayeeshipTransferred"].ID:
-		return _IAutomationRegistryMaster.ParsePayeeshipTransferred(log)
-	case _IAutomationRegistryMaster.abi.Events["PaymentWithdrawn"].ID:
-		return _IAutomationRegistryMaster.ParsePaymentWithdrawn(log)
-	case _IAutomationRegistryMaster.abi.Events["ReorgedUpkeepReport"].ID:
-		return _IAutomationRegistryMaster.ParseReorgedUpkeepReport(log)
-	case _IAutomationRegistryMaster.abi.Events["StaleUpkeepReport"].ID:
-		return _IAutomationRegistryMaster.ParseStaleUpkeepReport(log)
-	case _IAutomationRegistryMaster.abi.Events["Transmitted"].ID:
-		return _IAutomationRegistryMaster.ParseTransmitted(log)
-	case _IAutomationRegistryMaster.abi.Events["Unpaused"].ID:
-		return _IAutomationRegistryMaster.ParseUnpaused(log)
-	case _IAutomationRegistryMaster.abi.Events["UpkeepAdminTransferRequested"].ID:
-		return _IAutomationRegistryMaster.ParseUpkeepAdminTransferRequested(log)
-	case _IAutomationRegistryMaster.abi.Events["UpkeepAdminTransferred"].ID:
-		return _IAutomationRegistryMaster.ParseUpkeepAdminTransferred(log)
-	case _IAutomationRegistryMaster.abi.Events["UpkeepCanceled"].ID:
-		return _IAutomationRegistryMaster.ParseUpkeepCanceled(log)
-	case _IAutomationRegistryMaster.abi.Events["UpkeepCheckDataSet"].ID:
-		return _IAutomationRegistryMaster.ParseUpkeepCheckDataSet(log)
-	case _IAutomationRegistryMaster.abi.Events["UpkeepGasLimitSet"].ID:
-		return _IAutomationRegistryMaster.ParseUpkeepGasLimitSet(log)
-	case _IAutomationRegistryMaster.abi.Events["UpkeepMigrated"].ID:
-		return _IAutomationRegistryMaster.ParseUpkeepMigrated(log)
-	case _IAutomationRegistryMaster.abi.Events["UpkeepOffchainConfigSet"].ID:
-		return _IAutomationRegistryMaster.ParseUpkeepOffchainConfigSet(log)
-	case _IAutomationRegistryMaster.abi.Events["UpkeepPaused"].ID:
-		return _IAutomationRegistryMaster.ParseUpkeepPaused(log)
-	case _IAutomationRegistryMaster.abi.Events["UpkeepPerformed"].ID:
-		return _IAutomationRegistryMaster.ParseUpkeepPerformed(log)
-	case _IAutomationRegistryMaster.abi.Events["UpkeepPrivilegeConfigSet"].ID:
-		return _IAutomationRegistryMaster.ParseUpkeepPrivilegeConfigSet(log)
-	case _IAutomationRegistryMaster.abi.Events["UpkeepReceived"].ID:
-		return _IAutomationRegistryMaster.ParseUpkeepReceived(log)
-	case _IAutomationRegistryMaster.abi.Events["UpkeepRegistered"].ID:
-		return _IAutomationRegistryMaster.ParseUpkeepRegistered(log)
-	case _IAutomationRegistryMaster.abi.Events["UpkeepTriggerConfigSet"].ID:
-		return _IAutomationRegistryMaster.ParseUpkeepTriggerConfigSet(log)
-	case _IAutomationRegistryMaster.abi.Events["UpkeepUnpaused"].ID:
-		return _IAutomationRegistryMaster.ParseUpkeepUnpaused(log)
+	case _IAutomationRegistryMaster23.abi.Events["AdminPrivilegeConfigSet"].ID:
+		return _IAutomationRegistryMaster23.ParseAdminPrivilegeConfigSet(log)
+	case _IAutomationRegistryMaster23.abi.Events["BillingConfigSet"].ID:
+		return _IAutomationRegistryMaster23.ParseBillingConfigSet(log)
+	case _IAutomationRegistryMaster23.abi.Events["CancelledUpkeepReport"].ID:
+		return _IAutomationRegistryMaster23.ParseCancelledUpkeepReport(log)
+	case _IAutomationRegistryMaster23.abi.Events["ChainSpecificModuleUpdated"].ID:
+		return _IAutomationRegistryMaster23.ParseChainSpecificModuleUpdated(log)
+	case _IAutomationRegistryMaster23.abi.Events["ConfigSet"].ID:
+		return _IAutomationRegistryMaster23.ParseConfigSet(log)
+	case _IAutomationRegistryMaster23.abi.Events["DedupKeyAdded"].ID:
+		return _IAutomationRegistryMaster23.ParseDedupKeyAdded(log)
+	case _IAutomationRegistryMaster23.abi.Events["FeesWithdrawn"].ID:
+		return _IAutomationRegistryMaster23.ParseFeesWithdrawn(log)
+	case _IAutomationRegistryMaster23.abi.Events["FundsAdded"].ID:
+		return _IAutomationRegistryMaster23.ParseFundsAdded(log)
+	case _IAutomationRegistryMaster23.abi.Events["FundsWithdrawn"].ID:
+		return _IAutomationRegistryMaster23.ParseFundsWithdrawn(log)
+	case _IAutomationRegistryMaster23.abi.Events["InsufficientFundsUpkeepReport"].ID:
+		return _IAutomationRegistryMaster23.ParseInsufficientFundsUpkeepReport(log)
+	case _IAutomationRegistryMaster23.abi.Events["OwnershipTransferRequested"].ID:
+		return _IAutomationRegistryMaster23.ParseOwnershipTransferRequested(log)
+	case _IAutomationRegistryMaster23.abi.Events["OwnershipTransferred"].ID:
+		return _IAutomationRegistryMaster23.ParseOwnershipTransferred(log)
+	case _IAutomationRegistryMaster23.abi.Events["Paused"].ID:
+		return _IAutomationRegistryMaster23.ParsePaused(log)
+	case _IAutomationRegistryMaster23.abi.Events["PayeesUpdated"].ID:
+		return _IAutomationRegistryMaster23.ParsePayeesUpdated(log)
+	case _IAutomationRegistryMaster23.abi.Events["PayeeshipTransferRequested"].ID:
+		return _IAutomationRegistryMaster23.ParsePayeeshipTransferRequested(log)
+	case _IAutomationRegistryMaster23.abi.Events["PayeeshipTransferred"].ID:
+		return _IAutomationRegistryMaster23.ParsePayeeshipTransferred(log)
+	case _IAutomationRegistryMaster23.abi.Events["PaymentWithdrawn"].ID:
+		return _IAutomationRegistryMaster23.ParsePaymentWithdrawn(log)
+	case _IAutomationRegistryMaster23.abi.Events["ReorgedUpkeepReport"].ID:
+		return _IAutomationRegistryMaster23.ParseReorgedUpkeepReport(log)
+	case _IAutomationRegistryMaster23.abi.Events["StaleUpkeepReport"].ID:
+		return _IAutomationRegistryMaster23.ParseStaleUpkeepReport(log)
+	case _IAutomationRegistryMaster23.abi.Events["Transmitted"].ID:
+		return _IAutomationRegistryMaster23.ParseTransmitted(log)
+	case _IAutomationRegistryMaster23.abi.Events["Unpaused"].ID:
+		return _IAutomationRegistryMaster23.ParseUnpaused(log)
+	case _IAutomationRegistryMaster23.abi.Events["UpkeepAdminTransferRequested"].ID:
+		return _IAutomationRegistryMaster23.ParseUpkeepAdminTransferRequested(log)
+	case _IAutomationRegistryMaster23.abi.Events["UpkeepAdminTransferred"].ID:
+		return _IAutomationRegistryMaster23.ParseUpkeepAdminTransferred(log)
+	case _IAutomationRegistryMaster23.abi.Events["UpkeepCanceled"].ID:
+		return _IAutomationRegistryMaster23.ParseUpkeepCanceled(log)
+	case _IAutomationRegistryMaster23.abi.Events["UpkeepCheckDataSet"].ID:
+		return _IAutomationRegistryMaster23.ParseUpkeepCheckDataSet(log)
+	case _IAutomationRegistryMaster23.abi.Events["UpkeepGasLimitSet"].ID:
+		return _IAutomationRegistryMaster23.ParseUpkeepGasLimitSet(log)
+	case _IAutomationRegistryMaster23.abi.Events["UpkeepMigrated"].ID:
+		return _IAutomationRegistryMaster23.ParseUpkeepMigrated(log)
+	case _IAutomationRegistryMaster23.abi.Events["UpkeepOffchainConfigSet"].ID:
+		return _IAutomationRegistryMaster23.ParseUpkeepOffchainConfigSet(log)
+	case _IAutomationRegistryMaster23.abi.Events["UpkeepPaused"].ID:
+		return _IAutomationRegistryMaster23.ParseUpkeepPaused(log)
+	case _IAutomationRegistryMaster23.abi.Events["UpkeepPerformed"].ID:
+		return _IAutomationRegistryMaster23.ParseUpkeepPerformed(log)
+	case _IAutomationRegistryMaster23.abi.Events["UpkeepPrivilegeConfigSet"].ID:
+		return _IAutomationRegistryMaster23.ParseUpkeepPrivilegeConfigSet(log)
+	case _IAutomationRegistryMaster23.abi.Events["UpkeepReceived"].ID:
+		return _IAutomationRegistryMaster23.ParseUpkeepReceived(log)
+	case _IAutomationRegistryMaster23.abi.Events["UpkeepRegistered"].ID:
+		return _IAutomationRegistryMaster23.ParseUpkeepRegistered(log)
+	case _IAutomationRegistryMaster23.abi.Events["UpkeepTriggerConfigSet"].ID:
+		return _IAutomationRegistryMaster23.ParseUpkeepTriggerConfigSet(log)
+	case _IAutomationRegistryMaster23.abi.Events["UpkeepUnpaused"].ID:
+		return _IAutomationRegistryMaster23.ParseUpkeepUnpaused(log)
 
 	default:
 		return nil, fmt.Errorf("abigen wrapper received unknown log topic: %v", log.Topics[0])
 	}
 }
 
-func (IAutomationRegistryMasterAdminPrivilegeConfigSet) Topic() common.Hash {
+func (IAutomationRegistryMaster23AdminPrivilegeConfigSet) Topic() common.Hash {
 	return common.HexToHash("0x7c44b4eb59ee7873514e7e43e7718c269d872965938b288aa143befca62f99d2")
 }
 
-func (IAutomationRegistryMasterCancelledUpkeepReport) Topic() common.Hash {
+func (IAutomationRegistryMaster23BillingConfigSet) Topic() common.Hash {
+	return common.HexToHash("0x5ff767a3a5dbf1ef088ebf56e221e9cea40ad357c31ba060c2f31244cefab7c1")
+}
+
+func (IAutomationRegistryMaster23CancelledUpkeepReport) Topic() common.Hash {
 	return common.HexToHash("0xc3237c8807c467c1b39b8d0395eff077313e691bf0a7388106792564ebfd5636")
 }
 
-func (IAutomationRegistryMasterChainSpecificModuleUpdated) Topic() common.Hash {
+func (IAutomationRegistryMaster23ChainSpecificModuleUpdated) Topic() common.Hash {
 	return common.HexToHash("0xdefc28b11a7980dbe0c49dbbd7055a1584bc8075097d1e8b3b57fb7283df2ad7")
 }
 
-func (IAutomationRegistryMasterConfigSet) Topic() common.Hash {
+func (IAutomationRegistryMaster23ConfigSet) Topic() common.Hash {
 	return common.HexToHash("0x1591690b8638f5fb2dbec82ac741805ac5da8b45dc5263f4875b0496fdce4e05")
 }
 
-func (IAutomationRegistryMasterDedupKeyAdded) Topic() common.Hash {
+func (IAutomationRegistryMaster23DedupKeyAdded) Topic() common.Hash {
 	return common.HexToHash("0xa4a4e334c0e330143f9437484fe516c13bc560b86b5b0daf58e7084aaac228f2")
 }
 
-func (IAutomationRegistryMasterFundsAdded) Topic() common.Hash {
+func (IAutomationRegistryMaster23FeesWithdrawn) Topic() common.Hash {
+	return common.HexToHash("0x5e110f8bc8a20b65dcc87f224bdf1cc039346e267118bae2739847f07321ffa8")
+}
+
+func (IAutomationRegistryMaster23FundsAdded) Topic() common.Hash {
 	return common.HexToHash("0xafd24114486da8ebfc32f3626dada8863652e187461aa74d4bfa734891506203")
 }
 
-func (IAutomationRegistryMasterFundsWithdrawn) Topic() common.Hash {
+func (IAutomationRegistryMaster23FundsWithdrawn) Topic() common.Hash {
 	return common.HexToHash("0xf3b5906e5672f3e524854103bcafbbdba80dbdfeca2c35e116127b1060a68318")
 }
 
-func (IAutomationRegistryMasterInsufficientFundsUpkeepReport) Topic() common.Hash {
+func (IAutomationRegistryMaster23InsufficientFundsUpkeepReport) Topic() common.Hash {
 	return common.HexToHash("0x377c8b0c126ae5248d27aca1c76fac4608aff85673ee3caf09747e1044549e02")
 }
 
-func (IAutomationRegistryMasterOwnerFundsWithdrawn) Topic() common.Hash {
-	return common.HexToHash("0x1d07d0b0be43d3e5fee41a80b579af370affee03fa595bf56d5d4c19328162f1")
-}
-
-func (IAutomationRegistryMasterOwnershipTransferRequested) Topic() common.Hash {
+func (IAutomationRegistryMaster23OwnershipTransferRequested) Topic() common.Hash {
 	return common.HexToHash("0xed8889f560326eb138920d842192f0eb3dd22b4f139c87a2c57538e05bae1278")
 }
 
-func (IAutomationRegistryMasterOwnershipTransferred) Topic() common.Hash {
+func (IAutomationRegistryMaster23OwnershipTransferred) Topic() common.Hash {
 	return common.HexToHash("0x8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0")
 }
 
-func (IAutomationRegistryMasterPaused) Topic() common.Hash {
+func (IAutomationRegistryMaster23Paused) Topic() common.Hash {
 	return common.HexToHash("0x62e78cea01bee320cd4e420270b5ea74000d11b0c9f74754ebdbfc544b05a258")
 }
 
-func (IAutomationRegistryMasterPayeesUpdated) Topic() common.Hash {
+func (IAutomationRegistryMaster23PayeesUpdated) Topic() common.Hash {
 	return common.HexToHash("0xa46de38886467c59be07a0675f14781206a5477d871628af46c2443822fcb725")
 }
 
-func (IAutomationRegistryMasterPayeeshipTransferRequested) Topic() common.Hash {
+func (IAutomationRegistryMaster23PayeeshipTransferRequested) Topic() common.Hash {
 	return common.HexToHash("0x84f7c7c80bb8ed2279b4aab5f61cd05e6374073d38f46d7f32de8c30e9e38367")
 }
 
-func (IAutomationRegistryMasterPayeeshipTransferred) Topic() common.Hash {
+func (IAutomationRegistryMaster23PayeeshipTransferred) Topic() common.Hash {
 	return common.HexToHash("0x78af32efdcad432315431e9b03d27e6cd98fb79c405fdc5af7c1714d9c0f75b3")
 }
 
-func (IAutomationRegistryMasterPaymentWithdrawn) Topic() common.Hash {
+func (IAutomationRegistryMaster23PaymentWithdrawn) Topic() common.Hash {
 	return common.HexToHash("0x9819093176a1851202c7bcfa46845809b4e47c261866550e94ed3775d2f40698")
 }
 
-func (IAutomationRegistryMasterReorgedUpkeepReport) Topic() common.Hash {
+func (IAutomationRegistryMaster23ReorgedUpkeepReport) Topic() common.Hash {
 	return common.HexToHash("0x6aa7f60c176da7af894b384daea2249497448137f5943c1237ada8bc92bdc301")
 }
 
-func (IAutomationRegistryMasterStaleUpkeepReport) Topic() common.Hash {
+func (IAutomationRegistryMaster23StaleUpkeepReport) Topic() common.Hash {
 	return common.HexToHash("0x405288ea7be309e16cfdf481367f90a413e1d4634fcdaf8966546db9b93012e8")
 }
 
-func (IAutomationRegistryMasterTransmitted) Topic() common.Hash {
+func (IAutomationRegistryMaster23Transmitted) Topic() common.Hash {
 	return common.HexToHash("0xb04e63db38c49950639fa09d29872f21f5d49d614f3a969d8adf3d4b52e41a62")
 }
 
-func (IAutomationRegistryMasterUnpaused) Topic() common.Hash {
+func (IAutomationRegistryMaster23Unpaused) Topic() common.Hash {
 	return common.HexToHash("0x5db9ee0a495bf2e6ff9c91a7834c1ba4fdd244a5e8aa4e537bd38aeae4b073aa")
 }
 
-func (IAutomationRegistryMasterUpkeepAdminTransferRequested) Topic() common.Hash {
+func (IAutomationRegistryMaster23UpkeepAdminTransferRequested) Topic() common.Hash {
 	return common.HexToHash("0xb1cbb2c4b8480034c27e06da5f096b8233a8fd4497028593a41ff6df79726b35")
 }
 
-func (IAutomationRegistryMasterUpkeepAdminTransferred) Topic() common.Hash {
+func (IAutomationRegistryMaster23UpkeepAdminTransferred) Topic() common.Hash {
 	return common.HexToHash("0x5cff4db96bef051785e999f44bfcd21c18823e034fb92dd376e3db4ce0feeb2c")
 }
 
-func (IAutomationRegistryMasterUpkeepCanceled) Topic() common.Hash {
+func (IAutomationRegistryMaster23UpkeepCanceled) Topic() common.Hash {
 	return common.HexToHash("0x91cb3bb75cfbd718bbfccc56b7f53d92d7048ef4ca39a3b7b7c6d4af1f791181")
 }
 
-func (IAutomationRegistryMasterUpkeepCheckDataSet) Topic() common.Hash {
+func (IAutomationRegistryMaster23UpkeepCheckDataSet) Topic() common.Hash {
 	return common.HexToHash("0xcba2d5723b2ee59e53a8e8a82a4a7caf4fdfe70e9f7c582950bf7e7a5c24e83d")
 }
 
-func (IAutomationRegistryMasterUpkeepGasLimitSet) Topic() common.Hash {
+func (IAutomationRegistryMaster23UpkeepGasLimitSet) Topic() common.Hash {
 	return common.HexToHash("0xc24c07e655ce79fba8a589778987d3c015bc6af1632bb20cf9182e02a65d972c")
 }
 
-func (IAutomationRegistryMasterUpkeepMigrated) Topic() common.Hash {
+func (IAutomationRegistryMaster23UpkeepMigrated) Topic() common.Hash {
 	return common.HexToHash("0xb38647142fbb1ea4c000fc4569b37a4e9a9f6313317b84ee3e5326c1a6cd06ff")
 }
 
-func (IAutomationRegistryMasterUpkeepOffchainConfigSet) Topic() common.Hash {
+func (IAutomationRegistryMaster23UpkeepOffchainConfigSet) Topic() common.Hash {
 	return common.HexToHash("0x3e8740446213c8a77d40e08f79136ce3f347d13ed270a6ebdf57159e0faf4850")
 }
 
-func (IAutomationRegistryMasterUpkeepPaused) Topic() common.Hash {
+func (IAutomationRegistryMaster23UpkeepPaused) Topic() common.Hash {
 	return common.HexToHash("0x8ab10247ce168c27748e656ecf852b951fcaac790c18106b19aa0ae57a8b741f")
 }
 
-func (IAutomationRegistryMasterUpkeepPerformed) Topic() common.Hash {
+func (IAutomationRegistryMaster23UpkeepPerformed) Topic() common.Hash {
 	return common.HexToHash("0xad8cc9579b21dfe2c2f6ea35ba15b656e46b4f5b0cb424f52739b8ce5cac9c5b")
 }
 
-func (IAutomationRegistryMasterUpkeepPrivilegeConfigSet) Topic() common.Hash {
+func (IAutomationRegistryMaster23UpkeepPrivilegeConfigSet) Topic() common.Hash {
 	return common.HexToHash("0x2fd8d70753a007014349d4591843cc031c2dd7a260d7dd82eca8253686ae7769")
 }
 
-func (IAutomationRegistryMasterUpkeepReceived) Topic() common.Hash {
+func (IAutomationRegistryMaster23UpkeepReceived) Topic() common.Hash {
 	return common.HexToHash("0x74931a144e43a50694897f241d973aecb5024c0e910f9bb80a163ea3c1cf5a71")
 }
 
-func (IAutomationRegistryMasterUpkeepRegistered) Topic() common.Hash {
+func (IAutomationRegistryMaster23UpkeepRegistered) Topic() common.Hash {
 	return common.HexToHash("0xbae366358c023f887e791d7a62f2e4316f1026bd77f6fb49501a917b3bc5d012")
 }
 
-func (IAutomationRegistryMasterUpkeepTriggerConfigSet) Topic() common.Hash {
+func (IAutomationRegistryMaster23UpkeepTriggerConfigSet) Topic() common.Hash {
 	return common.HexToHash("0x2b72ac786c97e68dbab71023ed6f2bdbfc80ad9bb7808941929229d71b7d5664")
 }
 
-func (IAutomationRegistryMasterUpkeepUnpaused) Topic() common.Hash {
+func (IAutomationRegistryMaster23UpkeepUnpaused) Topic() common.Hash {
 	return common.HexToHash("0x7bada562044eb163f6b4003c4553e4e62825344c0418eea087bed5ee05a47456")
 }
 
-func (_IAutomationRegistryMaster *IAutomationRegistryMaster) Address() common.Address {
-	return _IAutomationRegistryMaster.address
+func (_IAutomationRegistryMaster23 *IAutomationRegistryMaster23) Address() common.Address {
+	return _IAutomationRegistryMaster23.address
 }
 
-type IAutomationRegistryMasterInterface interface {
+type IAutomationRegistryMaster23Interface interface {
 	CheckCallback(opts *bind.CallOpts, id *big.Int, values [][]byte, extraData []byte) (CheckCallback,
 
 		error)
@@ -6333,11 +6605,17 @@ type IAutomationRegistryMasterInterface interface {
 
 	GetBalance(opts *bind.CallOpts, id *big.Int) (*big.Int, error)
 
+	GetBillingTokenConfig(opts *bind.CallOpts, token common.Address) (AutomationRegistryBase23BillingConfig, error)
+
+	GetBillingTokens(opts *bind.CallOpts) ([]common.Address, error)
+
 	GetCancellationDelay(opts *bind.CallOpts) (*big.Int, error)
 
 	GetChainModule(opts *bind.CallOpts) (common.Address, error)
 
 	GetConditionalGasOverhead(opts *bind.CallOpts) (*big.Int, error)
+
+	GetFallbackNativePrice(opts *bind.CallOpts) (*big.Int, error)
 
 	GetFastGasFeedAddress(opts *bind.CallOpts) (common.Address, error)
 
@@ -6345,7 +6623,7 @@ type IAutomationRegistryMasterInterface interface {
 
 	GetLinkAddress(opts *bind.CallOpts) (common.Address, error)
 
-	GetLinkNativeFeedAddress(opts *bind.CallOpts) (common.Address, error)
+	GetLinkUSDFeedAddress(opts *bind.CallOpts) (common.Address, error)
 
 	GetLogGasOverhead(opts *bind.CallOpts) (*big.Int, error)
 
@@ -6354,6 +6632,8 @@ type IAutomationRegistryMasterInterface interface {
 	GetMinBalance(opts *bind.CallOpts, id *big.Int) (*big.Int, error)
 
 	GetMinBalanceForUpkeep(opts *bind.CallOpts, id *big.Int) (*big.Int, error)
+
+	GetNativeUSDFeedAddress(opts *bind.CallOpts) (common.Address, error)
 
 	GetPeerRegistryMigrationPermission(opts *bind.CallOpts, peer common.Address) (uint8, error)
 
@@ -6397,6 +6677,8 @@ type IAutomationRegistryMasterInterface interface {
 
 		error)
 
+	LinkAvailableForPayment(opts *bind.CallOpts) (*big.Int, error)
+
 	Owner(opts *bind.CallOpts) (common.Address, error)
 
 	SimulatePerformUpkeep(opts *bind.CallOpts, id *big.Int, performData []byte) (SimulatePerformUpkeep,
@@ -6431,8 +6713,6 @@ type IAutomationRegistryMasterInterface interface {
 
 	ReceiveUpkeeps(opts *bind.TransactOpts, encodedUpkeeps []byte) (*types.Transaction, error)
 
-	RecoverFunds(opts *bind.TransactOpts) (*types.Transaction, error)
-
 	RegisterUpkeep(opts *bind.TransactOpts, target common.Address, gasLimit uint32, admin common.Address, triggerType uint8, checkData []byte, triggerConfig []byte, offchainConfig []byte) (*types.Transaction, error)
 
 	RegisterUpkeep0(opts *bind.TransactOpts, target common.Address, gasLimit uint32, admin common.Address, checkData []byte, offchainConfig []byte) (*types.Transaction, error)
@@ -6441,7 +6721,7 @@ type IAutomationRegistryMasterInterface interface {
 
 	SetConfig(opts *bind.TransactOpts, signers []common.Address, transmitters []common.Address, f uint8, onchainConfigBytes []byte, offchainConfigVersion uint64, offchainConfig []byte) (*types.Transaction, error)
 
-	SetConfigTypeSafe(opts *bind.TransactOpts, signers []common.Address, transmitters []common.Address, f uint8, onchainConfig AutomationRegistryBase23OnchainConfig, offchainConfigVersion uint64, offchainConfig []byte) (*types.Transaction, error)
+	SetConfigTypeSafe(opts *bind.TransactOpts, signers []common.Address, transmitters []common.Address, f uint8, onchainConfig AutomationRegistryBase23OnchainConfig, offchainConfigVersion uint64, offchainConfig []byte, billingTokens []common.Address, billingConfigs []AutomationRegistryBase23BillingConfig) (*types.Transaction, error)
 
 	SetPayees(opts *bind.TransactOpts, payees []common.Address) (*types.Transaction, error)
 
@@ -6469,217 +6749,225 @@ type IAutomationRegistryMasterInterface interface {
 
 	UnpauseUpkeep(opts *bind.TransactOpts, id *big.Int) (*types.Transaction, error)
 
+	WithdrawERC20Fees(opts *bind.TransactOpts, assetAddress common.Address, to common.Address, amount *big.Int) (*types.Transaction, error)
+
 	WithdrawFunds(opts *bind.TransactOpts, id *big.Int, to common.Address) (*types.Transaction, error)
 
-	WithdrawOwnerFunds(opts *bind.TransactOpts) (*types.Transaction, error)
+	WithdrawLinkFees(opts *bind.TransactOpts, to common.Address, amount *big.Int) (*types.Transaction, error)
 
 	WithdrawPayment(opts *bind.TransactOpts, from common.Address, to common.Address) (*types.Transaction, error)
 
 	Fallback(opts *bind.TransactOpts, calldata []byte) (*types.Transaction, error)
 
-	FilterAdminPrivilegeConfigSet(opts *bind.FilterOpts, admin []common.Address) (*IAutomationRegistryMasterAdminPrivilegeConfigSetIterator, error)
+	FilterAdminPrivilegeConfigSet(opts *bind.FilterOpts, admin []common.Address) (*IAutomationRegistryMaster23AdminPrivilegeConfigSetIterator, error)
 
-	WatchAdminPrivilegeConfigSet(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterAdminPrivilegeConfigSet, admin []common.Address) (event.Subscription, error)
+	WatchAdminPrivilegeConfigSet(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23AdminPrivilegeConfigSet, admin []common.Address) (event.Subscription, error)
 
-	ParseAdminPrivilegeConfigSet(log types.Log) (*IAutomationRegistryMasterAdminPrivilegeConfigSet, error)
+	ParseAdminPrivilegeConfigSet(log types.Log) (*IAutomationRegistryMaster23AdminPrivilegeConfigSet, error)
 
-	FilterCancelledUpkeepReport(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMasterCancelledUpkeepReportIterator, error)
+	FilterBillingConfigSet(opts *bind.FilterOpts, token []common.Address) (*IAutomationRegistryMaster23BillingConfigSetIterator, error)
 
-	WatchCancelledUpkeepReport(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterCancelledUpkeepReport, id []*big.Int) (event.Subscription, error)
+	WatchBillingConfigSet(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23BillingConfigSet, token []common.Address) (event.Subscription, error)
 
-	ParseCancelledUpkeepReport(log types.Log) (*IAutomationRegistryMasterCancelledUpkeepReport, error)
+	ParseBillingConfigSet(log types.Log) (*IAutomationRegistryMaster23BillingConfigSet, error)
 
-	FilterChainSpecificModuleUpdated(opts *bind.FilterOpts) (*IAutomationRegistryMasterChainSpecificModuleUpdatedIterator, error)
+	FilterCancelledUpkeepReport(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMaster23CancelledUpkeepReportIterator, error)
 
-	WatchChainSpecificModuleUpdated(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterChainSpecificModuleUpdated) (event.Subscription, error)
+	WatchCancelledUpkeepReport(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23CancelledUpkeepReport, id []*big.Int) (event.Subscription, error)
 
-	ParseChainSpecificModuleUpdated(log types.Log) (*IAutomationRegistryMasterChainSpecificModuleUpdated, error)
+	ParseCancelledUpkeepReport(log types.Log) (*IAutomationRegistryMaster23CancelledUpkeepReport, error)
 
-	FilterConfigSet(opts *bind.FilterOpts) (*IAutomationRegistryMasterConfigSetIterator, error)
+	FilterChainSpecificModuleUpdated(opts *bind.FilterOpts) (*IAutomationRegistryMaster23ChainSpecificModuleUpdatedIterator, error)
 
-	WatchConfigSet(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterConfigSet) (event.Subscription, error)
+	WatchChainSpecificModuleUpdated(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23ChainSpecificModuleUpdated) (event.Subscription, error)
 
-	ParseConfigSet(log types.Log) (*IAutomationRegistryMasterConfigSet, error)
+	ParseChainSpecificModuleUpdated(log types.Log) (*IAutomationRegistryMaster23ChainSpecificModuleUpdated, error)
 
-	FilterDedupKeyAdded(opts *bind.FilterOpts, dedupKey [][32]byte) (*IAutomationRegistryMasterDedupKeyAddedIterator, error)
+	FilterConfigSet(opts *bind.FilterOpts) (*IAutomationRegistryMaster23ConfigSetIterator, error)
 
-	WatchDedupKeyAdded(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterDedupKeyAdded, dedupKey [][32]byte) (event.Subscription, error)
+	WatchConfigSet(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23ConfigSet) (event.Subscription, error)
 
-	ParseDedupKeyAdded(log types.Log) (*IAutomationRegistryMasterDedupKeyAdded, error)
+	ParseConfigSet(log types.Log) (*IAutomationRegistryMaster23ConfigSet, error)
 
-	FilterFundsAdded(opts *bind.FilterOpts, id []*big.Int, from []common.Address) (*IAutomationRegistryMasterFundsAddedIterator, error)
+	FilterDedupKeyAdded(opts *bind.FilterOpts, dedupKey [][32]byte) (*IAutomationRegistryMaster23DedupKeyAddedIterator, error)
 
-	WatchFundsAdded(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterFundsAdded, id []*big.Int, from []common.Address) (event.Subscription, error)
+	WatchDedupKeyAdded(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23DedupKeyAdded, dedupKey [][32]byte) (event.Subscription, error)
 
-	ParseFundsAdded(log types.Log) (*IAutomationRegistryMasterFundsAdded, error)
+	ParseDedupKeyAdded(log types.Log) (*IAutomationRegistryMaster23DedupKeyAdded, error)
 
-	FilterFundsWithdrawn(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMasterFundsWithdrawnIterator, error)
+	FilterFeesWithdrawn(opts *bind.FilterOpts, recipient []common.Address, assetAddress []common.Address) (*IAutomationRegistryMaster23FeesWithdrawnIterator, error)
 
-	WatchFundsWithdrawn(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterFundsWithdrawn, id []*big.Int) (event.Subscription, error)
+	WatchFeesWithdrawn(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23FeesWithdrawn, recipient []common.Address, assetAddress []common.Address) (event.Subscription, error)
 
-	ParseFundsWithdrawn(log types.Log) (*IAutomationRegistryMasterFundsWithdrawn, error)
+	ParseFeesWithdrawn(log types.Log) (*IAutomationRegistryMaster23FeesWithdrawn, error)
 
-	FilterInsufficientFundsUpkeepReport(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMasterInsufficientFundsUpkeepReportIterator, error)
+	FilterFundsAdded(opts *bind.FilterOpts, id []*big.Int, from []common.Address) (*IAutomationRegistryMaster23FundsAddedIterator, error)
 
-	WatchInsufficientFundsUpkeepReport(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterInsufficientFundsUpkeepReport, id []*big.Int) (event.Subscription, error)
+	WatchFundsAdded(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23FundsAdded, id []*big.Int, from []common.Address) (event.Subscription, error)
 
-	ParseInsufficientFundsUpkeepReport(log types.Log) (*IAutomationRegistryMasterInsufficientFundsUpkeepReport, error)
+	ParseFundsAdded(log types.Log) (*IAutomationRegistryMaster23FundsAdded, error)
 
-	FilterOwnerFundsWithdrawn(opts *bind.FilterOpts) (*IAutomationRegistryMasterOwnerFundsWithdrawnIterator, error)
+	FilterFundsWithdrawn(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMaster23FundsWithdrawnIterator, error)
 
-	WatchOwnerFundsWithdrawn(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterOwnerFundsWithdrawn) (event.Subscription, error)
+	WatchFundsWithdrawn(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23FundsWithdrawn, id []*big.Int) (event.Subscription, error)
 
-	ParseOwnerFundsWithdrawn(log types.Log) (*IAutomationRegistryMasterOwnerFundsWithdrawn, error)
+	ParseFundsWithdrawn(log types.Log) (*IAutomationRegistryMaster23FundsWithdrawn, error)
 
-	FilterOwnershipTransferRequested(opts *bind.FilterOpts, from []common.Address, to []common.Address) (*IAutomationRegistryMasterOwnershipTransferRequestedIterator, error)
+	FilterInsufficientFundsUpkeepReport(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMaster23InsufficientFundsUpkeepReportIterator, error)
 
-	WatchOwnershipTransferRequested(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterOwnershipTransferRequested, from []common.Address, to []common.Address) (event.Subscription, error)
+	WatchInsufficientFundsUpkeepReport(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23InsufficientFundsUpkeepReport, id []*big.Int) (event.Subscription, error)
 
-	ParseOwnershipTransferRequested(log types.Log) (*IAutomationRegistryMasterOwnershipTransferRequested, error)
+	ParseInsufficientFundsUpkeepReport(log types.Log) (*IAutomationRegistryMaster23InsufficientFundsUpkeepReport, error)
 
-	FilterOwnershipTransferred(opts *bind.FilterOpts, from []common.Address, to []common.Address) (*IAutomationRegistryMasterOwnershipTransferredIterator, error)
+	FilterOwnershipTransferRequested(opts *bind.FilterOpts, from []common.Address, to []common.Address) (*IAutomationRegistryMaster23OwnershipTransferRequestedIterator, error)
 
-	WatchOwnershipTransferred(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterOwnershipTransferred, from []common.Address, to []common.Address) (event.Subscription, error)
+	WatchOwnershipTransferRequested(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23OwnershipTransferRequested, from []common.Address, to []common.Address) (event.Subscription, error)
 
-	ParseOwnershipTransferred(log types.Log) (*IAutomationRegistryMasterOwnershipTransferred, error)
+	ParseOwnershipTransferRequested(log types.Log) (*IAutomationRegistryMaster23OwnershipTransferRequested, error)
 
-	FilterPaused(opts *bind.FilterOpts) (*IAutomationRegistryMasterPausedIterator, error)
+	FilterOwnershipTransferred(opts *bind.FilterOpts, from []common.Address, to []common.Address) (*IAutomationRegistryMaster23OwnershipTransferredIterator, error)
 
-	WatchPaused(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterPaused) (event.Subscription, error)
+	WatchOwnershipTransferred(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23OwnershipTransferred, from []common.Address, to []common.Address) (event.Subscription, error)
 
-	ParsePaused(log types.Log) (*IAutomationRegistryMasterPaused, error)
+	ParseOwnershipTransferred(log types.Log) (*IAutomationRegistryMaster23OwnershipTransferred, error)
 
-	FilterPayeesUpdated(opts *bind.FilterOpts) (*IAutomationRegistryMasterPayeesUpdatedIterator, error)
+	FilterPaused(opts *bind.FilterOpts) (*IAutomationRegistryMaster23PausedIterator, error)
 
-	WatchPayeesUpdated(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterPayeesUpdated) (event.Subscription, error)
+	WatchPaused(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23Paused) (event.Subscription, error)
 
-	ParsePayeesUpdated(log types.Log) (*IAutomationRegistryMasterPayeesUpdated, error)
+	ParsePaused(log types.Log) (*IAutomationRegistryMaster23Paused, error)
 
-	FilterPayeeshipTransferRequested(opts *bind.FilterOpts, transmitter []common.Address, from []common.Address, to []common.Address) (*IAutomationRegistryMasterPayeeshipTransferRequestedIterator, error)
+	FilterPayeesUpdated(opts *bind.FilterOpts) (*IAutomationRegistryMaster23PayeesUpdatedIterator, error)
 
-	WatchPayeeshipTransferRequested(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterPayeeshipTransferRequested, transmitter []common.Address, from []common.Address, to []common.Address) (event.Subscription, error)
+	WatchPayeesUpdated(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23PayeesUpdated) (event.Subscription, error)
 
-	ParsePayeeshipTransferRequested(log types.Log) (*IAutomationRegistryMasterPayeeshipTransferRequested, error)
+	ParsePayeesUpdated(log types.Log) (*IAutomationRegistryMaster23PayeesUpdated, error)
 
-	FilterPayeeshipTransferred(opts *bind.FilterOpts, transmitter []common.Address, from []common.Address, to []common.Address) (*IAutomationRegistryMasterPayeeshipTransferredIterator, error)
+	FilterPayeeshipTransferRequested(opts *bind.FilterOpts, transmitter []common.Address, from []common.Address, to []common.Address) (*IAutomationRegistryMaster23PayeeshipTransferRequestedIterator, error)
 
-	WatchPayeeshipTransferred(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterPayeeshipTransferred, transmitter []common.Address, from []common.Address, to []common.Address) (event.Subscription, error)
+	WatchPayeeshipTransferRequested(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23PayeeshipTransferRequested, transmitter []common.Address, from []common.Address, to []common.Address) (event.Subscription, error)
 
-	ParsePayeeshipTransferred(log types.Log) (*IAutomationRegistryMasterPayeeshipTransferred, error)
+	ParsePayeeshipTransferRequested(log types.Log) (*IAutomationRegistryMaster23PayeeshipTransferRequested, error)
 
-	FilterPaymentWithdrawn(opts *bind.FilterOpts, transmitter []common.Address, amount []*big.Int, to []common.Address) (*IAutomationRegistryMasterPaymentWithdrawnIterator, error)
+	FilterPayeeshipTransferred(opts *bind.FilterOpts, transmitter []common.Address, from []common.Address, to []common.Address) (*IAutomationRegistryMaster23PayeeshipTransferredIterator, error)
 
-	WatchPaymentWithdrawn(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterPaymentWithdrawn, transmitter []common.Address, amount []*big.Int, to []common.Address) (event.Subscription, error)
+	WatchPayeeshipTransferred(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23PayeeshipTransferred, transmitter []common.Address, from []common.Address, to []common.Address) (event.Subscription, error)
 
-	ParsePaymentWithdrawn(log types.Log) (*IAutomationRegistryMasterPaymentWithdrawn, error)
+	ParsePayeeshipTransferred(log types.Log) (*IAutomationRegistryMaster23PayeeshipTransferred, error)
 
-	FilterReorgedUpkeepReport(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMasterReorgedUpkeepReportIterator, error)
+	FilterPaymentWithdrawn(opts *bind.FilterOpts, transmitter []common.Address, amount []*big.Int, to []common.Address) (*IAutomationRegistryMaster23PaymentWithdrawnIterator, error)
 
-	WatchReorgedUpkeepReport(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterReorgedUpkeepReport, id []*big.Int) (event.Subscription, error)
+	WatchPaymentWithdrawn(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23PaymentWithdrawn, transmitter []common.Address, amount []*big.Int, to []common.Address) (event.Subscription, error)
 
-	ParseReorgedUpkeepReport(log types.Log) (*IAutomationRegistryMasterReorgedUpkeepReport, error)
+	ParsePaymentWithdrawn(log types.Log) (*IAutomationRegistryMaster23PaymentWithdrawn, error)
 
-	FilterStaleUpkeepReport(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMasterStaleUpkeepReportIterator, error)
+	FilterReorgedUpkeepReport(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMaster23ReorgedUpkeepReportIterator, error)
 
-	WatchStaleUpkeepReport(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterStaleUpkeepReport, id []*big.Int) (event.Subscription, error)
+	WatchReorgedUpkeepReport(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23ReorgedUpkeepReport, id []*big.Int) (event.Subscription, error)
 
-	ParseStaleUpkeepReport(log types.Log) (*IAutomationRegistryMasterStaleUpkeepReport, error)
+	ParseReorgedUpkeepReport(log types.Log) (*IAutomationRegistryMaster23ReorgedUpkeepReport, error)
 
-	FilterTransmitted(opts *bind.FilterOpts) (*IAutomationRegistryMasterTransmittedIterator, error)
+	FilterStaleUpkeepReport(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMaster23StaleUpkeepReportIterator, error)
 
-	WatchTransmitted(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterTransmitted) (event.Subscription, error)
+	WatchStaleUpkeepReport(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23StaleUpkeepReport, id []*big.Int) (event.Subscription, error)
 
-	ParseTransmitted(log types.Log) (*IAutomationRegistryMasterTransmitted, error)
+	ParseStaleUpkeepReport(log types.Log) (*IAutomationRegistryMaster23StaleUpkeepReport, error)
 
-	FilterUnpaused(opts *bind.FilterOpts) (*IAutomationRegistryMasterUnpausedIterator, error)
+	FilterTransmitted(opts *bind.FilterOpts) (*IAutomationRegistryMaster23TransmittedIterator, error)
 
-	WatchUnpaused(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterUnpaused) (event.Subscription, error)
+	WatchTransmitted(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23Transmitted) (event.Subscription, error)
 
-	ParseUnpaused(log types.Log) (*IAutomationRegistryMasterUnpaused, error)
+	ParseTransmitted(log types.Log) (*IAutomationRegistryMaster23Transmitted, error)
 
-	FilterUpkeepAdminTransferRequested(opts *bind.FilterOpts, id []*big.Int, from []common.Address, to []common.Address) (*IAutomationRegistryMasterUpkeepAdminTransferRequestedIterator, error)
+	FilterUnpaused(opts *bind.FilterOpts) (*IAutomationRegistryMaster23UnpausedIterator, error)
 
-	WatchUpkeepAdminTransferRequested(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterUpkeepAdminTransferRequested, id []*big.Int, from []common.Address, to []common.Address) (event.Subscription, error)
+	WatchUnpaused(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23Unpaused) (event.Subscription, error)
 
-	ParseUpkeepAdminTransferRequested(log types.Log) (*IAutomationRegistryMasterUpkeepAdminTransferRequested, error)
+	ParseUnpaused(log types.Log) (*IAutomationRegistryMaster23Unpaused, error)
 
-	FilterUpkeepAdminTransferred(opts *bind.FilterOpts, id []*big.Int, from []common.Address, to []common.Address) (*IAutomationRegistryMasterUpkeepAdminTransferredIterator, error)
+	FilterUpkeepAdminTransferRequested(opts *bind.FilterOpts, id []*big.Int, from []common.Address, to []common.Address) (*IAutomationRegistryMaster23UpkeepAdminTransferRequestedIterator, error)
 
-	WatchUpkeepAdminTransferred(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterUpkeepAdminTransferred, id []*big.Int, from []common.Address, to []common.Address) (event.Subscription, error)
+	WatchUpkeepAdminTransferRequested(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23UpkeepAdminTransferRequested, id []*big.Int, from []common.Address, to []common.Address) (event.Subscription, error)
 
-	ParseUpkeepAdminTransferred(log types.Log) (*IAutomationRegistryMasterUpkeepAdminTransferred, error)
+	ParseUpkeepAdminTransferRequested(log types.Log) (*IAutomationRegistryMaster23UpkeepAdminTransferRequested, error)
 
-	FilterUpkeepCanceled(opts *bind.FilterOpts, id []*big.Int, atBlockHeight []uint64) (*IAutomationRegistryMasterUpkeepCanceledIterator, error)
+	FilterUpkeepAdminTransferred(opts *bind.FilterOpts, id []*big.Int, from []common.Address, to []common.Address) (*IAutomationRegistryMaster23UpkeepAdminTransferredIterator, error)
 
-	WatchUpkeepCanceled(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterUpkeepCanceled, id []*big.Int, atBlockHeight []uint64) (event.Subscription, error)
+	WatchUpkeepAdminTransferred(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23UpkeepAdminTransferred, id []*big.Int, from []common.Address, to []common.Address) (event.Subscription, error)
 
-	ParseUpkeepCanceled(log types.Log) (*IAutomationRegistryMasterUpkeepCanceled, error)
+	ParseUpkeepAdminTransferred(log types.Log) (*IAutomationRegistryMaster23UpkeepAdminTransferred, error)
 
-	FilterUpkeepCheckDataSet(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMasterUpkeepCheckDataSetIterator, error)
+	FilterUpkeepCanceled(opts *bind.FilterOpts, id []*big.Int, atBlockHeight []uint64) (*IAutomationRegistryMaster23UpkeepCanceledIterator, error)
 
-	WatchUpkeepCheckDataSet(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterUpkeepCheckDataSet, id []*big.Int) (event.Subscription, error)
+	WatchUpkeepCanceled(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23UpkeepCanceled, id []*big.Int, atBlockHeight []uint64) (event.Subscription, error)
 
-	ParseUpkeepCheckDataSet(log types.Log) (*IAutomationRegistryMasterUpkeepCheckDataSet, error)
+	ParseUpkeepCanceled(log types.Log) (*IAutomationRegistryMaster23UpkeepCanceled, error)
 
-	FilterUpkeepGasLimitSet(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMasterUpkeepGasLimitSetIterator, error)
+	FilterUpkeepCheckDataSet(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMaster23UpkeepCheckDataSetIterator, error)
 
-	WatchUpkeepGasLimitSet(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterUpkeepGasLimitSet, id []*big.Int) (event.Subscription, error)
+	WatchUpkeepCheckDataSet(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23UpkeepCheckDataSet, id []*big.Int) (event.Subscription, error)
 
-	ParseUpkeepGasLimitSet(log types.Log) (*IAutomationRegistryMasterUpkeepGasLimitSet, error)
+	ParseUpkeepCheckDataSet(log types.Log) (*IAutomationRegistryMaster23UpkeepCheckDataSet, error)
 
-	FilterUpkeepMigrated(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMasterUpkeepMigratedIterator, error)
+	FilterUpkeepGasLimitSet(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMaster23UpkeepGasLimitSetIterator, error)
 
-	WatchUpkeepMigrated(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterUpkeepMigrated, id []*big.Int) (event.Subscription, error)
+	WatchUpkeepGasLimitSet(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23UpkeepGasLimitSet, id []*big.Int) (event.Subscription, error)
 
-	ParseUpkeepMigrated(log types.Log) (*IAutomationRegistryMasterUpkeepMigrated, error)
+	ParseUpkeepGasLimitSet(log types.Log) (*IAutomationRegistryMaster23UpkeepGasLimitSet, error)
 
-	FilterUpkeepOffchainConfigSet(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMasterUpkeepOffchainConfigSetIterator, error)
+	FilterUpkeepMigrated(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMaster23UpkeepMigratedIterator, error)
 
-	WatchUpkeepOffchainConfigSet(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterUpkeepOffchainConfigSet, id []*big.Int) (event.Subscription, error)
+	WatchUpkeepMigrated(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23UpkeepMigrated, id []*big.Int) (event.Subscription, error)
 
-	ParseUpkeepOffchainConfigSet(log types.Log) (*IAutomationRegistryMasterUpkeepOffchainConfigSet, error)
+	ParseUpkeepMigrated(log types.Log) (*IAutomationRegistryMaster23UpkeepMigrated, error)
 
-	FilterUpkeepPaused(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMasterUpkeepPausedIterator, error)
+	FilterUpkeepOffchainConfigSet(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMaster23UpkeepOffchainConfigSetIterator, error)
 
-	WatchUpkeepPaused(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterUpkeepPaused, id []*big.Int) (event.Subscription, error)
+	WatchUpkeepOffchainConfigSet(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23UpkeepOffchainConfigSet, id []*big.Int) (event.Subscription, error)
 
-	ParseUpkeepPaused(log types.Log) (*IAutomationRegistryMasterUpkeepPaused, error)
+	ParseUpkeepOffchainConfigSet(log types.Log) (*IAutomationRegistryMaster23UpkeepOffchainConfigSet, error)
 
-	FilterUpkeepPerformed(opts *bind.FilterOpts, id []*big.Int, success []bool) (*IAutomationRegistryMasterUpkeepPerformedIterator, error)
+	FilterUpkeepPaused(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMaster23UpkeepPausedIterator, error)
 
-	WatchUpkeepPerformed(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterUpkeepPerformed, id []*big.Int, success []bool) (event.Subscription, error)
+	WatchUpkeepPaused(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23UpkeepPaused, id []*big.Int) (event.Subscription, error)
 
-	ParseUpkeepPerformed(log types.Log) (*IAutomationRegistryMasterUpkeepPerformed, error)
+	ParseUpkeepPaused(log types.Log) (*IAutomationRegistryMaster23UpkeepPaused, error)
 
-	FilterUpkeepPrivilegeConfigSet(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMasterUpkeepPrivilegeConfigSetIterator, error)
+	FilterUpkeepPerformed(opts *bind.FilterOpts, id []*big.Int, success []bool) (*IAutomationRegistryMaster23UpkeepPerformedIterator, error)
 
-	WatchUpkeepPrivilegeConfigSet(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterUpkeepPrivilegeConfigSet, id []*big.Int) (event.Subscription, error)
+	WatchUpkeepPerformed(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23UpkeepPerformed, id []*big.Int, success []bool) (event.Subscription, error)
 
-	ParseUpkeepPrivilegeConfigSet(log types.Log) (*IAutomationRegistryMasterUpkeepPrivilegeConfigSet, error)
+	ParseUpkeepPerformed(log types.Log) (*IAutomationRegistryMaster23UpkeepPerformed, error)
 
-	FilterUpkeepReceived(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMasterUpkeepReceivedIterator, error)
+	FilterUpkeepPrivilegeConfigSet(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMaster23UpkeepPrivilegeConfigSetIterator, error)
 
-	WatchUpkeepReceived(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterUpkeepReceived, id []*big.Int) (event.Subscription, error)
+	WatchUpkeepPrivilegeConfigSet(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23UpkeepPrivilegeConfigSet, id []*big.Int) (event.Subscription, error)
 
-	ParseUpkeepReceived(log types.Log) (*IAutomationRegistryMasterUpkeepReceived, error)
+	ParseUpkeepPrivilegeConfigSet(log types.Log) (*IAutomationRegistryMaster23UpkeepPrivilegeConfigSet, error)
 
-	FilterUpkeepRegistered(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMasterUpkeepRegisteredIterator, error)
+	FilterUpkeepReceived(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMaster23UpkeepReceivedIterator, error)
 
-	WatchUpkeepRegistered(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterUpkeepRegistered, id []*big.Int) (event.Subscription, error)
+	WatchUpkeepReceived(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23UpkeepReceived, id []*big.Int) (event.Subscription, error)
 
-	ParseUpkeepRegistered(log types.Log) (*IAutomationRegistryMasterUpkeepRegistered, error)
+	ParseUpkeepReceived(log types.Log) (*IAutomationRegistryMaster23UpkeepReceived, error)
 
-	FilterUpkeepTriggerConfigSet(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMasterUpkeepTriggerConfigSetIterator, error)
+	FilterUpkeepRegistered(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMaster23UpkeepRegisteredIterator, error)
 
-	WatchUpkeepTriggerConfigSet(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterUpkeepTriggerConfigSet, id []*big.Int) (event.Subscription, error)
+	WatchUpkeepRegistered(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23UpkeepRegistered, id []*big.Int) (event.Subscription, error)
 
-	ParseUpkeepTriggerConfigSet(log types.Log) (*IAutomationRegistryMasterUpkeepTriggerConfigSet, error)
+	ParseUpkeepRegistered(log types.Log) (*IAutomationRegistryMaster23UpkeepRegistered, error)
 
-	FilterUpkeepUnpaused(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMasterUpkeepUnpausedIterator, error)
+	FilterUpkeepTriggerConfigSet(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMaster23UpkeepTriggerConfigSetIterator, error)
 
-	WatchUpkeepUnpaused(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMasterUpkeepUnpaused, id []*big.Int) (event.Subscription, error)
+	WatchUpkeepTriggerConfigSet(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23UpkeepTriggerConfigSet, id []*big.Int) (event.Subscription, error)
 
-	ParseUpkeepUnpaused(log types.Log) (*IAutomationRegistryMasterUpkeepUnpaused, error)
+	ParseUpkeepTriggerConfigSet(log types.Log) (*IAutomationRegistryMaster23UpkeepTriggerConfigSet, error)
+
+	FilterUpkeepUnpaused(opts *bind.FilterOpts, id []*big.Int) (*IAutomationRegistryMaster23UpkeepUnpausedIterator, error)
+
+	WatchUpkeepUnpaused(opts *bind.WatchOpts, sink chan<- *IAutomationRegistryMaster23UpkeepUnpaused, id []*big.Int) (event.Subscription, error)
+
+	ParseUpkeepUnpaused(log types.Log) (*IAutomationRegistryMaster23UpkeepUnpaused, error)
 
 	ParseLog(log types.Log) (generated.AbigenLog, error)
 
