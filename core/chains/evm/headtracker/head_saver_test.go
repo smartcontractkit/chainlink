@@ -17,7 +17,6 @@ import (
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 )
 
@@ -62,9 +61,8 @@ func configureSaver(t *testing.T, opts saverOpts) (httypes.HeadSaver, headtracke
 	}
 	db := pgtest.NewSqlxDB(t)
 	lggr := logger.Test(t)
-	cfg := configtest.NewGeneralConfig(t, nil)
 	htCfg := &config{finalityDepth: uint32(1)}
-	orm := headtracker.NewORM(db, lggr, cfg.Database(), cltest.FixtureChainID)
+	orm := headtracker.NewORM(cltest.FixtureChainID, db)
 	saver := headtracker.NewHeadSaver(lggr, orm, htCfg, opts.headTrackerConfig)
 	return saver, orm
 }
