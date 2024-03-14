@@ -76,11 +76,11 @@ func runTest(t *testing.T, pluginType functions.FunctionsPluginType, expectedDig
 	b.Commit()
 	db := pgtest.NewSqlxDB(t)
 	defer db.Close()
-	cfg := pgtest.NewQConfig(false)
 	ethClient := evmclient.NewSimulatedBackendClient(t, b, big.NewInt(1337))
 	defer ethClient.Close()
 	lggr := logger.TestLogger(t)
-	lorm := logpoller.NewORM(big.NewInt(1337), db, lggr, cfg)
+
+	lorm := logpoller.NewORM(big.NewInt(1337), db, lggr)
 	lpOpts := logpoller.Opts{
 		PollPeriod:               100 * time.Millisecond,
 		FinalityDepth:            1,
@@ -92,7 +92,7 @@ func runTest(t *testing.T, pluginType functions.FunctionsPluginType, expectedDig
 	servicetest.Run(t, lp)
 	configPoller, err := functions.NewFunctionsConfigPoller(pluginType, lp, lggr)
 	require.NoError(t, err)
-	require.NoError(t, configPoller.UpdateRoutes(ocrAddress, ocrAddress))
+	require.NoError(t, configPoller.UpdateRoutes(testutils.Context(t), ocrAddress, ocrAddress))
 	// Should have no config to begin with.
 	_, config, err := configPoller.LatestConfigDetails(testutils.Context(t))
 	require.NoError(t, err)

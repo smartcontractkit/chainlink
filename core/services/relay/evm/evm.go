@@ -166,7 +166,7 @@ func (r *Relayer) NewPluginProvider(rargs commontypes.RelayArgs, pargs commontyp
 
 	lggr := r.lggr.Named("PluginProvider").Named(rargs.ExternalJobID.String())
 
-	configWatcher, err := newStandardConfigProvider(r.lggr, r.chain, types.NewRelayOpts(rargs))
+	configWatcher, err := newStandardConfigProvider(ctx, r.lggr, r.chain, types.NewRelayOpts(rargs))
 	if err != nil {
 		return nil, err
 	}
@@ -186,6 +186,8 @@ func (r *Relayer) NewPluginProvider(rargs commontypes.RelayArgs, pargs commontyp
 }
 
 func (r *Relayer) NewMercuryProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.MercuryProvider, error) {
+	// TODO https://smartcontract-it.atlassian.net/browse/BCF-2887
+	ctx := context.Background()
 	lggr := r.lggr.Named("MercuryProvider").Named(rargs.ExternalJobID.String())
 	relayOpts := types.NewRelayOpts(rargs)
 	relayConfig, err := relayOpts.RelayConfig()
@@ -206,7 +208,7 @@ func (r *Relayer) NewMercuryProvider(rargs commontypes.RelayArgs, pargs commonty
 	if relayConfig.ChainID.String() != r.chain.ID().String() {
 		return nil, fmt.Errorf("internal error: chain id in spec does not match this relayer's chain: have %s expected %s", relayConfig.ChainID.String(), r.chain.ID().String())
 	}
-	cp, err := newMercuryConfigProvider(lggr, r.chain, relayOpts)
+	cp, err := newMercuryConfigProvider(ctx, lggr, r.chain, relayOpts)
 	if err != nil {
 		return nil, pkgerrors.WithStack(err)
 	}
@@ -248,6 +250,10 @@ func (r *Relayer) NewMercuryProvider(rargs commontypes.RelayArgs, pargs commonty
 }
 
 func (r *Relayer) NewLLOProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.LLOProvider, error) {
+
+	// TODO https://smartcontract-it.atlassian.net/browse/BCF-2887
+	ctx := context.Background()
+
 	relayOpts := types.NewRelayOpts(rargs)
 	var relayConfig types.RelayConfig
 	{
@@ -269,7 +275,7 @@ func (r *Relayer) NewLLOProvider(rargs commontypes.RelayArgs, pargs commontypes.
 	if relayConfig.ChainID.String() != r.chain.ID().String() {
 		return nil, fmt.Errorf("internal error: chain id in spec does not match this relayer's chain: have %s expected %s", relayConfig.ChainID.String(), r.chain.ID().String())
 	}
-	cp, err := newLLOConfigProvider(r.lggr, r.chain, relayOpts)
+	cp, err := newLLOConfigProvider(ctx, r.lggr, r.chain, relayOpts)
 	if err != nil {
 		return nil, pkgerrors.WithStack(err)
 	}
@@ -316,6 +322,9 @@ func (r *Relayer) NewFunctionsProvider(rargs commontypes.RelayArgs, pargs common
 
 // NewConfigProvider is called by bootstrap jobs
 func (r *Relayer) NewConfigProvider(args commontypes.RelayArgs) (configProvider commontypes.ConfigProvider, err error) {
+	// TODO https://smartcontract-it.atlassian.net/browse/BCF-2887
+	ctx := context.Background()
+
 	lggr := r.lggr.Named("ConfigProvider").Named(args.ExternalJobID.String())
 	relayOpts := types.NewRelayOpts(args)
 	relayConfig, err := relayOpts.RelayConfig()
@@ -339,11 +348,11 @@ func (r *Relayer) NewConfigProvider(args commontypes.RelayArgs) (configProvider 
 
 	switch args.ProviderType {
 	case "median":
-		configProvider, err = newStandardConfigProvider(lggr, r.chain, relayOpts)
+		configProvider, err = newStandardConfigProvider(ctx, lggr, r.chain, relayOpts)
 	case "mercury":
-		configProvider, err = newMercuryConfigProvider(lggr, r.chain, relayOpts)
+		configProvider, err = newMercuryConfigProvider(ctx, lggr, r.chain, relayOpts)
 	case "llo":
-		configProvider, err = newLLOConfigProvider(lggr, r.chain, relayOpts)
+		configProvider, err = newLLOConfigProvider(ctx, lggr, r.chain, relayOpts)
 	default:
 		return nil, fmt.Errorf("unrecognized provider type: %q", args.ProviderType)
 	}
@@ -528,6 +537,7 @@ func newOnChainContractTransmitter(ctx context.Context, lggr logger.Logger, rarg
 	}
 
 	return NewOCRContractTransmitter(
+		ctx,
 		configWatcher.contractAddress,
 		configWatcher.chain.Client(),
 		transmissionContractABI,
@@ -557,7 +567,7 @@ func (r *Relayer) NewMedianProvider(rargs commontypes.RelayArgs, pargs commontyp
 	}
 	contractID := common.HexToAddress(relayOpts.ContractID)
 
-	configWatcher, err := newStandardConfigProvider(lggr, r.chain, relayOpts)
+	configWatcher, err := newStandardConfigProvider(ctx, lggr, r.chain, relayOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -585,7 +595,7 @@ func (r *Relayer) NewMedianProvider(rargs commontypes.RelayArgs, pargs commontyp
 	// allow fallback until chain reader is default and median contract is removed, but still log just in case
 	var chainReaderService ChainReaderService
 	if relayConfig.ChainReader != nil {
-		if chainReaderService, err = NewChainReaderService(lggr, r.chain.LogPoller(), r.chain, *relayConfig.ChainReader); err != nil {
+		if chainReaderService, err = NewChainReaderService(ctx, lggr, r.chain.LogPoller(), r.chain, *relayConfig.ChainReader); err != nil {
 			return nil, err
 		}
 

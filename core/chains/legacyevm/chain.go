@@ -15,6 +15,7 @@ import (
 
 	common "github.com/smartcontractkit/chainlink-common/pkg/chains"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
@@ -166,7 +167,8 @@ type ChainOpts struct {
 	MailMon      *mailbox.Monitor
 	GasEstimator gas.EvmFeeEstimator
 
-	*sqlx.DB
+	SqlxDB *sqlx.DB // Deprecated: use DB instead
+	DB     sqlutil.DB
 
 	// TODO BCF-2513 remove test code from the API
 	// Gen-functions are useful for dependency injection by tests
@@ -186,6 +188,9 @@ func (o ChainOpts) Validate() error {
 
 	if o.MailMon == nil {
 		err = errors.Join(err, errors.New("nil MailMon"))
+	}
+	if o.SqlxDB == nil {
+		err = errors.Join(err, errors.New("nil SqlxDB"))
 	}
 	if o.DB == nil {
 		err = errors.Join(err, errors.New("nil DB"))
@@ -223,14 +228,13 @@ func newChain(ctx context.Context, cfg *evmconfig.ChainScoped, nodes []*toml.Nod
 		client = opts.GenEthClient(chainID)
 	}
 
-	db := opts.DB
 	headBroadcaster := headtracker.NewHeadBroadcaster(l)
 	headSaver := headtracker.NullSaver
 	var headTracker httypes.HeadTracker
 	if !cfg.EVMRPCEnabled() {
 		headTracker = headtracker.NullTracker
 	} else if opts.GenHeadTracker == nil {
-		orm := headtracker.NewORM(db, l, cfg.Database(), *chainID)
+		orm := headtracker.NewORM(*chainID, opts.DB)
 		headSaver = headtracker.NewHeadSaver(l, orm, cfg.EVM(), cfg.EVM().HeadTracker())
 		headTracker = headtracker.NewHeadTracker(l, client, cfg.EVM(), cfg.EVM().HeadTracker(), headBroadcaster, headSaver, opts.MailMon)
 	} else {
@@ -252,12 +256,12 @@ func newChain(ctx context.Context, cfg *evmconfig.ChainScoped, nodes []*toml.Nod
 				LogPrunePageSize:         int64(cfg.EVM().LogPrunePageSize()),
 				BackupPollerBlockDelay:   int64(cfg.EVM().BackupLogPollerBlockDelay()),
 			}
-			logPoller = logpoller.NewLogPoller(logpoller.NewObservedORM(chainID, db, l, cfg.Database()), client, l, lpOpts)
+			logPoller = logpoller.NewLogPoller(logpoller.NewObservedORM(chainID, opts.DB, l), client, l, lpOpts)
 		}
 	}
 
 	// note: gas estimator is started as a part of the txm
-	txm, gasEstimator, err := newEvmTxm(db, cfg.EVM(), cfg.EVMRPCEnabled(), cfg.Database(), cfg.Database().Listener(), client, l, logPoller, opts)
+	txm, gasEstimator, err := newEvmTxm(opts.SqlxDB, opts.DB, cfg.EVM(), cfg.EVMRPCEnabled(), cfg.Database(), cfg.Database().Listener(), client, l, logPoller, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate EvmTxm for chain with ID %s: %w", chainID.String(), err)
 	}
@@ -280,7 +284,7 @@ func newChain(ctx context.Context, cfg *evmconfig.ChainScoped, nodes []*toml.Nod
 	if !cfg.EVMRPCEnabled() {
 		logBroadcaster = &log.NullBroadcaster{ErrMsg: fmt.Sprintf("Ethereum is disabled for chain %d", chainID)}
 	} else if opts.GenLogBroadcaster == nil {
-		logORM := log.NewORM(db, l, cfg.Database(), *chainID)
+		logORM := log.NewORM(opts.SqlxDB, l, cfg.Database(), *chainID)
 		logBroadcaster = log.NewBroadcaster(logORM, client, cfg.EVM(), l, highestSeenHead, opts.MailMon)
 	} else {
 		logBroadcaster = opts.GenLogBroadcaster(chainID)
