@@ -15,6 +15,13 @@ on:
   pull_request:
   schedule:
     - cron: "0 0 * * *"
+  workflow_dispatch:
+    inputs:
+      evm-ref:
+        description: The chainlink-evm reference to use when testing against a specific version for compatibliity
+        required: false
+        default: ""
+        type: string
 
 jobs:
   golangci:
@@ -71,6 +78,10 @@ jobs:
         run: mkdir -p core/web/assets && touch core/web/assets/index.html
       - name: Download Go vendor packages
         run: go mod download
+      - name: Replace chainlink-evm deps
+        if: ${{ inputs.evm-ref != ''}}
+        shell: bash
+        run: go get github.com/smartcontractkit/chainlink-evm@${{ inputs.evm-ref }}
       - name: Build binary
         run: go build -o chainlink.test .
       - name: Setup DB
@@ -168,6 +179,10 @@ jobs:
         run: mkdir -p core/web/assets && touch core/web/assets/index.html
       - name: Download Go vendor packages
         run: go mod download
+      - name: Replace chainlink-evm deps
+        if: ${{ inputs.evm-ref != ''}}
+        shell: bash
+        run: go get github.com/smartcontractkit/chainlink-evm@${{ inputs.evm-ref }}
       - name: Build binary
         run: go build -o chainlink.test .
       - name: Setup DB
