@@ -285,7 +285,7 @@ func (n *ClNode) Fund(evmClient blockchain.EVMClient, amount *big.Float) error {
 	return evmClient.Fund(toAddress, amount, gasEstimates)
 }
 
-func (n *ClNode) startContainer(restartDb bool) error {
+func (n *ClNode) containerStartOrRestart(restartDb bool) error {
 	var err error
 	if restartDb {
 		err = n.PostgresDb.RestartContainer()
@@ -365,11 +365,11 @@ func (n *ClNode) startContainer(restartDb bool) error {
 }
 
 func (n *ClNode) RestartContainer() error {
-	return n.startContainer(true)
+	return n.containerStartOrRestart(true)
 }
 
 func (n *ClNode) StartContainer() error {
-	return n.startContainer(false)
+	return n.containerStartOrRestart(false)
 }
 
 func (n *ClNode) ExecGetVersion() (string, error) {
