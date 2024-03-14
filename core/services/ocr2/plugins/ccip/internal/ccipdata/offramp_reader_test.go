@@ -158,11 +158,18 @@ func setupOffRampReaderTH(t *testing.T, version string) offRampReaderTH {
 	user, bc := ccipdata.NewSimulation(t)
 	log := logger.TestLogger(t)
 	orm := logpoller.NewORM(testutils.SimulatedChainID, pgtest.NewSqlxDB(t), log, pgtest.NewQConfig(true))
+	lpOpts := logpoller.Opts{
+		PollPeriod:               100 * time.Millisecond,
+		FinalityDepth:            2,
+		BackfillBatchSize:        3,
+		RpcBatchSize:             2,
+		KeepFinalizedBlocksDepth: 1000,
+	}
 	lp := logpoller.NewLogPoller(
 		orm,
 		bc,
 		log,
-		100*time.Millisecond, false, 2, 3, 2, 1000)
+		lpOpts)
 	assert.NoError(t, orm.InsertBlock(common.Hash{}, 1, time.Now(), 1))
 	// Setup offRamp.
 	var offRampAddress common.Address

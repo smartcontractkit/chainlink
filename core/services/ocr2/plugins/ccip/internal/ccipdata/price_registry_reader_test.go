@@ -70,8 +70,15 @@ func newSim(t *testing.T) (*bind.TransactOpts, *client.SimulatedBackendClient) {
 func setupPriceRegistryReaderTH(t *testing.T) priceRegReaderTH {
 	user, ec := newSim(t)
 	lggr := logger.TestLogger(t)
+	lpOpts := logpoller.Opts{
+		PollPeriod:               100 * time.Millisecond,
+		FinalityDepth:            2,
+		BackfillBatchSize:        3,
+		RpcBatchSize:             2,
+		KeepFinalizedBlocksDepth: 1000,
+	}
 	// TODO: We should be able to use an in memory log poller ORM here to speed up the tests.
-	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.SimulatedChainID, pgtest.NewSqlxDB(t), lggr, pgtest.NewQConfig(true)), ec, lggr, 100*time.Millisecond, false, 2, 3, 2, 1000)
+	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.SimulatedChainID, pgtest.NewSqlxDB(t), lggr, pgtest.NewQConfig(true)), ec, lggr, lpOpts)
 
 	feeTokens := []common.Address{utils.RandomAddress(), utils.RandomAddress()}
 	dest := uint64(10)

@@ -91,7 +91,14 @@ func TestFilters(t *testing.T) {
 		o := logpoller.NewORM(chainID, db, lggr, pgtest.NewQConfig(true))
 		ec := backends.NewSimulatedBackend(map[common.Address]core.GenesisAccount{}, 10e6)
 		esc := client.NewSimulatedBackendClient(t, ec, chainID)
-		lp := logpoller.NewLogPoller(o, esc, lggr, 1*time.Hour, false, 1, 1, 1, 100)
+		lpOpts := logpoller.Opts{
+			PollPeriod:               1 * time.Hour,
+			FinalityDepth:            1,
+			BackfillBatchSize:        1,
+			RpcBatchSize:             1,
+			KeepFinalizedBlocksDepth: 100,
+		}
+		lp := logpoller.NewLogPoller(o, esc, lggr, lpOpts)
 
 		jobID1 := "job-1"
 		jobID2 := "job-2"
