@@ -291,6 +291,18 @@ createuser --superuser --password chainlink -h localhost
    Now you can run tests or compile code as usual.
 5. When you're done, stop it: `cd $PGDATA; pg_ctl -o "--unix_socket_directories='$PWD'" stop`
 
+### Changesets
+
+We use [changesets](https://github.com/changesets/changesets) to manage versioning for libs and the services.
+
+Every PR that modifies any configuration or code, should most likely accompanied by a changeset file.
+
+To install `changesets`:
+  1. Install `pnpm` if it is not already installed - [docs](https://pnpm.io/installation).
+  2. Run `pnpm install`.
+
+Either after or before you create a commit, run the `pnpm changeset` command to create an accompanying changeset entry which will reflect on the CHANGELOG for the next release.
+
 ### Tips
 
 For more tips on how to build and test Chainlink, see our [development tips page](https://github.com/smartcontractkit/chainlink/wiki/Development-Tips).
