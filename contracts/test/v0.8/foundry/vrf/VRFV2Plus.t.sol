@@ -949,8 +949,18 @@ contract VRFV2Plus is BaseTest {
 
     // 2. Request random words.
     changePrank(subOwner);
-    (uint256 requestId1, uint256 preSeed1) = s_testCoordinator.computeRequestIdExternal(vrfKeyHash, address(consumer1), subId, 1);
-    (uint256 requestId2, uint256 preSeed2) = s_testCoordinator.computeRequestIdExternal(vrfKeyHash, address(consumer2), subId, 1);
+    (uint256 requestId1, uint256 preSeed1) = s_testCoordinator.computeRequestIdExternal(
+      vrfKeyHash,
+      address(consumer1),
+      subId,
+      1
+    );
+    (uint256 requestId2, uint256 preSeed2) = s_testCoordinator.computeRequestIdExternal(
+      vrfKeyHash,
+      address(consumer2),
+      subId,
+      1
+    );
     assertNotEq(requestId1, requestId2);
     assertNotEq(preSeed1, preSeed2);
     consumer1.requestRandomWords(
