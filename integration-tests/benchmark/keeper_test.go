@@ -141,7 +141,7 @@ func TestAutomationBenchmark(t *testing.T) {
 	networkName := strings.ReplaceAll(benchmarkNetwork.Name, " ", "")
 	testName := fmt.Sprintf("%s%s", networkName, *config.Keeper.Common.RegistryToTest)
 	l.Info().Str("Test Name", testName).Msg("Running Benchmark Test")
-	benchmarkTestNetwork := getNetworkConfig(networkName, &config)
+	benchmarkTestNetwork := getNetworkConfig(&config)
 
 	l.Info().Str("Namespace", testEnvironment.Cfg.Namespace).Msg("Connected to Keepers Benchmark Environment")
 
@@ -239,14 +239,15 @@ func repeatRegistries(registryVersion eth_contracts.KeeperRegistryVersion, numbe
 	return repeatedRegistries
 }
 
-func getNetworkConfig(networkName string, config *tc.TestConfig) NetworkConfig {
+func getNetworkConfig(config *tc.TestConfig) NetworkConfig {
+	evmNetwork := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0]
 	var nc NetworkConfig
 	var ok bool
-	if nc, ok = networkConfig[networkName]; !ok {
+	if nc, ok = networkConfig[evmNetwork.Name]; !ok {
 		return defaultNetworkConfig
 	}
 
-	if networkName == "SimulatedGeth" || networkName == "geth" {
+	if evmNetwork.Name == networks.SimulatedEVM.Name || evmNetwork.Name == networks.SimulatedEVMNonDev.Name {
 		return nc
 	}
 
@@ -256,61 +257,61 @@ func getNetworkConfig(networkName string, config *tc.TestConfig) NetworkConfig {
 }
 
 var networkConfig = map[string]NetworkConfig{
-	"SimulatedGeth": {
+	networks.SimulatedEVM.Name: {
 		upkeepSLA:  int64(120), //2 minutes
 		blockTime:  time.Second,
 		deltaStage: 30 * time.Second,
 		funding:    big.NewFloat(100_000),
 	},
-	"geth": {
+	networks.SimulatedEVMNonDev.Name: {
 		upkeepSLA:  int64(120), //2 minutes
 		blockTime:  time.Second,
 		deltaStage: 30 * time.Second,
 		funding:    big.NewFloat(100_000),
 	},
-	"GoerliTestnet": {
+	networks.GoerliTestnet.Name: {
 		upkeepSLA:  int64(4),
 		blockTime:  12 * time.Second,
 		deltaStage: time.Duration(0),
 	},
-	"ArbitrumGoerli": {
-		upkeepSLA:  int64(20),
-		blockTime:  time.Second,
-		deltaStage: time.Duration(0),
-	},
-	"OptimismGoerli": {
-		upkeepSLA:  int64(20),
-		blockTime:  time.Second,
-		deltaStage: time.Duration(0),
-	},
-	"SepoliaTestnet": {
+	networks.SepoliaTestnet.Name: {
 		upkeepSLA:  int64(4),
 		blockTime:  12 * time.Second,
 		deltaStage: time.Duration(0),
 	},
-	"PolygonMumbai": {
+	networks.PolygonMumbai.Name: {
 		upkeepSLA:  int64(4),
 		blockTime:  12 * time.Second,
 		deltaStage: time.Duration(0),
 	},
-	"BaseGoerli": {
+	networks.BaseGoerli.Name: {
 		upkeepSLA:  int64(60),
 		blockTime:  2 * time.Second,
 		deltaStage: 20 * time.Second,
 	},
-	"ArbitrumSepolia": {
+	networks.ArbitrumSepolia.Name: {
 		upkeepSLA:  int64(120),
 		blockTime:  time.Second,
 		deltaStage: 20 * time.Second,
 	},
-	"LineaGoerli": {
+	networks.OptimismSepolia.Name: {
 		upkeepSLA:  int64(120),
 		blockTime:  time.Second,
 		deltaStage: 20 * time.Second,
 	},
-	"GnosisChiado": {
+	networks.LineaGoerli.Name: {
+		upkeepSLA:  int64(120),
+		blockTime:  time.Second,
+		deltaStage: 20 * time.Second,
+	},
+	networks.GnosisChiado.Name: {
 		upkeepSLA:  int64(120),
 		blockTime:  6 * time.Second,
+		deltaStage: 20 * time.Second,
+	},
+	networks.PolygonZkEvmCardona.Name: {
+		upkeepSLA:  int64(120),
+		blockTime:  time.Second,
 		deltaStage: 20 * time.Second,
 	},
 }
