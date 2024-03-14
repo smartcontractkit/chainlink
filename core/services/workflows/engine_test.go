@@ -138,7 +138,12 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 	require.NoError(t, reg.Add(ctx, target2))
 
 	lggr := logger.TestLogger(t)
-	eng, err := NewEngine(lggr, reg)
+	cfg := Config{
+		Lggr:     lggr,
+		Registry: reg,
+		Spec:     hardcodedWorkflow,
+	}
+	eng, err := NewEngine(cfg)
 	require.NoError(t, err)
 
 	resp, err := values.NewMap(map[string]any{
