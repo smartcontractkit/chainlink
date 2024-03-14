@@ -3,7 +3,7 @@
   "changelog": [
     "@changesets/changelog-github",
     {
-      "repo": "smartcontractkit/chainlink"
+      "repo": "smartcontractkit/ccip"
     }
   ],
   "commit": false,
@@ -14,7 +14,7 @@
     "tag": true
   },
   "access": "restricted",
-  "baseBranch": "develop",
+  "baseBranch": "ccip-develop",
   "updateInternalDependencies": "patch",
   "ignore": []
 }
