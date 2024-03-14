@@ -5,11 +5,10 @@ import (
 	"math/big"
 	"math/rand"
 
+	"github.com/barkimedes/go-deepcopy"
 	"github.com/rs/zerolog"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
 	"github.com/smartcontractkit/wasp"
 
-	"github.com/barkimedes/go-deepcopy"
 	vrfcommon "github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/common"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/vrfv2plus"
 	vrfv2plus_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2plus"
@@ -53,7 +52,8 @@ func (m *SingleHashGun) Call(_ *wasp.Generator) *wasp.Response {
 
 	//randomly increase/decrease randomness request count per TX
 	configCopy := deepcopy.MustAnything(m.testConfig).(types.VRFv2PlusTestConfig)
-	configCopy.GetVRFv2PlusConfig().General.RandomnessRequestCountPerRequest = ptr.Ptr(deviateValue(*m.testConfig.GetVRFv2PlusConfig().General.RandomnessRequestCountPerRequest, *m.testConfig.GetVRFv2PlusConfig().General.RandomnessRequestCountPerRequestDeviation))
+	reqCount := deviateValue(*m.testConfig.GetVRFv2PlusConfig().General.RandomnessRequestCountPerRequest, *m.testConfig.GetVRFv2PlusConfig().General.RandomnessRequestCountPerRequestDeviation)
+	configCopy.GetVRFv2PlusConfig().General.RandomnessRequestCountPerRequest = &reqCount
 	_, err = vrfv2plus.RequestRandomnessAndWaitForFulfillment(
 		//the same consumer is used for all requests and in all subs
 		m.contracts.VRFV2PlusConsumer[0],
