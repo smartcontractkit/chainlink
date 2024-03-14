@@ -61,14 +61,14 @@ type ORM interface {
 
 type DbORM struct {
 	chainID *big.Int
-	db      sqlutil.DB
+	db      sqlutil.DataSource
 	lggr    logger.Logger
 }
 
 var _ ORM = &DbORM{}
 
 // NewORM creates an DbORM scoped to chainID.
-func NewORM(chainID *big.Int, db sqlutil.DB, lggr logger.Logger) *DbORM {
+func NewORM(chainID *big.Int, db sqlutil.DataSource, lggr logger.Logger) *DbORM {
 	return &DbORM{
 		chainID: chainID,
 		db:      db,
@@ -81,7 +81,7 @@ func (o *DbORM) Transaction(ctx context.Context, fn func(*DbORM) error) (err err
 }
 
 // new returns a NewORM like o, but backed by q.
-func (o *DbORM) new(q sqlutil.DB) *DbORM { return NewORM(o.chainID, q, o.lggr) }
+func (o *DbORM) new(q sqlutil.DataSource) *DbORM { return NewORM(o.chainID, q, o.lggr) }
 
 // InsertBlock is idempotent to support replays.
 func (o *DbORM) InsertBlock(ctx context.Context, blockHash common.Hash, blockNumber int64, blockTimestamp time.Time, finalizedBlock int64) error {
@@ -373,7 +373,7 @@ func (o *DbORM) InsertLogsWithBlock(ctx context.Context, logs []Log, block LogPo
 	})
 }
 
-func (o *DbORM) insertLogsWithinTx(ctx context.Context, logs []Log, tx sqlutil.DB) error {
+func (o *DbORM) insertLogsWithinTx(ctx context.Context, logs []Log, tx sqlutil.DataSource) error {
 	batchInsertSize := 4000
 	for i := 0; i < len(logs); i += batchInsertSize {
 		start, end := i, i+batchInsertSize

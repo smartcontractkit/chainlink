@@ -18,7 +18,7 @@ import (
 
 type TestORM struct {
 	ORM
-	db sqlutil.DB
+	db sqlutil.DataSource
 }
 
 func setupORM(t *testing.T) *TestORM {
@@ -54,7 +54,7 @@ func Test_DeleteForwarder(t *testing.T) {
 	rets := []error{ErrCleaningUp, nil, nil, ErrCleaningUp}
 	expected := []error{ErrCleaningUp, nil, sql.ErrNoRows, sql.ErrNoRows}
 
-	testCleanupFn := func(q sqlutil.DB, evmChainID int64, addr common.Address) error {
+	testCleanupFn := func(q sqlutil.DataSource, evmChainID int64, addr common.Address) error {
 		require.Less(t, cleanupCalled, len(rets))
 		cleanupCalled++
 		return rets[cleanupCalled-1]
