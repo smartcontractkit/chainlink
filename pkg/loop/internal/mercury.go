@@ -4,9 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"google.golang.org/grpc"
-
 	"github.com/mwitkow/grpc-proxy/proxy"
+	"google.golang.org/grpc"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	mercury_common_internal "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/mercury/common"
@@ -43,7 +42,8 @@ func NewMercuryAdapterClient(broker Broker, brokerCfg BrokerConfig, conn *grpc.C
 }
 
 func (c *MercuryAdapterClient) NewMercuryV1Factory(ctx context.Context,
-	provider types.MercuryProvider, dataSource mercury_v1.DataSource) (types.MercuryPluginFactory, error) {
+	provider types.MercuryProvider, dataSource mercury_v1.DataSource,
+) (types.MercuryPluginFactory, error) {
 	// every time a new client is created, we have to ensure that all the external dependencies are satisfied.
 	// at this layer of the stack, all of those dependencies are other gRPC services.
 	// some of those services are hosted in the same process as the client itself and others may be remote.
@@ -93,7 +93,8 @@ func (c *MercuryAdapterClient) NewMercuryV1Factory(ctx context.Context,
 }
 
 func (c *MercuryAdapterClient) NewMercuryV2Factory(ctx context.Context,
-	provider types.MercuryProvider, dataSource mercury_v2.DataSource) (types.MercuryPluginFactory, error) {
+	provider types.MercuryProvider, dataSource mercury_v2.DataSource,
+) (types.MercuryPluginFactory, error) {
 	// every time a new client is created, we have to ensure that all the external dependencies are satisfied.
 	// at this layer of the stack, all of those dependencies are other gRPC services.
 	// some of those services are hosted in the same process as the client itself and others may be remote.
@@ -171,9 +172,11 @@ func (c *MercuryAdapterClient) NewMercuryV3Factory(ctx context.Context,
 			providerID  uint32
 			providerRes Resource
 		)
+		// loop mode; proxy to the relayer
 		if grpcProvider, ok := provider.(GRPCClientConn); ok {
 			providerID, providerRes, err = c.Serve("MercuryProvider", proxy.NewProxy(grpcProvider.ClientConn()))
 		} else {
+			// legacy mode; serve the provider locally in the client process (ie the core node)
 			providerID, providerRes, err = c.ServeNew("MercuryProvider", func(s *grpc.Server) {
 				registerCommonServices(s, provider)
 
@@ -345,7 +348,7 @@ func (ms *mercuryAdapterServer) NewMercuryV3Factory(ctx context.Context, req *me
 
 var (
 	_ types.MercuryProvider = (*mercuryProviderClient)(nil)
-	// in practice, inherited from pluginProviderClient
+	// in practice, inherited from pluginProviderClient.
 	_ GRPCClientConn = (*mercuryProviderClient)(nil)
 )
 

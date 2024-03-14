@@ -47,6 +47,7 @@ func (p *GRPCPluginRelayer) GRPCServer(broker *plugin.GRPCBroker, server *grpc.S
 }
 
 // GRPCClient implements [plugin.GRPCPlugin] and returns the pluginClient [types.PluginRelayer], updated with the new broker and conn.
+
 func (p *GRPCPluginRelayer) GRPCClient(_ context.Context, broker *plugin.GRPCBroker, conn *grpc.ClientConn) (interface{}, error) {
 	if p.pluginClient == nil {
 		p.pluginClient = internal.NewPluginRelayerClient(broker, p.BrokerConfig, conn)

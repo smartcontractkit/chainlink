@@ -11,6 +11,7 @@ import (
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
 // This is a compile-time assertion to ensure that this generated file
@@ -103,6 +104,171 @@ var ExecutionFactoryGenerator_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "NewExecutionFactory",
 			Handler:    _ExecutionFactoryGenerator_NewExecutionFactory_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "exec_factory.proto",
+}
+
+const (
+	ExecutionCustomHandlers_NewOnRampReader_FullMethodName  = "/loop.internal.pb.ccip.ExecutionCustomHandlers/NewOnRampReader"
+	ExecutionCustomHandlers_NewOffRampReader_FullMethodName = "/loop.internal.pb.ccip.ExecutionCustomHandlers/NewOffRampReader"
+	ExecutionCustomHandlers_Close_FullMethodName            = "/loop.internal.pb.ccip.ExecutionCustomHandlers/Close"
+)
+
+// ExecutionCustomHandlersClient is the client API for ExecutionCustomHandlers service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type ExecutionCustomHandlersClient interface {
+	NewOnRampReader(ctx context.Context, in *NewOnRampReaderRequest, opts ...grpc.CallOption) (*NewOnRampReaderResponse, error)
+	NewOffRampReader(ctx context.Context, in *NewOffRampReaderRequest, opts ...grpc.CallOption) (*NewOffRampReaderResponse, error)
+	Close(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
+}
+
+type executionCustomHandlersClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewExecutionCustomHandlersClient(cc grpc.ClientConnInterface) ExecutionCustomHandlersClient {
+	return &executionCustomHandlersClient{cc}
+}
+
+func (c *executionCustomHandlersClient) NewOnRampReader(ctx context.Context, in *NewOnRampReaderRequest, opts ...grpc.CallOption) (*NewOnRampReaderResponse, error) {
+	out := new(NewOnRampReaderResponse)
+	err := c.cc.Invoke(ctx, ExecutionCustomHandlers_NewOnRampReader_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *executionCustomHandlersClient) NewOffRampReader(ctx context.Context, in *NewOffRampReaderRequest, opts ...grpc.CallOption) (*NewOffRampReaderResponse, error) {
+	out := new(NewOffRampReaderResponse)
+	err := c.cc.Invoke(ctx, ExecutionCustomHandlers_NewOffRampReader_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *executionCustomHandlersClient) Close(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, ExecutionCustomHandlers_Close_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// ExecutionCustomHandlersServer is the server API for ExecutionCustomHandlers service.
+// All implementations must embed UnimplementedExecutionCustomHandlersServer
+// for forward compatibility
+type ExecutionCustomHandlersServer interface {
+	NewOnRampReader(context.Context, *NewOnRampReaderRequest) (*NewOnRampReaderResponse, error)
+	NewOffRampReader(context.Context, *NewOffRampReaderRequest) (*NewOffRampReaderResponse, error)
+	Close(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
+	mustEmbedUnimplementedExecutionCustomHandlersServer()
+}
+
+// UnimplementedExecutionCustomHandlersServer must be embedded to have forward compatible implementations.
+type UnimplementedExecutionCustomHandlersServer struct {
+}
+
+func (UnimplementedExecutionCustomHandlersServer) NewOnRampReader(context.Context, *NewOnRampReaderRequest) (*NewOnRampReaderResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method NewOnRampReader not implemented")
+}
+func (UnimplementedExecutionCustomHandlersServer) NewOffRampReader(context.Context, *NewOffRampReaderRequest) (*NewOffRampReaderResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method NewOffRampReader not implemented")
+}
+func (UnimplementedExecutionCustomHandlersServer) Close(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Close not implemented")
+}
+func (UnimplementedExecutionCustomHandlersServer) mustEmbedUnimplementedExecutionCustomHandlersServer() {
+}
+
+// UnsafeExecutionCustomHandlersServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to ExecutionCustomHandlersServer will
+// result in compilation errors.
+type UnsafeExecutionCustomHandlersServer interface {
+	mustEmbedUnimplementedExecutionCustomHandlersServer()
+}
+
+func RegisterExecutionCustomHandlersServer(s grpc.ServiceRegistrar, srv ExecutionCustomHandlersServer) {
+	s.RegisterService(&ExecutionCustomHandlers_ServiceDesc, srv)
+}
+
+func _ExecutionCustomHandlers_NewOnRampReader_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(NewOnRampReaderRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ExecutionCustomHandlersServer).NewOnRampReader(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ExecutionCustomHandlers_NewOnRampReader_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ExecutionCustomHandlersServer).NewOnRampReader(ctx, req.(*NewOnRampReaderRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ExecutionCustomHandlers_NewOffRampReader_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(NewOffRampReaderRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ExecutionCustomHandlersServer).NewOffRampReader(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ExecutionCustomHandlers_NewOffRampReader_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ExecutionCustomHandlersServer).NewOffRampReader(ctx, req.(*NewOffRampReaderRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ExecutionCustomHandlers_Close_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ExecutionCustomHandlersServer).Close(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ExecutionCustomHandlers_Close_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ExecutionCustomHandlersServer).Close(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// ExecutionCustomHandlers_ServiceDesc is the grpc.ServiceDesc for ExecutionCustomHandlers service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var ExecutionCustomHandlers_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "loop.internal.pb.ccip.ExecutionCustomHandlers",
+	HandlerType: (*ExecutionCustomHandlersServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "NewOnRampReader",
+			Handler:    _ExecutionCustomHandlers_NewOnRampReader_Handler,
+		},
+		{
+			MethodName: "NewOffRampReader",
+			Handler:    _ExecutionCustomHandlers_NewOffRampReader_Handler,
+		},
+		{
+			MethodName: "Close",
+			Handler:    _ExecutionCustomHandlers_Close_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

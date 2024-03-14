@@ -84,8 +84,10 @@ type MedianProviderTester interface {
 type RelayerTester interface {
 	internal.PluginRelayer
 	internal.Relayer
+	// implements all the possible providers as a one-stop shop for testing
 	internal.MercuryProvider
 	internal.MedianProvider
+	internal.CCIPExecProvider
 
 	AssertEqualer[loop.Relayer]
 }

@@ -4,12 +4,11 @@ import (
 	"context"
 	"time"
 
-	"google.golang.org/grpc"
-	"google.golang.org/protobuf/types/known/emptypb"
-
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	libocr "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb"
 	mercurypb "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb/mercury"
@@ -130,7 +129,7 @@ func (r *mercuryPluginClient) Observation(ctx context.Context, timestamp libocr.
 	return response.Observation, nil
 }
 
-// TODO: BCF-2887 plumb context through
+// TODO: BCF-2887 plumb context through.
 func (r *mercuryPluginClient) Report(timestamp libocr.ReportTimestamp, previousReport libocr.Report, obs []libocr.AttributedObservation) (bool, libocr.Report, error) {
 	response, err := r.grpc.Report(context.TODO(), &mercurypb.ReportRequest{
 		ReportTimestamp: pb.ReportTimestampToPb(timestamp),

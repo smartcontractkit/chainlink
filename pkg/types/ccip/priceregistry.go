@@ -50,3 +50,7 @@ type GasPriceUpdate struct {
 	GasPrice
 	TimestampUnixSec *big.Int
 }
+
+type PriceRegistryFactory interface {
+	NewPriceRegistryReader(ctx context.Context, addr Address) (PriceRegistryReader, error)
+}

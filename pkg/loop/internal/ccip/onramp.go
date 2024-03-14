@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 
+	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb"
 	ccippb "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb/ccip"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 )
@@ -16,8 +18,8 @@ type OnRampReaderClient struct {
 	grpc ccippb.OnRampReaderClient
 }
 
-func NewOnRampReaderClient(grpc ccippb.OnRampReaderClient) *OnRampReaderClient {
-	return &OnRampReaderClient{grpc: grpc}
+func NewOnRampReaderClient(cc grpc.ClientConnInterface) *OnRampReaderClient {
+	return &OnRampReaderClient{grpc: ccippb.NewOnRampReaderClient(cc)}
 }
 
 // Address implements ccip.OnRampReader.
@@ -53,7 +55,67 @@ func (o *OnRampReaderClient) GetSendRequestsBetweenSeqNums(ctx context.Context, 
 
 // RouterAddress implements ccip.OnRampReader.
 func (o *OnRampReaderClient) RouterAddress() (cciptypes.Address, error) {
-	panic("unimplemented")
+	resp, err := o.grpc.RouterAddress(context.TODO(), &emptypb.Empty{})
+	if err != nil {
+		return cciptypes.Address(""), err
+	}
+	return cciptypes.Address(resp.RouterAddress), nil
+}
+
+// Server
+
+type OnRampReaderServer struct {
+	ccippb.UnimplementedOnRampReaderServer
+
+	impl cciptypes.OnRampReader
+}
+
+// mustEmbedUnimplementedOnRampReaderServer implements ccippb.OnRampReaderServer.
+
+var _ ccippb.OnRampReaderServer = (*OnRampReaderServer)(nil)
+
+func NewOnRampReaderServer(impl cciptypes.OnRampReader) *OnRampReaderServer {
+	return &OnRampReaderServer{impl: impl}
+}
+
+// Address implements ccippb.OnRampReaderServer.
+func (o *OnRampReaderServer) Address(context.Context, *emptypb.Empty) (*ccippb.OnrampAddressResponse, error) {
+	addr, err := o.impl.Address()
+	if err != nil {
+		return nil, err
+	}
+	return &ccippb.OnrampAddressResponse{Address: string(addr)}, nil
+}
+
+// GetDynamicConfig implements ccippb.OnRampReaderServer.
+func (o *OnRampReaderServer) GetDynamicConfig(context.Context, *emptypb.Empty) (*ccippb.GetDynamicConfigResponse, error) {
+	c, err := o.impl.GetDynamicConfig()
+	if err != nil {
+		return nil, err
+	}
+	return &ccippb.GetDynamicConfigResponse{DynamicConfig: onRampDynamicConfigPB(&c)}, nil
+}
+
+// GetSendRequestsBetweenSeqNums implements ccippb.OnRampReaderServer.
+func (o *OnRampReaderServer) GetSendRequestsBetweenSeqNums(ctx context.Context, req *ccippb.GetSendRequestsBetweenSeqNumsRequest) (*ccippb.GetSendRequestsBetweenSeqNumsResponse, error) {
+	sendRequests, err := o.impl.GetSendRequestsBetweenSeqNums(ctx, req.SeqNumMin, req.SeqNumMax, req.Finalized)
+	if err != nil {
+		return nil, err
+	}
+	sendRequestsPB, err := evm2EVMMessageWithTxMetaSlicePB(sendRequests)
+	if err != nil {
+		return nil, err
+	}
+	return &ccippb.GetSendRequestsBetweenSeqNumsResponse{SendRequests: sendRequestsPB}, nil
+}
+
+// RouterAddress implements ccippb.OnRampReaderServer.
+func (o *OnRampReaderServer) RouterAddress(context.Context, *emptypb.Empty) (*ccippb.RouterAddressResponse, error) {
+	a, err := o.impl.RouterAddress()
+	if err != nil {
+		return nil, err
+	}
+	return &ccippb.RouterAddressResponse{RouterAddress: string(a)}, nil
 }
 
 func onRampDynamicConfig(config *ccippb.OnRampDynamicConfig) cciptypes.OnRampDynamicConfig {
@@ -71,6 +133,21 @@ func onRampDynamicConfig(config *ccippb.OnRampDynamicConfig) cciptypes.OnRampDyn
 	}
 }
 
+func onRampDynamicConfigPB(config *cciptypes.OnRampDynamicConfig) *ccippb.OnRampDynamicConfig {
+	return &ccippb.OnRampDynamicConfig{
+		Router:                            string(config.Router),
+		MaxNumberOfTokensPerMsg:           uint32(config.MaxNumberOfTokensPerMsg),
+		DestGasOverhead:                   config.DestGasOverhead,
+		DestGasPerByte:                    uint32(config.DestGasPerPayloadByte),
+		DestDataAvailabilityOverheadGas:   config.DestDataAvailabilityOverheadGas,
+		DestGasPerDataAvailabilityByte:    uint32(config.DestGasPerDataAvailabilityByte),
+		DestDataAvailabilityMultiplierBps: uint32(config.DestDataAvailabilityMultiplierBps),
+		PriceRegistry:                     string(config.PriceRegistry),
+		MaxDataBytes:                      config.MaxDataBytes,
+		MaxPerMsgGasLimit:                 config.MaxPerMsgGasLimit,
+	}
+}
+
 func evm2EVMMessageWithTxMetaSlice(messages []*ccippb.EVM2EVMMessageWithTxMeta) ([]cciptypes.EVM2EVMMessageWithTxMeta, error) {
 	res := make([]cciptypes.EVM2EVMMessageWithTxMeta, len(messages))
 	for i, m := range messages {
@@ -81,6 +158,18 @@ func evm2EVMMessageWithTxMetaSlice(messages []*ccippb.EVM2EVMMessageWithTxMeta) 
 		res[i] = cciptypes.EVM2EVMMessageWithTxMeta{
 			TxMeta:         txMeta(m.TxMeta),
 			EVM2EVMMessage: decodedMsg,
+		}
+	}
+	return res, nil
+}
+
+func evm2EVMMessageWithTxMetaSlicePB(messages []cciptypes.EVM2EVMMessageWithTxMeta) ([]*ccippb.EVM2EVMMessageWithTxMeta, error) {
+	res := make([]*ccippb.EVM2EVMMessageWithTxMeta, len(messages))
+	for i, m := range messages {
+		decodedMsg := evm2EVMMessagePB(m.EVM2EVMMessage)
+		res[i] = &ccippb.EVM2EVMMessageWithTxMeta{
+			TxMeta:  txMetaPB(m.TxMeta),
+			Message: decodedMsg,
 		}
 	}
 	return res, nil
@@ -109,6 +198,24 @@ func evm2EVMMessage(message *ccippb.EVM2EVMMessage) (cciptypes.EVM2EVMMessage, e
 	}, nil
 }
 
+func evm2EVMMessagePB(message cciptypes.EVM2EVMMessage) *ccippb.EVM2EVMMessage {
+	return &ccippb.EVM2EVMMessage{
+		SequenceNumber:      message.SequenceNumber,
+		GasLimit:            pb.NewBigIntFromInt(message.GasLimit),
+		Nonce:               message.Nonce,
+		MessageId:           message.MessageID[:],
+		SourceChainSelector: message.SourceChainSelector,
+		Sender:              string(message.Sender),
+		Receiver:            string(message.Receiver),
+		Strict:              message.Strict,
+		FeeToken:            string(message.FeeToken),
+		FeeTokenAmount:      pb.NewBigIntFromInt(message.FeeTokenAmount),
+		Data:                message.Data,
+		TokenAmounts:        tokenAmountSlicePB(message.TokenAmounts),
+		SourceTokenData:     message.SourceTokenData,
+	}
+}
+
 func tokenAmountSlice(tokenAmounts []*ccippb.TokenAmount) []cciptypes.TokenAmount {
 	res := make([]cciptypes.TokenAmount, len(tokenAmounts))
 	for i, t := range tokenAmounts {
@@ -120,8 +227,28 @@ func tokenAmountSlice(tokenAmounts []*ccippb.TokenAmount) []cciptypes.TokenAmoun
 	return res
 }
 
+func tokenAmountSlicePB(tokenAmounts []cciptypes.TokenAmount) []*ccippb.TokenAmount {
+	res := make([]*ccippb.TokenAmount, len(tokenAmounts))
+	for i, t := range tokenAmounts {
+		res[i] = &ccippb.TokenAmount{
+			Token:  string(t.Token),
+			Amount: pb.NewBigIntFromInt(t.Amount),
+		}
+	}
+	return res
+}
+
 func txMeta(meta *ccippb.TxMeta) cciptypes.TxMeta {
 	return cciptypes.TxMeta{
+		BlockTimestampUnixMilli: meta.BlockTimestampUnixMilli,
+		BlockNumber:             meta.BlockNumber,
+		TxHash:                  meta.TxHash,
+		LogIndex:                meta.LogIndex,
+	}
+}
+
+func txMetaPB(meta cciptypes.TxMeta) *ccippb.TxMeta {
+	return &ccippb.TxMeta{
 		BlockTimestampUnixMilli: meta.BlockTimestampUnixMilli,
 		BlockNumber:             meta.BlockNumber,
 		TxHash:                  meta.TxHash,

@@ -133,7 +133,7 @@ func (cr *capabilitiesRegistryClient) Add(ctx context.Context, c capabilities.Ba
 		return err
 	}
 
-	//Check the capability and the CapabilityType match here as the ServeNew method does not return an error
+	// Check the capability and the CapabilityType match here as the ServeNew method does not return an error
 	err = validateCapability(c, info.CapabilityType)
 	if err != nil {
 		return err
@@ -143,7 +143,6 @@ func (cr *capabilitiesRegistryClient) Add(ctx context.Context, c capabilities.Ba
 	id, cRes, err := cr.ServeNew(info.ID, func(s *grpc.Server) {
 		pbRegisterCapability(s, cr.BrokerExt, c, info.CapabilityType)
 	})
-
 	if err != nil {
 		return err
 	}
@@ -182,7 +181,7 @@ func (c *capabilitiesRegistryServer) Get(ctx context.Context, request *pb.GetReq
 		return nil, err
 	}
 
-	//Check the capability and the CapabilityType match here as the ServeNew method does not return an error
+	// Check the capability and the CapabilityType match here as the ServeNew method does not return an error
 	err = validateCapability(capability, info.CapabilityType)
 	if err != nil {
 		return nil, err
@@ -191,7 +190,6 @@ func (c *capabilitiesRegistryServer) Get(ctx context.Context, request *pb.GetReq
 	id, _, err := c.ServeNew("Get", func(s *grpc.Server) {
 		pbRegisterCapability(s, c.BrokerExt, capability, info.CapabilityType)
 	})
-
 	if err != nil {
 		return nil, err
 	}
@@ -208,7 +206,7 @@ func (c *capabilitiesRegistryServer) GetTrigger(ctx context.Context, request *pb
 		return nil, err
 	}
 
-	//Check the capability and the CapabilityType match here as the ServeNew method does not return an error
+	// Check the capability and the CapabilityType match here as the ServeNew method does not return an error
 	err = validateCapability(capability, capabilities.CapabilityTypeTrigger)
 	if err != nil {
 		return nil, err
@@ -217,7 +215,6 @@ func (c *capabilitiesRegistryServer) GetTrigger(ctx context.Context, request *pb
 	id, _, err := c.ServeNew("GetTrigger", func(s *grpc.Server) {
 		pbRegisterCapability(s, c.BrokerExt, capability, capabilities.CapabilityTypeTrigger)
 	})
-
 	if err != nil {
 		return nil, err
 	}
@@ -233,7 +230,7 @@ func (c *capabilitiesRegistryServer) GetAction(ctx context.Context, request *pb.
 		return nil, err
 	}
 
-	//Check the capability and the CapabilityType match here as the ServeNew method does not return an error
+	// Check the capability and the CapabilityType match here as the ServeNew method does not return an error
 	err = validateCapability(capability, capabilities.CapabilityTypeAction)
 	if err != nil {
 		return nil, err
@@ -242,7 +239,6 @@ func (c *capabilitiesRegistryServer) GetAction(ctx context.Context, request *pb.
 	id, _, err := c.ServeNew("GetAction", func(s *grpc.Server) {
 		pbRegisterCapability(s, c.BrokerExt, capability, capabilities.CapabilityTypeAction)
 	})
-
 	if err != nil {
 		return nil, err
 	}
@@ -258,7 +254,7 @@ func (c *capabilitiesRegistryServer) GetConsensus(ctx context.Context, request *
 		return nil, err
 	}
 
-	//Check the capability and the CapabilityType match here as the ServeNew method does not return an error
+	// Check the capability and the CapabilityType match here as the ServeNew method does not return an error
 	err = validateCapability(capability, capabilities.CapabilityTypeConsensus)
 	if err != nil {
 		return nil, err
@@ -267,7 +263,6 @@ func (c *capabilitiesRegistryServer) GetConsensus(ctx context.Context, request *
 	id, _, err := c.ServeNew("GetConsensus", func(s *grpc.Server) {
 		pbRegisterCapability(s, c.BrokerExt, capability, capabilities.CapabilityTypeConsensus)
 	})
-
 	if err != nil {
 		return nil, err
 	}
@@ -283,7 +278,7 @@ func (c *capabilitiesRegistryServer) GetTarget(ctx context.Context, request *pb.
 		return nil, err
 	}
 
-	//Check the capability and the CapabilityType match here as the ServeNew method does not return an error
+	// Check the capability and the CapabilityType match here as the ServeNew method does not return an error
 	err = validateCapability(capability, capabilities.CapabilityTypeTarget)
 	if err != nil {
 		return nil, err
@@ -292,7 +287,6 @@ func (c *capabilitiesRegistryServer) GetTarget(ctx context.Context, request *pb.
 	id, _, err := c.ServeNew("GetTarget", func(s *grpc.Server) {
 		pbRegisterCapability(s, c.BrokerExt, capability, capabilities.CapabilityTypeTarget)
 	})
-
 	if err != nil {
 		return nil, err
 	}
@@ -318,7 +312,7 @@ func (c *capabilitiesRegistryServer) List(ctx context.Context, _ *emptypb.Empty)
 			return nil, err
 		}
 
-		//Check the capability and the CapabilityType match here as the ServeNew method does not return an error
+		// Check the capability and the CapabilityType match here as the ServeNew method does not return an error
 		err = validateCapability(cap, info.CapabilityType)
 		if err != nil {
 			c.CloseAll(resources...)
@@ -396,7 +390,7 @@ func validateCapability(impl capabilities.BaseCapability, t capabilities.Capabil
 }
 
 // pbRegisterCapability registers the server with the correct capability based on capability type, this method assumes
-// that the capability has already been validated with validateCapability
+// that the capability has already been validated with validateCapability.
 func pbRegisterCapability(s *grpc.Server, b *BrokerExt, impl capabilities.BaseCapability, t capabilities.CapabilityType) {
 	switch t {
 	case capabilities.CapabilityTypeTrigger:

@@ -17,7 +17,7 @@ import (
 
 var _ grpc.ClientConnInterface = (*atomicClient)(nil)
 
-// An atomicClient implements [grpc.ClientConnInterface] and is backed by a swappable [*grpc.ClientConn]
+// An atomicClient implements [grpc.ClientConnInterface] and is backed by a swappable [*grpc.ClientConn].
 type atomicClient struct {
 	cc atomic.Pointer[grpc.ClientConn]
 }

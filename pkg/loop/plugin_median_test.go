@@ -22,12 +22,14 @@ func TestPluginMedian(t *testing.T) {
 	t.Parallel()
 
 	stopCh := newStopCh(t)
-	test.PluginTest(t, loop.PluginMedianName,
-		&loop.GRPCPluginMedian{
-			PluginServer: median_test.MedianFactoryServer,
-			BrokerConfig: loop.BrokerConfig{Logger: logger.Test(t), StopCh: stopCh},
-		},
-		median_test.PluginMedian)
+	t.Run("no proxy", func(t *testing.T) {
+		test.PluginTest(t, loop.PluginMedianName,
+			&loop.GRPCPluginMedian{
+				PluginServer: median_test.MedianFactoryServer,
+				BrokerConfig: loop.BrokerConfig{Logger: logger.Test(t), StopCh: stopCh},
+			},
+			median_test.PluginMedian)
+	})
 
 	t.Run("proxy", func(t *testing.T) {
 		test.PluginTest(t, loop.PluginRelayerName,

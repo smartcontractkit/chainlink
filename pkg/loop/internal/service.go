@@ -14,8 +14,10 @@ import (
 
 var ErrPluginUnavailable = errors.New("plugin unavailable")
 
-var _ services.Service = (*ServiceClient)(nil)
-var _ GRPCClientConn = (*ServiceClient)(nil)
+var (
+	_ services.Service = (*ServiceClient)(nil)
+	_ GRPCClientConn   = (*ServiceClient)(nil)
+)
 
 // ServiceClient is the base client implementation of a loop as a client to the core node or
 // to another loop that is proxied through the core node.
@@ -68,7 +70,7 @@ func (s *ServiceClient) HealthReport() map[string]error {
 	return hr
 }
 
-// ClientConn implements GRPCClientConn interface
+// ClientConn implements GRPCClientConn interface.
 func (s *ServiceClient) ClientConn() grpc.ClientConnInterface { return s.cc }
 
 var _ pb.ServiceServer = (*ServiceServer)(nil)

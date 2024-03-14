@@ -23,7 +23,7 @@ type Broker interface {
 
 var _ Broker = (*atomicBroker)(nil)
 
-// An atomicBroker implements [Broker] and is backed by a swappable [*plugin.GRPCBroker]
+// An atomicBroker implements [Broker] and is backed by a swappable [*plugin.GRPCBroker].
 type atomicBroker struct {
 	broker atomic.Pointer[Broker]
 }

@@ -17,6 +17,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal"
+	ccip_test "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/ccip/test"
 	median_test "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/median/test"
 	mercury_common_test "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/mercury/common/test"
 	testcore "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test/core"
@@ -49,14 +50,16 @@ type nodeResponse struct {
 	total    int
 }
 type staticPluginRelayerConfig struct {
-	StaticChecks     bool
-	relayArgs        types.RelayArgs
-	pluginArgs       types.PluginArgs
-	medianProvider   testtypes.MedianProviderTester
-	agnosticProvider testtypes.PluginProviderTester
-	mercuryProvider  mercury_common_test.MercuryProviderTester
-	configProvider   testpluginprovider.ConfigProviderTester
-	// TODO: add other Provider testers
+	StaticChecks      bool
+	relayArgs         types.RelayArgs
+	pluginArgs        types.PluginArgs
+	medianProvider    testtypes.MedianProviderTester
+	agnosticProvider  testtypes.PluginProviderTester
+	mercuryProvider   mercury_common_test.MercuryProviderTester
+	executionProvider ccip_test.ExecProviderTester
+	configProvider    testpluginprovider.ConfigProviderTester
+	// Note: add other Provider testers here when we implement them
+	// eg Functions, Automation, etc
 	nodeRequest        nodeRequest
 	nodeResponse       nodeResponse
 	transactionRequest transactionRequest
@@ -66,13 +69,14 @@ type staticPluginRelayerConfig struct {
 func NewRelayerTester(staticChecks bool) testtypes.RelayerTester {
 	return staticPluginRelayer{
 		staticPluginRelayerConfig: staticPluginRelayerConfig{
-			StaticChecks:     staticChecks,
-			relayArgs:        RelayArgs,
-			pluginArgs:       PluginArgs,
-			medianProvider:   median_test.MedianProvider,
-			mercuryProvider:  mercury_common_test.MercuryProvider,
-			agnosticProvider: testpluginprovider.AgnosticProvider,
-			configProvider:   testpluginprovider.ConfigProvider,
+			StaticChecks:      staticChecks,
+			relayArgs:         RelayArgs,
+			pluginArgs:        PluginArgs,
+			medianProvider:    median_test.MedianProvider,
+			mercuryProvider:   mercury_common_test.MercuryProvider,
+			executionProvider: ccip_test.ExecutionProvider,
+			agnosticProvider:  testpluginprovider.AgnosticProvider,
+			configProvider:    testpluginprovider.ConfigProvider,
 			nodeRequest: nodeRequest{
 				pageSize:  137,
 				pageToken: "",
@@ -166,6 +170,18 @@ func (s staticPluginRelayer) NewMercuryProvider(ctx context.Context, r types.Rel
 		}
 	}
 	return s.mercuryProvider, nil
+}
+
+func (s staticPluginRelayer) NewExecutionProvider(ctx context.Context, r types.RelayArgs, p types.PluginArgs) (types.CCIPExecProvider, error) {
+	if s.StaticChecks {
+		if !equalRelayArgs(r, ccip_test.ExecutionRelayArgs) {
+			return nil, fmt.Errorf("expected relay args:\n\t%v\nbut got:\n\t%v", mercury_common_test.RelayArgs, r)
+		}
+		if !reflect.DeepEqual(ccip_test.ExecutionPluginArgs, p) {
+			return nil, fmt.Errorf("expected plugin args %v but got %v", mercury_common_test.PluginArgs, p)
+		}
+	}
+	return s.executionProvider, nil
 }
 
 func (s staticPluginRelayer) NewLLOProvider(ctx context.Context, r types.RelayArgs, p types.PluginArgs) (types.LLOProvider, error) {

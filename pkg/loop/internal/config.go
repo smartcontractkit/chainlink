@@ -4,16 +4,17 @@ import (
 	"context"
 	"math"
 
-	"google.golang.org/grpc"
-
 	libocr "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	"google.golang.org/grpc"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 )
 
-var _ types.ConfigProvider = (*configProviderClient)(nil)
-var _ GRPCClientConn = (*configProviderClient)(nil)
+var (
+	_ types.ConfigProvider = (*configProviderClient)(nil)
+	_ GRPCClientConn       = (*configProviderClient)(nil)
+)
 
 type configProviderClient struct {
 	*ServiceClient

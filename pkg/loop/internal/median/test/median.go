@@ -300,7 +300,7 @@ type staticReportCodec struct{}
 var _ testtypes.Evaluator[median.ReportCodec] = staticReportCodec{}
 var _ median.ReportCodec = staticReportCodec{}
 
-// TODO remove hard coded values
+// TODO BCF-3068 remove hard coded values, use the staticXXXConfig pattern elsewhere in the test framework
 func (s staticReportCodec) BuildReport(os []median.ParsedAttributedObservation) (libocr.Report, error) {
 	if !assert.ObjectsAreEqual(pobs, os) {
 		return nil, fmt.Errorf("expected observations %v but got %v", pobs, os)

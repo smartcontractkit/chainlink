@@ -220,6 +220,17 @@ func (r *relayerClient) NewPluginProvider(ctx context.Context, rargs types.Relay
 		return newPluginProviderClient(r.BrokerExt, cc), nil
 	case string(types.Mercury):
 		return newMercuryProviderClient(r.BrokerExt, cc), nil
+	case string(types.CCIPExecution):
+		// TODO BCF-3061
+		// what do i do here? for the local embedded relayer, we are using the broker
+		// to share state so the the reporting plugin, as a client to the (embedded) relayer,
+		// calls the provider to get resources and then the provider calls the broker to serve them
+		// maybe the same mechanism can be used here, but we need very careful reference passing to
+		// ensure that this relayer client has the same broker as the server. that doesn't really
+		// even make sense to me because the relayer client will in the reporting plugin loop
+		// for now we return an error and test for the this error case
+		// return nil, fmt.Errorf("need to fix BCF-3061")
+		return newExecProviderClient(r.BrokerExt, cc), fmt.Errorf("need to fix BCF-3061")
 	default:
 		return nil, fmt.Errorf("provider type not supported: %s", rargs.ProviderType)
 	}
@@ -357,6 +368,12 @@ func (r *relayerServer) NewPluginProvider(ctx context.Context, request *pb.NewPl
 			return nil, err
 		}
 		return &pb.NewPluginProviderReply{PluginProviderID: id}, nil
+	case string(types.CCIPExecution):
+		id, err := r.newExecProvider(ctx, relayArgs, pluginArgs)
+		if err != nil {
+			return nil, err
+		}
+		return &pb.NewPluginProviderReply{PluginProviderID: id}, nil
 	}
 	return nil, fmt.Errorf("provider type not supported: %s", relayArgs.ProviderType)
 }
@@ -434,13 +451,47 @@ func (r *relayerServer) newMercuryProvider(ctx context.Context, relayArgs types.
 		registerPluginProviderServices(s, provider)
 
 		mercury_pb.RegisterOnchainConfigCodecServer(s, mercury_common_internal.NewOnchainConfigCodecServer(provider.OnchainConfigCodec()))
-
 		mercury_pb.RegisterReportCodecV1Server(s, mercury_common_internal.NewReportCodecV1Server(s, provider.ReportCodecV1()))
 		mercury_pb.RegisterReportCodecV2Server(s, mercury_common_internal.NewReportCodecV2Server(s, provider.ReportCodecV2()))
 		mercury_pb.RegisterReportCodecV3Server(s, mercury_common_internal.NewReportCodecV3Server(s, provider.ReportCodecV3()))
-
 		mercury_pb.RegisterServerFetcherServer(s, mercury_common_internal.NewServerFetcherServer(provider.MercuryServerFetcher()))
 		mercury_pb.RegisterMercuryChainReaderServer(s, mercury_common_internal.NewChainReaderServer(provider.MercuryChainReader()))
+	}, providerRes)
+	if err != nil {
+		return 0, err
+	}
+
+	return id, err
+}
+
+func (r *relayerServer) newExecProvider(ctx context.Context, relayArgs types.RelayArgs, pluginArgs types.PluginArgs) (uint32, error) {
+	i, ok := r.impl.(CCIPExecProvider)
+	if !ok {
+		return 0, status.Error(codes.Unimplemented, fmt.Sprintf("ccip execution not supported by %T", r.impl))
+	}
+
+	provider, err := i.NewExecutionProvider(ctx, relayArgs, pluginArgs)
+	if err != nil {
+		return 0, err
+	}
+	err = provider.Start(ctx)
+	if err != nil {
+		return 0, err
+	}
+	const name = "CCIPExecutionProvider"
+	providerRes := Resource{Name: name, Closer: provider}
+
+	id, _, err := r.ServeNew(name, func(s *grpc.Server) {
+		registerPluginProviderServices(s, provider)
+		// TODO BCF-3067 LEAKS!!!
+		// the execution provider can create resources. how to prevent a leak?
+		// here we are a stand alone server in relayer. there is no reporting plugin instance
+		// maybe the best thing to do is promote all the ccip interfaces to services
+		// and expect/force clients to close them
+		// maybe it's possible to pass reference via a context such that the reporting plugin could
+		// tell the provider to close all the resources it created on behalf of the plugin
+		// but this seems very intricate
+		registerCustomExecutionProviderServices(s, provider, r.BrokerExt)
 	}, providerRes)
 	if err != nil {
 		return 0, err
@@ -477,12 +528,13 @@ func (r *relayerServer) ListNodeStatuses(ctx context.Context, request *pb.ListNo
 	}
 	return &pb.ListNodeStatusesReply{Nodes: nodes, NextPageToken: nextPageToken, Total: int32(total)}, nil
 }
+
 func (r *relayerServer) Transact(ctx context.Context, request *pb.TransactionRequest) (*emptypb.Empty, error) {
 	return &emptypb.Empty{}, r.impl.Transact(ctx, request.From, request.To, request.Amount.Int(), request.BalanceCheck)
 }
 
 // RegisterStandAloneMedianProvider register the servers needed for a median plugin provider,
-// this is a workaround to test the Node API on EVM until the EVM relayer is loopifyed
+// this is a workaround to test the Node API on EVM until the EVM relayer is loopifyed.
 func RegisterStandAloneMedianProvider(s *grpc.Server, p types.MedianProvider) {
 	registerPluginProviderServices(s, p)
 	pb.RegisterReportCodecServer(s, &reportCodecServer{impl: p.ReportCodec()})
@@ -491,7 +543,7 @@ func RegisterStandAloneMedianProvider(s *grpc.Server, p types.MedianProvider) {
 }
 
 // RegisterStandAlonePluginProvider register the servers needed for a generic plugin provider,
-// this is a workaround to test the Node API on EVM until the EVM relayer is loopifyed
+// this is a workaround to test the Node API on EVM until the EVM relayer is loopifyed.
 func RegisterStandAlonePluginProvider(s *grpc.Server, p types.PluginProvider) {
 	registerPluginProviderServices(s, p)
 }

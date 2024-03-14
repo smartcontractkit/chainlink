@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 
@@ -19,8 +20,8 @@ type OffRampReaderClient struct {
 	grpc ccippb.OffRampReaderClient
 }
 
-func NewOffRampReaderClient(grpc ccippb.OffRampReaderClient) *OffRampReaderClient {
-	return &OffRampReaderClient{grpc: grpc}
+func NewOffRampReaderClient(cc grpc.ClientConnInterface) *OffRampReaderClient {
+	return &OffRampReaderClient{grpc: ccippb.NewOffRampReaderClient(cc)}
 }
 
 // Address i[github.com/smartcontractkit/chainlink-common/pkg/types/ccip.OffRampReader]

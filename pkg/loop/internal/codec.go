@@ -12,7 +12,7 @@ import (
 var _ types.Codec = (*codecClient)(nil)
 
 // NewCodecTestClient is a test client for [types.Codec]
-// internal users should instantiate a client directly and set all private fields
+// internal users should instantiate a client directly and set all private fields.
 func NewCodecTestClient(conn *grpc.ClientConn) types.Codec {
 	return &codecClient{grpc: pb.NewCodecClient(conn)}
 }
@@ -32,7 +32,6 @@ func (c *codecClient) Encode(ctx context.Context, item any, itemType string) ([]
 		Params:   versionedParams,
 		ItemType: itemType,
 	})
-
 	if err != nil {
 		return nil, wrapRPCErr(err)
 	}

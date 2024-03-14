@@ -33,10 +33,18 @@ type CCIPCommitFactoryGenerator interface {
 	NewCommitFactory(ctx context.Context, provider CCIPCommitProvider) (ReportingPluginFactory, error)
 }
 
-type CCIPExecFactoryGenerator interface {
-	NewExecFactory(ctx context.Context, provider CCIPExecProvider) (ReportingPluginFactory, error)
+type CCIPExecFactoryGeneratorConfig struct {
+	OnRampAddress      ccip.Address
+	OffRampAddress     ccip.Address
+	CommitStoreAddress ccip.Address
+	TokenReaderAddress ccip.Address
+}
+
+type CCIPExecutionFactoryGenerator interface {
+	//NewExecutionFactory(ctx context.Context, provider CCIPExecProvider, config CCIPExecFactoryGeneratorConfig) (ReportingPluginFactory, error)
+	NewExecutionFactory(ctx context.Context, provider CCIPExecProvider) (ReportingPluginFactory, error)
 }
 type CCIPFactoryGenerator interface {
 	CCIPCommitFactoryGenerator
-	CCIPExecFactoryGenerator
+	CCIPExecutionFactoryGenerator
 }

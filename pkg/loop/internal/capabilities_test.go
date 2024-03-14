@@ -49,6 +49,7 @@ func (m *mockCallback) RegisterToWorkflow(ctx context.Context, request capabilit
 	m.regRequest = request
 	return nil
 }
+
 func (m *mockCallback) UnregisterFromWorkflow(ctx context.Context, request capabilities.UnregisterFromWorkflowRequest) error {
 	m.unregRequest = request
 	return nil

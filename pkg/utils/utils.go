@@ -29,7 +29,7 @@ func WithJitter(d time.Duration) time.Duration {
 // receives or is closed.
 // When channel closes, the ctx.Err() will always be context.Canceled
 // NOTE: Spins up a goroutine that exits on cancellation.
-// REMEMBER TO CALL CANCEL OTHERWISE IT CAN LEAD TO MEMORY LEAKS
+// REMEMBER TO CALL CANCEL OTHERWISE IT CAN LEAD TO MEMORY BCF-3067 LEAKS
 func ContextFromChan(chStop <-chan struct{}) (context.Context, context.CancelFunc) {
 	return services.StopRChan(chStop).NewCtx()
 }

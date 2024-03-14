@@ -17,7 +17,7 @@ type pluginProviderClient struct {
 
 var _ types.PluginProvider = (*pluginProviderClient)(nil)
 
-// in practice, inherited from configProviderClient
+// in practice, inherited from configProviderClient.
 var _ GRPCClientConn = (*pluginProviderClient)(nil)
 
 func newPluginProviderClient(b *BrokerExt, cc grpc.ClientConnInterface) *pluginProviderClient {

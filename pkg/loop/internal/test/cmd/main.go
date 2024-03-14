@@ -11,6 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	ccip_test "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/ccip/test"
 	median_test "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/median/test"
 	mercury_test "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/mercury/common/test"
 	ocr3_test "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/ocr3/test"
@@ -77,6 +78,7 @@ func main() {
 			},
 			GRPCServer: grpcServer,
 		})
+		lggr.Info("Done serving relayer")
 		os.Exit(0)
 
 	case loop.PluginMedianName:
@@ -148,6 +150,20 @@ func main() {
 			GRPCServer: grpcServer,
 		})
 		lggr.Debugf("Done serving %s", loop.PluginMercuryName)
+		os.Exit(0)
+
+	case loop.CCIPExecutionLOOPName:
+		lggr.Debugf("Starting %s", loop.CCIPExecutionLOOPName)
+		plugin.Serve(&plugin.ServeConfig{
+			HandshakeConfig: loop.PluginCCIPExecutionHandshakeConfig(),
+			Plugins: map[string]plugin.Plugin{
+				loop.CCIPExecutionLOOPName: &loop.ExecutionLoop{
+					PluginServer: ccip_test.ExecFactoryServer,
+					BrokerConfig: loop.BrokerConfig{Logger: lggr, StopCh: stopCh}},
+			},
+			GRPCServer: grpcServer,
+		})
+		lggr.Debugf("Done serving %s", loop.CCIPExecutionLOOPName)
 		os.Exit(0)
 
 	case ocr3.PluginServiceName:

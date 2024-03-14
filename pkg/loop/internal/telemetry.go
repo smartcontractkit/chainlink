@@ -11,8 +11,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 )
 
-var _ types.TelemetryService = (*telemetryServiceClient)(nil)
-var _ types.TelemetryClient = (*telemetryClient)(nil)
+var (
+	_ types.TelemetryService = (*telemetryServiceClient)(nil)
+	_ types.TelemetryClient  = (*telemetryClient)(nil)
+)
 
 type telemetryEndpoint struct {
 	client        types.TelemetryService
@@ -34,7 +36,7 @@ type telemetryClient struct {
 	types.TelemetryService
 }
 
-// NewEndpoint generates a new monitoring endpoint, returns nil if one cannot be generated
+// NewEndpoint generates a new monitoring endpoint, returns nil if one cannot be generated.
 func (t *telemetryClient) NewEndpoint(ctx context.Context, network string, chainID string, contractID string, telemetryType string) (types.TelemetryClientEndpoint, error) {
 	if contractID == "" {
 		return nil, errors.New("contractID cannot be empty")
@@ -62,7 +64,7 @@ type telemetryServiceClient struct {
 	grpc pb.TelemetryClient
 }
 
-// Send sends payload to the desired endpoint based on network and chainID
+// Send sends payload to the desired endpoint based on network and chainID.
 func (t *telemetryServiceClient) Send(ctx context.Context, network string, chainID string, contractID string, telemetryType string, payload []byte) error {
 	if contractID == "" {
 		return errors.New("contractID cannot be empty")
