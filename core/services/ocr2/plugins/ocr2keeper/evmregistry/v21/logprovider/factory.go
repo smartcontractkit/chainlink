@@ -81,12 +81,12 @@ func (o *LogTriggersOptions) Defaults(finalityDepth int64) {
 		o.FinalityDepth = finalityDepth
 	}
 	if o.BlockRate == 0 {
-		o.BlockRate = 1
+		o.BlockRate = 2
 	}
 	if o.LogLimitLow == 0 {
-		o.LogLimitLow = 5
+		o.LogLimitLow = 2
 	}
 	if o.LogLimitHigh == 0 {
-		o.LogLimitHigh = o.LogLimitLow * 2
+		o.LogLimitHigh = 5 // o.LogLimitHigh * 2
 	}
 }
