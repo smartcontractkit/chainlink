@@ -11,8 +11,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/test-go/testify/assert"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"

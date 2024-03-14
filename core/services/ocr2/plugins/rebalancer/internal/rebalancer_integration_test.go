@@ -22,7 +22,7 @@ import (
 	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"github.com/test-go/testify/require"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
@@ -109,7 +109,7 @@ func setupNodeOCR3(
 		c.OCR2.Enabled = ptr(true)
 
 		c.EVM[0].LogPollInterval = config.MustNewDuration(500 * time.Millisecond)
-		c.EVM[0].GasEstimator.LimitDefault = ptr[uint32](3_500_000)
+		c.EVM[0].GasEstimator.LimitDefault = ptr[uint64](3_500_000)
 		c.EVM[0].Transactions.ForwardersEnabled = &useForwarders
 		c.OCR2.ContractPollInterval = config.MustNewDuration(5 * time.Second)
 
@@ -192,7 +192,7 @@ func setupNodeOCR3(
 	// create a transmitter for each chain
 	transmitters := make(map[int64]common.Address)
 	for chainID, backend := range chainIDToBackend {
-		addrs, err2 := app.GetKeyStore().Eth().EnabledAddressesForChain(big.NewInt(chainID))
+		addrs, err2 := app.GetKeyStore().Eth().EnabledAddressesForChain(testutils.Context(t), big.NewInt(chainID))
 		require.NoError(t, err2)
 		if len(addrs) == 1 {
 			// just fund the address
@@ -200,9 +200,9 @@ func setupNodeOCR3(
 			transmitters[chainID] = addrs[0]
 		} else {
 			// create key and fund it
-			_, err3 := app.GetKeyStore().Eth().Create(big.NewInt(chainID))
+			_, err3 := app.GetKeyStore().Eth().Create(testutils.Context(t), big.NewInt(chainID))
 			require.NoError(t, err3, "failed to create key for chain", chainID)
-			sendingKeys, err3 := app.GetKeyStore().Eth().EnabledAddressesForChain(big.NewInt(chainID))
+			sendingKeys, err3 := app.GetKeyStore().Eth().EnabledAddressesForChain(testutils.Context(t), big.NewInt(chainID))
 			require.NoError(t, err3)
 			require.Len(t, sendingKeys, 1)
 			fundAddress(t, owner, sendingKeys[0], assets.Ether(10).ToInt(), backend)
@@ -438,12 +438,12 @@ func waitForTransmissions(
 				amount, nonce, err := testonlybridge.UnpackFinalizeBridgePayload(lt.BridgeSpecificData)
 				require.NoError(t, err)
 				t.Log("received receive event with amount:", amount, "nonce:", nonce, "tx hash:", lt.Raw.TxHash.String())
-				if _, ok := sentEvents[nonce.String()]; !ok {
-					t.Fatal("received receive event without corresponding send event")
-				} else {
+				_, ok := sentEvents[nonce.String()]
+				if ok {
 					t.Log("received corresponding receive event")
 					return
 				}
+				t.Fatal("received receive event without corresponding send event")
 			}
 		case <-ticker.C:
 			t.Log("waiting for transmission or liquidity transferred event")
@@ -541,7 +541,7 @@ func ptr[T any](v T) *T { return &v }
 
 func createConfigV2Chain(chainID *big.Int) *v2toml.EVMConfig {
 	chain := v2toml.Defaults((*evmutils.Big)(chainID))
-	chain.GasEstimator.LimitDefault = ptr(uint32(4e6))
+	chain.GasEstimator.LimitDefault = ptr(uint64(4e6))
 	chain.LogPollInterval = config.MustNewDuration(500 * time.Millisecond)
 	chain.Transactions.ForwardersEnabled = ptr(false)
 	chain.FinalityDepth = ptr(uint32(2))
@@ -561,10 +561,10 @@ type EthKeystoreSim struct {
 }
 
 // override
-func (e *EthKeystoreSim) SignTx(address common.Address, tx *gethtypes.Transaction, chainID *big.Int) (*gethtypes.Transaction, error) {
+func (e *EthKeystoreSim) SignTx(ctx context.Context, address common.Address, tx *gethtypes.Transaction, chainID *big.Int) (*gethtypes.Transaction, error) {
 	// always sign with chain id 1337 for the simulated backend
 	e.t.Log("always signing tx for chain id:", chainID.String(), "with chain id 1337, tx hash:", tx.Hash())
-	return e.Eth.SignTx(address, tx, big.NewInt(1337))
+	return e.Eth.SignTx(ctx, address, tx, big.NewInt(1337))
 }
 
 type KeystoreSim struct {

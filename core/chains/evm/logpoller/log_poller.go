@@ -72,7 +72,7 @@ const (
 	Unconfirmed = Confirmations(0)
 )
 
-var ErrFinalityViolated = errors.New("finality violated")
+var ErrFinalityViolated = pkgerrors.New("finality violated")
 
 type LogPollerTest interface {
 	LogPoller

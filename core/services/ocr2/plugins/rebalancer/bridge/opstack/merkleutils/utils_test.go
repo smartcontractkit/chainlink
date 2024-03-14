@@ -5,7 +5,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/test-go/testify/require"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/bridge/opstack/merkleutils"
 )

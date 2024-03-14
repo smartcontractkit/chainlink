@@ -3,12 +3,13 @@ package dashboard
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"os"
+
 	"github.com/K-Phoen/grabana"
 	"github.com/K-Phoen/grabana/dashboard"
 	"github.com/K-Phoen/grabana/variable/query"
 	wasp "github.com/smartcontractkit/wasp/dashboard"
-	"net/http"
-	"os"
 )
 
 type PanelOption struct {

@@ -2,9 +2,10 @@ package main
 
 import (
 	"fmt"
-	"github.com/smartcontractkit/chainlink/charts/chainlink-cluster/dashboard/dashboard"
 	"os"
 	"strings"
+
+	"github.com/smartcontractkit/chainlink/charts/chainlink-cluster/dashboard/dashboard"
 )
 
 func main() {

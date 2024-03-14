@@ -1066,7 +1066,14 @@ func TestLogPoller_ReorgDeeperThanFinality(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			th := SetupTH(t, tt.finalityTag, tt.finalityDepth, 3, 2, 1000)
+			lpOpts := logpoller.Opts{
+				UseFinalityTag:           tt.finalityTag,
+				FinalityDepth:            tt.finalityDepth,
+				BackfillBatchSize:        3,
+				RpcBatchSize:             2,
+				KeepFinalizedBlocksDepth: 1000,
+			}
+			th := SetupTH(t, lpOpts)
 			// Set up a log poller listening for log emitter logs.
 			err := th.LogPoller.RegisterFilter(logpoller.Filter{
 				Name:      "Test Emitter",

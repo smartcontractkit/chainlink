@@ -58,9 +58,9 @@ func (ks EthKeyStoreSim) SignTx(address common.Address, tx *ethtypes.Transaction
 	if chainID.String() == "1000" {
 		// A terrible hack, just for the multichain test. All simulation clients run on chainID 1337.
 		// We let the DestChainSelector actually use 1337 to make sure the offchainConfig digests are properly generated.
-		return ks.ETHKS.SignTx(address, tx, big.NewInt(1337))
+		return ks.ETHKS.SignTx(context.Background(), address, tx, big.NewInt(1337))
 	}
-	return ks.ETHKS.SignTx(address, tx, chainID)
+	return ks.ETHKS.SignTx(context.Background(), address, tx, chainID)
 }
 
 var _ keystore.Eth = EthKeyStoreSim{}.ETHKS

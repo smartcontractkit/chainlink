@@ -11,6 +11,7 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
+	"github.com/smartcontractkit/seth"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
@@ -157,6 +158,10 @@ type Common struct {
 	NewCLCluster      *ChainlinkDeployment     `toml:",omitempty"` // NewCLCluster is the new chainlink cluster to create, if specified along with ExistingCLCluster this will be ignored
 	Network           *ctfconfig.NetworkConfig `toml:",omitempty"`
 	Logging           *ctfconfig.LoggingConfig `toml:"Logging"`
+}
+
+func (p *Common) GetSethConfig() *seth.Config {
+	return nil
 }
 
 func (p *Common) Validate() error {

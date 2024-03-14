@@ -203,7 +203,7 @@ func (node *Node) EventuallyNodeUsesNewCommitConfig(t *testing.T, ccipContracts 
 		ccipContracts.Source.Chain.Commit()
 		ccipContracts.Dest.Chain.Commit()
 		log, err := c.LogPoller().LatestLogByEventSigWithConfs(
-			evmrelay.ConfigSet,
+			evmrelay.OCR2AggregatorLogDecoder.EventSig(),
 			ccipContracts.Dest.CommitStore.Address(),
 			0,
 			pg.WithParentCtx(testutils.Context(t)),
@@ -228,7 +228,7 @@ func (node *Node) EventuallyNodeUsesNewExecConfig(t *testing.T, ccipContracts CC
 		ccipContracts.Source.Chain.Commit()
 		ccipContracts.Dest.Chain.Commit()
 		log, err := c.LogPoller().LatestLogByEventSigWithConfs(
-			evmrelay.ConfigSet,
+			evmrelay.OCR2AggregatorLogDecoder.EventSig(),
 			ccipContracts.Dest.OffRamp.Address(),
 			0,
 			pg.WithParentCtx(testutils.Context(t)),
@@ -487,13 +487,13 @@ func setupNodeCCIP(
 	require.Len(t, p2pIDs, 1)
 	peerID := p2pIDs[0].PeerID()
 
-	_, err = app.GetKeyStore().Eth().Create(destChainID)
+	_, err = app.GetKeyStore().Eth().Create(testCtx, destChainID)
 	require.NoError(t, err)
-	sendingKeys, err := app.GetKeyStore().Eth().EnabledKeysForChain(destChainID)
+	sendingKeys, err := app.GetKeyStore().Eth().EnabledKeysForChain(testCtx, destChainID)
 	require.NoError(t, err)
 	require.Len(t, sendingKeys, 1)
 	transmitter := sendingKeys[0].Address
-	s, err := app.GetKeyStore().Eth().GetState(sendingKeys[0].ID(), destChainID)
+	s, err := app.GetKeyStore().Eth().GetState(testCtx, sendingKeys[0].ID(), destChainID)
 	require.NoError(t, err)
 	lggr.Debug(fmt.Sprintf("Transmitter address %s chainID %s", transmitter, s.EVMChainID.String()))
 
@@ -515,7 +515,7 @@ func setupNodeCCIP(
 
 func createConfigV2Chain(chainId *big.Int) *v2.EVMConfig {
 	// NOTE: For the executor jobs, the default of 500k is insufficient for a 3 message batch
-	defaultGasLimit := uint32(5000000)
+	defaultGasLimit := uint64(5000000)
 	tr := true
 
 	sourceC := v2.Defaults((*evmUtils.Big)(chainId))

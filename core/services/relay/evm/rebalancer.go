@@ -46,7 +46,7 @@ type RebalancerProvider interface {
 }
 
 type RebalancerRelayer interface {
-	NewRebalancerProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (RebalancerProvider, error)
+	NewRebalancerProvider(ctx context.Context, rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (RebalancerProvider, error)
 }
 
 var _ RebalancerRelayer = (*rebalancerRelayer)(nil)
@@ -69,7 +69,7 @@ func NewRebalancerRelayer(
 }
 
 // NewRebalancerProvider implements RebalancerRelayer.
-func (r *rebalancerRelayer) NewRebalancerProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (RebalancerProvider, error) {
+func (r *rebalancerRelayer) NewRebalancerProvider(ctx context.Context, rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (RebalancerProvider, error) {
 	configWatcher, lmContracts, lmFactory, discovererFactory, bridgeFactory, err := newRebalancerConfigProvider(r.lggr, r.chains, rargs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create config watcher: %w", err)
@@ -79,7 +79,7 @@ func (r *rebalancerRelayer) NewRebalancerProvider(rargs commontypes.RelayArgs, p
 		transmitters = make(map[relay.ID]ocr3types.ContractTransmitter[rebalancermodels.Report])
 	)
 	for _, chain := range r.chains.Slice() {
-		fromAddresses, err2 := r.ethKeystore.EnabledAddressesForChain(chain.ID())
+		fromAddresses, err2 := r.ethKeystore.EnabledAddressesForChain(ctx, chain.ID())
 		if err2 != nil {
 			return nil, fmt.Errorf("failed to get enabled keys for chain %s: %w", chain.ID().String(), err2)
 		}
@@ -306,7 +306,6 @@ func newRebalancerConfigProvider(
 	return newConfigWatcher(
 		lggr.Named("RebalancerConfigWatcher"),
 		contractAddress,
-		ocr3ABI,
 		digester,
 		mcct,
 		masterChain,
