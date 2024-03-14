@@ -600,10 +600,9 @@ func handleDefaultConfigOverride(logger zerolog.Logger, filename, configurationN
 				if old_network.ChainID == new_network.ChainID {
 					oldConfig.Seth.Networks[i] = new_network
 					break
-				} else {
-					if _, ok := networksToUse[new_network.ChainID]; !ok {
-						networksToUse[new_network.ChainID] = new_network
-					}
+				}
+				if _, ok := networksToUse[new_network.ChainID]; !ok {
+					networksToUse[new_network.ChainID] = new_network
 				}
 			}
 			networksToUse[old_network.ChainID] = oldConfig.Seth.Networks[i]
