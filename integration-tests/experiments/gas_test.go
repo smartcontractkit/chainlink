@@ -4,13 +4,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/seth"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/utils"
-	"github.com/smartcontractkit/seth"
-	"github.com/stretchr/testify/require"
 )
 
 func TestGasExperiment(t *testing.T) {
