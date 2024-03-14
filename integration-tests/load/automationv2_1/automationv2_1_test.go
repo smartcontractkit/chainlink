@@ -181,7 +181,7 @@ Load Config:
 	}
 
 	testEnvironment := environment.New(&environment.Config{
-		TTL: loadDuration + time.Hour*6,
+		TTL: loadDuration.Round(time.Hour) + time.Hour,
 		NamespacePrefix: fmt.Sprintf(
 			"automation-%s-%s",
 			testType,
@@ -712,6 +712,16 @@ Test Duration: %s`
 	t.Cleanup(func() {
 		if err = actions.TeardownRemoteSuite(t, testEnvironment.Cfg.Namespace, chainlinkNodes, nil, &loadedTestConfig, chainClient); err != nil {
 			l.Error().Err(err).Msg("Error when tearing down remote suite")
+			testEnvironment.Cfg.TTL = time.Hour * 48
+			err := testEnvironment.Run()
+			if err != nil {
+				l.Error().Err(err).Msg("Error increasing TTL of namespace")
+			}
+		} else if chainClient.NetworkSimulated() {
+			err := testEnvironment.Client.RemoveNamespace(testEnvironment.Cfg.Namespace)
+			if err != nil {
+				l.Error().Err(err).Msg("Error removing namespace")
+			}
 		}
 	})
 
