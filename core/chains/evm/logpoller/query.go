@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/lib/pq"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -18,7 +17,7 @@ type bytesProducer interface {
 	Bytes() []byte
 }
 
-func concatBytes[T bytesProducer](byteSlice []T) pq.ByteaArray {
+func concatBytes[T bytesProducer](byteSlice []T) [][]byte {
 	var output [][]byte
 	for _, b := range byteSlice {
 		output = append(output, b.Bytes())

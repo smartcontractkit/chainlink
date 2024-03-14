@@ -100,7 +100,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   uint256 internal s_fallbackGasPrice;
   uint256 internal s_fallbackLinkPrice;
   uint256 internal s_fallbackNativePrice;
-  uint256 internal s_expectedLinkBalance; // Used in case of erroneous LINK transfers to contract
+  mapping(address billingToken => uint256 reserveAmount) internal s_reserveAmounts; // unspent user deposits + unwithdrawn NOP payments
   mapping(address => MigrationPermission) internal s_peerRegistryMigrationPermission; // Permissions for migration to and fro
   mapping(uint256 => bytes) internal s_upkeepTriggerConfig; // upkeep triggers
   mapping(uint256 => bytes) internal s_upkeepOffchainConfig; // general config set by users for each upkeep
@@ -122,6 +122,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   error IncorrectNumberOfSignatures();
   error IncorrectNumberOfSigners();
   error IndexOutOfRange();
+  error InsufficientBalance(uint256 available, uint256 requested);
   error InvalidDataLength();
   error InvalidFeed();
   error InvalidTrigger();
@@ -145,6 +146,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   error OnlyCallableByProposedAdmin();
   error OnlyCallableByProposedPayee();
   error OnlyCallableByUpkeepPrivilegeManager();
+  error OnlyFinanceAdmin();
   error OnlyPausedUpkeep();
   error OnlySimulatedBackend();
   error OnlyUnpausedUpkeep();
@@ -157,6 +159,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   error TargetCheckReverted(bytes reason);
   error TooManyOracles();
   error TranscoderNotSet();
+  error TransferFailed();
   error UpkeepAlreadyExists();
   error UpkeepCancelled();
   error UpkeepNotCanceled();
@@ -276,6 +279,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     address upkeepPrivilegeManager;
     IChainModule chainModule;
     bool reorgProtectionEnabled;
+    address financeAdmin; // TODO: pack this struct better
   }
 
   /**
@@ -283,7 +287,6 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
    * @dev only used in params and return values
    * @dev this will likely be deprecated in a future version of the registry in favor of individual getters
    * @member nonce used for ID generation
-   * @member ownerLinkBalance withdrawable balance of LINK by contract owner
    * @member expectedLinkBalance the expected balance of LINK of the registry
    * @member totalPremium the total premium collected on registry so far
    * @member numUpkeeps total number of upkeeps on the registry
@@ -376,7 +379,6 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     uint96 minUpkeepSpend; // Minimum amount an upkeep must spend
     address transcoder; // Address of transcoder contract used in migrations
     // 1 EVM word full
-    uint96 ownerLinkBalance; // Balance of owner, accumulates minUpkeepSpend in case it is not spent
     uint32 checkGasLimit; // Gas limit allowed in checkUpkeep
     uint32 maxPerformGas; // Max gas an upkeep can use on this registry
     uint32 nonce; // Nonce for each upkeep created
@@ -389,6 +391,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     uint32 maxRevertDataSize; // max length of revertData bytes
     address upkeepPrivilegeManager; // address which can set privilege for upkeeps
     // 3 EVM word full
+    address financeAdmin; // address which can withdraw funds from the contract
   }
 
   /// @dev Report transmitted by OCR to transmit function
@@ -501,7 +504,6 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   event FundsAdded(uint256 indexed id, address indexed from, uint96 amount);
   event FundsWithdrawn(uint256 indexed id, uint256 amount, address to);
   event InsufficientFundsUpkeepReport(uint256 indexed id, bytes trigger);
-  event OwnerFundsWithdrawn(uint96 amount);
   event Paused(address account);
   event PayeesUpdated(address[] transmitters, address[] payees);
   event PayeeshipTransferRequested(address indexed transmitter, address indexed from, address indexed to);
@@ -533,6 +535,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   event Unpaused(address account);
   // Event to emit when a billing configuration is set
   event BillingConfigSet(IERC20 indexed token, BillingConfig config);
+  event FeesWithdrawn(address indexed recipient, address indexed assetAddress, uint256 amount);
 
   /**
    * @param link address of the LINK Token
@@ -590,7 +593,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     s_upkeep[id] = upkeep;
     s_upkeepAdmin[id] = admin;
     s_checkData[id] = checkData;
-    s_expectedLinkBalance = s_expectedLinkBalance + upkeep.balance;
+    s_reserveAmounts[address(i_link)] = s_reserveAmounts[address(i_link)] + upkeep.balance;
     s_upkeepTriggerConfig[id] = triggerConfig;
     s_upkeepOffchainConfig[id] = offchainConfig;
     s_upkeepIDs.add(id);
@@ -1015,6 +1018,15 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   function _preventExecution() internal view {
     if (tx.origin != i_allowedReadOnlyAddress) {
       revert OnlySimulatedBackend();
+    }
+  }
+
+  /**
+   * @notice only allows finance admin to call the function
+   */
+  function _onlyFinanceAdminAllowed() internal view {
+    if (msg.sender != s_storage.financeAdmin) {
+      revert OnlyFinanceAdmin();
     }
   }
 
