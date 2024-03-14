@@ -1416,7 +1416,7 @@ ORDER BY nonce ASC
 	return
 }
 
-// markOldTxesMissingReceiptAsErrored
+// MarkOldTxesMissingReceiptAsErrored
 //
 // Once eth_tx has all of its attempts broadcast before some cutoff threshold
 // without receiving any receipts, we mark it as fatally errored (never sent).

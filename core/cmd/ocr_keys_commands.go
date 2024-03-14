@@ -139,7 +139,7 @@ func (ps OCRKeyBundlePresenters) RenderTable(rt RendererTable) error {
 	return cutils.JustError(rt.Write([]byte("\n")))
 }
 
-// CreateOCR2KeyBundle creates an OCR key bundle and saves it to the keystore
+// CreateOCRKeyBundle creates an OCR key bundle and saves it to the keystore
 func (s *Shell) CreateOCRKeyBundle(_ *cli.Context) error {
 	resp, err := s.HTTP.Post(s.ctx(), "/v2/keys/ocr", nil)
 	if err != nil {

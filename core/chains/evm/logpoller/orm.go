@@ -705,7 +705,7 @@ func (o *DbORM) SelectIndexedLogs(address common.Address, eventSig common.Hash, 
 	return logs, nil
 }
 
-// SelectIndexedLogsByBlockRangeFilter finds the indexed logs in a given block range.
+// SelectIndexedLogsByBlockRange finds the indexed logs in a given block range.
 func (o *DbORM) SelectIndexedLogsByBlockRange(start, end int64, address common.Address, eventSig common.Hash, topicIndex int, topicValues []common.Hash, qopts ...pg.QOpt) ([]Log, error) {
 	args, err := newQueryArgsForEvent(o.chainID, address, eventSig).
 		withTopicIndex(topicIndex).
