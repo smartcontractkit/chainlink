@@ -82,6 +82,7 @@ type ConditionalTrigger = Parameters<
   AutomationCompatibleUtils['_conditionalTrigger']
 >[0]
 type Log = Parameters<AutomationCompatibleUtils['_log']>[0]
+type OnChainConfig = Parameters<IAutomationRegistry['setConfigTypeSafe']>[3]
 
 // -----------------------------------------------------------------------------------------------
 
@@ -638,8 +639,6 @@ describe('AutomationRegistry2_3', () => {
         keeperAddresses,
         f,
         {
-          paymentPremiumPPB: test.premium,
-          flatFeeMicroLink: test.flatFee,
           checkGasLimit,
           stalenessSeconds,
           gasCeilingMultiplier: test.multiplier,
@@ -663,8 +662,8 @@ describe('AutomationRegistry2_3', () => {
         [linkToken.address],
         [
           {
-            gasFeePPB: paymentPremiumPPB,
-            flatFeeMicroLink: flatFeeMicroLink,
+            gasFeePPB: test.premium,
+            flatFeeMicroLink: test.flatFee,
             priceFeed: linkUSDFeed.address,
             fallbackPrice: fallbackLinkPrice,
           },
@@ -708,8 +707,9 @@ describe('AutomationRegistry2_3', () => {
   const verifyConsistentAccounting = async (
     maxAllowedSpareChange: BigNumber,
   ) => {
-    const expectedLinkBalance = (await registry.getState()).state
-      .expectedLinkBalance
+    const expectedLinkBalance = await registry.getReserveAmount(
+      linkToken.address,
+    )
     const linkTokenBalance = await linkToken.balanceOf(registry.address)
     const upkeepIdBalance = (await registry.getUpkeep(upkeepId)).balance
     let totalKeeperBalance = BigNumber.from(0)
@@ -916,8 +916,6 @@ describe('AutomationRegistry2_3', () => {
     const financeAdminAddress = await financeAdmin.getAddress()
 
     config = {
-      paymentPremiumPPB,
-      flatFeeMicroLink,
       checkGasLimit,
       stalenessSeconds,
       gasCeilingMultiplier,
@@ -3846,9 +3844,7 @@ describe('AutomationRegistry2_3', () => {
     const upkeepManager = randomAddress()
     const financeAdminAddress = randomAddress()
 
-    const newConfig = {
-      paymentPremiumPPB: payment,
-      flatFeeMicroLink: flatFee,
+    const newConfig: OnChainConfig = {
       checkGasLimit: maxGas,
       stalenessSeconds: staleness,
       gasCeilingMultiplier: ceiling,
@@ -4946,8 +4942,6 @@ describe('AutomationRegistry2_3', () => {
         keeperAddresses,
         f,
         {
-          paymentPremiumPPB,
-          flatFeeMicroLink,
           checkGasLimit,
           stalenessSeconds,
           gasCeilingMultiplier,
@@ -5605,8 +5599,6 @@ describe('AutomationRegistry2_3', () => {
             keeperAddresses,
             f,
             {
-              paymentPremiumPPB,
-              flatFeeMicroLink,
               checkGasLimit,
               stalenessSeconds,
               gasCeilingMultiplier,
@@ -5666,8 +5658,6 @@ describe('AutomationRegistry2_3', () => {
             keeperAddresses,
             f,
             {
-              paymentPremiumPPB,
-              flatFeeMicroLink,
               checkGasLimit,
               stalenessSeconds,
               gasCeilingMultiplier,
@@ -5722,8 +5712,6 @@ describe('AutomationRegistry2_3', () => {
             keeperAddresses,
             f,
             {
-              paymentPremiumPPB,
-              flatFeeMicroLink,
               checkGasLimit,
               stalenessSeconds,
               gasCeilingMultiplier,
@@ -6089,106 +6077,104 @@ describe('AutomationRegistry2_3', () => {
       assert.isTrue(k2New.lastCollected.eq(BigNumber.from(0)))
     })
 
-    itMaybe(
-      'maintains consistent balance information across all parties',
-      async () => {
-        // throughout transmits, withdrawals, setConfigs total claim on balances should remain less than expected balance
-        // some spare change can get lost but it should be less than maxAllowedSpareChange
+    // itMaybe(
+    it('maintains consistent balance information across all parties', async () => {
+      // throughout transmits, withdrawals, setConfigs total claim on balances should remain less than expected balance
+      // some spare change can get lost but it should be less than maxAllowedSpareChange
 
-        let maxAllowedSpareChange = BigNumber.from('0')
-        await verifyConsistentAccounting(maxAllowedSpareChange)
+      let maxAllowedSpareChange = BigNumber.from('0')
+      await verifyConsistentAccounting(maxAllowedSpareChange)
 
-        await getTransmitTx(registry, keeper1, [upkeepId])
-        maxAllowedSpareChange = maxAllowedSpareChange.add(BigNumber.from('31'))
-        await verifyConsistentAccounting(maxAllowedSpareChange)
+      await getTransmitTx(registry, keeper1, [upkeepId])
+      maxAllowedSpareChange = maxAllowedSpareChange.add(BigNumber.from('31'))
+      await verifyConsistentAccounting(maxAllowedSpareChange)
 
-        await registry
-          .connect(payee1)
-          .withdrawPayment(
-            await keeper1.getAddress(),
-            await nonkeeper.getAddress(),
-          )
-        await verifyConsistentAccounting(maxAllowedSpareChange)
-
-        await registry
-          .connect(payee2)
-          .withdrawPayment(
-            await keeper2.getAddress(),
-            await nonkeeper.getAddress(),
-          )
-        await verifyConsistentAccounting(maxAllowedSpareChange)
-
-        await getTransmitTx(registry, keeper1, [upkeepId])
-        maxAllowedSpareChange = maxAllowedSpareChange.add(BigNumber.from('31'))
-        await verifyConsistentAccounting(maxAllowedSpareChange)
-
-        await registry.connect(owner).setConfigTypeSafe(
-          signerAddresses.slice(2, 15), // only use 2-14th index keepers
-          keeperAddresses.slice(2, 15),
-          f,
-          config,
-          offchainVersion,
-          offchainBytes,
-          [],
-          [],
+      await registry
+        .connect(payee1)
+        .withdrawPayment(
+          await keeper1.getAddress(),
+          await nonkeeper.getAddress(),
         )
-        await verifyConsistentAccounting(maxAllowedSpareChange)
+      await verifyConsistentAccounting(maxAllowedSpareChange)
 
-        await getTransmitTx(registry, keeper3, [upkeepId], {
-          startingSignerIndex: 2,
-        })
-        maxAllowedSpareChange = maxAllowedSpareChange.add(BigNumber.from('13'))
-        await verifyConsistentAccounting(maxAllowedSpareChange)
-
-        await registry
-          .connect(payee1)
-          .withdrawPayment(
-            await keeper1.getAddress(),
-            await nonkeeper.getAddress(),
-          )
-        await verifyConsistentAccounting(maxAllowedSpareChange)
-
-        await registry
-          .connect(payee3)
-          .withdrawPayment(
-            await keeper3.getAddress(),
-            await nonkeeper.getAddress(),
-          )
-        await verifyConsistentAccounting(maxAllowedSpareChange)
-
-        await registry.connect(owner).setConfigTypeSafe(
-          signerAddresses.slice(0, 4), // only use 0-3rd index keepers
-          keeperAddresses.slice(0, 4),
-          f,
-          config,
-          offchainVersion,
-          offchainBytes,
-          [],
-          [],
+      await registry
+        .connect(payee2)
+        .withdrawPayment(
+          await keeper2.getAddress(),
+          await nonkeeper.getAddress(),
         )
-        await verifyConsistentAccounting(maxAllowedSpareChange)
-        await getTransmitTx(registry, keeper1, [upkeepId])
-        maxAllowedSpareChange = maxAllowedSpareChange.add(BigNumber.from('4'))
-        await getTransmitTx(registry, keeper3, [upkeepId])
-        maxAllowedSpareChange = maxAllowedSpareChange.add(BigNumber.from('4'))
+      await verifyConsistentAccounting(maxAllowedSpareChange)
 
-        await verifyConsistentAccounting(maxAllowedSpareChange)
-        await registry
-          .connect(payee5)
-          .withdrawPayment(
-            await keeper5.getAddress(),
-            await nonkeeper.getAddress(),
-          )
-        await verifyConsistentAccounting(maxAllowedSpareChange)
+      await getTransmitTx(registry, keeper1, [upkeepId])
+      maxAllowedSpareChange = maxAllowedSpareChange.add(BigNumber.from('31'))
+      await verifyConsistentAccounting(maxAllowedSpareChange)
 
-        await registry
-          .connect(payee1)
-          .withdrawPayment(
-            await keeper1.getAddress(),
-            await nonkeeper.getAddress(),
-          )
-        await verifyConsistentAccounting(maxAllowedSpareChange)
-      },
-    )
+      await registry.connect(owner).setConfigTypeSafe(
+        signerAddresses.slice(2, 15), // only use 2-14th index keepers
+        keeperAddresses.slice(2, 15),
+        f,
+        config,
+        offchainVersion,
+        offchainBytes,
+        baseConfig[6],
+        baseConfig[7],
+      )
+      await verifyConsistentAccounting(maxAllowedSpareChange)
+
+      await getTransmitTx(registry, keeper3, [upkeepId], {
+        startingSignerIndex: 2,
+      })
+      maxAllowedSpareChange = maxAllowedSpareChange.add(BigNumber.from('13'))
+      await verifyConsistentAccounting(maxAllowedSpareChange)
+
+      await registry
+        .connect(payee1)
+        .withdrawPayment(
+          await keeper1.getAddress(),
+          await nonkeeper.getAddress(),
+        )
+      await verifyConsistentAccounting(maxAllowedSpareChange)
+
+      await registry
+        .connect(payee3)
+        .withdrawPayment(
+          await keeper3.getAddress(),
+          await nonkeeper.getAddress(),
+        )
+      await verifyConsistentAccounting(maxAllowedSpareChange)
+
+      await registry.connect(owner).setConfigTypeSafe(
+        signerAddresses.slice(0, 4), // only use 0-3rd index keepers
+        keeperAddresses.slice(0, 4),
+        f,
+        config,
+        offchainVersion,
+        offchainBytes,
+        baseConfig[6],
+        baseConfig[7],
+      )
+      await verifyConsistentAccounting(maxAllowedSpareChange)
+      await getTransmitTx(registry, keeper1, [upkeepId])
+      maxAllowedSpareChange = maxAllowedSpareChange.add(BigNumber.from('4'))
+      await getTransmitTx(registry, keeper3, [upkeepId])
+      maxAllowedSpareChange = maxAllowedSpareChange.add(BigNumber.from('4'))
+
+      await verifyConsistentAccounting(maxAllowedSpareChange)
+      await registry
+        .connect(payee5)
+        .withdrawPayment(
+          await keeper5.getAddress(),
+          await nonkeeper.getAddress(),
+        )
+      await verifyConsistentAccounting(maxAllowedSpareChange)
+
+      await registry
+        .connect(payee1)
+        .withdrawPayment(
+          await keeper1.getAddress(),
+          await nonkeeper.getAddress(),
+        )
+      await verifyConsistentAccounting(maxAllowedSpareChange)
+    })
   })
 })

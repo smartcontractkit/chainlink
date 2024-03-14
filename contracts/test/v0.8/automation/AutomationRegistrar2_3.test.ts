@@ -22,6 +22,8 @@ enum Trigger {
 }
 const zeroAddress = ethers.constants.AddressZero
 
+type OnChainConfig = Parameters<IAutomationRegistry['setConfigTypeSafe']>[3]
+
 let linkTokenFactory: ContractFactory
 let mockV3AggregatorFactory: MockV3AggregatorFactory
 let upkeepMockFactory: UpkeepMockFactory
@@ -186,9 +188,7 @@ describe('AutomationRegistrar2_3', () => {
       await personas.Ned.getAddress(),
       await personas.Neil.getAddress(),
     ]
-    const onchainConfig = {
-      paymentPremiumPPB,
-      flatFeeMicroLink,
+    const onchainConfig: OnChainConfig = {
       checkGasLimit,
       stalenessSeconds,
       gasCeilingMultiplier,

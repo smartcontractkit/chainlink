@@ -218,8 +218,6 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
    * @member chainModule the chain specific module
    */
   struct OnchainConfig {
-    uint32 paymentPremiumPPB;
-    uint32 flatFeeMicroLink; // min 0.000001 LINK, max 4294 LINK
     uint32 checkGasLimit;
     uint24 stalenessSeconds;
     uint16 gasCeilingMultiplier;
