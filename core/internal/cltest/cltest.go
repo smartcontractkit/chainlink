@@ -363,6 +363,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		ChainOpts: legacyevm.ChainOpts{
 			AppConfig: cfg,
 			MailMon:   mailMon,
+			SqlxDB:    db,
 			DB:        db,
 		},
 		CSAETHKeystore: keyStore,
@@ -418,6 +419,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		Config:                     cfg,
 		MailMon:                    mailMon,
 		SqlxDB:                     db,
+		DB:                         db,
 		KeyStore:                   keyStore,
 		RelayerChainInteroperators: relayChainInterops,
 		Logger:                     lggr,

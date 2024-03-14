@@ -7,6 +7,7 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -20,7 +21,8 @@ import (
 
 // NewTxm constructs the necessary dependencies for the EvmTxm (broadcaster, confirmer, etc) and returns a new EvmTxManager
 func NewTxm(
-	db *sqlx.DB,
+	sqlxDB *sqlx.DB,
+	db sqlutil.DB,
 	chainConfig ChainConfig,
 	fCfg FeeConfig,
 	txConfig config.Transactions,
@@ -37,14 +39,14 @@ func NewTxm(
 	var fwdMgr FwdMgr
 
 	if txConfig.ForwardersEnabled() {
-		fwdMgr = forwarders.NewFwdMgr(db, client, logPoller, lggr, chainConfig, dbConfig)
+		fwdMgr = forwarders.NewFwdMgr(db, client, logPoller, lggr, chainConfig)
 	} else {
 		lggr.Info("EvmForwarderManager: Disabled")
 	}
 	checker := &CheckerFactory{Client: client}
 	// create tx attempt builder
 	txAttemptBuilder := NewEvmTxAttemptBuilder(*client.ConfiguredChainID(), fCfg, keyStore, estimator)
-	txStore := NewTxStore(db, lggr, dbConfig)
+	txStore := NewTxStore(sqlxDB, lggr, dbConfig)
 	txNonceSyncer := NewNonceSyncer(txStore, lggr, client)
 
 	txmCfg := NewEvmTxmConfig(chainConfig) // wrap Evm specific config

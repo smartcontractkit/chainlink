@@ -35,7 +35,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/logprovider"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury/streams"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -304,7 +303,7 @@ func (r *EvmRegistry) refreshActiveUpkeeps() error {
 		}
 	}
 
-	_, err = r.logEventProvider.RefreshActiveUpkeeps(logTriggerIDs...)
+	_, err = r.logEventProvider.RefreshActiveUpkeeps(r.ctx, logTriggerIDs...)
 	if err != nil {
 		return fmt.Errorf("failed to refresh active upkeep ids in log event provider: %w", err)
 	}
@@ -339,11 +338,11 @@ func (r *EvmRegistry) refreshLogTriggerUpkeepsBatch(logTriggerIDs []*big.Int) er
 		logTriggerHashes = append(logTriggerHashes, common.BigToHash(id))
 	}
 
-	unpausedLogs, err := r.poller.IndexedLogs(ac.IAutomationV21PlusCommonUpkeepUnpaused{}.Topic(), r.addr, 1, logTriggerHashes, logpoller.Confirmations(r.finalityDepth), pg.WithParentCtx(r.ctx))
+	unpausedLogs, err := r.poller.IndexedLogs(r.ctx, ac.IAutomationV21PlusCommonUpkeepUnpaused{}.Topic(), r.addr, 1, logTriggerHashes, logpoller.Confirmations(r.finalityDepth))
 	if err != nil {
 		return err
 	}
-	configSetLogs, err := r.poller.IndexedLogs(ac.IAutomationV21PlusCommonUpkeepTriggerConfigSet{}.Topic(), r.addr, 1, logTriggerHashes, logpoller.Confirmations(r.finalityDepth), pg.WithParentCtx(r.ctx))
+	configSetLogs, err := r.poller.IndexedLogs(r.ctx, ac.IAutomationV21PlusCommonUpkeepTriggerConfigSet{}.Topic(), r.addr, 1, logTriggerHashes, logpoller.Confirmations(r.finalityDepth))
 	if err != nil {
 		return err
 	}
@@ -406,7 +405,7 @@ func (r *EvmRegistry) pollUpkeepStateLogs() error {
 	var end logpoller.LogPollerBlock
 	var err error
 
-	if end, err = r.poller.LatestBlock(pg.WithParentCtx(r.ctx)); err != nil {
+	if end, err = r.poller.LatestBlock(r.ctx); err != nil {
 		return fmt.Errorf("%w: %s", ErrHeadNotAvailable, err)
 	}
 
@@ -422,11 +421,11 @@ func (r *EvmRegistry) pollUpkeepStateLogs() error {
 
 	var logs []logpoller.Log
 	if logs, err = r.poller.LogsWithSigs(
+		r.ctx,
 		end.BlockNumber-logEventLookback,
 		end.BlockNumber,
 		upkeepStateEvents,
 		r.addr,
-		pg.WithParentCtx(r.ctx),
 	); err != nil {
 		return fmt.Errorf("%w: %s", ErrLogReadFailure, err)
 	}
@@ -458,13 +457,13 @@ func (r *EvmRegistry) processUpkeepStateLog(l logpoller.Log) error {
 	switch l := abilog.(type) {
 	case *ac.IAutomationV21PlusCommonUpkeepPaused:
 		r.lggr.Debugf("KeeperRegistryUpkeepPaused log detected for upkeep ID %s in transaction %s", l.Id.String(), txHash)
-		r.removeFromActive(l.Id)
+		r.removeFromActive(r.ctx, l.Id)
 	case *ac.IAutomationV21PlusCommonUpkeepCanceled:
 		r.lggr.Debugf("KeeperRegistryUpkeepCanceled log detected for upkeep ID %s in transaction %s", l.Id.String(), txHash)
-		r.removeFromActive(l.Id)
+		r.removeFromActive(r.ctx, l.Id)
 	case *ac.IAutomationV21PlusCommonUpkeepMigrated:
 		r.lggr.Debugf("AutomationV2CommonUpkeepMigrated log detected for upkeep ID %s in transaction %s", l.Id.String(), txHash)
-		r.removeFromActive(l.Id)
+		r.removeFromActive(r.ctx, l.Id)
 	case *ac.IAutomationV21PlusCommonUpkeepTriggerConfigSet:
 		r.lggr.Debugf("KeeperRegistryUpkeepTriggerConfigSet log detected for upkeep ID %s in transaction %s", l.Id.String(), txHash)
 		if err := r.updateTriggerConfig(l.Id, l.TriggerConfig, rawLog.BlockNumber); err != nil {
@@ -505,7 +504,7 @@ func RegistryUpkeepFilterName(addr common.Address) string {
 // registerEvents registers upkeep state events from keeper registry on log poller
 func (r *EvmRegistry) registerEvents(_ uint64, addr common.Address) error {
 	// Add log filters for the log poller so that it can poll and find the logs that we need
-	return r.poller.RegisterFilter(logpoller.Filter{
+	return r.poller.RegisterFilter(r.ctx, logpoller.Filter{
 		Name:      RegistryUpkeepFilterName(addr),
 		EventSigs: upkeepStateEvents,
 		Addresses: []common.Address{addr},
@@ -513,7 +512,7 @@ func (r *EvmRegistry) registerEvents(_ uint64, addr common.Address) error {
 }
 
 // removeFromActive removes an upkeepID from active list and unregisters the log filter for log upkeeps
-func (r *EvmRegistry) removeFromActive(id *big.Int) {
+func (r *EvmRegistry) removeFromActive(ctx context.Context, id *big.Int) {
 	r.active.Remove(id)
 
 	uid := &ocr2keepers.UpkeepIdentifier{}
@@ -521,7 +520,7 @@ func (r *EvmRegistry) removeFromActive(id *big.Int) {
 	trigger := core.GetUpkeepType(*uid)
 	switch trigger {
 	case types2.LogTrigger:
-		if err := r.logEventProvider.UnregisterFilter(id); err != nil {
+		if err := r.logEventProvider.UnregisterFilter(ctx, id); err != nil {
 			r.lggr.Warnw("failed to unregister log filter", "upkeepID", id.String())
 		}
 		r.lggr.Debugw("unregistered log filter", "upkeepID", id.String())

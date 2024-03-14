@@ -108,8 +108,8 @@ func TestLogEventProvider_LifeCycle(t *testing.T) {
 
 			if tc.mockPoller {
 				lp := new(mocks.LogPoller)
-				lp.On("RegisterFilter", mock.Anything).Return(nil)
-				lp.On("UnregisterFilter", mock.Anything).Return(nil)
+				lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
+				lp.On("UnregisterFilter", mock.Anything, mock.Anything).Return(nil)
 				lp.On("LatestBlock", mock.Anything).Return(logpoller.LogPollerBlock{}, nil)
 				hasFitlerTimes := 1
 				if tc.unregister {
@@ -136,7 +136,7 @@ func TestLogEventProvider_LifeCycle(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 				if tc.unregister {
-					require.NoError(t, p.UnregisterFilter(tc.upkeepID))
+					require.NoError(t, p.UnregisterFilter(ctx, tc.upkeepID))
 				}
 			}
 		})
@@ -146,8 +146,8 @@ func TestLogEventProvider_LifeCycle(t *testing.T) {
 func TestEventLogProvider_RefreshActiveUpkeeps(t *testing.T) {
 	ctx := testutils.Context(t)
 	mp := new(mocks.LogPoller)
-	mp.On("RegisterFilter", mock.Anything).Return(nil)
-	mp.On("UnregisterFilter", mock.Anything).Return(nil)
+	mp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
+	mp.On("UnregisterFilter", mock.Anything, mock.Anything).Return(nil)
 	mp.On("HasFilter", mock.Anything).Return(false)
 	mp.On("LatestBlock", mock.Anything).Return(logpoller.LogPollerBlock{}, nil)
 	mp.On("ReplayAsync", mock.Anything).Return(nil)
@@ -172,11 +172,12 @@ func TestEventLogProvider_RefreshActiveUpkeeps(t *testing.T) {
 	}))
 	require.Equal(t, 2, p.filterStore.Size())
 
-	newIds, err := p.RefreshActiveUpkeeps()
+	newIds, err := p.RefreshActiveUpkeeps(ctx)
 	require.NoError(t, err)
 	require.Len(t, newIds, 0)
 	mp.On("HasFilter", p.filterName(core.GenUpkeepID(types.LogTrigger, "2222").BigInt())).Return(true)
 	newIds, err = p.RefreshActiveUpkeeps(
+		ctx,
 		core.GenUpkeepID(types.LogTrigger, "2222").BigInt(),
 		core.GenUpkeepID(types.LogTrigger, "1234").BigInt(),
 		core.GenUpkeepID(types.LogTrigger, "123").BigInt())
