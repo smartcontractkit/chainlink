@@ -1237,7 +1237,7 @@ func (lp *logPoller) batchFetchBlocks(ctx context.Context, blocksRequested []str
 // IndexedLogsWithSigsExcluding returns the set difference(A-B) of logs with signature sigA and sigB, matching is done on the topics index
 //
 // For example, query to retrieve unfulfilled requests by querying request log events without matching fulfillment log events.
-// The order of events is not significant. Both logs must be inside the block range and have the minimum number of dsl.Confirmations
+// The order of events is not significant. Both logs must be inside the block range and have the minimum number of confirmations
 func (lp *logPoller) IndexedLogsWithSigsExcluding(ctx context.Context, address common.Address, eventSigA, eventSigB common.Hash, topicIndex int, fromBlock, toBlock int64, confs evmtypes.Confirmations) ([]Log, error) {
 	return lp.orm.SelectIndexedLogsWithSigsExcluding(ctx, eventSigA, eventSigB, topicIndex, address, fromBlock, toBlock, confs)
 }
