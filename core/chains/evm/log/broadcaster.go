@@ -770,7 +770,7 @@ func (n *NullBroadcaster) Register(listener Listener, opts ListenerOpts) (unsubs
 func (n *NullBroadcaster) ReplayFromBlock(number int64, forceBroadcast bool) {}
 
 func (n *NullBroadcaster) BackfillBlockNumber() sql.NullInt64 {
-	return sql.NullInt64{0, false}
+	return sql.NullInt64{Int64: 0, Valid: false}
 }
 func (n *NullBroadcaster) TrackedAddressesCount() uint32 {
 	return 0
