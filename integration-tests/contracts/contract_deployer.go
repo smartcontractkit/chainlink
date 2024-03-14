@@ -42,6 +42,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/gas_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/gas_wrapper_mock"
 	iregistry22 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_registry_master_wrapper_2_2"
+	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_v21_plus_common"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_chain_module"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_consumer_performance_wrapper"
@@ -1448,7 +1449,7 @@ func (e *EthereumContractDeployer) LoadKeeperRegistry(address common.Address, re
 			address common.Address,
 			backend bind.ContractBackend,
 		) (interface{}, error) {
-			return iregistry21.NewIKeeperRegistryMaster(address, backend)
+			return ac.NewIAutomationV21PlusCommon(address, backend)
 		})
 		if err != nil {
 			return nil, err
