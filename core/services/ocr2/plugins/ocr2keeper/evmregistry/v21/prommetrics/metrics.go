@@ -8,12 +8,20 @@ import (
 // AutomationNamespace is the namespace for all Automation related metrics
 const AutomationLogTriggerNamespace = "automation_log_trigger"
 
+// Metric labels
+const (
+	LogBufferFlowDirectionIngress = "ingress"
+	LogBufferFlowDirectionEgress  = "egress"
+)
+
 // Automation metrics
 var (
-	AutomationLogsInLogBuffer = promauto.NewGauge(prometheus.GaugeOpts{
+	AutomationLogBufferFlow = promauto.NewCounterVec(prometheus.CounterOpts{
 		Namespace: AutomationLogTriggerNamespace,
 		Name:      "num_logs_in_log_buffer",
 		Help:      "The total number of logs currently being stored in the log buffer",
+	}, []string{
+		"direction",
 	})
 	AutomationRecovererMissedLogs = promauto.NewCounter(prometheus.CounterOpts{
 		Namespace: AutomationLogTriggerNamespace,
