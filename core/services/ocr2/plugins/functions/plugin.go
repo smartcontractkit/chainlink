@@ -109,13 +109,13 @@ func NewFunctionsServices(ctx context.Context, functionsOracleArgs, thresholdOra
 	offchainTransmitter := functions.NewOffchainTransmitter(DefaultOffchainTransmitterChannelSize)
 	listenerLogger := conf.Logger.Named("FunctionsListener")
 
-	var maxRetry int
-	if pluginConfig.ExternalAdapterMaxRetry != nil {
-		maxRetry = int(*pluginConfig.ExternalAdapterMaxRetry)
-		conf.Logger.Debugf("external adapter maxRetry configured to: %d", maxRetry)
+	var maxRetries int
+	if pluginConfig.ExternalAdapterMaxRetries != nil {
+		maxRetries = int(*pluginConfig.ExternalAdapterMaxRetries)
+		conf.Logger.Debugf("external adapter maxRetries configured to: %d", maxRetries)
 	} else {
-		maxRetry = DefaultMaxAdapterRetry
-		conf.Logger.Debugf("external adapter maxRetry configured to default: %d", maxRetry)
+		maxRetries = DefaultMaxAdapterRetry
+		conf.Logger.Debugf("external adapter maxRetries configured to default: %d", maxRetries)
 	}
 
 	var exponentialBackoffBase time.Duration
@@ -127,7 +127,7 @@ func NewFunctionsServices(ctx context.Context, functionsOracleArgs, thresholdOra
 		conf.Logger.Debugf("external adapter exponentialBackoffBase configured to default: %g sec", exponentialBackoffBase.Seconds())
 	}
 
-	bridgeAccessor := functions.NewBridgeAccessor(conf.BridgeORM, FunctionsBridgeName, MaxAdapterResponseBytes, maxRetry, exponentialBackoffBase)
+	bridgeAccessor := functions.NewBridgeAccessor(conf.BridgeORM, FunctionsBridgeName, MaxAdapterResponseBytes, maxRetries, exponentialBackoffBase)
 	functionsListener := functions.NewFunctionsListener(
 		conf.Job,
 		conf.Chain.Client(),

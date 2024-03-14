@@ -49,7 +49,7 @@ type PluginConfig struct {
 	RateLimiter                              *common.RateLimiterConfig                 `json:"rateLimiter"`
 	S4Constraints                            *s4.Constraints                           `json:"s4Constraints"`
 	DecryptionQueueConfig                    *DecryptionQueueConfig                    `json:"decryptionQueueConfig"`
-	ExternalAdapterMaxRetry                  *uint32                                   `json:"externalAdapterMaxRetry"`
+	ExternalAdapterMaxRetries                *uint32                                   `json:"externalAdapterMaxRetries"`
 	ExternalAdapterExponentialBackoffBaseSec *uint32                                   `json:"externalAdapterExponentialBackoffBaseSec"`
 }
 
