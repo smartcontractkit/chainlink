@@ -259,6 +259,10 @@ func jobSpecToExecPluginConfig(ctx context.Context, lggr logger.Logger, jb job.J
 		params.offRampConfig.OnRamp,
 	)
 
+	// FIXME: Temporary solution to make tests passing. We need to refactor bg workers to implement ServiceCtx interface
+	// similarly to what we have for the chain heatlhcheck
+	tokenWorkerCtx := context.Background()
+
 	return &ExecutionPluginStaticConfig{
 			lggr:                        execLggr,
 			onRampReader:                onRampReader,
@@ -270,7 +274,7 @@ func jobSpecToExecPluginConfig(ctx context.Context, lggr logger.Logger, jb job.J
 			priceRegistryProvider:       ccipdataprovider.NewEvmPriceRegistry(params.destChain.LogPoller(), params.destChain.Client(), execLggr, ccip.ExecPluginLabel),
 			tokenPoolBatchedReader:      tokenPoolBatchedReader,
 			tokenDataWorker: tokendata.NewBackgroundWorker(
-				ctx,
+				tokenWorkerCtx,
 				tokenDataProviders,
 				numTokenDataWorkers,
 				5*time.Second,
