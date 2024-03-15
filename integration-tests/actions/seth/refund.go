@@ -270,8 +270,23 @@ func ReturnFunds(log zerolog.Logger, seth *seth.Client, chainlinkNodes []contrac
 				return err
 			}
 
-			totalGasCost := new(big.Int).Mul(big.NewInt(0).SetUint64(seth.Cfg.Network.GasLimit), big.NewInt(0).SetInt64(seth.Cfg.Network.GasPrice))
+			var totalGasCost *big.Int
+			if seth.Cfg.Network.EIP1559DynamicFees {
+				totalGasCost = new(big.Int).Mul(big.NewInt(0).SetUint64(seth.Cfg.Network.GasLimit), big.NewInt(0).SetInt64(seth.Cfg.Network.GasFeeCap))
+			} else {
+				totalGasCost = new(big.Int).Mul(big.NewInt(0).SetUint64(seth.Cfg.Network.GasLimit), big.NewInt(0).SetInt64(seth.Cfg.Network.GasPrice))
+			}
+
 			toSend := new(big.Int).Sub(balance, totalGasCost)
+
+			if toSend.Cmp(big.NewInt(0)) <= 0 {
+				log.Warn().
+					Str("Address", fromAddress.String()).
+					Str("Estimated total cost", totalGasCost.String()).
+					Str("Balance", balance.String()).
+					Str("To send", toSend.String()).
+					Msg("Not enough balance to cover gas cost. Skipping return.")
+			}
 
 			payload := FundsToSendPayload{ToAddress: seth.Addresses[0], Amount: toSend, PrivateKey: decryptedKey.PrivateKey}
 

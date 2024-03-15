@@ -5,6 +5,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
@@ -14,7 +15,8 @@ import (
 )
 
 func newEvmTxm(
-	db *sqlx.DB,
+	sqlxDB *sqlx.DB,
+	db sqlutil.DataSource,
 	cfg evmconfig.EVM,
 	evmRPCEnabled bool,
 	databaseConfig txmgr.DatabaseConfig,
@@ -51,6 +53,7 @@ func newEvmTxm(
 
 	if opts.GenTxManager == nil {
 		txm, err = txmgr.NewTxm(
+			sqlxDB,
 			db,
 			cfg,
 			txmgr.NewEvmTxmFeeConfig(cfg.GasEstimator()),
