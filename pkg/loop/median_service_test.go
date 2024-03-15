@@ -19,7 +19,7 @@ func TestMedianService(t *testing.T) {
 	t.Parallel()
 
 	median := loop.NewMedianService(logger.Test(t), loop.GRPCOpts{}, func() *exec.Cmd {
-		return NewHelperProcessCommand(loop.PluginMedianName, false,0)
+		return NewHelperProcessCommand(loop.PluginMedianName, false, 0)
 	}, median_test.MedianProvider, median_test.DataSource, median_test.JuelsPerFeeCoinDataSource, testcore.ErrorLog)
 	hook := median.PluginService.XXXTestHook()
 	servicetest.Run(t, median)

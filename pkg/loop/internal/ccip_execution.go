@@ -9,6 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	ccipinternal "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/ccip"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/net"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb"
 	ccippb "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb/ccip"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -26,7 +27,7 @@ type ExecutionLOOPClient struct {
 	generator ccippb.ExecutionFactoryGeneratorClient
 }
 
-func NewExecutionLOOPClient(broker Broker, brokerCfg BrokerConfig, conn *grpc.ClientConn) *ExecutionLOOPClient {
+func NewExecutionLOOPClient(broker net.Broker, brokerCfg net.BrokerConfig, conn *grpc.ClientConn) *ExecutionLOOPClient {
 	brokerCfg.Logger = logger.Named(brokerCfg.Logger, "ExecutionLOOPClient")
 	pc := NewPluginClient(broker, brokerCfg, conn)
 	return &ExecutionLOOPClient{
@@ -44,13 +45,13 @@ func NewExecutionLOOPClient(broker Broker, brokerCfg BrokerConfig, conn *grpc.Cl
 // to the core node. The core must wrap the provider in a grpc server and serve it locally.
 // func (c *ExecutionLOOPClient) NewExecutionFactory(ctx context.Context, provider types.CCIPExecProvider, config types.CCIPExecFactoryGeneratorConfig) (types.ReportingPluginFactory, error) {.
 func (c *ExecutionLOOPClient) NewExecutionFactory(ctx context.Context, provider types.CCIPExecProvider) (types.ReportingPluginFactory, error) {
-	newExecClientFn := func(ctx context.Context) (id uint32, deps Resources, err error) {
+	newExecClientFn := func(ctx context.Context) (id uint32, deps net.Resources, err error) {
 		// TODO are there any local resources that need to be passed to the executor and started as a server?
 
 		// the proxyable resources are the Provider,  which may or may not be local to the client process. (legacy vs loopp)
 		var (
 			providerID       uint32
-			providerResource Resource
+			providerResource net.Resource
 		)
 		if grpcProvider, ok := provider.(GRPCClientConn); ok {
 			// TODO: BCF-3061 ccip provider can create new services. the proxying needs to be augmented
@@ -81,7 +82,7 @@ func (c *ExecutionLOOPClient) NewExecutionFactory(ctx context.Context, provider 
 	return newReportingPluginFactoryClient(c.BrokerExt, cc), nil
 }
 
-func registerCustomExecutionProviderServices(s *grpc.Server, provider types.CCIPExecProvider, brokerExt *BrokerExt) {
+func registerCustomExecutionProviderServices(s *grpc.Server, provider types.CCIPExecProvider, brokerExt *net.BrokerExt) {
 	// register the handler for the custom methods of the provider eg NewOffRampReader
 	ccippb.RegisterExecutionCustomHandlersServer(s, newExecProviderServer(provider, brokerExt))
 }
@@ -90,23 +91,23 @@ func registerCustomExecutionProviderServices(s *grpc.Server, provider types.CCIP
 type ExecutionLOOPServer struct {
 	ccippb.UnimplementedExecutionFactoryGeneratorServer
 
-	*BrokerExt
+	*net.BrokerExt
 	impl types.CCIPExecutionFactoryGenerator
 }
 
-func RegisterExecutionLOOPServer(s *grpc.Server, b Broker, cfg BrokerConfig, impl types.CCIPExecutionFactoryGenerator) error {
-	ext := &BrokerExt{Broker: b, BrokerConfig: cfg}
+func RegisterExecutionLOOPServer(s *grpc.Server, b net.Broker, cfg net.BrokerConfig, impl types.CCIPExecutionFactoryGenerator) error {
+	ext := &net.BrokerExt{Broker: b, BrokerConfig: cfg}
 	ccippb.RegisterExecutionFactoryGeneratorServer(s, newExecutionLOOPServer(impl, ext))
 	return nil
 }
 
-func newExecutionLOOPServer(impl types.CCIPExecutionFactoryGenerator, b *BrokerExt) *ExecutionLOOPServer {
+func newExecutionLOOPServer(impl types.CCIPExecutionFactoryGenerator, b *net.BrokerExt) *ExecutionLOOPServer {
 	return &ExecutionLOOPServer{impl: impl, BrokerExt: b.WithName("ExecutionLOOPServer")}
 }
 
 func (r *ExecutionLOOPServer) NewExecutionFactory(ctx context.Context, request *ccippb.NewExecutionFactoryRequest) (*ccippb.NewExecutionFactoryResponse, error) {
 	var err error
-	var deps Resources
+	var deps net.Resources
 	defer func() {
 		if err != nil {
 			r.CloseAll(deps...)
@@ -116,9 +117,9 @@ func (r *ExecutionLOOPServer) NewExecutionFactory(ctx context.Context, request *
 	// lookup the provider service
 	providerConn, err := r.Dial(request.ProviderServiceId)
 	if err != nil {
-		return nil, ErrConnDial{Name: "ExecProvider", ID: request.ProviderServiceId, Err: err}
+		return nil, net.ErrConnDial{Name: "ExecProvider", ID: request.ProviderServiceId, Err: err}
 	}
-	deps.Add(Resource{providerConn, "ExecProvider"})
+	deps.Add(net.Resource{Closer: providerConn, Name: "ExecProvider"})
 	provider := newExecProviderClient(r.BrokerExt, providerConn)
 
 	// factory, err := r.impl.NewExecutionFactory(ctx, provider, execFactoryConfig(request.Config))
@@ -146,11 +147,11 @@ type execProviderClient struct {
 	*pluginProviderClient
 
 	// must be shared with the server
-	*BrokerExt
+	*net.BrokerExt
 	grpcClient ccippb.ExecutionCustomHandlersClient
 }
 
-func newExecProviderClient(b *BrokerExt, conn grpc.ClientConnInterface) *execProviderClient {
+func newExecProviderClient(b *net.BrokerExt, conn grpc.ClientConnInterface) *execProviderClient {
 	pluginProviderClient := newPluginProviderClient(b, conn)
 	grpc := ccippb.NewExecutionCustomHandlersClient(conn)
 	return &execProviderClient{
@@ -234,13 +235,13 @@ func (e *execProviderClient) SourceNativeToken(ctx context.Context) (cciptypes.A
 type execProviderServer struct {
 	ccippb.UnimplementedExecutionCustomHandlersServer
 	// this has to be a shared pointer to the same impl as the client
-	*BrokerExt
+	*net.BrokerExt
 	impl types.CCIPExecProvider
 
-	deps Resources
+	deps net.Resources
 }
 
-func newExecProviderServer(impl types.CCIPExecProvider, brokerExt *BrokerExt) *execProviderServer {
+func newExecProviderServer(impl types.CCIPExecProvider, brokerExt *net.BrokerExt) *execProviderServer {
 	return &execProviderServer{impl: impl, BrokerExt: brokerExt}
 }
 

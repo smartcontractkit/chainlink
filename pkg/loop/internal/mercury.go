@@ -12,6 +12,7 @@ import (
 	mercury_v1_internal "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/mercury/v1"
 	mercury_v2_internal "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/mercury/v2"
 	mercury_v3_internal "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/mercury/v3"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/net"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb"
 	mercury_pb "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb/mercury"
 	mercury_v1_pb "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb/mercury/v1"
@@ -31,7 +32,7 @@ type MercuryAdapterClient struct {
 	mercury mercury_pb.MercuryAdapterClient
 }
 
-func NewMercuryAdapterClient(broker Broker, brokerCfg BrokerConfig, conn *grpc.ClientConn) *MercuryAdapterClient {
+func NewMercuryAdapterClient(broker net.Broker, brokerCfg net.BrokerConfig, conn *grpc.ClientConn) *MercuryAdapterClient {
 	brokerCfg.Logger = logger.Named(brokerCfg.Logger, "MercuryAdapterClient")
 	pc := NewPluginClient(broker, brokerCfg, conn)
 	return &MercuryAdapterClient{
@@ -47,7 +48,7 @@ func (c *MercuryAdapterClient) NewMercuryV1Factory(ctx context.Context,
 	// every time a new client is created, we have to ensure that all the external dependencies are satisfied.
 	// at this layer of the stack, all of those dependencies are other gRPC services.
 	// some of those services are hosted in the same process as the client itself and others may be remote.
-	newMercuryClientFn := func(ctx context.Context) (id uint32, deps Resources, err error) {
+	newMercuryClientFn := func(ctx context.Context) (id uint32, deps net.Resources, err error) {
 		// the local resources for mercury are the DataSource
 		dataSourceID, dsRes, err := c.ServeNew("DataSource", func(s *grpc.Server) {
 			mercury_v1_pb.RegisterDataSourceServer(s, mercury_v1_internal.NewDataSourceServer(dataSource))
@@ -60,7 +61,7 @@ func (c *MercuryAdapterClient) NewMercuryV1Factory(ctx context.Context,
 		// the proxyable resources for mercury are the Provider,  which may or may not be local to the client process. (legacy vs loopp)
 		var (
 			providerID  uint32
-			providerRes Resource
+			providerRes net.Resource
 		)
 		if grpcProvider, ok := provider.(GRPCClientConn); ok {
 			providerID, providerRes, err = c.Serve("MercuryProvider", proxy.NewProxy(grpcProvider.ClientConn()))
@@ -98,7 +99,7 @@ func (c *MercuryAdapterClient) NewMercuryV2Factory(ctx context.Context,
 	// every time a new client is created, we have to ensure that all the external dependencies are satisfied.
 	// at this layer of the stack, all of those dependencies are other gRPC services.
 	// some of those services are hosted in the same process as the client itself and others may be remote.
-	newMercuryClientFn := func(ctx context.Context) (id uint32, deps Resources, err error) {
+	newMercuryClientFn := func(ctx context.Context) (id uint32, deps net.Resources, err error) {
 		// the local resources for mercury are the DataSource
 		dataSourceID, dsRes, err := c.ServeNew("DataSource", func(s *grpc.Server) {
 			mercury_v2_pb.RegisterDataSourceServer(s, mercury_v2_internal.NewDataSourceServer(dataSource))
@@ -111,7 +112,7 @@ func (c *MercuryAdapterClient) NewMercuryV2Factory(ctx context.Context,
 		// the proxyable resources for mercury are the Provider,  which may or may not be local to the client process. (legacy vs loopp)
 		var (
 			providerID  uint32
-			providerRes Resource
+			providerRes net.Resource
 		)
 		if grpcProvider, ok := provider.(GRPCClientConn); ok {
 			providerID, providerRes, err = c.Serve("MercuryProvider", proxy.NewProxy(grpcProvider.ClientConn()))
@@ -157,7 +158,7 @@ func (c *MercuryAdapterClient) NewMercuryV3Factory(ctx context.Context,
 	// every time a new client is created, we have to ensure that all the external dependencies are satisfied.
 	// at this layer of the stack, all of those dependencies are other gRPC services.
 	// some of those services are hosted in the same process as the client itself and others may be remote.
-	newMercuryClientFn := func(ctx context.Context) (id uint32, deps Resources, err error) {
+	newMercuryClientFn := func(ctx context.Context) (id uint32, deps net.Resources, err error) {
 		// the local resources for mercury are the DataSource
 		dataSourceID, dsRes, err := c.ServeNew("DataSource", func(s *grpc.Server) {
 			mercury_v3_pb.RegisterDataSourceServer(s, mercury_v3_internal.NewDataSourceServer(dataSource))
@@ -170,7 +171,7 @@ func (c *MercuryAdapterClient) NewMercuryV3Factory(ctx context.Context,
 		// the proxyable resources for mercury are the Provider,  which may or may not be local to the client process. (legacy vs loopp)
 		var (
 			providerID  uint32
-			providerRes Resource
+			providerRes net.Resource
 		)
 		// loop mode; proxy to the relayer
 		if grpcProvider, ok := provider.(GRPCClientConn); ok {
@@ -210,23 +211,23 @@ var _ mercury_pb.MercuryAdapterServer = (*mercuryAdapterServer)(nil)
 type mercuryAdapterServer struct {
 	mercury_pb.UnimplementedMercuryAdapterServer
 
-	*BrokerExt
+	*net.BrokerExt
 	impl types.PluginMercury
 }
 
-func RegisterMercuryAdapterServer(s *grpc.Server, broker Broker, brokerCfg BrokerConfig, impl types.PluginMercury) error {
-	mercury_pb.RegisterMercuryAdapterServer(s, newMercuryAdapterServer(&BrokerExt{broker, brokerCfg}, impl))
+func RegisterMercuryAdapterServer(s *grpc.Server, broker net.Broker, brokerCfg net.BrokerConfig, impl types.PluginMercury) error {
+	mercury_pb.RegisterMercuryAdapterServer(s, newMercuryAdapterServer(&net.BrokerExt{Broker: broker, BrokerConfig: brokerCfg}, impl))
 	return nil
 }
 
-func newMercuryAdapterServer(b *BrokerExt, impl types.PluginMercury) *mercuryAdapterServer {
+func newMercuryAdapterServer(b *net.BrokerExt, impl types.PluginMercury) *mercuryAdapterServer {
 	return &mercuryAdapterServer{BrokerExt: b.WithName("MercuryAdapter"), impl: impl}
 }
 
 func (ms *mercuryAdapterServer) NewMercuryV1Factory(ctx context.Context, req *mercury_pb.NewMercuryV1FactoryRequest) (*mercury_pb.NewMercuryV1FactoryReply, error) {
 	// declared so we can clean up open resources
 	var err error
-	var deps Resources
+	var deps net.Resources
 	defer func() {
 		if err != nil {
 			ms.CloseAll(deps...)
@@ -235,17 +236,17 @@ func (ms *mercuryAdapterServer) NewMercuryV1Factory(ctx context.Context, req *me
 
 	dsConn, err := ms.Dial(req.DataSourceV1ID)
 	if err != nil {
-		return nil, ErrConnDial{Name: "DataSourceV1", ID: req.DataSourceV1ID, Err: err}
+		return nil, net.ErrConnDial{Name: "DataSourceV1", ID: req.DataSourceV1ID, Err: err}
 	}
-	dsRes := Resource{Closer: dsConn, Name: "DataSourceV1"}
+	dsRes := net.Resource{Closer: dsConn, Name: "DataSourceV1"}
 	deps.Add(dsRes)
 	ds := mercury_v1_internal.NewDataSourceClient(dsConn)
 
 	providerConn, err := ms.Dial(req.MercuryProviderID)
 	if err != nil {
-		return nil, ErrConnDial{Name: "MercuryProvider", ID: req.MercuryProviderID, Err: err}
+		return nil, net.ErrConnDial{Name: "MercuryProvider", ID: req.MercuryProviderID, Err: err}
 	}
-	providerRes := Resource{Closer: providerConn, Name: "MercuryProvider"}
+	providerRes := net.Resource{Closer: providerConn, Name: "MercuryProvider"}
 	deps.Add(providerRes)
 	provider := newMercuryProviderClient(ms.BrokerExt, providerConn)
 	factory, err := ms.impl.NewMercuryV1Factory(ctx, provider, ds)
@@ -267,7 +268,7 @@ func (ms *mercuryAdapterServer) NewMercuryV1Factory(ctx context.Context, req *me
 func (ms *mercuryAdapterServer) NewMercuryV2Factory(ctx context.Context, req *mercury_pb.NewMercuryV2FactoryRequest) (*mercury_pb.NewMercuryV2FactoryReply, error) {
 	// declared so we can clean up open resources
 	var err error
-	var deps Resources
+	var deps net.Resources
 	defer func() {
 		if err != nil {
 			ms.CloseAll(deps...)
@@ -276,17 +277,17 @@ func (ms *mercuryAdapterServer) NewMercuryV2Factory(ctx context.Context, req *me
 
 	dsConn, err := ms.Dial(req.DataSourceV2ID)
 	if err != nil {
-		return nil, ErrConnDial{Name: "DataSourceV2", ID: req.DataSourceV2ID, Err: err}
+		return nil, net.ErrConnDial{Name: "DataSourceV2", ID: req.DataSourceV2ID, Err: err}
 	}
-	dsRes := Resource{Closer: dsConn, Name: "DataSourceV2"}
+	dsRes := net.Resource{Closer: dsConn, Name: "DataSourceV2"}
 	deps.Add(dsRes)
 	ds := mercury_v2_internal.NewDataSourceClient(dsConn)
 
 	providerConn, err := ms.Dial(req.MercuryProviderID)
 	if err != nil {
-		return nil, ErrConnDial{Name: "MercuryProvider", ID: req.MercuryProviderID, Err: err}
+		return nil, net.ErrConnDial{Name: "MercuryProvider", ID: req.MercuryProviderID, Err: err}
 	}
-	providerRes := Resource{Closer: providerConn, Name: "MercuryProvider"}
+	providerRes := net.Resource{Closer: providerConn, Name: "MercuryProvider"}
 	deps.Add(providerRes)
 	provider := newMercuryProviderClient(ms.BrokerExt, providerConn)
 	factory, err := ms.impl.NewMercuryV2Factory(ctx, provider, ds)
@@ -308,7 +309,7 @@ func (ms *mercuryAdapterServer) NewMercuryV2Factory(ctx context.Context, req *me
 func (ms *mercuryAdapterServer) NewMercuryV3Factory(ctx context.Context, req *mercury_pb.NewMercuryV3FactoryRequest) (*mercury_pb.NewMercuryV3FactoryReply, error) {
 	// declared so we can clean up open resources
 	var err error
-	var deps Resources
+	var deps net.Resources
 	defer func() {
 		if err != nil {
 			ms.CloseAll(deps...)
@@ -317,17 +318,17 @@ func (ms *mercuryAdapterServer) NewMercuryV3Factory(ctx context.Context, req *me
 
 	dsConn, err := ms.Dial(req.DataSourceV3ID)
 	if err != nil {
-		return nil, ErrConnDial{Name: "DataSourceV3", ID: req.DataSourceV3ID, Err: err}
+		return nil, net.ErrConnDial{Name: "DataSourceV3", ID: req.DataSourceV3ID, Err: err}
 	}
-	dsRes := Resource{Closer: dsConn, Name: "DataSourceV3"}
+	dsRes := net.Resource{Closer: dsConn, Name: "DataSourceV3"}
 	deps.Add(dsRes)
 	ds := mercury_v3_internal.NewDataSourceClient(dsConn)
 
 	providerConn, err := ms.Dial(req.MercuryProviderID)
 	if err != nil {
-		return nil, ErrConnDial{Name: "MercuryProvider", ID: req.MercuryProviderID, Err: err}
+		return nil, net.ErrConnDial{Name: "MercuryProvider", ID: req.MercuryProviderID, Err: err}
 	}
-	providerRes := Resource{Closer: providerConn, Name: "MercuryProvider"}
+	providerRes := net.Resource{Closer: providerConn, Name: "MercuryProvider"}
 	deps.Add(providerRes)
 	provider := newMercuryProviderClient(ms.BrokerExt, providerConn)
 	factory, err := ms.impl.NewMercuryV3Factory(ctx, provider, ds)
@@ -363,7 +364,7 @@ type mercuryProviderClient struct {
 	mercuryChainReader mercury.ChainReader
 }
 
-func newMercuryProviderClient(b *BrokerExt, cc grpc.ClientConnInterface) *mercuryProviderClient {
+func newMercuryProviderClient(b *net.BrokerExt, cc grpc.ClientConnInterface) *mercuryProviderClient {
 	m := &mercuryProviderClient{pluginProviderClient: newPluginProviderClient(b.WithName("MercuryProviderClient"), cc)}
 
 	m.reportCodecV1 = mercury_common_internal.NewReportCodecV1Client(mercury_v1_internal.NewReportCodecClient(m.cc))

@@ -14,6 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	mercury_common_internal "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/mercury/common"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/net"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb"
 	mercury_pb "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb/mercury"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -27,15 +28,15 @@ type PluginRelayerClient struct {
 	grpc pb.PluginRelayerClient
 }
 
-func NewPluginRelayerClient(broker Broker, brokerCfg BrokerConfig, conn *grpc.ClientConn) *PluginRelayerClient {
+func NewPluginRelayerClient(broker net.Broker, brokerCfg net.BrokerConfig, conn *grpc.ClientConn) *PluginRelayerClient {
 	brokerCfg.Logger = logger.Named(brokerCfg.Logger, "PluginRelayerClient")
 	pc := NewPluginClient(broker, brokerCfg, conn)
 	return &PluginRelayerClient{PluginClient: pc, grpc: pb.NewPluginRelayerClient(pc)}
 }
 
 func (p *PluginRelayerClient) NewRelayer(ctx context.Context, config string, keystore types.Keystore) (Relayer, error) {
-	cc := p.NewClientConn("Relayer", func(ctx context.Context) (id uint32, deps Resources, err error) {
-		var ksRes Resource
+	cc := p.NewClientConn("Relayer", func(ctx context.Context) (id uint32, deps net.Resources, err error) {
+		var ksRes net.Resource
 		id, ksRes, err = p.ServeNew("Keystore", func(s *grpc.Server) {
 			pb.RegisterKeystoreServer(s, &keystoreServer{impl: keystore})
 		})
@@ -59,27 +60,27 @@ func (p *PluginRelayerClient) NewRelayer(ctx context.Context, config string, key
 type pluginRelayerServer struct {
 	pb.UnimplementedPluginRelayerServer
 
-	*BrokerExt
+	*net.BrokerExt
 
 	impl PluginRelayer
 }
 
-func RegisterPluginRelayerServer(server *grpc.Server, broker Broker, brokerCfg BrokerConfig, impl PluginRelayer) error {
+func RegisterPluginRelayerServer(server *grpc.Server, broker net.Broker, brokerCfg net.BrokerConfig, impl PluginRelayer) error {
 	pb.RegisterPluginRelayerServer(server, newPluginRelayerServer(broker, brokerCfg, impl))
 	return nil
 }
 
-func newPluginRelayerServer(broker Broker, brokerCfg BrokerConfig, impl PluginRelayer) *pluginRelayerServer {
+func newPluginRelayerServer(broker net.Broker, brokerCfg net.BrokerConfig, impl PluginRelayer) *pluginRelayerServer {
 	brokerCfg.Logger = logger.Named(brokerCfg.Logger, "RelayerPluginServer")
-	return &pluginRelayerServer{BrokerExt: &BrokerExt{broker, brokerCfg}, impl: impl}
+	return &pluginRelayerServer{BrokerExt: &net.BrokerExt{Broker: broker, BrokerConfig: brokerCfg}, impl: impl}
 }
 
 func (p *pluginRelayerServer) NewRelayer(ctx context.Context, request *pb.NewRelayerRequest) (*pb.NewRelayerReply, error) {
 	ksConn, err := p.Dial(request.KeystoreID)
 	if err != nil {
-		return nil, ErrConnDial{Name: "Keystore", ID: request.KeystoreID, Err: err}
+		return nil, net.ErrConnDial{Name: "Keystore", ID: request.KeystoreID, Err: err}
 	}
-	ksRes := Resource{ksConn, "Keystore"}
+	ksRes := net.Resource{Closer: ksConn, Name: "Keystore"}
 	r, err := p.impl.NewRelayer(ctx, request.Config, newKeystoreClient(ksConn))
 	if err != nil {
 		p.CloseAll(ksRes)
@@ -92,7 +93,7 @@ func (p *pluginRelayerServer) NewRelayer(ctx context.Context, request *pb.NewRel
 	}
 
 	const name = "Relayer"
-	rRes := Resource{r, name}
+	rRes := net.Resource{Closer: r, Name: name}
 	id, _, err := p.ServeNew(name, func(s *grpc.Server) {
 		pb.RegisterServiceServer(s, &ServiceServer{Srv: r})
 		pb.RegisterRelayerServer(s, newChainRelayerServer(r, p.BrokerExt))
@@ -158,19 +159,19 @@ var _ Relayer = (*relayerClient)(nil)
 
 // relayerClient adapts a GRPC [pb.RelayerClient] to implement [Relayer].
 type relayerClient struct {
-	*BrokerExt
+	*net.BrokerExt
 	*ServiceClient
 
 	relayer pb.RelayerClient
 }
 
-func newRelayerClient(b *BrokerExt, conn grpc.ClientConnInterface) *relayerClient {
+func newRelayerClient(b *net.BrokerExt, conn grpc.ClientConnInterface) *relayerClient {
 	b = b.WithName("ChainRelayerClient")
 	return &relayerClient{b, NewServiceClient(b, conn), pb.NewRelayerClient(conn)}
 }
 
 func (r *relayerClient) NewConfigProvider(ctx context.Context, rargs types.RelayArgs) (types.ConfigProvider, error) {
-	cc := r.NewClientConn("ConfigProvider", func(ctx context.Context) (uint32, Resources, error) {
+	cc := r.NewClientConn("ConfigProvider", func(ctx context.Context) (uint32, net.Resources, error) {
 		reply, err := r.relayer.NewConfigProvider(ctx, &pb.NewConfigProviderRequest{
 			RelayArgs: &pb.RelayArgs{
 				ExternalJobID: rargs.ExternalJobID[:],
@@ -189,7 +190,7 @@ func (r *relayerClient) NewConfigProvider(ctx context.Context, rargs types.Relay
 }
 
 func (r *relayerClient) NewPluginProvider(ctx context.Context, rargs types.RelayArgs, pargs types.PluginArgs) (types.PluginProvider, error) {
-	cc := r.NewClientConn("PluginProvider", func(ctx context.Context) (uint32, Resources, error) {
+	cc := r.NewClientConn("PluginProvider", func(ctx context.Context) (uint32, net.Resources, error) {
 		reply, err := r.relayer.NewPluginProvider(ctx, &pb.NewPluginProviderRequest{
 			RelayArgs: &pb.RelayArgs{
 				ExternalJobID: rargs.ExternalJobID[:],
@@ -224,7 +225,7 @@ func (r *relayerClient) NewPluginProvider(ctx context.Context, rargs types.Relay
 		// TODO BCF-3061
 		// what do i do here? for the local embedded relayer, we are using the broker
 		// to share state so the the reporting plugin, as a client to the (embedded) relayer,
-		// calls the provider to get resources and then the provider calls the broker to serve them
+		// calls the provider to get network.resources and then the provider calls the broker to serve them
 		// maybe the same mechanism can be used here, but we need very careful reference passing to
 		// ensure that this relayer client has the same broker as the server. that doesn't really
 		// even make sense to me because the relayer client will in the reporting plugin loop
@@ -289,12 +290,12 @@ var _ pb.RelayerServer = (*relayerServer)(nil)
 type relayerServer struct {
 	pb.UnimplementedRelayerServer
 
-	*BrokerExt
+	*net.BrokerExt
 
 	impl Relayer
 }
 
-func newChainRelayerServer(impl Relayer, b *BrokerExt) *relayerServer {
+func newChainRelayerServer(impl Relayer, b *net.BrokerExt) *relayerServer {
 	return &relayerServer{impl: impl, BrokerExt: b.WithName("ChainRelayerServer")}
 }
 
@@ -323,7 +324,7 @@ func (r *relayerServer) NewConfigProvider(ctx context.Context, request *pb.NewCo
 		pb.RegisterServiceServer(s, &ServiceServer{Srv: cp})
 		pb.RegisterOffchainConfigDigesterServer(s, &offchainConfigDigesterServer{impl: cp.OffchainConfigDigester()})
 		pb.RegisterContractConfigTrackerServer(s, &contractConfigTrackerServer{impl: cp.ContractConfigTracker()})
-	}, Resource{cp, name})
+	}, net.Resource{Closer: cp, Name: name})
 	if err != nil {
 		return nil, err
 	}
@@ -393,7 +394,7 @@ func (r *relayerServer) newMedianProvider(ctx context.Context, relayArgs types.R
 		return 0, err
 	}
 	const name = "MedianProvider"
-	providerRes := Resource{Name: name, Closer: provider}
+	providerRes := net.Resource{Name: name, Closer: provider}
 
 	id, _, err := r.ServeNew(name, func(s *grpc.Server) {
 		registerPluginProviderServices(s, provider)
@@ -418,7 +419,7 @@ func (r *relayerServer) newPluginProvider(ctx context.Context, relayArgs types.R
 		return 0, err
 	}
 	const name = "PluginProvider"
-	providerRes := Resource{Name: name, Closer: provider}
+	providerRes := net.Resource{Name: name, Closer: provider}
 
 	id, _, err := r.ServeNew(name, func(s *grpc.Server) {
 		registerPluginProviderServices(s, provider)
@@ -445,7 +446,7 @@ func (r *relayerServer) newMercuryProvider(ctx context.Context, relayArgs types.
 		return 0, err
 	}
 	const name = "MercuryProvider"
-	providerRes := Resource{Name: name, Closer: provider}
+	providerRes := net.Resource{Name: name, Closer: provider}
 
 	id, _, err := r.ServeNew(name, func(s *grpc.Server) {
 		registerPluginProviderServices(s, provider)
@@ -479,17 +480,17 @@ func (r *relayerServer) newExecProvider(ctx context.Context, relayArgs types.Rel
 		return 0, err
 	}
 	const name = "CCIPExecutionProvider"
-	providerRes := Resource{Name: name, Closer: provider}
+	providerRes := net.Resource{Name: name, Closer: provider}
 
 	id, _, err := r.ServeNew(name, func(s *grpc.Server) {
 		registerPluginProviderServices(s, provider)
 		// TODO BCF-3067 LEAKS!!!
-		// the execution provider can create resources. how to prevent a leak?
+		// the execution provider can create network.resources. how to prevent a leak?
 		// here we are a stand alone server in relayer. there is no reporting plugin instance
 		// maybe the best thing to do is promote all the ccip interfaces to services
 		// and expect/force clients to close them
 		// maybe it's possible to pass reference via a context such that the reporting plugin could
-		// tell the provider to close all the resources it created on behalf of the plugin
+		// tell the provider to close all the network.resources it created on behalf of the plugin
 		// but this seems very intricate
 		registerCustomExecutionProviderServices(s, provider, r.BrokerExt)
 	}, providerRes)

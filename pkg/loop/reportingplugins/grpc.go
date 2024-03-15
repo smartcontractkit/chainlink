@@ -8,6 +8,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/net"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 )
 
@@ -23,7 +24,7 @@ func ReportingPluginHandshakeConfig() plugin.HandshakeConfig {
 
 type ProviderServer[T types.PluginProvider] interface {
 	types.ReportingPluginServer[T]
-	ConnToProvider(conn grpc.ClientConnInterface, broker internal.Broker, brokerConfig loop.BrokerConfig) T
+	ConnToProvider(conn grpc.ClientConnInterface, broker net.Broker, brokerConfig loop.BrokerConfig) T
 }
 
 // GRPCService is the loopp interface for a plugin that can

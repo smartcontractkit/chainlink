@@ -1,4 +1,4 @@
-package internal
+package net
 
 import (
 	"context"
@@ -21,26 +21,26 @@ type Broker interface {
 	NextId() uint32
 }
 
-var _ Broker = (*atomicBroker)(nil)
+var _ Broker = (*AtomicBroker)(nil)
 
-// An atomicBroker implements [Broker] and is backed by a swappable [*plugin.GRPCBroker].
-type atomicBroker struct {
+// An AtomicBroker implements [Broker] and is backed by a swappable [*plugin.GRPCBroker].
+type AtomicBroker struct {
 	broker atomic.Pointer[Broker]
 }
 
-func (a *atomicBroker) store(b Broker) { a.broker.Store(&b) }
-func (a *atomicBroker) load() Broker   { return *a.broker.Load() }
+func (a *AtomicBroker) Store(b Broker) { a.broker.Store(&b) }
+func (a *AtomicBroker) Load() Broker   { return *a.broker.Load() }
 
-func (a *atomicBroker) Accept(id uint32) (net.Listener, error) {
-	return a.load().Accept(id)
+func (a *AtomicBroker) Accept(id uint32) (net.Listener, error) {
+	return a.Load().Accept(id)
 }
 
-func (a *atomicBroker) DialWithOptions(id uint32, opts ...grpc.DialOption) (conn *grpc.ClientConn, err error) {
-	return a.load().DialWithOptions(id, opts...)
+func (a *AtomicBroker) DialWithOptions(id uint32, opts ...grpc.DialOption) (conn *grpc.ClientConn, err error) {
+	return a.Load().DialWithOptions(id, opts...)
 }
 
-func (a *atomicBroker) NextId() uint32 { //nolint:revive
-	return a.load().NextId()
+func (a *AtomicBroker) NextId() uint32 { //nolint:revive
+	return a.Load().NextId()
 }
 
 // GRPCOpts has GRPC client and server options.

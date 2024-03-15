@@ -155,7 +155,6 @@ func (a *aggregator) Aggregate(pout *pbtypes.AggregationOutcome, observations ma
 		EncodableOutcome: values.Proto(nm).GetMapValue(),
 	}
 	return a.outcome, nil
-
 }
 
 type enc struct {

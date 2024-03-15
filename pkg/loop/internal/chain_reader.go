@@ -10,6 +10,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/net"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 )
@@ -23,7 +24,7 @@ func NewChainReaderTestClient(conn *grpc.ClientConn) types.ChainReader {
 }
 
 type chainReaderClient struct {
-	*BrokerExt
+	*net.BrokerExt
 	grpc pb.ChainReaderClient
 }
 
@@ -104,7 +105,7 @@ func (c *chainReaderClient) GetLatestValue(ctx context.Context, contractName, me
 
 	reply, err := c.grpc.GetLatestValue(ctx, &pb.GetLatestValueRequest{ContractName: contractName, Method: method, Params: versionedParams})
 	if err != nil {
-		return wrapRPCErr(err)
+		return net.WrapRPCErr(err)
 	}
 
 	return DecodeVersionedBytes(retVal, reply.RetVal)
@@ -116,7 +117,7 @@ func (c *chainReaderClient) Bind(ctx context.Context, bindings []types.BoundCont
 		pbBindings[i] = &pb.BoundContract{Address: b.Address, Name: b.Name, Pending: b.Pending}
 	}
 	_, err := c.grpc.Bind(ctx, &pb.BindRequest{Bindings: pbBindings})
-	return wrapRPCErr(err)
+	return net.WrapRPCErr(err)
 }
 
 var _ pb.ChainReaderServer = (*chainReaderServer)(nil)

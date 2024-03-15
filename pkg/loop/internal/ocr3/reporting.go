@@ -12,17 +12,18 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/net"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb"
 	ocr3 "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb/ocr3"
 )
 
 type reportingPluginFactoryClient struct {
-	*internal.BrokerExt
+	*net.BrokerExt
 	*internal.ServiceClient
 	grpc ocr3.ReportingPluginFactoryClient
 }
 
-func newReportingPluginFactoryClient(b *internal.BrokerExt, cc grpc.ClientConnInterface) *reportingPluginFactoryClient {
+func newReportingPluginFactoryClient(b *net.BrokerExt, cc grpc.ClientConnInterface) *reportingPluginFactoryClient {
 	return &reportingPluginFactoryClient{b.WithName("OCR3ReportingPluginProviderClient"), internal.NewServiceClient(b, cc), ocr3.NewReportingPluginFactoryClient(cc)}
 }
 
@@ -68,12 +69,12 @@ var _ ocr3.ReportingPluginFactoryServer = (*reportingPluginFactoryServer)(nil)
 type reportingPluginFactoryServer struct {
 	ocr3.UnimplementedReportingPluginFactoryServer
 
-	*internal.BrokerExt
+	*net.BrokerExt
 
 	impl ocr3types.ReportingPluginFactory[[]byte]
 }
 
-func newReportingPluginFactoryServer(impl ocr3types.ReportingPluginFactory[[]byte], b *internal.BrokerExt) *reportingPluginFactoryServer {
+func newReportingPluginFactoryServer(impl ocr3types.ReportingPluginFactory[[]byte], b *net.BrokerExt) *reportingPluginFactoryServer {
 	return &reportingPluginFactoryServer{impl: impl, BrokerExt: b.WithName("OCR3ReportingPluginFactoryServer")}
 }
 
@@ -104,7 +105,7 @@ func (r *reportingPluginFactoryServer) NewReportingPlugin(ctx context.Context, r
 	const name = "OCR3ReportingPlugin"
 	id, _, err := r.ServeNew(name, func(s *grpc.Server) {
 		ocr3.RegisterReportingPluginServer(s, &reportingPluginServer{impl: rp})
-	}, internal.Resource{Closer: rp, Name: name})
+	}, net.Resource{Closer: rp, Name: name})
 	if err != nil {
 		return nil, err
 	}
@@ -125,7 +126,7 @@ func (r *reportingPluginFactoryServer) NewReportingPlugin(ctx context.Context, r
 var _ ocr3types.ReportingPlugin[[]byte] = (*reportingPluginClient)(nil)
 
 type reportingPluginClient struct {
-	*internal.BrokerExt
+	*net.BrokerExt
 	grpc ocr3.ReportingPluginClient
 }
 
@@ -223,7 +224,7 @@ func (o *reportingPluginClient) Close() error {
 	return err
 }
 
-func newReportingPluginClient(b *internal.BrokerExt, cc grpc.ClientConnInterface) *reportingPluginClient {
+func newReportingPluginClient(b *net.BrokerExt, cc grpc.ClientConnInterface) *reportingPluginClient {
 	return &reportingPluginClient{b.WithName("OCR3ReportingPluginClient"), ocr3.NewReportingPluginClient(cc)}
 }
 

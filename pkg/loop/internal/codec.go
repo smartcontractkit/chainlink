@@ -5,6 +5,7 @@ import (
 
 	"google.golang.org/grpc"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/net"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 )
@@ -18,7 +19,7 @@ func NewCodecTestClient(conn *grpc.ClientConn) types.Codec {
 }
 
 type codecClient struct {
-	*BrokerExt
+	*net.BrokerExt
 	grpc pb.CodecClient
 }
 
@@ -33,7 +34,7 @@ func (c *codecClient) Encode(ctx context.Context, item any, itemType string) ([]
 		ItemType: itemType,
 	})
 	if err != nil {
-		return nil, wrapRPCErr(err)
+		return nil, net.WrapRPCErr(err)
 	}
 
 	return reply.RetVal, nil
@@ -47,7 +48,7 @@ func (c *codecClient) Decode(ctx context.Context, raw []byte, into any, itemType
 	}
 	resp, err := c.grpc.GetDecoding(ctx, request)
 	if err != nil {
-		return wrapRPCErr(err)
+		return net.WrapRPCErr(err)
 	}
 
 	return DecodeVersionedBytes(into, resp.RetVal)
@@ -56,7 +57,7 @@ func (c *codecClient) Decode(ctx context.Context, raw []byte, into any, itemType
 func (c *codecClient) GetMaxEncodingSize(ctx context.Context, n int, itemType string) (int, error) {
 	res, err := c.grpc.GetMaxSize(ctx, &pb.GetMaxSizeRequest{N: int32(n), ItemType: itemType, ForEncoding: true})
 	if err != nil {
-		return 0, wrapRPCErr(err)
+		return 0, net.WrapRPCErr(err)
 	}
 
 	return int(res.SizeInBytes), nil
@@ -65,7 +66,7 @@ func (c *codecClient) GetMaxEncodingSize(ctx context.Context, n int, itemType st
 func (c *codecClient) GetMaxDecodingSize(ctx context.Context, n int, itemType string) (int, error) {
 	res, err := c.grpc.GetMaxSize(ctx, &pb.GetMaxSizeRequest{N: int32(n), ItemType: itemType, ForEncoding: false})
 	if err != nil {
-		return 0, wrapRPCErr(err)
+		return 0, net.WrapRPCErr(err)
 	}
 
 	return int(res.SizeInBytes), nil

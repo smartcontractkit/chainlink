@@ -6,8 +6,8 @@ import (
 
 	"google.golang.org/grpc"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal"
 	median_test "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/median/test"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/net"
 	testcore "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test/core"
 	testpluginprovider "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test/ocr2/plugin_provider"
 	testtypes "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test/types"
@@ -34,7 +34,7 @@ type medianServer struct {
 	medianGeneratorConfig
 }
 
-func (s medianServer) ConnToProvider(conn grpc.ClientConnInterface, broker internal.Broker, brokerConfig internal.BrokerConfig) types.MedianProvider {
+func (s medianServer) ConnToProvider(conn grpc.ClientConnInterface, broker net.Broker, brokerConfig net.BrokerConfig) types.MedianProvider {
 	return s.medianProvider
 }
 
@@ -69,7 +69,7 @@ type agnosticPluginServer struct {
 	telemetry      testtypes.TelemetryEvaluator
 }
 
-func (s agnosticPluginServer) ConnToProvider(conn grpc.ClientConnInterface, broker internal.Broker, brokerConfig internal.BrokerConfig) types.PluginProvider {
+func (s agnosticPluginServer) ConnToProvider(conn grpc.ClientConnInterface, broker net.Broker, brokerConfig net.BrokerConfig) types.PluginProvider {
 	return s.provider
 }
 

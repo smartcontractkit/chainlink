@@ -1,34 +1,31 @@
-package internal
+package net
 
 import (
 	"context"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/jpillora/backoff"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
-var _ grpc.ClientConnInterface = (*atomicClient)(nil)
+var _ grpc.ClientConnInterface = (*AtomicClient)(nil)
 
-// An atomicClient implements [grpc.ClientConnInterface] and is backed by a swappable [*grpc.ClientConn].
-type atomicClient struct {
+// An AtomicClient implements [grpc.ClientConnInterface] and is backed by a swappable [*grpc.ClientConn].
+type AtomicClient struct {
 	cc atomic.Pointer[grpc.ClientConn]
 }
 
-func (a *atomicClient) store(cc *grpc.ClientConn) { a.cc.Store(cc) }
+func (a *AtomicClient) Store(cc *grpc.ClientConn) { a.cc.Store(cc) }
 
-func (a *atomicClient) Invoke(ctx context.Context, method string, args interface{}, reply interface{}, opts ...grpc.CallOption) error {
+func (a *AtomicClient) Invoke(ctx context.Context, method string, args interface{}, reply interface{}, opts ...grpc.CallOption) error {
 	return a.cc.Load().Invoke(ctx, method, args, reply, opts...)
 }
 
-func (a *atomicClient) NewStream(ctx context.Context, desc *grpc.StreamDesc, method string, opts ...grpc.CallOption) (grpc.ClientStream, error) {
+func (a *AtomicClient) NewStream(ctx context.Context, desc *grpc.StreamDesc, method string, opts ...grpc.CallOption) (grpc.ClientStream, error) {
 	return a.cc.Load().NewStream(ctx, desc, method, opts...)
 }
 
@@ -148,43 +145,4 @@ func (c *clientConn) refresh(ctx context.Context, orig *grpc.ClientConn) *grpc.C
 	}
 
 	return c.cc
-}
-
-// isErrTerminal returns true if the grpc [status] [codes.Code] indicates that the plugin connection has terminated and
-// must be refreshed.
-func isErrTerminal(err error) bool {
-	switch status.Code(err) {
-	case codes.Unavailable, codes.Canceled:
-		return true
-	case codes.OK, codes.Unknown, codes.InvalidArgument, codes.DeadlineExceeded, codes.NotFound, codes.AlreadyExists,
-		codes.PermissionDenied, codes.ResourceExhausted, codes.FailedPrecondition, codes.Aborted, codes.OutOfRange,
-		codes.Unimplemented, codes.Internal, codes.DataLoss, codes.Unauthenticated:
-		return false
-	}
-	return false
-}
-
-func wrapRPCErr(err error) error {
-	if err == nil {
-		return nil
-	}
-	return &wrappedError{err: err, status: status.Convert(err)}
-}
-
-type wrappedError struct {
-	err    error
-	status *status.Status
-}
-
-func (w *wrappedError) Error() string {
-	return w.err.Error()
-}
-
-func (w *wrappedError) Is(target error) bool {
-	s := status.Convert(target)
-	return w.status.Code() == s.Code() && strings.Contains(w.status.Message(), s.Message())
-}
-
-func (w *wrappedError) GRPCStatus() *status.Status {
-	return w.status
 }

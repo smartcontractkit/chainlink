@@ -8,6 +8,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/net"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 )
@@ -22,12 +23,12 @@ var (
 // ServiceClient is the base client implementation of a loop as a client to the core node or
 // to another loop that is proxied through the core node.
 type ServiceClient struct {
-	b    *BrokerExt
+	b    *net.BrokerExt
 	cc   grpc.ClientConnInterface
 	grpc pb.ServiceClient
 }
 
-func NewServiceClient(b *BrokerExt, cc grpc.ClientConnInterface) *ServiceClient {
+func NewServiceClient(b *net.BrokerExt, cc grpc.ClientConnInterface) *ServiceClient {
 	return &ServiceClient{b, cc, pb.NewServiceClient(cc)}
 }
 
