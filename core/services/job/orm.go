@@ -22,12 +22,12 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	medianconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/median/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -52,7 +52,7 @@ type ORM interface {
 	FindJobTx(ctx context.Context, id int32) (Job, error)
 	FindJob(ctx context.Context, id int32) (Job, error)
 	FindJobByExternalJobID(uuid uuid.UUID, qopts ...pg.QOpt) (Job, error)
-	FindJobIDByAddress(address ethkey.EIP55Address, evmChainID *big.Big, qopts ...pg.QOpt) (int32, error)
+	FindJobIDByAddress(address evmtypes.EIP55Address, evmChainID *big.Big, qopts ...pg.QOpt) (int32, error)
 	FindOCR2JobIDByAddress(contractID string, feedID *common.Hash, qopts ...pg.QOpt) (int32, error)
 	FindJobIDsWithBridge(name string) ([]int32, error)
 	DeleteJob(id int32, qopts ...pg.QOpt) error
@@ -731,7 +731,7 @@ type OCRConfig interface {
 	ContractSubscribeInterval() time.Duration
 	KeyBundleID() (string, error)
 	ObservationTimeout() time.Duration
-	TransmitterAddress() (ethkey.EIP55Address, error)
+	TransmitterAddress() (evmtypes.EIP55Address, error)
 }
 
 // LoadConfigVarsLocalOCR loads local OCR vars into the OCROracleSpec.
@@ -842,7 +842,7 @@ func (o *orm) FindJobByExternalJobID(externalJobID uuid.UUID, qopts ...pg.QOpt) 
 }
 
 // FindJobIDByAddress - finds a job id by contract address. Currently only OCR and FM jobs are supported
-func (o *orm) FindJobIDByAddress(address ethkey.EIP55Address, evmChainID *big.Big, qopts ...pg.QOpt) (jobID int32, err error) {
+func (o *orm) FindJobIDByAddress(address evmtypes.EIP55Address, evmChainID *big.Big, qopts ...pg.QOpt) (jobID int32, err error) {
 	q := o.q.WithOpts(qopts...)
 	err = q.Transaction(func(tx pg.Queryer) error {
 		stmt := `
@@ -1321,7 +1321,7 @@ func toVRFSpecRow(spec *VRFSpec) vrfSpecRow {
 func (r vrfSpecRow) toVRFSpec() *VRFSpec {
 	for _, a := range r.FromAddresses {
 		r.VRFSpec.FromAddresses = append(r.VRFSpec.FromAddresses,
-			ethkey.EIP55AddressFromAddress(common.BytesToAddress(a)))
+			evmtypes.EIP55AddressFromAddress(common.BytesToAddress(a)))
 	}
 	return r.VRFSpec
 }
@@ -1360,7 +1360,7 @@ func toBlockhashStoreSpecRow(spec *BlockhashStoreSpec) blockhashStoreSpecRow {
 func (r blockhashStoreSpecRow) toBlockhashStoreSpec() *BlockhashStoreSpec {
 	for _, a := range r.FromAddresses {
 		r.BlockhashStoreSpec.FromAddresses = append(r.BlockhashStoreSpec.FromAddresses,
-			ethkey.EIP55AddressFromAddress(common.BytesToAddress(a)))
+			evmtypes.EIP55AddressFromAddress(common.BytesToAddress(a)))
 	}
 	return r.BlockhashStoreSpec
 }
@@ -1399,7 +1399,7 @@ func toBlockHeaderFeederSpecRow(spec *BlockHeaderFeederSpec) blockHeaderFeederSp
 func (r blockHeaderFeederSpecRow) toBlockHeaderFeederSpec() *BlockHeaderFeederSpec {
 	for _, a := range r.FromAddresses {
 		r.BlockHeaderFeederSpec.FromAddresses = append(r.BlockHeaderFeederSpec.FromAddresses,
-			ethkey.EIP55AddressFromAddress(common.BytesToAddress(a)))
+			evmtypes.EIP55AddressFromAddress(common.BytesToAddress(a)))
 	}
 	return r.BlockHeaderFeederSpec
 }
@@ -1438,7 +1438,7 @@ func toLegacyGasStationServerSpecRow(spec *LegacyGasStationServerSpec) legacyGas
 func (r legacyGasStationServerSpecRow) toLegacyGasStationServerSpec() *LegacyGasStationServerSpec {
 	for _, a := range r.FromAddresses {
 		r.LegacyGasStationServerSpec.FromAddresses = append(r.LegacyGasStationServerSpec.FromAddresses,
-			ethkey.EIP55AddressFromAddress(common.BytesToAddress(a)))
+			evmtypes.EIP55AddressFromAddress(common.BytesToAddress(a)))
 	}
 	return r.LegacyGasStationServerSpec
 }

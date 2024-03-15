@@ -1,4 +1,4 @@
-package ethkey_test
+package types_test
 
 import (
 	"encoding/json"
@@ -8,13 +8,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
 func TestEIP55Address(t *testing.T) {
 	t.Parallel()
 
-	address := ethkey.EIP55Address("0xa0788FC17B1dEe36f057c42B6F373A34B014687e")
+	address := types.EIP55Address("0xa0788FC17B1dEe36f057c42B6F373A34B014687e")
 
 	assert.Equal(t, []byte{
 		0xa0, 0x78, 0x8f, 0xc1, 0x7b, 0x1d, 0xee, 0x36,
@@ -35,12 +35,12 @@ func TestEIP55Address(t *testing.T) {
 
 	assert.Equal(t, "0xa0788FC17B1dEe36f057c42B6F373A34B014687e", address.String())
 
-	zeroAddress := ethkey.EIP55Address("")
+	zeroAddress := types.EIP55Address("")
 	err := json.Unmarshal([]byte(`"0xa0788FC17B1dEe36f057c42B6F373A34B014687e"`), &zeroAddress)
 	assert.NoError(t, err)
 	assert.Equal(t, "0xa0788FC17B1dEe36f057c42B6F373A34B014687e", zeroAddress.String())
 
-	zeroAddress = ethkey.EIP55Address("")
+	zeroAddress = types.EIP55Address("")
 	err = zeroAddress.UnmarshalText([]byte("0xa0788FC17B1dEe36f057c42B6F373A34B014687e"))
 	assert.NoError(t, err)
 	assert.Equal(t, "0xa0788FC17B1dEe36f057c42B6F373A34B014687e", zeroAddress.String())
@@ -64,7 +64,7 @@ func TestValidateEIP55Address(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			_, err := ethkey.NewEIP55Address(test.input)
+			_, err := types.NewEIP55Address(test.input)
 			valid := err == nil
 			assert.Equal(t, test.valid, valid)
 		})
@@ -75,20 +75,20 @@ func TestEIP55AddressFromAddress(t *testing.T) {
 	t.Parallel()
 
 	addr := common.HexToAddress("0xa0788FC17B1dEe36f057c42B6F373A34B014687e")
-	eip55 := ethkey.EIP55AddressFromAddress(addr)
+	eip55 := types.EIP55AddressFromAddress(addr)
 	assert.Equal(t, addr, eip55.Address())
 }
 
 func TestEIP55Address_Scan_Value(t *testing.T) {
 	t.Parallel()
 
-	eip55, err := ethkey.NewEIP55Address("0xa0788FC17B1dEe36f057c42B6F373A34B014687e")
+	eip55, err := types.NewEIP55Address("0xa0788FC17B1dEe36f057c42B6F373A34B014687e")
 	assert.NoError(t, err)
 
 	val, err := eip55.Value()
 	assert.NoError(t, err)
 
-	var eip55New ethkey.EIP55Address
+	var eip55New types.EIP55Address
 	err = eip55New.Scan(val)
 	assert.NoError(t, err)
 
@@ -98,15 +98,15 @@ func TestEIP55Address_Scan_Value(t *testing.T) {
 func TestEIP55AddressCollection_Scan_Value(t *testing.T) {
 	t.Parallel()
 
-	collection := ethkey.EIP55AddressCollection{
-		ethkey.EIP55Address("0xa0788FC17B1dEe36f057c42B6F373A34B0146111"),
-		ethkey.EIP55Address("0xa0788FC17B1dEe36f057c42B6F373A34B0146222"),
+	collection := types.EIP55AddressCollection{
+		types.EIP55Address("0xa0788FC17B1dEe36f057c42B6F373A34B0146111"),
+		types.EIP55Address("0xa0788FC17B1dEe36f057c42B6F373A34B0146222"),
 	}
 
 	val, err := collection.Value()
 	assert.NoError(t, err)
 
-	var collectionNew ethkey.EIP55AddressCollection
+	var collectionNew types.EIP55AddressCollection
 	err = collectionNew.Scan(val)
 	assert.NoError(t, err)
 
@@ -116,9 +116,9 @@ func TestEIP55AddressCollection_Scan_Value(t *testing.T) {
 func TestEIP55Address_IsZero(t *testing.T) {
 	t.Parallel()
 
-	eip55 := ethkey.EIP55AddressFromAddress(common.HexToAddress("0x0"))
+	eip55 := types.EIP55AddressFromAddress(common.HexToAddress("0x0"))
 	assert.True(t, eip55.IsZero())
 
-	eip55 = ethkey.EIP55AddressFromAddress(common.HexToAddress("0x1"))
+	eip55 = types.EIP55AddressFromAddress(common.HexToAddress("0x1"))
 	assert.False(t, eip55.IsZero())
 }
