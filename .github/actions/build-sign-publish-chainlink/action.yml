@@ -113,7 +113,7 @@ runs:
 
     - if: inputs.publish == 'true'
       name: Login to ECR
-      uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d # v3.0.0
+      uses: docker/login-action@e92390c5fb421da1463c202d546fed0ec5c39f20 # v3.1.0
       with:
         registry: ${{ inputs.ecr-hostname }}
 
@@ -137,7 +137,7 @@ runs:
     # To avoid rate limiting from Docker Hub, we login with a paid user account.
     - name: Login to Docker Hub
       if: inputs.dockerhub_username && inputs.dockerhub_password
-      uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d # v3.0.0
+      uses: docker/login-action@e92390c5fb421da1463c202d546fed0ec5c39f20 # v3.1.0
       with:
         username: ${{ inputs.dockerhub_username }}
         password: ${{ inputs.dockerhub_password }}
@@ -180,7 +180,7 @@ runs:
     # To avoid rate limiting from Docker Hub, we login with a paid user account.
     - name: Login to Docker Hub
       if: inputs.dockerhub_username && inputs.dockerhub_password
-      uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d # v3.0.0
+      uses: docker/login-action@e92390c5fb421da1463c202d546fed0ec5c39f20 # v3.1.0
       with:
         username: ${{ inputs.dockerhub_username }}
         password: ${{ inputs.dockerhub_password }}
