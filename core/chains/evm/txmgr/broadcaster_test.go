@@ -1788,14 +1788,14 @@ func TestEthBroadcaster_NonceTracker_InProgressTx(t *testing.T) {
 
 		// Check the local nonce map was set to 1 higher than in-progress tx nonce
 		nonce := getLocalNextNonce(t, nonceTracker, fromAddress)
-		require.Equal(t, inProgressTxNonce + 1, nonce)
+		require.Equal(t, inProgressTxNonce+1, nonce)
 
 		_, err := eb.ProcessUnstartedTxs(ctx, fromAddress)
 		require.NoError(t, err)
 
 		// Check the local nonce map maintained nonce 1 higher than in-progress tx nonce
 		nonce = getLocalNextNonce(t, nonceTracker, fromAddress)
-		require.Equal(t, inProgressTxNonce + 1, nonce)
+		require.Equal(t, inProgressTxNonce+1, nonce)
 	})
 }
 

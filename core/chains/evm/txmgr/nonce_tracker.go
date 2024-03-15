@@ -175,7 +175,7 @@ func (s *nonceTracker) GenerateNextSequence(address common.Address, nonceUsed ev
 	// In most cases, currentNonce would equal nonceUsed
 	// There is a chance currentNonce is 1 ahead of nonceUsed if the DB contains an in-progress tx during startup
 	// Incrementing currentNonce, which is already set to the next usable nonce, could lead to a nonce gap. Set the map to the incremented nonceUsed instead.
-	if currentNonce == nonceUsed || currentNonce == nonceUsed + 1 {
+	if currentNonce == nonceUsed || currentNonce == nonceUsed+1 {
 		s.nextSequenceMap[address] = nonceUsed + 1
 		return
 	}
