@@ -16,9 +16,9 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/parse"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
@@ -976,7 +976,7 @@ type OCR struct {
 	// Optional
 	KeyBundleID          *models.Sha256Hash
 	SimulateTransactions *bool
-	TransmitterAddress   *ethkey.EIP55Address
+	TransmitterAddress   *types.EIP55Address
 	CaptureEATelemetry   *bool
 	TraceLogging         *bool
 }
