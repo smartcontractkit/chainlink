@@ -619,24 +619,12 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) hand
 		// and hand off to the confirmer to get the receipt (or mark as
 		// failed).
 		observeTimeUntilBroadcast(eb.chainID, etx.CreatedAt, time.Now())
-		// Check if from_address exists in map to ensure it is valid before broadcasting
-		var sequence SEQ
-		sequence, err = eb.GetNextSequence(ctx, etx.FromAddress)
-		if err != nil {
-			return err, true
-		}
 		err = eb.txStore.UpdateTxAttemptInProgressToBroadcast(ctx, &etx, attempt, txmgrtypes.TxAttemptBroadcast)
 		if err != nil {
 			return err, true
 		}
-		// use the sequence from the transaction, not the one from
-		// the map to ensure we don't skip a sequence after a reboot
-		if etx.Sequence != nil {
-			sequence = *etx.Sequence
-		}
-
 		// Increment sequence if successfully broadcasted
-		eb.IncrementNextSequence(etx.FromAddress, sequence)
+		eb.IncrementNextSequence(etx.FromAddress, *etx.Sequence)
 		return err, true
 	case client.Underpriced:
 		return eb.tryAgainBumpingGas(ctx, lgr, err, etx, attempt, initialBroadcastAt)
