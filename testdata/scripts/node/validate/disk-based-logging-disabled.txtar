@@ -285,6 +285,21 @@ LatestReportDeadline = '5s'
 [Mercury.TLS]
 CertFile = ''
 
+[Capabilities]
+[Capabilities.Peering]
+IncomingMessageBufferSize = 10
+OutgoingMessageBufferSize = 10
+PeerID = ''
+TraceLogging = false
+
+[Capabilities.Peering.V2]
+Enabled = false
+AnnounceAddresses = []
+DefaultBootstrappers = []
+DeltaDial = '15s'
+DeltaReconcile = '1m0s'
+ListenAddresses = []
+
 [[EVM]]
 ChainID = '1'
 AutoCreateKey = true

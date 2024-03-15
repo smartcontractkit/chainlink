@@ -241,6 +241,21 @@ LatestReportDeadline = '5s'
 [Mercury.TLS]
 CertFile = ''
 
+[Capabilities]
+[Capabilities.Peering]
+IncomingMessageBufferSize = 10
+OutgoingMessageBufferSize = 10
+PeerID = ''
+TraceLogging = false
+
+[Capabilities.Peering.V2]
+Enabled = false
+AnnounceAddresses = []
+DefaultBootstrappers = []
+DeltaDial = '15s'
+DeltaReconcile = '1m0s'
+ListenAddresses = []
+
 Invalid configuration: invalid secrets: 2 errors:
 	- Database.URL: empty: must be provided and non-empty
 	- Password.Keystore: empty: must be provided and non-empty
