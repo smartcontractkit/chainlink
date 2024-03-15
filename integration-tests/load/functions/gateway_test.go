@@ -6,13 +6,17 @@ import (
 	"github.com/smartcontractkit/wasp"
 	"github.com/stretchr/testify/require"
 
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions"
 )
 
 func TestGatewayLoad(t *testing.T) {
-	cfg, err := ReadConfig()
+	listConfig, err := tc.GetConfig("GatewayList", tc.Functions)
 	require.NoError(t, err)
-	ft, err := SetupLocalLoadTestEnv(cfg)
+	cfgl := listConfig.Logging.Loki
+
+	require.NoError(t, err)
+	ft, err := SetupLocalLoadTestEnv(&listConfig, &listConfig)
 	require.NoError(t, err)
 	ft.EVMClient.ParallelTransactions(false)
 
@@ -25,36 +29,39 @@ func TestGatewayLoad(t *testing.T) {
 		LoadType: wasp.RPS,
 		GenName:  functions.MethodSecretsList,
 		Schedule: wasp.Plain(
-			cfg.GatewayListSoak.RPS,
-			cfg.GatewayListSoak.Duration.Duration(),
+			*listConfig.Functions.Performance.RPS,
+			listConfig.Functions.Performance.Duration.Duration,
 		),
 		Gun: NewGatewaySecretsSetGun(
-			cfg,
+			&listConfig,
 			functions.MethodSecretsList,
 			ft.EthereumPrivateKey,
 			ft.ThresholdPublicKey,
 			ft.DONPublicKey,
 		),
 		Labels:     labels,
-		LokiConfig: wasp.NewEnvLokiConfig(),
+		LokiConfig: wasp.NewLokiConfig(cfgl.Endpoint, cfgl.TenantId, cfgl.BasicAuth, cfgl.BearerToken),
 	}
+
+	setConfig, err := tc.GetConfig("GatewaySet", tc.Functions)
+	require.NoError(t, err)
 
 	secretsSetCfg := &wasp.Config{
 		LoadType: wasp.RPS,
 		GenName:  functions.MethodSecretsSet,
 		Schedule: wasp.Plain(
-			cfg.GatewaySetSoak.RPS,
-			cfg.GatewaySetSoak.Duration.Duration(),
+			*setConfig.Functions.Performance.RPS,
+			setConfig.Functions.Performance.Duration.Duration,
 		),
 		Gun: NewGatewaySecretsSetGun(
-			cfg,
+			&setConfig,
 			functions.MethodSecretsSet,
 			ft.EthereumPrivateKey,
 			ft.ThresholdPublicKey,
 			ft.DONPublicKey,
 		),
 		Labels:     labels,
-		LokiConfig: wasp.NewEnvLokiConfig(),
+		LokiConfig: wasp.NewLokiConfig(cfgl.Endpoint, cfgl.TenantId, cfgl.BasicAuth, cfgl.BearerToken),
 	}
 
 	t.Run("gateway secrets list soak test", func(t *testing.T) {

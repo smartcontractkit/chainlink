@@ -105,7 +105,7 @@ func newKeysClient[K keystore.Key, P TableRenderer, P2 ~[]P](typ string, s *Shel
 
 // ListKeys retrieves a list of all keys
 func (cli *keysClient[K, P, P2]) ListKeys(_ *cli.Context) (err error) {
-	resp, err := cli.HTTP.Get(cli.path, nil)
+	resp, err := cli.HTTP.Get(cli.ctx(), cli.path, nil)
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -121,7 +121,7 @@ func (cli *keysClient[K, P, P2]) ListKeys(_ *cli.Context) (err error) {
 
 // CreateKey creates a new key
 func (cli *keysClient[K, P, P2]) CreateKey(_ *cli.Context) (err error) {
-	resp, err := cli.HTTP.Post(cli.path, nil)
+	resp, err := cli.HTTP.Post(cli.ctx(), cli.path, nil)
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -152,7 +152,7 @@ func (cli *keysClient[K, P, P2]) DeleteKey(c *cli.Context) (err error) {
 		queryStr = "?hard=true"
 	}
 
-	resp, err := cli.HTTP.Delete(fmt.Sprintf(cli.path+"/%s%s", id, queryStr))
+	resp, err := cli.HTTP.Delete(cli.ctx(), fmt.Sprintf(cli.path+"/%s%s", id, queryStr))
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -189,7 +189,7 @@ func (cli *keysClient[K, P, P2]) ImportKey(c *cli.Context) (err error) {
 	}
 
 	normalizedPassword := normalizePassword(string(oldPassword))
-	resp, err := cli.HTTP.Post(cli.path+"/import?oldpassword="+normalizedPassword, bytes.NewReader(keyJSON))
+	resp, err := cli.HTTP.Post(cli.ctx(), cli.path+"/import?oldpassword="+normalizedPassword, bytes.NewReader(keyJSON))
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -227,7 +227,7 @@ func (cli *keysClient[K, P, P2]) ExportKey(c *cli.Context) (err error) {
 	ID := c.Args().Get(0)
 
 	normalizedPassword := normalizePassword(string(newPassword))
-	resp, err := cli.HTTP.Post(cli.path+"/export/"+ID+"?newpassword="+normalizedPassword, nil)
+	resp, err := cli.HTTP.Post(cli.ctx(), cli.path+"/export/"+ID+"?newpassword="+normalizedPassword, nil)
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "Could not make HTTP request"))
 	}

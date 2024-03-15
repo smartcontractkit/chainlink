@@ -77,13 +77,13 @@ func (k *Keeper) DeployKeepers(ctx context.Context) {
 			pwd = defaultChainlinkNodePassword
 		}
 
-		cl, err := authenticate(url, email, pwd, lggr)
+		cl, err := authenticate(ctx, url, email, pwd, lggr)
 		if err != nil {
 			log.Fatal(err)
 		}
 		cls[i] = cl
 
-		if err = k.createKeeperJob(cl, k.cfg.RegistryAddress, keeperAddr); err != nil {
+		if err = k.createKeeperJob(ctx, cl, k.cfg.RegistryAddress, keeperAddr); err != nil {
 			log.Fatal(err)
 		}
 	}
@@ -753,7 +753,8 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 func (k *Keeper) setKeepers(ctx context.Context, cls []cmd.HTTPClient, deployer keepersDeployer, keepers, owners []common.Address) {
 	if len(keepers) > 0 {
 		log.Println("Set keepers...")
-		setKeepersTx, err := deployer.SetKeepers(k.buildTxOpts(ctx), cls, keepers, owners)
+		opts := k.buildTxOpts(ctx)
+		setKeepersTx, err := deployer.SetKeepers(ctx, opts, cls, keepers, owners)
 		if err != nil {
 			log.Fatal("SetKeepers failed: ", err)
 		}

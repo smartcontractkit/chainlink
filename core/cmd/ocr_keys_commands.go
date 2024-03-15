@@ -108,7 +108,7 @@ type OCRKeyBundlePresenters []OCRKeyBundlePresenter
 
 // ListOCRKeyBundles lists the available OCR Key Bundles
 func (s *Shell) ListOCRKeyBundles(_ *cli.Context) error {
-	resp, err := s.HTTP.Get("/v2/keys/ocr", nil)
+	resp, err := s.HTTP.Get(s.ctx(), "/v2/keys/ocr", nil)
 	if err != nil {
 		return s.errorOut(err)
 	}
@@ -141,7 +141,7 @@ func (ps OCRKeyBundlePresenters) RenderTable(rt RendererTable) error {
 
 // CreateOCR2KeyBundle creates an OCR key bundle and saves it to the keystore
 func (s *Shell) CreateOCRKeyBundle(_ *cli.Context) error {
-	resp, err := s.HTTP.Post("/v2/keys/ocr", nil)
+	resp, err := s.HTTP.Post(s.ctx(), "/v2/keys/ocr", nil)
 	if err != nil {
 		return s.errorOut(err)
 	}
@@ -174,7 +174,7 @@ func (s *Shell) DeleteOCRKeyBundle(c *cli.Context) error {
 		queryStr = "?hard=true"
 	}
 
-	resp, err := s.HTTP.Delete(fmt.Sprintf("/v2/keys/ocr/%s%s", id, queryStr))
+	resp, err := s.HTTP.Delete(s.ctx(), fmt.Sprintf("/v2/keys/ocr/%s%s", id, queryStr))
 	if err != nil {
 		return s.errorOut(err)
 	}
@@ -210,7 +210,7 @@ func (s *Shell) ImportOCRKey(c *cli.Context) (err error) {
 	}
 
 	normalizedPassword := normalizePassword(string(oldPassword))
-	resp, err := s.HTTP.Post("/v2/keys/ocr/import?oldpassword="+normalizedPassword, bytes.NewReader(keyJSON))
+	resp, err := s.HTTP.Post(s.ctx(), "/v2/keys/ocr/import?oldpassword="+normalizedPassword, bytes.NewReader(keyJSON))
 	if err != nil {
 		return s.errorOut(err)
 	}
@@ -247,7 +247,7 @@ func (s *Shell) ExportOCRKey(c *cli.Context) (err error) {
 	ID := c.Args().Get(0)
 
 	normalizedPassword := normalizePassword(string(newPassword))
-	resp, err := s.HTTP.Post("/v2/keys/ocr/export/"+ID+"?newpassword="+normalizedPassword, nil)
+	resp, err := s.HTTP.Post(s.ctx(), "/v2/keys/ocr/export/"+ID+"?newpassword="+normalizedPassword, nil)
 	if err != nil {
 		return s.errorOut(errors.Wrap(err, "Could not make HTTP request"))
 	}

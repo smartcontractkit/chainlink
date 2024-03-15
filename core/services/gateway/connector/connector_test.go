@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jonboulle/clockwork"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -15,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const defaultConfig = `
@@ -43,7 +43,7 @@ func parseTOMLConfig(t *testing.T, tomlConfig string) *connector.ConnectorConfig
 func newTestConnector(t *testing.T, config *connector.ConnectorConfig, now time.Time) (connector.GatewayConnector, *mocks.Signer, *mocks.GatewayConnectorHandler) {
 	signer := mocks.NewSigner(t)
 	handler := mocks.NewGatewayConnectorHandler(t)
-	clock := utils.NewFixedClock(now)
+	clock := clockwork.NewFakeClock()
 	connector, err := connector.NewGatewayConnector(config, signer, handler, clock, logger.TestLogger(t))
 	require.NoError(t, err)
 	return connector, signer, handler
@@ -104,7 +104,7 @@ URL = "ws://localhost:8081/node"
 
 	signer := mocks.NewSigner(t)
 	handler := mocks.NewGatewayConnectorHandler(t)
-	clock := utils.NewFixedClock(time.Now())
+	clock := clockwork.NewFakeClock()
 	for name, config := range invalidCases {
 		config := config
 		t.Run(name, func(t *testing.T) {

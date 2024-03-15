@@ -3,7 +3,10 @@
 package mocks
 
 import (
+	context "context"
+
 	bridges "github.com/smartcontractkit/chainlink/v2/core/bridges"
+
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -12,17 +15,17 @@ type ExternalInitiatorManager struct {
 	mock.Mock
 }
 
-// DeleteJob provides a mock function with given fields: webhookSpecID
-func (_m *ExternalInitiatorManager) DeleteJob(webhookSpecID int32) error {
-	ret := _m.Called(webhookSpecID)
+// DeleteJob provides a mock function with given fields: ctx, webhookSpecID
+func (_m *ExternalInitiatorManager) DeleteJob(ctx context.Context, webhookSpecID int32) error {
+	ret := _m.Called(ctx, webhookSpecID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for DeleteJob")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(int32) error); ok {
-		r0 = rf(webhookSpecID)
+	if rf, ok := ret.Get(0).(func(context.Context, int32) error); ok {
+		r0 = rf(ctx, webhookSpecID)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -58,17 +61,17 @@ func (_m *ExternalInitiatorManager) FindExternalInitiatorByName(name string) (br
 	return r0, r1
 }
 
-// Notify provides a mock function with given fields: webhookSpecID
-func (_m *ExternalInitiatorManager) Notify(webhookSpecID int32) error {
-	ret := _m.Called(webhookSpecID)
+// Notify provides a mock function with given fields: ctx, webhookSpecID
+func (_m *ExternalInitiatorManager) Notify(ctx context.Context, webhookSpecID int32) error {
+	ret := _m.Called(ctx, webhookSpecID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Notify")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(int32) error); ok {
-		r0 = rf(webhookSpecID)
+	if rf, ok := ret.Get(0).(func(context.Context, int32) error); ok {
+		r0 = rf(ctx, webhookSpecID)
 	} else {
 		r0 = ret.Error(0)
 	}

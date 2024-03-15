@@ -4,11 +4,11 @@ import (
 	"math/big"
 	"net"
 
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 )
 
-func MustURL(s string) *models.URL {
-	var u models.URL
+func MustURL(s string) *commonconfig.URL {
+	var u commonconfig.URL
 	if err := u.UnmarshalText([]byte(s)); err != nil {
 		panic(err)
 	}

@@ -20,6 +20,7 @@ const (
 	MessageMethodMaxLen           = 64
 	MessageDonIdMaxLen            = 64
 	MessageReceiverLen            = 2 + 2*20
+	NullChar                      = "\x00"
 )
 
 /*
@@ -56,11 +57,20 @@ func (m *Message) Validate() error {
 	if len(m.Body.MessageId) == 0 || len(m.Body.MessageId) > MessageIdMaxLen {
 		return errors.New("invalid message ID length")
 	}
+	if strings.HasSuffix(m.Body.MessageId, NullChar) {
+		return errors.New("message ID ending with null bytes")
+	}
 	if len(m.Body.Method) == 0 || len(m.Body.Method) > MessageMethodMaxLen {
 		return errors.New("invalid method name length")
 	}
+	if strings.HasSuffix(m.Body.Method, NullChar) {
+		return errors.New("method name ending with null bytes")
+	}
 	if len(m.Body.DonId) == 0 || len(m.Body.DonId) > MessageDonIdMaxLen {
 		return errors.New("invalid DON ID length")
+	}
+	if strings.HasSuffix(m.Body.DonId, NullChar) {
+		return errors.New("DON ID ending with null bytes")
 	}
 	if len(m.Body.Receiver) != 0 && len(m.Body.Receiver) != MessageReceiverLen {
 		return errors.New("invalid Receiver length")

@@ -5,18 +5,20 @@ import (
 	"runtime"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmClientMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
-	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
+	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_v21_plus_common"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
@@ -27,9 +29,9 @@ func TestTransmitEventProvider_Sanity(t *testing.T) {
 
 	lp := new(mocks.LogPoller)
 
-	lp.On("RegisterFilter", mock.Anything).Return(nil)
+	lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
 
-	provider, err := NewTransmitEventProvider(logger.TestLogger(t), lp, common.HexToAddress("0x"), client.NewNullClient(big.NewInt(1), logger.TestLogger(t)), 32)
+	provider, err := NewTransmitEventProvider(ctx, logger.TestLogger(t), lp, common.HexToAddress("0x"), client.NewNullClient(big.NewInt(1), logger.TestLogger(t)), 32)
 	require.NoError(t, err)
 	require.NotNil(t, provider)
 
@@ -76,9 +78,9 @@ func TestTransmitEventProvider_Sanity(t *testing.T) {
 					LogIndex:    1,
 					Address:     common.HexToAddress("0x1"),
 					Topics: [][]byte{
-						iregistry21.IKeeperRegistryMasterUpkeepPerformed{}.Topic().Bytes(),
+						ac.IAutomationV21PlusCommonUpkeepPerformed{}.Topic().Bytes(),
 					},
-					EventSig: iregistry21.IKeeperRegistryMasterUpkeepPerformed{}.Topic(),
+					EventSig: ac.IAutomationV21PlusCommonUpkeepPerformed{}.Topic(),
 					Data:     []byte{},
 				},
 			},
@@ -101,13 +103,14 @@ func TestTransmitEventProvider_Sanity(t *testing.T) {
 
 func TestTransmitEventProvider_ProcessLogs(t *testing.T) {
 	lp := new(mocks.LogPoller)
-	lp.On("RegisterFilter", mock.Anything).Return(nil)
+	lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
 	client := evmClientMocks.NewClient(t)
+	ctx := testutils.Context(t)
 
-	provider, err := NewTransmitEventProvider(logger.TestLogger(t), lp, common.HexToAddress("0x"), client, 250)
+	provider, err := NewTransmitEventProvider(ctx, logger.TestLogger(t), lp, common.HexToAddress("0x"), client, 250)
 	require.NoError(t, err)
 
-	id := core.GenUpkeepID(ocr2keepers.LogTrigger, "1111111111111111")
+	id := core.GenUpkeepID(types.LogTrigger, "1111111111111111")
 
 	tests := []struct {
 		name            string
@@ -124,7 +127,7 @@ func TestTransmitEventProvider_ProcessLogs(t *testing.T) {
 						BlockNumber: 1,
 						BlockHash:   common.HexToHash("0x0102030405060708010203040506070801020304050607080102030405060708"),
 					},
-					Performed: &iregistry21.IKeeperRegistryMasterUpkeepPerformed{
+					Performed: &ac.IAutomationV21PlusCommonUpkeepPerformed{
 						Id: id.BigInt(),
 						Trigger: func() []byte {
 							b, _ := hexutil.Decode("0x0000000000000000000000000000000000000000000000000000000001111abc0000000000000000000000000000000000000000000000000000000001111111000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000001111111")
@@ -158,7 +161,7 @@ func TestTransmitEventProvider_ProcessLogs(t *testing.T) {
 						BlockNumber: 1,
 						BlockHash:   common.HexToHash("0x0102030405060708010203040506070801020304050607080102030405060708"),
 					},
-					Performed: &iregistry21.IKeeperRegistryMasterUpkeepPerformed{
+					Performed: &ac.IAutomationV21PlusCommonUpkeepPerformed{
 						Id: id.BigInt(),
 						Trigger: func() []byte {
 							b, _ := hexutil.Decode("0x0000000000000000000000000000000000000000000000000000000001111abc0000000000000000000000000000000000000000000000000000000001111111000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000001111111")
@@ -171,7 +174,7 @@ func TestTransmitEventProvider_ProcessLogs(t *testing.T) {
 						BlockNumber: 1,
 						BlockHash:   common.HexToHash("0x0102030405060708010203040506070801020304050607080102030405060708"),
 					},
-					Performed: &iregistry21.IKeeperRegistryMasterUpkeepPerformed{
+					Performed: &ac.IAutomationV21PlusCommonUpkeepPerformed{
 						Id: id.BigInt(),
 						Trigger: func() []byte {
 							b, _ := hexutil.Decode("0x0000000000000000000000000000000000000000000000000000000001111abc0000000000000000000000000000000000000000000000000000000001111111000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000001111111")
@@ -210,7 +213,7 @@ func TestTransmitEventProvider_ProcessLogs(t *testing.T) {
 			}
 			provider.mu.Lock()
 			provider.cache = newTransmitEventCache(provider.cache.cap)
-			provider.parseLog = func(registry *iregistry21.IKeeperRegistryMaster, log logpoller.Log) (transmitEventLog, error) {
+			provider.parseLog = func(registry *ac.IAutomationV21PlusCommon, log logpoller.Log) (transmitEventLog, error) {
 				return parseResults[provider.logKey(log)], nil
 			}
 			provider.mu.Unlock()

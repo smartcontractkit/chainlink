@@ -2,6 +2,7 @@ package flakeytests
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -61,6 +62,7 @@ type Context struct {
 type LokiReporter struct {
 	host    string
 	auth    string
+	orgId   string
 	command string
 	now     func() time.Time
 	ctx     Context
@@ -138,14 +140,14 @@ func (l *LokiReporter) createRequest(report *Report) (pushRequest, error) {
 	return pr, nil
 }
 
-func (l *LokiReporter) makeRequest(pushReq pushRequest) error {
+func (l *LokiReporter) makeRequest(ctx context.Context, pushReq pushRequest) error {
 	body, err := json.Marshal(pushReq)
 	if err != nil {
 		return err
 	}
 
 	u := url.URL{Scheme: "https", Host: l.host, Path: "loki/api/v1/push"}
-	req, err := http.NewRequest("POST", u.String(), bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, "POST", u.String(), bytes.NewReader(body))
 	if err != nil {
 		return err
 	}
@@ -154,6 +156,7 @@ func (l *LokiReporter) makeRequest(pushReq pushRequest) error {
 		fmt.Sprintf("Basic %s", base64.StdEncoding.EncodeToString([]byte(l.auth))),
 	)
 	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("X-Scope-OrgID", l.orgId)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return err
@@ -167,15 +170,15 @@ func (l *LokiReporter) makeRequest(pushReq pushRequest) error {
 	return err
 }
 
-func (l *LokiReporter) Report(report *Report) error {
+func (l *LokiReporter) Report(ctx context.Context, report *Report) error {
 	pushReq, err := l.createRequest(report)
 	if err != nil {
 		return err
 	}
 
-	return l.makeRequest(pushReq)
+	return l.makeRequest(ctx, pushReq)
 }
 
-func NewLokiReporter(host, auth, command string, ctx Context) *LokiReporter {
-	return &LokiReporter{host: host, auth: auth, command: command, now: time.Now, ctx: ctx}
+func NewLokiReporter(host, auth, orgId, command string, ctx Context) *LokiReporter {
+	return &LokiReporter{host: host, auth: auth, orgId: orgId, command: command, now: time.Now, ctx: ctx}
 }

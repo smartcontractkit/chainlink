@@ -59,7 +59,7 @@ func GetUnfulfilledBlocksAndRequests(
 	blockToRequests := make(map[uint64]map[string]struct{})
 	requestIDToBlock := make(map[string]uint64)
 
-	reqs, err := coordinator.Requests(ctx, uint64(fromBlock), uint64(toBlock))
+	reqs, err := coordinator.Requests(ctx, fromBlock, toBlock)
 	if err != nil {
 		lggr.Errorw("Failed to fetch VRF requests",
 			"err", err)
@@ -73,7 +73,7 @@ func GetUnfulfilledBlocksAndRequests(
 		requestIDToBlock[req.ID] = req.Block
 	}
 
-	fuls, err := coordinator.Fulfillments(ctx, uint64(fromBlock))
+	fuls, err := coordinator.Fulfillments(ctx, fromBlock)
 	if err != nil {
 		lggr.Errorw("Failed to fetch VRF fulfillments",
 			"err", err)

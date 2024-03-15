@@ -2,17 +2,16 @@ package plugins
 
 import (
 	"errors"
+	"fmt"
 	"sort"
 	"sync"
+
+	"github.com/hashicorp/consul/sdk/freeport"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config"
-)
-
-const (
-	pluginDefaultPort = 2112
 )
 
 var ErrExists = errors.New("plugin already registered")
@@ -49,8 +48,14 @@ func (m *LoopRegistry) Register(id string) (*RegisteredLoop, error) {
 	if _, exists := m.registry[id]; exists {
 		return nil, ErrExists
 	}
-	nextPort := pluginDefaultPort + len(m.registry)
-	envCfg := loop.EnvConfig{PrometheusPort: nextPort}
+	ports, err := freeport.Take(1)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get free port: %v", err)
+	}
+	if len(ports) != 1 {
+		return nil, fmt.Errorf("failed to get free port: no ports returned")
+	}
+	envCfg := loop.EnvConfig{PrometheusPort: ports[0]}
 
 	if m.cfgTracing != nil {
 		envCfg.TracingEnabled = m.cfgTracing.Enabled()

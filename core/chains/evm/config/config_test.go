@@ -11,6 +11,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	configurl "github.com/smartcontractkit/chainlink-common/pkg/config"
+
 	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
@@ -21,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 func TestChainScopedConfig(t *testing.T) {
@@ -70,7 +71,7 @@ func TestChainScopedConfig(t *testing.T) {
 					ChainID: id,
 					Chain: toml.Defaults(id, &toml.Chain{
 						GasEstimator: toml.GasEstimator{
-							BumpTxDepth: ptr(uint32(override)),
+							BumpTxDepth: ptr(override),
 						},
 					}),
 				}
@@ -276,8 +277,8 @@ func TestChainScopedConfig_GasEstimator(t *testing.T) {
 	assert.Equal(t, assets.GWei(20), ge.PriceDefault())
 	assert.Equal(t, assets.GWei(500), ge.PriceMax())
 	assert.Equal(t, assets.GWei(1), ge.PriceMin())
-	assert.Equal(t, uint32(500000), ge.LimitDefault())
-	assert.Equal(t, uint32(500000), ge.LimitMax())
+	assert.Equal(t, uint64(500000), ge.LimitDefault())
+	assert.Equal(t, uint64(500000), ge.LimitMax())
 	assert.Equal(t, float32(1), ge.LimitMultiplier())
 	assert.Equal(t, uint32(21000), ge.LimitTransfer())
 	assert.Equal(t, assets.GWei(5), ge.BumpMin())
@@ -316,7 +317,7 @@ func TestChainScopedConfig_Profiles(t *testing.T) {
 	tests := []struct {
 		name                           string
 		chainID                        int64
-		expectedGasLimitDefault        uint32
+		expectedGasLimitDefault        uint64
 		expectedMinimumContractPayment string
 	}{
 		{"default", 0, 500000, "0.00001"},
@@ -335,7 +336,7 @@ func TestChainScopedConfig_Profiles(t *testing.T) {
 		{"harmonyMainnet", 1666600000, 500000, "0.00001"},
 		{"harmonyTestnet", 1666700000, 500000, "0.00001"},
 
-		{"xDai", 100, 500000, "0.00001"},
+		{"gnosisMainnet", 100, 500000, "0.00001"},
 	}
 	for _, test := range tests {
 		tt := test
@@ -383,8 +384,8 @@ func Test_chainScopedConfig_Validate(t *testing.T) {
 			c.EVM[0] = &toml.EVMConfig{ChainID: chainID, Enabled: ptr(true), Chain: toml.Defaults(chainID, chains...),
 				Nodes: toml.EVMNodes{{
 					Name:    ptr("fake"),
-					WSURL:   models.MustParseURL("wss://foo.test/ws"),
-					HTTPURL: models.MustParseURL("http://foo.test"),
+					WSURL:   configurl.MustParseURL("wss://foo.test/ws"),
+					HTTPURL: configurl.MustParseURL("http://foo.test"),
 				}}}
 		})
 	}
@@ -474,6 +475,7 @@ func TestNodePoolConfig(t *testing.T) {
 	require.Equal(t, uint32(5), cfg.EVM().NodePool().SyncThreshold())
 	require.Equal(t, time.Duration(10000000000), cfg.EVM().NodePool().PollInterval())
 	require.Equal(t, uint32(5), cfg.EVM().NodePool().PollFailureThreshold())
+	require.Equal(t, false, cfg.EVM().NodePool().NodeIsSyncingEnabled())
 }
 
 func ptr[T any](t T) *T { return &t }

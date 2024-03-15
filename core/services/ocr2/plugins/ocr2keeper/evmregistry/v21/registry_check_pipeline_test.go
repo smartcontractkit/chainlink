@@ -8,6 +8,10 @@ import (
 	"sync/atomic"
 	"testing"
 
+	types3 "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+
+	types2 "github.com/smartcontractkit/chainlink-common/pkg/types"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rpc"
@@ -16,20 +20,18 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
 	evmClientMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
+	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_v21_plus_common"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/streams_lookup_compatible_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 func TestRegistry_GetBlockAndUpkeepId(t *testing.T) {
@@ -106,7 +108,7 @@ func TestRegistry_VerifyCheckBlock(t *testing.T) {
 				WorkID:   "work",
 			},
 			poller: &mockLogPoller{
-				GetBlocksRangeFn: func(ctx context.Context, numbers []uint64, qopts ...pg.QOpt) ([]logpoller.LogPollerBlock, error) {
+				GetBlocksRangeFn: func(ctx context.Context, numbers []uint64) ([]logpoller.LogPollerBlock, error) {
 					return []logpoller.LogPollerBlock{
 						{
 							BlockHash: common.HexToHash("abcdef"),
@@ -130,7 +132,7 @@ func TestRegistry_VerifyCheckBlock(t *testing.T) {
 				WorkID:   "work",
 			},
 			poller: &mockLogPoller{
-				GetBlocksRangeFn: func(ctx context.Context, numbers []uint64, qopts ...pg.QOpt) ([]logpoller.LogPollerBlock, error) {
+				GetBlocksRangeFn: func(ctx context.Context, numbers []uint64) ([]logpoller.LogPollerBlock, error) {
 					return []logpoller.LogPollerBlock{
 						{
 							BlockHash: common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83"),
@@ -154,7 +156,7 @@ func TestRegistry_VerifyCheckBlock(t *testing.T) {
 				WorkID:   "work",
 			},
 			poller: &mockLogPoller{
-				GetBlocksRangeFn: func(ctx context.Context, numbers []uint64, qopts ...pg.QOpt) ([]logpoller.LogPollerBlock, error) {
+				GetBlocksRangeFn: func(ctx context.Context, numbers []uint64) ([]logpoller.LogPollerBlock, error) {
 					return []logpoller.LogPollerBlock{
 						{
 							BlockHash: common.HexToHash("0xcba5cf9e2bb32373c76015384e1098912d9510a72481c78057fcb088209167de"),
@@ -212,16 +214,16 @@ func TestRegistry_VerifyCheckBlock(t *testing.T) {
 
 type mockLogPoller struct {
 	logpoller.LogPoller
-	GetBlocksRangeFn func(ctx context.Context, numbers []uint64, qopts ...pg.QOpt) ([]logpoller.LogPollerBlock, error)
-	IndexedLogsFn    func(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs logpoller.Confirmations, qopts ...pg.QOpt) ([]logpoller.Log, error)
+	GetBlocksRangeFn func(ctx context.Context, numbers []uint64) ([]logpoller.LogPollerBlock, error)
+	IndexedLogsFn    func(ctx context.Context, eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs logpoller.Confirmations) ([]logpoller.Log, error)
 }
 
-func (p *mockLogPoller) GetBlocksRange(ctx context.Context, numbers []uint64, qopts ...pg.QOpt) ([]logpoller.LogPollerBlock, error) {
-	return p.GetBlocksRangeFn(ctx, numbers, qopts...)
+func (p *mockLogPoller) GetBlocksRange(ctx context.Context, numbers []uint64) ([]logpoller.LogPollerBlock, error) {
+	return p.GetBlocksRangeFn(ctx, numbers)
 }
 
-func (p *mockLogPoller) IndexedLogs(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs logpoller.Confirmations, qopts ...pg.QOpt) ([]logpoller.Log, error) {
-	return p.IndexedLogsFn(eventSig, address, topicIndex, topicValues, confs, qopts...)
+func (p *mockLogPoller) IndexedLogs(ctx context.Context, eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs logpoller.Confirmations) ([]logpoller.Log, error) {
+	return p.IndexedLogsFn(ctx, eventSig, address, topicIndex, topicValues, confs)
 }
 
 func TestRegistry_VerifyLogExists(t *testing.T) {
@@ -376,9 +378,9 @@ func TestRegistry_VerifyLogExists(t *testing.T) {
 
 func TestRegistry_CheckUpkeeps(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	uid0 := core.GenUpkeepID(ocr2keepers.UpkeepType(0), "p0")
-	uid1 := core.GenUpkeepID(ocr2keepers.UpkeepType(1), "p1")
-	uid2 := core.GenUpkeepID(ocr2keepers.UpkeepType(1), "p2")
+	uid0 := core.GenUpkeepID(types3.UpkeepType(0), "p0")
+	uid1 := core.GenUpkeepID(types3.UpkeepType(1), "p1")
+	uid2 := core.GenUpkeepID(types3.UpkeepType(1), "p2")
 
 	extension1 := &ocr2keepers.LogTriggerExtension{
 		TxHash:      common.HexToHash("0xc8def8abdcf3a4eaaf6cc13bff3e4e2a7168d86ea41dbbf97451235aa76c3651"),
@@ -483,7 +485,7 @@ func TestRegistry_CheckUpkeeps(t *testing.T) {
 			},
 			receipts: map[string]*types.Receipt{},
 			poller: &mockLogPoller{
-				GetBlocksRangeFn: func(ctx context.Context, numbers []uint64, qopts ...pg.QOpt) ([]logpoller.LogPollerBlock, error) {
+				GetBlocksRangeFn: func(ctx context.Context, numbers []uint64) ([]logpoller.LogPollerBlock, error) {
 					return []logpoller.LogPollerBlock{
 						{
 							BlockHash: common.HexToHash("0xcba5cf9e2bb32373c76015384e1098912d9510a72481c78057fcb088209167de"),
@@ -536,9 +538,9 @@ func TestRegistry_CheckUpkeeps(t *testing.T) {
 }
 
 func TestRegistry_SimulatePerformUpkeeps(t *testing.T) {
-	uid0 := core.GenUpkeepID(ocr2keepers.UpkeepType(0), "p0")
-	uid1 := core.GenUpkeepID(ocr2keepers.UpkeepType(1), "p1")
-	uid2 := core.GenUpkeepID(ocr2keepers.UpkeepType(1), "p2")
+	uid0 := core.GenUpkeepID(types3.UpkeepType(0), "p0")
+	uid1 := core.GenUpkeepID(types3.UpkeepType(1), "p1")
+	uid2 := core.GenUpkeepID(types3.UpkeepType(1), "p2")
 
 	extension1 := &ocr2keepers.LogTriggerExtension{
 		TxHash:      common.HexToHash("0xc8def8abdcf3a4eaaf6cc13bff3e4e2a7168d86ea41dbbf97451235aa76c3651"),
@@ -660,7 +662,7 @@ func TestRegistry_SimulatePerformUpkeeps(t *testing.T) {
 func setupEVMRegistry(t *testing.T) *EvmRegistry {
 	lggr := logger.TestLogger(t)
 	addr := common.HexToAddress("0x6cA639822c6C241Fa9A7A6b5032F6F7F1C513CAD")
-	keeperRegistryABI, err := abi.JSON(strings.NewReader(i_keeper_registry_master_wrapper_2_1.IKeeperRegistryMasterABI))
+	keeperRegistryABI, err := abi.JSON(strings.NewReader(ac.IAutomationV21PlusCommonABI))
 	require.Nil(t, err, "need registry abi")
 	streamsLookupCompatibleABI, err := abi.JSON(strings.NewReader(streams_lookup_compatible_interface.StreamsLookupCompatibleInterfaceABI))
 	require.Nil(t, err, "need mercury abi")
@@ -682,7 +684,7 @@ func setupEVMRegistry(t *testing.T) *EvmRegistry {
 		headFunc:     func(ocr2keepers.BlockKey) {},
 		chLog:        make(chan logpoller.Log, 1000),
 		mercury: &MercuryConfig{
-			cred: &models.MercuryCredentials{
+			cred: &types2.MercuryCredentials{
 				LegacyURL: "https://google.old.com",
 				URL:       "https://google.com",
 				Username:  "FakeClientID",

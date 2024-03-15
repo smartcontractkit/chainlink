@@ -115,7 +115,7 @@ func (s *Shell) CosmosSendNativeToken(c *cli.Context) (err error) {
 
 	buf := bytes.NewBuffer(requestData)
 
-	resp, err := s.HTTP.Post("/v2/transfers/cosmos", buf)
+	resp, err := s.HTTP.Post(s.ctx(), "/v2/transfers/cosmos", buf)
 	if err != nil {
 		return s.errorOut(err)
 	}

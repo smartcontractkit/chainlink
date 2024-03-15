@@ -322,7 +322,7 @@ func TestPlugin_Query(t *testing.T) {
 			assert.Len(t, qq.Rows, 16)
 			for _, r := range qq.Rows {
 				thisAddress := s4.UnmarshalAddress(r.Address)
-				assert.True(t, ar.Contains((*big.Big)(thisAddress)))
+				assert.True(t, ar.Contains(thisAddress))
 			}
 
 			ar.Advance()

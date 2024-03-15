@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
@@ -41,7 +42,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/versioning"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 )
 
@@ -124,6 +124,7 @@ ds1_multiply [type=multiply times=1.23];
 ds1 -> ds1_parse -> ds1_multiply -> answer1;
 answer1      [type=median index=0];
 """
+juelsPerFeeCoinCacheDuration = "1m"
 `
 const BootstrapTestSpecTemplate = `
 type				= "bootstrap"
@@ -626,7 +627,7 @@ func Test_Service_ProposeJob(t *testing.T) {
 			JobProposalID: idBootstrap,
 		}
 
-		httpTimeout = models.MustMakeDuration(1 * time.Second)
+		httpTimeout = *commonconfig.MustNewDuration(1 * time.Second)
 	)
 
 	testCases := []struct {
@@ -806,7 +807,7 @@ func Test_Service_DeleteJob(t *testing.T) {
 			Status:         feeds.JobProposalStatusApproved,
 		}
 
-		httpTimeout = models.MustMakeDuration(1 * time.Second)
+		httpTimeout = *commonconfig.MustNewDuration(1 * time.Second)
 	)
 
 	testCases := []struct {
@@ -946,7 +947,7 @@ answer1      [type=median index=0];
 			Definition:    defn,
 		}
 
-		httpTimeout = models.MustMakeDuration(1 * time.Second)
+		httpTimeout = *commonconfig.MustNewDuration(1 * time.Second)
 	)
 
 	testCases := []struct {
@@ -1152,10 +1153,11 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 				Multiaddr:        null.StringFrom(multiaddr),
 				ForwarderAddress: null.StringFrom(forwarderAddr),
 				Plugins: feeds.Plugins{
-					Commit:  true,
-					Execute: true,
-					Median:  false,
-					Mercury: true,
+					Commit:     true,
+					Execute:    true,
+					Median:     false,
+					Mercury:    true,
+					Rebalancer: true,
 				},
 			},
 		}
@@ -1203,10 +1205,11 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 					Multiaddr:        multiaddr,
 					ForwarderAddress: &forwarderAddr,
 					Plugins: &proto.OCR2Config_Plugins{
-						Commit:  ccfg.OCR2Config.Plugins.Commit,
-						Execute: ccfg.OCR2Config.Plugins.Execute,
-						Median:  ccfg.OCR2Config.Plugins.Median,
-						Mercury: ccfg.OCR2Config.Plugins.Mercury,
+						Commit:     ccfg.OCR2Config.Plugins.Commit,
+						Execute:    ccfg.OCR2Config.Plugins.Execute,
+						Median:     ccfg.OCR2Config.Plugins.Median,
+						Mercury:    ccfg.OCR2Config.Plugins.Mercury,
+						Rebalancer: ccfg.OCR2Config.Plugins.Rebalancer,
 					},
 				},
 			},
@@ -1610,7 +1613,7 @@ answer1 [type=median index=0];
 
 	testCases := []struct {
 		name        string
-		httpTimeout *models.Duration
+		httpTimeout *commonconfig.Duration
 		before      func(svc *TestService)
 		id          int64
 		force       bool
@@ -1618,7 +1621,7 @@ answer1 [type=median index=0];
 	}{
 		{
 			name:        "pending job success for new proposals",
-			httpTimeout: models.MustNewDuration(1 * time.Minute),
+			httpTimeout: commonconfig.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.EXPECT().GetSpec(spec.ID, mock.Anything).Return(spec, nil)
@@ -1656,7 +1659,7 @@ answer1 [type=median index=0];
 		},
 		{
 			name:        "cancelled spec success when it is the latest spec",
-			httpTimeout: models.MustNewDuration(1 * time.Minute),
+			httpTimeout: commonconfig.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.On("GetSpec", cancelledSpec.ID, mock.Anything).Return(cancelledSpec, nil)
@@ -1695,7 +1698,7 @@ answer1 [type=median index=0];
 		},
 		{
 			name:        "pending job fail due to spec missing external job id",
-			httpTimeout: models.MustNewDuration(1 * time.Minute),
+			httpTimeout: commonconfig.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.EXPECT().GetSpec(spec.ID, mock.Anything).Return(spec2, nil)
@@ -1775,7 +1778,7 @@ answer1 [type=median index=0];
 		},
 		{
 			name:        "already existing job replacement (found via external job id) error",
-			httpTimeout: models.MustNewDuration(1 * time.Minute),
+			httpTimeout: commonconfig.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
@@ -1790,7 +1793,7 @@ answer1 [type=median index=0];
 		},
 		{
 			name:        "already existing job replacement error",
-			httpTimeout: models.MustNewDuration(1 * time.Minute),
+			httpTimeout: commonconfig.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
@@ -1806,7 +1809,7 @@ answer1 [type=median index=0];
 		},
 		{
 			name:        "already existing self managed job replacement success if forced (via external job id)",
-			httpTimeout: models.MustNewDuration(1 * time.Minute),
+			httpTimeout: commonconfig.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.EXPECT().GetSpec(spec.ID, mock.Anything).Return(spec, nil)
@@ -1845,7 +1848,7 @@ answer1 [type=median index=0];
 		},
 		{
 			name:        "already existing self managed job replacement success if forced",
-			httpTimeout: models.MustNewDuration(1 * time.Minute),
+			httpTimeout: commonconfig.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.EXPECT().GetSpec(spec.ID, mock.Anything).Return(spec, nil)
@@ -1885,7 +1888,7 @@ answer1 [type=median index=0];
 		},
 		{
 			name:        "already existing FMS managed job replacement success if forced",
-			httpTimeout: models.MustNewDuration(1 * time.Minute),
+			httpTimeout: commonconfig.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.EXPECT().GetSpec(spec.ID, mock.Anything).Return(spec, nil)
@@ -1944,7 +1947,7 @@ answer1 [type=median index=0];
 		},
 		{
 			name:        "bridges do not exist",
-			httpTimeout: models.MustNewDuration(1 * time.Minute),
+			httpTimeout: commonconfig.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
@@ -1967,7 +1970,7 @@ answer1 [type=median index=0];
 		},
 		{
 			name:        "Fetching the approved spec fails (via external job id)",
-			httpTimeout: models.MustNewDuration(1 * time.Minute),
+			httpTimeout: commonconfig.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.EXPECT().GetSpec(spec.ID, mock.Anything).Return(spec, nil)
@@ -1982,7 +1985,7 @@ answer1 [type=median index=0];
 		},
 		{
 			name:        "Fetching the approved spec fails",
-			httpTimeout: models.MustNewDuration(1 * time.Minute),
+			httpTimeout: commonconfig.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.EXPECT().GetSpec(spec.ID, mock.Anything).Return(spec, nil)
@@ -1998,7 +2001,7 @@ answer1 [type=median index=0];
 		},
 		{
 			name:        "spec cancellation fails (via external job id)",
-			httpTimeout: models.MustNewDuration(1 * time.Minute),
+			httpTimeout: commonconfig.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.EXPECT().GetSpec(spec.ID, mock.Anything).Return(spec, nil)
@@ -2014,7 +2017,7 @@ answer1 [type=median index=0];
 		},
 		{
 			name:        "spec cancellation fails",
-			httpTimeout: models.MustNewDuration(1 * time.Minute),
+			httpTimeout: commonconfig.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.EXPECT().GetSpec(spec.ID, mock.Anything).Return(spec, nil)
@@ -2031,7 +2034,7 @@ answer1 [type=median index=0];
 		},
 		{
 			name:        "create job error",
-			httpTimeout: models.MustNewDuration(1 * time.Minute),
+			httpTimeout: commonconfig.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
@@ -2056,7 +2059,7 @@ answer1 [type=median index=0];
 		},
 		{
 			name:        "approve spec orm error",
-			httpTimeout: models.MustNewDuration(1 * time.Minute),
+			httpTimeout: commonconfig.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
@@ -2087,7 +2090,7 @@ answer1 [type=median index=0];
 		},
 		{
 			name:        "fms call error",
-			httpTimeout: models.MustNewDuration(1 * time.Minute),
+			httpTimeout: commonconfig.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
@@ -2186,6 +2189,7 @@ ds1_multiply [type=multiply times=1.23];
 ds1 -> ds1_parse -> ds1_multiply -> answer1;
 answer1      [type=median index=0];
 """
+juelsPerFeeCoinCacheDuration = "30s"
 `
 		defn2 = `
 name = 'LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000'
@@ -2215,6 +2219,7 @@ ds1_multiply [type=multiply times=1.23];
 ds1 -> ds1_parse -> ds1_multiply -> answer1;
 answer1      [type=median index=0];
 """
+juelsPerFeeCoinCacheDuration = "20m"
 `
 
 		jp = &feeds.JobProposal{
@@ -2250,7 +2255,7 @@ answer1      [type=median index=0];
 
 	testCases := []struct {
 		name        string
-		httpTimeout *models.Duration
+		httpTimeout *commonconfig.Duration
 		before      func(svc *TestService)
 		id          int64
 		force       bool
@@ -2258,7 +2263,7 @@ answer1      [type=median index=0];
 	}{
 		{
 			name:        "pending job success",
-			httpTimeout: models.MustNewDuration(1 * time.Minute),
+			httpTimeout: commonconfig.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
@@ -2295,7 +2300,7 @@ answer1      [type=median index=0];
 		},
 		{
 			name:        "cancelled spec success when it is the latest spec",
-			httpTimeout: models.MustNewDuration(1 * time.Minute),
+			httpTimeout: commonconfig.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.On("GetSpec", cancelledSpec.ID, mock.Anything).Return(cancelledSpec, nil)
@@ -2361,7 +2366,7 @@ answer1      [type=median index=0];
 		},
 		{
 			name:        "already existing job replacement error",
-			httpTimeout: models.MustNewDuration(1 * time.Minute),
+			httpTimeout: commonconfig.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
@@ -2376,7 +2381,7 @@ answer1      [type=median index=0];
 		},
 		{
 			name:        "already existing self managed job replacement success if forced without feedID",
-			httpTimeout: models.MustNewDuration(1 * time.Minute),
+			httpTimeout: commonconfig.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
@@ -2415,7 +2420,7 @@ answer1      [type=median index=0];
 		},
 		{
 			name:        "already existing self managed job replacement success if forced with feedID",
-			httpTimeout: models.MustNewDuration(1 * time.Minute),
+			httpTimeout: commonconfig.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(&feeds.JobProposalSpec{
@@ -2460,7 +2465,7 @@ answer1      [type=median index=0];
 		},
 		{
 			name:        "already existing FMS managed job replacement success if forced",
-			httpTimeout: models.MustNewDuration(1 * time.Minute),
+			httpTimeout: commonconfig.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
@@ -2548,7 +2553,7 @@ answer1      [type=median index=0];
 		},
 		{
 			name:        "bridges do not exist",
-			httpTimeout: models.MustNewDuration(1 * time.Minute),
+			httpTimeout: commonconfig.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
@@ -2571,7 +2576,7 @@ answer1      [type=median index=0];
 		},
 		{
 			name:        "create job error",
-			httpTimeout: models.MustNewDuration(1 * time.Minute),
+			httpTimeout: commonconfig.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
@@ -2596,7 +2601,7 @@ answer1      [type=median index=0];
 		},
 		{
 			name:        "approve spec orm error",
-			httpTimeout: models.MustNewDuration(1 * time.Minute),
+			httpTimeout: commonconfig.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
@@ -2627,7 +2632,7 @@ answer1      [type=median index=0];
 		},
 		{
 			name:        "fms call error",
-			httpTimeout: models.MustNewDuration(1 * time.Minute),
+			httpTimeout: commonconfig.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
@@ -2756,7 +2761,7 @@ chainID = 0
 
 	testCases := []struct {
 		name        string
-		httpTimeout *models.Duration
+		httpTimeout *commonconfig.Duration
 		before      func(svc *TestService)
 		id          int64
 		force       bool
@@ -2764,7 +2769,7 @@ chainID = 0
 	}{
 		{
 			name:        "pending job success",
-			httpTimeout: models.MustNewDuration(1 * time.Minute),
+			httpTimeout: commonconfig.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
@@ -2801,7 +2806,7 @@ chainID = 0
 		},
 		{
 			name:        "cancelled spec success when it is the latest spec",
-			httpTimeout: models.MustNewDuration(1 * time.Minute),
+			httpTimeout: commonconfig.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.On("GetSpec", cancelledSpec.ID, mock.Anything).Return(cancelledSpec, nil)
@@ -2867,7 +2872,7 @@ chainID = 0
 		},
 		{
 			name:        "already existing job replacement error",
-			httpTimeout: models.MustNewDuration(1 * time.Minute),
+			httpTimeout: commonconfig.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
@@ -2882,7 +2887,7 @@ chainID = 0
 		},
 		{
 			name:        "already existing self managed job replacement success if forced without feedID",
-			httpTimeout: models.MustNewDuration(1 * time.Minute),
+			httpTimeout: commonconfig.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
@@ -2921,7 +2926,7 @@ chainID = 0
 		},
 		{
 			name:        "already existing self managed job replacement success if forced with feedID",
-			httpTimeout: models.MustNewDuration(1 * time.Minute),
+			httpTimeout: commonconfig.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(&feeds.JobProposalSpec{
@@ -2966,7 +2971,7 @@ chainID = 0
 		},
 		{
 			name:        "already existing FMS managed job replacement success if forced",
-			httpTimeout: models.MustNewDuration(1 * time.Minute),
+			httpTimeout: commonconfig.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
@@ -3054,7 +3059,7 @@ chainID = 0
 		},
 		{
 			name:        "bridges do not exist",
-			httpTimeout: models.MustNewDuration(1 * time.Minute),
+			httpTimeout: commonconfig.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
@@ -3077,7 +3082,7 @@ chainID = 0
 		},
 		{
 			name:        "create job error",
-			httpTimeout: models.MustNewDuration(1 * time.Minute),
+			httpTimeout: commonconfig.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
@@ -3102,7 +3107,7 @@ chainID = 0
 		},
 		{
 			name:        "approve spec orm error",
-			httpTimeout: models.MustNewDuration(1 * time.Minute),
+			httpTimeout: commonconfig.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
@@ -3133,7 +3138,7 @@ chainID = 0
 		},
 		{
 			name:        "fms call error",
-			httpTimeout: models.MustNewDuration(1 * time.Minute),
+			httpTimeout: commonconfig.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)

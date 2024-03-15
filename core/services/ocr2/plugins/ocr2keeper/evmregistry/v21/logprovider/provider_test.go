@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/time/rate"
 
-	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
@@ -242,7 +242,7 @@ func TestLogEventProvider_ReadLogs(t *testing.T) {
 
 	mp := new(mocks.LogPoller)
 
-	mp.On("RegisterFilter", mock.Anything).Return(nil)
+	mp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
 	mp.On("ReplayAsync", mock.Anything).Return()
 	mp.On("HasFilter", mock.Anything).Return(false)
 	mp.On("UnregisterFilter", mock.Anything, mock.Anything).Return(nil)

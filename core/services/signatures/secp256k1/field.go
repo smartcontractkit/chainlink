@@ -49,7 +49,7 @@ func (f *fieldElt) modQ() *fieldElt {
 func fieldEltFromBigInt(v *big.Int) *fieldElt { return (*fieldElt)(v).modQ() }
 
 func fieldEltFromInt(v int64) *fieldElt {
-	return fieldEltFromBigInt(big.NewInt(int64(v))).modQ()
+	return fieldEltFromBigInt(big.NewInt(v)).modQ()
 }
 
 var fieldZero = fieldEltFromInt(0)

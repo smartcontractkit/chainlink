@@ -29,6 +29,8 @@ var (
 	ReqsForTier5 = int64(0)
 
 	//vrfv2plus
-	FlatFeeLinkPPM   = int64(500)
-	FlatFeeNativePPM = int64(500)
+	FlatFeeNativePPM        = uint32(500)
+	FlatFeeLinkDiscountPPM  = uint32(100)
+	NativePremiumPercentage = uint8(1)
+	LinkPremiumPercentage   = uint8(1)
 )

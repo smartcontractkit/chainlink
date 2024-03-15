@@ -1,0 +1,46 @@
+name: Parse Base64 Config
+description: A composite action that extracts the chainlink image, version and network from a base64-encoded config
+
+inputs:
+  base64Config:
+    description: Base64-encoded config to decode
+
+runs:
+  using: composite
+  steps:
+    - name: Install dasel
+      shell: bash
+      run: |
+        if ! which dasel > /dev/null; then
+          curl -L -o dasel "https://github.com/TomWright/dasel/releases/download/v2.6.0/dasel_linux_amd64" && chmod +x dasel && sudo mv dasel /usr/local/bin/
+        else
+          echo "Dasel is already installed."
+        fi
+    - name: Add masks and export base64 config
+      shell: bash
+      run: |
+        decoded_toml=$(echo $BASE64_CONFIG_OVERRIDE | base64 -d)
+        CHAINLINK_IMAGE=$(echo "$decoded_toml" | dasel -r toml 'ChainlinkImage.image')
+        echo ::add-mask::$CHAINLINK_IMAGE
+        CHAINLINK_VERSION=$(echo "$decoded_toml" | dasel -r toml 'ChainlinkImage.version')
+        NETWORKS=$(echo "$decoded_toml" | awk -F'=' '/^[[:space:]]*selected_networks[[:space:]]*=/ {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2}' 2>/dev/null)
+        ETH2_EL_CLIENT=$(echo "$decoded_toml" | awk -F'=' '/^[[:space:]]*execution_layer[[:space:]]*=/ {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2}' 2>/dev/null)
+
+        if [ -n "$CHAINLINK_IMAGE" ]; then
+          echo "CHAINLINK_IMAGE=$CHAINLINK_IMAGE" >> $GITHUB_ENV
+        else
+          echo "No Chainlink Image found in base64-ed config. Exiting"
+          exit 1
+        fi
+        if [ -n "$CHAINLINK_VERSION" ]; then
+          echo "CHAINLINK_VERSION=$CHAINLINK_VERSION" >> $GITHUB_ENV
+        else
+          echo "No Chainlink Version found in base64-ed config. Exiting"
+          exit 1
+        fi
+        if [ -n "$NETWORKS" ]; then
+          echo "NETWORKS=$NETWORKS" >> $GITHUB_ENV
+        fi
+        if [ -n "$ETH2_EL_CLIENT" ]; then
+          echo "ETH2_EL_CLIENT=$ETH2_EL_CLIENT" >> $GITHUB_ENV
+        fi

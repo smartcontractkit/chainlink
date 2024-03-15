@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -109,13 +110,13 @@ func Test_validateDBURL(t *testing.T) {
 }
 
 func TestDatabaseSecrets_ValidateConfig(t *testing.T) {
-	validUrl := models.URL(url.URL{Scheme: "https", Host: "localhost"})
+	validUrl := commonconfig.URL(url.URL{Scheme: "https", Host: "localhost"})
 	validSecretURL := *models.NewSecretURL(&validUrl)
 
-	invalidEmptyUrl := models.URL(url.URL{})
+	invalidEmptyUrl := commonconfig.URL(url.URL{})
 	invalidEmptySecretURL := *models.NewSecretURL(&invalidEmptyUrl)
 
-	invalidBackupURL := models.URL(url.URL{Scheme: "http", Host: "localhost"})
+	invalidBackupURL := commonconfig.URL(url.URL{Scheme: "http", Host: "localhost"})
 	invalidBackupSecretURL := *models.NewSecretURL(&invalidBackupURL)
 
 	tests := []struct {
@@ -520,6 +521,51 @@ func TestTracing_ValidateMode(t *testing.T) {
 			}
 
 			err := tracing.ValidateConfig()
+
+			if tt.wantErr {
+				assert.Error(t, err)
+				assert.Equal(t, tt.errMsg, err.Error())
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestMercuryTLS_ValidateTLSCertPath(t *testing.T) {
+	tests := []struct {
+		name        string
+		tlsCertPath *string
+		wantErr     bool
+		errMsg      string
+	}{
+		{
+			name:        "valid file path",
+			tlsCertPath: ptr("/etc/ssl/certs/cert.pem"),
+			wantErr:     false,
+		},
+		{
+			name:        "relative file path",
+			tlsCertPath: ptr("certs/cert.pem"),
+			wantErr:     false,
+		},
+		{
+			name:        "excessively long file path",
+			tlsCertPath: ptr(strings.Repeat("z", 4097)),
+			wantErr:     true,
+			errMsg:      "CertFile: invalid value (" + strings.Repeat("z", 4097) + "): must be a valid file path",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mercury := &Mercury{
+				TLS: MercuryTLS{
+					CertFile: tt.tlsCertPath,
+				},
+			}
+
+			err := mercury.ValidateConfig()
 
 			if tt.wantErr {
 				assert.Error(t, err)

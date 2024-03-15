@@ -52,18 +52,32 @@ Here is an example for 3 nodes cluster
 ```
 
 ### Running against Live Testnets
+1. Prepare your `overrides.toml` file with selected network and CL image name and version and save anywhere inside `integration-tests` folder.
+```toml
+[ChainlinkImage]
+image="your-image"
+version="your-version"
 
+[Network]
+selected_networks=["polygon_mumbai"]
+
+[Network.RpcHttpUrls]
+polygon_mumbai=["https://http.endpoint.com"]
+
+[Network.RpcWsUrls]
+polygon_mumbai=["wss://ws.endpoint.com"]
+
+[Network.WalletKeys]
+polygon_mumbai=["my_so_private_key"]
 ```
-SELECTED_NETWORKS=<Chain Name> \
-<Chain Name>_KEYS= \
-<Chain Name>_URLS= \
-<Chain Name>_HTTP_URLS= \
+Then execute:
+```bash
 go test -v -run ${TestName}
 ```
 
 
 
 ### Debugging CL client API calls
-```
+```bash
 export CL_CLIENT_DEBUG=true
 ```

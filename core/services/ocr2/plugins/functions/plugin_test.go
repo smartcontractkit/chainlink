@@ -8,20 +8,25 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	sfmocks "github.com/smartcontractkit/chainlink/v2/core/services/functions/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
 	hc "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
-	gfmocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/mocks"
+	gfaMocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/allowlist/mocks"
+	gfsMocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/subscriptions/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	ksmocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
 	s4mocks "github.com/smartcontractkit/chainlink/v2/core/services/s4/mocks"
 )
 
 func TestNewConnector_Success(t *testing.T) {
 	t.Parallel()
+
+	ctx := testutils.Context(t)
+
 	keyV2, err := ethkey.NewV2()
 	require.NoError(t, err)
 
@@ -32,19 +37,25 @@ func TestNewConnector_Success(t *testing.T) {
 	chainID := big.NewInt(80001)
 	ethKeystore := ksmocks.NewEth(t)
 	s4Storage := s4mocks.NewStorage(t)
-	allowlist := gfmocks.NewOnchainAllowlist(t)
-	subscriptions := gfmocks.NewOnchainSubscriptions(t)
+	allowlist := gfaMocks.NewOnchainAllowlist(t)
+	subscriptions := gfsMocks.NewOnchainSubscriptions(t)
 	rateLimiter, err := hc.NewRateLimiter(hc.RateLimiterConfig{GlobalRPS: 100.0, GlobalBurst: 100, PerSenderRPS: 100.0, PerSenderBurst: 100})
 	require.NoError(t, err)
 	listener := sfmocks.NewFunctionsListener(t)
 	offchainTransmitter := sfmocks.NewOffchainTransmitter(t)
-	ethKeystore.On("EnabledKeysForChain", mock.Anything).Return([]ethkey.KeyV2{keyV2}, nil)
-	_, err = functions.NewConnector(gwcCfg, ethKeystore, chainID, s4Storage, allowlist, rateLimiter, subscriptions, listener, offchainTransmitter, *assets.NewLinkFromJuels(0), logger.TestLogger(t))
+	ethKeystore.On("EnabledKeysForChain", mock.Anything, mock.Anything).Return([]ethkey.KeyV2{keyV2}, nil)
+	config := &config.PluginConfig{
+		GatewayConnectorConfig: gwcCfg,
+	}
+	_, err = functions.NewConnector(ctx, config, ethKeystore, chainID, s4Storage, allowlist, rateLimiter, subscriptions, listener, offchainTransmitter, logger.TestLogger(t))
 	require.NoError(t, err)
 }
 
 func TestNewConnector_NoKeyForConfiguredAddress(t *testing.T) {
 	t.Parallel()
+
+	ctx := testutils.Context(t)
+
 	addresses := []string{
 		"0x00000000DE801ceE9471ADf23370c48b011f82a6",
 		"0x11111111DE801ceE9471ADf23370c48b011f82a6",
@@ -57,13 +68,16 @@ func TestNewConnector_NoKeyForConfiguredAddress(t *testing.T) {
 	chainID := big.NewInt(80001)
 	ethKeystore := ksmocks.NewEth(t)
 	s4Storage := s4mocks.NewStorage(t)
-	allowlist := gfmocks.NewOnchainAllowlist(t)
-	subscriptions := gfmocks.NewOnchainSubscriptions(t)
+	allowlist := gfaMocks.NewOnchainAllowlist(t)
+	subscriptions := gfsMocks.NewOnchainSubscriptions(t)
 	rateLimiter, err := hc.NewRateLimiter(hc.RateLimiterConfig{GlobalRPS: 100.0, GlobalBurst: 100, PerSenderRPS: 100.0, PerSenderBurst: 100})
 	require.NoError(t, err)
 	listener := sfmocks.NewFunctionsListener(t)
 	offchainTransmitter := sfmocks.NewOffchainTransmitter(t)
-	ethKeystore.On("EnabledKeysForChain", mock.Anything).Return([]ethkey.KeyV2{{Address: common.HexToAddress(addresses[1])}}, nil)
-	_, err = functions.NewConnector(gwcCfg, ethKeystore, chainID, s4Storage, allowlist, rateLimiter, subscriptions, listener, offchainTransmitter, *assets.NewLinkFromJuels(0), logger.TestLogger(t))
+	ethKeystore.On("EnabledKeysForChain", mock.Anything, mock.Anything).Return([]ethkey.KeyV2{{Address: common.HexToAddress(addresses[1])}}, nil)
+	config := &config.PluginConfig{
+		GatewayConnectorConfig: gwcCfg,
+	}
+	_, err = functions.NewConnector(ctx, config, ethKeystore, chainID, s4Storage, allowlist, rateLimiter, subscriptions, listener, offchainTransmitter, logger.TestLogger(t))
 	require.Error(t, err)
 }

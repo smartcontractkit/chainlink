@@ -1,162 +1,63 @@
 # Mercury Documentation
 
-## Contracts
+## Useful Links
 
-Use this tool to configure contracts:
+[Configuration Builder](https://github.com/smartcontractkit/the-most-amazing-mercury-contract-configuration-tool)
 
-https://github.com/smartcontractkit/the-most-amazing-mercury-contract-configuration-tool
+[Contracts](https://github.com/smartcontractkit/chainlink/contracts/src/v0.8/llo-feeds)
 
-TODO: updated process here @Austin Born 
+[OCR3 Config Documentation](https://github.com/smartcontractkit/libocr/blob/master/offchainreporting2plus/internal/config/ocr3config/public_config.go)
 
-[Reference contract](https://github.com/smartcontractkit/reference-data-directory/blob/master/ethereum-testnet-goerli-arbitrum-1/contracts/0x535051166466D159da8742167c9CA1eFe9e82613.json)
 
-[OCR2 config documentation](https://github.com/smartcontractkit/libocr/blob/master/offchainreporting2/internal/config/public_config.go)
 
-**🚨 Important config**
 
-`s` - transmission schedule. This should be set to the number of oracles on the feed - meaning that every oracle will attempt to transmit to the mercury server in the first stage of transmission. eg `[4]` if there are 4 node in the DON, excluding the bootstrap node.
-
-`f` - set this to `n//3` (where `//` denotes integer division), e.g. if you have 16 oracles, set `f` to 5.
-
-`deltaRound` - report generation frequency. This determines how frequently a new round should be started at most (if rounds take longer than this due to network latency, there will be fewer rounds per second than this parameter would suggest). `100ms` is a good starting point (10 rounds/s).
-
-`reportingPluginConfig.alphaAccept` - set this to `0`, because our mercury ContractTransmitter doesn't know the latest report that's been sent to the mercury server and we therefore always have a "pending" report which we compare against before accepting a report for transmission.
-
-`reportingPluginConfig.deltaC` - set this to `0` so every round will result in a report.
-
-<details><summary>Example `verifier/<0xaddress>.json`</summary>
+### Example Feed Configuration
 
 ```json
 {
-  "contractVersion": 1001,
-  "digests": {
-    "0x0006c67c0374ab0dcfa45c63b37df2ea8d16fb903c043caa98065033e9c15666": {
-      "feedId": "0x14e044f932bb959cc2aa8dc1ba110c09224e639aae00264c1ffc2a0830904a3c",
-      "proxyEnabled": true,
-      "status": "active"
-    }
-  },
-  "feeds": {
-    "0x14e044f932bb959cc2aa8dc1ba110c09224e639aae00264c1ffc2a0830904a3c": {
-      "digests": [
-        "0x0006c67c0374ab0dcfa45c63b37df2ea8d16fb903c043caa98065033e9c15666"
-      ],
-      "docs": {
-        "assetName": "Chainlink",
-        "feedCategory": "verified",
-        "feedType": "Crypto",
-        "hidden": true
-      },
-      "externalAdapterRequestParams": {
-        "endpoint": "cryptolwba",
-        "from": "LINK",
-        "to": "USD"
-      },
-      "feedId": "0x14e044f932bb959cc2aa8dc1ba110c09224e639aae00264c1ffc2a0830904a3c",
-      "latestConfig": {
-        "offchainConfig": {
-          "deltaGrace": "0",
-          "deltaProgress": "2s",
-          "deltaResend": "20s",
-          "deltaRound": "250ms",
-          "deltaStage": "60s",
-          "f": 1,
-          "maxDurationObservation": "250ms",
-          "maxDurationQuery": "0s",
-          "maxDurationReport": "250ms",
-          "maxDurationShouldAcceptFinalizedReport": "250ms",
-          "maxDurationShouldTransmitAcceptedReport": "250ms",
-          "rMax": 100,
-          "reportingPluginConfig": {
-            "alphaAcceptInfinite": false,
-            "alphaAcceptPpb": "0",
-            "alphaReportInfinite": false,
-            "alphaReportPpb": "0",
-            "deltaC": "0s"
-          },
-          "s": [
-            4
-          ]
-        },
-        "offchainConfigVersion": 30,
-        "onchainConfig": {
-          "max": "99999999999999999999999999999",
-          "min": "1"
-        },
-        "onchainConfigVersion": 1,
-        "oracles": [
-          {
-            "api": [
-              "coinmetrics",
-              "ncfx",
-              "tiingo-test"
-            ],
-            "operator": "clc-ocr-mercury-arbitrum-goerli-nodes-0"
-          },
-          {
-            "api": [
-              "coinmetrics",
-              "ncfx",
-              "tiingo-test"
-            ],
-            "operator": "clc-ocr-mercury-arbitrum-goerli-nodes-1"
-          },
-          {
-            "api": [
-              "coinmetrics",
-              "ncfx",
-              "tiingo-test"
-            ],
-            "operator": "clc-ocr-mercury-arbitrum-goerli-nodes-2"
-          },
-          {
-            "api": [
-              "coinmetrics",
-              "ncfx",
-              "tiingo-test"
-            ],
-            "operator": "clc-ocr-mercury-arbitrum-goerli-nodes-3"
-          }
-        ]
-      },
-      "marketing": {
-        "category": "crypto",
-        "history": true,
-        "pair": [
-          "LINK",
-          "USD"
-        ],
-        "path": "link-usd-verifier"
-      },
-      "name": "LINK/USD-RefPricePlus-ArbitrumGoerli-002",
-      "reportFields": {
-        "ask": {
-          "decimals": 8,
-          "maxSubmissionValue": "99999999999999999999999999999",
-          "minSubmissionValue": "1",
-          "resultPath": "data,ask"
-        },
-        "bid": {
-          "decimals": 8,
-          "maxSubmissionValue": "99999999999999999999999999999",
-          "minSubmissionValue": "1",
-          "resultPath": "data,bid"
-        },
-        "median": {
-          "decimals": 8,
-          "maxSubmissionValue": "99999999999999999999999999999",
-          "minSubmissionValue": "1",
-          "resultPath": "data,mid"
-        }
-      },
-      "status": "testing"
-    }
-  },
-  "name": "Mercury v0.2 - Production Testnet Verifier (v1.0.0)",
-  "status": "testing"
+  "feedId": "0x14e044f932bb959cc2aa8dc1ba110c09224e639aae00264c1ffc2a0830904a3c",
+  "chainId": 42161, // source chain id
+  "contractAddress": "0x14e044f932bb959cc2aa8dc1ba110c09224e639a", // verifier contract address
+  "configCount": 1, // the index of this config
+  "signers": [
+    "0x000....01",
+    "0x000....02",
+    "0x000....03",
+    "0x000....04"
+    ], // NOP signing addresses,
+    "transmitters": [
+    "0x000....11",
+    "0x000....12",
+    "0x000....13",
+    "0x000....14"
+    ], // NOP transmitter addresses
+    "offchainConfig": {
+      "baseUSDFee": "0.1", // 10c base fee to verify the report
+      "deltaCertifiedCommitRequest": "1s",
+      "deltaGrace": "0s",
+      "deltaInitial": "600ms",
+      "deltaProgress": "2s",
+      "deltaResend": "10s",
+      "deltaRound": "250ms",
+      "deltaStage": "0s",
+      "expirationWindow": "86400", //window in in which a report can be verified in seconds
+      "f": 3,
+      "maxDurationObservation": "250ms",
+      "maxDurationQuery": "50ms",
+      "maxDurationShouldAcceptAttestedReport": "50ms",
+      "maxDurationShouldTransmitAcceptedReport": "50ms",
+      "rMax": "25",
+      "s": [
+        4
+      ]
+    },
+  "offchainConfigVersion": 30,
+  "onchainConfig": {
+    "max": "99999999999999999999999999999",
+    "min": "1"
+  }
 }
 ```
-</details>
 
 ## Jobs
 

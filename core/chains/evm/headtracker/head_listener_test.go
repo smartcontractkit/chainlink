@@ -8,10 +8,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commonmocks "github.com/smartcontractkit/chainlink/v2/common/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
@@ -21,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 func Test_HeadListener_HappyPath(t *testing.T) {
@@ -39,7 +39,7 @@ func Test_HeadListener_HappyPath(t *testing.T) {
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		// no need to test head timeouts here
-		c.EVM[0].NoNewHeadsThreshold = &models.Duration{}
+		c.EVM[0].NoNewHeadsThreshold = &commonconfig.Duration{}
 	})
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	chStop := make(chan struct{})
@@ -100,7 +100,7 @@ func Test_HeadListener_NotReceivingHeads(t *testing.T) {
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].NoNewHeadsThreshold = models.MustNewDuration(time.Second)
+		c.EVM[0].NoNewHeadsThreshold = commonconfig.MustNewDuration(time.Second)
 	})
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	chStop := make(chan struct{})
@@ -155,7 +155,7 @@ func Test_HeadListener_SubscriptionErr(t *testing.T) {
 		closeErr bool
 	}{
 		{"nil error", nil, false},
-		{"socket error", errors.New("close 1006 (abnormal closure): unexpected EOF"), false},
+		{"socket error", pkgerrors.New("close 1006 (abnormal closure): unexpected EOF"), false},
 		{"close Err channel", nil, true},
 	}
 

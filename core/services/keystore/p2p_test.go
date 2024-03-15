@@ -177,6 +177,7 @@ func Test_P2PKeyStore_E2E(t *testing.T) {
 		RETURNING *;`, p2pTableName)
 		stmt, err := db.PrepareNamed(sql)
 		require.NoError(t, err)
+		t.Cleanup(func() { assert.NoError(t, stmt.Close()) })
 		require.NoError(t, stmt.Get(&p2pPeer1, &p2pPeer1))
 		require.NoError(t, stmt.Get(&p2pPeer2, &p2pPeer2))
 		cltest.AssertCount(t, db, p2pTableName, 2)

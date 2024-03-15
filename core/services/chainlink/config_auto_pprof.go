@@ -3,9 +3,9 @@ package chainlink
 import (
 	"path/filepath"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -28,12 +28,12 @@ func (a *autoPprofConfig) CPUProfileRate() int {
 	return int(*a.c.CPUProfileRate)
 }
 
-func (a *autoPprofConfig) GatherDuration() models.Duration {
-	return models.MustMakeDuration(a.c.GatherDuration.Duration())
+func (a *autoPprofConfig) GatherDuration() commonconfig.Duration {
+	return *commonconfig.MustNewDuration(a.c.GatherDuration.Duration())
 }
 
-func (a *autoPprofConfig) GatherTraceDuration() models.Duration {
-	return models.MustMakeDuration(a.c.GatherTraceDuration.Duration())
+func (a *autoPprofConfig) GatherTraceDuration() commonconfig.Duration {
+	return *commonconfig.MustNewDuration(a.c.GatherTraceDuration.Duration())
 }
 
 func (a *autoPprofConfig) GoroutineThreshold() int {
@@ -56,7 +56,7 @@ func (a *autoPprofConfig) MutexProfileFraction() int {
 	return int(*a.c.MutexProfileFraction)
 }
 
-func (a *autoPprofConfig) PollInterval() models.Duration {
+func (a *autoPprofConfig) PollInterval() commonconfig.Duration {
 	return *a.c.PollInterval
 }
 

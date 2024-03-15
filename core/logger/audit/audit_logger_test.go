@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -65,10 +66,10 @@ func (c Config) Environment() string {
 	return "test"
 }
 
-func (c Config) ForwardToUrl() (models.URL, error) {
-	url, err := models.ParseURL("http://localhost:9898")
+func (c Config) ForwardToUrl() (commonconfig.URL, error) {
+	url, err := commonconfig.ParseURL("http://localhost:9898")
 	if err != nil {
-		return models.URL{}, err
+		return commonconfig.URL{}, err
 	}
 	return *url, nil
 }

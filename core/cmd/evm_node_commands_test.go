@@ -9,11 +9,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 func assertTableRenders(t *testing.T, r *cltest.RendererMock) {
@@ -31,15 +31,15 @@ func TestShell_IndexEVMNodes(t *testing.T) {
 	chainID := newRandChainID()
 	node1 := evmcfg.Node{
 		Name:     ptr("Test node 1"),
-		WSURL:    models.MustParseURL("ws://localhost:8546"),
-		HTTPURL:  models.MustParseURL("http://localhost:8546"),
+		WSURL:    commonconfig.MustParseURL("ws://localhost:8546"),
+		HTTPURL:  commonconfig.MustParseURL("http://localhost:8546"),
 		SendOnly: ptr(false),
 		Order:    ptr(int32(15)),
 	}
 	node2 := evmcfg.Node{
 		Name:     ptr("Test node 2"),
-		WSURL:    models.MustParseURL("ws://localhost:8547"),
-		HTTPURL:  models.MustParseURL("http://localhost:8547"),
+		WSURL:    commonconfig.MustParseURL("ws://localhost:8547"),
+		HTTPURL:  commonconfig.MustParseURL("http://localhost:8547"),
 		SendOnly: ptr(false),
 		Order:    ptr(int32(36)),
 	}
@@ -60,13 +60,13 @@ func TestShell_IndexEVMNodes(t *testing.T) {
 	n1 := nodes[0]
 	n2 := nodes[1]
 	assert.Equal(t, chainID.String(), n1.ChainID)
-	assert.Equal(t, *node1.Name, n1.ID)
+	assert.Equal(t, cltest.FormatWithPrefixedChainID(chainID.String(), *node1.Name), n1.ID)
 	assert.Equal(t, *node1.Name, n1.Name)
 	wantConfig, err := toml.Marshal(node1)
 	require.NoError(t, err)
 	assert.Equal(t, string(wantConfig), n1.Config)
 	assert.Equal(t, chainID.String(), n2.ChainID)
-	assert.Equal(t, *node2.Name, n2.ID)
+	assert.Equal(t, cltest.FormatWithPrefixedChainID(chainID.String(), *node2.Name), n2.ID)
 	assert.Equal(t, *node2.Name, n2.Name)
 	wantConfig2, err := toml.Marshal(node2)
 	require.NoError(t, err)

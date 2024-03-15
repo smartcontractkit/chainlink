@@ -110,7 +110,7 @@ func newClient(lggr logger.Logger, clientPrivKey csakey.KeyV2, serverPubKey []by
 		csaKey:                     clientPrivKey,
 		serverPubKey:               serverPubKey,
 		serverURL:                  serverURL,
-		logger:                     lggr.Named("WSRPC").With("mercuryServerURL", serverURL),
+		logger:                     lggr.Named("WSRPC").Named(serverURL).With("serverURL", serverURL),
 		chResetTransport:           make(chan struct{}, 1),
 		cacheSet:                   cacheSet,
 		chStop:                     make(services.StopChan),
@@ -193,16 +193,16 @@ func (w *client) resetTransport() {
 	b := utils.NewRedialBackoff()
 	for {
 		// Will block until successful dial, or context is canceled (i.e. on close)
-		if err := w.dial(ctx, wsrpc.WithBlock()); err != nil {
-			if ctx.Err() != nil {
-				w.logger.Debugw("ResetTransport exiting due to client Close", "err", err)
-				return
-			}
-			w.logger.Errorw("ResetTransport failed to redial", "err", err)
-			time.Sleep(b.Duration())
-		} else {
+		err := w.dial(ctx, wsrpc.WithBlock())
+		if err == nil {
 			break
 		}
+		if ctx.Err() != nil {
+			w.logger.Debugw("ResetTransport exiting due to client Close", "err", err)
+			return
+		}
+		w.logger.Errorw("ResetTransport failed to redial", "err", err)
+		time.Sleep(b.Duration())
 	}
 	w.logger.Info("ResetTransport successfully redialled")
 }
@@ -217,7 +217,7 @@ func (w *client) Close() error {
 }
 
 func (w *client) Name() string {
-	return "EVM.Mercury.WSRPCClient"
+	return w.logger.Name()
 }
 
 func (w *client) HealthReport() map[string]error {

@@ -6,7 +6,7 @@ echo " ┌───────────────────────�
 echo " │    Compiling Low Latency Oracle contracts... │"
 echo " └──────────────────────────────────────────────┘"
 
-SOLC_VERSION="0.8.16"
+SOLC_VERSION="0.8.19"
 OPTIMIZE_RUNS=1000000
 
 
@@ -33,6 +33,12 @@ compileContract llo-feeds/VerifierProxy.sol
 compileContract llo-feeds/FeeManager.sol
 compileContract llo-feeds/RewardManager.sol
 
-#Test | Mocks
+
+# Test | Mocks
 compileContract llo-feeds/test/mocks/ErroredVerifier.sol
 compileContract llo-feeds/test/mocks/ExposedVerifier.sol
+
+# LLO
+compileContract llo-feeds/dev/ChannelConfigStore.sol
+compileContract llo-feeds/dev/ChannelVerifier.sol
+compileContract llo-feeds/dev/test/mocks/ExposedChannelVerifier.sol

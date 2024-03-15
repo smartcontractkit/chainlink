@@ -35,7 +35,7 @@ func toGethLog(log types.Log) types.Log {
 	return types.Log{
 		Address:     log.Address,
 		Topics:      log.Topics,
-		Data:        []byte(log.Data),
+		Data:        log.Data,
 		BlockNumber: log.BlockNumber,
 		TxHash:      log.TxHash,
 		TxIndex:     log.TxIndex,

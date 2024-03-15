@@ -170,7 +170,7 @@ func TestRandomnessRequestLog(t *testing.T) {
 		golangSeed := utils.MustHash(string(append(append(append(
 			keyHash[:],
 			common.BigToHash(hardcodedSeed).Bytes()...),
-			tc.consumerAddress.Hash().Bytes()...),
+			common.BytesToHash(tc.consumerAddress.Bytes()).Bytes()...),
 			common.BigToHash(nonce).Bytes()...)))
 		assert.Equal(t, golangSeed, common.BigToHash((log.Seed)), "VRFCoordinator logged different actual input seed than expected by golang code!")
 		assert.Equal(t, jobID, log.JobID, "VRFCoordinator logged different JobID from randomness request!")

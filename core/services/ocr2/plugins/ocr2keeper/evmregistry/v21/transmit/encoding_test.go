@@ -3,18 +3,20 @@ package transmit
 import (
 	"testing"
 
+	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
-	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
+	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_v21_plus_common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 )
 
 func TestTransmitEventLog(t *testing.T) {
-	uid := core.GenUpkeepID(ocr2keepers.ConditionTrigger, "111")
+	uid := core.GenUpkeepID(types.ConditionTrigger, "111")
 
 	tests := []struct {
 		name  string
@@ -28,7 +30,7 @@ func TestTransmitEventLog(t *testing.T) {
 					BlockNumber: 1,
 					BlockHash:   common.HexToHash("0x010203040"),
 				},
-				Performed: &iregistry21.IKeeperRegistryMasterUpkeepPerformed{
+				Performed: &ac.IAutomationV21PlusCommonUpkeepPerformed{
 					Id:      uid.BigInt(),
 					Trigger: []byte{1, 2, 3, 4, 5, 6, 7, 8},
 				},
@@ -42,7 +44,7 @@ func TestTransmitEventLog(t *testing.T) {
 					BlockNumber: 1,
 					BlockHash:   common.HexToHash("0x010203040"),
 				},
-				Stale: &iregistry21.IKeeperRegistryMasterStaleUpkeepReport{
+				Stale: &ac.IAutomationV21PlusCommonStaleUpkeepReport{
 					Id:      uid.BigInt(),
 					Trigger: []byte{1, 2, 3, 4, 5, 6, 7, 8},
 				},
@@ -56,7 +58,7 @@ func TestTransmitEventLog(t *testing.T) {
 					BlockNumber: 1,
 					BlockHash:   common.HexToHash("0x010203040"),
 				},
-				InsufficientFunds: &iregistry21.IKeeperRegistryMasterInsufficientFundsUpkeepReport{
+				InsufficientFunds: &ac.IAutomationV21PlusCommonInsufficientFundsUpkeepReport{
 					Id:      uid.BigInt(),
 					Trigger: []byte{1, 2, 3, 4, 5, 6, 7, 8},
 				},
@@ -70,7 +72,7 @@ func TestTransmitEventLog(t *testing.T) {
 					BlockNumber: 1,
 					BlockHash:   common.HexToHash("0x010203040"),
 				},
-				Reorged: &iregistry21.IKeeperRegistryMasterReorgedUpkeepReport{
+				Reorged: &ac.IAutomationV21PlusCommonReorgedUpkeepReport{
 					Id:      uid.BigInt(),
 					Trigger: []byte{1, 2, 3, 4, 5, 6, 7, 8},
 				},

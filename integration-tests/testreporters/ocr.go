@@ -235,7 +235,7 @@ func (o *OCRSoakTestReporter) WriteReport(folderLocation string) error {
 }
 
 // SendNotification sends a slack message to a slack webhook and uploads test artifacts
-func (o *OCRSoakTestReporter) SendSlackNotification(t *testing.T, slackClient *slack.Client) error {
+func (o *OCRSoakTestReporter) SendSlackNotification(t *testing.T, slackClient *slack.Client, _ testreporters.GrafanaURLProvider) error {
 	if slackClient == nil {
 		slackClient = slack.New(testreporters.SlackAPIKey)
 	}

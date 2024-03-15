@@ -9,13 +9,15 @@ import (
 	"testing"
 	"time"
 
+	types2 "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -26,7 +28,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 func TestLogRecoverer_GetRecoverables(t *testing.T) {
@@ -50,33 +51,33 @@ func TestLogRecoverer_GetRecoverables(t *testing.T) {
 		{
 			"happy flow",
 			[]ocr2keepers.UpkeepPayload{
-				{WorkID: "1", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
-				{WorkID: "2", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "2")},
+				{WorkID: "1", UpkeepID: core.GenUpkeepID(types2.LogTrigger, "1")},
+				{WorkID: "2", UpkeepID: core.GenUpkeepID(types2.LogTrigger, "2")},
 			},
 			[]ocr2keepers.UpkeepPayload{
-				{WorkID: "1", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
-				{WorkID: "2", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "2")},
+				{WorkID: "1", UpkeepID: core.GenUpkeepID(types2.LogTrigger, "1")},
+				{WorkID: "2", UpkeepID: core.GenUpkeepID(types2.LogTrigger, "2")},
 			},
 			false,
 		},
 		{
 			"rate limiting",
 			[]ocr2keepers.UpkeepPayload{
-				{WorkID: "1", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
-				{WorkID: "2", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
-				{WorkID: "3", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
-				{WorkID: "4", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
-				{WorkID: "5", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
-				{WorkID: "6", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
-				{WorkID: "2", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "2")},
+				{WorkID: "1", UpkeepID: core.GenUpkeepID(types2.LogTrigger, "1")},
+				{WorkID: "2", UpkeepID: core.GenUpkeepID(types2.LogTrigger, "1")},
+				{WorkID: "3", UpkeepID: core.GenUpkeepID(types2.LogTrigger, "1")},
+				{WorkID: "4", UpkeepID: core.GenUpkeepID(types2.LogTrigger, "1")},
+				{WorkID: "5", UpkeepID: core.GenUpkeepID(types2.LogTrigger, "1")},
+				{WorkID: "6", UpkeepID: core.GenUpkeepID(types2.LogTrigger, "1")},
+				{WorkID: "2", UpkeepID: core.GenUpkeepID(types2.LogTrigger, "2")},
 			},
 			[]ocr2keepers.UpkeepPayload{
-				{WorkID: "1", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
-				{WorkID: "2", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
-				{WorkID: "3", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
-				{WorkID: "4", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
-				{WorkID: "5", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
-				{WorkID: "2", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "2")},
+				{WorkID: "1", UpkeepID: core.GenUpkeepID(types2.LogTrigger, "1")},
+				{WorkID: "2", UpkeepID: core.GenUpkeepID(types2.LogTrigger, "1")},
+				{WorkID: "3", UpkeepID: core.GenUpkeepID(types2.LogTrigger, "1")},
+				{WorkID: "4", UpkeepID: core.GenUpkeepID(types2.LogTrigger, "1")},
+				{WorkID: "5", UpkeepID: core.GenUpkeepID(types2.LogTrigger, "1")},
+				{WorkID: "2", UpkeepID: core.GenUpkeepID(types2.LogTrigger, "2")},
 			},
 			false,
 		},
@@ -121,9 +122,9 @@ func TestLogRecoverer_Clean(t *testing.T) {
 		{
 			"clean expired",
 			[]ocr2keepers.UpkeepPayload{
-				{WorkID: "1", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
-				{WorkID: "2", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "2")},
-				{WorkID: "3", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "3")},
+				{WorkID: "1", UpkeepID: core.GenUpkeepID(types2.LogTrigger, "1")},
+				{WorkID: "2", UpkeepID: core.GenUpkeepID(types2.LogTrigger, "2")},
+				{WorkID: "3", UpkeepID: core.GenUpkeepID(types2.LogTrigger, "3")},
 			},
 			map[string]visitedRecord{
 				"1": visitedRecord{time.Now(), ocr2keepers.UpkeepPayload{
@@ -164,9 +165,9 @@ func TestLogRecoverer_Clean(t *testing.T) {
 				ocr2keepers.UnknownState,
 			},
 			[]ocr2keepers.UpkeepPayload{
-				{WorkID: "1", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
-				{WorkID: "2", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "2")},
-				{WorkID: "4", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "4")},
+				{WorkID: "1", UpkeepID: core.GenUpkeepID(types2.LogTrigger, "1")},
+				{WorkID: "2", UpkeepID: core.GenUpkeepID(types2.LogTrigger, "2")},
+				{WorkID: "4", UpkeepID: core.GenUpkeepID(types2.LogTrigger, "4")},
 			},
 			[]string{"1", "2", "4"},
 		},
@@ -583,7 +584,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 		{
 			name: "if a filter is not found for the upkeep ID, an error is returned",
 			proposal: ocr2keepers.CoordinatedBlockProposal{
-				UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "123"),
+				UpkeepID: core.GenUpkeepID(types2.LogTrigger, "123"),
 			},
 			skipFilter: true,
 			expectErr:  true,
@@ -592,7 +593,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 		{
 			name: "if an error is encountered fetching the latest block, an error is returned",
 			proposal: ocr2keepers.CoordinatedBlockProposal{
-				UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "123"),
+				UpkeepID: core.GenUpkeepID(types2.LogTrigger, "123"),
 				Trigger: ocr2keepers.Trigger{
 					LogTriggerExtension: &ocr2keepers.LogTriggerExtension{
 						BlockNumber: 0,
@@ -605,7 +606,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				},
 			},
 			logPoller: &mockLogPoller{
-				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
+				LatestBlockFn: func(ctx context.Context) (int64, error) {
 					return 0, errors.New("latest block boom")
 				},
 			},
@@ -615,7 +616,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 		{
 			name: "if an error is encountered fetching the tx receipt, an error is returned",
 			proposal: ocr2keepers.CoordinatedBlockProposal{
-				UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "123"),
+				UpkeepID: core.GenUpkeepID(types2.LogTrigger, "123"),
 				Trigger: ocr2keepers.Trigger{
 					LogTriggerExtension: &ocr2keepers.LogTriggerExtension{
 						BlockNumber: 0,
@@ -628,7 +629,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				},
 			},
 			logPoller: &mockLogPoller{
-				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
+				LatestBlockFn: func(ctx context.Context) (int64, error) {
 					return 100, nil
 				},
 			},
@@ -643,7 +644,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 		{
 			name: "if the tx block is nil, an error is returned",
 			proposal: ocr2keepers.CoordinatedBlockProposal{
-				UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "123"),
+				UpkeepID: core.GenUpkeepID(types2.LogTrigger, "123"),
 				Trigger: ocr2keepers.Trigger{
 					LogTriggerExtension: &ocr2keepers.LogTriggerExtension{
 						BlockNumber: 0,
@@ -656,7 +657,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				},
 			},
 			logPoller: &mockLogPoller{
-				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
+				LatestBlockFn: func(ctx context.Context) (int64, error) {
 					return 100, nil
 				},
 			},
@@ -671,7 +672,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 		{
 			name: "if a log trigger extension block number is 0, and the block number on the tx receipt is not recoverable, an error is returned",
 			proposal: ocr2keepers.CoordinatedBlockProposal{
-				UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "123"),
+				UpkeepID: core.GenUpkeepID(types2.LogTrigger, "123"),
 				Trigger: ocr2keepers.Trigger{
 					LogTriggerExtension: &ocr2keepers.LogTriggerExtension{
 						BlockNumber: 0,
@@ -684,7 +685,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				},
 			},
 			logPoller: &mockLogPoller{
-				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
+				LatestBlockFn: func(ctx context.Context) (int64, error) {
 					return 100, nil
 				},
 			},
@@ -701,7 +702,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 		{
 			name: "if a log block is not recoverable, an error is returned",
 			proposal: ocr2keepers.CoordinatedBlockProposal{
-				UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "123"),
+				UpkeepID: core.GenUpkeepID(types2.LogTrigger, "123"),
 				Trigger: ocr2keepers.Trigger{
 					LogTriggerExtension: &ocr2keepers.LogTriggerExtension{
 						BlockNumber: 200,
@@ -714,7 +715,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				},
 			},
 			logPoller: &mockLogPoller{
-				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
+				LatestBlockFn: func(ctx context.Context) (int64, error) {
 					return 100, nil
 				},
 			},
@@ -731,7 +732,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 		{
 			name: "if a log block has does not match, an error is returned",
 			proposal: ocr2keepers.CoordinatedBlockProposal{
-				UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "123"),
+				UpkeepID: core.GenUpkeepID(types2.LogTrigger, "123"),
 				Trigger: ocr2keepers.Trigger{
 					LogTriggerExtension: &ocr2keepers.LogTriggerExtension{
 						BlockNumber: 200,
@@ -745,7 +746,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				},
 			},
 			logPoller: &mockLogPoller{
-				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
+				LatestBlockFn: func(ctx context.Context) (int64, error) {
 					return 100, nil
 				},
 			},
@@ -763,7 +764,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 		{
 			name: "if a log block is recoverable, when the upkeep state reader errors, an error is returned",
 			proposal: ocr2keepers.CoordinatedBlockProposal{
-				UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "123"),
+				UpkeepID: core.GenUpkeepID(types2.LogTrigger, "123"),
 				Trigger: ocr2keepers.Trigger{
 					LogTriggerExtension: &ocr2keepers.LogTriggerExtension{
 						BlockNumber: 80,
@@ -776,7 +777,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				},
 			},
 			logPoller: &mockLogPoller{
-				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
+				LatestBlockFn: func(ctx context.Context) (int64, error) {
 					return 300, nil
 				},
 			},
@@ -798,7 +799,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 		{
 			name: "if a log block is recoverable, when the upkeep state reader returns a non recoverable state, an error is returned",
 			proposal: ocr2keepers.CoordinatedBlockProposal{
-				UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "123"),
+				UpkeepID: core.GenUpkeepID(types2.LogTrigger, "123"),
 				Trigger: ocr2keepers.Trigger{
 					LogTriggerExtension: &ocr2keepers.LogTriggerExtension{
 						BlockNumber: 80,
@@ -811,7 +812,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				},
 			},
 			logPoller: &mockLogPoller{
-				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
+				LatestBlockFn: func(ctx context.Context) (int64, error) {
 					return 300, nil
 				},
 			},
@@ -835,7 +836,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 		{
 			name: "if a log block is recoverable, when the filter address is empty, an error is returned",
 			proposal: ocr2keepers.CoordinatedBlockProposal{
-				UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "123"),
+				UpkeepID: core.GenUpkeepID(types2.LogTrigger, "123"),
 				Trigger: ocr2keepers.Trigger{
 					LogTriggerExtension: &ocr2keepers.LogTriggerExtension{
 						BlockNumber: 80,
@@ -851,7 +852,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				},
 			},
 			logPoller: &mockLogPoller{
-				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
+				LatestBlockFn: func(ctx context.Context) (int64, error) {
 					return 300, nil
 				},
 			},
@@ -875,7 +876,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 		{
 			name: "if a log block is recoverable, when the log poller returns an error fetching logs, an error is returned",
 			proposal: ocr2keepers.CoordinatedBlockProposal{
-				UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "123"),
+				UpkeepID: core.GenUpkeepID(types2.LogTrigger, "123"),
 				Trigger: ocr2keepers.Trigger{
 					LogTriggerExtension: &ocr2keepers.LogTriggerExtension{
 						BlockNumber: 80,
@@ -883,10 +884,10 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				},
 			},
 			logPoller: &mockLogPoller{
-				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
+				LatestBlockFn: func(ctx context.Context) (int64, error) {
 					return 300, nil
 				},
-				LogsWithSigsFn: func(start, end int64, eventSigs []common.Hash, address common.Address, qopts ...pg.QOpt) ([]logpoller.Log, error) {
+				LogsWithSigsFn: func(ctx context.Context, start, end int64, eventSigs []common.Hash, address common.Address) ([]logpoller.Log, error) {
 					return nil, errors.New("logs with sigs boom")
 				},
 			},
@@ -910,7 +911,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 		{
 			name: "if a log block is recoverable, when logs cannot be found for an upkeep ID, an error is returned",
 			proposal: ocr2keepers.CoordinatedBlockProposal{
-				UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "123"),
+				UpkeepID: core.GenUpkeepID(types2.LogTrigger, "123"),
 				Trigger: ocr2keepers.Trigger{
 					LogTriggerExtension: &ocr2keepers.LogTriggerExtension{
 						BlockNumber: 80,
@@ -918,10 +919,10 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				},
 			},
 			logPoller: &mockLogPoller{
-				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
+				LatestBlockFn: func(ctx context.Context) (int64, error) {
 					return 300, nil
 				},
-				LogsWithSigsFn: func(start, end int64, eventSigs []common.Hash, address common.Address, qopts ...pg.QOpt) ([]logpoller.Log, error) {
+				LogsWithSigsFn: func(ctx context.Context, start, end int64, eventSigs []common.Hash, address common.Address) ([]logpoller.Log, error) {
 					return []logpoller.Log{
 						{
 							BlockNumber: 80,
@@ -949,7 +950,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 		{
 			name: "happy path with empty check data",
 			proposal: ocr2keepers.CoordinatedBlockProposal{
-				UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "123"),
+				UpkeepID: core.GenUpkeepID(types2.LogTrigger, "123"),
 				Trigger: func() ocr2keepers.Trigger {
 					t := ocr2keepers.NewTrigger(
 						ocr2keepers.BlockNumber(80),
@@ -966,10 +967,10 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				WorkID: "7f775793422d178c90e99c3bbdf05181bc6bb6ce13170e87c92ac396bb7ddda0",
 			},
 			logPoller: &mockLogPoller{
-				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
+				LatestBlockFn: func(ctx context.Context) (int64, error) {
 					return 300, nil
 				},
-				LogsWithSigsFn: func(start, end int64, eventSigs []common.Hash, address common.Address, qopts ...pg.QOpt) ([]logpoller.Log, error) {
+				LogsWithSigsFn: func(ctx context.Context, start, end int64, eventSigs []common.Hash, address common.Address) ([]logpoller.Log, error) {
 					return []logpoller.Log{
 						{
 							BlockNumber: 80,
@@ -1000,7 +1001,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 		{
 			name: "happy path with check data",
 			proposal: ocr2keepers.CoordinatedBlockProposal{
-				UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "123"),
+				UpkeepID: core.GenUpkeepID(types2.LogTrigger, "123"),
 				Trigger: func() ocr2keepers.Trigger {
 					t := ocr2keepers.NewTrigger(
 						ocr2keepers.BlockNumber(80),
@@ -1017,10 +1018,10 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				WorkID: "7f775793422d178c90e99c3bbdf05181bc6bb6ce13170e87c92ac396bb7ddda0",
 			},
 			logPoller: &mockLogPoller{
-				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
+				LatestBlockFn: func(ctx context.Context) (int64, error) {
 					return 300, nil
 				},
-				LogsWithSigsFn: func(start, end int64, eventSigs []common.Hash, address common.Address, qopts ...pg.QOpt) ([]logpoller.Log, error) {
+				LogsWithSigsFn: func(ctx context.Context, start, end int64, eventSigs []common.Hash, address common.Address) ([]logpoller.Log, error) {
 					return []logpoller.Log{
 						{
 							EvmChainId:     ubig.New(big.NewInt(1)),
@@ -1061,7 +1062,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				filterStore.AddActiveUpkeeps(upkeepFilter{
 					addr:     []byte("test"),
 					topics:   []common.Hash{common.HexToHash("0x1"), common.HexToHash("0x2"), common.HexToHash("0x3"), common.HexToHash("0x4")},
-					upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "123").BigInt(),
+					upkeepID: core.GenUpkeepID(types2.LogTrigger, "123").BigInt(),
 				})
 			}
 
@@ -1111,34 +1112,34 @@ func TestLogRecoverer_pending(t *testing.T) {
 			name:         "add new and existing",
 			maxPerUpkeep: 10,
 			exist: []ocr2keepers.UpkeepPayload{
-				{WorkID: "1", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
+				{WorkID: "1", UpkeepID: core.GenUpkeepID(types2.LogTrigger, "1")},
 			},
 			new: []ocr2keepers.UpkeepPayload{
-				{WorkID: "1", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
-				{WorkID: "2", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "2")},
+				{WorkID: "1", UpkeepID: core.GenUpkeepID(types2.LogTrigger, "1")},
+				{WorkID: "2", UpkeepID: core.GenUpkeepID(types2.LogTrigger, "2")},
 			},
 			errored: []bool{false, false},
 			want: []ocr2keepers.UpkeepPayload{
-				{WorkID: "1", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
-				{WorkID: "2", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "2")},
+				{WorkID: "1", UpkeepID: core.GenUpkeepID(types2.LogTrigger, "1")},
+				{WorkID: "2", UpkeepID: core.GenUpkeepID(types2.LogTrigger, "2")},
 			},
 		},
 		{
 			name:         "exceed limits for upkeep",
 			maxPerUpkeep: 3,
 			exist: []ocr2keepers.UpkeepPayload{
-				{WorkID: "1", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
-				{WorkID: "2", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
-				{WorkID: "3", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
+				{WorkID: "1", UpkeepID: core.GenUpkeepID(types2.LogTrigger, "1")},
+				{WorkID: "2", UpkeepID: core.GenUpkeepID(types2.LogTrigger, "1")},
+				{WorkID: "3", UpkeepID: core.GenUpkeepID(types2.LogTrigger, "1")},
 			},
 			new: []ocr2keepers.UpkeepPayload{
-				{WorkID: "4", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
+				{WorkID: "4", UpkeepID: core.GenUpkeepID(types2.LogTrigger, "1")},
 			},
 			errored: []bool{true},
 			want: []ocr2keepers.UpkeepPayload{
-				{WorkID: "1", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
-				{WorkID: "2", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
-				{WorkID: "3", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
+				{WorkID: "1", UpkeepID: core.GenUpkeepID(types2.LogTrigger, "1")},
+				{WorkID: "2", UpkeepID: core.GenUpkeepID(types2.LogTrigger, "1")},
+				{WorkID: "3", UpkeepID: core.GenUpkeepID(types2.LogTrigger, "1")},
 			},
 		},
 	}
@@ -1198,15 +1199,15 @@ func (s *mockFilterStore) Has(id *big.Int) bool {
 
 type mockLogPoller struct {
 	logpoller.LogPoller
-	LatestBlockFn  func(qopts ...pg.QOpt) (int64, error)
-	LogsWithSigsFn func(start, end int64, eventSigs []common.Hash, address common.Address, qopts ...pg.QOpt) ([]logpoller.Log, error)
+	LatestBlockFn  func(ctx context.Context) (int64, error)
+	LogsWithSigsFn func(ctx context.Context, start, end int64, eventSigs []common.Hash, address common.Address) ([]logpoller.Log, error)
 }
 
-func (p *mockLogPoller) LogsWithSigs(start, end int64, eventSigs []common.Hash, address common.Address, qopts ...pg.QOpt) ([]logpoller.Log, error) {
-	return p.LogsWithSigsFn(start, end, eventSigs, address, qopts...)
+func (p *mockLogPoller) LogsWithSigs(ctx context.Context, start, end int64, eventSigs []common.Hash, address common.Address) ([]logpoller.Log, error) {
+	return p.LogsWithSigsFn(ctx, start, end, eventSigs, address)
 }
-func (p *mockLogPoller) LatestBlock(qopts ...pg.QOpt) (logpoller.LogPollerBlock, error) {
-	block, err := p.LatestBlockFn(qopts...)
+func (p *mockLogPoller) LatestBlock(ctx context.Context) (logpoller.LogPollerBlock, error) {
+	block, err := p.LatestBlockFn(ctx)
 	return logpoller.LogPollerBlock{BlockNumber: block}, err
 }
 

@@ -40,8 +40,6 @@ MaxBatchSize = 50
 SendInterval = '500ms'
 SendTimeout = '10s'
 UseBatchSend = true
-URL = ''
-ServerPubKey = ''
 
 [AuditLogger]
 Enabled = false
@@ -227,3 +225,21 @@ TLSCertPath = ''
 LatestReportTTL = '1s'
 MaxStaleAge = '1h0m0s'
 LatestReportDeadline = '5s'
+
+[Mercury.TLS]
+CertFile = ''
+
+[Capabilities]
+[Capabilities.Peering]
+IncomingMessageBufferSize = 10
+OutgoingMessageBufferSize = 10
+PeerID = ''
+TraceLogging = false
+
+[Capabilities.Peering.V2]
+Enabled = false
+AnnounceAddresses = []
+DefaultBootstrappers = []
+DeltaDial = '15s'
+DeltaReconcile = '1m0s'
+ListenAddresses = []

@@ -27,17 +27,18 @@ import (
 	reportModel "github.com/smartcontractkit/chainlink-testing-framework/testreporters"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
-	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_1"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_2"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_3"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
-
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
+	tt "github.com/smartcontractkit/chainlink/integration-tests/types"
+	iregistry22 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_registry_master_wrapper_2_2"
+	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_1"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_2"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_3"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 )
 
 // KeeperBenchmarkTest builds a test to check that chainlink nodes are able to upkeep a specified amount of Upkeep
@@ -59,6 +60,7 @@ type KeeperBenchmarkTest struct {
 	namespace        string
 	chainlinkNodes   []*client.ChainlinkK8sClient
 	chainClient      blockchain.EVMClient
+	testConfig       tt.KeeperBenchmarkTestConfig
 	contractDeployer contracts.ContractDeployer
 
 	linkToken contracts.LinkToken
@@ -113,13 +115,14 @@ func NewKeeperBenchmarkTest(t *testing.T, inputs KeeperBenchmarkTestInputs) *Kee
 }
 
 // Setup prepares contracts for the test
-func (k *KeeperBenchmarkTest) Setup(env *environment.Environment) {
+func (k *KeeperBenchmarkTest) Setup(env *environment.Environment, config tt.KeeperBenchmarkTestConfig) {
 	startTime := time.Now()
 	k.TestReporter.Summary.StartTime = startTime.UnixMilli()
 	k.ensureInputValues()
 	k.env = env
 	k.namespace = k.env.Cfg.Namespace
 	inputs := k.Inputs
+	k.testConfig = config
 
 	k.keeperRegistries = make([]contracts.KeeperRegistry, len(inputs.RegistryVersions))
 	k.keeperRegistrars = make([]contracts.KeeperRegistrar, len(inputs.RegistryVersions))
@@ -194,7 +197,7 @@ func (k *KeeperBenchmarkTest) Setup(env *environment.Environment) {
 	for index := range keysToFund {
 		// Fund chainlink nodes
 		nodesToFund := k.chainlinkNodes
-		if inputs.RegistryVersions[index] == ethereum.RegistryVersion_2_0 || inputs.RegistryVersions[index] == ethereum.RegistryVersion_2_1 {
+		if inputs.RegistryVersions[index] == ethereum.RegistryVersion_2_0 || inputs.RegistryVersions[index] == ethereum.RegistryVersion_2_1 || inputs.RegistryVersions[index] == ethereum.RegistryVersion_2_2 {
 			nodesToFund = k.chainlinkNodes[1:]
 		}
 		err = actions.FundChainlinkNodesAddress(nodesToFund, k.chainClient, k.Inputs.ChainlinkNodeFunding, index)
@@ -202,7 +205,7 @@ func (k *KeeperBenchmarkTest) Setup(env *environment.Environment) {
 	}
 
 	k.log.Info().Str("Setup Time", time.Since(startTime).String()).Msg("Finished Keeper Benchmark Test Setup")
-	err = k.SendSlackNotification(nil)
+	err = k.SendSlackNotification(nil, config)
 	if err != nil {
 		k.log.Warn().Msg("Sending test start slack notification failed")
 	}
@@ -243,20 +246,26 @@ func (k *KeeperBenchmarkTest) Run() {
 		if inputs.ForceSingleTxnKey {
 			txKeyId = 0
 		}
+		kr := k.keeperRegistries[rIndex]
 		ocrConfig, err := actions.BuildAutoOCR2ConfigVarsWithKeyIndex(
-			k.t, nodesWithoutBootstrap, *inputs.KeeperRegistrySettings, k.keeperRegistrars[rIndex].Address(), k.Inputs.DeltaStage, txKeyId, common.Address{},
+			k.t, nodesWithoutBootstrap, *inputs.KeeperRegistrySettings, kr.Address(), k.Inputs.DeltaStage, txKeyId, common.Address{}, kr.ChainModuleAddress(), kr.ReorgProtectionEnabled(),
 		)
 		require.NoError(k.t, err, "Building OCR config shouldn't fail")
 
+		rv := inputs.RegistryVersions[rIndex]
 		// Send keeper jobs to registry and chainlink nodes
-		if inputs.RegistryVersions[rIndex] == ethereum.RegistryVersion_2_0 || inputs.RegistryVersions[rIndex] == ethereum.RegistryVersion_2_1 {
-			actions.CreateOCRKeeperJobs(k.t, k.chainlinkNodes, k.keeperRegistries[rIndex].Address(), k.chainClient.GetChainID().Int64(), txKeyId, inputs.RegistryVersions[rIndex])
-			err = k.keeperRegistries[rIndex].SetConfig(*inputs.KeeperRegistrySettings, ocrConfig)
+		if rv == ethereum.RegistryVersion_2_0 || rv == ethereum.RegistryVersion_2_1 || rv == ethereum.RegistryVersion_2_2 {
+			actions.CreateOCRKeeperJobs(k.t, k.chainlinkNodes, kr.Address(), k.chainClient.GetChainID().Int64(), txKeyId, rv)
+			if rv == ethereum.RegistryVersion_2_0 {
+				err = kr.SetConfig(*inputs.KeeperRegistrySettings, ocrConfig)
+			} else {
+				err = kr.SetConfigTypeSafe(ocrConfig)
+			}
 			require.NoError(k.t, err, "Registry config should be be set successfully")
 			// Give time for OCR nodes to bootstrap
 			time.Sleep(1 * time.Minute)
 		} else {
-			actions.CreateKeeperJobsWithKeyIndex(k.t, k.chainlinkNodes, k.keeperRegistries[rIndex], txKeyId, ocrConfig, k.chainClient.GetChainID().String())
+			actions.CreateKeeperJobsWithKeyIndex(k.t, k.chainlinkNodes, kr, txKeyId, ocrConfig, k.chainClient.GetChainID().String())
 		}
 		err = k.chainClient.WaitForEvents()
 		require.NoError(k.t, err, "Error waiting for registry setConfig")
@@ -405,9 +414,10 @@ func (k *KeeperBenchmarkTest) TearDownVals(t *testing.T) (
 	string,
 	[]*client.ChainlinkK8sClient,
 	reportModel.TestReporter,
+	reportModel.GrafanaURLProvider,
 	blockchain.EVMClient,
 ) {
-	return t, k.namespace, k.chainlinkNodes, &k.TestReporter, k.chainClient
+	return t, k.namespace, k.chainlinkNodes, &k.TestReporter, k.testConfig, k.chainClient
 }
 
 // *********************
@@ -534,6 +544,8 @@ func (k *KeeperBenchmarkTest) contractABI(rIndex int) *abi.ABI {
 		contractABI, err = keeper_registry_wrapper2_0.KeeperRegistryMetaData.GetAbi()
 	case ethereum.RegistryVersion_2_1:
 		contractABI, err = iregistry21.IKeeperRegistryMasterMetaData.GetAbi()
+	case ethereum.RegistryVersion_2_2:
+		contractABI, err = iregistry22.IAutomationRegistryMasterMetaData.GetAbi()
 	default:
 		contractABI, err = keeper_registry_wrapper2_0.KeeperRegistryMetaData.GetAbi()
 	}
@@ -571,13 +583,23 @@ func (k *KeeperBenchmarkTest) ensureInputValues() {
 	}
 }
 
-func (k *KeeperBenchmarkTest) SendSlackNotification(slackClient *slack.Client) error {
+func (k *KeeperBenchmarkTest) SendSlackNotification(slackClient *slack.Client, config tt.KeeperBenchmarkTestConfig) error {
 	if slackClient == nil {
 		slackClient = slack.New(reportModel.SlackAPIKey)
 	}
 
+	grafanaUrl, err := config.GetGrafanaBaseURL()
+	if err != nil {
+		return err
+	}
+
+	dashboardUrl, err := config.GetGrafanaDashboardURL()
+	if err != nil {
+		return err
+	}
+
 	headerText := ":white_check_mark: Automation Benchmark Test STARTED :white_check_mark:"
-	formattedDashboardUrl := fmt.Sprintf("%s&from=%d&to=%s&var-namespace=%s&var-cl_node=chainlink-0-0", testreporters.DashboardUrl, k.TestReporter.Summary.StartTime, "now", k.env.Cfg.Namespace)
+	formattedDashboardUrl := fmt.Sprintf("%s%s?from=%d&to=%s&var-namespace=%s&var-cl_node=chainlink-0-0", grafanaUrl, dashboardUrl, k.TestReporter.Summary.StartTime, "now", k.env.Cfg.Namespace)
 	log.Info().Str("Dashboard", formattedDashboardUrl).Msg("Dashboard URL")
 
 	notificationBlocks := []slack.Block{}
@@ -638,10 +660,14 @@ func (k *KeeperBenchmarkTest) DeployBenchmarkKeeperContracts(index int) {
 		// Fund the registry with LINK
 		err := k.linkToken.Transfer(registry.Address(), big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(k.Inputs.Upkeeps.NumberOfUpkeeps))))
 		require.NoError(k.t, err, "Funding keeper registry contract shouldn't fail")
-		ocrConfig, err := actions.BuildAutoOCR2ConfigVars(k.t, k.chainlinkNodes[1:], *k.Inputs.KeeperRegistrySettings, registrar.Address(), k.Inputs.DeltaStage)
+		ocrConfig, err := actions.BuildAutoOCR2ConfigVars(k.t, k.chainlinkNodes[1:], *k.Inputs.KeeperRegistrySettings, registrar.Address(), k.Inputs.DeltaStage, registry.ChainModuleAddress(), registry.ReorgProtectionEnabled())
 		k.log.Debug().Interface("KeeperRegistrySettings", *k.Inputs.KeeperRegistrySettings).Interface("OCRConfig", ocrConfig).Msg("Config")
 		require.NoError(k.t, err, "Error building OCR config vars")
-		err = registry.SetConfig(*k.Inputs.KeeperRegistrySettings, ocrConfig)
+		if registryVersion == ethereum.RegistryVersion_2_0 {
+			err = registry.SetConfig(*k.Inputs.KeeperRegistrySettings, ocrConfig)
+		} else {
+			err = registry.SetConfigTypeSafe(ocrConfig)
+		}
 		require.NoError(k.t, err, "Registry config should be be set successfully")
 
 	}

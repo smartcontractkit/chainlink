@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"math/big"
 
-	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
+	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
+
+	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_compatible_utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 )
 
@@ -31,7 +33,7 @@ func (e reportEncoder) Encode(results ...ocr2keepers.CheckResult) ([]byte, error
 		return nil, ErrEmptyResults
 	}
 
-	report := automation_utils_2_1.KeeperRegistryBase21Report{
+	report := ac.IAutomationV21PlusCommonReport{
 		FastGasWei:   big.NewInt(0),
 		LinkNative:   big.NewInt(0),
 		UpkeepIds:    make([]*big.Int, len(results)),
@@ -65,7 +67,7 @@ func (e reportEncoder) Encode(results ...ocr2keepers.CheckResult) ([]byte, error
 			BlockHash: result.Trigger.BlockHash,
 		}
 		switch core.GetUpkeepType(result.UpkeepID) {
-		case ocr2keepers.LogTrigger:
+		case types.LogTrigger:
 			triggerW.TxHash = result.Trigger.LogTriggerExtension.TxHash
 			triggerW.LogIndex = result.Trigger.LogTriggerExtension.Index
 			triggerW.LogBlockHash = result.Trigger.LogTriggerExtension.BlockHash
@@ -107,7 +109,7 @@ func (e reportEncoder) Extract(raw []byte) ([]ocr2keepers.ReportedUpkeep, error)
 			triggerW.BlockHash,
 		)
 		switch core.GetUpkeepType(*id) {
-		case ocr2keepers.LogTrigger:
+		case types.LogTrigger:
 			trigger.LogTriggerExtension = &ocr2keepers.LogTriggerExtension{}
 			trigger.LogTriggerExtension.TxHash = triggerW.TxHash
 			trigger.LogTriggerExtension.Index = triggerW.LogIndex

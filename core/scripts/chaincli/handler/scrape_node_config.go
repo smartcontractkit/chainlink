@@ -114,7 +114,7 @@ func (h *baseHandler) scrapeNodes(ctx context.Context, log logger.Logger) {
 			pwd = defaultChainlinkNodePassword
 		}
 
-		cl, err := authenticate(url, email, pwd, log)
+		cl, err := authenticate(ctx, url, email, pwd, log)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -125,7 +125,7 @@ func (h *baseHandler) scrapeNodes(ctx context.Context, log logger.Logger) {
 	var wg sync.WaitGroup
 	for i, cl := range cls {
 		wg.Add(1)
-		go h.scrapeNodeInfo(&wg, i, cl, nodes, log)
+		go h.scrapeNodeInfo(ctx, &wg, i, cl, nodes, log)
 	}
 	wg.Wait()
 
@@ -184,8 +184,8 @@ func (h *baseHandler) fetchNodeInfosFromWeiwatchers(ctx context.Context, log log
 	return nodeInfos
 }
 
-func (h *baseHandler) fetchNodeInfosFromNodes(i int, cl cmd.HTTPClient, log logger.Logger) ([]string, *cmd.OCR2KeyBundlePresenter, string, *cmd.CSAKeyPresenters) {
-	resp, err := nodeRequest(cl, ethKeysEndpoint)
+func (h *baseHandler) fetchNodeInfosFromNodes(ctx context.Context, i int, cl cmd.HTTPClient, log logger.Logger) ([]string, *cmd.OCR2KeyBundlePresenter, string, *cmd.CSAKeyPresenters) {
+	resp, err := nodeRequest(ctx, cl, ethKeysEndpoint)
 	if err != nil {
 		log.Fatalf("failed to get ETH keys: %s", err)
 	}
@@ -204,17 +204,17 @@ func (h *baseHandler) fetchNodeInfosFromNodes(i int, cl cmd.HTTPClient, log logg
 		log.Warnf("%d th node has more than 1 node addresses. is this a multi-chain node? or this node used to serve another chain?", i)
 	}
 
-	ocr2Config, err := getNodeOCR2Config(cl)
+	ocr2Config, err := getNodeOCR2Config(ctx, cl)
 	if err != nil {
 		log.Fatalf("failed to get node OCR2 config: %s", err)
 	}
 
-	peerId, err := getP2PKeyID(cl)
+	peerId, err := getP2PKeyID(ctx, cl)
 	if err != nil {
 		log.Fatalf("failed to get p2p keys: %s", err)
 	}
 
-	resp, err = nodeRequest(cl, csaKeysEndpoint)
+	resp, err = nodeRequest(ctx, cl, csaKeysEndpoint)
 	if err != nil {
 		log.Fatalf("failed to get CSA keys: %s", err)
 	}
@@ -232,10 +232,10 @@ func (h *baseHandler) fetchNodeInfosFromNodes(i int, cl cmd.HTTPClient, log logg
 	return nodeAddresses, ocr2Config, peerId, &csaKeys
 }
 
-func (h *baseHandler) scrapeNodeInfo(wg *sync.WaitGroup, i int, cl cmd.HTTPClient, nodes map[string]*NodeInfo, log logger.Logger) {
+func (h *baseHandler) scrapeNodeInfo(ctx context.Context, wg *sync.WaitGroup, i int, cl cmd.HTTPClient, nodes map[string]*NodeInfo, log logger.Logger) {
 	defer wg.Done()
 
-	nodeAddresses, ocr2Config, peerId, csaKeys := h.fetchNodeInfosFromNodes(i, cl, log)
+	nodeAddresses, ocr2Config, peerId, csaKeys := h.fetchNodeInfosFromNodes(ctx, i, cl, log)
 
 	// this assumes the nodes are not multichain nodes and have only 1 node address assigned.
 	// for a multichain node, we can pass in a chain id and filter `ethKeys` array based on the chain id

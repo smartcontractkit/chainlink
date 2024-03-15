@@ -1,8 +1,10 @@
 package ocrcommon_test
 
 import (
+	"fmt"
 	"math/big"
 	"testing"
+	"time"
 
 	promtestutil "github.com/prometheus/client_golang/prometheus/testutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
@@ -12,9 +14,11 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	serializablebig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	pipelinemocks "github.com/smartcontractkit/chainlink/v2/core/services/pipeline/mocks"
@@ -42,6 +46,96 @@ func Test_InMemoryDataSource(t *testing.T) {
 	val, err := ds.Observe(testutils.Context(t), types.ReportTimestamp{})
 	require.NoError(t, err)
 	assert.Equal(t, mockValue, val.String()) // returns expected value after pipeline run
+}
+
+func Test_CachedInMemoryDataSourceErrHandling(t *testing.T) {
+	changeResultValue := func(runner *pipelinemocks.Runner, value string, returnErr, once bool) {
+		result := pipeline.Result{
+			Value: value,
+			Error: nil,
+		}
+		if returnErr {
+			result.Error = assert.AnError
+		}
+
+		call := runner.On("ExecuteRun", mock.Anything, mock.AnythingOfType("pipeline.Spec"), mock.Anything, mock.Anything).
+			Return(&pipeline.Run{}, pipeline.TaskRunResults{
+				{
+					Result: result,
+					Task:   &pipeline.HTTPTask{},
+				},
+			}, nil)
+		// last mock can't be Once or test will panic because there are logs after it finished
+		if once {
+			call.Once()
+		}
+	}
+	t.Run("test normal cache updater fail recovery", func(t *testing.T) {
+		runner := pipelinemocks.NewRunner(t)
+		ds := ocrcommon.NewInMemoryDataSource(runner, job.Job{}, pipeline.Spec{}, logger.TestLogger(t))
+		mockKVStore := mocks.KVStore{}
+		mockKVStore.On("Store", mock.Anything, mock.Anything).Return(nil)
+		mockKVStore.On("Get", mock.Anything, mock.AnythingOfType("*big.Big")).Return(nil)
+		dsCache, err := ocrcommon.NewInMemoryDataSourceCache(ds, &mockKVStore, time.Second*2)
+		require.NoError(t, err)
+
+		mockVal := int64(1)
+		// Test if Observe notices that cache updater failed and can refresh the cache on its own
+		// 1. Set initial value
+		changeResultValue(runner, fmt.Sprint(mockVal), false, true)
+		time.Sleep(time.Millisecond * 100)
+		val, err := dsCache.Observe(testutils.Context(t), types.ReportTimestamp{})
+		require.NoError(t, err)
+		assert.Equal(t, mockVal, val.Int64())
+		// 2. Set values again, but make it error in updater
+		changeResultValue(runner, fmt.Sprint(mockVal+1), true, true)
+		time.Sleep(time.Second*2 + time.Millisecond*100)
+		// 3. Set value in between updates and call Observe (shouldn't flake because of huge wait time)
+		changeResultValue(runner, fmt.Sprint(mockVal+2), false, false)
+		val, err = dsCache.Observe(testutils.Context(t), types.ReportTimestamp{})
+		require.NoError(t, err)
+		assert.Equal(t, mockVal+2, val.Int64())
+	})
+
+	t.Run("test total updater fail with persisted value recovery", func(t *testing.T) {
+		persistedVal := big.NewInt(1337)
+		runner := pipelinemocks.NewRunner(t)
+		ds := ocrcommon.NewInMemoryDataSource(runner, job.Job{}, pipeline.Spec{}, logger.TestLogger(t))
+
+		mockKVStore := mocks.KVStore{}
+		mockKVStore.On("Get", mock.Anything, mock.AnythingOfType("*big.Big")).Return(nil).Run(func(args mock.Arguments) {
+			arg := args.Get(1).(*serializablebig.Big)
+			arg.ToInt().Set(persistedVal)
+		})
+
+		// set updater to a long time so that it doesn't log errors after the test is done
+		dsCache, err := ocrcommon.NewInMemoryDataSourceCache(ds, &mockKVStore, time.Hour*100)
+		require.NoError(t, err)
+		changeResultValue(runner, "-1", true, false)
+
+		time.Sleep(time.Millisecond * 100)
+		val, err := dsCache.Observe(testutils.Context(t), types.ReportTimestamp{})
+		require.NoError(t, err)
+		assert.Equal(t, persistedVal.String(), val.String())
+
+	})
+
+	t.Run("test total updater fail with no persisted value ", func(t *testing.T) {
+		runner := pipelinemocks.NewRunner(t)
+		ds := ocrcommon.NewInMemoryDataSource(runner, job.Job{}, pipeline.Spec{}, logger.TestLogger(t))
+
+		mockKVStore := mocks.KVStore{}
+		mockKVStore.On("Get", mock.Anything, mock.AnythingOfType("*big.Big")).Return(nil).Return(assert.AnError)
+
+		// set updater to a long time so that it doesn't log errors after the test is done
+		dsCache, err := ocrcommon.NewInMemoryDataSourceCache(ds, &mockKVStore, time.Hour*100)
+		require.NoError(t, err)
+		changeResultValue(runner, "-1", true, false)
+
+		time.Sleep(time.Millisecond * 100)
+		_, err = dsCache.Observe(testutils.Context(t), types.ReportTimestamp{})
+		require.Error(t, err)
+	})
 }
 
 func Test_InMemoryDataSourceWithProm(t *testing.T) {

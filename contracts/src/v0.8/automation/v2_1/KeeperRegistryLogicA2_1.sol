@@ -6,7 +6,7 @@ import {Address} from "../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils
 import {KeeperRegistryBase2_1} from "./KeeperRegistryBase2_1.sol";
 import {KeeperRegistryLogicB2_1} from "./KeeperRegistryLogicB2_1.sol";
 import {Chainable} from "../Chainable.sol";
-import {AutomationForwarder} from "./AutomationForwarder.sol";
+import {AutomationForwarder} from "../AutomationForwarder.sol";
 import {IAutomationForwarder} from "../interfaces/IAutomationForwarder.sol";
 import {UpkeepTranscoderInterfaceV2} from "../interfaces/UpkeepTranscoderInterfaceV2.sol";
 import {MigratableKeeperRegistryInterfaceV2} from "../interfaces/MigratableKeeperRegistryInterfaceV2.sol";

@@ -12,6 +12,6 @@ case "$1" in
       go run -ldflags "$LDFLAGS" . --  node start -d -p tools/secrets/password.txt -a tools/secrets/apicredentials
       ;;
     *)
-      go run . -- $@
+      go run . -- "$@"
       ;;
 esac

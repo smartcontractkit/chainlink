@@ -21,9 +21,9 @@ func Test_SendEveryStrategy(t *testing.T) {
 
 	assert.Equal(t, uuid.NullUUID{}, s.Subject())
 
-	n, err := s.PruneQueue(testutils.Context(t), nil)
+	ids, err := s.PruneQueue(testutils.Context(t), nil)
 	assert.NoError(t, err)
-	assert.Equal(t, int64(0), n)
+	assert.Len(t, ids, 0)
 }
 
 func Test_DropOldestStrategy_Subject(t *testing.T) {
@@ -47,9 +47,9 @@ func Test_DropOldestStrategy_PruneQueue(t *testing.T) {
 
 	t.Run("calls PrineUnstartedTxQueue for the given subject and queueSize, ignoring fromAddress", func(t *testing.T) {
 		strategy1 := txmgrcommon.NewDropOldestStrategy(subject, queueSize, queryTimeout)
-		mockTxStore.On("PruneUnstartedTxQueue", mock.Anything, queueSize, subject, mock.Anything, mock.Anything).Once().Return(int64(2), nil)
-		n, err := strategy1.PruneQueue(testutils.Context(t), mockTxStore)
+		mockTxStore.On("PruneUnstartedTxQueue", mock.Anything, queueSize-1, subject, mock.Anything, mock.Anything).Once().Return([]int64{1, 2}, nil)
+		ids, err := strategy1.PruneQueue(testutils.Context(t), mockTxStore)
 		require.NoError(t, err)
-		assert.Equal(t, int64(2), n)
+		assert.Equal(t, []int64{1, 2}, ids)
 	})
 }

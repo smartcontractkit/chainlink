@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 
+	commoncfg "github.com/smartcontractkit/chainlink/v2/common/config"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/config/docs"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
@@ -30,7 +31,7 @@ import (
 //   - TOML is limited to int64/float64, so fields requiring greater range/precision must use non-standard types
 //     implementing encoding.TextMarshaler/TextUnmarshaler, like big.Big and decimal.Decimal
 //   - std lib types that don't implement encoding.TextMarshaler/TextUnmarshaler (time.Duration, url.URL, big.Int) won't
-//     work as expected, and require wrapper types. See models.Duration, models.URL, big.Big.
+//     work as expected, and require wrapper types. See commonconfig.Duration, commonconfig.URL, big.Big.
 type Config struct {
 	toml.Core
 
@@ -76,7 +77,16 @@ func (c *Config) valueWarnings() (err error) {
 // deprecationWarnings returns an error if the Config contains deprecated fields.
 // This is typically used before defaults have been applied, with input from the user.
 func (c *Config) deprecationWarnings() (err error) {
-	// none
+	// ChainType xdai is deprecated and has been renamed to gnosis
+	for _, evm := range c.EVM {
+		if evm.ChainType != nil && *evm.ChainType == string(commoncfg.ChainXDai) {
+			err = multierr.Append(err, config.ErrInvalid{
+				Name:  "EVM.ChainType",
+				Value: *evm.ChainType,
+				Msg:   "deprecated and will be removed in v2.13.0, use 'gnosis' instead",
+			})
+		}
+	}
 	return
 }
 

@@ -346,6 +346,7 @@ RETURNING id
 		if errQ != nil {
 			return errors.Wrap(errQ, "inserting finished pipeline runs")
 		}
+		defer rows.Close()
 
 		var runIDs []int64
 		for rows.Next() {

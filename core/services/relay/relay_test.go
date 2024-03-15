@@ -1,12 +1,13 @@
 package relay
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -62,30 +63,72 @@ func TestNewID(t *testing.T) {
 }
 
 type staticMedianProvider struct {
-	types.MedianProvider
 }
 
-func (s staticMedianProvider) OffchainConfigDigester() ocrtypes.OffchainConfigDigester {
+var _ types.MedianProvider = staticMedianProvider{}
+
+// ContractConfigTracker implements types.MedianProvider.
+func (s staticMedianProvider) ContractConfigTracker() ocr2types.ContractConfigTracker {
 	return nil
 }
 
-func (s staticMedianProvider) ContractConfigTracker() ocrtypes.ContractConfigTracker {
+// ContractTransmitter implements types.MedianProvider.
+func (s staticMedianProvider) ContractTransmitter() ocr2types.ContractTransmitter {
 	return nil
 }
 
-func (s staticMedianProvider) ContractTransmitter() ocrtypes.ContractTransmitter {
-	return nil
-}
-
-func (s staticMedianProvider) ReportCodec() median.ReportCodec {
-	return nil
-}
-
+// MedianContract implements types.MedianProvider.
 func (s staticMedianProvider) MedianContract() median.MedianContract {
 	return nil
 }
 
+// OffchainConfigDigester implements types.MedianProvider.
+func (s staticMedianProvider) OffchainConfigDigester() ocr2types.OffchainConfigDigester {
+	return nil
+}
+
+// OnchainConfigCodec implements types.MedianProvider.
 func (s staticMedianProvider) OnchainConfigCodec() median.OnchainConfigCodec {
+	return nil
+}
+
+// ReportCodec implements types.MedianProvider.
+func (s staticMedianProvider) ReportCodec() median.ReportCodec {
+	return nil
+}
+
+// ChainReader implements types.MedianProvider.
+func (s staticMedianProvider) ChainReader() types.ChainReader {
+	return nil
+}
+
+// Close implements types.MedianProvider.
+func (s staticMedianProvider) Close() error {
+	return nil
+}
+
+// Codec implements types.MedianProvider.
+func (s staticMedianProvider) Codec() types.Codec {
+	return nil
+}
+
+// HealthReport implements types.MedianProvider.
+func (s staticMedianProvider) HealthReport() map[string]error {
+	return nil
+}
+
+// Name implements types.MedianProvider.
+func (s staticMedianProvider) Name() string {
+	return ""
+}
+
+// Ready implements types.MedianProvider.
+func (s staticMedianProvider) Ready() error {
+	return nil
+}
+
+// Start implements types.MedianProvider.
+func (s staticMedianProvider) Start(context.Context) error {
 	return nil
 }
 
@@ -99,6 +142,10 @@ type staticMercuryProvider struct {
 
 type staticAutomationProvider struct {
 	types.AutomationProvider
+}
+
+type staticPluginProvider struct {
+	types.PluginProvider
 }
 
 type mockRelayer struct {
@@ -119,6 +166,10 @@ func (m *mockRelayer) NewMercuryProvider(rargs types.RelayArgs, pargs types.Plug
 
 func (m *mockRelayer) NewAutomationProvider(rargs types.RelayArgs, pargs types.PluginArgs) (types.AutomationProvider, error) {
 	return staticAutomationProvider{}, nil
+}
+
+func (m *mockRelayer) NewPluginProvider(rargs types.RelayArgs, pargs types.PluginArgs) (types.PluginProvider, error) {
+	return staticPluginProvider{}, nil
 }
 
 type mockRelayerExt struct {
@@ -165,7 +216,7 @@ func TestRelayerServerAdapter(t *testing.T) {
 		},
 		{
 			ProviderType: string(types.GenericPlugin),
-			Error:        "unexpected call to NewPluginProvider",
+			Test:         isType[types.PluginProvider],
 		},
 	}
 

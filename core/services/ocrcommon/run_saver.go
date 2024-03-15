@@ -5,15 +5,20 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
+
+type Runner interface {
+	InsertFinishedRun(run *pipeline.Run, saveSuccessfulTaskRuns bool, qopts ...pg.QOpt) error
+}
 
 type RunResultSaver struct {
 	services.StateMachine
 
 	maxSuccessfulRuns uint64
 	runResults        chan *pipeline.Run
-	pipelineRunner    pipeline.Runner
+	pipelineRunner    Runner
 	done              chan struct{}
 	logger            logger.Logger
 }
@@ -24,7 +29,7 @@ func (r *RunResultSaver) HealthReport() map[string]error {
 
 func (r *RunResultSaver) Name() string { return r.logger.Name() }
 
-func NewResultRunSaver(pipelineRunner pipeline.Runner,
+func NewResultRunSaver(pipelineRunner Runner,
 	logger logger.Logger, maxSuccessfulRuns uint64, resultsWriteDepth uint64,
 ) *RunResultSaver {
 	return &RunResultSaver{

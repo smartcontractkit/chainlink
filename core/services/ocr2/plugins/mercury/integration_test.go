@@ -38,7 +38,7 @@ import (
 	v1 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v1"
 	v2 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v2"
 	v3 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
-	relaymercury "github.com/smartcontractkit/chainlink-data-streams/mercury"
+	datastreamsmercury "github.com/smartcontractkit/chainlink-data-streams/mercury"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -67,7 +67,7 @@ var (
 		Min: big.NewInt(0),
 		Max: big.NewInt(math.MaxInt64),
 	}
-	rawReportingPluginConfig = relaymercury.OffchainConfig{
+	rawReportingPluginConfig = datastreamsmercury.OffchainConfig{
 		ExpirationWindow: 1,
 		BaseUSDFee:       decimal.NewFromInt(100),
 	}
@@ -128,6 +128,10 @@ func setupBlockchain(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBacke
 func TestIntegration_MercuryV1(t *testing.T) {
 	t.Parallel()
 
+	integration_MercuryV1(t)
+}
+
+func integration_MercuryV1(t *testing.T) {
 	var logObservers []*observer.ObservedLogs
 	t.Cleanup(func() {
 		detectPanicLogs(t, logObservers)
@@ -269,7 +273,7 @@ func TestIntegration_MercuryV1(t *testing.T) {
 	}
 
 	// Setup config on contract
-	onchainConfig, err := (relaymercury.StandardOnchainConfigCodec{}).Encode(rawOnchainConfig)
+	onchainConfig, err := (datastreamsmercury.StandardOnchainConfigCodec{}).Encode(rawOnchainConfig)
 	require.NoError(t, err)
 
 	reportingPluginConfig, err := json.Marshal(rawReportingPluginConfig)
@@ -279,8 +283,8 @@ func TestIntegration_MercuryV1(t *testing.T) {
 		2*time.Second,        // DeltaProgress
 		20*time.Second,       // DeltaResend
 		400*time.Millisecond, // DeltaInitial
-		100*time.Millisecond, // DeltaRound
-		0,                    // DeltaGrace
+		200*time.Millisecond, // DeltaRound
+		100*time.Millisecond, // DeltaGrace
 		300*time.Millisecond, // DeltaCertifiedCommitRequest
 		1*time.Minute,        // DeltaStage
 		100,                  // rMax
@@ -357,7 +361,7 @@ func TestIntegration_MercuryV1(t *testing.T) {
 			err = reportcodecv1.ReportTypes.UnpackIntoMap(reportElems, report.([]byte))
 			require.NoError(t, err)
 
-			feedID := ([32]byte)(reportElems["feedId"].([32]uint8))
+			feedID := reportElems["feedId"].([32]uint8)
 			feed, exists := feedM[feedID]
 			require.True(t, exists)
 
@@ -421,7 +425,7 @@ func TestIntegration_MercuryV1(t *testing.T) {
 			err = reportcodecv1.ReportTypes.UnpackIntoMap(reportElems, report.([]byte))
 			require.NoError(t, err)
 
-			feedID := ([32]byte)(reportElems["feedId"].([32]uint8))
+			feedID := reportElems["feedId"].([32]uint8)
 			feed, exists := feedM[feedID]
 			require.True(t, exists)
 
@@ -466,6 +470,10 @@ func TestIntegration_MercuryV1(t *testing.T) {
 func TestIntegration_MercuryV2(t *testing.T) {
 	t.Parallel()
 
+	integration_MercuryV2(t)
+}
+
+func integration_MercuryV2(t *testing.T) {
 	var logObservers []*observer.ObservedLogs
 	t.Cleanup(func() {
 		detectPanicLogs(t, logObservers)
@@ -615,7 +623,7 @@ func TestIntegration_MercuryV2(t *testing.T) {
 	}
 
 	// Setup config on contract
-	onchainConfig, err := (relaymercury.StandardOnchainConfigCodec{}).Encode(rawOnchainConfig)
+	onchainConfig, err := (datastreamsmercury.StandardOnchainConfigCodec{}).Encode(rawOnchainConfig)
 	require.NoError(t, err)
 
 	reportingPluginConfig, err := json.Marshal(rawReportingPluginConfig)
@@ -691,7 +699,7 @@ func TestIntegration_MercuryV2(t *testing.T) {
 			err = reportcodecv2.ReportTypes.UnpackIntoMap(reportElems, report.([]byte))
 			require.NoError(t, err)
 
-			feedID := ([32]byte)(reportElems["feedId"].([32]uint8))
+			feedID := reportElems["feedId"].([32]uint8)
 			feed, exists := feedM[feedID]
 			require.True(t, exists)
 
@@ -699,7 +707,7 @@ func TestIntegration_MercuryV2(t *testing.T) {
 				continue // already saw all oracles for this feed
 			}
 
-			expectedFee := relaymercury.CalculateFee(big.NewInt(234567), rawReportingPluginConfig.BaseUSDFee)
+			expectedFee := datastreamsmercury.CalculateFee(big.NewInt(234567), rawReportingPluginConfig.BaseUSDFee)
 			expectedExpiresAt := reportElems["observationsTimestamp"].(uint32) + rawReportingPluginConfig.ExpirationWindow
 
 			assert.GreaterOrEqual(t, int(reportElems["observationsTimestamp"].(uint32)), int(testStartTimeStamp))
@@ -736,6 +744,10 @@ func TestIntegration_MercuryV2(t *testing.T) {
 func TestIntegration_MercuryV3(t *testing.T) {
 	t.Parallel()
 
+	integration_MercuryV3(t)
+}
+
+func integration_MercuryV3(t *testing.T) {
 	var logObservers []*observer.ObservedLogs
 	t.Cleanup(func() {
 		detectPanicLogs(t, logObservers)
@@ -776,16 +788,6 @@ func TestIntegration_MercuryV3(t *testing.T) {
 		feedM[feeds[i].id] = feeds[i]
 	}
 
-	reqs := make(chan request)
-	serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(-1))
-	serverPubKey := serverKey.PublicKey
-	srv := NewMercuryServer(t, ed25519.PrivateKey(serverKey.Raw()), reqs, func() []byte {
-		report, err := (&reportcodecv3.ReportCodec{}).BuildReport(v3.ReportFields{BenchmarkPrice: big.NewInt(234567), Bid: big.NewInt(1), Ask: big.NewInt(1), LinkFee: big.NewInt(1), NativeFee: big.NewInt(1)})
-		if err != nil {
-			panic(err)
-		}
-		return report
-	})
 	clientCSAKeys := make([]csakey.KeyV2, n+1)
 	clientPubKeys := make([]ed25519.PublicKey, n+1)
 	for i := 0; i < n+1; i++ {
@@ -794,7 +796,25 @@ func TestIntegration_MercuryV3(t *testing.T) {
 		clientCSAKeys[i] = key
 		clientPubKeys[i] = key.PublicKey
 	}
-	serverURL := startMercuryServer(t, srv, clientPubKeys)
+
+	// Test multi-send to three servers
+	const nSrvs = 3
+	reqChs := make([]chan request, nSrvs)
+	servers := make(map[string]string)
+	for i := 0; i < nSrvs; i++ {
+		k := csakey.MustNewV2XXXTestingOnly(big.NewInt(int64(-(i + 1))))
+		reqs := make(chan request, 100)
+		srv := NewMercuryServer(t, ed25519.PrivateKey(k.Raw()), reqs, func() []byte {
+			report, err := (&reportcodecv3.ReportCodec{}).BuildReport(v3.ReportFields{BenchmarkPrice: big.NewInt(234567), Bid: big.NewInt(1), Ask: big.NewInt(1), LinkFee: big.NewInt(1), NativeFee: big.NewInt(1)})
+			if err != nil {
+				panic(err)
+			}
+			return report
+		})
+		serverURL := startMercuryServer(t, srv, clientPubKeys)
+		reqChs[i] = reqs
+		servers[serverURL] = fmt.Sprintf("%x", k.PublicKey)
+	}
 	chainID := testutils.SimulatedChainID
 
 	steve, backend, verifier, verifierAddress := setupBlockchain(t)
@@ -883,8 +903,7 @@ func TestIntegration_MercuryV3(t *testing.T) {
 				bmBridge,
 				bidBridge,
 				askBridge,
-				serverURL,
-				serverPubKey,
+				servers,
 				clientPubKeys[i],
 				feed.name,
 				feed.id,
@@ -895,7 +914,7 @@ func TestIntegration_MercuryV3(t *testing.T) {
 	}
 
 	// Setup config on contract
-	onchainConfig, err := (relaymercury.StandardOnchainConfigCodec{}).Encode(rawOnchainConfig)
+	onchainConfig, err := (datastreamsmercury.StandardOnchainConfigCodec{}).Encode(rawOnchainConfig)
 	require.NoError(t, err)
 
 	reportingPluginConfig, err := json.Marshal(rawReportingPluginConfig)
@@ -951,8 +970,8 @@ func TestIntegration_MercuryV3(t *testing.T) {
 		backend.Commit()
 	}
 
-	runTestSetup := func() {
-		// Expect at least one report per feed from each oracle
+	runTestSetup := func(reqs chan request) {
+		// Expect at least one report per feed from each oracle, per server
 		seen := make(map[[32]byte]map[credentials.StaticSizedPublicKey]struct{})
 		for i := range feeds {
 			// feedID will be deleted when all n oracles have reported
@@ -971,7 +990,7 @@ func TestIntegration_MercuryV3(t *testing.T) {
 			err = reportcodecv3.ReportTypes.UnpackIntoMap(reportElems, report.([]byte))
 			require.NoError(t, err)
 
-			feedID := ([32]byte)(reportElems["feedId"].([32]uint8))
+			feedID := reportElems["feedId"].([32]uint8)
 			feed, exists := feedM[feedID]
 			require.True(t, exists)
 
@@ -979,7 +998,7 @@ func TestIntegration_MercuryV3(t *testing.T) {
 				continue // already saw all oracles for this feed
 			}
 
-			expectedFee := relaymercury.CalculateFee(big.NewInt(234567), rawReportingPluginConfig.BaseUSDFee)
+			expectedFee := datastreamsmercury.CalculateFee(big.NewInt(234567), rawReportingPluginConfig.BaseUSDFee)
 			expectedExpiresAt := reportElems["observationsTimestamp"].(uint32) + rawReportingPluginConfig.ExpirationWindow
 
 			assert.GreaterOrEqual(t, int(reportElems["observationsTimestamp"].(uint32)), int(testStartTimeStamp))
@@ -1005,12 +1024,10 @@ func TestIntegration_MercuryV3(t *testing.T) {
 		}
 	}
 
-	t.Run("receives at least one report per feed from each oracle when EAs are at 100% reliability", func(t *testing.T) {
-		runTestSetup()
-	})
-
-	t.Run("receives at least one report per feed from each oracle when EAs are at 80% reliability", func(t *testing.T) {
-		pError.Store(20)
-		runTestSetup()
+	t.Run("receives at least one report per feed for every server from each oracle when EAs are at 100% reliability", func(t *testing.T) {
+		for i := 0; i < nSrvs; i++ {
+			reqs := reqChs[i]
+			runTestSetup(reqs)
+		}
 	})
 }

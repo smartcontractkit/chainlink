@@ -165,6 +165,10 @@ func MustRandomBytes(t *testing.T, l int) (b []byte) {
 	return b
 }
 
+func FormatWithPrefixedChainID(chainID, id string) string {
+	return fmt.Sprintf("%s/%s", chainID, id)
+}
+
 type JobPipelineV2TestHelper struct {
 	Prm pipeline.ORM
 	Jrm job.ORM
@@ -232,6 +236,7 @@ func NewApplicationWithKey(t *testing.T, flagsAndDeps ...interface{}) *TestAppli
 // NewApplicationWithConfigAndKey creates a new TestApplication with the given testorm
 // it will also provide an unlocked account on the keystore
 func NewApplicationWithConfigAndKey(t testing.TB, c chainlink.GeneralConfig, flagsAndDeps ...interface{}) *TestApplication {
+	ctx := testutils.Context(t)
 	app := NewApplicationWithConfig(t, c, flagsAndDeps...)
 
 	chainID := *ubig.New(&FixtureChainID)
@@ -248,9 +253,9 @@ func NewApplicationWithConfigAndKey(t testing.TB, c chainlink.GeneralConfig, fla
 	} else {
 		id, ks := chainID.ToInt(), app.KeyStore.Eth()
 		for _, k := range app.Keys {
-			ks.XXXTestingOnlyAdd(k)
-			require.NoError(t, ks.Add(k.Address, id))
-			require.NoError(t, ks.Enable(k.Address, id))
+			ks.XXXTestingOnlyAdd(ctx, k)
+			require.NoError(t, ks.Add(ctx, k.Address, id))
+			require.NoError(t, ks.Enable(ctx, k.Address, id))
 		}
 	}
 
@@ -311,8 +316,6 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		auditLogger = audit.NoopLogger
 	}
 
-	var eventBroadcaster pg.EventBroadcaster = pg.NewNullEventBroadcaster()
-
 	url := cfg.Database().URL()
 	db, err := pg.NewConnection(url.String(), cfg.Database().Dialect(), cfg.Database())
 	require.NoError(t, err)
@@ -329,8 +332,6 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 			ethClient = dep
 		case webhook.ExternalInitiatorManager:
 			externalInitiatorManager = dep
-		case pg.EventBroadcaster:
-			eventBroadcaster = dep
 		default:
 			switch flag {
 			case UseRealExternalInitiatorManager:
@@ -360,10 +361,10 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 
 	evmOpts := chainlink.EVMFactoryConfig{
 		ChainOpts: legacyevm.ChainOpts{
-			AppConfig:        cfg,
-			EventBroadcaster: eventBroadcaster,
-			MailMon:          mailMon,
-			DB:               db,
+			AppConfig: cfg,
+			MailMon:   mailMon,
+			SqlxDB:    db,
+			DB:        db,
 		},
 		CSAETHKeystore: keyStore,
 	}
@@ -416,9 +417,9 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	appInstance, err := chainlink.NewApplication(chainlink.ApplicationOpts{
 		Config:                     cfg,
-		EventBroadcaster:           eventBroadcaster,
 		MailMon:                    mailMon,
 		SqlxDB:                     db,
+		DB:                         db,
 		KeyStore:                   keyStore,
 		RelayerChainInteroperators: relayChainInterops,
 		Logger:                     lggr,
@@ -470,7 +471,7 @@ func NewEthMocksWithStartupAssertions(t testing.TB) *evmclimocks.Client {
 	c.On("Dial", mock.Anything).Maybe().Return(nil)
 	c.On("SubscribeNewHead", mock.Anything, mock.Anything).Maybe().Return(EmptyMockSubscription(t), nil)
 	c.On("SendTransaction", mock.Anything, mock.Anything).Maybe().Return(nil)
-	c.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Maybe().Return(Head(0), nil)
+	c.On("HeadByNumber", mock.Anything, mock.Anything).Maybe().Return(Head(0), nil)
 	c.On("ConfiguredChainID").Maybe().Return(&FixtureChainID)
 	c.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Maybe().Return([]byte{}, nil)
 	c.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(nil, errors.New("mocked"))
@@ -498,6 +499,7 @@ func NewEthMocksWithTransactionsOnBlocksAssertions(t testing.TB) *evmclimocks.Cl
 	h1 := HeadWithHash(1, h2.ParentHash)
 	h0 := HeadWithHash(0, h1.ParentHash)
 	c.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Maybe().Return(h2, nil)
+	c.On("HeadByNumber", mock.Anything, big.NewInt(0)).Maybe().Return(h0, nil) // finalized block
 	c.On("HeadByHash", mock.Anything, h1.Hash).Maybe().Return(h1, nil)
 	c.On("HeadByHash", mock.Anything, h0.Hash).Maybe().Return(h0, nil)
 	c.On("BatchCallContext", mock.Anything, mock.Anything).Maybe().Return(nil).Run(func(args mock.Arguments) {
@@ -573,9 +575,9 @@ func (ta *TestApplication) MustSeedNewSession(email string) (id string) {
 }
 
 // ImportKey adds private key to the application keystore and database
-func (ta *TestApplication) Import(content string) {
+func (ta *TestApplication) Import(ctx context.Context, content string) {
 	require.NoError(ta.t, ta.KeyStore.Unlock(Password))
-	_, err := ta.KeyStore.Eth().Import([]byte(content), Password, &FixtureChainID)
+	_, err := ta.KeyStore.Eth().Import(ctx, []byte(content), Password, &FixtureChainID)
 	require.NoError(ta.t, err)
 }
 
@@ -698,27 +700,27 @@ type HTTPClientCleaner struct {
 }
 
 func (r *HTTPClientCleaner) Get(path string, headers ...map[string]string) (*http.Response, func()) {
-	resp, err := r.HTTPClient.Get(path, headers...)
+	resp, err := r.HTTPClient.Get(testutils.Context(r.t), path, headers...)
 	return bodyCleaner(r.t, resp, err)
 }
 
 func (r *HTTPClientCleaner) Post(path string, body io.Reader) (*http.Response, func()) {
-	resp, err := r.HTTPClient.Post(path, body)
+	resp, err := r.HTTPClient.Post(testutils.Context(r.t), path, body)
 	return bodyCleaner(r.t, resp, err)
 }
 
 func (r *HTTPClientCleaner) Put(path string, body io.Reader) (*http.Response, func()) {
-	resp, err := r.HTTPClient.Put(path, body)
+	resp, err := r.HTTPClient.Put(testutils.Context(r.t), path, body)
 	return bodyCleaner(r.t, resp, err)
 }
 
 func (r *HTTPClientCleaner) Patch(path string, body io.Reader, headers ...map[string]string) (*http.Response, func()) {
-	resp, err := r.HTTPClient.Patch(path, body, headers...)
+	resp, err := r.HTTPClient.Patch(testutils.Context(r.t), path, body, headers...)
 	return bodyCleaner(r.t, resp, err)
 }
 
 func (r *HTTPClientCleaner) Delete(path string) (*http.Response, func()) {
-	resp, err := r.HTTPClient.Delete(path)
+	resp, err := r.HTTPClient.Delete(testutils.Context(r.t), path)
 	return bodyCleaner(r.t, resp, err)
 }
 
@@ -878,10 +880,7 @@ func CreateExternalInitiatorViaWeb(
 	t.Helper()
 
 	client := app.NewHTTPClient(nil)
-	resp, cleanup := client.Post(
-		"/v2/external_initiators",
-		bytes.NewBufferString(payload),
-	)
+	resp, cleanup := client.Post("/v2/external_initiators", bytes.NewBufferString(payload))
 	defer cleanup()
 	AssertServerResponse(t, resp, http.StatusCreated)
 	ei := &webpresenters.ExternalInitiatorAuthentication{}
@@ -1131,7 +1130,7 @@ func unauthenticatedHTTP(t testing.TB, method string, url string, body io.Reader
 	t.Helper()
 
 	client := clhttptest.NewTestLocalOnlyHTTPClient()
-	request, err := http.NewRequest(method, url, body)
+	request, err := http.NewRequestWithContext(testutils.Context(t), method, url, body)
 	require.NoError(t, err)
 	request.Header.Set("Content-Type", "application/json")
 	for key, value := range headers {

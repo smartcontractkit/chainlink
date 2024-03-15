@@ -207,6 +207,7 @@ func (d *db) StorePendingTransmission(ctx context.Context, k ocrtypes.ReportTime
 }
 
 func (d *db) PendingTransmissionsWithConfigDigest(ctx context.Context, cd ocrtypes.ConfigDigest) (map[ocrtypes.ReportTimestamp]ocrtypes.PendingTransmission, error) {
+	//nolint sqlclosecheck false positive
 	rows, err := d.q.QueryContext(ctx, `
 SELECT
 	config_digest,
@@ -317,6 +318,7 @@ LIMIT 1
 	if err != nil {
 		return rr, errors.Wrap(err, "LoadLatestRoundRequested failed to query rows")
 	}
+	defer func() { err = multierr.Combine(err, rows.Close()) }()
 
 	for rows.Next() {
 		var configDigest []byte
@@ -336,8 +338,6 @@ LIMIT 1
 	if err = rows.Err(); err != nil {
 		return
 	}
-
-	err = multierr.Combine(err, rows.Close())
 
 	return
 }

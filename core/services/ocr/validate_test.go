@@ -11,13 +11,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 func TestValidateOracleSpec(t *testing.T) {
@@ -359,7 +359,7 @@ answer1      [type=median index=0];
 				require.Contains(t, err.Error(), "data source timeout must be between 1s and 20s, but is currently 20m0s")
 			},
 			overrides: func(c *chainlink.Config, s *chainlink.Secrets) {
-				c.OCR.ObservationTimeout = models.MustNewDuration(20 * time.Minute)
+				c.OCR.ObservationTimeout = commonconfig.MustNewDuration(20 * time.Minute)
 			},
 		},
 	}

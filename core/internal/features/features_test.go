@@ -39,6 +39,8 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -85,7 +87,7 @@ func TestIntegration_ExternalInitiatorV2(t *testing.T) {
 
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.JobPipeline.ExternalInitiatorsEnabled = ptr(true)
-		c.Database.Listener.FallbackPollInterval = models.MustNewDuration(10 * time.Millisecond)
+		c.Database.Listener.FallbackPollInterval = commonconfig.MustNewDuration(10 * time.Millisecond)
 	})
 
 	app := cltest.NewApplicationWithConfig(t, cfg, ethClient, cltest.UseRealExternalInitiatorManager)
@@ -359,17 +361,18 @@ func TestIntegration_DirectRequest(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
+			ctx := testutils.Context(t)
 			// Simulate a consumer contract calling to obtain ETH quotes in 3 different currencies
 			// in a single callback.
 			config := configtest.NewGeneralConfigSimulated(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-				c.Database.Listener.FallbackPollInterval = models.MustNewDuration(100 * time.Millisecond)
+				c.Database.Listener.FallbackPollInterval = commonconfig.MustNewDuration(100 * time.Millisecond)
 				c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(true)
 			})
 			operatorContracts := setupOperatorContracts(t)
 			b := operatorContracts.sim
 			app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, b)
 
-			sendingKeys, err := app.KeyStore.Eth().EnabledKeysForChain(testutils.SimulatedChainID)
+			sendingKeys, err := app.KeyStore.Eth().EnabledKeysForChain(ctx, testutils.SimulatedChainID)
 			require.NoError(t, err)
 			authorizedSenders := []common.Address{sendingKeys[0].Address}
 			tx, err := operatorContracts.operator.SetAuthorizedSenders(operatorContracts.user, authorizedSenders)
@@ -467,12 +470,12 @@ func setupAppForEthTx(t *testing.T, operatorContracts OperatorContracts) (app *c
 	lggr, o := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 
 	cfg := configtest.NewGeneralConfigSimulated(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.Database.Listener.FallbackPollInterval = models.MustNewDuration(100 * time.Millisecond)
+		c.Database.Listener.FallbackPollInterval = commonconfig.MustNewDuration(100 * time.Millisecond)
 	})
 	app = cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, cfg, b, lggr)
 	b.Commit()
 
-	sendingKeys, err := app.KeyStore.Eth().EnabledKeysForChain(testutils.SimulatedChainID)
+	sendingKeys, err := app.KeyStore.Eth().EnabledKeysForChain(testutils.Context(t), testutils.SimulatedChainID)
 	require.NoError(t, err)
 	require.Len(t, sendingKeys, 1)
 
@@ -522,8 +525,8 @@ observationSource   = """
 		cltest.AwaitJobActive(t, app.JobSpawner(), j.ID, testutils.WaitTimeout(t))
 
 		run := cltest.CreateJobRunViaUser(t, app, j.ExternalJobID, "")
-		assert.Equal(t, []*string([]*string(nil)), run.Outputs)
-		assert.Equal(t, []*string([]*string(nil)), run.Errors)
+		assert.Equal(t, []*string(nil), run.Outputs)
+		assert.Equal(t, []*string(nil), run.Errors)
 
 		testutils.WaitForLogMessage(t, o, "Sending transaction")
 		b.Commit() // Needs at least two confirmations
@@ -568,8 +571,8 @@ observationSource   = """
 		cltest.AwaitJobActive(t, app.JobSpawner(), j.ID, testutils.WaitTimeout(t))
 
 		run := cltest.CreateJobRunViaUser(t, app, j.ExternalJobID, "")
-		assert.Equal(t, []*string([]*string(nil)), run.Outputs)
-		assert.Equal(t, []*string([]*string(nil)), run.Errors)
+		assert.Equal(t, []*string(nil), run.Outputs)
+		assert.Equal(t, []*string(nil), run.Errors)
 
 		testutils.WaitForLogMessage(t, o, "Sending transaction")
 		b.Commit() // Needs at least two confirmations
@@ -606,8 +609,8 @@ observationSource   = """
 		cltest.AwaitJobActive(t, app.JobSpawner(), j.ID, testutils.WaitTimeout(t))
 
 		run := cltest.CreateJobRunViaUser(t, app, j.ExternalJobID, "")
-		assert.Equal(t, []*string([]*string(nil)), run.Outputs)
-		assert.Equal(t, []*string([]*string(nil)), run.Errors)
+		assert.Equal(t, []*string(nil), run.Outputs)
+		assert.Equal(t, []*string(nil), run.Errors)
 
 		testutils.WaitForLogMessage(t, o, "Sending transaction")
 		b.Commit() // Needs at least two confirmations
@@ -689,10 +692,10 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, portV2 int,
 
 		c.P2P.V2.Enabled = ptr(true)
 		c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", portV2)}
-		c.P2P.V2.DeltaReconcile = models.MustNewDuration(5 * time.Second)
+		c.P2P.V2.DeltaReconcile = commonconfig.MustNewDuration(5 * time.Second)
 
 		// GracePeriod < ObservationTimeout
-		c.EVM[0].OCR.ObservationGracePeriod = models.MustNewDuration(100 * time.Millisecond)
+		c.EVM[0].OCR.ObservationGracePeriod = commonconfig.MustNewDuration(100 * time.Millisecond)
 
 		if overrides != nil {
 			overrides(c, s)
@@ -701,7 +704,7 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, portV2 int,
 
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, b, p2pKey)
 
-	sendingKeys, err := app.KeyStore.Eth().EnabledKeysForChain(testutils.SimulatedChainID)
+	sendingKeys, err := app.KeyStore.Eth().EnabledKeysForChain(testutils.Context(t), testutils.SimulatedChainID)
 	require.NoError(t, err)
 	transmitter := sendingKeys[0].Address
 
@@ -732,7 +735,7 @@ func setupForwarderEnabledNode(t *testing.T, owner *bind.TransactOpts, portV2 in
 		c.P2P.PeerID = ptr(p2pKey.PeerID())
 		c.P2P.V2.Enabled = ptr(true)
 		c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", portV2)}
-		c.P2P.V2.DeltaReconcile = models.MustNewDuration(5 * time.Second)
+		c.P2P.V2.DeltaReconcile = commonconfig.MustNewDuration(5 * time.Second)
 
 		c.EVM[0].Transactions.ForwardersEnabled = ptr(true)
 
@@ -743,7 +746,7 @@ func setupForwarderEnabledNode(t *testing.T, owner *bind.TransactOpts, portV2 in
 
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, b, p2pKey)
 
-	sendingKeys, err := app.KeyStore.Eth().EnabledKeysForChain(testutils.SimulatedChainID)
+	sendingKeys, err := app.KeyStore.Eth().EnabledKeysForChain(testutils.Context(t), testutils.SimulatedChainID)
 	require.NoError(t, err)
 	transmitter := sendingKeys[0].Address
 
@@ -771,9 +774,9 @@ func setupForwarderEnabledNode(t *testing.T, owner *bind.TransactOpts, portV2 in
 	b.Commit()
 
 	// add forwarder address to be tracked in db
-	forwarderORM := forwarders.NewORM(app.GetSqlxDB(), logger.TestLogger(t), config.Database())
+	forwarderORM := forwarders.NewORM(app.GetDB())
 	chainID := ubig.Big(*b.Blockchain().Config().ChainID)
-	_, err = forwarderORM.CreateForwarder(forwarder, chainID)
+	_, err = forwarderORM.CreateForwarder(testutils.Context(t), forwarder, chainID)
 	require.NoError(t, err)
 
 	return app, p2pKey.PeerID().Raw(), transmitter, forwarder, key
@@ -1318,7 +1321,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(cc)
 	for _, re := range cc.Slice() {
-		require.NoError(t, re.Start(testutils.Context(t)))
+		servicetest.Run(t, re)
 	}
 	var newHeads evmtest.RawSub[*evmtypes.Head]
 	select {
@@ -1331,7 +1334,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	estimator := chain.GasEstimator()
 	gasPrice, gasLimit, err := estimator.GetFee(testutils.Context(t), nil, 500_000, maxGasPrice)
 	require.NoError(t, err)
-	assert.Equal(t, uint32(500000), gasLimit)
+	assert.Equal(t, uint64(500000), gasLimit)
 	assert.Equal(t, "41.5 gwei", gasPrice.Legacy.String())
 	assert.Equal(t, initialDefaultGasPrice, chain.Config().EVM().GasEstimator().PriceDefault().Int64()) // unchanged
 
@@ -1342,6 +1345,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 		elems := args.Get(1).([]rpc.BatchElem)
 		elems[0].Result = &b43
 	})
+	ethClient.On("Close").Return().Once()
 
 	// Simulate one new head and check the gas price got updated
 	h43 := cltest.Head(43)
@@ -1357,7 +1361,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 
 func triggerAllKeys(t *testing.T, app *cltest.TestApplication) {
 	for _, chain := range app.GetRelayers().LegacyEVMChains().Slice() {
-		keys, err := app.KeyStore.Eth().EnabledKeysForChain(chain.ID())
+		keys, err := app.KeyStore.Eth().EnabledKeysForChain(testutils.Context(t), chain.ID())
 		require.NoError(t, err)
 		for _, k := range keys {
 			chain.TxManager().Trigger(k.Address)

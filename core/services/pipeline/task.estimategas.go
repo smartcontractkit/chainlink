@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 	"go.uber.org/multierr"
@@ -28,6 +29,7 @@ type EstimateGasLimitTask struct {
 	Multiplier string `json:"multiplier"`
 	Data       string `json:"data"`
 	EVMChainID string `json:"evmChainID" mapstructure:"evmChainID"`
+	Block      string `json:"block"`
 
 	specGasLimit *uint32
 	legacyChains legacyevm.LegacyChainContainer
@@ -61,6 +63,7 @@ func (t *EstimateGasLimitTask) Run(ctx context.Context, lggr logger.Logger, vars
 		data       BytesParam
 		multiplier DecimalParam
 		chainID    StringParam
+		block      StringParam
 	)
 	err := multierr.Combine(
 		errors.Wrap(ResolveParam(&fromAddr, From(VarExpr(t.From, vars), utils.ZeroAddress)), "from"),
@@ -69,6 +72,7 @@ func (t *EstimateGasLimitTask) Run(ctx context.Context, lggr logger.Logger, vars
 		// Default to 1, i.e. exactly what estimateGas suggests
 		errors.Wrap(ResolveParam(&multiplier, From(VarExpr(t.Multiplier, vars), NonemptyString(t.Multiplier), decimal.New(1, 0))), "multiplier"),
 		errors.Wrap(ResolveParam(&chainID, From(VarExpr(t.getEvmChainID(), vars), NonemptyString(t.getEvmChainID()), "")), "evmChainID"),
+		errors.Wrap(ResolveParam(&block, From(VarExpr(t.Block, vars), t.Block)), "block"),
 	)
 	if err != nil {
 		return Result{Error: err}, runInfo
@@ -82,18 +86,32 @@ func (t *EstimateGasLimitTask) Run(ctx context.Context, lggr logger.Logger, vars
 
 	maximumGasLimit := SelectGasLimit(chain.Config().EVM().GasEstimator(), t.jobType, t.specGasLimit)
 	to := common.Address(toAddr)
-	gasLimit, err := chain.Client().EstimateGas(ctx, ethereum.CallMsg{
-		From: common.Address(fromAddr),
-		To:   &to,
-		Data: data,
-	})
+	var gasLimit hexutil.Uint64
+	args := map[string]interface{}{
+		"from":  common.Address(fromAddr),
+		"to":    &to,
+		"input": hexutil.Bytes([]byte(data)),
+	}
+
+	selectedBlock, err := selectBlock(string(block))
+	if err != nil {
+		return Result{Error: err}, runInfo
+	}
+	err = chain.Client().CallContext(ctx,
+		&gasLimit,
+		"eth_estimateGas",
+		args,
+		selectedBlock,
+	)
+
 	if err != nil {
 		// Fallback to the maximum conceivable gas limit
 		// if we're unable to call estimate gas for whatever reason.
 		lggr.Warnw("EstimateGas: unable to estimate, fallback to configured limit", "err", err, "fallback", maximumGasLimit)
 		return Result{Value: maximumGasLimit}, runInfo
 	}
-	gasLimitDecimal, err := decimal.NewFromString(strconv.FormatUint(gasLimit, 10))
+
+	gasLimitDecimal, err := decimal.NewFromString(strconv.FormatUint(uint64(gasLimit), 10))
 	if err != nil {
 		return Result{Error: err}, retryableRunInfo()
 	}
@@ -105,7 +123,7 @@ func (t *EstimateGasLimitTask) Run(ctx context.Context, lggr logger.Logger, vars
 	if !gasLimitWithMultiplier.IsUint64() {
 		return Result{Error: ErrInvalidMultiplier}, retryableRunInfo()
 	}
-	gasLimitFinal := uint32(gasLimitWithMultiplier.Uint64())
+	gasLimitFinal := gasLimitWithMultiplier.Uint64()
 	if gasLimitFinal > maximumGasLimit {
 		lggr.Warnw("EstimateGas: estimated amount is greater than configured limit, fallback to configured limit",
 			"estimate", gasLimitFinal,

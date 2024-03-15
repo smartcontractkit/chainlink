@@ -333,7 +333,7 @@ func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, contain
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to create toml file: %w", err)
 	}
-	var secretTOMLStr = fmt.Sprintf(secretTOML, h.cfg.MercuryURL, h.cfg.MercuryID, h.cfg.MercuryKey)
+	var secretTOMLStr = fmt.Sprintf(secretTOML, h.cfg.DataStreamsURL, h.cfg.DataStreamsID, h.cfg.DataStreamsKey)
 	secretFile, secretTOMLFileCleanup, err := createTomlFile(secretTOMLStr)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to create secret toml file: %w", err)
@@ -399,7 +399,7 @@ func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, contain
 	addr := fmt.Sprintf("http://localhost:%s", portStr)
 	log.Println("Node docker container successfully created and started: ", nodeContainerResp.ID, addr)
 
-	if err = waitForNodeReady(addr); err != nil {
+	if err = waitForNodeReady(ctx, addr); err != nil {
 		log.Fatal(err, nodeContainerResp.ID)
 	}
 	log.Println("Node ready: ", nodeContainerResp.ID)
@@ -477,13 +477,13 @@ func checkAndRemoveContainer(ctx context.Context, dockerClient *client.Client, c
 	return nil
 }
 
-func waitForNodeReady(addr string) error {
+func waitForNodeReady(ctx context.Context, addr string) error {
 	client := &http.Client{}
 	defer client.CloseIdleConnections()
 	const timeout = 120
 	startTime := time.Now().Unix()
 	for {
-		req, err := http.NewRequest("GET", fmt.Sprintf("%s/health", addr), nil)
+		req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("%s/health", addr), nil)
 		if err != nil {
 			return err
 		}
@@ -503,7 +503,7 @@ func waitForNodeReady(addr string) error {
 }
 
 // authenticate creates a http client with URL, email and password
-func authenticate(urlStr, email, password string, lggr logger.Logger) (cmd.HTTPClient, error) {
+func authenticate(ctx context.Context, urlStr, email, password string, lggr logger.Logger) (cmd.HTTPClient, error) {
 	remoteNodeURL, err := url.Parse(urlStr)
 	if err != nil {
 		return nil, err
@@ -514,7 +514,7 @@ func authenticate(urlStr, email, password string, lggr logger.Logger) (cmd.HTTPC
 	store := &cmd.MemoryCookieStore{}
 
 	tca := cmd.NewSessionCookieAuthenticator(c, store, lggr)
-	if _, err = tca.Authenticate(sr); err != nil {
+	if _, err = tca.Authenticate(ctx, sr); err != nil {
 		log.Println("failed to authenticate: ", err)
 		return nil, err
 	}
@@ -522,8 +522,8 @@ func authenticate(urlStr, email, password string, lggr logger.Logger) (cmd.HTTPC
 	return cmd.NewAuthenticatedHTTPClient(lggr, c, tca, sr), nil
 }
 
-func nodeRequest(client cmd.HTTPClient, path string) ([]byte, error) {
-	resp, err := client.Get(path)
+func nodeRequest(ctx context.Context, client cmd.HTTPClient, path string) ([]byte, error) {
+	resp, err := client.Get(ctx, path)
 	if err != nil {
 		return []byte{}, fmt.Errorf("GET error from client: %w", err)
 	}
@@ -551,8 +551,8 @@ func nodeRequest(client cmd.HTTPClient, path string) ([]byte, error) {
 }
 
 // getNodeAddress returns chainlink node's wallet address
-func getNodeAddress(client cmd.HTTPClient) (string, error) {
-	resp, err := nodeRequest(client, ethKeysEndpoint)
+func getNodeAddress(ctx context.Context, client cmd.HTTPClient) (string, error) {
+	resp, err := nodeRequest(ctx, client, ethKeysEndpoint)
 	if err != nil {
 		return "", fmt.Errorf("failed to get ETH keys: %w", err)
 	}
@@ -566,8 +566,8 @@ func getNodeAddress(client cmd.HTTPClient) (string, error) {
 }
 
 // getNodeOCR2Config returns chainlink node's OCR2 bundle key ID
-func getNodeOCR2Config(client cmd.HTTPClient) (*cmd.OCR2KeyBundlePresenter, error) {
-	resp, err := nodeRequest(client, ocr2KeysEndpoint)
+func getNodeOCR2Config(ctx context.Context, client cmd.HTTPClient) (*cmd.OCR2KeyBundlePresenter, error) {
+	resp, err := nodeRequest(ctx, client, ocr2KeysEndpoint)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get OCR2 keys: %w", err)
 	}
@@ -589,8 +589,8 @@ func getNodeOCR2Config(client cmd.HTTPClient) (*cmd.OCR2KeyBundlePresenter, erro
 }
 
 // getP2PKeyID returns chainlink node's P2P key ID
-func getP2PKeyID(client cmd.HTTPClient) (string, error) {
-	resp, err := nodeRequest(client, p2pKeysEndpoint)
+func getP2PKeyID(ctx context.Context, client cmd.HTTPClient) (string, error) {
+	resp, err := nodeRequest(ctx, client, p2pKeysEndpoint)
 	if err != nil {
 		return "", fmt.Errorf("failed to get P2P keys: %w", err)
 	}

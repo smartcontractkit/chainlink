@@ -68,7 +68,7 @@ func (ok *OffchainKeyring) NaclBoxOpenAnonymous(ciphertext []byte) (plaintext []
 
 // OffchainSign signs message using private key
 func (ok *OffchainKeyring) OffchainSign(msg []byte) (signature []byte, err error) {
-	return ed25519.Sign(ed25519.PrivateKey(ok.signingKey), msg), nil
+	return ed25519.Sign(ok.signingKey, msg), nil
 }
 
 // ConfigDiffieHellman returns the shared point obtained by multiplying someone's

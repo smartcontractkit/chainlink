@@ -10,9 +10,11 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
+
 	commonhtrk "github.com/smartcontractkit/chainlink/v2/common/headtracker"
 	commonmocks "github.com/smartcontractkit/chainlink/v2/common/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
@@ -26,7 +28,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 func waitHeadBroadcasterToStart(t *testing.T, hb types.HeadBroadcaster) {
@@ -46,7 +47,7 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	g := gomega.NewWithT(t)
 
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].HeadTracker.SamplingInterval = &models.Duration{}
+		c.EVM[0].HeadTracker.SamplingInterval = &commonconfig.Duration{}
 	})
 	evmCfg := evmtest.NewChainScopedConfig(t, cfg)
 	db := pgtest.NewSqlxDB(t)
@@ -61,8 +62,8 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 			chchHeaders <- args.Get(1).(chan<- *evmtypes.Head)
 		}).
 		Return(sub, nil)
-	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(cltest.Head(1), nil).Once()
-	ethClient.On("HeadByHash", mock.Anything, mock.Anything).Return(cltest.Head(1), nil)
+	// 2 for initial and 2 for backfill
+	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(cltest.Head(1), nil).Times(4)
 
 	sub.On("Unsubscribe").Return()
 	sub.On("Err").Return(nil)
@@ -70,7 +71,7 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	checker1 := &cltest.MockHeadTrackable{}
 	checker2 := &cltest.MockHeadTrackable{}
 
-	orm := headtracker.NewORM(db, logger, cfg.Database(), *ethClient.ConfiguredChainID())
+	orm := headtracker.NewORM(*ethClient.ConfiguredChainID(), db)
 	hs := headtracker.NewHeadSaver(logger, orm, evmCfg.EVM(), evmCfg.EVM().HeadTracker())
 	mailMon := mailboxtest.NewMonitor(t)
 	servicetest.Run(t, mailMon)

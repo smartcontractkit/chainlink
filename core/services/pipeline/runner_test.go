@@ -942,3 +942,43 @@ en->de
 	require.NoError(t, err)
 	assert.Equal(t, inputBytes, result.Value)
 }
+
+func Test_PipelineRunner_ExecuteRun(t *testing.T) {
+	t.Run("uses cached *Pipeline if available", func(t *testing.T) {
+		db := pgtest.NewSqlxDB(t)
+		cfg := configtest.NewTestGeneralConfig(t)
+		ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
+		relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, KeyStore: ethKeyStore})
+		legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+		lggr := logger.TestLogger(t)
+		r := pipeline.NewRunner(nil, nil, cfg.JobPipeline(), cfg.WebServer(), legacyChains, ethKeyStore, nil, lggr, nil, nil)
+
+		template := `
+succeed             [type=memo value=%d]
+succeed;
+`
+
+		spec := pipeline.Spec{DotDagSource: fmt.Sprintf(template, 1)}
+		vars := pipeline.NewVarsFrom(nil)
+
+		_, trrs, err := r.ExecuteRun(testutils.Context(t), spec, vars, lggr)
+		require.NoError(t, err)
+		require.Len(t, trrs, 1)
+		assert.Equal(t, "1", trrs[0].Result.Value.(pipeline.ObjectParam).DecimalValue.Decimal().String())
+
+		// does not automatically cache
+		require.Nil(t, spec.Pipeline)
+
+		// initialize it
+		spec.Pipeline, err = spec.ParsePipeline()
+		require.NoError(t, err)
+
+		// even though this is set to 2, it should use the cached version
+		spec.DotDagSource = fmt.Sprintf(template, 2)
+
+		_, trrs, err = r.ExecuteRun(testutils.Context(t), spec, vars, lggr)
+		require.NoError(t, err)
+		require.Len(t, trrs, 1)
+		assert.Equal(t, "1", trrs[0].Result.Value.(pipeline.ObjectParam).DecimalValue.Decimal().String())
+	})
+}

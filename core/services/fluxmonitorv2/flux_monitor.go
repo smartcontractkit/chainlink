@@ -188,9 +188,9 @@ func NewFromJobSpec(
 	gasLimit := fcfg.LimitDefault()
 	fmLimit := fcfg.LimitJobType().FM()
 	if jobSpec.GasLimit.Valid {
-		gasLimit = jobSpec.GasLimit.Uint32
+		gasLimit = uint64(jobSpec.GasLimit.Uint32)
 	} else if fmLimit != nil {
-		gasLimit = *fmLimit
+		gasLimit = uint64(*fmLimit)
 	}
 
 	contractSubmitter := NewFluxAggregatorContractSubmitter(
@@ -466,12 +466,17 @@ func formatTime(at time.Time) string {
 // SetOracleAddress sets the oracle address which matches the node's keys.
 // If none match, it uses the first available key
 func (fm *FluxMonitor) SetOracleAddress() error {
+
+	// fm on deprecation path, using dangling context
+	ctx, cancel := fm.chStop.NewCtx()
+	defer cancel()
+
 	oracleAddrs, err := fm.fluxAggregator.GetOracles(nil)
 	if err != nil {
 		fm.logger.Error("failed to get list of oracles from FluxAggregator contract")
 		return errors.Wrap(err, "failed to get list of oracles from FluxAggregator contract")
 	}
-	keys, err := fm.keyStore.EnabledKeysForChain(fm.chainID)
+	keys, err := fm.keyStore.EnabledKeysForChain(ctx, fm.chainID)
 	if err != nil {
 		return errors.Wrap(err, "failed to load keys")
 	}

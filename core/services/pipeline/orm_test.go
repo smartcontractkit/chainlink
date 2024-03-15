@@ -291,7 +291,7 @@ func Test_PipelineORM_StoreRun_DetectsRestarts(t *testing.T) {
 	ds1_id := uuid.New()
 
 	// insert something for this pipeline_run to trigger an early resume while the pipeline is running
-	_, err = db.NamedQuery(`
+	rows, err := db.NamedQuery(`
 	INSERT INTO pipeline_task_runs (pipeline_run_id, id, type, index, output, error, dot_id, created_at, finished_at)
 	VALUES (:pipeline_run_id, :id, :type, :index, :output, :error, :dot_id, :created_at, :finished_at)
 	`, pipeline.TaskRun{
@@ -304,6 +304,7 @@ func Test_PipelineORM_StoreRun_DetectsRestarts(t *testing.T) {
 		FinishedAt:    null.TimeFrom(now),
 	})
 	require.NoError(t, err)
+	t.Cleanup(func() { assert.NoError(t, rows.Close()) })
 
 	run.PipelineTaskRuns = []pipeline.TaskRun{
 		// pending task

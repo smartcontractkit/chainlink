@@ -6,11 +6,13 @@ import (
 	"math/big"
 	"strings"
 
+	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
 
-	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
@@ -20,6 +22,7 @@ const (
 	// checkBlockTooOldRange is the number of blocks that can be behind the latest block before
 	// we return a CheckBlockTooOld error
 	checkBlockTooOldRange = 128
+	zeroAddress           = "0x0000000000000000000000000000000000000000"
 )
 
 type checkResult struct {
@@ -43,7 +46,7 @@ func (r *EvmRegistry) CheckUpkeeps(ctx context.Context, keys ...ocr2keepers.Upke
 
 	chResult := make(chan checkResult, 1)
 
-	r.threadCtrl.Go(func(ctx context.Context) {
+	r.threadCtrl.GoCtx(ctx, func(ctx context.Context) {
 		r.doCheck(ctx, keys, chResult)
 	})
 
@@ -197,7 +200,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 		uid := &ocr2keepers.UpkeepIdentifier{}
 		uid.FromBigInt(upkeepId)
 		switch core.GetUpkeepType(*uid) {
-		case ocr2keepers.LogTrigger:
+		case types.LogTrigger:
 			reason, state, retryable := r.verifyLogExists(upkeepId, p)
 			if reason != encoding.UpkeepFailureReasonNone || state != encoding.NoPipelineError {
 				results[i] = encoding.GetIneligibleCheckResultWithoutPerformData(p, reason, state, retryable)
@@ -231,6 +234,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 			Method: "eth_call",
 			Args: []interface{}{
 				map[string]interface{}{
+					"from": zeroAddress,
 					"to":   r.addr.Hex(),
 					"data": hexutil.Bytes(payload),
 				},
@@ -318,6 +322,7 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 			Method: "eth_call",
 			Args: []interface{}{
 				map[string]interface{}{
+					"from": zeroAddress,
 					"to":   r.addr.Hex(),
 					"data": hexutil.Bytes(payload),
 				},

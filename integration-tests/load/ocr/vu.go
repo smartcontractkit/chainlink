@@ -2,12 +2,14 @@ package ocr
 
 import (
 	"context"
+	"fmt"
 	"sync/atomic"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/seth"
 
 	"github.com/smartcontractkit/wasp"
 	"go.uber.org/ratelimit"
@@ -15,6 +17,7 @@ import (
 	client2 "github.com/smartcontractkit/chainlink-testing-framework/client"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
+	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
@@ -22,40 +25,38 @@ import (
 // VU is a virtual user for the OCR load test
 // it creates a feed and triggers new rounds
 type VU struct {
+	*wasp.VUControl
 	rl            ratelimit.Limiter
 	rate          int
 	rateUnit      time.Duration
 	roundNum      atomic.Int64
-	cc            blockchain.EVMClient
-	lt            contracts.LinkToken
-	cd            contracts.ContractDeployer
+	seth          *seth.Client
+	lta           common.Address
 	bootstrapNode *client.ChainlinkK8sClient
 	workerNodes   []*client.ChainlinkK8sClient
 	msClient      *client2.MockserverClient
 	l             zerolog.Logger
 	ocrInstances  []contracts.OffchainAggregator
-	stop          chan struct{}
 }
 
 func NewVU(
 	l zerolog.Logger,
+	seth *seth.Client,
 	rate int,
 	rateUnit time.Duration,
-	cc blockchain.EVMClient,
-	lt contracts.LinkToken,
-	cd contracts.ContractDeployer,
+	lta common.Address,
 	bootstrapNode *client.ChainlinkK8sClient,
 	workerNodes []*client.ChainlinkK8sClient,
 	msClient *client2.MockserverClient,
 ) *VU {
 	return &VU{
+		VUControl:     wasp.NewVUControl(),
 		rl:            ratelimit.New(rate, ratelimit.Per(rateUnit)),
 		rate:          rate,
 		rateUnit:      rateUnit,
 		l:             l,
-		cc:            cc,
-		lt:            lt,
-		cd:            cd,
+		seth:          seth,
+		lta:           lta,
 		msClient:      msClient,
 		bootstrapNode: bootstrapNode,
 		workerNodes:   workerNodes,
@@ -64,14 +65,13 @@ func NewVU(
 
 func (m *VU) Clone(_ *wasp.Generator) wasp.VirtualUser {
 	return &VU{
-		stop:          make(chan struct{}, 1),
+		VUControl:     wasp.NewVUControl(),
 		rl:            ratelimit.New(m.rate, ratelimit.Per(m.rateUnit)),
 		rate:          m.rate,
 		rateUnit:      m.rateUnit,
 		l:             m.l,
-		cc:            m.cc,
-		lt:            m.lt,
-		cd:            m.cd,
+		seth:          m.seth,
+		lta:           m.lta,
 		msClient:      m.msClient,
 		bootstrapNode: m.bootstrapNode,
 		workerNodes:   m.workerNodes,
@@ -79,11 +79,11 @@ func (m *VU) Clone(_ *wasp.Generator) wasp.VirtualUser {
 }
 
 func (m *VU) Setup(_ *wasp.Generator) error {
-	ocrInstances, err := actions.DeployOCRContracts(1, m.lt, m.cd, m.workerNodes, m.cc)
+	ocrInstances, err := actions_seth.DeployOCRv1Contracts(m.l, m.seth, 1, m.lta, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(m.workerNodes))
 	if err != nil {
 		return err
 	}
-	err = actions.CreateOCRJobs(ocrInstances, m.bootstrapNode, m.workerNodes, 5, m.msClient, m.cc.GetChainID().String())
+	err = actions.CreateOCRJobs(ocrInstances, m.bootstrapNode, m.workerNodes, 5, m.msClient, fmt.Sprint(m.seth.ChainID))
 	if err != nil {
 		return err
 	}
@@ -118,12 +118,4 @@ func (m *VU) Call(l *wasp.Generator) {
 			l.ResponsesChan <- &wasp.Response{}
 		}
 	}
-}
-
-func (m *VU) Stop(_ *wasp.Generator) {
-	m.stop <- struct{}{}
-}
-
-func (m *VU) StopChan() chan struct{} {
-	return m.stop
 }

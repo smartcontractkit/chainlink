@@ -55,6 +55,7 @@ func TestShareDB_WriteShareRecords(t *testing.T) {
 
 		rows, err := db.Query(`SELECT COUNT(*) AS count FROM dkg_shares`)
 		require.NoError(tt, err)
+		t.Cleanup(func() { assert.NoError(t, rows.Close()) })
 
 		var count int
 		for rows.Next() {
@@ -84,6 +85,7 @@ func TestShareDB_WriteShareRecords(t *testing.T) {
 
 		rows, err := db.Query(`SELECT COUNT(*) AS count FROM dkg_shares`)
 		require.NoError(tt, err)
+		t.Cleanup(func() { assert.NoError(t, rows.Close()) })
 
 		var count int
 		for rows.Next() {
@@ -122,6 +124,7 @@ func TestShareDB_WriteShareRecords(t *testing.T) {
 		// no rows should have been inserted
 		rows, err := db.Query(`SELECT COUNT(*) AS count FROM dkg_shares`)
 		require.NoError(tt, err)
+		t.Cleanup(func() { assert.NoError(t, rows.Close()) })
 
 		var count int
 		for rows.Next() {

@@ -39,7 +39,7 @@ var (
 	labels          = []string{"chainType", "chainID", "plugin", "oracleID", "configDigest"}
 	getLabelsValues = func(p *promPlugin, t types.ReportTimestamp) []string {
 		return []string{
-			string(p.chainType),                 // chainType
+			p.chainType,                         // chainType
 			p.chainID.String(),                  // chainID
 			p.name,                              // plugin
 			p.oracleID,                          // oracleID
@@ -333,11 +333,11 @@ func (p *promPlugin) Close() error {
 	defer func() {
 		duration := float64(time.Now().UTC().Sub(start))
 		labelValues := []string{
-			string(p.chainType), // chainType
-			p.chainID.String(),  // chainID
-			p.name,              // plugin
-			p.oracleID,          // oracleID
-			p.configDigest,      // configDigest
+			p.chainType,        // chainType
+			p.chainID.String(), // chainID
+			p.name,             // plugin
+			p.oracleID,         // oracleID
+			p.configDigest,     // configDigest
 		}
 		p.prometheusBackend.SetCloseDuration(labelValues, duration)
 	}()

@@ -18,7 +18,14 @@ const (
 	InsufficientFunds                        // Tx was rejected due to insufficient funds.
 	ExceedsMaxFee                            // Attempt's fee was higher than the node's limit and got rejected.
 	FeeOutOfValidRange                       // This error is returned when we use a fee price suggested from an RPC, but the network rejects the attempt due to an invalid range(mostly used by L2 chains). Retry by requesting a new suggested fee price.
+	sendTxReturnCodeLen                      // tracks the number of errors. Must always be last
 )
+
+// sendTxSevereErrors - error codes which signal that transaction would never be accepted in its current form by the node
+var sendTxSevereErrors = []SendTxReturnCode{Fatal, Underpriced, Unsupported, ExceedsMaxFee, FeeOutOfValidRange, Unknown}
+
+// sendTxSuccessfulCodes - error codes which signal that transaction was accepted by the node
+var sendTxSuccessfulCodes = []SendTxReturnCode{Successful, TransactionAlreadyKnown}
 
 type NodeTier int
 

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math/big"
 	"net"
+	"strings"
 	"testing"
 	"time"
 
@@ -25,6 +26,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
@@ -40,7 +42,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 var _ pb.MercuryServer = &mercuryServer{}
@@ -199,8 +200,8 @@ func setupNode(
 		c.P2P.V2.Enabled = ptr(true)
 		c.P2P.V2.AnnounceAddresses = &p2paddresses
 		c.P2P.V2.ListenAddresses = &p2paddresses
-		c.P2P.V2.DeltaDial = models.MustNewDuration(500 * time.Millisecond)
-		c.P2P.V2.DeltaReconcile = models.MustNewDuration(5 * time.Second)
+		c.P2P.V2.DeltaDial = commonconfig.MustNewDuration(500 * time.Millisecond)
+		c.P2P.V2.DeltaReconcile = commonconfig.MustNewDuration(5 * time.Second)
 	})
 
 	lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
@@ -389,23 +390,28 @@ func addV3MercuryJob(
 	bootstrapNodePort int,
 	bmBridge,
 	bidBridge,
-	askBridge,
-	serverURL string,
-	serverPubKey,
+	askBridge string,
+	servers map[string]string,
 	clientPubKey ed25519.PublicKey,
 	feedName string,
 	feedID [32]byte,
 	linkFeedID [32]byte,
 	nativeFeedID [32]byte,
 ) {
+	srvs := make([]string, 0, len(servers))
+	for u, k := range servers {
+		srvs = append(srvs, fmt.Sprintf("%q = %q", u, k))
+	}
+	serversStr := fmt.Sprintf("{ %s }", strings.Join(srvs, ", "))
+
 	node.AddJob(t, fmt.Sprintf(`
 type = "offchainreporting2"
 schemaVersion = 1
-name = "mercury-%[1]d-%[12]s"
+name = "mercury-%[1]d-%[11]s"
 forwardingAllowed = false
 maxTaskDuration = "1s"
 contractID = "%[2]s"
-feedID = "0x%[11]x"
+feedID = "0x%[10]x"
 contractConfigTrackerPollInterval = "1s"
 ocrKeyBundleID = "%[3]s"
 p2pv2Bootstrappers = [
@@ -413,7 +419,7 @@ p2pv2Bootstrappers = [
 ]
 relay = "evm"
 pluginType = "mercury"
-transmitterID = "%[10]x"
+transmitterID = "%[9]x"
 observationSource = """
 	// Benchmark Price
 	price1          [type=bridge name="%[5]s" timeout="50ms" requestData="{\\"data\\":{\\"from\\":\\"ETH\\",\\"to\\":\\"USD\\"}}"];
@@ -438,10 +444,9 @@ observationSource = """
 """
 
 [pluginConfig]
-serverURL = "%[8]s"
-serverPubKey = "%[9]x"
-linkFeedID = "0x%[13]x"
-nativeFeedID = "0x%[14]x"
+servers = %[8]s
+linkFeedID = "0x%[12]x"
+nativeFeedID = "0x%[13]x"
 
 [relayConfig]
 chainID = 1337
@@ -453,8 +458,7 @@ chainID = 1337
 		bmBridge,
 		bidBridge,
 		askBridge,
-		serverURL,
-		serverPubKey,
+		serversStr,
 		clientPubKey,
 		feedID,
 		feedName,

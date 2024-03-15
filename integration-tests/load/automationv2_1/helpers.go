@@ -2,47 +2,37 @@ package automationv2_1
 
 import (
 	"fmt"
-	"os"
-	"strings"
 
 	"github.com/rs/zerolog"
 	"github.com/slack-go/slack"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/config"
 	reportModel "github.com/smartcontractkit/chainlink-testing-framework/testreporters"
-	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
-
-func getEnv(key, fallback string) string {
-	if inputs, ok := os.LookupEnv("TEST_INPUTS"); ok {
-		values := strings.Split(inputs, ",")
-		for _, value := range values {
-			if strings.Contains(value, key) {
-				return strings.Split(value, "=")[1]
-			}
-		}
-	}
-	return fallback
-}
 
 func extraBlockWithText(text string) slack.Block {
 	return slack.NewSectionBlock(slack.NewTextBlockObject(
 		"mrkdwn", text, false, false), nil, nil)
 }
 
-func sendSlackNotification(header string, l zerolog.Logger, namespace string, numberOfNodes,
+func sendSlackNotification(header string, l zerolog.Logger, config *tc.TestConfig, namespace string, numberOfNodes,
 	startingTime string, endingTime string, extraBlocks []slack.Block, msgOption slack.MsgOption) (string, error) {
 	slackClient := slack.New(reportModel.SlackAPIKey)
 
 	headerText := ":chainlink-keepers: Automation Load Test " + header + " :white_check_mark:"
 
-	formattedDashboardUrl := fmt.Sprintf("%s?orgId=1&from=%s&to=%s&var-namespace=%s&var-number_of_nodes=%s", testreporters.DashboardUrl, startingTime, endingTime, namespace, numberOfNodes)
+	grafanaUrl, err := config.GetGrafanaBaseURL()
+	if err != nil {
+		return "", err
+	}
+
+	dashboardUrl, err := config.GetGrafanaDashboardURL()
+	if err != nil {
+		return "", err
+	}
+
+	formattedDashboardUrl := fmt.Sprintf("%s%s?orgId=1&from=%s&to=%s&var-namespace=%s&var-number_of_nodes=%s", grafanaUrl, dashboardUrl, startingTime, endingTime, namespace, numberOfNodes)
 	l.Info().Str("Dashboard", formattedDashboardUrl).Msg("Dashboard URL")
-
-	pyroscopeServer := os.Getenv(config.EnvVarPyroscopeServer)
-	pyroscopeEnvironment := os.Getenv(config.EnvVarPyroscopeEnvironment)
-
-	formattedPyroscopeUrl := fmt.Sprintf("%s/?query=chainlink-node.cpu{Environment=\"%s\"}&from=%s&to=%s", pyroscopeServer, pyroscopeEnvironment, startingTime, endingTime)
 
 	var notificationBlocks []slack.Block
 
@@ -51,7 +41,11 @@ func sendSlackNotification(header string, l zerolog.Logger, namespace string, nu
 	notificationBlocks = append(notificationBlocks,
 		slack.NewContextBlock("context_block", slack.NewTextBlockObject("plain_text", namespace, false, false)))
 	notificationBlocks = append(notificationBlocks, slack.NewDividerBlock())
-	if pyroscopeServer != "" {
+	if *config.Pyroscope.Enabled {
+		pyroscopeServer := *config.Pyroscope.ServerUrl
+		pyroscopeEnvironment := *config.Pyroscope.Environment
+
+		formattedPyroscopeUrl := fmt.Sprintf("%s/?query=chainlink-node.cpu{Environment=\"%s\"}&from=%s&to=%s", pyroscopeServer, pyroscopeEnvironment, startingTime, endingTime)
 		l.Info().Str("Pyroscope", formattedPyroscopeUrl).Msg("Dashboard URL")
 		notificationBlocks = append(notificationBlocks, slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn",
 			fmt.Sprintf("<%s|Pyroscope>",

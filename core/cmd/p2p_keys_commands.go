@@ -125,7 +125,7 @@ func (ps P2PKeyPresenters) RenderTable(rt RendererTable) error {
 
 // ListP2PKeys retrieves a list of all P2P keys
 func (s *Shell) ListP2PKeys(_ *cli.Context) (err error) {
-	resp, err := s.HTTP.Get("/v2/keys/p2p", nil)
+	resp, err := s.HTTP.Get(s.ctx(), "/v2/keys/p2p", nil)
 	if err != nil {
 		return s.errorOut(err)
 	}
@@ -140,7 +140,7 @@ func (s *Shell) ListP2PKeys(_ *cli.Context) (err error) {
 
 // CreateP2PKey creates a new P2P key
 func (s *Shell) CreateP2PKey(_ *cli.Context) (err error) {
-	resp, err := s.HTTP.Post("/v2/keys/p2p", nil)
+	resp, err := s.HTTP.Post(s.ctx(), "/v2/keys/p2p", nil)
 	if err != nil {
 		return s.errorOut(err)
 	}
@@ -170,7 +170,7 @@ func (s *Shell) DeleteP2PKey(c *cli.Context) (err error) {
 		queryStr = "?hard=true"
 	}
 
-	resp, err := s.HTTP.Delete(fmt.Sprintf("/v2/keys/p2p/%s%s", id, queryStr))
+	resp, err := s.HTTP.Delete(s.ctx(), fmt.Sprintf("/v2/keys/p2p/%s%s", id, queryStr))
 	if err != nil {
 		return s.errorOut(err)
 	}
@@ -206,7 +206,7 @@ func (s *Shell) ImportP2PKey(c *cli.Context) (err error) {
 	}
 
 	normalizedPassword := normalizePassword(string(oldPassword))
-	resp, err := s.HTTP.Post("/v2/keys/p2p/import?oldpassword="+normalizedPassword, bytes.NewReader(keyJSON))
+	resp, err := s.HTTP.Post(s.ctx(), "/v2/keys/p2p/import?oldpassword="+normalizedPassword, bytes.NewReader(keyJSON))
 	if err != nil {
 		return s.errorOut(err)
 	}
@@ -243,7 +243,7 @@ func (s *Shell) ExportP2PKey(c *cli.Context) (err error) {
 	ID := c.Args().Get(0)
 
 	normalizedPassword := normalizePassword(string(newPassword))
-	resp, err := s.HTTP.Post("/v2/keys/p2p/export/"+ID+"?newpassword="+normalizedPassword, nil)
+	resp, err := s.HTTP.Post(s.ctx(), "/v2/keys/p2p/export/"+ID+"?newpassword="+normalizedPassword, nil)
 	if err != nil {
 		return s.errorOut(errors.Wrap(err, "Could not make HTTP request"))
 	}

@@ -445,21 +445,22 @@ func TestSetMigrationENVVars(t *testing.T) {
 
 func TestDatabaseBackFillWithMigration202(t *testing.T) {
 	_, db := heavyweight.FullTestDBEmptyV2(t, nil)
+	ctx := testutils.Context(t)
 
 	err := goose.UpTo(db.DB, migrationDir, 201)
 	require.NoError(t, err)
 
-	simulatedOrm := logpoller.NewORM(testutils.SimulatedChainID, db, logger.TestLogger(t), pgtest.NewQConfig(true))
-	require.NoError(t, simulatedOrm.InsertBlock(testutils.Random32Byte(), 10, time.Now(), 0), err)
-	require.NoError(t, simulatedOrm.InsertBlock(testutils.Random32Byte(), 51, time.Now(), 0), err)
-	require.NoError(t, simulatedOrm.InsertBlock(testutils.Random32Byte(), 90, time.Now(), 0), err)
-	require.NoError(t, simulatedOrm.InsertBlock(testutils.Random32Byte(), 120, time.Now(), 23), err)
+	simulatedOrm := logpoller.NewORM(testutils.SimulatedChainID, db, logger.TestLogger(t))
+	require.NoError(t, simulatedOrm.InsertBlock(ctx, testutils.Random32Byte(), 10, time.Now(), 0), err)
+	require.NoError(t, simulatedOrm.InsertBlock(ctx, testutils.Random32Byte(), 51, time.Now(), 0), err)
+	require.NoError(t, simulatedOrm.InsertBlock(ctx, testutils.Random32Byte(), 90, time.Now(), 0), err)
+	require.NoError(t, simulatedOrm.InsertBlock(ctx, testutils.Random32Byte(), 120, time.Now(), 23), err)
 
-	baseOrm := logpoller.NewORM(big.NewInt(int64(84531)), db, logger.TestLogger(t), pgtest.NewQConfig(true))
-	require.NoError(t, baseOrm.InsertBlock(testutils.Random32Byte(), 400, time.Now(), 0), err)
+	baseOrm := logpoller.NewORM(big.NewInt(int64(84531)), db, logger.TestLogger(t))
+	require.NoError(t, baseOrm.InsertBlock(ctx, testutils.Random32Byte(), 400, time.Now(), 0), err)
 
-	klaytnOrm := logpoller.NewORM(big.NewInt(int64(1001)), db, logger.TestLogger(t), pgtest.NewQConfig(true))
-	require.NoError(t, klaytnOrm.InsertBlock(testutils.Random32Byte(), 100, time.Now(), 0), err)
+	klaytnOrm := logpoller.NewORM(big.NewInt(int64(1001)), db, logger.TestLogger(t))
+	require.NoError(t, klaytnOrm.InsertBlock(ctx, testutils.Random32Byte(), 100, time.Now(), 0), err)
 
 	err = goose.UpTo(db.DB, migrationDir, 202)
 	require.NoError(t, err)
@@ -468,7 +469,7 @@ func TestDatabaseBackFillWithMigration202(t *testing.T) {
 		name                   string
 		blockNumber            int64
 		expectedFinalizedBlock int64
-		orm                    *logpoller.DbORM
+		orm                    logpoller.ORM
 	}{
 		{
 			name:                   "last finalized block not changed if finality is too deep",
@@ -509,11 +510,36 @@ func TestDatabaseBackFillWithMigration202(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			block, err := tt.orm.SelectBlockByNumber(tt.blockNumber)
+			block, err := tt.orm.SelectBlockByNumber(ctx, tt.blockNumber)
 			require.NoError(t, err)
 			require.Equal(t, tt.expectedFinalizedBlock, block.FinalizedBlockNumber)
 		})
 	}
+}
+
+func TestNoTriggers(t *testing.T) {
+	_, db := heavyweight.FullTestDBEmptyV2(t, nil)
+
+	assert_num_triggers := func(expected int) {
+
+		row := db.DB.QueryRow("select count(*) from information_schema.triggers")
+		var count int
+		err := row.Scan(&count)
+
+		require.NoError(t, err)
+		require.Equal(t, expected, count)
+	}
+
+	// if you find yourself here and are tempted to add a trigger, something has gone wrong
+	// and you should talk to the foundations team before proceeding
+	assert_num_triggers(0)
+
+	// version prior to removal of all triggers
+	v := 217
+	err := goose.UpTo(db.DB, migrationDir, int64(v))
+	require.NoError(t, err)
+	assert_num_triggers(1)
+
 }
 
 func BenchmarkBackfillingRecordsWithMigration202(b *testing.B) {

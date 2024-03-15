@@ -2,6 +2,25 @@
 pragma solidity ^0.8.0;
 
 interface IVRFV2PlusWrapper {
+  event LinkAndLinkNativeFeedSet(address link, address linkNativeFeed);
+  event FulfillmentTxSizeSet(uint32 size);
+  event ConfigSet(
+    uint32 wrapperGasOverhead,
+    uint32 coordinatorGasOverhead,
+    uint8 wrapperPremiumPercentage,
+    bytes32 keyHash,
+    uint8 maxNumWords,
+    uint32 stalenessSeconds,
+    int256 fallbackWeiPerUnitLink,
+    uint32 fulfillmentFlatFeeLinkPPM,
+    uint32 fulfillmentFlatFeeNativePPM
+  );
+  event FallbackWeiPerUnitLinkUsed(uint256 requestId, int256 fallbackWeiPerUnitLink);
+  event Withdrawn(address indexed to, uint256 amount);
+  event NativeWithdrawn(address indexed to, uint256 amount);
+  event Enabled();
+  event Disabled();
+
   /**
    * @return the request ID of the most recent VRF V2 request made by this wrapper. This should only
    * be relied option within the same transaction that the request was made.

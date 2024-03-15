@@ -6,7 +6,7 @@ import (
 
 	"github.com/kylelemons/godebug/diff"
 	gotoml "github.com/pelletier/go-toml/v2"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -21,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink/cfgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 func TestDoc(t *testing.T) {
@@ -32,17 +31,11 @@ func TestDoc(t *testing.T) {
 	var strict *gotoml.StrictMissingError
 	if err != nil && strings.Contains(err.Error(), "undecoded keys: ") {
 		t.Errorf("Docs contain extra fields: %v", err)
-	} else if errors.As(err, &strict) {
+	} else if pkgerrors.As(err, &strict) {
 		t.Fatal("StrictMissingError:", strict.String())
 	} else {
 		require.NoError(t, err)
 	}
-
-	// Except for TelemetryIngress.ServerPubKey and TelemetryIngress.URL as this will be removed in the future
-	// and its only use is to signal to NOPs that these fields are no longer allowed
-	emptyString := ""
-	c.TelemetryIngress.ServerPubKey = &emptyString
-	c.TelemetryIngress.URL = new(models.URL)
 
 	cfgtest.AssertFieldsNotNil(t, c)
 
@@ -87,6 +80,10 @@ func TestDoc(t *testing.T) {
 		docDefaults.FlagsContractAddress = nil
 		docDefaults.LinkContractAddress = nil
 		docDefaults.OperatorFactoryAddress = nil
+		require.Empty(t, docDefaults.ChainWriter.FromAddress)
+		require.Empty(t, docDefaults.ChainWriter.ForwarderAddress)
+		docDefaults.ChainWriter.FromAddress = nil
+		docDefaults.ChainWriter.ForwarderAddress = nil
 
 		assertTOML(t, fallbackDefaults, docDefaults)
 	})

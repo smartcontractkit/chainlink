@@ -23,12 +23,14 @@ tools/clroot/db.sqlite3-wal
 .DS_Store
 .envrc
 .env*
+!charts/chainlink-cluster/.env.example
 !.github/actions/setup-postgres/.env
 .direnv
 .idea
 .vscode/
 *.iml
 debug.env
+*.txt
 
 # codeship
 *.aes
@@ -83,5 +85,18 @@ go.work*
 # This sometimes shows up for some reason
 tools/flakeytests/coverage.txt
 
+# Integration tests create these files
 .test_summary/
 .run.id
+
+# Fuzz tests can create these files
+**/testdata/fuzz/*
+
+# Runtime test configuration that might contain secrets
+override*.toml
+
+# Pythin venv
+.venv/
+
+# Temp Changelog migration
+CHANGELOG.md

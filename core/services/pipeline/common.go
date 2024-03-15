@@ -20,29 +20,31 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	"gopkg.in/guregu/null.v4"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	cutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	cnull "github.com/smartcontractkit/chainlink/v2/core/null"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const (
+	BlockHeaderFeederJobType       string = "blockheaderfeeder"
+	BlockhashStoreJobType          string = "blockhashstore"
+	BootstrapJobType               string = "bootstrap"
 	CronJobType                    string = "cron"
 	DirectRequestJobType           string = "directrequest"
 	FluxMonitorJobType             string = "fluxmonitor"
-	OffchainReportingJobType       string = "offchainreporting"
-	OffchainReporting2JobType      string = "offchainreporting2"
-	KeeperJobType                  string = "keeper"
-	VRFJobType                     string = "vrf"
-	BlockhashStoreJobType          string = "blockhashstore"
-	BlockHeaderFeederJobType       string = "blockheaderfeeder"
-	WebhookJobType                 string = "webhook"
-	BootstrapJobType               string = "bootstrap"
 	GatewayJobType                 string = "gateway"
+	KeeperJobType                  string = "keeper"
 	LegacyGasStationServerJobType  string = "legacygasstationserver"
 	LegacyGasStationSidecarJobType string = "legacygasstationsidecar"
+	OffchainReporting2JobType      string = "offchainreporting2"
+	OffchainReportingJobType       string = "offchainreporting"
+	StreamJobType                  string = "stream"
+	VRFJobType                     string = "vrf"
+	WebhookJobType                 string = "webhook"
+	WorkflowJobType                string = "workflow"
 )
 
 //go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore
@@ -65,7 +67,7 @@ type (
 
 	Config interface {
 		DefaultHTTPLimit() int64
-		DefaultHTTPTimeout() models.Duration
+		DefaultHTTPTimeout() commonconfig.Duration
 		MaxRunDuration() time.Duration
 		ReaperInterval() time.Duration
 		ReaperThreshold() time.Duration
@@ -240,6 +242,16 @@ func (trrs TaskRunResults) FinalResult(l logger.Logger) FinalResult {
 		l.Panicw("Expected at least one task to be final", "tasks", trrs)
 	}
 	return fr
+}
+
+// Terminals returns all terminal task run results
+func (trrs TaskRunResults) Terminals() (terminals []TaskRunResult) {
+	for _, trr := range trrs {
+		if trr.IsTerminal() {
+			terminals = append(terminals, trr)
+		}
+	}
+	return
 }
 
 // GetNextTaskOf returns the task with the next id or nil if it does not exist
@@ -548,9 +560,9 @@ func CheckInputs(inputs []Result, minLen, maxLen, maxErrors int) ([]interface{},
 
 var ErrInvalidEVMChainID = errors.New("invalid EVM chain ID")
 
-func SelectGasLimit(ge config.GasEstimator, jobType string, specGasLimit *uint32) uint32 {
+func SelectGasLimit(ge config.GasEstimator, jobType string, specGasLimit *uint32) uint64 {
 	if specGasLimit != nil {
-		return *specGasLimit
+		return uint64(*specGasLimit)
 	}
 
 	jt := ge.LimitJobType()
@@ -571,7 +583,7 @@ func SelectGasLimit(ge config.GasEstimator, jobType string, specGasLimit *uint32
 	}
 
 	if jobTypeGasLimit != nil {
-		return *jobTypeGasLimit
+		return uint64(*jobTypeGasLimit)
 	}
 	return ge.LimitDefault()
 }
@@ -661,12 +673,22 @@ func getJsonNumberValue(value json.Number) (interface{}, error) {
 		}
 	} else {
 		f, err := value.Float64()
-		if err == nil {
-			result = f
-		} else {
+		if err != nil {
 			return nil, pkgerrors.Errorf("failed to parse json.Value: %v", err)
 		}
+		result = f
 	}
 
 	return result, nil
+}
+
+func selectBlock(block string) (string, error) {
+	if block == "" {
+		return "latest", nil
+	}
+	block = strings.ToLower(block)
+	if block == "pending" || block == "latest" {
+		return block, nil
+	}
+	return "", pkgerrors.Errorf("unsupported block param: %s", block)
 }

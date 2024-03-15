@@ -20,14 +20,18 @@ import (
 )
 
 func TestTokenAuthRequired_NoCredentials(t *testing.T) {
+	ctx := testutils.Context(t)
 	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(ctx))
 
 	router := web.Router(t, app, nil)
 	ts := httptest.NewServer(router)
 	defer ts.Close()
 
-	resp, err := http.Post(ts.URL+"/v2/jobs/", web.MediaType, bytes.NewBufferString("{}"))
+	req, err := http.NewRequestWithContext(ctx, "POST", ts.URL+"/v2/jobs/", bytes.NewBufferString("{}"))
+	require.NoError(t, err)
+	req.Header.Set("Content-Type", web.MediaType)
+	resp, err := http.DefaultClient.Do(req)
 	require.NoError(t, err)
 
 	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
@@ -49,8 +53,9 @@ func TestTokenAuthRequired_SessionCredentials(t *testing.T) {
 }
 
 func TestTokenAuthRequired_TokenCredentials(t *testing.T) {
+	ctx := testutils.Context(t)
 	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(ctx))
 
 	router := web.Router(t, app, nil)
 	ts := httptest.NewServer(router)
@@ -67,7 +72,7 @@ func TestTokenAuthRequired_TokenCredentials(t *testing.T) {
 	err = app.BridgeORM().CreateExternalInitiator(ea)
 	require.NoError(t, err)
 
-	request, err := http.NewRequest("GET", ts.URL+"/v2/ping/", bytes.NewBufferString("{}"))
+	request, err := http.NewRequestWithContext(ctx, "GET", ts.URL+"/v2/ping/", bytes.NewBufferString("{}"))
 	require.NoError(t, err)
 	request.Header.Set("Content-Type", web.MediaType)
 	request.Header.Set("X-Chainlink-EA-AccessKey", eia.AccessKey)
@@ -81,8 +86,9 @@ func TestTokenAuthRequired_TokenCredentials(t *testing.T) {
 }
 
 func TestTokenAuthRequired_BadTokenCredentials(t *testing.T) {
+	ctx := testutils.Context(t)
 	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(ctx))
 
 	router := web.Router(t, app, nil)
 	ts := httptest.NewServer(router)
@@ -99,7 +105,7 @@ func TestTokenAuthRequired_BadTokenCredentials(t *testing.T) {
 	err = app.BridgeORM().CreateExternalInitiator(ea)
 	require.NoError(t, err)
 
-	request, err := http.NewRequest("GET", ts.URL+"/v2/ping/", bytes.NewBufferString("{}"))
+	request, err := http.NewRequestWithContext(ctx, "GET", ts.URL+"/v2/ping/", bytes.NewBufferString("{}"))
 	require.NoError(t, err)
 	request.Header.Set("Content-Type", web.MediaType)
 	request.Header.Set("X-Chainlink-EA-AccessKey", eia.AccessKey)
@@ -113,8 +119,9 @@ func TestTokenAuthRequired_BadTokenCredentials(t *testing.T) {
 }
 
 func TestSessions_RateLimited(t *testing.T) {
+	ctx := testutils.Context(t)
 	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(ctx))
 
 	router := web.Router(t, app, nil)
 	ts := httptest.NewServer(router)
@@ -124,7 +131,7 @@ func TestSessions_RateLimited(t *testing.T) {
 	input := `{"email":"brute@force.com", "password": "wrongpassword"}`
 
 	for i := 0; i < 5; i++ {
-		request, err := http.NewRequest("POST", ts.URL+"/sessions", bytes.NewBufferString(input))
+		request, err := http.NewRequestWithContext(ctx, "POST", ts.URL+"/sessions", bytes.NewBufferString(input))
 		require.NoError(t, err)
 
 		resp, err := client.Do(request)
@@ -132,7 +139,7 @@ func TestSessions_RateLimited(t *testing.T) {
 		assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 	}
 
-	request, err := http.NewRequest("POST", ts.URL+"/sessions", bytes.NewBufferString(input))
+	request, err := http.NewRequestWithContext(ctx, "POST", ts.URL+"/sessions", bytes.NewBufferString(input))
 	require.NoError(t, err)
 
 	resp, err := client.Do(request)
@@ -141,8 +148,9 @@ func TestSessions_RateLimited(t *testing.T) {
 }
 
 func TestRouter_LargePOSTBody(t *testing.T) {
+	ctx := testutils.Context(t)
 	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(ctx))
 
 	router := web.Router(t, app, nil)
 	ts := httptest.NewServer(router)
@@ -151,7 +159,7 @@ func TestRouter_LargePOSTBody(t *testing.T) {
 	client := clhttptest.NewTestLocalOnlyHTTPClient()
 
 	body := string(make([]byte, 70000))
-	request, err := http.NewRequest("POST", ts.URL+"/sessions", bytes.NewBufferString(body))
+	request, err := http.NewRequestWithContext(ctx, "POST", ts.URL+"/sessions", bytes.NewBufferString(body))
 	require.NoError(t, err)
 
 	resp, err := client.Do(request)
@@ -160,13 +168,16 @@ func TestRouter_LargePOSTBody(t *testing.T) {
 }
 
 func TestRouter_GinHelmetHeaders(t *testing.T) {
+	ctx := testutils.Context(t)
 	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(ctx))
 
 	router := web.Router(t, app, nil)
 	ts := httptest.NewServer(router)
 	defer ts.Close()
-	res, err := http.Get(ts.URL)
+	req, err := http.NewRequestWithContext(ctx, "GET", ts.URL, nil)
+	require.NoError(t, err)
+	res, err := http.DefaultClient.Do(req)
 	require.NoError(t, err)
 	for _, tt := range []struct {
 		HelmetName  string

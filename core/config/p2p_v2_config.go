@@ -1,16 +1,16 @@
 package config
 
 import (
-	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 )
 
 type V2 interface {
 	Enabled() bool
 	AnnounceAddresses() []string
 	DefaultBootstrappers() (locators []ocrcommontypes.BootstrapperLocator)
-	DeltaDial() models.Duration
-	DeltaReconcile() models.Duration
+	DeltaDial() commonconfig.Duration
+	DeltaReconcile() commonconfig.Duration
 	ListenAddresses() []string
 }

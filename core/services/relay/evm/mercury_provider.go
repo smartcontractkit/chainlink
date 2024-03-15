@@ -8,6 +8,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+
 	mercurytypes "github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
 	v1 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v1"
 	v2 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v2"
@@ -22,8 +23,9 @@ import (
 var _ commontypes.MercuryProvider = (*mercuryProvider)(nil)
 
 type mercuryProvider struct {
-	configWatcher      *configWatcher
+	cp                 commontypes.ConfigProvider
 	chainReader        commontypes.ChainReader
+	codec              commontypes.Codec
 	transmitter        evmmercury.Transmitter
 	reportCodecV1      v1.ReportCodec
 	reportCodecV2      v2.ReportCodec
@@ -34,8 +36,9 @@ type mercuryProvider struct {
 }
 
 func NewMercuryProvider(
-	configWatcher *configWatcher,
+	cp commontypes.ConfigProvider,
 	chainReader commontypes.ChainReader,
+	codec commontypes.Codec,
 	mercuryChainReader mercurytypes.ChainReader,
 	transmitter evmmercury.Transmitter,
 	reportCodecV1 v1.ReportCodec,
@@ -44,8 +47,9 @@ func NewMercuryProvider(
 	lggr logger.Logger,
 ) *mercuryProvider {
 	return &mercuryProvider{
-		configWatcher,
+		cp,
 		chainReader,
+		codec,
 		transmitter,
 		reportCodecV1,
 		reportCodecV2,
@@ -57,7 +61,7 @@ func NewMercuryProvider(
 }
 
 func (p *mercuryProvider) Start(ctx context.Context) error {
-	return p.ms.Start(ctx, p.configWatcher, p.transmitter)
+	return p.ms.Start(ctx, p.cp, p.transmitter)
 }
 
 func (p *mercuryProvider) Close() error {
@@ -65,7 +69,7 @@ func (p *mercuryProvider) Close() error {
 }
 
 func (p *mercuryProvider) Ready() error {
-	return errors.Join(p.configWatcher.Ready(), p.transmitter.Ready())
+	return errors.Join(p.cp.Ready(), p.transmitter.Ready())
 }
 
 func (p *mercuryProvider) Name() string {
@@ -74,7 +78,7 @@ func (p *mercuryProvider) Name() string {
 
 func (p *mercuryProvider) HealthReport() map[string]error {
 	report := map[string]error{}
-	services.CopyHealth(report, p.configWatcher.HealthReport())
+	services.CopyHealth(report, p.cp.HealthReport())
 	services.CopyHealth(report, p.transmitter.HealthReport())
 	return report
 }
@@ -83,12 +87,16 @@ func (p *mercuryProvider) MercuryChainReader() mercurytypes.ChainReader {
 	return p.mercuryChainReader
 }
 
+func (p *mercuryProvider) Codec() commontypes.Codec {
+	return p.codec
+}
+
 func (p *mercuryProvider) ContractConfigTracker() ocrtypes.ContractConfigTracker {
-	return p.configWatcher.ContractConfigTracker()
+	return p.cp.ContractConfigTracker()
 }
 
 func (p *mercuryProvider) OffchainConfigDigester() ocrtypes.OffchainConfigDigester {
-	return p.configWatcher.OffchainConfigDigester()
+	return p.cp.OffchainConfigDigester()
 }
 
 func (p *mercuryProvider) OnchainConfigCodec() mercurytypes.OnchainConfigCodec {

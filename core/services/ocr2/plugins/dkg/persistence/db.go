@@ -65,7 +65,7 @@ func NewShareDB(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, chainID *big.In
 		q:         pg.NewQ(db, lggr, cfg),
 		lggr:      lggr,
 		chainID:   chainID,
-		chainType: string(chainType),
+		chainType: chainType,
 	}
 }
 
