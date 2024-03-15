@@ -2,7 +2,6 @@ package wrappers
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum"
@@ -10,8 +9,9 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/smartcontractkit/seth"
+
+	evmClient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 )
@@ -114,7 +114,7 @@ func (w *WrappedContractBackend) SubscribeFilterLogs(ctx context.Context, query 
 func (w *WrappedContractBackend) CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error) {
 	var hex hexutil.Bytes
 	client := w.getGethClient()
-	err := client.Client().CallContext(ctx, &hex, "eth_call", toCallArg(msg), toBlockNumArg(blockNumber))
+	err := client.Client().CallContext(ctx, &hex, "eth_call", evmClient.ToBackwardCompatibleCallArg(msg), evmClient.ToBackwardCompatibleBlockNumArg(blockNumber))
 	if err != nil {
 		return nil, err
 	}
@@ -124,54 +124,9 @@ func (w *WrappedContractBackend) CallContract(ctx context.Context, msg ethereum.
 func (w *WrappedContractBackend) PendingCallContract(ctx context.Context, msg ethereum.CallMsg) ([]byte, error) {
 	var hex hexutil.Bytes
 	client := w.getGethClient()
-	err := client.Client().CallContext(ctx, &hex, "eth_call", toCallArg(msg), "pending")
+	err := client.Client().CallContext(ctx, &hex, "eth_call", evmClient.ToBackwardCompatibleCallArg(msg), "pending")
 	if err != nil {
 		return nil, err
 	}
 	return hex, nil
-}
-
-// COPIED FROM go-ethereum/ethclient/gethclient - must be kept up to date!
-func toBlockNumArg(number *big.Int) string {
-	if number == nil {
-		return "latest"
-	}
-	if number.Sign() >= 0 {
-		return hexutil.EncodeBig(number)
-	}
-	// It's negative.
-	if number.IsInt64() {
-		return rpc.BlockNumber(number.Int64()).String()
-	}
-	// It's negative and large, which is invalid.
-	return fmt.Sprintf("<invalid %d>", number)
-}
-
-// COPIED FROM go-ethereum/ethclient/gethclient - must be kept up to date!
-// Modified to include legacy 'data' as well as 'input' in order to support non-compliant servers.
-func toCallArg(msg ethereum.CallMsg) interface{} {
-	arg := map[string]interface{}{
-		"from": msg.From,
-		"to":   msg.To,
-	}
-	if len(msg.Data) > 0 {
-		arg["input"] = hexutil.Bytes(msg.Data)
-		arg["data"] = hexutil.Bytes(msg.Data) // duplicate legacy field for compatibility (required by Geth < v1.11.0)
-	}
-	if msg.Value != nil {
-		arg["value"] = (*hexutil.Big)(msg.Value)
-	}
-	if msg.Gas != 0 {
-		arg["gas"] = hexutil.Uint64(msg.Gas)
-	}
-	if msg.GasPrice != nil {
-		arg["gasPrice"] = (*hexutil.Big)(msg.GasPrice)
-	}
-	if msg.GasFeeCap != nil {
-		arg["maxFeePerGas"] = (*hexutil.Big)(msg.GasFeeCap)
-	}
-	if msg.GasTipCap != nil {
-		arg["maxPriorityFeePerGas"] = (*hexutil.Big)(msg.GasTipCap)
-	}
-	return arg
 }
