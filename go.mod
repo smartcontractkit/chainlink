@@ -36,6 +36,7 @@ require (
 	github.com/hashicorp/consul/sdk v0.14.1
 	github.com/hashicorp/go-envparse v0.1.0
 	github.com/hashicorp/go-plugin v1.6.0
+	github.com/hashicorp/go-retryablehttp v0.7.5
 	github.com/hdevalence/ed25519consensus v0.1.0
 	github.com/jackc/pgconn v1.14.1
 	github.com/jackc/pgtype v1.14.0
@@ -69,7 +70,7 @@ require (
 	github.com/smartcontractkit/caigo v0.0.0-20230621050857-b29a4ca8c704
 	github.com/smartcontractkit/chain-selectors v1.0.10
 	github.com/smartcontractkit/chainlink-automation v1.0.2-0.20240311111125-22812a072c35
-	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240306173252-5cbf83ca3a69
+	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240314172156-049609b8e1f9
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240213120401-01a23955f9f8
 	github.com/smartcontractkit/chainlink-data-streams v0.0.0-20240220203239-09be0ea34540
 	github.com/smartcontractkit/chainlink-feeds v0.0.0-20240119021347-3c541a78cdb8
@@ -81,7 +82,7 @@ require (
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20230906073235-9e478e5e19f1
 	github.com/smartcontractkit/wsrpc v0.7.2
 	github.com/spf13/cast v1.6.0
-	github.com/stretchr/testify v1.8.4
+	github.com/stretchr/testify v1.9.0
 	github.com/theodesp/go-heaps v0.0.0-20190520121037-88e35354fe0a
 	github.com/tidwall/gjson v1.17.0
 	github.com/ugorji/go/codec v1.2.12
@@ -108,6 +109,7 @@ require (
 	google.golang.org/protobuf v1.32.0
 	gopkg.in/guregu/null.v4 v4.0.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
@@ -219,6 +221,7 @@ require (
 	github.com/gsterjov/go-libsecret v0.0.0-20161001094733-a6f4afe4910c // indirect
 	github.com/gtank/merlin v0.1.1 // indirect
 	github.com/gtank/ristretto255 v0.1.2 // indirect
+	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-hclog v1.5.0 // indirect
 	github.com/hashicorp/go-immutable-radix v1.3.1 // indirect
 	github.com/hashicorp/golang-lru v0.6.0 // indirect
@@ -283,7 +286,7 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/spf13/viper v1.15.0 // indirect
 	github.com/status-im/keycard-go v0.2.0 // indirect
-	github.com/stretchr/objx v0.5.0 // indirect
+	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/subosito/gotenv v1.4.2 // indirect
 	github.com/supranational/blst v0.3.11 // indirect
 	github.com/syndtr/goleveldb v1.0.1-0.20220721030215-126854af5e6d // indirect
@@ -326,7 +329,6 @@ require (
 	gopkg.in/guregu/null.v2 v2.1.2 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 	nhooyr.io/websocket v1.8.7 // indirect
 	pgregory.net/rapid v0.5.5 // indirect
 	rsc.io/tmplfunc v0.0.3 // indirect

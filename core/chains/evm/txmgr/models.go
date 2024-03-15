@@ -11,8 +11,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/keystore"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 )
 
 // Type aliases for EVM

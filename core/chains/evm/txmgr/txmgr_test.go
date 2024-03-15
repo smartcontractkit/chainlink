@@ -32,6 +32,8 @@ import (
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/keystore"
+	ksmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -42,8 +44,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	ksmocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
@@ -57,7 +57,7 @@ func makeTestEvmTxm(
 		RpcBatchSize:             2,
 		KeepFinalizedBlocksDepth: 1000,
 	}
-	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewQConfig(true)), ethClient, lggr, lpOpts)
+	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr), ethClient, lggr, lpOpts)
 
 	// logic for building components (from evm/evm_txm.go) -------
 	lggr.Infow("Initializing EVM transaction manager",
@@ -69,6 +69,7 @@ func makeTestEvmTxm(
 	)
 
 	return txmgr.NewTxm(
+		db,
 		db,
 		ccfg,
 		fcfg,
@@ -309,9 +310,9 @@ func TestTxm_CreateTransaction(t *testing.T) {
 		evmConfig.MaxQueued = uint64(1)
 
 		// Create mock forwarder, mock authorizedsenders call.
-		form := forwarders.NewORM(db, logger.Test(t), cfg.Database())
+		form := forwarders.NewORM(db)
 		fwdrAddr := testutils.NewAddress()
-		fwdr, err := form.CreateForwarder(fwdrAddr, ubig.Big(cltest.FixtureChainID))
+		fwdr, err := form.CreateForwarder(testutils.Context(t), fwdrAddr, ubig.Big(cltest.FixtureChainID))
 		require.NoError(t, err)
 		require.Equal(t, fwdr.Address, fwdrAddr)
 

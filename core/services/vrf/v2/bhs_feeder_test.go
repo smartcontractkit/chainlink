@@ -10,11 +10,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrftesthelpers"
 )
 
@@ -39,14 +39,14 @@ func TestStartHeartbeats(t *testing.T) {
 		bhsKeyAddresses = append(bhsKeyAddresses, bhsKey.Address.String())
 		keys = append(keys, bhsKey)
 		keySpecificOverrides = append(keySpecificOverrides, toml.KeySpecific{
-			Key:          ptr[ethkey.EIP55Address](bhsKey.EIP55Address),
+			Key:          ptr[types.EIP55Address](bhsKey.EIP55Address),
 			GasEstimator: toml.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})
 		sendEth(t, ownerKey, uni.backend, bhsKey.Address, 10)
 	}
 	keySpecificOverrides = append(keySpecificOverrides, toml.KeySpecific{
 		// Gas lane.
-		Key:          ptr[ethkey.EIP55Address](vrfKey.EIP55Address),
+		Key:          ptr[types.EIP55Address](vrfKey.EIP55Address),
 		GasEstimator: toml.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 	})
 
