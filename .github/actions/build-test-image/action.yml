@@ -34,7 +34,7 @@ runs:
     # Base Test Image Logic
     - name: Get CTF Version
       id: version
-      uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/mod-version@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
+      uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/mod-version@5bee84d30d90295010bda68b0cd46be3a1eea917 # v2.3.9
       with:
         go-project-path: ./integration-tests
         module-name: github.com/smartcontractkit/chainlink-testing-framework
