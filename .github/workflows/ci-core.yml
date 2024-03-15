@@ -217,7 +217,7 @@ jobs:
         run: ./chainlink.test local db preparetest
       - name: Load test outputs
         if: ${{ needs.filter.outputs.changes == 'true' }}
-        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+        uses: actions/download-artifact@c850b930e6ba138125429b7e5c93fc707a7f8427 # v4.1.4
         with:
           path: ./artifacts
       - name: Build flakey test runner
@@ -264,7 +264,7 @@ jobs:
         with:
           fetch-depth: 0 # fetches all history for all tags and branches to provide more metadata for sonar reports
       - name: Download all workflow run artifacts
-        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+        uses: actions/download-artifact@c850b930e6ba138125429b7e5c93fc707a7f8427 # v4.1.4
       - name: Set SonarQube Report Paths
         id: sonarqube_report_paths
         shell: bash
