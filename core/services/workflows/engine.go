@@ -273,21 +273,21 @@ func (e *Engine) Close() error {
 
 func NewEngine(lggr logger.Logger, registry types.CapabilitiesRegistry) (engine *Engine, err error) {
 	yamlWorkflowSpec := `
-triggers:
-  - type: "on_mercury_report"
-    ref: report_data
-    config:
-      feedlist:
-        - "0x1111111111111111111100000000000000000000000000000000000000000000" # ETHUSD
-        - "0x2222222222222222222200000000000000000000000000000000000000000000" # LINKUSD
-        - "0x3333333333333333333300000000000000000000000000000000000000000000" # BTCUSD
-        
-consensus:
-  - type: "offchain_reporting"
-    ref: evm_median
-    inputs:
-      observations:
-        - $(report_data.outputs)
+	triggers:
+	- type: "on_mercury_report"
+	ref: report_data
+	config:
+	feedlist:
+	- "0x1111111111111111111100000000000000000000000000000000000000000000" # ETHUSD
+	- "0x2222222222222222222200000000000000000000000000000000000000000000" # LINKUSD
+	- "0x3333333333333333333300000000000000000000000000000000000000000000" # BTCUSD
+
+	consensus:
+	- type: "offchain_reporting"
+	ref: evm_median
+	inputs:
+	observations:
+    - $(report_data.outputs)
     config:
       aggregation_method: data_feeds_2_0
       aggregation_config:
