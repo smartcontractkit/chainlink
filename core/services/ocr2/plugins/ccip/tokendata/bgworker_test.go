@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -43,7 +44,8 @@ func TestBackgroundWorker(t *testing.T) {
 		readerLatency := rand.Intn(maxReaderLatencyMS)
 		delays[tokens[i]] = time.Duration(readerLatency) * time.Millisecond
 	}
-	w := tokendata.NewBackgroundWorker(ctx, tokenDataReaders, numWorkers, 5*time.Second, time.Hour)
+	w := tokendata.NewBackgroundWorker(tokenDataReaders, numWorkers, 5*time.Second, time.Hour)
+	require.NoError(t, w.Start(ctx))
 
 	msgs := make([]cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta, numMessages)
 	for i := range msgs {
@@ -90,6 +92,8 @@ func TestBackgroundWorker(t *testing.T) {
 		assert.Equal(t, tokenData[msg.TokenAmounts[0].Token], b[0])
 	}
 	assert.True(t, time.Since(tStart) < 200*time.Millisecond)
+
+	require.NoError(t, w.Close())
 }
 
 func TestBackgroundWorker_RetryOnErrors(t *testing.T) {
@@ -101,10 +105,11 @@ func TestBackgroundWorker_RetryOnErrors(t *testing.T) {
 	rdr1 := tokendata.NewMockReader(t)
 	rdr2 := tokendata.NewMockReader(t)
 
-	w := tokendata.NewBackgroundWorker(ctx, map[cciptypes.Address]tokendata.Reader{
+	w := tokendata.NewBackgroundWorker(map[cciptypes.Address]tokendata.Reader{
 		tk1: rdr1,
 		tk2: rdr2,
 	}, 10, 5*time.Second, time.Hour)
+	require.NoError(t, w.Start(ctx))
 
 	msgs := []cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta{
 		{EVM2EVMMessage: cciptypes.EVM2EVMMessage{
@@ -155,6 +160,8 @@ func TestBackgroundWorker_RetryOnErrors(t *testing.T) {
 	tokenData, err = w.GetMsgTokenData(ctx, msgs[1])
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("some other data"), tokenData[0])
+
+	require.NoError(t, w.Close())
 }
 
 func TestBackgroundWorker_Timeout(t *testing.T) {
@@ -167,7 +174,8 @@ func TestBackgroundWorker_Timeout(t *testing.T) {
 	rdr2 := tokendata.NewMockReader(t)
 
 	w := tokendata.NewBackgroundWorker(
-		ctx, map[cciptypes.Address]tokendata.Reader{tk1: rdr1, tk2: rdr2}, 10, 5*time.Second, time.Hour)
+		map[cciptypes.Address]tokendata.Reader{tk1: rdr1, tk2: rdr2}, 10, 5*time.Second, time.Hour)
+	require.NoError(t, w.Start(ctx))
 
 	ctx, cf := context.WithTimeout(ctx, 500*time.Millisecond)
 	defer cf()
@@ -176,4 +184,5 @@ func TestBackgroundWorker_Timeout(t *testing.T) {
 		EVM2EVMMessage: cciptypes.EVM2EVMMessage{SequenceNumber: 1}},
 	)
 	assert.Error(t, err)
+	require.NoError(t, w.Close())
 }
