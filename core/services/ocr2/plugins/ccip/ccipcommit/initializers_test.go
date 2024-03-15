@@ -1,7 +1,6 @@
 package ccipcommit
 
 import (
-	"context"
 	"fmt"
 	"strconv"
 	"testing"
@@ -66,7 +65,7 @@ func TestGetCommitPluginFilterNamesFromSpec(t *testing.T) {
 				}
 			}
 
-			err := UnregisterCommitPluginLpFilters(context.Background(), lggr, job.Job{OCR2OracleSpec: tc.spec}, chainSet)
+			err := UnregisterCommitPluginLpFilters(lggr, job.Job{OCR2OracleSpec: tc.spec}, chainSet)
 			if tc.expectingErr {
 				assert.Error(t, err)
 			} else {
