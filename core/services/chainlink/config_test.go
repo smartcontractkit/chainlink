@@ -424,6 +424,25 @@ func TestConfig_Marshal(t *testing.T) {
 			ListenAddresses: &[]string{"foo", "bar"},
 		},
 	}
+	full.Capabilities = toml.Capabilities{
+		Peering: toml.P2P{
+			IncomingMessageBufferSize: ptr[int64](13),
+			OutgoingMessageBufferSize: ptr[int64](17),
+			PeerID:                    mustPeerID("12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw"),
+			TraceLogging:              ptr(true),
+			V2: toml.P2PV2{
+				Enabled:           ptr(false),
+				AnnounceAddresses: &[]string{"a", "b", "c"},
+				DefaultBootstrappers: &[]ocrcommontypes.BootstrapperLocator{
+					{PeerID: "12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw", Addrs: []string{"foo:42", "bar:10"}},
+					{PeerID: "12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw", Addrs: []string{"test:99"}},
+				},
+				DeltaDial:       commoncfg.MustNewDuration(time.Minute),
+				DeltaReconcile:  commoncfg.MustNewDuration(2 * time.Second),
+				ListenAddresses: &[]string{"foo", "bar"},
+			},
+		},
+	}
 	full.Keeper = toml.Keeper{
 		DefaultTransactionQueueDepth: ptr[uint32](17),
 		GasPriceBufferPercent:        ptr[uint16](12),

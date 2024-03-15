@@ -49,6 +49,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
+	externalp2p "github.com/smartcontractkit/chainlink/v2/core/services/p2p/wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/periodicbackup"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -190,6 +191,15 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	restrictedHTTPClient := opts.RestrictedHTTPClient
 	unrestrictedHTTPClient := opts.UnrestrictedHTTPClient
 	registry := capabilities.NewRegistry(globalLogger)
+
+	if cfg.Capabilities().Peering().Enabled() {
+		externalPeerWrapper := externalp2p.NewExternalPeerWrapper(keyStore.P2P(), cfg.Capabilities().Peering(), globalLogger)
+		srvcs = append(srvcs, externalPeerWrapper)
+
+		// NOTE: RegistrySyncer will depend on a Relayer when fully implemented
+		registrySyncer := capabilities.NewRegistrySyncer(externalPeerWrapper, registry, globalLogger)
+		srvcs = append(srvcs, registrySyncer)
+	}
 
 	// LOOPs can be created as options, in the  case of LOOP relayers, or
 	// as OCR2 job implementations, in the case of Median today.

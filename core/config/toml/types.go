@@ -55,6 +55,7 @@ type Core struct {
 	Insecure         Insecure         `toml:",omitempty"`
 	Tracing          Tracing          `toml:",omitempty"`
 	Mercury          Mercury          `toml:",omitempty"`
+	Capabilities     Capabilities     `toml:",omitempty"`
 }
 
 // SetFrom updates c with any non-nil values from f. (currently TOML field only!)
@@ -84,6 +85,7 @@ func (c *Core) SetFrom(f *Core) {
 	c.P2P.setFrom(&f.P2P)
 	c.Keeper.setFrom(&f.Keeper)
 	c.Mercury.setFrom(&f.Mercury)
+	c.Capabilities.setFrom(&f.Capabilities)
 
 	c.AutoPprof.setFrom(&f.AutoPprof)
 	c.Pyroscope.setFrom(&f.Pyroscope)
@@ -1384,6 +1386,14 @@ func (m *MercurySecrets) ValidateConfig() (err error) {
 		urls[s] = struct{}{}
 	}
 	return err
+}
+
+type Capabilities struct {
+	Peering P2P `toml:",omitempty"`
+}
+
+func (c *Capabilities) setFrom(f *Capabilities) {
+	c.Peering.setFrom(&f.Peering)
 }
 
 type ThresholdKeyShareSecrets struct {
