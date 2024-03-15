@@ -130,10 +130,43 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
     if (s_upkeepAdmin[id] != msg.sender) revert OnlyCallableByAdmin();
     if (upkeep.maxValidBlocknumber > s_hotVars.chainModule.blockNumber()) revert UpkeepNotCanceled();
     uint96 amountToWithdraw = s_upkeep[id].balance;
-    s_expectedLinkBalance = s_expectedLinkBalance - amountToWithdraw;
+    s_reserveAmounts[address(i_link)] = s_reserveAmounts[address(i_link)] - amountToWithdraw;
     s_upkeep[id].balance = 0;
     i_link.transfer(to, amountToWithdraw);
     emit FundsWithdrawn(id, amountToWithdraw, to);
+  }
+
+  /**
+   * @notice LINK available to withdraw by the finance team
+   */
+  function linkAvailableForPayment() public view returns (uint256) {
+    return i_link.balanceOf(address(this)) - s_reserveAmounts[address(i_link)];
+  }
+
+  function withdrawLinkFees(address to, uint256 amount) external {
+    _onlyFinanceAdminAllowed();
+    if (to == ZERO_ADDRESS) revert InvalidRecipient();
+
+    uint256 available = linkAvailableForPayment();
+    if (amount > available) revert InsufficientBalance(available, amount);
+
+    bool transferStatus = i_link.transfer(to, amount);
+    if (!transferStatus) {
+      revert TransferFailed();
+    }
+    emit FeesWithdrawn(to, address(i_link), amount);
+  }
+
+  function withdrawERC20Fees(address assetAddress, address to, uint256 amount) external {
+    _onlyFinanceAdminAllowed();
+    if (to == ZERO_ADDRESS) revert InvalidRecipient();
+
+    bool transferStatus = IERC20(assetAddress).transfer(to, amount);
+    if (!transferStatus) {
+      revert TransferFailed();
+    }
+
+    emit FeesWithdrawn(to, assetAddress, amount);
   }
 
   // ================================================================
@@ -173,7 +206,7 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
     if (s_transmitterPayees[from] != msg.sender) revert OnlyCallableByPayee();
     uint96 balance = _updateTransmitterBalanceFromPool(from, s_hotVars.totalPremium, uint96(s_transmittersList.length));
     s_transmitters[from].balance = 0;
-    s_expectedLinkBalance = s_expectedLinkBalance - balance;
+    s_reserveAmounts[address(i_link)] = s_reserveAmounts[address(i_link)] - balance;
     i_link.transfer(to, balance);
     emit PaymentWithdrawn(from, balance, to, msg.sender);
   }
@@ -191,25 +224,6 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
     }
     s_upkeepPrivilegeConfig[upkeepId] = newPrivilegeConfig;
     emit UpkeepPrivilegeConfigSet(upkeepId, newPrivilegeConfig);
-  }
-
-  /**
-   * @notice withdraws the owner's LINK balance
-   */
-  function withdrawOwnerFunds() external onlyOwner {
-    uint96 amount = s_storage.ownerLinkBalance;
-    s_expectedLinkBalance = s_expectedLinkBalance - amount;
-    s_storage.ownerLinkBalance = 0;
-    emit OwnerFundsWithdrawn(amount);
-    i_link.transfer(msg.sender, amount);
-  }
-
-  /**
-   * @notice allows the owner to withdraw any LINK accidentally sent to the contract
-   */
-  function recoverFunds() external onlyOwner {
-    uint256 total = i_link.balanceOf(address(this));
-    i_link.transfer(msg.sender, total - s_expectedLinkBalance);
   }
 
   /**
@@ -444,8 +458,8 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
   {
     state = State({
       nonce: s_storage.nonce,
-      ownerLinkBalance: s_storage.ownerLinkBalance,
-      expectedLinkBalance: s_expectedLinkBalance,
+      ownerLinkBalance: 0,
+      expectedLinkBalance: s_reserveAmounts[address(i_link)],
       totalPremium: s_hotVars.totalPremium,
       numUpkeeps: s_upkeepIDs.length(),
       configCount: s_storage.configCount,

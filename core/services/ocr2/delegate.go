@@ -273,7 +273,7 @@ func (d *Delegate) BeforeJobCreated(spec job.Job) {
 }
 func (d *Delegate) AfterJobCreated(spec job.Job)  {}
 func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
-func (d *Delegate) OnDeleteJob(jb job.Job, q pg.Queryer) error {
+func (d *Delegate) OnDeleteJob(ctx context.Context, jb job.Job, q pg.Queryer) error {
 	// If the job spec is malformed in any way, we report the error but return nil so that
 	//  the job deletion itself isn't blocked.
 
@@ -290,13 +290,13 @@ func (d *Delegate) OnDeleteJob(jb job.Job, q pg.Queryer) error {
 	}
 	// we only have clean to do for the EVM
 	if rid.Network == relay.EVM {
-		return d.cleanupEVM(jb, q, rid)
+		return d.cleanupEVM(ctx, jb, q, rid)
 	}
 	return nil
 }
 
 // cleanupEVM is a helper for clean up EVM specific state when a job is deleted
-func (d *Delegate) cleanupEVM(jb job.Job, q pg.Queryer, relayID relay.ID) error {
+func (d *Delegate) cleanupEVM(ctx context.Context, jb job.Job, q pg.Queryer, relayID relay.ID) error {
 	//  If UnregisterFilter returns an
 	//  error, that means it failed to remove a valid active filter from the db.  We do abort the job deletion
 	//  in that case, since it should be easy for the user to retry and will avoid leaving the db in
@@ -341,10 +341,9 @@ func (d *Delegate) cleanupEVM(jb job.Job, q pg.Queryer, relayID relay.ID) error 
 	}
 
 	filters = append(filters, relayFilters...)
-
 	for _, filter := range filters {
 		d.lggr.Debugf("Unregistering %s filter", filter)
-		err = lp.UnregisterFilter(filter, pg.WithQueryer(q))
+		err = lp.UnregisterFilter(ctx, filter)
 		if err != nil {
 			return errors.Wrapf(err, "Failed to unregister filter %s", filter)
 		}
@@ -374,6 +373,8 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 		spec.RelayConfig["feedID"] = spec.FeedID
 	}
 	lggr := logger.Sugared(d.lggr.Named(jb.ExternalJobID.String()).With(lggrCtx.Args()...))
+
+	kvStore := job.NewKVStore(jb.ID, d.db, d.cfg.Database(), lggr)
 
 	rid, err := spec.RelayID()
 	if err != nil {
@@ -448,13 +449,13 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 		return d.newServicesLLO(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger)
 
 	case types.Median:
-		return d.newServicesMedian(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger)
+		return d.newServicesMedian(ctx, lggr, jb, bootstrapPeers, kb, kvStore, ocrDB, lc, ocrLogger)
 
 	case types.DKG:
 		return d.newServicesDKG(lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger)
 
 	case types.OCR2VRF:
-		return d.newServicesOCR2VRF(lggr, jb, bootstrapPeers, kb, ocrDB, lc)
+		return d.newServicesOCR2VRF(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc)
 
 	case types.OCR2Keeper:
 		return d.newServicesOCR2Keepers(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger)
@@ -927,6 +928,7 @@ func (d *Delegate) newServicesMedian(
 	jb job.Job,
 	bootstrapPeers []commontypes.BootstrapperLocator,
 	kb ocr2key.KeyBundle,
+	kvStore job.KVStore,
 	ocrDB *db,
 	lc ocrtypes.LocalConfig,
 	ocrLogger commontypes.Logger,
@@ -962,7 +964,7 @@ func (d *Delegate) newServicesMedian(
 		return nil, ErrRelayNotEnabled{Err: err, PluginName: "median", Relay: spec.Relay}
 	}
 
-	medianServices, err2 := median.NewMedianServices(ctx, jb, d.isNewlyCreatedJob, relayer, d.pipelineRunner, lggr, oracleArgsNoPlugin, mConfig, enhancedTelemChan, errorLog)
+	medianServices, err2 := median.NewMedianServices(ctx, jb, d.isNewlyCreatedJob, relayer, kvStore, d.pipelineRunner, lggr, oracleArgsNoPlugin, mConfig, enhancedTelemChan, errorLog)
 
 	if ocrcommon.ShouldCollectEnhancedTelemetry(&jb) {
 		enhancedTelemService := ocrcommon.NewEnhancedTelemetryService(&jb, enhancedTelemChan, make(chan struct{}), d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, spec.ContractID, synchronization.EnhancedEA), lggr.Named("EnhancedTelemetry"))
@@ -1044,6 +1046,7 @@ func (d *Delegate) newServicesDKG(
 }
 
 func (d *Delegate) newServicesOCR2VRF(
+	ctx context.Context,
 	lggr logger.SugaredLogger,
 	jb job.Job,
 	bootstrapPeers []commontypes.BootstrapperLocator,
@@ -1146,6 +1149,7 @@ func (d *Delegate) newServicesOCR2VRF(
 	}
 
 	coordinator, err2 := ocr2coordinator.New(
+		ctx,
 		lggr.Named("OCR2VRFCoordinator"),
 		common.HexToAddress(spec.ContractID),
 		common.HexToAddress(cfg.VRFCoordinatorAddress),
@@ -1246,9 +1250,9 @@ func (d *Delegate) newServicesOCR2Keepers(
 		// Future contracts of v2.1 (v2.x) will use the same job spec as v2.1
 		return d.newServicesOCR2Keepers21(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger, cfg, spec)
 	case "v2.0":
-		return d.newServicesOCR2Keepers20(lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger, cfg, spec)
+		return d.newServicesOCR2Keepers20(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger, cfg, spec)
 	default:
-		return d.newServicesOCR2Keepers20(lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger, cfg, spec)
+		return d.newServicesOCR2Keepers20(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger, cfg, spec)
 	}
 }
 
@@ -1401,6 +1405,7 @@ func (d *Delegate) newServicesOCR2Keepers21(
 }
 
 func (d *Delegate) newServicesOCR2Keepers20(
+	ctx context.Context,
 	lggr logger.SugaredLogger,
 	jb job.Job,
 	bootstrapPeers []commontypes.BootstrapperLocator,
@@ -1424,7 +1429,7 @@ func (d *Delegate) newServicesOCR2Keepers20(
 		return nil, fmt.Errorf("keepers2.0 services: failed to get chain (%s): %w", rid.ChainID, err2)
 	}
 
-	keeperProvider, rgstry, encoder, logProvider, err2 := ocr2keeper.EVMDependencies20(jb, d.db, lggr, chain, d.ethKs, d.cfg.Database())
+	keeperProvider, rgstry, encoder, logProvider, err2 := ocr2keeper.EVMDependencies20(ctx, jb, d.db, lggr, chain, d.ethKs, d.cfg.Database())
 	if err2 != nil {
 		return nil, errors.Wrap(err2, "could not build dependencies for ocr2 keepers")
 	}

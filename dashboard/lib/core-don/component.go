@@ -791,6 +791,119 @@ func evmPoolLifecycleRow(p Props) []dashboard.Option {
 	}
 }
 
+func nodesRPCRow(p Props) []dashboard.Option {
+	return []dashboard.Option{
+		dashboard.Row(
+			"Node RPC State",
+			row.Collapse(),
+			row.WithStat(
+				"Node RPC Alive",
+				stat.DataSource(p.PrometheusDataSource),
+				stat.Text(stat.TextValueAndName),
+				stat.Orientation(stat.OrientationHorizontal),
+				stat.TitleFontSize(12),
+				stat.ValueFontSize(20),
+				stat.Span(3),
+				stat.WithPrometheusTarget(
+					`sum(multi_node_states{`+p.PlatformOpts.LabelQuery+`chainId=~"$evmChainID", state="Alive"}) by (`+p.PlatformOpts.LegendString+`, chainId)`,
+					prometheus.Legend("{{pod}} - {{chainId}}"),
+				),
+			),
+			row.WithStat(
+				"Node RPC Closed",
+				stat.DataSource(p.PrometheusDataSource),
+				stat.Text(stat.TextValueAndName),
+				stat.Orientation(stat.OrientationHorizontal),
+				stat.TitleFontSize(12),
+				stat.ValueFontSize(20),
+				stat.Span(3),
+				stat.WithPrometheusTarget(
+					`sum(multi_node_states{`+p.PlatformOpts.LabelQuery+`chainId=~"$evmChainID", state="Closed"}) by (`+p.PlatformOpts.LegendString+`, chainId)`,
+					prometheus.Legend("{{pod}} - {{chainId}}"),
+				),
+			),
+			row.WithStat(
+				"Node RPC Dialed",
+				stat.DataSource(p.PrometheusDataSource),
+				stat.Text(stat.TextValueAndName),
+				stat.Orientation(stat.OrientationHorizontal),
+				stat.TitleFontSize(12),
+				stat.ValueFontSize(20),
+				stat.Span(3),
+				stat.WithPrometheusTarget(
+					`sum(multi_node_states{`+p.PlatformOpts.LabelQuery+`chainId=~"$evmChainID", state="Dialed"}) by (`+p.PlatformOpts.LegendString+`, chainId)`,
+					prometheus.Legend("{{pod}} - {{chainId}}"),
+				),
+			),
+			row.WithStat(
+				"Node RPC InvalidChainID",
+				stat.DataSource(p.PrometheusDataSource),
+				stat.Text(stat.TextValueAndName),
+				stat.Orientation(stat.OrientationHorizontal),
+				stat.TitleFontSize(12),
+				stat.ValueFontSize(20),
+				stat.Span(3),
+				stat.WithPrometheusTarget(
+					`sum(multi_node_states{`+p.PlatformOpts.LabelQuery+`chainId=~"$evmChainID", state="InvalidChainID"}) by (`+p.PlatformOpts.LegendString+`, chainId)`,
+					prometheus.Legend("{{pod}} - {{chainId}}"),
+				),
+			),
+			row.WithStat(
+				"Node RPC OutOfSync",
+				stat.DataSource(p.PrometheusDataSource),
+				stat.Text(stat.TextValueAndName),
+				stat.Orientation(stat.OrientationHorizontal),
+				stat.TitleFontSize(12),
+				stat.ValueFontSize(20),
+				stat.Span(3),
+				stat.WithPrometheusTarget(
+					`sum(multi_node_states{`+p.PlatformOpts.LabelQuery+`chainId=~"$evmChainID", state="OutOfSync"}) by (`+p.PlatformOpts.LegendString+`, chainId)`,
+					prometheus.Legend("{{pod}} - {{chainId}}"),
+				),
+			),
+			row.WithStat(
+				"Node RPC UnDialed",
+				stat.DataSource(p.PrometheusDataSource),
+				stat.Text(stat.TextValueAndName),
+				stat.Orientation(stat.OrientationHorizontal),
+				stat.TitleFontSize(12),
+				stat.ValueFontSize(20),
+				stat.Span(3),
+				stat.WithPrometheusTarget(
+					`sum(multi_node_states{`+p.PlatformOpts.LabelQuery+`chainId=~"$evmChainID", state="Undialed"}) by (`+p.PlatformOpts.LegendString+`, chainId)`,
+					prometheus.Legend("{{pod}} - {{chainId}}"),
+				),
+			),
+			row.WithStat(
+				"Node RPC Unreachable",
+				stat.DataSource(p.PrometheusDataSource),
+				stat.Text(stat.TextValueAndName),
+				stat.Orientation(stat.OrientationHorizontal),
+				stat.TitleFontSize(12),
+				stat.ValueFontSize(20),
+				stat.Span(3),
+				stat.WithPrometheusTarget(
+					`sum(multi_node_states{`+p.PlatformOpts.LabelQuery+`chainId=~"$evmChainID", state="Unreachable"}) by (`+p.PlatformOpts.LegendString+`, chainId)`,
+					prometheus.Legend("{{pod}} - {{chainId}}"),
+				),
+			),
+			row.WithStat(
+				"Node RPC Unusable",
+				stat.DataSource(p.PrometheusDataSource),
+				stat.Text(stat.TextValueAndName),
+				stat.Orientation(stat.OrientationHorizontal),
+				stat.TitleFontSize(12),
+				stat.ValueFontSize(20),
+				stat.Span(3),
+				stat.WithPrometheusTarget(
+					`sum(multi_node_states{`+p.PlatformOpts.LabelQuery+`chainId=~"$evmChainID", state="Unusable"}) by (`+p.PlatformOpts.LegendString+`, chainId)`,
+					prometheus.Legend("{{pod}} - {{chainId}}"),
+				),
+			),
+		),
+	}
+}
+
 func evmNodeRPCRow(p Props) []dashboard.Option {
 	return []dashboard.Option{
 		dashboard.Row(
@@ -1604,6 +1717,7 @@ func New(p Props) []dashboard.Option {
 	opts = append(opts, sqlQueriesRow(p)...)
 	opts = append(opts, logsCountersRow(p)...)
 	opts = append(opts, evmPoolLifecycleRow(p)...)
+	opts = append(opts, nodesRPCRow(p)...)
 	opts = append(opts, evmNodeRPCRow(p)...)
 	opts = append(opts, evmRPCNodeLatenciesRow(p)...)
 	opts = append(opts, evmBlockHistoryEstimatorRow(p)...)

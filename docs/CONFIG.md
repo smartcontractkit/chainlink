@@ -5873,6 +5873,90 @@ GasLimit = 5400000
 
 </p></details>
 
+<details><summary>Optimism Sepolia (11155420)</summary><p>
+
+```toml
+AutoCreateKey = true
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
+ChainType = 'optimismBedrock'
+FinalityDepth = 200
+FinalityTagEnabled = false
+LogBackfillBatchSize = 1000
+LogPollInterval = '2s'
+LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
+MinIncomingConfirmations = 1
+MinContractPayment = '0.00001 link'
+NonceAutoSync = true
+NoNewHeadsThreshold = '40s'
+RPCDefaultBatchSize = 250
+RPCBlockQueryDelay = 1
+
+[Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '30s'
+
+[BalanceMonitor]
+Enabled = true
+
+[GasEstimator]
+Mode = 'BlockHistory'
+PriceDefault = '20 gwei'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
+PriceMin = '1 wei'
+LimitDefault = 500000
+LimitMax = 500000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+BumpMin = '100 wei'
+BumpPercent = 20
+BumpThreshold = 3
+EIP1559DynamicFees = true
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1 wei'
+TipCapMin = '1 wei'
+
+[GasEstimator.BlockHistory]
+BatchSize = 25
+BlockHistorySize = 60
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
+TransactionPercentile = 60
+
+[HeadTracker]
+HistoryDepth = 300
+MaxBufferSize = 3
+SamplingInterval = '1s'
+
+[NodePool]
+PollFailureThreshold = 5
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
+SyncThreshold = 10
+LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
+
+[OCR]
+ContractConfirmations = 1
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
+ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 6500000
+```
+
+</p></details>
+
 <details><summary>Harmony Mainnet (1666600000)</summary><p>
 
 ```toml
@@ -6619,8 +6703,8 @@ In addition to these settings, it log warnings if `EVM.NoNewHeadsThreshold` is e
 ```toml
 HistoryDepth = 100 # Default
 ```
-HistoryDepth tracks the top N block numbers to keep in the `heads` database table.
-Note that this can easily result in MORE than N records since in the case of re-orgs we keep multiple heads for a particular block height.
+HistoryDepth tracks the top N blocks on top of the latest finalized block to keep in the `heads` database table.
+Note that this can easily result in MORE than `N + finality depth`  records since in the case of re-orgs we keep multiple heads for a particular block height.
 This number should be at least as large as `FinalityDepth`.
 There may be a small performance penalty to setting this to something very large (10,000+)
 
