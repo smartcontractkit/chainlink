@@ -70,7 +70,7 @@ jobs:
     # We don't directly merge dependabot PRs, so let's not waste the resources
     if: github.actor != 'dependabot[bot]'
     needs: [filter]
-    runs-on: ubuntu22.04-64cores-256GB
+    runs-on: ubuntu-latest-64cores-256GB
     env:
       CL_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
     steps:
