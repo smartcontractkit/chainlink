@@ -31,9 +31,12 @@ func TestGasExperiment(t *testing.T) {
 	seth, err := seth.NewClientWithConfig(&sethCfg)
 	require.NoError(t, err, "Error creating seth client")
 
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 1; i++ {
 		_, err = contracts.DeployLinkTokenContract(seth)
 		require.NoError(t, err, "Error deploying LINK contract")
 		time.Sleep(2 * time.Second)
 	}
 }
+
+// 0.000000128551002561
+// 0.000000134350145939
