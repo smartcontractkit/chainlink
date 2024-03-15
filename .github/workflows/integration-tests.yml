@@ -1,4 +1,5 @@
 name: Integration Tests
+run-name: Integration Tests ${{ inputs.distinct_run_name && inputs.distinct_run_name || '' }}
 on:
   merge_group:
   pull_request:
@@ -16,7 +17,7 @@ on:
         required: false
         type: string
       set_changes_output:
-        description: 'Set the changes output'
+        description: 'Set the changes output, used when ran from other repos'
         required: false
         type: string
         default: 'true'
@@ -25,27 +26,10 @@ on:
         required: false
         type: string
         default: 'false'
-  workflow_call:
-    inputs:
-      cl_ref:
-        description: 'The ref to checkout'
+      distinct_run_name:
+        description: 'A unique identifier for this run, only use from other repos'
         required: false
         type: string
-        default: 'develop'
-      evm-ref:
-        description: 'The sha of the chainlink-evm commit to use if wanted'
-        required: false
-        type: string
-      set_changes_output:
-        description: 'Set the changes output'
-        required: false
-        type: string
-        default: 'true'
-      run_solana:
-        description: 'Run solana tests'
-        required: false
-        type: string
-        default: 'false'
 
 # Only run 1 of this workflow at a time per PR
 concurrency:
@@ -395,7 +379,7 @@ jobs:
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
 
   eth-smoke-tests-matrix-log-poller:
-    if: ${{ !(contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') || github.event_name == 'workflow_dispatch') }}
+    if: ${{ !(contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') || github.event_name == 'workflow_dispatch') || inputs.distinct_run_name != '' }}
     environment: integration
     permissions:
       checks: write

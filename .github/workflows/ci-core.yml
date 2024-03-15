@@ -1,4 +1,5 @@
 name: CI Core
+run-name: CI Core ${{ inputs.distinct_run_name && inputs.distinct_run_name || '' }}
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -17,6 +18,10 @@ on:
     - cron: "0 0 * * *"
   workflow_dispatch:
     inputs:
+      distinct_run_name:
+        description: 'A unique identifier for this run, used when running from other repos'
+        required: false
+        type: string
       evm-ref:
         description: The chainlink-evm reference to use when testing against a specific version for compatibliity
         required: false
