@@ -120,11 +120,10 @@ func NewFunctionsServices(ctx context.Context, functionsOracleArgs, thresholdOra
 	var exponentialBackoffBase time.Duration
 	if pluginConfig.ExternalAdapterExponentialBackoffBaseSec != nil {
 		exponentialBackoffBase = time.Duration(*pluginConfig.ExternalAdapterExponentialBackoffBaseSec) * time.Second
-		conf.Logger.Debugf("external adapter exponentialBackoffBase configured to: %g sec", exponentialBackoffBase.Seconds())
 	} else {
 		exponentialBackoffBase = DefaultExponentialBackoffBase
-		conf.Logger.Debugf("external adapter exponentialBackoffBase configured to default: %g sec", exponentialBackoffBase.Seconds())
 	}
+	conf.Logger.Debugf("external adapter exponentialBackoffBase configured to: %g sec", exponentialBackoffBase.Seconds())
 
 	bridgeAccessor := functions.NewBridgeAccessor(conf.BridgeORM, FunctionsBridgeName, MaxAdapterResponseBytes, maxRetries, exponentialBackoffBase)
 	functionsListener := functions.NewFunctionsListener(
