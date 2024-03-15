@@ -331,6 +331,9 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		if err != nil {
 			return nil, err
 		}
+
+		b.te.isSimulatedNetwork = true
+
 		return b.te, nil
 	}
 
@@ -388,6 +391,10 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		if b.hasSeth {
 			readSethCfg := b.testConfig.GetSethConfig()
 			sethCfg := utils.MergeSethAndEvmNetworkConfigs(b.l, networkConfig, *readSethCfg)
+			err = utils.ValidateSethNetworkConfig(sethCfg.Network)
+			if err != nil {
+				return nil, err
+			}
 			seth, err := seth.NewClientWithConfig(&sethCfg)
 			if err != nil {
 				return nil, err
@@ -395,8 +402,6 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 
 			b.te.SethClient = seth
 		}
-
-		b.te.isSimulatedNetwork = true
 	}
 
 	var nodeCsaKeys []string
@@ -433,8 +438,6 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 					}
 				}
 			}
-
-			b.te.isSimulatedNetwork = true
 		}
 
 		err := b.te.StartClCluster(cfg, b.clNodesCount, b.secretsConfig, b.testConfig, b.clNodesOpts...)
@@ -462,8 +465,6 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 				return nil, err
 			}
 		}
-
-		b.te.isSimulatedNetwork = true
 	}
 
 	var enDesc string

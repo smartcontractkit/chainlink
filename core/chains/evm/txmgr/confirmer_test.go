@@ -31,6 +31,8 @@ import (
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	gasmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/keystore"
+	ksmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
@@ -40,8 +42,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	ksmocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 )
 
 func newTestChainScopedConfig(t *testing.T) evmconfig.ChainScopedConfig {
@@ -1641,7 +1641,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WithConnectivityCheck(t *testing
 
 		estimator := gasmocks.NewEvmEstimator(t)
 		newEst := func(logger.Logger) gas.EvmEstimator { return estimator }
-		estimator.On("BumpLegacyGas", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, uint32(0), pkgerrors.Wrapf(commonfee.ErrConnectivity, "transaction..."))
+		estimator.On("BumpLegacyGas", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, uint64(0), pkgerrors.Wrapf(commonfee.ErrConnectivity, "transaction..."))
 		ge := ccfg.EVM().GasEstimator()
 		feeEstimator := gas.NewWrappedEvmEstimator(lggr, newEst, ge.EIP1559DynamicFees(), nil)
 		txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), ge, kst, feeEstimator)
@@ -1686,7 +1686,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WithConnectivityCheck(t *testing
 		kst := ksmocks.NewEth(t)
 
 		estimator := gasmocks.NewEvmEstimator(t)
-		estimator.On("BumpDynamicFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(gas.DynamicFee{}, uint32(0), pkgerrors.Wrapf(commonfee.ErrConnectivity, "transaction..."))
+		estimator.On("BumpDynamicFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(gas.DynamicFee{}, uint64(0), pkgerrors.Wrapf(commonfee.ErrConnectivity, "transaction..."))
 		newEst := func(logger.Logger) gas.EvmEstimator { return estimator }
 		// Create confirmer with necessary state
 		ge := ccfg.EVM().GasEstimator()
@@ -2839,7 +2839,7 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 	etx2 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 2, fromAddress)
 
 	gasPriceWei := gas.EvmFee{Legacy: assets.GWei(52)}
-	overrideGasLimit := uint32(20000)
+	overrideGasLimit := uint64(20000)
 
 	t.Run("rebroadcasts one eth_tx if it falls within in nonce range", func(t *testing.T) {
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
@@ -2848,7 +2848,7 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return tx.Nonce() == uint64(*etx1.Sequence) &&
 				tx.GasPrice().Int64() == gasPriceWei.Legacy.Int64() &&
-				tx.Gas() == uint64(overrideGasLimit) &&
+				tx.Gas() == overrideGasLimit &&
 				reflect.DeepEqual(tx.Data(), etx1.EncodedPayload) &&
 				tx.To().String() == etx1.ToAddress.String()
 		}), mock.Anything).Return(commonclient.Successful, nil).Once()
@@ -2863,7 +2863,7 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return tx.Nonce() == uint64(*etx1.Sequence) &&
 				tx.GasPrice().Int64() == gasPriceWei.Legacy.Int64() &&
-				tx.Gas() == uint64(etx1.FeeLimit) &&
+				tx.Gas() == etx1.FeeLimit &&
 				reflect.DeepEqual(tx.Data(), etx1.EncodedPayload) &&
 				tx.To().String() == etx1.ToAddress.String()
 		}), mock.Anything).Return(commonclient.Successful, nil).Once()
@@ -2876,10 +2876,10 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 		ec := newEthConfirmer(t, txStore, ethClient, config, ethKeyStore, nil)
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
-			return tx.Nonce() == uint64(*etx1.Sequence) && tx.GasPrice().Int64() == gasPriceWei.Legacy.Int64() && tx.Gas() == uint64(overrideGasLimit)
+			return tx.Nonce() == uint64(*etx1.Sequence) && tx.GasPrice().Int64() == gasPriceWei.Legacy.Int64() && tx.Gas() == overrideGasLimit
 		}), mock.Anything).Return(commonclient.Successful, nil).Once()
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
-			return tx.Nonce() == uint64(*etx2.Sequence) && tx.GasPrice().Int64() == gasPriceWei.Legacy.Int64() && tx.Gas() == uint64(overrideGasLimit)
+			return tx.Nonce() == uint64(*etx2.Sequence) && tx.GasPrice().Int64() == gasPriceWei.Legacy.Int64() && tx.Gas() == overrideGasLimit
 		}), mock.Anything).Return(commonclient.Successful, nil).Once()
 
 		require.NoError(t, ec.ForceRebroadcast(testutils.Context(t), []evmtypes.Nonce{(1), (2)}, gasPriceWei, fromAddress, overrideGasLimit))
@@ -2900,7 +2900,7 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 			ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 				return tx.Nonce() == uint64(nonce) &&
 					tx.GasPrice().Int64() == gasPriceWei.Legacy.Int64() &&
-					tx.Gas() == uint64(overrideGasLimit) &&
+					tx.Gas() == overrideGasLimit &&
 					*tx.To() == fromAddress &&
 					tx.Value().Cmp(big.NewInt(0)) == 0 &&
 					len(tx.Data()) == 0
@@ -2916,7 +2916,7 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 		ec := newEthConfirmer(t, txStore, ethClient, config, ethKeyStore, nil)
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
-			return tx.Nonce() == uint64(0) && tx.GasPrice().Int64() == gasPriceWei.Legacy.Int64() && uint32(tx.Gas()) == config.EVM().GasEstimator().LimitDefault()
+			return tx.Nonce() == uint64(0) && tx.GasPrice().Int64() == gasPriceWei.Legacy.Int64() && tx.Gas() == config.EVM().GasEstimator().LimitDefault()
 		}), mock.Anything).Return(commonclient.Successful, nil).Once()
 
 		require.NoError(t, ec.ForceRebroadcast(testutils.Context(t), []evmtypes.Nonce{(0)}, gasPriceWei, fromAddress, 0))

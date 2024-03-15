@@ -71,7 +71,7 @@ func (r *InsufficientFundTransferRetrier) Retry(ctx context.Context, logger zero
 
 		payload.Amount = newAmount
 
-		retryErr := SendFunds(logger, client, payload)
+		_, retryErr := SendFunds(logger, client, payload)
 		if retryErr == nil {
 			logger.Info().
 				Str("retier", "InsufficientFundTransferRetrier").
@@ -135,7 +135,7 @@ func (r *GasTooLowTransferRetrier) Retry(ctx context.Context, logger zerolog.Log
 
 		payload.GasLimit = &newGasLimit
 
-		retryErr := SendFunds(logger, client, payload)
+		_, retryErr := SendFunds(logger, client, payload)
 		if retryErr == nil {
 			logger.Info().
 				Str("retier", "GasTooLowTransferRetrier").
@@ -204,7 +204,7 @@ func (r *OvershotTransferRetrier) Retry(ctx context.Context, logger zerolog.Logg
 
 		payload.Amount = newAmount
 
-		retryErr := SendFunds(logger, client, payload)
+		_, retryErr := SendFunds(logger, client, payload)
 		if retryErr == nil {
 			logger.Info().
 				Str("retier", "OvershotTransferRetrier").
@@ -270,12 +270,27 @@ func ReturnFunds(log zerolog.Logger, seth *seth.Client, chainlinkNodes []contrac
 				return err
 			}
 
-			totalGasCost := new(big.Int).Mul(big.NewInt(0).SetUint64(seth.Cfg.Network.GasLimit), big.NewInt(0).SetInt64(seth.Cfg.Network.GasPrice))
+			var totalGasCost *big.Int
+			if seth.Cfg.Network.EIP1559DynamicFees {
+				totalGasCost = new(big.Int).Mul(big.NewInt(0).SetUint64(seth.Cfg.Network.GasLimit), big.NewInt(0).SetInt64(seth.Cfg.Network.GasFeeCap))
+			} else {
+				totalGasCost = new(big.Int).Mul(big.NewInt(0).SetUint64(seth.Cfg.Network.GasLimit), big.NewInt(0).SetInt64(seth.Cfg.Network.GasPrice))
+			}
+
 			toSend := new(big.Int).Sub(balance, totalGasCost)
+
+			if toSend.Cmp(big.NewInt(0)) <= 0 {
+				log.Warn().
+					Str("Address", fromAddress.String()).
+					Str("Estimated total cost", totalGasCost.String()).
+					Str("Balance", balance.String()).
+					Str("To send", toSend.String()).
+					Msg("Not enough balance to cover gas cost. Skipping return.")
+			}
 
 			payload := FundsToSendPayload{ToAddress: seth.Addresses[0], Amount: toSend, PrivateKey: decryptedKey.PrivateKey}
 
-			err = SendFunds(log, seth, payload)
+			_, err = SendFunds(log, seth, payload)
 			if err != nil {
 				handler := OvershotTransferRetrier{maxRetries: 3, nextRetrier: &InsufficientFundTransferRetrier{maxRetries: 3, nextRetrier: &GasTooLowTransferRetrier{maxGasLimit: seth.Cfg.Network.GasLimit * 3}}}
 				return handler.Retry(context.Background(), log, seth, err, payload, 0)

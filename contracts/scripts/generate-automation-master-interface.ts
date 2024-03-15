@@ -9,7 +9,7 @@ import { utils } from 'ethers'
 import fs from 'fs'
 import { exec } from 'child_process'
 
-const dest = 'src/v0.8/automation/dev/interfaces/v2_2'
+const dest = 'src/v0.8/automation/interfaces/v2_2'
 const srcDest = `${dest}/IAutomationRegistryMaster.sol`
 const tmpDest = `${dest}/tmp.txt`
 
