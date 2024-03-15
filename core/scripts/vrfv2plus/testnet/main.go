@@ -567,7 +567,7 @@ func main() {
 		registerKeyAddress := coordinatorRegisterKey.String("address", "", "coordinator address")
 		registerKeyUncompressedPubKey := coordinatorRegisterKey.String("pubkey", "", "uncompressed pubkey")
 		gasLaneMaxGas := coordinatorRegisterKey.Uint64("gas-lane-max-gas", 1e12, "gas lane max gas price")
-		helpers.ParseArgs(coordinatorRegisterKey, os.Args[2:], "address", "pubkey", "oracle-address")
+		helpers.ParseArgs(coordinatorRegisterKey, os.Args[2:], "address", "pubkey")
 
 		coordinator, err := vrf_coordinator_v2_5.NewVRFCoordinatorV25(common.HexToAddress(*registerKeyAddress), e.Ec)
 		helpers.PanicErr(err)
