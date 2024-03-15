@@ -113,6 +113,7 @@ func (o *OCRSoakTest) DeployEnvironment(customChainlinkNetworkTOML string, ocrTe
 		nsPre = fmt.Sprintf("%sforwarder-", nsPre)
 	}
 	nsPre = fmt.Sprintf("%s%s", nsPre, strings.ReplaceAll(strings.ToLower(network.Name), " ", "-"))
+	nsPre = strings.ReplaceAll(nsPre, "_", "-")
 	baseEnvironmentConfig := &environment.Config{
 		TTL:                time.Hour * 720, // 30 days,
 		NamespacePrefix:    nsPre,
