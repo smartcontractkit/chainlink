@@ -73,7 +73,7 @@ describe('AutomationRegistrar2_3', () => {
   const maxPerformDataSize = BigNumber.from(10000)
   const maxRevertDataSize = BigNumber.from(1000)
   const maxPerformGas = BigNumber.from(5000000)
-  const minUpkeepSpend = BigNumber.from('1000000000000000000')
+  const minimumRegistrationAmount = BigNumber.from('1000000000000000000')
   const amount = BigNumber.from('5000000000000000000')
   const transcoder = ethers.constants.AddressZero
   const upkeepManager = ethers.Wallet.createRandom().address
@@ -175,7 +175,7 @@ describe('AutomationRegistrar2_3', () => {
         },
       ],
       [linkToken.address],
-      [minUpkeepSpend],
+      [minimumRegistrationAmount],
     )
 
     await linkToken
@@ -192,7 +192,6 @@ describe('AutomationRegistrar2_3', () => {
       checkGasLimit,
       stalenessSeconds,
       gasCeilingMultiplier,
-      minUpkeepSpend,
       maxCheckDataSize,
       maxPerformDataSize,
       maxRevertDataSize,
@@ -221,6 +220,7 @@ describe('AutomationRegistrar2_3', () => {
           flatFeeMicroLink: flatFeeMicroLink,
           priceFeed: await registry.getLinkUSDFeedAddress(),
           fallbackPrice: 200,
+          minSpend: minimumRegistrationAmount,
         },
       ],
     )
@@ -623,7 +623,7 @@ describe('AutomationRegistrar2_3', () => {
     })
 
     it('reverts if the amount passed in data is less than configured minimum', async () => {
-      const amt = minUpkeepSpend.sub(1)
+      const amt = minimumRegistrationAmount.sub(1)
 
       await linkToken.connect(requestSender).approve(registrar.address, amt)
 
@@ -656,7 +656,7 @@ describe('AutomationRegistrar2_3', () => {
     it('reverts if the billing token is not supported', async () => {
       await linkToken
         .connect(requestSender)
-        .approve(registrar.address, minUpkeepSpend)
+        .approve(registrar.address, minimumRegistrationAmount)
 
       await registrar
         .connect(registrarOwner)
@@ -676,7 +676,7 @@ describe('AutomationRegistrar2_3', () => {
           checkData: emptyBytes,
           triggerConfig: trigger,
           offchainConfig: emptyBytes,
-          amount: minUpkeepSpend,
+          amount: minimumRegistrationAmount,
           encryptedEmail: emptyBytes,
           billingToken: randomAddress(),
         }),

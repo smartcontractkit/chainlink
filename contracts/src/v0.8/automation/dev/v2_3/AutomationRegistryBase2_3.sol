@@ -203,7 +203,6 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
    * be stale before switching to the fallback pricing
    * @member gasCeilingMultiplier multiplier to apply to the fast gas feed price
    * when calculating the payment ceiling for keepers
-   * @member minUpkeepSpend minimum LINK that an upkeep must spend before cancelling
    * @member maxPerformGas max performGas allowed for an upkeep on this registry
    * @member maxCheckDataSize max length of checkData bytes
    * @member maxPerformDataSize max length of performData bytes
@@ -220,7 +219,6 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     uint32 checkGasLimit;
     uint24 stalenessSeconds;
     uint16 gasCeilingMultiplier;
-    uint96 minUpkeepSpend;
     uint32 maxPerformGas;
     uint32 maxCheckDataSize;
     uint32 maxPerformDataSize;
@@ -242,7 +240,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
    * @member performGas the gas limit of upkeep execution
    * @member maxValidBlocknumber until which block this upkeep is valid
    * @member forwarder the forwarder contract to use for this upkeep
-   * @member amountSpent the amount this upkeep has spent
+   * @member amountSpent the amount this upkeep has spent, in the upkeep's billing token
    * @member balance the balance of this upkeep
    * @member lastPerformedBlockNumber the last block number when this upkeep was performed
    */
@@ -251,11 +249,11 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     uint32 performGas;
     uint32 maxValidBlocknumber;
     IAutomationForwarder forwarder;
-    // 0 bytes left in 1st EVM word - read in transmit path
-    uint96 amountSpent;
+    // 3 bytes left in 1st EVM word - read in transmit path
+    uint128 amountSpent;
     uint96 balance;
     uint32 lastPerformedBlockNumber;
-    // 2 bytes left in 2nd EVM word - written in transmit path
+    // 0 bytes left in 2nd EVM word - written in transmit path
     IERC20 billingToken;
     // 12 bytes left in 3rd EVM word - read in transmit path
   }
@@ -275,22 +273,20 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
 
   /// @dev Config + State storage struct which is not on hot transmit path
   struct Storage {
-    uint96 minUpkeepSpend; // Minimum amount an upkeep must spend
     address transcoder; // Address of transcoder contract used in migrations
-    // 1 EVM word full
     uint32 checkGasLimit; // Gas limit allowed in checkUpkeep
     uint32 maxPerformGas; // Max gas an upkeep can use on this registry
     uint32 nonce; // Nonce for each upkeep created
-    uint32 configCount; // incremented each time a new config is posted, The count
-    // is incorporated into the config digest to prevent replay attacks.
+    // 1 EVM word full
+    address upkeepPrivilegeManager; // address which can set privilege for upkeeps
+    uint32 configCount; // incremented each time a new config is posted, The count is incorporated into the config digest to prevent replay attacks.
     uint32 latestConfigBlockNumber; // makes it easier for offchain systems to extract config from logs
-    // 2 EVM word full
     uint32 maxCheckDataSize; // max length of checkData bytes
+    // 2 EVM word full
+    address financeAdmin; // address which can withdraw funds from the contract
     uint32 maxPerformDataSize; // max length of performData bytes
     uint32 maxRevertDataSize; // max length of revertData bytes
-    address upkeepPrivilegeManager; // address which can set privilege for upkeeps
-    // 3 EVM word full
-    address financeAdmin; // address which can withdraw funds from the contract
+    // 4 bytes left in 3rd EVM word
   }
 
   /// @dev Report transmitted by OCR to transmit function
@@ -376,6 +372,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     // 1 word, read in getPrice()
     uint256 fallbackPrice;
     // 2nd word only read if stale
+    uint96 minSpend; // TODO - placeholder, should be removed when daily fees are added
   }
 
   /**

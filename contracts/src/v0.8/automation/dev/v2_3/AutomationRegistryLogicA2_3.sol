@@ -269,6 +269,7 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
   function cancelUpkeep(uint256 id) external {
     Upkeep memory upkeep = s_upkeep[id];
     bool isOwner = msg.sender == owner();
+    uint96 minSpend = s_billingConfigs[upkeep.billingToken].minSpend;
 
     uint256 height = s_hotVars.chainModule.blockNumber();
     if (upkeep.maxValidBlocknumber == 0) revert CannotCancel();
@@ -281,12 +282,11 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
     s_upkeep[id].maxValidBlocknumber = uint32(height);
     s_upkeepIDs.remove(id);
 
-    // charge the cancellation fee if the minUpkeepSpend is not met
-    uint96 minUpkeepSpend = s_storage.minUpkeepSpend;
+    // charge the cancellation fee if the minSpend is not met
     uint96 cancellationFee = 0;
-    // cancellationFee is min(max(minUpkeepSpend - amountSpent, 0), amountLeft)
-    if (upkeep.amountSpent < minUpkeepSpend) {
-      cancellationFee = minUpkeepSpend - upkeep.amountSpent;
+    // cancellationFee is min(max(minSpend - amountSpent, 0), amountLeft)
+    if (upkeep.amountSpent < minSpend) {
+      cancellationFee = minSpend - uint96(upkeep.amountSpent);
       if (cancellationFee > upkeep.balance) {
         cancellationFee = upkeep.balance;
       }
@@ -412,16 +412,5 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
       );
       emit UpkeepReceived(ids[idx], upkeeps[idx].balance, msg.sender);
     }
-  }
-
-  /**
-   * @notice sets the upkeep trigger config
-   * @param id the upkeepID to change the trigger for
-   * @param triggerConfig the new trigger config
-   */
-  function setUpkeepTriggerConfig(uint256 id, bytes calldata triggerConfig) external {
-    _requireAdminAndNotCancelled(id);
-    s_upkeepTriggerConfig[id] = triggerConfig;
-    emit UpkeepTriggerConfigSet(id, triggerConfig);
   }
 }

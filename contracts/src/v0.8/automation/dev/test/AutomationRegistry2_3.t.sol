@@ -83,12 +83,9 @@ contract AutomationRegistry2_3_Withdraw is AutomationRegistry2_3_SetUp {
   function setConfigForWithdraw() public {
     address module = address(new ChainModuleBase());
     AutomationRegistryBase2_3.OnchainConfig memory cfg = AutomationRegistryBase2_3.OnchainConfig({
-      paymentPremiumPPB: 10_000,
-      flatFeeMicroLink: 40_000,
       checkGasLimit: 5_000_000,
       stalenessSeconds: 90_000,
       gasCeilingMultiplier: 0,
-      minUpkeepSpend: 0,
       maxPerformGas: 10_000_000,
       maxCheckDataSize: 5_000,
       maxPerformDataSize: 5_000,
@@ -221,12 +218,9 @@ contract AutomationRegistry2_3_SetConfig is AutomationRegistry2_3_SetUp {
   address module = address(new ChainModuleBase());
   AutomationRegistryBase2_3.OnchainConfig cfg =
     AutomationRegistryBase2_3.OnchainConfig({
-      paymentPremiumPPB: 10_000,
-      flatFeeMicroLink: 40_000,
       checkGasLimit: 5_000_000,
       stalenessSeconds: 90_000,
       gasCeilingMultiplier: 0,
-      minUpkeepSpend: 0,
       maxPerformGas: 10_000_000,
       maxCheckDataSize: 5_000,
       maxPerformDataSize: 5_000,
@@ -255,7 +249,8 @@ contract AutomationRegistry2_3_SetConfig is AutomationRegistry2_3_SetUp {
       gasFeePPB: 5_000,
       flatFeeMicroLink: 20_000,
       priceFeed: 0x2222222222222222222222222222222222222222,
-      fallbackPrice: 2_000_000_000 // $20
+      fallbackPrice: 2_000_000_000, // $20
+      minSpend: 100_000
     });
 
     bytes memory onchainConfigBytes = abi.encode(cfg);
@@ -308,6 +303,7 @@ contract AutomationRegistry2_3_SetConfig is AutomationRegistry2_3_SetUp {
     assertEq(config.gasFeePPB, 5_000);
     assertEq(config.flatFeeMicroLink, 20_000);
     assertEq(config.priceFeed, 0x2222222222222222222222222222222222222222);
+    assertEq(config.minSpend, 100_000);
 
     address[] memory tokens = registryMaster.getBillingTokens();
     assertEq(tokens.length, 1);
@@ -328,13 +324,15 @@ contract AutomationRegistry2_3_SetConfig is AutomationRegistry2_3_SetUp {
       gasFeePPB: 5_001,
       flatFeeMicroLink: 20_001,
       priceFeed: 0x2222222222222222222222222222222222222221,
-      fallbackPrice: 100
+      fallbackPrice: 100,
+      minSpend: 100
     });
     billingConfigs[1] = AutomationRegistryBase2_3.BillingConfig({
       gasFeePPB: 5_002,
       flatFeeMicroLink: 20_002,
       priceFeed: 0x2222222222222222222222222222222222222222,
-      fallbackPrice: 200
+      fallbackPrice: 200,
+      minSpend: 200
     });
 
     bytes memory onchainConfigBytesWithBilling = abi.encode(cfg, billingTokens, billingConfigs);
@@ -363,12 +361,14 @@ contract AutomationRegistry2_3_SetConfig is AutomationRegistry2_3_SetUp {
     assertEq(config1.flatFeeMicroLink, 20_001);
     assertEq(config1.priceFeed, 0x2222222222222222222222222222222222222221);
     assertEq(config1.fallbackPrice, 100);
+    assertEq(config1.minSpend, 100);
 
     AutomationRegistryBase2_3.BillingConfig memory config2 = registryMaster.getBillingTokenConfig(billingTokenAddress2);
     assertEq(config2.gasFeePPB, 5_002);
     assertEq(config2.flatFeeMicroLink, 20_002);
     assertEq(config2.priceFeed, 0x2222222222222222222222222222222222222222);
     assertEq(config2.fallbackPrice, 200);
+    assertEq(config2.minSpend, 200);
 
     address[] memory tokens = registryMaster.getBillingTokens();
     assertEq(tokens.length, 2);
@@ -388,7 +388,8 @@ contract AutomationRegistry2_3_SetConfig is AutomationRegistry2_3_SetUp {
       gasFeePPB: 5_001,
       flatFeeMicroLink: 20_001,
       priceFeed: 0x2222222222222222222222222222222222222221,
-      fallbackPrice: 100
+      fallbackPrice: 100,
+      minSpend: 100
     });
 
     bytes memory onchainConfigBytesWithBilling1 = abi.encode(cfg, billingTokens1, billingConfigs1);
@@ -403,7 +404,8 @@ contract AutomationRegistry2_3_SetConfig is AutomationRegistry2_3_SetUp {
       gasFeePPB: 5_002,
       flatFeeMicroLink: 20_002,
       priceFeed: 0x2222222222222222222222222222222222222222,
-      fallbackPrice: 200
+      fallbackPrice: 200,
+      minSpend: 200
     });
 
     bytes memory onchainConfigBytesWithBilling2 = abi.encode(cfg, billingTokens2, billingConfigs2);
@@ -443,6 +445,7 @@ contract AutomationRegistry2_3_SetConfig is AutomationRegistry2_3_SetUp {
     assertEq(config2.flatFeeMicroLink, 20_002);
     assertEq(config2.priceFeed, 0x2222222222222222222222222222222222222222);
     assertEq(config2.fallbackPrice, 200);
+    assertEq(config2.minSpend, 200);
 
     address[] memory tokens = registryMaster.getBillingTokens();
     assertEq(tokens.length, 1);
@@ -463,13 +466,15 @@ contract AutomationRegistry2_3_SetConfig is AutomationRegistry2_3_SetUp {
       gasFeePPB: 5_001,
       flatFeeMicroLink: 20_001,
       priceFeed: 0x2222222222222222222222222222222222222221,
-      fallbackPrice: 100
+      fallbackPrice: 100,
+      minSpend: 100
     });
     billingConfigs[1] = AutomationRegistryBase2_3.BillingConfig({
       gasFeePPB: 5_002,
       flatFeeMicroLink: 20_002,
       priceFeed: 0x2222222222222222222222222222222222222222,
-      fallbackPrice: 200
+      fallbackPrice: 200,
+      minSpend: 200
     });
 
     bytes memory onchainConfigBytesWithBilling = abi.encode(cfg, billingTokens, billingConfigs);

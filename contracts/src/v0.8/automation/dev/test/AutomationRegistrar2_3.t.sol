@@ -4,6 +4,7 @@ pragma solidity 0.8.19;
 import {BaseTest} from "./BaseTest.t.sol";
 import {IAutomationRegistryMaster2_3} from "../interfaces/v2_3/IAutomationRegistryMaster2_3.sol";
 import {AutomationRegistrar2_3} from "../v2_3/AutomationRegistrar2_3.sol";
+import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
 // forge test --match-path src/v0.8/automation/dev/test/AutomationRegistrar2_3.t.sol
 
@@ -26,7 +27,15 @@ contract SetUp is BaseTest {
       autoApproveType: AutomationRegistrar2_3.AutoApproveType.DISABLED,
       autoApproveMaxAllowed: 0
     });
-    registrar = new AutomationRegistrar2_3(address(linkToken), address(registry), 0, triggerConfigs);
+    IERC20[] memory billingTokens;
+    uint256[] memory minRegistrationFees;
+    registrar = new AutomationRegistrar2_3(
+      address(linkToken),
+      registry,
+      triggerConfigs,
+      billingTokens,
+      minRegistrationFees
+    );
   }
 }
 

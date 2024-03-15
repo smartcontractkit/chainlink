@@ -642,7 +642,6 @@ describe('AutomationRegistry2_3', () => {
           checkGasLimit,
           stalenessSeconds,
           gasCeilingMultiplier: test.multiplier,
-          minUpkeepSpend,
           maxCheckDataSize,
           maxPerformDataSize,
           maxRevertDataSize,
@@ -666,6 +665,7 @@ describe('AutomationRegistry2_3', () => {
             flatFeeMicroLink: test.flatFee,
             priceFeed: linkUSDFeed.address,
             fallbackPrice: fallbackLinkPrice,
+            minSpend: minUpkeepSpend,
           },
         ],
       )
@@ -919,7 +919,6 @@ describe('AutomationRegistry2_3', () => {
       checkGasLimit,
       stalenessSeconds,
       gasCeilingMultiplier,
-      minUpkeepSpend,
       maxCheckDataSize,
       maxPerformDataSize,
       maxRevertDataSize,
@@ -954,6 +953,7 @@ describe('AutomationRegistry2_3', () => {
           flatFeeMicroLink: flatFeeMicroLink,
           priceFeed: linkUSDFeed.address,
           fallbackPrice: fallbackLinkPrice,
+          minSpend: minUpkeepSpend,
         },
       ],
     ]
@@ -972,6 +972,7 @@ describe('AutomationRegistry2_3', () => {
           flatFeeMicroLink: flatFeeMicroLink,
           priceFeed: linkUSDFeed.address,
           fallbackPrice: fallbackLinkPrice,
+          minSpend: minUpkeepSpend,
         },
       ],
     ]
@@ -990,6 +991,7 @@ describe('AutomationRegistry2_3', () => {
           flatFeeMicroLink: flatFeeMicroLink,
           priceFeed: linkUSDFeed.address,
           fallbackPrice: fallbackLinkPrice,
+          minSpend: minUpkeepSpend,
         },
       ],
     ]
@@ -3831,7 +3833,6 @@ describe('AutomationRegistry2_3', () => {
     const maxGas = BigNumber.from(6)
     const staleness = BigNumber.from(4)
     const ceiling = BigNumber.from(5)
-    const newMinUpkeepSpend = BigNumber.from(9)
     const newMaxCheckDataSize = BigNumber.from(10000)
     const newMaxPerformDataSize = BigNumber.from(10000)
     const newMaxRevertDataSize = BigNumber.from(10000)
@@ -3848,7 +3849,6 @@ describe('AutomationRegistry2_3', () => {
       checkGasLimit: maxGas,
       stalenessSeconds: staleness,
       gasCeilingMultiplier: ceiling,
-      minUpkeepSpend: newMinUpkeepSpend,
       maxCheckDataSize: newMaxCheckDataSize,
       maxPerformDataSize: newMaxPerformDataSize,
       maxRevertDataSize: newMaxRevertDataSize,
@@ -3955,10 +3955,6 @@ describe('AutomationRegistry2_3', () => {
       assert.equal(updatedConfig.flatFeeMicroLink, flatFee.toNumber())
       assert.equal(updatedConfig.stalenessSeconds, staleness.toNumber())
       assert.equal(updatedConfig.gasCeilingMultiplier, ceiling.toNumber())
-      assert.equal(
-        updatedConfig.minUpkeepSpend.toString(),
-        newMinUpkeepSpend.toString(),
-      )
       assert.equal(
         updatedConfig.maxCheckDataSize,
         newMaxCheckDataSize.toNumber(),
@@ -4936,7 +4932,7 @@ describe('AutomationRegistry2_3', () => {
       await registry.connect(admin).addFunds(upkeepId, toWei('100'))
       const financeAdminAddress = await financeAdmin.getAddress()
       // Very high min spend, whole balance as cancellation fees
-      const minUpkeepSpend = toWei('1000')
+      const newMinUpkeepSpend = toWei('1000')
       await registry.connect(owner).setConfigTypeSafe(
         signerAddresses,
         keeperAddresses,
@@ -4945,7 +4941,6 @@ describe('AutomationRegistry2_3', () => {
           checkGasLimit,
           stalenessSeconds,
           gasCeilingMultiplier,
-          minUpkeepSpend,
           maxCheckDataSize,
           maxPerformDataSize,
           maxRevertDataSize,
@@ -4962,8 +4957,16 @@ describe('AutomationRegistry2_3', () => {
         },
         offchainVersion,
         offchainBytes,
-        [],
-        [],
+        [linkToken.address],
+        [
+          {
+            gasFeePPB: paymentPremiumPPB,
+            flatFeeMicroLink: flatFeeMicroLink,
+            priceFeed: linkUSDFeed.address,
+            fallbackPrice: fallbackLinkPrice,
+            minSpend: newMinUpkeepSpend,
+          },
+        ],
       )
       const upkeepBalance = (await registry.getUpkeep(upkeepId)).balance
       const ownerBefore = await linkToken.balanceOf(await owner.getAddress())
@@ -5591,7 +5594,7 @@ describe('AutomationRegistry2_3', () => {
         })
 
         it('deducts a cancellation fee from the upkeep and adds to reserve', async () => {
-          const minUpkeepSpend = toWei('10')
+          const newMinUpkeepSpend = toWei('10')
           const financeAdminAddress = await financeAdmin.getAddress()
 
           await registry.connect(owner).setConfigTypeSafe(
@@ -5602,7 +5605,6 @@ describe('AutomationRegistry2_3', () => {
               checkGasLimit,
               stalenessSeconds,
               gasCeilingMultiplier,
-              minUpkeepSpend,
               maxCheckDataSize,
               maxPerformDataSize,
               maxRevertDataSize,
@@ -5619,8 +5621,16 @@ describe('AutomationRegistry2_3', () => {
             },
             offchainVersion,
             offchainBytes,
-            baseConfig[6],
-            baseConfig[7],
+            [linkToken.address],
+            [
+              {
+                gasFeePPB: paymentPremiumPPB,
+                flatFeeMicroLink: flatFeeMicroLink,
+                priceFeed: linkUSDFeed.address,
+                fallbackPrice: fallbackLinkPrice,
+                minSpend: newMinUpkeepSpend,
+              },
+            ],
           )
 
           const payee1Before = await linkToken.balanceOf(
@@ -5630,7 +5640,7 @@ describe('AutomationRegistry2_3', () => {
           const ownerBefore = await registry.linkAvailableForPayment()
 
           const amountSpent = toWei('100').sub(upkeepBefore)
-          const cancellationFee = minUpkeepSpend.sub(amountSpent)
+          const cancellationFee = newMinUpkeepSpend.sub(amountSpent)
 
           await registry.connect(admin).cancelUpkeep(upkeepId)
 
@@ -5650,7 +5660,7 @@ describe('AutomationRegistry2_3', () => {
 
         it('deducts up to balance as cancellation fee', async () => {
           // Very high min spend, should deduct whole balance as cancellation fees
-          const minUpkeepSpend = toWei('1000')
+          const newMinUpkeepSpend = toWei('1000')
           const financeAdminAddress = await financeAdmin.getAddress()
 
           await registry.connect(owner).setConfigTypeSafe(
@@ -5661,7 +5671,6 @@ describe('AutomationRegistry2_3', () => {
               checkGasLimit,
               stalenessSeconds,
               gasCeilingMultiplier,
-              minUpkeepSpend,
               maxCheckDataSize,
               maxPerformDataSize,
               maxRevertDataSize,
@@ -5678,8 +5687,16 @@ describe('AutomationRegistry2_3', () => {
             },
             offchainVersion,
             offchainBytes,
-            baseConfig[6],
-            baseConfig[7],
+            [linkToken.address],
+            [
+              {
+                gasFeePPB: paymentPremiumPPB,
+                flatFeeMicroLink: flatFeeMicroLink,
+                priceFeed: linkUSDFeed.address,
+                fallbackPrice: fallbackLinkPrice,
+                minSpend: newMinUpkeepSpend,
+              },
+            ],
           )
           const payee1Before = await linkToken.balanceOf(
             await payee1.getAddress(),
@@ -5702,9 +5719,9 @@ describe('AutomationRegistry2_3', () => {
           assert.isTrue(ownerAfter.sub(ownerBefore).eq(upkeepBefore))
         })
 
-        it('does not deduct cancellation fee if more than minUpkeepSpend is spent', async () => {
+        it('does not deduct cancellation fee if more than minUpkeepSpendDollars is spent', async () => {
           // Very low min spend, already spent in one perform upkeep
-          const minUpkeepSpend = BigNumber.from(420)
+          const newMinUpkeepSpend = BigNumber.from(420)
           const financeAdminAddress = await financeAdmin.getAddress()
 
           await registry.connect(owner).setConfigTypeSafe(
@@ -5715,7 +5732,6 @@ describe('AutomationRegistry2_3', () => {
               checkGasLimit,
               stalenessSeconds,
               gasCeilingMultiplier,
-              minUpkeepSpend,
               maxCheckDataSize,
               maxPerformDataSize,
               maxRevertDataSize,
@@ -5732,8 +5748,16 @@ describe('AutomationRegistry2_3', () => {
             },
             offchainVersion,
             offchainBytes,
-            baseConfig[6],
-            baseConfig[7],
+            [linkToken.address],
+            [
+              {
+                gasFeePPB: paymentPremiumPPB,
+                flatFeeMicroLink: flatFeeMicroLink,
+                priceFeed: linkUSDFeed.address,
+                fallbackPrice: fallbackLinkPrice,
+                minSpend: newMinUpkeepSpend,
+              },
+            ],
           )
           const payee1Before = await linkToken.balanceOf(
             await payee1.getAddress(),

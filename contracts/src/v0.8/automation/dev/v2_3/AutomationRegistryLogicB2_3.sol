@@ -122,6 +122,17 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
   }
 
   /**
+   * @notice sets the upkeep trigger config
+   * @param id the upkeepID to change the trigger for
+   * @param triggerConfig the new trigger config
+   */
+  function setUpkeepTriggerConfig(uint256 id, bytes calldata triggerConfig) external {
+    _requireAdminAndNotCancelled(id);
+    s_upkeepTriggerConfig[id] = triggerConfig;
+    emit UpkeepTriggerConfigSet(id, triggerConfig);
+  }
+
+  /**
    * @notice withdraws an upkeep's funds from an upkeep
    * @dev note that an upkeep must be cancelled first!!
    */
@@ -380,7 +391,7 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
       admin: s_upkeepAdmin[id],
       maxValidBlocknumber: reg.maxValidBlocknumber,
       lastPerformedBlockNumber: reg.lastPerformedBlockNumber,
-      amountSpent: reg.amountSpent,
+      amountSpent: uint96(reg.amountSpent), // force casting to uint96 for backwards compatibility. Not an issue if it overflows.
       paused: reg.paused,
       offchainConfig: s_upkeepOffchainConfig[id]
     });
@@ -485,7 +496,7 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
       checkGasLimit: s_storage.checkGasLimit,
       stalenessSeconds: s_hotVars.stalenessSeconds,
       gasCeilingMultiplier: s_hotVars.gasCeilingMultiplier,
-      minUpkeepSpend: s_storage.minUpkeepSpend,
+      minUpkeepSpend: 0, // deprecated
       maxPerformGas: s_storage.maxPerformGas,
       maxCheckDataSize: s_storage.maxCheckDataSize,
       maxPerformDataSize: s_storage.maxPerformDataSize,
@@ -498,6 +509,24 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
     });
 
     return (state, config, s_signersList, s_transmittersList, s_hotVars.f);
+  }
+
+  /**
+   * @notice read the Storage data
+   * @dev this function signature will change with each version of automation
+   * this should not be treated as a stable function
+   */
+  function getStorage() external view returns (Storage memory) {
+    return s_storage;
+  }
+
+  /**
+   * @notice read the HotVars data
+   * @dev this function signature will change with each version of automation
+   * this should not be treated as a stable function
+   */
+  function getHotVars() external view returns (HotVars memory) {
+    return s_hotVars;
   }
 
   /**

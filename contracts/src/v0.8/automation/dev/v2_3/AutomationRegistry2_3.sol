@@ -354,7 +354,6 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
 
     s_storage = Storage({
       checkGasLimit: onchainConfig.checkGasLimit,
-      minUpkeepSpend: onchainConfig.minUpkeepSpend,
       maxPerformGas: onchainConfig.maxPerformGas,
       transcoder: onchainConfig.transcoder,
       maxCheckDataSize: onchainConfig.maxCheckDataSize,
