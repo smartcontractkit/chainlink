@@ -52,8 +52,7 @@ func NewTxm(
 	feeCfg := NewEvmTxmFeeConfig(fCfg)     // wrap Evm specific config
 	txmClient := NewEvmTxmClient(client)   // wrap Evm specific client
 	chainID := txmClient.ConfiguredChainID()
-	nonceTracker := NewNonceTracker(lggr, txStore, txmClient)
-	evmBroadcaster := NewEvmBroadcaster(txStore, txmClient, txmCfg, feeCfg, txConfig, listenerConfig, keyStore, txAttemptBuilder, nonceTracker, lggr, checker, chainConfig.NonceAutoSync())
+	evmBroadcaster := NewEvmBroadcaster(txStore, txmClient, txmCfg, feeCfg, txConfig, listenerConfig, keyStore, txAttemptBuilder, lggr, checker, chainConfig.NonceAutoSync())
 	evmTracker := NewEvmTracker(txStore, keyStore, chainID, lggr)
 	evmConfirmer := NewEvmConfirmer(txStore, txmClient, txmCfg, feeCfg, txConfig, dbConfig, keyStore, txAttemptBuilder, lggr)
 	var evmResender *Resender
@@ -137,10 +136,10 @@ func NewEvmBroadcaster(
 	listenerConfig txmgrtypes.BroadcasterListenerConfig,
 	keystore KeyStore,
 	txAttemptBuilder TxAttemptBuilder,
-	nonceTracker NonceTracker,
 	logger logger.Logger,
 	checkerFactory TransmitCheckerFactory,
 	autoSyncNonce bool,
 ) *Broadcaster {
+	nonceTracker := NewNonceTracker(logger, txStore, client)
 	return txmgr.NewBroadcaster(txStore, client, chainConfig, feeConfig, txConfig, listenerConfig, keystore, txAttemptBuilder, nonceTracker, logger, checkerFactory, autoSyncNonce)
 }

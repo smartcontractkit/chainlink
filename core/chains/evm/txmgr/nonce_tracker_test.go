@@ -50,7 +50,9 @@ func TestNonceTracker_LoadSequenceMap(t *testing.T) {
 		seq, err := nonceTracker.GetNextSequence(ctx, addr1)
 		require.NoError(t, err)
 		require.Equal(t, types.Nonce(randNonce1+1), seq)
-
+		seq, err = nonceTracker.GetNextSequence(ctx, addr2)
+		require.NoError(t, err)
+		require.Equal(t, types.Nonce(randNonce2+1), seq)
 	})
 
 	t.Run("set next nonce using client when not found in tx table", func(t *testing.T) {
@@ -67,7 +69,9 @@ func TestNonceTracker_LoadSequenceMap(t *testing.T) {
 		seq, err := nonceTracker.GetNextSequence(ctx, addr1)
 		require.NoError(t, err)
 		require.Equal(t, types.Nonce(randNonce1), seq)
-
+		seq, err = nonceTracker.GetNextSequence(ctx, addr2)
+		require.NoError(t, err)
+		require.Equal(t, types.Nonce(randNonce2), seq)
 	})
 
 }
