@@ -4,7 +4,7 @@
 
 ...
 
-## 1.0.0 - 2024-01-09
+## 1.0.0 - 2024-03-15
 
 - Moved `VRFCoordinatorV2Mock.sol` to src/v0.8/vrf/mocks
 - Moved `VRFCoordinatorMock.sol` to src/v0.8/vrf/mocks
@@ -16,6 +16,7 @@
   - Functions Request IDs are now globally unique (#10891)
   - Add an event for broken down billing costs (#11185)
   - Add custom errors to OCR2Base contract (#11249)
+- Updated AutomationBase interface to check for ready only address on polygon 
 
 ### Removed
 
