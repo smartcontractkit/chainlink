@@ -43,6 +43,11 @@ var (
 	ErrStartCLNodeContainer = "failed to start CL node container"
 )
 
+const (
+	RestartContainer  = true
+	StartNewContainer = false
+)
+
 type ClNode struct {
 	test_env.EnvComponent
 	API                   *client.ChainlinkClient `json:"-"`
@@ -365,11 +370,11 @@ func (n *ClNode) containerStartOrRestart(restartDb bool) error {
 }
 
 func (n *ClNode) RestartContainer() error {
-	return n.containerStartOrRestart(true)
+	return n.containerStartOrRestart(RestartContainer)
 }
 
 func (n *ClNode) StartContainer() error {
-	return n.containerStartOrRestart(false)
+	return n.containerStartOrRestart(StartNewContainer)
 }
 
 func (n *ClNode) ExecGetVersion() (string, error) {

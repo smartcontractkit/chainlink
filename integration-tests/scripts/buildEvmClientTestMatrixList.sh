@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 
-# requires a path to a test file to compare the test list against
-# requires a matrix job name to be passed in, for example "automation"
+# requires a path to a json file with all the tests it should run
 # requires a node label to be passed in, for example "ubuntu-latest"
 
 set -e
@@ -16,7 +15,7 @@ NODE_LABEL=$2
 
 COUNTER=1
 
-# Build a JSON object in the format expected by our integration-tests workflow matrix
+# Build a JSON object in the format expected by our evm-version-compatibility-tests workflow matrix
 matrix_output() {
   local counter=$1
   local job_name=$2

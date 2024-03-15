@@ -118,11 +118,9 @@ jobs:
     steps:
       - name: Checkout the repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
-
       - name: Setup environment variables
         run: |
           echo "BASE64_TEST_LIST=${{ github.event.inputs.base64_test_list }}" >> $GITHUB_ENV
-
       - name: Decode Base64 Test List Input if Set
         id: decode-base64-test-list
         if: env.BASE64_TEST_LIST != ''
@@ -132,14 +130,12 @@ jobs:
           echo $DECODED_BASE64_TEST_LIST
           cd ./integration-tests
           echo $DECODED_BASE64_TEST_LIST >> ./evm_node_compatibility_test_list.json
-
-      - name: Copy Saved Test List if Not Set
+      - name: Override Test List If Present
         if: env.BASE64_TEST_LIST == ''
         id: build-test-matrix-list
         run: |
           cd ./integration-tests
           cp ./smoke/evm_node_compatibility_test_list.json .
-
       - name: Create Test Matrix
         id: create-test-matrix-list
         run: |
@@ -212,7 +208,6 @@ jobs:
           ethExecutionClient: ${{ matrix.evm_node.eth_client }}
           customEthClientDockerImage: ${{ matrix.evm_node.docker_image }}
 
-      ## Run this step when changes that require tests to be run are made
       - name: Run Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
         with:
