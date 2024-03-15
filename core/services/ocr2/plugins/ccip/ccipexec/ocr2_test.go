@@ -139,7 +139,7 @@ func TestExecutionReportingPlugin_Observation(t *testing.T) {
 			p.inflightReports.reports = tc.inflightReports
 			p.lggr = logger.TestLogger(t)
 			p.tokenDataWorker = tokendata.NewBackgroundWorker(
-				ctx, make(map[cciptypes.Address]tokendata.Reader), 10, 5*time.Second, time.Hour)
+				make(map[cciptypes.Address]tokendata.Reader), 10, 5*time.Second, time.Hour)
 			p.metricsCollector = ccip.NoopMetricsCollector
 
 			commitStoreReader := ccipdatamocks.NewCommitStoreReader(t)
@@ -668,8 +668,6 @@ func TestExecutionReportingPlugin_buildBatch(t *testing.T) {
 		},
 	}
 
-	ctx := testutils.Context(t)
-
 	for _, tc := range tt {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
@@ -685,7 +683,7 @@ func TestExecutionReportingPlugin_buildBatch(t *testing.T) {
 			mockOffRampReader.On("GetSenderNonce", mock.Anything, sender1).Return(uint64(0), nil).Maybe()
 
 			plugin := ExecutionReportingPlugin{
-				tokenDataWorker:   tokendata.NewBackgroundWorker(ctx, map[cciptypes.Address]tokendata.Reader{}, 10, 5*time.Second, time.Hour),
+				tokenDataWorker:   tokendata.NewBackgroundWorker(map[cciptypes.Address]tokendata.Reader{}, 10, 5*time.Second, time.Hour),
 				offRampReader:     mockOffRampReader,
 				destWrappedNative: destNative,
 				offchainConfig: cciptypes.ExecOffchainConfig{

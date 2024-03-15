@@ -90,7 +90,7 @@ func NewChainHealthcheck(lggr logger.Logger, onRamp ccipdata.OnRampReader, commi
 func newChainHealthcheckWithCustomEviction(lggr logger.Logger, onRamp ccipdata.OnRampReader, commitStore ccipdata.CommitStoreReader, globalStatusDuration time.Duration, rmnStatusRefreshInterval time.Duration) *chainHealthcheck {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	ch := &chainHealthcheck{
+	return &chainHealthcheck{
 		cache:                    cache.New(rmnStatusRefreshInterval, 0),
 		rmnStatusKey:             rmnStatusKey,
 		globalStatusKey:          globalStatusKey,
@@ -105,7 +105,6 @@ func newChainHealthcheckWithCustomEviction(lggr logger.Logger, onRamp ccipdata.O
 		backgroundCtx:    ctx,
 		backgroundCancel: cancel,
 	}
-	return ch
 }
 
 type rmnResponse struct {
@@ -164,9 +163,9 @@ func (c *chainHealthcheck) Close() error {
 }
 
 func (c *chainHealthcheck) run() {
-	defer c.wg.Done()
 	ticker := time.NewTicker(c.rmnStatusRefreshInterval)
 	go func() {
+		defer c.wg.Done()
 		// Refresh the RMN state immediately after starting the background refresher
 		_, _ = c.refresh(c.backgroundCtx)
 
