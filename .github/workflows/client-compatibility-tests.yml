@@ -224,7 +224,7 @@ jobs:
           echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
           touch .root_dir
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@5bee84d30d90295010bda68b0cd46be3a1eea917 # v2.3.9
         with:
           test_command_to_run: ./tests -test.timeout ${{ matrix.timeout }} -test.run ${{ matrix.test }}
           binary_name: tests
