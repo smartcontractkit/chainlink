@@ -629,6 +629,12 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) hand
 		if err != nil {
 			return err, true
 		}
+		// use the sequence from the transaction, not the one from
+		// the map to ensure we don't skip a sequence after a reboot
+		if etx.Sequence != nil {
+			sequence = *etx.Sequence
+		}
+
 		// Increment sequence if successfully broadcasted
 		eb.IncrementNextSequence(etx.FromAddress, sequence)
 		return err, true
