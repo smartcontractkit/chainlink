@@ -227,7 +227,7 @@ runs:
 
     - if: inputs.sign-images == 'true'
       name: Install cosign
-      uses: sigstore/cosign-installer@11086d25041f77fe8fe7b9ea4e48e3b9192b8f19 # v3.1.2
+      uses: sigstore/cosign-installer@e1523de7571e31dbe865fd2e80c5c7c23ae71eb4 # v3.4.0
       with:
         cosign-release: "v1.6.0"
 
