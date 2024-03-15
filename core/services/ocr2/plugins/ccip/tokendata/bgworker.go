@@ -3,9 +3,15 @@ package tokendata
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"sync"
 	"time"
 
+	"github.com/patrickmn/go-cache"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
 )
 
@@ -16,6 +22,7 @@ type msgResult struct {
 }
 
 type Worker interface {
+	job.ServiceCtx
 	// AddJobsFromMsgs will include the provided msgs for background processing.
 	AddJobsFromMsgs(ctx context.Context, msgs []cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta)
 
@@ -30,14 +37,65 @@ type BackgroundWorker struct {
 	tokenDataReaders map[cciptypes.Address]Reader
 	numWorkers       int
 	jobsChan         chan cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta
-	resultsCache     *resultsCache
+	resultsCache     *cache.Cache
 	timeoutDur       time.Duration
+
+	services.StateMachine
+	wg               *sync.WaitGroup
+	backgroundCtx    context.Context
+	backgroundCancel context.CancelFunc
+}
+
+func NewBackgroundWorker(
+	tokenDataReaders map[cciptypes.Address]Reader,
+	numWorkers int,
+	timeoutDur time.Duration,
+	expirationDur time.Duration,
+) *BackgroundWorker {
+	if expirationDur == 0 {
+		expirationDur = 24 * time.Hour
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	return &BackgroundWorker{
+		tokenDataReaders: tokenDataReaders,
+		numWorkers:       numWorkers,
+		jobsChan:         make(chan cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta, numWorkers*100),
+		resultsCache:     cache.New(expirationDur, expirationDur/2),
+		timeoutDur:       timeoutDur,
+
+		wg:               new(sync.WaitGroup),
+		backgroundCtx:    ctx,
+		backgroundCancel: cancel,
+	}
+}
+
+func (w *BackgroundWorker) Start(context.Context) error {
+	return w.StateMachine.StartOnce("Token BackgroundWorker", func() error {
+		for i := 0; i < w.numWorkers; i++ {
+			w.wg.Add(1)
+			w.run()
+		}
+		return nil
+	})
+}
+
+func (w *BackgroundWorker) Close() error {
+	return w.StateMachine.StopOnce("Token BackgroundWorker", func() error {
+		w.backgroundCancel()
+		w.wg.Wait()
+		return nil
+	})
 }
 
 func (w *BackgroundWorker) AddJobsFromMsgs(ctx context.Context, msgs []cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta) {
+	w.wg.Add(1)
 	go func() {
+		defer w.wg.Done()
 		for _, msg := range msgs {
 			select {
+			case <-w.backgroundCtx.Done():
+				return
 			case <-ctx.Done():
 				return
 			default:
@@ -73,49 +131,25 @@ func (w *BackgroundWorker) GetMsgTokenData(ctx context.Context, msg cciptypes.EV
 	return tokenDatas, nil
 }
 
-func NewBackgroundWorker(
-	ctx context.Context,
-	tokenDataReaders map[cciptypes.Address]Reader,
-	numWorkers int,
-	timeoutDur time.Duration,
-	expirationDur time.Duration,
-) *BackgroundWorker {
-	if expirationDur == 0 {
-		expirationDur = 24 * time.Hour
-	}
-
-	w := &BackgroundWorker{
-		tokenDataReaders: tokenDataReaders,
-		numWorkers:       numWorkers,
-		jobsChan:         make(chan cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta, numWorkers*100),
-		resultsCache:     newResultsCache(ctx, expirationDur, expirationDur/2),
-		timeoutDur:       timeoutDur,
-	}
-
-	w.spawnWorkers(ctx)
-	return w
-}
-
-func (w *BackgroundWorker) spawnWorkers(ctx context.Context) {
-	for i := 0; i < w.numWorkers; i++ {
-		go func() {
-			for {
-				select {
-				case <-ctx.Done():
-					return
-				case msg := <-w.jobsChan:
-					w.workOnMsg(ctx, msg)
-				}
+func (w *BackgroundWorker) run() {
+	go func() {
+		defer w.wg.Done()
+		for {
+			select {
+			case <-w.backgroundCtx.Done():
+				return
+			case msg := <-w.jobsChan:
+				w.workOnMsg(w.backgroundCtx, msg)
 			}
-		}()
-	}
+		}
+	}()
 }
 
 func (w *BackgroundWorker) workOnMsg(ctx context.Context, msg cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta) {
 	results := make([]msgResult, 0, len(msg.TokenAmounts))
 
 	cachedTokenData := make(map[int]msgResult) // tokenAmount index -> token data
-	if cachedData, exists := w.resultsCache.get(msg.SequenceNumber); exists {
+	if cachedData, exists := w.getFromCache(msg.SequenceNumber); exists {
 		for _, r := range cachedData {
 			cachedTokenData[r.TokenAmountIndex] = r
 		}
@@ -145,11 +179,11 @@ func (w *BackgroundWorker) workOnMsg(ctx context.Context, msg cciptypes.EVM2EVMO
 		})
 	}
 
-	w.resultsCache.add(msg.SequenceNumber, results)
+	w.resultsCache.Set(strconv.FormatUint(msg.SequenceNumber, 10), results, cache.DefaultExpiration)
 }
 
 func (w *BackgroundWorker) getMsgTokenData(ctx context.Context, seqNum uint64) ([]msgResult, error) {
-	if msgTokenData, exists := w.resultsCache.get(seqNum); exists {
+	if msgTokenData, exists := w.getFromCache(seqNum); exists {
 		return msgTokenData, nil
 	}
 
@@ -163,75 +197,17 @@ func (w *BackgroundWorker) getMsgTokenData(ctx context.Context, seqNum uint64) (
 		case <-ctx.Done():
 			return nil, context.DeadlineExceeded
 		case <-tick.C:
-			if msgTokenData, exists := w.resultsCache.get(seqNum); exists {
+			if msgTokenData, exists := w.getFromCache(seqNum); exists {
 				return msgTokenData, nil
 			}
 		}
 	}
 }
 
-type resultsCache struct {
-	expirationDuration time.Duration
-	expiresAt          map[uint64]time.Time
-	results            map[uint64][]msgResult
-	resultsMu          *sync.RWMutex
-}
-
-func newResultsCache(ctx context.Context, expirationDuration, cleanupInterval time.Duration) *resultsCache {
-	c := &resultsCache{
-		expirationDuration: expirationDuration,
-		expiresAt:          make(map[uint64]time.Time),
-		results:            make(map[uint64][]msgResult),
-		resultsMu:          &sync.RWMutex{},
+func (w *BackgroundWorker) getFromCache(seqNum uint64) ([]msgResult, bool) {
+	rawResult, found := w.resultsCache.Get(strconv.FormatUint(seqNum, 10))
+	if !found {
+		return nil, false
 	}
-
-	ticker := time.NewTicker(cleanupInterval)
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				c.cleanExpiredItems()
-			}
-		}
-	}()
-
-	return c
-}
-
-func (c *resultsCache) add(msgSeqNum uint64, results []msgResult) {
-	c.resultsMu.Lock()
-	defer c.resultsMu.Unlock()
-	c.results[msgSeqNum] = results
-	c.expiresAt[msgSeqNum] = time.Now().Add(c.expirationDuration)
-}
-
-func (c *resultsCache) get(msgSeqNum uint64) ([]msgResult, bool) {
-	c.resultsMu.RLock()
-	defer c.resultsMu.RUnlock()
-	v, exists := c.results[msgSeqNum]
-	return v, exists
-}
-
-func (c *resultsCache) cleanExpiredItems() {
-	c.resultsMu.RLock()
-	expiredKeys := make([]uint64, 0, len(c.expiresAt))
-	for seqNum, expiresAt := range c.expiresAt {
-		if expiresAt.Before(time.Now()) {
-			expiredKeys = append(expiredKeys, seqNum)
-		}
-	}
-	c.resultsMu.RUnlock()
-
-	if len(expiredKeys) == 0 {
-		return
-	}
-
-	c.resultsMu.Lock()
-	for _, seqNum := range expiredKeys {
-		delete(c.results, seqNum)
-		delete(c.expiresAt, seqNum)
-	}
-	c.resultsMu.Unlock()
+	return rawResult.([]msgResult), true
 }

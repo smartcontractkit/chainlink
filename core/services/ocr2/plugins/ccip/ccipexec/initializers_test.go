@@ -1,7 +1,6 @@
 package ccipexec
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -48,7 +47,7 @@ func TestGetExecutionPluginFilterNamesFromSpec(t *testing.T) {
 	for _, tc := range testCases {
 		chainSet := &legacyEvmORMMocks.LegacyChainContainer{}
 		t.Run(tc.description, func(t *testing.T) {
-			err := UnregisterExecPluginLpFilters(context.Background(), logger.TestLogger(t), job.Job{OCR2OracleSpec: tc.spec}, chainSet)
+			err := UnregisterExecPluginLpFilters(logger.TestLogger(t), job.Job{OCR2OracleSpec: tc.spec}, chainSet)
 			if tc.expectingErr {
 				assert.Error(t, err)
 			} else {
