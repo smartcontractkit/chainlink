@@ -52,11 +52,10 @@ func MergeSethAndEvmNetworkConfigs(l zerolog.Logger, evmNetwork blockchain.EVMNe
 		sethNetwork.URLs = evmNetwork.URLs
 		sethNetwork.EIP1559DynamicFees = evmNetwork.SupportsEIP1559
 		sethNetwork.ChainID = fmt.Sprint(evmNetwork.ChainID)
-		// Sepolia settings
-		sethNetwork.GasLimit = 14_000_000
-		sethNetwork.GasPrice = 1_000_000_000
-		sethNetwork.GasFeeCap = 25_000_000_000
-		sethNetwork.GasTipCap = 5_000_000_000
+		sethNetwork.GasLimit = evmNetwork.DefaultGasLimit
+		sethNetwork.GasPrice = 400_000_000_000
+		sethNetwork.GasFeeCap = 400_000_000_000 //400  Gwei
+		sethNetwork.GasTipCap = 200_000_000_000 //200 Gwei
 		sethNetwork.TransferGasFee = 21_000
 		sethNetwork.TxnTimeout = seth.MustMakeDuration(evmNetwork.Timeout.Duration)
 	}
