@@ -19,7 +19,6 @@ import (
 	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_v21_plus_common"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 var _ types.TransmitEventProvider = &EventProvider{}
@@ -49,6 +48,7 @@ func EventProviderFilterName(addr common.Address) string {
 }
 
 func NewTransmitEventProvider(
+	ctx context.Context,
 	logger logger.Logger,
 	logPoller logpoller.LogPoller,
 	registryAddress common.Address,
@@ -61,7 +61,7 @@ func NewTransmitEventProvider(
 	if err != nil {
 		return nil, err
 	}
-	err = logPoller.RegisterFilter(logpoller.Filter{
+	err = logPoller.RegisterFilter(ctx, logpoller.Filter{
 		Name: EventProviderFilterName(contract.Address()),
 		EventSigs: []common.Hash{
 			// These are the events that are emitted when a node transmits a report
@@ -136,7 +136,7 @@ func (c *EventProvider) HealthReport() map[string]error {
 }
 
 func (c *EventProvider) GetLatestEvents(ctx context.Context) ([]ocr2keepers.TransmitEvent, error) {
-	end, err := c.logPoller.LatestBlock(pg.WithParentCtx(ctx))
+	end, err := c.logPoller.LatestBlock(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to get latest block from log poller", err)
 	}
@@ -144,6 +144,7 @@ func (c *EventProvider) GetLatestEvents(ctx context.Context) ([]ocr2keepers.Tran
 	// always check the last lookback number of blocks and rebroadcast
 	// this allows the plugin to make decisions based on event confirmations
 	logs, err := c.logPoller.LogsWithSigs(
+		ctx,
 		end.BlockNumber-c.lookbackBlocks,
 		end.BlockNumber,
 		[]common.Hash{
@@ -153,7 +154,6 @@ func (c *EventProvider) GetLatestEvents(ctx context.Context) ([]ocr2keepers.Tran
 			ac.IAutomationV21PlusCommonInsufficientFundsUpkeepReport{}.Topic(),
 		},
 		c.registryAddress,
-		pg.WithParentCtx(ctx),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to collect logs from log poller", err)
