@@ -40,7 +40,7 @@ jobs:
 
       - name: Check vulnerabilities
         if: needs.changes.outputs.src == 'true'
-        uses: sonatype-nexus-community/nancy-github-action@main
+        uses: sonatype-nexus-community/nancy-github-action@db2d2964a4e753f3b08f5d8558da3e77c500800c # v1.0.3
         with:
           nancyVersion: "v1.0.39"
 
