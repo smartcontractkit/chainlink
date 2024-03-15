@@ -245,6 +245,7 @@ contract OptimismSequencerUptimeFeed is
     } else {
       revert NoDataPresent();
     }
+    return (roundId, answer, startedAt, updatedAt, answeredInRound);
   }
 
   /// @inheritdoc AggregatorV3Interface
@@ -262,5 +263,6 @@ contract OptimismSequencerUptimeFeed is
     startedAt = feedState.startedAt;
     updatedAt = feedState.updatedAt;
     answeredInRound = roundId;
+    return (roundId, answer, startedAt, updatedAt, answeredInRound);
   }
 }

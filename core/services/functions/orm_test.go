@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -47,7 +48,7 @@ func createRequest(t *testing.T, orm functions.ORM) (functions.RequestID, common
 
 func createRequestWithTimestamp(t *testing.T, orm functions.ORM, ts time.Time) (functions.RequestID, common.Hash) {
 	id := newRequestID()
-	txHash := testutils.NewAddress().Hash()
+	txHash := utils.RandomHash()
 	newReq := &functions.Request{
 		RequestID:                  id,
 		RequestTxHash:              &txHash,

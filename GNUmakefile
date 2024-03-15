@@ -6,7 +6,7 @@ GO_LDFLAGS := $(shell tools/bin/ldflags)
 GOFLAGS = -ldflags "$(GO_LDFLAGS)"
 
 .PHONY: install
-install: operator-ui-autoinstall install-chainlink-autoinstall ## Install chainlink and all its dependencies.
+install: install-chainlink-autoinstall ## Install chainlink and all its dependencies.
 
 .PHONY: install-git-hooks
 install-git-hooks: ## Install git hooks.
@@ -14,8 +14,6 @@ install-git-hooks: ## Install git hooks.
 
 .PHONY: install-chainlink-autoinstall
 install-chainlink-autoinstall: | pnpmdep gomod install-chainlink ## Autoinstall chainlink.
-.PHONY: operator-ui-autoinstall
-operator-ui-autoinstall: | operator-ui ## Autoinstall frontend UI.
 
 .PHONY: pnpmdep
 pnpmdep: ## Install solidity contract dependencies through pnpm
@@ -44,13 +42,16 @@ godoc: ## Install and run godoc
 install-chainlink: operator-ui ## Install the chainlink binary.
 	go install $(GOFLAGS) .
 
-chainlink: operator-ui ## Build the chainlink binary.
+.PHONY: chainlink
+chainlink: ## Build the chainlink binary.
 	go build $(GOFLAGS) .
 
-chainlink-dev: operator-ui ## Build a dev build of chainlink binary.
+.PHONY: chainlink-dev
+chainlink-dev: ## Build a dev build of chainlink binary.
 	go build -tags dev $(GOFLAGS) .
 
-chainlink-test: operator-ui ## Build a test build of chainlink binary.
+.PHONY: chainlink-test
+chainlink-test: ## Build a test build of chainlink binary.
 	go build $(GOFLAGS) .
 
 .PHONY: chainlink-local-start
@@ -112,7 +113,7 @@ presubmit: ## Format go files and imports.
 
 .PHONY: mockery
 mockery: $(mockery) ## Install mockery.
-	go install github.com/vektra/mockery/v2@v2.35.4
+	go install github.com/vektra/mockery/v2@v2.38.0
 
 .PHONY: codecgen
 codecgen: $(codecgen) ## Install codecgen
@@ -146,6 +147,10 @@ goreleaser-dev-build: ## Run goreleaser snapshot build
 .PHONY: goreleaser-dev-release
 goreleaser-dev-release: ## run goreleaser snapshot release
 	./tools/bin/goreleaser_wrapper release --snapshot --rm-dist --config ${GORELEASER_CONFIG}
+
+.PHONY: modgraph
+modgraph:
+	./tools/bin/modgraph > go.md
 
 help:
 	@echo ""

@@ -1,7 +1,6 @@
 package presenters
 
 import (
-	"encoding/hex"
 	"fmt"
 	"testing"
 
@@ -16,9 +15,6 @@ func TestP2PKeyResource(t *testing.T) {
 	key := keystest.NewP2PKeyV2(t)
 	peerID := key.PeerID()
 	peerIDStr := peerID.String()
-	pubKey := key.GetPublic()
-	pubKeyBytes, err := pubKey.Raw()
-	require.NoError(t, err)
 
 	r := NewP2PKeyResource(key)
 	b, err := jsonapi.Marshal(r)
@@ -34,7 +30,7 @@ func TestP2PKeyResource(t *testing.T) {
 				"publicKey": "%s"
 			}
 		}
-	}`, key.ID(), peerIDStr, hex.EncodeToString(pubKeyBytes))
+	}`, key.ID(), peerIDStr, key.PublicKeyHex())
 
 	assert.JSONEq(t, expected, string(b))
 
@@ -52,7 +48,7 @@ func TestP2PKeyResource(t *testing.T) {
 				"publicKey": "%s"
 			}
 		}
-	}`, key.ID(), peerIDStr, hex.EncodeToString(pubKeyBytes))
+	}`, key.ID(), peerIDStr, key.PublicKeyHex())
 
 	assert.JSONEq(t, expected, string(b))
 }

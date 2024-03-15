@@ -40,24 +40,26 @@ jq -c '.tests[]' ${JSONFILE} | while read -r test; do
   effective_node_count=${node_count:-$NODE_COUNT}
   subTests=$(echo ${test} | jq -r '.run[]?.name // empty')
   output=""
+
+  if [ $COUNTER -ne 1 ]; then
+      echo -n ","
+  fi
   
   # Loop through subtests, if any, and print in the desired format
   if [ -n "$subTests" ]; then
+    subTestString=""
+    subTestCounter=1
     for subTest in $subTests; do
-      if [ $COUNTER -ne 1 ]; then
-        echo -n ","
+      if [ $subTestCounter -ne 1 ]; then
+        subTestString+="|"
       fi
-      matrix_output $COUNTER $MATRIX_JOB_NAME "${testName}/${subTest}" ${effective_node_label} ${effective_node_count}
-      ((COUNTER++))
+      subTestString+="${testName}\/${subTest}"
+      ((subTestCounter++))
     done
-  else
-    if [ $COUNTER -ne 1 ]; then
-      echo -n ","
-    fi
-    matrix_output $COUNTER $MATRIX_JOB_NAME "${testName}" ${effective_node_label} ${effective_node_count}
-    ((COUNTER++))
+    testName="${subTestString}"
   fi
-
+  matrix_output $COUNTER $MATRIX_JOB_NAME "${testName}" ${effective_node_label} ${effective_node_count}
+  ((COUNTER++))
 done > "./tmpout.json"
 OUTPUT=$(cat ./tmpout.json)
 echo "[${OUTPUT}]"

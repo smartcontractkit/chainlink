@@ -42,7 +42,7 @@ func (t *VRFTaskV2Plus) Type() TaskType {
 	return TaskTypeVRFV2Plus
 }
 
-func (t *VRFTaskV2Plus) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
+func (t *VRFTaskV2Plus) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
 	if len(inputs) != 1 {
 		return Result{Error: ErrWrongInputCardinality}, runInfo
 	}
@@ -142,13 +142,16 @@ func (t *VRFTaskV2Plus) Run(_ context.Context, _ logger.Logger, vars Vars, input
 		return Result{Error: err}, runInfo
 	}
 	results := make(map[string]interface{})
-	results["output"] = hexutil.Encode(b)
+	output := hexutil.Encode(b)
+	results["output"] = output
 	// RequestID needs to be a [32]byte for EvmTxMeta.
 	results["requestID"] = hexutil.Encode(requestId.Bytes())
 
 	// store vrf proof and request commitment separately so they can be used in a batch fashion
 	results["proof"] = onChainProof
 	results["requestCommitment"] = rc
+
+	lggr.Debugw("Completed VRF V2 task run", "reqID", requestId.String(), "output", output)
 
 	return Result{Value: results}, runInfo
 }

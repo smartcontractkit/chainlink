@@ -105,7 +105,7 @@ func (s *Shell) SolanaSendSol(c *cli.Context) (err error) {
 
 	buf := bytes.NewBuffer(requestData)
 
-	resp, err := s.HTTP.Post("/v2/transfers/solana", buf)
+	resp, err := s.HTTP.Post(s.ctx(), "/v2/transfers/solana", buf)
 	if err != nil {
 		return s.errorOut(err)
 	}

@@ -7,10 +7,12 @@ import (
 	"os"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 
-	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 )
@@ -44,7 +46,7 @@ func TestReportEncoder_EncodeExtract(t *testing.T) {
 		{
 			"happy flow single",
 			[]ocr2keepers.CheckResult{
-				newResult(1, 1, core.GenUpkeepID(ocr2keepers.LogTrigger, "123"), 1, 1),
+				newResult(1, 1, core.GenUpkeepID(types.LogTrigger, "123"), 1, 1),
 			},
 			736,
 			1,
@@ -54,9 +56,9 @@ func TestReportEncoder_EncodeExtract(t *testing.T) {
 		{
 			"happy flow multiple",
 			[]ocr2keepers.CheckResult{
-				newResult(1, 1, core.GenUpkeepID(ocr2keepers.LogTrigger, "10"), 1, 1),
-				newResult(1, 1, core.GenUpkeepID(ocr2keepers.ConditionTrigger, "20"), 1, 1),
-				newResult(1, 1, core.GenUpkeepID(ocr2keepers.ConditionTrigger, "30"), 1, 1),
+				newResult(1, 1, core.GenUpkeepID(types.LogTrigger, "10"), 1, 1),
+				newResult(1, 1, core.GenUpkeepID(types.ConditionTrigger, "20"), 1, 1),
+				newResult(1, 1, core.GenUpkeepID(types.ConditionTrigger, "30"), 1, 1),
 			},
 			1312,
 			3,
@@ -66,9 +68,9 @@ func TestReportEncoder_EncodeExtract(t *testing.T) {
 		{
 			"happy flow highest block number first",
 			[]ocr2keepers.CheckResult{
-				newResult(1, 1, core.GenUpkeepID(ocr2keepers.ConditionTrigger, "30"), 1, 1),
-				newResult(1, 1, core.GenUpkeepID(ocr2keepers.ConditionTrigger, "20"), 1, 1),
-				newResult(1, 1, core.GenUpkeepID(ocr2keepers.LogTrigger, "10"), 1, 1),
+				newResult(1, 1, core.GenUpkeepID(types.ConditionTrigger, "30"), 1, 1),
+				newResult(1, 1, core.GenUpkeepID(types.ConditionTrigger, "20"), 1, 1),
+				newResult(1, 1, core.GenUpkeepID(types.LogTrigger, "10"), 1, 1),
 			},
 			1312,
 			1000,
@@ -114,8 +116,8 @@ func TestReportEncoder_BackwardsCompatibility(t *testing.T) {
 		packer: NewAbiPacker(),
 	}
 	results := []ocr2keepers.CheckResult{
-		newResult(1, 2, core.GenUpkeepID(ocr2keepers.LogTrigger, "10"), 5, 6),
-		newResult(3, 4, core.GenUpkeepID(ocr2keepers.ConditionTrigger, "20"), 7, 8),
+		newResult(1, 2, core.GenUpkeepID(types.LogTrigger, "10"), 5, 6),
+		newResult(3, 4, core.GenUpkeepID(types.ConditionTrigger, "20"), 7, 8),
 	}
 	encoded, err := encoder.Encode(results...)
 	assert.NoError(t, err)
@@ -136,7 +138,7 @@ func newResult(block int64, checkBlock ocr2keepers.BlockNumber, id ocr2keepers.U
 		BlockHash:   [32]byte{1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8},
 	}
 
-	if tp == ocr2keepers.LogTrigger {
+	if tp == types.LogTrigger {
 		trig.LogTriggerExtension = &ocr2keepers.LogTriggerExtension{
 			Index:     1,
 			TxHash:    common.HexToHash("0x1234567890123456789012345678901234567890123456789012345678901234"),

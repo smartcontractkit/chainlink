@@ -5,9 +5,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/pelletier/go-toml/v2"
-
 	"github.com/jmoiron/sqlx"
+	"github.com/pelletier/go-toml/v2"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos"
@@ -46,9 +45,11 @@ func (r *RelayerFactory) NewEVM(ctx context.Context, config EVMFactoryConfig) (m
 
 	relayers := make(map[relay.ID]evmrelay.LoopRelayAdapter)
 
+	lggr := r.Logger.Named("EVM")
+
 	// override some common opts with the factory values. this seems weird... maybe other signatures should change, or this should take a different type...
 	ccOpts := legacyevm.ChainRelayExtenderConfig{
-		Logger:    r.Logger.Named("EVM"),
+		Logger:    lggr,
 		KeyStore:  config.CSAETHKeystore.Eth(),
 		ChainOpts: config.ChainOpts,
 	}
@@ -66,13 +67,12 @@ func (r *RelayerFactory) NewEVM(ctx context.Context, config EVMFactoryConfig) (m
 		}
 
 		relayerOpts := evmrelay.RelayerOpts{
-			DB:               ccOpts.DB,
-			QConfig:          ccOpts.AppConfig.Database(),
-			CSAETHKeystore:   config.CSAETHKeystore,
-			EventBroadcaster: ccOpts.EventBroadcaster,
-			MercuryPool:      r.MercuryPool,
+			DB:             ccOpts.DB,
+			QConfig:        ccOpts.AppConfig.Database(),
+			CSAETHKeystore: config.CSAETHKeystore,
+			MercuryPool:    r.MercuryPool,
 		}
-		relayer, err2 := evmrelay.NewRelayer(r.Logger.Named("EVM").Named(relayID.ChainID), chain, relayerOpts)
+		relayer, err2 := evmrelay.NewRelayer(lggr.Named(relayID.ChainID), chain, relayerOpts)
 		if err2 != nil {
 			err = errors.Join(err, err2)
 			continue
@@ -116,7 +116,7 @@ func (r *RelayerFactory) NewSolana(ks keystore.Solana, chainCfgs solana.TOMLConf
 
 		lggr := solLggr.Named(relayID.ChainID)
 
-		if cmdName := env.SolanaPluginCmd.Get(); cmdName != "" {
+		if cmdName := env.SolanaPlugin.Cmd.Get(); cmdName != "" {
 
 			// setup the solana relayer to be a LOOP
 			cfgTOML, err := toml.Marshal(struct {
@@ -126,10 +126,14 @@ func (r *RelayerFactory) NewSolana(ks keystore.Solana, chainCfgs solana.TOMLConf
 			if err != nil {
 				return nil, fmt.Errorf("failed to marshal Solana configs: %w", err)
 			}
-
+			envVars, err := plugins.ParseEnvFile(env.SolanaPlugin.Env.Get())
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse Solana env file: %w", err)
+			}
 			solCmdFn, err := plugins.NewCmdFactory(r.Register, plugins.CmdConfig{
 				ID:  relayID.Name(),
 				Cmd: cmdName,
+				Env: envVars,
 			})
 			if err != nil {
 				return nil, fmt.Errorf("failed to create Solana LOOP command: %w", err)
@@ -187,7 +191,7 @@ func (r *RelayerFactory) NewStarkNet(ks keystore.StarkNet, chainCfgs config.TOML
 
 		lggr := starkLggr.Named(relayID.ChainID)
 
-		if cmdName := env.StarknetPluginCmd.Get(); cmdName != "" {
+		if cmdName := env.StarknetPlugin.Cmd.Get(); cmdName != "" {
 			// setup the starknet relayer to be a LOOP
 			cfgTOML, err := toml.Marshal(struct {
 				Starknet config.TOMLConfig
@@ -196,9 +200,14 @@ func (r *RelayerFactory) NewStarkNet(ks keystore.StarkNet, chainCfgs config.TOML
 				return nil, fmt.Errorf("failed to marshal StarkNet configs: %w", err)
 			}
 
+			envVars, err := plugins.ParseEnvFile(env.StarknetPlugin.Env.Get())
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse Starknet env file: %w", err)
+			}
 			starknetCmdFn, err := plugins.NewCmdFactory(r.Register, plugins.CmdConfig{
 				ID:  relayID.Name(),
 				Cmd: cmdName,
+				Env: envVars,
 			})
 			if err != nil {
 				return nil, fmt.Errorf("failed to create StarkNet LOOP command: %w", err)

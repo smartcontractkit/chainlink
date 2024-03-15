@@ -47,7 +47,7 @@ func startNewServer(t *testing.T, maxRequestBytes int64, readTimeoutMillis uint3
 }
 
 func sendRequest(t *testing.T, url string, body []byte) *http.Response {
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(body))
+	req, err := http.NewRequestWithContext(testutils.Context(t), "POST", url, bytes.NewBuffer(body))
 	require.NoError(t, err)
 	client := &http.Client{}
 	resp, err := client.Do(req)

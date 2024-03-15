@@ -17,10 +17,11 @@ import (
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 //go:generate mockery --quiet --name PrometheusBackend --output ../../internal/mocks/ --case=underscore
@@ -31,7 +32,7 @@ type (
 		chains       legacyevm.LegacyChainContainer
 		lggr         logger.Logger
 		backend      PrometheusBackend
-		newHeads     *utils.Mailbox[*evmtypes.Head]
+		newHeads     *mailbox.Mailbox[*evmtypes.Head]
 		chStop       services.StopChan
 		wgDone       sync.WaitGroup
 		reportPeriod time.Duration
@@ -109,7 +110,7 @@ func NewPromReporter(db *sql.DB, chainContainer legacyevm.LegacyChainContainer, 
 		chains:       chainContainer,
 		lggr:         lggr.Named("PromReporter"),
 		backend:      backend,
-		newHeads:     utils.NewSingleMailbox[*evmtypes.Head](),
+		newHeads:     mailbox.NewSingle[*evmtypes.Head](),
 		chStop:       chStop,
 		reportPeriod: period,
 	}

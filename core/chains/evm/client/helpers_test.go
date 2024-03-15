@@ -42,7 +42,7 @@ func NewClientWithTestNode(t *testing.T, nodePoolCfg config.NodePool, noNewHeads
 		return nil, errors.Errorf("ethereum url scheme must be websocket: %s", parsed.String())
 	}
 
-	lggr := logger.Test(t)
+	lggr := logger.Sugared(logger.Test(t))
 	n := NewNode(nodePoolCfg, noNewHeadsThreshold, lggr, *parsed, rpcHTTPURL, "eth-primary-0", id, chainID, 1)
 	n.(*node).setLatestReceived(0, big.NewInt(0))
 	primaries := []Node{n}

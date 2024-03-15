@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	mocklp "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -26,7 +27,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func TestDelegate_JobType(t *testing.T) {
@@ -90,7 +90,7 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 	defaultWaitBlocks := (int32)(testData.legacyChains.Slice()[0].Config().EVM().FinalityDepth())
 
 	t.Run("happy", func(t *testing.T) {
-		spec := job.Job{BlockhashStoreSpec: &job.BlockhashStoreSpec{WaitBlocks: defaultWaitBlocks, EVMChainID: (*utils.Big)(testutils.FixtureChainID)}}
+		spec := job.Job{BlockhashStoreSpec: &job.BlockhashStoreSpec{WaitBlocks: defaultWaitBlocks, EVMChainID: (*big.Big)(testutils.FixtureChainID)}}
 		services, err := delegate.ServicesForSpec(spec)
 
 		require.NoError(t, err)
@@ -107,7 +107,7 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 			CoordinatorV1Address:     &coordinatorV1,
 			CoordinatorV2Address:     &coordinatorV2,
 			CoordinatorV2PlusAddress: &coordinatorV2Plus,
-			EVMChainID:               (*utils.Big)(testutils.FixtureChainID),
+			EVMChainID:               (*big.Big)(testutils.FixtureChainID),
 		}}
 		services, err := delegate.ServicesForSpec(spec)
 
@@ -123,7 +123,7 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 
 	t.Run("wrong EVMChainID", func(t *testing.T) {
 		spec := job.Job{BlockhashStoreSpec: &job.BlockhashStoreSpec{
-			EVMChainID: utils.NewBigI(123),
+			EVMChainID: big.NewI(123),
 		}}
 		_, err := delegate.ServicesForSpec(spec)
 		assert.Error(t, err)
@@ -152,7 +152,7 @@ func TestDelegate_StartStop(t *testing.T) {
 		WaitBlocks: defaultWaitBlocks,
 		PollPeriod: time.Second,
 		RunTimeout: testutils.WaitTimeout(t),
-		EVMChainID: (*utils.Big)(testutils.FixtureChainID),
+		EVMChainID: (*big.Big)(testutils.FixtureChainID),
 	}}
 	services, err := delegate.ServicesForSpec(spec)
 

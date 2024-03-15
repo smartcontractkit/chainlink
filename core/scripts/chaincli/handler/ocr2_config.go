@@ -54,7 +54,7 @@ func OCR2GetConfig(hdlr *baseHandler, registry_addr string) error {
 
 func configFromBlock(bl *types.Block, addr common.Address, detail keeper_registry_wrapper2_0.LatestConfigDetails) (*confighelper.PublicConfig, error) {
 	for _, tx := range bl.Transactions() {
-		if tx.To() != nil && bytes.Compare(tx.To()[:], addr[:]) == 0 {
+		if tx.To() != nil && bytes.Equal(tx.To()[:], addr[:]) {
 			// this is our transaction
 			// txRes, txErr, err := getTransactionDetailForHashes(hdlr, []string{tx})
 			ocr2Tx, err := NewBaseOCR2Tx(tx)

@@ -3,7 +3,7 @@ package config
 import (
 	"time"
 
-	ocr2models "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 )
 
 type MercuryCache interface {
@@ -12,7 +12,12 @@ type MercuryCache interface {
 	LatestReportDeadline() time.Duration
 }
 
+type MercuryTLS interface {
+	CertFile() string
+}
+
 type Mercury interface {
-	Credentials(credName string) *ocr2models.MercuryCredentials
+	Credentials(credName string) *types.MercuryCredentials
 	Cache() MercuryCache
+	TLS() MercuryTLS
 }

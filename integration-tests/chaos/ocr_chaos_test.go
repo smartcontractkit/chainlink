@@ -3,7 +3,6 @@ package chaos
 import (
 	"fmt"
 	"math/big"
-	"os"
 	"testing"
 
 	"github.com/onsi/gomega"
@@ -12,6 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
+	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/chaos"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/chainlink"
@@ -25,8 +25,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
-	"github.com/smartcontractkit/chainlink/integration-tests/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
 var (
@@ -51,14 +51,26 @@ var (
 	chaosEndRound   int64 = 4
 )
 
-func TestMain(m *testing.M) {
-	defaultOCRSettings["toml"] = networks.AddNetworksConfig(config.BaseOCR1Config, networks.MustGetSelectedNetworksFromEnv()[0])
-	os.Exit(m.Run())
+func getDefaultOcrSettings(config *tc.TestConfig) map[string]interface{} {
+	defaultOCRSettings["toml"] = networks.AddNetworksConfig(baseTOML, config.Pyroscope, networks.MustGetSelectedNetworkConfig(config.Network)[0])
+	return defaultAutomationSettings
 }
 
 func TestOCRChaos(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
+	config, err := tc.GetConfig("Chaos", tc.OCR)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var overrideFn = func(_ interface{}, target interface{}) {
+		ctf_config.MustConfigOverrideChainlinkVersion(config.ChainlinkImage, target)
+		ctf_config.MightConfigOverridePyroscopeKey(config.Pyroscope, target)
+	}
+
+	chainlinkCfg := chainlink.NewWithOverride(0, getDefaultOcrSettings(&config), config.ChainlinkImage, overrideFn)
+
 	testCases := map[string]struct {
 		networkChart environment.ConnectedChart
 		clChart      environment.ConnectedChart
@@ -77,7 +89,7 @@ func TestOCRChaos(t *testing.T) {
 		// https://github.com/smartcontractkit/chainlink-testing-framework/k8s/blob/master/README.md
 		NetworkChaosFailMajorityNetwork: {
 			ethereum.New(nil),
-			chainlink.New(0, defaultOCRSettings),
+			chainlinkCfg,
 			chaos.NewNetworkPartition,
 			&chaos.Props{
 				FromLabels:  &map[string]*string{ChaosGroupMajority: ptr.Ptr("1")},
@@ -87,7 +99,7 @@ func TestOCRChaos(t *testing.T) {
 		},
 		NetworkChaosFailBlockchainNode: {
 			ethereum.New(nil),
-			chainlink.New(0, defaultOCRSettings),
+			chainlinkCfg,
 			chaos.NewNetworkPartition,
 			&chaos.Props{
 				FromLabels:  &map[string]*string{"app": ptr.Ptr("geth")},
@@ -97,7 +109,7 @@ func TestOCRChaos(t *testing.T) {
 		},
 		PodChaosFailMinorityNodes: {
 			ethereum.New(nil),
-			chainlink.New(0, defaultOCRSettings),
+			chainlinkCfg,
 			chaos.NewFailPods,
 			&chaos.Props{
 				LabelsSelector: &map[string]*string{ChaosGroupMinority: ptr.Ptr("1")},
@@ -106,7 +118,7 @@ func TestOCRChaos(t *testing.T) {
 		},
 		PodChaosFailMajorityNodes: {
 			ethereum.New(nil),
-			chainlink.New(0, defaultOCRSettings),
+			chainlinkCfg,
 			chaos.NewFailPods,
 			&chaos.Props{
 				LabelsSelector: &map[string]*string{ChaosGroupMajority: ptr.Ptr("1")},
@@ -115,7 +127,7 @@ func TestOCRChaos(t *testing.T) {
 		},
 		PodChaosFailMajorityDB: {
 			ethereum.New(nil),
-			chainlink.New(0, defaultOCRSettings),
+			chainlinkCfg,
 			chaos.NewFailPods,
 			&chaos.Props{
 				LabelsSelector: &map[string]*string{ChaosGroupMajority: ptr.Ptr("1")},
@@ -164,7 +176,7 @@ func TestOCRChaos(t *testing.T) {
 				if chainClient != nil {
 					chainClient.GasStats().PrintStats()
 				}
-				err := actions.TeardownSuite(t, testEnvironment, chainlinkNodes, nil, zapcore.PanicLevel, chainClient)
+				err := actions.TeardownSuite(t, testEnvironment, chainlinkNodes, nil, zapcore.PanicLevel, &config, chainClient)
 				require.NoError(t, err, "Error tearing down environment")
 			})
 

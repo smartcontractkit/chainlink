@@ -8,13 +8,13 @@ import (
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type ValidationConfig interface {
-	DefaultHTTPTimeout() models.Duration
+	DefaultHTTPTimeout() commonconfig.Duration
 }
 
 func ValidatedFluxMonitorSpec(config ValidationConfig, ts string) (job.Job, error) {

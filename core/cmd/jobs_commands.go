@@ -212,7 +212,7 @@ func (s *Shell) ShowJob(c *cli.Context) (err error) {
 		return s.errorOut(errors.New("must provide the id of the job"))
 	}
 	id := c.Args().First()
-	resp, err := s.HTTP.Get("/v2/jobs/" + id)
+	resp, err := s.HTTP.Get(s.ctx(), "/v2/jobs/"+id)
 	if err != nil {
 		return s.errorOut(err)
 	}
@@ -244,7 +244,7 @@ func (s *Shell) CreateJob(c *cli.Context) (err error) {
 		return s.errorOut(err)
 	}
 
-	resp, err := s.HTTP.Post("/v2/jobs", bytes.NewReader(request))
+	resp, err := s.HTTP.Post(s.ctx(), "/v2/jobs", bytes.NewReader(request))
 	if err != nil {
 		return s.errorOut(err)
 	}
@@ -273,7 +273,7 @@ func (s *Shell) DeleteJob(c *cli.Context) error {
 	if !c.Args().Present() {
 		return s.errorOut(errors.New("must pass the job id to be archived"))
 	}
-	resp, err := s.HTTP.Delete("/v2/jobs/" + c.Args().First())
+	resp, err := s.HTTP.Delete(s.ctx(), "/v2/jobs/"+c.Args().First())
 	if err != nil {
 		return s.errorOut(err)
 	}
@@ -291,7 +291,7 @@ func (s *Shell) TriggerPipelineRun(c *cli.Context) error {
 	if !c.Args().Present() {
 		return s.errorOut(errors.New("Must pass the job id to trigger a run"))
 	}
-	resp, err := s.HTTP.Post("/v2/jobs/"+c.Args().First()+"/runs", nil)
+	resp, err := s.HTTP.Post(s.ctx(), "/v2/jobs/"+c.Args().First()+"/runs", nil)
 	if err != nil {
 		return s.errorOut(err)
 	}

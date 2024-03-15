@@ -13,13 +13,13 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // Specs are only embedded on the job and are not fetchable by it's own id, so
@@ -95,7 +95,7 @@ func TestResolver_DirectRequestSpec(t *testing.T) {
 					DirectRequestSpec: &job.DirectRequestSpec{
 						ContractAddress:          contractAddress,
 						CreatedAt:                f.Timestamp(),
-						EVMChainID:               utils.NewBigI(42),
+						EVMChainID:               ubig.NewI(42),
 						MinIncomingConfirmations: clnull.NewUint32(1, true),
 						MinContractPayment:       commonassets.NewLinkFromJuels(1000),
 						Requesters:               models.AddressCollection{requesterAddress},
@@ -160,13 +160,13 @@ func TestResolver_FluxMonitorSpec(t *testing.T) {
 					FluxMonitorSpec: &job.FluxMonitorSpec{
 						ContractAddress:   contractAddress,
 						CreatedAt:         f.Timestamp(),
-						EVMChainID:        utils.NewBigI(42),
+						EVMChainID:        ubig.NewI(42),
 						DrumbeatEnabled:   false,
 						IdleTimerDisabled: false,
-						IdleTimerPeriod:   time.Duration(1 * time.Hour),
+						IdleTimerPeriod:   1 * time.Hour,
 						MinPayment:        commonassets.NewLinkFromJuels(1000),
 						PollTimerDisabled: false,
-						PollTimerPeriod:   time.Duration(1 * time.Minute),
+						PollTimerPeriod:   1 * time.Minute,
 					},
 				}, nil)
 			},
@@ -227,15 +227,15 @@ func TestResolver_FluxMonitorSpec(t *testing.T) {
 					FluxMonitorSpec: &job.FluxMonitorSpec{
 						ContractAddress:     contractAddress,
 						CreatedAt:           f.Timestamp(),
-						EVMChainID:          utils.NewBigI(42),
+						EVMChainID:          ubig.NewI(42),
 						DrumbeatEnabled:     true,
-						DrumbeatRandomDelay: time.Duration(1 * time.Second),
+						DrumbeatRandomDelay: 1 * time.Second,
 						DrumbeatSchedule:    "CRON_TZ=UTC 0 0 1 1 *",
 						IdleTimerDisabled:   true,
-						IdleTimerPeriod:     time.Duration(1 * time.Hour),
+						IdleTimerPeriod:     1 * time.Hour,
 						MinPayment:          commonassets.NewLinkFromJuels(1000),
 						PollTimerDisabled:   true,
-						PollTimerPeriod:     time.Duration(1 * time.Minute),
+						PollTimerPeriod:     1 * time.Minute,
 					},
 				}, nil)
 			},
@@ -310,7 +310,7 @@ func TestResolver_KeeperSpec(t *testing.T) {
 					KeeperSpec: &job.KeeperSpec{
 						ContractAddress: contractAddress,
 						CreatedAt:       f.Timestamp(),
-						EVMChainID:      utils.NewBigI(42),
+						EVMChainID:      ubig.NewI(42),
 						FromAddress:     ethkey.EIP55AddressFromAddress(fromAddress),
 					},
 				}, nil)
@@ -381,11 +381,10 @@ func TestResolver_OCRSpec(t *testing.T) {
 						ObservationGracePeriod:                 models.NewInterval(4 * time.Second),
 						ContractTransmitterTransmitTimeout:     models.NewInterval(555 * time.Millisecond),
 						CreatedAt:                              f.Timestamp(),
-						EVMChainID:                             utils.NewBigI(42),
+						EVMChainID:                             ubig.NewI(42),
 						IsBootstrapPeer:                        false,
 						EncryptedOCRKeyBundleID:                &keyBundleID,
 						ObservationTimeout:                     models.Interval(2 * time.Minute),
-						P2PBootstrapPeers:                      pq.StringArray{"/dns4/test.com/tcp/2001/p2pkey"},
 						P2PV2Bootstrappers:                     pq.StringArray{"12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw@localhost:5001"},
 						TransmitterAddress:                     &transmitterAddress,
 					},
@@ -411,7 +410,6 @@ func TestResolver_OCRSpec(t *testing.T) {
 									isBootstrapPeer
 									keyBundleID
 									observationTimeout
-									p2pBootstrapPeers
 									p2pv2Bootstrappers
 									transmitterAddress
 								}
@@ -438,7 +436,6 @@ func TestResolver_OCRSpec(t *testing.T) {
 							"isBootstrapPeer": false,
 							"keyBundleID": "f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5",
 							"observationTimeout": "2m0s",
-							"p2pBootstrapPeers": ["/dns4/test.com/tcp/2001/p2pkey"],
 							"p2pv2Bootstrappers": ["12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw@localhost:5001"],
 							"transmitterAddress": "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"
 						}
@@ -584,10 +581,11 @@ func TestResolver_VRFSpec(t *testing.T) {
 					VRFSpec: &job.VRFSpec{
 						BatchCoordinatorAddress:       &batchCoordinatorAddress,
 						BatchFulfillmentEnabled:       true,
+						CustomRevertsPipelineEnabled:  true,
 						MinIncomingConfirmations:      1,
 						CoordinatorAddress:            coordinatorAddress,
 						CreatedAt:                     f.Timestamp(),
-						EVMChainID:                    utils.NewBigI(42),
+						EVMChainID:                    ubig.NewI(42),
 						FromAddresses:                 []ethkey.EIP55Address{fromAddress1, fromAddress2},
 						PollPeriod:                    1 * time.Minute,
 						PublicKey:                     pubKey,
@@ -620,6 +618,7 @@ func TestResolver_VRFSpec(t *testing.T) {
 									batchCoordinatorAddress
 									batchFulfillmentEnabled
 									batchFulfillmentGasMultiplier
+									customRevertsPipelineEnabled
 									chunkSize
 									backoffInitialDelay
 									backoffMaxDelay
@@ -647,6 +646,7 @@ func TestResolver_VRFSpec(t *testing.T) {
 							"batchCoordinatorAddress": "0x0ad9FE7a58216242a8475ca92F222b0640E26B63",
 							"batchFulfillmentEnabled": true,
 							"batchFulfillmentGasMultiplier": 1,
+							"customRevertsPipelineEnabled": true,
 							"chunkSize": 25,
 							"backoffInitialDelay": "1m0s",
 							"backoffMaxDelay": "1h0m0s",
@@ -748,7 +748,7 @@ func TestResolver_BlockhashStoreSpec(t *testing.T) {
 						CoordinatorV2Address:           &coordinatorV2Address,
 						CoordinatorV2PlusAddress:       &coordinatorV2PlusAddress,
 						CreatedAt:                      f.Timestamp(),
-						EVMChainID:                     utils.NewBigI(42),
+						EVMChainID:                     ubig.NewI(42),
 						FromAddresses:                  []ethkey.EIP55Address{fromAddress1, fromAddress2},
 						PollPeriod:                     1 * time.Minute,
 						RunTimeout:                     37 * time.Second,
@@ -852,7 +852,7 @@ func TestResolver_BlockHeaderFeederSpec(t *testing.T) {
 						CoordinatorV2Address:       &coordinatorV2Address,
 						CoordinatorV2PlusAddress:   &coordinatorV2PlusAddress,
 						CreatedAt:                  f.Timestamp(),
-						EVMChainID:                 utils.NewBigI(42),
+						EVMChainID:                 ubig.NewI(42),
 						FromAddresses:              []ethkey.EIP55Address{fromAddress},
 						PollPeriod:                 1 * time.Minute,
 						RunTimeout:                 37 * time.Second,

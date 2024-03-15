@@ -15,6 +15,8 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
@@ -60,7 +62,7 @@ type runner struct {
 	legacyEVMChains        legacyevm.LegacyChainContainer
 	ethKeyStore            ETHKeyStore
 	vrfKeyStore            VRFKeyStore
-	runReaperWorker        utils.SleeperTask
+	runReaperWorker        *commonutils.SleeperTask
 	lggr                   logger.Logger
 	httpClient             *http.Client
 	unrestrictedHTTPClient *http.Client
@@ -118,8 +120,8 @@ func NewRunner(orm ORM, btORM bridges.ORM, cfg Config, bridgeCfg BridgeConfig, l
 		httpClient:             httpClient,
 		unrestrictedHTTPClient: unrestrictedHTTPClient,
 	}
-	r.runReaperWorker = utils.NewSleeperTask(
-		utils.SleeperFuncTask(r.runReaper, "PipelineRunnerReaper"),
+	r.runReaperWorker = commonutils.NewSleeperTask(
+		commonutils.SleeperFuncTask(r.runReaper, "PipelineRunnerReaper"),
 	)
 	return r
 }
@@ -211,35 +213,62 @@ func (r *runner) OnRunFinished(fn func(*Run)) {
 	r.runFinished = fn
 }
 
-// Be careful with the ctx passed in here: it applies to requests in individual
-// tasks but should _not_ apply to the scheduler or run itself
+// github.com/smartcontractkit/libocr/offchainreporting2plus/internal/protocol.ReportingPluginTimeoutWarningGracePeriod
+var overtime = 100 * time.Millisecond
+
+func init() {
+	// undocumented escape hatch
+	if v := env.PipelineOvertime.Get(); v != "" {
+		d, err := time.ParseDuration(v)
+		if err == nil {
+			overtime = d
+		}
+	}
+}
+
 func (r *runner) ExecuteRun(
 	ctx context.Context,
 	spec Spec,
 	vars Vars,
 	l logger.Logger,
 ) (*Run, TaskRunResults, error) {
-	run := NewRun(spec, vars)
+	// Pipeline runs may return results after the context is cancelled, so we modify the
+	// deadline to give them time to return before the parent context deadline.
+	var cancel func()
+	ctx, cancel = commonutils.ContextWithDeadlineFn(ctx, func(orig time.Time) time.Time {
+		if tenPct := time.Until(orig) / 10; overtime > tenPct {
+			return orig.Add(-tenPct)
+		}
+		return orig.Add(-overtime)
+	})
+	defer cancel()
 
-	pipeline, err := r.initializePipeline(run)
-
-	if err != nil {
-		return run, nil, err
+	var pipeline *Pipeline
+	if spec.Pipeline != nil {
+		// assume if set that it has been pre-initialized
+		pipeline = spec.Pipeline
+	} else {
+		var err error
+		pipeline, err = r.InitializePipeline(spec)
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 
+	run := NewRun(spec, vars)
 	taskRunResults := r.run(ctx, pipeline, run, vars, l)
 
 	if run.Pending {
-		return run, nil, pkgerrors.Wrapf(err, "unexpected async run for spec ID %v, tried executing via ExecuteAndInsertFinishedRun", spec.ID)
+		return run, nil, fmt.Errorf("unexpected async run for spec ID %v, tried executing via ExecuteRun", spec.ID)
 	}
 
 	return run, taskRunResults, nil
 }
 
-func (r *runner) initializePipeline(run *Run) (*Pipeline, error) {
-	pipeline, err := Parse(run.PipelineSpec.DotDagSource)
+func (r *runner) InitializePipeline(spec Spec) (pipeline *Pipeline, err error) {
+	pipeline, err = spec.GetOrParsePipeline()
 	if err != nil {
-		return nil, err
+		return
 	}
 
 	// initialize certain task params
@@ -255,7 +284,7 @@ func (r *runner) initializePipeline(run *Run) (*Pipeline, error) {
 			task.(*BridgeTask).config = r.config
 			task.(*BridgeTask).bridgeConfig = r.bridgeConfig
 			task.(*BridgeTask).orm = r.btORM
-			task.(*BridgeTask).specId = run.PipelineSpec.ID
+			task.(*BridgeTask).specId = spec.ID
 			// URL is "safe" because it comes from the node's own database. We
 			// must use the unrestrictedHTTPClient because some node operators
 			// may run external adapters on their own hardware
@@ -263,8 +292,8 @@ func (r *runner) initializePipeline(run *Run) (*Pipeline, error) {
 		case TaskTypeETHCall:
 			task.(*ETHCallTask).legacyChains = r.legacyEVMChains
 			task.(*ETHCallTask).config = r.config
-			task.(*ETHCallTask).specGasLimit = run.PipelineSpec.GasLimit
-			task.(*ETHCallTask).jobType = run.PipelineSpec.JobType
+			task.(*ETHCallTask).specGasLimit = spec.GasLimit
+			task.(*ETHCallTask).jobType = spec.JobType
 		case TaskTypeVRF:
 			task.(*VRFTask).keyStore = r.vrfKeyStore
 		case TaskTypeVRFV2:
@@ -273,25 +302,15 @@ func (r *runner) initializePipeline(run *Run) (*Pipeline, error) {
 			task.(*VRFTaskV2Plus).keyStore = r.vrfKeyStore
 		case TaskTypeEstimateGasLimit:
 			task.(*EstimateGasLimitTask).legacyChains = r.legacyEVMChains
-			task.(*EstimateGasLimitTask).specGasLimit = run.PipelineSpec.GasLimit
-			task.(*EstimateGasLimitTask).jobType = run.PipelineSpec.JobType
+			task.(*EstimateGasLimitTask).specGasLimit = spec.GasLimit
+			task.(*EstimateGasLimitTask).jobType = spec.JobType
 		case TaskTypeETHTx:
 			task.(*ETHTxTask).keyStore = r.ethKeyStore
 			task.(*ETHTxTask).legacyChains = r.legacyEVMChains
-			task.(*ETHTxTask).specGasLimit = run.PipelineSpec.GasLimit
-			task.(*ETHTxTask).jobType = run.PipelineSpec.JobType
-			task.(*ETHTxTask).forwardingAllowed = run.PipelineSpec.ForwardingAllowed
+			task.(*ETHTxTask).specGasLimit = spec.GasLimit
+			task.(*ETHTxTask).jobType = spec.JobType
+			task.(*ETHTxTask).forwardingAllowed = spec.ForwardingAllowed
 		default:
-		}
-	}
-
-	// retain old UUID values
-	for _, taskRun := range run.PipelineTaskRuns {
-		task := pipeline.ByDotID(taskRun.DotID)
-		if task != nil && task.Base() != nil {
-			task.Base().uuid = taskRun.ID
-		} else {
-			return nil, pkgerrors.Errorf("failed to match a pipeline task for dot ID: %v", taskRun.DotID)
 		}
 	}
 
@@ -519,9 +538,19 @@ func (r *runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, var
 }
 
 func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccessfulTaskRuns bool, fn func(tx pg.Queryer) error) (incomplete bool, err error) {
-	pipeline, err := r.initializePipeline(run)
+	pipeline, err := r.InitializePipeline(run.PipelineSpec)
 	if err != nil {
 		return false, err
+	}
+
+	// retain old UUID values
+	for _, taskRun := range run.PipelineTaskRuns {
+		task := pipeline.ByDotID(taskRun.DotID)
+		if task != nil && task.Base() != nil {
+			task.Base().uuid = taskRun.ID
+		} else {
+			return false, pkgerrors.Errorf("failed to match a pipeline task for dot ID: %v", taskRun.DotID)
+		}
 	}
 
 	preinsert := pipeline.RequiresPreInsert()

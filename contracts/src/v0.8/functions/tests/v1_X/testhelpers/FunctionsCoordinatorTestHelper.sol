@@ -3,11 +3,12 @@ pragma solidity ^0.8.19;
 
 import {FunctionsCoordinator} from "../../../dev/v1_X/FunctionsCoordinator.sol";
 import {FunctionsBilling} from "../../../dev/v1_X/FunctionsBilling.sol";
+import {FunctionsBillingConfig} from "../../../dev/v1_X/interfaces/IFunctionsBilling.sol";
 
 contract FunctionsCoordinatorTestHelper is FunctionsCoordinator {
   constructor(
     address router,
-    FunctionsBilling.Config memory config,
+    FunctionsBillingConfig memory config,
     address linkToNativeFeed
   ) FunctionsCoordinator(router, config, linkToNativeFeed) {}
 

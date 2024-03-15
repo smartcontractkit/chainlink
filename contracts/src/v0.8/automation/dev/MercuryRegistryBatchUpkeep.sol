@@ -1,20 +1,20 @@
 pragma solidity 0.8.6;
 
-import "../../shared/access/ConfirmedOwner.sol";
-import "../interfaces/AutomationCompatibleInterface.sol";
-import "../interfaces/StreamsLookupCompatibleInterface.sol";
-import "./MercuryRegistry.sol";
+import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
+import {AutomationCompatibleInterface} from "../interfaces/AutomationCompatibleInterface.sol";
+import {StreamsLookupCompatibleInterface} from "../interfaces/StreamsLookupCompatibleInterface.sol";
+import {MercuryRegistry} from "./MercuryRegistry.sol";
 
 contract MercuryRegistryBatchUpkeep is ConfirmedOwner, AutomationCompatibleInterface, StreamsLookupCompatibleInterface {
   error BatchSizeTooLarge(uint256 batchsize, uint256 maxBatchSize);
   // Use a reasonable maximum batch size. Every Mercury report is ~750 bytes, too many reports
   // passed into a single batch could exceed the calldata or transaction size limit for some blockchains.
-  uint256 constant MAX_BATCH_SIZE = 50;
+  uint256 public constant MAX_BATCH_SIZE = 50;
 
-  MercuryRegistry immutable i_registry; // master registry, where feed data is stored
+  MercuryRegistry public immutable i_registry; // master registry, where feed data is stored
 
-  uint256 s_batchStart; // starting index of upkeep batch on the MercuryRegistry's s_feeds array, inclusive
-  uint256 s_batchEnd; // ending index of upkeep batch on the MercuryRegistry's s_feeds array, exclusive
+  uint256 public s_batchStart; // starting index of upkeep batch on the MercuryRegistry's s_feeds array, inclusive
+  uint256 public s_batchEnd; // ending index of upkeep batch on the MercuryRegistry's s_feeds array, exclusive
 
   constructor(address mercuryRegistry, uint256 batchStart, uint256 batchEnd) ConfirmedOwner(msg.sender) {
     i_registry = MercuryRegistry(mercuryRegistry);

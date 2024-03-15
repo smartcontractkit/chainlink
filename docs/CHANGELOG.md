@@ -13,6 +13,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- unreleasedstop -->
 
+## 2.9.1 - 2024-03-07
+
+### Changed
+
+- `eth_call` RPC requests are now sent with both `input` and `data` fields to increase compatibility with servers that recognize only one.
+- GasEstimator will now include Type `0x3` (Blob) transactions in the gas calculations to estimate it more accurately.
+
+## 2.9.0 - 2024-02-22
+
+### Added
+
+- `chainlink health` CLI command and HTML `/health` endpoint, to provide human-readable views of the underlying JSON health data.
+- New job type `stream` to represent streamspecs. This job type is not yet used anywhere but will be required for Data Streams V1.
+- Environment variables `CL_MEDIAN_ENV`, `CL_SOLANA_ENV`, and `CL_STARKNET_ENV` for setting environment variables in LOOP Plugins with an `.env` file.
+  ```
+  echo "Foo=Bar" >> median.env
+  echo "Baz=Val" >> median.env  
+  CL_MEDIAN_ENV="median.env"
+  ```
+
+### Fixed
+
+- Fixed the encoding used for transactions when resending in batches
+
+### Removed
+
+- `P2P.V1` is no longer supported and must not be set in TOML configuration in order to boot. Use `P2P.V2` instead. If you are using both, `V1` can simply be removed.
+- Removed `TelemetryIngress.URL` and `TelemetryIngress.ServerPubKey` from TOML configuration, these fields are replaced by `[[TelemetryIngress.Endpoints]]`:
+```toml
+  [[TelemetryIngress.Endpoints]]
+  Network = '...' # e.g. EVM. Solana, Starknet, Cosmos
+  ChainID = '...' # e.g. 1, 5, devnet, mainnet-beta
+  URL = '...'
+  ServerPubKey = '...'
+```
+
 ## 2.8.0 - 2024-01-24
 
 ### Added
@@ -59,7 +95,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Two new prom metrics for mercury, nops should consider adding alerting on these:
     - `mercury_insufficient_blocks_count`
     - `mercury_zero_blocks_count`
-  
+- Added new `Mercury.TLS` TOML config field `CertFile` for configuring transport credentials when the node acts as a client and initiates a TLS handshake.
+
 ### Changed
 
 - `PromReporter` no longer directly reads txm related status from the db, and instead uses the txStore API.

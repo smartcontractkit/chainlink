@@ -28,9 +28,18 @@ type Spec struct {
 	JobID   int32  `json:"-"`
 	JobName string `json:"-"`
 	JobType string `json:"-"`
+
+	Pipeline *Pipeline `json:"-" db:"-"` // This may be nil, or may be populated manually as a cache. There is no locking on this, so be careful
 }
 
-func (s Spec) Pipeline() (*Pipeline, error) {
+func (s *Spec) GetOrParsePipeline() (*Pipeline, error) {
+	if s.Pipeline != nil {
+		return s.Pipeline, nil
+	}
+	return s.ParsePipeline()
+}
+
+func (s *Spec) ParsePipeline() (*Pipeline, error) {
 	return Parse(s.DotDagSource)
 }
 
@@ -66,7 +75,7 @@ func (r *Run) SetID(value string) error {
 	if err != nil {
 		return err
 	}
-	r.ID = int64(ID)
+	r.ID = ID
 	return nil
 }
 

@@ -7,11 +7,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type registry struct {
@@ -34,7 +34,7 @@ func TestBuildJobSpec(t *testing.T) {
 			ContractAddress: contract,
 		}}
 
-	upkeepID := utils.NewBigI(4)
+	upkeepID := big.NewI(4)
 	upkeep := UpkeepRegistration{
 		Registry: Registry{
 			FromAddress:     from,

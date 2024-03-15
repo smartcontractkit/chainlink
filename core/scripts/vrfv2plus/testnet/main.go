@@ -31,6 +31,7 @@ import (
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2plus"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
@@ -563,7 +564,6 @@ func main() {
 		coordinatorRegisterKey := flag.NewFlagSet("coordinator-register-key", flag.ExitOnError)
 		registerKeyAddress := coordinatorRegisterKey.String("address", "", "coordinator address")
 		registerKeyUncompressedPubKey := coordinatorRegisterKey.String("pubkey", "", "uncompressed pubkey")
-		registerKeyOracleAddress := coordinatorRegisterKey.String("oracle-address", "", "oracle address")
 		helpers.ParseArgs(coordinatorRegisterKey, os.Args[2:], "address", "pubkey", "oracle-address")
 		coordinator, err := vrf_coordinator_v2_5.NewVRFCoordinatorV25(common.HexToAddress(*registerKeyAddress), e.Ec)
 		helpers.PanicErr(err)
@@ -573,7 +573,7 @@ func main() {
 			*registerKeyUncompressedPubKey = strings.Replace(*registerKeyUncompressedPubKey, "0x", "04", 1)
 		}
 
-		v2plusscripts.RegisterCoordinatorProvingKey(e, *coordinator, *registerKeyUncompressedPubKey, *registerKeyOracleAddress)
+		v2plusscripts.RegisterCoordinatorProvingKey(e, *coordinator, *registerKeyUncompressedPubKey)
 	case "coordinator-deregister-key":
 		coordinatorDeregisterKey := flag.NewFlagSet("coordinator-deregister-key", flag.ExitOnError)
 		deregisterKeyAddress := coordinatorDeregisterKey.String("address", "", "coordinator address")
@@ -784,7 +784,7 @@ func main() {
 		bal, err := linkToken.BalanceOf(nil, e.Owner.From)
 		helpers.PanicErr(err)
 		fmt.Println("OWNER BALANCE", bal, e.Owner.From.String(), amount.String())
-		b, err := utils.ABIEncode(`[{"type":"uint64"}]`, created.SubId)
+		b, err := evmutils.ABIEncode(`[{"type":"uint64"}]`, created.SubId)
 		helpers.PanicErr(err)
 		e.Owner.GasLimit = 500000
 		tx, err := linkToken.TransferAndCall(e.Owner, coordinator.Address(), amount, b)
@@ -1046,9 +1046,8 @@ func main() {
 				return true
 			} else if strings.Contains(err.Error(), "execution reverted") {
 				return false
-			} else {
-				panic(err)
 			}
+			panic(err)
 		}
 
 		result := helpers.BinarySearch(assets.Ether(int64(*start*2)).ToInt(), big.NewInt(0), isWithdrawable)
@@ -1071,7 +1070,6 @@ func main() {
 		coordinatorReregisterKey := flag.NewFlagSet("coordinator-register-key", flag.ExitOnError)
 		coordinatorAddress := coordinatorReregisterKey.String("coordinator-address", "", "coordinator address")
 		uncompressedPubKey := coordinatorReregisterKey.String("pubkey", "", "uncompressed pubkey")
-		newOracleAddress := coordinatorReregisterKey.String("new-oracle-address", "", "oracle address")
 		skipDeregister := coordinatorReregisterKey.Bool("skip-deregister", false, "if true, key will not be deregistered")
 		helpers.ParseArgs(coordinatorReregisterKey, os.Args[2:], "coordinator-address", "pubkey", "new-oracle-address")
 
@@ -1097,7 +1095,6 @@ func main() {
 		// Use a higher gas price for the register call
 		e.Owner.GasPrice.Mul(e.Owner.GasPrice, big.NewInt(2))
 		registerTx, err := coordinator.RegisterProvingKey(e.Owner,
-			common.HexToAddress(*newOracleAddress),
 			[2]*big.Int{pk.X, pk.Y})
 		helpers.PanicErr(err)
 		fmt.Println("Register transaction", helpers.ExplorerLink(e.ChainID, registerTx.Hash()))

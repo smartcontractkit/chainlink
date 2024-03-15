@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"math/big"
 
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"google.golang.org/protobuf/proto"
@@ -58,8 +58,8 @@ func UnmarshalRows(data []byte) ([]*Row, error) {
 	return rows.Rows, nil
 }
 
-func UnmarshalAddress(address []byte) *utils.Big {
-	return utils.NewBig(new(big.Int).SetBytes(address))
+func UnmarshalAddress(address []byte) *ubig.Big {
+	return ubig.New(new(big.Int).SetBytes(address))
 }
 
 func (row *Row) VerifySignature() error {

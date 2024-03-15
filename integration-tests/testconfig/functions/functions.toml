@@ -1,0 +1,91 @@
+# product defaults
+[Functions]
+[Functions.Common]
+# Polygon Mumbai only for now
+receiver = "0x3098B6665589959711A48a6bAe5B7F2908f6a3bE"
+don_id = "fun-staging-mumbai-1"
+gateway_url = "https://gateway-stg-one.main.stage.cldev.sh"
+link_token_addr = "0x326C977E6efc84E512bB9C30f76E30c160eD06FB"
+coordinator_addr = "0x6D6a83BB356b7242E88C1A2b290102fde26590D0"
+router_addr = "0x2673266D3Cd08b53494B5a92B66DEec7F1408E7A"
+
+# comment "client_addr" and "subscription_id" and test will create a new pair
+# get it from logs and save
+client_addr = "0x89D4b58D859a536D0B888ecD5093eF5FF9e4F977"
+subscription_id = 47
+sub_funds = 10
+
+functions_call_payload_with_secrets = "return Functions.encodeString(JSON.stringify(secrets))"
+functions_call_payload_http = """
+const response = await Functions.makeHttpRequest({ url: 'http://dummyjson.com/products/1' });
+return Functions.encodeUint256(response.data.id);
+"""
+functions_call_payload_real = """
+const arg1 = args[0];
+const arg2 = args[1];
+const arg3 = args[2];
+const arg4 = args[3];
+
+const response = await Functions.makeHttpRequest({ url: 'http://dummyjson.com/products/${arg1}' });
+return Functions.encodeString(JSON.stringify(secrets));
+"""
+secrets_slot_id = 0
+secrets_version_id = 1693945705
+
+# uncomment to upload new secrets to s4 and use it in your run
+# TODO: not working now
+#secrets = "{\"secrets\": \"secretValue\"}"
+
+# gateway-list specific test configuration
+[GatewayList.Functions]
+[GatewayList.Functions.Performance]
+rps = 95
+duration = "10m"
+
+# gateway-set specific test configuration
+[GatewaySet.Functions]
+[GatewaySet.Functions.Performance]
+rps = 95
+duration = "10m"
+
+# real-soak specific test configuration
+[RealSoak.Functions]
+[RealSoak.Functions.Performance]
+rps = 1
+requests_per_call = 20
+duration = "10m"
+
+# real-stress specific test configuration
+[RealStress.Functions]
+[RealStress.Functions.Performance]
+rps = 1
+requests_per_call = 40
+duration = "10m"
+
+# secrets-soak specific test configuration
+[SecretsSoak.Functions]
+[SecretsSoak.Functions.Performance]
+rps = 1
+requests_per_call = 20
+duration = "10m"
+
+# secrets-stress specific test configuration
+[SecretsStress.Functions]
+[SecretsStress.Functions.Performance]
+rps = 1
+requests_per_call = 40
+duration = "10m"
+
+# soak specific test configuration
+[Soak.Functions]
+[Soak.Functions.Performance]
+rps = 1
+requests_per_call = 40
+duration = "10m"
+
+# soak specific test configuration
+[Stress.Functions]
+[Stress.Functions.Performance]
+rps = 1
+requests_per_call = 78
+duration = "10m"

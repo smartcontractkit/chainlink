@@ -5,9 +5,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func ChainEthMainnet(t *testing.T) config.ChainScopedConfig      { return scopedConfig(t, 1) }
@@ -16,7 +16,7 @@ func ChainArbitrumMainnet(t *testing.T) config.ChainScopedConfig { return scoped
 func ChainArbitrumRinkeby(t *testing.T) config.ChainScopedConfig { return scopedConfig(t, 421611) }
 
 func scopedConfig(t *testing.T, chainID int64) config.ChainScopedConfig {
-	id := utils.NewBigI(chainID)
+	id := big.NewI(chainID)
 	evmCfg := toml.EVMConfig{ChainID: id, Chain: toml.Defaults(id)}
 	return config.NewTOMLChainScopedConfig(configtest.NewTestGeneralConfig(t), &evmCfg, logger.TestLogger(t))
 }

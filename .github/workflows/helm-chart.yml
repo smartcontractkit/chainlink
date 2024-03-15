@@ -1,0 +1,25 @@
+name: Helm Chart
+
+on:
+  pull_request:
+    paths:
+      - "charts/**"
+      - ".github/workflows/helm-chart.yml"
+
+jobs:
+  ci-lint-helm-charts:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+      actions: read
+    steps:
+      - name: ci-lint-helm-charts
+        uses: smartcontractkit/.github/actions/ci-lint-charts@9fd15fe8e698a5e28bfd06b3a91471c56568dcb3 # ci-lint-charts@0.1.1
+        with:
+          # chart testing inputs
+          chart-testing-extra-args: "--lint-conf=lintconf.yaml"
+          # grafana inputs
+          metrics-job-name: ci-lint-helm-charts
+          gc-basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          gc-host: ${{ secrets.GRAFANA_CLOUD_HOST }}

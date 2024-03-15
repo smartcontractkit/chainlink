@@ -8,18 +8,18 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 //go:generate mockery --quiet --name ORM --output ./mocks/ --case=underscore
 
 type ORM interface {
-	CreateForwarder(addr common.Address, evmChainId utils.Big) (fwd Forwarder, err error)
+	CreateForwarder(addr common.Address, evmChainId big.Big) (fwd Forwarder, err error)
 	FindForwarders(offset, limit int) ([]Forwarder, int, error)
-	FindForwardersByChain(evmChainId utils.Big) ([]Forwarder, error)
+	FindForwardersByChain(evmChainId big.Big) ([]Forwarder, error)
 	DeleteForwarder(id int64, cleanup func(tx pg.Queryer, evmChainId int64, addr common.Address) error) error
-	FindForwardersInListByChain(evmChainId utils.Big, addrs []common.Address) ([]Forwarder, error)
+	FindForwardersInListByChain(evmChainId big.Big, addrs []common.Address) ([]Forwarder, error)
 }
 
 type orm struct {
@@ -33,7 +33,7 @@ func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) *orm {
 }
 
 // CreateForwarder creates the Forwarder address associated with the current EVM chain id.
-func (o *orm) CreateForwarder(addr common.Address, evmChainId utils.Big) (fwd Forwarder, err error) {
+func (o *orm) CreateForwarder(addr common.Address, evmChainId big.Big) (fwd Forwarder, err error) {
 	sql := `INSERT INTO evm.forwarders (address, evm_chain_id, created_at, updated_at) VALUES ($1, $2, now(), now()) RETURNING *`
 	err = o.q.Get(&fwd, sql, addr, evmChainId)
 	return fwd, err
@@ -93,13 +93,13 @@ func (o *orm) FindForwarders(offset, limit int) (fwds []Forwarder, count int, er
 }
 
 // FindForwardersByChain returns all forwarder addresses for a chain.
-func (o *orm) FindForwardersByChain(evmChainId utils.Big) (fwds []Forwarder, err error) {
+func (o *orm) FindForwardersByChain(evmChainId big.Big) (fwds []Forwarder, err error) {
 	sql := `SELECT * FROM evm.forwarders where evm_chain_id = $1 ORDER BY created_at DESC, id DESC`
 	err = o.q.Select(&fwds, sql, evmChainId)
 	return
 }
 
-func (o *orm) FindForwardersInListByChain(evmChainId utils.Big, addrs []common.Address) ([]Forwarder, error) {
+func (o *orm) FindForwardersInListByChain(evmChainId big.Big, addrs []common.Address) ([]Forwarder, error) {
 	var fwdrs []Forwarder
 
 	arg := map[string]interface{}{

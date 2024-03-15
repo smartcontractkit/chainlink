@@ -25,6 +25,7 @@ import (
 	ocr2keepers20runner "github.com/smartcontractkit/chainlink-automation/pkg/v2/runner"
 	ocr2keepers21config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
 	ocr2keepers21 "github.com/smartcontractkit/chainlink-automation/pkg/v3/plugin"
+	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 
 	"github.com/smartcontractkit/chainlink-vrf/altbn_128"
 	dkgpkg "github.com/smartcontractkit/chainlink-vrf/dkg"
@@ -34,6 +35,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
@@ -42,7 +44,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/dkg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/dkg/persistence"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions"
@@ -70,7 +71,6 @@ import (
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
@@ -116,7 +116,7 @@ type Delegate struct {
 	ethKs                 keystore.Eth
 	RelayGetter
 	isNewlyCreatedJob bool // Set to true if this is a new job freshly added, false if job was present already on node boot.
-	mailMon           *utils.MailboxMonitor
+	mailMon           *mailbox.Monitor
 
 	legacyChains legacyevm.LegacyChainContainer // legacy: use relayers instead
 }
@@ -188,8 +188,9 @@ type jobPipelineConfig interface {
 }
 
 type mercuryConfig interface {
-	Credentials(credName string) *models.MercuryCredentials
+	Credentials(credName string) *types.MercuryCredentials
 	Cache() coreconfig.MercuryCache
+	TLS() coreconfig.MercuryTLS
 }
 
 type thresholdConfig interface {
@@ -226,8 +227,7 @@ func NewDelegate(
 	dkgEncryptKs keystore.DKGEncrypt,
 	ethKs keystore.Eth,
 	relayers RelayGetter,
-	mailMon *utils.MailboxMonitor,
-	eventBroadcaster pg.EventBroadcaster,
+	mailMon *mailbox.Monitor,
 ) *Delegate {
 	return &Delegate{
 		db:                    db,
@@ -441,7 +441,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		return d.newServicesOCR2VRF(lggr, jb, bootstrapPeers, kb, ocrDB, lc)
 
 	case types.OCR2Keeper:
-		return d.newServicesOCR2Keepers(lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger)
+		return d.newServicesOCR2Keepers(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger)
 
 	case types.Functions:
 		const (
@@ -505,12 +505,6 @@ type connProvider interface {
 	ClientConn() grpc.ClientConnInterface
 }
 
-func defaultPathFromPluginName(pluginName string) string {
-	// By default we install the command on the system path, in the
-	// form: `chainlink-<plugin name>`
-	return fmt.Sprintf("chainlink-%s", pluginName)
-}
-
 func (d *Delegate) newServicesGenericPlugin(
 	ctx context.Context,
 	lggr logger.SugaredLogger,
@@ -531,9 +525,11 @@ func (d *Delegate) newServicesGenericPlugin(
 		return nil, err
 	}
 
+	plugEnv := env.NewPlugin(p.PluginName)
+
 	command := p.Command
 	if command == "" {
-		command = defaultPathFromPluginName(p.PluginName)
+		command = plugEnv.Cmd.Get()
 	}
 
 	// Add the default pipeline to the pluginConfig
@@ -588,8 +584,22 @@ func (d *Delegate) newServicesGenericPlugin(
 		OffchainConfigDigester:       provider.OffchainConfigDigester(),
 	}
 
+	envVars, err := plugins.ParseEnvFile(plugEnv.Env.Get())
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse median env file: %w", err)
+	}
+	if len(p.EnvVars) > 0 {
+		for k, v := range p.EnvVars {
+			envVars = append(envVars, k+"="+v)
+		}
+	}
+
 	pluginLggr := lggr.Named(p.PluginName).Named(spec.ContractID).Named(spec.GetID())
-	cmdFn, grpcOpts, err := d.cfg.RegisterLOOP(fmt.Sprintf("%s-%s-%s", p.PluginName, spec.ContractID, spec.GetID()), command)
+	cmdFn, grpcOpts, err := d.cfg.RegisterLOOP(plugins.CmdConfig{
+		ID:  fmt.Sprintf("%s-%s-%s", p.PluginName, spec.ContractID, spec.GetID()),
+		Cmd: command,
+		Env: envVars,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to register loop: %w", err)
 	}
@@ -1026,6 +1036,7 @@ func (d *Delegate) newServicesOCR2VRF(
 }
 
 func (d *Delegate) newServicesOCR2Keepers(
+	ctx context.Context,
 	lggr logger.SugaredLogger,
 	jb job.Job,
 	bootstrapPeers []commontypes.BootstrapperLocator,
@@ -1046,7 +1057,7 @@ func (d *Delegate) newServicesOCR2Keepers(
 
 	switch cfg.ContractVersion {
 	case "v2.1":
-		return d.newServicesOCR2Keepers21(lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger, cfg, spec)
+		return d.newServicesOCR2Keepers21(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger, cfg, spec)
 	case "v2.0":
 		return d.newServicesOCR2Keepers20(lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger, cfg, spec)
 	default:
@@ -1055,6 +1066,7 @@ func (d *Delegate) newServicesOCR2Keepers(
 }
 
 func (d *Delegate) newServicesOCR2Keepers21(
+	ctx context.Context,
 	lggr logger.SugaredLogger,
 	jb job.Job,
 	bootstrapPeers []commontypes.BootstrapperLocator,
@@ -1079,14 +1091,37 @@ func (d *Delegate) newServicesOCR2Keepers21(
 		return nil, fmt.Errorf("keeper2 services: expected EVM relayer got %s", rid.Network)
 	}
 
-	chain, err2 := d.legacyChains.Get(rid.ChainID)
-	if err2 != nil {
-		return nil, fmt.Errorf("keeper2 services: failed to get chain %s: %w", rid.ChainID, err2)
+	transmitterID := spec.TransmitterID.String
+	relayer, err := d.RelayGetter.Get(rid)
+	if err != nil {
+		return nil, ErrRelayNotEnabled{Err: err, Relay: spec.Relay, PluginName: "ocr2keepers"}
 	}
 
-	keeperProvider, services, err2 := ocr2keeper.EVMDependencies21(jb, d.db, lggr, chain, d.pipelineRunner, mc, kb, d.cfg.Database())
-	if err2 != nil {
-		return nil, errors.Wrap(err2, "could not build dependencies for ocr2 keepers")
+	provider, err := relayer.NewPluginProvider(ctx,
+		types.RelayArgs{
+			ExternalJobID:      jb.ExternalJobID,
+			JobID:              jb.ID,
+			ContractID:         spec.ContractID,
+			New:                d.isNewlyCreatedJob,
+			RelayConfig:        spec.RelayConfig.Bytes(),
+			ProviderType:       string(spec.PluginType),
+			MercuryCredentials: mc,
+		}, types.PluginArgs{
+			TransmitterID: transmitterID,
+			PluginConfig:  spec.PluginConfig.Bytes(),
+		})
+	if err != nil {
+		return nil, err
+	}
+
+	keeperProvider, ok := provider.(types.AutomationProvider)
+	if !ok {
+		return nil, errors.New("could not coerce PluginProvider to AutomationProvider")
+	}
+
+	services, err := ocr2keeper.EVMDependencies21(kb)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not build dependencies for ocr2 keepers")
 	}
 	// set some defaults
 	conf := ocr2keepers21config.ReportingFactoryConfig{
@@ -1125,15 +1160,15 @@ func (d *Delegate) newServicesOCR2Keepers21(
 		OffchainKeyring:              kb,
 		OnchainKeyring:               services.Keyring(),
 		LocalConfig:                  lc,
-		LogProvider:                  services.LogEventProvider(),
-		EventProvider:                services.TransmitEventProvider(),
-		Runnable:                     services.Registry(),
-		Encoder:                      services.Encoder(),
-		BlockSubscriber:              services.BlockSubscriber(),
-		RecoverableProvider:          services.LogRecoverer(),
-		PayloadBuilder:               services.PayloadBuilder(),
-		UpkeepProvider:               services.UpkeepProvider(),
-		UpkeepStateUpdater:           services.UpkeepStateStore(),
+		LogProvider:                  keeperProvider.LogEventProvider(),
+		EventProvider:                keeperProvider.TransmitEventProvider(),
+		Runnable:                     keeperProvider.Registry(),
+		Encoder:                      keeperProvider.Encoder(),
+		BlockSubscriber:              keeperProvider.BlockSubscriber(),
+		RecoverableProvider:          keeperProvider.LogRecoverer(),
+		PayloadBuilder:               keeperProvider.PayloadBuilder(),
+		UpkeepProvider:               keeperProvider.UpkeepProvider(),
+		UpkeepStateUpdater:           keeperProvider.UpkeepStateStore(),
 		UpkeepTypeGetter:             ocr2keeper21core.GetUpkeepType,
 		WorkIDGenerator:              ocr2keeper21core.UpkeepWorkID,
 		// TODO: Clean up the config
@@ -1150,12 +1185,12 @@ func (d *Delegate) newServicesOCR2Keepers21(
 
 	automationServices := []job.ServiceCtx{
 		keeperProvider,
-		services.Registry(),
-		services.BlockSubscriber(),
-		services.LogEventProvider(),
-		services.LogRecoverer(),
-		services.UpkeepStateStore(),
-		services.TransmitEventProvider(),
+		keeperProvider.Registry(),
+		keeperProvider.BlockSubscriber(),
+		keeperProvider.LogEventProvider(),
+		keeperProvider.LogRecoverer(),
+		keeperProvider.UpkeepStateStore(),
+		keeperProvider.TransmitEventProvider(),
 		pluginService,
 	}
 
@@ -1165,7 +1200,7 @@ func (d *Delegate) newServicesOCR2Keepers21(
 		customTelemService, custErr := autotelemetry21.NewAutomationCustomTelemetryService(
 			endpoint,
 			lggr,
-			services.BlockSubscriber(),
+			keeperProvider.BlockSubscriber(),
 			keeperProvider.ContractConfigTracker(),
 		)
 		if custErr != nil {
@@ -1201,7 +1236,7 @@ func (d *Delegate) newServicesOCR2Keepers20(
 		return nil, fmt.Errorf("keepers2.0 services: failed to get chain (%s): %w", rid.ChainID, err2)
 	}
 
-	keeperProvider, rgstry, encoder, logProvider, err2 := ocr2keeper.EVMDependencies20(jb, d.db, lggr, chain, d.pipelineRunner)
+	keeperProvider, rgstry, encoder, logProvider, err2 := ocr2keeper.EVMDependencies20(jb, d.db, lggr, chain, d.ethKs, d.cfg.Database())
 	if err2 != nil {
 		return nil, errors.Wrap(err2, "could not build dependencies for ocr2 keepers")
 	}

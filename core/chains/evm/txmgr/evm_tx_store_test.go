@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
@@ -14,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -22,8 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -1379,7 +1379,7 @@ func TestORM_UpdateTxUnstartedToInProgress(t *testing.T) {
 		etx := mustInsertInProgressEthTxWithAttempt(t, txStore, nonce, fromAddress)
 		require.Len(t, etx.TxAttempts, 1)
 
-		zero := models.MustNewDuration(time.Duration(0))
+		zero := commonconfig.MustNewDuration(time.Duration(0))
 		evmCfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.EVM[0].Chain.Transactions.ReaperInterval = zero
 			c.EVM[0].Chain.Transactions.ReaperThreshold = zero
@@ -1811,7 +1811,7 @@ func TestORM_PruneUnstartedTxQueue(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := newTestChainScopedConfig(t)
-	txStore := newTxStore(t, db, cfg.Database())
+	txStore := txmgr.NewTxStore(db, logger.Test(t), cfg.Database())
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	evmtest.NewEthClientMockWithDefaultChain(t)
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
@@ -1822,7 +1822,7 @@ func TestORM_PruneUnstartedTxQueue(t *testing.T) {
 		for i := 0; i < 5; i++ {
 			mustCreateUnstartedGeneratedTx(t, txStore, fromAddress, &cltest.FixtureChainID, txRequestWithStrategy(strategy1))
 		}
-		testutils.AssertCountPerSubject(t, db, int64(5), subject1)
+		AssertCountPerSubject(t, txStore, int64(5), subject1)
 	})
 
 	t.Run("prunes if queue has exceeded capacity", func(t *testing.T) {
@@ -1831,6 +1831,13 @@ func TestORM_PruneUnstartedTxQueue(t *testing.T) {
 		for i := 0; i < 5; i++ {
 			mustCreateUnstartedGeneratedTx(t, txStore, fromAddress, &cltest.FixtureChainID, txRequestWithStrategy(strategy2))
 		}
-		testutils.AssertCountPerSubject(t, db, int64(3), subject2)
+		AssertCountPerSubject(t, txStore, int64(3), subject2)
 	})
+}
+
+func AssertCountPerSubject(t *testing.T, txStore txmgr.TestEvmTxStore, expected int64, subject uuid.UUID) {
+	t.Helper()
+	count, err := txStore.CountTxesByStateAndSubject(testutils.Context(t), "unstarted", subject)
+	require.NoError(t, err)
+	require.Equal(t, int(expected), count)
 }

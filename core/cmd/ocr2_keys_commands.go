@@ -11,6 +11,7 @@ import (
 	"github.com/urfave/cli"
 	"go.uber.org/multierr"
 
+	cutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -92,7 +93,7 @@ func (p *OCR2KeyBundlePresenter) RenderTable(rt RendererTable) error {
 	}
 	renderList(headers, rows, rt.Writer)
 
-	return utils.JustError(rt.Write([]byte("\n")))
+	return cutils.JustError(rt.Write([]byte("\n")))
 }
 
 func (p *OCR2KeyBundlePresenter) ToRow() []string {
@@ -121,12 +122,12 @@ func (ps OCR2KeyBundlePresenters) RenderTable(rt RendererTable) error {
 	}
 	renderList(headers, rows, rt.Writer)
 
-	return utils.JustError(rt.Write([]byte("\n")))
+	return cutils.JustError(rt.Write([]byte("\n")))
 }
 
 // ListOCR2KeyBundles lists the available OCR2 Key Bundles
 func (s *Shell) ListOCR2KeyBundles(_ *cli.Context) error {
-	resp, err := s.HTTP.Get("/v2/keys/ocr2", nil)
+	resp, err := s.HTTP.Get(s.ctx(), "/v2/keys/ocr2", nil)
 	if err != nil {
 		return s.errorOut(err)
 	}
@@ -148,7 +149,7 @@ func (s *Shell) CreateOCR2KeyBundle(c *cli.Context) error {
 		)
 	}
 	chainType := c.Args().Get(0)
-	resp, err := s.HTTP.Post(fmt.Sprintf("/v2/keys/ocr2/%s", chainType), nil)
+	resp, err := s.HTTP.Post(s.ctx(), fmt.Sprintf("/v2/keys/ocr2/%s", chainType), nil)
 	if err != nil {
 		return s.errorOut(err)
 	}
@@ -181,7 +182,7 @@ func (s *Shell) DeleteOCR2KeyBundle(c *cli.Context) error {
 		queryStr = "?hard=true"
 	}
 
-	resp, err := s.HTTP.Delete(fmt.Sprintf("/v2/keys/ocr2/%s%s", id, queryStr))
+	resp, err := s.HTTP.Delete(s.ctx(), fmt.Sprintf("/v2/keys/ocr2/%s%s", id, queryStr))
 	if err != nil {
 		return s.errorOut(err)
 	}
@@ -217,7 +218,7 @@ func (s *Shell) ImportOCR2Key(c *cli.Context) (err error) {
 	}
 
 	normalizedPassword := normalizePassword(string(oldPassword))
-	resp, err := s.HTTP.Post("/v2/keys/ocr2/import?oldpassword="+normalizedPassword, bytes.NewReader(keyJSON))
+	resp, err := s.HTTP.Post(s.ctx(), "/v2/keys/ocr2/import?oldpassword="+normalizedPassword, bytes.NewReader(keyJSON))
 	if err != nil {
 		return s.errorOut(err)
 	}
@@ -254,7 +255,7 @@ func (s *Shell) ExportOCR2Key(c *cli.Context) (err error) {
 	ID := c.Args().Get(0)
 
 	normalizedPassword := normalizePassword(string(newPassword))
-	resp, err := s.HTTP.Post("/v2/keys/ocr2/export/"+ID+"?newpassword="+normalizedPassword, nil)
+	resp, err := s.HTTP.Post(s.ctx(), "/v2/keys/ocr2/export/"+ID+"?newpassword="+normalizedPassword, nil)
 	if err != nil {
 		return s.errorOut(errors.Wrap(err, "Could not make HTTP request"))
 	}

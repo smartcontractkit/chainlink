@@ -1,6 +1,7 @@
 package chainlink
 
 import (
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -14,7 +15,7 @@ func (a auditLoggerConfig) Enabled() bool {
 	return *a.c.Enabled
 }
 
-func (a auditLoggerConfig) ForwardToUrl() (models.URL, error) {
+func (a auditLoggerConfig) ForwardToUrl() (commonconfig.URL, error) {
 	return *a.c.ForwardToUrl, nil
 }
 

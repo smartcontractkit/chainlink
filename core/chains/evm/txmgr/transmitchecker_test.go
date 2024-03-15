@@ -106,7 +106,7 @@ func TestFactory(t *testing.T) {
 
 func TestTransmitCheckers(t *testing.T) {
 	client := evmtest.NewEthClientMockWithDefaultChain(t)
-	log := logger.Test(t)
+	log := logger.Sugared(logger.Test(t))
 	ctx := testutils.Context(t)
 
 	t.Run("no checker", func(t *testing.T) {

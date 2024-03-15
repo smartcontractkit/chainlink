@@ -7,10 +7,10 @@ import (
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // ORM implements ORM layer using PostgreSQL
@@ -86,7 +86,7 @@ RETURNING *
 }
 
 // UpdateUpkeepLastKeeperIndex updates the last keeper index for an upkeep
-func (korm ORM) UpdateUpkeepLastKeeperIndex(jobID int32, upkeepID *utils.Big, fromAddress ethkey.EIP55Address) error {
+func (korm ORM) UpdateUpkeepLastKeeperIndex(jobID int32, upkeepID *big.Big, fromAddress ethkey.EIP55Address) error {
 	_, err := korm.q.Exec(`
 	UPDATE upkeep_registrations
 	SET
@@ -98,7 +98,7 @@ func (korm ORM) UpdateUpkeepLastKeeperIndex(jobID int32, upkeepID *utils.Big, fr
 }
 
 // BatchDeleteUpkeepsForJob deletes all upkeeps by the given IDs for the job with the given ID
-func (korm ORM) BatchDeleteUpkeepsForJob(jobID int32, upkeepIDs []utils.Big) (int64, error) {
+func (korm ORM) BatchDeleteUpkeepsForJob(jobID int32, upkeepIDs []big.Big) (int64, error) {
 	strIds := []string{}
 	for _, upkeepID := range upkeepIDs {
 		strIds = append(strIds, upkeepID.String())
@@ -202,7 +202,7 @@ func loadUpkeepsRegistry(q pg.Queryer, upkeeps []UpkeepRegistration) error {
 	return nil
 }
 
-func (korm ORM) AllUpkeepIDsForRegistry(regID int64) (upkeeps []utils.Big, err error) {
+func (korm ORM) AllUpkeepIDsForRegistry(regID int64) (upkeeps []big.Big, err error) {
 	err = korm.q.Select(&upkeeps, `
 SELECT upkeep_id
 FROM upkeep_registrations
@@ -212,7 +212,7 @@ WHERE registry_id = $1
 }
 
 // SetLastRunInfoForUpkeepOnJob sets the last run block height and the associated keeper index only if the new block height is greater than the previous.
-func (korm ORM) SetLastRunInfoForUpkeepOnJob(jobID int32, upkeepID *utils.Big, height int64, fromAddress ethkey.EIP55Address, qopts ...pg.QOpt) (int64, error) {
+func (korm ORM) SetLastRunInfoForUpkeepOnJob(jobID int32, upkeepID *big.Big, height int64, fromAddress ethkey.EIP55Address, qopts ...pg.QOpt) (int64, error) {
 	res, err := korm.q.WithOpts(qopts...).Exec(`
 	UPDATE upkeep_registrations
 	SET last_run_block_height = $1,

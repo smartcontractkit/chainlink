@@ -5,8 +5,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type key struct {
@@ -32,7 +32,7 @@ func NewInMemoryORM() ORM {
 	}
 }
 
-func (o *inMemoryOrm) Get(address *utils.Big, slotId uint, qopts ...pg.QOpt) (*Row, error) {
+func (o *inMemoryOrm) Get(address *big.Big, slotId uint, qopts ...pg.QOpt) (*Row, error) {
 	o.mu.RLock()
 	defer o.mu.RUnlock()
 
@@ -103,7 +103,7 @@ func (o *inMemoryOrm) GetSnapshot(addressRange *AddressRange, qopts ...pg.QOpt) 
 	for _, mrow := range o.rows {
 		if mrow.Row.Expiration > now {
 			rows = append(rows, &SnapshotRow{
-				Address:    utils.NewBig(mrow.Row.Address.ToInt()),
+				Address:    big.New(mrow.Row.Address.ToInt()),
 				SlotId:     mrow.Row.SlotId,
 				Version:    mrow.Row.Version,
 				Expiration: mrow.Row.Expiration,

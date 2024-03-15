@@ -19,5 +19,5 @@ func (n Nonce) String() string {
 }
 
 func GenerateNextNonce(prev Nonce) Nonce {
-	return Nonce(prev + 1)
+	return prev + 1
 }

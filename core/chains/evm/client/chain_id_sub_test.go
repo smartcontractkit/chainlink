@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
 
 type mockSubscription struct {
@@ -111,7 +111,7 @@ func TestChainIDSubForwarder(t *testing.T) {
 		forwarder.srcCh <- head
 		receivedHead := <-ch
 		assert.Equal(t, head, receivedHead)
-		assert.Equal(t, utils.NewBig(chainID), receivedHead.EVMChainID)
+		assert.Equal(t, ubig.New(chainID), receivedHead.EVMChainID)
 
 		expectedErr := errors.New("error")
 		sub.Errors <- expectedErr

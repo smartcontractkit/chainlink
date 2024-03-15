@@ -16,6 +16,7 @@ import (
 	common "github.com/smartcontractkit/chainlink-common/pkg/chains"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
@@ -32,11 +33,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/monitor"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 //go:generate mockery --quiet --name Chain --output ./mocks/ --case=underscore
@@ -126,7 +126,7 @@ type chain struct {
 }
 
 type errChainDisabled struct {
-	ChainID *utils.Big
+	ChainID *ubig.Big
 }
 
 func (e errChainDisabled) Error() string {
@@ -163,9 +163,8 @@ func (c ChainRelayExtenderConfig) Validate() error {
 type ChainOpts struct {
 	AppConfig AppConfig
 
-	EventBroadcaster pg.EventBroadcaster
-	MailMon          *utils.MailboxMonitor
-	GasEstimator     gas.EvmFeeEstimator
+	MailMon      *mailbox.Monitor
+	GasEstimator gas.EvmFeeEstimator
 
 	*sqlx.DB
 
@@ -184,9 +183,7 @@ func (o ChainOpts) Validate() error {
 	if o.AppConfig == nil {
 		err = errors.Join(err, errors.New("nil AppConfig"))
 	}
-	if o.EventBroadcaster == nil {
-		err = errors.Join(err, errors.New("nil EventBroadcaster"))
-	}
+
 	if o.MailMon == nil {
 		err = errors.Join(err, errors.New("nil MailMon"))
 	}
@@ -477,15 +474,13 @@ func newEthClientFromCfg(cfg evmconfig.NodePool, noNewHeadsThreshold time.Durati
 	var sendonlys []commonclient.SendOnlyNode[*big.Int, evmclient.RPCCLient]
 	for i, node := range nodes {
 		if node.SendOnly != nil && *node.SendOnly {
-			name := fmt.Sprintf("eth-sendonly-rpc-%d", i)
-			rpc := evmclient.NewRPCClient(lggr, empty, (*url.URL)(node.HTTPURL), name, int32(i), chainID,
+			rpc := evmclient.NewRPCClient(lggr, empty, (*url.URL)(node.HTTPURL), *node.Name, int32(i), chainID,
 				commonclient.Secondary)
 			sendonly := commonclient.NewSendOnlyNode[*big.Int, evmclient.RPCCLient](lggr, (url.URL)(*node.HTTPURL),
 				*node.Name, chainID, rpc)
 			sendonlys = append(sendonlys, sendonly)
 		} else {
-			name := fmt.Sprintf("eth-primary-rpc-%d", i)
-			rpc := evmclient.NewRPCClient(lggr, (url.URL)(*node.WSURL), (*url.URL)(node.HTTPURL), name, int32(i),
+			rpc := evmclient.NewRPCClient(lggr, (url.URL)(*node.WSURL), (*url.URL)(node.HTTPURL), *node.Name, int32(i),
 				chainID, commonclient.Primary)
 			primaryNode := commonclient.NewNode[*big.Int, *evmtypes.Head, evmclient.RPCCLient](cfg, noNewHeadsThreshold,
 				lggr, (url.URL)(*node.WSURL), (*url.URL)(node.HTTPURL), *node.Name, int32(i), chainID, *node.Order,

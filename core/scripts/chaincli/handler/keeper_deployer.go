@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"crypto/ed25519"
 	"encoding/hex"
 	"encoding/json"
@@ -48,14 +49,14 @@ type upkeepDeployer interface {
 type keepersDeployer interface {
 	canceller
 	upkeepDeployer
-	SetKeepers(opts *bind.TransactOpts, _ []cmd.HTTPClient, keepers []common.Address, payees []common.Address) (*types.Transaction, error)
+	SetKeepers(ctx context.Context, opts *bind.TransactOpts, _ []cmd.HTTPClient, keepers []common.Address, payees []common.Address) (*types.Transaction, error)
 }
 
 type v11KeeperDeployer struct {
 	registry11.KeeperRegistryInterface
 }
 
-func (d *v11KeeperDeployer) SetKeepers(opts *bind.TransactOpts, _ []cmd.HTTPClient, keepers []common.Address, payees []common.Address) (*types.Transaction, error) {
+func (d *v11KeeperDeployer) SetKeepers(ctx context.Context, opts *bind.TransactOpts, _ []cmd.HTTPClient, keepers []common.Address, payees []common.Address) (*types.Transaction, error) {
 	return d.KeeperRegistryInterface.SetKeepers(opts, keepers, payees)
 }
 
@@ -71,7 +72,7 @@ type v12KeeperDeployer struct {
 	registry12.KeeperRegistryInterface
 }
 
-func (d *v12KeeperDeployer) SetKeepers(opts *bind.TransactOpts, _ []cmd.HTTPClient, keepers []common.Address, payees []common.Address) (*types.Transaction, error) {
+func (d *v12KeeperDeployer) SetKeepers(ctx context.Context, opts *bind.TransactOpts, _ []cmd.HTTPClient, keepers []common.Address, payees []common.Address) (*types.Transaction, error) {
 	return d.KeeperRegistryInterface.SetKeepers(opts, keepers, payees)
 }
 
@@ -88,7 +89,7 @@ type v20KeeperDeployer struct {
 	cfg *config.Config
 }
 
-func (d *v20KeeperDeployer) SetKeepers(opts *bind.TransactOpts, cls []cmd.HTTPClient, keepers []common.Address, _ []common.Address) (*types.Transaction, error) {
+func (d *v20KeeperDeployer) SetKeepers(ctx context.Context, opts *bind.TransactOpts, cls []cmd.HTTPClient, keepers []common.Address, _ []common.Address) (*types.Transaction, error) {
 	S := make([]int, len(cls))
 	oracleIdentities := make([]ocr2config.OracleIdentityExtra, len(cls))
 	sharedSecretEncryptionPublicKeys := make([]ocr2types.ConfigEncryptionPublicKey, len(cls))
@@ -98,12 +99,12 @@ func (d *v20KeeperDeployer) SetKeepers(opts *bind.TransactOpts, cls []cmd.HTTPCl
 		go func(i int, cl cmd.HTTPClient) {
 			defer wg.Done()
 
-			ocr2Config, err := getNodeOCR2Config(cl)
+			ocr2Config, err := getNodeOCR2Config(ctx, cl)
 			if err != nil {
 				panic(err)
 			}
 
-			p2pKeyID, err := getP2PKeyID(cl)
+			p2pKeyID, err := getP2PKeyID(ctx, cl)
 			if err != nil {
 				panic(err)
 			}
@@ -228,7 +229,7 @@ type v21KeeperDeployer struct {
 	cfg *config.Config
 }
 
-func (d *v21KeeperDeployer) SetKeepers(opts *bind.TransactOpts, cls []cmd.HTTPClient, keepers []common.Address, _ []common.Address) (*types.Transaction, error) {
+func (d *v21KeeperDeployer) SetKeepers(ctx context.Context, opts *bind.TransactOpts, cls []cmd.HTTPClient, keepers []common.Address, _ []common.Address) (*types.Transaction, error) {
 	S := make([]int, len(cls))
 	oracleIdentities := make([]ocr2config.OracleIdentityExtra, len(cls))
 	sharedSecretEncryptionPublicKeys := make([]ocr2types.ConfigEncryptionPublicKey, len(cls))
@@ -238,12 +239,12 @@ func (d *v21KeeperDeployer) SetKeepers(opts *bind.TransactOpts, cls []cmd.HTTPCl
 		go func(i int, cl cmd.HTTPClient) {
 			defer wg.Done()
 
-			ocr2Config, err := getNodeOCR2Config(cl)
+			ocr2Config, err := getNodeOCR2Config(ctx, cl)
 			if err != nil {
 				panic(err)
 			}
 
-			p2pKeyID, err := getP2PKeyID(cl)
+			p2pKeyID, err := getP2PKeyID(ctx, cl)
 			if err != nil {
 				panic(err)
 			}

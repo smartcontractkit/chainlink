@@ -13,6 +13,7 @@ import (
 	"go.uber.org/ratelimit"
 
 	client2 "github.com/smartcontractkit/chainlink-testing-framework/client"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -104,17 +105,17 @@ func (m *VU) Call(l *wasp.Generator) {
 		Msg("starting new round")
 	err := m.ocrInstances[0].RequestNewRound()
 	if err != nil {
-		l.ResponsesChan <- &wasp.CallResult{Error: err.Error(), Failed: true}
+		l.ResponsesChan <- &wasp.Response{Error: err.Error(), Failed: true}
 	}
 	for {
 		time.Sleep(5 * time.Second)
 		lr, err := m.ocrInstances[0].GetLatestRound(context.Background())
 		if err != nil {
-			l.ResponsesChan <- &wasp.CallResult{Error: err.Error(), Failed: true}
+			l.ResponsesChan <- &wasp.Response{Error: err.Error(), Failed: true}
 		}
 		m.l.Info().Interface("LatestRound", lr).Msg("latest round")
 		if lr.RoundId.Int64() >= requestedRound {
-			l.ResponsesChan <- &wasp.CallResult{}
+			l.ResponsesChan <- &wasp.Response{}
 		}
 	}
 }

@@ -13,8 +13,8 @@ import (
 	"os"
 	"time"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -38,7 +38,7 @@ type HTTPAuditLoggerInterface interface {
 type AuditLoggerService struct {
 	logger          logger.Logger            // The standard logger configured in the node
 	enabled         bool                     // Whether the audit logger is enabled or not
-	forwardToUrl    models.URL               // Location we are going to send logs to
+	forwardToUrl    commonconfig.URL         // Location we are going to send logs to
 	headers         []models.ServiceHeader   // Headers to be sent along with logs for identification/authentication
 	jsonWrapperKey  string                   // Wrap audit data as a map under this key if present
 	environmentName string                   // Decorate the environment this is coming from

@@ -22,6 +22,7 @@ import (
 
 func TestSessionsController_Create(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
@@ -44,7 +45,7 @@ func TestSessionsController_Create(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			body := fmt.Sprintf(`{"email":"%s","password":"%s"}`, test.email, test.password)
-			request, err := http.NewRequest("POST", app.Server.URL+"/sessions", bytes.NewBufferString(body))
+			request, err := http.NewRequestWithContext(ctx, "POST", app.Server.URL+"/sessions", bytes.NewBufferString(body))
 			assert.NoError(t, err)
 			resp, err := client.Do(request)
 			assert.NoError(t, err)
@@ -86,8 +87,9 @@ func mustInsertSession(t *testing.T, q pg.Q, session *sessions.Session) {
 func TestSessionsController_Create_ReapSessions(t *testing.T) {
 	t.Parallel()
 
+	ctx := testutils.Context(t)
 	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(ctx))
 
 	user := cltest.MustRandomUser(t)
 	require.NoError(t, app.AuthenticationProvider().CreateUser(&user))
@@ -99,7 +101,10 @@ func TestSessionsController_Create_ReapSessions(t *testing.T) {
 	mustInsertSession(t, q, &staleSession)
 
 	body := fmt.Sprintf(`{"email":"%s","password":"%s"}`, user.Email, cltest.Password)
-	resp, err := http.Post(app.Server.URL+"/sessions", "application/json", bytes.NewBufferString(body))
+	req, err := http.NewRequestWithContext(ctx, "POST", app.Server.URL+"/sessions", bytes.NewBufferString(body))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
 	assert.NoError(t, err)
 	defer func() { assert.NoError(t, resp.Body.Close()) }()
 
@@ -119,6 +124,7 @@ func TestSessionsController_Create_ReapSessions(t *testing.T) {
 
 func TestSessionsController_Destroy(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
@@ -143,7 +149,7 @@ func TestSessionsController_Destroy(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			cookie := cltest.MustGenerateSessionCookie(t, test.sessionID)
-			request, err := http.NewRequest("DELETE", app.Server.URL+"/sessions", nil)
+			request, err := http.NewRequestWithContext(ctx, "DELETE", app.Server.URL+"/sessions", nil)
 			assert.NoError(t, err)
 			request.AddCookie(cookie)
 
@@ -163,6 +169,7 @@ func TestSessionsController_Destroy(t *testing.T) {
 
 func TestSessionsController_Destroy_ReapSessions(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	client := clhttptest.NewTestLocalOnlyHTTPClient()
 	app := cltest.NewApplicationEVMDisabled(t)
@@ -183,7 +190,7 @@ func TestSessionsController_Destroy_ReapSessions(t *testing.T) {
 	staleSession.LastUsed = time.Now().Add(-cltest.MustParseDuration(t, "241h"))
 	mustInsertSession(t, q, &staleSession)
 
-	request, err := http.NewRequest("DELETE", app.Server.URL+"/sessions", nil)
+	request, err := http.NewRequestWithContext(ctx, "DELETE", app.Server.URL+"/sessions", nil)
 	assert.NoError(t, err)
 	request.AddCookie(cookie)
 

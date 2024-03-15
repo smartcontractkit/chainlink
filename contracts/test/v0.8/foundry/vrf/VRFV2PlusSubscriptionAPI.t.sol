@@ -315,25 +315,25 @@ contract VRFV2PlusSubscriptionAPITest is BaseTest {
     assertEq(address(s_subscriptionAPI).balance, s_subscriptionAPI.s_totalNativeBalance());
   }
 
-  function testOracleWithdrawNoLink() public {
+  function testWithdrawNoLink() public {
     // CASE: no link token set
     vm.expectRevert(SubscriptionAPI.LinkNotSet.selector);
-    s_subscriptionAPI.oracleWithdraw(OWNER, 1 ether);
+    s_subscriptionAPI.withdraw(OWNER);
   }
 
-  function testOracleWithdrawInsufficientBalance() public {
+  function testWithdrawInsufficientBalance() public {
     // CASE: link token set, trying to withdraw
     // more than balance
     MockLinkToken linkToken = new MockLinkToken();
     s_subscriptionAPI.setLINKAndLINKNativeFeed(address(linkToken), address(0));
     assertEq(address(s_subscriptionAPI.LINK()), address(linkToken));
 
-    // call oracleWithdraw
+    // call withdraw
     vm.expectRevert(SubscriptionAPI.InsufficientBalance.selector);
-    s_subscriptionAPI.oracleWithdraw(OWNER, 1 ether);
+    s_subscriptionAPI.withdraw(OWNER);
   }
 
-  function testOracleWithdrawSufficientBalanceLinkSet() public {
+  function testWithdrawSufficientBalanceLinkSet() public {
     // CASE: link token set, trying to withdraw
     // less than balance
     MockLinkToken linkToken = new MockLinkToken();
@@ -344,58 +344,72 @@ contract VRFV2PlusSubscriptionAPITest is BaseTest {
     bool success = linkToken.transfer(address(s_subscriptionAPI), 10 ether);
     assertTrue(success, "failed link transfer");
 
-    // set the withdrawable tokens of the oracle to be 1 ether
-    address oracle = makeAddr("oracle");
-    s_subscriptionAPI.setWithdrawableTokensTestingOnlyXXX(oracle, 1 ether);
-    assertEq(s_subscriptionAPI.getWithdrawableTokensTestingOnlyXXX(oracle), 1 ether);
+    // set the withdrawable tokens of the contract to be 1 ether
+    s_subscriptionAPI.setWithdrawableTokensTestingOnlyXXX(1 ether);
+    assertEq(s_subscriptionAPI.getWithdrawableTokensTestingOnlyXXX(), 1 ether);
 
     // set the total balance to be the same as the link balance for consistency
     // (this is not necessary for the test, but just to be sane)
     s_subscriptionAPI.setTotalBalanceTestingOnlyXXX(10 ether);
 
-    // call oracleWithdraw from oracle address
-    changePrank(oracle);
-    s_subscriptionAPI.oracleWithdraw(oracle, 1 ether);
-    // assert link balance of oracle
-    assertEq(linkToken.balanceOf(oracle), 1 ether, "oracle link balance incorrect");
+    // call Withdraw from owner address
+    uint256 ownerBalance = linkToken.balanceOf(OWNER);
+    changePrank(OWNER);
+    s_subscriptionAPI.withdraw(OWNER);
+    // assert link balance of owner
+    assertEq(linkToken.balanceOf(OWNER) - ownerBalance, 1 ether, "owner link balance incorrect");
     // assert state of subscription api
-    assertEq(s_subscriptionAPI.getWithdrawableTokensTestingOnlyXXX(oracle), 0, "oracle withdrawable tokens incorrect");
+    assertEq(s_subscriptionAPI.getWithdrawableTokensTestingOnlyXXX(), 0, "owner withdrawable tokens incorrect");
     // assert that total balance is changed by the withdrawn amount
     assertEq(s_subscriptionAPI.s_totalBalance(), 9 ether, "total balance incorrect");
   }
 
-  function testOracleWithdrawNativeInsufficientBalance() public {
+  function testWithdrawNativeInsufficientBalance() public {
     // CASE: trying to withdraw more than balance
     // should revert with InsufficientBalance
 
-    // call oracleWithdrawNative
+    // call WithdrawNative
+    changePrank(OWNER);
     vm.expectRevert(SubscriptionAPI.InsufficientBalance.selector);
-    s_subscriptionAPI.oracleWithdrawNative(payable(OWNER), 1 ether);
+    s_subscriptionAPI.withdrawNative(payable(OWNER));
   }
 
-  function testOracleWithdrawNativeSufficientBalance() public {
+  function testWithdrawLinkInvalidOwner() public {
+    address invalidAddress = makeAddr("invalidAddress");
+    changePrank(invalidAddress);
+    vm.expectRevert("Only callable by owner");
+    s_subscriptionAPI.withdraw(payable(OWNER));
+  }
+
+  function testWithdrawNativeInvalidOwner() public {
+    address invalidAddress = makeAddr("invalidAddress");
+    changePrank(invalidAddress);
+    vm.expectRevert("Only callable by owner");
+    s_subscriptionAPI.withdrawNative(payable(OWNER));
+  }
+
+  function testWithdrawNativeSufficientBalance() public {
     // CASE: trying to withdraw less than balance
     // should withdraw successfully
 
     // transfer 10 ether to the contract to withdraw
     vm.deal(address(s_subscriptionAPI), 10 ether);
 
-    // set the withdrawable eth of the oracle to be 1 ether
-    address oracle = makeAddr("oracle");
-    s_subscriptionAPI.setWithdrawableNativeTestingOnlyXXX(oracle, 1 ether);
-    assertEq(s_subscriptionAPI.getWithdrawableNativeTestingOnlyXXX(oracle), 1 ether);
+    // set the withdrawable eth of the contract to be 1 ether
+    s_subscriptionAPI.setWithdrawableNativeTestingOnlyXXX(1 ether);
+    assertEq(s_subscriptionAPI.getWithdrawableNativeTestingOnlyXXX(), 1 ether);
 
     // set the total balance to be the same as the eth balance for consistency
     // (this is not necessary for the test, but just to be sane)
     s_subscriptionAPI.setTotalNativeBalanceTestingOnlyXXX(10 ether);
 
-    // call oracleWithdrawNative from oracle address
-    changePrank(oracle);
-    s_subscriptionAPI.oracleWithdrawNative(payable(oracle), 1 ether);
-    // assert native balance of oracle
-    assertEq(address(oracle).balance, 1 ether, "oracle native balance incorrect");
+    // call WithdrawNative from owner address
+    changePrank(OWNER);
+    s_subscriptionAPI.withdrawNative(payable(OWNER));
+    // assert native balance
+    assertEq(address(OWNER).balance, 1 ether, "owner native balance incorrect");
     // assert state of subscription api
-    assertEq(s_subscriptionAPI.getWithdrawableNativeTestingOnlyXXX(oracle), 0, "oracle withdrawable native incorrect");
+    assertEq(s_subscriptionAPI.getWithdrawableNativeTestingOnlyXXX(), 0, "owner withdrawable native incorrect");
     // assert that total balance is changed by the withdrawn amount
     assertEq(s_subscriptionAPI.s_totalNativeBalance(), 9 ether, "total native balance incorrect");
   }

@@ -7,7 +7,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/bytes"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 
 	"github.com/shopspring/decimal"
 )
@@ -108,10 +108,10 @@ func (e *Eth) ToInt() *big.Int {
 
 // Scan reads the database value and returns an instance.
 func (e *Eth) Scan(value interface{}) error {
-	return (*utils.Big)(e).Scan(value)
+	return (*ubig.Big)(e).Scan(value)
 }
 
 // Value returns the Eth value for serialization to database.
 func (e Eth) Value() (driver.Value, error) {
-	return (utils.Big)(e).Value()
+	return (ubig.Big)(e).Value()
 }

@@ -196,15 +196,15 @@ func SmokeTestVRF(e helpers.Environment) {
 	x, y := secp256k1.Coordinates(point)
 	fmt.Println("proving key points x:", x, ", y:", y)
 	fmt.Println("proving key points from unmarshal:", pk.X, pk.Y)
-	tx, err := coordinator.RegisterProvingKey(e.Owner, e.Owner.From, [2]*big.Int{x, y})
+	tx, err := coordinator.RegisterProvingKey(e.Owner, [2]*big.Int{x, y})
 	helpers.PanicErr(err)
 	registerReceipt := helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "register proving key on", coordinatorAddress.String())
 	var provingKeyRegisteredLog *vrf_coordinator_v2_5.VRFCoordinatorV25ProvingKeyRegistered
 	for _, log := range registerReceipt.Logs {
 		if log.Address == coordinatorAddress {
-			var err error
-			provingKeyRegisteredLog, err = coordinator.ParseProvingKeyRegistered(*log)
-			if err != nil {
+			var err2 error
+			provingKeyRegisteredLog, err2 = coordinator.ParseProvingKeyRegistered(*log)
+			if err2 != nil {
 				continue
 			}
 		}
@@ -214,9 +214,8 @@ func SmokeTestVRF(e helpers.Environment) {
 	}
 	if !bytes.Equal(provingKeyRegisteredLog.KeyHash[:], keyHash[:]) {
 		panic(fmt.Sprintf("unexpected key hash registered %s, expected %s", hexutil.Encode(provingKeyRegisteredLog.KeyHash[:]), hexutil.Encode(keyHash[:])))
-	} else {
-		fmt.Println("key hash registered:", hexutil.Encode(provingKeyRegisteredLog.KeyHash[:]))
 	}
+	fmt.Println("key hash registered:", hexutil.Encode(provingKeyRegisteredLog.KeyHash[:]))
 
 	fmt.Println("\nProving key registered, getting proving key hashes from deployed contract...")
 	_, _, provingKeyHashes, configErr := coordinator.GetRequestConfig(nil)
@@ -268,6 +267,7 @@ func SmokeTestVRF(e helpers.Environment) {
 	consumer, err := vrf_v2plus_sub_owner.NewVRFV2PlusExternalSubOwnerExample(consumerAddress, e.Ec)
 	helpers.PanicErr(err)
 	tx, err = consumer.RequestRandomWords(e.Owner, subID, 100_000, 3, 3, provingKeyRegisteredLog.KeyHash, false)
+	helpers.PanicErr(err)
 	receipt := helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "request random words from", consumerAddress.String())
 	fmt.Println("request blockhash:", receipt.BlockHash)
 
@@ -275,9 +275,9 @@ func SmokeTestVRF(e helpers.Environment) {
 	var rwrLog *vrf_coordinator_v2_5.VRFCoordinatorV25RandomWordsRequested
 	for _, log := range receipt.Logs {
 		if log.Address == coordinatorAddress {
-			var err error
-			rwrLog, err = coordinator.ParseRandomWordsRequested(*log)
-			if err != nil {
+			var err2 error
+			rwrLog, err2 = coordinator.ParseRandomWordsRequested(*log)
+			if err2 != nil {
 				continue
 			}
 		}
@@ -396,13 +396,13 @@ func SmokeTestBHS(e helpers.Environment) {
 	if seReceipt.Status != 1 {
 		fmt.Println("storeEarliest failed")
 		os.Exit(1)
-	} else {
-		fmt.Println("storeEarliest succeeded, checking BH is there")
-		bh, err := bhs.GetBlockhash(nil, seReceipt.BlockNumber.Sub(seReceipt.BlockNumber, big.NewInt(256)))
-		helpers.PanicErr(err)
-		fmt.Println("blockhash stored by storeEarliest:", hexutil.Encode(bh[:]))
-		anchorBlockNumber = seReceipt.BlockNumber
 	}
+	fmt.Println("storeEarliest succeeded, checking BH is there")
+	bh, err := bhs.GetBlockhash(nil, seReceipt.BlockNumber.Sub(seReceipt.BlockNumber, big.NewInt(256)))
+	helpers.PanicErr(err)
+	fmt.Println("blockhash stored by storeEarliest:", hexutil.Encode(bh[:]))
+	anchorBlockNumber = seReceipt.BlockNumber
+
 	if anchorBlockNumber == nil {
 		panic("no anchor block number")
 	}
@@ -417,12 +417,11 @@ func SmokeTestBHS(e helpers.Environment) {
 	if sReceipt.Status != 1 {
 		fmt.Println("store failed")
 		os.Exit(1)
-	} else {
-		fmt.Println("store succeeded, checking BH is there")
-		bh, err := bhs.GetBlockhash(nil, toStore)
-		helpers.PanicErr(err)
-		fmt.Println("blockhash stored by store:", hexutil.Encode(bh[:]))
 	}
+	fmt.Println("store succeeded, checking BH is there")
+	bh, err = bhs.GetBlockhash(nil, toStore)
+	helpers.PanicErr(err)
+	fmt.Println("blockhash stored by store:", hexutil.Encode(bh[:]))
 
 	fmt.Println("\nexecuting storeVerifyHeader")
 	headers, _, err := helpers.GetRlpHeaders(e, []*big.Int{anchorBlockNumber}, false)
@@ -435,12 +434,11 @@ func SmokeTestBHS(e helpers.Environment) {
 	if svhReceipt.Status != 1 {
 		fmt.Println("storeVerifyHeader failed")
 		os.Exit(1)
-	} else {
-		fmt.Println("storeVerifyHeader succeeded, checking BH is there")
-		bh, err := bhs.GetBlockhash(nil, toStore)
-		helpers.PanicErr(err)
-		fmt.Println("blockhash stored by storeVerifyHeader:", hexutil.Encode(bh[:]))
 	}
+	fmt.Println("storeVerifyHeader succeeded, checking BH is there")
+	bh, err = bhs.GetBlockhash(nil, toStore)
+	helpers.PanicErr(err)
+	fmt.Println("blockhash stored by storeVerifyHeader:", hexutil.Encode(bh[:]))
 }
 
 func sendTx(e helpers.Environment, to common.Address, data []byte) (*types.Receipt, common.Hash) {
@@ -478,12 +476,14 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 	subscriptionBalanceNativeWeiString := deployCmd.String("subscription-balance-native", "1e18", "amount to fund subscription with native token (Wei)")
 
 	batchFulfillmentEnabled := deployCmd.Bool("batch-fulfillment-enabled", constants.BatchFulfillmentEnabled, "whether send randomness fulfillments in batches inside one tx from CL node")
+	batchFulfillmentGasMultiplier := deployCmd.Float64("batch-fulfillment-gas-multiplier", 1.1, "")
+	estimateGasMultiplier := deployCmd.Float64("estimate-gas-multiplier", 1.1, "")
+	pollPeriod := deployCmd.String("poll-period", "300ms", "")
+	requestTimeout := deployCmd.String("request-timeout", "30m0s", "")
 
 	// optional flags
 	fallbackWeiPerUnitLinkString := deployCmd.String("fallback-wei-per-unit-link", "6e16", "fallback wei/link ratio")
 	registerVRFKeyUncompressedPubKey := deployCmd.String("uncompressed-pub-key", "", "uncompressed public key")
-	registerVRFKeyAgainstAddress := deployCmd.String("register-vrf-key-against-address", "", "VRF Key registration against address - "+
-		"from this address you can perform `coordinator.oracleWithdraw` to withdraw earned funds from rand request fulfilments")
 
 	vrfPrimaryNodeSendingKeysString := deployCmd.String("vrf-primary-node-sending-keys", "", "VRF Primary Node sending keys")
 	minConfs := deployCmd.Int("min-confs", constants.MinConfs, "min confs")
@@ -501,7 +501,6 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 	fallbackWeiPerUnitLink := decimal.RequireFromString(*fallbackWeiPerUnitLinkString).BigInt()
 	subscriptionBalanceJuels := decimal.RequireFromString(*subscriptionBalanceJuelsString).BigInt()
 	subscriptionBalanceNativeWei := decimal.RequireFromString(*subscriptionBalanceNativeWeiString).BigInt()
-	fundingAmount := decimal.RequireFromString(*nodeSendingKeyFundingAmount).BigInt()
 
 	feeConfig := vrf_coordinator_v2_5.VRFCoordinatorV25FeeConfig{
 		FulfillmentFlatFeeLinkPPM:   uint32(*flatFeeLinkPPM),
@@ -515,10 +514,7 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 
 	nodesMap := make(map[string]model.Node)
 
-	fundingAmount, ok := new(big.Int).SetString(*nodeSendingKeyFundingAmount, 10)
-	if !ok {
-		panic(fmt.Sprintf("failed to parse node sending key funding amount '%s'", *nodeSendingKeyFundingAmount))
-	}
+	fundingAmount := decimal.RequireFromString(*nodeSendingKeyFundingAmount).BigInt()
 	nodesMap[model.VRFPrimaryNodeName] = model.Node{
 		SendingKeys:             util.MapToSendingKeyArr(vrfPrimaryNodeSendingKeys),
 		SendingKeyFundingAmount: fundingAmount,
@@ -549,7 +545,14 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 
 	vrfKeyRegistrationConfig := model.VRFKeyRegistrationConfig{
 		VRFKeyUncompressedPubKey: *registerVRFKeyUncompressedPubKey,
-		RegisterAgainstAddress:   *registerVRFKeyAgainstAddress,
+	}
+
+	coordinatorJobSpecConfig := model.CoordinatorJobSpecConfig{
+		BatchFulfillmentEnabled:       *batchFulfillmentEnabled,
+		BatchFulfillmentGasMultiplier: *batchFulfillmentGasMultiplier,
+		EstimateGasMultiplier:         *estimateGasMultiplier,
+		PollPeriod:                    *pollPeriod,
+		RequestTimeout:                *requestTimeout,
 	}
 
 	VRFV2PlusDeployUniverse(
@@ -559,8 +562,8 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 		vrfKeyRegistrationConfig,
 		contractAddresses,
 		coordinatorConfig,
-		*batchFulfillmentEnabled,
 		nodesMap,
+		coordinatorJobSpecConfig,
 	)
 
 	vrfPrimaryNode := nodesMap[model.VRFPrimaryNodeName]
@@ -576,8 +579,8 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 	vrfKeyRegistrationConfig model.VRFKeyRegistrationConfig,
 	contractAddresses model.ContractAddresses,
 	coordinatorConfig CoordinatorConfigV2Plus,
-	batchFulfillmentEnabled bool,
 	nodesMap map[string]model.Node,
+	coordinatorJobSpecConfig model.CoordinatorJobSpecConfig,
 ) model.JobSpecs {
 	var compressedPkHex string
 	var keyHash common.Hash
@@ -659,7 +662,7 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 
 		//NOTE - register proving key against EOA account, and not against Oracle's sending address in other to be able
 		// easily withdraw funds from Coordinator contract back to EOA account
-		RegisterCoordinatorProvingKey(e, *coordinator, vrfKeyRegistrationConfig.VRFKeyUncompressedPubKey, vrfKeyRegistrationConfig.RegisterAgainstAddress)
+		RegisterCoordinatorProvingKey(e, *coordinator, vrfKeyRegistrationConfig.VRFKeyUncompressedPubKey)
 
 		fmt.Println("\nProving key registered, getting proving key hashes from deployed contract...")
 		_, _, provingKeyHashes, configErr := coordinator.GetRequestConfig(nil)
@@ -701,20 +704,24 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 
 	formattedVrfV2PlusPrimaryJobSpec := fmt.Sprintf(
 		jobs.VRFV2PlusJobFormatted,
-		contractAddresses.CoordinatorAddress,      //coordinatorAddress
-		contractAddresses.BatchCoordinatorAddress, //batchCoordinatorAddress
-		batchFulfillmentEnabled,                   //batchFulfillmentEnabled
-		compressedPkHex,                           //publicKey
-		coordinatorConfig.MinConfs,                //minIncomingConfirmations
-		e.ChainID,                                 //evmChainID
+		contractAddresses.CoordinatorAddress,                                                        //coordinatorAddress
+		contractAddresses.BatchCoordinatorAddress,                                                   //batchCoordinatorAddress
+		coordinatorJobSpecConfig.BatchFulfillmentEnabled,                                            //batchFulfillmentEnabled
+		coordinatorJobSpecConfig.BatchFulfillmentGasMultiplier,                                      //batchFulfillmentGasMultiplier
 		strings.Join(util.MapToAddressArr(nodesMap[model.VRFPrimaryNodeName].SendingKeys), "\",\""), //fromAddresses
+		compressedPkHex,            //publicKey
+		coordinatorConfig.MinConfs, //minIncomingConfirmations
+		e.ChainID,                  //evmChainID
+		strings.Join(util.MapToAddressArr(nodesMap[model.VRFPrimaryNodeName].SendingKeys), "\",\""), //fromAddresses
+		coordinatorJobSpecConfig.PollPeriod,     //pollPeriod
+		coordinatorJobSpecConfig.RequestTimeout, //requestTimeout
 		contractAddresses.CoordinatorAddress,
+		coordinatorJobSpecConfig.EstimateGasMultiplier, //estimateGasMultiplier
 		func() string {
 			if keys := nodesMap[model.VRFPrimaryNodeName].SendingKeys; len(keys) > 0 {
 				return keys[0].Address
-			} else {
-				return common.HexToAddress("0x0").String()
 			}
+			return common.HexToAddress("0x0").String()
 		}(),
 		contractAddresses.CoordinatorAddress,
 		contractAddresses.CoordinatorAddress,
@@ -722,27 +729,30 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 
 	formattedVrfV2PlusBackupJobSpec := fmt.Sprintf(
 		jobs.VRFV2PlusJobFormatted,
-		contractAddresses.CoordinatorAddress,      //coordinatorAddress
-		contractAddresses.BatchCoordinatorAddress, //batchCoordinatorAddress
-		batchFulfillmentEnabled,                   //batchFulfillmentEnabled
-		compressedPkHex,                           //publicKey
-		100,                                       //minIncomingConfirmations
-		e.ChainID,                                 //evmChainID
+		contractAddresses.CoordinatorAddress,                   //coordinatorAddress
+		contractAddresses.BatchCoordinatorAddress,              //batchCoordinatorAddress
+		coordinatorJobSpecConfig.BatchFulfillmentEnabled,       //batchFulfillmentEnabled
+		coordinatorJobSpecConfig.BatchFulfillmentGasMultiplier, //batchFulfillmentGasMultiplier
+		compressedPkHex, //publicKey
+		100,             //minIncomingConfirmations
+		e.ChainID,       //evmChainID
 		strings.Join(util.MapToAddressArr(nodesMap[model.VRFBackupNodeName].SendingKeys), "\",\""), //fromAddresses
+		coordinatorJobSpecConfig.PollPeriod,     //pollPeriod
+		coordinatorJobSpecConfig.RequestTimeout, //requestTimeout
 		contractAddresses.CoordinatorAddress,
+		coordinatorJobSpecConfig.EstimateGasMultiplier, //estimateGasMultiplier
 		func() string {
 			if keys := nodesMap[model.VRFPrimaryNodeName].SendingKeys; len(keys) > 0 {
 				return keys[0].Address
-			} else {
-				return common.HexToAddress("0x0").String()
 			}
+			return common.HexToAddress("0x0").String()
 		}(),
 		contractAddresses.CoordinatorAddress,
 		contractAddresses.CoordinatorAddress,
 	)
 
 	formattedBHSJobSpec := fmt.Sprintf(
-		jobs.BHSJobFormatted,
+		jobs.BHSPlusJobFormatted,
 		contractAddresses.CoordinatorAddress, //coordinatorAddress
 		30,                                   //waitBlocks
 		200,                                  //lookbackBlocks
@@ -752,7 +762,7 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 	)
 
 	formattedBHSBackupJobSpec := fmt.Sprintf(
-		jobs.BHSJobFormatted,
+		jobs.BHSPlusJobFormatted,
 		contractAddresses.CoordinatorAddress, //coordinatorAddress
 		100,                                  //waitBlocks
 		200,                                  //lookbackBlocks
@@ -762,7 +772,7 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 	)
 
 	formattedBHFJobSpec := fmt.Sprintf(
-		jobs.BHFJobFormatted,
+		jobs.BHFPlusJobFormatted,
 		contractAddresses.CoordinatorAddress, //coordinatorAddress
 		contractAddresses.BhsContractAddress, //bhs adreess
 		contractAddresses.BatchBHSAddress,    //batchBHS

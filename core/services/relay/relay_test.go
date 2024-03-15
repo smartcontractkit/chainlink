@@ -10,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
@@ -96,6 +97,10 @@ type staticMercuryProvider struct {
 	types.MercuryProvider
 }
 
+type staticAutomationProvider struct {
+	types.AutomationProvider
+}
+
 type mockRelayer struct {
 	types.Relayer
 }
@@ -110,6 +115,10 @@ func (m *mockRelayer) NewFunctionsProvider(rargs types.RelayArgs, pargs types.Pl
 
 func (m *mockRelayer) NewMercuryProvider(rargs types.RelayArgs, pargs types.PluginArgs) (types.MercuryProvider, error) {
 	return staticMercuryProvider{}, nil
+}
+
+func (m *mockRelayer) NewAutomationProvider(rargs types.RelayArgs, pargs types.PluginArgs) (types.AutomationProvider, error) {
+	return staticAutomationProvider{}, nil
 }
 
 type mockRelayerExt struct {

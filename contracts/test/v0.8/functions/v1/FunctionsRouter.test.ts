@@ -20,7 +20,7 @@ describe('Functions Router - Request lifecycle', () => {
   describe('Config', () => {
     it('#typeAndVersion', async () => {
       expect(await contracts.router.typeAndVersion()).to.be.equal(
-        'Functions Router v1.0.0',
+        'Functions Router v2.0.0',
       )
     })
     it('non-owner is unable to update config', async () => {
