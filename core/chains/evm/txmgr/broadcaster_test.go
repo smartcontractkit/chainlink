@@ -1759,6 +1759,46 @@ func TestEthBroadcaster_SyncNonce(t *testing.T) {
 	})
 }
 
+func TestEthBroadcaster_NonceTracker_InProgressTx(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := configtest.NewTestGeneralConfig(t)
+	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
+	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
+
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
+	checkerFactory := &txmgr.CheckerFactory{Client: ethClient}
+
+	lggr := logger.Test(t)
+	ctx := testutils.Context(t)
+
+	t.Run("maintains the proper nonce if there is an in-progress tx during startup", func(t *testing.T) {
+		inProgressTxNonce := uint64(0)
+		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
+			return tx.Nonce() == inProgressTxNonce
+		}), fromAddress).Return(commonclient.Successful, nil).Once()
+
+		// Tx with nonce 0 in DB will set local nonce map to value to 1
+		mustInsertInProgressEthTxWithAttempt(t, txStore, evmtypes.Nonce(inProgressTxNonce), fromAddress)
+		nonceTracker := txmgr.NewNonceTracker(lggr, txStore, txmgr.NewEvmTxmClient(ethClient))
+		eb := NewTestEthBroadcaster(t, txStore, ethClient, ethKeyStore, evmcfg, checkerFactory, false, nonceTracker)
+
+		// Check the local nonce map was set to 1 higher than in-progress tx nonce
+		nonce := getLocalNextNonce(t, nonceTracker, fromAddress)
+		require.Equal(t, inProgressTxNonce + 1, nonce)
+
+		_, err := eb.ProcessUnstartedTxs(ctx, fromAddress)
+		require.NoError(t, err)
+
+		// Check the local nonce map maintained nonce 1 higher than in-progress tx nonce
+		nonce = getLocalNextNonce(t, nonceTracker, fromAddress)
+		require.Equal(t, inProgressTxNonce + 1, nonce)
+	})
+}
+
 type testCheckerFactory struct {
 	err error
 }

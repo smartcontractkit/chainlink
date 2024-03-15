@@ -254,7 +254,7 @@ func TestNonceTracker_GenerateNextSequence(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, types.Nonce(randNonce+1), seq) // Local nonce should be highest nonce in DB + 1
 
-	nonceTracker.GenerateNextSequence(addr)
+	nonceTracker.GenerateNextSequence(addr, types.Nonce(randNonce+1))
 
 	seq, err = nonceTracker.GetNextSequence(ctx, addr)
 	require.NoError(t, err)

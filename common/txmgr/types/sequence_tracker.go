@@ -19,7 +19,7 @@ type SequenceTracker[
 	GetNextSequence(context.Context, ADDR) (SEQ, error)
 	// Signals the existing sequence has been used so generates and stores the next sequence
 	// Can be a no-op depending on the chain
-	GenerateNextSequence(ADDR)
+	GenerateNextSequence(ADDR, SEQ)
 	// Syncs the local sequence with the one on-chain in case the address as been used externally
 	// Can be a no-op depending on the chain
 	SyncSequence(context.Context, ADDR, services.StopChan)

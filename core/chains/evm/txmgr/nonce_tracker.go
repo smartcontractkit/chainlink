@@ -167,8 +167,20 @@ func (s *nonceTracker) GetNextSequence(ctx context.Context, address common.Addre
 	return foundSeq, nil
 }
 
-func (s *nonceTracker) GenerateNextSequence(address common.Address) {
+func (s *nonceTracker) GenerateNextSequence(address common.Address, nonceUsed evmtypes.Nonce) {
 	s.sequenceLock.Lock()
 	defer s.sequenceLock.Unlock()
-	s.nextSequenceMap[address]++
+	currentNonce := s.nextSequenceMap[address]
+
+	// In most cases, currentNonce would equal nonceUsed
+	// There is a chance currentNonce is 1 ahead of nonceUsed if the DB contains an in-progress tx during startup
+	// Incrementing currentNonce, which is already set to the next usable nonce, could lead to a nonce gap. Set the map to the incremented nonceUsed instead.
+	if currentNonce == nonceUsed || currentNonce == nonceUsed + 1 {
+		s.nextSequenceMap[address] = nonceUsed + 1
+		return
+	}
+
+	// If currentNonce is ahead of even the incremented nonceUsed, maintain the unchanged currentNonce in the map
+	// This scenario should never occur but logging this discrepancy for visibility
+	s.lggr.Warnf("Local nonce map value %d for address %s is ahead of the nonce transmitted %d. Maintaining the existing value in the map without incrementing.", currentNonce, address.String(), nonceUsed)
 }

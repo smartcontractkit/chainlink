@@ -535,7 +535,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) hand
 			return err, true
 		}
 		// Increment sequence if successfully broadcasted
-		eb.sequenceTracker.GenerateNextSequence(etx.FromAddress)
+		eb.sequenceTracker.GenerateNextSequence(etx.FromAddress, *etx.Sequence)
 		return err, true
 	case client.Underpriced:
 		return eb.tryAgainBumpingGas(ctx, lgr, err, etx, attempt, initialBroadcastAt)
@@ -587,7 +587,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) hand
 				return err, true
 			}
 			// Increment sequence if successfully broadcasted
-			eb.sequenceTracker.GenerateNextSequence(etx.FromAddress)
+			eb.sequenceTracker.GenerateNextSequence(etx.FromAddress, *etx.Sequence)
 			return err, true
 		}
 		// Either the unknown error prevented the transaction from being mined, or
