@@ -77,6 +77,7 @@ func NewGetLogsReq(filter Filter) *GetLogsBatchElem {
 		"toBlock":   (*big.Int)(nil),
 		"blockHash": (*common.Hash)(nil),
 	}
+
 	return &GetLogsBatchElem{
 		Method: "eth_getLogs",
 		Args:   []interface{}{params},
@@ -332,7 +333,7 @@ func (lp *logPoller) RegisterFilter(ctx context.Context, filter Filter) error {
 		return fmt.Errorf("at least one event must be specified")
 	}
 
-	lp.lggr.Warnf("RegisterFilter called for filter '%s' address %v event sig %v", filter.Name, filter.Addresses[0], filter.EventSigs[0])
+	lp.lggr.Debugf("RegisterFilter called for filter '%s' address %v event sigs %v", filter.Name, filter.Addresses[0], filter.EventSigs)
 
 	for _, eventSig := range filter.EventSigs {
 		if eventSig == [common.HashLength]byte{} {
@@ -371,7 +372,7 @@ func (lp *logPoller) RegisterFilter(ctx context.Context, filter Filter) error {
 	lp.filters[filter.Name] = filter
 	lp.newFilters[filter.Name] = struct{}{}
 
-	lp.lggr.Warnf("RegisterFilter returning nil, inserted filter '%s' address %v event sig %v successfully", filter.Name, filter.Addresses[0], filter.EventSigs[0])
+	lp.lggr.Debugf("RegisterFilter returning nil, inserted filter '%s' address %v event sigs %v successfully", filter.Name, filter.Addresses[0], filter.EventSigs)
 	return nil
 }
 
@@ -382,7 +383,7 @@ func (lp *logPoller) UnregisterFilter(ctx context.Context, name string) error {
 	lp.filtersMu.Lock()
 	defer lp.filtersMu.Unlock()
 
-	lp.lggr.Warnf("UnregisterFilter called for filter '%s'", name)
+	lp.lggr.Debugf("UnregisterFilter called for filter '%s'", name)
 
 	_, ok := lp.filters[name]
 	if !ok {
@@ -406,7 +407,7 @@ func (lp *logPoller) HasFilter(name string) bool {
 	defer lp.filtersMu.RUnlock()
 
 	_, ok := lp.filters[name]
-	lp.lggr.Warnf("HasFilter called with name=%s, returning %v", name, ok)
+	lp.lggr.Debugf("HasFilter called with name=%s, returning %v", name, ok)
 	return ok
 }
 
@@ -839,7 +840,7 @@ func (lp *logPoller) backfill(ctx context.Context, start, end int64) error {
 	batchSize := lp.backfillBatchSize
 	for from := start; from <= end; from += batchSize {
 		to := mathutil.Min(from+batchSize-1, end)
-		gethLogs, err := lp.fetchLogs(ctx, big.NewInt(from), big.NewInt(to), nil)
+		gethLogs, err := lp.batchFetchLogs(ctx, big.NewInt(from), big.NewInt(to), nil)
 		if err != nil {
 			var rpcErr client.JsonError
 			if errors.As(err, &rpcErr) {
@@ -1021,7 +1022,7 @@ func (lp *logPoller) PollAndSaveLogs(ctx context.Context, currentBlockNumber int
 	for {
 		h := currentBlock.Hash
 		var logs []types.Log
-		logs, err = lp.fetchLogs(ctx, nil, nil, &h)
+		logs, err = lp.batchFetchLogs(ctx, nil, nil, &h)
 		if err != nil {
 			lp.lggr.Warnw("Unable to query for logs, retrying", "err", err, "block", currentBlockNumber)
 			return
@@ -1397,22 +1398,6 @@ func isTopicsSubset(topicsA [][]common.Hash, topicsB [][]common.Hash) bool {
 				return false
 			}
 		}
-		//j := 0
-		//for _, valA := range topicsA[i] { // check that each element of topicsA[n] is in topicsB[n]
-		//	found := false
-		//	for ; j < len(topicsB[i]); j++ {
-		//		cmp := bytes.Compare(topicsB[i][j].Bytes(), valA.Bytes())
-		//		if cmp > 0 { // if topicsB[i][j] > valA,
-		//			return false //    valA not found in topicsB[n]
-		//		} else if cmp == 0 { // if valA found in topicsB[n],
-		//			found = true
-		//			break //    check next element of topicsA[n]
-		//		}
-		//	}
-		//	if !found {
-		//		return false // valA not found in topicsB[n]
-		//	}
-		//}
 	}
 	return true
 }
@@ -1514,8 +1499,9 @@ func (lp *logPoller) EthGetLogsReqs(fromBlock, toBlock *big.Int, blockHash *comm
 // ethGetLogsReqs generates a batched rpc reqs for all logs matching registered filters,
 // copying cached reqs and filling in block range/hash if none of the registered filters have changed
 func (lp *logPoller) ethGetLogsReqs(fromBlock, toBlock *big.Int, blockHash *common.Hash) []rpc.BatchElem {
-	lp.lggr.Warnf("ethGetLogsReqs called with fromBlock=%v, toBlock=%v, blockHash=%v", fromBlock, toBlock, blockHash)
+	lp.lggr.Debugf("ethGetLogsReqs called with fromBlock=%v, toBlock=%v, blockHash=%v", fromBlock, toBlock, blockHash)
 	lp.filtersMu.Lock()
+
 	if len(lp.removedFilters) != 0 || len(lp.newFilters) != 0 {
 		eventsTopicsKeys := map[string]string{}
 		deletedAddresses := map[common.Address]struct{}{}
@@ -1544,6 +1530,10 @@ func (lp *logPoller) ethGetLogsReqs(fromBlock, toBlock *big.Int, blockHash *comm
 			}
 
 			_, isNew := lp.newFilters[filter.Name]
+
+			if isNew {
+				lp.lggr.Debugf("ethGetLogsReqs: processing newFilter: %v", filter.Name)
+			}
 
 			_, hasDeletedTopics := deletedEventsTopicsKeys[eventsTopicsKey]
 			var hasDeletedAddress bool
@@ -1614,18 +1604,21 @@ func (lp *logPoller) ethGetLogsReqs(fromBlock, toBlock *big.Int, blockHash *comm
 	return reqs
 }
 
-// fetchLogs fetches logs for either a single block by block hash, or by block range,
+// batchFetchLogs fetches logs for either a single block by block hash, or by block range,
 // rebuilding the cached reqs if necessary, sending them to the rpc server, and parsing the results
 // Requests for different filters are sent in parallel batches. For block range requests, the
 // block range is also broken up into serial batches
-func (lp *logPoller) fetchLogs(ctx context.Context, fromBlock *big.Int, toBlock *big.Int, blockHash *common.Hash) ([]types.Log, error) {
+func (lp *logPoller) batchFetchLogs(ctx context.Context, fromBlock *big.Int, toBlock *big.Int, blockHash *common.Hash) ([]types.Log, error) {
 	reqs := lp.ethGetLogsReqs(fromBlock, toBlock, blockHash)
+
+	lp.lggr.Debugf("batchFetchLogs: rpcBatchSize=%d, len(reqs)=%d, reqs=%v", lp.rpcBatchSize, len(reqs), reqs)
 	if err := lp.sendBatchedRequests(ctx, lp.rpcBatchSize, reqs); err != nil {
 		return nil, err
 	}
 
 	var logs []types.Log
 	for _, req := range reqs {
+		lp.lggr.Debugf("processing result for req...")
 		if req.Error != nil {
 			return nil, req.Error
 		}
@@ -1633,6 +1626,7 @@ func (lp *logPoller) fetchLogs(ctx context.Context, fromBlock *big.Int, toBlock 
 		if !ok {
 			return nil, fmt.Errorf("expected result type %T from eth_getLogs request, got %T", res, req.Result)
 		}
+		lp.lggr.Debugf("appending %d logs to result", len(*res))
 		logs = append(logs, *res...)
 	}
 	return logs, nil

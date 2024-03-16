@@ -327,7 +327,7 @@ func (r *rpcClient) BatchCallContext(ctx context.Context, b []rpc.BatchElem) err
 	defer cancel()
 	lggr := r.newRqLggr().With("nBatchElems", len(b), "batchElems", b)
 
-	lggr.Trace("RPC call: evmclient.Client#BatchCallContext")
+	lggr.Debug("RPC call: evmclient.Client#BatchCallContext")
 	start := time.Now()
 	if http != nil {
 		err = r.wrapHTTP(http.rpc.BatchCallContext(ctx, b))
