@@ -2,4 +2,4 @@
 "chainlink": patch
 ---
 
-Fixed nonce gap bug if in-progress tx sent but TXM shutdown before marked as broadcasted
+Fixed a race condition bug around EVM nonce management, which could cause the Node to skip a nonce and get stuck.
