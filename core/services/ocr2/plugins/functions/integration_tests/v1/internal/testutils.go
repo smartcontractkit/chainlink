@@ -337,7 +337,7 @@ func StartNewNode(
 
 		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
 		c.EVM[0].Transactions.ForwardersEnabled = ptr(false)
-		c.EVM[0].GasEstimator.LimitDefault = ptr(maxGas)
+		c.EVM[0].GasEstimator.LimitDefault = ptr(uint64(maxGas))
 		c.EVM[0].GasEstimator.Mode = ptr("FixedPrice")
 		c.EVM[0].GasEstimator.PriceDefault = assets.NewWei(big.NewInt(int64(DefaultGasPrice)))
 
@@ -348,7 +348,7 @@ func StartNewNode(
 
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, b, p2pKey)
 
-	sendingKeys, err := app.KeyStore.Eth().EnabledKeysForChain(testutils.SimulatedChainID)
+	sendingKeys, err := app.KeyStore.Eth().EnabledKeysForChain(testutils.Context(t), testutils.SimulatedChainID)
 	require.NoError(t, err)
 	require.Len(t, sendingKeys, 1)
 	transmitter := sendingKeys[0].Address
