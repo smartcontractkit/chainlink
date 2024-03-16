@@ -12,6 +12,7 @@ package rebalancer
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.19/MockBridgeAdapter/MockL2BridgeAdapter.abi ../../../contracts/solc/v0.8.19/MockBridgeAdapter/MockL2BridgeAdapter.bin MockL2BridgeAdapter mock_l2_bridge_adapter
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.19/MockBridgeAdapter/MockL1BridgeAdapter.abi ../../../contracts/solc/v0.8.19/MockBridgeAdapter/MockL1BridgeAdapter.bin MockL1BridgeAdapter mock_l1_bridge_adapter
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.19/RebalancerReportEncoder/RebalancerReportEncoder.abi ../../../contracts/solc/v0.8.19/RebalancerReportEncoder/RebalancerReportEncoder.bin RebalancerReportEncoder rebalancer_report_encoder
+//go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.19/OptimismL1BridgeAdapterEncoder/OptimismL1BridgeAdapterEncoder.abi ../../../contracts/solc/v0.8.19/OptimismL1BridgeAdapterEncoder/OptimismL1BridgeAdapterEncoder.bin OptimismL1BridgeAdapterEncoder optimism_l1_bridge_adapter_encoder
 
 // Arbitrum helpers
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.19/IArbSys/IArbSys.abi ../../../contracts/solc/v0.8.19/IArbSys/IArbSys.bin ArbSys arbsys

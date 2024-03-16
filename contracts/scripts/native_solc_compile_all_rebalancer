@@ -61,3 +61,4 @@ compileContract rebalancer/interfaces/optimism/IOptimismL2ToL1MessagePasser.sol
 compileContract rebalancer/interfaces/optimism/IOptimismCrossDomainMessenger.sol
 compileContract rebalancer/interfaces/optimism/IOptimismPortal2.sol
 compileContract rebalancer/interfaces/optimism/IOptimismDisputeGameFactory.sol
+compileContract rebalancer/encoders/OptimismL1BridgeAdapterEncoder.sol

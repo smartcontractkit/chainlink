@@ -300,7 +300,7 @@ func main() {
 	case "deposit-weth":
 		cmd := flag.NewFlagSet("deposit-weth", flag.ExitOnError)
 		chainID := cmd.Uint64("chain-id", 0, "Chain ID")
-		amount := cmd.String("amount", "1000000000000000000", "Amount")
+		amount := cmd.String("amount", "1", "Amount")
 		wethAddress := cmd.String("weth-address", "", "WETH Address")
 		helpers.ParseArgs(cmd, os.Args[2:], "chain-id")
 
@@ -333,7 +333,7 @@ func main() {
 	case "deploy-op-l1-adapter":
 		cmd := flag.NewFlagSet("deploy-op-l1-adapter", flag.ExitOnError)
 		l1ChainID := cmd.Uint64("l1-chain-id", 0, "L1 Chain ID")
-		helpers.ParseArgs(cmd, os.Args[2:], "l1-chain-id", "weth-address")
+		helpers.ParseArgs(cmd, os.Args[2:], "l1-chain-id")
 
 		env := multienv.New(false, false)
 		_, tx, _, err := optimism_l1_bridge_adapter.DeployOptimismL1BridgeAdapter(
@@ -341,14 +341,14 @@ func main() {
 			env.Clients[*l1ChainID],
 			opstack.OptimismContracts[*l1ChainID]["L1StandardBridge"],
 			opstack.OptimismContracts[*l1ChainID]["WETH"],
-			opstack.OptimismContracts[*l1ChainID]["L1CrossDomainMessenger"],
+			opstack.OptimismContracts[*l1ChainID]["OptimismPortal"],
 		)
 		helpers.PanicErr(err)
 		helpers.ConfirmContractDeployed(context.Background(), env.Clients[*l1ChainID], tx, int64(*l1ChainID))
 	case "deploy-op-l2-adapter":
 		cmd := flag.NewFlagSet("deploy-op-l2-adapter", flag.ExitOnError)
 		l2ChainID := cmd.Uint64("l2-chain-id", 0, "L2 Chain ID")
-		helpers.ParseArgs(cmd, os.Args[2:], "l2-chain-id", "weth-address")
+		helpers.ParseArgs(cmd, os.Args[2:], "l2-chain-id")
 
 		env := multienv.New(false, false)
 		_, tx, _, err := optimism_l2_bridge_adapter.DeployOptimismL2BridgeAdapter(env.Transactors[*l2ChainID], env.Clients[*l2ChainID], opstack.OptimismContracts[*l2ChainID]["WETH"])

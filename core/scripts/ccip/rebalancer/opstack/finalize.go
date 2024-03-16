@@ -8,8 +8,14 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/scripts/ccip/rebalancer/multienv"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/rebalancer/generated/optimism_portal"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/rebalancer/generated/optimism_l1_bridge_adapter"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/rebalancer/generated/optimism_l1_bridge_adapter_encoder"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/bridge/opstack/withdrawprover"
+)
+
+const (
+	FinalizationActionProveWithdrawal    uint8 = 0
+	FinalizationActionFinalizeWithdrawal uint8 = 1
 )
 
 func FinalizeL1(
@@ -20,6 +26,11 @@ func FinalizeL1(
 	optimismPortalAddress common.Address,
 	l2TxHash common.Hash,
 ) {
+	l1Client, ok := env.Clients[l1ChainID]
+	if !ok {
+		panic(fmt.Sprintf("No L1 client found for chain ID %d", l1ChainID))
+	}
+
 	l2Client, ok := env.Clients[l2ChainID]
 	if !ok {
 		panic(fmt.Sprintf("No L2 client found for chain ID %d", l2ChainID))
@@ -36,19 +47,37 @@ func FinalizeL1(
 	messagePassed, err := withdrawprover.ParseMessagePassedLog(messagePassedLog)
 	helpers.PanicErr(err)
 
-	portal, err := optimism_portal.NewOptimismPortal(optimismPortalAddress, env.Clients[l1ChainID])
+	l1Adapter, err := optimism_l1_bridge_adapter.NewOptimismL1BridgeAdapter(l1BridgeAdapterAddress, l1Client)
 	helpers.PanicErr(err)
 
-	tx, err := portal.FinalizeWithdrawalTransaction(
-		env.Transactors[l1ChainID],
-		optimism_portal.TypesWithdrawalTransaction{
-			Nonce:    messagePassed.Nonce,
-			Sender:   messagePassed.Sender,
-			Target:   messagePassed.Target,
-			Value:    messagePassed.Value,
-			GasLimit: messagePassed.GasLimit,
-			Data:     messagePassed.Data,
+	encodedFinalizeWithdrawal, err := encoderABI.Methods["encodeOptimismFinalizationPayload"].Inputs.Pack(
+		optimism_l1_bridge_adapter_encoder.OptimismL1BridgeAdapterOptimismFinalizationPayload{
+			WithdrawalTransaction: optimism_l1_bridge_adapter_encoder.TypesWithdrawalTransaction{
+				Nonce:    messagePassed.Nonce,
+				Sender:   messagePassed.Sender,
+				Target:   messagePassed.Target,
+				Value:    messagePassed.Value,
+				GasLimit: messagePassed.GasLimit,
+				Data:     messagePassed.Data,
+			},
 		},
+	)
+	helpers.PanicErr(err)
+
+	// then encode the finalize withdraw erc20 payload next.
+	encodedPayload, err := encoderABI.Methods["encodeFinalizeWithdrawalERC20Payload"].Inputs.Pack(
+		optimism_l1_bridge_adapter_encoder.OptimismL1BridgeAdapterFinalizeWithdrawERC20Payload{
+			Action: FinalizationActionFinalizeWithdrawal,
+			Data:   encodedFinalizeWithdrawal,
+		},
+	)
+	helpers.PanicErr(err)
+
+	tx, err := l1Adapter.FinalizeWithdrawERC20(
+		env.Transactors[l1ChainID],
+		common.Address{}, // not used
+		common.Address{}, // not used
+		encodedPayload,   // finalization payload
 	)
 	helpers.PanicErr(err)
 
