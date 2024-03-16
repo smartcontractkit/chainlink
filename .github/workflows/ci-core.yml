@@ -2,7 +2,7 @@ name: CI Core
 run-name: CI Core ${{ inputs.distinct_run_name && inputs.distinct_run_name || '' }}
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.distinct_run_name }}
   cancel-in-progress: true
 
 # Run on key branches to make sure integration is good, otherwise run on all PR's

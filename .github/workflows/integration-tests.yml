@@ -33,7 +33,7 @@ on:
 
 # Only run 1 of this workflow at a time per PR
 concurrency:
-  group: integration-tests-chainlink-${{ github.ref }}
+  group: integration-tests-chainlink-${{ github.ref }}-${{ inputs.distinct_run_name }}
   cancel-in-progress: true
 
 env:
@@ -203,7 +203,7 @@ jobs:
           git_commit_sha: ${{ github.sha }}
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-          evm-ref: ${{ inputs.evm-ref }}
+          dep_evm_sha: ${{ inputs.evm-ref }}
 
   build-test-image:
     if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'schedule' || contains(join(github.event.pull_request.labels.*.name, ' '), 'build-test-image')
