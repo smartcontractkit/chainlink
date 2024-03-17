@@ -197,8 +197,8 @@ func (o *orm) InsertRun(run *Run, qopts ...pg.QOpt) error {
 		defer o.Prune(o.q, run.JobID)
 	}
 	q := o.q.WithOpts(qopts...)
-	sql := `INSERT INTO pipeline_runs (pipeline_spec_id, job_id, meta, all_errors, fatal_errors, inputs, outputs, created_at, finished_at, state)
-		VALUES (:pipeline_spec_id, :job_id, :meta, :all_errors, :fatal_errors, :inputs, :outputs, :created_at, :finished_at, :state)
+	sql := `INSERT INTO pipeline_runs (pipeline_spec_id, pruning_key, job_id, meta, all_errors, fatal_errors, inputs, outputs, created_at, finished_at, state)
+		VALUES (:pipeline_spec_id, :job_id, :job_id, :meta, :all_errors, :fatal_errors, :inputs, :outputs, :created_at, :finished_at, :state)
 		RETURNING *;`
 	return q.GetNamed(sql, run, run)
 }
@@ -337,9 +337,9 @@ func (o *orm) InsertFinishedRuns(runs []*Run, saveSuccessfulTaskRuns bool, qopts
 	err := q.Transaction(func(tx pg.Queryer) error {
 		pipelineRunsQuery := `
 INSERT INTO pipeline_runs 
-	(pipeline_spec_id, job_id, meta, all_errors, fatal_errors, inputs, outputs, created_at, finished_at, state)
+	(pipeline_spec_id, pruning_key, job_id, meta, all_errors, fatal_errors, inputs, outputs, created_at, finished_at, state)
 VALUES 
-	(:pipeline_spec_id, :job_id, :meta, :all_errors, :fatal_errors, :inputs, :outputs, :created_at, :finished_at, :state) 
+	(:pipeline_spec_id, :job_id, :job_id, :meta, :all_errors, :fatal_errors, :inputs, :outputs, :created_at, :finished_at, :state) 
 RETURNING id
 	`
 		rows, errQ := tx.NamedQuery(pipelineRunsQuery, runs)
@@ -421,8 +421,8 @@ func (o *orm) InsertFinishedRun(run *Run, saveSuccessfulTaskRuns bool, qopts ...
 
 	q := o.q.WithOpts(qopts...)
 	err = q.Transaction(func(tx pg.Queryer) error {
-		sql := `INSERT INTO pipeline_runs (pipeline_spec_id, job_id, meta, all_errors, fatal_errors, inputs, outputs, created_at, finished_at, state)
-		VALUES (:pipeline_spec_id, :job_id, :meta, :all_errors, :fatal_errors, :inputs, :outputs, :created_at, :finished_at, :state)
+		sql := `INSERT INTO pipeline_runs (pipeline_spec_id, pruning_key, job_id, meta, all_errors, fatal_errors, inputs, outputs, created_at, finished_at, state)
+		VALUES (:pipeline_spec_id, :job_id, :job_id, :meta, :all_errors, :fatal_errors, :inputs, :outputs, :created_at, :finished_at, :state)
 		RETURNING id;`
 
 		query, args, e := tx.BindNamed(sql, run)
@@ -617,14 +617,14 @@ func (o *orm) GetQ() pg.Q {
 	return o.q
 }
 
-func (o *orm) loadCount(pipelineSpecID int32) *atomic.Uint64 {
+func (o *orm) loadCount(jobID int32) *atomic.Uint64 {
 	// fast path; avoids allocation
-	actual, exists := o.pm.Load(pipelineSpecID)
+	actual, exists := o.pm.Load(jobID)
 	if exists {
 		return actual.(*atomic.Uint64)
 	}
 	// "slow" path
-	actual, _ = o.pm.LoadOrStore(pipelineSpecID, new(atomic.Uint64))
+	actual, _ = o.pm.LoadOrStore(jobID, new(atomic.Uint64))
 	return actual.(*atomic.Uint64)
 }
 
@@ -657,7 +657,7 @@ func (o *orm) Prune(tx pg.Queryer, jobID int32) {
 		ok := o.IfStarted(func() {
 			o.wg.Add(1)
 			go func() {
-				o.lggr.Debugw("Pruning runs", "pipelineSpecID", jobID, "count", val, "every", every, "maxSuccessfulRuns", o.maxSuccessfulRuns)
+				o.lggr.Debugw("Pruning runs", "jobID", jobID, "count", val, "every", every, "maxSuccessfulRuns", o.maxSuccessfulRuns)
 				defer o.wg.Done()
 				// Must not use tx here since it's async and the transaction
 				// could be stale
@@ -665,42 +665,42 @@ func (o *orm) Prune(tx pg.Queryer, jobID int32) {
 			}()
 		})
 		if !ok {
-			o.lggr.Warnw("Cannot prune: ORM is not running", "pipelineSpecID", jobID)
+			o.lggr.Warnw("Cannot prune: ORM is not running", "jobID", jobID)
 			return
 		}
 	}
 }
 
-func (o *orm) execPrune(q pg.Queryer, pipelineSpecID int32) {
-	res, err := q.ExecContext(o.ctx, `DELETE FROM pipeline_runs WHERE pipeline_spec_id = $1 AND state = $2 AND id NOT IN (
+func (o *orm) execPrune(q pg.Queryer, jobID int32) {
+	res, err := q.ExecContext(o.ctx, `DELETE FROM pipeline_runs WHERE pruning_key = $1 AND state = $2 AND id NOT IN (
 SELECT id FROM pipeline_runs
-WHERE pipeline_spec_id = $1 AND state = $2
+WHERE pruning_key = $1 AND state = $2
 ORDER BY id DESC
 LIMIT $3
-)`, pipelineSpecID, RunStatusCompleted, o.maxSuccessfulRuns)
+)`, jobID, RunStatusCompleted, o.maxSuccessfulRuns)
 	if err != nil {
-		o.lggr.Errorw("Failed to prune runs", "err", err, "pipelineSpecID", pipelineSpecID)
+		o.lggr.Errorw("Failed to prune runs", "err", err, "jobID", jobID)
 		return
 	}
 	rowsAffected, err := res.RowsAffected()
 	if err != nil {
-		o.lggr.Errorw("Failed to get RowsAffected while pruning runs", "err", err, "pipelineSpecID", pipelineSpecID)
+		o.lggr.Errorw("Failed to get RowsAffected while pruning runs", "err", err, "jobID", jobID)
 		return
 	}
 	if rowsAffected == 0 {
 		// check the spec still exists and garbage collect if necessary
 		var exists bool
-		if err := q.GetContext(o.ctx, &exists, `SELECT EXISTS(SELECT * FROM pipeline_specs WHERE id = $1)`, pipelineSpecID); err != nil {
-			o.lggr.Errorw("Failed check existence of pipeline_spec while pruning runs", "err", err, "pipelineSpecID", pipelineSpecID)
+		if err := q.GetContext(o.ctx, &exists, `SELECT EXISTS(SELECT * FROM pipeline_specs WHERE pruning_key = $1)`, jobID); err != nil {
+			o.lggr.Errorw("Failed check existence of pipeline_spec while pruning runs", "err", err, "jobID", jobID)
 			return
 		}
 		if !exists {
-			o.lggr.Debugw("Pipeline spec no longer exists, removing prune count", "pipelineSpecID", pipelineSpecID)
-			o.pm.Delete(pipelineSpecID)
+			o.lggr.Debugw("Pipeline spec no longer exists, removing prune count", "jobID", jobID)
+			o.pm.Delete(jobID)
 		}
 	} else if o.maxSuccessfulRuns < syncLimit {
-		o.lggr.Tracew("Pruned runs", "rowsAffected", rowsAffected, "pipelineSpecID", pipelineSpecID)
+		o.lggr.Tracew("Pruned runs", "rowsAffected", rowsAffected, "jobID", jobID)
 	} else {
-		o.lggr.Debugw("Pruned runs", "rowsAffected", rowsAffected, "pipelineSpecID", pipelineSpecID)
+		o.lggr.Debugw("Pruned runs", "rowsAffected", rowsAffected, "jobID", jobID)
 	}
 }
