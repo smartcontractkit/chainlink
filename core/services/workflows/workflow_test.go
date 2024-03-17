@@ -51,64 +51,119 @@ var transformJSON = cmp.FilterValues(func(x, y []byte) bool {
 }))
 
 func TestWorkflowSpecMarshalling(t *testing.T) {
-	workflowBytes := yamlFixtureReaderBytes(t, "marshalling")("workflow_1")
+	fixtureReader := yamlFixtureReaderBytes(t, "marshalling")
 
-	spec := workflowSpec{}
-	err := yaml.Unmarshal(workflowBytes, &spec)
-	require.NoError(t, err)
+	t.Run("Type coercion", func(t *testing.T) {
+		workflowBytes := fixtureReader("workflow_1")
 
-	// Test that our workflowSpec still keeps all of the original data
-	var rawSpec interface{}
-	err = yaml.Unmarshal(workflowBytes, &rawSpec)
-	require.NoError(t, err)
+		spec := workflowSpec{}
+		err := yaml.Unmarshal(workflowBytes, &spec)
+		require.NoError(t, err)
 
-	workflowspecJson, err := json.MarshalIndent(spec, "", "  ")
-	require.NoError(t, err)
-	rawWorkflowSpecJson, err := json.MarshalIndent(rawSpec, "", "  ")
-	require.NoError(t, err)
+		// Test that our workflowSpec still keeps all of the original data
+		var rawSpec interface{}
+		err = yaml.Unmarshal(workflowBytes, &rawSpec)
+		require.NoError(t, err)
 
-	if diff := cmp.Diff(rawWorkflowSpecJson, workflowspecJson, transformJSON); diff != "" {
-		t.Errorf("ParseWorkflowWorkflowSpecFromString() mismatch (-want +got):\n%s", diff)
-		t.FailNow()
-	}
+		workflowspecJson, err := json.MarshalIndent(spec, "", "  ")
+		require.NoError(t, err)
+		rawWorkflowSpecJson, err := json.MarshalIndent(rawSpec, "", "  ")
+		require.NoError(t, err)
 
-	// Spot check some fields
-	consensusConfig := spec.Consensus[0].Config
-	v, ok := consensusConfig["aggregation_config"]
-	require.True(t, ok, "expected aggregation_config to be present in consensus config")
+		if diff := cmp.Diff(rawWorkflowSpecJson, workflowspecJson, transformJSON); diff != "" {
+			t.Errorf("ParseWorkflowWorkflowSpecFromString() mismatch (-want +got):\n%s", diff)
+			t.FailNow()
+		}
 
-	// the type of the keys present in v should be string rather than a number
-	// this is because JSON keys are always strings
-	_, ok = v.(map[string]any)
-	require.True(t, ok, "expected map[string]interface{} but got %T", v)
+		// Spot check some fields
+		consensusConfig := spec.Consensus[0].Config
+		v, ok := consensusConfig["aggregation_config"]
+		require.True(t, ok, "expected aggregation_config to be present in consensus config")
 
-	// Make sure we dont have any weird type coercion with possible boolean values
-	booleanCoercions, ok := spec.Triggers[0].Config["boolean_coercion"].(map[string]any)
-	require.True(t, ok, "expected boolean_coercion to be present in triggers config")
+		// the type of the keys present in v should be string rather than a number
+		// this is because JSON keys are always strings
+		_, ok = v.(map[string]any)
+		require.True(t, ok, "expected map[string]interface{} but got %T", v)
 
-	// check bools
-	bools, ok := booleanCoercions["bools"]
-	require.True(t, ok, "expected bools to be present in boolean_coercions")
-	for _, v := range bools.([]interface{}) {
-		_, ok = v.(bool)
-		require.True(t, ok, "expected bool but got %T", v)
-	}
+		// Make sure we dont have any weird type coercion with possible boolean values
+		booleanCoercions, ok := spec.Triggers[0].Config["boolean_coercion"].(map[string]any)
+		require.True(t, ok, "expected boolean_coercion to be present in triggers config")
 
-	// check strings
-	strings, ok := booleanCoercions["strings"]
-	require.True(t, ok, "expected strings to be present in boolean_coercions")
-	for _, v := range strings.([]interface{}) {
-		_, ok = v.(string)
-		require.True(t, ok, "expected string but got %T", v)
-	}
+		// check bools
+		bools, ok := booleanCoercions["bools"]
+		require.True(t, ok, "expected bools to be present in boolean_coercions")
+		for _, v := range bools.([]interface{}) {
+			_, ok = v.(bool)
+			require.True(t, ok, "expected bool but got %T", v)
+		}
 
-	// check numbers
-	numbers, ok := booleanCoercions["numbers"]
-	require.True(t, ok, "expected numbers to be present in boolean_coercions")
-	for _, v := range numbers.([]interface{}) {
-		_, ok = v.(float64)
-		require.True(t, ok, "expected float64 but got %T", v)
-	}
+		// check strings
+		strings, ok := booleanCoercions["strings"]
+		require.True(t, ok, "expected strings to be present in boolean_coercions")
+		for _, v := range strings.([]interface{}) {
+			_, ok = v.(string)
+			require.True(t, ok, "expected string but got %T", v)
+		}
+
+		// check numbers
+		numbers, ok := booleanCoercions["numbers"]
+		require.True(t, ok, "expected numbers to be present in boolean_coercions")
+		for _, v := range numbers.([]interface{}) {
+			_, ok = v.(float64)
+			require.True(t, ok, "expected float64 but got %T", v)
+		}
+	})
+
+	t.Run("Table and string capability type", func(t *testing.T) {
+		workflowBytes := fixtureReader("workflow_2")
+
+		spec := workflowSpecYaml{}
+		err := yaml.Unmarshal(workflowBytes, &spec)
+		require.NoError(t, err)
+
+		// Test that our workflowSpec still keeps all of the original data
+		var rawSpec interface{}
+		err = yaml.Unmarshal(workflowBytes, &rawSpec)
+		require.NoError(t, err)
+
+		workflowspecJson, err := json.MarshalIndent(spec, "", "  ")
+		require.NoError(t, err)
+		rawWorkflowSpecJson, err := json.MarshalIndent(rawSpec, "", "  ")
+		require.NoError(t, err)
+
+		if diff := cmp.Diff(rawWorkflowSpecJson, workflowspecJson, transformJSON); diff != "" {
+			t.Errorf("ParseWorkflowWorkflowSpecFromString() mismatch (-want +got):\n%s", diff)
+			t.FailNow()
+		}
+	})
+
+	t.Run("Yaml spec to spec", func(t *testing.T) {
+		expectedSpecPath := fixtureDir + "marshalling/" + "workflow_2_spec.json"
+		workflowBytes := fixtureReader("workflow_2")
+
+		workflowYaml := &workflowSpecYaml{}
+		err := yaml.Unmarshal(workflowBytes, workflowYaml)
+		require.NoError(t, err)
+
+		workflowSpec := workflowYaml.toWorkflowSpec()
+		workflowSpecBytes, err := json.MarshalIndent(workflowSpec, "", "  ")
+		require.NoError(t, err)
+
+		// change this to update golden file
+		shouldUpdateWorkflowSpec := false
+		if shouldUpdateWorkflowSpec {
+			err = os.WriteFile(expectedSpecPath, workflowSpecBytes, 0600)
+			require.NoError(t, err)
+		}
+
+		expectedSpecBytes, err := os.ReadFile(expectedSpecPath)
+		require.NoError(t, err)
+		diff := cmp.Diff(expectedSpecBytes, workflowSpecBytes, transformJSON)
+		if diff != "" {
+			t.Errorf("WorkflowYamlSpecToWorkflowSpec() mismatch (-want +got):\n%s", diff)
+			t.FailNow()
+		}
+	})
 }
 
 func TestJsonSchema(t *testing.T) {
