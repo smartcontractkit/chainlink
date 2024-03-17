@@ -631,6 +631,9 @@ func (o *orm) DeleteJob(id int32, qopts ...pg.QOpt) error {
 		deleted_gateway_specs AS (
 			DELETE FROM gateway_specs WHERE id IN (SELECT gateway_spec_id FROM deleted_jobs)
 		)
+		deleted_job_pipeline_specs AS (
+			DELETE FROM job_pipeline_specs WHERE job_id IN (SELECT pipeline_spec_id FROM deleted_jobs)
+		)
 		DELETE FROM pipeline_specs WHERE id IN (SELECT pipeline_spec_id FROM deleted_jobs)`
 	res, cancel, err := q.ExecQIter(query, id)
 	defer cancel()
