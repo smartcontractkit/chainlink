@@ -497,7 +497,8 @@ succeed2 -> final;
 `}
 	vars := pipeline.NewVarsFrom(nil)
 
-	_, finalResult, err := r.ExecuteAndInsertFinishedRun(testutils.Context(t), spec, vars, lggr, false)
+	_, taskResults, err := r.ExecuteAndInsertFinishedRun(testutils.Context(t), spec, vars, lggr, false)
+	finalResult := taskResults.FinalResult(lggr)
 	require.NoError(t, err)
 	assert.True(t, finalResult.HasErrors())
 	assert.False(t, finalResult.HasFatalErrors())

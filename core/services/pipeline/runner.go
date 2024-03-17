@@ -49,7 +49,7 @@ type Runner interface {
 	// ExecuteAndInsertFinishedRun executes a new run in-memory according to a spec, persists and saves the results.
 	// It is a combination of ExecuteRun and InsertFinishedRun.
 	// Note that the spec MUST have a DOT graph for this to work.
-	ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, vars Vars, l logger.Logger, saveSuccessfulTaskRuns bool) (runID int64, finalResult FinalResult, err error)
+	ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, vars Vars, l logger.Logger, saveSuccessfulTaskRuns bool) (runID int64, results TaskRunResults, err error)
 
 	OnRunFinished(func(*Run))
 	InitializePipeline(spec Spec) (*Pipeline, error)
@@ -520,24 +520,21 @@ func logTaskRunToPrometheus(trr TaskRunResult, spec Spec) {
 }
 
 // ExecuteAndInsertFinishedRun executes a run in memory then inserts the finished run/task run records, returning the final result
-// TODO: return all tasks results, instead of the final result
-func (r *runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, vars Vars, l logger.Logger, saveSuccessfulTaskRuns bool) (runID int64, finalResult FinalResult, err error) {
+func (r *runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, vars Vars, l logger.Logger, saveSuccessfulTaskRuns bool) (runID int64, results TaskRunResults, err error) {
 	run, trrs, err := r.ExecuteRun(ctx, spec, vars, l)
 	if err != nil {
-		return 0, finalResult, pkgerrors.Wrapf(err, "error executing run for spec ID %v", spec.ID)
+		return 0, trrs, pkgerrors.Wrapf(err, "error executing run for spec ID %v", spec.ID)
 	}
-
-	finalResult = trrs.FinalResult(l)
 
 	// don't insert if we exited early
 	if run.FailSilently {
-		return 0, finalResult, nil
+		return 0, trrs, nil
 	}
 
 	if err = r.orm.InsertFinishedRun(run, saveSuccessfulTaskRuns); err != nil {
-		return 0, finalResult, pkgerrors.Wrapf(err, "error inserting finished results for spec ID %v", spec.ID)
+		return 0, trrs, pkgerrors.Wrapf(err, "error inserting finished results for spec ID %v", spec.ID)
 	}
-	return run.ID, finalResult, nil
+	return run.ID, trrs, nil
 
 }
 
