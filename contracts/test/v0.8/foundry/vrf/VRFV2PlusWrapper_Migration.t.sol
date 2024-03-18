@@ -147,7 +147,7 @@ contract VRFV2PlusWrapper_MigrationTest is BaseTest {
     s_testCoordinator.fundSubscriptionWithNative{value: DEFAULT_NATIVE_FUNDING}(subID);
 
     // Get type and version.
-    assertEq(s_wrapper.typeAndVersion(), "VRFV2Wrapper 1.0.0");
+    assertEq(s_wrapper.typeAndVersion(), "VRFV2PlusWrapper 1.0.0");
 
     // subscription exists in V1 coordinator before migration
 
@@ -264,7 +264,7 @@ contract VRFV2PlusWrapper_MigrationTest is BaseTest {
     s_testCoordinator.fundSubscriptionWithNative{value: DEFAULT_NATIVE_FUNDING}(subID);
 
     // Get type and version.
-    assertEq(s_wrapper.typeAndVersion(), "VRFV2Wrapper 1.0.0");
+    assertEq(s_wrapper.typeAndVersion(), "VRFV2PlusWrapper 1.0.0");
 
     // subscription exists in V1 coordinator before migration
     (

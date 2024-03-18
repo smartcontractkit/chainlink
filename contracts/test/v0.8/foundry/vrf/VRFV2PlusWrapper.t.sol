@@ -168,7 +168,7 @@ contract VRFV2PlusWrapperTest is BaseTest {
     vm.deal(address(s_consumer), 10 ether);
 
     // Get type and version.
-    assertEq(s_wrapper.typeAndVersion(), "VRFV2Wrapper 1.0.0");
+    assertEq(s_wrapper.typeAndVersion(), "VRFV2PlusWrapper 1.0.0");
 
     // Cannot make request while disabled.
     vm.expectEmit(false, false, false, true, address(s_wrapper));
