@@ -18,6 +18,7 @@ ifeq ($(UNAME_S),Darwin)
 endif
 endif
 
+
 install_qa_tools:
 ifeq ($(OSFLAG),$(WINDOWS))
 	echo "If you are running windows and know how to install what is needed, please contribute by adding it here!"

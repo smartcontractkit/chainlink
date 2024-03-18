@@ -15,6 +15,7 @@ install-git-hooks: ## Install git hooks.
 .PHONY: install-chainlink-autoinstall
 install-chainlink-autoinstall: | pnpmdep gomod install-chainlink ## Autoinstall chainlink.
 
+
 .PHONY: pnpmdep
 pnpmdep: ## Install solidity contract dependencies through pnpm
 	(cd contracts && pnpm i)
