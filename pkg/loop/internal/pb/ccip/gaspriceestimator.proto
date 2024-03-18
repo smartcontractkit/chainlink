@@ -13,7 +13,8 @@ service GasPriceEstimatorExec {
   rpc GetGasPrice(google.protobuf.Empty) returns (GetGasPriceResponse);
   rpc DenoteInUSD(DenoteInUSDRequest) returns (DenoteInUSDResponse);
   rpc EstimateMsgCostUSD(EstimateMsgCostUSDRequest) returns (EstimateMsgCostUSDResponse);
-  // TODO BFC-2991: reconcile gas price estimator to remove unnecessary interface funcs
+  // TODO CCIP-1882: reconcile gas price estimator to remove unnecessary interface funcs
+  rpc Median(MedianRequest) returns (MedianResponse);
 }
 
 // GasPriceEstimatorCommit is a gRPC service adapter for the interface
@@ -21,7 +22,9 @@ service GasPriceEstimatorExec {
 service GasPriceEstimatorCommit {
     rpc GetGasPrice(google.protobuf.Empty) returns (GetGasPriceResponse);
     rpc DenoteInUSD(DenoteInUSDRequest) returns (DenoteInUSDResponse);
-    // TODO BFC-2991: reconcile gas price estimator to remove unnecessary interface funcs
+    // TODO CCIP-1882: reconcile gas price estimator to remove unnecessary interface funcs
+    rpc Median(MedianRequest) returns (MedianResponse);
+    rpc Deviates(DeviatesRequest) returns (DeviatesResponse);
 }
 
 // GetGasPriceResponse returns the current gas price. It is a gRPC adpater for the return values of
@@ -58,3 +61,27 @@ message EstimateMsgCostUSDResponse {
 }
 
 
+// MedianRequest is a gRPC adapter for the input values of 
+// [github.com/smartcontractkit/chainlink-common/pkg/types/ccip.CommonGasPriceEstimator.Median]
+message MedianRequest {
+   repeated BigInt gas_prices = 1;
+}
+
+// MedianResponse returns the median gas price. It is a gRPC adapter for the return values of
+// [github.com/smartcontractkit/chainlink-common/pkg/types/ccip.CommonGasPriceEstimator.Median]
+message MedianResponse {
+    BigInt gas_price = 1;
+}
+
+// DeviatesRequest is a gRPC adapter for the input values of
+// [github.com/smartcontractkit/chainlink-common/pkg/types/ccip.GasPriceEstimatorCommit.Deviates]
+message DeviatesRequest {
+    BigInt p1 = 1;
+    BigInt p2 = 2;
+}
+
+// DeviatesResponse returns the deviation between two gas prices. It is a gRPC adapter for the return values of
+// [github.com/smartcontractkit/chainlink-common/pkg/types/ccip.GasPriceEstimatorCommit.Deviates]
+message DeviatesResponse {
+    bool deviates = 1;
+}

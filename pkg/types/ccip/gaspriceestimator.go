@@ -14,7 +14,7 @@ type GasPriceEstimator interface {
 type GasPriceEstimatorCommit interface {
 	CommonGasPriceEstimator
 
-	// TODO BFC-2991: reconcile gas price estimator to remove unnecessary interface funcs
+	// TODO CCIP-1882: reconcile gas price estimator to remove unnecessary interface funcs
 	// this can be a helper function implementation detail. not needed in the interface
 	// Deviates checks if p1 gas price diffs from p2 by deviation options. Input prices should not be nil.
 	Deviates(p1 *big.Int, p2 *big.Int) (bool, error)
@@ -29,13 +29,13 @@ type GasPriceEstimatorExec interface {
 }
 
 // CommonGasPriceEstimator is abstraction over multi-component gas prices.
-// TODO BFC-2991: reconcile gas price estimator to remove unnecessary interface funcs
+// TODO CCIP-1882: reconcile gas price estimator to remove unnecessary interface funcs
 type CommonGasPriceEstimator interface {
 	// GetGasPrice fetches the current gas price.
 	GetGasPrice(ctx context.Context) (*big.Int, error)
 	// DenoteInUSD converts the gas price to be in units of USD. Input prices should not be nil.
 	DenoteInUSD(p *big.Int, wrappedNativePrice *big.Int) (*big.Int, error)
-	// TODO BFC-2991: reconcile gas price estimator to remove unnecessary interface funcs
+	// TODO CCIP-1882: reconcile gas price estimator to remove unnecessary interface funcs
 	// this can be a helper function implementation detail. not needed in the interface
 	// Median finds the median gas price in slice. If gas price has multiple components, median of each individual component should be taken. Input prices should not contain nil.
 	Median(gasPrices []*big.Int) (*big.Int, error)

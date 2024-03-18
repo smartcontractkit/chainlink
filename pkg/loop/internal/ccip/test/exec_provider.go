@@ -102,7 +102,7 @@ func (s staticExecProvider) Evaluate(ctx context.Context, other types.CCIPExecPr
 	}
 
 	// OffRampReader test case
-	// BCF-2991: offramp blocked on gas estimator
+	// BCF-3073 fix off ramp gas estimator fetching
 	/*
 		otherOffRamp, err := other.NewOffRampReader(ctx, "ignored")
 		if err != nil {

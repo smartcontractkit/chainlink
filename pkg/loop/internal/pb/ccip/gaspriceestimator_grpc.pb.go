@@ -23,6 +23,7 @@ const (
 	GasPriceEstimatorExec_GetGasPrice_FullMethodName        = "/loop.internal.pb.ccip.GasPriceEstimatorExec/GetGasPrice"
 	GasPriceEstimatorExec_DenoteInUSD_FullMethodName        = "/loop.internal.pb.ccip.GasPriceEstimatorExec/DenoteInUSD"
 	GasPriceEstimatorExec_EstimateMsgCostUSD_FullMethodName = "/loop.internal.pb.ccip.GasPriceEstimatorExec/EstimateMsgCostUSD"
+	GasPriceEstimatorExec_Median_FullMethodName             = "/loop.internal.pb.ccip.GasPriceEstimatorExec/Median"
 )
 
 // GasPriceEstimatorExecClient is the client API for GasPriceEstimatorExec service.
@@ -32,6 +33,8 @@ type GasPriceEstimatorExecClient interface {
 	GetGasPrice(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GetGasPriceResponse, error)
 	DenoteInUSD(ctx context.Context, in *DenoteInUSDRequest, opts ...grpc.CallOption) (*DenoteInUSDResponse, error)
 	EstimateMsgCostUSD(ctx context.Context, in *EstimateMsgCostUSDRequest, opts ...grpc.CallOption) (*EstimateMsgCostUSDResponse, error)
+	// TODO CCIP-1882: reconcile gas price estimator to remove unnecessary interface funcs
+	Median(ctx context.Context, in *MedianRequest, opts ...grpc.CallOption) (*MedianResponse, error)
 }
 
 type gasPriceEstimatorExecClient struct {
@@ -69,6 +72,15 @@ func (c *gasPriceEstimatorExecClient) EstimateMsgCostUSD(ctx context.Context, in
 	return out, nil
 }
 
+func (c *gasPriceEstimatorExecClient) Median(ctx context.Context, in *MedianRequest, opts ...grpc.CallOption) (*MedianResponse, error) {
+	out := new(MedianResponse)
+	err := c.cc.Invoke(ctx, GasPriceEstimatorExec_Median_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // GasPriceEstimatorExecServer is the server API for GasPriceEstimatorExec service.
 // All implementations must embed UnimplementedGasPriceEstimatorExecServer
 // for forward compatibility
@@ -76,6 +88,8 @@ type GasPriceEstimatorExecServer interface {
 	GetGasPrice(context.Context, *emptypb.Empty) (*GetGasPriceResponse, error)
 	DenoteInUSD(context.Context, *DenoteInUSDRequest) (*DenoteInUSDResponse, error)
 	EstimateMsgCostUSD(context.Context, *EstimateMsgCostUSDRequest) (*EstimateMsgCostUSDResponse, error)
+	// TODO CCIP-1882: reconcile gas price estimator to remove unnecessary interface funcs
+	Median(context.Context, *MedianRequest) (*MedianResponse, error)
 	mustEmbedUnimplementedGasPriceEstimatorExecServer()
 }
 
@@ -91,6 +105,9 @@ func (UnimplementedGasPriceEstimatorExecServer) DenoteInUSD(context.Context, *De
 }
 func (UnimplementedGasPriceEstimatorExecServer) EstimateMsgCostUSD(context.Context, *EstimateMsgCostUSDRequest) (*EstimateMsgCostUSDResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method EstimateMsgCostUSD not implemented")
+}
+func (UnimplementedGasPriceEstimatorExecServer) Median(context.Context, *MedianRequest) (*MedianResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Median not implemented")
 }
 func (UnimplementedGasPriceEstimatorExecServer) mustEmbedUnimplementedGasPriceEstimatorExecServer() {}
 
@@ -159,6 +176,24 @@ func _GasPriceEstimatorExec_EstimateMsgCostUSD_Handler(srv interface{}, ctx cont
 	return interceptor(ctx, in, info, handler)
 }
 
+func _GasPriceEstimatorExec_Median_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MedianRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GasPriceEstimatorExecServer).Median(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: GasPriceEstimatorExec_Median_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GasPriceEstimatorExecServer).Median(ctx, req.(*MedianRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // GasPriceEstimatorExec_ServiceDesc is the grpc.ServiceDesc for GasPriceEstimatorExec service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -178,6 +213,10 @@ var GasPriceEstimatorExec_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "EstimateMsgCostUSD",
 			Handler:    _GasPriceEstimatorExec_EstimateMsgCostUSD_Handler,
 		},
+		{
+			MethodName: "Median",
+			Handler:    _GasPriceEstimatorExec_Median_Handler,
+		},
 	},
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "gaspriceestimator.proto",
@@ -186,6 +225,8 @@ var GasPriceEstimatorExec_ServiceDesc = grpc.ServiceDesc{
 const (
 	GasPriceEstimatorCommit_GetGasPrice_FullMethodName = "/loop.internal.pb.ccip.GasPriceEstimatorCommit/GetGasPrice"
 	GasPriceEstimatorCommit_DenoteInUSD_FullMethodName = "/loop.internal.pb.ccip.GasPriceEstimatorCommit/DenoteInUSD"
+	GasPriceEstimatorCommit_Median_FullMethodName      = "/loop.internal.pb.ccip.GasPriceEstimatorCommit/Median"
+	GasPriceEstimatorCommit_Deviates_FullMethodName    = "/loop.internal.pb.ccip.GasPriceEstimatorCommit/Deviates"
 )
 
 // GasPriceEstimatorCommitClient is the client API for GasPriceEstimatorCommit service.
@@ -194,6 +235,9 @@ const (
 type GasPriceEstimatorCommitClient interface {
 	GetGasPrice(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GetGasPriceResponse, error)
 	DenoteInUSD(ctx context.Context, in *DenoteInUSDRequest, opts ...grpc.CallOption) (*DenoteInUSDResponse, error)
+	// TODO CCIP-1882: reconcile gas price estimator to remove unnecessary interface funcs
+	Median(ctx context.Context, in *MedianRequest, opts ...grpc.CallOption) (*MedianResponse, error)
+	Deviates(ctx context.Context, in *DeviatesRequest, opts ...grpc.CallOption) (*DeviatesResponse, error)
 }
 
 type gasPriceEstimatorCommitClient struct {
@@ -222,12 +266,33 @@ func (c *gasPriceEstimatorCommitClient) DenoteInUSD(ctx context.Context, in *Den
 	return out, nil
 }
 
+func (c *gasPriceEstimatorCommitClient) Median(ctx context.Context, in *MedianRequest, opts ...grpc.CallOption) (*MedianResponse, error) {
+	out := new(MedianResponse)
+	err := c.cc.Invoke(ctx, GasPriceEstimatorCommit_Median_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *gasPriceEstimatorCommitClient) Deviates(ctx context.Context, in *DeviatesRequest, opts ...grpc.CallOption) (*DeviatesResponse, error) {
+	out := new(DeviatesResponse)
+	err := c.cc.Invoke(ctx, GasPriceEstimatorCommit_Deviates_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // GasPriceEstimatorCommitServer is the server API for GasPriceEstimatorCommit service.
 // All implementations must embed UnimplementedGasPriceEstimatorCommitServer
 // for forward compatibility
 type GasPriceEstimatorCommitServer interface {
 	GetGasPrice(context.Context, *emptypb.Empty) (*GetGasPriceResponse, error)
 	DenoteInUSD(context.Context, *DenoteInUSDRequest) (*DenoteInUSDResponse, error)
+	// TODO CCIP-1882: reconcile gas price estimator to remove unnecessary interface funcs
+	Median(context.Context, *MedianRequest) (*MedianResponse, error)
+	Deviates(context.Context, *DeviatesRequest) (*DeviatesResponse, error)
 	mustEmbedUnimplementedGasPriceEstimatorCommitServer()
 }
 
@@ -240,6 +305,12 @@ func (UnimplementedGasPriceEstimatorCommitServer) GetGasPrice(context.Context, *
 }
 func (UnimplementedGasPriceEstimatorCommitServer) DenoteInUSD(context.Context, *DenoteInUSDRequest) (*DenoteInUSDResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DenoteInUSD not implemented")
+}
+func (UnimplementedGasPriceEstimatorCommitServer) Median(context.Context, *MedianRequest) (*MedianResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Median not implemented")
+}
+func (UnimplementedGasPriceEstimatorCommitServer) Deviates(context.Context, *DeviatesRequest) (*DeviatesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Deviates not implemented")
 }
 func (UnimplementedGasPriceEstimatorCommitServer) mustEmbedUnimplementedGasPriceEstimatorCommitServer() {
 }
@@ -291,6 +362,42 @@ func _GasPriceEstimatorCommit_DenoteInUSD_Handler(srv interface{}, ctx context.C
 	return interceptor(ctx, in, info, handler)
 }
 
+func _GasPriceEstimatorCommit_Median_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MedianRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GasPriceEstimatorCommitServer).Median(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: GasPriceEstimatorCommit_Median_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GasPriceEstimatorCommitServer).Median(ctx, req.(*MedianRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _GasPriceEstimatorCommit_Deviates_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeviatesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GasPriceEstimatorCommitServer).Deviates(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: GasPriceEstimatorCommit_Deviates_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GasPriceEstimatorCommitServer).Deviates(ctx, req.(*DeviatesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // GasPriceEstimatorCommit_ServiceDesc is the grpc.ServiceDesc for GasPriceEstimatorCommit service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -305,6 +412,14 @@ var GasPriceEstimatorCommit_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DenoteInUSD",
 			Handler:    _GasPriceEstimatorCommit_DenoteInUSD_Handler,
+		},
+		{
+			MethodName: "Median",
+			Handler:    _GasPriceEstimatorCommit_Median_Handler,
+		},
+		{
+			MethodName: "Deviates",
+			Handler:    _GasPriceEstimatorCommit_Deviates_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -91,7 +91,7 @@ func (o *OffRampReaderClient) EncodeExecutionReport(ctx context.Context, report 
 
 // GasPriceEstimator [github.com/smartcontractkit/chainlink-common/pkg/types/ccip.OffRampReader]
 func (o *OffRampReaderClient) GasPriceEstimator(ctx context.Context) (cciptypes.GasPriceEstimatorExec, error) {
-	panic("BCF-2991 implement gas price estimator grpc service")
+	panic("BCF-3073 fix off ramp gas estimator fetching")
 }
 
 // GetExecutionState i[github.com/smartcontractkit/chainlink-common/pkg/types/ccip.OffRampReader]
@@ -245,7 +245,7 @@ func (o *OffRampReaderServer) EncodeExecutionReport(ctx context.Context, req *cc
 
 // GasPriceEstimator implements ccippb.OffRampReaderServer.
 func (o *OffRampReaderServer) GasPriceEstimator(ctx context.Context, req *emptypb.Empty) (*ccippb.GasPriceEstimatorResponse, error) {
-	panic("BCF-2991 implement gas price estimator grpc service")
+	panic("BCF-3073 fix off ramp gas estimator fetching")
 }
 
 // GetExecutionState implements ccippb.OffRampReaderServer.
