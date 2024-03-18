@@ -4,6 +4,7 @@ import (
 	"github.com/K-Phoen/grabana/dashboard"
 	lib "github.com/smartcontractkit/chainlink/dashboard-lib/lib"
 	core_don "github.com/smartcontractkit/chainlink/dashboard-lib/lib/core-don"
+	core_ocrv2_ccip "github.com/smartcontractkit/chainlink/dashboard-lib/lib/core-ocrv2"
 	k8spods "github.com/smartcontractkit/chainlink/dashboard-lib/lib/k8s-pods"
 	waspdb "github.com/smartcontractkit/wasp/dashboard"
 )
@@ -19,6 +20,22 @@ func main() {
 			dashboard.AutoRefresh("10s"),
 			dashboard.Tags([]string{"experimental", "generated"}),
 		},
+	)
+	db.Add(
+		core_ocrv2_ccip.New(
+			core_ocrv2_ccip.Props{
+				PrometheusDataSource: cfg.DataSources.Prometheus,
+				PluginName:           "CCIPCommit",
+			},
+		),
+	)
+	db.Add(
+		core_ocrv2_ccip.New(
+			core_ocrv2_ccip.Props{
+				PrometheusDataSource: cfg.DataSources.Prometheus,
+				PluginName:           "CCIPExecution",
+			},
+		),
 	)
 	db.Add(
 		core_don.New(
