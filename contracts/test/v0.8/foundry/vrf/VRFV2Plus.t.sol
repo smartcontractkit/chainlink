@@ -12,6 +12,7 @@ import {VRFV2PlusConsumerExample} from "../../../../src/v0.8/vrf/dev/testhelpers
 import {VRFV2PlusClient} from "../../../../src/v0.8/vrf/dev/libraries/VRFV2PlusClient.sol";
 import {console} from "forge-std/console.sol";
 import {VmSafe} from "forge-std/Vm.sol";
+import {VRFV2PlusLoadTestWithMetrics} from "../../../../src/v0.8/vrf/dev/testhelpers/VRFV2PlusLoadTestWithMetrics.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol"; // for Math.ceilDiv
 
 /*
@@ -25,6 +26,9 @@ import "@openzeppelin/contracts/utils/math/Math.sol"; // for Math.ceilDiv
 contract VRFV2Plus is BaseTest {
   address internal constant LINK_WHALE = 0xD883a6A1C22fC4AbFE938a5aDF9B2Cc31b1BF18B;
   uint64 internal constant GAS_LANE_MAX_GAS = 5000 gwei;
+  uint16 internal constant MIN_CONFIRMATIONS = 0;
+  uint32 internal constant CALLBACK_GAS_LIMIT = 1_000_000;
+  uint32 internal constant NUM_WORDS = 1;
 
   // Bytecode for a VRFV2PlusConsumerExample contract.
   // to calculate: console.logBytes(type(VRFV2PlusConsumerExample).creationCode);
@@ -226,6 +230,7 @@ contract VRFV2Plus is BaseTest {
     assertTrue(exists);
     assertEq(GAS_LANE_MAX_GAS, maxGas);
     assertEq(s_testCoordinator.s_provingKeyHashes(0), keyHash);
+    assertEq(keyHash, vrfKeyHash);
   }
 
   function testDeregisterProvingKey() public {
@@ -363,6 +368,7 @@ contract VRFV2Plus is BaseTest {
     bytes extraArgs,
     bool success
   );
+  event FallbackWeiPerUnitLinkUsed(uint256 requestId, int256 fallbackWeiPerUnitLink);
 
   function testRequestAndFulfillRandomWordsNative() public {
     (
@@ -403,6 +409,7 @@ contract VRFV2Plus is BaseTest {
     // 1e15 is less than 1 percent discrepancy
     assertApproxEqAbs(payment, 5.138 * 1e17, 1e15);
     assertApproxEqAbs(nativeBalanceAfter, nativeBalanceBefore - 5.138 * 1e17, 1e15);
+    assertFalse(s_testCoordinator.pendingRequestExists(subId));
   }
 
   function testRequestAndFulfillRandomWordsLINK() public {
@@ -428,25 +435,47 @@ contract VRFV2Plus is BaseTest {
     (bool fulfilled, , ) = s_testConsumer.s_requests(requestId);
     assertEq(fulfilled, true);
 
-    // The cost of fulfillRandomWords is approximately 97_000 gas.
+    // The cost of fulfillRandomWords is approximately 86_000 gas.
     // gasAfterPaymentCalculation is 50_000.
     //
     // The cost of the VRF fulfillment charged to the user is:
     // paymentNoFee = (weiPerUnitGas * (gasAfterPaymentCalculation + startGas - gasleft() + l1CostWei) / link_native_ratio)
-    // paymentNoFee = (1e11 * (50_000 + 97_000 + 0)) / .5
-    // paymentNoFee = 2.94e16
+    // paymentNoFee = (1e11 * (50_000 + 86_000 + 0)) / .5
+    // paymentNoFee = 2.72e16
     // flatFeeWei = 1e12 * (fulfillmentFlatFeeNativePPM - fulfillmentFlatFeeLinkDiscountPPM)
     // flatFeeWei = 1e12 * (500_000 - 100_000)
     // flatFeeJuels = 1e18 * flatFeeWei / link_native_ratio
     // flatFeeJuels = 4e17 / 0.5 = 8e17
     // billed_fee = paymentNoFee * ((100 + 10) / 100) + 8e17
-    // billed_fee = 2.94e16 * 1.1 + 8e17
-    // billed_fee = 3.234e16 + 8e17 = 8.3234e17
+    // billed_fee = 2.72e16 * 1.1 + 8e17
+    // billed_fee = 2.992e16 + 8e17 = 8.2992e17
     // note: delta is doubled from the native test to account for more variance due to the link/native ratio
     (uint96 linkBalanceAfter, , , , ) = s_testCoordinator.getSubscription(subId);
     // 1e15 is less than 1 percent discrepancy
-    assertApproxEqAbs(payment, 8.3234 * 1e17, 1e15);
-    assertApproxEqAbs(linkBalanceAfter, linkBalanceBefore - 8.3234 * 1e17, 1e15);
+    assertApproxEqAbs(payment, 8.2992 * 1e17, 1e15);
+    assertApproxEqAbs(linkBalanceAfter, linkBalanceBefore - 8.2992 * 1e17, 1e15);
+    assertFalse(s_testCoordinator.pendingRequestExists(subId));
+  }
+
+  function testRequestAndFulfillRandomWordsLINK_FallbackWeiPerUnitLinkUsed() public {
+    (
+      VRF.Proof memory proof,
+      VRFCoordinatorV2_5.RequestCommitment memory rc,
+      ,
+      uint256 requestId
+    ) = setupSubAndRequestRandomnessLINKPayment();
+
+    (, , , uint32 stalenessSeconds, , , , , ) = s_testCoordinator.s_config();
+    int256 fallbackWeiPerUnitLink = s_testCoordinator.s_fallbackWeiPerUnitLink();
+
+    // Set the link feed to be stale.
+    (uint80 roundId, int256 answer, uint256 startedAt, , ) = s_linkNativeFeed.latestRoundData();
+    uint256 timestamp = block.timestamp - stalenessSeconds - 1;
+    s_linkNativeFeed.updateRoundData(roundId, answer, timestamp, startedAt);
+
+    vm.expectEmit(false, false, false, true, address(s_testCoordinator));
+    emit FallbackWeiPerUnitLinkUsed(requestId, fallbackWeiPerUnitLink);
+    s_testCoordinator.fulfillRandomWords(proof, rc, false);
   }
 
   function setupSubAndRequestRandomnessLINKPayment()
@@ -466,21 +495,22 @@ contract VRFV2Plus is BaseTest {
     // Request random words.
     vm.expectEmit(true, true, false, true);
     uint256 preSeed;
-    (requestId, preSeed) = s_testCoordinator.computeRequestIdExternal(vrfKeyHash, address(s_testConsumer), subId, 2);
+    (requestId, preSeed) = s_testCoordinator.computeRequestIdExternal(vrfKeyHash, address(s_testConsumer), subId, 1);
     emit RandomWordsRequested(
       vrfKeyHash,
       requestId,
       preSeed,
       subId,
-      0, // minConfirmations
-      1_000_000, // callbackGasLimit
-      1, // numWords
+      MIN_CONFIRMATIONS,
+      CALLBACK_GAS_LIMIT,
+      NUM_WORDS,
       VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: false})), // nativePayment, // nativePayment
       address(s_testConsumer) // requester
     );
-    s_testConsumer.requestRandomWords(1_000_000, 0, 1, vrfKeyHash, false);
+    s_testConsumer.requestRandomWords(CALLBACK_GAS_LIMIT, MIN_CONFIRMATIONS, NUM_WORDS, vrfKeyHash, false);
     (bool fulfilled, , ) = s_testConsumer.s_requests(requestId);
     assertEq(fulfilled, false);
+    assertTrue(s_testCoordinator.pendingRequestExists(subId));
 
     // Uncomment these console logs to see info about the request:
     // console.log("requestId: ", requestId);
@@ -498,7 +528,7 @@ contract VRFV2Plus is BaseTest {
     /*
         go run . generate-proof-v2-plus \
         -key-hash 0x9f2353bde94264dbc3d554a94cceba2d7d2b4fdce4304d3e09a1fea9fbeb1528 \
-        -pre-seed 108233140904510496268355288815996296196427471042093167619305836589216327096601 \
+        -pre-seed 58424872742560034068603954318478134981993109073728628043159461959392650534066 \
         -block-hash 0x0000000000000000000000000000000000000000000000000000000000000014 \
         -block-num 20 \
         -sender 0x90A8820424CC8a819d14cBdE54D12fD3fbFa9bb2
@@ -509,22 +539,22 @@ contract VRFV2Plus is BaseTest {
         62070622898698443831883535403436258712770888294397026493185421712108624767191
       ],
       gamma: [
-        49785247270467418393187938018746488660500261614113251546613288843777654841004,
-        8320717868018488740308781441198484312662094766876176838868269181386589318272
+        38041205470219573731614166317842050442610096576830191475863676359766283013831,
+        31897503406364148988967447112698248795931483458172800286988696482435433838056
       ],
-      c: 41596204381278553342984662603150353549780558761307588910860350083645227536604,
-      s: 81592778991188138734863787790226463602813498664606420860910885269124681994753,
-      seed: 108233140904510496268355288815996296196427471042093167619305836589216327096601,
-      uWitness: 0x56920892EE71E624d369dCc8dc63B6878C85Ca70,
+      c: 114706080610174375269579192101772790158458728655229562781479812703475130740224,
+      s: 91869928024010088265014058436030407245056128545665425448353233998362687232253,
+      seed: 58424872742560034068603954318478134981993109073728628043159461959392650534066,
+      uWitness: 0x1514536B09a51E671d070312bcD3653386d5a82b,
       cGammaWitness: [
-        28250667431035633903490940933503696927659499415200427260709034207157951953043,
-        105660182690338773283351292037478192732977803900032569393220726139772041021018
+        90605489216274499662544489893800286859751132311034850249229378789467669572783,
+        76568417372883461229305641415175605031997103681542349721251313705711146936024
       ],
       sHashWitness: [
-        18420263847278540234821121001488166570853056146131705862117248292063859054211,
-        15740432967529684573970722302302642068194042971767150190061244675457227502736
+        43417948503950579681520475434461454031791886587406480417092620950034789197994,
+        100772571879140362396088596211082924128900752544164141322636815729889228000249
       ],
-      zInv: 100579074451139970455673776933943662313989441807178260211316504761358492254052
+      zInv: 82374292458278672300647114418593830323283909625362447038989596015264004164958
     });
     rc = VRFCoordinatorV2_5.RequestCommitment({
       blockNum: requestBlock,
@@ -554,21 +584,22 @@ contract VRFV2Plus is BaseTest {
     // Request random words.
     vm.expectEmit(true, true, true, true);
     uint256 preSeed;
-    (requestId, preSeed) = s_testCoordinator.computeRequestIdExternal(vrfKeyHash, address(s_testConsumer), subId, 2);
+    (requestId, preSeed) = s_testCoordinator.computeRequestIdExternal(vrfKeyHash, address(s_testConsumer), subId, 1);
     emit RandomWordsRequested(
       vrfKeyHash,
       requestId,
       preSeed,
       subId,
-      0, // minConfirmations
-      1_000_000, // callbackGasLimit
-      1, // numWords
+      MIN_CONFIRMATIONS,
+      CALLBACK_GAS_LIMIT,
+      NUM_WORDS,
       VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: true})), // nativePayment
       address(s_testConsumer) // requester
     );
-    s_testConsumer.requestRandomWords(1_000_000, 0, 1, vrfKeyHash, true);
+    s_testConsumer.requestRandomWords(CALLBACK_GAS_LIMIT, MIN_CONFIRMATIONS, NUM_WORDS, vrfKeyHash, true);
     (bool fulfilled, , ) = s_testConsumer.s_requests(requestId);
     assertEq(fulfilled, false);
+    assertTrue(s_testCoordinator.pendingRequestExists(subId));
 
     // Uncomment these console logs to see info about the request:
     // console.log("requestId: ", requestId);
@@ -586,7 +617,7 @@ contract VRFV2Plus is BaseTest {
     /*
        go run . generate-proof-v2-plus \
         -key-hash 0x9f2353bde94264dbc3d554a94cceba2d7d2b4fdce4304d3e09a1fea9fbeb1528 \
-        -pre-seed 93724884573574303181157854277074121673523280784530506403108144933983063023487 \
+        -pre-seed 83266692323404068105564931899467966321583332182309426611016082057597749986430 \
         -block-hash 0x000000000000000000000000000000000000000000000000000000000000000a \
         -block-num 10 \
         -sender 0x90A8820424CC8a819d14cBdE54D12fD3fbFa9bb2 \
@@ -598,27 +629,27 @@ contract VRFV2Plus is BaseTest {
         62070622898698443831883535403436258712770888294397026493185421712108624767191
       ],
       gamma: [
-        51111463251706978184511913295560024261167135799300172382907308330135472647507,
-        41885656274025752055847945432737871864088659248922821023734315208027501951872
+        47144451677122876068574640250190132179872561942855874114516471019540736524783,
+        63001220656590641645486673489302242739512599229187442248048295264418080499391
       ],
-      c: 96917856581077810363012153828220232197567408835708926581335248000925197916153,
-      s: 103298896676233752268329042222773891728807677368628421408380318882272184455566,
-      seed: 93724884573574303181157854277074121673523280784530506403108144933983063023487,
-      uWitness: 0xFCaA10875C6692f6CcC86c64300eb0b52f2D4323,
+      c: 42928477813589729783511577059394077774341588261592343937605454161333818133643,
+      s: 14447529458406454898597883219032514356523135029224613793880920230249515634875,
+      seed: 83266692323404068105564931899467966321583332182309426611016082057597749986430,
+      uWitness: 0x5Ed3bb2AA8EAFe168a23079644d5dfBf892B1038,
       cGammaWitness: [
-        61463607927970680172418313129927007099021056249775757132623753443657677198526,
-        48686021866486086188742596461341782400160109177829661164208082534005682984658
+        40742088032247467257043132769297935807697466810312051815364187117543257089153,
+        110399474382135664619186049639190334359061769014381608543009407662815758204131
       ],
       sHashWitness: [
-        91508089836242281395929619352465003226819385335975246221498243754781593857533,
-        63571625936444669399167157725633389238098818902162172059681813608664564703308
+        26556776392895292893984393164594214244553035014769995354896600239759043777485,
+        67126706735912782218279556535631175449291035782208850310724682668198932501077
       ],
-      zInv: 97568175302326019383632009699686265453584842953005404815285123863099260038246
+      zInv: 88742453392918610091640193378775723954629905126315835248392650970979000380325
     });
     rc = VRFCoordinatorV2_5.RequestCommitment({
       blockNum: requestBlock,
       subId: subId,
-      callbackGasLimit: 1_000_000,
+      callbackGasLimit: CALLBACK_GAS_LIMIT,
       numWords: 1,
       sender: address(s_testConsumer),
       extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: true}))
@@ -688,6 +719,7 @@ contract VRFV2Plus is BaseTest {
     // 1e15 is less than 1 percent discrepancy
     assertApproxEqAbs(payment, 5.9 * 1e17, 1e15);
     assertApproxEqAbs(nativeBalanceAfter, nativeBalanceBefore - 5.9 * 1e17, 1e15);
+    assertFalse(s_testCoordinator.pendingRequestExists(subId));
   }
 
   function testRequestAndFulfillRandomWords_OnlyPremium_LinkPayment() public {
@@ -717,25 +749,350 @@ contract VRFV2Plus is BaseTest {
     (bool fulfilled, , ) = s_testConsumer.s_requests(requestId);
     assertEq(fulfilled, true);
 
-    // The cost of fulfillRandomWords is approximately 97_000 gas.
+    // The cost of fulfillRandomWords is approximately 86_000 gas.
     // gasAfterPaymentCalculation is 50_000.
     //
     // The cost of the VRF fulfillment charged to the user is:
     // paymentNoFee = (weiPerUnitGas * (gasAfterPaymentCalculation + startGas - gasleft() + l1CostWei) / link_native_ratio)
     // network gas price is capped at gas lane max gas (5000 gwei)
-    // paymentNoFee = (5e12 * (50_000 + 97_000 + 0)) / .5
-    // paymentNoFee = 1.47e+18
+    // paymentNoFee = (5e12 * (50_000 + 86_000 + 0)) / .5
+    // paymentNoFee = 1.36e+18
     // flatFeeWei = 1e12 * (fulfillmentFlatFeeNativePPM - fulfillmentFlatFeeLinkDiscountPPM)
     // flatFeeWei = 1e12 * (500_000 - 100_000)
     // flatFeeJuels = 1e18 * flatFeeWei / link_native_ratio
     // flatFeeJuels = 4e17 / 0.5 = 8e17
     // billed_fee = paymentNoFee * (10 / 100) + 8e17
-    // billed_fee = 1.47e+18 * 0.1 + 8e17
-    // billed_fee = 9.47e+17
+    // billed_fee = 1.36e+18 * 0.1 + 8e17
+    // billed_fee = 9.36e+17
     // note: delta is doubled from the native test to account for more variance due to the link/native ratio
     (uint96 linkBalanceAfter, , , , ) = s_testCoordinator.getSubscription(subId);
     // 1e15 is less than 1 percent discrepancy
-    assertApproxEqAbs(payment, 9.47 * 1e17, 1e15);
-    assertApproxEqAbs(linkBalanceAfter, linkBalanceBefore - 9.47 * 1e17, 1e15);
+    assertApproxEqAbs(payment, 9.36 * 1e17, 1e15);
+    assertApproxEqAbs(linkBalanceAfter, linkBalanceBefore - 9.36 * 1e17, 1e15);
+    assertFalse(s_testCoordinator.pendingRequestExists(subId));
+  }
+
+  function testRequestRandomWords_InvalidConsumer() public {
+    address subOwner = makeAddr("subOwner");
+    changePrank(subOwner);
+    uint256 subId = s_testCoordinator.createSubscription();
+    VRFV2PlusLoadTestWithMetrics consumer = new VRFV2PlusLoadTestWithMetrics(address(s_testCoordinator));
+
+    // consumer is not added to the subscription
+    vm.expectRevert(abi.encodeWithSelector(SubscriptionAPI.InvalidConsumer.selector, subId, address(consumer)));
+    consumer.requestRandomWords(
+      subId,
+      MIN_CONFIRMATIONS,
+      vrfKeyHash,
+      CALLBACK_GAS_LIMIT,
+      true,
+      NUM_WORDS,
+      1 /* requestCount */
+    );
+    assertFalse(s_testCoordinator.pendingRequestExists(subId));
+  }
+
+  function testRequestRandomWords_ReAddConsumer_AssertRequestID() public {
+    // 1. setup consumer and subscription
+    setConfig();
+    registerProvingKey();
+    address subOwner = makeAddr("subOwner");
+    changePrank(subOwner);
+    uint256 subId = s_testCoordinator.createSubscription();
+    VRFV2PlusLoadTestWithMetrics consumer = createAndAddLoadTestWithMetricsConsumer(subId);
+    uint32 requestBlock = 10;
+    vm.roll(requestBlock);
+    changePrank(LINK_WHALE);
+    s_testCoordinator.fundSubscriptionWithNative{value: 10 ether}(subId);
+
+    // 2. Request random words.
+    changePrank(subOwner);
+    vm.expectEmit(true, true, false, true);
+    uint256 requestId;
+    uint256 preSeed;
+    (requestId, preSeed) = s_testCoordinator.computeRequestIdExternal(vrfKeyHash, address(consumer), subId, 1);
+    emit RandomWordsRequested(
+      vrfKeyHash,
+      requestId,
+      preSeed,
+      subId,
+      MIN_CONFIRMATIONS,
+      CALLBACK_GAS_LIMIT,
+      NUM_WORDS,
+      VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: true})),
+      address(consumer) // requester
+    );
+    consumer.requestRandomWords(
+      subId,
+      MIN_CONFIRMATIONS,
+      vrfKeyHash,
+      CALLBACK_GAS_LIMIT,
+      true /* nativePayment */,
+      NUM_WORDS,
+      1 /* requestCount */
+    );
+    assertTrue(s_testCoordinator.pendingRequestExists(subId));
+
+    // 3. Fulfill the request above
+    //console.log("requestId: ", requestId);
+    //console.log("preSeed: ", preSeed);
+    //console.log("sender: ", address(consumer));
+
+    // Move on to the next block.
+    // Store the previous block's blockhash, and assert that it is as expected.
+    vm.roll(requestBlock + 1);
+    s_bhs.store(requestBlock);
+    assertEq(hex"000000000000000000000000000000000000000000000000000000000000000a", s_bhs.getBlockhash(requestBlock));
+
+    // Fulfill the request.
+    // Proof generated via the generate-proof-v2-plus script command. Example usage:
+    /*
+      go run . generate-proof-v2-plus \
+      -key-hash 0x9f2353bde94264dbc3d554a94cceba2d7d2b4fdce4304d3e09a1fea9fbeb1528 \
+      -pre-seed 94043941380654896554739370173616551044559721638888689173752661912204412136884 \
+      -block-hash 0x000000000000000000000000000000000000000000000000000000000000000a \
+      -block-num 10 \
+      -sender 0x44CAfC03154A0708F9DCf988681821f648dA74aF \
+      -native-payment true
+    */
+    VRF.Proof memory proof = VRF.Proof({
+      pk: [
+        72488970228380509287422715226575535698893157273063074627791787432852706183111,
+        62070622898698443831883535403436258712770888294397026493185421712108624767191
+      ],
+      gamma: [
+        18593555375562408458806406536059989757338587469093035962641476877033456068708,
+        55675218112764789548330682504442195066741636758414578491295297591596761905475
+      ],
+      c: 56595337384472359782910435918403237878894172750128610188222417200315739516270,
+      s: 60666722370046279064490737533582002977678558769715798604164042022636022215663,
+      seed: 94043941380654896554739370173616551044559721638888689173752661912204412136884,
+      uWitness: 0xEdbE15fd105cfEFb9CCcbBD84403d1F62719E50d,
+      cGammaWitness: [
+        11752391553651713021860307604522059957920042356542944931263270793211985356642,
+        14713353048309058367510422609936133400473710094544154206129568172815229277104
+      ],
+      sHashWitness: [
+        109716108880570827107616596438987062129934448629902940427517663799192095060206,
+        79378277044196229730810703755304140279837983575681427317104232794580059801930
+      ],
+      zInv: 18898957977631212231148068121702167284572066246731769473720131179584458697812
+    });
+    VRFCoordinatorV2_5.RequestCommitment memory rc = VRFCoordinatorV2_5.RequestCommitment({
+      blockNum: requestBlock,
+      subId: subId,
+      callbackGasLimit: CALLBACK_GAS_LIMIT,
+      numWords: NUM_WORDS,
+      sender: address(consumer),
+      extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: true}))
+    });
+    s_testCoordinator.fulfillRandomWords(proof, rc, true /* onlyPremium */);
+    assertFalse(s_testCoordinator.pendingRequestExists(subId));
+
+    // 4. remove consumer and verify request random words doesn't work
+    s_testCoordinator.removeConsumer(subId, address(consumer));
+    vm.expectRevert(abi.encodeWithSelector(SubscriptionAPI.InvalidConsumer.selector, subId, address(consumer)));
+    consumer.requestRandomWords(
+      subId,
+      MIN_CONFIRMATIONS,
+      vrfKeyHash,
+      CALLBACK_GAS_LIMIT,
+      false /* nativePayment */,
+      NUM_WORDS,
+      1 /* requestCount */
+    );
+
+    // 5. re-add consumer and assert requestID nonce starts from 2 (nonce 1 was used before consumer removal)
+    s_testCoordinator.addConsumer(subId, address(consumer));
+    vm.expectEmit(true, true, false, true);
+    uint256 requestId2;
+    uint256 preSeed2;
+    (requestId2, preSeed2) = s_testCoordinator.computeRequestIdExternal(vrfKeyHash, address(consumer), subId, 2);
+    emit RandomWordsRequested(
+      vrfKeyHash,
+      requestId2,
+      preSeed2,
+      subId,
+      MIN_CONFIRMATIONS,
+      CALLBACK_GAS_LIMIT,
+      NUM_WORDS,
+      VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: false})), // nativePayment, // nativePayment
+      address(consumer) // requester
+    );
+    consumer.requestRandomWords(
+      subId,
+      MIN_CONFIRMATIONS,
+      vrfKeyHash,
+      CALLBACK_GAS_LIMIT,
+      false /* nativePayment */,
+      NUM_WORDS,
+      1 /* requestCount */
+    );
+    assertNotEq(requestId, requestId2);
+    assertNotEq(preSeed, preSeed2);
+    assertTrue(s_testCoordinator.pendingRequestExists(subId));
+  }
+
+  function testRequestRandomWords_MultipleConsumers_PendingRequestExists() public {
+    // 1. setup consumer and subscription
+    setConfig();
+    registerProvingKey();
+    address subOwner = makeAddr("subOwner");
+    changePrank(subOwner);
+    uint256 subId = s_testCoordinator.createSubscription();
+    VRFV2PlusLoadTestWithMetrics consumer1 = createAndAddLoadTestWithMetricsConsumer(subId);
+    VRFV2PlusLoadTestWithMetrics consumer2 = createAndAddLoadTestWithMetricsConsumer(subId);
+    uint32 requestBlock = 10;
+    vm.roll(requestBlock);
+    changePrank(LINK_WHALE);
+    s_testCoordinator.fundSubscriptionWithNative{value: 10 ether}(subId);
+
+    // 2. Request random words.
+    changePrank(subOwner);
+    (uint256 requestId1, uint256 preSeed1) = s_testCoordinator.computeRequestIdExternal(
+      vrfKeyHash,
+      address(consumer1),
+      subId,
+      1
+    );
+    (uint256 requestId2, uint256 preSeed2) = s_testCoordinator.computeRequestIdExternal(
+      vrfKeyHash,
+      address(consumer2),
+      subId,
+      1
+    );
+    assertNotEq(requestId1, requestId2);
+    assertNotEq(preSeed1, preSeed2);
+    consumer1.requestRandomWords(
+      subId,
+      MIN_CONFIRMATIONS,
+      vrfKeyHash,
+      CALLBACK_GAS_LIMIT,
+      true /* nativePayment */,
+      NUM_WORDS,
+      1 /* requestCount */
+    );
+    consumer2.requestRandomWords(
+      subId,
+      MIN_CONFIRMATIONS,
+      vrfKeyHash,
+      CALLBACK_GAS_LIMIT,
+      true /* nativePayment */,
+      NUM_WORDS,
+      1 /* requestCount */
+    );
+    assertTrue(s_testCoordinator.pendingRequestExists(subId));
+
+    // Move on to the next block.
+    // Store the previous block's blockhash, and assert that it is as expected.
+    vm.roll(requestBlock + 1);
+    s_bhs.store(requestBlock);
+    assertEq(hex"000000000000000000000000000000000000000000000000000000000000000a", s_bhs.getBlockhash(requestBlock));
+
+    // 3. Fulfill the 1st request above
+    console.log("requestId: ", requestId1);
+    console.log("preSeed: ", preSeed1);
+    console.log("sender: ", address(consumer1));
+
+    // Fulfill the request.
+    // Proof generated via the generate-proof-v2-plus script command. Example usage:
+    /*
+      go run . generate-proof-v2-plus \
+      -key-hash 0x9f2353bde94264dbc3d554a94cceba2d7d2b4fdce4304d3e09a1fea9fbeb1528 \
+      -pre-seed 94043941380654896554739370173616551044559721638888689173752661912204412136884 \
+      -block-hash 0x000000000000000000000000000000000000000000000000000000000000000a \
+      -block-num 10 \
+      -sender 0x44CAfC03154A0708F9DCf988681821f648dA74aF \
+      -native-payment true
+    */
+    VRF.Proof memory proof = VRF.Proof({
+      pk: [
+        72488970228380509287422715226575535698893157273063074627791787432852706183111,
+        62070622898698443831883535403436258712770888294397026493185421712108624767191
+      ],
+      gamma: [
+        18593555375562408458806406536059989757338587469093035962641476877033456068708,
+        55675218112764789548330682504442195066741636758414578491295297591596761905475
+      ],
+      c: 56595337384472359782910435918403237878894172750128610188222417200315739516270,
+      s: 60666722370046279064490737533582002977678558769715798604164042022636022215663,
+      seed: 94043941380654896554739370173616551044559721638888689173752661912204412136884,
+      uWitness: 0xEdbE15fd105cfEFb9CCcbBD84403d1F62719E50d,
+      cGammaWitness: [
+        11752391553651713021860307604522059957920042356542944931263270793211985356642,
+        14713353048309058367510422609936133400473710094544154206129568172815229277104
+      ],
+      sHashWitness: [
+        109716108880570827107616596438987062129934448629902940427517663799192095060206,
+        79378277044196229730810703755304140279837983575681427317104232794580059801930
+      ],
+      zInv: 18898957977631212231148068121702167284572066246731769473720131179584458697812
+    });
+    VRFCoordinatorV2_5.RequestCommitment memory rc = VRFCoordinatorV2_5.RequestCommitment({
+      blockNum: requestBlock,
+      subId: subId,
+      callbackGasLimit: CALLBACK_GAS_LIMIT,
+      numWords: NUM_WORDS,
+      sender: address(consumer1),
+      extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: true}))
+    });
+    s_testCoordinator.fulfillRandomWords(proof, rc, true /* onlyPremium */);
+    assertTrue(s_testCoordinator.pendingRequestExists(subId));
+
+    //4. Fulfill the 2nd request
+    console.log("requestId: ", requestId2);
+    console.log("preSeed: ", preSeed2);
+    console.log("sender: ", address(consumer2));
+
+    // Fulfill the request.
+    // Proof generated via the generate-proof-v2-plus script command. Example usage:
+    /*
+      go run . generate-proof-v2-plus \
+      -key-hash 0x9f2353bde94264dbc3d554a94cceba2d7d2b4fdce4304d3e09a1fea9fbeb1528 \
+      -pre-seed 60086281972849674111646805013521068579710860774417505336898013292594859262126 \
+      -block-hash 0x000000000000000000000000000000000000000000000000000000000000000a \
+      -block-num 10 \
+      -sender 0xf5a165378E120f93784395aDF1E08a437e902865 \
+      -native-payment true
+    */
+    proof = VRF.Proof({
+      pk: [
+        72488970228380509287422715226575535698893157273063074627791787432852706183111,
+        62070622898698443831883535403436258712770888294397026493185421712108624767191
+      ],
+      gamma: [
+        8781676794493524976318989249067879326013864868749595045909181134740761572122,
+        70144896394968351242907510966944756907625107566821127114847472296460405612124
+      ],
+      c: 67847193668837615807355025316836592349514589069599294392546721746916067719949,
+      s: 114946531382736685625345450298146929067341928840493664822961336014597880904075,
+      seed: 60086281972849674111646805013521068579710860774417505336898013292594859262126,
+      uWitness: 0xe1de4fD69277D0C5516cAE4d760b1d08BC340A28,
+      cGammaWitness: [
+        90301582727701442026215692513959255065128476395727596945643431833363167168678,
+        61501369717028493801369453424028509804064958915788808540582630993703331669978
+      ],
+      sHashWitness: [
+        98738650825542176387169085844714248077697103572877410412808249468787326424906,
+        85647963391545223707301702874240345890884970941786094239896961457539737216630
+      ],
+      zInv: 29080001901010358083725892808339807464533563010468652346220922643802059192842
+    });
+    rc = VRFCoordinatorV2_5.RequestCommitment({
+      blockNum: requestBlock,
+      subId: subId,
+      callbackGasLimit: CALLBACK_GAS_LIMIT,
+      numWords: NUM_WORDS,
+      sender: address(consumer2),
+      extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: true}))
+    });
+    s_testCoordinator.fulfillRandomWords(proof, rc, true /* onlyPremium */);
+    assertFalse(s_testCoordinator.pendingRequestExists(subId));
+  }
+
+  function createAndAddLoadTestWithMetricsConsumer(uint256 subId) internal returns (VRFV2PlusLoadTestWithMetrics) {
+    VRFV2PlusLoadTestWithMetrics consumer = new VRFV2PlusLoadTestWithMetrics(address(s_testCoordinator));
+    s_testCoordinator.addConsumer(subId, address(consumer));
+    return consumer;
   }
 }

@@ -1147,7 +1147,7 @@ func main() {
 		helpers.PanicErr(err)
 		balance, err := link.BalanceOf(nil, common.HexToAddress(*wrapperAddress))
 		helpers.PanicErr(err)
-		tx, err := wrapper.Withdraw(e.Owner, common.HexToAddress(*recipientAddress), balance)
+		tx, err := wrapper.Withdraw(e.Owner, common.HexToAddress(*recipientAddress))
 		helpers.PanicErr(err)
 		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "withdrawing", balance.String(), "Juels from", *wrapperAddress, "to", *recipientAddress)
 	case "wrapper-get-subscription-id":

@@ -8,6 +8,7 @@ import {UpkeepFormat} from "../../interfaces/UpkeepTranscoderInterface.sol";
 import {IAutomationForwarder} from "../../interfaces/IAutomationForwarder.sol";
 import {IChainModule} from "../../interfaces/IChainModule.sol";
 import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
+import {IAutomationV21PlusCommon} from "../../interfaces/IAutomationV21PlusCommon.sol";
 
 contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
   using Address for address;
@@ -130,10 +131,43 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
     if (s_upkeepAdmin[id] != msg.sender) revert OnlyCallableByAdmin();
     if (upkeep.maxValidBlocknumber > s_hotVars.chainModule.blockNumber()) revert UpkeepNotCanceled();
     uint96 amountToWithdraw = s_upkeep[id].balance;
-    s_expectedLinkBalance = s_expectedLinkBalance - amountToWithdraw;
+    s_reserveAmounts[address(i_link)] = s_reserveAmounts[address(i_link)] - amountToWithdraw;
     s_upkeep[id].balance = 0;
     i_link.transfer(to, amountToWithdraw);
     emit FundsWithdrawn(id, amountToWithdraw, to);
+  }
+
+  /**
+   * @notice LINK available to withdraw by the finance team
+   */
+  function linkAvailableForPayment() public view returns (uint256) {
+    return i_link.balanceOf(address(this)) - s_reserveAmounts[address(i_link)];
+  }
+
+  function withdrawLinkFees(address to, uint256 amount) external {
+    _onlyFinanceAdminAllowed();
+    if (to == ZERO_ADDRESS) revert InvalidRecipient();
+
+    uint256 available = linkAvailableForPayment();
+    if (amount > available) revert InsufficientBalance(available, amount);
+
+    bool transferStatus = i_link.transfer(to, amount);
+    if (!transferStatus) {
+      revert TransferFailed();
+    }
+    emit FeesWithdrawn(to, address(i_link), amount);
+  }
+
+  function withdrawERC20Fees(address assetAddress, address to, uint256 amount) external {
+    _onlyFinanceAdminAllowed();
+    if (to == ZERO_ADDRESS) revert InvalidRecipient();
+
+    bool transferStatus = IERC20(assetAddress).transfer(to, amount);
+    if (!transferStatus) {
+      revert TransferFailed();
+    }
+
+    emit FeesWithdrawn(to, assetAddress, amount);
   }
 
   // ================================================================
@@ -173,7 +207,7 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
     if (s_transmitterPayees[from] != msg.sender) revert OnlyCallableByPayee();
     uint96 balance = _updateTransmitterBalanceFromPool(from, s_hotVars.totalPremium, uint96(s_transmittersList.length));
     s_transmitters[from].balance = 0;
-    s_expectedLinkBalance = s_expectedLinkBalance - balance;
+    s_reserveAmounts[address(i_link)] = s_reserveAmounts[address(i_link)] - balance;
     i_link.transfer(to, balance);
     emit PaymentWithdrawn(from, balance, to, msg.sender);
   }
@@ -191,25 +225,6 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
     }
     s_upkeepPrivilegeConfig[upkeepId] = newPrivilegeConfig;
     emit UpkeepPrivilegeConfigSet(upkeepId, newPrivilegeConfig);
-  }
-
-  /**
-   * @notice withdraws the owner's LINK balance
-   */
-  function withdrawOwnerFunds() external onlyOwner {
-    uint96 amount = s_storage.ownerLinkBalance;
-    s_expectedLinkBalance = s_expectedLinkBalance - amount;
-    s_storage.ownerLinkBalance = 0;
-    emit OwnerFundsWithdrawn(amount);
-    i_link.transfer(msg.sender, amount);
-  }
-
-  /**
-   * @notice allows the owner to withdraw any LINK accidentally sent to the contract
-   */
-  function recoverFunds() external onlyOwner {
-    uint256 total = i_link.balanceOf(address(this));
-    i_link.transfer(msg.sender, total - s_expectedLinkBalance);
   }
 
   /**
@@ -345,10 +360,10 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
    * @dev this function may be deprecated in a future version of automation in favor of individual
    * getters for each field
    */
-  function getUpkeep(uint256 id) external view returns (UpkeepInfo memory upkeepInfo) {
+  function getUpkeep(uint256 id) external view returns (IAutomationV21PlusCommon.UpkeepInfoLegacy memory upkeepInfo) {
     Upkeep memory reg = s_upkeep[id];
     address target = address(reg.forwarder) == address(0) ? address(0) : reg.forwarder.getTarget();
-    upkeepInfo = UpkeepInfo({
+    upkeepInfo = IAutomationV21PlusCommon.UpkeepInfoLegacy({
       target: target,
       performGas: reg.performGas,
       checkData: s_checkData[id],
@@ -435,17 +450,17 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
     external
     view
     returns (
-      State memory state,
-      OnchainConfigLegacy memory config,
+      IAutomationV21PlusCommon.StateLegacy memory state,
+      IAutomationV21PlusCommon.OnchainConfigLegacy memory config,
       address[] memory signers,
       address[] memory transmitters,
       uint8 f
     )
   {
-    state = State({
+    state = IAutomationV21PlusCommon.StateLegacy({
       nonce: s_storage.nonce,
-      ownerLinkBalance: s_storage.ownerLinkBalance,
-      expectedLinkBalance: s_expectedLinkBalance,
+      ownerLinkBalance: 0,
+      expectedLinkBalance: s_reserveAmounts[address(i_link)],
       totalPremium: s_hotVars.totalPremium,
       numUpkeeps: s_upkeepIDs.length(),
       configCount: s_storage.configCount,
@@ -455,7 +470,7 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
       paused: s_hotVars.paused
     });
 
-    config = OnchainConfigLegacy({
+    config = IAutomationV21PlusCommon.OnchainConfigLegacy({
       paymentPremiumPPB: s_hotVars.paymentPremiumPPB,
       flatFeeMicroLink: s_hotVars.flatFeeMicroLink,
       checkGasLimit: s_storage.checkGasLimit,

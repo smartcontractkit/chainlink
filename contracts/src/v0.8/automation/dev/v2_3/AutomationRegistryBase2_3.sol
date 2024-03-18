@@ -100,7 +100,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   uint256 internal s_fallbackGasPrice;
   uint256 internal s_fallbackLinkPrice;
   uint256 internal s_fallbackNativePrice;
-  uint256 internal s_expectedLinkBalance; // Used in case of erroneous LINK transfers to contract
+  mapping(address billingToken => uint256 reserveAmount) internal s_reserveAmounts; // unspent user deposits + unwithdrawn NOP payments
   mapping(address => MigrationPermission) internal s_peerRegistryMigrationPermission; // Permissions for migration to and fro
   mapping(uint256 => bytes) internal s_upkeepTriggerConfig; // upkeep triggers
   mapping(uint256 => bytes) internal s_upkeepOffchainConfig; // general config set by users for each upkeep
@@ -122,6 +122,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   error IncorrectNumberOfSignatures();
   error IncorrectNumberOfSigners();
   error IndexOutOfRange();
+  error InsufficientBalance(uint256 available, uint256 requested);
   error InvalidDataLength();
   error InvalidFeed();
   error InvalidTrigger();
@@ -145,6 +146,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   error OnlyCallableByProposedAdmin();
   error OnlyCallableByProposedPayee();
   error OnlyCallableByUpkeepPrivilegeManager();
+  error OnlyFinanceAdmin();
   error OnlyPausedUpkeep();
   error OnlySimulatedBackend();
   error OnlyUnpausedUpkeep();
@@ -157,6 +159,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   error TargetCheckReverted(bytes reason);
   error TooManyOracles();
   error TranscoderNotSet();
+  error TransferFailed();
   error UpkeepAlreadyExists();
   error UpkeepCancelled();
   error UpkeepNotCanceled();
@@ -187,48 +190,6 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     CALLBACK_REVERTED,
     REVERT_DATA_EXCEEDS_LIMIT,
     REGISTRY_PAUSED
-  }
-
-  /**
-   * @notice OnchainConfigLegacy of the registry
-   * @dev only used in params and return values
-   * @member paymentPremiumPPB payment premium rate oracles receive on top of
-   * being reimbursed for gas, measured in parts per billion
-   * @member flatFeeMicroLink flat fee paid to oracles for performing upkeeps,
-   * priced in MicroLink; can be used in conjunction with or independently of
-   * paymentPremiumPPB
-   * @member checkGasLimit gas limit when checking for upkeep
-   * @member stalenessSeconds number of seconds that is allowed for feed data to
-   * be stale before switching to the fallback pricing
-   * @member gasCeilingMultiplier multiplier to apply to the fast gas feed price
-   * when calculating the payment ceiling for keepers
-   * @member minUpkeepSpend minimum LINK that an upkeep must spend before cancelling
-   * @member maxPerformGas max performGas allowed for an upkeep on this registry
-   * @member maxCheckDataSize max length of checkData bytes
-   * @member maxPerformDataSize max length of performData bytes
-   * @member maxRevertDataSize max length of revertData bytes
-   * @member fallbackGasPrice gas price used if the gas price feed is stale
-   * @member fallbackLinkPrice LINK price used if the LINK price feed is stale
-   * @member transcoder address of the transcoder contract
-   * @member registrars addresses of the registrar contracts
-   * @member upkeepPrivilegeManager address which can set privilege for upkeeps
-   */
-  struct OnchainConfigLegacy {
-    uint32 paymentPremiumPPB;
-    uint32 flatFeeMicroLink; // min 0.000001 LINK, max 4294 LINK
-    uint32 checkGasLimit;
-    uint24 stalenessSeconds;
-    uint16 gasCeilingMultiplier;
-    uint96 minUpkeepSpend;
-    uint32 maxPerformGas;
-    uint32 maxCheckDataSize;
-    uint32 maxPerformDataSize;
-    uint32 maxRevertDataSize;
-    uint256 fallbackGasPrice;
-    uint256 fallbackLinkPrice;
-    address transcoder;
-    address[] registrars;
-    address upkeepPrivilegeManager;
   }
 
   /**
@@ -276,34 +237,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     address upkeepPrivilegeManager;
     IChainModule chainModule;
     bool reorgProtectionEnabled;
-  }
-
-  /**
-   * @notice state of the registry
-   * @dev only used in params and return values
-   * @dev this will likely be deprecated in a future version of the registry in favor of individual getters
-   * @member nonce used for ID generation
-   * @member ownerLinkBalance withdrawable balance of LINK by contract owner
-   * @member expectedLinkBalance the expected balance of LINK of the registry
-   * @member totalPremium the total premium collected on registry so far
-   * @member numUpkeeps total number of upkeeps on the registry
-   * @member configCount ordinal number of current config, out of all configs applied to this contract so far
-   * @member latestConfigBlockNumber last block at which this config was set
-   * @member latestConfigDigest domain-separation tag for current config
-   * @member latestEpoch for which a report was transmitted
-   * @member paused freeze on execution scoped to the entire registry
-   */
-  struct State {
-    uint32 nonce;
-    uint96 ownerLinkBalance;
-    uint256 expectedLinkBalance;
-    uint96 totalPremium;
-    uint256 numUpkeeps;
-    uint32 configCount;
-    uint32 latestConfigBlockNumber;
-    bytes32 latestConfigDigest;
-    uint32 latestEpoch;
-    bool paused;
+    address financeAdmin; // TODO: pack this struct better
   }
 
   /**
@@ -328,34 +262,6 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     // 2 bytes left in 2nd EVM word - written in transmit path
   }
 
-  /**
-   * @notice all information about an upkeep
-   * @dev only used in return values
-   * @dev this will likely be deprecated in a future version of the registry
-   * @member target the contract which needs to be serviced
-   * @member performGas the gas limit of upkeep execution
-   * @member checkData the checkData bytes for this upkeep
-   * @member balance the balance of this upkeep
-   * @member admin for this upkeep
-   * @member maxValidBlocknumber until which block this upkeep is valid
-   * @member lastPerformedBlockNumber the last block number when this upkeep was performed
-   * @member amountSpent the amount this upkeep has spent
-   * @member paused if this upkeep has been paused
-   * @member offchainConfig the off-chain config of this upkeep
-   */
-  struct UpkeepInfo {
-    address target;
-    uint32 performGas;
-    bytes checkData;
-    uint96 balance;
-    address admin;
-    uint64 maxValidBlocknumber;
-    uint32 lastPerformedBlockNumber;
-    uint96 amountSpent;
-    bool paused;
-    bytes offchainConfig;
-  }
-
   /// @dev Config + State storage struct which is on hot transmit path
   struct HotVars {
     uint96 totalPremium; // ─────────╮ total historical payment to oracles for premium
@@ -376,7 +282,6 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     uint96 minUpkeepSpend; // Minimum amount an upkeep must spend
     address transcoder; // Address of transcoder contract used in migrations
     // 1 EVM word full
-    uint96 ownerLinkBalance; // Balance of owner, accumulates minUpkeepSpend in case it is not spent
     uint32 checkGasLimit; // Gas limit allowed in checkUpkeep
     uint32 maxPerformGas; // Max gas an upkeep can use on this registry
     uint32 nonce; // Nonce for each upkeep created
@@ -389,6 +294,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     uint32 maxRevertDataSize; // max length of revertData bytes
     address upkeepPrivilegeManager; // address which can set privilege for upkeeps
     // 3 EVM word full
+    address financeAdmin; // address which can withdraw funds from the contract
   }
 
   /// @dev Report transmitted by OCR to transmit function
@@ -501,7 +407,6 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   event FundsAdded(uint256 indexed id, address indexed from, uint96 amount);
   event FundsWithdrawn(uint256 indexed id, uint256 amount, address to);
   event InsufficientFundsUpkeepReport(uint256 indexed id, bytes trigger);
-  event OwnerFundsWithdrawn(uint96 amount);
   event Paused(address account);
   event PayeesUpdated(address[] transmitters, address[] payees);
   event PayeeshipTransferRequested(address indexed transmitter, address indexed from, address indexed to);
@@ -533,6 +438,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   event Unpaused(address account);
   // Event to emit when a billing configuration is set
   event BillingConfigSet(IERC20 indexed token, BillingConfig config);
+  event FeesWithdrawn(address indexed recipient, address indexed assetAddress, uint256 amount);
 
   /**
    * @param link address of the LINK Token
@@ -590,7 +496,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     s_upkeep[id] = upkeep;
     s_upkeepAdmin[id] = admin;
     s_checkData[id] = checkData;
-    s_expectedLinkBalance = s_expectedLinkBalance + upkeep.balance;
+    s_reserveAmounts[address(i_link)] = s_reserveAmounts[address(i_link)] + upkeep.balance;
     s_upkeepTriggerConfig[id] = triggerConfig;
     s_upkeepOffchainConfig[id] = offchainConfig;
     s_upkeepIDs.add(id);
@@ -1015,6 +921,15 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   function _preventExecution() internal view {
     if (tx.origin != i_allowedReadOnlyAddress) {
       revert OnlySimulatedBackend();
+    }
+  }
+
+  /**
+   * @notice only allows finance admin to call the function
+   */
+  function _onlyFinanceAdminAllowed() internal view {
+    if (msg.sender != s_storage.financeAdmin) {
+      revert OnlyFinanceAdmin();
     }
   }
 

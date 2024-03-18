@@ -13,7 +13,7 @@ import {VRFCoordinatorV2_5} from "../../../../src/v0.8/vrf/dev/VRFCoordinatorV2_
 import {VRFV2PlusWrapper} from "../../../../src/v0.8/vrf/dev/VRFV2PlusWrapper.sol";
 import {VRFV2PlusClient} from "../../../../src/v0.8/vrf/dev/libraries/VRFV2PlusClient.sol";
 
-contract VRFV2PlusWrapperTest is BaseTest {
+contract VRFV2PlusWrapper_MigrationTest is BaseTest {
   address internal constant LINK_WHALE = 0xD883a6A1C22fC4AbFE938a5aDF9B2Cc31b1BF18B;
   uint256 internal constant DEFAULT_NATIVE_FUNDING = 7 ether; // 7 ETH
   uint256 internal constant DEFAULT_LINK_FUNDING = 10 ether; // 10 ETH
@@ -127,6 +127,13 @@ contract VRFV2PlusWrapperTest is BaseTest {
     address indexed sender
   );
 
+  // IVRFV2PlusWrapper events
+  event Withdrawn(address indexed to, uint256 amount);
+  event NativeWithdrawn(address indexed to, uint256 amount);
+
+  // IVRFMigratableConsumerV2Plus events
+  event CoordinatorSet(address vrfCoordinator);
+
   function testMigrateWrapperLINKPayment() public {
     s_linkToken.transfer(address(s_consumer), DEFAULT_LINK_FUNDING);
 
@@ -199,8 +206,8 @@ contract VRFV2PlusWrapperTest is BaseTest {
 
     // Request randomness from wrapper.
     uint32 callbackGasLimit = 1_000_000;
-    vm.expectEmit(true, true, true, true);
     uint256 wrapperCost = s_wrapper.calculateRequestPrice(callbackGasLimit);
+    vm.expectEmit(true, true, true, true);
     emit WrapperRequestMade(1, wrapperCost);
     uint256 requestId = s_consumer.makeRequest(callbackGasLimit, 0, 1);
     assertEq(requestId, 1);
@@ -235,7 +242,9 @@ contract VRFV2PlusWrapperTest is BaseTest {
     /// Withdraw funds from wrapper.
     vm.startPrank(LINK_WHALE);
     uint256 priorWhaleBalance = s_linkToken.balanceOf(LINK_WHALE);
-    s_wrapper.withdraw(LINK_WHALE, paid);
+    vm.expectEmit(true, false, false, true, address(s_wrapper));
+    emit Withdrawn(LINK_WHALE, paid);
+    s_wrapper.withdraw(LINK_WHALE);
     assertEq(s_linkToken.balanceOf(LINK_WHALE), priorWhaleBalance + paid);
     assertEq(s_linkToken.balanceOf(address(s_wrapper)), 0);
 
@@ -282,6 +291,7 @@ contract VRFV2PlusWrapperTest is BaseTest {
       true // check data fields
     );
     address newCoordinatorAddr = address(s_newCoordinator);
+    emit CoordinatorSet(address(s_newCoordinator));
     emit MigrationCompleted(newCoordinatorAddr, subID);
 
     s_wrapper.migrate(newCoordinatorAddr);
@@ -349,7 +359,9 @@ contract VRFV2PlusWrapperTest is BaseTest {
     // Withdraw funds from wrapper.
     vm.startPrank(LINK_WHALE);
     uint256 priorWhaleBalance = LINK_WHALE.balance;
-    s_wrapper.withdrawNative(LINK_WHALE, paid);
+    vm.expectEmit(true, false, false, true, address(s_wrapper));
+    emit NativeWithdrawn(LINK_WHALE, paid);
+    s_wrapper.withdrawNative(LINK_WHALE);
     assertEq(LINK_WHALE.balance, priorWhaleBalance + paid);
     assertEq(address(s_wrapper).balance, 0);
 

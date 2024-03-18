@@ -14,7 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 )
 
@@ -43,7 +42,7 @@ func (lsn *listenerV2) runLogListener(
 
 			// If filter has not already been successfully registered, register it.
 			if !lsn.chain.LogPoller().HasFilter(filterName) {
-				err := lsn.chain.LogPoller().RegisterFilter(logpoller.Filter{
+				err := lsn.chain.LogPoller().RegisterFilter(ctx, logpoller.Filter{
 					Name: filterName,
 					EventSigs: evmtypes.HashArray{
 						lsn.coordinator.RandomWordsFulfilledTopic(),
@@ -115,7 +114,7 @@ func (lsn *listenerV2) initializeLastProcessedBlock(ctx context.Context) (lastPr
 	start := time.Now()
 
 	// will retry on error in the runLogListener loop
-	latestBlock, err := lp.LatestBlock()
+	latestBlock, err := lp.LatestBlock(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("LogPoller.LatestBlock(): %w", err)
 	}
@@ -139,6 +138,7 @@ func (lsn *listenerV2) initializeLastProcessedBlock(ctx context.Context) (lastPr
 	// get randomness requested logs with the appropriate keyhash
 	// keyhash is specified in topic1
 	requests, err := lp.IndexedLogsCreatedAfter(
+		ctx,
 		lsn.coordinator.RandomWordsRequestedTopic(), // event sig
 		lsn.coordinator.Address(),                   // address
 		1,                                           // topic index
@@ -153,6 +153,7 @@ func (lsn *listenerV2) initializeLastProcessedBlock(ctx context.Context) (lastPr
 	// fulfillments don't have keyhash indexed, we'll have to get all of them
 	// TODO: can we instead write a single query that joins on request id's somehow?
 	fulfillments, err := lp.LogsCreatedAfter(
+		ctx,
 		lsn.coordinator.RandomWordsFulfilledTopic(), // event sig
 		lsn.coordinator.Address(),                   // address
 		fromTimestamp,                               // from time
@@ -180,7 +181,7 @@ func (lsn *listenerV2) updateLastProcessedBlock(ctx context.Context, currLastPro
 	lp := lsn.chain.LogPoller()
 	start := time.Now()
 
-	latestBlock, err := lp.LatestBlock(pg.WithParentCtx(ctx))
+	latestBlock, err := lp.LatestBlock(ctx)
 	if err != nil {
 		lsn.l.Errorw("error getting latest block", "err", err)
 		return 0, fmt.Errorf("LogPoller.LatestBlock(): %w", err)
@@ -195,11 +196,11 @@ func (lsn *listenerV2) updateLastProcessedBlock(ctx context.Context, currLastPro
 	}()
 
 	logs, err := lp.LogsWithSigs(
+		ctx,
 		currLastProcessedBlock,
 		latestBlock.FinalizedBlockNumber,
 		[]common.Hash{lsn.coordinator.RandomWordsFulfilledTopic(), lsn.coordinator.RandomWordsRequestedTopic()},
 		lsn.coordinator.Address(),
-		pg.WithParentCtx(ctx),
 	)
 	if err != nil {
 		return currLastProcessedBlock, fmt.Errorf("LogPoller.LogsWithSigs: %w", err)
@@ -236,7 +237,7 @@ func (lsn *listenerV2) pollLogs(ctx context.Context, minConfs uint32, lastProces
 	// latest unfinalized block used on purpose to get bleeding edge logs
 	// we don't really have the luxury to wait for finalization on most chains
 	// if we want to fulfill on time.
-	latestBlock, err := lp.LatestBlock()
+	latestBlock, err := lp.LatestBlock(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("LogPoller.LatestBlock(): %w", err)
 	}
@@ -254,11 +255,11 @@ func (lsn *listenerV2) pollLogs(ctx context.Context, minConfs uint32, lastProces
 	// We don't specify confs because each request can have a different conf above
 	// the minimum. So we do all conf handling in getConfirmedAt.
 	logs, err := lp.LogsWithSigs(
+		ctx,
 		lastProcessedBlock,
 		latestBlock.BlockNumber,
 		[]common.Hash{lsn.coordinator.RandomWordsFulfilledTopic(), lsn.coordinator.RandomWordsRequestedTopic()},
 		lsn.coordinator.Address(),
-		pg.WithParentCtx(ctx),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("LogPoller.LogsWithSigs: %w", err)
