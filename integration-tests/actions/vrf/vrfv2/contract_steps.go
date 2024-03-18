@@ -27,7 +27,6 @@ func DeployVRFV2Contracts(
 	env *test_env.CLClusterTestEnv,
 	linkTokenContract contracts.LinkToken,
 	linkEthFeedContract contracts.VRFMockETHLINKFeed,
-	consumerContractsAmount int,
 	useVRFOwner bool,
 	useTestCoordinator bool,
 ) (*vrfcommon.VRFContracts, error) {
@@ -62,14 +61,6 @@ func DeployVRFV2Contracts(
 		}
 		coordinatorAddress = coordinator.Address()
 	}
-	consumers, err := DeployVRFV2Consumers(env.ContractDeployer, coordinatorAddress, consumerContractsAmount)
-	if err != nil {
-		return nil, err
-	}
-	err = env.EVMClient.WaitForEvents()
-	if err != nil {
-		return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrWaitTXsComplete, err)
-	}
 
 	coordinator, err := env.ContractLoader.LoadVRFCoordinatorV2(coordinatorAddress)
 	if err != nil {
@@ -88,7 +79,7 @@ func DeployVRFV2Contracts(
 			CoordinatorV2:   coordinator,
 			VRFOwner:        vrfOwner,
 			BHS:             bhs,
-			VRFV2Consumer:   consumers,
+			VRFV2Consumers:  nil,
 			LinkToken:       linkTokenContract,
 			MockETHLINKFeed: linkEthFeedContract,
 		}, nil
@@ -97,7 +88,7 @@ func DeployVRFV2Contracts(
 		CoordinatorV2:   coordinator,
 		VRFOwner:        nil,
 		BHS:             bhs,
-		VRFV2Consumer:   consumers,
+		VRFV2Consumers:  nil,
 		LinkToken:       linkTokenContract,
 		MockETHLINKFeed: linkEthFeedContract,
 	}, nil
@@ -178,24 +169,21 @@ func SetupVRFV2Contracts(
 	env *test_env.CLClusterTestEnv,
 	linkToken contracts.LinkToken,
 	mockNativeLINKFeed contracts.VRFMockETHLINKFeed,
-	numberOfConsumers int,
 	useVRFOwner bool,
 	useTestCoordinator bool,
 	vrfv2Config *testconfig.General,
-	numberOfSubToCreate int,
 	l zerolog.Logger,
-) (*vrfcommon.VRFContracts, []uint64, error) {
+) (*vrfcommon.VRFContracts, error) {
 	l.Info().Msg("Deploying VRFV2 contracts")
 	vrfContracts, err := DeployVRFV2Contracts(
 		env,
 		linkToken,
 		mockNativeLINKFeed,
-		numberOfConsumers,
 		useVRFOwner,
 		useTestCoordinator,
 	)
 	if err != nil {
-		return nil, nil, fmt.Errorf("%s, err %w", ErrDeployVRFV2Contracts, err)
+		return nil, fmt.Errorf("%s, err %w", ErrDeployVRFV2Contracts, err)
 	}
 
 	vrfCoordinatorV2FeeConfig := vrf_coordinator_v2.VRFCoordinatorV2FeeConfig{
@@ -219,25 +207,13 @@ func SetupVRFV2Contracts(
 		vrfCoordinatorV2FeeConfig,
 	)
 	if err != nil {
-		return nil, nil, fmt.Errorf("%s, err %w", vrfcommon.ErrSetVRFCoordinatorConfig, err)
+		return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrSetVRFCoordinatorConfig, err)
 	}
 	err = env.EVMClient.WaitForEvents()
 	if err != nil {
-		return nil, nil, fmt.Errorf("%s, err %w", vrfcommon.ErrWaitTXsComplete, err)
+		return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrWaitTXsComplete, err)
 	}
-	l.Info().
-		Str("Coordinator", vrfContracts.CoordinatorV2.Address()).
-		Int("Number of Subs to create", numberOfSubToCreate).
-		Msg("Creating and funding subscriptions, adding consumers")
-	subIDs, err := CreateFundSubsAndAddConsumers(
-		env,
-		big.NewFloat(*vrfv2Config.SubscriptionFundingAmountLink),
-		linkToken,
-		vrfContracts.CoordinatorV2, vrfContracts.VRFV2Consumer, numberOfSubToCreate)
-	if err != nil {
-		return nil, nil, err
-	}
-	return vrfContracts, subIDs, nil
+	return vrfContracts, nil
 }
 
 func setupVRFOwnerContract(env *test_env.CLClusterTestEnv, contracts *vrfcommon.VRFContracts, allNativeTokenKeyAddressStrings []string, allNativeTokenKeyAddresses []common.Address, l zerolog.Logger) error {
@@ -774,11 +750,11 @@ func SetupNewConsumersAndSubs(
 	coordinator contracts.VRFCoordinatorV2,
 	testConfig tc.TestConfig,
 	linkToken contracts.LinkToken,
-	consumerContractsAmount int,
+	numberOfConsumerContractsToDeployAndAddToSub int,
 	numberOfSubToCreate int,
 	l zerolog.Logger,
 ) ([]contracts.VRFv2LoadTestConsumer, []uint64, error) {
-	consumers, err := DeployVRFV2Consumers(env.ContractDeployer, coordinator.Address(), consumerContractsAmount)
+	consumers, err := DeployVRFV2Consumers(env.ContractDeployer, coordinator.Address(), numberOfConsumerContractsToDeployAndAddToSub)
 	if err != nil {
 		return nil, nil, fmt.Errorf("err: %w", err)
 	}

@@ -71,7 +71,10 @@ node_sending_keys = [
     ""
 ]
 
-[VRFv2.Performance]
+[Smoke.VRFv2.Performance]
+test_duration = "1m"
+rate_limit_unit_duration = "3s"
+rps = 1
 bhs_test_duration = "1m"
 bhs_test_rate_limit_unit_duration = "3s"
 bhs_test_rps = 1

@@ -45,7 +45,7 @@ type VRFContracts struct {
 	CoordinatorV2Plus contracts.VRFCoordinatorV2_5
 	VRFOwner          contracts.VRFOwner
 	BHS               contracts.BlockHashStore
-	VRFV2Consumer     []contracts.VRFv2LoadTestConsumer
+	VRFV2Consumers    []contracts.VRFv2LoadTestConsumer
 	VRFV2PlusConsumer []contracts.VRFv2PlusLoadTestConsumer
 	LinkToken         contracts.LinkToken
 	MockETHLINKFeed   contracts.VRFMockETHLINKFeed
@@ -79,8 +79,6 @@ type VRFLoadTestConsumer interface {
 type NewEnvConfig struct {
 	NodesToCreate          []VRFNodeType
 	NumberOfTxKeysToCreate int
-	NumberOfConsumers      int
-	NumberOfSubToCreate    int
 	UseVRFOwner            bool
 	UseTestCoordinator     bool
 }

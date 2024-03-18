@@ -39,7 +39,7 @@ func NewBHSTestGun(
 func (m *BHSTestGun) Call(_ *wasp.Generator) *wasp.Response {
 	_, err := vrfv2.RequestRandomnessAndWaitForRequestedEvent(
 		m.logger,
-		m.contracts.VRFV2Consumer[0],
+		m.contracts.VRFV2Consumers[0],
 		m.contracts.CoordinatorV2,
 		m.subIDs[0],
 		&vrfcommon.VRFKeyData{KeyHash: m.keyHash},
@@ -91,7 +91,7 @@ func (m *SingleHashGun) Call(_ *wasp.Generator) *wasp.Response {
 	_, err := vrfv2.RequestRandomnessAndWaitForFulfillment(
 		m.logger,
 		//the same consumer is used for all requests and in all subs
-		m.contracts.VRFV2Consumer[0],
+		m.contracts.VRFV2Consumers[0],
 		m.contracts.CoordinatorV2,
 		//randomly pick a subID from pool of subIDs
 		m.subIDs[randInRange(0, len(m.subIDs)-1)],

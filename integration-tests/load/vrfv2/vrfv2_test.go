@@ -27,6 +27,7 @@ import (
 var (
 	testEnv          *test_env.CLClusterTestEnv
 	vrfContracts     *vrfcommon.VRFContracts
+	consumers        []contracts.VRFv2LoadTestConsumer
 	vrfKey           *vrfcommon.VRFKeyData
 	subIDs           []uint64
 	eoaWalletAddress string
@@ -70,7 +71,7 @@ func TestVRFV2Performance(t *testing.T) {
 		Msg("Performance Test Configuration")
 
 	cleanupFn := func() {
-		teardown(t, vrfContracts.VRFV2Consumer[0], lc, updatedLabels, testReporter, testType, &testConfig)
+		teardown(t, vrfContracts.VRFV2Consumers[0], lc, updatedLabels, testReporter, testType, &testConfig)
 
 		if testEnv.EVMClient.NetworkSimulated() {
 			l.Info().
@@ -92,14 +93,23 @@ func TestVRFV2Performance(t *testing.T) {
 	newEnvConfig := vrfcommon.NewEnvConfig{
 		NodesToCreate:          []vrfcommon.VRFNodeType{vrfcommon.VRF},
 		NumberOfTxKeysToCreate: *vrfv2Config.General.NumberOfSendingKeysToCreate,
-		NumberOfConsumers:      1,
-		NumberOfSubToCreate:    *vrfv2Config.General.NumberOfSubToCreate,
 		UseVRFOwner:            true,
 		UseTestCoordinator:     true,
 	}
 
-	testEnv, vrfContracts, subIDs, vrfKey, _, err = vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, testConfig, cleanupFn, newEnvConfig, l)
+	testEnv, vrfContracts, vrfKey, _, err = vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, testConfig, cleanupFn, newEnvConfig, l)
 	require.NoError(t, err)
+
+	subIDs, consumers, err = vrfv2.SetupSubsAndConsumersForExistingEnv(
+		testEnv,
+		vrfContracts.CoordinatorV2,
+		vrfContracts.LinkToken,
+		1,
+		*vrfv2Config.General.NumberOfSubToCreate,
+		testConfig,
+		l,
+	)
+	vrfContracts.VRFV2Consumers = consumers
 
 	eoaWalletAddress = testEnv.EVMClient.GetDefaultWallet().Address()
 
@@ -112,11 +122,10 @@ func TestVRFV2Performance(t *testing.T) {
 
 	// is our "job" stable at all, no memory leaks, no flaking performance under some RPS?
 	t.Run("vrfv2 performance test", func(t *testing.T) {
-		require.Len(t, vrfContracts.VRFV2Consumer, 1, "only one consumer should be created for Load Test")
-		consumer := vrfContracts.VRFV2Consumer[0]
-		err = consumer.ResetMetrics()
+		require.Len(t, vrfContracts.VRFV2Consumers, 1, "only one consumer should be created for Load Test")
+		err = vrfContracts.VRFV2Consumers[0].ResetMetrics()
 		require.NoError(t, err)
-		MonitorLoadStats(lc, consumer, updatedLabels)
+		MonitorLoadStats(lc, vrfContracts.VRFV2Consumers[0], updatedLabels)
 
 		singleFeedConfig := &wasp.Config{
 			T:                     t,
@@ -147,7 +156,7 @@ func TestVRFV2Performance(t *testing.T) {
 		var wg sync.WaitGroup
 		wg.Add(1)
 		//todo - timeout should be configurable depending on the perf test type
-		requestCount, fulfilmentCount, err := vrfcommon.WaitForRequestCountEqualToFulfilmentCount(testcontext.Get(t), consumer, 2*time.Minute, &wg)
+		requestCount, fulfilmentCount, err := vrfcommon.WaitForRequestCountEqualToFulfilmentCount(testcontext.Get(t), vrfContracts.VRFV2Consumers[0], 2*time.Minute, &wg)
 		require.NoError(t, err)
 		wg.Wait()
 
@@ -156,12 +165,94 @@ func TestVRFV2Performance(t *testing.T) {
 			Interface("Fulfilment Count", fulfilmentCount).
 			Msg("Final Request/Fulfilment Stats")
 	})
+}
+
+func TestVRFV2BHSPerformance(t *testing.T) {
+	l := logging.GetTestLogger(t)
+
+	testType, err := tc.GetConfigurationNameFromEnv()
+	require.NoError(t, err)
+	testConfig, err := tc.GetConfig(testType, tc.VRFv2)
+	require.NoError(t, err)
+
+	testReporter := &testreporters.VRFV2TestReporter{}
+	vrfv2Config := testConfig.VRFv2
+
+	cfgl := testConfig.Logging.Loki
+	lokiConfig := wasp.NewLokiConfig(cfgl.Endpoint, cfgl.TenantId, cfgl.BasicAuth, cfgl.BearerToken)
+	lc, err := wasp.NewLokiClient(lokiConfig)
+	if err != nil {
+		l.Error().Err(err).Msg(ErrLokiClient)
+		return
+	}
+
+	updatedLabels := UpdateLabels(labels, t)
+
+	l.Info().
+		Str("Test Type", testType).
+		Str("Test Duration", vrfv2Config.Performance.TestDuration.Duration.Truncate(time.Second).String()).
+		Int64("RPS", *vrfv2Config.Performance.RPS).
+		Str("RateLimitUnitDuration", vrfv2Config.Performance.RateLimitUnitDuration.String()).
+		Uint16("RandomnessRequestCountPerRequest", *vrfv2Config.General.RandomnessRequestCountPerRequest).
+		Uint16("RandomnessRequestCountPerRequestDeviation", *vrfv2Config.General.RandomnessRequestCountPerRequestDeviation).
+		Bool("UseExistingEnv", *vrfv2Config.General.UseExistingEnv).
+		Msg("Performance Test Configuration")
+
+	cleanupFn := func() {
+		teardown(t, vrfContracts.VRFV2Consumers[0], lc, updatedLabels, testReporter, testType, &testConfig)
+
+		if testEnv.EVMClient.NetworkSimulated() {
+			l.Info().
+				Str("Network Name", testEnv.EVMClient.GetNetworkName()).
+				Msg("Network is a simulated network. Skipping fund return for Coordinator Subscriptions.")
+		} else {
+			if *vrfv2Config.General.CancelSubsAfterTestRun {
+				//cancel subs and return funds to sub owner
+				vrfv2.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, eoaWalletAddress, subIDs, l)
+			}
+		}
+		if !*vrfv2Config.General.UseExistingEnv {
+			if err := testEnv.Cleanup(); err != nil {
+				l.Error().Err(err).Msg("Error cleaning up test environment")
+			}
+		}
+	}
+
+	newEnvConfig := vrfcommon.NewEnvConfig{
+		NodesToCreate:          []vrfcommon.VRFNodeType{vrfcommon.VRF},
+		NumberOfTxKeysToCreate: *vrfv2Config.General.NumberOfSendingKeysToCreate,
+		UseVRFOwner:            true,
+		UseTestCoordinator:     true,
+	}
+
+	testEnv, vrfContracts, vrfKey, _, err = vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, testConfig, cleanupFn, newEnvConfig, l)
+	require.NoError(t, err)
+
+	subIDs, consumers, err = vrfv2.SetupSubsAndConsumersForExistingEnv(
+		testEnv,
+		vrfContracts.CoordinatorV2,
+		vrfContracts.LinkToken,
+		1,
+		*vrfv2Config.General.NumberOfSubToCreate,
+		testConfig,
+		l,
+	)
+	vrfContracts.VRFV2Consumers = consumers
+
+	eoaWalletAddress = testEnv.EVMClient.GetDefaultWallet().Address()
+
+	l.Debug().Int("Number of Subs", len(subIDs)).Msg("Subs involved in the test")
+	for _, subID := range subIDs {
+		subscription, err := vrfContracts.CoordinatorV2.GetSubscription(testcontext.Get(t), subID)
+		require.NoError(t, err, "error getting subscription information for subscription %d", subID)
+		vrfv2.LogSubDetails(l, subscription, subID, vrfContracts.CoordinatorV2)
+	}
 
 	t.Run("vrfv2 and bhs performance test", func(t *testing.T) {
 		configCopy := testConfig.MustCopy().(tc.TestConfig)
 		//Underfund Subscription
 		configCopy.VRFv2.General.SubscriptionFundingAmountLink = ptr.Ptr(float64(0.000000000000000001)) // 1 Juel
-		consumers, underfundedSubIDs, err := vrfv2.SetupNewConsumersAndSubs(
+		consumers, subIDs, err = vrfv2.SetupNewConsumersAndSubs(
 			testEnv,
 			vrfContracts.CoordinatorV2,
 			configCopy,
@@ -171,12 +262,11 @@ func TestVRFV2Performance(t *testing.T) {
 			l,
 		)
 		require.NoError(t, err, "error setting up new consumers and subscriptions")
-		vrfContracts.VRFV2Consumer = consumers
-		require.Len(t, vrfContracts.VRFV2Consumer, 1, "only one consumer should be created for Load Test")
-		consumer := vrfContracts.VRFV2Consumer[0]
-		err = consumer.ResetMetrics()
+		vrfContracts.VRFV2Consumers = consumers
+		require.Len(t, vrfContracts.VRFV2Consumers, 1, "only one consumer should be created for Load Test")
+		err = vrfContracts.VRFV2Consumers[0].ResetMetrics()
 		require.NoError(t, err, "error resetting consumer metrics")
-		MonitorLoadStats(lc, consumer, updatedLabels)
+		MonitorLoadStats(lc, vrfContracts.VRFV2Consumers[0], updatedLabels)
 
 		singleFeedConfig := &wasp.Config{
 			T:                     t,
@@ -186,7 +276,7 @@ func TestVRFV2Performance(t *testing.T) {
 			Gun: NewBHSTestGun(
 				vrfContracts,
 				vrfKey.KeyHash,
-				underfundedSubIDs,
+				subIDs,
 				configCopy.VRFv2,
 				l,
 			),
@@ -216,7 +306,7 @@ func TestVRFV2Performance(t *testing.T) {
 		require.NoError(t, err, "error funding subscriptions")
 		var wgAllRequestsFulfilled sync.WaitGroup
 		wgAllRequestsFulfilled.Add(1)
-		requestCount, fulfilmentCount, err := vrfcommon.WaitForRequestCountEqualToFulfilmentCount(testcontext.Get(t), consumer, 2*time.Minute, &wgAllRequestsFulfilled)
+		requestCount, fulfilmentCount, err := vrfcommon.WaitForRequestCountEqualToFulfilmentCount(testcontext.Get(t), vrfContracts.VRFV2Consumers[0], 2*time.Minute, &wgAllRequestsFulfilled)
 		require.NoError(t, err)
 		wgAllRequestsFulfilled.Wait()
 
@@ -226,7 +316,6 @@ func TestVRFV2Performance(t *testing.T) {
 			Msg("Final Request/Fulfilment Stats")
 	})
 }
-
 func teardown(
 	t *testing.T,
 	consumer contracts.VRFv2LoadTestConsumer,
