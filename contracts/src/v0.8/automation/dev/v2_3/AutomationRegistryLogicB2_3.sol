@@ -122,7 +122,18 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
   }
 
   /**
-   * @notice withdraws LINK funds from an upkeep
+   * @notice sets the upkeep trigger config
+   * @param id the upkeepID to change the trigger for
+   * @param triggerConfig the new trigger config
+   */
+  function setUpkeepTriggerConfig(uint256 id, bytes calldata triggerConfig) external {
+    _requireAdminAndNotCancelled(id);
+    s_upkeepTriggerConfig[id] = triggerConfig;
+    emit UpkeepTriggerConfigSet(id, triggerConfig);
+  }
+
+  /**
+   * @notice withdraws an upkeep's funds from an upkeep
    * @dev note that an upkeep must be cancelled first!!
    */
   function withdrawFunds(uint256 id, address to) external nonReentrant {
@@ -131,9 +142,10 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
     if (s_upkeepAdmin[id] != msg.sender) revert OnlyCallableByAdmin();
     if (upkeep.maxValidBlocknumber > s_hotVars.chainModule.blockNumber()) revert UpkeepNotCanceled();
     uint96 amountToWithdraw = s_upkeep[id].balance;
-    s_reserveAmounts[address(i_link)] = s_reserveAmounts[address(i_link)] - amountToWithdraw;
+    s_reserveAmounts[address(upkeep.billingToken)] = s_reserveAmounts[address(upkeep.billingToken)] - amountToWithdraw;
     s_upkeep[id].balance = 0;
-    i_link.transfer(to, amountToWithdraw);
+    bool success = upkeep.billingToken.transfer(to, amountToWithdraw);
+    if (!success) revert TransferFailed();
     emit FundsWithdrawn(id, amountToWithdraw, to);
   }
 
@@ -339,8 +351,16 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
     return i_allowedReadOnlyAddress;
   }
 
+  function getBillingToken(uint256 upkeepID) external view returns (IERC20) {
+    return s_upkeep[upkeepID].billingToken;
+  }
+
   function getBillingTokens() external view returns (IERC20[] memory) {
     return s_billingTokens;
+  }
+
+  function supportsBillingToken(IERC20 token) external view returns (bool) {
+    return address(s_billingConfigs[token].priceFeed) != address(0);
   }
 
   function getBillingTokenConfig(IERC20 token) external view returns (BillingConfig memory) {
@@ -371,7 +391,7 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
       admin: s_upkeepAdmin[id],
       maxValidBlocknumber: reg.maxValidBlocknumber,
       lastPerformedBlockNumber: reg.lastPerformedBlockNumber,
-      amountSpent: reg.amountSpent,
+      amountSpent: uint96(reg.amountSpent), // force casting to uint96 for backwards compatibility. Not an issue if it overflows.
       paused: reg.paused,
       offchainConfig: s_upkeepOffchainConfig[id]
     });
@@ -459,8 +479,8 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
   {
     state = IAutomationV21PlusCommon.StateLegacy({
       nonce: s_storage.nonce,
-      ownerLinkBalance: 0,
-      expectedLinkBalance: s_reserveAmounts[address(i_link)],
+      ownerLinkBalance: 0, // deprecated
+      expectedLinkBalance: 0, // deprecated
       totalPremium: s_hotVars.totalPremium,
       numUpkeeps: s_upkeepIDs.length(),
       configCount: s_storage.configCount,
@@ -471,12 +491,12 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
     });
 
     config = IAutomationV21PlusCommon.OnchainConfigLegacy({
-      paymentPremiumPPB: s_hotVars.paymentPremiumPPB,
-      flatFeeMicroLink: s_hotVars.flatFeeMicroLink,
+      paymentPremiumPPB: 0, // deprecated
+      flatFeeMicroLink: 0, // deprecated
       checkGasLimit: s_storage.checkGasLimit,
       stalenessSeconds: s_hotVars.stalenessSeconds,
       gasCeilingMultiplier: s_hotVars.gasCeilingMultiplier,
-      minUpkeepSpend: s_storage.minUpkeepSpend,
+      minUpkeepSpend: 0, // deprecated
       maxPerformGas: s_storage.maxPerformGas,
       maxCheckDataSize: s_storage.maxCheckDataSize,
       maxPerformDataSize: s_storage.maxPerformDataSize,
@@ -489,6 +509,24 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
     });
 
     return (state, config, s_signersList, s_transmittersList, s_hotVars.f);
+  }
+
+  /**
+   * @notice read the Storage data
+   * @dev this function signature will change with each version of automation
+   * this should not be treated as a stable function
+   */
+  function getStorage() external view returns (Storage memory) {
+    return s_storage;
+  }
+
+  /**
+   * @notice read the HotVars data
+   * @dev this function signature will change with each version of automation
+   * this should not be treated as a stable function
+   */
+  function getHotVars() external view returns (HotVars memory) {
+    return s_hotVars;
   }
 
   /**
@@ -527,17 +565,22 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
    * @dev this will be deprecated in a future version in favor of getMinBalance
    */
   function getMinBalanceForUpkeep(uint256 id) public view returns (uint96 minBalance) {
-    return getMaxPaymentForGas(_getTriggerType(id), s_upkeep[id].performGas);
+    Upkeep memory upkeep = s_upkeep[id];
+    return getMaxPaymentForGas(_getTriggerType(id), upkeep.performGas, upkeep.billingToken);
   }
 
   /**
    * @notice calculates the maximum payment for a given gas limit
    * @param gasLimit the gas to calculate payment for
    */
-  function getMaxPaymentForGas(Trigger triggerType, uint32 gasLimit) public view returns (uint96 maxPayment) {
+  function getMaxPaymentForGas(
+    Trigger triggerType,
+    uint32 gasLimit,
+    IERC20 billingToken
+  ) public view returns (uint96 maxPayment) {
     HotVars memory hotVars = s_hotVars;
     (uint256 fastGasWei, uint256 linkUSD, uint256 nativeUSD) = _getFeedData(hotVars);
-    return _getMaxLinkPayment(hotVars, triggerType, gasLimit, fastGasWei, linkUSD, nativeUSD);
+    return _getMaxPayment(hotVars, triggerType, gasLimit, fastGasWei, linkUSD, nativeUSD, billingToken);
   }
 
   /**
@@ -580,5 +623,12 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
    */
   function getFallbackNativePrice() external view returns (uint256) {
     return s_fallbackNativePrice;
+  }
+
+  /**
+   * @notice returns the fallback native price
+   */
+  function getReserveAmount(address billingToken) external view returns (uint256) {
+    return s_reserveAmounts[billingToken];
   }
 }
