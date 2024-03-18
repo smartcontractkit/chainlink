@@ -117,6 +117,7 @@ type Node interface {
 	EstimateGas(ctx context.Context, call ethereum.CallMsg) (uint64, error)
 	SuggestGasPrice(ctx context.Context) (*big.Int, error)
 	CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error)
+	PendingCallContract(ctx context.Context, msg ethereum.CallMsg) ([]byte, error)
 	CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error)
 	HeaderByNumber(context.Context, *big.Int) (*types.Header, error)
 	HeaderByHash(context.Context, common.Hash) (*types.Header, error)
@@ -823,6 +824,33 @@ func (n *node) CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumb
 	duration := time.Since(start)
 
 	n.logResult(lggr, err, duration, n.getRPCDomain(), "CallContract",
+		"val", val,
+	)
+
+	return
+
+}
+
+func (n *node) PendingCallContract(ctx context.Context, msg ethereum.CallMsg) (val []byte, err error) {
+	ctx, cancel, ws, http, err := n.makeLiveQueryCtxAndSafeGetClients(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer cancel()
+	lggr := n.newRqLggr().With("callMsg", msg)
+
+	lggr.Debug("RPC call: evmclient.Client#PendingCallContract")
+	start := time.Now()
+	if http != nil {
+		val, err = http.geth.PendingCallContract(ctx, msg)
+		err = n.wrapHTTP(err)
+	} else {
+		val, err = ws.geth.PendingCallContract(ctx, msg)
+		err = n.wrapWS(err)
+	}
+	duration := time.Since(start)
+
+	n.logResult(lggr, err, duration, n.getRPCDomain(), "PendingCallContract",
 		"val", val,
 	)
 

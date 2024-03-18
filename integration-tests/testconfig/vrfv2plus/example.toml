@@ -75,10 +75,8 @@ chainlink_node_funding = 0.5
 
 # Product part
 [VRFv2Plus]
-[VRFv2Plus.Common]
-cancel_subs_after_test_run = true
-
 [VRFv2Plus.General]
+cancel_subs_after_test_run = true
 max_gas_price_gwei = 1000
 link_native_feed_response = 1000000000000000000
 minimum_confirmations = 3
@@ -112,6 +110,9 @@ wrapper_consumer_funding_amount_link = 10
 subscription_funding_amount_native=1
 fulfillment_flat_fee_link_ppm=500
 fulfillment_flat_fee_native_ppm=500
+fulfillment_flat_fee_link_discount_ppm=100
+native_premium_percentage=1
+link_premium_percentage=1
 
 [VRFv2Plus.Performance]
 test_duration = "2m"

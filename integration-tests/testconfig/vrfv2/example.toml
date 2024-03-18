@@ -75,10 +75,8 @@ chainlink_node_funding = 0.5
 
 # Product part
 [VRFv2]
-[VRFv2.Common]
-cancel_subs_after_test_run = true
-
 [VRFv2.General]
+cancel_subs_after_test_run = true
 max_gas_price_gwei = 1000
 link_native_feed_response = 1000000000000000000
 minimum_confirmations = 3

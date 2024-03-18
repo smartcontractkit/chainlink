@@ -99,7 +99,8 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
     uint32 stalenessSeconds,
     uint32 gasAfterPaymentCalculation,
     int256 fallbackWeiPerUnitLink,
-    FeeConfig feeConfig
+    uint8 nativePremiumPercentage,
+    uint8 linkPremiumPercentage
   );
 
   constructor(address blockhashStore) SubscriptionAPI() {
@@ -135,7 +136,8 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
    * @param stalenessSeconds if the native/link feed is more stale then this, use the fallback price
    * @param gasAfterPaymentCalculation gas used in doing accounting after completing the gas measurement
    * @param fallbackWeiPerUnitLink fallback native/link price in the case of a stale feed
-   * @param feeConfig fee configuration
+   * @param nativePremiumPercentage native premium percentage
+   * @param linkPremiumPercentage link premium percentage
    */
   function setConfig(
     uint16 minimumRequestConfirmations,
@@ -143,7 +145,10 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
     uint32 stalenessSeconds,
     uint32 gasAfterPaymentCalculation,
     int256 fallbackWeiPerUnitLink,
-    FeeConfig memory feeConfig
+    uint32 fulfillmentFlatFeeNativePPM,
+    uint32 fulfillmentFlatFeeLinkDiscountPPM,
+    uint8 nativePremiumPercentage,
+    uint8 linkPremiumPercentage
   ) external onlyOwner {
     if (minimumRequestConfirmations > MAX_REQUEST_CONFIRMATIONS) {
       revert InvalidRequestConfirmations(
@@ -160,9 +165,12 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
       maxGasLimit: maxGasLimit,
       stalenessSeconds: stalenessSeconds,
       gasAfterPaymentCalculation: gasAfterPaymentCalculation,
-      reentrancyLock: false
+      reentrancyLock: false,
+      fulfillmentFlatFeeNativePPM: fulfillmentFlatFeeNativePPM,
+      fulfillmentFlatFeeLinkDiscountPPM: fulfillmentFlatFeeLinkDiscountPPM,
+      nativePremiumPercentage: nativePremiumPercentage,
+      linkPremiumPercentage: linkPremiumPercentage
     });
-    s_feeConfig = feeConfig;
     s_fallbackWeiPerUnitLink = fallbackWeiPerUnitLink;
     emit ConfigSet(
       minimumRequestConfirmations,
@@ -170,7 +178,8 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
       stalenessSeconds,
       gasAfterPaymentCalculation,
       fallbackWeiPerUnitLink,
-      s_feeConfig
+      nativePremiumPercentage,
+      linkPremiumPercentage
     );
   }
 
@@ -231,8 +240,9 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
     // Its important to ensure that the consumer is in fact who they say they
     // are, otherwise they could use someone else's subscription balance.
     // A nonce of 0 indicates consumer is not allocated to the sub.
-    uint64 currentNonce = s_consumers[msg.sender][req.subId];
-    if (currentNonce == 0) {
+    mapping(uint256 => ConsumerConfig) storage consumerConfigs = s_consumers[msg.sender];
+    ConsumerConfig memory consumerConfig = consumerConfigs[req.subId];
+    if (!consumerConfig.active) {
       revert InvalidConsumer(req.subId, msg.sender);
     }
     // Input validation using the config storage word.
@@ -258,8 +268,8 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
     // Note we do not check whether the keyHash is valid to save gas.
     // The consequence for users is that they can send requests
     // for invalid keyHashes which will simply not be fulfilled.
-    uint64 nonce = currentNonce + 1;
-    (uint256 requestId, uint256 preSeed) = _computeRequestId(req.keyHash, msg.sender, req.subId, nonce);
+    ++consumerConfig.nonce;
+    (uint256 requestId, uint256 preSeed) = _computeRequestId(req.keyHash, msg.sender, req.subId, consumerConfig.nonce);
 
     VRFV2PlusClient.ExtraArgsV1 memory extraArgs = _fromBytes(req.extraArgs);
     bytes memory extraArgsBytes = VRFV2PlusClient._argsToBytes(extraArgs);
@@ -285,7 +295,7 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
       extraArgsBytes,
       msg.sender
     );
-    s_consumers[msg.sender][req.subId] = nonce;
+    s_consumers[msg.sender][req.subId] = consumerConfig;
 
     return requestId;
   }
@@ -381,7 +391,11 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
    * @return payment amount billed to the subscription
    * @dev simulated offchain to determine if sufficient balance is present to fulfill the request
    */
-  function fulfillRandomWords(Proof memory proof, RequestCommitment memory rc) external nonReentrant returns (uint96) {
+  function fulfillRandomWords(
+    Proof memory proof,
+    RequestCommitment memory rc,
+    bool
+  ) external nonReentrant returns (uint96) {
     uint256 startGas = gasleft();
     Output memory output = _getRandomnessFromProof(proof, rc);
 
@@ -535,7 +549,7 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
           s_provingKeyHashes[j],
           subConfig.consumers[i],
           subId,
-          s_consumers[subConfig.consumers[i]][subId]
+          s_consumers[subConfig.consumers[i]][subId].nonce
         );
         if (s_requestCommitments[reqId] != 0) {
           return true;
@@ -552,7 +566,7 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
     if (pendingRequestExists(subId)) {
       revert PendingRequestExists();
     }
-    if (s_consumers[consumer][subId] == 0) {
+    if (!s_consumers[consumer][subId].active) {
       revert InvalidConsumer(subId, consumer);
     }
     // Note bounded by MAX_CONSUMERS
@@ -699,7 +713,11 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
     }
 
     for (uint256 i = 0; i < migrationData.consumers.length; i++) {
-      s_consumers[migrationData.consumers[i]][migrationData.subId] = 1;
+      s_consumers[migrationData.consumers[i]][migrationData.subId] = ConsumerConfig({
+        active: true,
+        nonce: 0,
+        pendingReqCount: 0
+      });
     }
 
     s_subscriptions[migrationData.subId] = Subscription({
