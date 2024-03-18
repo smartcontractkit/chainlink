@@ -61,7 +61,7 @@ type ORM interface {
 	SelectLogsDataWordGreaterThan(ctx context.Context, address common.Address, eventSig common.Hash, wordIndex int, wordValueMin common.Hash, confs evmtypes.Confirmations) ([]Log, error)
 	SelectLogsDataWordBetween(ctx context.Context, address common.Address, eventSig common.Hash, wordIndexMin int, wordIndexMax int, wordValue common.Hash, confs evmtypes.Confirmations) ([]Log, error)
 	// FilteredLogs accepts chainlink-common filtering DSL.
-	FilteredLogs(queryFilter commontypes.QueryFilter, sortAndLimit commontypes.LimitAndSort) ([]Log, error)
+	FilteredLogs(queryFilter commontypes.QueryFilter, sortAndLimit commontypes.LimitAndSort) ([]*Log, error)
 }
 
 type DbORM struct {
@@ -971,7 +971,7 @@ func (o *DbORM) SelectIndexedLogsWithSigsExcluding(ctx context.Context, sigA, si
 	return logs, nil
 }
 
-func (o *DbORM) FilteredLogs(_ commontypes.QueryFilter, _ commontypes.LimitAndSort) ([]Log, error) {
+func (o *DbORM) FilteredLogs(_ commontypes.QueryFilter, _ commontypes.LimitAndSort) ([]*Log, error) {
 	//TODO implement me
 	panic("implement me")
 }

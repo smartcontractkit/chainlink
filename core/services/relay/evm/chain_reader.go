@@ -34,7 +34,7 @@ type chainReader struct {
 	lp               logpoller.LogPoller
 	client           evmclient.Client
 	contractBindings contractBindings
-	// TODO should keys that are bound just to event sigs also live here? Probably yes
+	// TODO merge with contract bindings somehow
 	eventIndexBindings EventIndexBindings
 	parsed             *parsedTypes
 	codec              commontypes.RemoteCodec
@@ -88,7 +88,7 @@ func (cr *chainReader) Bind(ctx context.Context, bindings []commontypes.BoundCon
 	return cr.contractBindings.Bind(ctx, bindings)
 }
 
-func (cr *chainReader) QueryKey(ctx context.Context, key string, queryFilter commontypes.QueryFilter, limitAndSort commontypes.LimitAndSort) ([]commontypes.Sequence, error) {
+func (cr *chainReader) QueryKey(ctx context.Context, key string, queryFilter commontypes.QueryFilter, limitAndSort commontypes.LimitAndSort, sequenceDataType any) ([]commontypes.Sequence, error) {
 	remappedQueryFilter, err := remapQueryFilter(queryFilter)
 	if err != nil {
 		return nil, err
@@ -100,13 +100,16 @@ func (cr *chainReader) QueryKey(ctx context.Context, key string, queryFilter com
 	}
 
 	remappedQueryFilter.Expressions = append(remappedQueryFilter.Expressions, NewEventFilter(address, eventSig))
-	_, err = cr.lp.FilteredLogs(remappedQueryFilter, limitAndSort)
+	logs, err := cr.lp.FilteredLogs(remappedQueryFilter, limitAndSort)
+	if err != nil {
+		return nil, err
+	}
 
-	return nil, err
+	return cr.eventIndexBindings.DecodeLogsIntoSequences(ctx, key, logs, sequenceDataType)
 }
 
 // TODO if slice of keys then matrix of queryFilters?
-func (cr *chainReader) QueryKeys(ctx context.Context, keys []string, queryFilter commontypes.QueryFilter, limitAndSort commontypes.LimitAndSort) ([][]commontypes.Sequence, error) {
+func (cr *chainReader) QueryKeys(ctx context.Context, keys []string, queryFilter commontypes.QueryFilter, limitAndSort commontypes.LimitAndSort, sequenceDataType []any) ([][]commontypes.Sequence, error) {
 	remappedQueryFilter, err := remapQueryFilter(queryFilter)
 	if err != nil {
 		return nil, err
@@ -118,22 +121,28 @@ func (cr *chainReader) QueryKeys(ctx context.Context, keys []string, queryFilter
 	}
 
 	remappedQueryFilter.Expressions = append(remappedQueryFilter.Expressions, eventsFilters)
+	// TODO, this doesn't make sense, logs should be 2d slice when multiple keys are requested
+	// TODO QueryKeys should also accept multiple query filters then
 	_, err = cr.lp.FilteredLogs(remappedQueryFilter, limitAndSort)
-
 	return nil, err
 }
 
-func (cr *chainReader) QueryKeyByValues(ctx context.Context, key string, values []string, queryFilter commontypes.QueryFilter, limitAndSort commontypes.LimitAndSort) ([]commontypes.Sequence, error) {
+func (cr *chainReader) QueryKeyByValues(ctx context.Context, key string, values []string, queryFilter commontypes.QueryFilter, limitAndSort commontypes.LimitAndSort, sequenceDataType any) ([]commontypes.Sequence, error) {
 	logFilters, err := remapQueryKeyByValuesFilters(key, values, cr.eventIndexBindings, queryFilter)
 	if err != nil {
 		return nil, err
 	}
-	_, err = cr.lp.FilteredLogs(logFilters, limitAndSort)
-	return nil, err
+
+	logs, err := cr.lp.FilteredLogs(logFilters, limitAndSort)
+	if err != nil {
+		return nil, err
+	}
+
+	return cr.eventIndexBindings.DecodeLogsIntoSequences(ctx, key, logs, sequenceDataType)
 }
 
 // TODO values shouldn't be string?
-func (cr *chainReader) QueryKeysByValues(ctx context.Context, keys []string, values [][]string, queryFilter commontypes.QueryFilter, limitAndSort commontypes.LimitAndSort) ([][]commontypes.Sequence, error) {
+func (cr *chainReader) QueryKeysByValues(ctx context.Context, keys []string, values [][]string, queryFilter commontypes.QueryFilter, limitAndSort commontypes.LimitAndSort, sequenceDataType []any) ([][]commontypes.Sequence, error) {
 	remappedQueryFilter, err := remapQueryFilter(queryFilter)
 	if err != nil {
 		return nil, err
@@ -145,6 +154,8 @@ func (cr *chainReader) QueryKeysByValues(ctx context.Context, keys []string, val
 	}
 
 	remappedQueryFilter.Expressions = append(remappedQueryFilter.Expressions, indexedEventsByValuesFilters)
+	// TODO, this doesn't make sense, logs should be 2d slice when multiple keys are requested
+	// TODO QueryKeysByValues should also accept multiple query filters then
 	_, err = cr.lp.FilteredLogs(remappedQueryFilter, limitAndSort)
 
 	return nil, err

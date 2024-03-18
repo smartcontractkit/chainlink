@@ -66,6 +66,31 @@ func (e *EventIndexBindings) GetEventData(key string) (string, string, error) {
 	return binding.contractName, binding.eventName, nil
 }
 
+func (e *EventIndexBindings) DecodeLogsIntoSequences(ctx context.Context, key string, logs []*logpoller.Log, into any) ([]commontypes.Sequence, error) {
+	binding, ok := (*e)[key]
+	if !ok {
+		return nil, fmt.Errorf("%w: unregistered key", commontypes.ErrInternal)
+	}
+
+	var sequences []commontypes.Sequence
+	for _, log := range logs {
+		sequence := commontypes.Sequence{
+			// TODO
+			SequenceCursor: "TODO",
+			Timestamp:      uint64(log.BlockTimestamp.Unix()),
+			Data:           reflect.New(reflect.TypeOf(into).Elem()),
+		}
+
+		if err := binding.decodeLog(ctx, log, sequence.Data); err != nil {
+			return nil, err
+		}
+
+		sequences = append(sequences, sequence)
+	}
+
+	return sequences, nil
+}
+
 type eventIndexBinding struct {
 	*eventBinding
 	topicIndex int
