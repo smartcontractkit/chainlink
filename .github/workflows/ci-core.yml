@@ -27,11 +27,6 @@ on:
         required: false
         default: ""
         type: string
-      set_changes_output:
-        description: 'Set the detect changes output, used when ran from other repos to avoid the filter'
-        required: false
-        type: string
-        default: 'true'
 
 jobs:
 
@@ -40,7 +35,7 @@ jobs:
     permissions:
       pull-requests: read
     outputs:
-      changes: ${{ inputs.set_changes_output || steps.changes.outputs.changes }}
+      changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.changes }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
@@ -53,6 +48,10 @@ jobs:
           filters: |
             changes:
               - '!integration-tests/**'
+      - name: Ignore Filter On Workflow Dispatch
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        id: ignore-filter
+        run: echo "changes=true" >> $GITHUB_OUTPUT
 
   golangci:
     # We don't directly merge dependabot PRs, so let's not waste the resources
