@@ -205,7 +205,7 @@ jobs:
           key_secret="$PYROSCOPE_KEY"
 
           [PrivateEthereumNetwork]
-          consensus_type="pos"
+          ethereum_version="eth2"
           consensus_layer="prysm"
           execution_layer="$execution_layer"
           wait_for_finalization=false
