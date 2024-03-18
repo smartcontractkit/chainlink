@@ -76,6 +76,18 @@ func TestSlice(t *testing.T) {
 		require.True(t, errors.Is(err, types.ErrSliceWrongLen))
 	})
 
+	t.Run("Encode allows large maximal sizes without overflowing", func(t *testing.T) {
+		largeSizeCodec := &testutils.TestTypeCodec{
+			Value: 32,
+			Bytes: []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32},
+		}
+		codec, err := encodings.NewSlice(elementCodec, largeSizeCodec)
+		require.NoError(t, err)
+		result, err := codec.Encode([]byte{0x01, 0x02, 0x03, 0x04}, []byte{})
+		require.NoError(t, err)
+		assert.Equal(t, append(largeSizeCodec.Bytes, []byte{0x03, 0x04, 0x03, 0x04, 0x03, 0x04, 0x03, 0x04}...), result)
+	})
+
 	t.Run("Decode returns slice", func(t *testing.T) {
 		actual, remaining, err := testSlice.Decode([]byte{0x03, 0x03, 0x04, 0x03, 0x04, 0x03, 0x04})
 		require.NoError(t, err)

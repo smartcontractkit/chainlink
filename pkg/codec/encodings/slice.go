@@ -2,6 +2,7 @@ package encodings
 
 import (
 	"fmt"
+	"math/big"
 	"reflect"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -41,7 +42,8 @@ func (s *slice) Encode(value any, into []byte) ([]byte, error) {
 	}
 
 	numElements := rValue.Len()
-	if numElements > 1<<(fs*8) {
+	maxElements := new(big.Int).Lsh(big.NewInt(1), uint(fs*8))
+	if big.NewInt(int64(numElements)).Cmp(maxElements) > 0 {
 		return nil, fmt.Errorf("%w: %v is too big to encode into a %v-bytes slice", types.ErrSliceWrongLen, numElements, fs)
 	}
 
