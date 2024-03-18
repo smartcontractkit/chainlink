@@ -71,8 +71,8 @@ type GetLogsBatchElem rpc.BatchElem
 
 func NewGetLogsReq(filter Filter) *GetLogsBatchElem {
 	params := map[string]interface{}{
-		"addresses": []common.Address(filter.Addresses),
-		"topics":    [][]common.Hash{filter.EventSigs, filter.Topic2, filter.Topic3, filter.Topic4},
+		"address": []common.Address(filter.Addresses),
+		"topics":  [][]common.Hash{filter.EventSigs, filter.Topic2, filter.Topic3, filter.Topic4},
 	}
 
 	return &GetLogsBatchElem{
@@ -87,11 +87,11 @@ func (e GetLogsBatchElem) params() map[string]interface{} {
 }
 
 func (e GetLogsBatchElem) Addresses() []common.Address {
-	return e.params()["addresses"].([]common.Address)
+	return e.params()["address"].([]common.Address)
 }
 
 func (e GetLogsBatchElem) SetAddresses(addresses []common.Address) {
-	e.params()["addresses"] = addresses
+	e.params()["address"] = addresses
 }
 
 func (e GetLogsBatchElem) Topics() [][]common.Hash {
@@ -1607,8 +1607,8 @@ func (lp *logPoller) ethGetLogsReqs(fromBlock, toBlock *big.Int, blockHash *comm
 	reqs := make([]rpc.BatchElem, 0, len(lp.cachedReqsByEventsTopicsKey))
 	for _, req := range lp.cachedReqsByEventsTopicsKey {
 		params := map[string]interface{}{
-			"addresses": req.Addresses(),
-			"topics":    req.Topics(),
+			"address": req.Addresses(),
+			"topics":  req.Topics(),
 		}
 		maps.Copy(params, blockParams)
 

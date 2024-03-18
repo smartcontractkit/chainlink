@@ -725,7 +725,7 @@ func (c *SimulatedBackendClient) ethGetLogs(ctx context.Context, result interfac
 		}
 	}
 
-	if a, ok := params["addresses"]; ok {
+	if a, ok := params["address"]; ok {
 		addresses = a.([]common.Address)
 	}
 
