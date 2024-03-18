@@ -3,6 +3,7 @@ package client
 import (
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -10,12 +11,45 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 )
 
+type testNodeConfig struct {
+	PollFailureThresholdVal       uint32
+	PollIntervalVal               time.Duration
+	SelectionModeVal              string
+	SyncThresholdVal              uint32
+	NodeIsSyncingEnabledVal       bool
+	FinalizedBlockPollIntervalVal time.Duration
+}
+
+func (n testNodeConfig) PollFailureThreshold() uint32 {
+	return n.PollFailureThresholdVal
+}
+
+func (n testNodeConfig) PollInterval() time.Duration {
+	return n.PollIntervalVal
+}
+
+func (n testNodeConfig) SelectionMode() string {
+	return n.SelectionModeVal
+}
+
+func (n testNodeConfig) SyncThreshold() uint32 {
+	return n.SyncThresholdVal
+}
+
+func (n testNodeConfig) NodeIsSyncingEnabled() bool {
+	return n.NodeIsSyncingEnabledVal
+}
+
+func (n testNodeConfig) FinalizedBlockPollInterval() time.Duration {
+	return n.FinalizedBlockPollIntervalVal
+}
+
 type testNode struct {
 	*node[types.ID, Head, NodeClient[types.ID, Head]]
 }
 
 type testNodeOpts struct {
-	config      clientMocks.NodeConfig
+	config      testNodeConfig
 	chainConfig clientMocks.ChainConfig
 	lggr        logger.Logger
 	wsuri       url.URL

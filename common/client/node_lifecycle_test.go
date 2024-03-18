@@ -100,7 +100,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		rpc := newMockNodeClient[types.ID, Head](t)
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		node := newSubscribedNode(t, testNodeOpts{
-			config: clientMocks.NodeConfig{},
+			config: testNodeConfig{},
 			rpc:    rpc,
 			lggr:   lggr,
 		})
@@ -116,7 +116,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		const pollFailureThreshold = 3
 		node := newSubscribedNode(t, testNodeOpts{
-			config: clientMocks.NodeConfig{
+			config: testNodeConfig{
 				PollFailureThresholdVal: pollFailureThreshold,
 				PollIntervalVal:         tests.TestInterval,
 			},
@@ -158,7 +158,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		const pollFailureThreshold = 3
 		node := newSubscribedNode(t, testNodeOpts{
-			config: clientMocks.NodeConfig{
+			config: testNodeConfig{
 				PollFailureThresholdVal: pollFailureThreshold,
 				PollIntervalVal:         tests.TestInterval,
 			},
@@ -184,7 +184,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		const pollFailureThreshold = 3
 		node := newSubscribedNode(t, testNodeOpts{
-			config: clientMocks.NodeConfig{
+			config: testNodeConfig{
 				PollFailureThresholdVal: pollFailureThreshold,
 				PollIntervalVal:         tests.TestInterval,
 			},
@@ -207,7 +207,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		const syncThreshold = 10
 		node := newSubscribedNode(t, testNodeOpts{
-			config: clientMocks.NodeConfig{
+			config: testNodeConfig{
 				PollIntervalVal:  tests.TestInterval,
 				SyncThresholdVal: syncThreshold,
 				SelectionModeVal: NodeSelectionModeRoundRobin,
@@ -240,7 +240,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		const syncThreshold = 10
 		node := newSubscribedNode(t, testNodeOpts{
-			config: clientMocks.NodeConfig{
+			config: testNodeConfig{
 				PollIntervalVal:  tests.TestInterval,
 				SyncThresholdVal: syncThreshold,
 				SelectionModeVal: NodeSelectionModeRoundRobin,
@@ -262,7 +262,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		rpc := newMockNodeClient[types.ID, Head](t)
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		node := newSubscribedNode(t, testNodeOpts{
-			config: clientMocks.NodeConfig{
+			config: testNodeConfig{
 				PollIntervalVal:  tests.TestInterval,
 				SyncThresholdVal: 0,
 				SelectionModeVal: NodeSelectionModeRoundRobin,
@@ -285,7 +285,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		t.Parallel()
 		rpc := newMockNodeClient[types.ID, Head](t)
 		node := newSubscribedNode(t, testNodeOpts{
-			config: clientMocks.NodeConfig{},
+			config: testNodeConfig{},
 			chainConfig: clientMocks.ChainConfig{
 				NoNewHeadsThresholdVal: tests.TestInterval,
 			},
@@ -312,7 +312,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		rpc := newMockNodeClient[types.ID, Head](t)
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		node := newSubscribedNode(t, testNodeOpts{
-			config: clientMocks.NodeConfig{},
+			config: testNodeConfig{},
 			lggr:   lggr,
 			chainConfig: clientMocks.ChainConfig{
 				NoNewHeadsThresholdVal: tests.TestInterval,
@@ -342,7 +342,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		lggr, observedLogs := logger.TestObserved(t, zap.ErrorLevel)
 		node := newDialedNode(t, testNodeOpts{
 			lggr:   lggr,
-			config: clientMocks.NodeConfig{},
+			config: testNodeConfig{},
 			chainConfig: clientMocks.ChainConfig{
 				NoNewHeadsThresholdVal: tests.TestInterval,
 			},
@@ -372,7 +372,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		}).Return(sub, nil).Once()
 		rpc.On("SetAliveLoopSub", sub).Once()
 		node := newDialedNode(t, testNodeOpts{
-			config: clientMocks.NodeConfig{},
+			config: testNodeConfig{},
 			rpc:    rpc,
 		})
 		defer func() { assert.NoError(t, node.close()) }()
@@ -398,7 +398,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		rpc.On("SetAliveLoopSub", sub).Once()
 		name := "node-" + rand.Str(5)
 		node := newDialedNode(t, testNodeOpts{
-			config:      clientMocks.NodeConfig{},
+			config:      testNodeConfig{},
 			chainConfig: clientMocks.ChainConfig{FinalityDepthVal: finalityDepth},
 			rpc:         rpc,
 			name:        name,
@@ -425,7 +425,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		rpc.On("SetAliveLoopSub", sub).Once()
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		node := newDialedNode(t, testNodeOpts{
-			config: clientMocks.NodeConfig{
+			config: testNodeConfig{
 				FinalizedBlockPollIntervalVal: tests.TestInterval,
 			},
 			chainConfig: clientMocks.ChainConfig{
@@ -451,7 +451,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		rpc.On("SetAliveLoopSub", sub).Once()
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		node := newDialedNode(t, testNodeOpts{
-			config: clientMocks.NodeConfig{
+			config: testNodeConfig{
 				FinalizedBlockPollIntervalVal: tests.TestInterval,
 			},
 			chainConfig: clientMocks.ChainConfig{
@@ -483,7 +483,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		rpc.On("SetAliveLoopSub", sub).Once()
 		name := "node-" + rand.Str(5)
 		node := newDialedNode(t, testNodeOpts{
-			config: clientMocks.NodeConfig{
+			config: testNodeConfig{
 				FinalizedBlockPollIntervalVal: tests.TestInterval,
 			},
 			chainConfig: clientMocks.ChainConfig{
@@ -656,7 +656,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		node := newAliveNode(t, testNodeOpts{
 			rpc:     rpc,
 			chainID: nodeChainID,
-			config:  clientMocks.NodeConfig{NodeIsSyncingEnabledVal: true},
+			config:  testNodeConfig{NodeIsSyncingEnabledVal: true},
 		})
 		defer func() { assert.NoError(t, node.close()) }()
 
@@ -676,7 +676,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		node := newAliveNode(t, testNodeOpts{
 			rpc:     rpc,
 			chainID: nodeChainID,
-			config:  clientMocks.NodeConfig{NodeIsSyncingEnabledVal: true},
+			config:  testNodeConfig{NodeIsSyncingEnabledVal: true},
 		})
 		defer func() { assert.NoError(t, node.close()) }()
 
@@ -923,7 +923,7 @@ func TestUnit_NodeLifecycle_unreachableLoop(t *testing.T) {
 			rpc:     rpc,
 			chainID: nodeChainID,
 			lggr:    lggr,
-			config:  clientMocks.NodeConfig{NodeIsSyncingEnabledVal: true},
+			config:  testNodeConfig{NodeIsSyncingEnabledVal: true},
 		})
 		defer func() { assert.NoError(t, node.close()) }()
 
@@ -942,7 +942,7 @@ func TestUnit_NodeLifecycle_unreachableLoop(t *testing.T) {
 		node := newAliveNode(t, testNodeOpts{
 			rpc:     rpc,
 			chainID: nodeChainID,
-			config:  clientMocks.NodeConfig{NodeIsSyncingEnabledVal: true},
+			config:  testNodeConfig{NodeIsSyncingEnabledVal: true},
 		})
 		defer func() { assert.NoError(t, node.close()) }()
 
@@ -964,7 +964,7 @@ func TestUnit_NodeLifecycle_unreachableLoop(t *testing.T) {
 		node := newAliveNode(t, testNodeOpts{
 			rpc:     rpc,
 			chainID: nodeChainID,
-			config:  clientMocks.NodeConfig{NodeIsSyncingEnabledVal: true},
+			config:  testNodeConfig{NodeIsSyncingEnabledVal: true},
 		})
 		defer func() { assert.NoError(t, node.close()) }()
 
@@ -1108,7 +1108,7 @@ func TestUnit_NodeLifecycle_invalidChainIDLoop(t *testing.T) {
 		node := newDialedNode(t, testNodeOpts{
 			rpc:     rpc,
 			chainID: nodeChainID,
-			config:  clientMocks.NodeConfig{NodeIsSyncingEnabledVal: true},
+			config:  testNodeConfig{NodeIsSyncingEnabledVal: true},
 		})
 		defer func() { assert.NoError(t, node.close()) }()
 
@@ -1212,7 +1212,7 @@ func TestUnit_NodeLifecycle_start(t *testing.T) {
 			rpc:     rpc,
 			chainID: nodeChainID,
 			lggr:    lggr,
-			config:  clientMocks.NodeConfig{NodeIsSyncingEnabledVal: true},
+			config:  testNodeConfig{NodeIsSyncingEnabledVal: true},
 		})
 		defer func() { assert.NoError(t, node.close()) }()
 
@@ -1239,7 +1239,7 @@ func TestUnit_NodeLifecycle_start(t *testing.T) {
 		node := newNode(t, testNodeOpts{
 			rpc:     rpc,
 			chainID: nodeChainID,
-			config:  clientMocks.NodeConfig{NodeIsSyncingEnabledVal: true},
+			config:  testNodeConfig{NodeIsSyncingEnabledVal: true},
 		})
 		defer func() { assert.NoError(t, node.close()) }()
 
@@ -1261,7 +1261,7 @@ func TestUnit_NodeLifecycle_start(t *testing.T) {
 		node := newNode(t, testNodeOpts{
 			rpc:     rpc,
 			chainID: nodeChainID,
-			config:  clientMocks.NodeConfig{NodeIsSyncingEnabledVal: true},
+			config:  testNodeConfig{NodeIsSyncingEnabledVal: true},
 		})
 		defer func() { assert.NoError(t, node.close()) }()
 
@@ -1319,7 +1319,7 @@ func TestUnit_NodeLifecycle_syncStatus(t *testing.T) {
 	})
 	t.Run("panics on invalid selection mode", func(t *testing.T) {
 		node := newTestNode(t, testNodeOpts{
-			config: clientMocks.NodeConfig{SyncThresholdVal: 1},
+			config: testNodeConfig{SyncThresholdVal: 1},
 		})
 		node.nLiveNodes = func() (count int, blockNumber int64, totalDifficulty *big.Int) {
 			return
@@ -1362,7 +1362,7 @@ func TestUnit_NodeLifecycle_syncStatus(t *testing.T) {
 
 		for _, selectionMode := range []string{NodeSelectionModeHighestHead, NodeSelectionModeRoundRobin, NodeSelectionModePriorityLevel} {
 			node := newTestNode(t, testNodeOpts{
-				config: clientMocks.NodeConfig{
+				config: testNodeConfig{
 					SyncThresholdVal: syncThreshold,
 					SelectionModeVal: selectionMode,
 				},
@@ -1415,7 +1415,7 @@ func TestUnit_NodeLifecycle_syncStatus(t *testing.T) {
 		}
 
 		node := newTestNode(t, testNodeOpts{
-			config: clientMocks.NodeConfig{
+			config: testNodeConfig{
 				SyncThresholdVal: syncThreshold,
 				SelectionModeVal: NodeSelectionModeTotalDifficulty,
 			},
