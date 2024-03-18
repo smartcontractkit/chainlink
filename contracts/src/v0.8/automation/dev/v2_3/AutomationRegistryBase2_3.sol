@@ -436,7 +436,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   event FundsAdded(uint256 indexed id, address indexed from, uint96 amount);
   event FundsWithdrawn(uint256 indexed id, uint256 amount, address to);
   event InsufficientFundsUpkeepReport(uint256 indexed id, bytes trigger);
-  event NOPsSettledOffchain(address[] payees, uint256[] balances);
+  event NOPsSettledOffchain(address[] transmitters, uint256[] balances);
   event Paused(address account);
   event PayeesUpdated(address[] transmitters, address[] payees);
   event PayeeshipTransferRequested(address indexed transmitter, address indexed from, address indexed to);

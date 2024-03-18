@@ -34,7 +34,7 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
       fastGasFeed,
       automationForwarderLogic,
       allowedReadOnlyAddress,
-      s_payoutMode
+      payoutMode
     )
   {}
 

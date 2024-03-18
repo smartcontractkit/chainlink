@@ -2,6 +2,7 @@
 pragma solidity 0.8.19;
 
 import {BaseTest} from "./BaseTest.t.sol";
+import {AutomationRegistryBase2_3 as AutoBase2_3} from "../v2_3/AutomationRegistryBase2_3.sol";
 import {IAutomationRegistryMaster2_3, AutomationRegistryBase2_3} from "../interfaces/v2_3/IAutomationRegistryMaster2_3.sol";
 import {ChainModuleBase} from "../../chains/ChainModuleBase.sol";
 
@@ -18,7 +19,7 @@ contract AutomationRegistry2_3_SetUp is BaseTest {
     s_registrars = new address[](1);
     s_registrars[0] = 0x3a0eDE26aa188BFE00b9A0C9A431A1a0CA5f7966;
 
-    registryMaster = deployRegistry();
+    registryMaster = deployRegistry(AutoBase2_3.PayoutMode.ON_CHAIN);
   }
 }
 
@@ -502,5 +503,102 @@ contract AutomationRegistry2_3_SetConfig is AutomationRegistry2_3_SetUp {
     uint256 prefixMask = type(uint256).max << (256 - 16); // 0xFFFF00..00
     uint256 prefix = 0x0001 << (256 - 16); // 0x000100..00
     return bytes32((prefix & prefixMask) | (h & ~prefixMask));
+  }
+}
+
+contract AutomationRegistry2_3_NOPsSettlement is AutomationRegistry2_3_SetUp {
+  event NOPsSettledOffchain(address[] transmitterList, uint256[] balances);
+
+  function deployAndSetConfigForSettleOffchain(AutoBase2_3.PayoutMode payoutMode) public {
+    registryMaster = deployRegistry(payoutMode);
+    address module = address(new ChainModuleBase());
+    AutomationRegistryBase2_3.OnchainConfig memory cfg = AutomationRegistryBase2_3.OnchainConfig({
+      checkGasLimit: 5_000_000,
+      stalenessSeconds: 90_000,
+      gasCeilingMultiplier: 0,
+      maxPerformGas: 10_000_000,
+      maxCheckDataSize: 5_000,
+      maxPerformDataSize: 5_000,
+      maxRevertDataSize: 5_000,
+      fallbackGasPrice: 20_000_000_000,
+      fallbackLinkPrice: 2_000_000_000, // $20
+      fallbackNativePrice: 400_000_000_000, // $4,000
+      transcoder: 0xB1e66855FD67f6e85F0f0fA38cd6fBABdf00923c,
+      registrars: s_registrars,
+      upkeepPrivilegeManager: 0xD9c855F08A7e460691F41bBDDe6eC310bc0593D8,
+      chainModule: module,
+      reorgProtectionEnabled: true,
+      financeAdmin: FINANCE_ADMIN
+    });
+    bytes memory offchainConfigBytes = abi.encode(1234, ZERO_ADDRESS);
+
+    registryMaster.setConfigTypeSafe(
+      SIGNERS,
+      TRANSMITTERS,
+      F,
+      cfg,
+      OFFCHAIN_CONFIG_VERSION,
+      offchainConfigBytes,
+      new address[](0),
+      new AutomationRegistryBase2_3.BillingConfig[](0)
+    );
+  }
+
+  function testSettleNOPsOffchainRevertDueToUnauthorizedCaller() public {
+    deployAndSetConfigForSettleOffchain(AutoBase2_3.PayoutMode.ON_CHAIN);
+
+    vm.expectRevert(abi.encodeWithSelector(IAutomationRegistryMaster2_3.OnlyFinanceAdmin.selector));
+    registryMaster.settleNOPsOffchain();
+  }
+
+  function testSettleNOPsOffchainRevertDueToOffchainSettlementDisabled() public {
+    deployAndSetConfigForSettleOffchain(AutoBase2_3.PayoutMode.ON_CHAIN);
+
+    vm.prank(registryMaster.owner());
+    registryMaster.disableOffchainPayments();
+
+    vm.prank(FINANCE_ADMIN);
+    vm.expectRevert(abi.encodeWithSelector(IAutomationRegistryMaster2_3.MustSettleOnchain.selector));
+    registryMaster.settleNOPsOffchain();
+  }
+
+  function testSettleNOPsOffchainSuccess() public {
+    deployAndSetConfigForSettleOffchain(AutoBase2_3.PayoutMode.OFF_CHAIN);
+
+    uint256[] memory balances = new uint256[](TRANSMITTERS.length);
+    for (uint256 i = 0; i < TRANSMITTERS.length; i++) {
+      balances[i] = 0;
+    }
+
+    vm.startPrank(FINANCE_ADMIN);
+    vm.expectEmit();
+    emit NOPsSettledOffchain(TRANSMITTERS, balances);
+    registryMaster.settleNOPsOffchain();
+  }
+
+  function testDisableOffchainPaymentsRevertDueToUnauthorizedCaller() public {
+    deployAndSetConfigForSettleOffchain(AutoBase2_3.PayoutMode.OFF_CHAIN);
+
+    vm.startPrank(FINANCE_ADMIN);
+    vm.expectRevert(bytes("Only callable by owner"));
+    registryMaster.disableOffchainPayments();
+  }
+
+  function testDisableOffchainPaymentsSuccess() public {
+    deployAndSetConfigForSettleOffchain(AutoBase2_3.PayoutMode.OFF_CHAIN);
+
+    vm.startPrank(registryMaster.owner());
+    registryMaster.disableOffchainPayments();
+
+    assertEq(uint8(AutoBase2_3.PayoutMode.ON_CHAIN), registryMaster.getPayoutMode());
+  }
+}
+
+contract AutomationRegistry2_3_WithdrawPayment is AutomationRegistry2_3_SetUp {
+  function testWithdrawPaymentRevertDueToOffchainPayoutMode() public {
+    registryMaster = deployRegistry(AutoBase2_3.PayoutMode.OFF_CHAIN);
+    vm.expectRevert(abi.encodeWithSelector(IAutomationRegistryMaster2_3.MustSettleOffchain.selector));
+    vm.prank(TRANSMITTERS[0]);
+    registryMaster.withdrawPayment(TRANSMITTERS[0], TRANSMITTERS[0]);
   }
 }

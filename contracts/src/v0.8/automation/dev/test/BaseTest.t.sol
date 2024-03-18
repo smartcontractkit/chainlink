@@ -9,7 +9,7 @@ import {ERC20Mock} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/
 import {MockV3Aggregator} from "../../../tests/MockV3Aggregator.sol";
 import {AutomationForwarderLogic} from "../../AutomationForwarderLogic.sol";
 import {AutomationRegistry2_3} from "../v2_3/AutomationRegistry2_3.sol";
-import {AutomationRegistryBase2_3} from "../v2_3/AutomationRegistryBase2_3.sol";
+import {AutomationRegistryBase2_3 as AutoBase2_3} from "../v2_3/AutomationRegistryBase2_3.sol";
 import {AutomationRegistryLogicA2_3} from "../v2_3/AutomationRegistryLogicA2_3.sol";
 import {AutomationRegistryLogicB2_3} from "../v2_3/AutomationRegistryLogicB2_3.sol";
 import {IAutomationRegistryMaster2_3, AutomationRegistryBase2_3} from "../interfaces/v2_3/IAutomationRegistryMaster2_3.sol";
@@ -77,7 +77,7 @@ contract BaseTest is Test {
   /**
    * @notice deploys the component parts of a registry, but nothing more
    */
-  function deployRegistry() internal returns (IAutomationRegistryMaster2_3) {
+  function deployRegistry(AutoBase2_3.PayoutMode payoutMode) internal returns (IAutomationRegistryMaster2_3) {
     AutomationForwarderLogic forwarderLogic = new AutomationForwarderLogic();
     AutomationRegistryLogicB2_3 logicB2_3 = new AutomationRegistryLogicB2_3(
       address(linkToken),
@@ -86,7 +86,7 @@ contract BaseTest is Test {
       address(FAST_GAS_FEED),
       address(forwarderLogic),
       ZERO_ADDRESS,
-      AutomationRegistryBase2_3.PayoutMode.ON_CHAIN
+      payoutMode
     );
     AutomationRegistryLogicA2_3 logicA2_3 = new AutomationRegistryLogicA2_3(logicB2_3);
     return
@@ -94,10 +94,10 @@ contract BaseTest is Test {
   }
 
   /**
-   * @notice deploys and configures a regisry, registrar, and everything needed for most tests
+   * @notice deploys and configures a registry, registrar, and everything needed for most tests
    */
   function deployAndConfigureAll() internal returns (IAutomationRegistryMaster2_3, AutomationRegistrar2_3) {
-    IAutomationRegistryMaster2_3 registry = deployRegistry();
+    IAutomationRegistryMaster2_3 registry = deployRegistry(AutoBase2_3.PayoutMode.ON_CHAIN);
     // deploy & configure registrar
     AutomationRegistrar2_3.InitialTriggerConfig[]
       memory triggerConfigs = new AutomationRegistrar2_3.InitialTriggerConfig[](2);
