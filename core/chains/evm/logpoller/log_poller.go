@@ -103,27 +103,27 @@ func (e GetLogsBatchElem) SetTopics(topics [][]common.Hash) {
 }
 
 func (e GetLogsBatchElem) FromBlock() *big.Int {
-	if fromBlock, ok := e.params()["fromBlock"].(*big.Int); !ok {
+	fromBlock, ok := e.params()["fromBlock"].(*big.Int)
+	if !ok {
 		return nil
-	} else {
-		return fromBlock
 	}
+	return fromBlock
 }
 
 func (e GetLogsBatchElem) ToBlock() *big.Int {
-	if toBlock, ok := e.params()["fromBlock"].(*big.Int); !ok {
+	toBlock, ok := e.params()["fromBlock"].(*big.Int)
+	if !ok {
 		return nil
-	} else {
-		return toBlock
 	}
+	return toBlock
 }
 
 func (e GetLogsBatchElem) BlockHash() *common.Hash {
-	if blockHash, ok := e.params()["blockHash"].(*common.Hash); !ok {
+	blockHash, ok := e.params()["blockHash"].(*common.Hash)
+	if !ok {
 		return nil
-	} else {
-		return blockHash
 	}
+	return blockHash
 }
 
 func (e GetLogsBatchElem) SetFromBlock(fromBlock *big.Int) {
