@@ -135,6 +135,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   error InvalidTransmitter();
   error InvalidTriggerType();
   error MigrationNotPermitted();
+  error MustSettleOffchain();
   error MustSettleOnchain();
   error NotAContract();
   error OnlyActiveSigners();

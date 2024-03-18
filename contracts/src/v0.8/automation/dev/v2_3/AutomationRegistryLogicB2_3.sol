@@ -218,6 +218,7 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
    */
   function withdrawPayment(address from, address to) external {
     if (to == ZERO_ADDRESS) revert InvalidRecipient();
+    if (s_payoutMode == PayoutMode.OFF_CHAIN) revert MustSettleOffchain();
     if (s_transmitterPayees[from] != msg.sender) revert OnlyCallableByPayee();
     uint96 balance = _updateTransmitterBalanceFromPool(from, s_hotVars.totalPremium, uint96(s_transmittersList.length));
     s_transmitters[from].balance = 0;
@@ -302,9 +303,7 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
    */
   function settleNOPsOffchain() external {
     _onlyFinanceAdminAllowed();
-    if (s_payoutMode == PayoutMode.ON_CHAIN) {
-      revert MustSettleOnchain();
-    }
+    if (s_payoutMode == PayoutMode.ON_CHAIN) revert MustSettleOnchain();
 
     uint256 length = s_transmittersList.length;
     uint256[] memory balances = new uint256[](length);
