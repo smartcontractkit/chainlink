@@ -180,6 +180,7 @@ contract VRFV2PlusWrapperLoadTestConsumer is VRFV2PlusWrapperConsumerBase, Confi
     s_fastestFulfillment = 999;
     s_requestCount = 0;
     s_responseCount = 0;
+    delete s_requestBlockTimes;
   }
 
   /// @notice withdrawLink withdraws the amount specified in amount to the owner

@@ -120,6 +120,7 @@ contract VRFV2PlusLoadTestWithMetrics is VRFConsumerBaseV2Plus {
     s_fastestResponseTimeInSeconds = 999;
     s_requestCount = 0;
     s_responseCount = 0;
+    delete s_requestBlockTimes;
   }
 
   function getRequestStatus(
