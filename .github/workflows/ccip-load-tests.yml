@@ -139,8 +139,8 @@ jobs:
         run: |
           # if the matrix.type.config_path is set, use it as the override config
           if [ -n "${{ matrix.type.config_path }}" ]; then
-              echo "BASE64_CCIP_CONFIG_OVERRIDE=$(base64 -i ${{ matrix.type.config_path }})" >> $GITHUB_ENV
-              echo "TEST_BASE64_CCIP_CONFIG_OVERRIDE=$(base64 -i ${{ matrix.type.config_path }})" >> $GITHUB_ENV
+              echo "BASE64_CCIP_CONFIG_OVERRIDE=$(base64 -w 0 -i ${{ matrix.type.config_path }})" >> $GITHUB_ENV
+              echo "TEST_BASE64_CCIP_CONFIG_OVERRIDE=$(base64 -w 0 -i ${{ matrix.type.config_path }})" >> $GITHUB_ENV
           fi
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             BASE64_CCIP_CONFIG_OVERRIDE=$(jq -r '.inputs.base64_test_input' $GITHUB_EVENT_PATH)
