@@ -51,7 +51,7 @@ jobs:
             dockerfile: plugins/chainlink.Dockerfile
             tag-suffix: -plugins
     name: Build Chainlink Image ${{ matrix.image.name }}
-    runs-on: ubuntu20.04-16cores-64GB
+    runs-on: ubuntu22.04-16cores-64GB
     steps:
       - name: Collect Metrics
         if: inputs.chainlinkImage == ''
@@ -98,7 +98,7 @@ jobs:
       id-token: write
       contents: read
     name: Build Test Image
-    runs-on: ubuntu20.04-16cores-64GB
+    runs-on: ubuntu22.04-16cores-64GB
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
@@ -157,7 +157,7 @@ jobs:
             type: upgrade
             suite: smoke
             nodes: 1
-            os: ubuntu20.04-8cores-32GB
+            os: ubuntu22.04-8cores-32GB
             enabled: true
             pyroscope_env: ci-automation-on-demand-upgrade
             network: SIMULATED
@@ -166,7 +166,7 @@ jobs:
             type: upgrade
             suite: smoke
             nodes: 5
-            os: ubuntu20.04-8cores-32GB
+            os: ubuntu22.04-8cores-32GB
             enabled: true
             pyroscope_env: ci-automation-on-demand-upgrade
             network: SIMULATED
@@ -175,7 +175,7 @@ jobs:
             type: upgrade
             suite: smoke
             nodes: 5
-            os: ubuntu20.04-8cores-32GB
+            os: ubuntu22.04-8cores-32GB
             enabled: true
             pyroscope_env: ci-automation-on-demand-upgrade
             network: SIMULATED

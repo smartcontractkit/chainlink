@@ -118,7 +118,7 @@ jobs:
 
   build-lint-integration-tests:
     name: Build and Lint integration-tests
-    runs-on: ubuntu20.04-16cores-64GB
+    runs-on: ubuntu22.04-16cores-64GB
     # We don't directly merge dependabot PRs, so let's not waste the resources
     if: github.actor != 'dependabot[bot]'
     strategy:
@@ -175,7 +175,7 @@ jobs:
             dockerfile: plugins/chainlink.Dockerfile
             tag-suffix: -plugins
     name: Build Chainlink Image ${{ matrix.image.name }}
-    runs-on: ubuntu20.04-16cores-64GB
+    runs-on: ubuntu22.04-16cores-64GB
     needs: [changes, enforce-ctf-version]
     steps:
       - name: Collect Metrics
@@ -211,7 +211,7 @@ jobs:
       id-token: write
       contents: read
     name: Build Test Image
-    runs-on: ubuntu20.04-16cores-64GB
+    runs-on: ubuntu22.04-16cores-64GB
     needs: [changes]
     steps:
       - name: Collect Metrics
@@ -500,12 +500,12 @@ jobs:
             pyroscope_env: ci-smoke-ocr-evm-simulated
           - name: ocr2
             nodes: 6
-            os: ubuntu20.04-16cores-64GB
+            os: ubuntu22.04-16cores-64GB
             file: ocr2
             pyroscope_env: ci-smoke-ocr2-evm-simulated
           - name: ocr2
             nodes: 6
-            os: ubuntu20.04-16cores-64GB
+            os: ubuntu22.04-16cores-64GB
             pyroscope_env: ci-smoke-ocr2-plugins-evm-simulated
             tag_suffix: "-plugins"
           - name: vrf
@@ -943,7 +943,7 @@ jobs:
       id-token: write
       contents: read
     name: Solana Build Artifacts
-    runs-on: ubuntu20.04-16cores-64GB
+    runs-on: ubuntu22.04-16cores-64GB
     needs:
       [
         changes,
@@ -988,7 +988,7 @@ jobs:
       id-token: write
       contents: read
     name: Solana Build Test Image
-    runs-on: ubuntu20.04-16cores-64GB
+    runs-on: ubuntu22.04-16cores-64GB
     needs:
       [
         solana-build-contracts,
@@ -1036,7 +1036,7 @@ jobs:
       id-token: write
       contents: read
     name: Solana Smoke Tests
-    runs-on: ubuntu20.04-16cores-64GB
+    runs-on: ubuntu22.04-16cores-64GB
     needs:
       [
         build-chainlink,
