@@ -28,7 +28,7 @@ func TestUnit_Node_StateTransitions(t *testing.T) {
 	t.Parallel()
 
 	t.Run("setState", func(t *testing.T) {
-		n := newTestNode(t, testNodeOpts{rpc: nil, config: testNodeConfig{NodeIsSyncingEnabledVal: true}})
+		n := newTestNode(t, testNodeOpts{rpc: nil, config: testNodeConfig{nodeIsSyncingEnabled: true}})
 		assert.Equal(t, nodeStateUndialed, n.State())
 		n.setState(nodeStateAlive)
 		assert.Equal(t, nodeStateAlive, n.State())
@@ -91,7 +91,7 @@ func TestUnit_Node_StateTransitions(t *testing.T) {
 }
 
 func testTransition(t *testing.T, rpc *mockNodeClient[types.ID, Head], transition func(node testNode, fn func()), destinationState nodeState, allowedStates ...nodeState) {
-	node := newTestNode(t, testNodeOpts{rpc: rpc, config: testNodeConfig{NodeIsSyncingEnabledVal: true}})
+	node := newTestNode(t, testNodeOpts{rpc: rpc, config: testNodeConfig{nodeIsSyncingEnabled: true}})
 	for _, allowedState := range allowedStates {
 		m := new(fnMock)
 		node.setState(allowedState)

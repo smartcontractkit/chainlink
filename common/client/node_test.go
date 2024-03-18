@@ -12,36 +12,36 @@ import (
 )
 
 type testNodeConfig struct {
-	PollFailureThresholdVal       uint32
-	PollIntervalVal               time.Duration
-	SelectionModeVal              string
-	SyncThresholdVal              uint32
-	NodeIsSyncingEnabledVal       bool
-	FinalizedBlockPollIntervalVal time.Duration
+	pollFailureThreshold       uint32
+	pollInterval               time.Duration
+	selectionMode              string
+	syncThreshold              uint32
+	nodeIsSyncingEnabled       bool
+	finalizedBlockPollInterval time.Duration
 }
 
 func (n testNodeConfig) PollFailureThreshold() uint32 {
-	return n.PollFailureThresholdVal
+	return n.pollFailureThreshold
 }
 
 func (n testNodeConfig) PollInterval() time.Duration {
-	return n.PollIntervalVal
+	return n.pollInterval
 }
 
 func (n testNodeConfig) SelectionMode() string {
-	return n.SelectionModeVal
+	return n.selectionMode
 }
 
 func (n testNodeConfig) SyncThreshold() uint32 {
-	return n.SyncThresholdVal
+	return n.syncThreshold
 }
 
 func (n testNodeConfig) NodeIsSyncingEnabled() bool {
-	return n.NodeIsSyncingEnabledVal
+	return n.nodeIsSyncingEnabled
 }
 
 func (n testNodeConfig) FinalizedBlockPollInterval() time.Duration {
-	return n.FinalizedBlockPollIntervalVal
+	return n.finalizedBlockPollInterval
 }
 
 type testNode struct {

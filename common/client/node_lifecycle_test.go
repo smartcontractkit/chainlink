@@ -117,8 +117,8 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		const pollFailureThreshold = 3
 		node := newSubscribedNode(t, testNodeOpts{
 			config: testNodeConfig{
-				PollFailureThresholdVal: pollFailureThreshold,
-				PollIntervalVal:         tests.TestInterval,
+				pollFailureThreshold: pollFailureThreshold,
+				pollInterval:         tests.TestInterval,
 			},
 			rpc:  rpc,
 			lggr: lggr,
@@ -159,8 +159,8 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		const pollFailureThreshold = 3
 		node := newSubscribedNode(t, testNodeOpts{
 			config: testNodeConfig{
-				PollFailureThresholdVal: pollFailureThreshold,
-				PollIntervalVal:         tests.TestInterval,
+				pollFailureThreshold: pollFailureThreshold,
+				pollInterval:         tests.TestInterval,
 			},
 			rpc:  rpc,
 			lggr: lggr,
@@ -185,8 +185,8 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		const pollFailureThreshold = 3
 		node := newSubscribedNode(t, testNodeOpts{
 			config: testNodeConfig{
-				PollFailureThresholdVal: pollFailureThreshold,
-				PollIntervalVal:         tests.TestInterval,
+				pollFailureThreshold: pollFailureThreshold,
+				pollInterval:         tests.TestInterval,
 			},
 			rpc:  rpc,
 			lggr: lggr,
@@ -208,9 +208,9 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		const syncThreshold = 10
 		node := newSubscribedNode(t, testNodeOpts{
 			config: testNodeConfig{
-				PollIntervalVal:  tests.TestInterval,
-				SyncThresholdVal: syncThreshold,
-				SelectionModeVal: NodeSelectionModeRoundRobin,
+				pollInterval:  tests.TestInterval,
+				syncThreshold: syncThreshold,
+				selectionMode: NodeSelectionModeRoundRobin,
 			},
 			rpc:  rpc,
 			lggr: lggr,
@@ -241,9 +241,9 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		const syncThreshold = 10
 		node := newSubscribedNode(t, testNodeOpts{
 			config: testNodeConfig{
-				PollIntervalVal:  tests.TestInterval,
-				SyncThresholdVal: syncThreshold,
-				SelectionModeVal: NodeSelectionModeRoundRobin,
+				pollInterval:  tests.TestInterval,
+				syncThreshold: syncThreshold,
+				selectionMode: NodeSelectionModeRoundRobin,
 			},
 			rpc:  rpc,
 			lggr: lggr,
@@ -263,9 +263,9 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		node := newSubscribedNode(t, testNodeOpts{
 			config: testNodeConfig{
-				PollIntervalVal:  tests.TestInterval,
-				SyncThresholdVal: 0,
-				SelectionModeVal: NodeSelectionModeRoundRobin,
+				pollInterval:  tests.TestInterval,
+				syncThreshold: 0,
+				selectionMode: NodeSelectionModeRoundRobin,
 			},
 			rpc:  rpc,
 			lggr: lggr,
@@ -426,7 +426,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		node := newDialedNode(t, testNodeOpts{
 			config: testNodeConfig{
-				FinalizedBlockPollIntervalVal: tests.TestInterval,
+				finalizedBlockPollInterval: tests.TestInterval,
 			},
 			chainConfig: clientMocks.ChainConfig{
 				IsFinalityTagEnabled: true,
@@ -452,7 +452,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		node := newDialedNode(t, testNodeOpts{
 			config: testNodeConfig{
-				FinalizedBlockPollIntervalVal: tests.TestInterval,
+				finalizedBlockPollInterval: tests.TestInterval,
 			},
 			chainConfig: clientMocks.ChainConfig{
 				IsFinalityTagEnabled: true,
@@ -484,7 +484,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		name := "node-" + rand.Str(5)
 		node := newDialedNode(t, testNodeOpts{
 			config: testNodeConfig{
-				FinalizedBlockPollIntervalVal: tests.TestInterval,
+				finalizedBlockPollInterval: tests.TestInterval,
 			},
 			chainConfig: clientMocks.ChainConfig{
 				FinalityDepthVal:     finalityDepth,
@@ -656,7 +656,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		node := newAliveNode(t, testNodeOpts{
 			rpc:     rpc,
 			chainID: nodeChainID,
-			config:  testNodeConfig{NodeIsSyncingEnabledVal: true},
+			config:  testNodeConfig{nodeIsSyncingEnabled: true},
 		})
 		defer func() { assert.NoError(t, node.close()) }()
 
@@ -676,7 +676,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		node := newAliveNode(t, testNodeOpts{
 			rpc:     rpc,
 			chainID: nodeChainID,
-			config:  testNodeConfig{NodeIsSyncingEnabledVal: true},
+			config:  testNodeConfig{nodeIsSyncingEnabled: true},
 		})
 		defer func() { assert.NoError(t, node.close()) }()
 
@@ -923,7 +923,7 @@ func TestUnit_NodeLifecycle_unreachableLoop(t *testing.T) {
 			rpc:     rpc,
 			chainID: nodeChainID,
 			lggr:    lggr,
-			config:  testNodeConfig{NodeIsSyncingEnabledVal: true},
+			config:  testNodeConfig{nodeIsSyncingEnabled: true},
 		})
 		defer func() { assert.NoError(t, node.close()) }()
 
@@ -942,7 +942,7 @@ func TestUnit_NodeLifecycle_unreachableLoop(t *testing.T) {
 		node := newAliveNode(t, testNodeOpts{
 			rpc:     rpc,
 			chainID: nodeChainID,
-			config:  testNodeConfig{NodeIsSyncingEnabledVal: true},
+			config:  testNodeConfig{nodeIsSyncingEnabled: true},
 		})
 		defer func() { assert.NoError(t, node.close()) }()
 
@@ -964,7 +964,7 @@ func TestUnit_NodeLifecycle_unreachableLoop(t *testing.T) {
 		node := newAliveNode(t, testNodeOpts{
 			rpc:     rpc,
 			chainID: nodeChainID,
-			config:  testNodeConfig{NodeIsSyncingEnabledVal: true},
+			config:  testNodeConfig{nodeIsSyncingEnabled: true},
 		})
 		defer func() { assert.NoError(t, node.close()) }()
 
@@ -1108,7 +1108,7 @@ func TestUnit_NodeLifecycle_invalidChainIDLoop(t *testing.T) {
 		node := newDialedNode(t, testNodeOpts{
 			rpc:     rpc,
 			chainID: nodeChainID,
-			config:  testNodeConfig{NodeIsSyncingEnabledVal: true},
+			config:  testNodeConfig{nodeIsSyncingEnabled: true},
 		})
 		defer func() { assert.NoError(t, node.close()) }()
 
@@ -1212,7 +1212,7 @@ func TestUnit_NodeLifecycle_start(t *testing.T) {
 			rpc:     rpc,
 			chainID: nodeChainID,
 			lggr:    lggr,
-			config:  testNodeConfig{NodeIsSyncingEnabledVal: true},
+			config:  testNodeConfig{nodeIsSyncingEnabled: true},
 		})
 		defer func() { assert.NoError(t, node.close()) }()
 
@@ -1239,7 +1239,7 @@ func TestUnit_NodeLifecycle_start(t *testing.T) {
 		node := newNode(t, testNodeOpts{
 			rpc:     rpc,
 			chainID: nodeChainID,
-			config:  testNodeConfig{NodeIsSyncingEnabledVal: true},
+			config:  testNodeConfig{nodeIsSyncingEnabled: true},
 		})
 		defer func() { assert.NoError(t, node.close()) }()
 
@@ -1261,7 +1261,7 @@ func TestUnit_NodeLifecycle_start(t *testing.T) {
 		node := newNode(t, testNodeOpts{
 			rpc:     rpc,
 			chainID: nodeChainID,
-			config:  testNodeConfig{NodeIsSyncingEnabledVal: true},
+			config:  testNodeConfig{nodeIsSyncingEnabled: true},
 		})
 		defer func() { assert.NoError(t, node.close()) }()
 
@@ -1319,7 +1319,7 @@ func TestUnit_NodeLifecycle_syncStatus(t *testing.T) {
 	})
 	t.Run("panics on invalid selection mode", func(t *testing.T) {
 		node := newTestNode(t, testNodeOpts{
-			config: testNodeConfig{SyncThresholdVal: 1},
+			config: testNodeConfig{syncThreshold: 1},
 		})
 		node.nLiveNodes = func() (count int, blockNumber int64, totalDifficulty *big.Int) {
 			return
@@ -1363,8 +1363,8 @@ func TestUnit_NodeLifecycle_syncStatus(t *testing.T) {
 		for _, selectionMode := range []string{NodeSelectionModeHighestHead, NodeSelectionModeRoundRobin, NodeSelectionModePriorityLevel} {
 			node := newTestNode(t, testNodeOpts{
 				config: testNodeConfig{
-					SyncThresholdVal: syncThreshold,
-					SelectionModeVal: selectionMode,
+					syncThreshold: syncThreshold,
+					selectionMode: selectionMode,
 				},
 			})
 			node.nLiveNodes = func() (int, int64, *big.Int) {
@@ -1416,8 +1416,8 @@ func TestUnit_NodeLifecycle_syncStatus(t *testing.T) {
 
 		node := newTestNode(t, testNodeOpts{
 			config: testNodeConfig{
-				SyncThresholdVal: syncThreshold,
-				SelectionModeVal: NodeSelectionModeTotalDifficulty,
+				syncThreshold: syncThreshold,
+				selectionMode: NodeSelectionModeTotalDifficulty,
 			},
 		})
 		node.nLiveNodes = func() (int, int64, *big.Int) {
@@ -1439,7 +1439,7 @@ func TestUnit_NodeLifecycle_syncStatus(t *testing.T) {
 func TestUnit_NodeLifecycle_SyncingLoop(t *testing.T) {
 	t.Parallel()
 	newDialedNode := func(t *testing.T, opts testNodeOpts) testNode {
-		opts.config.NodeIsSyncingEnabledVal = true
+		opts.config.nodeIsSyncingEnabled = true
 		node := newTestNode(t, opts)
 		opts.rpc.On("Close").Return(nil).Once()
 		opts.rpc.On("DisconnectAll")
