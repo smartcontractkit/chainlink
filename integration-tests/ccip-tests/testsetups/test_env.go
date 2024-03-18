@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/AlekSi/pointer"
@@ -16,7 +17,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctftestenv "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/cdk8s/blockscout"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/chainlink"
@@ -382,16 +382,11 @@ func DeployEnvironments(
 		if !network.Simulated {
 			return network.URLs, network.HTTPURLs
 		}
-		networkName := network.Name
+		networkName := strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")
 		var internalWsURLs, internalHttpURLs []string
 		for i := 0; i < numOfTxNodes; i++ {
-			podName := fmt.Sprintf("%s-ethereum-geth:%d", networkName, i)
-			txNodeInternalWs, err := testEnvironment.Fwd.FindPort(podName, "geth", "ws-rpc").As(client.RemoteConnection, client.WS)
-			require.NoError(t, err, "Error finding WS ports")
-			internalWsURLs = append(internalWsURLs, txNodeInternalWs)
-			txNodeInternalHttp, err := testEnvironment.Fwd.FindPort(podName, "geth", "http-rpc").As(client.RemoteConnection, client.HTTP)
-			require.NoError(t, err, "Error finding HTTP ports")
-			internalHttpURLs = append(internalHttpURLs, txNodeInternalHttp)
+			internalWsURLs = append(internalWsURLs, fmt.Sprintf("ws://%s-ethereum-geth:8546", networkName))
+			internalHttpURLs = append(internalHttpURLs, fmt.Sprintf("http://%s-ethereum-geth:8544", networkName))
 		}
 		return internalWsURLs, internalHttpURLs
 	}

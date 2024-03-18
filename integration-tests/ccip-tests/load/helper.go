@@ -75,7 +75,6 @@ func (l *LoadArgs) Setup() {
 	}
 	l.Labels = map[string]string{
 		"test_group": "load",
-		"cluster":    "sdlc",
 		"test_id":    "ccip",
 		"namespace":  namespace,
 	}

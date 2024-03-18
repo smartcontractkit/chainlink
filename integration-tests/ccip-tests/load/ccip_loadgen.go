@@ -19,8 +19,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/atomic"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
@@ -29,9 +27,19 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testreporters"
 )
 
+// CCIPLaneOptimized is a light-weight version of CCIPLane, It only contains elements which are used during load triggering and validation
+type CCIPLaneOptimized struct {
+	Logger            zerolog.Logger
+	SourceNetworkName string
+	DestNetworkName   string
+	Source            *actions.SourceCCIPModule
+	Dest              *actions.DestCCIPModule
+	Reports           *testreporters.CCIPLaneStats
+}
+
 type CCIPE2ELoad struct {
 	t                         *testing.T
-	Lane                      *actions.CCIPLane
+	Lane                      *CCIPLaneOptimized
 	NoOfReq                   int64         // approx no of Request fired
 	CurrentMsgSerialNo        *atomic.Int64 // current msg serial number in the load sequence
 	CallTimeOut               time.Duration // max time to wait for various on-chain events
@@ -43,9 +51,20 @@ type CCIPE2ELoad struct {
 }
 
 func NewCCIPLoad(t *testing.T, lane *actions.CCIPLane, timeout time.Duration, noOfReq int64) *CCIPE2ELoad {
+	// to avoid holding extra data
+	loadLane := &CCIPLaneOptimized{
+		Logger:            lane.Logger,
+		SourceNetworkName: lane.SourceNetworkName,
+		DestNetworkName:   lane.DestNetworkName,
+		Source:            lane.Source,
+		Dest:              lane.Dest,
+		Reports:           lane.Reports,
+	}
+	// This is to optimize memory space for load tests with high number of networks, lanes, tokens
+	lane.OptimizeStorage()
 	return &CCIPE2ELoad{
 		t:                         t,
-		Lane:                      lane,
+		Lane:                      loadLane,
 		CurrentMsgSerialNo:        atomic.NewInt64(1),
 		CallTimeOut:               timeout,
 		NoOfReq:                   noOfReq,
@@ -112,19 +131,6 @@ func (c *CCIPE2ELoad) BeforeAllCall(msgType string, gasLimit *big.Int) {
 
 	sourceCCIP.Common.ChainClient.ParallelTransactions(false)
 	destCCIP.Common.ChainClient.ParallelTransactions(false)
-	// close all header subscriptions for dest chains
-	queuedEvents := destCCIP.Common.ChainClient.GetHeaderSubscriptions()
-	for subName := range queuedEvents {
-		destCCIP.Common.ChainClient.DeleteHeaderEventSubscription(subName)
-	}
-	// close all header subscriptions for source chains except for finalized header
-	queuedEvents = sourceCCIP.Common.ChainClient.GetHeaderSubscriptions()
-	for subName := range queuedEvents {
-		if subName == blockchain.FinalizedHeaderKey {
-			continue
-		}
-		sourceCCIP.Common.ChainClient.DeleteHeaderEventSubscription(subName)
-	}
 }
 
 func (c *CCIPE2ELoad) CCIPMsg() (router.ClientEVM2AnyMessage, *testreporters.RequestStat) {
@@ -160,7 +166,6 @@ func (c *CCIPE2ELoad) Call(_ *wasp.Generator) *wasp.Response {
 	msgSerialNo := stats.ReqNo
 	lggr := c.Lane.Logger.With().Int64("msg Number", stats.ReqNo).Logger()
 
-	defer c.Lane.Reports.UpdatePhaseStatsForReq(stats)
 	feeToken := sourceCCIP.Common.FeeToken.EthAddress
 	// initiate the transfer
 	lggr.Debug().Str("triggeredAt", time.Now().GoString()).Msg("triggering transfer")

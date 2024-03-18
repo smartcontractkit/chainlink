@@ -116,8 +116,8 @@ func TestChaosCCIP(t *testing.T) {
 			lane := setUpArgs.Lanes[0].ForwardLane
 
 			tearDown := setUpArgs.TearDown
-			testEnvironment := lane.TestEnv.K8Env
-			testSetup := lane.TestEnv
+			testEnvironment := setUpArgs.Env.K8Env
+			testSetup := setUpArgs.Env
 
 			testSetup.ChaosLabelForGeth(t, lane.SourceChain.GetNetworkName(), lane.DestChain.GetNetworkName())
 			testSetup.ChaosLabelForCLNodes(t)

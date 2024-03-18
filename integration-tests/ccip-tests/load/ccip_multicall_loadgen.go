@@ -49,20 +49,20 @@ type MultiCallReturnValues struct {
 
 func NewMultiCallLoadGenerator(testCfg *testsetups.CCIPTestConfig, lanes []*actions.CCIPLane, noOfRequestsPerUnitTime int64, labels map[string]string) (*CCIPMultiCallLoadGenerator, error) {
 	// check if all lanes are from same network
-	source := lanes[0].SourceChain.GetChainID()
-	multiCall := lanes[0].SrcNetworkLaneCfg.Multicall
+	source := lanes[0].Source.Common.ChainClient.GetChainID()
+	multiCall := lanes[0].Source.Common.MulticallContract.Hex()
 	if multiCall == "" {
 		return nil, fmt.Errorf("multicall address cannot be empty")
 	}
 	for i := 1; i < len(lanes); i++ {
-		if source.String() != lanes[i].SourceChain.GetChainID().String() {
-			return nil, fmt.Errorf("all lanes should be from same network; expected %s, got %s", source, lanes[i].SourceChain.GetChainID())
+		if source.String() != lanes[i].Source.Common.ChainClient.GetChainID().String() {
+			return nil, fmt.Errorf("all lanes should be from same network; expected %s, got %s", source, lanes[i].Source.Common.ChainClient.GetChainID())
 		}
-		if lanes[i].SrcNetworkLaneCfg.Multicall != multiCall {
+		if lanes[i].Source.Common.MulticallContract.Hex() != multiCall {
 			return nil, fmt.Errorf("multicall address should be same for all lanes")
 		}
 	}
-	client := lanes[0].SourceChain
+	client := lanes[0].Source.Common.ChainClient
 	lggr := logging.GetTestLogger(testCfg.Test).With().Str("Source Network", client.GetNetworkName()).Logger()
 	ls := wasp.LabelsMapToModel(labels)
 	if err := ls.Validate(); err != nil {
@@ -211,7 +211,7 @@ func (m *CCIPMultiCallLoadGenerator) Call(_ *wasp.Generator) *wasp.Response {
 			return res
 		}
 
-		lggr = lggr.With().Str("Source Network", c.Lane.SourceChain.GetNetworkName()).Str("Dest Network", c.Lane.DestChain.GetNetworkName()).Logger()
+		lggr = lggr.With().Str("Source Network", c.Lane.Source.Common.ChainClient.GetNetworkName()).Str("Dest Network", c.Lane.Dest.Common.ChainClient.GetNetworkName()).Logger()
 		stats := rValues.Stats
 		txConfirmationTime := txConfirmationTime
 		sendTx := sendTx

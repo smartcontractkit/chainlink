@@ -175,7 +175,10 @@ func (testStats *CCIPLaneStats) Finalize(lane string) {
 		}
 		return true
 	})
-
+	// if no phase stats are found return
+	if testStats.TotalRequests <= 0 {
+		return
+	}
 	testStats.lggr.Info().Int64("Total Requests Triggerred", testStats.TotalRequests).Msg("Test Run Completed")
 	for _, phase := range phases {
 		events[phase] = testStats.lggr.Info().Str("Phase", string(phase))

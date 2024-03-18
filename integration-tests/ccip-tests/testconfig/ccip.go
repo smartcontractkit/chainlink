@@ -1,6 +1,7 @@
 package testconfig
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/pelletier/go-toml/v2"
@@ -45,6 +46,7 @@ type CCIPTestConfig struct {
 	ChaosDuration              *config.Duration   `toml:",omitempty"`
 	USDCMockDeployment         *bool              `toml:",omitempty"`
 	TimeoutForPriceUpdate      *config.Duration   `toml:",omitempty"`
+	WithPipeline               *bool              `toml:",omitempty"`
 	FailOnFirstErrorInLoad     *bool              `toml:",omitempty"`
 }
 
@@ -64,7 +66,9 @@ func (c *CCIPTestConfig) Validate() error {
 	if c.MsgType != "WithoutToken" && c.MsgType != "WithToken" {
 		return errors.Errorf("msg type should be either WithoutToken or WithToken")
 	}
-
+	if c.NoOfCommitNodes < 4 {
+		return fmt.Errorf("insuffcient number of commit nodes provided")
+	}
 	if c.MsgType == "WithToken" {
 		if c.AmountPerToken == 0 {
 			return errors.Errorf("token amount should be greater than 0")

@@ -201,6 +201,9 @@ NoOfNetworks = 2                    # this is used with Networks in `CCIP.Env`, 
 
 Blockscout = false                  # if true, the test will use blockscout
 TimeoutForPriceUpdate = '15m'          # Duration to wait for the price update to time-out.
+# Now testing only with dynamic price getter (no pipeline).
+# Could be removed once the pipeline is completely removed.
+WithPipeline = false
 
 # uncomment the following if you want to run your tests with specific number of lanes;
 # in this case out of all the possible lane combinations, only the ones with the specified number of lanes will be considered
@@ -241,6 +244,7 @@ RequestPerUnitTime = [1] # number of ccip requests to be sent per unit time
 TimeUnit = '10s' # unit of time for RequestPerUnitTime
 NoOfNetworks = 2   # same as above
 Blockscout = false   # same as above
+WithPipeline = false
 TimeoutForPriceUpdate = '15m' # time to wait for price update
 
 # uncomment the following if you want to run your tests with specific number of lanes;
@@ -281,6 +285,7 @@ Blockscout = false
 ChaosDuration = '10m'               # Duration for whichever chaos will be injected; only valid for chaos tests
 WaitBetweenChaosDuringLoad = '2m'   # Duration to wait between each chaos injection during load test; only valid for chaos tests
 TimeoutForPriceUpdate = '15m'      # Timeout for price update
+WithPipeline = false
 # uncomment the following if you want to run your tests with specific number of lanes;
 # in this case out of all the possible lane combinations, only the ones with the specified number of lanes will be considered
 # for example, if you have provided CCIP.Env.Networks = ['SIMULATED_1', 'SIMULATED_2', 'SIMULATED_3'] and CCIP.Groups.<test_type>.MaxNoOfLanes = 2,

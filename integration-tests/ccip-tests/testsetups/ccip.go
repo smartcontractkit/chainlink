@@ -354,8 +354,7 @@ func (o *CCIPTestSetUpOutputs) AddLanesForNetworkPair(
 	networkA, networkB blockchain.EVMNetwork,
 	chainClientA, chainClientB blockchain.EVMClient,
 	transferAmounts []*big.Int,
-	numOfCommitNodes int,
-	commitAndExecOnSameDON, bidirectional bool,
+	commitAndExecOnSameDON, bidirectional, withPipeline bool,
 ) error {
 	var allErrors atomic.Error
 	t := o.Cfg.Test
@@ -391,7 +390,6 @@ func (o *CCIPTestSetUpOutputs) AddLanesForNetworkPair(
 
 	ccipLaneA2B := &actions.CCIPLane{
 		Test:              t,
-		TestEnv:           ccipEnv,
 		SourceChain:       sourceChainClientA2B,
 		DestChain:         destChainClientA2B,
 		SourceNetworkName: actions.NetworkName(networkA.Name),
@@ -443,7 +441,6 @@ func (o *CCIPTestSetUpOutputs) AddLanesForNetworkPair(
 
 		ccipLaneB2A = &actions.CCIPLane{
 			Test:              t,
-			TestEnv:           ccipEnv,
 			SourceNetworkName: actions.NetworkName(networkB.Name),
 			DestNetworkName:   actions.NetworkName(networkA.Name),
 			SourceChain:       sourceChainClientB2A,
@@ -481,13 +478,9 @@ func (o *CCIPTestSetUpOutputs) AddLanesForNetworkPair(
 		return errors.WithStack(fmt.Errorf("chain contracts for network %s not found", networkB.Name))
 	}
 
-	// Now testing only with dynamic price getter (no pipeline).
-	// Could be removed once the pipeline is completely removed.
-	withPipeline := false
-
 	setUpFuncs.Go(func() error {
 		lggr.Info().Msgf("Setting up lane %s to %s", networkA.Name, networkB.Name)
-		srcConfig, destConfig, err := ccipLaneA2B.DeployNewCCIPLane(numOfCommitNodes, commitAndExecOnSameDON, networkACmn, networkBCmn,
+		srcConfig, destConfig, err := ccipLaneA2B.DeployNewCCIPLane(o.Env, commitAndExecOnSameDON, networkACmn, networkBCmn,
 			transferAmounts, o.BootstrapAdded, configureCLNode, o.JobAddGrp, withPipeline)
 		if err != nil {
 			allErrors.Store(multierr.Append(allErrors.Load(), fmt.Errorf("deploying lane %s to %s; err - %w", networkA.Name, networkB.Name, errors.WithStack(err))))
@@ -511,7 +504,7 @@ func (o *CCIPTestSetUpOutputs) AddLanesForNetworkPair(
 	setUpFuncs.Go(func() error {
 		if bidirectional {
 			lggr.Info().Msgf("Setting up lane %s to %s", networkB.Name, networkA.Name)
-			srcConfig, destConfig, err := ccipLaneB2A.DeployNewCCIPLane(numOfCommitNodes, commitAndExecOnSameDON, networkBCmn, networkACmn,
+			srcConfig, destConfig, err := ccipLaneB2A.DeployNewCCIPLane(o.Env, commitAndExecOnSameDON, networkBCmn, networkACmn,
 				transferAmounts, o.BootstrapAdded, configureCLNode, o.JobAddGrp, withPipeline)
 			if err != nil {
 				lggr.Error().Err(err).Msgf("error deploying lane %s to %s", networkB.Name, networkA.Name)
@@ -563,6 +556,31 @@ func (o *CCIPTestSetUpOutputs) StartEventWatchers() {
 			require.NoError(o.Cfg.Test, err)
 		}
 	}
+}
+
+func (o *CCIPTestSetUpOutputs) AddRemoteChainsToPools(ctx context.Context) {
+	ccipCommonByNetwork := make(map[string]*actions.CCIPCommon)
+	var allLanes []*actions.CCIPLane
+	for _, lanes := range o.ReadLanes() {
+		allLanes = append(allLanes, lanes.ForwardLane)
+		allLanes = append(allLanes, lanes.ReverseLane)
+	}
+	for _, lane := range allLanes {
+		if _, exists := ccipCommonByNetwork[lane.SourceNetworkName]; !exists {
+			ccipCommonByNetwork[lane.SourceNetworkName] = lane.Source.Common
+		}
+		if _, exists := ccipCommonByNetwork[lane.DestNetworkName]; !exists {
+			ccipCommonByNetwork[lane.DestNetworkName] = lane.Dest.Common
+		}
+	}
+	grp, _ := errgroup.WithContext(ctx)
+	for _, cmn := range ccipCommonByNetwork {
+		cmn := cmn
+		grp.Go(func() error {
+			return cmn.SetRemoteChainsOnPools()
+		})
+	}
+	require.NoError(o.Cfg.Test, grp.Wait(), "error waiting for setting remote chains on pools")
 }
 
 func (o *CCIPTestSetUpOutputs) WaitForPriceUpdates(ctx context.Context) {
@@ -708,15 +726,19 @@ func CCIPDefaultTestSetUp(
 	}
 	require.NoError(t, chainAddGrp.Wait(), "Deploying common contracts shouldn't fail")
 
+	withPipeline := pointer.GetBool(setUpArgs.Cfg.TestGroupInput.WithPipeline)
+
 	// set up mock server for price pipeline and usdc attestation if not using existing deployment
 	if !pointer.GetBool(setUpArgs.Cfg.TestGroupInput.ExistingDeployment) {
 		var killgrave *ctftestenv.Killgrave
 		if setUpArgs.Env.LocalCluster != nil {
 			killgrave = setUpArgs.Env.LocalCluster.MockAdapter
 		}
-		// set up mock server for price pipeline. need to set it once for all the lanes as the price pipeline path uses
-		// regex to match the path for all tokens across all lanes
-		actions.SetMockserverWithTokenPriceValue(killgrave, setUpArgs.Env.MockServer)
+		if withPipeline {
+			// set up mock server for price pipeline. need to set it once for all the lanes as the price pipeline path uses
+			// regex to match the path for all tokens across all lanes
+			actions.SetMockserverWithTokenPriceValue(killgrave, setUpArgs.Env.MockServer)
+		}
 		if pointer.GetBool(setUpArgs.Cfg.TestGroupInput.USDCMockDeployment) {
 			// if it's a new USDC deployment, set up mock server for attestation,
 			// we need to set it only once for all the lanes as the attestation path uses regex to match the path for
@@ -725,7 +747,6 @@ func CCIPDefaultTestSetUp(
 			require.NoError(t, err, "failed to set up mock server for attestation")
 		}
 	}
-
 	// deploy all lane specific contracts
 	lggr.Info().Msg("Deploying chain specific contracts")
 	laneAddGrp, _ := errgroup.WithContext(parent)
@@ -746,9 +767,9 @@ func CCIPDefaultTestSetUp(
 			return setUpArgs.AddLanesForNetworkPair(
 				lggr, n.NetworkA, n.NetworkB,
 				chainByChainID[n.NetworkA.ChainID], chainByChainID[n.NetworkB.ChainID], transferAmounts,
-				testConfig.TestGroupInput.NoOfCommitNodes,
 				pointer.GetBool(testConfig.TestGroupInput.CommitAndExecuteOnSameDON),
 				pointer.GetBool(testConfig.TestGroupInput.BiDirectionalLane),
+				withPipeline,
 			)
 		})
 	}
@@ -759,6 +780,8 @@ func CCIPDefaultTestSetUp(
 		"Number of bi-directional lanes should be equal to number of network pairs")
 
 	if configureCLNode {
+		// add all remote chains to pools
+		setUpArgs.AddRemoteChainsToPools(parent)
 		// wait for all jobs to get created
 		lggr.Info().Msg("Waiting for jobs to be created")
 		require.NoError(t, setUpArgs.JobAddGrp.Wait(), "Creating jobs shouldn't fail")
@@ -889,6 +912,7 @@ func (o *CCIPTestSetUpOutputs) CreateEnvironment(
 	}
 	if configureCLNode {
 		ccipEnv.CLNodeWithKeyReady.Go(func() error {
+			var totalNodes int
 			if !o.Cfg.ExistingCLCluster() {
 				if ccipEnv.LocalCluster != nil {
 					err = deployCL()
@@ -900,13 +924,41 @@ func (o *CCIPTestSetUpOutputs) CreateEnvironment(
 				if err != nil {
 					return fmt.Errorf("error connecting to chainlink nodes: %w", err)
 				}
+				totalNodes = pointer.GetInt(testConfig.EnvInput.NewCLCluster.NoOfNodes)
 			} else {
+				totalNodes = pointer.GetInt(testConfig.EnvInput.ExistingCLCluster.NoOfNodes)
 				err = ccipEnv.ConnectToExistingNodes(o.Cfg.EnvInput)
 				if err != nil {
 					return fmt.Errorf("error deploying and connecting to chainlink nodes: %w", err)
 				}
 			}
-			return ccipEnv.SetUpNodeKeysAndFund(lggr, big.NewFloat(testConfig.TestGroupInput.NodeFunding), chains)
+			err = ccipEnv.SetUpNodeKeysAndFund(lggr, big.NewFloat(testConfig.TestGroupInput.NodeFunding), chains)
+			if err != nil {
+				return fmt.Errorf("error setting up nodes and keys %w", err)
+			}
+			// first node is the bootstrapper
+			ccipEnv.CommitNodeStartIndex = 1
+			ccipEnv.ExecNodeStartIndex = 1
+			ccipEnv.NumOfCommitNodes = testConfig.TestGroupInput.NoOfCommitNodes
+			ccipEnv.NumOfExecNodes = ccipEnv.NumOfCommitNodes
+			if !pointer.GetBool(testConfig.TestGroupInput.CommitAndExecuteOnSameDON) {
+				if len(ccipEnv.CLNodesWithKeys) < 11 {
+					return fmt.Errorf("not enough CL nodes for separate commit and execution nodes")
+				}
+				if testConfig.TestGroupInput.NoOfCommitNodes >= totalNodes {
+					return fmt.Errorf("number of commit nodes can not be greater than total number of nodes in DON")
+				}
+				// first two nodes are reserved for bootstrap commit and bootstrap exec
+				ccipEnv.CommitNodeStartIndex = 2
+				ccipEnv.ExecNodeStartIndex = 2 + testConfig.TestGroupInput.NoOfCommitNodes
+				ccipEnv.NumOfExecNodes = totalNodes - (2 + testConfig.TestGroupInput.NoOfCommitNodes)
+				if ccipEnv.NumOfExecNodes < 4 {
+					return fmt.Errorf("insufficient number of exec nodes")
+				}
+			}
+			ccipEnv.NumOfAllowedFaultyExec = (ccipEnv.NumOfExecNodes - 1) / 3
+			ccipEnv.NumOfAllowedFaultyCommit = (ccipEnv.NumOfAllowedFaultyCommit - 1) / 3
+			return nil
 		})
 	}
 
