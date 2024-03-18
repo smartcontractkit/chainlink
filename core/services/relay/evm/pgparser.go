@@ -16,11 +16,6 @@ func NewPgParser(evmChainID *big.Int) *PgDSLParser {
 	return &PgDSLParser{}
 }
 
-func (v *PgDSLParser) VisitAndFilter(node commontypes.AndFilter) {
-	//TODO implement me
-	panic("implement me")
-}
-
 // TODO remove from common
 func (v *PgDSLParser) VisitAddressFilter(node commontypes.AddressFilter) {
 	//TODO implement me
@@ -47,7 +42,7 @@ func (v *PgDSLParser) VisitTxHashFilter(node commontypes.TxHashFilter) {
 	panic("implement me")
 }
 
-func (v *PgDSLParser) VisitEventTopicsByValueFilter(filter *EventTopicByValuesFilter) {
+func (v *PgDSLParser) VisitEventTopicsByValueFilter(filter *EventByIndexFilter) {
 	//TODO implement me
 	panic("implement me")
 }

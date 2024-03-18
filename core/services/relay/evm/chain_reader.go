@@ -88,8 +88,43 @@ func (cr *chainReader) Bind(ctx context.Context, bindings []commontypes.BoundCon
 	return cr.contractBindings.Bind(ctx, bindings)
 }
 
-func (cr *chainReader) QueryKey(ctx context.Context, key string, queryFilters []commontypes.QueryFilter, limitAndSort commontypes.LimitAndSort) ([]commontypes.Sequence, error) {
-	logFilters, err := remapQueryKeyFilters(key, cr.eventIndexBindings, queryFilters)
+func (cr *chainReader) QueryKey(ctx context.Context, key string, queryFilter commontypes.QueryFilter, limitAndSort commontypes.LimitAndSort) ([]commontypes.Sequence, error) {
+	remappedQueryFilter, err := remapQueryFilter(queryFilter)
+	if err != nil {
+		return nil, err
+	}
+
+	eventSig, address, _, err := cr.eventIndexBindings.Get(key)
+	if err != nil {
+		return nil, err
+	}
+
+	remappedQueryFilter.Expressions = append(remappedQueryFilter.Expressions, NewEventFilter(address, eventSig))
+	_, err = cr.lp.FilteredLogs(remappedQueryFilter, limitAndSort)
+
+	return nil, err
+}
+
+// TODO if slice of keys then matrix of queryFilters?
+func (cr *chainReader) QueryKeys(ctx context.Context, keys []string, queryFilter commontypes.QueryFilter, limitAndSort commontypes.LimitAndSort) ([][]commontypes.Sequence, error) {
+	remappedQueryFilter, err := remapQueryFilter(queryFilter)
+	if err != nil {
+		return nil, err
+	}
+
+	eventsFilters, err := getEventsFilters(keys, cr.eventIndexBindings)
+	if err != nil {
+		return nil, err
+	}
+
+	remappedQueryFilter.Expressions = append(remappedQueryFilter.Expressions, eventsFilters)
+	_, err = cr.lp.FilteredLogs(remappedQueryFilter, limitAndSort)
+
+	return nil, err
+}
+
+func (cr *chainReader) QueryKeyByValues(ctx context.Context, key string, values []string, queryFilter commontypes.QueryFilter, limitAndSort commontypes.LimitAndSort) ([]commontypes.Sequence, error) {
+	logFilters, err := remapQueryKeyByValuesFilters(key, values, cr.eventIndexBindings, queryFilter)
 	if err != nil {
 		return nil, err
 	}
@@ -97,45 +132,21 @@ func (cr *chainReader) QueryKey(ctx context.Context, key string, queryFilters []
 	return nil, err
 }
 
-// TODO if slice of keys then matrix of queryFilters?
-func (cr *chainReader) QueryKeys(ctx context.Context, keys []string, queryFilters []commontypes.QueryFilter, limitAndSort commontypes.LimitAndSort) ([][]commontypes.Sequence, error) {
-	var logFilters []commontypes.QueryFilter
-	for _, key := range keys {
-		filters, err := remapQueryKeyFilters(key, cr.eventIndexBindings, queryFilters)
-		if err != nil {
-			return nil, err
-		}
-		logFilters = append(logFilters, filters...)
-	}
-	_, err := cr.lp.FilteredLogs(logFilters, limitAndSort)
-	return nil, err
-}
-
-func (cr *chainReader) QueryKeyByValues(ctx context.Context, key string, values []string, queryFilters []commontypes.QueryFilter, limitAndSort commontypes.LimitAndSort) ([]commontypes.Sequence, error) {
-	logFilters, err := remapQueryKeyByValuesFilters(key, values, cr.eventIndexBindings, queryFilters)
-	if err != nil {
-		return nil, err
-	}
-	_, err = cr.lp.FilteredLogs(logFilters, limitAndSort)
-	return nil, err
-}
-
-// TODO if slice of keys then matrix of queryFilters?
 // TODO values shouldn't be string?
-func (cr *chainReader) QueryKeysByValues(ctx context.Context, keys []string, values [][]string, queryFilters []commontypes.QueryFilter, limitAndSort commontypes.LimitAndSort) ([][]commontypes.Sequence, error) {
-	var logFilters []commontypes.QueryFilter
-	for i, key := range keys {
-		// TODO should this be an error? how to handle.
-		if len(values) < i {
-			return nil, fmt.Errorf("")
-		}
-		filters, err := remapQueryKeyByValuesFilters(key, values[i], cr.eventIndexBindings, queryFilters)
-		if err != nil {
-			return nil, err
-		}
-		logFilters = append(logFilters, filters...)
+func (cr *chainReader) QueryKeysByValues(ctx context.Context, keys []string, values [][]string, queryFilter commontypes.QueryFilter, limitAndSort commontypes.LimitAndSort) ([][]commontypes.Sequence, error) {
+	remappedQueryFilter, err := remapQueryFilter(queryFilter)
+	if err != nil {
+		return nil, err
 	}
-	_, err := cr.lp.FilteredLogs(logFilters, limitAndSort)
+
+	indexedEventsByValuesFilters, err := getEventsByIndexFilter(keys, values, cr.eventIndexBindings)
+	if err != nil {
+		return nil, err
+	}
+
+	remappedQueryFilter.Expressions = append(remappedQueryFilter.Expressions, indexedEventsByValuesFilters)
+	_, err = cr.lp.FilteredLogs(remappedQueryFilter, limitAndSort)
+
 	return nil, err
 }
 
@@ -269,7 +280,6 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 		if ok {
 			cr.eventIndexBindings.Bind(eb, eventName+"-"+genericTopicName, index)
 		}
-
 	}
 
 	cr.contractBindings.AddReadBinding(contractName, eventName, eb)
@@ -328,60 +338,90 @@ func (cr *chainReader) addDecoderDef(contractName, methodName string, outputs ab
 	return output.Init()
 }
 
-func remapQueryKeyFilters(key string, eventIndexBindings EventIndexBindings, queryFilters []commontypes.QueryFilter) ([]commontypes.QueryFilter, error) {
-	eventSig, address, _, err := eventIndexBindings.Get(key)
-	if err != nil {
-		return nil, err
-	}
-
-	var logFilters []commontypes.QueryFilter
-	for _, queryFilter := range queryFilters {
-		filter, err := remapQueryFilter(queryFilter)
+func remapQueryFilter(queryFilter commontypes.QueryFilter) (commontypes.QueryFilter, error) {
+	var logFilters []commontypes.Expression
+	for _, expression := range queryFilter.Expressions {
+		logFilter, err := remapExpression(expression)
 		if err != nil {
-			return nil, err
+			return commontypes.QueryFilter{}, err
 		}
-		logFilters = append(logFilters, filter)
+		logFilters = append(logFilters, logFilter)
 	}
 
-	return append(logFilters, NewEventFilter(address, eventSig)), nil
+	return queryFilter, nil
 }
 
 // TODO values can't be string?
-func remapQueryKeyByValuesFilters(key string, values []string, eventIndexBindings EventIndexBindings, queryFilters []commontypes.QueryFilter) ([]commontypes.QueryFilter, error) {
+func remapQueryKeyByValuesFilters(key string, values []string, eventIndexBindings EventIndexBindings, queryFilter commontypes.QueryFilter) (commontypes.QueryFilter, error) {
 	eventSig, address, topicIndex, err := eventIndexBindings.Get(key)
 	if err != nil {
-		return nil, err
+		return commontypes.QueryFilter{}, err
 	}
 
-	var logFilters []commontypes.QueryFilter
-	for _, queryFilter := range queryFilters {
-		filter, err := remapQueryFilter(queryFilter)
+	var logFilters []commontypes.Expression
+	for _, expression := range queryFilter.Expressions {
+		logFilter, err := remapExpression(expression)
 		if err != nil {
-			return nil, err
+			return commontypes.QueryFilter{}, err
 		}
-		logFilters = append(logFilters, filter)
+		logFilters = append(logFilters, logFilter)
 	}
 
-	return append(logFilters, NewEventTopicsByValueFilter(address, values, eventSig, topicIndex)), nil
+	return commontypes.Where(append(logFilters, NewEventByIndexFilter(address, values, eventSig, topicIndex))...), nil
 }
 
-// remapQueryFilter, changes some chain agnostic filters to match evm specific filters.
-func remapQueryFilter(queryFilter commontypes.QueryFilter) (commontypes.QueryFilter, error) {
-	switch filter := queryFilter.(type) {
-	case *commontypes.AndFilter:
-		var remappedFilters []commontypes.QueryFilter
-		for _, f := range filter.Filters {
-			remappedFilter, err := remapQueryFilter(f)
-			if err != nil {
-				return nil, err
-			}
-			remappedFilters = append(remappedFilters, remappedFilter)
+func getEventsFilters(keys []string, eventIndexBindings EventIndexBindings) (commontypes.Expression, error) {
+	var eventTopicsByValueFilters []commontypes.Expression
+	for _, key := range keys {
+		eventSig, address, _, err := eventIndexBindings.Get(key)
+		if err != nil {
+			return commontypes.Expression{}, err
 		}
-		return &commontypes.AndFilter{Filters: remappedFilters}, nil
-	case *commontypes.ConfirmationsFilter:
-		return NewFinalityFilter(filter)
-	default:
-		return filter, nil
+
+		eventTopicsByValueFilters = append(eventTopicsByValueFilters, NewEventFilter(address, eventSig))
+	}
+
+	return commontypes.NewBooleanExpression(commontypes.OR, eventTopicsByValueFilters)
+}
+
+func getEventsByIndexFilter(keys []string, values [][]string, eventIndexBindings EventIndexBindings) (commontypes.Expression, error) {
+	var eventTopicsByValueFilters []commontypes.Expression
+	for i, key := range keys {
+		// TODO should this be an error? how to handle.
+		if len(values) < i {
+			return commontypes.Expression{}, fmt.Errorf("")
+		}
+
+		eventSig, address, topicIndex, err := eventIndexBindings.Get(key)
+		if err != nil {
+			return commontypes.Expression{}, err
+		}
+
+		eventTopicsByValueFilters = append(eventTopicsByValueFilters, NewEventByIndexFilter(address, values[i], eventSig, topicIndex))
+	}
+
+	return commontypes.NewBooleanExpression(commontypes.OR, eventTopicsByValueFilters)
+}
+
+// remapExpression, changes some chain agnostic filters to match evm specific filters.
+func remapExpression(expression commontypes.Expression) (commontypes.Expression, error) {
+	if expression.IsPrimitive() {
+		var remappedExpressions []commontypes.Expression
+		for _, expr := range expression.BooleanExpression.Expressions {
+			remappedFilter, err := remapExpression(expr)
+			if err != nil {
+				return commontypes.Expression{}, err
+			}
+			remappedExpressions = append(remappedExpressions, remappedFilter)
+		}
+		return commontypes.NewBooleanExpression(expression.BooleanExpression.BooleanOperator, remappedExpressions)
+	} else {
+		switch primitive := expression.Primitive.(type) {
+		case *commontypes.ConfirmationsFilter:
+			return NewFinalityFilter(primitive)
+		default:
+			return expression, nil
+		}
 	}
 }
 

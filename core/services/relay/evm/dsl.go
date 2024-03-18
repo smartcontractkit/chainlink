@@ -15,11 +15,11 @@ type EventFilter struct {
 	EventSig common.Hash
 }
 
-func NewEventFilter(address common.Address, eventSig common.Hash) *EventFilter {
+func NewEventFilter(address common.Address, eventSig common.Hash) commontypes.Expression {
 	var searchEventFilter *EventFilter
 	searchEventFilter.Address = address
 	searchEventFilter.EventSig = eventSig
-	return searchEventFilter
+	return commontypes.Expression{Primitive: searchEventFilter}
 }
 
 func (f *EventFilter) Accept(visitor commontypes.Visitor) {
@@ -29,24 +29,24 @@ func (f *EventFilter) Accept(visitor commontypes.Visitor) {
 	}
 }
 
-type EventTopicByValuesFilter struct {
+type EventByIndexFilter struct {
 	Address  common.Address
 	EventSig common.Hash
 	Topics   []int
 	Values   []string
 }
 
-func NewEventTopicsByValueFilter(address common.Address, values []string, eventSig common.Hash, topicIndex int) *EventTopicByValuesFilter {
-	var searchEventTopicsByValueFilter *EventTopicByValuesFilter
-	searchEventTopicsByValueFilter.Address = address
-	searchEventTopicsByValueFilter.EventSig = eventSig
-	searchEventTopicsByValueFilter.Topics = append(searchEventTopicsByValueFilter.Topics, topicIndex)
-	searchEventTopicsByValueFilter.Values = append(searchEventTopicsByValueFilter.Values, values...)
+func NewEventByIndexFilter(address common.Address, values []string, eventSig common.Hash, topicIndex int) commontypes.Expression {
+	var eventByIndexFilter *EventByIndexFilter
+	eventByIndexFilter.Address = address
+	eventByIndexFilter.EventSig = eventSig
+	eventByIndexFilter.Topics = append(eventByIndexFilter.Topics, topicIndex)
+	eventByIndexFilter.Values = append(eventByIndexFilter.Values, values...)
 
-	return searchEventTopicsByValueFilter
+	return commontypes.Expression{Primitive: eventByIndexFilter}
 }
 
-func (f *EventTopicByValuesFilter) Accept(visitor commontypes.Visitor) {
+func (f *EventByIndexFilter) Accept(visitor commontypes.Visitor) {
 	switch v := visitor.(type) {
 	case *PgDSLParser:
 		v.VisitEventTopicsByValueFilter(f)
@@ -57,14 +57,14 @@ type FinalityFilter struct {
 	Confs evmtypes.Confirmations
 }
 
-func NewFinalityFilter(filter *commontypes.ConfirmationsFilter) (*FinalityFilter, error) {
+func NewFinalityFilter(filter *commontypes.ConfirmationsFilter) (commontypes.Expression, error) {
 	switch filter.Confirmations {
 	case commontypes.Finalized:
-		return &FinalityFilter{evmtypes.Finalized}, nil
+		return commontypes.Expression{Primitive: &FinalityFilter{evmtypes.Finalized}}, nil
 	case commontypes.Unconfirmed:
-		return &FinalityFilter{evmtypes.Unconfirmed}, nil
+		return commontypes.Expression{Primitive: &FinalityFilter{evmtypes.Unconfirmed}}, nil
 	default:
-		return nil, fmt.Errorf("invalid finality confirmations filter value %v", filter.Confirmations)
+		return commontypes.Expression{}, fmt.Errorf("invalid finality confirmations filter value %v", filter.Confirmations)
 	}
 }
 
