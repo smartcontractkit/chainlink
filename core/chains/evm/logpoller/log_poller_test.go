@@ -1586,9 +1586,11 @@ func TestTooManyLogResults(t *testing.T) {
 		toBlock, ok := params["toBlock"]
 		require.True(t, ok)
 
-		from := fromBlock.(*big.Int)
+		from, err := hexutil.DecodeBig(fromBlock.(string))
+		require.NoError(t, err)
 		require.NotNil(t, from)
-		to := toBlock.(*big.Int)
+		to, err := hexutil.DecodeBig(toBlock.(string))
+		require.NoError(t, err)
 		require.NotNil(t, to)
 
 		if to.Uint64()-from.Uint64() >= sizeLimit {

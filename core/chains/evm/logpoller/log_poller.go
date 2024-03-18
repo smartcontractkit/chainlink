@@ -73,9 +73,6 @@ func NewGetLogsReq(filter Filter) *GetLogsBatchElem {
 	params := map[string]interface{}{
 		"addresses": []common.Address(filter.Addresses),
 		"topics":    [][]common.Hash{filter.EventSigs, filter.Topic2, filter.Topic3, filter.Topic4},
-		"fromBlock": (*big.Int)(nil),
-		"toBlock":   (*big.Int)(nil),
-		"blockHash": (*common.Hash)(nil),
 	}
 
 	return &GetLogsBatchElem{
@@ -106,15 +103,27 @@ func (e GetLogsBatchElem) SetTopics(topics [][]common.Hash) {
 }
 
 func (e GetLogsBatchElem) FromBlock() *big.Int {
-	return e.params()["fromBlock"].(*big.Int)
+	if fromBlock, ok := e.params()["fromBlock"].(*big.Int); !ok {
+		return nil
+	} else {
+		return fromBlock
+	}
 }
 
 func (e GetLogsBatchElem) ToBlock() *big.Int {
-	return e.params()["toBlock"].(*big.Int)
+	if toBlock, ok := e.params()["fromBlock"].(*big.Int); !ok {
+		return nil
+	} else {
+		return toBlock
+	}
 }
 
 func (e GetLogsBatchElem) BlockHash() *common.Hash {
-	return e.params()["blockHash"].(*common.Hash)
+	if blockHash, ok := e.params()["blockHash"].(*common.Hash); !ok {
+		return nil
+	} else {
+		return blockHash
+	}
 }
 
 func (e GetLogsBatchElem) SetFromBlock(fromBlock *big.Int) {
@@ -1583,20 +1592,29 @@ func (lp *logPoller) ethGetLogsReqs(fromBlock, toBlock *big.Int, blockHash *comm
 	}
 	lp.filtersMu.Unlock()
 
+	blockParams := map[string]interface{}{}
+	if blockHash != nil {
+		blockParams["blockHash"] = blockHash
+	}
+	if fromBlock != nil {
+		blockParams["fromBlock"] = rpc.BlockNumber(fromBlock.Uint64()).String()
+	}
+	if toBlock != nil {
+		blockParams["toBlock"] = rpc.BlockNumber(toBlock.Uint64()).String()
+	}
+
 	// Fill fromBlock, toBlock, & blockHash while copying cached reqs into a result array
 	reqs := make([]rpc.BatchElem, 0, len(lp.cachedReqsByEventsTopicsKey))
 	for _, req := range lp.cachedReqsByEventsTopicsKey {
+		params := map[string]interface{}{
+			"addresses": req.Addresses(),
+			"topics":    req.Topics(),
+		}
+		maps.Copy(params, blockParams)
+
 		reqs = append(reqs, rpc.BatchElem{
 			Method: req.Method,
-			Args: []interface{}{
-				map[string]interface{}{
-					"addresses": req.Addresses(),
-					"topics":    req.Topics(),
-					"fromBlock": fromBlock,
-					"toBlock":   toBlock,
-					"blockHash": blockHash,
-				},
-			},
+			Args:   []interface{}{params},
 			Result: new([]types.Log),
 		})
 	}
