@@ -97,12 +97,17 @@ type FundsToSendPayload struct {
 	ToAddress  common.Address
 	Amount     *big.Int
 	PrivateKey *ecdsa.PrivateKey
-	GasLimit   *uint64
+	GasLimit   *int64
+	GasPrice   *big.Int
+	GasFeeCap  *big.Int
+	GasTipCap  *big.Int
+	TxTimeout  *time.Duration
 }
 
 // TODO: move to CTF?
 // SendFunds sends native token amount (expressed in human-scale) from address controlled by private key
-// to given address. If no gas limit is set, then network's default will be used.
+// to given address. You can override any or none of the following: gas limit, gas price, gas fee cap, gas tip cap.
+// Values that are not set will be estimated or taken from config.
 func SendFunds(logger zerolog.Logger, client *seth.Client, payload FundsToSendPayload) (*types.Receipt, error) {
 	fromAddress, err := privateKeyToAddress(payload.PrivateKey)
 	if err != nil {
@@ -117,12 +122,40 @@ func SendFunds(logger zerolog.Logger, client *seth.Client, payload FundsToSendPa
 	}
 
 	gasLimit := uint64(client.Cfg.Network.TransferGasFee)
+	gasPrice := big.NewInt(0)
+	gasFeeCap := big.NewInt(0)
+	gasTipCap := big.NewInt(0)
+
 	if payload.GasLimit != nil {
-		gasLimit = *payload.GasLimit
+		gasLimit = uint64(*payload.GasLimit)
+	}
+
+	if client.Cfg.Network.EIP1559DynamicFees {
+		if payload.GasFeeCap == nil || payload.GasTipCap == nil {
+			txOptions := client.NewTXOpts()
+			gasFeeCap = txOptions.GasFeeCap
+			gasTipCap = txOptions.GasTipCap
+		}
+
+		if payload.GasFeeCap != nil {
+			gasFeeCap = payload.GasFeeCap
+		}
+
+		if payload.GasTipCap != nil {
+			gasTipCap = payload.GasTipCap
+		}
+	}
+
+	if !client.Cfg.Network.EIP1559DynamicFees {
+		if payload.GasPrice == nil {
+			txOptions := client.NewTXOpts()
+			gasPrice = txOptions.GasPrice
+		} else {
+			gasPrice = payload.GasPrice
+		}
 	}
 
 	var signedTx *types.Transaction
-	txOptions := client.NewTXOpts()
 
 	if client.Cfg.Network.EIP1559DynamicFees {
 		rawTx := &types.DynamicFeeTx{
@@ -130,8 +163,8 @@ func SendFunds(logger zerolog.Logger, client *seth.Client, payload FundsToSendPa
 			To:        &payload.ToAddress,
 			Value:     payload.Amount,
 			Gas:       gasLimit,
-			GasFeeCap: txOptions.GasFeeCap,
-			GasTipCap: txOptions.GasTipCap,
+			GasFeeCap: gasFeeCap,
+			GasTipCap: gasTipCap,
 		}
 		// in the future we might need to dynamically set the signer to reflect the hard fork for given chain
 		signedTx, err = types.SignNewTx(payload.PrivateKey, types.NewLondonSigner(big.NewInt(client.ChainID)), rawTx)
@@ -141,7 +174,7 @@ func SendFunds(logger zerolog.Logger, client *seth.Client, payload FundsToSendPa
 			To:       &payload.ToAddress,
 			Value:    payload.Amount,
 			Gas:      gasLimit,
-			GasPrice: txOptions.GasPrice,
+			GasPrice: gasPrice,
 		}
 		signedTx, err = types.SignNewTx(payload.PrivateKey, types.NewEIP155Signer(big.NewInt(client.ChainID)), rawTx)
 	}
@@ -150,7 +183,12 @@ func SendFunds(logger zerolog.Logger, client *seth.Client, payload FundsToSendPa
 		return nil, errors.Wrap(err, "failed to sign tx")
 	}
 
-	ctx, cancel = context.WithTimeout(ctx, client.Cfg.Network.TxnTimeout.Duration())
+	txTimeout := client.Cfg.Network.TxnTimeout.Duration()
+	if payload.TxTimeout != nil {
+		txTimeout = *payload.TxTimeout
+	}
+
+	ctx, cancel = context.WithTimeout(ctx, txTimeout)
 	defer cancel()
 	err = client.Client.SendTransaction(ctx, signedTx)
 	if err != nil {
@@ -164,9 +202,9 @@ func SendFunds(logger zerolog.Logger, client *seth.Client, payload FundsToSendPa
 		Str("Amount", conversions.WeiToEther(payload.Amount).String()).
 		Uint64("Nonce", nonce).
 		Uint64("Gas Limit", gasLimit).
-		Int64("Gas Price", client.Cfg.Network.GasPrice).
-		Int64("Gas Fee Cap", client.Cfg.Network.GasFeeCap).
-		Int64("Gas Tip Cap", client.Cfg.Network.GasTipCap).
+		Str("Gas Price", gasPrice.String()).
+		Str("Gas Fee Cap", gasFeeCap.String()).
+		Str("Gas Tip Cap", gasTipCap.String()).
 		Bool("Dynamic fees", client.Cfg.Network.EIP1559DynamicFees).
 		Msg("Sent funds")
 

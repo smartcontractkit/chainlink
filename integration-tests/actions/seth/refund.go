@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -18,7 +19,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	clClient "github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
 
@@ -50,7 +51,7 @@ func (r *InsufficientFundTransferRetrier) Retry(ctx context.Context, logger zero
 		if r.nextRetrier != nil {
 			logger.Debug().
 				Str("retier", "InsufficientFundTransferRetrier").
-				Msg("Max gas limit reached. Passing to next retrier")
+				Msg("Max retries reached. Passing to next retrier")
 			return r.nextRetrier.Retry(ctx, logger, client, txErr, payload, 0)
 		}
 		return txErr
@@ -102,7 +103,7 @@ func (r *InsufficientFundTransferRetrier) Retry(ctx context.Context, logger zero
 // by doubling the gas limit and retrying until reaching maxGasLimit
 type GasTooLowTransferRetrier struct {
 	nextRetrier TransactionRetrier
-	maxGasLimit uint64
+	maxGasLimit int64
 }
 
 func (r *GasTooLowTransferRetrier) Retry(ctx context.Context, logger zerolog.Logger, client *seth.Client, txErr error, payload FundsToSendPayload, currentAttempt int) error {
@@ -119,18 +120,18 @@ func (r *GasTooLowTransferRetrier) Retry(ctx context.Context, logger zerolog.Log
 	for txErr != nil && strings.Contains(txErr.Error(), GasTooLowErr) {
 		logger.Info().
 			Msg("Too low gas error detected, retrying with more gas")
-		var newGasLimit uint64
+		var newGasLimit int64
 		if payload.GasLimit != nil {
 			newGasLimit = *payload.GasLimit * 2
 		} else {
-			newGasLimit = uint64(client.Cfg.Network.TransferGasFee) * 2
+			newGasLimit = client.Cfg.Network.TransferGasFee * 2
 		}
 
 		logger.Debug().
 			Str("retier", "GasTooLowTransferRetrier").
-			Uint64("old gas limit", newGasLimit/2).
-			Uint64("new gas limit", newGasLimit).
-			Uint64("diff", newGasLimit).
+			Int64("old gas limit", newGasLimit/2).
+			Int64("new gas limit", newGasLimit).
+			Int64("diff", newGasLimit).
 			Msg("New gas limit to use")
 
 		payload.GasLimit = &newGasLimit
@@ -230,19 +231,19 @@ func (r *OvershotTransferRetrier) Retry(ctx context.Context, logger zerolog.Logg
 // ReturnFunds returns funds from the given chainlink nodes to the default network wallet. It will use a variety
 // of strategies to attempt to return funds, including retrying with less funds if the transaction fails due to
 // insufficient funds, and retrying with a higher gas limit if the transaction fails due to gas too low.
-func ReturnFunds(log zerolog.Logger, seth *seth.Client, chainlinkNodes []contracts.ChainlinkNodeWithKeysAndAddress) error {
-	if seth == nil {
+func ReturnFunds(log zerolog.Logger, sethClient *seth.Client, chainlinkNodes []contracts.ChainlinkNodeWithKeysAndAddress) error {
+	if sethClient == nil {
 		return fmt.Errorf("Seth client is nil, unable to return funds from chainlink nodes")
 	}
 	log.Info().Msg("Attempting to return Chainlink node funds to default network wallets")
-	if seth.Cfg.IsSimulatedNetwork() {
-		log.Info().Str("Network Name", seth.Cfg.Network.Name).
+	if sethClient.Cfg.IsSimulatedNetwork() {
+		log.Info().Str("Network Name", sethClient.Cfg.Network.Name).
 			Msg("Network is a simulated network. Skipping fund return.")
 		return nil
 	}
 
 	for _, chainlinkNode := range chainlinkNodes {
-		fundedKeys, err := chainlinkNode.ExportEVMKeysForChain(fmt.Sprint(seth.ChainID))
+		fundedKeys, err := chainlinkNode.ExportEVMKeysForChain(fmt.Sprint(sethClient.ChainID))
 		if err != nil {
 			return err
 		}
@@ -253,7 +254,7 @@ func ReturnFunds(log zerolog.Logger, seth *seth.Client, chainlinkNodes []contrac
 			}
 			// This can take up a good bit of RAM and time. When running on the remote-test-runner, this can lead to OOM
 			// issues. So we avoid running in parallel; slower, but safer.
-			decryptedKey, err := keystore.DecryptKey(keyToDecrypt, client.ChainlinkKeyPassword)
+			decryptedKey, err := keystore.DecryptKey(keyToDecrypt, clClient.ChainlinkKeyPassword)
 			if err != nil {
 				return err
 			}
@@ -265,16 +266,33 @@ func ReturnFunds(log zerolog.Logger, seth *seth.Client, chainlinkNodes []contrac
 			}
 			fromAddress := crypto.PubkeyToAddress(*publicKeyECDSA)
 
-			balance, err := seth.Client.BalanceAt(context.Background(), fromAddress, nil)
+			balance, err := sethClient.Client.BalanceAt(context.Background(), fromAddress, nil)
 			if err != nil {
 				return err
 			}
 
+			txPriority := sethClient.Cfg.Network.GasEstimationTxPriority
+			txTimeout := sethClient.Cfg.Network.TxnTimeout.Duration()
+
+			if sethClient.Cfg.IsExperimentEnabled(seth.Experiment_SlowFundsReturn) {
+				txPriority = "slow"
+				thirtyMinutes := time.Duration(30 * time.Minute)
+				txTimeout = thirtyMinutes
+			}
+
+			estimations := sethClient.CalculateGasEstimations(seth.GasEstimationRequest{
+				GasEstimationEnabled: sethClient.Cfg.Network.GasEstimationEnabled,
+				FallbackGasPrice:     sethClient.Cfg.Network.GasPrice,
+				FallbackGasFeeCap:    sethClient.Cfg.Network.GasFeeCap,
+				FallbackGasTipCap:    sethClient.Cfg.Network.GasTipCap,
+				Priority:             txPriority,
+			})
+
 			var totalGasCost *big.Int
-			if seth.Cfg.Network.EIP1559DynamicFees {
-				totalGasCost = new(big.Int).Mul(big.NewInt(0).SetUint64(seth.Cfg.Network.GasLimit), big.NewInt(0).SetInt64(seth.Cfg.Network.GasFeeCap))
+			if sethClient.Cfg.Network.EIP1559DynamicFees {
+				totalGasCost = new(big.Int).Mul(big.NewInt(0).SetInt64(sethClient.Cfg.Network.TransferGasFee), estimations.GasFeeCap)
 			} else {
-				totalGasCost = new(big.Int).Mul(big.NewInt(0).SetUint64(seth.Cfg.Network.GasLimit), big.NewInt(0).SetInt64(seth.Cfg.Network.GasPrice))
+				totalGasCost = new(big.Int).Mul(big.NewInt(0).SetInt64(sethClient.Cfg.Network.TransferGasFee), estimations.GasPrice)
 			}
 
 			toSend := new(big.Int).Sub(balance, totalGasCost)
@@ -286,14 +304,25 @@ func ReturnFunds(log zerolog.Logger, seth *seth.Client, chainlinkNodes []contrac
 					Str("Balance", balance.String()).
 					Str("To send", toSend.String()).
 					Msg("Not enough balance to cover gas cost. Skipping return.")
+
+				return fmt.Errorf("not enough balance (%s) to cover gas cost (%s). Skipping return", balance.String(), totalGasCost.String())
 			}
 
-			payload := FundsToSendPayload{ToAddress: seth.Addresses[0], Amount: toSend, PrivateKey: decryptedKey.PrivateKey}
+			payload := FundsToSendPayload{
+				ToAddress:  sethClient.Addresses[0],
+				Amount:     toSend,
+				PrivateKey: decryptedKey.PrivateKey,
+				GasLimit:   &sethClient.Cfg.Network.TransferGasFee,
+				GasPrice:   estimations.GasPrice,
+				GasFeeCap:  estimations.GasFeeCap,
+				GasTipCap:  estimations.GasTipCap,
+				TxTimeout:  &txTimeout,
+			}
 
-			_, err = SendFunds(log, seth, payload)
+			_, err = SendFunds(log, sethClient, payload)
 			if err != nil {
-				handler := OvershotTransferRetrier{maxRetries: 3, nextRetrier: &InsufficientFundTransferRetrier{maxRetries: 3, nextRetrier: &GasTooLowTransferRetrier{maxGasLimit: seth.Cfg.Network.GasLimit * 3}}}
-				return handler.Retry(context.Background(), log, seth, err, payload, 0)
+				handler := OvershotTransferRetrier{maxRetries: 10, nextRetrier: &InsufficientFundTransferRetrier{maxRetries: 10, nextRetrier: &GasTooLowTransferRetrier{maxGasLimit: sethClient.Cfg.Network.TransferGasFee * 10}}}
+				return handler.Retry(context.Background(), log, sethClient, err, payload, 0)
 			}
 		}
 	}
