@@ -293,6 +293,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     // The consequence for users is that they can send requests
     // for invalid keyHashes which will simply not be fulfilled.
     ++consumerConfig.nonce;
+    ++consumerConfig.pendingReqCount;
     uint256 preSeed;
     (requestId, preSeed) = _computeRequestId(req.keyHash, msg.sender, subId, consumerConfig.nonce);
 
@@ -500,6 +501,8 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
 
     // Increment the req count for the subscription.
     ++s_subscriptions[rc.subId].reqCount;
+    // Decrement the pending req count for the consumer.
+    --s_consumers[rc.sender][rc.subId].pendingReqCount;
 
     bool nativePayment = uint8(rc.extraArgs[rc.extraArgs.length - 1]) == 1;
 
@@ -625,19 +628,9 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     if (consumersLength == 0) {
       return false;
     }
-    uint256 provingKeyHashesLength = s_provingKeyHashes.length;
     for (uint256 i = 0; i < consumersLength; ++i) {
-      address consumer = consumers[i];
-      for (uint256 j = 0; j < provingKeyHashesLength; ++j) {
-        (uint256 reqId, ) = _computeRequestId(
-          s_provingKeyHashes[j],
-          consumer,
-          subId,
-          s_consumers[consumer][subId].nonce
-        );
-        if (s_requestCommitments[reqId] != 0) {
-          return true;
-        }
+      if (s_consumers[consumers[i]][subId].pendingReqCount > 0) {
+        return true;
       }
     }
     return false;
