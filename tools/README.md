@@ -1,5 +1,5 @@
 # Chainlink Tools
 
-## [Docker](./docker)
+## [Docker](docker.md)
 
 Manage Docker for development and testing
