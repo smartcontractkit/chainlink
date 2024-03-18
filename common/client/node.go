@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
+	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 )
 
@@ -50,6 +51,7 @@ type ChainConfig interface {
 	NodeNoNewHeadsThreshold() time.Duration
 	FinalityDepth() uint32
 	FinalityTagEnabled() bool
+	ChainType() commonconfig.ChainType
 }
 
 //go:generate mockery --quiet --name Node --structname mockNode --filename "mock_node_test.go" --inpackage --case=underscore
@@ -248,6 +250,10 @@ func (n *node[CHAIN_ID, HEAD, RPC]) verifyChainID(callerCtx context.Context, lgg
 
 	st := n.State()
 	switch st {
+	case nodeStateClosed:
+		// The node is already closed, and any subsequent transition is invalid.
+		// To make spotting such transitions a bit easier, return the invalid node state.
+		return nodeStateLen
 	case nodeStateDialed, nodeStateOutOfSync, nodeStateInvalidChainID, nodeStateSyncing:
 	default:
 		panic(fmt.Sprintf("cannot verify node in state %v", st))

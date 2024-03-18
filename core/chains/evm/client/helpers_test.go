@@ -15,6 +15,7 @@ import (
 	clientMocks "github.com/smartcontractkit/chainlink/v2/common/client/mocks"
 	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
@@ -190,4 +191,8 @@ func (mes *mockSubscription) Err() <-chan error { return mes.Errors }
 func (mes *mockSubscription) Unsubscribe() {
 	mes.unsubscribed = true
 	close(mes.Errors)
+}
+
+func ParseTestNodeConfigs(nodes []NodeConfig) ([]*toml.Node, error) {
+	return parseNodeConfigs(nodes)
 }

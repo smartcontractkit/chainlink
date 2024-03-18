@@ -140,6 +140,10 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) handleInitialHead(ctx context.Con
 		return fmt.Errorf("failed to calculate latest finalized head: %w", err)
 	}
 
+	if !latestFinalized.IsValid() {
+		return fmt.Errorf("latest finalized block is not valid")
+	}
+
 	latestChain, err := ht.headSaver.Load(ctx, latestFinalized.BlockNumber())
 	if err != nil {
 		return fmt.Errorf("failed to initialized headSaver: %w", err)
@@ -384,13 +388,16 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) backfill(ctx context.Context, hea
 		return fmt.Errorf(errMsg)
 	}
 
+	l = l.With("latest_finalized_block_hash", latestFinalizedHead.BlockHash(),
+		"latest_finalized_block_number", latestFinalizedHead.BlockNumber())
+
 	err = ht.headSaver.MarkFinalized(ctx, latestFinalizedHead)
 	if err != nil {
-		return fmt.Errorf("failed to mark head as finalized: %w", err)
+		l.Debugw("failed to mark block as finalized", "err", err)
+		return nil
 	}
 
-	l.Debugw("marked block as finalized", "block_hash", latestFinalizedHead.BlockHash(),
-		"block_number", latestFinalizedHead.BlockNumber())
+	l.Debugw("marked block as finalized")
 
 	return
 }

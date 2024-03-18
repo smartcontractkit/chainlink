@@ -946,8 +946,8 @@ func TestUnit_NodeLifecycle_unreachableLoop(t *testing.T) {
 		})
 		defer func() { assert.NoError(t, node.close()) }()
 
-		rpc.On("Dial", mock.Anything).Return(nil).Twice()
-		rpc.On("ChainID", mock.Anything).Return(nodeChainID, nil).Twice()
+		rpc.On("Dial", mock.Anything).Return(nil)
+		rpc.On("ChainID", mock.Anything).Return(nodeChainID, nil)
 		rpc.On("IsSyncing", mock.Anything).Return(true, nil)
 
 		setupRPCForAliveLoop(t, rpc)

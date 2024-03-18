@@ -20,7 +20,6 @@ import (
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
@@ -169,7 +168,7 @@ type ChainOpts struct {
 
 	// TODO BCF-2513 remove test code from the API
 	// Gen-functions are useful for dependency injection by tests
-	GenEthClient      func(*big.Int) client.Client
+	GenEthClient      func(*big.Int) evmclient.Client
 	GenLogBroadcaster func(*big.Int) log.Broadcaster
 	GenLogPoller      func(*big.Int) logpoller.LogPoller
 	GenHeadTracker    func(*big.Int, httypes.HeadBroadcaster) httypes.HeadTracker
@@ -211,13 +210,13 @@ func NewTOMLChain(ctx context.Context, chain *toml.EVMConfig, opts ChainRelayExt
 }
 
 func newChain(ctx context.Context, cfg *evmconfig.ChainScoped, nodes []*toml.Node, opts ChainRelayExtenderConfig) (*chain, error) {
-	chainID, chainType := cfg.EVM().ChainID(), cfg.EVM().ChainType()
+	chainID := cfg.EVM().ChainID()
 	l := opts.Logger
 	var client evmclient.Client
 	if !cfg.EVMRPCEnabled() {
 		client = evmclient.NewNullClient(chainID, l)
 	} else if opts.GenEthClient == nil {
-		client = newEthClientFromCfg(cfg.EVM().NodePool(), cfg.EVM(), l, chainID, chainType, nodes)
+		client = evmclient.NewEvmClient(cfg.EVM().NodePool(), cfg.EVM(), l, chainID, nodes)
 	} else {
 		client = opts.GenEthClient(chainID)
 	}
@@ -241,17 +240,17 @@ func newChain(ctx context.Context, cfg *evmconfig.ChainScoped, nodes []*toml.Nod
 		if opts.GenLogPoller != nil {
 			logPoller = opts.GenLogPoller(chainID)
 		} else {
-			logPoller = logpoller.NewLogPoller(
-				logpoller.NewObservedORM(chainID, db, l, cfg.Database()),
-				client,
-				l,
-				cfg.EVM().LogPollInterval(),
-				cfg.EVM().FinalityTagEnabled(),
-				int64(cfg.EVM().FinalityDepth()),
-				int64(cfg.EVM().LogBackfillBatchSize()),
-				int64(cfg.EVM().RPCDefaultBatchSize()),
-				int64(cfg.EVM().LogKeepBlocksDepth()),
-				int64(cfg.EVM().LogPrunePageSize()))
+			lpOpts := logpoller.Opts{
+				PollPeriod:               cfg.EVM().LogPollInterval(),
+				UseFinalityTag:           cfg.EVM().FinalityTagEnabled(),
+				FinalityDepth:            int64(cfg.EVM().FinalityDepth()),
+				BackfillBatchSize:        int64(cfg.EVM().LogBackfillBatchSize()),
+				RpcBatchSize:             int64(cfg.EVM().RPCDefaultBatchSize()),
+				KeepFinalizedBlocksDepth: int64(cfg.EVM().LogKeepBlocksDepth()),
+				LogPrunePageSize:         int64(cfg.EVM().LogPrunePageSize()),
+				BackupPollerBlockDelay:   int64(cfg.EVM().BackupLogPollerBlockDelay()),
+			}
+			logPoller = logpoller.NewLogPoller(logpoller.NewObservedORM(chainID, db, l, cfg.Database()), client, l, lpOpts)
 		}
 	}
 
