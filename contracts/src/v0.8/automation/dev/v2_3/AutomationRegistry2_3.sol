@@ -193,7 +193,7 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
           emit UpkeepPerformed(
             report.upkeepIds[i],
             upkeepTransmitInfo[i].performSuccess,
-            // receipt.gasChargeWei + receipt.premiumWei, // TODO - this is currently the billing token amount, but should it be?
+            // receipt.gasCharge + receipt.premium, // TODO - this is currently the billing token amount, but should it be?
             receipt.gasReimbursementJuels + receipt.premiumJuels, // TODO - this is currently the link tokn amount, but should it be billing token instead?
             upkeepTransmitInfo[i].gasUsed,
             gasOverhead,

@@ -409,14 +409,14 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
 
   /**
    * @notice struct containing receipt information about a payment or cost estimation
-   * @member gasChargeWei the amount to charge a user for gas spent
-   * @member premiumWei the premium charged to the user, shared between all nodes
+   * @member gasCharge the amount to charge a user for gas spent
+   * @member premium the premium charged to the user, shared between all nodes
    * @member gasReimbursementJuels the amount to reimburse a node for gas spent
    * @member premiumJuels the premium paid to NOPs, shared between all nodes
    */
   struct PaymentReceipt {
-    uint96 gasChargeWei;
-    uint96 premiumWei;
+    uint96 gasCharge;
+    uint96 premium;
     uint96 gasReimbursementJuels;
     uint96 premiumJuels;
   }
@@ -641,14 +641,14 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
 
     uint256 gasPaymentUSD = (gasWei * (paymentParams.gasLimit + paymentParams.gasOverhead) + paymentParams.l1CostWei) *
       paymentParams.nativeUSD; // this is USD * 1e36 ??? TODO
-    receipt.gasChargeWei = SafeCast.toUint96(gasPaymentUSD / paymentParams.billingToken.priceUSD);
+    receipt.gasCharge = SafeCast.toUint96(gasPaymentUSD / paymentParams.billingToken.priceUSD);
     receipt.gasReimbursementJuels = SafeCast.toUint96(gasPaymentUSD / paymentParams.linkUSD);
 
     uint256 flatFeeUSD = uint256(paymentParams.billingToken.flatFeeMicroLink) * 1e12 * paymentParams.linkUSD; // TODO - this should get replaced by flatFeeCents later
     uint256 premiumUSD = ((((gasWei * paymentParams.gasLimit) + paymentParams.l1CostWei) *
       paymentParams.billingToken.gasFeePPB *
       paymentParams.nativeUSD) / 1e9) + flatFeeUSD; // this is USD * 1e18
-    receipt.premiumWei = SafeCast.toUint96(premiumUSD / paymentParams.billingToken.priceUSD);
+    receipt.premium = SafeCast.toUint96(premiumUSD / paymentParams.billingToken.priceUSD);
     receipt.premiumJuels = SafeCast.toUint96(premiumUSD / paymentParams.linkUSD);
 
     return receipt;
@@ -703,7 +703,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
       })
     );
 
-    return receipt.gasChargeWei + receipt.premiumWei;
+    return receipt.gasCharge + receipt.premium;
   }
 
   /**
@@ -931,11 +931,11 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     PaymentReceipt memory receipt = _calculatePaymentAmount(hotVars, paymentParams);
 
     uint96 balance = s_upkeep[upkeepId].balance;
-    uint96 payment = receipt.gasChargeWei + receipt.premiumWei;
+    uint96 payment = receipt.gasCharge + receipt.premium;
 
     // this shouldn't happen, but in rare edge cases, we charge the full balance in case the user
     // can't cover the amount owed
-    if (balance < receipt.gasChargeWei) {
+    if (balance < receipt.gasCharge) {
       // if the user can't cover the gas fee, then direct all of the payment to the transmitter and distribute no premium to the DON
       payment = balance;
       receipt.gasReimbursementJuels = SafeCast.toUint96(
