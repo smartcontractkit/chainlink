@@ -5,61 +5,57 @@ Data = """
   "lane_configs": {
     "geth_1337": {
       "is_mock_arm": true,
-      "fee_token": "0x40a42Baf86Fc821f972Ad2aC878729063CeEF403",
+      "fee_token": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
       "bridge_tokens": [
-        "0xde2Bd2ffEA002b8E84ADeA96e5976aF664115E2c",
-        "0xD49a0e9A4CD5979aE36840f542D2d7f02C4817Be"
+        "0x5fbdb2315678afecb367f032d93f642f64180aa3"
       ],
       "bridge_tokens_pools": [
-        "0xc582Bc0317dbb0908203541971a358c44b1F3766",
-        "0x74Cf9087AD26D541930BaC724B7ab21bA8F00a27"
+        "0xa513e6e4b8f2a923d98304ec87f64353c4d5c853"
       ],
-      "arm": "0x6C2d83262fF84cBaDb3e416D527403135D757892",
-      "router": "0x0ed64d01D0B4B655E410EF1441dD677B695639E7",
-      "price_registry": "0x26B862f640357268Bd2d9E95bc81553a2Aa81D7E",
-      "wrapped_native": "0xFD6F7A6a5c21A3f503EBaE7a473639974379c351",
+      "arm": "0xdc64a140aa3e981100a9beca4e685f962f0cf6c9",
+      "router": "0x0165878a594ca255338adfa4d48449f69242eb8f",
+      "price_registry": "0x8a791620dd6260079bf849dc5567adc3f2fdc318",
+      "wrapped_native": "0xcf7ed3acca5a467e9e704c703e8d87f634fb0fc9",
       "multicall": "0x0000000000000000000000000000000000000000",
       "src_contracts": {
         "geth_2337": {
-          "on_ramp": "0xB06c856C8eaBd1d8321b687E188204C1018BC4E5",
-          "deployed_at": 1798
+          "on_ramp": "0x610178da211fef7d417bc0e6fed39f05609ad788",
+          "deployed_at": 239
         }
       },
       "dest_contracts": {
         "geth_2337": {
-          "off_ramp": "0x1780bCf4103D3F501463AD3414c7f4b654bb7aFd",
-          "commit_store": "0x02df3a3F960393F5B349E40A599FEda91a7cc1A7",
-          "receiver_dapp": "0x8F4ec854Dd12F1fe79500a1f53D0cbB30f9b6134"
+          "off_ramp": "0x0b306bf915c4d645ff596e518faf3f9669b97016",
+          "commit_store": "0x0dcd1bf9a1b36ce34237eeafef220932846bcd82",
+          "receiver_dapp": ""
         }
       }
     },
     "geth_2337": {
       "is_mock_arm": true,
-      "fee_token": "0x58AA941Ba0568DF0886B6eC41233cFe94bF32178",
+      "fee_token": "0x8464135c8f25da09e49bc8782676a84730c318bc",
       "bridge_tokens": [
-        "0x5C3A8b1E8273F52EF64D70CEAB437AA6f7092f65",
-        "0xd5C9Febf02791Bd2AE746FAF9e51Ea4Af25Ad2cb"
+        "0x8464135c8f25da09e49bc8782676a84730c318bc"
       ],
       "bridge_tokens_pools": [
-        "0x07F1599D3fCEC400eFf2528f29fD4f00E9A61062",
-        "0x87Ce66A0E46924a164E967159EDc7A2E45AF926A"
+        "0x1275d096b9dbf2347bd2a131fb6bdab0b4882487"
       ],
-      "arm": "0x8896Dce0E60a706244553ADA1aAc5CDCc40a0428",
-      "router": "0x61B626A562d39439Ab60fCbF19678Dac036D1209",
-      "price_registry": "0x6D1366b16EAafbB328432894981F71CE55b0FDF8",
-      "wrapped_native": "0x2575d6D30767149c99589cce743656fA3866ca2e",
+      "arm": "0xbcf26943c0197d2ee0e5d05c716be60cc2761508",
+      "router": "0xc6ba8c3233ecf65b761049ef63466945c362edd2",
+      "price_registry": "0x0b48af34f4c854f5ae1a3d587da471fea45bad52",
+      "wrapped_native": "0x712516e61c8b383df4a63cfe83d7701bce54b03e",
       "multicall": "0x0000000000000000000000000000000000000000",
       "src_contracts": {
         "geth_1337": {
-          "on_ramp": "0xf9FFCCdb71D68eeBa284e6b8cbF35146f018C9b9",
-          "deployed_at": 1795
+          "on_ramp": "0x0f5d1ef48f12b6f691401bfe88c2037c690a6afe",
+          "deployed_at": 239
         }
       },
       "dest_contracts": {
         "geth_1337": {
-          "off_ramp": "0x181522bb19Ae83E9984c469f67DAe5602F0BC3de",
-          "commit_store": "0x2d0adf1795389d6fB7d231ea5D282F1b19be5495",
-          "receiver_dapp": "0xC7981C4AB397E174964C0A927a4dE71143A09708"
+          "off_ramp": "0x381445710b5e73d34af196c53a3d5cda58edbf7a",
+          "commit_store": "0x2de080e97b0cae9825375d31f5d0ed5751fdf16d",
+          "receiver_dapp": ""
         }
       }
     }
@@ -76,8 +72,8 @@ selected_networks = ['geth_1337', 'geth_2337']
 [CCIP.Env.Network.EVMNetworks.geth_1337]
 evm_name = 'geth_1337'
 evm_chain_id = 1337
-evm_urls = ['ws://127.1.27.6:8546']
-evm_http_urls = ['http://127.1.27.6:8544']
+evm_urls = ['wss://crib-ani-geth-1337-ws.main.stage.cldev.sh']
+evm_http_urls = ['https://crib-ani-geth-1337-ws.main.stage.cldev.sh']
 evm_keys = ['ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80']
 evm_simulated = true
 client_implementation = 'Ethereum'
@@ -91,8 +87,8 @@ evm_default_gas_limit = 6000000
 [CCIP.Env.Network.EVMNetworks.geth_2337]
 evm_name = 'geth_2337'
 evm_chain_id = 2337
-evm_urls = ['ws://127.1.27.5:8546']
-evm_http_urls = ['http://127.1.27.5:8544']
+evm_urls = ['wss://crib-ani-geth-2337-ws.main.stage.cldev.sh']
+evm_http_urls = ['https://crib-ani-geth-2337-ws.main.stage.cldev.sh']
 evm_keys = ['59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d']
 evm_simulated = true
 client_implementation = 'Ethereum'
@@ -155,7 +151,7 @@ ExistingDeployment = true
 LocalCluster = false
 TestRunName = 'crib-ani-load'
 TimeUnit = '1s'
-TestDuration = '1m'
+TestDuration = '15m'
 RequestPerUnitTime = [1]
 NodeFunding = 100.0
 ExistingDeployment = true
