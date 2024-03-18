@@ -91,11 +91,9 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 	newEnvConfig := vrfcommon.NewEnvConfig{
 		NodesToCreate:          []vrfcommon.VRFNodeType{vrfcommon.VRF},
 		NumberOfTxKeysToCreate: *vrfv2PlusConfig.General.NumberOfSendingKeysToCreate,
-		NumberOfConsumers:      1,
-		NumberOfSubToCreate:    *vrfv2PlusConfig.General.NumberOfSubToCreate,
 	}
 
-	testEnv, vrfContracts, subIDs, vrfKey, _, err = vrfv2plus.SetupVRFV2PlusUniverse(testcontext.Get(t), t, testConfig, cleanupFn, newEnvConfig, l)
+	testEnv, vrfContracts, vrfKey, _, err = vrfv2plus.SetupVRFV2PlusUniverse(testcontext.Get(t), t, testConfig, cleanupFn, newEnvConfig, l)
 	require.NoError(t, err)
 	eoaWalletAddress = testEnv.EVMClient.GetDefaultWallet().Address()
 
@@ -151,6 +149,74 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 			Interface("Fulfilment Count", fulfilmentCount).
 			Msg("Final Request/Fulfilment Stats")
 	})
+}
+
+func TestVRFV2PlusBHSPerformance(t *testing.T) {
+	l := logging.GetTestLogger(t)
+
+	testType, err := tc.GetConfigurationNameFromEnv()
+	require.NoError(t, err)
+	testConfig, err := tc.GetConfig(testType, tc.VRFv2Plus)
+	require.NoError(t, err)
+	cfgl := testConfig.Logging.Loki
+
+	vrfv2PlusConfig := testConfig.VRFv2Plus
+	testReporter := &testreporters.VRFV2PlusTestReporter{}
+
+	lokiConfig := wasp.NewLokiConfig(cfgl.Endpoint, cfgl.TenantId, cfgl.BasicAuth, cfgl.BearerToken)
+	lc, err := wasp.NewLokiClient(lokiConfig)
+	if err != nil {
+		l.Error().Err(err).Msg(ErrLokiClient)
+		return
+	}
+
+	updatedLabels := UpdateLabels(labels, t)
+
+	l.Info().
+		Str("Test Type", testType).
+		Str("Test Duration", vrfv2PlusConfig.Performance.TestDuration.Duration.Truncate(time.Second).String()).
+		Int64("RPS", *vrfv2PlusConfig.Performance.RPS).
+		Str("RateLimitUnitDuration", vrfv2PlusConfig.Performance.RateLimitUnitDuration.String()).
+		Uint16("RandomnessRequestCountPerRequest", *vrfv2PlusConfig.General.RandomnessRequestCountPerRequest).
+		Uint16("RandomnessRequestCountPerRequestDeviation", *vrfv2PlusConfig.General.RandomnessRequestCountPerRequestDeviation).
+		Bool("UseExistingEnv", *vrfv2PlusConfig.General.UseExistingEnv).
+		Msg("Performance Test Configuration")
+
+	cleanupFn := func() {
+		teardown(t, vrfContracts.VRFV2PlusConsumer[0], lc, updatedLabels, testReporter, testType, &testConfig)
+
+		if testEnv.EVMClient.NetworkSimulated() {
+			l.Info().
+				Str("Network Name", testEnv.EVMClient.GetNetworkName()).
+				Msg("Network is a simulated network. Skipping fund return for Coordinator Subscriptions.")
+		} else {
+			if *testConfig.VRFv2Plus.General.CancelSubsAfterTestRun {
+				//cancel subs and return funds to sub owner
+				vrfv2plus.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, eoaWalletAddress, subIDs, l)
+			}
+		}
+		if !*testConfig.VRFv2Plus.General.UseExistingEnv {
+			if err := testEnv.Cleanup(); err != nil {
+				l.Error().Err(err).Msg("Error cleaning up test environment")
+			}
+		}
+	}
+
+	newEnvConfig := vrfcommon.NewEnvConfig{
+		NodesToCreate:          []vrfcommon.VRFNodeType{vrfcommon.VRF},
+		NumberOfTxKeysToCreate: *vrfv2PlusConfig.General.NumberOfSendingKeysToCreate,
+	}
+
+	testEnv, vrfContracts, vrfKey, _, err = vrfv2plus.SetupVRFV2PlusUniverse(testcontext.Get(t), t, testConfig, cleanupFn, newEnvConfig, l)
+	require.NoError(t, err)
+	eoaWalletAddress = testEnv.EVMClient.GetDefaultWallet().Address()
+
+	l.Debug().Int("Number of Subs", len(subIDs)).Msg("Subs involved in the test")
+	for _, subID := range subIDs {
+		subscription, err := vrfContracts.CoordinatorV2Plus.GetSubscription(testcontext.Get(t), subID)
+		require.NoError(t, err, "error getting subscription information for subscription %s", subID.String())
+		vrfv2plus.LogSubDetails(l, subscription, subID, vrfContracts.CoordinatorV2Plus)
+	}
 
 	t.Run("vrfv2plus and bhs performance test", func(t *testing.T) {
 		configCopy := testConfig.MustCopy().(tc.TestConfig)
@@ -229,7 +295,6 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 			Interface("Fulfilment Count", fulfilmentCount).
 			Msg("Final Request/Fulfilment Stats")
 	})
-
 }
 
 func teardown(

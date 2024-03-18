@@ -17,11 +17,11 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
-	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
+	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_v21_plus_common"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	evm "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/logprovider"
@@ -88,7 +88,7 @@ func (r *ocr2keeperRelayer) NewOCR2KeeperProvider(rargs commontypes.RelayArgs, p
 	// TODO https://smartcontract-it.atlassian.net/browse/BCF-2887
 	ctx := context.Background()
 
-	cfgWatcher, err := newOCR2KeeperConfigProvider(r.lggr, r.chain, rargs)
+	cfgWatcher, err := newOCR2KeeperConfigProvider(ctx, r.lggr, r.chain, rargs)
 	if err != nil {
 		return nil, err
 	}
@@ -105,16 +105,16 @@ func (r *ocr2keeperRelayer) NewOCR2KeeperProvider(rargs commontypes.RelayArgs, p
 	services.configWatcher = cfgWatcher
 	services.contractTransmitter = contractTransmitter
 
-	addr := ethkey.MustEIP55Address(rargs.ContractID).Address()
+	addr := evmtypes.MustEIP55Address(rargs.ContractID).Address()
 
-	registryContract, err := iregistry21.NewIKeeperRegistryMaster(addr, client.Client())
+	registryContract, err := ac.NewIAutomationV21PlusCommon(addr, client.Client())
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to create caller for address and backend", ErrInitializationFailure)
 	}
 	// lookback blocks for transmit event is hard coded and should provide ample time for logs
 	// to be detected in most cases
 	var transmitLookbackBlocks int64 = 250
-	transmitEventProvider, err := transmit.NewTransmitEventProvider(r.lggr, client.LogPoller(), addr, client.Client(), transmitLookbackBlocks)
+	transmitEventProvider, err := transmit.NewTransmitEventProvider(ctx, r.lggr, client.LogPoller(), addr, client.Client(), transmitLookbackBlocks)
 	if err != nil {
 		return nil, err
 	}
@@ -208,7 +208,7 @@ func (c *ocr2keeperProvider) Codec() commontypes.Codec {
 	return nil
 }
 
-func newOCR2KeeperConfigProvider(lggr logger.Logger, chain legacyevm.Chain, rargs commontypes.RelayArgs) (*configWatcher, error) {
+func newOCR2KeeperConfigProvider(ctx context.Context, lggr logger.Logger, chain legacyevm.Chain, rargs commontypes.RelayArgs) (*configWatcher, error) {
 	var relayConfig types.RelayConfig
 	err := json.Unmarshal(rargs.RelayConfig, &relayConfig)
 	if err != nil {
@@ -221,6 +221,7 @@ func newOCR2KeeperConfigProvider(lggr logger.Logger, chain legacyevm.Chain, rarg
 	contractAddress := common.HexToAddress(rargs.ContractID)
 
 	configPoller, err := NewConfigPoller(
+		ctx,
 		lggr.With("contractID", rargs.ContractID),
 		CPConfig{
 			chain.Client(),

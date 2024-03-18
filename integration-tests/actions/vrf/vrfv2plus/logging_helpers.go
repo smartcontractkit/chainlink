@@ -9,6 +9,7 @@ import (
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	vrfcommon "github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/common"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	vrfv2plus_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2plus"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_upgraded_version"
@@ -164,28 +165,24 @@ func LogFulfillmentDetailsNativeBilling(
 		Msg("Random Words Request Fulfilment Details For Native Billing")
 }
 
-func logRandRequest(
+func LogRandRequest(
 	l zerolog.Logger,
 	consumer string,
 	coordinator string,
 	subID *big.Int,
 	isNativeBilling bool,
-	minimumConfirmations uint16,
-	callbackGasLimit uint32,
-	numberOfWords uint32,
 	keyHash [32]byte,
-	randomnessRequestCountPerRequest uint16,
-	randomnessRequestCountPerRequestDeviation uint16) {
+	config *vrfv2plus_config.General) {
 	l.Info().
 		Str("Consumer", consumer).
 		Str("Coordinator", coordinator).
 		Str("SubID", subID.String()).
 		Bool("IsNativePayment", isNativeBilling).
-		Uint16("MinimumConfirmations", minimumConfirmations).
-		Uint32("CallbackGasLimit", callbackGasLimit).
-		Uint32("NumberOfWords", numberOfWords).
+		Uint16("MinimumConfirmations", *config.MinimumConfirmations).
+		Uint32("CallbackGasLimit", *config.CallbackGasLimit).
+		Uint32("NumberOfWords", *config.NumberOfWords).
 		Str("KeyHash", fmt.Sprintf("0x%x", keyHash)).
-		Uint16("RandomnessRequestCountPerRequest", randomnessRequestCountPerRequest).
-		Uint16("RandomnessRequestCountPerRequestDeviation", randomnessRequestCountPerRequestDeviation).
+		Uint16("RandomnessRequestCountPerRequest", *config.RandomnessRequestCountPerRequest).
+		Uint16("RandomnessRequestCountPerRequestDeviation", *config.RandomnessRequestCountPerRequestDeviation).
 		Msg("Requesting randomness")
 }

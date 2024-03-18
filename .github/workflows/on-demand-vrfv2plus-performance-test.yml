@@ -20,7 +20,7 @@ jobs:
   vrfv2plus_performance_test:
     name: VRFV2 Plus Performance Test
     environment: integration
-    runs-on: ubuntu20.04-8cores-32GB
+    runs-on: ubuntu22.04-8cores-32GB
     permissions:
       checks: write
       pull-requests: write

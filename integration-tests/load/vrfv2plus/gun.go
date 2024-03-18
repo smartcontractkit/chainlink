@@ -45,18 +45,14 @@ func (m *BHSTestGun) Call(_ *wasp.Generator) *wasp.Response {
 		return &wasp.Response{Error: err.Error(), Failed: true}
 	}
 	_, err = vrfv2plus.RequestRandomnessAndWaitForRequestedEvent(
+		//the same consumer is used for all requests and in all subs
 		m.contracts.VRFV2PlusConsumer[0],
 		m.contracts.CoordinatorV2Plus,
 		&vrfcommon.VRFKeyData{KeyHash: m.keyHash},
-		m.subIDs[0],
-		//randomly pick payment type
+		//randomly pick a subID from pool of subIDs
+		m.subIDs[randInRange(0, len(m.subIDs)-1)],
 		billingType,
-		*vrfv2PlusConfig.MinimumConfirmations,
-		*vrfv2PlusConfig.CallbackGasLimit,
-		*vrfv2PlusConfig.NumberOfWords,
-		*vrfv2PlusConfig.RandomnessRequestCountPerRequest,
-		*vrfv2PlusConfig.RandomnessRequestCountPerRequestDeviation,
-		vrfv2PlusConfig.RandomWordsFulfilledEventTimeout.Duration,
+		vrfv2PlusConfig,
 		m.logger,
 	)
 	//todo - might need to store randRequestBlockNumber and blockhash to verify that it was stored in BHS contract at the end of the test
@@ -101,7 +97,8 @@ func (m *SingleHashGun) Call(_ *wasp.Generator) *wasp.Response {
 	}
 
 	//randomly increase/decrease randomness request count per TX
-	randomnessRequestCountPerRequest := deviateValue(*vrfv2PlusConfig.General.RandomnessRequestCountPerRequest, *vrfv2PlusConfig.RandomnessRequestCountPerRequestDeviation)
+	reqCount := deviateValue(*m.testConfig.General.RandomnessRequestCountPerRequest, *m.testConfig.General.RandomnessRequestCountPerRequestDeviation)
+	m.testConfig.General.RandomnessRequestCountPerRequest = &reqCount
 	_, err = vrfv2plus.RequestRandomnessAndWaitForFulfillment(
 		//the same consumer is used for all requests and in all subs
 		m.contracts.VRFV2PlusConsumer[0],
@@ -109,14 +106,8 @@ func (m *SingleHashGun) Call(_ *wasp.Generator) *wasp.Response {
 		&vrfcommon.VRFKeyData{KeyHash: m.keyHash},
 		//randomly pick a subID from pool of subIDs
 		m.subIDs[randInRange(0, len(m.subIDs)-1)],
-		//randomly pick payment type
 		billingType,
-		*vrfv2PlusConfig.MinimumConfirmations,
-		*vrfv2PlusConfig.CallbackGasLimit,
-		*vrfv2PlusConfig.NumberOfWords,
-		randomnessRequestCountPerRequest,
-		*vrfv2PlusConfig.RandomnessRequestCountPerRequestDeviation,
-		vrfv2PlusConfig.RandomWordsFulfilledEventTimeout.Duration,
+		vrfv2PlusConfig,
 		m.logger,
 	)
 	if err != nil {
