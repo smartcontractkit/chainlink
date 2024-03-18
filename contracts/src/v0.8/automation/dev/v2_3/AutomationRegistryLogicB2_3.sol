@@ -24,7 +24,8 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
     address nativeUSDFeed,
     address fastGasFeed,
     address automationForwarderLogic,
-    address allowedReadOnlyAddress
+    address allowedReadOnlyAddress,
+    PayoutMode payoutMode
   )
     AutomationRegistryBase2_3(
       link,
@@ -32,7 +33,8 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
       nativeUSDFeed,
       fastGasFeed,
       automationForwarderLogic,
-      allowedReadOnlyAddress
+      allowedReadOnlyAddress,
+      s_payoutMode
     )
   {}
 
@@ -295,6 +297,34 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
     emit AdminPrivilegeConfigSet(admin, newPrivilegeConfig);
   }
 
+  /**
+   * @notice settles NOPs' LINK payment offchain
+   */
+  function settleNOPsOffchain() external {
+    _onlyFinanceAdminAllowed();
+    if (s_payoutMode == PayoutMode.ON_CHAIN) {
+      revert MustSettleOnchain();
+    }
+
+    uint256 length = s_transmittersList.length;
+    uint256[] memory balances = new uint256[](length);
+    for (uint256 i = 0; i < length; i++) {
+      address transmitterAddr = s_transmittersList[i];
+      uint96 balance = _updateTransmitterBalanceFromPool(transmitterAddr, s_hotVars.totalPremium, uint96(length));
+      balances[i] = balance;
+      s_transmitters[transmitterAddr].balance = 0;
+    }
+
+    emit NOPsSettledOffchain(s_transmittersList, balances);
+  }
+
+  /**
+   * @notice disables offchain payment for NOPs
+   */
+  function disableOffchainPayments() external onlyOwner {
+    s_payoutMode = PayoutMode.ON_CHAIN;
+  }
+
   // ================================================================
   // |                           GETTERS                            |
   // ================================================================
@@ -349,6 +379,10 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
 
   function getAllowedReadOnlyAddress() external view returns (address) {
     return i_allowedReadOnlyAddress;
+  }
+
+  function getPayoutMode() external view returns (PayoutMode) {
+    return s_payoutMode;
   }
 
   function getBillingToken(uint256 upkeepID) external view returns (IERC20) {
