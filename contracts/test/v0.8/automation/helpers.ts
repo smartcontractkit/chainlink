@@ -169,6 +169,7 @@ export const deployRegistry23 = async (
   allowedReadOnlyAddress: Parameters<
     AutomationRegistryLogicB2_3Factory['deploy']
   >[3],
+  payoutMode: Parameters<AutomationRegistryLogicB2_3Factory['deploy']>[6],
 ): Promise<IAutomationRegistry2_3> => {
   const logicBFactory = await ethers.getContractFactory(
     'AutomationRegistryLogicB2_3',
@@ -192,6 +193,7 @@ export const deployRegistry23 = async (
       fastgas,
       forwarderLogic.address,
       allowedReadOnlyAddress,
+      payoutMode,
     )
   const logicA = await logicAFactory.connect(from).deploy(logicB.address)
   const master = await registryFactory.connect(from).deploy(logicA.address)
