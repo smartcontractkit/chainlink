@@ -9,6 +9,7 @@ import {ERC20Mock} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/
 import {MockV3Aggregator} from "../../../tests/MockV3Aggregator.sol";
 import {AutomationForwarderLogic} from "../../AutomationForwarderLogic.sol";
 import {AutomationRegistry2_3} from "../v2_3/AutomationRegistry2_3.sol";
+import {AutomationRegistryBase2_3} from "../v2_3/AutomationRegistryBase2_3.sol";
 import {AutomationRegistryLogicA2_3} from "../v2_3/AutomationRegistryLogicA2_3.sol";
 import {AutomationRegistryLogicB2_3} from "../v2_3/AutomationRegistryLogicB2_3.sol";
 import {IAutomationRegistryMaster2_3} from "../interfaces/v2_3/IAutomationRegistryMaster2_3.sol";
@@ -53,7 +54,8 @@ contract BaseTest is Test {
       address(NATIVE_USD_FEED),
       address(FAST_GAS_FEED),
       address(forwarderLogic),
-      ZERO_ADDRESS
+      ZERO_ADDRESS,
+      AutomationRegistryBase2_3.PayoutMode.ON_CHAIN
     );
     AutomationRegistryLogicA2_3 logicA2_3 = new AutomationRegistryLogicA2_3(logicB2_3);
     return
