@@ -8,7 +8,7 @@ on:
 jobs:
   push-chainlink-develop-goreleaser:
     runs-on:
-      labels: ubuntu20.04-16cores-64GB
+      labels: ubuntu22.04-16cores-64GB
     outputs:
       goreleaser-metadata: ${{ steps.build-sign-publish.outputs.goreleaser-metadata }}
       goreleaser-artifacts: ${{ steps.build-sign-publish.outputs.goreleaser-artifacts }}

@@ -1151,11 +1151,15 @@ func setupAutomationTestDocker(
 	require.NoError(t, err)
 	l.Debug().Msgf("Funding amount: %f", *automationTestConfig.GetCommonConfig().ChainlinkNodeFunding)
 	clNodesCount := 5
+
+	privateNetwork, err := actions.EthereumNetworkConfigFromConfig(l, automationTestConfig)
+	require.NoError(t, err, "Error building ethereum network config")
+
 	if isMercuryV02 || isMercuryV03 {
 		env, err = test_env.NewCLTestEnvBuilder().
 			WithTestInstance(t).
 			WithTestConfig(automationTestConfig).
-			WithGeth().
+			WithPrivateEthereumNetwork(privateNetwork).
 			WithMockAdapter().
 			WithFunding(big.NewFloat(*automationTestConfig.GetCommonConfig().ChainlinkNodeFunding)).
 			WithStandardCleanup().
@@ -1192,7 +1196,7 @@ func setupAutomationTestDocker(
 		env, err = test_env.NewCLTestEnvBuilder().
 			WithTestInstance(t).
 			WithTestConfig(automationTestConfig).
-			WithGeth().
+			WithPrivateEthereumNetwork(privateNetwork).
 			WithMockAdapter().
 			WithCLNodes(clNodesCount).
 			WithCLNodeConfig(clNodeConfig).

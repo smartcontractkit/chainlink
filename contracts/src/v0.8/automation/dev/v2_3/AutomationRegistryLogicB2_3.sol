@@ -8,6 +8,7 @@ import {UpkeepFormat} from "../../interfaces/UpkeepTranscoderInterface.sol";
 import {IAutomationForwarder} from "../../interfaces/IAutomationForwarder.sol";
 import {IChainModule} from "../../interfaces/IChainModule.sol";
 import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
+import {IAutomationV21PlusCommon} from "../../interfaces/IAutomationV21PlusCommon.sol";
 
 contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
   using Address for address;
@@ -359,10 +360,10 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
    * @dev this function may be deprecated in a future version of automation in favor of individual
    * getters for each field
    */
-  function getUpkeep(uint256 id) external view returns (UpkeepInfo memory upkeepInfo) {
+  function getUpkeep(uint256 id) external view returns (IAutomationV21PlusCommon.UpkeepInfoLegacy memory upkeepInfo) {
     Upkeep memory reg = s_upkeep[id];
     address target = address(reg.forwarder) == address(0) ? address(0) : reg.forwarder.getTarget();
-    upkeepInfo = UpkeepInfo({
+    upkeepInfo = IAutomationV21PlusCommon.UpkeepInfoLegacy({
       target: target,
       performGas: reg.performGas,
       checkData: s_checkData[id],
@@ -449,14 +450,14 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
     external
     view
     returns (
-      State memory state,
-      OnchainConfigLegacy memory config,
+      IAutomationV21PlusCommon.StateLegacy memory state,
+      IAutomationV21PlusCommon.OnchainConfigLegacy memory config,
       address[] memory signers,
       address[] memory transmitters,
       uint8 f
     )
   {
-    state = State({
+    state = IAutomationV21PlusCommon.StateLegacy({
       nonce: s_storage.nonce,
       ownerLinkBalance: 0,
       expectedLinkBalance: s_reserveAmounts[address(i_link)],
@@ -469,7 +470,7 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
       paused: s_hotVars.paused
     });
 
-    config = OnchainConfigLegacy({
+    config = IAutomationV21PlusCommon.OnchainConfigLegacy({
       paymentPremiumPPB: s_hotVars.paymentPremiumPPB,
       flatFeeMicroLink: s_hotVars.flatFeeMicroLink,
       checkGasLimit: s_storage.checkGasLimit,

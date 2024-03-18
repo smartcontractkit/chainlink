@@ -11,7 +11,7 @@ jobs:
   test:
     env:
       REF_NAME: ${{ github.head_ref || github.ref_name }}
-    runs-on: ubuntu20.04-8cores-32GB
+    runs-on: ubuntu22.04-8cores-32GB
     steps:
       - name: Add masks and export base64 config
         run: |

@@ -17,7 +17,7 @@ jobs:
       id-token: write
       contents: read
     name: Build Chainlink Image
-    runs-on: ubuntu20.04-16cores-64GB
+    runs-on: ubuntu22.04-16cores-64GB
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
@@ -61,19 +61,19 @@ jobs:
           - name: Upgrade 2.0
             suite: smoke
             nodes: 1
-            os: ubuntu20.04-8cores-32GB
+            os: ubuntu22.04-8cores-32GB
             network: SIMULATED
             command: -run ^TestAutomationNodeUpgrade/registry_2_0 ./smoke
           - name: Upgrade 2.1
             suite: smoke
             nodes: 5
-            os: ubuntu20.04-8cores-32GB
+            os: ubuntu22.04-8cores-32GB
             network: SIMULATED
             command: -run ^TestAutomationNodeUpgrade/registry_2_1 ./smoke
           - name: Upgrade 2.2
             suite: smoke
             nodes: 5
-            os: ubuntu20.04-8cores-32GB
+            os: ubuntu22.04-8cores-32GB
             network: SIMULATED
             command: -run ^TestAutomationNodeUpgrade/registry_2_2 ./smoke
     runs-on: ${{ matrix.tests.os }}

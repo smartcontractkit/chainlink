@@ -329,6 +329,10 @@ func TestVRFv2Plus(t *testing.T) {
 		require.NoError(t, err, "error getting tx cancellation Tx Receipt")
 
 		txGasUsed := new(big.Int).SetUint64(cancellationTxReceipt.GasUsed)
+		// we don't have that information for older Geth versions
+		if cancellationTxReceipt.EffectiveGasPrice == nil {
+			cancellationTxReceipt.EffectiveGasPrice = new(big.Int).SetUint64(0)
+		}
 		cancellationTxFeeWei := new(big.Int).Mul(txGasUsed, cancellationTxReceipt.EffectiveGasPrice)
 
 		l.Info().
@@ -469,6 +473,10 @@ func TestVRFv2Plus(t *testing.T) {
 		require.NoError(t, err, "error getting tx cancellation Tx Receipt")
 
 		txGasUsed := new(big.Int).SetUint64(cancellationTxReceipt.GasUsed)
+		// we don't have that information for older Geth versions
+		if cancellationTxReceipt.EffectiveGasPrice == nil {
+			cancellationTxReceipt.EffectiveGasPrice = new(big.Int).SetUint64(0)
+		}
 		cancellationTxFeeWei := new(big.Int).Mul(txGasUsed, cancellationTxReceipt.EffectiveGasPrice)
 
 		l.Info().

@@ -35,7 +35,7 @@ concurrency:
 jobs:
   e2e-soak-test:
     environment: sdlc
-    runs-on: ubuntu20.04-8cores-32GB
+    runs-on: ubuntu22.04-8cores-32GB
     permissions:
       contents: read
       id-token: write

@@ -13,7 +13,7 @@ postgres_version="15.6"
 selected_networks=["simulated"]
 
 [PrivateEthereumNetwork]
-consensus_type="pow"
+ethereum_version="eth1"
 execution_layer="geth"
 
 [PrivateEthereumNetwork.EthereumChainConfig]
