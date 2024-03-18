@@ -61,6 +61,12 @@ describe('AutomationRegistrar2_3', () => {
   const maxAllowedAutoApprove = 5
   const trigger = '0xdeadbeef'
   const offchainConfig = '0x01234567'
+  const keepers = [
+    randomAddress(),
+    randomAddress(),
+    randomAddress(),
+    randomAddress(),
+  ]
 
   const emptyBytes = '0x00'
   const stalenessSeconds = BigNumber.from(43820)
@@ -99,6 +105,7 @@ describe('AutomationRegistrar2_3', () => {
   let registrar: Registrar
   let chainModuleBase: ChainModuleBase
   let chainModuleBaseFactory: ChainModuleBaseFactory
+  let onchainConfig: OnChainConfig
 
   type RegistrationParams = {
     upkeepContract: string
@@ -182,13 +189,7 @@ describe('AutomationRegistrar2_3', () => {
       .connect(owner)
       .transfer(await requestSender.getAddress(), toWei('1000'))
 
-    const keepers = [
-      await personas.Carol.getAddress(),
-      await personas.Nancy.getAddress(),
-      await personas.Ned.getAddress(),
-      await personas.Neil.getAddress(),
-    ]
-    const onchainConfig: OnChainConfig = {
+    onchainConfig = {
       checkGasLimit,
       stalenessSeconds,
       gasCeilingMultiplier,
@@ -666,6 +667,10 @@ describe('AutomationRegistrar2_3', () => {
           maxAllowedAutoApprove,
         )
 
+      await registry
+        .connect(owner)
+        .setConfigTypeSafe(keepers, keepers, 1, onchainConfig, 1, '0x', [], [])
+
       await evmRevert(
         registrar.connect(requestSender).registerUpkeep({
           name: upkeepName,
@@ -678,7 +683,7 @@ describe('AutomationRegistrar2_3', () => {
           offchainConfig: emptyBytes,
           amount: minimumRegistrationAmount,
           encryptedEmail: emptyBytes,
-          billingToken: randomAddress(),
+          billingToken: linkToken.address,
         }),
         'InvalidBillingToken()',
       )

@@ -74,17 +74,17 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
     uint96 balance;
   }
   /**
+   * @member upkeepContract address to perform upkeep on
+   * @member amount quantity of LINK upkeep is funded with (specified in wei)
+   * @member adminAddress address to cancel upkeep and withdraw remaining funds
+   * @member gasLimit amount of gas to provide the target contract when performing upkeep
+   * @member triggerType the type of trigger for the upkeep
+   * @member billingToken the token to pay with
    * @member name string of the upkeep to be registered
    * @member encryptedEmail email address of upkeep contact
-   * @member upkeepContract address to perform upkeep on
-   * @member gasLimit amount of gas to provide the target contract when performing upkeep
-   * @member adminAddress address to cancel upkeep and withdraw remaining funds
-   * @member triggerType the type of trigger for the upkeep
    * @member checkData data passed to the contract when checking for upkeep
    * @member triggerConfig the config for the trigger
    * @member offchainConfig offchainConfig for upkeep in bytes
-   * @member amount quantity of LINK upkeep is funded with (specified in Juels)
-   * @member sender address of the sender making the request
    */
   struct RegistrationParams {
     address upkeepContract;
@@ -141,7 +141,7 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
   error InvalidAdminAddress();
   error InvalidBillingToken();
   error InvalidDataLength();
-  error LinkTransferFailed(address to);
+  error TransferFailed(address to);
   error OnlyAdminOrOwner();
   error OnlyLink();
   error RequestNotFound();
@@ -150,6 +150,8 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
    * @param LINKAddress Address of Link token
    * @param registry keeper registry address
    * @param triggerConfigs the initial config for individual triggers
+   * @param billingTokens the tokens allowed for billing
+   * @param minRegistrationFees the minimum amount for registering with each billing token
    */
   constructor(
     address LINKAddress,
@@ -176,7 +178,9 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
    * @param requestParams struct of all possible registration parameters
    */
   function registerUpkeep(RegistrationParams calldata requestParams) external returns (uint256) {
-    require(LINK.transferFrom(msg.sender, address(this), requestParams.amount));
+    if (!requestParams.billingToken.transferFrom(msg.sender, address(this), requestParams.amount)) {
+      revert TransferFailed(address(this));
+    }
     return _register(requestParams, msg.sender);
   }
 
@@ -213,7 +217,7 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
     delete s_pendingRequests[hash];
     bool success = LINK.transfer(request.admin, request.balance);
     if (!success) {
-      revert LinkTransferFailed(request.admin);
+      revert TransferFailed(request.admin);
     }
     emit RegistrationRejected(hash);
   }
@@ -376,9 +380,17 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
       params.triggerConfig,
       params.offchainConfig
     );
-    bool success = LINK.transferAndCall(address(registry), params.amount, abi.encode(upkeepId));
+    bool success;
+    if (address(params.billingToken) == address(LINK)) {
+      success = LINK.transferAndCall(address(registry), params.amount, abi.encode(upkeepId));
+    } else {
+      success = params.billingToken.approve(address(registry), params.amount);
+      if (success) {
+        registry.addFunds(upkeepId, params.amount);
+      }
+    }
     if (!success) {
-      revert LinkTransferFailed(address(registry));
+      revert TransferFailed(address(registry));
     }
     emit RegistrationApproved(hash, params.name, upkeepId);
     return upkeepId;
