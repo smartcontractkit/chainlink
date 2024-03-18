@@ -16,7 +16,7 @@ type PriceRegistryReader interface {
 	GetGasPriceUpdatesCreatedAfter(ctx context.Context, chainSelector uint64, ts time.Time, confirmations int) ([]GasPriceUpdateWithTxMeta, error)
 
 	// Address returns the address of the price registry.
-	Address() Address
+	Address(ctx context.Context) (Address, error)
 
 	GetFeeTokens(ctx context.Context) ([]Address, error)
 
@@ -25,7 +25,7 @@ type PriceRegistryReader interface {
 
 	GetTokensDecimals(ctx context.Context, tokenAddresses []Address) ([]uint8, error)
 
-	Close() error
+	Close(ctx context.Context) error
 }
 
 type TokenPriceUpdateWithTxMeta struct {

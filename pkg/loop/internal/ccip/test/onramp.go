@@ -11,6 +11,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 )
 
+// OnRamp is a static test implementation of [testtypes.Evaluator] for [ccip.OnRampReader].
+// The implementation is a simple struct that returns predefined responses.
 var OnRamp = staticOnRamp{
 	staticOnRampConfig: staticOnRampConfig{
 		addressResponse: ccip.Address("some-address"),
@@ -75,6 +77,7 @@ type OnRampEvaluator interface {
 	testtypes.Evaluator[ccip.OnRampReader]
 }
 
+// ensure the types are satisfied
 var _ OnRampEvaluator = staticOnRamp{}
 
 type staticOnRampConfig struct {
@@ -94,7 +97,7 @@ func (s staticOnRamp) Address() (ccip.Address, error) {
 	return s.addressResponse, nil
 }
 
-// Evaluate implements OnRampEvaluator.
+// Evaluate implements OnRampEvaluator. It checks that the responses match the expected values.
 func (s staticOnRamp) Evaluate(ctx context.Context, other ccip.OnRampReader) error {
 	address, err := other.Address()
 	if err != nil {

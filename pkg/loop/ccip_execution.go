@@ -73,7 +73,7 @@ func NewExecutionService(lggr logger.Logger, grpcOpts GRPCOpts, cmd func() *exec
 	newService := func(ctx context.Context, instance any) (types.ReportingPluginFactory, error) {
 		plug, ok := instance.(types.CCIPExecutionFactoryGenerator)
 		if !ok {
-			return nil, fmt.Errorf("expected PluginMedian but got %T", instance)
+			return nil, fmt.Errorf("expected CCIPExecutionFactoryGenerator but got %T", instance)
 		}
 		return plug.NewExecutionFactory(ctx, provider)
 	}

@@ -14,11 +14,20 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 )
 
-var _ cciptypes.OffRampReader = (*OffRampReaderClient)(nil)
-
+// OffRampReaderClient implement [cciptypes.OffRampReader] by wrapping a grpc client connection
+// this client will be used by the CCIP loop service to communicate with the offramp reader
 type OffRampReaderClient struct {
 	grpc ccippb.OffRampReaderClient
 }
+type OffRampReaderServer struct {
+	ccippb.UnimplementedOffRampReaderServer
+
+	impl cciptypes.OffRampReader
+}
+
+// ensure the types are satisfied
+var _ cciptypes.OffRampReader = (*OffRampReaderClient)(nil)
+var _ ccippb.OffRampReaderServer = (*OffRampReaderServer)(nil)
 
 func NewOffRampReaderClient(cc grpc.ClientConnInterface) *OffRampReaderClient {
 	return &OffRampReaderClient{grpc: ccippb.NewOffRampReaderClient(cc)}
@@ -55,7 +64,7 @@ func (o *OffRampReaderClient) CurrentRateLimiterState(ctx context.Context) (ccip
 	return tokenBucketRateLimit(resp.RateLimiter), nil
 }
 
-// DecodeExecutionReport i[github.com/smartcontractkit/chainlink-common/pkg/types/ccip.OffRampReader]
+// DecodeExecutionReport [github.com/smartcontractkit/chainlink-common/pkg/types/ccip.OffRampReader]
 func (o *OffRampReaderClient) DecodeExecutionReport(ctx context.Context, report []byte) (cciptypes.ExecReport, error) {
 	resp, err := o.grpc.DecodeExecutionReport(ctx, &ccippb.DecodeExecutionReportRequest{
 		Report: report,
@@ -67,7 +76,7 @@ func (o *OffRampReaderClient) DecodeExecutionReport(ctx context.Context, report 
 	return execReport(resp.Report)
 }
 
-// EncodeExecutionReport i[github.com/smartcontractkit/chainlink-common/pkg/types/ccip.OffRampReader]
+// EncodeExecutionReport [github.com/smartcontractkit/chainlink-common/pkg/types/ccip.OffRampReader]
 func (o *OffRampReaderClient) EncodeExecutionReport(ctx context.Context, report cciptypes.ExecReport) ([]byte, error) {
 	reportPB := executionReportPB(report)
 
@@ -80,7 +89,7 @@ func (o *OffRampReaderClient) EncodeExecutionReport(ctx context.Context, report 
 	return resp.Report, nil
 }
 
-// GasPriceEstimator i[github.com/smartcontractkit/chainlink-common/pkg/types/ccip.OffRampReader]
+// GasPriceEstimator [github.com/smartcontractkit/chainlink-common/pkg/types/ccip.OffRampReader]
 func (o *OffRampReaderClient) GasPriceEstimator(ctx context.Context) (cciptypes.GasPriceEstimatorExec, error) {
 	panic("BCF-2991 implement gas price estimator grpc service")
 }
@@ -176,14 +185,6 @@ func (o *OffRampReaderClient) OnchainConfig(ctx context.Context) (cciptypes.Exec
 }
 
 // Server implementation of OffRampReader
-
-type OffRampReaderServer struct {
-	ccippb.UnimplementedOffRampReaderServer
-
-	impl cciptypes.OffRampReader
-}
-
-var _ ccippb.OffRampReaderServer = (*OffRampReaderServer)(nil)
 
 func NewOffRampReaderServer(impl cciptypes.OffRampReader) *OffRampReaderServer {
 	return &OffRampReaderServer{impl: impl}

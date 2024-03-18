@@ -14,7 +14,6 @@ service ExecutionFactoryGenerator {
 // NewExecutionFactoryRequest is a gRPC adapter to the factory configuration [https://github.com/smartcontractkit/ccip/core/services/ocr2/plugins/ccip/ccipexec/ExecutionPluginStaticConfig]
 message NewExecutionFactoryRequest {
     uint32 provider_service_id = 1;
-    ExecutionFactoryConfig config = 2;
 }
 
 // NewExecutionFactoryResponse is a contains the id of the created execution factory
@@ -22,36 +21,55 @@ message NewExecutionFactoryResponse {
     uint32 execution_factory_service_id = 1;
 }
 
-message ExecutionFactoryConfig {
-    string on_ramp_address = 1; // ccip.Address
-    string off_ramp_address = 2; // ccip.Address
-    string commit_store_address = 3; // ccip.Address
-    string token_reader_address = 4; // ccip.Address
-}
-
+// ExecutionCustomHandlers is a gRPC service that services the custom
+// resource generation requests for the execution provider
 service ExecutionCustomHandlers {
     rpc NewOnRampReader(NewOnRampReaderRequest) returns (NewOnRampReaderResponse) {}
     rpc NewOffRampReader(NewOffRampReaderRequest) returns (NewOffRampReaderResponse) {}
+    rpc NewPriceRegistryReader(NewPriceRegistryReaderRequest) returns (NewPriceRegistryReaderResponse) {}
+    // TODO: BCF-2993: Add more custom handlers
     rpc Close(google.protobuf.Empty) returns (google.protobuf.Empty) {}
 
 }
 
 // NewOnRampReaderRequest is a gRPC adapter for the input arguments of
+// [github.com/smartcontractkit/chainlink-common/pkg/types/CCIPExecProvider.NewOnRampReader]
 message NewOnRampReaderRequest {
     string address = 1;
 }
 
-// NewOnRampReaderResponse is a gRPC adapter for the output arguments of
+// NewOnRampReaderResponse is a gRPC wrapper for the return value of
+// [github.com/smartcontractkit/chainlink-common/pkg/types/CCIPExecProvider.NewOnRampReader]
+// It contains the id of the created onramp reader service that was created
 message NewOnRampReaderResponse {
     int32 onramp_reader_service_id = 1;
 }
 
 // NewOffRampReaderRequest is a gRPC adapter for the input arguments of
+// [github.com/smartcontractkit/chainlink-common/pkg/types/CCIPExecProvider.NewOffRampReader]
 message NewOffRampReaderRequest {
     string address = 1;
 }
 
 // NewOffRampReaderResponse is a gRPC adapter for the output arguments of
+// [github.com/smartcontractkit/chainlink-common/pkg/types/CCIPExecProvider.NewOffRampReader]
+// It contains the id of the created offramp reader service that was created
 message NewOffRampReaderResponse {
     int32 offramp_reader_service_id = 1;
 }
+
+// NewPriceRegistryRequest is a gRPC adapter for the input arguments of 
+// [github.com/smartcontractkit/chainlink-common/pkg/types/CCIPExecProvider.NewPriceRegistryReader]
+message NewPriceRegistryReaderRequest {
+    string address = 1;
+}
+
+// NewPriceRegistryReaderResponse is a gRPC adapter for the output arguments of
+// [github.com/smartcontractkit/chainlink-common/pkg/types/CCIPExecProvider.NewPriceRegistryReader]
+// It contains the id of the created price registry reader service that was created
+message NewPriceRegistryReaderResponse {
+    int32 price_registry_reader_service_id = 1;
+}
+
+
+

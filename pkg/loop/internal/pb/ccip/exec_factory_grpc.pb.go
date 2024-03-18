@@ -111,9 +111,10 @@ var ExecutionFactoryGenerator_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	ExecutionCustomHandlers_NewOnRampReader_FullMethodName  = "/loop.internal.pb.ccip.ExecutionCustomHandlers/NewOnRampReader"
-	ExecutionCustomHandlers_NewOffRampReader_FullMethodName = "/loop.internal.pb.ccip.ExecutionCustomHandlers/NewOffRampReader"
-	ExecutionCustomHandlers_Close_FullMethodName            = "/loop.internal.pb.ccip.ExecutionCustomHandlers/Close"
+	ExecutionCustomHandlers_NewOnRampReader_FullMethodName        = "/loop.internal.pb.ccip.ExecutionCustomHandlers/NewOnRampReader"
+	ExecutionCustomHandlers_NewOffRampReader_FullMethodName       = "/loop.internal.pb.ccip.ExecutionCustomHandlers/NewOffRampReader"
+	ExecutionCustomHandlers_NewPriceRegistryReader_FullMethodName = "/loop.internal.pb.ccip.ExecutionCustomHandlers/NewPriceRegistryReader"
+	ExecutionCustomHandlers_Close_FullMethodName                  = "/loop.internal.pb.ccip.ExecutionCustomHandlers/Close"
 )
 
 // ExecutionCustomHandlersClient is the client API for ExecutionCustomHandlers service.
@@ -122,6 +123,8 @@ const (
 type ExecutionCustomHandlersClient interface {
 	NewOnRampReader(ctx context.Context, in *NewOnRampReaderRequest, opts ...grpc.CallOption) (*NewOnRampReaderResponse, error)
 	NewOffRampReader(ctx context.Context, in *NewOffRampReaderRequest, opts ...grpc.CallOption) (*NewOffRampReaderResponse, error)
+	NewPriceRegistryReader(ctx context.Context, in *NewPriceRegistryReaderRequest, opts ...grpc.CallOption) (*NewPriceRegistryReaderResponse, error)
+	// TODO: BCF-2993: Add more custom handlers
 	Close(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
@@ -151,6 +154,15 @@ func (c *executionCustomHandlersClient) NewOffRampReader(ctx context.Context, in
 	return out, nil
 }
 
+func (c *executionCustomHandlersClient) NewPriceRegistryReader(ctx context.Context, in *NewPriceRegistryReaderRequest, opts ...grpc.CallOption) (*NewPriceRegistryReaderResponse, error) {
+	out := new(NewPriceRegistryReaderResponse)
+	err := c.cc.Invoke(ctx, ExecutionCustomHandlers_NewPriceRegistryReader_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *executionCustomHandlersClient) Close(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, ExecutionCustomHandlers_Close_FullMethodName, in, out, opts...)
@@ -166,6 +178,8 @@ func (c *executionCustomHandlersClient) Close(ctx context.Context, in *emptypb.E
 type ExecutionCustomHandlersServer interface {
 	NewOnRampReader(context.Context, *NewOnRampReaderRequest) (*NewOnRampReaderResponse, error)
 	NewOffRampReader(context.Context, *NewOffRampReaderRequest) (*NewOffRampReaderResponse, error)
+	NewPriceRegistryReader(context.Context, *NewPriceRegistryReaderRequest) (*NewPriceRegistryReaderResponse, error)
+	// TODO: BCF-2993: Add more custom handlers
 	Close(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	mustEmbedUnimplementedExecutionCustomHandlersServer()
 }
@@ -179,6 +193,9 @@ func (UnimplementedExecutionCustomHandlersServer) NewOnRampReader(context.Contex
 }
 func (UnimplementedExecutionCustomHandlersServer) NewOffRampReader(context.Context, *NewOffRampReaderRequest) (*NewOffRampReaderResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method NewOffRampReader not implemented")
+}
+func (UnimplementedExecutionCustomHandlersServer) NewPriceRegistryReader(context.Context, *NewPriceRegistryReaderRequest) (*NewPriceRegistryReaderResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method NewPriceRegistryReader not implemented")
 }
 func (UnimplementedExecutionCustomHandlersServer) Close(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Close not implemented")
@@ -233,6 +250,24 @@ func _ExecutionCustomHandlers_NewOffRampReader_Handler(srv interface{}, ctx cont
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ExecutionCustomHandlers_NewPriceRegistryReader_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(NewPriceRegistryReaderRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ExecutionCustomHandlersServer).NewPriceRegistryReader(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ExecutionCustomHandlers_NewPriceRegistryReader_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ExecutionCustomHandlersServer).NewPriceRegistryReader(ctx, req.(*NewPriceRegistryReaderRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _ExecutionCustomHandlers_Close_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(emptypb.Empty)
 	if err := dec(in); err != nil {
@@ -265,6 +300,10 @@ var ExecutionCustomHandlers_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "NewOffRampReader",
 			Handler:    _ExecutionCustomHandlers_NewOffRampReader_Handler,
+		},
+		{
+			MethodName: "NewPriceRegistryReader",
+			Handler:    _ExecutionCustomHandlers_NewPriceRegistryReader_Handler,
 		},
 		{
 			MethodName: "Close",

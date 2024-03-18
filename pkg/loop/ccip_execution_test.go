@@ -78,7 +78,7 @@ func TestExecLOOP(t *testing.T) {
 	cc := exec.ClientConfig()
 	cc.Cmd = NewHelperProcessCommand(loop.CCIPExecutionLOOPName, false, 0)
 	c := plugin.NewClient(cc)
-	// make to kill the exec loop
+	// make sure to kill the exec loop
 	t.Cleanup(c.Kill)
 	client, err := c.Client()
 	require.NoError(t, err)
