@@ -165,7 +165,7 @@ contract VRFV2PlusLoadTestWithMetrics is VRFConsumerBaseV2Plus {
 
     return (_slowestResponseTime, _fastestResponseTime, averageInMillions);
   }
-  
+
   function getRequestBlockTimes(uint256 offset, uint256 quantity) external view returns (uint32[] memory) {
     uint256 end = offset + quantity;
     if (end > s_requestBlockTimes.length) {
@@ -173,7 +173,7 @@ contract VRFV2PlusLoadTestWithMetrics is VRFConsumerBaseV2Plus {
     }
 
     uint32[] memory blockTimes = new uint32[](end - offset);
-    for (uint256 i = offset; i < end; i ++) {
+    for (uint256 i = offset; i < end; i++) {
       blockTimes[i - offset] = s_requestBlockTimes[i];
     }
 
