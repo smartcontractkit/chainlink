@@ -950,7 +950,7 @@ describe('AutomationRegistry2_3', () => {
       [
         {
           gasFeePPB: paymentPremiumPPB,
-          flatFeeMicroLink: flatFeeMicroLink,
+          flatFeeMicroLink,
           priceFeed: linkUSDFeed.address,
           fallbackPrice: fallbackLinkPrice,
           minSpend: minUpkeepSpend,
@@ -969,7 +969,7 @@ describe('AutomationRegistry2_3', () => {
       [
         {
           gasFeePPB: paymentPremiumPPB,
-          flatFeeMicroLink: flatFeeMicroLink,
+          flatFeeMicroLink,
           priceFeed: linkUSDFeed.address,
           fallbackPrice: fallbackLinkPrice,
           minSpend: minUpkeepSpend,
@@ -988,7 +988,7 @@ describe('AutomationRegistry2_3', () => {
       [
         {
           gasFeePPB: paymentPremiumPPB,
-          flatFeeMicroLink: flatFeeMicroLink,
+          flatFeeMicroLink,
           priceFeed: linkUSDFeed.address,
           fallbackPrice: fallbackLinkPrice,
           minSpend: minUpkeepSpend,
@@ -3026,7 +3026,7 @@ describe('AutomationRegistry2_3', () => {
       await registry.connect(owner).addFunds(upkeepID, minBalance1)
 
       // upkeep check should return false, 2 should return true
-      let checkUpkeepResult = await registry
+      const checkUpkeepResult = await registry
         .connect(zeroAddress)
         .callStatic['checkUpkeep(uint256)'](upkeepID)
       assert.equal(checkUpkeepResult.upkeepNeeded, false)
@@ -4961,7 +4961,7 @@ describe('AutomationRegistry2_3', () => {
         [
           {
             gasFeePPB: paymentPremiumPPB,
-            flatFeeMicroLink: flatFeeMicroLink,
+            flatFeeMicroLink,
             priceFeed: linkUSDFeed.address,
             fallbackPrice: fallbackLinkPrice,
             minSpend: newMinUpkeepSpend,
@@ -5625,7 +5625,7 @@ describe('AutomationRegistry2_3', () => {
             [
               {
                 gasFeePPB: paymentPremiumPPB,
-                flatFeeMicroLink: flatFeeMicroLink,
+                flatFeeMicroLink,
                 priceFeed: linkUSDFeed.address,
                 fallbackPrice: fallbackLinkPrice,
                 minSpend: newMinUpkeepSpend,
@@ -5691,7 +5691,7 @@ describe('AutomationRegistry2_3', () => {
             [
               {
                 gasFeePPB: paymentPremiumPPB,
-                flatFeeMicroLink: flatFeeMicroLink,
+                flatFeeMicroLink,
                 priceFeed: linkUSDFeed.address,
                 fallbackPrice: fallbackLinkPrice,
                 minSpend: newMinUpkeepSpend,
@@ -5752,7 +5752,7 @@ describe('AutomationRegistry2_3', () => {
             [
               {
                 gasFeePPB: paymentPremiumPPB,
-                flatFeeMicroLink: flatFeeMicroLink,
+                flatFeeMicroLink,
                 priceFeed: linkUSDFeed.address,
                 fallbackPrice: fallbackLinkPrice,
                 minSpend: newMinUpkeepSpend,

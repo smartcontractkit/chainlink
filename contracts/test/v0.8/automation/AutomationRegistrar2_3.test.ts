@@ -218,7 +218,7 @@ describe('AutomationRegistrar2_3', () => {
       [
         {
           gasFeePPB: paymentPremiumPPB,
-          flatFeeMicroLink: flatFeeMicroLink,
+          flatFeeMicroLink,
           priceFeed: await registry.getLinkUSDFeedAddress(),
           fallbackPrice: 200,
           minSpend: minimumRegistrationAmount,
@@ -254,8 +254,8 @@ describe('AutomationRegistrar2_3', () => {
         checkData: emptyBytes,
         triggerType: Trigger.CONDITION,
         triggerConfig: trigger,
-        offchainConfig: offchainConfig,
-        amount: amount,
+        offchainConfig,
+        amount,
         billingToken: linkToken.address,
       })
 
@@ -287,8 +287,8 @@ describe('AutomationRegistrar2_3', () => {
         checkData: emptyBytes,
         triggerType: Trigger.CONDITION,
         triggerConfig: trigger,
-        offchainConfig: offchainConfig,
-        amount: amount,
+        offchainConfig,
+        amount,
         billingToken: linkToken.address,
       })
       const tx = await linkToken
@@ -328,7 +328,7 @@ describe('AutomationRegistrar2_3', () => {
         checkData: emptyBytes,
         triggerType: Trigger.CONDITION,
         triggerConfig: trigger,
-        offchainConfig: offchainConfig,
+        offchainConfig,
         amount: amount.mul(10), // muhahahaha 😈
         billingToken: linkToken.address,
       })
@@ -364,8 +364,8 @@ describe('AutomationRegistrar2_3', () => {
         checkData: emptyBytes,
         triggerType: Trigger.CONDITION,
         triggerConfig: trigger,
-        offchainConfig: offchainConfig,
-        amount: amount,
+        offchainConfig,
+        amount,
         billingToken: linkToken.address,
       })
       const tx = await linkToken
@@ -411,8 +411,8 @@ describe('AutomationRegistrar2_3', () => {
         checkData: emptyBytes,
         triggerType: Trigger.CONDITION,
         triggerConfig: trigger,
-        offchainConfig: offchainConfig,
-        amount: amount,
+        offchainConfig,
+        amount,
         billingToken: linkToken.address,
       })
       await linkToken
@@ -430,8 +430,8 @@ describe('AutomationRegistrar2_3', () => {
         checkData: emptyBytes,
         triggerType: Trigger.CONDITION,
         triggerConfig: trigger,
-        offchainConfig: offchainConfig,
-        amount: amount,
+        offchainConfig,
+        amount,
         billingToken: linkToken.address,
       })
       await linkToken
@@ -449,8 +449,8 @@ describe('AutomationRegistrar2_3', () => {
         checkData: emptyBytes,
         triggerType: Trigger.LOG,
         triggerConfig: trigger,
-        offchainConfig: offchainConfig,
-        amount: amount,
+        offchainConfig,
+        amount,
         billingToken: linkToken.address,
       })
       await linkToken
@@ -472,8 +472,8 @@ describe('AutomationRegistrar2_3', () => {
         checkData: emptyBytes,
         triggerType: Trigger.CONDITION,
         triggerConfig: trigger,
-        offchainConfig: offchainConfig,
-        amount: amount,
+        offchainConfig,
+        amount,
         billingToken: linkToken.address,
       })
       await linkToken
@@ -491,8 +491,8 @@ describe('AutomationRegistrar2_3', () => {
         checkData: emptyBytes,
         triggerType: Trigger.CONDITION,
         triggerConfig: trigger,
-        offchainConfig: offchainConfig,
-        amount: amount,
+        offchainConfig,
+        amount,
         billingToken: linkToken.address,
       })
       await linkToken
@@ -528,8 +528,8 @@ describe('AutomationRegistrar2_3', () => {
         checkData: emptyBytes,
         triggerType: Trigger.CONDITION,
         triggerConfig: trigger,
-        offchainConfig: offchainConfig,
-        amount: amount,
+        offchainConfig,
+        amount,
         billingToken: linkToken.address,
       })
       const tx = await linkToken
@@ -578,8 +578,8 @@ describe('AutomationRegistrar2_3', () => {
         checkData: emptyBytes,
         triggerType: Trigger.CONDITION,
         triggerConfig: trigger,
-        offchainConfig: offchainConfig,
-        amount: amount,
+        offchainConfig,
+        amount,
         billingToken: linkToken.address,
       })
       const tx = await linkToken
@@ -808,8 +808,8 @@ describe('AutomationRegistrar2_3', () => {
         checkData: emptyBytes,
         triggerType: Trigger.CONDITION,
         triggerConfig: trigger,
-        offchainConfig: offchainConfig,
-        amount: amount,
+        offchainConfig,
+        amount,
         billingToken: linkToken.address,
       }
 
@@ -835,7 +835,7 @@ describe('AutomationRegistrar2_3', () => {
           triggerType: Trigger.CONDITION,
           triggerConfig: trigger,
           offchainConfig: emptyBytes,
-          amount: amount,
+          amount,
           billingToken: linkToken.address,
         },
         hash,
@@ -855,7 +855,7 @@ describe('AutomationRegistrar2_3', () => {
           triggerType: Trigger.CONDITION,
           triggerConfig: trigger,
           offchainConfig: emptyBytes,
-          amount: amount,
+          amount,
           billingToken: linkToken.address,
         },
         '0x000000000000000000000000322813fd9a801c5507c9de605d63cea4f2ce6c44',
@@ -902,7 +902,7 @@ describe('AutomationRegistrar2_3', () => {
       for (let i = 0; i < invalidFields.length; i++) {
         const field = invalidFields[i]
         const badParams = Object.assign({}, params, field) as RegistrationParams
-        let tx = registrar.connect(registrarOwner).approve(badParams, hash)
+        const tx = registrar.connect(registrarOwner).approve(badParams, hash)
         await expect(
           tx,
           `expected ${JSON.stringify(field)} to cause failure, but succeeded`,
@@ -921,8 +921,8 @@ describe('AutomationRegistrar2_3', () => {
           checkData: emptyBytes,
           triggerType: Trigger.CONDITION,
           triggerConfig: trigger,
-          offchainConfig: offchainConfig,
-          amount: amount,
+          offchainConfig,
+          amount,
           billingToken: linkToken.address,
         },
         hash,
@@ -941,8 +941,8 @@ describe('AutomationRegistrar2_3', () => {
           checkData: emptyBytes,
           triggerType: Trigger.CONDITION,
           triggerConfig: trigger,
-          offchainConfig: offchainConfig,
-          amount: amount,
+          offchainConfig,
+          amount,
           billingToken: linkToken.address,
         },
         hash,
@@ -957,8 +957,8 @@ describe('AutomationRegistrar2_3', () => {
           checkData: emptyBytes,
           triggerType: Trigger.CONDITION,
           triggerConfig: trigger,
-          offchainConfig: offchainConfig,
-          amount: amount,
+          offchainConfig,
+          amount,
           billingToken: linkToken.address,
         },
         hash,
@@ -989,8 +989,8 @@ describe('AutomationRegistrar2_3', () => {
         checkData: emptyBytes,
         triggerType: Trigger.CONDITION,
         triggerConfig: trigger,
-        offchainConfig: offchainConfig,
-        amount: amount,
+        offchainConfig,
+        amount,
         billingToken: linkToken.address,
       })
       const tx = await linkToken
@@ -1049,7 +1049,7 @@ describe('AutomationRegistrar2_3', () => {
           triggerType: Trigger.CONDITION,
           triggerConfig: trigger,
           offchainConfig: emptyBytes,
-          amount: amount,
+          amount,
           billingToken: linkToken.address,
         },
         hash,
