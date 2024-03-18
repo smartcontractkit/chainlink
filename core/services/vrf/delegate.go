@@ -1,6 +1,7 @@
 package vrf
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
@@ -72,7 +74,7 @@ func (d *Delegate) BeforeJobDeleted(job.Job)              {}
 func (d *Delegate) OnDeleteJob(job.Job, pg.Queryer) error { return nil }
 
 // ServicesForSpec satisfies the job.Delegate interface.
-func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceCtx, error) {
+func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job, opt ...pg.QOpt) ([]job.ServiceCtx, error) {
 	if jb.VRFSpec == nil || jb.PipelineSpec == nil {
 		return nil, errors.Errorf("vrf.Delegate expects a VRFSpec and PipelineSpec to be present, got %+v", jb)
 	}
@@ -128,7 +130,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceC
 
 	for _, task := range pl.Tasks {
 		if _, ok := task.(*pipeline.VRFTaskV2Plus); ok {
-			if err2 := CheckFromAddressesExist(jb, d.ks.Eth()); err != nil {
+			if err2 := CheckFromAddressesExist(ctx, jb, d.ks.Eth()); err != nil {
 				return nil, err2
 			}
 
@@ -187,7 +189,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceC
 			}, nil
 		}
 		if _, ok := task.(*pipeline.VRFTaskV2); ok {
-			if err2 := CheckFromAddressesExist(jb, d.ks.Eth()); err != nil {
+			if err2 := CheckFromAddressesExist(ctx, jb, d.ks.Eth()); err != nil {
 				return nil, err2
 			}
 
@@ -269,9 +271,9 @@ func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceC
 
 // CheckFromAddressesExist returns an error if and only if one of the addresses
 // in the VRF spec's fromAddresses field does not exist in the keystore.
-func CheckFromAddressesExist(jb job.Job, gethks keystore.Eth) (err error) {
+func CheckFromAddressesExist(ctx context.Context, jb job.Job, gethks keystore.Eth) (err error) {
 	for _, a := range jb.VRFSpec.FromAddresses {
-		_, err2 := gethks.Get(a.Hex())
+		_, err2 := gethks.Get(ctx, a.Hex())
 		err = multierr.Append(err, err2)
 	}
 	return

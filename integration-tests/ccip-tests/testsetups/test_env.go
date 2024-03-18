@@ -209,7 +209,7 @@ func DeployLocalCluster(
 					return err
 				}
 				ccipNode, err := test_env.NewClNode(
-					[]string{env.Network.Name},
+					[]string{env.DockerNetwork.Name},
 					pointer.GetString(clNode.ChainlinkImage.Image),
 					pointer.GetString(clNode.ChainlinkImage.Version), toml,
 					test_env.WithPgDBOptions(
@@ -236,7 +236,7 @@ func DeployLocalCluster(
 					return err
 				}
 				ccipNode, err := test_env.NewClNode(
-					[]string{env.Network.Name},
+					[]string{env.DockerNetwork.Name},
 					pointer.GetString(testInputs.EnvInput.NewCLCluster.Common.ChainlinkImage.Image),
 					pointer.GetString(testInputs.EnvInput.NewCLCluster.Common.ChainlinkImage.Version),
 					toml, test_env.WithPgDBOptions(

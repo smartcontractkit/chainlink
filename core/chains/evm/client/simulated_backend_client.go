@@ -102,6 +102,8 @@ func (c *SimulatedBackendClient) CallContext(ctx context.Context, result interfa
 		return c.ethCall(ctx, result, args...)
 	case "eth_getHeaderByNumber":
 		return c.ethGetHeaderByNumber(ctx, result, args...)
+	case "eth_estimateGas":
+		return c.ethEstimateGas(ctx, result, args...)
 	default:
 		return fmt.Errorf("second arg to SimulatedBackendClient.Call is an RPC API method which has not yet been implemented: %s. Add processing for it here", method)
 	}
@@ -410,6 +412,25 @@ func (c *SimulatedBackendClient) CallContract(ctx context.Context, msg ethereum.
 	return res, nil
 }
 
+func (c *SimulatedBackendClient) PendingCallContract(ctx context.Context, msg ethereum.CallMsg) ([]byte, error) {
+	// Expected error is
+	// type JsonError struct {
+	//	Code    int         `json:"code"`
+	//	Message string      `json:"message"`
+	//	Data    interface{} `json:"data,omitempty"`
+	//}
+	res, err := c.b.PendingCallContract(ctx, msg)
+	if err != nil {
+		dataErr := revertError{}
+		if errors.Is(err, &dataErr) {
+			return nil, &JsonError{Data: dataErr.ErrorData(), Message: dataErr.Error(), Code: 3}
+		}
+		// Generic revert, no data
+		return nil, &JsonError{Data: []byte{}, Message: err.Error(), Code: 3}
+	}
+	return res, nil
+}
+
 // CodeAt gets the code associated with an account as of a specified block.
 func (c *SimulatedBackendClient) CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error) {
 	return c.b.CodeAt(ctx, account, blockNumber)
@@ -452,6 +473,8 @@ func (c *SimulatedBackendClient) BatchCallContext(ctx context.Context, b []rpc.B
 			b[i].Error = c.ethCall(ctx, b[i].Result, b[i].Args...)
 		case "eth_getHeaderByNumber":
 			b[i].Error = c.ethGetHeaderByNumber(ctx, b[i].Result, b[i].Args...)
+		case "eth_estimateGas":
+			b[i].Error = c.ethEstimateGas(ctx, b[i].Result, b[i].Args...)
 		default:
 			return fmt.Errorf("SimulatedBackendClient got unsupported method %s", elem.Method)
 		}
@@ -571,6 +594,37 @@ func (c *SimulatedBackendClient) ethGetBlockByNumber(ctx context.Context, result
 
 	return nil
 }
+func (c *SimulatedBackendClient) ethEstimateGas(ctx context.Context, result interface{}, args ...interface{}) error {
+	if len(args) != 2 {
+		return fmt.Errorf("SimulatedBackendClient expected 2 args, got %d for eth_estimateGas", len(args))
+	}
+
+	params, ok := args[0].(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("SimulatedBackendClient expected first arg to be map[string]interface{} for eth_call, got: %T", args[0])
+	}
+
+	_, err := c.blockNumber(args[1])
+	if err != nil {
+		return fmt.Errorf("SimulatedBackendClient expected second arg to be the string 'latest' or a *big.Int for eth_call, got: %T", args[1])
+	}
+
+	resp, err := c.b.EstimateGas(ctx, toCallMsg(params))
+	if err != nil {
+		return err
+	}
+
+	switch typedResult := result.(type) {
+	case *uint64:
+		*typedResult = resp
+	case *hexutil.Uint64:
+		*typedResult = hexutil.Uint64(resp)
+	default:
+		return fmt.Errorf("SimulatedBackendClient unexpected type %T", result)
+	}
+
+	return nil
+}
 
 func (c *SimulatedBackendClient) ethCall(ctx context.Context, result interface{}, args ...interface{}) error {
 	if len(args) != 2 {
@@ -634,7 +688,6 @@ func (c *SimulatedBackendClient) ethGetHeaderByNumber(ctx context.Context, resul
 
 func toCallMsg(params map[string]interface{}) ethereum.CallMsg {
 	var callMsg ethereum.CallMsg
-
 	toAddr, err := interfaceToAddress(params["to"])
 	if err != nil {
 		panic(fmt.Errorf("unexpected 'to' parameter: %s", err))
@@ -654,6 +707,10 @@ func toCallMsg(params map[string]interface{}) ethereum.CallMsg {
 		callMsg.From = common.HexToAddress("0x")
 	}
 
+	if params["data"] != nil && params["input"] != nil {
+		panic("cannot have both 'data' and 'input' parameters")
+	}
+
 	switch data := params["data"].(type) {
 	case nil:
 		// This parameter is not required so nil is acceptable
@@ -665,16 +722,41 @@ func toCallMsg(params map[string]interface{}) ethereum.CallMsg {
 		panic("unexpected type of 'data' parameter; try hexutil.Bytes, []byte, or nil")
 	}
 
+	switch input := params["input"].(type) {
+	case nil:
+		// This parameter is not required so nil is acceptable
+	case hexutil.Bytes:
+		callMsg.Data = input
+	case []byte:
+		callMsg.Data = input
+	default:
+		panic("unexpected type of 'input' parameter; try hexutil.Bytes, []byte, or nil")
+	}
+
 	if value, ok := params["value"].(*big.Int); ok {
 		callMsg.Value = value
 	}
 
-	if gas, ok := params["gas"].(uint64); ok {
+	switch gas := params["gas"].(type) {
+	case nil:
+		// This parameter is not required so nil is acceptable
+	case uint64:
 		callMsg.Gas = gas
+	case hexutil.Uint64:
+		callMsg.Gas = uint64(gas)
+	default:
+		panic("unexpected type of 'gas' parameter; try hexutil.Uint64, or uint64")
 	}
 
-	if gasPrice, ok := params["gasPrice"].(*big.Int); ok {
+	switch gasPrice := params["gasPrice"].(type) {
+	case nil:
+		// This parameter is not required so nil is acceptable
+	case *big.Int:
 		callMsg.GasPrice = gasPrice
+	case *hexutil.Big:
+		callMsg.GasPrice = gasPrice.ToInt()
+	default:
+		panic("unexpected type of 'gasPrice' parameter; try *big.Int, or *hexutil.Big")
 	}
 
 	return callMsg
@@ -684,6 +766,11 @@ func interfaceToAddress(value interface{}) (common.Address, error) {
 	switch v := value.(type) {
 	case common.Address:
 		return v, nil
+	case *common.Address:
+		if v == nil {
+			return common.Address{}, nil
+		}
+		return *v, nil
 	case string:
 		if ok := common.IsHexAddress(v); !ok {
 			return common.Address{}, fmt.Errorf("string not formatted as a hex encoded evm address")
@@ -697,6 +784,6 @@ func interfaceToAddress(value interface{}) (common.Address, error) {
 
 		return common.BigToAddress(v), nil
 	default:
-		return common.Address{}, fmt.Errorf("unrecognized value type for converting value to common.Address; use hex encoded string, *big.Int, or common.Address")
+		return common.Address{}, fmt.Errorf("unrecognized value type: %T for converting value to common.Address; use hex encoded string, *big.Int, or common.Address", v)
 	}
 }

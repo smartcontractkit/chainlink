@@ -35,7 +35,8 @@ type chainClient struct {
 		*evmtypes.Receipt,
 		*assets.Wei,
 		*evmtypes.Head,
-		RPCCLient,
+		RPCClient,
+		rpc.BatchElem,
 	]
 	logger logger.SugaredLogger
 }
@@ -45,8 +46,8 @@ func NewChainClient(
 	selectionMode string,
 	leaseDuration time.Duration,
 	noNewHeadsThreshold time.Duration,
-	nodes []commonclient.Node[*big.Int, *evmtypes.Head, RPCCLient],
-	sendonlys []commonclient.SendOnlyNode[*big.Int, RPCCLient],
+	nodes []commonclient.Node[*big.Int, *evmtypes.Head, RPCClient],
+	sendonlys []commonclient.SendOnlyNode[*big.Int, RPCClient],
 	chainID *big.Int,
 	chainType config.ChainType,
 ) Client {
@@ -62,7 +63,7 @@ func NewChainClient(
 		*evmtypes.Receipt,
 		*assets.Wei,
 		*evmtypes.Head,
-		RPCCLient,
+		RPCClient,
 	](
 		lggr,
 		selectionMode,
@@ -88,20 +89,16 @@ func (c *chainClient) BalanceAt(ctx context.Context, account common.Address, blo
 	return c.multiNode.BalanceAt(ctx, account, blockNumber)
 }
 
+// Request specific errors for batch calls are returned to the individual BatchElem.
+// Ensure the same BatchElem slice provided by the caller is passed through the call stack
+// to ensure the caller has access to the errors.
 func (c *chainClient) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
-	batch := make([]any, len(b))
-	for i, arg := range b {
-		batch[i] = any(arg)
-	}
-	return c.multiNode.BatchCallContext(ctx, batch)
+	return c.multiNode.BatchCallContext(ctx, b)
 }
 
+// Similar to BatchCallContext, ensure the provided BatchElem slice is passed through
 func (c *chainClient) BatchCallContextAll(ctx context.Context, b []rpc.BatchElem) error {
-	batch := make([]any, len(b))
-	for i, arg := range b {
-		batch[i] = any(arg)
-	}
-	return c.multiNode.BatchCallContextAll(ctx, batch)
+	return c.multiNode.BatchCallContextAll(ctx, b)
 }
 
 // TODO-1663: return custom Block type instead of geth's once client.go is deprecated.
@@ -128,6 +125,10 @@ func (c *chainClient) CallContext(ctx context.Context, result interface{}, metho
 
 func (c *chainClient) CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error) {
 	return c.multiNode.CallContract(ctx, msg, blockNumber)
+}
+
+func (c *chainClient) PendingCallContract(ctx context.Context, msg ethereum.CallMsg) ([]byte, error) {
+	return c.multiNode.PendingCallContract(ctx, msg)
 }
 
 // TODO-1663: change this to actual ChainID() call once client.go is deprecated.

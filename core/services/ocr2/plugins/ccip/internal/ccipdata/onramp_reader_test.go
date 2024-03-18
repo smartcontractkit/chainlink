@@ -78,11 +78,18 @@ func setupOnRampReaderTH(t *testing.T, version string) onRampReaderTH {
 	user, bc := ccipdata.NewSimulation(t)
 	log := logger.TestLogger(t)
 	orm := logpoller.NewORM(testutils.SimulatedChainID, pgtest.NewSqlxDB(t), log, pgtest.NewQConfig(true))
+	lpOpts := logpoller.Opts{
+		PollPeriod:               100 * time.Millisecond,
+		FinalityDepth:            2,
+		BackfillBatchSize:        3,
+		RpcBatchSize:             2,
+		KeepFinalizedBlocksDepth: 1000,
+	}
 	lp := logpoller.NewLogPoller(
 		orm,
 		bc,
 		log,
-		100*time.Millisecond, false, 2, 3, 2, 1000)
+		lpOpts)
 
 	// Setup onRamp.
 	var onRampAddress common.Address

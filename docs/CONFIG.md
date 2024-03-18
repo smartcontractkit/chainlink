@@ -1610,6 +1610,8 @@ LinkContractAddress = '0x514910771AF9Ca656af840dff83E8264EcF986CA'
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
 LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 3
 MinContractPayment = '0.1 link'
 NonceAutoSync = true
@@ -1664,6 +1666,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 4
@@ -1675,7 +1678,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -1692,6 +1695,8 @@ LinkContractAddress = '0x20fE562d797A42Dcb3399062AE9546cd06f63280'
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
 LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 3
 MinContractPayment = '0.1 link'
 NonceAutoSync = true
@@ -1745,6 +1750,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 4
@@ -1756,7 +1762,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -1773,6 +1779,8 @@ LinkContractAddress = '0x01BE23585060835E02B77ef475b0Cc51aA1e0709'
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
 LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 3
 MinContractPayment = '0.1 link'
 NonceAutoSync = true
@@ -1826,6 +1834,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 4
@@ -1837,7 +1846,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -1854,6 +1863,8 @@ LinkContractAddress = '0x326C977E6efc84E512bB9C30f76E30c160eD06FB'
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
 LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 3
 MinContractPayment = '0.1 link'
 NonceAutoSync = true
@@ -1907,6 +1918,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 4
@@ -1918,7 +1930,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -1936,6 +1948,8 @@ LinkContractAddress = '0x350a791Bfc2C21F9Ed5d10980Dad2e2638ffa7f6'
 LogBackfillBatchSize = 1000
 LogPollInterval = '2s'
 LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -1989,6 +2003,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 1
@@ -2017,6 +2032,8 @@ LinkContractAddress = '0x14AdaE34beF7ca957Ce2dDe5ADD97ea050123827'
 LogBackfillBatchSize = 1000
 LogPollInterval = '30s'
 LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 3
 MinContractPayment = '0.001 link'
 NonceAutoSync = true
@@ -2070,6 +2087,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 4
@@ -2081,7 +2099,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -2098,6 +2116,8 @@ LinkContractAddress = '0x8bBbd80981FE76d44854D8DF305e8985c19f0e78'
 LogBackfillBatchSize = 1000
 LogPollInterval = '30s'
 LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 3
 MinContractPayment = '0.001 link'
 NonceAutoSync = true
@@ -2151,6 +2171,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 4
@@ -2162,7 +2183,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -2179,6 +2200,8 @@ LinkContractAddress = '0xa36085F69e2889c224210F603D836748e7dC0088'
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
 LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 3
 MinContractPayment = '0.1 link'
 NonceAutoSync = true
@@ -2233,6 +2256,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 4
@@ -2244,7 +2268,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -2261,6 +2285,8 @@ LinkContractAddress = '0x404460C6A5EdE2D891e8297795264fDe62ADBB75'
 LogBackfillBatchSize = 1000
 LogPollInterval = '3s'
 LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -2314,6 +2340,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 4
@@ -2325,7 +2352,7 @@ ObservationGracePeriod = '500ms'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -2341,6 +2368,8 @@ FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
 LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -2394,6 +2423,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 4
@@ -2405,7 +2435,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -2421,6 +2451,8 @@ FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
 LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -2474,6 +2506,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 4
@@ -2485,7 +2518,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -2502,6 +2535,8 @@ LinkContractAddress = '0x84b9B910527Ad5C03A9Ca831909E21e236EA7b06'
 LogBackfillBatchSize = 1000
 LogPollInterval = '3s'
 LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -2555,6 +2590,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 4
@@ -2566,12 +2602,12 @@ ObservationGracePeriod = '500ms'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
 
-<details><summary>xDai Mainnet (100)</summary><p>
+<details><summary>Gnosis Mainnet (100)</summary><p>
 
 ```toml
 AutoCreateKey = true
@@ -2584,6 +2620,8 @@ LinkContractAddress = '0xE2e73A1c69ecF83F464EFCE6A5be353a37cA09b2'
 LogBackfillBatchSize = 1000
 LogPollInterval = '5s'
 LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -2637,6 +2675,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 4
@@ -2648,7 +2687,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -2665,6 +2704,8 @@ LinkContractAddress = '0x404460C6A5EdE2D891e8297795264fDe62ADBB75'
 LogBackfillBatchSize = 1000
 LogPollInterval = '3s'
 LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -2718,6 +2759,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 4
@@ -2729,7 +2771,7 @@ ObservationGracePeriod = '500ms'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -2746,6 +2788,8 @@ LinkContractAddress = '0xb0897686c545045aFc77CF20eC7A532E3120E0F1'
 LogBackfillBatchSize = 1000
 LogPollInterval = '1s'
 LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 5
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -2799,6 +2843,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 4
@@ -2810,7 +2855,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -2827,6 +2872,8 @@ LinkContractAddress = '0x6F43FF82CCA38001B6699a8AC47A2d0E66939407'
 LogBackfillBatchSize = 1000
 LogPollInterval = '1s'
 LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -2880,6 +2927,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 4
@@ -2908,6 +2956,8 @@ FinalityTagEnabled = true
 LogBackfillBatchSize = 1000
 LogPollInterval = '2s'
 LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -2961,6 +3011,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 1
@@ -2972,7 +3023,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -2989,6 +3040,8 @@ FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
 LogPollInterval = '5s'
 LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -3012,7 +3065,7 @@ Mode = 'BlockHistory'
 PriceDefault = '20 gwei'
 PriceMax = '18.446744073709551615 ether'
 PriceMin = '0'
-LimitDefault = 3500000
+LimitDefault = 100000000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
@@ -3042,6 +3095,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 4
@@ -3053,7 +3107,91 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
+```
+
+</p></details>
+
+<details><summary>zkSync Sepolia (300)</summary><p>
+
+```toml
+AutoCreateKey = true
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
+ChainType = 'zksync'
+FinalityDepth = 1
+FinalityTagEnabled = false
+LogBackfillBatchSize = 1000
+LogPollInterval = '5s'
+LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
+MinIncomingConfirmations = 1
+MinContractPayment = '0.00001 link'
+NonceAutoSync = true
+NoNewHeadsThreshold = '1m0s'
+RPCDefaultBatchSize = 250
+RPCBlockQueryDelay = 1
+
+[Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
+
+[BalanceMonitor]
+Enabled = true
+
+[GasEstimator]
+Mode = 'BlockHistory'
+PriceDefault = '20 gwei'
+PriceMax = '18.446744073709551615 ether'
+PriceMin = '0'
+LimitDefault = 100000000
+LimitMax = 500000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+BumpMin = '5 gwei'
+BumpPercent = 20
+BumpThreshold = 3
+EIP1559DynamicFees = false
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1 wei'
+TipCapMin = '1 wei'
+
+[GasEstimator.BlockHistory]
+BatchSize = 25
+BlockHistorySize = 8
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
+TransactionPercentile = 60
+
+[HeadTracker]
+HistoryDepth = 5
+MaxBufferSize = 3
+SamplingInterval = '1s'
+
+[NodePool]
+PollFailureThreshold = 5
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
+SyncThreshold = 5
+LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
+
+[OCR]
+ContractConfirmations = 4
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
+ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -3070,6 +3208,8 @@ FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
 LogPollInterval = '5s'
 LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -3093,7 +3233,7 @@ Mode = 'BlockHistory'
 PriceDefault = '20 gwei'
 PriceMax = '18.446744073709551615 ether'
 PriceMin = '0'
-LimitDefault = 3500000
+LimitDefault = 100000000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
@@ -3123,6 +3263,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 4
@@ -3134,7 +3275,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -3152,6 +3293,8 @@ LinkContractAddress = '0xdc2CC710e42857672E7907CF474a69B63B93089f'
 LogBackfillBatchSize = 1000
 LogPollInterval = '2s'
 LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -3205,6 +3348,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 1
@@ -3233,6 +3377,8 @@ FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
 LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -3286,6 +3432,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 1
@@ -3297,7 +3444,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -3313,6 +3460,8 @@ FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
 LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -3366,6 +3515,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 1
@@ -3377,7 +3527,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -3394,6 +3544,8 @@ FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
 LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -3447,6 +3599,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 1
@@ -3458,7 +3611,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -3474,6 +3627,8 @@ FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
 LogPollInterval = '30s'
 LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -3527,6 +3682,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 1
@@ -3538,7 +3694,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -3555,6 +3711,8 @@ FinalityTagEnabled = true
 LogBackfillBatchSize = 1000
 LogPollInterval = '3s'
 LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -3608,6 +3766,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 1
@@ -3619,7 +3778,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -3636,6 +3795,8 @@ FinalityTagEnabled = true
 LogBackfillBatchSize = 1000
 LogPollInterval = '3s'
 LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -3689,6 +3850,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 1
@@ -3700,7 +3862,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -3716,6 +3878,8 @@ FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
 LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 1
 MinContractPayment = '100'
 NonceAutoSync = true
@@ -3769,6 +3933,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 1
@@ -3780,7 +3945,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -3796,6 +3961,8 @@ FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
 LogPollInterval = '30s'
 LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -3849,6 +4016,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 1
@@ -3860,7 +4028,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -3877,6 +4045,8 @@ FinalityTagEnabled = true
 LogBackfillBatchSize = 1000
 LogPollInterval = '2s'
 LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -3930,6 +4100,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 1
@@ -3941,7 +4112,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -3958,6 +4129,8 @@ LinkContractAddress = '0xfaFedb041c0DD4fA2Dc0d87a6B0979Ee6FA7af5F'
 LogBackfillBatchSize = 1000
 LogPollInterval = '1s'
 LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -4011,6 +4184,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 4
@@ -4039,6 +4213,8 @@ FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
 LogPollInterval = '2s'
 LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -4093,6 +4269,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 4
@@ -4104,7 +4281,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -4120,6 +4297,8 @@ FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
 LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -4173,6 +4352,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 1
@@ -4184,7 +4364,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -4201,6 +4381,8 @@ FinalityTagEnabled = true
 LogBackfillBatchSize = 1000
 LogPollInterval = '2s'
 LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -4254,6 +4436,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 1
@@ -4266,6 +4449,90 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 6500000
+```
+
+</p></details>
+
+<details><summary>Gnosis Chiado (10200)</summary><p>
+
+```toml
+AutoCreateKey = true
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
+ChainType = 'xdai'
+FinalityDepth = 100
+FinalityTagEnabled = false
+LogBackfillBatchSize = 1000
+LogPollInterval = '5s'
+LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
+MinIncomingConfirmations = 3
+MinContractPayment = '0.00001 link'
+NonceAutoSync = true
+NoNewHeadsThreshold = '3m0s'
+RPCDefaultBatchSize = 250
+RPCBlockQueryDelay = 1
+
+[Transactions]
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
+
+[BalanceMonitor]
+Enabled = true
+
+[GasEstimator]
+Mode = 'BlockHistory'
+PriceDefault = '20 gwei'
+PriceMax = '500 gwei'
+PriceMin = '1 gwei'
+LimitDefault = 500000
+LimitMax = 500000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+BumpMin = '5 gwei'
+BumpPercent = 20
+BumpThreshold = 3
+EIP1559DynamicFees = true
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1 wei'
+TipCapMin = '1 wei'
+
+[GasEstimator.BlockHistory]
+BatchSize = 25
+BlockHistorySize = 8
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
+TransactionPercentile = 60
+
+[HeadTracker]
+HistoryDepth = 100
+MaxBufferSize = 3
+SamplingInterval = '1s'
+
+[NodePool]
+PollFailureThreshold = 5
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
+SyncThreshold = 5
+LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
+
+[OCR]
+ContractConfirmations = 4
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
+ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -4283,6 +4550,8 @@ LinkContractAddress = '0xf97f4df75117a78c1A5a0DBb814Af92458539FB4'
 LogBackfillBatchSize = 1000
 LogPollInterval = '1s'
 LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -4336,6 +4605,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 1
@@ -4364,6 +4634,8 @@ FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
 LogPollInterval = '5s'
 LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -4417,6 +4689,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 1
@@ -4428,7 +4701,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -4445,6 +4718,8 @@ LinkContractAddress = '0x0b9d5D9136855f6FEc3c0993feE6E9CE8a297846'
 LogBackfillBatchSize = 1000
 LogPollInterval = '3s'
 LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -4498,6 +4773,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 1
@@ -4509,7 +4785,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -4526,6 +4802,8 @@ LinkContractAddress = '0x5947BB275c521040051D82396192181b413227A3'
 LogBackfillBatchSize = 1000
 LogPollInterval = '3s'
 LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -4579,6 +4857,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 1
@@ -4590,7 +4869,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -4607,6 +4886,8 @@ FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
 LogPollInterval = '5s'
 LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -4660,6 +4941,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 1
@@ -4671,7 +4953,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -4687,6 +4969,8 @@ FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
 LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -4740,6 +5024,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 4
@@ -4751,7 +5036,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -4767,6 +5052,8 @@ FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
 LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -4820,6 +5107,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 4
@@ -4831,7 +5119,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -4848,6 +5136,8 @@ LinkContractAddress = '0x779877A7B0D9E8603169DdbD7836e478b4624789'
 LogBackfillBatchSize = 1000
 LogPollInterval = '3s'
 LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -4901,6 +5191,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 1
@@ -4912,7 +5203,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -4929,6 +5220,8 @@ LinkContractAddress = '0x326C977E6efc84E512bB9C30f76E30c160eD06FB'
 LogBackfillBatchSize = 1000
 LogPollInterval = '1s'
 LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 5
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -4982,6 +5275,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 4
@@ -4993,7 +5287,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -5010,6 +5304,8 @@ FinalityTagEnabled = true
 LogBackfillBatchSize = 1000
 LogPollInterval = '2s'
 LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -5063,6 +5359,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 1
@@ -5092,6 +5389,8 @@ LinkContractAddress = '0xE4aB69C077896252FAFBD49EFD26B5D171A32410'
 LogBackfillBatchSize = 1000
 LogPollInterval = '2s'
 LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -5145,6 +5444,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 1
@@ -5174,6 +5474,8 @@ LinkContractAddress = '0x615fBe6372676474d9e6933d310469c9b68e9726'
 LogBackfillBatchSize = 1000
 LogPollInterval = '1s'
 LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -5227,6 +5529,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 1
@@ -5238,7 +5541,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -5256,6 +5559,8 @@ LinkContractAddress = '0xd14838A68E8AFBAdE5efb411d5871ea0011AFd28'
 LogBackfillBatchSize = 1000
 LogPollInterval = '1s'
 LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -5309,6 +5614,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 1
@@ -5338,6 +5644,8 @@ LinkContractAddress = '0xE4aB69C077896252FAFBD49EFD26B5D171A32410'
 LogBackfillBatchSize = 1000
 LogPollInterval = '1s'
 LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -5391,6 +5699,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 1
@@ -5419,6 +5728,8 @@ FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
 LogPollInterval = '3s'
 LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -5472,6 +5783,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 1
@@ -5483,7 +5795,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -5500,6 +5812,8 @@ FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
 LogPollInterval = '3s'
 LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -5553,6 +5867,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 1
@@ -5564,7 +5879,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -5581,6 +5896,8 @@ LinkContractAddress = '0x779877A7B0D9E8603169DdbD7836e478b4624789'
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
 LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 3
 MinContractPayment = '0.1 link'
 NonceAutoSync = true
@@ -5634,6 +5951,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 4
@@ -5645,7 +5963,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -5663,6 +5981,8 @@ LinkContractAddress = '0xE4aB69C077896252FAFBD49EFD26B5D171A32410'
 LogBackfillBatchSize = 1000
 LogPollInterval = '2s'
 LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -5716,6 +6036,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 1
@@ -5744,6 +6065,8 @@ LinkContractAddress = '0x218532a12a389a4a92fC0C5Fb22901D1c19198aA'
 LogBackfillBatchSize = 1000
 LogPollInterval = '2s'
 LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -5797,6 +6120,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 4
@@ -5808,7 +6132,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -5825,6 +6149,8 @@ LinkContractAddress = '0x8b12Ac23BFe11cAb03a634C1F117D64a7f2cFD3e'
 LogBackfillBatchSize = 1000
 LogPollInterval = '2s'
 LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
@@ -5878,6 +6204,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [OCR]
 ContractConfirmations = 4
@@ -5889,7 +6216,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 5400000
 ```
 
 </p></details>
@@ -5998,6 +6325,21 @@ LogPollInterval works in conjunction with Feature.LogPoller. Controls how freque
 LogKeepBlocksDepth = 100000 # Default
 ```
 LogKeepBlocksDepth works in conjunction with Feature.LogPoller. Controls how many blocks the poller will keep, must be greater than FinalityDepth+1.
+
+### LogPrunePageSize
+:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
+```toml
+LogPrunePageSize = 0 # Default
+```
+LogPrunePageSize defines size of the page for pruning logs. Controls how many logs/blocks (at most) are deleted in a single prune tick. Default value 0 means no paging, delete everything at once.
+
+### BackupLogPollerBlockDelay
+:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
+```toml
+BackupLogPollerBlockDelay = 100 # Default
+```
+BackupLogPollerBlockDelay works in conjunction with Feature.LogPoller. Controls the block delay of Backup LogPoller, affecting how far behind the latest finalized block it starts and how often it runs.
+BackupLogPollerDelay=0 will disable Backup LogPoller (_not recommended for production environment_).
 
 ### MinContractPayment
 ```toml
@@ -6237,7 +6579,9 @@ BumpMin is the minimum fixed amount of wei by which gas is bumped on each transa
 ```toml
 BumpPercent = 20 # Default
 ```
-BumpPercent is the percentage by which to bump gas on a transaction that has exceeded `BumpThreshold`. The larger of `GasBumpPercent` and `GasBumpWei` is taken for gas bumps.
+BumpPercent is the percentage by which to bump gas on a transaction that has exceeded `BumpThreshold`. The larger of `BumpPercent` and `BumpMin` is taken for gas bumps.
+
+The `SuggestedPriceEstimator` adds the larger of `BumpPercent` and `BumpMin` on top of the price provided by the RPC when bumping a transaction's gas.
 
 ### BumpThreshold
 ```toml
@@ -6281,8 +6625,8 @@ If you are using BlockHistoryEstimator (default for most chains):
 
 Bumping works as follows:
 
-- Increase tipcap by `max(tipcap * (1 + GasBumpPercent), tipcap + GasBumpWei)`
-- Increase feecap by `max(feecap * (1 + GasBumpPercent), feecap + GasBumpWei)`
+- Increase tipcap by `max(tipcap * (1 + BumpPercent), tipcap + BumpMin)`
+- Increase feecap by `max(feecap * (1 + BumpPercent), feecap + BumpMin)`
 
 A quick note on terminology - Chainlink nodes use the same terms used internally by go-ethereum source code to describe various prices. This is not the same as the externally used terms. For reference:
 
@@ -6502,6 +6846,7 @@ PollInterval = '10s' # Default
 SelectionMode = 'HighestHead' # Default
 SyncThreshold = 5 # Default
 LeaseDuration = '0s' # Default
+NodeIsSyncingEnabled = false # Default
 ```
 The node pool manages multiple RPC endpoints.
 
@@ -6552,6 +6897,16 @@ Setting this to a low value (under 1m) might cause RPC to switch too aggressivel
 Recommended value is over 5m
 
 Set to '0s' to disable
+
+### NodeIsSyncingEnabled
+```toml
+NodeIsSyncingEnabled = false # Default
+```
+NodeIsSyncingEnabled is a flag that enables `syncing` health check on each reconnection to an RPC.
+Node transitions and remains in `Syncing` state while RPC signals this state (In case of Ethereum `eth_syncing` returns anything other than false).
+All of the requests to node in state `Syncing` are rejected.
+
+Set true to enable this check
 
 ## EVM.OCR
 ```toml
@@ -6649,15 +7004,35 @@ Order of the node in the pool, will takes effect if `SelectionMode` is `Priority
 ## EVM.OCR2.Automation
 ```toml
 [EVM.OCR2.Automation]
-GasLimit = 5300000 # Default
+GasLimit = 5400000 # Default
 ```
 
 
 ### GasLimit
 ```toml
-GasLimit = 5300000 # Default
+GasLimit = 5400000 # Default
 ```
 GasLimit controls the gas limit for transmit transactions from ocr2automation job.
+
+## EVM.ChainWriter
+```toml
+[EVM.ChainWriter]
+FromAddress = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292' # Example
+ForwarderAddress = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292' # Example
+```
+
+
+### FromAddress
+```toml
+FromAddress = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292' # Example
+```
+FromAddress is Address of the transmitter key to use for workflow writes.
+
+### ForwarderAddress
+```toml
+ForwarderAddress = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292' # Example
+```
+ForwarderAddress is the keystone forwarder contract address on chain.
 
 ## Cosmos
 ```toml

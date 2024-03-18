@@ -1,6 +1,8 @@
 package assets
 
 import (
+	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -72,7 +74,10 @@ func FuzzWei(f *testing.F) {
 	f.Add("5 micro")
 	f.Fuzz(func(t *testing.T, v string) {
 		if len(v) > 1_000 {
-			t.Skip()
+			t.Skipf("too many characters: %d", len(v))
+		}
+		if e := tryParseExp(v); -1000 > e || e > 1000 {
+			t.Skipf("exponent too large: %d", e)
 		}
 		var w Wei
 		err := w.UnmarshalText([]byte(v))
@@ -88,4 +93,37 @@ func FuzzWei(f *testing.F) {
 		require.NoErrorf(t, err, "failed to unmarshal %s after marshaling from %v", string(b), w)
 		require.Equal(t, w, w2, "unequal values after marshal/unmarshal")
 	})
+}
+
+func tryParseExp(v string) int64 {
+	i := strings.IndexAny(v, "Ee")
+	if i == -1 {
+		return -1
+	}
+	v = v[i+1:]
+	if i := strings.IndexFunc(v, func(r rune) bool {
+		switch {
+		case r == '-' || r == '+':
+			return false
+		case r < '0' || '9' < r:
+			return true
+		}
+		return false
+	}); i > -1 {
+		v = v[:i]
+	}
+	e, err := strconv.ParseInt(v, 10, 32)
+	if err != nil {
+		return -1
+	}
+	return e
+}
+
+func Test_tryParseExp(t *testing.T) {
+	got := tryParseExp("000000000E0000000060000000wei")
+	assert.Equal(t, int64(60000000), got)
+	got = tryParseExp("0e-80000800")
+	assert.Equal(t, int64(-80000800), got)
+	got = tryParseExp("0e+802444440")
+	assert.Equal(t, int64(802444440), got)
 }

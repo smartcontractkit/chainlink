@@ -9,6 +9,7 @@ import (
 	"go.uber.org/multierr"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/jonboulle/clockwork"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -20,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
 	gw_net "github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var promRequest = promauto.NewCounterVec(prometheus.CounterOpts{
@@ -55,7 +55,7 @@ type gateway struct {
 func NewGatewayFromConfig(config *config.GatewayConfig, handlerFactory HandlerFactory, lggr logger.Logger) (Gateway, error) {
 	codec := &api.JsonRPCCodec{}
 	httpServer := gw_net.NewHttpServer(&config.UserServerConfig, lggr)
-	connMgr, err := NewConnectionManager(config, utils.NewRealClock(), lggr)
+	connMgr, err := NewConnectionManager(config, clockwork.NewRealClock(), lggr)
 	if err != nil {
 		return nil, err
 	}

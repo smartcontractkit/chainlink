@@ -60,13 +60,13 @@ func TestShell_IndexEVMNodes(t *testing.T) {
 	n1 := nodes[0]
 	n2 := nodes[1]
 	assert.Equal(t, chainID.String(), n1.ChainID)
-	assert.Equal(t, *node1.Name, n1.ID)
+	assert.Equal(t, cltest.FormatWithPrefixedChainID(chainID.String(), *node1.Name), n1.ID)
 	assert.Equal(t, *node1.Name, n1.Name)
 	wantConfig, err := toml.Marshal(node1)
 	require.NoError(t, err)
 	assert.Equal(t, string(wantConfig), n1.Config)
 	assert.Equal(t, chainID.String(), n2.ChainID)
-	assert.Equal(t, *node2.Name, n2.ID)
+	assert.Equal(t, cltest.FormatWithPrefixedChainID(chainID.String(), *node2.Name), n2.ID)
 	assert.Equal(t, *node2.Name, n2.Name)
 	wantConfig2, err := toml.Marshal(node2)
 	require.NoError(t, err)

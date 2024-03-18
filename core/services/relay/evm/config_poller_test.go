@@ -28,6 +28,7 @@ import (
 	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmClientMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
@@ -54,6 +55,8 @@ func TestConfigPoller(t *testing.T) {
 	var b *backends.SimulatedBackend
 	var linkTokenAddress common.Address
 	var accessAddress common.Address
+
+	ld := OCR2AggregatorLogDecoder
 
 	{
 		key, err := crypto.GenerateKey()
@@ -87,12 +90,20 @@ func TestConfigPoller(t *testing.T) {
 		cfg := pgtest.NewQConfig(false)
 		ethClient = evmclient.NewSimulatedBackendClient(t, b, testutils.SimulatedChainID)
 		lorm := logpoller.NewORM(testutils.SimulatedChainID, db, lggr, cfg)
-		lp = logpoller.NewLogPoller(lorm, ethClient, lggr, 100*time.Millisecond, false, 1, 2, 2, 1000)
+
+		lpOpts := logpoller.Opts{
+			PollPeriod:               100 * time.Millisecond,
+			FinalityDepth:            1,
+			BackfillBatchSize:        2,
+			RpcBatchSize:             2,
+			KeepFinalizedBlocksDepth: 1000,
+		}
+		lp = logpoller.NewLogPoller(lorm, ethClient, lggr, lpOpts)
 		servicetest.Run(t, lp)
 	}
 
 	t.Run("LatestConfig errors if there is no config in logs and config store is unconfigured", func(t *testing.T) {
-		cp, err := NewConfigPoller(lggr, ethClient, lp, ocrAddress, nil)
+		cp, err := NewConfigPoller(lggr, CPConfig{ethClient, lp, ocrAddress, nil, ld})
 		require.NoError(t, err)
 
 		_, err = cp.LatestConfig(testutils.Context(t), 0)
@@ -101,7 +112,7 @@ func TestConfigPoller(t *testing.T) {
 	})
 
 	t.Run("happy path (with config store)", func(t *testing.T) {
-		cp, err := NewConfigPoller(lggr, ethClient, lp, ocrAddress, &configStoreContractAddr)
+		cp, err := NewConfigPoller(lggr, CPConfig{ethClient, lp, ocrAddress, &configStoreContractAddr, ld})
 		require.NoError(t, err)
 		// Should have no config to begin with.
 		_, configDigest, err := cp.LatestConfigDetails(testutils.Context(t))
@@ -172,7 +183,7 @@ func TestConfigPoller(t *testing.T) {
 		mp.On("LatestLogByEventSigWithConfs", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, sql.ErrNoRows)
 
 		t.Run("if callLatestConfigDetails succeeds", func(t *testing.T) {
-			cp, err := newConfigPoller(lggr, ethClient, mp, ocrAddress, &configStoreContractAddr)
+			cp, err := newConfigPoller(lggr, ethClient, mp, ocrAddress, &configStoreContractAddr, ld)
 			require.NoError(t, err)
 
 			t.Run("when config has not been set, returns zero values", func(t *testing.T) {
@@ -209,7 +220,7 @@ func TestConfigPoller(t *testing.T) {
 			failingClient := new(evmClientMocks.Client)
 			failingClient.On("ConfiguredChainID").Return(big.NewInt(42))
 			failingClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("something exploded"))
-			cp, err := newConfigPoller(lggr, failingClient, mp, ocrAddress, &configStoreContractAddr)
+			cp, err := newConfigPoller(lggr, failingClient, mp, ocrAddress, &configStoreContractAddr, ld)
 			require.NoError(t, err)
 
 			cp.configStoreContractAddr = &configStoreContractAddr
@@ -248,7 +259,7 @@ func TestConfigPoller(t *testing.T) {
 		mp.On("LatestLogByEventSigWithConfs", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, sql.ErrNoRows)
 
 		t.Run("if callReadConfig succeeds", func(t *testing.T) {
-			cp, err := newConfigPoller(lggr, ethClient, mp, ocrAddress, &configStoreContractAddr)
+			cp, err := newConfigPoller(lggr, ethClient, mp, ocrAddress, &configStoreContractAddr, ld)
 			require.NoError(t, err)
 
 			t.Run("when config has not been set, returns error", func(t *testing.T) {
@@ -310,7 +321,7 @@ func TestConfigPoller(t *testing.T) {
 				// initial call to retrieve config store address from aggregator
 				return *callArgs.To == ocrAddress
 			}), mock.Anything).Return(nil, errors.New("something exploded")).Once()
-			cp, err := newConfigPoller(lggr, failingClient, mp, ocrAddress, &configStoreContractAddr)
+			cp, err := newConfigPoller(lggr, failingClient, mp, ocrAddress, &configStoreContractAddr, ld)
 			require.NoError(t, err)
 
 			_, err = cp.LatestConfig(testutils.Context(t), 0)

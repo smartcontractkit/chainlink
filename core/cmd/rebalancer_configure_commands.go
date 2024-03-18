@@ -98,7 +98,7 @@ func (s *Shell) ConfigureRebalancerNode(
 	chainID := c.Int64(l1ChainIDArg)
 	// Initialize keystore and generate keys.
 	keyStore := app.GetKeyStore()
-	err = setupKeystore(s, app, keyStore)
+	err = setupKeystore(ctx, s, app, keyStore)
 	if err != nil {
 		return nil, s.errorOut(err)
 	}
@@ -119,7 +119,7 @@ func (s *Shell) ConfigureRebalancerNode(
 		return nil, s.errorOut(err)
 	}
 	for _, chain := range chains {
-		ethKeys, err2 := app.GetKeyStore().Eth().EnabledKeysForChain(chain.ID())
+		ethKeys, err2 := app.GetKeyStore().Eth().EnabledKeysForChain(ctx, chain.ID())
 		if err2 != nil {
 			return nil, s.errorOut(err2)
 		}
@@ -130,7 +130,7 @@ func (s *Shell) ConfigureRebalancerNode(
 	}
 
 	// transmitterID on the job spec will be that of the main chain
-	mainChainKeys, err := app.GetKeyStore().Eth().EnabledKeysForChain(big.NewInt(chainID))
+	mainChainKeys, err := app.GetKeyStore().Eth().EnabledKeysForChain(ctx, big.NewInt(chainID))
 	if err != nil {
 		return nil, s.errorOut(err)
 	}

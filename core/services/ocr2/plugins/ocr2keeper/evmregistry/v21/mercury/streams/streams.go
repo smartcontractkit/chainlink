@@ -28,6 +28,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
+const (
+	zeroAddress = "0x0000000000000000000000000000000000000000"
+)
+
 type Lookup interface {
 	Lookup(ctx context.Context, checkResults []ocr2keepers.CheckResult) []ocr2keepers.CheckResult
 }
@@ -36,7 +40,7 @@ type latestBlockProvider interface {
 	LatestBlock() *ocr2keepers.BlockKey
 }
 
-type streamsRegistry interface {
+type streamRegistry interface {
 	GetUpkeepPrivilegeConfig(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error)
 	CheckCallback(opts *bind.CallOpts, id *big.Int, values [][]byte, extraData []byte) (iregistry21.CheckCallback, error)
 	Address() common.Address
@@ -52,7 +56,7 @@ type streams struct {
 	mercuryConfig   mercury.MercuryConfigProvider
 	abi             abi.ABI
 	blockSubscriber latestBlockProvider
-	registry        streamsRegistry
+	registry        streamRegistry
 	client          contextCaller
 	lggr            logger.Logger
 	threadCtrl      utils.ThreadControl
@@ -70,7 +74,7 @@ func NewStreamsLookup(
 	mercuryConfig mercury.MercuryConfigProvider,
 	blockSubscriber latestBlockProvider,
 	client contextCaller,
-	registry streamsRegistry,
+	registry streamRegistry,
 	lggr logger.Logger) *streams {
 	httpClient := http.DefaultClient
 	threadCtrl := utils.NewThreadControl()
@@ -90,7 +94,7 @@ func NewStreamsLookup(
 	}
 }
 
-// Lookup looks through check upkeep results looking for any that need off chain lookup
+// Lookup looks through check upkeep results to find any that needs off chain lookup
 func (s *streams) Lookup(ctx context.Context, checkResults []ocr2keepers.CheckResult) []ocr2keepers.CheckResult {
 	lookups := map[int]*mercury.StreamsLookup{}
 	for i, checkResult := range checkResults {
@@ -101,7 +105,7 @@ func (s *streams) Lookup(ctx context.Context, checkResults []ocr2keepers.CheckRe
 	for i, lookup := range lookups {
 		wg.Add(1)
 		func(i int, lookup *mercury.StreamsLookup) {
-			s.threadCtrl.Go(func(ctx context.Context) {
+			s.threadCtrl.GoCtx(ctx, func(ctx context.Context) {
 				s.doLookup(ctx, &wg, lookup, i, checkResults)
 			})
 		}(i, lookup)
@@ -138,12 +142,6 @@ func (s *streams) buildResult(ctx context.Context, i int, checkResult ocr2keeper
 		return
 	}
 
-	if len(streamsLookupResponse.Feeds) == 0 {
-		checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonInvalidRevertDataInput)
-		lookupLggr.Debugf("at block %s upkeep %s has empty feeds array", block, upkeepId)
-		return
-	}
-
 	// mercury permission checking for v0.3 is done by mercury server, so no need to check here
 	if streamsLookupResponse.IsMercuryV02() {
 		// check permission on the registry for mercury v0.2
@@ -174,15 +172,27 @@ func (s *streams) buildResult(ctx context.Context, i int, checkResult ocr2keeper
 	lookups[i] = streamsLookupResponse
 }
 
+// Does the requested lookup and sets appropriate fields on checkResult[i]
 func (s *streams) doLookup(ctx context.Context, wg *sync.WaitGroup, lookup *mercury.StreamsLookup, i int, checkResults []ocr2keepers.CheckResult) {
 	defer wg.Done()
 
-	values, err := s.DoMercuryRequest(ctx, lookup, checkResults, i)
+	values, errCode, err := s.DoMercuryRequest(ctx, lookup, checkResults, i)
 	if err != nil {
 		s.lggr.Errorf("at block %d upkeep %s requested time %s DoMercuryRequest err: %s", lookup.Block, lookup.UpkeepId, lookup.Time, err.Error())
+		return
 	}
 
-	if err := s.CheckCallback(ctx, values, lookup, checkResults, i); err != nil {
+	if errCode != encoding.ErrCodeNil {
+		err = s.CheckErrorHandler(ctx, errCode, lookup, checkResults, i)
+		if err != nil {
+			s.lggr.Errorf("at block %d upkeep %s requested time %s CheckErrorHandler err: %s", lookup.Block, lookup.UpkeepId, lookup.Time, err.Error())
+		}
+		return
+	}
+
+	// Mercury request returned values or user's checkErrorhandler didn't return error, call checkCallback
+	err = s.CheckCallback(ctx, values, lookup, checkResults, i)
+	if err != nil {
 		s.lggr.Errorf("at block %d upkeep %s requested time %s CheckCallback err: %s", lookup.Block, lookup.UpkeepId, lookup.Time, err.Error())
 	}
 }
@@ -195,69 +205,93 @@ func (s *streams) CheckCallback(ctx context.Context, values [][]byte, lookup *me
 		return err
 	}
 
-	var mercuryBytes hexutil.Bytes
+	return s.makeCallbackEthCall(ctx, payload, lookup, checkResults, i)
+}
+
+// eth_call to checkCallback and checkErrorHandler and update checkResults[i] accordingly
+func (s *streams) makeCallbackEthCall(ctx context.Context, payload []byte, lookup *mercury.StreamsLookup, checkResults []ocr2keepers.CheckResult, i int) error {
+	var responseBytes hexutil.Bytes
 	args := map[string]interface{}{
+		"from": zeroAddress,
 		"to":   s.registry.Address().Hex(),
 		"data": hexutil.Bytes(payload),
 	}
 
-	// call checkCallback function at the block which OCR3 has agreed upon
-	if err = s.client.CallContext(ctx, &mercuryBytes, "eth_call", args, hexutil.EncodeUint64(lookup.Block)); err != nil {
+	if err := s.client.CallContext(ctx, &responseBytes, "eth_call", args, hexutil.EncodeUint64(lookup.Block)); err != nil {
 		checkResults[i].Retryable = true
 		checkResults[i].PipelineExecutionState = uint8(encoding.RpcFlakyFailure)
 		return err
 	}
 
-	s.lggr.Infof("at block %d upkeep %s requested time %s checkCallback mercuryBytes: %s", lookup.Block, lookup.UpkeepId, lookup.Time, hexutil.Encode(mercuryBytes))
+	s.lggr.Infof("at block %d upkeep %s requested time %s responseBytes: %s", lookup.Block, lookup.UpkeepId, lookup.Time, hexutil.Encode(responseBytes))
 
-	unpackCallBackState, needed, performData, failureReason, _, err := s.packer.UnpackCheckCallbackResult(mercuryBytes)
+	unpackCallBackState, needed, performData, failureReason, _, err := s.packer.UnpackCheckCallbackResult(responseBytes)
 	if err != nil {
 		checkResults[i].PipelineExecutionState = uint8(unpackCallBackState)
 		return err
 	}
 
-	if failureReason == encoding.UpkeepFailureReasonMercuryCallbackReverted {
-		checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonMercuryCallbackReverted)
-		s.lggr.Debugf("at block %d upkeep %s requested time %s mercury callback reverts", lookup.Block, lookup.UpkeepId, lookup.Time)
-		return nil
-	}
+	s.lggr.Infof("at block %d upkeep %s requested time %s returns needed: %v, failure reason: %d, perform data: %s", lookup.Block, lookup.UpkeepId, lookup.Time, needed, failureReason, hexutil.Encode(performData))
 
-	if !needed {
-		checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonUpkeepNotNeeded)
-		s.lggr.Debugf("at block %d upkeep %s requested time %s callback reports upkeep not needed", lookup.Block, lookup.UpkeepId, lookup.Time)
-		return nil
-	}
-
-	checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonNone)
-	checkResults[i].Eligible = true
+	checkResults[i].IneligibilityReason = uint8(failureReason)
+	checkResults[i].Eligible = needed
 	checkResults[i].PerformData = performData
-	s.lggr.Infof("at block %d upkeep %s requested time %s CheckCallback successful with perform data: %s", lookup.Block, lookup.UpkeepId, lookup.Time, hexutil.Encode(performData))
 
 	return nil
 }
 
-func (s *streams) DoMercuryRequest(ctx context.Context, lookup *mercury.StreamsLookup, checkResults []ocr2keepers.CheckResult, i int) ([][]byte, error) {
-	state, reason, values, retryable, retryInterval, err := encoding.NoPipelineError, encoding.UpkeepFailureReasonInvalidRevertDataInput, [][]byte{}, false, 0*time.Second, fmt.Errorf("invalid revert data input: feed param key %s, time param key %s, feeds %s", lookup.FeedParamKey, lookup.TimeParamKey, lookup.Feeds)
+// Does the mercury request for the checkResult. Returns either the looked up values or an error code if something is wrong with mercury
+// In case of any pipeline processing issues, returns an error and also sets approriate state on the checkResult itself
+func (s *streams) DoMercuryRequest(ctx context.Context, lookup *mercury.StreamsLookup, checkResults []ocr2keepers.CheckResult, i int) ([][]byte, encoding.ErrCode, error) {
+	var state, values, errCode, retryable, retryInterval = encoding.NoPipelineError, [][]byte{}, encoding.ErrCodeNil, false, 0 * time.Second
+	var err error
 	pluginRetryKey := generatePluginRetryKey(checkResults[i].WorkID, lookup.Block)
+	upkeepType := core.GetUpkeepType(checkResults[i].UpkeepID)
 
 	if lookup.IsMercuryV02() {
-		state, reason, values, retryable, retryInterval, err = s.v02Client.DoRequest(ctx, lookup, pluginRetryKey)
+		state, values, errCode, retryable, retryInterval, err = s.v02Client.DoRequest(ctx, lookup, upkeepType, pluginRetryKey)
 	} else if lookup.IsMercuryV03() {
-		state, reason, values, retryable, retryInterval, err = s.v03Client.DoRequest(ctx, lookup, pluginRetryKey)
+		state, values, errCode, retryable, retryInterval, err = s.v03Client.DoRequest(ctx, lookup, upkeepType, pluginRetryKey)
 	}
 
 	if err != nil {
+		// Something went wrong in the pipeline processing, set the state, retry reason and return
 		checkResults[i].Retryable = retryable
 		checkResults[i].RetryInterval = retryInterval
 		checkResults[i].PipelineExecutionState = uint8(state)
-		checkResults[i].IneligibilityReason = uint8(reason)
-		return nil, err
+		s.lggr.Debugf("at block %d upkeep %s requested time %s doMercuryRequest err: %s", lookup.Block, lookup.UpkeepId, lookup.Time, err.Error())
+		return nil, encoding.ErrCodeNil, err
+	}
+
+	if errCode != encoding.ErrCodeNil {
+		s.lggr.Infof("at block %d upkeep %s requested time %s doMercuryRequest error code: %d", lookup.Block, lookup.UpkeepId, lookup.Time, errCode)
+		return nil, errCode, nil
 	}
 
 	for j, v := range values {
 		s.lggr.Infof("at block %d upkeep %s requested time %s doMercuryRequest values[%d]: %s", lookup.Block, lookup.UpkeepId, lookup.Time, j, hexutil.Encode(v))
 	}
-	return values, nil
+	return values, encoding.ErrCodeNil, nil
+}
+
+func (s *streams) CheckErrorHandler(ctx context.Context, errCode encoding.ErrCode, lookup *mercury.StreamsLookup, checkResults []ocr2keepers.CheckResult, i int) error {
+	s.lggr.Debugf("at block %d upkeep %s requested time %s CheckErrorHandler error code: %d", lookup.Block, lookup.UpkeepId, lookup.Time, errCode)
+
+	userPayload, err := s.packer.PackUserCheckErrorHandler(errCode, lookup.ExtraData)
+	if err != nil {
+		checkResults[i].Retryable = false
+		checkResults[i].PipelineExecutionState = uint8(encoding.PackUnpackDecodeFailed)
+		return err
+	}
+
+	payload, err := s.abi.Pack("executeCallback", lookup.UpkeepId, userPayload)
+	if err != nil {
+		checkResults[i].Retryable = false
+		checkResults[i].PipelineExecutionState = uint8(encoding.PackUnpackDecodeFailed)
+		return err
+	}
+
+	return s.makeCallbackEthCall(ctx, payload, lookup, checkResults, i)
 }
 
 // AllowedToUseMercury retrieves upkeep's administrative offchain config and decode a mercuryEnabled bool to indicate if
@@ -300,7 +334,7 @@ func (s *streams) AllowedToUseMercury(opts *bind.CallOpts, upkeepId *big.Int) (s
 
 	var privilegeConfig UpkeepPrivilegeConfig
 	if err = json.Unmarshal(upkeepPrivilegeConfigBytes, &privilegeConfig); err != nil {
-		return encoding.MercuryUnmarshalError, encoding.UpkeepFailureReasonNone, false, false, fmt.Errorf("failed to unmarshal privilege config: %v", err)
+		return encoding.PrivilegeConfigUnmarshalError, encoding.UpkeepFailureReasonNone, false, false, fmt.Errorf("failed to unmarshal privilege config: %v", err)
 	}
 
 	s.mercuryConfig.SetUpkeepAllowed(upkeepId.String(), privilegeConfig.MercuryEnabled, cache.DefaultExpiration)

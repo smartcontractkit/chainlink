@@ -16,7 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/google/uuid"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -29,8 +29,10 @@ import (
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
 
-// RPCCLient includes all the necessary generalized RPC methods along with any additional chain-specific methods.
-type RPCCLient interface {
+// RPCClient includes all the necessary generalized RPC methods along with any additional chain-specific methods.
+//
+//go:generate mockery --quiet --name RPCClient --output ./mocks --case=underscore
+type RPCClient interface {
 	commonclient.RPC[
 		*big.Int,
 		evmtypes.Nonce,
@@ -43,6 +45,7 @@ type RPCCLient interface {
 		*evmtypes.Receipt,
 		*assets.Wei,
 		*evmtypes.Head,
+		rpc.BatchElem,
 	]
 	BlockByHashGeth(ctx context.Context, hash common.Hash) (b *types.Block, err error)
 	BlockByNumberGeth(ctx context.Context, number *big.Int) (b *types.Block, err error)
@@ -89,7 +92,7 @@ func NewRPCClient(
 	id int32,
 	chainID *big.Int,
 	tier commonclient.NodeTier,
-) RPCCLient {
+) RPCClient {
 	r := new(rpcClient)
 	r.name = name
 	r.id = id
@@ -127,7 +130,7 @@ func (r *rpcClient) Dial(callerCtx context.Context) error {
 	wsrpc, err := rpc.DialWebsocket(ctx, r.ws.uri.String(), "")
 	if err != nil {
 		promEVMPoolRPCNodeDialsFailed.WithLabelValues(r.chainID.String(), r.name).Inc()
-		return errors.Wrapf(err, "error while dialing websocket: %v", r.ws.uri.Redacted())
+		return pkgerrors.Wrapf(err, "error while dialing websocket: %v", r.ws.uri.Redacted())
 	}
 
 	r.ws.rpc = wsrpc
@@ -156,7 +159,7 @@ func (r *rpcClient) DialHTTP() error {
 	httprpc, err := rpc.DialHTTP(r.http.uri.String())
 	if err != nil {
 		promEVMPoolRPCNodeDialsFailed.WithLabelValues(r.chainID.String(), r.name).Inc()
-		return errors.Wrapf(err, "error while dialing HTTP: %v", r.http.uri.Redacted())
+		return pkgerrors.Wrapf(err, "error while dialing HTTP: %v", r.http.uri.Redacted())
 	}
 
 	r.http.rpc = httprpc
@@ -316,14 +319,10 @@ func (r *rpcClient) CallContext(ctx context.Context, result interface{}, method 
 	return err
 }
 
-func (r *rpcClient) BatchCallContext(ctx context.Context, b []any) error {
+func (r *rpcClient) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
 	ctx, cancel, ws, http, err := r.makeLiveQueryCtxAndSafeGetClients(ctx)
 	if err != nil {
 		return err
-	}
-	batch := make([]rpc.BatchElem, len(b))
-	for i, arg := range b {
-		batch[i] = arg.(rpc.BatchElem)
 	}
 	defer cancel()
 	lggr := r.newRqLggr().With("nBatchElems", len(b), "batchElems", b)
@@ -331,9 +330,9 @@ func (r *rpcClient) BatchCallContext(ctx context.Context, b []any) error {
 	lggr.Trace("RPC call: evmclient.Client#BatchCallContext")
 	start := time.Now()
 	if http != nil {
-		err = r.wrapHTTP(http.rpc.BatchCallContext(ctx, batch))
+		err = r.wrapHTTP(http.rpc.BatchCallContext(ctx, b))
 	} else {
-		err = r.wrapWS(ws.rpc.BatchCallContext(ctx, batch))
+		err = r.wrapWS(ws.rpc.BatchCallContext(ctx, b))
 	}
 	duration := time.Since(start)
 
@@ -583,7 +582,7 @@ func (r *rpcClient) SendTransaction(ctx context.Context, tx *types.Transaction) 
 
 func (r *rpcClient) SimulateTransaction(ctx context.Context, tx *types.Transaction) error {
 	// Not Implemented
-	return errors.New("SimulateTransaction not implemented")
+	return pkgerrors.New("SimulateTransaction not implemented")
 }
 
 func (r *rpcClient) SendEmptyTransaction(
@@ -595,7 +594,7 @@ func (r *rpcClient) SendEmptyTransaction(
 	fromAddress common.Address,
 ) (txhash string, err error) {
 	// Not Implemented
-	return "", errors.New("SendEmptyTransaction not implemented")
+	return "", pkgerrors.New("SendEmptyTransaction not implemented")
 }
 
 // PendingSequenceAt returns one higher than the highest nonce from both mempool and mined transactions
@@ -1068,10 +1067,10 @@ func wrapCallError(err error, tp string) error {
 	if err == nil {
 		return nil
 	}
-	if errors.Cause(err).Error() == "context deadline exceeded" {
-		err = errors.Wrap(err, "remote node timed out")
+	if pkgerrors.Cause(err).Error() == "context deadline exceeded" {
+		err = pkgerrors.Wrap(err, "remote node timed out")
 	}
-	return errors.Wrapf(err, "%s call failed", tp)
+	return pkgerrors.Wrapf(err, "%s call failed", tp)
 }
 
 func (r *rpcClient) wrapWS(err error) error {
@@ -1107,6 +1106,33 @@ func (r *rpcClient) makeLiveQueryCtxAndSafeGetClients(parentCtx context.Context)
 
 func (r *rpcClient) makeQueryCtx(ctx context.Context) (context.Context, context.CancelFunc) {
 	return makeQueryCtx(ctx, r.getChStopInflight())
+}
+
+func (r *rpcClient) IsSyncing(ctx context.Context) (bool, error) {
+	ctx, cancel, ws, http, err := r.makeLiveQueryCtxAndSafeGetClients(ctx)
+	if err != nil {
+		return false, err
+	}
+	defer cancel()
+	lggr := r.newRqLggr()
+
+	lggr.Debug("RPC call: evmclient.Client#SyncProgress")
+	var syncProgress *ethereum.SyncProgress
+	start := time.Now()
+	if http != nil {
+		syncProgress, err = http.geth.SyncProgress(ctx)
+		err = r.wrapHTTP(err)
+	} else {
+		syncProgress, err = ws.geth.SyncProgress(ctx)
+		err = r.wrapWS(err)
+	}
+	duration := time.Since(start)
+
+	r.logResult(lggr, err, duration, r.getRPCDomain(), "BlockNumber",
+		"syncProgress", syncProgress,
+	)
+
+	return syncProgress != nil, nil
 }
 
 // getChStopInflight provides a convenience helper that mutex wraps a

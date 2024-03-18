@@ -35,8 +35,14 @@ func setupLogPoller[RI ocr3impls.MultichainMeta](t *testing.T, db *sqlx.DB, bs *
 	// create the universe which will deploy the OCR contract and set config
 	// we will replay on the log poller to get the appropriate ConfigSet log
 	uni := newTestUniverse[RI](t, bs)
-
-	lp := logpoller.NewLogPoller(o, uni.simClient, lggr, 1*time.Second, false, 100, 100, 100, 200)
+	lpOpts := logpoller.Opts{
+		PollPeriod:               1 * time.Second,
+		FinalityDepth:            100,
+		BackfillBatchSize:        100,
+		RpcBatchSize:             100,
+		KeepFinalizedBlocksDepth: 200,
+	}
+	lp := logpoller.NewLogPoller(o, uni.simClient, lggr, lpOpts)
 	return lp, uni
 }
 

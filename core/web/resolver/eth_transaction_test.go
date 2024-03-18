@@ -9,6 +9,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	gqlerrors "github.com/graph-gophers/graphql-go/errors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
@@ -16,6 +18,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
+	chainlinkmocks "github.com/smartcontractkit/chainlink/v2/core/services/chainlink/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/web/testutils"
 )
 
 func TestResolver_EthTransaction(t *testing.T) {
@@ -85,7 +89,15 @@ func TestResolver_EthTransaction(t *testing.T) {
 				}, nil)
 				f.App.On("TxmStorageService").Return(f.Mocks.txmStore)
 				f.Mocks.evmORM.PutChains(toml.EVMConfig{ChainID: &chainID})
-				f.App.On("EVMORM").Return(f.Mocks.evmORM)
+				f.App.On("GetRelayers").Return(&chainlinkmocks.FakeRelayerChainInteroperators{
+					Relayers: []loop.Relayer{
+						testutils.MockRelayer{ChainStatus: types.ChainStatus{
+							ID:      "22",
+							Enabled: true,
+							Config:  "",
+						}},
+					},
+				})
 			},
 			query:     query,
 			variables: variables,
@@ -142,7 +154,15 @@ func TestResolver_EthTransaction(t *testing.T) {
 				}, nil)
 				f.App.On("TxmStorageService").Return(f.Mocks.txmStore)
 				f.Mocks.evmORM.PutChains(toml.EVMConfig{ChainID: &chainID})
-				f.App.On("EVMORM").Return(f.Mocks.evmORM)
+				f.App.On("GetRelayers").Return(&chainlinkmocks.FakeRelayerChainInteroperators{
+					Relayers: []loop.Relayer{
+						testutils.MockRelayer{ChainStatus: types.ChainStatus{
+							ID:      "22",
+							Enabled: true,
+							Config:  "",
+						}},
+					},
+				})
 			},
 			query:     query,
 			variables: variables,

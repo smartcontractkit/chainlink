@@ -111,7 +111,10 @@ tools/flakeytests/coverage.txt
 **/testdata/fuzz/*
 
 # Runtime test configuration that might contain secrets
-overrides.toml
+override*.toml
+
+# Pythin venv
+.venv/
 
 # Temp Changelog migration
 CHANGELOG.md

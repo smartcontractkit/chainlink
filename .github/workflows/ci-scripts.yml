@@ -17,8 +17,9 @@ jobs:
           go-directory: core/scripts/ccip
           go-version-file: core/scripts/go.mod
           go-module-file: core/scripts/go.sum
-          gc-basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          gc-host: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          gc-basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          gc-host: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          gc-org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
 
   test-scripts:
     if: ${{ github.event_name == 'pull_request' }}

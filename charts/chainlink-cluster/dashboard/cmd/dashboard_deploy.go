@@ -1,10 +1,11 @@
 package main
 
 import (
+	"fmt"
 	"os"
+	"strings"
 
 	"github.com/smartcontractkit/chainlink/charts/chainlink-cluster/dashboard/dashboard"
-	"github.com/smartcontractkit/wasp"
 )
 
 func main() {
@@ -12,38 +13,64 @@ func main() {
 	if name == "" {
 		panic("DASHBOARD_NAME must be provided")
 	}
-	ldsn := os.Getenv("LOKI_DATA_SOURCE_NAME")
-	if ldsn == "" {
-		panic("DATA_SOURCE_NAME must be provided")
+
+	lokiDataSourceName := os.Getenv("LOKI_DATA_SOURCE_NAME")
+	if lokiDataSourceName == "" {
+		fmt.Println("LOKI_DATA_SOURCE_NAME is empty, panels with logs will be disabled")
 	}
-	os.Setenv("DATA_SOURCE_NAME", ldsn)
-	pdsn := os.Getenv("PROMETHEUS_DATA_SOURCE_NAME")
-	if ldsn == "" {
-		panic("DATA_SOURCE_NAME must be provided")
+
+	prometheusDataSourceName := os.Getenv("PROMETHEUS_DATA_SOURCE_NAME")
+	if prometheusDataSourceName == "" {
+		panic("PROMETHEUS_DATA_SOURCE_NAME must be provided")
 	}
-	dbf := os.Getenv("DASHBOARD_FOLDER")
-	if dbf == "" {
-		panic("DASHBOARD_FOLDER must be provided")
-	}
+
 	grafanaURL := os.Getenv("GRAFANA_URL")
 	if grafanaURL == "" {
 		panic("GRAFANA_URL must be provided")
 	}
+
 	grafanaToken := os.Getenv("GRAFANA_TOKEN")
 	if grafanaToken == "" {
 		panic("GRAFANA_TOKEN must be provided")
 	}
-	// if you'll use this dashboard base in other projects, you can add your own opts here to extend it
-	db, err := dashboard.NewCLClusterDashboard(6, name, ldsn, pdsn, dbf, grafanaURL, grafanaToken, nil)
+
+	grafanaFolder := os.Getenv("GRAFANA_FOLDER")
+	if grafanaFolder == "" {
+		panic("GRAFANA_FOLDER must be provided")
+	}
+
+	infraPlatform := os.Getenv("INFRA_PLATFORM")
+	if infraPlatform == "" {
+		panic("INFRA_PLATFORM must be provided, can be either docker|kubernetes")
+	}
+
+	panelsIncluded := os.Getenv("PANELS_INCLUDED")
+	// can be empty
+	if panelsIncluded == "" {
+		fmt.Println("PANELS_INCLUDED can be provided to specify panels groups, value must be separated by comma. Possible values are: core, wasp")
+	}
+	panelsIncludedArray := strings.Split(panelsIncluded, ",")
+
+	err := dashboard.NewDashboard(
+		name,
+		grafanaURL,
+		grafanaToken,
+		grafanaFolder,
+		[]string{"generated"},
+		lokiDataSourceName,
+		prometheusDataSourceName,
+		infraPlatform,
+		panelsIncludedArray,
+		nil,
+	)
 	if err != nil {
-		panic(err)
+		fmt.Printf("Could not create dashbard: %s\n", name)
+		fmt.Printf("Error: %s\n", err)
+		os.Exit(1)
 	}
-	// here we are extending load testing dashboard with core metrics, for example
-	wdb, err := wasp.NewDashboard(nil, db.Opts())
-	if err != nil {
-		panic(err)
-	}
-	if _, err := wdb.Deploy(); err != nil {
-		panic(err)
-	}
+	fmt.Printf("Successfully deployed %s dashboard on grafana instance %s in folder %s\n",
+		name,
+		grafanaURL,
+		grafanaFolder,
+	)
 }

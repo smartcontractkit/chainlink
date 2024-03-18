@@ -50,6 +50,31 @@ func TestCodec(t *testing.T) {
 	})
 }
 
+func TestCodec_SimpleEncode(t *testing.T) {
+	codecName := "my_codec"
+	input := map[string]any{
+		"Report": int32(6),
+		"Meta":   "abcdefg",
+	}
+	evmEncoderConfig := `[{"Name":"Report","Type":"int32"},{"Name":"Meta","Type":"string"}]`
+
+	codecConfig := types.CodecConfig{Configs: map[string]types.ChainCodecConfig{
+		codecName: {TypeABI: evmEncoderConfig},
+	}}
+	c, err := evm.NewCodec(codecConfig)
+	require.NoError(t, err)
+
+	result, err := c.Encode(testutils.Context(t), input, codecName)
+	require.NoError(t, err)
+	expected :=
+		"0000000000000000000000000000000000000000000000000000000000000006" + // int32(6)
+			"0000000000000000000000000000000000000000000000000000000000000040" + // total bytes occupied by the string (64)
+			"0000000000000000000000000000000000000000000000000000000000000007" + // length of the string (7 chars)
+			"6162636465666700000000000000000000000000000000000000000000000000" // actual string
+
+	require.Equal(t, expected, hexutil.Encode(result)[2:])
+}
+
 type codecInterfaceTester struct{}
 
 func (it *codecInterfaceTester) Setup(_ *testing.T) {}

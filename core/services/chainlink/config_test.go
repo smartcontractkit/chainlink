@@ -488,8 +488,8 @@ func TestConfig_Marshal(t *testing.T) {
 					BumpTxDepth:        ptr[uint32](6),
 					BumpMin:            assets.NewWeiI(100),
 					FeeCapDefault:      assets.NewWeiI(math.MaxInt64),
-					LimitDefault:       ptr[uint32](12),
-					LimitMax:           ptr[uint32](17),
+					LimitDefault:       ptr[uint64](12),
+					LimitMax:           ptr[uint64](17),
 					LimitMultiplier:    mustDecimal("1.234"),
 					LimitTransfer:      ptr[uint32](100),
 					TipCapDefault:      assets.NewWeiI(2),
@@ -526,17 +526,19 @@ func TestConfig_Marshal(t *testing.T) {
 					},
 				},
 
-				LinkContractAddress:      mustAddress("0x538aAaB4ea120b2bC2fe5D296852D948F07D849e"),
-				LogBackfillBatchSize:     ptr[uint32](17),
-				LogPollInterval:          &minute,
-				LogKeepBlocksDepth:       ptr[uint32](100000),
-				MinContractPayment:       commonassets.NewLinkFromJuels(math.MaxInt64),
-				MinIncomingConfirmations: ptr[uint32](13),
-				NonceAutoSync:            ptr(true),
-				NoNewHeadsThreshold:      &minute,
-				OperatorFactoryAddress:   mustAddress("0xa5B85635Be42F21f94F28034B7DA440EeFF0F418"),
-				RPCDefaultBatchSize:      ptr[uint32](17),
-				RPCBlockQueryDelay:       ptr[uint16](10),
+				LinkContractAddress:       mustAddress("0x538aAaB4ea120b2bC2fe5D296852D948F07D849e"),
+				LogBackfillBatchSize:      ptr[uint32](17),
+				LogPollInterval:           &minute,
+				LogKeepBlocksDepth:        ptr[uint32](100000),
+				LogPrunePageSize:          ptr[uint32](0),
+				BackupLogPollerBlockDelay: ptr[uint64](532),
+				MinContractPayment:        commonassets.NewLinkFromJuels(math.MaxInt64),
+				MinIncomingConfirmations:  ptr[uint32](13),
+				NonceAutoSync:             ptr(true),
+				NoNewHeadsThreshold:       &minute,
+				OperatorFactoryAddress:    mustAddress("0xa5B85635Be42F21f94F28034B7DA440EeFF0F418"),
+				RPCDefaultBatchSize:       ptr[uint32](17),
+				RPCBlockQueryDelay:        ptr[uint16](10),
 
 				Transactions: evmcfg.Transactions{
 					MaxInFlight:          ptr[uint32](19),
@@ -559,6 +561,7 @@ func TestConfig_Marshal(t *testing.T) {
 					SelectionMode:        &selectionMode,
 					SyncThreshold:        ptr[uint32](13),
 					LeaseDuration:        &zeroSeconds,
+					NodeIsSyncingEnabled: ptr(true),
 				},
 				OCR: evmcfg.OCR{
 					ContractConfirmations:              ptr[uint16](11),
@@ -925,6 +928,8 @@ LinkContractAddress = '0x538aAaB4ea120b2bC2fe5D296852D948F07D849e'
 LogBackfillBatchSize = 17
 LogPollInterval = '1m0s'
 LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 532
 MinIncomingConfirmations = 13
 MinContractPayment = '9.223372036854775807 link'
 NonceAutoSync = true
@@ -995,6 +1000,7 @@ PollInterval = '1m0s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 13
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = true
 
 [EVM.OCR]
 ContractConfirmations = 11
@@ -1126,6 +1132,14 @@ func TestConfig_full(t *testing.T) {
 	require.NoError(t, config.DecodeTOML(strings.NewReader(fullTOML), &got))
 	// Except for some EVM node fields.
 	for c := range got.EVM {
+		addr, err := ethkey.NewEIP55Address("0x2a3e23c6f242F5345320814aC8a1b4E58707D292")
+		require.NoError(t, err)
+		if got.EVM[c].ChainWriter.FromAddress == nil {
+			got.EVM[c].ChainWriter.FromAddress = &addr
+		}
+		if got.EVM[c].ChainWriter.ForwarderAddress == nil {
+			got.EVM[c].ChainWriter.ForwarderAddress = &addr
+		}
 		for n := range got.EVM[c].Nodes {
 			if got.EVM[c].Nodes[n].WSURL == nil {
 				got.EVM[c].Nodes[n].WSURL = new(commonconfig.URL)
@@ -1151,7 +1165,8 @@ func TestConfig_Validate(t *testing.T) {
 		toml string
 		exp  string
 	}{
-		{name: "invalid", toml: invalidTOML, exp: `invalid configuration: 6 errors:
+		{name: "invalid", toml: invalidTOML, exp: `invalid configuration: 7 errors:
+	- P2P.V2.Enabled: invalid value (false): P2P required for OCR or OCR2. Please enable P2P or disable OCR/OCR2.
 	- Database.Lock.LeaseRefreshInterval: invalid value (6s): must be less than or equal to half of LeaseDuration (10s)
 	- WebServer: 8 errors:
 		- LDAP.BaseDN: invalid value (<nil>): LDAP BaseDN can not be empty

@@ -31,7 +31,7 @@ type Delegate struct {
 var _ job.Delegate = (*Delegate)(nil)
 
 func NewDelegate(lggr logger.Logger, registry Registry, runner ocrcommon.Runner, cfg DelegateConfig) *Delegate {
-	return &Delegate{lggr, registry, runner, cfg}
+	return &Delegate{lggr.Named("StreamsDelegate"), registry, runner, cfg}
 }
 
 func (d *Delegate) JobType() job.Type {
@@ -43,12 +43,12 @@ func (d *Delegate) AfterJobCreated(jb job.Job)                 {}
 func (d *Delegate) BeforeJobDeleted(jb job.Job)                {}
 func (d *Delegate) OnDeleteJob(jb job.Job, q pg.Queryer) error { return nil }
 
-func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) (services []job.ServiceCtx, err error) {
-	if !jb.Name.Valid {
-		return nil, errors.New("job name is required to be present for stream specs")
+func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job, opt ...pg.QOpt) (services []job.ServiceCtx, err error) {
+	if jb.StreamID == nil {
+		return nil, errors.New("streamID is required to be present for stream specs")
 	}
-	id := jb.Name.String
-	lggr := d.lggr.Named(id).With("streamID", id)
+	id := *jb.StreamID
+	lggr := d.lggr.Named(fmt.Sprintf("%d", id)).With("streamID", id)
 
 	rrs := ocrcommon.NewResultRunSaver(d.runner, lggr, d.cfg.MaxSuccessfulRuns(), d.cfg.ResultWriteQueueDepth())
 	services = append(services, rrs, &StreamService{
@@ -77,12 +77,12 @@ func (s *StreamService) Start(_ context.Context) error {
 	if s.spec == nil {
 		return fmt.Errorf("pipeline spec unexpectedly missing for stream %q", s.id)
 	}
-	s.lggr.Debugf("Starting stream %q", s.id)
+	s.lggr.Debugf("Starting stream %d", s.id)
 	return s.registry.Register(s.id, *s.spec, s.rrs)
 }
 
 func (s *StreamService) Close() error {
-	s.lggr.Debugf("Stopping stream %q", s.id)
+	s.lggr.Debugf("Stopping stream %d", s.id)
 	s.registry.Unregister(s.id)
 	return nil
 }
@@ -102,8 +102,8 @@ func ValidatedStreamSpec(tomlString string) (job.Job, error) {
 		return jb, errors.Errorf("unsupported type: %q", jb.Type)
 	}
 
-	if !jb.Name.Valid {
-		return jb, errors.New("jobs of type 'stream' require a non-blank name as stream ID")
+	if jb.StreamID == nil {
+		return jb, errors.New("jobs of type 'stream' require streamID to be specified")
 	}
 
 	return jb, nil

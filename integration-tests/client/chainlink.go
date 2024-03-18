@@ -84,6 +84,7 @@ func initRestyClient(url string, email string, password string, timeout *time.Du
 		return nil, fmt.Errorf("error connecting to chainlink node after %d attempts: %w", retryCount, err)
 	}
 	rc.SetCookies(resp.Cookies())
+	log.Debug().Str("URL", url).Msg("Connected to Chainlink node")
 	return rc, nil
 }
 

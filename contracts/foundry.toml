@@ -34,6 +34,16 @@ src = 'src/v0.8/vrf'
 test = 'test/v0.8/foundry/vrf' # skips tests for no VRF foundry tests
 solc_version = '0.8.6'
 
+[profile.vrfv2plus_coordinator]
+optimizer_runs = 50
+src = 'src/v0.8/vrf'
+solc_version = '0.8.6'
+
+[profile.vrfv2plus]
+optimizer_runs = 1_000_000
+src = 'src/v0.8/vrf'
+solc_version = '0.8.6'
+
 [profile.automation]
 optimizer_runs = 10000
 src = 'src/v0.8/automation'
@@ -49,7 +59,7 @@ solc_version = '0.8.19'
 optimizer_runs = 1000000
 src = 'src/v0.8/llo-feeds'
 test = 'src/v0.8/llo-feeds/test'
-solc_version = '0.8.16'
+solc_version = '0.8.19'
 # We cannot turn on deny_warnings = true as that will hide any CI failure
 
 [profile.rebalancer]
@@ -57,6 +67,13 @@ optimizer_runs = 1000000
 src = 'src/v0.8/rebalancer'
 test = 'src/v0.8/rebalancer/test'
 solc_version = '0.8.19'
+
+[profile.keystone]
+solc_version = '0.8.19'
+src = 'src/v0.8/keystone'
+test = 'src/v0.8/keystone/test'
+optimizer_runs = 10_000
+
 
 [profile.shared]
 optimizer_runs = 1000000

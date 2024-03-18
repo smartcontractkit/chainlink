@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.16;
+pragma solidity 0.8.19;
 
 import {BaseRewardManagerTest} from "./BaseRewardManager.t.sol";
 import {Common} from "../../libraries/Common.sol";
@@ -102,6 +102,131 @@ contract RewardManagerUpdateRewardRecipientsTest is BaseRewardManagerTest {
     vm.expectRevert(INVALID_ADDRESS_ERROR_SELECTOR);
 
     //update the recipients with the duplicate addresses
+    updateRewardRecipients(PRIMARY_POOL_ID, recipients, ADMIN);
+  }
+
+  function test_updateRecipientsToDifferentSet() public {
+    //create a list of containing recipients from the primary configured set, and new recipients
+    Common.AddressAndWeight[] memory recipients = new Common.AddressAndWeight[](getPrimaryRecipients().length + 4);
+    for (uint256 i; i < getPrimaryRecipients().length; i++) {
+      //copy the recipient and set the weight to 0 which implies the recipient is being replaced
+      recipients[i] = Common.AddressAndWeight(getPrimaryRecipients()[i].addr, 0);
+    }
+
+    //add the new recipients individually
+    recipients[4] = Common.AddressAndWeight(DEFAULT_RECIPIENT_5, ONE_PERCENT * 25);
+    recipients[5] = Common.AddressAndWeight(DEFAULT_RECIPIENT_6, ONE_PERCENT * 25);
+    recipients[6] = Common.AddressAndWeight(DEFAULT_RECIPIENT_7, ONE_PERCENT * 25);
+    recipients[7] = Common.AddressAndWeight(DEFAULT_RECIPIENT_8, ONE_PERCENT * 25);
+
+    //updating a recipient should force the funds to be paid out for the primary recipients
+    updateRewardRecipients(PRIMARY_POOL_ID, recipients, ADMIN);
+  }
+
+  function test_updateRecipientsToDifferentPartialSet() public {
+    //create a list of containing recipients from the primary configured set, and new recipients
+    Common.AddressAndWeight[] memory recipients = new Common.AddressAndWeight[](getPrimaryRecipients().length + 2);
+    for (uint256 i; i < getPrimaryRecipients().length; i++) {
+      //copy the recipient and set the weight to 0 which implies the recipient is being replaced
+      recipients[i] = Common.AddressAndWeight(getPrimaryRecipients()[i].addr, 0);
+    }
+
+    //add the new recipients individually
+    recipients[4] = Common.AddressAndWeight(DEFAULT_RECIPIENT_5, FIFTY_PERCENT);
+    recipients[5] = Common.AddressAndWeight(DEFAULT_RECIPIENT_6, FIFTY_PERCENT);
+
+    //updating a recipient should force the funds to be paid out for the primary recipients
+    updateRewardRecipients(PRIMARY_POOL_ID, recipients, ADMIN);
+  }
+
+  function test_updateRecipientsToDifferentLargerSet() public {
+    //create a list of containing recipients from the primary configured set, and new recipients
+    Common.AddressAndWeight[] memory recipients = new Common.AddressAndWeight[](getPrimaryRecipients().length + 5);
+    for (uint256 i; i < getPrimaryRecipients().length; i++) {
+      //copy the recipient and set the weight to 0 which implies the recipient is being replaced
+      recipients[i] = Common.AddressAndWeight(getPrimaryRecipients()[i].addr, 0);
+    }
+
+    //add the new recipients individually
+    recipients[4] = Common.AddressAndWeight(DEFAULT_RECIPIENT_5, TEN_PERCENT * 2);
+    recipients[5] = Common.AddressAndWeight(DEFAULT_RECIPIENT_6, TEN_PERCENT * 2);
+    recipients[6] = Common.AddressAndWeight(DEFAULT_RECIPIENT_7, TEN_PERCENT * 2);
+    recipients[7] = Common.AddressAndWeight(DEFAULT_RECIPIENT_8, TEN_PERCENT * 2);
+    recipients[8] = Common.AddressAndWeight(DEFAULT_RECIPIENT_9, TEN_PERCENT * 2);
+
+    //updating a recipient should force the funds to be paid out for the primary recipients
+    updateRewardRecipients(PRIMARY_POOL_ID, recipients, ADMIN);
+  }
+
+  function test_updateRecipientsUpdateAndRemoveExistingForLargerSet() public {
+    //create a list of containing recipients from the primary configured set, and new recipients
+    Common.AddressAndWeight[] memory recipients = new Common.AddressAndWeight[](9);
+
+    //update the existing recipients
+    recipients[0] = Common.AddressAndWeight(getPrimaryRecipients()[0].addr, 0);
+    recipients[1] = Common.AddressAndWeight(getPrimaryRecipients()[1].addr, 0);
+    recipients[2] = Common.AddressAndWeight(getPrimaryRecipients()[2].addr, TEN_PERCENT * 3);
+    recipients[3] = Common.AddressAndWeight(getPrimaryRecipients()[3].addr, TEN_PERCENT * 3);
+
+    //add the new recipients individually
+    recipients[4] = Common.AddressAndWeight(DEFAULT_RECIPIENT_5, TEN_PERCENT);
+    recipients[5] = Common.AddressAndWeight(DEFAULT_RECIPIENT_6, TEN_PERCENT);
+    recipients[6] = Common.AddressAndWeight(DEFAULT_RECIPIENT_7, TEN_PERCENT);
+    recipients[7] = Common.AddressAndWeight(DEFAULT_RECIPIENT_8, TEN_PERCENT);
+    recipients[8] = Common.AddressAndWeight(DEFAULT_RECIPIENT_9, TEN_PERCENT);
+
+    //should revert as the weight does not equal 100%
+    vm.expectRevert(INVALID_WEIGHT_ERROR_SELECTOR);
+
+    //updating a recipient should force the funds to be paid out for the primary recipients
+    updateRewardRecipients(PRIMARY_POOL_ID, recipients, ADMIN);
+  }
+
+  function test_updateRecipientsUpdateAndRemoveExistingForSmallerSet() public {
+    //create a list of containing recipients from the primary configured set, and new recipients
+    Common.AddressAndWeight[] memory recipients = new Common.AddressAndWeight[](5);
+
+    //update the existing recipients
+    recipients[0] = Common.AddressAndWeight(getPrimaryRecipients()[0].addr, 0);
+    recipients[1] = Common.AddressAndWeight(getPrimaryRecipients()[1].addr, 0);
+    recipients[2] = Common.AddressAndWeight(getPrimaryRecipients()[2].addr, TEN_PERCENT * 3);
+    recipients[3] = Common.AddressAndWeight(getPrimaryRecipients()[3].addr, TEN_PERCENT * 2);
+
+    //add the new recipients individually
+    recipients[4] = Common.AddressAndWeight(DEFAULT_RECIPIENT_5, TEN_PERCENT * 5);
+
+    //updating a recipient should force the funds to be paid out for the primary recipients
+    updateRewardRecipients(PRIMARY_POOL_ID, recipients, ADMIN);
+  }
+
+  function test_updateRecipientsToDifferentSetWithInvalidWeights() public {
+    //create a list of containing recipients from the primary configured set, and new recipients
+    Common.AddressAndWeight[] memory recipients = new Common.AddressAndWeight[](getPrimaryRecipients().length + 2);
+    for (uint256 i; i < getPrimaryRecipients().length; i++) {
+      //copy the recipient and set the weight to 0 which implies the recipient is being replaced
+      recipients[i] = Common.AddressAndWeight(getPrimaryRecipients()[i].addr, 0);
+    }
+
+    //add the new recipients individually
+    recipients[4] = Common.AddressAndWeight(DEFAULT_RECIPIENT_5, TEN_PERCENT * 5);
+    recipients[5] = Common.AddressAndWeight(DEFAULT_RECIPIENT_6, TEN_PERCENT);
+
+    //should revert as the weight will not equal 100%
+    vm.expectRevert(INVALID_WEIGHT_ERROR_SELECTOR);
+
+    //updating a recipient should force the funds to be paid out for the primary recipients
+    updateRewardRecipients(PRIMARY_POOL_ID, recipients, ADMIN);
+  }
+
+  function test_updatePartialRecipientsToSubset() public {
+    //create a list of containing recipients from the primary configured set, and new recipients
+    Common.AddressAndWeight[] memory recipients = new Common.AddressAndWeight[](4);
+    recipients[0] = Common.AddressAndWeight(DEFAULT_RECIPIENT_1, 0);
+    recipients[1] = Common.AddressAndWeight(DEFAULT_RECIPIENT_2, 0);
+    recipients[2] = Common.AddressAndWeight(DEFAULT_RECIPIENT_3, TEN_PERCENT * 5);
+    recipients[3] = Common.AddressAndWeight(DEFAULT_RECIPIENT_4, TEN_PERCENT * 5);
+
+    //updating a recipient should force the funds to be paid out for the primary recipients
     updateRewardRecipients(PRIMARY_POOL_ID, recipients, ADMIN);
   }
 

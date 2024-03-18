@@ -87,10 +87,14 @@ type VRFCoordinatorV2_5 interface {
 		stalenessSeconds uint32,
 		gasAfterPaymentCalculation uint32,
 		fallbackWeiPerUnitLink *big.Int,
-		feeConfig vrf_coordinator_v2_5.VRFCoordinatorV25FeeConfig,
+		fulfillmentFlatFeeNativePPM uint32,
+		fulfillmentFlatFeeLinkDiscountPPM uint32,
+		nativePremiumPercentage uint8,
+		linkPremiumPercentage uint8,
 	) error
 	RegisterProvingKey(
 		publicProvingKey [2]*big.Int,
+		gasLaneMaxGas uint64,
 	) error
 	HashOfKey(ctx context.Context, pubKey [2]*big.Int) ([32]byte, error)
 	CreateSubscription() (*types.Transaction, error)
@@ -127,7 +131,10 @@ type VRFCoordinatorV2PlusUpgradedVersion interface {
 		stalenessSeconds uint32,
 		gasAfterPaymentCalculation uint32,
 		fallbackWeiPerUnitLink *big.Int,
-		feeConfig vrf_v2plus_upgraded_version.VRFCoordinatorV2PlusUpgradedVersionFeeConfig,
+		fulfillmentFlatFeeNativePPM uint32,
+		fulfillmentFlatFeeLinkDiscountPPM uint32,
+		nativePremiumPercentage uint8,
+		linkPremiumPercentage uint8,
 	) error
 	RegisterProvingKey(
 		publicProvingKey [2]*big.Int,
@@ -159,6 +166,8 @@ type VRFV2PlusWrapper interface {
 	Address() string
 	SetConfig(wrapperGasOverhead uint32, coordinatorGasOverhead uint32, wrapperPremiumPercentage uint8, keyHash [32]byte, maxNumWords uint8, stalenessSeconds uint32, fallbackWeiPerUnitLink *big.Int, fulfillmentFlatFeeLinkPPM uint32, fulfillmentFlatFeeNativePPM uint32) error
 	GetSubID(ctx context.Context) (*big.Int, error)
+	Migrate(newCoordinator common.Address) error
+	Coordinator(ctx context.Context) (common.Address, error)
 }
 
 type VRFOwner interface {
@@ -331,9 +340,12 @@ type LoadTestRequestStatus struct {
 }
 
 type VRFLoadTestMetrics struct {
-	RequestCount                 *big.Int
-	FulfilmentCount              *big.Int
-	AverageFulfillmentInMillions *big.Int
-	SlowestFulfillment           *big.Int
-	FastestFulfillment           *big.Int
+	RequestCount                         *big.Int
+	FulfilmentCount                      *big.Int
+	AverageFulfillmentInMillions         *big.Int
+	SlowestFulfillment                   *big.Int
+	FastestFulfillment                   *big.Int
+	AverageResponseTimeInSecondsMillions *big.Int
+	SlowestResponseTimeInSeconds         *big.Int
+	FastestResponseTimeInSeconds         *big.Int
 }

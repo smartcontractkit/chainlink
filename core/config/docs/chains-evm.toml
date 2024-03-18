@@ -54,6 +54,13 @@ LogPollInterval = '15s' # Default
 # **ADVANCED**
 # LogKeepBlocksDepth works in conjunction with Feature.LogPoller. Controls how many blocks the poller will keep, must be greater than FinalityDepth+1.
 LogKeepBlocksDepth = 100000 # Default
+# **ADVANCED**
+# LogPrunePageSize defines size of the page for pruning logs. Controls how many logs/blocks (at most) are deleted in a single prune tick. Default value 0 means no paging, delete everything at once.
+LogPrunePageSize = 0 # Default
+# **ADVANCED**
+# BackupLogPollerBlockDelay works in conjunction with Feature.LogPoller. Controls the block delay of Backup LogPoller, affecting how far behind the latest finalized block it starts and how often it runs.
+# BackupLogPollerDelay=0 will disable Backup LogPoller (_not recommended for production environment_).
+BackupLogPollerBlockDelay = 100 # Default
 # MinContractPayment is the minimum payment in LINK required to execute a direct request job. This can be overridden on a per-job basis.
 MinContractPayment = '10000000000000 juels' # Default
 # MinIncomingConfirmations is the minimum required confirmations before a log event will be consumed.
@@ -161,7 +168,9 @@ LimitMultiplier = '1.0' # Default
 LimitTransfer = 21_000 # Default
 # BumpMin is the minimum fixed amount of wei by which gas is bumped on each transaction attempt.
 BumpMin = '5 gwei' # Default
-# BumpPercent is the percentage by which to bump gas on a transaction that has exceeded `BumpThreshold`. The larger of `GasBumpPercent` and `GasBumpWei` is taken for gas bumps.
+# BumpPercent is the percentage by which to bump gas on a transaction that has exceeded `BumpThreshold`. The larger of `BumpPercent` and `BumpMin` is taken for gas bumps.
+#
+# The `SuggestedPriceEstimator` adds the larger of `BumpPercent` and `BumpMin` on top of the price provided by the RPC when bumping a transaction's gas.
 BumpPercent = 20 # Default
 # BumpThreshold is the number of blocks to wait for a transaction stuck in the mempool before automatically bumping the gas price. Set to 0 to disable gas bumping completely.
 BumpThreshold = 3 # Default
@@ -193,8 +202,8 @@ BumpTxDepth = 16 # Example
 #
 # Bumping works as follows:
 #
-# - Increase tipcap by `max(tipcap * (1 + GasBumpPercent), tipcap + GasBumpWei)`
-# - Increase feecap by `max(feecap * (1 + GasBumpPercent), feecap + GasBumpWei)`
+# - Increase tipcap by `max(tipcap * (1 + BumpPercent), tipcap + BumpMin)`
+# - Increase feecap by `max(feecap * (1 + BumpPercent), feecap + BumpMin)`
 #
 # A quick note on terminology - Chainlink nodes use the same terms used internally by go-ethereum source code to describe various prices. This is not the same as the externally used terms. For reference:
 #
@@ -327,6 +336,12 @@ SyncThreshold = 5 # Default
 #
 # Set to '0s' to disable
 LeaseDuration = '0s' # Default
+# NodeIsSyncingEnabled is a flag that enables `syncing` health check on each reconnection to an RPC.
+# Node transitions and remains in `Syncing` state while RPC signals this state (In case of Ethereum `eth_syncing` returns anything other than false).
+# All of the requests to node in state `Syncing` are rejected.
+#
+# Set true to enable this check
+NodeIsSyncingEnabled = false # Default
 
 [EVM.OCR]
 # ContractConfirmations sets `OCR.ContractConfirmations` for this EVM chain.
@@ -360,4 +375,10 @@ Order = 100 # Default
 
 [EVM.OCR2.Automation]
 # GasLimit controls the gas limit for transmit transactions from ocr2automation job.
-GasLimit = 5300000 # Default
+GasLimit = 5400000 # Default
+
+[EVM.ChainWriter]
+# FromAddress is Address of the transmitter key to use for workflow writes.
+FromAddress = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292' # Example
+# ForwarderAddress is the keystone forwarder contract address on chain.
+ForwarderAddress = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292' # Example

@@ -140,7 +140,14 @@ func TestCommitOnchainConfig(t *testing.T) {
 func TestCommitStoreReaders(t *testing.T) {
 	user, ec := newSim(t)
 	lggr := logger.TestLogger(t)
-	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.SimulatedChainID, pgtest.NewSqlxDB(t), lggr, pgtest.NewQConfig(true)), ec, lggr, 100*time.Millisecond, false, 2, 3, 2, 1000)
+	lpOpts := logpoller.Opts{
+		PollPeriod:               100 * time.Millisecond,
+		FinalityDepth:            2,
+		BackfillBatchSize:        3,
+		RpcBatchSize:             2,
+		KeepFinalizedBlocksDepth: 1000,
+	}
+	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.SimulatedChainID, pgtest.NewSqlxDB(t), lggr, pgtest.NewQConfig(true)), ec, lggr, lpOpts)
 
 	// Deploy 2 commit store versions
 	onramp1 := utils.RandomAddress()
@@ -262,7 +269,7 @@ func TestCommitStoreReaders(t *testing.T) {
 	}
 	gasPrice := big.NewInt(10)
 	daPrice := big.NewInt(20)
-	ge.On("GetFee", mock.Anything, mock.Anything, mock.Anything, assets.NewWei(maxGasPrice)).Return(gas.EvmFee{Legacy: assets.NewWei(gasPrice)}, uint32(0), nil)
+	ge.On("GetFee", mock.Anything, mock.Anything, mock.Anything, assets.NewWei(maxGasPrice)).Return(gas.EvmFee{Legacy: assets.NewWei(gasPrice)}, uint64(0), nil)
 	lm.On("GasPrice", mock.Anything).Return(assets.NewWei(daPrice), nil)
 
 	for v, cr := range crs {

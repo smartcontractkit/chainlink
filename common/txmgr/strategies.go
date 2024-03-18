@@ -32,8 +32,8 @@ func NewSendEveryStrategy() txmgrtypes.TxStrategy {
 type SendEveryStrategy struct{}
 
 func (SendEveryStrategy) Subject() uuid.NullUUID { return uuid.NullUUID{} }
-func (SendEveryStrategy) PruneQueue(ctx context.Context, pruneService txmgrtypes.UnstartedTxQueuePruner) (int64, error) {
-	return 0, nil
+func (SendEveryStrategy) PruneQueue(ctx context.Context, pruneService txmgrtypes.UnstartedTxQueuePruner) ([]int64, error) {
+	return nil, nil
 }
 
 var _ txmgrtypes.TxStrategy = DropOldestStrategy{}
@@ -56,14 +56,15 @@ func (s DropOldestStrategy) Subject() uuid.NullUUID {
 	return uuid.NullUUID{UUID: s.subject, Valid: true}
 }
 
-func (s DropOldestStrategy) PruneQueue(ctx context.Context, pruneService txmgrtypes.UnstartedTxQueuePruner) (n int64, err error) {
+func (s DropOldestStrategy) PruneQueue(ctx context.Context, pruneService txmgrtypes.UnstartedTxQueuePruner) (ids []int64, err error) {
 	var cancel context.CancelFunc
 	ctx, cancel = context.WithTimeout(ctx, s.queryTimeout)
 	defer cancel()
 
-	n, err = pruneService.PruneUnstartedTxQueue(ctx, s.queueSize, s.subject)
+	// NOTE: We prune one less than the queue size to prevent the queue from exceeding the max queue size. Which could occur if a new transaction is added to the queue right after we prune.
+	ids, err = pruneService.PruneUnstartedTxQueue(ctx, s.queueSize-1, s.subject)
 	if err != nil {
-		return 0, fmt.Errorf("DropOldestStrategy#PruneQueue failed: %w", err)
+		return ids, fmt.Errorf("DropOldestStrategy#PruneQueue failed: %w", err)
 	}
 	return
 }

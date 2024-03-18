@@ -186,7 +186,7 @@ func testMaybeSubtractReservedLink(t *testing.T, vrfVersion vrfcommon.Version) {
 	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr, cfg)
 	require.NoError(t, ks.Unlock("blah"))
 	chainID := testutils.SimulatedChainID
-	k, err := ks.Eth().Create(chainID)
+	k, err := ks.Eth().Create(testutils.Context(t), chainID)
 	require.NoError(t, err)
 
 	subID := new(big.Int).SetUint64(1)
@@ -236,7 +236,7 @@ func testMaybeSubtractReservedLink(t *testing.T, vrfVersion vrfcommon.Version) {
 	require.Equal(t, "80000", start.String())
 
 	// One key's data should not affect other keys' data in the case of different subscribers.
-	k2, err := ks.Eth().Create(testutils.SimulatedChainID)
+	k2, err := ks.Eth().Create(testutils.Context(t), testutils.SimulatedChainID)
 	require.NoError(t, err)
 
 	anotherSubID := new(big.Int).SetUint64(3)
@@ -268,7 +268,7 @@ func testMaybeSubtractReservedNative(t *testing.T, vrfVersion vrfcommon.Version)
 	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr, cfg)
 	require.NoError(t, ks.Unlock("blah"))
 	chainID := testutils.SimulatedChainID
-	k, err := ks.Eth().Create(chainID)
+	k, err := ks.Eth().Create(testutils.Context(t), chainID)
 	require.NoError(t, err)
 
 	subID := new(big.Int).SetUint64(1)
@@ -319,7 +319,7 @@ func testMaybeSubtractReservedNative(t *testing.T, vrfVersion vrfcommon.Version)
 	require.Equal(t, "80000", start.String())
 
 	// One key's data should not affect other keys' data in the case of different subscribers.
-	k2, err := ks.Eth().Create(testutils.SimulatedChainID)
+	k2, err := ks.Eth().Create(testutils.Context(t), testutils.SimulatedChainID)
 	require.NoError(t, err)
 
 	anotherSubID := new(big.Int).SetUint64(3)
