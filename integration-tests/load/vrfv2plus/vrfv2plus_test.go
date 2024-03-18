@@ -95,6 +95,19 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 
 	testEnv, vrfContracts, vrfKey, _, err = vrfv2plus.SetupVRFV2PlusUniverse(testcontext.Get(t), t, testConfig, cleanupFn, newEnvConfig, l)
 	require.NoError(t, err)
+
+	var consumers []contracts.VRFv2PlusLoadTestConsumer
+	subIDs, consumers, err = vrfv2plus.SetupSubsAndConsumersForExistingEnv(
+		testEnv,
+		vrfContracts.CoordinatorV2Plus,
+		vrfContracts.LinkToken,
+		1,
+		*vrfv2PlusConfig.General.NumberOfSubToCreate,
+		testConfig,
+		l,
+	)
+	vrfContracts.VRFV2PlusConsumer = consumers
+
 	eoaWalletAddress = testEnv.EVMClient.GetDefaultWallet().Address()
 
 	l.Debug().Int("Number of Subs", len(subIDs)).Msg("Subs involved in the test")

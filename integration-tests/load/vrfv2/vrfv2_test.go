@@ -27,7 +27,6 @@ import (
 var (
 	testEnv          *test_env.CLClusterTestEnv
 	vrfContracts     *vrfcommon.VRFContracts
-	consumers        []contracts.VRFv2LoadTestConsumer
 	vrfKey           *vrfcommon.VRFKeyData
 	subIDs           []uint64
 	eoaWalletAddress string
@@ -100,6 +99,7 @@ func TestVRFV2Performance(t *testing.T) {
 	testEnv, vrfContracts, vrfKey, _, err = vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, testConfig, cleanupFn, newEnvConfig, l)
 	require.NoError(t, err)
 
+	var consumers []contracts.VRFv2LoadTestConsumer
 	subIDs, consumers, err = vrfv2.SetupSubsAndConsumersForExistingEnv(
 		testEnv,
 		vrfContracts.CoordinatorV2,
@@ -228,6 +228,7 @@ func TestVRFV2BHSPerformance(t *testing.T) {
 	testEnv, vrfContracts, vrfKey, _, err = vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, testConfig, cleanupFn, newEnvConfig, l)
 	require.NoError(t, err)
 
+	var consumers []contracts.VRFv2LoadTestConsumer
 	subIDs, consumers, err = vrfv2.SetupSubsAndConsumersForExistingEnv(
 		testEnv,
 		vrfContracts.CoordinatorV2,

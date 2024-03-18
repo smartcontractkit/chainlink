@@ -382,7 +382,6 @@ func SetupVRFV2PlusForNewEnv(
 
 func SetupVRFV2PlusForExistingEnv(ctx context.Context, t *testing.T, testConfig tc.TestConfig, cleanupFn func(), l zerolog.Logger) (*vrfcommon.VRFContracts, *vrfcommon.VRFKeyData, *test_env.CLClusterTestEnv, error) {
 	commonExistingEnvConfig := testConfig.VRFv2Plus.ExistingEnvConfig.ExistingEnvConfig
-	var subIDs []*big.Int
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestInstance(t).
 		WithTestConfig(&testConfig).
@@ -397,39 +396,6 @@ func SetupVRFV2PlusForExistingEnv(ctx context.Context, t *testing.T, testConfig 
 		return nil, nil, nil, fmt.Errorf("%s, err: %w", "error loading VRFCoordinator2_5", err)
 	}
 
-	var linkToken contracts.LinkToken
-	var consumers []contracts.VRFv2PlusLoadTestConsumer
-	if *commonExistingEnvConfig.CreateFundSubsAndAddConsumers {
-		linkToken, err = env.ContractLoader.LoadLINKToken(*commonExistingEnvConfig.LinkAddress)
-		if err != nil {
-			return nil, nil, nil, fmt.Errorf("%s, err: %w", "error loading LinkToken", err)
-		}
-		consumers, subIDs, err = SetupNewConsumersAndSubs(
-			env,
-			coordinator,
-			testConfig,
-			linkToken,
-			1,
-			*testConfig.VRFv2Plus.General.NumberOfSubToCreate,
-			l,
-		)
-		if err != nil {
-			return nil, nil, nil, fmt.Errorf("err: %w", err)
-		}
-	} else {
-		consumer, err := env.ContractLoader.LoadVRFv2PlusLoadTestConsumer(*commonExistingEnvConfig.ConsumerAddress)
-		if err != nil {
-			return nil, nil, nil, fmt.Errorf("err: %w", err)
-		}
-		consumers = append(consumers, consumer)
-		var ok bool
-		subID, ok := new(big.Int).SetString(*testConfig.VRFv2Plus.ExistingEnvConfig.SubID, 10)
-		if !ok {
-			return nil, nil, nil, fmt.Errorf("unable to parse subID: %s %w", *testConfig.VRFv2Plus.ExistingEnvConfig.SubID, err)
-		}
-		subIDs = append(subIDs, subID)
-	}
-
 	err = vrfcommon.FundNodesIfNeeded(ctx, commonExistingEnvConfig, env.EVMClient, l)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("err: %w", err)
@@ -437,8 +403,8 @@ func SetupVRFV2PlusForExistingEnv(ctx context.Context, t *testing.T, testConfig 
 
 	vrfContracts := &vrfcommon.VRFContracts{
 		CoordinatorV2Plus: coordinator,
-		VRFV2PlusConsumer: consumers,
-		LinkToken:         linkToken,
+		VRFV2PlusConsumer: nil,
+		LinkToken:         nil,
 		BHS:               nil,
 	}
 
@@ -448,4 +414,63 @@ func SetupVRFV2PlusForExistingEnv(ctx context.Context, t *testing.T, testConfig 
 		KeyHash:           common.HexToHash(*commonExistingEnvConfig.KeyHash),
 	}
 	return vrfContracts, vrfKey, env, nil
+}
+
+func SetupSubsAndConsumersForExistingEnv(
+	env *test_env.CLClusterTestEnv,
+	coordinator contracts.VRFCoordinatorV2_5,
+	linkToken contracts.LinkToken,
+	numberOfConsumerContractsToDeployAndAddToSub int,
+	numberOfSubToCreate int,
+	testConfig tc.TestConfig,
+	l zerolog.Logger,
+) ([]*big.Int, []contracts.VRFv2PlusLoadTestConsumer, error) {
+	var (
+		subIDs    []*big.Int
+		consumers []contracts.VRFv2PlusLoadTestConsumer
+		err       error
+	)
+	if *testConfig.VRFv2Plus.General.UseExistingEnv {
+		commonExistingEnvConfig := testConfig.VRFv2Plus.ExistingEnvConfig.ExistingEnvConfig
+		if *commonExistingEnvConfig.CreateFundSubsAndAddConsumers {
+			consumers, subIDs, err = SetupNewConsumersAndSubs(
+				env,
+				coordinator,
+				testConfig,
+				linkToken,
+				numberOfConsumerContractsToDeployAndAddToSub,
+				numberOfSubToCreate,
+				l,
+			)
+			if err != nil {
+				return nil, nil, fmt.Errorf("err: %w", err)
+			}
+		} else {
+			consumer, err := env.ContractLoader.LoadVRFv2PlusLoadTestConsumer(*commonExistingEnvConfig.ConsumerAddress)
+			if err != nil {
+				return nil, nil, fmt.Errorf("err: %w", err)
+			}
+			consumers = append(consumers, consumer)
+			var ok bool
+			subID, ok := new(big.Int).SetString(*testConfig.VRFv2Plus.ExistingEnvConfig.SubID, 10)
+			if !ok {
+				return nil, nil, fmt.Errorf("unable to parse subID: %s %w", *testConfig.VRFv2Plus.ExistingEnvConfig.SubID, err)
+			}
+			subIDs = append(subIDs, subID)
+		}
+	} else {
+		consumers, subIDs, err = SetupNewConsumersAndSubs(
+			env,
+			coordinator,
+			testConfig,
+			linkToken,
+			numberOfConsumerContractsToDeployAndAddToSub,
+			numberOfSubToCreate,
+			l,
+		)
+		if err != nil {
+			return nil, nil, fmt.Errorf("err: %w", err)
+		}
+	}
+	return subIDs, consumers, nil
 }

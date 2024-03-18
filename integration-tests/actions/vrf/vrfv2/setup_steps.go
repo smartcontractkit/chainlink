@@ -440,9 +440,6 @@ func SetupSubsAndConsumersForExistingEnv(
 	if *testConfig.VRFv2.General.UseExistingEnv {
 		commonExistingEnvConfig := testConfig.VRFv2.ExistingEnvConfig.ExistingEnvConfig
 		if *commonExistingEnvConfig.CreateFundSubsAndAddConsumers {
-			if err != nil {
-				return nil, nil, fmt.Errorf("%s, err: %w", "error loading LinkToken", err)
-			}
 			consumers, subIDs, err = SetupNewConsumersAndSubs(
 				env,
 				coordinator,
