@@ -13,12 +13,13 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_consumer_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_wrapper"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
 )
 
 // EthereumBatchBlockhashStore represents BatchBlockhashStore contract
@@ -63,7 +64,7 @@ type EthereumVRF struct {
 func (e *EthereumContractDeployer) DeployVRFContract() (VRF, error) {
 	address, _, instance, err := e.client.DeployContract("VRF", func(
 		auth *bind.TransactOpts,
-		backend bind.ContractBackend,
+		_ bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
 		return solidity_vrf_wrapper.DeployVRF(auth, wrappers.MustNewWrappedContractBackend(e.client, nil))
 	})
@@ -81,7 +82,7 @@ func (e *EthereumContractDeployer) DeployVRFContract() (VRF, error) {
 func (e *EthereumContractDeployer) DeployBlockhashStore() (BlockHashStore, error) {
 	address, _, instance, err := e.client.DeployContract("BlockhashStore", func(
 		auth *bind.TransactOpts,
-		backend bind.ContractBackend,
+		_ bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
 		return blockhash_store.DeployBlockhashStore(auth, wrappers.MustNewWrappedContractBackend(e.client, nil))
 	})
@@ -99,7 +100,7 @@ func (e *EthereumContractDeployer) DeployBlockhashStore() (BlockHashStore, error
 func (e *EthereumContractDeployer) DeployVRFCoordinator(linkAddr string, bhsAddr string) (VRFCoordinator, error) {
 	address, _, instance, err := e.client.DeployContract("VRFCoordinator", func(
 		auth *bind.TransactOpts,
-		backend bind.ContractBackend,
+		_ bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
 		return solidity_vrf_coordinator_interface.DeployVRFCoordinator(auth, wrappers.MustNewWrappedContractBackend(e.client, nil), common.HexToAddress(linkAddr), common.HexToAddress(bhsAddr))
 	})
@@ -117,7 +118,7 @@ func (e *EthereumContractDeployer) DeployVRFCoordinator(linkAddr string, bhsAddr
 func (e *EthereumContractDeployer) DeployVRFConsumer(linkAddr string, coordinatorAddr string) (VRFConsumer, error) {
 	address, _, instance, err := e.client.DeployContract("VRFConsumer", func(
 		auth *bind.TransactOpts,
-		backend bind.ContractBackend,
+		_ bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
 		return solidity_vrf_consumer_interface.DeployVRFConsumer(auth, wrappers.MustNewWrappedContractBackend(e.client, nil), common.HexToAddress(coordinatorAddr), common.HexToAddress(linkAddr))
 	})

@@ -8,8 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/networks"
-
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -22,9 +20,8 @@ import (
 	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 
-	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
-	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_load_test_client"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_v1_events_mock"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/arbitrum_module"
@@ -84,6 +81,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier_proxy"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/werc20_mock"
+
+	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
+	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
 )
 
 // ContractDeployer is an interface for abstracting the contract deployment methods across network implementations
@@ -531,7 +531,7 @@ func (e *EthereumContractDeployer) DeployOffchainAggregatorEventsMock() (Offchai
 func (e *EthereumContractDeployer) DeployLinkTokenContract() (LinkToken, error) {
 	linkTokenAddress, _, instance, err := e.client.DeployContract("LINK Token", func(
 		auth *bind.TransactOpts,
-		backend bind.ContractBackend,
+		_ bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
 		return link_token_interface.DeployLinkToken(auth, wrappers.MustNewWrappedContractBackend(e.client, nil))
 	})
@@ -707,7 +707,7 @@ func (e *EthereumContractDeployer) DeployOracle(linkAddr string) (Oracle, error)
 func (e *EthereumContractDeployer) DeployMockETHLINKFeed(answer *big.Int) (MockETHLINKFeed, error) {
 	address, _, instance, err := e.client.DeployContract("MockETHLINKAggregator", func(
 		auth *bind.TransactOpts,
-		backend bind.ContractBackend,
+		_ bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
 		return mock_ethlink_aggregator_wrapper.DeployMockETHLINKAggregator(auth, wrappers.MustNewWrappedContractBackend(e.client, nil), answer)
 	})
@@ -759,7 +759,7 @@ func (e *EthereumContractDeployer) LoadETHLINKFeed(address common.Address) (Mock
 func (e *EthereumContractDeployer) DeployMockGasFeed(answer *big.Int) (MockGasFeed, error) {
 	address, _, instance, err := e.client.DeployContract("MockGasFeed", func(
 		auth *bind.TransactOpts,
-		backend bind.ContractBackend,
+		_ bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
 		return mock_gas_aggregator_wrapper.DeployMockGASAggregator(auth, wrappers.MustNewWrappedContractBackend(e.client, nil), answer)
 	})
@@ -794,7 +794,7 @@ func (e *EthereumContractDeployer) LoadGasFeed(address common.Address) (MockGasF
 func (e *EthereumContractDeployer) DeployUpkeepTranscoder() (UpkeepTranscoder, error) {
 	address, _, instance, err := e.client.DeployContract("UpkeepTranscoder", func(
 		opts *bind.TransactOpts,
-		backend bind.ContractBackend,
+		_ bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
 		return upkeep_transcoder.DeployUpkeepTranscoder(opts, wrappers.MustNewWrappedContractBackend(e.client, nil))
 	})
@@ -836,7 +836,7 @@ func (e *EthereumContractDeployer) DeployKeeperRegistrar(registryVersion eth_con
 		// deploy registrar 2.0
 		address, _, instance, err := e.client.DeployContract("KeeperRegistrar", func(
 			opts *bind.TransactOpts,
-			backend bind.ContractBackend,
+			_ bind.ContractBackend,
 		) (common.Address, *types.Transaction, interface{}, error) {
 			return keeper_registrar_wrapper2_0.DeployKeeperRegistrar(opts, wrappers.MustNewWrappedContractBackend(e.client, nil), common.HexToAddress(linkAddr), registrarSettings.AutoApproveConfigType,
 				registrarSettings.AutoApproveMaxAllowed, common.HexToAddress(registrarSettings.RegistryAddr), registrarSettings.MinLinkJuels)
@@ -855,7 +855,7 @@ func (e *EthereumContractDeployer) DeployKeeperRegistrar(registryVersion eth_con
 		// deploy registrar 2.1
 		address, _, instance, err := e.client.DeployContract("AutomationRegistrar", func(
 			opts *bind.TransactOpts,
-			backend bind.ContractBackend,
+			_ bind.ContractBackend,
 		) (common.Address, *types.Transaction, interface{}, error) {
 			// set default TriggerType to 0(conditional), AutoApproveConfigType to 2(auto approve enabled), AutoApproveMaxAllowed to 1000
 			triggerConfigs := []registrar21.AutomationRegistrar21InitialTriggerConfig{
@@ -976,7 +976,7 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 	case eth_contracts.RegistryVersion_1_0, eth_contracts.RegistryVersion_1_1:
 		address, _, instance, err := e.client.DeployContract("KeeperRegistry1_1", func(
 			auth *bind.TransactOpts,
-			backend bind.ContractBackend,
+			_ bind.ContractBackend,
 		) (common.Address, *types.Transaction, interface{}, error) {
 			return keeper_registry_wrapper1_1.DeployKeeperRegistry(
 				auth,
@@ -1008,7 +1008,7 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 	case eth_contracts.RegistryVersion_1_2:
 		address, _, instance, err := e.client.DeployContract("KeeperRegistry1_2", func(
 			auth *bind.TransactOpts,
-			backend bind.ContractBackend,
+			_ bind.ContractBackend,
 		) (common.Address, *types.Transaction, interface{}, error) {
 			return keeper_registry_wrapper1_2.DeployKeeperRegistry(
 				auth,
@@ -1046,7 +1046,7 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 	case eth_contracts.RegistryVersion_1_3:
 		logicAddress, _, _, err := e.client.DeployContract("KeeperRegistryLogic1_3", func(
 			auth *bind.TransactOpts,
-			backend bind.ContractBackend,
+			_ bind.ContractBackend,
 		) (common.Address, *types.Transaction, interface{}, error) {
 			return keeper_registry_logic1_3.DeployKeeperRegistryLogic(
 				auth,
@@ -1068,7 +1068,7 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 
 		address, _, instance, err := e.client.DeployContract("KeeperRegistry1_3", func(
 			auth *bind.TransactOpts,
-			backend bind.ContractBackend,
+			_ bind.ContractBackend,
 		) (common.Address, *types.Transaction, interface{}, error) {
 			return keeper_registry_wrapper1_3.DeployKeeperRegistry(
 				auth,
@@ -1104,7 +1104,7 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 	case eth_contracts.RegistryVersion_2_0:
 		logicAddress, _, _, err := e.client.DeployContract("KeeperRegistryLogic2_0", func(
 			auth *bind.TransactOpts,
-			backend bind.ContractBackend,
+			_ bind.ContractBackend,
 		) (common.Address, *types.Transaction, interface{}, error) {
 			return keeper_registry_logic2_0.DeployKeeperRegistryLogic(
 				auth,
@@ -1125,7 +1125,7 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 
 		address, _, instance, err := e.client.DeployContract("KeeperRegistry2_0", func(
 			auth *bind.TransactOpts,
-			backend bind.ContractBackend,
+			_ bind.ContractBackend,
 		) (common.Address, *types.Transaction, interface{}, error) {
 
 			return keeper_registry_wrapper2_0.DeployKeeperRegistry(
@@ -1152,7 +1152,7 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 
 		registryLogicBAddr, _, _, err := e.client.DeployContract("KeeperRegistryLogicB2_1", func(
 			auth *bind.TransactOpts,
-			backend bind.ContractBackend,
+			_ bind.ContractBackend,
 		) (common.Address, *types.Transaction, interface{}, error) {
 
 			return registrylogicb21.DeployKeeperRegistryLogicB(
@@ -1175,7 +1175,7 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 
 		registryLogicAAddr, _, _, err := e.client.DeployContract("KeeperRegistryLogicA2_1", func(
 			auth *bind.TransactOpts,
-			backend bind.ContractBackend,
+			_ bind.ContractBackend,
 		) (common.Address, *types.Transaction, interface{}, error) {
 
 			return registrylogica21.DeployKeeperRegistryLogicA(
@@ -1193,7 +1193,7 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 
 		address, _, _, err := e.client.DeployContract("KeeperRegistry2_1", func(
 			auth *bind.TransactOpts,
-			backend bind.ContractBackend,
+			_ bind.ContractBackend,
 		) (common.Address, *types.Transaction, interface{}, error) {
 			return registry21.DeployKeeperRegistry(
 				auth,
@@ -1229,28 +1229,28 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 		if chainId == networks.ScrollMainnet.ChainID || chainId == networks.ScrollSepolia.ChainID {
 			chainModuleAddr, _, _, err = e.client.DeployContract("ScrollModule", func(
 				auth *bind.TransactOpts,
-				backend bind.ContractBackend,
+				_ bind.ContractBackend,
 			) (common.Address, *types.Transaction, interface{}, error) {
 				return scroll_module.DeployScrollModule(auth, wrappers.MustNewWrappedContractBackend(e.client, nil))
 			})
 		} else if chainId == networks.ArbitrumMainnet.ChainID || chainId == networks.ArbitrumSepolia.ChainID {
 			chainModuleAddr, _, _, err = e.client.DeployContract("ArbitrumModule", func(
 				auth *bind.TransactOpts,
-				backend bind.ContractBackend,
+				_ bind.ContractBackend,
 			) (common.Address, *types.Transaction, interface{}, error) {
 				return arbitrum_module.DeployArbitrumModule(auth, wrappers.MustNewWrappedContractBackend(e.client, nil))
 			})
 		} else if chainId == networks.OptimismMainnet.ChainID || chainId == networks.OptimismSepolia.ChainID {
 			chainModuleAddr, _, _, err = e.client.DeployContract("OptimismModule", func(
 				auth *bind.TransactOpts,
-				backend bind.ContractBackend,
+				_ bind.ContractBackend,
 			) (common.Address, *types.Transaction, interface{}, error) {
 				return optimism_module.DeployOptimismModule(auth, wrappers.MustNewWrappedContractBackend(e.client, nil))
 			})
 		} else {
 			chainModuleAddr, _, _, err = e.client.DeployContract("ChainModuleBase", func(
 				auth *bind.TransactOpts,
-				backend bind.ContractBackend,
+				_ bind.ContractBackend,
 			) (common.Address, *types.Transaction, interface{}, error) {
 				return chain_module_base.DeployChainModuleBase(auth, wrappers.MustNewWrappedContractBackend(e.client, nil))
 			})
@@ -1275,7 +1275,7 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 		}
 		registryLogicBAddr, _, _, err := e.client.DeployContract("AutomationRegistryLogicB2_2", func(
 			auth *bind.TransactOpts,
-			backend bind.ContractBackend,
+			_ bind.ContractBackend,
 		) (common.Address, *types.Transaction, interface{}, error) {
 
 			return registrylogicb22.DeployAutomationRegistryLogicB(
@@ -1298,7 +1298,7 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 
 		registryLogicAAddr, _, _, err := e.client.DeployContract("AutomationRegistryLogicA2_2", func(
 			auth *bind.TransactOpts,
-			backend bind.ContractBackend,
+			_ bind.ContractBackend,
 		) (common.Address, *types.Transaction, interface{}, error) {
 
 			return registrylogica22.DeployAutomationRegistryLogicA(
@@ -1316,7 +1316,7 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 
 		address, _, _, err := e.client.DeployContract("AutomationRegistry2_2", func(
 			auth *bind.TransactOpts,
-			backend bind.ContractBackend,
+			_ bind.ContractBackend,
 		) (common.Address, *types.Transaction, interface{}, error) {
 			return registry22.DeployAutomationRegistry(
 				auth,
@@ -1501,7 +1501,7 @@ func (e *EthereumContractDeployer) DeployKeeperConsumer(updateInterval *big.Int)
 func (e *EthereumContractDeployer) DeployAutomationLogTriggerConsumer(testInterval *big.Int) (KeeperConsumer, error) {
 	address, _, instance, err := e.client.DeployContract("LogUpkeepCounter", func(
 		auth *bind.TransactOpts,
-		backend bind.ContractBackend,
+		_ bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
 		return log_upkeep_counter_wrapper.DeployLogUpkeepCounter(
 			auth, wrappers.MustNewWrappedContractBackend(e.client, nil), testInterval,
@@ -1539,7 +1539,7 @@ func (e *EthereumContractDeployer) DeployAutomationSimpleLogTriggerConsumer() (K
 func (e *EthereumContractDeployer) DeployAutomationStreamsLookupUpkeepConsumer(testRange *big.Int, interval *big.Int, useArbBlock bool, staging bool, verify bool) (KeeperConsumer, error) {
 	address, _, instance, err := e.client.DeployContract("StreamsLookupUpkeep", func(
 		auth *bind.TransactOpts,
-		backend bind.ContractBackend,
+		_ bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
 		return streams_lookup_upkeep_wrapper.DeployStreamsLookupUpkeep(
 			auth, wrappers.MustNewWrappedContractBackend(e.client, nil), testRange, interval, useArbBlock, staging, verify,
@@ -1558,7 +1558,7 @@ func (e *EthereumContractDeployer) DeployAutomationStreamsLookupUpkeepConsumer(t
 func (e *EthereumContractDeployer) DeployAutomationLogTriggeredStreamsLookupUpkeepConsumer() (KeeperConsumer, error) {
 	address, _, instance, err := e.client.DeployContract("LogTriggeredStreamsLookupUpkeep", func(
 		auth *bind.TransactOpts,
-		backend bind.ContractBackend,
+		_ bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
 		return log_triggered_streams_lookup_wrapper.DeployLogTriggeredStreamsLookup(
 			auth, wrappers.MustNewWrappedContractBackend(e.client, nil), false, false, false,
@@ -1577,7 +1577,7 @@ func (e *EthereumContractDeployer) DeployAutomationLogTriggeredStreamsLookupUpke
 func (e *EthereumContractDeployer) DeployUpkeepCounter(testRange *big.Int, interval *big.Int) (UpkeepCounter, error) {
 	address, _, instance, err := e.client.DeployContract("UpkeepCounter", func(
 		auth *bind.TransactOpts,
-		backend bind.ContractBackend,
+		_ bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
 		return upkeep_counter_wrapper.DeployUpkeepCounter(auth, wrappers.MustNewWrappedContractBackend(e.client, nil), testRange, interval)
 	})

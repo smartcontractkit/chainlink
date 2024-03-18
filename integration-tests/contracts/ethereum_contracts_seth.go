@@ -18,11 +18,12 @@ import (
 	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_factory"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/link_token"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
 )
 
 // EthereumOffchainAggregator represents the offchain aggregation contract
@@ -133,9 +134,6 @@ func (o *EthereumOffchainAggregator) SetConfig(
 			return fmt.Errorf("no OCR keys found for node %v", node)
 		}
 		primaryOCRKey := ocrKeys.Data[0]
-		if err != nil {
-			return err
-		}
 		p2pKeys, err := node.MustReadP2PKeys()
 		if err != nil {
 			return err

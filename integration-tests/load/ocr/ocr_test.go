@@ -2,6 +2,7 @@ package ocr
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/smartcontractkit/wasp"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 
@@ -43,10 +45,14 @@ func TestOCRLoad(t *testing.T) {
 	require.NoError(t, err)
 	ocrInstances, err := SetupFeed(l, seth, lta, msClient, bootstrapNode, workerNodes)
 	require.NoError(t, err)
+	updatedLabels := UpdateLabels(t, CommonTestLabels)
 
 	cfg := config.OCR
 	cfgl := config.Logging.Loki
-	SimulateEAActivity(l, cfg.Load.EAChangeInterval.Duration, ocrInstances, workerNodes, msClient)
+	lc, err := wasp.NewLokiClient(wasp.NewLokiConfig(cfgl.Endpoint, cfgl.TenantId, cfgl.BasicAuth, cfgl.BearerToken))
+	require.NoError(t, err, "Error creating loki client")
+
+	SimulateAndMonitorOCRAnswers(l, lc, time.Minute*10, ocrInstances, workerNodes, msClient, updatedLabels)
 
 	p := wasp.NewProfile()
 	p.Add(wasp.NewGenerator(&wasp.Config{

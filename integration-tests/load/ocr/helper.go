@@ -3,8 +3,6 @@ package ocr
 import (
 	"fmt"
 	"math/big"
-	"math/rand"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
@@ -12,6 +10,7 @@ import (
 	"github.com/smartcontractkit/seth"
 
 	client2 "github.com/smartcontractkit/chainlink-testing-framework/client"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -51,21 +50,4 @@ func SetupFeed(
 		return nil, err
 	}
 	return ocrInstances, nil
-}
-
-func SimulateEAActivity(
-	l zerolog.Logger,
-	eaChangeInterval time.Duration,
-	ocrInstances []contracts.OffchainAggregator,
-	workerNodes []*client.ChainlinkK8sClient,
-	msClient *client2.MockserverClient,
-) {
-	go func() {
-		for {
-			time.Sleep(eaChangeInterval)
-			if err := actions.SetAllAdapterResponsesToTheSameValue(rand.Intn(1000), ocrInstances, workerNodes, msClient); err != nil {
-				l.Error().Err(err).Msg("failed to update mockserver responses")
-			}
-		}
-	}()
 }
