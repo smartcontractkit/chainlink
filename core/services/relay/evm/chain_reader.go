@@ -201,6 +201,14 @@ func (cr *chainReader) CreateContractType(contractName, methodName string, forEn
 	return cr.codec.CreateType(wrapItemType(contractName, methodName, forEncoding), forEncoding)
 }
 
+func (cr *chainReader) CreateContractTypeByKey(key string, forEncoding bool) (any, error) {
+	contractName, eventName, err := cr.eventIndexBindings.GetEventData(key)
+	if err != nil {
+		return nil, err
+	}
+	return cr.codec.CreateType(wrapItemType(contractName, eventName, forEncoding), forEncoding)
+}
+
 func wrapItemType(contractName, methodName string, isParams bool) string {
 	if isParams {
 		return fmt.Sprintf("params.%s.%s", contractName, methodName)

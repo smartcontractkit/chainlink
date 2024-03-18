@@ -57,6 +57,15 @@ func (e *EventIndexBindings) Get(key string) (common.Hash, common.Address, int, 
 	return binding.hash, binding.address, binding.topicIndex, nil
 }
 
+func (e *EventIndexBindings) GetEventData(key string) (string, string, error) {
+	binding, ok := (*e)[key]
+	if !ok {
+		return "", "", fmt.Errorf("%w: unregistered key", commontypes.ErrInternal)
+	}
+
+	return binding.contractName, binding.eventName, nil
+}
+
 type eventIndexBinding struct {
 	*eventBinding
 	topicIndex int
