@@ -15,6 +15,7 @@ import {IAutomationRegistryMaster2_3, AutomationRegistryBase2_3} from "../interf
 import {AutomationRegistrar2_3} from "../v2_3/AutomationRegistrar2_3.sol";
 import {ChainModuleBase} from "../../chains/ChainModuleBase.sol";
 import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
+import {UpkeepMock} from "../../mocks/UpkeepMock.sol";
 
 /**
  * @title BaseTest provides basic test setup procedures and dependancies for use by other
@@ -35,11 +36,15 @@ contract BaseTest is Test {
   MockV3Aggregator internal NATIVE_USD_FEED;
   MockV3Aggregator internal USDTOKEN_USD_FEED;
   MockV3Aggregator internal FAST_GAS_FEED;
+  UpkeepMock internal TARGET1;
+  UpkeepMock internal TARGET2;
 
   // roles
   address internal constant OWNER = address(uint160(uint256(keccak256("OWNER"))));
   address internal constant UPKEEP_ADMIN = address(uint160(uint256(keccak256("UPKEEP_ADMIN"))));
   address internal constant FINANCE_ADMIN = address(uint160(uint256(keccak256("FINANCE_ADMIN"))));
+  address internal constant STRANGER = address(uint160(uint256(keccak256("STRANGER"))));
+  address internal constant BROKE_USER = address(uint160(uint256(keccak256("BROKE_USER")))); // do not mint to this address
 
   // nodes
   uint256 internal constant SIGNING_KEY0 = 0x7b2e97fe057e6de99d6872a2ef2abf52c9b4469bc848c2465ac3fcd8d336e81d;
@@ -60,6 +65,9 @@ contract BaseTest is Test {
     USDTOKEN_USD_FEED = new MockV3Aggregator(8, 100_000_000); // $1
     FAST_GAS_FEED = new MockV3Aggregator(0, 1_000_000_000); // 1 gwei
 
+    TARGET1 = new UpkeepMock();
+    TARGET2 = new UpkeepMock();
+
     SIGNERS[0] = vm.addr(SIGNING_KEY0); //0xc110458BE52CaA6bB68E66969C3218A4D9Db0211
     SIGNERS[1] = vm.addr(SIGNING_KEY1); //0xc110a19c08f1da7F5FfB281dc93630923F8E3719
     SIGNERS[2] = vm.addr(SIGNING_KEY2); //0xc110fdF6e8fD679C7Cc11602d1cd829211A18e9b
@@ -69,6 +77,17 @@ contract BaseTest is Test {
     TRANSMITTERS[1] = address(uint160(uint256(keccak256("TRANSMITTER2"))));
     TRANSMITTERS[2] = address(uint160(uint256(keccak256("TRANSMITTER3"))));
     TRANSMITTERS[3] = address(uint160(uint256(keccak256("TRANSMITTER4"))));
+
+    // mint funds
+    vm.deal(UPKEEP_ADMIN, 10 ether);
+    vm.deal(FINANCE_ADMIN, 10 ether);
+    vm.deal(STRANGER, 10 ether);
+    linkToken.mint(UPKEEP_ADMIN, 1000e18);
+    linkToken.mint(FINANCE_ADMIN, 1000e18);
+    linkToken.mint(STRANGER, 1000e18);
+    mockERC20.mint(UPKEEP_ADMIN, 1000e18);
+    mockERC20.mint(FINANCE_ADMIN, 1000e18);
+    mockERC20.mint(STRANGER, 1000e18);
 
     vm.stopPrank();
   }
