@@ -340,7 +340,7 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MarkA
 }
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MarkOldTxesMissingReceiptAsErrored(ctx context.Context, blockNum int64, finalityDepth uint32, chainID CHAIN_ID) error {
 	if ms.chainID.String() != chainID.String() {
-		return fmt.Errorf("mark_old_txes_missing_receipt_as_errored: %w", ErrInvalidChainID)
+		return nil
 	}
 
 	// Persist to persistent storage
@@ -356,65 +356,59 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MarkO
 		MaxBroadcastBeforeBlockNum int64
 		TxHashes                   []TX_HASH
 	}
-	var resultsLock sync.Mutex
 	var results []result
-	wg := sync.WaitGroup{}
-	errsLock := sync.Mutex{}
+	cutoff := blockNum - int64(finalityDepth)
+	if cutoff <= 0 {
+		return nil
+	}
+	filter := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
+		if len(tx.TxAttempts) == 0 {
+			return false
+		}
+		var maxBroadcastBeforeBlockNum int64
+		for i := 0; i < len(tx.TxAttempts); i++ {
+			txAttempt := tx.TxAttempts[i]
+			if txAttempt.BroadcastBeforeBlockNum == nil {
+				continue
+			}
+			if *txAttempt.BroadcastBeforeBlockNum > maxBroadcastBeforeBlockNum {
+				maxBroadcastBeforeBlockNum = *txAttempt.BroadcastBeforeBlockNum
+			}
+		}
+		return maxBroadcastBeforeBlockNum < cutoff
+	}
 	var errs error
 	ms.addressStatesLock.RLock()
 	defer ms.addressStatesLock.RUnlock()
 	for _, as := range ms.addressStates {
-		wg.Add(1)
-		go func(as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) {
-			filter := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
-				if tx.TxAttempts == nil || len(tx.TxAttempts) == 0 {
-					return false
-				}
-				if tx.State != TxConfirmedMissingReceipt {
-					return false
-				}
-				attempt := tx.TxAttempts[0]
-				if attempt.BroadcastBeforeBlockNum == nil {
-					return false
-				}
-
-				return *attempt.BroadcastBeforeBlockNum < blockNum-int64(finalityDepth)
+		states := []txmgrtypes.TxState{TxConfirmedMissingReceipt}
+		txs := as.findTxs(states, filter)
+		for _, tx := range txs {
+			if err := as.moveTxToFatalError(tx.ID, null.StringFrom(ErrCouldNotGetReceipt.Error())); err != nil {
+				err = fmt.Errorf("mark_old_txes_missing_receipt_as_errored: address: %s: %w", as.fromAddress, err)
+				errs = errors.Join(errs, err)
+				continue
 			}
-			states := []txmgrtypes.TxState{TxConfirmedMissingReceipt}
-			txs := as.findTxs(states, filter)
-			for _, tx := range txs {
-				if err := as.moveTxToFatalError(tx.ID, null.StringFrom(ErrCouldNotGetReceipt.Error())); err != nil {
-					err = fmt.Errorf("mark_old_txes_missing_receipt_as_errored: address: %s: %w", as.fromAddress, err)
-					errsLock.Lock()
-					errs = errors.Join(errs, err)
-					errsLock.Unlock()
-					continue
-				}
-				hashes := make([]TX_HASH, len(tx.TxAttempts))
-				maxBroadcastBeforeBlockNum := int64(0)
-				for i, attempt := range tx.TxAttempts {
-					hashes[i] = attempt.Hash
-					if attempt.BroadcastBeforeBlockNum != nil {
-						if *attempt.BroadcastBeforeBlockNum > maxBroadcastBeforeBlockNum {
-							maxBroadcastBeforeBlockNum = *attempt.BroadcastBeforeBlockNum
-						}
+			hashes := make([]TX_HASH, len(tx.TxAttempts))
+			maxBroadcastBeforeBlockNum := int64(0)
+			for i, attempt := range tx.TxAttempts {
+				hashes[i] = attempt.Hash
+				if attempt.BroadcastBeforeBlockNum != nil {
+					if *attempt.BroadcastBeforeBlockNum > maxBroadcastBeforeBlockNum {
+						maxBroadcastBeforeBlockNum = *attempt.BroadcastBeforeBlockNum
 					}
 				}
-				rr := result{
-					ID:                         tx.ID,
-					Sequence:                   *tx.Sequence,
-					FromAddress:                tx.FromAddress,
-					MaxBroadcastBeforeBlockNum: maxBroadcastBeforeBlockNum,
-					TxHashes:                   hashes,
-				}
-				resultsLock.Lock()
-				results = append(results, rr)
-				resultsLock.Unlock()
 			}
-			wg.Done()
-		}(as)
+			rr := result{
+				ID:                         tx.ID,
+				Sequence:                   *tx.Sequence,
+				FromAddress:                tx.FromAddress,
+				MaxBroadcastBeforeBlockNum: maxBroadcastBeforeBlockNum,
+				TxHashes:                   hashes,
+			}
+			results = append(results, rr)
+		}
 	}
-	wg.Wait()
 
 	for _, r := range results {
 		ms.lggr.Criticalw(fmt.Sprintf("eth_tx with ID %v expired without ever getting a receipt for any of our attempts. "+
