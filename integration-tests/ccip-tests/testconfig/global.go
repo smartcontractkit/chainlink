@@ -192,9 +192,13 @@ func (p *Common) Validate() error {
 			p.PrivateEthereumNetworks[k].EthereumChainConfig.GenerateGenesisTimestamp()
 		}
 
-		if err := v.Validate(); err != nil {
-			return fmt.Errorf("error validating private ethereum network config %w", err)
+		builder := test_env.NewEthereumNetworkBuilder()
+		config, err := builder.WithExistingConfig(*v).Build()
+		if err != nil {
+			return fmt.Errorf("error building private ethereum network config %w", err)
 		}
+
+		p.PrivateEthereumNetworks[k] = &config
 	}
 
 	if p.ExistingCLCluster != nil {
