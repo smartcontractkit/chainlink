@@ -81,9 +81,12 @@ type OnRampEvaluator interface {
 var _ OnRampEvaluator = staticOnRamp{}
 
 type staticOnRampConfig struct {
-	addressResponse ccip.Address
-	routerResponse  ccip.Address
-	configResponse  ccip.OnRampDynamicConfig
+	addressResponse              ccip.Address
+	routerResponse               ccip.Address
+	configResponse               ccip.OnRampDynamicConfig
+	isSourceChainHealthyResponse bool
+	isSourceCursedResponse       bool
+	sourcePriceRegistryResponse  ccip.Address
 	getSendRequestsBetweenSeqNums
 	getSendRequestsBetweenSeqNumsResponse
 }
@@ -131,6 +134,31 @@ func (s staticOnRamp) Evaluate(ctx context.Context, other ccip.OnRampReader) err
 		return fmt.Errorf("expected send requests %v but got %v", s.getSendRequestsBetweenSeqNumsResponse.EVM2EVMMessageWithTxMeta, sendRequests)
 	}
 
+	// TODO: BCF-2874
+	//isSourceChainHealthy, err := other.IsSourceChainHealthy(ctx)
+	//if err != nil {
+	//	return fmt.Errorf("is source chain healthy: %w", err)
+	//}
+	//if isSourceChainHealthy != s.isSourceChainHealthyResponse {
+	//	return fmt.Errorf("expected is source chain healthy to be: %v", s.isSourceChainHealthyResponse)
+	//}
+	//
+	//isSourceCursed, err := other.IsSourceCursed(ctx)
+	//if err != nil {
+	//	return fmt.Errorf("is source cursed: %w", err)
+	//}
+	//if isSourceCursed != s.isSourceCursedResponse {
+	//	return fmt.Errorf("expected is source cursed to be: %v", s.isSourceCursedResponse)
+	//}
+	//
+	//sourcePriceRegistryAddress, err := other.SourcePriceRegistryAddress(ctx)
+	//if err != nil {
+	//	return fmt.Errorf("get source price registry address: %w", err)
+	//}
+	//if sourcePriceRegistryAddress != s.sourcePriceRegistryResponse {
+	//	return fmt.Errorf("expected source price registry address to be: %v", s.sourcePriceRegistryResponse)
+	//}
+
 	return nil
 }
 
@@ -156,6 +184,18 @@ func (s staticOnRamp) GetSendRequestsBetweenSeqNums(ctx context.Context, seqNumM
 // RouterAddress implements OnRampEvaluator.
 func (s staticOnRamp) RouterAddress() (ccip.Address, error) {
 	return s.routerResponse, nil
+}
+
+func (s staticOnRamp) IsSourceChainHealthy(ctx context.Context) (bool, error) {
+	return s.isSourceChainHealthyResponse, nil
+}
+
+func (s staticOnRamp) IsSourceCursed(ctx context.Context) (bool, error) {
+	return s.isSourceCursedResponse, nil
+}
+
+func (s staticOnRamp) SourcePriceRegistryAddress(ctx context.Context) (ccip.Address, error) {
+	return s.sourcePriceRegistryResponse, nil
 }
 
 type getSendRequestsBetweenSeqNums struct {

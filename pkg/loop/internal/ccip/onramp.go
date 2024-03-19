@@ -62,6 +62,22 @@ func (o *OnRampReaderClient) RouterAddress() (cciptypes.Address, error) {
 	return cciptypes.Address(resp.RouterAddress), nil
 }
 
+// IsSourceChainHealthy returns true if the source chain is healthy.
+func (o *OnRampReaderClient) IsSourceChainHealthy(ctx context.Context) (bool, error) {
+	panic("unimplemented")
+}
+
+// IsSourceCursed returns true if the source chain is cursed. OnRamp communicates with the underlying RMN
+// to verify if source chain was cursed or not.
+func (o *OnRampReaderClient) IsSourceCursed(ctx context.Context) (bool, error) {
+	panic("unimplemented")
+}
+
+// SourcePriceRegistryAddress returns the address of the current price registry configured on the onRamp.
+func (o *OnRampReaderClient) SourcePriceRegistryAddress(ctx context.Context) (cciptypes.Address, error) {
+	panic("unimplemented")
+}
+
 // Server
 
 type OnRampReaderServer struct {

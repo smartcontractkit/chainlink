@@ -59,4 +59,14 @@ type OnRampReader interface {
 	Address() (Address, error)
 
 	GetDynamicConfig() (OnRampDynamicConfig, error)
+
+	// IsSourceChainHealthy returns true if the source chain is healthy.
+	IsSourceChainHealthy(ctx context.Context) (bool, error)
+
+	// IsSourceCursed returns true if the source chain is cursed. OnRamp communicates with the underlying RMN
+	// to verify if source chain was cursed or not.
+	IsSourceCursed(ctx context.Context) (bool, error)
+
+	// SourcePriceRegistryAddress returns the address of the current price registry configured on the onRamp.
+	SourcePriceRegistryAddress(ctx context.Context) (Address, error)
 }

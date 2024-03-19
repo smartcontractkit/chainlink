@@ -18,6 +18,9 @@ type CommitStoreReader interface {
 	// Returned Commit Reports have to be sorted by Interval.Min/Interval.Max in ascending order.
 	GetAcceptedCommitReportsGteTimestamp(ctx context.Context, ts time.Time, confirmations int) ([]CommitStoreReportWithTxMeta, error)
 
+	// IsDestChainHealthy returns true if the destination chain is healthy.
+	IsDestChainHealthy(ctx context.Context) (bool, error)
+
 	IsDown(ctx context.Context) (bool, error)
 
 	IsBlessed(ctx context.Context, root [32]byte) (bool, error)
@@ -66,6 +69,7 @@ type CommitOffchainConfig struct {
 	TokenPriceDeviationPPB uint32
 	TokenPriceHeartBeat    time.Duration
 	InflightCacheExpiry    time.Duration
+	PriceReportingDisabled bool
 }
 
 type CommitStoreStaticConfig struct {
