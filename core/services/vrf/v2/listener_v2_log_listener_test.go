@@ -164,10 +164,10 @@ func setupVRFLogPollerListenerTH(t *testing.T,
 		req1, req2 = req2, req1
 	}
 	require.Len(t, req1.Addresses(), 1)
-	require.Len(t, req1.Topics(), 4)
+	require.Len(t, req1.Topics(), 1)
 	require.Len(t, req1.Topics()[0], 1)
 	require.Len(t, req2.Addresses(), 1)
-	require.Len(t, req2.Topics(), 4)
+	require.Len(t, req2.Topics(), 1)
 	require.Len(t, req2.Topics()[0], 2)
 
 	th := &vrfLogPollerListenerTH{
