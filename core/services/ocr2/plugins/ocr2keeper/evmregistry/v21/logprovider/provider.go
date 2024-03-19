@@ -43,6 +43,7 @@ var (
 	readJobQueueSize = 64
 	readLogsTimeout  = 10 * time.Second
 
+	// TODO: control group, remove comment
 	readMaxBatchSize = 32
 	// reorgBuffer is the number of blocks to add as a buffer to the block range when reading logs.
 	reorgBuffer   = int64(32)
