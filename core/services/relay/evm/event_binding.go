@@ -75,7 +75,7 @@ func (e *EventIndexBindings) DecodeLogsIntoSequences(ctx context.Context, key st
 	var sequences []commontypes.Sequence
 	for _, log := range logs {
 		sequence := commontypes.Sequence{
-			// TODO
+			// TODO SequenceCursor
 			SequenceCursor: "TODO",
 			Timestamp:      uint64(log.BlockTimestamp.Unix()),
 			Data:           reflect.New(reflect.TypeOf(into).Elem()),
