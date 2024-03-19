@@ -485,6 +485,53 @@ func TestInMemoryStore_GetInProgressTxAttempts(t *testing.T) {
 	})
 }
 
+func TestInMemoryStore_HasInProgressTransaction(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
+	persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+	kst := cltest.NewKeyStore(t, db, dbcfg)
+	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
+
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	lggr := logger.TestSugared(t)
+	chainID := ethClient.ConfiguredChainID()
+	ctx := context.Background()
+
+	inMemoryStore, err := commontxmgr.NewInMemoryStore[
+		*big.Int,
+		common.Address, common.Hash, common.Hash,
+		*evmtypes.Receipt,
+		evmtypes.Nonce,
+		evmgas.EvmFee,
+	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	require.NoError(t, err)
+
+	t.Run("no in progress transaction", func(t *testing.T) {
+		ctx := testutils.Context(t)
+		expExists, expErr := persistentStore.HasInProgressTransaction(ctx, fromAddress, chainID)
+		actExists, actErr := inMemoryStore.HasInProgressTransaction(ctx, fromAddress, chainID)
+		require.NoError(t, actErr)
+		require.NoError(t, expErr)
+		assert.Equal(t, expExists, actExists)
+	})
+
+	t.Run("has an in progress transaction", func(t *testing.T) {
+		// insert the transaction into the persistent store
+		inTx := mustInsertInProgressEthTxWithAttempt(t, persistentStore, 7, fromAddress)
+		// insert the transaction into the in-memory store
+		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
+
+		ctx := testutils.Context(t)
+		expExists, expErr := persistentStore.HasInProgressTransaction(ctx, fromAddress, chainID)
+		actExists, actErr := inMemoryStore.HasInProgressTransaction(ctx, fromAddress, chainID)
+		require.NoError(t, expErr)
+		require.NoError(t, actErr)
+		require.Equal(t, expExists, actExists)
+	})
+}
+
 // assertTxEqual asserts that two transactions are equal
 func assertTxEqual(t *testing.T, exp, act evmtxmgr.Tx) {
 	assert.Equal(t, exp.ID, act.ID)
