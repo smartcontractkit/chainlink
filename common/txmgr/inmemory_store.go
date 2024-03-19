@@ -1,11 +1,13 @@
 package txmgr
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
+	"slices"
 	"sort"
 	"sync"
 	"time"
@@ -319,11 +321,11 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 	err error,
 ) {
 	if ms.chainID.String() != chainID.String() {
-		return attempts, fmt.Errorf("find_tx_attempts_requiring_receipt_fetch: %w", ErrInvalidChainID)
+		return attempts, nil
 	}
 
 	txFilterFn := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
-		return tx.TxAttempts != nil && len(tx.TxAttempts) > 0
+		return len(tx.TxAttempts) > 0
 	}
 	txAttemptFilterFn := func(attempt *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
 		return attempt.State != txmgrtypes.TxAttemptInsufficientFunds
@@ -337,13 +339,13 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 	}
 	// sort by sequence ASC, gas_price DESC, gas_tip_cap DESC
 	// TODO: FIGURE OUT HOW TO GET GAS PRICE AND GAS TIP CAP FROM TxFee
-	sort.Slice(attempts, func(i, j int) bool {
-		iSequence, jSequence := attempts[i].Tx.Sequence, attempts[j].Tx.Sequence
-		if iSequence == nil || jSequence == nil {
-			return false
+	slices.SortFunc(attempts, func(a, b txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) int {
+		aSequence, bSequence := a.Tx.Sequence, b.Tx.Sequence
+		if aSequence == nil || bSequence == nil {
+			return 0
 		}
 
-		return (*attempts[i].Tx.Sequence).Int64() < (*attempts[j].Tx.Sequence).Int64()
+		return cmp.Compare((*aSequence).Int64(), (*bSequence).Int64())
 	})
 
 	// deep copy the attempts

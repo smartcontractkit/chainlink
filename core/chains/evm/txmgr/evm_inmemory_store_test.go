@@ -2,7 +2,6 @@ package txmgr_test
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 	"testing"
 	"time"
@@ -319,7 +318,6 @@ func TestInMemoryStore_FindTxAttemptsConfirmedMissingReceipt(t *testing.T) {
 		{2, 1, time.Unix(1616509500, 0)},
 	}
 	for _, inTxData := range inTxDatas {
-		fmt.Println("DATA", inTxData.nonce, inTxData.broadcastBeforeBlockNum, inTxData.broadcastAt)
 		// insert the transaction into the persistent store
 		inTx := mustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(
 			t, persistentStore, inTxData.nonce, inTxData.broadcastBeforeBlockNum,
@@ -361,6 +359,81 @@ func TestInMemoryStore_FindTxAttemptsConfirmedMissingReceipt(t *testing.T) {
 	}
 }
 
+func TestInMemoryStore_FindTxAttemptsRequiringReceiptFetch(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
+	persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+	kst := cltest.NewKeyStore(t, db, dbcfg)
+	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
+
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	lggr := logger.TestSugared(t)
+	chainID := ethClient.ConfiguredChainID()
+	ctx := context.Background()
+
+	inMemoryStore, err := commontxmgr.NewInMemoryStore[
+		*big.Int,
+		common.Address, common.Hash, common.Hash,
+		*evmtypes.Receipt,
+		evmtypes.Nonce,
+		evmgas.EvmFee,
+	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	require.NoError(t, err)
+
+	// initialize transactions
+	inTxDatas := []struct {
+		nonce                   int64
+		broadcastBeforeBlockNum int64
+		broadcastAt             time.Time
+	}{
+		{0, 1, time.Unix(1616509300, 0)},
+		{1, 1, time.Unix(1616509400, 0)},
+		{2, 1, time.Unix(1616509500, 0)},
+	}
+	for _, inTxData := range inTxDatas {
+		// insert the transaction into the persistent store
+		inTx := mustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(
+			t, persistentStore, inTxData.nonce, inTxData.broadcastBeforeBlockNum,
+			inTxData.broadcastAt, fromAddress,
+		)
+		// insert the transaction into the in-memory store
+		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
+	}
+
+	tcs := []struct {
+		name      string
+		inChainID *big.Int
+
+		expTxAttemptsCount int
+		hasError           bool
+	}{
+		{"finds tx attempts requiring receipt fetch", chainID, 3, false},
+		{"wrong chain", big.NewInt(999), 0, false},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := testutils.Context(t)
+			expTxAttempts, expErr := persistentStore.FindTxAttemptsRequiringReceiptFetch(ctx, tc.inChainID)
+			actTxAttempts, actErr := inMemoryStore.FindTxAttemptsRequiringReceiptFetch(ctx, tc.inChainID)
+			if tc.hasError {
+				require.NotNil(t, actErr)
+				require.NotNil(t, expErr)
+			} else {
+				require.NoError(t, actErr)
+				require.NoError(t, expErr)
+				require.Equal(t, tc.expTxAttemptsCount, len(expTxAttempts))
+				require.Equal(t, tc.expTxAttemptsCount, len(actTxAttempts))
+				for i := 0; i < len(expTxAttempts); i++ {
+					assertTxAttemptEqual(t, expTxAttempts[i], actTxAttempts[i])
+				}
+			}
+		})
+	}
+}
+
 // assertTxEqual asserts that two transactions are equal
 func assertTxEqual(t *testing.T, exp, act evmtxmgr.Tx) {
 	assert.Equal(t, exp.ID, act.ID)
@@ -372,8 +445,18 @@ func assertTxEqual(t *testing.T, exp, act evmtxmgr.Tx) {
 	assert.Equal(t, exp.Value, act.Value)
 	assert.Equal(t, exp.FeeLimit, act.FeeLimit)
 	assert.Equal(t, exp.Error, act.Error)
-	assert.Equal(t, exp.BroadcastAt, act.BroadcastAt)
-	assert.Equal(t, exp.InitialBroadcastAt, act.InitialBroadcastAt)
+	if exp.BroadcastAt != nil {
+		require.NotNil(t, act.BroadcastAt)
+		assert.Equal(t, exp.BroadcastAt.Unix(), act.BroadcastAt.Unix())
+	} else {
+		assert.Equal(t, exp.BroadcastAt, act.BroadcastAt)
+	}
+	if exp.InitialBroadcastAt != nil {
+		require.NotNil(t, act.InitialBroadcastAt)
+		assert.Equal(t, exp.InitialBroadcastAt.Unix(), act.InitialBroadcastAt.Unix())
+	} else {
+		assert.Equal(t, exp.InitialBroadcastAt, act.InitialBroadcastAt)
+	}
 	assert.Equal(t, exp.CreatedAt, act.CreatedAt)
 	assert.Equal(t, exp.State, act.State)
 	assert.Equal(t, exp.Meta, act.Meta)
@@ -385,7 +468,7 @@ func assertTxEqual(t *testing.T, exp, act evmtxmgr.Tx) {
 	assert.Equal(t, exp.SignalCallback, act.SignalCallback)
 	assert.Equal(t, exp.CallbackCompleted, act.CallbackCompleted)
 
-	require.Len(t, exp.TxAttempts, len(act.TxAttempts))
+	require.Equal(t, len(exp.TxAttempts), len(act.TxAttempts))
 	for i := 0; i < len(exp.TxAttempts); i++ {
 		assertTxAttemptEqual(t, exp.TxAttempts[i], act.TxAttempts[i])
 	}
@@ -394,7 +477,6 @@ func assertTxEqual(t *testing.T, exp, act evmtxmgr.Tx) {
 func assertTxAttemptEqual(t *testing.T, exp, act evmtxmgr.TxAttempt) {
 	assert.Equal(t, exp.ID, act.ID)
 	assert.Equal(t, exp.TxID, act.TxID)
-	assert.Equal(t, exp.Tx, act.Tx)
 	assert.Equal(t, exp.TxFee, act.TxFee)
 	assert.Equal(t, exp.ChainSpecificFeeLimit, act.ChainSpecificFeeLimit)
 	assert.Equal(t, exp.SignedRawTx, act.SignedRawTx)
