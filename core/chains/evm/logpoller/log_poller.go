@@ -1388,11 +1388,15 @@ func mergeAddressesIntoGetLogsReq(req *GetLogsBatchElem, newAddresses []common.A
 }
 
 func make2DTopics(eventSigs, topics2, topics3, topics4 []common.Hash) (res [][]common.Hash) {
-	for _, topic := range [][]common.Hash{eventSigs, topics2, topics3, topics4} {
-		if topic != nil {
-			res = append(res, topic)
-		}
+	topics := [][]common.Hash{eventSigs, topics2, topics3, topics4}
+	lastTopic := len(topics) - 1
+	for lastTopic >= 0 && topics[lastTopic] == nil {
+		lastTopic--
 	}
+
+	res = make([][]common.Hash, lastTopic+1)
+	copy(res, topics)
+
 	return res
 }
 
