@@ -1537,7 +1537,10 @@ func TestVRFv2PlusReplayAfterTimeout(t *testing.T) {
 		}
 
 		go func() {
-			l.Info().Msg("Creating VRFV2 Plus Job with higher timeout (1hr)")
+			l.Info().
+				Str("PublicKey", vrfJobSpecConfig.PublicKey).
+				Interface("vrfJobSpecConfig", vrfJobSpecConfig).
+				Msg("Creating VRFV2 Plus Job with higher timeout (1hr)")
 			job, err := vrfv2plus.CreateVRFV2PlusJob(
 				vrfNode.CLNode.API,
 				vrfJobSpecConfig,
