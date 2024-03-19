@@ -607,7 +607,7 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) ReapT
 }
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CountTransactionsByState(_ context.Context, state txmgrtypes.TxState, chainID CHAIN_ID) (uint32, error) {
 	if ms.chainID.String() != chainID.String() {
-		return 0, fmt.Errorf("count_transactions_by_state: %w", ErrInvalidChainID)
+		return 0, nil
 	}
 
 	var total int

@@ -648,6 +648,63 @@ func TestInMemoryStore_FindTxWithSequence(t *testing.T) {
 	})
 }
 
+func TestInMemoryStore_CountTransactionsByState(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
+	persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+	kst := cltest.NewKeyStore(t, db, dbcfg)
+	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
+
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	lggr := logger.TestSugared(t)
+	chainID := ethClient.ConfiguredChainID()
+	ctx := context.Background()
+
+	inMemoryStore, err := commontxmgr.NewInMemoryStore[
+		*big.Int,
+		common.Address, common.Hash, common.Hash,
+		*evmtypes.Receipt,
+		evmtypes.Nonce,
+		evmgas.EvmFee,
+	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	require.NoError(t, err)
+
+	t.Run("no results", func(t *testing.T) {
+		ctx := testutils.Context(t)
+		expCount, expErr := persistentStore.CountTransactionsByState(ctx, commontxmgr.TxUnconfirmed, chainID)
+		actCount, actErr := inMemoryStore.CountTransactionsByState(ctx, commontxmgr.TxUnconfirmed, chainID)
+		require.NoError(t, expErr)
+		require.NoError(t, actErr)
+		assert.Equal(t, expCount, actCount)
+	})
+	t.Run("wrong chain id", func(t *testing.T) {
+		wrongChainID := big.NewInt(999)
+		ctx := testutils.Context(t)
+		expCount, expErr := persistentStore.CountTransactionsByState(ctx, commontxmgr.TxUnconfirmed, wrongChainID)
+		actCount, actErr := inMemoryStore.CountTransactionsByState(ctx, commontxmgr.TxUnconfirmed, wrongChainID)
+		require.NoError(t, expErr)
+		require.NoError(t, actErr)
+		assert.Equal(t, expCount, actCount)
+	})
+	t.Run("3 unconfirmed transactions", func(t *testing.T) {
+		for i := int64(0); i < 3; i++ {
+			// insert the transaction into the persistent store
+			inTx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, persistentStore, i, fromAddress)
+			// insert the transaction into the in-memory store
+			require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
+		}
+
+		ctx := testutils.Context(t)
+		expCount, expErr := persistentStore.CountTransactionsByState(ctx, commontxmgr.TxUnconfirmed, chainID)
+		actCount, actErr := inMemoryStore.CountTransactionsByState(ctx, commontxmgr.TxUnconfirmed, chainID)
+		require.NoError(t, expErr)
+		require.NoError(t, actErr)
+		assert.Equal(t, expCount, actCount)
+	})
+}
+
 // assertTxEqual asserts that two transactions are equal
 func assertTxEqual(t *testing.T, exp, act evmtxmgr.Tx) {
 	assert.Equal(t, exp.ID, act.ID)
