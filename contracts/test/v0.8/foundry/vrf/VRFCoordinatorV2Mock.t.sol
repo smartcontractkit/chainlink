@@ -1,4 +1,4 @@
-pragma solidity 0.8.6;
+pragma solidity ^0.8.6;
 
 import "../BaseTest.t.sol";
 import {VRF} from "../../../../src/v0.8/vrf/VRF.sol";

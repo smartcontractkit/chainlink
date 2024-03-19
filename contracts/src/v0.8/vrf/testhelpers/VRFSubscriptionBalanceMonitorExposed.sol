@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity 0.8.6;
+pragma solidity ^0.8.6;
 
 import {VRFSubscriptionBalanceMonitor} from "../dev/VRFSubscriptionBalanceMonitor.sol";
 
