@@ -197,8 +197,8 @@ func (o *orm) InsertRun(run *Run, qopts ...pg.QOpt) error {
 		defer o.Prune(o.q, run.JobID)
 	}
 	q := o.q.WithOpts(qopts...)
-	sql := `INSERT INTO pipeline_runs (pipeline_spec_id, pruning_key, job_id, meta, all_errors, fatal_errors, inputs, outputs, created_at, finished_at, state)
-		VALUES (:pipeline_spec_id, :job_id, :job_id, :meta, :all_errors, :fatal_errors, :inputs, :outputs, :created_at, :finished_at, :state)
+	sql := `INSERT INTO pipeline_runs (pipeline_spec_id, pruning_key, meta, all_errors, fatal_errors, inputs, outputs, created_at, finished_at, state)
+		VALUES (:pipeline_spec_id, :job_id, :meta, :all_errors, :fatal_errors, :inputs, :outputs, :created_at, :finished_at, :state)
 		RETURNING *;`
 	return q.GetNamed(sql, run, run)
 }
@@ -337,9 +337,9 @@ func (o *orm) InsertFinishedRuns(runs []*Run, saveSuccessfulTaskRuns bool, qopts
 	err := q.Transaction(func(tx pg.Queryer) error {
 		pipelineRunsQuery := `
 INSERT INTO pipeline_runs 
-	(pipeline_spec_id, pruning_key, job_id, meta, all_errors, fatal_errors, inputs, outputs, created_at, finished_at, state)
+	(pipeline_spec_id, pruning_key, meta, all_errors, fatal_errors, inputs, outputs, created_at, finished_at, state)
 VALUES 
-	(:pipeline_spec_id, :job_id, :job_id, :meta, :all_errors, :fatal_errors, :inputs, :outputs, :created_at, :finished_at, :state) 
+	(:pipeline_spec_id, :job_id, :meta, :all_errors, :fatal_errors, :inputs, :outputs, :created_at, :finished_at, :state) 
 RETURNING id
 	`
 		rows, errQ := tx.NamedQuery(pipelineRunsQuery, runs)
@@ -421,8 +421,8 @@ func (o *orm) InsertFinishedRun(run *Run, saveSuccessfulTaskRuns bool, qopts ...
 
 	q := o.q.WithOpts(qopts...)
 	err = q.Transaction(func(tx pg.Queryer) error {
-		sql := `INSERT INTO pipeline_runs (pipeline_spec_id, pruning_key, job_id, meta, all_errors, fatal_errors, inputs, outputs, created_at, finished_at, state)
-		VALUES (:pipeline_spec_id, :job_id, :job_id, :meta, :all_errors, :fatal_errors, :inputs, :outputs, :created_at, :finished_at, :state)
+		sql := `INSERT INTO pipeline_runs (pipeline_spec_id, pruning_key, meta, all_errors, fatal_errors, inputs, outputs, created_at, finished_at, state)
+		VALUES (:pipeline_spec_id, :job_id, :meta, :all_errors, :fatal_errors, :inputs, :outputs, :created_at, :finished_at, :state)
 		RETURNING id;`
 
 		query, args, e := tx.BindNamed(sql, run)
