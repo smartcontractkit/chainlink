@@ -12,6 +12,7 @@ const AutomationLogTriggerNamespace = "automation_log_trigger"
 const (
 	LogBufferFlowDirectionIngress = "ingress"
 	LogBufferFlowDirectionEgress  = "egress"
+	LogBufferFlowDirectionDropped = "dropped"
 )
 
 // Automation metrics

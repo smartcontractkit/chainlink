@@ -232,7 +232,7 @@ func (b *logEventBuffer) enqueue(id *big.Int, logs ...logpoller.Log) int {
 	if added > 0 {
 		lggr.Debugw("Added logs to buffer", "addedLogs", added, "dropped", dropped, "latestBlock", latestBlock)
 		prommetrics.AutomationLogBufferFlow.WithLabelValues(prommetrics.LogBufferFlowDirectionIngress).Add(float64(added))
-		prommetrics.AutomationLogBufferFlow.WithLabelValues(prommetrics.LogBufferFlowDirectionEgress).Add(float64(dropped))
+		prommetrics.AutomationLogBufferFlow.WithLabelValues(prommetrics.LogBufferFlowDirectionDropped).Add(float64(dropped))
 	}
 
 	return added - dropped
