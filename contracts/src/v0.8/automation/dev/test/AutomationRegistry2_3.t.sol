@@ -10,36 +10,31 @@ import {MockUpkeep} from "../../mocks/MockUpkeep.sol";
 
 // forge test --match-path src/v0.8/automation/dev/test/AutomationRegistry2_3.t.sol
 
-contract AutomationRegistry2_3_SetUp is BaseTest {
+contract SetUp is BaseTest {
   address[] internal s_registrars;
 
-  IAutomationRegistryMaster2_3 internal registryMaster;
+  IAutomationRegistryMaster2_3 internal registry;
 
-  function _registerUpkeep(address mockERC20) internal returns (uint256 id) {
-    MockUpkeep mock = new MockUpkeep();
-    return registryMaster.registerUpkeep(address(mock), 1000000, UPKEEP_ADMIN, 0, mockERC20, "", "", "");
-  }
-
-  function setUp() public override {
+  function setUp() public virtual override {
     super.setUp();
 
     s_registrars = new address[](1);
     s_registrars[0] = 0x3a0eDE26aa188BFE00b9A0C9A431A1a0CA5f7966;
 
-    registryMaster = deployRegistry(AutoBase.PayoutMode.ON_CHAIN);
+    (registry, ) = deployAndConfigureAll(AutoBase.PayoutMode.ON_CHAIN);
   }
 }
 
-contract AutomationRegistry2_3_LatestConfigDetails is AutomationRegistry2_3_SetUp {
+contract LatestConfigDetails is SetUp {
   function testGet() public {
-    (uint32 configCount, uint32 blockNumber, bytes32 configDigest) = registryMaster.latestConfigDetails();
-    assertEq(configCount, 0);
-    assertEq(blockNumber, 0);
-    assertEq(configDigest, "");
+    (uint32 configCount, uint32 blockNumber, bytes32 configDigest) = registry.latestConfigDetails();
+    assertEq(configCount, 1);
+    assertTrue(blockNumber > 0);
+    assertNotEq(configDigest, "");
   }
 }
 
-contract AutomationRegistry2_3_CheckUpkeep is AutomationRegistry2_3_SetUp {
+contract CheckUpkeep is SetUp {
   function testPreventExecutionOnCheckUpkeep() public {
     uint256 id = 1;
     bytes memory triggerData = abi.encodePacked("trigger_data");
@@ -47,11 +42,11 @@ contract AutomationRegistry2_3_CheckUpkeep is AutomationRegistry2_3_SetUp {
     // The tx.origin is the DEFAULT_SENDER (0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38) of foundry
     // Expecting a revert since the tx.origin is not address(0)
     vm.expectRevert(abi.encodeWithSelector(IAutomationRegistryMaster2_3.OnlySimulatedBackend.selector));
-    registryMaster.checkUpkeep(id, triggerData);
+    registry.checkUpkeep(id, triggerData);
   }
 }
 
-contract AutomationRegistry2_3_Withdraw is AutomationRegistry2_3_SetUp {
+contract Withdraw is SetUp {
   address internal aMockAddress = address(0x1111111111111111111111111111111111111113);
 
   function setConfigForWithdraw() public {
@@ -76,7 +71,7 @@ contract AutomationRegistry2_3_Withdraw is AutomationRegistry2_3_SetUp {
     });
     bytes memory offchainConfigBytes = abi.encode(1234, ZERO_ADDRESS);
 
-    registryMaster.setConfigTypeSafe(
+    registry.setConfigTypeSafe(
       SIGNERS,
       TRANSMITTERS,
       F,
@@ -90,93 +85,78 @@ contract AutomationRegistry2_3_Withdraw is AutomationRegistry2_3_SetUp {
 
   function testLinkAvailableForPaymentReturnsLinkBalance() public {
     //simulate a deposit of link to the liquidity pool
-    _mintLink(address(registryMaster), 1e10);
+    _mintLink(address(registry), 1e10);
 
     //check there's a balance
-    assertGt(linkToken.balanceOf(address(registryMaster)), 0);
+    assertGt(linkToken.balanceOf(address(registry)), 0);
 
     //check the link available for payment is the link balance
-    assertEq(registryMaster.linkAvailableForPayment(), linkToken.balanceOf(address(registryMaster)));
+    assertEq(registry.linkAvailableForPayment(), linkToken.balanceOf(address(registry)));
   }
 
   function testWithdrawLinkFeesRevertsBecauseOnlyFinanceAdminAllowed() public {
-    // set config with the finance admin
-    setConfigForWithdraw();
-
     vm.expectRevert(abi.encodeWithSelector(IAutomationRegistryMaster2_3.OnlyFinanceAdmin.selector));
-    registryMaster.withdrawLinkFees(aMockAddress, 1);
+    registry.withdrawLinkFees(aMockAddress, 1);
   }
 
   function testWithdrawLinkFeesRevertsBecauseOfInsufficientBalance() public {
-    // set config with the finance admin
-    setConfigForWithdraw();
-
     vm.startPrank(FINANCE_ADMIN);
 
     // try to withdraw 1 link while there is 0 balance
     vm.expectRevert(abi.encodeWithSelector(IAutomationRegistryMaster2_3.InsufficientBalance.selector, 0, 1));
-    registryMaster.withdrawLinkFees(aMockAddress, 1);
+    registry.withdrawLinkFees(aMockAddress, 1);
 
     vm.stopPrank();
   }
 
   function testWithdrawLinkFeesRevertsBecauseOfInvalidRecipient() public {
-    // set config with the finance admin
-    setConfigForWithdraw();
-
     vm.startPrank(FINANCE_ADMIN);
 
     // try to withdraw 1 link while there is 0 balance
     vm.expectRevert(abi.encodeWithSelector(IAutomationRegistryMaster2_3.InvalidRecipient.selector));
-    registryMaster.withdrawLinkFees(ZERO_ADDRESS, 1);
+    registry.withdrawLinkFees(ZERO_ADDRESS, 1);
 
     vm.stopPrank();
   }
 
   function testWithdrawLinkFeeSuccess() public {
-    // set config with the finance admin
-    setConfigForWithdraw();
-
     //simulate a deposit of link to the liquidity pool
-    _mintLink(address(registryMaster), 1e10);
+    _mintLink(address(registry), 1e10);
 
     //check there's a balance
-    assertGt(linkToken.balanceOf(address(registryMaster)), 0);
+    assertGt(linkToken.balanceOf(address(registry)), 0);
 
     vm.startPrank(FINANCE_ADMIN);
 
     // try to withdraw 1 link while there is a ton of link available
-    registryMaster.withdrawLinkFees(aMockAddress, 1);
+    registry.withdrawLinkFees(aMockAddress, 1);
 
     vm.stopPrank();
 
     assertEq(linkToken.balanceOf(address(aMockAddress)), 1);
-    assertEq(linkToken.balanceOf(address(registryMaster)), 1e10 - 1);
+    assertEq(linkToken.balanceOf(address(registry)), 1e10 - 1);
   }
 
   function testWithdrawERC20FeeSuccess() public {
-    // set config with the finance admin
-    setConfigForWithdraw();
-
     // simulate a deposit of ERC20 to the liquidity pool
-    _mintERC20(address(registryMaster), 1e10);
+    _mintERC20(address(registry), 1e10);
 
     // check there's a balance
-    assertGt(mockERC20.balanceOf(address(registryMaster)), 0);
+    assertGt(mockERC20.balanceOf(address(registry)), 0);
 
     vm.startPrank(FINANCE_ADMIN);
 
     // try to withdraw 1 link while there is a ton of link available
-    registryMaster.withdrawERC20Fees(address(mockERC20), aMockAddress, 1);
+    registry.withdrawERC20Fees(address(mockERC20), aMockAddress, 1);
 
     vm.stopPrank();
 
     assertEq(mockERC20.balanceOf(address(aMockAddress)), 1);
-    assertEq(mockERC20.balanceOf(address(registryMaster)), 1e10 - 1);
+    assertEq(mockERC20.balanceOf(address(registry)), 1e10 - 1);
   }
 }
 
-contract AutomationRegistry2_3_SetConfig is AutomationRegistry2_3_SetUp {
+contract SetConfig is SetUp {
   event ConfigSet(
     uint32 previousConfigBlockNumber,
     bytes32 configDigest,
@@ -211,8 +191,8 @@ contract AutomationRegistry2_3_SetConfig is AutomationRegistry2_3_SetUp {
     });
 
   function testSetConfigSuccess() public {
-    (uint32 configCount, , ) = registryMaster.latestConfigDetails();
-    assertEq(configCount, 0);
+    (uint32 configCount, uint32 blockNumber, ) = registry.latestConfigDetails();
+    assertEq(configCount, 1);
 
     address billingTokenAddress = address(0x1111111111111111111111111111111111111111);
     address[] memory billingTokens = new address[](1);
@@ -230,12 +210,10 @@ contract AutomationRegistry2_3_SetConfig is AutomationRegistry2_3_SetUp {
     bytes memory onchainConfigBytes = abi.encode(cfg);
     bytes memory onchainConfigBytesWithBilling = abi.encode(cfg, billingTokens, billingConfigs);
 
-    uint256 a = 1234;
-    address b = ZERO_ADDRESS;
-    bytes memory offchainConfigBytes = abi.encode(a, b);
+    bytes memory offchainConfigBytes = abi.encode(1234, ZERO_ADDRESS);
     bytes32 configDigest = _configDigestFromConfigData(
       block.chainid,
-      address(registryMaster),
+      address(registry),
       ++configCount,
       SIGNERS,
       TRANSMITTERS,
@@ -247,7 +225,7 @@ contract AutomationRegistry2_3_SetConfig is AutomationRegistry2_3_SetUp {
 
     vm.expectEmit();
     emit ConfigSet(
-      0,
+      blockNumber,
       configDigest,
       configCount,
       SIGNERS,
@@ -258,7 +236,7 @@ contract AutomationRegistry2_3_SetConfig is AutomationRegistry2_3_SetUp {
       offchainConfigBytes
     );
 
-    registryMaster.setConfig(
+    registry.setConfig(
       SIGNERS,
       TRANSMITTERS,
       F,
@@ -267,25 +245,25 @@ contract AutomationRegistry2_3_SetConfig is AutomationRegistry2_3_SetUp {
       offchainConfigBytes
     );
 
-    (, , address[] memory signers, address[] memory transmitters, uint8 f) = registryMaster.getState();
+    (, , address[] memory signers, address[] memory transmitters, uint8 f) = registry.getState();
 
     assertEq(signers, SIGNERS);
     assertEq(transmitters, TRANSMITTERS);
     assertEq(f, F);
 
-    AutomationRegistryBase2_3.BillingConfig memory config = registryMaster.getBillingTokenConfig(billingTokenAddress);
+    AutomationRegistryBase2_3.BillingConfig memory config = registry.getBillingTokenConfig(billingTokenAddress);
     assertEq(config.gasFeePPB, 5_000);
     assertEq(config.flatFeeMicroLink, 20_000);
     assertEq(config.priceFeed, 0x2222222222222222222222222222222222222222);
     assertEq(config.minSpend, 100_000);
 
-    address[] memory tokens = registryMaster.getBillingTokens();
+    address[] memory tokens = registry.getBillingTokens();
     assertEq(tokens.length, 1);
   }
 
   function testSetConfigMultipleBillingConfigsSuccess() public {
-    (uint32 configCount, , ) = registryMaster.latestConfigDetails();
-    assertEq(configCount, 0);
+    (uint32 configCount, , ) = registry.latestConfigDetails();
+    assertEq(configCount, 1);
 
     address billingTokenAddress1 = address(0x1111111111111111111111111111111111111111);
     address billingTokenAddress2 = address(0x1111111111111111111111111111111111111112);
@@ -311,11 +289,9 @@ contract AutomationRegistry2_3_SetConfig is AutomationRegistry2_3_SetUp {
 
     bytes memory onchainConfigBytesWithBilling = abi.encode(cfg, billingTokens, billingConfigs);
 
-    uint256 a = 1234;
-    address b = ZERO_ADDRESS;
-    bytes memory offchainConfigBytes = abi.encode(a, b);
+    bytes memory offchainConfigBytes = abi.encode(1234, ZERO_ADDRESS);
 
-    registryMaster.setConfig(
+    registry.setConfig(
       SIGNERS,
       TRANSMITTERS,
       F,
@@ -324,33 +300,33 @@ contract AutomationRegistry2_3_SetConfig is AutomationRegistry2_3_SetUp {
       offchainConfigBytes
     );
 
-    (, , address[] memory signers, address[] memory transmitters, uint8 f) = registryMaster.getState();
+    (, , address[] memory signers, address[] memory transmitters, uint8 f) = registry.getState();
 
     assertEq(signers, SIGNERS);
     assertEq(transmitters, TRANSMITTERS);
     assertEq(f, F);
 
-    AutomationRegistryBase2_3.BillingConfig memory config1 = registryMaster.getBillingTokenConfig(billingTokenAddress1);
+    AutomationRegistryBase2_3.BillingConfig memory config1 = registry.getBillingTokenConfig(billingTokenAddress1);
     assertEq(config1.gasFeePPB, 5_001);
     assertEq(config1.flatFeeMicroLink, 20_001);
     assertEq(config1.priceFeed, 0x2222222222222222222222222222222222222221);
     assertEq(config1.fallbackPrice, 100);
     assertEq(config1.minSpend, 100);
 
-    AutomationRegistryBase2_3.BillingConfig memory config2 = registryMaster.getBillingTokenConfig(billingTokenAddress2);
+    AutomationRegistryBase2_3.BillingConfig memory config2 = registry.getBillingTokenConfig(billingTokenAddress2);
     assertEq(config2.gasFeePPB, 5_002);
     assertEq(config2.flatFeeMicroLink, 20_002);
     assertEq(config2.priceFeed, 0x2222222222222222222222222222222222222222);
     assertEq(config2.fallbackPrice, 200);
     assertEq(config2.minSpend, 200);
 
-    address[] memory tokens = registryMaster.getBillingTokens();
+    address[] memory tokens = registry.getBillingTokens();
     assertEq(tokens.length, 2);
   }
 
   function testSetConfigTwiceAndLastSetOverwrites() public {
-    (uint32 configCount, , ) = registryMaster.latestConfigDetails();
-    assertEq(configCount, 0);
+    (uint32 configCount, , ) = registry.latestConfigDetails();
+    assertEq(configCount, 1);
 
     // BillingConfig1
     address billingTokenAddress1 = address(0x1111111111111111111111111111111111111111);
@@ -384,12 +360,10 @@ contract AutomationRegistry2_3_SetConfig is AutomationRegistry2_3_SetUp {
 
     bytes memory onchainConfigBytesWithBilling2 = abi.encode(cfg, billingTokens2, billingConfigs2);
 
-    uint256 a = 1234;
-    address b = ZERO_ADDRESS;
-    bytes memory offchainConfigBytes = abi.encode(a, b);
+    bytes memory offchainConfigBytes = abi.encode(1234, ZERO_ADDRESS);
 
     // set config once
-    registryMaster.setConfig(
+    registry.setConfig(
       SIGNERS,
       TRANSMITTERS,
       F,
@@ -399,7 +373,7 @@ contract AutomationRegistry2_3_SetConfig is AutomationRegistry2_3_SetUp {
     );
 
     // set config twice
-    registryMaster.setConfig(
+    registry.setConfig(
       SIGNERS,
       TRANSMITTERS,
       F,
@@ -408,26 +382,26 @@ contract AutomationRegistry2_3_SetConfig is AutomationRegistry2_3_SetUp {
       offchainConfigBytes
     );
 
-    (, , address[] memory signers, address[] memory transmitters, uint8 f) = registryMaster.getState();
+    (, , address[] memory signers, address[] memory transmitters, uint8 f) = registry.getState();
 
     assertEq(signers, SIGNERS);
     assertEq(transmitters, TRANSMITTERS);
     assertEq(f, F);
 
-    AutomationRegistryBase2_3.BillingConfig memory config2 = registryMaster.getBillingTokenConfig(billingTokenAddress2);
+    AutomationRegistryBase2_3.BillingConfig memory config2 = registry.getBillingTokenConfig(billingTokenAddress2);
     assertEq(config2.gasFeePPB, 5_002);
     assertEq(config2.flatFeeMicroLink, 20_002);
     assertEq(config2.priceFeed, 0x2222222222222222222222222222222222222222);
     assertEq(config2.fallbackPrice, 200);
     assertEq(config2.minSpend, 200);
 
-    address[] memory tokens = registryMaster.getBillingTokens();
+    address[] memory tokens = registry.getBillingTokens();
     assertEq(tokens.length, 1);
   }
 
   function testSetConfigDuplicateBillingConfigFailure() public {
-    (uint32 configCount, , ) = registryMaster.latestConfigDetails();
-    assertEq(configCount, 0);
+    (uint32 configCount, , ) = registry.latestConfigDetails();
+    assertEq(configCount, 1);
 
     address billingTokenAddress1 = address(0x1111111111111111111111111111111111111111);
     address billingTokenAddress2 = address(0x1111111111111111111111111111111111111111);
@@ -453,13 +427,11 @@ contract AutomationRegistry2_3_SetConfig is AutomationRegistry2_3_SetUp {
 
     bytes memory onchainConfigBytesWithBilling = abi.encode(cfg, billingTokens, billingConfigs);
 
-    uint256 a = 1234;
-    address b = ZERO_ADDRESS;
-    bytes memory offchainConfigBytes = abi.encode(a, b);
+    bytes memory offchainConfigBytes = abi.encode(1234, ZERO_ADDRESS);
 
     // expect revert because of duplicate tokens
     vm.expectRevert(abi.encodeWithSelector(IAutomationRegistryMaster2_3.DuplicateEntry.selector));
-    registryMaster.setConfig(
+    registry.setConfig(
       SIGNERS,
       TRANSMITTERS,
       F,
@@ -483,14 +455,12 @@ contract AutomationRegistry2_3_SetConfig is AutomationRegistry2_3_SetUp {
     });
 
     bytes memory onchainConfigBytesWithBilling = abi.encode(cfg, billingTokens, billingConfigs);
-    uint256 a = 1234;
-    address b = ZERO_ADDRESS;
-    bytes memory offchainConfigBytes = abi.encode(a, b);
+    bytes memory offchainConfigBytes = abi.encode(1234, ZERO_ADDRESS);
     // deploy registry with OFF_CHAIN payout mode
-    registryMaster = deployRegistry(AutoBase.PayoutMode.OFF_CHAIN);
+    registry = deployRegistry(AutoBase.PayoutMode.OFF_CHAIN);
 
     vm.expectRevert(abi.encodeWithSelector(IAutomationRegistryMaster2_3.InvalidBillingToken.selector));
-    registryMaster.setConfig(
+    registry.setConfig(
       SIGNERS,
       TRANSMITTERS,
       F,
@@ -532,11 +502,11 @@ contract AutomationRegistry2_3_SetConfig is AutomationRegistry2_3_SetUp {
   }
 }
 
-contract AutomationRegistry2_3_NOPsSettlement is AutomationRegistry2_3_SetUp {
+contract NOPsSettlement is SetUp {
   event NOPsSettledOffchain(address[] transmitterList, uint256[] balances);
 
   function deployAndSetConfigForSettleOffchain(AutoBase.PayoutMode payoutMode) public {
-    registryMaster = deployRegistry(payoutMode);
+    registry = deployRegistry(payoutMode);
     address module = address(new ChainModuleBase());
     AutomationRegistryBase2_3.OnchainConfig memory cfg = AutomationRegistryBase2_3.OnchainConfig({
       checkGasLimit: 5_000_000,
@@ -558,7 +528,7 @@ contract AutomationRegistry2_3_NOPsSettlement is AutomationRegistry2_3_SetUp {
     });
     bytes memory offchainConfigBytes = abi.encode(1234, ZERO_ADDRESS);
 
-    registryMaster.setConfigTypeSafe(
+    registry.setConfigTypeSafe(
       SIGNERS,
       TRANSMITTERS,
       F,
@@ -574,18 +544,18 @@ contract AutomationRegistry2_3_NOPsSettlement is AutomationRegistry2_3_SetUp {
     deployAndSetConfigForSettleOffchain(AutoBase.PayoutMode.ON_CHAIN);
 
     vm.expectRevert(abi.encodeWithSelector(IAutomationRegistryMaster2_3.OnlyFinanceAdmin.selector));
-    registryMaster.settleNOPsOffchain();
+    registry.settleNOPsOffchain();
   }
 
   function testSettleNOPsOffchainRevertDueToOffchainSettlementDisabled() public {
     deployAndSetConfigForSettleOffchain(AutoBase.PayoutMode.ON_CHAIN);
 
-    vm.prank(registryMaster.owner());
-    registryMaster.disableOffchainPayments();
+    vm.prank(registry.owner());
+    registry.disableOffchainPayments();
 
     vm.prank(FINANCE_ADMIN);
     vm.expectRevert(abi.encodeWithSelector(IAutomationRegistryMaster2_3.MustSettleOnchain.selector));
-    registryMaster.settleNOPsOffchain();
+    registry.settleNOPsOffchain();
   }
 
   function testSettleNOPsOffchainSuccess() public {
@@ -599,20 +569,20 @@ contract AutomationRegistry2_3_NOPsSettlement is AutomationRegistry2_3_SetUp {
     vm.startPrank(FINANCE_ADMIN);
     vm.expectEmit();
     emit NOPsSettledOffchain(TRANSMITTERS, balances);
-    registryMaster.settleNOPsOffchain();
+    registry.settleNOPsOffchain();
   }
 
   function testSettleNOPsOffchainSuccess1() public {
-    (IAutomationRegistryMaster2_3 registryMaster, AutomationRegistrar2_3 registrar) = deployAndConfigureAll(AutoBase.PayoutMode.OFF_CHAIN);
+    (IAutomationRegistryMaster2_3 registry, AutomationRegistrar2_3 registrar) = deployAndConfigureAll(AutoBase.PayoutMode.OFF_CHAIN);
 
     MockUpkeep mock = new MockUpkeep();
     mock.setCheckResult(true);
 
-    uint256 id = registryMaster.registerUpkeep(address(mock), 1000000, UPKEEP_ADMIN, 0, address(mockERC20), "", "", "");
-    _mintERC20(address(registryMaster), 1e10);
-    //registryMaster.addFunds(id, );
+    uint256 id = registry.registerUpkeep(address(mock), 1000000, UPKEEP_ADMIN, 0, address(mockERC20), "", "", "");
+    _mintERC20(address(registry), 1e10);
+    //registry.addFunds(id, );
 
-    (, , bytes32 configDigest) = registryMaster.latestConfigDetails();
+    (, , bytes32 configDigest) = registry.latestConfigDetails();
     AutoBase.ConditionalTrigger memory trigger = AutoBase.ConditionalTrigger(uint32(block.number), blockhash(block.number));
 //    AutoBase.Report memory report = AutoBase.Report(
 //
@@ -626,7 +596,7 @@ contract AutomationRegistry2_3_NOPsSettlement is AutomationRegistry2_3_SetUp {
     vm.startPrank(FINANCE_ADMIN);
     vm.expectEmit();
     emit NOPsSettledOffchain(TRANSMITTERS, balances);
-    registryMaster.settleNOPsOffchain();
+    registry.settleNOPsOffchain();
   }
 
   function testDisableOffchainPaymentsRevertDueToUnauthorizedCaller() public {
@@ -634,24 +604,24 @@ contract AutomationRegistry2_3_NOPsSettlement is AutomationRegistry2_3_SetUp {
 
     vm.startPrank(FINANCE_ADMIN);
     vm.expectRevert(bytes("Only callable by owner"));
-    registryMaster.disableOffchainPayments();
+    registry.disableOffchainPayments();
   }
 
   function testDisableOffchainPaymentsSuccess() public {
     deployAndSetConfigForSettleOffchain(AutoBase.PayoutMode.OFF_CHAIN);
 
-    vm.startPrank(registryMaster.owner());
-    registryMaster.disableOffchainPayments();
+    vm.startPrank(registry.owner());
+    registry.disableOffchainPayments();
 
-    assertEq(uint8(AutoBase.PayoutMode.ON_CHAIN), registryMaster.getPayoutMode());
+    assertEq(uint8(AutoBase.PayoutMode.ON_CHAIN), registry.getPayoutMode());
   }
 }
 
-contract AutomationRegistry2_3_WithdrawPayment is AutomationRegistry2_3_SetUp {
+contract WithdrawPayment is SetUp {
   function testWithdrawPaymentRevertDueToOffchainPayoutMode() public {
-    registryMaster = deployRegistry(AutoBase.PayoutMode.OFF_CHAIN);
+    registry = deployRegistry(AutoBase.PayoutMode.OFF_CHAIN);
     vm.expectRevert(abi.encodeWithSelector(IAutomationRegistryMaster2_3.MustSettleOffchain.selector));
     vm.prank(TRANSMITTERS[0]);
-    registryMaster.withdrawPayment(TRANSMITTERS[0], TRANSMITTERS[0]);
+    registry.withdrawPayment(TRANSMITTERS[0], TRANSMITTERS[0]);
   }
 }
