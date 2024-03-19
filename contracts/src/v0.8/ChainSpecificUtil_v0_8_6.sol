@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.6;
+pragma solidity 0.8.6;
 
 import {ArbSys} from "./vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
 import {ArbGasInfo} from "./vendor/@arbitrum/nitro-contracts/src/precompiles/ArbGasInfo.sol";

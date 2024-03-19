@@ -1,4 +1,4 @@
-pragma solidity ^0.8.6;
+pragma solidity 0.8.6;
 
 import "../BaseTest.t.sol";
 import {ChainSpecificUtil} from "../../../../src/v0.8/ChainSpecificUtil_v0_8_6.sol";
