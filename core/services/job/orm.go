@@ -1321,7 +1321,7 @@ func loadJobPipelineSpec(tx pg.Queryer, job *Job, id *int32) error {
 		return nil
 	}
 	err := tx.Get(
-		&job.PipelineSpec,
+		job.PipelineSpec,
 		`SELECT pipeline_specs.*
 			FROM pipeline_specs 
     		JOIN job_pipeline_specs ON(pipeline_specs.id = job_pipeline_specs.pipeline_spec_id)
