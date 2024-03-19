@@ -11,7 +11,13 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 )
 
-type Capability struct {
+type stepRequest struct {
+	executionID string
+	stepRef     string
+	state       executionState
+}
+
+type capabilityDefinition struct {
 	Type   string         `yaml:"type"`
 	Ref    string         `yaml:"ref"`
 	Inputs map[string]any `yaml:"inputs"`
@@ -19,14 +25,14 @@ type Capability struct {
 }
 
 type workflowSpec struct {
-	Triggers  []Capability `yaml:"triggers"`
-	Actions   []Capability `yaml:"actions"`
-	Consensus []Capability `yaml:"consensus"`
-	Targets   []Capability `yaml:"targets"`
+	Triggers  []capabilityDefinition `yaml:"triggers"`
+	Actions   []capabilityDefinition `yaml:"actions"`
+	Consensus []capabilityDefinition `yaml:"consensus"`
+	Targets   []capabilityDefinition `yaml:"targets"`
 }
 
-func (w *workflowSpec) steps() []Capability {
-	s := []Capability{}
+func (w *workflowSpec) steps() []capabilityDefinition {
+	s := []capabilityDefinition{}
 	s = append(s, w.Actions...)
 	s = append(s, w.Consensus...)
 	s = append(s, w.Targets...)
@@ -90,15 +96,15 @@ func (w *workflow) adjacentNodes(start string) ([]*node, error) {
 }
 
 type node struct {
-	Capability
-	dependencies     []string
-	cachedCapability capabilities.CallbackExecutable
-	cachedConfig     *values.Map
+	capabilityDefinition
+	dependencies []string
+	capability   capabilities.CallbackExecutable
+	config       *values.Map
 }
 
 type triggerCapability struct {
-	Capability
-	cachedTrigger capabilities.TriggerCapability
+	capabilityDefinition
+	trigger capabilities.TriggerCapability
 }
 
 const (
@@ -106,8 +112,8 @@ const (
 )
 
 func Parse(yamlWorkflow string) (*workflow, error) {
-	wfs := &workflowSpec{}
-	err := yaml.Unmarshal([]byte(yamlWorkflow), wfs)
+	spec := &workflowSpec{}
+	err := yaml.Unmarshal([]byte(yamlWorkflow), spec)
 	if err != nil {
 		return nil, err
 	}
@@ -116,6 +122,9 @@ func Parse(yamlWorkflow string) (*workflow, error) {
 	// empty graph with just one starting entry: `trigger`.
 	// This provides the starting point for our graph and
 	// points to all dependent nodes.
+	// Note: all triggers are represented by a single node called
+	// `trigger`. This is because for workflows with multiple triggers
+	// only one trigger will have started the workflow.
 	nodeHash := func(n *node) string {
 		return n.Ref
 	}
@@ -125,20 +134,25 @@ func Parse(yamlWorkflow string) (*workflow, error) {
 		graph.Directed(),
 	)
 	err = g.AddVertex(&node{
-		Capability: Capability{Ref: keywordTrigger},
+		capabilityDefinition: capabilityDefinition{Ref: keywordTrigger},
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	for _, s := range wfs.steps() {
+	// Next, let's populate the other entries in the graph.
+	for _, s := range spec.steps() {
+		// TODO: The workflow format spec doesn't always require a `Ref`
+		// to be provided (triggers and targets don't have a `Ref` for example).
+		// To handle this, we default the `Ref` to the type, but ideally we
+		// should find a better long-term way to handle this.
 		if s.Ref == "" {
 			s.Ref = s.Type
 		}
 
-		err := g.AddVertex(&node{Capability: s})
-		if err != nil {
-			return nil, fmt.Errorf("cannot add vertex %s: %w", s.Ref, err)
+		innerErr := g.AddVertex(&node{capabilityDefinition: s})
+		if innerErr != nil {
+			return nil, fmt.Errorf("cannot add vertex %s: %w", s.Ref, innerErr)
 		}
 	}
 
@@ -146,10 +160,13 @@ func Parse(yamlWorkflow string) (*workflow, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// Next, let's iterate over the nodes and populate
+	// any edges.
 	for nodeRef := range nodeRefs {
-		node, err := g.Vertex(nodeRef)
-		if err != nil {
-			return nil, err
+		node, innerErr := g.Vertex(nodeRef)
+		if innerErr != nil {
+			return nil, innerErr
 		}
 
 		refs, innerErr := findRefs(node.Inputs)
@@ -159,21 +176,21 @@ func Parse(yamlWorkflow string) (*workflow, error) {
 		node.dependencies = refs
 
 		for _, r := range refs {
-			err = g.AddEdge(r, node.Ref)
-			if err != nil {
-				return nil, err
+			innerErr = g.AddEdge(r, node.Ref)
+			if innerErr != nil {
+				return nil, innerErr
 			}
 		}
 	}
 
 	triggerNodes := []*triggerCapability{}
-	for _, t := range wfs.Triggers {
+	for _, t := range spec.Triggers {
 		triggerNodes = append(triggerNodes, &triggerCapability{
-			Capability: t,
+			capabilityDefinition: t,
 		})
 	}
 	wf := &workflow{
-		spec:     wfs,
+		spec:     spec,
 		Graph:    g,
 		triggers: triggerNodes,
 	}

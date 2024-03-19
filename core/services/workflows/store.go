@@ -6,16 +6,19 @@ import (
 	"sync"
 )
 
-type store struct {
+// `inMemoryStore` is a temporary in-memory
+// equivalent of the database table that should persist
+// workflow progress.
+type inMemoryStore struct {
 	idToState map[string]*executionState
 	mu        sync.RWMutex
 }
 
-func newStore() *store {
-	return &store{idToState: map[string]*executionState{}}
+func newInMemoryStore() *inMemoryStore {
+	return &inMemoryStore{idToState: map[string]*executionState{}}
 }
 
-func (s *store) add(ctx context.Context, state *executionState) error {
+func (s *inMemoryStore) add(ctx context.Context, state *executionState) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	_, ok := s.idToState[state.executionID]
@@ -27,7 +30,7 @@ func (s *store) add(ctx context.Context, state *executionState) error {
 	return nil
 }
 
-func (s *store) updateStep(ctx context.Context, step *stepState) (executionState, error) {
+func (s *inMemoryStore) updateStep(ctx context.Context, step *stepState) (executionState, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	state, ok := s.idToState[step.executionID]
@@ -39,7 +42,7 @@ func (s *store) updateStep(ctx context.Context, step *stepState) (executionState
 	return *state, nil
 }
 
-func (s *store) updateStatus(ctx context.Context, executionID string, status string) error {
+func (s *inMemoryStore) updateStatus(ctx context.Context, executionID string, status string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	state, ok := s.idToState[executionID]

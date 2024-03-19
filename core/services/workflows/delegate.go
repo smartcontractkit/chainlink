@@ -26,39 +26,39 @@ triggers:
         
 consensus:
   - type: "offchain_reporting"
-    ref: evm_median
+    ref: "evm_median"
     inputs:
       observations:
-        - $(trigger.outputs)
+        - "$(trigger.outputs)"
     config:
-      aggregation_method: data_feeds_2_0
+      aggregation_method: "data_feeds_2_0"
       aggregation_config:
-        0x1111111111111111111100000000000000000000000000000000000000000000:
+        "0x1111111111111111111100000000000000000000000000000000000000000000":
           deviation: "0.001"
           heartbeat: "30m"
-        0x2222222222222222222200000000000000000000000000000000000000000000:
+        "0x2222222222222222222200000000000000000000000000000000000000000000":
           deviation: "0.001"
           heartbeat: "30m"
-        0x3333333333333333333300000000000000000000000000000000000000000000:
+        "0x3333333333333333333300000000000000000000000000000000000000000000":
           deviation: "0.001"
           heartbeat: "30m"
-      encoder: EVM
+      encoder: "EVM"
       encoder_config:
         abi: "mercury_reports bytes[]"
 
 targets:
-  - type: write_polygon-testnet-mumbai
+  - type: "write_polygon-testnet-mumbai"
     inputs:
       report:
-        - $(evm_median.outputs.reports)
+        - "$(evm_median.outputs.reports)"
     config:
       address: "0x3F3554832c636721F1fD1822Ccca0354576741Ef"
-      params: [($inputs.report)]
+      params: ["$(inputs.report)"]
       abi: "receive(report bytes)"
-  - type: write_ethereum-testnet-sepolia
+  - type: "write_ethereum-testnet-sepolia"
     inputs:
       report:
-        - $(evm_median.outputs.reports)
+        - "$(evm_median.outputs.reports)"
     config:
       address: "0x54e220867af6683aE6DcBF535B4f952cB5116510"
       params: ["$(inputs.report)"]

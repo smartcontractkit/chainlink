@@ -148,6 +148,44 @@ targets:
 `,
 			errMsg: "source vertex missing-action: vertex not found",
 		},
+		{
+			name: "two trigger nodes",
+			yaml: `
+triggers:
+  - type: "a-trigger"
+  - type: "a-second-trigger"
+
+actions:
+  - type: "an-action"
+    ref: "an-action"
+    inputs:
+      trigger_output: $(trigger.outputs)
+
+consensus:
+  - type: "a-consensus"
+    ref: "a-consensus"
+    inputs:
+      an-action_output: $(an-action.outputs)
+
+targets:
+  - type: "a-target"
+    ref: "a-target"
+    inputs:
+      consensus_output: $(a-consensus.outputs)
+`,
+			graph: map[string]map[string]struct{}{
+				keywordTrigger: {
+					"an-action": struct{}{},
+				},
+				"an-action": {
+					"a-consensus": struct{}{},
+				},
+				"a-consensus": {
+					"a-target": struct{}{},
+				},
+				"a-target": {},
+			},
+		},
 	}
 
 	for _, tc := range testCases {

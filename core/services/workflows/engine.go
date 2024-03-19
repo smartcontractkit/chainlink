@@ -24,26 +24,22 @@ const (
 
 type Engine struct {
 	services.StateMachine
-	logger       logger.Logger
-	registry     types.CapabilitiesRegistry
-	workflow     *workflow
-	store        *store
-	queue        *queue[stepRequest]
-	callbackCh   chan capabilities.CapabilityResponse
-	newWorkerCh  chan struct{}
-	stepUpdateCh chan stepState
-	wg           sync.WaitGroup
-	stopCh       services.StopChan
+	logger        logger.Logger
+	registry      types.CapabilitiesRegistry
+	workflow      *workflow
+	store         *inMemoryStore
+	queue         chan stepRequest
+	triggerEvents chan capabilities.CapabilityResponse
+	newWorkerCh   chan struct{}
+	stepUpdateCh  chan stepState
+	wg            sync.WaitGroup
+	stopCh        services.StopChan
 }
 
 func (e *Engine) Start(ctx context.Context) error {
 	return e.StartOnce("Engine", func() error {
 		// create a new context, since the one passed in via Start is short-lived.
 		ctx, _ := e.stopCh.NewCtx()
-
-		// queue.start will add to the wg and
-		// spin off a goroutine.
-		e.queue.start(ctx, &e.wg)
 
 		e.wg.Add(2)
 		go e.init(ctx)
@@ -68,13 +64,14 @@ LOOP:
 			return
 		case <-ticker.C:
 			for _, t := range e.workflow.triggers {
-				cp, err := e.registry.GetTrigger(ctx, t.Type)
+				tg, err := e.registry.GetTrigger(ctx, t.Type)
 				if err != nil {
 					initSuccessful = false
 					e.logger.Errorf("failed to get trigger capability: %s, retrying in %d seconds", err, retrySec)
-				} else {
-					t.cachedTrigger = cp
+					continue
 				}
+
+				t.trigger = tg
 			}
 
 			err := e.workflow.walkDo(keywordTrigger, func(n *node) error {
@@ -84,7 +81,7 @@ LOOP:
 					return nil
 				}
 
-				if n.cachedCapability != nil {
+				if n.capability != nil {
 					return nil
 				}
 
@@ -98,19 +95,19 @@ LOOP:
 					return fmt.Errorf("could not coerce capability %s to CallbackExecutable", n.Type)
 				}
 
-				if n.cachedConfig == nil {
+				if n.config == nil {
 					configMap, ierr := values.NewMap(n.Config)
-					if innerErr != nil {
+					if ierr != nil {
 						return fmt.Errorf("failed to convert config to values.Map: %s", ierr)
 					}
-					n.cachedConfig = configMap
+					n.config = configMap
 				}
 
 				reg := capabilities.RegisterToWorkflowRequest{
 					Metadata: capabilities.RegistrationMetadata{
 						WorkflowID: mockedWorkflowID,
 					},
-					Config: n.cachedConfig,
+					Config: n.config,
 				}
 
 				innerErr = cc.RegisterToWorkflow(ctx, reg)
@@ -118,7 +115,7 @@ LOOP:
 					return fmt.Errorf("failed to register to workflow: %+v", reg)
 				}
 
-				n.cachedCapability = cc
+				n.capability = cc
 				return nil
 			})
 			if err != nil {
@@ -165,7 +162,7 @@ func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability) erro
 		Config: tc,
 		Inputs: triggerInputs,
 	}
-	err = t.cachedTrigger.RegisterTrigger(ctx, e.callbackCh, triggerRegRequest)
+	err = t.trigger.RegisterTrigger(ctx, e.triggerEvents, triggerRegRequest)
 	if err != nil {
 		return fmt.Errorf("failed to instantiate trigger %s, %s", t.Type, err)
 	}
@@ -190,7 +187,7 @@ func (e *Engine) loop(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
-		case resp := <-e.callbackCh:
+		case resp := <-e.triggerEvents:
 			if resp.Err != nil {
 				e.logger.Errorf("trigger event was an error; not executing", resp.Err)
 				continue
@@ -200,7 +197,7 @@ func (e *Engine) loop(ctx context.Context) {
 			if err != nil {
 				e.logger.Errorf("failed to start execution: %w", err)
 			}
-		case dm := <-e.queue.out:
+		case dm := <-e.queue:
 			<-e.newWorkerCh
 			e.wg.Add(1)
 			go e.workerForStep(ctx, dm)
@@ -244,7 +241,7 @@ func (e *Engine) startExecution(ctx context.Context, event values.Value) error {
 
 	for _, node := range an {
 		e.logger.Debugw("step request enqueued", "ref", node.Ref, "executionID", executionID)
-		e.queue.in <- stepRequest{state: copyState(*ec), stepRef: node.Ref}
+		e.queue <- stepRequest{state: copyState(*ec), stepRef: node.Ref}
 	}
 
 	return nil
@@ -307,7 +304,7 @@ func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate stepState) err
 			}
 
 			if !anyNotCompleted {
-				e.queue.in <- stepRequest{
+				e.queue <- stepRequest{
 					state:   copyState(state),
 					stepRef: node.Ref,
 				}
@@ -368,14 +365,14 @@ func (e *Engine) handleStep(ctx context.Context, msg stepRequest) (*values.Map, 
 
 	tr := capabilities.CapabilityRequest{
 		Inputs: inputs,
-		Config: node.cachedConfig,
+		Config: node.config,
 		Metadata: capabilities.RequestMetadata{
 			WorkflowID:          msg.state.workflowID,
 			WorkflowExecutionID: msg.state.executionID,
 		},
 	}
 
-	resp, err := capabilities.ExecuteSync(ctx, node.cachedCapability, tr)
+	resp, err := capabilities.ExecuteSync(ctx, node.capability, tr)
 	if err != nil {
 		return inputs, nil, err
 	}
@@ -404,7 +401,7 @@ func (e *Engine) deregisterTrigger(ctx context.Context, t *triggerCapability) er
 		},
 		Inputs: triggerInputs,
 	}
-	return t.cachedTrigger.UnregisterTrigger(context.Background(), deregRequest)
+	return t.trigger.UnregisterTrigger(context.Background(), deregRequest)
 }
 
 func (e *Engine) Close() error {
@@ -433,10 +430,10 @@ func (e *Engine) Close() error {
 				Metadata: capabilities.RegistrationMetadata{
 					WorkflowID: mockedWorkflowID,
 				},
-				Config: n.cachedConfig,
+				Config: n.config,
 			}
 
-			innerErr := n.cachedCapability.UnregisterFromWorkflow(ctx, reg)
+			innerErr := n.capability.UnregisterFromWorkflow(ctx, reg)
 			if innerErr != nil {
 				return fmt.Errorf("failed to unregister from workflow: %+v", reg)
 			}
@@ -456,15 +453,21 @@ type Config struct {
 	Lggr           logger.Logger
 	Registry       types.CapabilitiesRegistry
 	MaxWorkerLimit int
+	QueueSize      int
 }
 
 const (
 	defaultWorkerLimit = 100
+	defaultQueueSize   = 100000
 )
 
 func NewEngine(cfg Config) (engine *Engine, err error) {
 	if cfg.MaxWorkerLimit == 0 {
 		cfg.MaxWorkerLimit = defaultWorkerLimit
+	}
+
+	if cfg.QueueSize == 0 {
+		cfg.QueueSize = defaultQueueSize
 	}
 	// TODO: validation of the workflow spec
 	// We'll need to check, among other things:
@@ -485,15 +488,15 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 	}
 
 	engine = &Engine{
-		logger:       cfg.Lggr.Named("WorkflowEngine"),
-		registry:     cfg.Registry,
-		workflow:     workflow,
-		store:        newStore(),
-		queue:        newQueue[stepRequest](),
-		newWorkerCh:  newWorkerCh,
-		stepUpdateCh: make(chan stepState),
-		callbackCh:   make(chan capabilities.CapabilityResponse),
-		stopCh:       make(chan struct{}),
+		logger:        cfg.Lggr.Named("WorkflowEngine"),
+		registry:      cfg.Registry,
+		workflow:      workflow,
+		store:         newInMemoryStore(),
+		queue:         make(chan stepRequest, cfg.QueueSize),
+		newWorkerCh:   newWorkerCh,
+		stepUpdateCh:  make(chan stepState),
+		triggerEvents: make(chan capabilities.CapabilityResponse),
+		stopCh:        make(chan struct{}),
 	}
 	return engine, nil
 }
