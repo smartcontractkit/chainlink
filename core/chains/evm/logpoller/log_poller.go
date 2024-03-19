@@ -366,6 +366,23 @@ func (lp *logPoller) Replay(ctx context.Context, fromBlock int64) error {
 	if fromBlock < 1 || fromBlock > latest.Number {
 		return pkgerrors.Errorf("Invalid replay block number %v, acceptable range [1, %v]", fromBlock, latest.Number)
 	}
+
+	// Backfill all logs up to the current finalized block outside the LogPoller's main loop.
+	latestProcessed, err := lp.LatestBlock(ctx)
+	if err != nil {
+		return err
+	}
+	// Do the replay of finalized blocks outside the main loop.
+	if fromBlock <= latestProcessed.FinalizedBlockNumber {
+		err = lp.backfill(ctx, fromBlock, latestProcessed.FinalizedBlockNumber)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Backfill everything after latest finalized block in main loop to avoid concurrent writes during reorg
+	// We assume that number of logs between latest finalized and current head is small enough to be processed in main loop
+	fromBlock = mathutil.Max(fromBlock, latestProcessed.FinalizedBlockNumber+1)
 	// Block until replay notification accepted or cancelled.
 	select {
 	case lp.replayStart <- fromBlock:
