@@ -23,7 +23,6 @@ import (
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_upkeep_counter_wrapper"
@@ -702,7 +701,7 @@ func setupDependencies(t *testing.T, db *sqlx.DB, backend *backends.SimulatedBac
 	return lp, ethClient
 }
 
-func setup(lggr logger.Logger, poller logpoller.LogPoller, c client.Client, stateStore evmregistry21.UpkeepStateReader, filterStore logprovider.UpkeepFilterStore, opts *logprovider.LogTriggersOptions) (logprovider.LogEventProvider, logprovider.LogRecoverer) {
+func setup(lggr logger.Logger, poller logpoller.LogPoller, c evmclient.Client, stateStore evmregistry21.UpkeepStateReader, filterStore logprovider.UpkeepFilterStore, opts *logprovider.LogTriggersOptions) (logprovider.LogEventProvider, logprovider.LogRecoverer) {
 	packer := logprovider.NewLogEventsPacker()
 	if opts == nil {
 		o := logprovider.NewOptions(200)
