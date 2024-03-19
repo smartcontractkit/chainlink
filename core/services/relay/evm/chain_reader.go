@@ -385,7 +385,7 @@ func remapQueryKeyByValuesFilters(key string, values []string, eventIndexBinding
 		logFilters = append(logFilters, logFilter)
 	}
 
-	return commontypes.Where(append(logFilters, NewEventByIndexFilter(address, values, eventSig, topicIndex))...), nil
+	return commontypes.Where(append(logFilters, NewEventByIndexFilter(address, values, eventSig, topicIndex))...)
 }
 
 // remapExpression, changes some chain agnostic filters to match evm specific filters.
@@ -395,11 +395,11 @@ func remapExpression(expression commontypes.Expression) (commontypes.Expression,
 		for _, expr := range expression.BooleanExpression.Expressions {
 			remappedFilter, err := remapExpression(expr)
 			if err != nil {
-				return commontypes.Expression{}, err
+				return commontypes.Expression{}, nil
 			}
 			remappedExpressions = append(remappedExpressions, remappedFilter)
 		}
-		return commontypes.NewBooleanExpression(expression.BooleanExpression.BooleanOperator, remappedExpressions)
+		return commontypes.NewBooleanExpression(expression.BooleanExpression.BooleanOperator, remappedExpressions...), nil
 	} else {
 		switch primitive := expression.Primitive.(type) {
 		case *commontypes.ConfirmationsFilter:
