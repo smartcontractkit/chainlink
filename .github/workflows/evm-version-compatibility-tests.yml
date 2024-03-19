@@ -1,4 +1,4 @@
-name: CCIP Latest EVM Node Compatibility Tests
+name: EVM Node Version Compatibility Tests
 on:
   push:
     tags:
