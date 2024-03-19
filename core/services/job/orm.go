@@ -459,6 +459,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 		if err != nil {
 			return errors.Wrap(err, "failed to insert job")
 		}
+		jobID = jb.ID
 		return nil
 	})
 	if err != nil {
@@ -561,17 +562,15 @@ func (o *orm) InsertJob(job *Job, qopts ...pg.QOpt) error {
 		return err
 	}
 
-	jobID := job.ID
-
 	// Prevents trying to insert a PRIMARY job_pipeline_specs record when one already exists
 	// If none exists, it will insert a PRIMARY record
 	var alreadyHasPrimary bool
-	err = q.Get(&alreadyHasPrimary, `SELECT EXISTS (SELECT 1 FROM job_pipeline_specs WHERE job_id = $1 AND is_primary = true)`, jobID)
+	err = q.Get(&alreadyHasPrimary, `SELECT EXISTS (SELECT 1 FROM job_pipeline_specs WHERE job_id = $1 AND is_primary = true)`, job.ID)
 	if err != nil {
 		return errors.Wrap(err, "failed to check for existing primary job_pipeline_specs record")
 	}
 	sqlStmt := `INSERT INTO job_pipeline_specs (job_id, pipeline_spec_id, is_primary) VALUES ($1, $2, $3)`
-	_, err = q.Exec(sqlStmt, jobID, job.PipelineSpecID, !alreadyHasPrimary)
+	_, err = q.Exec(sqlStmt, job.ID, job.PipelineSpecID, !alreadyHasPrimary)
 	return errors.Wrap(err, "failed to insert job_pipeline_specs relationship")
 }
 
