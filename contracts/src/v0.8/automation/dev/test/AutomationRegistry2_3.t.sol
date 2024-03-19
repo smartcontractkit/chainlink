@@ -3,8 +3,10 @@ pragma solidity 0.8.19;
 
 import {BaseTest} from "./BaseTest.t.sol";
 import {AutomationRegistryBase2_3 as AutoBase} from "../v2_3/AutomationRegistryBase2_3.sol";
+import {AutomationRegistrar2_3} from "../v2_3/AutomationRegistrar2_3.sol";
 import {IAutomationRegistryMaster2_3, AutomationRegistryBase2_3} from "../interfaces/v2_3/IAutomationRegistryMaster2_3.sol";
 import {ChainModuleBase} from "../../chains/ChainModuleBase.sol";
+import {MockUpkeep} from "../../mocks/MockUpkeep.sol";
 
 // forge test --match-path src/v0.8/automation/dev/test/AutomationRegistry2_3.t.sol
 
@@ -12,6 +14,11 @@ contract AutomationRegistry2_3_SetUp is BaseTest {
   address[] internal s_registrars;
 
   IAutomationRegistryMaster2_3 internal registryMaster;
+
+  function _registerUpkeep(address mockERC20) internal returns (uint256 id) {
+    MockUpkeep mock = new MockUpkeep();
+    return registryMaster.registerUpkeep(address(mock), 1000000, UPKEEP_ADMIN, 0, mockERC20, "", "", "");
+  }
 
   function setUp() public override {
     super.setUp();
@@ -595,6 +602,33 @@ contract AutomationRegistry2_3_NOPsSettlement is AutomationRegistry2_3_SetUp {
 
   function testSettleNOPsOffchainSuccess() public {
     deployAndSetConfigForSettleOffchain(AutoBase.PayoutMode.OFF_CHAIN);
+
+    uint256[] memory balances = new uint256[](TRANSMITTERS.length);
+    for (uint256 i = 0; i < TRANSMITTERS.length; i++) {
+      balances[i] = 0;
+    }
+
+    vm.startPrank(FINANCE_ADMIN);
+    vm.expectEmit();
+    emit NOPsSettledOffchain(TRANSMITTERS, balances);
+    registryMaster.settleNOPsOffchain();
+  }
+
+  function testSettleNOPsOffchainSuccess1() public {
+    (IAutomationRegistryMaster2_3 registryMaster, AutomationRegistrar2_3 registrar) = deployAndConfigureAll(AutoBase.PayoutMode.OFF_CHAIN);
+
+    MockUpkeep mock = new MockUpkeep();
+    mock.setCheckResult(true);
+
+    uint256 id = registryMaster.registerUpkeep(address(mock), 1000000, UPKEEP_ADMIN, 0, address(mockERC20), "", "", "");
+    mintERC20(address(registryMaster), 1e10);
+    registryMaster.addFunds(id, );
+
+    (, , bytes32 configDigest) = registryMaster.latestConfigDetails();
+    AutoBase.ConditionalTrigger memory trigger = AutoBase.ConditionalTrigger(uint32(block.number), blockhash(block.number));
+    AutoBase.Report memory report = AutoBase.Report(
+
+    );
 
     uint256[] memory balances = new uint256[](TRANSMITTERS.length);
     for (uint256 i = 0; i < TRANSMITTERS.length; i++) {

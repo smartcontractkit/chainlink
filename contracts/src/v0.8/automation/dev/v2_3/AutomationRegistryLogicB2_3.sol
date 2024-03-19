@@ -409,6 +409,13 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3 {
   }
 
   /**
+   * @notice gets the number of upkeeps on the registry
+   */
+  function getNumUpkeeps() external view returns (uint256) {
+    return s_upkeepIDs.length();
+  }
+
+  /**
    * @notice read all of the details about an upkeep
    * @dev this function may be deprecated in a future version of automation in favor of individual
    * getters for each field
