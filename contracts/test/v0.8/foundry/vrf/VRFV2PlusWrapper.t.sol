@@ -332,4 +332,22 @@ contract VRFV2PlusWrapperTest is BaseTest {
     );
     s_consumer.makeRequest(callbackGasLimit, 0, 1);
   }
+
+  function testRequestRandomWordsInNative_NotConfigured() public {
+    VRFV2PlusWrapper wrapper = new VRFV2PlusWrapper(
+      address(s_linkToken),
+      address(s_linkNativeFeed),
+      address(s_testCoordinator)
+    );
+
+    vm.expectRevert("wrapper is not configured");
+    wrapper.requestRandomWordsInNative(500_000, 0, 1, "");
+  }
+
+  function testRequestRandomWordsInNative_Disabled() public {
+    s_wrapper.disable();
+
+    vm.expectRevert("wrapper is disabled");
+    s_wrapper.requestRandomWordsInNative(500_000, 0, 1, "");
+  }
 }
