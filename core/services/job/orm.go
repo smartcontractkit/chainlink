@@ -1320,8 +1320,12 @@ func loadJobPipelineSpec(tx pg.Queryer, job *Job, id *int32) error {
 	if id == nil {
 		return nil
 	}
+	pipelineSpecRow := new(pipeline.Spec)
+	if job.PipelineSpec != nil {
+		pipelineSpecRow = job.PipelineSpec
+	}
 	err := tx.Get(
-		job.PipelineSpec,
+		pipelineSpecRow,
 		`SELECT pipeline_specs.*
 			FROM pipeline_specs 
     		JOIN job_pipeline_specs ON(pipeline_specs.id = job_pipeline_specs.pipeline_spec_id)
@@ -1331,6 +1335,7 @@ func loadJobPipelineSpec(tx pg.Queryer, job *Job, id *int32) error {
 	if err != nil {
 		return errors.Wrapf(err, "failed to load job type PipelineSpec with id %d", *id)
 	}
+	job.PipelineSpec = pipelineSpecRow
 	return nil
 }
 
