@@ -75,10 +75,15 @@ func (e *EventIndexBindings) DecodeLogsIntoSequences(ctx context.Context, key st
 	var sequences []commontypes.Sequence
 	for _, log := range logs {
 		sequence := commontypes.Sequence{
-			// TODO SequenceCursor
+			// TODO SequenceCursor, should be combination of block, eventsig, topic ...
 			SequenceCursor: "TODO",
-			Timestamp:      uint64(log.BlockTimestamp.Unix()),
-			Data:           reflect.New(reflect.TypeOf(into).Elem()),
+			Head: commontypes.Head{
+				Number:    uint64(log.BlockNumber),
+				Hash:      log.BlockHash.Bytes(),
+				Timestamp: uint64(log.BlockTimestamp.Unix()),
+			},
+			// TODO test this
+			Data: reflect.New(reflect.TypeOf(into).Elem()),
 		}
 
 		if err := binding.decodeLog(ctx, log, sequence.Data); err != nil {
@@ -94,6 +99,7 @@ func (e *EventIndexBindings) DecodeLogsIntoSequences(ctx context.Context, key st
 type eventIndexBinding struct {
 	*eventBinding
 	topicIndex int
+	// TODO introduce key to evm words mapping, so that words can be queried by keys.
 }
 
 func (e *eventBinding) SetCodec(codec commontypes.RemoteCodec) {

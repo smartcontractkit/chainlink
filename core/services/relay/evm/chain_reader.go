@@ -34,7 +34,7 @@ type chainReader struct {
 	lp               logpoller.LogPoller
 	client           evmclient.Client
 	contractBindings contractBindings
-	// TODO merge with contract bindings somehow
+	// TODO merge with contract bindings somehow, or leave as a standalone thing?
 	eventIndexBindings EventIndexBindings
 	parsed             *parsedTypes
 	codec              commontypes.RemoteCodec
@@ -148,7 +148,7 @@ func (cr *chainReader) QueryKeysByValues(ctx context.Context, keys []string, val
 		}
 		sequencesMatrix = append(sequencesMatrix, sequences)
 	}
-	
+
 	return sequencesMatrix, nil
 }
 
