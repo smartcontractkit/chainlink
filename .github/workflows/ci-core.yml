@@ -1,7 +1,8 @@
 name: CI Core
+run-name: CI Core ${{ inputs.distinct_run_name && inputs.distinct_run_name || '' }}
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.distinct_run_name }}
   cancel-in-progress: true
 
 # Run on key branches to make sure integration is good, otherwise run on all PR's
@@ -15,6 +16,17 @@ on:
   pull_request:
   schedule:
     - cron: "0 0 * * *"
+  workflow_dispatch:
+    inputs:
+      distinct_run_name:
+        description: 'A unique identifier for this run, used when running from other repos'
+        required: false
+        type: string
+      evm-ref:
+        description: The chainlink-evm reference to use when testing against a specific version for compatibliity
+        required: false
+        default: ""
+        type: string
 
 jobs:
 
@@ -23,7 +35,7 @@ jobs:
     permissions:
       pull-requests: read
     outputs:
-      changes: ${{ steps.changes.outputs.changes }}
+      changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.changes }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
@@ -36,6 +48,10 @@ jobs:
           filters: |
             changes:
               - '!integration-tests/**'
+      - name: Ignore Filter On Workflow Dispatch
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        id: ignore-filter
+        run: echo "changes=true" >> $GITHUB_OUTPUT
 
   golangci:
     # We don't directly merge dependabot PRs, so let's not waste the resources
@@ -102,6 +118,10 @@ jobs:
       - name: Download Go vendor packages
         if: ${{ needs.filter.outputs.changes == 'true' }}
         run: go mod download
+      - name: Replace chainlink-evm deps
+        if: ${{ needs.filter.outputs.changes == 'true' && inputs.evm-ref != ''}}
+        shell: bash
+        run: go get github.com/smartcontractkit/chainlink-evm@${{ inputs.evm-ref }}
       - name: Build binary
         if: ${{ needs.filter.outputs.changes == 'true' }}
         run: go build -o chainlink.test .
@@ -209,6 +229,10 @@ jobs:
       - name: Download Go vendor packages 
         if: ${{ needs.filter.outputs.changes == 'true' }}
         run: go mod download
+      - name: Replace chainlink-evm deps
+        if: ${{ needs.filter.outputs.changes == 'true' && inputs.evm-ref != ''}}
+        shell: bash
+        run: go get github.com/smartcontractkit/chainlink-evm@${{ inputs.evm-ref }}
       - name: Build binary
         if: ${{ needs.filter.outputs.changes == 'true' }}
         run: go build -o chainlink.test .
