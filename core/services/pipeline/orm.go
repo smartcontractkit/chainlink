@@ -586,7 +586,19 @@ func loadAssociations(q pg.Queryer, runs []*Run) error {
 			pipelineSpecIDM[run.PipelineSpecID] = Spec{}
 		}
 	}
-	if err := q.Select(&specs, `SELECT ps.id, ps.dot_dag_source, ps.created_at, ps.max_task_duration, coalesce(jobs.id, 0) "job_id", coalesce(jobs.name, '') "job_name", coalesce(jobs.type, '') "job_type" FROM pipeline_specs ps LEFT OUTER JOIN jobs ON jobs.pipeline_spec_id=ps.id WHERE ps.id = ANY($1)`, pipelineSpecIDs); err != nil {
+	sqlQuery := `SELECT
+			ps.id,
+			ps.dot_dag_source,
+			ps.created_at,
+			ps.max_task_duration,
+			coalesce(jobs.id, 0) "job_id",
+			coalesce(jobs.name, '') "job_name",
+			coalesce(jobs.type, '') "job_type"
+		FROM pipeline_specs ps
+		LEFT JOIN job_pipeline_specs jps ON jps.pipeline_spec_id=ps.id
+		LEFT JOIN jobs ON jobs.id=ps.jps.job_id
+		WHERE ps.id = ANY($1)`
+	if err := q.Select(&specs, sqlQuery, pipelineSpecIDs); err != nil {
 		return errors.Wrap(err, "failed to postload pipeline_specs for runs")
 	}
 	for _, spec := range specs {
