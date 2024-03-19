@@ -853,6 +853,7 @@ type JobPipeline struct {
 	ReaperInterval            *commonconfig.Duration
 	ReaperThreshold           *commonconfig.Duration
 	ResultWriteQueueDepth     *uint32
+	VerboseLogging      *bool
 
 	HTTPRequest JobPipelineHTTPRequest `toml:",omitempty"`
 }
@@ -875,6 +876,9 @@ func (j *JobPipeline) setFrom(f *JobPipeline) {
 	}
 	if v := f.ResultWriteQueueDepth; v != nil {
 		j.ResultWriteQueueDepth = v
+	}
+	if v := f.VerboseLogging; v != nil {
+		j.VerboseLogging = v
 	}
 	j.HTTPRequest.setFrom(&f.HTTPRequest)
 
