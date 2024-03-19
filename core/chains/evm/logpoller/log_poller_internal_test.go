@@ -76,14 +76,14 @@ func TestLogPoller_RegisterFilter(t *testing.T) {
 	// We expect empty list of reqs if nothing registered yet.
 	reqs := lp.EthGetLogsReqs(nil, nil, nil)
 	require.Len(t, reqs, 0)
-	topics1 := [][]common.Hash{{EmitterABI.Events["Log1"].ID}, nil, nil, nil}
-	topics2 := [][]common.Hash{{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}, nil, nil, nil}
+	topics1 := [][]common.Hash{{EmitterABI.Events["Log1"].ID}}
+	topics2 := [][]common.Hash{{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}}
 	err := lp.RegisterFilter(ctx, Filter{Name: "Emitter Log 1, address 1", EventSigs: topics1[0], Addresses: []common.Address{a1}})
 	require.NoError(t, err)
 	reqs = lp.EthGetLogsReqs(nil, nil, nil)
 	require.Len(t, reqs, 1)
 	assert.Equal(t, []common.Address{a1}, reqs[0].Addresses())
-	assert.Equal(t, [][]common.Hash{{EmitterABI.Events["Log1"].ID}, nil, nil, nil}, reqs[0].Topics())
+	assert.Equal(t, [][]common.Hash{{EmitterABI.Events["Log1"].ID}}, reqs[0].Topics())
 	validateFiltersTable(t, lp, orm)
 
 	err = lp.RegisterFilter(ctx, Filter{Name: "Emitter Log 1 + 2, address 2", EventSigs: topics2[0], Addresses: []common.Address{a2}})
@@ -130,7 +130,7 @@ func TestLogPoller_RegisterFilter(t *testing.T) {
 	reqs = lp.EthGetLogsReqs(nil, nil, nil)
 	require.Len(t, reqs, 3)
 	assert.Equal(t, []common.Address{a1}, reqs[1].Addresses())
-	assert.Equal(t, [][]common.Hash{{topics2[0][1]}, nil, nil, nil}, reqs[1].Topics())
+	assert.Equal(t, [][]common.Hash{{topics2[0][1]}}, reqs[1].Topics())
 	validateFiltersTable(t, lp, orm)
 
 	// Address required.
@@ -588,8 +588,8 @@ func Test_GetLogsReqHelpers(t *testing.T) {
 	filter1 := Filter{
 		Name:      "filter1",
 		Addresses: evmtypes.AddressArray{testutils.NewAddress()},
-		EventSigs: evmtypes.HashArray{EmitterABI.Events["Log1"].ID},
-		Topic2:    nil,
+		EventSigs: evmtypes.HashArray{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID},
+		Topic2:    []common.Hash{EmitterABI.Events["Log3"].ID, EmitterABI.Events["Log4"].ID},
 	}
 
 	blockHash := common.HexToHash("0x1234")
@@ -601,8 +601,8 @@ func Test_GetLogsReqHelpers(t *testing.T) {
 		toBlock   *big.Int
 		blockHash *common.Hash
 	}{
-		{"basic", filter1, big.NewInt(5), big.NewInt(10), nil},
-		{"b", filter1, nil, nil, &blockHash},
+		{"block range", filter1, big.NewInt(5), big.NewInt(10), nil},
+		{"block hash", filter1, nil, nil, &blockHash},
 	}
 
 	for _, c := range testCases {
@@ -614,11 +614,8 @@ func Test_GetLogsReqHelpers(t *testing.T) {
 			assert.Equal(t, c.filter.Addresses, evmtypes.AddressArray(req.Addresses()))
 			assert.Equal(t, c.filter.EventSigs, evmtypes.HashArray(req.Topics()[0]))
 			assert.Equal(t, c.filter.Topic2, evmtypes.HashArray(req.Topics()[1]))
-			assert.Equal(t, c.filter.Topic3, evmtypes.HashArray(req.Topics()[2]))
-			assert.Equal(t, c.filter.Topic4, evmtypes.HashArray(req.Topics()[3]))
-
 		})
-		t.Run("appendAddressesToGetLogsRec", func(t *testing.T) {
+		t.Run("mergeAddressesIntoGetLogsReq", func(t *testing.T) {
 			newAddresses := []common.Address{testutils.NewAddress(), testutils.NewAddress()}
 			mergeAddressesIntoGetLogsReq(req, newAddresses)
 			assert.Len(t, req.Addresses(), len(c.filter.Addresses)+2)

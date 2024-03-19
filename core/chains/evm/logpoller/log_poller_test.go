@@ -168,7 +168,7 @@ func TestLogPoller_Integration(t *testing.T) {
 	req := reqs[0]
 	require.Len(t, req.Addresses(), 1)
 	topics := req.Topics()
-	require.Len(t, topics, 4)
+	require.Len(t, topics, 1)
 	require.Len(t, topics[0], 1)
 
 	// Emit some logs in blocks 3->7.

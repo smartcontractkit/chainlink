@@ -70,9 +70,17 @@ type LogPoller interface {
 type GetLogsBatchElem rpc.BatchElem
 
 func NewGetLogsReq(filter Filter) *GetLogsBatchElem {
+	var topics [][]common.Hash
+
+	for _, topic := range [][]common.Hash{filter.EventSigs, filter.Topic2, filter.Topic3, filter.Topic4} {
+		if topic != nil {
+			topics = append(topics, topic)
+		}
+	}
+
 	params := map[string]interface{}{
 		"address": []common.Address(filter.Addresses),
-		"topics":  [][]common.Hash{filter.EventSigs, filter.Topic2, filter.Topic3, filter.Topic4},
+		"topics":  topics,
 	}
 
 	return &GetLogsBatchElem{
@@ -288,9 +296,10 @@ func (filter *Filter) Contains(other *Filter) bool {
 		}
 	}
 
-	theseTopics := [][]common.Hash{filter.EventSigs, filter.Topic2, filter.Topic3, filter.Topic4}
-	otherTopics := [][]common.Hash{other.EventSigs, other.Topic2, other.Topic3, other.Topic4}
-	return isTopicsSubset(otherTopics, theseTopics)
+	return isTopicsSubset(
+		make2DTopics(other.EventSigs, other.Topic2, other.Topic3, other.Topic4),
+		make2DTopics(filter.EventSigs, filter.Topic2, filter.Topic3, filter.Topic4),
+	)
 }
 
 type BytesRepresentable interface {
@@ -1378,20 +1387,27 @@ func mergeAddressesIntoGetLogsReq(req *GetLogsBatchElem, newAddresses []common.A
 	req.SetAddresses(merged)
 }
 
+func make2DTopics(eventSigs, topics2, topics3, topics4 []common.Hash) (res [][]common.Hash) {
+	for _, topic := range [][]common.Hash{eventSigs, topics2, topics3, topics4} {
+		if topic != nil {
+			res = append(res, topic)
+		}
+	}
+	return res
+}
+
 // isTopicsSubset returns true if all of the sets in the list topicsA are subsets of or equal to the sets in topicsB.
 // topicsA and topicsB each contain 4 (or any equal number of) sets of slices of topic values.
 //
 // Interpreting A & B as filters on the same contract address, "true" means that anything matching A will match B
 //
 // Assumptions:
-// - topicsA and topicsB must have the same length (outer dimension)
 // - every element of topicsA & topicsB are sorted lists containing no duplicates
 func isTopicsSubset(topicsA [][]common.Hash, topicsB [][]common.Hash) bool {
-	if len(topicsA) != len(topicsB) {
-		panic(fmt.Sprintf("Assumption violation: isTopicsSubset called with len(topicsA)=%d != len(topicsB)=%d", len(topicsA), len(topicsB)))
+	if len(topicsB) > len(topicsA) {
+		return false // If topicsB requires a larger number of topics to be emitted, then B is a narrower filter than A
 	}
-
-	for i := range topicsA {
+	for i := range topicsB { // doesn't matter what topics[j] for j > len(topicsB) is, as that can only narrows filter A further
 		if len(topicsB[i]) == 0 {
 			continue // nil/empty list of topics matches all values, so topicsA[n] automatically a subset
 		}
@@ -1568,7 +1584,7 @@ func (lp *logPoller) ethGetLogsReqs(fromBlock, toBlock *big.Int, blockHash *comm
 					lp.cachedReqsByEventsTopicsKey[eventsTopicsKey] = newReq
 					lp.cachedReqsByAddress[addr] = []*GetLogsBatchElem{newReq}
 				} else {
-					newTopics := [][]common.Hash{filter.EventSigs, filter.Topic2, filter.Topic3, filter.Topic4}
+					newTopics := make2DTopics(filter.EventSigs, filter.Topic2, filter.Topic3, filter.Topic4)
 
 					for i, req := range reqsForAddress {
 						topics := req.Topics()
@@ -1606,11 +1622,18 @@ func (lp *logPoller) ethGetLogsReqs(fromBlock, toBlock *big.Int, blockHash *comm
 	// Fill fromBlock, toBlock, & blockHash while copying cached reqs into a result array
 	reqs := make([]rpc.BatchElem, 0, len(lp.cachedReqsByEventsTopicsKey))
 	for _, req := range lp.cachedReqsByEventsTopicsKey {
+		addresses := make([]common.Address, len(req.Addresses()))
+		topics := make([][]common.Hash, len(req.Topics()))
+		copy(addresses, req.Addresses())
+		copy(topics, req.Topics())
+
 		params := map[string]interface{}{
-			"address": req.Addresses(),
-			"topics":  req.Topics(),
+			"address": addresses,
+			"topics":  topics,
 		}
 		maps.Copy(params, blockParams)
+
+		copy(params["topics"].([][]common.Hash), req.Topics())
 
 		reqs = append(reqs, rpc.BatchElem{
 			Method: req.Method,
