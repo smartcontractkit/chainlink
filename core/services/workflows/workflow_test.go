@@ -83,7 +83,7 @@ targets:
     inputs: 
       consensus_output: $(a-consensus.outputs)
 `,
-			errMsg: "found circular relationship",
+			errMsg: "edge would create a cycle",
 		},
 		{
 			name: "indirect circular relationship",
@@ -119,7 +119,7 @@ targets:
     inputs: 
       consensus_output: $(a-consensus.outputs)
 `,
-			errMsg: "found circular relationship",
+			errMsg: "edge would create a cycle",
 		},
 		{
 			name: "relationship doesn't exist",
@@ -146,34 +146,7 @@ targets:
     inputs: 
       consensus_output: $(a-consensus.outputs)
 `,
-			errMsg: "invalid reference missing-action found in workflow spec",
-		},
-		{
-			name: "relationship doesn't exist",
-			yaml: `
-triggers:
-  - type: "a-trigger"
-
-actions:
-  - type: "an-action"
-    ref: "an-action"
-    inputs:
-      trigger_output: $(trigger.outputs)
-      action_output: $(missing-action.outputs)
-
-consensus:
-  - type: "a-consensus"
-    ref: "a-consensus"
-    inputs:
-      an-action_output: $(an-action.outputs)
-
-targets:
-  - type: "a-target"
-    ref: "a-target"
-    inputs: 
-      consensus_output: $(a-consensus.outputs)
-`,
-			errMsg: "invalid reference missing-action found in workflow spec",
+			errMsg: "source vertex missing-action: vertex not found",
 		},
 	}
 
@@ -184,7 +157,21 @@ targets:
 				assert.ErrorContains(st, err, tc.errMsg)
 			} else {
 				require.NoError(st, err)
-				assert.Equal(st, wf.graph.adjacencies, tc.graph)
+
+				adjacencies, err := wf.AdjacencyMap()
+				require.NoError(t, err)
+
+				got := map[string]map[string]struct{}{}
+				for k, v := range adjacencies {
+					if _, ok := got[k]; !ok {
+						got[k] = map[string]struct{}{}
+					}
+					for adj := range v {
+						got[k][adj] = struct{}{}
+					}
+				}
+
+				assert.Equal(st, tc.graph, got, adjacencies)
 			}
 		})
 	}

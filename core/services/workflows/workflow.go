@@ -5,6 +5,8 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/dominikbraun/graph"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 )
@@ -32,11 +34,59 @@ func (w *workflowSpec) steps() []Capability {
 }
 
 type workflow struct {
-	*graph[*node]
+	graph.Graph[string, *node]
 
 	triggers []*triggerCapability
 
 	spec *workflowSpec
+}
+
+func (w *workflow) walkDo(start string, do func(n *node) error) error {
+	var outerErr error
+	err := graph.BFS(w.Graph, start, func(ref string) bool {
+		n, err := w.Graph.Vertex(ref)
+		if err != nil {
+			outerErr = err
+			return true
+		}
+
+		err = do(n)
+		if err != nil {
+			outerErr = err
+			return true
+		}
+
+		return false
+	})
+	if err != nil {
+		return err
+	}
+
+	return outerErr
+}
+
+func (w *workflow) adjacentNodes(start string) ([]*node, error) {
+	nodes := []*node{}
+	m, err := w.Graph.AdjacencyMap()
+	if err != nil {
+		return nil, err
+	}
+
+	adj, ok := m[start]
+	if !ok {
+		return nil, fmt.Errorf("could not find node with ref %s", start)
+	}
+
+	for adjacentRef := range adj {
+		n, err := w.Graph.Vertex(adjacentRef)
+		if err != nil {
+			return nil, err
+		}
+
+		nodes = append(nodes, n)
+	}
+
+	return nodes, nil
 }
 
 type node struct {
@@ -66,64 +116,53 @@ func Parse(yamlWorkflow string) (*workflow, error) {
 	// empty graph with just one starting entry: `trigger`.
 	// This provides the starting point for our graph and
 	// points to all dependent nodes.
-	nodes := map[string]*node{
-		keywordTrigger: {Capability: Capability{Ref: keywordTrigger}},
+	nodeHash := func(n *node) string {
+		return n.Ref
 	}
-	adjacencies := map[string]map[string]struct{}{
-		keywordTrigger: {},
+	g := graph.New(
+		nodeHash,
+		graph.PreventCycles(),
+		graph.Directed(),
+	)
+	err = g.AddVertex(&node{
+		Capability: Capability{Ref: keywordTrigger},
+	})
+	if err != nil {
+		return nil, err
 	}
-	graph := &graph[*node]{
-		adjacencies: adjacencies,
-		nodes:       nodes,
-	}
+
 	for _, s := range wfs.steps() {
-		// For steps that don't have a ref, use
-		// the node's type as a default.
 		if s.Ref == "" {
 			s.Ref = s.Type
 		}
 
-		_, ok := nodes[s.Ref]
-		if ok {
-			return nil, fmt.Errorf("duplicate reference %s found in workflow spec", s.Ref)
+		err := g.AddVertex(&node{Capability: s})
+		if err != nil {
+			return nil, fmt.Errorf("cannot add vertex %s: %w", s.Ref, err)
 		}
-
-		nodes[s.Ref] = &node{Capability: s}
-		adjacencies[s.Ref] = map[string]struct{}{}
 	}
 
-	for _, nd := range nodes {
-		refs, innerErr := findRefs(nd.Inputs)
+	nodeRefs, err := g.AdjacencyMap()
+	if err != nil {
+		return nil, err
+	}
+	for nodeRef := range nodeRefs {
+		node, err := g.Vertex(nodeRef)
+		if err != nil {
+			return nil, err
+		}
+
+		refs, innerErr := findRefs(node.Inputs)
 		if innerErr != nil {
 			return nil, innerErr
 		}
-		nd.dependencies = refs
+		node.dependencies = refs
 
 		for _, r := range refs {
-			_, ok := nodes[r]
-			if !ok && r != keywordTrigger {
-				return nil, fmt.Errorf("invalid reference %s found in workflow spec", r)
+			err = g.AddEdge(r, node.Ref)
+			if err != nil {
+				return nil, err
 			}
-
-			adjacencies[r][nd.Ref] = struct{}{}
-
-			var found bool
-			innerErr := graph.walkDo(nd.Ref, func(n *node) error {
-				if n.Ref == r {
-					found = true
-					return nil
-				}
-
-				return nil
-			})
-			if innerErr != nil {
-				return nil, innerErr
-			}
-
-			if found {
-				return nil, fmt.Errorf("found circular relationship between %s and %s", r, nd.Ref)
-			}
-
 		}
 	}
 
@@ -135,7 +174,7 @@ func Parse(yamlWorkflow string) (*workflow, error) {
 	}
 	wf := &workflow{
 		spec:     wfs,
-		graph:    graph,
+		Graph:    g,
 		triggers: triggerNodes,
 	}
 	return wf, err

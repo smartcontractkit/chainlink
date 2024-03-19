@@ -193,8 +193,12 @@ func (e *Engine) loop(ctx context.Context) {
 		case resp := <-e.callbackCh:
 			if resp.Err != nil {
 				e.logger.Errorf("trigger event was an error; not executing", resp.Err)
-			} else {
-				e.startExecution(ctx, resp.Value)
+				continue
+			}
+
+			err := e.startExecution(ctx, resp.Value)
+			if err != nil {
+				e.logger.Errorf("failed to start execution: %w", err)
 			}
 		case dm := <-e.queue.out:
 			<-e.newWorkerCh
@@ -210,7 +214,7 @@ func (e *Engine) loop(ctx context.Context) {
 	}
 }
 
-func (e *Engine) startExecution(ctx context.Context, event values.Value) {
+func (e *Engine) startExecution(ctx context.Context, event values.Value) error {
 	executionID := uuid.New().String()
 	e.logger.Debugw("executing on a trigger event", "event", event, "executionID", executionID)
 	ec := &executionState{
@@ -229,14 +233,21 @@ func (e *Engine) startExecution(ctx context.Context, event values.Value) {
 
 	err := e.store.add(ctx, ec)
 	if err != nil {
-		return
+		return err
 	}
 
 	// Find the tasks we need to fire when a trigger has fired and enqueue them.
-	for _, node := range e.workflow.adjacentNodes(keywordTrigger) {
+	an, err := e.workflow.adjacentNodes(keywordTrigger)
+	if err != nil {
+		return err
+	}
+
+	for _, node := range an {
 		e.logger.Debugw("step request enqueued", "ref", node.Ref, "executionID", executionID)
 		e.queue.in <- stepRequest{state: copyState(*ec), stepRef: node.Ref}
 	}
+
+	return nil
 }
 
 func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate stepState) error {
@@ -247,7 +258,10 @@ func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate stepState) err
 
 	switch stepUpdate.status {
 	case statusCompleted:
-		adjacentNodes := e.workflow.adjacentNodes(stepUpdate.ref)
+		adjacentNodes, err := e.workflow.adjacentNodes(stepUpdate.ref)
+		if err != nil {
+			return err
+		}
 		// There are no nodes left to process in the current path, so let's check if
 		// we've completed the workflow.
 		// If not, we'll check adjacent nodes for any that are ready to process.
@@ -337,9 +351,9 @@ func (e *Engine) workerForStep(ctx context.Context, msg stepRequest) {
 }
 
 func (e *Engine) handleStep(ctx context.Context, msg stepRequest) (*values.Map, values.Value, error) {
-	node, ok := e.workflow.nodes[msg.stepRef]
-	if !ok {
-		return nil, nil, fmt.Errorf("could not get step for %s", msg.stepRef)
+	node, err := e.workflow.Vertex(msg.stepRef)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	i, err := findAndInterpolateAllKeys(node.Inputs, msg.state)
@@ -470,7 +484,6 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 		newWorkerCh <- struct{}{}
 	}
 
-	var wg sync.WaitGroup
 	engine = &Engine{
 		logger:       cfg.Lggr.Named("WorkflowEngine"),
 		registry:     cfg.Registry,
@@ -480,7 +493,6 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 		newWorkerCh:  newWorkerCh,
 		stepUpdateCh: make(chan stepState),
 		callbackCh:   make(chan capabilities.CapabilityResponse),
-		wg:           wg,
 		stopCh:       make(chan struct{}),
 	}
 	return engine, nil
