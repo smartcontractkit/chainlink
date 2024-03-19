@@ -1,5 +1,5 @@
 ---
-"chainlink": minor
+"@chainlink/contracts": minor
 ---
 
 - Misc VRF V2+ contract changes
@@ -9,4 +9,3 @@
   - Rename variables for readability
   - Fix comments
   - Minor gas optimisation (++i)
-- Fix integration tests
