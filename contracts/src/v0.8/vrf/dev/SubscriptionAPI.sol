@@ -63,6 +63,7 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
   struct ConsumerConfig {
     bool active;
     uint64 nonce;
+    uint64 pendingReqCount;
   }
   // Note a nonce of 0 indicates an the consumer is not assigned to that subscription.
   mapping(address => mapping(uint256 => ConsumerConfig)) /* consumerAddress */ /* subId */ /* consumerConfig */
