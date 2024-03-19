@@ -7,6 +7,7 @@ import (
 	"github.com/K-Phoen/grabana/row"
 	"github.com/K-Phoen/grabana/stat"
 	"github.com/K-Phoen/grabana/target/prometheus"
+	"github.com/K-Phoen/grabana/timeseries"
 	"github.com/K-Phoen/grabana/variable/query"
 )
 
@@ -26,6 +27,14 @@ func vars(p Props) []dashboard.Option {
 			query.Request(fmt.Sprintf("label_values(%s)", "contract")),
 			query.Sort(query.NumericalAsc),
 		),
+		dashboard.VariableAsQuery(
+			"feed_id_name",
+			query.DataSource(p.PrometheusDataSource),
+			query.Multiple(),
+			query.IncludeAll(),
+			query.Request(fmt.Sprintf("label_values(%s)", "feed_id_name")),
+			query.Sort(query.NumericalAsc),
+		),
 	}
 }
 
@@ -43,7 +52,7 @@ func ocrContractConfigOracle(p Props) []dashboard.Option {
 				stat.ValueFontSize(20),
 				stat.Span(12),
 				stat.WithPrometheusTarget(
-					``+p.OcrVersion+`_contract_oracle_active{`+p.PlatformOpts.LabelQuery+`contract=~"${contract}"}`,
+					``+p.OcrVersion+`_contract_oracle_active{`+p.PlatformOpts.LabelQuery+`}`,
 					prometheus.Legend("{{"+p.PlatformOpts.LegendString+"}} - {{ contract }} - {{oracle}}"),
 				),
 			),
@@ -54,7 +63,7 @@ func ocrContractConfigOracle(p Props) []dashboard.Option {
 				gauge.DataSource(p.PrometheusDataSource),
 				gauge.Description("set to one as long as an oracle is on a feed"),
 				gauge.WithPrometheusTarget(
-					``+p.OcrVersion+`_contract_oracle_active{`+p.PlatformOpts.LabelQuery+`contract=~"${contract}"}`,
+					``+p.OcrVersion+`_contract_oracle_active{`+p.PlatformOpts.LabelQuery+`}`,
 					prometheus.Legend("{{"+p.PlatformOpts.LegendString+"}} - {{ contract }} - {{oracle}}"),
 				),
 			),
@@ -75,7 +84,7 @@ func ocrContractConfigNodes(p Props) []dashboard.Option {
 				stat.ValueFontSize(20),
 				stat.Span(6),
 				stat.WithPrometheusTarget(
-					``+p.OcrVersion+`_contract_config_n{`+p.PlatformOpts.LabelQuery+`contract=~"${contract}"}`,
+					``+p.OcrVersion+`_contract_config_n{`+p.PlatformOpts.LabelQuery+`}`,
 					prometheus.Legend("{{"+p.PlatformOpts.LegendString+"}} - {{ contract }}"),
 				),
 			),
@@ -85,7 +94,7 @@ func ocrContractConfigNodes(p Props) []dashboard.Option {
 				gauge.Orientation(gauge.OrientationVertical),
 				gauge.DataSource(p.PrometheusDataSource),
 				gauge.WithPrometheusTarget(
-					``+p.OcrVersion+`_contract_config_n{`+p.PlatformOpts.LabelQuery+`contract=~"${contract}"}`,
+					``+p.OcrVersion+`_contract_config_n{`+p.PlatformOpts.LabelQuery+`}`,
 					prometheus.Legend("{{"+p.PlatformOpts.LegendString+"}} - {{ contract }}"),
 				),
 			),
@@ -98,7 +107,7 @@ func ocrContractConfigNodes(p Props) []dashboard.Option {
 				stat.ValueFontSize(20),
 				stat.Span(6),
 				stat.WithPrometheusTarget(
-					``+p.OcrVersion+`_contract_config_f{`+p.PlatformOpts.LabelQuery+`contract=~"${contract}"}`,
+					``+p.OcrVersion+`_contract_config_f{`+p.PlatformOpts.LabelQuery+`}`,
 					prometheus.Legend("{{"+p.PlatformOpts.LegendString+"}} - {{ contract }}"),
 				),
 			),
@@ -108,7 +117,7 @@ func ocrContractConfigNodes(p Props) []dashboard.Option {
 				gauge.Orientation(gauge.OrientationVertical),
 				gauge.DataSource(p.PrometheusDataSource),
 				gauge.WithPrometheusTarget(
-					``+p.OcrVersion+`_contract_config_f{`+p.PlatformOpts.LabelQuery+`contract=~"${contract}"}`,
+					``+p.OcrVersion+`_contract_config_f{`+p.PlatformOpts.LabelQuery+`}`,
 					prometheus.Legend("{{"+p.PlatformOpts.LegendString+"}} - {{ contract }}"),
 				),
 			),
@@ -121,7 +130,7 @@ func ocrContractConfigNodes(p Props) []dashboard.Option {
 				stat.ValueFontSize(20),
 				stat.Span(6),
 				stat.WithPrometheusTarget(
-					``+p.OcrVersion+`_contract_config_r_max{`+p.PlatformOpts.LabelQuery+`contract=~"${contract}"}`,
+					``+p.OcrVersion+`_contract_config_r_max{`+p.PlatformOpts.LabelQuery+`}`,
 					prometheus.Legend("{{"+p.PlatformOpts.LegendString+"}} - {{ contract }}"),
 				),
 			),
@@ -131,7 +140,7 @@ func ocrContractConfigNodes(p Props) []dashboard.Option {
 				gauge.Orientation(gauge.OrientationVertical),
 				gauge.DataSource(p.PrometheusDataSource),
 				gauge.WithPrometheusTarget(
-					``+p.OcrVersion+`_contract_config_r_max{`+p.PlatformOpts.LabelQuery+`contract=~"${contract}"}`,
+					``+p.OcrVersion+`_contract_config_r_max{`+p.PlatformOpts.LabelQuery+`}`,
 					prometheus.Legend("{{"+p.PlatformOpts.LegendString+"}} - {{ contract }}"),
 				),
 			),
@@ -152,7 +161,7 @@ func ocrContractConfigDelta(p Props) []dashboard.Option {
 				stat.ValueFontSize(20),
 				stat.Span(6),
 				stat.WithPrometheusTarget(
-					``+p.OcrVersion+`_contract_config_alpha{`+p.PlatformOpts.LabelQuery+`contract=~"${contract}"}`,
+					``+p.OcrVersion+`_contract_config_alpha{`+p.PlatformOpts.LabelQuery+`}`,
 					prometheus.Legend("{{"+p.PlatformOpts.LegendString+"}} - {{ contract }}"),
 				),
 			),
@@ -162,7 +171,7 @@ func ocrContractConfigDelta(p Props) []dashboard.Option {
 				gauge.Orientation(gauge.OrientationVertical),
 				gauge.DataSource(p.PrometheusDataSource),
 				gauge.WithPrometheusTarget(
-					``+p.OcrVersion+`_contract_config_alpha{`+p.PlatformOpts.LabelQuery+`contract=~"${contract}"}`,
+					``+p.OcrVersion+`_contract_config_alpha{`+p.PlatformOpts.LabelQuery+`}`,
 					prometheus.Legend("{{"+p.PlatformOpts.LegendString+"}} - {{ contract }}"),
 				),
 			),
@@ -175,7 +184,7 @@ func ocrContractConfigDelta(p Props) []dashboard.Option {
 				stat.ValueFontSize(20),
 				stat.Span(6),
 				stat.WithPrometheusTarget(
-					``+p.OcrVersion+`_contract_config_delta_c_seconds{`+p.PlatformOpts.LabelQuery+`contract=~"${contract}"}`,
+					``+p.OcrVersion+`_contract_config_delta_c_seconds{`+p.PlatformOpts.LabelQuery+`}`,
 					prometheus.Legend("{{"+p.PlatformOpts.LegendString+"}} - {{ contract }}"),
 				),
 			),
@@ -185,7 +194,7 @@ func ocrContractConfigDelta(p Props) []dashboard.Option {
 				gauge.Orientation(gauge.OrientationVertical),
 				gauge.DataSource(p.PrometheusDataSource),
 				gauge.WithPrometheusTarget(
-					``+p.OcrVersion+`_contract_config_delta_c_seconds{`+p.PlatformOpts.LabelQuery+`contract=~"${contract}"}`,
+					``+p.OcrVersion+`_contract_config_delta_c_seconds{`+p.PlatformOpts.LabelQuery+`}`,
 					prometheus.Legend("{{"+p.PlatformOpts.LegendString+"}} - {{ contract }}"),
 				),
 			),
@@ -198,7 +207,7 @@ func ocrContractConfigDelta(p Props) []dashboard.Option {
 				stat.ValueFontSize(20),
 				stat.Span(6),
 				stat.WithPrometheusTarget(
-					``+p.OcrVersion+`_contract_config_delta_grace_seconds{`+p.PlatformOpts.LabelQuery+`contract=~"${contract}"}`,
+					``+p.OcrVersion+`_contract_config_delta_grace_seconds{`+p.PlatformOpts.LabelQuery+`}`,
 					prometheus.Legend("{{"+p.PlatformOpts.LegendString+"}} - {{ contract }}"),
 				),
 			),
@@ -208,7 +217,7 @@ func ocrContractConfigDelta(p Props) []dashboard.Option {
 				gauge.Orientation(gauge.OrientationVertical),
 				gauge.DataSource(p.PrometheusDataSource),
 				gauge.WithPrometheusTarget(
-					``+p.OcrVersion+`_contract_config_delta_grace_seconds{`+p.PlatformOpts.LabelQuery+`contract=~"${contract}"}`,
+					``+p.OcrVersion+`_contract_config_delta_grace_seconds{`+p.PlatformOpts.LabelQuery+`}`,
 					prometheus.Legend("{{"+p.PlatformOpts.LegendString+"}} - {{ contract }}"),
 				),
 			),
@@ -221,7 +230,7 @@ func ocrContractConfigDelta(p Props) []dashboard.Option {
 				stat.ValueFontSize(20),
 				stat.Span(6),
 				stat.WithPrometheusTarget(
-					``+p.OcrVersion+`_contract_config_delta_progress_seconds{`+p.PlatformOpts.LabelQuery+`contract=~"${contract}"}`,
+					``+p.OcrVersion+`_contract_config_delta_progress_seconds{`+p.PlatformOpts.LabelQuery+`}`,
 					prometheus.Legend("{{"+p.PlatformOpts.LegendString+"}} - {{ contract }}"),
 				),
 			),
@@ -231,7 +240,7 @@ func ocrContractConfigDelta(p Props) []dashboard.Option {
 				gauge.Orientation(gauge.OrientationVertical),
 				gauge.DataSource(p.PrometheusDataSource),
 				gauge.WithPrometheusTarget(
-					``+p.OcrVersion+`_contract_config_delta_progress_seconds{`+p.PlatformOpts.LabelQuery+`contract=~"${contract}"}`,
+					``+p.OcrVersion+`_contract_config_delta_progress_seconds{`+p.PlatformOpts.LabelQuery+`}`,
 					prometheus.Legend("{{"+p.PlatformOpts.LegendString+"}} - {{ contract }}"),
 				),
 			),
@@ -244,7 +253,7 @@ func ocrContractConfigDelta(p Props) []dashboard.Option {
 				stat.ValueFontSize(20),
 				stat.Span(6),
 				stat.WithPrometheusTarget(
-					``+p.OcrVersion+`_contract_config_delta_resend_seconds{`+p.PlatformOpts.LabelQuery+`contract=~"${contract}"}`,
+					``+p.OcrVersion+`_contract_config_delta_resend_seconds{`+p.PlatformOpts.LabelQuery+`}`,
 					prometheus.Legend("{{"+p.PlatformOpts.LegendString+"}} - {{ contract }}"),
 				),
 			),
@@ -254,7 +263,7 @@ func ocrContractConfigDelta(p Props) []dashboard.Option {
 				gauge.Orientation(gauge.OrientationVertical),
 				gauge.DataSource(p.PrometheusDataSource),
 				gauge.WithPrometheusTarget(
-					``+p.OcrVersion+`_contract_config_delta_resend_seconds{`+p.PlatformOpts.LabelQuery+`contract=~"${contract}"}`,
+					``+p.OcrVersion+`_contract_config_delta_resend_seconds{`+p.PlatformOpts.LabelQuery+`}`,
 					prometheus.Legend("{{"+p.PlatformOpts.LegendString+"}} - {{ contract }}"),
 				),
 			),
@@ -267,7 +276,7 @@ func ocrContractConfigDelta(p Props) []dashboard.Option {
 				stat.ValueFontSize(20),
 				stat.Span(6),
 				stat.WithPrometheusTarget(
-					``+p.OcrVersion+`_contract_config_delta_round_seconds{`+p.PlatformOpts.LabelQuery+`contract=~"${contract}"}`,
+					``+p.OcrVersion+`_contract_config_delta_round_seconds{`+p.PlatformOpts.LabelQuery+`}`,
 					prometheus.Legend("{{"+p.PlatformOpts.LegendString+"}} - {{ contract }}"),
 				),
 			),
@@ -277,7 +286,7 @@ func ocrContractConfigDelta(p Props) []dashboard.Option {
 				gauge.Orientation(gauge.OrientationVertical),
 				gauge.DataSource(p.PrometheusDataSource),
 				gauge.WithPrometheusTarget(
-					``+p.OcrVersion+`_contract_config_delta_round_seconds{`+p.PlatformOpts.LabelQuery+`contract=~"${contract}"}`,
+					``+p.OcrVersion+`_contract_config_delta_round_seconds{`+p.PlatformOpts.LabelQuery+`}`,
 					prometheus.Legend("{{"+p.PlatformOpts.LegendString+"}} - {{ contract }}"),
 				),
 			),
@@ -290,7 +299,7 @@ func ocrContractConfigDelta(p Props) []dashboard.Option {
 				stat.ValueFontSize(20),
 				stat.Span(6),
 				stat.WithPrometheusTarget(
-					``+p.OcrVersion+`_contract_config_delta_stage_seconds{`+p.PlatformOpts.LabelQuery+`contract=~"${contract}"}`,
+					``+p.OcrVersion+`_contract_config_delta_stage_seconds{`+p.PlatformOpts.LabelQuery+`}`,
 					prometheus.Legend("{{"+p.PlatformOpts.LegendString+"}} - {{ contract }}"),
 				),
 			),
@@ -300,7 +309,7 @@ func ocrContractConfigDelta(p Props) []dashboard.Option {
 				gauge.Orientation(gauge.OrientationVertical),
 				gauge.DataSource(p.PrometheusDataSource),
 				gauge.WithPrometheusTarget(
-					``+p.OcrVersion+`_contract_config_delta_stage_seconds{`+p.PlatformOpts.LabelQuery+`contract=~"${contract}"}`,
+					``+p.OcrVersion+`_contract_config_delta_stage_seconds{`+p.PlatformOpts.LabelQuery+`}`,
 					prometheus.Legend("{{"+p.PlatformOpts.LegendString+"}} - {{ contract }}"),
 				),
 			),
@@ -308,26 +317,30 @@ func ocrContractConfigDelta(p Props) []dashboard.Option {
 	}
 }
 
-func ocrTelemetryFeed(p Props) []dashboard.Option {
+func roundEpochProgression(p Props) []dashboard.Option {
 	return []dashboard.Option{
-		dashboard.Row("OCR Telemetry Feed",
+		dashboard.Row("Round / Epoch Progression",
 			row.Collapse(),
-		),
-	}
-}
-
-func ocrTelemetryP2P(p Props) []dashboard.Option {
-	return []dashboard.Option{
-		dashboard.Row("OCR Telemetry P2P",
-			row.Collapse(),
-		),
-	}
-}
-
-func ocrTelemetryOthers(p Props) []dashboard.Option {
-	return []dashboard.Option{
-		dashboard.Row("OCR Telemetry Others",
-			row.Collapse(),
+			row.WithTimeSeries(
+				"Agreed Epoch Progression",
+				timeseries.Span(4),
+				timeseries.Height("200px"),
+				timeseries.DataSource(p.PrometheusDataSource),
+				timeseries.WithPrometheusTarget(
+					``+p.OcrVersion+`_telemetry_feed_agreed_epoch{`+p.PlatformOpts.LabelQuery+`}`,
+					prometheus.Legend("{{"+p.PlatformOpts.LegendString+"}} - {{network_name}} - {{contract}}"),
+				),
+			),
+			row.WithTimeSeries(
+				"Round Epoch Progression",
+				timeseries.Span(4),
+				timeseries.Height("200px"),
+				timeseries.DataSource(p.PrometheusDataSource),
+				timeseries.WithPrometheusTarget(
+					``+p.OcrVersion+`_telemetry_epoch_round{`+p.PlatformOpts.LabelQuery+`feed_id_name=~"${feed_id_name}"}`,
+					prometheus.Legend("{{"+p.PlatformOpts.LegendString+"}} - {{network_name}} - {{contract}}"),
+				),
+			),
 		),
 	}
 }
@@ -337,5 +350,6 @@ func New(p Props) []dashboard.Option {
 	opts = append(opts, ocrContractConfigOracle(p)...)
 	opts = append(opts, ocrContractConfigNodes(p)...)
 	opts = append(opts, ocrContractConfigDelta(p)...)
+	opts = append(opts, roundEpochProgression(p)...)
 	return opts
 }

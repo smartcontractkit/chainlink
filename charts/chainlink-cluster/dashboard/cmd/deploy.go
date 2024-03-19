@@ -7,6 +7,7 @@ import (
 	core_don "github.com/smartcontractkit/chainlink/dashboard-lib/lib/core-don"
 	k8spods "github.com/smartcontractkit/chainlink/dashboard-lib/lib/k8s-pods"
 	waspdb "github.com/smartcontractkit/wasp/dashboard"
+	"strings"
 )
 
 const (
@@ -39,15 +40,21 @@ func main() {
 			),
 		)
 	}
-	db.Add(
-		atlas_don.New(
-			atlas_don.Props{
-				PrometheusDataSource: cfg.DataSources.Prometheus,
-				PlatformOpts:         atlas_don.PlatformPanelOpts(cfg.Platform),
-				OcrVersion:           "ocr",
-			},
-		),
-	)
+	if cfg.PanelsIncluded["ocr"] || cfg.PanelsIncluded["ocr2"] || cfg.PanelsIncluded["ocr3"] {
+		for key := range cfg.PanelsIncluded {
+			if strings.Contains(key, "ocr") {
+				db.Add(
+					atlas_don.New(
+						atlas_don.Props{
+							PrometheusDataSource: cfg.DataSources.Prometheus,
+							PlatformOpts:         atlas_don.PlatformPanelOpts(cfg.Platform),
+							OcrVersion:           key,
+						},
+					),
+				)
+			}
+		}
+	}
 	// TODO: refactor as a component later
 	// addWASPRows(db, cfg)
 	if err := db.Deploy(); err != nil {

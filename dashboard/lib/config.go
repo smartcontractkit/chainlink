@@ -1,13 +1,17 @@
 package dashboardlib
 
-import "os"
+import (
+	"os"
+	"strings"
+)
 
 type EnvConfig struct {
-	Platform      string
-	GrafanaURL    string
-	GrafanaToken  string
-	GrafanaFolder string
-	DataSources   DataSources
+	Platform       string
+	GrafanaURL     string
+	GrafanaToken   string
+	GrafanaFolder  string
+	DataSources    DataSources
+	PanelsIncluded map[string]bool
 }
 
 type DataSources struct {
@@ -57,6 +61,13 @@ func ReadEnvDeployOpts() EnvConfig {
 	if prometheusDataSourceName == "" {
 		L.Fatal().Msg("PROMETHEUS_DATA_SOURCE_NAME must be provided")
 	}
+	panelsIncludedString := os.Getenv("PANELS_INCLUDED")
+	panelsIncludedArray := strings.Split(panelsIncludedString, ",")
+	panelsIncluded := make(map[string]bool)
+	for _, panelName := range panelsIncludedArray {
+		panelsIncluded[panelName] = true
+	}
+
 	return EnvConfig{
 		GrafanaURL:    grafanaURL,
 		GrafanaToken:  grafanaToken,
@@ -66,5 +77,6 @@ func ReadEnvDeployOpts() EnvConfig {
 			Loki:       loki,
 			Prometheus: prom,
 		},
+		PanelsIncluded: panelsIncluded,
 	}
 }
