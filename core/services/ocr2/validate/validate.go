@@ -123,7 +123,7 @@ func validateSpec(ctx context.Context, tree *toml.Tree, spec job.Job, rc plugins
 	case types.LLO:
 		return validateOCR2LLOSpec(spec.OCR2OracleSpec.PluginConfig)
 	case types.GenericPlugin:
-		return ValidateGenericPluginSpec(ctx, spec.OCR2OracleSpec, rc)
+		return validateGenericPluginSpec(ctx, spec.OCR2OracleSpec, rc)
 	case "":
 		return errors.New("no plugin specified")
 	default:
@@ -173,7 +173,7 @@ func (o *OCR2GenericPluginConfig) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func ValidateGenericPluginSpec(ctx context.Context, spec *job.OCR2OracleSpec, rc plugins.RegistrarConfig) error {
+func validateGenericPluginSpec(ctx context.Context, spec *job.OCR2OracleSpec, rc plugins.RegistrarConfig) error {
 	p := OCR2GenericPluginConfig{}
 	err := json.Unmarshal(spec.PluginConfig.Bytes(), &p)
 	if err != nil {

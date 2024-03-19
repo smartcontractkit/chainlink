@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"os/exec"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -351,16 +350,6 @@ func (d *Delegate) cleanupEVM(jb job.Job, q pg.Queryer, relayID relay.ID) error 
 		}
 	}
 	return nil
-}
-
-var _ plugins.RegistrarConfig = (*rWrapper)(nil)
-
-type rWrapper struct {
-	rFunc func(config plugins.CmdConfig) (func() *exec.Cmd, loop.GRPCOpts, error)
-}
-
-func (r *rWrapper) RegisterLOOP(config plugins.CmdConfig) (func() *exec.Cmd, loop.GRPCOpts, error) {
-	return r.rFunc(config)
 }
 
 // ServicesForSpec returns the OCR2 services that need to run for this job
