@@ -36,8 +36,9 @@ regarding Chainlink social accounts, news, and networking.
    - Example Path for macOS `export PATH=$GOPATH/bin:$PATH` & `export GOPATH=/Users/$USER/go`
 2. Install [NodeJS v16](https://nodejs.org/en/download/package-manager/) & [pnpm via npm](https://pnpm.io/installation#using-npm).
    - It might be easier long term to use [nvm](https://nodejs.org/en/download/package-manager/#nvm) to switch between node versions for different projects. For example, assuming $NODE_VERSION was set to a valid version of NodeJS, you could run: `nvm install $NODE_VERSION && nvm use $NODE_VERSION`
-3. Install [Postgres (>= 11.x and <= 15.x)](https://wiki.postgresql.org/wiki/Detailed_installation_guides).
-   - You should [configure Postgres](https://www.postgresql.org/docs/12/ssl-tcp.html) to use SSL connection (or for testing you can set `?sslmode=disable` in your Postgres query string).
+3. Install [Postgres (>= 12.x)](https://wiki.postgresql.org/wiki/Detailed_installation_guides). It is recommended to run the latest major version of postgres.
+   - Note if you are running the official Chainlink docker image, the highest supported Postgres version is 15.x due to the bundled client.
+   - You should [configure Postgres](https://www.postgresql.org/docs/current/ssl-tcp.html) to use SSL connection (or for testing you can set `?sslmode=disable` in your Postgres query string).
 4. Ensure you have Python 3 installed (this is required by [solc-select](https://github.com/crytic/solc-select) which is needed to compile solidity contracts)
 5. Download Chainlink: `git clone https://github.com/smartcontractkit/chainlink && cd chainlink`
 6. Build and install Chainlink: `make install`
@@ -290,6 +291,18 @@ createuser --superuser --password chainlink -h localhost
 4. When re-entering project, you can restart postgres: `cd $PGDATA; pg_ctl -l postgres.log -o "--unix_socket_directories='$PWD'" start`
    Now you can run tests or compile code as usual.
 5. When you're done, stop it: `cd $PGDATA; pg_ctl -o "--unix_socket_directories='$PWD'" stop`
+
+### Changesets
+
+We use [changesets](https://github.com/changesets/changesets) to manage versioning for libs and the services.
+
+Every PR that modifies any configuration or code, should most likely accompanied by a changeset file.
+
+To install `changesets`:
+  1. Install `pnpm` if it is not already installed - [docs](https://pnpm.io/installation).
+  2. Run `pnpm install`.
+
+Either after or before you create a commit, run the `pnpm changeset` command to create an accompanying changeset entry which will reflect on the CHANGELOG for the next release.
 
 ### Tips
 

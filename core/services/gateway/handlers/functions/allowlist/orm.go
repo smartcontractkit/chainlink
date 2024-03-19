@@ -18,6 +18,7 @@ type ORM interface {
 	GetAllowedSenders(offset, limit uint, qopts ...pg.QOpt) ([]common.Address, error)
 	CreateAllowedSenders(allowedSenders []common.Address, qopts ...pg.QOpt) error
 	DeleteAllowedSenders(blockedSenders []common.Address, qopts ...pg.QOpt) error
+	PurgeAllowedSenders(qopts ...pg.QOpt) error
 }
 
 type orm struct {
@@ -91,6 +92,8 @@ func (o *orm) CreateAllowedSenders(allowedSenders []common.Address, qopts ...pg.
 	return nil
 }
 
+// DeleteAllowedSenders is used to remove blocked senders from the functions_allowlist table.
+// This is achieved by specifying a list of blockedSenders to remove.
 func (o *orm) DeleteAllowedSenders(blockedSenders []common.Address, qopts ...pg.QOpt) error {
 	var valuesPlaceholder []string
 	for i := 1; i <= len(blockedSenders); i++ {
@@ -118,6 +121,27 @@ func (o *orm) DeleteAllowedSenders(blockedSenders []common.Address, qopts ...pg.
 	}
 
 	o.lggr.Debugf("Successfully removed blocked senders from the allowed list: %v for routerContractAddress: %s. rowsAffected: %d", blockedSenders, o.routerContractAddress, rowsAffected)
+
+	return nil
+}
+
+// PurgeAllowedSenders will remove all the allowed senders for the configured orm routerContractAddress
+func (o *orm) PurgeAllowedSenders(qopts ...pg.QOpt) error {
+	stmt := fmt.Sprintf(`
+		DELETE FROM %s
+		WHERE router_contract_address = $1;`, tableName)
+
+	res, err := o.q.WithOpts(qopts...).Exec(stmt, o.routerContractAddress)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	o.lggr.Debugf("Successfully purged allowed senders for routerContractAddress: %s. rowsAffected: %d", o.routerContractAddress, rowsAffected)
 
 	return nil
 }

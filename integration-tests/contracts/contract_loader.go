@@ -254,7 +254,7 @@ func (e *EthereumContractLoader) LoadOperatorContract(address common.Address) (O
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumOperator{
+	return &LegacyEthereumOperator{
 		address:  address,
 		client:   e.client,
 		operator: instance.(*operator_wrapper.Operator),
@@ -273,7 +273,7 @@ func (e *EthereumContractLoader) LoadAuthorizedForwarder(address common.Address)
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumAuthorizedForwarder{
+	return &LegacyEthereumAuthorizedForwarder{
 		address:             address,
 		client:              e.client,
 		authorizedForwarder: instance.(*authorized_forwarder.AuthorizedForwarder),

@@ -22,11 +22,11 @@ import (
 )
 
 type multiNodeRPCClient RPC[types.ID, *big.Int, Hashable, Hashable, any, Hashable, any, any,
-	types.Receipt[Hashable, Hashable], Hashable, types.Head[Hashable]]
+	types.Receipt[Hashable, Hashable], Hashable, types.Head[Hashable], any]
 
 type testMultiNode struct {
 	*multiNode[types.ID, *big.Int, Hashable, Hashable, any, Hashable, any, any,
-		types.Receipt[Hashable, Hashable], Hashable, types.Head[Hashable], multiNodeRPCClient]
+		types.Receipt[Hashable, Hashable], Hashable, types.Head[Hashable], multiNodeRPCClient, any]
 }
 
 type multiNodeOpts struct {
@@ -49,19 +49,19 @@ func newTestMultiNode(t *testing.T, opts multiNodeOpts) testMultiNode {
 	}
 
 	result := NewMultiNode[types.ID, *big.Int, Hashable, Hashable, any, Hashable, any, any,
-		types.Receipt[Hashable, Hashable], Hashable, types.Head[Hashable], multiNodeRPCClient](opts.logger,
+		types.Receipt[Hashable, Hashable], Hashable, types.Head[Hashable], multiNodeRPCClient, any](opts.logger,
 		opts.selectionMode, opts.leaseDuration, opts.noNewHeadsThreshold, opts.nodes, opts.sendonlys,
 		opts.chainID, opts.chainType, opts.chainFamily, opts.classifySendTxError, opts.sendTxSoftTimeout)
 	return testMultiNode{
 		result.(*multiNode[types.ID, *big.Int, Hashable, Hashable, any, Hashable, any, any,
-			types.Receipt[Hashable, Hashable], Hashable, types.Head[Hashable], multiNodeRPCClient]),
+			types.Receipt[Hashable, Hashable], Hashable, types.Head[Hashable], multiNodeRPCClient, any]),
 	}
 }
 
 func newMultiNodeRPCClient(t *testing.T) *mockRPC[types.ID, *big.Int, Hashable, Hashable, any, Hashable, any, any,
-	types.Receipt[Hashable, Hashable], Hashable, types.Head[Hashable]] {
+	types.Receipt[Hashable, Hashable], Hashable, types.Head[Hashable], any] {
 	return newMockRPC[types.ID, *big.Int, Hashable, Hashable, any, Hashable, any, any,
-		types.Receipt[Hashable, Hashable], Hashable, types.Head[Hashable]](t)
+		types.Receipt[Hashable, Hashable], Hashable, types.Head[Hashable], any](t)
 }
 
 func newHealthyNode(t *testing.T, chainID types.ID) *mockNode[types.ID, types.Head[Hashable], multiNodeRPCClient] {

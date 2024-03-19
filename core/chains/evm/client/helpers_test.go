@@ -7,9 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
@@ -22,6 +23,7 @@ type TestNodePoolConfig struct {
 	NodeSelectionMode        string
 	NodeSyncThreshold        uint32
 	NodeLeaseDuration        time.Duration
+	NodeIsSyncingEnabledVal  bool
 }
 
 func (tc TestNodePoolConfig) PollFailureThreshold() uint32 { return tc.NodePollFailureThreshold }
@@ -32,6 +34,10 @@ func (tc TestNodePoolConfig) LeaseDuration() time.Duration {
 	return tc.NodeLeaseDuration
 }
 
+func (tc TestNodePoolConfig) NodeIsSyncingEnabled() bool {
+	return tc.NodeIsSyncingEnabledVal
+}
+
 func NewClientWithTestNode(t *testing.T, nodePoolCfg config.NodePool, noNewHeadsThreshold time.Duration, rpcUrl string, rpcHTTPURL *url.URL, sendonlyRPCURLs []url.URL, id int32, chainID *big.Int) (*client, error) {
 	parsed, err := url.ParseRequestURI(rpcUrl)
 	if err != nil {
@@ -39,7 +45,7 @@ func NewClientWithTestNode(t *testing.T, nodePoolCfg config.NodePool, noNewHeads
 	}
 
 	if parsed.Scheme != "ws" && parsed.Scheme != "wss" {
-		return nil, errors.Errorf("ethereum url scheme must be websocket: %s", parsed.String())
+		return nil, pkgerrors.Errorf("ethereum url scheme must be websocket: %s", parsed.String())
 	}
 
 	lggr := logger.Sugared(logger.Test(t))
@@ -50,7 +56,7 @@ func NewClientWithTestNode(t *testing.T, nodePoolCfg config.NodePool, noNewHeads
 	var sendonlys []SendOnlyNode
 	for i, url := range sendonlyRPCURLs {
 		if url.Scheme != "http" && url.Scheme != "https" {
-			return nil, errors.Errorf("sendonly ethereum rpc url scheme must be http(s): %s", url.String())
+			return nil, pkgerrors.Errorf("sendonly ethereum rpc url scheme must be http(s): %s", url.String())
 		}
 		s := NewSendOnlyNode(lggr, url, fmt.Sprintf("eth-sendonly-%d", i), chainID)
 		sendonlys = append(sendonlys, s)
@@ -83,24 +89,24 @@ func NewChainClientWithTestNode(
 	}
 
 	if parsed.Scheme != "ws" && parsed.Scheme != "wss" {
-		return nil, errors.Errorf("ethereum url scheme must be websocket: %s", parsed.String())
+		return nil, pkgerrors.Errorf("ethereum url scheme must be websocket: %s", parsed.String())
 	}
 
 	lggr := logger.Test(t)
 	rpc := NewRPCClient(lggr, *parsed, rpcHTTPURL, "eth-primary-rpc-0", id, chainID, commonclient.Primary)
 
-	n := commonclient.NewNode[*big.Int, *evmtypes.Head, RPCCLient](
+	n := commonclient.NewNode[*big.Int, *evmtypes.Head, RPCClient](
 		nodeCfg, noNewHeadsThreshold, lggr, *parsed, rpcHTTPURL, "eth-primary-node-0", id, chainID, 1, rpc, "EVM")
-	primaries := []commonclient.Node[*big.Int, *evmtypes.Head, RPCCLient]{n}
+	primaries := []commonclient.Node[*big.Int, *evmtypes.Head, RPCClient]{n}
 
-	var sendonlys []commonclient.SendOnlyNode[*big.Int, RPCCLient]
+	var sendonlys []commonclient.SendOnlyNode[*big.Int, RPCClient]
 	for i, u := range sendonlyRPCURLs {
 		if u.Scheme != "http" && u.Scheme != "https" {
-			return nil, errors.Errorf("sendonly ethereum rpc url scheme must be http(s): %s", u.String())
+			return nil, pkgerrors.Errorf("sendonly ethereum rpc url scheme must be http(s): %s", u.String())
 		}
 		var empty url.URL
 		rpc := NewRPCClient(lggr, empty, &sendonlyRPCURLs[i], fmt.Sprintf("eth-sendonly-rpc-%d", i), id, chainID, commonclient.Secondary)
-		s := commonclient.NewSendOnlyNode[*big.Int, RPCCLient](
+		s := commonclient.NewSendOnlyNode[*big.Int, RPCClient](
 			lggr, u, fmt.Sprintf("eth-sendonly-%d", i), chainID, rpc)
 		sendonlys = append(sendonlys, s)
 	}
@@ -127,6 +133,32 @@ func NewChainClientWithEmptyNode(
 	return c
 }
 
+func NewChainClientWithMockedRpc(
+	t *testing.T,
+	selectionMode string,
+	leaseDuration time.Duration,
+	noNewHeadsThreshold time.Duration,
+	chainID *big.Int,
+	rpc RPCClient,
+) Client {
+
+	lggr := logger.Test(t)
+
+	var chainType commonconfig.ChainType
+
+	cfg := TestNodePoolConfig{
+		NodeSelectionMode: NodeSelectionMode_RoundRobin,
+	}
+	parsed, _ := url.ParseRequestURI("ws://test")
+
+	n := commonclient.NewNode[*big.Int, *evmtypes.Head, RPCClient](
+		cfg, noNewHeadsThreshold, lggr, *parsed, nil, "eth-primary-node-0", 1, chainID, 1, rpc, "EVM")
+	primaries := []commonclient.Node[*big.Int, *evmtypes.Head, RPCClient]{n}
+	c := NewChainClient(lggr, selectionMode, leaseDuration, noNewHeadsThreshold, primaries, nil, chainID, chainType)
+	t.Cleanup(c.Close)
+	return c
+}
+
 type TestableSendOnlyNode interface {
 	SendOnlyNode
 	SetEthClient(newBatchSender BatchSender, newSender TxSender)
@@ -136,4 +168,20 @@ const HeadResult = `{"difficulty":"0xf3a00","extraData":"0xd88301050384676574688
 
 func IsDialed(s SendOnlyNode) bool {
 	return s.(*sendOnlyNode).dialed
+}
+
+type mockSubscription struct {
+	unsubscribed bool
+	Errors       chan error
+}
+
+func NewMockSubscription() *mockSubscription {
+	return &mockSubscription{Errors: make(chan error)}
+}
+
+func (mes *mockSubscription) Err() <-chan error { return mes.Errors }
+
+func (mes *mockSubscription) Unsubscribe() {
+	mes.unsubscribed = true
+	close(mes.Errors)
 }
