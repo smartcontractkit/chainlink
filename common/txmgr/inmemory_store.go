@@ -708,7 +708,7 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 	defer ms.addressStatesLock.RUnlock()
 	as, ok := ms.addressStates[fromAddress]
 	if !ok {
-		return nil, fmt.Errorf("find_tx_with_sequence: %w", ErrAddressNotFound)
+		return nil, nil
 	}
 
 	filter := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
