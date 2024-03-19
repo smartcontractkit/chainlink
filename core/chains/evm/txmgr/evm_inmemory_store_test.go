@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commontxmgr "github.com/smartcontractkit/chainlink/v2/common/txmgr"
+	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 
 	evmgas "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	evmtxmgr "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
@@ -432,6 +433,56 @@ func TestInMemoryStore_FindTxAttemptsRequiringReceiptFetch(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestInMemoryStore_GetInProgressTxAttempts(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
+	persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+	kst := cltest.NewKeyStore(t, db, dbcfg)
+	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
+
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	lggr := logger.TestSugared(t)
+	chainID := ethClient.ConfiguredChainID()
+	ctx := context.Background()
+
+	inMemoryStore, err := commontxmgr.NewInMemoryStore[
+		*big.Int,
+		common.Address, common.Hash, common.Hash,
+		*evmtypes.Receipt,
+		evmtypes.Nonce,
+		evmgas.EvmFee,
+	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	require.NoError(t, err)
+
+	t.Run("gets 0 in progress transaction", func(t *testing.T) {
+		ctx := testutils.Context(t)
+		expTxAttempts, expErr := persistentStore.GetInProgressTxAttempts(ctx, fromAddress, chainID)
+		actTxAttempts, actErr := inMemoryStore.GetInProgressTxAttempts(ctx, fromAddress, chainID)
+		require.NoError(t, actErr)
+		require.NoError(t, expErr)
+		assert.Equal(t, len(expTxAttempts), len(actTxAttempts))
+	})
+
+	t.Run("gets 1 in progress transaction", func(t *testing.T) {
+		// insert the transaction into the persistent store
+		inTx := mustInsertUnconfirmedEthTxWithAttemptState(t, persistentStore, int64(7), fromAddress, txmgrtypes.TxAttemptInProgress)
+		// insert the transaction into the in-memory store
+		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
+
+		ctx := testutils.Context(t)
+		expTxAttempts, expErr := persistentStore.GetInProgressTxAttempts(ctx, fromAddress, chainID)
+		actTxAttempts, actErr := inMemoryStore.GetInProgressTxAttempts(ctx, fromAddress, chainID)
+		require.NoError(t, expErr)
+		require.NoError(t, actErr)
+		require.Equal(t, len(expTxAttempts), len(actTxAttempts))
+		for i := 0; i < len(expTxAttempts); i++ {
+			assertTxAttemptEqual(t, expTxAttempts[i], actTxAttempts[i])
+		}
+	})
 }
 
 // assertTxEqual asserts that two transactions are equal
