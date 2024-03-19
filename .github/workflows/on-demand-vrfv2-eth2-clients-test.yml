@@ -11,7 +11,7 @@ jobs:
   vrfv2_smoke_test:
     name: VRFV2 Smoke Test with custom EL client client
     environment: integration
-    runs-on: ubuntu20.04-8cores-32GB
+    runs-on: ubuntu22.04-8cores-32GB
     permissions:
       checks: write
       pull-requests: write

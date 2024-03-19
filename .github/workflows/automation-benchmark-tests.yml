@@ -25,7 +25,7 @@ jobs:
       id-token: write
       contents: read
     name: Automation Benchmark Test
-    runs-on: ubuntu20.04-16cores-64GB
+    runs-on: ubuntu22.04-16cores-64GB
     env:
       SLACK_API_KEY: ${{ secrets.QA_SLACK_API_KEY }}
       SLACK_CHANNEL: C03KJ5S7KEK

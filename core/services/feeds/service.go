@@ -19,6 +19,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -26,7 +27,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
@@ -1101,7 +1101,7 @@ func (s *service) findExistingJobForOCR2(j *job.Job, qopts pg.QOpt) (int32, erro
 
 // findExistingJobForOCRFlux looks for existing job for OCR or flux
 func (s *service) findExistingJobForOCRFlux(j *job.Job, qopts pg.QOpt) (int32, error) {
-	var address ethkey.EIP55Address
+	var address types.EIP55Address
 	var evmChainID *big.Big
 
 	switch j.Type {
