@@ -308,7 +308,8 @@ func ReturnFunds(log zerolog.Logger, sethClient *seth.Client, chainlinkNodes []c
 					Str("To send", toSend.String()).
 					Msg("Not enough balance to cover gas cost. Skipping return.")
 
-				return fmt.Errorf("not enough balance (%s) to cover gas cost (%s). Skipping return", balance.String(), totalGasCost.String())
+				failedReturns = append(failedReturns, fromAddress)
+				continue
 			}
 
 			payload := FundsToSendPayload{
