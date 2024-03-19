@@ -17,6 +17,9 @@ func New(lggr logger.Logger, poller logpoller.LogPoller, c client.Client, stateS
 	filterStore := NewUpkeepFilterStore()
 	packer := NewLogEventsPacker()
 	opts := NewOptions(int64(finalityDepth))
+	if len(opts.BufferVersion) == 0 { // TODO: remove once config is ready
+		opts.BufferVersion = "v1"
+	}
 	provider := NewLogProvider(lggr, poller, packer, filterStore, opts)
 	recoverer := NewLogRecoverer(lggr, poller, c, stateStore, packer, filterStore, opts)
 
@@ -37,6 +40,16 @@ type LogTriggersOptions struct {
 	BlockLimitBurst int
 	// Finality depth is the number of blocks to wait before considering a block final.
 	FinalityDepth int64
+
+	// v1 config
+
+	BufferVersion string
+
+	LogLimitLow int32
+
+	LogLimitHigh int32
+
+	BlockRate int64
 }
 
 func NewOptions(finalityDepth int64) LogTriggersOptions {
@@ -66,5 +79,14 @@ func (o *LogTriggersOptions) Defaults(finalityDepth int64) {
 	}
 	if o.FinalityDepth == 0 {
 		o.FinalityDepth = finalityDepth
+	}
+	if o.BlockRate == 0 {
+		o.BlockRate = 2
+	}
+	if o.LogLimitLow == 0 {
+		o.LogLimitLow = 2
+	}
+	if o.LogLimitHigh == 0 {
+		o.LogLimitHigh = 5 // o.LogLimitHigh * 2
 	}
 }
