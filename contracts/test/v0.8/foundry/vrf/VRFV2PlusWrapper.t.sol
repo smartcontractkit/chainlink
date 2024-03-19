@@ -8,6 +8,7 @@ import {ExposedVRFCoordinatorV2_5} from "../../../../src/v0.8/vrf/dev/testhelper
 import {VRFV2PlusWrapperConsumerBase} from "../../../../src/v0.8/vrf/dev/VRFV2PlusWrapperConsumerBase.sol";
 import {VRFV2PlusWrapperConsumerExample} from "../../../../src/v0.8/vrf/dev/testhelpers/VRFV2PlusWrapperConsumerExample.sol";
 import {VRFCoordinatorV2_5} from "../../../../src/v0.8/vrf/dev/VRFCoordinatorV2_5.sol";
+import {VRFConsumerBaseV2Plus} from "../../../../src/v0.8/vrf/dev/VRFConsumerBaseV2Plus.sol";
 import {VRFV2PlusWrapper} from "../../../../src/v0.8/vrf/dev/VRFV2PlusWrapper.sol";
 import {VRFV2PlusClient} from "../../../../src/v0.8/vrf/dev/libraries/VRFV2PlusClient.sol";
 import {console} from "forge-std/console.sol";
@@ -130,6 +131,11 @@ contract VRFV2PlusWrapperTest is BaseTest {
   // VRFV2PlusWrapperConsumerBase events
   event LinkTokenSet(address link);
 
+  function testVRFV2PlusWrapper_ZeroAddress() public {
+    vm.expectRevert(VRFConsumerBaseV2Plus.ZeroAddress.selector);
+    new VRFV2PlusWrapper(address(0), address(0), address(0));
+  }
+
   function testSetLinkAndLinkNativeFeed() public {
     VRFV2PlusWrapper wrapper = new VRFV2PlusWrapper(address(0), address(0), address(s_testCoordinator));
 
@@ -160,6 +166,11 @@ contract VRFV2PlusWrapperTest is BaseTest {
     emit FulfillmentTxSizeSet(fulfillmentTxSize);
     s_wrapper.setFulfillmentTxSize(fulfillmentTxSize);
     assertEq(s_wrapper.s_fulfillmentTxSizeBytes(), fulfillmentTxSize);
+  }
+
+  function testSetCoordinator_ZeroAddress() public {
+    vm.expectRevert(VRFConsumerBaseV2Plus.ZeroAddress.selector);
+    s_wrapper.setCoordinator(address(0));
   }
 
   function testRequestAndFulfillRandomWordsNativeWrapper() public {
