@@ -398,24 +398,24 @@ func SetupVRFV2ForExistingEnv(ctx context.Context, t *testing.T, testConfig tc.T
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("%s, err: %w", "error creating test env", err)
 	}
-
 	coordinator, err := env.ContractLoader.LoadVRFCoordinatorV2(*commonExistingEnvConfig.CoordinatorAddress)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("%s, err: %w", "error loading VRFCoordinator2", err)
 	}
-
+	linkToken, err := env.ContractLoader.LoadLINKToken(*commonExistingEnvConfig.LinkAddress)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("%s, err: %w", "error loading LinkToken", err)
+	}
 	err = vrfcommon.FundNodesIfNeeded(ctx, commonExistingEnvConfig, env.EVMClient, l)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("err: %w", err)
 	}
-
 	vrfContracts := &vrfcommon.VRFContracts{
 		CoordinatorV2:  coordinator,
 		VRFV2Consumers: nil,
-		LinkToken:      nil,
+		LinkToken:      linkToken,
 		BHS:            nil,
 	}
-
 	vrfKey := &vrfcommon.VRFKeyData{
 		VRFKey:            nil,
 		EncodedProvingKey: [2]*big.Int{},

@@ -391,21 +391,22 @@ func SetupVRFV2PlusForExistingEnv(ctx context.Context, t *testing.T, testConfig 
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("%s, err: %w", "error creating test env", err)
 	}
-
 	coordinator, err := env.ContractLoader.LoadVRFCoordinatorV2_5(*commonExistingEnvConfig.CoordinatorAddress)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("%s, err: %w", "error loading VRFCoordinator2_5", err)
 	}
-
+	linkToken, err := env.ContractLoader.LoadLINKToken(*commonExistingEnvConfig.LinkAddress)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("%s, err: %w", "error loading LinkToken", err)
+	}
 	err = vrfcommon.FundNodesIfNeeded(ctx, commonExistingEnvConfig, env.EVMClient, l)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("err: %w", err)
 	}
-
 	vrfContracts := &vrfcommon.VRFContracts{
 		CoordinatorV2Plus: coordinator,
 		VRFV2PlusConsumer: nil,
-		LinkToken:         nil,
+		LinkToken:         linkToken,
 		BHS:               nil,
 	}
 
