@@ -25,6 +25,13 @@ func TestBlockWindow(t *testing.T) {
 			wantEnd:   0,
 		},
 		{
+			name:      "block 81, blockRate 1",
+			block:     81,
+			blockRate: 1,
+			wantStart: 81,
+			wantEnd:   81,
+		},
+		{
 			name:      "block 0, blockRate 4",
 			block:     0,
 			blockRate: 4,
