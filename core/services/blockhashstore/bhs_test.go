@@ -24,6 +24,7 @@ import (
 )
 
 func TestStoreRotatesFromAddresses(t *testing.T) {
+	ctx := testutils.Context(t)
 	db := pgtest.NewSqlxDB(t)
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	cfg := configtest.NewTestGeneralConfig(t)
@@ -36,9 +37,9 @@ func TestStoreRotatesFromAddresses(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ks := keystore.New(db, utils.FastScryptParams, lggr, cfg.Database())
 	require.NoError(t, ks.Unlock("blah"))
-	k1, err := ks.Eth().Create(&cltest.FixtureChainID)
+	k1, err := ks.Eth().Create(ctx, &cltest.FixtureChainID)
 	require.NoError(t, err)
-	k2, err := ks.Eth().Create(&cltest.FixtureChainID)
+	k2, err := ks.Eth().Create(ctx, &cltest.FixtureChainID)
 	require.NoError(t, err)
 	fromAddresses := []ethkey.EIP55Address{k1.EIP55Address, k2.EIP55Address}
 	txm := new(txmmocks.MockEvmTxManager)
@@ -65,8 +66,6 @@ func TestStoreRotatesFromAddresses(t *testing.T) {
 	txm.On("CreateTransaction", mock.Anything, mock.MatchedBy(func(tx txmgr.TxRequest) bool {
 		return tx.FromAddress.String() == k2.Address.String()
 	})).Once().Return(txmgr.Tx{}, nil)
-
-	ctx := testutils.Context(t)
 
 	// store 2 blocks
 	err = bhs.Store(ctx, 1)

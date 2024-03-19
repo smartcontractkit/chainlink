@@ -166,6 +166,8 @@ type VRFV2PlusWrapper interface {
 	Address() string
 	SetConfig(wrapperGasOverhead uint32, coordinatorGasOverhead uint32, wrapperPremiumPercentage uint8, keyHash [32]byte, maxNumWords uint8, stalenessSeconds uint32, fallbackWeiPerUnitLink *big.Int, fulfillmentFlatFeeLinkPPM uint32, fulfillmentFlatFeeNativePPM uint32) error
 	GetSubID(ctx context.Context) (*big.Int, error)
+	Migrate(newCoordinator common.Address) error
+	Coordinator(ctx context.Context) (common.Address, error)
 }
 
 type VRFOwner interface {
@@ -338,9 +340,12 @@ type LoadTestRequestStatus struct {
 }
 
 type VRFLoadTestMetrics struct {
-	RequestCount                 *big.Int
-	FulfilmentCount              *big.Int
-	AverageFulfillmentInMillions *big.Int
-	SlowestFulfillment           *big.Int
-	FastestFulfillment           *big.Int
+	RequestCount                         *big.Int
+	FulfilmentCount                      *big.Int
+	AverageFulfillmentInMillions         *big.Int
+	SlowestFulfillment                   *big.Int
+	FastestFulfillment                   *big.Int
+	AverageResponseTimeInSecondsMillions *big.Int
+	SlowestResponseTimeInSeconds         *big.Int
+	FastestResponseTimeInSeconds         *big.Int
 }

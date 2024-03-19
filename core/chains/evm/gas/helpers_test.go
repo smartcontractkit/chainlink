@@ -143,7 +143,7 @@ type MockGasEstimatorConfig struct {
 	PriceMinF           *assets.Wei
 	PriceDefaultF       *assets.Wei
 	FeeCapDefaultF      *assets.Wei
-	LimitMaxF           uint32
+	LimitMaxF           uint64
 	ModeF               string
 }
 
@@ -191,7 +191,7 @@ func (m *MockGasEstimatorConfig) FeeCapDefault() *assets.Wei {
 	return m.FeeCapDefaultF
 }
 
-func (m *MockGasEstimatorConfig) LimitMax() uint32 {
+func (m *MockGasEstimatorConfig) LimitMax() uint64 {
 	return m.LimitMaxF
 }
 
