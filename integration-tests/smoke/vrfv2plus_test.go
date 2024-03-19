@@ -952,7 +952,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 			vrfKey,
 			subID,
 			false,
-			config.VRFv2Plus.General,
+			configCopy.VRFv2Plus.General,
 			l,
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
@@ -964,7 +964,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 			vrfKey,
 			subID,
 			true,
-			config.VRFv2Plus.General,
+			configCopy.VRFv2Plus.General,
 			l,
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
@@ -1292,8 +1292,8 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 	t.Run("BHS Job should fill in blockhashes into BHS contract for unfulfilled requests", func(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
 		//Underfund Subscription
-		config.VRFv2Plus.General.SubscriptionFundingAmountLink = ptr.Ptr(float64(0.000000000000000001))   // 1 Juel
-		config.VRFv2Plus.General.SubscriptionFundingAmountNative = ptr.Ptr(float64(0.000000000000000001)) // 1 Wei
+		configCopy.VRFv2Plus.General.SubscriptionFundingAmountLink = ptr.Ptr(float64(0.000000000000000001))   // 1 Juel
+		configCopy.VRFv2Plus.General.SubscriptionFundingAmountNative = ptr.Ptr(float64(0.000000000000000001)) // 1 Wei
 
 		consumers, subIDs, err := vrfv2plus.SetupNewConsumersAndSubs(
 			env,
@@ -1337,7 +1337,7 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 
 		var wg sync.WaitGroup
 		wg.Add(1)
-		_, err = actions.WaitForBlockNumberToBe(randRequestBlockNumber+uint64(*config.VRFv2Plus.General.BHSJobWaitBlocks+10), env.EVMClient, &wg, time.Minute*1, t)
+		_, err = actions.WaitForBlockNumberToBe(randRequestBlockNumber+uint64(*configCopy.VRFv2Plus.General.BHSJobWaitBlocks+10), env.EVMClient, &wg, time.Minute*1, t)
 		wg.Wait()
 		require.NoError(t, err, "error waiting for blocknumber to be")
 
@@ -1519,20 +1519,20 @@ func TestVRFv2PlusReplayAfterTimeout(t *testing.T) {
 		require.Equal(t, resp.StatusCode, 204)
 
 		chainID := env.EVMClient.GetChainID()
-		config.VRFv2Plus.General.VRFJobRequestTimeout = ptr.Ptr(blockchain.StrDuration{Duration: time.Duration(time.Hour * 1)})
+		configCopy.VRFv2Plus.General.VRFJobRequestTimeout = ptr.Ptr(blockchain.StrDuration{Duration: time.Duration(time.Hour * 1)})
 		vrfJobSpecConfig := vrfcommon.VRFJobSpecConfig{
-			ForwardingAllowed:             *config.VRFv2Plus.General.VRFJobForwardingAllowed,
+			ForwardingAllowed:             *configCopy.VRFv2Plus.General.VRFJobForwardingAllowed,
 			CoordinatorAddress:            vrfContracts.CoordinatorV2Plus.Address(),
 			FromAddresses:                 vrfNode.TXKeyAddressStrings,
 			EVMChainID:                    chainID.String(),
-			MinIncomingConfirmations:      int(*config.VRFv2Plus.General.MinimumConfirmations),
+			MinIncomingConfirmations:      int(*configCopy.VRFv2Plus.General.MinimumConfirmations),
 			PublicKey:                     vrfKey.PubKeyCompressed,
-			EstimateGasMultiplier:         *config.VRFv2Plus.General.VRFJobEstimateGasMultiplier,
-			BatchFulfillmentEnabled:       *config.VRFv2Plus.General.VRFJobBatchFulfillmentEnabled,
-			BatchFulfillmentGasMultiplier: *config.VRFv2Plus.General.VRFJobBatchFulfillmentGasMultiplier,
-			PollPeriod:                    config.VRFv2Plus.General.VRFJobPollPeriod.Duration,
-			RequestTimeout:                config.VRFv2Plus.General.VRFJobRequestTimeout.Duration,
-			SimulationBlock:               config.VRFv2Plus.General.VRFJobSimulationBlock,
+			EstimateGasMultiplier:         *configCopy.VRFv2Plus.General.VRFJobEstimateGasMultiplier,
+			BatchFulfillmentEnabled:       *configCopy.VRFv2Plus.General.VRFJobBatchFulfillmentEnabled,
+			BatchFulfillmentGasMultiplier: *configCopy.VRFv2Plus.General.VRFJobBatchFulfillmentGasMultiplier,
+			PollPeriod:                    configCopy.VRFv2Plus.General.VRFJobPollPeriod.Duration,
+			RequestTimeout:                configCopy.VRFv2Plus.General.VRFJobRequestTimeout.Duration,
+			SimulationBlock:               configCopy.VRFv2Plus.General.VRFJobSimulationBlock,
 			VRFOwnerConfig:                nil,
 		}
 

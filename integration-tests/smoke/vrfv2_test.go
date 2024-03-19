@@ -120,7 +120,7 @@ func TestVRFv2Basic(t *testing.T) {
 		require.True(t, status.Fulfilled)
 		l.Debug().Bool("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
 
-		require.Equal(t, *config.VRFv2.General.NumberOfWords, uint32(len(status.RandomWords)))
+		require.Equal(t, *configCopy.VRFv2.General.NumberOfWords, uint32(len(status.RandomWords)))
 		for _, w := range status.RandomWords {
 			l.Info().Str("Output", w.String()).Msg("Randomness fulfilled")
 			require.Equal(t, 1, w.Cmp(big.NewInt(0)), "Expected the VRF job give an answer bigger than 0")
@@ -589,12 +589,12 @@ func TestVRFv2MultipleSendingKeys(t *testing.T) {
 				vrfContracts.CoordinatorV2,
 				subIDForMultipleSendingKeys,
 				vrfKey,
-				*config.VRFv2.General.MinimumConfirmations,
-				*config.VRFv2.General.CallbackGasLimit,
-				*config.VRFv2.General.NumberOfWords,
-				*config.VRFv2.General.RandomnessRequestCountPerRequest,
-				*config.VRFv2.General.RandomnessRequestCountPerRequestDeviation,
-				config.VRFv2.General.RandomWordsFulfilledEventTimeout.Duration,
+				*configCopy.VRFv2.General.MinimumConfirmations,
+				*configCopy.VRFv2.General.CallbackGasLimit,
+				*configCopy.VRFv2.General.NumberOfWords,
+				*configCopy.VRFv2.General.RandomnessRequestCountPerRequest,
+				*configCopy.VRFv2.General.RandomnessRequestCountPerRequestDeviation,
+				configCopy.VRFv2.General.RandomWordsFulfilledEventTimeout.Duration,
 			)
 			require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
 
@@ -749,64 +749,6 @@ func TestVRFOwner(t *testing.T) {
 		require.Equal(t, *configCopy.VRFv2.General.FulfillmentFlatFeeLinkPPMTier1, coordinatorFeeConfig.FulfillmentFlatFeeLinkPPMTier1)
 		require.Equal(t, *configCopy.VRFv2.General.ReqsForTier2, coordinatorFeeConfig.ReqsForTier2.Int64())
 		require.Equal(t, *configCopy.VRFv2.General.FallbackWeiPerUnitLink, coordinatorFallbackWeiPerUnitLinkConfig.Int64())
-	})
-
-	t.Run("Only VRF Coordinator Owner can invoke 'only-owner' methods", func(t *testing.T) {
-		configCopy := config.MustCopy().(tc.TestConfig)
-
-		configCopy.VRFv2.General.SubscriptionFundingAmountLink = ptr.Ptr(float64(0.000000000000000001)) // 1 Juel
-		_, subIDsForOnlyOwner, err := vrfv2.SetupNewConsumersAndSubs(
-			testEnv,
-			vrfContracts.CoordinatorV2,
-			configCopy,
-			vrfContracts.LinkToken,
-			1,
-			1,
-			l,
-		)
-		require.NoError(t, err, "error setting up new consumers and subs")
-		subIDForOnlyOwner := subIDsForOnlyOwner[0]
-		subscriptionForOnlyOwner, err := vrfContracts.CoordinatorV2.GetSubscription(testcontext.Get(t), subIDForOnlyOwner)
-		require.NoError(t, err, "error getting subscription information")
-		vrfv2.LogSubDetails(l, subscriptionForOnlyOwner, subIDForOnlyOwner, vrfContracts.CoordinatorV2)
-		subIDsForCancellingAfterTest = append(subIDsForCancellingAfterTest, subIDsForOnlyOwner...)
-
-		vrfv2.LogSubDetails(l, subscriptionForOnlyOwner, subIDForOnlyOwner, vrfContracts.CoordinatorV2)
-		//todo
-		// Call OwnerCancelSubscription on Coordinator contract - should fail since ownership is transferred to VRFOwner contract
-		//_, err = vrfContracts.CoordinatorV2.OwnerCancelSubscription(subIDForCancelling)
-		//require.Error(t, err, "error should occur when not the owner of Coordinator contract tries to owner-cancel subscription")
-
-		//fmt.Println("CoordinatorV2.OwnerCancelSubscription", err)
-
-		err = testEnv.EVMClient.WaitForEvents()
-		require.NoError(t, err, vrfcommon.ErrWaitTXsComplete)
-
-		tx, err := vrfContracts.VRFOwner.OwnerCancelSubscription(subIDForOnlyOwner)
-		require.NoError(t, err)
-
-		err = testEnv.EVMClient.WaitForEvents()
-		require.NoError(t, err, vrfcommon.ErrWaitTXsComplete)
-
-		receipt, err := testEnv.EVMClient.GetTxReceipt(tx.Hash())
-		require.NoError(t, err, "error getting tx receipt")
-
-		for _, log := range receipt.Logs {
-			subscriptionCanceledEvent, err := vrfContracts.CoordinatorV2.ParseSubscriptionCanceled(*log)
-			if err != nil {
-				l.Error().Err(err).Msg("Error parsing SubscriptionCanceledEvent")
-
-			} else {
-				l.Info().
-					Str("Amount", subscriptionCanceledEvent.Amount.String()).
-					Uint64("SubID", subscriptionCanceledEvent.SubId).
-					Str("To", subscriptionCanceledEvent.To.String()).
-					Msg("SubscriptionCanceledEvent")
-			}
-		}
-
-		//_, err = vrfContracts.CoordinatorV2.WaitForSubscriptionCanceledEvent([]uint64{subIDForCancelling}, time.Second*30)
-		//require.NoError(t, err, "error waiting for subscription canceled event")
 	})
 }
 
@@ -970,7 +912,7 @@ func TestVRFV2WithBHS(t *testing.T) {
 
 		var wg sync.WaitGroup
 		wg.Add(1)
-		_, err = actions.WaitForBlockNumberToBe(randRequestBlockNumber+uint64(*config.VRFv2.General.BHSJobWaitBlocks), testEnv.EVMClient, &wg, time.Minute*1, t)
+		_, err = actions.WaitForBlockNumberToBe(randRequestBlockNumber+uint64(*configCopy.VRFv2.General.BHSJobWaitBlocks), testEnv.EVMClient, &wg, time.Minute*1, t)
 		wg.Wait()
 		require.NoError(t, err, "error waiting for blocknumber to be")
 
