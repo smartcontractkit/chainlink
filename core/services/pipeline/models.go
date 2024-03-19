@@ -47,6 +47,7 @@ type Run struct {
 	ID             int64            `json:"-"`
 	JobID          int32            `json:"-"`
 	PipelineSpecID int32            `json:"-"`
+	PruningKey     int32            `json:"-"` // This currently refers to the upstream job ID
 	PipelineSpec   Spec             `json:"pipelineSpec"`
 	Meta           JSONSerializable `json:"meta"`
 	// The errors are only ever strings

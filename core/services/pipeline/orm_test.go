@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cometbft/cometbft/libs/rand"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -13,6 +14,7 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
+
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -715,8 +717,10 @@ func Test_Prune(t *testing.T) {
 
 	ps1 := cltest.MustInsertPipelineSpec(t, db)
 
+	jobID := rand.Int32()
+
 	t.Run("when there are no runs to prune, does nothing", func(t *testing.T) {
-		porm.Prune(db, ps1.ID)
+		porm.Prune(db, jobID)
 
 		// no error logs; it did nothing
 		assert.Empty(t, observed.All())
@@ -725,30 +729,31 @@ func Test_Prune(t *testing.T) {
 	// ps1 has:
 	// - 20 completed runs
 	for i := 0; i < 20; i++ {
-		cltest.MustInsertPipelineRunWithStatus(t, db, ps1.ID, pipeline.RunStatusCompleted)
+		cltest.MustInsertPipelineRunWithStatus(t, db, ps1.ID, pipeline.RunStatusCompleted, jobID)
 	}
 
 	ps2 := cltest.MustInsertPipelineSpec(t, db)
 
+	jobID2 := rand.Int32()
 	// ps2 has:
 	// - 12 completed runs
 	// - 3 errored runs
-	// - 3 running run
+	// - 3 running runs
 	// - 3 suspended run
 	for i := 0; i < 12; i++ {
-		cltest.MustInsertPipelineRunWithStatus(t, db, ps2.ID, pipeline.RunStatusCompleted)
+		cltest.MustInsertPipelineRunWithStatus(t, db, ps2.ID, pipeline.RunStatusCompleted, jobID2)
 	}
 	for i := 0; i < 3; i++ {
-		cltest.MustInsertPipelineRunWithStatus(t, db, ps2.ID, pipeline.RunStatusErrored)
+		cltest.MustInsertPipelineRunWithStatus(t, db, ps2.ID, pipeline.RunStatusErrored, jobID2)
 	}
 	for i := 0; i < 3; i++ {
-		cltest.MustInsertPipelineRunWithStatus(t, db, ps2.ID, pipeline.RunStatusRunning)
+		cltest.MustInsertPipelineRunWithStatus(t, db, ps2.ID, pipeline.RunStatusRunning, jobID2)
 	}
 	for i := 0; i < 3; i++ {
-		cltest.MustInsertPipelineRunWithStatus(t, db, ps2.ID, pipeline.RunStatusSuspended)
+		cltest.MustInsertPipelineRunWithStatus(t, db, ps2.ID, pipeline.RunStatusSuspended, jobID2)
 	}
 
-	porm.Prune(db, ps2.ID)
+	porm.Prune(db, jobID2)
 
 	cnt := pgtest.MustCount(t, db, "SELECT count(*) FROM pipeline_runs WHERE pipeline_spec_id = $1 AND state = $2", ps1.ID, pipeline.RunStatusCompleted)
 	assert.Equal(t, cnt, 20)

@@ -27,7 +27,7 @@ WHERE pjps.pipeline_spec_id = pipeline_runs.pipeline_spec_id;
 
 ALTER TABLE pipeline_runs ALTER COLUMN pruning_key SET NOT NULL;
 
-ALTER TABLE pipeline_runs ADD CONSTRAINT fk_pipeline_runs_job FOREIGN KEY (pruning_key) REFERENCES jobs(id);
+ALTER TABLE pipeline_runs ADD CONSTRAINT fk_pipeline_runs_job FOREIGN KEY (pruning_key) REFERENCES jobs(id) ON DELETE CASCADE DEFERRABLE;
 -- +goose StatementEnd
 
 -- +goose Down
