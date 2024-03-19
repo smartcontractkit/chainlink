@@ -1,7 +1,8 @@
 name: CI Core
+run-name: CI Core ${{ inputs.distinct_run_name && inputs.distinct_run_name || '' }}
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.distinct_run_name }}
   cancel-in-progress: true
 
 # Run on key branches to make sure integration is good, otherwise run on all PR's
@@ -15,23 +16,60 @@ on:
   pull_request:
   schedule:
     - cron: "0 0 * * *"
+  workflow_dispatch:
+    inputs:
+      distinct_run_name:
+        description: 'A unique identifier for this run, used when running from other repos'
+        required: false
+        type: string
+      evm-ref:
+        description: The chainlink-evm reference to use when testing against a specific version for compatibliity
+        required: false
+        default: ""
+        type: string
 
 jobs:
+
+  filter: # No need to run core tests if there are only changes to the integration-tests
+    name: Detect Changes
+    permissions:
+      pull-requests: read
+    outputs:
+      changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.changes }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          repository: smartcontractkit/chainlink
+      - uses: dorny/paths-filter@0bc4621a3135347011ad047f9ecf449bf72ce2bd # v3.0.0
+        id: changes
+        with:
+          filters: |
+            changes:
+              - '!integration-tests/**'
+      - name: Ignore Filter On Workflow Dispatch
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        id: ignore-filter
+        run: echo "changes=true" >> $GITHUB_OUTPUT
+
   golangci:
     # We don't directly merge dependabot PRs, so let's not waste the resources
-    if: ${{ github.event_name == 'pull_request' ||  github.event_name == 'schedule' && github.actor != 'dependabot[bot]'}}
+    if: ${{ github.event_name == 'pull_request' ||  github.event_name == 'schedule' && github.actor != 'dependabot[bot]' }}
     name: lint
-    runs-on: ubuntu20.04-8cores-32GB
+    runs-on: ubuntu22.04-8cores-32GB
+    needs: [filter]
     steps:
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1 
       - name: Golang Lint
         uses: ./.github/actions/golangci-lint
+        if: ${{ needs.filter.outputs.changes == 'true' }}
         with:
           gc-basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           gc-host: ${{ secrets.GRAFANA_INTERNAL_HOST }}
           gc-org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
       - name: Notify Slack
-        if: ${{ failure() && (github.event_name == 'merge_group' || github.event.branch == 'develop')}}
+        if: ${{ failure() && (github.event_name == 'merge_group' || github.event.branch == 'develop') &&  needs.filter.outputs.changes == 'true' }}
         uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
         env:
           SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
@@ -47,35 +85,51 @@ jobs:
     name: Core Tests (${{ matrix.cmd }})
     # We don't directly merge dependabot PRs, so let's not waste the resources
     if: github.actor != 'dependabot[bot]'
-    runs-on: ubuntu20.04-64cores-256GB
+    needs: [filter]
+    runs-on: ubuntu-latest-64cores-256GB
     env:
       CL_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
     steps:
       - name: Checkout the repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
       - name: Setup node
+        if: ${{ needs.filter.outputs.changes == 'true' }}
         uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8 # v4.0.2
       - name: Setup NodeJS
+        if: ${{ needs.filter.outputs.changes == 'true' }}
         uses: ./.github/actions/setup-nodejs
         with:
           prod: "true"
       - name: Setup Go
+        if: ${{ needs.filter.outputs.changes == 'true' }}
         uses: ./.github/actions/setup-go
       - name: Setup Solana
+        if: ${{ needs.filter.outputs.changes == 'true' }}
         uses: ./.github/actions/setup-solana
       - name: Setup wasmd
+        if: ${{ needs.filter.outputs.changes == 'true' }}
         uses: ./.github/actions/setup-wasmd
       - name: Setup Postgres
+        if: ${{ needs.filter.outputs.changes == 'true' }}
         uses: ./.github/actions/setup-postgres
       - name: Touching core/web/assets/index.html
+        if: ${{ needs.filter.outputs.changes == 'true' }}
         run: mkdir -p core/web/assets && touch core/web/assets/index.html
       - name: Download Go vendor packages
+        if: ${{ needs.filter.outputs.changes == 'true' }}
         run: go mod download
+      - name: Replace chainlink-evm deps
+        if: ${{ needs.filter.outputs.changes == 'true' && inputs.evm-ref != ''}}
+        shell: bash
+        run: go get github.com/smartcontractkit/chainlink-evm@${{ inputs.evm-ref }}
       - name: Build binary
+        if: ${{ needs.filter.outputs.changes == 'true' }}
         run: go build -o chainlink.test .
       - name: Setup DB
+        if: ${{ needs.filter.outputs.changes == 'true' }}
         run: ./chainlink.test local db preparetest
       - name: Install LOOP Plugins
+        if: ${{ needs.filter.outputs.changes == 'true' }}
         run: |
           pushd $(go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-feeds)
           go install ./cmd/chainlink-feeds
@@ -90,31 +144,32 @@ jobs:
           go install ./pkg/chainlink/cmd/chainlink-starknet
           popd
       - name: Increase Race Timeout
-        if: github.event.schedule != ''
+        if: ${{ github.event.schedule != '' && needs.filter.outputs.changes == 'true' }}
         run: |
           echo "TIMEOUT=10m" >> $GITHUB_ENV
           echo "COUNT=50" >> $GITHUB_ENV
       - name: Run tests
+        if: ${{ needs.filter.outputs.changes == 'true' }}
         id: run-tests
         env:
           OUTPUT_FILE: ./output.txt
           USE_TEE: false
         run: ./tools/bin/${{ matrix.cmd }} ./...
       - name: Print Filtered Test Results
-        if: ${{ failure() && matrix.cmd == 'go_core_tests' }}
+        if: ${{ failure() && matrix.cmd == 'go_core_tests' && needs.filter.outputs.changes == 'true' }}
         uses: smartcontractkit/chainlink-github-actions/go/go-test-results-parsing@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
         with:
           results-file: ./output.txt
           output-file: ./output-short.txt
       - name: Print Races
-        if: ${{ failure() && matrix.cmd == 'go_core_race_tests' }}
+        if: ${{ failure() && matrix.cmd == 'go_core_race_tests' && needs.filter.outputs.changes == 'true' }}
         run: find race.* | xargs cat
       - name: Print postgres logs
-        if: always()
+        if: ${{ always() &&  needs.filter.outputs.changes == 'true' }}
         run: docker compose logs postgres | tee ../../../postgres_logs.txt
         working-directory: ./.github/actions/setup-postgres
       - name: Store logs artifacts
-        if: always()
+        if: ${{ needs.filter.outputs.changes == 'true' && always() }}
         uses: actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32 # v3.1.3
         with:
           name: ${{ matrix.cmd }}_logs
@@ -125,7 +180,7 @@ jobs:
             ./coverage.txt
             ./postgres_logs.txt
       - name: Notify Slack
-        if: ${{ failure() && matrix.cmd == 'go_core_race_tests' && (github.event_name == 'merge_group' || github.event.branch == 'develop') }}
+        if: ${{ failure() && matrix.cmd == 'go_core_race_tests' && (github.event_name == 'merge_group' || github.event.branch == 'develop') &&  needs.filter.outputs.changes == 'true' }}
         uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
         env:
           SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
@@ -133,7 +188,7 @@ jobs:
           channel-id: "#topic-data-races"
           slack-message: "Race tests failed: ${{ job.html_url }}\n${{ format('https://github.com/smartcontractkit/chainlink/actions/runs/{0}', github.run_id) }}"
       - name: Collect Metrics
-        if: always()
+        if: ${{ needs.filter.outputs.changes == 'true' && always() }}
         id: collect-gha-metrics
         uses: smartcontractkit/push-gha-metrics-action@0281b09807758be1dcc41651e44e62b353808c47 # v2.1.0
         with:
@@ -145,40 +200,55 @@ jobs:
         continue-on-error: true
 
   detect-flakey-tests:
-    needs: [core]
+    needs: [filter, core]
     name: Flakey Test Detection
     runs-on: ubuntu-latest
-    if: always()
+    if: ${{ always() && github.actor != 'dependabot[bot]' }} 
     env:
       CL_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
     steps:
       - name: Checkout the repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
       - name: Setup node
+        if: ${{ needs.filter.outputs.changes == 'true' }}
         uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8 # v4.0.2
       - name: Setup NodeJS
+        if: ${{ needs.filter.outputs.changes == 'true' }}
         uses: ./.github/actions/setup-nodejs
         with:
           prod: "true"
       - name: Setup Go
+        if: ${{ needs.filter.outputs.changes == 'true' }}
         uses: ./.github/actions/setup-go
       - name: Setup Postgres
+        if: ${{ needs.filter.outputs.changes == 'true' }}
         uses: ./.github/actions/setup-postgres
       - name: Touching core/web/assets/index.html
+        if: ${{ needs.filter.outputs.changes == 'true' }}
         run: mkdir -p core/web/assets && touch core/web/assets/index.html
-      - name: Download Go vendor packages
+      - name: Download Go vendor packages 
+        if: ${{ needs.filter.outputs.changes == 'true' }}
         run: go mod download
+      - name: Replace chainlink-evm deps
+        if: ${{ needs.filter.outputs.changes == 'true' && inputs.evm-ref != ''}}
+        shell: bash
+        run: go get github.com/smartcontractkit/chainlink-evm@${{ inputs.evm-ref }}
       - name: Build binary
+        if: ${{ needs.filter.outputs.changes == 'true' }}
         run: go build -o chainlink.test .
       - name: Setup DB
+        if: ${{ needs.filter.outputs.changes == 'true' }}
         run: ./chainlink.test local db preparetest
       - name: Load test outputs
+        if: ${{ needs.filter.outputs.changes == 'true' }}
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
           path: ./artifacts
       - name: Build flakey test runner
+        if: ${{ needs.filter.outputs.changes == 'true' }}
         run: go build ./tools/flakeytests/cmd/runner
       - name: Re-run tests
+        if: ${{ needs.filter.outputs.changes == 'true' }}
         env:
           GRAFANA_INTERNAL_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           GRAFANA_INTERNAL_HOST: ${{ secrets.GRAFANA_INTERNAL_HOST }}
@@ -200,7 +270,7 @@ jobs:
             -command=./tools/bin/go_core_tests \
             `ls -R ./artifacts/go_core_tests*/output.txt`
       - name: Store logs artifacts
-        if: always()
+        if: ${{ needs.filter.outputs.changes == 'true' && always() }}
         uses: actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32 # v3.1.3
         with:
           name: flakey_test_runner_logs
@@ -210,7 +280,7 @@ jobs:
   scan:
     name: SonarQube Scan
     needs: [core]
-    if: ${{ always() }}
+    if: ${{ always() && github.actor != 'dependabot[bot]' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
@@ -248,8 +318,8 @@ jobs:
 
   clean:
     name: Clean Go Tidy & Generate
-    if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
-    runs-on: ubuntu20.04-8cores-32GB
+    if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') && github.actor != 'dependabot[bot]' }}
+    runs-on: ubuntu22.04-8cores-32GB
     defaults:
       run:
         shell: bash

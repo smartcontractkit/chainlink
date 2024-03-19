@@ -8,6 +8,8 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
 func TestEthKeyV2_ToKey(t *testing.T) {
@@ -20,7 +22,7 @@ func TestEthKeyV2_ToKey(t *testing.T) {
 	assert.Equal(t, k.privateKey, privateKeyECDSA)
 	assert.Equal(t, k.privateKey.PublicKey.X, privateKeyECDSA.PublicKey.X)
 	assert.Equal(t, k.privateKey.PublicKey.Y, privateKeyECDSA.PublicKey.Y)
-	assert.Equal(t, EIP55AddressFromAddress(crypto.PubkeyToAddress(privateKeyECDSA.PublicKey)).Hex(), k.ID())
+	assert.Equal(t, types.EIP55AddressFromAddress(crypto.PubkeyToAddress(privateKeyECDSA.PublicKey)).Hex(), k.ID())
 }
 
 func TestEthKeyV2_RawPrivateKey(t *testing.T) {

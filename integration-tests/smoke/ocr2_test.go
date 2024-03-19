@@ -129,10 +129,13 @@ func prepareORCv2SmokeTestEnv(t *testing.T, l zerolog.Logger, firstRoundResult i
 		t.Fatal(err)
 	}
 
+	privateNetwork, err := actions.EthereumNetworkConfigFromConfig(l, &config)
+	require.NoError(t, err, "Error building ethereum network config")
+
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestInstance(t).
 		WithTestConfig(&config).
-		WithGeth().
+		WithPrivateEthereumNetwork(privateNetwork).
 		WithMockAdapter().
 		WithCLNodeConfig(node.NewConfig(node.NewBaseConfig(),
 			node.WithOCR2(),

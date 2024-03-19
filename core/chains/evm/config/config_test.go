@@ -16,13 +16,13 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 )
 
 func TestChainScopedConfig(t *testing.T) {
@@ -89,7 +89,7 @@ func TestChainScopedConfig(t *testing.T) {
 		gcfg2 := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			overrides(c, s)
 			c.EVM[0].KeySpecific = toml.KeySpecificConfig{
-				{Key: ptr(ethkey.EIP55AddressFromAddress(randomOtherAddr)),
+				{Key: ptr(types.EIP55AddressFromAddress(randomOtherAddr)),
 					GasEstimator: toml.KeySpecificGasEstimator{
 						PriceMax: assets.GWei(850),
 					},
@@ -124,7 +124,7 @@ func TestChainScopedConfig(t *testing.T) {
 				t.Run(tt.name, func(t *testing.T) {
 					gcfg3 := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 						c.EVM[0].KeySpecific = toml.KeySpecificConfig{
-							{Key: ptr(ethkey.EIP55AddressFromAddress(addr)),
+							{Key: ptr(types.EIP55AddressFromAddress(addr)),
 								GasEstimator: toml.KeySpecificGasEstimator{
 									PriceMax: tt.val,
 								},
@@ -143,7 +143,7 @@ func TestChainScopedConfig(t *testing.T) {
 			gcfg3 := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.EVM[0].GasEstimator.PriceMax = chainSpecificPrice
 				c.EVM[0].KeySpecific = toml.KeySpecificConfig{
-					{Key: ptr(ethkey.EIP55AddressFromAddress(addr)),
+					{Key: ptr(types.EIP55AddressFromAddress(addr)),
 						GasEstimator: toml.KeySpecificGasEstimator{
 							PriceMax: keySpecificPrice,
 						},
@@ -160,7 +160,7 @@ func TestChainScopedConfig(t *testing.T) {
 			gcfg3 := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.EVM[0].GasEstimator.PriceMax = chainSpecificPrice
 				c.EVM[0].KeySpecific = toml.KeySpecificConfig{
-					{Key: ptr(ethkey.EIP55AddressFromAddress(addr)),
+					{Key: ptr(types.EIP55AddressFromAddress(addr)),
 						GasEstimator: toml.KeySpecificGasEstimator{
 							PriceMax: keySpecificPrice,
 						},
@@ -175,7 +175,7 @@ func TestChainScopedConfig(t *testing.T) {
 			keySpecificPrice := assets.GWei(900)
 			gcfg3 := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.EVM[0].KeySpecific = toml.KeySpecificConfig{
-					{Key: ptr(ethkey.EIP55AddressFromAddress(addr)),
+					{Key: ptr(types.EIP55AddressFromAddress(addr)),
 						GasEstimator: toml.KeySpecificGasEstimator{
 							PriceMax: keySpecificPrice,
 						},
@@ -192,7 +192,7 @@ func TestChainScopedConfig(t *testing.T) {
 			gcfg3 := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.EVM[0].GasEstimator.PriceMax = chainSpecificPrice
 				c.EVM[0].KeySpecific = toml.KeySpecificConfig{
-					{Key: ptr(ethkey.EIP55AddressFromAddress(addr)),
+					{Key: ptr(types.EIP55AddressFromAddress(addr)),
 						GasEstimator: toml.KeySpecificGasEstimator{
 							PriceMax: keySpecificPrice,
 						},
@@ -224,7 +224,7 @@ func TestChainScopedConfig(t *testing.T) {
 			val := testutils.NewAddress()
 
 			gcfg3 := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-				c.EVM[0].LinkContractAddress = ptr(ethkey.EIP55AddressFromAddress(val))
+				c.EVM[0].LinkContractAddress = ptr(types.EIP55AddressFromAddress(val))
 			})
 			cfg3 := evmtest.NewChainScopedConfig(t, gcfg3)
 
@@ -241,7 +241,7 @@ func TestChainScopedConfig(t *testing.T) {
 			val := testutils.NewAddress()
 
 			gcfg3 := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-				c.EVM[0].OperatorFactoryAddress = ptr(ethkey.EIP55AddressFromAddress(val))
+				c.EVM[0].OperatorFactoryAddress = ptr(types.EIP55AddressFromAddress(val))
 			})
 			cfg3 := evmtest.NewChainScopedConfig(t, gcfg3)
 

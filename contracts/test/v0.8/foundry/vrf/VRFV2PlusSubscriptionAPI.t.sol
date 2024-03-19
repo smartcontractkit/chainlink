@@ -2,10 +2,12 @@ pragma solidity 0.8.6;
 
 import "../BaseTest.t.sol";
 import {ExposedVRFCoordinatorV2_5} from "../../../../src/v0.8/vrf/dev/testhelpers/ExposedVRFCoordinatorV2_5.sol";
+import {VRFV2PlusLoadTestWithMetrics} from "../../../../src/v0.8/vrf/dev/testhelpers/VRFV2PlusLoadTestWithMetrics.sol";
 import {SubscriptionAPI} from "../../../../src/v0.8/vrf/dev/SubscriptionAPI.sol";
 import {MockLinkToken} from "../../../../src/v0.8/mocks/MockLinkToken.sol";
 import {MockV3Aggregator} from "../../../../src/v0.8/tests/MockV3Aggregator.sol";
 import "@openzeppelin/contracts/utils/Strings.sol"; // for Strings.toString
+import {VmSafe} from "forge-std/Vm.sol";
 
 contract VRFV2PlusSubscriptionAPITest is BaseTest {
   event SubscriptionFunded(uint256 indexed subId, uint256 oldBalance, uint256 newBalance);
@@ -16,6 +18,7 @@ contract VRFV2PlusSubscriptionAPITest is BaseTest {
   event SubscriptionOwnerTransferRequested(uint256 indexed subId, address from, address to);
   event SubscriptionOwnerTransferred(uint256 indexed subId, address from, address to);
   event SubscriptionConsumerAdded(uint256 indexed subId, address consumer);
+  event SubscriptionConsumerRemoved(uint256 indexed subId, address consumer);
 
   ExposedVRFCoordinatorV2_5 s_subscriptionAPI;
 
@@ -596,6 +599,25 @@ contract VRFV2PlusSubscriptionAPITest is BaseTest {
 
     // add consumer again, should be no-op
     changePrank(subOwner);
+    VmSafe.Log[] memory events = vm.getRecordedLogs();
+    s_subscriptionAPI.addConsumer(subId, consumer);
+    assertEq(events.length, 0);
+    assertEq(s_subscriptionAPI.getSubscriptionConfig(subId).consumers.length, 1);
+    assertEq(s_subscriptionAPI.getSubscriptionConfig(subId).consumers[0], consumer);
+
+    // remove consumer
+    vm.expectEmit(true, false, false, true);
+    emit SubscriptionConsumerRemoved(subId, consumer);
+    s_subscriptionAPI.removeConsumer(subId, consumer);
+    assertEq(s_subscriptionAPI.getSubscriptionConfig(subId).consumers.length, 0);
+
+    // removing consumer twice should revert
+    vm.expectRevert(abi.encodeWithSelector(SubscriptionAPI.InvalidConsumer.selector, subId, address(consumer)));
+    s_subscriptionAPI.removeConsumer(subId, consumer);
+
+    //re-add consumer
+    vm.expectEmit(true, false, false, true);
+    emit SubscriptionConsumerAdded(subId, consumer);
     s_subscriptionAPI.addConsumer(subId, consumer);
     assertEq(s_subscriptionAPI.getSubscriptionConfig(subId).consumers.length, 1);
     assertEq(s_subscriptionAPI.getSubscriptionConfig(subId).consumers[0], consumer);

@@ -1188,6 +1188,105 @@ ListenAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
 ListenAddresses is the addresses the peer will listen to on the network in `host:port` form as accepted by `net.Listen()`,
 but the host and port must be fully specified and cannot be empty. You can specify `0.0.0.0` (IPv4) or `::` (IPv6) to listen on all interfaces, but that is not recommended.
 
+## Capabilities.Peering
+```toml
+[Capabilities.Peering]
+IncomingMessageBufferSize = 10 # Default
+OutgoingMessageBufferSize = 10 # Default
+PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw' # Example
+TraceLogging = false # Default
+```
+
+
+### IncomingMessageBufferSize
+```toml
+IncomingMessageBufferSize = 10 # Default
+```
+IncomingMessageBufferSize is the per-remote number of incoming
+messages to buffer. Any additional messages received on top of those
+already in the queue will be dropped.
+
+### OutgoingMessageBufferSize
+```toml
+OutgoingMessageBufferSize = 10 # Default
+```
+OutgoingMessageBufferSize is the per-remote number of outgoing
+messages to buffer. Any additional messages send on top of those
+already in the queue will displace the oldest.
+NOTE: OutgoingMessageBufferSize should be comfortably smaller than remote's
+IncomingMessageBufferSize to give the remote enough space to process
+them all in case we regained connection and now send a bunch at once
+
+### PeerID
+```toml
+PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw' # Example
+```
+PeerID is the default peer ID to use for OCR jobs. If unspecified, uses the first available peer ID.
+
+### TraceLogging
+```toml
+TraceLogging = false # Default
+```
+TraceLogging enables trace level logging.
+
+## Capabilities.Peering.V2
+```toml
+[Capabilities.Peering.V2]
+Enabled = false # Default
+AnnounceAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
+DefaultBootstrappers = ['12D3KooWMHMRLQkgPbFSYHwD3NBuwtS1AmxhvKVUrcfyaGDASR4U@1.2.3.4:9999', '12D3KooWM55u5Swtpw9r8aFLQHEtw7HR4t44GdNs654ej5gRs2Dh@example.com:1234'] # Example
+DeltaDial = '15s' # Default
+DeltaReconcile = '1m' # Default
+ListenAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
+```
+
+
+### Enabled
+```toml
+Enabled = false # Default
+```
+Enabled enables P2P V2.
+
+### AnnounceAddresses
+```toml
+AnnounceAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
+```
+AnnounceAddresses is the addresses the peer will advertise on the network in `host:port` form as accepted by the TCP version of Go’s `net.Dial`.
+The addresses should be reachable by other nodes on the network. When attempting to connect to another node,
+a node will attempt to dial all of the other node’s AnnounceAddresses in round-robin fashion.
+
+### DefaultBootstrappers
+```toml
+DefaultBootstrappers = ['12D3KooWMHMRLQkgPbFSYHwD3NBuwtS1AmxhvKVUrcfyaGDASR4U@1.2.3.4:9999', '12D3KooWM55u5Swtpw9r8aFLQHEtw7HR4t44GdNs654ej5gRs2Dh@example.com:1234'] # Example
+```
+DefaultBootstrappers is the default bootstrapper peers for libocr's v2 networking stack.
+
+Oracle nodes typically only know each other’s PeerIDs, but not their hostnames, IP addresses, or ports.
+DefaultBootstrappers are special nodes that help other nodes discover each other’s `AnnounceAddresses` so they can communicate.
+Nodes continuously attempt to connect to bootstrappers configured in here. When a node wants to connect to another node
+(which it knows only by PeerID, but not by address), it discovers the other node’s AnnounceAddresses from communications
+received from its DefaultBootstrappers or other discovered nodes. To facilitate discovery,
+nodes will regularly broadcast signed announcements containing their PeerID and AnnounceAddresses.
+
+### DeltaDial
+```toml
+DeltaDial = '15s' # Default
+```
+DeltaDial controls how far apart Dial attempts are
+
+### DeltaReconcile
+```toml
+DeltaReconcile = '1m' # Default
+```
+DeltaReconcile controls how often a Reconcile message is sent to every peer.
+
+### ListenAddresses
+```toml
+ListenAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
+```
+ListenAddresses is the addresses the peer will listen to on the network in `host:port` form as accepted by `net.Listen()`,
+but the host and port must be fully specified and cannot be empty. You can specify `0.0.0.0` (IPv4) or `::` (IPv6) to listen on all interfaces, but that is not recommended.
+
 ## Keeper
 ```toml
 [Keeper]
@@ -6703,8 +6802,8 @@ In addition to these settings, it log warnings if `EVM.NoNewHeadsThreshold` is e
 ```toml
 HistoryDepth = 100 # Default
 ```
-HistoryDepth tracks the top N block numbers to keep in the `heads` database table.
-Note that this can easily result in MORE than N records since in the case of re-orgs we keep multiple heads for a particular block height.
+HistoryDepth tracks the top N blocks on top of the latest finalized block to keep in the `heads` database table.
+Note that this can easily result in MORE than `N + finality depth`  records since in the case of re-orgs we keep multiple heads for a particular block height.
 This number should be at least as large as `FinalityDepth`.
 There may be a small performance penalty to setting this to something very large (10,000+)
 
