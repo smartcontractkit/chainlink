@@ -88,8 +88,18 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 			"v3.0.0",
 		),
 		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
+			obs := req.Inputs.Underlying["observations"]
+			reports := obs.(*values.List)
+			rm := map[string]any{
+				"reports": reports.Underlying[0],
+			}
+			rv, err := values.NewMap(rm)
+			if err != nil {
+				return capabilities.CapabilityResponse{}, err
+			}
+
 			return capabilities.CapabilityResponse{
-				Value: req.Inputs.Underlying["observations"],
+				Value: rv,
 			}, nil
 		},
 	)

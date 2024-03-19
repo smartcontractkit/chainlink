@@ -18,7 +18,7 @@ jobs:
       id-token: write
       contents: read
     name: Publish Integration Test Image
-    runs-on: ubuntu20.04-16cores-64GB
+    runs-on: ubuntu22.04-16cores-64GB
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
@@ -72,7 +72,7 @@ jobs:
           #   dockerfile: plugins/chainlink.Dockerfile
           #   tag-suffix: -plugins
     name: Build Chainlink Image ${{ matrix.image.name }}
-    runs-on: ubuntu20.04-8cores-32GB
+    runs-on: ubuntu22.04-8cores-32GB
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics

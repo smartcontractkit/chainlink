@@ -21,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 type TransmitUnpacker interface {
@@ -49,6 +48,7 @@ func LogProviderFilterName(addr common.Address) string {
 }
 
 func NewLogProvider(
+	ctx context.Context,
 	logger logger.Logger,
 	logPoller logpoller.LogPoller,
 	registryAddress common.Address,
@@ -69,7 +69,7 @@ func NewLogProvider(
 
 	// Add log filters for the log poller so that it can poll and find the logs that
 	// we need.
-	err = logPoller.RegisterFilter(logpoller.Filter{
+	err = logPoller.RegisterFilter(ctx, logpoller.Filter{
 		Name: LogProviderFilterName(contract.Address()),
 		EventSigs: []common.Hash{
 			registry.KeeperRegistryUpkeepPerformed{}.Topic(),
@@ -144,7 +144,7 @@ func (c *LogProvider) HealthReport() map[string]error {
 }
 
 func (c *LogProvider) PerformLogs(ctx context.Context) ([]ocr2keepers.PerformLog, error) {
-	end, err := c.logPoller.LatestBlock(pg.WithParentCtx(ctx))
+	end, err := c.logPoller.LatestBlock(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to get latest block from log poller", err)
 	}
@@ -152,13 +152,13 @@ func (c *LogProvider) PerformLogs(ctx context.Context) ([]ocr2keepers.PerformLog
 	// always check the last lookback number of blocks and rebroadcast
 	// this allows the plugin to make decisions based on event confirmations
 	logs, err := c.logPoller.LogsWithSigs(
+		ctx,
 		end.BlockNumber-c.lookbackBlocks,
 		end.BlockNumber,
 		[]common.Hash{
 			registry.KeeperRegistryUpkeepPerformed{}.Topic(),
 		},
 		c.registryAddress,
-		pg.WithParentCtx(ctx),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to collect logs from log poller", err)
@@ -185,7 +185,7 @@ func (c *LogProvider) PerformLogs(ctx context.Context) ([]ocr2keepers.PerformLog
 }
 
 func (c *LogProvider) StaleReportLogs(ctx context.Context) ([]ocr2keepers.StaleReportLog, error) {
-	end, err := c.logPoller.LatestBlock(pg.WithParentCtx(ctx))
+	end, err := c.logPoller.LatestBlock(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to get latest block from log poller", err)
 	}
@@ -195,13 +195,13 @@ func (c *LogProvider) StaleReportLogs(ctx context.Context) ([]ocr2keepers.StaleR
 
 	// ReorgedUpkeepReportLogs
 	logs, err := c.logPoller.LogsWithSigs(
+		ctx,
 		end.BlockNumber-c.lookbackBlocks,
 		end.BlockNumber,
 		[]common.Hash{
 			registry.KeeperRegistryReorgedUpkeepReport{}.Topic(),
 		},
 		c.registryAddress,
-		pg.WithParentCtx(ctx),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to collect logs from log poller", err)
@@ -213,13 +213,13 @@ func (c *LogProvider) StaleReportLogs(ctx context.Context) ([]ocr2keepers.StaleR
 
 	// StaleUpkeepReportLogs
 	logs, err = c.logPoller.LogsWithSigs(
+		ctx,
 		end.BlockNumber-c.lookbackBlocks,
 		end.BlockNumber,
 		[]common.Hash{
 			registry.KeeperRegistryStaleUpkeepReport{}.Topic(),
 		},
 		c.registryAddress,
-		pg.WithParentCtx(ctx),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to collect logs from log poller", err)
@@ -231,13 +231,13 @@ func (c *LogProvider) StaleReportLogs(ctx context.Context) ([]ocr2keepers.StaleR
 
 	// InsufficientFundsUpkeepReportLogs
 	logs, err = c.logPoller.LogsWithSigs(
+		ctx,
 		end.BlockNumber-c.lookbackBlocks,
 		end.BlockNumber,
 		[]common.Hash{
 			registry.KeeperRegistryInsufficientFundsUpkeepReport{}.Topic(),
 		},
 		c.registryAddress,
-		pg.WithParentCtx(ctx),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to collect logs from log poller", err)

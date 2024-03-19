@@ -14,12 +14,14 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 	vrfcommon "github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/common"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/vrfv2plus"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -97,12 +99,7 @@ func TestVRFv2Plus(t *testing.T) {
 			vrfv2PlusData,
 			subID,
 			isNativeBilling,
-			*configCopy.VRFv2Plus.General.MinimumConfirmations,
-			*configCopy.VRFv2Plus.General.CallbackGasLimit,
-			*configCopy.VRFv2Plus.General.NumberOfWords,
-			*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequest,
-			*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequestDeviation,
-			configCopy.VRFv2Plus.General.RandomWordsFulfilledEventTimeout.Duration,
+			configCopy.VRFv2Plus.General,
 			l,
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
@@ -148,12 +145,7 @@ func TestVRFv2Plus(t *testing.T) {
 			vrfv2PlusData,
 			subID,
 			isNativeBilling,
-			*configCopy.VRFv2Plus.General.MinimumConfirmations,
-			*configCopy.VRFv2Plus.General.CallbackGasLimit,
-			*configCopy.VRFv2Plus.General.NumberOfWords,
-			*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequest,
-			*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequestDeviation,
-			configCopy.VRFv2Plus.General.RandomWordsFulfilledEventTimeout.Duration,
+			configCopy.VRFv2Plus.General,
 			l,
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
@@ -212,12 +204,7 @@ func TestVRFv2Plus(t *testing.T) {
 				vrfv2PlusData,
 				wrapperSubID,
 				isNativeBilling,
-				*configCopy.VRFv2Plus.General.MinimumConfirmations,
-				*configCopy.VRFv2Plus.General.CallbackGasLimit,
-				*configCopy.VRFv2Plus.General.NumberOfWords,
-				*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequest,
-				*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequestDeviation,
-				configCopy.VRFv2Plus.General.RandomWordsFulfilledEventTimeout.Duration,
+				configCopy.VRFv2Plus.General,
 				l,
 			)
 			require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
@@ -266,12 +253,7 @@ func TestVRFv2Plus(t *testing.T) {
 				vrfv2PlusData,
 				wrapperSubID,
 				isNativeBilling,
-				*configCopy.VRFv2Plus.General.MinimumConfirmations,
-				*configCopy.VRFv2Plus.General.CallbackGasLimit,
-				*configCopy.VRFv2Plus.General.NumberOfWords,
-				*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequest,
-				*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequestDeviation,
-				configCopy.VRFv2Plus.General.RandomWordsFulfilledEventTimeout.Duration,
+				configCopy.VRFv2Plus.General,
 				l,
 			)
 			require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
@@ -347,6 +329,10 @@ func TestVRFv2Plus(t *testing.T) {
 		require.NoError(t, err, "error getting tx cancellation Tx Receipt")
 
 		txGasUsed := new(big.Int).SetUint64(cancellationTxReceipt.GasUsed)
+		// we don't have that information for older Geth versions
+		if cancellationTxReceipt.EffectiveGasPrice == nil {
+			cancellationTxReceipt.EffectiveGasPrice = new(big.Int).SetUint64(0)
+		}
 		cancellationTxFeeWei := new(big.Int).Mul(txGasUsed, cancellationTxReceipt.EffectiveGasPrice)
 
 		l.Info().
@@ -431,19 +417,14 @@ func TestVRFv2Plus(t *testing.T) {
 		require.NoError(t, err)
 		require.False(t, pendingRequestsExist, "Pending requests should not exist")
 
-		randomWordsFulfilledEventTimeout := 5 * time.Second
+		configCopy.VRFv2Plus.General.RandomWordsFulfilledEventTimeout = ptr.Ptr(blockchain.StrDuration{Duration: 5 * time.Second})
 		_, err = vrfv2plus.RequestRandomnessAndWaitForFulfillment(
 			vrfv2PlusContracts.VRFV2PlusConsumer[0],
 			vrfv2PlusContracts.CoordinatorV2Plus,
 			vrfv2PlusData,
 			subIDForCancelling,
 			false,
-			*configCopy.VRFv2Plus.General.MinimumConfirmations,
-			*configCopy.VRFv2Plus.General.CallbackGasLimit,
-			*configCopy.VRFv2Plus.General.NumberOfWords,
-			*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequest,
-			*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequestDeviation,
-			randomWordsFulfilledEventTimeout,
+			configCopy.VRFv2Plus.General,
 			l,
 		)
 
@@ -455,12 +436,7 @@ func TestVRFv2Plus(t *testing.T) {
 			vrfv2PlusData,
 			subIDForCancelling,
 			true,
-			*configCopy.VRFv2Plus.General.MinimumConfirmations,
-			*configCopy.VRFv2Plus.General.CallbackGasLimit,
-			*configCopy.VRFv2Plus.General.NumberOfWords,
-			*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequest,
-			*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequestDeviation,
-			randomWordsFulfilledEventTimeout,
+			configCopy.VRFv2Plus.General,
 			l,
 		)
 
@@ -497,6 +473,10 @@ func TestVRFv2Plus(t *testing.T) {
 		require.NoError(t, err, "error getting tx cancellation Tx Receipt")
 
 		txGasUsed := new(big.Int).SetUint64(cancellationTxReceipt.GasUsed)
+		// we don't have that information for older Geth versions
+		if cancellationTxReceipt.EffectiveGasPrice == nil {
+			cancellationTxReceipt.EffectiveGasPrice = new(big.Int).SetUint64(0)
+		}
 		cancellationTxFeeWei := new(big.Int).Mul(txGasUsed, cancellationTxReceipt.EffectiveGasPrice)
 
 		l.Info().
@@ -579,12 +559,7 @@ func TestVRFv2Plus(t *testing.T) {
 			vrfv2PlusData,
 			subIDForWithdraw,
 			false,
-			*configCopy.VRFv2Plus.General.MinimumConfirmations,
-			*configCopy.VRFv2Plus.General.CallbackGasLimit,
-			*configCopy.VRFv2Plus.General.NumberOfWords,
-			*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequest,
-			*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequestDeviation,
-			configCopy.VRFv2Plus.General.RandomWordsFulfilledEventTimeout.Duration,
+			configCopy.VRFv2Plus.General,
 			l,
 		)
 		require.NoError(t, err)
@@ -595,12 +570,7 @@ func TestVRFv2Plus(t *testing.T) {
 			vrfv2PlusData,
 			subIDForWithdraw,
 			true,
-			*configCopy.VRFv2Plus.General.MinimumConfirmations,
-			*configCopy.VRFv2Plus.General.CallbackGasLimit,
-			*configCopy.VRFv2Plus.General.NumberOfWords,
-			*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequest,
-			*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequestDeviation,
-			configCopy.VRFv2Plus.General.RandomWordsFulfilledEventTimeout.Duration,
+			configCopy.VRFv2Plus.General,
 			l,
 		)
 		require.NoError(t, err)
@@ -715,12 +685,7 @@ func TestVRFv2PlusMultipleSendingKeys(t *testing.T) {
 				vrfv2PlusData,
 				subID,
 				isNativeBilling,
-				*configCopy.VRFv2Plus.General.MinimumConfirmations,
-				*configCopy.VRFv2Plus.General.CallbackGasLimit,
-				*configCopy.VRFv2Plus.General.NumberOfWords,
-				*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequest,
-				*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequestDeviation,
-				configCopy.VRFv2Plus.General.RandomWordsFulfilledEventTimeout.Duration,
+				configCopy.VRFv2Plus.General,
 				l,
 			)
 			require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
@@ -937,12 +902,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 			vrfv2PlusData,
 			subID,
 			false,
-			*config.VRFv2Plus.General.MinimumConfirmations,
-			*config.VRFv2Plus.General.CallbackGasLimit,
-			*config.VRFv2Plus.General.NumberOfWords,
-			*config.VRFv2Plus.General.RandomnessRequestCountPerRequest,
-			*config.VRFv2Plus.General.RandomnessRequestCountPerRequestDeviation,
-			config.VRFv2Plus.General.RandomWordsFulfilledEventTimeout.Duration,
+			config.VRFv2Plus.General,
 			l,
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
@@ -954,12 +914,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 			vrfv2PlusData,
 			subID,
 			true,
-			*config.VRFv2Plus.General.MinimumConfirmations,
-			*config.VRFv2Plus.General.CallbackGasLimit,
-			*config.VRFv2Plus.General.NumberOfWords,
-			*config.VRFv2Plus.General.RandomnessRequestCountPerRequest,
-			*config.VRFv2Plus.General.RandomnessRequestCountPerRequestDeviation,
-			config.VRFv2Plus.General.RandomWordsFulfilledEventTimeout.Duration,
+			config.VRFv2Plus.General,
 			l,
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
@@ -1129,12 +1084,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 			vrfv2PlusData,
 			subID,
 			isNativeBilling,
-			*configCopy.VRFv2Plus.General.MinimumConfirmations,
-			*configCopy.VRFv2Plus.General.CallbackGasLimit,
-			*configCopy.VRFv2Plus.General.NumberOfWords,
-			*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequest,
-			*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequestDeviation,
-			configCopy.VRFv2Plus.General.RandomWordsFulfilledEventTimeout.Duration,
+			configCopy.VRFv2Plus.General,
 			l,
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
@@ -1150,12 +1100,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 			vrfv2PlusData,
 			subID,
 			isNativeBilling,
-			*configCopy.VRFv2Plus.General.MinimumConfirmations,
-			*configCopy.VRFv2Plus.General.CallbackGasLimit,
-			*configCopy.VRFv2Plus.General.NumberOfWords,
-			*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequest,
-			*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequestDeviation,
-			configCopy.VRFv2Plus.General.RandomWordsFulfilledEventTimeout.Duration,
+			configCopy.VRFv2Plus.General,
 			l,
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
@@ -1364,6 +1309,202 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 	})
 }
 
+func TestVRFv2PlusReplayAfterTimeout(t *testing.T) {
+	t.Parallel()
+	l := logging.GetTestLogger(t)
+
+	config, err := tc.GetConfig("Smoke", tc.VRFv2Plus)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	network, err := actions.EthereumNetworkConfigFromConfig(l, &config)
+	require.NoError(t, err, "Error building ethereum network config")
+
+	env, err := test_env.NewCLTestEnvBuilder().
+		WithTestInstance(t).
+		WithTestConfig(&config).
+		WithPrivateEthereumNetwork(network).
+		WithCLNodes(1).
+		WithFunding(big.NewFloat(*config.Common.ChainlinkNodeFunding)).
+		WithStandardCleanup().
+		Build()
+	require.NoError(t, err, "error creating test env")
+
+	env.ParallelTransactions(true)
+
+	mockETHLinkFeed, err := actions.DeployMockETHLinkFeed(env.ContractDeployer, big.NewInt(*config.VRFv2Plus.General.LinkNativeFeedResponse))
+	require.NoError(t, err, "error deploying mock ETH/LINK feed")
+
+	linkToken, err := actions.DeployLINKToken(env.ContractDeployer)
+	require.NoError(t, err, "error deploying LINK contract")
+
+	// 1. Add job spec with requestTimeout = 5 seconds
+	timeout := time.Duration(time.Second * 5)
+	numberOfTxKeysToCreate := 0
+	config.VRFv2Plus.General.VRFJobRequestTimeout = ptr.Ptr(blockchain.StrDuration{Duration: timeout})
+	config.VRFv2Plus.General.SubscriptionFundingAmountLink = ptr.Ptr(float64(0))
+	config.VRFv2Plus.General.SubscriptionFundingAmountNative = ptr.Ptr(float64(0))
+	vrfv2PlusContracts, subIDs, vrfv2PlusData, nodesMap, err := vrfv2plus.SetupVRFV2_5Environment(
+		env,
+		[]vrfcommon.VRFNodeType{vrfcommon.VRF},
+		&config,
+		linkToken,
+		mockETHLinkFeed,
+		numberOfTxKeysToCreate,
+		2,
+		1,
+		l,
+	)
+	require.NoError(t, err, "error setting up VRF v2_5 env")
+
+	subID := subIDs[0]
+
+	subscription, err := vrfv2PlusContracts.CoordinatorV2Plus.GetSubscription(testcontext.Get(t), subID)
+	require.NoError(t, err, "error getting subscription information")
+
+	vrfv2plus.LogSubDetails(l, subscription, subID, vrfv2PlusContracts.CoordinatorV2Plus)
+
+	t.Run("Timed out request fulfilled after node restart with replay", func(t *testing.T) {
+		configCopy := config.MustCopy().(tc.TestConfig)
+		var isNativeBilling = false
+
+		// 2. create request but without fulfilment - e.g. simulation failure (insufficient balance in the sub, )
+		vrfv2plus.LogRandRequest(
+			l,
+			vrfv2PlusContracts.VRFV2PlusConsumer[0].Address(),
+			vrfv2PlusContracts.CoordinatorV2Plus.Address(),
+			subID,
+			isNativeBilling,
+			vrfv2PlusData.KeyHash,
+			configCopy.VRFv2Plus.General,
+		)
+		_, err = vrfv2PlusContracts.VRFV2PlusConsumer[0].RequestRandomness(
+			vrfv2PlusData.KeyHash,
+			subID,
+			*configCopy.VRFv2Plus.General.MinimumConfirmations,
+			*configCopy.VRFv2Plus.General.CallbackGasLimit,
+			isNativeBilling,
+			*configCopy.VRFv2Plus.General.NumberOfWords,
+			*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequest,
+		)
+		require.NoError(t, err, "error requesting randomness")
+		initialReqRandomWordsRequestedEvent, err := vrfv2PlusContracts.CoordinatorV2Plus.WaitForRandomWordsRequestedEvent(
+			[][32]byte{vrfv2PlusData.KeyHash},
+			[]*big.Int{subID},
+			[]common.Address{common.HexToAddress(vrfv2PlusContracts.VRFV2PlusConsumer[0].Address())},
+			time.Minute*1,
+		)
+		require.NoError(t, err, "error waiting for initial request RandomWordsRequestedEvent")
+
+		// 3. create new request in a subscription with balance and wait for fulfilment
+		// TODO: We need this to be parametrized, since these tests will be run on live testnets as well.
+		fundingLinkAmt := big.NewFloat(5)
+		fundingNativeAmt := big.NewFloat(0.1)
+		l.Info().
+			Str("Coordinator", vrfv2PlusContracts.CoordinatorV2Plus.Address()).
+			Int("Number of Subs to create", 1).
+			Msg("Creating and funding subscriptions, adding consumers")
+		fundedSubIDs, err := vrfv2plus.CreateFundSubsAndAddConsumers(
+			env,
+			fundingLinkAmt,
+			fundingNativeAmt,
+			linkToken,
+			vrfv2PlusContracts.CoordinatorV2Plus,
+			[]contracts.VRFv2PlusLoadTestConsumer{vrfv2PlusContracts.VRFV2PlusConsumer[1]},
+			1,
+		)
+		require.NoError(t, err, "error creating funded sub in replay test")
+		randomWordsFulfilledEvent, err := vrfv2plus.RequestRandomnessAndWaitForFulfillment(
+			vrfv2PlusContracts.VRFV2PlusConsumer[1],
+			vrfv2PlusContracts.CoordinatorV2Plus,
+			vrfv2PlusData,
+			fundedSubIDs[0],
+			isNativeBilling,
+			configCopy.VRFv2Plus.General,
+			l,
+		)
+		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
+		require.True(t, randomWordsFulfilledEvent.Success, "RandomWordsFulfilled Event's `Success` field should be true")
+
+		// 4. wait for the request timeout (1s more) duration
+		time.Sleep(timeout + 1*time.Second)
+
+		// 5. fund sub so that node can fulfill request
+		err = vrfv2plus.FundSubscriptions(
+			env,
+			fundingLinkAmt,
+			fundingNativeAmt,
+			linkToken,
+			vrfv2PlusContracts.CoordinatorV2Plus,
+			[]*big.Int{subID},
+		)
+		require.NoError(t, err, "error funding subs after request timeout")
+
+		// 6. no fulfilment should happen since timeout+1 seconds passed in the job
+		pendingReqExists, err := vrfv2PlusContracts.CoordinatorV2Plus.PendingRequestsExist(testcontext.Get(t), subID)
+		require.NoError(t, err, "error fetching PendingRequestsExist from coordinator")
+		require.True(t, pendingReqExists, "pendingRequest must exist since subID was underfunded till request timeout")
+
+		// 7. remove job and add new job with requestTimeout = 1 hour
+		vrfNode, exists := nodesMap[vrfcommon.VRF]
+		require.True(t, exists, "VRF Node does not exist")
+		resp, err := vrfNode.CLNode.API.DeleteJob(vrfNode.Job.Data.ID)
+		require.NoError(t, err, "error deleting job after timeout")
+		require.Equal(t, resp.StatusCode, 204)
+
+		chainID := env.EVMClient.GetChainID()
+		config.VRFv2Plus.General.VRFJobRequestTimeout = ptr.Ptr(blockchain.StrDuration{Duration: time.Duration(time.Hour * 1)})
+		vrfJobSpecConfig := vrfcommon.VRFJobSpecConfig{
+			ForwardingAllowed:             *config.VRFv2Plus.General.VRFJobForwardingAllowed,
+			CoordinatorAddress:            vrfv2PlusContracts.CoordinatorV2Plus.Address(),
+			FromAddresses:                 vrfNode.TXKeyAddressStrings,
+			EVMChainID:                    chainID.String(),
+			MinIncomingConfirmations:      int(*config.VRFv2Plus.General.MinimumConfirmations),
+			PublicKey:                     vrfv2PlusData.PubKeyCompressed,
+			EstimateGasMultiplier:         *config.VRFv2Plus.General.VRFJobEstimateGasMultiplier,
+			BatchFulfillmentEnabled:       *config.VRFv2Plus.General.VRFJobBatchFulfillmentEnabled,
+			BatchFulfillmentGasMultiplier: *config.VRFv2Plus.General.VRFJobBatchFulfillmentGasMultiplier,
+			PollPeriod:                    config.VRFv2Plus.General.VRFJobPollPeriod.Duration,
+			RequestTimeout:                config.VRFv2Plus.General.VRFJobRequestTimeout.Duration,
+			SimulationBlock:               config.VRFv2Plus.General.VRFJobSimulationBlock,
+			VRFOwnerConfig:                nil,
+		}
+
+		go func() {
+			l.Info().Msg("Creating VRFV2 Plus Job with higher timeout (1hr)")
+			job, err := vrfv2plus.CreateVRFV2PlusJob(
+				vrfNode.CLNode.API,
+				vrfJobSpecConfig,
+			)
+			require.NoError(t, err, "error creating job with higher timeout")
+			vrfNode.Job = job
+		}()
+
+		// 8. Check if initial req in underfunded sub is fulfilled now, since it has been topped up and timeout increased
+		l.Info().Str("reqID", initialReqRandomWordsRequestedEvent.RequestId.String()).
+			Str("subID", subID.String()).
+			Msg("Waiting for initalReqRandomWordsFulfilledEvent")
+		initalReqRandomWordsFulfilledEvent, err := vrfv2PlusContracts.CoordinatorV2Plus.WaitForRandomWordsFulfilledEvent(
+			[]*big.Int{subID},
+			[]*big.Int{initialReqRandomWordsRequestedEvent.RequestId},
+			configCopy.VRFv2Plus.General.RandomWordsFulfilledEventTimeout.Duration,
+		)
+		require.NoError(t, err, "error waiting for initial request RandomWordsFulfilledEvent")
+
+		require.NoError(t, err, "error waiting for fulfilment of old req")
+		require.False(t, initalReqRandomWordsFulfilledEvent.OnlyPremium, "RandomWordsFulfilled Event's `OnlyPremium` field should be false")
+		require.Equal(t, isNativeBilling, initalReqRandomWordsFulfilledEvent.NativePayment, "RandomWordsFulfilled Event's `NativePayment` field should be false")
+		require.True(t, initalReqRandomWordsFulfilledEvent.Success, "RandomWordsFulfilled Event's `Success` field should be true")
+
+		// Get request status
+		status, err := vrfv2PlusContracts.VRFV2PlusConsumer[0].GetRequestStatus(testcontext.Get(t), initalReqRandomWordsFulfilledEvent.RequestId)
+		require.NoError(t, err, "error getting rand request status")
+		require.True(t, status.Fulfilled)
+		l.Info().Bool("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
+	})
+}
+
 func TestVRFv2PlusPendingBlockSimulationAndZeroConfirmationDelays(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
@@ -1433,12 +1574,7 @@ func TestVRFv2PlusPendingBlockSimulationAndZeroConfirmationDelays(t *testing.T) 
 		vrfv2PlusData,
 		subID,
 		isNativeBilling,
-		*config.VRFv2Plus.General.MinimumConfirmations,
-		*config.VRFv2Plus.General.CallbackGasLimit,
-		*config.VRFv2Plus.General.NumberOfWords,
-		*config.VRFv2Plus.General.RandomnessRequestCountPerRequest,
-		*config.VRFv2Plus.General.RandomnessRequestCountPerRequestDeviation,
-		config.VRFv2Plus.General.RandomWordsFulfilledEventTimeout.Duration,
+		config.VRFv2Plus.General,
 		l,
 	)
 	require.NoError(t, err, "error requesting randomness and waiting for fulfilment")

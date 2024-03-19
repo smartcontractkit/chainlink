@@ -111,6 +111,9 @@ abstract contract VRFConsumerBaseV2Plus is IVRFMigratableConsumerV2Plus, Confirm
    * @param _vrfCoordinator address of VRFCoordinator contract
    */
   constructor(address _vrfCoordinator) ConfirmedOwner(msg.sender) {
+    if (_vrfCoordinator == address(0)) {
+      revert ZeroAddress();
+    }
     s_vrfCoordinator = IVRFCoordinatorV2Plus(_vrfCoordinator);
   }
 
@@ -145,7 +148,12 @@ abstract contract VRFConsumerBaseV2Plus is IVRFMigratableConsumerV2Plus, Confirm
    * @inheritdoc IVRFMigratableConsumerV2Plus
    */
   function setCoordinator(address _vrfCoordinator) public override onlyOwnerOrCoordinator {
+    if (_vrfCoordinator == address(0)) {
+      revert ZeroAddress();
+    }
     s_vrfCoordinator = IVRFCoordinatorV2Plus(_vrfCoordinator);
+
+    emit CoordinatorSet(_vrfCoordinator);
   }
 
   modifier onlyOwnerOrCoordinator() {

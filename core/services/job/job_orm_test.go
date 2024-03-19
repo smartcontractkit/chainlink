@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
@@ -483,7 +484,7 @@ func TestORM_CreateJob_VRFV2(t *testing.T) {
 		actual = append(actual, common.BytesToAddress(b).String())
 	}
 	require.ElementsMatch(t, fromAddresses, actual)
-	var vrfOwnerAddress ethkey.EIP55Address
+	var vrfOwnerAddress evmtypes.EIP55Address
 	require.NoError(t, db.Get(&vrfOwnerAddress, `SELECT vrf_owner_address FROM vrf_specs LIMIT 1`))
 	require.Equal(t, "0x32891BD79647DC9136Fc0a59AAB48c7825eb624c", vrfOwnerAddress.Address().String())
 	require.NoError(t, jobORM.DeleteJob(jb.ID))
@@ -567,7 +568,7 @@ func TestORM_CreateJob_VRFV2Plus(t *testing.T) {
 		actual = append(actual, common.BytesToAddress(b).String())
 	}
 	require.ElementsMatch(t, fromAddresses, actual)
-	var vrfOwnerAddress ethkey.EIP55Address
+	var vrfOwnerAddress evmtypes.EIP55Address
 	require.Error(t, db.Get(&vrfOwnerAddress, `SELECT vrf_owner_address FROM vrf_specs LIMIT 1`))
 	require.NoError(t, jobORM.DeleteJob(jb.ID))
 	cltest.AssertCount(t, db, "vrf_specs", 0)

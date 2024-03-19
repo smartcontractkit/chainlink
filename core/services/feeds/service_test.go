@@ -20,6 +20,7 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -35,7 +36,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	jobmocks "github.com/smartcontractkit/chainlink/v2/core/services/job/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/keystest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
 	ksmocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
@@ -1153,10 +1153,11 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 				Multiaddr:        null.StringFrom(multiaddr),
 				ForwarderAddress: null.StringFrom(forwarderAddr),
 				Plugins: feeds.Plugins{
-					Commit:  true,
-					Execute: true,
-					Median:  false,
-					Mercury: true,
+					Commit:     true,
+					Execute:    true,
+					Median:     false,
+					Mercury:    true,
+					Rebalancer: true,
 				},
 			},
 		}
@@ -1204,10 +1205,11 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 					Multiaddr:        multiaddr,
 					ForwarderAddress: &forwarderAddr,
 					Plugins: &proto.OCR2Config_Plugins{
-						Commit:  ccfg.OCR2Config.Plugins.Commit,
-						Execute: ccfg.OCR2Config.Plugins.Execute,
-						Median:  ccfg.OCR2Config.Plugins.Median,
-						Mercury: ccfg.OCR2Config.Plugins.Mercury,
+						Commit:     ccfg.OCR2Config.Plugins.Commit,
+						Execute:    ccfg.OCR2Config.Plugins.Execute,
+						Median:     ccfg.OCR2Config.Plugins.Median,
+						Mercury:    ccfg.OCR2Config.Plugins.Mercury,
+						Rebalancer: ccfg.OCR2Config.Plugins.Rebalancer,
 					},
 				},
 			},
@@ -1545,7 +1547,7 @@ func Test_Service_ListSpecsByJobProposalIDs(t *testing.T) {
 
 func Test_Service_ApproveSpec(t *testing.T) {
 	var evmChainID *big.Big
-	address := ethkey.EIP55AddressFromAddress(common.Address{})
+	address := types.EIP55AddressFromAddress(common.Address{})
 	externalJobID := uuid.New()
 
 	var (
