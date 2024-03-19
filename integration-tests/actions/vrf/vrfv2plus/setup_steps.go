@@ -344,7 +344,7 @@ func SetupVRFV2PlusForNewEnv(
 		WithTestInstance(t).
 		WithTestConfig(&testConfig).
 		WithPrivateEthereumNetwork(network).
-		WithCLNodes(1).
+		WithCLNodes(len(newEnvConfig.NodesToCreate)).
 		WithFunding(big.NewFloat(*testConfig.Common.ChainlinkNodeFunding)).
 		WithCustomCleanup(cleanupFn).
 		Build()
