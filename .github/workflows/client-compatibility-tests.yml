@@ -118,12 +118,13 @@ jobs:
             timeout: 30m
             pyroscope_env: ci-ccip-bidirectionallane-nethermind
             chainConfig: "1337=nethermind/nethermind:latest_stable,2337=nethermind/nethermind:latest_stable"
-          - name: bidirectionallane-besu
-            test: TestSmokeCCIPForBidirectionalLane
-            client: besu
-            timeout: 30m
-            pyroscope_env: ci-ccip-bidirectionallane-besu
-            chainConfig: "1337=hyperledger/besu:latest_stable,2337=hyperledger/besu:latest_stable"
+          # uncomment when 24.4.0  is released with our data/input fix
+          # - name: bidirectionallane-besu
+          #   test: TestSmokeCCIPForBidirectionalLane
+          #   client: besu
+          #   timeout: 30m
+          #   pyroscope_env: ci-ccip-bidirectionallane-besu
+          #   chainConfig: "1337=hyperledger/besu:latest_stable,2337=hyperledger/besu:latest_stable"
           - name: bidirectionallane-erigon
             test: TestSmokeCCIPForBidirectionalLane
             client: erigon
