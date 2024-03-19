@@ -195,4 +195,20 @@ contract BaseTest is Test {
     );
     return (registry, registrar);
   }
+
+  /**
+   * @dev mints LINK to the recipient
+   */
+  function mintLink(address recipient, uint256 amount) public {
+    vm.prank(OWNER);
+    linkToken.mint(recipient, amount);
+  }
+
+  /**
+   * @dev mints USDToken to the recipient
+   */
+  function mintERC20(address recipient, uint256 amount) public {
+    vm.prank(OWNER);
+    mockERC20.mint(recipient, amount);
+  }
 }
