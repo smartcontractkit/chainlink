@@ -108,32 +108,29 @@ func (cr *chainReader) QueryKey(ctx context.Context, key string, queryFilter com
 	return cr.eventIndexBindings.DecodeLogsIntoSequences(ctx, key, logs, sequenceDataType)
 }
 
-// TODO if slice of keys then matrix of queryFilters?
-func (cr *chainReader) QueryKeys(ctx context.Context, keys []string, queryFilter commontypes.QueryFilter, limitAndSort commontypes.LimitAndSort, sequenceDataType []any) ([][]commontypes.Sequence, error) {
-	remappedQueryFilter, err := remapQueryFilter(queryFilter)
-	if err != nil {
-		return nil, err
+func (cr *chainReader) QueryKeys(ctx context.Context, keys []string, queriesFilters []commontypes.QueryFilter, limitAndSort commontypes.LimitAndSort, sequencesDataTypes []any) ([][]commontypes.Sequence, error) {
+	if len(keys) != len(queriesFilters) || len(queriesFilters) != len(sequencesDataTypes) {
+		return nil, fmt.Errorf("lenght of keys, values, queriesFilters and sequenceDataType must be the same")
+	}
+	var sequencesMatrix [][]commontypes.Sequence
+	for i, key := range keys {
+		sequences, err := cr.QueryKey(ctx, key, queriesFilters[i], limitAndSort, sequencesDataTypes[i])
+		if err != nil {
+			return nil, err
+		}
+		sequencesMatrix = append(sequencesMatrix, sequences)
 	}
 
-	eventsFilters, err := getEventsFilters(keys, cr.eventIndexBindings)
-	if err != nil {
-		return nil, err
-	}
-
-	remappedQueryFilter.Expressions = append(remappedQueryFilter.Expressions, eventsFilters)
-	// TODO, this doesn't make sense, logs should be 2d slice when multiple keys are requested
-	// TODO QueryKeys should also accept multiple query filters then
-	_, err = cr.lp.FilteredLogs(remappedQueryFilter, limitAndSort)
-	return nil, err
+	return sequencesMatrix, nil
 }
 
 func (cr *chainReader) QueryKeyByValues(ctx context.Context, key string, values []string, queryFilter commontypes.QueryFilter, limitAndSort commontypes.LimitAndSort, sequenceDataType any) ([]commontypes.Sequence, error) {
-	logFilters, err := remapQueryKeyByValuesFilters(key, values, cr.eventIndexBindings, queryFilter)
+	remappedQueryFilter, err := remapQueryKeyByValuesFilters(key, values, cr.eventIndexBindings, queryFilter)
 	if err != nil {
 		return nil, err
 	}
 
-	logs, err := cr.lp.FilteredLogs(logFilters, limitAndSort)
+	logs, err := cr.lp.FilteredLogs(remappedQueryFilter, limitAndSort)
 	if err != nil {
 		return nil, err
 	}
@@ -142,23 +139,20 @@ func (cr *chainReader) QueryKeyByValues(ctx context.Context, key string, values 
 }
 
 // TODO values shouldn't be string?
-func (cr *chainReader) QueryKeysByValues(ctx context.Context, keys []string, values [][]string, queryFilter commontypes.QueryFilter, limitAndSort commontypes.LimitAndSort, sequenceDataType []any) ([][]commontypes.Sequence, error) {
-	remappedQueryFilter, err := remapQueryFilter(queryFilter)
-	if err != nil {
-		return nil, err
+// TODO should limit and sort be a slice also?
+func (cr *chainReader) QueryKeysByValues(ctx context.Context, keys []string, values [][]string, queriesFilters []commontypes.QueryFilter, limitAndSort commontypes.LimitAndSort, sequencesDataTypes []any) ([][]commontypes.Sequence, error) {
+	if len(keys) != len(queriesFilters) || len(queriesFilters) != len(sequencesDataTypes) || len(sequencesDataTypes) != len(values) {
+		return nil, fmt.Errorf("lenght of keys, queriesFilters and sequenceDataType must be the same")
 	}
-
-	indexedEventsByValuesFilters, err := getEventsByIndexFilter(keys, values, cr.eventIndexBindings)
-	if err != nil {
-		return nil, err
+	var sequencesMatrix [][]commontypes.Sequence
+	for i, key := range keys {
+		sequences, err := cr.QueryKeyByValues(ctx, key, values[i], queriesFilters[i], limitAndSort, sequencesDataTypes[i])
+		if err != nil {
+			return nil, err
+		}
+		sequencesMatrix = append(sequencesMatrix, sequences)
 	}
-
-	remappedQueryFilter.Expressions = append(remappedQueryFilter.Expressions, indexedEventsByValuesFilters)
-	// TODO, this doesn't make sense, logs should be 2d slice when multiple keys are requested
-	// TODO QueryKeysByValues should also accept multiple query filters then
-	_, err = cr.lp.FilteredLogs(remappedQueryFilter, limitAndSort)
-
-	return nil, err
+	return sequencesMatrix, nil
 }
 
 func (cr *chainReader) init(chainContractReaders map[string]types.ChainContractReader) error {
