@@ -22,6 +22,15 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
 
   // upper bound limit for premium percentages to make sure fee calculations don't overflow
   uint8 private constant PREMIUM_PERCENTAGE_MAX = 155;
+
+  // 5k is plenty for an EXTCODESIZE call (2600) + warm CALL (100)
+  // and some arithmetic operations.
+  uint256 private constant GAS_FOR_CALL_EXACT_CHECK = 5_000;
+  uint16 private constant EXPECTED_MIN_LENGTH = 36;
+
+  // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
+  uint256 public immutable SUBSCRIPTION_ID;
+
   error LinkAlreadySet();
   error LinkDiscountTooHigh(uint32 flatFeeLinkDiscountPPM, uint32 flatFeeNativePPM);
   error InvalidPremiumPercentage(uint8 premiumPercentage, uint8 max);
@@ -31,35 +40,49 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   error LINKPaymentInRequestRandomWordsInNative();
 
   /* Storage Slot 1: BEGIN */
-  // s_keyHash is the key hash to use when requesting randomness. Fees are paid based on current gas
-  // fees, so this should be set to the highest gas lane on the network.
-  bytes32 internal s_keyHash;
+  // 20 bytes used by VRFConsumerBaseV2Plus.s_vrfCoordinator
+
+  // s_configured tracks whether this contract has been configured. If not configured, randomness
+  // requests cannot be made.
+  bool public s_configured;
+
+  // s_disabled disables the contract when true. When disabled, new VRF requests cannot be made
+  // but existing ones can still be fulfilled.
+  bool public s_disabled;
+
+  // s_wrapperNativePremiumPercentage is the premium ratio in percentage for native payment. For example, a value of 0
+  // indicates no premium. A value of 15 indicates a 15 percent premium.
+  uint8 private s_wrapperNativePremiumPercentage;
+
+  // s_wrapperLinkPremiumPercentage is the premium ratio in percentage for link payment. For example, a value of 0
+  // indicates no premium. A value of 15 indicates a 15 percent premium.
+  uint8 private s_wrapperLinkPremiumPercentage;
+
+  // s_maxNumWords is the max number of words that can be requested in a single wrapped VRF request.
+  uint8 internal s_maxNumWords;
+
+  // 7 bytes left
   /* Storage Slot 1: END */
 
   /* Storage Slot 2: BEGIN */
-  // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
-  uint256 public immutable SUBSCRIPTION_ID;
+  // s_keyHash is the key hash to use when requesting randomness. Fees are paid based on current gas
+  // fees, so this should be set to the highest gas lane on the network.
+  bytes32 internal s_keyHash;
   /* Storage Slot 2: END */
 
   /* Storage Slot 3: BEGIN */
-  // 5k is plenty for an EXTCODESIZE call (2600) + warm CALL (100)
-  // and some arithmetic operations.
-  uint256 private constant GAS_FOR_CALL_EXACT_CHECK = 5_000;
-  /* Storage Slot 3: END */
-
-  /* Storage Slot 4: BEGIN */
   // lastRequestId is the request ID of the most recent VRF V2 request made by this wrapper. This
   // should only be relied on within the same transaction the request was made.
   uint256 public override lastRequestId;
-  /* Storage Slot 4: END */
+  /* Storage Slot 3: END */
 
-  /* Storage Slot 5: BEGIN */
+  /* Storage Slot 4: BEGIN */
   // s_fallbackWeiPerUnitLink is the backup LINK exchange rate used when the LINK/NATIVE feed is
   // stale.
   int256 private s_fallbackWeiPerUnitLink;
-  /* Storage Slot 5: END */
+  /* Storage Slot 4: END */
 
-  /* Storage Slot 6: BEGIN */
+  /* Storage Slot 5: BEGIN */
   // s_stalenessSeconds is the number of seconds before we consider the feed price to be stale and
   // fallback to fallbackWeiPerUnitLink.
   uint32 private s_stalenessSeconds;
@@ -72,10 +95,10 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   // charges for link payment.
   uint32 private s_fulfillmentFlatFeeLinkDiscountPPM;
 
-  LinkTokenInterface public s_link;
-  /* Storage Slot 6: END */
+  AggregatorV3Interface public s_linkNativeFeed;
+  /* Storage Slot 5: END */
 
-  /* Storage Slot 7: BEGIN */
+  /* Storage Slot 6: BEGIN */
   // s_wrapperGasOverhead reflects the gas overhead of the wrapper's fulfillRandomWords
   // function. The cost for this gas is passed to the user.
   uint32 private s_wrapperGasOverhead;
@@ -96,31 +119,8 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   // payment calculation in the coordinator.
   uint32 private s_coordinatorGasOverhead;
 
-  AggregatorV3Interface public s_linkNativeFeed;
-  /* Storage Slot 7: END */
-
-  /* Storage Slot 8: BEGIN */
-  // s_configured tracks whether this contract has been configured. If not configured, randomness
-  // requests cannot be made.
-  bool public s_configured;
-
-  // s_disabled disables the contract when true. When disabled, new VRF requests cannot be made
-  // but existing ones can still be fulfilled.
-  bool public s_disabled;
-
-  // s_wrapperNativePremiumPercentage is the premium ratio in percentage for native payment. For example, a value of 0
-  // indicates no premium. A value of 15 indicates a 15 percent premium.
-  uint8 private s_wrapperNativePremiumPercentage;
-
-  // s_wrapperLinkPremiumPercentage is the premium ratio in percentage for link payment. For example, a value of 0
-  // indicates no premium. A value of 15 indicates a 15 percent premium.
-  uint8 private s_wrapperLinkPremiumPercentage;
-
-  // s_maxNumWords is the max number of words that can be requested in a single wrapped VRF request.
-  uint8 internal s_maxNumWords;
-
-  uint16 private constant EXPECTED_MIN_LENGTH = 36;
-  /* Storage Slot 8: END */
+  LinkTokenInterface public s_link;
+  /* Storage Slot 6: END */
 
   struct Callback {
     address callbackAddress;
@@ -131,10 +131,9 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     // GasPrice is unlikely to be more than 14 ETH on most chains
     uint64 requestGasPrice;
   }
-  /* Storage Slot 9: BEGIN */
+  /* Storage Slot 7: BEGIN */
   mapping(uint256 => Callback) /* requestID */ /* callback */ public s_callbacks;
-
-  /* Storage Slot 9: END */
+  /* Storage Slot 7: END */
 
   constructor(address _link, address _linkNativeFeed, address _coordinator) VRFConsumerBaseV2Plus(_coordinator) {
     if (_link != address(0)) {
@@ -567,15 +566,17 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   function fulfillRandomWords(uint256 _requestId, uint256[] memory _randomWords) internal override {
     Callback memory callback = s_callbacks[_requestId];
     delete s_callbacks[_requestId];
+
+    address callbackAddress = callback.callbackAddress;
     // solhint-disable-next-line custom-errors
-    require(callback.callbackAddress != address(0), "request not found"); // This should never happen
+    require(callbackAddress != address(0), "request not found"); // This should never happen
 
     VRFV2PlusWrapperConsumerBase c;
     bytes memory resp = abi.encodeWithSelector(c.rawFulfillRandomWords.selector, _requestId, _randomWords);
 
-    bool success = _callWithExactGas(callback.callbackGasLimit, callback.callbackAddress, resp);
+    bool success = _callWithExactGas(callback.callbackGasLimit, callbackAddress, resp);
     if (!success) {
-      emit WrapperFulfillmentFailed(_requestId, callback.callbackAddress);
+      emit WrapperFulfillmentFailed(_requestId, callbackAddress);
     }
   }
 
