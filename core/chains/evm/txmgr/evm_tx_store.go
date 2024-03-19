@@ -1742,26 +1742,6 @@ func (o *evmTxStore) HasInProgressTransaction(ctx context.Context, account commo
 	return exists, pkgerrors.Wrap(err, "hasInProgressTransaction failed")
 }
 
-func (o *evmTxStore) UpdateKeyNextSequence(newNextNonce, currentNextNonce evmtypes.Nonce, address common.Address, chainID *big.Int, qopts ...pg.QOpt) error {
-	qq := o.q.WithOpts(qopts...)
-	return qq.Transaction(func(tx pg.Queryer) error {
-		//  We filter by next_nonce here as an optimistic lock to make sure it
-		//  didn't get changed out from under us. Shouldn't happen but can't hurt.
-		res, err := tx.Exec(`UPDATE evm.key_states SET next_nonce = $1, updated_at = $2 WHERE address = $3 AND next_nonce = $4 AND evm_chain_id = $5`, newNextNonce.Int64(), time.Now(), address, currentNextNonce.Int64(), chainID.String())
-		if err != nil {
-			return pkgerrors.Wrap(err, "NonceSyncer#fastForwardNonceIfNecessary failed to update keys.next_nonce")
-		}
-		rowsAffected, err := res.RowsAffected()
-		if err != nil {
-			return pkgerrors.Wrap(err, "NonceSyncer#fastForwardNonceIfNecessary failed to get RowsAffected")
-		}
-		if rowsAffected == 0 {
-			return ErrKeyNotUpdated
-		}
-		return nil
-	})
-}
-
 func (o *evmTxStore) countTransactionsWithState(ctx context.Context, fromAddress common.Address, state txmgrtypes.TxState, chainID *big.Int) (count uint32, err error) {
 	var cancel context.CancelFunc
 	ctx, cancel = o.mergeContexts(ctx)

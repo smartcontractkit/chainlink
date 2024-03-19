@@ -457,7 +457,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     uint16 _requestConfirmations,
     uint32 _numWords,
     bytes calldata extraArgs
-  ) external payable override returns (uint256 requestId) {
+  ) external payable override onlyConfiguredNotDisabled returns (uint256 requestId) {
     checkPaymentMode(extraArgs, false);
 
     uint32 eip150Overhead = _getEIP150Overhead(_callbackGasLimit);
