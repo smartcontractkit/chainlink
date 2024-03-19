@@ -458,7 +458,22 @@ func (r *runner) run(ctx context.Context, pipeline *Pipeline, run *Run, vars Var
 	if run.HasErrors() {
 		l = l.With("run.AllErrors", run.AllErrors)
 	}
-	l.Debugw("Completed pipeline run", "run.State", run.State, "fatal", run.HasFatalErrors(), "runTime", runTime)
+	l = l.With("run.State", run.State, "fatal", run.HasFatalErrors(), "runTime", runTime)
+	if run.HasFatalErrors() {
+		if r.config.VerboseLogging() {
+			l.Errorw("Completed pipeline run with fatal errors")
+		} else {
+			l.Debugw("Completed pipeline run with fatal errors")
+		}
+	} else if run.HasErrors() {
+		if r.config.VerboseLogging() {
+			l.Warnw("Completed pipeline run with errors")
+		} else {
+			l.Debugw("Completed pipeline run with errors")
+		}
+	} else {
+		l.Debugw("Completed pipeline run successfully")
+	}
 
 	return taskRunResults
 }
