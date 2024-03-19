@@ -730,20 +730,7 @@ func (c *SimulatedBackendClient) ethGetLogs(ctx context.Context, result interfac
 	}
 
 	if t, ok := params["topics"]; ok {
-		tt := t.([][]common.Hash)
-		lastTopic := len(tt) - 1
-		for lastTopic >= 0 {
-			if tt[lastTopic] != nil {
-				break
-			}
-			lastTopic--
-		}
-		// lastTopic is the topic index of the last non-nil topic slice
-		//  We have to drop any nil values in the topics slice after that due to a quirk in FilterLogs(),
-		//  which will only use nil as a wildcard if there are non-nil values after it in the slice
-		for i := 0; i <= lastTopic; i++ {
-			topics = append(topics, tt[i])
-		}
+		topics = t.([][]common.Hash)
 	}
 
 	query := ethereum.FilterQuery{
