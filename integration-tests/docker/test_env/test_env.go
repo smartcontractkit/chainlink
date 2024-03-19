@@ -37,16 +37,14 @@ type CLClusterTestEnv struct {
 	LogStream     *logstream.LogStream
 
 	/* components */
-	ClCluster *ClCluster
-	// PrivateChain          []test_env.PrivateChain // for tests using non-dev networks -- unify it with new approach
-	MockAdapter      *test_env.Killgrave
-	EVMClient        blockchain.EVMClient
-	EVMClients       map[int64]blockchain.EVMClient
-	SethClient       *seth.Client
-	ContractDeployer contracts.ContractDeployer
-	ContractLoader   contracts.ContractLoader
-	// RpcProvider           test_env.RpcProvider
-	PrivateEthereumConfig []*test_env.EthereumNetwork // new approach to private chains, supporting eth1 and eth2
+	ClCluster             *ClCluster
+	MockAdapter           *test_env.Killgrave
+	EVMClient             blockchain.EVMClient
+	EVMClients            map[int64]blockchain.EVMClient
+	SethClient            *seth.Client
+	ContractDeployer      contracts.ContractDeployer
+	ContractLoader        contracts.ContractLoader
+	PrivateEthereumConfig []*test_env.EthereumNetwork
 	EVMNetworks           []*blockchain.EVMNetwork
 	RpcProviders          map[int64]*test_env.RpcProvider
 	l                     zerolog.Logger

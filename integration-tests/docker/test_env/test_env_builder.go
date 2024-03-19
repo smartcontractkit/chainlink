@@ -45,7 +45,6 @@ type CLTestEnvBuilder struct {
 	hasEVMClient           bool
 	clNodeConfig           *chainlink.Config
 	secretsConfig          string
-	nonDevGethNetworks     []blockchain.EVMNetwork
 	clNodesCount           int
 	clNodesOpts            []func(*ClNode)
 	customNodeCsaKeys      []string
