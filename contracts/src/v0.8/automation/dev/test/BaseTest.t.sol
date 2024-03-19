@@ -12,6 +12,7 @@ import {AutomationRegistry2_3} from "../v2_3/AutomationRegistry2_3.sol";
 import {AutomationRegistryBase2_3 as AutoBase} from "../v2_3/AutomationRegistryBase2_3.sol";
 import {AutomationRegistryLogicA2_3} from "../v2_3/AutomationRegistryLogicA2_3.sol";
 import {AutomationRegistryLogicB2_3} from "../v2_3/AutomationRegistryLogicB2_3.sol";
+import {AutomationRegistryLogicC2_3} from "../v2_3/AutomationRegistryLogicC2_3.sol";
 import {IAutomationRegistryMaster2_3, AutomationRegistryBase2_3} from "../interfaces/v2_3/IAutomationRegistryMaster2_3.sol";
 import {AutomationRegistrar2_3} from "../v2_3/AutomationRegistrar2_3.sol";
 import {ChainModuleBase} from "../../chains/ChainModuleBase.sol";
@@ -98,7 +99,7 @@ contract BaseTest is Test {
    */
   function deployRegistry(AutoBase.PayoutMode payoutMode) internal returns (IAutomationRegistryMaster2_3) {
     AutomationForwarderLogic forwarderLogic = new AutomationForwarderLogic();
-    AutomationRegistryLogicB2_3 logicB2_3 = new AutomationRegistryLogicB2_3(
+    AutomationRegistryLogicC2_3 logicC2_3 = new AutomationRegistryLogicC2_3(
       address(linkToken),
       address(LINK_USD_FEED),
       address(NATIVE_USD_FEED),
@@ -107,9 +108,9 @@ contract BaseTest is Test {
       ZERO_ADDRESS,
       payoutMode
     );
+    AutomationRegistryLogicB2_3 logicB2_3 = new AutomationRegistryLogicB2_3(logicC2_3);
     AutomationRegistryLogicA2_3 logicA2_3 = new AutomationRegistryLogicA2_3(logicB2_3);
-    return
-      IAutomationRegistryMaster2_3(address(new AutomationRegistry2_3(AutomationRegistryLogicB2_3(address(logicA2_3))))); // wow this line is hilarious
+    return IAutomationRegistryMaster2_3(address(new AutomationRegistry2_3(logicA2_3)));
   }
 
   /**

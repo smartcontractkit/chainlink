@@ -3,7 +3,7 @@ description: Setup Cosmos wasmd, used for integration tests
 runs:
   using: composite
   steps:
-      - uses: actions/cache@v3
+      - uses: actions/cache@ab5e6d0c87105b4c9c2047343972218f562e4319 # v4.0.1
         id: cache
         name: Cache wasmd-build
         with:

@@ -8,7 +8,7 @@ import { IAutomationRegistryMaster as IAutomationRegistry } from '../../../typec
 import { IAutomationRegistryMaster__factory as IAutomationRegistryMasterFactory } from '../../../typechain/factories/IAutomationRegistryMaster__factory'
 import { assert } from 'chai'
 import { FunctionFragment } from '@ethersproject/abi'
-import { AutomationRegistryLogicB2_3__factory as AutomationRegistryLogicB2_3Factory } from '../../../typechain/factories/AutomationRegistryLogicB2_3__factory'
+import { AutomationRegistryLogicC2_3__factory as AutomationRegistryLogicC2_3Factory } from '../../../typechain/factories/AutomationRegistryLogicC2_3__factory'
 import { IAutomationRegistryMaster2_3 as IAutomationRegistry2_3 } from '../../../typechain/IAutomationRegistryMaster2_3'
 import { IAutomationRegistryMaster2_3__factory as IAutomationRegistryMaster2_3Factory } from '../../../typechain/factories/IAutomationRegistryMaster2_3__factory'
 
@@ -162,15 +162,18 @@ export const deployRegistry22 = async (
 
 export const deployRegistry23 = async (
   from: Signer,
-  link: Parameters<AutomationRegistryLogicB2_3Factory['deploy']>[0],
-  linkUSD: Parameters<AutomationRegistryLogicB2_3Factory['deploy']>[1],
-  nativeUSD: Parameters<AutomationRegistryLogicB2_3Factory['deploy']>[2],
-  fastgas: Parameters<AutomationRegistryLogicB2_3Factory['deploy']>[2],
+  link: Parameters<AutomationRegistryLogicC2_3Factory['deploy']>[0],
+  linkUSD: Parameters<AutomationRegistryLogicC2_3Factory['deploy']>[1],
+  nativeUSD: Parameters<AutomationRegistryLogicC2_3Factory['deploy']>[2],
+  fastgas: Parameters<AutomationRegistryLogicC2_3Factory['deploy']>[2],
   allowedReadOnlyAddress: Parameters<
-    AutomationRegistryLogicB2_3Factory['deploy']
+    AutomationRegistryLogicC2_3Factory['deploy']
   >[3],
   payoutMode: Parameters<AutomationRegistryLogicB2_3Factory['deploy']>[6],
 ): Promise<IAutomationRegistry2_3> => {
+  const logicCFactory = await ethers.getContractFactory(
+    'AutomationRegistryLogicC2_3',
+  )
   const logicBFactory = await ethers.getContractFactory(
     'AutomationRegistryLogicB2_3',
   )
@@ -184,7 +187,7 @@ export const deployRegistry23 = async (
     'AutomationForwarderLogic',
   )
   const forwarderLogic = await forwarderLogicFactory.connect(from).deploy()
-  const logicB = await logicBFactory
+  const logicC = await logicCFactory
     .connect(from)
     .deploy(
       link,
@@ -195,6 +198,7 @@ export const deployRegistry23 = async (
       allowedReadOnlyAddress,
       payoutMode,
     )
+  const logicB = await logicBFactory.connect(from).deploy(logicC.address)
   const logicA = await logicAFactory.connect(from).deploy(logicB.address)
   const master = await registryFactory.connect(from).deploy(logicA.address)
   return IAutomationRegistryMaster2_3Factory.connect(master.address, from)

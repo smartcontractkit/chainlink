@@ -4,6 +4,7 @@ pragma solidity 0.8.19;
 import {EnumerableSet} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
 import {Address} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
 import {AutomationRegistryBase2_3} from "./AutomationRegistryBase2_3.sol";
+import {AutomationRegistryLogicC2_3} from "./AutomationRegistryLogicC2_3.sol";
 import {AutomationRegistryLogicB2_3} from "./AutomationRegistryLogicB2_3.sol";
 import {Chainable} from "../../Chainable.sol";
 import {AutomationForwarder} from "../../AutomationForwarder.sol";
@@ -22,18 +23,19 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
 
   /**
    * @param logicB the address of the second logic contract
+   * @dev we cast the contract to logicC in order to call logicC functions (via fallback)
    */
   constructor(
     AutomationRegistryLogicB2_3 logicB
   )
     AutomationRegistryBase2_3(
-      logicB.getLinkAddress(),
-      logicB.getLinkUSDFeedAddress(),
-      logicB.getNativeUSDFeedAddress(),
-      logicB.getFastGasFeedAddress(),
-      logicB.getAutomationForwarderLogic(),
-      logicB.getAllowedReadOnlyAddress(),
-      logicB.getPayoutMode()
+      AutomationRegistryLogicC2_3(address(logicB)).getLinkAddress(),
+      AutomationRegistryLogicC2_3(address(logicB)).getLinkUSDFeedAddress(),
+      AutomationRegistryLogicC2_3(address(logicB)).getNativeUSDFeedAddress(),
+      AutomationRegistryLogicC2_3(address(logicB)).getFastGasFeedAddress(),
+      AutomationRegistryLogicC2_3(address(logicB)).getAutomationForwarderLogic(),
+      AutomationRegistryLogicC2_3(address(logicB)).getAllowedReadOnlyAddress(),
+      AutomationRegistryLogicC2_3(address(logicB)).getPayoutMode()
     )
     Chainable(address(logicB))
   {}
