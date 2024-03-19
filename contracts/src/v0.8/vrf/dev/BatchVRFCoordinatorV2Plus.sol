@@ -11,13 +11,13 @@ import {VRFTypes} from "../VRFTypes.sol";
  */
 contract BatchVRFCoordinatorV2Plus {
   // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
-  IVRFCoordinatorV2Plus public immutable COORDINATOR;
+  IVRFCoordinatorV2PlusFulfill public immutable COORDINATOR;
 
   event ErrorReturned(uint256 indexed requestId, string reason);
   event RawErrorReturned(uint256 indexed requestId, bytes lowLevelData);
 
   constructor(address coordinatorAddr) {
-    COORDINATOR = IVRFCoordinatorV2Plus(coordinatorAddr);
+    COORDINATOR = IVRFCoordinatorV2PlusFulfill(coordinatorAddr);
   }
 
   /**
@@ -59,7 +59,7 @@ contract BatchVRFCoordinatorV2Plus {
   }
 }
 
-interface IVRFCoordinatorV2Plus {
+interface IVRFCoordinatorV2PlusFulfill {
   function fulfillRandomWords(
     VRFTypes.Proof memory proof,
     VRFTypes.RequestCommitmentV2Plus memory rc,
