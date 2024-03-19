@@ -101,7 +101,7 @@ jobs:
         run: |
           # if the matrix.test is set, use it for a different command
           if [ "${{ matrix.test }}" != "" ]; then
-            echo "run_command=${{ matrix.test }} ./ccip-tests/smoke/ccip_test.go" >> "$GITHUB_OUTPUT"
+            echo "run_command=-run '^${{ matrix.test }}$' ./ccip-tests/smoke/ccip_test.go" >> "$GITHUB_OUTPUT"
           else
             echo "run_command=./ccip-tests/smoke/ccip_test.go" >> "$GITHUB_OUTPUT"
           fi
@@ -233,10 +233,6 @@ jobs:
       contents: read
     runs-on: ubuntu-latest
     needs: [start-slack-thread]
-    strategy:
-      fail-fast: false
-      matrix:
-        client: [geth, besu, nethermind, erigon]
     steps:
       - name: Checkout the repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
@@ -249,7 +245,7 @@ jobs:
           github_repository: ${{ github.repository }}
           workflow_run_id: ${{ github.run_id }}
           github_job_name_regex: ^CCIP Latest EVM Node Compatibility Test with (?<cap>.*?)$
-          message_title: ${{ matrix.client }}
+          message_title: BiDirectional Lane Test Results
           slack_channel_id: ${{ secrets.QA_SLACK_CHANNEL }}
           slack_bot_token: ${{ secrets.QA_SLACK_API_KEY }}
           slack_thread_ts: ${{ needs.start-slack-thread.outputs.thread_ts }}
