@@ -99,9 +99,9 @@ jobs:
       - name: Build Go Test Command
         id: build-go-test-command
         run: |
-          # if the matrix.run is set, use it for a different command
-          if [ "${{ matrix.run }}" != "" ]; then
-            echo "run_command=${{ matrix.run }} ./ccip-tests/smoke/ccip_test.go" >> "$GITHUB_OUTPUT"
+          # if the matrix.test is set, use it for a different command
+          if [ "${{ matrix.test }}" != "" ]; then
+            echo "run_command=${{ matrix.test }} ./ccip-tests/smoke/ccip_test.go" >> "$GITHUB_OUTPUT"
           else
             echo "run_command=./ccip-tests/smoke/ccip_test.go" >> "$GITHUB_OUTPUT"
           fi
@@ -134,8 +134,6 @@ jobs:
           lokiTenantId: ${{ vars.LOKI_TENANT_ID }}
           lokiBasicAuth: ${{ secrets.LOKI_BASIC_AUTH }}
           logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
-          grafanaUrl: ${{ vars.GRAFANA_URL }}
-          grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
           customEvmNodes: ${{ matrix.chainConfig }}
       - name: Run Tests
         if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
