@@ -183,6 +183,7 @@ func SetupVRFV2Environment(
 		VRFKey:            vrfKey,
 		EncodedProvingKey: provingKey,
 		KeyHash:           keyHash,
+		PubKeyCompressed:  pubKeyCompressed,
 	}
 
 	l.Info().Msg("VRFV2 environment setup is finished")
