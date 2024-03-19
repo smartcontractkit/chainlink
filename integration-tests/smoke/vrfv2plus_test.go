@@ -36,7 +36,7 @@ func TestVRFv2Plus(t *testing.T) {
 		env                          *test_env.CLClusterTestEnv
 		vrfContracts                 *vrfcommon.VRFContracts
 		subIDsForCancellingAfterTest []*big.Int
-		eoaWalletAddress             string
+		defaultWalletAddress         string
 		vrfKey                       *vrfcommon.VRFKeyData
 		nodeTypeToNodeMap            map[vrfcommon.VRFNodeType]*vrfcommon.VRFNode
 	)
@@ -54,7 +54,7 @@ func TestVRFv2Plus(t *testing.T) {
 		} else {
 			if *vrfv2PlusConfig.General.CancelSubsAfterTestRun {
 				//cancel subs and return funds to sub owner
-				vrfv2plus.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, eoaWalletAddress, subIDsForCancellingAfterTest, l)
+				vrfv2plus.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, defaultWalletAddress, subIDsForCancellingAfterTest, l)
 			}
 		}
 		if !*vrfv2PlusConfig.General.UseExistingEnv {
@@ -72,9 +72,7 @@ func TestVRFv2Plus(t *testing.T) {
 
 	env, vrfContracts, vrfKey, nodeTypeToNodeMap, err = vrfv2plus.SetupVRFV2PlusUniverse(testcontext.Get(t), t, config, cleanupFn, newEnvConfig, l)
 	require.NoError(t, err)
-
-	// default wallet address is used to test Withdraw
-	defaultWalletAddress := env.EVMClient.GetDefaultWallet().Address()
+	defaultWalletAddress = env.EVMClient.GetDefaultWallet().Address()
 
 	t.Run("Link Billing", func(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
@@ -655,7 +653,7 @@ func TestVRFv2PlusMultipleSendingKeys(t *testing.T) {
 		env                          *test_env.CLClusterTestEnv
 		vrfContracts                 *vrfcommon.VRFContracts
 		subIDsForCancellingAfterTest []*big.Int
-		eoaWalletAddress             string
+		defaultWalletAddress         string
 		vrfKey                       *vrfcommon.VRFKeyData
 		nodeTypeToNodeMap            map[vrfcommon.VRFNodeType]*vrfcommon.VRFNode
 	)
@@ -673,7 +671,7 @@ func TestVRFv2PlusMultipleSendingKeys(t *testing.T) {
 		} else {
 			if *vrfv2PlusConfig.General.CancelSubsAfterTestRun {
 				//cancel subs and return funds to sub owner
-				vrfv2plus.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, eoaWalletAddress, subIDsForCancellingAfterTest, l)
+				vrfv2plus.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, defaultWalletAddress, subIDsForCancellingAfterTest, l)
 			}
 		}
 		if !*vrfv2PlusConfig.General.UseExistingEnv {
@@ -691,6 +689,7 @@ func TestVRFv2PlusMultipleSendingKeys(t *testing.T) {
 
 	env, vrfContracts, vrfKey, nodeTypeToNodeMap, err = vrfv2plus.SetupVRFV2PlusUniverse(testcontext.Get(t), t, config, cleanupFn, newEnvConfig, l)
 	require.NoError(t, err)
+	defaultWalletAddress = env.EVMClient.GetDefaultWallet().Address()
 
 	t.Run("Request Randomness with multiple sending keys", func(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
@@ -754,7 +753,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		env                          *test_env.CLClusterTestEnv
 		vrfContracts                 *vrfcommon.VRFContracts
 		subIDsForCancellingAfterTest []*big.Int
-		eoaWalletAddress             string
+		defaultWalletAddress         string
 		vrfKey                       *vrfcommon.VRFKeyData
 		nodeTypeToNodeMap            map[vrfcommon.VRFNodeType]*vrfcommon.VRFNode
 	)
@@ -772,7 +771,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		} else {
 			if *vrfv2PlusConfig.General.CancelSubsAfterTestRun {
 				//cancel subs and return funds to sub owner
-				vrfv2plus.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, eoaWalletAddress, subIDsForCancellingAfterTest, l)
+				vrfv2plus.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, defaultWalletAddress, subIDsForCancellingAfterTest, l)
 			}
 		}
 		if !*vrfv2PlusConfig.General.UseExistingEnv {
@@ -790,6 +789,8 @@ func TestVRFv2PlusMigration(t *testing.T) {
 
 	env, vrfContracts, vrfKey, nodeTypeToNodeMap, err = vrfv2plus.SetupVRFV2PlusUniverse(testcontext.Get(t), t, config, cleanupFn, newEnvConfig, l)
 	require.NoError(t, err)
+	defaultWalletAddress = env.EVMClient.GetDefaultWallet().Address()
+
 	// Migrate subscription from old coordinator to new coordinator, verify if balances
 	// are moved correctly and requests can be made successfully in the subscription in
 	// new coordinator
@@ -1167,7 +1168,7 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 		env                          *test_env.CLClusterTestEnv
 		vrfContracts                 *vrfcommon.VRFContracts
 		subIDsForCancellingAfterTest []*big.Int
-		eoaWalletAddress             string
+		defaultWalletAddress         string
 		vrfKey                       *vrfcommon.VRFKeyData
 		nodeTypeToNodeMap            map[vrfcommon.VRFNodeType]*vrfcommon.VRFNode
 	)
@@ -1185,7 +1186,7 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 		} else {
 			if *vrfv2PlusConfig.General.CancelSubsAfterTestRun {
 				//cancel subs and return funds to sub owner
-				vrfv2plus.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, eoaWalletAddress, subIDsForCancellingAfterTest, l)
+				vrfv2plus.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, defaultWalletAddress, subIDsForCancellingAfterTest, l)
 			}
 		}
 		if !*vrfv2PlusConfig.General.UseExistingEnv {
@@ -1208,6 +1209,8 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 
 	env, vrfContracts, vrfKey, nodeTypeToNodeMap, err = vrfv2plus.SetupVRFV2PlusUniverse(testcontext.Get(t), t, config, cleanupFn, newEnvConfig, l)
 	require.NoError(t, err)
+	defaultWalletAddress = env.EVMClient.GetDefaultWallet().Address()
+
 	var isNativeBilling = true
 	t.Run("BHS Job with complete E2E - wait 256 blocks to see if Rand Request is fulfilled", func(t *testing.T) {
 		t.Skip("Skipped since should be run on-demand on live testnet due to long execution time")
@@ -1388,7 +1391,7 @@ func TestVRFv2PlusReplayAfterTimeout(t *testing.T) {
 		env                          *test_env.CLClusterTestEnv
 		vrfContracts                 *vrfcommon.VRFContracts
 		subIDsForCancellingAfterTest []*big.Int
-		eoaWalletAddress             string
+		defaultWalletAddress         string
 		vrfKey                       *vrfcommon.VRFKeyData
 		nodeTypeToNodeMap            map[vrfcommon.VRFNodeType]*vrfcommon.VRFNode
 	)
@@ -1406,7 +1409,7 @@ func TestVRFv2PlusReplayAfterTimeout(t *testing.T) {
 		} else {
 			if *vrfv2PlusConfig.General.CancelSubsAfterTestRun {
 				//cancel subs and return funds to sub owner
-				vrfv2plus.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, eoaWalletAddress, subIDsForCancellingAfterTest, l)
+				vrfv2plus.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, defaultWalletAddress, subIDsForCancellingAfterTest, l)
 			}
 		}
 		if !*vrfv2PlusConfig.General.UseExistingEnv {
@@ -1430,6 +1433,7 @@ func TestVRFv2PlusReplayAfterTimeout(t *testing.T) {
 
 	env, vrfContracts, vrfKey, nodeTypeToNodeMap, err = vrfv2plus.SetupVRFV2PlusUniverse(testcontext.Get(t), t, config, cleanupFn, newEnvConfig, l)
 	require.NoError(t, err)
+	defaultWalletAddress = env.EVMClient.GetDefaultWallet().Address()
 
 	t.Run("Timed out request fulfilled after node restart with replay", func(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
@@ -1577,7 +1581,7 @@ func TestVRFv2PlusPendingBlockSimulationAndZeroConfirmationDelays(t *testing.T) 
 		env                          *test_env.CLClusterTestEnv
 		vrfContracts                 *vrfcommon.VRFContracts
 		subIDsForCancellingAfterTest []*big.Int
-		eoaWalletAddress             string
+		defaultWalletAddress         string
 		vrfKey                       *vrfcommon.VRFKeyData
 	)
 	l := logging.GetTestLogger(t)
@@ -1594,7 +1598,7 @@ func TestVRFv2PlusPendingBlockSimulationAndZeroConfirmationDelays(t *testing.T) 
 		} else {
 			if *vrfv2PlusConfig.General.CancelSubsAfterTestRun {
 				//cancel subs and return funds to sub owner
-				vrfv2plus.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, eoaWalletAddress, subIDsForCancellingAfterTest, l)
+				vrfv2plus.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, defaultWalletAddress, subIDsForCancellingAfterTest, l)
 			}
 		}
 		if !*vrfv2PlusConfig.General.UseExistingEnv {
@@ -1616,6 +1620,7 @@ func TestVRFv2PlusPendingBlockSimulationAndZeroConfirmationDelays(t *testing.T) 
 
 	env, vrfContracts, vrfKey, _, err = vrfv2plus.SetupVRFV2PlusUniverse(testcontext.Get(t), t, config, cleanupFn, newEnvConfig, l)
 	require.NoError(t, err)
+	defaultWalletAddress = env.EVMClient.GetDefaultWallet().Address()
 
 	consumers, subIDs, err := vrfv2plus.SetupNewConsumersAndSubs(
 		env,
