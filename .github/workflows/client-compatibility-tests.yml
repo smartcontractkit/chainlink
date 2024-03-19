@@ -136,6 +136,8 @@ jobs:
           lokiTenantId: ${{ vars.LOKI_TENANT_ID }}
           lokiBasicAuth: ${{ secrets.LOKI_BASIC_AUTH }}
           logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
+          grafanaUrl: ${{ vars.GRAFANA_URL }}
+          grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
           customEvmNodes: ${{ matrix.chainConfig }}
       - name: Run Tests
         if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
