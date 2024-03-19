@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
@@ -242,6 +243,8 @@ func ReturnFunds(log zerolog.Logger, sethClient *seth.Client, chainlinkNodes []c
 		return nil
 	}
 
+	failedReturns := []common.Address{}
+
 	for _, chainlinkNode := range chainlinkNodes {
 		fundedKeys, err := chainlinkNode.ExportEVMKeysForChain(fmt.Sprint(sethClient.ChainID))
 		if err != nil {
@@ -322,10 +325,23 @@ func ReturnFunds(log zerolog.Logger, sethClient *seth.Client, chainlinkNodes []c
 			_, err = SendFunds(log, sethClient, payload)
 			if err != nil {
 				handler := OvershotTransferRetrier{maxRetries: 10, nextRetrier: &InsufficientFundTransferRetrier{maxRetries: 10, nextRetrier: &GasTooLowTransferRetrier{maxGasLimit: sethClient.Cfg.Network.TransferGasFee * 10}}}
-				return handler.Retry(context.Background(), log, sethClient, err, payload, 0)
+				err = handler.Retry(context.Background(), log, sethClient, err, payload, 0)
+				if err != nil {
+					log.Error().
+						Err(err).
+						Str("Address", fromAddress.String()).
+						Msg("Failed to return funds from Chainlink node to default network wallet")
+					failedReturns = append(failedReturns, fromAddress)
+				}
 			}
 		}
 	}
+
+	if len(failedReturns) > 0 {
+		return fmt.Errorf("failed to return funds from Chainlink nodes to default network wallet for addresses: %v", failedReturns)
+	}
+
+	log.Info().Msg("Successfully returned funds from all Chainlink nodes to default network wallets")
 
 	return nil
 }
