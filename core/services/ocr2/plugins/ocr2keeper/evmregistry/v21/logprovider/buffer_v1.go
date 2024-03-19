@@ -266,22 +266,22 @@ func (ub *upkeepLogBuffer) enqueue(blockThreshold int64, logsToAdd ...logpoller.
 			continue
 		}
 		added++
-		if len(logs) == 0 {
-			// if the buffer is empty, just add the log
-			logs = append(logs, log)
-		} else {
-			// otherwise, find the right index to insert the log
-			// to keep the buffer sorted
-			// TODO: check what is better: 1. maintain sorted slice; 2. sort once at the end
-			i, _ := sort.Find(len(logs), func(i int) int {
-				return LogComparator(log, logs[i])
-			})
-			if i == len(logs) {
-				logs = append(logs, log)
-			} else {
-				logs = append(logs[:i], append([]logpoller.Log{log}, logs[i:]...)...)
-			}
-		}
+		// if len(logs) == 0 {
+		// if the buffer is empty, just add the log
+		logs = append(logs, log)
+		// } else {
+		// 	// otherwise, find the right index to insert the log
+		// 	// to keep the buffer sorted
+		// 	// TODO: check what is better: 1. maintain sorted slice; 2. sort once at the end
+		// 	i, _ := sort.Find(len(logs), func(i int) int {
+		// 		return LogComparator(log, logs[i])
+		// 	})
+		// 	if i == len(logs) {
+		// 		logs = append(logs, log)
+		// 	} else {
+		// 		logs = append(logs[:i], append([]logpoller.Log{log}, logs[i:]...)...)
+		// 	}
+		// }
 		ub.visited[logid] = log.BlockNumber
 	}
 	ub.q = logs
@@ -302,9 +302,9 @@ func (ub *upkeepLogBuffer) enqueue(blockThreshold int64, logsToAdd ...logpoller.
 func (ub *upkeepLogBuffer) clean(blockThreshold int64) int {
 	maxLogs := int(ub.maxLogs.Load())
 
-	// sort.SliceStable(updated, func(i, j int) bool {
-	// 	return LogSorter(updated[i], updated[j])
-	// })
+	sort.SliceStable(ub.q, func(i, j int) bool {
+		return LogSorter(ub.q[i], ub.q[j])
+	})
 	updated := make([]logpoller.Log, 0)
 	var dropped int
 	for _, l := range ub.q {

@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func TestLogEventBufferV2_Clean(t *testing.T) {
+func TestLogEventBufferV1_Clean(t *testing.T) {
 	t.Run("empty", func(t *testing.T) {
 		buf := newUpkeepLogBuffer(logger.TestLogger(t), big.NewInt(1), 10)
 
@@ -45,7 +45,7 @@ func TestLogEventBufferV2_Clean(t *testing.T) {
 	})
 }
 
-func TestLogEventBufferV2_EnqueueDequeue(t *testing.T) {
+func TestLogEventBufferV1_EnqueueDequeue(t *testing.T) {
 	t.Run("dequeue empty", func(t *testing.T) {
 		buf := NewLogBuffer(logger.TestLogger(t), 10, 10)
 
