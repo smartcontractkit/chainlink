@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-contract UpkeepMock {
+contract MockUpkeep {
   bool public shouldCheckRevert;
   bool public shouldPerformRevert;
   bool public checkResult = true;

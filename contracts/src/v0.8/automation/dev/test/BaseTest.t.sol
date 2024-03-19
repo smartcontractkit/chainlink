@@ -15,7 +15,7 @@ import {IAutomationRegistryMaster2_3, AutomationRegistryBase2_3} from "../interf
 import {AutomationRegistrar2_3} from "../v2_3/AutomationRegistrar2_3.sol";
 import {ChainModuleBase} from "../../chains/ChainModuleBase.sol";
 import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
-import {UpkeepMock} from "../../mocks/UpkeepMock.sol";
+import {MockUpkeep} from "../../mocks/MockUpkeep.sol";
 
 /**
  * @title BaseTest provides basic test setup procedures and dependancies for use by other
@@ -36,8 +36,8 @@ contract BaseTest is Test {
   MockV3Aggregator internal NATIVE_USD_FEED;
   MockV3Aggregator internal USDTOKEN_USD_FEED;
   MockV3Aggregator internal FAST_GAS_FEED;
-  UpkeepMock internal TARGET1;
-  UpkeepMock internal TARGET2;
+  MockUpkeep internal TARGET1;
+  MockUpkeep internal TARGET2;
 
   // roles
   address internal constant OWNER = address(uint160(uint256(keccak256("OWNER"))));
@@ -65,8 +65,8 @@ contract BaseTest is Test {
     USDTOKEN_USD_FEED = new MockV3Aggregator(8, 100_000_000); // $1
     FAST_GAS_FEED = new MockV3Aggregator(0, 1_000_000_000); // 1 gwei
 
-    TARGET1 = new UpkeepMock();
-    TARGET2 = new UpkeepMock();
+    TARGET1 = new MockUpkeep();
+    TARGET2 = new MockUpkeep();
 
     SIGNERS[0] = vm.addr(SIGNING_KEY0); //0xc110458BE52CaA6bB68E66969C3218A4D9Db0211
     SIGNERS[1] = vm.addr(SIGNING_KEY1); //0xc110a19c08f1da7F5FfB281dc93630923F8E3719
