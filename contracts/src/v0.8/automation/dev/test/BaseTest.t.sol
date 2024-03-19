@@ -292,4 +292,16 @@ contract BaseTest is Test {
   function _encodeBlockTrigger(AutoBase.ConditionalTrigger memory trigger) internal view returns (bytes memory triggerBytes) {
     return abi.encode(trigger.blockNum, trigger.blockHash);
   }
+
+  function _mintLink(address recipient, uint256 amount) internal {
+    vm.prank(OWNER);
+    //mint the link to the recipient
+    linkToken.mint(recipient, amount);
+  }
+
+  function _mintERC20(address recipient, uint256 amount) internal {
+    vm.prank(OWNER);
+    //mint the ERC20 to the recipient
+    mockERC20.mint(recipient, amount);
+  }
 }

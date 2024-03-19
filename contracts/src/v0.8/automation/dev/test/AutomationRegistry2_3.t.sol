@@ -54,18 +54,6 @@ contract AutomationRegistry2_3_CheckUpkeep is AutomationRegistry2_3_SetUp {
 contract AutomationRegistry2_3_Withdraw is AutomationRegistry2_3_SetUp {
   address internal aMockAddress = address(0x1111111111111111111111111111111111111113);
 
-  function mintLink(address recipient, uint256 amount) public {
-    vm.prank(OWNER);
-    //mint the link to the recipient
-    linkToken.mint(recipient, amount);
-  }
-
-  function mintERC20(address recipient, uint256 amount) public {
-    vm.prank(OWNER);
-    //mint the ERC20 to the recipient
-    mockERC20.mint(recipient, amount);
-  }
-
   function setConfigForWithdraw() public {
     address module = address(new ChainModuleBase());
     AutomationRegistryBase2_3.OnchainConfig memory cfg = AutomationRegistryBase2_3.OnchainConfig({
@@ -102,7 +90,7 @@ contract AutomationRegistry2_3_Withdraw is AutomationRegistry2_3_SetUp {
 
   function testLinkAvailableForPaymentReturnsLinkBalance() public {
     //simulate a deposit of link to the liquidity pool
-    mintLink(address(registryMaster), 1e10);
+    _mintLink(address(registryMaster), 1e10);
 
     //check there's a balance
     assertGt(linkToken.balanceOf(address(registryMaster)), 0);
@@ -150,7 +138,7 @@ contract AutomationRegistry2_3_Withdraw is AutomationRegistry2_3_SetUp {
     setConfigForWithdraw();
 
     //simulate a deposit of link to the liquidity pool
-    mintLink(address(registryMaster), 1e10);
+    _mintLink(address(registryMaster), 1e10);
 
     //check there's a balance
     assertGt(linkToken.balanceOf(address(registryMaster)), 0);
@@ -171,7 +159,7 @@ contract AutomationRegistry2_3_Withdraw is AutomationRegistry2_3_SetUp {
     setConfigForWithdraw();
 
     // simulate a deposit of ERC20 to the liquidity pool
-    mintERC20(address(registryMaster), 1e10);
+    _mintERC20(address(registryMaster), 1e10);
 
     // check there's a balance
     assertGt(mockERC20.balanceOf(address(registryMaster)), 0);
@@ -621,14 +609,14 @@ contract AutomationRegistry2_3_NOPsSettlement is AutomationRegistry2_3_SetUp {
     mock.setCheckResult(true);
 
     uint256 id = registryMaster.registerUpkeep(address(mock), 1000000, UPKEEP_ADMIN, 0, address(mockERC20), "", "", "");
-    mintERC20(address(registryMaster), 1e10);
-    registryMaster.addFunds(id, );
+    _mintERC20(address(registryMaster), 1e10);
+    //registryMaster.addFunds(id, );
 
     (, , bytes32 configDigest) = registryMaster.latestConfigDetails();
     AutoBase.ConditionalTrigger memory trigger = AutoBase.ConditionalTrigger(uint32(block.number), blockhash(block.number));
-    AutoBase.Report memory report = AutoBase.Report(
-
-    );
+//    AutoBase.Report memory report = AutoBase.Report(
+//
+//    );
 
     uint256[] memory balances = new uint256[](TRANSMITTERS.length);
     for (uint256 i = 0; i < TRANSMITTERS.length; i++) {
