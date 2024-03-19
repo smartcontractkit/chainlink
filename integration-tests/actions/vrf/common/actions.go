@@ -232,11 +232,12 @@ func FundNodesIfNeeded(ctx context.Context, existingEnvConfig *vrf_common_config
 			fundingAtLeast := conversions.EtherToWei(big.NewFloat(*existingEnvConfig.NodeSendingKeyFundingMin))
 			fundingToSendWei := new(big.Int).Sub(fundingAtLeast, sendingKeyBalance)
 			fundingToSendEth := conversions.WeiToEther(fundingToSendWei)
+			log := l.Info().
+				Str("Sending Key", sendingKey).
+				Str("Sending Key Current Balance", sendingKeyBalance.String()).
+				Str("Should have at least", fundingAtLeast.String())
 			if fundingToSendWei.Cmp(big.NewInt(0)) == 1 {
-				l.Info().
-					Str("Sending Key", sendingKey).
-					Str("Sending Key Current Balance", sendingKeyBalance.String()).
-					Str("Should have at least", fundingAtLeast.String()).
+				log.
 					Str("Funding Amount in ETH", fundingToSendEth.String()).
 					Msg("Funding Node's Sending Key")
 				err := actions.FundAddress(client, sendingKey, fundingToSendEth)
@@ -244,10 +245,7 @@ func FundNodesIfNeeded(ctx context.Context, existingEnvConfig *vrf_common_config
 					return err
 				}
 			} else {
-				l.Info().
-					Str("Sending Key", sendingKey).
-					Str("Sending Key Current Balance", sendingKeyBalance.String()).
-					Str("Should have at least", fundingAtLeast.String()).
+				log.
 					Msg("Skipping Node's Sending Key funding as it has enough funds")
 			}
 		}

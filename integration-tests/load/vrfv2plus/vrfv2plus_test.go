@@ -234,7 +234,7 @@ func TestVRFV2PlusBHSPerformance(t *testing.T) {
 	t.Run("vrfv2plus and bhs performance test", func(t *testing.T) {
 		configCopy := testConfig.MustCopy().(tc.TestConfig)
 		//Underfund Subscription
-		configCopy.VRFv2Plus.General.SubscriptionFundingAmountLink = ptr.Ptr(float64(0.000000000000000001)) // 1 Juel
+		configCopy.VRFv2Plus.General.SubscriptionFundingAmountLink = ptr.Ptr(float64(0))
 		consumers, underfundedSubIDs, err := vrfv2plus.SetupNewConsumersAndSubs(
 			testEnv,
 			vrfContracts.CoordinatorV2Plus,

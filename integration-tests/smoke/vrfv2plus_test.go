@@ -417,8 +417,8 @@ func TestVRFv2Plus(t *testing.T) {
 		testConfig := configCopy.VRFv2Plus.General
 
 		//underfund subs in order rand fulfillments to fail
-		testConfig.SubscriptionFundingAmountNative = ptr.Ptr(float64(0.000000000000000001)) //1 Wei
-		testConfig.SubscriptionFundingAmountLink = ptr.Ptr(float64(0.000000000000000001))   //1 Juels
+		testConfig.SubscriptionFundingAmountNative = ptr.Ptr(float64(0))
+		testConfig.SubscriptionFundingAmountLink = ptr.Ptr(float64(0))
 
 		consumers, subIDs, err := vrfv2plus.SetupNewConsumersAndSubs(
 			env,
@@ -1213,8 +1213,8 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 		t.Skip("Skipped since should be run on-demand on live testnet due to long execution time")
 		configCopy := config.MustCopy().(tc.TestConfig)
 		//Underfund Subscription
-		configCopy.VRFv2Plus.General.SubscriptionFundingAmountLink = ptr.Ptr(float64(0.000000000000000001))   // 1 Juel
-		configCopy.VRFv2Plus.General.SubscriptionFundingAmountNative = ptr.Ptr(float64(0.000000000000000001)) // 1 Wei
+		configCopy.VRFv2Plus.General.SubscriptionFundingAmountLink = ptr.Ptr(float64(0))
+		configCopy.VRFv2Plus.General.SubscriptionFundingAmountNative = ptr.Ptr(float64(0))
 
 		consumers, subIDs, err := vrfv2plus.SetupNewConsumersAndSubs(
 			env,
@@ -1292,8 +1292,8 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 	t.Run("BHS Job should fill in blockhashes into BHS contract for unfulfilled requests", func(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
 		//Underfund Subscription
-		configCopy.VRFv2Plus.General.SubscriptionFundingAmountLink = ptr.Ptr(float64(0.000000000000000001))   // 1 Juel
-		configCopy.VRFv2Plus.General.SubscriptionFundingAmountNative = ptr.Ptr(float64(0.000000000000000001)) // 1 Wei
+		configCopy.VRFv2Plus.General.SubscriptionFundingAmountLink = ptr.Ptr(float64(0))
+		configCopy.VRFv2Plus.General.SubscriptionFundingAmountNative = ptr.Ptr(float64(0))
 
 		consumers, subIDs, err := vrfv2plus.SetupNewConsumersAndSubs(
 			env,

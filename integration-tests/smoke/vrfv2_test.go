@@ -396,7 +396,7 @@ func TestVRFv2Basic(t *testing.T) {
 	t.Run("Owner Canceling Sub And Returning Funds While Having Pending Requests", func(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
 		// Underfund subscription to force fulfillments to fail
-		configCopy.VRFv2.General.SubscriptionFundingAmountLink = ptr.Ptr(float64(0.000000000000000001)) // 1 Juel
+		configCopy.VRFv2.General.SubscriptionFundingAmountLink = ptr.Ptr(float64(0))
 
 		consumers, subIDsForOwnerCancelling, err := vrfv2.SetupNewConsumersAndSubs(
 			testEnv,
@@ -809,7 +809,7 @@ func TestVRFV2WithBHS(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
 
 		//Underfund Subscription
-		configCopy.VRFv2.General.SubscriptionFundingAmountLink = ptr.Ptr(float64(0.000000000000000001)) // 1 Juel
+		configCopy.VRFv2.General.SubscriptionFundingAmountLink = ptr.Ptr(float64(0))
 		consumers, subIDsForBHS, err := vrfv2.SetupNewConsumersAndSubs(
 			testEnv,
 			vrfContracts.CoordinatorV2,
@@ -869,7 +869,7 @@ func TestVRFV2WithBHS(t *testing.T) {
 		//BHS node should fill in blockhashes into BHS contract depending on the waitBlocks and lookBackBlocks settings
 		configCopy := config.MustCopy().(tc.TestConfig)
 		//Underfund Subscription
-		configCopy.VRFv2.General.SubscriptionFundingAmountLink = ptr.Ptr(float64(0.000000000000000001)) // 1 Juel
+		configCopy.VRFv2.General.SubscriptionFundingAmountLink = ptr.Ptr(float64(0))
 
 		consumers, subIDsForBHS, err := vrfv2.SetupNewConsumersAndSubs(
 			testEnv,
