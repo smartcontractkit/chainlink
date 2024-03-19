@@ -378,24 +378,27 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) moveCo
 	defer as.Unlock()
 
 	if txAttempt.State != txmgrtypes.TxAttemptBroadcast {
-		return fmt.Errorf("move_confirmed_to_unconfirmed: attempt must be in broadcast state")
+		return fmt.Errorf("attempt must be in broadcast state")
 	}
 
 	tx, ok := as.confirmedTxs[txAttempt.TxID]
 	if !ok || tx == nil {
-		return fmt.Errorf("move_confirmed_to_unconfirmed: no confirmed transaction with ID %d", txAttempt.TxID)
+		return fmt.Errorf("no confirmed transaction with ID %d", txAttempt.TxID)
 	}
 	if len(tx.TxAttempts) == 0 {
-		return fmt.Errorf("move_confirmed_to_unconfirmed: no attempts for transaction with ID %d", txAttempt.TxID)
+		return fmt.Errorf("no attempts for transaction with ID %d", txAttempt.TxID)
 	}
 	tx.State = TxUnconfirmed
 
 	// Delete the receipt from the attempt
-	txAttempt.Receipts = nil
-	// Reset the broadcast information for the attempt
-	txAttempt.State = txmgrtypes.TxAttemptInProgress
-	txAttempt.BroadcastBeforeBlockNum = nil
-	tx.TxAttempts = append(tx.TxAttempts, txAttempt)
+	for i := 0; i < len(tx.TxAttempts); i++ {
+		if tx.TxAttempts[i].ID == txAttempt.ID {
+			tx.TxAttempts[i].Receipts = nil
+			tx.TxAttempts[i].State = txmgrtypes.TxAttemptInProgress
+			tx.TxAttempts[i].BroadcastBeforeBlockNum = nil
+			break
+		}
+	}
 
 	as.unconfirmedTxs[tx.ID] = tx
 	delete(as.confirmedTxs, tx.ID)

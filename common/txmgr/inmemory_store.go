@@ -330,7 +330,7 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Updat
 	defer ms.addressStatesLock.RUnlock()
 	as, ok := ms.addressStates[etx.FromAddress]
 	if !ok {
-		return fmt.Errorf("update_tx_for_rebroadcast: %w", ErrAddressNotFound)
+		return nil
 	}
 
 	// Persist to persistent storage
