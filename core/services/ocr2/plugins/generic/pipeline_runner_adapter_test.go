@@ -13,6 +13,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -74,10 +75,10 @@ type mockPipelineRunner struct {
 	vars    pipeline.Vars
 }
 
-func (m *mockPipelineRunner) ExecuteRun(ctx context.Context, spec pipeline.Spec, vars pipeline.Vars, l logger.Logger) (*pipeline.Run, pipeline.TaskRunResults, error) {
+func (m *mockPipelineRunner) ExecuteAndInsertFinishedRun(ctx context.Context, spec pipeline.Spec, vars pipeline.Vars, l logger.Logger, saveSuccessfulTaskRuns bool) (runID int64, finalResult pipeline.TaskRunResults, err error) {
 	m.spec = spec
 	m.vars = vars
-	return m.run, m.results, m.err
+	return m.run.ID, m.results, m.err
 }
 
 func TestAdapter_AddsDefaultVars(t *testing.T) {
