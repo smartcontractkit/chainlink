@@ -68,15 +68,18 @@ node_sending_key_funding_min = 1
 node_sending_keys = []
 
 [VRFv2Plus.Performance]
-bhs_test_duration = "1m"
+test_duration = "10s"
+rate_limit_unit_duration = "3s"
+rps = 1
+bhs_test_duration = "10s"
 bhs_test_rate_limit_unit_duration = "3s"
 bhs_test_rps = 1
 
 [Smoke.VRFv2.Performance]
-test_duration = "1m"
+test_duration = "10s"
 rate_limit_unit_duration = "3s"
 rps = 1
-bhs_test_duration = "1m"
+bhs_test_duration = "10s"
 bhs_test_rate_limit_unit_duration = "3s"
 bhs_test_rps = 1
 
@@ -139,3 +142,4 @@ rps = 1
 bhs_test_duration = "1m"
 bhs_test_rate_limit_unit_duration = "3s"
 bhs_test_rps = 1
+
