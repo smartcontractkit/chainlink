@@ -267,6 +267,14 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) findTx
 	var txs []txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 	for _, txState := range txStates {
 		switch txState {
+		case TxUnstarted:
+			filter2 := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
+				if tx.State != TxUnstarted {
+					return false
+				}
+				return filter(tx)
+			}
+			txs = append(txs, as._findTxs(as.allTxs, filter2, txIDs...)...)
 		case TxInProgress:
 			if as.inprogressTx != nil && filter(as.inprogressTx) {
 				txs = append(txs, *as.inprogressTx)
