@@ -337,7 +337,7 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 }
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MarkAllConfirmedMissingReceipt(ctx context.Context, chainID CHAIN_ID) error {
 	if ms.chainID.String() != chainID.String() {
-		return fmt.Errorf("mark_all_confirmed_missing_receipt: %w", ErrInvalidChainID)
+		return nil
 	}
 
 	// Persist to persistent storage
@@ -350,7 +350,6 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MarkA
 	ms.addressStatesLock.RLock()
 	defer ms.addressStatesLock.RUnlock()
 	for _, as := range ms.addressStates {
-		// TODO(jtw): THIS IS EVM SPECIFIC THIS SHOULD BE GENERALIZED
 		// Get the max confirmed sequence
 		filter := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool { return true }
 		states := []txmgrtypes.TxState{TxConfirmed}
@@ -370,18 +369,13 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MarkA
 			if tx.Sequence == nil {
 				return false
 			}
-			if tx.State != TxUnconfirmed {
-				return false
-			}
 
 			return (*tx.Sequence).Int64() < maxConfirmedSequence.Int64()
 		}
 		states = []txmgrtypes.TxState{TxUnconfirmed}
 		txs = as.findTxs(states, filter)
 		for _, tx := range txs {
-			attempt := tx.TxAttempts[0]
-
-			if err := as.moveUnconfirmedToConfirmedMissingReceipt(attempt, *tx.BroadcastAt); err != nil {
+			if err := as.moveUnconfirmedToConfirmedMissingReceipt(tx.ID); err != nil {
 				err = fmt.Errorf("mark_all_confirmed_missing_receipt: address: %s: %w", as.fromAddress, err)
 				errs = errors.Join(errs, err)
 			}

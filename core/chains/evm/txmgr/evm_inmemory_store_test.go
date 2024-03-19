@@ -1,13 +1,132 @@
 package txmgr_test
 
 import (
+	"context"
+	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	commontxmgr "github.com/smartcontractkit/chainlink/v2/common/txmgr"
+	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
+
+	evmgas "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	evmtxmgr "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 )
+
+func TestInMemoryStore_MarkAllConfirmedMissingReceipt(t *testing.T) {
+	t.Parallel()
+
+	t.Run("successfully mark all confirmed missing receipt", func(t *testing.T) {
+		db := pgtest.NewSqlxDB(t)
+		_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
+		persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+		kst := cltest.NewKeyStore(t, db, dbcfg)
+		_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
+
+		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+		lggr := logger.TestSugared(t)
+		chainID := ethClient.ConfiguredChainID()
+		ctx := context.Background()
+
+		inMemoryStore, err := commontxmgr.NewInMemoryStore[
+			*big.Int,
+			common.Address, common.Hash, common.Hash,
+			*evmtypes.Receipt,
+			evmtypes.Nonce,
+			evmgas.EvmFee,
+		](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+		require.NoError(t, err)
+
+		// create transaction 0 that is unconfirmed (block 7)
+		// Insert a transaction into persistent store
+		blocknum := int64(7)
+		inTx_0 := cltest.MustInsertUnconfirmedEthTx(t, persistentStore, 0, fromAddress)
+		inTxAttempt_0 := newBroadcastLegacyEthTxAttempt(t, inTx_0.ID, int64(1))
+		inTxAttempt_0.BroadcastBeforeBlockNum = &blocknum
+		require.NoError(t, persistentStore.InsertTxAttempt(&inTxAttempt_0))
+		assert.Equal(t, commontxmgr.TxUnconfirmed, inTx_0.State)
+		// Insert the transaction into the in-memory store
+		inTx_0.TxAttempts = []evmtxmgr.TxAttempt{inTxAttempt_0}
+		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx_0))
+
+		// create transaction 1 that is confirmed (block 77)
+		inTx_1 := mustInsertConfirmedEthTxBySaveFetchedReceipts(t, persistentStore, fromAddress, 1, 77, *chainID)
+		assert.Equal(t, commontxmgr.TxConfirmed, inTx_1.State)
+		// Insert the transaction into the in-memory store
+		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx_1))
+
+		// mark transaction 0 as confirmed missing receipt
+		err = inMemoryStore.MarkAllConfirmedMissingReceipt(testutils.Context(t), chainID)
+		require.NoError(t, err)
+
+		expTx, err := persistentStore.FindTxWithAttempts(inTx_0.ID)
+		require.NoError(t, err)
+
+		fn := func(tx *evmtxmgr.Tx) bool { return true }
+		actTxs := inMemoryStore.XXXTestFindTxs(nil, fn, inTx_0.ID)
+		require.Equal(t, 1, len(actTxs))
+		actTx := actTxs[0]
+		assert.Equal(t, commontxmgr.TxConfirmedMissingReceipt, actTx.State)
+		assert.Equal(t, txmgrtypes.TxAttemptBroadcast, actTx.TxAttempts[0].State)
+		assertTxEqual(t, expTx, actTx)
+	})
+
+	t.Run("error parity for in-memory vs persistent store", func(t *testing.T) {
+		db := pgtest.NewSqlxDB(t)
+		_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
+		persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+		kst := cltest.NewKeyStore(t, db, dbcfg)
+		_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
+
+		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+		lggr := logger.TestSugared(t)
+		chainID := ethClient.ConfiguredChainID()
+		ctx := context.Background()
+
+		inMemoryStore, err := commontxmgr.NewInMemoryStore[
+			*big.Int,
+			common.Address, common.Hash, common.Hash,
+			*evmtypes.Receipt,
+			evmtypes.Nonce,
+			evmgas.EvmFee,
+		](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+		require.NoError(t, err)
+
+		// create transaction 0 that is unconfirmed (block 7)
+		// Insert a transaction into persistent store
+		blocknum := int64(7)
+		inTx_0 := cltest.MustInsertUnconfirmedEthTx(t, persistentStore, 0, fromAddress)
+		inTxAttempt_0 := newBroadcastLegacyEthTxAttempt(t, inTx_0.ID, int64(1))
+		inTxAttempt_0.BroadcastBeforeBlockNum = &blocknum
+		require.NoError(t, persistentStore.InsertTxAttempt(&inTxAttempt_0))
+		assert.Equal(t, commontxmgr.TxUnconfirmed, inTx_0.State)
+		// Insert the transaction into the in-memory store
+		inTx_0.TxAttempts = []evmtxmgr.TxAttempt{inTxAttempt_0}
+		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx_0))
+
+		// create transaction 1 that is confirmed (block 77)
+		inTx_1 := mustInsertConfirmedEthTxBySaveFetchedReceipts(t, persistentStore, fromAddress, 1, 77, *chainID)
+		assert.Equal(t, commontxmgr.TxConfirmed, inTx_1.State)
+		// Insert the transaction into the in-memory store
+		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx_1))
+
+		t.Run("wrong chain ID", func(t *testing.T) {
+			wrongChainID := big.NewInt(1)
+			expErr := persistentStore.MarkAllConfirmedMissingReceipt(testutils.Context(t), wrongChainID)
+			actErr := inMemoryStore.MarkAllConfirmedMissingReceipt(testutils.Context(t), wrongChainID)
+			assert.Equal(t, expErr, actErr)
+		})
+	})
+}
 
 // assertTxEqual asserts that two transactions are equal
 func assertTxEqual(t *testing.T, exp, act evmtxmgr.Tx) {
@@ -33,7 +152,7 @@ func assertTxEqual(t *testing.T, exp, act evmtxmgr.Tx) {
 	assert.Equal(t, exp.SignalCallback, act.SignalCallback)
 	assert.Equal(t, exp.CallbackCompleted, act.CallbackCompleted)
 
-	require.Len(t, exp.TxAttempts, len(act.TxAttempts))
+	require.Equal(t, len(exp.TxAttempts), len(act.TxAttempts))
 	for i := 0; i < len(exp.TxAttempts); i++ {
 		assertTxAttemptEqual(t, exp.TxAttempts[i], act.TxAttempts[i])
 	}
