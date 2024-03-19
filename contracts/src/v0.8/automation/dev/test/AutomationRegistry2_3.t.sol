@@ -2,7 +2,7 @@
 pragma solidity 0.8.19;
 
 import {BaseTest} from "./BaseTest.t.sol";
-import {AutomationRegistryBase2_3 as AutoBase2_3} from "../v2_3/AutomationRegistryBase2_3.sol";
+import {AutomationRegistryBase2_3 as AutoBase} from "../v2_3/AutomationRegistryBase2_3.sol";
 import {IAutomationRegistryMaster2_3, AutomationRegistryBase2_3} from "../interfaces/v2_3/IAutomationRegistryMaster2_3.sol";
 import {ChainModuleBase} from "../../chains/ChainModuleBase.sol";
 
@@ -19,7 +19,7 @@ contract AutomationRegistry2_3_SetUp is BaseTest {
     s_registrars = new address[](1);
     s_registrars[0] = 0x3a0eDE26aa188BFE00b9A0C9A431A1a0CA5f7966;
 
-    registryMaster = deployRegistry(AutoBase2_3.PayoutMode.ON_CHAIN);
+    registryMaster = deployRegistry(AutoBase.PayoutMode.ON_CHAIN);
   }
 }
 
@@ -474,6 +474,37 @@ contract AutomationRegistry2_3_SetConfig is AutomationRegistry2_3_SetUp {
     );
   }
 
+  function testSetConfigRevertDueToInvalidBillingToken() public {
+    address[] memory billingTokens = new address[](1);
+    billingTokens[0] = address(linkToken);
+
+    AutomationRegistryBase2_3.BillingConfig[] memory billingConfigs = new AutomationRegistryBase2_3.BillingConfig[](1);
+    billingConfigs[0] = AutomationRegistryBase2_3.BillingConfig({
+      gasFeePPB: 5_000,
+      flatFeeMicroLink: 20_000,
+      priceFeed: 0x2222222222222222222222222222222222222222,
+      fallbackPrice: 2_000_000_000, // $20
+      minSpend: 100_000
+    });
+
+    bytes memory onchainConfigBytesWithBilling = abi.encode(cfg, billingTokens, billingConfigs);
+    uint256 a = 1234;
+    address b = ZERO_ADDRESS;
+    bytes memory offchainConfigBytes = abi.encode(a, b);
+    // deploy registry with OFF_CHAIN payout mode
+    registryMaster = deployRegistry(AutoBase.PayoutMode.OFF_CHAIN);
+
+    vm.expectRevert(abi.encodeWithSelector(IAutomationRegistryMaster2_3.InvalidBillingToken.selector));
+    registryMaster.setConfig(
+      SIGNERS,
+      TRANSMITTERS,
+      F,
+      onchainConfigBytesWithBilling,
+      OFFCHAIN_CONFIG_VERSION,
+      offchainConfigBytes
+    );
+  }
+
   function _configDigestFromConfigData(
     uint256 chainId,
     address contractAddress,
@@ -509,7 +540,7 @@ contract AutomationRegistry2_3_SetConfig is AutomationRegistry2_3_SetUp {
 contract AutomationRegistry2_3_NOPsSettlement is AutomationRegistry2_3_SetUp {
   event NOPsSettledOffchain(address[] transmitterList, uint256[] balances);
 
-  function deployAndSetConfigForSettleOffchain(AutoBase2_3.PayoutMode payoutMode) public {
+  function deployAndSetConfigForSettleOffchain(AutoBase.PayoutMode payoutMode) public {
     registryMaster = deployRegistry(payoutMode);
     address module = address(new ChainModuleBase());
     AutomationRegistryBase2_3.OnchainConfig memory cfg = AutomationRegistryBase2_3.OnchainConfig({
@@ -545,14 +576,14 @@ contract AutomationRegistry2_3_NOPsSettlement is AutomationRegistry2_3_SetUp {
   }
 
   function testSettleNOPsOffchainRevertDueToUnauthorizedCaller() public {
-    deployAndSetConfigForSettleOffchain(AutoBase2_3.PayoutMode.ON_CHAIN);
+    deployAndSetConfigForSettleOffchain(AutoBase.PayoutMode.ON_CHAIN);
 
     vm.expectRevert(abi.encodeWithSelector(IAutomationRegistryMaster2_3.OnlyFinanceAdmin.selector));
     registryMaster.settleNOPsOffchain();
   }
 
   function testSettleNOPsOffchainRevertDueToOffchainSettlementDisabled() public {
-    deployAndSetConfigForSettleOffchain(AutoBase2_3.PayoutMode.ON_CHAIN);
+    deployAndSetConfigForSettleOffchain(AutoBase.PayoutMode.ON_CHAIN);
 
     vm.prank(registryMaster.owner());
     registryMaster.disableOffchainPayments();
@@ -563,7 +594,7 @@ contract AutomationRegistry2_3_NOPsSettlement is AutomationRegistry2_3_SetUp {
   }
 
   function testSettleNOPsOffchainSuccess() public {
-    deployAndSetConfigForSettleOffchain(AutoBase2_3.PayoutMode.OFF_CHAIN);
+    deployAndSetConfigForSettleOffchain(AutoBase.PayoutMode.OFF_CHAIN);
 
     uint256[] memory balances = new uint256[](TRANSMITTERS.length);
     for (uint256 i = 0; i < TRANSMITTERS.length; i++) {
@@ -577,7 +608,7 @@ contract AutomationRegistry2_3_NOPsSettlement is AutomationRegistry2_3_SetUp {
   }
 
   function testDisableOffchainPaymentsRevertDueToUnauthorizedCaller() public {
-    deployAndSetConfigForSettleOffchain(AutoBase2_3.PayoutMode.OFF_CHAIN);
+    deployAndSetConfigForSettleOffchain(AutoBase.PayoutMode.OFF_CHAIN);
 
     vm.startPrank(FINANCE_ADMIN);
     vm.expectRevert(bytes("Only callable by owner"));
@@ -585,18 +616,18 @@ contract AutomationRegistry2_3_NOPsSettlement is AutomationRegistry2_3_SetUp {
   }
 
   function testDisableOffchainPaymentsSuccess() public {
-    deployAndSetConfigForSettleOffchain(AutoBase2_3.PayoutMode.OFF_CHAIN);
+    deployAndSetConfigForSettleOffchain(AutoBase.PayoutMode.OFF_CHAIN);
 
     vm.startPrank(registryMaster.owner());
     registryMaster.disableOffchainPayments();
 
-    assertEq(uint8(AutoBase2_3.PayoutMode.ON_CHAIN), registryMaster.getPayoutMode());
+    assertEq(uint8(AutoBase.PayoutMode.ON_CHAIN), registryMaster.getPayoutMode());
   }
 }
 
 contract AutomationRegistry2_3_WithdrawPayment is AutomationRegistry2_3_SetUp {
   function testWithdrawPaymentRevertDueToOffchainPayoutMode() public {
-    registryMaster = deployRegistry(AutoBase2_3.PayoutMode.OFF_CHAIN);
+    registryMaster = deployRegistry(AutoBase.PayoutMode.OFF_CHAIN);
     vm.expectRevert(abi.encodeWithSelector(IAutomationRegistryMaster2_3.MustSettleOffchain.selector));
     vm.prank(TRANSMITTERS[0]);
     registryMaster.withdrawPayment(TRANSMITTERS[0], TRANSMITTERS[0]);

@@ -1020,6 +1020,10 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
       IERC20 token = billingTokens[i];
       BillingConfig memory config = billingConfigs[i];
 
+      // if LINK is a billing option, payout mode must be ON_CHAIN
+      if (address(token) == address(i_link) && s_payoutMode == PayoutMode.OFF_CHAIN) {
+        revert InvalidBillingToken();
+      }
       if (address(token) == ZERO_ADDRESS || address(config.priceFeed) == ZERO_ADDRESS) {
         revert ZeroAddressNotAllowed();
       }
