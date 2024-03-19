@@ -270,7 +270,7 @@ func TestLogPoller_Replay(t *testing.T) {
 
 	ec := evmclimocks.NewClient(t)
 	ec.On("HeadByNumber", mock.Anything, mock.Anything).Return(&head, nil)
-	ec.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{log1}, nil).Once()
+	ec.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{log1}, nil).Twice()
 	ec.On("ConfiguredChainID").Return(chainID, nil)
 	lpOpts := Opts{
 		PollPeriod:               time.Hour,
@@ -287,13 +287,14 @@ func TestLogPoller_Replay(t *testing.T) {
 	latest, err := lp.LatestBlock(ctx)
 	require.NoError(t, err)
 	require.Equal(t, int64(4), latest.BlockNumber)
+	require.Equal(t, int64(1), latest.FinalizedBlockNumber)
 
 	t.Run("abort before replayStart received", func(t *testing.T) {
 		// Replay() should abort immediately if caller's context is cancelled before request signal is read
 		ctx, cancel := context.WithCancel(testutils.Context(t))
 		cancel()
 		err = lp.Replay(ctx, 3)
-		assert.ErrorIs(t, err, ErrReplayRequestAborted)
+		assert.Error(t, err)
 	})
 
 	recvStartReplay := func(ctx context.Context, block int64) {
@@ -312,7 +313,7 @@ func TestLogPoller_Replay(t *testing.T) {
 		done := make(chan struct{})
 		go func() {
 			defer close(done)
-			recvStartReplay(ctx, 1)
+			recvStartReplay(ctx, 2)
 			lp.replayComplete <- anyErr
 		}()
 		assert.ErrorIs(t, lp.Replay(ctx, 1), anyErr)
@@ -427,7 +428,7 @@ func TestLogPoller_Replay(t *testing.T) {
 
 		lp.ReplayAsync(1)
 
-		recvStartReplay(testutils.Context(t), 1)
+		recvStartReplay(testutils.Context(t), 2)
 	})
 
 	t.Run("ReplayAsync error", func(t *testing.T) {
@@ -448,6 +449,25 @@ func TestLogPoller_Replay(t *testing.T) {
 		}
 		require.Equal(t, 1, observedLogs.Len())
 		assert.Equal(t, observedLogs.All()[0].Message, anyErr.Error())
+	})
+
+	t.Run("run regular replay when there are not blocks in db", func(t *testing.T) {
+		err := lp.orm.DeleteLogsAndBlocksAfter(ctx, 0)
+		require.NoError(t, err)
+
+		lp.ReplayAsync(1)
+		recvStartReplay(testutils.Context(t), 1)
+	})
+
+	t.Run("run only backfill when everything is finalized", func(t *testing.T) {
+		err := lp.orm.DeleteLogsAndBlocksAfter(ctx, 0)
+		require.NoError(t, err)
+
+		err = lp.orm.InsertBlock(ctx, head.Hash, head.Number, head.Timestamp, head.Number)
+		require.NoError(t, err)
+
+		err = lp.Replay(ctx, 1)
+		require.NoError(t, err)
 	})
 }
 

@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"math/big"
 	"sort"
@@ -368,13 +369,13 @@ func (lp *logPoller) Replay(ctx context.Context, fromBlock int64) error {
 	}
 
 	// Backfill all logs up to the current finalized block outside the LogPoller's main loop.
-	latestProcessed, err := lp.LatestBlock(ctx)
+	latestFinalizedBlockNumber, err := lp.latestFinalizedBlockNumber(ctx)
 	if err != nil {
 		return err
 	}
 	// Do the replay of finalized blocks outside the main loop.
-	if fromBlock <= latestProcessed.FinalizedBlockNumber {
-		err = lp.backfill(ctx, fromBlock, latestProcessed.FinalizedBlockNumber)
+	if fromBlock <= latestFinalizedBlockNumber {
+		err = lp.backfill(ctx, fromBlock, latestFinalizedBlockNumber)
 		if err != nil {
 			return err
 		}
@@ -382,7 +383,11 @@ func (lp *logPoller) Replay(ctx context.Context, fromBlock int64) error {
 
 	// Backfill everything after latest finalized block in main loop to avoid concurrent writes during reorg
 	// We assume that number of logs between latest finalized and current head is small enough to be processed in main loop
-	fromBlock = mathutil.Max(fromBlock, latestProcessed.FinalizedBlockNumber+1)
+	fromBlock = mathutil.Max(fromBlock, latestFinalizedBlockNumber+1)
+	// Don't continue if latest block number is the same as latest finalized block number
+	if fromBlock > latest.Number {
+		return nil
+	}
 	// Block until replay notification accepted or cancelled.
 	select {
 	case lp.replayStart <- fromBlock:
@@ -399,6 +404,19 @@ func (lp *logPoller) Replay(ctx context.Context, fromBlock int64) error {
 		go lp.recvReplayComplete()
 		return ErrReplayInProgress
 	}
+}
+
+// latestFinalizedBlockNumber returns the latest finalized block number
+// If this is the first poll and no blocks are in the db, it returns 0
+func (lp *logPoller) latestFinalizedBlockNumber(ctx context.Context) (int64, error) {
+	latestProcessed, err := lp.LatestBlock(ctx)
+	if err == nil {
+		return latestProcessed.FinalizedBlockNumber, nil
+	}
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, nil
+	}
+	return 0, err
 }
 
 func (lp *logPoller) recvReplayComplete() {
