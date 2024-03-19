@@ -1200,7 +1200,7 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 	vrfv2PlusConfig.General.BHSJobLookBackBlocks = ptr.Ptr(20)
 
 	newEnvConfig := vrfcommon.NewEnvConfig{
-		NodesToCreate:          []vrfcommon.VRFNodeType{vrfcommon.VRF},
+		NodesToCreate:          []vrfcommon.VRFNodeType{vrfcommon.VRF, vrfcommon.BHS},
 		NumberOfTxKeysToCreate: 0,
 		UseVRFOwner:            false,
 		UseTestCoordinator:     false,
