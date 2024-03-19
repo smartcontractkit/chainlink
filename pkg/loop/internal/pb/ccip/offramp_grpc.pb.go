@@ -34,6 +34,7 @@ const (
 	OffRampReader_GetStaticConfig_FullMethodName              = "/loop.internal.pb.ccip.OffRampReader/GetStaticConfig"
 	OffRampReader_GetSourceToDestTokensMapping_FullMethodName = "/loop.internal.pb.ccip.OffRampReader/GetSourceToDestTokensMapping"
 	OffRampReader_GetTokens_FullMethodName                    = "/loop.internal.pb.ccip.OffRampReader/GetTokens"
+	OffRampReader_Close_FullMethodName                        = "/loop.internal.pb.ccip.OffRampReader/Close"
 )
 
 // OffRampReaderClient is the client API for OffRampReader service.
@@ -54,6 +55,7 @@ type OffRampReaderClient interface {
 	GetStaticConfig(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GetStaticConfigResponse, error)
 	GetSourceToDestTokensMapping(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GetSourceToDestTokensMappingResponse, error)
 	GetTokens(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GetTokensResponse, error)
+	Close(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type offRampReaderClient struct {
@@ -190,6 +192,15 @@ func (c *offRampReaderClient) GetTokens(ctx context.Context, in *emptypb.Empty, 
 	return out, nil
 }
 
+func (c *offRampReaderClient) Close(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, OffRampReader_Close_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // OffRampReaderServer is the server API for OffRampReader service.
 // All implementations must embed UnimplementedOffRampReaderServer
 // for forward compatibility
@@ -208,6 +219,7 @@ type OffRampReaderServer interface {
 	GetStaticConfig(context.Context, *emptypb.Empty) (*GetStaticConfigResponse, error)
 	GetSourceToDestTokensMapping(context.Context, *emptypb.Empty) (*GetSourceToDestTokensMappingResponse, error)
 	GetTokens(context.Context, *emptypb.Empty) (*GetTokensResponse, error)
+	Close(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	mustEmbedUnimplementedOffRampReaderServer()
 }
 
@@ -256,6 +268,9 @@ func (UnimplementedOffRampReaderServer) GetSourceToDestTokensMapping(context.Con
 }
 func (UnimplementedOffRampReaderServer) GetTokens(context.Context, *emptypb.Empty) (*GetTokensResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetTokens not implemented")
+}
+func (UnimplementedOffRampReaderServer) Close(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Close not implemented")
 }
 func (UnimplementedOffRampReaderServer) mustEmbedUnimplementedOffRampReaderServer() {}
 
@@ -522,6 +537,24 @@ func _OffRampReader_GetTokens_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _OffRampReader_Close_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OffRampReaderServer).Close(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: OffRampReader_Close_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OffRampReaderServer).Close(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // OffRampReader_ServiceDesc is the grpc.ServiceDesc for OffRampReader service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -584,6 +617,10 @@ var OffRampReader_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetTokens",
 			Handler:    _OffRampReader_GetTokens_Handler,
+		},
+		{
+			MethodName: "Close",
+			Handler:    _OffRampReader_Close_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -24,6 +24,7 @@ service OffRampReader {
     rpc GetStaticConfig(google.protobuf.Empty) returns (GetStaticConfigResponse) {}
     rpc GetSourceToDestTokensMapping(google.protobuf.Empty) returns (GetSourceToDestTokensMappingResponse) {}
     rpc GetTokens(google.protobuf.Empty) returns (GetTokensResponse) {}
+    rpc Close(google.protobuf.Empty) returns (google.protobuf.Empty) {}
 }
 
 // EncodeExecutionReportRequest is a gRPC adapter for the input arguments of

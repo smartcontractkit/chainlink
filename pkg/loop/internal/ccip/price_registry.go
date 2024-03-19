@@ -3,6 +3,7 @@ package ccip
 import (
 	"context"
 	"fmt"
+	"io"
 	"time"
 
 	"google.golang.org/grpc"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb"
 	ccippb "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb/ccip"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 )
 
@@ -35,12 +37,12 @@ func NewPriceRegistryGRPCClient(cc grpc.ClientConnInterface) *PriceRegistryGRPCC
 type PriceRegistryGRPCServer struct {
 	ccippb.UnimplementedPriceRegistryReaderServer
 
-	impl    cciptypes.PriceRegistryReader
-	onClose func() error
+	impl cciptypes.PriceRegistryReader
+	deps []io.Closer
 }
 
 func NewPriceRegistryGRPCServer(impl cciptypes.PriceRegistryReader) *PriceRegistryGRPCServer {
-	return &PriceRegistryGRPCServer{impl: impl}
+	return &PriceRegistryGRPCServer{impl: impl, deps: []io.Closer{impl}}
 }
 
 // ensure the types are satisfied
@@ -59,8 +61,8 @@ func (p *PriceRegistryGRPCClient) Address(ctx context.Context) (cciptypes.Addres
 }
 
 // Close implements ccip.PriceRegistryReader.
-func (p *PriceRegistryGRPCClient) Close(ctx context.Context) error {
-	_, err := p.grpc.Close(ctx, &emptypb.Empty{})
+func (p *PriceRegistryGRPCClient) Close() error {
+	_, err := p.grpc.Close(context.Background(), &emptypb.Empty{})
 	// due to the onClose handler in the server, it may shutdown before it sends a response to client
 	// in that case, we expect the client to receive an Unavailable or Internal error
 	if status.Code(err) == codes.Unavailable || status.Code(err) == codes.Internal {
@@ -136,11 +138,8 @@ func (p *PriceRegistryGRPCClient) GetTokensDecimals(ctx context.Context, tokenAd
 //
 
 // Close implements ccippb.PriceRegistryReaderServer.
-func (p *PriceRegistryGRPCServer) Close(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
-	if p.onClose == nil {
-		return nil, nil
-	}
-	return nil, p.onClose()
+func (p *PriceRegistryGRPCServer) Close(ctx context.Context, req *emptypb.Empty) (*emptypb.Empty, error) {
+	return &emptypb.Empty{}, services.MultiCloser(p.deps).Close()
 }
 
 // GetAddress implements ccippb.PriceRegistryReaderServer.
@@ -197,9 +196,9 @@ func (p *PriceRegistryGRPCServer) GetTokensDecimals(ctx context.Context, req *cc
 	return decimalsPB(decimals), nil
 }
 
-// WithCloseHandler returns a new PriceRegistryGRPCServer with the given onClose handler.
-func (p *PriceRegistryGRPCServer) WithCloseHandler(onClose func() error) *PriceRegistryGRPCServer {
-	p.onClose = onClose
+// WithCloser returns a new PriceRegistryGRPCServer with the given onClose handler.
+func (p *PriceRegistryGRPCServer) WithCloser(dep io.Closer) *PriceRegistryGRPCServer {
+	p.deps = append(p.deps, dep)
 	return p
 }
 

@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 )
 
-var OffRamp = staticOffRamp{
+var OffRampReader = staticOffRamp{
 	staticOffRampConfig: staticOffRampConfig{
 		// Address test data
 		addressResponse: ccip.Address("addressResponse"),
@@ -58,14 +58,10 @@ var OffRamp = staticOffRamp{
 						[]byte("sourceTokenData"),
 					},
 				},
-				{
-					SequenceNumber: 2,
-					GasLimit:       big.NewInt(2),
-				},
 			},
 			Proofs: [][32]byte{
-				{1},
-				{2},
+				{11},
+				{79},
 			},
 			OffchainTokenData: [][][]byte{
 				{
@@ -87,6 +83,70 @@ var OffRamp = staticOffRamp{
 			},
 		},
 		encodeExecutionReportResponse: []byte("encodeExecutionReportResponse"),
+
+		// GasPriceEstimator test data
+		gasPriceEstimatorResponse: GasPriceEstimatorExec,
+
+		// GetExecutionState test data
+		getExecutionStateRequest:  4,
+		getExecutionStateResponse: 5,
+
+		// GetExecutionStateChangesBetweenSeqNums test data
+		getExecutionStateChangesBetweenSeqNumsRequest: getExecutionStateChangesBetweenSeqNumsRequest{
+			seqNumMin:     6,
+			seqNumMax:     7,
+			confirmations: 8,
+		},
+		getExecutionStateChangesBetweenSeqNumsResponse: getExecutionStateChangesBetweenSeqNumsResponse{
+			executionStateChangedWithTxMeta: []ccip.ExecutionStateChangedWithTxMeta{
+				{
+					TxMeta: ccip.TxMeta{
+						BlockTimestampUnixMilli: 1,
+						BlockNumber:             2,
+						TxHash:                  "txHash",
+						LogIndex:                3,
+					},
+					ExecutionStateChanged: ccip.ExecutionStateChanged{
+						SequenceNumber: 9,
+						Finalized:      true,
+					},
+				},
+			},
+		},
+
+		// GetSenderNonce test data
+		getSenderNonceRequest:  ccip.Address("getSenderNonceRequest"),
+		getSenderNonceResponse: 10,
+
+		// GetSourceToDestTokensMapping test data
+		getSourceToDestTokensMappingResponse: map[ccip.Address]ccip.Address{
+			ccip.Address("source"): ccip.Address("dest"),
+		},
+
+		// GetStaticConfig test data
+		getStaticConfigResponse: ccip.OffRampStaticConfig{
+			CommitStore:         ccip.Address("commitStore"),
+			ChainSelector:       1,
+			SourceChainSelector: 2,
+			OnRamp:              ccip.Address("onRamp"),
+			PrevOffRamp:         ccip.Address("prevOffRamp"),
+			ArmProxy:            ccip.Address("armProxy"),
+		},
+
+		// GetTokens test data
+		getTokensResponse: ccip.OffRampTokens{
+			DestinationTokens: []ccip.Address{
+				ccip.Address("destinationToken1"),
+				ccip.Address("destinationToken2"),
+			},
+			SourceTokens: []ccip.Address{
+				ccip.Address("sourceToken1"),
+				ccip.Address("sourceToken2"),
+			},
+			DestinationPool: map[ccip.Address]ccip.Address{
+				ccip.Address("key1"): ccip.Address("value1"),
+			},
+		},
 	},
 }
 
@@ -110,13 +170,13 @@ type staticOffRampConfig struct {
 	encodeExecutionReportRequest  ccip.ExecReport
 	encodeExecutionReportResponse []byte
 
-	gasPriceEstimatorExecResponse ccip.GasPriceEstimatorExec
+	gasPriceEstimatorResponse ccip.GasPriceEstimatorExec
 
 	getExecutionStateRequest  uint64
 	getExecutionStateResponse uint8
 
-	getExecutionStateChangesBetweenSeqNumsRequest
-	getExecutionStateChangesBetweenSeqNumsResponse
+	getExecutionStateChangesBetweenSeqNumsRequest  getExecutionStateChangesBetweenSeqNumsRequest
+	getExecutionStateChangesBetweenSeqNumsResponse getExecutionStateChangesBetweenSeqNumsResponse
 
 	getSenderNonceRequest  ccip.Address
 	getSenderNonceResponse uint64
@@ -152,6 +212,10 @@ func (s staticOffRamp) ChangeConfig(ctx context.Context, onchainConfig []byte, o
 	return s.onchainConfigDigest, s.offchainConfigDigest, nil
 }
 
+func (s staticOffRamp) Close() error {
+	return nil
+}
+
 // CurrentRateLimiterState implements OffRampEvaluator.
 func (s staticOffRamp) CurrentRateLimiterState(ctx context.Context) (ccip.TokenBucketRateLimit, error) {
 	return s.currentRateLimiterStateResponse, nil
@@ -182,7 +246,7 @@ func (s staticOffRamp) EncodeExecutionReport(ctx context.Context, report ccip.Ex
 
 // GasPriceEstimator implements OffRampEvaluator.
 func (s staticOffRamp) GasPriceEstimator(ctx context.Context) (ccip.GasPriceEstimatorExec, error) {
-	return s.gasPriceEstimatorExecResponse, nil
+	return s.gasPriceEstimatorResponse, nil
 }
 
 // GetExecutionState implements OffRampEvaluator.
@@ -195,16 +259,16 @@ func (s staticOffRamp) GetExecutionState(ctx context.Context, sequenceNumber uin
 
 // GetExecutionStateChangesBetweenSeqNums implements OffRampEvaluator.
 func (s staticOffRamp) GetExecutionStateChangesBetweenSeqNums(ctx context.Context, seqNumMin uint64, seqNumMax uint64, confirmations int) ([]ccip.ExecutionStateChangedWithTxMeta, error) {
-	if seqNumMin != s.seqNumMin {
-		return nil, fmt.Errorf("expected seqNumMin %d but got %d", s.seqNumMin, seqNumMin)
+	if seqNumMin != s.getExecutionStateChangesBetweenSeqNumsRequest.seqNumMin {
+		return nil, fmt.Errorf("expected seqNumMin %d but got %d", s.getExecutionStateChangesBetweenSeqNumsRequest.seqNumMin, seqNumMin)
 	}
-	if seqNumMax != s.seqNumMax {
-		return nil, fmt.Errorf("expected seqNumMax %d but got %d", s.seqNumMax, seqNumMax)
+	if seqNumMax != s.getExecutionStateChangesBetweenSeqNumsRequest.seqNumMax {
+		return nil, fmt.Errorf("expected seqNumMax %d but got %d", s.getExecutionStateChangesBetweenSeqNumsRequest.seqNumMax, seqNumMax)
 	}
-	if confirmations != s.confirmations {
-		return nil, fmt.Errorf("expected confirmations %d but got %d", s.confirmations, confirmations)
+	if confirmations != s.getExecutionStateChangesBetweenSeqNumsRequest.confirmations {
+		return nil, fmt.Errorf("expected confirmations %d but got %d", s.getExecutionStateChangesBetweenSeqNumsRequest.confirmations, confirmations)
 	}
-	return s.executionStateChangedWithTxMeta, nil
+	return s.getExecutionStateChangesBetweenSeqNumsResponse.executionStateChangedWithTxMeta, nil
 }
 
 // GetSenderNonce implements OffRampEvaluator.
@@ -265,13 +329,8 @@ func (s staticOffRamp) Evaluate(ctx context.Context, other ccip.OffRampReader) e
 	if err != nil {
 		return fmt.Errorf("failed to decodeExecutionReport: %w", err)
 	}
-	// struggling to get full report equality via  reflect.DeepEqual or assert.ObjectsAreEqual
-	// take a short cut and compare the fields we care about
-	if len(gotReport.Messages) != len(s.decodeExecutionReportResponse.Messages) {
-		return fmt.Errorf(" decodeExecutionReport message len %v but got %v", len(s.decodeExecutionReportResponse.Messages), len(gotReport.Messages))
-	}
-	if !assert.ObjectsAreEqual(gotReport.OffchainTokenData, s.decodeExecutionReportResponse.OffchainTokenData) {
-		return fmt.Errorf("expected decodeExecutionReport offchainTokenData %v but got %v", s.decodeExecutionReportResponse.OffchainTokenData, gotReport.OffchainTokenData)
+	if !reflect.DeepEqual(gotReport, s.decodeExecutionReportResponse) {
+		return fmt.Errorf("expected decodeExecutionReport %v but got %v", s.decodeExecutionReportResponse, gotReport)
 	}
 
 	// EncodeExecutionReport test case
@@ -287,8 +346,46 @@ func (s staticOffRamp) Evaluate(ctx context.Context, other ccip.OffRampReader) e
 	if err != nil {
 		return fmt.Errorf("failed to get gasPriceEstimator: %w", err)
 	}
-	if gasPriceEstimator != s.gasPriceEstimatorExecResponse {
-		return fmt.Errorf("expected gasPriceEstimator %v but got %v", s.gasPriceEstimatorExecResponse, gasPriceEstimator)
+	// exercise all the gas price estimator methods
+	// GetGasPrice test case
+	price, err := gasPriceEstimator.GetGasPrice(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get other gasPrice: %w", err)
+	}
+	expectedGas, err := GasPriceEstimatorExec.GetGasPrice(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get expected gasPrice: %w", err)
+	}
+	if price.Cmp(expectedGas) != 0 {
+		return fmt.Errorf("expected gasPrice %v but got %v", GasPriceEstimatorExec.getGasPriceResponse, price)
+	}
+	// DenoteInUSD test case
+	gotusd, err := gasPriceEstimator.DenoteInUSD(GasPriceEstimatorExec.denoteInUSDRequest.p, GasPriceEstimatorExec.denoteInUSDRequest.wrappedNativePrice)
+	if err != nil {
+		return fmt.Errorf("failed to get other usd: %w", err)
+	}
+	if gotusd.Cmp(GasPriceEstimatorExec.denoteInUSDResponse.result) != 0 {
+		return fmt.Errorf("expected usd %v but got %v", GasPriceEstimatorExec.denoteInUSDResponse.result, gotusd)
+	}
+	// EstimateMsgCostUSD test case
+	cost, err := gasPriceEstimator.EstimateMsgCostUSD(
+		GasPriceEstimatorExec.estimateMsgCostUSDRequest.p,
+		GasPriceEstimatorExec.estimateMsgCostUSDRequest.wrappedNativePrice,
+		GasPriceEstimatorExec.estimateMsgCostUSDRequest.msg,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to get other cost: %w", err)
+	}
+	if cost.Cmp(GasPriceEstimatorExec.estimateMsgCostUSDResponse) != 0 {
+		return fmt.Errorf("expected cost %v but got %v", GasPriceEstimatorExec.estimateMsgCostUSDResponse, cost)
+	}
+	// Median test case
+	median, err := gasPriceEstimator.Median(GasPriceEstimatorExec.medianRequest.gasPrices)
+	if err != nil {
+		return fmt.Errorf("failed to get other median: %w", err)
+	}
+	if median.Cmp(GasPriceEstimatorExec.medianResponse) != 0 {
+		return fmt.Errorf("expected median %v but got %v", GasPriceEstimatorExec.medianResponse, median)
 	}
 
 	getExecutionState, err := other.GetExecutionState(ctx, s.getExecutionStateRequest)
@@ -299,12 +396,15 @@ func (s staticOffRamp) Evaluate(ctx context.Context, other ccip.OffRampReader) e
 		return fmt.Errorf("expected getExecutionState %d but got %d", s.getExecutionStateResponse, getExecutionState)
 	}
 
-	getExecutionStateChangesBetweenSeqNums, err := other.GetExecutionStateChangesBetweenSeqNums(ctx, s.seqNumMin, s.seqNumMax, s.confirmations)
+	getExecutionStateChangesBetweenSeqNums, err := other.GetExecutionStateChangesBetweenSeqNums(ctx,
+		s.getExecutionStateChangesBetweenSeqNumsRequest.seqNumMin,
+		s.getExecutionStateChangesBetweenSeqNumsRequest.seqNumMax,
+		s.getExecutionStateChangesBetweenSeqNumsRequest.confirmations)
 	if err != nil {
 		return fmt.Errorf("failed to get getExecutionStateChangesBetweenSeqNums: %w", err)
 	}
-	if !reflect.DeepEqual(getExecutionStateChangesBetweenSeqNums, s.executionStateChangedWithTxMeta) {
-		return fmt.Errorf("expected getExecutionStateChangesBetweenSeqNums %v but got %v", s.executionStateChangedWithTxMeta, getExecutionStateChangesBetweenSeqNums)
+	if !reflect.DeepEqual(getExecutionStateChangesBetweenSeqNums, s.getExecutionStateChangesBetweenSeqNumsResponse.executionStateChangedWithTxMeta) {
+		return fmt.Errorf("expected getExecutionStateChangesBetweenSeqNums %v but got %v", s.getExecutionStateChangesBetweenSeqNumsResponse.executionStateChangedWithTxMeta, getExecutionStateChangesBetweenSeqNums)
 	}
 
 	getSenderNonce, err := other.GetSenderNonce(ctx, s.getSenderNonceRequest)

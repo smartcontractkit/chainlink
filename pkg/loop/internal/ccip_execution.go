@@ -122,7 +122,6 @@ func (r *ExecutionLOOPServer) NewExecutionFactory(ctx context.Context, request *
 	deps.Add(net.Resource{Closer: providerConn, Name: "ExecProvider"})
 	provider := newExecProviderClient(r.BrokerExt, providerConn)
 
-	// factory, err := r.impl.NewExecutionFactory(ctx, provider, execFactoryConfig(request.Config))
 	factory, err := r.impl.NewExecutionFactory(ctx, provider)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new execution factory: %w", err)
@@ -180,7 +179,7 @@ func (e *execProviderClient) NewOffRampReader(ctx context.Context, addr cciptype
 		return nil, fmt.Errorf("failed to lookup off ramp reader service at %d: %w", resp.OfframpReaderServiceId, err)
 	}
 	// need to wrap grpc offRamp into the desired interface
-	offRamp := ccipinternal.NewOffRampReaderClient(offRampConn)
+	offRamp := ccipinternal.NewOffRampReaderGRPCClient(offRampConn, e.BrokerExt)
 
 	return offRamp, nil
 }
@@ -264,18 +263,19 @@ func (e *execProviderServer) NewOffRampReader(ctx context.Context, req *ccippb.N
 		return nil, err
 	}
 	// wrap the reader in a grpc server and serve it
-	srv := ccipinternal.NewOffRampReaderServer(reader)
+	offRampHandler, err := ccipinternal.NewOffRampReaderGRPCServer(reader, e.BrokerExt)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create offramp reader grpc server: %w", err)
+	}
 	// the id is handle to the broker, we will need it on the other sider to dial the resource
 	offRampID, offRampResource, err := e.ServeNew("OffRampReader", func(s *grpc.Server) {
-		ccippb.RegisterOffRampReaderServer(s, srv)
+		ccippb.RegisterOffRampReaderServer(s, offRampHandler)
 	})
 	if err != nil {
 		return nil, err
 	}
-	// TODO BCF-3067 LEAKS!!!
-	// this dependency needs to be closed when the offramp reader is closed, which
-	// should happen when the calling reporting plugin is closed/goes out of scope
-	e.deps.Add(offRampResource)
+	// ensure the grpc server is closed when the offRamp is closed. See comment in NewPriceRegistryReader for more details
+	offRampHandler.WithCloser(offRampResource)
 	return &ccippb.NewOffRampReaderResponse{OfframpReaderServiceId: int32(offRampID)}, nil
 }
 
@@ -318,6 +318,6 @@ func (e *execProviderServer) NewPriceRegistryReader(ctx context.Context, req *cc
 	// that server needs to be shutdown when the priceRegistry is closed. We don't have a handle to the
 	// grpc server until we after we have constructed the priceRegistry, so we can't configure the shutdown
 	// handler up front.
-	priceRegistryHandler.WithCloseHandler(spawnedServer.Close)
+	priceRegistryHandler.WithCloser(spawnedServer)
 	return &ccippb.NewPriceRegistryReaderResponse{PriceRegistryReaderServiceId: int32(priceReaderID)}, nil
 }

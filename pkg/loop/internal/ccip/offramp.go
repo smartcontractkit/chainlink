@@ -3,39 +3,88 @@ package ccip
 import (
 	"context"
 	"fmt"
+	"io"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/net"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb"
 	ccippb "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb/ccip"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 )
 
-// OffRampReaderClient implement [cciptypes.OffRampReader] by wrapping a grpc client connection
+// OffRampReaderGRPCClient implement [cciptypes.OffRampReader] by wrapping a grpc client connection
 // this client will be used by the CCIP loop service to communicate with the offramp reader
-type OffRampReaderClient struct {
-	grpc ccippb.OffRampReaderClient
+type OffRampReaderGRPCClient struct {
+	client ccippb.OffRampReaderClient
+
+	//  brokerExt is use to allocate and serve the gas estimator server.
+	//  must be the same as that used by the server
+	//  TODO BCF-3061: note unsure if this really has to change for the proxy case or not
+	//  marking it so that it is considered when we implement the proxy.
+	//  the reason it may not need to change is that the gas estimator server is
+	//  a static resource of the offramp reader server. It is not created directly by the client.
+	b *net.BrokerExt
 }
-type OffRampReaderServer struct {
+
+func NewOffRampReaderGRPCClient(cc grpc.ClientConnInterface, brokerExt *net.BrokerExt) *OffRampReaderGRPCClient {
+	return &OffRampReaderGRPCClient{client: ccippb.NewOffRampReaderClient(cc), b: brokerExt}
+}
+
+type OffRampReaderGRPCServer struct {
 	ccippb.UnimplementedOffRampReaderServer
 
 	impl cciptypes.OffRampReader
+
+	//  brokerExt is use to allocate and serve the gas estimator server.
+	//  must be the same as that used by the server
+	//  TODO BCF-3061. see the comment in OffRampReaderGRPCClient for more details
+	b                    *net.BrokerExt
+	gasEstimatorServerID uint32 // allocated by the broker on creation of the off ramp server
+
+	// must support multiple close handlers because the offramp reader server needs to serve the gas estimator server,
+	// which needs to be close when the offramp reader server is closed, as well as the offramp reader server itself
+	deps []io.Closer
+}
+
+func NewOffRampReaderGRPCServer(impl cciptypes.OffRampReader, brokerExt *net.BrokerExt) (*OffRampReaderGRPCServer, error) {
+	// offramp reader server needs to serve the gas estimator server
+	estimator, err := impl.GasPriceEstimator(context.Background())
+	if err != nil {
+		return nil, err
+	}
+	// wrap the reader in a grpc server and serve it
+	estimatorHandler := NewExecGasEstimatorGRPCServer(estimator)
+	// the id is handle to the broker, we will need it on the other side to dial the resource
+	estimatorID, spawnedServer, err := brokerExt.ServeNew("OffRamapGasEstimator", func(s *grpc.Server) {
+		ccippb.RegisterGasPriceEstimatorExecServer(s, estimatorHandler)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var toClose []io.Closer
+	toClose = append(toClose, impl, spawnedServer)
+	return &OffRampReaderGRPCServer{
+		impl:                 impl,
+		gasEstimatorServerID: estimatorID,
+		b:                    brokerExt,
+		deps:                 toClose}, nil
 }
 
 // ensure the types are satisfied
-var _ cciptypes.OffRampReader = (*OffRampReaderClient)(nil)
-var _ ccippb.OffRampReaderServer = (*OffRampReaderServer)(nil)
-
-func NewOffRampReaderClient(cc grpc.ClientConnInterface) *OffRampReaderClient {
-	return &OffRampReaderClient{grpc: ccippb.NewOffRampReaderClient(cc)}
-}
+var _ cciptypes.OffRampReader = (*OffRampReaderGRPCClient)(nil)
+var _ ccippb.OffRampReaderServer = (*OffRampReaderGRPCServer)(nil)
 
 // Address i[github.com/smartcontractkit/chainlink-common/pkg/types/ccip.OffRampReader]
-func (o *OffRampReaderClient) Address(ctx context.Context) (cciptypes.Address, error) {
-	resp, err := o.grpc.Address(context.TODO(), &emptypb.Empty{})
+func (o *OffRampReaderGRPCClient) Address(ctx context.Context) (cciptypes.Address, error) {
+	resp, err := o.client.Address(context.TODO(), &emptypb.Empty{})
 	if err != nil {
 		return cciptypes.Address(""), err
 	}
@@ -43,8 +92,8 @@ func (o *OffRampReaderClient) Address(ctx context.Context) (cciptypes.Address, e
 }
 
 // ChangeConfig implements [github.com/smartcontractkit/chainlink-common/pkg/types/ccip.OffRampReader]
-func (o *OffRampReaderClient) ChangeConfig(ctx context.Context, onchainConfig []byte, offchainConfig []byte) (cciptypes.Address, cciptypes.Address, error) {
-	resp, err := o.grpc.ChangeConfig(ctx, &ccippb.ChangeConfigRequest{
+func (o *OffRampReaderGRPCClient) ChangeConfig(ctx context.Context, onchainConfig []byte, offchainConfig []byte) (cciptypes.Address, cciptypes.Address, error) {
+	resp, err := o.client.ChangeConfig(ctx, &ccippb.ChangeConfigRequest{
 		OnchainConfig:  onchainConfig,
 		OffchainConfig: offchainConfig,
 	})
@@ -55,9 +104,19 @@ func (o *OffRampReaderClient) ChangeConfig(ctx context.Context, onchainConfig []
 	return cciptypes.Address(resp.OnchainConfigAddress), cciptypes.Address(resp.OffchainConfigAddress), nil
 }
 
+func (o *OffRampReaderGRPCClient) Close() error {
+	_, err := o.client.Close(context.Background(), &emptypb.Empty{})
+	// due to the onClose handler in the server, it may shutdown before it sends a response to client
+	// in that case, we expect the client to receive an Unavailable or Internal error
+	if status.Code(err) == codes.Unavailable || status.Code(err) == codes.Internal {
+		return nil
+	}
+	return err
+}
+
 // CurrentRateLimiterState i[github.com/smartcontractkit/chainlink-common/pkg/types/ccip.OffRampReader]
-func (o *OffRampReaderClient) CurrentRateLimiterState(ctx context.Context) (cciptypes.TokenBucketRateLimit, error) {
-	resp, err := o.grpc.CurrentRateLimiterState(ctx, &emptypb.Empty{})
+func (o *OffRampReaderGRPCClient) CurrentRateLimiterState(ctx context.Context) (cciptypes.TokenBucketRateLimit, error) {
+	resp, err := o.client.CurrentRateLimiterState(ctx, &emptypb.Empty{})
 	if err != nil {
 		return cciptypes.TokenBucketRateLimit{}, err
 	}
@@ -65,8 +124,8 @@ func (o *OffRampReaderClient) CurrentRateLimiterState(ctx context.Context) (ccip
 }
 
 // DecodeExecutionReport [github.com/smartcontractkit/chainlink-common/pkg/types/ccip.OffRampReader]
-func (o *OffRampReaderClient) DecodeExecutionReport(ctx context.Context, report []byte) (cciptypes.ExecReport, error) {
-	resp, err := o.grpc.DecodeExecutionReport(ctx, &ccippb.DecodeExecutionReportRequest{
+func (o *OffRampReaderGRPCClient) DecodeExecutionReport(ctx context.Context, report []byte) (cciptypes.ExecReport, error) {
+	resp, err := o.client.DecodeExecutionReport(ctx, &ccippb.DecodeExecutionReportRequest{
 		Report: report,
 	})
 	if err != nil {
@@ -77,10 +136,10 @@ func (o *OffRampReaderClient) DecodeExecutionReport(ctx context.Context, report 
 }
 
 // EncodeExecutionReport [github.com/smartcontractkit/chainlink-common/pkg/types/ccip.OffRampReader]
-func (o *OffRampReaderClient) EncodeExecutionReport(ctx context.Context, report cciptypes.ExecReport) ([]byte, error) {
+func (o *OffRampReaderGRPCClient) EncodeExecutionReport(ctx context.Context, report cciptypes.ExecReport) ([]byte, error) {
 	reportPB := executionReportPB(report)
 
-	resp, err := o.grpc.EncodeExecutionReport(ctx, &ccippb.EncodeExecutionReportRequest{
+	resp, err := o.client.EncodeExecutionReport(ctx, &ccippb.EncodeExecutionReportRequest{
 		Report: reportPB,
 	})
 	if err != nil {
@@ -90,13 +149,25 @@ func (o *OffRampReaderClient) EncodeExecutionReport(ctx context.Context, report 
 }
 
 // GasPriceEstimator [github.com/smartcontractkit/chainlink-common/pkg/types/ccip.OffRampReader]
-func (o *OffRampReaderClient) GasPriceEstimator(ctx context.Context) (cciptypes.GasPriceEstimatorExec, error) {
-	panic("BCF-3073 fix off ramp gas estimator fetching")
+func (o *OffRampReaderGRPCClient) GasPriceEstimator(ctx context.Context) (cciptypes.GasPriceEstimatorExec, error) {
+	resp, err := o.client.GasPriceEstimator(ctx, &emptypb.Empty{})
+	if err != nil {
+		return nil, err
+	}
+	// TODO BCF-3061: this works because the broker is shared and the id refers to a resource served by the broker
+	gasEstimatorConn, err := o.b.Dial(uint32(resp.EstimatorServiceId))
+	if err != nil {
+		return nil, fmt.Errorf("failed to lookup gas estimator service for off ramp reader at %d: %w", resp.EstimatorServiceId, err)
+	}
+	// need to wrap grpc offRamp into the desired interface
+	gasEstimator := NewExecGasEstimatorGRPCClient(gasEstimatorConn)
+	// need to hydrate the gas price estimator from the server id
+	return gasEstimator, nil
 }
 
 // GetExecutionState i[github.com/smartcontractkit/chainlink-common/pkg/types/ccip.OffRampReader]
-func (o *OffRampReaderClient) GetExecutionState(ctx context.Context, sequenceNumber uint64) (uint8, error) {
-	resp, err := o.grpc.GetExecutionState(ctx, &ccippb.GetExecutionStateRequest{
+func (o *OffRampReaderGRPCClient) GetExecutionState(ctx context.Context, sequenceNumber uint64) (uint8, error) {
+	resp, err := o.client.GetExecutionState(ctx, &ccippb.GetExecutionStateRequest{
 		SeqNum: sequenceNumber,
 	})
 	if err != nil {
@@ -106,8 +177,8 @@ func (o *OffRampReaderClient) GetExecutionState(ctx context.Context, sequenceNum
 }
 
 // GetExecutionStateChangesBetweenSeqNums i[github.com/smartcontractkit/chainlink-common/pkg/types/ccip.OffRampReader]
-func (o *OffRampReaderClient) GetExecutionStateChangesBetweenSeqNums(ctx context.Context, seqNumMin uint64, seqNumMax uint64, confirmations int) ([]cciptypes.ExecutionStateChangedWithTxMeta, error) {
-	resp, err := o.grpc.GetExecutionStateChanges(ctx, &ccippb.GetExecutionStateChangesRequest{
+func (o *OffRampReaderGRPCClient) GetExecutionStateChangesBetweenSeqNums(ctx context.Context, seqNumMin uint64, seqNumMax uint64, confirmations int) ([]cciptypes.ExecutionStateChangedWithTxMeta, error) {
+	resp, err := o.client.GetExecutionStateChanges(ctx, &ccippb.GetExecutionStateChangesRequest{
 		MinSeqNum:     seqNumMin,
 		MaxSeqNum:     seqNumMax,
 		Confirmations: int64(confirmations),
@@ -119,8 +190,8 @@ func (o *OffRampReaderClient) GetExecutionStateChangesBetweenSeqNums(ctx context
 }
 
 // GetSenderNonce i[github.com/smartcontractkit/chainlink-common/pkg/types/ccip.OffRampReader]
-func (o *OffRampReaderClient) GetSenderNonce(ctx context.Context, sender cciptypes.Address) (uint64, error) {
-	resp, err := o.grpc.GetSenderNonce(ctx, &ccippb.GetSenderNonceRequest{
+func (o *OffRampReaderGRPCClient) GetSenderNonce(ctx context.Context, sender cciptypes.Address) (uint64, error) {
+	resp, err := o.client.GetSenderNonce(ctx, &ccippb.GetSenderNonceRequest{
 		Sender: string(sender),
 	})
 	if err != nil {
@@ -130,8 +201,8 @@ func (o *OffRampReaderClient) GetSenderNonce(ctx context.Context, sender cciptyp
 }
 
 // GetSourceToDestTokensMapping i[github.com/smartcontractkit/chainlink-common/pkg/types/ccip.OffRampReader]
-func (o *OffRampReaderClient) GetSourceToDestTokensMapping(ctx context.Context) (map[cciptypes.Address]cciptypes.Address, error) {
-	resp, err := o.grpc.GetSourceToDestTokensMapping(ctx, &emptypb.Empty{})
+func (o *OffRampReaderGRPCClient) GetSourceToDestTokensMapping(ctx context.Context) (map[cciptypes.Address]cciptypes.Address, error) {
+	resp, err := o.client.GetSourceToDestTokensMapping(ctx, &emptypb.Empty{})
 	if err != nil {
 		return nil, err
 	}
@@ -140,8 +211,8 @@ func (o *OffRampReaderClient) GetSourceToDestTokensMapping(ctx context.Context) 
 }
 
 // GetStaticConfig i[github.com/smartcontractkit/chainlink-common/pkg/types/ccip.OffRampReader]
-func (o *OffRampReaderClient) GetStaticConfig(ctx context.Context) (cciptypes.OffRampStaticConfig, error) {
-	resp, err := o.grpc.GetStaticConfig(ctx, &emptypb.Empty{})
+func (o *OffRampReaderGRPCClient) GetStaticConfig(ctx context.Context) (cciptypes.OffRampStaticConfig, error) {
+	resp, err := o.client.GetStaticConfig(ctx, &emptypb.Empty{})
 	if err != nil {
 		return cciptypes.OffRampStaticConfig{}, err
 	}
@@ -156,8 +227,8 @@ func (o *OffRampReaderClient) GetStaticConfig(ctx context.Context) (cciptypes.Of
 }
 
 // GetTokens i[github.com/smartcontractkit/chainlink-common/pkg/types/ccip.OffRampReader]
-func (o *OffRampReaderClient) GetTokens(ctx context.Context) (cciptypes.OffRampTokens, error) {
-	resp, err := o.grpc.GetTokens(ctx, &emptypb.Empty{})
+func (o *OffRampReaderGRPCClient) GetTokens(ctx context.Context) (cciptypes.OffRampTokens, error) {
+	resp, err := o.client.GetTokens(ctx, &emptypb.Empty{})
 	if err != nil {
 		return cciptypes.OffRampTokens{}, err
 	}
@@ -165,8 +236,8 @@ func (o *OffRampReaderClient) GetTokens(ctx context.Context) (cciptypes.OffRampT
 }
 
 // OffchainConfig i[github.com/smartcontractkit/chainlink-common/pkg/types/ccip.OffRampReader]
-func (o *OffRampReaderClient) OffchainConfig(ctx context.Context) (cciptypes.ExecOffchainConfig, error) {
-	resp, err := o.grpc.OffchainConfig(ctx, &emptypb.Empty{})
+func (o *OffRampReaderGRPCClient) OffchainConfig(ctx context.Context) (cciptypes.ExecOffchainConfig, error) {
+	resp, err := o.client.OffchainConfig(ctx, &emptypb.Empty{})
 	if err != nil {
 		return cciptypes.ExecOffchainConfig{}, err
 	}
@@ -174,8 +245,8 @@ func (o *OffRampReaderClient) OffchainConfig(ctx context.Context) (cciptypes.Exe
 }
 
 // OnchainConfig i[github.com/smartcontractkit/chainlink-common/pkg/types/ccip.OffRampReader]
-func (o *OffRampReaderClient) OnchainConfig(ctx context.Context) (cciptypes.ExecOnchainConfig, error) {
-	resp, err := o.grpc.OnchainConfig(ctx, &emptypb.Empty{})
+func (o *OffRampReaderGRPCClient) OnchainConfig(ctx context.Context) (cciptypes.ExecOnchainConfig, error) {
+	resp, err := o.client.OnchainConfig(ctx, &emptypb.Empty{})
 	if err != nil {
 		return cciptypes.ExecOnchainConfig{}, err
 	}
@@ -186,12 +257,8 @@ func (o *OffRampReaderClient) OnchainConfig(ctx context.Context) (cciptypes.Exec
 
 // Server implementation of OffRampReader
 
-func NewOffRampReaderServer(impl cciptypes.OffRampReader) *OffRampReaderServer {
-	return &OffRampReaderServer{impl: impl}
-}
-
 // Address implements ccippb.OffRampReaderServer.
-func (o *OffRampReaderServer) Address(ctx context.Context, req *emptypb.Empty) (*ccippb.OffRampAddressResponse, error) {
+func (o *OffRampReaderGRPCServer) Address(ctx context.Context, req *emptypb.Empty) (*ccippb.OffRampAddressResponse, error) {
 	addr, err := o.impl.Address(ctx)
 	if err != nil {
 		return nil, err
@@ -200,7 +267,7 @@ func (o *OffRampReaderServer) Address(ctx context.Context, req *emptypb.Empty) (
 }
 
 // ChangeConfig implements ccippb.OffRampReaderServer.
-func (o *OffRampReaderServer) ChangeConfig(ctx context.Context, req *ccippb.ChangeConfigRequest) (*ccippb.ChangeConfigResponse, error) {
+func (o *OffRampReaderGRPCServer) ChangeConfig(ctx context.Context, req *ccippb.ChangeConfigRequest) (*ccippb.ChangeConfigResponse, error) {
 	onchainAddr, offchainAddr, err := o.impl.ChangeConfig(ctx, req.OnchainConfig, req.OffchainConfig)
 	if err != nil {
 		return nil, err
@@ -211,8 +278,13 @@ func (o *OffRampReaderServer) ChangeConfig(ctx context.Context, req *ccippb.Chan
 	}, nil
 }
 
+// Close implements ccippb.OffRampReaderServer.
+func (o *OffRampReaderGRPCServer) Close(ctx context.Context, req *emptypb.Empty) (*emptypb.Empty, error) {
+	return &emptypb.Empty{}, services.MultiCloser(o.deps).Close()
+}
+
 // CurrentRateLimiterState implements ccippb.OffRampReaderServer.
-func (o *OffRampReaderServer) CurrentRateLimiterState(ctx context.Context, req *emptypb.Empty) (*ccippb.CurrentRateLimiterStateResponse, error) {
+func (o *OffRampReaderGRPCServer) CurrentRateLimiterState(ctx context.Context, req *emptypb.Empty) (*ccippb.CurrentRateLimiterStateResponse, error) {
 	state, err := o.impl.CurrentRateLimiterState(ctx)
 	if err != nil {
 		return nil, err
@@ -221,7 +293,7 @@ func (o *OffRampReaderServer) CurrentRateLimiterState(ctx context.Context, req *
 }
 
 // DecodeExecutionReport implements ccippb.OffRampReaderServer.
-func (o *OffRampReaderServer) DecodeExecutionReport(ctx context.Context, req *ccippb.DecodeExecutionReportRequest) (*ccippb.DecodeExecutionReportResponse, error) {
+func (o *OffRampReaderGRPCServer) DecodeExecutionReport(ctx context.Context, req *ccippb.DecodeExecutionReportRequest) (*ccippb.DecodeExecutionReportResponse, error) {
 	report, err := o.impl.DecodeExecutionReport(ctx, req.Report)
 	if err != nil {
 		return nil, err
@@ -230,7 +302,7 @@ func (o *OffRampReaderServer) DecodeExecutionReport(ctx context.Context, req *cc
 }
 
 // EncodeExecutionReport implements ccippb.OffRampReaderServer.
-func (o *OffRampReaderServer) EncodeExecutionReport(ctx context.Context, req *ccippb.EncodeExecutionReportRequest) (*ccippb.EncodeExecutionReportResponse, error) {
+func (o *OffRampReaderGRPCServer) EncodeExecutionReport(ctx context.Context, req *ccippb.EncodeExecutionReportRequest) (*ccippb.EncodeExecutionReportResponse, error) {
 	report, err := execReport(req.Report)
 	if err != nil {
 		return nil, err
@@ -244,12 +316,12 @@ func (o *OffRampReaderServer) EncodeExecutionReport(ctx context.Context, req *cc
 }
 
 // GasPriceEstimator implements ccippb.OffRampReaderServer.
-func (o *OffRampReaderServer) GasPriceEstimator(ctx context.Context, req *emptypb.Empty) (*ccippb.GasPriceEstimatorResponse, error) {
-	panic("BCF-3073 fix off ramp gas estimator fetching")
+func (o *OffRampReaderGRPCServer) GasPriceEstimator(ctx context.Context, req *emptypb.Empty) (*ccippb.GasPriceEstimatorResponse, error) {
+	return &ccippb.GasPriceEstimatorResponse{EstimatorServiceId: int32(o.gasEstimatorServerID)}, nil
 }
 
 // GetExecutionState implements ccippb.OffRampReaderServer.
-func (o *OffRampReaderServer) GetExecutionState(ctx context.Context, req *ccippb.GetExecutionStateRequest) (*ccippb.GetExecutionStateResponse, error) {
+func (o *OffRampReaderGRPCServer) GetExecutionState(ctx context.Context, req *ccippb.GetExecutionStateRequest) (*ccippb.GetExecutionStateResponse, error) {
 	state, err := o.impl.GetExecutionState(ctx, req.SeqNum)
 	if err != nil {
 		return nil, err
@@ -258,7 +330,7 @@ func (o *OffRampReaderServer) GetExecutionState(ctx context.Context, req *ccippb
 }
 
 // GetExecutionStateChanges implements ccippb.OffRampReaderServer.
-func (o *OffRampReaderServer) GetExecutionStateChanges(ctx context.Context, req *ccippb.GetExecutionStateChangesRequest) (*ccippb.GetExecutionStateChangesResponse, error) {
+func (o *OffRampReaderGRPCServer) GetExecutionStateChanges(ctx context.Context, req *ccippb.GetExecutionStateChangesRequest) (*ccippb.GetExecutionStateChangesResponse, error) {
 	changes, err := o.impl.GetExecutionStateChangesBetweenSeqNums(ctx, req.MinSeqNum, req.MaxSeqNum, int(req.Confirmations))
 	if err != nil {
 		return nil, err
@@ -267,7 +339,7 @@ func (o *OffRampReaderServer) GetExecutionStateChanges(ctx context.Context, req 
 }
 
 // GetSenderNonce implements ccippb.OffRampReaderServer.
-func (o *OffRampReaderServer) GetSenderNonce(ctx context.Context, req *ccippb.GetSenderNonceRequest) (*ccippb.GetSenderNonceResponse, error) {
+func (o *OffRampReaderGRPCServer) GetSenderNonce(ctx context.Context, req *ccippb.GetSenderNonceRequest) (*ccippb.GetSenderNonceResponse, error) {
 	nonce, err := o.impl.GetSenderNonce(ctx, cciptypes.Address(req.Sender))
 	if err != nil {
 		return nil, err
@@ -276,7 +348,7 @@ func (o *OffRampReaderServer) GetSenderNonce(ctx context.Context, req *ccippb.Ge
 }
 
 // GetSourceToDestTokensMapping implements ccippb.OffRampReaderServer.
-func (o *OffRampReaderServer) GetSourceToDestTokensMapping(ctx context.Context, req *emptypb.Empty) (*ccippb.GetSourceToDestTokensMappingResponse, error) {
+func (o *OffRampReaderGRPCServer) GetSourceToDestTokensMapping(ctx context.Context, req *emptypb.Empty) (*ccippb.GetSourceToDestTokensMappingResponse, error) {
 	mapping, err := o.impl.GetSourceToDestTokensMapping(ctx)
 	if err != nil {
 		return nil, err
@@ -285,7 +357,7 @@ func (o *OffRampReaderServer) GetSourceToDestTokensMapping(ctx context.Context, 
 }
 
 // GetStaticConfig implements ccippb.OffRampReaderServer.
-func (o *OffRampReaderServer) GetStaticConfig(ctx context.Context, req *emptypb.Empty) (*ccippb.GetStaticConfigResponse, error) {
+func (o *OffRampReaderGRPCServer) GetStaticConfig(ctx context.Context, req *emptypb.Empty) (*ccippb.GetStaticConfigResponse, error) {
 	config, err := o.impl.GetStaticConfig(ctx)
 	if err != nil {
 		return nil, err
@@ -303,7 +375,7 @@ func (o *OffRampReaderServer) GetStaticConfig(ctx context.Context, req *emptypb.
 }
 
 // GetTokens implements ccippb.OffRampReaderServer.
-func (o *OffRampReaderServer) GetTokens(ctx context.Context, req *emptypb.Empty) (*ccippb.GetTokensResponse, error) {
+func (o *OffRampReaderGRPCServer) GetTokens(ctx context.Context, req *emptypb.Empty) (*ccippb.GetTokensResponse, error) {
 	tokens, err := o.impl.GetTokens(ctx)
 	if err != nil {
 		return nil, err
@@ -312,7 +384,7 @@ func (o *OffRampReaderServer) GetTokens(ctx context.Context, req *emptypb.Empty)
 }
 
 // OffchainConfig implements ccippb.OffRampReaderServer.
-func (o *OffRampReaderServer) OffchainConfig(ctx context.Context, req *emptypb.Empty) (*ccippb.OffchainConfigResponse, error) {
+func (o *OffRampReaderGRPCServer) OffchainConfig(ctx context.Context, req *emptypb.Empty) (*ccippb.OffchainConfigResponse, error) {
 	config, err := o.impl.OffchainConfig(ctx)
 	if err != nil {
 		return nil, err
@@ -321,7 +393,7 @@ func (o *OffRampReaderServer) OffchainConfig(ctx context.Context, req *emptypb.E
 }
 
 // OnchainConfig implements ccippb.OffRampReaderServer.
-func (o *OffRampReaderServer) OnchainConfig(ctx context.Context, req *emptypb.Empty) (*ccippb.OnchainConfigResponse, error) {
+func (o *OffRampReaderGRPCServer) OnchainConfig(ctx context.Context, req *emptypb.Empty) (*ccippb.OnchainConfigResponse, error) {
 	config, err := o.impl.OnchainConfig(ctx)
 	if err != nil {
 		return nil, err
@@ -330,6 +402,12 @@ func (o *OffRampReaderServer) OnchainConfig(ctx context.Context, req *emptypb.Em
 		PermissionlessExecThresholdSeconds: durationpb.New(config.PermissionLessExecutionThresholdSeconds),
 	}
 	return &ccippb.OnchainConfigResponse{Config: &pbConfig}, nil
+}
+
+// WithCloser adds a closer to the list of dependencies that will be closed when the server is closed.
+func (o *OffRampReaderGRPCServer) WithCloser(dep io.Closer) *OffRampReaderGRPCServer {
+	o.deps = append(o.deps, dep)
+	return o
 }
 
 // Conversion functions and helpers
@@ -431,7 +509,8 @@ func offchainTokenDataToPB(in [][][]byte) []*ccippb.TokenData {
 func byte32SliceToPB(in [][32]byte) [][]byte {
 	out := make([][]byte, len(in))
 	for i, b := range in {
-		out[i] = b[:]
+		out[i] = make([]byte, 32)
+		copy(out[i][:], b[:])
 	}
 	return out
 }

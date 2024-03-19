@@ -43,6 +43,8 @@ type OffRampReader interface {
 	GetSourceToDestTokensMapping(ctx context.Context) (map[Address]Address, error)
 
 	GetTokens(ctx context.Context) (OffRampTokens, error)
+
+	Close() error
 }
 
 type ExecReport struct {

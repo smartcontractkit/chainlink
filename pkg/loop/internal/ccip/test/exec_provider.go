@@ -42,7 +42,7 @@ var ExecutionProvider = staticExecProvider{
 		contractTracker:     testpluginprovider.ContractConfigTracker,
 		contractTransmitter: testpluginprovider.ContractTransmitter,
 		onRampReader:        OnRamp,
-		offRampReader:       OffRamp,
+		offRampReader:       OffRampReader,
 		priceRegistryReader: PriceRegistryReader,
 	},
 }
@@ -102,17 +102,14 @@ func (s staticExecProvider) Evaluate(ctx context.Context, other types.CCIPExecPr
 	}
 
 	// OffRampReader test case
-	// BCF-3073 fix off ramp gas estimator fetching
-	/*
-		otherOffRamp, err := other.NewOffRampReader(ctx, "ignored")
-		if err != nil {
-			return fmt.Errorf("failed to create other off ramp reader: %w", err)
-		}
-		err = s.offRampReader.Evaluate(ctx, otherOffRamp)
-		if err != nil {
-			return evaluationError{err: err, component: offRampComponent}
-		}
-	*/
+	otherOffRamp, err := other.NewOffRampReader(ctx, "ignored")
+	if err != nil {
+		return fmt.Errorf("failed to create other off ramp reader: %w", err)
+	}
+	err = s.offRampReader.Evaluate(ctx, otherOffRamp)
+	if err != nil {
+		return evaluationError{err: err, component: offRampComponent}
+	}
 
 	// PriceRegistryReader test case
 	otherPriceRegistry, err := other.NewPriceRegistryReader(ctx, "ignored")

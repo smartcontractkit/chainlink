@@ -25,7 +25,7 @@ type PriceRegistryReader interface {
 
 	GetTokensDecimals(ctx context.Context, tokenAddresses []Address) ([]uint8, error)
 
-	Close(ctx context.Context) error
+	Close() error
 }
 
 type TokenPriceUpdateWithTxMeta struct {

@@ -222,7 +222,7 @@ func (s staticPriceRegistryReader) Address(ctx context.Context) (ccip.Address, e
 }
 
 // Close implements ccip.PriceRegistryReader.
-func (s staticPriceRegistryReader) Close(ctx context.Context) error {
+func (s staticPriceRegistryReader) Close() error {
 	return nil
 }
 
