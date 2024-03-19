@@ -669,7 +669,7 @@ func DeployVRFV2PlusWrapperConsumers(contractDeployer contracts.ContractDeployer
 func SetupVRFV2PlusContracts(
 	env *test_env.CLClusterTestEnv,
 	linkToken contracts.LinkToken,
-	mockNativeLINKFeed contracts.MockETHLINKFeed,
+	mockNativeLINKFeed contracts.VRFMockETHLINKFeed,
 	configGeneral *vrfv2plus_config.General,
 	l zerolog.Logger,
 ) (*vrfcommon.VRFContracts, error) {
@@ -678,6 +678,8 @@ func SetupVRFV2PlusContracts(
 	if err != nil {
 		return nil, fmt.Errorf("%s, err %w", ErrDeployVRFV2_5Contracts, err)
 	}
+	vrfContracts.LinkToken = linkToken
+	vrfContracts.MockETHLINKFeed = mockNativeLINKFeed
 
 	l.Info().Str("Coordinator", vrfContracts.CoordinatorV2Plus.Address()).Msg("Setting Coordinator Config")
 	err = vrfContracts.CoordinatorV2Plus.SetConfig(

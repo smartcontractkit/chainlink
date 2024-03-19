@@ -70,7 +70,7 @@ func SetupVRFV2_5Environment(
 	nodesToCreate []vrfcommon.VRFNodeType,
 	vrfv2PlusTestConfig types.VRFv2PlusTestConfig,
 	linkToken contracts.LinkToken,
-	mockNativeLINKFeed contracts.MockETHLINKFeed,
+	mockNativeLINKFeed contracts.VRFMockETHLINKFeed,
 	numberOfTxKeysToCreate int,
 	l zerolog.Logger,
 ) (*vrfcommon.VRFContracts, *vrfcommon.VRFKeyData, map[vrfcommon.VRFNodeType]*vrfcommon.VRFNode, error) {
@@ -354,7 +354,7 @@ func SetupVRFV2PlusForNewEnv(
 
 	env.ParallelTransactions(true)
 
-	mockETHLinkFeed, err := actions.DeployMockETHLinkFeed(env.ContractDeployer, big.NewInt(*testConfig.VRFv2Plus.General.LinkNativeFeedResponse))
+	mockETHLinkFeed, err := env.ContractDeployer.DeployVRFMockETHLINKFeed(big.NewInt(*testConfig.VRFv2Plus.General.LinkNativeFeedResponse))
 	if err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("%s, err: %w", "error deploying mock ETH/LINK feed", err)
 	}
