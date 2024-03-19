@@ -1,4 +1,4 @@
-name: EVM Node Version Compatibility Tests
+name: Client Compatibility Tests
 on:
   push:
     tags:
