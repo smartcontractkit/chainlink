@@ -2,7 +2,7 @@
 // solhint-disable-next-line one-contract-per-file
 pragma solidity 0.8.19;
 
-import {ChainSpecificUtil} from "./dev/libraries/ChainSpecificUtil.sol";
+import {ChainSpecificUtil} from "../ChainSpecificUtil.sol";
 
 /**
  * @title BatchBlockhashStore

@@ -1,9 +1,9 @@
-pragma solidity 0.8.6;
+pragma solidity 0.8.19;
 
 import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
 import {AutomationCompatibleInterface} from "../interfaces/AutomationCompatibleInterface.sol";
 import {StreamsLookupCompatibleInterface} from "../interfaces/StreamsLookupCompatibleInterface.sol";
-import {ChainSpecificUtil} from "../../ChainSpecificUtil_v0_8_6.sol";
+import {ChainSpecificUtil} from "../../ChainSpecificUtil.sol";
 
 /*--------------------------------------------------------------------------------------------------------------------+
 | Mercury + Automation                                                                                                |
