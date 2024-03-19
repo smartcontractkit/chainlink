@@ -3,7 +3,7 @@ package config
 import (
 	"time"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
 // OCR is a subset of global config relevant to OCR v1.
@@ -16,7 +16,7 @@ type OCR interface {
 	KeyBundleID() (string, error)
 	ObservationTimeout() time.Duration
 	SimulateTransactions() bool
-	TransmitterAddress() (ethkey.EIP55Address, error) // OCR2 can support non-evm changes
+	TransmitterAddress() (types.EIP55Address, error) // OCR2 can support non-evm changes
 	// OCR1 config, cannot override in jobs
 	TraceLogging() bool
 	DefaultTransactionQueueDepth() uint32

@@ -23,6 +23,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
@@ -48,9 +49,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-func NewEIP55Address() ethkey.EIP55Address {
+func NewEIP55Address() evmtypes.EIP55Address {
 	a := testutils.NewAddress()
-	e, err := ethkey.NewEIP55Address(a.Hex())
+	e, err := evmtypes.NewEIP55Address(a.Hex())
 	if err != nil {
 		panic(err)
 	}
@@ -314,9 +315,9 @@ func MustGenerateRandomKeyState(_ testing.TB) ethkey.State {
 	return ethkey.State{Address: NewEIP55Address()}
 }
 
-func MustInsertHead(t *testing.T, db *sqlx.DB, cfg pg.QConfig, number int64) evmtypes.Head {
+func MustInsertHead(t *testing.T, db sqlutil.DataSource, number int64) evmtypes.Head {
 	h := evmtypes.NewHead(big.NewInt(number), evmutils.NewHash(), evmutils.NewHash(), 0, ubig.New(&FixtureChainID))
-	horm := headtracker.NewORM(db, logger.TestLogger(t), cfg, FixtureChainID)
+	horm := headtracker.NewORM(FixtureChainID, db)
 
 	err := horm.IdempotentInsertHead(testutils.Context(t), &h)
 	require.NoError(t, err)
@@ -326,7 +327,7 @@ func MustInsertHead(t *testing.T, db *sqlx.DB, cfg pg.QConfig, number int64) evm
 func MustInsertV2JobSpec(t *testing.T, db *sqlx.DB, transmitterAddress common.Address) job.Job {
 	t.Helper()
 
-	addr, err := ethkey.NewEIP55Address(transmitterAddress.Hex())
+	addr, err := evmtypes.NewEIP55Address(transmitterAddress.Hex())
 	require.NoError(t, err)
 
 	pipelineSpec := pipeline.Spec{}
@@ -350,7 +351,7 @@ func MustInsertV2JobSpec(t *testing.T, db *sqlx.DB, transmitterAddress common.Ad
 	return jb
 }
 
-func MustInsertOffchainreportingOracleSpec(t *testing.T, db *sqlx.DB, transmitterAddress ethkey.EIP55Address) job.OCROracleSpec {
+func MustInsertOffchainreportingOracleSpec(t *testing.T, db *sqlx.DB, transmitterAddress evmtypes.EIP55Address) job.OCROracleSpec {
 	t.Helper()
 
 	ocrKeyID := models.MustSha256HashFromHex(DefaultOCRKeyBundleID)
@@ -375,7 +376,7 @@ func MakeDirectRequestJobSpec(t *testing.T) *job.Job {
 	return spec
 }
 
-func MustInsertKeeperJob(t *testing.T, db *sqlx.DB, korm keeper.ORM, from ethkey.EIP55Address, contract ethkey.EIP55Address) job.Job {
+func MustInsertKeeperJob(t *testing.T, db *sqlx.DB, korm keeper.ORM, from evmtypes.EIP55Address, contract evmtypes.EIP55Address) job.Job {
 	t.Helper()
 
 	var keeperSpec job.KeeperSpec
@@ -420,7 +421,7 @@ func MustInsertKeeperRegistry(t *testing.T, db *sqlx.DB, korm keeper.ORM, ethKey
 		JobID:             job.ID,
 		KeeperIndex:       keeperIndex,
 		NumKeepers:        numKeepers,
-		KeeperIndexMap: map[ethkey.EIP55Address]int32{
+		KeeperIndexMap: map[evmtypes.EIP55Address]int32{
 			from: keeperIndex,
 		},
 	}

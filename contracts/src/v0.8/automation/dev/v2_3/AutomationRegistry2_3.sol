@@ -65,9 +65,9 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
    */
   struct TransmitVars {
     uint16 numUpkeepsPassedChecks;
-    uint256 totalCalldataWeight;
     uint96 totalReimbursement;
     uint96 totalPremium;
+    uint256 totalCalldataWeight;
   }
 
   // ================================================================
@@ -169,8 +169,10 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
     gasOverhead = gasOverhead / transmitVars.numUpkeepsPassedChecks + ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD;
 
     {
+      BillingTokenPaymentParams memory billingTokenParams;
       for (uint256 i = 0; i < report.upkeepIds.length; i++) {
         if (upkeepTransmitInfo[i].earlyChecksPassed) {
+          billingTokenParams = _getBillingTokenPaymentParams(hotVars, upkeepTransmitInfo[i].upkeep.billingToken); // TODO avoid doing this every time
           PaymentReceipt memory receipt = _handlePayment(
             hotVars,
             PaymentParams({
@@ -180,17 +182,19 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
               fastGasWei: report.fastGasWei,
               linkUSD: report.linkUSD,
               nativeUSD: _getNativeUSD(hotVars),
+              billingToken: billingTokenParams,
               isTransaction: true
             }),
             report.upkeepIds[i]
           );
-          transmitVars.totalPremium += receipt.premium;
-          transmitVars.totalReimbursement += receipt.reimbursement;
+          transmitVars.totalPremium += receipt.premiumJuels;
+          transmitVars.totalReimbursement += receipt.gasReimbursementJuels;
 
           emit UpkeepPerformed(
             report.upkeepIds[i],
             upkeepTransmitInfo[i].performSuccess,
-            receipt.reimbursement + receipt.premium,
+            // receipt.gasCharge + receipt.premium, // TODO - this is currently the billing token amount, but should it be?
+            receipt.gasReimbursementJuels + receipt.premiumJuels, // TODO - this is currently the link tokn amount, but should it be billing token instead?
             upkeepTransmitInfo[i].gasUsed,
             gasOverhead,
             report.triggers[i]
@@ -229,12 +233,14 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
    * @param amount number of LINK transfer
    */
   function onTokenTransfer(address sender, uint256 amount, bytes calldata data) external override {
+    // TODO test that this reverts if the billing token != the link token
     if (msg.sender != address(i_link)) revert OnlyCallableByLINKToken();
     if (data.length != 32) revert InvalidDataLength();
     uint256 id = abi.decode(data, (uint256));
     if (s_upkeep[id].maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
+    if (address(s_upkeep[id].billingToken) != address(i_link)) revert InvalidBillingToken();
     s_upkeep[id].balance = s_upkeep[id].balance + uint96(amount);
-    s_expectedLinkBalance = s_expectedLinkBalance + amount;
+    s_reserveAmounts[address(i_link)] = s_reserveAmounts[address(i_link)] + amount;
     emit FundsAdded(id, sender, uint96(amount));
   }
 
@@ -336,8 +342,6 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
 
     s_hotVars = HotVars({
       f: f,
-      paymentPremiumPPB: onchainConfig.paymentPremiumPPB,
-      flatFeeMicroLink: onchainConfig.flatFeeMicroLink,
       stalenessSeconds: onchainConfig.stalenessSeconds,
       gasCeilingMultiplier: onchainConfig.gasCeilingMultiplier,
       paused: s_hotVars.paused,
@@ -350,17 +354,16 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
 
     s_storage = Storage({
       checkGasLimit: onchainConfig.checkGasLimit,
-      minUpkeepSpend: onchainConfig.minUpkeepSpend,
       maxPerformGas: onchainConfig.maxPerformGas,
       transcoder: onchainConfig.transcoder,
       maxCheckDataSize: onchainConfig.maxCheckDataSize,
       maxPerformDataSize: onchainConfig.maxPerformDataSize,
       maxRevertDataSize: onchainConfig.maxRevertDataSize,
       upkeepPrivilegeManager: onchainConfig.upkeepPrivilegeManager,
+      financeAdmin: onchainConfig.financeAdmin,
       nonce: s_storage.nonce,
       configCount: s_storage.configCount,
-      latestConfigBlockNumber: s_storage.latestConfigBlockNumber,
-      ownerLinkBalance: s_storage.ownerLinkBalance
+      latestConfigBlockNumber: s_storage.latestConfigBlockNumber
     });
     s_fallbackGasPrice = onchainConfig.fallbackGasPrice;
     s_fallbackLinkPrice = onchainConfig.fallbackLinkPrice;

@@ -10,6 +10,7 @@ import {AutomationForwarder} from "../../AutomationForwarder.sol";
 import {IAutomationForwarder} from "../../interfaces/IAutomationForwarder.sol";
 import {UpkeepTranscoderInterfaceV2} from "../../interfaces/UpkeepTranscoderInterfaceV2.sol";
 import {MigratableKeeperRegistryInterfaceV2} from "../../interfaces/MigratableKeeperRegistryInterfaceV2.sol";
+import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
 /**
  * @notice Logic contract, works in tandem with AutomationRegistry as a proxy
@@ -68,14 +69,22 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
 
     {
       uint256 nativeUSD;
-      uint96 maxLinkPayment;
+      uint96 maxPayment;
       if (hotVars.paused) return (false, bytes(""), UpkeepFailureReason.REGISTRY_PAUSED, 0, upkeep.performGas, 0, 0);
       if (upkeep.maxValidBlocknumber != UINT32_MAX)
         return (false, bytes(""), UpkeepFailureReason.UPKEEP_CANCELLED, 0, upkeep.performGas, 0, 0);
       if (upkeep.paused) return (false, bytes(""), UpkeepFailureReason.UPKEEP_PAUSED, 0, upkeep.performGas, 0, 0);
       (fastGasWei, linkUSD, nativeUSD) = _getFeedData(hotVars);
-      maxLinkPayment = _getMaxLinkPayment(hotVars, triggerType, upkeep.performGas, fastGasWei, linkUSD, nativeUSD);
-      if (upkeep.balance < maxLinkPayment) {
+      maxPayment = _getMaxPayment(
+        hotVars,
+        triggerType,
+        upkeep.performGas,
+        fastGasWei,
+        linkUSD,
+        nativeUSD,
+        upkeep.billingToken
+      );
+      if (upkeep.balance < maxPayment) {
         return (false, bytes(""), UpkeepFailureReason.INSUFFICIENT_BALANCE, 0, upkeep.performGas, 0, 0);
       }
     }
@@ -215,6 +224,7 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
     uint32 gasLimit,
     address admin,
     Trigger triggerType,
+    IERC20 billingToken,
     bytes calldata checkData,
     bytes memory triggerConfig,
     bytes memory offchainConfig
@@ -234,7 +244,8 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
         lastPerformedBlockNumber: 0,
         amountSpent: 0,
         paused: false,
-        forwarder: forwarder
+        forwarder: forwarder,
+        billingToken: billingToken
       }),
       admin,
       checkData,
@@ -250,20 +261,6 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
   }
 
   /**
-   * @notice this function registers a conditional upkeep, using a backwards compatible function signature
-   * @dev this function is backwards compatible with versions <=2.0, but may be removed in a future version
-   */
-  function registerUpkeep(
-    address target,
-    uint32 gasLimit,
-    address admin,
-    bytes calldata checkData,
-    bytes calldata offchainConfig
-  ) external returns (uint256 id) {
-    return registerUpkeep(target, gasLimit, admin, Trigger.CONDITION, checkData, bytes(""), offchainConfig);
-  }
-
-  /**
    * @notice cancels an upkeep
    * @param id the upkeepID to cancel
    * @dev if a user cancels an upkeep, their funds are locked for CANCELLATION_DELAY blocks to
@@ -272,6 +269,7 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
   function cancelUpkeep(uint256 id) external {
     Upkeep memory upkeep = s_upkeep[id];
     bool isOwner = msg.sender == owner();
+    uint96 minSpend = s_billingConfigs[upkeep.billingToken].minSpend;
 
     uint256 height = s_hotVars.chainModule.blockNumber();
     if (upkeep.maxValidBlocknumber == 0) revert CannotCancel();
@@ -284,18 +282,17 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
     s_upkeep[id].maxValidBlocknumber = uint32(height);
     s_upkeepIDs.remove(id);
 
-    // charge the cancellation fee if the minUpkeepSpend is not met
-    uint96 minUpkeepSpend = s_storage.minUpkeepSpend;
+    // charge the cancellation fee if the minSpend is not met
     uint96 cancellationFee = 0;
-    // cancellationFee is supposed to be min(max(minUpkeepSpend - amountSpent,0), amountLeft)
-    if (upkeep.amountSpent < minUpkeepSpend) {
-      cancellationFee = minUpkeepSpend - upkeep.amountSpent;
+    // cancellationFee is min(max(minSpend - amountSpent, 0), amountLeft)
+    if (upkeep.amountSpent < minSpend) {
+      cancellationFee = minSpend - uint96(upkeep.amountSpent);
       if (cancellationFee > upkeep.balance) {
         cancellationFee = upkeep.balance;
       }
     }
     s_upkeep[id].balance = upkeep.balance - cancellationFee;
-    s_storage.ownerLinkBalance = s_storage.ownerLinkBalance + cancellationFee;
+    s_reserveAmounts[address(upkeep.billingToken)] = s_reserveAmounts[address(upkeep.billingToken)] - cancellationFee;
 
     emit UpkeepCanceled(id, uint64(height));
   }
@@ -303,14 +300,15 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
   /**
    * @notice adds fund to an upkeep
    * @param id the upkeepID
-   * @param amount the amount of LINK to fund, in jules (jules = "wei" of LINK)
+   * @param amount the amount of funds to add, in the upkeep's billing token
    */
   function addFunds(uint256 id, uint96 amount) external {
     Upkeep memory upkeep = s_upkeep[id];
     if (upkeep.maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
     s_upkeep[id].balance = upkeep.balance + amount;
-    s_expectedLinkBalance = s_expectedLinkBalance + amount;
-    i_link.transferFrom(msg.sender, address(this), amount);
+    s_reserveAmounts[address(upkeep.billingToken)] = s_reserveAmounts[address(upkeep.billingToken)] + amount;
+    bool success = upkeep.billingToken.transferFrom(msg.sender, address(this), amount);
+    if (!success) revert TransferFailed();
     emit FundsAdded(id, msg.sender, amount);
   }
 
@@ -357,7 +355,9 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
       s_upkeepIDs.remove(id);
       emit UpkeepMigrated(id, upkeep.balance, destination);
     }
-    s_expectedLinkBalance = s_expectedLinkBalance - totalBalanceRemaining;
+    s_reserveAmounts[address(upkeep.billingToken)] =
+      s_reserveAmounts[address(upkeep.billingToken)] -
+      totalBalanceRemaining;
     bytes memory encodedUpkeeps = abi.encode(
       ids,
       upkeeps,
@@ -412,16 +412,5 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
       );
       emit UpkeepReceived(ids[idx], upkeeps[idx].balance, msg.sender);
     }
-  }
-
-  /**
-   * @notice sets the upkeep trigger config
-   * @param id the upkeepID to change the trigger for
-   * @param triggerConfig the new trigger config
-   */
-  function setUpkeepTriggerConfig(uint256 id, bytes calldata triggerConfig) external {
-    _requireAdminAndNotCancelled(id);
-    s_upkeepTriggerConfig[id] = triggerConfig;
-    emit UpkeepTriggerConfigSet(id, triggerConfig);
   }
 }
