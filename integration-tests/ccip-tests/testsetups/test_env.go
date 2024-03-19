@@ -173,21 +173,48 @@ func DeployLocalCluster(
 	testInputs *CCIPTestConfig,
 ) (*test_env.CLClusterTestEnv, func() error) {
 	selectedNetworks := testInputs.SelectedNetworks
+
+	// get TOML config, but if it's not present use selected networks to generate a default one (2 geth pow chains on 1.12)
+	privateEthereumNetworks := []*ctftestenv.EthereumNetwork{}
+
+	require.True(t, len(testInputs.EnvInput.PrivateEthereumNetworks) == 0 || len(testInputs.EnvInput.PrivateEthereumNetworks) == len(testInputs.SelectedNetworks), "You either have to configure all private networks or none at all")
+
+	// if there's no configuration use default
+	if len(testInputs.EnvInput.PrivateEthereumNetworks) == 0 {
+		for _, network := range selectedNetworks {
+			chainConfig := &ctftestenv.EthereumChainConfig{}
+			err := chainConfig.Default()
+			require.NoError(t, err, "Error getting default chain config")
+
+			chainConfig.ChainID = int(network.ChainID)
+			eth1 := ctftestenv.EthereumVersion_Eth1
+			geth := ctftestenv.ExecutionLayer_Geth
+
+			privateEthereumNetworks = append(privateEthereumNetworks, &ctftestenv.EthereumNetwork{
+				EthereumVersion:     &eth1,
+				ExecutionLayer:      &geth,
+				EthereumChainConfig: chainConfig,
+			})
+		}
+	} else {
+		for _, network := range testInputs.EnvInput.PrivateEthereumNetworks {
+			privateEthereumNetworks = append(privateEthereumNetworks, network)
+		}
+	}
+
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestConfig(testInputs.EnvInput).
 		WithTestInstance(t).
-		WithPrivateGethChains(selectedNetworks).
+		WithPrivateEthereumNetworks(privateEthereumNetworks).
 		WithMockAdapter().
 		WithoutCleanup().
 		Build()
 	require.NoError(t, err)
-	for _, n := range env.PrivateChain {
-		primaryNode := n.GetPrimaryNode()
-		require.NotNil(t, primaryNode, "Primary node is nil in PrivateChain interface")
+	for chainId, rpc := range env.RpcProviders {
 		for i, networkCfg := range selectedNetworks {
-			if networkCfg.ChainID == n.GetNetworkConfig().ChainID {
-				selectedNetworks[i].URLs = []string{primaryNode.GetInternalWsUrl()}
-				selectedNetworks[i].HTTPURLs = []string{primaryNode.GetInternalHttpUrl()}
+			if networkCfg.ChainID == chainId {
+				selectedNetworks[i].URLs = rpc.PrivateWsUrsl()
+				selectedNetworks[i].HTTPURLs = rpc.PrivateHttpUrls()
 			}
 		}
 		testInputs.SelectedNetworks = selectedNetworks

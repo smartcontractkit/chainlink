@@ -1172,8 +1172,8 @@ func setupAutomationTestDocker(
 		var httpUrls []string
 		var wsUrls []string
 		if network.Simulated {
-			httpUrls = []string{env.RpcProvider.PrivateHttpUrls()[0]}
-			wsUrls = []string{env.RpcProvider.PrivateWsUrsl()[0]}
+			httpUrls = []string{env.RpcProviders[network.ChainID].PrivateHttpUrls()[0]}
+			wsUrls = []string{env.RpcProviders[network.ChainID].PrivateWsUrsl()[0]}
 		} else {
 			httpUrls = network.HTTPURLs
 			wsUrls = network.URLs

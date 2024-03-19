@@ -888,11 +888,13 @@ func (o *CCIPTestSetUpOutputs) CreateEnvironment(
 	chainByChainID := make(map[int64]blockchain.EVMClient)
 	if pointer.GetBool(testConfig.TestGroupInput.LocalCluster) {
 		require.NotNil(t, ccipEnv.LocalCluster, "Local cluster shouldn't be nil")
-		for _, n := range ccipEnv.LocalCluster.PrivateChain {
-			primaryNode := n.GetPrimaryNode()
-			require.NotNil(t, primaryNode, "Primary node is nil in PrivateChain interface")
-			chainByChainID[primaryNode.GetEVMClient().GetChainID().Int64()] = primaryNode.GetEVMClient()
-			chains = append(chains, primaryNode.GetEVMClient())
+		for _, n := range ccipEnv.LocalCluster.EVMNetworks {
+			if evmClient, ok := ccipEnv.LocalCluster.EVMClients[n.ChainID]; ok {
+				chainByChainID[evmClient.GetChainID().Int64()] = evmClient
+				chains = append(chains, evmClient)
+			} else {
+				lggr.Error().Msgf("EVMClient for chainID %d not found", n.ChainID)
+			}
 		}
 	} else {
 		for _, n := range testConfig.SelectedNetworks {

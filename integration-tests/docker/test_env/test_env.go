@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
-	"runtime/debug"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
@@ -38,15 +37,18 @@ type CLClusterTestEnv struct {
 	LogStream     *logstream.LogStream
 
 	/* components */
-	ClCluster             *ClCluster
-	PrivateChain          []test_env.PrivateChain // for tests using non-dev networks -- unify it with new approach
-	MockAdapter           *test_env.Killgrave
-	EVMClient             blockchain.EVMClient
-	SethClient            *seth.Client
-	ContractDeployer      contracts.ContractDeployer
-	ContractLoader        contracts.ContractLoader
-	RpcProvider           test_env.RpcProvider
-	PrivateEthereumConfig *test_env.EthereumNetwork // new approach to private chains, supporting eth1 and eth2
+	ClCluster *ClCluster
+	// PrivateChain          []test_env.PrivateChain // for tests using non-dev networks -- unify it with new approach
+	MockAdapter      *test_env.Killgrave
+	EVMClient        blockchain.EVMClient
+	EVMClients       map[int64]blockchain.EVMClient
+	SethClient       *seth.Client
+	ContractDeployer contracts.ContractDeployer
+	ContractLoader   contracts.ContractLoader
+	// RpcProvider           test_env.RpcProvider
+	PrivateEthereumConfig []*test_env.EthereumNetwork // new approach to private chains, supporting eth1 and eth2
+	EVMNetworks           []*blockchain.EVMNetwork
+	RpcProviders          map[int64]*test_env.RpcProvider
 	l                     zerolog.Logger
 	t                     *testing.T
 	isSimulatedNetwork    bool
@@ -88,46 +90,6 @@ func (te *CLClusterTestEnv) ParallelTransactions(enabled bool) {
 	if te.EVMClient != nil {
 		te.EVMClient.ParallelTransactions(enabled)
 	}
-}
-
-func (te *CLClusterTestEnv) WithPrivateChain(evmNetworks []blockchain.EVMNetwork) *CLClusterTestEnv {
-	var chains []test_env.PrivateChain
-	for _, evmNetwork := range evmNetworks {
-		n := evmNetwork
-		pgc := test_env.NewPrivateGethChain(&n, []string{te.DockerNetwork.Name})
-		if te.t != nil {
-			pgc.GetPrimaryNode().WithTestInstance(te.t)
-		}
-		chains = append(chains, pgc)
-		var privateChain test_env.PrivateChain
-		switch n.SimulationType {
-		case "besu":
-			privateChain = test_env.NewPrivateBesuChain(&n, []string{te.DockerNetwork.Name})
-		default:
-			privateChain = test_env.NewPrivateGethChain(&n, []string{te.DockerNetwork.Name})
-		}
-		chains = append(chains, privateChain)
-	}
-	te.PrivateChain = chains
-	return te
-}
-
-func (te *CLClusterTestEnv) StartPrivateChain() error {
-	for _, chain := range te.PrivateChain {
-		primaryNode := chain.GetPrimaryNode()
-		if primaryNode == nil {
-			return fmt.Errorf("primary node is nil in PrivateChain interface, stack: %s", string(debug.Stack()))
-		}
-		err := primaryNode.Start()
-		if err != nil {
-			return err
-		}
-		err = primaryNode.ConnectToClient()
-		if err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func (te *CLClusterTestEnv) StartEthereumNetwork(cfg *test_env.EthereumNetwork) (blockchain.EVMNetwork, test_env.RpcProvider, error) {
@@ -238,8 +200,8 @@ func (te *CLClusterTestEnv) Cleanup() error {
 	}
 
 	// close EVMClient connections
-	if te.EVMClient != nil {
-		err := te.EVMClient.Close()
+	for _, evmClient := range te.EVMClients {
+		err := evmClient.Close()
 		return err
 	}
 
@@ -272,6 +234,10 @@ func (te *CLClusterTestEnv) logWhetherAllContainersAreRunning() {
 func (te *CLClusterTestEnv) returnFunds() error {
 	te.l.Info().Msg("Attempting to return Chainlink node funds to default network wallets")
 	for _, chainlinkNode := range te.ClCluster.Nodes {
+		if te.EVMClient == nil {
+			te.l.Warn().Str("Node", chainlinkNode.ContainerName).Msg("No EVM clients found to return funds to")
+			continue
+		}
 		fundedKeys, err := chainlinkNode.API.ExportEVMKeysForChain(te.EVMClient.GetChainID().String())
 		if err != nil {
 			return err
