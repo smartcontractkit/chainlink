@@ -500,11 +500,11 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
 
     // stack too deep error
     {
-      // We want to charge users exactly for how much gas they use with an additional premium
-      // in their callback. If onlyPremium is true, only premium is charged without the gas
-      // cost. The gasAfterPaymentCalculation is meant to cover these additional operations
-      // where we decrement the subscription balance and increment the oracles withdrawable
-      // balance.
+      // We want to charge users exactly for how much gas they use in their callback with
+      // an additional premium. If onlyPremium is true, only premium is charged without
+      // the gas cost. The gasAfterPaymentCalculation is meant to cover these additional
+      // operations where we decrement the subscription balance and increment the
+      // withdrawable balance.
       bool isFeedStale;
       (payment, isFeedStale) = _calculatePaymentAmount(startGas, gasPrice, nativePayment, onlyPremium);
       if (isFeedStale) {
