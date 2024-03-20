@@ -301,14 +301,31 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			//TODO remove after fixing in CTF
 			networkConfig.ChainID = int64(en.EthereumChainConfig.ChainID)
 
-			evmClient, err := blockchain.NewEVMClientFromNetwork(networkConfig, b.l)
-			if err != nil {
-				return nil, err
+			if b.hasEVMClient {
+				evmClient, err := blockchain.NewEVMClientFromNetwork(networkConfig, b.l)
+				if err != nil {
+					return nil, err
+				}
+				b.te.evmClients[networkConfig.ChainID] = evmClient
+			}
+
+			if b.hasSeth {
+				readSethCfg := b.testConfig.GetSethConfig()
+				sethCfg := utils.MergeSethAndEvmNetworkConfigs(b.l, networkConfig, *readSethCfg)
+				err = utils.ValidateSethNetworkConfig(sethCfg.Network)
+				if err != nil {
+					return nil, err
+				}
+				seth, err := seth.NewClientWithConfig(&sethCfg)
+				if err != nil {
+					return nil, err
+				}
+
+				b.te.sethClients[networkConfig.ChainID] = seth
 			}
 
 			b.te.rpcProviders[networkConfig.ChainID] = &rpcProvider
 			b.te.EVMNetworks = append(b.te.EVMNetworks, &networkConfig)
-			b.te.evmClients[networkConfig.ChainID] = evmClient
 
 		}
 		err = b.te.StartClCluster(b.clNodeConfig, b.clNodesCount, b.secretsConfig, b.testConfig, b.clNodesOpts...)
@@ -377,6 +394,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		}
 
 		if b.hasSeth {
+			b.te.sethClients = make(map[int64]*seth.Client)
 			readSethCfg := b.testConfig.GetSethConfig()
 			sethCfg := utils.MergeSethAndEvmNetworkConfigs(b.l, networkConfig, *readSethCfg)
 			err = utils.ValidateSethNetworkConfig(sethCfg.Network)
@@ -388,7 +406,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 				return nil, err
 			}
 
-			b.te.SethClient = seth
+			b.te.sethClients[networkConfig.ChainID] = seth
 		}
 	}
 
@@ -453,8 +471,10 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			}
 		}
 		if b.hasSeth {
-			if err := actions_seth.FundChainlinkNodesFromRootAddress(b.l, b.te.SethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(b.te.ClCluster.NodeAPIs()), b.ETHFunds); err != nil {
-				return nil, err
+			for _, sethClient := range b.te.sethClients {
+				if err := actions_seth.FundChainlinkNodesFromRootAddress(b.l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(b.te.ClCluster.NodeAPIs()), b.ETHFunds); err != nil {
+					return nil, err
+				}
 			}
 		}
 	}

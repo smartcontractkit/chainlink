@@ -539,7 +539,7 @@ func (e *EthereumContractDeployer) DeployLinkTokenContract() (LinkToken, error) 
 		return nil, err
 	}
 
-	return &EthereumLinkToken{
+	return &LegacyEthereumLinkToken{
 		client:   e.client,
 		instance: instance.(*link_token_interface.LinkToken),
 		address:  *linkTokenAddress,
@@ -558,7 +558,7 @@ func (e *EthereumContractDeployer) LoadLinkToken(address common.Address) (LinkTo
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumLinkToken{
+	return &LegacyEthereumLinkToken{
 		address:  address,
 		client:   e.client,
 		instance: instance.(*link_token_interface.LinkToken),
