@@ -355,7 +355,6 @@ TransactionPercentile = 50
 
 [EVM.HeadTracker]
 HistoryDepth = 100
-MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [EVM.NodePool]

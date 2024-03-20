@@ -245,7 +245,6 @@ func TestKeeperEthIntegration(t *testing.T) {
 
 				c.EVM[0].BlockBackfillDepth = ptr[uint32](0)          // backfill will trigger sync on startup
 				c.EVM[0].MinIncomingConfirmations = ptr[uint32](1)    // disable reorg protection for this test
-				c.EVM[0].HeadTracker.MaxBufferSize = ptr[uint32](100) // helps prevent missed heads
 			})
 			scopedConfig := evmtest.NewChainScopedConfig(t, config)
 			korm := keeper.NewORM(db, logger.TestLogger(t), scopedConfig.Database())
@@ -403,7 +402,6 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 
 			c.EVM[0].BlockBackfillDepth = ptr[uint32](0)          // backfill will trigger sync on startup
 			c.EVM[0].MinIncomingConfirmations = ptr[uint32](1)    // disable reorg protection for this test
-			c.EVM[0].HeadTracker.MaxBufferSize = ptr[uint32](100) // helps prevent missed heads
 			c.EVM[0].Transactions.ForwardersEnabled = ptr(true)   // Enable Operator Forwarder flow
 			c.EVM[0].ChainID = (*ubig.Big)(testutils.SimulatedChainID)
 		})
@@ -549,7 +547,6 @@ func TestMaxPerformDataSize(t *testing.T) {
 
 			c.EVM[0].BlockBackfillDepth = ptr[uint32](0)          // backfill will trigger sync on startup
 			c.EVM[0].MinIncomingConfirmations = ptr[uint32](1)    // disable reorg protection for this test
-			c.EVM[0].HeadTracker.MaxBufferSize = ptr[uint32](100) // helps prevent missed heads
 		})
 		scopedConfig := evmtest.NewChainScopedConfig(t, config)
 		korm := keeper.NewORM(db, logger.TestLogger(t), scopedConfig.Database())

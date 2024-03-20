@@ -52,7 +52,6 @@ TransactionPercentile = 60
 
 [HeadTracker]
 HistoryDepth = 100
-MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]

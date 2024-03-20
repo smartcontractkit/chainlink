@@ -35,14 +35,14 @@ type HeadListener[
 	ID types.ID,
 	BLOCK_HASH types.Hashable,
 ] struct {
-	config           htrktypes.Config
-	client           htrktypes.Client[HTH, S, ID, BLOCK_HASH]
-	logger           logger.Logger
-	chStop           services.StopChan
-	chHeaders        chan HTH
-	headSubscription types.Subscription
-	connected        atomic.Bool
-	receivingHeads   atomic.Bool
+	blockEmissionIdleWarningThreshold time.Duration
+	client                            htrktypes.Client[HTH, S, ID, BLOCK_HASH]
+	logger                            logger.Logger
+	chStop                            services.StopChan
+	chHeaders                         chan HTH
+	headSubscription                  types.Subscription
+	connected                         atomic.Bool
+	receivingHeads                    atomic.Bool
 }
 
 func NewHeadListener[
@@ -54,14 +54,14 @@ func NewHeadListener[
 ](
 	lggr logger.Logger,
 	client CLIENT,
-	config htrktypes.Config,
+	blockEmissionIdleWarningThreshold time.Duration,
 	chStop chan struct{},
 ) *HeadListener[HTH, S, ID, BLOCK_HASH] {
 	return &HeadListener[HTH, S, ID, BLOCK_HASH]{
-		config: config,
-		client: client,
-		logger: logger.Named(lggr, "HeadListener"),
-		chStop: chStop,
+		blockEmissionIdleWarningThreshold: blockEmissionIdleWarningThreshold,
+		client:                            client,
+		logger:                            logger.Named(lggr, "HeadListener"),
+		chStop:                            chStop,
 	}
 }
 
@@ -113,7 +113,7 @@ func (hl *HeadListener[HTH, S, ID, BLOCK_HASH]) HealthReport() map[string]error 
 func (hl *HeadListener[HTH, S, ID, BLOCK_HASH]) receiveHeaders(ctx context.Context, handleNewHead types.NewHeadHandler[HTH, BLOCK_HASH]) error {
 	var noHeadsAlarmC <-chan time.Time
 	var noHeadsAlarmT *time.Ticker
-	noHeadsAlarmDuration := hl.config.BlockEmissionIdleWarningThreshold()
+	noHeadsAlarmDuration := hl.blockEmissionIdleWarningThreshold
 	if noHeadsAlarmDuration > 0 {
 		noHeadsAlarmT = time.NewTicker(noHeadsAlarmDuration)
 		noHeadsAlarmC = noHeadsAlarmT.C

@@ -34,6 +34,14 @@ var (
 // HeadsBufferSize - The buffer is used when heads sampling is disabled, to ensure the callback is run for every head
 const HeadsBufferSize = 10
 
+type HeadTrackerConfig interface {
+	BlockEmissionIdleWarningThreshold() time.Duration
+	FinalityDepth() uint32
+	FinalityTagEnabled() bool
+	HistoryDepth() uint32
+	SamplingInterval() time.Duration
+}
+
 type HeadTracker[
 	HTH htrktypes.Head[BLOCK_HASH, ID],
 	S types.Subscription,
@@ -47,8 +55,7 @@ type HeadTracker[
 	mailMon         *mailbox.Monitor
 	client          htrktypes.Client[HTH, S, ID, BLOCK_HASH]
 	chainID         ID
-	config          htrktypes.Config
-	htConfig        htrktypes.HeadTrackerConfig
+	config          HeadTrackerConfig
 
 	backfillMB   *mailbox.Mailbox[HTH]
 	broadcastMB  *mailbox.Mailbox[HTH]
@@ -67,8 +74,7 @@ func NewHeadTracker[
 ](
 	lggr logger.Logger,
 	client htrktypes.Client[HTH, S, ID, BLOCK_HASH],
-	config htrktypes.Config,
-	htConfig htrktypes.HeadTrackerConfig,
+	config HeadTrackerConfig,
 	headBroadcaster types.HeadBroadcaster[HTH, BLOCK_HASH],
 	headSaver types.HeadSaver[HTH, BLOCK_HASH],
 	mailMon *mailbox.Monitor,
@@ -81,12 +87,11 @@ func NewHeadTracker[
 		client:          client,
 		chainID:         client.ConfiguredChainID(),
 		config:          config,
-		htConfig:        htConfig,
 		log:             logger.Sugared(lggr),
 		backfillMB:      mailbox.NewSingle[HTH](),
 		broadcastMB:     mailbox.New[HTH](HeadsBufferSize),
 		chStop:          chStop,
-		headListener:    NewHeadListener[HTH, S, ID, BLOCK_HASH](lggr, client, config, chStop),
+		headListener:    NewHeadListener(lggr, client, config.BlockEmissionIdleWarningThreshold(), chStop),
 		headSaver:       headSaver,
 		mailMon:         mailMon,
 		getNilHead:      getNilHead,
@@ -253,7 +258,7 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) handleNewHead(ctx context.Context
 func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) broadcastLoop() {
 	defer ht.wgDone.Done()
 
-	samplingInterval := ht.htConfig.SamplingInterval()
+	samplingInterval := ht.config.SamplingInterval()
 	if samplingInterval > 0 {
 		ht.log.Debugf("Head sampling is enabled - sampling interval is set to: %v", samplingInterval)
 		debounceHead := time.NewTicker(samplingInterval)

@@ -13,23 +13,26 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
+type HeadSaverConfig interface {
+	FinalityDepth() uint32
+	HistoryDepth() uint32
+}
+
 type headSaver struct {
-	orm      ORM
-	config   Config
-	htConfig HeadTrackerConfig
-	logger   logger.Logger
-	heads    Heads
+	orm    ORM
+	config HeadSaverConfig
+	logger logger.Logger
+	heads  Heads
 }
 
 var _ commontypes.HeadSaver[*evmtypes.Head, common.Hash] = (*headSaver)(nil)
 
-func NewHeadSaver(lggr logger.Logger, orm ORM, config Config, htConfig HeadTrackerConfig) httypes.HeadSaver {
+func NewHeadSaver(lggr logger.Logger, orm ORM, config HeadSaverConfig) httypes.HeadSaver {
 	return &headSaver{
-		orm:      orm,
-		config:   config,
-		htConfig: htConfig,
-		logger:   logger.Named(lggr, "HeadSaver"),
-		heads:    NewHeads(),
+		orm:    orm,
+		config: config,
+		logger: logger.Named(lggr, "HeadSaver"),
+		heads:  NewHeads(),
 	}
 }
 
@@ -55,7 +58,7 @@ func (hs *headSaver) Load(ctx context.Context, latestFinalized int64) (chain *ev
 }
 
 func (hs *headSaver) calculateMinBlockToKeep(latestFinalized int64) int64 {
-	return max(latestFinalized-int64(hs.htConfig.HistoryDepth()), 0)
+	return max(latestFinalized-int64(hs.config.HistoryDepth()), 0)
 }
 
 func (hs *headSaver) LatestHeadFromDB(ctx context.Context) (head *evmtypes.Head, err error) {

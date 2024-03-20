@@ -2,20 +2,23 @@ package headtracker_test
 
 import (
 	"context"
+	"math/big"
 	"sync/atomic"
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
+	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/common"
 
 	pkgerrors "github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink/v2/common/headtracker"
 	commonmocks "github.com/smartcontractkit/chainlink/v2/common/types/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -43,7 +46,7 @@ func Test_HeadListener_HappyPath(t *testing.T) {
 	})
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	chStop := make(chan struct{})
-	hl := headtracker.NewHeadListener(lggr, ethClient, evmcfg.EVM(), chStop)
+	hl := headtracker.NewHeadListener[*evmtypes.Head, ethereum.Subscription, *big.Int, common.Hash](lggr, ethClient, evmcfg.EVM().BlockEmissionIdleWarningThreshold(), chStop)
 
 	var headCount atomic.Int32
 	handler := func(context.Context, *evmtypes.Head) error {
@@ -104,7 +107,7 @@ func Test_HeadListener_NotReceivingHeads(t *testing.T) {
 	})
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	chStop := make(chan struct{})
-	hl := headtracker.NewHeadListener(lggr, ethClient, evmcfg.EVM(), chStop)
+	hl := headtracker.NewHeadListener[*evmtypes.Head, ethereum.Subscription, *big.Int, common.Hash](lggr, ethClient, evmcfg.EVM().BlockEmissionIdleWarningThreshold(), chStop)
 
 	firstHeadAwaiter := cltest.NewAwaiter()
 	handler := func(context.Context, *evmtypes.Head) error {
@@ -167,7 +170,7 @@ func Test_HeadListener_SubscriptionErr(t *testing.T) {
 			cfg := configtest.NewGeneralConfig(t, nil)
 			evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 			chStop := make(chan struct{})
-			hl := headtracker.NewHeadListener(l, ethClient, evmcfg.EVM(), chStop)
+			hl := headtracker.NewHeadListener[*evmtypes.Head, ethereum.Subscription, *big.Int, common.Hash](l, ethClient, evmcfg.EVM().BlockEmissionIdleWarningThreshold(), chStop)
 
 			hnhCalled := make(chan *evmtypes.Head)
 			hnh := func(_ context.Context, header *evmtypes.Head) error {

@@ -30,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
 
+	commonht "github.com/smartcontractkit/chainlink/v2/common/headtracker"
 	commonmocks "github.com/smartcontractkit/chainlink/v2/common/types/mocks"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
@@ -68,7 +69,7 @@ func TestHeadTracker_New(t *testing.T) {
 	assert.Nil(t, orm.IdempotentInsertHead(testutils.Context(t), cltest.Head(10)))
 
 	evmcfg := cltest.NewTestChainScopedConfig(t)
-	ht := createHeadTracker(t, ethClient, evmcfg.EVM(), evmcfg.EVM().HeadTracker(), orm)
+	ht := createHeadTracker(t, ethClient, evmcfg.EVM().HeadTracker(), orm)
 	ht.Start(t)
 
 	latest := ht.headSaver.LatestChain()
@@ -95,7 +96,7 @@ func TestHeadTracker_MarkFinalized_MarksAndTrimsTable(t *testing.T) {
 	latest := cltest.Head(201)
 	assert.Nil(t, orm.IdempotentInsertHead(testutils.Context(t), latest))
 
-	ht := createHeadTracker(t, ethClient, config.EVM(), config.EVM().HeadTracker(), orm)
+	ht := createHeadTracker(t, ethClient, config.EVM().HeadTracker(), orm)
 	_, err := ht.headSaver.Load(testutils.Context(t), latest.Number)
 	require.NoError(t, err)
 	require.NoError(t, ht.headSaver.MarkFinalized(testutils.Context(t), latest))
@@ -159,7 +160,7 @@ func TestHeadTracker_Get(t *testing.T) {
 				assert.Nil(t, orm.IdempotentInsertHead(testutils.Context(t), test.initial))
 			}
 
-			ht := createHeadTracker(t, ethClient, config.EVM(), config.EVM().HeadTracker(), orm)
+			ht := createHeadTracker(t, ethClient, config.EVM().HeadTracker(), orm)
 			ht.Start(t)
 
 			if test.toSave != nil {
@@ -194,7 +195,7 @@ func TestHeadTracker_Start_NewHeads(t *testing.T) {
 		}).
 		Return(sub, nil)
 
-	ht := createHeadTracker(t, ethClient, config.EVM(), config.EVM().HeadTracker(), orm)
+	ht := createHeadTracker(t, ethClient, config.EVM().HeadTracker(), orm)
 	ht.Start(t)
 
 	<-chStarted
@@ -213,7 +214,7 @@ func TestHeadTracker_Start(t *testing.T) {
 		config := evmtest.NewChainScopedConfig(t, gCfg)
 		orm := headtracker.NewORM(cltest.FixtureChainID, db)
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-		return createHeadTracker(t, ethClient, config.EVM(), config.EVM().HeadTracker(), orm)
+		return createHeadTracker(t, ethClient, config.EVM().HeadTracker(), orm)
 	}
 
 	t.Run("Fail start if context was canceled", func(t *testing.T) {
@@ -294,7 +295,7 @@ func TestHeadTracker_CallsHeadTrackableCallbacks(t *testing.T) {
 	ethClient.On("HeadByHash", mock.Anything, mock.Anything).Return(cltest.Head(0), nil).Maybe()
 
 	checker := &cltest.MockHeadTrackable{}
-	ht := createHeadTrackerWithChecker(t, ethClient, config.EVM(), config.EVM().HeadTracker(), orm, checker)
+	ht := createHeadTrackerWithChecker(t, ethClient, config.EVM().HeadTracker(), orm, checker)
 
 	ht.Start(t)
 	assert.Equal(t, int32(0), checker.OnNewLongestChainCount())
@@ -331,7 +332,7 @@ func TestHeadTracker_ReconnectOnError(t *testing.T) {
 	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(cltest.Head(0), nil)
 
 	checker := &cltest.MockHeadTrackable{}
-	ht := createHeadTrackerWithChecker(t, ethClient, config.EVM(), config.EVM().HeadTracker(), orm, checker)
+	ht := createHeadTrackerWithChecker(t, ethClient, config.EVM().HeadTracker(), orm, checker)
 
 	// connect
 	ht.Start(t)
@@ -367,7 +368,7 @@ func TestHeadTracker_ResubscribeOnSubscriptionError(t *testing.T) {
 	ethClient.On("HeadByHash", mock.Anything, mock.Anything).Return(cltest.Head(0), nil).Maybe()
 
 	checker := &cltest.MockHeadTrackable{}
-	ht := createHeadTrackerWithChecker(t, ethClient, config.EVM(), config.EVM().HeadTracker(), orm, checker)
+	ht := createHeadTrackerWithChecker(t, ethClient, config.EVM().HeadTracker(), orm, checker)
 
 	ht.Start(t)
 	assert.Equal(t, int32(0), checker.OnNewLongestChainCount())
@@ -429,7 +430,7 @@ func TestHeadTracker_Start_LoadsLatestChain(t *testing.T) {
 
 	orm := headtracker.NewORM(cltest.FixtureChainID, db)
 	trackable := &cltest.MockHeadTrackable{}
-	ht := createHeadTrackerWithChecker(t, ethClient, config.EVM(), config.EVM().HeadTracker(), orm, trackable)
+	ht := createHeadTrackerWithChecker(t, ethClient, config.EVM().HeadTracker(), orm, trackable)
 
 	require.NoError(t, orm.IdempotentInsertHead(testutils.Context(t), heads[2]))
 
@@ -462,7 +463,6 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingEnabled(t *testing.T)
 	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].FinalityDepth = ptr[uint32](50)
 		// Need to set the buffer to something large since we inject a lot of heads at once and otherwise they will be dropped
-		c.EVM[0].HeadTracker.MaxBufferSize = ptr[uint32](100)
 		c.EVM[0].HeadTracker.SamplingInterval = commonconfig.MustNewDuration(2500 * time.Millisecond)
 	})
 
@@ -471,7 +471,7 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingEnabled(t *testing.T)
 	checker := commonmocks.NewHeadTrackable[*evmtypes.Head, gethCommon.Hash](t)
 	orm := headtracker.NewORM(*evmtest.MustGetDefaultChainID(t, config.EVMConfigs()), db)
 	csCfg := evmtest.NewChainScopedConfig(t, config)
-	ht := createHeadTrackerWithChecker(t, ethClient, csCfg.EVM(), csCfg.EVM().HeadTracker(), orm, checker)
+	ht := createHeadTrackerWithChecker(t, ethClient, csCfg.EVM().HeadTracker(), orm, checker)
 
 	chchHeaders := make(chan evmtest.RawSub[*evmtypes.Head], 1)
 	mockEth := &evmtest.MockEth{EthClient: ethClient}
@@ -591,7 +591,6 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingDisabled(t *testing.T
 	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].FinalityDepth = ptr[uint32](50)
 		// Need to set the buffer to something large since we inject a lot of heads at once and otherwise they will be dropped
-		c.EVM[0].HeadTracker.MaxBufferSize = ptr[uint32](100)
 		c.EVM[0].HeadTracker.SamplingInterval = commonconfig.MustNewDuration(0)
 	})
 
@@ -600,7 +599,7 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingDisabled(t *testing.T
 	checker := commonmocks.NewHeadTrackable[*evmtypes.Head, gethCommon.Hash](t)
 	orm := headtracker.NewORM(cltest.FixtureChainID, db)
 	evmcfg := evmtest.NewChainScopedConfig(t, config)
-	ht := createHeadTrackerWithChecker(t, ethClient, evmcfg.EVM(), evmcfg.EVM().HeadTracker(), orm, checker)
+	ht := createHeadTrackerWithChecker(t, ethClient, evmcfg.EVM().HeadTracker(), orm, checker)
 
 	chchHeaders := make(chan evmtest.RawSub[*evmtypes.Head], 1)
 	mockEth := &evmtest.MockEth{EthClient: ethClient}
@@ -827,7 +826,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		}
 		ethClient := evmtest.NewEthClientMock(t)
 		ethClient.On("ConfiguredChainID", mock.Anything).Return(evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()), nil)
-		ht := createHeadTracker(t, ethClient, evmcfg.EVM(), evmcfg.EVM().HeadTracker(), orm)
+		ht := createHeadTracker(t, ethClient, evmcfg.EVM().HeadTracker(), orm)
 		_, err := ht.headSaver.Load(testutils.Context(t), 0)
 		require.NoError(t, err)
 		return ht
@@ -983,14 +982,14 @@ func TestHeadTracker_Backfill(t *testing.T) {
 	})
 }
 
-func createHeadTracker(t *testing.T, ethClient *evmclimocks.Client, config headtracker.Config, htConfig headtracker.HeadTrackerConfig, orm headtracker.ORM) *headTrackerUniverse {
+func createHeadTracker(t *testing.T, ethClient *evmclimocks.Client, config commonht.HeadTrackerConfig, orm headtracker.ORM) *headTrackerUniverse {
 	lggr, ob := logger.TestObserved(t, zap.DebugLevel)
 	hb := headtracker.NewHeadBroadcaster(lggr)
-	hs := headtracker.NewHeadSaver(lggr, orm, config, htConfig)
+	hs := headtracker.NewHeadSaver(lggr, orm, config)
 	mailMon := mailboxtest.NewMonitor(t)
 	return &headTrackerUniverse{
 		mu:              new(sync.Mutex),
-		headTracker:     headtracker.NewHeadTracker(lggr, ethClient, config, htConfig, hb, hs, mailMon),
+		headTracker:     headtracker.NewHeadTracker(lggr, ethClient, config, hb, hs, mailMon),
 		headBroadcaster: hb,
 		headSaver:       hs,
 		mailMon:         mailMon,
@@ -1000,13 +999,13 @@ func createHeadTracker(t *testing.T, ethClient *evmclimocks.Client, config headt
 	}
 }
 
-func createHeadTrackerWithChecker(t *testing.T, ethClient *evmclimocks.Client, config headtracker.Config, htConfig headtracker.HeadTrackerConfig, orm headtracker.ORM, checker httypes.HeadTrackable) *headTrackerUniverse {
+func createHeadTrackerWithChecker(t *testing.T, ethClient *evmclimocks.Client, config commonht.HeadTrackerConfig, orm headtracker.ORM, checker httypes.HeadTrackable) *headTrackerUniverse {
 	lggr, ob := logger.TestObserved(t, zap.DebugLevel)
 	hb := headtracker.NewHeadBroadcaster(lggr)
-	hs := headtracker.NewHeadSaver(lggr, orm, config, htConfig)
+	hs := headtracker.NewHeadSaver(lggr, orm, config)
 	hb.Subscribe(checker)
 	mailMon := mailboxtest.NewMonitor(t)
-	ht := headtracker.NewHeadTracker(lggr, ethClient, config, htConfig, hb, hs, mailMon)
+	ht := headtracker.NewHeadTracker(lggr, ethClient, config, hb, hs, mailMon)
 	return &headTrackerUniverse{
 		mu:              new(sync.Mutex),
 		headTracker:     ht,

@@ -13,6 +13,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
+	"github.com/smartcontractkit/chainlink/v2/common/headtracker"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 )
@@ -82,8 +84,13 @@ func (e *evmConfig) Transactions() Transactions {
 	return &transactionsConfig{c: e.c.Transactions}
 }
 
-func (e *evmConfig) HeadTracker() HeadTracker {
-	return &headTrackerConfig{c: e.c.HeadTracker}
+func (e *evmConfig) HeadTracker() headtracker.HeadTrackerConfig {
+	return &headTrackerConfig{
+		c:                                 e.c.HeadTracker,
+		blockEmissionIdleWarningThreshold: e.c.NoNewHeadsThreshold.Duration(),
+		finalityDepth:                     *e.c.FinalityDepth,
+		finalityTagEnabled:                *e.c.FinalityTagEnabled,
+	}
 }
 
 func (e *evmConfig) OCR() OCR {

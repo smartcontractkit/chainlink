@@ -1749,7 +1749,6 @@ TransactionPercentile = 50
 
 [HeadTracker]
 HistoryDepth = 100
-MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
@@ -1833,7 +1832,6 @@ TransactionPercentile = 50
 
 [HeadTracker]
 HistoryDepth = 100
-MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
@@ -1917,7 +1915,6 @@ TransactionPercentile = 50
 
 [HeadTracker]
 HistoryDepth = 100
-MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
@@ -2001,7 +1998,6 @@ TransactionPercentile = 50
 
 [HeadTracker]
 HistoryDepth = 100
-MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
@@ -2086,7 +2082,6 @@ TransactionPercentile = 60
 
 [HeadTracker]
 HistoryDepth = 300
-MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
@@ -2170,7 +2165,6 @@ TransactionPercentile = 60
 
 [HeadTracker]
 HistoryDepth = 100
-MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
@@ -2254,7 +2248,6 @@ TransactionPercentile = 60
 
 [HeadTracker]
 HistoryDepth = 100
-MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
@@ -2339,7 +2332,6 @@ TransactionPercentile = 50
 
 [HeadTracker]
 HistoryDepth = 100
-MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
@@ -2423,7 +2415,6 @@ TransactionPercentile = 60
 
 [HeadTracker]
 HistoryDepth = 100
-MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
@@ -2506,7 +2497,6 @@ TransactionPercentile = 60
 
 [HeadTracker]
 HistoryDepth = 100
-MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
@@ -2589,7 +2579,6 @@ TransactionPercentile = 60
 
 [HeadTracker]
 HistoryDepth = 100
-MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
@@ -2673,7 +2662,6 @@ TransactionPercentile = 60
 
 [HeadTracker]
 HistoryDepth = 100
-MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
@@ -2758,7 +2746,6 @@ TransactionPercentile = 60
 
 [HeadTracker]
 HistoryDepth = 100
-MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
@@ -2842,7 +2829,6 @@ TransactionPercentile = 60
 
 [HeadTracker]
 HistoryDepth = 100
-MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
@@ -2926,7 +2912,6 @@ TransactionPercentile = 60
 
 [HeadTracker]
 HistoryDepth = 2000
-MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
@@ -3010,7 +2995,6 @@ TransactionPercentile = 60
 
 [HeadTracker]
 HistoryDepth = 100
-MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
@@ -3094,7 +3078,6 @@ TransactionPercentile = 60
 
 [HeadTracker]
 HistoryDepth = 400
-MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
@@ -3178,7 +3161,6 @@ TransactionPercentile = 60
 
 [HeadTracker]
 HistoryDepth = 5
-MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
@@ -3262,7 +3244,6 @@ TransactionPercentile = 60
 
 [HeadTracker]
 HistoryDepth = 5
-MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
@@ -3346,7 +3327,6 @@ TransactionPercentile = 60
 
 [HeadTracker]
 HistoryDepth = 5
-MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
@@ -3431,7 +3411,6 @@ TransactionPercentile = 60
 
 [HeadTracker]
 HistoryDepth = 300
-MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
@@ -3515,7 +3494,6 @@ TransactionPercentile = 60
 
 [HeadTracker]
 HistoryDepth = 100
-MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
@@ -3598,7 +3576,6 @@ TransactionPercentile = 60
 
 [HeadTracker]
 HistoryDepth = 100
-MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
@@ -3682,7 +3659,6 @@ TransactionPercentile = 60
 
 [HeadTracker]
 HistoryDepth = 100
-MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
@@ -3765,7 +3741,6 @@ TransactionPercentile = 60
 
 [HeadTracker]
 HistoryDepth = 2000
-MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
@@ -3849,7 +3824,6 @@ TransactionPercentile = 60
 
 [HeadTracker]
 HistoryDepth = 100
-MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
@@ -3933,7 +3907,6 @@ TransactionPercentile = 60
 
 [HeadTracker]
 HistoryDepth = 100
-MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
@@ -4016,7 +3989,6 @@ TransactionPercentile = 60
 
 [HeadTracker]
 HistoryDepth = 10
-MaxBufferSize = 100
 SamplingInterval = '0s'
 
 [NodePool]
@@ -4099,7 +4071,6 @@ TransactionPercentile = 60
 
 [HeadTracker]
 HistoryDepth = 2000
-MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
@@ -4183,7 +4154,6 @@ TransactionPercentile = 60
 
 [HeadTracker]
 HistoryDepth = 400
-MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
@@ -4266,7 +4236,6 @@ TransactionPercentile = 60
 
 [HeadTracker]
 HistoryDepth = 2000
-MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
@@ -4350,7 +4319,6 @@ TransactionPercentile = 60
 
 [HeadTracker]
 HistoryDepth = 100
-MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
@@ -4433,7 +4401,6 @@ TransactionPercentile = 60
 
 [HeadTracker]
 HistoryDepth = 100
-MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
@@ -4517,7 +4484,6 @@ TransactionPercentile = 60
 
 [HeadTracker]
 HistoryDepth = 300
-MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
@@ -4601,7 +4567,6 @@ TransactionPercentile = 60
 
 [HeadTracker]
 HistoryDepth = 100
-MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
@@ -4686,7 +4651,6 @@ TransactionPercentile = 60
 
 [HeadTracker]
 HistoryDepth = 100
-MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
@@ -4770,7 +4734,6 @@ TransactionPercentile = 60
 
 [HeadTracker]
 HistoryDepth = 50
-MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
@@ -4854,7 +4817,6 @@ TransactionPercentile = 60
 
 [HeadTracker]
 HistoryDepth = 100
-MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
@@ -4938,7 +4900,6 @@ TransactionPercentile = 60
 
 [HeadTracker]
 HistoryDepth = 100
-MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
@@ -5022,7 +4983,6 @@ TransactionPercentile = 60
 
 [HeadTracker]
 HistoryDepth = 50
-MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
@@ -5105,7 +5065,6 @@ TransactionPercentile = 60
 
 [HeadTracker]
 HistoryDepth = 100
-MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
@@ -5188,7 +5147,6 @@ TransactionPercentile = 60
 
 [HeadTracker]
 HistoryDepth = 350
-MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
@@ -5272,7 +5230,6 @@ TransactionPercentile = 60
 
 [HeadTracker]
 HistoryDepth = 2000
-MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
@@ -5356,7 +5313,6 @@ TransactionPercentile = 60
 
 [HeadTracker]
 HistoryDepth = 300
-MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
@@ -5440,7 +5396,6 @@ TransactionPercentile = 60
 
 [HeadTracker]
 HistoryDepth = 300
-MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
@@ -5525,7 +5480,6 @@ TransactionPercentile = 60
 
 [HeadTracker]
 HistoryDepth = 100
-MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
@@ -5610,7 +5564,6 @@ TransactionPercentile = 60
 
 [HeadTracker]
 HistoryDepth = 100
-MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
@@ -5694,7 +5647,6 @@ TransactionPercentile = 60
 
 [HeadTracker]
 HistoryDepth = 100
-MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
@@ -5778,7 +5730,6 @@ TransactionPercentile = 60
 
 [HeadTracker]
 HistoryDepth = 50
-MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
@@ -5862,7 +5813,6 @@ TransactionPercentile = 60
 
 [HeadTracker]
 HistoryDepth = 50
-MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
@@ -5946,7 +5896,6 @@ TransactionPercentile = 50
 
 [HeadTracker]
 HistoryDepth = 100
-MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
@@ -6030,7 +5979,6 @@ TransactionPercentile = 60
 
 [HeadTracker]
 HistoryDepth = 300
-MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
@@ -6114,7 +6062,6 @@ TransactionPercentile = 60
 
 [HeadTracker]
 HistoryDepth = 100
-MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
@@ -6198,7 +6145,6 @@ TransactionPercentile = 60
 
 [HeadTracker]
 HistoryDepth = 100
-MaxBufferSize = 3
 SamplingInterval = '1s'
 
 [NodePool]
@@ -6791,7 +6737,6 @@ Setting it lower will tend to set lower gas prices.
 ```toml
 [EVM.HeadTracker]
 HistoryDepth = 100 # Default
-MaxBufferSize = 3 # Default
 SamplingInterval = '1s' # Default
 ```
 The head tracker continually listens for new heads from the chain.
@@ -6806,15 +6751,6 @@ HistoryDepth tracks the top N blocks on top of the latest finalized block to kee
 Note that this can easily result in MORE than `N + finality depth`  records since in the case of re-orgs we keep multiple heads for a particular block height.
 This number should be at least as large as `FinalityDepth`.
 There may be a small performance penalty to setting this to something very large (10,000+)
-
-### MaxBufferSize
-```toml
-MaxBufferSize = 3 # Default
-```
-MaxBufferSize is the maximum number of heads that may be
-buffered in front of the head tracker before older heads start to be
-dropped. You may think of it as something like the maximum permittable "lag"
-for the head tracker before we start dropping heads to keep up.
 
 ### SamplingInterval
 :warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._

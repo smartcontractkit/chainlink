@@ -1497,7 +1497,6 @@ func simulatedOverrides(t *testing.T, defaultGasPrice *assets.Wei, ks ...toml.Ke
 		c.Feature.LogPoller = ptr(true)
 		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
 
-		c.EVM[0].HeadTracker.MaxBufferSize = ptr[uint32](100)
 		c.EVM[0].HeadTracker.SamplingInterval = commonconfig.MustNewDuration(0) // Head sampling disabled
 
 		c.EVM[0].Transactions.ResendAfterThreshold = commonconfig.MustNewDuration(0)

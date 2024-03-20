@@ -230,8 +230,8 @@ func newChain(ctx context.Context, cfg *evmconfig.ChainScoped, nodes []*toml.Nod
 		headTracker = headtracker.NullTracker
 	} else if opts.GenHeadTracker == nil {
 		orm := headtracker.NewORM(*chainID, opts.DB)
-		headSaver = headtracker.NewHeadSaver(l, orm, cfg.EVM(), cfg.EVM().HeadTracker())
-		headTracker = headtracker.NewHeadTracker(l, client, cfg.EVM(), cfg.EVM().HeadTracker(), headBroadcaster, headSaver, opts.MailMon)
+		headSaver = headtracker.NewHeadSaver(l, orm, cfg.EVM().HeadTracker())
+		headTracker = headtracker.NewHeadTracker(l, client, cfg.EVM().HeadTracker(), headBroadcaster, headSaver, opts.MailMon)
 	} else {
 		headTracker = opts.GenHeadTracker(chainID, headBroadcaster)
 	}

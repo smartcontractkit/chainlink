@@ -9,13 +9,15 @@ import (
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 
 	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
+	"github.com/smartcontractkit/chainlink/v2/common/headtracker"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 )
 
 type EVM interface {
-	HeadTracker() HeadTracker
+	HeadTracker() headtracker.HeadTrackerConfig
 	BalanceMonitor() BalanceMonitor
 	Transactions() Transactions
 	GasEstimator() GasEstimator
@@ -65,12 +67,6 @@ type OCR2 interface {
 
 type OCR2Automation interface {
 	GasLimit() uint32
-}
-
-type HeadTracker interface {
-	HistoryDepth() uint32
-	MaxBufferSize() uint32
-	SamplingInterval() time.Duration
 }
 
 type BalanceMonitor interface {

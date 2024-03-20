@@ -22,33 +22,15 @@ import (
 
 type headTrackerConfig struct {
 	historyDepth uint32
+	finalityDepth uint32
 }
 
 func (h *headTrackerConfig) HistoryDepth() uint32 {
 	return h.historyDepth
 }
 
-func (h *headTrackerConfig) SamplingInterval() time.Duration {
-	return time.Duration(0)
-}
-
-func (h *headTrackerConfig) MaxBufferSize() uint32 {
-	return uint32(0)
-}
-
-type config struct {
-	finalityDepth                     uint32
-	blockEmissionIdleWarningThreshold time.Duration
-	finalityTagEnabled                bool
-}
-
-func (c *config) FinalityDepth() uint32 { return c.finalityDepth }
-func (c *config) BlockEmissionIdleWarningThreshold() time.Duration {
-	return c.blockEmissionIdleWarningThreshold
-}
-
-func (c *config) FinalityTagEnabled() bool {
-	return c.finalityTagEnabled
+func (h *headTrackerConfig) FinalityDepth() uint32 {
+	return h.finalityDepth
 }
 
 type saverOpts struct {
@@ -57,13 +39,12 @@ type saverOpts struct {
 
 func configureSaver(t *testing.T, opts saverOpts) (httypes.HeadSaver, headtracker.ORM) {
 	if opts.headTrackerConfig == nil {
-		opts.headTrackerConfig = &headTrackerConfig{historyDepth: 6}
+		opts.headTrackerConfig = &headTrackerConfig{historyDepth: 6, finalityDepth: 1}
 	}
 	db := pgtest.NewSqlxDB(t)
 	lggr := logger.Test(t)
-	htCfg := &config{finalityDepth: uint32(1)}
 	orm := headtracker.NewORM(cltest.FixtureChainID, db)
-	saver := headtracker.NewHeadSaver(lggr, orm, htCfg, opts.headTrackerConfig)
+	saver := headtracker.NewHeadSaver(lggr, orm, opts.headTrackerConfig)
 	return saver, orm
 }
 

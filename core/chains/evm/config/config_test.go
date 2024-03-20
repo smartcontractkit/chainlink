@@ -373,7 +373,6 @@ func TestChainScopedConfig_HeadTracker(t *testing.T) {
 
 	ht := cfg.EVM().HeadTracker()
 	assert.Equal(t, uint32(100), ht.HistoryDepth())
-	assert.Equal(t, uint32(3), ht.MaxBufferSize())
 	assert.Equal(t, time.Second, ht.SamplingInterval())
 }
 

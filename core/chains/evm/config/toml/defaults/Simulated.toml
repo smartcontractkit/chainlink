@@ -20,7 +20,6 @@ PriceMax = '100 micro'
 
 [HeadTracker]
 HistoryDepth = 10
-MaxBufferSize = 100
 SamplingInterval = '0s'
 
 [OCR]

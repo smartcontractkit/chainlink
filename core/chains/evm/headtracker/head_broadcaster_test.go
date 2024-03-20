@@ -72,12 +72,12 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	checker2 := &cltest.MockHeadTrackable{}
 
 	orm := headtracker.NewORM(*ethClient.ConfiguredChainID(), db)
-	hs := headtracker.NewHeadSaver(logger, orm, evmCfg.EVM(), evmCfg.EVM().HeadTracker())
+	hs := headtracker.NewHeadSaver(logger, orm, evmCfg.EVM().HeadTracker())
 	mailMon := mailboxtest.NewMonitor(t)
 	servicetest.Run(t, mailMon)
 	hb := headtracker.NewHeadBroadcaster(logger)
 	servicetest.Run(t, hb)
-	ht := headtracker.NewHeadTracker(logger, ethClient, evmCfg.EVM(), evmCfg.EVM().HeadTracker(), hb, hs, mailMon)
+	ht := headtracker.NewHeadTracker(logger, ethClient, evmCfg.EVM().HeadTracker(), hb, hs, mailMon)
 	servicetest.Run(t, ht)
 
 	latest1, unsubscribe1 := hb.Subscribe(checker1)

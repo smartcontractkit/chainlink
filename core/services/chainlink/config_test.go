@@ -569,7 +569,6 @@ func TestConfig_Marshal(t *testing.T) {
 
 				HeadTracker: evmcfg.HeadTracker{
 					HistoryDepth:     ptr[uint32](15),
-					MaxBufferSize:    ptr[uint32](17),
 					SamplingInterval: &hour,
 				},
 
@@ -1002,7 +1001,6 @@ TransactionPercentile = 15
 
 [EVM.HeadTracker]
 HistoryDepth = 15
-MaxBufferSize = 17
 SamplingInterval = '1h0m0s'
 
 [[EVM.KeySpecific]]
