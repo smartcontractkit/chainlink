@@ -33,10 +33,7 @@ contract VRFV2PlusWrapperLoadTestConsumer is VRFV2PlusWrapperConsumerBase, Confi
 
   mapping(uint256 => RequestStatus) /* requestId */ /* requestStatus */ public s_requests;
 
-  constructor(
-    address _link,
-    address _vrfV2PlusWrapper
-  ) ConfirmedOwner(msg.sender) VRFV2PlusWrapperConsumerBase(_link, _vrfV2PlusWrapper) {}
+  constructor(address _vrfV2PlusWrapper) ConfirmedOwner(msg.sender) VRFV2PlusWrapperConsumerBase(_vrfV2PlusWrapper) {}
 
   function makeRequests(
     uint32 _callbackGasLimit,
@@ -186,7 +183,7 @@ contract VRFV2PlusWrapperLoadTestConsumer is VRFV2PlusWrapperConsumerBase, Confi
   /// @notice withdrawLink withdraws the amount specified in amount to the owner
   /// @param amount the amount to withdraw, in juels
   function withdrawLink(uint256 amount) external onlyOwner {
-    s_linkToken.transfer(owner(), amount);
+    i_linkToken.transfer(owner(), amount);
   }
 
   /// @notice withdrawNative withdraws the amount specified in amount to the owner
