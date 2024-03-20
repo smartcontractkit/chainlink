@@ -1,4 +1,4 @@
-module github.com/smartcontractkit/chainlink/v2/dashboard-lib
+module github.com/smartcontractkit/chainlink/dashboard-lib
 
 go 1.21.7
 

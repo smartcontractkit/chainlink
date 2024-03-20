@@ -2,9 +2,9 @@ package main
 
 import (
 	"github.com/K-Phoen/grabana/dashboard"
-	lib "github.com/smartcontractkit/chainlink/dashboard-lib/lib"
-	core_don "github.com/smartcontractkit/chainlink/dashboard-lib/lib/core-don"
-	k8spods "github.com/smartcontractkit/chainlink/dashboard-lib/lib/k8s-pods"
+	lib "github.com/smartcontractkit/chainlink/dashboard-lib"
+	core_don "github.com/smartcontractkit/chainlink/dashboard-lib/core-don"
+	k8spods "github.com/smartcontractkit/chainlink/dashboard-lib/k8s-pods"
 	waspdb "github.com/smartcontractkit/wasp/dashboard"
 )
 
