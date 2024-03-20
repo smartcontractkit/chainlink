@@ -21,6 +21,7 @@ enum Trigger {
   LOG,
 }
 const zeroAddress = ethers.constants.AddressZero
+const wrappedNativeTokenAddress = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2'
 
 type OnChainConfig = Parameters<IAutomationRegistry['setConfigTypeSafe']>[3]
 
@@ -160,6 +161,7 @@ describe('AutomationRegistrar2_3', () => {
       gasPriceFeed.address,
       zeroAddress,
       0, // onchain payout mode
+      wrappedNativeTokenAddress,
     )
 
     mock = await upkeepMockFactory.deploy()
@@ -184,6 +186,7 @@ describe('AutomationRegistrar2_3', () => {
       ],
       [linkToken.address],
       [minimumRegistrationAmount],
+      wrappedNativeTokenAddress,
     )
 
     await linkToken

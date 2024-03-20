@@ -136,6 +136,7 @@ const f = 1
 const offchainVersion = 1
 const offchainBytes = '0x'
 const zeroAddress = ethers.constants.AddressZero
+const wrappedNativeTokenAddress = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2'
 const epochAndRound5_1 =
   '0x0000000000000000000000000000000000000000000000000000000000000501'
 
@@ -1004,6 +1005,7 @@ describe('AutomationRegistry2_3', () => {
       gasPriceFeed.address,
       zeroAddress,
       0, // onchain payout mode
+      wrappedNativeTokenAddress,
     ]
 
     registry = await deployRegistry23(...registryParams)
