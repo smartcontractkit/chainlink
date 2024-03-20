@@ -50,24 +50,6 @@ func (_m *Config) DefaultHTTPTimeout() config.Duration {
 	return r0
 }
 
-// VerboseLogging provides a mock function with given fields:
-func (_m *Config) VerboseLogging() bool {
-	ret := _m.Called()
-
-	if len(ret) == 0 {
-		panic("no return value specified for VerboseLogging")
-	}
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
 // MaxRunDuration provides a mock function with given fields:
 func (_m *Config) MaxRunDuration() time.Duration {
 	ret := _m.Called()
@@ -117,6 +99,24 @@ func (_m *Config) ReaperThreshold() time.Duration {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
+// VerboseLogging provides a mock function with given fields:
+func (_m *Config) VerboseLogging() bool {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for VerboseLogging")
+	}
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
 	}
 
 	return r0
