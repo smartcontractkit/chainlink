@@ -5,6 +5,7 @@ import {BaseTest} from "./BaseTest.t.sol";
 import {IAutomationRegistryMaster2_3} from "../interfaces/v2_3/IAutomationRegistryMaster2_3.sol";
 import {AutomationRegistrar2_3} from "../v2_3/AutomationRegistrar2_3.sol";
 import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
+import {AutomationRegistryBase2_3 as AutoBase} from "../v2_3/AutomationRegistryBase2_3.sol";
 
 // forge test --match-path src/v0.8/automation/dev/test/AutomationRegistrar2_3.t.sol
 
@@ -14,7 +15,7 @@ contract SetUp is BaseTest {
 
   function setUp() public override {
     super.setUp();
-    (registry, registrar) = deployAndConfigureAll();
+    (registry, registrar) = deployAndConfigureAll(AutoBase.PayoutMode.ON_CHAIN);
     vm.stopPrank(); // reset identity at the start of each test
   }
 }
