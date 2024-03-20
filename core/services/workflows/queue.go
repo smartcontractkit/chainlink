@@ -11,26 +11,26 @@ type stepRequest struct {
 }
 
 type queue[T any] struct {
-	in  chan T
-	out chan T
+	enqueue  chan T
+	dequeue chan T
 }
 
 func (q *queue[T]) worker(ctx context.Context, wg *sync.WaitGroup) {
 	defer wg.Done()
-
+	// NOTE: Should there be a max size for the queue?
 	qData := []T{}
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case inc := <-q.in:
+		case inc := <-q.enqueue:
 			qData = append(qData, inc)
 		default:
 			if len(qData) > 0 {
 				popped := qData[0]
 				select {
-				case q.out <- popped:
+				case q.dequeue <- popped:
 					qData = qData[1:]
 				default:
 				}
@@ -47,7 +47,7 @@ func (q *queue[T]) start(ctx context.Context, wg *sync.WaitGroup) {
 
 func newQueue[T any]() *queue[T] {
 	return &queue[T]{
-		in:  make(chan T),
-		out: make(chan T),
+		enqueue:  make(chan T),
+		dequeue: make(chan T),
 	}
 }

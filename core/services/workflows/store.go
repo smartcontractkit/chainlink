@@ -15,6 +15,7 @@ func newStore() *store {
 	return &store{idToState: map[string]*executionState{}}
 }
 
+// add adds a new execution state under the given executionID
 func (s *store) add(ctx context.Context, state *executionState) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -27,6 +28,7 @@ func (s *store) add(ctx context.Context, state *executionState) error {
 	return nil
 }
 
+// updateStep updates a step for the given executionID
 func (s *store) updateStep(ctx context.Context, step *stepState) (executionState, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -39,6 +41,7 @@ func (s *store) updateStep(ctx context.Context, step *stepState) (executionState
 	return *state, nil
 }
 
+// updateStatus updates the status for the given executionID
 func (s *store) updateStatus(ctx context.Context, executionID string, status string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()

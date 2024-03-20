@@ -11,37 +11,45 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 )
 
-type Capability struct {
+// yamlStep is the yaml parsed representation of a step in a workflow.
+type yamlStep struct {
 	Type   string         `yaml:"type"`
 	Ref    string         `yaml:"ref"`
 	Inputs map[string]any `yaml:"inputs"`
 	Config map[string]any `yaml:"config"`
 }
 
-type workflowSpec struct {
-	Triggers  []Capability `yaml:"triggers"`
-	Actions   []Capability `yaml:"actions"`
-	Consensus []Capability `yaml:"consensus"`
-	Targets   []Capability `yaml:"targets"`
+// yamlWorkflowSpec is the yaml parsed representation of a workflow.
+type yamlWorkflowSpec struct {
+	Triggers  []yamlStep `yaml:"triggers"`
+	Actions   []yamlStep `yaml:"actions"`
+	Consensus []yamlStep `yaml:"consensus"`
+	Targets   []yamlStep `yaml:"targets"`
 }
 
-func (w *workflowSpec) steps() []Capability {
-	s := []Capability{}
+func (w *yamlWorkflowSpec) steps() []yamlStep {
+	s := []yamlStep{}
 	s = append(s, w.Actions...)
 	s = append(s, w.Consensus...)
 	s = append(s, w.Targets...)
 	return s
 }
 
+// workflow is a directed graph of nodes, where each node is a step.
+//
+// triggers are special steps that are stored separately, they're
+// treated differently due to their nature of being the starting
+// point of a workflow. 
 type workflow struct {
-	graph.Graph[string, *node]
+	graph.Graph[string, *step]
 
 	triggers []*triggerCapability
 
-	spec *workflowSpec
+	spec *yamlWorkflowSpec
 }
 
-func (w *workflow) walkDo(start string, do func(n *node) error) error {
+// NOTE: should we make this concurrent?
+func (w *workflow) walkDo(start string, do func(n *step) error) error {
 	var outerErr error
 	err := graph.BFS(w.Graph, start, func(ref string) bool {
 		n, err := w.Graph.Vertex(ref)
@@ -65,8 +73,8 @@ func (w *workflow) walkDo(start string, do func(n *node) error) error {
 	return outerErr
 }
 
-func (w *workflow) adjacentNodes(start string) ([]*node, error) {
-	nodes := []*node{}
+func (w *workflow) dependents(start string) ([]*step, error) {
+	nodes := []*step{}
 	m, err := w.Graph.AdjacencyMap()
 	if err != nil {
 		return nil, err
@@ -89,15 +97,16 @@ func (w *workflow) adjacentNodes(start string) ([]*node, error) {
 	return nodes, nil
 }
 
-type node struct {
-	Capability
+// step wraps a yamlStep with additional context for dependencies and execution
+type step struct {
+	yamlStep
 	dependencies     []string
 	cachedCapability capabilities.CallbackExecutable
 	cachedConfig     *values.Map
 }
 
 type triggerCapability struct {
-	Capability
+	yamlStep
 	cachedTrigger capabilities.TriggerCapability
 }
 
@@ -106,7 +115,7 @@ const (
 )
 
 func Parse(yamlWorkflow string) (*workflow, error) {
-	wfs := &workflowSpec{}
+	wfs := &yamlWorkflowSpec{}
 	err := yaml.Unmarshal([]byte(yamlWorkflow), wfs)
 	if err != nil {
 		return nil, err
@@ -116,7 +125,7 @@ func Parse(yamlWorkflow string) (*workflow, error) {
 	// empty graph with just one starting entry: `trigger`.
 	// This provides the starting point for our graph and
 	// points to all dependent nodes.
-	nodeHash := func(n *node) string {
+	nodeHash := func(n *step) string {
 		return n.Ref
 	}
 	g := graph.New(
@@ -124,8 +133,8 @@ func Parse(yamlWorkflow string) (*workflow, error) {
 		graph.PreventCycles(),
 		graph.Directed(),
 	)
-	err = g.AddVertex(&node{
-		Capability: Capability{Ref: keywordTrigger},
+	err = g.AddVertex(&step{
+		yamlStep: yamlStep{Ref: keywordTrigger},
 	})
 	if err != nil {
 		return nil, err
@@ -136,7 +145,7 @@ func Parse(yamlWorkflow string) (*workflow, error) {
 			s.Ref = s.Type
 		}
 
-		err := g.AddVertex(&node{Capability: s})
+		err := g.AddVertex(&step{yamlStep: s})
 		if err != nil {
 			return nil, fmt.Errorf("cannot add vertex %s: %w", s.Ref, err)
 		}
@@ -169,7 +178,7 @@ func Parse(yamlWorkflow string) (*workflow, error) {
 	triggerNodes := []*triggerCapability{}
 	for _, t := range wfs.Triggers {
 		triggerNodes = append(triggerNodes, &triggerCapability{
-			Capability: t,
+			yamlStep: t,
 		})
 	}
 	wf := &workflow{
