@@ -109,6 +109,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   // billing
   mapping(IERC20 billingToken => BillingConfig billingConfig) internal s_billingConfigs; // billing configurations for different tokens
   IERC20[] internal s_billingTokens; // list of billing tokens
+  PayoutMode internal s_payoutMode;
 
   error ArrayHasNoEntries();
   error CannotCancel();
@@ -134,6 +135,8 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   error InvalidTransmitter();
   error InvalidTriggerType();
   error MigrationNotPermitted();
+  error MustSettleOffchain();
+  error MustSettleOnchain();
   error NotAContract();
   error OnlyActiveSigners();
   error OnlyActiveTransmitters();
@@ -188,6 +191,11 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     CALLBACK_REVERTED,
     REVERT_DATA_EXCEEDS_LIMIT,
     REGISTRY_PAUSED
+  }
+
+  enum PayoutMode {
+    ON_CHAIN,
+    OFF_CHAIN
   }
 
   /**
@@ -428,6 +436,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   event FundsAdded(uint256 indexed id, address indexed from, uint96 amount);
   event FundsWithdrawn(uint256 indexed id, uint256 amount, address to);
   event InsufficientFundsUpkeepReport(uint256 indexed id, bytes trigger);
+  event NOPsSettledOffchain(address[] payees, uint256[] balances);
   event Paused(address account);
   event PayeesUpdated(address[] transmitters, address[] payees);
   event PayeeshipTransferRequested(address indexed transmitter, address indexed from, address indexed to);
@@ -468,6 +477,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
    * @param fastGasFeed address of the Fast Gas price feed
    * @param automationForwarderLogic the address of automation forwarder logic
    * @param allowedReadOnlyAddress the address of the allowed read only address
+   * @param payoutMode the payout mode
    */
   constructor(
     address link,
@@ -475,7 +485,8 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     address nativeUSDFeed,
     address fastGasFeed,
     address automationForwarderLogic,
-    address allowedReadOnlyAddress
+    address allowedReadOnlyAddress,
+    PayoutMode payoutMode
   ) ConfirmedOwner(msg.sender) {
     i_link = LinkTokenInterface(link);
     i_linkUSDFeed = AggregatorV3Interface(linkUSDFeed);
@@ -483,6 +494,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     i_fastGasFeed = AggregatorV3Interface(fastGasFeed);
     i_automationForwarderLogic = automationForwarderLogic;
     i_allowedReadOnlyAddress = allowedReadOnlyAddress;
+    s_payoutMode = payoutMode;
     if (i_linkUSDFeed.decimals() != i_nativeUSDFeed.decimals()) {
       revert InvalidFeed();
     }
@@ -1008,6 +1020,10 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
       IERC20 token = billingTokens[i];
       BillingConfig memory config = billingConfigs[i];
 
+      // if LINK is a billing option, payout mode must be ON_CHAIN
+      if (address(token) == address(i_link) && s_payoutMode == PayoutMode.OFF_CHAIN) {
+        revert InvalidBillingToken();
+      }
       if (address(token) == ZERO_ADDRESS || address(config.priceFeed) == ZERO_ADDRESS) {
         revert ZeroAddressNotAllowed();
       }
