@@ -76,7 +76,7 @@ type TestEvmTxStore interface {
 }
 
 type evmTxStore struct {
-	q         sqlutil.Queryer
+	q         sqlutil.DataSource
 	logger    logger.SugaredLogger
 	ctx       context.Context
 	ctxCancel context.CancelFunc
@@ -124,7 +124,7 @@ func (o *evmTxStore) Transaction(ctx context.Context, readOnly bool, fn func(*ev
 }
 
 // new returns a NewORM like o, but backed by q.
-func (o *evmTxStore) new(q sqlutil.Queryer) *evmTxStore { return NewTxStore(q, o.logger) }
+func (o *evmTxStore) new(q sqlutil.DataSource) *evmTxStore { return NewTxStore(q, o.logger) }
 
 // Directly maps to some columns of few database tables.
 // Does not map to a single database table.
@@ -344,7 +344,7 @@ func dbEthTxAttemptsToEthTxAttempts(dbEthTxAttempt []DbEthTxAttempt) []TxAttempt
 }
 
 func NewTxStore(
-	db sqlutil.Queryer,
+	db sqlutil.DataSource,
 	lggr logger.Logger,
 ) *evmTxStore {
 	namedLogger := logger.Named(lggr, "TxmStore")
@@ -687,7 +687,7 @@ func (o *evmTxStore) loadEthTxesAttemptsReceipts(ctx context.Context, etxs []*Tx
 	return nil
 }
 
-func loadConfirmedAttemptsReceipts(ctx context.Context, q sqlutil.Queryer, attempts []TxAttempt) error {
+func loadConfirmedAttemptsReceipts(ctx context.Context, q sqlutil.DataSource, attempts []TxAttempt) error {
 	byHash := make(map[string]*TxAttempt, len(attempts))
 	hashes := make([][]byte, len(attempts))
 	for i, attempt := range attempts {

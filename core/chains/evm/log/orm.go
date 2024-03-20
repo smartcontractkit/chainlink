@@ -48,13 +48,13 @@ type ORM interface {
 }
 
 type orm struct {
-	db         sqlutil.Queryer
+	db         sqlutil.DataSource
 	evmChainID ubig.Big
 }
 
 var _ ORM = (*orm)(nil)
 
-func NewORM(db sqlutil.Queryer, evmChainID big.Int) *orm {
+func NewORM(db sqlutil.DataSource, evmChainID big.Int) *orm {
 	return &orm{
 		db:         db,
 		evmChainID: *ubig.New(&evmChainID),
