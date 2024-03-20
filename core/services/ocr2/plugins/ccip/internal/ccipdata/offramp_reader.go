@@ -1,6 +1,6 @@
 package ccipdata
 
-import "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
+import cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 
 const (
 	ManuallyExecute = "manuallyExecute"

@@ -1,14 +1,15 @@
 package factory
 
 import (
+	"context"
 	"strings"
 
 	"github.com/pkg/errors"
 
+	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
@@ -17,16 +18,16 @@ import (
 )
 
 // NewPriceRegistryReader determines the appropriate version of the price registry and returns a reader for it.
-func NewPriceRegistryReader(lggr logger.Logger, versionFinder VersionFinder, priceRegistryAddress cciptypes.Address, lp logpoller.LogPoller, cl client.Client) (ccipdata.PriceRegistryReader, error) {
-	return initOrClosePriceRegistryReader(lggr, versionFinder, priceRegistryAddress, lp, cl, false)
+func NewPriceRegistryReader(ctx context.Context, lggr logger.Logger, versionFinder VersionFinder, priceRegistryAddress cciptypes.Address, lp logpoller.LogPoller, cl client.Client) (ccipdata.PriceRegistryReader, error) {
+	return initOrClosePriceRegistryReader(ctx, lggr, versionFinder, priceRegistryAddress, lp, cl, false)
 }
 
-func ClosePriceRegistryReader(lggr logger.Logger, versionFinder VersionFinder, priceRegistryAddress cciptypes.Address, lp logpoller.LogPoller, cl client.Client) error {
-	_, err := initOrClosePriceRegistryReader(lggr, versionFinder, priceRegistryAddress, lp, cl, true)
+func ClosePriceRegistryReader(ctx context.Context, lggr logger.Logger, versionFinder VersionFinder, priceRegistryAddress cciptypes.Address, lp logpoller.LogPoller, cl client.Client) error {
+	_, err := initOrClosePriceRegistryReader(ctx, lggr, versionFinder, priceRegistryAddress, lp, cl, true)
 	return err
 }
 
-func initOrClosePriceRegistryReader(lggr logger.Logger, versionFinder VersionFinder, priceRegistryAddress cciptypes.Address, lp logpoller.LogPoller, cl client.Client, closeReader bool) (ccipdata.PriceRegistryReader, error) {
+func initOrClosePriceRegistryReader(ctx context.Context, lggr logger.Logger, versionFinder VersionFinder, priceRegistryAddress cciptypes.Address, lp logpoller.LogPoller, cl client.Client, closeReader bool) (ccipdata.PriceRegistryReader, error) {
 	registerFilters := !closeReader
 
 	priceRegistryEvmAddr, err := ccipcalc.GenericAddrToEvm(priceRegistryAddress)

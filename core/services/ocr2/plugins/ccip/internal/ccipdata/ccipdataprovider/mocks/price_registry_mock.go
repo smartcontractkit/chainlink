@@ -3,9 +3,9 @@
 package mocks
 
 import (
-	context "context"
+	ccip "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 
-	cciptypes "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
+	context "context"
 
 	mock "github.com/stretchr/testify/mock"
 )
@@ -16,27 +16,27 @@ type PriceRegistry struct {
 }
 
 // NewPriceRegistryReader provides a mock function with given fields: ctx, addr
-func (_m *PriceRegistry) NewPriceRegistryReader(ctx context.Context, addr cciptypes.Address) (cciptypes.PriceRegistryReader, error) {
+func (_m *PriceRegistry) NewPriceRegistryReader(ctx context.Context, addr ccip.Address) (ccip.PriceRegistryReader, error) {
 	ret := _m.Called(ctx, addr)
 
 	if len(ret) == 0 {
 		panic("no return value specified for NewPriceRegistryReader")
 	}
 
-	var r0 cciptypes.PriceRegistryReader
+	var r0 ccip.PriceRegistryReader
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, cciptypes.Address) (cciptypes.PriceRegistryReader, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, ccip.Address) (ccip.PriceRegistryReader, error)); ok {
 		return rf(ctx, addr)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, cciptypes.Address) cciptypes.PriceRegistryReader); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, ccip.Address) ccip.PriceRegistryReader); ok {
 		r0 = rf(ctx, addr)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(cciptypes.PriceRegistryReader)
+			r0 = ret.Get(0).(ccip.PriceRegistryReader)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, cciptypes.Address) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, ccip.Address) error); ok {
 		r1 = rf(ctx, addr)
 	} else {
 		r1 = ret.Error(1)

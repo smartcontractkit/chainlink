@@ -5,7 +5,7 @@ package tokendata
 import (
 	context "context"
 
-	cciptypes "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
+	ccip "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 
 	mock "github.com/stretchr/testify/mock"
 )
@@ -16,7 +16,7 @@ type MockReader struct {
 }
 
 // ReadTokenData provides a mock function with given fields: ctx, msg, tokenIndex
-func (_m *MockReader) ReadTokenData(ctx context.Context, msg cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta, tokenIndex int) ([]byte, error) {
+func (_m *MockReader) ReadTokenData(ctx context.Context, msg ccip.EVM2EVMOnRampCCIPSendRequestedWithMeta, tokenIndex int) ([]byte, error) {
 	ret := _m.Called(ctx, msg, tokenIndex)
 
 	if len(ret) == 0 {
@@ -25,10 +25,10 @@ func (_m *MockReader) ReadTokenData(ctx context.Context, msg cciptypes.EVM2EVMOn
 
 	var r0 []byte
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta, int) ([]byte, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, ccip.EVM2EVMOnRampCCIPSendRequestedWithMeta, int) ([]byte, error)); ok {
 		return rf(ctx, msg, tokenIndex)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta, int) []byte); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, ccip.EVM2EVMOnRampCCIPSendRequestedWithMeta, int) []byte); ok {
 		r0 = rf(ctx, msg, tokenIndex)
 	} else {
 		if ret.Get(0) != nil {
@@ -36,7 +36,7 @@ func (_m *MockReader) ReadTokenData(ctx context.Context, msg cciptypes.EVM2EVMOn
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta, int) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, ccip.EVM2EVMOnRampCCIPSendRequestedWithMeta, int) error); ok {
 		r1 = rf(ctx, msg, tokenIndex)
 	} else {
 		r1 = ret.Error(1)

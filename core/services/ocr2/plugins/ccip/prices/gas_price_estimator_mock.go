@@ -6,7 +6,7 @@ import (
 	context "context"
 	big "math/big"
 
-	cciptypes "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
+	ccip "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 
 	mock "github.com/stretchr/testify/mock"
 )
@@ -75,7 +75,7 @@ func (_m *MockGasPriceEstimator) Deviates(p1 *big.Int, p2 *big.Int) (bool, error
 }
 
 // EstimateMsgCostUSD provides a mock function with given fields: p, wrappedNativePrice, msg
-func (_m *MockGasPriceEstimator) EstimateMsgCostUSD(p *big.Int, wrappedNativePrice *big.Int, msg cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta) (*big.Int, error) {
+func (_m *MockGasPriceEstimator) EstimateMsgCostUSD(p *big.Int, wrappedNativePrice *big.Int, msg ccip.EVM2EVMOnRampCCIPSendRequestedWithMeta) (*big.Int, error) {
 	ret := _m.Called(p, wrappedNativePrice, msg)
 
 	if len(ret) == 0 {
@@ -84,10 +84,10 @@ func (_m *MockGasPriceEstimator) EstimateMsgCostUSD(p *big.Int, wrappedNativePri
 
 	var r0 *big.Int
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*big.Int, *big.Int, cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta) (*big.Int, error)); ok {
+	if rf, ok := ret.Get(0).(func(*big.Int, *big.Int, ccip.EVM2EVMOnRampCCIPSendRequestedWithMeta) (*big.Int, error)); ok {
 		return rf(p, wrappedNativePrice, msg)
 	}
-	if rf, ok := ret.Get(0).(func(*big.Int, *big.Int, cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta) *big.Int); ok {
+	if rf, ok := ret.Get(0).(func(*big.Int, *big.Int, ccip.EVM2EVMOnRampCCIPSendRequestedWithMeta) *big.Int); ok {
 		r0 = rf(p, wrappedNativePrice, msg)
 	} else {
 		if ret.Get(0) != nil {
@@ -95,7 +95,7 @@ func (_m *MockGasPriceEstimator) EstimateMsgCostUSD(p *big.Int, wrappedNativePri
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(*big.Int, *big.Int, cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta) error); ok {
+	if rf, ok := ret.Get(1).(func(*big.Int, *big.Int, ccip.EVM2EVMOnRampCCIPSendRequestedWithMeta) error); ok {
 		r1 = rf(p, wrappedNativePrice, msg)
 	} else {
 		r1 = ret.Error(1)

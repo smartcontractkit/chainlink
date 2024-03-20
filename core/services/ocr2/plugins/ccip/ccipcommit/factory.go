@@ -8,8 +8,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 )
@@ -37,7 +37,7 @@ func NewCommitReportingPluginFactory(config CommitPluginStaticConfig) *CommitRep
 	}
 }
 
-func (rf *CommitReportingPluginFactory) UpdateDynamicReaders(newPriceRegAddr common.Address) error {
+func (rf *CommitReportingPluginFactory) UpdateDynamicReaders(ctx context.Context, newPriceRegAddr common.Address) error {
 	rf.readersMu.Lock()
 	defer rf.readersMu.Unlock()
 	// TODO: Investigate use of Close() to cleanup.
@@ -65,6 +65,8 @@ func (rf *CommitReportingPluginFactory) UpdateDynamicReaders(newPriceRegAddr com
 
 // NewReportingPlugin returns the ccip CommitReportingPlugin and satisfies the ReportingPluginFactory interface.
 func (rf *CommitReportingPluginFactory) NewReportingPlugin(config types.ReportingPluginConfig) (types.ReportingPlugin, types.ReportingPluginInfo, error) {
+	ctx := context.Background() // todo: consider adding some timeout
+
 	destPriceReg, err := rf.config.commitStore.ChangeConfig(config.OnchainConfig, config.OffchainConfig)
 	if err != nil {
 		return nil, types.ReportingPluginInfo{}, err
@@ -74,11 +76,7 @@ func (rf *CommitReportingPluginFactory) NewReportingPlugin(config types.Reportin
 	if err != nil {
 		return nil, types.ReportingPluginInfo{}, err
 	}
-	if err = rf.UpdateDynamicReaders(priceRegEvmAddr); err != nil {
-		return nil, types.ReportingPluginInfo{}, err
-	}
-
-	if err != nil {
+	if err = rf.UpdateDynamicReaders(ctx, priceRegEvmAddr); err != nil {
 		return nil, types.ReportingPluginInfo{}, err
 	}
 

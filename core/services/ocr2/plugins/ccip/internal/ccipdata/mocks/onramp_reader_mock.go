@@ -3,9 +3,9 @@
 package mocks
 
 import (
-	context "context"
+	ccip "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 
-	cciptypes "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
+	context "context"
 
 	mock "github.com/stretchr/testify/mock"
 )
@@ -16,22 +16,22 @@ type OnRampReader struct {
 }
 
 // Address provides a mock function with given fields:
-func (_m *OnRampReader) Address() (cciptypes.Address, error) {
+func (_m *OnRampReader) Address() (ccip.Address, error) {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for Address")
 	}
 
-	var r0 cciptypes.Address
+	var r0 ccip.Address
 	var r1 error
-	if rf, ok := ret.Get(0).(func() (cciptypes.Address, error)); ok {
+	if rf, ok := ret.Get(0).(func() (ccip.Address, error)); ok {
 		return rf()
 	}
-	if rf, ok := ret.Get(0).(func() cciptypes.Address); ok {
+	if rf, ok := ret.Get(0).(func() ccip.Address); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(cciptypes.Address)
+		r0 = ret.Get(0).(ccip.Address)
 	}
 
 	if rf, ok := ret.Get(1).(func() error); ok {
@@ -44,22 +44,22 @@ func (_m *OnRampReader) Address() (cciptypes.Address, error) {
 }
 
 // GetDynamicConfig provides a mock function with given fields:
-func (_m *OnRampReader) GetDynamicConfig() (cciptypes.OnRampDynamicConfig, error) {
+func (_m *OnRampReader) GetDynamicConfig() (ccip.OnRampDynamicConfig, error) {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetDynamicConfig")
 	}
 
-	var r0 cciptypes.OnRampDynamicConfig
+	var r0 ccip.OnRampDynamicConfig
 	var r1 error
-	if rf, ok := ret.Get(0).(func() (cciptypes.OnRampDynamicConfig, error)); ok {
+	if rf, ok := ret.Get(0).(func() (ccip.OnRampDynamicConfig, error)); ok {
 		return rf()
 	}
-	if rf, ok := ret.Get(0).(func() cciptypes.OnRampDynamicConfig); ok {
+	if rf, ok := ret.Get(0).(func() ccip.OnRampDynamicConfig); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(cciptypes.OnRampDynamicConfig)
+		r0 = ret.Get(0).(ccip.OnRampDynamicConfig)
 	}
 
 	if rf, ok := ret.Get(1).(func() error); ok {
@@ -72,23 +72,23 @@ func (_m *OnRampReader) GetDynamicConfig() (cciptypes.OnRampDynamicConfig, error
 }
 
 // GetSendRequestsBetweenSeqNums provides a mock function with given fields: ctx, seqNumMin, seqNumMax, finalized
-func (_m *OnRampReader) GetSendRequestsBetweenSeqNums(ctx context.Context, seqNumMin uint64, seqNumMax uint64, finalized bool) ([]cciptypes.EVM2EVMMessageWithTxMeta, error) {
+func (_m *OnRampReader) GetSendRequestsBetweenSeqNums(ctx context.Context, seqNumMin uint64, seqNumMax uint64, finalized bool) ([]ccip.EVM2EVMMessageWithTxMeta, error) {
 	ret := _m.Called(ctx, seqNumMin, seqNumMax, finalized)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetSendRequestsBetweenSeqNums")
 	}
 
-	var r0 []cciptypes.EVM2EVMMessageWithTxMeta
+	var r0 []ccip.EVM2EVMMessageWithTxMeta
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, uint64, uint64, bool) ([]cciptypes.EVM2EVMMessageWithTxMeta, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, uint64, uint64, bool) ([]ccip.EVM2EVMMessageWithTxMeta, error)); ok {
 		return rf(ctx, seqNumMin, seqNumMax, finalized)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, uint64, uint64, bool) []cciptypes.EVM2EVMMessageWithTxMeta); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, uint64, uint64, bool) []ccip.EVM2EVMMessageWithTxMeta); ok {
 		r0 = rf(ctx, seqNumMin, seqNumMax, finalized)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]cciptypes.EVM2EVMMessageWithTxMeta)
+			r0 = ret.Get(0).([]ccip.EVM2EVMMessageWithTxMeta)
 		}
 	}
 
@@ -158,22 +158,22 @@ func (_m *OnRampReader) IsSourceCursed(ctx context.Context) (bool, error) {
 }
 
 // RouterAddress provides a mock function with given fields:
-func (_m *OnRampReader) RouterAddress() (cciptypes.Address, error) {
+func (_m *OnRampReader) RouterAddress() (ccip.Address, error) {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for RouterAddress")
 	}
 
-	var r0 cciptypes.Address
+	var r0 ccip.Address
 	var r1 error
-	if rf, ok := ret.Get(0).(func() (cciptypes.Address, error)); ok {
+	if rf, ok := ret.Get(0).(func() (ccip.Address, error)); ok {
 		return rf()
 	}
-	if rf, ok := ret.Get(0).(func() cciptypes.Address); ok {
+	if rf, ok := ret.Get(0).(func() ccip.Address); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(cciptypes.Address)
+		r0 = ret.Get(0).(ccip.Address)
 	}
 
 	if rf, ok := ret.Get(1).(func() error); ok {
@@ -186,22 +186,22 @@ func (_m *OnRampReader) RouterAddress() (cciptypes.Address, error) {
 }
 
 // SourcePriceRegistryAddress provides a mock function with given fields: ctx
-func (_m *OnRampReader) SourcePriceRegistryAddress(ctx context.Context) (cciptypes.Address, error) {
+func (_m *OnRampReader) SourcePriceRegistryAddress(ctx context.Context) (ccip.Address, error) {
 	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for SourcePriceRegistryAddress")
 	}
 
-	var r0 cciptypes.Address
+	var r0 ccip.Address
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context) (cciptypes.Address, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context) (ccip.Address, error)); ok {
 		return rf(ctx)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context) cciptypes.Address); ok {
+	if rf, ok := ret.Get(0).(func(context.Context) ccip.Address); ok {
 		r0 = rf(ctx)
 	} else {
-		r0 = ret.Get(0).(cciptypes.Address)
+		r0 = ret.Get(0).(ccip.Address)
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
