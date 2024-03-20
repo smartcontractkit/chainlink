@@ -58,13 +58,14 @@ func (v *EthereumVRFV2PlusWrapper) Address() string {
 
 func (v *EthereumVRFV2PlusWrapper) SetConfig(wrapperGasOverhead uint32,
 	coordinatorGasOverhead uint32,
-	wrapperPremiumPercentage uint8,
+	wrapperNativePremiumPercentage uint8,
+	wrapperLinkPremiumPercentage uint8,
 	keyHash [32]byte,
 	maxNumWords uint8,
 	stalenessSeconds uint32,
 	fallbackWeiPerUnitLink *big.Int,
-	fulfillmentFlatFeeLinkPPM uint32,
 	fulfillmentFlatFeeNativePPM uint32,
+	fulfillmentFlatFeeLinkDiscountPPM uint32,
 ) error {
 	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
 	if err != nil {
@@ -74,13 +75,14 @@ func (v *EthereumVRFV2PlusWrapper) SetConfig(wrapperGasOverhead uint32,
 		opts,
 		wrapperGasOverhead,
 		coordinatorGasOverhead,
-		wrapperPremiumPercentage,
+		wrapperNativePremiumPercentage,
+		wrapperLinkPremiumPercentage,
 		keyHash,
 		maxNumWords,
 		stalenessSeconds,
 		fallbackWeiPerUnitLink,
-		fulfillmentFlatFeeLinkPPM,
 		fulfillmentFlatFeeNativePPM,
+		fulfillmentFlatFeeLinkDiscountPPM,
 	)
 	if err != nil {
 		return err
