@@ -60,6 +60,8 @@ type TxManager[
 	FindEarliestUnconfirmedBroadcastTime(ctx context.Context) (nullv4.Time, error)
 	FindEarliestUnconfirmedTxAttemptBlock(ctx context.Context) (nullv4.Int, error)
 	CountTransactionsByState(ctx context.Context, state txmgrtypes.TxState) (count uint32, err error)
+	// Simulate the transaction prior to sending to catch zk out-of-counters error ahead of time
+	CheckTxValidity(ctx context.Context, from ADDR, to ADDR, data []byte) error
 }
 
 type reset struct {
