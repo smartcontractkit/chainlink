@@ -798,6 +798,59 @@ func TestInMemoryStore_FindTxsRequiringResubmissionDueToInsufficientEth(t *testi
 	})
 }
 
+func TestInMemoryStore_GetNonFatalTransactions(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
+	persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+	kst := cltest.NewKeyStore(t, db, dbcfg)
+	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
+
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	lggr := logger.TestSugared(t)
+	chainID := ethClient.ConfiguredChainID()
+	ctx := context.Background()
+
+	inMemoryStore, err := commontxmgr.NewInMemoryStore[
+		*big.Int,
+		common.Address, common.Hash, common.Hash,
+		*evmtypes.Receipt,
+		evmtypes.Nonce,
+		evmgas.EvmFee,
+	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	require.NoError(t, err)
+
+	t.Run("no results", func(t *testing.T) {
+		ctx := testutils.Context(t)
+		expTxs, expErr := persistentStore.GetNonFatalTransactions(ctx, chainID)
+		actTxs, actErr := inMemoryStore.GetNonFatalTransactions(ctx, chainID)
+		require.NoError(t, expErr)
+		require.NoError(t, actErr)
+		assert.Equal(t, len(expTxs), len(actTxs))
+	})
+
+	t.Run("get in progress, unstarted, and unconfirmed transactions", func(t *testing.T) {
+		// insert the transaction into the persistent store
+		inTx_0 := mustInsertInProgressEthTxWithAttempt(t, persistentStore, 123, fromAddress)
+		inTx_1 := mustCreateUnstartedGeneratedTx(t, persistentStore, fromAddress, chainID)
+		// insert the transaction into the in-memory store
+		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx_0))
+		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx_1))
+
+		ctx := testutils.Context(t)
+		expTxs, expErr := persistentStore.GetNonFatalTransactions(ctx, chainID)
+		actTxs, actErr := inMemoryStore.GetNonFatalTransactions(ctx, chainID)
+		require.NoError(t, expErr)
+		require.NoError(t, actErr)
+		require.Equal(t, len(expTxs), len(actTxs))
+
+		for i := 0; i < len(expTxs); i++ {
+			assertTxEqual(t, *expTxs[i], *actTxs[i])
+		}
+	})
+}
+
 // assertTxEqual asserts that two transactions are equal
 func assertTxEqual(t *testing.T, exp, act evmtxmgr.Tx) {
 	assert.Equal(t, exp.ID, act.ID)
