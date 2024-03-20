@@ -184,6 +184,10 @@ func validateGenericPluginSpec(ctx context.Context, spec *job.OCR2OracleSpec, rc
 		return errors.New("generic config invalid: must provide plugin name")
 	}
 
+	if p.OCRVersion != 2 && p.OCRVersion != 3 {
+		return errors.New("generic config invalid: only OCR version 2 and 3 are supported")
+	}
+
 	plugEnv := env.NewPlugin(p.PluginName)
 
 	command := p.Command
@@ -210,14 +214,16 @@ func validateGenericPluginSpec(ctx context.Context, spec *job.OCR2OracleSpec, rc
 		}
 	}
 
+	loopID := fmt.Sprintf("%s-%s-%s", p.PluginName, spec.ContractID, spec.GetID())
 	cmdFn, grpcOpts, err := rc.RegisterLOOP(plugins.CmdConfig{
-		ID:  fmt.Sprintf("%s-%s-%s", p.PluginName, spec.ContractID, spec.GetID()),
+		ID:  loopID,
 		Cmd: command,
 		Env: envVars,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to register loop: %w", err)
 	}
+	defer rc.UnregisterLOOP(loopID)
 
 	pluginLggr, _ := logger.New()
 	plugin := reportingplugins.NewLOOPPServiceValidation(pluginLggr, grpcOpts, cmdFn)
