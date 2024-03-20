@@ -597,7 +597,9 @@ contract NOPsSettlement is SetUp {
     bytes[] memory triggers = new bytes[](1);
     upkeepIds[0] = id;
     gasLimits[0] = 1000000;
-    triggers[0] = _encodeConditionalTrigger(AutoBase.ConditionalTrigger(uint32(block.number - 1), blockhash(block.number - 1)));
+    triggers[0] = _encodeConditionalTrigger(
+      AutoBase.ConditionalTrigger(uint32(block.number - 1), blockhash(block.number - 1))
+    );
     AutoBase.Report memory report = AutoBase.Report(
       uint256(1000000000),
       uint256(2000000000),
@@ -636,7 +638,7 @@ contract NOPsSettlement is SetUp {
     registry.settleNOPsOffchain();
 
     // verify that transmitters balance has been zeroed out
-    (active, index, balance,,) = registry.getTransmitterInfo(TRANSMITTERS[2]);
+    (active, index, balance, , ) = registry.getTransmitterInfo(TRANSMITTERS[2]);
     assertTrue(active);
     assertEq(2, index);
     assertEq(0, balance);
