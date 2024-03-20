@@ -915,7 +915,7 @@ func (s *v2_5Subscription) NativeBalance() *big.Int {
 }
 
 func (s *v2_5Subscription) Owner() common.Address {
-	return s.event.Owner
+	return s.event.SubOwner
 }
 
 func (s *v2_5Subscription) Consumers() []common.Address {

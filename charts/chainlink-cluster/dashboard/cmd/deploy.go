@@ -17,7 +17,7 @@ func main() {
 	db := lib.NewDashboard(DashboardName, cfg,
 		[]dashboard.Option{
 			dashboard.AutoRefresh("10s"),
-			dashboard.Tags([]string{"experimental", "generated"}),
+			dashboard.Tags([]string{"generated"}),
 		},
 	)
 	db.Add(
