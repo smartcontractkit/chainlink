@@ -14,6 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -61,6 +62,10 @@ func TestVRFV2Performance(t *testing.T) {
 		return
 	}
 
+	networkConfig := networks.MustGetSelectedNetworkConfig(testConfig.GetNetworkConfig())[0]
+	evmClient, err := env.GetEVMClient(networkConfig.ChainID)
+	require.NoError(t, err, "Getting EVM client shouldn't fail")
+
 	updatedLabels := UpdateLabels(labels, t)
 
 	l.Info().
@@ -80,9 +85,9 @@ func TestVRFV2Performance(t *testing.T) {
 			WithCustomCleanup(
 				func() {
 					teardown(t, vrfContracts.VRFV2Consumer[0], lc, updatedLabels, testReporter, string(testType), &testConfig)
-					if env.EVMClient.NetworkSimulated() {
+					if evmClient.NetworkSimulated() {
 						l.Info().
-							Str("Network Name", env.EVMClient.GetNetworkName()).
+							Str("Network Name", evmClient.GetNetworkName()).
 							Msg("Network is a simulated network. Skipping fund return for Coordinator Subscriptions.")
 					} else {
 						if *vrfv2Config.General.CancelSubsAfterTestRun {
@@ -104,7 +109,7 @@ func TestVRFV2Performance(t *testing.T) {
 			require.NoError(t, err)
 			consumers, err = vrfv2.DeployVRFV2Consumers(env.ContractDeployer, coordinator.Address(), 1)
 			require.NoError(t, err)
-			err = env.EVMClient.WaitForEvents()
+			err = evmClient.WaitForEvents()
 			require.NoError(t, err, vrfcommon.ErrWaitTXsComplete)
 			l.Info().
 				Str("Coordinator", *vrfv2Config.ExistingEnvConfig.CoordinatorAddress).
@@ -112,6 +117,7 @@ func TestVRFV2Performance(t *testing.T) {
 				Msg("Creating and funding subscriptions, deploying and adding consumers to subs")
 			subIDs, err = vrfv2.CreateFundSubsAndAddConsumers(
 				env,
+				networkConfig.ChainID,
 				big.NewFloat(*vrfv2Config.General.SubscriptionFundingAmountLink),
 				linkToken,
 				coordinator,
@@ -126,7 +132,7 @@ func TestVRFV2Performance(t *testing.T) {
 			subIDs = append(subIDs, *vrfv2Config.ExistingEnvConfig.SubID)
 		}
 
-		err = FundNodesIfNeeded(testcontext.Get(t), &testConfig, env.EVMClient, l)
+		err = FundNodesIfNeeded(testcontext.Get(t), &testConfig, evmClient, l)
 		require.NoError(t, err)
 
 		vrfContracts = &vrfcommon.VRFContracts{
@@ -154,9 +160,9 @@ func TestVRFV2Performance(t *testing.T) {
 				func() {
 					teardown(t, vrfContracts.VRFV2Consumer[0], lc, updatedLabels, testReporter, string(testType), &testConfig)
 
-					if env.EVMClient.NetworkSimulated() {
+					if evmClient.NetworkSimulated() {
 						l.Info().
-							Str("Network Name", env.EVMClient.GetNetworkName()).
+							Str("Network Name", evmClient.GetNetworkName()).
 							Msg("Network is a simulated network. Skipping fund return for Coordinator Subscriptions.")
 					} else {
 						if *testConfig.VRFv2.General.CancelSubsAfterTestRun {
@@ -185,6 +191,7 @@ func TestVRFV2Performance(t *testing.T) {
 
 		vrfContracts, subIDs, vrfKeyData, _, err = vrfv2.SetupVRFV2Environment(
 			env,
+			networkConfig.ChainID,
 			[]vrfcommon.VRFNodeType{vrfcommon.VRF},
 			&testConfig,
 			useVRFOwner,
@@ -192,7 +199,7 @@ func TestVRFV2Performance(t *testing.T) {
 			linkToken,
 			mockETHLinkFeed,
 			//register proving key against EOA address in order to return funds to this address
-			env.EVMClient.GetDefaultWallet().Address(),
+			evmClient.GetDefaultWallet().Address(),
 			0,
 			1,
 			*vrfv2Config.General.NumberOfSubToCreate,
@@ -200,7 +207,7 @@ func TestVRFV2Performance(t *testing.T) {
 		)
 		require.NoError(t, err, "error setting up VRF v2 env")
 	}
-	eoaWalletAddress = env.EVMClient.GetDefaultWallet().Address()
+	eoaWalletAddress = evmClient.GetDefaultWallet().Address()
 
 	l.Debug().Int("Number of Subs", len(subIDs)).Msg("Subs involved in the test")
 	for _, subID := range subIDs {
