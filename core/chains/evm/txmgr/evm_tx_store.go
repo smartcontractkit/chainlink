@@ -41,7 +41,7 @@ var (
 	ErrCouldNotGetReceipt = "could not get receipt"
 )
 
-// EvmTxStore combines the txmgr tx store interface and the interface needed for the the API to read from the tx DB
+// EvmTxStore combines the txmgr tx store interface and the interface needed for the API to read from the tx DB
 //
 //go:generate mockery --quiet --name EvmTxStore --output ./mocks/ --case=underscore
 type EvmTxStore interface {
