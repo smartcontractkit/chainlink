@@ -77,7 +77,7 @@ func NewTestEthBroadcaster(
 
 func TestEthBroadcaster_Lifecycle(t *testing.T) {
 	cfg, db := heavyweight.FullTestDBV2(t, nil)
-	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
+	txStore := cltest.NewTestTxStore(t, db)
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
@@ -135,7 +135,7 @@ func TestEthBroadcaster_Lifecycle(t *testing.T) {
 func TestEthBroadcaster_LoadNextSequenceMapFailure_StartupSuccess(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
-	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
+	txStore := cltest.NewTestTxStore(t, db)
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
@@ -167,7 +167,8 @@ func TestEthBroadcaster_LoadNextSequenceMapFailure_StartupSuccess(t *testing.T) 
 func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
-	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
+	ctx := testutils.Context(t)
+	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 	_, otherAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
@@ -232,8 +233,8 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 			State:          txmgrcommon.TxFatalError,
 		}
 
-		require.NoError(t, txStore.InsertTx(&etxUnconfirmed))
-		require.NoError(t, txStore.InsertTx(&etxWithError))
+		require.NoError(t, txStore.InsertTx(ctx, &etxUnconfirmed))
+		require.NoError(t, txStore.InsertTx(ctx, &etxWithError))
 
 		retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
 		assert.NoError(t, err)
@@ -307,9 +308,9 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		}), fromAddress).Return(commonclient.Successful, nil).Once()
 
 		// Insertion order deliberately reversed to test ordering
-		require.NoError(t, txStore.InsertTx(&expensiveEthTx))
-		require.NoError(t, txStore.InsertTx(&laterEthTx))
-		require.NoError(t, txStore.InsertTx(&earlierEthTx))
+		require.NoError(t, txStore.InsertTx(ctx, &expensiveEthTx))
+		require.NoError(t, txStore.InsertTx(ctx, &laterEthTx))
+		require.NoError(t, txStore.InsertTx(ctx, &earlierEthTx))
 
 		// Do the thing
 		retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
@@ -318,7 +319,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 
 		// Check earlierEthTx and it's attempt
 		// This was the earlier one sent so it has the lower nonce
-		earlierTransaction, err := txStore.FindTxWithAttempts(earlierEthTx.ID)
+		earlierTransaction, err := txStore.FindTxWithAttempts(ctx, earlierEthTx.ID)
 		require.NoError(t, err)
 		assert.False(t, earlierTransaction.Error.Valid)
 		require.NotNil(t, earlierTransaction.FromAddress)
@@ -349,7 +350,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 
 		// Check laterEthTx and it's attempt
 		// This was the later one sent so it has the higher nonce
-		laterTransaction, err := txStore.FindTxWithAttempts(laterEthTx.ID)
+		laterTransaction, err := txStore.FindTxWithAttempts(ctx, laterEthTx.ID)
 		require.NoError(t, err)
 		assert.False(t, earlierTransaction.Error.Valid)
 		require.NotNil(t, laterTransaction.FromAddress)
@@ -398,7 +399,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 
 		// Check eipTxWithAl and it's attempt
 		// This was the earlier one sent so it has the lower nonce
-		etx, err := txStore.FindTxWithAttempts(etx.ID)
+		etx, err := txStore.FindTxWithAttempts(ctx, etx.ID)
 		require.NoError(t, err)
 		assert.False(t, etx.Error.Valid)
 		require.NotNil(t, etx.FromAddress)
@@ -462,7 +463,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 			}
 
 			// Check ethtx was sent
-			ethTx, err := txStore.FindTxWithAttempts(ethTx.ID)
+			ethTx, err := txStore.FindTxWithAttempts(ctx, ethTx.ID)
 			require.NoError(t, err)
 			assert.Equal(t, txmgrcommon.TxUnconfirmed, ethTx.State)
 		})
@@ -485,7 +486,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 				assert.False(t, retryable)
 			}
 
-			ethTx, err := txStore.FindTxWithAttempts(ethTx.ID)
+			ethTx, err := txStore.FindTxWithAttempts(ctx, ethTx.ID)
 			require.NoError(t, err)
 			assert.Equal(t, txmgrcommon.TxUnconfirmed, ethTx.State)
 		})
@@ -509,7 +510,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 				assert.False(t, retryable)
 			}
 
-			ethTx, err := txStore.FindTxWithAttempts(ethTx.ID)
+			ethTx, err := txStore.FindTxWithAttempts(ctx, ethTx.ID)
 			require.NoError(t, err)
 			assert.Equal(t, txmgrcommon.TxFatalError, ethTx.State)
 			assert.True(t, ethTx.Error.Valid)
@@ -521,7 +522,8 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 func TestEthBroadcaster_TransmitChecking(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
-	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
+	ctx := testutils.Context(t)
+	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
 
@@ -553,7 +555,7 @@ func TestEthBroadcaster_TransmitChecking(t *testing.T) {
 		}
 
 		// Check ethtx was sent
-		ethTx, err := txStore.FindTxWithAttempts(ethTx.ID)
+		ethTx, err := txStore.FindTxWithAttempts(ctx, ethTx.ID)
 		require.NoError(t, err)
 		assert.Equal(t, txmgrcommon.TxUnconfirmed, ethTx.State)
 	})
@@ -576,7 +578,7 @@ func TestEthBroadcaster_TransmitChecking(t *testing.T) {
 		}
 
 		// Check ethtx was sent
-		ethTx, err := txStore.FindTxWithAttempts(ethTx.ID)
+		ethTx, err := txStore.FindTxWithAttempts(ctx, ethTx.ID)
 		require.NoError(t, err)
 		assert.Equal(t, txmgrcommon.TxUnconfirmed, ethTx.State)
 	})
@@ -593,7 +595,7 @@ func TestEthBroadcaster_TransmitChecking(t *testing.T) {
 		}
 
 		// Check ethtx was sent
-		ethTx, err := txStore.FindTxWithAttempts(ethTx.ID)
+		ethTx, err := txStore.FindTxWithAttempts(ctx, ethTx.ID)
 		require.NoError(t, err)
 		assert.Equal(t, txmgrcommon.TxFatalError, ethTx.State)
 		assert.True(t, ethTx.Error.Valid)
@@ -604,7 +606,7 @@ func TestEthBroadcaster_TransmitChecking(t *testing.T) {
 func TestEthBroadcaster_ProcessUnstartedEthTxs_OptimisticLockingOnEthTx(t *testing.T) {
 	// non-transactional DB needed because we deliberately test for FK violation
 	cfg, db := heavyweight.FullTestDBV2(t, nil)
-	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
+	txStore := cltest.NewTestTxStore(t, db)
 	ccfg := evmtest.NewChainScopedConfig(t, cfg)
 	evmcfg := txmgr.NewEvmTxmConfig(ccfg.EVM())
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
@@ -669,7 +671,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success_WithMultiplier(t *testing
 		lm := decimal.RequireFromString("1.3")
 		c.EVM[0].GasEstimator.LimitMultiplier = &lm
 	})
-	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
+	txStore := cltest.NewTestTxStore(t, db)
 
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
@@ -714,10 +716,11 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 	secondNonce := nextNonce + 1
 	cfg := configtest.NewGeneralConfig(t, nil)
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
+	ctx := testutils.Context(t)
 
 	t.Run("cannot be more than one transaction per address in an unfinished state", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
-		txStore := cltest.NewTestTxStore(t, db, cfg.Database())
+		txStore := cltest.NewTestTxStore(t, db)
 
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 		_, fromAddress := cltest.RandomKey{Nonce: nextNonce.Int64()}.MustInsertWithState(t, ethKeyStore)
@@ -744,15 +747,15 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 			State:          txmgrcommon.TxInProgress,
 		}
 
-		require.NoError(t, txStore.InsertTx(&firstInProgress))
-		err := txStore.InsertTx(&secondInProgress)
+		require.NoError(t, txStore.InsertTx(ctx, &firstInProgress))
+		err := txStore.InsertTx(ctx, &secondInProgress)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "ERROR: duplicate key value violates unique constraint \"idx_only_one_in_progress_tx_per_account_id_per_evm_chain_id\" (SQLSTATE 23505)")
 	})
 
 	t.Run("previous run assigned nonce but never broadcast", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
-		txStore := cltest.NewTestTxStore(t, db, cfg.Database())
+		txStore := cltest.NewTestTxStore(t, db)
 
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 		_, fromAddress := cltest.RandomKey{Nonce: nextNonce.Int64()}.MustInsertWithState(t, ethKeyStore)
@@ -779,7 +782,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		}
 
 		// Check it was saved correctly with its attempt
-		etx, err := txStore.FindTxWithAttempts(inProgressEthTx.ID)
+		etx, err := txStore.FindTxWithAttempts(ctx, inProgressEthTx.ID)
 		require.NoError(t, err)
 
 		assert.NotNil(t, etx.BroadcastAt)
@@ -791,7 +794,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 
 	t.Run("previous run assigned nonce and broadcast but it fatally errored before we could save", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
-		txStore := cltest.NewTestTxStore(t, db, cfg.Database())
+		txStore := cltest.NewTestTxStore(t, db)
 
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 		_, fromAddress := cltest.RandomKey{Nonce: nextNonce.Int64()}.MustInsertWithState(t, ethKeyStore)
@@ -816,7 +819,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		}
 
 		// Check it was saved correctly with its attempt
-		etx, err := txStore.FindTxWithAttempts(inProgressEthTx.ID)
+		etx, err := txStore.FindTxWithAttempts(ctx, inProgressEthTx.ID)
 		require.NoError(t, err)
 
 		assert.Nil(t, etx.BroadcastAt)
@@ -828,7 +831,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 
 	t.Run("previous run assigned nonce and broadcast and is now in mempool", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
-		txStore := cltest.NewTestTxStore(t, db, cfg.Database())
+		txStore := cltest.NewTestTxStore(t, db)
 
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 		_, fromAddress := cltest.RandomKey{Nonce: nextNonce.Int64()}.MustInsertWithState(t, ethKeyStore)
@@ -853,7 +856,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		}
 
 		// Check it was saved correctly with its attempt
-		etx, err := txStore.FindTxWithAttempts(inProgressEthTx.ID)
+		etx, err := txStore.FindTxWithAttempts(ctx, inProgressEthTx.ID)
 		require.NoError(t, err)
 
 		assert.NotNil(t, etx.BroadcastAt)
@@ -864,7 +867,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 
 	t.Run("previous run assigned nonce and broadcast and now the transaction has been confirmed", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
-		txStore := cltest.NewTestTxStore(t, db, cfg.Database())
+		txStore := cltest.NewTestTxStore(t, db)
 
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 		_, fromAddress := cltest.RandomKey{Nonce: nextNonce.Int64()}.MustInsertWithState(t, ethKeyStore)
@@ -889,7 +892,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		}
 
 		// Check it was saved correctly with its attempt
-		etx, err := txStore.FindTxWithAttempts(inProgressEthTx.ID)
+		etx, err := txStore.FindTxWithAttempts(ctx, inProgressEthTx.ID)
 		require.NoError(t, err)
 
 		require.NotNil(t, etx.BroadcastAt)
@@ -902,7 +905,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 	t.Run("previous run assigned nonce and then failed to reach node for some reason and node is still down", func(t *testing.T) {
 		failedToReachNodeError := context.DeadlineExceeded
 		db := pgtest.NewSqlxDB(t)
-		txStore := cltest.NewTestTxStore(t, db, cfg.Database())
+		txStore := cltest.NewTestTxStore(t, db)
 
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 		_, fromAddress := cltest.RandomKey{Nonce: nextNonce.Int64()}.MustInsertWithState(t, ethKeyStore)
@@ -926,7 +929,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		assert.True(t, retryable)
 
 		// Check it was left in the unfinished state
-		etx, err := txStore.FindTxWithAttempts(inProgressEthTx.ID)
+		etx, err := txStore.FindTxWithAttempts(ctx, inProgressEthTx.ID)
 		require.NoError(t, err)
 
 		assert.Nil(t, etx.BroadcastAt)
@@ -938,7 +941,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 
 	t.Run("previous run assigned nonce and broadcast transaction then crashed and rebooted with a different configured gas price", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
-		txStore := cltest.NewTestTxStore(t, db, cfg.Database())
+		txStore := cltest.NewTestTxStore(t, db)
 
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 		_, fromAddress := cltest.RandomKey{Nonce: nextNonce.Int64()}.MustInsertWithState(t, ethKeyStore)
@@ -974,7 +977,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		}
 
 		// Check it was saved correctly with its attempt
-		etx, err := txStore.FindTxWithAttempts(inProgressEthTx.ID)
+		etx, err := txStore.FindTxWithAttempts(ctx, inProgressEthTx.ID)
 		require.NoError(t, err)
 
 		assert.NotNil(t, etx.BroadcastAt)
@@ -1007,7 +1010,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
-	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
+	txStore := cltest.NewTestTxStore(t, db)
 
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
@@ -1040,7 +1043,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		var latestID int64
 		var etx1 txmgr.Tx
 		require.NoError(t, db.Get(&latestID, "SELECT max(id) FROM evm.txes"))
-		etx1, err = txStore.FindTxWithAttempts(latestID)
+		etx1, err = txStore.FindTxWithAttempts(ctx, latestID)
 		require.NoError(t, err)
 		require.NotNil(t, etx1.BroadcastAt)
 		assert.NotEqual(t, etx1.CreatedAt, *etx1.BroadcastAt)
@@ -1072,7 +1075,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 			assert.False(t, retryable)
 
 			// Check it was saved correctly with its attempt
-			etx, err = txStore.FindTxWithAttempts(etx.ID)
+			etx, err = txStore.FindTxWithAttempts(ctx, etx.ID)
 			require.NoError(t, err)
 
 			assert.Nil(t, etx.BroadcastAt)
@@ -1107,7 +1110,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 			}
 
 			t.Run("with erroring callback bails out", func(t *testing.T) {
-				require.NoError(t, txStore.InsertTx(&etx))
+				require.NoError(t, txStore.InsertTx(ctx, &etx))
 				fn := func(id uuid.UUID, result interface{}, err error) error {
 					return errors.New("something exploded in the callback")
 				}
@@ -1183,7 +1186,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		assert.True(t, retryable)
 
 		// Check it was saved with its attempt
-		etx, err = txStore.FindTxWithAttempts(etx.ID)
+		etx, err = txStore.FindTxWithAttempts(ctx, etx.ID)
 		require.NoError(t, err)
 
 		assert.Nil(t, etx.BroadcastAt)
@@ -1210,7 +1213,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		assert.False(t, retryable)
 
 		// Check it was saved with its attempt
-		etx, err = txStore.FindTxWithAttempts(etx.ID)
+		etx, err = txStore.FindTxWithAttempts(ctx, etx.ID)
 		require.NoError(t, err)
 
 		assert.NotNil(t, etx.BroadcastAt)
@@ -1239,7 +1242,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		assert.True(t, retryable)
 
 		// Check it was saved correctly with its attempt
-		etx, err = txStore.FindTxWithAttempts(etx.ID)
+		etx, err = txStore.FindTxWithAttempts(ctx, etx.ID)
 		require.NoError(t, err)
 
 		assert.Nil(t, etx.BroadcastAt)
@@ -1261,7 +1264,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		assert.False(t, retryable)
 
 		// Check it was saved correctly with its attempt
-		etx, err = txStore.FindTxWithAttempts(etx.ID)
+		etx, err = txStore.FindTxWithAttempts(ctx, etx.ID)
 		require.NoError(t, err)
 
 		assert.NotNil(t, etx.BroadcastAt)
@@ -1291,7 +1294,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		assert.True(t, retryable)
 
 		// Check it was saved correctly with its attempt
-		etx, err = txStore.FindTxWithAttempts(etx.ID)
+		etx, err = txStore.FindTxWithAttempts(ctx, etx.ID)
 		require.NoError(t, err)
 
 		assert.Nil(t, etx.BroadcastAt)
@@ -1313,7 +1316,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		assert.False(t, retryable)
 
 		// Check it was saved correctly with its attempt
-		etx, err = txStore.FindTxWithAttempts(etx.ID)
+		etx, err = txStore.FindTxWithAttempts(ctx, etx.ID)
 		require.NoError(t, err)
 
 		assert.NotNil(t, etx.BroadcastAt)
@@ -1342,7 +1345,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		assert.False(t, retryable)
 
 		// Check it was saved correctly with its attempt, in a broadcast state
-		etx, err = txStore.FindTxWithAttempts(etx.ID)
+		etx, err = txStore.FindTxWithAttempts(ctx, etx.ID)
 		require.NoError(t, err)
 
 		assert.NotNil(t, etx.BroadcastAt)
@@ -1384,7 +1387,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		assert.False(t, retryable)
 
 		// Check it was saved correctly with its attempt
-		etx, err = txStore.FindTxWithAttempts(etx.ID)
+		etx, err = txStore.FindTxWithAttempts(ctx, etx.ID)
 		require.NoError(t, err)
 
 		assert.NotNil(t, etx.BroadcastAt)
@@ -1404,7 +1407,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		FeeLimit:       gasLimit,
 		State:          txmgrcommon.TxUnstarted,
 	}
-	require.NoError(t, txStore.InsertTx(&etxUnfinished))
+	require.NoError(t, txStore.InsertTx(ctx, &etxUnfinished))
 
 	t.Run("failed to reach node for some reason", func(t *testing.T) {
 		failedToReachNodeError := context.DeadlineExceeded
@@ -1421,7 +1424,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		assert.True(t, retryable)
 
 		// Check it was left in the unfinished state
-		etx, err := txStore.FindTxWithAttempts(etxUnfinished.ID)
+		etx, err := txStore.FindTxWithAttempts(ctx, etxUnfinished.ID)
 		require.NoError(t, err)
 
 		assert.Nil(t, etx.BroadcastAt)
@@ -1451,7 +1454,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		assert.False(t, retryable)
 
 		// Check it was saved correctly with its attempt
-		etx, err := txStore.FindTxWithAttempts(etxUnfinished.ID)
+		etx, err := txStore.FindTxWithAttempts(ctx, etxUnfinished.ID)
 		require.NoError(t, err)
 
 		assert.NotNil(t, etx.BroadcastAt)
@@ -1508,7 +1511,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		assert.True(t, retryable)
 
 		// Check it was saved correctly with its attempt
-		etx, err = txStore.FindTxWithAttempts(etx.ID)
+		etx, err = txStore.FindTxWithAttempts(ctx, etx.ID)
 		require.NoError(t, err)
 
 		assert.Nil(t, etx.BroadcastAt)
@@ -1537,7 +1540,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		assert.Contains(t, err.Error(), nonceGapError)
 		assert.True(t, retryable)
 
-		etx, err = txStore.FindTxWithAttempts(etx.ID)
+		etx, err = txStore.FindTxWithAttempts(ctx, etx.ID)
 		require.NoError(t, err)
 
 		assert.Nil(t, etx.BroadcastAt)
@@ -1648,7 +1651,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_KeystoreErrors(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
-	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
+	txStore := cltest.NewTestTxStore(t, db)
 
 	realKeystore := cltest.NewKeyStore(t, db, cfg.Database())
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, realKeystore.Eth())
@@ -1684,7 +1687,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_KeystoreErrors(t *testing.T) {
 		assert.True(t, retryable)
 
 		// Check that the transaction is left in unstarted state
-		etx, err = txStore.FindTxWithAttempts(etx.ID)
+		etx, err = txStore.FindTxWithAttempts(ctx, etx.ID)
 		require.NoError(t, err)
 
 		assert.Equal(t, txmgrcommon.TxUnstarted, etx.State)
@@ -1705,7 +1708,7 @@ func TestEthBroadcaster_Trigger(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 
 	cfg := configtest.NewGeneralConfig(t, nil)
-	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
+	txStore := cltest.NewTestTxStore(t, db)
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
@@ -1728,7 +1731,7 @@ func TestEthBroadcaster_SyncNonce(t *testing.T) {
 	})
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	evmTxmCfg := txmgr.NewEvmTxmConfig(evmcfg.EVM())
-	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
+	txStore := cltest.NewTestTxStore(t, db)
 
 	kst := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	_, fromAddress := cltest.RandomKey{Disabled: false}.MustInsertWithState(t, kst)
@@ -1764,14 +1767,13 @@ func TestEthBroadcaster_NonceTracker_InProgressTx(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
-	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
+	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	checkerFactory := &txmgr.CheckerFactory{Client: ethClient}
-
 	lggr := logger.Test(t)
 	ctx := testutils.Context(t)
 
