@@ -20,8 +20,6 @@ require (
 	golang.org/x/sys v0.15.0 // indirect
 )
 
-replace github.com/grafana/grafana-foundation-sdk/go => github.com/grafana/grafana-foundation-sdk/go v0.0.0-20240314112857-a7c9c6d0044c
-
 replace (
 	github.com/go-kit/log => github.com/go-kit/log v0.2.1
 
