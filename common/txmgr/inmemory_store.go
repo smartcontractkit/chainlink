@@ -626,18 +626,18 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Delet
 
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxsRequiringResubmissionDueToInsufficientFunds(_ context.Context, address ADDR, chainID CHAIN_ID) ([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
 	if ms.chainID.String() != chainID.String() {
-		return nil, fmt.Errorf("find_txs_requiring_resubmission_due_to_insufficient_funds: %w", ErrInvalidChainID)
+		return nil, nil
 	}
 
 	ms.addressStatesLock.RLock()
 	defer ms.addressStatesLock.RUnlock()
 	as, ok := ms.addressStates[address]
 	if !ok {
-		return nil, fmt.Errorf("find_txs_requiring_resubmission_due_to_insufficient_funds: %w", ErrAddressNotFound)
+		return nil, nil
 	}
 
 	filter := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
-		if tx.TxAttempts == nil || len(tx.TxAttempts) == 0 {
+		if len(tx.TxAttempts) == 0 {
 			return false
 		}
 		for _, attempt := range tx.TxAttempts {
@@ -650,8 +650,13 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 	states := []txmgrtypes.TxState{TxUnconfirmed}
 	txs := as.findTxs(states, filter)
 	// sort by sequence ASC
-	sort.Slice(txs, func(i, j int) bool {
-		return (*txs[i].Sequence).Int64() < (*txs[j].Sequence).Int64()
+	slices.SortFunc(txs, func(a, b txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) int {
+		aSequence, bSequence := a.Sequence, b.Sequence
+		if aSequence == nil || bSequence == nil {
+			return 0
+		}
+
+		return cmp.Compare((*aSequence).Int64(), (*bSequence).Int64())
 	})
 
 	etxs := make([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], len(txs))

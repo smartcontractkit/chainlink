@@ -14,6 +14,7 @@ import (
 	commontxmgr "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmgas "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	evmtxmgr "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -702,6 +703,98 @@ func TestInMemoryStore_CountTransactionsByState(t *testing.T) {
 		require.NoError(t, expErr)
 		require.NoError(t, actErr)
 		assert.Equal(t, expCount, actCount)
+	})
+}
+
+func TestInMemoryStore_FindTxsRequiringResubmissionDueToInsufficientEth(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
+	persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+	kst := cltest.NewKeyStore(t, db, dbcfg)
+	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
+	_, otherAddress := cltest.MustInsertRandomKey(t, kst.Eth())
+
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	lggr := logger.TestSugared(t)
+	chainID := ethClient.ConfiguredChainID()
+	ctx := context.Background()
+
+	inMemoryStore, err := commontxmgr.NewInMemoryStore[
+		*big.Int,
+		common.Address, common.Hash, common.Hash,
+		*evmtypes.Receipt,
+		evmtypes.Nonce,
+		evmgas.EvmFee,
+	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	require.NoError(t, err)
+
+	t.Run("no results", func(t *testing.T) {
+		ctx := testutils.Context(t)
+		expTxs, expErr := persistentStore.FindTxsRequiringResubmissionDueToInsufficientFunds(ctx, fromAddress, chainID)
+		actTxs, actErr := inMemoryStore.FindTxsRequiringResubmissionDueToInsufficientFunds(ctx, fromAddress, chainID)
+		require.NoError(t, expErr)
+		require.NoError(t, actErr)
+		assert.Equal(t, len(expTxs), len(actTxs))
+	})
+
+	// Insert order is mixed up to test sorting
+	// insert the transaction into the persistent store
+	inTx_2 := mustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, persistentStore, 1, fromAddress)
+	inTx_3 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, persistentStore, 2, fromAddress)
+	attempt3_2 := cltest.NewLegacyEthTxAttempt(t, inTx_3.ID)
+	attempt3_2.State = txmgrtypes.TxAttemptInsufficientFunds
+	attempt3_2.TxFee.Legacy = assets.NewWeiI(100)
+	require.NoError(t, persistentStore.InsertTxAttempt(&attempt3_2))
+	inTx_1 := mustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, persistentStore, 0, fromAddress)
+	// insert the transaction into the in-memory store
+	require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx_2))
+	inTx_3.TxAttempts = append([]evmtxmgr.TxAttempt{attempt3_2}, inTx_3.TxAttempts...)
+	require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx_3))
+	require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx_1))
+
+	// These should never be returned
+	// insert the transaction into the persistent store
+	otx_1 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, persistentStore, 3, fromAddress)
+	otx_2 := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, persistentStore, 4, 100, fromAddress)
+	otx_3 := mustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, persistentStore, 0, otherAddress)
+	// insert the transaction into the in-memory store
+	require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &otx_1))
+	require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &otx_2))
+	require.NoError(t, inMemoryStore.XXXTestInsertTx(otherAddress, &otx_3))
+
+	t.Run("return all eth_txes with at least one attempt that is in insufficient_eth state", func(t *testing.T) {
+		ctx := testutils.Context(t)
+		expTxs, expErr := persistentStore.FindTxsRequiringResubmissionDueToInsufficientFunds(ctx, fromAddress, chainID)
+		actTxs, actErr := inMemoryStore.FindTxsRequiringResubmissionDueToInsufficientFunds(ctx, fromAddress, chainID)
+		require.NoError(t, expErr)
+		require.NoError(t, actErr)
+
+		assert.Equal(t, len(expTxs), len(actTxs))
+		for i := 0; i < len(expTxs); i++ {
+			assertTxEqual(t, *expTxs[i], *actTxs[i])
+		}
+	})
+
+	t.Run("does not return txes with different chainID", func(t *testing.T) {
+		wrongChainID := big.NewInt(999)
+		ctx := testutils.Context(t)
+		expTxs, expErr := persistentStore.FindTxsRequiringResubmissionDueToInsufficientFunds(ctx, fromAddress, wrongChainID)
+		actTxs, actErr := inMemoryStore.FindTxsRequiringResubmissionDueToInsufficientFunds(ctx, fromAddress, wrongChainID)
+		require.NoError(t, expErr)
+		require.NoError(t, actErr)
+		assert.Equal(t, len(expTxs), len(actTxs))
+	})
+
+	t.Run("does not return txes with different fromAddress", func(t *testing.T) {
+		anotherFromAddress := common.Address{}
+		ctx := testutils.Context(t)
+		expTxs, expErr := persistentStore.FindTxsRequiringResubmissionDueToInsufficientFunds(ctx, anotherFromAddress, chainID)
+		actTxs, actErr := inMemoryStore.FindTxsRequiringResubmissionDueToInsufficientFunds(ctx, anotherFromAddress, chainID)
+		require.NoError(t, expErr)
+		require.NoError(t, actErr)
+		assert.Equal(t, len(expTxs), len(actTxs))
 	})
 }
 
