@@ -26,7 +26,7 @@ import (
 var _ TxmClient = (*evmTxmClient)(nil)
 
 type evmTxmClient struct {
-	client client.Client
+	client    client.Client
 	chainType config.ChainType
 }
 
@@ -187,7 +187,7 @@ func (c *evmTxmClient) CallContract(ctx context.Context, a TxAttempt, blockNumbe
 func (c *evmTxmClient) SimulateTransaction(ctx context.Context, from common.Address, to common.Address, data []byte) error {
 	msg := ethereum.CallMsg{
 		From: from,
-		To: &to,
+		To:   &to,
 		Data: data,
 	}
 	return SimulateTransaction(ctx, c.client, c.chainType, msg)

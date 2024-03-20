@@ -19,7 +19,7 @@ const (
 	ChainScroll          ChainType = "scroll"
 	ChainWeMix           ChainType = "wemix"
 	ChainXDai            ChainType = "xdai" // Deprecated: use ChainGnosis instead
-	ChainZkEvm			 ChainType = "zkevm"
+	ChainZkEvm           ChainType = "zkevm"
 	ChainZkSync          ChainType = "zksync"
 )
 
