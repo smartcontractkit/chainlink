@@ -13,10 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/prommetrics"
 )
 
-const (
-	defaultLogLimitHigh = 10
-)
-
 type BufferedLog struct {
 	ID  *big.Int
 	Log logpoller.Log
@@ -74,9 +70,9 @@ func (b *logBuffer) SetConfig(lookback, logLimitHigh int) {
 	b.bufferSize.Store(int32(lookback))
 	b.logLimitHigh.Store(int32(logLimitHigh))
 
-	cap := uint(logLimitHigh * lookback)
+	c := uint(logLimitHigh * lookback)
 	for _, ub := range b.upkeepBuffers {
-		ub.setConfig(cap)
+		ub.setConfig(c)
 	}
 }
 
@@ -97,7 +93,7 @@ func (b *logBuffer) Enqueue(uid *big.Int, logs ...logpoller.Log) (int, int) {
 	if blockThreshold <= 0 {
 		blockThreshold = 1
 	}
-	buf.lggr.Debugw("Enqueuing logs", "blockThreshold", blockThreshold, "logsLatestBlock", latestBlock, "lastBlockSeen", b.lastBlockSeen.Load(), "logs", len(logs), "upkeepID", uid.String(), "upkeepBufferSize", buf.size(), "upkeepBufferCap", buf.cap.Load())
+	buf.lggr.Debugw("Enqueuing logs", "blockThreshold", blockThreshold, "logsLatestBlock", latestBlock, "lastBlockSeen", b.lastBlockSeen.Load(), "logs", len(logs), "upkeepID", uid.String(), "upkeepBufferSize", buf.size(), "upkeepBufferCap", buf.capacity.Load())
 	return buf.enqueue(blockThreshold, logs...)
 }
 
@@ -168,8 +164,8 @@ func (b *logBuffer) setUpkeepBuffer(uid *big.Int, buf *upkeepLogBuffer) {
 type upkeepLogBuffer struct {
 	lggr logger.Logger
 
-	id  *big.Int
-	cap *atomic.Int32
+	id       *big.Int
+	capacity *atomic.Int32
 
 	q       []logpoller.Log
 	visited map[string]int64
@@ -177,19 +173,19 @@ type upkeepLogBuffer struct {
 }
 
 func newUpkeepLogBuffer(lggr logger.Logger, id *big.Int, capacity int) *upkeepLogBuffer {
-	cap := new(atomic.Int32)
-	cap.Add(int32(capacity))
+	c := new(atomic.Int32)
+	c.Add(int32(capacity))
 	return &upkeepLogBuffer{
-		lggr:    lggr.With("upkeepID", id.String()),
-		id:      id,
-		cap:     cap,
-		q:       make([]logpoller.Log, 0, capacity),
-		visited: make(map[string]int64),
+		lggr:     lggr.With("upkeepID", id.String()),
+		id:       id,
+		capacity: c,
+		q:        make([]logpoller.Log, 0, capacity),
+		visited:  make(map[string]int64),
 	}
 }
 
 func (ub *upkeepLogBuffer) setConfig(capacity uint) {
-	ub.cap.Store(int32(capacity))
+	ub.capacity.Store(int32(capacity))
 }
 
 // size returns the total number of logs in the buffer.
@@ -291,7 +287,7 @@ func (ub *upkeepLogBuffer) enqueue(blockThreshold int64, logsToAdd ...logpoller.
 	var dropped int
 	if added > 0 {
 		dropped = ub.clean(blockThreshold)
-		ub.lggr.Debugw("Enqueued logs", "added", added, "dropped", dropped, "blockThreshold", blockThreshold, "q size", len(ub.q), "maxLogs", ub.cap.Load(), "visited size", len(ub.visited))
+		ub.lggr.Debugw("Enqueued logs", "added", added, "dropped", dropped, "blockThreshold", blockThreshold, "q size", len(ub.q), "maxLogs", ub.capacity.Load(), "visited size", len(ub.visited))
 	}
 
 	prommetrics.AutomationLogsInLogBuffer.Add(float64(added))
@@ -302,7 +298,7 @@ func (ub *upkeepLogBuffer) enqueue(blockThreshold int64, logsToAdd ...logpoller.
 // clean removes logs that are older than blockThreshold and drops logs if the limit for the
 // given upkeep was exceeded. Returns the number of logs that were dropped.
 func (ub *upkeepLogBuffer) clean(blockThreshold int64) int {
-	maxLogs := int(ub.cap.Load())
+	maxLogs := int(ub.capacity.Load())
 
 	sort.SliceStable(ub.q, func(i, j int) bool {
 		return LogSorter(ub.q[i], ub.q[j])
