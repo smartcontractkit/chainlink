@@ -18,6 +18,7 @@ import (
 	evmgas "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	evmtxmgr "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
@@ -859,6 +860,73 @@ func TestInMemoryStore_GetNonFatalTransactions(t *testing.T) {
 		require.NoError(t, actErr)
 		assert.Equal(t, len(expTxs), len(actTxs))
 	})
+}
+
+func TestInMemoryStore_FindTransactionsConfirmedInBlockRange(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
+	persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+	kst := cltest.NewKeyStore(t, db, dbcfg)
+	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
+
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	lggr := logger.TestSugared(t)
+	chainID := ethClient.ConfiguredChainID()
+	ctx := context.Background()
+
+	inMemoryStore, err := commontxmgr.NewInMemoryStore[
+		*big.Int,
+		common.Address, common.Hash, common.Hash,
+		*evmtypes.Receipt,
+		evmtypes.Nonce,
+		evmgas.EvmFee,
+	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	require.NoError(t, err)
+
+	t.Run("no results", func(t *testing.T) {
+		ctx := testutils.Context(t)
+		expTxs, expErr := persistentStore.FindTransactionsConfirmedInBlockRange(ctx, 10, 8, chainID)
+		actTxs, actErr := inMemoryStore.FindTransactionsConfirmedInBlockRange(ctx, 10, 8, chainID)
+		require.NoError(t, expErr)
+		require.NoError(t, actErr)
+		assert.Equal(t, len(expTxs), len(actTxs))
+	})
+
+	t.Run("find all transactions confirmed in range", func(t *testing.T) {
+		// insert the transaction into the persistent store
+		inTx_0 := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, persistentStore, 700, 8, fromAddress)
+		rec_0 := mustInsertEthReceipt(t, persistentStore, 8, utils.NewHash(), inTx_0.TxAttempts[0].Hash)
+		inTx_1 := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, persistentStore, 777, 9, fromAddress)
+		rec_1 := mustInsertEthReceipt(t, persistentStore, 9, utils.NewHash(), inTx_1.TxAttempts[0].Hash)
+		// insert the transaction into the in-memory store
+		inTx_0.TxAttempts[0].Receipts = append(inTx_0.TxAttempts[0].Receipts, evmtxmgr.DbReceiptToEvmReceipt(&rec_0))
+		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx_0))
+		inTx_1.TxAttempts[0].Receipts = append(inTx_1.TxAttempts[0].Receipts, evmtxmgr.DbReceiptToEvmReceipt(&rec_1))
+		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx_1))
+
+		ctx := testutils.Context(t)
+		expTxs, expErr := persistentStore.FindTransactionsConfirmedInBlockRange(ctx, 10, 8, chainID)
+		actTxs, actErr := inMemoryStore.FindTransactionsConfirmedInBlockRange(ctx, 10, 8, chainID)
+		require.NoError(t, expErr)
+		require.NoError(t, actErr)
+		require.Equal(t, len(expTxs), len(actTxs))
+		for i := 0; i < len(expTxs); i++ {
+			assertTxEqual(t, *expTxs[i], *actTxs[i])
+		}
+	})
+
+	t.Run("wrong chain ID", func(t *testing.T) {
+		wrongChainID := big.NewInt(999)
+		ctx := testutils.Context(t)
+		expTxs, expErr := persistentStore.FindTransactionsConfirmedInBlockRange(ctx, 10, 8, wrongChainID)
+		actTxs, actErr := inMemoryStore.FindTransactionsConfirmedInBlockRange(ctx, 10, 8, wrongChainID)
+		require.NoError(t, expErr)
+		require.NoError(t, actErr)
+		assert.Equal(t, len(expTxs), len(actTxs))
+	})
+
 }
 
 // assertTxEqual asserts that two transactions are equal
