@@ -20,12 +20,14 @@ import (
 func TestEthTxResource(t *testing.T) {
 	t.Parallel()
 
+	chainID := big.NewInt(54321)
 	tx := txmgr.Tx{
 		ID:             1,
 		EncodedPayload: []byte(`{"data": "is wilding out"}`),
 		FromAddress:    common.HexToAddress("0x1"),
 		ToAddress:      common.HexToAddress("0x2"),
-		FeeLimit:       uint32(5000),
+		FeeLimit:       uint64(5000),
+		ChainID:        chainID,
 		State:          txmgrcommon.TxConfirmed,
 		Value:          big.Int(assets.NewEthValue(1)),
 	}
@@ -52,7 +54,7 @@ func TestEthTxResource(t *testing.T) {
 			"sentAt": "",
 			"to": "0x0000000000000000000000000000000000000002",
 			"value": "0.000000000000000001",
-			"evmChainID": "0"
+			"evmChainID": "54321"
 		  }
 		}
 	  }
@@ -85,7 +87,7 @@ func TestEthTxResource(t *testing.T) {
 	{
 		"data": {
 		  "type": "evm_transactions",
-		  "id": "0x0000000000000000000000000000000000000000000000000000000000010203",
+		  "id": "54321/0x0000000000000000000000000000000000000000000000000000000000010203",
 		  "attributes": {
 			"state": "confirmed",
 			"data": "0x7b2264617461223a202269732077696c64696e67206f7574227d",
@@ -98,7 +100,7 @@ func TestEthTxResource(t *testing.T) {
 			"sentAt": "300",
 			"to": "0x0000000000000000000000000000000000000002",
 			"value": "0.000000000000000001",
-			"evmChainID": "0"
+			"evmChainID": "54321"
 		  }
 		}
 	  }

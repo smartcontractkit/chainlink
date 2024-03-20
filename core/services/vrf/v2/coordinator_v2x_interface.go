@@ -656,6 +656,7 @@ type RandomWordsFulfilled interface {
 	SubID() *big.Int
 	Payment() *big.Int
 	Raw() types.Log
+	NativePayment() bool
 }
 
 func NewV2RandomWordsFulfilled(event *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled) RandomWordsFulfilled {
@@ -724,6 +725,10 @@ func (rwf *v2_5RandomWordsFulfilled) Payment() *big.Int {
 
 func (rwf *v2_5RandomWordsFulfilled) Raw() types.Log {
 	return rwf.event.Raw
+}
+
+func (rwf *v2_5RandomWordsFulfilled) NativePayment() bool {
+	return rwf.event.NativePayment
 }
 
 var (
@@ -910,7 +915,7 @@ func (s *v2_5Subscription) NativeBalance() *big.Int {
 }
 
 func (s *v2_5Subscription) Owner() common.Address {
-	return s.event.Owner
+	return s.event.SubOwner
 }
 
 func (s *v2_5Subscription) Consumers() []common.Address {

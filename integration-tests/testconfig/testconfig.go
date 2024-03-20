@@ -16,6 +16,8 @@ import (
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
+	"github.com/smartcontractkit/seth"
+
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	ctf_test_env "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
@@ -27,6 +29,7 @@ import (
 	keeper_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/keeper"
 	lp_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/log_poller"
 	ocr_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/ocr"
+	ocr2_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/ocr2"
 	vrf_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrf"
 	vrfv2_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2"
 	vrfv2plus_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2plus"
@@ -38,6 +41,7 @@ type GlobalTestConfig interface {
 	GetNetworkConfig() *ctf_config.NetworkConfig
 	GetPrivateEthereumNetworkConfig() *test_env.EthereumNetwork
 	GetPyroscopeConfig() *ctf_config.PyroscopeConfig
+	SethConfig
 }
 
 type UpgradeableChainlinkTestConfig interface {
@@ -68,8 +72,16 @@ type OcrTestConfig interface {
 	GetOCRConfig() *ocr_config.Config
 }
 
+type Ocr2TestConfig interface {
+	GetOCR2Config() *ocr2_config.Config
+}
+
 type NamedConfiguration interface {
 	GetConfigurationName() string
+}
+
+type SethConfig interface {
+	GetSethConfig() *seth.Config
 }
 
 type TestConfig struct {
@@ -79,6 +91,9 @@ type TestConfig struct {
 	Network                *ctf_config.NetworkConfig        `toml:"Network"`
 	Pyroscope              *ctf_config.PyroscopeConfig      `toml:"Pyroscope"`
 	PrivateEthereumNetwork *ctf_test_env.EthereumNetwork    `toml:"PrivateEthereumNetwork"`
+	WaspConfig             *ctf_config.WaspAutoBuildConfig  `toml:"WaspAutoBuild"`
+
+	Seth *seth.Config `toml:"Seth"`
 
 	Common     *Common                  `toml:"Common"`
 	Automation *a_config.Config         `toml:"Automation"`
@@ -86,6 +101,7 @@ type TestConfig struct {
 	Keeper     *keeper_config.Config    `toml:"Keeper"`
 	LogPoller  *lp_config.Config        `toml:"LogPoller"`
 	OCR        *ocr_config.Config       `toml:"OCR"`
+	OCR2       *ocr2_config.Config      `toml:"OCR2"`
 	VRF        *vrf_config.Config       `toml:"VRF"`
 	VRFv2      *vrfv2_config.Config     `toml:"VRFv2"`
 	VRFv2Plus  *vrfv2plus_config.Config `toml:"VRFv2Plus"`
@@ -202,6 +218,19 @@ func (c TestConfig) GetConfigurationName() string {
 	return c.ConfigurationName
 }
 
+func (c TestConfig) GetSethConfig() *seth.Config {
+	return c.Seth
+}
+
+func (c *TestConfig) AsBase64() (string, error) {
+	content, err := toml.Marshal(*c)
+	if err != nil {
+		return "", errors.Wrapf(err, "error marshaling test config")
+	}
+
+	return base64.StdEncoding.EncodeToString(content), nil
+}
+
 type Common struct {
 	ChainlinkNodeFunding *float64 `toml:"chainlink_node_funding"`
 }
@@ -275,12 +304,7 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 		case Automation:
 			return handleAutomationConfigOverride(logger, filename, configurationName, target, content)
 		default:
-			err := ctf_config.BytesToAnyTomlStruct(logger, filename, configurationName, &testConfig, content)
-			if err != nil {
-				return errors.Wrapf(err, "error reading file %s", filename)
-			}
-
-			return nil
+			return handleDefaultConfigOverride(logger, filename, configurationName, target, content)
 		}
 	}
 
@@ -355,6 +379,8 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 	logger.Debug().Msg("Validating test config")
 	err = testConfig.Validate()
 	if err != nil {
+		logger.Error().
+			Msg("Error validating test config. You might want refer to integration-tests/testconfig/README.md for more information.")
 		return TestConfig{}, errors.Wrapf(err, "error validating test config")
 	}
 
@@ -368,7 +394,7 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 
 func (c *TestConfig) readNetworkConfiguration() error {
 	// currently we need to read that kind of secrets only for network configuration
-	if c == nil {
+	if c.Network == nil {
 		c.Network = &ctf_config.NetworkConfig{}
 	}
 
@@ -389,22 +415,25 @@ func (c *TestConfig) readNetworkConfiguration() error {
 func (c *TestConfig) Validate() error {
 	defer func() {
 		if r := recover(); r != nil {
-			panic(fmt.Errorf("Panic during test config validation: '%v'. Most probably due to presence of partial product config", r))
+			panic(fmt.Errorf("panic during test config validation: '%v'. Most probably due to presence of partial product config", r))
 		}
 	}()
+
 	if c.ChainlinkImage == nil {
-		return fmt.Errorf("chainlink image config must be set")
+		return MissingImageInfoAsError("chainlink image config must be set")
 	}
-	if err := c.ChainlinkImage.Validate(); err != nil {
-		return errors.Wrapf(err, "chainlink image config validation failed")
+	if c.ChainlinkImage != nil {
+		if err := c.ChainlinkImage.Validate(); err != nil {
+			return MissingImageInfoAsError(fmt.Sprintf("chainlink image config validation failed: %s", err.Error()))
+		}
 	}
 	if c.ChainlinkUpgradeImage != nil {
 		if err := c.ChainlinkUpgradeImage.Validate(); err != nil {
-			return errors.Wrapf(err, "chainlink upgrade image config validation failed")
+			return MissingImageInfoAsError(fmt.Sprintf("chainlink upgrade image config validation failed: %s", err.Error()))
 		}
 	}
 	if err := c.Network.Validate(); err != nil {
-		return errors.Wrapf(err, "network config validation failed")
+		return NoSelectedNetworkInfoAsError(fmt.Sprintf("network config validation failed: %s", err.Error()))
 	}
 
 	if c.Logging == nil {
@@ -415,14 +444,7 @@ func (c *TestConfig) Validate() error {
 		return errors.Wrapf(err, "logging config validation failed")
 	}
 
-	// require Loki config only if these tests run locally
-	_, willUseRemoteRunner := os.LookupEnv(k8s_config.EnvVarJobImage)
-	_, isInsideK8s := os.LookupEnv(k8s_config.EnvVarInsideK8s)
-	if (!willUseRemoteRunner && !isInsideK8s) && slices.Contains(TestTypesWithLoki, c.ConfigurationName) {
-		if c.Logging.Loki == nil {
-			return fmt.Errorf("for local execution you must set Loki config in logging config")
-		}
-
+	if c.Logging.Loki != nil {
 		if err := c.Logging.Loki.Validate(); err != nil {
 			return errors.Wrapf(err, "loki config validation failed")
 		}
@@ -504,6 +526,11 @@ func (c *TestConfig) Validate() error {
 		}
 	}
 
+	if c.WaspConfig != nil {
+		if err := c.WaspConfig.Validate(); err != nil {
+			return errors.Wrapf(err, "WaspAutoBuildConfig validation failed")
+		}
+	}
 	return nil
 }
 
@@ -534,6 +561,56 @@ func handleAutomationConfigOverride(logger zerolog.Logger, filename, configurati
 	// override instead of merging
 	if (newConfig.Automation != nil && len(newConfig.Automation.Load) > 0) && (oldConfig != nil && oldConfig.Automation != nil && len(oldConfig.Automation.Load) > 0) {
 		target.Automation.Load = newConfig.Automation.Load
+	}
+
+	return nil
+}
+
+func handleDefaultConfigOverride(logger zerolog.Logger, filename, configurationName string, target *TestConfig, content []byte) error {
+	logger.Debug().Msgf("Handling default config override for %s", filename)
+	oldConfig := MustCopy(target)
+	newConfig := TestConfig{}
+
+	err := ctf_config.BytesToAnyTomlStruct(logger, filename, configurationName, &target, content)
+	if err != nil {
+		return errors.Wrapf(err, "error reading file %s", filename)
+	}
+
+	err = ctf_config.BytesToAnyTomlStruct(logger, filename, configurationName, &newConfig, content)
+	if err != nil {
+		return errors.Wrapf(err, "error reading file %s", filename)
+	}
+
+	// temporary fix for Duration not being correctly copied
+	if oldConfig != nil && oldConfig.Seth != nil && oldConfig.Seth.Networks != nil {
+		for i, old_network := range oldConfig.Seth.Networks {
+			for _, target_network := range target.Seth.Networks {
+				if old_network.ChainID == target_network.ChainID {
+					oldConfig.Seth.Networks[i].TxnTimeout = target_network.TxnTimeout
+				}
+			}
+		}
+	}
+
+	// override instead of merging
+	if (newConfig.Seth != nil && len(newConfig.Seth.Networks) > 0) && (oldConfig != nil && oldConfig.Seth != nil && len(oldConfig.Seth.Networks) > 0) {
+		networksToUse := map[string]*seth.Network{}
+		for i, old_network := range oldConfig.Seth.Networks {
+			for _, new_network := range newConfig.Seth.Networks {
+				if old_network.ChainID == new_network.ChainID {
+					oldConfig.Seth.Networks[i] = new_network
+					break
+				}
+				if _, ok := networksToUse[new_network.ChainID]; !ok {
+					networksToUse[new_network.ChainID] = new_network
+				}
+			}
+			networksToUse[old_network.ChainID] = oldConfig.Seth.Networks[i]
+		}
+		target.Seth.Networks = []*seth.Network{}
+		for _, network := range networksToUse {
+			target.Seth.Networks = append(target.Seth.Networks, network)
+		}
 	}
 
 	return nil

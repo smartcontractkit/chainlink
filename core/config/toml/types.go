@@ -15,10 +15,11 @@ import (
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+
 	"github.com/smartcontractkit/chainlink/v2/core/build"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/parse"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
@@ -55,6 +56,7 @@ type Core struct {
 	Insecure         Insecure         `toml:",omitempty"`
 	Tracing          Tracing          `toml:",omitempty"`
 	Mercury          Mercury          `toml:",omitempty"`
+	Capabilities     Capabilities     `toml:",omitempty"`
 }
 
 // SetFrom updates c with any non-nil values from f. (currently TOML field only!)
@@ -84,6 +86,7 @@ func (c *Core) SetFrom(f *Core) {
 	c.P2P.setFrom(&f.P2P)
 	c.Keeper.setFrom(&f.Keeper)
 	c.Mercury.setFrom(&f.Mercury)
+	c.Capabilities.setFrom(&f.Capabilities)
 
 	c.AutoPprof.setFrom(&f.AutoPprof)
 	c.Pyroscope.setFrom(&f.Pyroscope)
@@ -96,6 +99,10 @@ func (c *Core) ValidateConfig() (err error) {
 	_, verr := parse.HomeDir(*c.RootDir)
 	if err != nil {
 		err = multierr.Append(err, configutils.ErrInvalid{Name: "RootDir", Value: true, Msg: fmt.Sprintf("Failed to expand RootDir. Please use an explicit path: %s", verr)})
+	}
+
+	if (*c.OCR.Enabled || *c.OCR2.Enabled) && !*c.P2P.V2.Enabled {
+		err = multierr.Append(err, configutils.ErrInvalid{Name: "P2P.V2.Enabled", Value: false, Msg: "P2P required for OCR or OCR2. Please enable P2P or disable OCR/OCR2."})
 	}
 
 	return err
@@ -847,6 +854,7 @@ type JobPipeline struct {
 	ReaperInterval            *commonconfig.Duration
 	ReaperThreshold           *commonconfig.Duration
 	ResultWriteQueueDepth     *uint32
+	VerboseLogging            *bool
 
 	HTTPRequest JobPipelineHTTPRequest `toml:",omitempty"`
 }
@@ -869,6 +877,9 @@ func (j *JobPipeline) setFrom(f *JobPipeline) {
 	}
 	if v := f.ResultWriteQueueDepth; v != nil {
 		j.ResultWriteQueueDepth = v
+	}
+	if v := f.VerboseLogging; v != nil {
+		j.VerboseLogging = v
 	}
 	j.HTTPRequest.setFrom(&f.HTTPRequest)
 
@@ -970,7 +981,7 @@ type OCR struct {
 	// Optional
 	KeyBundleID          *models.Sha256Hash
 	SimulateTransactions *bool
-	TransmitterAddress   *ethkey.EIP55Address
+	TransmitterAddress   *types.EIP55Address
 	CaptureEATelemetry   *bool
 	TraceLogging         *bool
 }
@@ -1380,6 +1391,14 @@ func (m *MercurySecrets) ValidateConfig() (err error) {
 		urls[s] = struct{}{}
 	}
 	return err
+}
+
+type Capabilities struct {
+	Peering P2P `toml:",omitempty"`
+}
+
+func (c *Capabilities) setFrom(f *Capabilities) {
+	c.Peering.setFrom(&f.Peering)
 }
 
 type ThresholdKeyShareSecrets struct {

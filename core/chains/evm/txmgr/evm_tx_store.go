@@ -41,7 +41,7 @@ var (
 	ErrCouldNotGetReceipt = "could not get receipt"
 )
 
-// EvmTxStore combines the txmgr tx store interface and the interface needed for the the API to read from the tx DB
+// EvmTxStore combines the txmgr tx store interface and the interface needed for the API to read from the tx DB
 //
 //go:generate mockery --quiet --name EvmTxStore --output ./mocks/ --case=underscore
 type EvmTxStore interface {
@@ -167,7 +167,7 @@ type DbEthTx struct {
 	Value          assets.Eth
 	// GasLimit on the EthTx is always the conceptual gas limit, which is not
 	// necessarily the same as the on-chain encoded value (i.e. Optimism)
-	GasLimit uint32
+	GasLimit uint64
 	Error    nullv4.String
 	// BroadcastAt is updated every time an attempt for this eth_tx is re-sent
 	// In almost all cases it will be within a second or so of the actual send time.
@@ -276,7 +276,7 @@ type DbEthTxAttempt struct {
 	BroadcastBeforeBlockNum *int64
 	State                   string
 	CreatedAt               time.Time
-	ChainSpecificGasLimit   uint32
+	ChainSpecificGasLimit   uint64
 	TxType                  int
 	GasTipCap               *assets.Wei
 	GasFeeCap               *assets.Wei
@@ -1545,15 +1545,20 @@ func (o *evmTxStore) SaveReplacementInProgressAttempt(ctx context.Context, oldAt
 }
 
 // Finds earliest saved transaction that has yet to be broadcast from the given address
-func (o *evmTxStore) FindNextUnstartedTransactionFromAddress(ctx context.Context, etx *Tx, fromAddress common.Address, chainID *big.Int) error {
+func (o *evmTxStore) FindNextUnstartedTransactionFromAddress(ctx context.Context, fromAddress common.Address, chainID *big.Int) (*Tx, error) {
 	var cancel context.CancelFunc
 	ctx, cancel = o.mergeContexts(ctx)
 	defer cancel()
 	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
 	var dbEtx DbEthTx
+	etx := new(Tx)
 	err := qq.Get(&dbEtx, `SELECT * FROM evm.txes WHERE from_address = $1 AND state = 'unstarted' AND evm_chain_id = $2 ORDER BY value ASC, created_at ASC, id ASC`, fromAddress, chainID.String())
 	dbEtx.ToTx(etx)
-	return pkgerrors.Wrap(err, "failed to FindNextUnstartedTransactionFromAddress")
+	if err != nil {
+		return nil, pkgerrors.Wrap(err, "failed to FindNextUnstartedTransactionFromAddress")
+	}
+
+	return etx, nil
 }
 
 func (o *evmTxStore) UpdateTxFatalError(ctx context.Context, etx *Tx) error {
@@ -1735,26 +1740,6 @@ func (o *evmTxStore) HasInProgressTransaction(ctx context.Context, account commo
 	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
 	err = qq.Get(&exists, `SELECT EXISTS(SELECT 1 FROM evm.txes WHERE state = 'in_progress' AND from_address = $1 AND evm_chain_id = $2)`, account, chainID.String())
 	return exists, pkgerrors.Wrap(err, "hasInProgressTransaction failed")
-}
-
-func (o *evmTxStore) UpdateKeyNextSequence(newNextNonce, currentNextNonce evmtypes.Nonce, address common.Address, chainID *big.Int, qopts ...pg.QOpt) error {
-	qq := o.q.WithOpts(qopts...)
-	return qq.Transaction(func(tx pg.Queryer) error {
-		//  We filter by next_nonce here as an optimistic lock to make sure it
-		//  didn't get changed out from under us. Shouldn't happen but can't hurt.
-		res, err := tx.Exec(`UPDATE evm.key_states SET next_nonce = $1, updated_at = $2 WHERE address = $3 AND next_nonce = $4 AND evm_chain_id = $5`, newNextNonce.Int64(), time.Now(), address, currentNextNonce.Int64(), chainID.String())
-		if err != nil {
-			return pkgerrors.Wrap(err, "NonceSyncer#fastForwardNonceIfNecessary failed to update keys.next_nonce")
-		}
-		rowsAffected, err := res.RowsAffected()
-		if err != nil {
-			return pkgerrors.Wrap(err, "NonceSyncer#fastForwardNonceIfNecessary failed to get RowsAffected")
-		}
-		if rowsAffected == 0 {
-			return ErrKeyNotUpdated
-		}
-		return nil
-	})
 }
 
 func (o *evmTxStore) countTransactionsWithState(ctx context.Context, fromAddress common.Address, state txmgrtypes.TxState, chainID *big.Int) (count uint32, err error) {

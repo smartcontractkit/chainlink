@@ -6,8 +6,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/core/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
-	"github.com/smartcontractkit/chainlink/v2/core/services"
 )
 
 // L1Oracle provides interface for fetching L1-specific fee components if the chain is an L2.
@@ -15,7 +15,7 @@ import (
 //
 //go:generate mockery --quiet --name L1Oracle --output ./mocks/ --case=underscore
 type L1Oracle interface {
-	services.ServiceCtx
+	services.Service
 
 	GasPrice(ctx context.Context) (*assets.Wei, error)
 	GetGasCost(ctx context.Context, tx *types.Transaction, blockNum *big.Int) (*assets.Wei, error)

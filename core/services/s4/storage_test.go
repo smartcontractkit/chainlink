@@ -4,12 +4,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jonboulle/clockwork"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -27,7 +28,7 @@ var (
 func setupTestStorage(t *testing.T, now time.Time) (*mocks.ORM, s4.Storage) {
 	logger := logger.TestLogger(t)
 	orm := mocks.NewORM(t)
-	clock := utils.NewFixedClock(now)
+	clock := clockwork.NewFakeClock()
 	storage := s4.NewStorage(logger, constraints, orm, clock)
 	return orm, storage
 }

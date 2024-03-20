@@ -22,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/encoding"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	evmRelayTypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
@@ -125,7 +124,8 @@ func (oc *contractTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.
 	}
 
 	var destinationContract common.Address
-	if oc.contractVersion == 1 {
+	switch oc.contractVersion {
+	case 1:
 		oc.lggr.Debugw("FunctionsContractTransmitter: start", "reportLenBytes", len(report))
 		requests, err2 := oc.reportCodec.DecodeReport(report)
 		if err2 != nil {
@@ -152,7 +152,7 @@ func (oc *contractTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.
 			}
 		}
 		oc.lggr.Debugw("FunctionsContractTransmitter: ready", "nRequests", len(requests), "coordinatorContract", destinationContract.Hex())
-	} else {
+	default:
 		return fmt.Errorf("unsupported contract version: %d", oc.contractVersion)
 	}
 	payload, err := oc.contractABI.Pack("transmit", rawReportCtx, []byte(report), rs, ss, vs)
@@ -227,8 +227,7 @@ func (oc *contractTransmitter) LatestConfigDigestAndEpoch(ctx context.Context) (
 	if err != nil {
 		return ocrtypes.ConfigDigest{}, 0, err
 	}
-	latest, err := oc.lp.LatestLogByEventSigWithConfs(
-		oc.transmittedEventSig, *contractAddr, 1, pg.WithParentCtx(ctx))
+	latest, err := oc.lp.LatestLogByEventSigWithConfs(ctx, oc.transmittedEventSig, *contractAddr, 1)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			// No transmissions yet
@@ -254,14 +253,14 @@ func (oc *contractTransmitter) HealthReport() map[string]error {
 }
 func (oc *contractTransmitter) Name() string { return oc.lggr.Name() }
 
-func (oc *contractTransmitter) UpdateRoutes(activeCoordinator common.Address, proposedCoordinator common.Address) error {
+func (oc *contractTransmitter) UpdateRoutes(ctx context.Context, activeCoordinator common.Address, proposedCoordinator common.Address) error {
 	// transmitter only cares about the active coordinator
 	previousContract := oc.contractAddress.Swap(&activeCoordinator)
 	if previousContract != nil && *previousContract == activeCoordinator {
 		return nil
 	}
 	oc.lggr.Debugw("FunctionsContractTransmitter: updating routes", "previousContract", previousContract, "activeCoordinator", activeCoordinator)
-	err := oc.lp.RegisterFilter(logpoller.Filter{Name: transmitterFilterName(activeCoordinator), EventSigs: []common.Hash{oc.transmittedEventSig}, Addresses: []common.Address{activeCoordinator}})
+	err := oc.lp.RegisterFilter(ctx, logpoller.Filter{Name: transmitterFilterName(activeCoordinator), EventSigs: []common.Hash{oc.transmittedEventSig}, Addresses: []common.Address{activeCoordinator}})
 	if err != nil {
 		return err
 	}

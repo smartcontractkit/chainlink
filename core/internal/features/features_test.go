@@ -64,7 +64,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/keystest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
@@ -361,6 +360,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
+			ctx := testutils.Context(t)
 			// Simulate a consumer contract calling to obtain ETH quotes in 3 different currencies
 			// in a single callback.
 			config := configtest.NewGeneralConfigSimulated(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -371,7 +371,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 			b := operatorContracts.sim
 			app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, b)
 
-			sendingKeys, err := app.KeyStore.Eth().EnabledKeysForChain(testutils.SimulatedChainID)
+			sendingKeys, err := app.KeyStore.Eth().EnabledKeysForChain(ctx, testutils.SimulatedChainID)
 			require.NoError(t, err)
 			authorizedSenders := []common.Address{sendingKeys[0].Address}
 			tx, err := operatorContracts.operator.SetAuthorizedSenders(operatorContracts.user, authorizedSenders)
@@ -474,7 +474,7 @@ func setupAppForEthTx(t *testing.T, operatorContracts OperatorContracts) (app *c
 	app = cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, cfg, b, lggr)
 	b.Commit()
 
-	sendingKeys, err := app.KeyStore.Eth().EnabledKeysForChain(testutils.SimulatedChainID)
+	sendingKeys, err := app.KeyStore.Eth().EnabledKeysForChain(testutils.Context(t), testutils.SimulatedChainID)
 	require.NoError(t, err)
 	require.Len(t, sendingKeys, 1)
 
@@ -703,7 +703,7 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, portV2 int,
 
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, b, p2pKey)
 
-	sendingKeys, err := app.KeyStore.Eth().EnabledKeysForChain(testutils.SimulatedChainID)
+	sendingKeys, err := app.KeyStore.Eth().EnabledKeysForChain(testutils.Context(t), testutils.SimulatedChainID)
 	require.NoError(t, err)
 	transmitter := sendingKeys[0].Address
 
@@ -745,7 +745,7 @@ func setupForwarderEnabledNode(t *testing.T, owner *bind.TransactOpts, portV2 in
 
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, b, p2pKey)
 
-	sendingKeys, err := app.KeyStore.Eth().EnabledKeysForChain(testutils.SimulatedChainID)
+	sendingKeys, err := app.KeyStore.Eth().EnabledKeysForChain(testutils.Context(t), testutils.SimulatedChainID)
 	require.NoError(t, err)
 	transmitter := sendingKeys[0].Address
 
@@ -773,9 +773,9 @@ func setupForwarderEnabledNode(t *testing.T, owner *bind.TransactOpts, portV2 in
 	b.Commit()
 
 	// add forwarder address to be tracked in db
-	forwarderORM := forwarders.NewORM(app.GetSqlxDB(), logger.TestLogger(t), config.Database())
+	forwarderORM := forwarders.NewORM(app.GetDB())
 	chainID := ubig.Big(*b.Blockchain().Config().ChainID)
-	_, err = forwarderORM.CreateForwarder(forwarder, chainID)
+	_, err = forwarderORM.CreateForwarder(testutils.Context(t), forwarder, chainID)
 	require.NoError(t, err)
 
 	return app, p2pKey.PeerID().Raw(), transmitter, forwarder, key
@@ -814,7 +814,7 @@ func TestIntegration_OCR(t *testing.T) {
 			ports := freeport.GetN(t, numOracles)
 			for i := 0; i < numOracles; i++ {
 				app, peerID, transmitter, key := setupNode(t, owner, ports[i], b, func(c *chainlink.Config, s *chainlink.Secrets) {
-					c.EVM[0].FlagsContractAddress = ptr(ethkey.EIP55AddressFromAddress(flagsContractAddress))
+					c.EVM[0].FlagsContractAddress = ptr(evmtypes.EIP55AddressFromAddress(flagsContractAddress))
 					c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(test.eip1559)
 
 					c.P2P.V2.DefaultBootstrappers = &[]ocrcommontypes.BootstrapperLocator{
@@ -1035,7 +1035,7 @@ func TestIntegration_OCR_ForwarderFlow(t *testing.T) {
 		for i := 0; i < numOracles; i++ {
 			app, peerID, transmitter, forwarder, key := setupForwarderEnabledNode(t, owner, ports[i], b, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.Feature.LogPoller = ptr(true)
-				c.EVM[0].FlagsContractAddress = ptr(ethkey.EIP55AddressFromAddress(flagsContractAddress))
+				c.EVM[0].FlagsContractAddress = ptr(evmtypes.EIP55AddressFromAddress(flagsContractAddress))
 				c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(true)
 				c.P2P.V2.DefaultBootstrappers = &[]ocrcommontypes.BootstrapperLocator{
 					{PeerID: bootstrapPeerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapNodePortV2)}},
@@ -1333,7 +1333,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	estimator := chain.GasEstimator()
 	gasPrice, gasLimit, err := estimator.GetFee(testutils.Context(t), nil, 500_000, maxGasPrice)
 	require.NoError(t, err)
-	assert.Equal(t, uint32(500000), gasLimit)
+	assert.Equal(t, uint64(500000), gasLimit)
 	assert.Equal(t, "41.5 gwei", gasPrice.Legacy.String())
 	assert.Equal(t, initialDefaultGasPrice, chain.Config().EVM().GasEstimator().PriceDefault().Int64()) // unchanged
 
@@ -1360,7 +1360,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 
 func triggerAllKeys(t *testing.T, app *cltest.TestApplication) {
 	for _, chain := range app.GetRelayers().LegacyEVMChains().Slice() {
-		keys, err := app.KeyStore.Eth().EnabledKeysForChain(chain.ID())
+		keys, err := app.KeyStore.Eth().EnabledKeysForChain(testutils.Context(t), chain.ID())
 		require.NoError(t, err)
 		for _, k := range keys {
 			chain.TxManager().Trigger(k.Address)

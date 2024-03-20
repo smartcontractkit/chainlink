@@ -32,6 +32,8 @@ import (
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/keystore"
+	ksmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -42,15 +44,20 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	ksmocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 func makeTestEvmTxm(
 	t *testing.T, db *sqlx.DB, ethClient evmclient.Client, estimator gas.EvmFeeEstimator, ccfg txmgr.ChainConfig, fcfg txmgr.FeeConfig, txConfig evmconfig.Transactions, dbConfig txmgr.DatabaseConfig, listenerConfig txmgr.ListenerConfig, keyStore keystore.Eth) (txmgr.TxManager, error) {
 	lggr := logger.Test(t)
-	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewQConfig(true)), ethClient, lggr, 100*time.Millisecond, false, 2, 3, 2, 1000)
+	lpOpts := logpoller.Opts{
+		PollPeriod:               100 * time.Millisecond,
+		FinalityDepth:            2,
+		BackfillBatchSize:        3,
+		RpcBatchSize:             2,
+		KeepFinalizedBlocksDepth: 1000,
+	}
+	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr), ethClient, lggr, lpOpts)
 
 	// logic for building components (from evm/evm_txm.go) -------
 	lggr.Infow("Initializing EVM transaction manager",
@@ -62,6 +69,7 @@ func makeTestEvmTxm(
 	)
 
 	return txmgr.NewTxm(
+		db,
 		db,
 		ccfg,
 		fcfg,
@@ -106,7 +114,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 
 	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
 	toAddress := testutils.NewAddress()
-	gasLimit := uint32(1000)
+	gasLimit := uint64(1000)
 	payload := []byte{1, 2, 3}
 
 	config, dbConfig, evmConfig := txmgr.MakeTestConfigs(t)
@@ -302,9 +310,9 @@ func TestTxm_CreateTransaction(t *testing.T) {
 		evmConfig.MaxQueued = uint64(1)
 
 		// Create mock forwarder, mock authorizedsenders call.
-		form := forwarders.NewORM(db, logger.Test(t), cfg.Database())
+		form := forwarders.NewORM(db)
 		fwdrAddr := testutils.NewAddress()
-		fwdr, err := form.CreateForwarder(fwdrAddr, ubig.Big(cltest.FixtureChainID))
+		fwdr, err := form.CreateForwarder(testutils.Context(t), fwdrAddr, ubig.Big(cltest.FixtureChainID))
 		require.NoError(t, err)
 		require.Equal(t, fwdr.Address, fwdrAddr)
 
@@ -389,7 +397,7 @@ func TestTxm_CreateTransaction_OutOfEth(t *testing.T) {
 
 	fromAddress := thisKey.Address
 	evmFromAddress := fromAddress
-	gasLimit := uint32(1000)
+	gasLimit := uint64(1000)
 	toAddress := testutils.NewAddress()
 
 	config, dbConfig, evmConfig := txmgr.MakeTestConfigs(t)
@@ -481,11 +489,11 @@ func TestTxm_Lifecycle(t *testing.T) {
 	evmConfig.ReaperThreshold = 1 * time.Hour
 	evmConfig.ReaperInterval = 1 * time.Hour
 
-	kst.On("EnabledAddressesForChain", &cltest.FixtureChainID).Return([]common.Address{}, nil)
+	kst.On("EnabledAddressesForChain", mock.Anything, &cltest.FixtureChainID).Return([]common.Address{}, nil)
 
 	keyChangeCh := make(chan struct{})
 	unsub := cltest.NewAwaiter()
-	kst.On("SubscribeToKeyChanges").Return(keyChangeCh, unsub.ItHappened)
+	kst.On("SubscribeToKeyChanges", mock.Anything).Return(keyChangeCh, unsub.ItHappened)
 	estimator := gas.NewEstimator(logger.Test(t), ethClient, config, evmConfig.GasEstimator())
 	txm, err := makeTestEvmTxm(t, db, ethClient, estimator, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), dbConfig, dbConfig.Listener(), kst)
 	require.NoError(t, err)
@@ -506,7 +514,7 @@ func TestTxm_Lifecycle(t *testing.T) {
 	keyState := cltest.MustGenerateRandomKeyState(t)
 
 	addr := []common.Address{keyState.Address.Address()}
-	kst.On("EnabledAddressesForChain", &cltest.FixtureChainID).Return(addr, nil)
+	kst.On("EnabledAddressesForChain", mock.Anything, &cltest.FixtureChainID).Return(addr, nil)
 	ethClient.On("PendingNonceAt", mock.AnythingOfType("*context.cancelCtx"), common.Address{}).Return(uint64(0), nil).Maybe()
 	keyChangeCh <- struct{}{}
 
@@ -777,13 +785,13 @@ func withDefaults() func(*txmgr.TxRequest) {
 		tx.ToAddress = testutils.NewAddress()
 		tx.EncodedPayload = []byte{1, 2, 3}
 		tx.Value = big.Int(assets.NewEthValue(142))
-		tx.FeeLimit = uint32(1000000000)
+		tx.FeeLimit = uint64(1000000000)
 		tx.Strategy = txmgrcommon.NewSendEveryStrategy()
 		// Set default values for other fields if needed
 	}
 }
 
-func mustCreateUnstartedTx(t testing.TB, txStore txmgr.EvmTxStore, fromAddress common.Address, toAddress common.Address, encodedPayload []byte, gasLimit uint32, value big.Int, chainID *big.Int, opts ...interface{}) (tx txmgr.Tx) {
+func mustCreateUnstartedTx(t testing.TB, txStore txmgr.EvmTxStore, fromAddress common.Address, toAddress common.Address, encodedPayload []byte, gasLimit uint64, value big.Int, chainID *big.Int) (tx txmgr.Tx) {
 	txRequest := txmgr.TxRequest{
 		FromAddress:    fromAddress,
 		ToAddress:      toAddress,

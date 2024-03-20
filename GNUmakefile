@@ -27,10 +27,8 @@ gomod: ## Ensure chainlink's go dependencies are installed.
 	go mod download
 
 .PHONY: gomodtidy
-gomodtidy: ## Run go mod tidy on all modules.
-	go mod tidy
-	cd ./core/scripts && go mod tidy
-	cd ./integration-tests && go mod tidy
+gomodtidy: gomods ## Run go mod tidy on all modules.
+	gomods tidy
 
 .PHONY: godoc
 godoc: ## Install and run godoc
@@ -54,13 +52,13 @@ chainlink-dev: ## Build a dev build of chainlink binary.
 chainlink-test: ## Build a test build of chainlink binary.
 	go build $(GOFLAGS) .
 
-.PHONY: chainlink-local-start
-chainlink-local-start:
-	./chainlink -c /etc/node-secrets-volume/default.toml -c /etc/node-secrets-volume/overrides.toml -secrets /etc/node-secrets-volume/secrets.toml node start -d -p /etc/node-secrets-volume/node-password -a /etc/node-secrets-volume/apicredentials --vrfpassword=/etc/node-secrets-volume/apicredentials
-
 .PHONY: install-medianpoc
 install-medianpoc: ## Build & install the chainlink-medianpoc binary.
 	go install $(GOFLAGS) ./plugins/cmd/chainlink-medianpoc
+
+.PHONY: install-ocr3-capability
+install-ocr3-capability: ## Build & install the chainlink-ocr3-capability binary.
+	go install $(GOFLAGS) ./plugins/cmd/chainlink-ocr3-capability
 
 .PHONY: docker ## Build the chainlink docker image
 docker:
@@ -83,8 +81,8 @@ abigen: ## Build & install abigen.
 	./tools/bin/build_abigen
 
 .PHONY: generate
-generate: abigen codecgen mockery ## Execute all go:generate commands.
-	go generate -x ./...
+generate: abigen codecgen mockery protoc gomods ## Execute all go:generate commands.
+	gomods -w go generate -x ./...
 
 .PHONY: testscripts
 testscripts: chainlink-test ## Install and run testscript against testdata/scripts/* files.
@@ -111,6 +109,10 @@ presubmit: ## Format go files and imports.
 	gofmt -w .
 	go mod tidy
 
+.PHONY: gomods
+gomods: ## Install gomods
+	go install github.com/jmank88/gomods@v0.1.0
+
 .PHONY: mockery
 mockery: $(mockery) ## Install mockery.
 	go install github.com/vektra/mockery/v2@v2.38.0
@@ -118,6 +120,11 @@ mockery: $(mockery) ## Install mockery.
 .PHONY: codecgen
 codecgen: $(codecgen) ## Install codecgen
 	go install github.com/ugorji/go/codec/codecgen@v1.2.10
+
+.PHONY: protoc
+protoc: ## Install protoc
+	core/scripts/install-protoc.sh 25.1 /
+	go install google.golang.org/protobuf/cmd/protoc-gen-go@`go list -m -json google.golang.org/protobuf | jq -r .Version`
 
 .PHONY: telemetry-protobuf
 telemetry-protobuf: $(telemetry-protobuf) ## Generate telemetry protocol buffers.
@@ -135,7 +142,7 @@ config-docs: ## Generate core node configuration documentation
 .PHONY: golangci-lint
 golangci-lint: ## Run golangci-lint for all issues.
 	[ -d "./golangci-lint" ] || mkdir ./golangci-lint && \
-	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v1.55.2 golangci-lint run --max-issues-per-linter 0 --max-same-issues 0 > ./golangci-lint/$(shell date +%Y-%m-%d_%H:%M:%S).txt
+	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v1.56.2 golangci-lint run --max-issues-per-linter 0 --max-same-issues 0 > ./golangci-lint/$(shell date +%Y-%m-%d_%H:%M:%S).txt
 
 
 GORELEASER_CONFIG ?= .goreleaser.yaml

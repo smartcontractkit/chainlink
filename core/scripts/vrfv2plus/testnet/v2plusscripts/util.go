@@ -53,10 +53,12 @@ func DeployCoordinator(
 	coordinator, err := vrf_coordinator_v2_5.NewVRFCoordinatorV25(coordinatorAddress, e.Ec)
 	helpers.PanicErr(err)
 
-	linkTx, err := coordinator.SetLINKAndLINKNativeFeed(e.Owner,
-		common.HexToAddress(linkAddress), common.HexToAddress(linkEthAddress))
-	helpers.PanicErr(err)
-	helpers.ConfirmTXMined(context.Background(), e.Ec, linkTx, e.ChainID)
+	if linkAddress != "" && linkEthAddress != "" {
+		linkTx, err := coordinator.SetLINKAndLINKNativeFeed(e.Owner,
+			common.HexToAddress(linkAddress), common.HexToAddress(linkEthAddress))
+		helpers.PanicErr(err)
+		helpers.ConfirmTXMined(context.Background(), e.Ec, linkTx, e.ChainID)
+	}
 	return coordinatorAddress
 }
 
@@ -222,13 +224,14 @@ func WrapperDeploy(
 func WrapperConfigure(
 	e helpers.Environment,
 	wrapperAddress common.Address,
-	wrapperGasOverhead, coordinatorGasOverhead, premiumPercentage uint,
+	wrapperGasOverhead, coordinatorGasOverhead uint,
+	nativePremiumPercentage, linkPremiumPercentage uint,
 	keyHash string,
 	maxNumWords uint,
 	fallbackWeiPerUnitLink *big.Int,
 	stalenessSeconds uint32,
-	fulfillmentFlatFeeLinkPPM uint32,
 	fulfillmentFlatFeeNativePPM uint32,
+	fulfillmentFlatFeeLinkDiscountPPM uint32,
 ) {
 	wrapper, err := vrfv2plus_wrapper.NewVRFV2PlusWrapper(wrapperAddress, e.Ec)
 	helpers.PanicErr(err)
@@ -237,13 +240,14 @@ func WrapperConfigure(
 		e.Owner,
 		uint32(wrapperGasOverhead),
 		uint32(coordinatorGasOverhead),
-		uint8(premiumPercentage),
+		uint8(nativePremiumPercentage),
+		uint8(linkPremiumPercentage),
 		common.HexToHash(keyHash),
 		uint8(maxNumWords),
 		stalenessSeconds,
 		fallbackWeiPerUnitLink,
-		fulfillmentFlatFeeLinkPPM,
 		fulfillmentFlatFeeNativePPM,
+		fulfillmentFlatFeeLinkDiscountPPM,
 	)
 
 	helpers.PanicErr(err)
@@ -255,7 +259,6 @@ func WrapperConsumerDeploy(
 	link, wrapper common.Address,
 ) common.Address {
 	address, tx, _, err := vrfv2plus_wrapper_consumer_example.DeployVRFV2PlusWrapperConsumerExample(e.Owner, e.Ec,
-		link,
 		wrapper)
 	helpers.PanicErr(err)
 

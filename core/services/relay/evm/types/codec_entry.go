@@ -222,7 +222,7 @@ func getNativeAndCheckedTypes(curType *abi.Type) (reflect.Type, reflect.Type, er
 func createTupleType(curType *abi.Type, converter func(reflect.Type) reflect.Type) (reflect.Type, reflect.Type, error) {
 	if len(curType.TupleElems) == 0 {
 		if curType.TupleType == nil {
-			return nil, nil, fmt.Errorf("%w: unsupported solitidy type: %v", commontypes.ErrInvalidType, curType.String())
+			return nil, nil, fmt.Errorf("%w: unsupported solidity type: %v", commontypes.ErrInvalidType, curType.String())
 		}
 		return curType.TupleType, curType.TupleType, nil
 	}

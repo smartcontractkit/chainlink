@@ -2,14 +2,18 @@
 package actions
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 
@@ -26,7 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
-
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
@@ -35,7 +39,8 @@ import (
 // Example: When deploying 1000 contracts, stop every ContractDeploymentInterval have been deployed to wait before continuing
 var ContractDeploymentInterval = 200
 
-// FundChainlinkNodes will fund all of the provided Chainlink nodes with a set amount of native currency
+// FundChainlinkNodes will fund all of the provided Chainlink nodes with a set amountCreateOCRv2Jobs of native currency
+// Deprecated: we are moving away from blockchain.EVMClient, use actions_seth.FundChainlinkNodes
 func FundChainlinkNodes(
 	nodes []*client.ChainlinkK8sClient,
 	client blockchain.EVMClient,
@@ -299,6 +304,7 @@ func TeardownSuite(
 
 // TeardownRemoteSuite is used when running a test within a remote-test-runner, like for long-running performance and
 // soak tests
+// Deprecated: we are moving away from blockchain.EVMClient, use actions_seth.TeardownRemoteSuite
 func TeardownRemoteSuite(
 	t *testing.T,
 	namespace string,
@@ -483,4 +489,76 @@ func FundAddress(client blockchain.EVMClient, sendingKey string, fundingToSendEt
 func GetTxFromAddress(tx *types.Transaction) (string, error) {
 	from, err := types.Sender(types.LatestSignerForChainID(tx.ChainId()), tx)
 	return from.String(), err
+}
+
+// todo - move to CTF
+func GetTxByHash(ctx context.Context, client blockchain.EVMClient, hash common.Hash) (*types.Transaction, bool, error) {
+	return client.(*blockchain.EthereumMultinodeClient).
+		DefaultClient.(*blockchain.EthereumClient).
+		Client.
+		TransactionByHash(ctx, hash)
+}
+
+// todo - move to CTF
+func DecodeTxInputData(abiString string, data []byte) (map[string]interface{}, error) {
+	jsonABI, err := abi.JSON(strings.NewReader(abiString))
+	if err != nil {
+		return nil, err
+	}
+	methodSigData := data[:4]
+	inputsSigData := data[4:]
+	method, err := jsonABI.MethodById(methodSigData)
+	if err != nil {
+		return nil, err
+	}
+	inputsMap := make(map[string]interface{})
+	if err := method.Inputs.UnpackIntoMap(inputsMap, inputsSigData); err != nil {
+		return nil, err
+	}
+	return inputsMap, nil
+}
+
+// todo - move to EVMClient
+func WaitForBlockNumberToBe(
+	waitForBlockNumberToBe uint64,
+	client blockchain.EVMClient,
+	wg *sync.WaitGroup,
+	timeout time.Duration,
+	t testing.TB,
+) (uint64, error) {
+	blockNumberChannel := make(chan uint64)
+	errorChannel := make(chan error)
+	testContext, testCancel := context.WithTimeout(context.Background(), timeout)
+	defer testCancel()
+
+	ticker := time.NewTicker(time.Second * 1)
+	var blockNumber uint64
+	for {
+		select {
+		case <-testContext.Done():
+			ticker.Stop()
+			wg.Done()
+			return blockNumber,
+				fmt.Errorf("timeout waiting for Block Number to be: %d. Last recorded block number was: %d",
+					waitForBlockNumberToBe, blockNumber)
+		case <-ticker.C:
+			go func() {
+				currentBlockNumber, err := client.LatestBlockNumber(testcontext.Get(t))
+				if err != nil {
+					errorChannel <- err
+				}
+				blockNumberChannel <- currentBlockNumber
+			}()
+		case blockNumber = <-blockNumberChannel:
+			if blockNumber == waitForBlockNumberToBe {
+				ticker.Stop()
+				wg.Done()
+				return blockNumber, nil
+			}
+		case err := <-errorChannel:
+			ticker.Stop()
+			wg.Done()
+			return 0, err
+		}
+	}
 }

@@ -10,7 +10,8 @@ service Mercury {
 }
 
 message TransmitRequest {
-	bytes payload = 1;
+    bytes payload = 1;
+    uint32 reportFormat = 2;
 }
 
 message TransmitResponse {

@@ -58,8 +58,8 @@ func createTestDelegate(t *testing.T) (*blockhashstore.Delegate, *testData) {
 	kst := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	sendingKey, _ := cltest.MustInsertRandomKey(t, kst)
 	lp := &mocklp.LogPoller{}
-	lp.On("RegisterFilter", mock.Anything).Return(nil)
-	lp.On("LatestBlock", mock.Anything, mock.Anything).Return(logpoller.LogPollerBlock{}, nil)
+	lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
+	lp.On("LatestBlock", mock.Anything).Return(logpoller.LogPollerBlock{}, nil)
 
 	relayExtenders := evmtest.NewChainRelayExtenders(
 		t,
@@ -91,7 +91,7 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 
 	t.Run("happy", func(t *testing.T) {
 		spec := job.Job{BlockhashStoreSpec: &job.BlockhashStoreSpec{WaitBlocks: defaultWaitBlocks, EVMChainID: (*big.Big)(testutils.FixtureChainID)}}
-		services, err := delegate.ServicesForSpec(spec)
+		services, err := delegate.ServicesForSpec(testutils.Context(t), spec)
 
 		require.NoError(t, err)
 		require.Len(t, services, 1)
@@ -109,7 +109,7 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 			CoordinatorV2PlusAddress: &coordinatorV2Plus,
 			EVMChainID:               (*big.Big)(testutils.FixtureChainID),
 		}}
-		services, err := delegate.ServicesForSpec(spec)
+		services, err := delegate.ServicesForSpec(testutils.Context(t), spec)
 
 		require.NoError(t, err)
 		require.Len(t, services, 1)
@@ -117,7 +117,7 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 
 	t.Run("missing BlockhashStoreSpec", func(t *testing.T) {
 		spec := job.Job{BlockhashStoreSpec: nil}
-		_, err := delegate.ServicesForSpec(spec)
+		_, err := delegate.ServicesForSpec(testutils.Context(t), spec)
 		assert.Error(t, err)
 	})
 
@@ -125,18 +125,19 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 		spec := job.Job{BlockhashStoreSpec: &job.BlockhashStoreSpec{
 			EVMChainID: big.NewI(123),
 		}}
-		_, err := delegate.ServicesForSpec(spec)
+		_, err := delegate.ServicesForSpec(testutils.Context(t), spec)
 		assert.Error(t, err)
 	})
 
 	t.Run("missing EnabledKeysForChain", func(t *testing.T) {
-		_, err := testData.ethKeyStore.Delete(testData.sendingKey.ID())
+		ctx := testutils.Context(t)
+		_, err := testData.ethKeyStore.Delete(ctx, testData.sendingKey.ID())
 		require.NoError(t, err)
 
 		spec := job.Job{BlockhashStoreSpec: &job.BlockhashStoreSpec{
 			WaitBlocks: defaultWaitBlocks,
 		}}
-		_, err = delegate.ServicesForSpec(spec)
+		_, err = delegate.ServicesForSpec(testutils.Context(t), spec)
 		assert.Error(t, err)
 	})
 }
@@ -154,7 +155,7 @@ func TestDelegate_StartStop(t *testing.T) {
 		RunTimeout: testutils.WaitTimeout(t),
 		EVMChainID: (*big.Big)(testutils.FixtureChainID),
 	}}
-	services, err := delegate.ServicesForSpec(spec)
+	services, err := delegate.ServicesForSpec(testutils.Context(t), spec)
 
 	require.NoError(t, err)
 	require.Len(t, services, 1)

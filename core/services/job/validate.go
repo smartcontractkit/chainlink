@@ -27,6 +27,7 @@ var (
 		Stream:                  {},
 		VRF:                     {},
 		Webhook:                 {},
+		Workflow:                {},
 	}
 )
 

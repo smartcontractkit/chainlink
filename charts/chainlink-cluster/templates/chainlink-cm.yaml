@@ -40,15 +40,20 @@ data:
     AnnounceAddresses = ['0.0.0.0:6690']
     DeltaDial = '500ms'
     DeltaReconcile = '5s'
+    {{- range $chainCfg := $.Values.geth.chains }}
     [[EVM]]
-    ChainID = '1337'
+    ChainID = {{ $chainCfg.networkId | quote }}
     MinContractPayment = '0'
     AutoCreateKey = true
     FinalityDepth = 1
+    {{- if (hasKey $chainCfg "customEVMConfigToml") }}
+    {{- $chainCfg.customEVMConfigToml | nindent 4 }}
+    {{- end }}
     [[EVM.Nodes]]
-    Name = 'node-0'
-    WSURL = 'ws://geth:8546'
-    HTTPURL = 'http://geth:8544'
+    Name = 'node-{{ $chainCfg.networkId }}'
+    WSURL = 'ws://geth-{{ $chainCfg.networkId }}:8546'
+    HTTPURL = 'http://geth-{{ $chainCfg.networkId }}:8544'
+    {{- end }}
     [WebServer.TLS]
     HTTPSPort = 0
     {{ end }}

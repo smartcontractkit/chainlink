@@ -30,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flags_wrapper"
 	faw "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
@@ -623,7 +624,7 @@ func TestFluxMonitor_NewRound(t *testing.T) {
 	app := startApplication(t, fa, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.JobPipeline.HTTPRequest.DefaultTimeout = commonconfig.MustNewDuration(100 * time.Millisecond)
 		c.Database.Listener.FallbackPollInterval = commonconfig.MustNewDuration(1 * time.Second)
-		flags := ethkey.EIP55AddressFromAddress(fa.flagsContractAddress)
+		flags := types.EIP55AddressFromAddress(fa.flagsContractAddress)
 		c.EVM[0].FlagsContractAddress = &flags
 	})
 
@@ -689,7 +690,7 @@ ds1 -> ds1_parse
 		return lb.(log.BroadcasterInTest).TrackedAddressesCount()
 	}, testutils.WaitTimeout(t), 200*time.Millisecond).Should(gomega.BeNumerically(">=", 2))
 
-	// Have the the fake node start a new round
+	// Have the fake node start a new round
 	submitAnswer(t, answerParams{
 		fa:              &fa,
 		roundId:         1,
@@ -734,7 +735,7 @@ func TestFluxMonitor_HibernationMode(t *testing.T) {
 	app := startApplication(t, fa, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.JobPipeline.HTTPRequest.DefaultTimeout = commonconfig.MustNewDuration(100 * time.Millisecond)
 		c.Database.Listener.FallbackPollInterval = commonconfig.MustNewDuration(1 * time.Second)
-		flags := ethkey.EIP55AddressFromAddress(fa.flagsContractAddress)
+		flags := types.EIP55AddressFromAddress(fa.flagsContractAddress)
 		c.EVM[0].FlagsContractAddress = &flags
 	})
 

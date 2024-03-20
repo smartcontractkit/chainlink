@@ -4,16 +4,23 @@ import (
 	"fmt"
 	"sync"
 
+	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
-type StreamID = uint64
+// alias for easier refactoring
+type StreamID = llotypes.StreamID
 
 type Registry interface {
-	Get(streamID StreamID) (strm Stream, exists bool)
+	Getter
 	Register(streamID StreamID, spec pipeline.Spec, rrs ResultRunSaver) error
 	Unregister(streamID StreamID)
+}
+
+type Getter interface {
+	Get(streamID StreamID) (strm Stream, exists bool)
 }
 
 type streamRegistry struct {

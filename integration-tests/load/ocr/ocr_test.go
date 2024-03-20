@@ -5,10 +5,12 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/seth"
 	"github.com/smartcontractkit/wasp"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
+	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/k8s"
 )
@@ -22,14 +24,24 @@ var (
 
 func TestOCRLoad(t *testing.T) {
 	l := logging.GetTestLogger(t)
-	cc, msClient, cd, bootstrapNode, workerNodes, err := k8s.ConnectRemote(l)
-	require.NoError(t, err)
-	lt, err := SetupCluster(cc, cd, workerNodes)
-	require.NoError(t, err)
-	ocrInstances, err := SetupFeed(cc, msClient, cd, bootstrapNode, workerNodes, lt)
-	require.NoError(t, err)
 
 	config, err := tc.GetConfig("Load", tc.OCR)
+	require.NoError(t, err)
+
+	evmNetwork, msClient, bootstrapNode, workerNodes, err := k8s.ConnectRemote()
+	require.NoError(t, err)
+
+	readSethCfg := config.GetSethConfig()
+	require.NotNil(t, readSethCfg, "Seth config shouldn't be nil")
+
+	sethCfg := utils.MergeSethAndEvmNetworkConfigs(l, *evmNetwork, *readSethCfg)
+
+	seth, err := seth.NewClientWithConfig(&sethCfg)
+	require.NoError(t, err, "Error creating seth client")
+
+	lta, err := SetupCluster(l, seth, workerNodes)
+	require.NoError(t, err)
+	ocrInstances, err := SetupFeed(l, seth, lta, msClient, bootstrapNode, workerNodes)
 	require.NoError(t, err)
 
 	cfg := config.OCR
@@ -44,7 +56,7 @@ func TestOCRLoad(t *testing.T) {
 		CallTimeout:           cfg.Load.VerificationTimeout.Duration,
 		RateLimitUnitDuration: cfg.Load.RateLimitUnitDuration.Duration,
 		Schedule:              wasp.Plain(*cfg.Load.Rate, cfg.Load.TestDuration.Duration),
-		Gun:                   NewGun(l, cc, ocrInstances),
+		Gun:                   NewGun(l, seth, ocrInstances),
 		Labels:                CommonTestLabels,
 		LokiConfig:            wasp.NewLokiConfig(cfgl.Endpoint, cfgl.TenantId, cfgl.BasicAuth, cfgl.BearerToken),
 	}))
@@ -54,11 +66,21 @@ func TestOCRLoad(t *testing.T) {
 
 func TestOCRVolume(t *testing.T) {
 	l := logging.GetTestLogger(t)
-	cc, msClient, cd, bootstrapNode, workerNodes, err := k8s.ConnectRemote(l)
-	require.NoError(t, err)
-	lt, err := SetupCluster(cc, cd, workerNodes)
-	require.NoError(t, err)
 	config, err := tc.GetConfig("Volume", tc.OCR)
+	require.NoError(t, err)
+
+	evmNetwork, msClient, bootstrapNode, workerNodes, err := k8s.ConnectRemote()
+	require.NoError(t, err)
+
+	readSethCfg := config.GetSethConfig()
+	require.NotNil(t, readSethCfg, "Seth config shouldn't be nil")
+
+	sethCfg := utils.MergeSethAndEvmNetworkConfigs(l, *evmNetwork, *readSethCfg)
+
+	seth, err := seth.NewClientWithConfig(&sethCfg)
+	require.NoError(t, err, "Error creating seth client")
+
+	lta, err := SetupCluster(l, seth, workerNodes)
 	require.NoError(t, err)
 
 	cfg := config.OCR
@@ -71,7 +93,7 @@ func TestOCRVolume(t *testing.T) {
 		LoadType:    wasp.VU,
 		CallTimeout: cfg.Volume.VerificationTimeout.Duration,
 		Schedule:    wasp.Plain(*cfg.Volume.Rate, cfg.Volume.TestDuration.Duration),
-		VU:          NewVU(l, *cfg.Volume.VURequestsPerUnit, cfg.Volume.RateLimitUnitDuration.Duration, cc, lt, cd, bootstrapNode, workerNodes, msClient),
+		VU:          NewVU(l, seth, *cfg.Volume.VURequestsPerUnit, cfg.Volume.RateLimitUnitDuration.Duration, lta, bootstrapNode, workerNodes, msClient),
 		Labels:      CommonTestLabels,
 		LokiConfig:  wasp.NewLokiConfig(cfgl.Endpoint, cfgl.TenantId, cfgl.BasicAuth, cfgl.BearerToken),
 	}))

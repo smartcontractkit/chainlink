@@ -12,8 +12,8 @@ jobs:
       changes: ${{ steps.changes.outputs.src }}
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
-      - uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50 # v2.11.1
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
         id: changes
         with:
           # Foundry is only used for Solidity v0.8 contracts, therefore we can ignore
@@ -32,7 +32,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        product: [vrf, automation, llo-feeds, l2ep, functions, shared]
+        product: [vrf, automation, llo-feeds, l2ep, functions, keystone, shared]
     needs: [changes]
     name: Foundry Tests ${{ matrix.product }}
     # See https://github.com/foundry-rs/foundry/issues/3827
@@ -42,7 +42,7 @@ jobs:
     # passing required check for PRs that don't have filtered changes.
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
           submodules: recursive
 
@@ -55,7 +55,7 @@ jobs:
 
       - name: Install Foundry
         if: needs.changes.outputs.changes == 'true'
-        uses: foundry-rs/foundry-toolchain@v1
+        uses: foundry-rs/foundry-toolchain@8f1998e9878d786675189ef566a2e4bf24869773 # v1.2.0
         with:
           # Has to match the `make foundry` version.
           version: nightly-5b7e4cb3c882b28f3c32ba580de27ce7381f415a

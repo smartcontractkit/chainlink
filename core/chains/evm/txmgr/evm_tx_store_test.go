@@ -411,8 +411,8 @@ func TestORM_SetBroadcastBeforeBlockNum(t *testing.T) {
 	})
 
 	t.Run("only updates evm.tx_attempts for the current chain", func(t *testing.T) {
-		require.NoError(t, ethKeyStore.Add(fromAddress, testutils.SimulatedChainID))
-		require.NoError(t, ethKeyStore.Enable(fromAddress, testutils.SimulatedChainID))
+		require.NoError(t, ethKeyStore.Add(testutils.Context(t), fromAddress, testutils.SimulatedChainID))
+		require.NoError(t, ethKeyStore.Enable(testutils.Context(t), fromAddress, testutils.SimulatedChainID))
 		etxThisChain := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 1, fromAddress, cfg.EVM().ChainID())
 		etxOtherChain := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 0, fromAddress, testutils.SimulatedChainID)
 
@@ -1261,16 +1261,16 @@ func TestORM_FindNextUnstartedTransactionFromAddress(t *testing.T) {
 	t.Run("cannot find unstarted tx", func(t *testing.T) {
 		mustInsertInProgressEthTxWithAttempt(t, txStore, 13, fromAddress)
 
-		resultEtx := new(txmgr.Tx)
-		err := txStore.FindNextUnstartedTransactionFromAddress(testutils.Context(t), resultEtx, fromAddress, ethClient.ConfiguredChainID())
+		resultEtx, err := txStore.FindNextUnstartedTransactionFromAddress(testutils.Context(t), fromAddress, ethClient.ConfiguredChainID())
 		assert.ErrorIs(t, err, sql.ErrNoRows)
+		assert.Nil(t, resultEtx)
 	})
 
 	t.Run("finds unstarted tx", func(t *testing.T) {
 		mustCreateUnstartedGeneratedTx(t, txStore, fromAddress, &cltest.FixtureChainID)
-		resultEtx := new(txmgr.Tx)
-		err := txStore.FindNextUnstartedTransactionFromAddress(testutils.Context(t), resultEtx, fromAddress, ethClient.ConfiguredChainID())
+		resultEtx, err := txStore.FindNextUnstartedTransactionFromAddress(testutils.Context(t), fromAddress, ethClient.ConfiguredChainID())
 		require.NoError(t, err)
+		assert.NotNil(t, resultEtx)
 	})
 }
 
@@ -1389,7 +1389,7 @@ func TestORM_UpdateTxUnstartedToInProgress(t *testing.T) {
 		evmTxmCfg := txmgr.NewEvmTxmConfig(ccfg.EVM())
 		ec := evmtest.NewEthClientMockWithDefaultChain(t)
 		txMgr := txmgr.NewEvmTxm(ec.ConfiguredChainID(), evmTxmCfg, ccfg.EVM().Transactions(), nil, logger.Test(t), nil, nil,
-			nil, txStore, nil, nil, nil, nil, nil)
+			nil, txStore, nil, nil, nil, nil)
 		err := txMgr.XXXTestAbandon(fromAddress) // mark transaction as abandoned
 		require.NoError(t, err)
 
@@ -1620,7 +1620,7 @@ func TestORM_CheckTxQueueCapacity(t *testing.T) {
 
 	toAddress := testutils.NewAddress()
 	encodedPayload := []byte{1, 2, 3}
-	feeLimit := uint32(1000000000)
+	feeLimit := uint64(1000000000)
 	value := big.Int(assets.NewEthValue(142))
 	var maxUnconfirmedTransactions uint64 = 2
 
@@ -1713,7 +1713,7 @@ func TestORM_CreateTransaction(t *testing.T) {
 
 	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
 	toAddress := testutils.NewAddress()
-	gasLimit := uint32(1000)
+	gasLimit := uint64(1000)
 	payload := []byte{1, 2, 3}
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)

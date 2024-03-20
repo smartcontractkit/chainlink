@@ -38,17 +38,17 @@ func (d *Delegate) JobType() job.Type {
 	return job.Stream
 }
 
-func (d *Delegate) BeforeJobCreated(jb job.Job)                {}
-func (d *Delegate) AfterJobCreated(jb job.Job)                 {}
-func (d *Delegate) BeforeJobDeleted(jb job.Job)                {}
-func (d *Delegate) OnDeleteJob(jb job.Job, q pg.Queryer) error { return nil }
+func (d *Delegate) BeforeJobCreated(jb job.Job)                                     {}
+func (d *Delegate) AfterJobCreated(jb job.Job)                                      {}
+func (d *Delegate) BeforeJobDeleted(jb job.Job)                                     {}
+func (d *Delegate) OnDeleteJob(ctx context.Context, jb job.Job, q pg.Queryer) error { return nil }
 
-func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err error) {
+func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) (services []job.ServiceCtx, err error) {
 	if jb.StreamID == nil {
 		return nil, errors.New("streamID is required to be present for stream specs")
 	}
 	id := *jb.StreamID
-	lggr := d.lggr.With("streamID", id)
+	lggr := d.lggr.Named(fmt.Sprintf("%d", id)).With("streamID", id)
 
 	rrs := ocrcommon.NewResultRunSaver(d.runner, lggr, d.cfg.MaxSuccessfulRuns(), d.cfg.ResultWriteQueueDepth())
 	services = append(services, rrs, &StreamService{
@@ -77,12 +77,12 @@ func (s *StreamService) Start(_ context.Context) error {
 	if s.spec == nil {
 		return fmt.Errorf("pipeline spec unexpectedly missing for stream %q", s.id)
 	}
-	s.lggr.Debugf("Starting stream %q", s.id)
+	s.lggr.Debugf("Starting stream %d", s.id)
 	return s.registry.Register(s.id, *s.spec, s.rrs)
 }
 
 func (s *StreamService) Close() error {
-	s.lggr.Debugf("Stopping stream %q", s.id)
+	s.lggr.Debugf("Stopping stream %d", s.id)
 	s.registry.Unregister(s.id)
 	return nil
 }

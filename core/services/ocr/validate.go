@@ -12,9 +12,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/common/config"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 )
 
@@ -29,7 +29,7 @@ type OCRValidationConfig interface {
 	ContractSubscribeInterval() time.Duration
 	KeyBundleID() (string, error)
 	ObservationTimeout() time.Duration
-	TransmitterAddress() (ethkey.EIP55Address, error)
+	TransmitterAddress() (types.EIP55Address, error)
 }
 
 type insecureConfig interface {

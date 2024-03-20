@@ -49,7 +49,7 @@ func (d *Delegate) JobType() job.Type {
 }
 
 // ServicesForSpec satisfies the job.Delegate interface.
-func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
+func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.ServiceCtx, error) {
 	if jb.BlockHeaderFeederSpec == nil {
 		return nil, errors.Errorf("Delegate expects a BlockHeaderFeederSpec to be present, got %+v", jb)
 	}
@@ -70,14 +70,14 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			chain.Config().EVM().FinalityDepth(), jb.BlockHeaderFeederSpec.LookbackBlocks)
 	}
 
-	keys, err := d.ks.EnabledKeysForChain(chain.ID())
+	keys, err := d.ks.EnabledKeysForChain(ctx, chain.ID())
 	if err != nil {
 		return nil, errors.Wrap(err, "getting sending keys")
 	}
 	if len(keys) == 0 {
 		return nil, fmt.Errorf("missing sending keys for chain ID: %v", chain.ID())
 	}
-	if err = CheckFromAddressesExist(jb, d.ks); err != nil {
+	if err = CheckFromAddressesExist(ctx, jb, d.ks); err != nil {
 		return nil, err
 	}
 	fromAddresses := jb.BlockHeaderFeederSpec.FromAddresses
@@ -104,7 +104,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			return nil, errors.Wrap(err, "building V1 coordinator")
 		}
 		var coord *blockhashstore.V1Coordinator
-		coord, err = blockhashstore.NewV1Coordinator(c, lp)
+		coord, err = blockhashstore.NewV1Coordinator(ctx, c, lp)
 		if err != nil {
 			return nil, errors.Wrap(err, "building V1 coordinator")
 		}
@@ -118,7 +118,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			return nil, errors.Wrap(err, "building V2 coordinator")
 		}
 		var coord *blockhashstore.V2Coordinator
-		coord, err = blockhashstore.NewV2Coordinator(c, lp)
+		coord, err = blockhashstore.NewV2Coordinator(ctx, c, lp)
 		if err != nil {
 			return nil, errors.Wrap(err, "building V2 coordinator")
 		}
@@ -132,7 +132,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			return nil, errors.Wrap(err, "building V2 plus coordinator")
 		}
 		var coord *blockhashstore.V2PlusCoordinator
-		coord, err = blockhashstore.NewV2PlusCoordinator(c, lp)
+		coord, err = blockhashstore.NewV2PlusCoordinator(ctx, c, lp)
 		if err != nil {
 			return nil, errors.Wrap(err, "building V2 plus coordinator")
 		}
@@ -208,7 +208,7 @@ func (d *Delegate) BeforeJobCreated(spec job.Job) {}
 func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
 
 // OnDeleteJob satisfies the job.Delegate interface.
-func (d *Delegate) OnDeleteJob(spec job.Job, q pg.Queryer) error { return nil }
+func (d *Delegate) OnDeleteJob(ctx context.Context, spec job.Job, q pg.Queryer) error { return nil }
 
 // service is a job.Service that runs the BHS feeder every pollPeriod.
 type service struct {
@@ -269,9 +269,9 @@ func (s *service) runFeeder() {
 
 // CheckFromAddressesExist returns an error if and only if one of the addresses
 // in the BlockHeaderFeeder spec's fromAddresses field does not exist in the keystore.
-func CheckFromAddressesExist(jb job.Job, gethks keystore.Eth) (err error) {
+func CheckFromAddressesExist(ctx context.Context, jb job.Job, gethks keystore.Eth) (err error) {
 	for _, a := range jb.BlockHeaderFeederSpec.FromAddresses {
-		_, err2 := gethks.Get(a.Hex())
+		_, err2 := gethks.Get(ctx, a.Hex())
 		err = multierr.Append(err, err2)
 	}
 	return

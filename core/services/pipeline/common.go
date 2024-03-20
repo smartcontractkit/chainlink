@@ -44,6 +44,7 @@ const (
 	StreamJobType                  string = "stream"
 	VRFJobType                     string = "vrf"
 	WebhookJobType                 string = "webhook"
+	WorkflowJobType                string = "workflow"
 )
 
 //go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore
@@ -70,6 +71,7 @@ type (
 		MaxRunDuration() time.Duration
 		ReaperInterval() time.Duration
 		ReaperThreshold() time.Duration
+		VerboseLogging() bool
 	}
 
 	BridgeConfig interface {
@@ -199,8 +201,8 @@ func (result FinalResult) SingularResult() (Result, error) {
 // TaskSpecID will always be non-zero
 type TaskRunResult struct {
 	ID         uuid.UUID
-	Task       Task
-	TaskRun    TaskRun
+	Task       Task    `json:"-"`
+	TaskRun    TaskRun `json:"-"`
 	Result     Result
 	Attempts   uint
 	CreatedAt  time.Time
@@ -241,6 +243,16 @@ func (trrs TaskRunResults) FinalResult(l logger.Logger) FinalResult {
 		l.Panicw("Expected at least one task to be final", "tasks", trrs)
 	}
 	return fr
+}
+
+// Terminals returns all terminal task run results
+func (trrs TaskRunResults) Terminals() (terminals []TaskRunResult) {
+	for _, trr := range trrs {
+		if trr.IsTerminal() {
+			terminals = append(terminals, trr)
+		}
+	}
+	return
 }
 
 // GetNextTaskOf returns the task with the next id or nil if it does not exist
@@ -549,9 +561,9 @@ func CheckInputs(inputs []Result, minLen, maxLen, maxErrors int) ([]interface{},
 
 var ErrInvalidEVMChainID = errors.New("invalid EVM chain ID")
 
-func SelectGasLimit(ge config.GasEstimator, jobType string, specGasLimit *uint32) uint32 {
+func SelectGasLimit(ge config.GasEstimator, jobType string, specGasLimit *uint32) uint64 {
 	if specGasLimit != nil {
-		return *specGasLimit
+		return uint64(*specGasLimit)
 	}
 
 	jt := ge.LimitJobType()
@@ -572,7 +584,7 @@ func SelectGasLimit(ge config.GasEstimator, jobType string, specGasLimit *uint32
 	}
 
 	if jobTypeGasLimit != nil {
-		return *jobTypeGasLimit
+		return uint64(*jobTypeGasLimit)
 	}
 	return ge.LimitDefault()
 }
@@ -662,12 +674,22 @@ func getJsonNumberValue(value json.Number) (interface{}, error) {
 		}
 	} else {
 		f, err := value.Float64()
-		if err == nil {
-			result = f
-		} else {
+		if err != nil {
 			return nil, pkgerrors.Errorf("failed to parse json.Value: %v", err)
 		}
+		result = f
 	}
 
 	return result, nil
+}
+
+func selectBlock(block string) (string, error) {
+	if block == "" {
+		return "latest", nil
+	}
+	block = strings.ToLower(block)
+	if block == "pending" || block == "latest" {
+		return block, nil
+	}
+	return "", pkgerrors.Errorf("unsupported block param: %s", block)
 }

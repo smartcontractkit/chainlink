@@ -94,6 +94,10 @@ func (e *evmConfig) OCR2() OCR2 {
 	return &ocr2Config{c: e.c.OCR2}
 }
 
+func (e *evmConfig) ChainWriter() ChainWriter {
+	return &chainWriterConfig{c: e.c.ChainWriter}
+}
+
 func (e *evmConfig) GasEstimator() GasEstimator {
 	return &gasEstimatorConfig{c: e.c.GasEstimator, blockDelay: e.c.RPCBlockQueryDelay, transactionsMaxInFlight: e.c.Transactions.MaxInFlight, k: e.c.KeySpecific}
 }
@@ -130,6 +134,10 @@ func (e *evmConfig) LogKeepBlocksDepth() uint32 {
 	return *e.c.LogKeepBlocksDepth
 }
 
+func (e *evmConfig) BackupLogPollerBlockDelay() uint64 {
+	return *e.c.BackupLogPollerBlockDelay
+}
+
 func (e *evmConfig) NonceAutoSync() bool {
 	return *e.c.NonceAutoSync
 }
@@ -158,7 +166,7 @@ func (e *evmConfig) MinIncomingConfirmations() uint32 {
 }
 
 func (e *evmConfig) NodePool() NodePool {
-	return &nodePoolConfig{c: e.c.NodePool}
+	return &NodePoolConfig{C: e.c.NodePool}
 }
 
 func (e *evmConfig) NodeNoNewHeadsThreshold() time.Duration {
@@ -188,4 +196,8 @@ func (e *evmConfig) OperatorFactoryAddress() string {
 		return ""
 	}
 	return e.c.OperatorFactoryAddress.String()
+}
+
+func (e *evmConfig) LogPrunePageSize() uint32 {
+	return *e.c.LogPrunePageSize
 }
