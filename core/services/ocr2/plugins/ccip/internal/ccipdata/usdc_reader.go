@@ -96,6 +96,7 @@ func NewUSDCReader(lggr logger.Logger, jobID string, transmitter common.Address,
 			Name:      logpoller.FilterName(MESSAGE_SENT_FILTER_NAME, jobID, transmitter.Hex()),
 			EventSigs: []common.Hash{eventSig},
 			Addresses: []common.Address{transmitter},
+			Retention: CommitExecLogsRetention,
 		},
 		transmitterAddress: transmitter,
 	}

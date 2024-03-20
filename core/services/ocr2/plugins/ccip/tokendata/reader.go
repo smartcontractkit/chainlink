@@ -3,7 +3,7 @@ package tokendata
 import (
 	"errors"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
+	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 )
 
 var (

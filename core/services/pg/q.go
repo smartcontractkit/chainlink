@@ -10,21 +10,15 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
-
-	"github.com/jmoiron/sqlx"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 )
 
-var promSQLQueryTime = promauto.NewHistogram(prometheus.HistogramOpts{
-	Name:    "sql_query_timeout_percent",
-	Help:    "SQL query time as a pecentage of timeout.",
-	Buckets: []float64{10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120},
-})
+var promSQLQueryTime = sqlutil.PromSQLQueryTime
 
 // QOpt pattern for ORM methods aims to clarify usage and remove some common footguns, notably:
 //

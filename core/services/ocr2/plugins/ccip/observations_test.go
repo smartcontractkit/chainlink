@@ -15,9 +15,9 @@ import (
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store_1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
@@ -251,16 +251,22 @@ func TestAddressEncodingBackwardsCompatibility(t *testing.T) {
 	// make this test pass or if you removed a field, remove it from the expected fields slice.
 
 	t.Run("job spec config", func(t *testing.T) {
-		exp := []string{"cciptypes.Address OffRamp"}
+		exp := []string{"ccip.Address OffRamp"}
 
-		fields := testhelpers.FindStructFieldsOfCertainType("cciptypes.Address", config.CommitPluginJobSpecConfig{PriceGetterConfig: &config.DynamicPriceGetterConfig{}})
+		fields := testhelpers.FindStructFieldsOfCertainType(
+			"ccip.Address",
+			config.CommitPluginJobSpecConfig{PriceGetterConfig: &config.DynamicPriceGetterConfig{}},
+		)
 		assert.Equal(t, exp, fields)
 	})
 
 	t.Run("commit observation", func(t *testing.T) {
-		exp := []string{"map[cciptypes.Address]*big.Int TokenPricesUSD"}
+		exp := []string{"map[ccip.Address]*big.Int TokenPricesUSD"}
 
-		fields := testhelpers.FindStructFieldsOfCertainType("cciptypes.Address", CommitObservation{SourceGasPriceUSD: big.NewInt(0)})
+		fields := testhelpers.FindStructFieldsOfCertainType(
+			"ccip.Address",
+			CommitObservation{SourceGasPriceUSD: big.NewInt(0)},
+		)
 		assert.Equal(t, exp, fields)
 	})
 

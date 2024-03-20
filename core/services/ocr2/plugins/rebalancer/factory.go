@@ -51,6 +51,8 @@ func (p PluginFactory) buildRebalancer() (liquidityrebalancer.Rebalancer, error)
 	switch p.config.RebalancerConfig.Type {
 	case models.RebalancerTypePingPong:
 		return liquidityrebalancer.NewPingPong(), nil
+	case models.RebalancerTypeMinLiquidity:
+		return liquidityrebalancer.NewMinLiquidityRebalancer(p.lggr), nil
 	default:
 		return nil, fmt.Errorf("invalid rebalancer type %s", p.config.RebalancerConfig.Type)
 	}

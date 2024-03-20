@@ -16,9 +16,9 @@ import (
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
@@ -727,7 +727,7 @@ func (r *ExecutionReportingPlugin) buildReport(ctx context.Context, lggr logger.
 			return false
 		}
 
-		encoded, err2 := r.offRampReader.EncodeExecutionReport(report)
+		encoded, err2 := r.offRampReader.EncodeExecutionReport(ctx, report)
 		if err2 != nil {
 			// false makes Search keep looking to the right, always including any "erroring" ObservedMessage and allowing us to detect in the bottom
 			return false
@@ -741,7 +741,7 @@ func (r *ExecutionReportingPlugin) buildReport(ctx context.Context, lggr logger.
 	}
 
 	r.metricsCollector.NumberOfMessagesProcessed(ccip.Report, len(execReport.Messages))
-	encodedReport, err := r.offRampReader.EncodeExecutionReport(execReport)
+	encodedReport, err := r.offRampReader.EncodeExecutionReport(ctx, execReport)
 	if err != nil {
 		return nil, err
 	}
@@ -855,7 +855,7 @@ func calculateObservedMessagesConsensus(observations []ccip.ExecutionObservation
 
 func (r *ExecutionReportingPlugin) ShouldAcceptFinalizedReport(ctx context.Context, timestamp types.ReportTimestamp, report types.Report) (bool, error) {
 	lggr := r.lggr.Named("ShouldAcceptFinalizedReport")
-	execReport, err := r.offRampReader.DecodeExecutionReport(report)
+	execReport, err := r.offRampReader.DecodeExecutionReport(ctx, report)
 	if err != nil {
 		lggr.Errorw("Unable to decode report", "err", err)
 		return false, err
@@ -886,7 +886,7 @@ func (r *ExecutionReportingPlugin) ShouldAcceptFinalizedReport(ctx context.Conte
 
 func (r *ExecutionReportingPlugin) ShouldTransmitAcceptedReport(ctx context.Context, timestamp types.ReportTimestamp, report types.Report) (bool, error) {
 	lggr := r.lggr.Named("ShouldTransmitAcceptedReport")
-	execReport, err := r.offRampReader.DecodeExecutionReport(report)
+	execReport, err := r.offRampReader.DecodeExecutionReport(ctx, report)
 	if err != nil {
 		lggr.Errorw("Unable to decode report", "err", err)
 		return false, nil
@@ -991,7 +991,11 @@ func getTokensPrices(ctx context.Context, priceRegistry ccipdata.PriceRegistryRe
 	for i, token := range tokens {
 		// price of a token can never be zero
 		if fetchedPrices[i].Value.BitLen() == 0 {
-			return nil, fmt.Errorf("price of token %s is zero (price registry=%s)", token, priceRegistry.Address())
+			priceRegistryAddress, err := priceRegistry.Address(ctx)
+			if err != nil {
+				return nil, fmt.Errorf("get price registry address: %w", err)
+			}
+			return nil, fmt.Errorf("price of token %s is zero (price registry=%s)", token, priceRegistryAddress)
 		}
 
 		// price registry should not report different price for the same token
@@ -1130,7 +1134,15 @@ func (r *ExecutionReportingPlugin) ensurePriceRegistrySynchronization(ctx contex
 		return fmt.Errorf("getting price registry from onramp: %w", err)
 	}
 
-	needPriceRegistryUpdate = r.sourcePriceRegistry == nil || priceRegistryAddress != r.sourcePriceRegistry.Address()
+	currentPriceRegistryAddress := cciptypes.Address("")
+	if r.sourcePriceRegistry != nil {
+		currentPriceRegistryAddress, err = r.sourcePriceRegistry.Address(ctx)
+		if err != nil {
+			return fmt.Errorf("get current priceregistry address: %w", err)
+		}
+	}
+
+	needPriceRegistryUpdate = r.sourcePriceRegistry == nil || priceRegistryAddress != currentPriceRegistryAddress
 	r.sourcePriceRegistryLock.RUnlock()
 	if !needPriceRegistryUpdate {
 		return nil

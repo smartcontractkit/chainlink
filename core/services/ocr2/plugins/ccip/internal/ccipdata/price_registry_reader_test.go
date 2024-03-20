@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmclientmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -25,7 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/factory"
@@ -112,15 +112,16 @@ func setupPriceRegistryReaderTH(t *testing.T) priceRegReaderTH {
 			Value: big.NewInt(12), // Intentionally set a same value different token
 		},
 	}
+	ctx := testutils.Context(t)
 	addr, _, _, err := price_registry_1_0_0.DeployPriceRegistry(user, ec, nil, feeTokens, 1000)
 	require.NoError(t, err)
 	addr2, _, _, err := price_registry.DeployPriceRegistry(user, ec, nil, feeTokens, 1000)
 	require.NoError(t, err)
 	commitAndGetBlockTs(ec) // Deploy these
-	pr10r, err := factory.NewPriceRegistryReader(lggr, factory.NewEvmVersionFinder(), ccipcalc.EvmAddrToGeneric(addr), lp, ec)
+	pr10r, err := factory.NewPriceRegistryReader(ctx, lggr, factory.NewEvmVersionFinder(), ccipcalc.EvmAddrToGeneric(addr), lp, ec)
 	require.NoError(t, err)
 	assert.Equal(t, reflect.TypeOf(pr10r).String(), reflect.TypeOf(&v1_0_0.PriceRegistry{}).String())
-	pr12r, err := factory.NewPriceRegistryReader(lggr, factory.NewEvmVersionFinder(), ccipcalc.EvmAddrToGeneric(addr2), lp, ec)
+	pr12r, err := factory.NewPriceRegistryReader(ctx, lggr, factory.NewEvmVersionFinder(), ccipcalc.EvmAddrToGeneric(addr2), lp, ec)
 	require.NoError(t, err)
 	assert.Equal(t, reflect.TypeOf(pr12r).String(), reflect.TypeOf(&v1_2_0.PriceRegistry{}).String())
 	// Apply block1.
@@ -249,6 +250,7 @@ func TestNewPriceRegistryReader(t *testing.T) {
 			expectedErr:    "unsupported price registry version 2.0.0",
 		},
 	}
+	ctx := testutils.Context(t)
 	for _, tc := range tt {
 		t.Run(tc.typeAndVersion, func(t *testing.T) {
 			b, err := utils.ABIEncode(`[{"type":"string"}]`, tc.typeAndVersion)
@@ -258,7 +260,7 @@ func TestNewPriceRegistryReader(t *testing.T) {
 			addr := ccipcalc.EvmAddrToGeneric(utils.RandomAddress())
 			lp := lpmocks.NewLogPoller(t)
 			lp.On("RegisterFilter", mock.Anything).Return(nil).Maybe()
-			_, err = factory.NewPriceRegistryReader(logger.TestLogger(t), factory.NewEvmVersionFinder(), addr, lp, c)
+			_, err = factory.NewPriceRegistryReader(ctx, logger.TestLogger(t), factory.NewEvmVersionFinder(), addr, lp, c)
 			if tc.expectedErr != "" {
 				require.EqualError(t, err, tc.expectedErr)
 			} else {

@@ -11,13 +11,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 
+	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry_1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/erc20"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
@@ -63,16 +63,19 @@ func NewPriceRegistry(lggr logger.Logger, priceRegistryAddr common.Address, lp l
 			Name:      logpoller.FilterName(ccipdata.COMMIT_PRICE_UPDATES, priceRegistryAddr.String()),
 			EventSigs: []common.Hash{UsdPerUnitGasUpdated, usdPerTokenUpdated},
 			Addresses: []common.Address{priceRegistryAddr},
+			Retention: ccipdata.PriceUpdatesLogsRetention,
 		},
 		{
 			Name:      logpoller.FilterName(ccipdata.FEE_TOKEN_ADDED, priceRegistryAddr.String()),
 			EventSigs: []common.Hash{feeTokenAdded},
 			Addresses: []common.Address{priceRegistryAddr},
+			Retention: ccipdata.CacheEvictionLogsRetention,
 		},
 		{
 			Name:      logpoller.FilterName(ccipdata.FEE_TOKEN_REMOVED, priceRegistryAddr.String()),
 			EventSigs: []common.Hash{feeTokenRemoved},
 			Addresses: []common.Address{priceRegistryAddr},
+			Retention: ccipdata.CacheEvictionLogsRetention,
 		}}
 	if registerFilters {
 		err = logpollerutil.RegisterLpFilters(lp, filters)
@@ -127,8 +130,8 @@ func (p *PriceRegistry) GetTokenPrices(ctx context.Context, wantedTokens []ccipt
 	return tpu, nil
 }
 
-func (p *PriceRegistry) Address() cciptypes.Address {
-	return cciptypes.Address(p.address.String())
+func (p *PriceRegistry) Address(ctx context.Context) (cciptypes.Address, error) {
+	return cciptypes.Address(p.address.String()), nil
 }
 
 func (p *PriceRegistry) GetFeeTokens(ctx context.Context) ([]cciptypes.Address, error) {

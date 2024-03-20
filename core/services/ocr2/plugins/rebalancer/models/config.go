@@ -32,12 +32,14 @@ func ValidateRebalancerConfig(config RebalancerConfig) error {
 }
 
 const (
-	RebalancerTypePingPong = "ping-pong"
+	RebalancerTypeMinLiquidity = "min-liquidity"
+	RebalancerTypePingPong     = "ping-pong"
 )
 
 var (
 	AllRebalancerTypes = []string{
 		RebalancerTypePingPong,
+		RebalancerTypeMinLiquidity,
 	}
 )
 

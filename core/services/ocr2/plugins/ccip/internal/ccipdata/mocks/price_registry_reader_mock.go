@@ -3,9 +3,9 @@
 package mocks
 
 import (
-	context "context"
+	ccip "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 
-	cciptypes "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
+	context "context"
 
 	mock "github.com/stretchr/testify/mock"
 
@@ -17,22 +17,32 @@ type PriceRegistryReader struct {
 	mock.Mock
 }
 
-// Address provides a mock function with given fields:
-func (_m *PriceRegistryReader) Address() cciptypes.Address {
-	ret := _m.Called()
+// Address provides a mock function with given fields: ctx
+func (_m *PriceRegistryReader) Address(ctx context.Context) (ccip.Address, error) {
+	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Address")
 	}
 
-	var r0 cciptypes.Address
-	if rf, ok := ret.Get(0).(func() cciptypes.Address); ok {
-		r0 = rf()
+	var r0 ccip.Address
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context) (ccip.Address, error)); ok {
+		return rf(ctx)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context) ccip.Address); ok {
+		r0 = rf(ctx)
 	} else {
-		r0 = ret.Get(0).(cciptypes.Address)
+		r0 = ret.Get(0).(ccip.Address)
 	}
 
-	return r0
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 // Close provides a mock function with given fields:
@@ -54,23 +64,23 @@ func (_m *PriceRegistryReader) Close() error {
 }
 
 // GetFeeTokens provides a mock function with given fields: ctx
-func (_m *PriceRegistryReader) GetFeeTokens(ctx context.Context) ([]cciptypes.Address, error) {
+func (_m *PriceRegistryReader) GetFeeTokens(ctx context.Context) ([]ccip.Address, error) {
 	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetFeeTokens")
 	}
 
-	var r0 []cciptypes.Address
+	var r0 []ccip.Address
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context) ([]cciptypes.Address, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context) ([]ccip.Address, error)); ok {
 		return rf(ctx)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context) []cciptypes.Address); ok {
+	if rf, ok := ret.Get(0).(func(context.Context) []ccip.Address); ok {
 		r0 = rf(ctx)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]cciptypes.Address)
+			r0 = ret.Get(0).([]ccip.Address)
 		}
 	}
 
@@ -84,23 +94,23 @@ func (_m *PriceRegistryReader) GetFeeTokens(ctx context.Context) ([]cciptypes.Ad
 }
 
 // GetGasPriceUpdatesCreatedAfter provides a mock function with given fields: ctx, chainSelector, ts, confirmations
-func (_m *PriceRegistryReader) GetGasPriceUpdatesCreatedAfter(ctx context.Context, chainSelector uint64, ts time.Time, confirmations int) ([]cciptypes.GasPriceUpdateWithTxMeta, error) {
+func (_m *PriceRegistryReader) GetGasPriceUpdatesCreatedAfter(ctx context.Context, chainSelector uint64, ts time.Time, confirmations int) ([]ccip.GasPriceUpdateWithTxMeta, error) {
 	ret := _m.Called(ctx, chainSelector, ts, confirmations)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetGasPriceUpdatesCreatedAfter")
 	}
 
-	var r0 []cciptypes.GasPriceUpdateWithTxMeta
+	var r0 []ccip.GasPriceUpdateWithTxMeta
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, uint64, time.Time, int) ([]cciptypes.GasPriceUpdateWithTxMeta, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, uint64, time.Time, int) ([]ccip.GasPriceUpdateWithTxMeta, error)); ok {
 		return rf(ctx, chainSelector, ts, confirmations)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, uint64, time.Time, int) []cciptypes.GasPriceUpdateWithTxMeta); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, uint64, time.Time, int) []ccip.GasPriceUpdateWithTxMeta); ok {
 		r0 = rf(ctx, chainSelector, ts, confirmations)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]cciptypes.GasPriceUpdateWithTxMeta)
+			r0 = ret.Get(0).([]ccip.GasPriceUpdateWithTxMeta)
 		}
 	}
 
@@ -114,23 +124,23 @@ func (_m *PriceRegistryReader) GetGasPriceUpdatesCreatedAfter(ctx context.Contex
 }
 
 // GetTokenPriceUpdatesCreatedAfter provides a mock function with given fields: ctx, ts, confirmations
-func (_m *PriceRegistryReader) GetTokenPriceUpdatesCreatedAfter(ctx context.Context, ts time.Time, confirmations int) ([]cciptypes.TokenPriceUpdateWithTxMeta, error) {
+func (_m *PriceRegistryReader) GetTokenPriceUpdatesCreatedAfter(ctx context.Context, ts time.Time, confirmations int) ([]ccip.TokenPriceUpdateWithTxMeta, error) {
 	ret := _m.Called(ctx, ts, confirmations)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetTokenPriceUpdatesCreatedAfter")
 	}
 
-	var r0 []cciptypes.TokenPriceUpdateWithTxMeta
+	var r0 []ccip.TokenPriceUpdateWithTxMeta
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, time.Time, int) ([]cciptypes.TokenPriceUpdateWithTxMeta, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, time.Time, int) ([]ccip.TokenPriceUpdateWithTxMeta, error)); ok {
 		return rf(ctx, ts, confirmations)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, time.Time, int) []cciptypes.TokenPriceUpdateWithTxMeta); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, time.Time, int) []ccip.TokenPriceUpdateWithTxMeta); ok {
 		r0 = rf(ctx, ts, confirmations)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]cciptypes.TokenPriceUpdateWithTxMeta)
+			r0 = ret.Get(0).([]ccip.TokenPriceUpdateWithTxMeta)
 		}
 	}
 
@@ -144,27 +154,27 @@ func (_m *PriceRegistryReader) GetTokenPriceUpdatesCreatedAfter(ctx context.Cont
 }
 
 // GetTokenPrices provides a mock function with given fields: ctx, wantedTokens
-func (_m *PriceRegistryReader) GetTokenPrices(ctx context.Context, wantedTokens []cciptypes.Address) ([]cciptypes.TokenPriceUpdate, error) {
+func (_m *PriceRegistryReader) GetTokenPrices(ctx context.Context, wantedTokens []ccip.Address) ([]ccip.TokenPriceUpdate, error) {
 	ret := _m.Called(ctx, wantedTokens)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetTokenPrices")
 	}
 
-	var r0 []cciptypes.TokenPriceUpdate
+	var r0 []ccip.TokenPriceUpdate
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, []cciptypes.Address) ([]cciptypes.TokenPriceUpdate, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, []ccip.Address) ([]ccip.TokenPriceUpdate, error)); ok {
 		return rf(ctx, wantedTokens)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, []cciptypes.Address) []cciptypes.TokenPriceUpdate); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, []ccip.Address) []ccip.TokenPriceUpdate); ok {
 		r0 = rf(ctx, wantedTokens)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]cciptypes.TokenPriceUpdate)
+			r0 = ret.Get(0).([]ccip.TokenPriceUpdate)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, []cciptypes.Address) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, []ccip.Address) error); ok {
 		r1 = rf(ctx, wantedTokens)
 	} else {
 		r1 = ret.Error(1)
@@ -174,7 +184,7 @@ func (_m *PriceRegistryReader) GetTokenPrices(ctx context.Context, wantedTokens 
 }
 
 // GetTokensDecimals provides a mock function with given fields: ctx, tokenAddresses
-func (_m *PriceRegistryReader) GetTokensDecimals(ctx context.Context, tokenAddresses []cciptypes.Address) ([]uint8, error) {
+func (_m *PriceRegistryReader) GetTokensDecimals(ctx context.Context, tokenAddresses []ccip.Address) ([]uint8, error) {
 	ret := _m.Called(ctx, tokenAddresses)
 
 	if len(ret) == 0 {
@@ -183,10 +193,10 @@ func (_m *PriceRegistryReader) GetTokensDecimals(ctx context.Context, tokenAddre
 
 	var r0 []uint8
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, []cciptypes.Address) ([]uint8, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, []ccip.Address) ([]uint8, error)); ok {
 		return rf(ctx, tokenAddresses)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, []cciptypes.Address) []uint8); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, []ccip.Address) []uint8); ok {
 		r0 = rf(ctx, tokenAddresses)
 	} else {
 		if ret.Get(0) != nil {
@@ -194,7 +204,7 @@ func (_m *PriceRegistryReader) GetTokensDecimals(ctx context.Context, tokenAddre
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, []cciptypes.Address) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, []ccip.Address) error); ok {
 		r1 = rf(ctx, tokenAddresses)
 	} else {
 		r1 = ret.Error(1)
