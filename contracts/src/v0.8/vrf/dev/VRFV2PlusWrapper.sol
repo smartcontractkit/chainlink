@@ -54,7 +54,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   // s_maxNumWords is the max number of words that can be requested in a single wrapped VRF request.
   uint8 internal s_maxNumWords;
 
-  // 7 bytes left
+  // 9 bytes left
   /* Storage Slot 1: END */
 
   /* Storage Slot 2: BEGIN */
