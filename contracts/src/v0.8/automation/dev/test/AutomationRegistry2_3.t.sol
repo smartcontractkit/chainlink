@@ -7,6 +7,7 @@ import {AutomationRegistrar2_3} from "../v2_3/AutomationRegistrar2_3.sol";
 import {IAutomationRegistryMaster2_3, AutomationRegistryBase2_3} from "../interfaces/v2_3/IAutomationRegistryMaster2_3.sol";
 import {ChainModuleBase} from "../../chains/ChainModuleBase.sol";
 import {MockUpkeep} from "../../mocks/MockUpkeep.sol";
+import {IAutomationV21PlusCommon} from "../../interfaces/IAutomationV21PlusCommon.sol";
 
 // forge test --match-path src/v0.8/automation/dev/test/AutomationRegistry2_3.t.sol
 
@@ -14,6 +15,10 @@ contract SetUp is BaseTest {
   address[] internal s_registrars;
 
   IAutomationRegistryMaster2_3 internal registry;
+  uint256[] internal upkeepIds;
+  uint256[] internal gasLimits;
+  bytes[] internal performDatas;
+  uint256[] internal balances;
 
   function setUp() public virtual override {
     super.setUp();
@@ -572,31 +577,69 @@ contract NOPsSettlement is SetUp {
     registry.settleNOPsOffchain();
   }
 
-  function testSettleNOPsOffchainSuccess1() public {
-    (IAutomationRegistryMaster2_3 registry, AutomationRegistrar2_3 registrar) = deployAndConfigureAll(AutoBase.PayoutMode.OFF_CHAIN);
+  function testSettleNOPsOffchainSuccessTransmitterBalanceZeroed() public {
+    // deploy and configure a registry with OFF_CHAIN payout
+    (IAutomationRegistryMaster2_3 registry, AutomationRegistrar2_3 registrar) = deployAndConfigureAll(
+      AutoBase.PayoutMode.OFF_CHAIN
+    );
 
-    MockUpkeep mock = new MockUpkeep();
-    mock.setCheckResult(true);
+    // register an upkeep and add funds
+    uint256 id = registry.registerUpkeep(address(TARGET1), 1000000, UPKEEP_ADMIN, 0, address(mockERC20), "", "", "");
+    _mintERC20(UPKEEP_ADMIN, 1e20);
+    vm.startPrank(UPKEEP_ADMIN);
+    mockERC20.approve(address(registry), 1e20);
+    registry.addFunds(id, 1e20);
 
-    uint256 id = registry.registerUpkeep(address(mock), 1000000, UPKEEP_ADMIN, 0, address(mockERC20), "", "", "");
-    _mintERC20(address(registry), 1e10);
-    //registry.addFunds(id, );
-
+    // manually create a transmit so transmitters earn some rewards
+    upkeepIds = new uint256[](1);
+    gasLimits = new uint256[](1);
+    performDatas = new bytes[](1);
+    bytes[] memory triggers = new bytes[](1);
+    upkeepIds[0] = id;
+    gasLimits[0] = 1000000;
+    triggers[0] = _encodeConditionalTrigger(AutoBase.ConditionalTrigger(uint32(block.number - 1), blockhash(block.number - 1)));
+    AutoBase.Report memory report = AutoBase.Report(
+      uint256(1000000000),
+      uint256(2000000000),
+      upkeepIds,
+      gasLimits,
+      triggers,
+      performDatas
+    );
+    bytes memory reportBytes = _encodeReport(report);
     (, , bytes32 configDigest) = registry.latestConfigDetails();
-    AutoBase.ConditionalTrigger memory trigger = AutoBase.ConditionalTrigger(uint32(block.number), blockhash(block.number));
-//    AutoBase.Report memory report = AutoBase.Report(
-//
-//    );
+    bytes32[3] memory reportContext = [configDigest, configDigest, configDigest];
+    uint256[] memory signerPKs = new uint256[](2);
+    signerPKs[0] = SIGNING_KEY0;
+    signerPKs[1] = SIGNING_KEY1;
+    (bytes32[] memory rs, bytes32[] memory ss, bytes32 vs) = _signReport(reportBytes, reportContext, signerPKs);
 
-    uint256[] memory balances = new uint256[](TRANSMITTERS.length);
-    for (uint256 i = 0; i < TRANSMITTERS.length; i++) {
-      balances[i] = 0;
+    vm.startPrank(TRANSMITTERS[0]);
+    registry.transmit(reportContext, reportBytes, rs, ss, vs);
+
+    // verify transmitters have positive balances
+    (bool active, uint8 index, uint96 balance, uint96 lastCollected, ) = registry.getTransmitterInfo(TRANSMITTERS[1]);
+    assertTrue(active);
+    assertEq(1, index);
+    assertTrue(balance > 0);
+    assertEq(0, lastCollected);
+
+    balances = new uint256[](TRANSMITTERS.length);
+    for (uint256 i = 0; i < balances.length; i++) {
+      balances[i] = balance;
     }
 
+    // verify offchain settlement will emit NOPs' balances
     vm.startPrank(FINANCE_ADMIN);
     vm.expectEmit();
     emit NOPsSettledOffchain(TRANSMITTERS, balances);
     registry.settleNOPsOffchain();
+
+    // verify that transmitters balance has been zeroed out
+    (active, index, balance,,) = registry.getTransmitterInfo(TRANSMITTERS[2]);
+    assertTrue(active);
+    assertEq(2, index);
+    assertEq(0, balance);
   }
 
   function testDisableOffchainPaymentsRevertDueToUnauthorizedCaller() public {

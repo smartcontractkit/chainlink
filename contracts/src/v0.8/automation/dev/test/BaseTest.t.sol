@@ -116,7 +116,9 @@ contract BaseTest is Test {
   /**
    * @notice deploys and configures a registry, registrar, and everything needed for most tests
    */
-  function deployAndConfigureAll(AutoBase.PayoutMode payoutMode) internal returns (IAutomationRegistryMaster2_3, AutomationRegistrar2_3) {
+  function deployAndConfigureAll(
+    AutoBase.PayoutMode payoutMode
+  ) internal returns (IAutomationRegistryMaster2_3, AutomationRegistrar2_3) {
     IAutomationRegistryMaster2_3 registry = deployRegistry(payoutMode);
     // deploy & configure registrar
     AutomationRegistrar2_3.InitialTriggerConfig[]
@@ -170,7 +172,7 @@ contract BaseTest is Test {
         financeAdmin: FINANCE_ADMIN
       });
       AutomationRegistryBase2_3.BillingConfig[]
-      memory billingTokenConfigs = new AutomationRegistryBase2_3.BillingConfig[](1);
+        memory billingTokenConfigs = new AutomationRegistryBase2_3.BillingConfig[](1);
       billingTokenConfigs[0] = AutomationRegistryBase2_3.BillingConfig({
         gasFeePPB: 10_000_000, // 15%
         flatFeeMicroLink: 100_000,
@@ -228,7 +230,7 @@ contract BaseTest is Test {
         financeAdmin: FINANCE_ADMIN
       });
       AutomationRegistryBase2_3.BillingConfig[]
-      memory billingTokenConfigs = new AutomationRegistryBase2_3.BillingConfig[](2);
+        memory billingTokenConfigs = new AutomationRegistryBase2_3.BillingConfig[](2);
       billingTokenConfigs[0] = AutomationRegistryBase2_3.BillingConfig({
         gasFeePPB: 10_000_000, // 10%
         flatFeeMicroLink: 100_000,
@@ -286,10 +288,12 @@ contract BaseTest is Test {
   }
 
   function _encodeReport(AutoBase.Report memory report) internal view returns (bytes memory reportBytes) {
-    return abi.encode(report.fastGasWei, report.linkUSD, report.upkeepIds, report.gasLimits, report.performDatas, report.triggers);
+    return abi.encode(report);
   }
 
-  function _encodeBlockTrigger(AutoBase.ConditionalTrigger memory trigger) internal view returns (bytes memory triggerBytes) {
+  function _encodeConditionalTrigger(
+    AutoBase.ConditionalTrigger memory trigger
+  ) internal view returns (bytes memory triggerBytes) {
     return abi.encode(trigger.blockNum, trigger.blockHash);
   }
 
