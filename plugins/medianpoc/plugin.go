@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
@@ -142,7 +141,21 @@ type reportingPluginValidationService struct {
 }
 
 func (r *reportingPluginValidationService) ValidateConfig(ctx context.Context, config map[string]interface{}) error {
-	return errors.Errorf("some error in validation, len %d", len(config))
+	tt, ok := config["telemetryType"]
+	if !ok {
+		return fmt.Errorf("expected telemtry type")
+	}
+	telemetryType, ok := tt.(string)
+	if !ok {
+		return fmt.Errorf("expected telemtry type to be of type string but got %T", tt)
+	}
+	if telemetryType != "median" {
+		return fmt.Errorf("expected telemtry type to be median but got %q", telemetryType)
+	}
+
+	//TODO: validate pipeline
+
+	return nil
 }
 func (r *reportingPluginValidationService) Name() string { return r.lggr.Name() }
 

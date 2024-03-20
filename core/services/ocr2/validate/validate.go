@@ -190,6 +190,11 @@ func validateGenericPluginSpec(ctx context.Context, spec *job.OCR2OracleSpec, rc
 	if command == "" {
 		command = plugEnv.Cmd.Get()
 	}
+
+	if command == "" {
+		return errors.New("generic config invalid: no command found")
+	}
+
 	_, err = exec.LookPath(command)
 	if err != nil {
 		return fmt.Errorf("failed to find binary  %q", command)

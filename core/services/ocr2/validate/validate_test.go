@@ -601,7 +601,7 @@ transmitterID = "0x74103Cf8b436465870b26aa9Fa2F62AD62b22E35"
 [relayConfig]
 chainID = 4
 
-[pluginConfig.coreConfig]
+[pluginConfig]
 `,
 			assertion: func(t *testing.T, os job.Job, err error) {
 				require.Error(t, err)
@@ -609,7 +609,7 @@ chainID = 4
 			},
 		},
 		{
-			name: "Generic plugin config validation - plugin name provided",
+			name: "Generic plugin config validation - nothing provided",
 			toml: `
 type = "offchainreporting2"
 schemaVersion = 1
@@ -629,15 +629,15 @@ transmitterID = "0x74103Cf8b436465870b26aa9Fa2F62AD62b22E35"
 chainID = 4
 
 [pluginConfig]
-pluginName = "median"
+PluginName="some random name"
 `,
 			assertion: func(t *testing.T, os job.Job, err error) {
 				require.Error(t, err)
-				require.ErrorContains(t, err, "must provide telemetry type")
+				require.ErrorContains(t, err, "no command found")
 			},
 		},
 		{
-			name: "Generic plugin config validation - all provided",
+			name: "Generic plugin config validation - nothing provided",
 			toml: `
 type = "offchainreporting2"
 schemaVersion = 1
@@ -657,11 +657,12 @@ transmitterID = "0x74103Cf8b436465870b26aa9Fa2F62AD62b22E35"
 chainID = 4
 
 [pluginConfig]
-pluginName = "median"
-telemetryType = "median"
+PluginName="some random name"
+Command="some random command"
 `,
 			assertion: func(t *testing.T, os job.Job, err error) {
-				require.NoError(t, err)
+				require.Error(t, err)
+				require.ErrorContains(t, err, "failed to find binary")
 			},
 		},
 	}
