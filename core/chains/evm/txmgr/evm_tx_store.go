@@ -1837,25 +1837,11 @@ func (o *evmTxStore) ReapTxHistory(ctx context.Context, minBlockNumberToKeep int
 	ctx, cancel = o.mergeContexts(ctx)
 	defer cancel()
 
-	Batch := func(cb func(limit uint) (count uint, err error)) error {
-		offset := uint(0)
-		var limit uint = 1000
-		for {
-			count, err := cb(limit)
-			if err != nil {
-				return err
-			}
-			if count < limit {
-				return nil
-			}
-			offset += limit
-		}
-	}
-
 	// Delete old confirmed evm.txes
 	// NOTE that this relies on foreign key triggers automatically removing
 	// the evm.tx_attempts and evm.receipts linked to every eth_tx
-	err := Batch(func(limit uint) (count uint, err error) {
+	const batchSize = 1000
+	err := sqlutil.Batch(func(_, limit uint) (count uint, err error) {
 		res, err := o.q.ExecContext(ctx, `
 WITH old_enough_receipts AS (
 	SELECT tx_hash FROM evm.receipts
@@ -1878,12 +1864,12 @@ AND evm_chain_id = $4`, minBlockNumberToKeep, limit, timeThreshold, chainID.Stri
 			return count, pkgerrors.Wrap(err, "ReapTxes failed to get rows affected")
 		}
 		return uint(rowsAffected), err
-	})
+	}, batchSize)
 	if err != nil {
 		return pkgerrors.Wrap(err, "TxmReaper#reapEthTxes batch delete of confirmed evm.txes failed")
 	}
 	// Delete old 'fatal_error' evm.txes
-	err = Batch(func(limit uint) (count uint, err error) {
+	err = sqlutil.Batch(func(_, limit uint) (count uint, err error) {
 		res, err := o.q.ExecContext(ctx, `
 DELETE FROM evm.txes
 WHERE created_at < $1
@@ -1897,7 +1883,7 @@ AND evm_chain_id = $2`, timeThreshold, chainID.String())
 			return count, pkgerrors.Wrap(err, "ReapTxes failed to get rows affected")
 		}
 		return uint(rowsAffected), err
-	})
+	}, batchSize)
 	if err != nil {
 		return pkgerrors.Wrap(err, "TxmReaper#reapEthTxes batch delete of fatally errored evm.txes failed")
 	}
