@@ -66,17 +66,18 @@ contract VRFV2PlusWrapperTest is BaseTest {
 
   function setConfigWrapper() internal {
     vm.expectEmit(false, false, false, true, address(s_wrapper));
-    emit ConfigSet(wrapperGasOverhead, coordinatorGasOverhead, 0, vrfKeyHash, 10, 1, 50000000000000000, 0, 0);
+    emit ConfigSet(wrapperGasOverhead, coordinatorGasOverhead, 0, 0, vrfKeyHash, 10, 1, 50000000000000000, 0, 0);
     s_wrapper.setConfig(
       wrapperGasOverhead, // wrapper gas overhead
       coordinatorGasOverhead, // coordinator gas overhead
-      0, // premium percentage
+      0, // native premium percentage,
+      0, // link premium percentage
       vrfKeyHash, // keyHash
       10, // max number of words,
       1, // stalenessSeconds
       50000000000000000, // fallbackWeiPerUnitLink
-      0, // fulfillmentFlatFeeLinkPPM
-      0 // fulfillmentFlatFeeNativePPM
+      0, // fulfillmentFlatFeeNativePPM
+      0 // fulfillmentFlatFeeLinkDiscountPPM
     );
     (
       ,
@@ -85,13 +86,15 @@ contract VRFV2PlusWrapperTest is BaseTest {
       ,
       uint32 _wrapperGasOverhead,
       uint32 _coordinatorGasOverhead,
-      uint8 _wrapperPremiumPercentage,
+      uint8 _wrapperNativePremiumPercentage,
+      uint8 _wrapperLinkPremiumPercentage,
       bytes32 _keyHash,
       uint8 _maxNumWords
     ) = s_wrapper.getConfig();
     assertEq(_wrapperGasOverhead, wrapperGasOverhead);
     assertEq(_coordinatorGasOverhead, coordinatorGasOverhead);
-    assertEq(0, _wrapperPremiumPercentage);
+    assertEq(0, _wrapperNativePremiumPercentage);
+    assertEq(0, _wrapperLinkPremiumPercentage);
     assertEq(vrfKeyHash, _keyHash);
     assertEq(10, _maxNumWords);
   }
@@ -114,13 +117,14 @@ contract VRFV2PlusWrapperTest is BaseTest {
   event ConfigSet(
     uint32 wrapperGasOverhead,
     uint32 coordinatorGasOverhead,
-    uint8 wrapperPremiumPercentage,
+    uint8 wrapperNativePremiumPercentage,
+    uint8 wrapperLinkPremiumPercentage,
     bytes32 keyHash,
     uint8 maxNumWords,
     uint32 stalenessSeconds,
     int256 fallbackWeiPerUnitLink,
-    uint32 fulfillmentFlatFeeLinkPPM,
-    uint32 fulfillmentFlatFeeNativePPM
+    uint32 fulfillmentFlatFeeNativePPM,
+    uint32 fulfillmentFlatFeeLinkDiscountPPM
   );
   event FallbackWeiPerUnitLinkUsed(uint256 requestId, int256 fallbackWeiPerUnitLink);
   event Withdrawn(address indexed to, uint256 amount);
@@ -230,6 +234,77 @@ contract VRFV2PlusWrapperTest is BaseTest {
     s_wrapper.withdrawNative(LINK_WHALE);
     assertEq(LINK_WHALE.balance, priorWhaleBalance + paid);
     assertEq(address(s_wrapper).balance, 0);
+  }
+
+  function testSetConfig_FulfillmentFlatFee_LinkDiscountTooHigh() public {
+    // Test that setting link discount flat fee higher than native flat fee reverts
+    vm.expectRevert(abi.encodeWithSelector(VRFV2PlusWrapper.LinkDiscountTooHigh.selector, uint32(501), uint32(500)));
+    s_wrapper.setConfig(
+      wrapperGasOverhead, // wrapper gas overhead
+      coordinatorGasOverhead, // coordinator gas overhead
+      0, // native premium percentage,
+      0, // link premium percentage
+      vrfKeyHash, // keyHash
+      10, // max number of words,
+      1, // stalenessSeconds
+      50000000000000000, // fallbackWeiPerUnitLink
+      500, // fulfillmentFlatFeeNativePPM
+      501 // fulfillmentFlatFeeLinkDiscountPPM
+    );
+  }
+
+  function testSetConfig_FulfillmentFlatFee_LinkDiscountEqualsNative() public {
+    // Test that setting link discount flat fee equal to native flat fee does not revert
+    s_wrapper.setConfig(
+      wrapperGasOverhead, // wrapper gas overhead
+      coordinatorGasOverhead, // coordinator gas overhead
+      0, // native premium percentage,
+      0, // link premium percentage
+      vrfKeyHash, // keyHash
+      10, // max number of words,
+      1, // stalenessSeconds
+      50000000000000000, // fallbackWeiPerUnitLink
+      450, // fulfillmentFlatFeeNativePPM
+      450 // fulfillmentFlatFeeLinkDiscountPPM
+    );
+  }
+
+  function testSetConfig_NativePremiumPercentage_InvalidPremiumPercentage() public {
+    // Test that setting native premium percentage higher than 155 will revert
+    vm.expectRevert(
+      abi.encodeWithSelector(VRFCoordinatorV2_5.InvalidPremiumPercentage.selector, uint8(156), uint8(155))
+    );
+    s_wrapper.setConfig(
+      wrapperGasOverhead, // wrapper gas overhead
+      coordinatorGasOverhead, // coordinator gas overhead
+      156, // native premium percentage,
+      0, // link premium percentage
+      vrfKeyHash, // keyHash
+      10, // max number of words,
+      1, // stalenessSeconds
+      50000000000000000, // fallbackWeiPerUnitLink
+      0, // fulfillmentFlatFeeNativePPM
+      0 // fulfillmentFlatFeeLinkDiscountPPM
+    );
+  }
+
+  function testSetConfig_LinkPremiumPercentage_InvalidPremiumPercentage() public {
+    // Test that setting LINK premium percentage higher than 155 will revert
+    vm.expectRevert(
+      abi.encodeWithSelector(VRFCoordinatorV2_5.InvalidPremiumPercentage.selector, uint8(202), uint8(155))
+    );
+    s_wrapper.setConfig(
+      wrapperGasOverhead, // wrapper gas overhead
+      coordinatorGasOverhead, // coordinator gas overhead
+      15, // native premium percentage,
+      202, // link premium percentage
+      vrfKeyHash, // keyHash
+      10, // max number of words,
+      1, // stalenessSeconds
+      50000000000000000, // fallbackWeiPerUnitLink
+      0, // fulfillmentFlatFeeNativePPM
+      0 // fulfillmentFlatFeeLinkDiscountPPM
+    );
   }
 
   function testRequestAndFulfillRandomWordsLINKWrapper() public {
