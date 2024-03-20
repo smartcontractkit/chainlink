@@ -32,11 +32,26 @@ jobs:
       - name: Check for go.mod changes
         id: changes
         run: |
-          if git diff origin/develop -- go.mod | grep -q 'github.com/ethereum/go-ethereum'; then
-            echo "Dependency ethereum/go-ethereum was changed"
+          develop_version=$(git show origin/develop:go.mod | grep 'github.com/ethereum/go-ethereum' | awk '{print $2}')
+          current_version=$(grep 'github.com/ethereum/go-ethereum' go.mod | awk '{print $2}')
+
+          echo "Develop branch version: $develop_version"
+          echo "Current branch version: $current_version"
+
+          # Check if both versions are obtained successfully
+          if [ -z "$develop_version" ] || [ -z "$current_version" ]; then
+            echo "Error: Could not retrieve versions."
+            exit 1
+          fi
+
+          # Use sort -V to compare versions, and tail to get the highest version
+          highest_version=$(printf '%s\n' "$develop_version" "$current_version" | sort -V | tail -n 1)
+
+          if [ "$highest_version" == "$current_version" ] && [ "$current_version" != "$develop_version" ]; then
+            echo "Dependency ethereum/go-ethereum was changed to a higher version"
             echo "dependency_bumped=true" >> "$GITHUB_OUTPUT"
           else
-            echo "No relevant dependency bump detected."
+            echo "No relevant dependency bump detected or version is not higher."
             echo "dependency_bumped=false" >> "$GITHUB_OUTPUT"
           fi
 
@@ -317,7 +332,7 @@ jobs:
           github_repository: ${{ github.repository }}
           workflow_run_id: ${{ github.run_id }}
           github_job_name_regex: ^EVM node compatibility of ${{ matrix.product }} with (?<cap>.*?)$
-          message_title: ${{ matrix.product  }}
+          message_title: ${{ matrix.product }}
           slack_channel_id: ${{ secrets.QA_SLACK_CHANNEL }}
           slack_bot_token: ${{ secrets.QA_SLACK_API_KEY }}
           slack_thread_ts: ${{ needs.start-slack-thread.outputs.thread_ts }}
