@@ -116,10 +116,7 @@ func DbReceiptToEvmReceipt(receipt *dbReceipt) *evmtypes.Receipt {
 type rawOnchainReceipt = evmtypes.Receipt
 
 func (o *evmTxStore) Transaction(ctx context.Context, readOnly bool, fn func(*evmTxStore) error) (err error) {
-	var opts *sqlutil.TxOptions
-	if readOnly {
-		opts = &sqlutil.TxOptions{TxOptions: sql.TxOptions{ReadOnly: true}}
-	}
+	opts := &sqlutil.TxOptions{TxOptions: sql.TxOptions{ReadOnly: readOnly}}
 	return sqlutil.Transact(ctx, o.new, o.q, opts, fn)
 }
 
