@@ -25,6 +25,9 @@ import {WETH9} from "./WETH9.sol";
  * unit tests
  */
 contract BaseTest is Test {
+  // test state (not exposed to derrived tests)
+  uint256 private nonce;
+
   // constants
   address internal constant ZERO_ADDRESS = address(0);
 
@@ -34,7 +37,7 @@ contract BaseTest is Test {
 
   // contracts
   LinkToken internal linkToken;
-  ERC20Mock internal mockERC20;
+  ERC20Mock internal usdToken;
   WETH9 internal weth;
   MockV3Aggregator internal LINK_USD_FEED;
   MockV3Aggregator internal NATIVE_USD_FEED;
@@ -63,7 +66,7 @@ contract BaseTest is Test {
     vm.startPrank(OWNER);
     linkToken = new LinkToken();
     linkToken.grantMintRole(OWNER);
-    mockERC20 = new ERC20Mock("MOCK_ERC20", "MOCK_ERC20", OWNER, 0);
+    usdToken = new ERC20Mock("MOCK_ERC20", "MOCK_ERC20", OWNER, 0);
     weth = new WETH9();
 
     LINK_USD_FEED = new MockV3Aggregator(8, 2_000_000_000); // $20
@@ -90,15 +93,19 @@ contract BaseTest is Test {
     PAYEES[3] = address(103);
 
     // mint funds
+    vm.deal(OWNER, 100 ether);
     vm.deal(UPKEEP_ADMIN, 100 ether);
     vm.deal(FINANCE_ADMIN, 100 ether);
     vm.deal(STRANGER, 100 ether);
+    linkToken.mint(OWNER, 1000e18);
     linkToken.mint(UPKEEP_ADMIN, 1000e18);
     linkToken.mint(FINANCE_ADMIN, 1000e18);
     linkToken.mint(STRANGER, 1000e18);
-    mockERC20.mint(UPKEEP_ADMIN, 1000e18);
-    mockERC20.mint(FINANCE_ADMIN, 1000e18);
-    mockERC20.mint(STRANGER, 1000e18);
+    usdToken.mint(OWNER, 1000e18);
+    usdToken.mint(UPKEEP_ADMIN, 1000e18);
+    usdToken.mint(FINANCE_ADMIN, 1000e18);
+    usdToken.mint(STRANGER, 1000e18);
+    weth.mint(OWNER, 1000e18);
     weth.mint(UPKEEP_ADMIN, 1000e18);
     weth.mint(FINANCE_ADMIN, 1000e18);
     weth.mint(STRANGER, 1000e18);
@@ -129,7 +136,7 @@ contract BaseTest is Test {
   /**
    * @notice deploys and configures a registry, registrar, and everything needed for most tests
    */
-  function deployAndConfigureAll(
+  function deployAndConfigureRegistryAndRegistrar(
     AutoBase.PayoutMode payoutMode
   ) internal returns (IAutomationRegistryMaster2_3, AutomationRegistrar2_3) {
     IAutomationRegistryMaster2_3 registry = deployRegistry(payoutMode);
@@ -155,8 +162,9 @@ contract BaseTest is Test {
     AutomationRegistryBase2_3.BillingConfig[] memory billingTokenConfigs;
 
     if (payoutMode == AutoBase.PayoutMode.OFF_CHAIN) {
-      billingTokens = new IERC20[](1);
-      billingTokens[0] = IERC20(address(mockERC20));
+      IERC20[] memory billingTokens = new IERC20[](2);
+      billingTokens[0] = IERC20(address(usdToken));
+      billingTokens[1] = IERC20(address(weth));
       minRegistrationFees = new uint256[](billingTokens.length);
       minRegistrationFees[0] = 100000000000000000000; // 100 USD
       registrar = new AutomationRegistrar2_3(
@@ -182,10 +190,17 @@ contract BaseTest is Test {
         fallbackPrice: 100_000_000, // $1
         minSpend: 100000000000000000000 // 100 USD
       });
+      billingTokenConfigs[1] = AutomationRegistryBase2_3.BillingConfig({
+        gasFeePPB: 10_000_000, // 15%
+        flatFeeMicroLink: 100_000,
+        priceFeed: address(USDTOKEN_USD_FEED),
+        fallbackPrice: 100_000_000, // $1
+        minSpend: 5000000000000000000 // 5 Native
+      });
     } else {
       billingTokens = new IERC20[](3);
       billingTokens[0] = IERC20(address(linkToken));
-      billingTokens[1] = IERC20(address(mockERC20));
+      billingTokens[1] = IERC20(address(usdToken));
       billingTokens[2] = IERC20(address(weth));
       minRegistrationFees = new uint256[](billingTokens.length);
       minRegistrationFees[0] = 5000000000000000000; // 5 LINK
@@ -301,15 +316,44 @@ contract BaseTest is Test {
     return abi.encode(trigger.blockNum, trigger.blockHash);
   }
 
+  /// @dev mints LINK to the recipient
   function _mintLink(address recipient, uint256 amount) internal {
     vm.prank(OWNER);
-    //mint the link to the recipient
     linkToken.mint(recipient, amount);
   }
 
+  /// @dev mints USDToken to the recipient
   function _mintERC20(address recipient, uint256 amount) internal {
     vm.prank(OWNER);
-    //mint the ERC20 to the recipient
-    mockERC20.mint(recipient, amount);
+    usdToken.mint(recipient, amount);
+  }
+
+  /// @dev returns a pseudo-random 32 bytes
+  function _random() private returns (bytes32) {
+    nonce++;
+    return keccak256(abi.encode(block.timestamp, nonce));
+  }
+
+  /// @dev returns a pseudo-random number
+  function randomNumber() internal returns (uint256) {
+    return uint256(_random());
+  }
+
+  /// @dev returns a pseudo-random address
+  function randomAddress() internal returns (address) {
+    return address(uint160(randomNumber()));
+  }
+
+  /// @dev returns a pseudo-random byte array
+  function randomBytes(uint256 length) internal returns (bytes memory) {
+    bytes memory result = new bytes(length);
+    bytes32 entropy;
+    for (uint256 i = 0; i < length; i++) {
+      if (i % 32 == 0) {
+        entropy = _random();
+      }
+      result[i] = entropy[i % 32];
+    }
+    return result;
   }
 }
