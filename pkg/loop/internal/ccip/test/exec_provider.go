@@ -44,6 +44,7 @@ var ExecutionProvider = staticExecProvider{
 		onRampReader:        OnRamp,
 		offRampReader:       OffRampReader,
 		priceRegistryReader: PriceRegistryReader,
+		tokenDataReader:     TokenDataReader,
 	},
 }
 
@@ -57,6 +58,7 @@ type staticExecProviderConfig struct {
 	onRampReader        OnRampEvaluator
 	offRampReader       OffRampEvaluator
 	priceRegistryReader PriceRegistryReaderEvaluator
+	tokenDataReader     TokenDataReaderEvaluator
 	// TODO BCF-2979 fill in the rest of exec provider components
 }
 
@@ -121,6 +123,16 @@ func (s staticExecProvider) Evaluate(ctx context.Context, other types.CCIPExecPr
 		return evaluationError{err: err, component: priceRegistryComponent}
 	}
 
+	// TokenDataReader test case
+	otherTokenData, err := other.NewTokenDataReader(ctx, "ignored")
+	if err != nil {
+		return fmt.Errorf("failed to create other token data reader: %w", err)
+	}
+	err = s.tokenDataReader.Evaluate(ctx, otherTokenData)
+	if err != nil {
+		return evaluationError{err: err, component: "TokenDataReader"}
+	}
+
 	// TODO BCF-2979 other components of exec provider
 	return nil
 }
@@ -157,7 +169,7 @@ func (s staticExecProvider) NewPriceRegistryReader(ctx context.Context, addr cci
 
 // NewTokenDataReader implements ExecProviderEvaluator.
 func (s staticExecProvider) NewTokenDataReader(ctx context.Context, tokenAddress ccip.Address) (ccip.TokenDataReader, error) {
-	panic("unimplemented")
+	return s.tokenDataReader, nil
 }
 
 // NewTokenPoolBatchedReader implements ExecProviderEvaluator.
@@ -207,6 +219,13 @@ func (s staticExecProvider) AssertEqual(ctx context.Context, t *testing.T, other
 			other, err := other.NewPriceRegistryReader(ctx, "ignored")
 			require.NoError(t, err)
 			assert.NoError(t, s.priceRegistryReader.Evaluate(ctx, other))
+		})
+
+		// TokenDataReader test case
+		t.Run("TokenDataReader", func(t *testing.T) {
+			other, err := other.NewTokenDataReader(ctx, "ignored")
+			require.NoError(t, err)
+			assert.NoError(t, s.tokenDataReader.Evaluate(ctx, other))
 		})
 
 		// TODO BCF-2979 other components of exec provider

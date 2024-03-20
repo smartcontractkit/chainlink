@@ -11,6 +11,7 @@ import (
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
 // This is a compile-time assertion to ensure that this generated file
@@ -20,6 +21,7 @@ const _ = grpc.SupportPackageIsVersion7
 
 const (
 	TokenDataReader_ReadTokenData_FullMethodName = "/loop.internal.pb.ccip.TokenDataReader/ReadTokenData"
+	TokenDataReader_Close_FullMethodName         = "/loop.internal.pb.ccip.TokenDataReader/Close"
 )
 
 // TokenDataReaderClient is the client API for TokenDataReader service.
@@ -27,6 +29,7 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type TokenDataReaderClient interface {
 	ReadTokenData(ctx context.Context, in *TokenDataRequest, opts ...grpc.CallOption) (*TokenDataResponse, error)
+	Close(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type tokenDataReaderClient struct {
@@ -46,11 +49,21 @@ func (c *tokenDataReaderClient) ReadTokenData(ctx context.Context, in *TokenData
 	return out, nil
 }
 
+func (c *tokenDataReaderClient) Close(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, TokenDataReader_Close_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // TokenDataReaderServer is the server API for TokenDataReader service.
 // All implementations must embed UnimplementedTokenDataReaderServer
 // for forward compatibility
 type TokenDataReaderServer interface {
 	ReadTokenData(context.Context, *TokenDataRequest) (*TokenDataResponse, error)
+	Close(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	mustEmbedUnimplementedTokenDataReaderServer()
 }
 
@@ -60,6 +73,9 @@ type UnimplementedTokenDataReaderServer struct {
 
 func (UnimplementedTokenDataReaderServer) ReadTokenData(context.Context, *TokenDataRequest) (*TokenDataResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ReadTokenData not implemented")
+}
+func (UnimplementedTokenDataReaderServer) Close(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Close not implemented")
 }
 func (UnimplementedTokenDataReaderServer) mustEmbedUnimplementedTokenDataReaderServer() {}
 
@@ -92,6 +108,24 @@ func _TokenDataReader_ReadTokenData_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _TokenDataReader_Close_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TokenDataReaderServer).Close(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TokenDataReader_Close_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TokenDataReaderServer).Close(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // TokenDataReader_ServiceDesc is the grpc.ServiceDesc for TokenDataReader service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -102,6 +136,10 @@ var TokenDataReader_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ReadTokenData",
 			Handler:    _TokenDataReader_ReadTokenData_Handler,
+		},
+		{
+			MethodName: "Close",
+			Handler:    _TokenDataReader_Close_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

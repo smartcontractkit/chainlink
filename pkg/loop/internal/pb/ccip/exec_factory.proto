@@ -28,6 +28,7 @@ service ExecutionCustomHandlers {
     rpc NewOffRampReader(NewOffRampReaderRequest) returns (NewOffRampReaderResponse) {}
     rpc NewPriceRegistryReader(NewPriceRegistryReaderRequest) returns (NewPriceRegistryReaderResponse) {}
     rpc NewCommitStoreReader(NewCommitStoreReaderRequest) returns (NewCommitStoreReaderResponse) {}
+    rpc NewTokenDataReader(NewTokenDataRequest) returns (NewTokenDataResponse) {}
     // TODO: BCF-2993: Add more custom handlers
     rpc Close(google.protobuf.Empty) returns (google.protobuf.Empty) {}
 
@@ -85,4 +86,16 @@ message NewCommitStoreReaderResponse {
     int32 commit_store_reader_service_id = 1;
 }
 
+// NewTokenDataRequest is a gRPC adapter for the input arguments of
+// [github.com/smartcontractkit/chainlink-common/pkg/types/CCIPExecProvider.NewTokenDataReader]
+message NewTokenDataRequest {
+    string address = 1;
+}
+
+// NewTokenDataResponse is a gRPC adapter for the output arguments of
+// [github.com/smartcontractkit/chainlink-common/pkg/types/CCIPExecProvider.NewTokenDataReader]
+// It contains the id of the created token data reader service that was created
+message NewTokenDataResponse {
+    int32 token_data_reader_service_id = 1;
+}
 

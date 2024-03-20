@@ -244,17 +244,30 @@ func (e *execProviderClient) NewPriceRegistryReader(ctx context.Context, addr cc
 
 // NewTokenDataReader implements types.CCIPExecProvider.
 func (e *execProviderClient) NewTokenDataReader(ctx context.Context, tokenAddress cciptypes.Address) (cciptypes.TokenDataReader, error) {
-	panic("unimplemented")
+	req := ccippb.NewTokenDataRequest{Address: string(tokenAddress)}
+	resp, err := e.grpcClient.NewTokenDataReader(ctx, &req)
+	if err != nil {
+		return nil, err
+	}
+	// TODO BCF-3061: make this work for proxied relayer
+	tokenDataConn, err := e.BrokerExt.Dial(uint32(resp.TokenDataReaderServiceId))
+	if err != nil {
+		return nil, fmt.Errorf("failed to lookup price registry reader service at %d: %w", resp.TokenDataReaderServiceId, err)
+	}
+	// need to wrap grpc tokenDataReader into the desired interface
+	tokenDataReader := ccipinternal.NewTokenDataReaderGRPCClient(tokenDataConn)
+
+	return tokenDataReader, nil
 }
 
 // NewTokenPoolBatchedReader implements types.CCIPExecProvider.
 func (e *execProviderClient) NewTokenPoolBatchedReader(ctx context.Context) (cciptypes.TokenPoolBatchedReader, error) {
-	panic("unimplemented")
+	panic("BCF-3108")
 }
 
 // SourceNativeToken implements types.CCIPExecProvider.
 func (e *execProviderClient) SourceNativeToken(ctx context.Context) (cciptypes.Address, error) {
-	panic("unimplemented")
+	panic("BCF-3109")
 }
 
 // execProviderServer is a server that wraps the custom methods of the [types.CCIPExecProvider]
@@ -366,4 +379,23 @@ func (e *execProviderServer) NewPriceRegistryReader(ctx context.Context, req *cc
 	// handler up front.
 	priceRegistryHandler.WithCloser(spawnedServer)
 	return &ccippb.NewPriceRegistryReaderResponse{PriceRegistryReaderServiceId: int32(priceReaderID)}, nil
+}
+
+func (e *execProviderServer) NewTokenDataReader(ctx context.Context, req *ccippb.NewTokenDataRequest) (*ccippb.NewTokenDataResponse, error) {
+	reader, err := e.impl.NewTokenDataReader(ctx, cciptypes.Address(req.Address))
+	if err != nil {
+		return nil, err
+	}
+	// wrap the reader in a grpc server and serve it
+	tokenDataHandler := ccipinternal.NewTokenDataReaderGRPCServer(reader)
+	// the id is handle to the broker, we will need it on the other side to dial the resource
+	tokeDataReaderID, spawnedServer, err := e.ServeNew("TokenDataReader", func(s *grpc.Server) {
+		ccippb.RegisterTokenDataReaderServer(s, tokenDataHandler)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	tokenDataHandler.AddDep(spawnedServer)
+	return &ccippb.NewTokenDataResponse{TokenDataReaderServiceId: int32(tokeDataReaderID)}, nil
 }

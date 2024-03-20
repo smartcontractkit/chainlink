@@ -3,6 +3,7 @@ syntax = "proto3";
 option go_package = "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb/ccip;ccippb";
 
 package loop.internal.pb.ccip;
+import "google/protobuf/empty.proto";
 import "models.proto";
 
 
@@ -10,6 +11,7 @@ import "models.proto";
 // [github.com/smartcontractkit/chainlink-common/chainlink-common/pkg/types/ccip/TokenDataReader]
 service TokenDataReader {
     rpc ReadTokenData(TokenDataRequest) returns (TokenDataResponse) {}
+    rpc Close(google.protobuf.Empty) returns (google.protobuf.Empty) {}
 }
 
 // TokenDataRequest is a gRPC adapter for the input arguments of

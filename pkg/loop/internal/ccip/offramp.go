@@ -6,8 +6,6 @@ import (
 	"io"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 
@@ -105,13 +103,7 @@ func (o *OffRampReaderGRPCClient) ChangeConfig(ctx context.Context, onchainConfi
 }
 
 func (o *OffRampReaderGRPCClient) Close() error {
-	_, err := o.client.Close(context.Background(), &emptypb.Empty{})
-	// due to the onClose handler in the server, it may shutdown before it sends a response to client
-	// in that case, we expect the client to receive an Unavailable or Internal error
-	if status.Code(err) == codes.Unavailable || status.Code(err) == codes.Internal {
-		return nil
-	}
-	return err
+	return shutdownGRPCServer(context.Background(), o.client)
 }
 
 // CurrentRateLimiterState i[github.com/smartcontractkit/chainlink-common/pkg/types/ccip.OffRampReader]

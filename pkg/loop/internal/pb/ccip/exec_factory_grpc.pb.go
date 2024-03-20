@@ -115,6 +115,7 @@ const (
 	ExecutionCustomHandlers_NewOffRampReader_FullMethodName       = "/loop.internal.pb.ccip.ExecutionCustomHandlers/NewOffRampReader"
 	ExecutionCustomHandlers_NewPriceRegistryReader_FullMethodName = "/loop.internal.pb.ccip.ExecutionCustomHandlers/NewPriceRegistryReader"
 	ExecutionCustomHandlers_NewCommitStoreReader_FullMethodName   = "/loop.internal.pb.ccip.ExecutionCustomHandlers/NewCommitStoreReader"
+	ExecutionCustomHandlers_NewTokenDataReader_FullMethodName     = "/loop.internal.pb.ccip.ExecutionCustomHandlers/NewTokenDataReader"
 	ExecutionCustomHandlers_Close_FullMethodName                  = "/loop.internal.pb.ccip.ExecutionCustomHandlers/Close"
 )
 
@@ -126,6 +127,7 @@ type ExecutionCustomHandlersClient interface {
 	NewOffRampReader(ctx context.Context, in *NewOffRampReaderRequest, opts ...grpc.CallOption) (*NewOffRampReaderResponse, error)
 	NewPriceRegistryReader(ctx context.Context, in *NewPriceRegistryReaderRequest, opts ...grpc.CallOption) (*NewPriceRegistryReaderResponse, error)
 	NewCommitStoreReader(ctx context.Context, in *NewCommitStoreReaderRequest, opts ...grpc.CallOption) (*NewCommitStoreReaderResponse, error)
+	NewTokenDataReader(ctx context.Context, in *NewTokenDataRequest, opts ...grpc.CallOption) (*NewTokenDataResponse, error)
 	// TODO: BCF-2993: Add more custom handlers
 	Close(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
@@ -174,6 +176,15 @@ func (c *executionCustomHandlersClient) NewCommitStoreReader(ctx context.Context
 	return out, nil
 }
 
+func (c *executionCustomHandlersClient) NewTokenDataReader(ctx context.Context, in *NewTokenDataRequest, opts ...grpc.CallOption) (*NewTokenDataResponse, error) {
+	out := new(NewTokenDataResponse)
+	err := c.cc.Invoke(ctx, ExecutionCustomHandlers_NewTokenDataReader_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *executionCustomHandlersClient) Close(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, ExecutionCustomHandlers_Close_FullMethodName, in, out, opts...)
@@ -191,6 +202,7 @@ type ExecutionCustomHandlersServer interface {
 	NewOffRampReader(context.Context, *NewOffRampReaderRequest) (*NewOffRampReaderResponse, error)
 	NewPriceRegistryReader(context.Context, *NewPriceRegistryReaderRequest) (*NewPriceRegistryReaderResponse, error)
 	NewCommitStoreReader(context.Context, *NewCommitStoreReaderRequest) (*NewCommitStoreReaderResponse, error)
+	NewTokenDataReader(context.Context, *NewTokenDataRequest) (*NewTokenDataResponse, error)
 	// TODO: BCF-2993: Add more custom handlers
 	Close(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	mustEmbedUnimplementedExecutionCustomHandlersServer()
@@ -211,6 +223,9 @@ func (UnimplementedExecutionCustomHandlersServer) NewPriceRegistryReader(context
 }
 func (UnimplementedExecutionCustomHandlersServer) NewCommitStoreReader(context.Context, *NewCommitStoreReaderRequest) (*NewCommitStoreReaderResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method NewCommitStoreReader not implemented")
+}
+func (UnimplementedExecutionCustomHandlersServer) NewTokenDataReader(context.Context, *NewTokenDataRequest) (*NewTokenDataResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method NewTokenDataReader not implemented")
 }
 func (UnimplementedExecutionCustomHandlersServer) Close(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Close not implemented")
@@ -301,6 +316,24 @@ func _ExecutionCustomHandlers_NewCommitStoreReader_Handler(srv interface{}, ctx 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ExecutionCustomHandlers_NewTokenDataReader_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(NewTokenDataRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ExecutionCustomHandlersServer).NewTokenDataReader(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ExecutionCustomHandlers_NewTokenDataReader_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ExecutionCustomHandlersServer).NewTokenDataReader(ctx, req.(*NewTokenDataRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _ExecutionCustomHandlers_Close_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(emptypb.Empty)
 	if err := dec(in); err != nil {
@@ -341,6 +374,10 @@ var ExecutionCustomHandlers_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "NewCommitStoreReader",
 			Handler:    _ExecutionCustomHandlers_NewCommitStoreReader_Handler,
+		},
+		{
+			MethodName: "NewTokenDataReader",
+			Handler:    _ExecutionCustomHandlers_NewTokenDataReader_Handler,
 		},
 		{
 			MethodName: "Close",
