@@ -20,11 +20,12 @@ import {ChainSpecificUtil} from "../../ChainSpecificUtil.sol";
 contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBaseV2Plus, IVRFV2PlusWrapper {
   event WrapperFulfillmentFailed(uint256 indexed requestId, address indexed consumer);
 
-  error LinkAlreadySet();
   error FailedToTransferLink();
   error IncorrectExtraArgsLength(uint16 expectedMinimumLength, uint16 actualLength);
   error NativePaymentInOnTokenTransfer();
   error LINKPaymentInRequestRandomWordsInNative();
+
+  LinkTokenInterface internal immutable i_link;
 
   /* Storage Slot 1: BEGIN */
   // s_keyHash is the key hash to use when requesting randomness. Fees are paid based on current gas
@@ -68,9 +69,6 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   // charges.
   uint32 private s_fulfillmentFlatFeeNativePPM;
 
-  LinkTokenInterface public s_link;
-  /* Storage Slot 6: END */
-
   /* Storage Slot 7: BEGIN */
   // s_wrapperGasOverhead reflects the gas overhead of the wrapper's fulfillRandomWords
   // function. The cost for this gas is passed to the user.
@@ -91,11 +89,11 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   // in the pricing for wrapped requests. This includes the gas costs of proof verification and
   // payment calculation in the coordinator.
   uint32 private s_coordinatorGasOverhead;
+  /* Storage Slot 6: END */
 
+  /* Storage Slot 7: BEGIN */
   AggregatorV3Interface public s_linkNativeFeed;
-  /* Storage Slot 7: END */
 
-  /* Storage Slot 8: BEGIN */
   // s_configured tracks whether this contract has been configured. If not configured, randomness
   // requests cannot be made.
   bool public s_configured;
@@ -112,7 +110,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   uint8 internal s_maxNumWords;
 
   uint16 private constant EXPECTED_MIN_LENGTH = 36;
-  /* Storage Slot 8: END */
+  /* Storage Slot 7: END */
 
   struct Callback {
     address callbackAddress;
@@ -123,15 +121,17 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     // GasPrice is unlikely to be more than 14 ETH on most chains
     uint64 requestGasPrice;
   }
-  /* Storage Slot 9: BEGIN */
+  /* Storage Slot 8: BEGIN */
   mapping(uint256 => Callback) /* requestID */ /* callback */ public s_callbacks;
 
-  /* Storage Slot 9: END */
+  /* Storage Slot 8: END */
 
   constructor(address _link, address _linkNativeFeed, address _coordinator) VRFConsumerBaseV2Plus(_coordinator) {
-    if (_link != address(0)) {
-      s_link = LinkTokenInterface(_link);
+    if (_link == address(0)) {
+      revert ZeroAddress();
     }
+    i_link = LinkTokenInterface(_link);
+
     if (_linkNativeFeed != address(0)) {
       s_linkNativeFeed = AggregatorV3Interface(_linkNativeFeed);
     }
@@ -143,20 +143,13 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   }
 
   /**
-   * @notice set the link token and link native feed to be used by this wrapper
-   * @param link address of the link token
+   * @notice set link native feed to be used by this wrapper
    * @param linkNativeFeed address of the link native feed
    */
-  function setLinkAndLinkNativeFeed(address link, address linkNativeFeed) external onlyOwner {
-    // Disallow re-setting link token because the logic wouldn't really make sense
-    if (address(s_link) != address(0)) {
-      revert LinkAlreadySet();
-    }
-
-    s_link = LinkTokenInterface(link);
+  function setLinkNativeFeed(address linkNativeFeed) external onlyOwner {
     s_linkNativeFeed = AggregatorV3Interface(linkNativeFeed);
 
-    emit LinkAndLinkNativeFeedSet(link, linkNativeFeed);
+    emit LinkNativeFeedSet(linkNativeFeed);
   }
 
   /**
@@ -393,7 +386,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
    */
   function onTokenTransfer(address _sender, uint256 _amount, bytes calldata _data) external onlyConfiguredNotDisabled {
     // solhint-disable-next-line custom-errors
-    require(msg.sender == address(s_link), "only callable from LINK");
+    require(msg.sender == address(i_link), "only callable from LINK");
 
     (uint32 callbackGasLimit, uint16 requestConfirmations, uint32 numWords, bytes memory extraArgs) = abi.decode(
       _data,
@@ -490,8 +483,8 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
    * @param _recipient is the address that should receive the LINK funds.
    */
   function withdraw(address _recipient) external onlyOwner {
-    uint256 amount = s_link.balanceOf(address(this));
-    if (!s_link.transfer(_recipient, amount)) {
+    uint256 amount = i_link.balanceOf(address(this));
+    if (!i_link.transfer(_recipient, amount)) {
       revert FailedToTransferLink();
     }
 
@@ -545,6 +538,10 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     if (!success) {
       emit WrapperFulfillmentFailed(_requestId, callback.callbackAddress);
     }
+  }
+
+  function link() external view override returns (address) {
+    return address(i_link);
   }
 
   function _getFeedData() private view returns (int256 weiPerUnitLink, bool isFeedStale) {

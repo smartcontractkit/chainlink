@@ -868,7 +868,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		//Verify old and migrated subs
 		require.Equal(t, oldSubscriptionBeforeMigration.NativeBalance, migratedSubscription.NativeBalance)
 		require.Equal(t, oldSubscriptionBeforeMigration.Balance, migratedSubscription.Balance)
-		require.Equal(t, oldSubscriptionBeforeMigration.Owner, migratedSubscription.Owner)
+		require.Equal(t, oldSubscriptionBeforeMigration.SubOwner, migratedSubscription.SubOwner)
 		require.Equal(t, oldSubscriptionBeforeMigration.Consumers, migratedSubscription.Consumers)
 
 		//Verify that old sub was deleted from old Coordinator
@@ -1049,7 +1049,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		//Verify old and migrated subs
 		require.Equal(t, oldSubscriptionBeforeMigration.NativeBalance, migratedSubscription.NativeBalance)
 		require.Equal(t, oldSubscriptionBeforeMigration.Balance, migratedSubscription.Balance)
-		require.Equal(t, oldSubscriptionBeforeMigration.Owner, migratedSubscription.Owner)
+		require.Equal(t, oldSubscriptionBeforeMigration.SubOwner, migratedSubscription.SubOwner)
 		require.Equal(t, oldSubscriptionBeforeMigration.Consumers, migratedSubscription.Consumers)
 
 		//Verify that old sub was deleted from old Coordinator
