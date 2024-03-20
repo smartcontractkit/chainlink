@@ -2,15 +2,19 @@ package dashboardlib
 
 import (
 	"context"
+	"encoding/json"
 	"github.com/K-Phoen/grabana"
 	"github.com/K-Phoen/grabana/dashboard"
 	"github.com/pkg/errors"
 	"net/http"
+	"os"
 )
 
 type Dashboard struct {
 	Name       string
 	DeployOpts EnvConfig
+	/* SDK panels that are missing in Grabana */
+	SDKPanels []map[string]interface{}
 	/* generated dashboard opts and builder */
 	builder dashboard.Builder
 	Opts    []dashboard.Option
@@ -49,6 +53,10 @@ func (m *Dashboard) Add(opts []dashboard.Option) {
 	m.Opts = append(m.Opts, opts...)
 }
 
+func (m *Dashboard) AddSDKPanel(panel map[string]interface{}) {
+	m.SDKPanels = append(m.SDKPanels, panel)
+}
+
 func (m *Dashboard) build() (dashboard.Builder, error) {
 	b, err := dashboard.New(
 		m.Name,
@@ -56,6 +64,27 @@ func (m *Dashboard) build() (dashboard.Builder, error) {
 	)
 	if err != nil {
 		return dashboard.Builder{}, errors.Wrap(err, "failed to build the dashboard")
+	}
+	return b, nil
+}
+
+// TODO: re-write after forking Grabana, inject foundation SDK components from official schema
+func (m *Dashboard) injectSDKPanels(b dashboard.Builder) (dashboard.Builder, error) {
+	data, err := b.MarshalIndentJSON()
+	if err != nil {
+		return dashboard.Builder{}, err
+	}
+	var asMap map[string]interface{}
+	if err := json.Unmarshal(data, &asMap); err != nil {
+		return dashboard.Builder{}, err
+	}
+	asMap["rows"].([]interface{})[0].(map[string]interface{})["panels"] = append(asMap["rows"].([]interface{})[0].(map[string]interface{})["panels"].([]interface{}), m.SDKPanels[0])
+	d, err := json.Marshal(asMap)
+	if err != nil {
+		return dashboard.Builder{}, err
+	}
+	if err := os.WriteFile("generated_ccip_dashboard.json", d, os.ModePerm); err != nil {
+		return dashboard.Builder{}, err
 	}
 	return b, nil
 }
