@@ -84,7 +84,6 @@ type Txm[
 	services.StateMachine
 	logger                  logger.SugaredLogger
 	txStore                 txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
-	client                  txmgrtypes.TxmClient[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 	config                  txmgrtypes.TransactionManagerChainConfig
 	txConfig                txmgrtypes.TransactionManagerTransactionsConfig
 	keyStore                txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
@@ -140,7 +139,6 @@ func NewTxm[
 	confirmer *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
 	resender *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
 	tracker *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
-	client txmgrtypes.TxmClient[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
 ) *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
 	b := Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{
 		logger:           logger.Sugared(lggr),
@@ -161,7 +159,6 @@ func NewTxm[
 		confirmer:        confirmer,
 		resender:         resender,
 		tracker:          tracker,
-		client:           client,
 	}
 
 	if txCfg.ResendAfterThreshold() <= 0 {
