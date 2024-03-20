@@ -496,10 +496,11 @@ func (b *broadcaster) onReplayRequest(replayReq replayRequest) {
 	b.backfillBlockNumber.Valid = true
 	if replayReq.forceBroadcast {
 		ctx, cancel := b.chStop.CtxCancel(context.WithTimeout(context.Background(), time.Minute))
+		sqlutil.WithoutDefaultTimeout(ctx)
 		defer cancel()
 		// Use a longer timeout in the event that a very large amount of logs need to be marked
 		// as consumed.
-		err := b.orm.MarkBroadcastsUnconsumed(sqlutil.WithoutDefaultTimeout(ctx), replayReq.fromBlock)
+		err := b.orm.MarkBroadcastsUnconsumed(ctx, replayReq.fromBlock)
 		if err != nil {
 			b.logger.Errorw("Error marking broadcasts as unconsumed",
 				"err", err, "fromBlock", replayReq.fromBlock)
