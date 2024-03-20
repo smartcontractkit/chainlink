@@ -4,7 +4,7 @@ go 1.21.7
 
 require (
 	github.com/K-Phoen/grabana v0.22.1
-	github.com/smartcontractkit/chainlink/dashboard-lib v0.22.1
+	github.com/smartcontractkit/chainlink/dashboard-lib v0.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/wasp v0.4.6
 )
 
@@ -34,5 +34,5 @@ replace (
 	github.com/mwitkow/grpc-proxy => github.com/smartcontractkit/grpc-proxy v0.0.0-20230731113816-f1be6620749f
 
 	github.com/sercand/kuberesolver/v4 => github.com/sercand/kuberesolver/v5 v5.1.1
-	github.com/smartcontractkit/chainlink/dashboard-lib => ../../dashboard
+	github.com/smartcontractkit/chainlink/dashboard-lib => ../../dashboard-lib
 )

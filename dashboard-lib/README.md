@@ -21,4 +21,4 @@ Components should be imported from this module, see [example](../charts/chainlin
 ## How to convert from JSON using Grabana codegen utility
 1. Download Grabana binary [here](https://github.com/K-Phoen/grabana/releases)
 2. ./bin/grabana convert-go -i dashboard.json > lib/my_new_component/rows.go
-3. Create a [component](lib/k8s-pods/component.go)
+3. Create a [component](k8s-pods/component.go)
