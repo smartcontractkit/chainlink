@@ -1079,6 +1079,20 @@ func main() {
 		helpers.PanicErr(err)
 
 		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "transfer ownership to", *newOwner)
+	case "public-key-x-y":
+		publicKeyXY := flag.NewFlagSet("public-key-x-y", flag.ExitOnError)
+		uncompressedPubKeyCLI := publicKeyXY.String("pubkey", "", "uncompressed pubkey")
+		helpers.ParseArgs(publicKeyXY, os.Args[2:], "pubkey")
+		uncompressedPubKey := *uncompressedPubKeyCLI
+		// Put key in ECDSA format
+		if strings.HasPrefix(uncompressedPubKey, "0x") {
+			uncompressedPubKey = strings.Replace(uncompressedPubKey, "0x", "04", 1)
+		}
+		pubBytes, err := hex.DecodeString(uncompressedPubKey)
+		helpers.PanicErr(err)
+		pk, err := crypto.UnmarshalPubkey(pubBytes)
+		helpers.PanicErr(err)
+		fmt.Printf("PublicKey: %s, X: %s, Y: %s\n", *uncompressedPubKeyCLI, pk.X, pk.Y)
 	case "coordinator-reregister-proving-key":
 		coordinatorReregisterKey := flag.NewFlagSet("coordinator-register-key", flag.ExitOnError)
 		coordinatorAddress := coordinatorReregisterKey.String("coordinator-address", "", "coordinator address")
