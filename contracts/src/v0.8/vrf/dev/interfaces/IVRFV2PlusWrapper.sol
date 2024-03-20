@@ -88,5 +88,5 @@ interface IVRFV2PlusWrapper {
     bytes memory extraArgs
   ) external payable returns (uint256 requestId);
 
-  function link() external returns (address);
+  function link() external view returns (address);
 }
