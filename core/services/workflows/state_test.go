@@ -42,7 +42,7 @@ func TestInterpolateKey(t *testing.T) {
 					},
 				},
 			},
-			errMsg: "could not interpolate ref part `reports` in `<a report>`",
+			errMsg: "could not interpolate ref part `reports` (ref: `evm_median.outputs.reports`) in `<a report>`",
 		},
 		{
 			name: "ref doesn't exist",
@@ -114,7 +114,7 @@ func TestInterpolateKey(t *testing.T) {
 					},
 				},
 			},
-			errMsg: "could not find ref part `missing` in",
+			errMsg: "could not find ref part `missing` (ref: `evm_median.outputs.reports.missing`) in",
 		},
 		{
 			name: "digging into an array",
@@ -142,7 +142,7 @@ func TestInterpolateKey(t *testing.T) {
 					},
 				},
 			},
-			errMsg: "cannot fetch index 2",
+			errMsg: "index out of bounds 2",
 		},
 		{
 			name: "digging into an array with a string key",
@@ -156,7 +156,7 @@ func TestInterpolateKey(t *testing.T) {
 					},
 				},
 			},
-			errMsg: "could not interpolate ref part `notAString` in `[listElement]`: `notAString` is not convertible to an int",
+			errMsg: "could not interpolate ref part `notAString` (ref: `evm_median.outputs.reportsList.notAString`) in `[listElement]`: `notAString` is not convertible to an int",
 		},
 		{
 			name: "digging into an array with a negative index",
@@ -170,7 +170,7 @@ func TestInterpolateKey(t *testing.T) {
 					},
 				},
 			},
-			errMsg: "could not interpolate ref part `-1` in `[listElement]`: index -1 must be a positive number",
+			errMsg: "could not interpolate ref part `-1` (ref: `evm_median.outputs.reportsList.-1`) in `[listElement]`: index out of bounds -1",
 		},
 		{
 			name: "empty element",
@@ -184,7 +184,7 @@ func TestInterpolateKey(t *testing.T) {
 					},
 				},
 			},
-			errMsg: "could not find ref part `` in",
+			errMsg: "could not find ref part `` (ref: `evm_median.outputs..notAString`) in",
 		},
 	}
 

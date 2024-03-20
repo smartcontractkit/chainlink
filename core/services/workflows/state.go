@@ -38,14 +38,14 @@ type executionState struct {
 	status string
 }
 
+// copyState returns a deep copy of the input executionState
 func copyState(es executionState) executionState {
 	steps := map[string]*stepState{}
 	for ref, step := range es.steps {
 		var mval *values.Map
 		if step.inputs != nil {
 			mp := values.Proto(step.inputs).GetMapValue()
-			copied := values.FromMapValueProto(mp)
-			mval = copied
+			mval = values.FromMapValueProto(mp)
 		}
 
 		op := values.Proto(step.outputs.value)
@@ -76,9 +76,14 @@ func copyState(es executionState) executionState {
 
 // interpolateKey takes a multi-part, dot-separated key and attempts to replace
 // it with its corresponding value in `state`.
-// A key is valid if:
-// - it contains at least two parts, with the first part being the workflow step's `ref` variable, and the second being one of `inputs` or `outputs`
-// - any subsequent parts will be processed as a list index (if the current element is a list) or a map key (if it's a map)
+//
+// A key is valid if it contains at least two parts, with:
+//   - the first part being the workflow step's `ref` variable
+//   - the second part being one of `inputs` or `outputs`
+//
+// If a key has more than two parts, then we traverse the parts
+// to find the value we want to replace.
+// We support traversing both nested maps and lists and any combination of the two.
 func interpolateKey(key string, state executionState) (any, error) {
 	parts := strings.Split(key, ".")
 
@@ -86,6 +91,7 @@ func interpolateKey(key string, state executionState) (any, error) {
 		return "", fmt.Errorf("cannot interpolate %s: must have at least two parts", key)
 	}
 
+	// lookup the step we want to get either input or output state from
 	sc, ok := state.steps[parts[0]]
 	if !ok {
 		return "", fmt.Errorf("could not find ref `%s`", parts[0])
@@ -116,26 +122,23 @@ func interpolateKey(key string, state executionState) (any, error) {
 		case map[string]any:
 			inner, ok := v[r]
 			if !ok {
-				return "", fmt.Errorf("could not find ref part `%s` in `%+v`", r, v)
+				return "", fmt.Errorf("could not find ref part `%s` (ref: `%s`) in `%+v`", r, key, v)
 			}
 
 			val = inner
 		case []any:
-			d, err := strconv.Atoi(r)
+			i, err := strconv.Atoi(r)
 			if err != nil {
-				return "", fmt.Errorf("could not interpolate ref part `%s` in `%+v`: `%s` is not convertible to an int", r, v, r)
+				return "", fmt.Errorf("could not interpolate ref part `%s` (ref: `%s`) in `%+v`: `%s` is not convertible to an int", r, key, v, r)
 			}
 
-			if d > len(v)-1 {
-				return "", fmt.Errorf("could not interpolate ref part `%s` in `%+v`: cannot fetch index %d", r, v, d)
+			if (i > len(v)-1) || (i < 0) {
+				return "", fmt.Errorf("could not interpolate ref part `%s` (ref: `%s`) in `%+v`: index out of bounds %d", r, key, v, i)
 			}
 
-			if d < 0 {
-				return "", fmt.Errorf("could not interpolate ref part `%s` in `%+v`: index %d must be a positive number", r, v, d)
-			}
-			val = v[d]
+			val = v[i]
 		default:
-			return "", fmt.Errorf("could not interpolate ref part `%s` in `%+v`", r, val)
+			return "", fmt.Errorf("could not interpolate ref part `%s` (ref: `%s`) in `%+v`", r, key, val)
 		}
 	}
 
@@ -148,9 +151,10 @@ var (
 
 // findAndInterpolateAllKeys takes an `input` any value, and recursively
 // identifies any values that should be replaced from `state`.
-// A value `v` should be replaced if it is wrapped as follows `$(v)`.
+//
+// A value `v` should be replaced if it is wrapped as follows: `$(v)`.
 func findAndInterpolateAllKeys(input any, state executionState) (any, error) {
-	return traverse(
+	return deepMap(
 		input,
 		func(el string) (any, error) {
 			matches := interpolationTokenRe.FindStringSubmatch(el)
@@ -164,10 +168,17 @@ func findAndInterpolateAllKeys(input any, state executionState) (any, error) {
 	)
 }
 
+// findRefs takes an `inputs` map and returns a list of all the step references
+// contained within it.
 func findRefs(inputs map[string]any) ([]string, error) {
 	refs := []string{}
-	_, err := traverse(
+	_, err := deepMap(
 		inputs,
+		// This function is called for each string in the map
+		// for each string, we iterate over each match of the interpolation token
+		// - if there are no matches, return no reference
+		// - if there is one match, return the reference
+		// - if there are multiple matches (in the case of a multi-part state reference), return just the step ref
 		func(el string) (any, error) {
 			matches := interpolationTokenRe.FindStringSubmatch(el)
 			if len(matches) < 2 {
@@ -187,10 +198,19 @@ func findRefs(inputs map[string]any) ([]string, error) {
 	return refs, err
 }
 
-func traverse(input any, do func(el string) (any, error)) (any, error) {
+// deepMap recursively applies a transformation function
+// over each string within:
+//
+//   - a map[string]any
+//   - a []any
+//   - a string
+func deepMap(input any, transform func(el string) (any, error)) (any, error) {
+	// in the case of a string, simply apply the transformation
+	// in the case of a map, recurse and apply the transformation to each value
+	// in the case of a list, recurse and apply the transformation to each element
 	switch tv := input.(type) {
 	case string:
-		nv, err := do(tv)
+		nv, err := transform(tv)
 		if err != nil {
 			return nil, err
 		}
@@ -199,7 +219,7 @@ func traverse(input any, do func(el string) (any, error)) (any, error) {
 	case map[string]any:
 		nm := map[string]any{}
 		for k, v := range tv {
-			nv, err := traverse(v, do)
+			nv, err := deepMap(v, transform)
 			if err != nil {
 				return nil, err
 			}
@@ -210,7 +230,7 @@ func traverse(input any, do func(el string) (any, error)) (any, error) {
 	case []any:
 		a := []any{}
 		for _, el := range tv {
-			ne, err := traverse(el, do)
+			ne, err := deepMap(el, transform)
 			if err != nil {
 				return nil, err
 			}
