@@ -1011,7 +1011,7 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Updat
 }
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) IsTxFinalized(ctx context.Context, blockHeight int64, txID int64, chainID CHAIN_ID) (bool, error) {
 	if ms.chainID.String() != chainID.String() {
-		return false, fmt.Errorf("is_tx_finalized: %w", ErrInvalidChainID)
+		return false, nil
 	}
 
 	txFilter := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
@@ -1020,21 +1020,20 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) IsTxF
 		}
 
 		for _, attempt := range tx.TxAttempts {
-			if attempt.Receipts == nil || len(attempt.Receipts) == 0 {
+			if len(attempt.Receipts) == 0 {
 				continue
 			}
 			// there can only be one receipt per attempt
 			if attempt.Receipts[0].GetBlockNumber() == nil {
 				continue
 			}
-
 			return attempt.Receipts[0].GetBlockNumber().Int64() <= (blockHeight - int64(tx.MinConfirmations.Uint32))
 		}
 
 		return false
 	}
 	txAttemptFilter := func(attempt *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
-		return attempt.Receipts != nil && len(attempt.Receipts) > 0
+		return len(attempt.Receipts) > 0
 	}
 	ms.addressStatesLock.RLock()
 	defer ms.addressStatesLock.RUnlock()

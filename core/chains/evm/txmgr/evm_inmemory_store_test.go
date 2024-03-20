@@ -1147,6 +1147,82 @@ func TestInMemoryStore_PreloadTxes(t *testing.T) {
 	})
 }
 
+func TestInMemoryStore_IsTxFinalized(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
+	persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+	kst := cltest.NewKeyStore(t, db, dbcfg)
+	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
+
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	lggr := logger.TestSugared(t)
+	chainID := ethClient.ConfiguredChainID()
+	ctx := context.Background()
+
+	inMemoryStore, err := commontxmgr.NewInMemoryStore[
+		*big.Int,
+		common.Address, common.Hash, common.Hash,
+		*evmtypes.Receipt,
+		evmtypes.Nonce,
+		evmgas.EvmFee,
+	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	require.NoError(t, err)
+
+	t.Run("tx not past finality depth", func(t *testing.T) {
+		// insert the transaction into the persistent store
+		inTx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, persistentStore, 111, 1, fromAddress)
+		rec := mustInsertEthReceipt(t, persistentStore, 1, utils.NewHash(), inTx.TxAttempts[0].Hash)
+		// insert the transaction into the in-memory store
+		inTx.TxAttempts[0].Receipts = append(inTx.TxAttempts[0].Receipts, evmtxmgr.DbReceiptToEvmReceipt(&rec))
+		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
+
+		ctx := testutils.Context(t)
+		blockHeight := int64(2)
+		expIsFinalized, expErr := persistentStore.IsTxFinalized(ctx, blockHeight, inTx.ID, chainID)
+		actIsFinalized, actErr := inMemoryStore.IsTxFinalized(ctx, blockHeight, inTx.ID, chainID)
+		require.NoError(t, expErr)
+		require.NoError(t, actErr)
+		assert.Equal(t, expIsFinalized, actIsFinalized)
+	})
+
+	t.Run("tx is past finality depth", func(t *testing.T) {
+		// insert the transaction into the persistent store
+		inTx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, persistentStore, 122, 2, fromAddress)
+		rec := mustInsertEthReceipt(t, persistentStore, 2, utils.NewHash(), inTx.TxAttempts[0].Hash)
+		// insert the transaction into the in-memory store
+		inTx.TxAttempts[0].Receipts = append(inTx.TxAttempts[0].Receipts, evmtxmgr.DbReceiptToEvmReceipt(&rec))
+		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
+
+		ctx := testutils.Context(t)
+		blockHeight := int64(10)
+		expIsFinalized, expErr := persistentStore.IsTxFinalized(ctx, blockHeight, inTx.ID, chainID)
+		actIsFinalized, actErr := inMemoryStore.IsTxFinalized(ctx, blockHeight, inTx.ID, chainID)
+		require.NoError(t, expErr)
+		require.NoError(t, actErr)
+		assert.Equal(t, expIsFinalized, actIsFinalized)
+	})
+
+	t.Run("wrong chain ID", func(t *testing.T) {
+		// insert the transaction into the persistent store
+		inTx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, persistentStore, 133, 3, fromAddress)
+		rec := mustInsertEthReceipt(t, persistentStore, 3, utils.NewHash(), inTx.TxAttempts[0].Hash)
+		// insert the transaction into the in-memory store
+		inTx.TxAttempts[0].Receipts = append(inTx.TxAttempts[0].Receipts, evmtxmgr.DbReceiptToEvmReceipt(&rec))
+		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
+
+		ctx := testutils.Context(t)
+		blockHeight := int64(10)
+		wrongChainID := big.NewInt(999)
+		expIsFinalized, expErr := persistentStore.IsTxFinalized(ctx, blockHeight, inTx.ID, wrongChainID)
+		actIsFinalized, actErr := inMemoryStore.IsTxFinalized(ctx, blockHeight, inTx.ID, wrongChainID)
+		require.NoError(t, expErr)
+		require.NoError(t, actErr)
+		assert.Equal(t, expIsFinalized, actIsFinalized)
+	})
+}
+
 // assertTxEqual asserts that two transactions are equal
 func assertTxEqual(t *testing.T, exp, act evmtxmgr.Tx) {
 	assert.Equal(t, exp.ID, act.ID)
