@@ -23,42 +23,38 @@ jobs:
   check-dependency-bump:
       runs-on: ubuntu-latest
       outputs:
-        dependency_bumped: ${{ steps.changes.outputs.dependency_bumped }}
+        dependency_changed: ${{ steps.changes.outputs.dependency_changed }}
       steps:
       - name: Checkout code
         uses: actions/checkout@v2
-      - name: Fetch develop branch
-        run: git fetch --depth=1 origin develop:develop
+        with:
+          fetch-depth: 0
       - name: Check for go.mod changes
         id: changes
         run: |
-          develop_version=$(git show origin/develop:go.mod | grep 'github.com/ethereum/go-ethereum' | awk '{print $2}')
-          current_version=$(grep 'github.com/ethereum/go-ethereum' go.mod | awk '{print $2}')
+          # Determine if the ethereum/go-ethereum dependency was changed in this PR
+          DEPENDENCY_CHANGED=$(git diff ${{ github.event.before }} ${{ github.event.after }} -- go.mod | grep -q 'github.com/ethereum/go-ethereum'; echo $?)
 
-          echo "Develop branch version: $develop_version"
-          echo "Current branch version: $current_version"
+          if [ "$DEPENDENCY_CHANGED" -eq 0 ]; then
+            # Dependency was changed in the PR, now compare with the base branch
+            git fetch origin ${{ github.base_ref }}
+            BASE_VERSION=$(git show origin/${{ github.base_ref }}:go.mod | grep 'github.com/ethereum/go-ethereum' | awk '{print $2}')
+            PR_VERSION=$(grep 'github.com/ethereum/go-ethereum' go.mod | awk '{print $2}')
 
-          # Check if both versions are obtained successfully
-          if [ -z "$develop_version" ] || [ -z "$current_version" ]; then
-            echo "Error: Could not retrieve versions."
-            exit 1
-          fi
+            echo "Base branch version: $BASE_VERSION"
+            echo "PR branch version: $PR_VERSION"
 
-          # Use sort -V to compare versions, and tail to get the highest version
-          highest_version=$(printf '%s\n' "$develop_version" "$current_version" | sort -V | tail -n 1)
-
-          if [ "$highest_version" == "$current_version" ] && [ "$current_version" != "$develop_version" ]; then
-            echo "Dependency ethereum/go-ethereum was changed to a higher version"
-            echo "dependency_bumped=true" >> "$GITHUB_OUTPUT"
+            echo "Dependency version changed in the PR compared to the base branch."
+            echo "dependency_changed=true" >> $GITHUB_ENV
           else
-            echo "No relevant dependency bump detected or version is not higher."
-            echo "dependency_bumped=false" >> "$GITHUB_OUTPUT"
+            echo "No changes to ethereum/go-ethereum dependency in the PR."
+            echo "dependency_changed=false" >> $GITHUB_ENV
           fi
 
   # Build Test Dependencies
 
   build-chainlink:
-    if: needs.check-dependency-bump.outputs.dependency_bumped == 'true' || github.event_name == 'workflow_dispatch'
+    if: needs.check-dependency-bump.outputs.dependency_changed == 'true' || github.event_name == 'workflow_dispatch'
     needs: [check-dependency-bump]
     environment: integration
     permissions:
@@ -90,7 +86,7 @@ jobs:
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
 
   build-tests:
-    if: needs.check-dependency-bump.outputs.dependency_bumped == 'true' || github.event_name == 'workflow_dispatch'
+    if: needs.check-dependency-bump.outputs.dependency_changed == 'true' || github.event_name == 'workflow_dispatch'
     needs: [check-dependency-bump]
     environment: integration
     permissions:
@@ -124,7 +120,7 @@ jobs:
           binary_name: tests
 
   build-test-matrix:
-    if: needs.check-dependency-bump.outputs.dependency_bumped == 'true' || github.event_name == 'workflow_dispatch'
+    if: needs.check-dependency-bump.outputs.dependency_changed == 'true' || github.event_name == 'workflow_dispatch'
     needs: [check-dependency-bump]
     runs-on: ubuntu-latest
     name: Build Test Matrix
@@ -247,7 +243,7 @@ jobs:
 
   start-slack-thread:
     name: Start Slack Thread
-    if: ${{ always() && needs.check-dependency-bump.outputs.dependency_bumped == 'true' && needs.*.result != 'skipped' && needs.*.result != 'cancelled' }}
+    if: ${{ always() && needs.check-dependency-bump.outputs.dependency_changed == 'true' && needs.*.result != 'skipped' && needs.*.result != 'cancelled' }}
     environment: integration
     outputs:
       thread_ts: ${{ steps.slack.outputs.thread_ts }}
@@ -306,7 +302,7 @@ jobs:
 
   post-test-results-to-slack:
     name: Post Test Results for ${{matrix.evm_node.eth_client}} to Slack
-    if: ${{ always() && needs.check-dependency-bump.outputs.dependency_bumped == 'true' && needs.*.result != 'skipped' && needs.*.result != 'cancelled' }}
+    if: ${{ always() && needs.check-dependency-bump.outputs.dependency_changed == 'true' && needs.*.result != 'skipped' && needs.*.result != 'cancelled' }}
     environment: integration
     permissions:
       checks: write
