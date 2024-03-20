@@ -12,7 +12,7 @@ func EthereumNetworkConfigFromConfig(l zerolog.Logger, config tc.GlobalTestConfi
 		l.Warn().Msg("No TOML private ethereum network config found, will use old geth")
 		ethBuilder := ctf_test_env.NewEthereumNetworkBuilder()
 		network, err = ethBuilder.
-			WithConsensusType(ctf_test_env.ConsensusType_PoW).
+			WithEthereumVersion(ctf_test_env.EthereumVersion_Eth1).
 			WithExecutionLayer(ctf_test_env.ExecutionLayer_Geth).
 			Build()
 
