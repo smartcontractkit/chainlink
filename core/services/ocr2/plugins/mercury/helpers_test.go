@@ -168,6 +168,7 @@ func setupNode(
 		// [JobPipeline]
 		// MaxSuccessfulRuns = 0
 		c.JobPipeline.MaxSuccessfulRuns = ptr(uint64(0))
+		c.JobPipeline.VerboseLogging = ptr(true)
 
 		// [Feature]
 		// UICSAKeys=true

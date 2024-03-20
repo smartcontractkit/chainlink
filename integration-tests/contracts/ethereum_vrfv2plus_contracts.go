@@ -57,13 +57,14 @@ func (v *EthereumVRFV2PlusWrapper) Address() string {
 
 func (v *EthereumVRFV2PlusWrapper) SetConfig(wrapperGasOverhead uint32,
 	coordinatorGasOverhead uint32,
-	wrapperPremiumPercentage uint8,
+	wrapperNativePremiumPercentage uint8,
+	wrapperLinkPremiumPercentage uint8,
 	keyHash [32]byte,
 	maxNumWords uint8,
 	stalenessSeconds uint32,
 	fallbackWeiPerUnitLink *big.Int,
-	fulfillmentFlatFeeLinkPPM uint32,
 	fulfillmentFlatFeeNativePPM uint32,
+	fulfillmentFlatFeeLinkDiscountPPM uint32,
 ) error {
 	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
 	if err != nil {
@@ -73,13 +74,14 @@ func (v *EthereumVRFV2PlusWrapper) SetConfig(wrapperGasOverhead uint32,
 		opts,
 		wrapperGasOverhead,
 		coordinatorGasOverhead,
-		wrapperPremiumPercentage,
+		wrapperNativePremiumPercentage,
+		wrapperLinkPremiumPercentage,
 		keyHash,
 		maxNumWords,
 		stalenessSeconds,
 		fallbackWeiPerUnitLink,
-		fulfillmentFlatFeeLinkPPM,
 		fulfillmentFlatFeeNativePPM,
+		fulfillmentFlatFeeLinkDiscountPPM,
 	)
 	if err != nil {
 		return err
@@ -965,12 +967,12 @@ func (e *EthereumContractDeployer) DeployVRFV2PlusWrapper(linkAddr string, linkE
 	}, err
 }
 
-func (e *EthereumContractDeployer) DeployVRFV2PlusWrapperLoadTestConsumer(linkAddr string, vrfV2PlusWrapperAddr string) (VRFv2PlusWrapperLoadTestConsumer, error) {
+func (e *EthereumContractDeployer) DeployVRFV2PlusWrapperLoadTestConsumer(vrfV2PlusWrapperAddr string) (VRFv2PlusWrapperLoadTestConsumer, error) {
 	address, _, instance, err := e.client.DeployContract("VRFV2PlusWrapperLoadTestConsumer", func(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		return vrfv2plus_wrapper_load_test_consumer.DeployVRFV2PlusWrapperLoadTestConsumer(auth, wrappers.MustNewWrappedContractBackend(e.client, nil), common.HexToAddress(linkAddr), common.HexToAddress(vrfV2PlusWrapperAddr))
+		return vrfv2plus_wrapper_load_test_consumer.DeployVRFV2PlusWrapperLoadTestConsumer(auth, wrappers.MustNewWrappedContractBackend(e.client, nil), common.HexToAddress(vrfV2PlusWrapperAddr))
 	})
 	if err != nil {
 		return nil, err

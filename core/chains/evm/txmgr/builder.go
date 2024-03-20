@@ -46,8 +46,7 @@ func NewTxm(
 	checker := &CheckerFactory{Client: client}
 	// create tx attempt builder
 	txAttemptBuilder := NewEvmTxAttemptBuilder(*client.ConfiguredChainID(), fCfg, keyStore, estimator)
-	txStore := NewTxStore(sqlxDB, lggr, dbConfig)
-
+	txStore := NewTxStore(sqlxDB, lggr)
 	txmCfg := NewEvmTxmConfig(chainConfig)                        // wrap Evm specific config
 	feeCfg := NewEvmTxmFeeConfig(fCfg)                            // wrap Evm specific config
 	txmClient := NewEvmTxmClient(client, chainConfig.ChainType()) // wrap Evm specific client
