@@ -62,13 +62,13 @@ func (m *Dashboard) build() (dashboard.Builder, error) {
 		m.Name,
 		m.Opts...,
 	)
-	//b, err = m.injectSDKPanels(b)
 	if err != nil {
 		return dashboard.Builder{}, errors.Wrap(err, "failed to build the dashboard")
 	}
 	return b, nil
 }
 
+// TODO: re-write after forking Grabana, inject foundation SDK components from official schema
 func (m *Dashboard) injectSDKPanels(b dashboard.Builder) (dashboard.Builder, error) {
 	data, err := b.MarshalIndentJSON()
 	if err != nil {

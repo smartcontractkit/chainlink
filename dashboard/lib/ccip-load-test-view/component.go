@@ -251,7 +251,7 @@ func statsRow(p Props) []dashboard.Option {
 func failedMessagesRow(p Props) []dashboard.Option {
 	return []dashboard.Option{
 		dashboard.Row(
-			"CCIP Failed Messages",
+			"Failed Messages",
 			row.Collapse(),
 			row.WithTimeSeries(
 				"Failed Commit",
@@ -308,19 +308,7 @@ func failedMessagesRow(p Props) []dashboard.Option {
 func reqRespRow(p Props) []dashboard.Option {
 	return []dashboard.Option{
 		dashboard.Row(
-			"CCIP Requests/Responses",
-			row.WithTimeSeries(
-				"Request Rate",
-				timeseries.Transparent(),
-				timeseries.Description("Requests triggered over test duration"),
-				timeseries.Span(12),
-				timeseries.Height("200px"),
-				timeseries.DataSource(p.LokiDataSource),
-				timeseries.WithLokiTarget(
-					`last_over_time({namespace="${namespace}", go_test_name="${go_test_name:pipe}", test_data_type="stats", test_group="$test_group", test_id="${test_id:pipe}", source_chain="${source_chain}", dest_chain="${dest_chain}"}| json | unwrap current_rps [$__interval]) by (test_id,gen_name)`,
-					loki.Legend("Request Triggered/TimeUnit"),
-				),
-			),
+			"Requests/Responses",
 			row.WithStat(
 				"Stats",
 				stat.DataSource(p.LokiDataSource),
@@ -351,85 +339,37 @@ func reqRespRow(p Props) []dashboard.Option {
 					prometheus.Legend("Max No Of Tokens Sent"),
 				),
 			),
-			row.WithStat(
-				"Responses Summary",
-				stat.Description("Latest Stage Stats"),
-				stat.Transparent(),
-				stat.Text(stat.TextValueAndName),
-				stat.Height("100px"),
-				stat.TitleFontSize(20),
-				stat.ValueFontSize(20),
-				stat.Span(12),
-				stat.Height("100px"),
-				stat.DataSource(p.LokiDataSource),
-				stat.WithPrometheusTarget(
-					`max_over_time({ namespace="${namespace}", go_test_name="${go_test_name:pipe}", test_data_type="stats", test_group="$test_group", test_id="${test_id:pipe}", source_chain="${source_chain}", dest_chain="${dest_chain}"}
-| json
-| unwrap current_rps [$__range]) by (test_id)`,
-					prometheus.Legend("{{test_id}} Target RPS"),
+			row.WithTimeSeries(
+				"Request Rate",
+				timeseries.Transparent(),
+				timeseries.Description("Requests triggered over test duration"),
+				timeseries.Span(6),
+				timeseries.Height("200px"),
+				timeseries.DataSource(p.LokiDataSource),
+				timeseries.WithLokiTarget(
+					`last_over_time({namespace="${namespace}", go_test_name="${go_test_name:pipe}", test_data_type="stats", test_group="$test_group", test_id="${test_id:pipe}", source_chain="${source_chain}", dest_chain="${dest_chain}"}| json | unwrap current_rps [$__interval]) by (test_id,gen_name)`,
+					loki.Legend("Request Triggered/TimeUnit"),
 				),
-				stat.WithPrometheusTarget(
-					`max_over_time({namespace="${namespace}", go_test_name="${go_test_name:pipe}", test_data_type="stats", test_group="$test_group", test_id=~"${test_id:pipe}", source_chain="${source_chain}", dest_chain="${dest_chain}"}
-| json
-| unwrap load_duration [$__range]) by (test_id)/ 1e9`,
-					prometheus.Legend("{{test_id}} Test Duration"),
-				),
-				stat.WithPrometheusTarget(
+			),
+			row.WithTimeSeries(
+				"Trigger Summary",
+				timeseries.Transparent(),
+				timeseries.Points(),
+				timeseries.Description("Latest Stage Stats"),
+				timeseries.Span(6),
+				timeseries.Height("200px"),
+				timeseries.DataSource(p.LokiDataSource),
+				timeseries.WithLokiTarget(
 					`max_over_time({namespace="${namespace}", go_test_name="${go_test_name:pipe}", test_data_type="stats", test_group="$test_group", test_id=~"${test_id:pipe}", source_chain="${source_chain}", dest_chain="${dest_chain}"}
 | json
 | unwrap success [$__range]) by (test_id)`,
-					prometheus.Legend("{{test_id}} Successful Requests"),
+					loki.Legend("Successful Requests"),
 				),
-				stat.WithPrometheusTarget(
+				timeseries.WithLokiTarget(
 					`max_over_time({namespace="${namespace}", go_test_name="${go_test_name:pipe}", test_data_type="stats", test_group="$test_group", test_id=~"${test_id:pipe}", source_chain="${source_chain}", dest_chain="${dest_chain}"}
 | json
 | unwrap failed [$__range]) by (test_id)`,
-					prometheus.Legend("{{test_id}} Failed Requests"),
-				),
-				stat.WithPrometheusTarget(
-					`max_over_time({namespace="${namespace}", go_test_name="${go_test_name:pipe}", test_data_type="stats", test_group="$test_group", test_id=~"${test_id:pipe}", source_chain="${source_chain}", dest_chain="${dest_chain}"}
-| json
-| unwrap callTimeout [$__range]) by (test_id)`,
-					prometheus.Legend("{{test_id}} Timed Out Requests"),
-				),
-			),
-			row.WithTimeSeries(
-				"Responses Counts Over Time",
-				timeseries.Transparent(),
-				timeseries.Points(),
-				timeseries.Description("Responses Counts Over Time"),
-				timeseries.Span(12),
-				timeseries.Height("200px"),
-				timeseries.DataSource(p.LokiDataSource),
-				timeseries.WithLokiTarget(
-					`count_over_time({namespace="${namespace}", test_data_type="responses",source_chain="${source_chain}", dest_chain="${dest_chain}",test_id="${test_id}", test_group="${test_group}",go_test_name="${go_test_name}"}[$__interval])`,
-					loki.Legend("{{test_id}} Responses"),
-				),
-			),
-			row.WithTimeSeries(
-				"Responses Errors Over Time",
-				timeseries.Transparent(),
-				timeseries.Points(),
-				timeseries.Description("Responses errors over time (excluding timeouts)"),
-				timeseries.Span(12),
-				timeseries.Height("200px"),
-				timeseries.DataSource(p.LokiDataSource),
-				timeseries.WithLokiTarget(
-					`last_over_time({namespace="${namespace}", test_data_type="responses",source_chain="${source_chain}", dest_chain="${dest_chain}",test_id="${test_id}", test_group="${test_group}",go_test_name="${go_test_name}"} | json | error!="" | timeout!="true" | unwrap duration [$__interval]) / 1e6`,
-					loki.Legend("{{test_id}} errored: {{error}}"),
-				),
-			),
-			row.WithTimeSeries(
-				"Responses Timeouts Over Time",
-				timeseries.Transparent(),
-				timeseries.Points(),
-				timeseries.Description("Responses timeouts over time"),
-				timeseries.Span(12),
-				timeseries.Height("200px"),
-				timeseries.DataSource(p.LokiDataSource),
-				timeseries.WithLokiTarget(
-					`last_over_time({ namespace="${namespace}", test_data_type="responses",source_chain="${source_chain}", dest_chain="${dest_chain}",test_id="${test_id}", test_group="${test_group}",go_test_name="${go_test_name}"} | json | timeout!="" | unwrap duration [$__interval]) / 1e6`,
-					loki.Legend("{{test_id}} timeout: {{error}}"),
+					loki.Legend("Failed Requests"),
 				),
 			),
 			row.WithLogs(
