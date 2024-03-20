@@ -577,9 +577,7 @@ contract NOPsSettlement is SetUp {
 
   function testSettleNOPsOffchainSuccessTransmitterBalanceZeroed() public {
     // deploy and configure a registry with OFF_CHAIN payout
-    (IAutomationRegistryMaster2_3 registry,) = deployAndConfigureAll(
-      AutoBase.PayoutMode.OFF_CHAIN
-    );
+    (IAutomationRegistryMaster2_3 registry, ) = deployAndConfigureAll(AutoBase.PayoutMode.OFF_CHAIN);
 
     // register an upkeep and add funds
     uint256 id = registry.registerUpkeep(address(TARGET1), 1000000, UPKEEP_ADMIN, 0, address(mockERC20), "", "", "");
