@@ -737,10 +737,10 @@ func SetupVRFV2PlusWrapperEnvironment(
 	return wrapperContracts, wrapperSubID, nil
 }
 
-func DeployVRFV2PlusWrapperConsumers(contractDeployer contracts.ContractDeployer, linkTokenAddress string, vrfV2PlusWrapper contracts.VRFV2PlusWrapper, consumerContractsAmount int) ([]contracts.VRFv2PlusWrapperLoadTestConsumer, error) {
+func DeployVRFV2PlusWrapperConsumers(contractDeployer contracts.ContractDeployer, vrfV2PlusWrapper contracts.VRFV2PlusWrapper, consumerContractsAmount int) ([]contracts.VRFv2PlusWrapperLoadTestConsumer, error) {
 	var consumers []contracts.VRFv2PlusWrapperLoadTestConsumer
 	for i := 1; i <= consumerContractsAmount; i++ {
-		loadTestConsumer, err := contractDeployer.DeployVRFV2PlusWrapperLoadTestConsumer(linkTokenAddress, vrfV2PlusWrapper.Address())
+		loadTestConsumer, err := contractDeployer.DeployVRFV2PlusWrapperLoadTestConsumer(vrfV2PlusWrapper.Address())
 		if err != nil {
 			return nil, fmt.Errorf("%s, err %w", ErrAdvancedConsumer, err)
 		}
@@ -767,7 +767,7 @@ func DeployVRFV2PlusDirectFundingContracts(
 		return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrWaitTXsComplete, err)
 	}
 
-	consumers, err := DeployVRFV2PlusWrapperConsumers(contractDeployer, linkTokenAddress, vrfv2PlusWrapper, consumerContractsAmount)
+	consumers, err := DeployVRFV2PlusWrapperConsumers(contractDeployer, vrfv2PlusWrapper, consumerContractsAmount)
 	if err != nil {
 		return nil, err
 	}
@@ -979,7 +979,7 @@ func LogSubDetails(l zerolog.Logger, subscription vrf_coordinator_v2_5.GetSubscr
 		Str("Link Balance", (*commonassets.Link)(subscription.Balance).Link()).
 		Str("Native Token Balance", assets.FormatWei(subscription.NativeBalance)).
 		Str("Subscription ID", subID.String()).
-		Str("Subscription Owner", subscription.Owner.String()).
+		Str("Subscription Owner", subscription.SubOwner.String()).
 		Interface("Subscription Consumers", subscription.Consumers).
 		Msg("Subscription Data")
 }
@@ -1075,7 +1075,7 @@ func LogSubDetailsAfterMigration(l zerolog.Logger, newCoordinator contracts.VRFC
 		Str("Subscription ID", subID.String()).
 		Str("Juels Balance", migratedSubscription.Balance.String()).
 		Str("Native Token Balance", migratedSubscription.NativeBalance.String()).
-		Str("Subscription Owner", migratedSubscription.Owner.String()).
+		Str("Subscription Owner", migratedSubscription.SubOwner.String()).
 		Interface("Subscription Consumers", migratedSubscription.Consumers).
 		Msg("Subscription Data After Migration to New Coordinator")
 }

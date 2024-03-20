@@ -133,7 +133,7 @@ type ContractDeployer interface {
 	DeployVRFv2LoadTestConsumer(coordinatorAddr string) (VRFv2LoadTestConsumer, error)
 	DeployVRFV2WrapperLoadTestConsumer(linkAddr string, vrfV2WrapperAddr string) (VRFv2WrapperLoadTestConsumer, error)
 	DeployVRFv2PlusLoadTestConsumer(coordinatorAddr string) (VRFv2PlusLoadTestConsumer, error)
-	DeployVRFV2PlusWrapperLoadTestConsumer(linkAddr string, vrfV2PlusWrapperAddr string) (VRFv2PlusWrapperLoadTestConsumer, error)
+	DeployVRFV2PlusWrapperLoadTestConsumer(vrfV2PlusWrapperAddr string) (VRFv2PlusWrapperLoadTestConsumer, error)
 	DeployVRFCoordinator(linkAddr string, bhsAddr string) (VRFCoordinator, error)
 	DeployVRFCoordinatorV2(linkAddr string, bhsAddr string, linkEthFeedAddr string) (VRFCoordinatorV2, error)
 	DeployVRFCoordinatorV2_5(bhsAddr string) (VRFCoordinatorV2_5, error)

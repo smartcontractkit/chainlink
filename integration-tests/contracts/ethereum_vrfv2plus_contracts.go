@@ -966,12 +966,12 @@ func (e *EthereumContractDeployer) DeployVRFV2PlusWrapper(linkAddr string, linkE
 	}, err
 }
 
-func (e *EthereumContractDeployer) DeployVRFV2PlusWrapperLoadTestConsumer(linkAddr string, vrfV2PlusWrapperAddr string) (VRFv2PlusWrapperLoadTestConsumer, error) {
+func (e *EthereumContractDeployer) DeployVRFV2PlusWrapperLoadTestConsumer(vrfV2PlusWrapperAddr string) (VRFv2PlusWrapperLoadTestConsumer, error) {
 	address, _, instance, err := e.client.DeployContract("VRFV2PlusWrapperLoadTestConsumer", func(
 		auth *bind.TransactOpts,
 		_ bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		return vrfv2plus_wrapper_load_test_consumer.DeployVRFV2PlusWrapperLoadTestConsumer(auth, wrappers.MustNewWrappedContractBackend(e.client, nil), common.HexToAddress(linkAddr), common.HexToAddress(vrfV2PlusWrapperAddr))
+		return vrfv2plus_wrapper_load_test_consumer.DeployVRFV2PlusWrapperLoadTestConsumer(auth, wrappers.MustNewWrappedContractBackend(e.client, nil), common.HexToAddress(vrfV2PlusWrapperAddr))
 	})
 	if err != nil {
 		return nil, err
