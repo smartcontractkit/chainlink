@@ -63,16 +63,19 @@ func NewPriceRegistry(lggr logger.Logger, priceRegistryAddr common.Address, lp l
 			Name:      logpoller.FilterName(ccipdata.COMMIT_PRICE_UPDATES, priceRegistryAddr.String()),
 			EventSigs: []common.Hash{UsdPerUnitGasUpdated, usdPerTokenUpdated},
 			Addresses: []common.Address{priceRegistryAddr},
+			Retention: ccipdata.PriceUpdatesLogsRetention,
 		},
 		{
 			Name:      logpoller.FilterName(ccipdata.FEE_TOKEN_ADDED, priceRegistryAddr.String()),
 			EventSigs: []common.Hash{feeTokenAdded},
 			Addresses: []common.Address{priceRegistryAddr},
+			Retention: ccipdata.CacheEvictionLogsRetention,
 		},
 		{
 			Name:      logpoller.FilterName(ccipdata.FEE_TOKEN_REMOVED, priceRegistryAddr.String()),
 			EventSigs: []common.Hash{feeTokenRemoved},
 			Addresses: []common.Address{priceRegistryAddr},
+			Retention: ccipdata.CacheEvictionLogsRetention,
 		}}
 	if registerFilters {
 		err = logpollerutil.RegisterLpFilters(lp, filters)

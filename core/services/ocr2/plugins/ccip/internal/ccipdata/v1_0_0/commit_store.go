@@ -391,6 +391,7 @@ func NewCommitStore(lggr logger.Logger, addr common.Address, ec client.Client, l
 			Name:      logpoller.FilterName(EXEC_REPORT_ACCEPTS, addr.String()),
 			EventSigs: []common.Hash{eventSig},
 			Addresses: []common.Address{addr},
+			Retention: ccipdata.CommitExecLogsRetention,
 		},
 	}
 	return &CommitStore{

@@ -77,11 +77,13 @@ func NewOnRamp(lggr logger.Logger, sourceSelector, destSelector uint64, onRampAd
 			Name:      logpoller.FilterName(ccipdata.COMMIT_CCIP_SENDS, onRampAddress),
 			EventSigs: []common.Hash{CCIPSendRequestEventSig},
 			Addresses: []common.Address{onRampAddress},
+			Retention: ccipdata.CommitExecLogsRetention,
 		},
 		{
 			Name:      logpoller.FilterName(ccipdata.CONFIG_CHANGED, onRampAddress),
 			EventSigs: []common.Hash{ConfigSetEventSig},
 			Addresses: []common.Address{onRampAddress},
+			Retention: ccipdata.CacheEvictionLogsRetention,
 		},
 	}
 	cachedStaticConfig := cache.OnceCtxFunction[evm_2_evm_onramp_1_2_0.EVM2EVMOnRampStaticConfig](func(ctx context.Context) (evm_2_evm_onramp_1_2_0.EVM2EVMOnRampStaticConfig, error) {
