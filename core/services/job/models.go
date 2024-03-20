@@ -163,7 +163,7 @@ type Job struct {
 	EALSpecID                     *int32
 	LiquidityBalancerSpec         *LiquidityBalancerSpec
 	LiquidityBalancerSpecID       *int32
-	PipelineSpecID                int32
+	PipelineSpecID                int32 // This is deprecated in favor of the `job_pipeline_specs` table relationship
 	PipelineSpec                  *pipeline.Spec
 	JobSpecErrors                 []SpecError
 	Type                          Type          `toml:"type"`

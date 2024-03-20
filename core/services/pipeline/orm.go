@@ -299,10 +299,11 @@ func (o *orm) UpdateTaskRunResult(taskID uuid.UUID, result Result) (run Run, sta
 	}
 	err = o.q.Transaction(func(tx pg.Queryer) error {
 		sql := `
-		SELECT pipeline_runs.*, pipeline_specs.dot_dag_source "pipeline_spec.dot_dag_source"
+		SELECT pipeline_runs.*, pipeline_specs.dot_dag_source "pipeline_spec.dot_dag_source", job_pipeline_specs.job_id "job_id"
 		FROM pipeline_runs
 		JOIN pipeline_task_runs ON (pipeline_task_runs.pipeline_run_id = pipeline_runs.id)
 		JOIN pipeline_specs ON (pipeline_specs.id = pipeline_runs.pipeline_spec_id)
+		JOIN job_pipeline_specs ON (job_pipeline_specs.pipeline_spec_id = pipeline_specs.id)
 		WHERE pipeline_task_runs.id = $1 AND pipeline_runs.state in ('running', 'suspended')
 		FOR UPDATE`
 		if err = tx.Get(&run, sql, taskID); err != nil {
@@ -596,7 +597,7 @@ func loadAssociations(q pg.Queryer, runs []*Run) error {
 			coalesce(jobs.type, '') "job_type"
 		FROM pipeline_specs ps
 		LEFT JOIN job_pipeline_specs jps ON jps.pipeline_spec_id=ps.id
-		LEFT JOIN jobs ON jobs.id=ps.jps.job_id
+		LEFT JOIN jobs ON jobs.id=jps.job_id
 		WHERE ps.id = ANY($1)`
 	if err := q.Select(&specs, sqlQuery, pipelineSpecIDs); err != nil {
 		return errors.Wrap(err, "failed to postload pipeline_specs for runs")

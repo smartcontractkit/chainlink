@@ -541,18 +541,18 @@ func (o *orm) InsertJob(job *Job, qopts ...pg.QOpt) error {
 
 	// if job has id, emplace otherwise insert with a new id.
 	if job.ID == 0 {
-		query = `INSERT INTO jobs (name, stream_id, schema_version, type, max_task_duration, ocr_oracle_spec_id, ocr2_oracle_spec_id, direct_request_spec_id, flux_monitor_spec_id,
+		query = `INSERT INTO jobs (pipeline_spec_id, name, stream_id, schema_version, type, max_task_duration, ocr_oracle_spec_id, ocr2_oracle_spec_id, direct_request_spec_id, flux_monitor_spec_id,
 				keeper_spec_id, cron_spec_id, vrf_spec_id, webhook_spec_id, blockhash_store_spec_id, bootstrap_spec_id, block_header_feeder_spec_id, gateway_spec_id, 
                 legacy_gas_station_server_spec_id, legacy_gas_station_sidecar_spec_id, external_job_id, gas_limit, forwarding_allowed, created_at)
-		VALUES (:name, :stream_id, :schema_version, :type, :max_task_duration, :ocr_oracle_spec_id, :ocr2_oracle_spec_id, :direct_request_spec_id, :flux_monitor_spec_id,
+		VALUES (:pipeline_spec_id, :name, :stream_id, :schema_version, :type, :max_task_duration, :ocr_oracle_spec_id, :ocr2_oracle_spec_id, :direct_request_spec_id, :flux_monitor_spec_id,
 				:keeper_spec_id, :cron_spec_id, :vrf_spec_id, :webhook_spec_id, :blockhash_store_spec_id, :bootstrap_spec_id, :block_header_feeder_spec_id, :gateway_spec_id, 
 		        :legacy_gas_station_server_spec_id, :legacy_gas_station_sidecar_spec_id, :external_job_id, :gas_limit, :forwarding_allowed, NOW())
 		RETURNING *;`
 	} else {
-		query = `INSERT INTO jobs (id, name, stream_id, schema_version, type, max_task_duration, ocr_oracle_spec_id, ocr2_oracle_spec_id, direct_request_spec_id, flux_monitor_spec_id,
+		query = `INSERT INTO jobs (pipeline_spec_id, id, name, stream_id, schema_version, type, max_task_duration, ocr_oracle_spec_id, ocr2_oracle_spec_id, direct_request_spec_id, flux_monitor_spec_id,
 			keeper_spec_id, cron_spec_id, vrf_spec_id, webhook_spec_id, blockhash_store_spec_id, bootstrap_spec_id, block_header_feeder_spec_id, gateway_spec_id, 
                   legacy_gas_station_server_spec_id, legacy_gas_station_sidecar_spec_id, external_job_id, gas_limit, forwarding_allowed, created_at)
-		VALUES (:id, :name, :stream_id, :schema_version, :type, :max_task_duration, :ocr_oracle_spec_id, :ocr2_oracle_spec_id, :direct_request_spec_id, :flux_monitor_spec_id,
+		VALUES (:pipeline_spec_id, :id, :name, :stream_id, :schema_version, :type, :max_task_duration, :ocr_oracle_spec_id, :ocr2_oracle_spec_id, :direct_request_spec_id, :flux_monitor_spec_id,
 				:keeper_spec_id, :cron_spec_id, :vrf_spec_id, :webhook_spec_id, :blockhash_store_spec_id, :bootstrap_spec_id, :block_header_feeder_spec_id, :gateway_spec_id, 
 				:legacy_gas_station_server_spec_id, :legacy_gas_station_sidecar_spec_id, :external_job_id, :gas_limit, :forwarding_allowed, NOW())
 		RETURNING *;`
@@ -577,8 +577,8 @@ func (o *orm) InsertJob(job *Job, qopts ...pg.QOpt) error {
 // DeleteJob removes a job
 func (o *orm) DeleteJob(id int32, qopts ...pg.QOpt) error {
 	o.lggr.Debugw("Deleting job", "jobID", id)
-	// Added a 1 minute timeout to this query since this can take a long time as data increases.
-	// This was added specifically due to an issue with a database that had a millions of pipeline_runs and pipeline_task_runs
+	// Added a 1-minute timeout to this query since this can take a long time as data increases.
+	// This was added specifically due to an issue with a database that had a million of pipeline_runs and pipeline_task_runs
 	// and this query was taking ~40secs.
 	qopts = append(qopts, pg.WithLongQueryTimeout())
 	q := o.q.WithOpts(qopts...)
@@ -634,7 +634,7 @@ func (o *orm) DeleteJob(id int32, qopts ...pg.QOpt) error {
 		),
 		deleted_gateway_specs AS (
 			DELETE FROM gateway_specs WHERE id IN (SELECT gateway_spec_id FROM deleted_jobs)
-		)
+		),
 		deleted_job_pipeline_specs AS (
 			DELETE FROM job_pipeline_specs WHERE job_id IN (SELECT pipeline_spec_id FROM deleted_jobs)
 		)
