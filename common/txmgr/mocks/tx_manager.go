@@ -23,24 +23,6 @@ type TxManager[CHAIN_ID types.ID, HEAD types.Head[BLOCK_HASH], ADDR types.Hashab
 	mock.Mock
 }
 
-// CheckTxValidity provides a mock function with given fields: ctx, from, to, data
-func (_m *TxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) CheckTxValidity(ctx context.Context, from ADDR, to ADDR, data []byte) error {
-	ret := _m.Called(ctx, from, to, data)
-
-	if len(ret) == 0 {
-		panic("no return value specified for CheckTxValidity")
-	}
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, ADDR, ADDR, []byte) error); ok {
-		r0 = rf(ctx, from, to, data)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
 // Close provides a mock function with given fields:
 func (_m *TxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Close() error {
 	ret := _m.Called()

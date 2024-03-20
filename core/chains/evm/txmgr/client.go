@@ -17,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
-	"github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -26,11 +25,10 @@ import (
 var _ TxmClient = (*evmTxmClient)(nil)
 
 type evmTxmClient struct {
-	client    client.Client
-	chainType config.ChainType
+	client client.Client
 }
 
-func NewEvmTxmClient(c client.Client, chainType config.ChainType) *evmTxmClient {
+func NewEvmTxmClient(c client.Client) *evmTxmClient {
 	return &evmTxmClient{client: c}
 }
 
@@ -182,13 +180,4 @@ func (c *evmTxmClient) CallContract(ctx context.Context, a TxAttempt, blockNumbe
 		AccessList: nil,
 	}, blockNumber)
 	return client.ExtractRPCError(errCall)
-}
-
-func (c *evmTxmClient) SimulateTransaction(ctx context.Context, from common.Address, to common.Address, data []byte) error {
-	msg := ethereum.CallMsg{
-		From: from,
-		To:   &to,
-		Data: data,
-	}
-	return SimulateTransaction(ctx, c.client, c.chainType, msg)
 }

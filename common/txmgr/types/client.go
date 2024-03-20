@@ -73,7 +73,6 @@ type TransactionClient[
 		attempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 		blockNumber *big.Int,
 	) (rpcErr fmt.Stringer, extractErr error)
-	SimulateTransaction(ctx context.Context, from ADDR, to ADDR, data []byte) error
 }
 
 // ChainClient contains the interfaces for reading chain parameters (chain id, sequences, etc)

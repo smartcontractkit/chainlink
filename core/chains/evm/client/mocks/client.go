@@ -236,6 +236,24 @@ func (_m *Client) ChainID() (*big.Int, error) {
 	return r0, r1
 }
 
+// CheckTxValidity provides a mock function with given fields: ctx, from, to, data
+func (_m *Client) CheckTxValidity(ctx context.Context, from common.Address, to common.Address, data []byte) error {
+	ret := _m.Called(ctx, from, to, data)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CheckTxValidity")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address, common.Address, []byte) error); ok {
+		r0 = rf(ctx, from, to, data)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // Close provides a mock function with given fields:
 func (_m *Client) Close() {
 	_m.Called()

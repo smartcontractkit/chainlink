@@ -1,4 +1,4 @@
-package txmgr
+package client
 
 import (
 	"context"
@@ -9,28 +9,31 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
 	"github.com/smartcontractkit/chainlink/v2/common/config"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 )
 
 const ErrOutOfCounters = "not enough keccak counters to continue the execution"
 
+type SimulatorClient interface {
+	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
+}
+
 // ZK Chain can return an overflow error based on the number of keccak hashes in the call
 // This method allows a caller to determine if a tx would fail due to overflow error by simulating the transaction
 // Used as an entry point for custom simulation across different chains
-func SimulateTransaction(ctx context.Context, c client.Client, chainType config.ChainType, msg ethereum.CallMsg) error {
+func SimulateTransaction(ctx context.Context, client SimulatorClient, chainType config.ChainType, msg ethereum.CallMsg) error {
 	switch chainType {
 	case config.ChainZkEvm:
-		return simulateTransactionZkEvm(ctx, c, msg)
+		return simulateTransactionZkEvm(ctx, client, msg)
 	default:
-		return simulateTransactionDefault(ctx, c, msg)
+		return simulateTransactionDefault(ctx, client, msg)
 	}
 }
 
 // eth_estimateGas returns out-of-counters (OOC) error if the transaction would result in an overflow
-func simulateTransactionDefault(ctx context.Context, c client.Client, msg ethereum.CallMsg) error {
+func simulateTransactionDefault(ctx context.Context, client SimulatorClient, msg ethereum.CallMsg) error {
 	var result uint64
-	errCall := c.CallContext(ctx, &result, "eth_estimateGas", toCallArg(msg), "pending")
-	jsonErr, err := client.ExtractRPCError(errCall)
+	errCall := client.CallContext(ctx, &result, "eth_estimateGas", toCallArg(msg), "pending")
+	jsonErr, err := ExtractRPCError(errCall)
 	if err != nil {
 		return fmt.Errorf("failed to simulate tx: %w", err)
 	}
@@ -42,7 +45,7 @@ func simulateTransactionDefault(ctx context.Context, c client.Client, msg ethere
 }
 
 // zkEVM implemented a custom zkevm_estimateCounters method to detect if a transaction would result in an out-of-counters (OOC) error
-func simulateTransactionZkEvm(ctx context.Context, c client.Client, msg ethereum.CallMsg) error {
+func simulateTransactionZkEvm(ctx context.Context, client SimulatorClient, msg ethereum.CallMsg) error {
 	var result struct {
 		countersUsed struct {
 			gasUsed              int
@@ -68,7 +71,7 @@ func simulateTransactionZkEvm(ctx context.Context, c client.Client, msg ethereum
 		}
 		oocError string
 	}
-	err := c.CallContext(ctx, &result, "zkevm_estimateCounters", toCallArg(msg), "pending")
+	err := client.CallContext(ctx, &result, "zkevm_estimateCounters", toCallArg(msg), "pending")
 	if err != nil {
 		return fmt.Errorf("failed to simulate tx: %w", err)
 	}
