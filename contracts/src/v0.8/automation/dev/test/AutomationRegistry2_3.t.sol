@@ -3,10 +3,8 @@ pragma solidity 0.8.19;
 
 import {BaseTest} from "./BaseTest.t.sol";
 import {AutomationRegistryBase2_3 as AutoBase} from "../v2_3/AutomationRegistryBase2_3.sol";
-import {AutomationRegistrar2_3} from "../v2_3/AutomationRegistrar2_3.sol";
 import {IAutomationRegistryMaster2_3, AutomationRegistryBase2_3} from "../interfaces/v2_3/IAutomationRegistryMaster2_3.sol";
 import {ChainModuleBase} from "../../chains/ChainModuleBase.sol";
-import {MockUpkeep} from "../../mocks/MockUpkeep.sol";
 import {IAutomationV21PlusCommon} from "../../interfaces/IAutomationV21PlusCommon.sol";
 
 // forge test --match-path src/v0.8/automation/dev/test/AutomationRegistry2_3.t.sol
@@ -579,7 +577,7 @@ contract NOPsSettlement is SetUp {
 
   function testSettleNOPsOffchainSuccessTransmitterBalanceZeroed() public {
     // deploy and configure a registry with OFF_CHAIN payout
-    (IAutomationRegistryMaster2_3 registry, AutomationRegistrar2_3 registrar) = deployAndConfigureAll(
+    (IAutomationRegistryMaster2_3 registry,) = deployAndConfigureAll(
       AutoBase.PayoutMode.OFF_CHAIN
     );
 

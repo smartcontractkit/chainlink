@@ -3,7 +3,6 @@ pragma solidity 0.8.19;
 
 import "forge-std/Test.sol";
 
-// import {LinkTokenInterface} from "../../../shared/interfaces/LinkTokenInterface.sol";
 import {LinkToken} from "../../../shared/token/ERC677/LinkToken.sol";
 import {ERC20Mock} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/mocks/ERC20Mock.sol";
 import {MockV3Aggregator} from "../../../tests/MockV3Aggregator.sol";
@@ -287,13 +286,13 @@ contract BaseTest is Test {
     return (rs, ss, bytes32(vs));
   }
 
-  function _encodeReport(AutoBase.Report memory report) internal view returns (bytes memory reportBytes) {
+  function _encodeReport(AutoBase.Report memory report) internal pure returns (bytes memory reportBytes) {
     return abi.encode(report);
   }
 
   function _encodeConditionalTrigger(
     AutoBase.ConditionalTrigger memory trigger
-  ) internal view returns (bytes memory triggerBytes) {
+  ) internal pure returns (bytes memory triggerBytes) {
     return abi.encode(trigger.blockNum, trigger.blockHash);
   }
 
