@@ -277,7 +277,13 @@ func (e *execProviderClient) NewTokenPoolBatchedReader(ctx context.Context) (cci
 
 // SourceNativeToken implements types.CCIPExecProvider.
 func (e *execProviderClient) SourceNativeToken(ctx context.Context) (cciptypes.Address, error) {
-	panic("BCF-3109")
+	// unlike the other methods, this one does not create a new resource, so we do not
+	// need the broker to serve it. we can just call the grpc method directly.
+	resp, err := e.grpcClient.SourceNativeToken(ctx, &emptypb.Empty{})
+	if err != nil {
+		return "", err
+	}
+	return cciptypes.Address(resp.NativeTokenAddress), nil
 }
 
 // execProviderServer is a server that wraps the custom methods of the [types.CCIPExecProvider]

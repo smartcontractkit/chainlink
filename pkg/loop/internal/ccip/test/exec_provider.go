@@ -37,30 +37,32 @@ var ExecutionConfig = types.CCIPExecFactoryGeneratorConfig{
 // It is to be used in tests the verify grpc implementations of the ExecProvider interface.
 var ExecutionProvider = staticExecProvider{
 	staticExecProviderConfig: staticExecProviderConfig{
-		addr:                   ccip.Address("some address"),
-		offchainDigester:       testpluginprovider.OffchainConfigDigester,
-		contractTracker:        testpluginprovider.ContractConfigTracker,
-		contractTransmitter:    testpluginprovider.ContractTransmitter,
-		onRampReader:           OnRamp,
-		offRampReader:          OffRampReader,
-		priceRegistryReader:    PriceRegistryReader,
-		tokenDataReader:        TokenDataReader,
-		tokenPoolBatchedReader: TokenPoolBatchedReader,
+		addr:                      ccip.Address("some address"),
+		offchainDigester:          testpluginprovider.OffchainConfigDigester,
+		contractTracker:           testpluginprovider.ContractConfigTracker,
+		contractTransmitter:       testpluginprovider.ContractTransmitter,
+		onRampReader:              OnRamp,
+		offRampReader:             OffRampReader,
+		priceRegistryReader:       PriceRegistryReader,
+		sourceNativeTokenResponse: ccip.Address("source native token response"),
+		tokenDataReader:           TokenDataReader,
+		tokenPoolBatchedReader:    TokenPoolBatchedReader,
 	},
 }
 
 var _ ExecProviderTester = staticExecProvider{}
 
 type staticExecProviderConfig struct {
-	addr                   ccip.Address
-	offchainDigester       testtypes.OffchainConfigDigesterEvaluator
-	contractTracker        testtypes.ContractConfigTrackerEvaluator
-	contractTransmitter    testtypes.ContractTransmitterEvaluator
-	onRampReader           OnRampEvaluator
-	offRampReader          OffRampEvaluator
-	priceRegistryReader    PriceRegistryReaderEvaluator
-	tokenDataReader        TokenDataReaderEvaluator
-	tokenPoolBatchedReader TokenPoolBatchedReaderEvaluator
+	addr                      ccip.Address
+	offchainDigester          testtypes.OffchainConfigDigesterEvaluator
+	contractTracker           testtypes.ContractConfigTrackerEvaluator
+	contractTransmitter       testtypes.ContractTransmitterEvaluator
+	onRampReader              OnRampEvaluator
+	offRampReader             OffRampEvaluator
+	priceRegistryReader       PriceRegistryReaderEvaluator
+	sourceNativeTokenResponse ccip.Address
+	tokenDataReader           TokenDataReaderEvaluator
+	tokenPoolBatchedReader    TokenPoolBatchedReaderEvaluator
 	// TODO BCF-2979 fill in the rest of exec provider components
 }
 
@@ -200,7 +202,7 @@ func (s staticExecProvider) Ready() error {
 
 // SourceNativeToken implements ExecProviderEvaluator.
 func (s staticExecProvider) SourceNativeToken(ctx context.Context) (ccip.Address, error) {
-	panic("unimplemented")
+	return s.sourceNativeTokenResponse, nil
 }
 
 // Start implements ExecProviderEvaluator.
@@ -230,6 +232,13 @@ func (s staticExecProvider) AssertEqual(ctx context.Context, t *testing.T, other
 			other, err := other.NewPriceRegistryReader(ctx, "ignored")
 			require.NoError(t, err)
 			assert.NoError(t, s.priceRegistryReader.Evaluate(ctx, other))
+		})
+
+		// SourceNativeToken test case
+		t.Run("SourceNativeToken", func(t *testing.T) {
+			other, err := other.SourceNativeToken(ctx)
+			require.NoError(t, err)
+			assert.Equal(t, s.sourceNativeTokenResponse, other)
 		})
 
 		// TokenDataReader test case
