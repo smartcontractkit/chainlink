@@ -153,8 +153,6 @@ func (r *reportingPluginValidationService) ValidateConfig(ctx context.Context, c
 		return fmt.Errorf("expected telemtry type to be median but got %q", telemetryType)
 	}
 
-	//TODO: validate pipeline
-
 	return nil
 }
 func (r *reportingPluginValidationService) Name() string { return r.lggr.Name() }
