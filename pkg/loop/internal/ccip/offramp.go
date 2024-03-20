@@ -396,8 +396,8 @@ func (o *OffRampReaderGRPCServer) OnchainConfig(ctx context.Context, req *emptyp
 	return &ccippb.OnchainConfigResponse{Config: &pbConfig}, nil
 }
 
-// WithCloser adds a closer to the list of dependencies that will be closed when the server is closed.
-func (o *OffRampReaderGRPCServer) WithCloser(dep io.Closer) *OffRampReaderGRPCServer {
+// AddDep adds a closer to the list of dependencies that will be closed when the server is closed.
+func (o *OffRampReaderGRPCServer) AddDep(dep io.Closer) *OffRampReaderGRPCServer {
 	o.deps = append(o.deps, dep)
 	return o
 }

@@ -3,11 +3,13 @@ syntax = "proto3";
 option go_package = "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb/ccip;ccippb";
 package loop.internal.pb.ccip;
 import "models.proto";
+import "google/protobuf/empty.proto";
 
 // TokenPoolBatcherReader is a gRPC service adapter for the interface
 // [gitgithub.com/smartcontractkit/chainlink-common/pkg/types/ccip.TokenPoolBatcherReader]
 service TokenPoolBatcherReader {
     rpc GetInboundTokenPoolRateLimits(GetInboundTokenPoolRateLimitsRequest) returns (GetInboundTokenPoolRateLimitsResponse);
+    rpc Close(google.protobuf.Empty) returns (google.protobuf.Empty) {}
 }
 
 // GetInboundTokenPoolRateLimitsRequest is a gRPC adapter for the input arguments of

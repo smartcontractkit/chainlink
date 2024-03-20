@@ -47,7 +47,7 @@ func TestPriceRegistryGRPC(t *testing.T) {
 	// handle client close and server stop
 	shutdown := make(chan struct{})
 	closer := &serviceCloser{closeFn: func() error { close(shutdown); return nil }}
-	priceRegistry := ccip.NewPriceRegistryGRPCServer(PriceRegistryReader).WithCloser(closer)
+	priceRegistry := ccip.NewPriceRegistryGRPCServer(PriceRegistryReader).AddDep(closer)
 
 	ccippb.RegisterPriceRegistryReaderServer(testServer, priceRegistry)
 	// start the server and shutdown handler

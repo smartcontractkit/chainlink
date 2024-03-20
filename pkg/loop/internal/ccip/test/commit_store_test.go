@@ -60,7 +60,7 @@ func TestCommitStoreGRPC(t *testing.T) {
 	}
 	offRamp, err := ccip.NewCommitStoreReaderGRPCServer(CommitStoreReader, brokerExt)
 	require.NoError(t, err)
-	offRamp = offRamp.WithCloser(closer)
+	offRamp = offRamp.AddDep(closer)
 
 	ccippb.RegisterCommitStoreReaderServer(testServer, offRamp)
 	// start the server and shutdown handler

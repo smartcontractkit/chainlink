@@ -37,28 +37,30 @@ var ExecutionConfig = types.CCIPExecFactoryGeneratorConfig{
 // It is to be used in tests the verify grpc implementations of the ExecProvider interface.
 var ExecutionProvider = staticExecProvider{
 	staticExecProviderConfig: staticExecProviderConfig{
-		addr:                ccip.Address("some address"),
-		offchainDigester:    testpluginprovider.OffchainConfigDigester,
-		contractTracker:     testpluginprovider.ContractConfigTracker,
-		contractTransmitter: testpluginprovider.ContractTransmitter,
-		onRampReader:        OnRamp,
-		offRampReader:       OffRampReader,
-		priceRegistryReader: PriceRegistryReader,
-		tokenDataReader:     TokenDataReader,
+		addr:                   ccip.Address("some address"),
+		offchainDigester:       testpluginprovider.OffchainConfigDigester,
+		contractTracker:        testpluginprovider.ContractConfigTracker,
+		contractTransmitter:    testpluginprovider.ContractTransmitter,
+		onRampReader:           OnRamp,
+		offRampReader:          OffRampReader,
+		priceRegistryReader:    PriceRegistryReader,
+		tokenDataReader:        TokenDataReader,
+		tokenPoolBatchedReader: TokenPoolBatchedReader,
 	},
 }
 
 var _ ExecProviderTester = staticExecProvider{}
 
 type staticExecProviderConfig struct {
-	addr                ccip.Address
-	offchainDigester    testtypes.OffchainConfigDigesterEvaluator
-	contractTracker     testtypes.ContractConfigTrackerEvaluator
-	contractTransmitter testtypes.ContractTransmitterEvaluator
-	onRampReader        OnRampEvaluator
-	offRampReader       OffRampEvaluator
-	priceRegistryReader PriceRegistryReaderEvaluator
-	tokenDataReader     TokenDataReaderEvaluator
+	addr                   ccip.Address
+	offchainDigester       testtypes.OffchainConfigDigesterEvaluator
+	contractTracker        testtypes.ContractConfigTrackerEvaluator
+	contractTransmitter    testtypes.ContractTransmitterEvaluator
+	onRampReader           OnRampEvaluator
+	offRampReader          OffRampEvaluator
+	priceRegistryReader    PriceRegistryReaderEvaluator
+	tokenDataReader        TokenDataReaderEvaluator
+	tokenPoolBatchedReader TokenPoolBatchedReaderEvaluator
 	// TODO BCF-2979 fill in the rest of exec provider components
 }
 
@@ -133,6 +135,15 @@ func (s staticExecProvider) Evaluate(ctx context.Context, other types.CCIPExecPr
 		return evaluationError{err: err, component: "TokenDataReader"}
 	}
 
+	// TokenPoolBatchedReader test case
+	otherPool, err := other.NewTokenPoolBatchedReader(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to create other token pool batched reader: %w", err)
+	}
+	err = s.tokenPoolBatchedReader.Evaluate(ctx, otherPool)
+	if err != nil {
+		return evaluationError{err: err, component: "TokenPoolBatchedReader"}
+	}
 	// TODO BCF-2979 other components of exec provider
 	return nil
 }
@@ -174,7 +185,7 @@ func (s staticExecProvider) NewTokenDataReader(ctx context.Context, tokenAddress
 
 // NewTokenPoolBatchedReader implements ExecProviderEvaluator.
 func (s staticExecProvider) NewTokenPoolBatchedReader(ctx context.Context) (ccip.TokenPoolBatchedReader, error) {
-	panic("unimplemented")
+	return s.tokenPoolBatchedReader, nil
 }
 
 // OffchainConfigDigester implements ExecProviderEvaluator.

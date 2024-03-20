@@ -252,7 +252,7 @@ func (e *execProviderClient) NewTokenDataReader(ctx context.Context, tokenAddres
 	// TODO BCF-3061: make this work for proxied relayer
 	tokenDataConn, err := e.BrokerExt.Dial(uint32(resp.TokenDataReaderServiceId))
 	if err != nil {
-		return nil, fmt.Errorf("failed to lookup price registry reader service at %d: %w", resp.TokenDataReaderServiceId, err)
+		return nil, fmt.Errorf("failed to lookup token data reader service at %d: %w", resp.TokenDataReaderServiceId, err)
 	}
 	// need to wrap grpc tokenDataReader into the desired interface
 	tokenDataReader := ccipinternal.NewTokenDataReaderGRPCClient(tokenDataConn)
@@ -262,7 +262,17 @@ func (e *execProviderClient) NewTokenDataReader(ctx context.Context, tokenAddres
 
 // NewTokenPoolBatchedReader implements types.CCIPExecProvider.
 func (e *execProviderClient) NewTokenPoolBatchedReader(ctx context.Context) (cciptypes.TokenPoolBatchedReader, error) {
-	panic("BCF-3108")
+	resp, err := e.grpcClient.NewTokenPoolBatchedReader(ctx, &emptypb.Empty{})
+	if err != nil {
+		return nil, err
+	}
+	// TODO BCF-3061: make this work for proxied relayer
+	tokenPoolConn, err := e.BrokerExt.Dial(uint32(resp.TokenPoolBatchedReaderServiceId))
+	if err != nil {
+		return nil, fmt.Errorf("failed to lookup token poll batched reader service at %d: %w", resp.TokenPoolBatchedReaderServiceId, err)
+	}
+	tokenPool := ccipinternal.NewTokenPoolBatchedReaderGRPCClient(tokenPoolConn)
+	return tokenPool, nil
 }
 
 // SourceNativeToken implements types.CCIPExecProvider.
@@ -306,7 +316,7 @@ func (e *execProviderServer) NewCommitStoreReader(ctx context.Context, req *ccip
 		return nil, err
 	}
 	// ensure the grpc server is closed when the offRamp is closed. See comment in NewPriceRegistryReader for more details
-	commitStoreHandler.WithCloser(csResource)
+	commitStoreHandler.AddDep(csResource)
 	return &ccippb.NewCommitStoreReaderResponse{CommitStoreReaderServiceId: int32(commitStoreID)}, nil
 }
 
@@ -334,7 +344,7 @@ func (e *execProviderServer) NewOffRampReader(ctx context.Context, req *ccippb.N
 		return nil, err
 	}
 	// ensure the grpc server is closed when the offRamp is closed. See comment in NewPriceRegistryReader for more details
-	offRampHandler.WithCloser(offRampResource)
+	offRampHandler.AddDep(offRampResource)
 	return &ccippb.NewOffRampReaderResponse{OfframpReaderServiceId: int32(offRampID)}, nil
 }
 
@@ -377,7 +387,7 @@ func (e *execProviderServer) NewPriceRegistryReader(ctx context.Context, req *cc
 	// that server needs to be shutdown when the priceRegistry is closed. We don't have a handle to the
 	// grpc server until we after we have constructed the priceRegistry, so we can't configure the shutdown
 	// handler up front.
-	priceRegistryHandler.WithCloser(spawnedServer)
+	priceRegistryHandler.AddDep(spawnedServer)
 	return &ccippb.NewPriceRegistryReaderResponse{PriceRegistryReaderServiceId: int32(priceReaderID)}, nil
 }
 
@@ -398,4 +408,23 @@ func (e *execProviderServer) NewTokenDataReader(ctx context.Context, req *ccippb
 
 	tokenDataHandler.AddDep(spawnedServer)
 	return &ccippb.NewTokenDataResponse{TokenDataReaderServiceId: int32(tokeDataReaderID)}, nil
+}
+
+func (e *execProviderServer) NewTokenPoolBatchedReader(ctx context.Context, _ *emptypb.Empty) (*ccippb.NewTokenPoolBatchedReaderResponse, error) {
+	reader, err := e.impl.NewTokenPoolBatchedReader(ctx)
+	if err != nil {
+		return nil, err
+	}
+	// wrap the reader in a grpc server and serve it
+	tokenPoolHandler := ccipinternal.NewTokenPoolBatchedReaderGRPCServer(reader)
+	// the id is handle to the broker, we will need it on the other side to dial the resource
+	tokenPoolID, spawnedServer, err := e.ServeNew("TokenPoolBatchedReader", func(s *grpc.Server) {
+		ccippb.RegisterTokenPoolBatcherReaderServer(s, tokenPoolHandler)
+	})
+	if err != nil {
+		return nil, err
+	}
+	// ensure the grpc server is closed when the tokenPool is closed. See comment in NewPriceRegistryReader for more details
+	tokenPoolHandler.AddDep(spawnedServer)
+	return &ccippb.NewTokenPoolBatchedReaderResponse{TokenPoolBatchedReaderServiceId: int32(tokenPoolID)}, nil
 }

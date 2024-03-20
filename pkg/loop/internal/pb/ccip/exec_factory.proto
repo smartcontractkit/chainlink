@@ -29,9 +29,9 @@ service ExecutionCustomHandlers {
     rpc NewPriceRegistryReader(NewPriceRegistryReaderRequest) returns (NewPriceRegistryReaderResponse) {}
     rpc NewCommitStoreReader(NewCommitStoreReaderRequest) returns (NewCommitStoreReaderResponse) {}
     rpc NewTokenDataReader(NewTokenDataRequest) returns (NewTokenDataResponse) {}
-    // TODO: BCF-2993: Add more custom handlers
+    rpc NewTokenPoolBatchedReader(google.protobuf.Empty) returns (NewTokenPoolBatchedReaderResponse) {}
+    rpc SourceNativeToken(google.protobuf.Empty) returns (SourceNativeTokenResponse) {}
     rpc Close(google.protobuf.Empty) returns (google.protobuf.Empty) {}
-
 }
 
 // NewOnRampReaderRequest is a gRPC adapter for the input arguments of
@@ -99,3 +99,16 @@ message NewTokenDataResponse {
     int32 token_data_reader_service_id = 1;
 }
 
+// NewTokenPoolBatchedReaderResponse is a gRPC adapter for the output arguments of
+// [github.com/smartcontractkit/chainlink-common/pkg/types/CCIPExecProvider.NewTokenPoolBatchedReader]
+// It contains the id of the created token pool batched reader service that was created
+message NewTokenPoolBatchedReaderResponse {
+    int32 token_pool_batched_reader_service_id = 1;
+}
+
+
+// SourceNativeTokenResponse is a gRPC adapter for the output arguments of
+// [github.com/smartcontractkit/chainlink-common/pkg/types/CCIPExecProvider.SourceNativeToken]
+message SourceNativeTokenResponse {
+    string native_token_address = 1;
+}

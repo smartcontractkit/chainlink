@@ -11,6 +11,7 @@ import (
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
 // This is a compile-time assertion to ensure that this generated file
@@ -20,6 +21,7 @@ const _ = grpc.SupportPackageIsVersion7
 
 const (
 	TokenPoolBatcherReader_GetInboundTokenPoolRateLimits_FullMethodName = "/loop.internal.pb.ccip.TokenPoolBatcherReader/GetInboundTokenPoolRateLimits"
+	TokenPoolBatcherReader_Close_FullMethodName                         = "/loop.internal.pb.ccip.TokenPoolBatcherReader/Close"
 )
 
 // TokenPoolBatcherReaderClient is the client API for TokenPoolBatcherReader service.
@@ -27,6 +29,7 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type TokenPoolBatcherReaderClient interface {
 	GetInboundTokenPoolRateLimits(ctx context.Context, in *GetInboundTokenPoolRateLimitsRequest, opts ...grpc.CallOption) (*GetInboundTokenPoolRateLimitsResponse, error)
+	Close(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type tokenPoolBatcherReaderClient struct {
@@ -46,11 +49,21 @@ func (c *tokenPoolBatcherReaderClient) GetInboundTokenPoolRateLimits(ctx context
 	return out, nil
 }
 
+func (c *tokenPoolBatcherReaderClient) Close(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, TokenPoolBatcherReader_Close_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // TokenPoolBatcherReaderServer is the server API for TokenPoolBatcherReader service.
 // All implementations must embed UnimplementedTokenPoolBatcherReaderServer
 // for forward compatibility
 type TokenPoolBatcherReaderServer interface {
 	GetInboundTokenPoolRateLimits(context.Context, *GetInboundTokenPoolRateLimitsRequest) (*GetInboundTokenPoolRateLimitsResponse, error)
+	Close(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	mustEmbedUnimplementedTokenPoolBatcherReaderServer()
 }
 
@@ -60,6 +73,9 @@ type UnimplementedTokenPoolBatcherReaderServer struct {
 
 func (UnimplementedTokenPoolBatcherReaderServer) GetInboundTokenPoolRateLimits(context.Context, *GetInboundTokenPoolRateLimitsRequest) (*GetInboundTokenPoolRateLimitsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetInboundTokenPoolRateLimits not implemented")
+}
+func (UnimplementedTokenPoolBatcherReaderServer) Close(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Close not implemented")
 }
 func (UnimplementedTokenPoolBatcherReaderServer) mustEmbedUnimplementedTokenPoolBatcherReaderServer() {
 }
@@ -93,6 +109,24 @@ func _TokenPoolBatcherReader_GetInboundTokenPoolRateLimits_Handler(srv interface
 	return interceptor(ctx, in, info, handler)
 }
 
+func _TokenPoolBatcherReader_Close_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TokenPoolBatcherReaderServer).Close(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TokenPoolBatcherReader_Close_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TokenPoolBatcherReaderServer).Close(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // TokenPoolBatcherReader_ServiceDesc is the grpc.ServiceDesc for TokenPoolBatcherReader service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -103,6 +137,10 @@ var TokenPoolBatcherReader_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetInboundTokenPoolRateLimits",
 			Handler:    _TokenPoolBatcherReader_GetInboundTokenPoolRateLimits_Handler,
+		},
+		{
+			MethodName: "Close",
+			Handler:    _TokenPoolBatcherReader_Close_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

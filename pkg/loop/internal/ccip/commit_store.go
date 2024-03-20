@@ -7,8 +7,6 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -95,13 +93,7 @@ func (c *CommitStoreGRPCClient) ChangeConfig(ctx context.Context, onchainConfig 
 }
 
 func (c *CommitStoreGRPCClient) Close() error {
-	_, err := c.client.Close(context.Background(), &emptypb.Empty{})
-	// due to the onClose handler in the server, it may shutdown before it sends a response to client
-	// in that case, we expect the client to receive an Unavailable or Internal error
-	if status.Code(err) == codes.Unavailable || status.Code(err) == codes.Internal {
-		return nil
-	}
-	return err
+	return shutdownGRPCServer(context.Background(), c.client)
 }
 
 // DecodeCommitReport implements ccip.CommitStoreReader.
@@ -415,8 +407,8 @@ func (c *CommitStoreGRPCServer) VerifyExecutionReport(ctx context.Context, req *
 	return &ccippb.VerifyExecutionReportResponse{IsValid: valid}, nil
 }
 
-// WithCloser adds a closer to the list of dependencies that will be closed when the server is closed.
-func (c *CommitStoreGRPCServer) WithCloser(dep io.Closer) *CommitStoreGRPCServer {
+// AddDep adds a closer to the list of dependencies that will be closed when the server is closed.
+func (c *CommitStoreGRPCServer) AddDep(dep io.Closer) *CommitStoreGRPCServer {
 	c.deps = append(c.deps, dep)
 	return c
 }

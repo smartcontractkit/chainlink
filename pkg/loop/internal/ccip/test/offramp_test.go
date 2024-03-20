@@ -60,7 +60,7 @@ func TestOffRampGRPC(t *testing.T) {
 	}
 	offRamp, err := ccip.NewOffRampReaderGRPCServer(OffRampReader, brokerExt)
 	require.NoError(t, err)
-	offRamp = offRamp.WithCloser(closer)
+	offRamp = offRamp.AddDep(closer)
 
 	ccippb.RegisterOffRampReaderServer(testServer, offRamp)
 	// start the server and shutdown handler
