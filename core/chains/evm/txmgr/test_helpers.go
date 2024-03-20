@@ -59,8 +59,6 @@ func (e *TestEvmConfig) NonceAutoSync() bool { return true }
 
 func (e *TestEvmConfig) FinalityDepth() uint32 { return 42 }
 
-func (e *TestEvmConfig) ChainType() commonconfig.ChainType { return "" }
-
 type TestGasEstimatorConfig struct {
 	bumpThreshold uint64
 }
