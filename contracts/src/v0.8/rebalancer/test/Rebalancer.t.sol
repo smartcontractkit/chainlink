@@ -43,7 +43,7 @@ contract RebalancerSetup is RebalancerBaseTest {
 
     s_bridgeAdapter = new MockL1BridgeAdapter(s_l1Token);
     s_lockReleaseTokenPool = new LockReleaseTokenPool(s_l1Token, new address[](0), address(1), true, address(123));
-    s_rebalancer = new RebalancerHelper(s_l1Token, i_localChainSelector, s_lockReleaseTokenPool);
+    s_rebalancer = new RebalancerHelper(s_l1Token, i_localChainSelector, s_lockReleaseTokenPool, 0);
 
     s_lockReleaseTokenPool.setRebalancer(address(s_rebalancer));
   }
@@ -164,10 +164,10 @@ contract Rebalancer_rebalanceLiquidity is RebalancerSetup {
   function test_rebalanceBetweenPoolsSuccess() external {
     uint256 amount = 12345670;
 
-    s_rebalancer = new RebalancerHelper(s_l1Token, i_localChainSelector, s_bridgeAdapter);
+    s_rebalancer = new RebalancerHelper(s_l1Token, i_localChainSelector, s_bridgeAdapter, 0);
 
     MockL1BridgeAdapter mockRemoteBridgeAdapter = new MockL1BridgeAdapter(s_l1Token);
-    Rebalancer mockRemoteRebalancer = new Rebalancer(s_l1Token, i_remoteChainSelector, mockRemoteBridgeAdapter);
+    Rebalancer mockRemoteRebalancer = new Rebalancer(s_l1Token, i_remoteChainSelector, mockRemoteBridgeAdapter, 0);
 
     Rebalancer.CrossChainRebalancerArgs[] memory args = new Rebalancer.CrossChainRebalancerArgs[](1);
     args[0] = IRebalancer.CrossChainRebalancerArgs({
@@ -228,7 +228,7 @@ contract Rebalancer_rebalanceLiquidity is RebalancerSetup {
       true,
       address(123)
     );
-    Rebalancer remoteRebalancer = new Rebalancer(s_l2Token, i_remoteChainSelector, remotePool);
+    Rebalancer remoteRebalancer = new Rebalancer(s_l2Token, i_remoteChainSelector, remotePool, 0);
 
     // set rebalancer role on the pool.
     remotePool.setRebalancer(address(remoteRebalancer));
@@ -498,5 +498,22 @@ contract Rebalancer_setLocalLiquidityContainer is RebalancerSetup {
     vm.expectRevert("Only callable by owner");
 
     s_rebalancer.setLocalLiquidityContainer(LockReleaseTokenPool(address(1)));
+  }
+}
+
+contract Rebalancer_setMinimumLiquidity is RebalancerSetup {
+  event MinimumLiquiditySet(uint256 oldBalance, uint256 newBalance);
+
+  function test_setMinimumLiquiditySuccess() external {
+    vm.expectEmit();
+    emit MinimumLiquiditySet(uint256(0), uint256(1000));
+    s_rebalancer.setMinimumLiquidity(1000);
+    assertEq(s_rebalancer.getMinimumLiquidity(), uint256(1000));
+  }
+
+  function test_OnlyOwnerReverts() external {
+    vm.stopPrank();
+    vm.expectRevert("Only callable by owner");
+    s_rebalancer.setMinimumLiquidity(uint256(1000));
   }
 }

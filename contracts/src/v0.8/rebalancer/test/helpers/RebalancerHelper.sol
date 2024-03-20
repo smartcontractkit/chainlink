@@ -11,8 +11,9 @@ contract RebalancerHelper is Rebalancer {
   constructor(
     IERC20 token,
     uint64 localChainSelector,
-    ILiquidityContainer localLiquidityContainer
-  ) Rebalancer(token, localChainSelector, localLiquidityContainer) {}
+    ILiquidityContainer localLiquidityContainer,
+    uint256 targetTokens
+  ) Rebalancer(token, localChainSelector, localLiquidityContainer, targetTokens) {}
 
   function report(bytes calldata rep, uint64 ocrSeqNum) external {
     _report(rep, ocrSeqNum);

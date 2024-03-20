@@ -77,6 +77,10 @@ func (p ProposedTransfer) TransferStatus() TransferStatus {
 	return TransferStatusProposed
 }
 
+func (p ProposedTransfer) String() string {
+	return fmt.Sprintf("from:%d to:%d amount:%s", p.From, p.To, p.Amount.String())
+}
+
 // Transfer is a ProposedTransfer that has had a lot of its information resolved.
 type Transfer struct {
 	// From identifies the network where the tokens are originating from.

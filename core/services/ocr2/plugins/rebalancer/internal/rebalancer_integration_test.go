@@ -673,7 +673,7 @@ func deployContracts(
 
 		// deploy the rebalancer and set the liquidity container to be the lock release pool
 		ch := mustGetChainByEvmID(t, chainID)
-		rebalancerAddr, _, _, err := rebalancer.DeployRebalancer(owner, backend, wethAddress, ch.Selector, lockReleasePoolAddress)
+		rebalancerAddr, _, _, err := rebalancer.DeployRebalancer(owner, backend, wethAddress, ch.Selector, lockReleasePoolAddress, big.NewInt(0))
 		require.NoError(t, err, "failed to deploy Rebalancer contract")
 		rebalancer, err := rebalancer.NewRebalancer(rebalancerAddr, backend)
 		require.NoError(t, err, "failed to create Rebalancer wrapper")
