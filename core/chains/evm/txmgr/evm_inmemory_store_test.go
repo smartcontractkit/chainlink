@@ -926,6 +926,55 @@ func TestInMemoryStore_FindTransactionsConfirmedInBlockRange(t *testing.T) {
 		require.NoError(t, actErr)
 		assert.Equal(t, len(expTxs), len(actTxs))
 	})
+}
+
+func TestInMemoryStore_FindEarliestUnconfirmedBroadcastTime(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
+	persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+	kst := cltest.NewKeyStore(t, db, dbcfg)
+	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
+
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	lggr := logger.TestSugared(t)
+	chainID := ethClient.ConfiguredChainID()
+	ctx := context.Background()
+
+	inMemoryStore, err := commontxmgr.NewInMemoryStore[
+		*big.Int,
+		common.Address, common.Hash, common.Hash,
+		*evmtypes.Receipt,
+		evmtypes.Nonce,
+		evmgas.EvmFee,
+	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	require.NoError(t, err)
+
+	t.Run("no results", func(t *testing.T) {
+		ctx := testutils.Context(t)
+		expBroadcastAt, expErr := persistentStore.FindEarliestUnconfirmedBroadcastTime(ctx, chainID)
+		actBroadcastAt, actErr := inMemoryStore.FindEarliestUnconfirmedBroadcastTime(ctx, chainID)
+		require.NoError(t, expErr)
+		require.NoError(t, actErr)
+		assert.False(t, expBroadcastAt.Valid)
+		assert.False(t, actBroadcastAt.Valid)
+	})
+	t.Run("find broadcast at time", func(t *testing.T) {
+		// insert the transaction into the persistent store
+		inTx := cltest.MustInsertUnconfirmedEthTx(t, persistentStore, 123, fromAddress)
+		// insert the transaction into the in-memory store
+		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
+
+		ctx := testutils.Context(t)
+		expBroadcastAt, expErr := persistentStore.FindEarliestUnconfirmedBroadcastTime(ctx, chainID)
+		actBroadcastAt, actErr := inMemoryStore.FindEarliestUnconfirmedBroadcastTime(ctx, chainID)
+		require.NoError(t, expErr)
+		require.NoError(t, actErr)
+		require.True(t, expBroadcastAt.Valid)
+		require.True(t, actBroadcastAt.Valid)
+		assert.Equal(t, expBroadcastAt.Time.Unix(), actBroadcastAt.Time.Unix())
+	})
 
 }
 
