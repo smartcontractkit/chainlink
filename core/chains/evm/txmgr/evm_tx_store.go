@@ -536,8 +536,11 @@ func (o *evmTxStore) InsertTx(ctx context.Context, etx *Tx) error {
 	var dbTx DbEthTx
 	dbTx.FromTx(etx)
 
-	query, args, _ := o.q.BindNamed(insertEthTxSQL, &dbTx)
-	err := o.q.GetContext(ctx, &dbTx, query, args...)
+	query, args, err := o.q.BindNamed(insertEthTxSQL, &dbTx)
+	if err != nil {
+		return pkgerrors.Wrap(err, "InsertTx failed to bind named")
+	}
+	err = o.q.GetContext(ctx, &dbTx, query, args...)
 	dbTx.ToTx(etx)
 	return pkgerrors.Wrap(err, "InsertTx failed")
 }
@@ -546,8 +549,11 @@ func (o *evmTxStore) InsertTx(ctx context.Context, etx *Tx) error {
 func (o *evmTxStore) InsertTxAttempt(ctx context.Context, attempt *TxAttempt) error {
 	var dbTxAttempt DbEthTxAttempt
 	dbTxAttempt.FromTxAttempt(attempt)
-	query, args, _ := o.q.BindNamed(insertIntoEthTxAttemptsQuery, &dbTxAttempt)
-	err := o.q.GetContext(ctx, &dbTxAttempt, query, args...)
+	query, args, err := o.q.BindNamed(insertIntoEthTxAttemptsQuery, &dbTxAttempt)
+	if err != nil {
+		return pkgerrors.Wrap(err, "InsertTxAttempt failed to bind named")
+	}
+	err = o.q.GetContext(ctx, &dbTxAttempt, query, args...)
 	dbTxAttempt.ToTxAttempt(attempt)
 	return pkgerrors.Wrap(err, "InsertTxAttempt failed")
 }
@@ -560,8 +566,11 @@ func (o *evmTxStore) InsertReceipt(ctx context.Context, receipt *evmtypes.Receip
 	const insertEthReceiptSQL = `INSERT INTO evm.receipts (tx_hash, block_hash, block_number, transaction_index, receipt, created_at) VALUES (
 :tx_hash, :block_hash, :block_number, :transaction_index, :receipt, NOW()
 ) RETURNING *`
-	query, args, _ := o.q.BindNamed(insertEthReceiptSQL, &r)
-	err := o.q.GetContext(ctx, &r, query, args...)
+	query, args, err := o.q.BindNamed(insertEthReceiptSQL, &r)
+	if err != nil {
+		return 0, pkgerrors.Wrap(err, "InsertReceipt failed to bind named")
+	}
+	err = o.q.GetContext(ctx, &r, query, args...)
 	return r.ID, pkgerrors.Wrap(err, "InsertReceipt failed")
 }
 
@@ -1643,11 +1652,11 @@ func (o *evmTxStore) UpdateTxUnstartedToInProgress(ctx context.Context, etx *Tx,
 
 		var dbAttempt DbEthTxAttempt
 		dbAttempt.FromTxAttempt(attempt)
-		query, args, e := orm.q.BindNamed(insertIntoEthTxAttemptsQuery, &dbAttempt)
-		if e != nil {
-			return pkgerrors.Wrap(e, "failed to BindNamed")
+		query, args, err := orm.q.BindNamed(insertIntoEthTxAttemptsQuery, &dbAttempt)
+		if err != nil {
+			return pkgerrors.Wrap(err, "UpdateTxUnstartedToInProgress failed to BindNamed")
 		}
-		err := orm.q.GetContext(ctx, &dbAttempt, query, args...)
+		err = orm.q.GetContext(ctx, &dbAttempt, query, args...)
 		if err != nil {
 			var pqErr *pgconn.PgError
 			if isPqErr := errors.As(err, &pqErr); isPqErr &&
