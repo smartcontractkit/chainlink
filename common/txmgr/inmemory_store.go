@@ -902,28 +902,19 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetIn
 
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetNonFatalTransactions(ctx context.Context, chainID CHAIN_ID) ([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
 	if ms.chainID.String() != chainID.String() {
-		return nil, fmt.Errorf("get_non_fatal_transactions: %w", ErrInvalidChainID)
+		return nil, nil
 	}
 
 	filter := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
 		return tx.State != TxFatalError
 	}
-	txsLock := sync.Mutex{}
 	txs := []txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
-	wg := sync.WaitGroup{}
 	ms.addressStatesLock.RLock()
 	defer ms.addressStatesLock.RUnlock()
 	for _, as := range ms.addressStates {
-		wg.Add(1)
-		go func(as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) {
-			etxs := as.findTxs(nil, filter)
-			txsLock.Lock()
-			txs = append(txs, etxs...)
-			txsLock.Unlock()
-			wg.Done()
-		}(as)
+		etxs := as.findTxs(nil, filter)
+		txs = append(txs, etxs...)
 	}
-	wg.Wait()
 
 	etxs := make([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], len(txs))
 	for i, tx := range txs {

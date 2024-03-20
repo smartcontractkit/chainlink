@@ -849,6 +849,16 @@ func TestInMemoryStore_GetNonFatalTransactions(t *testing.T) {
 			assertTxEqual(t, *expTxs[i], *actTxs[i])
 		}
 	})
+
+	t.Run("wrong chain ID", func(t *testing.T) {
+		wrongChainID := big.NewInt(999)
+		ctx := testutils.Context(t)
+		expTxs, expErr := persistentStore.GetNonFatalTransactions(ctx, wrongChainID)
+		actTxs, actErr := inMemoryStore.GetNonFatalTransactions(ctx, wrongChainID)
+		require.NoError(t, expErr)
+		require.NoError(t, actErr)
+		assert.Equal(t, len(expTxs), len(actTxs))
+	})
 }
 
 // assertTxEqual asserts that two transactions are equal
