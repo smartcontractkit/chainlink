@@ -11,13 +11,13 @@ import {VRFTypes} from "../VRFTypes.sol";
  */
 contract BatchVRFCoordinatorV2Plus {
   // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
-  IVRFCoordinatorV2Plus public immutable COORDINATOR;
+  IVRFCoordinatorV2PlusFulfill public immutable COORDINATOR;
 
   event ErrorReturned(uint256 indexed requestId, string reason);
   event RawErrorReturned(uint256 indexed requestId, bytes lowLevelData);
 
   constructor(address coordinatorAddr) {
-    COORDINATOR = IVRFCoordinatorV2Plus(coordinatorAddr);
+    COORDINATOR = IVRFCoordinatorV2PlusFulfill(coordinatorAddr);
   }
 
   /**
@@ -28,7 +28,7 @@ contract BatchVRFCoordinatorV2Plus {
   function fulfillRandomWords(VRFTypes.Proof[] memory proofs, VRFTypes.RequestCommitmentV2Plus[] memory rcs) external {
     // solhint-disable-next-line custom-errors
     require(proofs.length == rcs.length, "input array arg lengths mismatch");
-    for (uint256 i = 0; i < proofs.length; i++) {
+    for (uint256 i = 0; i < proofs.length; ++i) {
       try COORDINATOR.fulfillRandomWords(proofs[i], rcs[i], false) returns (uint96 /* payment */) {
         continue;
       } catch Error(string memory reason) {
@@ -59,7 +59,7 @@ contract BatchVRFCoordinatorV2Plus {
   }
 }
 
-interface IVRFCoordinatorV2Plus {
+interface IVRFCoordinatorV2PlusFulfill {
   function fulfillRandomWords(
     VRFTypes.Proof memory proof,
     VRFTypes.RequestCommitmentV2Plus memory rc,
