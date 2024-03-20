@@ -603,10 +603,6 @@ func (o *OffRamp) DecodeExecutionReport(report []byte) (cciptypes.ExecReport, er
 	return DecodeExecReport(o.ExecutionReportArgs, report)
 }
 
-func (o *OffRamp) TokenEvents() []common.Hash {
-	return offRamp_poolAddedPoolRemovedEvents
-}
-
 func (o *OffRamp) RegisterFilters(qopts ...pg.QOpt) error {
 	return logpollerutil.RegisterLpFilters(o.lp, o.filters, qopts...)
 }
@@ -624,16 +620,19 @@ func NewOffRamp(lggr logger.Logger, addr common.Address, ec client.Client, lp lo
 			Name:      logpoller.FilterName(EXEC_EXECUTION_STATE_CHANGES, addr.String()),
 			EventSigs: []common.Hash{ExecutionStateChangedEvent},
 			Addresses: []common.Address{addr},
+			Retention: ccipdata.CommitExecLogsRetention,
 		},
 		{
 			Name:      logpoller.FilterName(EXEC_TOKEN_POOL_ADDED, addr.String()),
 			EventSigs: []common.Hash{PoolAddedEvent},
 			Addresses: []common.Address{addr},
+			Retention: ccipdata.CacheEvictionLogsRetention,
 		},
 		{
 			Name:      logpoller.FilterName(EXEC_TOKEN_POOL_REMOVED, addr.String()),
 			EventSigs: []common.Hash{PoolRemovedEvent},
 			Addresses: []common.Address{addr},
+			Retention: ccipdata.CacheEvictionLogsRetention,
 		},
 	}
 

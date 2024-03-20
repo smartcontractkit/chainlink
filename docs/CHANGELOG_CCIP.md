@@ -13,7 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added optional `PriceReportingDisabled` to signal lane should not report gas and token prices.
 - `OffRamp` offchain config changed:
   - `MaxGasPrice` and `DestMaxGasPrice` will be ignored if specified. DestMaxGasPrice will be read from PriceMax in chain TOML.
-
+- All LogPoller's filters have now retention defined. This means that the LogPoller will remove logs older than the retention defined per filter. 
+  Additionally, logs are now removed from the database in batches, defined by `LogPrunePageSize` in the toml config. Default value for all chains is 10_000.
 
 ## 1.4.0 - 2024-02-16
 

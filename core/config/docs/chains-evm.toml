@@ -56,7 +56,8 @@ LogPollInterval = '15s' # Default
 LogKeepBlocksDepth = 100000 # Default
 # **ADVANCED**
 # LogPrunePageSize defines size of the page for pruning logs. Controls how many logs/blocks (at most) are deleted in a single prune tick. Default value 0 means no paging, delete everything at once.
-LogPrunePageSize = 0 # Default
+# CCIP uses paging when removing logs to avoid pushing too much presssure on the database so this value should not be set to 0.
+LogPrunePageSize = 10000 # Default
 # **ADVANCED**
 # BackupLogPollerBlockDelay works in conjunction with Feature.LogPoller. Controls the block delay of Backup LogPoller, affecting how far behind the latest finalized block it starts and how often it runs.
 # BackupLogPollerDelay=0 will disable Backup LogPoller (_not recommended for production environment_).
