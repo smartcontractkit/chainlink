@@ -30,6 +30,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
 
   // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
   uint256 public immutable SUBSCRIPTION_ID;
+  LinkTokenInterface internal immutable i_link;
 
   error LinkAlreadySet();
   error LinkDiscountTooHigh(uint32 flatFeeLinkDiscountPPM, uint32 flatFeeNativePPM);
@@ -49,14 +50,6 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   // s_disabled disables the contract when true. When disabled, new VRF requests cannot be made
   // but existing ones can still be fulfilled.
   bool public s_disabled;
-
-  // s_wrapperNativePremiumPercentage is the premium ratio in percentage for native payment. For example, a value of 0
-  // indicates no premium. A value of 15 indicates a 15 percent premium.
-  uint8 private s_wrapperNativePremiumPercentage;
-
-  // s_wrapperLinkPremiumPercentage is the premium ratio in percentage for link payment. For example, a value of 0
-  // indicates no premium. A value of 15 indicates a 15 percent premium.
-  uint8 private s_wrapperLinkPremiumPercentage;
 
   // s_maxNumWords is the max number of words that can be requested in a single wrapped VRF request.
   uint8 internal s_maxNumWords;
@@ -87,15 +80,10 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   // fallback to fallbackWeiPerUnitLink.
   uint32 private s_stalenessSeconds;
 
-  // s_fulfillmentFlatFeeLinkPPM is the flat fee in millionths of native that VRFCoordinatorV2
-  // charges for native payment.
-  uint32 private s_fulfillmentFlatFeeNativePPM;
-
-  // s_fulfillmentFlatFeeLinkDiscountPPM is the flat fee discount in millionths of native that VRFCoordinatorV2
-  // charges for link payment.
-  uint32 private s_fulfillmentFlatFeeLinkDiscountPPM;
-
   AggregatorV3Interface public s_linkNativeFeed;
+
+  /// @dev padding to make sure that the next variable is at a new storage slot
+  uint64 private s_padding;
   /* Storage Slot 5: END */
 
   /* Storage Slot 6: BEGIN */
@@ -119,7 +107,23 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   // payment calculation in the coordinator.
   uint32 private s_coordinatorGasOverhead;
 
-  LinkTokenInterface public s_link;
+  // s_fulfillmentFlatFeeLinkPPM is the flat fee in millionths of native that VRFCoordinatorV2
+  // charges for native payment.
+  uint32 private s_fulfillmentFlatFeeNativePPM;
+
+  // s_fulfillmentFlatFeeLinkDiscountPPM is the flat fee discount in millionths of native that VRFCoordinatorV2
+  // charges for link payment.
+  uint32 private s_fulfillmentFlatFeeLinkDiscountPPM;
+
+  // s_wrapperNativePremiumPercentage is the premium ratio in percentage for native payment. For example, a value of 0
+  // indicates no premium. A value of 15 indicates a 15 percent premium.
+  uint8 private s_wrapperNativePremiumPercentage;
+
+  // s_wrapperLinkPremiumPercentage is the premium ratio in percentage for link payment. For example, a value of 0
+  // indicates no premium. A value of 15 indicates a 15 percent premium.
+  uint8 private s_wrapperLinkPremiumPercentage;
+
+  // 10 bytes left
   /* Storage Slot 6: END */
 
   struct Callback {
@@ -136,9 +140,11 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   /* Storage Slot 7: END */
 
   constructor(address _link, address _linkNativeFeed, address _coordinator) VRFConsumerBaseV2Plus(_coordinator) {
-    if (_link != address(0)) {
-      s_link = LinkTokenInterface(_link);
+    if (_link == address(0)) {
+      revert ZeroAddress();
     }
+    i_link = LinkTokenInterface(_link);
+
     if (_linkNativeFeed != address(0)) {
       s_linkNativeFeed = AggregatorV3Interface(_linkNativeFeed);
     }
@@ -150,20 +156,13 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   }
 
   /**
-   * @notice set the link token and link native feed to be used by this wrapper
-   * @param link address of the link token
+   * @notice set link native feed to be used by this wrapper
    * @param linkNativeFeed address of the link native feed
    */
-  function setLinkAndLinkNativeFeed(address link, address linkNativeFeed) external onlyOwner {
-    // Disallow re-setting link token because the logic wouldn't really make sense
-    if (address(s_link) != address(0)) {
-      revert LinkAlreadySet();
-    }
-
-    s_link = LinkTokenInterface(link);
+  function setLinkNativeFeed(address linkNativeFeed) external onlyOwner {
     s_linkNativeFeed = AggregatorV3Interface(linkNativeFeed);
 
-    emit LinkAndLinkNativeFeedSet(link, linkNativeFeed);
+    emit LinkNativeFeedSet(linkNativeFeed);
   }
 
   /**
@@ -424,7 +423,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
    */
   function onTokenTransfer(address _sender, uint256 _amount, bytes calldata _data) external onlyConfiguredNotDisabled {
     // solhint-disable-next-line custom-errors
-    require(msg.sender == address(s_link), "only callable from LINK");
+    require(msg.sender == address(i_link), "only callable from LINK");
 
     (uint32 callbackGasLimit, uint16 requestConfirmations, uint32 numWords, bytes memory extraArgs) = abi.decode(
       _data,
@@ -488,7 +487,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     uint16 _requestConfirmations,
     uint32 _numWords,
     bytes calldata extraArgs
-  ) external payable override returns (uint256 requestId) {
+  ) external payable override onlyConfiguredNotDisabled returns (uint256 requestId) {
     checkPaymentMode(extraArgs, false);
 
     uint32 eip150Overhead = _getEIP150Overhead(_callbackGasLimit);
@@ -521,8 +520,8 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
    * @param _recipient is the address that should receive the LINK funds.
    */
   function withdraw(address _recipient) external onlyOwner {
-    uint256 amount = s_link.balanceOf(address(this));
-    if (!s_link.transfer(_recipient, amount)) {
+    uint256 amount = i_link.balanceOf(address(this));
+    if (!i_link.transfer(_recipient, amount)) {
       revert FailedToTransferLink();
     }
 
@@ -578,6 +577,10 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     if (!success) {
       emit WrapperFulfillmentFailed(_requestId, callbackAddress);
     }
+  }
+
+  function link() external view override returns (address) {
+    return address(i_link);
   }
 
   function _getFeedData() private view returns (int256 weiPerUnitLink, bool isFeedStale) {

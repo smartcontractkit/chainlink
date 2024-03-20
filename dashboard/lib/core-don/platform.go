@@ -22,10 +22,6 @@ func PlatformPanelOpts(platform string) PlatformOpts {
 	switch platform {
 	case "kubernetes":
 		po.LabelFilters = map[string]string{
-			// TODO: sometimes I can see my PodMonitor selector, sometimes I don't
-			// TODO: is it prometheus-operator issue or do we really need "job" selector for k8s?
-			// TODO: works without it
-			//"job":       `=~"${instance}"`,
 			"namespace": `=~"${namespace}"`,
 			"pod":       `=~"${pod}"`,
 		}

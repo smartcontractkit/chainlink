@@ -48,7 +48,7 @@ contract VRFV2PlusWrapper_MigrationTest is BaseTest {
     // Deploy coordinator and consumer.
     s_testCoordinator = new ExposedVRFCoordinatorV2_5(address(0));
     s_wrapper = new VRFV2PlusWrapper(address(s_linkToken), address(s_linkNativeFeed), address(s_testCoordinator));
-    s_consumer = new VRFV2PlusWrapperConsumerExample(address(s_linkToken), address(s_wrapper));
+    s_consumer = new VRFV2PlusWrapperConsumerExample(address(s_wrapper));
 
     // Configure the coordinator.
     s_testCoordinator.setLINKAndLINKNativeFeed(address(s_linkToken), address(s_linkNativeFeed));

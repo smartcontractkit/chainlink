@@ -8,6 +8,7 @@ import {ExposedVRFCoordinatorV2_5} from "../../../../src/v0.8/vrf/dev/testhelper
 import {VRFV2PlusWrapperConsumerBase} from "../../../../src/v0.8/vrf/dev/VRFV2PlusWrapperConsumerBase.sol";
 import {VRFV2PlusWrapperConsumerExample} from "../../../../src/v0.8/vrf/dev/testhelpers/VRFV2PlusWrapperConsumerExample.sol";
 import {VRFCoordinatorV2_5} from "../../../../src/v0.8/vrf/dev/VRFCoordinatorV2_5.sol";
+import {VRFConsumerBaseV2Plus} from "../../../../src/v0.8/vrf/dev/VRFConsumerBaseV2Plus.sol";
 import {VRFV2PlusWrapper} from "../../../../src/v0.8/vrf/dev/VRFV2PlusWrapper.sol";
 import {VRFV2PlusClient} from "../../../../src/v0.8/vrf/dev/libraries/VRFV2PlusClient.sol";
 import {console} from "forge-std/console.sol";
@@ -39,7 +40,7 @@ contract VRFV2PlusWrapperTest is BaseTest {
     // Deploy coordinator and consumer.
     s_testCoordinator = new ExposedVRFCoordinatorV2_5(address(0));
     s_wrapper = new VRFV2PlusWrapper(address(s_linkToken), address(s_linkNativeFeed), address(s_testCoordinator));
-    s_consumer = new VRFV2PlusWrapperConsumerExample(address(s_linkToken), address(s_wrapper));
+    s_consumer = new VRFV2PlusWrapperConsumerExample(address(s_wrapper));
 
     // Configure the coordinator.
     s_testCoordinator.setLINKAndLINKNativeFeed(address(s_linkToken), address(s_linkNativeFeed));
@@ -111,7 +112,7 @@ contract VRFV2PlusWrapperTest is BaseTest {
   );
 
   // IVRFV2PlusWrapper events
-  event LinkAndLinkNativeFeedSet(address link, address linkNativeFeed);
+  event LinkNativeFeedSet(address linkNativeFeed);
   event FulfillmentTxSizeSet(uint32 size);
   event ConfigSet(
     uint32 wrapperGasOverhead,
@@ -134,28 +135,19 @@ contract VRFV2PlusWrapperTest is BaseTest {
   // VRFV2PlusWrapperConsumerBase events
   event LinkTokenSet(address link);
 
-  function testSetLinkAndLinkNativeFeed() public {
-    VRFV2PlusWrapper wrapper = new VRFV2PlusWrapper(address(0), address(0), address(s_testCoordinator));
+  function testVRFV2PlusWrapper_ZeroAddress() public {
+    vm.expectRevert(VRFConsumerBaseV2Plus.ZeroAddress.selector);
+    new VRFV2PlusWrapper(address(0), address(0), address(0));
+  }
 
-    // Set LINK and LINK/Native feed on wrapper.
+  function testSetLinkNativeFeed() public {
+    VRFV2PlusWrapper wrapper = new VRFV2PlusWrapper(address(s_linkToken), address(0), address(s_testCoordinator));
+
+    // Set LINK/Native feed on wrapper.
     vm.expectEmit(false, false, false, true, address(wrapper));
-    emit LinkAndLinkNativeFeedSet(address(s_linkToken), address(s_linkNativeFeed));
-    wrapper.setLinkAndLinkNativeFeed(address(s_linkToken), address(s_linkNativeFeed));
-    assertEq(address(wrapper.s_link()), address(s_linkToken));
-
-    // Revert for subsequent assignment.
-    vm.expectRevert(VRFV2PlusWrapper.LinkAlreadySet.selector);
-    wrapper.setLinkAndLinkNativeFeed(address(s_linkToken), address(s_linkNativeFeed));
-
-    // Consumer can set LINK token.
-    VRFV2PlusWrapperConsumerExample consumer = new VRFV2PlusWrapperConsumerExample(address(0), address(wrapper));
-    vm.expectEmit(false, false, false, true, address(consumer));
-    emit LinkTokenSet(address(s_linkToken));
-    consumer.setLinkToken(address(s_linkToken));
-
-    // Revert for subsequent assignment.
-    vm.expectRevert(VRFV2PlusWrapperConsumerBase.LINKAlreadySet.selector);
-    consumer.setLinkToken(address(s_linkToken));
+    emit LinkNativeFeedSet(address(s_linkNativeFeed));
+    wrapper.setLinkNativeFeed(address(s_linkNativeFeed));
+    assertEq(address(wrapper.s_linkNativeFeed()), address(s_linkNativeFeed));
   }
 
   function testSetFulfillmentTxSize() public {
@@ -164,6 +156,11 @@ contract VRFV2PlusWrapperTest is BaseTest {
     emit FulfillmentTxSizeSet(fulfillmentTxSize);
     s_wrapper.setFulfillmentTxSize(fulfillmentTxSize);
     assertEq(s_wrapper.s_fulfillmentTxSizeBytes(), fulfillmentTxSize);
+  }
+
+  function testSetCoordinator_ZeroAddress() public {
+    vm.expectRevert(VRFConsumerBaseV2Plus.ZeroAddress.selector);
+    s_wrapper.setCoordinator(address(0));
   }
 
   function testRequestAndFulfillRandomWordsNativeWrapper() public {
@@ -406,5 +403,23 @@ contract VRFV2PlusWrapperTest is BaseTest {
       address(s_wrapper) // requester
     );
     s_consumer.makeRequest(callbackGasLimit, 0, 1);
+  }
+
+  function testRequestRandomWordsInNative_NotConfigured() public {
+    VRFV2PlusWrapper wrapper = new VRFV2PlusWrapper(
+      address(s_linkToken),
+      address(s_linkNativeFeed),
+      address(s_testCoordinator)
+    );
+
+    vm.expectRevert("wrapper is not configured");
+    wrapper.requestRandomWordsInNative(500_000, 0, 1, "");
+  }
+
+  function testRequestRandomWordsInNative_Disabled() public {
+    s_wrapper.disable();
+
+    vm.expectRevert("wrapper is disabled");
+    s_wrapper.requestRandomWordsInNative(500_000, 0, 1, "");
   }
 }
