@@ -93,12 +93,6 @@ func TestOffRampGRPC(t *testing.T) {
 	wg.Wait()
 }
 
-type serviceCloser struct {
-	closeFn func() error
-}
-
-func (s *serviceCloser) Close() error { return s.closeFn() }
-
 // roundTripOffRampTests tests the round trip of the client<->server.
 // it should exercise all the methods of the client.
 // do not add client.Close to this test, test that from the driver test
@@ -125,8 +119,8 @@ func roundTripOffRampTests(ctx context.Context, t *testing.T, client *ccip.OffRa
 	t.Run("DecodeExecutionReport", func(t *testing.T) {
 		report, err := client.DecodeExecutionReport(ctx, OffRampReader.decodeExecutionReportRequest)
 		require.NoError(t, err)
-		if !reflect.DeepEqual(OffRampReader.decodeExecutionReportResponse.Messages, report.Messages) {
-			t.Errorf("expected messages %v, got %v", OffRampReader.decodeExecutionReportResponse.Messages, report.Messages)
+		if !reflect.DeepEqual(OffRampReader.decodeExecutionReportResponse, report) {
+			t.Errorf("expected messages %v, got %v", OffRampReader.decodeExecutionReportResponse, report)
 		}
 	})
 
@@ -223,3 +217,9 @@ func roundTripOffRampTests(ctx context.Context, t *testing.T, client *ccip.OffRa
 		assert.Equal(t, OffRampReader.onchainConfigResponse, config)
 	})
 }
+
+type serviceCloser struct {
+	closeFn func() error
+}
+
+func (s *serviceCloser) Close() error { return s.closeFn() }

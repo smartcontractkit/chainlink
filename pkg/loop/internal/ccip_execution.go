@@ -6,6 +6,7 @@ import (
 
 	"github.com/mwitkow/grpc-proxy/proxy"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	ccipinternal "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/ccip"
@@ -13,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb"
 	ccippb "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb/ccip"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 )
 
@@ -162,7 +164,21 @@ func newExecProviderClient(b *net.BrokerExt, conn grpc.ClientConnInterface) *exe
 
 // NewCommitStoreReader implements types.CCIPExecProvider.
 func (e *execProviderClient) NewCommitStoreReader(ctx context.Context, addr cciptypes.Address) (cciptypes.CommitStoreReader, error) {
-	panic("unimplemented")
+	req := ccippb.NewCommitStoreReaderRequest{Address: string(addr)}
+
+	resp, err := e.grpcClient.NewCommitStoreReader(ctx, &req)
+	if err != nil {
+		return nil, err
+	}
+	// TODO BCF-3061: this works because the broker is shared and the id refers to a resource served by the broker
+	commitStoreConn, err := e.BrokerExt.Dial(uint32(resp.CommitStoreReaderServiceId))
+	if err != nil {
+		return nil, fmt.Errorf("failed to lookup off ramp reader service at %d: %w", resp.CommitStoreReaderServiceId, err)
+	}
+	// need to wrap grpc commitStore into the desired interface
+	commitStore := ccipinternal.NewCommitStoreReaderGRPCClient(commitStoreConn, e.BrokerExt)
+
+	return commitStore, nil
 }
 
 // NewOffRampReader implements types.CCIPExecProvider.
@@ -252,6 +268,36 @@ type execProviderServer struct {
 
 	deps net.Resources
 }
+
+// Close implements ccippb.ExecutionCustomHandlersServer.
+func (e *execProviderServer) Close(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
+	return &emptypb.Empty{}, e.impl.Close()
+}
+
+// NewCommitStoreReader implements ccippb.ExecutionCustomHandlersServer.
+func (e *execProviderServer) NewCommitStoreReader(ctx context.Context, req *ccippb.NewCommitStoreReaderRequest) (*ccippb.NewCommitStoreReaderResponse, error) {
+	reader, err := e.impl.NewCommitStoreReader(context.Background(), ccip.Address(req.Address))
+	if err != nil {
+		return nil, err
+	}
+	// wrap the reader in a grpc server and serve it
+	commitStoreHandler, err := ccipinternal.NewCommitStoreReaderGRPCServer(reader, e.BrokerExt)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create offramp reader grpc server: %w", err)
+	}
+	// the id is handle to the broker, we will need it on the other sider to dial the resource
+	commitStoreID, csResource, err := e.ServeNew("OffRampReader", func(s *grpc.Server) {
+		ccippb.RegisterCommitStoreReaderServer(s, commitStoreHandler)
+	})
+	if err != nil {
+		return nil, err
+	}
+	// ensure the grpc server is closed when the offRamp is closed. See comment in NewPriceRegistryReader for more details
+	commitStoreHandler.WithCloser(csResource)
+	return &ccippb.NewCommitStoreReaderResponse{CommitStoreReaderServiceId: int32(commitStoreID)}, nil
+}
+
+var _ ccippb.ExecutionCustomHandlersServer = (*execProviderServer)(nil)
 
 func newExecProviderServer(impl types.CCIPExecProvider, brokerExt *net.BrokerExt) *execProviderServer {
 	return &execProviderServer{impl: impl, BrokerExt: brokerExt}

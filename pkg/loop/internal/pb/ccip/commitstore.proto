@@ -11,19 +11,21 @@ import "models.proto";
 // CommitStoreReader is a gRPC service adapter to the CommitStoreReader interface 
 // [github.com/smartcontractkit/chainlink-common/chainlink-common/pkg/types/ccip/CommitStoreReader]
 service CommitStoreReader {
+    rpc ChangeConfig(CommitStoreChangeConfigRequest) returns (CommitStoreChangeConfigResponse);
+    rpc DecodeCommitReport(DecodeCommitReportRequest) returns (DecodeCommitReportResponse);
+    rpc EncodeCommitReport(EncodeCommitReportRequest) returns (EncodeCommitReportResponse);
+    rpc GetAcceptedCommitReportsGteTimestamp(GetAcceptedCommitReportsGteTimestampRequest) returns (GetAcceptedCommitReportsGteTimestampResponse);
+    rpc GetCommitGasPriceEstimator(google.protobuf.Empty) returns (GetCommitGasPriceEstimatorResponse);    
+    rpc GetCommitReportMatchingSequenceNumber(GetCommitReportMatchingSequenceNumberRequest) returns (GetCommitReportMatchingSequenceNumberResponse);
+    rpc GetCommitStoreStaticConfig(google.protobuf.Empty) returns (GetCommitStoreStaticConfigResponse);
     rpc GetExpectedNextSequenceNumber(google.protobuf.Empty) returns (GetExpectedNextSequenceNumberResponse);
     rpc GetLatestPriceEpochAndRound(google.protobuf.Empty) returns (GetLatestPriceEpochAndRoundResponse);
-    rpc GeteCommitReportMatchingSequenceNumber(GetCommitReportMatchingSequenceNumberRequest) returns (GetCommitReportMatchingSequenceNumberResponse);
-    rpc GetAcceptedCommitReportsGteTimestamp(GetAcceptedCommitReportsGteTimestampRequest) returns (GetAcceptedCommitReportsGteTimestampResponse);
-    rpc IsDown(google.protobuf.Empty) returns (IsDownResponse);
-    rpc IsBlessed(IsBlessedRequest) returns (IsBlessedResponse);
-    rpc ChangeConfig(CommitStoreChangeConfigRequest) returns (CommitStoreChangeConfigResponse);
     rpc GetOffchainConfig(google.protobuf.Empty) returns (GetOffchainConfigResponse);
-    rpc GetCommitGasPriceEstimator(google.protobuf.Empty) returns (GetCommitGasPriceEstimatorResponse);
-    rpc EncodeCommitReport(EncodeCommitReportRequest) returns (EncodeCommitReportResponse);
-    rpc DecodeCommitReport(DecodeCommitReportRequest) returns (DecodeCommitReportResponse);
+    rpc IsBlessed(IsBlessedRequest) returns (IsBlessedResponse);
+    rpc IsDestChainHealthy(google.protobuf.Empty) returns (IsDestChainHealthyResponse);
+    rpc IsDown(google.protobuf.Empty) returns (IsDownResponse);
     rpc VerifyExecutionReport(VerifyExecutionReportRequest) returns (VerifyExecutionReportResponse);
-    rpc GetCommitStoreStaticConfig(google.protobuf.Empty) returns (GetCommitStoreStaticConfigResponse);
+    rpc Close(google.protobuf.Empty) returns (google.protobuf.Empty);
 }
 
 // GetExpectedNextSequenceNumberResponse returns the expected next sequence number. It is a gRPC adapter to the return values of
@@ -156,9 +158,9 @@ message GetCommitStoreStaticConfigResponse {
 // [github.com/smartcontractkit/chainlink-common/chainlink-common/pkg/types/ccip.CommitOffchainConfig]
 message CommitOffchainConfig {
     uint32 gas_price_deviation_ppb = 1;
-    google.protobuf.Duration gas_price_hearbeat = 2;
+    google.protobuf.Duration gas_price_heartbeat = 2;
     uint32 token_price_deviation_ppb = 3;
-    google.protobuf.Duration token_price_hearbeat = 4;
+    google.protobuf.Duration token_price_heartbeat = 4;
     google.protobuf.Duration inflight_cache_expiry = 5;
 }
 
@@ -193,4 +195,8 @@ message CommitStoreStaticConfig {
     uint64 source_chain_selector = 2;
     string on_ramp = 3; // Address
     string arm_proxy = 4; // Address
+}
+
+message IsDestChainHealthyResponse {
+    bool is_healthy = 1;
 }

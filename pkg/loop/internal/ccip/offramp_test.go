@@ -37,8 +37,10 @@ func Test_byte32Slice(t *testing.T) {
 		{name: "too short", args: args{pbVal: [][]byte{tooShort}}, ifaceVal: nil, wantErr: true},
 	}
 	for _, tt := range tests {
+		tt := tt
 		t.Run(fmt.Sprintf("pb-to-iface %s", tt.name), func(t *testing.T) {
 			t.Parallel()
+
 			got, err := byte32Slice(tt.args.pbVal)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("byte32Slice() error = %v, wantErr %v", err, tt.wantErr)
@@ -51,6 +53,7 @@ func Test_byte32Slice(t *testing.T) {
 
 		t.Run(fmt.Sprintf("iface-to-pb %s", tt.name), func(t *testing.T) {
 			t.Parallel()
+
 			// there are no errors in this direction so skip tests that expect errors
 			if tt.wantErr {
 				return

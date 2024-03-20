@@ -114,6 +114,7 @@ const (
 	ExecutionCustomHandlers_NewOnRampReader_FullMethodName        = "/loop.internal.pb.ccip.ExecutionCustomHandlers/NewOnRampReader"
 	ExecutionCustomHandlers_NewOffRampReader_FullMethodName       = "/loop.internal.pb.ccip.ExecutionCustomHandlers/NewOffRampReader"
 	ExecutionCustomHandlers_NewPriceRegistryReader_FullMethodName = "/loop.internal.pb.ccip.ExecutionCustomHandlers/NewPriceRegistryReader"
+	ExecutionCustomHandlers_NewCommitStoreReader_FullMethodName   = "/loop.internal.pb.ccip.ExecutionCustomHandlers/NewCommitStoreReader"
 	ExecutionCustomHandlers_Close_FullMethodName                  = "/loop.internal.pb.ccip.ExecutionCustomHandlers/Close"
 )
 
@@ -124,6 +125,7 @@ type ExecutionCustomHandlersClient interface {
 	NewOnRampReader(ctx context.Context, in *NewOnRampReaderRequest, opts ...grpc.CallOption) (*NewOnRampReaderResponse, error)
 	NewOffRampReader(ctx context.Context, in *NewOffRampReaderRequest, opts ...grpc.CallOption) (*NewOffRampReaderResponse, error)
 	NewPriceRegistryReader(ctx context.Context, in *NewPriceRegistryReaderRequest, opts ...grpc.CallOption) (*NewPriceRegistryReaderResponse, error)
+	NewCommitStoreReader(ctx context.Context, in *NewCommitStoreReaderRequest, opts ...grpc.CallOption) (*NewCommitStoreReaderResponse, error)
 	// TODO: BCF-2993: Add more custom handlers
 	Close(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
@@ -163,6 +165,15 @@ func (c *executionCustomHandlersClient) NewPriceRegistryReader(ctx context.Conte
 	return out, nil
 }
 
+func (c *executionCustomHandlersClient) NewCommitStoreReader(ctx context.Context, in *NewCommitStoreReaderRequest, opts ...grpc.CallOption) (*NewCommitStoreReaderResponse, error) {
+	out := new(NewCommitStoreReaderResponse)
+	err := c.cc.Invoke(ctx, ExecutionCustomHandlers_NewCommitStoreReader_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *executionCustomHandlersClient) Close(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, ExecutionCustomHandlers_Close_FullMethodName, in, out, opts...)
@@ -179,6 +190,7 @@ type ExecutionCustomHandlersServer interface {
 	NewOnRampReader(context.Context, *NewOnRampReaderRequest) (*NewOnRampReaderResponse, error)
 	NewOffRampReader(context.Context, *NewOffRampReaderRequest) (*NewOffRampReaderResponse, error)
 	NewPriceRegistryReader(context.Context, *NewPriceRegistryReaderRequest) (*NewPriceRegistryReaderResponse, error)
+	NewCommitStoreReader(context.Context, *NewCommitStoreReaderRequest) (*NewCommitStoreReaderResponse, error)
 	// TODO: BCF-2993: Add more custom handlers
 	Close(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	mustEmbedUnimplementedExecutionCustomHandlersServer()
@@ -196,6 +208,9 @@ func (UnimplementedExecutionCustomHandlersServer) NewOffRampReader(context.Conte
 }
 func (UnimplementedExecutionCustomHandlersServer) NewPriceRegistryReader(context.Context, *NewPriceRegistryReaderRequest) (*NewPriceRegistryReaderResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method NewPriceRegistryReader not implemented")
+}
+func (UnimplementedExecutionCustomHandlersServer) NewCommitStoreReader(context.Context, *NewCommitStoreReaderRequest) (*NewCommitStoreReaderResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method NewCommitStoreReader not implemented")
 }
 func (UnimplementedExecutionCustomHandlersServer) Close(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Close not implemented")
@@ -268,6 +283,24 @@ func _ExecutionCustomHandlers_NewPriceRegistryReader_Handler(srv interface{}, ct
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ExecutionCustomHandlers_NewCommitStoreReader_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(NewCommitStoreReaderRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ExecutionCustomHandlersServer).NewCommitStoreReader(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ExecutionCustomHandlers_NewCommitStoreReader_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ExecutionCustomHandlersServer).NewCommitStoreReader(ctx, req.(*NewCommitStoreReaderRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _ExecutionCustomHandlers_Close_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(emptypb.Empty)
 	if err := dec(in); err != nil {
@@ -304,6 +337,10 @@ var ExecutionCustomHandlers_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "NewPriceRegistryReader",
 			Handler:    _ExecutionCustomHandlers_NewPriceRegistryReader_Handler,
+		},
+		{
+			MethodName: "NewCommitStoreReader",
+			Handler:    _ExecutionCustomHandlers_NewCommitStoreReader_Handler,
 		},
 		{
 			MethodName: "Close",
