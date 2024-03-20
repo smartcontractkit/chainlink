@@ -506,52 +506,17 @@ contract SetConfig is SetUp {
 }
 
 contract NOPsSettlement is SetUp {
-  event NOPsSettledOffchain(address[] transmitterList, uint256[] balances);
-
-  function deployAndSetConfigForSettleOffchain(AutoBase.PayoutMode payoutMode) public {
-    registry = deployRegistry(payoutMode);
-    address module = address(new ChainModuleBase());
-    AutomationRegistryBase2_3.OnchainConfig memory cfg = AutomationRegistryBase2_3.OnchainConfig({
-      checkGasLimit: 5_000_000,
-      stalenessSeconds: 90_000,
-      gasCeilingMultiplier: 0,
-      maxPerformGas: 10_000_000,
-      maxCheckDataSize: 5_000,
-      maxPerformDataSize: 5_000,
-      maxRevertDataSize: 5_000,
-      fallbackGasPrice: 20_000_000_000,
-      fallbackLinkPrice: 2_000_000_000, // $20
-      fallbackNativePrice: 400_000_000_000, // $4,000
-      transcoder: 0xB1e66855FD67f6e85F0f0fA38cd6fBABdf00923c,
-      registrars: s_registrars,
-      upkeepPrivilegeManager: 0xD9c855F08A7e460691F41bBDDe6eC310bc0593D8,
-      chainModule: module,
-      reorgProtectionEnabled: true,
-      financeAdmin: FINANCE_ADMIN
-    });
-    bytes memory offchainConfigBytes = abi.encode(1234, ZERO_ADDRESS);
-
-    registry.setConfigTypeSafe(
-      SIGNERS,
-      TRANSMITTERS,
-      F,
-      cfg,
-      OFFCHAIN_CONFIG_VERSION,
-      offchainConfigBytes,
-      new address[](0),
-      new AutomationRegistryBase2_3.BillingConfig[](0)
-    );
-  }
+  event NOPsSettledOffchain(address[] payees, uint256[] balances);
 
   function testSettleNOPsOffchainRevertDueToUnauthorizedCaller() public {
-    deployAndSetConfigForSettleOffchain(AutoBase.PayoutMode.ON_CHAIN);
+    (IAutomationRegistryMaster2_3 registry, ) = deployAndConfigureAll(AutoBase.PayoutMode.ON_CHAIN);
 
     vm.expectRevert(abi.encodeWithSelector(IAutomationRegistryMaster2_3.OnlyFinanceAdmin.selector));
     registry.settleNOPsOffchain();
   }
 
   function testSettleNOPsOffchainRevertDueToOffchainSettlementDisabled() public {
-    deployAndSetConfigForSettleOffchain(AutoBase.PayoutMode.ON_CHAIN);
+    (IAutomationRegistryMaster2_3 registry, ) = deployAndConfigureAll(AutoBase.PayoutMode.OFF_CHAIN);
 
     vm.prank(registry.owner());
     registry.disableOffchainPayments();
@@ -562,7 +527,9 @@ contract NOPsSettlement is SetUp {
   }
 
   function testSettleNOPsOffchainSuccess() public {
-    deployAndSetConfigForSettleOffchain(AutoBase.PayoutMode.OFF_CHAIN);
+    // deploy and configure a registry with OFF_CHAIN payout
+    (IAutomationRegistryMaster2_3 registry, ) = deployAndConfigureAll(AutoBase.PayoutMode.OFF_CHAIN);
+    registry.setPayees(PAYEES);
 
     uint256[] memory balances = new uint256[](TRANSMITTERS.length);
     for (uint256 i = 0; i < TRANSMITTERS.length; i++) {
@@ -571,13 +538,14 @@ contract NOPsSettlement is SetUp {
 
     vm.startPrank(FINANCE_ADMIN);
     vm.expectEmit();
-    emit NOPsSettledOffchain(TRANSMITTERS, balances);
+    emit NOPsSettledOffchain(PAYEES, balances);
     registry.settleNOPsOffchain();
   }
 
   function testSettleNOPsOffchainSuccessTransmitterBalanceZeroed() public {
     // deploy and configure a registry with OFF_CHAIN payout
     (IAutomationRegistryMaster2_3 registry, ) = deployAndConfigureAll(AutoBase.PayoutMode.OFF_CHAIN);
+    registry.setPayees(PAYEES);
 
     // register an upkeep and add funds
     uint256 id = registry.registerUpkeep(address(TARGET1), 1000000, UPKEEP_ADMIN, 0, address(mockERC20), "", "", "");
@@ -630,7 +598,7 @@ contract NOPsSettlement is SetUp {
     // verify offchain settlement will emit NOPs' balances
     vm.startPrank(FINANCE_ADMIN);
     vm.expectEmit();
-    emit NOPsSettledOffchain(TRANSMITTERS, balances);
+    emit NOPsSettledOffchain(PAYEES, balances);
     registry.settleNOPsOffchain();
 
     // verify that transmitters balance has been zeroed out
@@ -641,7 +609,7 @@ contract NOPsSettlement is SetUp {
   }
 
   function testDisableOffchainPaymentsRevertDueToUnauthorizedCaller() public {
-    deployAndSetConfigForSettleOffchain(AutoBase.PayoutMode.OFF_CHAIN);
+    (IAutomationRegistryMaster2_3 registry, ) = deployAndConfigureAll(AutoBase.PayoutMode.OFF_CHAIN);
 
     vm.startPrank(FINANCE_ADMIN);
     vm.expectRevert(bytes("Only callable by owner"));
@@ -649,7 +617,7 @@ contract NOPsSettlement is SetUp {
   }
 
   function testDisableOffchainPaymentsSuccess() public {
-    deployAndSetConfigForSettleOffchain(AutoBase.PayoutMode.OFF_CHAIN);
+    (IAutomationRegistryMaster2_3 registry, ) = deployAndConfigureAll(AutoBase.PayoutMode.OFF_CHAIN);
 
     vm.startPrank(registry.owner());
     registry.disableOffchainPayments();

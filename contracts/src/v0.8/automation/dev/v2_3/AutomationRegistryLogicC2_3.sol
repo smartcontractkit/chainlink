@@ -161,14 +161,16 @@ contract AutomationRegistryLogicC2_3 is AutomationRegistryBase2_3 {
 
     uint256 length = s_transmittersList.length;
     uint256[] memory balances = new uint256[](length);
+    address[] memory payees = new address[](length);
     for (uint256 i = 0; i < length; i++) {
       address transmitterAddr = s_transmittersList[i];
       uint96 balance = _updateTransmitterBalanceFromPool(transmitterAddr, s_hotVars.totalPremium, uint96(length));
       balances[i] = balance;
+      payees[i] = s_transmitterPayees[transmitterAddr];
       s_transmitters[transmitterAddr].balance = 0;
     }
 
-    emit NOPsSettledOffchain(s_transmittersList, balances);
+    emit NOPsSettledOffchain(payees, balances);
   }
 
   /**
