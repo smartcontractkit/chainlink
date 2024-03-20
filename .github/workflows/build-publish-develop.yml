@@ -55,6 +55,44 @@ jobs:
           dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
           dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
           git-commit-sha: ${{ steps.git-ref.outputs.checked-out || github.sha }}
+
+      - name: Setup GAP
+        # Don't run for plugins.
+        if: matrix.image.name == ''
+        uses: smartcontractkit/.github/actions/setup-gap@main
+        with:
+          aws-region: ${{ secrets.AWS_REGION }}
+          aws-role-arn: ${{ secrets.AWS_OIDC_IAM_ROLE_PUBLISH_PR_ARN }}
+          api-gateway-host: ${{ secrets.AWS_API_GW_HOST_ARGO_SAND }}
+          use-argocd: "true"
+          argocd-user: ${{ secrets.ARGOCD_USER_SAND }}
+          argocd-pass: ${{ secrets.ARGOCD_PASS_SAND }}
+
+      # Run an Argo CD sync after the image is built.
+      - name: Argo CD App Sync
+        # Don't run for plugins.
+        if: matrix.image.name == ''
+        shell: bash
+        env:
+          AWS_SDLC_ECR_HOSTNAME: ${{ secrets.AWS_SDLC_ECR_HOSTNAME }}
+        run: |
+          argocd app sync "crib-chainlink-develop" \
+            --plaintext \
+            --grpc-web \
+            --async \
+            --helm-set="chainlink.nodes[0].name=node1" \
+            --helm-set="chainlink.nodes[0].image=${AWS_SDLC_ECR_HOSTNAME}/chainlink:develop" \
+            --helm-set="chainlink.nodes[1].name=node2" \
+            --helm-set="chainlink.nodes[1].image=${AWS_SDLC_ECR_HOSTNAME}/chainlink:develop" \
+            --helm-set="chainlink.nodes[2].name=node3" \
+            --helm-set="chainlink.nodes[2].image=${AWS_SDLC_ECR_HOSTNAME}/chainlink:develop" \
+            --helm-set="chainlink.nodes[3].name=node4" \
+            --helm-set="chainlink.nodes[3].image=${AWS_SDLC_ECR_HOSTNAME}/chainlink:develop" \
+            --helm-set="chainlink.nodes[4].name=node5" \
+            --helm-set="chainlink.nodes[4].image=${AWS_SDLC_ECR_HOSTNAME}/chainlink:develop" \
+            --helm-set="chainlink.nodes[5].name=node6" \
+            --helm-set="chainlink.nodes[5].image=${AWS_SDLC_ECR_HOSTNAME}/chainlink:develop"
+
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
