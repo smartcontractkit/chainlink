@@ -257,7 +257,6 @@ func WrapperConsumerDeploy(
 	link, wrapper common.Address,
 ) common.Address {
 	address, tx, _, err := vrfv2plus_wrapper_consumer_example.DeployVRFV2PlusWrapperConsumerExample(e.Owner, e.Ec,
-		link,
 		wrapper)
 	helpers.PanicErr(err)
 
