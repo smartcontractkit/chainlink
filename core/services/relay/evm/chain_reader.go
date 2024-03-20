@@ -151,12 +151,12 @@ func (cr *chainReader) QueryByKeysValuesIn(ctx context.Context, keysValuesIn []c
 	return sequencesMatrix, nil
 }
 
-func (cr *chainReader) QueryByKeyValueEquality(ctx context.Context, keyByEquality commontypes.KeyByEquality, queryFilter commontypes.QueryFilter, limitAndSort commontypes.LimitAndSort, sequenceDataType any) ([]commontypes.Sequence, error) {
+func (cr *chainReader) QueryByKeyValueEquality(ctx context.Context, keyByEquality commontypes.KeyValuesByEquality, queryFilter commontypes.QueryFilter, limitAndSort commontypes.LimitAndSort, sequenceDataType any) ([]commontypes.Sequence, error) {
 	panic("TODO implement this")
 	return nil, nil
 }
 
-func (cr *chainReader) QueryByKeysValuesEquality(ctx context.Context, keysByEquality []commontypes.KeysByEquality, queryFilter commontypes.QueryFilter, limitAndSort commontypes.LimitAndSort, sequenceDataType []any) ([][]commontypes.Sequence, error) {
+func (cr *chainReader) QueryByKeysValuesEquality(ctx context.Context, keysByEquality []commontypes.KeyValuesByEquality, queryFilter commontypes.QueryFilter, limitAndSort commontypes.LimitAndSort, sequenceDataType []any) ([][]commontypes.Sequence, error) {
 	panic("TODO implement this")
 	return nil, nil
 }
