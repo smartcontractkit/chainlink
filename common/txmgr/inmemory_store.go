@@ -948,7 +948,7 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) LoadT
 	defer ms.addressStatesLock.RUnlock()
 	as, ok := ms.addressStates[etx.FromAddress]
 	if !ok {
-		return fmt.Errorf("load_tx_attempts: %w", ErrAddressNotFound)
+		return nil
 	}
 
 	filter := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {

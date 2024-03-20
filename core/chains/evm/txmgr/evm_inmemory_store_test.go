@@ -1055,6 +1055,52 @@ func TestInMemoryStore_FindEarliestUnconfirmedTxAttemptBlock(t *testing.T) {
 	})
 }
 
+func TestInMemoryStore_LoadTxAttempts(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
+	persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+	kst := cltest.NewKeyStore(t, db, dbcfg)
+	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
+
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	lggr := logger.TestSugared(t)
+	chainID := ethClient.ConfiguredChainID()
+	ctx := context.Background()
+
+	inMemoryStore, err := commontxmgr.NewInMemoryStore[
+		*big.Int,
+		common.Address, common.Hash, common.Hash,
+		*evmtypes.Receipt,
+		evmtypes.Nonce,
+		evmgas.EvmFee,
+	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	require.NoError(t, err)
+
+	t.Run("load tx attempt", func(t *testing.T) {
+		// insert the transaction into the persistent store
+		inTx := mustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(t, persistentStore, 1, 7, time.Now(), fromAddress)
+		// insert the transaction into the in-memory store
+		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
+
+		ctx := testutils.Context(t)
+		expTx := evmtxmgr.Tx{ID: inTx.ID, TxAttempts: []evmtxmgr.TxAttempt{}, FromAddress: fromAddress} // empty tx attempts for test
+		expErr := persistentStore.LoadTxAttempts(ctx, &expTx)
+		require.Equal(t, 1, len(expTx.TxAttempts))
+		expAttempt := expTx.TxAttempts[0]
+
+		actTx := evmtxmgr.Tx{ID: inTx.ID, TxAttempts: []evmtxmgr.TxAttempt{}, FromAddress: fromAddress} // empty tx attempts for test
+		actErr := inMemoryStore.LoadTxAttempts(ctx, &actTx)
+		require.Equal(t, 1, len(actTx.TxAttempts))
+		actAttempt := actTx.TxAttempts[0]
+
+		require.NoError(t, expErr)
+		require.NoError(t, actErr)
+		assertTxAttemptEqual(t, expAttempt, actAttempt)
+	})
+}
+
 // assertTxEqual asserts that two transactions are equal
 func assertTxEqual(t *testing.T, exp, act evmtxmgr.Tx) {
 	assert.Equal(t, exp.ID, act.ID)
