@@ -828,9 +828,7 @@ ResultWriteQueueDepth controls how many writes will be buffered before subsequen
 ```toml
 VerboseLogging = false # Default
 ```
-VerboseLogging enables detailed logging of pipeline execution steps. It also
-bumps the log level of failed runs to warn if some errors occurred, or error
-if the run fatally errored.
+VerboseLogging enables detailed logging of pipeline execution steps.
 This is disabled by default because it increases log volume for pipeline
 runs, but can be useful for debugging failed runs without relying on the UI
 or database. Consider enabling this if you disabled run saving by setting
