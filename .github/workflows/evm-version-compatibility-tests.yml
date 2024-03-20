@@ -32,8 +32,8 @@ jobs:
       - name: Check for go.mod changes
         id: changes
         run: |
-          # Determine if the ethereum/go-ethereum dependency was changed in this PR
-          DEPENDENCY_CHANGED=$(git diff ${{ github.event.before }} ${{ github.event.after }} -- go.mod | grep -q 'github.com/ethereum/go-ethereum'; echo $?)
+          git fetch origin ${{ github.base_ref }}
+          DEPENDENCY_CHANGED=$(git diff origin/${{ github.base_ref }}...HEAD -- go.mod | grep -q 'github.com/ethereum/go-ethereum'; echo $?)
           PR_VERSION=$(grep 'github.com/ethereum/go-ethereum' go.mod | awk '{print $2}')
 
           if [ "$DEPENDENCY_CHANGED" -eq 0 ]; then
