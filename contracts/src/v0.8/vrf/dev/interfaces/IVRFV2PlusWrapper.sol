@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 interface IVRFV2PlusWrapper {
-  event LinkAndLinkNativeFeedSet(address link, address linkNativeFeed);
+  event LinkNativeFeedSet(address linkNativeFeed);
   event FulfillmentTxSizeSet(uint32 size);
   event ConfigSet(
     uint32 wrapperGasOverhead,
@@ -87,4 +87,6 @@ interface IVRFV2PlusWrapper {
     uint32 _numWords,
     bytes memory extraArgs
   ) external payable returns (uint256 requestId);
+
+  function link() external view returns (address);
 }

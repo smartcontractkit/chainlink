@@ -40,7 +40,7 @@ contract VRFV2PlusWrapperTest is BaseTest {
     // Deploy coordinator and consumer.
     s_testCoordinator = new ExposedVRFCoordinatorV2_5(address(0));
     s_wrapper = new VRFV2PlusWrapper(address(s_linkToken), address(s_linkNativeFeed), address(s_testCoordinator));
-    s_consumer = new VRFV2PlusWrapperConsumerExample(address(s_linkToken), address(s_wrapper));
+    s_consumer = new VRFV2PlusWrapperConsumerExample(address(s_wrapper));
 
     // Configure the coordinator.
     s_testCoordinator.setLINKAndLINKNativeFeed(address(s_linkToken), address(s_linkNativeFeed));
@@ -109,7 +109,7 @@ contract VRFV2PlusWrapperTest is BaseTest {
   );
 
   // IVRFV2PlusWrapper events
-  event LinkAndLinkNativeFeedSet(address link, address linkNativeFeed);
+  event LinkNativeFeedSet(address linkNativeFeed);
   event FulfillmentTxSizeSet(uint32 size);
   event ConfigSet(
     uint32 wrapperGasOverhead,
@@ -136,28 +136,14 @@ contract VRFV2PlusWrapperTest is BaseTest {
     new VRFV2PlusWrapper(address(0), address(0), address(0));
   }
 
-  function testSetLinkAndLinkNativeFeed() public {
-    VRFV2PlusWrapper wrapper = new VRFV2PlusWrapper(address(0), address(0), address(s_testCoordinator));
+  function testSetLinkNativeFeed() public {
+    VRFV2PlusWrapper wrapper = new VRFV2PlusWrapper(address(s_linkToken), address(0), address(s_testCoordinator));
 
-    // Set LINK and LINK/Native feed on wrapper.
+    // Set LINK/Native feed on wrapper.
     vm.expectEmit(false, false, false, true, address(wrapper));
-    emit LinkAndLinkNativeFeedSet(address(s_linkToken), address(s_linkNativeFeed));
-    wrapper.setLinkAndLinkNativeFeed(address(s_linkToken), address(s_linkNativeFeed));
-    assertEq(address(wrapper.s_link()), address(s_linkToken));
-
-    // Revert for subsequent assignment.
-    vm.expectRevert(VRFV2PlusWrapper.LinkAlreadySet.selector);
-    wrapper.setLinkAndLinkNativeFeed(address(s_linkToken), address(s_linkNativeFeed));
-
-    // Consumer can set LINK token.
-    VRFV2PlusWrapperConsumerExample consumer = new VRFV2PlusWrapperConsumerExample(address(0), address(wrapper));
-    vm.expectEmit(false, false, false, true, address(consumer));
-    emit LinkTokenSet(address(s_linkToken));
-    consumer.setLinkToken(address(s_linkToken));
-
-    // Revert for subsequent assignment.
-    vm.expectRevert(VRFV2PlusWrapperConsumerBase.LINKAlreadySet.selector);
-    consumer.setLinkToken(address(s_linkToken));
+    emit LinkNativeFeedSet(address(s_linkNativeFeed));
+    wrapper.setLinkNativeFeed(address(s_linkNativeFeed));
+    assertEq(address(wrapper.s_linkNativeFeed()), address(s_linkNativeFeed));
   }
 
   function testSetFulfillmentTxSize() public {
