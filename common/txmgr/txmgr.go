@@ -84,6 +84,7 @@ type Txm[
 	services.StateMachine
 	logger                  logger.SugaredLogger
 	txStore                 txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
+	client					txmgrtypes.TxmClient[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 	config                  txmgrtypes.TransactionManagerChainConfig
 	txConfig                txmgrtypes.TransactionManagerTransactionsConfig
 	keyStore                txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
@@ -139,6 +140,7 @@ func NewTxm[
 	confirmer *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
 	resender *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
 	tracker *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
+	client txmgrtypes.TxmClient[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
 ) *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
 	b := Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{
 		logger:           logger.Sugared(lggr),
@@ -159,6 +161,7 @@ func NewTxm[
 		confirmer:        confirmer,
 		resender:         resender,
 		tracker:          tracker,
+		client: client,
 	}
 
 	if txCfg.ResendAfterThreshold() <= 0 {
@@ -603,6 +606,10 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CountTrans
 	return b.txStore.CountTransactionsByState(ctx, state, b.chainID)
 }
 
+func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CheckTxValidity(ctx context.Context, from ADDR, to ADDR, data []byte) error {
+	return b.client.SimulateTransaction(ctx, from, to, data)
+}
+
 type NullTxManager[
 	CHAIN_ID types.ID,
 	HEAD types.Head[BLOCK_HASH],
@@ -680,6 +687,10 @@ func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Fin
 
 func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) CountTransactionsByState(ctx context.Context, state txmgrtypes.TxState) (count uint32, err error) {
 	return count, errors.New(n.ErrMsg)
+}
+
+func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) CheckTxValidity(ctx context.Context, from ADDR, to ADDR, data []byte) error {
+	return nil
 }
 
 func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) pruneQueueAndCreateTxn(

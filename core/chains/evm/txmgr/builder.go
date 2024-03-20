@@ -50,7 +50,7 @@ func NewTxm(
 
 	txmCfg := NewEvmTxmConfig(chainConfig) // wrap Evm specific config
 	feeCfg := NewEvmTxmFeeConfig(fCfg)     // wrap Evm specific config
-	txmClient := NewEvmTxmClient(client)   // wrap Evm specific client
+	txmClient := NewEvmTxmClient(client, chainConfig.ChainType())   // wrap Evm specific client
 	chainID := txmClient.ConfiguredChainID()
 	evmBroadcaster := NewEvmBroadcaster(txStore, txmClient, txmCfg, feeCfg, txConfig, listenerConfig, keyStore, txAttemptBuilder, lggr, checker, chainConfig.NonceAutoSync())
 	evmTracker := NewEvmTracker(txStore, keyStore, chainID, lggr)
@@ -59,7 +59,7 @@ func NewTxm(
 	if txConfig.ResendAfterThreshold() > 0 {
 		evmResender = NewEvmResender(lggr, txStore, txmClient, evmTracker, keyStore, txmgr.DefaultResenderPollInterval, chainConfig, txConfig)
 	}
-	txm = NewEvmTxm(chainID, txmCfg, txConfig, keyStore, lggr, checker, fwdMgr, txAttemptBuilder, txStore, evmBroadcaster, evmConfirmer, evmResender, evmTracker)
+	txm = NewEvmTxm(chainID, txmCfg, txConfig, keyStore, lggr, checker, fwdMgr, txAttemptBuilder, txStore, evmBroadcaster, evmConfirmer, evmResender, evmTracker, txmClient)
 	return txm, nil
 }
 
@@ -78,8 +78,9 @@ func NewEvmTxm(
 	confirmer *Confirmer,
 	resender *Resender,
 	tracker *Tracker,
+	txmClient *evmTxmClient,
 ) *Txm {
-	return txmgr.NewTxm(chainId, cfg, txCfg, keyStore, lggr, checkerFactory, fwdMgr, txAttemptBuilder, txStore, broadcaster, confirmer, resender, tracker)
+	return txmgr.NewTxm(chainId, cfg, txCfg, keyStore, lggr, checkerFactory, fwdMgr, txAttemptBuilder, txStore, broadcaster, confirmer, resender, tracker, txmClient)
 }
 
 // NewEvmResender creates a new concrete EvmResender

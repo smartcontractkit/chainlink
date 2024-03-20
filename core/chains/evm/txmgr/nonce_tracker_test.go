@@ -34,7 +34,7 @@ func TestNonceTracker_LoadSequenceMap(t *testing.T) {
 	client := clientmock.NewClient(t)
 	client.On("ConfiguredChainID").Return(chainID)
 
-	nonceTracker := txmgr.NewNonceTracker(logger.Test(t), txStore, txmgr.NewEvmTxmClient(client))
+	nonceTracker := txmgr.NewNonceTracker(logger.Test(t), txStore, txmgr.NewEvmTxmClient(client, ""))
 
 	addr1 := common.HexToAddress("0xd5e099c71b797516c10ed0f0d895f429c2781142")
 	addr2 := common.HexToAddress("0xd5e099c71b797516c10ed0f0d895f429c2781140")
@@ -86,7 +86,7 @@ func TestNonceTracker_syncOnChain(t *testing.T) {
 	client := clientmock.NewClient(t)
 	client.On("ConfiguredChainID").Return(chainID)
 
-	nonceTracker := txmgr.NewNonceTracker(logger.Test(t), txStore, txmgr.NewEvmTxmClient(client))
+	nonceTracker := txmgr.NewNonceTracker(logger.Test(t), txStore, txmgr.NewEvmTxmClient(client, ""))
 
 	addr := common.HexToAddress("0xd5e099c71b797516c10ed0f0d895f429c2781142")
 
@@ -143,7 +143,7 @@ func TestNonceTracker_SyncSequence(t *testing.T) {
 	client := clientmock.NewClient(t)
 	client.On("ConfiguredChainID").Return(chainID)
 
-	nonceTracker := txmgr.NewNonceTracker(logger.Test(t), txStore, txmgr.NewEvmTxmClient(client))
+	nonceTracker := txmgr.NewNonceTracker(logger.Test(t), txStore, txmgr.NewEvmTxmClient(client, ""))
 
 	addr := common.HexToAddress("0xd5e099c71b797516c10ed0f0d895f429c2781142")
 	enabledAddresses := []common.Address{addr}
@@ -190,7 +190,7 @@ func TestNonceTracker_GetNextSequence(t *testing.T) {
 	client := clientmock.NewClient(t)
 	client.On("ConfiguredChainID").Return(chainID)
 
-	nonceTracker := txmgr.NewNonceTracker(logger.Test(t), txStore, txmgr.NewEvmTxmClient(client))
+	nonceTracker := txmgr.NewNonceTracker(logger.Test(t), txStore, txmgr.NewEvmTxmClient(client, ""))
 
 	addr := common.HexToAddress("0xd5e099c71b797516c10ed0f0d895f429c2781142")
 
@@ -242,7 +242,7 @@ func TestNonceTracker_GenerateNextSequence(t *testing.T) {
 	client := clientmock.NewClient(t)
 	client.On("ConfiguredChainID").Return(chainID)
 
-	nonceTracker := txmgr.NewNonceTracker(logger.Test(t), txStore, txmgr.NewEvmTxmClient(client))
+	nonceTracker := txmgr.NewNonceTracker(logger.Test(t), txStore, txmgr.NewEvmTxmClient(client, ""))
 
 	addr := common.HexToAddress("0xd5e099c71b797516c10ed0f0d895f429c2781142")
 	enabledAddresses := []common.Address{addr}
@@ -273,7 +273,7 @@ func Test_SetNonceAfterInit(t *testing.T) {
 	client := clientmock.NewClient(t)
 	client.On("ConfiguredChainID").Return(chainID)
 
-	nonceTracker := txmgr.NewNonceTracker(logger.Test(t), txStore, txmgr.NewEvmTxmClient(client))
+	nonceTracker := txmgr.NewNonceTracker(logger.Test(t), txStore, txmgr.NewEvmTxmClient(client, ""))
 
 	addr := common.HexToAddress("0xd5e099c71b797516c10ed0f0d895f429c2781142")
 	enabledAddresses := []common.Address{addr}
