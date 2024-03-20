@@ -22,7 +22,7 @@ func LogSubDetails(l zerolog.Logger, subscription vrf_coordinator_v2_5.GetSubscr
 		Str("Link Balance", (*commonassets.Link)(subscription.Balance).Link()).
 		Str("Native Token Balance", assets.FormatWei(subscription.NativeBalance)).
 		Str("Subscription ID", subID.String()).
-		Str("Subscription Owner", subscription.Owner.String()).
+		Str("Subscription Owner", subscription.SubOwner.String()).
 		Interface("Subscription Consumers", subscription.Consumers).
 		Msg("Subscription Data")
 }
@@ -118,7 +118,7 @@ func LogSubDetailsAfterMigration(l zerolog.Logger, newCoordinator contracts.VRFC
 		Str("Subscription ID", subID.String()).
 		Str("Juels Balance", migratedSubscription.Balance.String()).
 		Str("Native Token Balance", migratedSubscription.NativeBalance.String()).
-		Str("Subscription Owner", migratedSubscription.Owner.String()).
+		Str("Subscription Owner", migratedSubscription.SubOwner.String()).
 		Interface("Subscription Consumers", migratedSubscription.Consumers).
 		Msg("Subscription Data After Migration to New Coordinator")
 }

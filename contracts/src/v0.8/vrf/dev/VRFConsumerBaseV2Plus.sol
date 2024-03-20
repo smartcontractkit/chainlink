@@ -147,7 +147,7 @@ abstract contract VRFConsumerBaseV2Plus is IVRFMigratableConsumerV2Plus, Confirm
   /**
    * @inheritdoc IVRFMigratableConsumerV2Plus
    */
-  function setCoordinator(address _vrfCoordinator) public override onlyOwnerOrCoordinator {
+  function setCoordinator(address _vrfCoordinator) external override onlyOwnerOrCoordinator {
     if (_vrfCoordinator == address(0)) {
       revert ZeroAddress();
     }
