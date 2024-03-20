@@ -975,7 +975,84 @@ func TestInMemoryStore_FindEarliestUnconfirmedBroadcastTime(t *testing.T) {
 		require.True(t, actBroadcastAt.Valid)
 		assert.Equal(t, expBroadcastAt.Time.Unix(), actBroadcastAt.Time.Unix())
 	})
+	t.Run("wrong chain ID", func(t *testing.T) {
+		wrongChainID := big.NewInt(999)
+		ctx := testutils.Context(t)
+		expBroadcastAt, expErr := persistentStore.FindEarliestUnconfirmedBroadcastTime(ctx, wrongChainID)
+		actBroadcastAt, actErr := inMemoryStore.FindEarliestUnconfirmedBroadcastTime(ctx, wrongChainID)
+		require.NoError(t, expErr)
+		require.NoError(t, actErr)
+		assert.False(t, expBroadcastAt.Valid)
+		assert.False(t, actBroadcastAt.Valid)
+	})
 
+}
+
+func TestInMemoryStore_FindEarliestUnconfirmedTxAttemptBlock(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
+	persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+	kst := cltest.NewKeyStore(t, db, dbcfg)
+	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
+
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	lggr := logger.TestSugared(t)
+	chainID := ethClient.ConfiguredChainID()
+	ctx := context.Background()
+
+	inMemoryStore, err := commontxmgr.NewInMemoryStore[
+		*big.Int,
+		common.Address, common.Hash, common.Hash,
+		*evmtypes.Receipt,
+		evmtypes.Nonce,
+		evmgas.EvmFee,
+	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	require.NoError(t, err)
+
+	t.Run("no results", func(t *testing.T) {
+		ctx := testutils.Context(t)
+		expBlock, expErr := persistentStore.FindEarliestUnconfirmedTxAttemptBlock(ctx, chainID)
+		actBlock, actErr := inMemoryStore.FindEarliestUnconfirmedTxAttemptBlock(ctx, chainID)
+		require.NoError(t, expErr)
+		require.NoError(t, actErr)
+		assert.False(t, expBlock.Valid)
+		assert.False(t, actBlock.Valid)
+	})
+
+	t.Run("find earliest unconfirmed tx block", func(t *testing.T) {
+		broadcastBeforeBlockNum := int64(2)
+		// insert the transaction into the persistent store
+		inTx := cltest.MustInsertUnconfirmedEthTx(t, persistentStore, 123, fromAddress)
+		attempt := cltest.NewLegacyEthTxAttempt(t, inTx.ID)
+		attempt.BroadcastBeforeBlockNum = &broadcastBeforeBlockNum
+		attempt.State = txmgrtypes.TxAttemptBroadcast
+		require.NoError(t, persistentStore.InsertTxAttempt(&attempt))
+		inTx.TxAttempts = append(inTx.TxAttempts, attempt)
+		// insert the transaction into the in-memory store
+		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
+
+		ctx := testutils.Context(t)
+		expBlock, expErr := persistentStore.FindEarliestUnconfirmedTxAttemptBlock(ctx, chainID)
+		actBlock, actErr := inMemoryStore.FindEarliestUnconfirmedTxAttemptBlock(ctx, chainID)
+		require.NoError(t, expErr)
+		require.NoError(t, actErr)
+		assert.True(t, expBlock.Valid)
+		assert.True(t, actBlock.Valid)
+		assert.Equal(t, expBlock.Int64, actBlock.Int64)
+	})
+
+	t.Run("wrong chain ID", func(t *testing.T) {
+		wrongChainID := big.NewInt(999)
+		ctx := testutils.Context(t)
+		expBlock, expErr := persistentStore.FindEarliestUnconfirmedTxAttemptBlock(ctx, wrongChainID)
+		actBlock, actErr := inMemoryStore.FindEarliestUnconfirmedTxAttemptBlock(ctx, wrongChainID)
+		require.NoError(t, expErr)
+		require.NoError(t, actErr)
+		assert.False(t, expBlock.Valid)
+		assert.False(t, actBlock.Valid)
+	})
 }
 
 // assertTxEqual asserts that two transactions are equal

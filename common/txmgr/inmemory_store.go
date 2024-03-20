@@ -819,11 +819,11 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindE
 
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindEarliestUnconfirmedTxAttemptBlock(ctx context.Context, chainID CHAIN_ID) (null.Int, error) {
 	if ms.chainID.String() != chainID.String() {
-		return null.Int{}, fmt.Errorf("find_earliest_unconfirmed_broadcast_time: %w", ErrInvalidChainID)
+		return null.Int{}, nil
 	}
 
 	filter := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
-		if tx.TxAttempts == nil || len(tx.TxAttempts) == 0 {
+		if len(tx.TxAttempts) == 0 {
 			return false
 		}
 
@@ -836,28 +836,22 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindE
 		return false
 	}
 	states := []txmgrtypes.TxState{TxUnconfirmed}
-	txsLock := sync.Mutex{}
 	txs := []txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
-	wg := sync.WaitGroup{}
 	ms.addressStatesLock.RLock()
 	defer ms.addressStatesLock.RUnlock()
 	for _, as := range ms.addressStates {
-		wg.Add(1)
-		go func(as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) {
-			etxs := as.findTxs(states, filter)
-			txsLock.Lock()
-			txs = append(txs, etxs...)
-			txsLock.Unlock()
-			wg.Done()
-		}(as)
+		etxs := as.findTxs(states, filter)
+		txs = append(txs, etxs...)
 	}
-	wg.Wait()
 
 	var minBroadcastBeforeBlockNum int64
 	for _, tx := range txs {
-		if *tx.TxAttempts[0].BroadcastBeforeBlockNum < minBroadcastBeforeBlockNum {
+		if minBroadcastBeforeBlockNum == 0 || *tx.TxAttempts[0].BroadcastBeforeBlockNum < minBroadcastBeforeBlockNum {
 			minBroadcastBeforeBlockNum = *tx.TxAttempts[0].BroadcastBeforeBlockNum
 		}
+	}
+	if minBroadcastBeforeBlockNum == 0 {
+		return null.Int{}, nil
 	}
 
 	return null.IntFrom(minBroadcastBeforeBlockNum), nil
