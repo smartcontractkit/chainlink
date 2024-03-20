@@ -39,15 +39,16 @@ import (
 
 func TestIntegration_LogEventProvider(t *testing.T) {
 	tests := []struct {
-		name    string
-		version string
+		name                string
+		version             string
+		limitLow, limitHigh int32
 	}{
-		{"default version", ""},
-		{"v1", "v1"},
+		{"default version", "", 10, 100},
+		{"v1", "v1", 10, 100},
 	}
 
 	for _, tc := range tests {
-		bufferVersion := tc.version
+		bufferVersion, limitLow, limitHigh := tc.version, tc.limitLow, tc.limitHigh
 		t.Run(tc.name, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(testutils.Context(t))
 			defer cancel()
@@ -62,6 +63,8 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 			opts := logprovider.NewOptions(200)
 			opts.ReadInterval = time.Second / 2
 			opts.BufferVersion = bufferVersion
+			opts.LogLimitLow = limitLow
+			opts.LogLimitHigh = limitHigh
 
 			lp, ethClient := setupDependencies(t, db, backend)
 			filterStore := logprovider.NewUpkeepFilterStore()
@@ -215,15 +218,16 @@ func TestIntegration_LogEventProvider_UpdateConfig(t *testing.T) {
 
 func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
 	tests := []struct {
-		name          string
-		bufferVersion string
+		name                string
+		bufferVersion       string
+		limitLow, limitHigh int32
 	}{
-		{"default version", ""},
-		{"v1", "v1"},
+		{"default version", "", 10, 100},
+		{"v1", "v1", 10, 100},
 	}
 
 	for _, tc := range tests {
-		bufferVersion := tc.bufferVersion
+		bufferVersion, limitLow, limitHigh := tc.bufferVersion, tc.limitLow, tc.limitHigh
 		t.Run(tc.name, func(t *testing.T) {
 
 			ctx, cancel := context.WithTimeout(testutils.Context(t), time.Second*60)
@@ -239,6 +243,9 @@ func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
 			opts := logprovider.NewOptions(200)
 			opts.ReadInterval = time.Second / 4
 			opts.BufferVersion = bufferVersion
+			opts.LogLimitLow = limitLow
+			opts.LogLimitHigh = limitHigh
+
 			lp, ethClient := setupDependencies(t, db, backend)
 			filterStore := logprovider.NewUpkeepFilterStore()
 			provider, _ := setup(logger.TestLogger(t), lp, nil, nil, filterStore, &opts)
