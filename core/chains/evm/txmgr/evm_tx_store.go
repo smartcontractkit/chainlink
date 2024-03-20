@@ -10,8 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/jackc/pgconn"
@@ -364,8 +362,6 @@ INSERT INTO evm.tx_attempts (eth_tx_id, gas_price, signed_raw_tx, hash, broadcas
 VALUES (:eth_tx_id, :gas_price, :signed_raw_tx, :hash, :broadcast_before_block_num, :state, NOW(), :chain_specific_gas_limit, :tx_type, :gas_tip_cap, :gas_fee_cap)
 RETURNING *;
 `
-
-// TODO: create method to pass in new context to evmTxStore (which will also create a new pg.Q)
 
 func (o *evmTxStore) Close() {
 	o.ctxCancel()
@@ -1834,11 +1830,26 @@ func (o *evmTxStore) ReapTxHistory(ctx context.Context, minBlockNumberToKeep int
 	var cancel context.CancelFunc
 	ctx, cancel = o.mergeContexts(ctx)
 	defer cancel()
+
+	Batch := func(cb func(limit uint) (count uint, err error)) error {
+		offset := uint(0)
+		var limit uint = 1000
+		for {
+			count, err := cb(limit)
+			if err != nil {
+				return err
+			}
+			if count < limit {
+				return nil
+			}
+			offset += limit
+		}
+	}
+
 	// Delete old confirmed evm.txes
 	// NOTE that this relies on foreign key triggers automatically removing
 	// the evm.tx_attempts and evm.receipts linked to every eth_tx
-	// TODO: Batch without using pg dependency
-	err := pg.Batch(func(_, limit uint) (count uint, err error) {
+	err := Batch(func(limit uint) (count uint, err error) {
 		res, err := o.q.ExecContext(ctx, `
 WITH old_enough_receipts AS (
 	SELECT tx_hash FROM evm.receipts
@@ -1866,7 +1877,7 @@ AND evm_chain_id = $4`, minBlockNumberToKeep, limit, timeThreshold, chainID.Stri
 		return pkgerrors.Wrap(err, "TxmReaper#reapEthTxes batch delete of confirmed evm.txes failed")
 	}
 	// Delete old 'fatal_error' evm.txes
-	err = pg.Batch(func(_, limit uint) (count uint, err error) {
+	err = Batch(func(limit uint) (count uint, err error) {
 		res, err := o.q.ExecContext(ctx, `
 DELETE FROM evm.txes
 WHERE created_at < $1
