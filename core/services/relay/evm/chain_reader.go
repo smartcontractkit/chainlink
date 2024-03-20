@@ -102,14 +102,14 @@ func (cr *chainReader) QueryKey(ctx context.Context, key string, queryFilter com
 	return cr.eventIndexBindings.DecodeLogsIntoSequences(ctx, key, logs, sequenceDataType)
 }
 
-func (cr *chainReader) QueryKeys(ctx context.Context, keys []string, queriesFilters []commontypes.QueryFilter, limitAndSort commontypes.LimitAndSort, sequencesDataTypes []any) ([][]commontypes.Sequence, error) {
-	if len(keys) != len(queriesFilters) || len(queriesFilters) != len(sequencesDataTypes) {
-		return nil, fmt.Errorf("length of keys, values, queriesFilters and sequencesDataTypes must be the same")
+func (cr *chainReader) QueryKeys(ctx context.Context, keys []string, queryFilter commontypes.QueryFilter, limitAndSort commontypes.LimitAndSort, sequencesDataTypes []any) ([][]commontypes.Sequence, error) {
+	if len(keys) != len(sequencesDataTypes) {
+		return nil, fmt.Errorf("length of keys and sequencesDataTypes must be the same")
 	}
 
 	var sequencesMatrix [][]commontypes.Sequence
 	for i, key := range keys {
-		sequences, err := cr.QueryKey(ctx, key, queriesFilters[i], limitAndSort, sequencesDataTypes[i])
+		sequences, err := cr.QueryKey(ctx, key, queryFilter, limitAndSort, sequencesDataTypes[i])
 		if err != nil {
 			return nil, err
 		}
@@ -119,8 +119,8 @@ func (cr *chainReader) QueryKeys(ctx context.Context, keys []string, queriesFilt
 	return sequencesMatrix, nil
 }
 
-func (cr *chainReader) QueryKeyByValues(ctx context.Context, key string, values []string, queryFilter commontypes.QueryFilter, limitAndSort commontypes.LimitAndSort, sequenceDataType any) ([]commontypes.Sequence, error) {
-	remappedQueryFilter, err := remapQueryKeyByValuesFilters(key, values, cr.eventIndexBindings, queryFilter)
+func (cr *chainReader) QueryByKeyValuesIn(ctx context.Context, keyValueIn commontypes.KeyValueIn, queryFilter commontypes.QueryFilter, limitAndSort commontypes.LimitAndSort, sequenceDataType any) ([]commontypes.Sequence, error) {
+	remappedQueryFilter, err := remapQueryKeyByValuesFilters(keyValueIn, cr.eventIndexBindings, queryFilter)
 	if err != nil {
 		return nil, err
 	}
@@ -130,19 +130,18 @@ func (cr *chainReader) QueryKeyByValues(ctx context.Context, key string, values 
 		return nil, err
 	}
 
-	return cr.eventIndexBindings.DecodeLogsIntoSequences(ctx, key, logs, sequenceDataType)
+	return cr.eventIndexBindings.DecodeLogsIntoSequences(ctx, keyValueIn.Key, logs, sequenceDataType)
 }
 
-// TODO values shouldn't be string?
-// TODO should limit and sort be a slice also?
-func (cr *chainReader) QueryKeysByValues(ctx context.Context, keys []string, values [][]string, queriesFilters []commontypes.QueryFilter, limitAndSort commontypes.LimitAndSort, sequencesDataTypes []any) ([][]commontypes.Sequence, error) {
-	if len(keys) != len(queriesFilters) || len(queriesFilters) != len(sequencesDataTypes) || len(sequencesDataTypes) != len(values) {
-		return nil, fmt.Errorf("length of keys, queriesFilters and sequencesDataTypes must be the same")
+// TODO values shouldn't be string
+func (cr *chainReader) QueryByKeysValuesIn(ctx context.Context, keysValuesIn []commontypes.KeyValueIn, queryFilter commontypes.QueryFilter, limitAndSort commontypes.LimitAndSort, sequencesDataTypes []any) ([][]commontypes.Sequence, error) {
+	if len(keysValuesIn) != len(sequencesDataTypes) {
+		return nil, fmt.Errorf("length of keysValuesIn sequencesDataTypes must be the same")
 	}
 
 	var sequencesMatrix [][]commontypes.Sequence
-	for i, key := range keys {
-		sequences, err := cr.QueryKeyByValues(ctx, key, values[i], queriesFilters[i], limitAndSort, sequencesDataTypes[i])
+	for i, keyValuesIn := range keysValuesIn {
+		sequences, err := cr.QueryByKeyValuesIn(ctx, keyValuesIn, queryFilter, limitAndSort, sequencesDataTypes[i])
 		if err != nil {
 			return nil, err
 		}
@@ -150,6 +149,16 @@ func (cr *chainReader) QueryKeysByValues(ctx context.Context, keys []string, val
 	}
 
 	return sequencesMatrix, nil
+}
+
+func (cr *chainReader) QueryByKeyValueEquality(ctx context.Context, keyByEquality commontypes.KeyByEquality, queryFilter commontypes.QueryFilter, limitAndSort commontypes.LimitAndSort, sequenceDataType any) ([]commontypes.Sequence, error) {
+	panic("TODO implement this")
+	return nil, nil
+}
+
+func (cr *chainReader) QueryByKeysValuesEquality(ctx context.Context, keysByEquality []commontypes.KeysByEquality, queryFilter commontypes.QueryFilter, limitAndSort commontypes.LimitAndSort, sequenceDataType []any) ([][]commontypes.Sequence, error) {
+	panic("TODO implement this")
+	return nil, nil
 }
 
 func (cr *chainReader) init(chainContractReaders map[string]types.ChainContractReader) error {
@@ -370,8 +379,8 @@ func remapQueryKeyFilters(key string, eventIndexBindings EventIndexBindings, que
 }
 
 // TODO values can't be string?
-func remapQueryKeyByValuesFilters(key string, values []string, eventIndexBindings EventIndexBindings, queryFilter commontypes.QueryFilter) (commontypes.QueryFilter, error) {
-	eventSig, address, topicIndex, err := eventIndexBindings.Get(key)
+func remapQueryKeyByValuesFilters(keyValueIn commontypes.KeyValueIn, eventIndexBindings EventIndexBindings, queryFilter commontypes.QueryFilter) (commontypes.QueryFilter, error) {
+	eventSig, address, topicIndex, err := eventIndexBindings.Get(keyValueIn.Key)
 	if err != nil {
 		return commontypes.QueryFilter{}, err
 	}
@@ -385,7 +394,7 @@ func remapQueryKeyByValuesFilters(key string, values []string, eventIndexBinding
 		logFilters = append(logFilters, logFilter)
 	}
 
-	return commontypes.Where(append(logFilters, NewEventByIndexFilter(address, values, eventSig, topicIndex))...)
+	return commontypes.Where(append(logFilters, NewEventByIndexFilter(address, keyValueIn.Values, eventSig, topicIndex))...)
 }
 
 // remapExpression, changes some chain agnostic filters to match evm specific filters.
