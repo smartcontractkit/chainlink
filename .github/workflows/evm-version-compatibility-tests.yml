@@ -34,12 +34,12 @@ jobs:
         run: |
           # Determine if the ethereum/go-ethereum dependency was changed in this PR
           DEPENDENCY_CHANGED=$(git diff ${{ github.event.before }} ${{ github.event.after }} -- go.mod | grep -q 'github.com/ethereum/go-ethereum'; echo $?)
+          PR_VERSION=$(grep 'github.com/ethereum/go-ethereum' go.mod | awk '{print $2}')
 
           if [ "$DEPENDENCY_CHANGED" -eq 0 ]; then
             # Dependency was changed in the PR, now compare with the base branch
             git fetch origin ${{ github.base_ref }}
             BASE_VERSION=$(git show origin/${{ github.base_ref }}:go.mod | grep 'github.com/ethereum/go-ethereum' | awk '{print $2}')
-            PR_VERSION=$(grep 'github.com/ethereum/go-ethereum' go.mod | awk '{print $2}')
 
             echo "Base branch version: $BASE_VERSION"
             echo "PR branch version: $PR_VERSION"
@@ -48,6 +48,7 @@ jobs:
             echo "dependency_changed=true" >> $GITHUB_ENV
           else
             echo "No changes to ethereum/go-ethereum dependency in the PR."
+            echo "PR branch version: $PR_VERSION
             echo "dependency_changed=false" >> $GITHUB_ENV
           fi
 
