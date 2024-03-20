@@ -16,7 +16,7 @@ import (
 
 func newEvmTxm(
 	sqlxDB *sqlx.DB,
-	db sqlutil.DB,
+	db sqlutil.DataSource,
 	cfg evmconfig.EVM,
 	evmRPCEnabled bool,
 	databaseConfig txmgr.DatabaseConfig,
@@ -53,6 +53,7 @@ func newEvmTxm(
 
 	if opts.GenTxManager == nil {
 		txm, err = txmgr.NewTxm(
+			sqlxDB,
 			db,
 			cfg,
 			txmgr.NewEvmTxmFeeConfig(cfg.GasEstimator()),

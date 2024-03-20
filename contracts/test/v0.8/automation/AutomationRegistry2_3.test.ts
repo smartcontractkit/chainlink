@@ -27,7 +27,7 @@ import { OptimismModule__factory as OptimismModuleFactory } from '../../../typec
 import { ILogAutomation__factory as ILogAutomationactory } from '../../../typechain/factories/ILogAutomation__factory'
 import { IAutomationForwarder__factory as IAutomationForwarderFactory } from '../../../typechain/factories/IAutomationForwarder__factory'
 import { MockArbSys__factory as MockArbSysFactory } from '../../../typechain/factories/MockArbSys__factory'
-import { AutomationUtils2_3 as AutomationUtils } from '../../../typechain/AutomationUtils2_3'
+import { AutomationCompatibleUtils } from '../../../typechain/AutomationCompatibleUtils'
 import { MockArbGasInfo } from '../../../typechain/MockArbGasInfo'
 import { MockOVMGasPriceOracle } from '../../../typechain/MockOVMGasPriceOracle'
 import { StreamsLookupUpkeep } from '../../../typechain/StreamsLookupUpkeep'
@@ -50,6 +50,7 @@ import {
   MockContract,
 } from '@ethereum-waffle/mock-contract'
 import { deployRegistry23 } from './helpers'
+import { AutomationUtils2_3 } from '../../../typechain/AutomationUtils2_3'
 
 const describeMaybe = process.env.SKIP_SLOW ? describe.skip : describe
 const itMaybe = process.env.SKIP_SLOW ? it.skip : it
@@ -75,12 +76,13 @@ enum Trigger {
 }
 
 // un-exported types that must be extracted from the utils contract
-type Report = Parameters<AutomationUtils['_report']>[0]
-type OnChainConfig = Parameters<AutomationUtils['_onChainConfig']>[0]
-type BillingConfig = Parameters<AutomationUtils['_onChainConfig']>[2][0]
-type LogTrigger = Parameters<AutomationUtils['_logTrigger']>[0]
-type ConditionalTrigger = Parameters<AutomationUtils['_conditionalTrigger']>[0]
-type Log = Parameters<AutomationUtils['_log']>[0]
+type Report = Parameters<AutomationUtils2_3['_report']>[0]
+type LogTrigger = Parameters<AutomationCompatibleUtils['_logTrigger']>[0]
+type ConditionalTrigger = Parameters<
+  AutomationCompatibleUtils['_conditionalTrigger']
+>[0]
+type Log = Parameters<AutomationCompatibleUtils['_log']>[0]
+type OnChainConfig = Parameters<IAutomationRegistry['setConfigTypeSafe']>[3]
 
 // -----------------------------------------------------------------------------------------------
 
@@ -174,7 +176,8 @@ let chainModuleBase: ChainModuleBase
 let arbitrumModule: ArbitrumModule
 let optimismModule: OptimismModule
 let streamsLookupUpkeep: StreamsLookupUpkeep
-let automationUtils: AutomationUtils
+let automationUtils: AutomationCompatibleUtils
+let automationUtils2_3: AutomationUtils2_3
 
 function now() {
   return Math.floor(Date.now() / 1000)
@@ -204,23 +207,6 @@ const getTriggerType = (upkeepId: BigNumber): Trigger => {
   return bytes[15] as Trigger
 }
 
-const encodeConfig = (
-  onchainConfig: OnChainConfig,
-  billingTokens: string[],
-  billingConfigs: BillingConfig[],
-) => {
-  return (
-    '0x' +
-    automationUtils.interface
-      .encodeFunctionData('_onChainConfig', [
-        onchainConfig,
-        billingTokens,
-        billingConfigs,
-      ])
-      .slice(10)
-  )
-}
-
 const encodeBlockTrigger = (conditionalTrigger: ConditionalTrigger) => {
   return (
     '0x' +
@@ -248,7 +234,9 @@ const encodeLog = (log: Log) => {
 const encodeReport = (report: Report) => {
   return (
     '0x' +
-    automationUtils.interface.encodeFunctionData('_report', [report]).slice(10)
+    automationUtils2_3.interface
+      .encodeFunctionData('_report', [report])
+      .slice(10)
   )
 }
 
@@ -408,6 +396,7 @@ describe('AutomationRegistry2_3', () => {
   let payee3: Signer
   let payee4: Signer
   let payee5: Signer
+  let financeAdmin: Signer
 
   let upkeepId: BigNumber // conditional upkeep
   let afUpkeepId: BigNumber // auto funding upkeep
@@ -421,16 +410,21 @@ describe('AutomationRegistry2_3', () => {
   let config: OnChainConfig
   let arbConfig: OnChainConfig
   let opConfig: OnChainConfig
-  let baseConfig: Parameters<IAutomationRegistry['setConfig']>
-  let arbConfigParams: Parameters<IAutomationRegistry['setConfig']>
-  let opConfigParams: Parameters<IAutomationRegistry['setConfig']>
+  let baseConfig: Parameters<IAutomationRegistry['setConfigTypeSafe']>
+  let arbConfigParams: Parameters<IAutomationRegistry['setConfigTypeSafe']>
+  let opConfigParams: Parameters<IAutomationRegistry['setConfigTypeSafe']>
   let upkeepManager: string
 
   before(async () => {
     personas = (await getUsers()).personas
 
+    const compatibleUtilsFactory = await ethers.getContractFactory(
+      'AutomationCompatibleUtils',
+    )
+    automationUtils = await compatibleUtilsFactory.deploy()
+
     const utilsFactory = await ethers.getContractFactory('AutomationUtils2_3')
-    automationUtils = await utilsFactory.deploy()
+    automationUtils2_3 = await utilsFactory.deploy()
 
     linkTokenFactory = await ethers.getContractFactory(
       'src/v0.4/LinkToken.sol:LinkToken',
@@ -467,6 +461,7 @@ describe('AutomationRegistry2_3', () => {
     payee4 = personas.Eddy
     payee5 = personas.Carol
     upkeepManager = await personas.Norbert.getAddress()
+    financeAdmin = personas.Nick
     // signers
     signer1 = new ethers.Wallet(
       '0x7777777000000000000000000000000000000000000000000000000000000001',
@@ -636,42 +631,49 @@ describe('AutomationRegistry2_3', () => {
       )
       .add(chainModuleOverheads.chainModuleFixedOverhead)
 
+    const financeAdminAddress = await financeAdmin.getAddress()
+
     for (const test of tests) {
-      await registry.connect(owner).setConfig(
+      await registry.connect(owner).setConfigTypeSafe(
         signerAddresses,
         keeperAddresses,
         f,
-        encodeConfig(
-          {
-            paymentPremiumPPB: test.premium,
-            flatFeeMicroLink: test.flatFee,
-            checkGasLimit,
-            stalenessSeconds,
-            gasCeilingMultiplier: test.multiplier,
-            minUpkeepSpend,
-            maxCheckDataSize,
-            maxPerformDataSize,
-            maxRevertDataSize,
-            maxPerformGas,
-            fallbackGasPrice,
-            fallbackLinkPrice,
-            fallbackNativePrice,
-            transcoder: transcoder.address,
-            registrars: [],
-            upkeepPrivilegeManager: upkeepManager,
-            chainModule: chainModule.address,
-            reorgProtectionEnabled: true,
-          },
-          [],
-          [],
-        ),
+        {
+          checkGasLimit,
+          stalenessSeconds,
+          gasCeilingMultiplier: test.multiplier,
+          maxCheckDataSize,
+          maxPerformDataSize,
+          maxRevertDataSize,
+          maxPerformGas,
+          fallbackGasPrice,
+          fallbackLinkPrice,
+          fallbackNativePrice,
+          transcoder: transcoder.address,
+          registrars: [],
+          upkeepPrivilegeManager: upkeepManager,
+          chainModule: chainModule.address,
+          reorgProtectionEnabled: true,
+          financeAdmin: financeAdminAddress,
+        },
         offchainVersion,
         offchainBytes,
+        [linkToken.address],
+        [
+          {
+            gasFeePPB: test.premium,
+            flatFeeMicroLink: test.flatFee,
+            priceFeed: linkUSDFeed.address,
+            fallbackPrice: fallbackLinkPrice,
+            minSpend: minUpkeepSpend,
+          },
+        ],
       )
 
       const conditionalPrice = await registry.getMaxPaymentForGas(
         Trigger.CONDITION,
         test.gas,
+        linkToken.address,
       )
       expect(conditionalPrice).to.equal(
         linkForGas(
@@ -684,7 +686,11 @@ describe('AutomationRegistry2_3', () => {
         ).total,
       )
 
-      const logPrice = await registry.getMaxPaymentForGas(Trigger.LOG, test.gas)
+      const logPrice = await registry.getMaxPaymentForGas(
+        Trigger.LOG,
+        test.gas,
+        linkToken.address,
+      )
       expect(logPrice).to.equal(
         linkForGas(
           BigNumber.from(test.gas),
@@ -701,8 +707,9 @@ describe('AutomationRegistry2_3', () => {
   const verifyConsistentAccounting = async (
     maxAllowedSpareChange: BigNumber,
   ) => {
-    const expectedLinkBalance = (await registry.getState()).state
-      .expectedLinkBalance
+    const expectedLinkBalance = await registry.getReserveAmount(
+      linkToken.address,
+    )
     const linkTokenBalance = await linkToken.balanceOf(registry.address)
     const upkeepIdBalance = (await registry.getUpkeep(upkeepId)).balance
     let totalKeeperBalance = BigNumber.from(0)
@@ -711,19 +718,20 @@ describe('AutomationRegistry2_3', () => {
         (await registry.getTransmitterInfo(keeperAddresses[i])).balance,
       )
     }
-    const ownerBalance = (await registry.getState()).state.ownerLinkBalance
+
+    const linkAvailableForPayment = await registry.linkAvailableForPayment()
     assert.isTrue(expectedLinkBalance.eq(linkTokenBalance))
     assert.isTrue(
       upkeepIdBalance
         .add(totalKeeperBalance)
-        .add(ownerBalance)
+        .add(linkAvailableForPayment)
         .lte(expectedLinkBalance),
     )
     assert.isTrue(
       expectedLinkBalance
         .sub(upkeepIdBalance)
         .sub(totalKeeperBalance)
-        .sub(ownerBalance)
+        .sub(linkAvailableForPayment)
         .lte(maxAllowedSpareChange),
     )
   }
@@ -905,14 +913,12 @@ describe('AutomationRegistry2_3', () => {
       '0x0000000000000000000000000000000000000064',
       arbSysCode,
     ])
+    const financeAdminAddress = await financeAdmin.getAddress()
 
     config = {
-      paymentPremiumPPB,
-      flatFeeMicroLink,
       checkGasLimit,
       stalenessSeconds,
       gasCeilingMultiplier,
-      minUpkeepSpend,
       maxCheckDataSize,
       maxPerformDataSize,
       maxRevertDataSize,
@@ -925,6 +931,7 @@ describe('AutomationRegistry2_3', () => {
       upkeepPrivilegeManager: upkeepManager,
       chainModule: chainModuleBase.address,
       reorgProtectionEnabled: true,
+      financeAdmin: financeAdminAddress,
     }
 
     arbConfig = { ...config }
@@ -936,25 +943,57 @@ describe('AutomationRegistry2_3', () => {
       signerAddresses,
       keeperAddresses,
       f,
-      encodeConfig(config, [], []),
+      config,
       offchainVersion,
       offchainBytes,
+      [linkToken.address],
+      [
+        {
+          gasFeePPB: paymentPremiumPPB,
+          flatFeeMicroLink,
+          priceFeed: linkUSDFeed.address,
+          fallbackPrice: fallbackLinkPrice,
+          minSpend: minUpkeepSpend,
+        },
+      ],
     ]
+
     arbConfigParams = [
       signerAddresses,
       keeperAddresses,
       f,
-      encodeConfig(arbConfig, [], []),
+      arbConfig,
       offchainVersion,
       offchainBytes,
+      [linkToken.address],
+      [
+        {
+          gasFeePPB: paymentPremiumPPB,
+          flatFeeMicroLink,
+          priceFeed: linkUSDFeed.address,
+          fallbackPrice: fallbackLinkPrice,
+          minSpend: minUpkeepSpend,
+        },
+      ],
     ]
+
     opConfigParams = [
       signerAddresses,
       keeperAddresses,
       f,
-      encodeConfig(opConfig, [], []),
+      opConfig,
       offchainVersion,
       offchainBytes,
+      [linkToken.address],
+      [
+        {
+          gasFeePPB: paymentPremiumPPB,
+          flatFeeMicroLink,
+          priceFeed: linkUSDFeed.address,
+          fallbackPrice: fallbackLinkPrice,
+          minSpend: minUpkeepSpend,
+        },
+      ],
     ]
 
     const registryParams: Parameters<typeof deployRegistry23> = [
@@ -983,10 +1022,10 @@ describe('AutomationRegistry2_3', () => {
       await registry.getTransmitCalldataPerSignerBytesOverhead()
     cancellationDelay = (await registry.getCancellationDelay()).toNumber()
 
-    await registry.connect(owner).setConfig(...baseConfig)
-    await mgRegistry.connect(owner).setConfig(...baseConfig)
-    await arbRegistry.connect(owner).setConfig(...arbConfigParams)
-    await opRegistry.connect(owner).setConfig(...opConfigParams)
+    await registry.connect(owner).setConfigTypeSafe(...baseConfig)
+    await mgRegistry.connect(owner).setConfigTypeSafe(...baseConfig)
+    await arbRegistry.connect(owner).setConfigTypeSafe(...arbConfigParams)
+    await opRegistry.connect(owner).setConfigTypeSafe(...opConfigParams)
     for (const reg of [registry, arbRegistry, opRegistry, mgRegistry]) {
       await reg.connect(owner).setPayees(payees)
       await linkToken.connect(admin).approve(reg.address, toWei('1000'))
@@ -999,9 +1038,16 @@ describe('AutomationRegistry2_3', () => {
       .transfer(await admin.getAddress(), toWei('1000'))
     let tx = await registry
       .connect(owner)
-      [
-        'registerUpkeep(address,uint32,address,bytes,bytes)'
-      ](mock.address, performGas, await admin.getAddress(), randomBytes, '0x')
+      .registerUpkeep(
+        mock.address,
+        performGas,
+        await admin.getAddress(),
+        Trigger.CONDITION,
+        linkToken.address,
+        randomBytes,
+        '0x',
+        '0x',
+      )
     upkeepId = await getUpkeepID(tx)
 
     autoFunderUpkeep = await upkeepAutoFunderFactory
@@ -1009,17 +1055,31 @@ describe('AutomationRegistry2_3', () => {
       .deploy(linkToken.address, registry.address)
     tx = await registry
       .connect(owner)
-      [
-        'registerUpkeep(address,uint32,address,bytes,bytes)'
-      ](autoFunderUpkeep.address, performGas, autoFunderUpkeep.address, randomBytes, '0x')
+      .registerUpkeep(
+        autoFunderUpkeep.address,
+        performGas,
+        autoFunderUpkeep.address,
+        Trigger.CONDITION,
+        linkToken.address,
+        '0x',
+        '0x',
+        '0x',
+      )
     afUpkeepId = await getUpkeepID(tx)
 
     ltUpkeep = await deployMockContract(owner, ILogAutomationactory.abi)
     tx = await registry
       .connect(owner)
-      [
-        'registerUpkeep(address,uint32,address,uint8,bytes,bytes,bytes)'
-      ](ltUpkeep.address, performGas, await admin.getAddress(), Trigger.LOG, '0x', logTriggerConfig, emptyBytes)
+      .registerUpkeep(
+        ltUpkeep.address,
+        performGas,
+        await admin.getAddress(),
+        Trigger.LOG,
+        linkToken.address,
+        '0x',
+        logTriggerConfig,
+        emptyBytes,
+      )
     logUpkeepId = await getUpkeepID(tx)
 
     await autoFunderUpkeep.setUpkeepId(afUpkeepId)
@@ -1030,9 +1090,16 @@ describe('AutomationRegistry2_3', () => {
 
     tx = await registry
       .connect(owner)
-      [
-        'registerUpkeep(address,uint32,address,bytes,bytes)'
-      ](streamsLookupUpkeep.address, performGas, await admin.getAddress(), randomBytes, '0x')
+      .registerUpkeep(
+        streamsLookupUpkeep.address,
+        performGas,
+        await admin.getAddress(),
+        Trigger.CONDITION,
+        linkToken.address,
+        '0x',
+        '0x',
+        '0x',
+      )
     streamsLookupUpkeepId = await getUpkeepID(tx)
   }
 
@@ -1050,9 +1117,16 @@ describe('AutomationRegistry2_3', () => {
       await mock.setPerformGasToBurn(BigNumber.from('0'))
       const tx = await registry
         .connect(owner)
-        [
-          'registerUpkeep(address,uint32,address,bytes,bytes)'
-        ](mock.address, performGas, await admin.getAddress(), randomBytes, '0x')
+        .registerUpkeep(
+          mock.address,
+          performGas,
+          await admin.getAddress(),
+          Trigger.CONDITION,
+          linkToken.address,
+          '0x',
+          '0x',
+          '0x',
+        )
       const condUpkeepId = await getUpkeepID(tx)
       passingConditionalUpkeepIds.push(condUpkeepId)
 
@@ -1065,9 +1139,16 @@ describe('AutomationRegistry2_3', () => {
       await mock.setPerformGasToBurn(BigNumber.from('0'))
       const tx = await registry
         .connect(owner)
-        [
-          'registerUpkeep(address,uint32,address,uint8,bytes,bytes,bytes)'
-        ](mock.address, performGas, await admin.getAddress(), Trigger.LOG, '0x', logTriggerConfig, emptyBytes)
+        .registerUpkeep(
+          mock.address,
+          performGas,
+          await admin.getAddress(),
+          Trigger.LOG,
+          linkToken.address,
+          '0x',
+          logTriggerConfig,
+          emptyBytes,
+        )
       const logUpkeepId = await getUpkeepID(tx)
       passingLogUpkeepIds.push(logUpkeepId)
 
@@ -1080,9 +1161,16 @@ describe('AutomationRegistry2_3', () => {
       await mock.setPerformGasToBurn(BigNumber.from('0'))
       const tx = await registry
         .connect(owner)
-        [
-          'registerUpkeep(address,uint32,address,bytes,bytes)'
-        ](mock.address, performGas, await admin.getAddress(), randomBytes, '0x')
+        .registerUpkeep(
+          mock.address,
+          performGas,
+          await admin.getAddress(),
+          Trigger.CONDITION,
+          linkToken.address,
+          '0x',
+          '0x',
+          '0x',
+        )
       const failingUpkeepId = await getUpkeepID(tx)
       failingUpkeepIds.push(failingUpkeepId)
     }
@@ -1333,8 +1421,8 @@ describe('AutomationRegistry2_3', () => {
             newConfig,
             offchainVersion,
             offchainBytes,
-            [],
-            [],
+            baseConfig[6],
+            baseConfig[7],
           )
 
         for (const [type, id] of tests) {
@@ -1367,8 +1455,8 @@ describe('AutomationRegistry2_3', () => {
             newConfig,
             offchainVersion,
             offchainBytes,
-            [],
-            [],
+            baseConfig[6],
+            baseConfig[7],
           )
         for (let i = 0; i < 256; i++) {
           await ethers.provider.send('evm_mine', [])
@@ -1470,8 +1558,8 @@ describe('AutomationRegistry2_3', () => {
             newConfig,
             offchainVersion,
             offchainBytes,
-            [],
-            [],
+            baseConfig[6],
+            baseConfig[7],
           )
         const tests: [string, BigNumber][] = [
           ['conditional', upkeepId],
@@ -1596,8 +1684,8 @@ describe('AutomationRegistry2_3', () => {
       })
 
       it('uses actual execution price for payment and premium calculation', async () => {
-        // Actual multiplier is 2, but we set gasPrice to be 1x gasWei
-        const gasPrice = gasWei.mul(BigNumber.from('1'))
+        // Actual multiplier is 2, but we set gasPrice to be == gasWei
+        const gasPrice = gasWei
         await mock.setCanPerform(true)
         const registryPremiumBefore = (await registry.getState()).state
           .totalPremium
@@ -1678,9 +1766,16 @@ describe('AutomationRegistry2_3', () => {
 
         let tx = await arbRegistry
           .connect(owner)
-          [
-            'registerUpkeep(address,uint32,address,bytes,bytes)'
-          ](mock.address, performGas, await admin.getAddress(), randomBytes, '0x')
+          .registerUpkeep(
+            mock.address,
+            performGas,
+            await admin.getAddress(),
+            Trigger.CONDITION,
+            linkToken.address,
+            '0x',
+            '0x',
+            '0x',
+          )
         const testUpkeepId = await getUpkeepID(tx)
         await arbRegistry.connect(owner).addFunds(testUpkeepId, toWei('100'))
 
@@ -1719,6 +1814,7 @@ describe('AutomationRegistry2_3', () => {
         const maxPayment = await registry.getMaxPaymentForGas(
           Trigger.CONDITION,
           performGas,
+          linkToken.address,
         )
 
         // First set auto funding amount to 0 and verify that balance is deducted upon performUpkeep
@@ -1857,18 +1953,19 @@ describe('AutomationRegistry2_3', () => {
             config,
             offchainVersion,
             offchainBytes,
-            [],
-            [],
+            baseConfig[6],
+            baseConfig[7],
           )
-          const tx = await registry
-            .connect(owner)
-            ['registerUpkeep(address,uint32,address,bytes,bytes)'](
-              mock.address,
-              maxPerformGas, // max allowed gas
-              await admin.getAddress(),
-              randomBytes,
-              '0x',
-            )
+          const tx = await registry.connect(owner).registerUpkeep(
+            mock.address,
+            maxPerformGas, // max allowed gas
+            await admin.getAddress(),
+            Trigger.CONDITION,
+            linkToken.address,
+            '0x',
+            '0x',
+            '0x',
+          )
           const testUpkeepId = await getUpkeepID(tx)
           await registry.connect(admin).addFunds(testUpkeepId, toWei('100'))
 
@@ -1904,8 +2001,8 @@ describe('AutomationRegistry2_3', () => {
                 config,
                 offchainVersion,
                 offchainBytes,
-                [],
-                [],
+                baseConfig[6],
+                baseConfig[7],
               )
             const checkBlock = await ethers.provider.getBlock('latest')
 
@@ -2048,8 +2145,8 @@ describe('AutomationRegistry2_3', () => {
                         config,
                         offchainVersion,
                         offchainBytes,
-                        [],
-                        [],
+                        baseConfig[6],
+                        baseConfig[7],
                       )
                     tx = await getTransmitTx(registry, keeper1, [upkeepId], {
                       numSigners: newF + 1,
@@ -2182,8 +2279,8 @@ describe('AutomationRegistry2_3', () => {
                 config,
                 offchainVersion,
                 offchainBytes,
-                [],
-                [],
+                baseConfig[6],
+                baseConfig[7],
               )
               tx = await getTransmitTx(registry, keeper1, [logUpkeepId], {
                 numSigners: newF + 1,
@@ -2681,9 +2778,16 @@ describe('AutomationRegistry2_3', () => {
           const mock = await upkeepMockFactory.deploy()
           const tx = await registry
             .connect(owner)
-            [
-              'registerUpkeep(address,uint32,address,bytes,bytes)'
-            ](mock.address, performGas, await admin.getAddress(), randomBytes, '0x')
+            .registerUpkeep(
+              mock.address,
+              performGas,
+              await admin.getAddress(),
+              Trigger.CONDITION,
+              linkToken.address,
+              '0x',
+              '0x',
+              '0x',
+            )
           const testUpkeepId = await getUpkeepID(tx)
           upkeepIds.push(testUpkeepId)
 
@@ -2722,9 +2826,16 @@ describe('AutomationRegistry2_3', () => {
           const mock = await upkeepMockFactory.deploy()
           const tx = await arbRegistry
             .connect(owner)
-            [
-              'registerUpkeep(address,uint32,address,bytes,bytes)'
-            ](mock.address, performGas, await admin.getAddress(), randomBytes, '0x')
+            .registerUpkeep(
+              mock.address,
+              performGas,
+              await admin.getAddress(),
+              Trigger.CONDITION,
+              linkToken.address,
+              '0x',
+              '0x',
+              '0x',
+            )
           const testUpkeepId = await getUpkeepID(tx)
           upkeepIds.push(testUpkeepId)
 
@@ -2796,9 +2907,16 @@ describe('AutomationRegistry2_3', () => {
       // add funds to upkeep 1 and perform and withdraw some payment
       const tx = await registry
         .connect(owner)
-        [
-          'registerUpkeep(address,uint32,address,bytes,bytes)'
-        ](mock.address, performGas, await admin.getAddress(), emptyBytes, emptyBytes)
+        .registerUpkeep(
+          mock.address,
+          performGas,
+          await admin.getAddress(),
+          Trigger.CONDITION,
+          linkToken.address,
+          '0x',
+          '0x',
+          '0x',
+        )
 
       const id1 = await getUpkeepID(tx)
       await registry.connect(admin).addFunds(id1, toWei('5'))
@@ -2820,9 +2938,16 @@ describe('AutomationRegistry2_3', () => {
       // add funds to upkeep 2 and perform and withdraw some payment
       const tx2 = await registry
         .connect(owner)
-        [
-          'registerUpkeep(address,uint32,address,bytes,bytes)'
-        ](mock.address, performGas, await admin.getAddress(), emptyBytes, emptyBytes)
+        .registerUpkeep(
+          mock.address,
+          performGas,
+          await admin.getAddress(),
+          Trigger.CONDITION,
+          linkToken.address,
+          '0x',
+          '0x',
+          '0x',
+        )
       const id2 = await getUpkeepID(tx2)
       await registry.connect(admin).addFunds(id2, toWei('5'))
 
@@ -2848,26 +2973,6 @@ describe('AutomationRegistry2_3', () => {
       await registry
         .connect(admin)
         .withdrawFunds(id1, await nonkeeper.getAddress())
-    })
-
-    it('reverts if not called by owner', async () => {
-      await evmRevert(
-        registry.connect(keeper1).recoverFunds(),
-        'Only callable by owner',
-      )
-    })
-
-    it('allows any funds that have been accidentally transfered to be moved', async () => {
-      const balanceBefore = await linkToken.balanceOf(registry.address)
-      const ownerBefore = await linkToken.balanceOf(await owner.getAddress())
-
-      await registry.connect(owner).recoverFunds()
-
-      const balanceAfter = await linkToken.balanceOf(registry.address)
-      const ownerAfter = await linkToken.balanceOf(await owner.getAddress())
-
-      assert.isTrue(balanceBefore.eq(balanceAfter.add(sent)))
-      assert.isTrue(ownerAfter.eq(ownerBefore.add(sent)))
     })
   })
 
@@ -2900,9 +3005,16 @@ describe('AutomationRegistry2_3', () => {
     it('uses maxPerformData size in checkUpkeep but actual performDataSize in transmit', async () => {
       const tx = await registry
         .connect(owner)
-        [
-          'registerUpkeep(address,uint32,address,bytes,bytes)'
-        ](mock.address, performGas, await admin.getAddress(), randomBytes, '0x')
+        .registerUpkeep(
+          mock.address,
+          performGas,
+          await admin.getAddress(),
+          Trigger.CONDITION,
+          linkToken.address,
+          '0x',
+          '0x',
+          '0x',
+        )
       const upkeepID = await getUpkeepID(tx)
       await mock.setCanCheck(true)
       await mock.setCanPerform(true)
@@ -2914,7 +3026,7 @@ describe('AutomationRegistry2_3', () => {
       await registry.connect(owner).addFunds(upkeepID, minBalance1)
 
       // upkeep check should return false, 2 should return true
-      let checkUpkeepResult = await registry
+      const checkUpkeepResult = await registry
         .connect(zeroAddress)
         .callStatic['checkUpkeep(uint256)'](upkeepID)
       assert.equal(checkUpkeepResult.upkeepNeeded, false)
@@ -2946,9 +3058,16 @@ describe('AutomationRegistry2_3', () => {
     beforeEach(async () => {
       const tx = await registry
         .connect(owner)
-        [
-          'registerUpkeep(address,uint32,address,bytes,bytes)'
-        ](mock.address, performGas, await admin.getAddress(), randomBytes, '0x')
+        .registerUpkeep(
+          mock.address,
+          performGas,
+          await admin.getAddress(),
+          Trigger.CONDITION,
+          linkToken.address,
+          '0x',
+          '0x',
+          '0x',
+        )
       upkeepId2 = await getUpkeepID(tx)
 
       await registry.connect(admin).addFunds(upkeepId, toWei('100'))
@@ -3514,7 +3633,11 @@ describe('AutomationRegistry2_3', () => {
       assert.equal(
         expectedFallbackMaxPayment.toString(),
         (
-          await registry.getMaxPaymentForGas(Trigger.CONDITION, performGas)
+          await registry.getMaxPaymentForGas(
+            Trigger.CONDITION,
+            performGas,
+            linkToken.address,
+          )
         ).toString(),
       )
 
@@ -3529,7 +3652,11 @@ describe('AutomationRegistry2_3', () => {
       assert.equal(
         expectedFallbackMaxPayment.toString(),
         (
-          await registry.getMaxPaymentForGas(Trigger.CONDITION, performGas)
+          await registry.getMaxPaymentForGas(
+            Trigger.CONDITION,
+            performGas,
+            linkToken.address,
+          )
         ).toString(),
       )
 
@@ -3544,7 +3671,11 @@ describe('AutomationRegistry2_3', () => {
       assert.equal(
         expectedFallbackMaxPayment.toString(),
         (
-          await registry.getMaxPaymentForGas(Trigger.CONDITION, performGas)
+          await registry.getMaxPaymentForGas(
+            Trigger.CONDITION,
+            performGas,
+            linkToken.address,
+          )
         ).toString(),
       )
     })
@@ -3587,7 +3718,11 @@ describe('AutomationRegistry2_3', () => {
       assert.equal(
         expectedFallbackMaxPayment.toString(),
         (
-          await registry.getMaxPaymentForGas(Trigger.CONDITION, performGas)
+          await registry.getMaxPaymentForGas(
+            Trigger.CONDITION,
+            performGas,
+            linkToken.address,
+          )
         ).toString(),
       )
 
@@ -3602,7 +3737,11 @@ describe('AutomationRegistry2_3', () => {
       assert.equal(
         expectedFallbackMaxPayment.toString(),
         (
-          await registry.getMaxPaymentForGas(Trigger.CONDITION, performGas)
+          await registry.getMaxPaymentForGas(
+            Trigger.CONDITION,
+            performGas,
+            linkToken.address,
+          )
         ).toString(),
       )
 
@@ -3617,7 +3756,11 @@ describe('AutomationRegistry2_3', () => {
       assert.equal(
         expectedFallbackMaxPayment.toString(),
         (
-          await registry.getMaxPaymentForGas(Trigger.CONDITION, performGas)
+          await registry.getMaxPaymentForGas(
+            Trigger.CONDITION,
+            performGas,
+            linkToken.address,
+          )
         ).toString(),
       )
     })
@@ -3690,7 +3833,6 @@ describe('AutomationRegistry2_3', () => {
     const maxGas = BigNumber.from(6)
     const staleness = BigNumber.from(4)
     const ceiling = BigNumber.from(5)
-    const newMinUpkeepSpend = BigNumber.from(9)
     const newMaxCheckDataSize = BigNumber.from(10000)
     const newMaxPerformDataSize = BigNumber.from(10000)
     const newMaxRevertDataSize = BigNumber.from(10000)
@@ -3701,14 +3843,12 @@ describe('AutomationRegistry2_3', () => {
     const newTranscoder = randomAddress()
     const newRegistrars = [randomAddress(), randomAddress()]
     const upkeepManager = randomAddress()
+    const financeAdminAddress = randomAddress()
 
     const newConfig: OnChainConfig = {
-      paymentPremiumPPB: payment,
-      flatFeeMicroLink: flatFee,
       checkGasLimit: maxGas,
       stalenessSeconds: staleness,
       gasCeilingMultiplier: ceiling,
-      minUpkeepSpend: newMinUpkeepSpend,
       maxCheckDataSize: newMaxCheckDataSize,
       maxPerformDataSize: newMaxPerformDataSize,
       maxRevertDataSize: newMaxRevertDataSize,
@@ -3721,6 +3861,7 @@ describe('AutomationRegistry2_3', () => {
       upkeepPrivilegeManager: upkeepManager,
       chainModule: chainModuleBase.address,
       reorgProtectionEnabled: true,
+      financeAdmin: financeAdminAddress,
     }
 
     it('reverts when called by anyone but the proposed owner', async () => {
@@ -3734,8 +3875,8 @@ describe('AutomationRegistry2_3', () => {
             newConfig,
             offchainVersion,
             offchainBytes,
-            [],
-            [],
+            baseConfig[6],
+            baseConfig[7],
           ),
         'Only callable by owner',
       )
@@ -3757,8 +3898,8 @@ describe('AutomationRegistry2_3', () => {
             newConfig,
             offchainVersion,
             offchainBytes,
-            [],
-            [],
+            baseConfig[6],
+            baseConfig[7],
           ),
         'InvalidSigner()',
       )
@@ -3778,8 +3919,8 @@ describe('AutomationRegistry2_3', () => {
             newConfig,
             offchainVersion,
             offchainBytes,
-            [],
-            [],
+            baseConfig[6],
+            baseConfig[7],
           ),
         'InvalidTransmitter()',
       )
@@ -3814,10 +3955,6 @@ describe('AutomationRegistry2_3', () => {
       assert.equal(updatedConfig.flatFeeMicroLink, flatFee.toNumber())
       assert.equal(updatedConfig.stalenessSeconds, staleness.toNumber())
       assert.equal(updatedConfig.gasCeilingMultiplier, ceiling.toNumber())
-      assert.equal(
-        updatedConfig.minUpkeepSpend.toString(),
-        newMinUpkeepSpend.toString(),
-      )
       assert.equal(
         updatedConfig.maxCheckDataSize,
         newMaxCheckDataSize.toNumber(),
@@ -3916,8 +4053,8 @@ describe('AutomationRegistry2_3', () => {
             config,
             offchainVersion,
             offchainBytes,
-            [],
-            [],
+            baseConfig[6],
+            baseConfig[7],
           ),
         'Only callable by owner',
       )
@@ -3937,8 +4074,8 @@ describe('AutomationRegistry2_3', () => {
             config,
             offchainVersion,
             offchainBytes,
-            [],
-            [],
+            baseConfig[6],
+            baseConfig[7],
           ),
         'TooManyOracles()',
       )
@@ -3955,8 +4092,8 @@ describe('AutomationRegistry2_3', () => {
             config,
             offchainVersion,
             offchainBytes,
-            [],
-            [],
+            baseConfig[6],
+            baseConfig[7],
           ),
         'IncorrectNumberOfFaultyOracles()',
       )
@@ -3974,8 +4111,8 @@ describe('AutomationRegistry2_3', () => {
             config,
             offchainVersion,
             offchainBytes,
-            [],
-            [],
+            baseConfig[6],
+            baseConfig[7],
           ),
         'IncorrectNumberOfSigners()',
       )
@@ -3993,8 +4130,8 @@ describe('AutomationRegistry2_3', () => {
             config,
             offchainVersion,
             offchainBytes,
-            [],
-            [],
+            baseConfig[6],
+            baseConfig[7],
           ),
         'IncorrectNumberOfSigners()',
       )
@@ -4017,8 +4154,8 @@ describe('AutomationRegistry2_3', () => {
             config,
             offchainVersion,
             offchainBytes,
-            [],
-            [],
+            baseConfig[6],
+            baseConfig[7],
           ),
         'RepeatedSigner()',
       )
@@ -4041,8 +4178,8 @@ describe('AutomationRegistry2_3', () => {
             config,
             offchainVersion,
             offchainBytes,
-            [],
-            [],
+            baseConfig[6],
+            baseConfig[7],
           ),
         'RepeatedTransmitter()',
       )
@@ -4170,9 +4307,16 @@ describe('AutomationRegistry2_3', () => {
       await evmRevert(
         registry
           .connect(owner)
-          [
-            'registerUpkeep(address,uint32,address,bytes,bytes)'
-          ](mock.address, performGas, await admin.getAddress(), emptyBytes, '0x'),
+          .registerUpkeep(
+            mock.address,
+            performGas,
+            await admin.getAddress(),
+            Trigger.CONDITION,
+            linkToken.address,
+            '0x',
+            '0x',
+            '0x',
+          ),
         'RegistryPaused()',
       )
     })
@@ -4181,9 +4325,16 @@ describe('AutomationRegistry2_3', () => {
       await evmRevert(
         registry
           .connect(owner)
-          [
-            'registerUpkeep(address,uint32,address,bytes,bytes)'
-          ](zeroAddress, performGas, await admin.getAddress(), emptyBytes, '0x'),
+          .registerUpkeep(
+            zeroAddress,
+            performGas,
+            await admin.getAddress(),
+            Trigger.CONDITION,
+            linkToken.address,
+            '0x',
+            '0x',
+            '0x',
+          ),
         'NotAContract()',
       )
     })
@@ -4192,9 +4343,16 @@ describe('AutomationRegistry2_3', () => {
       await evmRevert(
         registry
           .connect(keeper1)
-          [
-            'registerUpkeep(address,uint32,address,bytes,bytes)'
-          ](mock.address, performGas, await admin.getAddress(), emptyBytes, '0x'),
+          .registerUpkeep(
+            mock.address,
+            performGas,
+            await admin.getAddress(),
+            Trigger.CONDITION,
+            linkToken.address,
+            '0x',
+            '0x',
+            '0x',
+          ),
         'OnlyCallableByOwnerOrRegistrar()',
       )
     })
@@ -4203,9 +4361,16 @@ describe('AutomationRegistry2_3', () => {
       await evmRevert(
         registry
           .connect(owner)
-          [
-            'registerUpkeep(address,uint32,address,bytes,bytes)'
-          ](mock.address, 2299, await admin.getAddress(), emptyBytes, '0x'),
+          .registerUpkeep(
+            mock.address,
+            2299,
+            await admin.getAddress(),
+            Trigger.CONDITION,
+            linkToken.address,
+            '0x',
+            '0x',
+            '0x',
+          ),
         'GasLimitOutsideRange()',
       )
     })
@@ -4214,9 +4379,16 @@ describe('AutomationRegistry2_3', () => {
       await evmRevert(
         registry
           .connect(owner)
-          [
-            'registerUpkeep(address,uint32,address,bytes,bytes)'
-          ](mock.address, 5000001, await admin.getAddress(), emptyBytes, '0x'),
+          .registerUpkeep(
+            mock.address,
+            5000001,
+            await admin.getAddress(),
+            Trigger.CONDITION,
+            linkToken.address,
+            '0x',
+            '0x',
+            '0x',
+          ),
         'GasLimitOutsideRange()',
       )
     })
@@ -4229,10 +4401,39 @@ describe('AutomationRegistry2_3', () => {
       await evmRevert(
         registry
           .connect(owner)
-          [
-            'registerUpkeep(address,uint32,address,bytes,bytes)'
-          ](mock.address, performGas, await admin.getAddress(), longBytes, '0x'),
+          .registerUpkeep(
+            mock.address,
+            performGas,
+            await admin.getAddress(),
+            Trigger.CONDITION,
+            linkToken.address,
+            longBytes,
+            '0x',
+            '0x',
+          ),
         'CheckDataExceedsLimit()',
+      )
+    })
+
+    it('reverts if the billing token is not configured', async () => {
+      let longBytes = '0x'
+      for (let i = 0; i < 10000; i++) {
+        longBytes += '1'
+      }
+      await evmRevert(
+        registry
+          .connect(owner)
+          .registerUpkeep(
+            mock.address,
+            performGas,
+            await admin.getAddress(),
+            Trigger.CONDITION,
+            randomAddress(),
+            '0x',
+            '0x',
+            '0x',
+          ),
+        'InvalidBillingToken()',
       )
     })
 
@@ -4246,9 +4447,16 @@ describe('AutomationRegistry2_3', () => {
           const checkData = checkDatas[kdx]
           const tx = await registry
             .connect(owner)
-            [
-              'registerUpkeep(address,uint32,address,bytes,bytes)'
-            ](mock.address, performGas, await admin.getAddress(), checkData, '0x')
+            .registerUpkeep(
+              mock.address,
+              performGas,
+              await admin.getAddress(),
+              Trigger.CONDITION,
+              linkToken.address,
+              checkData,
+              '0x',
+              '0x',
+            )
 
           //confirm the upkeep details and verify emitted events
           const testUpkeepId = await getUpkeepID(tx)
@@ -4282,6 +4490,10 @@ describe('AutomationRegistry2_3', () => {
           assert.equal(registration.paused, false)
           assert.equal(registration.offchainConfig, '0x')
           assert(registration.maxValidBlocknumber.eq('0xffffffff'))
+          assert.equal(
+            await registry.getBillingToken(testUpkeepId),
+            linkToken.address,
+          )
         }
       }
     })
@@ -4709,28 +4921,26 @@ describe('AutomationRegistry2_3', () => {
   })
 
   describe('#withdrawOwnerFunds', () => {
-    it('can only be called by owner', async () => {
+    it('can only be called by finance admin', async () => {
       await evmRevert(
-        registry.connect(keeper1).withdrawOwnerFunds(),
-        'Only callable by owner',
+        registry.connect(keeper1).withdrawLinkFees(zeroAddress, 1),
+        'OnlyFinanceAdmin()',
       )
     })
 
     itMaybe('withdraws the collected fees to owner', async () => {
       await registry.connect(admin).addFunds(upkeepId, toWei('100'))
+      const financeAdminAddress = await financeAdmin.getAddress()
       // Very high min spend, whole balance as cancellation fees
-      const minUpkeepSpend = toWei('1000')
+      const newMinUpkeepSpend = toWei('1000')
       await registry.connect(owner).setConfigTypeSafe(
         signerAddresses,
         keeperAddresses,
         f,
         {
-          paymentPremiumPPB,
-          flatFeeMicroLink,
           checkGasLimit,
           stalenessSeconds,
           gasCeilingMultiplier,
-          minUpkeepSpend,
           maxCheckDataSize,
           maxPerformDataSize,
           maxRevertDataSize,
@@ -4743,11 +4953,20 @@ describe('AutomationRegistry2_3', () => {
           upkeepPrivilegeManager: upkeepManager,
           chainModule: chainModuleBase.address,
           reorgProtectionEnabled: true,
+          financeAdmin: financeAdminAddress,
         },
         offchainVersion,
         offchainBytes,
-        [],
-        [],
+        [linkToken.address],
+        [
+          {
+            gasFeePPB: paymentPremiumPPB,
+            flatFeeMicroLink,
+            priceFeed: linkUSDFeed.address,
+            fallbackPrice: fallbackLinkPrice,
+            minSpend: newMinUpkeepSpend,
+          },
+        ],
       )
       const upkeepBalance = (await registry.getUpkeep(upkeepId)).balance
       const ownerBefore = await linkToken.balanceOf(await owner.getAddress())
@@ -4755,14 +4974,15 @@ describe('AutomationRegistry2_3', () => {
       await registry.connect(owner).cancelUpkeep(upkeepId)
 
       // Transfered to owner balance on registry
-      let ownerRegistryBalance = (await registry.getState()).state
-        .ownerLinkBalance
+      let ownerRegistryBalance = await registry.linkAvailableForPayment()
       assert.isTrue(ownerRegistryBalance.eq(upkeepBalance))
 
       // Now withdraw
-      await registry.connect(owner).withdrawOwnerFunds()
+      await registry
+        .connect(financeAdmin)
+        .withdrawLinkFees(await owner.getAddress(), ownerRegistryBalance)
 
-      ownerRegistryBalance = (await registry.getState()).state.ownerLinkBalance
+      ownerRegistryBalance = await registry.linkAvailableForPayment()
       const ownerAfter = await linkToken.balanceOf(await owner.getAddress())
 
       // Owner registry balance should be changed to 0
@@ -4914,9 +5134,16 @@ describe('AutomationRegistry2_3', () => {
       await evmRevert(
         registry
           .connect(owner)
-          [
-            'registerUpkeep(address,uint32,address,bytes,bytes)'
-          ](mock.address, performGas, await admin.getAddress(), emptyBytes, '0x'),
+          .registerUpkeep(
+            mock.address,
+            performGas,
+            await admin.getAddress(),
+            Trigger.CONDITION,
+            linkToken.address,
+            '0x',
+            '0x',
+            '0x',
+          ),
         'RegistryPaused()',
       )
     })
@@ -4989,9 +5216,9 @@ describe('AutomationRegistry2_3', () => {
         expect((await mgRegistry.getUpkeep(upkeepId)).balance).to.equal(
           toWei('100'),
         )
-        expect(
-          (await mgRegistry.getState()).state.expectedLinkBalance,
-        ).to.equal(toWei('100'))
+        expect(await mgRegistry.getReserveAmount(linkToken.address)).to.equal(
+          toWei('100'),
+        )
         expect((await mgRegistry.getUpkeep(upkeepId)).checkData).to.equal(
           randomBytes,
         )
@@ -5041,9 +5268,9 @@ describe('AutomationRegistry2_3', () => {
         expect((await mgRegistry.getUpkeep(upkeepId)).checkData).to.equal(
           randomBytes,
         )
-        expect(
-          (await mgRegistry.getState()).state.expectedLinkBalance,
-        ).to.equal(toWei('100'))
+        expect(await mgRegistry.getReserveAmount(linkToken.address)).to.equal(
+          toWei('100'),
+        )
         // verify the upkeep is still paused after migration
         expect((await mgRegistry.getUpkeep(upkeepId)).paused).to.equal(true)
       })
@@ -5125,7 +5352,7 @@ describe('AutomationRegistry2_3', () => {
     })
 
     it('reverts if the payee is the zero address', async () => {
-      await blankRegistry.connect(owner).setConfig(...baseConfig) // used to test initial config
+      await blankRegistry.connect(owner).setConfigTypeSafe(...baseConfig) // used to test initial config
 
       await evmRevert(
         blankRegistry // used to test initial config
@@ -5139,7 +5366,7 @@ describe('AutomationRegistry2_3', () => {
       'sets the payees when exisitng payees are zero address',
       async () => {
         //Initial payees should be zero address
-        await blankRegistry.connect(owner).setConfig(...baseConfig) // used to test initial config
+        await blankRegistry.connect(owner).setConfigTypeSafe(...baseConfig) // used to test initial config
 
         for (let i = 0; i < keeperAddresses.length; i++) {
           const payee = (
@@ -5366,20 +5593,18 @@ describe('AutomationRegistry2_3', () => {
           await getTransmitTx(registry, keeper1, [upkeepId])
         })
 
-        it('deducts a cancellation fee from the upkeep and gives to owner', async () => {
-          const minUpkeepSpend = toWei('10')
+        it('deducts a cancellation fee from the upkeep and adds to reserve', async () => {
+          const newMinUpkeepSpend = toWei('10')
+          const financeAdminAddress = await financeAdmin.getAddress()
 
           await registry.connect(owner).setConfigTypeSafe(
             signerAddresses,
             keeperAddresses,
             f,
             {
-              paymentPremiumPPB,
-              flatFeeMicroLink,
               checkGasLimit,
               stalenessSeconds,
               gasCeilingMultiplier,
-              minUpkeepSpend,
               maxCheckDataSize,
               maxPerformDataSize,
               maxRevertDataSize,
@@ -5392,21 +5617,30 @@ describe('AutomationRegistry2_3', () => {
               upkeepPrivilegeManager: upkeepManager,
               chainModule: chainModuleBase.address,
               reorgProtectionEnabled: true,
+              financeAdmin: financeAdminAddress,
             },
             offchainVersion,
             offchainBytes,
-            [],
-            [],
+            [linkToken.address],
+            [
+              {
+                gasFeePPB: paymentPremiumPPB,
+                flatFeeMicroLink,
+                priceFeed: linkUSDFeed.address,
+                fallbackPrice: fallbackLinkPrice,
+                minSpend: newMinUpkeepSpend,
+              },
+            ],
           )
 
           const payee1Before = await linkToken.balanceOf(
             await payee1.getAddress(),
           )
           const upkeepBefore = (await registry.getUpkeep(upkeepId)).balance
-          const ownerBefore = (await registry.getState()).state.ownerLinkBalance
+          const ownerBefore = await registry.linkAvailableForPayment()
 
           const amountSpent = toWei('100').sub(upkeepBefore)
-          const cancellationFee = minUpkeepSpend.sub(amountSpent)
+          const cancellationFee = newMinUpkeepSpend.sub(amountSpent)
 
           await registry.connect(admin).cancelUpkeep(upkeepId)
 
@@ -5414,7 +5648,7 @@ describe('AutomationRegistry2_3', () => {
             await payee1.getAddress(),
           )
           const upkeepAfter = (await registry.getUpkeep(upkeepId)).balance
-          const ownerAfter = (await registry.getState()).state.ownerLinkBalance
+          const ownerAfter = await registry.linkAvailableForPayment()
 
           // post upkeep balance should be previous balance minus cancellation fee
           assert.isTrue(upkeepBefore.sub(cancellationFee).eq(upkeepAfter))
@@ -5426,18 +5660,17 @@ describe('AutomationRegistry2_3', () => {
 
         it('deducts up to balance as cancellation fee', async () => {
           // Very high min spend, should deduct whole balance as cancellation fees
-          const minUpkeepSpend = toWei('1000')
+          const newMinUpkeepSpend = toWei('1000')
+          const financeAdminAddress = await financeAdmin.getAddress()
+
           await registry.connect(owner).setConfigTypeSafe(
             signerAddresses,
             keeperAddresses,
             f,
             {
-              paymentPremiumPPB,
-              flatFeeMicroLink,
               checkGasLimit,
               stalenessSeconds,
               gasCeilingMultiplier,
-              minUpkeepSpend,
               maxCheckDataSize,
               maxPerformDataSize,
               maxRevertDataSize,
@@ -5450,23 +5683,32 @@ describe('AutomationRegistry2_3', () => {
               upkeepPrivilegeManager: upkeepManager,
               chainModule: chainModuleBase.address,
               reorgProtectionEnabled: true,
+              financeAdmin: financeAdminAddress,
             },
             offchainVersion,
             offchainBytes,
-            [],
-            [],
+            [linkToken.address],
+            [
+              {
+                gasFeePPB: paymentPremiumPPB,
+                flatFeeMicroLink,
+                priceFeed: linkUSDFeed.address,
+                fallbackPrice: fallbackLinkPrice,
+                minSpend: newMinUpkeepSpend,
+              },
+            ],
           )
           const payee1Before = await linkToken.balanceOf(
             await payee1.getAddress(),
           )
           const upkeepBefore = (await registry.getUpkeep(upkeepId)).balance
-          const ownerBefore = (await registry.getState()).state.ownerLinkBalance
+          const ownerBefore = await registry.linkAvailableForPayment()
 
           await registry.connect(admin).cancelUpkeep(upkeepId)
           const payee1After = await linkToken.balanceOf(
             await payee1.getAddress(),
           )
-          const ownerAfter = (await registry.getState()).state.ownerLinkBalance
+          const ownerAfter = await registry.linkAvailableForPayment()
           const upkeepAfter = (await registry.getUpkeep(upkeepId)).balance
 
           // all upkeep balance is deducted for cancellation fee
@@ -5477,20 +5719,19 @@ describe('AutomationRegistry2_3', () => {
           assert.isTrue(ownerAfter.sub(ownerBefore).eq(upkeepBefore))
         })
 
-        it('does not deduct cancellation fee if more than minUpkeepSpend is spent', async () => {
+        it('does not deduct cancellation fee if more than minUpkeepSpendDollars is spent', async () => {
           // Very low min spend, already spent in one perform upkeep
-          const minUpkeepSpend = BigNumber.from(420)
+          const newMinUpkeepSpend = BigNumber.from(420)
+          const financeAdminAddress = await financeAdmin.getAddress()
+
           await registry.connect(owner).setConfigTypeSafe(
             signerAddresses,
             keeperAddresses,
             f,
             {
-              paymentPremiumPPB,
-              flatFeeMicroLink,
               checkGasLimit,
               stalenessSeconds,
               gasCeilingMultiplier,
-              minUpkeepSpend,
               maxCheckDataSize,
               maxPerformDataSize,
               maxRevertDataSize,
@@ -5503,23 +5744,32 @@ describe('AutomationRegistry2_3', () => {
               upkeepPrivilegeManager: upkeepManager,
               chainModule: chainModuleBase.address,
               reorgProtectionEnabled: true,
+              financeAdmin: financeAdminAddress,
             },
             offchainVersion,
             offchainBytes,
-            [],
-            [],
+            [linkToken.address],
+            [
+              {
+                gasFeePPB: paymentPremiumPPB,
+                flatFeeMicroLink,
+                priceFeed: linkUSDFeed.address,
+                fallbackPrice: fallbackLinkPrice,
+                minSpend: newMinUpkeepSpend,
+              },
+            ],
           )
           const payee1Before = await linkToken.balanceOf(
             await payee1.getAddress(),
           )
           const upkeepBefore = (await registry.getUpkeep(upkeepId)).balance
-          const ownerBefore = (await registry.getState()).state.ownerLinkBalance
+          const ownerBefore = await registry.linkAvailableForPayment()
 
           await registry.connect(admin).cancelUpkeep(upkeepId)
           const payee1After = await linkToken.balanceOf(
             await payee1.getAddress(),
           )
-          const ownerAfter = (await registry.getState()).state.ownerLinkBalance
+          const ownerAfter = await registry.linkAvailableForPayment()
           const upkeepAfter = (await registry.getUpkeep(upkeepId)).balance
 
           // upkeep does not pay cancellation fee after cancellation because minimum upkeep spent is met
@@ -5571,7 +5821,7 @@ describe('AutomationRegistry2_3', () => {
       const registryLinkBefore = await linkToken.balanceOf(registry.address)
       const registryPremiumBefore = (await registry.getState()).state
         .totalPremium
-      const ownerBefore = (await registry.getState()).state.ownerLinkBalance
+      const ownerBefore = await registry.linkAvailableForPayment()
 
       // Withdrawing for first time, last collected = 0
       assert.equal(keeperBefore.lastCollected.toString(), '0')
@@ -5589,7 +5839,7 @@ describe('AutomationRegistry2_3', () => {
       const registryLinkAfter = await linkToken.balanceOf(registry.address)
       const registryPremiumAfter = (await registry.getState()).state
         .totalPremium
-      const ownerAfter = (await registry.getState()).state.ownerLinkBalance
+      const ownerAfter = await registry.linkAvailableForPayment()
 
       // registry total premium should not change
       assert.isTrue(registryPremiumBefore.eq(registryPremiumAfter))
@@ -5851,106 +6101,104 @@ describe('AutomationRegistry2_3', () => {
       assert.isTrue(k2New.lastCollected.eq(BigNumber.from(0)))
     })
 
-    itMaybe(
-      'maintains consistent balance information across all parties',
-      async () => {
-        // throughout transmits, withdrawals, setConfigs total claim on balances should remain less than expected balance
-        // some spare change can get lost but it should be less than maxAllowedSpareChange
+    // itMaybe(
+    it('maintains consistent balance information across all parties', async () => {
+      // throughout transmits, withdrawals, setConfigs total claim on balances should remain less than expected balance
+      // some spare change can get lost but it should be less than maxAllowedSpareChange
 
-        let maxAllowedSpareChange = BigNumber.from('0')
-        await verifyConsistentAccounting(maxAllowedSpareChange)
+      let maxAllowedSpareChange = BigNumber.from('0')
+      await verifyConsistentAccounting(maxAllowedSpareChange)
 
-        await getTransmitTx(registry, keeper1, [upkeepId])
-        maxAllowedSpareChange = maxAllowedSpareChange.add(BigNumber.from('31'))
-        await verifyConsistentAccounting(maxAllowedSpareChange)
+      await getTransmitTx(registry, keeper1, [upkeepId])
+      maxAllowedSpareChange = maxAllowedSpareChange.add(BigNumber.from('31'))
+      await verifyConsistentAccounting(maxAllowedSpareChange)
 
-        await registry
-          .connect(payee1)
-          .withdrawPayment(
-            await keeper1.getAddress(),
-            await nonkeeper.getAddress(),
-          )
-        await verifyConsistentAccounting(maxAllowedSpareChange)
-
-        await registry
-          .connect(payee2)
-          .withdrawPayment(
-            await keeper2.getAddress(),
-            await nonkeeper.getAddress(),
-          )
-        await verifyConsistentAccounting(maxAllowedSpareChange)
-
-        await getTransmitTx(registry, keeper1, [upkeepId])
-        maxAllowedSpareChange = maxAllowedSpareChange.add(BigNumber.from('31'))
-        await verifyConsistentAccounting(maxAllowedSpareChange)
-
-        await registry.connect(owner).setConfigTypeSafe(
-          signerAddresses.slice(2, 15), // only use 2-14th index keepers
-          keeperAddresses.slice(2, 15),
-          f,
-          config,
-          offchainVersion,
-          offchainBytes,
-          [],
-          [],
+      await registry
+        .connect(payee1)
+        .withdrawPayment(
+          await keeper1.getAddress(),
+          await nonkeeper.getAddress(),
         )
-        await verifyConsistentAccounting(maxAllowedSpareChange)
+      await verifyConsistentAccounting(maxAllowedSpareChange)
 
-        await getTransmitTx(registry, keeper3, [upkeepId], {
-          startingSignerIndex: 2,
-        })
-        maxAllowedSpareChange = maxAllowedSpareChange.add(BigNumber.from('13'))
-        await verifyConsistentAccounting(maxAllowedSpareChange)
-
-        await registry
-          .connect(payee1)
-          .withdrawPayment(
-            await keeper1.getAddress(),
-            await nonkeeper.getAddress(),
-          )
-        await verifyConsistentAccounting(maxAllowedSpareChange)
-
-        await registry
-          .connect(payee3)
-          .withdrawPayment(
-            await keeper3.getAddress(),
-            await nonkeeper.getAddress(),
-          )
-        await verifyConsistentAccounting(maxAllowedSpareChange)
-
-        await registry.connect(owner).setConfigTypeSafe(
-          signerAddresses.slice(0, 4), // only use 0-3rd index keepers
-          keeperAddresses.slice(0, 4),
-          f,
-          config,
-          offchainVersion,
-          offchainBytes,
-          [],
-          [],
+      await registry
+        .connect(payee2)
+        .withdrawPayment(
+          await keeper2.getAddress(),
+          await nonkeeper.getAddress(),
         )
-        await verifyConsistentAccounting(maxAllowedSpareChange)
-        await getTransmitTx(registry, keeper1, [upkeepId])
-        maxAllowedSpareChange = maxAllowedSpareChange.add(BigNumber.from('4'))
-        await getTransmitTx(registry, keeper3, [upkeepId])
-        maxAllowedSpareChange = maxAllowedSpareChange.add(BigNumber.from('4'))
+      await verifyConsistentAccounting(maxAllowedSpareChange)
 
-        await verifyConsistentAccounting(maxAllowedSpareChange)
-        await registry
-          .connect(payee5)
-          .withdrawPayment(
-            await keeper5.getAddress(),
-            await nonkeeper.getAddress(),
-          )
-        await verifyConsistentAccounting(maxAllowedSpareChange)
+      await getTransmitTx(registry, keeper1, [upkeepId])
+      maxAllowedSpareChange = maxAllowedSpareChange.add(BigNumber.from('31'))
+      await verifyConsistentAccounting(maxAllowedSpareChange)
 
-        await registry
-          .connect(payee1)
-          .withdrawPayment(
-            await keeper1.getAddress(),
-            await nonkeeper.getAddress(),
-          )
-        await verifyConsistentAccounting(maxAllowedSpareChange)
-      },
-    )
+      await registry.connect(owner).setConfigTypeSafe(
+        signerAddresses.slice(2, 15), // only use 2-14th index keepers
+        keeperAddresses.slice(2, 15),
+        f,
+        config,
+        offchainVersion,
+        offchainBytes,
+        baseConfig[6],
+        baseConfig[7],
+      )
+      await verifyConsistentAccounting(maxAllowedSpareChange)
+
+      await getTransmitTx(registry, keeper3, [upkeepId], {
+        startingSignerIndex: 2,
+      })
+      maxAllowedSpareChange = maxAllowedSpareChange.add(BigNumber.from('13'))
+      await verifyConsistentAccounting(maxAllowedSpareChange)
+
+      await registry
+        .connect(payee1)
+        .withdrawPayment(
+          await keeper1.getAddress(),
+          await nonkeeper.getAddress(),
+        )
+      await verifyConsistentAccounting(maxAllowedSpareChange)
+
+      await registry
+        .connect(payee3)
+        .withdrawPayment(
+          await keeper3.getAddress(),
+          await nonkeeper.getAddress(),
+        )
+      await verifyConsistentAccounting(maxAllowedSpareChange)
+
+      await registry.connect(owner).setConfigTypeSafe(
+        signerAddresses.slice(0, 4), // only use 0-3rd index keepers
+        keeperAddresses.slice(0, 4),
+        f,
+        config,
+        offchainVersion,
+        offchainBytes,
+        baseConfig[6],
+        baseConfig[7],
+      )
+      await verifyConsistentAccounting(maxAllowedSpareChange)
+      await getTransmitTx(registry, keeper1, [upkeepId])
+      maxAllowedSpareChange = maxAllowedSpareChange.add(BigNumber.from('4'))
+      await getTransmitTx(registry, keeper3, [upkeepId])
+      maxAllowedSpareChange = maxAllowedSpareChange.add(BigNumber.from('4'))
+
+      await verifyConsistentAccounting(maxAllowedSpareChange)
+      await registry
+        .connect(payee5)
+        .withdrawPayment(
+          await keeper5.getAddress(),
+          await nonkeeper.getAddress(),
+        )
+      await verifyConsistentAccounting(maxAllowedSpareChange)
+
+      await registry
+        .connect(payee1)
+        .withdrawPayment(
+          await keeper1.getAddress(),
+          await nonkeeper.getAddress(),
+        )
+      await verifyConsistentAccounting(maxAllowedSpareChange)
+    })
   })
 })

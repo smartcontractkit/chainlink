@@ -49,7 +49,7 @@ func (_m *ORM) CreateForwarder(ctx context.Context, addr common.Address, evmChai
 }
 
 // DeleteForwarder provides a mock function with given fields: ctx, id, cleanup
-func (_m *ORM) DeleteForwarder(ctx context.Context, id int64, cleanup func(sqlutil.DB, int64, common.Address) error) error {
+func (_m *ORM) DeleteForwarder(ctx context.Context, id int64, cleanup func(sqlutil.DataSource, int64, common.Address) error) error {
 	ret := _m.Called(ctx, id, cleanup)
 
 	if len(ret) == 0 {
@@ -57,7 +57,7 @@ func (_m *ORM) DeleteForwarder(ctx context.Context, id int64, cleanup func(sqlut
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, int64, func(sqlutil.DB, int64, common.Address) error) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, int64, func(sqlutil.DataSource, int64, common.Address) error) error); ok {
 		r0 = rf(ctx, id, cleanup)
 	} else {
 		r0 = ret.Error(0)

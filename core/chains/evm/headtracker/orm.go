@@ -17,12 +17,12 @@ type ORM interface {
 	// IdempotentInsertHead inserts a head only if the hash is new. Will do nothing if hash exists already.
 	// No advisory lock required because this is thread safe.
 	IdempotentInsertHead(ctx context.Context, head *evmtypes.Head) error
-	// TrimOldHeads deletes heads such that only the top N block numbers remain
-	TrimOldHeads(ctx context.Context, n uint) (err error)
+	// TrimOldHeads deletes heads such that only blocks >= minBlockNumber remain
+	TrimOldHeads(ctx context.Context, minBlockNumber int64) (err error)
 	// LatestHead returns the highest seen head
 	LatestHead(ctx context.Context) (head *evmtypes.Head, err error)
-	// LatestHeads returns the latest heads up to given limit
-	LatestHeads(ctx context.Context, limit uint) (heads []*evmtypes.Head, err error)
+	// LatestHeads returns the latest heads with blockNumbers >= minBlockNumber
+	LatestHeads(ctx context.Context, minBlockNumber int64) (heads []*evmtypes.Head, err error)
 	// HeadByHash fetches the head with the given hash from the db, returns nil if none exists
 	HeadByHash(ctx context.Context, hash common.Hash) (head *evmtypes.Head, err error)
 }
@@ -31,11 +31,11 @@ var _ ORM = &DbORM{}
 
 type DbORM struct {
 	chainID ubig.Big
-	db      sqlutil.DB
+	db      sqlutil.DataSource
 }
 
 // NewORM creates an ORM scoped to chainID.
-func NewORM(chainID big.Int, db sqlutil.DB) *DbORM {
+func NewORM(chainID big.Int, db sqlutil.DataSource) *DbORM {
 	return &DbORM{
 		chainID: ubig.Big(chainID),
 		db:      db,
@@ -52,19 +52,9 @@ func (orm *DbORM) IdempotentInsertHead(ctx context.Context, head *evmtypes.Head)
 	return pkgerrors.Wrap(err, "IdempotentInsertHead failed to insert head")
 }
 
-func (orm *DbORM) TrimOldHeads(ctx context.Context, n uint) (err error) {
-	_, err = orm.db.ExecContext(ctx, `
-	DELETE FROM evm.heads
-	WHERE evm_chain_id = $1 AND number < (
-		SELECT min(number) FROM (
-			SELECT number
-			FROM evm.heads
-			WHERE evm_chain_id = $1
-			ORDER BY number DESC
-			LIMIT $2
-		) numbers
-	)`, orm.chainID, n)
-
+func (orm *DbORM) TrimOldHeads(ctx context.Context, minBlockNumber int64) (err error) {
+	query := `DELETE FROM evm.heads WHERE evm_chain_id = $1 AND number < $2`
+	_, err = orm.db.ExecContext(ctx, query, orm.chainID, minBlockNumber)
 	return err
 }
 
@@ -78,8 +68,8 @@ func (orm *DbORM) LatestHead(ctx context.Context) (head *evmtypes.Head, err erro
 	return
 }
 
-func (orm *DbORM) LatestHeads(ctx context.Context, limit uint) (heads []*evmtypes.Head, err error) {
-	err = orm.db.SelectContext(ctx, &heads, `SELECT * FROM evm.heads WHERE evm_chain_id = $1 ORDER BY number DESC, created_at DESC, id DESC LIMIT $2`, orm.chainID, limit)
+func (orm *DbORM) LatestHeads(ctx context.Context, minBlockNumer int64) (heads []*evmtypes.Head, err error) {
+	err = orm.db.SelectContext(ctx, &heads, `SELECT * FROM evm.heads WHERE evm_chain_id = $1 AND number >= $2 ORDER BY number DESC, created_at DESC, id DESC`, orm.chainID, minBlockNumer)
 	err = pkgerrors.Wrap(err, "LatestHeads failed")
 	return
 }

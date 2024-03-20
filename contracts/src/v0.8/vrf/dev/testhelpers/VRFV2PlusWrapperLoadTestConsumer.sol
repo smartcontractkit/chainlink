@@ -13,6 +13,7 @@ contract VRFV2PlusWrapperLoadTestConsumer is VRFV2PlusWrapperConsumerBase, Confi
   uint256 public s_slowestFulfillment = 0;
   uint256 public s_fastestFulfillment = 999;
   uint256 public s_lastRequestId;
+  uint32[] public s_requestBlockTimes;
   // solhint-disable-next-line chainlink-solidity/prefix-storage-variables-with-s-underscore
   mapping(uint256 => uint256) internal requestHeights; // requestIds to block number when rand request was made
 
@@ -125,6 +126,8 @@ contract VRFV2PlusWrapperLoadTestConsumer is VRFV2PlusWrapperConsumerBase, Confi
     s_requests[_requestId].fulfilmentTimestamp = block.timestamp;
     s_requests[_requestId].fulfilmentBlockNumber = fulfilmentBlockNumber;
 
+    s_requestBlockTimes.push(uint32(requestDelay));
+
     emit WrappedRequestFulfilled(_requestId, _randomWords, s_requests[_requestId].paid);
   }
 
@@ -157,12 +160,27 @@ contract VRFV2PlusWrapperLoadTestConsumer is VRFV2PlusWrapperConsumerBase, Confi
     );
   }
 
+  function getRequestBlockTimes(uint256 offset, uint256 quantity) external view returns (uint32[] memory) {
+    uint256 end = offset + quantity;
+    if (end > s_requestBlockTimes.length) {
+      end = s_requestBlockTimes.length;
+    }
+
+    uint32[] memory blockTimes = new uint32[](end - offset);
+    for (uint256 i = offset; i < end; i++) {
+      blockTimes[i - offset] = s_requestBlockTimes[i];
+    }
+
+    return blockTimes;
+  }
+
   function reset() external {
     s_averageFulfillmentInMillions = 0; // in millions for better precision
     s_slowestFulfillment = 0;
     s_fastestFulfillment = 999;
     s_requestCount = 0;
     s_responseCount = 0;
+    delete s_requestBlockTimes;
   }
 
   /// @notice withdrawLink withdraws the amount specified in amount to the owner

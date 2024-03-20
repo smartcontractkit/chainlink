@@ -25,10 +25,10 @@ import (
 
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txm "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/bm"
 	lloconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/llo/config"
@@ -79,9 +79,12 @@ type Relayer struct {
 	chainReader commontypes.ChainReader
 	codec       commontypes.Codec
 
+	// Mercury
+	mercuryORM mercury.ORM
+
 	// LLO/data streams
 	cdcFactory llo.ChannelDefinitionCacheFactory
-	orm        llo.ORM
+	lloORM     llo.ORM
 }
 
 type CSAETHKeystore interface {
@@ -121,8 +124,9 @@ func NewRelayer(lggr logger.Logger, chain legacyevm.Chain, opts RelayerOpts) (*R
 	}
 	lggr = lggr.Named("Relayer")
 
-	orm := llo.NewORM(pg.NewQ(opts.DB, lggr, opts.QConfig), chain.ID())
-	cdcFactory := llo.NewChannelDefinitionCacheFactory(lggr, orm, chain.LogPoller())
+	mercuryORM := mercury.NewORM(opts.DB, lggr, opts.QConfig)
+	lloORM := llo.NewORM(pg.NewQ(opts.DB, lggr, opts.QConfig), chain.ID())
+	cdcFactory := llo.NewChannelDefinitionCacheFactory(lggr, lloORM, chain.LogPoller())
 	return &Relayer{
 		db:          opts.DB,
 		chain:       chain,
@@ -131,7 +135,8 @@ func NewRelayer(lggr logger.Logger, chain legacyevm.Chain, opts RelayerOpts) (*R
 		mercuryPool: opts.MercuryPool,
 		pgCfg:       opts.QConfig,
 		cdcFactory:  cdcFactory,
-		orm:         orm,
+		lloORM:      lloORM,
+		mercuryORM:  mercuryORM,
 	}, nil
 }
 
@@ -221,9 +226,13 @@ func (r *Relayer) NewMercuryProvider(rargs commontypes.RelayArgs, pargs commonty
 		return nil, pkgerrors.Wrap(err, "failed to get CSA key for mercury connection")
 	}
 
-	client, err := r.mercuryPool.Checkout(context.Background(), privKey, mercuryConfig.ServerPubKey, mercuryConfig.ServerURL())
-	if err != nil {
-		return nil, err
+	clients := make(map[string]wsrpc.Client)
+	for _, server := range mercuryConfig.GetServers() {
+		client, err := r.mercuryPool.Checkout(context.Background(), privKey, server.PubKey, server.URL)
+		if err != nil {
+			return nil, err
+		}
+		clients[server.URL] = client
 	}
 
 	// FIXME: We actually know the version here since it's in the feed ID, can
@@ -244,7 +253,7 @@ func (r *Relayer) NewMercuryProvider(rargs commontypes.RelayArgs, pargs commonty
 	default:
 		return nil, fmt.Errorf("invalid feed version %d", feedID.Version())
 	}
-	transmitter := mercury.NewTransmitter(lggr, client, privKey.PublicKey, rargs.JobID, *relayConfig.FeedID, r.db, r.pgCfg, transmitterCodec)
+	transmitter := mercury.NewTransmitter(lggr, clients, privKey.PublicKey, rargs.JobID, *relayConfig.FeedID, r.mercuryORM, transmitterCodec)
 
 	return NewMercuryProvider(cp, r.chainReader, r.codec, NewMercuryChainReader(r.chain.HeadTracker()), transmitter, reportCodecV1, reportCodecV2, reportCodecV3, lggr), nil
 }
@@ -365,8 +374,8 @@ func (r *Relayer) NewConfigProvider(args commontypes.RelayArgs) (configProvider 
 }
 
 func FilterNamesFromRelayArgs(args commontypes.RelayArgs) (filterNames []string, err error) {
-	var addr ethkey.EIP55Address
-	if addr, err = ethkey.NewEIP55Address(args.ContractID); err != nil {
+	var addr evmtypes.EIP55Address
+	if addr, err = evmtypes.NewEIP55Address(args.ContractID); err != nil {
 		return nil, err
 	}
 	var relayConfig types.RelayConfig

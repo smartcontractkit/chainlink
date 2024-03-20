@@ -2,6 +2,7 @@ package log
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"math/big"
 	"sync"
@@ -24,7 +25,6 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
-	"github.com/smartcontractkit/chainlink/v2/core/null"
 )
 
 //go:generate mockery --quiet --name Broadcaster --output ./mocks/ --case=underscore --structname Broadcaster --filename broadcaster.go
@@ -70,7 +70,7 @@ type (
 
 	BroadcasterInTest interface {
 		Broadcaster
-		BackfillBlockNumber() null.Int64
+		BackfillBlockNumber() sql.NullInt64
 		TrackedAddressesCount() uint32
 		// Pause pauses the eventLoop until Resume is called.
 		Pause()
@@ -99,7 +99,7 @@ type (
 		evmChainID big.Int
 
 		// a block number to start backfill from
-		backfillBlockNumber null.Int64
+		backfillBlockNumber sql.NullInt64
 
 		ethSubscriber *ethSubscriber
 		registrations *registrations
@@ -328,7 +328,7 @@ func (b *broadcaster) startResubscribeLoop() {
 		if from < 0 {
 			from = 0
 		}
-		b.backfillBlockNumber = null.NewInt64(from, true)
+		b.backfillBlockNumber = sql.NullInt64{Int64: from, Valid: true}
 	}
 
 	// Remove leftover unconsumed logs, maybe update pending broadcasts, and backfill sooner if necessary.
@@ -338,7 +338,8 @@ func (b *broadcaster) startResubscribeLoop() {
 		// No need to worry about r.highestNumConfirmations here because it's
 		// already at minimum this deep due to the latest seen head check above
 		if !b.backfillBlockNumber.Valid || *backfillStart < b.backfillBlockNumber.Int64 {
-			b.backfillBlockNumber.SetValid(*backfillStart)
+			b.backfillBlockNumber.Int64 = *backfillStart
+			b.backfillBlockNumber.Valid = true
 		}
 	}
 
@@ -491,7 +492,8 @@ func (b *broadcaster) onReplayRequest(replayReq replayRequest) {
 	// NOTE: This ignores r.highestNumConfirmations, but it is
 	// generally assumed that this will only be performed rarely and
 	// manually by someone who knows what he is doing
-	b.backfillBlockNumber.SetValid(replayReq.fromBlock)
+	b.backfillBlockNumber.Int64 = replayReq.fromBlock
+	b.backfillBlockNumber.Valid = true
 	if replayReq.forceBroadcast {
 		ctx, cancel := b.chStop.NewCtx()
 		defer cancel()
@@ -516,7 +518,8 @@ func (b *broadcaster) invalidatePool() int64 {
 		b.logPool = newLogPool(b.logger)
 		// Note: even if we crash right now, PendingMinBlock is preserved in the database and we will backfill the same.
 		blockNum := int64(min.(Uint64))
-		b.backfillBlockNumber.SetValid(blockNum)
+		b.backfillBlockNumber.Int64 = blockNum
+		b.backfillBlockNumber.Valid = true
 		return blockNum
 	}
 	return -1
@@ -718,7 +721,7 @@ func (b *broadcaster) TrackedAddressesCount() uint32 {
 }
 
 // test only
-func (b *broadcaster) BackfillBlockNumber() null.Int64 {
+func (b *broadcaster) BackfillBlockNumber() sql.NullInt64 {
 	return b.backfillBlockNumber
 }
 
@@ -767,8 +770,8 @@ func (n *NullBroadcaster) Register(listener Listener, opts ListenerOpts) (unsubs
 // ReplayFromBlock implements the Broadcaster interface.
 func (n *NullBroadcaster) ReplayFromBlock(number int64, forceBroadcast bool) {}
 
-func (n *NullBroadcaster) BackfillBlockNumber() null.Int64 {
-	return null.NewInt64(0, false)
+func (n *NullBroadcaster) BackfillBlockNumber() sql.NullInt64 {
+	return sql.NullInt64{Int64: 0, Valid: false}
 }
 func (n *NullBroadcaster) TrackedAddressesCount() uint32 {
 	return 0

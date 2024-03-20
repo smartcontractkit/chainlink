@@ -5,8 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"net/url"
-	"time"
 
 	gotoml "github.com/pelletier/go-toml/v2"
 	"go.uber.org/multierr"
@@ -19,16 +17,14 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
-	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
-	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/monitor"
@@ -37,7 +33,6 @@ import (
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 )
 
 //go:generate mockery --quiet --name Chain --output ./mocks/ --case=underscore
@@ -168,11 +163,11 @@ type ChainOpts struct {
 	GasEstimator gas.EvmFeeEstimator
 
 	SqlxDB *sqlx.DB // Deprecated: use DB instead
-	DB     sqlutil.DB
+	DB     sqlutil.DataSource
 
 	// TODO BCF-2513 remove test code from the API
 	// Gen-functions are useful for dependency injection by tests
-	GenEthClient      func(*big.Int) client.Client
+	GenEthClient      func(*big.Int) evmclient.Client
 	GenLogBroadcaster func(*big.Int) log.Broadcaster
 	GenLogPoller      func(*big.Int) logpoller.LogPoller
 	GenHeadTracker    func(*big.Int, httypes.HeadBroadcaster) httypes.HeadTracker
@@ -223,7 +218,7 @@ func newChain(ctx context.Context, cfg *evmconfig.ChainScoped, nodes []*toml.Nod
 	if !cfg.EVMRPCEnabled() {
 		client = evmclient.NewNullClient(chainID, l)
 	} else if opts.GenEthClient == nil {
-		client = newEthClientFromCfg(cfg.EVM().NodePool(), cfg.EVM().NodeNoNewHeadsThreshold(), l, chainID, chainType, nodes)
+		client = evmclient.NewEvmClient(cfg.EVM().NodePool(), cfg.EVM().NodeNoNewHeadsThreshold(), l, chainID, chainType, nodes)
 	} else {
 		client = opts.GenEthClient(chainID)
 	}
@@ -284,7 +279,7 @@ func newChain(ctx context.Context, cfg *evmconfig.ChainScoped, nodes []*toml.Nod
 	if !cfg.EVMRPCEnabled() {
 		logBroadcaster = &log.NullBroadcaster{ErrMsg: fmt.Sprintf("Ethereum is disabled for chain %d", chainID)}
 	} else if opts.GenLogBroadcaster == nil {
-		logORM := log.NewORM(opts.DB, *chainID)
+		logORM := log.NewORM(opts.SqlxDB, *chainID)
 		logBroadcaster = log.NewBroadcaster(logORM, client, cfg.EVM(), l, highestSeenHead, opts.MailMon)
 	} else {
 		logBroadcaster = opts.GenLogBroadcaster(chainID)
@@ -472,26 +467,3 @@ func (c *chain) HeadTracker() httypes.HeadTracker         { return c.headTracker
 func (c *chain) Logger() logger.Logger                    { return c.logger }
 func (c *chain) BalanceMonitor() monitor.BalanceMonitor   { return c.balanceMonitor }
 func (c *chain) GasEstimator() gas.EvmFeeEstimator        { return c.gasEstimator }
-
-func newEthClientFromCfg(cfg evmconfig.NodePool, noNewHeadsThreshold time.Duration, lggr logger.Logger, chainID *big.Int, chainType commonconfig.ChainType, nodes []*toml.Node) evmclient.Client {
-	var empty url.URL
-	var primaries []commonclient.Node[*big.Int, *evmtypes.Head, evmclient.RPCClient]
-	var sendonlys []commonclient.SendOnlyNode[*big.Int, evmclient.RPCClient]
-	for i, node := range nodes {
-		if node.SendOnly != nil && *node.SendOnly {
-			rpc := evmclient.NewRPCClient(lggr, empty, (*url.URL)(node.HTTPURL), *node.Name, int32(i), chainID,
-				commonclient.Secondary)
-			sendonly := commonclient.NewSendOnlyNode[*big.Int, evmclient.RPCClient](lggr, (url.URL)(*node.HTTPURL),
-				*node.Name, chainID, rpc)
-			sendonlys = append(sendonlys, sendonly)
-		} else {
-			rpc := evmclient.NewRPCClient(lggr, (url.URL)(*node.WSURL), (*url.URL)(node.HTTPURL), *node.Name, int32(i),
-				chainID, commonclient.Primary)
-			primaryNode := commonclient.NewNode[*big.Int, *evmtypes.Head, evmclient.RPCClient](cfg, noNewHeadsThreshold,
-				lggr, (url.URL)(*node.WSURL), (*url.URL)(node.HTTPURL), *node.Name, int32(i), chainID, *node.Order,
-				rpc, "EVM")
-			primaries = append(primaries, primaryNode)
-		}
-	}
-	return evmclient.NewChainClient(lggr, cfg.SelectionMode(), cfg.LeaseDuration(), noNewHeadsThreshold, primaries, sendonlys, chainID, chainType)
-}
