@@ -140,25 +140,6 @@ func (b *CLTestEnvBuilder) WithFunding(eth *big.Float) *CLTestEnvBuilder {
 	return b
 }
 
-// deprecated
-// left only for backward compatibility
-func (b *CLTestEnvBuilder) WithGeth() *CLTestEnvBuilder {
-	ethBuilder := test_env.NewEthereumNetworkBuilder()
-	cfg, err := ethBuilder.
-		WithEthereumVersion(test_env.EthereumVersion_Eth1).
-		WithExecutionLayer(test_env.ExecutionLayer_Geth).
-		WithTest(b.t).
-		Build()
-
-	if err != nil {
-		panic(err)
-	}
-
-	b.privateEthereumNetworks = append(b.privateEthereumNetworks, &cfg)
-
-	return b
-}
-
 func (b *CLTestEnvBuilder) WithSeth() *CLTestEnvBuilder {
 	b.hasSeth = true
 	b.hasEVMClient = false
@@ -341,12 +322,13 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 	}
 
 	networkConfig := networks.MustGetSelectedNetworkConfig(b.testConfig.GetNetworkConfig())[0]
-	var rpcProvider test_env.RpcProvider
 	if len(b.privateEthereumNetworks) == 1 {
 		b.te.rpcProviders = make(map[int64]*test_env.RpcProvider)
 		// TODO here we should save the ethereum network config to te.Cfg, but it doesn't exist at this point
 		// in general it seems we have no methods for saving config to file and we only load it from file
 		// but I don't know how that config file is to be created or whether anyone ever done that
+		var rpcProvider test_env.RpcProvider
+
 		b.privateEthereumNetworks[0].DockerNetworkNames = []string{b.te.DockerNetwork.Name}
 		networkConfig, rpcProvider, err = b.te.StartEthereumNetwork(b.privateEthereumNetworks[0])
 		if err != nil {
@@ -427,6 +409,10 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		if !b.isNonEVM {
 			var httpUrls []string
 			var wsUrls []string
+			rpcProvider, ok := b.te.rpcProviders[networkConfig.ChainID]
+			if !ok {
+				return nil, fmt.Errorf("rpc provider for chain %d not found", networkConfig.ChainID)
+			}
 			if networkConfig.Simulated {
 				httpUrls = rpcProvider.PrivateHttpUrls()
 				wsUrls = rpcProvider.PrivateWsUrsl()

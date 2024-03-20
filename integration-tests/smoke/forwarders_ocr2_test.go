@@ -38,7 +38,6 @@ func TestForwarderOCR2Basic(t *testing.T) {
 		WithTestInstance(t).
 		WithTestConfig(&config).
 		WithPrivateEthereumNetwork(privateNetwork).
-		WithGeth().
 		WithMockAdapter().
 		WithCLNodeConfig(node.NewConfig(node.NewBaseConfig(),
 			node.WithOCR2(),
