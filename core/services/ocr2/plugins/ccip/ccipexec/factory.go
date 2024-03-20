@@ -2,12 +2,13 @@ package ccipexec
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 )
@@ -32,7 +33,7 @@ func NewExecutionReportingPluginFactory(config ExecutionPluginStaticConfig) *Exe
 	}
 }
 
-func (rf *ExecutionReportingPluginFactory) UpdateDynamicReaders(newPriceRegAddr cciptypes.Address) error {
+func (rf *ExecutionReportingPluginFactory) UpdateDynamicReaders(ctx context.Context, newPriceRegAddr cciptypes.Address) error {
 	rf.readersMu.Lock()
 	defer rf.readersMu.Unlock()
 	// TODO: Investigate use of Close() to cleanup.
@@ -59,23 +60,39 @@ func (rf *ExecutionReportingPluginFactory) UpdateDynamicReaders(newPriceRegAddr 
 }
 
 func (rf *ExecutionReportingPluginFactory) NewReportingPlugin(config types.ReportingPluginConfig) (types.ReportingPlugin, types.ReportingPluginInfo, error) {
-	destPriceRegistry, destWrappedNative, err := rf.config.offRampReader.ChangeConfig(config.OnchainConfig, config.OffchainConfig)
+	ctx := context.Background() // todo: consider setting a timeout
+
+	destPriceRegistry, destWrappedNative, err := rf.config.offRampReader.ChangeConfig(ctx, config.OnchainConfig, config.OffchainConfig)
 	if err != nil {
 		return nil, types.ReportingPluginInfo{}, err
 	}
 	// Open dynamic readers
-	err = rf.UpdateDynamicReaders(destPriceRegistry)
+	err = rf.UpdateDynamicReaders(ctx, destPriceRegistry)
 	if err != nil {
 		return nil, types.ReportingPluginInfo{}, err
 	}
 
-	offchainConfig := rf.config.offRampReader.OffchainConfig()
+	offchainConfig, err := rf.config.offRampReader.OffchainConfig(ctx)
+	if err != nil {
+		return nil, types.ReportingPluginInfo{}, fmt.Errorf("get offchain config from offramp: %w", err)
+	}
+
+	gasPriceEstimator, err := rf.config.offRampReader.GasPriceEstimator(ctx)
+	if err != nil {
+		return nil, types.ReportingPluginInfo{}, fmt.Errorf("get gas price estimator from offramp: %w", err)
+	}
+
+	onchainConfig, err := rf.config.offRampReader.OnchainConfig(ctx)
+	if err != nil {
+		return nil, types.ReportingPluginInfo{}, fmt.Errorf("get onchain config from offramp: %w", err)
+	}
+
 	return &ExecutionReportingPlugin{
 			F:                           config.F,
 			lggr:                        rf.config.lggr.Named("ExecutionReportingPlugin"),
 			offchainConfig:              offchainConfig,
 			tokenDataWorker:             rf.config.tokenDataWorker,
-			gasPriceEstimator:           rf.config.offRampReader.GasPriceEstimator(),
+			gasPriceEstimator:           gasPriceEstimator,
 			sourcePriceRegistryProvider: rf.config.sourcePriceRegistryProvider,
 			sourcePriceRegistryLock:     sync.RWMutex{},
 			sourceWrappedNativeToken:    rf.config.sourceWrappedNativeToken,
@@ -83,11 +100,11 @@ func (rf *ExecutionReportingPluginFactory) NewReportingPlugin(config types.Repor
 			commitStoreReader:           rf.config.commitStoreReader,
 			destPriceRegistry:           rf.destPriceRegReader,
 			destWrappedNative:           destWrappedNative,
-			onchainConfig:               rf.config.offRampReader.OnchainConfig(),
+			onchainConfig:               onchainConfig,
 			offRampReader:               rf.config.offRampReader,
 			tokenPoolBatchedReader:      rf.config.tokenPoolBatchedReader,
 			inflightReports:             newInflightExecReportsContainer(offchainConfig.InflightCacheExpiry.Duration()),
-			snoozedRoots:                cache.NewSnoozedRoots(rf.config.offRampReader.OnchainConfig().PermissionLessExecutionThresholdSeconds, offchainConfig.RootSnoozeTime.Duration()),
+			snoozedRoots:                cache.NewSnoozedRoots(onchainConfig.PermissionLessExecutionThresholdSeconds, offchainConfig.RootSnoozeTime.Duration()),
 			metricsCollector:            rf.config.metricsCollector,
 			chainHealthcheck:            rf.config.chainHealthcheck,
 		}, types.ReportingPluginInfo{

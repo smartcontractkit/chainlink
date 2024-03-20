@@ -3,9 +3,9 @@
 package mocks
 
 import (
-	context "context"
+	ccip "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 
-	cciptypes "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cciptypes"
+	context "context"
 
 	mock "github.com/stretchr/testify/mock"
 
@@ -18,22 +18,22 @@ type CommitStoreReader struct {
 }
 
 // ChangeConfig provides a mock function with given fields: onchainConfig, offchainConfig
-func (_m *CommitStoreReader) ChangeConfig(onchainConfig []byte, offchainConfig []byte) (cciptypes.Address, error) {
+func (_m *CommitStoreReader) ChangeConfig(onchainConfig []byte, offchainConfig []byte) (ccip.Address, error) {
 	ret := _m.Called(onchainConfig, offchainConfig)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ChangeConfig")
 	}
 
-	var r0 cciptypes.Address
+	var r0 ccip.Address
 	var r1 error
-	if rf, ok := ret.Get(0).(func([]byte, []byte) (cciptypes.Address, error)); ok {
+	if rf, ok := ret.Get(0).(func([]byte, []byte) (ccip.Address, error)); ok {
 		return rf(onchainConfig, offchainConfig)
 	}
-	if rf, ok := ret.Get(0).(func([]byte, []byte) cciptypes.Address); ok {
+	if rf, ok := ret.Get(0).(func([]byte, []byte) ccip.Address); ok {
 		r0 = rf(onchainConfig, offchainConfig)
 	} else {
-		r0 = ret.Get(0).(cciptypes.Address)
+		r0 = ret.Get(0).(ccip.Address)
 	}
 
 	if rf, ok := ret.Get(1).(func([]byte, []byte) error); ok {
@@ -46,22 +46,22 @@ func (_m *CommitStoreReader) ChangeConfig(onchainConfig []byte, offchainConfig [
 }
 
 // DecodeCommitReport provides a mock function with given fields: report
-func (_m *CommitStoreReader) DecodeCommitReport(report []byte) (cciptypes.CommitStoreReport, error) {
+func (_m *CommitStoreReader) DecodeCommitReport(report []byte) (ccip.CommitStoreReport, error) {
 	ret := _m.Called(report)
 
 	if len(ret) == 0 {
 		panic("no return value specified for DecodeCommitReport")
 	}
 
-	var r0 cciptypes.CommitStoreReport
+	var r0 ccip.CommitStoreReport
 	var r1 error
-	if rf, ok := ret.Get(0).(func([]byte) (cciptypes.CommitStoreReport, error)); ok {
+	if rf, ok := ret.Get(0).(func([]byte) (ccip.CommitStoreReport, error)); ok {
 		return rf(report)
 	}
-	if rf, ok := ret.Get(0).(func([]byte) cciptypes.CommitStoreReport); ok {
+	if rf, ok := ret.Get(0).(func([]byte) ccip.CommitStoreReport); ok {
 		r0 = rf(report)
 	} else {
-		r0 = ret.Get(0).(cciptypes.CommitStoreReport)
+		r0 = ret.Get(0).(ccip.CommitStoreReport)
 	}
 
 	if rf, ok := ret.Get(1).(func([]byte) error); ok {
@@ -74,7 +74,7 @@ func (_m *CommitStoreReader) DecodeCommitReport(report []byte) (cciptypes.Commit
 }
 
 // EncodeCommitReport provides a mock function with given fields: report
-func (_m *CommitStoreReader) EncodeCommitReport(report cciptypes.CommitStoreReport) ([]byte, error) {
+func (_m *CommitStoreReader) EncodeCommitReport(report ccip.CommitStoreReport) ([]byte, error) {
 	ret := _m.Called(report)
 
 	if len(ret) == 0 {
@@ -83,10 +83,10 @@ func (_m *CommitStoreReader) EncodeCommitReport(report cciptypes.CommitStoreRepo
 
 	var r0 []byte
 	var r1 error
-	if rf, ok := ret.Get(0).(func(cciptypes.CommitStoreReport) ([]byte, error)); ok {
+	if rf, ok := ret.Get(0).(func(ccip.CommitStoreReport) ([]byte, error)); ok {
 		return rf(report)
 	}
-	if rf, ok := ret.Get(0).(func(cciptypes.CommitStoreReport) []byte); ok {
+	if rf, ok := ret.Get(0).(func(ccip.CommitStoreReport) []byte); ok {
 		r0 = rf(report)
 	} else {
 		if ret.Get(0) != nil {
@@ -94,7 +94,7 @@ func (_m *CommitStoreReader) EncodeCommitReport(report cciptypes.CommitStoreRepo
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(cciptypes.CommitStoreReport) error); ok {
+	if rf, ok := ret.Get(1).(func(ccip.CommitStoreReport) error); ok {
 		r1 = rf(report)
 	} else {
 		r1 = ret.Error(1)
@@ -104,19 +104,19 @@ func (_m *CommitStoreReader) EncodeCommitReport(report cciptypes.CommitStoreRepo
 }
 
 // GasPriceEstimator provides a mock function with given fields:
-func (_m *CommitStoreReader) GasPriceEstimator() cciptypes.GasPriceEstimatorCommit {
+func (_m *CommitStoreReader) GasPriceEstimator() ccip.GasPriceEstimatorCommit {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for GasPriceEstimator")
 	}
 
-	var r0 cciptypes.GasPriceEstimatorCommit
-	if rf, ok := ret.Get(0).(func() cciptypes.GasPriceEstimatorCommit); ok {
+	var r0 ccip.GasPriceEstimatorCommit
+	if rf, ok := ret.Get(0).(func() ccip.GasPriceEstimatorCommit); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(cciptypes.GasPriceEstimatorCommit)
+			r0 = ret.Get(0).(ccip.GasPriceEstimatorCommit)
 		}
 	}
 
@@ -124,23 +124,23 @@ func (_m *CommitStoreReader) GasPriceEstimator() cciptypes.GasPriceEstimatorComm
 }
 
 // GetAcceptedCommitReportsGteTimestamp provides a mock function with given fields: ctx, ts, confirmations
-func (_m *CommitStoreReader) GetAcceptedCommitReportsGteTimestamp(ctx context.Context, ts time.Time, confirmations int) ([]cciptypes.CommitStoreReportWithTxMeta, error) {
+func (_m *CommitStoreReader) GetAcceptedCommitReportsGteTimestamp(ctx context.Context, ts time.Time, confirmations int) ([]ccip.CommitStoreReportWithTxMeta, error) {
 	ret := _m.Called(ctx, ts, confirmations)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetAcceptedCommitReportsGteTimestamp")
 	}
 
-	var r0 []cciptypes.CommitStoreReportWithTxMeta
+	var r0 []ccip.CommitStoreReportWithTxMeta
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, time.Time, int) ([]cciptypes.CommitStoreReportWithTxMeta, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, time.Time, int) ([]ccip.CommitStoreReportWithTxMeta, error)); ok {
 		return rf(ctx, ts, confirmations)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, time.Time, int) []cciptypes.CommitStoreReportWithTxMeta); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, time.Time, int) []ccip.CommitStoreReportWithTxMeta); ok {
 		r0 = rf(ctx, ts, confirmations)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]cciptypes.CommitStoreReportWithTxMeta)
+			r0 = ret.Get(0).([]ccip.CommitStoreReportWithTxMeta)
 		}
 	}
 
@@ -154,23 +154,23 @@ func (_m *CommitStoreReader) GetAcceptedCommitReportsGteTimestamp(ctx context.Co
 }
 
 // GetCommitReportMatchingSeqNum provides a mock function with given fields: ctx, seqNum, confirmations
-func (_m *CommitStoreReader) GetCommitReportMatchingSeqNum(ctx context.Context, seqNum uint64, confirmations int) ([]cciptypes.CommitStoreReportWithTxMeta, error) {
+func (_m *CommitStoreReader) GetCommitReportMatchingSeqNum(ctx context.Context, seqNum uint64, confirmations int) ([]ccip.CommitStoreReportWithTxMeta, error) {
 	ret := _m.Called(ctx, seqNum, confirmations)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetCommitReportMatchingSeqNum")
 	}
 
-	var r0 []cciptypes.CommitStoreReportWithTxMeta
+	var r0 []ccip.CommitStoreReportWithTxMeta
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, uint64, int) ([]cciptypes.CommitStoreReportWithTxMeta, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, uint64, int) ([]ccip.CommitStoreReportWithTxMeta, error)); ok {
 		return rf(ctx, seqNum, confirmations)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, uint64, int) []cciptypes.CommitStoreReportWithTxMeta); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, uint64, int) []ccip.CommitStoreReportWithTxMeta); ok {
 		r0 = rf(ctx, seqNum, confirmations)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]cciptypes.CommitStoreReportWithTxMeta)
+			r0 = ret.Get(0).([]ccip.CommitStoreReportWithTxMeta)
 		}
 	}
 
@@ -184,22 +184,22 @@ func (_m *CommitStoreReader) GetCommitReportMatchingSeqNum(ctx context.Context, 
 }
 
 // GetCommitStoreStaticConfig provides a mock function with given fields: ctx
-func (_m *CommitStoreReader) GetCommitStoreStaticConfig(ctx context.Context) (cciptypes.CommitStoreStaticConfig, error) {
+func (_m *CommitStoreReader) GetCommitStoreStaticConfig(ctx context.Context) (ccip.CommitStoreStaticConfig, error) {
 	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetCommitStoreStaticConfig")
 	}
 
-	var r0 cciptypes.CommitStoreStaticConfig
+	var r0 ccip.CommitStoreStaticConfig
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context) (cciptypes.CommitStoreStaticConfig, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context) (ccip.CommitStoreStaticConfig, error)); ok {
 		return rf(ctx)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context) cciptypes.CommitStoreStaticConfig); ok {
+	if rf, ok := ret.Get(0).(func(context.Context) ccip.CommitStoreStaticConfig); ok {
 		r0 = rf(ctx)
 	} else {
-		r0 = ret.Get(0).(cciptypes.CommitStoreStaticConfig)
+		r0 = ret.Get(0).(ccip.CommitStoreStaticConfig)
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
@@ -352,25 +352,25 @@ func (_m *CommitStoreReader) IsDown(ctx context.Context) (bool, error) {
 }
 
 // OffchainConfig provides a mock function with given fields:
-func (_m *CommitStoreReader) OffchainConfig() cciptypes.CommitOffchainConfig {
+func (_m *CommitStoreReader) OffchainConfig() ccip.CommitOffchainConfig {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for OffchainConfig")
 	}
 
-	var r0 cciptypes.CommitOffchainConfig
-	if rf, ok := ret.Get(0).(func() cciptypes.CommitOffchainConfig); ok {
+	var r0 ccip.CommitOffchainConfig
+	if rf, ok := ret.Get(0).(func() ccip.CommitOffchainConfig); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(cciptypes.CommitOffchainConfig)
+		r0 = ret.Get(0).(ccip.CommitOffchainConfig)
 	}
 
 	return r0
 }
 
 // VerifyExecutionReport provides a mock function with given fields: ctx, report
-func (_m *CommitStoreReader) VerifyExecutionReport(ctx context.Context, report cciptypes.ExecReport) (bool, error) {
+func (_m *CommitStoreReader) VerifyExecutionReport(ctx context.Context, report ccip.ExecReport) (bool, error) {
 	ret := _m.Called(ctx, report)
 
 	if len(ret) == 0 {
@@ -379,16 +379,16 @@ func (_m *CommitStoreReader) VerifyExecutionReport(ctx context.Context, report c
 
 	var r0 bool
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, cciptypes.ExecReport) (bool, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, ccip.ExecReport) (bool, error)); ok {
 		return rf(ctx, report)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, cciptypes.ExecReport) bool); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, ccip.ExecReport) bool); ok {
 		r0 = rf(ctx, report)
 	} else {
 		r0 = ret.Get(0).(bool)
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, cciptypes.ExecReport) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, ccip.ExecReport) error); ok {
 		r1 = rf(ctx, report)
 	} else {
 		r1 = ret.Error(1)

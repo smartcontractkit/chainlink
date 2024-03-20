@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	legacyEvmORMMocks "github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
@@ -44,10 +45,12 @@ func TestGetExecutionPluginFilterNamesFromSpec(t *testing.T) {
 		},
 	}
 
+	ctx := testutils.Context(t)
+
 	for _, tc := range testCases {
 		chainSet := &legacyEvmORMMocks.LegacyChainContainer{}
 		t.Run(tc.description, func(t *testing.T) {
-			err := UnregisterExecPluginLpFilters(logger.TestLogger(t), job.Job{OCR2OracleSpec: tc.spec}, chainSet)
+			err := UnregisterExecPluginLpFilters(ctx, logger.TestLogger(t), job.Job{OCR2OracleSpec: tc.spec}, chainSet)
 			if tc.expectingErr {
 				assert.Error(t, err)
 			} else {

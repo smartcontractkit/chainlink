@@ -89,7 +89,7 @@ func NewCCIPExecutionProvider(ctx context.Context, lggr logger.Logger, chainSet 
 	if err != nil {
 		return nil, err
 	}
-	fn, err := ccipexec.ExecReportToEthTxMeta(typ, ver)
+	fn, err := ccipexec.ExecReportToEthTxMeta(ctx, typ, ver)
 	if err != nil {
 		return nil, err
 	}
