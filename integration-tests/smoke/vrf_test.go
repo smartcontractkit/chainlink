@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/vrfv1"
@@ -44,16 +45,20 @@ func TestVRFBasic(t *testing.T) {
 	require.NoError(t, err)
 	env.ParallelTransactions(true)
 
+	network := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0]
+	evmClient, err := env.GetEVMClient(network.ChainID)
+	require.NoError(t, err, "Getting EVM client shouldn't fail")
+
 	lt, err := actions.DeployLINKToken(env.ContractDeployer)
 	require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
-	contracts, err := vrfv1.DeployVRFContracts(env.ContractDeployer, env.EVMClient, lt)
+	contracts, err := vrfv1.DeployVRFContracts(env.ContractDeployer, evmClient, lt)
 	require.NoError(t, err, "Deploying VRF Contracts shouldn't fail")
 
 	err = lt.Transfer(contracts.Consumer.Address(), big.NewInt(2e18))
 	require.NoError(t, err, "Funding consumer contract shouldn't fail")
 	_, err = env.ContractDeployer.DeployVRFContract()
 	require.NoError(t, err, "Deploying VRF contract shouldn't fail")
-	err = env.EVMClient.WaitForEvents()
+	err = evmClient.WaitForEvents()
 	require.NoError(t, err, "Waiting for event subscriptions in nodes shouldn't fail")
 
 	for _, n := range env.ClCluster.Nodes {
@@ -73,7 +78,7 @@ func TestVRFBasic(t *testing.T) {
 			MinIncomingConfirmations: 1,
 			PublicKey:                pubKeyCompressed,
 			ExternalJobID:            jobUUID.String(),
-			EVMChainID:               env.EVMClient.GetChainID().String(),
+			EVMChainID:               evmClient.GetChainID().String(),
 			ObservationSource:        ost,
 		})
 		require.NoError(t, err, "Creating VRF Job shouldn't fail")
@@ -141,16 +146,20 @@ func TestVRFJobReplacement(t *testing.T) {
 	require.NoError(t, err)
 	env.ParallelTransactions(true)
 
+	network := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0]
+	evmClient, err := env.GetEVMClient(network.ChainID)
+	require.NoError(t, err, "Getting EVM client shouldn't fail")
+
 	lt, err := actions.DeployLINKToken(env.ContractDeployer)
 	require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
-	contracts, err := vrfv1.DeployVRFContracts(env.ContractDeployer, env.EVMClient, lt)
+	contracts, err := vrfv1.DeployVRFContracts(env.ContractDeployer, evmClient, lt)
 	require.NoError(t, err, "Deploying VRF Contracts shouldn't fail")
 
 	err = lt.Transfer(contracts.Consumer.Address(), big.NewInt(2e18))
 	require.NoError(t, err, "Funding consumer contract shouldn't fail")
 	_, err = env.ContractDeployer.DeployVRFContract()
 	require.NoError(t, err, "Deploying VRF contract shouldn't fail")
-	err = env.EVMClient.WaitForEvents()
+	err = evmClient.WaitForEvents()
 	require.NoError(t, err, "Waiting for event subscriptions in nodes shouldn't fail")
 
 	for _, n := range env.ClCluster.Nodes {
@@ -170,7 +179,7 @@ func TestVRFJobReplacement(t *testing.T) {
 			MinIncomingConfirmations: 1,
 			PublicKey:                pubKeyCompressed,
 			ExternalJobID:            jobUUID.String(),
-			EVMChainID:               env.EVMClient.GetChainID().String(),
+			EVMChainID:               evmClient.GetChainID().String(),
 			ObservationSource:        ost,
 		})
 		require.NoError(t, err, "Creating VRF Job shouldn't fail")
@@ -219,7 +228,7 @@ func TestVRFJobReplacement(t *testing.T) {
 			MinIncomingConfirmations: 1,
 			PublicKey:                pubKeyCompressed,
 			ExternalJobID:            jobUUID.String(),
-			EVMChainID:               env.EVMClient.GetChainID().String(),
+			EVMChainID:               evmClient.GetChainID().String(),
 			ObservationSource:        ost,
 		})
 		require.NoError(t, err, "Recreating VRF Job shouldn't fail")
