@@ -48,7 +48,7 @@ contract VRFV2PlusWrapper_MigrationTest is BaseTest {
     // Deploy coordinator and consumer.
     s_testCoordinator = new ExposedVRFCoordinatorV2_5(address(0));
     s_wrapper = new VRFV2PlusWrapper(address(s_linkToken), address(s_linkNativeFeed), address(s_testCoordinator));
-    s_consumer = new VRFV2PlusWrapperConsumerExample(address(s_linkToken), address(s_wrapper));
+    s_consumer = new VRFV2PlusWrapperConsumerExample(address(s_wrapper));
 
     // Configure the coordinator.
     s_testCoordinator.setLINKAndLINKNativeFeed(address(s_linkToken), address(s_linkNativeFeed));
@@ -89,13 +89,14 @@ contract VRFV2PlusWrapper_MigrationTest is BaseTest {
     s_wrapper.setConfig(
       wrapperGasOverhead, // wrapper gas overhead
       coordinatorGasOverhead, // coordinator gas overhead
-      0, // premium percentage
+      0, // native premium percentage,
+      0, // link premium percentage
       vrfKeyHash, // keyHash
       10, // max number of words,
       1, // stalenessSeconds
       50000000000000000, // fallbackWeiPerUnitLink
-      0, // fulfillmentFlatFeeLinkPPM
-      0 // fulfillmentFlatFeeNativePPM
+      0, // fulfillmentFlatFeeNativePPM
+      0 // fulfillmentFlatFeeLinkDiscountPPM
     );
     (
       ,
@@ -104,13 +105,15 @@ contract VRFV2PlusWrapper_MigrationTest is BaseTest {
       ,
       uint32 _wrapperGasOverhead,
       uint32 _coordinatorGasOverhead,
-      uint8 _wrapperPremiumPercentage,
+      uint8 _wrapperNativePremiumPercentage,
+      uint8 _wrapperLinkPremiumPercentage,
       bytes32 _keyHash,
       uint8 _maxNumWords
     ) = s_wrapper.getConfig();
     assertEq(_wrapperGasOverhead, wrapperGasOverhead);
     assertEq(_coordinatorGasOverhead, coordinatorGasOverhead);
-    assertEq(0, _wrapperPremiumPercentage);
+    assertEq(0, _wrapperNativePremiumPercentage);
+    assertEq(0, _wrapperLinkPremiumPercentage);
     assertEq(vrfKeyHash, _keyHash);
     assertEq(10, _maxNumWords);
   }
