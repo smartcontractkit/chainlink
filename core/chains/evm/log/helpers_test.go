@@ -41,7 +41,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
@@ -93,7 +92,7 @@ func newBroadcasterHelperWithEthClient(t *testing.T, ethClient evmclient.Client,
 	mailMon := servicetest.Run(t, mailboxtest.NewMonitor(t))
 
 	db := pgtest.NewSqlxDB(t)
-	orm := log.NewORM(db, lggr, config.Database(), cltest.FixtureChainID)
+	orm := log.NewORM(db, cltest.FixtureChainID)
 	lb := log.NewTestBroadcaster(orm, ethClient, config.EVM(), lggr, highestSeenHead, mailMon)
 	kst := cltest.NewKeyStore(t, db, globalConfig.Database())
 
@@ -247,7 +246,6 @@ func (rec *received) logsOnBlocks() []logOnBlock {
 type simpleLogListener struct {
 	name                string
 	lggr                logger.SugaredLogger
-	cfg                 pg.QConfig
 	received            *received
 	t                   *testing.T
 	db                  *sqlx.DB
@@ -272,7 +270,6 @@ func (helper *broadcasterHelper) newLogListenerWithJob(name string) *simpleLogLi
 	return &simpleLogListener{
 		db:       db,
 		lggr:     logger.Sugared(logger.Test(t)),
-		cfg:      helper.config.Database(),
 		name:     name,
 		received: &rec,
 		t:        t,
@@ -326,16 +323,17 @@ func (listener *simpleLogListener) requireAllReceived(t *testing.T, expectedStat
 
 func (listener *simpleLogListener) handleLogBroadcast(lb log.Broadcast) bool {
 	t := listener.t
-	consumed, err := listener.WasAlreadyConsumed(lb)
+	ctx := testutils.Context(t)
+	consumed, err := listener.WasAlreadyConsumed(ctx, lb)
 	if !assert.NoError(t, err) {
 		return false
 	}
 	if !consumed && !listener.skipMarkingConsumed.Load() {
 
-		err = listener.MarkConsumed(lb)
+		err = listener.MarkConsumed(ctx, lb)
 		if assert.NoError(t, err) {
 
-			consumed2, err := listener.WasAlreadyConsumed(lb)
+			consumed2, err := listener.WasAlreadyConsumed(ctx, lb)
 			if assert.NoError(t, err) {
 				assert.True(t, consumed2)
 			}
@@ -344,12 +342,12 @@ func (listener *simpleLogListener) handleLogBroadcast(lb log.Broadcast) bool {
 	return consumed
 }
 
-func (listener *simpleLogListener) WasAlreadyConsumed(broadcast log.Broadcast) (bool, error) {
-	return log.NewORM(listener.db, listener.lggr, listener.cfg, cltest.FixtureChainID).WasBroadcastConsumed(broadcast.RawLog().BlockHash, broadcast.RawLog().Index, listener.jobID)
+func (listener *simpleLogListener) WasAlreadyConsumed(ctx context.Context, broadcast log.Broadcast) (bool, error) {
+	return log.NewORM(listener.db, cltest.FixtureChainID).WasBroadcastConsumed(ctx, broadcast.RawLog().BlockHash, broadcast.RawLog().Index, listener.jobID)
 }
 
-func (listener *simpleLogListener) MarkConsumed(broadcast log.Broadcast) error {
-	return log.NewORM(listener.db, listener.lggr, listener.cfg, cltest.FixtureChainID).MarkBroadcastConsumed(broadcast.RawLog().BlockHash, broadcast.RawLog().BlockNumber, broadcast.RawLog().Index, listener.jobID)
+func (listener *simpleLogListener) MarkConsumed(ctx context.Context, broadcast log.Broadcast) error {
+	return log.NewORM(listener.db, cltest.FixtureChainID).MarkBroadcastConsumed(ctx, broadcast.RawLog().BlockHash, broadcast.RawLog().BlockNumber, broadcast.RawLog().Index, listener.jobID)
 }
 
 type mockListener struct {
