@@ -218,7 +218,7 @@ func (e *execProviderClient) NewOnRampReader(ctx context.Context, addr cciptypes
 		return nil, fmt.Errorf("failed to lookup on ramp reader service at %d: %w", resp.OnrampReaderServiceId, err)
 	}
 	// need to wrap grpc onRamp into the desired interface
-	onRamp := ccipinternal.NewOnRampReaderClient(onRampConn)
+	onRamp := ccipinternal.NewOnRampReaderGRPCClient(onRampConn)
 
 	// how to convert resp to cciptypes.OnRampReader? i have an id and need to hydrate that into an instance of OnRampReader
 	return onRamp, nil
@@ -294,8 +294,6 @@ type execProviderServer struct {
 	// BCF-3061 this has to be a shared pointer to the same impl as the execProviderClient
 	*net.BrokerExt
 	impl types.CCIPExecProvider
-
-	deps net.Resources
 }
 
 // Close implements ccippb.ExecutionCustomHandlersServer.
@@ -360,7 +358,7 @@ func (e *execProviderServer) NewOnRampReader(ctx context.Context, req *ccippb.Ne
 		return nil, err
 	}
 	// wrap the reader in a grpc server and serve it
-	srv := ccipinternal.NewOnRampReaderServer(reader)
+	srv := ccipinternal.NewOnRampReaderGRPCServer(reader)
 	// the id is handle to the broker, we will need it on the other side to dial the resource
 	onRampID, onRampResource, err := e.ServeNew("OnRampReader", func(s *grpc.Server) {
 		ccippb.RegisterOnRampReaderServer(s, srv)
@@ -368,10 +366,8 @@ func (e *execProviderServer) NewOnRampReader(ctx context.Context, req *ccippb.Ne
 	if err != nil {
 		return nil, err
 	}
-	// TODO BCF-3067 LEAKS!!!
-	// this dependency needs to be closed when the onramp reader is closed, which
-	// should happen when the calling reporting plugin is closed/goes out of scope
-	e.deps.Add(onRampResource)
+	// ensure the grpc server is closed when the onRamp is closed. See comment in NewPriceRegistryReader for more details
+	srv.AddDep(onRampResource)
 	return &ccippb.NewOnRampReaderResponse{OnrampReaderServiceId: int32(onRampID)}, nil
 }
 

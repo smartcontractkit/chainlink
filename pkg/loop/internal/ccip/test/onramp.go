@@ -11,13 +11,13 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 )
 
-// OnRamp is a static test implementation of [testtypes.Evaluator] for [ccip.OnRampReader].
+// OnRampReader is a static test implementation of [testtypes.Evaluator] for [ccip.OnRampReader].
 // The implementation is a simple struct that returns predefined responses.
-var OnRamp = staticOnRamp{
+var OnRampReader = staticOnRamp{
 	staticOnRampConfig: staticOnRampConfig{
 		addressResponse: ccip.Address("some-address"),
 		routerResponse:  ccip.Address("some-router"),
-		configResponse: ccip.OnRampDynamicConfig{
+		dynamicConfigResponse: ccip.OnRampDynamicConfig{
 			Router:                            "some-router",
 			MaxNumberOfTokensPerMsg:           11,
 			DestGasOverhead:                   13,
@@ -83,7 +83,7 @@ var _ OnRampEvaluator = staticOnRamp{}
 type staticOnRampConfig struct {
 	addressResponse              ccip.Address
 	routerResponse               ccip.Address
-	configResponse               ccip.OnRampDynamicConfig
+	dynamicConfigResponse        ccip.OnRampDynamicConfig
 	isSourceChainHealthyResponse bool
 	isSourceCursedResponse       bool
 	sourcePriceRegistryResponse  ccip.Address
@@ -96,13 +96,18 @@ type staticOnRamp struct {
 }
 
 // Address implements OnRampEvaluator.
-func (s staticOnRamp) Address() (ccip.Address, error) {
+func (s staticOnRamp) Address(context.Context) (ccip.Address, error) {
 	return s.addressResponse, nil
+}
+
+// Close implements OnRampEvaluator.
+func (s staticOnRamp) Close() error {
+	return nil
 }
 
 // Evaluate implements OnRampEvaluator. It checks that the responses match the expected values.
 func (s staticOnRamp) Evaluate(ctx context.Context, other ccip.OnRampReader) error {
-	address, err := other.Address()
+	address, err := other.Address(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get address: %w", err)
 	}
@@ -110,7 +115,7 @@ func (s staticOnRamp) Evaluate(ctx context.Context, other ccip.OnRampReader) err
 		return fmt.Errorf("expected address %s but got %s", s.addressResponse, address)
 	}
 
-	router, err := other.RouterAddress()
+	router, err := other.RouterAddress(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get router: %w", err)
 	}
@@ -118,12 +123,12 @@ func (s staticOnRamp) Evaluate(ctx context.Context, other ccip.OnRampReader) err
 		return fmt.Errorf("expected router %s but got %s", s.routerResponse, router)
 	}
 
-	config, err := other.GetDynamicConfig()
+	config, err := other.GetDynamicConfig(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get config: %w", err)
 	}
-	if config != s.configResponse {
-		return fmt.Errorf("expected config %v but got %v", s.configResponse, config)
+	if config != s.dynamicConfigResponse {
+		return fmt.Errorf("expected config %v but got %v", s.dynamicConfigResponse, config)
 	}
 
 	sendRequests, err := other.GetSendRequestsBetweenSeqNums(ctx, s.getSendRequestsBetweenSeqNums.SeqNumMin, s.getSendRequestsBetweenSeqNums.SeqNumMax, s.getSendRequestsBetweenSeqNums.Finalized)
@@ -134,7 +139,7 @@ func (s staticOnRamp) Evaluate(ctx context.Context, other ccip.OnRampReader) err
 		return fmt.Errorf("expected send requests %v but got %v", s.getSendRequestsBetweenSeqNumsResponse.EVM2EVMMessageWithTxMeta, sendRequests)
 	}
 
-	// TODO: BCF-2874
+	// TODO: BCF-3106
 	//isSourceChainHealthy, err := other.IsSourceChainHealthy(ctx)
 	//if err != nil {
 	//	return fmt.Errorf("is source chain healthy: %w", err)
@@ -163,8 +168,8 @@ func (s staticOnRamp) Evaluate(ctx context.Context, other ccip.OnRampReader) err
 }
 
 // GetDynamicConfig implements OnRampEvaluator.
-func (s staticOnRamp) GetDynamicConfig() (ccip.OnRampDynamicConfig, error) {
-	return s.configResponse, nil
+func (s staticOnRamp) GetDynamicConfig(context.Context) (ccip.OnRampDynamicConfig, error) {
+	return s.dynamicConfigResponse, nil
 }
 
 // GetSendRequestsBetweenSeqNums implements OnRampEvaluator.
@@ -182,7 +187,7 @@ func (s staticOnRamp) GetSendRequestsBetweenSeqNums(ctx context.Context, seqNumM
 }
 
 // RouterAddress implements OnRampEvaluator.
-func (s staticOnRamp) RouterAddress() (ccip.Address, error) {
+func (s staticOnRamp) RouterAddress(context.Context) (ccip.Address, error) {
 	return s.routerResponse, nil
 }
 

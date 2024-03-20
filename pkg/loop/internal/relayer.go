@@ -484,14 +484,6 @@ func (r *relayerServer) newExecProvider(ctx context.Context, relayArgs types.Rel
 
 	id, _, err := r.ServeNew(name, func(s *grpc.Server) {
 		registerPluginProviderServices(s, provider)
-		// TODO BCF-3067 LEAKS!!!
-		// the execution provider can create network.resources. how to prevent a leak?
-		// here we are a stand alone server in relayer. there is no reporting plugin instance
-		// maybe the best thing to do is promote all the ccip interfaces to services
-		// and expect/force clients to close them
-		// maybe it's possible to pass reference via a context such that the reporting plugin could
-		// tell the provider to close all the network.resources it created on behalf of the plugin
-		// but this seems very intricate
 		registerCustomExecutionProviderServices(s, provider, r.BrokerExt)
 	}, providerRes)
 	if err != nil {

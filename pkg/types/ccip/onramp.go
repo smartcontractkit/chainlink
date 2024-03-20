@@ -2,6 +2,7 @@ package ccip
 
 import (
 	"context"
+	"io"
 	"math/big"
 )
 
@@ -50,23 +51,18 @@ type TokenAmount struct {
 }
 
 type OnRampReader interface {
+	Address(ctx context.Context) (Address, error)
+	GetDynamicConfig(ctx context.Context) (OnRampDynamicConfig, error)
 	// GetSendRequestsBetweenSeqNums returns all the finalized message send requests in the provided sequence numbers range (inclusive).
 	GetSendRequestsBetweenSeqNums(ctx context.Context, seqNumMin, seqNumMax uint64, finalized bool) ([]EVM2EVMMessageWithTxMeta, error)
-
-	// RouterAddress returns the router address that is configured on the onRamp
-	RouterAddress() (Address, error)
-
-	Address() (Address, error)
-
-	GetDynamicConfig() (OnRampDynamicConfig, error)
-
 	// IsSourceChainHealthy returns true if the source chain is healthy.
 	IsSourceChainHealthy(ctx context.Context) (bool, error)
-
 	// IsSourceCursed returns true if the source chain is cursed. OnRamp communicates with the underlying RMN
 	// to verify if source chain was cursed or not.
 	IsSourceCursed(ctx context.Context) (bool, error)
-
+	// RouterAddress returns the router address that is configured on the onRamp
+	RouterAddress(context.Context) (Address, error)
 	// SourcePriceRegistryAddress returns the address of the current price registry configured on the onRamp.
 	SourcePriceRegistryAddress(ctx context.Context) (Address, error)
+	io.Closer
 }

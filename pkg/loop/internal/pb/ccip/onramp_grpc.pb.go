@@ -20,20 +20,22 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	OnRampReader_GetSendRequestsBetweenSeqNums_FullMethodName = "/loop.internal.pb.ccip.OnRampReader/GetSendRequestsBetweenSeqNums"
-	OnRampReader_RouterAddress_FullMethodName                 = "/loop.internal.pb.ccip.OnRampReader/RouterAddress"
 	OnRampReader_Address_FullMethodName                       = "/loop.internal.pb.ccip.OnRampReader/Address"
 	OnRampReader_GetDynamicConfig_FullMethodName              = "/loop.internal.pb.ccip.OnRampReader/GetDynamicConfig"
+	OnRampReader_GetSendRequestsBetweenSeqNums_FullMethodName = "/loop.internal.pb.ccip.OnRampReader/GetSendRequestsBetweenSeqNums"
+	OnRampReader_RouterAddress_FullMethodName                 = "/loop.internal.pb.ccip.OnRampReader/RouterAddress"
+	OnRampReader_Close_FullMethodName                         = "/loop.internal.pb.ccip.OnRampReader/Close"
 )
 
 // OnRampReaderClient is the client API for OnRampReader service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type OnRampReaderClient interface {
-	GetSendRequestsBetweenSeqNums(ctx context.Context, in *GetSendRequestsBetweenSeqNumsRequest, opts ...grpc.CallOption) (*GetSendRequestsBetweenSeqNumsResponse, error)
-	RouterAddress(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*RouterAddressResponse, error)
 	Address(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*OnrampAddressResponse, error)
 	GetDynamicConfig(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GetDynamicConfigResponse, error)
+	GetSendRequestsBetweenSeqNums(ctx context.Context, in *GetSendRequestsBetweenSeqNumsRequest, opts ...grpc.CallOption) (*GetSendRequestsBetweenSeqNumsResponse, error)
+	RouterAddress(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*RouterAddressResponse, error)
+	Close(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type onRampReaderClient struct {
@@ -42,24 +44,6 @@ type onRampReaderClient struct {
 
 func NewOnRampReaderClient(cc grpc.ClientConnInterface) OnRampReaderClient {
 	return &onRampReaderClient{cc}
-}
-
-func (c *onRampReaderClient) GetSendRequestsBetweenSeqNums(ctx context.Context, in *GetSendRequestsBetweenSeqNumsRequest, opts ...grpc.CallOption) (*GetSendRequestsBetweenSeqNumsResponse, error) {
-	out := new(GetSendRequestsBetweenSeqNumsResponse)
-	err := c.cc.Invoke(ctx, OnRampReader_GetSendRequestsBetweenSeqNums_FullMethodName, in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *onRampReaderClient) RouterAddress(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*RouterAddressResponse, error) {
-	out := new(RouterAddressResponse)
-	err := c.cc.Invoke(ctx, OnRampReader_RouterAddress_FullMethodName, in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
 }
 
 func (c *onRampReaderClient) Address(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*OnrampAddressResponse, error) {
@@ -80,14 +64,42 @@ func (c *onRampReaderClient) GetDynamicConfig(ctx context.Context, in *emptypb.E
 	return out, nil
 }
 
+func (c *onRampReaderClient) GetSendRequestsBetweenSeqNums(ctx context.Context, in *GetSendRequestsBetweenSeqNumsRequest, opts ...grpc.CallOption) (*GetSendRequestsBetweenSeqNumsResponse, error) {
+	out := new(GetSendRequestsBetweenSeqNumsResponse)
+	err := c.cc.Invoke(ctx, OnRampReader_GetSendRequestsBetweenSeqNums_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *onRampReaderClient) RouterAddress(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*RouterAddressResponse, error) {
+	out := new(RouterAddressResponse)
+	err := c.cc.Invoke(ctx, OnRampReader_RouterAddress_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *onRampReaderClient) Close(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, OnRampReader_Close_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // OnRampReaderServer is the server API for OnRampReader service.
 // All implementations must embed UnimplementedOnRampReaderServer
 // for forward compatibility
 type OnRampReaderServer interface {
-	GetSendRequestsBetweenSeqNums(context.Context, *GetSendRequestsBetweenSeqNumsRequest) (*GetSendRequestsBetweenSeqNumsResponse, error)
-	RouterAddress(context.Context, *emptypb.Empty) (*RouterAddressResponse, error)
 	Address(context.Context, *emptypb.Empty) (*OnrampAddressResponse, error)
 	GetDynamicConfig(context.Context, *emptypb.Empty) (*GetDynamicConfigResponse, error)
+	GetSendRequestsBetweenSeqNums(context.Context, *GetSendRequestsBetweenSeqNumsRequest) (*GetSendRequestsBetweenSeqNumsResponse, error)
+	RouterAddress(context.Context, *emptypb.Empty) (*RouterAddressResponse, error)
+	Close(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	mustEmbedUnimplementedOnRampReaderServer()
 }
 
@@ -95,17 +107,20 @@ type OnRampReaderServer interface {
 type UnimplementedOnRampReaderServer struct {
 }
 
+func (UnimplementedOnRampReaderServer) Address(context.Context, *emptypb.Empty) (*OnrampAddressResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Address not implemented")
+}
+func (UnimplementedOnRampReaderServer) GetDynamicConfig(context.Context, *emptypb.Empty) (*GetDynamicConfigResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetDynamicConfig not implemented")
+}
 func (UnimplementedOnRampReaderServer) GetSendRequestsBetweenSeqNums(context.Context, *GetSendRequestsBetweenSeqNumsRequest) (*GetSendRequestsBetweenSeqNumsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetSendRequestsBetweenSeqNums not implemented")
 }
 func (UnimplementedOnRampReaderServer) RouterAddress(context.Context, *emptypb.Empty) (*RouterAddressResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RouterAddress not implemented")
 }
-func (UnimplementedOnRampReaderServer) Address(context.Context, *emptypb.Empty) (*OnrampAddressResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Address not implemented")
-}
-func (UnimplementedOnRampReaderServer) GetDynamicConfig(context.Context, *emptypb.Empty) (*GetDynamicConfigResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetDynamicConfig not implemented")
+func (UnimplementedOnRampReaderServer) Close(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Close not implemented")
 }
 func (UnimplementedOnRampReaderServer) mustEmbedUnimplementedOnRampReaderServer() {}
 
@@ -118,42 +133,6 @@ type UnsafeOnRampReaderServer interface {
 
 func RegisterOnRampReaderServer(s grpc.ServiceRegistrar, srv OnRampReaderServer) {
 	s.RegisterService(&OnRampReader_ServiceDesc, srv)
-}
-
-func _OnRampReader_GetSendRequestsBetweenSeqNums_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetSendRequestsBetweenSeqNumsRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(OnRampReaderServer).GetSendRequestsBetweenSeqNums(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: OnRampReader_GetSendRequestsBetweenSeqNums_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(OnRampReaderServer).GetSendRequestsBetweenSeqNums(ctx, req.(*GetSendRequestsBetweenSeqNumsRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _OnRampReader_RouterAddress_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(emptypb.Empty)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(OnRampReaderServer).RouterAddress(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: OnRampReader_RouterAddress_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(OnRampReaderServer).RouterAddress(ctx, req.(*emptypb.Empty))
-	}
-	return interceptor(ctx, in, info, handler)
 }
 
 func _OnRampReader_Address_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -192,6 +171,60 @@ func _OnRampReader_GetDynamicConfig_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _OnRampReader_GetSendRequestsBetweenSeqNums_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetSendRequestsBetweenSeqNumsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OnRampReaderServer).GetSendRequestsBetweenSeqNums(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: OnRampReader_GetSendRequestsBetweenSeqNums_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OnRampReaderServer).GetSendRequestsBetweenSeqNums(ctx, req.(*GetSendRequestsBetweenSeqNumsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _OnRampReader_RouterAddress_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OnRampReaderServer).RouterAddress(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: OnRampReader_RouterAddress_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OnRampReaderServer).RouterAddress(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _OnRampReader_Close_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OnRampReaderServer).Close(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: OnRampReader_Close_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OnRampReaderServer).Close(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // OnRampReader_ServiceDesc is the grpc.ServiceDesc for OnRampReader service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -199,6 +232,14 @@ var OnRampReader_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "loop.internal.pb.ccip.OnRampReader",
 	HandlerType: (*OnRampReaderServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Address",
+			Handler:    _OnRampReader_Address_Handler,
+		},
+		{
+			MethodName: "GetDynamicConfig",
+			Handler:    _OnRampReader_GetDynamicConfig_Handler,
+		},
 		{
 			MethodName: "GetSendRequestsBetweenSeqNums",
 			Handler:    _OnRampReader_GetSendRequestsBetweenSeqNums_Handler,
@@ -208,12 +249,8 @@ var OnRampReader_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _OnRampReader_RouterAddress_Handler,
 		},
 		{
-			MethodName: "Address",
-			Handler:    _OnRampReader_Address_Handler,
-		},
-		{
-			MethodName: "GetDynamicConfig",
-			Handler:    _OnRampReader_GetDynamicConfig_Handler,
+			MethodName: "Close",
+			Handler:    _OnRampReader_Close_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

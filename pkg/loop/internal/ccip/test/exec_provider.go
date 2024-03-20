@@ -41,7 +41,7 @@ var ExecutionProvider = staticExecProvider{
 		offchainDigester:          testpluginprovider.OffchainConfigDigester,
 		contractTracker:           testpluginprovider.ContractConfigTracker,
 		contractTransmitter:       testpluginprovider.ContractTransmitter,
-		onRampReader:              OnRamp,
+		onRampReader:              OnRampReader,
 		offRampReader:             OffRampReader,
 		priceRegistryReader:       PriceRegistryReader,
 		sourceNativeTokenResponse: ccip.Address("source native token response"),

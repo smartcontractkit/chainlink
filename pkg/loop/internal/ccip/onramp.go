@@ -3,37 +3,43 @@ package ccip
 import (
 	"context"
 	"fmt"
+	"io"
 
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb"
 	ccippb "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb/ccip"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 )
 
-var _ cciptypes.OnRampReader = (*OnRampReaderClient)(nil)
+var _ cciptypes.OnRampReader = (*OnRampReaderGRPCClient)(nil)
 
-type OnRampReaderClient struct {
+type OnRampReaderGRPCClient struct {
 	grpc ccippb.OnRampReaderClient
 }
 
-func NewOnRampReaderClient(cc grpc.ClientConnInterface) *OnRampReaderClient {
-	return &OnRampReaderClient{grpc: ccippb.NewOnRampReaderClient(cc)}
+func NewOnRampReaderGRPCClient(cc grpc.ClientConnInterface) *OnRampReaderGRPCClient {
+	return &OnRampReaderGRPCClient{grpc: ccippb.NewOnRampReaderClient(cc)}
 }
 
 // Address implements ccip.OnRampReader.
-func (o *OnRampReaderClient) Address() (cciptypes.Address, error) {
-	resp, err := o.grpc.Address(context.TODO(), &emptypb.Empty{})
+func (o *OnRampReaderGRPCClient) Address(ctx context.Context) (cciptypes.Address, error) {
+	resp, err := o.grpc.Address(ctx, &emptypb.Empty{})
 	if err != nil {
 		return cciptypes.Address(""), err
 	}
 	return cciptypes.Address(resp.Address), nil
 }
 
+func (o *OnRampReaderGRPCClient) Close() error {
+	return shutdownGRPCServer(context.Background(), o.grpc)
+}
+
 // GetDynamicConfig implements ccip.OnRampReader.
-func (o *OnRampReaderClient) GetDynamicConfig() (cciptypes.OnRampDynamicConfig, error) {
-	resp, err := o.grpc.GetDynamicConfig(context.TODO(), &emptypb.Empty{})
+func (o *OnRampReaderGRPCClient) GetDynamicConfig(ctx context.Context) (cciptypes.OnRampDynamicConfig, error) {
+	resp, err := o.grpc.GetDynamicConfig(ctx, &emptypb.Empty{})
 	if err != nil {
 		return cciptypes.OnRampDynamicConfig{}, err
 	}
@@ -41,7 +47,7 @@ func (o *OnRampReaderClient) GetDynamicConfig() (cciptypes.OnRampDynamicConfig, 
 }
 
 // GetSendRequestsBetweenSeqNums implements ccip.OnRampReader.
-func (o *OnRampReaderClient) GetSendRequestsBetweenSeqNums(ctx context.Context, seqNumMin uint64, seqNumMax uint64, finalized bool) ([]cciptypes.EVM2EVMMessageWithTxMeta, error) {
+func (o *OnRampReaderGRPCClient) GetSendRequestsBetweenSeqNums(ctx context.Context, seqNumMin uint64, seqNumMax uint64, finalized bool) ([]cciptypes.EVM2EVMMessageWithTxMeta, error) {
 	resp, err := o.grpc.GetSendRequestsBetweenSeqNums(ctx, &ccippb.GetSendRequestsBetweenSeqNumsRequest{
 		SeqNumMin: seqNumMin,
 		SeqNumMax: seqNumMax,
@@ -54,8 +60,8 @@ func (o *OnRampReaderClient) GetSendRequestsBetweenSeqNums(ctx context.Context, 
 }
 
 // RouterAddress implements ccip.OnRampReader.
-func (o *OnRampReaderClient) RouterAddress() (cciptypes.Address, error) {
-	resp, err := o.grpc.RouterAddress(context.TODO(), &emptypb.Empty{})
+func (o *OnRampReaderGRPCClient) RouterAddress(ctx context.Context) (cciptypes.Address, error) {
+	resp, err := o.grpc.RouterAddress(ctx, &emptypb.Empty{})
 	if err != nil {
 		return cciptypes.Address(""), err
 	}
@@ -63,49 +69,60 @@ func (o *OnRampReaderClient) RouterAddress() (cciptypes.Address, error) {
 }
 
 // IsSourceChainHealthy returns true if the source chain is healthy.
-func (o *OnRampReaderClient) IsSourceChainHealthy(ctx context.Context) (bool, error) {
-	panic("unimplemented")
+func (o *OnRampReaderGRPCClient) IsSourceChainHealthy(ctx context.Context) (bool, error) {
+	panic("BCF-3106")
 }
 
 // IsSourceCursed returns true if the source chain is cursed. OnRamp communicates with the underlying RMN
 // to verify if source chain was cursed or not.
-func (o *OnRampReaderClient) IsSourceCursed(ctx context.Context) (bool, error) {
-	panic("unimplemented")
+func (o *OnRampReaderGRPCClient) IsSourceCursed(ctx context.Context) (bool, error) {
+	panic("BCF-3106")
 }
 
 // SourcePriceRegistryAddress returns the address of the current price registry configured on the onRamp.
-func (o *OnRampReaderClient) SourcePriceRegistryAddress(ctx context.Context) (cciptypes.Address, error) {
-	panic("unimplemented")
+func (o *OnRampReaderGRPCClient) SourcePriceRegistryAddress(ctx context.Context) (cciptypes.Address, error) {
+	panic("BCF-3106")
 }
 
 // Server
 
-type OnRampReaderServer struct {
+type OnRampReaderGRPCServer struct {
 	ccippb.UnimplementedOnRampReaderServer
 
 	impl cciptypes.OnRampReader
+	deps []io.Closer
 }
 
 // mustEmbedUnimplementedOnRampReaderServer implements ccippb.OnRampReaderServer.
 
-var _ ccippb.OnRampReaderServer = (*OnRampReaderServer)(nil)
+var _ ccippb.OnRampReaderServer = (*OnRampReaderGRPCServer)(nil)
 
-func NewOnRampReaderServer(impl cciptypes.OnRampReader) *OnRampReaderServer {
-	return &OnRampReaderServer{impl: impl}
+func NewOnRampReaderGRPCServer(impl cciptypes.OnRampReader) *OnRampReaderGRPCServer {
+	return &OnRampReaderGRPCServer{impl: impl}
+}
+
+// AddDep adds a dependency to the server that will be closed when the server is closed.
+func (o *OnRampReaderGRPCServer) AddDep(dep io.Closer) *OnRampReaderGRPCServer {
+	o.deps = append(o.deps, dep)
+	return o
 }
 
 // Address implements ccippb.OnRampReaderServer.
-func (o *OnRampReaderServer) Address(context.Context, *emptypb.Empty) (*ccippb.OnrampAddressResponse, error) {
-	addr, err := o.impl.Address()
+func (o *OnRampReaderGRPCServer) Address(ctx context.Context, _ *emptypb.Empty) (*ccippb.OnrampAddressResponse, error) {
+	addr, err := o.impl.Address(ctx)
 	if err != nil {
 		return nil, err
 	}
 	return &ccippb.OnrampAddressResponse{Address: string(addr)}, nil
 }
 
+func (o *OnRampReaderGRPCServer) Close(ctx context.Context, req *emptypb.Empty) (*emptypb.Empty, error) {
+	return &emptypb.Empty{}, services.MultiCloser(o.deps).Close()
+}
+
 // GetDynamicConfig implements ccippb.OnRampReaderServer.
-func (o *OnRampReaderServer) GetDynamicConfig(context.Context, *emptypb.Empty) (*ccippb.GetDynamicConfigResponse, error) {
-	c, err := o.impl.GetDynamicConfig()
+func (o *OnRampReaderGRPCServer) GetDynamicConfig(ctx context.Context, _ *emptypb.Empty) (*ccippb.GetDynamicConfigResponse, error) {
+	c, err := o.impl.GetDynamicConfig(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +130,7 @@ func (o *OnRampReaderServer) GetDynamicConfig(context.Context, *emptypb.Empty) (
 }
 
 // GetSendRequestsBetweenSeqNums implements ccippb.OnRampReaderServer.
-func (o *OnRampReaderServer) GetSendRequestsBetweenSeqNums(ctx context.Context, req *ccippb.GetSendRequestsBetweenSeqNumsRequest) (*ccippb.GetSendRequestsBetweenSeqNumsResponse, error) {
+func (o *OnRampReaderGRPCServer) GetSendRequestsBetweenSeqNums(ctx context.Context, req *ccippb.GetSendRequestsBetweenSeqNumsRequest) (*ccippb.GetSendRequestsBetweenSeqNumsResponse, error) {
 	sendRequests, err := o.impl.GetSendRequestsBetweenSeqNums(ctx, req.SeqNumMin, req.SeqNumMax, req.Finalized)
 	if err != nil {
 		return nil, err
@@ -126,8 +143,8 @@ func (o *OnRampReaderServer) GetSendRequestsBetweenSeqNums(ctx context.Context, 
 }
 
 // RouterAddress implements ccippb.OnRampReaderServer.
-func (o *OnRampReaderServer) RouterAddress(context.Context, *emptypb.Empty) (*ccippb.RouterAddressResponse, error) {
-	a, err := o.impl.RouterAddress()
+func (o *OnRampReaderGRPCServer) RouterAddress(ctx context.Context, _ *emptypb.Empty) (*ccippb.RouterAddressResponse, error) {
+	a, err := o.impl.RouterAddress(ctx)
 	if err != nil {
 		return nil, err
 	}
