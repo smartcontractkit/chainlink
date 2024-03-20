@@ -45,11 +45,11 @@ jobs:
             echo "PR branch version: $PR_VERSION"
 
             echo "Dependency version changed in the PR compared to the base branch."
-            echo "dependency_changed=true" >> $GITHUB_ENV
+            echo "dependency_changed=true" >> $GITHUB_OUTPUT
           else
             echo "No changes to ethereum/go-ethereum dependency in the PR."
             echo "PR branch version: $PR_VERSION
-            echo "dependency_changed=false" >> $GITHUB_ENV
+            echo "dependency_changed=false" >> $GITHUB_OUTPUT
           fi
 
   # Build Test Dependencies
