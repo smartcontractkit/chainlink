@@ -973,7 +973,7 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Prelo
 	defer ms.addressStatesLock.RUnlock()
 	as, ok := ms.addressStates[attempts[0].Tx.FromAddress]
 	if !ok {
-		return fmt.Errorf("preload_txes: %w", ErrAddressNotFound)
+		return nil
 	}
 
 	txIDs := make([]int64, len(attempts))
