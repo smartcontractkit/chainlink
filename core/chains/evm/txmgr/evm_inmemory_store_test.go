@@ -1,7 +1,6 @@
 package txmgr_test
 
 import (
-	"context"
 	"math/big"
 	"testing"
 
@@ -28,14 +27,14 @@ func TestInMemoryStore_MarkAllConfirmedMissingReceipt(t *testing.T) {
 	t.Run("successfully mark all confirmed missing receipt", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
-		persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+		persistentStore := cltest.NewTestTxStore(t, db)
 		kst := cltest.NewKeyStore(t, db, dbcfg)
 		_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
 
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 		lggr := logger.TestSugared(t)
 		chainID := ethClient.ConfiguredChainID()
-		ctx := context.Background()
+		ctx := testutils.Context(t)
 
 		inMemoryStore, err := commontxmgr.NewInMemoryStore[
 			*big.Int,
@@ -52,7 +51,7 @@ func TestInMemoryStore_MarkAllConfirmedMissingReceipt(t *testing.T) {
 		inTx_0 := cltest.MustInsertUnconfirmedEthTx(t, persistentStore, 0, fromAddress)
 		inTxAttempt_0 := newBroadcastLegacyEthTxAttempt(t, inTx_0.ID, int64(1))
 		inTxAttempt_0.BroadcastBeforeBlockNum = &blocknum
-		require.NoError(t, persistentStore.InsertTxAttempt(&inTxAttempt_0))
+		require.NoError(t, persistentStore.InsertTxAttempt(ctx, &inTxAttempt_0))
 		assert.Equal(t, commontxmgr.TxUnconfirmed, inTx_0.State)
 		// Insert the transaction into the in-memory store
 		inTx_0.TxAttempts = []evmtxmgr.TxAttempt{inTxAttempt_0}
@@ -65,10 +64,10 @@ func TestInMemoryStore_MarkAllConfirmedMissingReceipt(t *testing.T) {
 		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx_1))
 
 		// mark transaction 0 as confirmed missing receipt
-		err = inMemoryStore.MarkAllConfirmedMissingReceipt(testutils.Context(t), chainID)
+		err = inMemoryStore.MarkAllConfirmedMissingReceipt(ctx, chainID)
 		require.NoError(t, err)
 
-		expTx, err := persistentStore.FindTxWithAttempts(inTx_0.ID)
+		expTx, err := persistentStore.FindTxWithAttempts(ctx, inTx_0.ID)
 		require.NoError(t, err)
 
 		fn := func(tx *evmtxmgr.Tx) bool { return true }
