@@ -1,7 +1,6 @@
 package txmgr_test
 
 import (
-	"context"
 	"math/big"
 	"testing"
 
@@ -27,14 +26,14 @@ func TestInMemoryStore_SaveInProgressAttempt(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
-	persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+	persistentStore := cltest.NewTestTxStore(t, db)
 	kst := cltest.NewKeyStore(t, db, dbcfg)
 	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	lggr := logger.TestSugared(t)
 	chainID := ethClient.ConfiguredChainID()
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 
 	inMemoryStore, err := commontxmgr.NewInMemoryStore[
 		*big.Int,
@@ -55,10 +54,10 @@ func TestInMemoryStore_SaveInProgressAttempt(t *testing.T) {
 		inTxAttempt := cltest.NewLegacyEthTxAttempt(t, inTx.ID)
 		require.Equal(t, int64(0), inTxAttempt.ID)
 
-		err := inMemoryStore.SaveInProgressAttempt(testutils.Context(t), &inTxAttempt)
+		err := inMemoryStore.SaveInProgressAttempt(ctx, &inTxAttempt)
 		require.NoError(t, err)
 
-		expTxAttempt, err := persistentStore.FindTxAttempt(inTxAttempt.Hash)
+		expTxAttempt, err := persistentStore.FindTxAttempt(ctx, inTxAttempt.Hash)
 		require.NoError(t, err)
 		assert.Equal(t, txmgrtypes.TxAttemptInProgress, expTxAttempt.State)
 
@@ -87,10 +86,10 @@ func TestInMemoryStore_SaveInProgressAttempt(t *testing.T) {
 
 		inTxAttempt.BroadcastBeforeBlockNum = nil
 		inTxAttempt.State = txmgrtypes.TxAttemptInProgress
-		err := inMemoryStore.SaveInProgressAttempt(testutils.Context(t), &inTxAttempt)
+		err := inMemoryStore.SaveInProgressAttempt(ctx, &inTxAttempt)
 		require.NoError(t, err)
 
-		expTxAttempt, err := persistentStore.FindTxAttempt(inTxAttempt.Hash)
+		expTxAttempt, err := persistentStore.FindTxAttempt(ctx, inTxAttempt.Hash)
 		require.NoError(t, err)
 		assert.Equal(t, txmgrtypes.TxAttemptInProgress, expTxAttempt.State)
 
@@ -118,16 +117,16 @@ func TestInMemoryStore_SaveInProgressAttempt(t *testing.T) {
 
 		// wrong tx id
 		inTxAttempt.TxID = 999
-		actErr := inMemoryStore.SaveInProgressAttempt(testutils.Context(t), &inTxAttempt)
-		expErr := persistentStore.SaveInProgressAttempt(testutils.Context(t), &inTxAttempt)
+		actErr := inMemoryStore.SaveInProgressAttempt(ctx, &inTxAttempt)
+		expErr := persistentStore.SaveInProgressAttempt(ctx, &inTxAttempt)
 		assert.Error(t, actErr)
 		assert.Error(t, expErr)
 		inTxAttempt.TxID = inTx.ID // reset
 
 		// wrong state
 		inTxAttempt.State = txmgrtypes.TxAttemptBroadcast
-		actErr = inMemoryStore.SaveInProgressAttempt(testutils.Context(t), &inTxAttempt)
-		expErr = persistentStore.SaveInProgressAttempt(testutils.Context(t), &inTxAttempt)
+		actErr = inMemoryStore.SaveInProgressAttempt(ctx, &inTxAttempt)
+		expErr = persistentStore.SaveInProgressAttempt(ctx, &inTxAttempt)
 		assert.Error(t, actErr)
 		assert.Error(t, expErr)
 		assert.Equal(t, expErr, actErr)
