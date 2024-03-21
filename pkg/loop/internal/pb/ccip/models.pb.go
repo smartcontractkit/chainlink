@@ -479,8 +479,8 @@ type ExecutionReport struct {
 	unknownFields protoimpl.UnknownFields
 
 	EvmToEvmMessages  []*EVM2EVMMessage `protobuf:"bytes,1,rep,name=evm_to_evm_messages,json=evmToEvmMessages,proto3" json:"evm_to_evm_messages,omitempty"`
-	OffchainTokenData []*TokenData      `protobuf:"bytes,2,rep,name=offchain_token_data,json=offchainTokenData,proto3" json:"offchain_token_data,omitempty"` // [][][]byte todo: what is the meaning of the triple nesting? ie, what is better naming? BCF-2979
-	Proofs            [][]byte          `protobuf:"bytes,3,rep,name=proofs,proto3" json:"proofs,omitempty"`                                                  // [][32]byte
+	OffchainTokenData []*TokenData      `protobuf:"bytes,2,rep,name=offchain_token_data,json=offchainTokenData,proto3" json:"offchain_token_data,omitempty"`
+	Proofs            [][]byte          `protobuf:"bytes,3,rep,name=proofs,proto3" json:"proofs,omitempty"` // [][32]byte
 	ProofFlagBits     *pb.BigInt        `protobuf:"bytes,4,opt,name=proof_flag_bits,json=proofFlagBits,proto3" json:"proof_flag_bits,omitempty"`
 }
 
@@ -549,7 +549,7 @@ type TokenData struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Data [][]byte `protobuf:"bytes,1,rep,name=data,proto3" json:"data,omitempty"` // todo: better naming? BCF-2979
+	Data [][]byte `protobuf:"bytes,1,rep,name=data,proto3" json:"data,omitempty"`
 }
 
 func (x *TokenData) Reset() {

@@ -26,13 +26,6 @@ type ExecProviderTester interface {
 	testtypes.AssertEqualer[types.CCIPExecProvider]
 }
 
-var ExecutionConfig = types.CCIPExecFactoryGeneratorConfig{
-	OnRampAddress:      ccip.Address("onramp"),
-	OffRampAddress:     ccip.Address("offramp"),
-	CommitStoreAddress: ccip.Address("commitstore"),
-	TokenReaderAddress: ccip.Address("tokenreader"),
-}
-
 // ExecutionProvider is a static implementation of the ExecProviderTester interface.
 // It is to be used in tests the verify grpc implementations of the ExecProvider interface.
 var ExecutionProvider = staticExecProvider{
@@ -41,8 +34,9 @@ var ExecutionProvider = staticExecProvider{
 		offchainDigester:          testpluginprovider.OffchainConfigDigester,
 		contractTracker:           testpluginprovider.ContractConfigTracker,
 		contractTransmitter:       testpluginprovider.ContractTransmitter,
-		onRampReader:              OnRampReader,
+		commitStoreReader:         CommitStoreReader,
 		offRampReader:             OffRampReader,
+		onRampReader:              OnRampReader,
 		priceRegistryReader:       PriceRegistryReader,
 		sourceNativeTokenResponse: ccip.Address("source native token response"),
 		tokenDataReader:           TokenDataReader,
@@ -53,17 +47,18 @@ var ExecutionProvider = staticExecProvider{
 var _ ExecProviderTester = staticExecProvider{}
 
 type staticExecProviderConfig struct {
-	addr                      ccip.Address
-	offchainDigester          testtypes.OffchainConfigDigesterEvaluator
-	contractTracker           testtypes.ContractConfigTrackerEvaluator
-	contractTransmitter       testtypes.ContractTransmitterEvaluator
-	onRampReader              OnRampEvaluator
+	addr                ccip.Address
+	offchainDigester    testtypes.OffchainConfigDigesterEvaluator
+	contractTracker     testtypes.ContractConfigTrackerEvaluator
+	contractTransmitter testtypes.ContractTransmitterEvaluator
+
+	commitStoreReader         CommitStoreReaderEvaluator
 	offRampReader             OffRampEvaluator
+	onRampReader              OnRampEvaluator
 	priceRegistryReader       PriceRegistryReaderEvaluator
 	sourceNativeTokenResponse ccip.Address
 	tokenDataReader           TokenDataReaderEvaluator
 	tokenPoolBatchedReader    TokenPoolBatchedReaderEvaluator
-	// TODO BCF-2979 fill in the rest of exec provider components
 }
 
 type staticExecProvider struct {
@@ -97,14 +92,14 @@ func (s staticExecProvider) ContractTransmitter() libocr.ContractTransmitter {
 
 // Evaluate implements ExecProviderEvaluator.
 func (s staticExecProvider) Evaluate(ctx context.Context, other types.CCIPExecProvider) error {
-	// OnRampReader test case
-	otherOnRamp, err := other.NewOnRampReader(ctx, "ignored")
+	// CommitStoreReader test case
+	otherCommitStore, err := other.NewCommitStoreReader(ctx, "ignored")
 	if err != nil {
-		return fmt.Errorf("failed to create other on ramp reader: %w", err)
+		return fmt.Errorf("failed to create other commit store reader: %w", err)
 	}
-	err = s.onRampReader.Evaluate(ctx, otherOnRamp)
+	err = s.commitStoreReader.Evaluate(ctx, otherCommitStore)
 	if err != nil {
-		return evaluationError{err: err, component: onRampComponent}
+		return evaluationError{err: err, component: "CommitStoreReader"}
 	}
 
 	// OffRampReader test case
@@ -115,6 +110,16 @@ func (s staticExecProvider) Evaluate(ctx context.Context, other types.CCIPExecPr
 	err = s.offRampReader.Evaluate(ctx, otherOffRamp)
 	if err != nil {
 		return evaluationError{err: err, component: offRampComponent}
+	}
+
+	// OnRampReader test case
+	otherOnRamp, err := other.NewOnRampReader(ctx, "ignored")
+	if err != nil {
+		return fmt.Errorf("failed to create other on ramp reader: %w", err)
+	}
+	err = s.onRampReader.Evaluate(ctx, otherOnRamp)
+	if err != nil {
+		return evaluationError{err: err, component: onRampComponent}
 	}
 
 	// PriceRegistryReader test case
@@ -146,7 +151,15 @@ func (s staticExecProvider) Evaluate(ctx context.Context, other types.CCIPExecPr
 	if err != nil {
 		return evaluationError{err: err, component: "TokenPoolBatchedReader"}
 	}
-	// TODO BCF-2979 other components of exec provider
+
+	// SourceNativeToken test case
+	otherSourceNativeToken, err := other.SourceNativeToken(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get other source native token: %w", err)
+	}
+	if otherSourceNativeToken != s.sourceNativeTokenResponse {
+		return fmt.Errorf("expected source native token %s but got %s", s.sourceNativeTokenResponse, otherSourceNativeToken)
+	}
 	return nil
 }
 
@@ -162,7 +175,7 @@ func (s staticExecProvider) Name() string {
 
 // NewCommitStoreReader implements ExecProviderEvaluator.
 func (s staticExecProvider) NewCommitStoreReader(ctx context.Context, addr ccip.Address) (ccip.CommitStoreReader, error) {
-	panic("unimplemented")
+	return s.commitStoreReader, nil
 }
 
 // NewOffRampReader implements ExecProviderEvaluator.
@@ -247,8 +260,6 @@ func (s staticExecProvider) AssertEqual(ctx context.Context, t *testing.T, other
 			require.NoError(t, err)
 			assert.NoError(t, s.tokenDataReader.Evaluate(ctx, other))
 		})
-
-		// TODO BCF-2979 other components of exec provider
 	})
 }
 

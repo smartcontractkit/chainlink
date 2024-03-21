@@ -45,7 +45,6 @@ func NewExecutionLOOPClient(broker net.Broker, brokerCfg net.BrokerConfig, conn 
 // is run as an external process via hashicorp plugin. If the given provider is a GRPCClientConn, then the provider is proxied to the
 // to the relayer, which is its own process via hashicorp plugin. If the provider is not a GRPCClientConn, then the provider is a local
 // to the core node. The core must wrap the provider in a grpc server and serve it locally.
-// func (c *ExecutionLOOPClient) NewExecutionFactory(ctx context.Context, provider types.CCIPExecProvider, config types.CCIPExecFactoryGeneratorConfig) (types.ReportingPluginFactory, error) {.
 func (c *ExecutionLOOPClient) NewExecutionFactory(ctx context.Context, provider types.CCIPExecProvider) (types.ReportingPluginFactory, error) {
 	newExecClientFn := func(ctx context.Context) (id uint32, deps net.Resources, err error) {
 		// TODO are there any local resources that need to be passed to the executor and started as a server?
@@ -429,4 +428,12 @@ func (e *execProviderServer) NewTokenPoolBatchedReader(ctx context.Context, _ *e
 	// ensure the grpc server is closed when the tokenPool is closed. See comment in NewPriceRegistryReader for more details
 	tokenPoolHandler.AddDep(spawnedServer)
 	return &ccippb.NewTokenPoolBatchedReaderResponse{TokenPoolBatchedReaderServiceId: int32(tokenPoolID)}, nil
+}
+
+func (e *execProviderServer) SourceNativeToken(ctx context.Context, _ *emptypb.Empty) (*ccippb.SourceNativeTokenResponse, error) {
+	addr, err := e.impl.SourceNativeToken(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &ccippb.SourceNativeTokenResponse{NativeTokenAddress: string(addr)}, nil
 }

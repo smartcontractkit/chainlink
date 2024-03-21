@@ -28,7 +28,7 @@ func TestExecService(t *testing.T) {
 
 	exec := loop.NewExecutionService(logger.Test(t), loop.GRPCOpts{}, func() *exec.Cmd {
 		return NewHelperProcessCommand(loop.CCIPExecutionLOOPName, false, 0)
-	}, ccip_test.ExecutionProvider, ccip_test.ExecutionConfig)
+	}, ccip_test.ExecutionProvider)
 	hook := exec.PluginService.XXXTestHook()
 	servicetest.Run(t, exec)
 
@@ -64,7 +64,7 @@ func TestExecService_recovery(t *testing.T) {
 			Limit:   int(limit.Add(1)),
 		}
 		return h.New()
-	}, ccip_test.ExecutionProvider, ccip_test.ExecutionConfig)
+	}, ccip_test.ExecutionProvider)
 	servicetest.Run(t, exec)
 
 	testreportingplugin.RunFactory(t, exec)

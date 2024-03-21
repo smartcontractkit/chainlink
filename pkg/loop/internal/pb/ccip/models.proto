@@ -66,13 +66,13 @@ message TokenAmount {
 // ExecutionReport is a gRPC adapter to [github.com/smartcontractkit/chainlink-common/pkg/types/ccip.ExecutionReport]
 message ExecutionReport {
     repeated EVM2EVMMessage evm_to_evm_messages = 1;
-    repeated TokenData offchain_token_data = 2; // [][][]byte todo: what is the meaning of the triple nesting? ie, what is better naming? BCF-2979
+    repeated TokenData offchain_token_data = 2;
     repeated bytes proofs = 3; // [][32]byte
     BigInt proof_flag_bits = 4;
 }
 
 message TokenData {
-    repeated bytes data= 1; // todo: better naming? BCF-2979
+    repeated bytes data= 1; 
 }
 
 // TokenPrice is the price of the stated token. It is a gRPC adapter to [github.com/smartcontractkit/chainlink-common/pkg/types/ccip.TokenPrice]

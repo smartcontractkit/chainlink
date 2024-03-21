@@ -69,7 +69,7 @@ type ExecutionFactoryService struct {
 
 // NewExecutionService returns a new [*ExecutionFactoryService].
 // cmd must return a new exec.Cmd each time it is called.
-func NewExecutionService(lggr logger.Logger, grpcOpts GRPCOpts, cmd func() *exec.Cmd, provider types.CCIPExecProvider, config types.CCIPExecFactoryGeneratorConfig) *ExecutionFactoryService {
+func NewExecutionService(lggr logger.Logger, grpcOpts GRPCOpts, cmd func() *exec.Cmd, provider types.CCIPExecProvider) *ExecutionFactoryService {
 	newService := func(ctx context.Context, instance any) (types.ReportingPluginFactory, error) {
 		plug, ok := instance.(types.CCIPExecutionFactoryGenerator)
 		if !ok {
