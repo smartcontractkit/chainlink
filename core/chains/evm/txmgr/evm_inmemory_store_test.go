@@ -1,7 +1,6 @@
 package txmgr_test
 
 import (
-	"context"
 	"math/big"
 	"testing"
 
@@ -28,7 +27,7 @@ func TestInMemoryStore_UpdateTxForRebroadcast(t *testing.T) {
 	t.Run("delete all receipts for transaction", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
-		persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+		persistentStore := cltest.NewTestTxStore(t, db)
 		kst := cltest.NewKeyStore(t, db, dbcfg)
 		_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
 
@@ -55,7 +54,7 @@ func TestInMemoryStore_UpdateTxForRebroadcast(t *testing.T) {
 		err = inMemoryStore.UpdateTxForRebroadcast(ctx, inTx, txAttempt)
 		require.NoError(t, err)
 
-		expTx, err := persistentStore.FindTxWithAttempts(inTx.ID)
+		expTx, err := persistentStore.FindTxWithAttempts(ctx, inTx.ID)
 		require.NoError(t, err)
 
 		fn := func(tx *evmtxmgr.Tx) bool { return true }
@@ -72,14 +71,14 @@ func TestInMemoryStore_UpdateTxForRebroadcast(t *testing.T) {
 	t.Run("error parity for in-memory vs persistent store", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
-		persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+		persistentStore := cltest.NewTestTxStore(t, db)
 		kst := cltest.NewKeyStore(t, db, dbcfg)
 		_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
 
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 		lggr := logger.TestSugared(t)
 		chainID := ethClient.ConfiguredChainID()
-		ctx := context.Background()
+		ctx := testutils.Context(t)
 
 		inMemoryStore, err := commontxmgr.NewInMemoryStore[
 			*big.Int,
