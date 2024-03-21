@@ -730,29 +730,29 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetInProgre
 	return r0, r1
 }
 
-// GetNonFatalTransactions provides a mock function with given fields: ctx, chainID
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetNonFatalTransactions(ctx context.Context, chainID CHAIN_ID) ([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
-	ret := _m.Called(ctx, chainID)
+// GetNonFatalTransactionsByBatch provides a mock function with given fields: ctx, chainID, offset, limit
+func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetNonFatalTransactionsByBatch(ctx context.Context, chainID CHAIN_ID, offset uint, limit uint) ([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
+	ret := _m.Called(ctx, chainID, offset, limit)
 
 	if len(ret) == 0 {
-		panic("no return value specified for GetNonFatalTransactions")
+		panic("no return value specified for GetNonFatalTransactionsByBatch")
 	}
 
 	var r0 []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, CHAIN_ID) ([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error)); ok {
-		return rf(ctx, chainID)
+	if rf, ok := ret.Get(0).(func(context.Context, CHAIN_ID, uint, uint) ([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error)); ok {
+		return rf(ctx, chainID, offset, limit)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, CHAIN_ID) []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]); ok {
-		r0 = rf(ctx, chainID)
+	if rf, ok := ret.Get(0).(func(context.Context, CHAIN_ID, uint, uint) []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]); ok {
+		r0 = rf(ctx, chainID, offset, limit)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE])
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, CHAIN_ID) error); ok {
-		r1 = rf(ctx, chainID)
+	if rf, ok := ret.Get(1).(func(context.Context, CHAIN_ID, uint, uint) error); ok {
+		r1 = rf(ctx, chainID, offset, limit)
 	} else {
 		r1 = ret.Error(1)
 	}
