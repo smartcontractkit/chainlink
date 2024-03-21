@@ -7,7 +7,6 @@ import (
 	"github.com/smartcontractkit/seth"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
@@ -15,8 +14,6 @@ import (
 )
 
 func TestGasExperiment(t *testing.T) {
-	l := logging.GetTestLogger(t)
-
 	config, err := tc.GetConfig("Soak", tc.OCR)
 	require.NoError(t, err, "Error getting config")
 
@@ -24,7 +21,8 @@ func TestGasExperiment(t *testing.T) {
 	readSethCfg := config.GetSethConfig()
 	require.NotNil(t, readSethCfg, "Seth config shouldn't be nil")
 
-	sethCfg := utils.MergeSethAndEvmNetworkConfigs(l, network, *readSethCfg)
+	sethCfg, err := utils.MergeSethAndEvmNetworkConfigs(network, *readSethCfg)
+	require.NoError(t, err, "Error merging seth and evm network configs")
 	err = utils.ValidateSethNetworkConfig(sethCfg.Network)
 	require.NoError(t, err, "Error validating seth network config")
 
