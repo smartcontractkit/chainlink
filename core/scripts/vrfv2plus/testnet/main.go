@@ -1146,12 +1146,11 @@ func main() {
 		coordinatorAddress := cmd.String("coordinator-address", "", "address of the vrf coordinator v2 contract")
 		subID := cmd.String("subscription-id", "", "subscription ID for the wrapper")
 		helpers.ParseArgs(cmd, os.Args[2:], "link-address", "link-eth-feed", "coordinator-address", "subscription-id")
-		parsedSubID := parseSubID(*subID)
 		v2plusscripts.WrapperDeploy(e,
 			common.HexToAddress(*linkAddress),
 			common.HexToAddress(*linkETHFeedAddress),
 			common.HexToAddress(*coordinatorAddress),
-			parsedSubID)
+			parseSubID(*subID))
 	case "wrapper-withdraw":
 		cmd := flag.NewFlagSet("wrapper-withdraw", flag.ExitOnError)
 		wrapperAddress := cmd.String("wrapper-address", "", "address of the VRFV2Wrapper contract")

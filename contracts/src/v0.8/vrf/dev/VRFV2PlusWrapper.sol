@@ -3,8 +3,6 @@ pragma solidity 0.8.19;
 
 import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
 import {TypeAndVersionInterface} from "../../interfaces/TypeAndVersionInterface.sol";
-import {IVRFCoordinatorV2Plus} from "./interfaces/IVRFCoordinatorV2Plus.sol";
-import {IVRFV2PlusMigrate} from "./interfaces/IVRFV2PlusMigrate.sol";
 import {VRFConsumerBaseV2Plus} from "./VRFConsumerBaseV2Plus.sol";
 import {LinkTokenInterface} from "../../shared/interfaces/LinkTokenInterface.sol";
 import {AggregatorV3Interface} from "../../shared/interfaces/AggregatorV3Interface.sol";
@@ -41,7 +39,6 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   error NativePaymentInOnTokenTransfer();
   error LINKPaymentInRequestRandomWordsInNative();
   error SubscriptionIdMissing();
-  error CoordinatorAlreadyMigrated();
 
   /* Storage Slot 1: BEGIN */
   // 20 bytes used by VRFConsumerBaseV2Plus.s_vrfCoordinator

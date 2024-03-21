@@ -867,7 +867,7 @@ func DeployWrapperUniverse(e helpers.Environment) {
 	linkAddress := cmd.String("link-address", "", "address of link token")
 	linkETHFeedAddress := cmd.String("link-eth-feed", "", "address of link-eth-feed")
 	coordinatorAddress := cmd.String("coordinator-address", "", "address of the vrf coordinator v2 contract")
-	subID := cmd.String("subscription-id", "", "subscription ID for the wrapper")
+	subscriptionID := cmd.String("subscription-id", "", "subscription ID for the wrapper")
 	wrapperGasOverhead := cmd.Uint("wrapper-gas-overhead", 50_000, "amount of gas overhead in wrapper fulfillment")
 	coordinatorGasOverhead := cmd.Uint("coordinator-gas-overhead", 52_000, "amount of gas overhead in coordinator fulfillment")
 	wrapperNativePremiumPercentage := cmd.Uint("wrapper-native-premium-percentage", 25, "gas premium charged by wrapper for native payment")
@@ -887,11 +887,12 @@ func DeployWrapperUniverse(e helpers.Environment) {
 		panic(fmt.Sprintf("failed to parse top up amount '%s'", *subFunding))
 	}
 
-	wrapper, subID := WrapperDeploy(e,
+	subId := parseSubID(*subscriptionID)
+	wrapper := WrapperDeploy(e,
 		common.HexToAddress(*linkAddress),
 		common.HexToAddress(*linkETHFeedAddress),
 		common.HexToAddress(*coordinatorAddress),
-		parseSubID(*subID),
+		subId,
 	)
 
 	WrapperConfigure(e,
@@ -915,7 +916,7 @@ func DeployWrapperUniverse(e helpers.Environment) {
 	coordinator, err := vrf_coordinator_v2_5.NewVRFCoordinatorV25(common.HexToAddress(*coordinatorAddress), e.Ec)
 	helpers.PanicErr(err)
 
-	EoaFundSubWithLink(e, *coordinator, *linkAddress, amount, subID)
+	EoaFundSubWithLink(e, *coordinator, *linkAddress, amount, subId)
 
 	link, err := link_token_interface.NewLinkToken(common.HexToAddress(*linkAddress), e.Ec)
 	helpers.PanicErr(err)
