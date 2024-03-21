@@ -294,7 +294,7 @@ func TestLogPoller_Replay(t *testing.T) {
 		cancelCtx, cancel := context.WithCancel(testutils.Context(t))
 		cancel()
 		err = lp.Replay(cancelCtx, 3)
-		assert.Error(t, err)
+		assert.ErrorIs(t, err, ErrReplayRequestAborted)
 	})
 
 	recvStartReplay := func(ctx context.Context, block int64) {

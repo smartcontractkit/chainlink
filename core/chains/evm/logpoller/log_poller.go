@@ -358,7 +358,13 @@ func (lp *logPoller) Filter(from, to *big.Int, bh *common.Hash) ethereum.FilterQ
 // If ctx is cancelled before the replay request has been initiated, ErrReplayRequestAborted is returned.  If the replay
 // is already in progress, the replay will continue and ErrReplayInProgress will be returned.  If the client needs a
 // guarantee that the replay is complete before proceeding, it should either avoid cancelling or retry until nil is returned
-func (lp *logPoller) Replay(ctx context.Context, fromBlock int64) error {
+func (lp *logPoller) Replay(ctx context.Context, fromBlock int64) (err error) {
+	defer func() {
+		if errors.Is(err, context.Canceled) {
+			err = ErrReplayRequestAborted
+		}
+	}()
+
 	lp.lggr.Debugf("Replaying from block %d", fromBlock)
 	latest, err := lp.ec.HeadByNumber(ctx, nil)
 	if err != nil {
