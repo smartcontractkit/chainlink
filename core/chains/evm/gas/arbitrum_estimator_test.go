@@ -23,9 +23,10 @@ import (
 )
 
 type arbConfig struct {
-	v           uint64
-	bumpPercent uint16
-	bumpMin     *assets.Wei
+	v               uint64
+	bumpPercent     uint16
+	bumpMin         *assets.Wei
+	limitMultiplier float32
 }
 
 func (a *arbConfig) LimitMax() uint64 {
@@ -40,6 +41,10 @@ func (a *arbConfig) BumpMin() *assets.Wei {
 	return a.bumpMin
 }
 
+func (a *arbConfig) LimitMultiplier() float32 {
+	return a.limitMultiplier
+}
+
 func TestArbitrumEstimator(t *testing.T) {
 	t.Parallel()
 
@@ -50,6 +55,7 @@ func TestArbitrumEstimator(t *testing.T) {
 	const gasPriceBufferPercentage = 50
 	const bumpPercent = 10
 	var bumpMin = assets.NewWei(big.NewInt(1))
+	const limitMultiplier = 1
 
 	t.Run("calling GetLegacyGas on unstarted estimator returns error", func(t *testing.T) {
 		rpcClient := mocks.NewRPCClient(t)
@@ -78,7 +84,7 @@ func TestArbitrumEstimator(t *testing.T) {
 			assert.Equal(t, big.NewInt(-1), blockNumber)
 		}).Return(zeros.Bytes(), nil)
 
-		o := gas.NewArbitrumEstimator(logger.Test(t), &arbConfig{v: maxGasLimit, bumpPercent: bumpPercent, bumpMin: bumpMin}, rpcClient, ethClient)
+		o := gas.NewArbitrumEstimator(logger.Test(t), &arbConfig{v: maxGasLimit, bumpPercent: bumpPercent, bumpMin: bumpMin, limitMultiplier: limitMultiplier}, rpcClient, ethClient)
 		servicetest.RunHealthy(t, o)
 		gasPrice, chainSpecificGasLimit, err := o.GetLegacyGas(testutils.Context(t), calldata, gasLimit, maxGasPrice)
 		require.NoError(t, err)
@@ -209,7 +215,7 @@ func TestArbitrumEstimator(t *testing.T) {
 			assert.Equal(t, big.NewInt(-1), blockNumber)
 		}).Return(b.Bytes(), nil)
 
-		o := gas.NewArbitrumEstimator(logger.Test(t), &arbConfig{v: maxGasLimit, bumpPercent: bumpPercent, bumpMin: bumpMin}, rpcClient, ethClient)
+		o := gas.NewArbitrumEstimator(logger.Test(t), &arbConfig{v: maxGasLimit, bumpPercent: bumpPercent, bumpMin: bumpMin, limitMultiplier: limitMultiplier}, rpcClient, ethClient)
 		servicetest.RunHealthy(t, o)
 		gasPrice, chainSpecificGasLimit, err := o.GetLegacyGas(testutils.Context(t), calldata, gasLimit, maxGasPrice)
 		require.NoError(t, err)
@@ -243,7 +249,7 @@ func TestArbitrumEstimator(t *testing.T) {
 			assert.Equal(t, big.NewInt(-1), blockNumber)
 		}).Return(b.Bytes(), nil)
 
-		o := gas.NewArbitrumEstimator(logger.Test(t), &arbConfig{v: maxGasLimit, bumpPercent: bumpPercent, bumpMin: bumpMin}, rpcClient, ethClient)
+		o := gas.NewArbitrumEstimator(logger.Test(t), &arbConfig{v: maxGasLimit, bumpPercent: bumpPercent, bumpMin: bumpMin, limitMultiplier: limitMultiplier}, rpcClient, ethClient)
 		servicetest.RunHealthy(t, o)
 		gasPrice, chainSpecificGasLimit, err := o.GetLegacyGas(testutils.Context(t), calldata, gasLimit, maxGasPrice)
 		require.Error(t, err, "expected error but got (%s, %d)", gasPrice, chainSpecificGasLimit)
