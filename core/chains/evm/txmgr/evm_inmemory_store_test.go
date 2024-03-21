@@ -57,7 +57,7 @@ func TestInMemoryStore_CreateTransaction(t *testing.T) {
 			FromAddress:    fromAddress,
 			ToAddress:      toAddress,
 			EncodedPayload: payload,
-			FeeLimit:       gasLimit,
+			FeeLimit:       uint64(gasLimit),
 			Meta:           nil,
 			Strategy:       strategy,
 		}, chainID)

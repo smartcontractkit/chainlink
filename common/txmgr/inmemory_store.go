@@ -46,6 +46,7 @@ type inMemoryStore[
 
 	keyStore          txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
 	persistentTxStore txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
+	maxUnstarted      uint64
 
 	addressStatesLock sync.RWMutex
 	addressStates     map[ADDR]*addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
@@ -75,9 +76,9 @@ func NewInMemoryStore[
 		addressStates: map[ADDR]*addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{},
 	}
 
-	maxUnstarted := config.MaxQueued()
-	if maxUnstarted <= 0 {
-		maxUnstarted = 10000
+	ms.maxUnstarted = config.MaxQueued()
+	if ms.maxUnstarted <= 0 {
+		ms.maxUnstarted = 10000
 	}
 	addresses, err := keyStore.EnabledAddressesForChain(ctx, chainID)
 	if err != nil {
@@ -88,7 +89,7 @@ func NewInMemoryStore[
 		if err != nil {
 			return nil, fmt.Errorf("address_state: initialization: %w", err)
 		}
-		ms.addressStates[fromAddr] = newAddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE](lggr, chainID, fromAddr, maxUnstarted, txs)
+		ms.addressStates[fromAddr] = newAddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE](lggr, chainID, fromAddr, ms.maxUnstarted, txs)
 	}
 
 	return &ms, nil
@@ -105,14 +106,14 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Creat
 ) {
 	tx := txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
 	if ms.chainID.String() != chainID.String() {
-		panic(fmt.Sprintf("create_transaction: invalid chain ID: %s", chainID))
+		panic(fmt.Sprintf(ErrInvalidChainID.Error()+": %s", chainID.String()))
 	}
 
 	ms.addressStatesLock.RLock()
 	defer ms.addressStatesLock.RUnlock()
 	as, ok := ms.addressStates[txRequest.FromAddress]
 	if !ok {
-		return tx, fmt.Errorf("create_transaction: %w: %q", ErrAddressNotFound, txRequest.FromAddress)
+		as = newAddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE](ms.lggr, chainID, txRequest.FromAddress, ms.maxUnstarted, nil)
 	}
 
 	// Persist Transaction to persistent storage
