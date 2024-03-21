@@ -1,6 +1,7 @@
 package toml
 
 import (
+	"errors"
 	"fmt"
 	"net/url"
 	"slices"
@@ -17,12 +18,12 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/common/config"
-	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 )
+
+var ErrNotFound = errors.New("not found")
 
 type HasEVMConfigs interface {
 	EVMConfigs() EVMConfigs
@@ -145,7 +146,7 @@ func (cs EVMConfigs) Node(name string) (types.Node, error) {
 			}
 		}
 	}
-	return types.Node{}, fmt.Errorf("node %s: %w", name, chains.ErrNotFound)
+	return types.Node{}, fmt.Errorf("node %s: %w", name, ErrNotFound)
 }
 
 func (cs EVMConfigs) NodeStatus(name string) (commontypes.NodeStatus, error) {
@@ -156,7 +157,7 @@ func (cs EVMConfigs) NodeStatus(name string) (commontypes.NodeStatus, error) {
 			}
 		}
 	}
-	return commontypes.NodeStatus{}, fmt.Errorf("node %s: %w", name, chains.ErrNotFound)
+	return commontypes.NodeStatus{}, fmt.Errorf("node %s: %w", name, ErrNotFound)
 }
 
 func legacyNode(n *Node, chainID *big.Big) (v2 types.Node) {
@@ -205,7 +206,7 @@ func (cs EVMConfigs) Nodes(chainID string) (ns []types.Node, err error) {
 	}
 	nodes := cs.nodes(chainID)
 	if nodes == nil {
-		err = fmt.Errorf("no nodes: chain %q: %w", chainID, chains.ErrNotFound)
+		err = fmt.Errorf("no nodes: chain %q: %w", chainID, ErrNotFound)
 		return
 	}
 	for _, n := range nodes {
@@ -347,8 +348,8 @@ type Chain struct {
 	ChainType                 *string
 	FinalityDepth             *uint32
 	FinalityTagEnabled        *bool
-	FlagsContractAddress      *ethkey.EIP55Address
-	LinkContractAddress       *ethkey.EIP55Address
+	FlagsContractAddress      *types.EIP55Address
+	LinkContractAddress       *types.EIP55Address
 	LogBackfillBatchSize      *uint32
 	LogPollInterval           *commonconfig.Duration
 	LogKeepBlocksDepth        *uint32
@@ -358,7 +359,7 @@ type Chain struct {
 	MinContractPayment        *commonassets.Link
 	NonceAutoSync             *bool
 	NoNewHeadsThreshold       *commonconfig.Duration
-	OperatorFactoryAddress    *ethkey.EIP55Address
+	OperatorFactoryAddress    *types.EIP55Address
 	RPCDefaultBatchSize       *uint32
 	RPCBlockQueryDelay        *uint16
 
@@ -451,8 +452,8 @@ func (a *Automation) setFrom(f *Automation) {
 }
 
 type ChainWriter struct {
-	FromAddress      *ethkey.EIP55Address `toml:",omitempty"`
-	ForwarderAddress *ethkey.EIP55Address `toml:",omitempty"`
+	FromAddress      *types.EIP55Address `toml:",omitempty"`
+	ForwarderAddress *types.EIP55Address `toml:",omitempty"`
 }
 
 func (m *ChainWriter) setFrom(f *ChainWriter) {
@@ -668,7 +669,7 @@ func (ks KeySpecificConfig) ValidateConfig() (err error) {
 }
 
 type KeySpecific struct {
-	Key          *ethkey.EIP55Address
+	Key          *types.EIP55Address
 	GasEstimator KeySpecificGasEstimator `toml:",omitempty"`
 }
 

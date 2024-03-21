@@ -6,13 +6,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
@@ -23,20 +23,15 @@ const waitTime = 5 * time.Millisecond
 func newTestEvmTrackerSetup(t *testing.T) (*txmgr.Tracker, txmgr.TestEvmTxStore, keystore.Eth, []common.Address) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := newTestChainScopedConfig(t)
-	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
+	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	chainID := big.NewInt(0)
-	enabledAddresses := generateEnabledAddresses(t, ethKeyStore, chainID)
+	var enabledAddresses []common.Address
+	_, addr1 := cltest.MustInsertRandomKey(t, ethKeyStore, *ubig.NewI(chainID.Int64()))
+	_, addr2 := cltest.MustInsertRandomKey(t, ethKeyStore, *ubig.NewI(chainID.Int64()))
+	enabledAddresses = append(enabledAddresses, addr1, addr2)
 	lggr := logger.TestLogger(t)
 	return txmgr.NewEvmTracker(txStore, ethKeyStore, chainID, lggr), txStore, ethKeyStore, enabledAddresses
-}
-
-func generateEnabledAddresses(t *testing.T, keyStore keystore.Eth, chainID *big.Int) []common.Address {
-	var enabledAddresses []common.Address
-	_, addr1 := cltest.MustInsertRandomKey(t, keyStore, *ubig.NewI(chainID.Int64()))
-	_, addr2 := cltest.MustInsertRandomKey(t, keyStore, *ubig.NewI(chainID.Int64()))
-	enabledAddresses = append(enabledAddresses, addr1, addr2)
-	return enabledAddresses
 }
 
 func containsID(txes []*txmgr.Tx, id int64) bool {

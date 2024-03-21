@@ -10,10 +10,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 )
 
 // GetUpkeepFailure implements the upkeepGetter interface with an induced error and nil
@@ -32,7 +32,7 @@ func TestSyncUpkeepWithCallback_UpkeepNotFound(t *testing.T) {
 		logger: log.(logger.SugaredLogger),
 	}
 
-	addr := ethkey.EIP55Address(testutils.NewAddress().Hex())
+	addr := types.EIP55Address(testutils.NewAddress().Hex())
 	registry := Registry{
 		ContractAddress: addr,
 	}

@@ -11,7 +11,7 @@ jobs:
   test:
     env:
       REF_NAME: ${{ github.head_ref || github.ref_name }}
-    runs-on: ubuntu20.04-8cores-32GB
+    runs-on: ubuntu22.04-8cores-32GB
     steps:
       - name: Add masks and export base64 config
         run: |
@@ -19,7 +19,7 @@ jobs:
           echo ::add-mask::$BASE64_CONFIG_OVERRIDE
           echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
       - name: Checkout the repo
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
           ref: ${{ env.REF_NAME }}
       - name: Setup Go
