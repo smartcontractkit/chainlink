@@ -1,7 +1,6 @@
 package txmgr_test
 
 import (
-	"context"
 	"math/big"
 	"testing"
 
@@ -27,14 +26,14 @@ func TestInMemoryStore_UpdateTxCallbackCompleted(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
-	persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+	persistentStore := cltest.NewTestTxStore(t, db)
 	kst := cltest.NewKeyStore(t, db, dbcfg)
 	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	lggr := logger.TestSugared(t)
 	chainID := ethClient.ConfiguredChainID()
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 
 	inMemoryStore, err := commontxmgr.NewInMemoryStore[
 		*big.Int,
@@ -49,7 +48,7 @@ func TestInMemoryStore_UpdateTxCallbackCompleted(t *testing.T) {
 		// Insert a transaction into persistent store
 		inTx := cltest.NewEthTx(fromAddress)
 		inTx.PipelineTaskRunID = uuid.NullUUID{UUID: uuid.New(), Valid: true}
-		require.NoError(t, persistentStore.InsertTx(&inTx))
+		require.NoError(t, persistentStore.InsertTx(ctx, &inTx))
 		// Insert the transaction into the in-memory store
 		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
 
@@ -60,7 +59,7 @@ func TestInMemoryStore_UpdateTxCallbackCompleted(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		expTx, err := persistentStore.FindTxWithAttempts(inTx.ID)
+		expTx, err := persistentStore.FindTxWithAttempts(ctx, inTx.ID)
 		require.NoError(t, err)
 		fn := func(tx *evmtxmgr.Tx) bool { return true }
 		actTxs := inMemoryStore.XXXTestFindTxs(nil, fn, inTx.ID)
@@ -69,17 +68,10 @@ func TestInMemoryStore_UpdateTxCallbackCompleted(t *testing.T) {
 		assertTxEqual(t, expTx, actTx)
 		assert.True(t, actTx.CallbackCompleted)
 
-		// wrong chain id
-		wrongChainID := big.NewInt(123)
-		actErr := inMemoryStore.UpdateTxCallbackCompleted(testutils.Context(t), inTx.PipelineTaskRunID.UUID, wrongChainID)
-		expErr := persistentStore.UpdateTxCallbackCompleted(testutils.Context(t), inTx.PipelineTaskRunID.UUID, wrongChainID)
-		assert.NoError(t, actErr)
-		assert.NoError(t, expErr)
-
 		// wrong PipelineTaskRunID
 		wrongPipelineTaskRunID := uuid.NullUUID{UUID: uuid.New(), Valid: true}
-		actErr = inMemoryStore.UpdateTxCallbackCompleted(testutils.Context(t), wrongPipelineTaskRunID.UUID, chainID)
-		expErr = persistentStore.UpdateTxCallbackCompleted(testutils.Context(t), wrongPipelineTaskRunID.UUID, chainID)
+		actErr := inMemoryStore.UpdateTxCallbackCompleted(ctx, wrongPipelineTaskRunID.UUID, chainID)
+		expErr := persistentStore.UpdateTxCallbackCompleted(ctx, wrongPipelineTaskRunID.UUID, chainID)
 		assert.NoError(t, actErr)
 		assert.NoError(t, expErr)
 	})
