@@ -59,6 +59,25 @@ func (o *OnRampReaderGRPCClient) GetSendRequestsBetweenSeqNums(ctx context.Conte
 	return evm2EVMMessageWithTxMetaSlice(resp.SendRequests)
 }
 
+// IsSourceChainHealthy returns true if the source chain is healthy.
+func (o *OnRampReaderGRPCClient) IsSourceChainHealthy(ctx context.Context) (bool, error) {
+	resp, err := o.grpc.IsSourceChainHealthy(ctx, &emptypb.Empty{})
+	if err != nil {
+		return false, err
+	}
+	return resp.IsHealthy, nil
+}
+
+// IsSourceCursed returns true if the source chain is cursed. OnRamp communicates with the underlying RMN
+// to verify if source chain was cursed or not.
+func (o *OnRampReaderGRPCClient) IsSourceCursed(ctx context.Context) (bool, error) {
+	resp, err := o.grpc.IsSourceCursed(ctx, &emptypb.Empty{})
+	if err != nil {
+		return false, err
+	}
+	return resp.IsCursed, nil
+}
+
 // RouterAddress implements ccip.OnRampReader.
 func (o *OnRampReaderGRPCClient) RouterAddress(ctx context.Context) (cciptypes.Address, error) {
 	resp, err := o.grpc.RouterAddress(ctx, &emptypb.Empty{})
@@ -68,20 +87,13 @@ func (o *OnRampReaderGRPCClient) RouterAddress(ctx context.Context) (cciptypes.A
 	return cciptypes.Address(resp.RouterAddress), nil
 }
 
-// IsSourceChainHealthy returns true if the source chain is healthy.
-func (o *OnRampReaderGRPCClient) IsSourceChainHealthy(ctx context.Context) (bool, error) {
-	panic("BCF-3106")
-}
-
-// IsSourceCursed returns true if the source chain is cursed. OnRamp communicates with the underlying RMN
-// to verify if source chain was cursed or not.
-func (o *OnRampReaderGRPCClient) IsSourceCursed(ctx context.Context) (bool, error) {
-	panic("BCF-3106")
-}
-
 // SourcePriceRegistryAddress returns the address of the current price registry configured on the onRamp.
 func (o *OnRampReaderGRPCClient) SourcePriceRegistryAddress(ctx context.Context) (cciptypes.Address, error) {
-	panic("BCF-3106")
+	resp, err := o.grpc.SourcePriceRegistryAddress(ctx, &emptypb.Empty{})
+	if err != nil {
+		return cciptypes.Address(""), err
+	}
+	return cciptypes.Address(resp.PriceRegistryAddress), nil
 }
 
 // Server
@@ -92,8 +104,6 @@ type OnRampReaderGRPCServer struct {
 	impl cciptypes.OnRampReader
 	deps []io.Closer
 }
-
-// mustEmbedUnimplementedOnRampReaderServer implements ccippb.OnRampReaderServer.
 
 var _ ccippb.OnRampReaderServer = (*OnRampReaderGRPCServer)(nil)
 
@@ -142,6 +152,24 @@ func (o *OnRampReaderGRPCServer) GetSendRequestsBetweenSeqNums(ctx context.Conte
 	return &ccippb.GetSendRequestsBetweenSeqNumsResponse{SendRequests: sendRequestsPB}, nil
 }
 
+// IsSourceChainHealthy implements ccippb.OnRampReaderServer.
+func (o *OnRampReaderGRPCServer) IsSourceChainHealthy(ctx context.Context, _ *emptypb.Empty) (*ccippb.IsSourceChainHealthyResponse, error) {
+	isHealthy, err := o.impl.IsSourceChainHealthy(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &ccippb.IsSourceChainHealthyResponse{IsHealthy: isHealthy}, nil
+}
+
+// IsSourceCursed implements ccippb.OnRampReaderServer.
+func (o *OnRampReaderGRPCServer) IsSourceCursed(ctx context.Context, _ *emptypb.Empty) (*ccippb.IsSourceCursedResponse, error) {
+	isCursed, err := o.impl.IsSourceCursed(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &ccippb.IsSourceCursedResponse{IsCursed: isCursed}, nil
+}
+
 // RouterAddress implements ccippb.OnRampReaderServer.
 func (o *OnRampReaderGRPCServer) RouterAddress(ctx context.Context, _ *emptypb.Empty) (*ccippb.RouterAddressResponse, error) {
 	a, err := o.impl.RouterAddress(ctx)
@@ -149,6 +177,15 @@ func (o *OnRampReaderGRPCServer) RouterAddress(ctx context.Context, _ *emptypb.E
 		return nil, err
 	}
 	return &ccippb.RouterAddressResponse{RouterAddress: string(a)}, nil
+}
+
+// SourcePriceRegistryAddress implements ccippb.OnRampReaderServer.
+func (o *OnRampReaderGRPCServer) SourcePriceRegistryAddress(ctx context.Context, _ *emptypb.Empty) (*ccippb.SourcePriceRegistryAddressResponse, error) {
+	a, err := o.impl.SourcePriceRegistryAddress(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &ccippb.SourcePriceRegistryAddressResponse{PriceRegistryAddress: string(a)}, nil
 }
 
 func onRampDynamicConfig(config *ccippb.OnRampDynamicConfig) cciptypes.OnRampDynamicConfig {

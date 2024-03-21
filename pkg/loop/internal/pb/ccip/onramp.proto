@@ -13,7 +13,10 @@ service OnRampReader {
     rpc Address(google.protobuf.Empty) returns (OnrampAddressResponse) {}
     rpc GetDynamicConfig(google.protobuf.Empty) returns (GetDynamicConfigResponse) {}
     rpc GetSendRequestsBetweenSeqNums(GetSendRequestsBetweenSeqNumsRequest) returns (GetSendRequestsBetweenSeqNumsResponse) {}
+    rpc IsSourceChainHealthy(google.protobuf.Empty) returns (IsSourceChainHealthyResponse) {}
+    rpc IsSourceCursed(google.protobuf.Empty) returns (IsSourceCursedResponse) {}
     rpc RouterAddress(google.protobuf.Empty) returns (RouterAddressResponse) {}
+    rpc SourcePriceRegistryAddress(google.protobuf.Empty) returns (SourcePriceRegistryAddressResponse) {}
     rpc Close(google.protobuf.Empty) returns (google.protobuf.Empty) {}
 }
 
@@ -71,4 +74,16 @@ message OnRampDynamicConfig {
 message EVM2EVMMessageWithTxMeta {
     EVM2EVMMessage message = 1;
     TxMeta tx_meta = 2;
+}
+
+message IsSourceChainHealthyResponse {
+    bool is_healthy = 1;
+}
+
+message IsSourceCursedResponse {
+    bool is_cursed = 1;
+}
+
+message SourcePriceRegistryAddressResponse {
+    string price_registry_address = 1;
 }

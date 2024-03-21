@@ -139,30 +139,29 @@ func (s staticOnRamp) Evaluate(ctx context.Context, other ccip.OnRampReader) err
 		return fmt.Errorf("expected send requests %v but got %v", s.getSendRequestsBetweenSeqNumsResponse.EVM2EVMMessageWithTxMeta, sendRequests)
 	}
 
-	// TODO: BCF-3106
-	//isSourceChainHealthy, err := other.IsSourceChainHealthy(ctx)
-	//if err != nil {
-	//	return fmt.Errorf("is source chain healthy: %w", err)
-	//}
-	//if isSourceChainHealthy != s.isSourceChainHealthyResponse {
-	//	return fmt.Errorf("expected is source chain healthy to be: %v", s.isSourceChainHealthyResponse)
-	//}
-	//
-	//isSourceCursed, err := other.IsSourceCursed(ctx)
-	//if err != nil {
-	//	return fmt.Errorf("is source cursed: %w", err)
-	//}
-	//if isSourceCursed != s.isSourceCursedResponse {
-	//	return fmt.Errorf("expected is source cursed to be: %v", s.isSourceCursedResponse)
-	//}
-	//
-	//sourcePriceRegistryAddress, err := other.SourcePriceRegistryAddress(ctx)
-	//if err != nil {
-	//	return fmt.Errorf("get source price registry address: %w", err)
-	//}
-	//if sourcePriceRegistryAddress != s.sourcePriceRegistryResponse {
-	//	return fmt.Errorf("expected source price registry address to be: %v", s.sourcePriceRegistryResponse)
-	//}
+	isSourceChainHealthy, err := other.IsSourceChainHealthy(ctx)
+	if err != nil {
+		return fmt.Errorf("is source chain healthy: %w", err)
+	}
+	if isSourceChainHealthy != s.isSourceChainHealthyResponse {
+		return fmt.Errorf("expected is source chain healthy to be: %v", s.isSourceChainHealthyResponse)
+	}
+
+	isSourceCursed, err := other.IsSourceCursed(ctx)
+	if err != nil {
+		return fmt.Errorf("is source cursed: %w", err)
+	}
+	if isSourceCursed != s.isSourceCursedResponse {
+		return fmt.Errorf("expected is source cursed to be: %v", s.isSourceCursedResponse)
+	}
+
+	sourcePriceRegistryAddress, err := other.SourcePriceRegistryAddress(ctx)
+	if err != nil {
+		return fmt.Errorf("get source price registry address: %w", err)
+	}
+	if sourcePriceRegistryAddress != s.sourcePriceRegistryResponse {
+		return fmt.Errorf("expected source price registry address to be: %v", s.sourcePriceRegistryResponse)
+	}
 
 	return nil
 }

@@ -23,7 +23,10 @@ const (
 	OnRampReader_Address_FullMethodName                       = "/loop.internal.pb.ccip.OnRampReader/Address"
 	OnRampReader_GetDynamicConfig_FullMethodName              = "/loop.internal.pb.ccip.OnRampReader/GetDynamicConfig"
 	OnRampReader_GetSendRequestsBetweenSeqNums_FullMethodName = "/loop.internal.pb.ccip.OnRampReader/GetSendRequestsBetweenSeqNums"
+	OnRampReader_IsSourceChainHealthy_FullMethodName          = "/loop.internal.pb.ccip.OnRampReader/IsSourceChainHealthy"
+	OnRampReader_IsSourceCursed_FullMethodName                = "/loop.internal.pb.ccip.OnRampReader/IsSourceCursed"
 	OnRampReader_RouterAddress_FullMethodName                 = "/loop.internal.pb.ccip.OnRampReader/RouterAddress"
+	OnRampReader_SourcePriceRegistryAddress_FullMethodName    = "/loop.internal.pb.ccip.OnRampReader/SourcePriceRegistryAddress"
 	OnRampReader_Close_FullMethodName                         = "/loop.internal.pb.ccip.OnRampReader/Close"
 )
 
@@ -34,7 +37,10 @@ type OnRampReaderClient interface {
 	Address(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*OnrampAddressResponse, error)
 	GetDynamicConfig(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GetDynamicConfigResponse, error)
 	GetSendRequestsBetweenSeqNums(ctx context.Context, in *GetSendRequestsBetweenSeqNumsRequest, opts ...grpc.CallOption) (*GetSendRequestsBetweenSeqNumsResponse, error)
+	IsSourceChainHealthy(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*IsSourceChainHealthyResponse, error)
+	IsSourceCursed(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*IsSourceCursedResponse, error)
 	RouterAddress(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*RouterAddressResponse, error)
+	SourcePriceRegistryAddress(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*SourcePriceRegistryAddressResponse, error)
 	Close(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
@@ -73,9 +79,36 @@ func (c *onRampReaderClient) GetSendRequestsBetweenSeqNums(ctx context.Context, 
 	return out, nil
 }
 
+func (c *onRampReaderClient) IsSourceChainHealthy(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*IsSourceChainHealthyResponse, error) {
+	out := new(IsSourceChainHealthyResponse)
+	err := c.cc.Invoke(ctx, OnRampReader_IsSourceChainHealthy_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *onRampReaderClient) IsSourceCursed(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*IsSourceCursedResponse, error) {
+	out := new(IsSourceCursedResponse)
+	err := c.cc.Invoke(ctx, OnRampReader_IsSourceCursed_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *onRampReaderClient) RouterAddress(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*RouterAddressResponse, error) {
 	out := new(RouterAddressResponse)
 	err := c.cc.Invoke(ctx, OnRampReader_RouterAddress_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *onRampReaderClient) SourcePriceRegistryAddress(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*SourcePriceRegistryAddressResponse, error) {
+	out := new(SourcePriceRegistryAddressResponse)
+	err := c.cc.Invoke(ctx, OnRampReader_SourcePriceRegistryAddress_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -98,7 +131,10 @@ type OnRampReaderServer interface {
 	Address(context.Context, *emptypb.Empty) (*OnrampAddressResponse, error)
 	GetDynamicConfig(context.Context, *emptypb.Empty) (*GetDynamicConfigResponse, error)
 	GetSendRequestsBetweenSeqNums(context.Context, *GetSendRequestsBetweenSeqNumsRequest) (*GetSendRequestsBetweenSeqNumsResponse, error)
+	IsSourceChainHealthy(context.Context, *emptypb.Empty) (*IsSourceChainHealthyResponse, error)
+	IsSourceCursed(context.Context, *emptypb.Empty) (*IsSourceCursedResponse, error)
 	RouterAddress(context.Context, *emptypb.Empty) (*RouterAddressResponse, error)
+	SourcePriceRegistryAddress(context.Context, *emptypb.Empty) (*SourcePriceRegistryAddressResponse, error)
 	Close(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	mustEmbedUnimplementedOnRampReaderServer()
 }
@@ -116,8 +152,17 @@ func (UnimplementedOnRampReaderServer) GetDynamicConfig(context.Context, *emptyp
 func (UnimplementedOnRampReaderServer) GetSendRequestsBetweenSeqNums(context.Context, *GetSendRequestsBetweenSeqNumsRequest) (*GetSendRequestsBetweenSeqNumsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetSendRequestsBetweenSeqNums not implemented")
 }
+func (UnimplementedOnRampReaderServer) IsSourceChainHealthy(context.Context, *emptypb.Empty) (*IsSourceChainHealthyResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method IsSourceChainHealthy not implemented")
+}
+func (UnimplementedOnRampReaderServer) IsSourceCursed(context.Context, *emptypb.Empty) (*IsSourceCursedResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method IsSourceCursed not implemented")
+}
 func (UnimplementedOnRampReaderServer) RouterAddress(context.Context, *emptypb.Empty) (*RouterAddressResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RouterAddress not implemented")
+}
+func (UnimplementedOnRampReaderServer) SourcePriceRegistryAddress(context.Context, *emptypb.Empty) (*SourcePriceRegistryAddressResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SourcePriceRegistryAddress not implemented")
 }
 func (UnimplementedOnRampReaderServer) Close(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Close not implemented")
@@ -189,6 +234,42 @@ func _OnRampReader_GetSendRequestsBetweenSeqNums_Handler(srv interface{}, ctx co
 	return interceptor(ctx, in, info, handler)
 }
 
+func _OnRampReader_IsSourceChainHealthy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OnRampReaderServer).IsSourceChainHealthy(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: OnRampReader_IsSourceChainHealthy_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OnRampReaderServer).IsSourceChainHealthy(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _OnRampReader_IsSourceCursed_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OnRampReaderServer).IsSourceCursed(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: OnRampReader_IsSourceCursed_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OnRampReaderServer).IsSourceCursed(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _OnRampReader_RouterAddress_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(emptypb.Empty)
 	if err := dec(in); err != nil {
@@ -203,6 +284,24 @@ func _OnRampReader_RouterAddress_Handler(srv interface{}, ctx context.Context, d
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(OnRampReaderServer).RouterAddress(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _OnRampReader_SourcePriceRegistryAddress_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OnRampReaderServer).SourcePriceRegistryAddress(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: OnRampReader_SourcePriceRegistryAddress_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OnRampReaderServer).SourcePriceRegistryAddress(ctx, req.(*emptypb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -245,8 +344,20 @@ var OnRampReader_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _OnRampReader_GetSendRequestsBetweenSeqNums_Handler,
 		},
 		{
+			MethodName: "IsSourceChainHealthy",
+			Handler:    _OnRampReader_IsSourceChainHealthy_Handler,
+		},
+		{
+			MethodName: "IsSourceCursed",
+			Handler:    _OnRampReader_IsSourceCursed_Handler,
+		},
+		{
 			MethodName: "RouterAddress",
 			Handler:    _OnRampReader_RouterAddress_Handler,
+		},
+		{
+			MethodName: "SourcePriceRegistryAddress",
+			Handler:    _OnRampReader_SourcePriceRegistryAddress_Handler,
 		},
 		{
 			MethodName: "Close",

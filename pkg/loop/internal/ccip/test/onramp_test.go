@@ -108,11 +108,27 @@ func roundTripOnRampTests(ctx context.Context, t *testing.T, client *ccip.OnRamp
 		}
 	})
 
+	t.Run("IsSourceChainHealthy", func(t *testing.T) {
+		got, err := client.IsSourceChainHealthy(ctx)
+		require.NoError(t, err)
+		assert.Equal(t, OnRampReader.isSourceChainHealthyResponse, got)
+	})
+
+	t.Run("IsSourceCursed", func(t *testing.T) {
+		got, err := client.IsSourceCursed(ctx)
+		require.NoError(t, err)
+		assert.Equal(t, OnRampReader.isSourceCursedResponse, got)
+	})
+
 	t.Run("RouterAddress", func(t *testing.T) {
 		got, err := client.RouterAddress(ctx)
 		require.NoError(t, err)
 		assert.Equal(t, OnRampReader.routerResponse, got)
 	})
 
-	// TODO: BCF-3106 implement the new methods
+	t.Run("SourcePriceRegistryAddress", func(t *testing.T) {
+		got, err := client.SourcePriceRegistryAddress(ctx)
+		require.NoError(t, err)
+		assert.Equal(t, OnRampReader.sourcePriceRegistryResponse, got)
+	})
 }
