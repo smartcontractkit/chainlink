@@ -8,6 +8,7 @@ import (
 	"github.com/K-Phoen/grabana/stat"
 	"github.com/K-Phoen/grabana/target/prometheus"
 	"github.com/K-Phoen/grabana/timeseries"
+	"github.com/K-Phoen/grabana/timeseries/axis"
 	"github.com/K-Phoen/grabana/variable/query"
 )
 
@@ -324,21 +325,54 @@ func roundEpochProgression(p Props) []dashboard.Option {
 			row.WithTimeSeries(
 				"Agreed Epoch Progression",
 				timeseries.Span(4),
-				timeseries.Height("200px"),
+				timeseries.Height("300px"),
 				timeseries.DataSource(p.PrometheusDataSource),
+				timeseries.Axis(
+					axis.Unit("short"),
+				),
 				timeseries.WithPrometheusTarget(
-					``+p.OcrVersion+`_telemetry_feed_agreed_epoch{`+p.PlatformOpts.LabelQuery+`}`,
-					prometheus.Legend("{{"+p.PlatformOpts.LegendString+"}} - {{network_name}} - {{contract}}"),
+					``+p.OcrVersion+`_telemetry_feed_agreed_epoch{`+p.PlatformOpts.LabelQuery+`feed_id_name=~"${feed_id_name}"}`,
+					prometheus.Legend("{{feed_id_name}}"),
 				),
 			),
 			row.WithTimeSeries(
 				"Round Epoch Progression",
 				timeseries.Span(4),
-				timeseries.Height("200px"),
+				timeseries.Height("300px"),
 				timeseries.DataSource(p.PrometheusDataSource),
+				timeseries.Axis(
+					axis.Unit("short"),
+				),
 				timeseries.WithPrometheusTarget(
 					``+p.OcrVersion+`_telemetry_epoch_round{`+p.PlatformOpts.LabelQuery+`feed_id_name=~"${feed_id_name}"}`,
-					prometheus.Legend("{{"+p.PlatformOpts.LegendString+"}} - {{network_name}} - {{contract}}"),
+					prometheus.Legend("{{oracle}}"),
+				),
+			),
+			row.WithTimeSeries(
+				"Rounds Started",
+				timeseries.Description("Tracks individual nodes firing \"new round\" message via telemetry (not part of P2P messages)"),
+				timeseries.Span(4),
+				timeseries.Height("300px"),
+				timeseries.DataSource(p.PrometheusDataSource),
+				timeseries.Axis(
+					axis.Unit("short"),
+				),
+				timeseries.WithPrometheusTarget(
+					`rate(`+p.OcrVersion+`_telemetry_round_started_total{`+p.PlatformOpts.LabelQuery+`feed_id_name=~"${feed_id_name}"}[1m])`,
+					prometheus.Legend("{{oracle}}"),
+				),
+			),
+			row.WithTimeSeries(
+				"Telemetry Ingested",
+				timeseries.Span(12),
+				timeseries.Height("300px"),
+				timeseries.DataSource(p.PrometheusDataSource),
+				timeseries.Axis(
+					axis.Unit("short"),
+				),
+				timeseries.WithPrometheusTarget(
+					`rate(`+p.OcrVersion+`_telemetry_ingested_total{`+p.PlatformOpts.LabelQuery+`feed_id_name=~"${feed_id_name}"}[1m])`,
+					prometheus.Legend("{{oracle}}"),
 				),
 			),
 		),
