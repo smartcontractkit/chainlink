@@ -25,7 +25,8 @@ contract AutomationRegistryLogicC2_3 is AutomationRegistryBase2_3 {
     address fastGasFeed,
     address automationForwarderLogic,
     address allowedReadOnlyAddress,
-    PayoutMode payoutMode
+    PayoutMode payoutMode,
+    address wrappedNativeTokenAddress
   )
     AutomationRegistryBase2_3(
       link,
@@ -34,7 +35,8 @@ contract AutomationRegistryLogicC2_3 is AutomationRegistryBase2_3 {
       fastGasFeed,
       automationForwarderLogic,
       allowedReadOnlyAddress,
-      payoutMode
+      payoutMode,
+      wrappedNativeTokenAddress
     )
   {}
 
@@ -234,6 +236,10 @@ contract AutomationRegistryLogicC2_3 is AutomationRegistryBase2_3 {
 
   function getAllowedReadOnlyAddress() external view returns (address) {
     return i_allowedReadOnlyAddress;
+  }
+
+  function getWrappedNativeTokenAddress() external view returns (address) {
+    return address(i_wrappedNativeToken);
   }
 
   function getBillingToken(uint256 upkeepID) external view returns (IERC20) {
