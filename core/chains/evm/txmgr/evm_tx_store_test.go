@@ -9,6 +9,7 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -1466,7 +1467,7 @@ func TestORM_GetTxInProgress(t *testing.T) {
 	})
 }
 
-func TestORM_GetNonFatalTransactions(t *testing.T) {
+func TestORM_GetNonFatalTransactionsByBatch(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
@@ -1477,7 +1478,7 @@ func TestORM_GetNonFatalTransactions(t *testing.T) {
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
 
 	t.Run("gets 0 non finalized eth transaction", func(t *testing.T) {
-		txes, err := txStore.GetNonFatalTransactions(testutils.Context(t), ethClient.ConfiguredChainID())
+		txes, err := txStore.GetNonFatalTransactionsByBatch(testutils.Context(t), ethClient.ConfiguredChainID(), 0, 10)
 		require.NoError(t, err)
 		require.Empty(t, txes)
 	})
@@ -1486,12 +1487,30 @@ func TestORM_GetNonFatalTransactions(t *testing.T) {
 		inProgressTx := mustInsertInProgressEthTxWithAttempt(t, txStore, 123, fromAddress)
 		unstartedTx := mustCreateUnstartedGeneratedTx(t, txStore, fromAddress, ethClient.ConfiguredChainID())
 
-		txes, err := txStore.GetNonFatalTransactions(testutils.Context(t), ethClient.ConfiguredChainID())
+		txes, err := txStore.GetNonFatalTransactionsByBatch(testutils.Context(t), ethClient.ConfiguredChainID(), 0, 10)
 		require.NoError(t, err)
 
 		for _, tx := range txes {
 			require.True(t, tx.ID == inProgressTx.ID || tx.ID == unstartedTx.ID)
 		}
+	})
+
+	t.Run("get batches of transactions", func(t *testing.T) {
+		var batchSize uint = 10
+		numTxes := 55
+		for i := 0; i < numTxes; i++ {
+			_ = mustCreateUnstartedGeneratedTx(t, txStore, fromAddress, ethClient.ConfiguredChainID())
+		}
+
+		allTxes := make([]*txmgr.Tx, 0)
+		err := sqlutil.Batch(func(offset, limit uint) (count uint, err error) {
+			batchTxes, err := txStore.GetNonFatalTransactionsByBatch(testutils.Context(t), ethClient.ConfiguredChainID(), offset, limit)
+			require.NoError(t, err)
+			allTxes = append(allTxes, batchTxes...)
+			return uint(len(batchTxes)), nil
+		}, batchSize)
+		require.NoError(t, err)
+		require.Len(t, allTxes, numTxes+2)
 	})
 }
 
