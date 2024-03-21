@@ -38,7 +38,22 @@ func (m *Dashboard) Deploy() error {
 	if err != nil {
 		return err
 	}
-	client := grabana.NewClient(&http.Client{}, m.DeployOpts.GrafanaURL, grabana.WithAPIToken(m.DeployOpts.GrafanaToken))
+	var client *grabana.Client
+	if m.DeployOpts.GrafanaBasicAuthUser != "" && m.DeployOpts.GrafanaBasicAuthPassword != "" {
+		L.Info().Msg("Authorizing using BasicAuth")
+		client = grabana.NewClient(
+			&http.Client{},
+			m.DeployOpts.GrafanaURL,
+			grabana.WithBasicAuth(m.DeployOpts.GrafanaBasicAuthUser, m.DeployOpts.GrafanaBasicAuthPassword),
+		)
+	} else {
+		L.Info().Msg("Authorizing using Bearer token")
+		client = grabana.NewClient(
+			&http.Client{},
+			m.DeployOpts.GrafanaURL,
+			grabana.WithAPIToken(m.DeployOpts.GrafanaToken),
+		)
+	}
 	fo, folderErr := client.FindOrCreateFolder(ctx, m.DeployOpts.GrafanaFolder)
 	if folderErr != nil {
 		return errors.Wrap(err, "could not find or create Grafana folder")

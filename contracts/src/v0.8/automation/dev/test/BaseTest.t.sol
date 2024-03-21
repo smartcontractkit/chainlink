@@ -3,12 +3,12 @@ pragma solidity 0.8.19;
 
 import "forge-std/Test.sol";
 
-// import {LinkTokenInterface} from "../../../shared/interfaces/LinkTokenInterface.sol";
 import {LinkToken} from "../../../shared/token/ERC677/LinkToken.sol";
 import {ERC20Mock} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/mocks/ERC20Mock.sol";
 import {MockV3Aggregator} from "../../../tests/MockV3Aggregator.sol";
 import {AutomationForwarderLogic} from "../../AutomationForwarderLogic.sol";
 import {AutomationRegistry2_3} from "../v2_3/AutomationRegistry2_3.sol";
+import {AutomationRegistryBase2_3 as AutoBase} from "../v2_3/AutomationRegistryBase2_3.sol";
 import {AutomationRegistryLogicA2_3} from "../v2_3/AutomationRegistryLogicA2_3.sol";
 import {AutomationRegistryLogicB2_3} from "../v2_3/AutomationRegistryLogicB2_3.sol";
 import {AutomationRegistryLogicC2_3} from "../v2_3/AutomationRegistryLogicC2_3.sol";
@@ -19,7 +19,7 @@ import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/tok
 import {MockUpkeep} from "../../mocks/MockUpkeep.sol";
 
 /**
- * @title BaseTest provides basic test setup procedures and dependancies for use by other
+ * @title BaseTest provides basic test setup procedures and dependencies for use by other
  * unit tests
  */
 contract BaseTest is Test {
@@ -54,6 +54,7 @@ contract BaseTest is Test {
   uint256 internal constant SIGNING_KEY3 = 0x80f14b11da94ae7f29d9a7713ea13dc838e31960a5c0f2baf45ed458947b730a;
   address[] internal SIGNERS = new address[](4);
   address[] internal TRANSMITTERS = new address[](4);
+  address[] internal PAYEES = new address[](4);
 
   function setUp() public virtual {
     vm.startPrank(OWNER);
@@ -79,6 +80,11 @@ contract BaseTest is Test {
     TRANSMITTERS[2] = address(uint160(uint256(keccak256("TRANSMITTER3"))));
     TRANSMITTERS[3] = address(uint160(uint256(keccak256("TRANSMITTER4"))));
 
+    PAYEES[0] = address(100);
+    PAYEES[1] = address(101);
+    PAYEES[2] = address(102);
+    PAYEES[3] = address(103);
+
     // mint funds
     vm.deal(UPKEEP_ADMIN, 10 ether);
     vm.deal(FINANCE_ADMIN, 10 ether);
@@ -96,7 +102,7 @@ contract BaseTest is Test {
   /**
    * @notice deploys the component parts of a registry, but nothing more
    */
-  function deployRegistry() internal returns (IAutomationRegistryMaster2_3) {
+  function deployRegistry(AutoBase.PayoutMode payoutMode) internal returns (IAutomationRegistryMaster2_3) {
     AutomationForwarderLogic forwarderLogic = new AutomationForwarderLogic();
     AutomationRegistryLogicC2_3 logicC2_3 = new AutomationRegistryLogicC2_3(
       address(linkToken),
@@ -104,7 +110,8 @@ contract BaseTest is Test {
       address(NATIVE_USD_FEED),
       address(FAST_GAS_FEED),
       address(forwarderLogic),
-      ZERO_ADDRESS
+      ZERO_ADDRESS,
+      payoutMode
     );
     AutomationRegistryLogicB2_3 logicB2_3 = new AutomationRegistryLogicB2_3(logicC2_3);
     AutomationRegistryLogicA2_3 logicA2_3 = new AutomationRegistryLogicA2_3(logicB2_3);
@@ -112,10 +119,12 @@ contract BaseTest is Test {
   }
 
   /**
-   * @notice deploys and configures a regisry, registrar, and everything needed for most tests
+   * @notice deploys and configures a registry, registrar, and everything needed for most tests
    */
-  function deployAndConfigureAll() internal returns (IAutomationRegistryMaster2_3, AutomationRegistrar2_3) {
-    IAutomationRegistryMaster2_3 registry = deployRegistry();
+  function deployAndConfigureAll(
+    AutoBase.PayoutMode payoutMode
+  ) internal returns (IAutomationRegistryMaster2_3, AutomationRegistrar2_3) {
+    IAutomationRegistryMaster2_3 registry = deployRegistry(payoutMode);
     // deploy & configure registrar
     AutomationRegistrar2_3.InitialTriggerConfig[]
       memory triggerConfigs = new AutomationRegistrar2_3.InitialTriggerConfig[](2);
@@ -129,86 +138,179 @@ contract BaseTest is Test {
       autoApproveType: AutomationRegistrar2_3.AutoApproveType.DISABLED,
       autoApproveMaxAllowed: 0
     });
-    IERC20[] memory billingTokens = new IERC20[](2);
-    billingTokens[0] = IERC20(address(linkToken));
-    billingTokens[1] = IERC20(address(mockERC20));
-    uint256[] memory minRegistrationFees = new uint256[](billingTokens.length);
-    minRegistrationFees[0] = 5000000000000000000; // 5 LINK
-    minRegistrationFees[1] = 100000000000000000000; // 100 USD
-    AutomationRegistrar2_3 registrar = new AutomationRegistrar2_3(
-      address(linkToken),
-      registry,
-      triggerConfigs,
-      billingTokens,
-      minRegistrationFees
-    );
-    // configure registry
-    address[] memory registrars = new address[](1);
-    registrars[0] = address(registrar);
-    address[] memory billingTokenAddresses = new address[](billingTokens.length);
-    for (uint256 i = 0; i < billingTokens.length; i++) {
-      billingTokenAddresses[i] = address(billingTokens[i]);
+    AutomationRegistrar2_3 registrar;
+    if (payoutMode == AutoBase.PayoutMode.OFF_CHAIN) {
+      IERC20[] memory billingTokens = new IERC20[](1);
+      billingTokens[0] = IERC20(address(mockERC20));
+      uint256[] memory minRegistrationFees = new uint256[](billingTokens.length);
+      minRegistrationFees[0] = 100000000000000000000; // 100 USD
+      registrar = new AutomationRegistrar2_3(
+        address(linkToken),
+        registry,
+        triggerConfigs,
+        billingTokens,
+        minRegistrationFees
+      );
+      // configure registry
+      address[] memory registrars = new address[](1);
+      registrars[0] = address(registrar);
+      address[] memory billingTokenAddresses = new address[](billingTokens.length);
+      for (uint256 i = 0; i < billingTokens.length; i++) {
+        billingTokenAddresses[i] = address(billingTokens[i]);
+      }
+      AutomationRegistryBase2_3.OnchainConfig memory cfg = AutomationRegistryBase2_3.OnchainConfig({
+        checkGasLimit: 5_000_000,
+        stalenessSeconds: 90_000,
+        gasCeilingMultiplier: 0,
+        maxPerformGas: 10_000_000,
+        maxCheckDataSize: 5_000,
+        maxPerformDataSize: 5_000,
+        maxRevertDataSize: 5_000,
+        fallbackGasPrice: 20_000_000_000,
+        fallbackLinkPrice: 2_000_000_000, // $20
+        fallbackNativePrice: 400_000_000_000, // $4,000
+        transcoder: 0xB1e66855FD67f6e85F0f0fA38cd6fBABdf00923c,
+        registrars: registrars,
+        upkeepPrivilegeManager: 0xD9c855F08A7e460691F41bBDDe6eC310bc0593D8,
+        chainModule: address(new ChainModuleBase()),
+        reorgProtectionEnabled: true,
+        financeAdmin: FINANCE_ADMIN
+      });
+      AutomationRegistryBase2_3.BillingConfig[]
+        memory billingTokenConfigs = new AutomationRegistryBase2_3.BillingConfig[](1);
+      billingTokenConfigs[0] = AutomationRegistryBase2_3.BillingConfig({
+        gasFeePPB: 10_000_000, // 15%
+        flatFeeMicroLink: 100_000,
+        priceFeed: address(USDTOKEN_USD_FEED),
+        fallbackPrice: 100_000_000, // $1
+        minSpend: 100000000000000000000 // 100 USD
+      });
+      registry.setConfigTypeSafe(
+        SIGNERS,
+        TRANSMITTERS,
+        F,
+        cfg,
+        OFFCHAIN_CONFIG_VERSION,
+        "",
+        billingTokenAddresses,
+        billingTokenConfigs
+      );
+    } else {
+      IERC20[] memory billingTokens = new IERC20[](2);
+      billingTokens[0] = IERC20(address(linkToken));
+      billingTokens[1] = IERC20(address(mockERC20));
+      uint256[] memory minRegistrationFees = new uint256[](billingTokens.length);
+      minRegistrationFees[0] = 5000000000000000000; // 5 LINK
+      minRegistrationFees[1] = 100000000000000000000; // 100 USD
+      registrar = new AutomationRegistrar2_3(
+        address(linkToken),
+        registry,
+        triggerConfigs,
+        billingTokens,
+        minRegistrationFees
+      );
+      // configure registry
+      address[] memory registrars = new address[](1);
+      registrars[0] = address(registrar);
+      address[] memory billingTokenAddresses = new address[](billingTokens.length);
+      for (uint256 i = 0; i < billingTokens.length; i++) {
+        billingTokenAddresses[i] = address(billingTokens[i]);
+      }
+      AutomationRegistryBase2_3.OnchainConfig memory cfg = AutomationRegistryBase2_3.OnchainConfig({
+        checkGasLimit: 5_000_000,
+        stalenessSeconds: 90_000,
+        gasCeilingMultiplier: 0,
+        maxPerformGas: 10_000_000,
+        maxCheckDataSize: 5_000,
+        maxPerformDataSize: 5_000,
+        maxRevertDataSize: 5_000,
+        fallbackGasPrice: 20_000_000_000,
+        fallbackLinkPrice: 2_000_000_000, // $20
+        fallbackNativePrice: 400_000_000_000, // $4,000
+        transcoder: 0xB1e66855FD67f6e85F0f0fA38cd6fBABdf00923c,
+        registrars: registrars,
+        upkeepPrivilegeManager: 0xD9c855F08A7e460691F41bBDDe6eC310bc0593D8,
+        chainModule: address(new ChainModuleBase()),
+        reorgProtectionEnabled: true,
+        financeAdmin: FINANCE_ADMIN
+      });
+      AutomationRegistryBase2_3.BillingConfig[]
+        memory billingTokenConfigs = new AutomationRegistryBase2_3.BillingConfig[](2);
+      billingTokenConfigs[0] = AutomationRegistryBase2_3.BillingConfig({
+        gasFeePPB: 10_000_000, // 10%
+        flatFeeMicroLink: 100_000,
+        priceFeed: address(LINK_USD_FEED),
+        fallbackPrice: 1_000_000_000, // $10
+        minSpend: 5000000000000000000 // 5 LINK
+      });
+      billingTokenConfigs[1] = AutomationRegistryBase2_3.BillingConfig({
+        gasFeePPB: 10_000_000, // 15%
+        flatFeeMicroLink: 100_000,
+        priceFeed: address(USDTOKEN_USD_FEED),
+        fallbackPrice: 100_000_000, // $1
+        minSpend: 100000000000000000000 // 100 USD
+      });
+      registry.setConfigTypeSafe(
+        SIGNERS,
+        TRANSMITTERS,
+        F,
+        cfg,
+        OFFCHAIN_CONFIG_VERSION,
+        "",
+        billingTokenAddresses,
+        billingTokenConfigs
+      );
     }
-    AutomationRegistryBase2_3.OnchainConfig memory cfg = AutomationRegistryBase2_3.OnchainConfig({
-      checkGasLimit: 5_000_000,
-      stalenessSeconds: 90_000,
-      gasCeilingMultiplier: 0,
-      maxPerformGas: 10_000_000,
-      maxCheckDataSize: 5_000,
-      maxPerformDataSize: 5_000,
-      maxRevertDataSize: 5_000,
-      fallbackGasPrice: 20_000_000_000,
-      fallbackLinkPrice: 2_000_000_000, // $20
-      fallbackNativePrice: 400_000_000_000, // $4,000
-      transcoder: 0xB1e66855FD67f6e85F0f0fA38cd6fBABdf00923c,
-      registrars: registrars,
-      upkeepPrivilegeManager: 0xD9c855F08A7e460691F41bBDDe6eC310bc0593D8,
-      chainModule: address(new ChainModuleBase()),
-      reorgProtectionEnabled: true,
-      financeAdmin: FINANCE_ADMIN
-    });
-    AutomationRegistryBase2_3.BillingConfig[]
-      memory billingTokenConfigs = new AutomationRegistryBase2_3.BillingConfig[](2);
-    billingTokenConfigs[0] = AutomationRegistryBase2_3.BillingConfig({
-      gasFeePPB: 10_000_000, // 10%
-      flatFeeMicroLink: 100_000,
-      priceFeed: address(LINK_USD_FEED),
-      fallbackPrice: 1_000_000_000, // $10
-      minSpend: 5000000000000000000 // 5 LINK
-    });
-    billingTokenConfigs[1] = AutomationRegistryBase2_3.BillingConfig({
-      gasFeePPB: 10_000_000, // 15%
-      flatFeeMicroLink: 100_000,
-      priceFeed: address(USDTOKEN_USD_FEED),
-      fallbackPrice: 100_000_000, // $1
-      minSpend: 100000000000000000000 // 100 USD
-    });
-    registry.setConfigTypeSafe(
-      SIGNERS,
-      TRANSMITTERS,
-      F,
-      cfg,
-      OFFCHAIN_CONFIG_VERSION,
-      "",
-      billingTokenAddresses,
-      billingTokenConfigs
-    );
     return (registry, registrar);
   }
 
-  /**
-   * @dev mints LINK to the recipient
-   */
-  function mintLink(address recipient, uint256 amount) public {
+  /// @notice Gather signatures on report data
+  /// @param report - Report bytes generated from `_buildReport`
+  /// @param reportContext - Report context bytes32 generated from `_buildReport`
+  /// @param signerPrivateKeys - One or more addresses that will sign the report data
+  /// @return rawRs - Signature rs
+  /// @return rawSs - Signature ss
+  /// @return rawVs - Signature vs
+  function _signReport(
+    bytes memory report,
+    bytes32[3] memory reportContext,
+    uint256[] memory signerPrivateKeys
+  ) internal pure returns (bytes32[] memory, bytes32[] memory, bytes32) {
+    bytes32[] memory rs = new bytes32[](signerPrivateKeys.length);
+    bytes32[] memory ss = new bytes32[](signerPrivateKeys.length);
+    bytes memory vs = new bytes(signerPrivateKeys.length);
+
+    bytes32 reportDigest = keccak256(abi.encodePacked(keccak256(report), reportContext));
+
+    for (uint256 i = 0; i < signerPrivateKeys.length; i++) {
+      (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPrivateKeys[i], reportDigest);
+      rs[i] = r;
+      ss[i] = s;
+      vs[i] = bytes1(v - 27);
+    }
+
+    return (rs, ss, bytes32(vs));
+  }
+
+  function _encodeReport(AutoBase.Report memory report) internal pure returns (bytes memory reportBytes) {
+    return abi.encode(report);
+  }
+
+  function _encodeConditionalTrigger(
+    AutoBase.ConditionalTrigger memory trigger
+  ) internal pure returns (bytes memory triggerBytes) {
+    return abi.encode(trigger.blockNum, trigger.blockHash);
+  }
+
+  function _mintLink(address recipient, uint256 amount) internal {
     vm.prank(OWNER);
+    //mint the link to the recipient
     linkToken.mint(recipient, amount);
   }
 
-  /**
-   * @dev mints USDToken to the recipient
-   */
-  function mintERC20(address recipient, uint256 amount) public {
+  function _mintERC20(address recipient, uint256 amount) internal {
     vm.prank(OWNER);
+    //mint the ERC20 to the recipient
     mockERC20.mint(recipient, amount);
   }
 }
