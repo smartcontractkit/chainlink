@@ -7,6 +7,7 @@ chainlink_node_funding = 0.1
 cancel_subs_after_test_run = true
 use_existing_env = false
 subscription_funding_amount_link = 5.0
+subscription_refunding_amount_link = 5.0
 
 cl_node_max_gas_price_gwei = 10
 link_native_feed_response = 1000000000000000000
@@ -28,9 +29,11 @@ reqs_for_tier_3 = 0
 reqs_for_tier_4 = 0
 reqs_for_tier_5 = 0
 number_of_sub_to_create = 1
+number_of_sending_keys_to_create = 0
 randomness_request_count_per_request = 1
 randomness_request_count_per_request_deviation = 0
 random_words_fulfilled_event_timeout = "2m"
+wait_for_256_blocks_timeout = "10m"
 wrapped_gas_overhead = 50000
 coordinator_gas_overhead = 52000
 wrapper_premium_percentage = 25
@@ -52,7 +55,6 @@ bhs_job_lookback_blocks = 250
 bhs_job_poll_period = "1s"
 bhs_job_run_timeout = "24h"
 
-
 # PERFORMANCE test specific config
 
 [VRFv2.ExistingEnv]
@@ -69,6 +71,22 @@ node_sending_keys = [
     ""
 ]
 
+[VRFv2.Performance]
+test_duration = "10s"
+rate_limit_unit_duration = "3s"
+rps = 1
+bhs_test_duration = "10s"
+bhs_test_rate_limit_unit_duration = "3s"
+bhs_test_rps = 1
+
+[Smoke.VRFv2.Performance]
+test_duration = "10s"
+rate_limit_unit_duration = "3s"
+rps = 1
+bhs_test_duration = "10s"
+bhs_test_rate_limit_unit_duration = "3s"
+bhs_test_rps = 1
+
 #SOAK TEST CONFIG
 [Soak.Common]
 chainlink_node_funding = 0.1
@@ -77,12 +95,16 @@ chainlink_node_funding = 0.1
 randomness_request_count_per_request = 1 # amount of randomness requests to make per one TX request
 randomness_request_count_per_request_deviation = 0 #NOTE - deviation should be less than randomness_request_count_per_request setting
 number_of_sub_to_create = 1
+number_of_sending_keys_to_create = 0
 subscription_funding_amount_link = 5.0
 
 [Soak.VRFv2.Performance]
 test_duration = "1m"
 rate_limit_unit_duration = "3s"
 rps = 1
+bhs_test_duration = "1m"
+bhs_test_rate_limit_unit_duration = "3s"
+bhs_test_rps = 1
 
 # LOAD TEST CONFIG
 [Load.Common]
@@ -92,13 +114,16 @@ chainlink_node_funding = 0.1
 randomness_request_count_per_request = 3 # amount of randomness requests to make per one TX request
 randomness_request_count_per_request_deviation = 2 #NOTE - deviation should be less than randomness_request_count_per_request setting
 number_of_sub_to_create = 1
+number_of_sending_keys_to_create = 0
 subscription_funding_amount_link = 5.0
 
 [Load.VRFv2.Performance]
 test_duration = "2m"
 rate_limit_unit_duration = "3s"
 rps = 1
-
+bhs_test_duration = "1m"
+bhs_test_rate_limit_unit_duration = "3s"
+bhs_test_rps = 1
 
 # STRESS TEST CONFIG
 [Stress.Common]
@@ -108,9 +133,13 @@ chainlink_node_funding = 0.1
 randomness_request_count_per_request = 3 # amount of randomness requests to make per one TX request
 randomness_request_count_per_request_deviation = 2 #NOTE - deviation should be less than randomness_request_count_per_request setting
 number_of_sub_to_create = 1
+number_of_sending_keys_to_create = 0
 subscription_funding_amount_link = 5.0
 
 [Stress.VRFv2.Performance]
 test_duration = "2m"
 rate_limit_unit_duration = "3s"
 rps = 1
+bhs_test_duration = "1m"
+bhs_test_rate_limit_unit_duration = "3s"
+bhs_test_rps = 1
