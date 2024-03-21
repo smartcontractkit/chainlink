@@ -35,7 +35,7 @@ func TestInMemoryStore_UpdateTxForRebroadcast(t *testing.T) {
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 		lggr := logger.TestSugared(t)
 		chainID := ethClient.ConfiguredChainID()
-		ctx := context.Background()
+		ctx := testutils.Context(t)
 
 		inMemoryStore, err := commontxmgr.NewInMemoryStore[
 			*big.Int,
@@ -52,7 +52,7 @@ func TestInMemoryStore_UpdateTxForRebroadcast(t *testing.T) {
 		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
 
 		txAttempt := inTx.TxAttempts[0]
-		err = inMemoryStore.UpdateTxForRebroadcast(testutils.Context(t), inTx, txAttempt)
+		err = inMemoryStore.UpdateTxForRebroadcast(ctx, inTx, txAttempt)
 		require.NoError(t, err)
 
 		expTx, err := persistentStore.FindTxWithAttempts(inTx.ID)
@@ -99,24 +99,24 @@ func TestInMemoryStore_UpdateTxForRebroadcast(t *testing.T) {
 
 		t.Run("error when attempt is not in Broadcast state", func(t *testing.T) {
 			txAttempt.State = txmgrtypes.TxAttemptInProgress
-			expErr := persistentStore.UpdateTxForRebroadcast(testutils.Context(t), inTx, txAttempt)
-			actErr := inMemoryStore.UpdateTxForRebroadcast(testutils.Context(t), inTx, txAttempt)
+			expErr := persistentStore.UpdateTxForRebroadcast(ctx, inTx, txAttempt)
+			actErr := inMemoryStore.UpdateTxForRebroadcast(ctx, inTx, txAttempt)
 			assert.Error(t, expErr)
 			assert.Error(t, actErr)
 			txAttempt.State = txmgrtypes.TxAttemptBroadcast
 		})
 		t.Run("error when transaction is not in confirmed state", func(t *testing.T) {
 			inTx.State = commontxmgr.TxUnconfirmed
-			expErr := persistentStore.UpdateTxForRebroadcast(testutils.Context(t), inTx, txAttempt)
-			actErr := inMemoryStore.UpdateTxForRebroadcast(testutils.Context(t), inTx, txAttempt)
+			expErr := persistentStore.UpdateTxForRebroadcast(ctx, inTx, txAttempt)
+			actErr := inMemoryStore.UpdateTxForRebroadcast(ctx, inTx, txAttempt)
 			assert.Error(t, expErr)
 			assert.Error(t, actErr)
 			inTx.State = commontxmgr.TxConfirmed
 		})
 		t.Run("wrong fromAddress has no error", func(t *testing.T) {
 			inTx.FromAddress = common.Address{}
-			expErr := persistentStore.UpdateTxForRebroadcast(testutils.Context(t), inTx, txAttempt)
-			actErr := inMemoryStore.UpdateTxForRebroadcast(testutils.Context(t), inTx, txAttempt)
+			expErr := persistentStore.UpdateTxForRebroadcast(ctx, inTx, txAttempt)
+			actErr := inMemoryStore.UpdateTxForRebroadcast(ctx, inTx, txAttempt)
 			assert.Equal(t, expErr, actErr)
 			assert.Nil(t, actErr)
 			inTx.FromAddress = fromAddress
