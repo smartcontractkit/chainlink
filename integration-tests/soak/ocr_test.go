@@ -7,6 +7,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+	"github.com/smartcontractkit/seth"
 
 	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
@@ -36,6 +37,9 @@ func TestOCRSoak(t *testing.T) {
 	require.NoError(t, err, "Error merging seth and evm network configs")
 	err = utils.ValidateSethNetworkConfig(sethCfg.Network)
 	require.NoError(t, err, "Error validating seth network config")
+
+	_, err = seth.NewClientWithConfig(&sethCfg)
+	require.NoError(t, err, "Error creating seth client")
 
 	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, &config, false)
 	require.NoError(t, err, "Error creating soak test")
