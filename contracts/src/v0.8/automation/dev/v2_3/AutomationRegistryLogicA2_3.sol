@@ -34,7 +34,9 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
       AutomationRegistryLogicC2_3(address(logicB)).getNativeUSDFeedAddress(),
       AutomationRegistryLogicC2_3(address(logicB)).getFastGasFeedAddress(),
       AutomationRegistryLogicC2_3(address(logicB)).getAutomationForwarderLogic(),
-      AutomationRegistryLogicC2_3(address(logicB)).getAllowedReadOnlyAddress()
+      AutomationRegistryLogicC2_3(address(logicB)).getAllowedReadOnlyAddress(),
+      AutomationRegistryLogicC2_3(address(logicB)).getPayoutMode(),
+      AutomationRegistryLogicC2_3(address(logicB)).getWrappedNativeTokenAddress()
     )
     Chainable(address(logicB))
   {}
@@ -217,6 +219,7 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
    * performing upkeep
    * @param admin address to cancel upkeep and withdraw remaining funds
    * @param triggerType the trigger for the upkeep
+   * @param billingToken the billing token for the upkeep
    * @param checkData data passed to the contract when checking for upkeep
    * @param triggerConfig the config for the trigger
    * @param offchainConfig arbitrary offchain config for the upkeep
@@ -297,21 +300,6 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
     s_reserveAmounts[address(upkeep.billingToken)] = s_reserveAmounts[address(upkeep.billingToken)] - cancellationFee;
 
     emit UpkeepCanceled(id, uint64(height));
-  }
-
-  /**
-   * @notice adds fund to an upkeep
-   * @param id the upkeepID
-   * @param amount the amount of funds to add, in the upkeep's billing token
-   */
-  function addFunds(uint256 id, uint96 amount) external {
-    Upkeep memory upkeep = s_upkeep[id];
-    if (upkeep.maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
-    s_upkeep[id].balance = upkeep.balance + amount;
-    s_reserveAmounts[address(upkeep.billingToken)] = s_reserveAmounts[address(upkeep.billingToken)] + amount;
-    bool success = upkeep.billingToken.transferFrom(msg.sender, address(this), amount);
-    if (!success) revert TransferFailed();
-    emit FundsAdded(id, msg.sender, amount);
   }
 
   /**

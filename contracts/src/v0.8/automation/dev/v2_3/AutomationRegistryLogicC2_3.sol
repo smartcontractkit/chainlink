@@ -24,7 +24,9 @@ contract AutomationRegistryLogicC2_3 is AutomationRegistryBase2_3 {
     address nativeUSDFeed,
     address fastGasFeed,
     address automationForwarderLogic,
-    address allowedReadOnlyAddress
+    address allowedReadOnlyAddress,
+    PayoutMode payoutMode,
+    address wrappedNativeTokenAddress
   )
     AutomationRegistryBase2_3(
       link,
@@ -32,7 +34,9 @@ contract AutomationRegistryLogicC2_3 is AutomationRegistryBase2_3 {
       nativeUSDFeed,
       fastGasFeed,
       automationForwarderLogic,
-      allowedReadOnlyAddress
+      allowedReadOnlyAddress,
+      payoutMode,
+      wrappedNativeTokenAddress
     )
   {}
 
@@ -70,6 +74,7 @@ contract AutomationRegistryLogicC2_3 is AutomationRegistryBase2_3 {
    */
   function withdrawPayment(address from, address to) external {
     if (to == ZERO_ADDRESS) revert InvalidRecipient();
+    if (s_payoutMode == PayoutMode.OFF_CHAIN) revert MustSettleOffchain();
     if (s_transmitterPayees[from] != msg.sender) revert OnlyCallableByPayee();
     uint96 balance = _updateTransmitterBalanceFromPool(from, s_hotVars.totalPremium, uint96(s_transmittersList.length));
     s_transmitters[from].balance = 0;
@@ -149,6 +154,34 @@ contract AutomationRegistryLogicC2_3 is AutomationRegistryBase2_3 {
     emit AdminPrivilegeConfigSet(admin, newPrivilegeConfig);
   }
 
+  /**
+   * @notice settles NOPs' LINK payment offchain
+   */
+  function settleNOPsOffchain() external {
+    _onlyFinanceAdminAllowed();
+    if (s_payoutMode == PayoutMode.ON_CHAIN) revert MustSettleOnchain();
+
+    uint256 length = s_transmittersList.length;
+    uint256[] memory payments = new uint256[](length);
+    address[] memory payees = new address[](length);
+    for (uint256 i = 0; i < length; i++) {
+      address transmitterAddr = s_transmittersList[i];
+      uint96 balance = _updateTransmitterBalanceFromPool(transmitterAddr, s_hotVars.totalPremium, uint96(length));
+      payments[i] = balance;
+      payees[i] = s_transmitterPayees[transmitterAddr];
+      s_transmitters[transmitterAddr].balance = 0;
+    }
+
+    emit NOPsSettledOffchain(payees, payments);
+  }
+
+  /**
+   * @notice disables offchain payment for NOPs
+   */
+  function disableOffchainPayments() external onlyOwner {
+    s_payoutMode = PayoutMode.ON_CHAIN;
+  }
+
   // ================================================================
   // |                           GETTERS                            |
   // ================================================================
@@ -205,6 +238,10 @@ contract AutomationRegistryLogicC2_3 is AutomationRegistryBase2_3 {
     return i_allowedReadOnlyAddress;
   }
 
+  function getWrappedNativeTokenAddress() external view returns (address) {
+    return address(i_wrappedNativeToken);
+  }
+
   function getBillingToken(uint256 upkeepID) external view returns (IERC20) {
     return s_upkeep[upkeepID].billingToken;
   }
@@ -219,6 +256,10 @@ contract AutomationRegistryLogicC2_3 is AutomationRegistryBase2_3 {
 
   function getBillingTokenConfig(IERC20 token) external view returns (BillingConfig memory) {
     return s_billingConfigs[token];
+  }
+
+  function getPayoutMode() external view returns (PayoutMode) {
+    return s_payoutMode;
   }
 
   function upkeepTranscoderVersion() public pure returns (UpkeepFormat) {
