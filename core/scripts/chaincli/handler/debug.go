@@ -35,7 +35,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury/streams"
 	bigmath "github.com/smartcontractkit/chainlink/v2/core/utils/big_math"
 )
@@ -43,7 +42,12 @@ import (
 const (
 	ConditionTrigger uint8 = iota
 	LogTrigger
+
+	blockNumber            = "blockNumber"
 	expectedTypeAndVersion = "KeeperRegistry 2.1.0"
+	feedIdHex              = "feedIdHex"
+	feedIDs                = "feedIDs"
+	timestamp              = "timestamp"
 )
 
 var mercuryPacker = mercury.NewAbiPacker()
@@ -135,8 +139,6 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 	var checkResult iregistry21.CheckUpkeep
 	var blockNum uint64
 	var performData []byte
-	var workID [32]byte
-	var trigger ocr2keepers.Trigger
 	upkeepNeeded := false
 	// check upkeep
 	if triggerType == ConditionTrigger {
@@ -211,8 +213,7 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 		}
 		// check that tx for this upkeep / tx was not already performed
 		message(fmt.Sprintf("LogTrigger{blockNum: %d, blockHash: %s, txHash: %s, logIndex: %d}", blockNum, receipt.BlockHash.Hex(), txHash, logIndex))
-		trigger = mustAutomationTrigger(txHash, logIndex, blockNum, receipt.BlockHash)
-		workID = mustUpkeepWorkID(upkeepID, trigger)
+		workID := mustUpkeepWorkID(upkeepID, blockNum, receipt.BlockHash, txHash, logIndex)
 		message(fmt.Sprintf("workID computed: %s", hex.EncodeToString(workID[:])))
 		var hasKey bool
 		hasKey, err = keeperRegistry21.HasDedupKey(latestCallOpts, workID)
@@ -308,12 +309,15 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 				if !allowed {
 					resolveIneligible("upkeep reverted with StreamsLookup but is not allowed to access streams")
 				}
-			} else if streamsLookup.IsMercuryV03() {
+			} else if streamsLookupErr.FeedParamKey != feedIDs || streamsLookupErr.TimeParamKey != timestamp {
 				// handle v0.3
 				message("using data streams lookup v0.3")
 			} else {
 				resolveIneligible("upkeep reverted with StreamsLookup but the configuration is invalid")
+			} else {
+				message("using mercury lookup v0.3")
 			}
+			streamsLookup := &StreamsLookup{streamsLookupErr.FeedParamKey, streamsLookupErr.Feeds, streamsLookupErr.TimeParamKey, streamsLookupErr.Time, streamsLookupErr.ExtraData, upkeepID, blockNum}
 
 			if k.cfg.DataStreamsLegacyURL == "" || k.cfg.DataStreamsURL == "" || k.cfg.DataStreamsID == "" || k.cfg.DataStreamsKey == "" {
 				failCheckConfig("Data streams configs not set properly, check your DATA_STREAMS_LEGACY_URL, DATA_STREAMS_URL, DATA_STREAMS_ID and DATA_STREAMS_KEY", nil)
@@ -486,27 +490,9 @@ func packTriggerData(log *types.Log, blockTime uint64) ([]byte, error) {
 	return b, nil
 }
 
-func mustUpkeepWorkID(upkeepID *big.Int, trigger ocr2keepers.Trigger) [32]byte {
-	upkeepIdentifier := mustUpkeepIdentifier(upkeepID)
-
-	workID := core.UpkeepWorkID(upkeepIdentifier, trigger)
-	workIDBytes, err := hex.DecodeString(workID)
-	if err != nil {
-		failUnknown("failed to decode workID", err)
-	}
-
-	var result [32]byte
-	copy(result[:], workIDBytes[:])
-	return result
-}
-
-func mustUpkeepIdentifier(upkeepID *big.Int) ocr2keepers.UpkeepIdentifier {
-	upkeepIdentifier := &ocr2keepers.UpkeepIdentifier{}
-	upkeepIdentifier.FromBigInt(upkeepID)
-	return *upkeepIdentifier
-}
-
-func mustAutomationTrigger(txHash [32]byte, logIndex int64, blockNum uint64, blockHash [32]byte) ocr2keepers.Trigger {
+func mustUpkeepWorkID(upkeepID *big.Int, blockNum uint64, blockHash [32]byte, txHash [32]byte, logIndex int64) [32]byte {
+	// TODO - this is a copy of the code in core.UpkeepWorkID
+	// We should refactor that code to be more easily exported ex not rely on Trigger structs
 	trigger := ocr2keepers.Trigger{
 		LogTriggerExtension: &ocr2keepers.LogTriggerExtension{
 			TxHash:      txHash,
@@ -515,7 +501,16 @@ func mustAutomationTrigger(txHash [32]byte, logIndex int64, blockNum uint64, blo
 			BlockHash:   blockHash,
 		},
 	}
-	return trigger
+	upkeepIdentifier := &ocr2keepers.UpkeepIdentifier{}
+	upkeepIdentifier.FromBigInt(upkeepID)
+	workID := core.UpkeepWorkID(*upkeepIdentifier, trigger)
+	workIDBytes, err := hex.DecodeString(workID)
+	if err != nil {
+		failUnknown("failed to decode workID", err)
+	}
+	var result [32]byte
+	copy(result[:], workIDBytes[:])
+	return result
 }
 
 func message(msg string) {
@@ -633,3 +628,5 @@ func tenderlySimLink(ctx context.Context, cfg *config.Config, chainID int64, blo
 	}
 	return common.TenderlySimLink(responseJSON.Simulation.Id)
 }
+
+// TODO - link to performUpkeep tx if exists
