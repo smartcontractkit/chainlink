@@ -86,6 +86,26 @@ func (_m *GeneralConfig) AutoPprof() config.AutoPprof {
 	return r0
 }
 
+// Capabilities provides a mock function with given fields:
+func (_m *GeneralConfig) Capabilities() config.Capabilities {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for Capabilities")
+	}
+
+	var r0 config.Capabilities
+	if rf, ok := ret.Get(0).(func() config.Capabilities); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(config.Capabilities)
+		}
+	}
+
+	return r0
+}
+
 // ConfigTOML provides a mock function with given fields:
 func (_m *GeneralConfig) ConfigTOML() (string, string) {
 	ret := _m.Called()

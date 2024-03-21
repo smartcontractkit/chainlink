@@ -44,9 +44,9 @@ type inMemoryStore[
 	lggr    logger.SugaredLogger
 	chainID CHAIN_ID
 
+	maxUnstarted      uint64
 	keyStore          txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
 	persistentTxStore txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
-	maxUnstarted      uint64
 
 	addressStatesLock sync.RWMutex
 	addressStates     map[ADDR]*addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
@@ -80,15 +80,21 @@ func NewInMemoryStore[
 	if ms.maxUnstarted <= 0 {
 		ms.maxUnstarted = 10000
 	}
-	addresses, err := keyStore.EnabledAddressesForChain(ctx, chainID)
+
+	txs, err := persistentTxStore.GetAllTransactions(ctx, chainID)
 	if err != nil {
-		return nil, fmt.Errorf("new_in_memory_store: %w", err)
+		return nil, fmt.Errorf("address_state: initialization: %w", err)
 	}
-	for _, fromAddr := range addresses {
-		txs, err := persistentTxStore.GetAllTransactions(ctx, fromAddr, chainID)
-		if err != nil {
-			return nil, fmt.Errorf("address_state: initialization: %w", err)
+	addressesToTxs := map[ADDR][]txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
+	for _, tx := range txs {
+		at, exists := addressesToTxs[tx.FromAddress]
+		if !exists {
+			at = []txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
 		}
+		at = append(at, tx)
+		addressesToTxs[tx.FromAddress] = at
+	}
+	for fromAddr, txs := range addressesToTxs {
 		ms.addressStates[fromAddr] = newAddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE](lggr, chainID, fromAddr, ms.maxUnstarted, txs)
 	}
 
@@ -125,9 +131,7 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Creat
 
 	// Update in memory store
 	// Add the request to the Unstarted channel to be processed by the Broadcaster
-	if err := as.addTxToUnstartedQueue(&tx); err != nil {
-		return *ms.deepCopyTx(tx), fmt.Errorf("create_transaction: %w", err)
-	}
+	as.addTxToUnstartedQueue(&tx)
 
 	return *ms.deepCopyTx(tx), nil
 }
