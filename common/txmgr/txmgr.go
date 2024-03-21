@@ -107,7 +107,6 @@ type Txm[
 	tracker          *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 	fwdMgr           txmgrtypes.ForwarderManager[ADDR]
 	txAttemptBuilder txmgrtypes.TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
-	sequenceSyncer   SequenceSyncer[ADDR, TX_HASH, BLOCK_HASH, SEQ]
 }
 
 func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) RegisterResumeCallback(fn ResumeCallback) {
@@ -136,7 +135,6 @@ func NewTxm[
 	fwdMgr txmgrtypes.ForwarderManager[ADDR],
 	txAttemptBuilder txmgrtypes.TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	txStore txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
-	sequenceSyncer SequenceSyncer[ADDR, TX_HASH, BLOCK_HASH, SEQ],
 	broadcaster *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	confirmer *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
 	resender *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
@@ -157,7 +155,6 @@ func NewTxm[
 		reset:            make(chan reset),
 		fwdMgr:           fwdMgr,
 		txAttemptBuilder: txAttemptBuilder,
-		sequenceSyncer:   sequenceSyncer,
 		broadcaster:      broadcaster,
 		confirmer:        confirmer,
 		resender:         resender,

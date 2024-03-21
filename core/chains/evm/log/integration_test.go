@@ -250,6 +250,7 @@ func TestBroadcaster_ReplaysLogs(t *testing.T) {
 func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 	contract1 := newMockContract(t)
 	contract2 := newMockContract(t)
+	ctx := testutils.Context(t)
 
 	blocks := cltest.NewBlocks(t, 10)
 	const (
@@ -268,8 +269,7 @@ func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 		helper := newBroadcasterHelper(t, 0, 1, logs, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.EVM[0].FinalityDepth = ptr[uint32](confs)
 		})
-		lggr := logger.Test(t)
-		orm := log.NewORM(helper.db, lggr, helper.config.Database(), cltest.FixtureChainID)
+		orm := log.NewORM(helper.db, cltest.FixtureChainID)
 
 		listener := helper.newLogListenerWithJob("one")
 		listener.SkipMarkingConsumed(true)
@@ -282,7 +282,7 @@ func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 			chRawLogs.TrySend(log2)
 		})
 		// Pool min block in DB and neither listener received a broadcast
-		blockNum, err := orm.GetPendingMinBlock()
+		blockNum, err := orm.GetPendingMinBlock(ctx)
 		require.NoError(t, err)
 		require.NotNil(t, blockNum)
 		require.Equal(t, int64(log1.BlockNumber), *blockNum)
@@ -294,8 +294,7 @@ func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 		helper := newBroadcasterHelper(t, 2, 1, logs, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.EVM[0].FinalityDepth = ptr[uint32](confs)
 		})
-		lggr := logger.Test(t)
-		orm := log.NewORM(helper.db, lggr, helper.config.Database(), cltest.FixtureChainID)
+		orm := log.NewORM(helper.db, cltest.FixtureChainID)
 
 		listener := helper.newLogListenerWithJob("one")
 		listener.SkipMarkingConsumed(true)
@@ -305,13 +304,13 @@ func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 		helper.simulateHeads(t, listener, listener2, contract1, contract2, confs, blocks.Slice(2, 5), orm, &expBlock, nil)
 
 		// Pool min block in DB and one listener received but didn't consume
-		blockNum, err := orm.GetPendingMinBlock()
+		blockNum, err := orm.GetPendingMinBlock(ctx)
 		require.NoError(t, err)
 		require.NotNil(t, blockNum)
 		require.Equal(t, int64(log2.BlockNumber), *blockNum)
 		require.NotEmpty(t, listener.getUniqueLogs())
 		require.Empty(t, listener2.getUniqueLogs())
-		c, err := orm.WasBroadcastConsumed(log1.BlockHash, log1.Index, listener.JobID())
+		c, err := orm.WasBroadcastConsumed(ctx, log1.BlockHash, log1.Index, listener.JobID())
 		require.NoError(t, err)
 		require.False(t, c)
 	})
@@ -319,8 +318,7 @@ func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 		helper := newBroadcasterHelper(t, 4, 1, logs, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.EVM[0].FinalityDepth = ptr[uint32](confs)
 		})
-		lggr := logger.Test(t)
-		orm := log.NewORM(helper.db, lggr, helper.config.Database(), cltest.FixtureChainID)
+		orm := log.NewORM(helper.db, cltest.FixtureChainID)
 
 		listener := helper.newLogListenerWithJob("one")
 		listener2 := helper.newLogListenerWithJob("two")
@@ -328,15 +326,15 @@ func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 		helper.simulateHeads(t, listener, listener2, contract1, contract2, confs, blocks.Slice(5, 8), orm, nil, nil)
 
 		// Pool empty and one consumed but other didn't
-		blockNum, err := orm.GetPendingMinBlock()
+		blockNum, err := orm.GetPendingMinBlock(ctx)
 		require.NoError(t, err)
 		require.Nil(t, blockNum)
 		require.NotEmpty(t, listener.getUniqueLogs())
 		require.NotEmpty(t, listener2.getUniqueLogs())
-		c, err := orm.WasBroadcastConsumed(log1.BlockHash, log1.Index, listener.JobID())
+		c, err := orm.WasBroadcastConsumed(ctx, log1.BlockHash, log1.Index, listener.JobID())
 		require.NoError(t, err)
 		require.True(t, c)
-		c, err = orm.WasBroadcastConsumed(log2.BlockHash, log2.Index, listener2.JobID())
+		c, err = orm.WasBroadcastConsumed(ctx, log2.BlockHash, log2.Index, listener2.JobID())
 		require.NoError(t, err)
 		require.False(t, c)
 	})
@@ -344,19 +342,18 @@ func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 		helper := newBroadcasterHelper(t, 7, 1, logs[1:], func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.EVM[0].FinalityDepth = ptr[uint32](confs)
 		})
-		lggr := logger.Test(t)
-		orm := log.NewORM(helper.db, lggr, helper.config.Database(), cltest.FixtureChainID)
+		orm := log.NewORM(helper.db, cltest.FixtureChainID)
 		listener := helper.newLogListenerWithJob("one")
 		listener2 := helper.newLogListenerWithJob("two")
 		helper.simulateHeads(t, listener, listener2, contract1, contract2, confs, blocks.Slice(8, 9), orm, nil, nil)
 
 		// Pool empty, one broadcasted and consumed
-		blockNum, err := orm.GetPendingMinBlock()
+		blockNum, err := orm.GetPendingMinBlock(ctx)
 		require.NoError(t, err)
 		require.Nil(t, blockNum)
 		require.Empty(t, listener.getUniqueLogs())
 		require.NotEmpty(t, listener2.getUniqueLogs())
-		c, err := orm.WasBroadcastConsumed(log2.BlockHash, log2.Index, listener2.JobID())
+		c, err := orm.WasBroadcastConsumed(ctx, log2.BlockHash, log2.Index, listener2.JobID())
 		require.NoError(t, err)
 		require.True(t, c)
 	})
@@ -381,7 +378,7 @@ func (helper *broadcasterHelper) simulateHeads(t *testing.T, listener, listener2
 	<-headsDone
 
 	require.Eventually(t, func() bool {
-		blockNum, err := orm.GetPendingMinBlock()
+		blockNum, err := orm.GetPendingMinBlock(testutils.Context(t))
 		if !assert.NoError(t, err) {
 			return false
 		}

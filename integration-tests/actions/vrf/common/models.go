@@ -17,6 +17,7 @@ type VRFKeyData struct {
 	VRFKey            *client.VRFKey
 	EncodedProvingKey VRFEncodedProvingKey
 	KeyHash           [32]byte
+	PubKeyCompressed  string
 }
 
 type VRFNodeType int
