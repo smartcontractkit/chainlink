@@ -16,6 +16,7 @@ import (
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	"github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
@@ -38,7 +39,8 @@ type chainClient struct {
 		RPCClient,
 		rpc.BatchElem,
 	]
-	logger logger.SugaredLogger
+	logger    logger.SugaredLogger
+	errsRegex evmconfig.ClientErrors
 }
 
 func NewChainClient(
@@ -50,6 +52,7 @@ func NewChainClient(
 	sendonlys []commonclient.SendOnlyNode[*big.Int, RPCClient],
 	chainID *big.Int,
 	chainType config.ChainType,
+	errsRegex evmconfig.ClientErrors,
 ) Client {
 	multiNode := commonclient.NewMultiNode(
 		lggr,
@@ -62,13 +65,14 @@ func NewChainClient(
 		chainType,
 		"EVM",
 		func(tx *types.Transaction, err error) commonclient.SendTxReturnCode {
-			return ClassifySendError(err, logger.Sugared(logger.Nop()), tx, common.Address{}, chainType.IsL2())
+			return ClassifySendError(err, errsRegex, logger.Sugared(logger.Nop()), tx, common.Address{}, chainType.IsL2())
 		},
 		0, // use the default value provided by the implementation
 	)
 	return &chainClient{
 		multiNode: multiNode,
 		logger:    logger.Sugared(lggr),
+		errsRegex: errsRegex,
 	}
 }
 
@@ -120,7 +124,7 @@ func (c *chainClient) PendingCallContract(ctx context.Context, msg ethereum.Call
 
 // TODO-1663: change this to actual ChainID() call once client.go is deprecated.
 func (c *chainClient) ChainID() (*big.Int, error) {
-	//return c.multiNode.ChainID(ctx), nil
+	// return c.multiNode.ChainID(ctx), nil
 	return c.multiNode.ConfiguredChainID(), nil
 }
 
@@ -143,6 +147,7 @@ func (c *chainClient) Dial(ctx context.Context) error {
 func (c *chainClient) EstimateGas(ctx context.Context, call ethereum.CallMsg) (uint64, error) {
 	return c.multiNode.EstimateGas(ctx, call)
 }
+
 func (c *chainClient) FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error) {
 	return c.multiNode.FilterEvents(ctx, q)
 }
@@ -207,7 +212,7 @@ func (c *chainClient) SendTransaction(ctx context.Context, tx *types.Transaction
 
 func (c *chainClient) SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (commonclient.SendTxReturnCode, error) {
 	err := c.SendTransaction(ctx, tx)
-	returnCode := ClassifySendError(err, c.logger, tx, fromAddress, c.IsL2())
+	returnCode := ClassifySendError(err, c.errsRegex, c.logger, tx, fromAddress, c.IsL2())
 	return returnCode, err
 }
 
@@ -262,7 +267,7 @@ func (c *chainClient) TransactionReceipt(ctx context.Context, txHash common.Hash
 	if err != nil {
 		return r, err
 	}
-	//return rpc.TransactionReceipt(ctx, txHash)
+	// return rpc.TransactionReceipt(ctx, txHash)
 	return rpc.TransactionReceiptGeth(ctx, txHash)
 }
 

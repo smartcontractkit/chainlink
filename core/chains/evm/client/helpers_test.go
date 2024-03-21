@@ -18,6 +18,42 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
+type TestClientErrorsConfig struct {
+	nonceTooLow                       string
+	nonceTooHigh                      string
+	replacementTransactionUnderpriced string
+	limitReached                      string
+	transactionAlreadyInMempool       string
+	terminallyUnderpriced             string
+	insufficientEth                   string
+	txFeeExceedsCap                   string
+	l2FeeTooLow                       string
+	l2FeeTooHigh                      string
+	l2Full                            string
+	transactionAlreadyMined           string
+	fatal                             string
+	serviceUnavailable                string
+}
+
+func (c *TestClientErrorsConfig) NonceTooLow() string  { return c.nonceTooLow }
+func (c *TestClientErrorsConfig) NonceTooHigh() string { return c.nonceTooHigh }
+func (c *TestClientErrorsConfig) ReplacementTransactionUnderpriced() string {
+	return c.replacementTransactionUnderpriced
+}
+func (c *TestClientErrorsConfig) LimitReached() string { return c.limitReached }
+func (c *TestClientErrorsConfig) TransactionAlreadyInMempool() string {
+	return c.transactionAlreadyInMempool
+}
+func (c *TestClientErrorsConfig) TerminallyUnderpriced() string   { return c.terminallyUnderpriced }
+func (c *TestClientErrorsConfig) InsufficientEth() string         { return c.insufficientEth }
+func (c *TestClientErrorsConfig) TxFeeExceedsCap() string         { return c.txFeeExceedsCap }
+func (c *TestClientErrorsConfig) L2FeeTooLow() string             { return c.l2FeeTooLow }
+func (c *TestClientErrorsConfig) L2FeeTooHigh() string            { return c.l2FeeTooHigh }
+func (c *TestClientErrorsConfig) L2Full() string                  { return c.l2Full }
+func (c *TestClientErrorsConfig) TransactionAlreadyMined() string { return c.transactionAlreadyMined }
+func (c *TestClientErrorsConfig) Fatal() string                   { return c.fatal }
+func (c *TestClientErrorsConfig) ServiceUnavailable() string      { return c.serviceUnavailable }
+
 type TestNodePoolConfig struct {
 	NodePollFailureThreshold uint32
 	NodePollInterval         time.Duration
@@ -113,7 +149,7 @@ func NewChainClientWithTestNode(
 	}
 
 	var chainType commonconfig.ChainType
-	c := NewChainClient(lggr, nodeCfg.SelectionMode(), leaseDuration, noNewHeadsThreshold, primaries, sendonlys, chainID, chainType)
+	c := NewChainClient(lggr, nodeCfg.SelectionMode(), leaseDuration, noNewHeadsThreshold, primaries, sendonlys, chainID, chainType, &TestClientErrorsConfig{})
 	t.Cleanup(c.Close)
 	return c, nil
 }
@@ -125,11 +161,10 @@ func NewChainClientWithEmptyNode(
 	noNewHeadsThreshold time.Duration,
 	chainID *big.Int,
 ) Client {
-
 	lggr := logger.Test(t)
 
 	var chainType commonconfig.ChainType
-	c := NewChainClient(lggr, selectionMode, leaseDuration, noNewHeadsThreshold, nil, nil, chainID, chainType)
+	c := NewChainClient(lggr, selectionMode, leaseDuration, noNewHeadsThreshold, nil, nil, chainID, chainType, &TestClientErrorsConfig{})
 	t.Cleanup(c.Close)
 	return c
 }
@@ -142,7 +177,6 @@ func NewChainClientWithMockedRpc(
 	chainID *big.Int,
 	rpc RPCClient,
 ) Client {
-
 	lggr := logger.Test(t)
 
 	var chainType commonconfig.ChainType
@@ -155,7 +189,7 @@ func NewChainClientWithMockedRpc(
 	n := commonclient.NewNode[*big.Int, *evmtypes.Head, RPCClient](
 		cfg, noNewHeadsThreshold, lggr, *parsed, nil, "eth-primary-node-0", 1, chainID, 1, rpc, "EVM")
 	primaries := []commonclient.Node[*big.Int, *evmtypes.Head, RPCClient]{n}
-	c := NewChainClient(lggr, selectionMode, leaseDuration, noNewHeadsThreshold, primaries, nil, chainID, chainType)
+	c := NewChainClient(lggr, selectionMode, leaseDuration, noNewHeadsThreshold, primaries, nil, chainID, chainType, &TestClientErrorsConfig{})
 	t.Cleanup(c.Close)
 	return c
 }

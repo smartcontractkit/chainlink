@@ -36,7 +36,7 @@ func init() {
 		if err != nil {
 			log.Fatalf("failed to read %q: %v", path, err)
 		}
-		var config = struct {
+		config := struct {
 			ChainID *big.Big
 			Chain
 		}{}
@@ -167,6 +167,7 @@ func (c *Chain) SetFrom(f *Chain) {
 
 	c.Transactions.setFrom(&f.Transactions)
 	c.BalanceMonitor.setFrom(&f.BalanceMonitor)
+	c.ClientErrors.setFrom(&f.ClientErrors)
 	c.GasEstimator.setFrom(&f.GasEstimator)
 
 	if ks := f.KeySpecific; ks != nil {

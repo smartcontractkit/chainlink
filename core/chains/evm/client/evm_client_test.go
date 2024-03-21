@@ -32,6 +32,6 @@ func TestNewEvmClient(t *testing.T) {
 	nodePool, nodes, chainType, err := client.NewClientConfigs(selectionMode, leaseDuration, chainTypeStr, nodeConfigs, pollFailureThreshold, pollInterval, syncThreshold, nodeIsSyncingEnabled)
 	require.NoError(t, err)
 
-	client := client.NewEvmClient(nodePool, noNewHeadsThreshold, logger.TestLogger(t), testutils.FixtureChainID, chainType, nodes)
+	client := client.NewEvmClient(nodePool, &client.TestClientErrorsConfig{}, noNewHeadsThreshold, logger.TestLogger(t), testutils.FixtureChainID, chainType, nodes)
 	require.NotNil(t, client)
 }

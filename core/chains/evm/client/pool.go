@@ -23,13 +23,11 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
-var (
-	// PromEVMPoolRPCNodeStates reports current RPC node state
-	PromEVMPoolRPCNodeStates = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "evm_pool_rpc_node_states",
-		Help: "The number of RPC nodes currently in the given state for the given chain",
-	}, []string{"evmChainID", "state"})
-)
+// PromEVMPoolRPCNodeStates reports current RPC node state
+var PromEVMPoolRPCNodeStates = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	Name: "evm_pool_rpc_node_states",
+	Help: "The number of RPC nodes currently in the given state for the given chain",
+}, []string{"evmChainID", "state"})
 
 const (
 	NodeSelectionMode_HighestHead     = "HighestHead"
@@ -402,7 +400,10 @@ func (p *Pool) SendTransaction(ctx context.Context, tx *types.Transaction) error
 				sendCtx, cancel := p.chStop.CtxCancel(ContextWithDefaultTimeout())
 				defer cancel()
 
-				err := NewSendError(n.SendTransaction(sendCtx, tx))
+				// TODO: Should we fix this type, with plumbing since it is deprecated?
+				//
+				// I have just passed in nil for now as this code is seemingly unused.
+				err := NewSendError(n.SendTransaction(sendCtx, tx), nil)
 				p.logger.Debugw("Sendonly node sent transaction", "name", n.String(), "tx", tx, "err", err)
 				if err == nil || err.IsNonceTooLowError() || err.IsTransactionAlreadyMined() || err.IsTransactionAlreadyInMempool() {
 					// Nonce too low or transaction known errors are expected since
@@ -489,6 +490,7 @@ func (p *Pool) CodeAt(ctx context.Context, account common.Address, blockNumber *
 func (p *Pool) HeaderByNumber(ctx context.Context, n *big.Int) (*types.Header, error) {
 	return p.selectNode().HeaderByNumber(ctx, n)
 }
+
 func (p *Pool) HeaderByHash(ctx context.Context, h common.Hash) (*types.Header, error) {
 	return p.selectNode().HeaderByHash(ctx, h)
 }

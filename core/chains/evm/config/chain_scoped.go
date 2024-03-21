@@ -21,7 +21,8 @@ func NewTOMLChainScopedConfig(appCfg config.AppConfig, tomlConfig *toml.EVMConfi
 	return &ChainScoped{
 		AppConfig: appCfg,
 		evmConfig: &evmConfig{c: tomlConfig},
-		lggr:      lggr}
+		lggr:      lggr,
+	}
 }
 
 // ChainScoped implements config.ChainScopedConfig with a gencfg.BasicConfig and EVMConfig.
@@ -76,6 +77,10 @@ func (e *evmConfig) TOMLString() (string, error) {
 
 func (e *evmConfig) BalanceMonitor() BalanceMonitor {
 	return &balanceMonitorConfig{c: e.c.BalanceMonitor}
+}
+
+func (e *evmConfig) ClientErrors() ClientErrors {
+	return &clientErrorsRegexConfig{c: e.c.ClientErrors}
 }
 
 func (e *evmConfig) Transactions() Transactions {
