@@ -174,7 +174,7 @@ contract BaseTest is Test {
       for (uint256 i = 0; i < billingTokens.length; i++) {
         billingTokenAddresses[i] = address(billingTokens[i]);
       }
-      billingTokenConfigs = new AutomationRegistryBase2_3.BillingConfig[](1);
+      billingTokenConfigs = new AutomationRegistryBase2_3.BillingConfig[](billingTokens.length);
       billingTokenConfigs[0] = AutomationRegistryBase2_3.BillingConfig({
         gasFeePPB: 10_000_000, // 15%
         flatFeeMicroLink: 100_000,
@@ -206,7 +206,7 @@ contract BaseTest is Test {
       for (uint256 i = 0; i < billingTokens.length; i++) {
         billingTokenAddresses[i] = address(billingTokens[i]);
       }
-      billingTokenConfigs = new AutomationRegistryBase2_3.BillingConfig[](2);
+      billingTokenConfigs = new AutomationRegistryBase2_3.BillingConfig[](billingTokens.length);
       billingTokenConfigs[0] = AutomationRegistryBase2_3.BillingConfig({
         gasFeePPB: 10_000_000, // 10%
         flatFeeMicroLink: 100_000,
