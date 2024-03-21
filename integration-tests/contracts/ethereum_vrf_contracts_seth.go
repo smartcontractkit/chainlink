@@ -7,22 +7,14 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/seth"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_consumer_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_wrapper"
-	"github.com/smartcontractkit/seth"
 )
-
-// EthereumBatchBlockhashStore represents BatchBlockhashStore contract
-type EthereumBatchBlockhashStore struct {
-	address             *common.Address
-	client              *seth.Client
-	batchBlockhashStore *batch_blockhash_store.BatchBlockhashStore
-}
 
 // EthereumBlockhashStore represents a blockhash store for VRF contract
 type EthereumBlockhashStore struct {
@@ -252,8 +244,4 @@ func (v *EthereumVRF) ProofLength(ctx context.Context) (*big.Int, error) {
 		From:    v.client.Addresses[0],
 		Context: ctx,
 	})
-}
-
-func (v *EthereumBatchBlockhashStore) Address() string {
-	return v.address.Hex()
 }

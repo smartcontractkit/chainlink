@@ -3,8 +3,9 @@ package vrfv1
 import (
 	"fmt"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/seth"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
 
 var (

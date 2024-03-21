@@ -9,16 +9,15 @@ import (
 	"github.com/google/uuid"
 	"github.com/onsi/gomega"
 	"github.com/rs/zerolog"
+	"github.com/smartcontractkit/seth"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
-	"github.com/smartcontractkit/seth"
-
-	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/vrfv1"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/vrfv1"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	ethcontracts "github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
