@@ -3,6 +3,7 @@ package txmgr_test
 import (
 	"database/sql"
 	"fmt"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"math/big"
 	"testing"
 	"time"
@@ -1211,21 +1212,34 @@ func TestORM_LoadEthTxesAttempts(t *testing.T) {
 
 	t.Run("load new attempt inserted in current postgres transaction", func(t *testing.T) {
 		etx := mustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(t, txStore, 3, 9, time.Now(), fromAddress)
-		etx.TxAttempts = []txmgr.TxAttempt{}
-
 		newAttempt := cltest.NewDynamicFeeEthTxAttempt(t, etx.ID)
 		var dbAttempt txmgr.DbEthTxAttempt
 		dbAttempt.FromTxAttempt(&newAttempt)
 
-		err := txStore.InsertTxAttempt(ctx, &newAttempt)
-		require.NoError(t, err)
+		func() {
+			tx, err := db.BeginTx(ctx, nil)
+			require.NoError(t, err)
 
-		err = txStore.LoadTxesAttempts(ctx, []*txmgr.Tx{&etx})
-		require.NoError(t, err)
-		assert.Len(t, etx.TxAttempts, 2)
+			const insertEthTxAttemptSQL = `INSERT INTO evm.tx_attempts (eth_tx_id, gas_price, signed_raw_tx, hash, broadcast_before_block_num, state, created_at, chain_specific_gas_limit, tx_type, gas_tip_cap, gas_fee_cap) VALUES (
+					:eth_tx_id, :gas_price, :signed_raw_tx, :hash, :broadcast_before_block_num, :state, NOW(), :chain_specific_gas_limit, :tx_type, :gas_tip_cap, :gas_fee_cap
+					) RETURNING *`
+			query, args, err := sqlutil.DataSource(db).BindNamed(insertEthTxAttemptSQL, dbAttempt)
+			require.NoError(t, err)
+			_, err = tx.ExecContext(ctx, query, args...)
+			require.NoError(t, err)
+
+			etx.TxAttempts = []txmgr.TxAttempt{}
+			err = txStore.LoadTxesAttempts(ctx, []*txmgr.Tx{&etx})
+			require.NoError(t, err)
+			assert.Len(t, etx.TxAttempts, 2)
+
+			err = tx.Commit()
+			require.NoError(t, err)
+		}()
+
 		// also check after postgres transaction is committed
 		etx.TxAttempts = []txmgr.TxAttempt{}
-		err = txStore.LoadTxesAttempts(ctx, []*txmgr.Tx{&etx})
+		err := txStore.LoadTxesAttempts(ctx, []*txmgr.Tx{&etx})
 		require.NoError(t, err)
 		assert.Len(t, etx.TxAttempts, 2)
 	})

@@ -115,6 +115,11 @@ func DbReceiptToEvmReceipt(receipt *dbReceipt) *evmtypes.Receipt {
 // Directly maps to onchain receipt schema.
 type rawOnchainReceipt = evmtypes.Receipt
 
+func Transaction(ctx context.Context, store *evmTxStore, readOnly bool, fn func(*evmTxStore) error) (err error) {
+	opts := &sqlutil.TxOptions{TxOptions: sql.TxOptions{ReadOnly: readOnly}}
+	return sqlutil.Transact(ctx, store.new, store.q, opts, fn)
+}
+
 func (o *evmTxStore) Transaction(ctx context.Context, readOnly bool, fn func(*evmTxStore) error) (err error) {
 	opts := &sqlutil.TxOptions{TxOptions: sql.TxOptions{ReadOnly: readOnly}}
 	return sqlutil.Transact(ctx, o.new, o.q, opts, fn)
