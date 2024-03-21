@@ -145,24 +145,6 @@ contract BaseTest is Test {
     address[] memory registrars;
     address[] memory billingTokenAddresses;
     AutomationRegistryBase2_3.BillingConfig[] memory billingTokenConfigs;
-    AutomationRegistryBase2_3.OnchainConfig memory cfg = AutomationRegistryBase2_3.OnchainConfig({
-      checkGasLimit: 5_000_000,
-      stalenessSeconds: 90_000,
-      gasCeilingMultiplier: 0,
-      maxPerformGas: 10_000_000,
-      maxCheckDataSize: 5_000,
-      maxPerformDataSize: 5_000,
-      maxRevertDataSize: 5_000,
-      fallbackGasPrice: 20_000_000_000,
-      fallbackLinkPrice: 2_000_000_000, // $20
-      fallbackNativePrice: 400_000_000_000, // $4,000
-      transcoder: 0xB1e66855FD67f6e85F0f0fA38cd6fBABdf00923c,
-      registrars: registrars,
-      upkeepPrivilegeManager: 0xD9c855F08A7e460691F41bBDDe6eC310bc0593D8,
-      chainModule: address(new ChainModuleBase()),
-      reorgProtectionEnabled: true,
-      financeAdmin: FINANCE_ADMIN
-    });
 
     if (payoutMode == AutoBase.PayoutMode.OFF_CHAIN) {
       billingTokens = new IERC20[](1);
@@ -228,6 +210,25 @@ contract BaseTest is Test {
         minSpend: 100000000000000000000 // 100 USD
       });
     }
+
+    AutomationRegistryBase2_3.OnchainConfig memory cfg = AutomationRegistryBase2_3.OnchainConfig({
+      checkGasLimit: 5_000_000,
+      stalenessSeconds: 90_000,
+      gasCeilingMultiplier: 0,
+      maxPerformGas: 10_000_000,
+      maxCheckDataSize: 5_000,
+      maxPerformDataSize: 5_000,
+      maxRevertDataSize: 5_000,
+      fallbackGasPrice: 20_000_000_000,
+      fallbackLinkPrice: 2_000_000_000, // $20
+      fallbackNativePrice: 400_000_000_000, // $4,000
+      transcoder: 0xB1e66855FD67f6e85F0f0fA38cd6fBABdf00923c,
+      registrars: registrars,
+      upkeepPrivilegeManager: 0xD9c855F08A7e460691F41bBDDe6eC310bc0593D8,
+      chainModule: address(new ChainModuleBase()),
+      reorgProtectionEnabled: true,
+      financeAdmin: FINANCE_ADMIN
+    });
 
     registry.setConfigTypeSafe(
       SIGNERS,
