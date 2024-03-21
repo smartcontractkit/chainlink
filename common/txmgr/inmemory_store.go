@@ -340,7 +340,7 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MarkA
 }
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MarkOldTxesMissingReceiptAsErrored(ctx context.Context, blockNum int64, finalityDepth uint32, chainID CHAIN_ID) error {
 	if ms.chainID.String() != chainID.String() {
-		return nil
+		panic(fmt.Sprintf(ErrInvalidChainID.Error()+": %s", chainID.String()))
 	}
 
 	// Persist to persistent storage
