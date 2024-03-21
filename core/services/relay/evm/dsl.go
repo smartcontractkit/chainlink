@@ -30,18 +30,18 @@ func (f *EventFilter) Accept(visitor commontypes.Visitor) {
 }
 
 type EventByIndexFilter struct {
-	Address  common.Address
-	EventSig common.Hash
-	Topics   []int
-	Values   []string
+	Address          common.Address
+	EventSig         common.Hash
+	Topic            int
+	ValueComparators []commontypes.ValueComparator
 }
 
-func NewEventByIndexFilter(address common.Address, values []string, eventSig common.Hash, topicIndex int) commontypes.Expression {
+func NewEventByIndexFilter(address common.Address, valueComparators []commontypes.ValueComparator, eventSig common.Hash, topicIndex int) commontypes.Expression {
 	var eventByIndexFilter *EventByIndexFilter
 	eventByIndexFilter.Address = address
 	eventByIndexFilter.EventSig = eventSig
-	eventByIndexFilter.Topics = append(eventByIndexFilter.Topics, topicIndex)
-	eventByIndexFilter.Values = append(eventByIndexFilter.Values, values...)
+	eventByIndexFilter.Topic = topicIndex
+	eventByIndexFilter.ValueComparators = valueComparators
 
 	return commontypes.Expression{Primitive: eventByIndexFilter}
 }
