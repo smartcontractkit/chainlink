@@ -1,13 +1,20 @@
 package dashboard_lib
 
-import "os"
+import (
+	"encoding/base64"
+	"github.com/pkg/errors"
+	"os"
+	"strings"
+)
 
 type EnvConfig struct {
-	Platform      string
-	GrafanaURL    string
-	GrafanaToken  string
-	GrafanaFolder string
-	DataSources   DataSources
+	Platform                 string
+	GrafanaURL               string
+	GrafanaToken             string
+	GrafanaBasicAuthUser     string
+	GrafanaBasicAuthPassword string
+	GrafanaFolder            string
+	DataSources              DataSources
 }
 
 type DataSources struct {
@@ -37,10 +44,6 @@ func ReadEnvDeployOpts() EnvConfig {
 	if grafanaURL == "" {
 		L.Fatal().Msg("GRAFANA_URL must be provided")
 	}
-	grafanaToken := os.Getenv("GRAFANA_TOKEN")
-	if grafanaToken == "" {
-		L.Fatal().Msg("GRAFANA_TOKEN must be provided")
-	}
 	grafanaFolder := os.Getenv("GRAFANA_FOLDER")
 	if grafanaFolder == "" {
 		L.Fatal().Msg("GRAFANA_FOLDER must be provided")
@@ -57,14 +60,45 @@ func ReadEnvDeployOpts() EnvConfig {
 	if prometheusDataSourceName == "" {
 		L.Fatal().Msg("PROMETHEUS_DATA_SOURCE_NAME must be provided")
 	}
+	ba := os.Getenv("GRAFANA_BASIC_AUTH")
+	grafanaToken := os.Getenv("GRAFANA_TOKEN")
+	if grafanaToken == "" && ba == "" {
+		L.Fatal().Msg("GRAFANA_TOKEN or GRAFANA_BASIC_AUTH must be provided")
+	}
+	var user, password string
+	var err error
+	if ba != "" {
+		user, password, err = DecodeBasicAuth(ba)
+		if err != nil {
+			L.Fatal().Err(err).Msg("failed to decode basic auth")
+		}
+	}
 	return EnvConfig{
-		GrafanaURL:    grafanaURL,
-		GrafanaToken:  grafanaToken,
-		GrafanaFolder: grafanaFolder,
-		Platform:      platform,
+		GrafanaURL:               grafanaURL,
+		GrafanaToken:             grafanaToken,
+		GrafanaBasicAuthUser:     user,
+		GrafanaBasicAuthPassword: password,
+		GrafanaFolder:            grafanaFolder,
+		Platform:                 platform,
 		DataSources: DataSources{
 			Loki:       loki,
 			Prometheus: prom,
 		},
 	}
+}
+
+func DecodeBasicAuth(authString string) (string, string, error) {
+	var data string
+	decodedBytes, err := base64.StdEncoding.DecodeString(authString)
+	if err != nil {
+		L.Warn().Err(err).Msg("failed to decode basic auth, plain text? reading auth data")
+		data = authString
+	} else {
+		data = string(decodedBytes[1 : len(decodedBytes)-1])
+	}
+	parts := strings.Split(data, ":")
+	if len(parts) != 2 {
+		return "", "", errors.New("invalid basic authentication format")
+	}
+	return parts[0], parts[1], nil
 }
