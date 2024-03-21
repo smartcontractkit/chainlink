@@ -5,6 +5,7 @@ import {VRF} from "../../../../src/v0.8/vrf/VRF.sol";
 import {MockLinkToken} from "../../../../src/v0.8/mocks/MockLinkToken.sol";
 import {MockV3Aggregator} from "../../../../src/v0.8/tests/MockV3Aggregator.sol";
 import {ExposedVRFCoordinatorV2_5} from "../../../../src/v0.8/vrf/dev/testhelpers/ExposedVRFCoordinatorV2_5.sol";
+import {SubscriptionAPI} from "../../../../src/v0.8/vrf/dev/SubscriptionAPI.sol";
 import {VRFV2PlusWrapperConsumerBase} from "../../../../src/v0.8/vrf/dev/VRFV2PlusWrapperConsumerBase.sol";
 import {VRFV2PlusWrapperConsumerExample} from "../../../../src/v0.8/vrf/dev/testhelpers/VRFV2PlusWrapperConsumerExample.sol";
 import {VRFCoordinatorV2_5} from "../../../../src/v0.8/vrf/dev/VRFCoordinatorV2_5.sol";
@@ -18,6 +19,7 @@ contract VRFV2PlusWrapperTest is BaseTest {
   bytes32 vrfKeyHash = hex"9f2353bde94264dbc3d554a94cceba2d7d2b4fdce4304d3e09a1fea9fbeb1528";
   uint32 wrapperGasOverhead = 10_000;
   uint32 coordinatorGasOverhead = 20_000;
+  uint256 s_wrapperSubscriptionId;
 
   ExposedVRFCoordinatorV2_5 s_testCoordinator;
   MockLinkToken s_linkToken;
@@ -31,15 +33,31 @@ contract VRFV2PlusWrapperTest is BaseTest {
     // Fund our users.
     vm.roll(1);
     vm.deal(LINK_WHALE, 10_000 ether);
-    changePrank(LINK_WHALE);
+    vm.stopPrank();
+    vm.startPrank(LINK_WHALE);
 
     // Deploy link token and link/native feed.
     s_linkToken = new MockLinkToken();
     s_linkNativeFeed = new MockV3Aggregator(18, 500000000000000000); // .5 ETH (good for testing)
 
-    // Deploy coordinator and consumer.
+    // Deploy coordinator.
     s_testCoordinator = new ExposedVRFCoordinatorV2_5(address(0));
-    s_wrapper = new VRFV2PlusWrapper(address(s_linkToken), address(s_linkNativeFeed), address(s_testCoordinator));
+
+    // Create subscription for all future wrapper contracts.
+    s_wrapperSubscriptionId = s_testCoordinator.createSubscription();
+
+    // Deploy wrapper.
+    s_wrapper = new VRFV2PlusWrapper(
+      address(s_linkToken),
+      address(s_linkNativeFeed),
+      address(s_testCoordinator),
+      uint256(s_wrapperSubscriptionId)
+    );
+
+    // Add wrapper as a consumer to the wrapper's subscription.
+    s_testCoordinator.addConsumer(uint256(s_wrapperSubscriptionId), address(s_wrapper));
+
+    // Deploy consumer.
     s_consumer = new VRFV2PlusWrapperConsumerExample(address(s_wrapper));
 
     // Configure the coordinator.
@@ -135,13 +153,46 @@ contract VRFV2PlusWrapperTest is BaseTest {
   // VRFV2PlusWrapperConsumerBase events
   event LinkTokenSet(address link);
 
+  // SubscriptionAPI events
+  event SubscriptionConsumerAdded(uint256 indexed subId, address consumer);
+
   function testVRFV2PlusWrapper_ZeroAddress() public {
     vm.expectRevert(VRFConsumerBaseV2Plus.ZeroAddress.selector);
-    new VRFV2PlusWrapper(address(0), address(0), address(0));
+    new VRFV2PlusWrapper(address(s_linkToken), address(0), address(0), uint256(0));
   }
 
-  function testSetLinkNativeFeed() public {
-    VRFV2PlusWrapper wrapper = new VRFV2PlusWrapper(address(s_linkToken), address(0), address(s_testCoordinator));
+  function testVRFV2PlusWrapperWithExistingSubscriptionId() public {
+    // second wrapper contract will simply add itself to the same subscription
+    VRFV2PlusWrapper nextWrapper = new VRFV2PlusWrapper(
+      address(s_linkToken),
+      address(0),
+      address(s_testCoordinator),
+      s_wrapperSubscriptionId
+    );
+    assertEq(s_wrapperSubscriptionId, nextWrapper.SUBSCRIPTION_ID());
+
+    vm.expectEmit(true, false, false, true);
+    emit SubscriptionConsumerAdded(uint256(s_wrapperSubscriptionId), address(nextWrapper));
+    s_testCoordinator.addConsumer(uint256(s_wrapperSubscriptionId), address(nextWrapper));
+  }
+
+  function testVRFV2PlusWrapperWithZeroSubscriptionId() public {
+    vm.expectRevert(VRFV2PlusWrapper.SubscriptionIdMissing.selector);
+    new VRFV2PlusWrapper(address(s_linkToken), address(0), address(s_testCoordinator), uint256(0));
+  }
+
+  function testVRFV2PlusWrapperWithInvalidSubscriptionId() public {
+    vm.expectRevert(SubscriptionAPI.InvalidSubscription.selector);
+    new VRFV2PlusWrapper(address(s_linkToken), address(0), address(s_testCoordinator), uint256(123456));
+  }
+
+  function testSetLinkAndLinkNativeFeed() public {
+    VRFV2PlusWrapper wrapper = new VRFV2PlusWrapper(
+      address(s_linkToken),
+      address(0),
+      address(s_testCoordinator),
+      uint256(s_wrapperSubscriptionId)
+    );
 
     // Set LINK/Native feed on wrapper.
     vm.expectEmit(false, false, false, true, address(wrapper));
@@ -409,7 +460,8 @@ contract VRFV2PlusWrapperTest is BaseTest {
     VRFV2PlusWrapper wrapper = new VRFV2PlusWrapper(
       address(s_linkToken),
       address(s_linkNativeFeed),
-      address(s_testCoordinator)
+      address(s_testCoordinator),
+      uint256(s_wrapperSubscriptionId)
     );
 
     vm.expectRevert("wrapper is not configured");
