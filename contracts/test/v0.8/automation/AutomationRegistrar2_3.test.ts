@@ -159,6 +159,7 @@ describe('AutomationRegistrar2_3', () => {
       nativeUSDFeed.address,
       gasPriceFeed.address,
       zeroAddress,
+      0, // onchain payout mode
     )
 
     mock = await upkeepMockFactory.deploy()

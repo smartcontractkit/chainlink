@@ -1,4 +1,4 @@
-package dashboardlib
+package dashboard_lib
 
 import "os"
 

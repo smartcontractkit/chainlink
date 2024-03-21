@@ -23,7 +23,7 @@ const waitTime = 5 * time.Millisecond
 func newTestEvmTrackerSetup(t *testing.T) (*txmgr.Tracker, txmgr.TestEvmTxStore, keystore.Eth, []common.Address) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := newTestChainScopedConfig(t)
-	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
+	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	chainID := big.NewInt(0)
 	var enabledAddresses []common.Address
