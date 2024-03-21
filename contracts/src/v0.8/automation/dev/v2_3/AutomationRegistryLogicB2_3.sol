@@ -7,6 +7,7 @@ import {Address} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/ut
 import {AutomationRegistryLogicC2_3} from "./AutomationRegistryLogicC2_3.sol";
 import {Chainable} from "../../Chainable.sol";
 import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
+import {SafeCast} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/math/SafeCast.sol";
 
 contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3, Chainable {
   using Address for address;
@@ -26,7 +27,8 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3, Chainable {
       logicC.getFastGasFeedAddress(),
       logicC.getAutomationForwarderLogic(),
       logicC.getAllowedReadOnlyAddress(),
-      logicC.getPayoutMode()
+      logicC.getPayoutMode(),
+      logicC.getWrappedNativeTokenAddress()
     )
     Chainable(address(logicC))
   {}
@@ -34,6 +36,37 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3, Chainable {
   // ================================================================
   // |                      UPKEEP MANAGEMENT                       |
   // ================================================================
+
+  /**
+   * @notice adds fund to an upkeep
+   * @param id the upkeepID
+   * @param amount the amount of funds to add, in the upkeep's billing token
+   */
+  function addFunds(uint256 id, uint96 amount) external payable {
+    Upkeep memory upkeep = s_upkeep[id];
+    if (upkeep.maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
+
+    if (msg.value != 0) {
+      if (upkeep.billingToken != IERC20(i_wrappedNativeToken)) {
+        revert InvalidBillingToken();
+      }
+      amount = SafeCast.toUint96(msg.value);
+    }
+
+    s_upkeep[id].balance = upkeep.balance + amount;
+    s_reserveAmounts[address(upkeep.billingToken)] = s_reserveAmounts[address(upkeep.billingToken)] + amount;
+
+    if (msg.value == 0) {
+      // ERC20 payment
+      bool success = upkeep.billingToken.transferFrom(msg.sender, address(this), amount);
+      if (!success) revert TransferFailed();
+    } else {
+      // native payment
+      i_wrappedNativeToken.deposit{value: amount}();
+    }
+
+    emit FundsAdded(id, msg.sender, amount);
+  }
 
   /**
    * @notice transfers the address of an admin for an upkeep
