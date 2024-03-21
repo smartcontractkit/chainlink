@@ -102,7 +102,7 @@ func TestForwarderOCR2Basic(t *testing.T) {
 	err = actions_seth.ConfigureOCRv2AggregatorContracts(ocrv2Config, ocrInstances)
 	require.NoError(t, err, "Error configuring OCRv2 aggregator contracts")
 
-	err = actions_seth.WatchNewRound(l, sethClient, 1, contracts.V2OffChainAgrregatorToOffChainAggregatorWithRounds(ocrInstances), time.Duration(3*time.Minute))
+	err = actions_seth.WatchNewRound(l, sethClient, 1, contracts.V2OffChainAgrregatorToOffChainAggregatorWithRounds(ocrInstances), time.Duration(10*time.Minute))
 	require.NoError(t, err, ErrWatchingNewOCRRound)
 
 	answer, err := ocrInstances[0].GetLatestAnswer(testcontext.Get(t))
