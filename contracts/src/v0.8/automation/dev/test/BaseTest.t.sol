@@ -17,6 +17,8 @@ import {AutomationRegistrar2_3} from "../v2_3/AutomationRegistrar2_3.sol";
 import {ChainModuleBase} from "../../chains/ChainModuleBase.sol";
 import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 import {MockUpkeep} from "../../mocks/MockUpkeep.sol";
+import {IWrappedNative} from "../interfaces/v2_3/IWrappedNative.sol";
+import {WETH9} from "./WETH9.sol";
 
 /**
  * @title BaseTest provides basic test setup procedures and dependencies for use by other
@@ -33,6 +35,7 @@ contract BaseTest is Test {
   // contracts
   LinkToken internal linkToken;
   ERC20Mock internal mockERC20;
+  WETH9 internal weth;
   MockV3Aggregator internal LINK_USD_FEED;
   MockV3Aggregator internal NATIVE_USD_FEED;
   MockV3Aggregator internal USDTOKEN_USD_FEED;
@@ -61,6 +64,7 @@ contract BaseTest is Test {
     linkToken = new LinkToken();
     linkToken.grantMintRole(OWNER);
     mockERC20 = new ERC20Mock("MOCK_ERC20", "MOCK_ERC20", OWNER, 0);
+    weth = new WETH9();
 
     LINK_USD_FEED = new MockV3Aggregator(8, 2_000_000_000); // $20
     NATIVE_USD_FEED = new MockV3Aggregator(8, 400_000_000_000); // $4,000
@@ -86,15 +90,18 @@ contract BaseTest is Test {
     PAYEES[3] = address(103);
 
     // mint funds
-    vm.deal(UPKEEP_ADMIN, 10 ether);
-    vm.deal(FINANCE_ADMIN, 10 ether);
-    vm.deal(STRANGER, 10 ether);
+    vm.deal(UPKEEP_ADMIN, 100 ether);
+    vm.deal(FINANCE_ADMIN, 100 ether);
+    vm.deal(STRANGER, 100 ether);
     linkToken.mint(UPKEEP_ADMIN, 1000e18);
     linkToken.mint(FINANCE_ADMIN, 1000e18);
     linkToken.mint(STRANGER, 1000e18);
     mockERC20.mint(UPKEEP_ADMIN, 1000e18);
     mockERC20.mint(FINANCE_ADMIN, 1000e18);
     mockERC20.mint(STRANGER, 1000e18);
+    weth.mint(UPKEEP_ADMIN, 1000e18);
+    weth.mint(FINANCE_ADMIN, 1000e18);
+    weth.mint(STRANGER, 1000e18);
 
     vm.stopPrank();
   }
@@ -111,11 +118,12 @@ contract BaseTest is Test {
       address(FAST_GAS_FEED),
       address(forwarderLogic),
       ZERO_ADDRESS,
-      payoutMode
+      payoutMode,
+      address(weth)
     );
     AutomationRegistryLogicB2_3 logicB2_3 = new AutomationRegistryLogicB2_3(logicC2_3);
     AutomationRegistryLogicA2_3 logicA2_3 = new AutomationRegistryLogicA2_3(logicB2_3);
-    return IAutomationRegistryMaster2_3(address(new AutomationRegistry2_3(logicA2_3)));
+    return IAutomationRegistryMaster2_3(payable(address(new AutomationRegistry2_3(logicA2_3))));
   }
 
   /**
@@ -149,7 +157,8 @@ contract BaseTest is Test {
         registry,
         triggerConfigs,
         billingTokens,
-        minRegistrationFees
+        minRegistrationFees,
+        IWrappedNative(address(weth))
       );
       // configure registry
       address[] memory registrars = new address[](1);
@@ -196,18 +205,21 @@ contract BaseTest is Test {
         billingTokenConfigs
       );
     } else {
-      IERC20[] memory billingTokens = new IERC20[](2);
+      IERC20[] memory billingTokens = new IERC20[](3);
       billingTokens[0] = IERC20(address(linkToken));
       billingTokens[1] = IERC20(address(mockERC20));
+      billingTokens[2] = IERC20(address(weth));
       uint256[] memory minRegistrationFees = new uint256[](billingTokens.length);
       minRegistrationFees[0] = 5000000000000000000; // 5 LINK
       minRegistrationFees[1] = 100000000000000000000; // 100 USD
+      minRegistrationFees[2] = 5000000000000000000; // 5 Native
       registrar = new AutomationRegistrar2_3(
         address(linkToken),
         registry,
         triggerConfigs,
         billingTokens,
-        minRegistrationFees
+        minRegistrationFees,
+        IWrappedNative(address(weth))
       );
       // configure registry
       address[] memory registrars = new address[](1);
@@ -235,7 +247,7 @@ contract BaseTest is Test {
         financeAdmin: FINANCE_ADMIN
       });
       AutomationRegistryBase2_3.BillingConfig[]
-        memory billingTokenConfigs = new AutomationRegistryBase2_3.BillingConfig[](2);
+        memory billingTokenConfigs = new AutomationRegistryBase2_3.BillingConfig[](billingTokens.length);
       billingTokenConfigs[0] = AutomationRegistryBase2_3.BillingConfig({
         gasFeePPB: 10_000_000, // 10%
         flatFeeMicroLink: 100_000,
@@ -249,6 +261,13 @@ contract BaseTest is Test {
         priceFeed: address(USDTOKEN_USD_FEED),
         fallbackPrice: 100_000_000, // $1
         minSpend: 100000000000000000000 // 100 USD
+      });
+      billingTokenConfigs[2] = AutomationRegistryBase2_3.BillingConfig({
+        gasFeePPB: 10_000_000, // 15%
+        flatFeeMicroLink: 100_000,
+        priceFeed: address(USDTOKEN_USD_FEED),
+        fallbackPrice: 100_000_000, // $1
+        minSpend: 5000000000000000000 // 5 Native
       });
       registry.setConfigTypeSafe(
         SIGNERS,

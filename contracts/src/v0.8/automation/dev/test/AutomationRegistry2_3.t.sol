@@ -4,8 +4,10 @@ pragma solidity 0.8.19;
 import {BaseTest} from "./BaseTest.t.sol";
 import {AutomationRegistryBase2_3 as AutoBase} from "../v2_3/AutomationRegistryBase2_3.sol";
 import {IAutomationRegistryMaster2_3, AutomationRegistryBase2_3} from "../interfaces/v2_3/IAutomationRegistryMaster2_3.sol";
+import {AutomationRegistrar2_3} from "../v2_3/AutomationRegistrar2_3.sol";
 import {ChainModuleBase} from "../../chains/ChainModuleBase.sol";
-import {IAutomationV21PlusCommon} from "../../interfaces/IAutomationV21PlusCommon.sol";
+import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
+import {IWrappedNative} from "../interfaces/v2_3/IWrappedNative.sol";
 
 // forge test --match-path src/v0.8/automation/dev/test/AutomationRegistry2_3.t.sol
 
@@ -17,6 +19,7 @@ contract SetUp is BaseTest {
   uint256[] internal gasLimits;
   bytes[] internal performDatas;
   uint256[] internal balances;
+  AutomationRegistrar2_3 internal registrar;
 
   function setUp() public virtual override {
     super.setUp();
@@ -24,7 +27,7 @@ contract SetUp is BaseTest {
     s_registrars = new address[](1);
     s_registrars[0] = 0x3a0eDE26aa188BFE00b9A0C9A431A1a0CA5f7966;
 
-    (registry, ) = deployAndConfigureAll(AutoBase.PayoutMode.ON_CHAIN);
+    (registry, registrar) = deployAndConfigureAll(AutoBase.PayoutMode.ON_CHAIN);
   }
 }
 
@@ -46,6 +49,72 @@ contract CheckUpkeep is SetUp {
     // Expecting a revert since the tx.origin is not address(0)
     vm.expectRevert(abi.encodeWithSelector(IAutomationRegistryMaster2_3.OnlySimulatedBackend.selector));
     registry.checkUpkeep(id, triggerData);
+  }
+}
+
+contract AddFunds is SetUp {
+  event FundsAdded(uint256 indexed id, address indexed from, uint96 amount);
+
+  function registerUpkeepWithBillingToken(IERC20 billingToken) internal returns (uint256 upkeepID, uint96 amount) {
+    registrar.setTriggerConfig(0, AutomationRegistrar2_3.AutoApproveType.ENABLED_ALL, 1000);
+
+    vm.startPrank(UPKEEP_ADMIN);
+
+    amount = uint96(registrar.getMinimumRegistrationAmount(billingToken));
+    billingToken.approve(address(registrar), amount);
+
+    upkeepID = registrar.registerUpkeep(
+      AutomationRegistrar2_3.RegistrationParams({
+        upkeepContract: address(TARGET1),
+        amount: amount,
+        adminAddress: UPKEEP_ADMIN,
+        gasLimit: 10_000,
+        triggerType: 0,
+        billingToken: billingToken,
+        name: "foobar",
+        encryptedEmail: "",
+        checkData: bytes("check data"),
+        triggerConfig: "",
+        offchainConfig: ""
+      })
+    );
+
+    assertEq(billingToken.balanceOf(address(registry)), amount);
+    assertEq(registry.getNumUpkeeps(), 1);
+
+    return (upkeepID, amount);
+  }
+
+  // when msg.value is 0, it uses the ERC20 payment path
+  function testNative_msgValue0() external {
+    (uint256 upkeepID, uint96 amount) = registerUpkeepWithBillingToken(IERC20(address(weth)));
+
+    IERC20(address(weth)).approve(address(registry), amount);
+
+    vm.expectEmit();
+    emit FundsAdded(upkeepID, UPKEEP_ADMIN, amount);
+    registry.addFunds(upkeepID, amount);
+    assertEq(weth.balanceOf(address(registry)), amount * 2);
+  }
+
+  // when msg.value is not 0, it uses the native payment path
+  function testNative_msgValueNot0() external {
+    (uint256 upkeepID, uint96 amount) = registerUpkeepWithBillingToken(IERC20(address(weth)));
+
+    IERC20(address(weth)).approve(address(registry), amount);
+
+    vm.expectEmit();
+    emit FundsAdded(upkeepID, UPKEEP_ADMIN, amount);
+    registry.addFunds{value: amount}(upkeepID, amount);
+    assertEq(weth.balanceOf(address(registry)), amount * 2);
+  }
+
+  // it fails when the billing token is not native, but trying to pay with native
+  function testNative_billingTokenMismatch() external {
+    (uint256 upkeepID, uint96 amount) = registerUpkeepWithBillingToken(IERC20(address(mockERC20)));
+
+    vm.expectRevert(abi.encodeWithSelector(IAutomationRegistryMaster2_3.InvalidBillingToken.selector));
+    registry.addFunds{value: amount}(upkeepID, 0);
   }
 }
 
