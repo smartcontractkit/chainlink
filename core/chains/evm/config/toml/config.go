@@ -400,10 +400,6 @@ func (c *Chain) ValidateConfig() (err error) {
 			Msg: "must be greater than or equal to 1"})
 	}
 
-	if c.NodePool.FinalizedBlockPollInterval.Duration() > 0 && !(*c.FinalityTagEnabled) {
-		err = multierr.Append(err, commonconfig.ErrInvalid{Name: "NodePool.FinalizedBlockPollInterval", Value: *c.NodePool.FinalizedBlockPollInterval,
-			Msg: "finalized block polling requires FinalityTagEnabled=true"})
-	}
 	return
 }
 

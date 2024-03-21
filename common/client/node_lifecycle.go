@@ -139,7 +139,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 	}
 
 	var pollFinalizedHeadCh <-chan time.Time
-	if n.nodePoolCfg.FinalizedBlockPollInterval() > 0 {
+	if n.chainCfg.FinalityTagEnabled() && n.nodePoolCfg.FinalizedBlockPollInterval() > 0 {
 		lggr.Debugw("Finalized block polling enabled")
 		pollT := time.NewTicker(n.nodePoolCfg.FinalizedBlockPollInterval())
 		defer pollT.Stop()

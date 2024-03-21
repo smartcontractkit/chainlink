@@ -349,7 +349,7 @@ NodeIsSyncingEnabled = false # Default
 # We plan to use it in RPCs health assessment in the future.
 #
 # Set positive value to enable.
-FinalizedBlockPollInterval = '0s' # Default
+FinalizedBlockPollInterval = '5s' # Default
 [EVM.OCR]
 # ContractConfirmations sets `OCR.ContractConfirmations` for this EVM chain.
 ContractConfirmations = 4 # Default
