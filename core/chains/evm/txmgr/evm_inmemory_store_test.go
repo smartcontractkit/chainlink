@@ -1,7 +1,6 @@
 package txmgr_test
 
 import (
-	"context"
 	"math/big"
 	"testing"
 
@@ -33,7 +32,7 @@ func TestInMemoryStore_Abandon(t *testing.T) {
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	lggr := logger.TestSugared(t)
 	chainID := ethClient.ConfiguredChainID()
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 
 	inMemoryStore, err := commontxmgr.NewInMemoryStore[
 		*big.Int,
@@ -54,8 +53,8 @@ func TestInMemoryStore_Abandon(t *testing.T) {
 			require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
 		}
 
-		actErr := inMemoryStore.Abandon(testutils.Context(t), chainID, fromAddress)
-		expErr := persistentStore.Abandon(testutils.Context(t), chainID, fromAddress)
+		actErr := inMemoryStore.Abandon(ctx, chainID, fromAddress)
+		expErr := persistentStore.Abandon(ctx, chainID, fromAddress)
 		require.NoError(t, actErr)
 		require.NoError(t, expErr)
 
