@@ -45,6 +45,14 @@ func DeployVRFV2_5Contracts(
 	if err != nil {
 		return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrWaitTXsComplete, err)
 	}
+	batchBHS, err := contractDeployer.DeployBatchBlockhashStore(bhs.Address())
+	if err != nil {
+		return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrDeployBatchBlockHashStore, err)
+	}
+	err = chainClient.WaitForEvents()
+	if err != nil {
+		return nil, fmt.Errorf("%s, batchBHS err %w", vrfcommon.ErrWaitTXsComplete, err)
+	}
 	coordinator, err := contractDeployer.DeployVRFCoordinatorV2_5(bhs.Address())
 	if err != nil {
 		return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrDeployCoordinator, err)
@@ -64,6 +72,7 @@ func DeployVRFV2_5Contracts(
 	return &vrfcommon.VRFContracts{
 		CoordinatorV2Plus: coordinator,
 		BHS:               bhs,
+		BatchBHS:          batchBHS,
 		VRFV2PlusConsumer: consumers,
 	}, nil
 }
@@ -254,6 +263,27 @@ func SetupVRFV2_5Environment(
 				*vrfv2PlusTestConfig.GetCommonConfig().ChainlinkNodeFunding,
 				l,
 				bhsNode,
+			)
+			if err != nil {
+				return err
+			}
+			return nil
+		})
+	}
+
+	if bhfNode, exists := nodeTypeToNodeMap[vrfcommon.BHF]; exists {
+		g.Go(func() error {
+			err := vrfcommon.SetupBHFNode(
+				env,
+				configGeneral.General,
+				numberOfTxKeysToCreate,
+				chainID,
+				vrfContracts.CoordinatorV2Plus.Address(),
+				vrfContracts.BHS.Address(),
+				vrfContracts.BatchBHS.Address(),
+				*vrfv2PlusTestConfig.GetCommonConfig().ChainlinkNodeFunding,
+				l,
+				bhfNode,
 			)
 			if err != nil {
 				return err

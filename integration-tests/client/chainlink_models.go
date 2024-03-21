@@ -1328,6 +1328,48 @@ runTimeout          = "{{.RunTimeout}}"
 	return MarshallTemplate(b, "BlockhashStore Job", vrfTemplateString)
 }
 
+// BlockHeaderFeederJobSpec represents a blockheaderfeeder job
+type BlockHeaderFeederJobSpec struct {
+	Name                       string        `toml:"name"`
+	CoordinatorV2Address       string        `toml:"coordinatorV2Address"`
+	CoordinatorV2PlusAddress   string        `toml:"coordinatorV2PlusAddress"`
+	BlockhashStoreAddress      string        `toml:"blockhashStoreAddress"`
+	BatchBlockhashStoreAddress string        `toml:"batchBlockhashStoreAddress"`
+	ExternalJobID              string        `toml:"externalJobID"`
+	FromAddresses              []string      `toml:"fromAddresses"`
+	EVMChainID                 string        `toml:"evmChainID"`
+	ForwardingAllowed          bool          `toml:"forwardingAllowed"`
+	PollPeriod                 time.Duration `toml:"pollPeriod"`
+	RunTimeout                 time.Duration `toml:"runTimeout"`
+	WaitBlocks                 int           `toml:"waitBlocks"`
+	LookbackBlocks             int           `toml:"lookbackBlocks"`
+}
+
+// Type returns the type of the job
+func (b *BlockHeaderFeederJobSpec) Type() string { return "blockheaderfeeder" }
+
+// String representation of the job
+func (b *BlockHeaderFeederJobSpec) String() (string, error) {
+	vrfTemplateString := `
+type                          = "blockheaderfeeder"
+schemaVersion                 = 1
+name                          = "{{.Name}}"
+forwardingAllowed             = {{.ForwardingAllowed}}
+coordinatorV2Address          = "{{.CoordinatorV2Address}}"
+coordinatorV2PlusAddress      = "{{.CoordinatorV2PlusAddress}}"
+blockhashStoreAddress	      = "{{.BlockhashStoreAddress}}"
+batchBlockhashStoreAddress	  = "{{.BatchBlockhashStoreAddress}}"
+fromAddresses                 = [{{range .FromAddresses}}"{{.}}",{{end}}]
+evmChainID                    = "{{.EVMChainID}}"
+externalJobID                 = "{{.ExternalJobID}}"
+waitBlocks                    = {{.WaitBlocks}}
+lookbackBlocks                = {{.LookbackBlocks}}
+pollPeriod                    = "{{.PollPeriod}}"
+runTimeout                    = "{{.RunTimeout}}"
+`
+	return MarshallTemplate(b, "BlockHeaderFeeder Job", vrfTemplateString)
+}
+
 // WebhookJobSpec reprsents a webhook job
 type WebhookJobSpec struct {
 	Name              string `toml:"name"`
