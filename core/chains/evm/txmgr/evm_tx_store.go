@@ -466,18 +466,14 @@ func (o *evmTxStore) TransactionsWithAttempts(ctx context.Context, offset, limit
 }
 
 // GetAllTransactions returns all eth transactions
-func (o *evmTxStore) GetAllTransactions(ctx context.Context, fromAddress common.Address, chainID *big.Int) (txs []Tx, err error) {
-	var cancel context.CancelFunc
-	ctx, cancel = o.mergeContexts(ctx)
-	defer cancel()
-	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+func (o *evmTxStore) GetAllTransactions(ctx context.Context, chainID *big.Int) (txs []Tx, err error) {
 	var dbEtxs []DbEthTx
-	sql := `SELECT * FROM evm.txes WHERE from_address = $1 AND evm_chain_id = $2 ORDER BY id desc`
-	if err = qq.Select(&dbEtxs, sql, fromAddress, chainID.String()); err != nil {
+	sql := `SELECT * FROM evm.txes WHERE evm_chain_id = $1 ORDER BY id desc`
+	if err = o.q.SelectContext(ctx, &dbEtxs, sql, chainID.String()); err != nil {
 		return
 	}
 	txs = dbEthTxsToEvmEthTxs(dbEtxs)
-	err = o.preloadTxAttempts(txs)
+	err = o.preloadTxAttempts(ctx, txs)
 	return
 }
 
