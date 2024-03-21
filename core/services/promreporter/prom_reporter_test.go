@@ -96,7 +96,7 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 	t.Run("with unconfirmed evm.txes", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		cfg := configtest.NewGeneralConfig(t, nil)
-		txStore := cltest.NewTestTxStore(t, db, cfg.Database())
+		txStore := cltest.NewTestTxStore(t, db)
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 

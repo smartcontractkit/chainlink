@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.4;
+pragma solidity 0.8.19;
 
 import {BlockhashStoreInterface} from "../interfaces/BlockhashStoreInterface.sol";
 import {VRF} from "../../vrf/VRF.sol";
+import {VRFTypes} from "../VRFTypes.sol";
 import {VRFConsumerBaseV2Plus, IVRFMigratableConsumerV2Plus} from "./VRFConsumerBaseV2Plus.sol";
 import {ChainSpecificUtil} from "../../ChainSpecificUtil.sol";
 import {SubscriptionAPI} from "./SubscriptionAPI.sol";
@@ -35,21 +36,12 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
   error InvalidLinkWeiPrice(int256 linkWei);
   error LinkDiscountTooHigh(uint32 flatFeeLinkDiscountPPM, uint32 flatFeeNativePPM);
   error InvalidPremiumPercentage(uint8 premiumPercentage, uint8 max);
-  error InsufficientGasForConsumer(uint256 have, uint256 want);
   error NoCorrespondingRequest();
   error IncorrectCommitment();
   error BlockhashNotInStore(uint256 blockNum);
   error PaymentTooLarge();
   error InvalidExtraArgsTag();
   error GasPriceExceeded(uint256 gasPrice, uint256 maxGas);
-  struct RequestCommitment {
-    uint64 blockNum;
-    uint256 subId;
-    uint32 callbackGasLimit;
-    uint32 numWords;
-    address sender;
-    bytes extraArgs;
-  }
 
   struct ProvingKey {
     bool exists; // proving key exists
@@ -376,7 +368,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
 
   function _getRandomnessFromProof(
     Proof memory proof,
-    RequestCommitment memory rc
+    VRFTypes.RequestCommitmentV2Plus memory rc
   ) internal view returns (Output memory) {
     bytes32 keyHash = hashOfKey(proof.pk);
     ProvingKey memory key = s_provingKeys[keyHash];
@@ -425,7 +417,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
 
   function _deliverRandomness(
     uint256 requestId,
-    RequestCommitment memory rc,
+    VRFTypes.RequestCommitmentV2Plus memory rc,
     uint256[] memory randomWords
   ) internal returns (bool success) {
     VRFConsumerBaseV2Plus v;
@@ -452,7 +444,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
    */
   function fulfillRandomWords(
     Proof memory proof,
-    RequestCommitment memory rc,
+    VRFTypes.RequestCommitmentV2Plus memory rc,
     bool onlyPremium
   ) external nonReentrant returns (uint96 payment) {
     uint256 startGas = gasleft();
@@ -508,9 +500,11 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
 
     // stack too deep error
     {
-      // We want to charge users exactly for how much gas they use in their callback.
-      // The gasAfterPaymentCalculation is meant to cover these additional operations where we
-      // decrement the subscription balance and increment the oracles withdrawable balance.
+      // We want to charge users exactly for how much gas they use in their callback with
+      // an additional premium. If onlyPremium is true, only premium is charged without
+      // the gas cost. The gasAfterPaymentCalculation is meant to cover these additional
+      // operations where we decrement the subscription balance and increment the
+      // withdrawable balance.
       bool isFeedStale;
       (payment, isFeedStale) = _calculatePaymentAmount(startGas, gasPrice, nativePayment, onlyPremium);
       if (isFeedStale) {
@@ -741,16 +735,16 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     if (!_isTargetRegistered(newCoordinator)) {
       revert CoordinatorNotRegistered(newCoordinator);
     }
-    (uint96 balance, uint96 nativeBalance, , address owner, address[] memory consumers) = getSubscription(subId);
+    (uint96 balance, uint96 nativeBalance, , address subOwner, address[] memory consumers) = getSubscription(subId);
     // solhint-disable-next-line custom-errors
-    require(owner == msg.sender, "Not subscription owner");
+    require(subOwner == msg.sender, "Not subscription owner");
     // solhint-disable-next-line custom-errors
     require(!pendingRequestExists(subId), "Pending request exists");
 
     V1MigrationData memory migrationData = V1MigrationData({
       fromVersion: 1,
       subId: subId,
-      subOwner: owner,
+      subOwner: subOwner,
       consumers: consumers,
       linkBalance: balance,
       nativeBalance: nativeBalance
