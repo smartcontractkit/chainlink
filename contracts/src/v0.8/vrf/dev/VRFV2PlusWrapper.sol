@@ -160,9 +160,11 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     // Sanity check: should revert if the subscription does not exist
     s_vrfCoordinator.getSubscription(_subId);
 
-    // Subscription for the wrapper is created and managed by an external EOA
+    // Subscription for the wrapper is created and managed by an external account.
     // Expectation is that wrapper contract address will be added as a consumer
-    // to this subscription by the external EOA (owner of the subscription)
+    // to this subscription by the external account (owner of the subscription).
+    // Migration of the wrapper's subscription to the new coordinator has to be
+    // handled by the external account (owner of the subscription).
     SUBSCRIPTION_ID = _subId;
   }
 

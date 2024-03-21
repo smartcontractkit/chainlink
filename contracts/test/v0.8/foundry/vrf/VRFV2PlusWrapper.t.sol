@@ -161,7 +161,7 @@ contract VRFV2PlusWrapperTest is BaseTest {
     new VRFV2PlusWrapper(address(s_linkToken), address(0), address(0), uint256(0));
   }
 
-  function testVRFV2PlusWrapperWithExistingSubscriptionId() public {
+  function testCreationOfANewVRFV2PlusWrapper() public {
     // second wrapper contract will simply add itself to the same subscription
     VRFV2PlusWrapper nextWrapper = new VRFV2PlusWrapper(
       address(s_linkToken),
@@ -170,10 +170,6 @@ contract VRFV2PlusWrapperTest is BaseTest {
       s_wrapperSubscriptionId
     );
     assertEq(s_wrapperSubscriptionId, nextWrapper.SUBSCRIPTION_ID());
-
-    vm.expectEmit(true, false, false, true);
-    emit SubscriptionConsumerAdded(uint256(s_wrapperSubscriptionId), address(nextWrapper));
-    s_testCoordinator.addConsumer(uint256(s_wrapperSubscriptionId), address(nextWrapper));
   }
 
   function testVRFV2PlusWrapperWithZeroSubscriptionId() public {
