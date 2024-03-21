@@ -176,25 +176,49 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) findTx
 
 // pruneUnstartedTxQueue removes the transactions with the given IDs from the unstarted transaction queue.
 func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) pruneUnstartedTxQueue(ids []int64) {
+	as.Lock()
+	defer as.Unlock()
+
+	txs := as.unstartedTxs.PruneByTxIDs(ids)
+	as._deleteTxs(txs...)
 }
 
 // deleteTxs removes the transactions with the given IDs from the address state.
 func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) deleteTxs(txs ...txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) {
+	as.Lock()
+	defer as.Unlock()
+
+	as._deleteTxs(txs...)
 }
 
 // peekNextUnstartedTx returns the next unstarted transaction in the queue without removing it from the unstarted queue.
-func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) peekNextUnstartedTx() (*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
-	return nil, nil
+// If there are no unstarted transactions, nil is returned.
+func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) peekNextUnstartedTx() *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {
+	as.RLock()
+	defer as.RUnlock()
+
+	return as.unstartedTxs.PeekNextTx()
 }
 
 // peekInProgressTx returns the in-progress transaction without removing it from the in-progress state.
-func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) peekInProgressTx() (*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
-	return nil, nil
+// If there is no in-progress transaction, nil is returned.
+func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) peekInProgressTx() *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {
+	as.RLock()
+	defer as.RUnlock()
+
+	return as.inprogressTx
 }
 
-// addTxToUnstarted adds the given transaction to the unstarted queue.
-func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) addTxToUnstarted(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
-	return nil
+// addTxToUnstartedQueue adds the given transaction to the unstarted queue.
+func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) addTxToUnstartedQueue(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) {
+	as.Lock()
+	defer as.Unlock()
+
+	as.unstartedTxs.AddTx(tx)
+	as.allTxs[tx.ID] = tx
+	if tx.IdempotencyKey != nil {
+		as.idempotencyKeyToTx[*tx.IdempotencyKey] = tx
+	}
 }
 
 // moveUnstartedToInProgress moves the next unstarted transaction to the in-progress state.
@@ -247,4 +271,23 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) moveIn
 // moveConfirmedToUnconfirmed moves the confirmed transaction to the unconfirmed state.
 func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) moveConfirmedToUnconfirmed(attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
 	return nil
+}
+
+// This is not a concurrency-safe method and should only be called from within a lock
+func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) _deleteTxs(txs ...txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) {
+	for _, tx := range txs {
+		if tx.IdempotencyKey != nil {
+			delete(as.idempotencyKeyToTx, *tx.IdempotencyKey)
+		}
+		txID := tx.ID
+		if as.inprogressTx != nil && as.inprogressTx.ID == txID {
+			as.inprogressTx = nil
+		}
+		delete(as.allTxs, txID)
+		delete(as.unconfirmedTxs, txID)
+		delete(as.confirmedMissingReceiptTxs, txID)
+		delete(as.confirmedTxs, txID)
+		delete(as.fatalErroredTxs, txID)
+		as.unstartedTxs.RemoveTxByID(txID)
+	}
 }
