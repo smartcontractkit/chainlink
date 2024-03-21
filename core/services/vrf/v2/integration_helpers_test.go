@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_consumer_v2_upgradeable_example"
@@ -67,11 +68,11 @@ func testSingleConsumerHappyPath(
 	config, db := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		simulatedOverrides(t, assets.GWei(10), toml.KeySpecific{
 			// Gas lane.
-			Key:          ptr[ethkey.EIP55Address](key1.EIP55Address),
+			Key:          ptr[types.EIP55Address](key1.EIP55Address),
 			GasEstimator: toml.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		}, toml.KeySpecific{
 			// Gas lane.
-			Key:          ptr[ethkey.EIP55Address](key2.EIP55Address),
+			Key:          ptr[types.EIP55Address](key2.EIP55Address),
 			GasEstimator: toml.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
@@ -1701,7 +1702,7 @@ func testMaliciousConsumer(
 	// by the node.
 	var attempts []txmgr.TxAttempt
 	gomega.NewWithT(t).Eventually(func() bool {
-		attempts, _, err = app.TxmStorageService().TxAttempts(0, 1000)
+		attempts, _, err = app.TxmStorageService().TxAttempts(testutils.Context(t), 0, 1000)
 		require.NoError(t, err)
 		// It possible that we send the test request
 		// before the job spawner has started the vrf services, which is fine

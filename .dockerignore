@@ -30,3 +30,6 @@ codeship-*.yml
 dockercfg
 credentials.env
 gcr_creds.env
+
+go.work
+go.work.sum

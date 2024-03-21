@@ -1,4 +1,4 @@
-pragma solidity 0.8.6;
+pragma solidity 0.8.19;
 
 import "../BaseTest.t.sol";
 import {TrustedBlockhashStore} from "../../../../src/v0.8/vrf/dev/TrustedBlockhashStore.sol";

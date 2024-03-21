@@ -28,7 +28,7 @@ func (b *ethTransactionAttemptBatcher) loadByEthTransactionIDs(ctx context.Conte
 		keyOrder[key.String()] = ix
 	}
 
-	attempts, err := b.app.TxmStorageService().FindTxAttemptConfirmedByTxIDs(ethTxsIDs)
+	attempts, err := b.app.TxmStorageService().FindTxAttemptConfirmedByTxIDs(ctx, ethTxsIDs)
 	if err != nil {
 		return []*dataloader.Result{{Data: nil, Error: err}}
 	}
