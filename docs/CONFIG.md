@@ -6874,10 +6874,12 @@ Set true to enable this check
 FinalizedBlockPollInterval = '5s' # Default
 ```
 FinalizedBlockPollInterval controls how often to poll RPC for new finalized blocks.
-Requires finality tag support. The finalized block is only used to report to the `pool_rpc_node_highest_finalized_block` metric.
-We plan to use it in RPCs health assessment in the future.
+The finalized block is only used to report to the `pool_rpc_node_highest_finalized_block` metric. We plan to use it
+in RPCs health assessment in the future.
+If `FinalityTagEnabled = false`, poll is not performed and `pool_rpc_node_highest_finalized_block` is
+reported based on latest block and finality depth.
 
-Set positive value to enable.
+Set to 0 to disable.
 
 ## EVM.OCR
 ```toml
