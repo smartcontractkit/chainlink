@@ -7,7 +7,7 @@ import (
 )
 
 // priorityHeap is a priority queue of transactions prioritized by creation time. The oldest transaction is at the front of the queue.
-// It implements the heap interface in the container/heap package and is safe for concurrent access.
+// It implements the heap interface in the container/heap package.
 type priorityHeap[
 	CHAIN_ID types.ID,
 	ADDR, TX_HASH, BLOCK_HASH types.Hashable,
@@ -27,7 +27,7 @@ func NewPriorityHeap[
 	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ](capacity int) *priorityHeap[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
-	if capacity == 0 {
+	if capacity <= 0 {
 		panic("priority_heap: capacity must be greater than 0")
 	}
 
@@ -53,9 +53,6 @@ func (pq *priorityHeap[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindIn
 
 // Peek returns the next transaction to be processed
 func (pq *priorityHeap[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Peek() *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {
-	if len(pq.txs) == 0 {
-		return nil
-	}
 	return pq.txs[0]
 }
 

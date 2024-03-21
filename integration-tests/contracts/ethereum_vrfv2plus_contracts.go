@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_load_test_with_metrics"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_upgraded_version"
@@ -56,13 +57,14 @@ func (v *EthereumVRFV2PlusWrapper) Address() string {
 
 func (v *EthereumVRFV2PlusWrapper) SetConfig(wrapperGasOverhead uint32,
 	coordinatorGasOverhead uint32,
-	wrapperPremiumPercentage uint8,
+	wrapperNativePremiumPercentage uint8,
+	wrapperLinkPremiumPercentage uint8,
 	keyHash [32]byte,
 	maxNumWords uint8,
 	stalenessSeconds uint32,
 	fallbackWeiPerUnitLink *big.Int,
-	fulfillmentFlatFeeLinkPPM uint32,
 	fulfillmentFlatFeeNativePPM uint32,
+	fulfillmentFlatFeeLinkDiscountPPM uint32,
 ) error {
 	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
 	if err != nil {
@@ -72,13 +74,14 @@ func (v *EthereumVRFV2PlusWrapper) SetConfig(wrapperGasOverhead uint32,
 		opts,
 		wrapperGasOverhead,
 		coordinatorGasOverhead,
-		wrapperPremiumPercentage,
+		wrapperNativePremiumPercentage,
+		wrapperLinkPremiumPercentage,
 		keyHash,
 		maxNumWords,
 		stalenessSeconds,
 		fallbackWeiPerUnitLink,
-		fulfillmentFlatFeeLinkPPM,
 		fulfillmentFlatFeeNativePPM,
+		fulfillmentFlatFeeLinkDiscountPPM,
 	)
 	if err != nil {
 		return err
@@ -119,7 +122,7 @@ func (e *EthereumContractDeployer) DeployVRFCoordinatorV2_5(bhsAddr string) (VRF
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		return vrf_coordinator_v2_5.DeployVRFCoordinatorV25(auth, backend, common.HexToAddress(bhsAddr))
+		return vrf_coordinator_v2_5.DeployVRFCoordinatorV25(auth, wrappers.MustNewWrappedContractBackend(e.client, nil), common.HexToAddress(bhsAddr))
 	})
 	if err != nil {
 		return nil, err
@@ -935,7 +938,7 @@ func (e *EthereumContractDeployer) DeployVRFv2PlusLoadTestConsumer(coordinatorAd
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		return vrf_v2plus_load_test_with_metrics.DeployVRFV2PlusLoadTestWithMetrics(auth, backend, common.HexToAddress(coordinatorAddr))
+		return vrf_v2plus_load_test_with_metrics.DeployVRFV2PlusLoadTestWithMetrics(auth, wrappers.MustNewWrappedContractBackend(e.client, nil), common.HexToAddress(coordinatorAddr))
 	})
 	if err != nil {
 		return nil, err
@@ -952,7 +955,7 @@ func (e *EthereumContractDeployer) DeployVRFV2PlusWrapper(linkAddr string, linkE
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		return vrfv2plus_wrapper.DeployVRFV2PlusWrapper(auth, backend, common.HexToAddress(linkAddr), common.HexToAddress(linkEthFeedAddr), common.HexToAddress(coordinatorAddr))
+		return vrfv2plus_wrapper.DeployVRFV2PlusWrapper(auth, wrappers.MustNewWrappedContractBackend(e.client, nil), common.HexToAddress(linkAddr), common.HexToAddress(linkEthFeedAddr), common.HexToAddress(coordinatorAddr))
 	})
 	if err != nil {
 		return nil, err
@@ -964,12 +967,12 @@ func (e *EthereumContractDeployer) DeployVRFV2PlusWrapper(linkAddr string, linkE
 	}, err
 }
 
-func (e *EthereumContractDeployer) DeployVRFV2PlusWrapperLoadTestConsumer(linkAddr string, vrfV2PlusWrapperAddr string) (VRFv2PlusWrapperLoadTestConsumer, error) {
+func (e *EthereumContractDeployer) DeployVRFV2PlusWrapperLoadTestConsumer(vrfV2PlusWrapperAddr string) (VRFv2PlusWrapperLoadTestConsumer, error) {
 	address, _, instance, err := e.client.DeployContract("VRFV2PlusWrapperLoadTestConsumer", func(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		return vrfv2plus_wrapper_load_test_consumer.DeployVRFV2PlusWrapperLoadTestConsumer(auth, backend, common.HexToAddress(linkAddr), common.HexToAddress(vrfV2PlusWrapperAddr))
+		return vrfv2plus_wrapper_load_test_consumer.DeployVRFV2PlusWrapperLoadTestConsumer(auth, wrappers.MustNewWrappedContractBackend(e.client, nil), common.HexToAddress(vrfV2PlusWrapperAddr))
 	})
 	if err != nil {
 		return nil, err

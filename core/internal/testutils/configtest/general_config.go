@@ -56,6 +56,7 @@ func overrides(c *chainlink.Config, s *chainlink.Secrets) {
 	c.Database.DefaultLockTimeout = commonconfig.MustNewDuration(1 * time.Minute)
 
 	c.JobPipeline.ReaperInterval = commonconfig.MustNewDuration(0)
+	c.JobPipeline.VerboseLogging = ptr(true)
 
 	c.P2P.V2.Enabled = ptr(false)
 

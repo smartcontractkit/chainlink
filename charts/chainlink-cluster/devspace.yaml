@@ -16,7 +16,7 @@ pipelines:
       tagOverride=$(get_flag "override-image-tag")
       run_dependencies --all
 
-      if [ -n "$tagOverride" ]; then
+      if [[ -n "${tagOverride}" ]]; then
         image=${DEVSPACE_IMAGE}:${tagOverride}
         echo "Using user provided image: $image" 
 

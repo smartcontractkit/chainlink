@@ -305,7 +305,7 @@ func TestLoader_EthTransactionsAttempts(t *testing.T) {
 		TxID: ethTxIDs[1],
 	}
 
-	txStore.On("FindTxAttemptConfirmedByTxIDs", []int64{ethTxIDs[2], ethTxIDs[1], ethTxIDs[0]}).Return([]txmgr.TxAttempt{
+	txStore.On("FindTxAttemptConfirmedByTxIDs", ctx, []int64{ethTxIDs[2], ethTxIDs[1], ethTxIDs[0]}).Return([]txmgr.TxAttempt{
 		attempt1, attempt2,
 	}, nil)
 	app.On("TxmStorageService").Return(txStore)
@@ -394,7 +394,7 @@ func TestLoader_loadByEthTransactionID(t *testing.T) {
 		Receipts: []txmgr.ChainReceipt{txmgr.DbReceiptToEvmReceipt(&receipt)},
 	}
 
-	txStore.On("FindTxAttemptConfirmedByTxIDs", []int64{ethTxID}).Return([]txmgr.TxAttempt{
+	txStore.On("FindTxAttemptConfirmedByTxIDs", ctx, []int64{ethTxID}).Return([]txmgr.TxAttempt{
 		attempt1,
 	}, nil)
 
