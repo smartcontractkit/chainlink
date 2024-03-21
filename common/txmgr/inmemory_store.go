@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -47,7 +48,8 @@ type inMemoryStore[
 	keyStore          txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
 	persistentTxStore txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 
-	addressStates map[ADDR]*addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
+	addressStatesLock sync.RWMutex
+	addressStates     map[ADDR]*addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 }
 
 // NewInMemoryStore returns a new inMemoryStore
@@ -108,7 +110,30 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Creat
 	txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	error,
 ) {
-	return txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}, nil
+	tx := txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
+	if ms.chainID.String() != chainID.String() {
+		panic(fmt.Sprintf(ErrInvalidChainID.Error()+": %s", chainID.String()))
+	}
+
+	ms.addressStatesLock.Lock()
+	defer ms.addressStatesLock.Unlock()
+	as, ok := ms.addressStates[txRequest.FromAddress]
+	if !ok {
+		as = newAddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE](ms.lggr, chainID, txRequest.FromAddress, ms.maxUnstarted, nil)
+		ms.addressStates[txRequest.FromAddress] = as
+	}
+
+	// Persist Transaction to persistent storage
+	tx, err := ms.persistentTxStore.CreateTransaction(ctx, txRequest, chainID)
+	if err != nil {
+		return tx, fmt.Errorf("create_transaction: %w", err)
+	}
+
+	// Update in memory store
+	// Add the request to the Unstarted channel to be processed by the Broadcaster
+	as.addTxToUnstartedQueue(&tx)
+
+	return *ms.deepCopyTx(tx), nil
 }
 
 // FindTxWithIdempotencyKey returns a transaction with the given idempotency key
