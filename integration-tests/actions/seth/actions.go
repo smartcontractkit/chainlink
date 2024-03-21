@@ -291,13 +291,13 @@ func TrackForwarder(
 	t *testing.T,
 	seth *seth.Client,
 	authorizedForwarder common.Address,
-	node *client.ChainlinkK8sClient,
+	node contracts.ChainlinkNodeWithForwarder,
 ) {
 	l := logging.GetTestLogger(t)
 	chainID := big.NewInt(seth.ChainID)
 	_, _, err := node.TrackForwarder(chainID, authorizedForwarder)
 	require.NoError(t, err, "Forwarder track should be created")
-	l.Info().Str("NodeURL", node.Config.URL).
+	l.Info().Str("NodeURL", node.GetConfig().URL).
 		Str("ForwarderAddress", authorizedForwarder.Hex()).
 		Str("ChaindID", chainID.String()).
 		Msg("Forwarder tracked")
