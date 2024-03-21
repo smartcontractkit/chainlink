@@ -32,13 +32,26 @@ func NewDashboard(
 	}
 }
 
-func (m *Dashboard) Deploy() error {
+func (m *Dashboard) Deploy(basicAuth bool) error {
 	ctx := context.Background()
 	b, err := m.build()
 	if err != nil {
 		return err
 	}
-	client := grabana.NewClient(&http.Client{}, m.DeployOpts.GrafanaURL, grabana.WithAPIToken(m.DeployOpts.GrafanaToken))
+	var client *grabana.Client
+	if basicAuth {
+		client = grabana.NewClient(
+			&http.Client{},
+			m.DeployOpts.GrafanaURL,
+			grabana.WithBasicAuth(m.DeployOpts.GrafanaBasicAuthUser, m.DeployOpts.GrafanaBasicAuthPassword),
+		)
+	} else {
+		client = grabana.NewClient(
+			&http.Client{},
+			m.DeployOpts.GrafanaURL,
+			grabana.WithAPIToken(m.DeployOpts.GrafanaToken),
+		)
+	}
 	fo, folderErr := client.FindOrCreateFolder(ctx, m.DeployOpts.GrafanaFolder)
 	if folderErr != nil {
 		return errors.Wrap(err, "could not find or create Grafana folder")
