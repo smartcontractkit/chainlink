@@ -333,6 +333,10 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveS
 	ms.addressStatesLock.RLock()
 	defer ms.addressStatesLock.RUnlock()
 
+	if attempt.State != txmgrtypes.TxAttemptInProgress {
+		return fmt.Errorf("expected state to be in_progress")
+	}
+
 	var tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 	var as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 	filter := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool { return true }
@@ -348,10 +352,6 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveS
 		return fmt.Errorf("save_sent_attempt: %w", ErrTxnNotFound)
 	}
 
-	if attempt.State != txmgrtypes.TxAttemptInProgress {
-		return fmt.Errorf("expected state to be in_progress")
-	}
-
 	// Persist to persistent storage
 	if err := ms.persistentTxStore.SaveSentAttempt(ctx, timeout, attempt, broadcastAt); err != nil {
 		return err
@@ -359,10 +359,7 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveS
 
 	// Update in memory store
 	fn := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) {
-		if tx.ID != attempt.TxID {
-			return
-		}
-		if tx.TxAttempts == nil || len(tx.TxAttempts) == 0 {
+		if len(tx.TxAttempts) == 0 {
 			return
 		}
 		if tx.BroadcastAt != nil && tx.BroadcastAt.Before(broadcastAt) {
