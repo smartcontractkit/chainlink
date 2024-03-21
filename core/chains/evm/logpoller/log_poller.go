@@ -70,13 +70,7 @@ type LogPoller interface {
 type GetLogsBatchElem rpc.BatchElem
 
 func NewGetLogsReq(filter Filter) *GetLogsBatchElem {
-	var topics [][]common.Hash
-
-	for _, topic := range [][]common.Hash{filter.EventSigs, filter.Topic2, filter.Topic3, filter.Topic4} {
-		if topic != nil {
-			topics = append(topics, topic)
-		}
-	}
+	topics := make2DTopics(filter.EventSigs, filter.Topic2, filter.Topic3, filter.Topic4)
 
 	params := map[string]interface{}{
 		"address": []common.Address(filter.Addresses),
@@ -1576,14 +1570,14 @@ func (lp *logPoller) ethGetLogsReqs(fromBlock, toBlock *big.Int, blockHash *comm
 				continue // only rebuild reqs associated with new filters or those sharing topics or addresses with a removed filter
 			}
 
-			if req, ok := lp.cachedReqsByEventsTopicsKey[eventsTopicsKey]; ok {
+			if req, ok2 := lp.cachedReqsByEventsTopicsKey[eventsTopicsKey]; ok2 {
 				// merge this filter with other filters with the same events and topics lists
 				mergeAddressesIntoGetLogsReq(req, filter.Addresses)
 				continue
 			}
 
 			for _, addr := range filter.Addresses {
-				if reqsForAddress, ok := lp.cachedReqsByAddress[addr]; !ok {
+				if reqsForAddress, ok2 := lp.cachedReqsByAddress[addr]; !ok2 {
 					newReq = NewGetLogsReq(filter)
 					lp.cachedReqsByEventsTopicsKey[eventsTopicsKey] = newReq
 					lp.cachedReqsByAddress[addr] = []*GetLogsBatchElem{newReq}
@@ -1623,21 +1617,20 @@ func (lp *logPoller) ethGetLogsReqs(fromBlock, toBlock *big.Int, blockHash *comm
 		blockParams["toBlock"] = rpc.BlockNumber(toBlock.Uint64()).String()
 	}
 
-	// Fill fromBlock, toBlock, & blockHash while copying cached reqs into a result array
+	// Fill fromBlock, toBlock, & blockHash while deep-copying cached reqs into a result array
 	reqs := make([]rpc.BatchElem, 0, len(lp.cachedReqsByEventsTopicsKey))
 	for _, req := range lp.cachedReqsByEventsTopicsKey {
 		addresses := make([]common.Address, len(req.Addresses()))
-		topics := make([][]common.Hash, len(req.Topics()))
 		copy(addresses, req.Addresses())
-		copy(topics, req.Topics())
-
-		params := map[string]interface{}{
-			"address": addresses,
-			"topics":  topics,
+		topics := make([][]common.Hash, len(req.Topics()))
+		for i, topic := range req.Topics() {
+			topics[i] = make([]common.Hash, len(topic))
+			copy(topics[i], topic)
 		}
-		maps.Copy(params, blockParams)
 
-		copy(params["topics"].([][]common.Hash), req.Topics())
+		params := maps.Clone(blockParams)
+		params["address"] = addresses
+		params["topics"] = topics
 
 		reqs = append(reqs, rpc.BatchElem{
 			Method: req.Method,
