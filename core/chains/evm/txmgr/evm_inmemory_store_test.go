@@ -1,7 +1,6 @@
 package txmgr_test
 
 import (
-	"context"
 	"math/big"
 	"testing"
 	"time"
@@ -31,14 +30,14 @@ func TestInMemoryStore_MarkOldTxesMissingReceiptAsErrored(t *testing.T) {
 	t.Run("successfully mark errored transaction", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
-		persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+		persistentStore := cltest.NewTestTxStore(t, db)
 		kst := cltest.NewKeyStore(t, db, dbcfg)
 		_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
 
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 		lggr := logger.TestSugared(t)
 		chainID := ethClient.ConfiguredChainID()
-		ctx := context.Background()
+		ctx := testutils.Context(t)
 
 		inMemoryStore, err := commontxmgr.NewInMemoryStore[
 			*big.Int,
@@ -54,10 +53,10 @@ func TestInMemoryStore_MarkOldTxesMissingReceiptAsErrored(t *testing.T) {
 		// Insert the transaction into the in-memory store
 		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
 
-		err = inMemoryStore.MarkOldTxesMissingReceiptAsErrored(testutils.Context(t), blockNum, finalityDepth, chainID)
+		err = inMemoryStore.MarkOldTxesMissingReceiptAsErrored(ctx, blockNum, finalityDepth, chainID)
 		require.NoError(t, err)
 
-		expTx, err := persistentStore.FindTxWithAttempts(inTx.ID)
+		expTx, err := persistentStore.FindTxWithAttempts(ctx, inTx.ID)
 		require.NoError(t, err)
 		require.Len(t, expTx.TxAttempts, 1)
 
