@@ -528,7 +528,7 @@ func TestTxm_Reset(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	gcfg := configtest.NewTestGeneralConfig(t)
 	cfg := evmtest.NewChainScopedConfig(t, gcfg)
-	kst := cltest.NewKeyStore(t, db, cfg.Database())
+	kst := cltest.NewKeyStore(t, db, gcfg.Database())
 
 	_, addr := cltest.RandomKey{}.MustInsert(t, kst.Eth())
 	_, addr2 := cltest.RandomKey{}.MustInsert(t, kst.Eth())
@@ -549,7 +549,7 @@ func TestTxm_Reset(t *testing.T) {
 	ethClient.On("PendingNonceAt", mock.Anything, addr2).Return(uint64(44), nil).Maybe()
 
 	estimator := gas.NewEstimator(logger.Test(t), ethClient, cfg.EVM(), cfg.EVM().GasEstimator())
-	txm, err := makeTestEvmTxm(t, db, ethClient, estimator, cfg.EVM(), cfg.EVM().GasEstimator(), cfg.EVM().Transactions(), cfg.Database(), cfg.Database().Listener(), kst.Eth())
+	txm, err := makeTestEvmTxm(t, db, ethClient, estimator, cfg.EVM(), cfg.EVM().GasEstimator(), cfg.EVM().Transactions(), gcfg.Database(), gcfg.Database().Listener(), kst.Eth())
 	require.NoError(t, err)
 
 	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 2, addr2)

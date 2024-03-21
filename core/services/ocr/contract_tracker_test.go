@@ -20,7 +20,6 @@ import (
 
 	commonmocks "github.com/smartcontractkit/chainlink/v2/common/mocks"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
-	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	logmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/offchain_aggregator_wrapper"
@@ -55,13 +54,10 @@ type contractTrackerUni struct {
 }
 
 func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrackerUni) {
-	var cfg evmconfig.ChainScopedConfig
 	var filterer *offchainaggregator.OffchainAggregatorFilterer
 	var contract *offchain_aggregator_wrapper.OffchainAggregator
 	for _, opt := range opts {
 		switch v := opt.(type) {
-		case evmconfig.ChainScopedConfig:
-			cfg = v
 		case *offchainaggregator.OffchainAggregatorFilterer:
 			filterer = v
 		case *offchain_aggregator_wrapper.OffchainAggregator:
@@ -70,9 +66,8 @@ func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrack
 			t.Fatalf("unrecognised option type %T", v)
 		}
 	}
-	if cfg == nil {
-		cfg = evmtest.NewChainScopedConfig(t, configtest.NewTestGeneralConfig(t))
-	}
+	gcfg := configtest.NewTestGeneralConfig(t)
+	cfg := evmtest.NewChainScopedConfig(t, gcfg)
 	if filterer == nil {
 		filterer = mustNewFilterer(t)
 	}
@@ -97,7 +92,7 @@ func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrack
 		db,
 		uni.db,
 		cfg.EVM(),
-		cfg.Database(),
+		gcfg.Database(),
 		uni.hb,
 		mailMon,
 	)

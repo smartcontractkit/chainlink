@@ -14,19 +14,16 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
 )
 
-func NewTOMLChainScopedConfig(appCfg config.AppConfig, tomlConfig *toml.EVMConfig, lggr logger.Logger) *ChainScoped {
+func NewTOMLChainScopedConfig(tomlConfig *toml.EVMConfig, lggr logger.Logger) *ChainScoped {
 	return &ChainScoped{
-		AppConfig: appCfg,
 		evmConfig: &evmConfig{c: tomlConfig},
 		lggr:      lggr}
 }
 
 // ChainScoped implements config.ChainScopedConfig with a gencfg.BasicConfig and EVMConfig.
 type ChainScoped struct {
-	config.AppConfig
 	lggr logger.Logger
 
 	evmConfig *evmConfig
@@ -47,13 +44,9 @@ func (c *ChainScoped) BlockEmissionIdleWarningThreshold() time.Duration {
 func (c *ChainScoped) Validate() (err error) {
 	// Most per-chain validation is done on startup, but this combines globals as well.
 	lc := ocrtypes.LocalConfig{
-		BlockchainTimeout:                      c.OCR().BlockchainTimeout(),
 		ContractConfigConfirmations:            c.EVM().OCR().ContractConfirmations(),
-		ContractConfigTrackerPollInterval:      c.OCR().ContractPollInterval(),
-		ContractConfigTrackerSubscribeInterval: c.OCR().ContractSubscribeInterval(),
 		ContractTransmitterTransmitTimeout:     c.EVM().OCR().ContractTransmitterTransmitTimeout(),
 		DatabaseTimeout:                        c.EVM().OCR().DatabaseTimeout(),
-		DataSourceTimeout:                      c.OCR().ObservationTimeout(),
 		DataSourceGracePeriod:                  c.EVM().OCR().ObservationGracePeriod(),
 	}
 	if ocrerr := ocr.SanityCheckLocalConfig(lc); ocrerr != nil {

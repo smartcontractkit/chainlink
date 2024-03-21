@@ -375,9 +375,9 @@ func TestORM_SetBroadcastBeforeBlockNum(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := newTestChainScopedConfig(t)
+	gcfg, cfg := newTestChainScopedConfig(t)
 	txStore := cltest.NewTestTxStore(t, db)
-	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db, gcfg.Database()).Eth()
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
 	etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 0, fromAddress)
@@ -444,7 +444,7 @@ func TestORM_FindTxAttemptsConfirmedMissingReceipt(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := newTestChainScopedConfig(t)
+	cfg, _ := newTestChainScopedConfig(t)
 	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
@@ -468,7 +468,7 @@ func TestORM_UpdateTxsUnconfirmed(t *testing.T) {
 
 	ctx := testutils.Context(t)
 	db := pgtest.NewSqlxDB(t)
-	cfg := newTestChainScopedConfig(t)
+	cfg, _ := newTestChainScopedConfig(t)
 	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
@@ -488,7 +488,7 @@ func TestORM_FindTxAttemptsRequiringReceiptFetch(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := newTestChainScopedConfig(t)
+	cfg, _ := newTestChainScopedConfig(t)
 	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
@@ -509,7 +509,7 @@ func TestORM_SaveFetchedReceipts(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := newTestChainScopedConfig(t)
+	cfg, _ := newTestChainScopedConfig(t)
 	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
@@ -544,7 +544,7 @@ func TestORM_MarkAllConfirmedMissingReceipt(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := newTestChainScopedConfig(t)
+	cfg, _ := newTestChainScopedConfig(t)
 	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
@@ -575,7 +575,7 @@ func TestORM_PreloadTxes(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := newTestChainScopedConfig(t)
+	cfg, _ := newTestChainScopedConfig(t)
 	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
@@ -609,7 +609,7 @@ func TestORM_GetInProgressTxAttempts(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := newTestChainScopedConfig(t)
+	cfg, _ := newTestChainScopedConfig(t)
 	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
@@ -630,7 +630,7 @@ func TestORM_FindTxesPendingCallback(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := newTestChainScopedConfig(t)
+	cfg, _ := newTestChainScopedConfig(t)
 	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
@@ -703,9 +703,9 @@ func TestORM_FindTxesPendingCallback(t *testing.T) {
 func Test_FindTxWithIdempotencyKey(t *testing.T) {
 	t.Parallel()
 	db := pgtest.NewSqlxDB(t)
-	cfg := newTestChainScopedConfig(t)
+	gcfg, cfg := newTestChainScopedConfig(t)
 	txStore := cltest.NewTestTxStore(t, db)
-	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db, gcfg.Database()).Eth()
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
 
 	t.Run("returns nil if no results", func(t *testing.T) {
@@ -733,7 +733,7 @@ func TestORM_FindTxWithSequence(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := newTestChainScopedConfig(t)
+	cfg, _ := newTestChainScopedConfig(t)
 	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
@@ -758,7 +758,7 @@ func TestORM_UpdateTxForRebroadcast(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := newTestChainScopedConfig(t)
+	cfg, _ := newTestChainScopedConfig(t)
 	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
@@ -823,7 +823,7 @@ func TestORM_FindTransactionsConfirmedInBlockRange(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := newTestChainScopedConfig(t)
+	cfg, _ := newTestChainScopedConfig(t)
 	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
@@ -859,7 +859,7 @@ func TestORM_FindEarliestUnconfirmedBroadcastTime(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := newTestChainScopedConfig(t)
+	cfg, _ := newTestChainScopedConfig(t)
 	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
@@ -883,7 +883,7 @@ func TestORM_FindEarliestUnconfirmedTxAttemptBlock(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := newTestChainScopedConfig(t)
+	cfg, _ := newTestChainScopedConfig(t)
 	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
@@ -915,7 +915,7 @@ func TestORM_SaveInsufficientEthAttempt(t *testing.T) {
 
 	ctx := testutils.Context(t)
 	db := pgtest.NewSqlxDB(t)
-	cfg := newTestChainScopedConfig(t)
+	cfg, _ := newTestChainScopedConfig(t)
 	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
@@ -940,7 +940,7 @@ func TestORM_SaveSentAttempt(t *testing.T) {
 
 	ctx := testutils.Context(t)
 	db := pgtest.NewSqlxDB(t)
-	cfg := newTestChainScopedConfig(t)
+	cfg, _ := newTestChainScopedConfig(t)
 	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
@@ -966,7 +966,7 @@ func TestORM_SaveConfirmedMissingReceiptAttempt(t *testing.T) {
 
 	ctx := testutils.Context(t)
 	db := pgtest.NewSqlxDB(t)
-	cfg := newTestChainScopedConfig(t)
+	cfg, _ := newTestChainScopedConfig(t)
 	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
@@ -992,7 +992,7 @@ func TestORM_DeleteInProgressAttempt(t *testing.T) {
 
 	ctx := testutils.Context(t)
 	db := pgtest.NewSqlxDB(t)
-	cfg := newTestChainScopedConfig(t)
+	cfg, _ := newTestChainScopedConfig(t)
 	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
@@ -1015,7 +1015,7 @@ func TestORM_SaveInProgressAttempt(t *testing.T) {
 
 	ctx := testutils.Context(t)
 	db := pgtest.NewSqlxDB(t)
-	cfg := newTestChainScopedConfig(t)
+	cfg, _ := newTestChainScopedConfig(t)
 	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
@@ -1057,7 +1057,7 @@ func TestORM_FindTxsRequiringGasBump(t *testing.T) {
 
 	ctx := testutils.Context(t)
 	db := pgtest.NewSqlxDB(t)
-	cfg := newTestChainScopedConfig(t)
+	cfg, _ := newTestChainScopedConfig(t)
 	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
@@ -1159,7 +1159,7 @@ func TestORM_MarkOldTxesMissingReceiptAsErrored(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := newTestChainScopedConfig(t)
+	cfg, _ := newTestChainScopedConfig(t)
 	txStore := cltest.NewTestTxStore(t, db)
 	ctx := testutils.Context(t)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
@@ -1196,7 +1196,7 @@ func TestORM_LoadEthTxesAttempts(t *testing.T) {
 
 	ctx := testutils.Context(t)
 	db := pgtest.NewSqlxDB(t)
-	cfg := newTestChainScopedConfig(t)
+	cfg, _ := newTestChainScopedConfig(t)
 	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
@@ -1246,7 +1246,7 @@ func TestORM_SaveReplacementInProgressAttempt(t *testing.T) {
 
 	ctx := testutils.Context(t)
 	db := pgtest.NewSqlxDB(t)
-	cfg := newTestChainScopedConfig(t)
+	cfg, _ := newTestChainScopedConfig(t)
 	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
@@ -1270,7 +1270,7 @@ func TestORM_FindNextUnstartedTransactionFromAddress(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := newTestChainScopedConfig(t)
+	cfg, _ := newTestChainScopedConfig(t)
 	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
@@ -1298,7 +1298,7 @@ func TestORM_UpdateTxFatalError(t *testing.T) {
 
 	ctx := testutils.Context(t)
 	db := pgtest.NewSqlxDB(t)
-	cfg := newTestChainScopedConfig(t)
+	cfg, _ := newTestChainScopedConfig(t)
 	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 
@@ -1323,7 +1323,7 @@ func TestORM_UpdateTxAttemptInProgressToBroadcast(t *testing.T) {
 
 	ctx := testutils.Context(t)
 	db := pgtest.NewSqlxDB(t)
-	cfg := newTestChainScopedConfig(t)
+	cfg, _ := newTestChainScopedConfig(t)
 	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
@@ -1355,7 +1355,7 @@ func TestORM_UpdateTxUnstartedToInProgress(t *testing.T) {
 
 	ctx := testutils.Context(t)
 	db := pgtest.NewSqlxDB(t)
-	cfg := newTestChainScopedConfig(t)
+	cfg, _ := newTestChainScopedConfig(t)
 	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
@@ -1390,7 +1390,7 @@ func TestORM_UpdateTxUnstartedToInProgress(t *testing.T) {
 	})
 
 	db = pgtest.NewSqlxDB(t)
-	cfg = newTestChainScopedConfig(t)
+	cfg, _ = newTestChainScopedConfig(t)
 	txStore = cltest.NewTestTxStore(t, db)
 	ethKeyStore = cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	_, fromAddress = cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
@@ -1446,7 +1446,7 @@ func TestORM_GetTxInProgress(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := newTestChainScopedConfig(t)
+	cfg, _ := newTestChainScopedConfig(t)
 	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
@@ -1470,7 +1470,7 @@ func TestORM_GetNonFatalTransactions(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := newTestChainScopedConfig(t)
+	cfg, _ := newTestChainScopedConfig(t)
 	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
@@ -1499,7 +1499,7 @@ func TestORM_GetTxByID(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := newTestChainScopedConfig(t)
+	cfg, _ := newTestChainScopedConfig(t)
 	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
@@ -1522,7 +1522,7 @@ func TestORM_GetFatalTransactions(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := newTestChainScopedConfig(t)
+	cfg, _ := newTestChainScopedConfig(t)
 	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
@@ -1545,7 +1545,7 @@ func TestORM_HasInProgressTransaction(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := newTestChainScopedConfig(t)
+	cfg, _ := newTestChainScopedConfig(t)
 	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
@@ -1829,7 +1829,7 @@ func TestORM_PruneUnstartedTxQueue(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := newTestChainScopedConfig(t)
+	cfg, _ := newTestChainScopedConfig(t)
 	txStore := txmgr.NewTxStore(db, logger.Test(t))
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	evmtest.NewEthClientMockWithDefaultChain(t)

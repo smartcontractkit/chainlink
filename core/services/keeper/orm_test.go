@@ -14,15 +14,14 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
-	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	bigmath "github.com/smartcontractkit/chainlink/v2/core/utils/big_math"
@@ -35,12 +34,11 @@ var (
 
 func setupKeeperDB(t *testing.T) (
 	*sqlx.DB,
-	evmconfig.ChainScopedConfig,
+	chainlink.GeneralConfig,
 	keeper.ORM,
 ) {
-	gcfg := configtest.NewGeneralConfig(t, nil)
+	cfg := configtest.NewGeneralConfig(t, nil)
 	db := pgtest.NewSqlxDB(t)
-	cfg := evmtest.NewChainScopedConfig(t, gcfg)
 	orm := keeper.NewORM(db, logger.TestLogger(t), cfg.Database())
 	return db, cfg, orm
 }

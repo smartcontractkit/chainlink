@@ -32,7 +32,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -247,8 +246,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 				c.EVM[0].MinIncomingConfirmations = ptr[uint32](1)    // disable reorg protection for this test
 				c.EVM[0].HeadTracker.MaxBufferSize = ptr[uint32](100) // helps prevent missed heads
 			})
-			scopedConfig := evmtest.NewChainScopedConfig(t, config)
-			korm := keeper.NewORM(db, logger.TestLogger(t), scopedConfig.Database())
+			korm := keeper.NewORM(db, logger.TestLogger(t), config.Database())
 
 			app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, backend.Backend(), nodeKey)
 			require.NoError(t, app.Start(testutils.Context(t)))
@@ -407,8 +405,7 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 			c.EVM[0].Transactions.ForwardersEnabled = ptr(true)   // Enable Operator Forwarder flow
 			c.EVM[0].ChainID = (*ubig.Big)(testutils.SimulatedChainID)
 		})
-		scopedConfig := evmtest.NewChainScopedConfig(t, config)
-		korm := keeper.NewORM(db, logger.TestLogger(t), scopedConfig.Database())
+		korm := keeper.NewORM(db, logger.TestLogger(t), config.Database())
 
 		app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, backend.Backend(), nodeKey)
 		require.NoError(t, app.Start(testutils.Context(t)))
@@ -551,8 +548,7 @@ func TestMaxPerformDataSize(t *testing.T) {
 			c.EVM[0].MinIncomingConfirmations = ptr[uint32](1)    // disable reorg protection for this test
 			c.EVM[0].HeadTracker.MaxBufferSize = ptr[uint32](100) // helps prevent missed heads
 		})
-		scopedConfig := evmtest.NewChainScopedConfig(t, config)
-		korm := keeper.NewORM(db, logger.TestLogger(t), scopedConfig.Database())
+		korm := keeper.NewORM(db, logger.TestLogger(t), config.Database())
 
 		app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, backend.Backend(), nodeKey)
 		require.NoError(t, app.Start(testutils.Context(t)))
