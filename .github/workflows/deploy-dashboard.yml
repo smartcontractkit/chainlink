@@ -6,7 +6,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   deploy:
-    runs-on: ubuntu20.04-8cores-32GB
+    runs-on: ubuntu-20.04
     defaults:
       run:
         working-directory: charts/chainlink-cluster
@@ -15,15 +15,15 @@ jobs:
       GRAFANA_TOKEN: ${{ secrets.GRAFANA_TOKEN }}
       PROMETHEUS_DATA_SOURCE_NAME: ${{ secrets.PROMETHEUS_DATA_SOURCE_NAME }}
       LOKI_DATA_SOURCE_NAME: ${{ secrets.LOKI_DATA_SOURCE_NAME }}
-      PANELS_INCLUDED: ${{ secrets.PANELS_INCLUDED }}
       INFRA_PLATFORM: ${{ secrets.INFRA_PLATFORM }}
       GRAFANA_FOLDER: ${{ secrets.GRAFANA_FOLDER }}
       DASHBOARD_NAME: ${{ secrets.DASHBOARD_NAME }}
     steps:
       - uses: actions/checkout@v3
       - name: Setup Go
-        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
+        uses: actions/setup-go@v5
         with:
+          go-version: 1.22
           cache: true
       - name: Deploy
         run: |
