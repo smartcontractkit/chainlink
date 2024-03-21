@@ -12,8 +12,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 
@@ -29,10 +31,13 @@ func TestRunLogBasic(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	privateNetwork, err := actions.EthereumNetworkConfigFromConfig(l, &config)
+	require.NoError(t, err, "Error building ethereum network config")
+
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestInstance(t).
 		WithTestConfig(&config).
-		WithGeth().
+		WithPrivateEthereumNetwork(privateNetwork).
 		WithMockAdapter().
 		WithCLNodes(1).
 		WithFunding(big.NewFloat(.1)).
@@ -46,7 +51,11 @@ func TestRunLogBasic(t *testing.T) {
 	require.NoError(t, err, "Deploying Oracle Contract shouldn't fail")
 	consumer, err := env.ContractDeployer.DeployAPIConsumer(lt.Address())
 	require.NoError(t, err, "Deploying Consumer Contract shouldn't fail")
-	err = env.EVMClient.SetDefaultWallet(0)
+
+	network := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0]
+	evmClient, err := env.GetEVMClient(network.ChainID)
+	require.NoError(t, err, "Getting EVM client shouldn't fail")
+	err = evmClient.SetDefaultWallet(0)
 	require.NoError(t, err, "Setting default wallet shouldn't fail")
 	err = lt.Transfer(consumer.Address(), big.NewInt(2e18))
 	require.NoError(t, err, "Transferring %d to consumer contract shouldn't fail", big.NewInt(2e18))
@@ -74,7 +83,7 @@ func TestRunLogBasic(t *testing.T) {
 		Name:                     fmt.Sprintf("direct-request-%s", uuid.NewString()),
 		MinIncomingConfirmations: "1",
 		ContractAddress:          oracle.Address(),
-		EVMChainID:               env.EVMClient.GetChainID().String(),
+		EVMChainID:               evmClient.GetChainID().String(),
 		ExternalJobID:            jobUUID.String(),
 		ObservationSource:        ost,
 	})

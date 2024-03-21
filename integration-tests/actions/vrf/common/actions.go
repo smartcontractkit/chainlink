@@ -78,8 +78,13 @@ func SetupBHSNode(
 	l zerolog.Logger,
 	bhsNode *VRFNode,
 ) error {
+	evmClient, err := env.GetEVMClient(chainID.Int64())
+	if err != nil {
+		return err
+	}
+
 	bhsTXKeyAddressStrings, _, err := CreateFundAndGetSendingKeys(
-		env.EVMClient,
+		evmClient,
 		bhsNode,
 		txKeyFunding,
 		numberOfTxKeysToCreate,

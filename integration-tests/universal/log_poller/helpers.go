@@ -895,7 +895,7 @@ type PauseData struct {
 var ChaosPauses = []PauseData{}
 
 // chaosPauseSyncFn pauses ranom container of the provided type for a random amount of time between 5 and 20 seconds
-func chaosPauseSyncFn(l zerolog.Logger, testEnv *test_env.CLClusterTestEnv, targetComponent string) ChaosPauseData {
+func chaosPauseSyncFn(l zerolog.Logger, testEnv *test_env.CLClusterTestEnv, testConfig *tc.TestConfig, targetComponent string) ChaosPauseData {
 	rand.New(rand.NewSource(time.Now().UnixNano()))
 
 	randomNode := testEnv.ClCluster.Nodes[rand.Intn(len(testEnv.ClCluster.Nodes)-1)+1]
@@ -910,8 +910,15 @@ func chaosPauseSyncFn(l zerolog.Logger, testEnv *test_env.CLClusterTestEnv, targ
 		return ChaosPauseData{Err: fmt.Errorf("unknown component %s", targetComponent)}
 	}
 
-	ctx := context.Background()
-	pauseStartBlock, err := testEnv.EVMClient.LatestBlockNumber(ctx)
+	network := networks.MustGetSelectedNetworkConfig(testConfig.GetNetworkConfig())[0]
+	evmClient, err := testEnv.GetEVMClient(network.ChainID)
+	if err != nil {
+		return ChaosPauseData{Err: err}
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	pauseStartBlock, err := evmClient.LatestBlockNumber(ctx)
 	if err != nil {
 		return ChaosPauseData{Err: err}
 	}
@@ -924,7 +931,10 @@ func chaosPauseSyncFn(l zerolog.Logger, testEnv *test_env.CLClusterTestEnv, targ
 	}
 	l.Info().Str("Container", component.ContainerName).Msg("Component unpaused")
 
-	pauseEndBlock, err := testEnv.EVMClient.LatestBlockNumber(ctx)
+	ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	pauseEndBlock, err := evmClient.LatestBlockNumber(ctx)
 	if err != nil {
 		return ChaosPauseData{Err: err}
 	}
@@ -943,20 +953,20 @@ type ChaosPauseData struct {
 }
 
 // ExecuteChaosExperiment executes the configured chaos experiment, which consist of pausing CL node or Postgres containers
-func ExecuteChaosExperiment(l zerolog.Logger, testEnv *test_env.CLClusterTestEnv, cfg *lp_config.Config, errorCh chan error) {
-	if cfg.ChaosConfig == nil || *cfg.ChaosConfig.ExperimentCount == 0 {
+func ExecuteChaosExperiment(l zerolog.Logger, testEnv *test_env.CLClusterTestEnv, testConfig *tc.TestConfig, errorCh chan error) {
+	if testConfig == nil || testConfig.LogPoller.ChaosConfig == nil || *testConfig.LogPoller.ChaosConfig.ExperimentCount == 0 {
 		errorCh <- nil
 		return
 	}
 
-	chaosChan := make(chan ChaosPauseData, *cfg.ChaosConfig.ExperimentCount)
+	chaosChan := make(chan ChaosPauseData, *testConfig.LogPoller.ChaosConfig.ExperimentCount)
 	wg := &sync.WaitGroup{}
 
 	go func() {
 		// if we wanted to have more than 1 container paused, we'd need to make sure we aren't trying to pause an already paused one
 		guardChan := make(chan struct{}, 1)
 
-		for i := 0; i < *cfg.ChaosConfig.ExperimentCount; i++ {
+		for i := 0; i < *testConfig.LogPoller.ChaosConfig.ExperimentCount; i++ {
 			i := i
 			wg.Add(1)
 			guardChan <- struct{}{}
@@ -965,9 +975,9 @@ func ExecuteChaosExperiment(l zerolog.Logger, testEnv *test_env.CLClusterTestEnv
 					<-guardChan
 					wg.Done()
 					current := i + 1
-					l.Info().Str("Current/Total", fmt.Sprintf("%d/%d", current, cfg.ChaosConfig.ExperimentCount)).Msg("Done with experiment")
+					l.Info().Str("Current/Total", fmt.Sprintf("%d/%d", current, testConfig.LogPoller.ChaosConfig.ExperimentCount)).Msg("Done with experiment")
 				}()
-				chaosChan <- chaosPauseSyncFn(l, testEnv, *cfg.ChaosConfig.TargetComponent)
+				chaosChan <- chaosPauseSyncFn(l, testEnv, testConfig, *testConfig.LogPoller.ChaosConfig.TargetComponent)
 				time.Sleep(10 * time.Second)
 			}()
 		}
@@ -1178,7 +1188,10 @@ func SetupLogPollerTestDocker(
 	}
 	require.NoError(t, err, "Error loading/deploying LINK token")
 
-	linkBalance, err := env.EVMClient.BalanceAt(context.Background(), common.HexToAddress(linkToken.Address()))
+	evmClient, err := env.GetEVMClient(network.ChainID)
+	require.NoError(t, err, "Getting EVM client shouldn't fail")
+
+	linkBalance, err := evmClient.BalanceAt(context.Background(), common.HexToAddress(linkToken.Address()))
 	require.NoError(t, err, "Error getting LINK balance")
 
 	l.Info().Str("Balance", big.NewInt(0).Div(linkBalance, big.NewInt(1e18)).String()).Msg("LINK balance")
@@ -1194,7 +1207,7 @@ func SetupLogPollerTestDocker(
 		registryConfig,
 		linkToken,
 		env.ContractDeployer,
-		env.EVMClient,
+		evmClient,
 	)
 
 	// Fund the registry with LINK
@@ -1207,28 +1220,33 @@ func SetupLogPollerTestDocker(
 	require.NoError(t, err, "Error building OCR config vars")
 	err = registry.SetConfig(automationDefaultRegistryConfig, ocrConfig)
 	require.NoError(t, err, "Registry config should be set successfully")
-	require.NoError(t, env.EVMClient.WaitForEvents(), "Waiting for config to be set")
+	require.NoError(t, evmClient.WaitForEvents(), "Waiting for config to be set")
 
-	return env.EVMClient, nodeClients, env.ContractDeployer, linkToken, registry, registrar, env
+	return evmClient, nodeClients, env.ContractDeployer, linkToken, registry, registrar, env
 }
 
 // UploadLogEmitterContractsAndWaitForFinalisation uploads the configured number of log emitter contracts and waits for the upload blocks to be finalised
-func UploadLogEmitterContractsAndWaitForFinalisation(l zerolog.Logger, t *testing.T, testEnv *test_env.CLClusterTestEnv, cfg *lp_config.Config) []*contracts.LogEmitter {
+func UploadLogEmitterContractsAndWaitForFinalisation(l zerolog.Logger, t *testing.T, testEnv *test_env.CLClusterTestEnv, testConfig *tc.TestConfig) []*contracts.LogEmitter {
 	logEmitters := make([]*contracts.LogEmitter, 0)
-	for i := 0; i < *cfg.General.Contracts; i++ {
+	for i := 0; i < *testConfig.LogPoller.General.Contracts; i++ {
 		logEmitter, err := testEnv.ContractDeployer.DeployLogEmitterContract()
 		logEmitters = append(logEmitters, &logEmitter)
 		require.NoError(t, err, "Error deploying log emitter contract")
 		l.Info().Str("Contract address", logEmitter.Address().Hex()).Msg("Log emitter contract deployed")
 		time.Sleep(200 * time.Millisecond)
 	}
-	afterUploadBlock, err := testEnv.EVMClient.LatestBlockNumber(testcontext.Get(t))
+
+	network := networks.MustGetSelectedNetworkConfig(testConfig.GetNetworkConfig())[0]
+	evmClient, err := testEnv.GetEVMClient(network.ChainID)
+	require.NoError(t, err, "Error getting EVM client")
+
+	afterUploadBlock, err := evmClient.LatestBlockNumber(testcontext.Get(t))
 	require.NoError(t, err, "Error getting latest block number")
 
 	gom := gomega.NewGomegaWithT(t)
 	gom.Eventually(func(g gomega.Gomega) {
 		targetBlockNumber := int64(afterUploadBlock + 1)
-		finalized, err := testEnv.EVMClient.GetLatestFinalizedBlockHeader(testcontext.Get(t))
+		finalized, err := evmClient.GetLatestFinalizedBlockHeader(testcontext.Get(t))
 		if err != nil {
 			l.Warn().Err(err).Msg("Error checking if contract were uploaded. Retrying...")
 			return
@@ -1313,7 +1331,7 @@ func RegisterFiltersAndAssertUniquness(l zerolog.Logger, registry contracts.Keep
 
 // FluentlyCheckIfAllNodesHaveLogCount checks if all CL nodes have the expected log count for the provided block range and expected filters
 // It will retry until the provided duration is reached or until all nodes have the expected log count
-func FluentlyCheckIfAllNodesHaveLogCount(duration string, startBlock, endBlock int64, expectedLogCount int, expectedFilters []ExpectedFilter, l zerolog.Logger, coreLogger core_logger.SugaredLogger, testEnv *test_env.CLClusterTestEnv) (bool, error) {
+func FluentlyCheckIfAllNodesHaveLogCount(duration string, startBlock, endBlock int64, expectedLogCount int, expectedFilters []ExpectedFilter, l zerolog.Logger, coreLogger core_logger.SugaredLogger, testEnv *test_env.CLClusterTestEnv, chainId int64) (bool, error) {
 	logCountWaitDuration, err := time.ParseDuration(duration)
 	if err != nil {
 		return false, err
@@ -1323,7 +1341,7 @@ func FluentlyCheckIfAllNodesHaveLogCount(duration string, startBlock, endBlock i
 	// not using gomega here, because I want to see which logs were missing
 	allNodesLogCountMatches := false
 	for time.Now().Before(endTime) {
-		logCountMatches, clErr := ClNodesHaveExpectedLogCount(startBlock, endBlock, testEnv.EVMClient.GetChainID(), expectedLogCount, expectedFilters, l, coreLogger, testEnv.ClCluster)
+		logCountMatches, clErr := ClNodesHaveExpectedLogCount(startBlock, endBlock, big.NewInt(chainId), expectedLogCount, expectedFilters, l, coreLogger, testEnv.ClCluster)
 		if clErr != nil {
 			l.Warn().
 				Err(clErr).

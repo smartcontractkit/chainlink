@@ -210,15 +210,13 @@ func DeployLocalCluster(
 		WithoutCleanup().
 		Build()
 	require.NoError(t, err)
-	for chainId, rpc := range env.RpcProviders {
-		for i, networkCfg := range selectedNetworks {
-			if networkCfg.ChainID == chainId {
-				selectedNetworks[i].URLs = rpc.PrivateWsUrsl()
-				selectedNetworks[i].HTTPURLs = rpc.PrivateHttpUrls()
-			}
-		}
-		testInputs.SelectedNetworks = selectedNetworks
+	for i, networkCfg := range selectedNetworks {
+		rpcProvider, err := env.GetRpcProvider(networkCfg.ChainID)
+		require.NoError(t, err, "Error getting rpc provider")
+		selectedNetworks[i].URLs = rpcProvider.PrivateWsUrsl()
+		selectedNetworks[i].HTTPURLs = rpcProvider.PrivateHttpUrls()
 	}
+	testInputs.SelectedNetworks = selectedNetworks
 
 	// a func to start the CL nodes asynchronously
 	deployCL := func() error {

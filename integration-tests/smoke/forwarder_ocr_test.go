@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -24,10 +25,13 @@ func TestForwarderOCRBasic(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	privateNetwork, err := actions.EthereumNetworkConfigFromConfig(l, &config)
+	require.NoError(t, err, "Error building ethereum network config")
+
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestInstance(t).
 		WithTestConfig(&config).
-		WithGeth().
+		WithPrivateEthereumNetwork(privateNetwork).
 		WithMockAdapter().
 		WithForwarders().
 		WithCLNodes(6).
@@ -47,22 +51,26 @@ func TestForwarderOCRBasic(t *testing.T) {
 	linkTokenContract, err := env.ContractDeployer.DeployLinkTokenContract()
 	require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
 
-	err = actions.FundChainlinkNodesLocal(workerNodes, env.EVMClient, big.NewFloat(.05))
+	network := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0]
+	evmClient, err := env.GetEVMClient(network.ChainID)
+	require.NoError(t, err, "Getting EVM client shouldn't fail")
+
+	err = actions.FundChainlinkNodesLocal(workerNodes, evmClient, big.NewFloat(.05))
 	require.NoError(t, err, "Error funding Chainlink nodes")
 
 	//nolint:staticcheck //ignore SA1019 we will migrate that test later
 	operators, authorizedForwarders, _ := actions.DeployForwarderContracts(
-		t, env.ContractDeployer, linkTokenContract, env.EVMClient, len(workerNodes),
+		t, env.ContractDeployer, linkTokenContract, evmClient, len(workerNodes),
 	)
 	for i := range workerNodes {
 		//nolint:staticcheck //ignore SA1019 we will migrate that test later
 		actions.AcceptAuthorizedReceiversOperator(
-			t, operators[i], authorizedForwarders[i], []common.Address{workerNodeAddresses[i]}, env.EVMClient, env.ContractLoader,
+			t, operators[i], authorizedForwarders[i], []common.Address{workerNodeAddresses[i]}, evmClient, env.ContractLoader,
 		)
 		require.NoError(t, err, "Accepting Authorize Receivers on Operator shouldn't fail")
-		err = actions.TrackForwarderLocal(env.EVMClient, authorizedForwarders[i], workerNodes[i], l)
+		err = actions.TrackForwarderLocal(evmClient, authorizedForwarders[i], workerNodes[i], l)
 		require.NoError(t, err)
-		err = env.EVMClient.WaitForEvents()
+		err = evmClient.WaitForEvents()
 	}
 	ocrInstances, err := actions.DeployOCRContractsForwarderFlowLocal(
 		1,
@@ -70,15 +78,15 @@ func TestForwarderOCRBasic(t *testing.T) {
 		env.ContractDeployer,
 		workerNodes,
 		authorizedForwarders,
-		env.EVMClient,
+		evmClient,
 	)
 	require.NoError(t, err, "Error deploying OCR contracts")
 
-	err = actions.CreateOCRJobsWithForwarderLocal(ocrInstances, bootstrapNode, workerNodes, 5, env.MockAdapter, env.EVMClient.GetChainID().String())
+	err = actions.CreateOCRJobsWithForwarderLocal(ocrInstances, bootstrapNode, workerNodes, 5, env.MockAdapter, evmClient.GetChainID().String())
 	require.NoError(t, err, "failed to setup forwarder jobs")
-	err = actions.WatchNewRound(1, ocrInstances, env.EVMClient, l)
+	err = actions.WatchNewRound(1, ocrInstances, evmClient, l)
 	require.NoError(t, err)
-	err = env.EVMClient.WaitForEvents()
+	err = evmClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for events")
 
 	answer, err := ocrInstances[0].GetLatestAnswer(testcontext.Get(t))
@@ -87,9 +95,9 @@ func TestForwarderOCRBasic(t *testing.T) {
 
 	err = actions.SetAllAdapterResponsesToTheSameValueLocal(10, ocrInstances, workerNodes, env.MockAdapter)
 	require.NoError(t, err)
-	err = actions.WatchNewRound(2, ocrInstances, env.EVMClient, l)
+	err = actions.WatchNewRound(2, ocrInstances, evmClient, l)
 	require.NoError(t, err)
-	err = env.EVMClient.WaitForEvents()
+	err = evmClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for events")
 
 	answer, err = ocrInstances[0].GetLatestAnswer(testcontext.Get(t))
