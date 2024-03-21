@@ -24,6 +24,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_factory"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/oracle_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/test_api_consumer_wrapper"
 )
 
 // EthereumOffchainAggregator represents the offchain aggregation contract
@@ -710,7 +712,7 @@ func (f *EthereumFluxAggregator) Address() string {
 }
 
 // Fund sends specified currencies to the contract
-func (f *EthereumFluxAggregator) Fund(ethAmount *big.Float) error {
+func (f *EthereumFluxAggregator) Fund(_ *big.Float) error {
 	panic("do not use this function, use actions_seth.SendFunds() instead, otherwise we will have to deal with circular dependencies")
 }
 
@@ -837,4 +839,123 @@ func (f *EthereumFluxAggregator) Description(ctxt context.Context) (string, erro
 		From:    f.client.Addresses[0],
 		Context: ctxt,
 	})
+}
+
+func DeployOracle(seth *seth.Client, linkAddr string) (Oracle, error) {
+	abi, err := oracle_wrapper.OracleMetaData.GetAbi()
+	if err != nil {
+		return &EthereumOracle{}, fmt.Errorf("failed to get Oracle ABI: %w", err)
+	}
+	seth.ContractStore.AddABI("Oracle", *abi)
+	seth.ContractStore.AddBIN("Oracle", common.FromHex(oracle_wrapper.OracleMetaData.Bin))
+
+	oracleDeploymentData, err := seth.DeployContract(seth.NewTXOpts(), "Oracle", *abi, common.FromHex(oracle_wrapper.OracleMetaData.Bin),
+		common.HexToAddress(linkAddr),
+	)
+
+	if err != nil {
+		return &EthereumOracle{}, fmt.Errorf("Oracle instance deployment have failed: %w", err)
+	}
+
+	oracle, err := oracle_wrapper.NewOracle(oracleDeploymentData.Address, wrappers.MustNewWrappedContractBackend(nil, seth))
+	if err != nil {
+		return &EthereumOracle{}, fmt.Errorf("Oracle to instantiate FluxAggregator instance: %w", err)
+	}
+
+	return &EthereumOracle{
+		client:  seth,
+		address: &oracleDeploymentData.Address,
+		oracle:  oracle,
+	}, nil
+}
+
+// EthereumOracle oracle for "directrequest" job tests
+type EthereumOracle struct {
+	address *common.Address
+	client  *seth.Client
+	oracle  *oracle_wrapper.Oracle
+}
+
+func (e *EthereumOracle) Address() string {
+	return e.address.Hex()
+}
+
+func (e *EthereumOracle) Fund(_ *big.Float) error {
+	panic("do not use this function, use actions_seth.SendFunds() instead, otherwise we will have to deal with circular dependencies")
+}
+
+// SetFulfillmentPermission sets fulfillment permission for particular address
+func (e *EthereumOracle) SetFulfillmentPermission(address string, allowed bool) error {
+	_, err := e.client.Decode(e.oracle.SetFulfillmentPermission(e.client.NewTXOpts(), common.HexToAddress(address), allowed))
+	return err
+}
+
+func DeployAPIConsumer(seth *seth.Client, linkAddr string) (APIConsumer, error) {
+	abi, err := test_api_consumer_wrapper.TestAPIConsumerMetaData.GetAbi()
+	if err != nil {
+		return &EthereumAPIConsumer{}, fmt.Errorf("failed to get TestAPIConsumer ABI: %w", err)
+	}
+	seth.ContractStore.AddABI("TestAPIConsumer", *abi)
+	seth.ContractStore.AddBIN("TestAPIConsumer", common.FromHex(test_api_consumer_wrapper.TestAPIConsumerMetaData.Bin))
+
+	consumerDeploymentData, err := seth.DeployContract(seth.NewTXOpts(), "TestAPIConsumer", *abi, common.FromHex(test_api_consumer_wrapper.TestAPIConsumerMetaData.Bin),
+		common.HexToAddress(linkAddr),
+	)
+
+	if err != nil {
+		return &EthereumAPIConsumer{}, fmt.Errorf("TestAPIConsumer instance deployment have failed: %w", err)
+	}
+
+	consumer, err := test_api_consumer_wrapper.NewTestAPIConsumer(consumerDeploymentData.Address, wrappers.MustNewWrappedContractBackend(nil, seth))
+	if err != nil {
+		return &EthereumAPIConsumer{}, fmt.Errorf("failed to instantiate TestAPIConsumer instance: %w", err)
+	}
+
+	return &EthereumAPIConsumer{
+		client:   seth,
+		address:  &consumerDeploymentData.Address,
+		consumer: consumer,
+	}, nil
+}
+
+// EthereumAPIConsumer API consumer for job type "directrequest" tests
+type EthereumAPIConsumer struct {
+	address  *common.Address
+	client   *seth.Client
+	consumer *test_api_consumer_wrapper.TestAPIConsumer
+}
+
+func (e *EthereumAPIConsumer) Address() string {
+	return e.address.Hex()
+}
+
+func (e *EthereumAPIConsumer) RoundID(ctx context.Context) (*big.Int, error) {
+	return e.consumer.CurrentRoundID(&bind.CallOpts{
+		From:    e.client.Addresses[0],
+		Context: ctx,
+	})
+}
+
+func (e *EthereumAPIConsumer) Fund(_ *big.Float) error {
+	panic("do not use this function, use actions_seth.SendFunds() instead, otherwise we will have to deal with circular dependencies")
+}
+
+func (e *EthereumAPIConsumer) Data(ctx context.Context) (*big.Int, error) {
+	return e.consumer.Data(&bind.CallOpts{
+		From:    e.client.Addresses[0],
+		Context: ctx,
+	})
+}
+
+// CreateRequestTo creates request to an oracle for particular jobID with params
+func (e *EthereumAPIConsumer) CreateRequestTo(
+	oracleAddr string,
+	jobID [32]byte,
+	payment *big.Int,
+	url string,
+	path string,
+	times *big.Int,
+) error {
+	_, err := e.client.Decode(e.consumer.CreateRequestTo(e.client.NewTXOpts(), common.HexToAddress(oracleAddr), jobID, payment, url, path, times))
+	return err
 }

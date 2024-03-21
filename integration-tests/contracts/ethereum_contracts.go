@@ -55,18 +55,18 @@ import (
 	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 )
 
-// EthereumOracle oracle for "directrequest" job tests
-type EthereumOracle struct {
+// LegacyEthereumOracle oracle for "directrequest" job tests
+type LegacyEthereumOracle struct {
 	address *common.Address
 	client  blockchain.EVMClient
 	oracle  *oracle_wrapper.Oracle
 }
 
-func (e *EthereumOracle) Address() string {
+func (e *LegacyEthereumOracle) Address() string {
 	return e.address.Hex()
 }
 
-func (e *EthereumOracle) Fund(ethAmount *big.Float) error {
+func (e *LegacyEthereumOracle) Fund(ethAmount *big.Float) error {
 	gasEstimates, err := e.client.EstimateGas(ethereum.CallMsg{
 		To: e.address,
 	})
@@ -77,7 +77,7 @@ func (e *EthereumOracle) Fund(ethAmount *big.Float) error {
 }
 
 // SetFulfillmentPermission sets fulfillment permission for particular address
-func (e *EthereumOracle) SetFulfillmentPermission(address string, allowed bool) error {
+func (e *LegacyEthereumOracle) SetFulfillmentPermission(address string, allowed bool) error {
 	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
 	if err != nil {
 		return err
@@ -89,18 +89,18 @@ func (e *EthereumOracle) SetFulfillmentPermission(address string, allowed bool) 
 	return e.client.ProcessTransaction(tx)
 }
 
-// EthereumAPIConsumer API consumer for job type "directrequest" tests
-type EthereumAPIConsumer struct {
+// LegacyEthereumAPIConsumer API consumer for job type "directrequest" tests
+type LegacyEthereumAPIConsumer struct {
 	address  *common.Address
 	client   blockchain.EVMClient
 	consumer *test_api_consumer_wrapper.TestAPIConsumer
 }
 
-func (e *EthereumAPIConsumer) Address() string {
+func (e *LegacyEthereumAPIConsumer) Address() string {
 	return e.address.Hex()
 }
 
-func (e *EthereumAPIConsumer) RoundID(ctx context.Context) (*big.Int, error) {
+func (e *LegacyEthereumAPIConsumer) RoundID(ctx context.Context) (*big.Int, error) {
 	opts := &bind.CallOpts{
 		From:    common.HexToAddress(e.client.GetDefaultWallet().Address()),
 		Context: ctx,
@@ -108,7 +108,7 @@ func (e *EthereumAPIConsumer) RoundID(ctx context.Context) (*big.Int, error) {
 	return e.consumer.CurrentRoundID(opts)
 }
 
-func (e *EthereumAPIConsumer) Fund(ethAmount *big.Float) error {
+func (e *LegacyEthereumAPIConsumer) Fund(ethAmount *big.Float) error {
 	gasEstimates, err := e.client.EstimateGas(ethereum.CallMsg{
 		To: e.address,
 	})
@@ -118,7 +118,7 @@ func (e *EthereumAPIConsumer) Fund(ethAmount *big.Float) error {
 	return e.client.Fund(e.address.Hex(), ethAmount, gasEstimates)
 }
 
-func (e *EthereumAPIConsumer) Data(ctx context.Context) (*big.Int, error) {
+func (e *LegacyEthereumAPIConsumer) Data(ctx context.Context) (*big.Int, error) {
 	opts := &bind.CallOpts{
 		From:    common.HexToAddress(e.client.GetDefaultWallet().Address()),
 		Context: ctx,
@@ -131,7 +131,7 @@ func (e *EthereumAPIConsumer) Data(ctx context.Context) (*big.Int, error) {
 }
 
 // CreateRequestTo creates request to an oracle for particular jobID with params
-func (e *EthereumAPIConsumer) CreateRequestTo(
+func (e *LegacyEthereumAPIConsumer) CreateRequestTo(
 	oracleAddr string,
 	jobID [32]byte,
 	payment *big.Int,
