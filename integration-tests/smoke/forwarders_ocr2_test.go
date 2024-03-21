@@ -103,7 +103,7 @@ func TestForwarderOCR2Basic(t *testing.T) {
 	require.NoError(t, err, "Error configuring OCRv2 aggregator contracts")
 
 	err = actions_seth.WatchNewRound(l, sethClient, 1, contracts.V2OffChainAgrregatorToOffChainAggregatorWithRounds(ocrInstances), time.Duration(10*time.Minute))
-	require.NoError(t, err, ErrWatchingNewOCRRound)
+	require.NoError(t, err, "error watching for new OCRv2 round")
 
 	answer, err := ocrInstances[0].GetLatestAnswer(testcontext.Get(t))
 	require.NoError(t, err, "Getting latest answer from OCRv2 contract shouldn't fail")
@@ -114,7 +114,7 @@ func TestForwarderOCR2Basic(t *testing.T) {
 		err = env.MockAdapter.SetAdapterBasedIntValuePath("ocr2", []string{http.MethodGet, http.MethodPost}, ocrRoundVal)
 		require.NoError(t, err)
 		err = actions_seth.WatchNewRound(l, sethClient, int64(i), contracts.V2OffChainAgrregatorToOffChainAggregatorWithRounds(ocrInstances), time.Duration(10*time.Minute))
-		require.NoError(t, err, ErrWatchingNewOCRRound)
+		require.NoError(t, err, "error watching for new OCRv2 round")
 		answer, err = ocrInstances[0].GetLatestAnswer(testcontext.Get(t))
 		require.NoError(t, err, "Error getting latest OCRv2 answer")
 		require.Equal(t, int64(ocrRoundVal), answer.Int64(), fmt.Sprintf("Expected latest answer from OCRv2 contract to be %d but got %d", ocrRoundVal, answer.Int64()))
