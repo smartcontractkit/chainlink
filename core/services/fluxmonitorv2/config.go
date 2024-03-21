@@ -15,7 +15,7 @@ type Config interface {
 }
 
 type EvmFeeConfig interface {
-	LimitDefault() uint32 // Evm
+	LimitDefault() uint64 // Evm
 	LimitJobType() config.LimitJobType
 }
 
