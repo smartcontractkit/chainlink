@@ -49,7 +49,7 @@ var rcTemplate = `{
 	callbackGasLimit: %d,
 	numWords: %d,
 	sender: %s,
-	nativePayment: %t
+	extraArgs: %s
 }
 `
 

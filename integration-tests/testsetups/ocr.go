@@ -171,6 +171,8 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 	require.NotNil(o.t, readSethCfg, "Seth config shouldn't be nil")
 
 	sethCfg := utils.MergeSethAndEvmNetworkConfigs(o.log, network, *readSethCfg)
+	err = utils.ValidateSethNetworkConfig(sethCfg.Network)
+	require.NoError(o.t, err, "Error validating seth network config")
 
 	seth, err := seth.NewClientWithConfig(&sethCfg)
 	require.NoError(o.t, err, "Error creating seth client")

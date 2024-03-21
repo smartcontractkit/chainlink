@@ -110,7 +110,7 @@ func newClient(lggr logger.Logger, clientPrivKey csakey.KeyV2, serverPubKey []by
 		csaKey:                     clientPrivKey,
 		serverPubKey:               serverPubKey,
 		serverURL:                  serverURL,
-		logger:                     lggr.Named("WSRPC").With("mercuryServerURL", serverURL),
+		logger:                     lggr.Named("WSRPC").Named(serverURL).With("serverURL", serverURL),
 		chResetTransport:           make(chan struct{}, 1),
 		cacheSet:                   cacheSet,
 		chStop:                     make(services.StopChan),
@@ -217,7 +217,7 @@ func (w *client) Close() error {
 }
 
 func (w *client) Name() string {
-	return "EVM.Mercury.WSRPCClient"
+	return w.logger.Name()
 }
 
 func (w *client) HealthReport() map[string]error {
