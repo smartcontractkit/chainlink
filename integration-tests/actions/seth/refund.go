@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
@@ -50,7 +51,7 @@ func (r *InsufficientFundTransferRetrier) Retry(ctx context.Context, logger zero
 		if r.nextRetrier != nil {
 			logger.Debug().
 				Str("retier", "InsufficientFundTransferRetrier").
-				Msg("Max gas limit reached. Passing to next retrier")
+				Msg("Max retries reached. Passing to next retrier")
 			return r.nextRetrier.Retry(ctx, logger, client, txErr, payload, 0)
 		}
 		return txErr
@@ -241,6 +242,8 @@ func ReturnFunds(log zerolog.Logger, seth *seth.Client, chainlinkNodes []contrac
 		return nil
 	}
 
+	failedReturns := []common.Address{}
+
 	for _, chainlinkNode := range chainlinkNodes {
 		fundedKeys, err := chainlinkNode.ExportEVMKeysForChain(fmt.Sprint(seth.ChainID))
 		if err != nil {
@@ -270,18 +273,49 @@ func ReturnFunds(log zerolog.Logger, seth *seth.Client, chainlinkNodes []contrac
 				return err
 			}
 
-			totalGasCost := new(big.Int).Mul(big.NewInt(0).SetUint64(seth.Cfg.Network.GasLimit), big.NewInt(0).SetInt64(seth.Cfg.Network.GasPrice))
+			var totalGasCost *big.Int
+			if seth.Cfg.Network.EIP1559DynamicFees {
+				totalGasCost = new(big.Int).Mul(big.NewInt(0).SetInt64(seth.Cfg.Network.TransferGasFee), big.NewInt(0).SetInt64(seth.Cfg.Network.GasFeeCap))
+			} else {
+				totalGasCost = new(big.Int).Mul(big.NewInt(0).SetInt64(seth.Cfg.Network.TransferGasFee), big.NewInt(0).SetInt64(seth.Cfg.Network.GasPrice))
+			}
+
 			toSend := new(big.Int).Sub(balance, totalGasCost)
+
+			if toSend.Cmp(big.NewInt(0)) <= 0 {
+				log.Warn().
+					Str("Address", fromAddress.String()).
+					Str("Estimated total cost", totalGasCost.String()).
+					Str("Balance", balance.String()).
+					Str("To send", toSend.String()).
+					Msg("Not enough balance to cover gas cost. Skipping return.")
+
+				failedReturns = append(failedReturns, fromAddress)
+				continue
+			}
 
 			payload := FundsToSendPayload{ToAddress: seth.Addresses[0], Amount: toSend, PrivateKey: decryptedKey.PrivateKey}
 
 			_, err = SendFunds(log, seth, payload)
 			if err != nil {
-				handler := OvershotTransferRetrier{maxRetries: 3, nextRetrier: &InsufficientFundTransferRetrier{maxRetries: 3, nextRetrier: &GasTooLowTransferRetrier{maxGasLimit: seth.Cfg.Network.GasLimit * 3}}}
-				return handler.Retry(context.Background(), log, seth, err, payload, 0)
+				handler := OvershotTransferRetrier{maxRetries: 10, nextRetrier: &InsufficientFundTransferRetrier{maxRetries: 10, nextRetrier: &GasTooLowTransferRetrier{maxGasLimit: uint64(seth.Cfg.Network.TransferGasFee * 10)}}}
+				err = handler.Retry(context.Background(), log, seth, err, payload, 0)
+				if err != nil {
+					log.Error().
+						Err(err).
+						Str("Address", fromAddress.String()).
+						Msg("Failed to return funds from Chainlink node to default network wallet")
+					failedReturns = append(failedReturns, fromAddress)
+				}
 			}
 		}
 	}
+
+	if len(failedReturns) > 0 {
+		return fmt.Errorf("failed to return funds from Chainlink nodes to default network wallet for addresses: %v", failedReturns)
+	}
+
+	log.Info().Msg("Successfully returned funds from all Chainlink nodes to default network wallets")
 
 	return nil
 }

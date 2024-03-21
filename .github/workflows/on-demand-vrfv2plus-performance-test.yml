@@ -20,7 +20,7 @@ jobs:
   vrfv2plus_performance_test:
     name: VRFV2 Plus Performance Test
     environment: integration
-    runs-on: ubuntu20.04-8cores-32GB
+    runs-on: ubuntu22.04-8cores-32GB
     permissions:
       checks: write
       pull-requests: write
@@ -47,7 +47,7 @@ jobs:
           this-job-name: ${{ inputs.network }} VRFV2 Plus Performance Test
         continue-on-error: true
       - name: Checkout code
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
           fetch-depth: 0
       - name: Mask base64 config
@@ -69,7 +69,7 @@ jobs:
           echo "### Networks on which test was run" >>$GITHUB_STEP_SUMMARY
           echo "\`${{ env.NETWORKS }}\`" >>$GITHUB_STEP_SUMMARY                
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@5bee84d30d90295010bda68b0cd46be3a1eea917 # v2.3.9
         with:
           test_command_to_run: cd ./integration-tests/load && go test -v -count=1 -timeout 24h -run TestVRFV2PlusPerformance/vrfv2plus_performance_test ./vrfv2plus
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
