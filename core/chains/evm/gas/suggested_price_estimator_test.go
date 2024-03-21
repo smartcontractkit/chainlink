@@ -25,8 +25,9 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 
 	calldata := []byte{0x00, 0x00, 0x01, 0x02, 0x03}
 	const gasLimit uint64 = 80000
+	const limitMultiplier = 1.5
 
-	cfg := &gas.MockGasEstimatorConfig{BumpPercentF: 10, BumpMinF: assets.NewWei(big.NewInt(1)), BumpThresholdF: 1, LimitMultiplierF: 1}
+	cfg := &gas.MockGasEstimatorConfig{BumpPercentF: 10, BumpMinF: assets.NewWei(big.NewInt(1)), BumpThresholdF: 1, LimitMultiplierF: limitMultiplier}
 
 	t.Run("calling GetLegacyGas on unstarted estimator returns error", func(t *testing.T) {
 		client := mocks.NewRPCClient(t)
@@ -47,7 +48,7 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 		gasPrice, chainSpecificGasLimit, err := o.GetLegacyGas(testutils.Context(t), calldata, gasLimit, maxGasPrice)
 		require.NoError(t, err)
 		assert.Equal(t, assets.NewWeiI(42), gasPrice)
-		assert.Equal(t, gasLimit, chainSpecificGasLimit)
+		assert.Equal(t, uint64(float32(gasLimit)*limitMultiplier), chainSpecificGasLimit)
 	})
 
 	t.Run("gas price is lower than user specified max gas price", func(t *testing.T) {
@@ -132,7 +133,7 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 		gasPrice, chainSpecificGasLimit, err := o.BumpLegacyGas(testutils.Context(t), assets.NewWeiI(10), gasLimit, maxGasPrice, nil)
 		require.NoError(t, err)
 		assert.Equal(t, assets.NewWeiI(44), gasPrice)
-		assert.Equal(t, gasLimit, chainSpecificGasLimit)
+		assert.Equal(t, uint64(float32(gasLimit)*limitMultiplier), chainSpecificGasLimit)
 	})
 
 	t.Run("calling BumpLegacyGas on started estimator returns new price buffered with bumpMin", func(t *testing.T) {
@@ -142,13 +143,13 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 			(*big.Int)(res).SetInt64(40)
 		})
 
-		testCfg := &gas.MockGasEstimatorConfig{BumpPercentF: 1, BumpMinF: assets.NewWei(big.NewInt(1)), BumpThresholdF: 1, LimitMultiplierF: 1}
+		testCfg := &gas.MockGasEstimatorConfig{BumpPercentF: 1, BumpMinF: assets.NewWei(big.NewInt(1)), BumpThresholdF: 1, LimitMultiplierF: limitMultiplier}
 		o := gas.NewSuggestedPriceEstimator(logger.Test(t), client, testCfg)
 		servicetest.RunHealthy(t, o)
 		gasPrice, chainSpecificGasLimit, err := o.BumpLegacyGas(testutils.Context(t), assets.NewWeiI(10), gasLimit, maxGasPrice, nil)
 		require.NoError(t, err)
 		assert.Equal(t, assets.NewWeiI(41), gasPrice)
-		assert.Equal(t, gasLimit, chainSpecificGasLimit)
+		assert.Equal(t, uint64(float32(gasLimit)*limitMultiplier), chainSpecificGasLimit)
 	})
 
 	t.Run("calling BumpLegacyGas on started estimator returns original price when lower than previous", func(t *testing.T) {
@@ -163,7 +164,7 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 		gasPrice, chainSpecificGasLimit, err := o.BumpLegacyGas(testutils.Context(t), assets.NewWeiI(10), gasLimit, maxGasPrice, nil)
 		require.NoError(t, err)
 		assert.Equal(t, assets.NewWeiI(10), gasPrice)
-		assert.Equal(t, gasLimit, chainSpecificGasLimit)
+		assert.Equal(t, uint64(float32(gasLimit)*limitMultiplier), chainSpecificGasLimit)
 	})
 
 	t.Run("calling BumpLegacyGas on started estimator returns error, suggested gas price is higher than max gas price", func(t *testing.T) {
@@ -196,7 +197,7 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 		gasPrice, chainSpecificGasLimit, err := o.BumpLegacyGas(testutils.Context(t), assets.NewWeiI(10), gasLimit, assets.NewWeiI(40), nil)
 		require.NoError(t, err)
 		assert.Equal(t, assets.NewWeiI(40), gasPrice)
-		assert.Equal(t, gasLimit, chainSpecificGasLimit)
+		assert.Equal(t, uint64(float32(gasLimit)*limitMultiplier), chainSpecificGasLimit)
 	})
 
 	t.Run("calling BumpLegacyGas on started estimator if initial call failed returns error", func(t *testing.T) {
@@ -226,6 +227,6 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 		gasPrice, chainSpecificGasLimit, err := o.BumpLegacyGas(testutils.Context(t), assets.NewWeiI(10), gasLimit, maxGasPrice, nil)
 		require.NoError(t, err)
 		assert.Equal(t, assets.NewWeiI(44), gasPrice)
-		assert.Equal(t, gasLimit, chainSpecificGasLimit)
+		assert.Equal(t, uint64(float32(gasLimit)*limitMultiplier), chainSpecificGasLimit)
 	})
 }
