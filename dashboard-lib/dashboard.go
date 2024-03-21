@@ -32,20 +32,22 @@ func NewDashboard(
 	}
 }
 
-func (m *Dashboard) Deploy(basicAuth bool) error {
+func (m *Dashboard) Deploy() error {
 	ctx := context.Background()
 	b, err := m.build()
 	if err != nil {
 		return err
 	}
 	var client *grabana.Client
-	if basicAuth {
+	if m.DeployOpts.GrafanaBasicAuthUser != "" && m.DeployOpts.GrafanaBasicAuthPassword != "" {
+		L.Info().Msg("Authorizing using BasicAuth")
 		client = grabana.NewClient(
 			&http.Client{},
 			m.DeployOpts.GrafanaURL,
 			grabana.WithBasicAuth(m.DeployOpts.GrafanaBasicAuthUser, m.DeployOpts.GrafanaBasicAuthPassword),
 		)
 	} else {
+		L.Info().Msg("Authorizing using Bearer token")
 		client = grabana.NewClient(
 			&http.Client{},
 			m.DeployOpts.GrafanaURL,

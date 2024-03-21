@@ -44,10 +44,6 @@ func ReadEnvDeployOpts() EnvConfig {
 	if grafanaURL == "" {
 		L.Fatal().Msg("GRAFANA_URL must be provided")
 	}
-	grafanaToken := os.Getenv("GRAFANA_TOKEN")
-	if grafanaToken == "" {
-		L.Fatal().Msg("GRAFANA_TOKEN must be provided")
-	}
 	grafanaFolder := os.Getenv("GRAFANA_FOLDER")
 	if grafanaFolder == "" {
 		L.Fatal().Msg("GRAFANA_FOLDER must be provided")
@@ -65,12 +61,17 @@ func ReadEnvDeployOpts() EnvConfig {
 		L.Fatal().Msg("PROMETHEUS_DATA_SOURCE_NAME must be provided")
 	}
 	ba := os.Getenv("GRAFANA_BASIC_AUTH")
-	if ba == "" {
-		L.Fatal().Msg("GRAFANA_BASIC_AUTH is empty")
+	grafanaToken := os.Getenv("GRAFANA_TOKEN")
+	if grafanaToken == "" && ba == "" {
+		L.Fatal().Msg("GRAFANA_TOKEN or GRAFANA_BASIC_AUTH must be provided")
 	}
-	user, password, err := decodeBasicAuth(ba)
-	if err != nil {
-		L.Fatal().Err(err).Msg("failed to decode basic auth")
+	var user, password string
+	var err error
+	if ba != "" {
+		user, password, err = DecodeBasicAuth(ba)
+		if err != nil {
+			L.Fatal().Err(err).Msg("failed to decode basic auth")
+		}
 	}
 	return EnvConfig{
 		GrafanaURL:               grafanaURL,
@@ -86,12 +87,16 @@ func ReadEnvDeployOpts() EnvConfig {
 	}
 }
 
-func decodeBasicAuth(encodedAuth string) (string, string, error) {
-	decodedBytes, err := base64.StdEncoding.DecodeString(encodedAuth)
+func DecodeBasicAuth(authString string) (string, string, error) {
+	var data string
+	decodedBytes, err := base64.StdEncoding.DecodeString(authString)
 	if err != nil {
-		return "", "", err
+		L.Warn().Err(err).Msg("failed to decode basic auth, plain text? reading auth data")
+		data = authString
+	} else {
+		data = string(decodedBytes)
 	}
-	parts := strings.Split(string(decodedBytes), ":")
+	parts := strings.Split(data, ":")
 	if len(parts) != 2 {
 		return "", "", errors.New("invalid basic authentication format")
 	}
