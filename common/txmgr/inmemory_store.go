@@ -337,7 +337,7 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 }
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MarkAllConfirmedMissingReceipt(ctx context.Context, chainID CHAIN_ID) error {
 	if ms.chainID.String() != chainID.String() {
-		return nil
+		panic(fmt.Sprintf(ErrInvalidChainID.Error()+": %s", chainID.String()))
 	}
 
 	// Persist to persistent storage
