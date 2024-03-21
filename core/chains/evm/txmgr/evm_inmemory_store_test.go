@@ -26,7 +26,7 @@ func TestInMemoryStore_Abandon(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
-	persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+	persistentStore := cltest.NewTestTxStore(t, db)
 	kst := cltest.NewKeyStore(t, db, dbcfg)
 	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
 
@@ -44,13 +44,12 @@ func TestInMemoryStore_Abandon(t *testing.T) {
 	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
 	require.NoError(t, err)
 
-	t.Run("saves new in_progress attempt if attempt is new", func(t *testing.T) {
+	t.Run("Abandon transactions successfully", func(t *testing.T) {
 		nTxs := 3
-		// Insert a transaction into persistent store
 		for i := 0; i < nTxs; i++ {
 			inTx := cltest.NewEthTx(fromAddress)
 			// insert the transaction into the persistent store
-			require.NoError(t, persistentStore.InsertTx(&inTx))
+			require.NoError(t, persistentStore.InsertTx(ctx, &inTx))
 			// insert the transaction into the in-memory store
 			require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
 		}
@@ -65,7 +64,7 @@ func TestInMemoryStore_Abandon(t *testing.T) {
 		require.NotNil(t, expTxs)
 		require.Equal(t, nTxs, len(expTxs))
 
-		// Check that the in-memory store has the new attempt
+		// Check the in-memory store
 		fn := func(tx *evmtxmgr.Tx) bool { return true }
 		actTxs := inMemoryStore.XXXTestFindTxs(nil, fn)
 		require.NotNil(t, actTxs)
