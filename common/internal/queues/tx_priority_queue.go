@@ -95,6 +95,9 @@ func (pq *TxPriorityQueue[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Pee
 	pq.RLock()
 	defer pq.RUnlock()
 
+	if pq.ph.Len() == 0 {
+		return nil
+	}
 	return pq.ph.Peek()
 }
 

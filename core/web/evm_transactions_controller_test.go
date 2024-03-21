@@ -23,9 +23,10 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 
 	app := cltest.NewApplicationWithKey(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
+	ctx := testutils.Context(t)
 
 	db := app.GetSqlxDB()
-	txStore := cltest.NewTestTxStore(t, app.GetSqlxDB(), app.GetConfig().Database())
+	txStore := cltest.NewTestTxStore(t, app.GetSqlxDB())
 	ethKeyStore := cltest.NewKeyStore(t, db, app.Config.Database()).Eth()
 	client := app.NewHTTPClient(nil)
 	_, from := cltest.MustInsertRandomKey(t, ethKeyStore)
@@ -40,9 +41,9 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 	attempt.State = txmgrtypes.TxAttemptBroadcast
 	attempt.TxFee = gas.EvmFee{Legacy: assets.NewWeiI(3)}
 	attempt.BroadcastBeforeBlockNum = &blockNum
-	require.NoError(t, txStore.InsertTxAttempt(&attempt))
+	require.NoError(t, txStore.InsertTxAttempt(ctx, &attempt))
 
-	_, count, err := txStore.TransactionsWithAttempts(0, 100)
+	_, count, err := txStore.TransactionsWithAttempts(ctx, 0, 100)
 	require.NoError(t, err)
 	require.Equal(t, count, 3)
 
@@ -81,7 +82,7 @@ func TestTransactionsController_Show_Success(t *testing.T) {
 	app := cltest.NewApplicationWithKey(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	txStore := cltest.NewTestTxStore(t, app.GetSqlxDB(), app.GetConfig().Database())
+	txStore := cltest.NewTestTxStore(t, app.GetSqlxDB())
 	client := app.NewHTTPClient(nil)
 	_, from := cltest.MustInsertRandomKey(t, app.KeyStore.Eth())
 
@@ -114,7 +115,7 @@ func TestTransactionsController_Show_NotFound(t *testing.T) {
 	app := cltest.NewApplicationWithKey(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	txStore := cltest.NewTestTxStore(t, app.GetSqlxDB(), app.GetConfig().Database())
+	txStore := cltest.NewTestTxStore(t, app.GetSqlxDB())
 	client := app.NewHTTPClient(nil)
 	_, from := cltest.MustInsertRandomKey(t, app.KeyStore.Eth())
 	tx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 1, from)
