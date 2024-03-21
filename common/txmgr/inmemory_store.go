@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -47,7 +48,8 @@ type inMemoryStore[
 	keyStore          txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
 	persistentTxStore txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 
-	addressStates map[ADDR]*addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
+	addressStatesLock sync.RWMutex
+	addressStates     map[ADDR]*addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 }
 
 // NewInMemoryStore returns a new inMemoryStore
@@ -178,6 +180,45 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveR
 	oldAttempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	replacementAttempt *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 ) error {
+	if oldAttempt.State != txmgrtypes.TxAttemptInProgress || replacementAttempt.State != txmgrtypes.TxAttemptInProgress {
+		return fmt.Errorf("expected attempts to be in_progress")
+	}
+	if oldAttempt.ID == 0 {
+		return fmt.Errorf("expected oldAttempt to have an ID")
+	}
+
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
+	filter := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
+		return true
+	}
+	var as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
+	var tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	for _, vas := range ms.addressStates {
+		txs := vas.findTxs(nil, filter, oldAttempt.TxID)
+		if len(txs) == 1 {
+			tx = &txs[0]
+			as = vas
+			break
+		}
+	}
+	if tx == nil {
+		return fmt.Errorf("save_replacement_in_progress_attempt: %w", ErrTxnNotFound)
+	}
+
+	// Persist to persistent storage
+	if err := ms.persistentTxStore.SaveReplacementInProgressAttempt(ctx, oldAttempt, replacementAttempt); err != nil {
+		return fmt.Errorf("save_replacement_in_progress_attempt: %w", err)
+	}
+
+	// Update in memory store
+	// delete the old attempt
+	as.deleteTxAttempts(oldAttempt)
+	// add the new attempt
+	if err := as.addTxAttempts(*replacementAttempt); err != nil {
+		return fmt.Errorf("save_replacement_in_progress_attempt: failed to add a replacement transaction attempt: %w", err)
+	}
+
 	return nil
 }
 
