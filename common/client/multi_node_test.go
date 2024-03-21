@@ -849,8 +849,8 @@ func TestMultiNode_SendTransaction_aggregateTxResults(t *testing.T) {
 			ResultsByCode:       map[SendTxReturnCode][]error{},
 		},
 		{
-			Name: "Zk out of counter error",
-			ExpectedTxResult: "not enough keccak counters to continue the execution",
+			Name:                "Zk out of counter error",
+			ExpectedTxResult:    "not enough keccak counters to continue the execution",
 			ExpectedCriticalErr: "",
 			ResultsByCode: map[SendTxReturnCode][]error{
 				OutOfCounters: {errors.New("not enough keccak counters to continue the execution")},
