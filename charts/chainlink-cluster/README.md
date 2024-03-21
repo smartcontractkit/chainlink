@@ -131,17 +131,14 @@ You can select `PANELS_INCLUDED`, options are `core`, `wasp`, comma separated
 
 You can also select dashboard platform in `INFRA_PLATFORM` either `kubernetes` or `docker`
 ```
-export LOKI_TENANT_ID=promtail
-export LOKI_URL=...
 export GRAFANA_URL=...
 export GRAFANA_TOKEN=...
 export PROMETHEUS_DATA_SOURCE_NAME=Thanos
 export LOKI_DATA_SOURCE_NAME=Loki
-export PANELS_INCLUDED=core,wasp
-export INFRA_PLATFORM=kubernetes|docker
-export GRAFANA_FOLDER=DashboardCoreDebug
-export DASHBOARD_NAME=ChainlinkClusterDebug
+export INFRA_PLATFORM=kubernetes
+export GRAFANA_FOLDER=CRIB
+export DASHBOARD_NAME=CCIP-Cluster-Load
 
-go run dashboard/cmd/dashboard_deploy.go
+go run dashboard/cmd/deploy.go
 ```
-Open Grafana folder `DashboardCoreDebug` and find dashboard `ChainlinkClusterDebug`
+Open Grafana folder `CRIB` and find dashboard `CCIP-Cluster-Load`
