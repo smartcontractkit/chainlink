@@ -1,4 +1,4 @@
-pragma solidity 0.8.6;
+pragma solidity 0.8.19;
 
 import "../BaseTest.t.sol";
 import {VRF} from "../../../../src/v0.8/vrf/VRF.sol";
@@ -10,6 +10,7 @@ import {SubscriptionAPI} from "../../../../src/v0.8/vrf/dev/SubscriptionAPI.sol"
 import {BlockhashStore} from "../../../../src/v0.8/vrf/dev/BlockhashStore.sol";
 import {VRFV2PlusConsumerExample} from "../../../../src/v0.8/vrf/dev/testhelpers/VRFV2PlusConsumerExample.sol";
 import {VRFV2PlusClient} from "../../../../src/v0.8/vrf/dev/libraries/VRFV2PlusClient.sol";
+import {VRFTypes} from "../../../../src/v0.8/vrf/VRFTypes.sol";
 import {console} from "forge-std/console.sol";
 import {VmSafe} from "forge-std/Vm.sol";
 import {VRFV2PlusLoadTestWithMetrics} from "../../../../src/v0.8/vrf/dev/testhelpers/VRFV2PlusLoadTestWithMetrics.sol";
@@ -373,7 +374,7 @@ contract VRFV2Plus is BaseTest {
   function testRequestAndFulfillRandomWordsNative() public {
     (
       VRF.Proof memory proof,
-      VRFCoordinatorV2_5.RequestCommitment memory rc,
+      VRFTypes.RequestCommitmentV2Plus memory rc,
       uint256 subId,
       uint256 requestId
     ) = setupSubAndRequestRandomnessNativePayment();
@@ -415,7 +416,7 @@ contract VRFV2Plus is BaseTest {
   function testRequestAndFulfillRandomWordsLINK() public {
     (
       VRF.Proof memory proof,
-      VRFCoordinatorV2_5.RequestCommitment memory rc,
+      VRFTypes.RequestCommitmentV2Plus memory rc,
       uint256 subId,
       uint256 requestId
     ) = setupSubAndRequestRandomnessLINKPayment();
@@ -460,7 +461,7 @@ contract VRFV2Plus is BaseTest {
   function testRequestAndFulfillRandomWordsLINK_FallbackWeiPerUnitLinkUsed() public {
     (
       VRF.Proof memory proof,
-      VRFCoordinatorV2_5.RequestCommitment memory rc,
+      VRFTypes.RequestCommitmentV2Plus memory rc,
       ,
       uint256 requestId
     ) = setupSubAndRequestRandomnessLINKPayment();
@@ -480,7 +481,7 @@ contract VRFV2Plus is BaseTest {
 
   function setupSubAndRequestRandomnessLINKPayment()
     internal
-    returns (VRF.Proof memory proof, VRFCoordinatorV2_5.RequestCommitment memory rc, uint256 subId, uint256 requestId)
+    returns (VRF.Proof memory proof, VRFTypes.RequestCommitmentV2Plus memory rc, uint256 subId, uint256 requestId)
   {
     uint32 requestBlock = 20;
     vm.roll(requestBlock);
@@ -556,7 +557,7 @@ contract VRFV2Plus is BaseTest {
       ],
       zInv: 82374292458278672300647114418593830323283909625362447038989596015264004164958
     });
-    rc = VRFCoordinatorV2_5.RequestCommitment({
+    rc = VRFTypes.RequestCommitmentV2Plus({
       blockNum: requestBlock,
       subId: subId,
       callbackGasLimit: 1000000,
@@ -569,7 +570,7 @@ contract VRFV2Plus is BaseTest {
 
   function setupSubAndRequestRandomnessNativePayment()
     internal
-    returns (VRF.Proof memory proof, VRFCoordinatorV2_5.RequestCommitment memory rc, uint256 subId, uint256 requestId)
+    returns (VRF.Proof memory proof, VRFTypes.RequestCommitmentV2Plus memory rc, uint256 subId, uint256 requestId)
   {
     uint32 requestBlock = 10;
     vm.roll(requestBlock);
@@ -646,7 +647,7 @@ contract VRFV2Plus is BaseTest {
       ],
       zInv: 88742453392918610091640193378775723954629905126315835248392650970979000380325
     });
-    rc = VRFCoordinatorV2_5.RequestCommitment({
+    rc = VRFTypes.RequestCommitmentV2Plus({
       blockNum: requestBlock,
       subId: subId,
       callbackGasLimit: CALLBACK_GAS_LIMIT,
@@ -661,7 +662,7 @@ contract VRFV2Plus is BaseTest {
   function testRequestAndFulfillRandomWords_NetworkGasPriceExceedsGasLane() public {
     (
       VRF.Proof memory proof,
-      VRFCoordinatorV2_5.RequestCommitment memory rc,
+      VRFTypes.RequestCommitmentV2Plus memory rc,
       ,
 
     ) = setupSubAndRequestRandomnessNativePayment();
@@ -678,7 +679,7 @@ contract VRFV2Plus is BaseTest {
   function testRequestAndFulfillRandomWords_OnlyPremium_NativePayment() public {
     (
       VRF.Proof memory proof,
-      VRFCoordinatorV2_5.RequestCommitment memory rc,
+      VRFTypes.RequestCommitmentV2Plus memory rc,
       uint256 subId,
       uint256 requestId
     ) = setupSubAndRequestRandomnessNativePayment();
@@ -725,7 +726,7 @@ contract VRFV2Plus is BaseTest {
   function testRequestAndFulfillRandomWords_OnlyPremium_LinkPayment() public {
     (
       VRF.Proof memory proof,
-      VRFCoordinatorV2_5.RequestCommitment memory rc,
+      VRFTypes.RequestCommitmentV2Plus memory rc,
       uint256 subId,
       uint256 requestId
     ) = setupSubAndRequestRandomnessLINKPayment();
@@ -878,7 +879,7 @@ contract VRFV2Plus is BaseTest {
       ],
       zInv: 18898957977631212231148068121702167284572066246731769473720131179584458697812
     });
-    VRFCoordinatorV2_5.RequestCommitment memory rc = VRFCoordinatorV2_5.RequestCommitment({
+    VRFTypes.RequestCommitmentV2Plus memory rc = VRFTypes.RequestCommitmentV2Plus({
       blockNum: requestBlock,
       subId: subId,
       callbackGasLimit: CALLBACK_GAS_LIMIT,
@@ -1028,7 +1029,7 @@ contract VRFV2Plus is BaseTest {
       ],
       zInv: 18898957977631212231148068121702167284572066246731769473720131179584458697812
     });
-    VRFCoordinatorV2_5.RequestCommitment memory rc = VRFCoordinatorV2_5.RequestCommitment({
+    VRFTypes.RequestCommitmentV2Plus memory rc = VRFTypes.RequestCommitmentV2Plus({
       blockNum: requestBlock,
       subId: subId,
       callbackGasLimit: CALLBACK_GAS_LIMIT,
@@ -1078,7 +1079,7 @@ contract VRFV2Plus is BaseTest {
       ],
       zInv: 29080001901010358083725892808339807464533563010468652346220922643802059192842
     });
-    rc = VRFCoordinatorV2_5.RequestCommitment({
+    rc = VRFTypes.RequestCommitmentV2Plus({
       blockNum: requestBlock,
       subId: subId,
       callbackGasLimit: CALLBACK_GAS_LIMIT,

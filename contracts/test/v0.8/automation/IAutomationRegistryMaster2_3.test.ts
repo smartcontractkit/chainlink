@@ -4,6 +4,7 @@ import { assert } from 'chai'
 import { AutomationRegistry2_3__factory as AutomationRegistryFactory } from '../../../typechain/factories/AutomationRegistry2_3__factory'
 import { AutomationRegistryLogicA2_3__factory as AutomationRegistryLogicAFactory } from '../../../typechain/factories/AutomationRegistryLogicA2_3__factory'
 import { AutomationRegistryLogicB2_3__factory as AutomationRegistryLogicBFactory } from '../../../typechain/factories/AutomationRegistryLogicB2_3__factory'
+import { AutomationRegistryLogicC2_3__factory as AutomationRegistryLogicCFactory } from '../../../typechain/factories/AutomationRegistryLogicC2_3__factory'
 import { AutomationRegistryBase2_3__factory as AutomationRegistryBaseFactory } from '../../../typechain/factories/AutomationRegistryBase2_3__factory'
 import { Chainable__factory as ChainableFactory } from '../../../typechain/factories/Chainable__factory'
 import { IAutomationRegistryMaster2_3__factory as IAutomationRegistryMasterFactory } from '../../../typechain/factories/IAutomationRegistryMaster2_3__factory'
@@ -22,6 +23,7 @@ const compositeABIs = [
   AutomationRegistryFactory.abi,
   AutomationRegistryLogicAFactory.abi,
   AutomationRegistryLogicBFactory.abi,
+  AutomationRegistryLogicCFactory.abi,
 ]
 
 /**

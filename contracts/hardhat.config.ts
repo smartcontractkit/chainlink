@@ -107,7 +107,7 @@ let config = {
         },
       },
       'src/v0.8/vrf/dev/VRFCoordinatorV2_5.sol': {
-        version: '0.8.6',
+        version: '0.8.19',
         settings: {
           optimizer: {
             enabled: true,
