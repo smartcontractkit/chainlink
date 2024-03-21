@@ -10,7 +10,7 @@ contract AutomationBase {
    */
   function _preventExecution() internal view {
     // solhint-disable-next-line avoid-tx-origin
-    if (tx.origin != address(0)) {
+    if (tx.origin != address(0) && tx.origin != address(0x1111111111111111111111111111111111111111)) {
       revert OnlySimulatedBackend();
     }
   }

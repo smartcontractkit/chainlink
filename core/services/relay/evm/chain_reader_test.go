@@ -263,7 +263,6 @@ func (it *chainReaderInterfaceTester) GetChainReader(t *testing.T) clcommontypes
 
 	lggr := logger.NullLogger
 	db := pgtest.NewSqlxDB(t)
-
 	lpOpts := logpoller.Opts{
 		PollPeriod:               time.Millisecond,
 		FinalityDepth:            4,
@@ -271,10 +270,10 @@ func (it *chainReaderInterfaceTester) GetChainReader(t *testing.T) clcommontypes
 		RpcBatchSize:             1,
 		KeepFinalizedBlocksDepth: 10000,
 	}
-	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.SimulatedChainID, db, lggr, pgtest.NewQConfig(true)), it.chain.Client(), lggr, lpOpts)
+	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.SimulatedChainID, db, lggr), it.chain.Client(), lggr, lpOpts)
 	require.NoError(t, lp.Start(ctx))
 	it.chain.On("LogPoller").Return(lp)
-	cr, err := evm.NewChainReaderService(lggr, lp, it.chain, it.chainConfig)
+	cr, err := evm.NewChainReaderService(ctx, lggr, lp, it.chain, it.chainConfig)
 	require.NoError(t, err)
 	require.NoError(t, cr.Start(ctx))
 	it.cr = cr
