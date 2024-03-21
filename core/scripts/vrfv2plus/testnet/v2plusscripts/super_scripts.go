@@ -869,15 +869,16 @@ func DeployWrapperUniverse(e helpers.Environment) {
 	coordinatorAddress := cmd.String("coordinator-address", "", "address of the vrf coordinator v2 contract")
 	wrapperGasOverhead := cmd.Uint("wrapper-gas-overhead", 50_000, "amount of gas overhead in wrapper fulfillment")
 	coordinatorGasOverhead := cmd.Uint("coordinator-gas-overhead", 52_000, "amount of gas overhead in coordinator fulfillment")
-	wrapperPremiumPercentage := cmd.Uint("wrapper-premium-percentage", 25, "gas premium charged by wrapper")
+	wrapperNativePremiumPercentage := cmd.Uint("wrapper-native-premium-percentage", 25, "gas premium charged by wrapper for native payment")
+	wrapperLinkPremiumPercentage := cmd.Uint("wrapper-link-premium-percentage", 25, "gas premium charged by wrapper for link payment")
 	keyHash := cmd.String("key-hash", "", "the keyhash that wrapper requests should use")
 	maxNumWords := cmd.Uint("max-num-words", 10, "the keyhash that wrapper requests should use")
 	subFunding := cmd.String("sub-funding", "10000000000000000000", "amount to fund the subscription with")
 	consumerFunding := cmd.String("consumer-funding", "10000000000000000000", "amount to fund the consumer with")
 	fallbackWeiPerUnitLink := cmd.String("fallback-wei-per-unit-link", "", "the fallback wei per unit link")
 	stalenessSeconds := cmd.Uint("staleness-seconds", 86400, "the number of seconds of staleness to allow")
-	fulfillmentFlatFeeLinkPPM := cmd.Uint("fulfillment-flat-fee-link-ppm", 500, "the link flat fee in ppm to charge for fulfillment")
-	fulfillmentFlatFeeNativePPM := cmd.Uint("fulfillment-flat-fee-native-ppm", 500, "the native flat fee in ppm to charge for fulfillment")
+	fulfillmentFlatFeeNativePPM := cmd.Uint("fulfillment-flat-fee-native-ppm", 500, "the native flat fee in ppm to charge for fulfillment denominated in native")
+	fulfillmentFlatFeeLinkDiscountPPM := cmd.Uint("fulfillment-flat-fee-link-discount-ppm", 500, "the link flat fee discount in ppm to charge for fulfillment denominated in native")
 	helpers.ParseArgs(cmd, os.Args[2:], "link-address", "link-eth-feed", "coordinator-address", "key-hash", "fallback-wei-per-unit-link")
 
 	amount, s := big.NewInt(0).SetString(*subFunding, 10)
@@ -894,13 +895,14 @@ func DeployWrapperUniverse(e helpers.Environment) {
 		wrapper,
 		*wrapperGasOverhead,
 		*coordinatorGasOverhead,
-		*wrapperPremiumPercentage,
+		*wrapperNativePremiumPercentage,
+		*wrapperLinkPremiumPercentage,
 		*keyHash,
 		*maxNumWords,
 		decimal.RequireFromString(*fallbackWeiPerUnitLink).BigInt(),
 		uint32(*stalenessSeconds),
-		uint32(*fulfillmentFlatFeeLinkPPM),
 		uint32(*fulfillmentFlatFeeNativePPM),
+		uint32(*fulfillmentFlatFeeLinkDiscountPPM),
 	)
 
 	consumer := WrapperConsumerDeploy(e,
