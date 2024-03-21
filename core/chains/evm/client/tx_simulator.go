@@ -7,76 +7,85 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/common/config"
+
+	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 )
 
 const ErrOutOfCounters = "not enough keccak counters to continue the execution"
 
-type SimulatorClient interface {
+type simulatorClient interface {
 	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
 }
 
 // ZK Chain can return an overflow error based on the number of keccak hashes in the call
 // This method allows a caller to determine if a tx would fail due to overflow error by simulating the transaction
 // Used as an entry point for custom simulation across different chains
-func SimulateTransaction(ctx context.Context, client SimulatorClient, chainType config.ChainType, msg ethereum.CallMsg) error {
+func SimulateTransaction(ctx context.Context, client simulatorClient, lggr logger.SugaredLogger, chainType config.ChainType, msg ethereum.CallMsg) error {
+	var err error
 	switch chainType {
 	case config.ChainZkEvm:
-		return simulateTransactionZkEvm(ctx, client, msg)
+		err = simulateTransactionZkEvm(ctx, client, lggr, msg)
 	default:
-		return simulateTransactionDefault(ctx, client, msg)
+		err = simulateTransactionDefault(ctx, client, msg)
 	}
+	// ClassifySendError will not have proper logging within the method due to
+	code := ClassifySendError(err, lggr, &types.Transaction{}, msg.From, chainType.IsL2())
+	if code == commonclient.OutOfCounters {
+		return errors.New(ErrOutOfCounters)
+	}
+	return nil
 }
 
 // eth_estimateGas returns out-of-counters (OOC) error if the transaction would result in an overflow
-func simulateTransactionDefault(ctx context.Context, client SimulatorClient, msg ethereum.CallMsg) error {
-	var result uint64
+func simulateTransactionDefault(ctx context.Context, client simulatorClient, msg ethereum.CallMsg) error {
+	var result hexutil.Big
 	errCall := client.CallContext(ctx, &result, "eth_estimateGas", toCallArg(msg), "pending")
-	jsonErr, err := ExtractRPCError(errCall)
-	if err != nil {
-		return fmt.Errorf("failed to simulate tx: %w", err)
-	}
+	jsonErr, _ := ExtractRPCError(errCall)
 	// Only return error if Zk OOC error is identified
-	if jsonErr.Message == ErrOutOfCounters {
+	if jsonErr != nil && jsonErr.Message == ErrOutOfCounters {
 		return errors.New(ErrOutOfCounters)
 	}
 	return nil
 }
 
 // zkEVM implemented a custom zkevm_estimateCounters method to detect if a transaction would result in an out-of-counters (OOC) error
-func simulateTransactionZkEvm(ctx context.Context, client SimulatorClient, msg ethereum.CallMsg) error {
+func simulateTransactionZkEvm(ctx context.Context, client simulatorClient, lggr logger.SugaredLogger, msg ethereum.CallMsg) error {
 	var result struct {
-		countersUsed struct {
-			gasUsed              int
-			usedKeccakHashes     int
-			usedPoseidonHashes   int
-			usedPoseidonPaddings int
-			usedMemAligns        int
-			usedArithmetics      int
-			usedBinaries         int
-			usedSteps            int
-			usedSHA256Hashes     int
+		CountersUsed struct {
+			GasUsed              string
+			UsedKeccakHashes     string
+			UsedPoseidonHashes   string
+			UsedPoseidonPaddings string
+			UsedMemAligns        string
+			UsedArithmetics      string
+			UsedBinaries         string
+			UsedSteps            string
+			UsedSHA256Hashes     string
 		}
-		countersLimit struct {
-			maxGasUsed          int
-			maxKeccakHashes     int
-			maxPoseidonHashes   int
-			maxPoseidonPaddings int
-			maxMemAligns        int
-			maxArithmetics      int
-			maxBinaries         int
-			maxSteps            int
-			maxSHA256Hashes     int
+		CountersLimit struct {
+			MaxGasUsed          string
+			MaxKeccakHashes     string
+			MaxPoseidonHashes   string
+			MaxPoseidonPaddings string
+			MaxMemAligns        string
+			MaxArithmetics      string
+			MaxBinaries         string
+			MaxSteps            string
+			MaxSHA256Hashes     string
 		}
-		oocError string
+		OocError string
 	}
 	err := client.CallContext(ctx, &result, "zkevm_estimateCounters", toCallArg(msg), "pending")
 	if err != nil {
 		return fmt.Errorf("failed to simulate tx: %w", err)
 	}
-	if len(result.oocError) > 0 {
-		return errors.New(result.oocError)
+	if len(result.OocError) > 0 {
+		lggr.Debugw("zkevm_estimateCounters returned", "result", result)
+		return errors.New(result.OocError)
 	}
 	return nil
 }

@@ -277,5 +277,5 @@ func (c *chainClient) CheckTxValidity(ctx context.Context, from common.Address, 
 		To:   &to,
 		Data: data,
 	}
-	return SimulateTransaction(ctx, c, c.chainType, msg)
+	return SimulateTransaction(ctx, c, c.logger, c.chainType, msg)
 }
