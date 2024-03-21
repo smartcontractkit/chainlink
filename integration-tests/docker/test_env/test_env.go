@@ -39,7 +39,7 @@ type CLClusterTestEnv struct {
 	ClCluster              *ClCluster
 	MockAdapter            *test_env.Killgrave
 	evmClients             map[int64]blockchain.EVMClient
-	SethClient             *seth.Client
+	sethClients            map[int64]*seth.Client
 	ContractDeployer       contracts.ContractDeployer
 	ContractLoader         contracts.ContractLoader
 	PrivateEthereumConfigs []*test_env.EthereumNetwork // new approach to private chains, supporting eth1 and eth2
@@ -198,7 +198,7 @@ func (te *CLClusterTestEnv) Cleanup() error {
 
 	te.logWhetherAllContainersAreRunning()
 
-	if len(te.evmClients) == 0 && te.SethClient == nil {
+	if len(te.evmClients) == 0 && len(te.sethClients) == 0 {
 		return fmt.Errorf("both EVMClients and SethClient are nil, unable to return funds from chainlink nodes during cleanup")
 	} else if te.isSimulatedNetwork {
 		te.l.Info().
@@ -215,8 +215,8 @@ func (te *CLClusterTestEnv) Cleanup() error {
 		return err
 	}
 
-	if te.SethClient != nil {
-		te.SethClient.Client.Close()
+	for _, sethClient := range te.sethClients {
+		sethClient.Client.Close()
 	}
 
 	return nil
@@ -244,7 +244,7 @@ func (te *CLClusterTestEnv) logWhetherAllContainersAreRunning() {
 func (te *CLClusterTestEnv) returnFunds() error {
 	te.l.Info().Msg("Attempting to return Chainlink node funds to default network wallets")
 
-	if len(te.evmClients) == 0 && te.SethClient == nil {
+	if len(te.evmClients) == 0 && len(te.sethClients) == 0 {
 		return fmt.Errorf("both EVMClients and SethClient are nil, unable to return funds from chainlink nodes")
 	}
 
@@ -278,8 +278,8 @@ func (te *CLClusterTestEnv) returnFunds() error {
 		}
 	}
 
-	if te.SethClient != nil {
-		if err := actions_seth.ReturnFunds(te.l, te.SethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(te.ClCluster.NodeAPIs())); err != nil {
+	for _, sethClient := range te.sethClients {
+		if err := actions_seth.ReturnFunds(te.l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(te.ClCluster.NodeAPIs())); err != nil {
 			te.l.Error().Err(err).Msg("Error returning funds from node")
 		}
 	}
@@ -294,6 +294,14 @@ func (te *CLClusterTestEnv) GetEVMClient(chainId int64) (blockchain.EVMClient, e
 	}
 
 	return nil, fmt.Errorf("no EVMClient available for chain ID %d", chainId)
+}
+
+func (te *CLClusterTestEnv) GetSethClient(chainId int64) (*seth.Client, error) {
+	if sethClient, ok := te.sethClients[chainId]; ok {
+		return sethClient, nil
+	}
+
+	return nil, fmt.Errorf("no Seth client available for chain ID %d", chainId)
 }
 
 func (te *CLClusterTestEnv) GetRpcProvider(chainId int64) (*test_env.RpcProvider, error) {

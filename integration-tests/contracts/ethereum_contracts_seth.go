@@ -20,9 +20,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_factory"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_wrapper"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/link_token"
 )
 
 // EthereumOffchainAggregator represents the offchain aggregation contract
@@ -568,15 +568,91 @@ func (e *EthereumOffchainAggregatorV2) ParseEventAnswerUpdated(log types.Log) (*
 	return e.contract.ParseAnswerUpdated(log)
 }
 
-func DeployLinkTokenContract(client *seth.Client) (seth.DeploymentData, error) {
-	linkTokenAbi, err := link_token.LinkTokenMetaData.GetAbi()
+// EthereumLinkToken represents a LinkToken address
+type EthereumLinkToken struct {
+	client   *seth.Client
+	instance *link_token_interface.LinkToken
+	address  common.Address
+	l        zerolog.Logger
+}
+
+func DeployLinkTokenContract(l zerolog.Logger, client *seth.Client) (*EthereumLinkToken, error) {
+	linkTokenAbi, err := link_token_interface.LinkTokenMetaData.GetAbi()
 	if err != nil {
-		return seth.DeploymentData{}, fmt.Errorf("failed to get LinkToken ABI: %w", err)
+		return &EthereumLinkToken{}, fmt.Errorf("failed to get LinkToken ABI: %w", err)
 	}
-	linkDeploymentData, err := client.DeployContract(client.NewTXOpts(), "LinkToken", *linkTokenAbi, common.FromHex(link_token.LinkTokenMetaData.Bin))
+	linkDeploymentData, err := client.DeployContract(client.NewTXOpts(), "LinkToken", *linkTokenAbi, common.FromHex(link_token_interface.LinkTokenMetaData.Bin))
 	if err != nil {
-		return seth.DeploymentData{}, fmt.Errorf("LinkToken instance deployment have failed: %w", err)
+		return &EthereumLinkToken{}, fmt.Errorf("LinkToken instance deployment have failed: %w", err)
 	}
 
-	return linkDeploymentData, nil
+	linkToken, err := link_token_interface.NewLinkToken(linkDeploymentData.Address, wrappers.MustNewWrappedContractBackend(nil, client))
+	if err != nil {
+		return &EthereumLinkToken{}, fmt.Errorf("failed to instantiate LinkToken instance: %w", err)
+	}
+
+	return &EthereumLinkToken{
+		client:   client,
+		instance: linkToken,
+		address:  linkDeploymentData.Address,
+		l:        l,
+	}, nil
+}
+
+// Fund the LINK Token contract with ETH to distribute the token
+func (l *EthereumLinkToken) Fund(_ *big.Float) error {
+	panic("do not use this function, use actions_seth.SendFunds instead")
+}
+
+func (l *EthereumLinkToken) BalanceOf(ctx context.Context, addr string) (*big.Int, error) {
+	return l.instance.BalanceOf(&bind.CallOpts{
+		From:    l.client.Addresses[0],
+		Context: ctx,
+	}, common.HexToAddress(addr))
+
+}
+
+// Name returns the name of the link token
+func (l *EthereumLinkToken) Name(ctx context.Context) (string, error) {
+	return l.instance.Name(&bind.CallOpts{
+		From:    l.client.Addresses[0],
+		Context: ctx,
+	})
+}
+
+func (l *EthereumLinkToken) Address() string {
+	return l.address.Hex()
+}
+
+func (l *EthereumLinkToken) Approve(to string, amount *big.Int) error {
+	l.l.Info().
+		Str("From", l.client.Addresses[0].Hex()).
+		Str("To", to).
+		Str("Amount", amount.String()).
+		Msg("Approving LINK Transfer")
+	_, err := l.client.Decode(l.instance.Approve(l.client.NewTXOpts(), common.HexToAddress(to), amount))
+	return err
+}
+
+func (l *EthereumLinkToken) Transfer(to string, amount *big.Int) error {
+	l.l.Info().
+		Str("From", l.client.Addresses[0].Hex()).
+		Str("To", to).
+		Str("Amount", amount.String()).
+		Msg("Transferring LINK")
+	_, err := l.client.Decode(l.instance.Transfer(l.client.NewTXOpts(), common.HexToAddress(to), amount))
+	return err
+}
+
+func (l *EthereumLinkToken) TransferAndCall(to string, amount *big.Int, data []byte) (*types.Transaction, error) {
+	l.l.Info().
+		Str("From", l.client.Addresses[0].Hex()).
+		Str("To", to).
+		Str("Amount", amount.String()).
+		Msg("Transferring and Calling LINK")
+	decodedTx, err := l.client.Decode(l.instance.TransferAndCall(l.client.NewTXOpts(), common.HexToAddress(to), amount, data))
+	if err != nil {
+		return nil, err
+	}
+	return decodedTx.Transaction, nil
 }

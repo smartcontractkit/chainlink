@@ -177,10 +177,10 @@ func SendFunds(logger zerolog.Logger, client *seth.Client, payload FundsToSendPa
 func DeployForwarderContracts(
 	t *testing.T,
 	seth *seth.Client,
-	linkTokenData seth.DeploymentData,
+	linkTokenAddress common.Address,
 	numberOfOperatorForwarderPairs int,
 ) (operators []common.Address, authorizedForwarders []common.Address, operatorFactoryInstance contracts.OperatorFactory) {
-	instance, err := contracts.DeployEthereumOperatorFactory(seth, linkTokenData.Address)
+	instance, err := contracts.DeployEthereumOperatorFactory(seth, linkTokenAddress)
 	require.NoError(t, err, "failed to create new instance of operator factory")
 	operatorFactoryInstance = &instance
 

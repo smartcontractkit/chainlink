@@ -1192,8 +1192,8 @@ func (f *FluxAggregatorRoundConfirmer) Complete() bool {
 	return f.complete
 }
 
-// EthereumLinkToken represents a LinkToken address
-type EthereumLinkToken struct {
+// LegacyEthereumLinkToken represents a LinkToken address
+type LegacyEthereumLinkToken struct {
 	client   blockchain.EVMClient
 	instance *link_token_interface.LinkToken
 	address  common.Address
@@ -1201,7 +1201,7 @@ type EthereumLinkToken struct {
 }
 
 // Fund the LINK Token contract with ETH to distribute the token
-func (l *EthereumLinkToken) Fund(ethAmount *big.Float) error {
+func (l *LegacyEthereumLinkToken) Fund(ethAmount *big.Float) error {
 	gasEstimates, err := l.client.EstimateGas(ethereum.CallMsg{
 		To: &l.address,
 	})
@@ -1211,7 +1211,7 @@ func (l *EthereumLinkToken) Fund(ethAmount *big.Float) error {
 	return l.client.Fund(l.address.Hex(), ethAmount, gasEstimates)
 }
 
-func (l *EthereumLinkToken) BalanceOf(ctx context.Context, addr string) (*big.Int, error) {
+func (l *LegacyEthereumLinkToken) BalanceOf(ctx context.Context, addr string) (*big.Int, error) {
 	opts := &bind.CallOpts{
 		From:    common.HexToAddress(l.client.GetDefaultWallet().Address()),
 		Context: ctx,
@@ -1224,7 +1224,7 @@ func (l *EthereumLinkToken) BalanceOf(ctx context.Context, addr string) (*big.In
 }
 
 // Name returns the name of the link token
-func (l *EthereumLinkToken) Name(ctxt context.Context) (string, error) {
+func (l *LegacyEthereumLinkToken) Name(ctxt context.Context) (string, error) {
 	opts := &bind.CallOpts{
 		From:    common.HexToAddress(l.client.GetDefaultWallet().Address()),
 		Context: ctxt,
@@ -1232,11 +1232,11 @@ func (l *EthereumLinkToken) Name(ctxt context.Context) (string, error) {
 	return l.instance.Name(opts)
 }
 
-func (l *EthereumLinkToken) Address() string {
+func (l *LegacyEthereumLinkToken) Address() string {
 	return l.address.Hex()
 }
 
-func (l *EthereumLinkToken) Approve(to string, amount *big.Int) error {
+func (l *LegacyEthereumLinkToken) Approve(to string, amount *big.Int) error {
 	opts, err := l.client.TransactionOpts(l.client.GetDefaultWallet())
 	if err != nil {
 		return err
@@ -1254,7 +1254,7 @@ func (l *EthereumLinkToken) Approve(to string, amount *big.Int) error {
 	return l.client.ProcessTransaction(tx)
 }
 
-func (l *EthereumLinkToken) Transfer(to string, amount *big.Int) error {
+func (l *LegacyEthereumLinkToken) Transfer(to string, amount *big.Int) error {
 	opts, err := l.client.TransactionOpts(l.client.GetDefaultWallet())
 	if err != nil {
 		return err
@@ -1272,7 +1272,7 @@ func (l *EthereumLinkToken) Transfer(to string, amount *big.Int) error {
 	return l.client.ProcessTransaction(tx)
 }
 
-func (l *EthereumLinkToken) TransferAndCall(to string, amount *big.Int, data []byte) (*types.Transaction, error) {
+func (l *LegacyEthereumLinkToken) TransferAndCall(to string, amount *big.Int, data []byte) (*types.Transaction, error) {
 	opts, err := l.client.TransactionOpts(l.client.GetDefaultWallet())
 	if err != nil {
 		return nil, err
