@@ -53,7 +53,7 @@ jobs:
       src: ${{ inputs.set_changes_output || steps.changes.outputs.src }}
 
   build-chainlink:
-    if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
+    # if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
     needs: [changes]
     environment: integration
     permissions:
@@ -95,7 +95,7 @@ jobs:
       id-token: write
       contents: read
     needs: [build-chainlink, changes]
-    if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
+    # if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
     env:
       SELECTED_NETWORKS: SIMULATED_1,SIMULATED_2
       CHAINLINK_COMMIT_SHA: ${{ github.sha }}
@@ -209,7 +209,7 @@ jobs:
 
   start-slack-thread:
     name: Start Slack Thread
-    if: ${{ always() && (needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch') && needs.*.result != 'skipped' && needs.*.result != 'cancelled' }}
+    # if: ${{ always() && (needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch') && needs.*.result != 'skipped' && needs.*.result != 'cancelled' }}
     environment: integration
     outputs:
       thread_ts: ${{ steps.slack.outputs.thread_ts }}
