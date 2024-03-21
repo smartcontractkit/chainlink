@@ -53,9 +53,6 @@ func (pq *priorityHeap[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindIn
 
 // Peek returns the next transaction to be processed
 func (pq *priorityHeap[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Peek() *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {
-	if len(pq.txs) == 0 {
-		return nil
-	}
 	return pq.txs[0]
 }
 
