@@ -8,10 +8,9 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 )
 
 func ptr[T any](t T) *T { return &t }
@@ -145,7 +144,7 @@ func (c *MockConfig) FinalityTagEnabled() bool          { return c.finalityTagEn
 func (c *MockConfig) RPCDefaultBatchSize() uint32       { return c.RpcDefaultBatchSize }
 
 func MakeTestConfigs(t *testing.T) (*MockConfig, *TestDatabaseConfig, *TestEvmConfig) {
-	db := &TestDatabaseConfig{defaultQueryTimeout: pg.DefaultQueryTimeout}
+	db := &TestDatabaseConfig{defaultQueryTimeout: utils.DefaultQueryTimeout}
 	ec := &TestEvmConfig{BumpThreshold: 42, MaxInFlight: uint32(42), MaxQueued: uint64(0), ReaperInterval: time.Duration(0), ReaperThreshold: time.Duration(0)}
 	config := &MockConfig{EvmConfig: ec}
 	return config, db, ec
