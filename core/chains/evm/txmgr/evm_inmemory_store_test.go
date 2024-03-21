@@ -1,7 +1,6 @@
 package txmgr_test
 
 import (
-	"context"
 	"math/big"
 	"testing"
 	"time"
@@ -28,14 +27,14 @@ func TestInMemoryStore_SaveInsufficientFundsAttempt(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
-	persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+	persistentStore := cltest.NewTestTxStore(t, db)
 	kst := cltest.NewKeyStore(t, db, dbcfg)
 	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	lggr := logger.TestSugared(t)
 	chainID := ethClient.ConfiguredChainID()
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 
 	inMemoryStore, err := commontxmgr.NewInMemoryStore[
 		*big.Int,
@@ -55,14 +54,14 @@ func TestInMemoryStore_SaveInsufficientFundsAttempt(t *testing.T) {
 		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
 
 		err := inMemoryStore.SaveInsufficientFundsAttempt(
-			testutils.Context(t),
+			ctx,
 			defaultDuration,
 			&inTx.TxAttempts[0],
 			now,
 		)
 		require.NoError(t, err)
 
-		expTx, err := persistentStore.FindTxWithAttempts(inTx.ID)
+		expTx, err := persistentStore.FindTxWithAttempts(ctx, inTx.ID)
 		require.NoError(t, err)
 		fn := func(tx *evmtxmgr.Tx) bool { return true }
 		actTxs := inMemoryStore.XXXTestFindTxs(nil, fn, inTx.ID)
@@ -73,16 +72,16 @@ func TestInMemoryStore_SaveInsufficientFundsAttempt(t *testing.T) {
 
 		// wrong tx id
 		inTx.TxAttempts[0].TxID = 123
-		actErr := inMemoryStore.SaveInsufficientFundsAttempt(testutils.Context(t), defaultDuration, &inTx.TxAttempts[0], now)
-		expErr := persistentStore.SaveInsufficientFundsAttempt(testutils.Context(t), defaultDuration, &inTx.TxAttempts[0], now)
+		actErr := inMemoryStore.SaveInsufficientFundsAttempt(ctx, defaultDuration, &inTx.TxAttempts[0], now)
+		expErr := persistentStore.SaveInsufficientFundsAttempt(ctx, defaultDuration, &inTx.TxAttempts[0], now)
 		assert.NoError(t, actErr)
 		assert.NoError(t, expErr)
 		inTx.TxAttempts[0].TxID = inTx.ID // reset
 
 		// wrong attempt state
 		inTx.TxAttempts[0].State = txmgrtypes.TxAttemptBroadcast
-		actErr = inMemoryStore.SaveInsufficientFundsAttempt(testutils.Context(t), defaultDuration, &inTx.TxAttempts[0], now)
-		expErr = persistentStore.SaveInsufficientFundsAttempt(testutils.Context(t), defaultDuration, &inTx.TxAttempts[0], now)
+		actErr = inMemoryStore.SaveInsufficientFundsAttempt(ctx, defaultDuration, &inTx.TxAttempts[0], now)
+		expErr = persistentStore.SaveInsufficientFundsAttempt(ctx, defaultDuration, &inTx.TxAttempts[0], now)
 		assert.Error(t, actErr)
 		assert.Error(t, expErr)
 		inTx.TxAttempts[0].State = txmgrtypes.TxAttemptInsufficientFunds // reset
