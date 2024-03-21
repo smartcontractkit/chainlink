@@ -89,7 +89,8 @@ func TestChainScopedConfig(t *testing.T) {
 		gcfg2 := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			overrides(c, s)
 			c.EVM[0].KeySpecific = toml.KeySpecificConfig{
-				{Key: ptr(types.EIP55AddressFromAddress(randomOtherAddr)),
+				{
+					Key: ptr(types.EIP55AddressFromAddress(randomOtherAddr)),
 					GasEstimator: toml.KeySpecificGasEstimator{
 						PriceMax: assets.GWei(850),
 					},
@@ -124,7 +125,8 @@ func TestChainScopedConfig(t *testing.T) {
 				t.Run(tt.name, func(t *testing.T) {
 					gcfg3 := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 						c.EVM[0].KeySpecific = toml.KeySpecificConfig{
-							{Key: ptr(types.EIP55AddressFromAddress(addr)),
+							{
+								Key: ptr(types.EIP55AddressFromAddress(addr)),
 								GasEstimator: toml.KeySpecificGasEstimator{
 									PriceMax: tt.val,
 								},
@@ -143,7 +145,8 @@ func TestChainScopedConfig(t *testing.T) {
 			gcfg3 := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.EVM[0].GasEstimator.PriceMax = chainSpecificPrice
 				c.EVM[0].KeySpecific = toml.KeySpecificConfig{
-					{Key: ptr(types.EIP55AddressFromAddress(addr)),
+					{
+						Key: ptr(types.EIP55AddressFromAddress(addr)),
 						GasEstimator: toml.KeySpecificGasEstimator{
 							PriceMax: keySpecificPrice,
 						},
@@ -160,7 +163,8 @@ func TestChainScopedConfig(t *testing.T) {
 			gcfg3 := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.EVM[0].GasEstimator.PriceMax = chainSpecificPrice
 				c.EVM[0].KeySpecific = toml.KeySpecificConfig{
-					{Key: ptr(types.EIP55AddressFromAddress(addr)),
+					{
+						Key: ptr(types.EIP55AddressFromAddress(addr)),
 						GasEstimator: toml.KeySpecificGasEstimator{
 							PriceMax: keySpecificPrice,
 						},
@@ -175,7 +179,8 @@ func TestChainScopedConfig(t *testing.T) {
 			keySpecificPrice := assets.GWei(900)
 			gcfg3 := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.EVM[0].KeySpecific = toml.KeySpecificConfig{
-					{Key: ptr(types.EIP55AddressFromAddress(addr)),
+					{
+						Key: ptr(types.EIP55AddressFromAddress(addr)),
 						GasEstimator: toml.KeySpecificGasEstimator{
 							PriceMax: keySpecificPrice,
 						},
@@ -192,7 +197,8 @@ func TestChainScopedConfig(t *testing.T) {
 			gcfg3 := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.EVM[0].GasEstimator.PriceMax = chainSpecificPrice
 				c.EVM[0].KeySpecific = toml.KeySpecificConfig{
-					{Key: ptr(types.EIP55AddressFromAddress(addr)),
+					{
+						Key: ptr(types.EIP55AddressFromAddress(addr)),
 						GasEstimator: toml.KeySpecificGasEstimator{
 							PriceMax: keySpecificPrice,
 						},
@@ -381,12 +387,14 @@ func Test_chainScopedConfig_Validate(t *testing.T) {
 	configWithChains := func(t *testing.T, id int64, chains ...*toml.Chain) config.AppConfig {
 		return configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			chainID := ubig.NewI(id)
-			c.EVM[0] = &toml.EVMConfig{ChainID: chainID, Enabled: ptr(true), Chain: toml.Defaults(chainID, chains...),
+			c.EVM[0] = &toml.EVMConfig{
+				ChainID: chainID, Enabled: ptr(true), Chain: toml.Defaults(chainID, chains...),
 				Nodes: toml.EVMNodes{{
 					Name:    ptr("fake"),
 					WSURL:   configurl.MustParseURL("wss://foo.test/ws"),
 					HTTPURL: configurl.MustParseURL("http://foo.test"),
-				}}}
+				}},
+			}
 		})
 	}
 
@@ -459,6 +467,33 @@ func Test_chainScopedConfig_Validate(t *testing.T) {
 			assert.NoError(t, cfg.Validate())
 		})
 	})
+}
+
+func TestClientErrorsConfig(t *testing.T) {
+	t.Parallel()
+	gcfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		id := ubig.New(big.NewInt(rand.Int63()))
+		c.EVM[0] = &toml.EVMConfig{
+			ChainID: id,
+			Chain:   toml.Defaults(id, &toml.Chain{}),
+		}
+	})
+	cfg := evmtest.NewChainScopedConfig(t, gcfg)
+
+	assert.Empty(t, cfg.EVM().ClientErrors().NonceTooLow())
+	assert.Empty(t, cfg.EVM().ClientErrors().NonceTooHigh())
+	assert.Empty(t, cfg.EVM().ClientErrors().ReplacementTransactionUnderpriced())
+	assert.Empty(t, cfg.EVM().ClientErrors().LimitReached())
+	assert.Empty(t, cfg.EVM().ClientErrors().TransactionAlreadyInMempool())
+	assert.Empty(t, cfg.EVM().ClientErrors().TerminallyUnderpriced())
+	assert.Empty(t, cfg.EVM().ClientErrors().InsufficientEth())
+	assert.Empty(t, cfg.EVM().ClientErrors().TxFeeExceedsCap())
+	assert.Empty(t, cfg.EVM().ClientErrors().L2FeeTooLow())
+	assert.Empty(t, cfg.EVM().ClientErrors().L2FeeTooHigh())
+	assert.Empty(t, cfg.EVM().ClientErrors().L2Full())
+	assert.Empty(t, cfg.EVM().ClientErrors().TransactionAlreadyMined())
+	assert.Empty(t, cfg.EVM().ClientErrors().Fatal())
+	assert.Empty(t, cfg.EVM().ClientErrors().ServiceUnavailable())
 }
 
 func TestNodePoolConfig(t *testing.T) {
