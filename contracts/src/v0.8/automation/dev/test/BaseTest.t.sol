@@ -138,11 +138,36 @@ contract BaseTest is Test {
       autoApproveType: AutomationRegistrar2_3.AutoApproveType.DISABLED,
       autoApproveMaxAllowed: 0
     });
+
     AutomationRegistrar2_3 registrar;
+    IERC20[] memory billingTokens;
+    uint256[] memory minRegistrationFees;
+    address[] memory registrars;
+    address[] memory billingTokenAddresses;
+    AutomationRegistryBase2_3.BillingConfig[] memory billingTokenConfigs;
+    AutomationRegistryBase2_3.OnchainConfig memory cfg = AutomationRegistryBase2_3.OnchainConfig({
+      checkGasLimit: 5_000_000,
+      stalenessSeconds: 90_000,
+      gasCeilingMultiplier: 0,
+      maxPerformGas: 10_000_000,
+      maxCheckDataSize: 5_000,
+      maxPerformDataSize: 5_000,
+      maxRevertDataSize: 5_000,
+      fallbackGasPrice: 20_000_000_000,
+      fallbackLinkPrice: 2_000_000_000, // $20
+      fallbackNativePrice: 400_000_000_000, // $4,000
+      transcoder: 0xB1e66855FD67f6e85F0f0fA38cd6fBABdf00923c,
+      registrars: registrars,
+      upkeepPrivilegeManager: 0xD9c855F08A7e460691F41bBDDe6eC310bc0593D8,
+      chainModule: address(new ChainModuleBase()),
+      reorgProtectionEnabled: true,
+      financeAdmin: FINANCE_ADMIN
+    });
+
     if (payoutMode == AutoBase.PayoutMode.OFF_CHAIN) {
-      IERC20[] memory billingTokens = new IERC20[](1);
+      billingTokens = new IERC20[](1);
       billingTokens[0] = IERC20(address(mockERC20));
-      uint256[] memory minRegistrationFees = new uint256[](billingTokens.length);
+      minRegistrationFees = new uint256[](billingTokens.length);
       minRegistrationFees[0] = 100000000000000000000; // 100 USD
       registrar = new AutomationRegistrar2_3(
         address(linkToken),
@@ -152,32 +177,13 @@ contract BaseTest is Test {
         minRegistrationFees
       );
       // configure registry
-      address[] memory registrars = new address[](1);
+      registrars = new address[](1);
       registrars[0] = address(registrar);
-      address[] memory billingTokenAddresses = new address[](billingTokens.length);
+      billingTokenAddresses = new address[](billingTokens.length);
       for (uint256 i = 0; i < billingTokens.length; i++) {
         billingTokenAddresses[i] = address(billingTokens[i]);
       }
-      AutomationRegistryBase2_3.OnchainConfig memory cfg = AutomationRegistryBase2_3.OnchainConfig({
-        checkGasLimit: 5_000_000,
-        stalenessSeconds: 90_000,
-        gasCeilingMultiplier: 0,
-        maxPerformGas: 10_000_000,
-        maxCheckDataSize: 5_000,
-        maxPerformDataSize: 5_000,
-        maxRevertDataSize: 5_000,
-        fallbackGasPrice: 20_000_000_000,
-        fallbackLinkPrice: 2_000_000_000, // $20
-        fallbackNativePrice: 400_000_000_000, // $4,000
-        transcoder: 0xB1e66855FD67f6e85F0f0fA38cd6fBABdf00923c,
-        registrars: registrars,
-        upkeepPrivilegeManager: 0xD9c855F08A7e460691F41bBDDe6eC310bc0593D8,
-        chainModule: address(new ChainModuleBase()),
-        reorgProtectionEnabled: true,
-        financeAdmin: FINANCE_ADMIN
-      });
-      AutomationRegistryBase2_3.BillingConfig[]
-        memory billingTokenConfigs = new AutomationRegistryBase2_3.BillingConfig[](1);
+      billingTokenConfigs = new AutomationRegistryBase2_3.BillingConfig[](1);
       billingTokenConfigs[0] = AutomationRegistryBase2_3.BillingConfig({
         gasFeePPB: 10_000_000, // 15%
         flatFeeMicroLink: 100_000,
@@ -185,21 +191,11 @@ contract BaseTest is Test {
         fallbackPrice: 100_000_000, // $1
         minSpend: 100000000000000000000 // 100 USD
       });
-      registry.setConfigTypeSafe(
-        SIGNERS,
-        TRANSMITTERS,
-        F,
-        cfg,
-        OFFCHAIN_CONFIG_VERSION,
-        "",
-        billingTokenAddresses,
-        billingTokenConfigs
-      );
     } else {
-      IERC20[] memory billingTokens = new IERC20[](2);
+      billingTokens = new IERC20[](2);
       billingTokens[0] = IERC20(address(linkToken));
       billingTokens[1] = IERC20(address(mockERC20));
-      uint256[] memory minRegistrationFees = new uint256[](billingTokens.length);
+      minRegistrationFees = new uint256[](billingTokens.length);
       minRegistrationFees[0] = 5000000000000000000; // 5 LINK
       minRegistrationFees[1] = 100000000000000000000; // 100 USD
       registrar = new AutomationRegistrar2_3(
@@ -210,32 +206,13 @@ contract BaseTest is Test {
         minRegistrationFees
       );
       // configure registry
-      address[] memory registrars = new address[](1);
+      registrars = new address[](1);
       registrars[0] = address(registrar);
-      address[] memory billingTokenAddresses = new address[](billingTokens.length);
+      billingTokenAddresses = new address[](billingTokens.length);
       for (uint256 i = 0; i < billingTokens.length; i++) {
         billingTokenAddresses[i] = address(billingTokens[i]);
       }
-      AutomationRegistryBase2_3.OnchainConfig memory cfg = AutomationRegistryBase2_3.OnchainConfig({
-        checkGasLimit: 5_000_000,
-        stalenessSeconds: 90_000,
-        gasCeilingMultiplier: 0,
-        maxPerformGas: 10_000_000,
-        maxCheckDataSize: 5_000,
-        maxPerformDataSize: 5_000,
-        maxRevertDataSize: 5_000,
-        fallbackGasPrice: 20_000_000_000,
-        fallbackLinkPrice: 2_000_000_000, // $20
-        fallbackNativePrice: 400_000_000_000, // $4,000
-        transcoder: 0xB1e66855FD67f6e85F0f0fA38cd6fBABdf00923c,
-        registrars: registrars,
-        upkeepPrivilegeManager: 0xD9c855F08A7e460691F41bBDDe6eC310bc0593D8,
-        chainModule: address(new ChainModuleBase()),
-        reorgProtectionEnabled: true,
-        financeAdmin: FINANCE_ADMIN
-      });
-      AutomationRegistryBase2_3.BillingConfig[]
-        memory billingTokenConfigs = new AutomationRegistryBase2_3.BillingConfig[](2);
+      billingTokenConfigs = new AutomationRegistryBase2_3.BillingConfig[](2);
       billingTokenConfigs[0] = AutomationRegistryBase2_3.BillingConfig({
         gasFeePPB: 10_000_000, // 10%
         flatFeeMicroLink: 100_000,
@@ -250,17 +227,19 @@ contract BaseTest is Test {
         fallbackPrice: 100_000_000, // $1
         minSpend: 100000000000000000000 // 100 USD
       });
-      registry.setConfigTypeSafe(
-        SIGNERS,
-        TRANSMITTERS,
-        F,
-        cfg,
-        OFFCHAIN_CONFIG_VERSION,
-        "",
-        billingTokenAddresses,
-        billingTokenConfigs
-      );
     }
+
+    registry.setConfigTypeSafe(
+      SIGNERS,
+      TRANSMITTERS,
+      F,
+      cfg,
+      OFFCHAIN_CONFIG_VERSION,
+      "",
+      billingTokenAddresses,
+      billingTokenConfigs
+    );
+    registry.setPayees(PAYEES);
     return (registry, registrar);
   }
 

@@ -16,7 +16,8 @@ contract SetUp is BaseTest {
   uint256[] internal upkeepIds;
   uint256[] internal gasLimits;
   bytes[] internal performDatas;
-  uint256[] internal balances;
+  uint256[] internal payments;
+  bytes internal constant offchainConfigBytes = abi.encode(1234, ZERO_ADDRESS);
 
   function setUp() public virtual override {
     super.setUp();
@@ -51,40 +52,6 @@ contract CheckUpkeep is SetUp {
 
 contract Withdraw is SetUp {
   address internal aMockAddress = address(0x1111111111111111111111111111111111111113);
-
-  function setConfigForWithdraw() public {
-    address module = address(new ChainModuleBase());
-    AutomationRegistryBase2_3.OnchainConfig memory cfg = AutomationRegistryBase2_3.OnchainConfig({
-      checkGasLimit: 5_000_000,
-      stalenessSeconds: 90_000,
-      gasCeilingMultiplier: 0,
-      maxPerformGas: 10_000_000,
-      maxCheckDataSize: 5_000,
-      maxPerformDataSize: 5_000,
-      maxRevertDataSize: 5_000,
-      fallbackGasPrice: 20_000_000_000,
-      fallbackLinkPrice: 2_000_000_000, // $20
-      fallbackNativePrice: 400_000_000_000, // $4,000
-      transcoder: 0xB1e66855FD67f6e85F0f0fA38cd6fBABdf00923c,
-      registrars: s_registrars,
-      upkeepPrivilegeManager: 0xD9c855F08A7e460691F41bBDDe6eC310bc0593D8,
-      chainModule: module,
-      reorgProtectionEnabled: true,
-      financeAdmin: FINANCE_ADMIN
-    });
-    bytes memory offchainConfigBytes = abi.encode(1234, ZERO_ADDRESS);
-
-    registry.setConfigTypeSafe(
-      SIGNERS,
-      TRANSMITTERS,
-      F,
-      cfg,
-      OFFCHAIN_CONFIG_VERSION,
-      offchainConfigBytes,
-      new address[](0),
-      new AutomationRegistryBase2_3.BillingConfig[](0)
-    );
-  }
 
   function testLinkAvailableForPaymentReturnsLinkBalance() public {
     //simulate a deposit of link to the liquidity pool
@@ -213,7 +180,6 @@ contract SetConfig is SetUp {
     bytes memory onchainConfigBytes = abi.encode(cfg);
     bytes memory onchainConfigBytesWithBilling = abi.encode(cfg, billingTokens, billingConfigs);
 
-    bytes memory offchainConfigBytes = abi.encode(1234, ZERO_ADDRESS);
     bytes32 configDigest = _configDigestFromConfigData(
       block.chainid,
       address(registry),
@@ -292,8 +258,6 @@ contract SetConfig is SetUp {
 
     bytes memory onchainConfigBytesWithBilling = abi.encode(cfg, billingTokens, billingConfigs);
 
-    bytes memory offchainConfigBytes = abi.encode(1234, ZERO_ADDRESS);
-
     registry.setConfig(
       SIGNERS,
       TRANSMITTERS,
@@ -363,8 +327,6 @@ contract SetConfig is SetUp {
 
     bytes memory onchainConfigBytesWithBilling2 = abi.encode(cfg, billingTokens2, billingConfigs2);
 
-    bytes memory offchainConfigBytes = abi.encode(1234, ZERO_ADDRESS);
-
     // set config once
     registry.setConfig(
       SIGNERS,
@@ -430,8 +392,6 @@ contract SetConfig is SetUp {
 
     bytes memory onchainConfigBytesWithBilling = abi.encode(cfg, billingTokens, billingConfigs);
 
-    bytes memory offchainConfigBytes = abi.encode(1234, ZERO_ADDRESS);
-
     // expect revert because of duplicate tokens
     vm.expectRevert(abi.encodeWithSelector(IAutomationRegistryMaster2_3.DuplicateEntry.selector));
     registry.setConfig(
@@ -458,18 +418,19 @@ contract SetConfig is SetUp {
     });
 
     bytes memory onchainConfigBytesWithBilling = abi.encode(cfg, billingTokens, billingConfigs);
-    bytes memory offchainConfigBytes = abi.encode(1234, ZERO_ADDRESS);
     // deploy registry with OFF_CHAIN payout mode
     registry = deployRegistry(AutoBase.PayoutMode.OFF_CHAIN);
 
     vm.expectRevert(abi.encodeWithSelector(IAutomationRegistryMaster2_3.InvalidBillingToken.selector));
-    registry.setConfig(
+    registry.setConfigTypeSafe(
       SIGNERS,
       TRANSMITTERS,
       F,
-      onchainConfigBytesWithBilling,
+      cfg,
       OFFCHAIN_CONFIG_VERSION,
-      offchainConfigBytes
+      offchainConfigBytes,
+      billingTokens,
+      billingConfigs
     );
   }
 
@@ -506,7 +467,7 @@ contract SetConfig is SetUp {
 }
 
 contract NOPsSettlement is SetUp {
-  event NOPsSettledOffchain(address[] payees, uint256[] balances);
+  event NOPsSettledOffchain(address[] payees, uint256[] payments);
 
   function testSettleNOPsOffchainRevertDueToUnauthorizedCaller() public {
     (IAutomationRegistryMaster2_3 registry, ) = deployAndConfigureAll(AutoBase.PayoutMode.ON_CHAIN);
@@ -529,23 +490,21 @@ contract NOPsSettlement is SetUp {
   function testSettleNOPsOffchainSuccess() public {
     // deploy and configure a registry with OFF_CHAIN payout
     (IAutomationRegistryMaster2_3 registry, ) = deployAndConfigureAll(AutoBase.PayoutMode.OFF_CHAIN);
-    registry.setPayees(PAYEES);
 
-    uint256[] memory balances = new uint256[](TRANSMITTERS.length);
+    uint256[] memory payments = new uint256[](TRANSMITTERS.length);
     for (uint256 i = 0; i < TRANSMITTERS.length; i++) {
-      balances[i] = 0;
+      payments[i] = 0;
     }
 
     vm.startPrank(FINANCE_ADMIN);
     vm.expectEmit();
-    emit NOPsSettledOffchain(PAYEES, balances);
+    emit NOPsSettledOffchain(PAYEES, payments);
     registry.settleNOPsOffchain();
   }
 
   function testSettleNOPsOffchainSuccessTransmitterBalanceZeroed() public {
     // deploy and configure a registry with OFF_CHAIN payout
     (IAutomationRegistryMaster2_3 registry, ) = deployAndConfigureAll(AutoBase.PayoutMode.OFF_CHAIN);
-    registry.setPayees(PAYEES);
 
     // register an upkeep and add funds
     uint256 id = registry.registerUpkeep(address(TARGET1), 1000000, UPKEEP_ADMIN, 0, address(mockERC20), "", "", "");
@@ -590,15 +549,15 @@ contract NOPsSettlement is SetUp {
     assertTrue(balance > 0);
     assertEq(0, lastCollected);
 
-    balances = new uint256[](TRANSMITTERS.length);
-    for (uint256 i = 0; i < balances.length; i++) {
-      balances[i] = balance;
+    payments = new uint256[](TRANSMITTERS.length);
+    for (uint256 i = 0; i < payments.length; i++) {
+      payments[i] = balance;
     }
 
     // verify offchain settlement will emit NOPs' balances
     vm.startPrank(FINANCE_ADMIN);
     vm.expectEmit();
-    emit NOPsSettledOffchain(PAYEES, balances);
+    emit NOPsSettledOffchain(PAYEES, payments);
     registry.settleNOPsOffchain();
 
     // verify that transmitters balance has been zeroed out

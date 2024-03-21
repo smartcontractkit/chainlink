@@ -436,7 +436,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   event FundsAdded(uint256 indexed id, address indexed from, uint96 amount);
   event FundsWithdrawn(uint256 indexed id, uint256 amount, address to);
   event InsufficientFundsUpkeepReport(uint256 indexed id, bytes trigger);
-  event NOPsSettledOffchain(address[] payees, uint256[] balances);
+  event NOPsSettledOffchain(address[] payees, uint256[] payments);
   event Paused(address account);
   event PayeesUpdated(address[] transmitters, address[] payees);
   event PayeeshipTransferRequested(address indexed transmitter, address indexed from, address indexed to);
@@ -1016,12 +1016,13 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     }
     delete s_billingTokens;
 
+    PayoutMode mode = s_payoutMode;
     for (uint256 i = 0; i < billingTokens.length; i++) {
       IERC20 token = billingTokens[i];
       BillingConfig memory config = billingConfigs[i];
 
       // if LINK is a billing option, payout mode must be ON_CHAIN
-      if (address(token) == address(i_link) && s_payoutMode == PayoutMode.OFF_CHAIN) {
+      if (address(token) == address(i_link) && mode == PayoutMode.OFF_CHAIN) {
         revert InvalidBillingToken();
       }
       if (address(token) == ZERO_ADDRESS || address(config.priceFeed) == ZERO_ADDRESS) {
