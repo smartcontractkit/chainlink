@@ -25,10 +25,12 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3, Chainable {
       logicC.getNativeUSDFeedAddress(),
       logicC.getFastGasFeedAddress(),
       logicC.getAutomationForwarderLogic(),
-      logicC.getAllowedReadOnlyAddress()
+      logicC.getAllowedReadOnlyAddress(),
+      logicC.getPayoutMode()
     )
     Chainable(address(logicC))
   {}
+
   // ================================================================
   // |                      UPKEEP MANAGEMENT                       |
   // ================================================================

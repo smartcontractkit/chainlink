@@ -12,8 +12,10 @@ function generateSubdomains(subdomainPrefix, prNumber) {
     "node4",
     "node5",
     "node6",
-    "geth-http",
-    "geth-ws",
+    "geth-1337-http",
+    "geth-1337-ws",
+    "geth-2337-http",
+    "geth-2337-ws",
     "mockserver",
   ];
   return subDomainSuffixes.map(
