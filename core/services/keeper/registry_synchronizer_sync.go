@@ -7,9 +7,9 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 )
 
 func (rs *RegistrySynchronizer) fullSync() {
@@ -130,7 +130,7 @@ func (rs *RegistrySynchronizer) syncUpkeep(getter upkeepGetter, registry Registr
 		return errors.Wrap(err, "failed to upsert upkeep")
 	}
 
-	if err := rs.orm.UpdateUpkeepLastKeeperIndex(rs.job.ID, upkeepID, ethkey.EIP55AddressFromAddress(upkeep.LastKeeper)); err != nil {
+	if err := rs.orm.UpdateUpkeepLastKeeperIndex(rs.job.ID, upkeepID, types.EIP55AddressFromAddress(upkeep.LastKeeper)); err != nil {
 		return errors.Wrap(err, "failed to update upkeep last keeper index")
 	}
 
@@ -149,9 +149,9 @@ func (rs *RegistrySynchronizer) newRegistryFromChain() (Registry, error) {
 	}
 
 	keeperIndex := int32(-1)
-	keeperMap := map[ethkey.EIP55Address]int32{}
+	keeperMap := map[types.EIP55Address]int32{}
 	for idx, address := range registryConfig.KeeperAddresses {
-		keeperMap[ethkey.EIP55AddressFromAddress(address)] = int32(idx)
+		keeperMap[types.EIP55AddressFromAddress(address)] = int32(idx)
 		if address == fromAddress {
 			keeperIndex = int32(idx)
 		}
@@ -174,7 +174,7 @@ func (rs *RegistrySynchronizer) newRegistryFromChain() (Registry, error) {
 
 // CalcPositioningConstant calculates a positioning constant.
 // The positioning constant is fixed because upkeepID and registryAddress are immutable
-func CalcPositioningConstant(upkeepID *big.Big, registryAddress ethkey.EIP55Address) (int32, error) {
+func CalcPositioningConstant(upkeepID *big.Big, registryAddress types.EIP55Address) (int32, error) {
 	upkeepBytes := make([]byte, binary.MaxVarintLen64)
 	binary.PutVarint(upkeepBytes, upkeepID.Mod(big.NewI(math.MaxInt64)).Int64())
 	bytesToHash := utils.ConcatBytes(upkeepBytes, registryAddress.Bytes())

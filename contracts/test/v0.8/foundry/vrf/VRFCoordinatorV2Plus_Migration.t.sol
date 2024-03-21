@@ -1,4 +1,4 @@
-pragma solidity 0.8.6;
+pragma solidity 0.8.19;
 
 import "../BaseTest.t.sol";
 import {VRFCoordinatorV2Plus_V2Example} from "../../../../src/v0.8/vrf/dev/testhelpers/VRFCoordinatorV2Plus_V2Example.sol";
