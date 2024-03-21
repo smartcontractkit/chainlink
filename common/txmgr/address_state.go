@@ -276,7 +276,8 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) addTxA
 	defer as.Unlock()
 
 	var errs error
-	for _, txAttempt := range txAttempts {
+	for i := 0; i < len(txAttempts); i++ {
+		txAttempt := txAttempts[i]
 		tx := as.allTxs[txAttempt.TxID]
 		if tx == nil {
 			errs = errors.Join(errs, fmt.Errorf("no transaction with ID %d", txAttempt.TxID))
