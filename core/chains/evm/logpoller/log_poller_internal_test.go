@@ -27,6 +27,7 @@ import (
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_emitter"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -253,6 +254,7 @@ func TestLogPoller_Replay(t *testing.T) {
 	chainID := testutils.FixtureChainID
 	db := pgtest.NewSqlxDB(t)
 	orm := NewORM(chainID, db, lggr, pgtest.NewQConfig(true))
+	ctx := testutils.Context(t)
 
 	head := evmtypes.Head{Number: 4}
 	events := []common.Hash{EmitterABI.Events["Log1"].ID}
@@ -268,7 +270,7 @@ func TestLogPoller_Replay(t *testing.T) {
 
 	ec := evmclimocks.NewClient(t)
 	ec.On("HeadByNumber", mock.Anything, mock.Anything).Return(&head, nil)
-	ec.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{log1}, nil).Once()
+	ec.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{log1}, nil).Twice()
 	ec.On("ConfiguredChainID").Return(chainID, nil)
 	lpOpts := Opts{
 		PollPeriod:               time.Hour,
@@ -285,12 +287,13 @@ func TestLogPoller_Replay(t *testing.T) {
 	latest, err := lp.LatestBlock()
 	require.NoError(t, err)
 	require.Equal(t, int64(4), latest.BlockNumber)
+	require.Equal(t, int64(1), latest.FinalizedBlockNumber)
 
 	t.Run("abort before replayStart received", func(t *testing.T) {
 		// Replay() should abort immediately if caller's context is cancelled before request signal is read
-		ctx, cancel := context.WithCancel(testutils.Context(t))
+		cancelCtx, cancel := context.WithCancel(testutils.Context(t))
 		cancel()
-		err = lp.Replay(ctx, 3)
+		err = lp.Replay(cancelCtx, 3)
 		assert.ErrorIs(t, err, ErrReplayRequestAborted)
 	})
 
@@ -305,12 +308,11 @@ func TestLogPoller_Replay(t *testing.T) {
 
 	// Replay() should return error code received from replayComplete
 	t.Run("returns error code on replay complete", func(t *testing.T) {
-		ctx := testutils.Context(t)
 		anyErr := pkgerrors.New("any error")
 		done := make(chan struct{})
 		go func() {
 			defer close(done)
-			recvStartReplay(ctx, 1)
+			recvStartReplay(ctx, 2)
 			lp.replayComplete <- anyErr
 		}()
 		assert.ErrorIs(t, lp.Replay(ctx, 1), anyErr)
@@ -319,14 +321,14 @@ func TestLogPoller_Replay(t *testing.T) {
 
 	// Replay() should return ErrReplayInProgress if caller's context is cancelled after replay has begun
 	t.Run("late abort returns ErrReplayInProgress", func(t *testing.T) {
-		ctx, cancel := context.WithTimeout(testutils.Context(t), time.Second) // Intentionally abort replay after 1s
+		cancelCtx, cancel := context.WithTimeout(testutils.Context(t), time.Second) // Intentionally abort replay after 1s
 		done := make(chan struct{})
 		go func() {
 			defer close(done)
-			recvStartReplay(ctx, 4)
+			recvStartReplay(cancelCtx, 4)
 			cancel()
 		}()
-		assert.ErrorIs(t, lp.Replay(ctx, 4), ErrReplayInProgress)
+		assert.ErrorIs(t, lp.Replay(cancelCtx, 4), ErrReplayInProgress)
 		<-done
 		lp.replayComplete <- nil
 		lp.wg.Wait()
@@ -335,8 +337,6 @@ func TestLogPoller_Replay(t *testing.T) {
 	// Main lp.run() loop shouldn't get stuck if client aborts
 	t.Run("client abort doesnt hang run loop", func(t *testing.T) {
 		lp.backupPollerNextBlock = 0
-
-		ctx := testutils.Context(t)
 
 		pass := make(chan struct{})
 		cancelled := make(chan struct{})
@@ -392,7 +392,6 @@ func TestLogPoller_Replay(t *testing.T) {
 		done := make(chan struct{})
 		defer func() { <-done }()
 
-		ctx := testutils.Context(t)
 		ec.On("FilterLogs", mock.Anything, mock.Anything).Once().Return([]types.Log{log1}, nil).Run(func(args mock.Arguments) {
 			go func() {
 				defer close(done)
@@ -425,7 +424,7 @@ func TestLogPoller_Replay(t *testing.T) {
 
 		lp.ReplayAsync(1)
 
-		recvStartReplay(testutils.Context(t), 1)
+		recvStartReplay(testutils.Context(t), 2)
 	})
 
 	t.Run("ReplayAsync error", func(t *testing.T) {
@@ -446,6 +445,32 @@ func TestLogPoller_Replay(t *testing.T) {
 		}
 		require.Equal(t, 1, observedLogs.Len())
 		assert.Equal(t, observedLogs.All()[0].Message, anyErr.Error())
+	})
+
+	t.Run("run regular replay when there are not blocks in db", func(t *testing.T) {
+		err := lp.orm.DeleteLogsAndBlocksAfter(0)
+		require.NoError(t, err)
+
+		lp.ReplayAsync(1)
+		recvStartReplay(testutils.Context(t), 1)
+	})
+
+	t.Run("run only backfill when everything is finalized", func(t *testing.T) {
+		err := lp.orm.DeleteLogsAndBlocksAfter(0)
+		require.NoError(t, err)
+
+		err = lp.orm.InsertLogsWithBlock([]Log{}, LogPollerBlock{
+			EvmChainId:           ubig.New(chainID),
+			BlockHash:            head.Hash,
+			BlockNumber:          head.Number,
+			BlockTimestamp:       head.Timestamp,
+			FinalizedBlockNumber: head.Number,
+			CreatedAt:            time.Time{},
+		})
+		require.NoError(t, err)
+
+		err = lp.Replay(ctx, 1)
+		require.NoError(t, err)
 	})
 }
 

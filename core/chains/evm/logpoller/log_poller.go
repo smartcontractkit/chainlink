@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"math/big"
 	"sort"
@@ -376,7 +377,13 @@ func (lp *logPoller) Filter(from, to *big.Int, bh *common.Hash) ethereum.FilterQ
 // If ctx is cancelled before the replay request has been initiated, ErrReplayRequestAborted is returned.  If the replay
 // is already in progress, the replay will continue and ErrReplayInProgress will be returned.  If the client needs a
 // guarantee that the replay is complete before proceeding, it should either avoid cancelling or retry until nil is returned
-func (lp *logPoller) Replay(ctx context.Context, fromBlock int64) error {
+func (lp *logPoller) Replay(ctx context.Context, fromBlock int64) (err error) {
+	defer func() {
+		if errors.Is(err, context.Canceled) {
+			err = ErrReplayRequestAborted
+		}
+	}()
+
 	lp.lggr.Debugf("Replaying from block %d", fromBlock)
 	latest, err := lp.ec.HeadByNumber(ctx, nil)
 	if err != nil {
@@ -384,6 +391,27 @@ func (lp *logPoller) Replay(ctx context.Context, fromBlock int64) error {
 	}
 	if fromBlock < 1 || fromBlock > latest.Number {
 		return pkgerrors.Errorf("Invalid replay block number %v, acceptable range [1, %v]", fromBlock, latest.Number)
+	}
+
+	// Backfill all logs up to the latest saved finalized block outside the LogPoller's main loop.
+	// This is safe, because chain cannot be rewinded deeper than that, so there must not be any race conditions.
+	savedFinalizedBlockNumber, err := lp.savedFinalizedBlockNumber(ctx)
+	if err != nil {
+		return err
+	}
+	if fromBlock <= savedFinalizedBlockNumber {
+		err = lp.backfill(ctx, fromBlock, savedFinalizedBlockNumber)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Poll everything after latest finalized block in main loop to avoid concurrent writes during reorg
+	// We assume that number of logs between saved finalized block and current head is small enough to be processed in main loop
+	fromBlock = mathutil.Max(fromBlock, savedFinalizedBlockNumber+1)
+	// Don't continue if latest block number is the same as saved finalized block number
+	if fromBlock > latest.Number {
+		return nil
 	}
 	// Block until replay notification accepted or cancelled.
 	select {
@@ -401,6 +429,20 @@ func (lp *logPoller) Replay(ctx context.Context, fromBlock int64) error {
 		go lp.recvReplayComplete()
 		return ErrReplayInProgress
 	}
+}
+
+// savedFinalizedBlockNumber returns the FinalizedBlockNumber saved with the last processed block in the db
+// (latestFinalizedBlock at the time the last processed block was saved)
+// If this is the first poll and no blocks are in the db, it returns 0
+func (lp *logPoller) savedFinalizedBlockNumber(ctx context.Context) (int64, error) {
+	latestProcessed, err := lp.LatestBlock(pg.WithParentCtx(ctx))
+	if err == nil {
+		return latestProcessed.FinalizedBlockNumber, nil
+	}
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, nil
+	}
+	return 0, err
 }
 
 func (lp *logPoller) recvReplayComplete() {
