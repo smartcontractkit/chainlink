@@ -301,9 +301,11 @@ type BytesRepresentable interface {
 }
 
 // sortByteArrays can sort a slice of byte arrays (eg common.Address or common.Hash)
-// by comparing bytes.  It will also remove any duplicate entries found
-func sortByteArrays[T BytesRepresentable](vals []T) []T {
+// by comparing bytes.  It will also remove any duplicate entries found, and
+// ensure that what's returned is a copy rather than the original
+func sortDeDupByteArrays[T BytesRepresentable](vals []T) (sorted []T) {
 	if len(vals) <= 1 {
+		copy(sorted, vals)
 		return vals
 	}
 
@@ -314,7 +316,7 @@ func sortByteArrays[T BytesRepresentable](vals []T) []T {
 	})
 
 	res := []T{vals[0]}
-	for _, val := range vals {
+	for _, val := range vals { // de-dupe
 		if !bytes.Equal(val.Bytes(), res[len(res)-1].Bytes()) {
 			res = append(res, val)
 		}
@@ -359,11 +361,11 @@ func (lp *logPoller) RegisterFilter(ctx context.Context, filter Filter) error {
 	}
 
 	// Sort all of these, to speed up comparisons between topics & addresses of different filters
-	filter.Addresses = sortByteArrays(filter.Addresses)
-	filter.EventSigs = sortByteArrays(filter.EventSigs)
-	filter.Topic2 = sortByteArrays(filter.Topic2)
-	filter.Topic3 = sortByteArrays(filter.Topic3)
-	filter.Topic4 = sortByteArrays(filter.Topic4)
+	filter.Addresses = sortDeDupByteArrays(filter.Addresses)
+	filter.EventSigs = sortDeDupByteArrays(filter.EventSigs)
+	filter.Topic2 = sortDeDupByteArrays(filter.Topic2)
+	filter.Topic3 = sortDeDupByteArrays(filter.Topic3)
+	filter.Topic4 = sortDeDupByteArrays(filter.Topic4)
 
 	lp.filtersMu.Lock()
 	defer lp.filtersMu.Unlock()
@@ -1519,6 +1521,19 @@ func (lp *logPoller) EthGetLogsReqs(fromBlock, toBlock *big.Int, blockHash *comm
 	return reqs
 }
 
+// The topics passed into RegisterFilter are 2D slices backed by arrays that the
+// caller could change at any time. We must have our own deep copy that's
+// immutable and thread safe. Similarly, we don't want to pass our mutex-protected
+// copy down the stack while sending batch requests and waiting for responses
+func copyTopics(topics [][]common.Hash) (clone [][]common.Hash) {
+	clone = make([][]common.Hash, len(topics))
+	for i, topic := range topics {
+		clone[i] = make([]common.Hash, len(topic))
+		copy(clone[i], topics[i])
+	}
+	return clone
+}
+
 // ethGetLogsReqs generates a batched rpc reqs for all logs matching registered filters,
 // copying cached reqs and filling in block range/hash if none of the registered filters have changed
 func (lp *logPoller) ethGetLogsReqs(fromBlock, toBlock *big.Int, blockHash *common.Hash) []rpc.BatchElem {
@@ -1533,15 +1548,20 @@ func (lp *logPoller) ethGetLogsReqs(fromBlock, toBlock *big.Int, blockHash *comm
 		// First, remove any reqs corresponding to removed filters
 		// Some of them we may still need, they will be rebuilt on the next pass
 		for _, filter := range lp.removedFilters {
+			lp.lggr.Debugf("handling removedFilter %v", filter.Name)
 			eventsTopicsKeys[filter.Name] = makeEventsTopicsKey(filter)
 			deletedEventsTopicsKeys[eventsTopicsKeys[filter.Name]] = struct{}{}
 			delete(lp.cachedReqsByEventsTopicsKey, eventsTopicsKeys[filter.Name])
+			lp.lggr.Debugf("Deleted eventsTopicsKey from cache for filter with address %v event sig %v", filter.Addresses[0], filter.EventSigs[0])
 			for _, address := range filter.Addresses {
 				deletedAddresses[address] = struct{}{}
 				delete(lp.cachedReqsByAddress, address)
+				lp.lggr.Debugf("Deleted address %v from cache for filter with event sig %v", address, filter.EventSigs[0])
 			}
 		}
 		lp.removedFilters = nil
+
+		lp.lggr.Debugf("Deleted EventTopicKeys: %v", maps.Keys(deletedEventsTopicsKeys))
 
 		// Merge/add any new filters.
 		for _, filter := range lp.filters {
@@ -1572,6 +1592,7 @@ func (lp *logPoller) ethGetLogsReqs(fromBlock, toBlock *big.Int, blockHash *comm
 
 			if req, ok2 := lp.cachedReqsByEventsTopicsKey[eventsTopicsKey]; ok2 {
 				// merge this filter with other filters with the same events and topics lists
+				lp.lggr.Debugf("Merging addressees %v into rec %v", filter.Addresses, req)
 				mergeAddressesIntoGetLogsReq(req, filter.Addresses)
 				continue
 			}
@@ -1587,10 +1608,12 @@ func (lp *logPoller) ethGetLogsReqs(fromBlock, toBlock *big.Int, blockHash *comm
 					for i, req := range reqsForAddress {
 						topics := req.Topics()
 						if isTopicsSubset(newTopics, topics) {
+							lp.lggr.Debugf("Skipping topics %v because subset of topics %v", newTopics, topics)
 							// Already covered by existing req
 							break
 						} else if isTopicsSubset(topics, newTopics) {
 							// Replace existing req by new req which includes it
+							lp.lggr.Debugf("Replacing topics %v with newTopics %v because subset of newTopics", topics, newTopics)
 							reqsForAddress[i] = NewGetLogsReq(filter)
 							lp.cachedReqsByAddress[addr] = reqsForAddress
 							break
@@ -1622,11 +1645,7 @@ func (lp *logPoller) ethGetLogsReqs(fromBlock, toBlock *big.Int, blockHash *comm
 	for _, req := range lp.cachedReqsByEventsTopicsKey {
 		addresses := make([]common.Address, len(req.Addresses()))
 		copy(addresses, req.Addresses())
-		topics := make([][]common.Hash, len(req.Topics()))
-		for i, topic := range req.Topics() {
-			topics[i] = make([]common.Hash, len(topic))
-			copy(topics[i], topic)
-		}
+		topics := copyTopics(req.Topics())
 
 		params := maps.Clone(blockParams)
 		params["address"] = addresses
