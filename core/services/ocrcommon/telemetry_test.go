@@ -19,11 +19,11 @@ import (
 	mercuryv1 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v1"
 	mercuryv2 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v2"
 
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization/mocks"
@@ -126,7 +126,7 @@ func TestGetContract(t *testing.T) {
 		job:  &j,
 		lggr: nil,
 	}
-	contractAddress := ethkey.EIP55Address(utils.RandomAddress().String())
+	contractAddress := evmtypes.EIP55Address(utils.RandomAddress().String())
 
 	j.Type = job.Type(pipeline.OffchainReportingJobType)
 	j.OCROracleSpec.ContractAddress = contractAddress
@@ -208,7 +208,7 @@ func TestSendEATelemetry(t *testing.T) {
 	jb := job.Job{
 		Type: job.Type(pipeline.OffchainReportingJobType),
 		OCROracleSpec: &job.OCROracleSpec{
-			ContractAddress:    ethkey.EIP55AddressFromAddress(feedAddress),
+			ContractAddress:    evmtypes.EIP55AddressFromAddress(feedAddress),
 			CaptureEATelemetry: true,
 			EVMChainID:         (*ubig.Big)(big.NewInt(9)),
 		},

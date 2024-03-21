@@ -155,7 +155,7 @@ func TestBlockSubscriber_InitializeBlocks(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.Name, func(t *testing.T) {
 			lp := new(mocks.LogPoller)
-			lp.On("GetBlocksRange", mock.Anything, tc.Blocks, mock.Anything).Return(tc.PollerBlocks, tc.Error)
+			lp.On("GetBlocksRange", mock.Anything, tc.Blocks).Return(tc.PollerBlocks, tc.Error)
 			bs := NewBlockSubscriber(hb, lp, finality, lggr)
 			bs.blockHistorySize = historySize
 			bs.blockSize = blockSize
@@ -299,7 +299,7 @@ func TestBlockSubscriber_Start(t *testing.T) {
 		},
 	}
 
-	lp.On("GetBlocksRange", mock.Anything, blocks, mock.Anything).Return(pollerBlocks, nil)
+	lp.On("GetBlocksRange", mock.Anything, blocks).Return(pollerBlocks, nil)
 
 	bs := NewBlockSubscriber(hb, lp, finality, lggr)
 	bs.blockHistorySize = historySize

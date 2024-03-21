@@ -23,11 +23,9 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 	cltypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_compatible_utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_consumer_benchmark"
 	registrar21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_registrar_wrapper2_1"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_registry_wrapper_2_2"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_registry_master_wrapper_2_2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_chain_module"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
@@ -39,7 +37,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_3"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
-	registry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_triggered_streams_lookup_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_upkeep_counter_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/perform_data_checker_wrapper"
@@ -50,8 +47,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_transcoder"
 )
 
-var utilsABI21 = cltypes.MustGetABI(automation_utils_2_1.AutomationUtilsABI)
-var utilsABI22 = cltypes.MustGetABI(automation_utils_2_2.AutomationUtilsABI)
+var compatibleUtils = cltypes.MustGetABI(ac.AutomationCompatibleUtilsABI)
 var registrarABI = cltypes.MustGetABI(registrar21.AutomationRegistrarABI)
 
 type KeeperRegistrar interface {
@@ -70,6 +66,7 @@ type KeeperRegistry interface {
 	Address() string
 	Fund(ethAmount *big.Float) error
 	SetConfig(config KeeperRegistrySettings, ocrConfig OCRv2Config) error
+	SetConfigTypeSafe(ocrConfig OCRv2Config) error
 	SetRegistrar(registrarAddr string) error
 	AddUpkeepFunds(id *big.Int, amount *big.Int) error
 	GetUpkeepInfo(ctx context.Context, id *big.Int) (*UpkeepInfo, error)
@@ -250,54 +247,8 @@ func (v *EthereumKeeperRegistry) Fund(ethAmount *big.Float) error {
 	return v.client.Fund(v.address.Hex(), ethAmount, gasEstimates)
 }
 
-func (rcs *KeeperRegistrySettings) EncodeOnChainConfig(registrar string, registryOwnerAddress, chainModuleAddress common.Address, reorgProtectionEnabled bool) ([]byte, error) {
-	if rcs.RegistryVersion == ethereum.RegistryVersion_2_1 {
-		onchainConfigStruct := registry21.KeeperRegistryBase21OnchainConfig{
-			PaymentPremiumPPB:      rcs.PaymentPremiumPPB,
-			FlatFeeMicroLink:       rcs.FlatFeeMicroLINK,
-			CheckGasLimit:          rcs.CheckGasLimit,
-			StalenessSeconds:       rcs.StalenessSeconds,
-			GasCeilingMultiplier:   rcs.GasCeilingMultiplier,
-			MinUpkeepSpend:         rcs.MinUpkeepSpend,
-			MaxPerformGas:          rcs.MaxPerformGas,
-			MaxCheckDataSize:       rcs.MaxCheckDataSize,
-			MaxPerformDataSize:     rcs.MaxPerformDataSize,
-			MaxRevertDataSize:      uint32(1000),
-			FallbackGasPrice:       rcs.FallbackGasPrice,
-			FallbackLinkPrice:      rcs.FallbackLinkPrice,
-			Transcoder:             common.Address{},
-			Registrars:             []common.Address{common.HexToAddress(registrar)},
-			UpkeepPrivilegeManager: registryOwnerAddress,
-		}
-
-		encodedOnchainConfig, err := utilsABI21.Methods["_onChainConfig"].Inputs.Pack(&onchainConfigStruct)
-
-		return encodedOnchainConfig, err
-	} else if rcs.RegistryVersion == ethereum.RegistryVersion_2_2 {
-		return rcs.encode22OnchainConfig(registrar, registryOwnerAddress, chainModuleAddress, reorgProtectionEnabled)
-	}
-	configType := goabi.MustNewType("tuple(uint32 paymentPremiumPPB,uint32 flatFeeMicroLink,uint32 checkGasLimit,uint24 stalenessSeconds,uint16 gasCeilingMultiplier,uint96 minUpkeepSpend,uint32 maxPerformGas,uint32 maxCheckDataSize,uint32 maxPerformDataSize,uint256 fallbackGasPrice,uint256 fallbackLinkPrice,address transcoder,address registrar)")
-	onchainConfig, err := goabi.Encode(map[string]interface{}{
-		"paymentPremiumPPB":    rcs.PaymentPremiumPPB,
-		"flatFeeMicroLink":     rcs.FlatFeeMicroLINK,
-		"checkGasLimit":        rcs.CheckGasLimit,
-		"stalenessSeconds":     rcs.StalenessSeconds,
-		"gasCeilingMultiplier": rcs.GasCeilingMultiplier,
-		"minUpkeepSpend":       rcs.MinUpkeepSpend,
-		"maxPerformGas":        rcs.MaxPerformGas,
-		"maxCheckDataSize":     rcs.MaxCheckDataSize,
-		"maxPerformDataSize":   rcs.MaxPerformDataSize,
-		"fallbackGasPrice":     rcs.FallbackGasPrice,
-		"fallbackLinkPrice":    rcs.FallbackLinkPrice,
-		"transcoder":           common.Address{},
-		"registrar":            registrar,
-	}, configType)
-	return onchainConfig, err
-
-}
-
-func (rcs *KeeperRegistrySettings) encode22OnchainConfig(registrar string, registryOwnerAddress, chainModuleAddr common.Address, reorgProtectionEnabled bool) ([]byte, error) {
-	onchainConfigStruct := automation_registry_wrapper_2_2.AutomationRegistryBase22OnchainConfig{
+func (rcs *KeeperRegistrySettings) Create22OnchainConfig(registrar string, registryOwnerAddress, chainModuleAddress common.Address, reorgProtectionEnabled bool) i_automation_registry_master_wrapper_2_2.AutomationRegistryBase22OnchainConfig {
+	return i_automation_registry_master_wrapper_2_2.AutomationRegistryBase22OnchainConfig{
 		PaymentPremiumPPB:      rcs.PaymentPremiumPPB,
 		FlatFeeMicroLink:       rcs.FlatFeeMicroLINK,
 		CheckGasLimit:          rcs.CheckGasLimit,
@@ -313,13 +264,49 @@ func (rcs *KeeperRegistrySettings) encode22OnchainConfig(registrar string, regis
 		Transcoder:             common.Address{},
 		Registrars:             []common.Address{common.HexToAddress(registrar)},
 		UpkeepPrivilegeManager: registryOwnerAddress,
-		ChainModule:            chainModuleAddr,
+		ChainModule:            chainModuleAddress,
 		ReorgProtectionEnabled: reorgProtectionEnabled,
 	}
+}
 
-	encodedOnchainConfig, err := utilsABI22.Methods["_onChainConfig"].Inputs.Pack(&onchainConfigStruct)
+func (rcs *KeeperRegistrySettings) Create21OnchainConfig(registrar string, registryOwnerAddress common.Address) i_keeper_registry_master_wrapper_2_1.IAutomationV21PlusCommonOnchainConfigLegacy {
+	return i_keeper_registry_master_wrapper_2_1.IAutomationV21PlusCommonOnchainConfigLegacy{
+		PaymentPremiumPPB:      rcs.PaymentPremiumPPB,
+		FlatFeeMicroLink:       rcs.FlatFeeMicroLINK,
+		CheckGasLimit:          rcs.CheckGasLimit,
+		StalenessSeconds:       rcs.StalenessSeconds,
+		GasCeilingMultiplier:   rcs.GasCeilingMultiplier,
+		MinUpkeepSpend:         rcs.MinUpkeepSpend,
+		MaxPerformGas:          rcs.MaxPerformGas,
+		MaxCheckDataSize:       rcs.MaxCheckDataSize,
+		MaxPerformDataSize:     rcs.MaxPerformDataSize,
+		MaxRevertDataSize:      uint32(1000),
+		FallbackGasPrice:       rcs.FallbackGasPrice,
+		FallbackLinkPrice:      rcs.FallbackLinkPrice,
+		Transcoder:             common.Address{},
+		Registrars:             []common.Address{common.HexToAddress(registrar)},
+		UpkeepPrivilegeManager: registryOwnerAddress,
+	}
+}
 
-	return encodedOnchainConfig, err
+func (rcs *KeeperRegistrySettings) Encode20OnchainConfig(registrar string) []byte {
+	configType := goabi.MustNewType("tuple(uint32 paymentPremiumPPB,uint32 flatFeeMicroLink,uint32 checkGasLimit,uint24 stalenessSeconds,uint16 gasCeilingMultiplier,uint96 minUpkeepSpend,uint32 maxPerformGas,uint32 maxCheckDataSize,uint32 maxPerformDataSize,uint256 fallbackGasPrice,uint256 fallbackLinkPrice,address transcoder,address registrar)")
+	onchainConfig, _ := goabi.Encode(map[string]interface{}{
+		"paymentPremiumPPB":    rcs.PaymentPremiumPPB,
+		"flatFeeMicroLink":     rcs.FlatFeeMicroLINK,
+		"checkGasLimit":        rcs.CheckGasLimit,
+		"stalenessSeconds":     rcs.StalenessSeconds,
+		"gasCeilingMultiplier": rcs.GasCeilingMultiplier,
+		"minUpkeepSpend":       rcs.MinUpkeepSpend,
+		"maxPerformGas":        rcs.MaxPerformGas,
+		"maxCheckDataSize":     rcs.MaxCheckDataSize,
+		"maxPerformDataSize":   rcs.MaxPerformDataSize,
+		"fallbackGasPrice":     rcs.FallbackGasPrice,
+		"fallbackLinkPrice":    rcs.FallbackLinkPrice,
+		"transcoder":           common.Address{},
+		"registrar":            registrar,
+	}, configType)
+	return onchainConfig
 }
 
 func (v *EthereumKeeperRegistry) RegistryOwnerAddress() common.Address {
@@ -343,6 +330,44 @@ func (v *EthereumKeeperRegistry) RegistryOwnerAddress() common.Address {
 	}
 
 	return common.HexToAddress(v.client.GetDefaultWallet().Address())
+}
+
+func (v *EthereumKeeperRegistry) SetConfigTypeSafe(ocrConfig OCRv2Config) error {
+	txOpts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+
+	switch v.version {
+	case ethereum.RegistryVersion_2_1:
+		tx, err := v.registry2_1.SetConfigTypeSafe(txOpts,
+			ocrConfig.Signers,
+			ocrConfig.Transmitters,
+			ocrConfig.F,
+			ocrConfig.TypedOnchainConfig21,
+			ocrConfig.OffchainConfigVersion,
+			ocrConfig.OffchainConfig,
+		)
+		if err != nil {
+			return err
+		}
+		return v.client.ProcessTransaction(tx)
+	case ethereum.RegistryVersion_2_2:
+		tx, err := v.registry2_2.SetConfigTypeSafe(txOpts,
+			ocrConfig.Signers,
+			ocrConfig.Transmitters,
+			ocrConfig.F,
+			ocrConfig.TypedOnchainConfig22,
+			ocrConfig.OffchainConfigVersion,
+			ocrConfig.OffchainConfig,
+		)
+		if err != nil {
+			return err
+		}
+		return v.client.ProcessTransaction(tx)
+	default:
+		return fmt.Errorf("SetConfigTypeSafe is not supported in keeper registry version %d", v.version)
+	}
 }
 
 func (v *EthereumKeeperRegistry) SetConfig(config KeeperRegistrySettings, ocrConfig OCRv2Config) error {
@@ -434,39 +459,11 @@ func (v *EthereumKeeperRegistry) SetConfig(config KeeperRegistrySettings, ocrCon
 			return err
 		}
 		return v.client.ProcessTransaction(tx)
-	case ethereum.RegistryVersion_2_1:
-		tx, err := v.registry2_1.SetConfig(txOpts,
-			ocrConfig.Signers,
-			ocrConfig.Transmitters,
-			ocrConfig.F,
-			ocrConfig.OnchainConfig,
-			ocrConfig.OffchainConfigVersion,
-			ocrConfig.OffchainConfig,
-		)
-		if err != nil {
-			return err
-		}
-		return v.client.ProcessTransaction(tx)
-	case ethereum.RegistryVersion_2_2:
-		return v.setConfig22(txOpts, ocrConfig)
+	case ethereum.RegistryVersion_2_1, ethereum.RegistryVersion_2_2:
+		return fmt.Errorf("registry version 2.1 and 2.2 must use setConfigTypeSafe function")
+	default:
+		return fmt.Errorf("keeper registry version %d is not supported", v.version)
 	}
-
-	return fmt.Errorf("keeper registry version %d is not supported", v.version)
-}
-
-func (v *EthereumKeeperRegistry) setConfig22(txOpts *bind.TransactOpts, ocrConfig OCRv2Config) error {
-	tx, err := v.registry2_2.SetConfig(txOpts,
-		ocrConfig.Signers,
-		ocrConfig.Transmitters,
-		ocrConfig.F,
-		ocrConfig.OnchainConfig,
-		ocrConfig.OffchainConfigVersion,
-		ocrConfig.OffchainConfig,
-	)
-	if err != nil {
-		return err
-	}
-	return v.client.ProcessTransaction(tx)
 }
 
 // Pause pauses the registry.
@@ -2242,7 +2239,7 @@ func (v *EthereumKeeperRegistrar) EncodeRegisterRequest(name string, email []byt
 				}
 			}
 
-			logTriggerConfigStruct := automation_utils_2_1.LogTriggerConfig{
+			logTriggerConfigStruct := ac.IAutomationV21PlusCommonLogTriggerConfig{
 				ContractAddress: common.HexToAddress(upkeepAddr),
 				FilterSelector:  0,
 				Topic0:          topic0InBytes,
@@ -2250,7 +2247,7 @@ func (v *EthereumKeeperRegistrar) EncodeRegisterRequest(name string, email []byt
 				Topic2:          bytes0,
 				Topic3:          bytes0,
 			}
-			encodedLogTriggerConfig, err := utilsABI21.Methods["_logTriggerConfig"].Inputs.Pack(&logTriggerConfigStruct)
+			encodedLogTriggerConfig, err := compatibleUtils.Methods["_logTriggerConfig"].Inputs.Pack(&logTriggerConfigStruct)
 			if err != nil {
 				return nil, err
 			}

@@ -5,6 +5,7 @@
 import { AutomationRegistry2_3__factory as Registry } from '../typechain/factories/AutomationRegistry2_3__factory'
 import { AutomationRegistryLogicA2_3__factory as RegistryLogicA } from '../typechain/factories/AutomationRegistryLogicA2_3__factory'
 import { AutomationRegistryLogicB2_3__factory as RegistryLogicB } from '../typechain/factories/AutomationRegistryLogicB2_3__factory'
+import { AutomationRegistryLogicC2_3__factory as RegistryLogicC } from '../typechain/factories/AutomationRegistryLogicC2_3__factory'
 import { utils } from 'ethers'
 import fs from 'fs'
 import { exec } from 'child_process'
@@ -15,7 +16,12 @@ const tmpDest = `${dest}/tmp.txt`
 
 const combinedABI = []
 const abiSet = new Set()
-const abis = [Registry.abi, RegistryLogicA.abi, RegistryLogicB.abi]
+const abis = [
+  Registry.abi,
+  RegistryLogicA.abi,
+  RegistryLogicB.abi,
+  RegistryLogicC.abi,
+]
 
 for (const abi of abis) {
   for (const entry of abi) {

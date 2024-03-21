@@ -37,30 +37,28 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
+	lp_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/log_poller"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	cltypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
+	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_compatible_utils"
 	le "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_emitter"
 	core_logger "github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-
-	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
-	lp_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/log_poller"
 )
 
 var (
-	EmitterABI, _      = abi.JSON(strings.NewReader(le.LogEmitterABI))
-	automationUtilsABI = cltypes.MustGetABI(automation_utils_2_1.AutomationUtilsABI)
-	bytes0             = [32]byte{
+	EmitterABI, _     = abi.JSON(strings.NewReader(le.LogEmitterABI))
+	automatoinConvABI = cltypes.MustGetABI(ac.AutomationCompatibleUtilsABI)
+	bytes0            = [32]byte{
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 	} // bytes representation of 0x0000000000000000000000000000000000000000000000000000000000000000
 
 )
 
 var registerSingleTopicFilter = func(registry contracts.KeeperRegistry, upkeepID *big.Int, emitterAddress common.Address, topic common.Hash) error {
-	logTriggerConfigStruct := automation_utils_2_1.LogTriggerConfig{
+	logTriggerConfigStruct := ac.IAutomationV21PlusCommonLogTriggerConfig{
 		ContractAddress: emitterAddress,
 		FilterSelector:  0,
 		Topic0:          topic,
@@ -68,7 +66,7 @@ var registerSingleTopicFilter = func(registry contracts.KeeperRegistry, upkeepID
 		Topic2:          bytes0,
 		Topic3:          bytes0,
 	}
-	encodedLogTriggerConfig, err := automationUtilsABI.Methods["_logTriggerConfig"].Inputs.Pack(&logTriggerConfigStruct)
+	encodedLogTriggerConfig, err := automatoinConvABI.Methods["_logTriggerConfig"].Inputs.Pack(&logTriggerConfigStruct)
 	if err != nil {
 		return err
 	}
@@ -118,7 +116,7 @@ var registerSingleTopicFilter = func(registry contracts.KeeperRegistry, upkeepID
 // 		return err
 // 	}
 
-// 	logTriggerConfigStruct := automation_utils_2_1.LogTriggerConfig{
+// 	logTriggerConfigStruct := automation_convenience.LogTriggerConfig{
 // 		ContractAddress: emitterAddress,
 // 		FilterSelector:  filterSelector,
 // 		Topic0:          getTopic(topics, 0),
@@ -126,7 +124,7 @@ var registerSingleTopicFilter = func(registry contracts.KeeperRegistry, upkeepID
 // 		Topic2:          getTopic(topics, 2),
 // 		Topic3:          getTopic(topics, 3),
 // 	}
-// 	encodedLogTriggerConfig, err := automationUtilsABI.Methods["_logTriggerConfig"].Inputs.Pack(&logTriggerConfigStruct)
+// 	encodedLogTriggerConfig, err := automatoinConvABI.Methods["_logTriggerConfig"].Inputs.Pack(&logTriggerConfigStruct)
 // 	if err != nil {
 // 		return err
 // 	}
@@ -139,8 +137,8 @@ var registerSingleTopicFilter = func(registry contracts.KeeperRegistry, upkeepID
 // 	return nil
 // }
 
-// NewOrm returns a new logpoller.DbORM instance
-func NewOrm(logger core_logger.SugaredLogger, chainID *big.Int, postgresDb *ctf_test_env.PostgresDb) (*logpoller.DbORM, *sqlx.DB, error) {
+// NewORM returns a new logpoller.orm instance
+func NewORM(logger core_logger.SugaredLogger, chainID *big.Int, postgresDb *ctf_test_env.PostgresDb) (logpoller.ORM, *sqlx.DB, error) {
 	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", "127.0.0.1", postgresDb.ExternalPort, postgresDb.User, postgresDb.Password, postgresDb.DbName)
 	db, err := sqlx.Open("postgres", dsn)
 	if err != nil {
@@ -148,7 +146,7 @@ func NewOrm(logger core_logger.SugaredLogger, chainID *big.Int, postgresDb *ctf_
 	}
 
 	db.MapperFunc(reflectx.CamelToSnakeASCII)
-	return logpoller.NewORM(chainID, db, logger, pg.NewQConfig(false)), db, nil
+	return logpoller.NewORM(chainID, db, logger), db, nil
 }
 
 type ExpectedFilter struct {
@@ -172,14 +170,14 @@ func GetExpectedFilters(logEmitters []*contracts.LogEmitter, cfg *lp_config.Conf
 }
 
 // NodeHasExpectedFilters returns true if the provided node has all the expected filters registered
-func NodeHasExpectedFilters(expectedFilters []ExpectedFilter, logger core_logger.SugaredLogger, chainID *big.Int, postgresDb *ctf_test_env.PostgresDb) (bool, string, error) {
-	orm, db, err := NewOrm(logger, chainID, postgresDb)
+func NodeHasExpectedFilters(ctx context.Context, expectedFilters []ExpectedFilter, logger core_logger.SugaredLogger, chainID *big.Int, postgresDb *ctf_test_env.PostgresDb) (bool, string, error) {
+	orm, db, err := NewORM(logger, chainID, postgresDb)
 	if err != nil {
 		return false, "", err
 	}
 
 	defer db.Close()
-	knownFilters, err := orm.LoadFilters()
+	knownFilters, err := orm.LoadFilters(ctx)
 	if err != nil {
 		return false, "", err
 	}
@@ -308,7 +306,7 @@ func LogPollerHasFinalisedEndBlock(endBlock int64, chainID *big.Int, l zerolog.L
 			case <-ctx.Done():
 				return
 			default:
-				orm, db, err := NewOrm(coreLogger, chainID, clNode.PostgresDb)
+				orm, db, err := NewORM(coreLogger, chainID, clNode.PostgresDb)
 				if err != nil {
 					r <- boolQueryResult{
 						nodeName:     clNode.ContainerName,
@@ -319,7 +317,7 @@ func LogPollerHasFinalisedEndBlock(endBlock int64, chainID *big.Int, l zerolog.L
 
 				defer db.Close()
 
-				latestBlock, err := orm.SelectLatestBlock()
+				latestBlock, err := orm.SelectLatestBlock(ctx)
 				if err != nil {
 					r <- boolQueryResult{
 						nodeName:     clNode.ContainerName,
@@ -402,7 +400,7 @@ func ClNodesHaveExpectedLogCount(startBlock, endBlock int64, chainID *big.Int, e
 			case <-ctx.Done():
 				return
 			default:
-				orm, db, err := NewOrm(coreLogger, chainID, clNode.PostgresDb)
+				orm, db, err := NewORM(coreLogger, chainID, clNode.PostgresDb)
 				if err != nil {
 					resultChan <- logQueryResult{
 						nodeName:         clNode.ContainerName,
@@ -416,7 +414,7 @@ func ClNodesHaveExpectedLogCount(startBlock, endBlock int64, chainID *big.Int, e
 				foundLogsCount := 0
 
 				for _, filter := range expectedFilters {
-					logs, err := orm.SelectLogs(startBlock, endBlock, filter.emitterAddress, filter.topic)
+					logs, err := orm.SelectLogs(ctx, startBlock, endBlock, filter.emitterAddress, filter.topic)
 					if err != nil {
 						resultChan <- logQueryResult{
 							nodeName:         clNode.ContainerName,
@@ -525,7 +523,7 @@ func GetMissingLogs(startBlock, endBlock int64, logEmitters []*contracts.LogEmit
 				nodeName := clnodeCluster.Nodes[i].ContainerName
 
 				l.Debug().Str("Node name", nodeName).Msg("Fetching log poller logs")
-				orm, db, err := NewOrm(coreLogger, evmClient.GetChainID(), clnodeCluster.Nodes[i].PostgresDb)
+				orm, db, err := NewORM(coreLogger, evmClient.GetChainID(), clnodeCluster.Nodes[i].PostgresDb)
 				if err != nil {
 					r <- dbQueryResult{
 						err:      err,
@@ -542,7 +540,7 @@ func GetMissingLogs(startBlock, endBlock int64, logEmitters []*contracts.LogEmit
 
 					for _, event := range cfg.General.EventsToEmit {
 						l.Trace().Str("Event name", event.Name).Str("Emitter address", address.String()).Msg("Fetching single emitter's logs")
-						result, err := orm.SelectLogs(startBlock, endBlock, address, event.ID)
+						result, err := orm.SelectLogs(ctx, startBlock, endBlock, address, event.ID)
 						if err != nil {
 							r <- dbQueryResult{
 								err:      err,
@@ -596,7 +594,7 @@ func GetMissingLogs(startBlock, endBlock int64, logEmitters []*contracts.LogEmit
 		return nil, dbError
 	}
 
-	allLogsInEVMNode, err := getEVMLogs(startBlock, endBlock, logEmitters, evmClient, l, cfg)
+	allLogsInEVMNode, err := getEVMLogs(ctx, startBlock, endBlock, logEmitters, evmClient, l, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -724,13 +722,13 @@ func PrintMissingLogsInfo(missingLogs map[string][]geth_types.Log, l zerolog.Log
 
 // getEVMLogs returns a slice of all logs emitted by the provided log emitters in the provided block range,
 // which are present in the EVM node to which the provided evm client is connected
-func getEVMLogs(startBlock, endBlock int64, logEmitters []*contracts.LogEmitter, evmClient blockchain.EVMClient, l zerolog.Logger, cfg *lp_config.Config) ([]geth_types.Log, error) {
+func getEVMLogs(ctx context.Context, startBlock, endBlock int64, logEmitters []*contracts.LogEmitter, evmClient blockchain.EVMClient, l zerolog.Logger, cfg *lp_config.Config) ([]geth_types.Log, error) {
 	allLogsInEVMNode := make([]geth_types.Log, 0)
 	for j := 0; j < len(logEmitters); j++ {
 		address := (*logEmitters[j]).Address()
 		for _, event := range cfg.General.EventsToEmit {
 			l.Debug().Str("Event name", event.Name).Str("Emitter address", address.String()).Msg("Fetching logs from EVM node")
-			logsInEVMNode, err := evmClient.FilterLogs(context.Background(), geth.FilterQuery{
+			logsInEVMNode, err := evmClient.FilterLogs(ctx, geth.FilterQuery{
 				Addresses: []common.Address{(address)},
 				Topics:    [][]common.Hash{{event.ID}},
 				FromBlock: big.NewInt(startBlock),
@@ -1055,21 +1053,6 @@ var (
 		MaxCheckDataSize:     uint32(5000),
 		MaxPerformDataSize:   uint32(5000),
 	}
-
-	automationDefaultRegistryConfig = contracts.KeeperRegistrySettings{
-		PaymentPremiumPPB:    uint32(200000000),
-		FlatFeeMicroLINK:     uint32(0),
-		BlockCountPerTurn:    big.NewInt(10),
-		CheckGasLimit:        uint32(2500000),
-		StalenessSeconds:     big.NewInt(90000),
-		GasCeilingMultiplier: uint16(1),
-		MinUpkeepSpend:       big.NewInt(0),
-		MaxPerformGas:        uint32(5000000),
-		FallbackGasPrice:     big.NewInt(2e11),
-		FallbackLinkPrice:    big.NewInt(2e18),
-		MaxCheckDataSize:     uint32(5000),
-		MaxPerformDataSize:   uint32(5000),
-	}
 )
 
 // SetupLogPollerTestDocker starts the DON and private Ethereum network
@@ -1132,22 +1115,13 @@ func SetupLogPollerTestDocker(
 		return network
 	}
 
-	ethBuilder := ctf_test_env.NewEthereumNetworkBuilder()
-	cfg, err := ethBuilder.
-		WithConsensusType(ctf_test_env.ConsensusType_PoS).
-		WithConsensusLayer(ctf_test_env.ConsensusLayer_Prysm).
-		WithExecutionLayer(ctf_test_env.ExecutionLayer_Geth).
-		WithEthereumChainConfig(ctf_test_env.EthereumChainConfig{
-			SecondsPerSlot: 4,
-			SlotsPerEpoch:  2,
-		}).
-		Build()
+	privateNetwork, err := actions.EthereumNetworkConfigFromConfig(l, testConfig)
 	require.NoError(t, err, "Error building ethereum network config")
 
 	env, err = test_env.NewCLTestEnvBuilder().
 		WithTestConfig(testConfig).
 		WithTestInstance(t).
-		WithPrivateEthereumNetwork(cfg).
+		WithPrivateEthereumNetwork(privateNetwork).
 		WithCLNodes(clNodesCount).
 		WithCLNodeConfig(clNodeConfig).
 		WithFunding(big.NewFloat(chainlinkNodeFunding)).
@@ -1205,7 +1179,7 @@ func SetupLogPollerTestDocker(
 	require.NoError(t, err, "Error creating OCR Keeper Jobs")
 	ocrConfig, err := actions.BuildAutoOCR2ConfigVarsLocal(l, workerNodes, registryConfig, registrar.Address(), 30*time.Second, registry.RegistryOwnerAddress(), registry.ChainModuleAddress(), registry.ReorgProtectionEnabled())
 	require.NoError(t, err, "Error building OCR config vars")
-	err = registry.SetConfig(automationDefaultRegistryConfig, ocrConfig)
+	err = registry.SetConfigTypeSafe(ocrConfig)
 	require.NoError(t, err, "Registry config should be set successfully")
 	require.NoError(t, env.EVMClient.WaitForEvents(), "Waiting for config to be set")
 

@@ -32,12 +32,10 @@ import (
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/types"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
-	cltypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
+	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_compatible_utils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury/streams"
 )
-
-var utilsABI21 = cltypes.MustGetABI(automation_utils_2_1.AutomationUtilsABI)
 
 const (
 	automationDefaultUpkeepGasLimit = uint32(2500000)
@@ -313,7 +311,7 @@ func TestSetUpkeepTriggerConfig(t *testing.T) {
 			for i := 0; i < len(consumers); i++ {
 				upkeepAddr := consumers[i].Address()
 
-				logTriggerConfigStruct := automation_utils_2_1.LogTriggerConfig{
+				logTriggerConfigStruct := ac.IAutomationV21PlusCommonLogTriggerConfig{
 					ContractAddress: common.HexToAddress(upkeepAddr),
 					FilterSelector:  0,
 					Topic0:          topic0InBytesNoMatch,
@@ -321,7 +319,7 @@ func TestSetUpkeepTriggerConfig(t *testing.T) {
 					Topic2:          bytes0,
 					Topic3:          bytes0,
 				}
-				encodedLogTriggerConfig, err := utilsABI21.Methods["_logTriggerConfig"].Inputs.Pack(&logTriggerConfigStruct)
+				encodedLogTriggerConfig, err := core.CompatibleUtilsABI.Methods["_logTriggerConfig"].Inputs.Pack(&logTriggerConfigStruct)
 				if err != nil {
 					return
 				}
@@ -361,7 +359,7 @@ func TestSetUpkeepTriggerConfig(t *testing.T) {
 			for i := 0; i < len(consumers); i++ {
 				upkeepAddr := consumers[i].Address()
 
-				logTriggerConfigStruct := automation_utils_2_1.LogTriggerConfig{
+				logTriggerConfigStruct := ac.IAutomationV21PlusCommonLogTriggerConfig{
 					ContractAddress: common.HexToAddress(upkeepAddr),
 					FilterSelector:  0,
 					Topic0:          topic0InBytesMatch,
@@ -369,7 +367,7 @@ func TestSetUpkeepTriggerConfig(t *testing.T) {
 					Topic2:          bytes0,
 					Topic3:          bytes0,
 				}
-				encodedLogTriggerConfig, err := utilsABI21.Methods["_logTriggerConfig"].Inputs.Pack(&logTriggerConfigStruct)
+				encodedLogTriggerConfig, err := core.CompatibleUtilsABI.Methods["_logTriggerConfig"].Inputs.Pack(&logTriggerConfigStruct)
 				if err != nil {
 					return
 				}
@@ -1021,7 +1019,11 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 			ocrConfig, err := actions.BuildAutoOCR2ConfigVarsLocal(l, nodesWithoutBootstrap, highCheckGasLimit, a.Registrar.Address(), 30*time.Second, a.Registry.RegistryOwnerAddress(), a.Registry.ChainModuleAddress(), a.Registry.ReorgProtectionEnabled())
 			require.NoError(t, err, "Error building OCR config")
 
-			err = a.Registry.SetConfig(highCheckGasLimit, ocrConfig)
+			if a.RegistrySettings.RegistryVersion == ethereum.RegistryVersion_2_0 {
+				err = a.Registry.SetConfig(highCheckGasLimit, ocrConfig)
+			} else {
+				err = a.Registry.SetConfigTypeSafe(ocrConfig)
+			}
 			require.NoError(t, err, "Registry config should be set successfully!")
 			err = a.ChainClient.WaitForEvents()
 			require.NoError(t, err, "Error waiting for set config tx")
@@ -1149,11 +1151,15 @@ func setupAutomationTestDocker(
 	require.NoError(t, err)
 	l.Debug().Msgf("Funding amount: %f", *automationTestConfig.GetCommonConfig().ChainlinkNodeFunding)
 	clNodesCount := 5
+
+	privateNetwork, err := actions.EthereumNetworkConfigFromConfig(l, automationTestConfig)
+	require.NoError(t, err, "Error building ethereum network config")
+
 	if isMercuryV02 || isMercuryV03 {
 		env, err = test_env.NewCLTestEnvBuilder().
 			WithTestInstance(t).
 			WithTestConfig(automationTestConfig).
-			WithGeth().
+			WithPrivateEthereumNetwork(privateNetwork).
 			WithMockAdapter().
 			WithFunding(big.NewFloat(*automationTestConfig.GetCommonConfig().ChainlinkNodeFunding)).
 			WithStandardCleanup().
@@ -1190,7 +1196,7 @@ func setupAutomationTestDocker(
 		env, err = test_env.NewCLTestEnvBuilder().
 			WithTestInstance(t).
 			WithTestConfig(automationTestConfig).
-			WithGeth().
+			WithPrivateEthereumNetwork(privateNetwork).
 			WithMockAdapter().
 			WithCLNodes(clNodesCount).
 			WithCLNodeConfig(clNodeConfig).

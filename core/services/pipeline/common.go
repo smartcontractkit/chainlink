@@ -71,6 +71,7 @@ type (
 		MaxRunDuration() time.Duration
 		ReaperInterval() time.Duration
 		ReaperThreshold() time.Duration
+		VerboseLogging() bool
 	}
 
 	BridgeConfig interface {
@@ -200,8 +201,8 @@ func (result FinalResult) SingularResult() (Result, error) {
 // TaskSpecID will always be non-zero
 type TaskRunResult struct {
 	ID         uuid.UUID
-	Task       Task
-	TaskRun    TaskRun
+	Task       Task    `json:"-"`
+	TaskRun    TaskRun `json:"-"`
 	Result     Result
 	Attempts   uint
 	CreatedAt  time.Time
