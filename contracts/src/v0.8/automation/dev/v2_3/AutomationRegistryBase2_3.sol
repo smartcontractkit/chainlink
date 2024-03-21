@@ -14,6 +14,7 @@ import {UpkeepFormat} from "../../interfaces/UpkeepTranscoderInterface.sol";
 import {IChainModule} from "../../interfaces/IChainModule.sol";
 import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 import {SafeCast} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/math/SafeCast.sol";
+import {IWrappedNative} from "../interfaces/v2_3/IWrappedNative.sol";
 
 /**
  * @notice Base Keeper Registry contract, contains shared logic between
@@ -73,6 +74,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   AggregatorV3Interface internal immutable i_fastGasFeed;
   address internal immutable i_automationForwarderLogic;
   address internal immutable i_allowedReadOnlyAddress;
+  IWrappedNative internal immutable i_wrappedNativeToken;
 
   /**
    * @dev - The storage is gas optimised for one and only one function - transmit. All the storage accessed in transmit
@@ -486,7 +488,8 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     address fastGasFeed,
     address automationForwarderLogic,
     address allowedReadOnlyAddress,
-    PayoutMode payoutMode
+    PayoutMode payoutMode,
+    address wrappedNativeTokenAddress
   ) ConfirmedOwner(msg.sender) {
     i_link = LinkTokenInterface(link);
     i_linkUSDFeed = AggregatorV3Interface(linkUSDFeed);
@@ -495,6 +498,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     i_automationForwarderLogic = automationForwarderLogic;
     i_allowedReadOnlyAddress = allowedReadOnlyAddress;
     s_payoutMode = payoutMode;
+    i_wrappedNativeToken = IWrappedNative(wrappedNativeTokenAddress);
     if (i_linkUSDFeed.decimals() != i_nativeUSDFeed.decimals()) {
       revert InvalidFeed();
     }
