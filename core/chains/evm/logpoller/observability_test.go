@@ -20,7 +20,6 @@ import (
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 func TestMultipleMetricsArePublished(t *testing.T) {
@@ -29,19 +28,19 @@ func TestMultipleMetricsArePublished(t *testing.T) {
 	t.Cleanup(func() { resetMetrics(*orm) })
 	require.Equal(t, 0, testutil.CollectAndCount(orm.queryDuration))
 
-	_, _ = orm.SelectIndexedLogs(common.Address{}, common.Hash{}, 1, []common.Hash{}, 1, pg.WithParentCtx(ctx))
-	_, _ = orm.SelectIndexedLogsByBlockRange(0, 1, common.Address{}, common.Hash{}, 1, []common.Hash{}, pg.WithParentCtx(ctx))
-	_, _ = orm.SelectIndexedLogsTopicGreaterThan(common.Address{}, common.Hash{}, 1, common.Hash{}, 1, pg.WithParentCtx(ctx))
-	_, _ = orm.SelectIndexedLogsTopicRange(common.Address{}, common.Hash{}, 1, common.Hash{}, common.Hash{}, 1, pg.WithParentCtx(ctx))
-	_, _ = orm.SelectIndexedLogsWithSigsExcluding(common.Hash{}, common.Hash{}, 1, common.Address{}, 0, 1, 1, pg.WithParentCtx(ctx))
-	_, _ = orm.SelectLogsDataWordRange(common.Address{}, common.Hash{}, 0, common.Hash{}, common.Hash{}, 1, pg.WithParentCtx(ctx))
-	_, _ = orm.SelectLogsDataWordGreaterThan(common.Address{}, common.Hash{}, 0, common.Hash{}, 1, pg.WithParentCtx(ctx))
-	_, _ = orm.SelectLogsCreatedAfter(common.Address{}, common.Hash{}, time.Now(), 0, pg.WithParentCtx(ctx))
-	_, _ = orm.SelectLatestLogByEventSigWithConfs(common.Hash{}, common.Address{}, 0, pg.WithParentCtx(ctx))
-	_, _ = orm.SelectLatestLogEventSigsAddrsWithConfs(0, []common.Address{{}}, []common.Hash{{}}, 1, pg.WithParentCtx(ctx))
-	_, _ = orm.SelectIndexedLogsCreatedAfter(common.Address{}, common.Hash{}, 1, []common.Hash{}, time.Now(), 0, pg.WithParentCtx(ctx))
-	_ = orm.InsertLogs([]Log{}, pg.WithParentCtx(ctx))
-	_ = orm.InsertLogsWithBlock([]Log{}, NewLogPollerBlock(common.Hash{}, 1, time.Now(), 0), pg.WithParentCtx(ctx))
+	_, _ = orm.SelectIndexedLogs(ctx, common.Address{}, common.Hash{}, 1, []common.Hash{}, 1)
+	_, _ = orm.SelectIndexedLogsByBlockRange(ctx, 0, 1, common.Address{}, common.Hash{}, 1, []common.Hash{})
+	_, _ = orm.SelectIndexedLogsTopicGreaterThan(ctx, common.Address{}, common.Hash{}, 1, common.Hash{}, 1)
+	_, _ = orm.SelectIndexedLogsTopicRange(ctx, common.Address{}, common.Hash{}, 1, common.Hash{}, common.Hash{}, 1)
+	_, _ = orm.SelectIndexedLogsWithSigsExcluding(ctx, common.Hash{}, common.Hash{}, 1, common.Address{}, 0, 1, 1)
+	_, _ = orm.SelectLogsDataWordRange(ctx, common.Address{}, common.Hash{}, 0, common.Hash{}, common.Hash{}, 1)
+	_, _ = orm.SelectLogsDataWordGreaterThan(ctx, common.Address{}, common.Hash{}, 0, common.Hash{}, 1)
+	_, _ = orm.SelectLogsCreatedAfter(ctx, common.Address{}, common.Hash{}, time.Now(), 0)
+	_, _ = orm.SelectLatestLogByEventSigWithConfs(ctx, common.Hash{}, common.Address{}, 0)
+	_, _ = orm.SelectLatestLogEventSigsAddrsWithConfs(ctx, 0, []common.Address{{}}, []common.Hash{{}}, 1)
+	_, _ = orm.SelectIndexedLogsCreatedAfter(ctx, common.Address{}, common.Hash{}, 1, []common.Hash{}, time.Now(), 0)
+	_ = orm.InsertLogs(ctx, []Log{})
+	_ = orm.InsertLogsWithBlock(ctx, []Log{}, NewLogPollerBlock(common.Hash{}, 1, time.Now(), 0))
 
 	require.Equal(t, 13, testutil.CollectAndCount(orm.queryDuration))
 	require.Equal(t, 10, testutil.CollectAndCount(orm.datasetSize))
@@ -53,7 +52,7 @@ func TestShouldPublishDurationInCaseOfError(t *testing.T) {
 	t.Cleanup(func() { resetMetrics(*orm) })
 	require.Equal(t, 0, testutil.CollectAndCount(orm.queryDuration))
 
-	_, err := orm.SelectLatestLogByEventSigWithConfs(common.Hash{}, common.Address{}, 0, pg.WithParentCtx(ctx))
+	_, err := orm.SelectLatestLogByEventSigWithConfs(ctx, common.Hash{}, common.Address{}, 0)
 	require.Error(t, err)
 
 	require.Equal(t, 1, testutil.CollectAndCount(orm.queryDuration))
@@ -100,25 +99,26 @@ func TestMetricsAreProperlyPopulatedForWrites(t *testing.T) {
 }
 
 func TestCountersAreProperlyPopulatedForWrites(t *testing.T) {
+	ctx := testutils.Context(t)
 	orm := createObservedORM(t, 420)
 	logs := generateRandomLogs(420, 20)
 
 	// First insert 10 logs
-	require.NoError(t, orm.InsertLogs(logs[:10]))
+	require.NoError(t, orm.InsertLogs(ctx, logs[:10]))
 	assert.Equal(t, float64(10), testutil.ToFloat64(orm.logsInserted.WithLabelValues("420")))
 
 	// Insert 5 more logs with block
-	require.NoError(t, orm.InsertLogsWithBlock(logs[10:15], NewLogPollerBlock(utils.RandomBytes32(), 10, time.Now(), 5)))
+	require.NoError(t, orm.InsertLogsWithBlock(ctx, logs[10:15], NewLogPollerBlock(utils.RandomBytes32(), 10, time.Now(), 5)))
 	assert.Equal(t, float64(15), testutil.ToFloat64(orm.logsInserted.WithLabelValues("420")))
 	assert.Equal(t, float64(1), testutil.ToFloat64(orm.blocksInserted.WithLabelValues("420")))
 
 	// Insert 5 more logs with block
-	require.NoError(t, orm.InsertLogsWithBlock(logs[15:], NewLogPollerBlock(utils.RandomBytes32(), 15, time.Now(), 5)))
+	require.NoError(t, orm.InsertLogsWithBlock(ctx, logs[15:], NewLogPollerBlock(utils.RandomBytes32(), 15, time.Now(), 5)))
 	assert.Equal(t, float64(20), testutil.ToFloat64(orm.logsInserted.WithLabelValues("420")))
 	assert.Equal(t, float64(2), testutil.ToFloat64(orm.blocksInserted.WithLabelValues("420")))
 
 	// Don't update counters in case of an error
-	require.Error(t, orm.InsertLogsWithBlock(logs, NewLogPollerBlock(utils.RandomBytes32(), 0, time.Now(), 0)))
+	require.Error(t, orm.InsertLogsWithBlock(ctx, logs, NewLogPollerBlock(utils.RandomBytes32(), 0, time.Now(), 0)))
 	assert.Equal(t, float64(20), testutil.ToFloat64(orm.logsInserted.WithLabelValues("420")))
 	assert.Equal(t, float64(2), testutil.ToFloat64(orm.blocksInserted.WithLabelValues("420")))
 }
@@ -146,9 +146,7 @@ func generateRandomLogs(chainId, count int) []Log {
 func createObservedORM(t *testing.T, chainId int64) *ObservedORM {
 	lggr, _ := logger.TestObserved(t, zapcore.ErrorLevel)
 	db := pgtest.NewSqlxDB(t)
-	return NewObservedORM(
-		big.NewInt(chainId), db, lggr, pgtest.NewQConfig(true),
-	)
+	return NewObservedORM(big.NewInt(chainId), db, lggr)
 }
 
 func resetMetrics(lp ObservedORM) {

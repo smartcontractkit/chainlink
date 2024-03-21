@@ -29,34 +29,19 @@ import {IVRFV2PlusWrapper} from "./interfaces/IVRFV2PlusWrapper.sol";
  * @dev fulfillment with the randomness result.
  */
 abstract contract VRFV2PlusWrapperConsumerBase {
-  error LINKAlreadySet();
   error OnlyVRFWrapperCanFulfill(address have, address want);
 
-  LinkTokenInterface internal s_linkToken;
+  LinkTokenInterface internal immutable i_linkToken;
   IVRFV2PlusWrapper public immutable i_vrfV2PlusWrapper;
 
   /**
-   * @param _link is the address of LinkToken
    * @param _vrfV2PlusWrapper is the address of the VRFV2Wrapper contract
    */
-  constructor(address _link, address _vrfV2PlusWrapper) {
-    if (_link != address(0)) {
-      s_linkToken = LinkTokenInterface(_link);
-    }
+  constructor(address _vrfV2PlusWrapper) {
+    IVRFV2PlusWrapper vrfV2PlusWrapper = IVRFV2PlusWrapper(_vrfV2PlusWrapper);
 
-    i_vrfV2PlusWrapper = IVRFV2PlusWrapper(_vrfV2PlusWrapper);
-  }
-
-  /**
-   * @notice setLinkToken changes the LINK token address.
-   * @param _link is the address of the new LINK token contract
-   */
-  function setLinkToken(address _link) external {
-    if (address(s_linkToken) != address(0)) {
-      revert LINKAlreadySet();
-    }
-
-    s_linkToken = LinkTokenInterface(_link);
+    i_linkToken = LinkTokenInterface(vrfV2PlusWrapper.link());
+    i_vrfV2PlusWrapper = vrfV2PlusWrapper;
   }
 
   /**
@@ -79,7 +64,7 @@ abstract contract VRFV2PlusWrapperConsumerBase {
     bytes memory extraArgs
   ) internal returns (uint256 requestId, uint256 reqPrice) {
     reqPrice = i_vrfV2PlusWrapper.calculateRequestPrice(_callbackGasLimit);
-    s_linkToken.transferAndCall(
+    i_linkToken.transferAndCall(
       address(i_vrfV2PlusWrapper),
       reqPrice,
       abi.encode(_callbackGasLimit, _requestConfirmations, _numWords, extraArgs)
@@ -131,6 +116,6 @@ abstract contract VRFV2PlusWrapperConsumerBase {
 
   /// @notice getLinkToken returns the link token contract
   function getLinkToken() public view returns (LinkTokenInterface) {
-    return s_linkToken;
+    return i_linkToken;
   }
 }
