@@ -6,7 +6,7 @@ toolchain go1.21.8
 
 require (
 	github.com/K-Phoen/grabana v0.22.1
-	github.com/smartcontractkit/chainlink/dashboard-lib v0.0.0-20240320194616-93762ccbd868
+	github.com/smartcontractkit/chainlink/dashboard-lib v0.0.0-20240321021731-dfb36dcf6354
 	github.com/smartcontractkit/wasp v0.4.6
 )
 
@@ -23,6 +23,8 @@ require (
 	golang.org/x/sys v0.15.0 // indirect
 )
 
+//replace github.com/smartcontractkit/chainlink/dashboard-lib => /Users/fahrenheit/GolandProjects/chainlink/dashboard-lib
+
 replace github.com/grafana/grafana-foundation-sdk/go => github.com/grafana/grafana-foundation-sdk/go v0.0.0-20240314112857-a7c9c6d0044c
 
 replace (
@@ -38,6 +40,4 @@ replace (
 	github.com/mwitkow/grpc-proxy => github.com/smartcontractkit/grpc-proxy v0.0.0-20230731113816-f1be6620749f
 
 	github.com/sercand/kuberesolver/v4 => github.com/sercand/kuberesolver/v5 v5.1.1
-
-//github.com/smartcontractkit/chainlink/dashboard-lib => /Users/fahrenheit/GolandProjects/chainlink/dashboard-lib
 )

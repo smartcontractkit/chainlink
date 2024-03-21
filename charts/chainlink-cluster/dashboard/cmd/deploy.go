@@ -64,7 +64,7 @@ func main() {
 		)
 	}
 	db.Add(waspdb.AddVariables(cfg.DataSources.Loki))
-	if err := db.Deploy(); err != nil {
+	if err := db.Deploy(true); err != nil {
 		lib.L.Fatal().Err(err).Msg("failed to deploy the dashboard")
 	}
 	lib.L.Info().

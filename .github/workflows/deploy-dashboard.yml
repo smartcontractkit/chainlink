@@ -11,7 +11,8 @@ jobs:
       run:
         working-directory: charts/chainlink-cluster
     env:
-      GRAFANA_URL: ${{ secrets.GRAFANA_URL }}
+      GRAFANA_URL: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+      GRAFANA_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
       GRAFANA_TOKEN: ${{ secrets.GRAFANA_TOKEN }}
       PROMETHEUS_DATA_SOURCE_NAME: ${{ secrets.PROMETHEUS_DATA_SOURCE_NAME }}
       LOKI_DATA_SOURCE_NAME: ${{ secrets.LOKI_DATA_SOURCE_NAME }}

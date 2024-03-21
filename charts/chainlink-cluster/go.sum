@@ -26,8 +26,9 @@ github.com/prometheus/common v0.45.0/go.mod h1:YJmSTw9BoKxJplESWWxlbyttQR4uaEcGy
 github.com/rs/xid v1.5.0/go.mod h1:trrq9SKmegXys3aeAKXMUTdJsYXVwGY3RLcfgqegfbg=
 github.com/rs/zerolog v1.32.0 h1:keLypqrlIjaFsbmJOBdB/qvyF8KEtCWHwobLp5l/mQ0=
 github.com/rs/zerolog v1.32.0/go.mod h1:/7mN4D5sKwJLZQ2b/znpjC3/GQWY/xaDXUM0kKWRHss=
-github.com/smartcontractkit/chainlink/dashboard-lib v0.0.0-20240320194616-93762ccbd868 h1:qAHfsKcSeMOvmQXySo6dwAfX+T2EcvgkXbGIn5Er/oI=
 github.com/smartcontractkit/chainlink/dashboard-lib v0.0.0-20240320194616-93762ccbd868/go.mod h1:7K+tU8jrzvFdS//LfLj4lONp5A3zA3lis0t8w8eXrGE=
+github.com/smartcontractkit/chainlink/dashboard-lib v0.0.0-20240321021731-dfb36dcf6354 h1:eby2ROhp31cOxS5MaVCAa+vYCGYUWQxB2EBEJMxiXK4=
+github.com/smartcontractkit/chainlink/dashboard-lib v0.0.0-20240321021731-dfb36dcf6354/go.mod h1:7K+tU8jrzvFdS//LfLj4lONp5A3zA3lis0t8w8eXrGE=
 github.com/smartcontractkit/wasp v0.4.6 h1:s6J8HgpxMHORl19nCpZPxc5jaVUQv8EXB6QjTuLXXnw=
 github.com/smartcontractkit/wasp v0.4.6/go.mod h1:+ViWdUf1ap6powiEiwPskpZfH/Q1sG29YoVav7zGOIo=
 github.com/stretchr/testify v1.8.4 h1:CcVxjf3Q8PM0mHUKJCdn+eZZtm5yQwehR5yeSVQQcUk=
