@@ -1,7 +1,6 @@
 package txmgr_test
 
 import (
-	"context"
 	"math/big"
 	"testing"
 	"time"
@@ -27,14 +26,14 @@ func TestInMemoryStore_UpdateBroadcastAts(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
-	persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+	persistentStore := cltest.NewTestTxStore(t, db)
 	kst := cltest.NewKeyStore(t, db, dbcfg)
 	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	lggr := logger.TestSugared(t)
 	chainID := ethClient.ConfiguredChainID()
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 
 	inMemoryStore, err := commontxmgr.NewInMemoryStore[
 		*big.Int,
@@ -54,13 +53,13 @@ func TestInMemoryStore_UpdateBroadcastAts(t *testing.T) {
 		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
 
 		err := inMemoryStore.UpdateBroadcastAts(
-			testutils.Context(t),
+			ctx,
 			now,
 			[]int64{inTx.ID},
 		)
 		require.NoError(t, err)
 
-		expTx, err := persistentStore.FindTxWithAttempts(inTx.ID)
+		expTx, err := persistentStore.FindTxWithAttempts(ctx, inTx.ID)
 		require.NoError(t, err)
 		fn := func(tx *evmtxmgr.Tx) bool { return true }
 		actTxs := inMemoryStore.XXXTestFindTxs(nil, fn, inTx.ID)
@@ -78,19 +77,19 @@ func TestInMemoryStore_UpdateBroadcastAts(t *testing.T) {
 		inTx.State = commontxmgr.TxUnconfirmed
 		inTx.BroadcastAt = &time1
 		inTx.InitialBroadcastAt = &time1
-		require.NoError(t, persistentStore.InsertTx(&inTx))
+		require.NoError(t, persistentStore.InsertTx(ctx, &inTx))
 		// Insert the transaction into the in-memory store
 		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
 
 		time2 := time1.Add(1 * time.Hour)
 		err := inMemoryStore.UpdateBroadcastAts(
-			testutils.Context(t),
+			ctx,
 			time2,
 			[]int64{inTx.ID},
 		)
 		require.NoError(t, err)
 
-		expTx, err := persistentStore.FindTxWithAttempts(inTx.ID)
+		expTx, err := persistentStore.FindTxWithAttempts(ctx, inTx.ID)
 		require.NoError(t, err)
 		fn := func(tx *evmtxmgr.Tx) bool { return true }
 		actTxs := inMemoryStore.XXXTestFindTxs(nil, fn, inTx.ID)
