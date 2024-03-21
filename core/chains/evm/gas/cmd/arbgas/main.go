@@ -67,9 +67,10 @@ func withEstimator(ctx context.Context, lggr logger.SugaredLogger, url string, f
 var _ gas.ArbConfig = &config{}
 
 type config struct {
-	max         uint64
-	bumpPercent uint16
-	bumpMin     *assets.Wei
+	max             uint64
+	bumpPercent     uint16
+	bumpMin         *assets.Wei
+	limitMultiplier float32
 }
 
 func (c *config) LimitMax() uint64 {
@@ -82,4 +83,8 @@ func (c *config) BumpPercent() uint16 {
 
 func (c *config) BumpMin() *assets.Wei {
 	return c.bumpMin
+}
+
+func (c *config) LimitMultiplier() float32 {
+	return c.limitMultiplier
 }
