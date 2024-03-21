@@ -373,9 +373,8 @@ func TestIntegration_KeeperPluginLogUpkeep_Retry(t *testing.T) {
 	}()
 
 	listener, done := listenPerformed(t, backend, registry, feeds.UpkeepsIds(), int64(1))
+	defer done()
 	g.Eventually(listener, testutils.WaitTimeout(t)-(5*time.Second), cltest.DBPollingInterval).Should(gomega.BeTrue())
-
-	done()
 }
 
 func TestIntegration_KeeperPluginLogUpkeep_ErrHandler(t *testing.T) {
@@ -475,8 +474,8 @@ func TestIntegration_KeeperPluginLogUpkeep_ErrHandler(t *testing.T) {
 	}
 
 	listener, done := listenPerformed(t, backend, registry, idsToCheck, startBlock)
+	defer done()
 	g.Eventually(listener, testutils.WaitTimeout(t)-(5*time.Second), cltest.DBPollingInterval).Should(gomega.BeTrue())
-	done()
 }
 
 func startMercuryServer(t *testing.T, mercuryServer *mercury.SimulatedMercuryServer, responder func(i int) (int, []byte)) {
