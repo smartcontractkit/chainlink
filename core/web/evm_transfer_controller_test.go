@@ -21,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -348,7 +347,7 @@ func TestTransfersController_FindTxAttempt(t *testing.T) {
 		ctx := testutils.Context(t)
 		timeout := 5 * time.Second
 		var done bool
-		find := func(_ int64) (txmgr.Tx, error) {
+		find := func(_ context.Context, _ int64) (txmgr.Tx, error) {
 			if !done {
 				done = true
 				return tx, nil
@@ -364,7 +363,7 @@ func TestTransfersController_FindTxAttempt(t *testing.T) {
 	// failed to find tx
 	t.Run("failed to find tx", func(t *testing.T) {
 		ctx := testutils.Context(t)
-		find := func(_ int64) (txmgr.Tx, error) {
+		find := func(_ context.Context, _ int64) (txmgr.Tx, error) {
 			return txmgr.Tx{}, fmt.Errorf("ERRORED")
 		}
 		_, err := web.FindTxAttempt(ctx, time.Second, tx, find)
@@ -374,7 +373,7 @@ func TestTransfersController_FindTxAttempt(t *testing.T) {
 	// timeout
 	t.Run("timeout", func(t *testing.T) {
 		ctx := testutils.Context(t)
-		find := func(_ int64) (txmgr.Tx, error) {
+		find := func(_ context.Context, _ int64) (txmgr.Tx, error) {
 			return tx, nil
 		}
 		_, err := web.FindTxAttempt(ctx, time.Second, tx, find)
@@ -384,7 +383,7 @@ func TestTransfersController_FindTxAttempt(t *testing.T) {
 	// context canceled
 	t.Run("context canceled", func(t *testing.T) {
 		ctx := testutils.Context(t)
-		find := func(_ int64) (txmgr.Tx, error) {
+		find := func(_ context.Context, _ int64) (txmgr.Tx, error) {
 			return tx, nil
 		}
 
@@ -400,8 +399,7 @@ func TestTransfersController_FindTxAttempt(t *testing.T) {
 }
 
 func validateTxCount(t *testing.T, db *sqlx.DB, count int) {
-	cfg := pgtest.NewQConfig(false)
-	txStore := txmgr.NewTxStore(db, logger.TestLogger(t), cfg)
+	txStore := txmgr.NewTxStore(db, logger.TestLogger(t))
 
 	txes, err := txStore.GetAllTxes(testutils.Context(t))
 	require.NoError(t, err)

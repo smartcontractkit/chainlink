@@ -586,7 +586,7 @@ func handleDefaultConfigOverride(logger zerolog.Logger, filename, configurationN
 		for i, old_network := range oldConfig.Seth.Networks {
 			for _, target_network := range target.Seth.Networks {
 				if old_network.ChainID == target_network.ChainID {
-					oldConfig.Seth.Networks[i].TxnTimeout = old_network.TxnTimeout
+					oldConfig.Seth.Networks[i].TxnTimeout = target_network.TxnTimeout
 				}
 			}
 		}
@@ -594,14 +594,23 @@ func handleDefaultConfigOverride(logger zerolog.Logger, filename, configurationN
 
 	// override instead of merging
 	if (newConfig.Seth != nil && len(newConfig.Seth.Networks) > 0) && (oldConfig != nil && oldConfig.Seth != nil && len(oldConfig.Seth.Networks) > 0) {
+		networksToUse := map[string]*seth.Network{}
 		for i, old_network := range oldConfig.Seth.Networks {
 			for _, new_network := range newConfig.Seth.Networks {
 				if old_network.ChainID == new_network.ChainID {
 					oldConfig.Seth.Networks[i] = new_network
+					break
+				}
+				if _, ok := networksToUse[new_network.ChainID]; !ok {
+					networksToUse[new_network.ChainID] = new_network
 				}
 			}
+			networksToUse[old_network.ChainID] = oldConfig.Seth.Networks[i]
 		}
-		target.Seth.Networks = oldConfig.Seth.Networks
+		target.Seth.Networks = []*seth.Network{}
+		for _, network := range networksToUse {
+			target.Seth.Networks = append(target.Seth.Networks, network)
+		}
 	}
 
 	return nil

@@ -40,7 +40,7 @@ type RegistrySynchronizerOptions struct {
 
 type RegistrySynchronizer struct {
 	services.StateMachine
-	chStop                   chan struct{}
+	chStop                   services.StopChan
 	registryWrapper          RegistryWrapper
 	interval                 time.Duration
 	job                      job.Job
@@ -114,6 +114,9 @@ func (rs *RegistrySynchronizer) run() {
 	defer rs.wgDone.Done()
 	defer syncTicker.Stop()
 
+	ctx, cancel := rs.chStop.NewCtx()
+	defer cancel()
+
 	rs.fullSync()
 
 	for {
@@ -124,7 +127,7 @@ func (rs *RegistrySynchronizer) run() {
 			rs.fullSync()
 			syncTicker.Reset(rs.interval)
 		case <-rs.mbLogs.Notify():
-			rs.processLogs()
+			rs.processLogs(ctx)
 		}
 	}
 }

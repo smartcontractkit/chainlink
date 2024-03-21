@@ -105,7 +105,7 @@ func (prc *PipelineRunsController) Create(c *gin.Context) {
 
 	user, isUser := auth.GetAuthenticatedUser(c)
 	ei, _ := auth.GetAuthenticatedExternalInitiator(c)
-	authorizer := webhook.NewAuthorizer(prc.App.GetSqlxDB().DB, user, ei)
+	authorizer := webhook.NewAuthorizer(prc.App.GetDB(), user, ei)
 
 	// Is it a UUID? Then process it as a webhook job
 	jobUUID, err := uuid.Parse(idStr)

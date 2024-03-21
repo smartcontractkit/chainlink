@@ -110,7 +110,7 @@ func (t *RequestRoundTracker) Close() error {
 // HandleLog complies with LogListener interface
 // It is not thread safe
 func (t *RequestRoundTracker) HandleLog(lb log.Broadcast) {
-	was, err := t.logBroadcaster.WasAlreadyConsumed(lb)
+	was, err := t.logBroadcaster.WasAlreadyConsumed(t.ctx, lb)
 	if err != nil {
 		t.lggr.Errorw("OCRContract: could not determine if log was already consumed", "err", err)
 		return
@@ -121,12 +121,12 @@ func (t *RequestRoundTracker) HandleLog(lb log.Broadcast) {
 	raw := lb.RawLog()
 	if raw.Address != t.contract.Address() {
 		t.lggr.Errorf("log address of 0x%x does not match configured contract address of 0x%x", raw.Address, t.contract.Address())
-		t.lggr.ErrorIf(t.logBroadcaster.MarkConsumed(lb), "unable to mark consumed")
+		t.lggr.ErrorIf(t.logBroadcaster.MarkConsumed(t.ctx, lb), "unable to mark consumed")
 		return
 	}
 	topics := raw.Topics
 	if len(topics) == 0 {
-		t.lggr.ErrorIf(t.logBroadcaster.MarkConsumed(lb), "unable to mark consumed")
+		t.lggr.ErrorIf(t.logBroadcaster.MarkConsumed(t.ctx, lb), "unable to mark consumed")
 		return
 	}
 
@@ -137,7 +137,7 @@ func (t *RequestRoundTracker) HandleLog(lb log.Broadcast) {
 		rr, err = t.contractFilterer.ParseRoundRequested(raw)
 		if err != nil {
 			t.lggr.Errorw("could not parse round requested", "err", err)
-			t.lggr.ErrorIf(t.logBroadcaster.MarkConsumed(lb), "unable to mark consumed")
+			t.lggr.ErrorIf(t.logBroadcaster.MarkConsumed(t.ctx, lb), "unable to mark consumed")
 			return
 		}
 		if IsLaterThan(raw, t.latestRoundRequested.Raw) {
@@ -145,7 +145,7 @@ func (t *RequestRoundTracker) HandleLog(lb log.Broadcast) {
 				if err = t.odb.SaveLatestRoundRequested(q, *rr); err != nil {
 					return err
 				}
-				return t.logBroadcaster.MarkConsumed(lb, pg.WithQueryer(q))
+				return t.logBroadcaster.MarkConsumed(t.ctx, lb)
 			})
 			if err != nil {
 				t.lggr.Error(err)
@@ -163,7 +163,7 @@ func (t *RequestRoundTracker) HandleLog(lb log.Broadcast) {
 		t.lggr.Debugw("RequestRoundTracker: got unrecognised log topic", "topic", topics[0])
 	}
 	if !consumed {
-		t.lggr.ErrorIf(t.logBroadcaster.MarkConsumed(lb), "unable to mark consumed")
+		t.lggr.ErrorIf(t.logBroadcaster.MarkConsumed(t.ctx, lb), "unable to mark consumed")
 	}
 }
 
