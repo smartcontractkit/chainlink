@@ -111,7 +111,7 @@ let config = {
         settings: {
           optimizer: {
             enabled: true,
-            runs: 50, // see native_solc_compile_all_vrf
+            runs: 500, // see native_solc_compile_all_vrf
           },
           metadata: {
             bytecodeHash: 'none',
