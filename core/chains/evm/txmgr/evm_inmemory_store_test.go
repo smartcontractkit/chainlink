@@ -28,14 +28,14 @@ func TestInMemoryStore_DeleteInProgressAttempt(t *testing.T) {
 	t.Run("successfully replace tx attempt", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
-		persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+		persistentStore := cltest.NewTestTxStore(t, db)
 		kst := cltest.NewKeyStore(t, db, dbcfg)
 		_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
 
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 		lggr := logger.TestSugared(t)
 		chainID := ethClient.ConfiguredChainID()
-		ctx := context.Background()
+		ctx := testutils.Context(t)
 
 		inMemoryStore, err := commontxmgr.NewInMemoryStore[
 			*big.Int,
@@ -52,10 +52,10 @@ func TestInMemoryStore_DeleteInProgressAttempt(t *testing.T) {
 		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
 
 		oldAttempt := inTx.TxAttempts[0]
-		err = inMemoryStore.DeleteInProgressAttempt(testutils.Context(t), oldAttempt)
+		err = inMemoryStore.DeleteInProgressAttempt(ctx, oldAttempt)
 		require.NoError(t, err)
 
-		expTx, err := persistentStore.FindTxWithAttempts(inTx.ID)
+		expTx, err := persistentStore.FindTxWithAttempts(ctx, inTx.ID)
 		require.NoError(t, err)
 		assert.Equal(t, 0, len(expTx.TxAttempts))
 
@@ -69,7 +69,7 @@ func TestInMemoryStore_DeleteInProgressAttempt(t *testing.T) {
 	t.Run("error parity for in-memory vs persistent store", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
-		persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+		persistentStore := cltest.NewTestTxStore(t, db)
 		kst := cltest.NewKeyStore(t, db, dbcfg)
 		_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
 
@@ -95,8 +95,8 @@ func TestInMemoryStore_DeleteInProgressAttempt(t *testing.T) {
 		oldAttempt := inTx.TxAttempts[0]
 		t.Run("error when attempt is not in progress", func(t *testing.T) {
 			oldAttempt.State = txmgrtypes.TxAttemptBroadcast
-			expErr := persistentStore.DeleteInProgressAttempt(testutils.Context(t), oldAttempt)
-			actErr := inMemoryStore.DeleteInProgressAttempt(testutils.Context(t), oldAttempt)
+			expErr := persistentStore.DeleteInProgressAttempt(ctx, oldAttempt)
+			actErr := inMemoryStore.DeleteInProgressAttempt(ctx, oldAttempt)
 			assert.Equal(t, expErr, actErr)
 			oldAttempt.State = txmgrtypes.TxAttemptInProgress
 		})
@@ -104,8 +104,8 @@ func TestInMemoryStore_DeleteInProgressAttempt(t *testing.T) {
 		t.Run("error when attempt has 0 id", func(t *testing.T) {
 			originalID := oldAttempt.ID
 			oldAttempt.ID = 0
-			expErr := persistentStore.DeleteInProgressAttempt(testutils.Context(t), oldAttempt)
-			actErr := inMemoryStore.DeleteInProgressAttempt(testutils.Context(t), oldAttempt)
+			expErr := persistentStore.DeleteInProgressAttempt(ctx, oldAttempt)
+			actErr := inMemoryStore.DeleteInProgressAttempt(ctx, oldAttempt)
 			assert.Equal(t, expErr, actErr)
 			oldAttempt.ID = originalID
 		})
