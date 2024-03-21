@@ -109,11 +109,12 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Creat
 		panic(fmt.Sprintf(ErrInvalidChainID.Error()+": %s", chainID.String()))
 	}
 
-	ms.addressStatesLock.RLock()
-	defer ms.addressStatesLock.RUnlock()
+	ms.addressStatesLock.Lock()
+	defer ms.addressStatesLock.Unlock()
 	as, ok := ms.addressStates[txRequest.FromAddress]
 	if !ok {
 		as = newAddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE](ms.lggr, chainID, txRequest.FromAddress, ms.maxUnstarted, nil)
+		ms.addressStates[txRequest.FromAddress] = as
 	}
 
 	// Persist Transaction to persistent storage
