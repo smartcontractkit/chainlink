@@ -15,7 +15,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
@@ -136,7 +135,7 @@ func (cp *configPoller) LatestConfigDetails(ctx context.Context) (changedInBlock
 		return 0, ocrtypes.ConfigDigest{}, nil
 	}
 
-	latest, err := cp.destChainLogPoller.LatestLogByEventSigWithConfs(ConfigSet, *contractAddr, 1, pg.WithParentCtx(ctx))
+	latest, err := cp.destChainLogPoller.LatestLogByEventSigWithConfs(ctx, ConfigSet, *contractAddr, 1)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return 0, ocrtypes.ConfigDigest{}, nil
@@ -158,7 +157,7 @@ func (cp *configPoller) LatestConfig(ctx context.Context, changedInBlock uint64)
 		return ocrtypes.ContractConfig{}, errors.New("no target contract address set yet")
 	}
 
-	lgs, err := cp.destChainLogPoller.Logs(int64(changedInBlock), int64(changedInBlock), ConfigSet, *contractAddr, pg.WithParentCtx(ctx))
+	lgs, err := cp.destChainLogPoller.Logs(ctx, int64(changedInBlock), int64(changedInBlock), ConfigSet, *contractAddr)
 	if err != nil {
 		return ocrtypes.ContractConfig{}, err
 	}
@@ -174,7 +173,7 @@ func (cp *configPoller) LatestConfig(ctx context.Context, changedInBlock uint64)
 }
 
 func (cp *configPoller) LatestBlockHeight(ctx context.Context) (blockHeight uint64, err error) {
-	latest, err := cp.destChainLogPoller.LatestBlock(pg.WithParentCtx(ctx))
+	latest, err := cp.destChainLogPoller.LatestBlock(ctx)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return 0, nil
@@ -185,14 +184,14 @@ func (cp *configPoller) LatestBlockHeight(ctx context.Context) (blockHeight uint
 }
 
 // called from LogPollerWrapper in a separate goroutine
-func (cp *configPoller) UpdateRoutes(activeCoordinator common.Address, proposedCoordinator common.Address) error {
+func (cp *configPoller) UpdateRoutes(ctx context.Context, activeCoordinator common.Address, proposedCoordinator common.Address) error {
 	cp.targetContract.Store(&activeCoordinator)
 	// Register filters for both active and proposed
-	err := cp.destChainLogPoller.RegisterFilter(logpoller.Filter{Name: configPollerFilterName(activeCoordinator), EventSigs: []common.Hash{ConfigSet}, Addresses: []common.Address{activeCoordinator}})
+	err := cp.destChainLogPoller.RegisterFilter(ctx, logpoller.Filter{Name: configPollerFilterName(activeCoordinator), EventSigs: []common.Hash{ConfigSet}, Addresses: []common.Address{activeCoordinator}})
 	if err != nil {
 		return err
 	}
-	err = cp.destChainLogPoller.RegisterFilter(logpoller.Filter{Name: configPollerFilterName(proposedCoordinator), EventSigs: []common.Hash{ConfigSet}, Addresses: []common.Address{activeCoordinator}})
+	err = cp.destChainLogPoller.RegisterFilter(ctx, logpoller.Filter{Name: configPollerFilterName(proposedCoordinator), EventSigs: []common.Hash{ConfigSet}, Addresses: []common.Address{activeCoordinator}})
 	if err != nil {
 		return err
 	}
