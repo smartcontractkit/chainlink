@@ -4,7 +4,13 @@ import (
 	"time"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 )
+
+type GeneralConfig interface {
+	OCR() coreconfig.OCR
+	Insecure() coreconfig.Insecure
+}
 
 type JobConfig interface {
 	DefaultHTTPTimeout() commonconfig.Duration

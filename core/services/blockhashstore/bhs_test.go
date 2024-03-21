@@ -49,7 +49,7 @@ func TestStoreRotatesFromAddresses(t *testing.T) {
 	require.NoError(t, err)
 	bhs, err := blockhashstore.NewBulletproofBHS(
 		chain.Config().EVM().GasEstimator(),
-		chain.Config().Database(),
+		cfg.Database(),
 		fromAddresses,
 		txm,
 		store,

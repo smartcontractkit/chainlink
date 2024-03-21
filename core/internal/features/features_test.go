@@ -866,7 +866,7 @@ func TestIntegration_OCR(t *testing.T) {
 			err = appBootstrap.Start(testutils.Context(t))
 			require.NoError(t, err)
 
-			jb, err := ocr.ValidatedOracleSpecToml(appBootstrap.GetRelayers().LegacyEVMChains(), fmt.Sprintf(`
+			jb, err := ocr.ValidatedOracleSpecToml(appBootstrap.Config, appBootstrap.GetRelayers().LegacyEVMChains(), fmt.Sprintf(`
 type               = "offchainreporting"
 schemaVersion      = 1
 name               = "boot"
@@ -935,7 +935,7 @@ isBootstrapPeer    = true
 
 				// Note we need: observationTimeout + observationGracePeriod + DeltaGrace (500ms) < DeltaRound (1s)
 				// So 200ms + 200ms + 500ms < 1s
-				jb, err := ocr.ValidatedOracleSpecToml(apps[i].GetRelayers().LegacyEVMChains(), fmt.Sprintf(`
+				jb, err := ocr.ValidatedOracleSpecToml(apps[i].Config, apps[i].GetRelayers().LegacyEVMChains(), fmt.Sprintf(`
 type               = "offchainreporting"
 schemaVersion      = 1
 name               = "web oracle spec"
@@ -1091,7 +1091,7 @@ func TestIntegration_OCR_ForwarderFlow(t *testing.T) {
 		require.NoError(t, err)
 
 		// set forwardingAllowed = true
-		jb, err := ocr.ValidatedOracleSpecToml(appBootstrap.GetRelayers().LegacyEVMChains(), fmt.Sprintf(`
+		jb, err := ocr.ValidatedOracleSpecToml(appBootstrap.Config, appBootstrap.GetRelayers().LegacyEVMChains(), fmt.Sprintf(`
 type               = "offchainreporting"
 schemaVersion      = 1
 name               = "boot"
@@ -1162,7 +1162,7 @@ isBootstrapPeer    = true
 			// Note we need: observationTimeout + observationGracePeriod + DeltaGrace (500ms) < DeltaRound (1s)
 			// So 200ms + 200ms + 500ms < 1s
 			// forwardingAllowed = true
-			jb, err := ocr.ValidatedOracleSpecToml(apps[i].GetRelayers().LegacyEVMChains(), fmt.Sprintf(`
+			jb, err := ocr.ValidatedOracleSpecToml(apps[i].Config, apps[i].GetRelayers().LegacyEVMChains(), fmt.Sprintf(`
 type               = "offchainreporting"
 schemaVersion      = 1
 name               = "web oracle spec"

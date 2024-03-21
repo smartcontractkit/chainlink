@@ -10,6 +10,7 @@ import (
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -17,8 +18,15 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
+type DelegateConfig interface {
+	Database() config.Database
+	FluxMonitor() config.FluxMonitor
+	JobPipeline() config.JobPipeline
+}
+
 // Delegate represents a Flux Monitor delegate
 type Delegate struct {
+	cfg            DelegateConfig
 	db             *sqlx.DB
 	ethKeyStore    keystore.Eth
 	jobORM         job.ORM
@@ -32,6 +40,7 @@ var _ job.Delegate = (*Delegate)(nil)
 
 // NewDelegate constructs a new delegate
 func NewDelegate(
+	cfg DelegateConfig,
 	ethKeyStore keystore.Eth,
 	jobORM job.ORM,
 	pipelineORM pipeline.ORM,
@@ -41,6 +50,7 @@ func NewDelegate(
 	lggr logger.Logger,
 ) *Delegate {
 	return &Delegate{
+		cfg:            cfg,
 		db:             db,
 		ethKeyStore:    ethKeyStore,
 		jobORM:         jobORM,
@@ -70,17 +80,16 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) (services []
 	if err != nil {
 		return nil, err
 	}
-	cfg := chain.Config()
-	strategy := txmgrcommon.NewQueueingTxStrategy(jb.ExternalJobID, cfg.FluxMonitor().DefaultTransactionQueueDepth(), cfg.Database().DefaultQueryTimeout())
+	strategy := txmgrcommon.NewQueueingTxStrategy(jb.ExternalJobID, d.cfg.FluxMonitor().DefaultTransactionQueueDepth(), d.cfg.Database().DefaultQueryTimeout())
 	var checker txmgr.TransmitCheckerSpec
-	if chain.Config().FluxMonitor().SimulateTransactions() {
+	if d.cfg.FluxMonitor().SimulateTransactions() {
 		checker.CheckerType = txmgr.TransmitCheckerTypeSimulate
 	}
 
 	fm, err := NewFromJobSpec(
 		jb,
 		d.db,
-		NewORM(d.db, d.lggr, chain.Config().Database(), chain.TxManager(), strategy, checker),
+		NewORM(d.db, d.lggr, d.cfg.Database(), chain.TxManager(), strategy, checker),
 		d.jobORM,
 		d.pipelineORM,
 		NewKeyStore(d.ethKeyStore),
@@ -90,9 +99,9 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) (services []
 		chain.Config().EVM(),
 		chain.Config().EVM().GasEstimator(),
 		chain.Config().EVM().Transactions(),
-		chain.Config().FluxMonitor(),
-		chain.Config().JobPipeline(),
-		chain.Config().Database(),
+		d.cfg.FluxMonitor(),
+		d.cfg.JobPipeline(),
+		d.cfg.Database(),
 		d.lggr,
 	)
 	if err != nil {

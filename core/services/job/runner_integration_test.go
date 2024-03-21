@@ -196,7 +196,7 @@ func TestRunner(t *testing.T) {
 		// Reference a different one
 		legacyChains := cltest.NewLegacyChainsWithMockChain(t, nil, config)
 
-		jb, err := ocr.ValidatedOracleSpecToml(legacyChains, fmt.Sprintf(`
+		jb, err := ocr.ValidatedOracleSpecToml(config, legacyChains, fmt.Sprintf(`
 			type               = "offchainreporting"
 			schemaVersion      = 1
 			evmChainID         = 0
@@ -440,7 +440,7 @@ answer1      [type=median index=0];
 		evmChainID		   = "0"
 `
 		s = fmt.Sprintf(s, cltest.NewEIP55Address())
-		jb, err := ocr.ValidatedOracleSpecToml(legacyChains, s)
+		jb, err := ocr.ValidatedOracleSpecToml(config, legacyChains, s)
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &jb)
 		require.NoError(t, err)
@@ -462,7 +462,7 @@ answer1      [type=median index=0];
 			monitoringEndpoint,
 			legacyChains,
 			lggr,
-			config.Database(),
+			config,
 			servicetest.Run(t, mailboxtest.NewMonitor(t)),
 		)
 		_, err = sd.ServicesForSpec(testutils.Context(t), jb)
@@ -474,7 +474,7 @@ answer1      [type=median index=0];
 		require.NoError(t, err)
 
 		s := fmt.Sprintf(minimalNonBootstrapTemplate, cltest.NewEIP55Address(), transmitterAddress.Hex(), kb.ID(), "http://blah.com", "")
-		jb, err := ocr.ValidatedOracleSpecToml(legacyChains, s)
+		jb, err := ocr.ValidatedOracleSpecToml(config, legacyChains, s)
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &jb)
 		require.NoError(t, err)
@@ -496,7 +496,7 @@ answer1      [type=median index=0];
 			monitoringEndpoint,
 			legacyChains,
 			lggr,
-			config.Database(),
+			config,
 			servicetest.Run(t, mailboxtest.NewMonitor(t)),
 		)
 		_, err = sd.ServicesForSpec(testutils.Context(t), jb)
@@ -505,7 +505,7 @@ answer1      [type=median index=0];
 
 	t.Run("test min bootstrap", func(t *testing.T) {
 		s := fmt.Sprintf(minimalBootstrapTemplate, cltest.NewEIP55Address())
-		jb, err := ocr.ValidatedOracleSpecToml(legacyChains, s)
+		jb, err := ocr.ValidatedOracleSpecToml(config, legacyChains, s)
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &jb)
 		require.NoError(t, err)
@@ -524,7 +524,7 @@ answer1      [type=median index=0];
 			monitoringEndpoint,
 			legacyChains,
 			lggr,
-			config.Database(),
+			config,
 			servicetest.Run(t, mailboxtest.NewMonitor(t)),
 		)
 		_, err = sd.ServicesForSpec(testutils.Context(t), jb)
@@ -557,7 +557,7 @@ answer1      [type=median index=0];
 			require.NoError(t, err)
 
 			s := fmt.Sprintf(minimalNonBootstrapTemplate, cltest.NewEIP55Address(), transmitterAddress.Hex(), kb.ID(), "http://blah.com", "")
-			jb, err := ocr.ValidatedOracleSpecToml(legacyChains, s)
+			jb, err := ocr.ValidatedOracleSpecToml(config, legacyChains, s)
 			require.NoError(t, err)
 			err = toml.Unmarshal([]byte(s), &jb)
 			require.NoError(t, err)
@@ -579,7 +579,7 @@ answer1      [type=median index=0];
 				monitoringEndpoint,
 				legacyChains,
 				lggr,
-				config.Database(),
+				config,
 				servicetest.Run(t, mailboxtest.NewMonitor(t)),
 			)
 
@@ -623,7 +623,7 @@ answer1      [type=median index=0];
 			monitoringEndpoint,
 			legacyChains,
 			lggr,
-			config.Database(),
+			config,
 			servicetest.Run(t, mailboxtest.NewMonitor(t)),
 		)
 		services, err := sd.ServicesForSpec(testutils.Context(t), *jb)
