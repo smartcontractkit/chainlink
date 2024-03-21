@@ -368,23 +368,23 @@ func (lp *logPoller) Replay(ctx context.Context, fromBlock int64) error {
 		return pkgerrors.Errorf("Invalid replay block number %v, acceptable range [1, %v]", fromBlock, latest.Number)
 	}
 
-	// Backfill all logs up to the current finalized block outside the LogPoller's main loop.
-	latestFinalizedBlockNumber, err := lp.latestFinalizedBlockNumber(ctx)
+	// Backfill all logs up to the latest saved finalized block outside the LogPoller's main loop.
+	// This is safe, because chain cannot be rewinded deeper than that, so there must not be any race conditions.
+	savedFinalizedBlockNumber, err := lp.savedFinalizedBlockNumber(ctx)
 	if err != nil {
 		return err
 	}
-	// Do the replay of finalized blocks outside the main loop.
-	if fromBlock <= latestFinalizedBlockNumber {
-		err = lp.backfill(ctx, fromBlock, latestFinalizedBlockNumber)
+	if fromBlock <= savedFinalizedBlockNumber {
+		err = lp.backfill(ctx, fromBlock, savedFinalizedBlockNumber)
 		if err != nil {
 			return err
 		}
 	}
 
-	// Backfill everything after latest finalized block in main loop to avoid concurrent writes during reorg
-	// We assume that number of logs between latest finalized and current head is small enough to be processed in main loop
-	fromBlock = mathutil.Max(fromBlock, latestFinalizedBlockNumber+1)
-	// Don't continue if latest block number is the same as latest finalized block number
+	// Poll everything after latest finalized block in main loop to avoid concurrent writes during reorg
+	// We assume that number of logs between saved finalized block and current head is small enough to be processed in main loop
+	fromBlock = mathutil.Max(fromBlock, savedFinalizedBlockNumber+1)
+	// Don't continue if latest block number is the same as saved finalized block number
 	if fromBlock > latest.Number {
 		return nil
 	}
@@ -406,9 +406,10 @@ func (lp *logPoller) Replay(ctx context.Context, fromBlock int64) error {
 	}
 }
 
-// latestFinalizedBlockNumber returns the latest finalized block number
+// savedFinalizedBlockNumber returns the FinalizedBlockNumber saved with the last processed block in the db
+// (latestFinalizedBlock at the time the last processed block was saved)
 // If this is the first poll and no blocks are in the db, it returns 0
-func (lp *logPoller) latestFinalizedBlockNumber(ctx context.Context) (int64, error) {
+func (lp *logPoller) savedFinalizedBlockNumber(ctx context.Context) (int64, error) {
 	latestProcessed, err := lp.LatestBlock(ctx)
 	if err == nil {
 		return latestProcessed.FinalizedBlockNumber, nil
