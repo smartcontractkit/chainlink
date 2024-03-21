@@ -200,7 +200,7 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Aband
 // SetBroadcastBeforeBlockNum sets the broadcast_before_block_num for a given chain ID
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SetBroadcastBeforeBlockNum(ctx context.Context, blockNum int64, chainID CHAIN_ID) error {
 	if ms.chainID.String() != chainID.String() {
-		return nil
+		panic("invalid chain ID")
 	}
 
 	// Persist to persistent storage

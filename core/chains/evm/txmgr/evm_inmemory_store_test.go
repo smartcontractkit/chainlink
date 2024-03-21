@@ -1,7 +1,6 @@
 package txmgr_test
 
 import (
-	"context"
 	"math/big"
 	"testing"
 
@@ -26,14 +25,14 @@ func TestInMemoryStore_SetBroadcastBeforeBlockNum(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
-	persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+	persistentStore := cltest.NewTestTxStore(t, db)
 	kst := cltest.NewKeyStore(t, db, dbcfg)
 	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	lggr := logger.TestSugared(t)
 	chainID := ethClient.ConfiguredChainID()
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 
 	inMemoryStore, err := commontxmgr.NewInMemoryStore[
 		*big.Int,
@@ -51,10 +50,10 @@ func TestInMemoryStore_SetBroadcastBeforeBlockNum(t *testing.T) {
 		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
 
 		headNum := int64(9000)
-		err := inMemoryStore.SetBroadcastBeforeBlockNum(testutils.Context(t), headNum, chainID)
+		err := inMemoryStore.SetBroadcastBeforeBlockNum(ctx, headNum, chainID)
 		require.NoError(t, err)
 
-		expTx, err := persistentStore.FindTxWithAttempts(inTx.ID)
+		expTx, err := persistentStore.FindTxWithAttempts(ctx, inTx.ID)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(expTx.TxAttempts))
 		assert.Equal(t, headNum, *expTx.TxAttempts[0].BroadcastBeforeBlockNum)
@@ -63,13 +62,6 @@ func TestInMemoryStore_SetBroadcastBeforeBlockNum(t *testing.T) {
 		require.Equal(t, 1, len(actTxs))
 		actTx := actTxs[0]
 		assertTxEqual(t, expTx, actTx)
-
-		// wrong chain ID
-		wrongChainID := big.NewInt(123)
-		actErr := inMemoryStore.SetBroadcastBeforeBlockNum(testutils.Context(t), headNum, wrongChainID)
-		expErr := persistentStore.SetBroadcastBeforeBlockNum(testutils.Context(t), headNum, wrongChainID)
-		assert.NoError(t, actErr)
-		assert.NoError(t, expErr)
 	})
 
 	t.Run("does not change evm.tx_attempts that already have BroadcastBeforeBlockNum set", func(t *testing.T) {
@@ -78,16 +70,16 @@ func TestInMemoryStore_SetBroadcastBeforeBlockNum(t *testing.T) {
 		inTx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, persistentStore, 11, fromAddress)
 		inTxAttempt := newBroadcastLegacyEthTxAttempt(t, inTx.ID, 2)
 		inTxAttempt.BroadcastBeforeBlockNum = &n
-		require.NoError(t, persistentStore.InsertTxAttempt(&inTxAttempt))
+		require.NoError(t, persistentStore.InsertTxAttempt(ctx, &inTxAttempt))
 		// Insert the transaction into the in-memory store
 		inTx.TxAttempts = append([]evmtxmgr.TxAttempt{inTxAttempt}, inTx.TxAttempts...)
 		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
 
 		headNum := int64(9000)
-		err := inMemoryStore.SetBroadcastBeforeBlockNum(testutils.Context(t), headNum, chainID)
+		err := inMemoryStore.SetBroadcastBeforeBlockNum(ctx, headNum, chainID)
 		require.NoError(t, err)
 
-		expTx, err := persistentStore.FindTxWithAttempts(inTx.ID)
+		expTx, err := persistentStore.FindTxWithAttempts(ctx, inTx.ID)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(expTx.TxAttempts))
 		assert.Equal(t, n, *expTx.TxAttempts[0].BroadcastBeforeBlockNum)
