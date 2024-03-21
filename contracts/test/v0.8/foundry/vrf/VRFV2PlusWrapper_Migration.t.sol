@@ -1,4 +1,4 @@
-pragma solidity 0.8.6;
+pragma solidity 0.8.19;
 
 import "../BaseTest.t.sol";
 import {VRF} from "../../../../src/v0.8/vrf/VRF.sol";
@@ -89,13 +89,14 @@ contract VRFV2PlusWrapper_MigrationTest is BaseTest {
     s_wrapper.setConfig(
       wrapperGasOverhead, // wrapper gas overhead
       coordinatorGasOverhead, // coordinator gas overhead
-      0, // premium percentage
+      0, // native premium percentage,
+      0, // link premium percentage
       vrfKeyHash, // keyHash
       10, // max number of words,
       1, // stalenessSeconds
       50000000000000000, // fallbackWeiPerUnitLink
-      0, // fulfillmentFlatFeeLinkPPM
-      0 // fulfillmentFlatFeeNativePPM
+      0, // fulfillmentFlatFeeNativePPM
+      0 // fulfillmentFlatFeeLinkDiscountPPM
     );
     (
       ,
@@ -104,13 +105,15 @@ contract VRFV2PlusWrapper_MigrationTest is BaseTest {
       ,
       uint32 _wrapperGasOverhead,
       uint32 _coordinatorGasOverhead,
-      uint8 _wrapperPremiumPercentage,
+      uint8 _wrapperNativePremiumPercentage,
+      uint8 _wrapperLinkPremiumPercentage,
       bytes32 _keyHash,
       uint8 _maxNumWords
     ) = s_wrapper.getConfig();
     assertEq(_wrapperGasOverhead, wrapperGasOverhead);
     assertEq(_coordinatorGasOverhead, coordinatorGasOverhead);
-    assertEq(0, _wrapperPremiumPercentage);
+    assertEq(0, _wrapperNativePremiumPercentage);
+    assertEq(0, _wrapperLinkPremiumPercentage);
     assertEq(vrfKeyHash, _keyHash);
     assertEq(10, _maxNumWords);
   }

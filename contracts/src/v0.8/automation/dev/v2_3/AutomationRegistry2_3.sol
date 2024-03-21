@@ -57,7 +57,9 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
       AutomationRegistryLogicC2_3(address(logicA)).getNativeUSDFeedAddress(),
       AutomationRegistryLogicC2_3(address(logicA)).getFastGasFeedAddress(),
       AutomationRegistryLogicC2_3(address(logicA)).getAutomationForwarderLogic(),
-      AutomationRegistryLogicC2_3(address(logicA)).getAllowedReadOnlyAddress()
+      AutomationRegistryLogicC2_3(address(logicA)).getAllowedReadOnlyAddress(),
+      AutomationRegistryLogicC2_3(address(logicA)).getPayoutMode(),
+      AutomationRegistryLogicC2_3(address(logicA)).getWrappedNativeTokenAddress()
     )
     Chainable(address(logicA))
   {}

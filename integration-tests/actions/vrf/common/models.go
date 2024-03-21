@@ -48,8 +48,10 @@ type VRFContracts struct {
 	VRFOwner          contracts.VRFOwner
 	BHS               contracts.BlockHashStore
 	BatchBHS          contracts.BatchBlockhashStore
-	VRFV2Consumer     []contracts.VRFv2LoadTestConsumer
+	VRFV2Consumers    []contracts.VRFv2LoadTestConsumer
 	VRFV2PlusConsumer []contracts.VRFv2PlusLoadTestConsumer
+	LinkToken         contracts.LinkToken
+	MockETHLINKFeed   contracts.VRFMockETHLINKFeed
 }
 
 type VRFOwnerConfig struct {
@@ -75,4 +77,11 @@ type VRFJobSpecConfig struct {
 
 type VRFLoadTestConsumer interface {
 	GetLoadTestMetrics(ctx context.Context) (*contracts.VRFLoadTestMetrics, error)
+}
+
+type NewEnvConfig struct {
+	NodesToCreate          []VRFNodeType
+	NumberOfTxKeysToCreate int
+	UseVRFOwner            bool
+	UseTestCoordinator     bool
 }
