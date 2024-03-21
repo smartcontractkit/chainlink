@@ -2,6 +2,7 @@ package txmgr_test
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"testing"
 	"time"
@@ -1220,6 +1221,62 @@ func TestInMemoryStore_IsTxFinalized(t *testing.T) {
 		require.NoError(t, expErr)
 		require.NoError(t, actErr)
 		assert.Equal(t, expIsFinalized, actIsFinalized)
+	})
+}
+
+func TestInMemoryStore_FindTxsRequiringGasBump(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
+	persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+	kst := cltest.NewKeyStore(t, db, dbcfg)
+	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
+
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	lggr := logger.TestSugared(t)
+	chainID := ethClient.ConfiguredChainID()
+	ctx := context.Background()
+
+	inMemoryStore, err := commontxmgr.NewInMemoryStore[
+		*big.Int,
+		common.Address, common.Hash, common.Hash,
+		*evmtypes.Receipt,
+		evmtypes.Nonce,
+		evmgas.EvmFee,
+	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	require.NoError(t, err)
+
+	t.Run("gets transactions requiring gas bumping", func(t *testing.T) {
+		currentBlockNum := int64(10)
+
+		// insert the transaction into the persistent store
+		inTx_0 := mustInsertUnconfirmedEthTxWithAttemptState(t, persistentStore, 1, fromAddress, txmgrtypes.TxAttemptBroadcast)
+		require.NoError(t, persistentStore.SetBroadcastBeforeBlockNum(testutils.Context(t), currentBlockNum, chainID))
+		inTx_1 := mustInsertUnconfirmedEthTxWithAttemptState(t, persistentStore, 2, fromAddress, txmgrtypes.TxAttemptBroadcast)
+		require.NoError(t, persistentStore.SetBroadcastBeforeBlockNum(testutils.Context(t), currentBlockNum+1, chainID))
+		// insert the transaction into the in-memory store
+		inTx_0.TxAttempts[0].BroadcastBeforeBlockNum = &currentBlockNum
+		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx_0))
+		tempCurrentBlockNum := currentBlockNum + 1
+		inTx_1.TxAttempts[0].BroadcastBeforeBlockNum = &tempCurrentBlockNum
+		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx_1))
+
+		ctx := testutils.Context(t)
+		newBlock := int64(12)
+		gasBumpThreshold := int64(2)
+		expTxs, expErr := persistentStore.FindTxsRequiringGasBump(ctx, fromAddress, newBlock, gasBumpThreshold, 0, chainID)
+		actTxs, actErr := inMemoryStore.FindTxsRequiringGasBump(ctx, fromAddress, newBlock, gasBumpThreshold, 0, chainID)
+		require.NoError(t, expErr)
+		fmt.Println("EXPTX", expTxs[0].ID)
+		for i := 0; i < len(expTxs[0].TxAttempts); i++ {
+			fmt.Println("EXPTX_ATTEMPT", expTxs[0].TxAttempts[i].ID)
+		}
+		require.NoError(t, actErr)
+		require.Equal(t, len(expTxs), len(actTxs))
+		for i := 0; i < len(expTxs); i++ {
+			assertTxEqual(t, *expTxs[i], *actTxs[i])
+		}
 	})
 }
 
