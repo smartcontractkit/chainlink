@@ -34,7 +34,8 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
       AutomationRegistryLogicC2_3(address(logicB)).getNativeUSDFeedAddress(),
       AutomationRegistryLogicC2_3(address(logicB)).getFastGasFeedAddress(),
       AutomationRegistryLogicC2_3(address(logicB)).getAutomationForwarderLogic(),
-      AutomationRegistryLogicC2_3(address(logicB)).getAllowedReadOnlyAddress()
+      AutomationRegistryLogicC2_3(address(logicB)).getAllowedReadOnlyAddress(),
+      AutomationRegistryLogicC2_3(address(logicB)).getPayoutMode()
     )
     Chainable(address(logicB))
   {}

@@ -1559,8 +1559,8 @@ func NewTestChainScopedConfig(t testing.TB) evmconfig.ChainScopedConfig {
 	return evmtest.NewChainScopedConfig(t, cfg)
 }
 
-func NewTestTxStore(t *testing.T, db *sqlx.DB, cfg pg.QConfig) txmgr.TestEvmTxStore {
-	return txmgr.NewTxStore(db, logger.TestLogger(t), cfg)
+func NewTestTxStore(t *testing.T, db *sqlx.DB) txmgr.TestEvmTxStore {
+	return txmgr.NewTxStore(db, logger.TestLogger(t))
 }
 
 // ClearDBTables deletes all rows from the given tables
