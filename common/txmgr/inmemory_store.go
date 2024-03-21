@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -47,7 +48,8 @@ type inMemoryStore[
 	keyStore          txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
 	persistentTxStore txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 
-	addressStates map[ADDR]*addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
+	addressStatesLock sync.RWMutex
+	addressStates     map[ADDR]*addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 }
 
 // NewInMemoryStore returns a new inMemoryStore
@@ -234,6 +236,28 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 }
 
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxCallbackCompleted(ctx context.Context, pipelineTaskRunRid uuid.UUID, chainId CHAIN_ID) error {
+	if ms.chainID.String() != chainId.String() {
+		panic("invalid chain ID")
+	}
+
+	// Persist to persistent storage
+	if err := ms.persistentTxStore.UpdateTxCallbackCompleted(ctx, pipelineTaskRunRid, chainId); err != nil {
+		return err
+	}
+
+	// Update in memory store
+	fn := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) {
+		if tx.PipelineTaskRunID.UUID == pipelineTaskRunRid {
+			tx.CallbackCompleted = true
+		}
+	}
+
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
+	for _, as := range ms.addressStates {
+		as.applyToTxsByState(nil, fn)
+	}
+
 	return nil
 }
 
