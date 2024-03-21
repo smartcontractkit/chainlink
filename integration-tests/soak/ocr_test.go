@@ -3,11 +3,11 @@ package soak
 import (
 	"testing"
 
+	"github.com/smartcontractkit/seth"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
-	"github.com/smartcontractkit/seth"
 
 	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
