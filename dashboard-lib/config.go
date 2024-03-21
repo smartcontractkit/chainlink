@@ -94,7 +94,7 @@ func DecodeBasicAuth(authString string) (string, string, error) {
 		L.Warn().Err(err).Msg("failed to decode basic auth, plain text? reading auth data")
 		data = authString
 	} else {
-		data = string(decodedBytes)
+		data = string(decodedBytes[1 : len(decodedBytes)-1])
 	}
 	parts := strings.Split(data, ":")
 	if len(parts) != 2 {
