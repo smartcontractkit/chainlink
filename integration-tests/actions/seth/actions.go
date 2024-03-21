@@ -52,7 +52,6 @@ func FundChainlinkNodes(
 	privateKey *ecdsa.PrivateKey,
 	amount *big.Float,
 ) error {
-	fundingErrors := []error{}
 	for _, cl := range nodes {
 		toAddress, err := cl.PrimaryEthAddress()
 		if err != nil {
@@ -70,34 +69,25 @@ func FundChainlinkNodes(
 			PrivateKey: privateKey,
 		})
 		if err != nil {
-			fundingErrors = append(fundingErrors, err)
-
-			txHash := "(none)"
-			if receipt != nil {
-				txHash = receipt.TxHash.String()
-			}
-
 			logger.Err(err).
 				Str("From", fromAddress.Hex()).
 				Str("To", toAddress).
-				Str("TxHash", txHash).
 				Msg("Failed to fund Chainlink node")
+
+			return err
+		}
+
+		txHash := "(none)"
+		if receipt != nil {
+			txHash = receipt.TxHash.String()
 		}
 
 		logger.Info().
 			Str("From", fromAddress.Hex()).
 			Str("To", toAddress).
-			Str("TxHash", receipt.TxHash.String()).
+			Str("TxHash", txHash).
 			Str("Amount", amount.String()).
 			Msg("Funded Chainlink node")
-	}
-
-	if len(fundingErrors) > 0 {
-		var wrapped error
-		for _, e := range fundingErrors {
-			wrapped = errors.Wrapf(e, ",")
-		}
-		return fmt.Errorf("failed to fund chainlink nodes due to following errors: %w", wrapped)
 	}
 
 	return nil
@@ -126,19 +116,34 @@ func SendFunds(logger zerolog.Logger, client *seth.Client, payload FundsToSendPa
 		return nil, err
 	}
 
-	gasLimit := uint64(client.Cfg.Network.GasLimit)
+	gasLimit := uint64(client.Cfg.Network.TransferGasFee)
 	if payload.GasLimit != nil {
 		gasLimit = *payload.GasLimit
 	}
 
-	rawTx := &types.LegacyTx{
-		Nonce:    nonce,
-		To:       &payload.ToAddress,
-		Value:    payload.Amount,
-		Gas:      gasLimit,
-		GasPrice: big.NewInt(client.Cfg.Network.GasPrice),
+	var signedTx *types.Transaction
+
+	if client.Cfg.Network.EIP1559DynamicFees {
+		rawTx := &types.DynamicFeeTx{
+			Nonce:     nonce,
+			To:        &payload.ToAddress,
+			Value:     payload.Amount,
+			Gas:       gasLimit,
+			GasFeeCap: big.NewInt(client.Cfg.Network.GasFeeCap),
+			GasTipCap: big.NewInt(client.Cfg.Network.GasTipCap),
+		}
+		signedTx, err = types.SignNewTx(payload.PrivateKey, types.NewLondonSigner(big.NewInt(client.ChainID)), rawTx)
+	} else {
+		rawTx := &types.LegacyTx{
+			Nonce:    nonce,
+			To:       &payload.ToAddress,
+			Value:    payload.Amount,
+			Gas:      gasLimit,
+			GasPrice: big.NewInt(client.Cfg.Network.GasPrice),
+		}
+		signedTx, err = types.SignNewTx(payload.PrivateKey, types.NewEIP155Signer(big.NewInt(client.ChainID)), rawTx)
 	}
-	signedTx, err := types.SignNewTx(payload.PrivateKey, types.NewEIP155Signer(big.NewInt(client.ChainID)), rawTx)
+
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to sign tx")
 	}
@@ -158,6 +163,9 @@ func SendFunds(logger zerolog.Logger, client *seth.Client, payload FundsToSendPa
 		Uint64("Nonce", nonce).
 		Uint64("Gas Limit", gasLimit).
 		Int64("Gas Price", client.Cfg.Network.GasPrice).
+		Int64("Gas Fee Cap", client.Cfg.Network.GasFeeCap).
+		Int64("Gas Tip Cap", client.Cfg.Network.GasTipCap).
+		Bool("Dynamic fees", client.Cfg.Network.EIP1559DynamicFees).
 		Msg("Sent funds")
 
 	return client.WaitMined(ctx, logger, client.Client, signedTx)
