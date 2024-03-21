@@ -128,7 +128,7 @@ func ValidateEthBalanceForTransfer(c *gin.Context, chain legacyevm.Chain, fromAd
 	return nil
 }
 
-func FindTxAttempt(ctx context.Context, timeout time.Duration, etx txmgr.Tx, FindTxWithAttempts func(int64) (txmgr.Tx, error)) (attempt txmgr.TxAttempt, err error) {
+func FindTxAttempt(ctx context.Context, timeout time.Duration, etx txmgr.Tx, FindTxWithAttempts func(context.Context, int64) (txmgr.Tx, error)) (attempt txmgr.TxAttempt, err error) {
 	recheckTime := time.Second
 	tick := time.After(0)
 	ctx, cancel := context.WithTimeout(ctx, timeout)
@@ -138,7 +138,7 @@ func FindTxAttempt(ctx context.Context, timeout time.Duration, etx txmgr.Tx, Fin
 		case <-ctx.Done():
 			return attempt, fmt.Errorf("%w - tx may still have been broadcast", ctx.Err())
 		case <-tick:
-			etx, err = FindTxWithAttempts(etx.ID)
+			etx, err = FindTxWithAttempts(ctx, etx.ID)
 			if err != nil {
 				return attempt, fmt.Errorf("failed to find transaction: %w", err)
 			}

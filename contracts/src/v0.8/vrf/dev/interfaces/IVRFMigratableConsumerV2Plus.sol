@@ -8,6 +8,6 @@ interface IVRFMigratableConsumerV2Plus {
   event CoordinatorSet(address vrfCoordinator);
 
   /// @notice Sets the VRF Coordinator address
-  /// @notice This method is should only be callable by the coordinator or contract owner
+  /// @notice This method should only be callable by the coordinator or contract owner
   function setCoordinator(address vrfCoordinator) external;
 }

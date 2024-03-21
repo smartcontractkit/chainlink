@@ -113,7 +113,7 @@ func newAddressState[
 		case TxFatalError:
 			as.fatalErroredTxs[tx.ID] = &tx
 		default:
-			panic("unknown transaction state")
+			panic(fmt.Sprintf("unknown transaction state: %q", tx.State))
 		}
 		as.allTxs[tx.ID] = &tx
 		if tx.IdempotencyKey != nil {
@@ -142,8 +142,7 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) findTx
 // If txIDs are provided, only the transactions with those IDs are considered.
 // If no txIDs are provided, all transactions in the given states are considered.
 // If no txStates are provided, all transactions are considered.
-// This method does not handle transactions in the UnstartedTx state.
-// Any transaction states that are unknown will cause a panic including UnstartedTx.
+// Any transaction states that are unknown will cause a panic.
 func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) applyToTxsByState(
 	txStates []txmgrtypes.TxState,
 	fn func(*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]),
@@ -172,8 +171,15 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) applyT
 			as._applyToTxs(as.confirmedTxs, fn, txIDs...)
 		case TxFatalError:
 			as._applyToTxs(as.fatalErroredTxs, fn, txIDs...)
+		case TxUnstarted:
+			nfn := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) {
+				if tx.State == TxUnstarted {
+					fn(tx)
+				}
+			}
+			as._applyToTxs(as.allTxs, nfn, txIDs...)
 		default:
-			panic("apply_to_txs_by_state: unknown transaction state")
+			panic(fmt.Sprintf("unknown transaction state: %q", txState))
 		}
 	}
 }
@@ -224,8 +230,13 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) findTx
 			txs = append(txs, as._findTxs(as.confirmedTxs, filter, txIDs...)...)
 		case TxFatalError:
 			txs = append(txs, as._findTxs(as.fatalErroredTxs, filter, txIDs...)...)
+		case TxUnstarted:
+			fn := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
+				return tx.State == TxUnstarted && filter(tx)
+			}
+			txs = append(txs, as._findTxs(as.allTxs, fn, txIDs...)...)
 		default:
-			panic("find_txs: unknown transaction state")
+			panic(fmt.Sprintf("unknown transaction state: %q", txState))
 		}
 	}
 
@@ -339,7 +350,7 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) moveTx
 	case TxConfirmedMissingReceipt:
 		delete(as.confirmedMissingReceiptTxs, tx.ID)
 	default:
-		panic("move_tx_to_fatal_error: unknown transaction state")
+		panic(fmt.Sprintf("unknown transaction state: %q", tx.State))
 	}
 
 	return nil
@@ -347,23 +358,15 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) moveTx
 
 // moveUnconfirmedToConfirmedMissingReceipt moves the unconfirmed transaction to the confirmed missing receipt state.
 // If there is no unconfirmed transaction with the given ID, an error is returned.
-func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) moveUnconfirmedToConfirmedMissingReceipt(txAttempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], broadcastAt time.Time) error {
+func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) moveUnconfirmedToConfirmedMissingReceipt(txID int64) error {
 	as.Lock()
 	defer as.Unlock()
 
-	tx, ok := as.unconfirmedTxs[txAttempt.TxID]
+	tx, ok := as.unconfirmedTxs[txID]
 	if !ok || tx == nil {
-		return fmt.Errorf("move_unconfirmed_to_confirmed_missing_receipt: no unconfirmed transaction with ID %d", txAttempt.TxID)
-	}
-	if len(tx.TxAttempts) == 0 {
-		return fmt.Errorf("move_unconfirmed_to_confirmed_missing_receipt: no attempts for transaction with ID %d", txAttempt.TxID)
-	}
-	if tx.BroadcastAt.Before(broadcastAt) {
-		tx.BroadcastAt = &broadcastAt
+		return fmt.Errorf("move_unconfirmed_to_confirmed_missing_receipt: no unconfirmed transaction with ID %d", txID)
 	}
 	tx.State = TxConfirmedMissingReceipt
-	txAttempt.State = txmgrtypes.TxAttemptBroadcast
-	tx.TxAttempts = append(tx.TxAttempts, txAttempt)
 
 	as.confirmedMissingReceiptTxs[tx.ID] = tx
 	delete(as.unconfirmedTxs, tx.ID)
