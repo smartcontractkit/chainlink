@@ -1003,6 +1003,7 @@ describe('AutomationRegistry2_3', () => {
       nativeUSDFeed.address,
       gasPriceFeed.address,
       zeroAddress,
+      0, // onchain payout mode
     ]
 
     registry = await deployRegistry23(...registryParams)

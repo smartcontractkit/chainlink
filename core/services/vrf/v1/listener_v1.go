@@ -311,6 +311,9 @@ func (lsn *Listener) RunLogListener(unsubscribes []func(), minConfs uint32) {
 }
 
 func (lsn *Listener) handleLog(lb log.Broadcast, minConfs uint32) {
+	ctx, cancel := lsn.ChStop.NewCtx()
+	defer cancel()
+
 	lggr := lsn.L.With(
 		"log", lb.String(),
 		"decodedLog", lb.DecodedLog(),
@@ -323,7 +326,7 @@ func (lsn *Listener) handleLog(lb log.Broadcast, minConfs uint32) {
 	if v, ok := lb.DecodedLog().(*solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequestFulfilled); ok {
 		lggr.Debugw("Got fulfillment log",
 			"requestID", hex.EncodeToString(v.RequestId[:]))
-		if !lsn.shouldProcessLog(lb) {
+		if !lsn.shouldProcessLog(ctx, lb) {
 			return
 		}
 		lsn.RespCountMu.Lock()
@@ -333,17 +336,17 @@ func (lsn *Listener) handleLog(lb log.Broadcast, minConfs uint32) {
 			reqID:       v.RequestId,
 		})
 		lsn.RespCountMu.Unlock()
-		lsn.markLogAsConsumed(lb)
+		lsn.markLogAsConsumed(ctx, lb)
 		return
 	}
 
 	req, err := lsn.Coordinator.ParseRandomnessRequest(lb.RawLog())
 	if err != nil {
 		lggr.Errorw("Failed to parse RandomnessRequest log", "err", err)
-		if !lsn.shouldProcessLog(lb) {
+		if !lsn.shouldProcessLog(ctx, lb) {
 			return
 		}
-		lsn.markLogAsConsumed(lb)
+		lsn.markLogAsConsumed(ctx, lb)
 		return
 	}
 
@@ -366,8 +369,8 @@ func (lsn *Listener) handleLog(lb log.Broadcast, minConfs uint32) {
 		"txHash", lb.RawLog().TxHash)
 }
 
-func (lsn *Listener) shouldProcessLog(lb log.Broadcast) bool {
-	consumed, err := lsn.Chain.LogBroadcaster().WasAlreadyConsumed(lb)
+func (lsn *Listener) shouldProcessLog(ctx context.Context, lb log.Broadcast) bool {
+	consumed, err := lsn.Chain.LogBroadcaster().WasAlreadyConsumed(ctx, lb)
 	if err != nil {
 		lsn.L.Errorw("Could not determine if log was already consumed", "err", err, "txHash", lb.RawLog().TxHash)
 		// Do not process, let lb resend it as a retry mechanism.
@@ -376,8 +379,8 @@ func (lsn *Listener) shouldProcessLog(lb log.Broadcast) bool {
 	return !consumed
 }
 
-func (lsn *Listener) markLogAsConsumed(lb log.Broadcast) {
-	err := lsn.Chain.LogBroadcaster().MarkConsumed(lb)
+func (lsn *Listener) markLogAsConsumed(ctx context.Context, lb log.Broadcast) {
+	err := lsn.Chain.LogBroadcaster().MarkConsumed(ctx, lb)
 	lsn.L.ErrorIf(err, fmt.Sprintf("Unable to mark log %v as consumed", lb.String()))
 }
 
@@ -408,7 +411,7 @@ func (lsn *Listener) getConfirmedAt(req *solidity_vrf_coordinator_interface.VRFC
 func (lsn *Listener) ProcessRequest(ctx context.Context, req request) bool {
 	// This check to see if the log was consumed needs to be in the same
 	// goroutine as the mark consumed to avoid processing duplicates.
-	if !lsn.shouldProcessLog(req.lb) {
+	if !lsn.shouldProcessLog(ctx, req.lb) {
 		return true
 	}
 
@@ -450,14 +453,14 @@ func (lsn *Listener) ProcessRequest(ctx context.Context, req request) bool {
 		// If seedAndBlockNumber is zero then the response has been fulfilled
 		// and we should skip it
 		lggr.Infow("Request already fulfilled")
-		lsn.markLogAsConsumed(req.lb)
+		lsn.markLogAsConsumed(ctx, req.lb)
 		return true
 	}
 
 	// Check if we can ignore the request due to its age.
 	if time.Now().UTC().Sub(req.utcTimestamp) >= lsn.Job.VRFSpec.RequestTimeout {
 		lggr.Infow("Request too old, dropping it")
-		lsn.markLogAsConsumed(req.lb)
+		lsn.markLogAsConsumed(ctx, req.lb)
 		return true
 	}
 
@@ -485,7 +488,7 @@ func (lsn *Listener) ProcessRequest(ctx context.Context, req request) bool {
 	// The VRF pipeline has no async tasks, so we don't need to check for `incomplete`
 	if _, err = lsn.PipelineRunner.Run(ctx, run, lggr, true, func(tx pg.Queryer) error {
 		// Always mark consumed regardless of whether the proof failed or not.
-		if err = lsn.Chain.LogBroadcaster().MarkConsumed(req.lb, pg.WithQueryer(tx)); err != nil {
+		if err = lsn.Chain.LogBroadcaster().MarkConsumed(ctx, req.lb); err != nil {
 			lggr.Errorw("Failed mark consumed", "err", err)
 		}
 		return nil

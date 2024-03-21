@@ -4,7 +4,8 @@ pragma solidity 0.8.19;
 import {EnumerableSet} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
 import {Address} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
 import {AutomationRegistryBase2_3} from "./AutomationRegistryBase2_3.sol";
-import {AutomationRegistryLogicB2_3} from "./AutomationRegistryLogicB2_3.sol";
+import {AutomationRegistryLogicA2_3} from "./AutomationRegistryLogicA2_3.sol";
+import {AutomationRegistryLogicC2_3} from "./AutomationRegistryLogicC2_3.sol";
 import {Chainable} from "../../Chainable.sol";
 import {IERC677Receiver} from "../../../shared/interfaces/IERC677Receiver.sol";
 import {OCR2Abstract} from "../../../shared/ocr2/OCR2Abstract.sol";
@@ -44,18 +45,20 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
   string public constant override typeAndVersion = "AutomationRegistry 2.3.0";
 
   /**
-   * @param logicA the address of the first logic contract, but cast as logicB in order to call logicB functions (via fallback)
+   * @param logicA the address of the first logic contract
+   * @dev we cast the contract to logicC in order to call logicC functions (via fallback)
    */
   constructor(
-    AutomationRegistryLogicB2_3 logicA
+    AutomationRegistryLogicA2_3 logicA
   )
     AutomationRegistryBase2_3(
-      logicA.getLinkAddress(),
-      logicA.getLinkUSDFeedAddress(),
-      logicA.getNativeUSDFeedAddress(),
-      logicA.getFastGasFeedAddress(),
-      logicA.getAutomationForwarderLogic(),
-      logicA.getAllowedReadOnlyAddress()
+      AutomationRegistryLogicC2_3(address(logicA)).getLinkAddress(),
+      AutomationRegistryLogicC2_3(address(logicA)).getLinkUSDFeedAddress(),
+      AutomationRegistryLogicC2_3(address(logicA)).getNativeUSDFeedAddress(),
+      AutomationRegistryLogicC2_3(address(logicA)).getFastGasFeedAddress(),
+      AutomationRegistryLogicC2_3(address(logicA)).getAutomationForwarderLogic(),
+      AutomationRegistryLogicC2_3(address(logicA)).getAllowedReadOnlyAddress(),
+      AutomationRegistryLogicC2_3(address(logicA)).getPayoutMode()
     )
     Chainable(address(logicA))
   {}

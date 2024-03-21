@@ -100,7 +100,7 @@ type GasEstimator interface {
 	LimitDefault() uint64
 	LimitMax() uint64
 	LimitMultiplier() float32
-	LimitTransfer() uint32
+	LimitTransfer() uint64
 	PriceDefault() *assets.Wei
 	TipCapDefault() *assets.Wei
 	TipCapMin() *assets.Wei

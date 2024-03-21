@@ -79,7 +79,7 @@ func (g *TestGasEstimatorConfig) TipCapMin() *assets.Wei     { return assets.New
 func (g *TestGasEstimatorConfig) LimitMax() uint64           { return 0 }
 func (g *TestGasEstimatorConfig) LimitMultiplier() float32   { return 0 }
 func (g *TestGasEstimatorConfig) BumpTxDepth() uint32        { return 42 }
-func (g *TestGasEstimatorConfig) LimitTransfer() uint32      { return 42 }
+func (g *TestGasEstimatorConfig) LimitTransfer() uint64      { return 42 }
 func (g *TestGasEstimatorConfig) PriceMax() *assets.Wei      { return assets.NewWeiI(42) }
 func (g *TestGasEstimatorConfig) PriceMin() *assets.Wei      { return assets.NewWeiI(42) }
 func (g *TestGasEstimatorConfig) Mode() string               { return "FixedPrice" }
