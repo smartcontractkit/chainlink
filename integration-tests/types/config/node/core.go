@@ -18,10 +18,10 @@ import (
 	it_utils "github.com/smartcontractkit/chainlink/integration-tests/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -214,7 +214,7 @@ func WithVRFv2EVMEstimator(addresses []string, maxGasPriceGWei int64) NodeConfig
 	var keySpecicifArr []evmcfg.KeySpecific
 	for _, addr := range addresses {
 		keySpecicifArr = append(keySpecicifArr, evmcfg.KeySpecific{
-			Key: ptr.Ptr(ethkey.EIP55Address(addr)),
+			Key: ptr.Ptr(types.EIP55Address(addr)),
 			GasEstimator: evmcfg.KeySpecificGasEstimator{
 				PriceMax: est,
 			},

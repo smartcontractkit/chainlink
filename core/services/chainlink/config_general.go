@@ -397,6 +397,10 @@ func (g *generalConfig) AutoPprofProfileRoot() string {
 	return s
 }
 
+func (g *generalConfig) Capabilities() config.Capabilities {
+	return &capabilitiesConfig{c: g.c.Capabilities}
+}
+
 func (g *generalConfig) Database() coreconfig.Database {
 	return &databaseConfig{c: g.c.Database, s: g.secrets.Secrets.Database, logSQL: g.logSQL}
 }
