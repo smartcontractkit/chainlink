@@ -158,15 +158,33 @@ func (te *CLClusterTestEnv) StartClCluster(nodeConfig *chainlink.Config, count i
 
 // FundChainlinkNodes will fund all the provided Chainlink nodes with a set amount of native currency
 func (te *CLClusterTestEnv) FundChainlinkNodes(amount *big.Float) error {
-	for _, evmClient := range te.evmClients {
-		for _, cl := range te.ClCluster.Nodes {
-			if err := cl.Fund(evmClient, amount); err != nil {
-				return fmt.Errorf("%s, err: %w", ErrFundCLNode, err)
+	if len(te.sethClients) == 0 && len(te.evmClients) == 0 {
+		return fmt.Errorf("both EVMClients and SethClient are nil, unable to fund chainlink nodes")
+	}
+
+	if len(te.sethClients) > 0 && len(te.evmClients) > 0 {
+		return fmt.Errorf("both EVMClients and SethClient are set, you can't use both at the same time")
+	}
+
+	if len(te.sethClients) > 0 {
+		for _, sethClient := range te.sethClients {
+			if err := actions_seth.FundChainlinkNodesFromRootAddress(te.l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(te.ClCluster.NodeAPIs()), amount); err != nil {
+				return err
 			}
 		}
-		err := evmClient.WaitForEvents()
-		if err != nil {
-			return err
+	}
+
+	if len(te.evmClients) > 0 {
+		for _, evmClient := range te.evmClients {
+			for _, cl := range te.ClCluster.Nodes {
+				if err := cl.Fund(evmClient, amount); err != nil {
+					return fmt.Errorf("%s, err: %w", ErrFundCLNode, err)
+				}
+			}
+			err := evmClient.WaitForEvents()
+			if err != nil {
+				return err
+			}
 		}
 	}
 

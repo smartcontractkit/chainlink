@@ -896,19 +896,19 @@ func (f *EthereumFunctionsV1EventsMock) EmitContractUpdated(id [32]byte, from co
 	return f.client.ProcessTransaction(tx)
 }
 
-// EthereumFluxAggregator represents the basic flux aggregation contract
-type EthereumFluxAggregator struct {
+// LegacyEthereumFluxAggregator represents the basic flux aggregation contract
+type LegacyEthereumFluxAggregator struct {
 	client         blockchain.EVMClient
 	fluxAggregator *flux_aggregator_wrapper.FluxAggregator
 	address        *common.Address
 }
 
-func (f *EthereumFluxAggregator) Address() string {
+func (f *LegacyEthereumFluxAggregator) Address() string {
 	return f.address.Hex()
 }
 
 // Fund sends specified currencies to the contract
-func (f *EthereumFluxAggregator) Fund(ethAmount *big.Float) error {
+func (f *LegacyEthereumFluxAggregator) Fund(ethAmount *big.Float) error {
 	gasEstimates, err := f.client.EstimateGas(ethereum.CallMsg{
 		To: f.address,
 	})
@@ -918,7 +918,7 @@ func (f *EthereumFluxAggregator) Fund(ethAmount *big.Float) error {
 	return f.client.Fund(f.address.Hex(), ethAmount, gasEstimates)
 }
 
-func (f *EthereumFluxAggregator) UpdateAvailableFunds() error {
+func (f *LegacyEthereumFluxAggregator) UpdateAvailableFunds() error {
 	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
 	if err != nil {
 		return err
@@ -930,7 +930,7 @@ func (f *EthereumFluxAggregator) UpdateAvailableFunds() error {
 	return f.client.ProcessTransaction(tx)
 }
 
-func (f *EthereumFluxAggregator) PaymentAmount(ctx context.Context) (*big.Int, error) {
+func (f *LegacyEthereumFluxAggregator) PaymentAmount(ctx context.Context) (*big.Int, error) {
 	opts := &bind.CallOpts{
 		From:    common.HexToAddress(f.client.GetDefaultWallet().Address()),
 		Context: ctx,
@@ -942,7 +942,7 @@ func (f *EthereumFluxAggregator) PaymentAmount(ctx context.Context) (*big.Int, e
 	return payment, nil
 }
 
-func (f *EthereumFluxAggregator) RequestNewRound(_ context.Context) error {
+func (f *LegacyEthereumFluxAggregator) RequestNewRound(_ context.Context) error {
 	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
 	if err != nil {
 		return err
@@ -955,7 +955,7 @@ func (f *EthereumFluxAggregator) RequestNewRound(_ context.Context) error {
 }
 
 // WatchSubmissionReceived subscribes to any submissions on a flux feed
-func (f *EthereumFluxAggregator) WatchSubmissionReceived(ctx context.Context, eventChan chan<- *SubmissionEvent) error {
+func (f *LegacyEthereumFluxAggregator) WatchSubmissionReceived(ctx context.Context, eventChan chan<- *SubmissionEvent) error {
 	ethEventChan := make(chan *flux_aggregator_wrapper.FluxAggregatorSubmissionReceived)
 	sub, err := f.fluxAggregator.WatchSubmissionReceived(&bind.WatchOpts{}, ethEventChan, nil, nil, nil)
 	if err != nil {
@@ -981,7 +981,7 @@ func (f *EthereumFluxAggregator) WatchSubmissionReceived(ctx context.Context, ev
 	}
 }
 
-func (f *EthereumFluxAggregator) SetRequesterPermissions(_ context.Context, addr common.Address, authorized bool, roundsDelay uint32) error {
+func (f *LegacyEthereumFluxAggregator) SetRequesterPermissions(_ context.Context, addr common.Address, authorized bool, roundsDelay uint32) error {
 	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
 	if err != nil {
 		return err
@@ -993,7 +993,7 @@ func (f *EthereumFluxAggregator) SetRequesterPermissions(_ context.Context, addr
 	return f.client.ProcessTransaction(tx)
 }
 
-func (f *EthereumFluxAggregator) GetOracles(ctx context.Context) ([]string, error) {
+func (f *LegacyEthereumFluxAggregator) GetOracles(ctx context.Context) ([]string, error) {
 	opts := &bind.CallOpts{
 		From:    common.HexToAddress(f.client.GetDefaultWallet().Address()),
 		Context: ctx,
@@ -1009,7 +1009,7 @@ func (f *EthereumFluxAggregator) GetOracles(ctx context.Context) ([]string, erro
 	return oracleAddrs, nil
 }
 
-func (f *EthereumFluxAggregator) LatestRoundID(ctx context.Context) (*big.Int, error) {
+func (f *LegacyEthereumFluxAggregator) LatestRoundID(ctx context.Context) (*big.Int, error) {
 	opts := &bind.CallOpts{
 		From:    common.HexToAddress(f.client.GetDefaultWallet().Address()),
 		Context: ctx,
@@ -1021,7 +1021,7 @@ func (f *EthereumFluxAggregator) LatestRoundID(ctx context.Context) (*big.Int, e
 	return rID, nil
 }
 
-func (f *EthereumFluxAggregator) WithdrawPayment(
+func (f *LegacyEthereumFluxAggregator) WithdrawPayment(
 	_ context.Context,
 	from common.Address,
 	to common.Address,
@@ -1037,7 +1037,7 @@ func (f *EthereumFluxAggregator) WithdrawPayment(
 	return f.client.ProcessTransaction(tx)
 }
 
-func (f *EthereumFluxAggregator) WithdrawablePayment(ctx context.Context, addr common.Address) (*big.Int, error) {
+func (f *LegacyEthereumFluxAggregator) WithdrawablePayment(ctx context.Context, addr common.Address) (*big.Int, error) {
 	opts := &bind.CallOpts{
 		From:    common.HexToAddress(f.client.GetDefaultWallet().Address()),
 		Context: ctx,
@@ -1049,7 +1049,7 @@ func (f *EthereumFluxAggregator) WithdrawablePayment(ctx context.Context, addr c
 	return balance, nil
 }
 
-func (f *EthereumFluxAggregator) LatestRoundData(ctx context.Context) (flux_aggregator_wrapper.LatestRoundData, error) {
+func (f *LegacyEthereumFluxAggregator) LatestRoundData(ctx context.Context) (flux_aggregator_wrapper.LatestRoundData, error) {
 	opts := &bind.CallOpts{
 		From:    common.HexToAddress(f.client.GetDefaultWallet().Address()),
 		Context: ctx,
@@ -1062,7 +1062,7 @@ func (f *EthereumFluxAggregator) LatestRoundData(ctx context.Context) (flux_aggr
 }
 
 // GetContractData retrieves basic data for the flux aggregator contract
-func (f *EthereumFluxAggregator) GetContractData(ctx context.Context) (*FluxAggregatorData, error) {
+func (f *LegacyEthereumFluxAggregator) GetContractData(ctx context.Context) (*FluxAggregatorData, error) {
 	opts := &bind.CallOpts{
 		From:    common.HexToAddress(f.client.GetDefaultWallet().Address()),
 		Context: ctx,
@@ -1098,7 +1098,7 @@ func (f *EthereumFluxAggregator) GetContractData(ctx context.Context) (*FluxAggr
 }
 
 // SetOracles allows the ability to add and/or remove oracles from the contract, and to set admins
-func (f *EthereumFluxAggregator) SetOracles(o FluxAggregatorSetOraclesOptions) error {
+func (f *LegacyEthereumFluxAggregator) SetOracles(o FluxAggregatorSetOraclesOptions) error {
 	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
 	if err != nil {
 		return err
@@ -1112,7 +1112,7 @@ func (f *EthereumFluxAggregator) SetOracles(o FluxAggregatorSetOraclesOptions) e
 }
 
 // Description returns the description of the flux aggregator contract
-func (f *EthereumFluxAggregator) Description(ctxt context.Context) (string, error) {
+func (f *LegacyEthereumFluxAggregator) Description(ctxt context.Context) (string, error) {
 	opts := &bind.CallOpts{
 		From:    common.HexToAddress(f.client.GetDefaultWallet().Address()),
 		Context: ctxt,

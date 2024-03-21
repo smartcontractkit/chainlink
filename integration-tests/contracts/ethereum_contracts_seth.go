@@ -20,6 +20,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_factory"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_wrapper"
@@ -655,4 +656,185 @@ func (l *EthereumLinkToken) TransferAndCall(to string, amount *big.Int, data []b
 		return nil, err
 	}
 	return decodedTx.Transaction, nil
+}
+
+// DeployFluxAggregatorContract deploys the Flux Aggregator Contract on an EVM chain
+func DeployFluxAggregatorContract(
+	seth *seth.Client,
+	linkAddr string,
+	fluxOptions FluxAggregatorOptions,
+) (FluxAggregator, error) {
+	abi, err := flux_aggregator_wrapper.FluxAggregatorMetaData.GetAbi()
+	if err != nil {
+		return &EthereumFluxAggregator{}, fmt.Errorf("failed to get FluxAggregator ABI: %w", err)
+	}
+	seth.ContractStore.AddABI("FluxAggregator", *abi)
+	seth.ContractStore.AddBIN("FluxAggregator", common.FromHex(flux_aggregator_wrapper.FluxAggregatorMetaData.Bin))
+
+	fluxDeploymentData, err := seth.DeployContract(seth.NewTXOpts(), "FluxAggregator", *abi, common.FromHex(flux_aggregator_wrapper.FluxAggregatorMetaData.Bin),
+		common.HexToAddress(linkAddr),
+		fluxOptions.PaymentAmount,
+		fluxOptions.Timeout,
+		fluxOptions.Validator,
+		fluxOptions.MinSubValue,
+		fluxOptions.MaxSubValue,
+		fluxOptions.Decimals,
+		fluxOptions.Description,
+	)
+
+	if err != nil {
+		return &EthereumFluxAggregator{}, fmt.Errorf("FluxAggregator instance deployment have failed: %w", err)
+	}
+
+	flux, err := flux_aggregator_wrapper.NewFluxAggregator(fluxDeploymentData.Address, wrappers.MustNewWrappedContractBackend(nil, seth))
+	if err != nil {
+		return &EthereumFluxAggregator{}, fmt.Errorf("failed to instantiate FluxAggregator instance: %w", err)
+	}
+
+	return &EthereumFluxAggregator{
+		client:         seth,
+		address:        &fluxDeploymentData.Address,
+		fluxAggregator: flux,
+	}, nil
+}
+
+// EthereumFluxAggregator represents the basic flux aggregation contract
+type EthereumFluxAggregator struct {
+	client         *seth.Client
+	fluxAggregator *flux_aggregator_wrapper.FluxAggregator
+	address        *common.Address
+}
+
+func (f *EthereumFluxAggregator) Address() string {
+	return f.address.Hex()
+}
+
+// Fund sends specified currencies to the contract
+func (f *EthereumFluxAggregator) Fund(ethAmount *big.Float) error {
+	panic("do not use this function, use actions_seth.SendFunds() instead, otherwise we will have to deal with circular dependencies")
+}
+
+func (f *EthereumFluxAggregator) UpdateAvailableFunds() error {
+	_, err := f.client.Decode(f.fluxAggregator.UpdateAvailableFunds(f.client.NewTXOpts()))
+	return err
+}
+
+func (f *EthereumFluxAggregator) PaymentAmount(ctx context.Context) (*big.Int, error) {
+	return f.fluxAggregator.PaymentAmount(&bind.CallOpts{
+		From:    f.client.Addresses[0],
+		Context: ctx,
+	})
+}
+
+func (f *EthereumFluxAggregator) RequestNewRound(context.Context) error {
+	_, err := f.client.Decode(f.fluxAggregator.RequestNewRound(f.client.NewTXOpts()))
+	return err
+}
+
+// WatchSubmissionReceived subscribes to any submissions on a flux feed
+func (f *EthereumFluxAggregator) WatchSubmissionReceived(_ context.Context, _ chan<- *SubmissionEvent) error {
+	panic("do not use this method, instead use XXXX")
+}
+
+func (f *EthereumFluxAggregator) SetRequesterPermissions(_ context.Context, addr common.Address, authorized bool, roundsDelay uint32) error {
+	_, err := f.client.Decode(f.fluxAggregator.SetRequesterPermissions(f.client.NewTXOpts(), addr, authorized, roundsDelay))
+	return err
+}
+
+func (f *EthereumFluxAggregator) GetOracles(ctx context.Context) ([]string, error) {
+	addresses, err := f.fluxAggregator.GetOracles(&bind.CallOpts{
+		From:    f.client.Addresses[0],
+		Context: ctx,
+	})
+	if err != nil {
+		return nil, err
+	}
+	var oracleAddrs []string
+	for _, o := range addresses {
+		oracleAddrs = append(oracleAddrs, o.Hex())
+	}
+	return oracleAddrs, nil
+}
+
+func (f *EthereumFluxAggregator) LatestRoundID(ctx context.Context) (*big.Int, error) {
+	return f.fluxAggregator.LatestRound(&bind.CallOpts{
+		From:    f.client.Addresses[0],
+		Context: ctx,
+	})
+}
+
+func (f *EthereumFluxAggregator) WithdrawPayment(
+	_ context.Context,
+	from common.Address,
+	to common.Address,
+	amount *big.Int) error {
+	_, err := f.client.Decode(f.fluxAggregator.WithdrawPayment(f.client.NewTXOpts(), from, to, amount))
+	return err
+}
+
+func (f *EthereumFluxAggregator) WithdrawablePayment(ctx context.Context, addr common.Address) (*big.Int, error) {
+	return f.fluxAggregator.WithdrawablePayment(&bind.CallOpts{
+		From:    f.client.Addresses[0],
+		Context: ctx,
+	}, addr)
+}
+
+func (f *EthereumFluxAggregator) LatestRoundData(ctx context.Context) (flux_aggregator_wrapper.LatestRoundData, error) {
+	return f.fluxAggregator.LatestRoundData(&bind.CallOpts{
+		From:    f.client.Addresses[0],
+		Context: ctx,
+	})
+}
+
+// GetContractData retrieves basic data for the flux aggregator contract
+func (f *EthereumFluxAggregator) GetContractData(ctx context.Context) (*FluxAggregatorData, error) {
+	opts := &bind.CallOpts{
+		From:    f.client.Addresses[0],
+		Context: ctx,
+	}
+
+	allocated, err := f.fluxAggregator.AllocatedFunds(opts)
+	if err != nil {
+		return &FluxAggregatorData{}, err
+	}
+
+	available, err := f.fluxAggregator.AvailableFunds(opts)
+	if err != nil {
+		return &FluxAggregatorData{}, err
+	}
+
+	lr, err := f.fluxAggregator.LatestRoundData(opts)
+	if err != nil {
+		return &FluxAggregatorData{}, err
+	}
+	latestRound := RoundData(lr)
+
+	oracles, err := f.fluxAggregator.GetOracles(opts)
+	if err != nil {
+		return &FluxAggregatorData{}, err
+	}
+
+	return &FluxAggregatorData{
+		AllocatedFunds:  allocated,
+		AvailableFunds:  available,
+		LatestRoundData: latestRound,
+		Oracles:         oracles,
+	}, nil
+}
+
+// SetOracles allows the ability to add and/or remove oracles from the contract, and to set admins
+func (f *EthereumFluxAggregator) SetOracles(o FluxAggregatorSetOraclesOptions) error {
+	_, err := f.client.Decode(f.fluxAggregator.ChangeOracles(f.client.NewTXOpts(), o.RemoveList, o.AddList, o.AdminList, o.MinSubmissions, o.MaxSubmissions, o.RestartDelayRounds))
+	if err != nil {
+		return err
+	}
+	return err
+}
+
+// Description returns the description of the flux aggregator contract
+func (f *EthereumFluxAggregator) Description(ctxt context.Context) (string, error) {
+	return f.fluxAggregator.Description(&bind.CallOpts{
+		From:    f.client.Addresses[0],
+		Context: ctxt,
+	})
 }

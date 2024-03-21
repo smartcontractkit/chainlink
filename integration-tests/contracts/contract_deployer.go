@@ -350,7 +350,7 @@ func (e *EthereumContractDeployer) DeployFluxAggregatorContract(
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumFluxAggregator{
+	return &LegacyEthereumFluxAggregator{
 		client:         e.client,
 		fluxAggregator: instance.(*flux_aggregator_wrapper.FluxAggregator),
 		address:        address,
