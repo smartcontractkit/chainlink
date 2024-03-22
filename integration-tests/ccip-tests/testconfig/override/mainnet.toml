@@ -677,7 +677,7 @@ NetworkPairs = [
   'BASE_MAINNET,POLYGON_MAINNET', # added as batch 2
   'BSC_MAINNET,OPTIMISM_MAINNET', # added as batch 2
   'AVALANCHE_MAINNET,BASE_MAINNET', # added as batch 2
-  # 'WEMIX_MAINNET,KROMA_MAINNET',
+  'WEMIX_MAINNET,KROMA_MAINNET',
   'BSC_MAINNET,WEMIX_MAINNET', # added as batch 2
   'AVALANCHE_MAINNET,WEMIX_MAINNET', # added as batch 2
   'POLYGON_MAINNET,WEMIX_MAINNET', # added as batch 2
@@ -724,7 +724,7 @@ NetworkPairs = [
   'BASE_MAINNET,POLYGON_MAINNET', # added as batch 2
   'BSC_MAINNET,OPTIMISM_MAINNET', # added as batch 2
   'AVALANCHE_MAINNET,BASE_MAINNET', # added as batch 2
-  # 'WEMIX_MAINNET,KROMA_MAINNET',
+  'WEMIX_MAINNET,KROMA_MAINNET',
   'BSC_MAINNET,WEMIX_MAINNET', # added as batch 2
   'AVALANCHE_MAINNET,WEMIX_MAINNET', # added as batch 2
   'POLYGON_MAINNET,WEMIX_MAINNET', # added as batch 2
