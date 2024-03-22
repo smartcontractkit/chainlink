@@ -167,7 +167,11 @@ contract AutomationRegistryLogicC2_3 is AutomationRegistryBase2_3 {
     address[] memory payees = new address[](activeTransmittersLength);
     for (uint256 i = 0; i < activeTransmittersLength; i++) {
       address transmitterAddr = s_transmittersList[i];
-      uint96 balance = _updateTransmitterBalanceFromPool(transmitterAddr, s_hotVars.totalPremium, uint96(activeTransmittersLength));
+      uint96 balance = _updateTransmitterBalanceFromPool(
+        transmitterAddr,
+        s_hotVars.totalPremium,
+        uint96(activeTransmittersLength)
+      );
       payments[i] = balance;
       payees[i] = s_transmitterPayees[transmitterAddr];
       s_transmitters[transmitterAddr].balance = 0;
