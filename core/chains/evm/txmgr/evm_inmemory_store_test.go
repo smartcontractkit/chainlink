@@ -24,19 +24,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 )
 
-<<<<<<< HEAD
 func TestInMemoryStore_ReapTxHistory(t *testing.T) {
 	t.Parallel()
 
 	t.Run("reap all confirmed txs", func(t *testing.T) {
-=======
-func TestInMemoryStore_MarkOldTxesMissingReceiptAsErrored(t *testing.T) {
-	t.Parallel()
-	blockNum := int64(10)
-	finalityDepth := uint32(2)
-
-	t.Run("successfully mark errored transaction", func(t *testing.T) {
->>>>>>> jtw/step-3-04
 		db := pgtest.NewSqlxDB(t)
 		_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
 		persistentStore := cltest.NewTestTxStore(t, db)
@@ -58,7 +49,6 @@ func TestInMemoryStore_MarkOldTxesMissingReceiptAsErrored(t *testing.T) {
 		require.NoError(t, err)
 
 		// Insert a transaction into persistent store
-<<<<<<< HEAD
 		inTx_0 := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, persistentStore, 7, 1, fromAddress)
 		r_0 := mustInsertEthReceipt(t, persistentStore, 1, utils.NewHash(), inTx_0.TxAttempts[0].Hash)
 		inTx_0.TxAttempts[0].Receipts = append(inTx_0.TxAttempts[0].Receipts, evmtxmgr.DbReceiptToEvmReceipt(&r_0))
@@ -172,7 +162,36 @@ func TestInMemoryStore_MarkOldTxesMissingReceiptAsErrored(t *testing.T) {
 		actTxs_2 := inMemoryStore.XXXTestFindTxs(nil, fn, inTx_2.ID)
 		require.Equal(t, 1, len(actTxs_2))
 		assertTxEqual(t, expTx_2, actTxs_2[0])
-=======
+	})
+}
+
+func TestInMemoryStore_MarkOldTxesMissingReceiptAsErrored(t *testing.T) {
+	t.Parallel()
+	blockNum := int64(10)
+	finalityDepth := uint32(2)
+
+	t.Run("successfully mark errored transaction", func(t *testing.T) {
+		db := pgtest.NewSqlxDB(t)
+		_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
+		persistentStore := cltest.NewTestTxStore(t, db)
+		kst := cltest.NewKeyStore(t, db, dbcfg)
+		_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
+
+		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+		lggr := logger.TestSugared(t)
+		chainID := ethClient.ConfiguredChainID()
+		ctx := testutils.Context(t)
+
+		inMemoryStore, err := commontxmgr.NewInMemoryStore[
+			*big.Int,
+			common.Address, common.Hash, common.Hash,
+			*evmtypes.Receipt,
+			evmtypes.Nonce,
+			evmgas.EvmFee,
+		](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+		require.NoError(t, err)
+
+		// Insert a transaction into persistent store
 		inTx := mustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(t, persistentStore, 1, 7, time.Now(), fromAddress)
 		// Insert the transaction into the in-memory store
 		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
@@ -191,7 +210,6 @@ func TestInMemoryStore_MarkOldTxesMissingReceiptAsErrored(t *testing.T) {
 		assertTxEqual(t, expTx, actTx)
 		assert.Equal(t, txmgrtypes.TxAttemptBroadcast, actTx.TxAttempts[0].State)
 		assert.Equal(t, commontxmgr.TxFatalError, actTx.State)
->>>>>>> jtw/step-3-04
 	})
 }
 
