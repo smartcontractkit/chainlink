@@ -92,8 +92,8 @@ runs:
               IFS='=' read -r chain_id docker_image <<< "${nodes_array[i]}"
               custom_nodes_toml+="
         [CCIP.Env.PrivateEthereumNetworks.${networks_array[i]}]
-        ethereum_version=""
-        execution_layer=""
+        ethereum_version=\"\"
+        execution_layer=\"\"
 
         [CCIP.Env.PrivateEthereumNetworks.${networks_array[i]}.EthereumChainConfig]
         seconds_per_slot=3
