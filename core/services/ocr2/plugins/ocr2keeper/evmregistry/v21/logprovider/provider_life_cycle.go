@@ -61,7 +61,6 @@ func (p *logEventProvider) RegisterFilter(ctx context.Context, opts FilterOption
 	if err := p.validateLogTriggerConfig(cfg); err != nil {
 		return fmt.Errorf("invalid log trigger config: %w", err)
 	}
-	p.lggr.Debugf("logEventProvider.RegisterFilter: calling p.LogFilter(upkeepID=%v)", upkeepID)
 	lpFilter := p.newLogFilter(upkeepID, cfg)
 
 	// using lock to facilitate multiple events causing filter registration

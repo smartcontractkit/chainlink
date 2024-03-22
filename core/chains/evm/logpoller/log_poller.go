@@ -347,8 +347,6 @@ func (lp *logPoller) RegisterFilter(ctx context.Context, filter Filter) error {
 		return fmt.Errorf("at least one event must be specified")
 	}
 
-	lp.lggr.Debugf("RegisterFilter called for filter '%s' address %v event sigs %v", filter.Name, filter.Addresses[0], filter.EventSigs)
-
 	for _, eventSig := range filter.EventSigs {
 		if eventSig == [common.HashLength]byte{} {
 			return fmt.Errorf("empty event sig")
@@ -386,7 +384,7 @@ func (lp *logPoller) RegisterFilter(ctx context.Context, filter Filter) error {
 	lp.filters[filter.Name] = filter
 	lp.newFilters[filter.Name] = struct{}{}
 
-	lp.lggr.Debugf("RegisterFilter returning nil, inserted filter '%s' address %v event sigs %v successfully", filter.Name, filter.Addresses[0], filter.EventSigs)
+	lp.lggr.Debugw("RegisterFilter: registered new filter", "name", filter.Name, "addresses", filter.Addresses, "eventSigs", filter.EventSigs)
 	return nil
 }
 
@@ -396,8 +394,6 @@ func (lp *logPoller) RegisterFilter(ctx context.Context, filter Filter) error {
 func (lp *logPoller) UnregisterFilter(ctx context.Context, name string) error {
 	lp.filtersMu.Lock()
 	defer lp.filtersMu.Unlock()
-
-	lp.lggr.Debugf("UnregisterFilter called for filter '%s'", name)
 
 	_, ok := lp.filters[name]
 	if !ok {
@@ -421,7 +417,6 @@ func (lp *logPoller) HasFilter(name string) bool {
 	defer lp.filtersMu.RUnlock()
 
 	_, ok := lp.filters[name]
-	lp.lggr.Debugf("HasFilter called with name=%s, returning %v", name, ok)
 	return ok
 }
 
@@ -467,7 +462,7 @@ func (lp *logPoller) Replay(ctx context.Context, fromBlock int64) (err error) {
 		}
 	}()
 
-	lp.lggr.Debugf("Replaying from block %d", fromBlock)
+	lp.lggr.Debugf("Replaying from block", fromBlock)
 	latest, err := lp.ec.HeadByNumber(ctx, nil)
 	if err != nil {
 		return err
@@ -1537,14 +1532,13 @@ func copyTopics(topics [][]common.Hash) (clone [][]common.Hash) {
 // ethGetLogsReqs generates a batched rpc reqs for all logs matching registered filters,
 // copying cached reqs and filling in block range/hash if none of the registered filters have changed
 func (lp *logPoller) ethGetLogsReqs(fromBlock, toBlock *big.Int, blockHash *common.Hash) []rpc.BatchElem {
-	lp.lggr.Debugf("ethGetLogsReqs called with fromBlock=%v, toBlock=%v, blockHash=%v", fromBlock, toBlock, blockHash)
 	lp.filtersMu.Lock()
 
 	if len(lp.removedFilters) != 0 || len(lp.newFilters) != 0 {
 		deletedAddresses := map[common.Address]struct{}{}
 		deletedEventsTopicsKeys := map[string]struct{}{}
 
-		lp.lggr.Debugf("removedFilters = %v, lp.newFilters = %v", lp.removedFilters, lp.newFilters)
+		lp.lggr.Debugw("ethGetLogsReqs: dirty cache, rebuilding reqs indices", "removedFilters", lp.removedFilters, "newFilters", lp.newFilters)
 
 		// First, remove any reqs corresponding to removed filters
 		// Some of them we may still need, they will be rebuilt on the next pass
@@ -1559,18 +1553,12 @@ func (lp *logPoller) ethGetLogsReqs(fromBlock, toBlock *big.Int, blockHash *comm
 		}
 		lp.removedFilters = nil
 
-		lp.lggr.Debugf("Deleted EventTopicKeys: %v", maps.Keys(deletedEventsTopicsKeys))
-
 		// Merge/add any new filters.
 		for _, filter := range lp.filters {
 			var newReq *GetLogsBatchElem
 
 			eventsTopicsKey := makeEventsTopicsKey(filter)
 			_, isNew := lp.newFilters[filter.Name]
-
-			if isNew {
-				lp.lggr.Debugf("ethGetLogsReqs: processing newFilter: %v", filter.Name)
-			}
 
 			_, hasDeletedTopics := deletedEventsTopicsKeys[eventsTopicsKey]
 			var hasDeletedAddress bool
@@ -1580,22 +1568,13 @@ func (lp *logPoller) ethGetLogsReqs(fromBlock, toBlock *big.Int, blockHash *comm
 				}
 			}
 
-			if hasDeletedTopics {
-				lp.lggr.Debugf("ethGetLogsReqs: processing filter with deleted topics: %v", filter.Name)
-			}
-			if hasDeletedAddress {
-				lp.lggr.Debugf("ethGetLogsReqs: processing filter with deleted addresses %v", filter.Name)
-			}
-
 			if !(isNew || hasDeletedTopics || hasDeletedAddress) {
 				continue // only rebuild reqs associated with new filters or those sharing topics or addresses with a removed filter
 			}
 
 			if req, ok2 := lp.cachedReqsByEventsTopicsKey[eventsTopicsKey]; ok2 {
 				// merge this filter with other filters with the same events and topics lists
-				lp.lggr.Debugf("Merging addressees %v into rec %v because eventTopicsKey for both = %v", filter.Addresses, req, eventsTopicsKey)
 				mergeAddressesIntoGetLogsReq(req, filter.Addresses)
-				lp.lggr.Debugf("Skipping filter with address %v, eventsig %v", filter.Addresses[0], filter.EventSigs[0])
 				continue
 			}
 
@@ -1610,12 +1589,10 @@ func (lp *logPoller) ethGetLogsReqs(fromBlock, toBlock *big.Int, blockHash *comm
 					for i, req := range reqsForAddress {
 						topics := req.Topics()
 						if isTopicsSubset(newTopics, topics) {
-							lp.lggr.Debugf("Skipping topics %v because subset of topics %v", newTopics, topics)
 							// Already covered by existing req
 							break
 						} else if isTopicsSubset(topics, newTopics) {
 							// Replace existing req by new req which includes it
-							lp.lggr.Debugf("Replacing topics %v with newTopics %v because subset of newTopics", topics, newTopics)
 							reqsForAddress[i] = NewGetLogsReq(filter)
 							lp.cachedReqsByAddress[addr] = reqsForAddress
 							break
@@ -1670,14 +1647,13 @@ func (lp *logPoller) ethGetLogsReqs(fromBlock, toBlock *big.Int, blockHash *comm
 func (lp *logPoller) batchFetchLogs(ctx context.Context, fromBlock *big.Int, toBlock *big.Int, blockHash *common.Hash) ([]types.Log, error) {
 	reqs := lp.ethGetLogsReqs(fromBlock, toBlock, blockHash)
 
-	lp.lggr.Debugf("batchFetchLogs: rpcBatchSize=%d, len(reqs)=%d, reqs=%v", lp.rpcBatchSize, len(reqs), reqs)
+	lp.lggr.Debugw("batchFetchLogs: sending batched requests", "rpcBatchSize", lp.rpcBatchSize, "numReqs", len(reqs))
 	if err := lp.sendBatchedRequests(ctx, lp.rpcBatchSize, reqs); err != nil {
 		return nil, err
 	}
 
 	var logs []types.Log
 	for _, req := range reqs {
-		lp.lggr.Debugf("processing result for req...")
 		if req.Error != nil {
 			return nil, req.Error
 		}
@@ -1685,7 +1661,6 @@ func (lp *logPoller) batchFetchLogs(ctx context.Context, fromBlock *big.Int, toB
 		if !ok {
 			return nil, fmt.Errorf("expected result type %T from eth_getLogs request, got %T", res, req.Result)
 		}
-		lp.lggr.Debugf("appending %d logs to result", len(*res))
 		logs = append(logs, *res...)
 	}
 	return logs, nil
