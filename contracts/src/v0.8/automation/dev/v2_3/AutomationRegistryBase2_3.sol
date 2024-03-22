@@ -224,21 +224,24 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
    */
   struct OnchainConfig {
     uint32 checkGasLimit;
-    uint24 stalenessSeconds;
-    uint16 gasCeilingMultiplier;
     uint32 maxPerformGas;
     uint32 maxCheckDataSize;
+    address transcoder;
+    // 1 word full
+    bool reorgProtectionEnabled;
+    uint24 stalenessSeconds;
     uint32 maxPerformDataSize;
     uint32 maxRevertDataSize;
+    address upkeepPrivilegeManager;
+    // 2 words full
+    uint16 gasCeilingMultiplier;
+    address financeAdmin;
+    // 3 words
     uint256 fallbackGasPrice;
     uint256 fallbackLinkPrice;
     uint256 fallbackNativePrice;
-    address transcoder;
     address[] registrars;
-    address upkeepPrivilegeManager;
     IChainModule chainModule;
-    bool reorgProtectionEnabled;
-    address financeAdmin; // TODO: pack this struct better
   }
 
   /**
@@ -378,7 +381,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     uint32 gasFeePPB;
     uint24 flatFeeMilliCents; // min fee is $0.00001, max fee is $167
     AggregatorV3Interface priceFeed;
-    // 1st word, read in getPrice()
+    // 1st word, read in calculating BillingTokenPaymentParams
     uint256 fallbackPrice;
     // 2nd word only read if stale
     uint96 minSpend;
