@@ -15,14 +15,14 @@ import (
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 )
 
-const ErrOutOfCounters = "not enough keccak counters to continue the execution"
+const ErrOutOfCounters = "not enough counters to continue the execution"
 
 type simulatorClient interface {
 	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
 }
 
-// ZK Chain can return an overflow error based on the number of keccak hashes in the call
-// This method allows a caller to determine if a tx would fail due to overflow error by simulating the transaction
+// ZK chains can return an out-of-counters error
+// This method allows a caller to determine if a tx would fail due to OOC error by simulating the transaction
 // Used as an entry point for custom simulation across different chains
 func SimulateTransaction(ctx context.Context, client simulatorClient, lggr logger.SugaredLogger, chainType config.ChainType, msg ethereum.CallMsg) error {
 	var err error
@@ -34,6 +34,7 @@ func SimulateTransaction(ctx context.Context, client simulatorClient, lggr logge
 	}
 	// ClassifySendError will not have the proper fields for logging within the method due to the empty Transaction passed
 	code := ClassifySendError(err, lggr, &types.Transaction{}, msg.From, chainType.IsL2())
+	// Only return error if ZK OOC error is identified
 	if code == commonclient.OutOfCounters {
 		return errors.New(ErrOutOfCounters)
 	}
@@ -45,49 +46,65 @@ func simulateTransactionDefault(ctx context.Context, client simulatorClient, msg
 	var result hexutil.Big
 	errCall := client.CallContext(ctx, &result, "eth_estimateGas", toCallArg(msg), "pending")
 	jsonErr, _ := ExtractRPCError(errCall)
-	// Only return error if Zk OOC error is identified
-	if jsonErr != nil && jsonErr.Message == ErrOutOfCounters {
-		return errors.New(ErrOutOfCounters)
+	if jsonErr != nil && len(jsonErr.Message) > 0 {
+		return errors.New(jsonErr.Message)
 	}
 	return nil
 }
 
+type zkEvmEstimateCountResponse struct {
+	CountersUsed struct {
+		GasUsed              string
+		UsedKeccakHashes     string
+		UsedPoseidonHashes   string
+		UsedPoseidonPaddings string
+		UsedMemAligns        string
+		UsedArithmetics      string
+		UsedBinaries         string
+		UsedSteps            string
+		UsedSHA256Hashes     string
+	}
+	CountersLimit struct {
+		MaxGasUsed          string
+		MaxKeccakHashes     string
+		MaxPoseidonHashes   string
+		MaxPoseidonPaddings string
+		MaxMemAligns        string
+		MaxArithmetics      string
+		MaxBinaries         string
+		MaxSteps            string
+		MaxSHA256Hashes     string
+	}
+	OocError string
+}
+
 // zkEVM implemented a custom zkevm_estimateCounters method to detect if a transaction would result in an out-of-counters (OOC) error
 func simulateTransactionZkEvm(ctx context.Context, client simulatorClient, lggr logger.SugaredLogger, msg ethereum.CallMsg) error {
-	var result struct {
-		CountersUsed struct {
-			GasUsed              string
-			UsedKeccakHashes     string
-			UsedPoseidonHashes   string
-			UsedPoseidonPaddings string
-			UsedMemAligns        string
-			UsedArithmetics      string
-			UsedBinaries         string
-			UsedSteps            string
-			UsedSHA256Hashes     string
-		}
-		CountersLimit struct {
-			MaxGasUsed          string
-			MaxKeccakHashes     string
-			MaxPoseidonHashes   string
-			MaxPoseidonPaddings string
-			MaxMemAligns        string
-			MaxArithmetics      string
-			MaxBinaries         string
-			MaxSteps            string
-			MaxSHA256Hashes     string
-		}
-		OocError string
-	}
+	var result zkEvmEstimateCountResponse
 	err := client.CallContext(ctx, &result, "zkevm_estimateCounters", toCallArg(msg), "pending")
 	if err != nil {
 		return fmt.Errorf("failed to simulate tx: %w", err)
 	}
-	if len(result.OocError) > 0 {
+	if detectZkEvmCounterOverflow(result) && len(result.OocError) > 0 {
 		lggr.Debugw("zkevm_estimateCounters returned", "result", result)
 		return errors.New(result.OocError)
 	}
 	return nil
+}
+
+// Helper method for zkEvm to determine if response indicates an overflow
+func detectZkEvmCounterOverflow(result zkEvmEstimateCountResponse) bool {
+	if result.CountersUsed.UsedKeccakHashes > result.CountersLimit.MaxKeccakHashes ||
+		result.CountersUsed.UsedPoseidonHashes > result.CountersLimit.MaxPoseidonHashes ||
+		result.CountersUsed.UsedPoseidonPaddings > result.CountersLimit.MaxPoseidonPaddings ||
+		result.CountersUsed.UsedMemAligns > result.CountersLimit.MaxMemAligns ||
+		result.CountersUsed.UsedArithmetics > result.CountersLimit.MaxArithmetics ||
+		result.CountersUsed.UsedBinaries > result.CountersLimit.MaxBinaries ||
+		result.CountersUsed.UsedSteps > result.CountersLimit.MaxSteps ||
+		result.CountersUsed.UsedSHA256Hashes > result.CountersLimit.MaxSHA256Hashes {
+		return true
+	}
+	return false
 }
 
 func toCallArg(msg ethereum.CallMsg) interface{} {

@@ -229,7 +229,7 @@ var zkSync = ClientErrors{
 }
 
 var zkEvm = ClientErrors{
-	OutOfCounters: regexp.MustCompile(`(?:: |^)not enough keccak counters to continue the execution$`),
+	OutOfCounters: regexp.MustCompile(`(?:: |^)not enough .* counters to continue the execution$`),
 }
 
 var clients = []ClientErrors{parity, geth, arbitrum, metis, substrate, avalanche, nethermind, harmony, besu, erigon, klaytn, celo, zkSync, zkEvm}

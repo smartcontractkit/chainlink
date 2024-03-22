@@ -64,7 +64,7 @@ func TestSimulateTx_Default(t *testing.T) {
 			case "eth_estimateGas":
 				resp.Error.Code = -32000
 				resp.Result = `"0x100"`
-				resp.Error.Message = client.ErrOutOfCounters
+				resp.Error.Message = "not enough keccak counters to continue the execution"
 			}
 			return
 		}).WSURL().String()
@@ -95,7 +95,7 @@ func TestSimulateTx_Default(t *testing.T) {
 			case "eth_estimateGas":
 				resp.Error.Code = -32000
 				resp.Result = `"0x100"`
-				resp.Error.Message = "something other than OOC"
+				resp.Error.Message = "txpool is full"
 			}
 			return
 		}).WSURL().String()
