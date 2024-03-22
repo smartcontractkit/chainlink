@@ -20,6 +20,7 @@ contract VRFV2PlusWrapper_MigrationTest is BaseTest {
   bytes32 vrfKeyHash = hex"9f2353bde94264dbc3d554a94cceba2d7d2b4fdce4304d3e09a1fea9fbeb1528";
   uint32 wrapperGasOverhead = 10_000;
   uint32 coordinatorGasOverhead = 20_000;
+  uint256 s_wrapperSubscriptionId;
 
   ExposedVRFCoordinatorV2_5 s_testCoordinator;
   MockLinkToken s_linkToken;
@@ -45,9 +46,24 @@ contract VRFV2PlusWrapper_MigrationTest is BaseTest {
     s_linkToken = new MockLinkToken();
     s_linkNativeFeed = new MockV3Aggregator(18, 500000000000000000); // .5 ETH (good for testing)
 
-    // Deploy coordinator and consumer.
+    // Deploy coordinator.
     s_testCoordinator = new ExposedVRFCoordinatorV2_5(address(0));
-    s_wrapper = new VRFV2PlusWrapper(address(s_linkToken), address(s_linkNativeFeed), address(s_testCoordinator));
+
+    // Create subscription for all future wrapper contracts.
+    s_wrapperSubscriptionId = s_testCoordinator.createSubscription();
+
+    // Deploy wrapper.
+    s_wrapper = new VRFV2PlusWrapper(
+      address(s_linkToken),
+      address(s_linkNativeFeed),
+      address(s_testCoordinator),
+      uint256(s_wrapperSubscriptionId)
+    );
+
+    // Add wrapper as a consumer to the wrapper's subscription.
+    s_testCoordinator.addConsumer(uint256(s_wrapperSubscriptionId), address(s_wrapper));
+
+    // Deploy consumer.
     s_consumer = new VRFV2PlusWrapperConsumerExample(address(s_wrapper));
 
     // Configure the coordinator.
@@ -140,35 +156,30 @@ contract VRFV2PlusWrapper_MigrationTest is BaseTest {
   function testMigrateWrapperLINKPayment() public {
     s_linkToken.transfer(address(s_consumer), DEFAULT_LINK_FUNDING);
 
-    uint256 subID = s_wrapper.SUBSCRIPTION_ID();
+    assertEq(uint256(s_wrapperSubscriptionId), uint256(s_wrapper.SUBSCRIPTION_ID()));
     address oldCoordinatorAddr = address(s_testCoordinator);
+    assertEq(address(oldCoordinatorAddr), address(s_wrapper.s_vrfCoordinator()));
 
     // Fund subscription with native and LINK payment to check
     // if funds are transferred to new subscription after call
     // migration to new coordinator
-    s_linkToken.transferAndCall(oldCoordinatorAddr, DEFAULT_LINK_FUNDING, abi.encode(subID));
-    s_testCoordinator.fundSubscriptionWithNative{value: DEFAULT_NATIVE_FUNDING}(subID);
-
-    // Get type and version.
-    assertEq(s_wrapper.typeAndVersion(), "VRFV2Wrapper 1.0.0");
+    s_linkToken.transferAndCall(oldCoordinatorAddr, DEFAULT_LINK_FUNDING, abi.encode(s_wrapperSubscriptionId));
+    s_testCoordinator.fundSubscriptionWithNative{value: DEFAULT_NATIVE_FUNDING}(s_wrapperSubscriptionId);
 
     // subscription exists in V1 coordinator before migration
-
     (
       uint96 balance,
       uint96 nativeBalance,
       uint64 reqCount,
       address owner,
       address[] memory consumers
-    ) = s_testCoordinator.getSubscription(subID);
+    ) = s_testCoordinator.getSubscription(s_wrapperSubscriptionId);
     assertEq(reqCount, 0);
     assertEq(balance, DEFAULT_LINK_FUNDING);
     assertEq(nativeBalance, DEFAULT_NATIVE_FUNDING);
-    assertEq(owner, address(s_wrapper));
+    assertEq(owner, address(LINK_WHALE));
     assertEq(consumers.length, 1);
     assertEq(consumers[0], address(s_wrapper));
-
-    vm.startPrank(LINK_WHALE);
 
     // Update wrapper to point to the new coordinator
     vm.expectEmit(
@@ -178,21 +189,23 @@ contract VRFV2PlusWrapper_MigrationTest is BaseTest {
       true // check data fields
     );
     address newCoordinatorAddr = address(s_newCoordinator);
-    emit MigrationCompleted(newCoordinatorAddr, subID);
+    emit MigrationCompleted(newCoordinatorAddr, s_wrapperSubscriptionId);
 
-    s_wrapper.migrate(newCoordinatorAddr);
+    // old coordinator has to migrate wrapper's subscription to the new coordinator
+    s_testCoordinator.migrate(s_wrapperSubscriptionId, newCoordinatorAddr);
+    assertEq(address(newCoordinatorAddr), address(s_wrapper.s_vrfCoordinator()));
 
     // subscription no longer exists in v1 coordinator after migration
     vm.expectRevert(SubscriptionAPI.InvalidSubscription.selector);
-    s_testCoordinator.getSubscription(subID);
+    s_testCoordinator.getSubscription(s_wrapperSubscriptionId);
     assertEq(s_testCoordinator.s_totalBalance(), 0);
     assertEq(s_testCoordinator.s_totalNativeBalance(), 0);
     assertEq(s_linkToken.balanceOf(oldCoordinatorAddr), 0);
     assertEq(oldCoordinatorAddr.balance, 0);
 
     // subscription exists in v2 coordinator
-    (balance, nativeBalance, reqCount, owner, consumers) = s_newCoordinator.getSubscription(subID);
-    assertEq(owner, address(s_wrapper));
+    (balance, nativeBalance, reqCount, owner, consumers) = s_newCoordinator.getSubscription(s_wrapperSubscriptionId);
+    assertEq(owner, address(LINK_WHALE));
     assertEq(consumers.length, 1);
     assertEq(consumers[0], address(s_wrapper));
     assertEq(reqCount, 0);
@@ -205,7 +218,7 @@ contract VRFV2PlusWrapper_MigrationTest is BaseTest {
 
     // calling migrate again on V1 coordinator should fail
     vm.expectRevert();
-    s_wrapper.migrate(newCoordinatorAddr);
+    s_testCoordinator.migrate(s_wrapperSubscriptionId, newCoordinatorAddr);
 
     // Request randomness from wrapper.
     uint32 callbackGasLimit = 1_000_000;
@@ -257,17 +270,15 @@ contract VRFV2PlusWrapper_MigrationTest is BaseTest {
   function testMigrateWrapperNativePayment() public {
     vm.deal(address(s_consumer), DEFAULT_NATIVE_FUNDING);
 
-    uint256 subID = s_wrapper.SUBSCRIPTION_ID();
+    assertEq(uint256(s_wrapperSubscriptionId), uint256(s_wrapper.SUBSCRIPTION_ID()));
     address oldCoordinatorAddr = address(s_testCoordinator);
+    assertEq(address(oldCoordinatorAddr), address(s_wrapper.s_vrfCoordinator()));
 
     // Fund subscription with native and LINK payment to check
     // if funds are transferred to new subscription after call
     // migration to new coordinator
-    s_linkToken.transferAndCall(oldCoordinatorAddr, DEFAULT_LINK_FUNDING, abi.encode(subID));
-    s_testCoordinator.fundSubscriptionWithNative{value: DEFAULT_NATIVE_FUNDING}(subID);
-
-    // Get type and version.
-    assertEq(s_wrapper.typeAndVersion(), "VRFV2Wrapper 1.0.0");
+    s_linkToken.transferAndCall(oldCoordinatorAddr, DEFAULT_LINK_FUNDING, abi.encode(s_wrapperSubscriptionId));
+    s_testCoordinator.fundSubscriptionWithNative{value: DEFAULT_NATIVE_FUNDING}(s_wrapperSubscriptionId);
 
     // subscription exists in V1 coordinator before migration
     (
@@ -276,15 +287,13 @@ contract VRFV2PlusWrapper_MigrationTest is BaseTest {
       uint64 reqCount,
       address owner,
       address[] memory consumers
-    ) = s_testCoordinator.getSubscription(subID);
+    ) = s_testCoordinator.getSubscription(s_wrapperSubscriptionId);
     assertEq(reqCount, 0);
     assertEq(balance, DEFAULT_LINK_FUNDING);
     assertEq(nativeBalance, DEFAULT_NATIVE_FUNDING);
-    assertEq(owner, address(s_wrapper));
+    assertEq(owner, address(LINK_WHALE));
     assertEq(consumers.length, 1);
     assertEq(consumers[0], address(s_wrapper));
-
-    vm.startPrank(LINK_WHALE);
 
     // Update wrapper to point to the new coordinator
     vm.expectEmit(
@@ -294,22 +303,23 @@ contract VRFV2PlusWrapper_MigrationTest is BaseTest {
       true // check data fields
     );
     address newCoordinatorAddr = address(s_newCoordinator);
-    emit CoordinatorSet(address(s_newCoordinator));
-    emit MigrationCompleted(newCoordinatorAddr, subID);
+    emit MigrationCompleted(newCoordinatorAddr, s_wrapperSubscriptionId);
 
-    s_wrapper.migrate(newCoordinatorAddr);
+    // old coordinator has to migrate wrapper's subscription to the new coordinator
+    s_testCoordinator.migrate(s_wrapperSubscriptionId, newCoordinatorAddr);
+    assertEq(address(newCoordinatorAddr), address(s_wrapper.s_vrfCoordinator()));
 
     // subscription no longer exists in v1 coordinator after migration
     vm.expectRevert(SubscriptionAPI.InvalidSubscription.selector);
-    s_testCoordinator.getSubscription(subID);
+    s_testCoordinator.getSubscription(s_wrapperSubscriptionId);
     assertEq(s_testCoordinator.s_totalBalance(), 0);
     assertEq(s_testCoordinator.s_totalNativeBalance(), 0);
     assertEq(s_linkToken.balanceOf(oldCoordinatorAddr), 0);
     assertEq(oldCoordinatorAddr.balance, 0);
 
     // subscription exists in v2 coordinator
-    (balance, nativeBalance, reqCount, owner, consumers) = s_newCoordinator.getSubscription(subID);
-    assertEq(owner, address(s_wrapper));
+    (balance, nativeBalance, reqCount, owner, consumers) = s_newCoordinator.getSubscription(s_wrapperSubscriptionId);
+    assertEq(owner, address(LINK_WHALE));
     assertEq(consumers.length, 1);
     assertEq(consumers[0], address(s_wrapper));
     assertEq(reqCount, 0);
@@ -322,7 +332,7 @@ contract VRFV2PlusWrapper_MigrationTest is BaseTest {
 
     // calling migrate again on V1 coordinator should fail
     vm.expectRevert();
-    s_wrapper.migrate(newCoordinatorAddr);
+    s_testCoordinator.migrate(s_wrapperSubscriptionId, newCoordinatorAddr);
 
     // Request randomness from wrapper.
     uint32 callbackGasLimit = 1_000_000;
