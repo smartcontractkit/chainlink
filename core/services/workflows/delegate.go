@@ -3,10 +3,13 @@ package workflows
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/pelletier/go-toml"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/mercury"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/triggers"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/targets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
@@ -17,12 +20,12 @@ import (
 
 const hardcodedWorkflow = `
 triggers:
-  - type: "on_mercury_report"
+  - type: "mercury-trigger"
     config:
-      feedlist:
-        - "0x1111111111111111111100000000000000000000000000000000000000000000" # ETHUSD
-        - "0x2222222222222222222200000000000000000000000000000000000000000000" # LINKUSD
-        - "0x3333333333333333333300000000000000000000000000000000000000000000" # BTCUSD
+      feedIds:
+        - "837699011992234352"
+        - "199223435283769901"
+        - "352837699011992234"
         
 consensus:
   - type: "offchain_reporting"
@@ -33,13 +36,13 @@ consensus:
     config:
       aggregation_method: "data_feeds_2_0"
       aggregation_config:
-        "0x1111111111111111111100000000000000000000000000000000000000000000":
+        "837699011992234352":
           deviation: "0.001"
           heartbeat: "30m"
-        "0x2222222222222222222200000000000000000000000000000000000000000000":
+        "199223435283769901":
           deviation: "0.001"
           heartbeat: "30m"
-        "0x3333333333333333333300000000000000000000000000000000000000000000":
+        "352837699011992234":
           deviation: "0.001"
           heartbeat: "30m"
       encoder: "EVM"
@@ -102,7 +105,50 @@ func NewDelegate(logger logger.Logger, registry types.CapabilitiesRegistry, lega
 	// NOTE: we temporarily do registration inside NewDelegate, this will be moved out of job specs in the future
 	_ = targets.InitializeWrite(registry, legacyEVMChains, logger)
 
+	trigger := triggers.NewMercuryTriggerService()
+	registry.Add(context.Background(), trigger)
+	go mercuryEventLoop(trigger, logger)
+
 	return &Delegate{logger: logger, registry: registry}
+
+}
+
+func mercuryEventLoop(trigger *triggers.MercuryTriggerService, logger logger.Logger) {
+	sleepSec := 60
+	ticker := time.NewTicker(time.Duration(sleepSec) * time.Second)
+	defer ticker.Stop()
+
+	prices := []int64{300000, 2000, 5000000}
+
+	for range ticker.C {
+		for i := range prices {
+			prices[i] = prices[i] + 1
+		}
+
+		reports := []mercury.FeedReport{
+			{
+				FeedID:               837699011992234352,
+				FullReport:           []byte{},
+				BenchmarkPrice:       prices[0],
+				ObservationTimestamp: time.Now().Unix(),
+			},
+			{
+				FeedID:               199223435283769901,
+				FullReport:           []byte{},
+				BenchmarkPrice:       prices[1],
+				ObservationTimestamp: time.Now().Unix(),
+			},
+			{
+				FeedID:               352837699011992234,
+				FullReport:           []byte{},
+				BenchmarkPrice:       prices[2],
+				ObservationTimestamp: time.Now().Unix(),
+			},
+		}
+
+		logger.Infow("New set of Mercury reports", "timestamp", time.Now().Unix(), "payload", reports)
+		trigger.ProcessReport(reports)
+	}
 }
 
 func ValidatedWorkflowSpec(tomlString string) (job.Job, error) {
