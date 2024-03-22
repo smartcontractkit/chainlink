@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gin-contrib/sessions"
+	"github.com/go-ldap/ldap/v3"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
@@ -215,8 +216,8 @@ func (l *ldapConfig) SessionTimeout() commonconfig.Duration {
 	return *l.c.SessionTimeout
 }
 
-func (l *ldapConfig) QueryTimeout() time.Duration {
-	return l.c.QueryTimeout.Duration()
+func (l *ldapConfig) QueryTimeout() commonconfig.Duration {
+	return *l.c.QueryTimeout
 }
 
 func (l *ldapConfig) UserAPITokenDuration() commonconfig.Duration {
@@ -255,7 +256,7 @@ func (l *ldapConfig) ActiveAttribute() string {
 	if l.c.ActiveAttribute == nil {
 		return ""
 	}
-	return *l.c.ActiveAttribute
+	return ldap.EscapeFilter(*l.c.ActiveAttribute)
 }
 
 func (l *ldapConfig) ActiveAttributeAllowedValue() string {
@@ -269,28 +270,28 @@ func (l *ldapConfig) AdminUserGroupCN() string {
 	if l.c.AdminUserGroupCN == nil {
 		return ""
 	}
-	return *l.c.AdminUserGroupCN
+	return ldap.EscapeDN(*l.c.AdminUserGroupCN)
 }
 
 func (l *ldapConfig) EditUserGroupCN() string {
 	if l.c.EditUserGroupCN == nil {
 		return ""
 	}
-	return *l.c.EditUserGroupCN
+	return ldap.EscapeDN(*l.c.EditUserGroupCN)
 }
 
 func (l *ldapConfig) RunUserGroupCN() string {
 	if l.c.RunUserGroupCN == nil {
 		return ""
 	}
-	return *l.c.RunUserGroupCN
+	return ldap.EscapeDN(*l.c.RunUserGroupCN)
 }
 
 func (l *ldapConfig) ReadUserGroupCN() string {
 	if l.c.ReadUserGroupCN == nil {
 		return ""
 	}
-	return *l.c.ReadUserGroupCN
+	return ldap.EscapeDN(*l.c.ReadUserGroupCN)
 }
 
 func (l *ldapConfig) UserApiTokenEnabled() bool {
