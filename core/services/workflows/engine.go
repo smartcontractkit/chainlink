@@ -95,7 +95,7 @@ LOOP:
 					return nil
 				}
 
-				// If the capability is already cached, that means we've already registered it
+				// If the capability already exists, that means we've already registered it
 				if s.capability != nil {
 					return nil
 				}
