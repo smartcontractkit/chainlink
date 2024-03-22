@@ -111,7 +111,7 @@ const gasWei = BigNumber.from(1000000000) // 1 gwei
 const performGas = BigNumber.from('1000000')
 const paymentPremiumBase = BigNumber.from('1000000000')
 const paymentPremiumPPB = BigNumber.from('250000000')
-const flatFeeMicroLink = BigNumber.from(0)
+const flatFeeMilliCents = BigNumber.from(0)
 
 const randomBytes = '0x1234abcd'
 const emptyBytes = '0x'
@@ -532,7 +532,7 @@ describe('AutomationRegistry2_3', () => {
     gasOverhead: BigNumber,
     gasMultiplier: BigNumber,
     premiumPPB: BigNumber,
-    flatFee: BigNumber,
+    flatFee: BigNumber, // in millicents
     l1CostWei?: BigNumber,
   ) => {
     l1CostWei = l1CostWei === undefined ? BigNumber.from(0) : l1CostWei
@@ -552,9 +552,9 @@ describe('AutomationRegistry2_3', () => {
       .add(l1CostWei)
       .mul(premiumPPB)
       .mul(nativeUSD)
-      .div(linkUSD)
       .div(paymentPremiumBase)
-      .add(flatFee.mul('1000000000000'))
+      .add(flatFee.mul(BigNumber.from(10).pow(21)))
+      .div(linkUSD)
 
     return {
       total: gasPayment.add(premium),
@@ -663,7 +663,7 @@ describe('AutomationRegistry2_3', () => {
         [
           {
             gasFeePPB: test.premium,
-            flatFeeMicroLink: test.flatFee,
+            flatFeeMilliCents: test.flatFee,
             priceFeed: linkUSDFeed.address,
             fallbackPrice: fallbackLinkPrice,
             minSpend: minUpkeepSpend,
@@ -951,7 +951,7 @@ describe('AutomationRegistry2_3', () => {
       [
         {
           gasFeePPB: paymentPremiumPPB,
-          flatFeeMicroLink,
+          flatFeeMilliCents,
           priceFeed: linkUSDFeed.address,
           fallbackPrice: fallbackLinkPrice,
           minSpend: minUpkeepSpend,
@@ -970,7 +970,7 @@ describe('AutomationRegistry2_3', () => {
       [
         {
           gasFeePPB: paymentPremiumPPB,
-          flatFeeMicroLink,
+          flatFeeMilliCents,
           priceFeed: linkUSDFeed.address,
           fallbackPrice: fallbackLinkPrice,
           minSpend: minUpkeepSpend,
@@ -989,7 +989,7 @@ describe('AutomationRegistry2_3', () => {
       [
         {
           gasFeePPB: paymentPremiumPPB,
-          flatFeeMicroLink,
+          flatFeeMilliCents,
           priceFeed: linkUSDFeed.address,
           fallbackPrice: fallbackLinkPrice,
           minSpend: minUpkeepSpend,
@@ -1715,7 +1715,7 @@ describe('AutomationRegistry2_3', () => {
             gasOverhead,
             BigNumber.from('1'), // Not the config multiplier, but the actual gas used
             paymentPremiumPPB,
-            flatFeeMicroLink,
+            flatFeeMilliCents,
           ).total.toString(),
           totalPayment.toString(),
         )
@@ -1726,7 +1726,7 @@ describe('AutomationRegistry2_3', () => {
             gasOverhead,
             BigNumber.from('1'), // Not the config multiplier, but the actual gas used
             paymentPremiumPPB,
-            flatFeeMicroLink,
+            flatFeeMilliCents,
           ).premium.toString(),
           premium.toString(),
         )
@@ -1756,7 +1756,7 @@ describe('AutomationRegistry2_3', () => {
             gasOverhead,
             gasCeilingMultiplier, // Should be same with exisitng multiplier
             paymentPremiumPPB,
-            flatFeeMicroLink,
+            flatFeeMilliCents,
           ).total.toString(),
           totalPayment.toString(),
         )
@@ -1806,7 +1806,7 @@ describe('AutomationRegistry2_3', () => {
             gasOverhead,
             gasCeilingMultiplier,
             paymentPremiumPPB,
-            flatFeeMicroLink,
+            flatFeeMilliCents,
             l1CostWeiArb,
           ).total.toString(),
           totalPayment.toString(),
@@ -2886,7 +2886,7 @@ describe('AutomationRegistry2_3', () => {
               gasOverhead,
               gasCeilingMultiplier,
               paymentPremiumPPB,
-              flatFeeMicroLink,
+              flatFeeMilliCents,
               l1CostWeiArb
                 .mul(upkeepCalldataWeights[i])
                 .div(totalCalldataWeight),
@@ -3580,7 +3580,7 @@ describe('AutomationRegistry2_3', () => {
           .add(chainModuleOverheads.chainModuleFixedOverhead),
         gasCeilingMultiplier.mul('2'), // fallbackGasPrice is 2x gas price
         paymentPremiumPPB,
-        flatFeeMicroLink,
+        flatFeeMilliCents,
       ).total
 
       // Stale feed
@@ -3665,7 +3665,7 @@ describe('AutomationRegistry2_3', () => {
           .add(chainModuleOverheads.chainModuleFixedOverhead),
         gasCeilingMultiplier.mul('2'), // fallbackLinkPrice is 1/2 link price, so multiply by 2
         paymentPremiumPPB,
-        flatFeeMicroLink,
+        flatFeeMilliCents,
       ).total
 
       // Stale feed
@@ -3836,10 +3836,8 @@ describe('AutomationRegistry2_3', () => {
 
     it('updates the onchainConfig and configDigest', async () => {
       const old = await registry.getState()
-      const oldConfig = old.config
+      const oldConfig = await registry.getConfig()
       const oldState = old.state
-      assert.isTrue(paymentPremiumPPB.eq(oldConfig.paymentPremiumPPB))
-      assert.isTrue(flatFeeMicroLink.eq(oldConfig.flatFeeMicroLink))
       assert.isTrue(stalenessSeconds.eq(oldConfig.stalenessSeconds))
       assert.isTrue(gasCeilingMultiplier.eq(oldConfig.gasCeilingMultiplier))
 
@@ -3859,8 +3857,6 @@ describe('AutomationRegistry2_3', () => {
       const updated = await registry.getState()
       const updatedConfig = updated.config
       const updatedState = updated.state
-      assert.equal(updatedConfig.paymentPremiumPPB, payment.toNumber())
-      assert.equal(updatedConfig.flatFeeMicroLink, flatFee.toNumber())
       assert.equal(updatedConfig.stalenessSeconds, staleness.toNumber())
       assert.equal(updatedConfig.gasCeilingMultiplier, ceiling.toNumber())
       assert.equal(
@@ -4671,7 +4667,7 @@ describe('AutomationRegistry2_3', () => {
         [
           {
             gasFeePPB: paymentPremiumPPB,
-            flatFeeMicroLink,
+            flatFeeMilliCents,
             priceFeed: linkUSDFeed.address,
             fallbackPrice: fallbackLinkPrice,
             minSpend: newMinUpkeepSpend,
@@ -5335,7 +5331,7 @@ describe('AutomationRegistry2_3', () => {
             [
               {
                 gasFeePPB: paymentPremiumPPB,
-                flatFeeMicroLink,
+                flatFeeMilliCents,
                 priceFeed: linkUSDFeed.address,
                 fallbackPrice: fallbackLinkPrice,
                 minSpend: newMinUpkeepSpend,
@@ -5401,7 +5397,7 @@ describe('AutomationRegistry2_3', () => {
             [
               {
                 gasFeePPB: paymentPremiumPPB,
-                flatFeeMicroLink,
+                flatFeeMilliCents,
                 priceFeed: linkUSDFeed.address,
                 fallbackPrice: fallbackLinkPrice,
                 minSpend: newMinUpkeepSpend,
@@ -5462,7 +5458,7 @@ describe('AutomationRegistry2_3', () => {
             [
               {
                 gasFeePPB: paymentPremiumPPB,
-                flatFeeMicroLink,
+                flatFeeMilliCents,
                 priceFeed: linkUSDFeed.address,
                 fallbackPrice: fallbackLinkPrice,
                 minSpend: newMinUpkeepSpend,
