@@ -1,3 +1,4 @@
 # Helm
 charts/
 requirements.lock
+.rendered

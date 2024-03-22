@@ -1,0 +1,57 @@
+{{- if $.Values.ccip.deployContractsAndJobs }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ccip-scripts-config
+data:
+  config.json: |
+    {
+      "EnvName": "{{$.Release.Namespace}}",
+      "DONCreds": {
+        "Env": "{{$.Release.Namespace}}",
+        "Bootstrap": {
+           {{- with (index $.Values.chainlink.nodes 0) }}
+          "URL": "http://app-{{.name}}.{{$.Release.Namespace}}.svc.cluster.local:{{$.Values.chainlink.web_port}}",
+          "Email": "notreal@fakeemail.ch",
+          "Password": "fj293fbBnlQ!f9vNs",
+          "InternalIP": "{{$.Release.Name}}-{{.name}}",
+          {{- end}}
+          "HTTPTimeout": null
+        },
+        "Nodes": [
+          {{- range $index, $cfg := $.Values.chainlink.nodes }}
+            {{- if ne $index 0}}
+            {{- $nameWithoutHyphen := $cfg.name | replace "-" "" }}
+          {{- if ne $index 1 }},{{- end }}{
+      "URL": "http://app-{{$cfg.name}}.{{$.Release.Namespace}}.svc.cluster.local:{{$.Values.chainlink.web_port}}",
+      "Email": "notreal@fakeemail.ch",
+      "Password": "fj293fbBnlQ!f9vNs",
+      "InternalIP": "{{$.Release.Name}}-{{$cfg.name}}",
+      "HTTPTimeout": null
+    }
+            {{- end}}
+          {{- end}}
+    ]
+    },
+      {{- $networkIDs := list }}
+      {{- range $index, $cfg :=$.Values.ccip.chains }}
+        {{- $networkIDs = append $networkIDs $cfg.ChainId }}
+      {{- end }}
+
+      {{- $delimiter := "," }}
+      {{- $foldedString := join $delimiter $networkIDs }}
+    "ChainPairs":[{{- printf $foldedString | quote }}],
+    "CCIPChains": {
+        {{- range $index, $cfg := $.Values.ccip.chains }}
+        {{- if ne $index 0 }},{{- end }}"{{$cfg.ChainId}}":{
+    "NetworkURL": "ws://geth-{{$cfg.NetworkId}}.{{$.Release.Namespace}}.svc.cluster.local:{{$.Values.geth.wsRpcPort}}",
+    "WalletKey": {{$cfg.WalletKey | quote}},
+    "DeployLink": {{$cfg.DeployLink}},
+    "DeployWETH": {{$cfg.DeployWETH}},
+    "ChainConfig": {{$cfg.ChainConfig | toJson}}
+    }
+        {{- end}}
+    },
+    "LaneDeploySettings": {{$.Values.ccip.LaneDeploySettings | toJson }}
+    }
+{{- end }}

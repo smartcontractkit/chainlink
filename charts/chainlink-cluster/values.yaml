@@ -120,8 +120,8 @@ geth:
     runAsUser: 999
     runAsGroup: 999
   version: v1.12.0
-  wsrpc-port: 8546
-  httprpc-port: 8544
+  wsRpcPort: 8546
+  httpRpcPort: 8544
   blocktime: 1
   chains:
     - networkId: 1337
@@ -142,6 +142,73 @@ geth:
     limits:
       cpu: 1
       memory: 1024Mi
+
+ccip:
+  ccipScriptsImage: ccip-scripts-image:image-tag
+  deployContractsAndJobs: false
+  chains:
+    - NetworkId: 1337
+      ChainId: geth_1337
+      WalletKey: "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+      DeployLink: true
+      DeployWETH: true
+      ChainConfig:
+        EvmChainId: 1337
+        GasSettings:
+          EIP1559: true
+          GasTipCap: 1000000000
+        FeeTokens:
+          - "ChainLink Token"
+          - "WETH"
+        WrappedNative: "WETH"
+        Router: "0x0000000000000000000000000000000000000000"
+        ARM: "0x0000000000000000000000000000000000000000"
+        ARMProxy: "0x0000000000000000000000000000000000000000"
+        PriceRegistry: "0x0000000000000000000000000000000000000000"
+        DeploySettings:
+          DeployARM: true
+          DeployTokenPools: true
+          DeployRouter: true
+          DeployPriceRegistry: true
+        TunableChainValues:
+          FinalityDepth: 1
+          OptimisticConfirmations: 1
+          MaxGasPrice: 200000000000
+    - NetworkId: 2337
+      ChainId: geth_2337
+      WalletKey: "59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d"
+      DeployLink: true
+      DeployWETH: true
+      ChainConfig:
+        EvmChainId: 2337
+        GasSettings:
+          EIP1559: true
+          GasTipCap: 1000000000
+        FeeTokens:
+          - "ChainLink Token"
+          - "WETH"
+        WrappedNative: "WETH"
+        Router: "0x0000000000000000000000000000000000000000"
+        ARM: "0x0000000000000000000000000000000000000000"
+        ARMProxy: "0x0000000000000000000000000000000000000000"
+        PriceRegistry: "0x0000000000000000000000000000000000000000"
+        DeploySettings:
+          DeployARM: true
+          DeployTokenPools: true
+          DeployRouter: true
+          DeployPriceRegistry: true
+        TunableChainValues:
+          FinalityDepth: 1
+          OptimisticConfirmations: 1
+          MaxGasPrice: 200000000000
+  LaneDeploySettings:
+    geth_1337,geth_2337:
+      DeployLane: true
+      DeployPingPongDapp: true
+  CCIPLaneConfigs:
+    geth_1337:
+    geth_2337:
+
 # mockserver is https://www.mock-server.com/where/kubernetes.html
 # used to stub External Adapters
 mockserver:
@@ -270,6 +337,7 @@ ingress:
   enabled: false
   annotations: {}
   ingressClassName: alb
+  baseDomain: "example.com"
   hosts:
     - host: chainlink-node-1.local
       http:

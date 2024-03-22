@@ -15,10 +15,10 @@ spec:
         - podSelector:
             matchLabels:
               app: {{ $.Release.Name }}
-        # Allow http and websocket connections from the runner pods.
+        # Allow traffic from ccip-scripts-deployer
         - podSelector:
             matchLabels:
-              app: runner
+              app: ccip-scripts-deployer
       ports:
         - protocol: TCP
           port: 8544

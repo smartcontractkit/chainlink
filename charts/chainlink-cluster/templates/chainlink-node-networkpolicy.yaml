@@ -15,7 +15,8 @@ spec:
       - podSelector:
           matchLabels:
             app: {{ $.Release.Name }}
+      # Allow traffic from ccip-scripts-deployer
       - podSelector:
           matchLabels:
-            app: runner
+            app: ccip-scripts-deployer
 {{- end }}
