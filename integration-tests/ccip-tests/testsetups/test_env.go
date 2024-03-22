@@ -179,8 +179,6 @@ func DeployLocalCluster(
 		privateEthereumNetworks = append(privateEthereumNetworks, network)
 	}
 
-	selectedNetworks[0].ChainID = 2321
-
 	if len(selectedNetworks) > len(privateEthereumNetworks) {
 		seen := make(map[int64]bool)
 		missing := []blockchain.EVMNetwork{}
