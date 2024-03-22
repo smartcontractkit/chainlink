@@ -10,6 +10,8 @@ import {Routable} from "../../dev/v1_X/Routable.sol";
 
 import {FunctionsRouterSetup, FunctionsSubscriptionSetup, FunctionsClientRequestSetup, FunctionsFulfillmentSetup, FunctionsMultipleFulfillmentsSetup} from "./Setup.t.sol";
 
+import {FunctionsBillingConfig} from "../../dev/v1_X/interfaces/IFunctionsBilling.sol";
+
 /// @notice #constructor
 contract FunctionsBilling_Constructor is FunctionsSubscriptionSetup {
   function test_Constructor_Success() public {
@@ -25,7 +27,7 @@ contract FunctionsBilling_GetConfig is FunctionsRouterSetup {
     vm.stopPrank();
     vm.startPrank(STRANGER_ADDRESS);
 
-    FunctionsBilling.Config memory config = s_functionsCoordinator.getConfig();
+    FunctionsBillingConfig memory config = s_functionsCoordinator.getConfig();
     assertEq(config.feedStalenessSeconds, getCoordinatorConfig().feedStalenessSeconds);
     assertEq(config.gasOverheadBeforeCallback, getCoordinatorConfig().gasOverheadBeforeCallback);
     assertEq(config.gasOverheadAfterCallback, getCoordinatorConfig().gasOverheadAfterCallback);
@@ -39,12 +41,12 @@ contract FunctionsBilling_GetConfig is FunctionsRouterSetup {
 
 /// @notice #updateConfig
 contract FunctionsBilling_UpdateConfig is FunctionsRouterSetup {
-  FunctionsBilling.Config internal configToSet;
+  FunctionsBillingConfig internal configToSet;
 
   function setUp() public virtual override {
     FunctionsRouterSetup.setUp();
 
-    configToSet = FunctionsBilling.Config({
+    configToSet = FunctionsBillingConfig({
       feedStalenessSeconds: getCoordinatorConfig().feedStalenessSeconds * 2,
       gasOverheadAfterCallback: getCoordinatorConfig().gasOverheadAfterCallback * 2,
       gasOverheadBeforeCallback: getCoordinatorConfig().gasOverheadBeforeCallback * 2,
@@ -66,7 +68,7 @@ contract FunctionsBilling_UpdateConfig is FunctionsRouterSetup {
     s_functionsCoordinator.updateConfig(configToSet);
   }
 
-  event ConfigUpdated(FunctionsBilling.Config config);
+  event ConfigUpdated(FunctionsBillingConfig config);
 
   function test_UpdateConfig_Success() public {
     // topic0 (function signature, always checked), NOT topic1 (false), NOT topic2 (false), NOT topic3 (false), and data (true).
@@ -79,7 +81,7 @@ contract FunctionsBilling_UpdateConfig is FunctionsRouterSetup {
 
     s_functionsCoordinator.updateConfig(configToSet);
 
-    FunctionsBilling.Config memory config = s_functionsCoordinator.getConfig();
+    FunctionsBillingConfig memory config = s_functionsCoordinator.getConfig();
     assertEq(config.feedStalenessSeconds, configToSet.feedStalenessSeconds);
     assertEq(config.gasOverheadAfterCallback, configToSet.gasOverheadAfterCallback);
     assertEq(config.gasOverheadBeforeCallback, configToSet.gasOverheadBeforeCallback);

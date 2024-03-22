@@ -15,6 +15,7 @@ import (
 	"github.com/shopspring/decimal"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
+	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
 	linktoken "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
@@ -203,7 +204,7 @@ func main() {
 		}
 		link, err := linktoken.NewLinkToken(common.HexToAddress(*linkAddr), e.Ec)
 		helpers.PanicErr(err)
-		data, err := utils.ABIEncode(`[{"type":"bytes32"}]`, common.HexToHash(*keyHash))
+		data, err := evmutils.ABIEncode(`[{"type":"bytes32"}]`, common.HexToHash(*keyHash))
 		helpers.PanicErr(err)
 		tx, err := link.TransferAndCall(e.Owner, common.HexToAddress(*consumerAddr), payment, data)
 		helpers.PanicErr(err)

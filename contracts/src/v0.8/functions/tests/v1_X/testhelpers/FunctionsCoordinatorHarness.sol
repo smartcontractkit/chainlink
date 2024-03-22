@@ -4,6 +4,7 @@ pragma solidity ^0.8.19;
 import {FunctionsCoordinator} from "../../../dev/v1_X/FunctionsCoordinator.sol";
 import {FunctionsBilling} from "../../../dev/v1_X/FunctionsBilling.sol";
 import {FunctionsResponse} from "../../../dev/v1_X/libraries/FunctionsResponse.sol";
+import {FunctionsBillingConfig} from "../../../dev/v1_X/interfaces/IFunctionsBilling.sol";
 
 /// @title Functions Coordinator Test Harness
 /// @notice Contract to expose internal functions for testing purposes
@@ -13,7 +14,7 @@ contract FunctionsCoordinatorHarness is FunctionsCoordinator {
 
   constructor(
     address router,
-    FunctionsBilling.Config memory config,
+    FunctionsBillingConfig memory config,
     address linkToNativeFeed
   ) FunctionsCoordinator(router, config, linkToNativeFeed) {
     s_linkToNativeFeed_HARNESS = linkToNativeFeed;

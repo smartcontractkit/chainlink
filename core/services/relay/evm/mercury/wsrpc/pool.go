@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/smartcontractkit/wsrpc/credentials"
+	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
@@ -224,7 +225,7 @@ func (p *pool) Ready() error {
 }
 
 func (p *pool) HealthReport() map[string]error {
-	return map[string]error{
-		p.Name(): p.Ready(),
-	}
+	hp := map[string]error{p.Name(): p.Ready()}
+	maps.Copy(hp, p.cacheSet.HealthReport())
+	return hp
 }

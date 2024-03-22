@@ -14,11 +14,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 //go:generate mockery --quiet --name ethClient --output ./mocks/ --case=underscore --structname ETHClient
@@ -31,7 +31,7 @@ type l1GasPriceOracle struct {
 	services.StateMachine
 	client     ethClient
 	pollPeriod time.Duration
-	logger     logger.Logger
+	logger     logger.SugaredLogger
 	address    string
 	callArgs   string
 
@@ -65,11 +65,18 @@ const (
 	// `function l1BaseFee() external view returns (uint256);`
 	KromaGasOracle_l1BaseFee = "519b4bd3"
 
+	// GasOracleAddress is the address of the precompiled contract that exists on scroll chain.
+	// This is the case for Scroll.
+	ScrollGasOracleAddress = "0x5300000000000000000000000000000000000002"
+	// GasOracle_l1BaseFee is the a hex encoded call to:
+	// `function l1BaseFee() external view returns (uint256);`
+	ScrollGasOracle_l1BaseFee = "519b4bd3"
+
 	// Interval at which to poll for L1BaseFee. A good starting point is the L1 block time.
 	PollPeriod = 12 * time.Second
 )
 
-var supportedChainTypes = []config.ChainType{config.ChainArbitrum, config.ChainOptimismBedrock, config.ChainKroma}
+var supportedChainTypes = []config.ChainType{config.ChainArbitrum, config.ChainOptimismBedrock, config.ChainKroma, config.ChainScroll}
 
 func IsRollupWithL1Support(chainType config.ChainType) bool {
 	return slices.Contains(supportedChainTypes, chainType)
@@ -87,6 +94,9 @@ func NewL1GasPriceOracle(lggr logger.Logger, ethClient ethClient, chainType conf
 	case config.ChainKroma:
 		address = KromaGasOracleAddress
 		callArgs = KromaGasOracle_l1BaseFee
+	case config.ChainScroll:
+		address = ScrollGasOracleAddress
+		callArgs = ScrollGasOracle_l1BaseFee
 	default:
 		panic(fmt.Sprintf("Received unspported chaintype %s", chainType))
 	}
@@ -94,7 +104,7 @@ func NewL1GasPriceOracle(lggr logger.Logger, ethClient ethClient, chainType conf
 	return &l1GasPriceOracle{
 		client:        ethClient,
 		pollPeriod:    PollPeriod,
-		logger:        logger.Named(lggr, fmt.Sprintf("L1GasPriceOracle(%s)", chainType)),
+		logger:        logger.Sugared(logger.Named(lggr, fmt.Sprintf("L1GasPriceOracle(%s)", chainType))),
 		address:       address,
 		callArgs:      callArgs,
 		chInitialised: make(chan struct{}),
@@ -159,7 +169,7 @@ func (o *l1GasPriceOracle) refresh() (t *time.Timer) {
 	}
 
 	if len(b) != 32 { // returns uint256;
-		logger.Criticalf(o.logger, "return data length (%d) different than expected (%d)", len(b), 32)
+		o.logger.Criticalf("return data length (%d) different than expected (%d)", len(b), 32)
 		return
 	}
 	price := new(big.Int).SetBytes(b)

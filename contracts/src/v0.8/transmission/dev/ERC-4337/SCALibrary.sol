@@ -31,6 +31,7 @@ library SCALibrary {
         hashOfEncoding
       )
     );
+    return fullHash;
   }
 
   function _recoverSignature(bytes memory signature, bytes32 fullHash) internal pure returns (address) {

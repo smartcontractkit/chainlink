@@ -3,27 +3,36 @@ package cache
 import (
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func Test_CacheSet(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	cs := newCacheSet(lggr, Config{})
+	cs := newCacheSet(lggr, Config{LatestReportTTL: 1})
+	disabledCs := newCacheSet(lggr, Config{LatestReportTTL: 0})
 	ctx := testutils.Context(t)
-	require.NoError(t, cs.Start(ctx))
-	t.Cleanup(func() {
-		assert.NoError(t, cs.Close())
-	})
+	servicetest.Run(t, cs)
 
 	t.Run("Get", func(t *testing.T) {
 		c := &mockClient{}
 
 		var err error
 		var f Fetcher
+		t.Run("with caching disabled, returns nil, nil", func(t *testing.T) {
+			assert.Len(t, disabledCs.caches, 0)
+
+			f, err = disabledCs.Get(ctx, c)
+			require.NoError(t, err)
+
+			assert.Nil(t, f)
+			assert.Len(t, disabledCs.caches, 0)
+		})
+
 		t.Run("with virgin cacheset, makes new entry and returns it", func(t *testing.T) {
 			assert.Len(t, cs.caches, 0)
 

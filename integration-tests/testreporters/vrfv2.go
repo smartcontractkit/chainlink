@@ -3,15 +3,14 @@ package testreporters
 import (
 	"fmt"
 	"math/big"
-	"os"
+	"strings"
 	"testing"
 	"time"
-
-	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2_actions/vrfv2_config"
 
 	"github.com/slack-go/slack"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
+	"github.com/smartcontractkit/chainlink/integration-tests/types"
 )
 
 type VRFV2TestReporter struct {
@@ -21,7 +20,7 @@ type VRFV2TestReporter struct {
 	AverageFulfillmentInMillions *big.Int
 	SlowestFulfillment           *big.Int
 	FastestFulfillment           *big.Int
-	Vrfv2Config                  *vrfv2_config.VRFV2Config
+	VRFv2TestConfig              types.VRFv2TestConfig
 }
 
 func (o *VRFV2TestReporter) SetReportData(
@@ -31,7 +30,7 @@ func (o *VRFV2TestReporter) SetReportData(
 	AverageFulfillmentInMillions *big.Int,
 	SlowestFulfillment *big.Int,
 	FastestFulfillment *big.Int,
-	vrfv2Config vrfv2_config.VRFV2Config,
+	vrfv2TestConfig types.VRFv2TestConfig,
 ) {
 	o.TestType = testType
 	o.RequestCount = RequestCount
@@ -39,7 +38,7 @@ func (o *VRFV2TestReporter) SetReportData(
 	o.AverageFulfillmentInMillions = AverageFulfillmentInMillions
 	o.SlowestFulfillment = SlowestFulfillment
 	o.FastestFulfillment = FastestFulfillment
-	o.Vrfv2Config = &vrfv2Config
+	o.VRFv2TestConfig = vrfv2TestConfig
 }
 
 // SendSlackNotification sends a slack message to a slack webhook
@@ -54,7 +53,14 @@ func (o *VRFV2TestReporter) SendSlackNotification(t *testing.T, slackClient *sla
 		headerText = fmt.Sprintf(":x: VRF V2 %s Test FAILED :x:", o.TestType)
 	}
 
-	messageBlocks := testreporters.SlackNotifyBlocks(headerText, os.Getenv("SELECTED_NETWORKS"), []string{
+	perfCfg := o.VRFv2TestConfig.GetVRFv2Config().Performance
+	var sb strings.Builder
+	for _, n := range o.VRFv2TestConfig.GetNetworkConfig().SelectedNetworks {
+		sb.WriteString(n)
+		sb.WriteString(", ")
+	}
+
+	messageBlocks := testreporters.SlackNotifyBlocks(headerText, sb.String(), []string{
 		fmt.Sprintf(
 			"Summary\n"+
 				"Perf Test Type: %s\n"+
@@ -70,17 +76,17 @@ func (o *VRFV2TestReporter) SendSlackNotification(t *testing.T, slackClient *sla
 				"RandomnessRequestCountPerRequest: %d\n"+
 				"RandomnessRequestCountPerRequestDeviation: %d\n",
 			o.TestType,
-			o.Vrfv2Config.TestDuration.Truncate(time.Second).String(),
-			o.Vrfv2Config.UseExistingEnv,
+			perfCfg.TestDuration.Duration.Truncate(time.Second).String(),
+			*perfCfg.UseExistingEnv,
 			o.RequestCount.String(),
 			o.FulfilmentCount.String(),
 			o.AverageFulfillmentInMillions.String(),
 			o.SlowestFulfillment.String(),
 			o.FastestFulfillment.String(),
-			o.Vrfv2Config.RPS,
-			o.Vrfv2Config.RateLimitUnitDuration.String(),
-			o.Vrfv2Config.RandomnessRequestCountPerRequest,
-			o.Vrfv2Config.RandomnessRequestCountPerRequestDeviation,
+			*perfCfg.RPS,
+			perfCfg.RateLimitUnitDuration.String(),
+			*o.VRFv2TestConfig.GetVRFv2Config().General.RandomnessRequestCountPerRequest,
+			*o.VRFv2TestConfig.GetVRFv2Config().General.RandomnessRequestCountPerRequestDeviation,
 		),
 	})
 

@@ -8,7 +8,7 @@ contract MockOptimismL1CrossDomainMessenger is IL1CrossDomainMessenger {
   uint256 private s_nonce;
 
   // slither-disable-next-line external-function
-  function xDomainMessageSender() public view returns (address) {
+  function xDomainMessageSender() public pure returns (address) {
     return address(0);
   }
 

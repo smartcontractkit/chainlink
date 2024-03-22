@@ -10,10 +10,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/jmoiron/sqlx"
 )
@@ -42,7 +42,7 @@ func Test_DeleteForwarder(t *testing.T) {
 	addr := testutils.NewAddress()
 	chainID := testutils.FixtureChainID
 
-	fwd, err := orm.CreateForwarder(addr, *utils.NewBig(chainID))
+	fwd, err := orm.CreateForwarder(addr, *big.New(chainID))
 	require.NoError(t, err)
 	assert.Equal(t, addr, fwd.Address)
 

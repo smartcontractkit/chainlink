@@ -1,0 +1,20 @@
+-EVM.0
+-EVM.0.BalanceMonitor
+-EVM.0.HeadBroadcaster
+-EVM.0.HeadTracker
+!EVM.0.HeadTracker.HeadListener
+	Listener is not connected
+-EVM.0.LogBroadcaster
+-EVM.0.Txm
+-EVM.0.Txm.BlockHistoryEstimator
+-EVM.0.Txm.Broadcaster
+-EVM.0.Txm.Confirmer
+-EVM.0.Txm.WrappedEvmEstimator
+-JobSpawner
+-Mailbox.Monitor
+-Mercury.WSRPCPool
+-Mercury.WSRPCPool.CacheSet
+-PipelineORM
+-PipelineRunner
+-PromReporter
+-TelemetryManager

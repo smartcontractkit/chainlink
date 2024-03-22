@@ -14,12 +14,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	mocks2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type mockEvmConfig struct {
@@ -80,13 +80,13 @@ func TestResolver_ETHKeys(t *testing.T) {
 				states := []ethkey.State{
 					{
 						Address:    ethkey.MustEIP55Address(address.Hex()),
-						EVMChainID: *utils.NewBigI(12),
+						EVMChainID: *big.NewI(12),
 						Disabled:   false,
 						CreatedAt:  f.Timestamp(),
 						UpdatedAt:  f.Timestamp(),
 					},
 				}
-				chainID := *utils.NewBigI(12)
+				chainID := *big.NewI(12)
 				linkAddr := common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81")
 
 				cfg := configtest.NewGeneralConfig(t, nil)
@@ -139,13 +139,13 @@ func TestResolver_ETHKeys(t *testing.T) {
 				states := []ethkey.State{
 					{
 						Address:    ethkey.MustEIP55Address(address.Hex()),
-						EVMChainID: *utils.NewBigI(12),
+						EVMChainID: *big.NewI(12),
 						Disabled:   false,
 						CreatedAt:  f.Timestamp(),
 						UpdatedAt:  f.Timestamp(),
 					},
 				}
-				chainID := *utils.NewBigI(12)
+				chainID := *big.NewI(12)
 				f.Mocks.legacyEVMChains.On("Get", states[0].EVMChainID.String()).Return(nil, evmrelay.ErrNoChains)
 				f.Mocks.ethKs.On("GetStatesForKeys", keys).Return(states, nil)
 				f.Mocks.ethKs.On("Get", keys[0].Address.Hex()).Return(keys[0], nil)
@@ -225,7 +225,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 				states := []ethkey.State{
 					{
 						Address:    ethkey.MustEIP55Address(address.Hex()),
-						EVMChainID: *utils.NewBigI(12),
+						EVMChainID: *big.NewI(12),
 						Disabled:   false,
 						CreatedAt:  f.Timestamp(),
 						UpdatedAt:  f.Timestamp(),
@@ -257,7 +257,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 				states := []ethkey.State{
 					{
 						Address:    ethkey.MustEIP55Address(address.Hex()),
-						EVMChainID: *utils.NewBigI(12),
+						EVMChainID: *big.NewI(12),
 						Disabled:   false,
 						CreatedAt:  f.Timestamp(),
 						UpdatedAt:  f.Timestamp(),
@@ -288,13 +288,13 @@ func TestResolver_ETHKeys(t *testing.T) {
 				states := []ethkey.State{
 					{
 						Address:    ethkey.MustEIP55Address(address.Hex()),
-						EVMChainID: *utils.NewBigI(12),
+						EVMChainID: *big.NewI(12),
 						Disabled:   false,
 						CreatedAt:  f.Timestamp(),
 						UpdatedAt:  f.Timestamp(),
 					},
 				}
-				chainID := *utils.NewBigI(12)
+				chainID := *big.NewI(12)
 				linkAddr := common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81")
 
 				f.Mocks.ethKs.On("GetStatesForKeys", keys).Return(states, nil)
@@ -342,13 +342,13 @@ func TestResolver_ETHKeys(t *testing.T) {
 				states := []ethkey.State{
 					{
 						Address:    ethkey.EIP55AddressFromAddress(address),
-						EVMChainID: *utils.NewBigI(12),
+						EVMChainID: *big.NewI(12),
 						Disabled:   false,
 						CreatedAt:  f.Timestamp(),
 						UpdatedAt:  f.Timestamp(),
 					},
 				}
-				chainID := *utils.NewBigI(12)
+				chainID := *big.NewI(12)
 				linkAddr := common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81")
 
 				f.Mocks.ethKs.On("GetStatesForKeys", keys).Return(states, nil)

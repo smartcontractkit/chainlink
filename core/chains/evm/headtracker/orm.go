@@ -12,8 +12,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type ORM interface {
@@ -32,11 +32,11 @@ type ORM interface {
 
 type orm struct {
 	q       pg.Q
-	chainID utils.Big
+	chainID ubig.Big
 }
 
 func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, chainID big.Int) ORM {
-	return &orm{pg.NewQ(db, logger.Named(lggr, "HeadTrackerORM"), cfg), utils.Big(chainID)}
+	return &orm{pg.NewQ(db, logger.Named(lggr, "HeadTrackerORM"), cfg), ubig.Big(chainID)}
 }
 
 func (orm *orm) IdempotentInsertHead(ctx context.Context, head *evmtypes.Head) error {

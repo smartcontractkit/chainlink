@@ -8,17 +8,18 @@ import (
 	"testing"
 	"time"
 
+	types2 "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	coreTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
-	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
-
 	types3 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
@@ -27,7 +28,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/logprovider"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func TestPollLogs(t *testing.T) {
@@ -132,8 +132,8 @@ func TestPollLogs(t *testing.T) {
 				InputStart: 250,
 				InputEnd:   500,
 				OutputLogs: []logpoller.Log{
-					{EvmChainId: utils.NewBig(big.NewInt(5)), LogIndex: 1},
-					{EvmChainId: utils.NewBig(big.NewInt(6)), LogIndex: 2},
+					{EvmChainId: ubig.New(big.NewInt(5)), LogIndex: 1},
+					{EvmChainId: ubig.New(big.NewInt(6)), LogIndex: 2},
 				},
 				OutputErr: nil,
 			},
@@ -211,7 +211,7 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 		{
 			name: "an error is returned when fetching indexed logs for IKeeperRegistryMasterUpkeepUnpaused errors",
 			ids: []*big.Int{
-				core.GenUpkeepID(types.LogTrigger, "abc").BigInt(),
+				core.GenUpkeepID(types2.LogTrigger, "abc").BigInt(),
 			},
 			logEventProvider: &mockLogEventProvider{
 				RefreshActiveUpkeepsFn: func(ids ...*big.Int) ([]*big.Int, error) {
@@ -234,8 +234,8 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 		{
 			name: "an error is returned when fetching indexed logs for IKeeperRegistryMasterUpkeepTriggerConfigSet errors",
 			ids: []*big.Int{
-				core.GenUpkeepID(types.LogTrigger, "abc").BigInt(),
-				core.GenUpkeepID(types.ConditionTrigger, "abc").BigInt(),
+				core.GenUpkeepID(types2.LogTrigger, "abc").BigInt(),
+				core.GenUpkeepID(types2.ConditionTrigger, "abc").BigInt(),
 				big.NewInt(-1),
 			},
 			logEventProvider: &mockLogEventProvider{
@@ -259,8 +259,8 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 		{
 			name: "an error is returned when parsing the logs using the registry errors",
 			ids: []*big.Int{
-				core.GenUpkeepID(types.LogTrigger, "abc").BigInt(),
-				core.GenUpkeepID(types.ConditionTrigger, "abc").BigInt(),
+				core.GenUpkeepID(types2.LogTrigger, "abc").BigInt(),
+				core.GenUpkeepID(types2.ConditionTrigger, "abc").BigInt(),
 				big.NewInt(-1),
 			},
 			logEventProvider: &mockLogEventProvider{
@@ -288,8 +288,8 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 		{
 			name: "an error is returned when registering the filter errors",
 			ids: []*big.Int{
-				core.GenUpkeepID(types.LogTrigger, "abc").BigInt(),
-				core.GenUpkeepID(types.ConditionTrigger, "abc").BigInt(),
+				core.GenUpkeepID(types2.LogTrigger, "abc").BigInt(),
+				core.GenUpkeepID(types2.ConditionTrigger, "abc").BigInt(),
 				big.NewInt(-1),
 			},
 			logEventProvider: &mockLogEventProvider{
@@ -319,11 +319,11 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 					if log.BlockNumber == 1 {
 						return &iregistry21.IKeeperRegistryMasterUpkeepTriggerConfigSet{
 							TriggerConfig: []byte{1, 2, 3},
-							Id:            core.GenUpkeepID(types.LogTrigger, "abc").BigInt(),
+							Id:            core.GenUpkeepID(types2.LogTrigger, "abc").BigInt(),
 						}, nil
 					}
 					return &iregistry21.IKeeperRegistryMasterUpkeepUnpaused{
-						Id: core.GenUpkeepID(types.LogTrigger, "abc").BigInt(),
+						Id: core.GenUpkeepID(types2.LogTrigger, "abc").BigInt(),
 					}, nil
 				},
 				GetUpkeepTriggerConfigFn: func(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {
@@ -341,9 +341,9 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 		{
 			name: "log trigger upkeeps are refreshed without error",
 			ids: []*big.Int{
-				core.GenUpkeepID(types.LogTrigger, "abc").BigInt(),
-				core.GenUpkeepID(types.LogTrigger, "def").BigInt(),
-				core.GenUpkeepID(types.ConditionTrigger, "abc").BigInt(),
+				core.GenUpkeepID(types2.LogTrigger, "abc").BigInt(),
+				core.GenUpkeepID(types2.LogTrigger, "def").BigInt(),
+				core.GenUpkeepID(types2.ConditionTrigger, "abc").BigInt(),
 				big.NewInt(-1),
 			},
 			logEventProvider: &mockLogEventProvider{
@@ -372,12 +372,12 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 				ParseLogFn: func(log coreTypes.Log) (generated.AbigenLog, error) {
 					if log.BlockNumber == 1 {
 						return &iregistry21.IKeeperRegistryMasterUpkeepTriggerConfigSet{
-							Id:            core.GenUpkeepID(types.LogTrigger, "abc").BigInt(),
+							Id:            core.GenUpkeepID(types2.LogTrigger, "abc").BigInt(),
 							TriggerConfig: []byte{1, 2, 3},
 						}, nil
 					}
 					return &iregistry21.IKeeperRegistryMasterUpkeepUnpaused{
-						Id: core.GenUpkeepID(types.LogTrigger, "def").BigInt(),
+						Id: core.GenUpkeepID(types2.LogTrigger, "def").BigInt(),
 					}, nil
 				},
 				GetUpkeepTriggerConfigFn: func(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {
@@ -395,7 +395,7 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 			ids: func() []*big.Int {
 				res := []*big.Int{}
 				for i := 0; i < logTriggerRefreshBatchSize*3; i++ {
-					res = append(res, core.GenUpkeepID(types.LogTrigger, fmt.Sprintf("%d", i)).BigInt())
+					res = append(res, core.GenUpkeepID(types2.LogTrigger, fmt.Sprintf("%d", i)).BigInt())
 				}
 				return res
 			}(),
@@ -424,12 +424,12 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 				ParseLogFn: func(log coreTypes.Log) (generated.AbigenLog, error) {
 					if log.BlockNumber == 1 {
 						return &iregistry21.IKeeperRegistryMasterUpkeepTriggerConfigSet{
-							Id:            core.GenUpkeepID(types.LogTrigger, "abc").BigInt(),
+							Id:            core.GenUpkeepID(types2.LogTrigger, "abc").BigInt(),
 							TriggerConfig: []byte{1, 2, 3},
 						}, nil
 					}
 					return &iregistry21.IKeeperRegistryMasterUpkeepUnpaused{
-						Id: core.GenUpkeepID(types.LogTrigger, "def").BigInt(),
+						Id: core.GenUpkeepID(types2.LogTrigger, "def").BigInt(),
 					}, nil
 				},
 				GetUpkeepTriggerConfigFn: func(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {
@@ -447,7 +447,7 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 			ids: func() []*big.Int {
 				res := []*big.Int{}
 				for i := 0; i < logTriggerRefreshBatchSize+3; i++ {
-					res = append(res, core.GenUpkeepID(types.LogTrigger, fmt.Sprintf("%d", i)).BigInt())
+					res = append(res, core.GenUpkeepID(types2.LogTrigger, fmt.Sprintf("%d", i)).BigInt())
 				}
 				return res
 			}(),
@@ -478,12 +478,12 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 				ParseLogFn: func(log coreTypes.Log) (generated.AbigenLog, error) {
 					if log.BlockNumber == 1 {
 						return &iregistry21.IKeeperRegistryMasterUpkeepTriggerConfigSet{
-							Id:            core.GenUpkeepID(types.LogTrigger, "abc").BigInt(),
+							Id:            core.GenUpkeepID(types2.LogTrigger, "abc").BigInt(),
 							TriggerConfig: []byte{1, 2, 3},
 						}, nil
 					}
 					return &iregistry21.IKeeperRegistryMasterUpkeepUnpaused{
-						Id: core.GenUpkeepID(types.LogTrigger, "def").BigInt(),
+						Id: core.GenUpkeepID(types2.LogTrigger, "def").BigInt(),
 					}, nil
 				},
 				GetUpkeepTriggerConfigFn: func(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {

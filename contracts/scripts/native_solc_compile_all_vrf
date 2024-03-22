@@ -90,6 +90,7 @@ compileContract vrf/VRFV2Wrapper.sol
 compileContract vrf/interfaces/VRFV2WrapperInterface.sol
 compileContract vrf/VRFV2WrapperConsumerBase.sol
 compileContract vrf/testhelpers/VRFV2WrapperConsumerExample.sol
+compileContract vrf/testhelpers/VRFV2WrapperLoadTestConsumer.sol
 compileContract vrf/testhelpers/VRFv2Consumer.sol
 
 # VRF Consumers and Mocks
@@ -100,6 +101,8 @@ compileContract vrf/testhelpers/VRFLoadTestOwnerlessConsumer.sol
 compileContract vrf/testhelpers/VRFLoadTestExternalSubOwner.sol
 compileContract vrf/testhelpers/VRFV2LoadTestWithMetrics.sol
 compileContract vrf/testhelpers/VRFV2OwnerTestConsumer.sol
+compileContractAltOpts vrf/testhelpers/VRFCoordinatorTestV2.sol 10000
+compileContract vrf/testhelpers/VRFMockETHLINKAggregator.sol
 
 # Helper contracts
 compileContract vrf/interfaces/IAuthorizedReceiver.sol

@@ -13,6 +13,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- unreleasedstop -->
 
+## 2.9.1 - 2024-03-07
+
+### Changed
+
+- `eth_call` RPC requests are now sent with both `input` and `data` fields to increase compatibility with servers that recognize only one.
+- GasEstimator will now include Type `0x3` (Blob) transactions in the gas calculations to estimate it more accurately.
+
+## 2.9.0 - 2024-02-22
+
+### Added
+
+- `chainlink health` CLI command and HTML `/health` endpoint, to provide human-readable views of the underlying JSON health data.
+- New job type `stream` to represent streamspecs. This job type is not yet used anywhere but will be required for Data Streams V1.
+- Environment variables `CL_MEDIAN_ENV`, `CL_SOLANA_ENV`, and `CL_STARKNET_ENV` for setting environment variables in LOOP Plugins with an `.env` file.
+  ```
+  echo "Foo=Bar" >> median.env
+  echo "Baz=Val" >> median.env  
+  CL_MEDIAN_ENV="median.env"
+  ```
+
+### Fixed
+
+- Fixed the encoding used for transactions when resending in batches
+
+### Removed
+
+- `P2P.V1` is no longer supported and must not be set in TOML configuration in order to boot. Use `P2P.V2` instead. If you are using both, `V1` can simply be removed.
+- Removed `TelemetryIngress.URL` and `TelemetryIngress.ServerPubKey` from TOML configuration, these fields are replaced by `[[TelemetryIngress.Endpoints]]`:
+```toml
+  [[TelemetryIngress.Endpoints]]
+  Network = '...' # e.g. EVM. Solana, Starknet, Cosmos
+  ChainID = '...' # e.g. 1, 5, devnet, mainnet-beta
+  URL = '...'
+  ServerPubKey = '...'
+```
+
 ## 2.8.0 - 2024-01-24
 
 ### Added
@@ -59,7 +95,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Two new prom metrics for mercury, nops should consider adding alerting on these:
     - `mercury_insufficient_blocks_count`
     - `mercury_zero_blocks_count`
-  
+- Added new `Mercury.TLS` TOML config field `CertFile` for configuring transport credentials when the node acts as a client and initiates a TLS handshake.
+
 ### Changed
 
 - `PromReporter` no longer directly reads txm related status from the db, and instead uses the txStore API.
@@ -111,7 +148,6 @@ Starting in `v2.9.0`:
 
 - Added new configuration field named `LeaseDuration` for `EVM.NodePool` that will periodically check if internal subscriptions are connected to the "best" (as defined by the `SelectionMode`) node and switch to it if necessary. Setting this value to `0s` will disable this feature.
 - Added multichain telemetry support. Each network/chainID pair must be configured using the new fields:
-
 ```toml
 [[TelemetryIngress.Endpoints]]
 Network = '...' # e.g. EVM. Solana, Starknet, Cosmos
@@ -119,9 +155,7 @@ ChainID = '...' # e.g. 1, 5, devnet, mainnet-beta
 URL = '...'
 ServerPubKey = '...'
 ```
-
 These will eventually replace `TelemetryIngress.URL` and `TelemetryIngress.ServerPubKey`. Setting `TelemetryIngress.URL` and `TelemetryIngress.ServerPubKey` alongside `[[TelemetryIngress.Endpoints]]` will prevent the node from booting. Only one way of configuring telemetry endpoints is supported.
-
 - Added bridge_name label to `pipeline_tasks_total_finished` prometheus metric. This should make it easier to see directly what bridge was failing out from the CL NODE perspective.
 
 - LogPoller will now use finality tags to dynamically determine finality on evm chains if `EVM.FinalityTagEnabled=true`, rather than the fixed `EVM.FinalityDepth` specified in toml config
@@ -170,9 +204,7 @@ All nodes will have to remove the following configuration field: `ExplorerURL`
 - Fixed a bug where `evmChainId` is requested instead of `id` or `evm-chain-id` in CLI error verbatim
 - Fixed a bug that would cause the node to shut down while performing backup
 - Fixed health checker to include more services in the prometheus `health` metric and HTTP `/health` endpoint
-  <<<<<<< HEAD
-- # Fixed a bug where prices would not be parsed correctly in telemetry data
-  > > > > > > > master
+- Fixed a bug where prices would not be parsed correctly in telemetry data
 
 ## 2.5.0 - 2023-09-13
 

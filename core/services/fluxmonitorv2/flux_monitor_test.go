@@ -21,6 +21,7 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	logmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
@@ -701,7 +702,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 		Once().
 		Run(func(mock.Arguments) { readyToAssert.ItHappened() })
 
-	require.NoError(t, fm.Start(testutils.Context(t)))
+	servicetest.Run(t, fm)
 
 	var logBroadcasts []*logmocks.Broadcast
 
@@ -724,8 +725,6 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 
 	logsAwaiter.ItHappened()
 	readyToAssert.AwaitOrFail(t)
-
-	fm.Close()
 }
 
 func TestFluxMonitor_TriggerIdleTimeThreshold(t *testing.T) {
@@ -1049,8 +1048,7 @@ func TestFluxMonitor_IdleTimerResetsOnNewRound(t *testing.T) {
 	idleDurationOccured := make(chan struct{}, 4)
 	initialPollOccurred := make(chan struct{}, 1)
 
-	require.NoError(t, fm.Start(testutils.Context(t)))
-	t.Cleanup(func() { fm.Close() })
+	servicetest.Run(t, fm)
 
 	// Initial Poll
 	roundState1 := flux_aggregator_wrapper.OracleRoundState{RoundId: 1, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: now()}
@@ -1169,11 +1167,9 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutAtZero(t *testing.T) {
 
 	require.NoError(t, fm.SetOracleAddress())
 	fm.ExportedRoundState(t)
-	require.NoError(t, fm.Start(testutils.Context(t)))
+	servicetest.Run(t, fm)
 
 	g.Eventually(ch).Should(gomega.BeClosed())
-
-	fm.Close()
 }
 
 func TestFluxMonitor_UsesPreviousRoundStateOnStartup_RoundTimeout(t *testing.T) {
@@ -1229,15 +1225,13 @@ func TestFluxMonitor_UsesPreviousRoundStateOnStartup_RoundTimeout(t *testing.T) 
 				Run(func(mock.Arguments) { close(chRoundState) }).
 				Maybe()
 
-			require.NoError(t, fm.Start(testutils.Context(t)))
+			servicetest.Run(t, fm)
 
 			if test.expectedToSubmit {
 				g.Eventually(chRoundState).Should(gomega.BeClosed())
 			} else {
 				g.Consistently(chRoundState).ShouldNot(gomega.BeClosed())
 			}
-
-			require.NoError(t, fm.Close())
 		})
 	}
 }
@@ -1310,8 +1304,7 @@ func TestFluxMonitor_UsesPreviousRoundStateOnStartup_IdleTimer(t *testing.T) {
 				}).
 				Maybe()
 
-			require.NoError(t, fm.Start(testutils.Context(t)))
-			t.Cleanup(func() { fm.Close() })
+			servicetest.Run(t, fm)
 
 			assert.Eventually(t, func() bool { return len(initialPollOccurred) == 1 }, 3*time.Second, 10*time.Millisecond)
 
@@ -1385,7 +1378,7 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutNotZero(t *testing.T) {
 		Run(func(mock.Arguments) { close(chRoundState2) }).
 		Once()
 
-	require.NoError(t, fm.Start(testutils.Context(t)))
+	servicetest.Run(t, fm)
 
 	tm.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 	tm.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
@@ -1401,7 +1394,6 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutNotZero(t *testing.T) {
 	g.Eventually(chRoundState2).Should(gomega.BeClosed())
 
 	time.Sleep(time.Duration(2*timeout) * time.Second)
-	require.NoError(t, fm.Close())
 }
 
 func TestFluxMonitor_ConsumeLogBroadcast(t *testing.T) {
@@ -1927,8 +1919,7 @@ func TestFluxMonitor_DrumbeatTicker(t *testing.T) {
 		Return(flux_aggregator_wrapper.OracleRoundState{RoundId: 4, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: now()}, nil).
 		Maybe()
 
-	require.NoError(t, fm.Start(testutils.Context(t)))
-	defer func() { assert.NoError(t, fm.Close()) }()
+	servicetest.Run(t, fm)
 
 	waitTime := 15 * time.Second
 	interval := 50 * time.Millisecond

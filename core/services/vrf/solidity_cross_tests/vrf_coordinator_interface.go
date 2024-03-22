@@ -8,8 +8,8 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // RawRandomnessRequestLog is used to parse a RandomnessRequest log into types
@@ -35,7 +35,7 @@ func toGethLog(log types.Log) types.Log {
 	return types.Log{
 		Address:     log.Address,
 		Topics:      log.Topics,
-		Data:        []byte(log.Data),
+		Data:        log.Data,
 		BlockNumber: log.BlockNumber,
 		TxHash:      log.TxHash,
 		TxIndex:     log.TxIndex,

@@ -1,0 +1,67 @@
+<style>
+    details {
+        margin: 0.0em 0.0em 0.0em 0.4em;
+        padding: 0.3em 0.0em 0.0em 0.4em;
+    }
+    pre {
+        margin-left:1em;
+        margin-top: 0;
+    }
+    summary {
+        padding-bottom: 0.4em;
+    }
+    details {
+        border: thin solid black;
+        border-bottom-color: rgba(0,0,0,0);
+        border-right-color: rgba(0,0,0,0);
+    }
+    .passing:after {
+        color: blue;
+        content: " - (Passing)";
+        font-size:small;
+        text-transform: uppercase;
+    }
+    .failing:after {
+        color: red;
+        content: " - (Failing)";
+        font-weight: bold;
+        font-size:small;
+        text-transform: uppercase;
+    }
+    summary.noexpand::marker {
+        color: rgba(100,101,10,0);
+    }
+</style>
+<details open>
+    <summary title="foo"><span class="passing">foo</span></summary>
+    <details open>
+        <summary title="foo.bar"><span class="failing">bar</span></summary>
+        <pre>example error message</pre>
+        <details open>
+            <summary title="foo.bar.1"><span class="passing">1</span></summary>
+            <details open>
+                <summary title="foo.bar.1.A" class="noexpand"><span class="passing">A</span></summary>
+            </details>
+            <details open>
+                <summary title="foo.bar.1.B" class="noexpand"><span class="passing">B</span></summary>
+            </details>
+        </details>
+        <details open>
+            <summary title="foo.bar.2"><span class="failing">2</span></summary>
+            <pre>error:
+this is a multi-line error:
+new line:
+original error</pre>
+            <details open>
+                <summary title="foo.bar.2.A"><span class="failing">A</span></summary>
+                <pre>failure!</pre>
+            </details>
+            <details open>
+                <summary title="foo.bar.2.B" class="noexpand"><span class="passing">B</span></summary>
+            </details>
+        </details>
+    </details>
+    <details open>
+        <summary title="foo.baz" class="noexpand"><span class="passing">baz</span></summary>
+    </details>
+</details>

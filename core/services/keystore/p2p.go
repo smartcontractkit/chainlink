@@ -160,7 +160,7 @@ func (ks *p2p) GetOrFirst(id p2pkey.PeerID) (p2pkey.KeyV2, error) {
 	if ks.isLocked() {
 		return p2pkey.KeyV2{}, ErrLocked
 	}
-	if id != "" {
+	if id != (p2pkey.PeerID{}) {
 		return ks.getByID(id)
 	} else if len(ks.keyRing.P2P) == 1 {
 		ks.logger.Warn("No P2P.PeerID set, defaulting to first key in database")

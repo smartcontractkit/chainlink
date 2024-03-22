@@ -1,0 +1,17 @@
+# product defaults
+[Common]
+chainlink_node_funding = 0.5
+
+[Keeper.Common]
+registry_to_test = "2_1"
+number_of_registries = 1
+number_of_nodes = 6
+number_of_upkeeps = 500
+upkeep_gas_limit = 1500000
+check_gas_to_burn = 100000
+perform_gas_to_burn = 50000
+max_perform_gas = 5000000
+block_range = 3600
+block_interval = 20
+forces_single_tx_key = false
+delete_jobs_on_end = true

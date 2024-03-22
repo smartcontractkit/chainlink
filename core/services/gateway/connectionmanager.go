@@ -287,6 +287,10 @@ func (m *donConnectionManager) readLoop(nodeAddress string, nodeState *nodeState
 				m.lggr.Errorw("message validation error when reading from node", "nodeAddress", nodeAddress, "err", err)
 				break
 			}
+			if msg.Body.Sender != nodeAddress {
+				m.lggr.Errorw("message sender mismatch when reading from node", "nodeAddress", nodeAddress, "sender", msg.Body.Sender)
+				break
+			}
 			err = m.handler.HandleNodeMessage(ctx, msg, nodeAddress)
 			if err != nil {
 				m.lggr.Error("error when calling HandleNodeMessage ", err)

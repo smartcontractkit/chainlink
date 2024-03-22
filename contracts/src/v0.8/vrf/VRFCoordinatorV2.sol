@@ -491,6 +491,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface, VRFCo
     // The seed actually used by the VRF machinery, mixing in the blockhash
     uint256 actualSeed = uint256(keccak256(abi.encodePacked(proof.seed, blockHash)));
     randomness = VRF._randomValueFromVRFProof(proof, actualSeed); // Reverts on failure
+    return (keyHash, requestId, randomness);
   }
 
   /*

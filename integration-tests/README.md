@@ -26,9 +26,15 @@ e.g.
 
 `make build_docker_image image=chainlink tag=test-tag`
 
+You'll want to set the `CHAINLINK_IMAGE` and `CHAINLINK_VERSION` env values appropriately as well. See [example.env](./example.env) for more details.
+
 ## Run
 
 `go test ./smoke/<product>_test.go`
+
+Most test files have a couple of tests, it's recommended to look into the file and focus on a specific one if possible. 90% of the time this will probably be the `Basic` test. See [ocr_test.go](./smoke/ocr_test.go) for example, which contains the `TestOCRBasic` test.
+
+`go test ./smoke/ocr_test.go -run TestOCRBasic`
 
 It's generally recommended to run only one test at a time on a local machine as it needs a lot of docker containers and can peg your resources otherwise. You will see docker containers spin up on your machine for each component of the test where you can inspect logs.
 

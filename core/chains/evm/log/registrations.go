@@ -46,7 +46,7 @@ type (
 
 		// handlersByConfs maps numConfirmations => *handler
 		handlersByConfs map[uint32]*handler
-		logger          logger.Logger
+		logger          logger.SugaredLogger
 		evmChainID      big.Int
 
 		// highest 'NumConfirmations' per all listeners, used to decide about deleting older logs if it's higher than EvmFinalityDepth
@@ -57,7 +57,7 @@ type (
 	handler struct {
 		lookupSubs map[common.Address]map[common.Hash]subscribers // contractAddress => logTopic => *subscriber => topicValueFilters
 		evmChainID big.Int
-		logger     logger.Logger
+		logger     logger.SugaredLogger
 	}
 
 	// The Listener responds to log events through HandleLog.
@@ -76,7 +76,7 @@ func newRegistrations(lggr logger.Logger, evmChainID big.Int) *registrations {
 		jobIDAddrs:      make(map[int32]map[common.Address]struct{}),
 		handlersByConfs: make(map[uint32]*handler),
 		evmChainID:      evmChainID,
-		logger:          logger.Named(lggr, "Registrations"),
+		logger:          logger.Sugared(logger.Named(lggr, "Registrations")),
 	}
 }
 
@@ -85,7 +85,7 @@ func (r *registrations) addSubscriber(sub *subscriber) (needsResubscribe bool) {
 		r.logger.Panicw(err.Error(), "err", err, "addr", sub.opts.Contract.Hex(), "jobID", sub.listener.JobID())
 	}
 
-	logger.Tracef(r.logger, "Added subscription %p with job ID %v", sub, sub.listener.JobID())
+	r.logger.Tracef("Added subscription %p with job ID %v", sub, sub.listener.JobID())
 
 	handler, exists := r.handlersByConfs[sub.opts.MinIncomingConfirmations]
 	if !exists {
@@ -142,7 +142,7 @@ func (r *registrations) removeSubscriber(sub *subscriber) (needsResubscribe bool
 	if err := r.checkRemoveSubscriber(sub); err != nil {
 		r.logger.Panicw(err.Error(), "err", err, "addr", sub.opts.Contract.Hex(), "jobID", sub.listener.JobID())
 	}
-	logger.Tracef(r.logger, "Removed subscription %p with job ID %v", sub, sub.listener.JobID())
+	r.logger.Tracef("Removed subscription %p with job ID %v", sub, sub.listener.JobID())
 
 	handlers, exists := r.handlersByConfs[sub.opts.MinIncomingConfirmations]
 	if !exists {
@@ -263,7 +263,7 @@ func filtersContainValues(topicValues []common.Hash, filters [][]Topic) bool {
 	return true
 }
 
-func newHandler(lggr logger.Logger, evmChainID big.Int) *handler {
+func newHandler(lggr logger.SugaredLogger, evmChainID big.Int) *handler {
 	return &handler{
 		lookupSubs: make(map[common.Address]map[common.Hash]subscribers),
 		evmChainID: evmChainID,
@@ -284,7 +284,7 @@ func (r *handler) addSubscriber(sub *subscriber, handlersWithGreaterConfs []*han
 
 	for topic, topicValueFilters := range sub.opts.LogsWithTopics {
 		if _, exists := r.lookupSubs[addr][topic]; !exists {
-			logger.Tracef(r.logger, "No existing sub for addr %s and topic %s at this MinIncomingConfirmations of %v", addr.Hex(), topic.Hex(), sub.opts.MinIncomingConfirmations)
+			r.logger.Tracef("No existing sub for addr %s and topic %s at this MinIncomingConfirmations of %v", addr.Hex(), topic.Hex(), sub.opts.MinIncomingConfirmations)
 			r.lookupSubs[addr][topic] = make(subscribers)
 
 			func() {
@@ -295,11 +295,11 @@ func (r *handler) addSubscriber(sub *subscriber, handlersWithGreaterConfs []*han
 					// again since even the worst case lookback is already covered
 					for _, existingHandler := range handlersWithGreaterConfs {
 						if _, exists := existingHandler.lookupSubs[addr][topic]; exists {
-							logger.Tracef(r.logger, "Sub already exists for addr %s and topic %s at greater than this MinIncomingConfirmations of %v. Resubscribe is not required", addr.Hex(), topic.Hex(), sub.opts.MinIncomingConfirmations)
+							r.logger.Tracef("Sub already exists for addr %s and topic %s at greater than this MinIncomingConfirmations of %v. Resubscribe is not required", addr.Hex(), topic.Hex(), sub.opts.MinIncomingConfirmations)
 							return
 						}
 					}
-					logger.Tracef(r.logger, "No sub exists for addr %s and topic %s at this or greater MinIncomingConfirmations of %v. Resubscribe is required", addr.Hex(), topic.Hex(), sub.opts.MinIncomingConfirmations)
+					r.logger.Tracef("No sub exists for addr %s and topic %s at this or greater MinIncomingConfirmations of %v. Resubscribe is required", addr.Hex(), topic.Hex(), sub.opts.MinIncomingConfirmations)
 					needsResubscribe = true
 				}
 			}()
@@ -332,7 +332,7 @@ func (r *handler) removeSubscriber(sub *subscriber, allHandlers map[uint32]*hand
 
 		// cleanup and resubscribe if necessary
 		if len(topicMap) == 0 {
-			logger.Tracef(r.logger, "No subs left for addr %s and topic %s at this MinIncomingConfirmations of %v", addr.Hex(), topic.Hex(), sub.opts.MinIncomingConfirmations)
+			r.logger.Tracef("No subs left for addr %s and topic %s at this MinIncomingConfirmations of %v", addr.Hex(), topic.Hex(), sub.opts.MinIncomingConfirmations)
 
 			func() {
 				if !needsResubscribe {
@@ -344,12 +344,12 @@ func (r *handler) removeSubscriber(sub *subscriber, allHandlers map[uint32]*hand
 							continue
 						}
 						if _, exists := otherHandler.lookupSubs[addr][topic]; exists {
-							logger.Tracef(r.logger, "Sub still exists for addr %s and topic %s. Resubscribe will not be performed", addr.Hex(), topic.Hex())
+							r.logger.Tracef("Sub still exists for addr %s and topic %s. Resubscribe will not be performed", addr.Hex(), topic.Hex())
 							return
 						}
 					}
 
-					logger.Tracef(r.logger, "No sub exists for addr %s and topic %s. Resubscribe will be performed", addr.Hex(), topic.Hex())
+					r.logger.Tracef("No sub exists for addr %s and topic %s. Resubscribe will be performed", addr.Hex(), topic.Hex())
 					needsResubscribe = true
 				}
 			}()

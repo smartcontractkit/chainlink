@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
 
 func TestResolver_EthTransaction(t *testing.T) {
@@ -54,7 +54,7 @@ func TestResolver_EthTransaction(t *testing.T) {
 		"hash": "0x5431F5F973781809D18643b87B44921b11355d81",
 	}
 	hash := common.HexToHash("0x5431F5F973781809D18643b87B44921b11355d81")
-	chainID := *utils.NewBigI(22)
+	chainID := *ubig.NewI(22)
 	gError := errors.New("error")
 
 	testCases := []GQLTestCase{

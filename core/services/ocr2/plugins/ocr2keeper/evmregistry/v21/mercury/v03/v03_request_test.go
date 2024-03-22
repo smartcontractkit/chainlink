@@ -9,13 +9,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
+
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/patrickmn/go-cache"
 	"github.com/stretchr/testify/mock"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -39,8 +41,8 @@ func NewMockMercuryConfigProvider() *MockMercuryConfigProvider {
 	}
 }
 
-func (m *MockMercuryConfigProvider) Credentials() *models.MercuryCredentials {
-	mc := &models.MercuryCredentials{
+func (m *MockMercuryConfigProvider) Credentials() *types.MercuryCredentials {
+	mc := &types.MercuryCredentials{
 		LegacyURL: "https://google.old.com",
 		URL:       "https://google.com",
 		Username:  "FakeClientID",
@@ -108,8 +110,8 @@ func TestV03_DoMercuryRequestV03(t *testing.T) {
 		expectedRetryable     bool
 		expectedRetryInterval time.Duration
 		expectedError         error
-		state                 mercury.MercuryUpkeepState
-		reason                mercury.MercuryUpkeepFailureReason
+		state                 encoding.PipelineExecutionState
+		reason                encoding.UpkeepFailureReason
 	}{
 		{
 			name: "success v0.3",

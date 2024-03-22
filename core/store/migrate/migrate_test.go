@@ -16,6 +16,7 @@ import (
 
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -29,7 +30,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/store/migrate"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var migrationDir = "migrations"
@@ -417,7 +417,7 @@ func TestMigrate(t *testing.T) {
 
 func TestSetMigrationENVVars(t *testing.T) {
 	t.Run("ValidEVMConfig", func(t *testing.T) {
-		chainID := utils.NewBig(big.NewInt(1337))
+		chainID := ubig.New(big.NewInt(1337))
 		testConfig := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			evmEnabled := true
 			c.EVM = evmcfg.EVMConfigs{&evmcfg.EVMConfig{
@@ -433,7 +433,7 @@ func TestSetMigrationENVVars(t *testing.T) {
 	})
 
 	t.Run("EVMConfigMissing", func(t *testing.T) {
-		chainID := utils.NewBig(big.NewInt(1337))
+		chainID := ubig.New(big.NewInt(1337))
 		testConfig := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) { c.EVM = nil })
 
 		require.NoError(t, migrate.SetMigrationENVVars(testConfig))
@@ -516,6 +516,31 @@ func TestDatabaseBackFillWithMigration202(t *testing.T) {
 	}
 }
 
+func TestNoTriggers(t *testing.T) {
+	_, db := heavyweight.FullTestDBEmptyV2(t, nil)
+
+	assert_num_triggers := func(expected int) {
+
+		row := db.DB.QueryRow("select count(*) from information_schema.triggers")
+		var count int
+		err := row.Scan(&count)
+
+		require.NoError(t, err)
+		require.Equal(t, expected, count)
+	}
+
+	// if you find yourself here and are tempted to add a trigger, something has gone wrong
+	// and you should talk to the foundations team before proceeding
+	assert_num_triggers(0)
+
+	// version prior to removal of all triggers
+	v := 217
+	err := goose.UpTo(db.DB, migrationDir, int64(v))
+	require.NoError(t, err)
+	assert_num_triggers(1)
+
+}
+
 func BenchmarkBackfillingRecordsWithMigration202(b *testing.B) {
 	previousMigration := int64(201)
 	backfillMigration := int64(202)
@@ -535,7 +560,7 @@ func BenchmarkBackfillingRecordsWithMigration202(b *testing.B) {
 		var blocks []logpoller.LogPollerBlock
 		for i := 0; i < maxLogsSize; i++ {
 			blocks = append(blocks, logpoller.LogPollerBlock{
-				EvmChainId:           utils.NewBigI(int64(j + 1)),
+				EvmChainId:           ubig.NewI(int64(j + 1)),
 				BlockHash:            testutils.Random32Byte(),
 				BlockNumber:          int64(i + 1000),
 				FinalizedBlockNumber: 0,

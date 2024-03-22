@@ -331,8 +331,8 @@ contract VRFCoordinatorV2Plus_Migration is BaseTest {
 
   function registerProvingKey() public {
     uint256[2] memory uncompressedKeyParts = this.getProvingKeyParts(UNCOMPRESSED_PUBLIC_KEY);
-    v1Coordinator.registerProvingKey(OWNER, uncompressedKeyParts);
-    v1Coordinator_noLink.registerProvingKey(OWNER, uncompressedKeyParts);
+    v1Coordinator.registerProvingKey(uncompressedKeyParts);
+    v1Coordinator_noLink.registerProvingKey(uncompressedKeyParts);
   }
 
   // note: Call this function via this.getProvingKeyParts to be able to pass memory as calldata and

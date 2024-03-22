@@ -556,7 +556,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 				return
 			})
 
-		iN := NewNode(cfg, time.Duration(time.Second), logger.Test(t), *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID, 1)
+		iN := NewNode(cfg, time.Second, logger.Test(t), *s.WSURL(), nil, "test node", 42, testutils.FixtureChainID, 1)
 		n := iN.(*node)
 
 		dial(t, n)

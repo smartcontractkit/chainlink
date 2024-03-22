@@ -21,7 +21,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/google/uuid"
@@ -37,16 +36,19 @@ import (
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	"github.com/smartcontractkit/libocr/gethwrappers/testoffchainaggregator"
-	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 	"github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/consumer_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flags_wrapper"
@@ -85,7 +87,7 @@ func TestIntegration_ExternalInitiatorV2(t *testing.T) {
 
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.JobPipeline.ExternalInitiatorsEnabled = ptr(true)
-		c.Database.Listener.FallbackPollInterval = models.MustNewDuration(10 * time.Millisecond)
+		c.Database.Listener.FallbackPollInterval = commonconfig.MustNewDuration(10 * time.Millisecond)
 	})
 
 	app := cltest.NewApplicationWithConfig(t, cfg, ethClient, cltest.UseRealExternalInitiatorManager)
@@ -362,7 +364,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 			// Simulate a consumer contract calling to obtain ETH quotes in 3 different currencies
 			// in a single callback.
 			config := configtest.NewGeneralConfigSimulated(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-				c.Database.Listener.FallbackPollInterval = models.MustNewDuration(100 * time.Millisecond)
+				c.Database.Listener.FallbackPollInterval = commonconfig.MustNewDuration(100 * time.Millisecond)
 				c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(true)
 			})
 			operatorContracts := setupOperatorContracts(t)
@@ -380,7 +382,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 			// Fund node account with ETH.
 			n, err := b.NonceAt(testutils.Context(t), operatorContracts.user.From, nil)
 			require.NoError(t, err)
-			tx = types.NewTransaction(n, sendingKeys[0].Address, assets.Ether(100).ToInt(), 21000, big.NewInt(1000000000), nil)
+			tx = cltest.NewLegacyTransaction(n, sendingKeys[0].Address, assets.Ether(100).ToInt(), 21000, big.NewInt(1000000000), nil)
 			signedTx, err := operatorContracts.user.Signer(operatorContracts.user.From, tx)
 			require.NoError(t, err)
 			err = b.SendTransaction(testutils.Context(t), signedTx)
@@ -467,7 +469,7 @@ func setupAppForEthTx(t *testing.T, operatorContracts OperatorContracts) (app *c
 	lggr, o := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 
 	cfg := configtest.NewGeneralConfigSimulated(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.Database.Listener.FallbackPollInterval = models.MustNewDuration(100 * time.Millisecond)
+		c.Database.Listener.FallbackPollInterval = commonconfig.MustNewDuration(100 * time.Millisecond)
 	})
 	app = cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, cfg, b, lggr)
 	b.Commit()
@@ -479,7 +481,7 @@ func setupAppForEthTx(t *testing.T, operatorContracts OperatorContracts) (app *c
 	// Fund node account with ETH.
 	n, err := b.NonceAt(testutils.Context(t), operatorContracts.user.From, nil)
 	require.NoError(t, err)
-	tx := types.NewTransaction(n, sendingKeys[0].Address, assets.Ether(100).ToInt(), 21000, big.NewInt(1000000000), nil)
+	tx := cltest.NewLegacyTransaction(n, sendingKeys[0].Address, assets.Ether(100).ToInt(), 21000, big.NewInt(1000000000), nil)
 	signedTx, err := operatorContracts.user.Signer(operatorContracts.user.From, tx)
 	require.NoError(t, err)
 	err = b.SendTransaction(testutils.Context(t), signedTx)
@@ -522,8 +524,8 @@ observationSource   = """
 		cltest.AwaitJobActive(t, app.JobSpawner(), j.ID, testutils.WaitTimeout(t))
 
 		run := cltest.CreateJobRunViaUser(t, app, j.ExternalJobID, "")
-		assert.Equal(t, []*string([]*string(nil)), run.Outputs)
-		assert.Equal(t, []*string([]*string(nil)), run.Errors)
+		assert.Equal(t, []*string(nil), run.Outputs)
+		assert.Equal(t, []*string(nil), run.Errors)
 
 		testutils.WaitForLogMessage(t, o, "Sending transaction")
 		b.Commit() // Needs at least two confirmations
@@ -568,8 +570,8 @@ observationSource   = """
 		cltest.AwaitJobActive(t, app.JobSpawner(), j.ID, testutils.WaitTimeout(t))
 
 		run := cltest.CreateJobRunViaUser(t, app, j.ExternalJobID, "")
-		assert.Equal(t, []*string([]*string(nil)), run.Outputs)
-		assert.Equal(t, []*string([]*string(nil)), run.Errors)
+		assert.Equal(t, []*string(nil), run.Outputs)
+		assert.Equal(t, []*string(nil), run.Errors)
 
 		testutils.WaitForLogMessage(t, o, "Sending transaction")
 		b.Commit() // Needs at least two confirmations
@@ -606,8 +608,8 @@ observationSource   = """
 		cltest.AwaitJobActive(t, app.JobSpawner(), j.ID, testutils.WaitTimeout(t))
 
 		run := cltest.CreateJobRunViaUser(t, app, j.ExternalJobID, "")
-		assert.Equal(t, []*string([]*string(nil)), run.Outputs)
-		assert.Equal(t, []*string([]*string(nil)), run.Errors)
+		assert.Equal(t, []*string(nil), run.Outputs)
+		assert.Equal(t, []*string(nil), run.Errors)
 
 		testutils.WaitForLogMessage(t, o, "Sending transaction")
 		b.Commit() // Needs at least two confirmations
@@ -675,8 +677,8 @@ func setupOCRContracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBac
 	return owner, b, ocrContractAddress, ocrContract, flagsContract, flagsContractAddress
 }
 
-func setupNode(t *testing.T, owner *bind.TransactOpts, portV1, portV2 int,
-	b *backends.SimulatedBackend, ns ocrnetworking.NetworkingStack, overrides func(c *chainlink.Config, s *chainlink.Secrets),
+func setupNode(t *testing.T, owner *bind.TransactOpts, portV2 int,
+	b *backends.SimulatedBackend, overrides func(c *chainlink.Config, s *chainlink.Secrets),
 ) (*cltest.TestApplication, string, common.Address, ocrkey.KeyV2) {
 	p2pKey := keystest.NewP2PKeyV2(t)
 	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -686,35 +688,13 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, portV1, portV2 int,
 		c.OCR2.Enabled = ptr(true)
 
 		c.P2P.PeerID = ptr(p2pKey.PeerID())
-		switch ns {
-		case ocrnetworking.NetworkingStackV1:
-			c.P2P.V1.Enabled = ptr(true)
-			c.P2P.V2.Enabled = ptr(false)
-			// We want to quickly poll for the bootstrap node to come up, but if we poll too quickly
-			// we'll flood it with messages and slow things down. 5s is about how long it takes the
-			// bootstrap node to come up.
-			c.P2P.V1.BootstrapCheckInterval = models.MustNewDuration(5 * time.Second)
-			c.P2P.V1.ListenPort = ptr(uint16(portV1))
 
-		case ocrnetworking.NetworkingStackV2:
-			c.P2P.V1.Enabled = ptr(false)
-			c.P2P.V2.Enabled = ptr(true)
-			c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", portV2)}
-			c.P2P.V2.DeltaReconcile = models.MustNewDuration(5 * time.Second)
-
-		case ocrnetworking.NetworkingStackV1V2:
-			c.P2P.V1.Enabled = ptr(true)
-			c.P2P.V2.Enabled = ptr(true)
-			c.P2P.V1.BootstrapCheckInterval = models.MustNewDuration(5 * time.Second)
-			// Note v1 and v2 ports must be distinct,
-			// v1v2 mode will listen on both.
-			c.P2P.V1.ListenPort = ptr(uint16(portV1))
-			c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", portV2)}
-			c.P2P.V2.DeltaReconcile = models.MustNewDuration(5 * time.Second)
-		}
+		c.P2P.V2.Enabled = ptr(true)
+		c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", portV2)}
+		c.P2P.V2.DeltaReconcile = commonconfig.MustNewDuration(5 * time.Second)
 
 		// GracePeriod < ObservationTimeout
-		c.EVM[0].OCR.ObservationGracePeriod = models.MustNewDuration(100 * time.Millisecond)
+		c.EVM[0].OCR.ObservationGracePeriod = commonconfig.MustNewDuration(100 * time.Millisecond)
 
 		if overrides != nil {
 			overrides(c, s)
@@ -731,7 +711,7 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, portV1, portV2 int,
 	n, err := b.NonceAt(testutils.Context(t), owner.From, nil)
 	require.NoError(t, err)
 
-	tx := types.NewTransaction(n, transmitter, assets.Ether(100).ToInt(), 21000, big.NewInt(1000000000), nil)
+	tx := cltest.NewLegacyTransaction(n, transmitter, assets.Ether(100).ToInt(), 21000, big.NewInt(1000000000), nil)
 	signedTx, err := owner.Signer(owner.From, tx)
 	require.NoError(t, err)
 	err = b.SendTransaction(testutils.Context(t), signedTx)
@@ -743,21 +723,7 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, portV1, portV2 int,
 	return app, p2pKey.PeerID().Raw(), transmitter, key
 }
 
-func setupForwarderEnabledNode(
-	t *testing.T,
-	owner *bind.TransactOpts,
-	portV1,
-	portV2 int,
-	b *backends.SimulatedBackend,
-	ns ocrnetworking.NetworkingStack,
-	overrides func(c *chainlink.Config, s *chainlink.Secrets),
-) (
-	*cltest.TestApplication,
-	string,
-	common.Address,
-	common.Address,
-	ocrkey.KeyV2,
-) {
+func setupForwarderEnabledNode(t *testing.T, owner *bind.TransactOpts, portV2 int, b *backends.SimulatedBackend, overrides func(c *chainlink.Config, s *chainlink.Secrets)) (*cltest.TestApplication, string, common.Address, common.Address, ocrkey.KeyV2) {
 	p2pKey := keystest.NewP2PKeyV2(t)
 	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Insecure.OCRDevelopmentMode = ptr(true) // Disables ocr spec validation so we can have fast polling for the test.
@@ -766,32 +732,9 @@ func setupForwarderEnabledNode(
 		c.OCR2.Enabled = ptr(true)
 
 		c.P2P.PeerID = ptr(p2pKey.PeerID())
-		switch ns {
-		case ocrnetworking.NetworkingStackV1:
-			c.P2P.V1.Enabled = ptr(true)
-			c.P2P.V2.Enabled = ptr(false)
-			// We want to quickly poll for the bootstrap node to come up, but if we poll too quickly
-			// we'll flood it with messages and slow things down. 5s is about how long it takes the
-			// bootstrap node to come up.
-			c.P2P.V1.BootstrapCheckInterval = models.MustNewDuration(5 * time.Second)
-			c.P2P.V1.ListenPort = ptr(uint16(portV1))
-
-		case ocrnetworking.NetworkingStackV2:
-			c.P2P.V1.Enabled = ptr(false)
-			c.P2P.V2.Enabled = ptr(true)
-			c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", portV2)}
-			c.P2P.V2.DeltaReconcile = models.MustNewDuration(5 * time.Second)
-
-		case ocrnetworking.NetworkingStackV1V2:
-			c.P2P.V1.Enabled = ptr(true)
-			c.P2P.V2.Enabled = ptr(true)
-			c.P2P.V1.BootstrapCheckInterval = models.MustNewDuration(5 * time.Second)
-			// Note v1 and v2 ports must be distinct,
-			// v1v2 mode will listen on both.
-			c.P2P.V1.ListenPort = ptr(uint16(portV1))
-			c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", portV2)}
-			c.P2P.V2.DeltaReconcile = models.MustNewDuration(5 * time.Second)
-		}
+		c.P2P.V2.Enabled = ptr(true)
+		c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", portV2)}
+		c.P2P.V2.DeltaReconcile = commonconfig.MustNewDuration(5 * time.Second)
 
 		c.EVM[0].Transactions.ForwardersEnabled = ptr(true)
 
@@ -810,7 +753,7 @@ func setupForwarderEnabledNode(
 	n, err := b.NonceAt(testutils.Context(t), owner.From, nil)
 	require.NoError(t, err)
 
-	tx := types.NewTransaction(n, transmitter, assets.Ether(100).ToInt(), 21000, big.NewInt(1000000000), nil)
+	tx := cltest.NewLegacyTransaction(n, transmitter, assets.Ether(100).ToInt(), 21000, big.NewInt(1000000000), nil)
 	signedTx, err := owner.Signer(owner.From, tx)
 	require.NoError(t, err)
 	err = b.SendTransaction(testutils.Context(t), signedTx)
@@ -831,7 +774,7 @@ func setupForwarderEnabledNode(
 
 	// add forwarder address to be tracked in db
 	forwarderORM := forwarders.NewORM(app.GetSqlxDB(), logger.TestLogger(t), config.Database())
-	chainID := utils.Big(*b.Blockchain().Config().ChainID)
+	chainID := ubig.Big(*b.Blockchain().Config().ChainID)
 	_, err = forwarderORM.CreateForwarder(forwarder, chainID)
 	require.NoError(t, err)
 
@@ -842,16 +785,12 @@ func TestIntegration_OCR(t *testing.T) {
 	testutils.SkipShort(t, "long test")
 	t.Parallel()
 	tests := []struct {
-		id        int
-		portStart int // Test need to run in parallel, all need distinct port ranges.
-		name      string
-		eip1559   bool
-		ns        ocrnetworking.NetworkingStack
+		id      int
+		name    string
+		eip1559 bool
 	}{
-		{1, 20000, "legacy mode", false, ocrnetworking.NetworkingStackV1},
-		{2, 20010, "eip1559 mode", true, ocrnetworking.NetworkingStackV1},
-		{3, 20020, "legacy mode V1V2", false, ocrnetworking.NetworkingStackV1V2},
-		{4, 20030, "legacy mode V2", false, ocrnetworking.NetworkingStackV2},
+		{1, "legacy mode", false},
+		{2, "eip1559 mode", true},
 	}
 
 	numOracles := 4
@@ -859,31 +798,27 @@ func TestIntegration_OCR(t *testing.T) {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			bootstrapNodePortV1 := freeport.GetOne(t)
 			bootstrapNodePortV2 := freeport.GetOne(t)
 			g := gomega.NewWithT(t)
 			owner, b, ocrContractAddress, ocrContract, flagsContract, flagsContractAddress := setupOCRContracts(t)
 
 			// Note it's plausible these ports could be occupied on a CI machine.
 			// May need a port randomize + retry approach if we observe collisions.
-			appBootstrap, bootstrapPeerID, _, _ := setupNode(t, owner, bootstrapNodePortV1, bootstrapNodePortV2, b, test.ns, nil)
+			appBootstrap, bootstrapPeerID, _, _ := setupNode(t, owner, bootstrapNodePortV2, b, nil)
 			var (
 				oracles      []confighelper.OracleIdentityExtra
 				transmitters []common.Address
 				keys         []ocrkey.KeyV2
 				apps         []*cltest.TestApplication
 			)
-			ports := freeport.GetN(t, 2*numOracles)
+			ports := freeport.GetN(t, numOracles)
 			for i := 0; i < numOracles; i++ {
-				portV1 := ports[2*i]
-				portV2 := ports[2*i+1]
-				app, peerID, transmitter, key := setupNode(t, owner, portV1, portV2, b, test.ns, func(c *chainlink.Config, s *chainlink.Secrets) {
+				app, peerID, transmitter, key := setupNode(t, owner, ports[i], b, func(c *chainlink.Config, s *chainlink.Secrets) {
 					c.EVM[0].FlagsContractAddress = ptr(ethkey.EIP55AddressFromAddress(flagsContractAddress))
 					c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(test.eip1559)
-					if test.ns != ocrnetworking.NetworkingStackV1 {
-						c.P2P.V2.DefaultBootstrappers = &[]ocrcommontypes.BootstrapperLocator{
-							{PeerID: bootstrapPeerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapNodePortV2)}},
-						}
+
+					c.P2P.V2.DefaultBootstrappers = &[]ocrcommontypes.BootstrapperLocator{
+						{PeerID: bootstrapPeerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapNodePortV2)}},
 					}
 				})
 
@@ -947,7 +882,7 @@ isBootstrapPeer    = true
 			// Raising flags to initiate hibernation
 			_, err = flagsContract.RaiseFlag(owner, ocrContractAddress)
 			require.NoError(t, err, "failed to raise flag for ocrContractAddress")
-			_, err = flagsContract.RaiseFlag(owner, utils.ZeroAddress)
+			_, err = flagsContract.RaiseFlag(owner, evmutils.ZeroAddress)
 			require.NoError(t, err, "failed to raise flag for ZeroAddress")
 
 			b.Commit()
@@ -1007,9 +942,6 @@ name               = "web oracle spec"
 contractAddress    = "%s"
 evmChainID		   = "%s"
 isBootstrapPeer    = false
-p2pBootstrapPeers  = [
-    "/ip4/127.0.0.1/tcp/%d/p2p/%s"
-]
 keyBundleID        = "%s"
 transmitterAddress = "%s"
 observationTimeout = "100ms"
@@ -1031,7 +963,7 @@ observationSource = """
 
 	answer1 [type=median index=0];
 """
-`, ocrContractAddress, testutils.SimulatedChainID.String(), bootstrapNodePortV1, bootstrapPeerID, keys[i].ID(), transmitters[i], fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i))
+`, ocrContractAddress, testutils.SimulatedChainID.String(), keys[i].ID(), transmitters[i], fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i))
 				require.NoError(t, err)
 				jb.Name = null.NewString("testocr", true)
 				err = apps[i].AddJobV2(testutils.Context(t), &jb)
@@ -1084,14 +1016,13 @@ func TestIntegration_OCR_ForwarderFlow(t *testing.T) {
 	t.Parallel()
 	numOracles := 4
 	t.Run("ocr_forwarder_flow", func(t *testing.T) {
-		bootstrapNodePortV1 := freeport.GetOne(t)
 		bootstrapNodePortV2 := freeport.GetOne(t)
 		g := gomega.NewWithT(t)
 		owner, b, ocrContractAddress, ocrContract, flagsContract, flagsContractAddress := setupOCRContracts(t)
 
 		// Note it's plausible these ports could be occupied on a CI machine.
 		// May need a port randomize + retry approach if we observe collisions.
-		appBootstrap, bootstrapPeerID, _, _ := setupNode(t, owner, bootstrapNodePortV1, bootstrapNodePortV2, b, ocrnetworking.NetworkingStackV2, nil)
+		appBootstrap, bootstrapPeerID, _, _ := setupNode(t, owner, bootstrapNodePortV2, b, nil)
 
 		var (
 			oracles             []confighelper.OracleIdentityExtra
@@ -1100,11 +1031,9 @@ func TestIntegration_OCR_ForwarderFlow(t *testing.T) {
 			keys                []ocrkey.KeyV2
 			apps                []*cltest.TestApplication
 		)
-		ports := freeport.GetN(t, 2*numOracles)
+		ports := freeport.GetN(t, numOracles)
 		for i := 0; i < numOracles; i++ {
-			portV1 := ports[2*i]
-			portV2 := ports[2*i+1]
-			app, peerID, transmitter, forwarder, key := setupForwarderEnabledNode(t, owner, portV1, portV2, b, ocrnetworking.NetworkingStackV2, func(c *chainlink.Config, s *chainlink.Secrets) {
+			app, peerID, transmitter, forwarder, key := setupForwarderEnabledNode(t, owner, ports[i], b, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.Feature.LogPoller = ptr(true)
 				c.EVM[0].FlagsContractAddress = ptr(ethkey.EIP55AddressFromAddress(flagsContractAddress))
 				c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(true)
@@ -1179,7 +1108,7 @@ isBootstrapPeer    = true
 		// Raising flags to initiate hibernation
 		_, err = flagsContract.RaiseFlag(owner, ocrContractAddress)
 		require.NoError(t, err, "failed to raise flag for ocrContractAddress")
-		_, err = flagsContract.RaiseFlag(owner, utils.ZeroAddress)
+		_, err = flagsContract.RaiseFlag(owner, evmutils.ZeroAddress)
 		require.NoError(t, err, "failed to raise flag for ZeroAddress")
 
 		b.Commit()
@@ -1241,9 +1170,6 @@ contractAddress    = "%s"
 evmChainID         = "%s"
 forwardingAllowed  = true
 isBootstrapPeer    = false
-p2pBootstrapPeers  = [
-    "/ip4/127.0.0.1/tcp/%d/p2p/%s"
-]
 keyBundleID        = "%s"
 transmitterAddress = "%s"
 observationTimeout = "100ms"
@@ -1265,7 +1191,7 @@ observationSource = """
 
 	answer1 [type=median index=0];
 """
-`, ocrContractAddress, testutils.SimulatedChainID.String(), bootstrapNodePortV1, bootstrapPeerID, keys[i].ID(), transmitters[i], fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i))
+`, ocrContractAddress, testutils.SimulatedChainID.String(), keys[i].ID(), transmitters[i], fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i))
 			require.NoError(t, err)
 			jb.Name = null.NewString("testocr", true)
 			err = apps[i].AddJobV2(testutils.Context(t), &jb)
@@ -1340,22 +1266,22 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 
 	b41 := evmtypes.Block{
 		Number:       41,
-		Hash:         utils.NewHash(),
+		Hash:         evmutils.NewHash(),
 		Transactions: cltest.LegacyTransactionsFromGasPrices(41_000_000_000, 41_500_000_000),
 	}
 	b42 := evmtypes.Block{
 		Number:       42,
-		Hash:         utils.NewHash(),
+		Hash:         evmutils.NewHash(),
 		Transactions: cltest.LegacyTransactionsFromGasPrices(44_000_000_000, 45_000_000_000),
 	}
 	b43 := evmtypes.Block{
 		Number:       43,
-		Hash:         utils.NewHash(),
+		Hash:         evmutils.NewHash(),
 		Transactions: cltest.LegacyTransactionsFromGasPrices(48_000_000_000, 49_000_000_000, 31_000_000_000),
 	}
 
-	evmChainID := utils.NewBig(evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()))
-	h40 := evmtypes.Head{Hash: utils.NewHash(), Number: 40, EVMChainID: evmChainID}
+	evmChainID := ubig.New(evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()))
+	h40 := evmtypes.Head{Hash: evmutils.NewHash(), Number: 40, EVMChainID: evmChainID}
 	h41 := evmtypes.Head{Hash: b41.Hash, ParentHash: h40.Hash, Number: 41, EVMChainID: evmChainID}
 	h42 := evmtypes.Head{Hash: b42.Hash, ParentHash: h41.Hash, Number: 42, EVMChainID: evmChainID}
 
@@ -1394,7 +1320,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(cc)
 	for _, re := range cc.Slice() {
-		require.NoError(t, re.Start(testutils.Context(t)))
+		servicetest.Run(t, re)
 	}
 	var newHeads evmtest.RawSub[*evmtypes.Head]
 	select {
@@ -1418,6 +1344,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 		elems := args.Get(1).([]rpc.BatchElem)
 		elems[0].Result = &b43
 	})
+	ethClient.On("Close").Return().Once()
 
 	// Simulate one new head and check the gas price got updated
 	h43 := cltest.Head(43)

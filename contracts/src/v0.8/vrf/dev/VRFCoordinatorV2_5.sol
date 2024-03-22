@@ -44,11 +44,11 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     address sender;
     bytes extraArgs;
   }
-  mapping(bytes32 => address) /* keyHash */ /* oracle */ public s_provingKeys;
+  mapping(bytes32 => bool) /* keyHash */ /* exists */ public s_provingKeys;
   bytes32[] public s_provingKeyHashes;
   mapping(uint256 => bytes32) /* requestID */ /* commitment */ public s_requestCommitments;
-  event ProvingKeyRegistered(bytes32 keyHash, address indexed oracle);
-  event ProvingKeyDeregistered(bytes32 keyHash, address indexed oracle);
+  event ProvingKeyRegistered(bytes32 keyHash);
+  event ProvingKeyDeregistered(bytes32 keyHash);
   event RandomWordsRequested(
     bytes32 indexed keyHash,
     uint256 requestId,
@@ -94,28 +94,26 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
   }
 
   /**
-   * @notice Registers a proving key to an oracle.
-   * @param oracle address of the oracle
+   * @notice Registers a proving key to.
    * @param publicProvingKey key that oracle can use to submit vrf fulfillments
    */
-  function registerProvingKey(address oracle, uint256[2] calldata publicProvingKey) external onlyOwner {
+  function registerProvingKey(uint256[2] calldata publicProvingKey) external onlyOwner {
     bytes32 kh = hashOfKey(publicProvingKey);
-    if (s_provingKeys[kh] != address(0)) {
+    if (s_provingKeys[kh]) {
       revert ProvingKeyAlreadyRegistered(kh);
     }
-    s_provingKeys[kh] = oracle;
+    s_provingKeys[kh] = true;
     s_provingKeyHashes.push(kh);
-    emit ProvingKeyRegistered(kh, oracle);
+    emit ProvingKeyRegistered(kh);
   }
 
   /**
-   * @notice Deregisters a proving key to an oracle.
+   * @notice Deregisters a proving key.
    * @param publicProvingKey key that oracle can use to submit vrf fulfillments
    */
   function deregisterProvingKey(uint256[2] calldata publicProvingKey) external onlyOwner {
     bytes32 kh = hashOfKey(publicProvingKey);
-    address oracle = s_provingKeys[kh];
-    if (oracle == address(0)) {
+    if (!s_provingKeys[kh]) {
       revert NoSuchProvingKey(kh);
     }
     delete s_provingKeys[kh];
@@ -127,7 +125,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
         s_provingKeyHashes.pop();
       }
     }
-    emit ProvingKeyDeregistered(kh, oracle);
+    emit ProvingKeyDeregistered(kh);
   }
 
   /**
@@ -355,8 +353,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
   ) internal view returns (Output memory) {
     bytes32 keyHash = hashOfKey(proof.pk);
     // Only registered proving keys are permitted.
-    address oracle = s_provingKeys[keyHash];
-    if (oracle == address(0)) {
+    if (!s_provingKeys[keyHash]) {
       revert NoSuchProvingKey(keyHash);
     }
     uint256 requestId = uint256(keccak256(abi.encode(keyHash, proof.seed)));
@@ -423,7 +420,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
       bool nativePayment = uint8(rc.extraArgs[rc.extraArgs.length - 1]) == 1;
       // We want to charge users exactly for how much gas they use in their callback.
       // The gasAfterPaymentCalculation is meant to cover these additional operations where we
-      // decrement the subscription balance and increment the oracles withdrawable balance.
+      // decrement the subscription balance and increment the withdrawable balance.
       uint96 payment = _calculatePaymentAmount(
         startGas,
         s_config.gasAfterPaymentCalculation,
@@ -435,13 +432,13 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
           revert InsufficientBalance();
         }
         s_subscriptions[rc.subId].nativeBalance -= payment;
-        s_withdrawableNative[s_provingKeys[output.keyHash]] += payment;
+        s_withdrawableNative += payment;
       } else {
         if (s_subscriptions[rc.subId].balance < payment) {
           revert InsufficientBalance();
         }
         s_subscriptions[rc.subId].balance -= payment;
-        s_withdrawableTokens[s_provingKeys[output.keyHash]] += payment;
+        s_withdrawableTokens += payment;
       }
 
       // Include payment in the event for tracking costs.

@@ -11,13 +11,14 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/shopspring/decimal"
+
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/extraargs"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
 )
 
-var vrfProofTemplate string = `{
+var vrfProofTemplate = `{
 	pk: [
 		%s,
 		%s
@@ -42,7 +43,7 @@ var vrfProofTemplate string = `{
 }
 `
 
-var rcTemplate string = `{
+var rcTemplate = `{
 	blockNum: %d,
 	subId: %d,
 	callbackGasLimit: %d,

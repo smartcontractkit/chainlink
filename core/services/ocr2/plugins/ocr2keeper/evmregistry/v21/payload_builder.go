@@ -3,7 +3,9 @@ package evm
 import (
 	"context"
 
-	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+
+	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
@@ -36,13 +38,13 @@ func (b *payloadBuilder) BuildPayloads(ctx context.Context, proposals ...ocr2kee
 			var checkData []byte
 			var err error
 			switch core.GetUpkeepType(proposal.UpkeepID) {
-			case ocr2keepers.LogTrigger:
+			case types.LogTrigger:
 				checkData, err = b.recoverer.GetProposalData(ctx, proposal)
 				if err != nil {
 					b.lggr.Warnw("failed to get log proposal data", "err", err, "upkeepID", proposal.UpkeepID, "trigger", proposal.Trigger)
 					continue
 				}
-			case ocr2keepers.ConditionTrigger:
+			case types.ConditionTrigger:
 				// Empty checkData for conditionals
 			}
 			payload, err = core.NewUpkeepPayload(proposal.UpkeepID.BigInt(), proposal.Trigger, checkData)

@@ -42,7 +42,7 @@ func (key KeyV2) ToEncryptedJSON(password string, scryptParams utils.ScryptParam
 		password,
 		scryptParams,
 		adulteratedPassword,
-		func(id string, key KeyV2, cryptoJSON keystore.CryptoJSON) (EncryptedOCRKeyExport, error) {
+		func(id string, key KeyV2, cryptoJSON keystore.CryptoJSON) EncryptedOCRKeyExport {
 			return EncryptedOCRKeyExport{
 				KeyType:               id,
 				ID:                    key.ID(),
@@ -50,7 +50,7 @@ func (key KeyV2) ToEncryptedJSON(password string, scryptParams utils.ScryptParam
 				OffChainPublicKey:     key.OffChainSigning.PublicKey(),
 				ConfigPublicKey:       key.PublicKeyConfig(),
 				Crypto:                cryptoJSON,
-			}, nil
+			}
 		},
 	)
 }

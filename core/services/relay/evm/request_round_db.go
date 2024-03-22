@@ -61,6 +61,7 @@ LIMIT 1
 	if err != nil {
 		return rr, errors.Wrap(err, "LoadLatestRoundRequested failed to query rows")
 	}
+	defer rows.Close()
 
 	for rows.Next() {
 		var configDigest []byte

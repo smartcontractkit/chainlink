@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector/mocks"
@@ -121,8 +121,7 @@ func TestGatewayConnector_CleanStartAndClose(t *testing.T) {
 	handler.On("Start", mock.Anything).Return(nil)
 	handler.On("Close").Return(nil)
 	signer.On("Sign", mock.Anything).Return(nil, errors.New("cannot sign"))
-	require.NoError(t, connector.Start(testutils.Context(t)))
-	require.NoError(t, connector.Close())
+	servicetest.Run(t, connector)
 }
 
 func TestGatewayConnector_NewAuthHeader_SignerError(t *testing.T) {

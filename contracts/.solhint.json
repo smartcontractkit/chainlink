@@ -9,6 +9,7 @@
 		"func-named-parameters": "off",
 		"immutable-vars-naming": "off",
 		"no-inline-assembly": "off",
+		"contract-name-camelcase": "off",
 		"no-unused-import": "error",
 		"func-visibility": [
 			"error",

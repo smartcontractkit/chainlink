@@ -8,11 +8,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-// ChainID   *utils.Big `json:"chainID"`
+// ChainID   *big.Big   `json:"chainID"`
 // FromBlock uint64     `json:"fromBlock"`
 
 // // Contract-specific

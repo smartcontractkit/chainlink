@@ -28,7 +28,7 @@ var (
 		Namespace: "mercury",
 		Name:      "wsrpc_request_latency",
 		Help:      "Latency of requests made to the Mercury WSRPC server",
-		Buckets:   []float64{10, 30, 100, 300, 1000, 3000, 10000},
+		Buckets:   []float64{10, 30, 100, 200, 250, 300, 350, 400, 500, 750, 1000, 3000, 10000},
 	})
 )
 

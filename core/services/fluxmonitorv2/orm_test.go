@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -22,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func TestORM_MostRecentFluxMonitorRoundID(t *testing.T) {
@@ -159,7 +159,7 @@ func makeJob(t *testing.T) *job.Job {
 			IdleTimerDisabled: false,
 			CreatedAt:         time.Now(),
 			UpdatedAt:         time.Now(),
-			EVMChainID:        (*utils.Big)(testutils.FixtureChainID),
+			EVMChainID:        (*big.Big)(testutils.FixtureChainID),
 		},
 	}
 }

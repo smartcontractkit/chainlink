@@ -1,0 +1,54 @@
+name: PR Labels
+
+on:
+  pull_request:
+    types: [labeled]
+
+jobs:
+  crib:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Comment on PR
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const labelsToCheck = ["crib"];
+            const { owner, repo, number: prNumber } = context.issue;
+            const { data: labels } = await github.rest.issues.listLabelsOnIssue({ owner, repo, issue_number: prNumber });
+            const labelMatches = labels.some(label => labelsToCheck.includes(label.name));
+
+            if (!labelMatches) {
+              core.info("No 'crib' PR label found. Proceeding.");
+              return;
+            }
+
+            const comment = `## CRIB Environment Details :information_source:
+
+              CRIB activated via the 'crib' label. To destroy the environment, remove the 'crib' PR label or close the PR.
+
+              Please review the following details:
+
+              ### Subdomains
+
+              _Use these subdomains to access the CRIB environment. They are prefixes to the internal base domain._
+
+              - crib-chain-${prNumber}-node1.
+              - crib-chain-${prNumber}-node2.
+              - crib-chain-${prNumber}-node3.
+              - crib-chain-${prNumber}-node4.
+              - crib-chain-${prNumber}-node5.
+              - crib-chain-${prNumber}-node6.
+              - crib-chain-${prNumber}-geth-http.
+              - crib-chain-${prNumber}-geth-ws.
+              - crib-chain-${prNumber}-mockserver.
+              `;
+
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: prNumber,
+                body: comment
+            });

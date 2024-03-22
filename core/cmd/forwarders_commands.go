@@ -14,7 +14,7 @@ import (
 	"github.com/urfave/cli"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
@@ -102,7 +102,7 @@ func (s *Shell) DeleteForwarder(c *cli.Context) (err error) {
 	if !c.Args().Present() {
 		return s.errorOut(errors.New("must pass the forwarder id to be archived"))
 	}
-	resp, err := s.HTTP.Delete("/v2/nodes/evm/forwarders/" + c.Args().First())
+	resp, err := s.HTTP.Delete(s.ctx(), "/v2/nodes/evm/forwarders/"+c.Args().First())
 	if err != nil {
 		return s.errorOut(err)
 	}
@@ -136,14 +136,14 @@ func (s *Shell) TrackForwarder(c *cli.Context) (err error) {
 	}
 
 	request, err := json.Marshal(web.TrackEVMForwarderRequest{
-		EVMChainID: (*utils.Big)(chainID),
+		EVMChainID: (*ubig.Big)(chainID),
 		Address:    address,
 	})
 	if err != nil {
 		return s.errorOut(err)
 	}
 
-	resp, err := s.HTTP.Post("/v2/nodes/evm/forwarders/track", bytes.NewReader(request))
+	resp, err := s.HTTP.Post(s.ctx(), "/v2/nodes/evm/forwarders/track", bytes.NewReader(request))
 	if err != nil {
 		return s.errorOut(err)
 	}

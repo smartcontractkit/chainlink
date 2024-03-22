@@ -120,7 +120,7 @@ func (f *BlockHeaderFeeder) Run(ctx context.Context) error {
 
 	lggr.Debugw("found lowest block number without blockhash", "minBlockNumber", minBlockNumber)
 
-	earliestStoredBlockNumber, err := f.findEarliestBlockNumberWithBlockhash(ctx, lggr, minBlockNumber.Uint64()+1, uint64(toBlock))
+	earliestStoredBlockNumber, err := f.findEarliestBlockNumberWithBlockhash(ctx, lggr, minBlockNumber.Uint64()+1, toBlock)
 	if err != nil {
 		return errors.Wrap(err, "finding earliest blocknumber with blockhash")
 	}

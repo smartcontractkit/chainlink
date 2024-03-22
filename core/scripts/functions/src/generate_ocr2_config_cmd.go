@@ -134,8 +134,7 @@ func (g *generateOCR2Config) Run(args []string) {
 	keysFile := fs.String("keys", "", "a file containing nodes public keys")
 	configFile := fs.String("config", "", "a file containing JSON config")
 	chainID := fs.Int64("chainid", 80001, "chain id")
-	err := fs.Parse(args)
-	if err != nil || (*nodesFile == "" && *keysFile == "") || *configFile == "" || chainID == nil {
+	if err := fs.Parse(args); err != nil || (*nodesFile == "" && *keysFile == "") || *configFile == "" || chainID == nil {
 		fs.Usage()
 		os.Exit(1)
 	}

@@ -35,12 +35,25 @@ func batchSendTransactions(
 	reqs := make([]rpc.BatchElem, len(attempts))
 	ethTxIDs := make([]int64, len(attempts))
 	hashes := make([]string, len(attempts))
+	now := time.Now()
+	successfulBroadcast := []int64{}
 	for i, attempt := range attempts {
 		ethTxIDs[i] = attempt.TxID
 		hashes[i] = attempt.Hash.String()
+		// Decode the signed raw tx back into a Transaction object
+		signedTx, decodeErr := GetGethSignedTx(attempt.SignedRawTx)
+		if decodeErr != nil {
+			return reqs, now, successfulBroadcast, fmt.Errorf("failed to decode signed raw tx into Transaction object: %w", decodeErr)
+		}
+		// Get the canonical encoding of the Transaction object needed for the eth_sendRawTransaction request
+		// The signed raw tx cannot be used directly because it uses a different encoding
+		txBytes, marshalErr := signedTx.MarshalBinary()
+		if marshalErr != nil {
+			return reqs, now, successfulBroadcast, fmt.Errorf("failed to marshal tx into canonical encoding: %w", marshalErr)
+		}
 		req := rpc.BatchElem{
 			Method: "eth_sendRawTransaction",
-			Args:   []interface{}{hexutil.Encode(attempt.SignedRawTx)},
+			Args:   []interface{}{hexutil.Encode(txBytes)},
 			Result: &common.Hash{},
 		}
 		reqs[i] = req
@@ -48,12 +61,10 @@ func batchSendTransactions(
 
 	logger.Debugw(fmt.Sprintf("Batch sending %d unconfirmed transactions.", len(attempts)), "n", len(attempts), "ethTxIDs", ethTxIDs, "hashes", hashes)
 
-	now := time.Now()
 	if batchSize == 0 {
 		batchSize = len(reqs)
 	}
 
-	successfulBroadcast := []int64{}
 	for i := 0; i < len(reqs); i += batchSize {
 		j := i + batchSize
 		if j > len(reqs) {

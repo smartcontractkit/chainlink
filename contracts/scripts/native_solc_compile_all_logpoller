@@ -30,3 +30,4 @@ compileContract () {
 
 
 compileContract tests/LogEmitter.sol
+compileContract tests/VRFLogEmitter.sol

@@ -49,7 +49,7 @@ func ToLocalConfig(ocr2Config OCR2Config, insConf InsecureConfig, spec job.OCR2O
 		ContractTransmitterTransmitTimeout: ocr2Config.ContractTransmitterTransmitTimeout(),
 		DatabaseTimeout:                    ocr2Config.DatabaseTimeout(),
 	}
-	if spec.Relay == relay.Solana && env.MedianPluginCmd.Get() != "" {
+	if spec.Relay == relay.Solana && env.MedianPlugin.Cmd.Get() != "" {
 		// Work around for Solana Feeds configured with zero values to support LOOP Plugins.
 		minOCR2MaxDurationQuery, err := getMinOCR2MaxDurationQuery()
 		if err != nil {

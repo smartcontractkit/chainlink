@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {ITermsOfServiceAllowList} from "./interfaces/ITermsOfServiceAllowList.sol";
+import {ITermsOfServiceAllowList, TermsOfServiceAllowListConfig} from "./interfaces/ITermsOfServiceAllowList.sol";
 import {IAccessController} from "../../../../shared/interfaces/IAccessController.sol";
 import {ITypeAndVersion} from "../../../../shared/interfaces/ITypeAndVersion.sol";
 
@@ -17,10 +17,10 @@ contract TermsOfServiceAllowList is ITermsOfServiceAllowList, IAccessController,
 
   /// @inheritdoc ITypeAndVersion
   // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
-  string public constant override typeAndVersion = "Functions Terms of Service Allow List v1.0.0";
+  string public constant override typeAndVersion = "Functions Terms of Service Allow List v1.1.0";
 
   EnumerableSet.AddressSet private s_allowedSenders;
-  mapping(address => bool) private s_blockedSenders;
+  EnumerableSet.AddressSet private s_blockedSenders;
 
   event AddedAccess(address user);
   event BlockedAccess(address user);
@@ -29,24 +29,17 @@ contract TermsOfServiceAllowList is ITermsOfServiceAllowList, IAccessController,
   error InvalidSignature();
   error InvalidUsage();
   error RecipientIsBlocked();
+  error InvalidCalldata();
 
-  // ================================================================
-  // |                     Configuration state                      |
-  // ================================================================
-  struct Config {
-    bool enabled; // ═════════════╗ When enabled, access will be checked against s_allowedSenders. When disabled, all access will be allowed.
-    address signerPublicKey; // ══╝ The key pair that needs to sign the acceptance data
-  }
+  TermsOfServiceAllowListConfig private s_config;
 
-  Config private s_config;
-
-  event ConfigUpdated(Config config);
+  event ConfigUpdated(TermsOfServiceAllowListConfig config);
 
   // ================================================================
   // |                       Initialization                         |
   // ================================================================
 
-  constructor(Config memory config) ConfirmedOwner(msg.sender) {
+  constructor(TermsOfServiceAllowListConfig memory config) ConfirmedOwner(msg.sender) {
     updateConfig(config);
   }
 
@@ -56,13 +49,13 @@ contract TermsOfServiceAllowList is ITermsOfServiceAllowList, IAccessController,
 
   /// @notice Gets the contracts's configuration
   /// @return config
-  function getConfig() external view returns (Config memory) {
+  function getConfig() external view returns (TermsOfServiceAllowListConfig memory) {
     return s_config;
   }
 
   /// @notice Sets the contracts's configuration
-  /// @param config - See the contents of the TermsOfServiceAllowList.Config struct for more information
-  function updateConfig(Config memory config) public onlyOwner {
+  /// @param config - See the contents of the TermsOfServiceAllowListConfig struct in ITermsOfServiceAllowList.sol for more information
+  function updateConfig(TermsOfServiceAllowListConfig memory config) public onlyOwner {
     s_config = config;
     emit ConfigUpdated(config);
   }
@@ -78,7 +71,7 @@ contract TermsOfServiceAllowList is ITermsOfServiceAllowList, IAccessController,
 
   /// @inheritdoc ITermsOfServiceAllowList
   function acceptTermsOfService(address acceptor, address recipient, bytes32 r, bytes32 s, uint8 v) external override {
-    if (s_blockedSenders[recipient]) {
+    if (s_blockedSenders.contains(recipient)) {
       revert RecipientIsBlocked();
     }
 
@@ -99,13 +92,40 @@ contract TermsOfServiceAllowList is ITermsOfServiceAllowList, IAccessController,
     }
 
     // Add recipient to the allow list
-    s_allowedSenders.add(recipient);
-    emit AddedAccess(recipient);
+    if (s_allowedSenders.add(recipient)) {
+      emit AddedAccess(recipient);
+    }
   }
 
   /// @inheritdoc ITermsOfServiceAllowList
   function getAllAllowedSenders() external view override returns (address[] memory) {
     return s_allowedSenders.values();
+  }
+
+  /// @inheritdoc ITermsOfServiceAllowList
+  function getAllowedSendersCount() external view override returns (uint64) {
+    return uint64(s_allowedSenders.length());
+  }
+
+  /// @inheritdoc ITermsOfServiceAllowList
+  function getAllowedSendersInRange(
+    uint64 allowedSenderIdxStart,
+    uint64 allowedSenderIdxEnd
+  ) external view override returns (address[] memory allowedSenders) {
+    if (
+      allowedSenderIdxStart > allowedSenderIdxEnd ||
+      allowedSenderIdxEnd >= s_allowedSenders.length() ||
+      s_allowedSenders.length() == 0
+    ) {
+      revert InvalidCalldata();
+    }
+
+    allowedSenders = new address[]((allowedSenderIdxEnd - allowedSenderIdxStart) + 1);
+    for (uint256 i = 0; i <= allowedSenderIdxEnd - allowedSenderIdxStart; ++i) {
+      allowedSenders[i] = s_allowedSenders.at(uint256(allowedSenderIdxStart + i));
+    }
+
+    return allowedSenders;
   }
 
   /// @inheritdoc IAccessController
@@ -125,19 +145,45 @@ contract TermsOfServiceAllowList is ITermsOfServiceAllowList, IAccessController,
     if (!s_config.enabled) {
       return false;
     }
-    return s_blockedSenders[sender];
+    return s_blockedSenders.contains(sender);
   }
 
   /// @inheritdoc ITermsOfServiceAllowList
   function blockSender(address sender) external override onlyOwner {
     s_allowedSenders.remove(sender);
-    s_blockedSenders[sender] = true;
+    s_blockedSenders.add(sender);
     emit BlockedAccess(sender);
   }
 
   /// @inheritdoc ITermsOfServiceAllowList
   function unblockSender(address sender) external override onlyOwner {
-    s_blockedSenders[sender] = false;
+    s_blockedSenders.remove(sender);
     emit UnblockedAccess(sender);
+  }
+
+  /// @inheritdoc ITermsOfServiceAllowList
+  function getBlockedSendersCount() external view override returns (uint64) {
+    return uint64(s_blockedSenders.length());
+  }
+
+  /// @inheritdoc ITermsOfServiceAllowList
+  function getBlockedSendersInRange(
+    uint64 blockedSenderIdxStart,
+    uint64 blockedSenderIdxEnd
+  ) external view override returns (address[] memory blockedSenders) {
+    if (
+      blockedSenderIdxStart > blockedSenderIdxEnd ||
+      blockedSenderIdxEnd >= s_blockedSenders.length() ||
+      s_blockedSenders.length() == 0
+    ) {
+      revert InvalidCalldata();
+    }
+
+    blockedSenders = new address[]((blockedSenderIdxEnd - blockedSenderIdxStart) + 1);
+    for (uint256 i = 0; i <= blockedSenderIdxEnd - blockedSenderIdxStart; ++i) {
+      blockedSenders[i] = s_blockedSenders.at(uint256(blockedSenderIdxStart + i));
+    }
+
+    return blockedSenders;
   }
 }

@@ -27,6 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink-vrf/ocr2vrf"
 	ocr2vrftypes "github.com/smartcontractkit/chainlink-vrf/types"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
@@ -35,7 +36,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_beacon_consumer"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_coordinator"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 )
@@ -306,14 +306,6 @@ func findSubscriptionID(e helpers.Environment, vrfCoordinatorAddr string) *big.I
 	return subscriptionIterator.Event.SubId
 }
 
-func registerMigratableCoordinator(e helpers.Environment, coordinatorAddress, migratableCoordinatorAddress string) {
-	coordinator := newVRFCoordinator(common.HexToAddress(coordinatorAddress), e.Ec)
-
-	tx, err := coordinator.RegisterMigratableCoordinator(e.Owner, common.HexToAddress(migratableCoordinatorAddress))
-	helpers.PanicErr(err)
-	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
-}
-
 func addConsumer(e helpers.Environment, vrfCoordinatorAddr, consumerAddr string, subId *big.Int) {
 	coordinator := newVRFCoordinator(common.HexToAddress(vrfCoordinatorAddr), e.Ec)
 
@@ -326,34 +318,6 @@ func setPayees(e helpers.Environment, vrfBeaconAddr string, transmitters, payees
 	beacon := newVRFBeacon(common.HexToAddress(vrfBeaconAddr), e.Ec)
 
 	tx, err := beacon.SetPayees(e.Owner, transmitters, payees)
-	helpers.PanicErr(err)
-	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
-}
-
-func setBeaconBilling(e helpers.Environment, vrfBeaconAddr string, maximumGasPrice, reasonableGasPrice, observationPayment,
-	transmissionPayment, accountingGas uint64) {
-	beacon := newVRFBeacon(common.HexToAddress(vrfBeaconAddr), e.Ec)
-
-	tx, err := beacon.SetBilling(e.Owner, maximumGasPrice, reasonableGasPrice, observationPayment, transmissionPayment, big.NewInt(0).SetUint64(accountingGas))
-	helpers.PanicErr(err)
-	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
-}
-
-func setCoordinatorBilling(e helpers.Environment, vrfCoordinatorAddr string, useReasonableGasPrice bool, unusedGasPenaltyPercent uint8,
-	stalenessSeconds, redeemableRequestGasOverhead, callbackRequestGasOverhead, premiumPercentage, reasonableGasPriceStalenessBlocks uint32,
-	fallbackWeiPerUnitLink *big.Int) {
-	coordinator := newVRFCoordinator(common.HexToAddress(vrfCoordinatorAddr), e.Ec)
-
-	tx, err := coordinator.SetCoordinatorConfig(e.Owner, vrf_coordinator.VRFBeaconTypesCoordinatorConfig{
-		UseReasonableGasPrice:             useReasonableGasPrice,
-		UnusedGasPenaltyPercent:           unusedGasPenaltyPercent,
-		StalenessSeconds:                  stalenessSeconds,
-		RedeemableRequestGasOverhead:      redeemableRequestGasOverhead,
-		CallbackRequestGasOverhead:        callbackRequestGasOverhead,
-		PremiumPercentage:                 uint8(premiumPercentage),
-		ReasonableGasPriceStalenessBlocks: reasonableGasPriceStalenessBlocks,
-		FallbackWeiPerUnitLink:            fallbackWeiPerUnitLink,
-	})
 	helpers.PanicErr(err)
 	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 }

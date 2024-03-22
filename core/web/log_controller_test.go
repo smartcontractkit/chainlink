@@ -43,8 +43,8 @@ func TestLogController_GetLogConfig(t *testing.T) {
 
 	client := app.NewHTTPClient(nil)
 
-	resp, err := client.HTTPClient.Get("/v2/log")
-	require.NoError(t, err)
+	resp, clean := client.Get("/v2/log")
+	t.Cleanup(clean)
 
 	svcLogConfig := presenters.ServiceLogConfigResource{}
 	cltest.AssertServerResponse(t, resp, http.StatusOK)

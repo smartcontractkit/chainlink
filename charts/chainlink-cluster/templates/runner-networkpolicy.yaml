@@ -1,0 +1,19 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $.Release.Name }}-runner
+spec:
+  podSelector:
+    matchLabels:
+      app: runner
+  policyTypes:
+    - Ingress
+  ingress:
+    # Allow all ingress traffic between the node pods and from runner pod.
+    - from:
+      - podSelector:
+          matchLabels:
+            app: {{ $.Release.Name }}
+      - podSelector:
+          matchLabels:
+            app: runner

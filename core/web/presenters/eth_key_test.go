@@ -7,8 +7,8 @@ import (
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/manyminds/api2go/jsonapi"
@@ -31,7 +31,7 @@ func TestETHKeyResource(t *testing.T) {
 
 	state := ethkey.State{
 		ID:         1,
-		EVMChainID: *utils.NewBigI(42),
+		EVMChainID: *big.NewI(42),
 		Address:    eip55address,
 		CreatedAt:  now,
 		UpdatedAt:  now,
@@ -41,12 +41,12 @@ func TestETHKeyResource(t *testing.T) {
 	r := NewETHKeyResource(key, state,
 		SetETHKeyEthBalance(assets.NewEth(1)),
 		SetETHKeyLinkBalance(commonassets.NewLinkFromJuels(1)),
-		SetETHKeyMaxGasPriceWei(utils.NewBigI(12345)),
+		SetETHKeyMaxGasPriceWei(big.NewI(12345)),
 	)
 
 	assert.Equal(t, assets.NewEth(1), r.EthBalance)
 	assert.Equal(t, commonassets.NewLinkFromJuels(1), r.LinkBalance)
-	assert.Equal(t, utils.NewBigI(12345), r.MaxGasPriceWei)
+	assert.Equal(t, big.NewI(12345), r.MaxGasPriceWei)
 
 	b, err := jsonapi.Marshal(r)
 	require.NoError(t, err)

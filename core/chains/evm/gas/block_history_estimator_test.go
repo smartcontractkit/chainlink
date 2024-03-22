@@ -25,10 +25,11 @@ import (
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func NewEvmHash() common.Hash {
@@ -429,7 +430,7 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 			elems[1].Result = &b42
 		})
 
-		head := evmtypes.NewHead(big.NewInt(44), b44.Hash, b43.Hash, uint64(time.Now().Unix()), utils.NewBig(&cltest.FixtureChainID))
+		head := evmtypes.NewHead(big.NewInt(44), b44.Hash, b43.Hash, uint64(time.Now().Unix()), ubig.New(&cltest.FixtureChainID))
 		err = bhe.FetchBlocks(testutils.Context(t), &head)
 		require.NoError(t, err)
 
@@ -493,8 +494,8 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 			elems[1].Result = &b2
 		})
 
-		head2 := evmtypes.NewHead(big.NewInt(2), b2.Hash, b1.Hash, uint64(time.Now().Unix()), utils.NewBig(&cltest.FixtureChainID))
-		head3 := evmtypes.NewHead(big.NewInt(3), b3.Hash, b2.Hash, uint64(time.Now().Unix()), utils.NewBig(&cltest.FixtureChainID))
+		head2 := evmtypes.NewHead(big.NewInt(2), b2.Hash, b1.Hash, uint64(time.Now().Unix()), ubig.New(&cltest.FixtureChainID))
+		head3 := evmtypes.NewHead(big.NewInt(3), b3.Hash, b2.Hash, uint64(time.Now().Unix()), ubig.New(&cltest.FixtureChainID))
 		head3.Parent = &head2
 		err := bhe.FetchBlocks(testutils.Context(t), &head3)
 		require.NoError(t, err)
@@ -546,8 +547,8 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 		gas.SetRollingBlockHistory(bhe, blocks)
 
 		// RE-ORG, head2 and head3 have different hash than saved b2 and b3
-		head2 := evmtypes.NewHead(big.NewInt(2), utils.NewHash(), b1.Hash, uint64(time.Now().Unix()), utils.NewBig(&cltest.FixtureChainID))
-		head3 := evmtypes.NewHead(big.NewInt(3), utils.NewHash(), head2.Hash, uint64(time.Now().Unix()), utils.NewBig(&cltest.FixtureChainID))
+		head2 := evmtypes.NewHead(big.NewInt(2), utils.NewHash(), b1.Hash, uint64(time.Now().Unix()), ubig.New(&cltest.FixtureChainID))
+		head3 := evmtypes.NewHead(big.NewInt(3), utils.NewHash(), head2.Hash, uint64(time.Now().Unix()), ubig.New(&cltest.FixtureChainID))
 		head3.Parent = &head2
 
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
@@ -617,8 +618,8 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 		gas.SetRollingBlockHistory(bhe, blocks)
 
 		// head2 and head3 have identical hash to saved blocks
-		head2 := evmtypes.NewHead(big.NewInt(2), b2.Hash, b1.Hash, uint64(time.Now().Unix()), utils.NewBig(&cltest.FixtureChainID))
-		head3 := evmtypes.NewHead(big.NewInt(3), b3.Hash, head2.Hash, uint64(time.Now().Unix()), utils.NewBig(&cltest.FixtureChainID))
+		head2 := evmtypes.NewHead(big.NewInt(2), b2.Hash, b1.Hash, uint64(time.Now().Unix()), ubig.New(&cltest.FixtureChainID))
+		head3 := evmtypes.NewHead(big.NewInt(3), b3.Hash, head2.Hash, uint64(time.Now().Unix()), ubig.New(&cltest.FixtureChainID))
 		head3.Parent = &head2
 
 		err := bhe.FetchBlocks(testutils.Context(t), &head3)
@@ -1395,7 +1396,7 @@ func TestBlockHistoryEstimator_EffectiveTipCap(t *testing.T) {
 		res := bhe.EffectiveTipCap(eipblock, tx)
 		assert.Equal(t, "42 wei", res.String())
 	})
-	t.Run("tx type 2 should calculate gas price", func(t *testing.T) {
+	t.Run("tx type 2 & type 3 should calculate gas price", func(t *testing.T) {
 		// 0x2 transaction (should use MaxPriorityFeePerGas)
 		tx := evmtypes.Transaction{Type: 0x2, MaxPriorityFeePerGas: assets.NewWeiI(200), MaxFeePerGas: assets.NewWeiI(250), GasLimit: 42, Hash: utils.NewHash()}
 		res := bhe.EffectiveTipCap(eipblock, tx)
@@ -1404,6 +1405,15 @@ func TestBlockHistoryEstimator_EffectiveTipCap(t *testing.T) {
 		tx = evmtypes.Transaction{Type: 0x2, GasPrice: assets.NewWeiI(400), MaxPriorityFeePerGas: assets.NewWeiI(200), MaxFeePerGas: assets.NewWeiI(350), GasLimit: 42, Hash: utils.NewHash()}
 		res = bhe.EffectiveTipCap(eipblock, tx)
 		assert.Equal(t, "200 wei", res.String())
+
+		// 0x3 transaction (should use MaxPriorityFeePerGas)
+		tx = evmtypes.Transaction{Type: 0x3, MaxPriorityFeePerGas: assets.NewWeiI(100), MaxFeePerGas: assets.NewWeiI(250), GasLimit: 42, Hash: utils.NewHash()}
+		res = bhe.EffectiveTipCap(eipblock, tx)
+		assert.Equal(t, "100 wei", res.String())
+		// 0x3 transaction (should use MaxPriorityFeePerGas, ignoring gas price)
+		tx = evmtypes.Transaction{Type: 0x3, GasPrice: assets.NewWeiI(400), MaxPriorityFeePerGas: assets.NewWeiI(100), MaxFeePerGas: assets.NewWeiI(350), GasLimit: 42, Hash: utils.NewHash()}
+		res = bhe.EffectiveTipCap(eipblock, tx)
+		assert.Equal(t, "100 wei", res.String())
 	})
 	t.Run("missing field returns nil", func(t *testing.T) {
 		tx := evmtypes.Transaction{Type: 0x2, GasPrice: assets.NewWeiI(132), MaxFeePerGas: assets.NewWeiI(200), GasLimit: 42, Hash: utils.NewHash()}
@@ -1411,7 +1421,7 @@ func TestBlockHistoryEstimator_EffectiveTipCap(t *testing.T) {
 		assert.Nil(t, res)
 	})
 	t.Run("unknown type returns nil", func(t *testing.T) {
-		tx := evmtypes.Transaction{Type: 0x3, GasPrice: assets.NewWeiI(55555), MaxPriorityFeePerGas: assets.NewWeiI(200), MaxFeePerGas: assets.NewWeiI(250), GasLimit: 42, Hash: utils.NewHash()}
+		tx := evmtypes.Transaction{Type: 0x4, GasPrice: assets.NewWeiI(55555), MaxPriorityFeePerGas: assets.NewWeiI(200), MaxFeePerGas: assets.NewWeiI(250), GasLimit: 42, Hash: utils.NewHash()}
 		res := bhe.EffectiveTipCap(eipblock, tx)
 		assert.Nil(t, res)
 	})
@@ -1465,6 +1475,26 @@ func TestBlockHistoryEstimator_EffectiveGasPrice(t *testing.T) {
 		res = bhe.EffectiveGasPrice(eipblock, tx)
 		assert.Equal(t, "32 wei", res.String())
 	})
+
+	t.Run("tx type 3 should calculate gas price", func(t *testing.T) {
+		// 0x3 transaction (should calculate to 250)
+		tx := evmtypes.Transaction{Type: 0x3, MaxPriorityFeePerGas: assets.NewWeiI(100), MaxFeePerGas: assets.NewWeiI(110), GasLimit: 42, Hash: utils.NewHash()}
+		res := bhe.EffectiveGasPrice(eipblock, tx)
+		assert.Equal(t, "110 wei", res.String())
+		// 0x3 transaction (should calculate to 300)
+		tx = evmtypes.Transaction{Type: 0x3, MaxPriorityFeePerGas: assets.NewWeiI(200), MaxFeePerGas: assets.NewWeiI(350), GasLimit: 42, Hash: utils.NewHash()}
+		res = bhe.EffectiveGasPrice(eipblock, tx)
+		assert.Equal(t, "300 wei", res.String())
+		// 0x3 transaction (should calculate to 300, ignoring gas price)
+		tx = evmtypes.Transaction{Type: 0x3, MaxPriorityFeePerGas: assets.NewWeiI(200), MaxFeePerGas: assets.NewWeiI(350), GasLimit: 42, Hash: utils.NewHash()}
+		res = bhe.EffectiveGasPrice(eipblock, tx)
+		assert.Equal(t, "300 wei", res.String())
+		// 0x3 transaction (should fall back to gas price since MaxFeePerGas is missing)
+		tx = evmtypes.Transaction{Type: 0x3, GasPrice: assets.NewWeiI(5), MaxPriorityFeePerGas: assets.NewWeiI(200), GasLimit: 42, Hash: utils.NewHash()}
+		res = bhe.EffectiveGasPrice(eipblock, tx)
+		assert.Equal(t, "5 wei", res.String())
+	})
+
 	t.Run("tx type 2 has block missing base fee (should never happen but must handle gracefully)", func(t *testing.T) {
 		// 0x2 transaction (should calculate to 250)
 		tx := evmtypes.Transaction{Type: 0x2, GasPrice: assets.NewWeiI(55555), MaxPriorityFeePerGas: assets.NewWeiI(200), MaxFeePerGas: assets.NewWeiI(250), GasLimit: 42, Hash: utils.NewHash()}
@@ -1472,7 +1502,7 @@ func TestBlockHistoryEstimator_EffectiveGasPrice(t *testing.T) {
 		assert.Equal(t, "55.555 kwei", res.String())
 	})
 	t.Run("unknown type returns nil", func(t *testing.T) {
-		tx := evmtypes.Transaction{Type: 0x3, GasPrice: assets.NewWeiI(55555), MaxPriorityFeePerGas: assets.NewWeiI(200), MaxFeePerGas: assets.NewWeiI(250), GasLimit: 42, Hash: utils.NewHash()}
+		tx := evmtypes.Transaction{Type: 0x4, GasPrice: assets.NewWeiI(55555), MaxPriorityFeePerGas: assets.NewWeiI(200), MaxFeePerGas: assets.NewWeiI(250), GasLimit: 42, Hash: utils.NewHash()}
 		res := bhe.EffectiveGasPrice(block, tx)
 		assert.Nil(t, res)
 	})
