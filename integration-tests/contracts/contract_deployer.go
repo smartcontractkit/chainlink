@@ -1561,7 +1561,7 @@ func (e *EthereumContractDeployer) DeployAutomationLogTriggeredStreamsLookupUpke
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
 		return log_triggered_streams_lookup_wrapper.DeployLogTriggeredStreamsLookup(
-			auth, wrappers.MustNewWrappedContractBackend(e.client, nil), false, false, false,
+			auth, wrappers.MustNewWrappedContractBackend(e.client, nil), false, false,
 		)
 	})
 	if err != nil {
