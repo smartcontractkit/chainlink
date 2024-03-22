@@ -277,7 +277,7 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Prune
 
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) ReapTxHistory(ctx context.Context, minBlockNumberToKeep int64, timeThreshold time.Time, chainID CHAIN_ID) error {
 	if ms.chainID.String() != chainID.String() {
-		return fmt.Errorf("reap_tx_history: %w", ErrInvalidChainID)
+		panic("invalid chain ID")
 	}
 
 	// Persist to persistent storage
