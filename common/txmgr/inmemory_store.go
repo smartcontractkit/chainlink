@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -47,7 +48,8 @@ type inMemoryStore[
 	keyStore          txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
 	persistentTxStore txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 
-	addressStates map[ADDR]*addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
+	addressStatesLock sync.RWMutex
+	addressStates     map[ADDR]*addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 }
 
 // NewInMemoryStore returns a new inMemoryStore
@@ -79,11 +81,20 @@ func NewInMemoryStore[
 		ms.maxUnstarted = 10000
 	}
 
+	addressesToTxs := map[ADDR][]txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
+	// populate all enabled addresses
+	enabledAddresses, err := keyStore.EnabledAddressesForChain(ctx, chainID)
+	if err != nil {
+		return nil, fmt.Errorf("new_in_memory_store: %w", err)
+	}
+	for _, addr := range enabledAddresses {
+		addressesToTxs[addr] = []txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
+	}
+
 	txs, err := persistentTxStore.GetAllTransactions(ctx, chainID)
 	if err != nil {
 		return nil, fmt.Errorf("address_state: initialization: %w", err)
 	}
-	addressesToTxs := map[ADDR][]txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
 	for _, tx := range txs {
 		at, exists := addressesToTxs[tx.FromAddress]
 		if !exists {
@@ -322,7 +333,48 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveC
 	return nil
 }
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveInProgressAttempt(ctx context.Context, attempt *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
-	return nil
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
+
+	if attempt.State != txmgrtypes.TxAttemptInProgress {
+		return fmt.Errorf("SaveInProgressAttempt failed: attempt state must be in_progress")
+	}
+
+	var tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	var as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
+	for _, vas := range ms.addressStates {
+		fn := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
+			return true
+		}
+		txs := vas.findTxs(nil, fn, attempt.TxID)
+		if len(txs) != 0 {
+			tx = &txs[0]
+			as = vas
+			break
+		}
+	}
+	if tx == nil {
+		return fmt.Errorf("save_in_progress_attempt: %w: with attempt hash %q", ErrTxnNotFound, attempt.Hash)
+	}
+
+	// Check if the attempt already exists by checking if id is zero
+	// this will be used by memory store
+	var txAttemptExists bool
+	if attempt.ID != 0 {
+		txAttemptExists = true
+	}
+
+	// Persist to persistent storage
+	if err := ms.persistentTxStore.SaveInProgressAttempt(ctx, attempt); err != nil {
+		return err
+	}
+
+	// Update in memory store
+	if txAttemptExists {
+		return as.updateInProgressTxAttempt(*attempt)
+	}
+
+	return as.addInProgressTxAttempt(*attempt)
 }
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveInsufficientFundsAttempt(ctx context.Context, timeout time.Duration, attempt *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], broadcastAt time.Time) error {
 	return nil
