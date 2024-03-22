@@ -80,6 +80,7 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
       if (upkeep.paused) return (false, bytes(""), UpkeepFailureReason.UPKEEP_PAUSED, 0, upkeep.performGas, 0, 0);
       (fastGasWei, linkUSD, nativeUSD) = _getFeedData(hotVars);
       maxPayment = _getMaxPayment(
+        id,
         hotVars,
         triggerType,
         upkeep.performGas,
@@ -243,6 +244,7 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
     _createUpkeep(
       id,
       Upkeep({
+        overridesEnabled: false,
         performGas: gasLimit,
         balance: 0,
         maxValidBlocknumber: UINT32_MAX,

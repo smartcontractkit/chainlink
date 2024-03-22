@@ -191,7 +191,8 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
               billingToken: billingTokenParams,
               isTransaction: true
             }),
-            report.upkeepIds[i]
+            report.upkeepIds[i],
+            upkeepTransmitInfo[i].upkeep
           );
           transmitVars.totalPremium += receipt.premiumJuels;
           transmitVars.totalReimbursement += receipt.gasReimbursementJuels;

@@ -52,6 +52,7 @@ contract BaseTest is Test {
   address internal constant FINANCE_ADMIN = address(uint160(uint256(keccak256("FINANCE_ADMIN"))));
   address internal constant STRANGER = address(uint160(uint256(keccak256("STRANGER"))));
   address internal constant BROKE_USER = address(uint160(uint256(keccak256("BROKE_USER")))); // do not mint to this address
+  address internal constant PRIVILEGE_MANAGER = address(uint160(uint256(keccak256("PRIVILEGE_MANAGER"))));
 
   // nodes
   uint256 internal constant SIGNING_KEY0 = 0x7b2e97fe057e6de99d6872a2ef2abf52c9b4469bc848c2465ac3fcd8d336e81d;
@@ -222,7 +223,7 @@ contract BaseTest is Test {
       fallbackNativePrice: 400_000_000_000, // $4,000
       transcoder: 0xB1e66855FD67f6e85F0f0fA38cd6fBABdf00923c,
       registrars: registrars,
-      upkeepPrivilegeManager: 0xD9c855F08A7e460691F41bBDDe6eC310bc0593D8,
+      upkeepPrivilegeManager: PRIVILEGE_MANAGER,
       chainModule: address(new ChainModuleBase()),
       reorgProtectionEnabled: true,
       financeAdmin: FINANCE_ADMIN

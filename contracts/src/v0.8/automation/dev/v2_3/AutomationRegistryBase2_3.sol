@@ -111,6 +111,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   mapping(address => bytes) internal s_adminPrivilegeConfig; // general config set by an administrative role for an admin
   // billing
   mapping(IERC20 billingToken => BillingConfig billingConfig) internal s_billingConfigs; // billing configurations for different tokens
+  mapping(uint256 upkeepID => BillingOverrides billingOverrides) internal s_billingOverrides; // billing overrides for specific upkeeps
   IERC20[] internal s_billingTokens; // list of billing tokens
   PayoutMode internal s_payoutMode;
 
@@ -243,6 +244,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   /**
    * @notice relevant state of an upkeep which is used in transmit function
    * @member paused if this upkeep has been paused
+   * @member overridesEnabled if this upkeep has overrides enabled
    * @member performGas the gas limit of upkeep execution
    * @member maxValidBlocknumber until which block this upkeep is valid
    * @member forwarder the forwarder contract to use for this upkeep
@@ -252,10 +254,11 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
    */
   struct Upkeep {
     bool paused;
+    bool overridesEnabled;
     uint32 performGas;
     uint32 maxValidBlocknumber;
     IAutomationForwarder forwarder;
-    // 3 bytes left in 1st EVM word - read in transmit path
+    // 2 bytes left in 1st EVM word - read in transmit path
     uint128 amountSpent;
     uint96 balance;
     uint32 lastPerformedBlockNumber;
@@ -383,7 +386,15 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   }
 
   /**
-   * @notice pricing params for a biling token
+   * @notice override-able billing params of a billing token
+   */
+  struct BillingOverrides {
+    uint32 gasFeePPB;
+    uint24 flatFeeMilliCents;
+  }
+
+  /**
+   * @notice pricing params for a billing token
    * @dev this is a memory-only struct, so struct packing is less important
    */
   struct BillingTokenPaymentParams {
@@ -429,6 +440,8 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   }
 
   event AdminPrivilegeConfigSet(address indexed admin, bytes privilegeConfig);
+  event BillingConfigOverridden(uint256 indexed id);
+  event BillingConfigOverrideRemoved(uint256 indexed id);
   event CancelledUpkeepReport(uint256 indexed id, bytes trigger);
   event ChainSpecificModuleUpdated(address newModule);
   event DedupKeyAdded(bytes32 indexed dedupKey);
@@ -675,6 +688,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
    * maximum gas overhead, L1 fee
    */
   function _getMaxPayment(
+    uint256 upkeepId,
     HotVars memory hotVars,
     Trigger triggerType,
     uint32 performGas,
@@ -705,6 +719,14 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
       maxL1Fee = hotVars.gasCeilingMultiplier * hotVars.chainModule.getMaxL1Fee(maxCalldataSize);
     }
 
+    BillingTokenPaymentParams memory paymentParams = _getBillingTokenPaymentParams(hotVars, billingToken);
+    if (s_upkeep[upkeepId].overridesEnabled) {
+      BillingOverrides memory billingOverrides = s_billingOverrides[upkeepId];
+      // use the overridden configs
+      paymentParams.gasFeePPB = billingOverrides.gasFeePPB;
+      paymentParams.flatFeeMilliCents = billingOverrides.flatFeeMilliCents;
+    }
+
     PaymentReceipt memory receipt = _calculatePaymentAmount(
       hotVars,
       PaymentParams({
@@ -714,7 +736,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
         fastGasWei: fastGasWei,
         linkUSD: linkUSD,
         nativeUSD: nativeUSD,
-        billingToken: _getBillingTokenPaymentParams(hotVars, billingToken),
+        billingToken: paymentParams,
         isTransaction: false
       })
     );
@@ -942,11 +964,19 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   function _handlePayment(
     HotVars memory hotVars,
     PaymentParams memory paymentParams,
-    uint256 upkeepId
+    uint256 upkeepId,
+    Upkeep memory upkeep
   ) internal returns (PaymentReceipt memory) {
+    if (upkeep.overridesEnabled) {
+      BillingOverrides memory billingOverrides = s_billingOverrides[upkeepId];
+      // use the overridden configs
+      paymentParams.billingToken.gasFeePPB = billingOverrides.gasFeePPB;
+      paymentParams.billingToken.flatFeeMilliCents = billingOverrides.flatFeeMilliCents;
+    }
+
     PaymentReceipt memory receipt = _calculatePaymentAmount(hotVars, paymentParams);
 
-    uint96 balance = s_upkeep[upkeepId].balance;
+    uint96 balance = upkeep.balance;
     uint96 payment = receipt.gasCharge + receipt.premium;
 
     // this shouldn't happen, but in rare edge cases, we charge the full balance in case the user
@@ -1005,6 +1035,15 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   function _onlyFinanceAdminAllowed() internal view {
     if (msg.sender != s_storage.financeAdmin) {
       revert OnlyFinanceAdmin();
+    }
+  }
+
+  /**
+   * @notice only allows privilege manager to call the function
+   */
+  function _onlyPrivilegeManagerAllowed() internal view {
+    if (msg.sender != s_storage.upkeepPrivilegeManager) {
+      revert OnlyCallableByUpkeepPrivilegeManager();
     }
   }
 
