@@ -22,19 +22,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 )
 
-<<<<<<< HEAD
 func TestInMemoryStore_DeleteInProgressAttempt(t *testing.T) {
 	t.Parallel()
 
 	t.Run("successfully replace tx attempt", func(t *testing.T) {
-=======
-func TestInMemoryStore_MarkOldTxesMissingReceiptAsErrored(t *testing.T) {
-	t.Parallel()
-	blockNum := int64(10)
-	finalityDepth := uint32(2)
-
-	t.Run("successfully mark errored transaction", func(t *testing.T) {
->>>>>>> jtw/step-3-04
 		db := pgtest.NewSqlxDB(t)
 		_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
 		persistentStore := cltest.NewTestTxStore(t, db)
@@ -56,34 +47,22 @@ func TestInMemoryStore_MarkOldTxesMissingReceiptAsErrored(t *testing.T) {
 		require.NoError(t, err)
 
 		// Insert a transaction into persistent store
-<<<<<<< HEAD
 		inTx := mustInsertInProgressEthTxWithAttempt(t, persistentStore, 1, fromAddress)
 		// Insert the transaction into the in-memory store
 		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
 
 		oldAttempt := inTx.TxAttempts[0]
 		err = inMemoryStore.DeleteInProgressAttempt(ctx, oldAttempt)
-=======
-		inTx := mustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(t, persistentStore, 1, 7, time.Now(), fromAddress)
-		// Insert the transaction into the in-memory store
-		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
-
-		err = inMemoryStore.MarkOldTxesMissingReceiptAsErrored(ctx, blockNum, finalityDepth, chainID)
->>>>>>> jtw/step-3-04
 		require.NoError(t, err)
 
 		expTx, err := persistentStore.FindTxWithAttempts(ctx, inTx.ID)
 		require.NoError(t, err)
-<<<<<<< HEAD
 		assert.Equal(t, 0, len(expTx.TxAttempts))
-=======
->>>>>>> jtw/step-3-04
 
 		fn := func(tx *evmtxmgr.Tx) bool { return true }
 		actTxs := inMemoryStore.XXXTestFindTxs(nil, fn, inTx.ID)
 		require.Equal(t, 1, len(actTxs))
 		actTx := actTxs[0]
-<<<<<<< HEAD
 		assertTxEqual(t, expTx, actTx)
 	})
 
@@ -130,12 +109,54 @@ func TestInMemoryStore_MarkOldTxesMissingReceiptAsErrored(t *testing.T) {
 			assert.Equal(t, expErr, actErr)
 			oldAttempt.ID = originalID
 		})
-=======
+	})
+}
+
+func TestInMemoryStore_MarkOldTxesMissingReceiptAsErrored(t *testing.T) {
+	t.Parallel()
+	blockNum := int64(10)
+	finalityDepth := uint32(2)
+
+	t.Run("successfully mark errored transaction", func(t *testing.T) {
+		db := pgtest.NewSqlxDB(t)
+		_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
+		persistentStore := cltest.NewTestTxStore(t, db)
+		kst := cltest.NewKeyStore(t, db, dbcfg)
+		_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
+
+		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+		lggr := logger.TestSugared(t)
+		chainID := ethClient.ConfiguredChainID()
+		ctx := testutils.Context(t)
+
+		inMemoryStore, err := commontxmgr.NewInMemoryStore[
+			*big.Int,
+			common.Address, common.Hash, common.Hash,
+			*evmtypes.Receipt,
+			evmtypes.Nonce,
+			evmgas.EvmFee,
+		](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+		require.NoError(t, err)
+
+		// Insert a transaction into persistent store
+		inTx := mustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(t, persistentStore, 1, 7, time.Now(), fromAddress)
+		// Insert the transaction into the in-memory store
+		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
+
+		err = inMemoryStore.MarkOldTxesMissingReceiptAsErrored(ctx, blockNum, finalityDepth, chainID)
+		require.NoError(t, err)
+
+		expTx, err := persistentStore.FindTxWithAttempts(ctx, inTx.ID)
+		require.NoError(t, err)
+
+		fn := func(tx *evmtxmgr.Tx) bool { return true }
+		actTxs := inMemoryStore.XXXTestFindTxs(nil, fn, inTx.ID)
+		require.Equal(t, 1, len(actTxs))
+		actTx := actTxs[0]
 
 		assertTxEqual(t, expTx, actTx)
 		assert.Equal(t, txmgrtypes.TxAttemptBroadcast, actTx.TxAttempts[0].State)
 		assert.Equal(t, commontxmgr.TxFatalError, actTx.State)
->>>>>>> jtw/step-3-04
 	})
 }
 
