@@ -56,11 +56,6 @@ type chainReaderDefinitionFields struct {
 
 	// EventInputFields allows you to choose which indexed fields are expected from the input
 	EventInputFields []string `json:"eventInputFields,omitempty"`
-
-	// QueryingKeys specifies for which topics to create key querying pairs. Key is topicIndex, value is bool.
-	// Implementation should create <key>-<subdata> pairs for each specified topic.
-	// If we use EVM as an eg. it is <genericEventName>-<topicName> mapping (this is not restricted to just indexed topics).
-	QueryingKeys map[int]bool `json:"eventQueryingMappings,omitempty"`
 	// GenericTopicNames helps QueryingKeys not rely on EVM specific topic names. Key is chain specific name, value is generic name.
 	// This helps us translate chain agnostic querying key "transfer-value" to EVM specific "evmTransferEvent-weiAmountTopic".
 	GenericTopicNames map[string]string `json:"GenericTopicNames,omitempty"`

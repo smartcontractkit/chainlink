@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 
 	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -35,9 +36,8 @@ type chainReader struct {
 	client           evmclient.Client
 	contractBindings contractBindings
 	// TODO merge with contract bindings somehow, or leave as a standalone thing?
-	eventIndexBindings EventIndexBindings
-	parsed             *parsedTypes
-	codec              commontypes.RemoteCodec
+	parsed *parsedTypes
+	codec  commontypes.RemoteCodec
 	commonservices.StateMachine
 }
 
@@ -46,12 +46,11 @@ var _ ChainReaderService = (*chainReader)(nil)
 // NewChainReaderService is a constructor for ChainReader, returns nil if there is any error
 func NewChainReaderService(ctx context.Context, lggr logger.Logger, lp logpoller.LogPoller, chain legacyevm.Chain, config types.ChainReaderConfig) (ChainReaderService, error) {
 	cr := &chainReader{
-		lggr:               lggr.Named("ChainReader"),
-		lp:                 lp,
-		client:             chain.Client(),
-		contractBindings:   contractBindings{},
-		eventIndexBindings: EventIndexBindings{},
-		parsed:             &parsedTypes{encoderDefs: map[string]types.CodecEntry{}, decoderDefs: map[string]types.CodecEntry{}},
+		lggr:             lggr.Named("ChainReader"),
+		lp:               lp,
+		client:           chain.Client(),
+		contractBindings: contractBindings{},
+		parsed:           &parsedTypes{encoderDefs: map[string]types.CodecEntry{}, decoderDefs: map[string]types.CodecEntry{}},
 	}
 
 	var err error
@@ -76,7 +75,8 @@ func (cr *chainReader) Name() string { return cr.lggr.Name() }
 var _ commontypes.ContractTypeProvider = &chainReader{}
 
 func (cr *chainReader) GetLatestValue(ctx context.Context, contractName, method string, params any, returnVal any) error {
-	b, err := cr.contractBindings.GetReadBinding(contractName, method)
+	//TODO contractName and method should be merged into key
+	b, err := cr.contractBindings.GetReadBinding(formatKey(contractName, method))
 	if err != nil {
 		return err
 	}
@@ -88,21 +88,22 @@ func (cr *chainReader) Bind(ctx context.Context, bindings []commontypes.BoundCon
 	return cr.contractBindings.Bind(ctx, bindings)
 }
 
-func (cr *chainReader) QueryKey(ctx context.Context, key string, queryFilter commontypes.QueryFilter, limitAndSort commontypes.LimitAndSort, sequenceDataType any) ([]commontypes.Sequence, error) {
-	remappedQueryFilter, err := remapQueryKeyFilters(key, cr.eventIndexBindings, queryFilter)
+func (cr *chainReader) QueryKey(ctx context.Context, key string, queryFilter query.Filter, limitAndSort query.LimitAndSort, sequenceDataType any) ([]commontypes.Sequence, error) {
+	tokens := strings.Split(key, "-")
+	if len(tokens) < 3 {
+		return nil, fmt.Errorf("key: %s format is invalid, the key should look like contractName-readName", key)
+	}
+
+	contractName, eventName := tokens[0], tokens[1]
+	b, err := cr.contractBindings.GetReadBinding(formatKey(contractName, eventName))
 	if err != nil {
 		return nil, err
 	}
 
-	logs, err := cr.lp.FilteredLogs(remappedQueryFilter, limitAndSort)
-	if err != nil {
-		return nil, err
-	}
-
-	return cr.eventIndexBindings.DecodeLogsIntoSequences(ctx, key, logs, sequenceDataType)
+	return b.QueryKey(ctx, queryFilter, limitAndSort, sequenceDataType)
 }
 
-func (cr *chainReader) QueryKeys(ctx context.Context, keys []string, queryFilter commontypes.QueryFilter, limitAndSort commontypes.LimitAndSort, sequencesDataTypes []any) ([][]commontypes.Sequence, error) {
+func (cr *chainReader) QueryKeys(ctx context.Context, keys []string, queryFilter query.Filter, limitAndSort query.LimitAndSort, sequencesDataTypes []any) ([][]commontypes.Sequence, error) {
 	if len(keys) != len(sequencesDataTypes) {
 		return nil, fmt.Errorf("length of keys and sequencesDataTypes must be the same")
 	}
@@ -119,21 +120,22 @@ func (cr *chainReader) QueryKeys(ctx context.Context, keys []string, queryFilter
 	return sequencesMatrix, nil
 }
 
-func (cr *chainReader) QueryByKeyValuesComparison(ctx context.Context, keyValuesComparator commontypes.KeyValuesComparator, queryFilter commontypes.QueryFilter, limitAndSort commontypes.LimitAndSort, sequenceDataType any) ([]commontypes.Sequence, error) {
-	remappedQueryFilter, err := remapQueryByKeyValuesComparison(keyValuesComparator, cr.eventIndexBindings, queryFilter)
+func (cr *chainReader) QueryByKeyValuesComparison(ctx context.Context, keyValuesComparator query.KeyValuesComparator, queryFilter query.Filter, limitAndSort query.LimitAndSort, sequenceDataType any) ([]commontypes.Sequence, error) {
+	tokens := strings.Split(keyValuesComparator.Key, "-")
+	if len(tokens) < 3 {
+		return nil, fmt.Errorf("key: %s format is invalid, the key should look like contractName-readName-valToSearch", keyValuesComparator.Key)
+	}
+
+	contractName, eventName, dataName := tokens[0], tokens[1], tokens[2]
+	b, err := cr.contractBindings.GetReadBinding(formatKey(contractName, eventName))
 	if err != nil {
 		return nil, err
 	}
 
-	logs, err := cr.lp.FilteredLogs(remappedQueryFilter, limitAndSort)
-	if err != nil {
-		return nil, err
-	}
-
-	return cr.eventIndexBindings.DecodeLogsIntoSequences(ctx, keyValuesComparator.Key, logs, sequenceDataType)
+	return b.QueryByKeyValuesComparison(ctx, dataName, keyValuesComparator.ValueComparators, queryFilter, limitAndSort, sequenceDataType)
 }
 
-func (cr *chainReader) QueryByKeysValuesComparison(ctx context.Context, keysValuesComparator []commontypes.KeyValuesComparator, queryFilter commontypes.QueryFilter, limitAndSort commontypes.LimitAndSort, sequenceDataType []any) ([][]commontypes.Sequence, error) {
+func (cr *chainReader) QueryByKeysValuesComparison(ctx context.Context, keysValuesComparator []query.KeyValuesComparator, queryFilter query.Filter, limitAndSort query.LimitAndSort, sequenceDataType []any) ([][]commontypes.Sequence, error) {
 	if len(keysValuesComparator) != len(sequenceDataType) {
 		return nil, fmt.Errorf("length of keys and sequencesDataTypes must be the same")
 	}
@@ -202,11 +204,18 @@ func (cr *chainReader) CreateContractType(contractName, methodName string, forEn
 }
 
 func (cr *chainReader) CreateContractTypeByKey(key string, forEncoding bool) (any, error) {
-	contractName, eventName, err := cr.eventIndexBindings.GetEventData(key)
+	rb, err := cr.contractBindings.GetReadBinding(key)
 	if err != nil {
 		return nil, err
 	}
-	return cr.codec.CreateType(wrapItemType(contractName, eventName, forEncoding), forEncoding)
+	switch b := rb.(type) {
+	case *eventBinding:
+		return cr.codec.CreateType(wrapItemType(b.contractName, b.eventName, forEncoding), forEncoding)
+	case *methodBinding:
+		return cr.codec.CreateType(wrapItemType(b.contractName, b.method, forEncoding), forEncoding)
+	default:
+		return nil, fmt.Errorf("key is tied to an unrecognized read binding: %T", rb)
+	}
 }
 
 func wrapItemType(contractName, methodName string, isParams bool) string {
@@ -233,7 +242,7 @@ func (cr *chainReader) addMethod(
 			chainReaderDefinition.ChainSpecificName)
 	}
 
-	cr.contractBindings.AddReadBinding(contractName, methodName, &methodBinding{
+	cr.contractBindings.AddReadBinding(formatKey(contractName, methodName), &methodBinding{
 		contractName: contractName,
 		method:       methodName,
 		client:       cr.client,
@@ -252,12 +261,12 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 		return fmt.Errorf("%w: event %s doesn't exist", commontypes.ErrInvalidConfig, chainReaderDefinition.ChainSpecificName)
 	}
 
-	filterArgs, topicInfo, indexArgNames := setupEventInput(event, chainReaderDefinition)
+	filterArgs, codecTopicInfo, indexArgNames := setupEventInput(event, chainReaderDefinition)
 	if err := verifyEventInputsUsed(chainReaderDefinition, indexArgNames); err != nil {
 		return err
 	}
 
-	if err := topicInfo.Init(); err != nil {
+	if err := codecTopicInfo.Init(); err != nil {
 		return err
 	}
 
@@ -278,20 +287,25 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 		hash:          event.ID,
 		inputInfo:     inputInfo,
 		inputModifier: inputModifier,
-		topicInfo:     topicInfo,
+		topicInfo:     codecTopicInfo,
 		id:            wrapItemType(contractName, eventName, false) + uuid.NewString(),
+		topicMapping:  make(map[string]topicInfo),
 	}
 
-	// set key binding for QueryKeys
-	for index, topics := range event.Inputs {
-		genericTopicName, ok := chainReaderDefinition.GenericTopicNames[topics.Name]
+	// set topic mappings for QueryKeys
+	for topicIndex, topic := range event.Inputs {
+		genericTopicName, ok := chainReaderDefinition.GenericTopicNames[topic.Name]
 		if ok {
-			cr.eventIndexBindings.Bind(eb, eventName+"-"+genericTopicName, index)
+			eb.topicMapping[genericTopicName] = topicInfo{
+				Argument:   topic,
+				topicIndex: uint64(topicIndex),
+			}
 		}
+		// this way querying by key/s values comparison can find its bindings without splitting and parsing the key
+		cr.contractBindings.AddReadBinding(contractName+"-"+eventName+"-"+genericTopicName, eb)
 	}
 
-	cr.contractBindings.AddReadBinding(contractName, eventName, eb)
-
+	cr.contractBindings.AddReadBinding(contractName+"-"+eventName, eb)
 	return cr.addDecoderDef(contractName, eventName, event.Inputs, chainReaderDefinition)
 }
 
@@ -346,65 +360,43 @@ func (cr *chainReader) addDecoderDef(contractName, methodName string, outputs ab
 	return output.Init()
 }
 
-func remapQueryKeyFilters(key string, eventIndexBindings EventIndexBindings, queryFilter commontypes.QueryFilter) (commontypes.QueryFilter, error) {
-	var logFilters []commontypes.Expression
+func remapQueryFilter(queryFilter query.Filter) (query.Filter, error) {
+	var expressions []query.Expression
 	for _, expression := range queryFilter.Expressions {
 		logFilter, err := remapExpression(expression)
 		if err != nil {
-			return commontypes.QueryFilter{}, err
+			return query.Filter{}, err
 		}
 
-		logFilters = append(logFilters, logFilter)
+		expressions = append(expressions, logFilter)
 	}
-
-	eventSig, address, _, err := eventIndexBindings.Get(key)
-	if err != nil {
-		return commontypes.QueryFilter{}, err
-	}
-
-	queryFilter.Expressions = append(logFilters, NewEventFilter(address, eventSig))
-
-	return queryFilter, nil
-}
-
-// TODO values can't be string?
-func remapQueryByKeyValuesComparison(keyValuesComparator commontypes.KeyValuesComparator, eventIndexBindings EventIndexBindings, queryFilter commontypes.QueryFilter) (commontypes.QueryFilter, error) {
-	eventSig, address, topicIndex, err := eventIndexBindings.Get(keyValuesComparator.Key)
-	if err != nil {
-		return commontypes.QueryFilter{}, err
-	}
-
-	var logFilters []commontypes.Expression
-	for _, expression := range queryFilter.Expressions {
-		logFilter, err := remapExpression(expression)
-		if err != nil {
-			return commontypes.QueryFilter{}, err
-		}
-		logFilters = append(logFilters, logFilter)
-	}
-
-	return commontypes.Where(append(logFilters, NewEventByIndexFilter(address, keyValuesComparator.ValueComparators, eventSig, topicIndex))...)
+	return query.Filter{Expressions: expressions}, nil
 }
 
 // remapExpression, changes some chain agnostic filters to match evm specific filters.
-func remapExpression(expression commontypes.Expression) (commontypes.Expression, error) {
-	if expression.IsPrimitive() {
-		var remappedExpressions []commontypes.Expression
-		for _, expr := range expression.BooleanExpression.Expressions {
+func remapExpression(expression query.Expression) (query.Expression, error) {
+	if !expression.IsPrimitive() {
+		var remappedExpressions []query.Expression
+		for _, expr := range expression.BoolExpression.Expressions {
 			remappedFilter, err := remapExpression(expr)
 			if err != nil {
-				return commontypes.Expression{}, nil
+				return query.Expression{}, nil
 			}
 			remappedExpressions = append(remappedExpressions, remappedFilter)
 		}
-		return commontypes.NewBooleanExpression(expression.BooleanExpression.BooleanOperator, remappedExpressions...), nil
-	} else {
-		switch primitive := expression.Primitive.(type) {
-		case *commontypes.ConfirmationsFilter:
-			return NewFinalityFilter(primitive)
-		default:
-			return expression, nil
+
+		if expression.BoolExpression.BoolOperator == query.AND {
+			return query.And(remappedExpressions...), nil
 		}
+		return query.Or(remappedExpressions...), nil
+	}
+
+	// remap chain agnostic primitives to chain specific
+	switch primitive := expression.Primitive.(type) {
+	case *query.ConfirmationsPrimitive:
+		return NewFinalityFilter(primitive)
+	default:
+		return expression, nil
 	}
 }
 

@@ -7,7 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	pkgerrors "github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
@@ -112,6 +112,6 @@ func (d disabled) LogsDataWordBetween(ctx context.Context, eventSig common.Hash,
 	return nil, ErrDisabled
 }
 
-func (d disabled) FilteredLogs(_ []types.QueryFilter, _ types.LimitAndSort) ([]Log, error) {
+func (d disabled) FilteredLogs(_ query.Filter, _ query.LimitAndSort) ([]Log, error) {
 	return nil, nil
 }

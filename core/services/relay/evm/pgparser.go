@@ -3,41 +3,41 @@ package evm
 import (
 	"math/big"
 
-	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 )
 
 // PgDSLParser is a visitor that builds a postgres query and arguments from a commontypes.QueryFilter
 type PgDSLParser struct {
 }
 
-var _ commontypes.Visitor = (*PgDSLParser)(nil)
+var _ query.Visitor = (*PgDSLParser)(nil)
 
 func NewPgParser(evmChainID *big.Int) *PgDSLParser {
 	return &PgDSLParser{}
 }
 
 // TODO remove from common
-func (v *PgDSLParser) VisitAddressFilter(node commontypes.AddressFilter) {
+func (v *PgDSLParser) AddressPrimitive(primitive query.AddressPrimitive) {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (v *PgDSLParser) VisitBlockFilter(node commontypes.BlockFilter) {
+func (v *PgDSLParser) BlockPrimitive(primitive query.BlockPrimitive) {
 	//TODO implement me
 	panic("implement me")
 }
 
-// VisitConfirmationFilter is unused chain agnostic version of VisitFinalityFilter.
-func (v *PgDSLParser) VisitConfirmationFilter(node commontypes.ConfirmationsFilter) {
-	return
-}
-
-func (v *PgDSLParser) VisitTimestampFilter(node commontypes.TimestampFilter) {
+func (v *PgDSLParser) ConfirmationPrimitive(primitive query.ConfirmationsPrimitive) {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (v *PgDSLParser) VisitTxHashFilter(node commontypes.TxHashFilter) {
+func (v *PgDSLParser) TimestampPrimitive(primitive query.TimestampPrimitive) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (v *PgDSLParser) TxHashPrimitives(primitive query.TxHashPrimitive) {
 	//TODO implement me
 	panic("implement me")
 }

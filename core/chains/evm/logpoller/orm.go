@@ -12,7 +12,7 @@ import (
 	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -61,7 +61,7 @@ type ORM interface {
 	SelectLogsDataWordGreaterThan(ctx context.Context, address common.Address, eventSig common.Hash, wordIndex int, wordValueMin common.Hash, confs evmtypes.Confirmations) ([]Log, error)
 	SelectLogsDataWordBetween(ctx context.Context, address common.Address, eventSig common.Hash, wordIndexMin int, wordIndexMax int, wordValue common.Hash, confs evmtypes.Confirmations) ([]Log, error)
 	// FilteredLogs accepts chainlink-common filtering DSL.
-	FilteredLogs(queryFilter commontypes.QueryFilter, sortAndLimit commontypes.LimitAndSort) ([]*Log, error)
+	FilteredLogs(queryFilter query.Filter, sortAndLimit query.LimitAndSort) ([]Log, error)
 }
 
 type DbORM struct {
@@ -971,7 +971,7 @@ func (o *DbORM) SelectIndexedLogsWithSigsExcluding(ctx context.Context, sigA, si
 	return logs, nil
 }
 
-func (o *DbORM) FilteredLogs(_ commontypes.QueryFilter, _ commontypes.LimitAndSort) ([]*Log, error) {
+func (o *DbORM) FilteredLogs(_ query.Filter, _ query.LimitAndSort) ([]Log, error) {
 	//TODO implement me
 	panic("implement me")
 }

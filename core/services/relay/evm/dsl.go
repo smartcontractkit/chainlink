@@ -5,7 +5,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
@@ -15,14 +15,14 @@ type EventFilter struct {
 	EventSig common.Hash
 }
 
-func NewEventFilter(address common.Address, eventSig common.Hash) commontypes.Expression {
+func NewEventFilter(address common.Address, eventSig common.Hash) query.Expression {
 	var searchEventFilter *EventFilter
 	searchEventFilter.Address = address
 	searchEventFilter.EventSig = eventSig
-	return commontypes.Expression{Primitive: searchEventFilter}
+	return query.Expression{Primitive: searchEventFilter}
 }
 
-func (f *EventFilter) Accept(visitor commontypes.Visitor) {
+func (f *EventFilter) Accept(visitor query.Visitor) {
 	switch v := visitor.(type) {
 	case *PgDSLParser:
 		v.VisitEventFilter(f)
@@ -32,21 +32,21 @@ func (f *EventFilter) Accept(visitor commontypes.Visitor) {
 type EventByIndexFilter struct {
 	Address          common.Address
 	EventSig         common.Hash
-	Topic            int
-	ValueComparators []commontypes.ValueComparator
+	Topic            uint64
+	ValueComparators []query.ValueComparator
 }
 
-func NewEventByIndexFilter(address common.Address, valueComparators []commontypes.ValueComparator, eventSig common.Hash, topicIndex int) commontypes.Expression {
+func NewEventByIndexFilter(address common.Address, valueComparators []query.ValueComparator, eventSig common.Hash, topicIndex uint64) query.Expression {
 	var eventByIndexFilter *EventByIndexFilter
 	eventByIndexFilter.Address = address
 	eventByIndexFilter.EventSig = eventSig
 	eventByIndexFilter.Topic = topicIndex
 	eventByIndexFilter.ValueComparators = valueComparators
 
-	return commontypes.Expression{Primitive: eventByIndexFilter}
+	return query.Expression{Primitive: eventByIndexFilter}
 }
 
-func (f *EventByIndexFilter) Accept(visitor commontypes.Visitor) {
+func (f *EventByIndexFilter) Accept(visitor query.Visitor) {
 	switch v := visitor.(type) {
 	case *PgDSLParser:
 		v.VisitEventTopicsByValueFilter(f)
@@ -57,18 +57,18 @@ type FinalityFilter struct {
 	Confs evmtypes.Confirmations
 }
 
-func NewFinalityFilter(filter *commontypes.ConfirmationsFilter) (commontypes.Expression, error) {
-	switch filter.Confirmations {
-	case commontypes.Finalized:
-		return commontypes.Expression{Primitive: &FinalityFilter{evmtypes.Finalized}}, nil
-	case commontypes.Unconfirmed:
-		return commontypes.Expression{Primitive: &FinalityFilter{evmtypes.Unconfirmed}}, nil
+func NewFinalityFilter(filter *query.ConfirmationsPrimitive) (query.Expression, error) {
+	switch filter.ConfirmationLevel {
+	case query.Finalized:
+		return query.Expression{Primitive: &FinalityFilter{evmtypes.Finalized}}, nil
+	case query.Unconfirmed:
+		return query.Expression{Primitive: &FinalityFilter{evmtypes.Unconfirmed}}, nil
 	default:
-		return commontypes.Expression{}, fmt.Errorf("invalid finality confirmations filter value %v", filter.Confirmations)
+		return query.Expression{}, fmt.Errorf("invalid finality confirmations filter value %v", filter.ConfirmationLevel)
 	}
 }
 
-func (f *FinalityFilter) Accept(visitor commontypes.Visitor) {
+func (f *FinalityFilter) Accept(visitor query.Visitor) {
 	switch v := visitor.(type) {
 	case *PgDSLParser:
 		v.VisitFinalityFilter(f)
@@ -79,7 +79,7 @@ type ChainIdFilter struct {
 	chainId *ubig.Big
 }
 
-func (f *ChainIdFilter) accept(visitor commontypes.Visitor) {
+func (f *ChainIdFilter) accept(visitor query.Visitor) {
 	switch v := visitor.(type) {
 	case *PgDSLParser:
 		v.VisitChainIdFilter(f)

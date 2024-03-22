@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 )
@@ -33,6 +34,14 @@ func (m *methodBinding) Register(ctx context.Context) error {
 
 func (m *methodBinding) Unregister(ctx context.Context) error {
 	return nil
+}
+
+func (m *methodBinding) QueryKey(_ context.Context, _ query.Filter, _ query.LimitAndSort, _ any) ([]commontypes.Sequence, error) {
+	return nil, nil
+}
+
+func (m *methodBinding) QueryByKeyValuesComparison(_ context.Context, _ string, _ []query.ValueComparator, _ query.Filter, _ query.LimitAndSort, _ any) ([]commontypes.Sequence, error) {
+	return nil, nil
 }
 
 func (m *methodBinding) GetLatestValue(ctx context.Context, params, returnValue any) error {
