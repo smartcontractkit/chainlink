@@ -355,6 +355,15 @@ deployments:
                         name: mockserver
                         port:
                           number: 1080
+            - host: ${DEVSPACE_NAMESPACE}-grafana.${DEVSPACE_INGRESS_BASE_DOMAIN}
+              http:
+                paths:
+                  - path: /
+                    backend:
+                      service:
+                        name: app-grafana
+                        port:
+                          number: 80
         networkPolicyDefault:
           ingress:
             allowCustomCidrs: true
