@@ -113,6 +113,7 @@ func (o *OCRSoakTest) DeployEnvironment(customChainlinkNetworkTOML string, ocrTe
 		nsPre = fmt.Sprintf("%sforwarder-", nsPre)
 	}
 	nsPre = fmt.Sprintf("%s%s", nsPre, strings.ReplaceAll(strings.ToLower(network.Name), " ", "-"))
+	nsPre = strings.ReplaceAll(nsPre, "_", "-")
 	baseEnvironmentConfig := &environment.Config{
 		TTL:                time.Hour * 720, // 30 days,
 		NamespacePrefix:    nsPre,
@@ -170,7 +171,8 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 	readSethCfg := ocrTestConfig.GetSethConfig()
 	require.NotNil(o.t, readSethCfg, "Seth config shouldn't be nil")
 
-	sethCfg := utils.MergeSethAndEvmNetworkConfigs(o.log, network, *readSethCfg)
+	sethCfg, err := utils.MergeSethAndEvmNetworkConfigs(network, *readSethCfg)
+	require.NoError(o.t, err, "Error merging seth and evm network configs")
 	err = utils.ValidateSethNetworkConfig(sethCfg.Network)
 	require.NoError(o.t, err, "Error validating seth network config")
 

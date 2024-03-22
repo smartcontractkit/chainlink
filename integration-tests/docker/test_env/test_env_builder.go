@@ -390,7 +390,10 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 
 		if b.hasSeth {
 			readSethCfg := b.testConfig.GetSethConfig()
-			sethCfg := utils.MergeSethAndEvmNetworkConfigs(b.l, networkConfig, *readSethCfg)
+			sethCfg, err := utils.MergeSethAndEvmNetworkConfigs(networkConfig, *readSethCfg)
+			if err != nil {
+				return nil, err
+			}
 			err = utils.ValidateSethNetworkConfig(sethCfg.Network)
 			if err != nil {
 				return nil, err
