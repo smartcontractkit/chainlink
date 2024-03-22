@@ -221,6 +221,12 @@ func SetupVRFV2PlusWrapperEnvironment(
 	keyHash [32]byte,
 	wrapperConsumerContractsAmount int,
 ) (*VRFV2PlusWrapperContracts, *big.Int, error) {
+	// external EOA has to create a subscription for the wrapper first
+	wrapperSubId, err := CreateSubAndFindSubID(env, coordinator)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	vrfv2PlusConfig := vrfv2PlusTestConfig.GetVRFv2PlusConfig().General
 	wrapperContracts, err := DeployVRFV2PlusDirectFundingContracts(
 		env.ContractDeployer,
@@ -229,6 +235,7 @@ func SetupVRFV2PlusWrapperEnvironment(
 		mockNativeLINKFeed.Address(),
 		coordinator,
 		wrapperConsumerContractsAmount,
+		wrapperSubId,
 	)
 	if err != nil {
 		return nil, nil, err
@@ -239,6 +246,18 @@ func SetupVRFV2PlusWrapperEnvironment(
 	if err != nil {
 		return nil, nil, fmt.Errorf("%s, err %w", vrfcommon.ErrWaitTXsComplete, err)
 	}
+
+	// once the wrapper is deployed, wrapper address will become consumer of external EOA subscription
+	err = coordinator.AddConsumer(wrapperSubId, wrapperContracts.VRFV2PlusWrapper.Address())
+	if err != nil {
+		return nil, nil, err
+	}
+
+	err = env.EVMClient.WaitForEvents()
+	if err != nil {
+		return nil, nil, fmt.Errorf("%s, err %w", vrfcommon.ErrWaitTXsComplete, err)
+	}
+
 	err = wrapperContracts.VRFV2PlusWrapper.SetConfig(
 		*vrfv2PlusConfig.WrapperGasOverhead,
 		*vrfv2PlusConfig.CoordinatorGasOverhead,
