@@ -43,12 +43,17 @@ dockers:
     goarch: amd64
     extra_files:
       - tmp/linux_amd64/libs
+      - tmp/linux_amd64/plugins
       - tools/bin/ldd_fix
     build_flag_templates:
       - "--platform=linux/amd64"
       - "--pull"
       - "--build-arg=CHAINLINK_USER=chainlink"
       - "--build-arg=COMMIT_SHA={{ .FullCommit }}"
+      - "--build-arg=CL_MEDIAN_CMD=chainlink-feeds"
+      - "--build-arg=CL_MERCURY_CMD=chainlink-mercury"
+      - "--build-arg=CL_SOLANA_CMD=chainlink-solana"
+      - "--build-arg=CL_STARKNET_CMD=chainlink-starknet"
       - "--label=org.opencontainers.image.created={{ .Date }}"
       - "--label=org.opencontainers.image.description={{ .Env.IMAGE_LABEL_DESCRIPTION }}"
       - "--label=org.opencontainers.image.licenses={{ .Env.IMAGE_LABEL_LICENSES }}"

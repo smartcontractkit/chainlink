@@ -44,6 +44,7 @@ type inMemoryStore[
 	lggr    logger.SugaredLogger
 	chainID CHAIN_ID
 
+	maxUnstarted      uint64
 	keyStore          txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
 	persistentTxStore txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 
@@ -75,20 +76,26 @@ func NewInMemoryStore[
 		addressStates: map[ADDR]*addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{},
 	}
 
-	maxUnstarted := config.MaxQueued()
-	if maxUnstarted <= 0 {
-		maxUnstarted = 10000
+	ms.maxUnstarted = config.MaxQueued()
+	if ms.maxUnstarted <= 0 {
+		ms.maxUnstarted = 10000
 	}
-	addresses, err := keyStore.EnabledAddressesForChain(ctx, chainID)
+
+	txs, err := persistentTxStore.GetAllTransactions(ctx, chainID)
 	if err != nil {
-		return nil, fmt.Errorf("new_in_memory_store: %w", err)
+		return nil, fmt.Errorf("address_state: initialization: %w", err)
 	}
-	for _, fromAddr := range addresses {
-		txs, err := persistentTxStore.GetAllTransactions(ctx, fromAddr, chainID)
-		if err != nil {
-			return nil, fmt.Errorf("address_state: initialization: %w", err)
+	addressesToTxs := map[ADDR][]txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
+	for _, tx := range txs {
+		at, exists := addressesToTxs[tx.FromAddress]
+		if !exists {
+			at = []txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
 		}
-		ms.addressStates[fromAddr] = newAddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE](lggr, chainID, fromAddr, maxUnstarted, txs)
+		at = append(at, tx)
+		addressesToTxs[tx.FromAddress] = at
+	}
+	for fromAddr, txs := range addressesToTxs {
+		ms.addressStates[fromAddr] = newAddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE](lggr, chainID, fromAddr, ms.maxUnstarted, txs)
 	}
 
 	return &ms, nil
@@ -375,7 +382,20 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveS
 	return nil
 }
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxForRebroadcast(ctx context.Context, etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], etxAttempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
-	return nil
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
+	as, ok := ms.addressStates[etx.FromAddress]
+	if !ok {
+		return nil
+	}
+
+	// Persist to persistent storage
+	if err := ms.persistentTxStore.UpdateTxForRebroadcast(ctx, etx, etxAttempt); err != nil {
+		return err
+	}
+
+	// Update in memory store
+	return as.moveConfirmedToUnconfirmed(etxAttempt)
 }
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) IsTxFinalized(ctx context.Context, blockHeight int64, txID int64, chainID CHAIN_ID) (bool, error) {
 	return false, nil
