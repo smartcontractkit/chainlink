@@ -609,6 +609,16 @@ func main() {
 		s, err := coordinator.GetSubscription(nil, parsedSubID)
 		helpers.PanicErr(err)
 		fmt.Printf("Subscription %+v\n", s)
+	case "coordinator-get-commitment":
+		coordinatorCommitment := flag.NewFlagSet("coordinator-get-commitment", flag.ExitOnError)
+		coordinatorAddress := coordinatorCommitment.String("coordinator-address", "", "coordinator address")
+		requestId := coordinatorCommitment.String("request-id", "", "consumer's request ID")
+		helpers.ParseArgs(coordinatorCommitment, os.Args[2:], "coordinator-address", "request-id")
+		coordinator, err := vrf_coordinator_v2_5.NewVRFCoordinatorV25(common.HexToAddress(*coordinatorAddress), e.Ec)
+		helpers.PanicErr(err)
+		res, err := coordinator.SRequestCommitments(nil, parseSubID(*requestId))
+		helpers.PanicErr(err)
+		fmt.Printf("Request ID: %+v - commitment: %v\n", *requestId, hexutil.Encode(res[:]))
 	case "consumer-deploy":
 		consumerDeployCmd := flag.NewFlagSet("consumer-deploy", flag.ExitOnError)
 		consumerCoordinator := consumerDeployCmd.String("coordinator-address", "", "coordinator address")
