@@ -118,12 +118,16 @@ jobs:
         run: |
           geth_tag=$(aws ecr describe-images --repository-name ethereum/client-go --region ${{ secrets.QA_AWS_REGION }} --query 'sort_by(imageDetails,& imageTags[0])[-10:]' --output json | jq -r '[.[] | .imageTags[] | {original: ., numeric: (ltrimstr("v") | (split(".") + ["0","0"])[:3] | map(tonumber) | .[0]*10000 + .[1]*100 + .[2])}] | max_by(.numeric) | .original')
           echo "GETH_TAG=$geth_tag" >> $GITHUB_ENV
+          echo "Geth latest tag: $geth_tag"
           nethermind_tag=$(aws ecr describe-images --repository-name nethermind/nethermind --region ${{ secrets.QA_AWS_REGION }} --query 'sort_by(imageDetails,& imageTags[0])[-10:]' --output json | jq -r '[.[] | .imageTags[] | {original: ., numeric: (ltrimstr("v") | (split(".") + ["0","0"])[:3] | map(tonumber) | .[0]*10000 + .[1]*100 + .[2])}] | max_by(.numeric) | .original')
           echo "NETHERMIND_TAG=$nethermind_tag" >> $GITHUB_ENV
+          echo "Nethermind latest tag: $nethermind_tag"
           besu_tag=$(aws ecr describe-images --repository-name hyperledger/besu --region ${{ secrets.QA_AWS_REGION }} --query 'sort_by(imageDetails,& imageTags[0])[-10:]' --output json | jq -r '[.[] | .imageTags[] | {original: ., numeric: (ltrimstr("v") | (split(".") + ["0","0"])[:3] | map(tonumber) | .[0]*10000 + .[1]*100 + .[2])}] | max_by(.numeric) | .original')
           echo "BESU_TAG=$besu_tag" >> $GITHUB_ENV
+          echo "Besu latest tag: $besu_tag"
           erigon_tag=$(aws ecr describe-images --repository-name thorax/erigon --region ${{ secrets.QA_AWS_REGION }} --query 'sort_by(imageDetails,& imageTags[0])[-10:]' --output json |jq -r '[.[] | .imageTags[] | {original: ., numeric: (ltrimstr("v") | (split(".") + ["0","0"])[:3] | map(tonumber) | .[0]*10000 + .[1]*100 + .[2])}] | max_by(.numeric) | .original')
           echo "ERIGON_TAG=$erigon_tag" >> $GITHUB_ENV
+          echo "Erigon latest tag: $erigon_tag"
 
   # End Build Test Dependencies
 
@@ -182,7 +186,6 @@ jobs:
       - name: Build Go Test Command
         id: build-go-test-command
         run: |
-          echo "Image tag to use: ${{ matrix.chainConfig }}"
           # if the matrix.test is set, use it for a different command
           if [ "${{ matrix.test }}" != "" ]; then
             echo "run_command=-run '^${{ matrix.test }}$' ./ccip-tests/smoke/ccip_test.go" >> "$GITHUB_OUTPUT"
