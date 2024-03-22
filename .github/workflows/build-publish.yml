@@ -6,7 +6,6 @@ on:
     tags:
       - "v*"
     branches:
-      - master
       - "release/**"
 
 jobs:
