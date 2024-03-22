@@ -339,16 +339,22 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) moveTx
 	if tx == nil {
 		return fmt.Errorf("move_tx_to_fatal_error: no transaction with ID %d", txID)
 	}
+	originalState := tx.State
 
+	// Move the transaction to the fatal error state
 	as._moveTxToFatalError(tx, txError)
 
-	switch tx.State {
+	// Remove the transaction from its original state
+	switch originalState {
 	case TxUnstarted:
 		_ = as.unstartedTxs.RemoveTxByID(txID)
 	case TxInProgress:
 		as.inprogressTx = nil
 	case TxConfirmedMissingReceipt:
 		delete(as.confirmedMissingReceiptTxs, tx.ID)
+	case TxFatalError:
+		// Already in fatal error state
+		return nil
 	default:
 		panic(fmt.Sprintf("unknown transaction state: %q", tx.State))
 	}
@@ -507,7 +513,7 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) _moveT
 ) {
 	tx.State = TxFatalError
 	tx.Sequence = nil
-	tx.TxAttempts = nil
+	tx.BroadcastAt = nil
 	tx.InitialBroadcastAt = nil
 	tx.Error = txError
 	as.fatalErroredTxs[tx.ID] = tx
