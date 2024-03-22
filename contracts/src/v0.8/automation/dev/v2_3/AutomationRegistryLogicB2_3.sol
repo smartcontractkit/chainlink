@@ -205,17 +205,18 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3, Chainable {
 
   /**
    * @notice LINK available to withdraw by the finance team
+   # @dev LINK max supply < 2^96, so casting to int256 is safe
    */
-  function linkAvailableForPayment() public view returns (uint256) {
-    return i_link.balanceOf(address(this)) - s_reserveAmounts[IERC20(address(i_link))];
+  function linkAvailableForPayment() public view returns (int256) {
+    return int256(i_link.balanceOf(address(this))) - int256(s_reserveAmounts[IERC20(address(i_link))]);
   }
 
   function withdrawLinkFees(address to, uint256 amount) external {
     _onlyFinanceAdminAllowed();
     if (to == ZERO_ADDRESS) revert InvalidRecipient();
 
-    uint256 available = linkAvailableForPayment();
-    if (amount > available) revert InsufficientBalance(available, amount);
+    int256 available = linkAvailableForPayment();
+    if (available < 0 || amount > uint256(available)) revert InsufficientBalance(available, amount);
 
     bool transferStatus = i_link.transfer(to, amount);
     if (!transferStatus) {
