@@ -1067,8 +1067,8 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		err = env.EVMClient.WaitForEvents()
 		require.NoError(t, err, vrfcommon.ErrWaitTXsComplete)
 
-		// Migrate sub using VRFV2PlusWrapper's migrate method
-		err = wrapperContracts.VRFV2PlusWrapper.Migrate(common.HexToAddress(newCoordinator.Address()))
+		// Migrate wrapper's sub using coordinator's migrate method
+		err = vrfContracts.CoordinatorV2Plus.Migrate(subID, newCoordinator.Address())
 
 		require.NoError(t, err, "error migrating sub id ", subID.String(), " from ", vrfContracts.CoordinatorV2Plus.Address(), " to new Coordinator address ", newCoordinator.Address())
 		migrationCompletedEvent, err := vrfContracts.CoordinatorV2Plus.WaitForMigrationCompletedEvent(time.Minute * 1)
