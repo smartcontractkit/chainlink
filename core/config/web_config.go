@@ -38,7 +38,7 @@ type LDAP interface {
 	ReadOnlyUserPass() string
 	ServerTLS() bool
 	SessionTimeout() commonconfig.Duration
-	QueryTimeout() time.Duration
+	QueryTimeout() commonconfig.Duration
 	BaseUserAttr() string
 	BaseDN() string
 	UsersDN() string

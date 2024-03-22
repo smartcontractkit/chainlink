@@ -70,8 +70,8 @@ func (t *TestConfig) SessionTimeout() commonconfig.Duration {
 	return *commonconfig.MustNewDuration(time.Duration(0))
 }
 
-func (t *TestConfig) QueryTimeout() time.Duration {
-	return time.Duration(0)
+func (t *TestConfig) QueryTimeout() commonconfig.Duration {
+	return *commonconfig.MustNewDuration(time.Duration(0))
 }
 
 func (t *TestConfig) UserAPITokenDuration() commonconfig.Duration {

@@ -273,7 +273,7 @@ func (ldSync *LDAPServerStateSyncer) deleteStaleAPITokens(before time.Time) erro
 func (ldSync *LDAPServerStateSyncer) ldapGroupMembersListToUser(conn LDAPConn, groupNameCN string, roleToAssign sessions.UserRole) ([]sessions.User, error) {
 	users, err := ldapGroupMembersListToUser(
 		conn, groupNameCN, roleToAssign, ldSync.config.GroupsDN(),
-		ldSync.config.BaseDN(), ldSync.config.QueryTimeout(),
+		ldSync.config.BaseDN(), ldSync.config.QueryTimeout().Duration(),
 		ldSync.lggr,
 	)
 	if err != nil {
@@ -308,7 +308,7 @@ func (ldSync *LDAPServerStateSyncer) validateUsersActive(emails []string, conn L
 	searchRequest := ldap.NewSearchRequest(
 		searchBaseDN,
 		ldap.ScopeWholeSubtree, ldap.NeverDerefAliases,
-		0, int(ldSync.config.QueryTimeout().Seconds()), false,
+		0, int(ldSync.config.QueryTimeout().Duration().Seconds()), false,
 		filterQuery,
 		[]string{ldSync.config.BaseUserAttr(), ldSync.config.ActiveAttribute()},
 		nil,
