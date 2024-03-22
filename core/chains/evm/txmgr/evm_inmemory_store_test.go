@@ -1,7 +1,6 @@
 package txmgr_test
 
 import (
-	"context"
 	"math/big"
 	"sort"
 	"testing"
@@ -19,6 +18,7 @@ import (
 	evmtxmgr "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 )
@@ -28,14 +28,14 @@ func TestInMemoryStore_PruneUnstartedTxQueue(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
-	persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+	persistentStore := cltest.NewTestTxStore(t, db)
 	kst := cltest.NewKeyStore(t, db, dbcfg)
 	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	lggr := logger.TestSugared(t)
 	chainID := ethClient.ConfiguredChainID()
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 
 	inMemoryStore, err := commontxmgr.NewInMemoryStore[
 		*big.Int,
@@ -55,7 +55,7 @@ func TestInMemoryStore_PruneUnstartedTxQueue(t *testing.T) {
 			inTx := cltest.NewEthTx(fromAddress)
 			inTx.Subject = subject
 			// insert the transaction into the persistent store
-			require.NoError(t, persistentStore.InsertTx(&inTx))
+			require.NoError(t, persistentStore.InsertTx(ctx, &inTx))
 			// insert the transaction into the in-memory store
 			require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
 		}
@@ -92,7 +92,7 @@ func TestInMemoryStore_PruneUnstartedTxQueue(t *testing.T) {
 			inTx := cltest.NewEthTx(fromAddress)
 			inTx.Subject = subject
 			// insert the transaction into the persistent store
-			require.NoError(t, persistentStore.InsertTx(&inTx))
+			require.NoError(t, persistentStore.InsertTx(ctx, &inTx))
 			// insert the transaction into the in-memory store
 			require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
 		}
