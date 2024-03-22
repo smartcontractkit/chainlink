@@ -9,6 +9,7 @@ import (
 	"math/big"
 	"slices"
 	"sort"
+	"strconv"
 	"sync"
 	"time"
 
@@ -427,7 +428,7 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 	error,
 ) {
 	if ms.chainID.String() != chainID.String() {
-		return nil, fmt.Errorf("find_txes_by_meta_field_and_states: %w", ErrInvalidChainID)
+		panic("invalid chain ID")
 	}
 
 	filterFn := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
@@ -438,33 +439,21 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 		if err := json.Unmarshal(json.RawMessage(*tx.Meta), &meta); err != nil {
 			return false
 		}
-		if v, ok := meta[metaField].(string); ok {
-			return v == metaValue
-		}
-
-		return false
+		return isMetaValueEqual(meta[metaField], metaValue)
 	}
-	txsLock := sync.Mutex{}
 	txs := []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
-	wg := sync.WaitGroup{}
 	ms.addressStatesLock.RLock()
 	defer ms.addressStatesLock.RUnlock()
 	for _, as := range ms.addressStates {
-		wg.Add(1)
-		go func(as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) {
-			for _, tx := range as.findTxs(states, filterFn) {
-				etx := ms.deepCopyTx(tx)
-				txsLock.Lock()
-				txs = append(txs, etx)
-				txsLock.Unlock()
-			}
-			wg.Done()
-		}(as)
+		for _, tx := range as.findTxs(states, filterFn) {
+			etx := ms.deepCopyTx(tx)
+			txs = append(txs, etx)
+		}
 	}
-	wg.Wait()
 
 	return txs, nil
 }
+
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxesWithMetaFieldByStates(ctx context.Context, metaField string, states []txmgrtypes.TxState, chainID *big.Int) ([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
 	if ms.chainID.String() != chainID.String() {
 		return nil, fmt.Errorf("find_txes_with_meta_field_by_states: %w", ErrInvalidChainID)
@@ -1170,4 +1159,61 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) deepC
 	copy(copyAttempt.Receipts, attempt.Receipts)
 
 	return copyAttempt
+}
+
+func isMetaValueEqual(v interface{}, metaValue string) bool {
+	switch v := v.(type) {
+	case string:
+		return v == metaValue
+	case int:
+		o, err := strconv.ParseInt(metaValue, 10, 64)
+		if err != nil {
+			return false
+		}
+		return v == int(o)
+	case uint32:
+		o, err := strconv.ParseUint(metaValue, 10, 32)
+		if err != nil {
+			return false
+		}
+		return v == uint32(o)
+	case uint64:
+		o, err := strconv.ParseUint(metaValue, 10, 64)
+		if err != nil {
+			return false
+		}
+		return v == o
+	case int32:
+		o, err := strconv.ParseInt(metaValue, 10, 32)
+		if err != nil {
+			return false
+		}
+		return v == int32(o)
+	case int64:
+		o, err := strconv.ParseInt(metaValue, 10, 64)
+		if err != nil {
+			return false
+		}
+		return v == o
+	case float32:
+		o, err := strconv.ParseFloat(metaValue, 32)
+		if err != nil {
+			return false
+		}
+		return v == float32(o)
+	case float64:
+		o, err := strconv.ParseFloat(metaValue, 64)
+		if err != nil {
+			return false
+		}
+		return v == o
+	case bool:
+		o, err := strconv.ParseBool(metaValue)
+		if err != nil {
+			return false
+		}
+		return v == o
+	}
+
+	return false
 }

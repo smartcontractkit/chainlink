@@ -1,6 +1,7 @@
 package txmgr_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"testing"
@@ -11,11 +12,13 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	commontxmgr "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmgas "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtxmgr "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
@@ -24,6 +27,83 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 )
+
+func TestInMemoryStore_FindTxesByMetaFieldAndStates(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
+	persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+	kst := cltest.NewKeyStore(t, db, dbcfg)
+	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
+
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	lggr := logger.TestSugared(t)
+	chainID := ethClient.ConfiguredChainID()
+	ctx := testutils.Context(t)
+
+	inMemoryStore, err := commontxmgr.NewInMemoryStore[
+		*big.Int,
+		common.Address, common.Hash, common.Hash,
+		*evmtypes.Receipt,
+		evmtypes.Nonce,
+		evmgas.EvmFee,
+	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	require.NoError(t, err)
+
+	// initialize the Meta field which is sqlutil.JSON
+	subID := uint64(123)
+	b, err := json.Marshal(txmgr.TxMeta{SubID: &subID})
+	require.NoError(t, err)
+	meta := sqlutil.JSON(b)
+	// initialize transactions
+	inTx_0 := cltest.NewEthTx(fromAddress)
+	inTx_0.Meta = &meta
+	// insert the transaction into the persistent store
+	require.NoError(t, persistentStore.InsertTx(&inTx_0))
+	// insert the transaction into the in-memory store
+	require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx_0))
+
+	tcs := []struct {
+		name        string
+		inMetaField string
+		inMetaValue string
+		inStates    []txmgrtypes.TxState
+		inChainID   *big.Int
+
+		hasErr bool
+		hasTxs bool
+	}{
+		{"successfully finds tx", "SubId", "123", []txmgrtypes.TxState{commontxmgr.TxUnstarted}, chainID, false, true},
+		{"incorrect state: finds no txs", "SubId", "123", []txmgrtypes.TxState{commontxmgr.TxConfirmed}, chainID, false, false},
+		{"incorrect meta_value: finds no txs", "SubId", "incorrect", []txmgrtypes.TxState{commontxmgr.TxUnstarted}, chainID, false, false},
+		{"unknown meta_field: finds no txs", "unknown", "123", []txmgrtypes.TxState{commontxmgr.TxUnstarted}, chainID, false, false},
+		{"incorrect meta_field: finds no txs", "JobID", "123", []txmgrtypes.TxState{commontxmgr.TxUnstarted}, chainID, false, false},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			actTxs, actErr := inMemoryStore.FindTxesByMetaFieldAndStates(ctx, tc.inMetaField, tc.inMetaValue, tc.inStates, tc.inChainID)
+			expTxs, expErr := persistentStore.FindTxesByMetaFieldAndStates(ctx, tc.inMetaField, tc.inMetaValue, tc.inStates, tc.inChainID)
+			require.Equal(t, expErr, actErr)
+			if !tc.hasErr {
+				require.Nil(t, expErr)
+				require.Nil(t, actErr)
+			}
+			if tc.hasTxs {
+				require.NotEqual(t, 0, len(expTxs))
+				assert.NotEqual(t, 0, len(actTxs))
+				require.Equal(t, len(expTxs), len(actTxs))
+				for i := 0; i < len(expTxs); i++ {
+					assertTxEqual(t, *expTxs[i], *actTxs[i])
+				}
+			} else {
+				require.Equal(t, 0, len(expTxs))
+				require.Equal(t, 0, len(actTxs))
+			}
+		})
+	}
+}
 
 func TestInMemoryStore_FindTxWithIdempotencyKey(t *testing.T) {
 	t.Parallel()
