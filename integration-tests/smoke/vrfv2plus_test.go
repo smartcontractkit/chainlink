@@ -1588,7 +1588,7 @@ func TestVRFV2PlusWithBHF(t *testing.T) {
 
 		batchBHSTxFound := false
 		for _, tx := range clNodeTxs.Data {
-			if strings.ToLower(tx.Attributes.To) == strings.ToLower(vrfContracts.BatchBHS.Address()) {
+			if strings.EqualFold(tx.Attributes.To, vrfContracts.BatchBHS.Address()) {
 				batchBHSTxFound = true
 			}
 		}
