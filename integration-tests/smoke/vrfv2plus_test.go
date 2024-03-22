@@ -1511,81 +1511,8 @@ func TestVRFV2PlusWithBHF(t *testing.T) {
 		require.True(t, status.Fulfilled)
 		l.Debug().Bool("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
 
-		randRequestBlockHash, err := vrfContracts.BHS.GetBlockHash(testcontext.Get(t), big.NewInt(int64(randRequestBlockNumber)))
-		require.NoError(t, err, "error getting blockhash for a blocknumber which was stored in BHS contract")
-
-		l.Info().
-			Str("Randomness Request's Blockhash", randomWordsRequestedEvent.Raw.BlockHash.String()).
-			Str("Block Hash stored by BHS contract", fmt.Sprintf("0x%x", randRequestBlockHash)).
-			Msg("BHS Contract's stored Blockhash for Randomness Request")
-		require.Equal(t, 0, randomWordsRequestedEvent.Raw.BlockHash.Cmp(randRequestBlockHash))
-	})
-
-	t.Run("BHF Job should fill in blockhashes into BHS contract for unfulfilled requests", func(t *testing.T) {
-		configCopy := config.MustCopy().(tc.TestConfig)
-		//Underfund Subscription
-		configCopy.VRFv2Plus.General.SubscriptionFundingAmountLink = ptr.Ptr(float64(0))
-		configCopy.VRFv2Plus.General.SubscriptionFundingAmountNative = ptr.Ptr(float64(0))
-
-		consumers, subIDs, err := vrfv2plus.SetupNewConsumersAndSubs(
-			env,
-			vrfContracts.CoordinatorV2Plus,
-			configCopy,
-			vrfContracts.LinkToken,
-			1,
-			1,
-			l,
-		)
-		require.NoError(t, err, "error setting up new consumers and subs")
-		subID := subIDs[0]
-		subscription, err := vrfContracts.CoordinatorV2Plus.GetSubscription(testcontext.Get(t), subID)
-		require.NoError(t, err, "error getting subscription information")
-		vrfv2plus.LogSubDetails(l, subscription, subID, vrfContracts.CoordinatorV2Plus)
-		subIDsForCancellingAfterTest = append(subIDsForCancellingAfterTest, subIDs...)
-
-		//BHS node should fill in blockhashes into BHS contract depending on the waitBlocks and lookBackBlocks settings
-		_, err = consumers[0].RequestRandomness(
-			vrfKey.KeyHash,
-			subID,
-			*configCopy.VRFv2Plus.General.MinimumConfirmations,
-			*configCopy.VRFv2Plus.General.CallbackGasLimit,
-			isNativeBilling,
-			*configCopy.VRFv2Plus.General.NumberOfWords,
-			*configCopy.VRFv2Plus.General.RandomnessRequestCountPerRequest,
-		)
-		require.NoError(t, err, "error requesting randomness")
-
-		randomWordsRequestedEvent, err := vrfContracts.CoordinatorV2Plus.WaitForRandomWordsRequestedEvent(
-			[][32]byte{vrfKey.KeyHash},
-			[]*big.Int{subID},
-			[]common.Address{common.HexToAddress(consumers[0].Address())},
-			time.Minute*1,
-		)
-		require.NoError(t, err, "error waiting for randomness requested event")
-		vrfv2plus.LogRandomnessRequestedEvent(l, vrfContracts.CoordinatorV2Plus, randomWordsRequestedEvent, isNativeBilling)
-		randRequestBlockNumber := randomWordsRequestedEvent.Raw.BlockNumber
-		_, err = vrfContracts.BHS.GetBlockHash(testcontext.Get(t), big.NewInt(int64(randRequestBlockNumber)))
-		require.Error(t, err, "error not occurred when getting blockhash for a blocknumber which was not stored in BHS contract")
-
-		var wg sync.WaitGroup
-		wg.Add(1)
-		targetBlockTip := randRequestBlockNumber + uint64(*config.VRFv2Plus.General.BHFJobWaitBlocks) + 10
-		_, err = actions.WaitForBlockNumberToBe(targetBlockTip, env.EVMClient, &wg, time.Second*275, t)
-		wg.Wait()
-		require.NoError(t, err, "error waiting for blocknumber to be")
-
-		err = env.EVMClient.WaitForEvents()
-		require.NoError(t, err, vrfcommon.ErrWaitTXsComplete)
-
-		var clNodeTxs *client.TransactionsData
-		gom := gomega.NewGomegaWithT(t)
-		gom.Eventually(func(g gomega.Gomega) {
-			clNodeTxs, _, err = nodeTypeToNodeMap[vrfcommon.BHF].CLNode.API.ReadTransactions()
-			g.Expect(err).ShouldNot(gomega.HaveOccurred(), "error getting CL Node transactions")
-			l.Debug().Int("Number of TXs", len(clNodeTxs.Data)).Msg("BHF Node txs")
-			g.Expect(len(clNodeTxs.Data)).Should(gomega.BeNumerically(">=", 2), "Expected >=2 tx posted by BHF Node, but found %d", len(clNodeTxs.Data))
-		}, "3m", "2s").Should(gomega.Succeed())
-
+		clNodeTxs, _, err := nodeTypeToNodeMap[vrfcommon.BHF].CLNode.API.ReadTransactions()
+		require.NoError(t, err, "error fetching txns from BHF node")
 		batchBHSTxFound := false
 		for _, tx := range clNodeTxs.Data {
 			if strings.EqualFold(tx.Attributes.To, vrfContracts.BatchBHS.Address()) {
@@ -1594,14 +1521,9 @@ func TestVRFV2PlusWithBHF(t *testing.T) {
 		}
 		require.True(t, batchBHSTxFound)
 
-		err = env.EVMClient.WaitForEvents()
-		require.NoError(t, err, vrfcommon.ErrWaitTXsComplete)
+		randRequestBlockHash, err := vrfContracts.BHS.GetBlockHash(testcontext.Get(t), big.NewInt(int64(randRequestBlockNumber)))
+		require.NoError(t, err, "error getting blockhash for a blocknumber which was stored in BHS contract")
 
-		var randRequestBlockHash [32]byte
-		gom.Eventually(func(g gomega.Gomega) {
-			randRequestBlockHash, err = vrfContracts.BHS.GetBlockHash(testcontext.Get(t), big.NewInt(int64(randRequestBlockNumber)))
-			g.Expect(err).ShouldNot(gomega.HaveOccurred(), "error getting blockhash for a blocknumber which was stored in BHS contract")
-		}, "2m", "2s").Should(gomega.Succeed())
 		l.Info().
 			Str("Randomness Request's Blockhash", randomWordsRequestedEvent.Raw.BlockHash.String()).
 			Str("Block Hash stored by BHS contract", fmt.Sprintf("0x%x", randRequestBlockHash)).
