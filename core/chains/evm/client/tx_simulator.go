@@ -32,7 +32,7 @@ func SimulateTransaction(ctx context.Context, client simulatorClient, lggr logge
 	default:
 		err = simulateTransactionDefault(ctx, client, msg)
 	}
-	// ClassifySendError will not have proper logging within the method due to
+	// ClassifySendError will not have the proper fields for logging within the method due to the empty Transaction passed
 	code := ClassifySendError(err, lggr, &types.Transaction{}, msg.From, chainType.IsL2())
 	if code == commonclient.OutOfCounters {
 		return errors.New(ErrOutOfCounters)
