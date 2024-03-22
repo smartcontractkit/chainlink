@@ -87,10 +87,6 @@ DBCapacity = '10Gi' # disk space to be allocated to postgresql database ; only u
 IsStateful = true # if true, chainlink nodes and postgresql database will be deployed as stateful set in k8s
 DBArgs = ['shared_buffers=1536MB', 'effective_cache_size=4096MB', 'work_mem=64MB'] # postgresql database arguments ; only used if tests are in k8s
 
-[CCIP.Env.NewCLCluster.Common.ChainlinkImage]
-image = "chainlink-ccip"
-version = "d7e316cbb"
-
 # these values will be used to set up chainlink DON, if all the chainlink nodes are deployed with same configuration
 [CCIP.Env.NewCLCluster.Common]
 Name = 'node1' # name of the chainlink node, used as prefix for all the chainlink node names , used for k8s deployment
