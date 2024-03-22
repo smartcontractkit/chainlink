@@ -297,7 +297,7 @@ contract SetConfig is SetUp {
     AutomationRegistryBase2_3.BillingConfig[] memory billingConfigs = new AutomationRegistryBase2_3.BillingConfig[](1);
     billingConfigs[0] = AutomationRegistryBase2_3.BillingConfig({
       gasFeePPB: 5_000,
-      flatFeeMicroLink: 20_000,
+      flatFeeMilliCents: 20_000,
       priceFeed: 0x2222222222222222222222222222222222222222,
       fallbackPrice: 2_000_000_000, // $20
       minSpend: 100_000
@@ -348,7 +348,7 @@ contract SetConfig is SetUp {
 
     AutomationRegistryBase2_3.BillingConfig memory config = registry.getBillingTokenConfig(billingTokenAddress);
     assertEq(config.gasFeePPB, 5_000);
-    assertEq(config.flatFeeMicroLink, 20_000);
+    assertEq(config.flatFeeMilliCents, 20_000);
     assertEq(config.priceFeed, 0x2222222222222222222222222222222222222222);
     assertEq(config.minSpend, 100_000);
 
@@ -369,14 +369,14 @@ contract SetConfig is SetUp {
     AutomationRegistryBase2_3.BillingConfig[] memory billingConfigs = new AutomationRegistryBase2_3.BillingConfig[](2);
     billingConfigs[0] = AutomationRegistryBase2_3.BillingConfig({
       gasFeePPB: 5_001,
-      flatFeeMicroLink: 20_001,
+      flatFeeMilliCents: 20_001,
       priceFeed: 0x2222222222222222222222222222222222222221,
       fallbackPrice: 100,
       minSpend: 100
     });
     billingConfigs[1] = AutomationRegistryBase2_3.BillingConfig({
       gasFeePPB: 5_002,
-      flatFeeMicroLink: 20_002,
+      flatFeeMilliCents: 20_002,
       priceFeed: 0x2222222222222222222222222222222222222222,
       fallbackPrice: 200,
       minSpend: 200
@@ -401,14 +401,14 @@ contract SetConfig is SetUp {
 
     AutomationRegistryBase2_3.BillingConfig memory config1 = registry.getBillingTokenConfig(billingTokenAddress1);
     assertEq(config1.gasFeePPB, 5_001);
-    assertEq(config1.flatFeeMicroLink, 20_001);
+    assertEq(config1.flatFeeMilliCents, 20_001);
     assertEq(config1.priceFeed, 0x2222222222222222222222222222222222222221);
     assertEq(config1.fallbackPrice, 100);
     assertEq(config1.minSpend, 100);
 
     AutomationRegistryBase2_3.BillingConfig memory config2 = registry.getBillingTokenConfig(billingTokenAddress2);
     assertEq(config2.gasFeePPB, 5_002);
-    assertEq(config2.flatFeeMicroLink, 20_002);
+    assertEq(config2.flatFeeMilliCents, 20_002);
     assertEq(config2.priceFeed, 0x2222222222222222222222222222222222222222);
     assertEq(config2.fallbackPrice, 200);
     assertEq(config2.minSpend, 200);
@@ -429,7 +429,7 @@ contract SetConfig is SetUp {
     AutomationRegistryBase2_3.BillingConfig[] memory billingConfigs1 = new AutomationRegistryBase2_3.BillingConfig[](1);
     billingConfigs1[0] = AutomationRegistryBase2_3.BillingConfig({
       gasFeePPB: 5_001,
-      flatFeeMicroLink: 20_001,
+      flatFeeMilliCents: 20_001,
       priceFeed: 0x2222222222222222222222222222222222222221,
       fallbackPrice: 100,
       minSpend: 100
@@ -445,7 +445,7 @@ contract SetConfig is SetUp {
     AutomationRegistryBase2_3.BillingConfig[] memory billingConfigs2 = new AutomationRegistryBase2_3.BillingConfig[](1);
     billingConfigs2[0] = AutomationRegistryBase2_3.BillingConfig({
       gasFeePPB: 5_002,
-      flatFeeMicroLink: 20_002,
+      flatFeeMilliCents: 20_002,
       priceFeed: 0x2222222222222222222222222222222222222222,
       fallbackPrice: 200,
       minSpend: 200
@@ -481,7 +481,7 @@ contract SetConfig is SetUp {
 
     AutomationRegistryBase2_3.BillingConfig memory config2 = registry.getBillingTokenConfig(billingTokenAddress2);
     assertEq(config2.gasFeePPB, 5_002);
-    assertEq(config2.flatFeeMicroLink, 20_002);
+    assertEq(config2.flatFeeMilliCents, 20_002);
     assertEq(config2.priceFeed, 0x2222222222222222222222222222222222222222);
     assertEq(config2.fallbackPrice, 200);
     assertEq(config2.minSpend, 200);
@@ -503,14 +503,14 @@ contract SetConfig is SetUp {
     AutomationRegistryBase2_3.BillingConfig[] memory billingConfigs = new AutomationRegistryBase2_3.BillingConfig[](2);
     billingConfigs[0] = AutomationRegistryBase2_3.BillingConfig({
       gasFeePPB: 5_001,
-      flatFeeMicroLink: 20_001,
+      flatFeeMilliCents: 20_001,
       priceFeed: 0x2222222222222222222222222222222222222221,
       fallbackPrice: 100,
       minSpend: 100
     });
     billingConfigs[1] = AutomationRegistryBase2_3.BillingConfig({
       gasFeePPB: 5_002,
-      flatFeeMicroLink: 20_002,
+      flatFeeMilliCents: 20_002,
       priceFeed: 0x2222222222222222222222222222222222222222,
       fallbackPrice: 200,
       minSpend: 200
@@ -537,7 +537,7 @@ contract SetConfig is SetUp {
     AutomationRegistryBase2_3.BillingConfig[] memory billingConfigs = new AutomationRegistryBase2_3.BillingConfig[](1);
     billingConfigs[0] = AutomationRegistryBase2_3.BillingConfig({
       gasFeePPB: 5_000,
-      flatFeeMicroLink: 20_000,
+      flatFeeMilliCents: 20_000,
       priceFeed: 0x2222222222222222222222222222222222222222,
       fallbackPrice: 2_000_000_000, // $20
       minSpend: 100_000
@@ -665,14 +665,14 @@ contract NOPsSettlement is SetUp {
     registry.transmit(reportContext, reportBytes, rs, ss, vs);
 
     // verify transmitters have positive balances
-    (bool active, uint8 index, uint96 balance, uint96 lastCollected, ) = registry.getTransmitterInfo(TRANSMITTERS[1]);
-    assertTrue(active);
-    assertEq(1, index);
-    assertTrue(balance > 0);
-    assertEq(0, lastCollected);
-
     uint256[] memory payments = new uint256[](TRANSMITTERS.length);
-    for (uint256 i = 0; i < payments.length; i++) {
+    for (uint256 i = 0; i < TRANSMITTERS.length; i++) {
+      (bool active, uint8 index, uint96 balance, uint96 lastCollected, ) = registry.getTransmitterInfo(TRANSMITTERS[i]);
+      assertTrue(active);
+      assertEq(i, index);
+      assertTrue(balance > 0);
+      assertEq(0, lastCollected);
+
       payments[i] = balance;
     }
 
@@ -683,10 +683,12 @@ contract NOPsSettlement is SetUp {
     registry.settleNOPsOffchain();
 
     // verify that transmitters balance has been zeroed out
-    (active, index, balance, , ) = registry.getTransmitterInfo(TRANSMITTERS[2]);
-    assertTrue(active);
-    assertEq(2, index);
-    assertEq(0, balance);
+    for (uint256 i = 0; i < TRANSMITTERS.length; i++) {
+      (bool active, uint8 index, uint96 balance, uint96 lastCollected, ) = registry.getTransmitterInfo(TRANSMITTERS[i]);
+      assertTrue(active);
+      assertEq(i, index);
+      assertEq(0, balance);
+    }
   }
 
   function testDisableOffchainPaymentsRevertDueToUnauthorizedCaller() public {
@@ -878,5 +880,23 @@ contract OnTokenTransfer is SetUp {
     uint256 beforeBalance = registry.getBalance(linkUpkeepID);
     registry.onTokenTransfer(UPKEEP_ADMIN, 100, abi.encode(linkUpkeepID));
     assertEq(registry.getBalance(linkUpkeepID), beforeBalance + 100);
+  }
+}
+
+contract GetMinBalanceForUpkeep is SetUp {
+  function test_accountsForFlatFee() public {
+    // set fee to 0
+    AutomationRegistryBase2_3.BillingConfig memory usdTokenConfig = registry.getBillingTokenConfig(address(usdToken));
+    usdTokenConfig.flatFeeMilliCents = 0;
+    _updateBillingTokenConfig(registry, address(usdToken), usdTokenConfig);
+
+    uint256 minBalanceBefore = registry.getMinBalanceForUpkeep(usdUpkeepID);
+
+    // set fee to non-zero
+    usdTokenConfig.flatFeeMilliCents = 100;
+    _updateBillingTokenConfig(registry, address(usdToken), usdTokenConfig);
+
+    uint256 minBalanceAfter = registry.getMinBalanceForUpkeep(usdUpkeepID);
+    assertEq(minBalanceAfter, minBalanceBefore + (uint256(usdTokenConfig.flatFeeMilliCents) * 1e13));
   }
 }

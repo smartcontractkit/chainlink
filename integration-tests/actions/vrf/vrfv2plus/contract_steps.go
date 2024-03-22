@@ -127,6 +127,7 @@ func FundVRFCoordinatorV2_5Subscription(
 
 func CreateFundSubsAndAddConsumers(
 	env *test_env.CLClusterTestEnv,
+	chainID int64,
 	subscriptionFundingAmountNative *big.Float,
 	subscriptionFundingAmountLink *big.Float,
 	linkToken contracts.LinkToken,
@@ -136,6 +137,7 @@ func CreateFundSubsAndAddConsumers(
 ) ([]*big.Int, error) {
 	subIDs, err := CreateSubsAndFund(
 		env,
+		chainID,
 		subscriptionFundingAmountNative,
 		subscriptionFundingAmountLink,
 		linkToken,
@@ -160,7 +162,12 @@ func CreateFundSubsAndAddConsumers(
 		return nil, err
 	}
 
-	err = env.EVMClient.WaitForEvents()
+	evmClient, err := env.GetEVMClient(chainID)
+	if err != nil {
+		return nil, err
+	}
+
+	err = evmClient.WaitForEvents()
 	if err != nil {
 		return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrWaitTXsComplete, err)
 	}
@@ -169,22 +176,29 @@ func CreateFundSubsAndAddConsumers(
 
 func CreateSubsAndFund(
 	env *test_env.CLClusterTestEnv,
+	chainID int64,
 	subscriptionFundingAmountNative *big.Float,
 	subscriptionFundingAmountLink *big.Float,
 	linkToken contracts.LinkToken,
 	coordinator contracts.VRFCoordinatorV2_5,
 	subAmountToCreate int,
 ) ([]*big.Int, error) {
-	subs, err := CreateSubs(env, coordinator, subAmountToCreate)
+	subs, err := CreateSubs(env, chainID, coordinator, subAmountToCreate)
 	if err != nil {
 		return nil, err
 	}
-	err = env.EVMClient.WaitForEvents()
+	evmClient, err := env.GetEVMClient(chainID)
+	if err != nil {
+		return nil, err
+	}
+
+	err = evmClient.WaitForEvents()
 	if err != nil {
 		return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrWaitTXsComplete, err)
 	}
 	err = FundSubscriptions(
 		env,
+		chainID,
 		subscriptionFundingAmountNative,
 		subscriptionFundingAmountLink,
 		linkToken,
@@ -199,13 +213,14 @@ func CreateSubsAndFund(
 
 func CreateSubs(
 	env *test_env.CLClusterTestEnv,
+	chainID int64,
 	coordinator contracts.VRFCoordinatorV2_5,
 	subAmountToCreate int,
 ) ([]*big.Int, error) {
 	var subIDArr []*big.Int
 
 	for i := 0; i < subAmountToCreate; i++ {
-		subID, err := CreateSubAndFindSubID(env, coordinator)
+		subID, err := CreateSubAndFindSubID(env, chainID, coordinator)
 		if err != nil {
 			return nil, err
 		}
@@ -229,17 +244,21 @@ func AddConsumersToSubs(
 	return nil
 }
 
-func CreateSubAndFindSubID(env *test_env.CLClusterTestEnv, coordinator contracts.VRFCoordinatorV2_5) (*big.Int, error) {
+func CreateSubAndFindSubID(env *test_env.CLClusterTestEnv, chainID int64, coordinator contracts.VRFCoordinatorV2_5) (*big.Int, error) {
 	tx, err := coordinator.CreateSubscription()
 	if err != nil {
 		return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrCreateVRFSubscription, err)
 	}
-	err = env.EVMClient.WaitForEvents()
+	evmClient, err := env.GetEVMClient(chainID)
+	if err != nil {
+		return nil, err
+	}
+	err = evmClient.WaitForEvents()
 	if err != nil {
 		return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrWaitTXsComplete, err)
 	}
 
-	receipt, err := env.EVMClient.GetTxReceipt(tx.Hash())
+	receipt, err := evmClient.GetTxReceipt(tx.Hash())
 	if err != nil {
 		return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrWaitTXsComplete, err)
 	}
@@ -252,12 +271,18 @@ func CreateSubAndFindSubID(env *test_env.CLClusterTestEnv, coordinator contracts
 
 func FundSubscriptions(
 	env *test_env.CLClusterTestEnv,
+	chainID int64,
 	subscriptionFundingAmountNative *big.Float,
 	subscriptionFundingAmountLink *big.Float,
 	linkAddress contracts.LinkToken,
 	coordinator contracts.VRFCoordinatorV2_5,
 	subIDs []*big.Int,
 ) error {
+	evmClient, err := env.GetEVMClient(chainID)
+	if err != nil {
+		return err
+	}
+
 	for _, subID := range subIDs {
 		//Native Billing
 		amountWei := conversions.EtherToWei(subscriptionFundingAmountNative)
@@ -270,12 +295,12 @@ func FundSubscriptions(
 		}
 		//Link Billing
 		amountJuels := conversions.EtherToWei(subscriptionFundingAmountLink)
-		err = FundVRFCoordinatorV2_5Subscription(linkAddress, coordinator, env.EVMClient, subID, amountJuels)
+		err = FundVRFCoordinatorV2_5Subscription(linkAddress, coordinator, evmClient, subID, amountJuels)
 		if err != nil {
 			return fmt.Errorf("%s, err %w", vrfcommon.ErrFundSubWithLinkToken, err)
 		}
 	}
-	err := env.EVMClient.WaitForEvents()
+	err = evmClient.WaitForEvents()
 	if err != nil {
 		return fmt.Errorf("%s, err %w", vrfcommon.ErrWaitTXsComplete, err)
 	}
@@ -678,13 +703,18 @@ func DeployVRFV2PlusWrapperConsumers(contractDeployer contracts.ContractDeployer
 
 func SetupVRFV2PlusContracts(
 	env *test_env.CLClusterTestEnv,
+	chainID int64,
 	linkToken contracts.LinkToken,
 	mockNativeLINKFeed contracts.VRFMockETHLINKFeed,
 	configGeneral *vrfv2plus_config.General,
 	l zerolog.Logger,
 ) (*vrfcommon.VRFContracts, error) {
 	l.Info().Msg("Deploying VRFV2 Plus contracts")
-	vrfContracts, err := DeployVRFV2_5Contracts(env.ContractDeployer, env.EVMClient)
+	evmClient, err := env.GetEVMClient(chainID)
+	if err != nil {
+		return nil, err
+	}
+	vrfContracts, err := DeployVRFV2_5Contracts(env.ContractDeployer, evmClient)
 	if err != nil {
 		return nil, fmt.Errorf("%s, err %w", ErrDeployVRFV2_5Contracts, err)
 	}
@@ -712,7 +742,7 @@ func SetupVRFV2PlusContracts(
 	if err != nil {
 		return nil, fmt.Errorf("%s, err %w", ErrSetLinkNativeLinkFeed, err)
 	}
-	err = env.EVMClient.WaitForEvents()
+	err = evmClient.WaitForEvents()
 	if err != nil {
 		return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrWaitTXsComplete, err)
 	}
@@ -722,6 +752,7 @@ func SetupVRFV2PlusContracts(
 
 func SetupNewConsumersAndSubs(
 	env *test_env.CLClusterTestEnv,
+	chainID int64,
 	coordinator contracts.VRFCoordinatorV2_5,
 	testConfig tc.TestConfig,
 	linkToken contracts.LinkToken,
@@ -735,7 +766,12 @@ func SetupNewConsumersAndSubs(
 			return nil, nil, fmt.Errorf("err: %w", err)
 		}
 	}
-	err = env.EVMClient.WaitForEvents()
+	evmClient, err := env.GetEVMClient(chainID)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	err = evmClient.WaitForEvents()
 	if err != nil {
 		return nil, nil, fmt.Errorf("%s, err: %w", vrfcommon.ErrWaitTXsComplete, err)
 	}
@@ -745,6 +781,7 @@ func SetupNewConsumersAndSubs(
 		Msg("Creating and funding subscriptions, deploying and adding consumers to subs")
 	subIDs, err := CreateFundSubsAndAddConsumers(
 		env,
+		chainID,
 		big.NewFloat(*testConfig.VRFv2Plus.General.SubscriptionFundingAmountNative),
 		big.NewFloat(*testConfig.VRFv2Plus.General.SubscriptionFundingAmountLink),
 		linkToken,
