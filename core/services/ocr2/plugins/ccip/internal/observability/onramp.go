@@ -4,6 +4,7 @@ import (
 	"context"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 )
 
@@ -40,5 +41,23 @@ func (o ObservedOnRampReader) RouterAddress() (cciptypes.Address, error) {
 func (o ObservedOnRampReader) GetDynamicConfig() (cciptypes.OnRampDynamicConfig, error) {
 	return withObservedInteraction(o.metric, "GetDynamicConfig", func() (cciptypes.OnRampDynamicConfig, error) {
 		return o.OnRampReader.GetDynamicConfig()
+	})
+}
+
+func (o ObservedOnRampReader) IsSourceCursed(ctx context.Context) (bool, error) {
+	return withObservedInteraction(o.metric, "IsSourceCursed", func() (bool, error) {
+		return o.OnRampReader.IsSourceCursed(ctx)
+	})
+}
+
+func (o ObservedOnRampReader) IsSourceChainHealthy(ctx context.Context) (bool, error) {
+	return withObservedInteraction(o.metric, "IsSourceChainHealthy", func() (bool, error) {
+		return o.OnRampReader.IsSourceChainHealthy(ctx)
+	})
+}
+
+func (o ObservedOnRampReader) SourcePriceRegistryAddress(ctx context.Context) (cciptypes.Address, error) {
+	return withObservedInteraction(o.metric, "SourcePriceRegistryAddress", func() (cciptypes.Address, error) {
+		return o.OnRampReader.SourcePriceRegistryAddress(ctx)
 	})
 }
