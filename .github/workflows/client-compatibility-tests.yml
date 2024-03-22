@@ -85,6 +85,46 @@ jobs:
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
 
+  get-latest-available-images:
+    if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
+    needs: [changes]
+    environment: integration
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    outputs:
+      geth_tag: ${{ env.GETH_TAG }}
+      nethermind_tag: ${{ env.NETHERMIND_TAG }}
+      besu_tag: ${{ env.BESU_TAG }}
+      erigon_tag: ${{ env.ERIGON_TAG }}
+    steps:
+      # Setup AWS creds
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@010d0da01d0b5a38af31e9c3470dbfdabdecca3a # v4.0.1
+        with:
+          aws-region: ${{ secrets.QA_AWS_REGION }}
+          role-to-assume: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          role-duration-seconds: 3600
+      # Login to ECR
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@062b18b96a7aff071d4dc91bc00c4c1a7945b076 # v2.0.1
+        with:
+          mask-password: 'true'
+        env:
+          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      - name: Get latest docker images from ECR
+        run: |
+          geth_tag=$(aws ecr describe-images --profile=sdlc-admin --repository-name ethereum/client-go --region ${{ secrets.QA_AWS_REGION }} --query 'sort_by(imageDetails,& imageTags[0])[-10:]' --output json | jq -r '[.[] | .imageTags[] | {original: ., numeric: (ltrimstr("v") | (split(".") + ["0","0"])[:3] | map(tonumber) | .[0]*10000 + .[1]*100 + .[2])}] | max_by(.numeric) | .original')
+          echo "GETH_TAG=$geth_tag" >> $GITHUB_ENV
+          nethermind_tag=$(aws ecr describe-images --profile=sdlc-admin --repository-name nethermind/nethermind --region ${{ secrets.QA_AWS_REGION }} --query 'sort_by(imageDetails,& imageTags[0])[-10:]' --output json | jq -r '[.[] | .imageTags[] | {original: ., numeric: (ltrimstr("v") | (split(".") + ["0","0"])[:3] | map(tonumber) | .[0]*10000 + .[1]*100 + .[2])}] | max_by(.numeric) | .original')
+          echo "NETHERMIND_TAG=$nethermind_tag" >> $GITHUB_ENV
+          besu_tag=$(aws ecr describe-images --profile=sdlc-admin --repository-name hyperledger/besu --region ${{ secrets.QA_AWS_REGION }} --query 'sort_by(imageDetails,& imageTags[0])[-10:]' --output json | jq -r '[.[] | .imageTags[] | {original: ., numeric: (ltrimstr("v") | (split(".") + ["0","0"])[:3] | map(tonumber) | .[0]*10000 + .[1]*100 + .[2])}] | max_by(.numeric) | .original')
+          echo "BESU_TAG=$besu_tag" >> $GITHUB_ENV
+          erigon_tag=$(aws ecr describe-images --profile=sdlc-admin --repository-name thorax/erigon --region ${{ secrets.QA_AWS_REGION }} --query 'sort_by(imageDetails,& imageTags[0])[-10:]' --output json |jq -r '[.[] | .imageTags[] | {original: ., numeric: (ltrimstr("v") | (split(".") + ["0","0"])[:3] | map(tonumber) | .[0]*10000 + .[1]*100 + .[2])}] | max_by(.numeric) | .original')
+          echo "ERIGON_TAG=$erigon_tag" >> $GITHUB_ENV
+
   # End Build Test Dependencies
 
   evm-compatibility-matrix:
@@ -94,7 +134,7 @@ jobs:
       pull-requests: write
       id-token: write
       contents: read
-    needs: [build-chainlink, changes]
+    needs: [build-chainlink, changes, get-latest-available-images]
     if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
     env:
       SELECTED_NETWORKS: SIMULATED_1,SIMULATED_2
@@ -111,26 +151,26 @@ jobs:
             client: geth
             timeout: 30m
             pyroscope_env: ci-ccip-bidirectionallane-geth
-            chainConfig: "1337=ethereum/client-go:latest_stable,2337=ethereum/client-go:latest_stable"
+            chainConfig: "1337=ethereum/client-go:${{ needs.get-latest-available-images.outputs.geth_tag }},2337=ethereum/client-go:${{ needs.get-latest-available-images.outputs.geth_tag }}"
           - name: bidirectionallane-nethermind
             test: TestSmokeCCIPForBidirectionalLane
             client: nethermind
             timeout: 30m
             pyroscope_env: ci-ccip-bidirectionallane-nethermind
-            chainConfig: "1337=nethermind/nethermind:latest_stable,2337=nethermind/nethermind:latest_stable"
+            chainConfig: "1337=nethermind/nethermind:${{ needs.get-latest-available-images.outputs.nethermind_tag }},2337=nethermind/nethermind:${{ needs.get-latest-available-images.outputs.nethermind_tag }}"
           # uncomment when 24.4.0  is released with our data/input fix
           # - name: bidirectionallane-besu
           #   test: TestSmokeCCIPForBidirectionalLane
           #   client: besu
           #   timeout: 30m
           #   pyroscope_env: ci-ccip-bidirectionallane-besu
-          #   chainConfig: "1337=hyperledger/besu:latest_stable,2337=hyperledger/besu:latest_stable"
+          #   chainConfig: "1337=hyperledger/besu:${{ needs.get-latest-available-images.outputs.besu_tag }},2337=hyperledger/besu:${{ needs.get-latest-available-images.outputs.besu_tag }}"
           - name: bidirectionallane-erigon
             test: TestSmokeCCIPForBidirectionalLane
             client: erigon
             timeout: 30m
             pyroscope_env: ci-ccip-bidirectionallane-erigon
-            chainConfig: "1337=thorax/erigon:latest_stable,2337=thorax/erigon:latest_stable"
+            chainConfig: "1337=thorax/erigon:${{ needs.get-latest-available-images.outputs.erigon_tag }},2337=thorax/erigon:${{ needs.get-latest-available-images.outputs.erigon_tag }}"
     runs-on: ubuntu-latest
     name: CCIP Latest EVM Node Compatibility Test with ${{ matrix.client }}
     steps:
@@ -142,6 +182,7 @@ jobs:
       - name: Build Go Test Command
         id: build-go-test-command
         run: |
+          echo "Image tag to use: ${{ matrix.chainConfig }}"
           # if the matrix.test is set, use it for a different command
           if [ "${{ matrix.test }}" != "" ]; then
             echo "run_command=-run '^${{ matrix.test }}$' ./ccip-tests/smoke/ccip_test.go" >> "$GITHUB_OUTPUT"
