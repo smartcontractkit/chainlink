@@ -1,7 +1,6 @@
 package txmgr_test
 
 import (
-	"context"
 	"fmt"
 	"math/big"
 	"testing"
@@ -38,7 +37,7 @@ func TestInMemoryStore_FindTxWithIdempotencyKey(t *testing.T) {
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	lggr := logger.TestSugared(t)
 	chainID := ethClient.ConfiguredChainID()
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 
 	inMemoryStore, err := commontxmgr.NewInMemoryStore[
 		*big.Int,
@@ -73,7 +72,6 @@ func TestInMemoryStore_FindTxWithIdempotencyKey(t *testing.T) {
 
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
-			ctx := testutils.Context(t)
 			actTx, actErr := inMemoryStore.FindTxWithIdempotencyKey(ctx, tc.inIdempotencyKey, tc.inChainID)
 			expTx, expErr := persistentStore.FindTxWithIdempotencyKey(ctx, tc.inIdempotencyKey, tc.inChainID)
 			require.Equal(t, expErr, actErr)
@@ -105,7 +103,7 @@ func TestInMemoryStore_CheckTxQueueCapacity(t *testing.T) {
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	lggr := logger.TestSugared(t)
 	chainID := ethClient.ConfiguredChainID()
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 
 	inMemoryStore, err := commontxmgr.NewInMemoryStore[
 		*big.Int,
@@ -145,7 +143,6 @@ func TestInMemoryStore_CheckTxQueueCapacity(t *testing.T) {
 
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
-			ctx := testutils.Context(t)
 			actErr := inMemoryStore.CheckTxQueueCapacity(ctx, tc.inFromAddress, tc.inMaxQueuedTxs, tc.inChainID)
 			expErr := persistentStore.CheckTxQueueCapacity(ctx, tc.inFromAddress, tc.inMaxQueuedTxs, tc.inChainID)
 			if tc.hasErr {
@@ -171,7 +168,7 @@ func TestInMemoryStore_CountUnstartedTransactions(t *testing.T) {
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	lggr := logger.TestSugared(t)
 	chainID := ethClient.ConfiguredChainID()
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 
 	inMemoryStore, err := commontxmgr.NewInMemoryStore[
 		*big.Int,
@@ -209,7 +206,6 @@ func TestInMemoryStore_CountUnstartedTransactions(t *testing.T) {
 
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
-			ctx := testutils.Context(t)
 			actMemoryCount, actErr := inMemoryStore.CountUnstartedTransactions(ctx, tc.inFromAddress, tc.inChainID)
 			actPersistentCount, expErr := persistentStore.CountUnstartedTransactions(ctx, tc.inFromAddress, tc.inChainID)
 			if tc.hasErr {
@@ -237,7 +233,7 @@ func TestInMemoryStore_CountUnconfirmedTransactions(t *testing.T) {
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	lggr := logger.TestSugared(t)
 	chainID := ethClient.ConfiguredChainID()
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 
 	inMemoryStore, err := commontxmgr.NewInMemoryStore[
 		*big.Int,
@@ -272,7 +268,6 @@ func TestInMemoryStore_CountUnconfirmedTransactions(t *testing.T) {
 
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
-			ctx := testutils.Context(t)
 			actMemoryCount, actErr := inMemoryStore.CountUnconfirmedTransactions(ctx, tc.inFromAddress, tc.inChainID)
 			actPersistentCount, expErr := persistentStore.CountUnconfirmedTransactions(ctx, tc.inFromAddress, tc.inChainID)
 			if tc.hasErr {
@@ -300,7 +295,7 @@ func TestInMemoryStore_FindTxAttemptsConfirmedMissingReceipt(t *testing.T) {
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	lggr := logger.TestSugared(t)
 	chainID := ethClient.ConfiguredChainID()
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 
 	inMemoryStore, err := commontxmgr.NewInMemoryStore[
 		*big.Int,
@@ -344,7 +339,6 @@ func TestInMemoryStore_FindTxAttemptsConfirmedMissingReceipt(t *testing.T) {
 
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
-			ctx := testutils.Context(t)
 			actTxAttempts, actErr := inMemoryStore.FindTxAttemptsConfirmedMissingReceipt(ctx, tc.inChainID)
 			expTxAttempts, expErr := persistentStore.FindTxAttemptsConfirmedMissingReceipt(ctx, tc.inChainID)
 			if tc.hasError {
@@ -375,7 +369,7 @@ func TestInMemoryStore_FindTxAttemptsRequiringReceiptFetch(t *testing.T) {
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	lggr := logger.TestSugared(t)
 	chainID := ethClient.ConfiguredChainID()
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 
 	inMemoryStore, err := commontxmgr.NewInMemoryStore[
 		*big.Int,
@@ -419,7 +413,6 @@ func TestInMemoryStore_FindTxAttemptsRequiringReceiptFetch(t *testing.T) {
 
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
-			ctx := testutils.Context(t)
 			expTxAttempts, expErr := persistentStore.FindTxAttemptsRequiringReceiptFetch(ctx, tc.inChainID)
 			actTxAttempts, actErr := inMemoryStore.FindTxAttemptsRequiringReceiptFetch(ctx, tc.inChainID)
 			if tc.hasError {
@@ -450,7 +443,7 @@ func TestInMemoryStore_GetInProgressTxAttempts(t *testing.T) {
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	lggr := logger.TestSugared(t)
 	chainID := ethClient.ConfiguredChainID()
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 
 	inMemoryStore, err := commontxmgr.NewInMemoryStore[
 		*big.Int,
@@ -462,7 +455,6 @@ func TestInMemoryStore_GetInProgressTxAttempts(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("gets 0 in progress transaction", func(t *testing.T) {
-		ctx := testutils.Context(t)
 		expTxAttempts, expErr := persistentStore.GetInProgressTxAttempts(ctx, fromAddress, chainID)
 		actTxAttempts, actErr := inMemoryStore.GetInProgressTxAttempts(ctx, fromAddress, chainID)
 		require.NoError(t, actErr)
@@ -476,7 +468,6 @@ func TestInMemoryStore_GetInProgressTxAttempts(t *testing.T) {
 		// insert the transaction into the in-memory store
 		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
 
-		ctx := testutils.Context(t)
 		expTxAttempts, expErr := persistentStore.GetInProgressTxAttempts(ctx, fromAddress, chainID)
 		actTxAttempts, actErr := inMemoryStore.GetInProgressTxAttempts(ctx, fromAddress, chainID)
 		require.NoError(t, expErr)
@@ -500,7 +491,7 @@ func TestInMemoryStore_HasInProgressTransaction(t *testing.T) {
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	lggr := logger.TestSugared(t)
 	chainID := ethClient.ConfiguredChainID()
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 
 	inMemoryStore, err := commontxmgr.NewInMemoryStore[
 		*big.Int,
@@ -512,7 +503,6 @@ func TestInMemoryStore_HasInProgressTransaction(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("no in progress transaction", func(t *testing.T) {
-		ctx := testutils.Context(t)
 		expExists, expErr := persistentStore.HasInProgressTransaction(ctx, fromAddress, chainID)
 		actExists, actErr := inMemoryStore.HasInProgressTransaction(ctx, fromAddress, chainID)
 		require.NoError(t, actErr)
@@ -526,7 +516,6 @@ func TestInMemoryStore_HasInProgressTransaction(t *testing.T) {
 		// insert the transaction into the in-memory store
 		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
 
-		ctx := testutils.Context(t)
 		expExists, expErr := persistentStore.HasInProgressTransaction(ctx, fromAddress, chainID)
 		actExists, actErr := inMemoryStore.HasInProgressTransaction(ctx, fromAddress, chainID)
 		require.NoError(t, expErr)
@@ -547,7 +536,7 @@ func TestInMemoryStore_GetTxByID(t *testing.T) {
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	lggr := logger.TestSugared(t)
 	chainID := ethClient.ConfiguredChainID()
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 
 	inMemoryStore, err := commontxmgr.NewInMemoryStore[
 		*big.Int,
@@ -559,7 +548,6 @@ func TestInMemoryStore_GetTxByID(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("no transaction", func(t *testing.T) {
-		ctx := testutils.Context(t)
 		expTx, expErr := persistentStore.GetTxByID(ctx, 0)
 		actTx, actErr := inMemoryStore.GetTxByID(ctx, 0)
 		require.NoError(t, expErr)
@@ -574,7 +562,6 @@ func TestInMemoryStore_GetTxByID(t *testing.T) {
 		// insert the transaction into the in-memory store
 		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
 
-		ctx := testutils.Context(t)
 		expTx, expErr := persistentStore.GetTxByID(ctx, inTx.ID)
 		actTx, actErr := inMemoryStore.GetTxByID(ctx, inTx.ID)
 		require.NoError(t, expErr)
@@ -597,7 +584,7 @@ func TestInMemoryStore_FindTxWithSequence(t *testing.T) {
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	lggr := logger.TestSugared(t)
 	chainID := ethClient.ConfiguredChainID()
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 
 	inMemoryStore, err := commontxmgr.NewInMemoryStore[
 		*big.Int,
@@ -609,7 +596,6 @@ func TestInMemoryStore_FindTxWithSequence(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("no results", func(t *testing.T) {
-		ctx := testutils.Context(t)
 		expTx, expErr := persistentStore.FindTxWithSequence(ctx, fromAddress, evmtypes.Nonce(666))
 		actTx, actErr := inMemoryStore.FindTxWithSequence(ctx, fromAddress, evmtypes.Nonce(666))
 		require.NoError(t, expErr)
@@ -624,7 +610,6 @@ func TestInMemoryStore_FindTxWithSequence(t *testing.T) {
 		// insert the transaction into the in-memory store
 		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
 
-		ctx := testutils.Context(t)
 		expTx, expErr := persistentStore.FindTxWithSequence(ctx, fromAddress, evmtypes.Nonce(666))
 		actTx, actErr := inMemoryStore.FindTxWithSequence(ctx, fromAddress, evmtypes.Nonce(666))
 		require.NoError(t, expErr)
@@ -641,7 +626,6 @@ func TestInMemoryStore_FindTxWithSequence(t *testing.T) {
 		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
 
 		wrongFromAddress := common.Address{}
-		ctx := testutils.Context(t)
 		expTx, expErr := persistentStore.FindTxWithSequence(ctx, wrongFromAddress, evmtypes.Nonce(777))
 		actTx, actErr := inMemoryStore.FindTxWithSequence(ctx, wrongFromAddress, evmtypes.Nonce(777))
 		require.NoError(t, expErr)
@@ -663,7 +647,7 @@ func TestInMemoryStore_CountTransactionsByState(t *testing.T) {
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	lggr := logger.TestSugared(t)
 	chainID := ethClient.ConfiguredChainID()
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 
 	inMemoryStore, err := commontxmgr.NewInMemoryStore[
 		*big.Int,
@@ -675,7 +659,6 @@ func TestInMemoryStore_CountTransactionsByState(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("no results", func(t *testing.T) {
-		ctx := testutils.Context(t)
 		expCount, expErr := persistentStore.CountTransactionsByState(ctx, commontxmgr.TxUnconfirmed, chainID)
 		actCount, actErr := inMemoryStore.CountTransactionsByState(ctx, commontxmgr.TxUnconfirmed, chainID)
 		require.NoError(t, expErr)
@@ -684,7 +667,6 @@ func TestInMemoryStore_CountTransactionsByState(t *testing.T) {
 	})
 	t.Run("wrong chain id", func(t *testing.T) {
 		wrongChainID := big.NewInt(999)
-		ctx := testutils.Context(t)
 		expCount, expErr := persistentStore.CountTransactionsByState(ctx, commontxmgr.TxUnconfirmed, wrongChainID)
 		actCount, actErr := inMemoryStore.CountTransactionsByState(ctx, commontxmgr.TxUnconfirmed, wrongChainID)
 		require.NoError(t, expErr)
@@ -699,7 +681,6 @@ func TestInMemoryStore_CountTransactionsByState(t *testing.T) {
 			require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
 		}
 
-		ctx := testutils.Context(t)
 		expCount, expErr := persistentStore.CountTransactionsByState(ctx, commontxmgr.TxUnconfirmed, chainID)
 		actCount, actErr := inMemoryStore.CountTransactionsByState(ctx, commontxmgr.TxUnconfirmed, chainID)
 		require.NoError(t, expErr)
@@ -721,7 +702,7 @@ func TestInMemoryStore_FindTxsRequiringResubmissionDueToInsufficientEth(t *testi
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	lggr := logger.TestSugared(t)
 	chainID := ethClient.ConfiguredChainID()
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 
 	inMemoryStore, err := commontxmgr.NewInMemoryStore[
 		*big.Int,
@@ -733,7 +714,6 @@ func TestInMemoryStore_FindTxsRequiringResubmissionDueToInsufficientEth(t *testi
 	require.NoError(t, err)
 
 	t.Run("no results", func(t *testing.T) {
-		ctx := testutils.Context(t)
 		expTxs, expErr := persistentStore.FindTxsRequiringResubmissionDueToInsufficientFunds(ctx, fromAddress, chainID)
 		actTxs, actErr := inMemoryStore.FindTxsRequiringResubmissionDueToInsufficientFunds(ctx, fromAddress, chainID)
 		require.NoError(t, expErr)
@@ -767,7 +747,6 @@ func TestInMemoryStore_FindTxsRequiringResubmissionDueToInsufficientEth(t *testi
 	require.NoError(t, inMemoryStore.XXXTestInsertTx(otherAddress, &otx_3))
 
 	t.Run("return all eth_txes with at least one attempt that is in insufficient_eth state", func(t *testing.T) {
-		ctx := testutils.Context(t)
 		expTxs, expErr := persistentStore.FindTxsRequiringResubmissionDueToInsufficientFunds(ctx, fromAddress, chainID)
 		actTxs, actErr := inMemoryStore.FindTxsRequiringResubmissionDueToInsufficientFunds(ctx, fromAddress, chainID)
 		require.NoError(t, expErr)
@@ -781,7 +760,6 @@ func TestInMemoryStore_FindTxsRequiringResubmissionDueToInsufficientEth(t *testi
 
 	t.Run("does not return txes with different chainID", func(t *testing.T) {
 		wrongChainID := big.NewInt(999)
-		ctx := testutils.Context(t)
 		expTxs, expErr := persistentStore.FindTxsRequiringResubmissionDueToInsufficientFunds(ctx, fromAddress, wrongChainID)
 		actTxs, actErr := inMemoryStore.FindTxsRequiringResubmissionDueToInsufficientFunds(ctx, fromAddress, wrongChainID)
 		require.NoError(t, expErr)
@@ -791,7 +769,6 @@ func TestInMemoryStore_FindTxsRequiringResubmissionDueToInsufficientEth(t *testi
 
 	t.Run("does not return txes with different fromAddress", func(t *testing.T) {
 		anotherFromAddress := common.Address{}
-		ctx := testutils.Context(t)
 		expTxs, expErr := persistentStore.FindTxsRequiringResubmissionDueToInsufficientFunds(ctx, anotherFromAddress, chainID)
 		actTxs, actErr := inMemoryStore.FindTxsRequiringResubmissionDueToInsufficientFunds(ctx, anotherFromAddress, chainID)
 		require.NoError(t, expErr)
@@ -812,7 +789,7 @@ func TestInMemoryStore_GetNonFatalTransactions(t *testing.T) {
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	lggr := logger.TestSugared(t)
 	chainID := ethClient.ConfiguredChainID()
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 
 	inMemoryStore, err := commontxmgr.NewInMemoryStore[
 		*big.Int,
@@ -824,7 +801,6 @@ func TestInMemoryStore_GetNonFatalTransactions(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("no results", func(t *testing.T) {
-		ctx := testutils.Context(t)
 		expTxs, expErr := persistentStore.GetNonFatalTransactions(ctx, chainID)
 		actTxs, actErr := inMemoryStore.GetNonFatalTransactions(ctx, chainID)
 		require.NoError(t, expErr)
@@ -840,7 +816,6 @@ func TestInMemoryStore_GetNonFatalTransactions(t *testing.T) {
 		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx_0))
 		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx_1))
 
-		ctx := testutils.Context(t)
 		expTxs, expErr := persistentStore.GetNonFatalTransactions(ctx, chainID)
 		actTxs, actErr := inMemoryStore.GetNonFatalTransactions(ctx, chainID)
 		require.NoError(t, expErr)
@@ -854,7 +829,6 @@ func TestInMemoryStore_GetNonFatalTransactions(t *testing.T) {
 
 	t.Run("wrong chain ID", func(t *testing.T) {
 		wrongChainID := big.NewInt(999)
-		ctx := testutils.Context(t)
 		expTxs, expErr := persistentStore.GetNonFatalTransactions(ctx, wrongChainID)
 		actTxs, actErr := inMemoryStore.GetNonFatalTransactions(ctx, wrongChainID)
 		require.NoError(t, expErr)
@@ -875,7 +849,7 @@ func TestInMemoryStore_FindTransactionsConfirmedInBlockRange(t *testing.T) {
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	lggr := logger.TestSugared(t)
 	chainID := ethClient.ConfiguredChainID()
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 
 	inMemoryStore, err := commontxmgr.NewInMemoryStore[
 		*big.Int,
@@ -887,7 +861,6 @@ func TestInMemoryStore_FindTransactionsConfirmedInBlockRange(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("no results", func(t *testing.T) {
-		ctx := testutils.Context(t)
 		expTxs, expErr := persistentStore.FindTransactionsConfirmedInBlockRange(ctx, 10, 8, chainID)
 		actTxs, actErr := inMemoryStore.FindTransactionsConfirmedInBlockRange(ctx, 10, 8, chainID)
 		require.NoError(t, expErr)
@@ -907,7 +880,6 @@ func TestInMemoryStore_FindTransactionsConfirmedInBlockRange(t *testing.T) {
 		inTx_1.TxAttempts[0].Receipts = append(inTx_1.TxAttempts[0].Receipts, evmtxmgr.DbReceiptToEvmReceipt(&rec_1))
 		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx_1))
 
-		ctx := testutils.Context(t)
 		expTxs, expErr := persistentStore.FindTransactionsConfirmedInBlockRange(ctx, 10, 8, chainID)
 		actTxs, actErr := inMemoryStore.FindTransactionsConfirmedInBlockRange(ctx, 10, 8, chainID)
 		require.NoError(t, expErr)
@@ -920,7 +892,6 @@ func TestInMemoryStore_FindTransactionsConfirmedInBlockRange(t *testing.T) {
 
 	t.Run("wrong chain ID", func(t *testing.T) {
 		wrongChainID := big.NewInt(999)
-		ctx := testutils.Context(t)
 		expTxs, expErr := persistentStore.FindTransactionsConfirmedInBlockRange(ctx, 10, 8, wrongChainID)
 		actTxs, actErr := inMemoryStore.FindTransactionsConfirmedInBlockRange(ctx, 10, 8, wrongChainID)
 		require.NoError(t, expErr)
@@ -941,7 +912,7 @@ func TestInMemoryStore_FindEarliestUnconfirmedBroadcastTime(t *testing.T) {
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	lggr := logger.TestSugared(t)
 	chainID := ethClient.ConfiguredChainID()
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 
 	inMemoryStore, err := commontxmgr.NewInMemoryStore[
 		*big.Int,
@@ -953,7 +924,6 @@ func TestInMemoryStore_FindEarliestUnconfirmedBroadcastTime(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("no results", func(t *testing.T) {
-		ctx := testutils.Context(t)
 		expBroadcastAt, expErr := persistentStore.FindEarliestUnconfirmedBroadcastTime(ctx, chainID)
 		actBroadcastAt, actErr := inMemoryStore.FindEarliestUnconfirmedBroadcastTime(ctx, chainID)
 		require.NoError(t, expErr)
@@ -967,7 +937,6 @@ func TestInMemoryStore_FindEarliestUnconfirmedBroadcastTime(t *testing.T) {
 		// insert the transaction into the in-memory store
 		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
 
-		ctx := testutils.Context(t)
 		expBroadcastAt, expErr := persistentStore.FindEarliestUnconfirmedBroadcastTime(ctx, chainID)
 		actBroadcastAt, actErr := inMemoryStore.FindEarliestUnconfirmedBroadcastTime(ctx, chainID)
 		require.NoError(t, expErr)
@@ -978,7 +947,6 @@ func TestInMemoryStore_FindEarliestUnconfirmedBroadcastTime(t *testing.T) {
 	})
 	t.Run("wrong chain ID", func(t *testing.T) {
 		wrongChainID := big.NewInt(999)
-		ctx := testutils.Context(t)
 		expBroadcastAt, expErr := persistentStore.FindEarliestUnconfirmedBroadcastTime(ctx, wrongChainID)
 		actBroadcastAt, actErr := inMemoryStore.FindEarliestUnconfirmedBroadcastTime(ctx, wrongChainID)
 		require.NoError(t, expErr)
@@ -1001,7 +969,7 @@ func TestInMemoryStore_FindEarliestUnconfirmedTxAttemptBlock(t *testing.T) {
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	lggr := logger.TestSugared(t)
 	chainID := ethClient.ConfiguredChainID()
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 
 	inMemoryStore, err := commontxmgr.NewInMemoryStore[
 		*big.Int,
@@ -1013,7 +981,6 @@ func TestInMemoryStore_FindEarliestUnconfirmedTxAttemptBlock(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("no results", func(t *testing.T) {
-		ctx := testutils.Context(t)
 		expBlock, expErr := persistentStore.FindEarliestUnconfirmedTxAttemptBlock(ctx, chainID)
 		actBlock, actErr := inMemoryStore.FindEarliestUnconfirmedTxAttemptBlock(ctx, chainID)
 		require.NoError(t, expErr)
@@ -1034,7 +1001,6 @@ func TestInMemoryStore_FindEarliestUnconfirmedTxAttemptBlock(t *testing.T) {
 		// insert the transaction into the in-memory store
 		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
 
-		ctx := testutils.Context(t)
 		expBlock, expErr := persistentStore.FindEarliestUnconfirmedTxAttemptBlock(ctx, chainID)
 		actBlock, actErr := inMemoryStore.FindEarliestUnconfirmedTxAttemptBlock(ctx, chainID)
 		require.NoError(t, expErr)
@@ -1046,7 +1012,6 @@ func TestInMemoryStore_FindEarliestUnconfirmedTxAttemptBlock(t *testing.T) {
 
 	t.Run("wrong chain ID", func(t *testing.T) {
 		wrongChainID := big.NewInt(999)
-		ctx := testutils.Context(t)
 		expBlock, expErr := persistentStore.FindEarliestUnconfirmedTxAttemptBlock(ctx, wrongChainID)
 		actBlock, actErr := inMemoryStore.FindEarliestUnconfirmedTxAttemptBlock(ctx, wrongChainID)
 		require.NoError(t, expErr)
@@ -1068,7 +1033,7 @@ func TestInMemoryStore_LoadTxAttempts(t *testing.T) {
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	lggr := logger.TestSugared(t)
 	chainID := ethClient.ConfiguredChainID()
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 
 	inMemoryStore, err := commontxmgr.NewInMemoryStore[
 		*big.Int,
@@ -1085,7 +1050,6 @@ func TestInMemoryStore_LoadTxAttempts(t *testing.T) {
 		// insert the transaction into the in-memory store
 		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
 
-		ctx := testutils.Context(t)
 		expTx := evmtxmgr.Tx{ID: inTx.ID, TxAttempts: []evmtxmgr.TxAttempt{}, FromAddress: fromAddress} // empty tx attempts for test
 		expErr := persistentStore.LoadTxAttempts(ctx, &expTx)
 		require.Equal(t, 1, len(expTx.TxAttempts))
@@ -1114,7 +1078,7 @@ func TestInMemoryStore_PreloadTxes(t *testing.T) {
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	lggr := logger.TestSugared(t)
 	chainID := ethClient.ConfiguredChainID()
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 
 	inMemoryStore, err := commontxmgr.NewInMemoryStore[
 		*big.Int,
@@ -1131,7 +1095,6 @@ func TestInMemoryStore_PreloadTxes(t *testing.T) {
 		// insert the transaction into the in-memory store
 		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
 
-		ctx := testutils.Context(t)
 		expAttempts := []evmtxmgr.TxAttempt{{ID: 0, TxID: inTx.ID}}
 		expErr := persistentStore.PreloadTxes(ctx, expAttempts)
 		require.Equal(t, 1, len(expAttempts))
@@ -1160,7 +1123,7 @@ func TestInMemoryStore_IsTxFinalized(t *testing.T) {
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	lggr := logger.TestSugared(t)
 	chainID := ethClient.ConfiguredChainID()
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 
 	inMemoryStore, err := commontxmgr.NewInMemoryStore[
 		*big.Int,
@@ -1179,7 +1142,6 @@ func TestInMemoryStore_IsTxFinalized(t *testing.T) {
 		inTx.TxAttempts[0].Receipts = append(inTx.TxAttempts[0].Receipts, evmtxmgr.DbReceiptToEvmReceipt(&rec))
 		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
 
-		ctx := testutils.Context(t)
 		blockHeight := int64(2)
 		expIsFinalized, expErr := persistentStore.IsTxFinalized(ctx, blockHeight, inTx.ID, chainID)
 		actIsFinalized, actErr := inMemoryStore.IsTxFinalized(ctx, blockHeight, inTx.ID, chainID)
@@ -1196,7 +1158,6 @@ func TestInMemoryStore_IsTxFinalized(t *testing.T) {
 		inTx.TxAttempts[0].Receipts = append(inTx.TxAttempts[0].Receipts, evmtxmgr.DbReceiptToEvmReceipt(&rec))
 		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
 
-		ctx := testutils.Context(t)
 		blockHeight := int64(10)
 		expIsFinalized, expErr := persistentStore.IsTxFinalized(ctx, blockHeight, inTx.ID, chainID)
 		actIsFinalized, actErr := inMemoryStore.IsTxFinalized(ctx, blockHeight, inTx.ID, chainID)
@@ -1213,7 +1174,6 @@ func TestInMemoryStore_IsTxFinalized(t *testing.T) {
 		inTx.TxAttempts[0].Receipts = append(inTx.TxAttempts[0].Receipts, evmtxmgr.DbReceiptToEvmReceipt(&rec))
 		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
 
-		ctx := testutils.Context(t)
 		blockHeight := int64(10)
 		wrongChainID := big.NewInt(999)
 		expIsFinalized, expErr := persistentStore.IsTxFinalized(ctx, blockHeight, inTx.ID, wrongChainID)
@@ -1236,7 +1196,7 @@ func TestInMemoryStore_FindTxsRequiringGasBump(t *testing.T) {
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	lggr := logger.TestSugared(t)
 	chainID := ethClient.ConfiguredChainID()
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 
 	inMemoryStore, err := commontxmgr.NewInMemoryStore[
 		*big.Int,
@@ -1252,9 +1212,9 @@ func TestInMemoryStore_FindTxsRequiringGasBump(t *testing.T) {
 
 		// insert the transaction into the persistent store
 		inTx_0 := mustInsertUnconfirmedEthTxWithAttemptState(t, persistentStore, 1, fromAddress, txmgrtypes.TxAttemptBroadcast)
-		require.NoError(t, persistentStore.SetBroadcastBeforeBlockNum(testutils.Context(t), currentBlockNum, chainID))
+		require.NoError(t, persistentStore.SetBroadcastBeforeBlockNum(ctx, currentBlockNum, chainID))
 		inTx_1 := mustInsertUnconfirmedEthTxWithAttemptState(t, persistentStore, 2, fromAddress, txmgrtypes.TxAttemptBroadcast)
-		require.NoError(t, persistentStore.SetBroadcastBeforeBlockNum(testutils.Context(t), currentBlockNum+1, chainID))
+		require.NoError(t, persistentStore.SetBroadcastBeforeBlockNum(ctx, currentBlockNum+1, chainID))
 		// insert the transaction into the in-memory store
 		inTx_0.TxAttempts[0].BroadcastBeforeBlockNum = &currentBlockNum
 		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx_0))
@@ -1262,7 +1222,6 @@ func TestInMemoryStore_FindTxsRequiringGasBump(t *testing.T) {
 		inTx_1.TxAttempts[0].BroadcastBeforeBlockNum = &tempCurrentBlockNum
 		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx_1))
 
-		ctx := testutils.Context(t)
 		newBlock := int64(12)
 		gasBumpThreshold := int64(2)
 		expTxs, expErr := persistentStore.FindTxsRequiringGasBump(ctx, fromAddress, newBlock, gasBumpThreshold, 0, chainID)
