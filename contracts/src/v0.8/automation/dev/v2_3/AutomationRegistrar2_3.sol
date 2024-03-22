@@ -340,6 +340,9 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
 
   /**
    * @dev verify registration request and emit RegistrationRequested event
+   * @dev we currently allow multiple duplicate registrations by adding to the original registration's balance
+   * we could make this much simpler by using a nonce to differentiate otherwise identical requests and then
+   * we don't have to worry about identical registrations
    */
   function _register(RegistrationParams memory params, address sender) private returns (uint256) {
     if (params.amount < s_minRegistrationAmounts[params.billingToken]) {
@@ -372,7 +375,7 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
       s_triggerRegistrations[params.triggerType].approvedCount++;
       upkeepId = _approve(params, hash);
     } else {
-      uint96 newBalance = s_pendingRequests[hash].balance + params.amount; // TODO - this is bad UX
+      uint96 newBalance = s_pendingRequests[hash].balance + params.amount;
       s_pendingRequests[hash] = PendingRequest({admin: params.adminAddress, balance: newBalance});
     }
 
