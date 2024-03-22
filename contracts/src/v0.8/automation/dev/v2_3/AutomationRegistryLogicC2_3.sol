@@ -25,7 +25,8 @@ contract AutomationRegistryLogicC2_3 is AutomationRegistryBase2_3 {
     address fastGasFeed,
     address automationForwarderLogic,
     address allowedReadOnlyAddress,
-    PayoutMode payoutMode
+    PayoutMode payoutMode,
+    address wrappedNativeTokenAddress
   )
     AutomationRegistryBase2_3(
       link,
@@ -34,7 +35,8 @@ contract AutomationRegistryLogicC2_3 is AutomationRegistryBase2_3 {
       fastGasFeed,
       automationForwarderLogic,
       allowedReadOnlyAddress,
-      payoutMode
+      payoutMode,
+      wrappedNativeTokenAddress
     )
   {}
 
@@ -160,17 +162,17 @@ contract AutomationRegistryLogicC2_3 is AutomationRegistryBase2_3 {
     if (s_payoutMode == PayoutMode.ON_CHAIN) revert MustSettleOnchain();
 
     uint256 length = s_transmittersList.length;
-    uint256[] memory balances = new uint256[](length);
+    uint256[] memory payments = new uint256[](length);
     address[] memory payees = new address[](length);
     for (uint256 i = 0; i < length; i++) {
       address transmitterAddr = s_transmittersList[i];
       uint96 balance = _updateTransmitterBalanceFromPool(transmitterAddr, s_hotVars.totalPremium, uint96(length));
-      balances[i] = balance;
+      payments[i] = balance;
       payees[i] = s_transmitterPayees[transmitterAddr];
       s_transmitters[transmitterAddr].balance = 0;
     }
 
-    emit NOPsSettledOffchain(payees, balances);
+    emit NOPsSettledOffchain(payees, payments);
   }
 
   /**
@@ -234,6 +236,10 @@ contract AutomationRegistryLogicC2_3 is AutomationRegistryBase2_3 {
 
   function getAllowedReadOnlyAddress() external view returns (address) {
     return i_allowedReadOnlyAddress;
+  }
+
+  function getWrappedNativeTokenAddress() external view returns (address) {
+    return address(i_wrappedNativeToken);
   }
 
   function getBillingToken(uint256 upkeepID) external view returns (IERC20) {

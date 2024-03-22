@@ -28,7 +28,7 @@ src = 'src/v0.8/vrf'
 test = 'test/v0.8/foundry/vrf' # skips tests for no VRF foundry tests
 
 [profile.vrfv2plus_coordinator]
-optimizer_runs = 50
+optimizer_runs = 500
 src = 'src/v0.8/vrf'
 
 [profile.vrfv2plus]
