@@ -315,6 +315,7 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
       delete s_signers[signerAddress];
       // Do not delete the whole transmitter struct as it has balance information stored
       s_transmitters[transmitterAddress].active = false;
+      s_deactivatedTransmittersList.push(transmitterAddress);
     }
     delete s_signersList;
     delete s_transmittersList;
