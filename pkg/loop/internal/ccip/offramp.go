@@ -227,6 +227,15 @@ func (o *OffRampReaderGRPCClient) GetTokens(ctx context.Context) (cciptypes.OffR
 	return offRampTokens(resp.Tokens), nil
 }
 
+// GetRouter i[github.com/smartcontractkit/chainlink-common/pkg/types/ccip.OffRampReader]
+func (o *OffRampReaderGRPCClient) GetRouter(ctx context.Context) (cciptypes.Address, error) {
+	resp, err := o.client.GetRouter(ctx, &emptypb.Empty{})
+	if err != nil {
+		return cciptypes.Address(""), err
+	}
+	return cciptypes.Address(resp.Router), nil
+}
+
 // OffchainConfig i[github.com/smartcontractkit/chainlink-common/pkg/types/ccip.OffRampReader]
 func (o *OffRampReaderGRPCClient) OffchainConfig(ctx context.Context) (cciptypes.ExecOffchainConfig, error) {
 	resp, err := o.client.OffchainConfig(ctx, &emptypb.Empty{})
@@ -244,6 +253,7 @@ func (o *OffRampReaderGRPCClient) OnchainConfig(ctx context.Context) (cciptypes.
 	}
 	return cciptypes.ExecOnchainConfig{
 		PermissionLessExecutionThresholdSeconds: resp.Config.PermissionlessExecThresholdSeconds.AsDuration(),
+		Router:                                  cciptypes.Address(resp.Config.Router),
 	}, nil
 }
 
@@ -375,6 +385,15 @@ func (o *OffRampReaderGRPCServer) GetTokens(ctx context.Context, req *emptypb.Em
 	return &ccippb.GetTokensResponse{Tokens: offRampTokensToPB(tokens)}, nil
 }
 
+// GetRouter implements ccippb.OffRampReaderServer.
+func (o *OffRampReaderGRPCServer) GetRouter(ctx context.Context, req *emptypb.Empty) (*ccippb.GetRouterResponse, error) {
+	router, err := o.impl.GetRouter(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &ccippb.GetRouterResponse{Router: string(router)}, nil
+}
+
 // OffchainConfig implements ccippb.OffRampReaderServer.
 func (o *OffRampReaderGRPCServer) OffchainConfig(ctx context.Context, req *emptypb.Empty) (*ccippb.OffchainConfigResponse, error) {
 	config, err := o.impl.OffchainConfig(ctx)
@@ -392,6 +411,7 @@ func (o *OffRampReaderGRPCServer) OnchainConfig(ctx context.Context, req *emptyp
 	}
 	pbConfig := ccippb.ExecOnchainConfig{
 		PermissionlessExecThresholdSeconds: durationpb.New(config.PermissionLessExecutionThresholdSeconds),
+		Router:                             string(config.Router),
 	}
 	return &ccippb.OnchainConfigResponse{Config: &pbConfig}, nil
 }

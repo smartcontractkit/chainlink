@@ -205,6 +205,12 @@ func roundTripOffRampTests(ctx context.Context, t *testing.T, client *ccip.OffRa
 		assert.Equal(t, OffRampReader.getTokensResponse, tokens)
 	})
 
+	t.Run("GetRouter", func(t *testing.T) {
+		router, err := client.GetRouter(ctx)
+		require.NoError(t, err)
+		assert.Equal(t, OffRampReader.getRouterResponse, router)
+	})
+
 	t.Run("OffchainConfig", func(t *testing.T) {
 		config, err := client.OffchainConfig(ctx)
 		require.NoError(t, err)

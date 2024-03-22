@@ -147,6 +147,9 @@ var OffRampReader = staticOffRamp{
 				ccip.Address("key1"): ccip.Address("value1"),
 			},
 		},
+
+		// GetRouter test data
+		getRouterResponse: ccip.Address("getRouterResponse"),
 	},
 }
 
@@ -186,6 +189,8 @@ type staticOffRampConfig struct {
 	getStaticConfigResponse ccip.OffRampStaticConfig
 
 	getTokensResponse ccip.OffRampTokens
+
+	getRouterResponse ccip.Address
 
 	offchainConfigResponse ccip.ExecOffchainConfig
 
@@ -292,6 +297,11 @@ func (s staticOffRamp) GetStaticConfig(ctx context.Context) (ccip.OffRampStaticC
 // GetTokens implements OffRampEvaluator.
 func (s staticOffRamp) GetTokens(ctx context.Context) (ccip.OffRampTokens, error) {
 	return s.getTokensResponse, nil
+}
+
+// GetRouter implements OffRampEvaluator.
+func (s staticOffRamp) GetRouter(ctx context.Context) (ccip.Address, error) {
+	return s.getRouterResponse, nil
 }
 
 // OffchainConfig implements OffRampEvaluator.
@@ -437,6 +447,14 @@ func (s staticOffRamp) Evaluate(ctx context.Context, other ccip.OffRampReader) e
 	}
 	if !assert.ObjectsAreEqual(getTokens, s.getTokensResponse) {
 		return fmt.Errorf("expected getTokens %v but got %v", s.getTokensResponse, getTokens)
+	}
+
+	getRouter, err := other.GetRouter(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get getRouter: %w", err)
+	}
+	if getRouter != s.getRouterResponse {
+		return fmt.Errorf("expected getRouter %s but got %s", s.getRouterResponse, getRouter)
 	}
 
 	offchainConfig, err := other.OffchainConfig(ctx)

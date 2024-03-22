@@ -34,6 +34,7 @@ const (
 	OffRampReader_GetStaticConfig_FullMethodName              = "/loop.internal.pb.ccip.OffRampReader/GetStaticConfig"
 	OffRampReader_GetSourceToDestTokensMapping_FullMethodName = "/loop.internal.pb.ccip.OffRampReader/GetSourceToDestTokensMapping"
 	OffRampReader_GetTokens_FullMethodName                    = "/loop.internal.pb.ccip.OffRampReader/GetTokens"
+	OffRampReader_GetRouter_FullMethodName                    = "/loop.internal.pb.ccip.OffRampReader/GetRouter"
 	OffRampReader_Close_FullMethodName                        = "/loop.internal.pb.ccip.OffRampReader/Close"
 )
 
@@ -55,6 +56,7 @@ type OffRampReaderClient interface {
 	GetStaticConfig(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GetStaticConfigResponse, error)
 	GetSourceToDestTokensMapping(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GetSourceToDestTokensMappingResponse, error)
 	GetTokens(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GetTokensResponse, error)
+	GetRouter(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GetRouterResponse, error)
 	Close(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
@@ -192,6 +194,15 @@ func (c *offRampReaderClient) GetTokens(ctx context.Context, in *emptypb.Empty, 
 	return out, nil
 }
 
+func (c *offRampReaderClient) GetRouter(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GetRouterResponse, error) {
+	out := new(GetRouterResponse)
+	err := c.cc.Invoke(ctx, OffRampReader_GetRouter_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *offRampReaderClient) Close(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, OffRampReader_Close_FullMethodName, in, out, opts...)
@@ -219,6 +230,7 @@ type OffRampReaderServer interface {
 	GetStaticConfig(context.Context, *emptypb.Empty) (*GetStaticConfigResponse, error)
 	GetSourceToDestTokensMapping(context.Context, *emptypb.Empty) (*GetSourceToDestTokensMappingResponse, error)
 	GetTokens(context.Context, *emptypb.Empty) (*GetTokensResponse, error)
+	GetRouter(context.Context, *emptypb.Empty) (*GetRouterResponse, error)
 	Close(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	mustEmbedUnimplementedOffRampReaderServer()
 }
@@ -268,6 +280,9 @@ func (UnimplementedOffRampReaderServer) GetSourceToDestTokensMapping(context.Con
 }
 func (UnimplementedOffRampReaderServer) GetTokens(context.Context, *emptypb.Empty) (*GetTokensResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetTokens not implemented")
+}
+func (UnimplementedOffRampReaderServer) GetRouter(context.Context, *emptypb.Empty) (*GetRouterResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetRouter not implemented")
 }
 func (UnimplementedOffRampReaderServer) Close(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Close not implemented")
@@ -537,6 +552,24 @@ func _OffRampReader_GetTokens_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _OffRampReader_GetRouter_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OffRampReaderServer).GetRouter(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: OffRampReader_GetRouter_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OffRampReaderServer).GetRouter(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _OffRampReader_Close_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(emptypb.Empty)
 	if err := dec(in); err != nil {
@@ -617,6 +650,10 @@ var OffRampReader_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetTokens",
 			Handler:    _OffRampReader_GetTokens_Handler,
+		},
+		{
+			MethodName: "GetRouter",
+			Handler:    _OffRampReader_GetRouter_Handler,
 		},
 		{
 			MethodName: "Close",
