@@ -150,8 +150,8 @@ func TestShell_ListUsers(t *testing.T) {
 	assert.Contains(t, output, user.Email)
 	assert.Contains(t, output, user.Role)
 	assert.Contains(t, output, user.TokenKey.String)
-	assert.Contains(t, output, user.CreatedAt.String())
-	assert.Contains(t, output, user.UpdatedAt.String())
+	assert.Contains(t, output, user.CreatedAt.UTC().String())
+	assert.Contains(t, output, user.UpdatedAt.UTC().String())
 }
 
 func TestAdminUsersPresenter_RenderTable(t *testing.T) {
