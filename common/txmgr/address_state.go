@@ -171,7 +171,43 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) findTx
 	filter func(*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool,
 	txIDs ...int64,
 ) []txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {
-	return nil
+	as.RLock()
+	defer as.RUnlock()
+
+	// if txStates is empty then apply the filter to only the as.allTransactions map
+	if len(txStates) == 0 {
+		return as._findTxs(as.allTxs, filter, txIDs...)
+	}
+
+	var txs []txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	for _, txState := range txStates {
+		switch txState {
+		case TxUnstarted:
+			filter2 := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
+				if tx.State != TxUnstarted {
+					return false
+				}
+				return filter(tx)
+			}
+			txs = append(txs, as._findTxs(as.allTxs, filter2, txIDs...)...)
+		case TxInProgress:
+			if as.inprogressTx != nil && filter(as.inprogressTx) {
+				txs = append(txs, *as.inprogressTx)
+			}
+		case TxUnconfirmed:
+			txs = append(txs, as._findTxs(as.unconfirmedTxs, filter, txIDs...)...)
+		case TxConfirmedMissingReceipt:
+			txs = append(txs, as._findTxs(as.confirmedMissingReceiptTxs, filter, txIDs...)...)
+		case TxConfirmed:
+			txs = append(txs, as._findTxs(as.confirmedTxs, filter, txIDs...)...)
+		case TxFatalError:
+			txs = append(txs, as._findTxs(as.fatalErroredTxs, filter, txIDs...)...)
+		default:
+			panic("findTxs: unknown transaction state")
+		}
+	}
+
+	return txs
 }
 
 // pruneUnstartedTxQueue removes the transactions with the given IDs from the unstarted transaction queue.
@@ -290,4 +326,32 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) _delet
 		delete(as.fatalErroredTxs, txID)
 		as.unstartedTxs.RemoveTxByID(txID)
 	}
+}
+
+// This method is not concurrent safe and should only be called from within a lock
+func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) _findTxs(
+	txIDsToTx map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
+	filter func(*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool,
+	txIDs ...int64,
+) []txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {
+	var txs []txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	// if txIDs is not empty then only apply the filter to those transactions
+	if len(txIDs) > 0 {
+		for _, txID := range txIDs {
+			tx := txIDsToTx[txID]
+			if tx != nil && filter(tx) {
+				txs = append(txs, *tx)
+			}
+		}
+		return txs
+	}
+
+	// if txIDs is empty then apply the filter to all transactions
+	for _, tx := range txIDsToTx {
+		if filter(tx) {
+			txs = append(txs, *tx)
+		}
+	}
+
+	return txs
 }
