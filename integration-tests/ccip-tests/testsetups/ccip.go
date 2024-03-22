@@ -209,6 +209,21 @@ func (c *CCIPTestConfig) SetNetworkPairs(lggr zerolog.Logger) error {
 					ClientImplementation:      n.ClientImplementation,
 					DefaultGasLimit:           n.DefaultGasLimit,
 				})
+				chainConfig := &ctftestenv.EthereumChainConfig{}
+				err := chainConfig.Default()
+				if err != nil {
+					allError = multierr.Append(allError, fmt.Errorf("failed to get default chain config: %w", err))
+				} else {
+					chainConfig.ChainID = int(chainID)
+					eth1 := ctftestenv.EthereumVersion_Eth1
+					geth := ctftestenv.ExecutionLayer_Geth
+
+					c.EnvInput.PrivateEthereumNetworks[fmt.Sprint(chainID)] = &ctftestenv.EthereumNetwork{
+						EthereumVersion:     &eth1,
+						ExecutionLayer:      &geth,
+						EthereumChainConfig: chainConfig,
+					}
+				}
 			}
 		}
 	}

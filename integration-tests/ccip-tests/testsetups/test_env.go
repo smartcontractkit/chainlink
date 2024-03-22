@@ -174,32 +174,9 @@ func DeployLocalCluster(
 ) (*test_env.CLClusterTestEnv, func() error) {
 	selectedNetworks := testInputs.SelectedNetworks
 
-	// get TOML config, but if it's not present use selected networks to generate a default one (2 geth pow chains on 1.12)
 	privateEthereumNetworks := []*ctftestenv.EthereumNetwork{}
-
-	require.True(t, len(testInputs.EnvInput.PrivateEthereumNetworks) == 0 || len(testInputs.EnvInput.PrivateEthereumNetworks) == len(testInputs.SelectedNetworks), "You either have to configure all private networks or none at all")
-
-	// if there's no configuration use default
-	if len(testInputs.EnvInput.PrivateEthereumNetworks) == 0 {
-		for _, network := range selectedNetworks {
-			chainConfig := &ctftestenv.EthereumChainConfig{}
-			err := chainConfig.Default()
-			require.NoError(t, err, "Error getting default chain config")
-
-			chainConfig.ChainID = int(network.ChainID)
-			eth1 := ctftestenv.EthereumVersion_Eth1
-			geth := ctftestenv.ExecutionLayer_Geth
-
-			privateEthereumNetworks = append(privateEthereumNetworks, &ctftestenv.EthereumNetwork{
-				EthereumVersion:     &eth1,
-				ExecutionLayer:      &geth,
-				EthereumChainConfig: chainConfig,
-			})
-		}
-	} else {
-		for _, network := range testInputs.EnvInput.PrivateEthereumNetworks {
-			privateEthereumNetworks = append(privateEthereumNetworks, network)
-		}
+	for _, network := range testInputs.EnvInput.PrivateEthereumNetworks {
+		privateEthereumNetworks = append(privateEthereumNetworks, network)
 	}
 
 	env, err := test_env.NewCLTestEnvBuilder().
