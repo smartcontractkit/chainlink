@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -30,10 +31,13 @@ func TestForwarderOCR2Basic(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	privateNetwork, err := actions.EthereumNetworkConfigFromConfig(l, &config)
+	require.NoError(t, err, "Error building ethereum network config")
+
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestInstance(t).
 		WithTestConfig(&config).
-		WithGeth().
+		WithPrivateEthereumNetwork(privateNetwork).
 		WithMockAdapter().
 		WithCLNodeConfig(node.NewConfig(node.NewBaseConfig(),
 			node.WithOCR2(),
@@ -57,21 +61,25 @@ func TestForwarderOCR2Basic(t *testing.T) {
 	linkTokenContract, err := env.ContractDeployer.DeployLinkTokenContract()
 	require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
 
-	err = actions.FundChainlinkNodesLocal(workerNodes, env.EVMClient, big.NewFloat(.05))
+	network := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0]
+	evmClient, err := env.GetEVMClient(network.ChainID)
+	require.NoError(t, err, "Getting EVM client shouldn't fail")
+
+	err = actions.FundChainlinkNodesLocal(workerNodes, evmClient, big.NewFloat(.05))
 	require.NoError(t, err, "Error funding Chainlink nodes")
 
 	//nolint:staticcheck //ignore SA1019 we will migrate that test later
 	operators, authorizedForwarders, _ := actions.DeployForwarderContracts(
-		t, env.ContractDeployer, linkTokenContract, env.EVMClient, len(workerNodes),
+		t, env.ContractDeployer, linkTokenContract, evmClient, len(workerNodes),
 	)
 
 	for i := range workerNodes {
 		//nolint:staticcheck //ignore SA1019 we will migrate that test later
-		actions.AcceptAuthorizedReceiversOperator(t, operators[i], authorizedForwarders[i], []common.Address{workerNodeAddresses[i]}, env.EVMClient, env.ContractLoader)
+		actions.AcceptAuthorizedReceiversOperator(t, operators[i], authorizedForwarders[i], []common.Address{workerNodeAddresses[i]}, evmClient, env.ContractLoader)
 		require.NoError(t, err, "Accepting Authorized Receivers on Operator shouldn't fail")
-		err = actions.TrackForwarderLocal(env.EVMClient, authorizedForwarders[i], workerNodes[i], l)
+		err = actions.TrackForwarderLocal(evmClient, authorizedForwarders[i], workerNodes[i], l)
 		require.NoError(t, err, "failed to track forwarders")
-		err = env.EVMClient.WaitForEvents()
+		err = evmClient.WaitForEvents()
 		require.NoError(t, err, "Error waiting for events")
 	}
 
@@ -82,14 +90,14 @@ func TestForwarderOCR2Basic(t *testing.T) {
 	}
 
 	ocrOffchainOptions := contracts.DefaultOffChainAggregatorOptions()
-	ocrInstances, err := actions.DeployOCRv2Contracts(1, linkTokenContract, env.ContractDeployer, transmitters, env.EVMClient, ocrOffchainOptions)
+	ocrInstances, err := actions.DeployOCRv2Contracts(1, linkTokenContract, env.ContractDeployer, transmitters, evmClient, ocrOffchainOptions)
 	require.NoError(t, err, "Error deploying OCRv2 contracts with forwarders")
-	err = env.EVMClient.WaitForEvents()
+	err = evmClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for events")
 
-	err = actions.CreateOCRv2JobsLocal(ocrInstances, bootstrapNode, workerNodes, env.MockAdapter, "ocr2", 5, env.EVMClient.GetChainID().Uint64(), true, false)
+	err = actions.CreateOCRv2JobsLocal(ocrInstances, bootstrapNode, workerNodes, env.MockAdapter, "ocr2", 5, evmClient.GetChainID().Uint64(), true, false)
 	require.NoError(t, err, "Error creating OCRv2 jobs with forwarders")
-	err = env.EVMClient.WaitForEvents()
+	err = evmClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for events")
 
 	ocrv2Config, err := actions.BuildMedianOCR2ConfigLocal(workerNodes, ocrOffchainOptions)
@@ -97,10 +105,10 @@ func TestForwarderOCR2Basic(t *testing.T) {
 	ocrv2Config.Transmitters = authorizedForwarders
 
 	//nolint:staticcheck //ignore SA1019 we will migrate that test later
-	err = actions.ConfigureOCRv2AggregatorContracts(env.EVMClient, ocrv2Config, ocrInstances)
+	err = actions.ConfigureOCRv2AggregatorContracts(evmClient, ocrv2Config, ocrInstances)
 	require.NoError(t, err, "Error configuring OCRv2 aggregator contracts")
 
-	err = actions.WatchNewOCR2Round(1, ocrInstances, env.EVMClient, time.Minute*10, l)
+	err = actions.WatchNewOCR2Round(1, ocrInstances, evmClient, time.Minute*10, l)
 	require.NoError(t, err)
 
 	answer, err := ocrInstances[0].GetLatestAnswer(testcontext.Get(t))
@@ -111,7 +119,7 @@ func TestForwarderOCR2Basic(t *testing.T) {
 		ocrRoundVal := (5 + i) % 10
 		err = env.MockAdapter.SetAdapterBasedIntValuePath("ocr2", []string{http.MethodGet, http.MethodPost}, ocrRoundVal)
 		require.NoError(t, err)
-		err = actions.WatchNewOCR2Round(int64(i), ocrInstances, env.EVMClient, time.Minute*10, l)
+		err = actions.WatchNewOCR2Round(int64(i), ocrInstances, evmClient, time.Minute*10, l)
 		require.NoError(t, err)
 
 		answer, err = ocrInstances[0].GetLatestAnswer(testcontext.Get(t))

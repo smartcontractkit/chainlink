@@ -12,13 +12,13 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
-	lp_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/log_poller"
 	logpoller "github.com/smartcontractkit/chainlink/integration-tests/universal/log_poller"
 
 	core_logger "github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -104,14 +104,18 @@ func executeBasicLogPollerTest(t *testing.T) {
 
 	l.Info().Msg("No duplicate filters found. OK!")
 
-	err = testEnv.EVMClient.WaitForEvents()
+	network := networks.MustGetSelectedNetworkConfig(testConfig.GetNetworkConfig())[0]
+	evmClient, err := testEnv.GetEVMClient(network.ChainID)
+	require.NoError(t, err, "Getting EVM client shouldn't fail")
+
+	err = evmClient.WaitForEvents()
 	require.NoError(t, err, "Error encountered when waiting for setting trigger config for upkeeps")
 
 	expectedFilters := logpoller.GetExpectedFilters(lpTestEnv.logEmitters, cfg)
-	waitForAllNodesToHaveExpectedFiltersRegisteredOrFail(l, coreLogger, t, testEnv, expectedFilters)
+	waitForAllNodesToHaveExpectedFiltersRegisteredOrFail(l, coreLogger, t, testEnv, &testConfig, expectedFilters)
 
 	// Save block number before starting to emit events, so that we can later use it when querying logs
-	sb, err := testEnv.EVMClient.LatestBlockNumber(testcontext.Get(t))
+	sb, err := evmClient.LatestBlockNumber(testcontext.Get(t))
 	require.NoError(t, err, "Error getting latest block number")
 	startBlock := int64(sb)
 
@@ -121,7 +125,7 @@ func executeBasicLogPollerTest(t *testing.T) {
 	// Start chaos experimnents by randomly pausing random containers (Chainlink nodes or their DBs)
 	chaosDoneCh := make(chan error, 1)
 	go func() {
-		logpoller.ExecuteChaosExperiment(l, testEnv, cfg, chaosDoneCh)
+		logpoller.ExecuteChaosExperiment(l, testEnv, &testConfig, chaosDoneCh)
 	}()
 
 	totalLogsEmitted, err := logpoller.ExecuteGenerator(t, cfg, lpTestEnv.logEmitters)
@@ -131,7 +135,7 @@ func executeBasicLogPollerTest(t *testing.T) {
 	expectedLogsEmitted := logpoller.GetExpectedLogCount(cfg)
 	duration := int(endTime.Sub(startTime).Seconds())
 
-	eb, err := testEnv.EVMClient.LatestBlockNumber(testcontext.Get(t))
+	eb, err := evmClient.LatestBlockNumber(testcontext.Get(t))
 	require.NoError(t, err, "Error getting latest block number")
 
 	l.Info().
@@ -150,12 +154,10 @@ func executeBasicLogPollerTest(t *testing.T) {
 	// as that's not trivial to do (i.e.  just because chain was at block X when log emission ended it doesn't mean all events made it to that block)
 	endBlock := int64(eb) + 10000
 
-	// logCountWaitDuration, err := time.ParseDuration("5m")
-	// require.NoError(t, err, "Error parsing log count wait duration")
-	allNodesLogCountMatches, err := logpoller.FluentlyCheckIfAllNodesHaveLogCount("5m", startBlock, endBlock, totalLogsEmitted, expectedFilters, l, coreLogger, testEnv)
+	allNodesLogCountMatches, err := logpoller.FluentlyCheckIfAllNodesHaveLogCount("5m", startBlock, endBlock, totalLogsEmitted, expectedFilters, l, coreLogger, testEnv, evmClient.GetChainID().Int64())
 	require.NoError(t, err, "Error checking if CL nodes have expected log count")
 
-	conditionallyWaitUntilNodesHaveTheSameLogsAsEvm(l, coreLogger, t, allNodesLogCountMatches, lpTestEnv, cfg, startBlock, endBlock, "5m")
+	conditionallyWaitUntilNodesHaveTheSameLogsAsEvm(l, coreLogger, t, allNodesLogCountMatches, lpTestEnv, &testConfig, startBlock, endBlock, "5m")
 }
 
 func executeLogPollerReplay(t *testing.T, consistencyTimeout string) {
@@ -176,8 +178,12 @@ func executeLogPollerReplay(t *testing.T, consistencyTimeout string) {
 	lpTestEnv := prepareEnvironment(l, t, &testConfig)
 	testEnv := lpTestEnv.testEnv
 
+	network := networks.MustGetSelectedNetworkConfig(testConfig.GetNetworkConfig())[0]
+	evmClient, err := testEnv.GetEVMClient(network.ChainID)
+	require.NoError(t, err, "Getting EVM client shouldn't fail")
+
 	// Save block number before starting to emit events, so that we can later use it when querying logs
-	sb, err := testEnv.EVMClient.LatestBlockNumber(testcontext.Get(t))
+	sb, err := evmClient.LatestBlockNumber(testcontext.Get(t))
 	require.NoError(t, err, "Error getting latest block number")
 	startBlock := int64(sb)
 
@@ -190,17 +196,17 @@ func executeLogPollerReplay(t *testing.T, consistencyTimeout string) {
 	duration := int(endTime.Sub(startTime).Seconds())
 
 	// Save block number after finishing to emit events, so that we can later use it when querying logs
-	eb, err := testEnv.EVMClient.LatestBlockNumber(testcontext.Get(t))
+	eb, err := evmClient.LatestBlockNumber(testcontext.Get(t))
 	require.NoError(t, err, "Error getting latest block number")
 
-	endBlock, err := logpoller.GetEndBlockToWaitFor(int64(eb), testEnv.EVMClient.GetChainID().Int64(), cfg)
+	endBlock, err := logpoller.GetEndBlockToWaitFor(int64(eb), evmClient.GetChainID().Int64(), cfg)
 	require.NoError(t, err, "Error getting end block to wait for")
 
 	l.Info().Int64("Ending Block", endBlock).Int("Total logs emitted", totalLogsEmitted).Int64("Expected total logs emitted", expectedLogsEmitted).Str("Duration", fmt.Sprintf("%d sec", duration)).Str("LPS", fmt.Sprintf("%d/sec", totalLogsEmitted/duration)).Msg("FINISHED EVENT EMISSION")
 
 	// Lets make sure no logs are in DB yet
 	expectedFilters := logpoller.GetExpectedFilters(lpTestEnv.logEmitters, cfg)
-	logCountMatches, err := logpoller.ClNodesHaveExpectedLogCount(startBlock, endBlock, testEnv.EVMClient.GetChainID(), 0, expectedFilters, l, coreLogger, testEnv.ClCluster)
+	logCountMatches, err := logpoller.ClNodesHaveExpectedLogCount(startBlock, endBlock, evmClient.GetChainID(), 0, expectedFilters, l, coreLogger, testEnv.ClCluster)
 	require.NoError(t, err, "Error checking if CL nodes have expected log count")
 	require.True(t, logCountMatches, "Some CL nodes already had logs in DB")
 	l.Info().Msg("No logs were saved by CL nodes yet, as expected. Proceeding.")
@@ -210,16 +216,16 @@ func executeLogPollerReplay(t *testing.T, consistencyTimeout string) {
 	err = logpoller.RegisterFiltersAndAssertUniquness(l, lpTestEnv.registry, lpTestEnv.upkeepIDs, lpTestEnv.logEmitters, cfg, lpTestEnv.upKeepsNeeded)
 	require.NoError(t, err, "Error registering filters")
 
-	err = testEnv.EVMClient.WaitForEvents()
+	err = evmClient.WaitForEvents()
 	require.NoError(t, err, "Error encountered when waiting for setting trigger config for upkeeps")
 
-	waitForAllNodesToHaveExpectedFiltersRegisteredOrFail(l, coreLogger, t, testEnv, expectedFilters)
+	waitForAllNodesToHaveExpectedFiltersRegisteredOrFail(l, coreLogger, t, testEnv, &testConfig, expectedFilters)
 
 	blockFinalisationWaitDuration := "5m"
 	l.Warn().Str("Duration", blockFinalisationWaitDuration).Msg("Waiting for all CL nodes to have end block finalised")
 	gom := gomega.NewGomegaWithT(t)
 	gom.Eventually(func(g gomega.Gomega) {
-		hasFinalised, err := logpoller.LogPollerHasFinalisedEndBlock(endBlock, testEnv.EVMClient.GetChainID(), l, coreLogger, testEnv.ClCluster)
+		hasFinalised, err := logpoller.LogPollerHasFinalisedEndBlock(endBlock, evmClient.GetChainID(), l, coreLogger, testEnv.ClCluster)
 		if err != nil {
 			l.Warn().Err(err).Msg("Error checking if nodes have finalised end block. Retrying...")
 		}
@@ -230,7 +236,7 @@ func executeLogPollerReplay(t *testing.T, consistencyTimeout string) {
 	l.Info().Msg("Triggering log poller's replay")
 	for i := 1; i < len(testEnv.ClCluster.Nodes); i++ {
 		nodeName := testEnv.ClCluster.Nodes[i].ContainerName
-		response, _, err := testEnv.ClCluster.Nodes[i].API.ReplayLogPollerFromBlock(startBlock, testEnv.EVMClient.GetChainID().Int64())
+		response, _, err := testEnv.ClCluster.Nodes[i].API.ReplayLogPollerFromBlock(startBlock, evmClient.GetChainID().Int64())
 		require.NoError(t, err, "Error triggering log poller's replay on node %s", nodeName)
 		require.Equal(t, "Replay started", response.Data.Attributes.Message, "Unexpected response message from log poller's replay")
 	}
@@ -240,10 +246,10 @@ func executeLogPollerReplay(t *testing.T, consistencyTimeout string) {
 	l.Warn().Str("Duration", consistencyTimeout).Msg("Waiting for replay logs to be processed by all nodes")
 
 	// logCountWaitDuration, err := time.ParseDuration("5m")
-	allNodesLogCountMatches, err := logpoller.FluentlyCheckIfAllNodesHaveLogCount("5m", startBlock, endBlock, totalLogsEmitted, expectedFilters, l, coreLogger, testEnv)
+	allNodesLogCountMatches, err := logpoller.FluentlyCheckIfAllNodesHaveLogCount("5m", startBlock, endBlock, totalLogsEmitted, expectedFilters, l, coreLogger, testEnv, evmClient.GetChainID().Int64())
 	require.NoError(t, err, "Error checking if CL nodes have expected log count")
 
-	conditionallyWaitUntilNodesHaveTheSameLogsAsEvm(l, coreLogger, t, allNodesLogCountMatches, lpTestEnv, cfg, startBlock, endBlock, "5m")
+	conditionallyWaitUntilNodesHaveTheSameLogsAsEvm(l, coreLogger, t, allNodesLogCountMatches, lpTestEnv, &testConfig, startBlock, endBlock, "5m")
 }
 
 type logPollerEnvironment struct {
@@ -302,7 +308,7 @@ func prepareEnvironment(l zerolog.Logger, t *testing.T, testConfig *tc.TestConfi
 	l.Info().Msg("No duplicate upkeep IDs found. OK!")
 
 	// Deploy Log Emitter contracts
-	logEmitters := logpoller.UploadLogEmitterContractsAndWaitForFinalisation(l, t, testEnv, cfg)
+	logEmitters := logpoller.UploadLogEmitterContractsAndWaitForFinalisation(l, t, testEnv, testConfig)
 	err = logpoller.AssertContractAddressUniquneness(logEmitters)
 	require.NoError(t, err, "Error asserting contract addresses uniqueness")
 	l.Info().Msg("No duplicate contract addresses found. OK!")
@@ -317,8 +323,13 @@ func prepareEnvironment(l zerolog.Logger, t *testing.T, testConfig *tc.TestConfi
 }
 
 // waitForAllNodesToHaveExpectedFiltersRegisteredOrFail waits until all nodes have expected filters registered until timeout
-func waitForAllNodesToHaveExpectedFiltersRegisteredOrFail(l zerolog.Logger, coreLogger core_logger.SugaredLogger, t *testing.T, testEnv *test_env.CLClusterTestEnv, expectedFilters []logpoller.ExpectedFilter) {
+func waitForAllNodesToHaveExpectedFiltersRegisteredOrFail(l zerolog.Logger, coreLogger core_logger.SugaredLogger, t *testing.T, testEnv *test_env.CLClusterTestEnv, testConfig *tc.TestConfig, expectedFilters []logpoller.ExpectedFilter) {
 	// Make sure that all nodes have expected filters registered before starting to emit events
+
+	network := networks.MustGetSelectedNetworkConfig(testConfig.GetNetworkConfig())[0]
+	evmClient, err := testEnv.GetEVMClient(network.ChainID)
+	require.NoError(t, err, "Getting EVM client shouldn't fail")
+
 	gom := gomega.NewGomegaWithT(t)
 	gom.Eventually(func(g gomega.Gomega) {
 		hasFilters := false
@@ -330,7 +341,7 @@ func waitForAllNodesToHaveExpectedFiltersRegisteredOrFail(l zerolog.Logger, core
 			var message string
 			var err error
 
-			hasFilters, message, err = logpoller.NodeHasExpectedFilters(expectedFilters, coreLogger, testEnv.EVMClient.GetChainID(), testEnv.ClCluster.Nodes[i].PostgresDb)
+			hasFilters, message, err = logpoller.NodeHasExpectedFilters(expectedFilters, coreLogger, evmClient.GetChainID(), testEnv.ClCluster.Nodes[i].PostgresDb)
 			if !hasFilters || err != nil {
 				l.Warn().
 					Str("Details", message).
@@ -350,16 +361,20 @@ func waitForAllNodesToHaveExpectedFiltersRegisteredOrFail(l zerolog.Logger, core
 
 // conditionallyWaitUntilNodesHaveTheSameLogsAsEvm checks whether all CL nodes have the same number of logs as EVM node
 // if not, then it prints missing logs and wait for some time and checks again
-func conditionallyWaitUntilNodesHaveTheSameLogsAsEvm(l zerolog.Logger, coreLogger core_logger.SugaredLogger, t *testing.T, allNodesLogCountMatches bool, lpTestEnv logPollerEnvironment, cfg *lp_config.Config, startBlock, endBlock int64, waitDuration string) {
+func conditionallyWaitUntilNodesHaveTheSameLogsAsEvm(l zerolog.Logger, coreLogger core_logger.SugaredLogger, t *testing.T, allNodesLogCountMatches bool, lpTestEnv logPollerEnvironment, testConfig *tc.TestConfig, startBlock, endBlock int64, waitDuration string) {
 	logCountWaitDuration, err := time.ParseDuration(waitDuration)
 	require.NoError(t, err, "Error parsing log count wait duration")
 
+	network := networks.MustGetSelectedNetworkConfig(testConfig.GetNetworkConfig())[0]
+	evmClient, err := lpTestEnv.testEnv.GetEVMClient(network.ChainID)
+	require.NoError(t, err, "Getting EVM client shouldn't fail")
+
 	allNodesHaveAllExpectedLogs := false
 	if !allNodesLogCountMatches {
-		missingLogs, err := logpoller.GetMissingLogs(startBlock, endBlock, lpTestEnv.logEmitters, lpTestEnv.testEnv.EVMClient, lpTestEnv.testEnv.ClCluster, l, coreLogger, cfg)
+		missingLogs, err := logpoller.GetMissingLogs(startBlock, endBlock, lpTestEnv.logEmitters, evmClient, lpTestEnv.testEnv.ClCluster, l, coreLogger, testConfig.LogPoller)
 		if err == nil {
 			if !missingLogs.IsEmpty() {
-				logpoller.PrintMissingLogsInfo(missingLogs, l, cfg)
+				logpoller.PrintMissingLogsInfo(missingLogs, l, testConfig.LogPoller)
 			} else {
 				allNodesHaveAllExpectedLogs = true
 				l.Info().Msg("All CL nodes have all the logs that EVM node has")
@@ -380,7 +395,7 @@ func conditionallyWaitUntilNodesHaveTheSameLogsAsEvm(l zerolog.Logger, coreLogge
 
 		gom := gomega.NewGomegaWithT(t)
 		gom.Eventually(func(g gomega.Gomega) {
-			missingLogs, err := logpoller.GetMissingLogs(startBlock, endBlock, lpTestEnv.logEmitters, lpTestEnv.testEnv.EVMClient, lpTestEnv.testEnv.ClCluster, l, coreLogger, cfg)
+			missingLogs, err := logpoller.GetMissingLogs(startBlock, endBlock, lpTestEnv.logEmitters, evmClient, lpTestEnv.testEnv.ClCluster, l, coreLogger, testConfig.LogPoller)
 			if err != nil {
 				l.Warn().
 					Err(err).
@@ -388,7 +403,7 @@ func conditionallyWaitUntilNodesHaveTheSameLogsAsEvm(l zerolog.Logger, coreLogge
 			}
 
 			if !missingLogs.IsEmpty() {
-				logpoller.PrintMissingLogsInfo(missingLogs, l, cfg)
+				logpoller.PrintMissingLogsInfo(missingLogs, l, testConfig.LogPoller)
 			}
 			g.Expect(missingLogs.IsEmpty()).To(gomega.BeTrue(), "Some CL nodes were missing logs")
 		}, logConsistencyWaitDuration, "10s").Should(gomega.Succeed())

@@ -15,6 +15,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/vrfv2plus"
@@ -59,6 +60,10 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 		return
 	}
 
+	networkConfig := networks.MustGetSelectedNetworkConfig(testConfig.GetNetworkConfig())[0]
+	evmClient, err := env.GetEVMClient(networkConfig.ChainID)
+	require.NoError(t, err, "Getting EVM client shouldn't fail")
+
 	updatedLabels := UpdateLabels(labels, t)
 
 	l.Info().
@@ -79,9 +84,9 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 			WithCustomCleanup(
 				func() {
 					teardown(t, vrfContracts.VRFV2PlusConsumer[0], lc, updatedLabels, testReporter, string(testType), &testConfig)
-					if env.EVMClient.NetworkSimulated() {
+					if evmClient.NetworkSimulated() {
 						l.Info().
-							Str("Network Name", env.EVMClient.GetNetworkName()).
+							Str("Network Name", evmClient.GetNetworkName()).
 							Msg("Network is a simulated network. Skipping fund return for Coordinator Subscriptions.")
 					} else {
 						if *testConfig.VRFv2Plus.General.CancelSubsAfterTestRun {
@@ -103,7 +108,7 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 			require.NoError(t, err)
 			consumers, err = vrfv2plus.DeployVRFV2PlusConsumers(env.ContractDeployer, coordinator, 1)
 			require.NoError(t, err)
-			err = env.EVMClient.WaitForEvents()
+			err = evmClient.WaitForEvents()
 			require.NoError(t, err, vrfcommon.ErrWaitTXsComplete)
 			l.Info().
 				Str("Coordinator", *vrfv2PlusConfig.ExistingEnvConfig.CoordinatorAddress).
@@ -111,6 +116,7 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 				Msg("Creating and funding subscriptions, deploying and adding consumers to subs")
 			subIDs, err = vrfv2plus.CreateFundSubsAndAddConsumers(
 				env,
+				networkConfig.ChainID,
 				big.NewFloat(*testConfig.GetVRFv2PlusConfig().General.SubscriptionFundingAmountNative),
 				big.NewFloat(*testConfig.GetVRFv2PlusConfig().General.SubscriptionFundingAmountLink),
 				linkToken,
@@ -129,7 +135,7 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 			subIDs = append(subIDs, subID)
 		}
 
-		err = FundNodesIfNeeded(testcontext.Get(t), &testConfig, env.EVMClient, l)
+		err = FundNodesIfNeeded(testcontext.Get(t), &testConfig, evmClient, l)
 		require.NoError(t, err)
 
 		vrfContracts = &vrfcommon.VRFContracts{
@@ -157,9 +163,9 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 				func() {
 					teardown(t, vrfContracts.VRFV2PlusConsumer[0], lc, updatedLabels, testReporter, string(testType), &testConfig)
 
-					if env.EVMClient.NetworkSimulated() {
+					if evmClient.NetworkSimulated() {
 						l.Info().
-							Str("Network Name", env.EVMClient.GetNetworkName()).
+							Str("Network Name", evmClient.GetNetworkName()).
 							Msg("Network is a simulated network. Skipping fund return for Coordinator Subscriptions.")
 					} else {
 						if *testConfig.VRFv2Plus.General.CancelSubsAfterTestRun {
@@ -185,6 +191,7 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 
 		vrfContracts, subIDs, vrfv2PlusData, _, err = vrfv2plus.SetupVRFV2_5Environment(
 			env,
+			networkConfig.ChainID,
 			[]vrfcommon.VRFNodeType{vrfcommon.VRF},
 			&testConfig,
 			linkToken,
@@ -196,7 +203,7 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 		)
 		require.NoError(t, err, "error setting up VRF v2_5 env")
 	}
-	eoaWalletAddress = env.EVMClient.GetDefaultWallet().Address()
+	eoaWalletAddress = evmClient.GetDefaultWallet().Address()
 
 	l.Debug().Int("Number of Subs", len(subIDs)).Msg("Subs involved in the test")
 	for _, subID := range subIDs {

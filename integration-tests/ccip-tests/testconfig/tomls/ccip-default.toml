@@ -12,6 +12,54 @@ TTL = '5h'
 [CCIP.Env.Network]
 selected_networks= ['SIMULATED_1', 'SIMULATED_2']
 
+# PrivateEthereumNetworks.NETWORK_NAME contains the configuration of private ethereum network that includes ethereum version, evm node client, chain id,
+# certain chain configurations, addresses to fund or custom docker images to be used. These are non-dev networks, but they all run just a single node.
+[CCIP.Env.PrivateEthereumNetworks.SIMULATED_1]
+# either eth1 or eth2 (for post-Merge); for eth2 Prysm is used for consensus layer.
+ethereum_version="eth1"
+# geth, besu, erigon or nethermind
+execution_layer="geth"
+# eth2-only, if set to true environment startup will wait until at least 1 epoch has been finalised
+#wait_for_finalization=false
+
+[CCIP.Env.PrivateEthereumNetworks.SIMULATED_1.EthereumChainConfig]
+# eth2-only, the lower the value the faster the block production (3 is minimum)
+seconds_per_slot=3
+# eth2-only, the lower the value the faster the epoch finalisation (2 is minimum)
+slots_per_epoch=2
+# eht2-only, the lower tha value the faster the chain starts (10 is minimum)
+genesis_delay=15
+# eth2-only, number of validators
+validator_count=4
+chain_id=1337
+# address that should be founded in genesis wih ETH
+addresses_to_fund=["0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266", "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"]
+
+[CCIP.Env.PrivateEthereumNetworks.SIMULATED_1.EthereumChainConfig.HardForkEpochs]
+# eth2-only, epoch at which chain will upgrade do Dencun or Deneb/Cancun (1 is minimum)
+Deneb=500
+
+# [PrivateEthereumNetwork.CustomDockerImages]
+# custom docker image that will be used for execution layer client. It has to be one of: hyperledger/besu, nethermind/nethermind, thorax/erigon or ethereum/client-go.
+# instead of using a specific tag you can also use "latest_available" to use latest published tag in Github or "latest_stable" to use latest stable release from Github
+# (if corresponding Docker image on Docker Hub has not been published environment creation will fail).
+# execution_layer="hyperledger/besu:24.2.0-RC2"
+
+[CCIP.Env.PrivateEthereumNetworks.SIMULATED_2]
+ethereum_version="eth1"
+execution_layer="geth"
+
+[CCIP.Env.PrivateEthereumNetworks.SIMULATED_2.EthereumChainConfig]
+seconds_per_slot=3
+slots_per_epoch=2
+genesis_delay=15
+validator_count=4
+chain_id=2337
+addresses_to_fund=["0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266", "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"]
+
+[CCIP.Env.PrivateEthereumNetworks.SIMULATED_2.EthereumChainConfig.HardForkEpochs]
+Deneb=500
+
 [CCIP.Env.Logging]
 test_log_collect=false # if set to true will save logs even if test did not fail
 
@@ -38,7 +86,6 @@ DBCPU = '2' # cpu to be allocated to postgresql database ; only used if tests ar
 DBCapacity = '10Gi' # disk space to be allocated to postgresql database ; only used if tests are in k8s in stateful deployment
 IsStateful = true # if true, chainlink nodes and postgresql database will be deployed as stateful set in k8s
 DBArgs = ['shared_buffers=1536MB', 'effective_cache_size=4096MB', 'work_mem=64MB'] # postgresql database arguments ; only used if tests are in k8s
-
 
 # these values will be used to set up chainlink DON, if all the chainlink nodes are deployed with same configuration
 [CCIP.Env.NewCLCluster.Common]

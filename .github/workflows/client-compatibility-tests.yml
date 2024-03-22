@@ -1,7 +1,7 @@
 name: Client Compatibility Tests
 on:
-  schedule:
-    - cron: "30 5 * * *" # Run every night at midnight + 30min EST
+  merge_group:
+  pull_request:
   push:
     tags:
       - "*"
@@ -15,7 +15,46 @@ env:
 jobs:
   # Build Test Dependencies
 
+  changes:
+    environment: integration
+    name: Check Paths That Require Tests To Run
+    runs-on: ubuntu-latest
+    # We don't directly merge dependabot PRs, so let's not waste the resources
+    if: github.actor != 'dependabot[bot]'
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          repository: smartcontractkit/ccip
+          ref: ${{ inputs.cl_ref }}
+      - uses: dorny/paths-filter@0bc4621a3135347011ad047f9ecf449bf72ce2bd # v3.0.0
+        id: changes
+        with:
+          filters: |
+            src:
+              - '**/*.go'
+              - '**/*go.sum'
+              - '**/*go.mod'
+              - '.github/workflows/integration-tests.yml'
+              - '**/*Dockerfile'
+              - 'core/**/config/**/*.toml'
+              - 'integration-tests/**/*.toml'
+      - name: Collect Metrics
+        if: always()
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@0281b09807758be1dcc41651e44e62b353808c47 # v2.1.0
+        with:
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: Check Paths That Require Tests To Run
+        continue-on-error: true
+    outputs:
+      src: ${{ inputs.set_changes_output || steps.changes.outputs.src }}
+
   build-chainlink:
+    if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
+    needs: [changes]
     environment: integration
     permissions:
       id-token: write
@@ -35,6 +74,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
+          repository: smartcontractkit/ccip
           ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       - name: Build Chainlink Image
         uses: ./.github/actions/build-chainlink-image
@@ -45,50 +85,63 @@ jobs:
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
 
-  build-tests:
+  get-latest-available-images:
+    if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
+    needs: [changes]
     environment: integration
+    runs-on: ubuntu-latest
     permissions:
       id-token: write
       contents: read
-    name: Build Tests Binary
-    runs-on: ubuntu-latest
+    outputs:
+      geth_tag: ${{ env.GETH_TAG }}
+      nethermind_tag: ${{ env.NETHERMIND_TAG }}
+      besu_tag: ${{ env.BESU_TAG }}
+      erigon_tag: ${{ env.ERIGON_TAG }}
     steps:
-      - name: Collect Metrics
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@0281b09807758be1dcc41651e44e62b353808c47 # v2.1.0
+      # Setup AWS creds
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@010d0da01d0b5a38af31e9c3470dbfdabdecca3a # v4.0.1
         with:
-          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: Build Tests Binary
-        continue-on-error: true
-      - name: Checkout the repo
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+          aws-region: ${{ secrets.QA_AWS_REGION }}
+          role-to-assume: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          role-duration-seconds: 3600
+      # Login to ECR
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@062b18b96a7aff071d4dc91bc00c4c1a7945b076 # v2.0.1
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
-      - name: Build Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-tests@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
-        with:
-          test_download_vendor_packages_command: cd ./integration-tests && go mod download
-          token: ${{ secrets.GITHUB_TOKEN }}
-          go_mod_path: ./integration-tests/go.mod
-          go_tags: embed
-          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
-          cache_restore_only: "true"
-          binary_name: tests
+          mask-password: 'true'
+        env:
+          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      - name: Get latest docker images from ECR
+        run: |
+          geth_tag=$(aws ecr describe-images --repository-name ethereum/client-go --region ${{ secrets.QA_AWS_REGION }} --query 'sort_by(imageDetails,& imageTags[0])[-10:]' --output json | jq -r '[.[] | .imageTags[] | {original: ., numeric: (ltrimstr("v") | (split(".") + ["0","0"])[:3] | map(tonumber) | .[0]*10000 + .[1]*100 + .[2])}] | max_by(.numeric) | .original')
+          echo "GETH_TAG=$geth_tag" >> $GITHUB_ENV
+          echo "Geth latest tag: $geth_tag"
+          nethermind_tag=$(aws ecr describe-images --repository-name nethermind/nethermind --region ${{ secrets.QA_AWS_REGION }} --query 'sort_by(imageDetails,& imageTags[0])[-10:]' --output json | jq -r '[.[] | .imageTags[] | {original: ., numeric: (ltrimstr("v") | (split(".") + ["0","0"])[:3] | map(tonumber) | .[0]*10000 + .[1]*100 + .[2])}] | max_by(.numeric) | .original')
+          echo "NETHERMIND_TAG=$nethermind_tag" >> $GITHUB_ENV
+          echo "Nethermind latest tag: $nethermind_tag"
+          besu_tag=$(aws ecr describe-images --repository-name hyperledger/besu --region ${{ secrets.QA_AWS_REGION }} --query 'sort_by(imageDetails,& imageTags[0])[-10:]' --output json | jq -r '[.[] | .imageTags[] | {original: ., numeric: (ltrimstr("v") | (split(".") + ["0","0"])[:3] | map(tonumber) | .[0]*10000 + .[1]*100 + .[2])}] | max_by(.numeric) | .original')
+          echo "BESU_TAG=$besu_tag" >> $GITHUB_ENV
+          echo "Besu latest tag: $besu_tag"
+          erigon_tag=$(aws ecr describe-images --repository-name thorax/erigon --region ${{ secrets.QA_AWS_REGION }} --query 'sort_by(imageDetails,& imageTags[0])[-10:]' --output json |jq -r '[.[] | .imageTags[] | {original: ., numeric: (ltrimstr("v") | (split(".") + ["0","0"])[:3] | map(tonumber) | .[0]*10000 + .[1]*100 + .[2])}] | max_by(.numeric) | .original')
+          echo "ERIGON_TAG=$erigon_tag" >> $GITHUB_ENV
+          echo "Erigon latest tag: $erigon_tag"
 
   # End Build Test Dependencies
 
-  client-compatibility-matrix:
+  evm-compatibility-matrix:
     environment: integration
     permissions:
       checks: write
       pull-requests: write
       id-token: write
       contents: read
-    needs: [build-chainlink, build-tests]
+    needs: [build-chainlink, changes, get-latest-available-images]
+    if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
     env:
-      SELECTED_NETWORKS: SIMULATED,SIMULATED_1,SIMULATED_2
+      SELECTED_NETWORKS: SIMULATED_1,SIMULATED_2
       CHAINLINK_COMMIT_SHA: ${{ github.sha }}
       CHAINLINK_ENV_USER: ${{ github.actor }}
       TEST_LOG_LEVEL: debug
@@ -96,152 +149,111 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: ocr-geth
+          - name: bidirectionallane-geth
             os: ubuntu-latest
-            test: TestOCRBasic
-            file: ocr
+            test: TestSmokeCCIPForBidirectionalLane
             client: geth
             timeout: 30m
-            pyroscope_env: ci-smoke-ocr-geth-simulated
-          - name: ocr-nethermind
-            test: TestOCRBasic
-            file: ocr
+            pyroscope_env: ci-ccip-bidirectionallane-geth
+            chainConfig: "1337=ethereum/client-go:${{ needs.get-latest-available-images.outputs.geth_tag }},2337=ethereum/client-go:${{ needs.get-latest-available-images.outputs.geth_tag }}"
+          - name: bidirectionallane-nethermind
+            test: TestSmokeCCIPForBidirectionalLane
             client: nethermind
             timeout: 30m
-            pyroscope_env: ci-smoke-ocr-nethermind-simulated
-          - name: ocr-besu
-            test: TestOCRBasic
-            file: ocr
-            client: besu
-            timeout: 30m
-            pyroscope_env: ci-smoke-ocr-besu-simulated
-          - name: ocr-erigon
-            test: TestOCRBasic
-            file: ocr
+            pyroscope_env: ci-ccip-bidirectionallane-nethermind
+            chainConfig: "1337=nethermind/nethermind:${{ needs.get-latest-available-images.outputs.nethermind_tag }},2337=nethermind/nethermind:${{ needs.get-latest-available-images.outputs.nethermind_tag }}"
+          # uncomment when 24.4.0  is released with our data/input fix
+          # - name: bidirectionallane-besu
+          #   test: TestSmokeCCIPForBidirectionalLane
+          #   client: besu
+          #   timeout: 30m
+          #   pyroscope_env: ci-ccip-bidirectionallane-besu
+          #   chainConfig: "1337=hyperledger/besu:${{ needs.get-latest-available-images.outputs.besu_tag }},2337=hyperledger/besu:${{ needs.get-latest-available-images.outputs.besu_tag }}"
+          - name: bidirectionallane-erigon
+            test: TestSmokeCCIPForBidirectionalLane
             client: erigon
             timeout: 30m
-            pyroscope_env: ci-smoke-ocr-erigon-simulated
-          - name: ocr2-geth
-            test: "^TestOCRv2Basic/plugins$"
-            file: ocr2
-            client: geth
-            timeout: 30m
-            pyroscope_env: ci-smoke-ocr2-geth-simulated
-          - name: ocr2-nethermind
-            test: "^TestOCRv2Basic/plugins$"
-            file: ocr2
-            client: nethermind
-            timeout: 30m
-            pyroscope_env: ci-smoke-nethermind-evm-simulated
-          - name: ocr2-besu
-            test: "^TestOCRv2Basic/plugins$"
-            file: ocr2
-            client: besu
-            timeout: 30m
-            pyroscope_env: ci-smoke-ocr2-besu-simulated
-          - name: ocr2-erigon
-            test: "^TestOCRv2Basic/plugins$"
-            file: ocr2
-            client: erigon
-            timeout: 60m
-            pyroscope_env: ci-smoke-ocr2-erigon-simulated
+            pyroscope_env: ci-ccip-bidirectionallane-erigon
+            chainConfig: "1337=thorax/erigon:${{ needs.get-latest-available-images.outputs.erigon_tag }},2337=thorax/erigon:${{ needs.get-latest-available-images.outputs.erigon_tag }}"
     runs-on: ubuntu-latest
-    name: Client Compatibility Test ${{ matrix.name }}
+    name: CCIP Latest EVM Node Compatibility Test with ${{ matrix.client }}
     steps:
-      - name: Download Tests Binary
-        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+      - name: Checkout the repo
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
-          name: tests
-      - name: Prepare Base64 TOML config
-        env:
-          SELECTED_NETWORKS: SIMULATED,SIMULATED_1,SIMULATED_2
-          PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
-          PYROSCOPE_ENVIRONMENT: ci-client-compatability-${{ matrix.client }}-testnet
-          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
-          ETH2_EL_CLIENT: ${{matrix.client}}
-          CHAINLINK_VERSION: ${{ github.sha }}
+          repository: smartcontractkit/ccip
+          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+      - name: Build Go Test Command
+        id: build-go-test-command
         run: |
-          convert_to_toml_array() {
-              local IFS=','
-              local input_array=($1)
-              local toml_array_format="["
-
-              for element in "${input_array[@]}"; do
-                  toml_array_format+="\"$element\","
-              done
-
-              toml_array_format="${toml_array_format%,}]"
-              echo "$toml_array_format"
-          }
-
-          selected_networks=$(convert_to_toml_array "$SELECTED_NETWORKS")
-
-          if [ -n "$ETH2_EL_CLIENT" ]; then
-            execution_layer="$ETH2_EL_CLIENT"
+          # if the matrix.test is set, use it for a different command
+          if [ "${{ matrix.test }}" != "" ]; then
+            echo "run_command=-run '^${{ matrix.test }}$' ./ccip-tests/smoke/ccip_test.go" >> "$GITHUB_OUTPUT"
           else
-            execution_layer="geth"
+            echo "run_command=./ccip-tests/smoke/ccip_test.go" >> "$GITHUB_OUTPUT"
           fi
-
-          if [ -n "$PYROSCOPE_SERVER" ]; then
-            pyroscope_enabled=true
-          else
-            pyroscope_enabled=false
-          fi
-
-          cat << EOF > config.toml
-          [Network]
-          selected_networks=$selected_networks
-
-          [ChainlinkImage]
-          image="$CHAINLINK_IMAGE"
-          version="$CHAINLINK_VERSION"
-
-          [Pyroscope]
-          enabled=$pyroscope_enabled
-          server_url="$PYROSCOPE_SERVER"
-          environment="$PYROSCOPE_ENVIRONMENT"
-          key_secret="$PYROSCOPE_KEY"
-
-          [PrivateEthereumNetwork]
-          consensus_type="pos"
-          consensus_layer="prysm"
-          execution_layer="$execution_layer"
-          wait_for_finalization=false
-
-          [PrivateEthereumNetwork.EthereumChainConfig]
-          chain_id=1337
-          genesis_delay=15
-          seconds_per_slot=3
-          validator_count=8
-          slots_per_epoch=2
-          addresses_to_fund=["0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"]
-          EOF
-
-          BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
-          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
-          echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
-          touch .root_dir
-      - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
+      - name: Prepare Base64 TOML override
+        uses: ./.github/actions/setup-create-base64-config
         with:
-          test_command_to_run: ./tests -test.timeout ${{ matrix.timeout }} -test.run ${{ matrix.test }}
-          binary_name: tests
+          runId: ${{ github.run_id }}
+          testLogCollect: ${{ vars.TEST_LOG_COLLECT }}
+          selectedNetworks: ${{ env.SELECTED_NETWORKS }}
+          chainlinkImage: ${{ env.CHAINLINK_IMAGE }}
+          chainlinkVersion: ${{ github.sha }}
+          pyroscopeServer: ${{ matrix.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
+          pyroscopeEnvironment: ${{ matrix.pyroscope_env }}
+          pyroscopeKey: ${{ secrets.QA_PYROSCOPE_KEY }}
+          lokiEndpoint: ${{ secrets.LOKI_URL_CI }}
+          lokiTenantId: ${{ vars.LOKI_TENANT_ID }}
+          lokiBasicAuth: ${{ secrets.LOKI_BASIC_AUTH }}
+          logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
+          grafanaUrl: ${{ vars.GRAFANA_URL }}
+          grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
+      - name: Prepare Base64 TOML override for CCIP secrets
+        uses: ./.github/actions/setup-create-base64-config-ccip
+        with:
+          runId: ${{ github.run_id }}
+          testLogCollect: ${{ vars.TEST_LOG_COLLECT }}
+          selectedNetworks: SIMULATED_1,SIMULATED_2
+          chainlinkImage: ${{ env.CHAINLINK_IMAGE }}
+          chainlinkVersion: ${{ github.sha }}
+          lokiEndpoint: ${{ secrets.LOKI_URL_CI }}
+          lokiTenantId: ${{ vars.LOKI_TENANT_ID }}
+          lokiBasicAuth: ${{ secrets.LOKI_BASIC_AUTH }}
+          logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
+          grafanaUrl: ${{ vars.GRAFANA_URL }}
+          grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
+          customEvmNodes: ${{ matrix.chainConfig }}
+      - name: Run Tests
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
+        with:
+          test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=2 ${{ steps.build-go-test-command.outputs.run_command }} 2>&1 | tee /tmp/gotest.log | gotestfmt
+          test_download_vendor_packages_command: cd ./integration-tests && go mod download
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ github.sha }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-          dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
-          dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
-          artifacts_location: ./logs
+          artifacts_name: ${{ matrix.client }}-test-logs
+          artifacts_location: |
+            ./integration-tests/smoke/logs/
+            ./integration-tests/ccip-tests/smoke/logs/*
+          publish_check_name: ${{ matrix.name }}
           token: ${{ secrets.GITHUB_TOKEN }}
+          go_mod_path: ./integration-tests/go.mod
           cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
           cache_restore_only: "true"
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+          QA_KUBECONFIG: ""
+          should_tidy: "false"
+      - name: Print failed test summary
+        if: always()
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
+        with:
+          test_directory: ./integration-tests/smoke/
 
   start-slack-thread:
     name: Start Slack Thread
-    if: ${{ always() && needs.*.result != 'skipped' && needs.*.result != 'cancelled' }}
+    if: ${{ always() && (needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch') && needs.*.result != 'skipped' && needs.*.result != 'cancelled' }}
     environment: integration
     outputs:
       thread_ts: ${{ steps.slack.outputs.thread_ts }}
@@ -251,7 +263,7 @@ jobs:
       id-token: write
       contents: read
     runs-on: ubuntu-latest
-    needs: [client-compatibility-matrix]
+    needs: [evm-compatibility-matrix, changes]
     steps:
       - name: Debug Result
         run: echo ${{ join(needs.*.result, ',') }}
@@ -270,7 +282,7 @@ jobs:
                       "type": "header",
                       "text": {
                         "type": "plain_text",
-                        "text": "Client Compatability Test Results ${{ contains(join(needs.*.result, ','), 'failure') && ':x:' || ':white_check_mark:'}}",
+                        "text": "CCIP EVM Node Compatability Test Results ${{ contains(join(needs.*.result, ','), 'failure') && ':x:' || ':white_check_mark:'}}",
                         "emoji": true
                       }
                     },
@@ -278,7 +290,7 @@ jobs:
                       "type": "section",
                       "text": {
                         "type": "mrkdwn",
-                        "text": "${{ contains(join(needs.*.result, ','), 'failure') && 'Some tests failed, notifying <@U060CGGPY8H>' || 'All Good!' }}"
+                        "text": "${{ contains(join(needs.*.result, ','), 'failure') && 'Some tests failed, notifying <@U060CGGPY8H> & <@U03GWA0NSF7>' || 'All Good!' }}"
                       }
                     },
                     {
@@ -299,7 +311,7 @@ jobs:
           SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
 
   post-test-results-to-slack:
-    name: Post Test Results for ${{matrix.product}}
+    name: Post Test Results for ${{matrix.client}}
     if: ${{ always() && needs.*.result != 'skipped' && needs.*.result != 'cancelled' }}
     environment: integration
     permissions:
@@ -308,11 +320,7 @@ jobs:
       id-token: write
       contents: read
     runs-on: ubuntu-latest
-    needs: start-slack-thread
-    strategy:
-      fail-fast: false
-      matrix:
-        product: [ocr, ocr2]
+    needs: [start-slack-thread]
     steps:
       - name: Checkout the repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
@@ -324,8 +332,8 @@ jobs:
           github_token: ${{ github.token }}
           github_repository: ${{ github.repository }}
           workflow_run_id: ${{ github.run_id }}
-          github_job_name_regex: ^Client Compatibility Test ${{ matrix.product }}-(?<cap>.*?)$
-          message_title: ${{ matrix.product }}
+          github_job_name_regex: ^CCIP Latest EVM Node Compatibility Test with (?<cap>.*?)$
+          message_title: BiDirectional Lane Test Results
           slack_channel_id: ${{ secrets.QA_SLACK_CHANNEL }}
           slack_bot_token: ${{ secrets.QA_SLACK_API_KEY }}
           slack_thread_ts: ${{ needs.start-slack-thread.outputs.thread_ts }}

@@ -1149,11 +1149,15 @@ func setupAutomationTestDocker(
 	require.NoError(t, err)
 	l.Debug().Msgf("Funding amount: %f", *automationTestConfig.GetCommonConfig().ChainlinkNodeFunding)
 	clNodesCount := 5
+
+	privateNetwork, err := actions.EthereumNetworkConfigFromConfig(l, automationTestConfig)
+	require.NoError(t, err, "Error building ethereum network config")
+
 	if isMercuryV02 || isMercuryV03 {
 		env, err = test_env.NewCLTestEnvBuilder().
 			WithTestInstance(t).
 			WithTestConfig(automationTestConfig).
-			WithGeth().
+			WithPrivateEthereumNetwork(privateNetwork).
 			WithMockAdapter().
 			WithFunding(big.NewFloat(*automationTestConfig.GetCommonConfig().ChainlinkNodeFunding)).
 			WithStandardCleanup().
@@ -1169,11 +1173,14 @@ func setupAutomationTestDocker(
 		Password = 'nodepass'`
 		secretsConfig = fmt.Sprintf(secretsConfig, env.MockAdapter.InternalEndpoint, env.MockAdapter.InternalEndpoint)
 
+		rpcProvider, err := env.GetRpcProvider(network.ChainID)
+		require.NoError(t, err, "Error getting rpc provider")
+
 		var httpUrls []string
 		var wsUrls []string
 		if network.Simulated {
-			httpUrls = []string{env.RpcProvider.PrivateHttpUrls()[0]}
-			wsUrls = []string{env.RpcProvider.PrivateWsUrsl()[0]}
+			httpUrls = []string{rpcProvider.PrivateHttpUrls()[0]}
+			wsUrls = []string{rpcProvider.PrivateWsUrsl()[0]}
 		} else {
 			httpUrls = network.HTTPURLs
 			wsUrls = network.URLs
@@ -1190,7 +1197,7 @@ func setupAutomationTestDocker(
 		env, err = test_env.NewCLTestEnvBuilder().
 			WithTestInstance(t).
 			WithTestConfig(automationTestConfig).
-			WithGeth().
+			WithPrivateEthereumNetwork(privateNetwork).
 			WithMockAdapter().
 			WithCLNodes(clNodesCount).
 			WithCLNodeConfig(clNodeConfig).
@@ -1200,10 +1207,12 @@ func setupAutomationTestDocker(
 		require.NoError(t, err, "Error deploying test environment")
 	}
 
-	env.ParallelTransactions(true)
 	nodeClients := env.ClCluster.NodeAPIs()
 
-	a := automationv2.NewAutomationTestDocker(env.EVMClient, env.ContractDeployer, nodeClients)
+	evmClient, err := env.GetEVMClient(network.ChainID)
+	require.NoError(t, err, "Error getting evm client")
+
+	a := automationv2.NewAutomationTestDocker(evmClient, env.ContractDeployer, nodeClients)
 	a.MercuryCredentialName = "cred1"
 	a.RegistrySettings = registryConfig
 	a.RegistrarSettings = contracts.KeeperRegistrarSettings{
