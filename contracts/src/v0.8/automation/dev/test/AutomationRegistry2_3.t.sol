@@ -280,7 +280,7 @@ contract SetConfig is SetUp {
       fallbackNativePrice: 400_000_000_000, // $4,000
       transcoder: 0xB1e66855FD67f6e85F0f0fA38cd6fBABdf00923c,
       registrars: new address[](0),
-      upkeepPrivilegeManager: 0xD9c855F08A7e460691F41bBDDe6eC310bc0593D8,
+      upkeepPrivilegeManager: PRIVILEGE_MANAGER,
       chainModule: module,
       reorgProtectionEnabled: true,
       financeAdmin: FINANCE_ADMIN
@@ -898,5 +898,54 @@ contract GetMinBalanceForUpkeep is SetUp {
 
     uint256 minBalanceAfter = registry.getMinBalanceForUpkeep(usdUpkeepID);
     assertEq(minBalanceAfter, minBalanceBefore + (uint256(usdTokenConfig.flatFeeMilliCents) * 1e13));
+  }
+}
+
+contract BillingOverrides is SetUp {
+  event BillingConfigOverridden(uint256 indexed id);
+  event BillingConfigOverrideRemoved(uint256 indexed id);
+
+  function test_RevertsWhen_NotPrivilegeManager() public {
+    AutomationRegistryBase2_3.BillingOverrides memory billingOverrides = AutomationRegistryBase2_3.BillingOverrides({
+      gasFeePPB: 5_000,
+      flatFeeMilliCents: 20_000
+    });
+
+    vm.expectRevert(Registry.OnlyCallableByUpkeepPrivilegeManager.selector);
+    registry.setBillingOverrides(linkUpkeepID, billingOverrides);
+  }
+
+  function test_RevertsWhen_UpkeepCancelled() public {
+    AutomationRegistryBase2_3.BillingOverrides memory billingOverrides = AutomationRegistryBase2_3.BillingOverrides({
+      gasFeePPB: 5_000,
+      flatFeeMilliCents: 20_000
+    });
+
+    registry.cancelUpkeep(linkUpkeepID);
+
+    vm.startPrank(PRIVILEGE_MANAGER);
+    vm.expectRevert(Registry.UpkeepCancelled.selector);
+    registry.setBillingOverrides(linkUpkeepID, billingOverrides);
+  }
+
+  function test_Happy_SetBillingOverrides() public {
+    AutomationRegistryBase2_3.BillingOverrides memory billingOverrides = AutomationRegistryBase2_3.BillingOverrides({
+      gasFeePPB: 5_000,
+      flatFeeMilliCents: 20_000
+    });
+
+    vm.startPrank(PRIVILEGE_MANAGER);
+
+    vm.expectEmit();
+    emit BillingConfigOverridden(linkUpkeepID);
+    registry.setBillingOverrides(linkUpkeepID, billingOverrides);
+  }
+
+  function test_Happy_RemoveBillingOverrides() public {
+    vm.startPrank(PRIVILEGE_MANAGER);
+
+    vm.expectEmit();
+    emit BillingConfigOverrideRemoved(linkUpkeepID);
+    registry.removeBillingOverrides(linkUpkeepID);
   }
 }
