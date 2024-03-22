@@ -20,6 +20,7 @@ func TestSimulateTx_Default(t *testing.T) {
 
 	fromAddress := testutils.NewAddress()
 	toAddress := testutils.NewAddress()
+	ctx := testutils.Context(t)
 
 	t.Run("returns without error if simulation passes", func(t *testing.T) {
 		wsURL := testutils.NewWSServer(t, &cltest.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
@@ -38,7 +39,7 @@ func TestSimulateTx_Default(t *testing.T) {
 		}).WSURL().String()
 
 		ethClient := mustNewChainClient(t, wsURL)
-		err := ethClient.Dial(testutils.Context(t))
+		err := ethClient.Dial(ctx)
 		require.NoError(t, err)
 
 		msg := ethereum.CallMsg{
@@ -46,7 +47,7 @@ func TestSimulateTx_Default(t *testing.T) {
 			To:   &toAddress,
 			Data: []byte("0x00"),
 		}
-		err = client.SimulateTransaction(testutils.Context(t), ethClient, logger.TestSugared(t), "", msg)
+		err = client.SimulateTransaction(ctx, ethClient, logger.TestSugared(t), "", msg)
 		require.NoError(t, err)
 	})
 
@@ -69,7 +70,7 @@ func TestSimulateTx_Default(t *testing.T) {
 		}).WSURL().String()
 
 		ethClient := mustNewChainClient(t, wsURL)
-		err := ethClient.Dial(testutils.Context(t))
+		err := ethClient.Dial(ctx)
 		require.NoError(t, err)
 
 		msg := ethereum.CallMsg{
@@ -77,7 +78,7 @@ func TestSimulateTx_Default(t *testing.T) {
 			To:   &toAddress,
 			Data: []byte("0x00"),
 		}
-		err = client.SimulateTransaction(testutils.Context(t), ethClient, logger.TestSugared(t), "", msg)
+		err = client.SimulateTransaction(ctx, ethClient, logger.TestSugared(t), "", msg)
 		require.Error(t, err, client.ErrOutOfCounters)
 	})
 
@@ -100,7 +101,7 @@ func TestSimulateTx_Default(t *testing.T) {
 		}).WSURL().String()
 
 		ethClient := mustNewChainClient(t, wsURL)
-		err := ethClient.Dial(testutils.Context(t))
+		err := ethClient.Dial(ctx)
 		require.NoError(t, err)
 
 		msg := ethereum.CallMsg{
@@ -108,7 +109,7 @@ func TestSimulateTx_Default(t *testing.T) {
 			To:   &toAddress,
 			Data: []byte("0x00"),
 		}
-		err = client.SimulateTransaction(testutils.Context(t), ethClient, logger.TestSugared(t), "", msg)
+		err = client.SimulateTransaction(ctx, ethClient, logger.TestSugared(t), "", msg)
 		require.NoError(t, err)
 	})
 }
@@ -118,6 +119,7 @@ func TestSimulateTx_ZkEvm(t *testing.T) {
 
 	fromAddress := testutils.NewAddress()
 	toAddress := testutils.NewAddress()
+	ctx := testutils.Context(t)
 
 	t.Run("returns without error if simulation passes", func(t *testing.T) {
 		wsURL := testutils.NewWSServer(t, &cltest.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
@@ -159,7 +161,7 @@ func TestSimulateTx_ZkEvm(t *testing.T) {
 		}).WSURL().String()
 
 		ethClient := mustNewChainClient(t, wsURL)
-		err := ethClient.Dial(testutils.Context(t))
+		err := ethClient.Dial(ctx)
 		require.NoError(t, err)
 
 		msg := ethereum.CallMsg{
@@ -167,7 +169,7 @@ func TestSimulateTx_ZkEvm(t *testing.T) {
 			To:   &toAddress,
 			Data: []byte("0x00"),
 		}
-		err = client.SimulateTransaction(testutils.Context(t), ethClient, logger.TestSugared(t), config.ChainZkEvm, msg)
+		err = client.SimulateTransaction(ctx, ethClient, logger.TestSugared(t), config.ChainZkEvm, msg)
 		require.NoError(t, err)
 	})
 
@@ -212,7 +214,7 @@ func TestSimulateTx_ZkEvm(t *testing.T) {
 		}).WSURL().String()
 
 		ethClient := mustNewChainClient(t, wsURL)
-		err := ethClient.Dial(testutils.Context(t))
+		err := ethClient.Dial(ctx)
 		require.NoError(t, err)
 
 		msg := ethereum.CallMsg{
@@ -220,7 +222,7 @@ func TestSimulateTx_ZkEvm(t *testing.T) {
 			To:   &toAddress,
 			Data: []byte("0x00"),
 		}
-		err = client.SimulateTransaction(testutils.Context(t), ethClient, logger.TestSugared(t), config.ChainZkEvm, msg)
+		err = client.SimulateTransaction(ctx, ethClient, logger.TestSugared(t), config.ChainZkEvm, msg)
 		require.Error(t, err, client.ErrOutOfCounters)
 	})
 }
