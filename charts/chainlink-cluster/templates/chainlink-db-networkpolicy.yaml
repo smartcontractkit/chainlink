@@ -15,10 +15,6 @@ spec:
         - podSelector:
             matchLabels:
               app: {{ $.Release.Name }}
-        # Allow all runner pods to access the database pods.
-        - podSelector:
-            matchLabels:
-              app: runner
       ports:
         - protocol: TCP
           port: 5432

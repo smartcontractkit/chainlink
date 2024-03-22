@@ -28,7 +28,12 @@ gomod: ## Ensure chainlink's go dependencies are installed.
 
 .PHONY: gomodtidy
 gomodtidy: gomods ## Run go mod tidy on all modules.
-	gomods tidy
+	go mod tidy
+	cd ./core/scripts && go mod tidy
+	cd ./integration-tests && go mod tidy
+	cd ./integration-tests/load && go mod tidy
+	cd ./dashboard-lib && go mod tidy
+	cd ./charts/chainlink-cluster && go mod tidy
 
 .PHONY: godoc
 godoc: ## Install and run godoc

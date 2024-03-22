@@ -2,6 +2,7 @@ package wrapper
 
 import (
 	"context"
+	"crypto/ed25519"
 	"fmt"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -20,10 +21,12 @@ type peerWrapper struct {
 	peer        types.Peer
 	keystoreP2P keystore.P2P
 	p2pConfig   config.P2P
+	privateKey  ed25519.PrivateKey
 	lggr        logger.Logger
 }
 
 var _ types.PeerWrapper = &peerWrapper{}
+var _ types.Signer = &peerWrapper{}
 
 func NewExternalPeerWrapper(keystoreP2P keystore.P2P, p2pConfig config.P2P, lggr logger.Logger) *peerWrapper {
 	return &peerWrapper{
@@ -76,7 +79,7 @@ func convertBootstrapperLocators(bootstrappers []commontypes.BootstrapperLocator
 		for i, a := range b.Addrs {
 			addrs[i] = ragetypes.Address(a)
 		}
-		var rageID ragetypes.PeerID
+		var rageID types.PeerID
 		err := rageID.UnmarshalText([]byte(b.PeerID))
 		if err != nil {
 			return nil, fmt.Errorf("failed to unmarshal v2 peer ID (%q) from BootstrapperLocator: %w", b.PeerID, err)
@@ -94,6 +97,7 @@ func (e *peerWrapper) Start(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	e.privateKey = cfg.PrivateKey
 	e.lggr.Info("Starting external P2P peer")
 	peer, err := p2p.NewPeer(cfg, e.lggr)
 	if err != nil {
@@ -117,4 +121,11 @@ func (e *peerWrapper) HealthReport() map[string]error {
 
 func (e *peerWrapper) Name() string {
 	return "PeerWrapper"
+}
+
+func (e *peerWrapper) Sign(msg []byte) ([]byte, error) {
+	if e.privateKey == nil {
+		return nil, fmt.Errorf("private key not set")
+	}
+	return ed25519.Sign(e.privateKey, msg), nil
 }

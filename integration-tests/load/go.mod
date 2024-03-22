@@ -16,7 +16,7 @@ require (
 	github.com/slack-go/slack v0.12.2
 	github.com/smartcontractkit/chainlink-automation v1.0.2-0.20240311111125-22812a072c35
 	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240320150640-2ab7f210b05c
-	github.com/smartcontractkit/chainlink-testing-framework v1.27.0
+	github.com/smartcontractkit/chainlink-testing-framework v1.27.3
 	github.com/smartcontractkit/chainlink/integration-tests v0.0.0-20240214231432-4ad5eb95178c
 	github.com/smartcontractkit/chainlink/v2 v2.9.0-beta0.0.20240216210048-da02459ddad8
 	github.com/smartcontractkit/libocr v0.0.0-20240229181116-bfb2432a7a66
@@ -131,6 +131,7 @@ require (
 	github.com/docker/docker v25.0.2+incompatible // indirect
 	github.com/docker/go-connections v0.5.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
+	github.com/dominikbraun/graph v0.23.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/dvsekhvalnov/jose2go v1.5.0 // indirect
 	github.com/edsrzf/mmap-go v1.1.0 // indirect

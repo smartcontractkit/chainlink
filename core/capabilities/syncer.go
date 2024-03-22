@@ -3,12 +3,15 @@ package capabilities
 import (
 	"context"
 
+	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/libocr/ragep2p"
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
+	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
@@ -16,22 +19,24 @@ import (
 type registrySyncer struct {
 	peerWrapper p2ptypes.PeerWrapper
 	registry    types.CapabilitiesRegistry
+	dispatcher  remotetypes.Dispatcher
 	lggr        logger.Logger
 }
 
 var _ services.Service = &registrySyncer{}
 
 // RegistrySyncer updates local Registry to match its onchain counterpart
-func NewRegistrySyncer(peerWrapper p2ptypes.PeerWrapper, registry types.CapabilitiesRegistry, lggr logger.Logger) *registrySyncer {
+func NewRegistrySyncer(peerWrapper p2ptypes.PeerWrapper, registry types.CapabilitiesRegistry, dispatcher remotetypes.Dispatcher, lggr logger.Logger) *registrySyncer {
 	return &registrySyncer{
 		peerWrapper: peerWrapper,
 		registry:    registry,
+		dispatcher:  dispatcher,
 		lggr:        lggr,
 	}
 }
 
 func (s *registrySyncer) Start(ctx context.Context) error {
-	// NOTE: temporary hard-coded values
+	// NOTE: temporary hard-coded DONs
 	defaultStreamConfig := p2ptypes.StreamConfig{
 		IncomingMessageBufferSize: 1000000,
 		OutgoingMessageBufferSize: 1000000,
@@ -52,6 +57,9 @@ func (s *registrySyncer) Start(ctx context.Context) error {
 		"12D3KooWGqfSPhHKmQycfhRjgUDE2vg9YWZN27Eue8idb2ZUk6EH",
 	}
 	peers := make(map[ragetypes.PeerID]p2ptypes.StreamConfig)
+	donInfo := &remotetypes.DON{
+		ID: "don1",
+	}
 	for _, peerID := range peerIDs {
 		var p ragetypes.PeerID
 		err := p.UnmarshalText([]byte(peerID))
@@ -59,8 +67,32 @@ func (s *registrySyncer) Start(ctx context.Context) error {
 			return err
 		}
 		peers[p] = defaultStreamConfig
+		donInfo.Members = append(donInfo.Members, p)
 	}
-	return s.peerWrapper.GetPeer().UpdateConnections(peers)
+	err := s.peerWrapper.GetPeer().UpdateConnections(peers)
+	if err != nil {
+		return err
+	}
+	// NOTE: temporary hard-coded capabilities
+	capId := "sample_remote_target"
+	targetCap := remote.NewRemoteTargetCaller(commoncap.CapabilityInfo{
+		ID:             capId,
+		CapabilityType: commoncap.CapabilityTypeTarget,
+		Description:    "Remote Target",
+		Version:        "0.0.1",
+	}, donInfo, s.dispatcher, s.lggr)
+	err = s.registry.Add(ctx, targetCap)
+	if err != nil {
+		s.lggr.Error("failed to add remote target capability to registry")
+		return err
+	}
+	err = s.dispatcher.SetReceiver(capId, donInfo.ID, targetCap)
+	if err != nil {
+		s.lggr.Errorw("failed to set receiver", "capabilityId", capId, "donId", donInfo.ID, "error", err)
+		return err
+	}
+	s.lggr.Info("registry syncer started")
+	return nil
 }
 
 func (s *registrySyncer) Close() error {

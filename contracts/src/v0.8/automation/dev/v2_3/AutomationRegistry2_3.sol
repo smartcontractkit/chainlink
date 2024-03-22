@@ -23,6 +23,8 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
   /**
    * @notice versions:
    * AutomationRegistry 2.3.0: supports native and ERC20 billing
+   *                           changes flat fee to USD-denominated
+   *                           adds support for custom billing overrides
    * AutomationRegistry 2.2.0: moves chain-specific integration code into a separate module
    * KeeperRegistry 2.1.0:     introduces support for log triggers
    *                           removes the need for "wrapped perform data"
@@ -58,7 +60,8 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
       AutomationRegistryLogicC2_3(address(logicA)).getFastGasFeedAddress(),
       AutomationRegistryLogicC2_3(address(logicA)).getAutomationForwarderLogic(),
       AutomationRegistryLogicC2_3(address(logicA)).getAllowedReadOnlyAddress(),
-      AutomationRegistryLogicC2_3(address(logicA)).getPayoutMode()
+      AutomationRegistryLogicC2_3(address(logicA)).getPayoutMode(),
+      AutomationRegistryLogicC2_3(address(logicA)).getWrappedNativeTokenAddress()
     )
     Chainable(address(logicA))
   {}
@@ -236,7 +239,6 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
    * @param amount number of LINK transfer
    */
   function onTokenTransfer(address sender, uint256 amount, bytes calldata data) external override {
-    // TODO test that this reverts if the billing token != the link token
     if (msg.sender != address(i_link)) revert OnlyCallableByLINKToken();
     if (data.length != 32) revert InvalidDataLength();
     uint256 id = abi.decode(data, (uint256));

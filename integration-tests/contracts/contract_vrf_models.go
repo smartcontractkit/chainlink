@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_load_test_with_metrics"
@@ -63,6 +64,8 @@ type VRFCoordinatorV2 interface {
 	GetOwner(ctx context.Context) (common.Address, error)
 	PendingRequestsExist(ctx context.Context, subID uint64) (bool, error)
 	OwnerCancelSubscription(subID uint64) (*types.Transaction, error)
+	ParseSubscriptionCanceled(log types.Log) (*vrf_coordinator_v2.VRFCoordinatorV2SubscriptionCanceled, error)
+	ParseLog(log types.Log) (generated.AbigenLog, error)
 	CancelSubscription(subID uint64, to common.Address) (*types.Transaction, error)
 	FindSubscriptionID(subID uint64) (uint64, error)
 	WaitForRandomWordsFulfilledEvent(requestID []*big.Int, timeout time.Duration) (*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled, error)
@@ -166,7 +169,6 @@ type VRFV2PlusWrapper interface {
 	Address() string
 	SetConfig(wrapperGasOverhead uint32, coordinatorGasOverhead uint32, wrapperNativePremiumPercentage uint8, wrapperLinkPremiumPercentage uint8, keyHash [32]byte, maxNumWords uint8, stalenessSeconds uint32, fallbackWeiPerUnitLink *big.Int, fulfillmentFlatFeeNativePPM uint32, fulfillmentFlatFeeLinkDiscountPPM uint32) error
 	GetSubID(ctx context.Context) (*big.Int, error)
-	Migrate(newCoordinator common.Address) error
 	Coordinator(ctx context.Context) (common.Address, error)
 }
 
@@ -175,6 +177,7 @@ type VRFOwner interface {
 	SetAuthorizedSenders(senders []common.Address) error
 	AcceptVRFOwnership() error
 	WaitForRandomWordsForcedEvent(requestIDs []*big.Int, subIds []uint64, senders []common.Address, timeout time.Duration) (*vrf_owner.VRFOwnerRandomWordsForced, error)
+	OwnerCancelSubscription(subID uint64) (*types.Transaction, error)
 }
 
 type VRFConsumer interface {

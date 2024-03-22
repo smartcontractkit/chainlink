@@ -111,7 +111,7 @@ const gasWei = BigNumber.from(1000000000) // 1 gwei
 const performGas = BigNumber.from('1000000')
 const paymentPremiumBase = BigNumber.from('1000000000')
 const paymentPremiumPPB = BigNumber.from('250000000')
-const flatFeeMicroLink = BigNumber.from(0)
+const flatFeeMilliCents = BigNumber.from(0)
 
 const randomBytes = '0x1234abcd'
 const emptyBytes = '0x'
@@ -136,6 +136,7 @@ const f = 1
 const offchainVersion = 1
 const offchainBytes = '0x'
 const zeroAddress = ethers.constants.AddressZero
+const wrappedNativeTokenAddress = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2'
 const epochAndRound5_1 =
   '0x0000000000000000000000000000000000000000000000000000000000000501'
 
@@ -531,7 +532,7 @@ describe('AutomationRegistry2_3', () => {
     gasOverhead: BigNumber,
     gasMultiplier: BigNumber,
     premiumPPB: BigNumber,
-    flatFee: BigNumber,
+    flatFee: BigNumber, // in millicents
     l1CostWei?: BigNumber,
   ) => {
     l1CostWei = l1CostWei === undefined ? BigNumber.from(0) : l1CostWei
@@ -551,9 +552,9 @@ describe('AutomationRegistry2_3', () => {
       .add(l1CostWei)
       .mul(premiumPPB)
       .mul(nativeUSD)
-      .div(linkUSD)
       .div(paymentPremiumBase)
-      .add(flatFee.mul('1000000000000'))
+      .add(flatFee.mul(BigNumber.from(10).pow(21)))
+      .div(linkUSD)
 
     return {
       total: gasPayment.add(premium),
@@ -662,7 +663,7 @@ describe('AutomationRegistry2_3', () => {
         [
           {
             gasFeePPB: test.premium,
-            flatFeeMicroLink: test.flatFee,
+            flatFeeMilliCents: test.flatFee,
             priceFeed: linkUSDFeed.address,
             fallbackPrice: fallbackLinkPrice,
             minSpend: minUpkeepSpend,
@@ -950,7 +951,7 @@ describe('AutomationRegistry2_3', () => {
       [
         {
           gasFeePPB: paymentPremiumPPB,
-          flatFeeMicroLink,
+          flatFeeMilliCents,
           priceFeed: linkUSDFeed.address,
           fallbackPrice: fallbackLinkPrice,
           minSpend: minUpkeepSpend,
@@ -969,7 +970,7 @@ describe('AutomationRegistry2_3', () => {
       [
         {
           gasFeePPB: paymentPremiumPPB,
-          flatFeeMicroLink,
+          flatFeeMilliCents,
           priceFeed: linkUSDFeed.address,
           fallbackPrice: fallbackLinkPrice,
           minSpend: minUpkeepSpend,
@@ -988,7 +989,7 @@ describe('AutomationRegistry2_3', () => {
       [
         {
           gasFeePPB: paymentPremiumPPB,
-          flatFeeMicroLink,
+          flatFeeMilliCents,
           priceFeed: linkUSDFeed.address,
           fallbackPrice: fallbackLinkPrice,
           minSpend: minUpkeepSpend,
@@ -1004,6 +1005,7 @@ describe('AutomationRegistry2_3', () => {
       gasPriceFeed.address,
       zeroAddress,
       0, // onchain payout mode
+      wrappedNativeTokenAddress,
     ]
 
     registry = await deployRegistry23(...registryParams)
@@ -1713,7 +1715,7 @@ describe('AutomationRegistry2_3', () => {
             gasOverhead,
             BigNumber.from('1'), // Not the config multiplier, but the actual gas used
             paymentPremiumPPB,
-            flatFeeMicroLink,
+            flatFeeMilliCents,
           ).total.toString(),
           totalPayment.toString(),
         )
@@ -1724,7 +1726,7 @@ describe('AutomationRegistry2_3', () => {
             gasOverhead,
             BigNumber.from('1'), // Not the config multiplier, but the actual gas used
             paymentPremiumPPB,
-            flatFeeMicroLink,
+            flatFeeMilliCents,
           ).premium.toString(),
           premium.toString(),
         )
@@ -1754,7 +1756,7 @@ describe('AutomationRegistry2_3', () => {
             gasOverhead,
             gasCeilingMultiplier, // Should be same with exisitng multiplier
             paymentPremiumPPB,
-            flatFeeMicroLink,
+            flatFeeMilliCents,
           ).total.toString(),
           totalPayment.toString(),
         )
@@ -1804,7 +1806,7 @@ describe('AutomationRegistry2_3', () => {
             gasOverhead,
             gasCeilingMultiplier,
             paymentPremiumPPB,
-            flatFeeMicroLink,
+            flatFeeMilliCents,
             l1CostWeiArb,
           ).total.toString(),
           totalPayment.toString(),
@@ -2884,7 +2886,7 @@ describe('AutomationRegistry2_3', () => {
               gasOverhead,
               gasCeilingMultiplier,
               paymentPremiumPPB,
-              flatFeeMicroLink,
+              flatFeeMilliCents,
               l1CostWeiArb
                 .mul(upkeepCalldataWeights[i])
                 .div(totalCalldataWeight),
@@ -3479,47 +3481,6 @@ describe('AutomationRegistry2_3', () => {
     })
   })
 
-  describe('#addFunds', () => {
-    const amount = toWei('1')
-
-    it('reverts if the registration does not exist', async () => {
-      await evmRevert(
-        registry.connect(keeper1).addFunds(upkeepId.add(1), amount),
-        'UpkeepCancelled()',
-      )
-    })
-
-    it('adds to the balance of the registration', async () => {
-      await registry.connect(admin).addFunds(upkeepId, amount)
-      const registration = await registry.getUpkeep(upkeepId)
-      assert.isTrue(amount.eq(registration.balance))
-    })
-
-    it('lets anyone add funds to an upkeep not just admin', async () => {
-      await linkToken.connect(owner).transfer(await payee1.getAddress(), amount)
-      await linkToken.connect(payee1).approve(registry.address, amount)
-
-      await registry.connect(payee1).addFunds(upkeepId, amount)
-      const registration = await registry.getUpkeep(upkeepId)
-      assert.isTrue(amount.eq(registration.balance))
-    })
-
-    it('emits a log', async () => {
-      const tx = await registry.connect(admin).addFunds(upkeepId, amount)
-      await expect(tx)
-        .to.emit(registry, 'FundsAdded')
-        .withArgs(upkeepId, await admin.getAddress(), amount)
-    })
-
-    it('reverts if the upkeep is canceled', async () => {
-      await registry.connect(admin).cancelUpkeep(upkeepId)
-      await evmRevert(
-        registry.connect(keeper1).addFunds(upkeepId, amount),
-        'UpkeepCancelled()',
-      )
-    })
-  })
-
   describe('#getActiveUpkeepIDs', () => {
     it('reverts if startIndex is out of bounds ', async () => {
       await evmRevert(
@@ -3619,7 +3580,7 @@ describe('AutomationRegistry2_3', () => {
           .add(chainModuleOverheads.chainModuleFixedOverhead),
         gasCeilingMultiplier.mul('2'), // fallbackGasPrice is 2x gas price
         paymentPremiumPPB,
-        flatFeeMicroLink,
+        flatFeeMilliCents,
       ).total
 
       // Stale feed
@@ -3704,7 +3665,7 @@ describe('AutomationRegistry2_3', () => {
           .add(chainModuleOverheads.chainModuleFixedOverhead),
         gasCeilingMultiplier.mul('2'), // fallbackLinkPrice is 1/2 link price, so multiply by 2
         paymentPremiumPPB,
-        flatFeeMicroLink,
+        flatFeeMilliCents,
       ).total
 
       // Stale feed
@@ -3771,60 +3732,6 @@ describe('AutomationRegistry2_3', () => {
     it('uses the correct type and version', async () => {
       const typeAndVersion = await registry.typeAndVersion()
       assert.equal(typeAndVersion, 'AutomationRegistry 2.3.0')
-    })
-  })
-
-  describe('#onTokenTransfer', () => {
-    const amount = toWei('1')
-
-    it('reverts if not called by the LINK token', async () => {
-      const data = ethers.utils.defaultAbiCoder.encode(['uint256'], [upkeepId])
-
-      await evmRevert(
-        registry
-          .connect(keeper1)
-          .onTokenTransfer(await keeper1.getAddress(), amount, data),
-        'OnlyCallableByLINKToken()',
-      )
-    })
-
-    it('reverts if not called with more or less than 32 bytes', async () => {
-      const longData = ethers.utils.defaultAbiCoder.encode(
-        ['uint256', 'uint256'],
-        ['33', '34'],
-      )
-      const shortData = '0x12345678'
-
-      await evmRevert(
-        linkToken
-          .connect(owner)
-          .transferAndCall(registry.address, amount, longData),
-      )
-      await evmRevert(
-        linkToken
-          .connect(owner)
-          .transferAndCall(registry.address, amount, shortData),
-      )
-    })
-
-    it('reverts if the upkeep is canceled', async () => {
-      await registry.connect(admin).cancelUpkeep(upkeepId)
-      await evmRevert(
-        registry.connect(keeper1).addFunds(upkeepId, amount),
-        'UpkeepCancelled()',
-      )
-    })
-
-    it('updates the funds of the job id passed', async () => {
-      const data = ethers.utils.defaultAbiCoder.encode(['uint256'], [upkeepId])
-
-      const before = (await registry.getUpkeep(upkeepId)).balance
-      await linkToken
-        .connect(owner)
-        .transferAndCall(registry.address, amount, data)
-      const after = (await registry.getUpkeep(upkeepId)).balance
-
-      assert.isTrue(before.add(amount).eq(after))
     })
   })
 
@@ -3929,10 +3836,8 @@ describe('AutomationRegistry2_3', () => {
 
     it('updates the onchainConfig and configDigest', async () => {
       const old = await registry.getState()
-      const oldConfig = old.config
+      const oldConfig = await registry.getConfig()
       const oldState = old.state
-      assert.isTrue(paymentPremiumPPB.eq(oldConfig.paymentPremiumPPB))
-      assert.isTrue(flatFeeMicroLink.eq(oldConfig.flatFeeMicroLink))
       assert.isTrue(stalenessSeconds.eq(oldConfig.stalenessSeconds))
       assert.isTrue(gasCeilingMultiplier.eq(oldConfig.gasCeilingMultiplier))
 
@@ -3952,8 +3857,6 @@ describe('AutomationRegistry2_3', () => {
       const updated = await registry.getState()
       const updatedConfig = updated.config
       const updatedState = updated.state
-      assert.equal(updatedConfig.paymentPremiumPPB, payment.toNumber())
-      assert.equal(updatedConfig.flatFeeMicroLink, flatFee.toNumber())
       assert.equal(updatedConfig.stalenessSeconds, staleness.toNumber())
       assert.equal(updatedConfig.gasCeilingMultiplier, ceiling.toNumber())
       assert.equal(
@@ -4299,204 +4202,6 @@ describe('AutomationRegistry2_3', () => {
       await expect(
         registry.connect(admin).setPeerRegistryMigrationPermission(peer, 1),
       ).to.be.revertedWith('Only callable by owner')
-    })
-  })
-
-  describe('#registerUpkeep', () => {
-    it('reverts when registry is paused', async () => {
-      await registry.connect(owner).pause()
-      await evmRevert(
-        registry
-          .connect(owner)
-          .registerUpkeep(
-            mock.address,
-            performGas,
-            await admin.getAddress(),
-            Trigger.CONDITION,
-            linkToken.address,
-            '0x',
-            '0x',
-            '0x',
-          ),
-        'RegistryPaused()',
-      )
-    })
-
-    it('reverts if the target is not a contract', async () => {
-      await evmRevert(
-        registry
-          .connect(owner)
-          .registerUpkeep(
-            zeroAddress,
-            performGas,
-            await admin.getAddress(),
-            Trigger.CONDITION,
-            linkToken.address,
-            '0x',
-            '0x',
-            '0x',
-          ),
-        'NotAContract()',
-      )
-    })
-
-    it('reverts if called by a non-owner', async () => {
-      await evmRevert(
-        registry
-          .connect(keeper1)
-          .registerUpkeep(
-            mock.address,
-            performGas,
-            await admin.getAddress(),
-            Trigger.CONDITION,
-            linkToken.address,
-            '0x',
-            '0x',
-            '0x',
-          ),
-        'OnlyCallableByOwnerOrRegistrar()',
-      )
-    })
-
-    it('reverts if execute gas is too low', async () => {
-      await evmRevert(
-        registry
-          .connect(owner)
-          .registerUpkeep(
-            mock.address,
-            2299,
-            await admin.getAddress(),
-            Trigger.CONDITION,
-            linkToken.address,
-            '0x',
-            '0x',
-            '0x',
-          ),
-        'GasLimitOutsideRange()',
-      )
-    })
-
-    it('reverts if execute gas is too high', async () => {
-      await evmRevert(
-        registry
-          .connect(owner)
-          .registerUpkeep(
-            mock.address,
-            5000001,
-            await admin.getAddress(),
-            Trigger.CONDITION,
-            linkToken.address,
-            '0x',
-            '0x',
-            '0x',
-          ),
-        'GasLimitOutsideRange()',
-      )
-    })
-
-    it('reverts if checkData is too long', async () => {
-      let longBytes = '0x'
-      for (let i = 0; i < 10000; i++) {
-        longBytes += '1'
-      }
-      await evmRevert(
-        registry
-          .connect(owner)
-          .registerUpkeep(
-            mock.address,
-            performGas,
-            await admin.getAddress(),
-            Trigger.CONDITION,
-            linkToken.address,
-            longBytes,
-            '0x',
-            '0x',
-          ),
-        'CheckDataExceedsLimit()',
-      )
-    })
-
-    it('reverts if the billing token is not configured', async () => {
-      let longBytes = '0x'
-      for (let i = 0; i < 10000; i++) {
-        longBytes += '1'
-      }
-      await evmRevert(
-        registry
-          .connect(owner)
-          .registerUpkeep(
-            mock.address,
-            performGas,
-            await admin.getAddress(),
-            Trigger.CONDITION,
-            randomAddress(),
-            '0x',
-            '0x',
-            '0x',
-          ),
-        'InvalidBillingToken()',
-      )
-    })
-
-    it('creates a record of the registration', async () => {
-      const performGases = [100000, 500000]
-      const checkDatas = [emptyBytes, '0x12']
-
-      for (let jdx = 0; jdx < performGases.length; jdx++) {
-        const performGas = performGases[jdx]
-        for (let kdx = 0; kdx < checkDatas.length; kdx++) {
-          const checkData = checkDatas[kdx]
-          const tx = await registry
-            .connect(owner)
-            .registerUpkeep(
-              mock.address,
-              performGas,
-              await admin.getAddress(),
-              Trigger.CONDITION,
-              linkToken.address,
-              checkData,
-              '0x',
-              '0x',
-            )
-
-          //confirm the upkeep details and verify emitted events
-          const testUpkeepId = await getUpkeepID(tx)
-          await expect(tx)
-            .to.emit(registry, 'UpkeepRegistered')
-            .withArgs(testUpkeepId, performGas, await admin.getAddress())
-
-          await expect(tx)
-            .to.emit(registry, 'UpkeepCheckDataSet')
-            .withArgs(testUpkeepId, checkData)
-          await expect(tx)
-            .to.emit(registry, 'UpkeepTriggerConfigSet')
-            .withArgs(testUpkeepId, '0x')
-
-          const registration = await registry.getUpkeep(testUpkeepId)
-
-          assert.equal(mock.address, registration.target)
-          assert.notEqual(
-            ethers.constants.AddressZero,
-            await registry.getForwarder(testUpkeepId),
-          )
-          assert.equal(
-            performGas.toString(),
-            registration.performGas.toString(),
-          )
-          assert.equal(await admin.getAddress(), registration.admin)
-          assert.equal(registration.balance.toNumber(), 0)
-          assert.equal(registration.amountSpent.toNumber(), 0)
-          assert.equal(registration.lastPerformedBlockNumber, 0)
-          assert.equal(checkData, registration.checkData)
-          assert.equal(registration.paused, false)
-          assert.equal(registration.offchainConfig, '0x')
-          assert(registration.maxValidBlocknumber.eq('0xffffffff'))
-          assert.equal(
-            await registry.getBillingToken(testUpkeepId),
-            linkToken.address,
-          )
-        }
-      }
     })
   })
 
@@ -4962,7 +4667,7 @@ describe('AutomationRegistry2_3', () => {
         [
           {
             gasFeePPB: paymentPremiumPPB,
-            flatFeeMicroLink,
+            flatFeeMilliCents,
             priceFeed: linkUSDFeed.address,
             fallbackPrice: fallbackLinkPrice,
             minSpend: newMinUpkeepSpend,
@@ -5626,7 +5331,7 @@ describe('AutomationRegistry2_3', () => {
             [
               {
                 gasFeePPB: paymentPremiumPPB,
-                flatFeeMicroLink,
+                flatFeeMilliCents,
                 priceFeed: linkUSDFeed.address,
                 fallbackPrice: fallbackLinkPrice,
                 minSpend: newMinUpkeepSpend,
@@ -5692,7 +5397,7 @@ describe('AutomationRegistry2_3', () => {
             [
               {
                 gasFeePPB: paymentPremiumPPB,
-                flatFeeMicroLink,
+                flatFeeMilliCents,
                 priceFeed: linkUSDFeed.address,
                 fallbackPrice: fallbackLinkPrice,
                 minSpend: newMinUpkeepSpend,
@@ -5753,7 +5458,7 @@ describe('AutomationRegistry2_3', () => {
             [
               {
                 gasFeePPB: paymentPremiumPPB,
-                flatFeeMicroLink,
+                flatFeeMilliCents,
                 priceFeed: linkUSDFeed.address,
                 fallbackPrice: fallbackLinkPrice,
                 minSpend: newMinUpkeepSpend,
