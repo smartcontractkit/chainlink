@@ -81,11 +81,20 @@ func NewInMemoryStore[
 		ms.maxUnstarted = 10000
 	}
 
+	addressesToTxs := map[ADDR][]txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
+	// populate all enabled addresses
+	enabledAddresses, err := keyStore.EnabledAddressesForChain(ctx, chainID)
+	if err != nil {
+		return nil, fmt.Errorf("new_in_memory_store: %w", err)
+	}
+	for _, addr := range enabledAddresses {
+		addressesToTxs[addr] = []txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
+	}
+
 	txs, err := persistentTxStore.GetAllTransactions(ctx, chainID)
 	if err != nil {
 		return nil, fmt.Errorf("address_state: initialization: %w", err)
 	}
-	addressesToTxs := map[ADDR][]txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
 	for _, tx := range txs {
 		at, exists := addressesToTxs[tx.FromAddress]
 		if !exists {
@@ -348,30 +357,24 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveI
 		return fmt.Errorf("save_in_progress_attempt: %w: with attempt hash %q", ErrTxnNotFound, attempt.Hash)
 	}
 
+	// Check if the attempt already exists by checking if id is zero
+	// this will be used by memory store
+	var txAttemptExists bool
+	if attempt.ID != 0 {
+		txAttemptExists = true
+	}
+
 	// Persist to persistent storage
 	if err := ms.persistentTxStore.SaveInProgressAttempt(ctx, attempt); err != nil {
 		return err
 	}
 
 	// Update in memory store
-	fn := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) {
-		if tx.ID != attempt.TxID {
-			return
-		}
-		if tx.TxAttempts != nil && len(tx.TxAttempts) > 0 {
-			for i := 0; i < len(tx.TxAttempts); i++ {
-				if tx.TxAttempts[i].ID == attempt.ID {
-					tx.TxAttempts[i].State = txmgrtypes.TxAttemptInProgress
-					tx.TxAttempts[i].BroadcastBeforeBlockNum = attempt.BroadcastBeforeBlockNum
-					return
-				}
-			}
-		}
-		tx.TxAttempts = []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{*attempt}
+	if txAttemptExists {
+		return as.updateInProgressTxAttempt(*attempt)
 	}
-	as.applyToTxsByState(nil, fn, attempt.TxID)
 
-	return nil
+	return as.addInProgressTxAttempt(*attempt)
 }
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveInsufficientFundsAttempt(ctx context.Context, timeout time.Duration, attempt *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], broadcastAt time.Time) error {
 	return nil

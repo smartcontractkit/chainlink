@@ -1,6 +1,7 @@
 package txmgr
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -160,6 +161,60 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) findTx
 	defer as.RUnlock()
 
 	return as.idempotencyKeyToTx[key]
+}
+
+// addInProgressTxAttempt saves the in-progress transaction attempt.
+// The transaction attempt should have a valid ID assigned by the caller.
+func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) addInProgressTxAttempt(
+	txAttempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
+) error {
+	as.Lock()
+	defer as.Unlock()
+
+	if txAttempt.ID == 0 {
+		return fmt.Errorf("save_in_progress_tx_attempt: TxAttempt ID must be set")
+	}
+
+	tx, ok := as.allTxs[txAttempt.TxID]
+	if !ok {
+		return ErrTxnNotFound
+	}
+
+	// add the new attempt to the transaction
+	tx.TxAttempts = append(tx.TxAttempts, txAttempt)
+	as.attemptHashToTxAttempt[txAttempt.Hash] = &txAttempt
+
+	return nil
+}
+
+// updateInProgressTxAttempt saves the in-progress transaction attempt.
+// The transaction attempt should have a valid ID assigned by the caller.
+func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) updateInProgressTxAttempt(
+	txAttempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
+) error {
+	as.Lock()
+	defer as.Unlock()
+
+	if txAttempt.ID == 0 {
+		return fmt.Errorf("save_in_progress_tx_attempt: TxAttempt ID must be set")
+	}
+
+	tx, ok := as.allTxs[txAttempt.TxID]
+	if !ok {
+		return ErrTxnNotFound
+	}
+
+	// update the existing attempt if it exists
+	for i := 0; i < len(tx.TxAttempts); i++ {
+		if tx.TxAttempts[i].ID == txAttempt.ID {
+			tx.TxAttempts[i].State = txmgrtypes.TxAttemptInProgress
+			tx.TxAttempts[i].BroadcastBeforeBlockNum = txAttempt.BroadcastBeforeBlockNum
+			as.attemptHashToTxAttempt[txAttempt.Hash] = &tx.TxAttempts[i]
+			return nil
+		}
+	}
+
+	return fmt.Errorf("update_in_progress_tx_attempt: tried to update but no tx attempt found with ID %v", txAttempt.ID)
 }
 
 // applyToTxsByState calls the given function for each transaction in the given states.

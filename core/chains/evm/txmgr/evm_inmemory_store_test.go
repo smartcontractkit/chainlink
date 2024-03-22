@@ -57,21 +57,17 @@ func TestInMemoryStore_SaveInProgressAttempt(t *testing.T) {
 		err := inMemoryStore.SaveInProgressAttempt(ctx, &inTxAttempt)
 		require.NoError(t, err)
 
-		expTxAttempt, err := persistentStore.FindTxAttempt(ctx, inTxAttempt.Hash)
+		expTx, err := persistentStore.FindTxWithAttempts(ctx, inTx.ID)
 		require.NoError(t, err)
-		assert.Equal(t, txmgrtypes.TxAttemptInProgress, expTxAttempt.State)
 
 		// Check that the in-memory store has the new attempt
 		fn := func(tx *evmtxmgr.Tx) bool { return true }
-		txs := inMemoryStore.XXXTestFindTxs(nil, fn, inTx.ID)
-		require.NotNil(t, txs)
-		require.Equal(t, 1, len(txs))
+		actTxs := inMemoryStore.XXXTestFindTxs(nil, fn, inTx.ID)
+		require.NotNil(t, actTxs)
+		actTx := actTxs[0]
+		require.Equal(t, len(expTx.TxAttempts), len(actTx.TxAttempts))
 
-		for _, actTxAttempt := range txs[0].TxAttempts {
-			if actTxAttempt.Hash == expTxAttempt.Hash {
-				assertTxAttemptEqual(t, *expTxAttempt, actTxAttempt)
-			}
-		}
+		assertTxEqual(t, expTx, actTx)
 	})
 	t.Run("updates old attempt to in_progress when insufficient_funds", func(t *testing.T) {
 		// Insert a transaction into persistent store
@@ -89,21 +85,17 @@ func TestInMemoryStore_SaveInProgressAttempt(t *testing.T) {
 		err := inMemoryStore.SaveInProgressAttempt(ctx, &inTxAttempt)
 		require.NoError(t, err)
 
-		expTxAttempt, err := persistentStore.FindTxAttempt(ctx, inTxAttempt.Hash)
+		expTx, err := persistentStore.FindTxWithAttempts(ctx, inTx.ID)
 		require.NoError(t, err)
-		assert.Equal(t, txmgrtypes.TxAttemptInProgress, expTxAttempt.State)
 
 		// Check that the in-memory store has the new attempt
 		fn := func(tx *evmtxmgr.Tx) bool { return true }
-		txs := inMemoryStore.XXXTestFindTxs(nil, fn, inTx.ID)
-		require.NotNil(t, txs)
-		require.Equal(t, 1, len(txs))
+		actTxs := inMemoryStore.XXXTestFindTxs(nil, fn, inTx.ID)
+		require.NotNil(t, actTxs)
+		actTx := actTxs[0]
+		require.Equal(t, len(expTx.TxAttempts), len(actTx.TxAttempts))
 
-		for _, actTxAttempt := range txs[0].TxAttempts {
-			if actTxAttempt.Hash == expTxAttempt.Hash {
-				assertTxAttemptEqual(t, *expTxAttempt, actTxAttempt)
-			}
-		}
+		assertTxEqual(t, expTx, actTx)
 	})
 	t.Run("handles errors the same way as the persistent store", func(t *testing.T) {
 		// Insert a transaction into persistent store
@@ -115,22 +107,24 @@ func TestInMemoryStore_SaveInProgressAttempt(t *testing.T) {
 		inTxAttempt := cltest.NewLegacyEthTxAttempt(t, inTx.ID)
 		require.Equal(t, int64(0), inTxAttempt.ID)
 
-		// wrong tx id
-		inTxAttempt.TxID = 999
-		actErr := inMemoryStore.SaveInProgressAttempt(ctx, &inTxAttempt)
-		expErr := persistentStore.SaveInProgressAttempt(ctx, &inTxAttempt)
-		assert.Error(t, actErr)
-		assert.Error(t, expErr)
-		inTxAttempt.TxID = inTx.ID // reset
+		t.Run("wrong tx id", func(t *testing.T) {
+			inTxAttempt.TxID = 999
+			actErr := inMemoryStore.SaveInProgressAttempt(ctx, &inTxAttempt)
+			expErr := persistentStore.SaveInProgressAttempt(ctx, &inTxAttempt)
+			assert.Error(t, actErr)
+			assert.Error(t, expErr)
+			inTxAttempt.TxID = inTx.ID // reset
+		})
 
-		// wrong state
-		inTxAttempt.State = txmgrtypes.TxAttemptBroadcast
-		actErr = inMemoryStore.SaveInProgressAttempt(ctx, &inTxAttempt)
-		expErr = persistentStore.SaveInProgressAttempt(ctx, &inTxAttempt)
-		assert.Error(t, actErr)
-		assert.Error(t, expErr)
-		assert.Equal(t, expErr, actErr)
-		inTxAttempt.State = txmgrtypes.TxAttemptInProgress // reset
+		t.Run("wrong state", func(t *testing.T) {
+			inTxAttempt.State = txmgrtypes.TxAttemptBroadcast
+			actErr := inMemoryStore.SaveInProgressAttempt(ctx, &inTxAttempt)
+			expErr := persistentStore.SaveInProgressAttempt(ctx, &inTxAttempt)
+			assert.Error(t, actErr)
+			assert.Error(t, expErr)
+			assert.Equal(t, expErr, actErr)
+			inTxAttempt.State = txmgrtypes.TxAttemptInProgress // reset
+		})
 	})
 }
 
