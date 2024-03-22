@@ -129,7 +129,7 @@ LOOP:
 
 				innerErr = cc.RegisterToWorkflow(ctx, reg)
 				if innerErr != nil {
-					return fmt.Errorf("failed to register to workflow: %+v", reg)
+					return fmt.Errorf("failed to register to workflow (%+v): %w", reg, innerErr)
 				}
 
 				s.capability = cc
