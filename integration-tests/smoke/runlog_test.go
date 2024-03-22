@@ -17,6 +17,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
@@ -27,9 +28,7 @@ func TestRunLogBasic(t *testing.T) {
 	l := logging.GetTestLogger(t)
 
 	config, err := tc.GetConfig("Smoke", tc.RunLog)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err, "Error getting config")
 
 	privateNetwork, err := actions.EthereumNetworkConfigFromConfig(l, &config)
 	require.NoError(t, err, "Error building ethereum network config")
@@ -42,21 +41,22 @@ func TestRunLogBasic(t *testing.T) {
 		WithCLNodes(1).
 		WithFunding(big.NewFloat(.1)).
 		WithStandardCleanup().
+		WithSeth().
 		Build()
 	require.NoError(t, err)
 
-	lt, err := env.ContractDeployer.DeployLinkTokenContract()
+	network := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0]
+	sethClient, err := env.GetSethClient(network.ChainID)
+	require.NoError(t, err, "Error getting seth client")
+
+	lt, err := contracts.DeployLinkTokenContract(l, sethClient)
 	require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
-	oracle, err := env.ContractDeployer.DeployOracle(lt.Address())
+
+	oracle, err := contracts.DeployOracle(sethClient, lt.Address())
 	require.NoError(t, err, "Deploying Oracle Contract shouldn't fail")
-	consumer, err := env.ContractDeployer.DeployAPIConsumer(lt.Address())
+	consumer, err := contracts.DeployAPIConsumer(sethClient, lt.Address())
 	require.NoError(t, err, "Deploying Consumer Contract shouldn't fail")
 
-	network := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0]
-	evmClient, err := env.GetEVMClient(network.ChainID)
-	require.NoError(t, err, "Getting EVM client shouldn't fail")
-	err = evmClient.SetDefaultWallet(0)
-	require.NoError(t, err, "Setting default wallet shouldn't fail")
 	err = lt.Transfer(consumer.Address(), big.NewInt(2e18))
 	require.NoError(t, err, "Transferring %d to consumer contract shouldn't fail", big.NewInt(2e18))
 
@@ -83,7 +83,7 @@ func TestRunLogBasic(t *testing.T) {
 		Name:                     fmt.Sprintf("direct-request-%s", uuid.NewString()),
 		MinIncomingConfirmations: "1",
 		ContractAddress:          oracle.Address(),
-		EVMChainID:               evmClient.GetChainID().String(),
+		EVMChainID:               fmt.Sprint(sethClient.ChainID),
 		ExternalJobID:            jobUUID.String(),
 		ObservationSource:        ost,
 	})

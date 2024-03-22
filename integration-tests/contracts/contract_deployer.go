@@ -350,7 +350,7 @@ func (e *EthereumContractDeployer) DeployFluxAggregatorContract(
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumFluxAggregator{
+	return &LegacyEthereumFluxAggregator{
 		client:         e.client,
 		fluxAggregator: instance.(*flux_aggregator_wrapper.FluxAggregator),
 		address:        address,
@@ -679,7 +679,7 @@ func (e *EthereumContractDeployer) DeployAPIConsumer(linkAddr string) (APIConsum
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumAPIConsumer{
+	return &LegacyEthereumAPIConsumer{
 		address:  addr,
 		client:   e.client,
 		consumer: instance.(*test_api_consumer_wrapper.TestAPIConsumer),
@@ -697,7 +697,7 @@ func (e *EthereumContractDeployer) DeployOracle(linkAddr string) (Oracle, error)
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumOracle{
+	return &LegacyEthereumOracle{
 		address: addr,
 		client:  e.client,
 		oracle:  instance.(*oracle_wrapper.Oracle),

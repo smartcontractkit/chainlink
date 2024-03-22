@@ -87,7 +87,7 @@ func TestForwarderOCRBasic(t *testing.T) {
 
 	err = actions.CreateOCRJobsWithForwarderLocal(ocrInstances, bootstrapNode, workerNodes, 5, env.MockAdapter, fmt.Sprint(sethClient.ChainID))
 	require.NoError(t, err, "failed to setup forwarder jobs")
-	err = actions_seth.WatchNewRound(l, sethClient, 1, contracts.V1OffChainAgrregatorToOffChainAggregatorWithRounds(ocrInstances), time.Duration(10*time.Minute))
+	err = actions_seth.WatchNewOCRRound(l, sethClient, 1, contracts.V1OffChainAgrregatorToOffChainAggregatorWithRounds(ocrInstances), time.Duration(10*time.Minute))
 	require.NoError(t, err, "error watching for new OCR round")
 
 	answer, err := ocrInstances[0].GetLatestAnswer(testcontext.Get(t))
@@ -96,7 +96,7 @@ func TestForwarderOCRBasic(t *testing.T) {
 
 	err = actions.SetAllAdapterResponsesToTheSameValueLocal(10, ocrInstances, workerNodes, env.MockAdapter)
 	require.NoError(t, err)
-	err = actions_seth.WatchNewRound(l, sethClient, 2, contracts.V1OffChainAgrregatorToOffChainAggregatorWithRounds(ocrInstances), time.Duration(10*time.Minute))
+	err = actions_seth.WatchNewOCRRound(l, sethClient, 2, contracts.V1OffChainAgrregatorToOffChainAggregatorWithRounds(ocrInstances), time.Duration(10*time.Minute))
 	require.NoError(t, err, "error watching for new OCR round")
 
 	answer, err = ocrInstances[0].GetLatestAnswer(testcontext.Get(t))
