@@ -3,60 +3,53 @@ package evm
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 )
 
-// key is contract name
-type contractBindings map[string]readBindings
+// key is contract-readName
+type contractBindings map[string]readBinding
 
-// key is read name
-type readBindings map[string]readBinding
-
-func (b contractBindings) GetReadBinding(contractName, readName string) (readBinding, error) {
-	rb, rbExists := b[contractName]
+func (b contractBindings) GetReadBinding(key string) (readBinding, error) {
+	rb, rbExists := b[key]
 	if !rbExists {
-		return nil, fmt.Errorf("%w: no contract named %s", commontypes.ErrInvalidType, contractName)
+		return nil, fmt.Errorf("%w: no readbinding by key %s", commontypes.ErrInvalidType, key)
 	}
 
-	reader, readerExists := rb[readName]
-	if !readerExists {
-		return nil, fmt.Errorf("%w: no readName named %s in contract %s", commontypes.ErrInvalidType, readName, contractName)
-	}
-	return reader, nil
+	return rb, nil
 }
 
-func (b contractBindings) AddReadBinding(contractName, readName string, reader readBinding) {
-	rbs, rbsExists := b[contractName]
+func (b contractBindings) AddReadBinding(key string, reader readBinding) {
+	_, rbsExists := b[key]
 	if !rbsExists {
-		rbs = readBindings{}
-		b[contractName] = rbs
+		return
 	}
-	rbs[readName] = reader
+	b[key] = reader
 }
 
 func (b contractBindings) Bind(ctx context.Context, boundContracts []commontypes.BoundContract) error {
 	for _, bc := range boundContracts {
-		rbs, rbsExist := b[bc.Name]
+		rb, rbsExist := b[bc.Name]
 		if !rbsExist {
 			return fmt.Errorf("%w: no contract named %s", commontypes.ErrInvalidConfig, bc.Name)
 		}
-		for _, r := range rbs {
-			if err := r.Bind(ctx, bc); err != nil {
-				return err
-			}
+		if err := rb.Bind(ctx, bc); err != nil {
+			return err
 		}
 	}
 	return nil
 }
 
 func (b contractBindings) ForEach(ctx context.Context, fn func(readBinding, context.Context) error) error {
-	for _, rbs := range b {
-		for _, rb := range rbs {
-			if err := fn(rb, ctx); err != nil {
-				return err
-			}
+	for _, rb := range b {
+		if err := fn(rb, ctx); err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+func formatKey(str ...string) string {
+	return strings.Join(str, "-")
 }

@@ -12,7 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
-
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
@@ -31,13 +31,48 @@ type eventBinding struct {
 	lock           sync.Mutex
 	inputInfo      types.CodecEntry
 	inputModifier  codec.Modifier
-	topicInfo      types.CodecEntry
+	codecTopicInfo types.CodecEntry
+	// key is generic topic name
+	topicsInfo map[string]topicInfo
+	// key is a predefined generic name for evm log event data word
+	// for eg. first evm data word(32bytes) of USDC log event is value so the key can be called value
+	eventDataWords map[string]uint8
 	// used to allow Register and Unregister to be unique in case two bindings have the same event.
 	// otherwise, if one unregisters, it'll unregister both with the LogPoller.
 	id string
 }
 
+type topicInfo struct {
+	abi.Argument
+	topicIndex uint64
+}
+
 var _ readBinding = &eventBinding{}
+
+func (e *eventBinding) decodeLogsIntoSequences(ctx context.Context, logs []logpoller.Log, into any) ([]commontypes.Sequence, error) {
+	var sequences []commontypes.Sequence
+	for _, log := range logs {
+		sequence := commontypes.Sequence{
+			// TODO SequenceCursor, should be combination of block, eventsig, topic ...
+			Cursor: "TODO",
+			Head: commontypes.Head{
+				Number:    uint64(log.BlockNumber),
+				Hash:      log.BlockHash.Bytes(),
+				Timestamp: uint64(log.BlockTimestamp.Unix()),
+			},
+			// TODO test this
+			Data: reflect.New(reflect.TypeOf(into).Elem()),
+		}
+
+		if err := e.decodeLog(ctx, &log, sequence.Data); err != nil {
+			return nil, err
+		}
+
+		sequences = append(sequences, sequence)
+	}
+
+	return sequences, nil
+}
 
 func (e *eventBinding) SetCodec(codec commontypes.RemoteCodec) {
 	e.codec = codec
@@ -81,9 +116,9 @@ func (e *eventBinding) GetLatestValue(ctx context.Context, params, into any) err
 		return fmt.Errorf("%w: event not bound", commontypes.ErrInvalidType)
 	}
 
-	confs := logpoller.Finalized
+	confs := evmtypes.Finalized
 	if e.pending {
-		confs = logpoller.Unconfirmed
+		confs = evmtypes.Unconfirmed
 	}
 
 	if len(e.inputInfo.Args()) == 0 {
@@ -91,6 +126,47 @@ func (e *eventBinding) GetLatestValue(ctx context.Context, params, into any) err
 	}
 
 	return e.getLatestValueWithFilters(ctx, confs, params, into)
+}
+
+func (e *eventBinding) QueryKey(ctx context.Context, queryFilter query.Filter, limitAndSort query.LimitAndSort, sequenceDataType any) ([]commontypes.Sequence, error) {
+	remappedQf, err := remapQueryFilter(queryFilter)
+	if err != nil {
+		return nil, err
+	}
+	remappedQf.Expressions = append(remappedQf.Expressions, NewEventFilter(e.address, e.hash))
+
+	logs, err := e.lp.FilteredLogs(remappedQf, limitAndSort)
+	if err != nil {
+		return nil, err
+	}
+
+	return e.decodeLogsIntoSequences(ctx, logs, sequenceDataType)
+}
+
+func (e *eventBinding) QueryByKeyValuesComparison(ctx context.Context, keyDataPointer string, valueComparators []query.ValueComparator, queryFilter query.Filter, limitAndSort query.LimitAndSort, sequenceDataType any) ([]commontypes.Sequence, error) {
+	remappedQf, err := remapQueryFilter(queryFilter)
+	if err != nil {
+		return nil, err
+	}
+	tInfo, isTopic := e.topicsInfo[keyDataPointer]
+	if isTopic {
+		remappedQf.Expressions = append(remappedQf.Expressions, NewEventByIndexFilter(e.address, e.hash, tInfo.topicIndex, valueComparators))
+	}
+
+	if !isTopic {
+		wordIndex, ok := e.eventDataWords[keyDataPointer]
+		if !ok {
+			return nil, fmt.Errorf("unrecognized key data pointer %s", keyDataPointer)
+		}
+		remappedQf.Expressions = append(remappedQf.Expressions, NewEventByWordFilter(e.address, e.hash, wordIndex, valueComparators))
+	}
+
+	logs, err := e.lp.FilteredLogs(remappedQf, limitAndSort)
+	if err != nil {
+		return nil, err
+	}
+
+	return e.decodeLogsIntoSequences(ctx, logs, sequenceDataType)
 }
 
 func (e *eventBinding) Bind(ctx context.Context, binding commontypes.BoundContract) error {
@@ -108,7 +184,7 @@ func (e *eventBinding) Bind(ctx context.Context, binding commontypes.BoundContra
 	return nil
 }
 
-func (e *eventBinding) getLatestValueWithoutFilters(ctx context.Context, confs logpoller.Confirmations, into any) error {
+func (e *eventBinding) getLatestValueWithoutFilters(ctx context.Context, confs evmtypes.Confirmations, into any) error {
 	log, err := e.lp.LatestLogByEventSigWithConfs(ctx, e.hash, e.address, confs)
 	if err = wrapInternalErr(err); err != nil {
 		return err
@@ -118,7 +194,7 @@ func (e *eventBinding) getLatestValueWithoutFilters(ctx context.Context, confs l
 }
 
 func (e *eventBinding) getLatestValueWithFilters(
-	ctx context.Context, confs logpoller.Confirmations, params, into any) error {
+	ctx context.Context, confs evmtypes.Confirmations, params, into any) error {
 	offChain, err := e.convertToOffChainType(params)
 	if err != nil {
 		return err
@@ -261,7 +337,7 @@ func (e *eventBinding) decodeLog(ctx context.Context, log *logpoller.Log, into a
 		return err
 	}
 
-	topics := make([]common.Hash, len(e.topicInfo.Args()))
+	topics := make([]common.Hash, len(e.codecTopicInfo.Args()))
 	if len(log.Topics) < len(topics)+1 {
 		return fmt.Errorf("%w: not enough topics to decode", commontypes.ErrInvalidType)
 	}
@@ -271,7 +347,7 @@ func (e *eventBinding) decodeLog(ctx context.Context, log *logpoller.Log, into a
 	}
 
 	topicsInto := map[string]any{}
-	if err := abi.ParseTopicsIntoMap(topicsInto, e.topicInfo.Args(), topics); err != nil {
+	if err := abi.ParseTopicsIntoMap(topicsInto, e.codecTopicInfo.Args(), topics); err != nil {
 		return fmt.Errorf("%w: %w", commontypes.ErrInvalidType, err)
 	}
 

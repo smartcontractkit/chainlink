@@ -21,6 +21,8 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
@@ -338,11 +340,11 @@ func (r *EvmRegistry) refreshLogTriggerUpkeepsBatch(logTriggerIDs []*big.Int) er
 		logTriggerHashes = append(logTriggerHashes, common.BigToHash(id))
 	}
 
-	unpausedLogs, err := r.poller.IndexedLogs(r.ctx, ac.IAutomationV21PlusCommonUpkeepUnpaused{}.Topic(), r.addr, 1, logTriggerHashes, logpoller.Confirmations(r.finalityDepth))
+	unpausedLogs, err := r.poller.IndexedLogs(r.ctx, ac.IAutomationV21PlusCommonUpkeepUnpaused{}.Topic(), r.addr, 1, logTriggerHashes, evmtypes.Confirmations(r.finalityDepth))
 	if err != nil {
 		return err
 	}
-	configSetLogs, err := r.poller.IndexedLogs(r.ctx, ac.IAutomationV21PlusCommonUpkeepTriggerConfigSet{}.Topic(), r.addr, 1, logTriggerHashes, logpoller.Confirmations(r.finalityDepth))
+	configSetLogs, err := r.poller.IndexedLogs(r.ctx, ac.IAutomationV21PlusCommonUpkeepTriggerConfigSet{}.Topic(), r.addr, 1, logTriggerHashes, evmtypes.Confirmations(r.finalityDepth))
 	if err != nil {
 		return err
 	}

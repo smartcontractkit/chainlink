@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 
 	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -34,10 +35,13 @@ type chainReader struct {
 	lp               logpoller.LogPoller
 	client           evmclient.Client
 	contractBindings contractBindings
-	parsed           *parsedTypes
-	codec            commontypes.RemoteCodec
+	// TODO merge with contract bindings somehow, or leave as a standalone thing?
+	parsed *parsedTypes
+	codec  commontypes.RemoteCodec
 	commonservices.StateMachine
 }
+
+var _ ChainReaderService = (*chainReader)(nil)
 
 // NewChainReaderService is a constructor for ChainReader, returns nil if there is any error
 func NewChainReaderService(ctx context.Context, lggr logger.Logger, lp logpoller.LogPoller, chain legacyevm.Chain, config types.ChainReaderConfig) (ChainReaderService, error) {
@@ -71,7 +75,8 @@ func (cr *chainReader) Name() string { return cr.lggr.Name() }
 var _ commontypes.ContractTypeProvider = &chainReader{}
 
 func (cr *chainReader) GetLatestValue(ctx context.Context, contractName, method string, params any, returnVal any) error {
-	b, err := cr.contractBindings.GetReadBinding(contractName, method)
+	//TODO contractName and method should be merged into key
+	b, err := cr.contractBindings.GetReadBinding(formatKey(contractName, method))
 	if err != nil {
 		return err
 	}
@@ -81,6 +86,70 @@ func (cr *chainReader) GetLatestValue(ctx context.Context, contractName, method 
 
 func (cr *chainReader) Bind(ctx context.Context, bindings []commontypes.BoundContract) error {
 	return cr.contractBindings.Bind(ctx, bindings)
+}
+
+func (cr *chainReader) QueryKey(ctx context.Context, key string, queryFilter query.Filter, limitAndSort query.LimitAndSort, sequenceDataType any) ([]commontypes.Sequence, error) {
+	tokens := strings.Split(key, "-")
+	if len(tokens) < 3 {
+		return nil, fmt.Errorf("key: %s format is invalid, the key should look like contractName-readName", key)
+	}
+
+	contractName, eventName := tokens[0], tokens[1]
+	b, err := cr.contractBindings.GetReadBinding(formatKey(contractName, eventName))
+	if err != nil {
+		return nil, err
+	}
+
+	return b.QueryKey(ctx, queryFilter, limitAndSort, sequenceDataType)
+}
+
+func (cr *chainReader) QueryKeys(ctx context.Context, keys []string, queryFilter query.Filter, limitAndSort query.LimitAndSort, sequencesDataTypes []any) ([][]commontypes.Sequence, error) {
+	if len(keys) != len(sequencesDataTypes) {
+		return nil, fmt.Errorf("length of keys and sequencesDataTypes must be the same")
+	}
+
+	var sequencesMatrix [][]commontypes.Sequence
+	for i, key := range keys {
+		sequences, err := cr.QueryKey(ctx, key, queryFilter, limitAndSort, sequencesDataTypes[i])
+		if err != nil {
+			return nil, err
+		}
+		sequencesMatrix = append(sequencesMatrix, sequences)
+	}
+
+	return sequencesMatrix, nil
+}
+
+func (cr *chainReader) QueryByKeyValuesComparison(ctx context.Context, keyValuesComparator query.KeyValuesComparator, queryFilter query.Filter, limitAndSort query.LimitAndSort, sequenceDataType any) ([]commontypes.Sequence, error) {
+	tokens := strings.Split(keyValuesComparator.Key, "-")
+	if len(tokens) < 3 {
+		return nil, fmt.Errorf("key: %s format is invalid, the key should look like contractName-readName-valToSearch", keyValuesComparator.Key)
+	}
+
+	contractName, eventName, dataPointer := tokens[0], tokens[1], tokens[2]
+	b, err := cr.contractBindings.GetReadBinding(formatKey(contractName, eventName))
+	if err != nil {
+		return nil, err
+	}
+
+	return b.QueryByKeyValuesComparison(ctx, dataPointer, keyValuesComparator.ValueComparators, queryFilter, limitAndSort, sequenceDataType)
+}
+
+func (cr *chainReader) QueryByKeysValuesComparison(ctx context.Context, keysValuesComparator []query.KeyValuesComparator, queryFilter query.Filter, limitAndSort query.LimitAndSort, sequenceDataType []any) ([][]commontypes.Sequence, error) {
+	if len(keysValuesComparator) != len(sequenceDataType) {
+		return nil, fmt.Errorf("length of keys and sequencesDataTypes must be the same")
+	}
+
+	var sequencesMatrix [][]commontypes.Sequence
+	for i, keyValuesComparator := range keysValuesComparator {
+		sequences, err := cr.QueryByKeyValuesComparison(ctx, keyValuesComparator, queryFilter, limitAndSort, sequenceDataType[i])
+		if err != nil {
+			return nil, err
+		}
+		sequencesMatrix = append(sequencesMatrix, sequences)
+	}
+
+	return sequencesMatrix, nil
 }
 
 func (cr *chainReader) init(chainContractReaders map[string]types.ChainContractReader) error {
@@ -134,6 +203,21 @@ func (cr *chainReader) CreateContractType(contractName, methodName string, forEn
 	return cr.codec.CreateType(wrapItemType(contractName, methodName, forEncoding), forEncoding)
 }
 
+func (cr *chainReader) CreateContractTypeByKey(key string, forEncoding bool) (any, error) {
+	rb, err := cr.contractBindings.GetReadBinding(key)
+	if err != nil {
+		return nil, err
+	}
+	switch b := rb.(type) {
+	case *eventBinding:
+		return cr.codec.CreateType(wrapItemType(b.contractName, b.eventName, forEncoding), forEncoding)
+	case *methodBinding:
+		return cr.codec.CreateType(wrapItemType(b.contractName, b.method, forEncoding), forEncoding)
+	default:
+		return nil, fmt.Errorf("key is tied to an unrecognized read binding: %T", rb)
+	}
+}
+
 func wrapItemType(contractName, methodName string, isParams bool) string {
 	if isParams {
 		return fmt.Sprintf("params.%s.%s", contractName, methodName)
@@ -158,7 +242,7 @@ func (cr *chainReader) addMethod(
 			chainReaderDefinition.ChainSpecificName)
 	}
 
-	cr.contractBindings.AddReadBinding(contractName, methodName, &methodBinding{
+	cr.contractBindings.AddReadBinding(formatKey(contractName, methodName), &methodBinding{
 		contractName: contractName,
 		method:       methodName,
 		client:       cr.client,
@@ -177,12 +261,12 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 		return fmt.Errorf("%w: event %s doesn't exist", commontypes.ErrInvalidConfig, chainReaderDefinition.ChainSpecificName)
 	}
 
-	filterArgs, topicInfo, indexArgNames := setupEventInput(event, chainReaderDefinition)
+	filterArgs, codecTopicInfo, indexArgNames := setupEventInput(event, chainReaderDefinition)
 	if err := verifyEventInputsUsed(chainReaderDefinition, indexArgNames); err != nil {
 		return err
 	}
 
-	if err := topicInfo.Init(); err != nil {
+	if err := codecTopicInfo.Init(); err != nil {
 		return err
 	}
 
@@ -196,17 +280,38 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 		return err
 	}
 
-	cr.contractBindings.AddReadBinding(contractName, eventName, &eventBinding{
-		contractName:  contractName,
-		eventName:     eventName,
-		lp:            cr.lp,
-		hash:          event.ID,
-		inputInfo:     inputInfo,
-		inputModifier: inputModifier,
-		topicInfo:     topicInfo,
-		id:            wrapItemType(contractName, eventName, false) + uuid.NewString(),
-	})
+	eb := &eventBinding{
+		contractName:   contractName,
+		eventName:      eventName,
+		lp:             cr.lp,
+		hash:           event.ID,
+		inputInfo:      inputInfo,
+		inputModifier:  inputModifier,
+		codecTopicInfo: codecTopicInfo,
+		id:             wrapItemType(contractName, eventName, false) + uuid.NewString(),
+		topicsInfo:     make(map[string]topicInfo),
+		eventDataWords: chainReaderDefinition.GenericDataWordNames,
+	}
 
+	for genericDataWordName := range eb.eventDataWords {
+		// this way querying by key/s values comparison can find its bindings
+		cr.contractBindings.AddReadBinding(formatKey(contractName, eventName, genericDataWordName), eb)
+	}
+
+	// set topic mappings for QueryKeys
+	for topicIndex, topic := range event.Inputs {
+		genericTopicName, ok := chainReaderDefinition.GenericTopicNames[topic.Name]
+		if ok {
+			eb.topicsInfo[genericTopicName] = topicInfo{
+				Argument:   topic,
+				topicIndex: uint64(topicIndex),
+			}
+		}
+		// this way querying by key/s values comparison can find its bindings
+		cr.contractBindings.AddReadBinding(formatKey(contractName, eventName, genericTopicName), eb)
+	}
+
+	cr.contractBindings.AddReadBinding(formatKey(contractName, eventName), eb)
 	return cr.addDecoderDef(contractName, eventName, event.Inputs, chainReaderDefinition)
 }
 
@@ -259,6 +364,46 @@ func (cr *chainReader) addDecoderDef(contractName, methodName string, outputs ab
 	output := types.NewCodecEntry(outputs, nil, mod)
 	cr.parsed.decoderDefs[wrapItemType(contractName, methodName, false)] = output
 	return output.Init()
+}
+
+func remapQueryFilter(queryFilter query.Filter) (query.Filter, error) {
+	var expressions []query.Expression
+	for _, expression := range queryFilter.Expressions {
+		logFilter, err := remapExpression(expression)
+		if err != nil {
+			return query.Filter{}, err
+		}
+
+		expressions = append(expressions, logFilter)
+	}
+	return query.Filter{Expressions: expressions}, nil
+}
+
+// remapExpression, changes some chain agnostic filters to match evm specific filters.
+func remapExpression(expression query.Expression) (query.Expression, error) {
+	if !expression.IsPrimitive() {
+		var remappedExpressions []query.Expression
+		for _, expr := range expression.BoolExpression.Expressions {
+			remappedFilter, err := remapExpression(expr)
+			if err != nil {
+				return query.Expression{}, nil
+			}
+			remappedExpressions = append(remappedExpressions, remappedFilter)
+		}
+
+		if expression.BoolExpression.BoolOperator == query.AND {
+			return query.And(remappedExpressions...), nil
+		}
+		return query.Or(remappedExpressions...), nil
+	}
+
+	// remap chain agnostic primitives to chain specific
+	switch primitive := expression.Primitive.(type) {
+	case *query.ConfirmationsPrimitive:
+		return NewFinalityFilter(primitive)
+	default:
+		return expression, nil
+	}
 }
 
 func setupEventInput(event abi.Event, def types.ChainReaderDefinition) ([]abi.Argument, types.CodecEntry, map[string]bool) {

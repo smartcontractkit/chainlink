@@ -1575,7 +1575,7 @@ func Test_PollAndQueryFinalizedBlocks(t *testing.T) {
 		th.EmitterAddress1,
 		0,
 		common.Hash{},
-		logpoller.Finalized,
+		evmtypes.Finalized,
 	)
 	require.NoError(t, err)
 	require.Len(t, finalizedLogs, firstBatchLen, fmt.Sprintf("len(finalizedLogs) = %d, should have been %d", len(finalizedLogs), firstBatchLen))
@@ -1587,7 +1587,7 @@ func Test_PollAndQueryFinalizedBlocks(t *testing.T) {
 		th.EmitterAddress1,
 		0,
 		common.Hash{},
-		logpoller.Confirmations(numberOfConfirmations),
+		evmtypes.Confirmations(numberOfConfirmations),
 	)
 	require.NoError(t, err)
 	require.Len(t, logsByConfs, firstBatchLen+secondBatchLen-numberOfConfirmations)
