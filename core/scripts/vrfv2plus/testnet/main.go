@@ -1079,6 +1079,20 @@ func main() {
 		helpers.PanicErr(err)
 
 		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "transfer ownership to", *newOwner)
+	case "public-key-x-y":
+		publicKeyXY := flag.NewFlagSet("public-key-x-y", flag.ExitOnError)
+		uncompressedPubKeyCLI := publicKeyXY.String("pubkey", "", "uncompressed pubkey")
+		helpers.ParseArgs(publicKeyXY, os.Args[2:], "pubkey")
+		uncompressedPubKey := *uncompressedPubKeyCLI
+		// Put key in ECDSA format
+		if strings.HasPrefix(uncompressedPubKey, "0x") {
+			uncompressedPubKey = strings.Replace(uncompressedPubKey, "0x", "04", 1)
+		}
+		pubBytes, err := hex.DecodeString(uncompressedPubKey)
+		helpers.PanicErr(err)
+		pk, err := crypto.UnmarshalPubkey(pubBytes)
+		helpers.PanicErr(err)
+		fmt.Printf("PublicKey: %s, X: %s, Y: %s\n", *uncompressedPubKeyCLI, pk.X, pk.Y)
 	case "coordinator-reregister-proving-key":
 		coordinatorReregisterKey := flag.NewFlagSet("coordinator-register-key", flag.ExitOnError)
 		coordinatorAddress := coordinatorReregisterKey.String("coordinator-address", "", "coordinator address")
@@ -1130,11 +1144,13 @@ func main() {
 		linkAddress := cmd.String("link-address", "", "address of link token")
 		linkETHFeedAddress := cmd.String("link-eth-feed", "", "address of link-eth-feed")
 		coordinatorAddress := cmd.String("coordinator-address", "", "address of the vrf coordinator v2 contract")
-		helpers.ParseArgs(cmd, os.Args[2:], "link-address", "link-eth-feed", "coordinator-address")
+		subID := cmd.String("subscription-id", "", "subscription ID for the wrapper")
+		helpers.ParseArgs(cmd, os.Args[2:], "link-address", "link-eth-feed", "coordinator-address", "subscription-id")
 		v2plusscripts.WrapperDeploy(e,
 			common.HexToAddress(*linkAddress),
 			common.HexToAddress(*linkETHFeedAddress),
-			common.HexToAddress(*coordinatorAddress))
+			common.HexToAddress(*coordinatorAddress),
+			parseSubID(*subID))
 	case "wrapper-withdraw":
 		cmd := flag.NewFlagSet("wrapper-withdraw", flag.ExitOnError)
 		wrapperAddress := cmd.String("wrapper-address", "", "address of the VRFV2Wrapper contract")
@@ -1164,26 +1180,29 @@ func main() {
 		wrapperAddress := cmd.String("wrapper-address", "", "address of the VRFV2Wrapper contract")
 		wrapperGasOverhead := cmd.Uint("wrapper-gas-overhead", 50_000, "amount of gas overhead in wrapper fulfillment")
 		coordinatorGasOverhead := cmd.Uint("coordinator-gas-overhead", 52_000, "amount of gas overhead in coordinator fulfillment")
-		wrapperPremiumPercentage := cmd.Uint("wrapper-premium-percentage", 25, "gas premium charged by wrapper")
+		wrapperNativePremiumPercentage := cmd.Uint("wrapper-native-premium-percentage", 25, "gas premium charged by wrapper for native payment")
+		wrapperLinkPremiumPercentage := cmd.Uint("wrapper-link-premium-percentage", 25, "gas premium charged by wrapper for link payment")
 		keyHash := cmd.String("key-hash", "", "the keyhash that wrapper requests should use")
 		maxNumWords := cmd.Uint("max-num-words", 10, "the keyhash that wrapper requests should use")
 		fallbackWeiPerUnitLink := cmd.String("fallback-wei-per-unit-link", "", "the fallback wei per unit link")
 		stalenessSeconds := cmd.Uint("staleness-seconds", 86400, "the number of seconds of staleness to allow")
-		fulfillmentFlatFeeLinkPPM := cmd.Uint("fulfillment-flat-fee-link-ppm", 500, "the link flat fee in ppm to charge for fulfillment")
-		fulfillmentFlatFeeNativePPM := cmd.Uint("fulfillment-flat-fee-native-ppm", 500, "the native flat fee in ppm to charge for fulfillment")
+		fulfillmentFlatFeeNativePPM := cmd.Uint("fulfillment-flat-fee-native-ppm", 500, "the native flat fee in ppm to charge for fulfillment denominated in native")
+		fulfillmentFlatFeeLinkDiscountPPM := cmd.Uint("fulfillment-flat-fee-link-discount-ppm", 500, "the link flat fee discount in ppm to charge for fulfillment denominated in native")
 		helpers.ParseArgs(cmd, os.Args[2:], "wrapper-address", "key-hash", "fallback-wei-per-unit-link")
 
 		v2plusscripts.WrapperConfigure(e,
 			common.HexToAddress(*wrapperAddress),
 			*wrapperGasOverhead,
 			*coordinatorGasOverhead,
-			*wrapperPremiumPercentage,
+			*wrapperNativePremiumPercentage,
+			*wrapperLinkPremiumPercentage,
 			*keyHash,
 			*maxNumWords,
 			decimal.RequireFromString(*fallbackWeiPerUnitLink).BigInt(),
 			uint32(*stalenessSeconds),
-			uint32(*fulfillmentFlatFeeLinkPPM),
-			uint32(*fulfillmentFlatFeeNativePPM))
+			uint32(*fulfillmentFlatFeeNativePPM),
+			uint32(*fulfillmentFlatFeeLinkDiscountPPM))
+
 	case "wrapper-get-fulfillment-tx-size":
 		cmd := flag.NewFlagSet("wrapper-get-fulfillment-tx-size", flag.ExitOnError)
 		wrapperAddress := cmd.String("wrapper-address", "", "address of the VRFV2Wrapper contract")

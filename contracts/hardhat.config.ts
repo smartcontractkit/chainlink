@@ -107,11 +107,11 @@ let config = {
         },
       },
       'src/v0.8/vrf/dev/VRFCoordinatorV2_5.sol': {
-        version: '0.8.6',
+        version: '0.8.19',
         settings: {
           optimizer: {
             enabled: true,
-            runs: 50, // see native_solc_compile_all_vrf
+            runs: 500, // see native_solc_compile_all_vrf
           },
           metadata: {
             bytecodeHash: 'none',

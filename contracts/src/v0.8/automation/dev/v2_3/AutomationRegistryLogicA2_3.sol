@@ -4,6 +4,7 @@ pragma solidity 0.8.19;
 import {EnumerableSet} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
 import {Address} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
 import {AutomationRegistryBase2_3} from "./AutomationRegistryBase2_3.sol";
+import {AutomationRegistryLogicC2_3} from "./AutomationRegistryLogicC2_3.sol";
 import {AutomationRegistryLogicB2_3} from "./AutomationRegistryLogicB2_3.sol";
 import {Chainable} from "../../Chainable.sol";
 import {AutomationForwarder} from "../../AutomationForwarder.sol";
@@ -22,17 +23,20 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
 
   /**
    * @param logicB the address of the second logic contract
+   * @dev we cast the contract to logicC in order to call logicC functions (via fallback)
    */
   constructor(
     AutomationRegistryLogicB2_3 logicB
   )
     AutomationRegistryBase2_3(
-      logicB.getLinkAddress(),
-      logicB.getLinkUSDFeedAddress(),
-      logicB.getNativeUSDFeedAddress(),
-      logicB.getFastGasFeedAddress(),
-      logicB.getAutomationForwarderLogic(),
-      logicB.getAllowedReadOnlyAddress()
+      AutomationRegistryLogicC2_3(address(logicB)).getLinkAddress(),
+      AutomationRegistryLogicC2_3(address(logicB)).getLinkUSDFeedAddress(),
+      AutomationRegistryLogicC2_3(address(logicB)).getNativeUSDFeedAddress(),
+      AutomationRegistryLogicC2_3(address(logicB)).getFastGasFeedAddress(),
+      AutomationRegistryLogicC2_3(address(logicB)).getAutomationForwarderLogic(),
+      AutomationRegistryLogicC2_3(address(logicB)).getAllowedReadOnlyAddress(),
+      AutomationRegistryLogicC2_3(address(logicB)).getPayoutMode(),
+      AutomationRegistryLogicC2_3(address(logicB)).getWrappedNativeTokenAddress()
     )
     Chainable(address(logicB))
   {}
@@ -215,6 +219,7 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
    * performing upkeep
    * @param admin address to cancel upkeep and withdraw remaining funds
    * @param triggerType the trigger for the upkeep
+   * @param billingToken the billing token for the upkeep
    * @param checkData data passed to the contract when checking for upkeep
    * @param triggerConfig the config for the trigger
    * @param offchainConfig arbitrary offchain config for the upkeep
@@ -295,21 +300,6 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
     s_reserveAmounts[address(upkeep.billingToken)] = s_reserveAmounts[address(upkeep.billingToken)] - cancellationFee;
 
     emit UpkeepCanceled(id, uint64(height));
-  }
-
-  /**
-   * @notice adds fund to an upkeep
-   * @param id the upkeepID
-   * @param amount the amount of funds to add, in the upkeep's billing token
-   */
-  function addFunds(uint256 id, uint96 amount) external {
-    Upkeep memory upkeep = s_upkeep[id];
-    if (upkeep.maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
-    s_upkeep[id].balance = upkeep.balance + amount;
-    s_reserveAmounts[address(upkeep.billingToken)] = s_reserveAmounts[address(upkeep.billingToken)] + amount;
-    bool success = upkeep.billingToken.transferFrom(msg.sender, address(this), amount);
-    if (!success) revert TransferFailed();
-    emit FundsAdded(id, msg.sender, amount);
   }
 
   /**
