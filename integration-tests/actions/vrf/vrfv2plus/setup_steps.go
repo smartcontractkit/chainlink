@@ -229,7 +229,7 @@ func SetupVRFV2PlusWrapperEnvironment(
 	wrapperConsumerContractsAmount int,
 ) (*VRFV2PlusWrapperContracts, *big.Int, error) {
 	// external EOA has to create a subscription for the wrapper first
-	wrapperSubId, err := CreateSubAndFindSubID(env, coordinator)
+	wrapperSubId, err := CreateSubAndFindSubID(env, chainID, coordinator)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -266,7 +266,7 @@ func SetupVRFV2PlusWrapperEnvironment(
 		return nil, nil, err
 	}
 
-	err = env.EVMClient.WaitForEvents()
+	err = evmClient.WaitForEvents()
 	if err != nil {
 		return nil, nil, fmt.Errorf("%s, err %w", vrfcommon.ErrWaitTXsComplete, err)
 	}
