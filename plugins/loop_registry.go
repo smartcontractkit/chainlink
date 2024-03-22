@@ -76,11 +76,13 @@ func (m *LoopRegistry) Unregister(id string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	if _, exists := m.registry[id]; !exists {
+	loop, exists := m.registry[id]
+	if !exists {
 		m.lggr.Debugf("Trying to unregistered a loop that is not registered %q", id)
 		return
 	}
 
+	freeport.Return([]int{loop.EnvCfg.PrometheusPort})
 	delete(m.registry, id)
 	m.lggr.Debugf("Unregistered loopp %q", id)
 }

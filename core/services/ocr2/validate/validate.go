@@ -234,8 +234,7 @@ func validateGenericPluginSpec(ctx context.Context, spec *job.OCR2OracleSpec, rc
 	}
 	defer plugin.Close()
 
-	err = plugin.ValidateConfig(ctx, spec.PluginConfig)
-	return err
+	return plugin.ValidateConfig(ctx, spec.PluginConfig)
 }
 
 func validateDKGSpec(jsonConfig job.JSONConfig) error {
