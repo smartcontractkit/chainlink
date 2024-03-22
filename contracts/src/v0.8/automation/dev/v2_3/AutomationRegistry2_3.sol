@@ -378,16 +378,14 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
     }
 
     // remove any old signer/transmitter addresses
-    address signerAddress;
     address transmitterAddress;
     PayoutMode mode = s_payoutMode;
     for (uint256 i = 0; i < s_transmittersList.length; i++) {
-      signerAddress = s_signersList[i];
       transmitterAddress = s_transmittersList[i];
-      delete s_signers[signerAddress];
+      delete s_signers[s_signersList[i]];
       // Do not delete the whole transmitter struct as it has balance information stored
       s_transmitters[transmitterAddress].active = false;
-      if (mode == PayoutMode.OFF_CHAIN) {
+      if (mode == PayoutMode.OFF_CHAIN && s_transmitters[transmitterAddress].balance > 0) {
         s_deactivatedTransmitters.add(transmitterAddress);
       }
     }
