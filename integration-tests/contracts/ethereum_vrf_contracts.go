@@ -13,6 +13,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_consumer_interface"
@@ -64,7 +65,7 @@ func (e *EthereumContractDeployer) DeployVRFContract() (VRF, error) {
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		return solidity_vrf_wrapper.DeployVRF(auth, backend)
+		return solidity_vrf_wrapper.DeployVRF(auth, wrappers.MustNewWrappedContractBackend(e.client, nil))
 	})
 	if err != nil {
 		return nil, err
@@ -82,7 +83,7 @@ func (e *EthereumContractDeployer) DeployBlockhashStore() (BlockHashStore, error
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		return blockhash_store.DeployBlockhashStore(auth, backend)
+		return blockhash_store.DeployBlockhashStore(auth, wrappers.MustNewWrappedContractBackend(e.client, nil))
 	})
 	if err != nil {
 		return nil, err
@@ -100,7 +101,7 @@ func (e *EthereumContractDeployer) DeployVRFCoordinator(linkAddr string, bhsAddr
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		return solidity_vrf_coordinator_interface.DeployVRFCoordinator(auth, backend, common.HexToAddress(linkAddr), common.HexToAddress(bhsAddr))
+		return solidity_vrf_coordinator_interface.DeployVRFCoordinator(auth, wrappers.MustNewWrappedContractBackend(e.client, nil), common.HexToAddress(linkAddr), common.HexToAddress(bhsAddr))
 	})
 	if err != nil {
 		return nil, err
@@ -118,7 +119,7 @@ func (e *EthereumContractDeployer) DeployVRFConsumer(linkAddr string, coordinato
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		return solidity_vrf_consumer_interface.DeployVRFConsumer(auth, backend, common.HexToAddress(coordinatorAddr), common.HexToAddress(linkAddr))
+		return solidity_vrf_consumer_interface.DeployVRFConsumer(auth, wrappers.MustNewWrappedContractBackend(e.client, nil), common.HexToAddress(coordinatorAddr), common.HexToAddress(linkAddr))
 	})
 	if err != nil {
 		return nil, err
