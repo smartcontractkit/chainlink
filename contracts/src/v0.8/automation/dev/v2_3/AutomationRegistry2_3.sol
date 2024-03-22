@@ -246,7 +246,7 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
     if (s_upkeep[id].maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
     if (address(s_upkeep[id].billingToken) != address(i_link)) revert InvalidBillingToken();
     s_upkeep[id].balance = s_upkeep[id].balance + uint96(amount);
-    s_reserveAmounts[address(i_link)] = s_reserveAmounts[address(i_link)] + amount;
+    s_reserveAmounts[IERC20(address(i_link))] = s_reserveAmounts[IERC20(address(i_link))] + amount;
     emit FundsAdded(id, sender, uint96(amount));
   }
 
