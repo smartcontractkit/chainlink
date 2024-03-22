@@ -564,6 +564,7 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 	// - that there are no step `ref` called `trigger` as this is reserved for any triggers
 	// - that there are no duplicate `ref`s
 	// - that the `ref` for any triggers is empty -- and filled in with `trigger`
+	// - that the resulting graph is strongly connected (i.e. no disjointed subgraphs exist)
 	// - etc.
 
 	workflow, err := Parse(cfg.Spec)
