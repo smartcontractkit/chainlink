@@ -311,13 +311,16 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
     // remove any old signer/transmitter addresses
     address signerAddress;
     address transmitterAddress;
+    //PayoutMode mode = s_payoutMode;
     for (uint256 i = 0; i < s_transmittersList.length; i++) {
       signerAddress = s_signersList[i];
       transmitterAddress = s_transmittersList[i];
       delete s_signers[signerAddress];
       // Do not delete the whole transmitter struct as it has balance information stored
       s_transmitters[transmitterAddress].active = false;
-      s_deactivatedTransmittersList.push(transmitterAddress);
+      if (s_payoutMode == PayoutMode.OFF_CHAIN) {
+        s_deactivatedTransmitters.add(transmitterAddress);
+      }
     }
     delete s_signersList;
     delete s_transmittersList;
@@ -326,6 +329,7 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
     {
       Transmitter memory transmitter;
       address temp;
+      //PayoutMode mode = s_payoutMode;
       for (uint256 i = 0; i < signers.length; i++) {
         if (s_signers[signers[i]].active) revert RepeatedSigner();
         if (signers[i] == ZERO_ADDRESS) revert InvalidSigner();
@@ -341,6 +345,9 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
         // some spare change of premium from previous pool will be forfeited
         transmitter.lastCollected = s_hotVars.totalPremium;
         s_transmitters[temp] = transmitter;
+        if (s_payoutMode == PayoutMode.OFF_CHAIN) {
+          s_deactivatedTransmitters.remove(temp);
+        }
       }
     }
     s_signersList = signers;

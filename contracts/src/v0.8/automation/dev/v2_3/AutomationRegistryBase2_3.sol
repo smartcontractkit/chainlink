@@ -94,7 +94,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   mapping(address => Signer) internal s_signers;
   address[] internal s_signersList; // s_signersList contains the signing address of each oracle
   address[] internal s_transmittersList; // s_transmittersList contains the transmission address of each oracle
-  address[] internal s_deactivatedTransmittersList;
+  EnumerableSet.AddressSet internal s_deactivatedTransmitters;
   mapping(address => address) internal s_transmitterPayees; // s_payees contains the mapping from transmitter to payee.
   mapping(address => address) internal s_proposedPayee; // proposed payee for a transmitter
   bytes32 internal s_latestConfigDigest; // Read on transmit path in case of signature verification
