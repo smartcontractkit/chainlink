@@ -2,6 +2,7 @@ package types
 
 import (
 	"bytes"
+	"database/sql"
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
@@ -24,7 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types/internal/blocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
-	"github.com/smartcontractkit/chainlink/v2/core/null"
 )
 
 // Head represents a BlockNumber, BlockHash.
@@ -32,7 +32,7 @@ type Head struct {
 	ID               uint64
 	Hash             common.Hash
 	Number           int64
-	L1BlockNumber    null.Int64
+	L1BlockNumber    sql.NullInt64
 	ParentHash       common.Hash
 	Parent           *Head
 	EVMChainID       *ubig.Big
@@ -285,7 +285,7 @@ func (h *Head) UnmarshalJSON(bs []byte) error {
 	h.Timestamp = time.Unix(int64(jsonHead.Timestamp), 0).UTC()
 	h.BaseFeePerGas = assets.NewWei((*big.Int)(jsonHead.BaseFeePerGas))
 	if jsonHead.L1BlockNumber != nil {
-		h.L1BlockNumber = null.Int64From((*big.Int)(jsonHead.L1BlockNumber).Int64())
+		h.L1BlockNumber = sql.NullInt64{Int64: (*big.Int)(jsonHead.L1BlockNumber).Int64(), Valid: true}
 	}
 	h.ReceiptsRoot = jsonHead.ReceiptsRoot
 	h.TransactionsRoot = jsonHead.TransactionsRoot

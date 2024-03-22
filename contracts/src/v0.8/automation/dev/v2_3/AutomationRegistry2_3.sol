@@ -4,7 +4,8 @@ pragma solidity 0.8.19;
 import {EnumerableSet} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
 import {Address} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
 import {AutomationRegistryBase2_3} from "./AutomationRegistryBase2_3.sol";
-import {AutomationRegistryLogicB2_3} from "./AutomationRegistryLogicB2_3.sol";
+import {AutomationRegistryLogicA2_3} from "./AutomationRegistryLogicA2_3.sol";
+import {AutomationRegistryLogicC2_3} from "./AutomationRegistryLogicC2_3.sol";
 import {Chainable} from "../../Chainable.sol";
 import {IERC677Receiver} from "../../../shared/interfaces/IERC677Receiver.sol";
 import {OCR2Abstract} from "../../../shared/ocr2/OCR2Abstract.sol";
@@ -44,18 +45,21 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
   string public constant override typeAndVersion = "AutomationRegistry 2.3.0";
 
   /**
-   * @param logicA the address of the first logic contract, but cast as logicB in order to call logicB functions (via fallback)
+   * @param logicA the address of the first logic contract
+   * @dev we cast the contract to logicC in order to call logicC functions (via fallback)
    */
   constructor(
-    AutomationRegistryLogicB2_3 logicA
+    AutomationRegistryLogicA2_3 logicA
   )
     AutomationRegistryBase2_3(
-      logicA.getLinkAddress(),
-      logicA.getLinkUSDFeedAddress(),
-      logicA.getNativeUSDFeedAddress(),
-      logicA.getFastGasFeedAddress(),
-      logicA.getAutomationForwarderLogic(),
-      logicA.getAllowedReadOnlyAddress()
+      AutomationRegistryLogicC2_3(address(logicA)).getLinkAddress(),
+      AutomationRegistryLogicC2_3(address(logicA)).getLinkUSDFeedAddress(),
+      AutomationRegistryLogicC2_3(address(logicA)).getNativeUSDFeedAddress(),
+      AutomationRegistryLogicC2_3(address(logicA)).getFastGasFeedAddress(),
+      AutomationRegistryLogicC2_3(address(logicA)).getAutomationForwarderLogic(),
+      AutomationRegistryLogicC2_3(address(logicA)).getAllowedReadOnlyAddress(),
+      AutomationRegistryLogicC2_3(address(logicA)).getPayoutMode(),
+      AutomationRegistryLogicC2_3(address(logicA)).getWrappedNativeTokenAddress()
     )
     Chainable(address(logicA))
   {}
@@ -65,9 +69,9 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
    */
   struct TransmitVars {
     uint16 numUpkeepsPassedChecks;
-    uint256 totalCalldataWeight;
     uint96 totalReimbursement;
     uint96 totalPremium;
+    uint256 totalCalldataWeight;
   }
 
   // ================================================================
@@ -169,8 +173,10 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
     gasOverhead = gasOverhead / transmitVars.numUpkeepsPassedChecks + ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD;
 
     {
+      BillingTokenPaymentParams memory billingTokenParams;
       for (uint256 i = 0; i < report.upkeepIds.length; i++) {
         if (upkeepTransmitInfo[i].earlyChecksPassed) {
+          billingTokenParams = _getBillingTokenPaymentParams(hotVars, upkeepTransmitInfo[i].upkeep.billingToken); // TODO avoid doing this every time
           PaymentReceipt memory receipt = _handlePayment(
             hotVars,
             PaymentParams({
@@ -180,17 +186,19 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
               fastGasWei: report.fastGasWei,
               linkUSD: report.linkUSD,
               nativeUSD: _getNativeUSD(hotVars),
+              billingToken: billingTokenParams,
               isTransaction: true
             }),
             report.upkeepIds[i]
           );
-          transmitVars.totalPremium += receipt.premium;
-          transmitVars.totalReimbursement += receipt.reimbursement;
+          transmitVars.totalPremium += receipt.premiumJuels;
+          transmitVars.totalReimbursement += receipt.gasReimbursementJuels;
 
           emit UpkeepPerformed(
             report.upkeepIds[i],
             upkeepTransmitInfo[i].performSuccess,
-            receipt.reimbursement + receipt.premium,
+            // receipt.gasCharge + receipt.premium, // TODO - this is currently the billing token amount, but should it be?
+            receipt.gasReimbursementJuels + receipt.premiumJuels, // TODO - this is currently the link tokn amount, but should it be billing token instead?
             upkeepTransmitInfo[i].gasUsed,
             gasOverhead,
             report.triggers[i]
@@ -233,6 +241,7 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
     if (data.length != 32) revert InvalidDataLength();
     uint256 id = abi.decode(data, (uint256));
     if (s_upkeep[id].maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
+    if (address(s_upkeep[id].billingToken) != address(i_link)) revert InvalidBillingToken();
     s_upkeep[id].balance = s_upkeep[id].balance + uint96(amount);
     s_reserveAmounts[address(i_link)] = s_reserveAmounts[address(i_link)] + amount;
     emit FundsAdded(id, sender, uint96(amount));
@@ -336,8 +345,6 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
 
     s_hotVars = HotVars({
       f: f,
-      paymentPremiumPPB: onchainConfig.paymentPremiumPPB,
-      flatFeeMicroLink: onchainConfig.flatFeeMicroLink,
       stalenessSeconds: onchainConfig.stalenessSeconds,
       gasCeilingMultiplier: onchainConfig.gasCeilingMultiplier,
       paused: s_hotVars.paused,
@@ -350,7 +357,6 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
 
     s_storage = Storage({
       checkGasLimit: onchainConfig.checkGasLimit,
-      minUpkeepSpend: onchainConfig.minUpkeepSpend,
       maxPerformGas: onchainConfig.maxPerformGas,
       transcoder: onchainConfig.transcoder,
       maxCheckDataSize: onchainConfig.maxCheckDataSize,

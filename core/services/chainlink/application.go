@@ -49,6 +49,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
+	externalp2p "github.com/smartcontractkit/chainlink/v2/core/services/p2p/wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/periodicbackup"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -76,7 +77,7 @@ type Application interface {
 	GetAuditLogger() audit.AuditLogger
 	GetHealthChecker() services.Checker
 	GetSqlxDB() *sqlx.DB // Deprecated: use GetDB
-	GetDB() sqlutil.DB
+	GetDB() sqlutil.DataSource
 	GetConfig() GeneralConfig
 	SetLogLevel(lvl zapcore.Level) error
 	GetKeyStore() keystore.Master
@@ -143,7 +144,7 @@ type ChainlinkApplication struct {
 	AuditLogger              audit.AuditLogger
 	closeLogger              func() error
 	sqlxDB                   *sqlx.DB // Deprecated: use db instead
-	db                       sqlutil.DB
+	db                       sqlutil.DataSource
 	secretGenerator          SecretGenerator
 	profiler                 *pyroscope.Profiler
 	loopRegistry             *plugins.LoopRegistry
@@ -157,7 +158,7 @@ type ApplicationOpts struct {
 	Logger                     logger.Logger
 	MailMon                    *mailbox.Monitor
 	SqlxDB                     *sqlx.DB // Deprecated: use DB instead
-	DB                         sqlutil.DB
+	DB                         sqlutil.DataSource
 	KeyStore                   keystore.Master
 	RelayerChainInteroperators *CoreRelayerChainInteroperators
 	AuditLogger                audit.AuditLogger
@@ -190,6 +191,15 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	restrictedHTTPClient := opts.RestrictedHTTPClient
 	unrestrictedHTTPClient := opts.UnrestrictedHTTPClient
 	registry := capabilities.NewRegistry(globalLogger)
+
+	if cfg.Capabilities().Peering().Enabled() {
+		externalPeerWrapper := externalp2p.NewExternalPeerWrapper(keyStore.P2P(), cfg.Capabilities().Peering(), globalLogger)
+		srvcs = append(srvcs, externalPeerWrapper)
+
+		// NOTE: RegistrySyncer will depend on a Relayer when fully implemented
+		registrySyncer := capabilities.NewRegistrySyncer(externalPeerWrapper, registry, globalLogger)
+		srvcs = append(srvcs, registrySyncer)
+	}
 
 	// LOOPs can be created as options, in the  case of LOOP relayers, or
 	// as OCR2 job implementations, in the case of Median today.
@@ -297,7 +307,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		mercuryORM     = mercury.NewORM(sqlxDB, globalLogger, cfg.Database())
 		pipelineRunner = pipeline.NewRunner(pipelineORM, bridgeORM, cfg.JobPipeline(), cfg.WebServer(), legacyEVMChains, keyStore.Eth(), keyStore.VRF(), globalLogger, restrictedHTTPClient, unrestrictedHTTPClient)
 		jobORM         = job.NewORM(sqlxDB, pipelineORM, bridgeORM, keyStore, globalLogger, cfg.Database())
-		txmORM         = txmgr.NewTxStore(sqlxDB, globalLogger, cfg.Database())
+		txmORM         = txmgr.NewTxStore(sqlxDB, globalLogger)
 		streamRegistry = streams.NewRegistry(globalLogger, pipelineRunner)
 	)
 
@@ -831,7 +841,7 @@ func (app *ChainlinkApplication) GetSqlxDB() *sqlx.DB {
 	return app.sqlxDB
 }
 
-func (app *ChainlinkApplication) GetDB() sqlutil.DB {
+func (app *ChainlinkApplication) GetDB() sqlutil.DataSource {
 	return app.db
 }
 

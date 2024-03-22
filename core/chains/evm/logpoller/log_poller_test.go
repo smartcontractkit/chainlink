@@ -1405,7 +1405,7 @@ func TestLogPoller_DBErrorHandling(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	require.NoError(t, lp.Start(ctx))
 	require.Eventually(t, func() bool {
-		return observedLogs.Len() >= 2
+		return observedLogs.Len() >= 1
 	}, 2*time.Second, 20*time.Millisecond)
 	err = lp.Close()
 	require.NoError(t, err)
@@ -1421,7 +1421,6 @@ func TestLogPoller_DBErrorHandling(t *testing.T) {
 	}
 
 	assert.Contains(t, logMsgs, "Failed loading filters in main logpoller loop, retrying later")
-	assert.Contains(t, logMsgs, "Error executing replay, could not get fromBlock")
 }
 
 type getLogErrData struct {

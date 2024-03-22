@@ -18,7 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 )
 
-// QOpt is deprecated. Use [sqlutil.DB] with [sqlutil.QueryHook]s instead.
+// QOpt is deprecated. Use [sqlutil.DataSource] with [sqlutil.QueryHook]s instead.
 //
 // QOpt pattern for ORM methods aims to clarify usage and remove some common footguns, notably:
 //
@@ -108,7 +108,7 @@ type QConfig interface {
 //
 // This is not the prettiest construct but without macros its about the best we
 // can do.
-// Deprecated: Use a `sqlutil.DB` with `sqlutil.QueryHook`s instead
+// Deprecated: Use a `sqlutil.DataSource` with `sqlutil.QueryHook`s instead
 type Q struct {
 	Queryer
 	ParentCtx    context.Context

@@ -67,7 +67,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -144,7 +143,7 @@ func makeTestTxm(t *testing.T, txStore txmgr.TestEvmTxStore, keyStore keystore.M
 	_, _, evmConfig := txmgr.MakeTestConfigs(t)
 	txmConfig := txmgr.NewEvmTxmConfig(evmConfig)
 	txm := txmgr.NewEvmTxm(ec.ConfiguredChainID(), txmConfig, evmConfig.Transactions(), keyStore.Eth(), logger.TestLogger(t), nil, nil,
-		nil, txStore, nil, nil, nil, nil, nil)
+		nil, txStore, nil, nil, nil, nil)
 
 	return txm
 }
@@ -780,8 +779,7 @@ func assertNumRandomWords(
 }
 
 func mine(t *testing.T, requestID, subID *big.Int, backend *backends.SimulatedBackend, db *sqlx.DB, vrfVersion vrfcommon.Version, chainId *big.Int) bool {
-	cfg := pgtest.NewQConfig(false)
-	txstore := txmgr.NewTxStore(db, logger.TestLogger(t), cfg)
+	txstore := txmgr.NewTxStore(db, logger.TestLogger(t))
 	var metaField string
 	if vrfVersion == vrfcommon.V2Plus {
 		metaField = "GlobalSubId"
@@ -808,8 +806,7 @@ func mine(t *testing.T, requestID, subID *big.Int, backend *backends.SimulatedBa
 
 func mineBatch(t *testing.T, requestIDs []*big.Int, subID *big.Int, backend *backends.SimulatedBackend, db *sqlx.DB, vrfVersion vrfcommon.Version, chainId *big.Int) bool {
 	requestIDMap := map[string]bool{}
-	cfg := pgtest.NewQConfig(false)
-	txstore := txmgr.NewTxStore(db, logger.TestLogger(t), cfg)
+	txstore := txmgr.NewTxStore(db, logger.TestLogger(t))
 	var metaField string
 	if vrfVersion == vrfcommon.V2Plus {
 		metaField = "GlobalSubId"
@@ -2046,9 +2043,9 @@ func TestFulfillmentCost(t *testing.T) {
 func TestStartingCountsV1(t *testing.T) {
 	cfg, db := heavyweight.FullTestDBNoFixturesV2(t, nil)
 
+	ctx := testutils.Context(t)
 	lggr := logger.TestLogger(t)
-	qCfg := pgtest.NewQConfig(false)
-	txStore := txmgr.NewTxStore(db, logger.TestLogger(t), qCfg)
+	txStore := txmgr.NewTxStore(db, logger.TestLogger(t))
 	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr, cfg.Database())
 	ec := evmclimocks.NewClient(t)
 	ec.On("ConfiguredChainID").Return(testutils.SimulatedChainID)
@@ -2162,7 +2159,7 @@ func TestStartingCountsV1(t *testing.T) {
 	}
 	txList := append(confirmedTxes, unconfirmedTxes...)
 	for i := range txList {
-		err = txStore.InsertTx(&txList[i])
+		err = txStore.InsertTx(ctx, &txList[i])
 		require.NoError(t, err)
 	}
 
@@ -2197,7 +2194,7 @@ func TestStartingCountsV1(t *testing.T) {
 		t.Log("tx attempt eth tx id: ", txAttempt.TxID)
 	}
 	for i := range txAttempts {
-		err = txStore.InsertTxAttempt(&txAttempts[i])
+		err = txStore.InsertTxAttempt(ctx, &txAttempts[i])
 		require.NoError(t, err)
 	}
 
@@ -2212,7 +2209,7 @@ func TestStartingCountsV1(t *testing.T) {
 		})
 	}
 	for i := range receipts {
-		_, err = txStore.InsertReceipt(&receipts[i])
+		_, err = txStore.InsertReceipt(ctx, &receipts[i])
 		require.NoError(t, err)
 	}
 
