@@ -110,17 +110,21 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) startIntern
 	if err := tr.setEnabledAddresses(ctx); err != nil {
 		return fmt.Errorf("failed to set enabled addresses: %w", err)
 	}
+	tr.lggr.Infof("enabled addresses set for chainID %v", tr.chainID)
 
 	if err := tr.trackAbandonedTxes(ctx); err != nil {
 		return fmt.Errorf("failed to track abandoned txes: %w", err)
 	}
 
-	if len(tr.txCache) > 0 {
-		tr.lggr.Infof("%d abandoned txes found, starting runLoop", len(tr.txCache))
-		tr.wg.Add(1)
-		go tr.runLoop()
+	if len(tr.txCache) == 0 {
+		tr.lggr.Info("no abandoned txes found, skipping runLoop")
+		tr.isStarted = true
+		return nil
 	}
 
+	tr.lggr.Infof("%d abandoned txes found, starting runLoop", len(tr.txCache))
+	tr.wg.Add(1)
+	go tr.runLoop()
 	tr.isStarted = true
 	return nil
 }
@@ -137,7 +141,7 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) closeIntern
 
 	tr.lggr.Info("stopping tracker")
 	if !tr.isStarted {
-		return fmt.Errorf("tracker not started")
+		return fmt.Errorf("tracker is not started: %w", services.ErrAlreadyStopped)
 	}
 
 	close(tr.chStop)
@@ -160,8 +164,13 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() {
 				if !exists {
 					break
 				}
+				tr.lggr.Infof("received blockHeight %v", blockHeight)
 				if err := tr.handleTxesByState(ctx, blockHeight); err != nil {
 					tr.lggr.Errorw(fmt.Errorf("failed to handle txes by state: %w", err).Error())
+				}
+				if len(tr.txCache) == 0 {
+					tr.lggr.Info("all abandoned txes handled, stopping runLoop")
+					return
 				}
 			}
 		case <-ttlExceeded.C:
@@ -175,12 +184,12 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() {
 }
 
 func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetAbandonedAddresses() []ADDR {
-	tr.lock.Lock()
-	defer tr.lock.Unlock()
-
 	if !tr.isStarted {
 		return []ADDR{}
 	}
+
+	tr.lock.Lock()
+	defer tr.lock.Unlock()
 
 	abandonedAddrs := make([]ADDR, len(tr.txCache))
 	for _, atx := range tr.txCache {
@@ -209,10 +218,10 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) setEnabledA
 	return nil
 }
 
-// trackAbandonedTxes called once to find and insert all abandoned txes into the tracker.
+// trackAbandonedTxes called once on stratup to find and insert all abandoned txes into the tracker.
 func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) trackAbandonedTxes(ctx context.Context) (err error) {
 	if tr.isStarted {
-		return fmt.Errorf("tracker already started")
+		return fmt.Errorf("trackAbandonedTxes must only be called once on startup")
 	}
 
 	return sqlutil.Batch(func(offset, limit uint) (count uint, err error) {
@@ -282,6 +291,11 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) handleConfi
 	tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	blockHeight int64,
 ) error {
+	if blockHeight == 0 {
+		// Can't be sure if tx is finalized or not during initialization
+		return nil
+	}
+
 	finalized, err := tr.txStore.IsTxFinalized(ctx, blockHeight, tx.ID, tr.chainID)
 	if err != nil {
 		return fmt.Errorf("failed to check if tx is finalized: %w", err)

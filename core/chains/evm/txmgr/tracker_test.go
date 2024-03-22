@@ -1,7 +1,6 @@
 package txmgr_test
 
 import (
-	"context"
 	"math/big"
 	"testing"
 	"time"
@@ -48,8 +47,9 @@ func TestEvmTracker_Initialization(t *testing.T) {
 	t.Parallel()
 
 	tracker, _, _, _ := newTestEvmTrackerSetup(t)
+	ctx := testutils.Context(t)
 
-	require.NoError(t, tracker.Start(testutils.Context(t)))
+	require.NoError(t, tracker.Start(ctx))
 	require.True(t, tracker.IsStarted())
 
 	t.Run("stop tracker", func(t *testing.T) {
@@ -60,6 +60,7 @@ func TestEvmTracker_Initialization(t *testing.T) {
 
 func TestEvmTracker_AddressTracking(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	t.Run("track abandoned addresses", func(t *testing.T) {
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
@@ -73,7 +74,7 @@ func TestEvmTracker_AddressTracking(t *testing.T) {
 		_ = mustInsertConfirmedEthTxWithReceipt(t, txStore, confirmedAddr, 123, 1)
 		_ = mustCreateUnstartedTx(t, txStore, unstartedAddr, cltest.MustGenerateRandomKey(t).Address, []byte{}, 0, big.Int{}, ethClient.ConfiguredChainID())
 
-		err := tracker.Start(context.Background())
+		err := tracker.Start(ctx)
 		require.NoError(t, err)
 		defer func(tracker *txmgr.Tracker) {
 			err = tracker.Close()
@@ -92,12 +93,16 @@ func TestEvmTracker_AddressTracking(t *testing.T) {
 		confirmedAddr := cltest.MustGenerateRandomKey(t).Address
 		_ = mustInsertConfirmedEthTxWithReceipt(t, txStore, confirmedAddr, 123, 1)
 
-		err := tracker.Start(context.Background())
+		err := tracker.Start(ctx)
 		require.NoError(t, err)
 		defer func(tracker *txmgr.Tracker) {
 			err = tracker.Close()
 			require.NoError(t, err)
 		}(tracker)
+
+		// deliver block before minConfirmations
+		tracker.XXXDeliverBlock(1)
+		time.Sleep(waitTime)
 
 		addrs := tracker.GetAbandonedAddresses()
 		require.Contains(t, addrs, confirmedAddr)
@@ -113,13 +118,14 @@ func TestEvmTracker_AddressTracking(t *testing.T) {
 
 func TestEvmTracker_ExceedingTTL(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	t.Run("confirmed but unfinalized transaction still tracked", func(t *testing.T) {
 		tracker, txStore, _, _ := newTestEvmTrackerSetup(t)
 		addr1 := cltest.MustGenerateRandomKey(t).Address
 		_ = mustInsertConfirmedEthTxWithReceipt(t, txStore, addr1, 123, 1)
 
-		err := tracker.Start(context.Background())
+		err := tracker.Start(ctx)
 		require.NoError(t, err)
 		defer func(tracker *txmgr.Tracker) {
 			err = tracker.Close()
@@ -137,7 +143,7 @@ func TestEvmTracker_ExceedingTTL(t *testing.T) {
 		tx2 := cltest.MustInsertUnconfirmedEthTx(t, txStore, 123, addr2)
 
 		tracker.XXXTestSetTTL(time.Nanosecond)
-		err := tracker.Start(context.Background())
+		err := tracker.Start(ctx)
 		require.NoError(t, err)
 		defer func(tracker *txmgr.Tracker) {
 			err = tracker.Close()
@@ -147,7 +153,7 @@ func TestEvmTracker_ExceedingTTL(t *testing.T) {
 		time.Sleep(waitTime)
 		require.NotContains(t, tracker.GetAbandonedAddresses(), addr1, addr2)
 
-		fatalTxes, err := txStore.GetFatalTransactions(context.Background())
+		fatalTxes, err := txStore.GetFatalTransactions(ctx)
 		require.NoError(t, err)
 		require.True(t, containsID(fatalTxes, tx1.ID))
 		require.True(t, containsID(fatalTxes, tx2.ID))
