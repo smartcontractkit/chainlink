@@ -20,9 +20,12 @@ import (
 
 	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_factory"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_wrapper"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/link_token"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/oracle_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/test_api_consumer_wrapper"
 )
 
 // EthereumOffchainAggregator represents the offchain aggregation contract
@@ -568,15 +571,391 @@ func (e *EthereumOffchainAggregatorV2) ParseEventAnswerUpdated(log types.Log) (*
 	return e.contract.ParseAnswerUpdated(log)
 }
 
-func DeployLinkTokenContract(client *seth.Client) (seth.DeploymentData, error) {
-	linkTokenAbi, err := link_token.LinkTokenMetaData.GetAbi()
+// EthereumLinkToken represents a LinkToken address
+type EthereumLinkToken struct {
+	client   *seth.Client
+	instance *link_token_interface.LinkToken
+	address  common.Address
+	l        zerolog.Logger
+}
+
+func DeployLinkTokenContract(l zerolog.Logger, client *seth.Client) (*EthereumLinkToken, error) {
+	linkTokenAbi, err := link_token_interface.LinkTokenMetaData.GetAbi()
 	if err != nil {
-		return seth.DeploymentData{}, fmt.Errorf("failed to get LinkToken ABI: %w", err)
+		return &EthereumLinkToken{}, fmt.Errorf("failed to get LinkToken ABI: %w", err)
 	}
-	linkDeploymentData, err := client.DeployContract(client.NewTXOpts(), "LinkToken", *linkTokenAbi, common.FromHex(link_token.LinkTokenMetaData.Bin))
+	linkDeploymentData, err := client.DeployContract(client.NewTXOpts(), "LinkToken", *linkTokenAbi, common.FromHex(link_token_interface.LinkTokenMetaData.Bin))
 	if err != nil {
-		return seth.DeploymentData{}, fmt.Errorf("LinkToken instance deployment have failed: %w", err)
+		return &EthereumLinkToken{}, fmt.Errorf("LinkToken instance deployment have failed: %w", err)
 	}
 
-	return linkDeploymentData, nil
+	linkToken, err := link_token_interface.NewLinkToken(linkDeploymentData.Address, wrappers.MustNewWrappedContractBackend(nil, client))
+	if err != nil {
+		return &EthereumLinkToken{}, fmt.Errorf("failed to instantiate LinkToken instance: %w", err)
+	}
+
+	return &EthereumLinkToken{
+		client:   client,
+		instance: linkToken,
+		address:  linkDeploymentData.Address,
+		l:        l,
+	}, nil
+}
+
+// Fund the LINK Token contract with ETH to distribute the token
+func (l *EthereumLinkToken) Fund(_ *big.Float) error {
+	panic("do not use this function, use actions_seth.SendFunds instead")
+}
+
+func (l *EthereumLinkToken) BalanceOf(ctx context.Context, addr string) (*big.Int, error) {
+	return l.instance.BalanceOf(&bind.CallOpts{
+		From:    l.client.Addresses[0],
+		Context: ctx,
+	}, common.HexToAddress(addr))
+
+}
+
+// Name returns the name of the link token
+func (l *EthereumLinkToken) Name(ctx context.Context) (string, error) {
+	return l.instance.Name(&bind.CallOpts{
+		From:    l.client.Addresses[0],
+		Context: ctx,
+	})
+}
+
+func (l *EthereumLinkToken) Address() string {
+	return l.address.Hex()
+}
+
+func (l *EthereumLinkToken) Approve(to string, amount *big.Int) error {
+	l.l.Info().
+		Str("From", l.client.Addresses[0].Hex()).
+		Str("To", to).
+		Str("Amount", amount.String()).
+		Msg("Approving LINK Transfer")
+	_, err := l.client.Decode(l.instance.Approve(l.client.NewTXOpts(), common.HexToAddress(to), amount))
+	return err
+}
+
+func (l *EthereumLinkToken) Transfer(to string, amount *big.Int) error {
+	l.l.Info().
+		Str("From", l.client.Addresses[0].Hex()).
+		Str("To", to).
+		Str("Amount", amount.String()).
+		Msg("Transferring LINK")
+	_, err := l.client.Decode(l.instance.Transfer(l.client.NewTXOpts(), common.HexToAddress(to), amount))
+	return err
+}
+
+func (l *EthereumLinkToken) TransferAndCall(to string, amount *big.Int, data []byte) (*types.Transaction, error) {
+	l.l.Info().
+		Str("From", l.client.Addresses[0].Hex()).
+		Str("To", to).
+		Str("Amount", amount.String()).
+		Msg("Transferring and Calling LINK")
+	decodedTx, err := l.client.Decode(l.instance.TransferAndCall(l.client.NewTXOpts(), common.HexToAddress(to), amount, data))
+	if err != nil {
+		return nil, err
+	}
+	return decodedTx.Transaction, nil
+}
+
+// DeployFluxAggregatorContract deploys the Flux Aggregator Contract on an EVM chain
+func DeployFluxAggregatorContract(
+	seth *seth.Client,
+	linkAddr string,
+	fluxOptions FluxAggregatorOptions,
+) (FluxAggregator, error) {
+	abi, err := flux_aggregator_wrapper.FluxAggregatorMetaData.GetAbi()
+	if err != nil {
+		return &EthereumFluxAggregator{}, fmt.Errorf("failed to get FluxAggregator ABI: %w", err)
+	}
+	seth.ContractStore.AddABI("FluxAggregator", *abi)
+	seth.ContractStore.AddBIN("FluxAggregator", common.FromHex(flux_aggregator_wrapper.FluxAggregatorMetaData.Bin))
+
+	fluxDeploymentData, err := seth.DeployContract(seth.NewTXOpts(), "FluxAggregator", *abi, common.FromHex(flux_aggregator_wrapper.FluxAggregatorMetaData.Bin),
+		common.HexToAddress(linkAddr),
+		fluxOptions.PaymentAmount,
+		fluxOptions.Timeout,
+		fluxOptions.Validator,
+		fluxOptions.MinSubValue,
+		fluxOptions.MaxSubValue,
+		fluxOptions.Decimals,
+		fluxOptions.Description,
+	)
+
+	if err != nil {
+		return &EthereumFluxAggregator{}, fmt.Errorf("FluxAggregator instance deployment have failed: %w", err)
+	}
+
+	flux, err := flux_aggregator_wrapper.NewFluxAggregator(fluxDeploymentData.Address, wrappers.MustNewWrappedContractBackend(nil, seth))
+	if err != nil {
+		return &EthereumFluxAggregator{}, fmt.Errorf("failed to instantiate FluxAggregator instance: %w", err)
+	}
+
+	return &EthereumFluxAggregator{
+		client:         seth,
+		address:        &fluxDeploymentData.Address,
+		fluxAggregator: flux,
+	}, nil
+}
+
+// EthereumFluxAggregator represents the basic flux aggregation contract
+type EthereumFluxAggregator struct {
+	client         *seth.Client
+	fluxAggregator *flux_aggregator_wrapper.FluxAggregator
+	address        *common.Address
+}
+
+func (f *EthereumFluxAggregator) Address() string {
+	return f.address.Hex()
+}
+
+// Fund sends specified currencies to the contract
+func (f *EthereumFluxAggregator) Fund(_ *big.Float) error {
+	panic("do not use this function, use actions_seth.SendFunds() instead, otherwise we will have to deal with circular dependencies")
+}
+
+func (f *EthereumFluxAggregator) UpdateAvailableFunds() error {
+	_, err := f.client.Decode(f.fluxAggregator.UpdateAvailableFunds(f.client.NewTXOpts()))
+	return err
+}
+
+func (f *EthereumFluxAggregator) PaymentAmount(ctx context.Context) (*big.Int, error) {
+	return f.fluxAggregator.PaymentAmount(&bind.CallOpts{
+		From:    f.client.Addresses[0],
+		Context: ctx,
+	})
+}
+
+func (f *EthereumFluxAggregator) RequestNewRound(context.Context) error {
+	_, err := f.client.Decode(f.fluxAggregator.RequestNewRound(f.client.NewTXOpts()))
+	return err
+}
+
+// WatchSubmissionReceived subscribes to any submissions on a flux feed
+func (f *EthereumFluxAggregator) WatchSubmissionReceived(_ context.Context, _ chan<- *SubmissionEvent) error {
+	panic("do not use this method, instead use XXXX")
+}
+
+func (f *EthereumFluxAggregator) SetRequesterPermissions(_ context.Context, addr common.Address, authorized bool, roundsDelay uint32) error {
+	_, err := f.client.Decode(f.fluxAggregator.SetRequesterPermissions(f.client.NewTXOpts(), addr, authorized, roundsDelay))
+	return err
+}
+
+func (f *EthereumFluxAggregator) GetOracles(ctx context.Context) ([]string, error) {
+	addresses, err := f.fluxAggregator.GetOracles(&bind.CallOpts{
+		From:    f.client.Addresses[0],
+		Context: ctx,
+	})
+	if err != nil {
+		return nil, err
+	}
+	var oracleAddrs []string
+	for _, o := range addresses {
+		oracleAddrs = append(oracleAddrs, o.Hex())
+	}
+	return oracleAddrs, nil
+}
+
+func (f *EthereumFluxAggregator) LatestRoundID(ctx context.Context) (*big.Int, error) {
+	return f.fluxAggregator.LatestRound(&bind.CallOpts{
+		From:    f.client.Addresses[0],
+		Context: ctx,
+	})
+}
+
+func (f *EthereumFluxAggregator) WithdrawPayment(
+	_ context.Context,
+	from common.Address,
+	to common.Address,
+	amount *big.Int) error {
+	_, err := f.client.Decode(f.fluxAggregator.WithdrawPayment(f.client.NewTXOpts(), from, to, amount))
+	return err
+}
+
+func (f *EthereumFluxAggregator) WithdrawablePayment(ctx context.Context, addr common.Address) (*big.Int, error) {
+	return f.fluxAggregator.WithdrawablePayment(&bind.CallOpts{
+		From:    f.client.Addresses[0],
+		Context: ctx,
+	}, addr)
+}
+
+func (f *EthereumFluxAggregator) LatestRoundData(ctx context.Context) (flux_aggregator_wrapper.LatestRoundData, error) {
+	return f.fluxAggregator.LatestRoundData(&bind.CallOpts{
+		From:    f.client.Addresses[0],
+		Context: ctx,
+	})
+}
+
+// GetContractData retrieves basic data for the flux aggregator contract
+func (f *EthereumFluxAggregator) GetContractData(ctx context.Context) (*FluxAggregatorData, error) {
+	opts := &bind.CallOpts{
+		From:    f.client.Addresses[0],
+		Context: ctx,
+	}
+
+	allocated, err := f.fluxAggregator.AllocatedFunds(opts)
+	if err != nil {
+		return &FluxAggregatorData{}, err
+	}
+
+	available, err := f.fluxAggregator.AvailableFunds(opts)
+	if err != nil {
+		return &FluxAggregatorData{}, err
+	}
+
+	lr, err := f.fluxAggregator.LatestRoundData(opts)
+	if err != nil {
+		return &FluxAggregatorData{}, err
+	}
+	latestRound := RoundData(lr)
+
+	oracles, err := f.fluxAggregator.GetOracles(opts)
+	if err != nil {
+		return &FluxAggregatorData{}, err
+	}
+
+	return &FluxAggregatorData{
+		AllocatedFunds:  allocated,
+		AvailableFunds:  available,
+		LatestRoundData: latestRound,
+		Oracles:         oracles,
+	}, nil
+}
+
+// SetOracles allows the ability to add and/or remove oracles from the contract, and to set admins
+func (f *EthereumFluxAggregator) SetOracles(o FluxAggregatorSetOraclesOptions) error {
+	_, err := f.client.Decode(f.fluxAggregator.ChangeOracles(f.client.NewTXOpts(), o.RemoveList, o.AddList, o.AdminList, o.MinSubmissions, o.MaxSubmissions, o.RestartDelayRounds))
+	if err != nil {
+		return err
+	}
+	return err
+}
+
+// Description returns the description of the flux aggregator contract
+func (f *EthereumFluxAggregator) Description(ctxt context.Context) (string, error) {
+	return f.fluxAggregator.Description(&bind.CallOpts{
+		From:    f.client.Addresses[0],
+		Context: ctxt,
+	})
+}
+
+func DeployOracle(seth *seth.Client, linkAddr string) (Oracle, error) {
+	abi, err := oracle_wrapper.OracleMetaData.GetAbi()
+	if err != nil {
+		return &EthereumOracle{}, fmt.Errorf("failed to get Oracle ABI: %w", err)
+	}
+	seth.ContractStore.AddABI("Oracle", *abi)
+	seth.ContractStore.AddBIN("Oracle", common.FromHex(oracle_wrapper.OracleMetaData.Bin))
+
+	oracleDeploymentData, err := seth.DeployContract(seth.NewTXOpts(), "Oracle", *abi, common.FromHex(oracle_wrapper.OracleMetaData.Bin),
+		common.HexToAddress(linkAddr),
+	)
+
+	if err != nil {
+		return &EthereumOracle{}, fmt.Errorf("Oracle instance deployment have failed: %w", err)
+	}
+
+	oracle, err := oracle_wrapper.NewOracle(oracleDeploymentData.Address, wrappers.MustNewWrappedContractBackend(nil, seth))
+	if err != nil {
+		return &EthereumOracle{}, fmt.Errorf("Oracle to instantiate FluxAggregator instance: %w", err)
+	}
+
+	return &EthereumOracle{
+		client:  seth,
+		address: &oracleDeploymentData.Address,
+		oracle:  oracle,
+	}, nil
+}
+
+// EthereumOracle oracle for "directrequest" job tests
+type EthereumOracle struct {
+	address *common.Address
+	client  *seth.Client
+	oracle  *oracle_wrapper.Oracle
+}
+
+func (e *EthereumOracle) Address() string {
+	return e.address.Hex()
+}
+
+func (e *EthereumOracle) Fund(_ *big.Float) error {
+	panic("do not use this function, use actions_seth.SendFunds() instead, otherwise we will have to deal with circular dependencies")
+}
+
+// SetFulfillmentPermission sets fulfillment permission for particular address
+func (e *EthereumOracle) SetFulfillmentPermission(address string, allowed bool) error {
+	_, err := e.client.Decode(e.oracle.SetFulfillmentPermission(e.client.NewTXOpts(), common.HexToAddress(address), allowed))
+	return err
+}
+
+func DeployAPIConsumer(seth *seth.Client, linkAddr string) (APIConsumer, error) {
+	abi, err := test_api_consumer_wrapper.TestAPIConsumerMetaData.GetAbi()
+	if err != nil {
+		return &EthereumAPIConsumer{}, fmt.Errorf("failed to get TestAPIConsumer ABI: %w", err)
+	}
+	seth.ContractStore.AddABI("TestAPIConsumer", *abi)
+	seth.ContractStore.AddBIN("TestAPIConsumer", common.FromHex(test_api_consumer_wrapper.TestAPIConsumerMetaData.Bin))
+
+	consumerDeploymentData, err := seth.DeployContract(seth.NewTXOpts(), "TestAPIConsumer", *abi, common.FromHex(test_api_consumer_wrapper.TestAPIConsumerMetaData.Bin),
+		common.HexToAddress(linkAddr),
+	)
+
+	if err != nil {
+		return &EthereumAPIConsumer{}, fmt.Errorf("TestAPIConsumer instance deployment have failed: %w", err)
+	}
+
+	consumer, err := test_api_consumer_wrapper.NewTestAPIConsumer(consumerDeploymentData.Address, wrappers.MustNewWrappedContractBackend(nil, seth))
+	if err != nil {
+		return &EthereumAPIConsumer{}, fmt.Errorf("failed to instantiate TestAPIConsumer instance: %w", err)
+	}
+
+	return &EthereumAPIConsumer{
+		client:   seth,
+		address:  &consumerDeploymentData.Address,
+		consumer: consumer,
+	}, nil
+}
+
+// EthereumAPIConsumer API consumer for job type "directrequest" tests
+type EthereumAPIConsumer struct {
+	address  *common.Address
+	client   *seth.Client
+	consumer *test_api_consumer_wrapper.TestAPIConsumer
+}
+
+func (e *EthereumAPIConsumer) Address() string {
+	return e.address.Hex()
+}
+
+func (e *EthereumAPIConsumer) RoundID(ctx context.Context) (*big.Int, error) {
+	return e.consumer.CurrentRoundID(&bind.CallOpts{
+		From:    e.client.Addresses[0],
+		Context: ctx,
+	})
+}
+
+func (e *EthereumAPIConsumer) Fund(_ *big.Float) error {
+	panic("do not use this function, use actions_seth.SendFunds() instead, otherwise we will have to deal with circular dependencies")
+}
+
+func (e *EthereumAPIConsumer) Data(ctx context.Context) (*big.Int, error) {
+	return e.consumer.Data(&bind.CallOpts{
+		From:    e.client.Addresses[0],
+		Context: ctx,
+	})
+}
+
+// CreateRequestTo creates request to an oracle for particular jobID with params
+func (e *EthereumAPIConsumer) CreateRequestTo(
+	oracleAddr string,
+	jobID [32]byte,
+	payment *big.Int,
+	url string,
+	path string,
+	times *big.Int,
+) error {
+	_, err := e.client.Decode(e.consumer.CreateRequestTo(e.client.NewTXOpts(), common.HexToAddress(oracleAddr), jobID, payment, url, path, times))
+	return err
 }

@@ -204,11 +204,6 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   /**
    * @notice OnchainConfig of the registry
    * @dev used only in setConfig()
-   * @member paymentPremiumPPB payment premium rate oracles receive on top of
-   * being reimbursed for gas, measured in parts per billion
-   * @member flatFeeMicroLink flat fee paid to oracles for performing upkeeps,
-   * priced in MicroLink; can be used in conjunction with or independently of
-   * paymentPremiumPPB
    * @member checkGasLimit gas limit when checking for upkeep
    * @member stalenessSeconds number of seconds that is allowed for feed data to
    * be stale before switching to the fallback pricing
@@ -378,12 +373,13 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
    */
   struct BillingConfig {
     uint32 gasFeePPB;
-    uint24 flatFeeMicroLink;
+    uint24 flatFeeMilliCents; // min fee is $0.00001, max fee is $167
     AggregatorV3Interface priceFeed;
-    // 1 word, read in getPrice()
+    // 1st word, read in getPrice()
     uint256 fallbackPrice;
     // 2nd word only read if stale
-    uint96 minSpend; // TODO - placeholder, should be removed when daily fees are added
+    uint96 minSpend;
+    // 3rd word only read during cancellation
   }
 
   /**
@@ -392,7 +388,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
    */
   struct BillingTokenPaymentParams {
     uint32 gasFeePPB;
-    uint24 flatFeeMicroLink;
+    uint24 flatFeeMilliCents;
     uint256 priceUSD;
   }
 
@@ -622,21 +618,21 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   function _getBillingTokenPaymentParams(
     HotVars memory hotVars,
     IERC20 billingToken
-  ) internal view returns (BillingTokenPaymentParams memory params) {
-    BillingConfig memory config = s_billingConfigs[billingToken];
-    params.flatFeeMicroLink = config.flatFeeMicroLink;
-    params.gasFeePPB = config.gasFeePPB;
+  ) internal view returns (BillingTokenPaymentParams memory paymentParams) {
+    BillingConfig storage config = s_billingConfigs[billingToken];
+    paymentParams.flatFeeMilliCents = config.flatFeeMilliCents;
+    paymentParams.gasFeePPB = config.gasFeePPB;
     (, int256 feedValue, , uint256 timestamp, ) = config.priceFeed.latestRoundData();
     if (
       feedValue <= 0 ||
       block.timestamp < timestamp ||
       (hotVars.stalenessSeconds > 0 && hotVars.stalenessSeconds < block.timestamp - timestamp)
     ) {
-      params.priceUSD = config.fallbackPrice;
+      paymentParams.priceUSD = config.fallbackPrice;
     } else {
-      params.priceUSD = uint256(feedValue);
+      paymentParams.priceUSD = uint256(feedValue);
     }
-    return params;
+    return paymentParams;
   }
 
   /**
@@ -645,6 +641,9 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
    * @param paymentParams the pricing data and gas usage data
    * @return receipt the receipt of payment with pricing breakdown
    * @dev use of PaymentParams struct is necessary to avoid stack too deep errors
+   * @dev 1 USD = 1e18 attoUSD
+   * @dev 1 USD = 1e26 hexaicosaUSD (had to borrow this prefix from geometry because there is no metric prefix for 1e-26)
+   * @dev 1 millicent = 1e-5 USD = 1e13 attoUSD
    */
   function _calculatePaymentAmount(
     HotVars memory hotVars,
@@ -656,17 +655,17 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
       gasWei = tx.gasprice;
     }
 
-    uint256 gasPaymentUSD = (gasWei * (paymentParams.gasLimit + paymentParams.gasOverhead) + paymentParams.l1CostWei) *
-      paymentParams.nativeUSD; // this is USD * 1e36 ??? TODO
-    receipt.gasCharge = SafeCast.toUint96(gasPaymentUSD / paymentParams.billingToken.priceUSD);
-    receipt.gasReimbursementJuels = SafeCast.toUint96(gasPaymentUSD / paymentParams.linkUSD);
-
-    uint256 flatFeeUSD = uint256(paymentParams.billingToken.flatFeeMicroLink) * 1e12 * paymentParams.linkUSD; // TODO - this should get replaced by flatFeeCents later
-    uint256 premiumUSD = ((((gasWei * paymentParams.gasLimit) + paymentParams.l1CostWei) *
+    uint256 gasPaymentHexaicosaUSD = (gasWei *
+      (paymentParams.gasLimit + paymentParams.gasOverhead) +
+      paymentParams.l1CostWei) * paymentParams.nativeUSD; // gasPaymentHexaicosaUSD has an extra 8 zeros because of decimals on nativeUSD feed
+    receipt.gasCharge = SafeCast.toUint96(gasPaymentHexaicosaUSD / paymentParams.billingToken.priceUSD); // has units of attoBillingToken, or "wei"
+    receipt.gasReimbursementJuels = SafeCast.toUint96(gasPaymentHexaicosaUSD / paymentParams.linkUSD);
+    uint256 flatFeeHexaicosaUSD = uint256(paymentParams.billingToken.flatFeeMilliCents) * 1e21; // 1e13 for milliCents to attoUSD and 1e8 for attoUSD to hexaicosaUSD
+    uint256 premiumHexaicosaUSD = ((((gasWei * paymentParams.gasLimit) + paymentParams.l1CostWei) *
       paymentParams.billingToken.gasFeePPB *
-      paymentParams.nativeUSD) / 1e9) + flatFeeUSD; // this is USD * 1e18
-    receipt.premium = SafeCast.toUint96(premiumUSD / paymentParams.billingToken.priceUSD);
-    receipt.premiumJuels = SafeCast.toUint96(premiumUSD / paymentParams.linkUSD);
+      paymentParams.nativeUSD) / 1e9) + flatFeeHexaicosaUSD;
+    receipt.premium = SafeCast.toUint96(premiumHexaicosaUSD / paymentParams.billingToken.priceUSD);
+    receipt.premiumJuels = SafeCast.toUint96(premiumHexaicosaUSD / paymentParams.linkUSD);
 
     return receipt;
   }
