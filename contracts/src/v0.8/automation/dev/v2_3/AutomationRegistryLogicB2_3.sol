@@ -38,6 +38,32 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3, Chainable {
   // ================================================================
 
   /**
+   * @notice overrides the billing config for an upkeep
+   * @param id the upkeepID
+   * @param billingOverrides the override-able billing config
+   */
+  function setBillingOverrides(uint256 id, BillingOverrides calldata billingOverrides) external {
+    _onlyPrivilegeManagerAllowed();
+    if (s_upkeep[id].maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
+
+    s_upkeep[id].overridesEnabled = true;
+    s_billingOverrides[id] = billingOverrides;
+    emit BillingConfigOverridden(id);
+  }
+
+  /**
+   * @notice remove the overridden billing config for an upkeep
+   * @param id the upkeepID
+   */
+  function removeBillingOverrides(uint256 id) external {
+    _onlyPrivilegeManagerAllowed();
+
+    s_upkeep[id].overridesEnabled = false;
+    delete s_billingOverrides[id];
+    emit BillingConfigOverrideRemoved(id);
+  }
+
+  /**
    * @notice adds fund to an upkeep
    * @param id the upkeepID
    * @param amount the amount of funds to add, in the upkeep's billing token
