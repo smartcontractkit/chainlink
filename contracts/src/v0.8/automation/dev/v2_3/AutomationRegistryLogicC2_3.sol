@@ -157,16 +157,30 @@ contract AutomationRegistryLogicC2_3 is AutomationRegistryBase2_3 {
     _onlyFinanceAdminAllowed();
     if (s_payoutMode == PayoutMode.ON_CHAIN) revert MustSettleOnchain();
 
-    uint256 length = s_transmittersList.length;
+    uint256 activeTransmittersLength = s_transmittersList.length;
+    uint256 deactivatedTransmittersLength = s_deactivatedTransmitters.length();
+    uint256 length = activeTransmittersLength + deactivatedTransmittersLength;
     uint256[] memory payments = new uint256[](length);
     address[] memory payees = new address[](length);
-    for (uint256 i = 0; i < length; i++) {
+    for (uint256 i = 0; i < activeTransmittersLength; i++) {
       address transmitterAddr = s_transmittersList[i];
-      uint96 balance = _updateTransmitterBalanceFromPool(transmitterAddr, s_hotVars.totalPremium, uint96(length));
+      uint96 balance = _updateTransmitterBalanceFromPool(
+        transmitterAddr,
+        s_hotVars.totalPremium,
+        uint96(activeTransmittersLength)
+      );
       payments[i] = balance;
       payees[i] = s_transmitterPayees[transmitterAddr];
       s_transmitters[transmitterAddr].balance = 0;
     }
+    for (uint256 i = 0; i < deactivatedTransmittersLength; i++) {
+      address deactivatedAddr = s_deactivatedTransmitters.at(i);
+      Transmitter memory transmitter = s_transmitters[deactivatedAddr];
+      payees[i + activeTransmittersLength] = s_transmitterPayees[deactivatedAddr];
+      payments[i + activeTransmittersLength] = transmitter.balance;
+      s_transmitters[deactivatedAddr].balance = 0;
+    }
+    delete s_deactivatedTransmitters;
 
     emit NOPsSettledOffchain(payees, payments);
   }
