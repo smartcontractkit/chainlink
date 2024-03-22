@@ -181,10 +181,8 @@ contract AutomationRegistryLogicC2_3 is AutomationRegistryBase2_3 {
       address deactivatedAddr = s_deactivatedTransmitters.at(i);
       Transmitter memory transmitter = s_transmitters[deactivatedAddr];
       payees[i + activeTransmittersLength] = s_transmitterPayees[deactivatedAddr];
-      if (transmitter.balance != 0) {
-        payments[i + activeTransmittersLength] = transmitter.balance;
-        s_transmitters[deactivatedAddr].balance = 0;
-      }
+      payments[i + activeTransmittersLength] = transmitter.balance;
+      s_transmitters[deactivatedAddr].balance = 0;
     }
     delete s_deactivatedTransmitters;
 
