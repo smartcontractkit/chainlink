@@ -356,7 +356,53 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 	return nil, nil
 }
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MarkAllConfirmedMissingReceipt(ctx context.Context, chainID CHAIN_ID) error {
-	return nil
+	if ms.chainID.String() != chainID.String() {
+		panic("invalid chain ID")
+	}
+
+	// Persist to persistent storage
+	if err := ms.persistentTxStore.MarkAllConfirmedMissingReceipt(ctx, chainID); err != nil {
+		return err
+	}
+
+	// Update in memory store
+	var errs error
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
+	for _, as := range ms.addressStates {
+		// Get the max confirmed sequence
+		filter := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool { return true }
+		states := []txmgrtypes.TxState{TxConfirmed}
+		txs := as.findTxs(states, filter)
+		var maxConfirmedSequence SEQ
+		for _, tx := range txs {
+			if tx.Sequence == nil {
+				continue
+			}
+			if (*tx.Sequence).Int64() > maxConfirmedSequence.Int64() {
+				maxConfirmedSequence = *tx.Sequence
+			}
+		}
+
+		// Mark all unconfirmed txs with a sequence less than the max confirmed sequence as confirmed_missing_receipt
+		filter = func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
+			if tx.Sequence == nil {
+				return false
+			}
+
+			return (*tx.Sequence).Int64() < maxConfirmedSequence.Int64()
+		}
+		states = []txmgrtypes.TxState{TxUnconfirmed}
+		txs = as.findTxs(states, filter)
+		for _, tx := range txs {
+			if err := as.moveUnconfirmedToConfirmedMissingReceipt(tx.ID); err != nil {
+				err = fmt.Errorf("mark_all_confirmed_missing_receipt: address: %s: %w", as.fromAddress, err)
+				errs = errors.Join(errs, err)
+			}
+		}
+	}
+
+	return errs
 }
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MarkOldTxesMissingReceiptAsErrored(ctx context.Context, blockNum int64, finalityDepth uint32, chainID CHAIN_ID) error {
 	return nil
