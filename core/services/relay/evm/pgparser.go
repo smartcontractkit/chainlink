@@ -47,6 +47,11 @@ func (v *PgDSLParser) VisitEventTopicsByValueFilter(filter *EventByIndexFilter) 
 	panic("implement me")
 }
 
+func (v *PgDSLParser) VisitEventByWordFilter(filter *EventByWordFilter) {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (v *PgDSLParser) VisitEventFilter(filter *EventFilter) {
 	//TODO implement me
 	panic("implement me")

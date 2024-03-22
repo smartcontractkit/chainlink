@@ -126,13 +126,13 @@ func (cr *chainReader) QueryByKeyValuesComparison(ctx context.Context, keyValues
 		return nil, fmt.Errorf("key: %s format is invalid, the key should look like contractName-readName-valToSearch", keyValuesComparator.Key)
 	}
 
-	contractName, eventName, dataName := tokens[0], tokens[1], tokens[2]
+	contractName, eventName, dataPointer := tokens[0], tokens[1], tokens[2]
 	b, err := cr.contractBindings.GetReadBinding(formatKey(contractName, eventName))
 	if err != nil {
 		return nil, err
 	}
 
-	return b.QueryByKeyValuesComparison(ctx, dataName, keyValuesComparator.ValueComparators, queryFilter, limitAndSort, sequenceDataType)
+	return b.QueryByKeyValuesComparison(ctx, dataPointer, keyValuesComparator.ValueComparators, queryFilter, limitAndSort, sequenceDataType)
 }
 
 func (cr *chainReader) QueryByKeysValuesComparison(ctx context.Context, keysValuesComparator []query.KeyValuesComparator, queryFilter query.Filter, limitAndSort query.LimitAndSort, sequenceDataType []any) ([][]commontypes.Sequence, error) {
@@ -281,31 +281,37 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 	}
 
 	eb := &eventBinding{
-		contractName:  contractName,
-		eventName:     eventName,
-		lp:            cr.lp,
-		hash:          event.ID,
-		inputInfo:     inputInfo,
-		inputModifier: inputModifier,
-		topicInfo:     codecTopicInfo,
-		id:            wrapItemType(contractName, eventName, false) + uuid.NewString(),
-		topicMapping:  make(map[string]topicInfo),
+		contractName:   contractName,
+		eventName:      eventName,
+		lp:             cr.lp,
+		hash:           event.ID,
+		inputInfo:      inputInfo,
+		inputModifier:  inputModifier,
+		codecTopicInfo: codecTopicInfo,
+		id:             wrapItemType(contractName, eventName, false) + uuid.NewString(),
+		topicsInfo:     make(map[string]topicInfo),
+		eventDataWords: chainReaderDefinition.GenericDataWordNames,
+	}
+
+	for genericDataWordName := range eb.eventDataWords {
+		// this way querying by key/s values comparison can find its bindings
+		cr.contractBindings.AddReadBinding(formatKey(contractName, eventName, genericDataWordName), eb)
 	}
 
 	// set topic mappings for QueryKeys
 	for topicIndex, topic := range event.Inputs {
 		genericTopicName, ok := chainReaderDefinition.GenericTopicNames[topic.Name]
 		if ok {
-			eb.topicMapping[genericTopicName] = topicInfo{
+			eb.topicsInfo[genericTopicName] = topicInfo{
 				Argument:   topic,
 				topicIndex: uint64(topicIndex),
 			}
 		}
-		// this way querying by key/s values comparison can find its bindings without splitting and parsing the key
-		cr.contractBindings.AddReadBinding(contractName+"-"+eventName+"-"+genericTopicName, eb)
+		// this way querying by key/s values comparison can find its bindings
+		cr.contractBindings.AddReadBinding(formatKey(contractName, eventName, genericTopicName), eb)
 	}
 
-	cr.contractBindings.AddReadBinding(contractName+"-"+eventName, eb)
+	cr.contractBindings.AddReadBinding(formatKey(contractName, eventName), eb)
 	return cr.addDecoderDef(contractName, eventName, event.Inputs, chainReaderDefinition)
 }
 

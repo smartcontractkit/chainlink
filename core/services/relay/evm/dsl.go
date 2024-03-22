@@ -36,7 +36,7 @@ type EventByIndexFilter struct {
 	ValueComparators []query.ValueComparator
 }
 
-func NewEventByIndexFilter(address common.Address, valueComparators []query.ValueComparator, eventSig common.Hash, topicIndex uint64) query.Expression {
+func NewEventByIndexFilter(address common.Address, eventSig common.Hash, topicIndex uint64, valueComparators []query.ValueComparator) query.Expression {
 	var eventByIndexFilter *EventByIndexFilter
 	eventByIndexFilter.Address = address
 	eventByIndexFilter.EventSig = eventSig
@@ -50,6 +50,29 @@ func (f *EventByIndexFilter) Accept(visitor query.Visitor) {
 	switch v := visitor.(type) {
 	case *PgDSLParser:
 		v.VisitEventTopicsByValueFilter(f)
+	}
+}
+
+type EventByWordFilter struct {
+	Address          common.Address
+	EventSig         common.Hash
+	WordIndex        uint8
+	ValueComparators []query.ValueComparator
+}
+
+func NewEventByWordFilter(address common.Address, eventSig common.Hash, wordIndex uint8, valueComparators []query.ValueComparator) query.Expression {
+	var eventByIndexFilter *EventByWordFilter
+	eventByIndexFilter.Address = address
+	eventByIndexFilter.EventSig = eventSig
+	eventByIndexFilter.WordIndex = wordIndex
+	eventByIndexFilter.ValueComparators = valueComparators
+	return query.Expression{Primitive: eventByIndexFilter}
+}
+
+func (f *EventByWordFilter) Accept(visitor query.Visitor) {
+	switch v := visitor.(type) {
+	case *PgDSLParser:
+		v.VisitEventByWordFilter(f)
 	}
 }
 

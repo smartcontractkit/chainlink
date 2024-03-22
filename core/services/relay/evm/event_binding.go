@@ -31,9 +31,12 @@ type eventBinding struct {
 	lock           sync.Mutex
 	inputInfo      types.CodecEntry
 	inputModifier  codec.Modifier
-	topicInfo      types.CodecEntry
+	codecTopicInfo types.CodecEntry
 	// key is generic topic name
-	topicMapping map[string]topicInfo
+	topicsInfo map[string]topicInfo
+	// key is a predefined generic name for evm log event data word
+	// for eg. first evm data word(32bytes) of USDC log event is value so the key can be called value
+	eventDataWords map[string]uint8
 	// used to allow Register and Unregister to be unique in case two bindings have the same event.
 	// otherwise, if one unregisters, it'll unregister both with the LogPoller.
 	id string
@@ -140,17 +143,24 @@ func (e *eventBinding) QueryKey(ctx context.Context, queryFilter query.Filter, l
 	return e.decodeLogsIntoSequences(ctx, logs, sequenceDataType)
 }
 
-func (e *eventBinding) QueryByKeyValuesComparison(ctx context.Context, topicName string, valueComparators []query.ValueComparator, queryFilter query.Filter, limitAndSort query.LimitAndSort, sequenceDataType any) ([]commontypes.Sequence, error) {
+func (e *eventBinding) QueryByKeyValuesComparison(ctx context.Context, keyDataPointer string, valueComparators []query.ValueComparator, queryFilter query.Filter, limitAndSort query.LimitAndSort, sequenceDataType any) ([]commontypes.Sequence, error) {
 	remappedQf, err := remapQueryFilter(queryFilter)
 	if err != nil {
 		return nil, err
 	}
-	tInfo, ok := e.topicMapping[topicName]
-	if !ok {
-		return nil, fmt.Errorf("unrecognized topic %s", topicName)
+	tInfo, isTopic := e.topicsInfo[keyDataPointer]
+	if isTopic {
+		remappedQf.Expressions = append(remappedQf.Expressions, NewEventByIndexFilter(e.address, e.hash, tInfo.topicIndex, valueComparators))
 	}
 
-	remappedQf.Expressions = append(remappedQf.Expressions, NewEventByIndexFilter(e.address, valueComparators, e.hash, tInfo.topicIndex))
+	if !isTopic {
+		wordIndex, ok := e.eventDataWords[keyDataPointer]
+		if !ok {
+			return nil, fmt.Errorf("unrecognized key data pointer %s", keyDataPointer)
+		}
+		remappedQf.Expressions = append(remappedQf.Expressions, NewEventByWordFilter(e.address, e.hash, wordIndex, valueComparators))
+	}
+
 	logs, err := e.lp.FilteredLogs(remappedQf, limitAndSort)
 	if err != nil {
 		return nil, err
@@ -327,7 +337,7 @@ func (e *eventBinding) decodeLog(ctx context.Context, log *logpoller.Log, into a
 		return err
 	}
 
-	topics := make([]common.Hash, len(e.topicInfo.Args()))
+	topics := make([]common.Hash, len(e.codecTopicInfo.Args()))
 	if len(log.Topics) < len(topics)+1 {
 		return fmt.Errorf("%w: not enough topics to decode", commontypes.ErrInvalidType)
 	}
@@ -337,7 +347,7 @@ func (e *eventBinding) decodeLog(ctx context.Context, log *logpoller.Log, into a
 	}
 
 	topicsInto := map[string]any{}
-	if err := abi.ParseTopicsIntoMap(topicsInto, e.topicInfo.Args(), topics); err != nil {
+	if err := abi.ParseTopicsIntoMap(topicsInto, e.codecTopicInfo.Args(), topics); err != nil {
 		return fmt.Errorf("%w: %w", commontypes.ErrInvalidType, err)
 	}
 
