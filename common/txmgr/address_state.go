@@ -247,12 +247,51 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) findTx
 func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) pruneUnstartedTxQueue(ids []int64) {
 }
 
-// deleteTxs removes the transactions with the given IDs from the address state.
-func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) deleteTxs(txs ...txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) {
+// reapConfirmedTxs removes confirmed transactions that are older than the given time threshold.
+// It also removes confirmed transactions that are older than the given block number threshold.
+func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) reapConfirmedTxs(minBlockNumberToKeep int64, timeThreshold time.Time) {
 	as.Lock()
 	defer as.Unlock()
 
-	as._deleteTxs(txs...)
+	for _, tx := range as.confirmedTxs {
+		if len(tx.TxAttempts) == 0 {
+			continue
+		}
+		if tx.CreatedAt.After(timeThreshold) {
+			continue
+		}
+
+		for i := 0; i < len(tx.TxAttempts); i++ {
+			if len(tx.TxAttempts[i].Receipts) == 0 {
+				continue
+			}
+			if tx.TxAttempts[i].Receipts[0].GetBlockNumber() == nil || tx.TxAttempts[i].Receipts[0].GetBlockNumber().Int64() >= minBlockNumberToKeep {
+				continue
+			}
+			as._deleteTx(tx.ID)
+		}
+	}
+}
+
+// reapFatalErroredTxs removes fatal errored transactions that are older than the given time threshold.
+func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) reapFatalErroredTxs(timeThreshold time.Time) {
+	as.Lock()
+	defer as.Unlock()
+
+	for _, tx := range as.fatalErroredTxs {
+		if tx.CreatedAt.After(timeThreshold) {
+			continue
+		}
+		as._deleteTx(tx.ID)
+	}
+}
+
+// deleteTxs removes the transactions with the given IDs from the address state.
+func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) deleteTxs(txIDs ...int64) {
+	as.Lock()
+	defer as.Unlock()
+
+	as._deleteTxs(txIDs...)
 }
 
 // peekNextUnstartedTx returns the next unstarted transaction in the queue without removing it from the unstarted queue.
@@ -458,22 +497,34 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) _findT
 	return txs
 }
 
-func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) _deleteTxs(txs ...txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) {
-	for _, tx := range txs {
-		if tx.IdempotencyKey != nil {
-			delete(as.idempotencyKeyToTx, *tx.IdempotencyKey)
-		}
-		txID := tx.ID
-		if as.inprogressTx != nil && as.inprogressTx.ID == txID {
-			as.inprogressTx = nil
-		}
-		delete(as.allTxs, txID)
-		delete(as.unconfirmedTxs, txID)
-		delete(as.confirmedMissingReceiptTxs, txID)
-		delete(as.confirmedTxs, txID)
-		delete(as.fatalErroredTxs, txID)
-		as.unstartedTxs.RemoveTxByID(txID)
+func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) _deleteTxs(txIDs ...int64) {
+	for _, txID := range txIDs {
+		as._deleteTx(txID)
 	}
+}
+
+func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) _deleteTx(txID int64) {
+	tx, ok := as.allTxs[txID]
+	if !ok {
+		return
+	}
+
+	for i := 0; i < len(tx.TxAttempts); i++ {
+		txAttemptHash := tx.TxAttempts[i].Hash
+		delete(as.attemptHashToTxAttempt, txAttemptHash)
+	}
+	if tx.IdempotencyKey != nil {
+		delete(as.idempotencyKeyToTx, *tx.IdempotencyKey)
+	}
+	if as.inprogressTx != nil && as.inprogressTx.ID == txID {
+		as.inprogressTx = nil
+	}
+	as.unstartedTxs.RemoveTxByID(txID)
+	delete(as.unconfirmedTxs, txID)
+	delete(as.confirmedMissingReceiptTxs, txID)
+	delete(as.confirmedTxs, txID)
+	delete(as.fatalErroredTxs, txID)
+	delete(as.allTxs, txID)
 }
 
 func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) _moveTxToFatalError(

@@ -81,11 +81,21 @@ func NewInMemoryStore[
 		ms.maxUnstarted = 10000
 	}
 
+	addressesToTxs := map[ADDR][]txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
+	// populate all enabled addresses
+	enabledAddresses, err := keyStore.EnabledAddressesForChain(ctx, chainID)
+	if err != nil {
+		return nil, fmt.Errorf("new_in_memory_store: %w", err)
+	}
+	for _, addr := range enabledAddresses {
+		addressesToTxs[addr] = []txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
+	}
+
 	txs, err := persistentTxStore.GetAllTransactions(ctx, chainID)
 	if err != nil {
 		return nil, fmt.Errorf("address_state: initialization: %w", err)
 	}
-	addressesToTxs := map[ADDR][]txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
+
 	for _, tx := range txs {
 		at, exists := addressesToTxs[tx.FromAddress]
 		if !exists {
@@ -276,43 +286,11 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) ReapT
 	}
 
 	// Update in memory store
-	states := []txmgrtypes.TxState{TxConfirmed}
-	filterFn := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
-		if tx.TxAttempts == nil || len(tx.TxAttempts) == 0 {
-			return false
-		}
-		for _, attempt := range tx.TxAttempts {
-			if attempt.Receipts == nil || len(attempt.Receipts) == 0 {
-				continue
-			}
-			if attempt.Receipts[0].GetBlockNumber() == nil {
-				continue
-			}
-			if attempt.Receipts[0].GetBlockNumber().Int64() >= minBlockNumberToKeep {
-				continue
-			}
-			if tx.CreatedAt.After(timeThreshold) {
-				continue
-			}
-			return tx.State == TxConfirmed
-		}
-		return false
-	}
-
 	ms.addressStatesLock.RLock()
 	defer ms.addressStatesLock.RUnlock()
 	for _, as := range ms.addressStates {
-		as.deleteTxs(as.findTxs(states, filterFn)...)
-	}
-
-	filterFn = func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
-		return tx.State == TxFatalError && tx.CreatedAt.Before(timeThreshold)
-	}
-	states = []txmgrtypes.TxState{TxFatalError}
-	ms.addressStatesLock.RLock()
-	defer ms.addressStatesLock.RUnlock()
-	for _, as := range ms.addressStates {
-		as.deleteTxs(as.findTxs(states, filterFn)...)
+		as.reapConfirmedTxs(minBlockNumberToKeep, timeThreshold)
+		as.reapFatalErroredTxs(timeThreshold)
 	}
 
 	return nil

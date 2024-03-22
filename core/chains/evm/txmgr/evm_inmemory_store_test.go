@@ -3,10 +3,12 @@ package txmgr_test
 import (
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commontxmgr "github.com/smartcontractkit/chainlink/v2/common/txmgr"
@@ -15,11 +17,153 @@ import (
 	evmgas "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	evmtxmgr "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 )
+
+func TestInMemoryStore_ReapTxHistory(t *testing.T) {
+	t.Parallel()
+
+	t.Run("reap all confirmed txs", func(t *testing.T) {
+		db := pgtest.NewSqlxDB(t)
+		_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
+		persistentStore := cltest.NewTestTxStore(t, db)
+		kst := cltest.NewKeyStore(t, db, dbcfg)
+		_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
+
+		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+		lggr := logger.TestSugared(t)
+		chainID := ethClient.ConfiguredChainID()
+		ctx := testutils.Context(t)
+
+		inMemoryStore, err := commontxmgr.NewInMemoryStore[
+			*big.Int,
+			common.Address, common.Hash, common.Hash,
+			*evmtypes.Receipt,
+			evmtypes.Nonce,
+			evmgas.EvmFee,
+		](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+		require.NoError(t, err)
+
+		// Insert a transaction into persistent store
+		inTx_0 := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, persistentStore, 7, 1, fromAddress)
+		r_0 := mustInsertEthReceipt(t, persistentStore, 1, utils.NewHash(), inTx_0.TxAttempts[0].Hash)
+		inTx_0.TxAttempts[0].Receipts = append(inTx_0.TxAttempts[0].Receipts, evmtxmgr.DbReceiptToEvmReceipt(&r_0))
+		inTx_1 := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, persistentStore, 8, 2, fromAddress)
+		r_1 := mustInsertEthReceipt(t, persistentStore, 2, utils.NewHash(), inTx_1.TxAttempts[0].Hash)
+		inTx_1.TxAttempts[0].Receipts = append(inTx_1.TxAttempts[0].Receipts, evmtxmgr.DbReceiptToEvmReceipt(&r_1))
+		inTx_2 := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, persistentStore, 9, 3, fromAddress)
+		r_2 := mustInsertEthReceipt(t, persistentStore, 3, utils.NewHash(), inTx_2.TxAttempts[0].Hash)
+		inTx_2.TxAttempts[0].Receipts = append(inTx_2.TxAttempts[0].Receipts, evmtxmgr.DbReceiptToEvmReceipt(&r_2))
+		// Insert the transaction into the in-memory store
+		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx_0))
+		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx_1))
+		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx_2))
+
+		minBlockNumberToKeep := int64(3)
+		timeThreshold := inTx_2.CreatedAt
+		expErr := persistentStore.ReapTxHistory(ctx, minBlockNumberToKeep, timeThreshold, chainID)
+		actErr := inMemoryStore.ReapTxHistory(ctx, minBlockNumberToKeep, timeThreshold, chainID)
+		require.NoError(t, expErr)
+		require.NoError(t, actErr)
+
+		fn := func(tx *evmtxmgr.Tx) bool { return true }
+		// Check that the transactions were reaped in persistent store
+		expTx_0, err := persistentStore.FindTxWithAttempts(ctx, inTx_0.ID)
+		require.Error(t, err)
+		require.Equal(t, int64(0), expTx_0.ID)
+		expTx_1, err := persistentStore.FindTxWithAttempts(ctx, inTx_1.ID)
+		require.Error(t, err)
+		require.Equal(t, int64(0), expTx_1.ID)
+		// Check that the transactions were reaped in in-memory store
+		actTxs_0 := inMemoryStore.XXXTestFindTxs(nil, fn, inTx_0.ID)
+		require.Equal(t, 0, len(actTxs_0))
+		actTxs_1 := inMemoryStore.XXXTestFindTxs(nil, fn, inTx_1.ID)
+		require.Equal(t, 0, len(actTxs_1))
+
+		// Check that the transaction was not reaped
+		expTx_2, err := persistentStore.FindTxWithAttempts(ctx, inTx_2.ID)
+		require.NoError(t, err)
+		require.Equal(t, inTx_2.ID, expTx_2.ID)
+		actTxs_2 := inMemoryStore.XXXTestFindTxs(nil, fn, inTx_2.ID)
+		require.Equal(t, 1, len(actTxs_2))
+		assertTxEqual(t, expTx_2, actTxs_2[0])
+	})
+	t.Run("reap all fatal error txs", func(t *testing.T) {
+		db := pgtest.NewSqlxDB(t)
+		_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
+		persistentStore := cltest.NewTestTxStore(t, db)
+		kst := cltest.NewKeyStore(t, db, dbcfg)
+		_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
+
+		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+		lggr := logger.TestSugared(t)
+		chainID := ethClient.ConfiguredChainID()
+		ctx := testutils.Context(t)
+
+		inMemoryStore, err := commontxmgr.NewInMemoryStore[
+			*big.Int,
+			common.Address, common.Hash, common.Hash,
+			*evmtypes.Receipt,
+			evmtypes.Nonce,
+			evmgas.EvmFee,
+		](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+		require.NoError(t, err)
+
+		// Insert a transaction into persistent store
+		inTx_0 := cltest.NewEthTx(fromAddress)
+		inTx_0.Error = null.StringFrom("something exploded")
+		inTx_0.State = commontxmgr.TxFatalError
+		inTx_0.CreatedAt = time.Unix(1000, 0)
+		require.NoError(t, persistentStore.InsertTx(ctx, &inTx_0))
+		inTx_1 := cltest.NewEthTx(fromAddress)
+		inTx_1.Error = null.StringFrom("something exploded")
+		inTx_1.State = commontxmgr.TxFatalError
+		inTx_1.CreatedAt = time.Unix(2000, 0)
+		require.NoError(t, persistentStore.InsertTx(ctx, &inTx_1))
+		inTx_2 := cltest.NewEthTx(fromAddress)
+		inTx_2.Error = null.StringFrom("something exploded")
+		inTx_2.State = commontxmgr.TxFatalError
+		inTx_2.CreatedAt = time.Unix(3000, 0)
+		require.NoError(t, persistentStore.InsertTx(ctx, &inTx_2))
+		// Insert the transaction into the in-memory store
+		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx_0))
+		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx_1))
+		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx_2))
+
+		minBlockNumberToKeep := int64(3)
+		timeThreshold := time.Unix(2500, 0) // Only reap txs created before this time
+		expErr := persistentStore.ReapTxHistory(ctx, minBlockNumberToKeep, timeThreshold, chainID)
+		actErr := inMemoryStore.ReapTxHistory(ctx, minBlockNumberToKeep, timeThreshold, chainID)
+		require.NoError(t, expErr)
+		require.NoError(t, actErr)
+
+		fn := func(tx *evmtxmgr.Tx) bool { return true }
+		// Check that the transactions were reaped in persistent store
+		expTx_0, err := persistentStore.FindTxWithAttempts(ctx, inTx_0.ID)
+		require.Error(t, err)
+		require.Equal(t, int64(0), expTx_0.ID)
+		expTx_1, err := persistentStore.FindTxWithAttempts(ctx, inTx_1.ID)
+		require.Error(t, err)
+		require.Equal(t, int64(0), expTx_1.ID)
+		// Check that the transactions were reaped in in-memory store
+		actTxs_0 := inMemoryStore.XXXTestFindTxs(nil, fn, inTx_0.ID)
+		require.Equal(t, 0, len(actTxs_0))
+		actTxs_1 := inMemoryStore.XXXTestFindTxs(nil, fn, inTx_1.ID)
+		require.Equal(t, 0, len(actTxs_1))
+
+		// Check that the transaction was not reaped
+		expTx_2, err := persistentStore.FindTxWithAttempts(ctx, inTx_2.ID)
+		require.NoError(t, err)
+		require.Equal(t, inTx_2.ID, expTx_2.ID)
+		actTxs_2 := inMemoryStore.XXXTestFindTxs(nil, fn, inTx_2.ID)
+		require.Equal(t, 1, len(actTxs_2))
+		assertTxEqual(t, expTx_2, actTxs_2[0])
+	})
+}
 
 func TestInMemoryStore_UpdateTxForRebroadcast(t *testing.T) {
 	t.Parallel()
