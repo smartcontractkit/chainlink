@@ -470,9 +470,10 @@ func DeployVRFV2PlusDirectFundingContracts(
 	linkEthFeedAddress string,
 	coordinator contracts.VRFCoordinatorV2_5,
 	consumerContractsAmount int,
+	wrapperSubId *big.Int,
 ) (*VRFV2PlusWrapperContracts, error) {
 
-	vrfv2PlusWrapper, err := contractDeployer.DeployVRFV2PlusWrapper(linkTokenAddress, linkEthFeedAddress, coordinator.Address())
+	vrfv2PlusWrapper, err := contractDeployer.DeployVRFV2PlusWrapper(linkTokenAddress, linkEthFeedAddress, coordinator.Address(), wrapperSubId)
 	if err != nil {
 		return nil, fmt.Errorf("%s, err %w", ErrDeployWrapper, err)
 	}

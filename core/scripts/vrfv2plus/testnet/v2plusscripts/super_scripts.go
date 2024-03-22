@@ -491,7 +491,7 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 	bhsJobLookBackBlocks := flag.Int("bhs-job-look-back-blocks", 200, "")
 	bhsJobPollPeriod := flag.String("bhs-job-poll-period", "3s", "")
 	bhsJobRunTimeout := flag.String("bhs-job-run-timeout", "1m", "")
-	simulationBlock := deployCmd.String("simulation-block", "pending", "simulation block can be 'pending' or 'latest'")
+	simulationBlock := deployCmd.String("simulation-block", "latest", "simulation block can be 'pending' or 'latest'")
 
 	// optional flags
 	fallbackWeiPerUnitLinkString := deployCmd.String("fallback-wei-per-unit-link", "6e16", "fallback wei/link ratio")
@@ -867,6 +867,7 @@ func DeployWrapperUniverse(e helpers.Environment) {
 	linkAddress := cmd.String("link-address", "", "address of link token")
 	linkETHFeedAddress := cmd.String("link-eth-feed", "", "address of link-eth-feed")
 	coordinatorAddress := cmd.String("coordinator-address", "", "address of the vrf coordinator v2 contract")
+	subscriptionID := cmd.String("subscription-id", "", "subscription ID for the wrapper")
 	wrapperGasOverhead := cmd.Uint("wrapper-gas-overhead", 50_000, "amount of gas overhead in wrapper fulfillment")
 	coordinatorGasOverhead := cmd.Uint("coordinator-gas-overhead", 52_000, "amount of gas overhead in coordinator fulfillment")
 	wrapperNativePremiumPercentage := cmd.Uint("wrapper-native-premium-percentage", 25, "gas premium charged by wrapper for native payment")
@@ -886,10 +887,13 @@ func DeployWrapperUniverse(e helpers.Environment) {
 		panic(fmt.Sprintf("failed to parse top up amount '%s'", *subFunding))
 	}
 
-	wrapper, subID := WrapperDeploy(e,
+	subId := parseSubID(*subscriptionID)
+	wrapper := WrapperDeploy(e,
 		common.HexToAddress(*linkAddress),
 		common.HexToAddress(*linkETHFeedAddress),
-		common.HexToAddress(*coordinatorAddress))
+		common.HexToAddress(*coordinatorAddress),
+		subId,
+	)
 
 	WrapperConfigure(e,
 		wrapper,
@@ -912,7 +916,7 @@ func DeployWrapperUniverse(e helpers.Environment) {
 	coordinator, err := vrf_coordinator_v2_5.NewVRFCoordinatorV25(common.HexToAddress(*coordinatorAddress), e.Ec)
 	helpers.PanicErr(err)
 
-	EoaFundSubWithLink(e, *coordinator, *linkAddress, amount, subID)
+	EoaFundSubWithLink(e, *coordinator, *linkAddress, amount, subId)
 
 	link, err := link_token_interface.NewLinkToken(common.HexToAddress(*linkAddress), e.Ec)
 	helpers.PanicErr(err)
@@ -928,4 +932,12 @@ func DeployWrapperUniverse(e helpers.Environment) {
 	fmt.Println("wrapper universe deployment complete")
 	fmt.Println("wrapper address:", wrapper.String())
 	fmt.Println("wrapper consumer address:", consumer.String())
+}
+
+func parseSubID(subID string) *big.Int {
+	parsedSubID, ok := new(big.Int).SetString(subID, 10)
+	if !ok {
+		helpers.PanicErr(fmt.Errorf("sub ID %s cannot be parsed", subID))
+	}
+	return parsedSubID
 }
