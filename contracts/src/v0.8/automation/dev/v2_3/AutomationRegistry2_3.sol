@@ -237,7 +237,6 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
    * @param amount number of LINK transfer
    */
   function onTokenTransfer(address sender, uint256 amount, bytes calldata data) external override {
-    // TODO test that this reverts if the billing token != the link token
     if (msg.sender != address(i_link)) revert OnlyCallableByLINKToken();
     if (data.length != 32) revert InvalidDataLength();
     uint256 id = abi.decode(data, (uint256));
