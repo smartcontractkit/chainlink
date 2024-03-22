@@ -80,6 +80,37 @@ func TestSimulateTx_Default(t *testing.T) {
 		err = client.SimulateTransaction(testutils.Context(t), ethClient, logger.TestSugared(t), "", msg)
 		require.Error(t, err, client.ErrOutOfCounters)
 	})
+
+	t.Run("returns without error if simulation returns non-OOC error", func(t *testing.T) {
+		wsURL := testutils.NewWSServer(t, &cltest.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
+			switch method {
+			case "eth_subscribe":
+				resp.Result = `"0x00"`
+				resp.Notify = headResult
+				return
+			case "eth_unsubscribe":
+				resp.Result = "true"
+				return
+			case "eth_estimateGas":
+				resp.Error.Code = -32000
+				resp.Result = `"0x100"`
+				resp.Error.Message = "something other than OOC"
+			}
+			return
+		}).WSURL().String()
+
+		ethClient := mustNewChainClient(t, wsURL)
+		err := ethClient.Dial(testutils.Context(t))
+		require.NoError(t, err)
+
+		msg := ethereum.CallMsg{
+			From: fromAddress,
+			To:   &toAddress,
+			Data: []byte("0x00"),
+		}
+		err = client.SimulateTransaction(testutils.Context(t), ethClient, logger.TestSugared(t), "", msg)
+		require.NoError(t, err)
+	})
 }
 
 func TestSimulateTx_ZkEvm(t *testing.T) {
