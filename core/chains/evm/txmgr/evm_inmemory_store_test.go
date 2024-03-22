@@ -3,6 +3,7 @@ package txmgr_test
 import (
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
@@ -20,6 +21,54 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 )
+
+func TestInMemoryStore_MarkOldTxesMissingReceiptAsErrored(t *testing.T) {
+	t.Parallel()
+	blockNum := int64(10)
+	finalityDepth := uint32(2)
+
+	t.Run("successfully mark errored transaction", func(t *testing.T) {
+		db := pgtest.NewSqlxDB(t)
+		_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
+		persistentStore := cltest.NewTestTxStore(t, db)
+		kst := cltest.NewKeyStore(t, db, dbcfg)
+		_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
+
+		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+		lggr := logger.TestSugared(t)
+		chainID := ethClient.ConfiguredChainID()
+		ctx := testutils.Context(t)
+
+		inMemoryStore, err := commontxmgr.NewInMemoryStore[
+			*big.Int,
+			common.Address, common.Hash, common.Hash,
+			*evmtypes.Receipt,
+			evmtypes.Nonce,
+			evmgas.EvmFee,
+		](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+		require.NoError(t, err)
+
+		// Insert a transaction into persistent store
+		inTx := mustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(t, persistentStore, 1, 7, time.Now(), fromAddress)
+		// Insert the transaction into the in-memory store
+		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
+
+		err = inMemoryStore.MarkOldTxesMissingReceiptAsErrored(ctx, blockNum, finalityDepth, chainID)
+		require.NoError(t, err)
+
+		expTx, err := persistentStore.FindTxWithAttempts(ctx, inTx.ID)
+		require.NoError(t, err)
+
+		fn := func(tx *evmtxmgr.Tx) bool { return true }
+		actTxs := inMemoryStore.XXXTestFindTxs(nil, fn, inTx.ID)
+		require.Equal(t, 1, len(actTxs))
+		actTx := actTxs[0]
+
+		assertTxEqual(t, expTx, actTx)
+		assert.Equal(t, txmgrtypes.TxAttemptBroadcast, actTx.TxAttempts[0].State)
+		assert.Equal(t, commontxmgr.TxFatalError, actTx.State)
+	})
+}
 
 func TestInMemoryStore_UpdateTxForRebroadcast(t *testing.T) {
 	t.Parallel()
@@ -56,11 +105,13 @@ func TestInMemoryStore_UpdateTxForRebroadcast(t *testing.T) {
 
 		expTx, err := persistentStore.FindTxWithAttempts(ctx, inTx.ID)
 		require.NoError(t, err)
+		require.Len(t, expTx.TxAttempts, 1)
 
 		fn := func(tx *evmtxmgr.Tx) bool { return true }
 		actTxs := inMemoryStore.XXXTestFindTxs(nil, fn, inTx.ID)
 		require.Equal(t, 1, len(actTxs))
 		actTx := actTxs[0]
+
 		assertTxEqual(t, expTx, actTx)
 		assert.Equal(t, commontxmgr.TxUnconfirmed, actTx.State)
 		assert.Equal(t, txmgrtypes.TxAttemptInProgress, actTx.TxAttempts[0].State)
@@ -193,7 +244,12 @@ func assertTxEqual(t *testing.T, exp, act evmtxmgr.Tx) {
 	assert.Equal(t, exp.Value, act.Value)
 	assert.Equal(t, exp.FeeLimit, act.FeeLimit)
 	assert.Equal(t, exp.Error, act.Error)
-	assert.Equal(t, exp.BroadcastAt, act.BroadcastAt)
+	if exp.BroadcastAt != nil {
+		require.NotNil(t, act.BroadcastAt)
+		assert.Equal(t, exp.BroadcastAt.Unix(), act.BroadcastAt.Unix())
+	} else {
+		assert.Equal(t, exp.BroadcastAt, act.BroadcastAt)
+	}
 	assert.Equal(t, exp.InitialBroadcastAt, act.InitialBroadcastAt)
 	assert.Equal(t, exp.CreatedAt, act.CreatedAt)
 	assert.Equal(t, exp.State, act.State)
