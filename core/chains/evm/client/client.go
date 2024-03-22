@@ -22,7 +22,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 )
 
 const queryTimeout = 10 * time.Second
@@ -63,6 +63,7 @@ type Client interface {
 	HeadByNumber(ctx context.Context, n *big.Int) (*evmtypes.Head, error)
 	HeadByHash(ctx context.Context, n common.Hash) (*evmtypes.Head, error)
 	SubscribeNewHead(ctx context.Context, ch chan<- *evmtypes.Head) (ethereum.Subscription, error)
+	LatestFinalizedBlock(ctx context.Context) (head *evmtypes.Head, err error)
 
 	SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (commonclient.SendTxReturnCode, error)
 
@@ -126,7 +127,7 @@ func NewClientWithNodes(lggr logger.Logger, selectionMode string, leaseDuration 
 // node's remote chain ID matches the local one
 func (client *client) Dial(ctx context.Context) error {
 	if err := client.pool.Dial(ctx); err != nil {
-		return errors.Wrap(err, "failed to dial pool")
+		return pkgerrors.Wrap(err, "failed to dial pool")
 	}
 	return nil
 }
@@ -365,4 +366,8 @@ func (client *client) SuggestGasTipCap(ctx context.Context) (tipCap *big.Int, er
 
 func (client *client) IsL2() bool {
 	return client.pool.ChainType().IsL2()
+}
+
+func (client *client) LatestFinalizedBlock(_ context.Context) (*evmtypes.Head, error) {
+	return nil, pkgerrors.New("not implemented. client was deprecated. New methods are added only to satisfy type constraints while we are migrating to new alternatives")
 }

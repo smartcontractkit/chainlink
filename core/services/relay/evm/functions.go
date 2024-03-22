@@ -90,7 +90,7 @@ func (p *functionsProvider) Codec() commontypes.Codec {
 	return nil
 }
 
-func NewFunctionsProvider(chain legacyevm.Chain, rargs commontypes.RelayArgs, pargs commontypes.PluginArgs, lggr logger.Logger, ethKeystore keystore.Eth, pluginType functionsRelay.FunctionsPluginType) (evmRelayTypes.FunctionsProvider, error) {
+func NewFunctionsProvider(ctx context.Context, chain legacyevm.Chain, rargs commontypes.RelayArgs, pargs commontypes.PluginArgs, lggr logger.Logger, ethKeystore keystore.Eth, pluginType functionsRelay.FunctionsPluginType) (evmRelayTypes.FunctionsProvider, error) {
 	relayOpts := evmRelayTypes.NewRelayOpts(rargs)
 	relayConfig, err := relayOpts.RelayConfig()
 	if err != nil {
@@ -115,13 +115,13 @@ func NewFunctionsProvider(chain legacyevm.Chain, rargs commontypes.RelayArgs, pa
 	if err != nil {
 		return nil, err
 	}
-	configWatcher, err := newFunctionsConfigProvider(pluginType, chain, rargs, relayConfig.FromBlock, logPollerWrapper, lggr)
+	configWatcher, err := newFunctionsConfigProvider(ctx, pluginType, chain, rargs, relayConfig.FromBlock, logPollerWrapper, lggr)
 	if err != nil {
 		return nil, err
 	}
 	var contractTransmitter ContractTransmitter
 	if relayConfig.SendingKeys != nil {
-		contractTransmitter, err = newFunctionsContractTransmitter(pluginConfig.ContractVersion, rargs, pargs.TransmitterID, configWatcher, ethKeystore, logPollerWrapper, lggr)
+		contractTransmitter, err = newFunctionsContractTransmitter(ctx, pluginConfig.ContractVersion, rargs, pargs.TransmitterID, configWatcher, ethKeystore, logPollerWrapper, lggr)
 		if err != nil {
 			return nil, err
 		}
@@ -135,7 +135,7 @@ func NewFunctionsProvider(chain legacyevm.Chain, rargs commontypes.RelayArgs, pa
 	}, nil
 }
 
-func newFunctionsConfigProvider(pluginType functionsRelay.FunctionsPluginType, chain legacyevm.Chain, args commontypes.RelayArgs, fromBlock uint64, logPollerWrapper evmRelayTypes.LogPollerWrapper, lggr logger.Logger) (*configWatcher, error) {
+func newFunctionsConfigProvider(ctx context.Context, pluginType functionsRelay.FunctionsPluginType, chain legacyevm.Chain, args commontypes.RelayArgs, fromBlock uint64, logPollerWrapper evmRelayTypes.LogPollerWrapper, lggr logger.Logger) (*configWatcher, error) {
 	if !common.IsHexAddress(args.ContractID) {
 		return nil, errors.Errorf("invalid contractID, expected hex address")
 	}
@@ -146,15 +146,15 @@ func newFunctionsConfigProvider(pluginType functionsRelay.FunctionsPluginType, c
 	if err != nil {
 		return nil, err
 	}
-	logPollerWrapper.SubscribeToUpdates("FunctionsConfigPoller", cp)
+	logPollerWrapper.SubscribeToUpdates(ctx, "FunctionsConfigPoller", cp)
 
 	offchainConfigDigester := functionsRelay.NewFunctionsOffchainConfigDigester(pluginType, chain.ID().Uint64())
-	logPollerWrapper.SubscribeToUpdates("FunctionsOffchainConfigDigester", offchainConfigDigester)
+	logPollerWrapper.SubscribeToUpdates(ctx, "FunctionsOffchainConfigDigester", offchainConfigDigester)
 
 	return newConfigWatcher(lggr, routerContractAddress, offchainConfigDigester, cp, chain, fromBlock, args.New), nil
 }
 
-func newFunctionsContractTransmitter(contractVersion uint32, rargs commontypes.RelayArgs, transmitterID string, configWatcher *configWatcher, ethKeystore keystore.Eth, logPollerWrapper evmRelayTypes.LogPollerWrapper, lggr logger.Logger) (ContractTransmitter, error) {
+func newFunctionsContractTransmitter(ctx context.Context, contractVersion uint32, rargs commontypes.RelayArgs, transmitterID string, configWatcher *configWatcher, ethKeystore keystore.Eth, logPollerWrapper evmRelayTypes.LogPollerWrapper, lggr logger.Logger) (ContractTransmitter, error) {
 	var relayConfig evmRelayTypes.RelayConfig
 	if err := json.Unmarshal(rargs.RelayConfig, &relayConfig); err != nil {
 		return nil, err
@@ -177,7 +177,7 @@ func newFunctionsContractTransmitter(contractVersion uint32, rargs commontypes.R
 		if sendingKeysLength > 1 && s == effectiveTransmitterAddress.String() {
 			return nil, errors.New("the transmitter is a local sending key with transaction forwarding enabled")
 		}
-		if err := ethKeystore.CheckEnabled(common.HexToAddress(s), configWatcher.chain.Config().EVM().ChainID()); err != nil {
+		if err := ethKeystore.CheckEnabled(ctx, common.HexToAddress(s), configWatcher.chain.Config().EVM().ChainID()); err != nil {
 			return nil, errors.Wrap(err, "one of the sending keys given is not enabled")
 		}
 		fromAddresses = append(fromAddresses, common.HexToAddress(s))
@@ -194,7 +194,7 @@ func newFunctionsContractTransmitter(contractVersion uint32, rargs commontypes.R
 	gasLimit := configWatcher.chain.Config().EVM().GasEstimator().LimitDefault()
 	ocr2Limit := configWatcher.chain.Config().EVM().GasEstimator().LimitJobType().OCR2()
 	if ocr2Limit != nil {
-		gasLimit = *ocr2Limit
+		gasLimit = uint64(*ocr2Limit)
 	}
 
 	transmitter, err := ocrcommon.NewTransmitter(
@@ -224,6 +224,6 @@ func newFunctionsContractTransmitter(contractVersion uint32, rargs commontypes.R
 	if err != nil {
 		return nil, err
 	}
-	logPollerWrapper.SubscribeToUpdates("FunctionsConfigTransmitter", functionsTransmitter)
+	logPollerWrapper.SubscribeToUpdates(ctx, "FunctionsConfigTransmitter", functionsTransmitter)
 	return functionsTransmitter, err
 }

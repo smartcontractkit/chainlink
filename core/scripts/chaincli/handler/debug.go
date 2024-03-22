@@ -30,8 +30,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
 	"github.com/smartcontractkit/chainlink/core/scripts/common"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
-	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
+	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_compatible_utils"
+	autov2common "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_v21_plus_common"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
@@ -75,13 +75,13 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 
 	// connect to registry contract
 	registryAddress := gethcommon.HexToAddress(k.cfg.RegistryAddress)
-	keeperRegistry21, err := iregistry21.NewIKeeperRegistryMaster(registryAddress, k.client)
+	v2common, err := autov2common.NewIAutomationV21PlusCommon(registryAddress, k.client)
 	if err != nil {
 		failUnknown("failed to connect to the registry contract", err)
 	}
 
 	// verify contract is correct
-	typeAndVersion, err := keeperRegistry21.TypeAndVersion(latestCallOpts)
+	typeAndVersion, err := v2common.TypeAndVersion(latestCallOpts)
 	if err != nil {
 		failCheckConfig("failed to get typeAndVersion: make sure your registry contract address and archive node are valid", err)
 	}
@@ -98,50 +98,27 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 			failCheckArgs("invalid upkeep ID", nil)
 		}
 	}
-	// get upkeep info
-	triggerType, err := keeperRegistry21.GetTriggerType(latestCallOpts, upkeepID)
+
+	// get trigger type, trigger type is immutable after its first setup
+	triggerType, err := v2common.GetTriggerType(latestCallOpts, upkeepID)
 	if err != nil {
 		failUnknown("failed to get trigger type: ", err)
 	}
-	upkeepInfo, err := keeperRegistry21.GetUpkeep(latestCallOpts, upkeepID)
-	if err != nil {
-		failUnknown("failed to get trigger type: ", err)
-	}
-	minBalance, err := keeperRegistry21.GetMinBalance(latestCallOpts, upkeepID)
-	if err != nil {
-		failUnknown("failed to get min balance: ", err)
-	}
-	// do basic sanity checks
-	if (upkeepInfo.Target == gethcommon.Address{}) {
-		failCheckArgs("this upkeep does not exist on this registry", nil)
-	}
-	addLink("upkeep link", common.UpkeepLink(chainID, upkeepID))
-	addLink("upkeep contract address", common.ContractExplorerLink(chainID, upkeepInfo.Target))
-	if upkeepInfo.Paused {
-		resolveIneligible("upkeep is paused")
-	}
-	if upkeepInfo.MaxValidBlocknumber != math.MaxUint32 {
-		resolveIneligible("upkeep is cancelled")
-	}
-	message("upkeep is active (not paused or cancelled)")
-	if upkeepInfo.Balance.Cmp(minBalance) == -1 {
-		resolveIneligible("minBalance is < upkeep balance")
-	}
-	message("upkeep is funded above the min balance")
-	if bigmath.Div(bigmath.Mul(bigmath.Sub(upkeepInfo.Balance, minBalance), big.NewInt(100)), minBalance).Cmp(big.NewInt(5)) == -1 {
-		warning("upkeep balance is < 5% larger than minBalance")
-	}
+
 	// local state for pipeline results
-	var checkResult iregistry21.CheckUpkeep
+	var upkeepInfo autov2common.IAutomationV21PlusCommonUpkeepInfoLegacy
+	var checkResult autov2common.CheckUpkeep
 	var blockNum uint64
 	var performData []byte
 	var workID [32]byte
 	var trigger ocr2keepers.Trigger
 	upkeepNeeded := false
-	// check upkeep
+
+	// run basic checks and check upkeep by trigger type
 	if triggerType == ConditionTrigger {
 		message("upkeep identified as conditional trigger")
 
+		// validate inputs
 		if len(args) > 1 {
 			// if a block number is provided, use that block for both checkUpkeep and simulatePerformUpkeep
 			blockNum, err = strconv.ParseUint(args[1], 10, 64)
@@ -154,15 +131,18 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 			triggerCallOpts = latestCallOpts
 		}
 
-		var tmpCheckResult iregistry21.CheckUpkeep0
-		tmpCheckResult, err = keeperRegistry21.CheckUpkeep0(triggerCallOpts, upkeepID)
+		// do basic checks
+		upkeepInfo = getUpkeepInfoAndRunBasicChecks(v2common, triggerCallOpts, upkeepID, chainID)
+
+		var tmpCheckResult autov2common.CheckUpkeep0
+		tmpCheckResult, err = v2common.CheckUpkeep0(triggerCallOpts, upkeepID)
 		if err != nil {
 			failUnknown("failed to check upkeep: ", err)
 		}
-		checkResult = iregistry21.CheckUpkeep(tmpCheckResult)
+		checkResult = autov2common.CheckUpkeep(tmpCheckResult)
 		// do tenderly simulation
 		var rawCall []byte
-		rawCall, err = core.RegistryABI.Pack("checkUpkeep", upkeepID, []byte{})
+		rawCall, err = core.AutoV2CommonABI.Pack("checkUpkeep", upkeepID, []byte{})
 		if err != nil {
 			failUnknown("failed to pack raw checkUpkeep call", err)
 		}
@@ -214,8 +194,9 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 		trigger = mustAutomationTrigger(txHash, logIndex, blockNum, receipt.BlockHash)
 		workID = mustUpkeepWorkID(upkeepID, trigger)
 		message(fmt.Sprintf("workID computed: %s", hex.EncodeToString(workID[:])))
+
 		var hasKey bool
-		hasKey, err = keeperRegistry21.HasDedupKey(latestCallOpts, workID)
+		hasKey, err = v2common.HasDedupKey(latestCallOpts, workID)
 		if err != nil {
 			failUnknown("failed to check if upkeep was already performed: ", err)
 		}
@@ -223,12 +204,16 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 			resolveIneligible("upkeep was already performed")
 		}
 		triggerCallOpts = &bind.CallOpts{Context: ctx, BlockNumber: big.NewInt(receipt.BlockNumber.Int64())}
+
+		// do basic checks
+		upkeepInfo = getUpkeepInfoAndRunBasicChecks(v2common, triggerCallOpts, upkeepID, chainID)
+
 		var rawTriggerConfig []byte
-		rawTriggerConfig, err = keeperRegistry21.GetUpkeepTriggerConfig(triggerCallOpts, upkeepID)
+		rawTriggerConfig, err = v2common.GetUpkeepTriggerConfig(triggerCallOpts, upkeepID)
 		if err != nil {
 			failUnknown("failed to fetch trigger config for upkeep", err)
 		}
-		var triggerConfig automation_utils_2_1.LogTriggerConfig
+		var triggerConfig ac.IAutomationV21PlusCommonLogTriggerConfig
 		triggerConfig, err = packer.UnpackLogTriggerConfig(rawTriggerConfig)
 		if err != nil {
 			failUnknown("failed to unpack trigger config", err)
@@ -249,13 +234,13 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 		if err != nil {
 			failUnknown("failed to pack trigger data", err)
 		}
-		checkResult, err = keeperRegistry21.CheckUpkeep(triggerCallOpts, upkeepID, triggerData)
+		checkResult, err = v2common.CheckUpkeep(triggerCallOpts, upkeepID, triggerData)
 		if err != nil {
 			failUnknown("failed to check upkeep", err)
 		}
 		// do tenderly simulations
 		var rawCall []byte
-		rawCall, err = core.RegistryABI.Pack("checkUpkeep", upkeepID, triggerData)
+		rawCall, err = core.AutoV2CommonABI.Pack("checkUpkeep", upkeepID, triggerData)
 		if err != nil {
 			failUnknown("failed to pack raw checkUpkeep call", err)
 		}
@@ -265,10 +250,10 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 	} else {
 		resolveIneligible(fmt.Sprintf("invalid trigger type: %d", triggerType))
 	}
-	upkeepNeeded, performData = checkResult.UpkeepNeeded, checkResult.PerformData
 
+	upkeepNeeded, performData = checkResult.UpkeepNeeded, checkResult.PerformData
 	if checkResult.UpkeepFailureReason != 0 {
-		message(fmt.Sprintf("checkUpkeep failed with UpkeepFailureReason %s", getCheckUpkeepFailureReason(checkResult.UpkeepFailureReason)))
+		message(fmt.Sprintf("checkUpkeep reverted with UpkeepFailureReason %s", getCheckUpkeepFailureReason(checkResult.UpkeepFailureReason)))
 	}
 
 	// handle data streams lookup
@@ -277,7 +262,7 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 		mercuryConfig := evm21.NewMercuryConfig(mc, core.StreamsCompatibleABI)
 		lggr, _ := logger.NewLogger()
 		blockSub := &blockSubscriber{k.client}
-		streams := streams.NewStreamsLookup(mercuryConfig, blockSub, k.rpcClient, keeperRegistry21, lggr)
+		streams := streams.NewStreamsLookup(mercuryConfig, blockSub, k.rpcClient, v2common, lggr)
 
 		var streamsLookupErr *mercury.StreamsLookupError
 		streamsLookupErr, err = mercuryPacker.DecodeStreamsLookupRequest(checkResult.PerformData)
@@ -316,7 +301,7 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 			}
 
 			if k.cfg.DataStreamsLegacyURL == "" || k.cfg.DataStreamsURL == "" || k.cfg.DataStreamsID == "" || k.cfg.DataStreamsKey == "" {
-				failCheckConfig("Data streams configs not set properly, check your DATA_STREAMS_LEGACY_URL, DATA_STREAMS_URL, DATA_STREAMS_ID and DATA_STREAMS_KEY", nil)
+				failCheckConfig("Data streams configs not set properly for this network, check your DATA_STREAMS settings in .env", nil)
 			}
 
 			// do mercury request
@@ -324,16 +309,17 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 			checkResults := []ocr2keepers.CheckResult{automationCheckResult}
 
 			var values [][]byte
-			values, err = streams.DoMercuryRequest(ctx, streamsLookup, checkResults, 0)
+			var errCode encoding.ErrCode
+			values, errCode, err = streams.DoMercuryRequest(ctx, streamsLookup, checkResults, 0)
 
 			if checkResults[0].IneligibilityReason == uint8(encoding.UpkeepFailureReasonInvalidRevertDataInput) {
 				resolveIneligible("upkeep used invalid revert data")
 			}
-			if checkResults[0].PipelineExecutionState == uint8(encoding.InvalidMercuryRequest) {
-				resolveIneligible("the data streams request data is invalid")
-			}
 			if err != nil {
-				failCheckConfig("failed to do data streams request ", err)
+				failCheckConfig("pipeline execution error, failed to do data streams request ", err)
+			}
+			if errCode != encoding.ErrCodeNil {
+				failCheckConfig(fmt.Sprintf("data streams error, failed to do data streams request with error code %d", errCode), nil)
 			}
 
 			// do checkCallback
@@ -347,7 +333,7 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 			upkeepNeeded, performData = checkResults[0].Eligible, checkResults[0].PerformData
 			// do tenderly simulations for checkCallback
 			var rawCall []byte
-			rawCall, err = core.RegistryABI.Pack("checkCallback", upkeepID, values, streamsLookup.ExtraData)
+			rawCall, err = core.AutoV2CommonABI.Pack("checkCallback", upkeepID, values, streamsLookup.ExtraData)
 			if err != nil {
 				failUnknown("failed to pack raw checkCallback call", err)
 			}
@@ -365,13 +351,13 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 		resolveIneligible("upkeep is not needed")
 	}
 	// simulate perform upkeep
-	simulateResult, err := keeperRegistry21.SimulatePerformUpkeep(triggerCallOpts, upkeepID, performData)
+	simulateResult, err := v2common.SimulatePerformUpkeep(triggerCallOpts, upkeepID, performData)
 	if err != nil {
 		failUnknown("failed to simulate perform upkeep: ", err)
 	}
 
 	// do tenderly simulation
-	rawCall, err := core.RegistryABI.Pack("simulatePerformUpkeep", upkeepID, performData)
+	rawCall, err := core.AutoV2CommonABI.Pack("simulatePerformUpkeep", upkeepID, performData)
 	if err != nil {
 		failUnknown("failed to pack raw simulatePerformUpkeep call", err)
 	}
@@ -392,6 +378,40 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 			resolveIneligible("simulate perform upkeep unsuccessful")
 		}
 	}
+}
+
+func getUpkeepInfoAndRunBasicChecks(keeperRegistry21 *autov2common.IAutomationV21PlusCommon, callOpts *bind.CallOpts, upkeepID *big.Int, chainID int64) autov2common.IAutomationV21PlusCommonUpkeepInfoLegacy {
+	// get upkeep info
+	upkeepInfo, err := keeperRegistry21.GetUpkeep(callOpts, upkeepID)
+	if err != nil {
+		failUnknown("failed to get upkeep info: ", err)
+	}
+	// get min balance
+	minBalance, err := keeperRegistry21.GetMinBalance(callOpts, upkeepID)
+	if err != nil {
+		failUnknown("failed to get min balance: ", err)
+	}
+	// do basic sanity checks
+	if (upkeepInfo.Target == gethcommon.Address{}) {
+		failCheckArgs("this upkeep does not exist on this registry", nil)
+	}
+	addLink("upkeep link", common.UpkeepLink(chainID, upkeepID))
+	addLink("upkeep contract address", common.ContractExplorerLink(chainID, upkeepInfo.Target))
+	if upkeepInfo.Paused {
+		resolveIneligible("upkeep is paused")
+	}
+	if upkeepInfo.MaxValidBlocknumber != math.MaxUint32 {
+		resolveIneligible("upkeep is canceled")
+	}
+	message("upkeep is active (not paused or canceled)")
+	if upkeepInfo.Balance.Cmp(minBalance) == -1 {
+		resolveIneligible("minBalance is < upkeep balance")
+	}
+	message("upkeep is funded above the min balance")
+	if bigmath.Div(bigmath.Mul(bigmath.Sub(upkeepInfo.Balance, minBalance), big.NewInt(100)), minBalance).Cmp(big.NewInt(5)) == -1 {
+		warning("upkeep balance is < 5% larger than minBalance")
+	}
+	return upkeepInfo
 }
 
 func getCheckUpkeepFailureReason(reasonIndex uint8) string {
@@ -416,7 +436,7 @@ func getCheckUpkeepFailureReason(reasonIndex uint8) string {
 	return fmt.Sprintf("Unknown : %d", reasonIndex)
 }
 
-func mustAutomationCheckResult(upkeepID *big.Int, checkResult iregistry21.CheckUpkeep, trigger ocr2keepers.Trigger) ocr2keepers.CheckResult {
+func mustAutomationCheckResult(upkeepID *big.Int, checkResult autov2common.CheckUpkeep, trigger ocr2keepers.Trigger) ocr2keepers.CheckResult {
 	upkeepIdentifier := mustUpkeepIdentifier(upkeepID)
 	checkResult2 := ocr2keepers.CheckResult{
 		Eligible:            checkResult.UpkeepNeeded,
@@ -449,7 +469,7 @@ func (bs *blockSubscriber) LatestBlock() *ocr2keepers.BlockKey {
 	}
 }
 
-func logMatchesTriggerConfig(log *types.Log, config automation_utils_2_1.LogTriggerConfig) bool {
+func logMatchesTriggerConfig(log *types.Log, config ac.IAutomationV21PlusCommonLogTriggerConfig) bool {
 	if log.Topics[0] != config.Topic0 {
 		return false
 	}
@@ -470,7 +490,7 @@ func packTriggerData(log *types.Log, blockTime uint64) ([]byte, error) {
 	for _, topic := range log.Topics {
 		topics = append(topics, topic)
 	}
-	b, err := core.UtilsABI.Methods["_log"].Inputs.Pack(&automation_utils_2_1.Log{
+	b, err := core.CompatibleUtilsABI.Methods["_log"].Inputs.Pack(&ac.Log{
 		Index:       big.NewInt(int64(log.Index)),
 		Timestamp:   big.NewInt(int64(blockTime)),
 		TxHash:      log.TxHash,

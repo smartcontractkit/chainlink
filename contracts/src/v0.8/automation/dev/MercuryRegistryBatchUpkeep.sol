@@ -1,4 +1,4 @@
-pragma solidity 0.8.6;
+pragma solidity 0.8.19;
 
 import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
 import {AutomationCompatibleInterface} from "../interfaces/AutomationCompatibleInterface.sol";
@@ -59,6 +59,14 @@ contract MercuryRegistryBatchUpkeep is ConfirmedOwner, AutomationCompatibleInter
     bytes memory lookupData
   ) external view override returns (bool, bytes memory) {
     return i_registry.checkCallback(values, lookupData);
+  }
+
+  function checkErrorHandler(
+    uint256 /* errCode */,
+    bytes memory /* extraData */
+  ) external view override returns (bool upkeepNeeded, bytes memory performData) {
+    // dummy function with default values
+    return (false, new bytes(0));
   }
 
   // Use the master registry to update state.

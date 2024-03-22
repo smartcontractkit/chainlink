@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	coreCap "github.com/smartcontractkit/chainlink/v2/core/capabilities"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -66,7 +67,7 @@ func (m *mockTriggerCapability) UnregisterTrigger(ctx context.Context, req capab
 }
 
 func TestEngineWithHardcodedWorkflow(t *testing.T) {
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
 
 	trigger := &mockTriggerCapability{
@@ -87,29 +88,54 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 			"v3.0.0",
 		),
 		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
+			obs := req.Inputs.Underlying["observations"]
+			reports := obs.(*values.List)
+			rm := map[string]any{
+				"reports": reports.Underlying[0],
+			}
+			rv, err := values.NewMap(rm)
+			if err != nil {
+				return capabilities.CapabilityResponse{}, err
+			}
+
 			return capabilities.CapabilityResponse{
-				Value: req.Inputs.Underlying["observations"],
+				Value: rv,
 			}, nil
 		},
 	)
 	require.NoError(t, reg.Add(ctx, consensus))
 
-	target := newMockCapability(
+	target1 := newMockCapability(
 		capabilities.MustNewCapabilityInfo(
 			"write_polygon-testnet-mumbai",
 			capabilities.CapabilityTypeTarget,
-			"a write capability targeting polygon mainnet",
+			"a write capability targeting polygon mumbai testnet",
 			"v1.0.0",
 		),
 		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
-
 			list := req.Inputs.Underlying["report"].(*values.List)
 			return capabilities.CapabilityResponse{
 				Value: list.Underlying[0],
 			}, nil
 		},
 	)
-	require.NoError(t, reg.Add(ctx, target))
+	require.NoError(t, reg.Add(ctx, target1))
+
+	target2 := newMockCapability(
+		capabilities.MustNewCapabilityInfo(
+			"write_ethereum-testnet-sepolia",
+			capabilities.CapabilityTypeTarget,
+			"a write capability targeting ethereum sepolia testnet",
+			"v1.0.0",
+		),
+		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
+			list := req.Inputs.Underlying["report"].(*values.List)
+			return capabilities.CapabilityResponse{
+				Value: list.Underlying[0],
+			}, nil
+		},
+	)
+	require.NoError(t, reg.Add(ctx, target2))
 
 	lggr := logger.TestLogger(t)
 	eng, err := NewEngine(lggr, reg)
@@ -129,5 +155,6 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 	err = eng.Start(ctx)
 	require.NoError(t, err)
 	defer eng.Close()
-	assert.Equal(t, cr, <-target.response)
+	assert.Equal(t, cr, <-target1.response)
+	assert.Equal(t, cr, <-target2.response)
 }

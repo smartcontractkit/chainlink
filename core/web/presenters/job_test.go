@@ -15,10 +15,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
 	evmassets "github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -28,34 +28,34 @@ import (
 func TestJob(t *testing.T) {
 	// Used in multiple tests
 	timestamp := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
-	contractAddress, err := ethkey.NewEIP55Address("0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba")
+	contractAddress, err := types.NewEIP55Address("0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba")
 	require.NoError(t, err)
 	cronSchedule := "0 0 0 1 1 *"
 	evmChainID := big.NewI(42)
-	fromAddress, err := ethkey.NewEIP55Address("0xa8037A20989AFcBC51798de9762b351D63ff462e")
+	fromAddress, err := types.NewEIP55Address("0xa8037A20989AFcBC51798de9762b351D63ff462e")
 	require.NoError(t, err)
 
 	// Used in OCR tests
 	var ocrKeyBundleID = "f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5"
 	ocrKeyID := models.MustSha256HashFromHex(ocrKeyBundleID)
-	transmitterAddress, err := ethkey.NewEIP55Address("0x27548a32b9aD5D64c5945EaE9Da5337bc3169D15")
+	transmitterAddress, err := types.NewEIP55Address("0x27548a32b9aD5D64c5945EaE9Da5337bc3169D15")
 	require.NoError(t, err)
 
 	// Used in blockhashstore test
-	v1CoordAddress, err := ethkey.NewEIP55Address("0x16988483b46e695f6c8D58e6e1461DC703e008e1")
+	v1CoordAddress, err := types.NewEIP55Address("0x16988483b46e695f6c8D58e6e1461DC703e008e1")
 	require.NoError(t, err)
 
-	v2CoordAddress, err := ethkey.NewEIP55Address("0x2C409DD6D4eBDdA190B5174Cc19616DD13884262")
+	v2CoordAddress, err := types.NewEIP55Address("0x2C409DD6D4eBDdA190B5174Cc19616DD13884262")
 	require.NoError(t, err)
 
-	v2PlusCoordAddress, err := ethkey.NewEIP55Address("0x92B5e28Ac583812874e4271380c7d070C5FB6E6b")
+	v2PlusCoordAddress, err := types.NewEIP55Address("0x92B5e28Ac583812874e4271380c7d070C5FB6E6b")
 	require.NoError(t, err)
 
 	// Used in blockheaderfeeder test
-	batchBHSAddress, err := ethkey.NewEIP55Address("0xF6bB415b033D19EFf24A872a4785c6e1C4426103")
+	batchBHSAddress, err := types.NewEIP55Address("0xF6bB415b033D19EFf24A872a4785c6e1C4426103")
 	require.NoError(t, err)
 
-	trustedBlockhashStoreAddress, err := ethkey.NewEIP55Address("0x0ad9FE7a58216242a8475ca92F222b0640E26B63")
+	trustedBlockhashStoreAddress, err := types.NewEIP55Address("0x0ad9FE7a58216242a8475ca92F222b0640E26B63")
 	require.NoError(t, err)
 	trustedBlockhashStoreBatchSize := int32(20)
 
@@ -489,7 +489,7 @@ func TestJob(t *testing.T) {
 					CreatedAt:                     timestamp,
 					UpdatedAt:                     timestamp,
 					EVMChainID:                    evmChainID,
-					FromAddresses:                 []ethkey.EIP55Address{fromAddress},
+					FromAddresses:                 []types.EIP55Address{fromAddress},
 					PublicKey:                     vrfPubKey,
 					RequestedConfsDelay:           10,
 					ChunkSize:                     25,
@@ -572,7 +572,7 @@ func TestJob(t *testing.T) {
 					PollPeriod:                     25 * time.Second,
 					RunTimeout:                     10 * time.Second,
 					EVMChainID:                     big.NewI(4),
-					FromAddresses:                  []ethkey.EIP55Address{fromAddress},
+					FromAddresses:                  []types.EIP55Address{fromAddress},
 					TrustedBlockhashStoreAddress:   &trustedBlockhashStoreAddress,
 					TrustedBlockhashStoreBatchSize: trustedBlockhashStoreBatchSize,
 				},
@@ -652,7 +652,7 @@ func TestJob(t *testing.T) {
 					PollPeriod:                 25 * time.Second,
 					RunTimeout:                 10 * time.Second,
 					EVMChainID:                 big.NewI(4),
-					FromAddresses:              []ethkey.EIP55Address{fromAddress},
+					FromAddresses:              []types.EIP55Address{fromAddress},
 					GetBlockhashesBatchSize:    5,
 					StoreBlockhashesBatchSize:  10,
 				},

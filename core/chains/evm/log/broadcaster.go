@@ -2,15 +2,18 @@ package log
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"math/big"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -22,8 +25,6 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
-	"github.com/smartcontractkit/chainlink/v2/core/null"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 //go:generate mockery --quiet --name Broadcaster --output ./mocks/ --case=underscore --structname Broadcaster --filename broadcaster.go
@@ -58,18 +59,18 @@ type (
 		IsConnected() bool
 		Register(listener Listener, opts ListenerOpts) (unsubscribe func())
 
-		WasAlreadyConsumed(lb Broadcast, qopts ...pg.QOpt) (bool, error)
-		MarkConsumed(lb Broadcast, qopts ...pg.QOpt) error
+		WasAlreadyConsumed(ctx context.Context, lb Broadcast) (bool, error)
+		MarkConsumed(ctx context.Context, lb Broadcast) error
 
 		// MarkManyConsumed marks all the provided log broadcasts as consumed.
-		MarkManyConsumed(lbs []Broadcast, qopts ...pg.QOpt) error
+		MarkManyConsumed(ctx context.Context, lbs []Broadcast) error
 
 		// NOTE: WasAlreadyConsumed, MarkConsumed and MarkManyConsumed MUST be used within a single goroutine in order for WasAlreadyConsumed to be accurate
 	}
 
 	BroadcasterInTest interface {
 		Broadcaster
-		BackfillBlockNumber() null.Int64
+		BackfillBlockNumber() sql.NullInt64
 		TrackedAddressesCount() uint32
 		// Pause pauses the eventLoop until Resume is called.
 		Pause()
@@ -98,7 +99,7 @@ type (
 		evmChainID big.Int
 
 		// a block number to start backfill from
-		backfillBlockNumber null.Int64
+		backfillBlockNumber sql.NullInt64
 
 		ethSubscriber *ethSubscriber
 		registrations *registrations
@@ -327,7 +328,7 @@ func (b *broadcaster) startResubscribeLoop() {
 		if from < 0 {
 			from = 0
 		}
-		b.backfillBlockNumber = null.NewInt64(from, true)
+		b.backfillBlockNumber = sql.NullInt64{Int64: from, Valid: true}
 	}
 
 	// Remove leftover unconsumed logs, maybe update pending broadcasts, and backfill sooner if necessary.
@@ -337,7 +338,8 @@ func (b *broadcaster) startResubscribeLoop() {
 		// No need to worry about r.highestNumConfirmations here because it's
 		// already at minimum this deep due to the latest seen head check above
 		if !b.backfillBlockNumber.Valid || *backfillStart < b.backfillBlockNumber.Int64 {
-			b.backfillBlockNumber.SetValid(*backfillStart)
+			b.backfillBlockNumber.Int64 = *backfillStart
+			b.backfillBlockNumber.Valid = true
 		}
 	}
 
@@ -397,7 +399,7 @@ func (b *broadcaster) reinitialize() (backfillStart *int64, abort bool) {
 
 	evmutils.RetryWithBackoff(ctx, func() bool {
 		var err error
-		backfillStart, err = b.orm.Reinitialize(pg.WithParentCtx(ctx))
+		backfillStart, err = b.orm.Reinitialize(ctx)
 		if err != nil {
 			b.logger.Errorw("Failed to reinitialize database", "err", err)
 			return true
@@ -490,14 +492,15 @@ func (b *broadcaster) onReplayRequest(replayReq replayRequest) {
 	// NOTE: This ignores r.highestNumConfirmations, but it is
 	// generally assumed that this will only be performed rarely and
 	// manually by someone who knows what he is doing
-	b.backfillBlockNumber.SetValid(replayReq.fromBlock)
+	b.backfillBlockNumber.Int64 = replayReq.fromBlock
+	b.backfillBlockNumber.Valid = true
 	if replayReq.forceBroadcast {
-		ctx, cancel := b.chStop.NewCtx()
+		ctx, cancel := b.chStop.CtxCancel(context.WithTimeout(context.Background(), time.Minute))
+		ctx = sqlutil.WithoutDefaultTimeout(ctx)
 		defer cancel()
-
 		// Use a longer timeout in the event that a very large amount of logs need to be marked
 		// as consumed.
-		err := b.orm.MarkBroadcastsUnconsumed(replayReq.fromBlock, pg.WithParentCtx(ctx), pg.WithLongQueryTimeout())
+		err := b.orm.MarkBroadcastsUnconsumed(ctx, replayReq.fromBlock)
 		if err != nil {
 			b.logger.Errorw("Error marking broadcasts as unconsumed",
 				"err", err, "fromBlock", replayReq.fromBlock)
@@ -515,7 +518,8 @@ func (b *broadcaster) invalidatePool() int64 {
 		b.logPool = newLogPool(b.logger)
 		// Note: even if we crash right now, PendingMinBlock is preserved in the database and we will backfill the same.
 		blockNum := int64(min.(Uint64))
-		b.backfillBlockNumber.SetValid(blockNum)
+		b.backfillBlockNumber.Int64 = blockNum
+		b.backfillBlockNumber.Valid = true
 		return blockNum
 	}
 	return -1
@@ -538,7 +542,7 @@ func (b *broadcaster) onNewLog(log types.Log) {
 		ctx, cancel := b.chStop.NewCtx()
 		defer cancel()
 		blockNumber := int64(log.BlockNumber)
-		if err := b.orm.SetPendingMinBlock(&blockNumber, pg.WithParentCtx(ctx)); err != nil {
+		if err := b.orm.SetPendingMinBlock(ctx, &blockNumber); err != nil {
 			b.logger.Errorw("Failed to set pending broadcasts number", "blockNumber", log.BlockNumber, "err", err)
 		}
 	}
@@ -583,13 +587,13 @@ func (b *broadcaster) onNewHeads() {
 		if b.registrations.highestNumConfirmations == 0 {
 			logs, lowest, highest := b.logPool.getAndDeleteAll()
 			if len(logs) > 0 {
-				broadcasts, err := b.orm.FindBroadcasts(lowest, highest)
+				broadcasts, err := b.orm.FindBroadcasts(ctx, lowest, highest)
 				if err != nil {
 					b.logger.Errorf("Failed to query for log broadcasts, %v", err)
 					return
 				}
-				b.registrations.sendLogs(logs, *latestHead, broadcasts, b.orm)
-				if err := b.orm.SetPendingMinBlock(nil, pg.WithParentCtx(ctx)); err != nil {
+				b.registrations.sendLogs(ctx, logs, *latestHead, broadcasts, b.orm)
+				if err := b.orm.SetPendingMinBlock(ctx, nil); err != nil {
 					b.logger.Errorw("Failed to set pending broadcasts number null", "err", err)
 				}
 			}
@@ -597,16 +601,16 @@ func (b *broadcaster) onNewHeads() {
 			logs, minBlockNum := b.logPool.getLogsToSend(latestBlockNum)
 
 			if len(logs) > 0 {
-				broadcasts, err := b.orm.FindBroadcasts(minBlockNum, latestBlockNum)
+				broadcasts, err := b.orm.FindBroadcasts(ctx, minBlockNum, latestBlockNum)
 				if err != nil {
 					b.logger.Errorf("Failed to query for log broadcasts, %v", err)
 					return
 				}
 
-				b.registrations.sendLogs(logs, *latestHead, broadcasts, b.orm)
+				b.registrations.sendLogs(ctx, logs, *latestHead, broadcasts, b.orm)
 			}
 			newMin := b.logPool.deleteOlderLogs(keptDepth)
-			if err := b.orm.SetPendingMinBlock(newMin); err != nil {
+			if err := b.orm.SetPendingMinBlock(ctx, newMin); err != nil {
 				b.logger.Errorw("Failed to set pending broadcasts number", "blockNumber", keptDepth, "err", err)
 			}
 		}
@@ -685,17 +689,17 @@ func (b *broadcaster) maybeWarnOnLargeBlockNumberDifference(logBlockNumber int64
 }
 
 // WasAlreadyConsumed reports whether the given consumer had already consumed the given log
-func (b *broadcaster) WasAlreadyConsumed(lb Broadcast, qopts ...pg.QOpt) (bool, error) {
-	return b.orm.WasBroadcastConsumed(lb.RawLog().BlockHash, lb.RawLog().Index, lb.JobID(), qopts...)
+func (b *broadcaster) WasAlreadyConsumed(ctx context.Context, lb Broadcast) (bool, error) {
+	return b.orm.WasBroadcastConsumed(ctx, lb.RawLog().BlockHash, lb.RawLog().Index, lb.JobID())
 }
 
 // MarkConsumed marks the log as having been successfully consumed by the subscriber
-func (b *broadcaster) MarkConsumed(lb Broadcast, qopts ...pg.QOpt) error {
-	return b.orm.MarkBroadcastConsumed(lb.RawLog().BlockHash, lb.RawLog().BlockNumber, lb.RawLog().Index, lb.JobID(), qopts...)
+func (b *broadcaster) MarkConsumed(ctx context.Context, lb Broadcast) error {
+	return b.orm.MarkBroadcastConsumed(ctx, lb.RawLog().BlockHash, lb.RawLog().BlockNumber, lb.RawLog().Index, lb.JobID())
 }
 
 // MarkManyConsumed marks the logs as having been successfully consumed by the subscriber
-func (b *broadcaster) MarkManyConsumed(lbs []Broadcast, qopts ...pg.QOpt) (err error) {
+func (b *broadcaster) MarkManyConsumed(ctx context.Context, lbs []Broadcast) (err error) {
 	var (
 		blockHashes  = make([]common.Hash, len(lbs))
 		blockNumbers = make([]uint64, len(lbs))
@@ -708,7 +712,7 @@ func (b *broadcaster) MarkManyConsumed(lbs []Broadcast, qopts ...pg.QOpt) (err e
 		logIndexes[i] = lbs[i].RawLog().Index
 		jobIDs[i] = lbs[i].JobID()
 	}
-	return b.orm.MarkBroadcastsConsumed(blockHashes, blockNumbers, logIndexes, jobIDs, qopts...)
+	return b.orm.MarkBroadcastsConsumed(ctx, blockHashes, blockNumbers, logIndexes, jobIDs)
 }
 
 // test only
@@ -717,7 +721,7 @@ func (b *broadcaster) TrackedAddressesCount() uint32 {
 }
 
 // test only
-func (b *broadcaster) BackfillBlockNumber() null.Int64 {
+func (b *broadcaster) BackfillBlockNumber() sql.NullInt64 {
 	return b.backfillBlockNumber
 }
 
@@ -766,20 +770,20 @@ func (n *NullBroadcaster) Register(listener Listener, opts ListenerOpts) (unsubs
 // ReplayFromBlock implements the Broadcaster interface.
 func (n *NullBroadcaster) ReplayFromBlock(number int64, forceBroadcast bool) {}
 
-func (n *NullBroadcaster) BackfillBlockNumber() null.Int64 {
-	return null.NewInt64(0, false)
+func (n *NullBroadcaster) BackfillBlockNumber() sql.NullInt64 {
+	return sql.NullInt64{Int64: 0, Valid: false}
 }
 func (n *NullBroadcaster) TrackedAddressesCount() uint32 {
 	return 0
 }
-func (n *NullBroadcaster) WasAlreadyConsumed(lb Broadcast, qopts ...pg.QOpt) (bool, error) {
-	return false, errors.New(n.ErrMsg)
+func (n *NullBroadcaster) WasAlreadyConsumed(ctx context.Context, lb Broadcast) (bool, error) {
+	return false, pkgerrors.New(n.ErrMsg)
 }
-func (n *NullBroadcaster) MarkConsumed(lb Broadcast, qopts ...pg.QOpt) error {
-	return errors.New(n.ErrMsg)
+func (n *NullBroadcaster) MarkConsumed(ctx context.Context, lb Broadcast) error {
+	return pkgerrors.New(n.ErrMsg)
 }
-func (n *NullBroadcaster) MarkManyConsumed(lbs []Broadcast, qopts ...pg.QOpt) error {
-	return errors.New(n.ErrMsg)
+func (n *NullBroadcaster) MarkManyConsumed(ctx context.Context, lbs []Broadcast) error {
+	return pkgerrors.New(n.ErrMsg)
 }
 
 func (n *NullBroadcaster) AddDependents(int) {}

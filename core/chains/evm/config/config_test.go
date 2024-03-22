@@ -12,16 +12,17 @@ import (
 	"github.com/stretchr/testify/require"
 
 	configurl "github.com/smartcontractkit/chainlink-common/pkg/config"
+
 	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 )
 
 func TestChainScopedConfig(t *testing.T) {
@@ -88,7 +89,7 @@ func TestChainScopedConfig(t *testing.T) {
 		gcfg2 := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			overrides(c, s)
 			c.EVM[0].KeySpecific = toml.KeySpecificConfig{
-				{Key: ptr(ethkey.EIP55AddressFromAddress(randomOtherAddr)),
+				{Key: ptr(types.EIP55AddressFromAddress(randomOtherAddr)),
 					GasEstimator: toml.KeySpecificGasEstimator{
 						PriceMax: assets.GWei(850),
 					},
@@ -123,7 +124,7 @@ func TestChainScopedConfig(t *testing.T) {
 				t.Run(tt.name, func(t *testing.T) {
 					gcfg3 := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 						c.EVM[0].KeySpecific = toml.KeySpecificConfig{
-							{Key: ptr(ethkey.EIP55AddressFromAddress(addr)),
+							{Key: ptr(types.EIP55AddressFromAddress(addr)),
 								GasEstimator: toml.KeySpecificGasEstimator{
 									PriceMax: tt.val,
 								},
@@ -142,7 +143,7 @@ func TestChainScopedConfig(t *testing.T) {
 			gcfg3 := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.EVM[0].GasEstimator.PriceMax = chainSpecificPrice
 				c.EVM[0].KeySpecific = toml.KeySpecificConfig{
-					{Key: ptr(ethkey.EIP55AddressFromAddress(addr)),
+					{Key: ptr(types.EIP55AddressFromAddress(addr)),
 						GasEstimator: toml.KeySpecificGasEstimator{
 							PriceMax: keySpecificPrice,
 						},
@@ -159,7 +160,7 @@ func TestChainScopedConfig(t *testing.T) {
 			gcfg3 := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.EVM[0].GasEstimator.PriceMax = chainSpecificPrice
 				c.EVM[0].KeySpecific = toml.KeySpecificConfig{
-					{Key: ptr(ethkey.EIP55AddressFromAddress(addr)),
+					{Key: ptr(types.EIP55AddressFromAddress(addr)),
 						GasEstimator: toml.KeySpecificGasEstimator{
 							PriceMax: keySpecificPrice,
 						},
@@ -174,7 +175,7 @@ func TestChainScopedConfig(t *testing.T) {
 			keySpecificPrice := assets.GWei(900)
 			gcfg3 := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.EVM[0].KeySpecific = toml.KeySpecificConfig{
-					{Key: ptr(ethkey.EIP55AddressFromAddress(addr)),
+					{Key: ptr(types.EIP55AddressFromAddress(addr)),
 						GasEstimator: toml.KeySpecificGasEstimator{
 							PriceMax: keySpecificPrice,
 						},
@@ -191,7 +192,7 @@ func TestChainScopedConfig(t *testing.T) {
 			gcfg3 := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.EVM[0].GasEstimator.PriceMax = chainSpecificPrice
 				c.EVM[0].KeySpecific = toml.KeySpecificConfig{
-					{Key: ptr(ethkey.EIP55AddressFromAddress(addr)),
+					{Key: ptr(types.EIP55AddressFromAddress(addr)),
 						GasEstimator: toml.KeySpecificGasEstimator{
 							PriceMax: keySpecificPrice,
 						},
@@ -223,7 +224,7 @@ func TestChainScopedConfig(t *testing.T) {
 			val := testutils.NewAddress()
 
 			gcfg3 := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-				c.EVM[0].LinkContractAddress = ptr(ethkey.EIP55AddressFromAddress(val))
+				c.EVM[0].LinkContractAddress = ptr(types.EIP55AddressFromAddress(val))
 			})
 			cfg3 := evmtest.NewChainScopedConfig(t, gcfg3)
 
@@ -240,7 +241,7 @@ func TestChainScopedConfig(t *testing.T) {
 			val := testutils.NewAddress()
 
 			gcfg3 := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-				c.EVM[0].OperatorFactoryAddress = ptr(ethkey.EIP55AddressFromAddress(val))
+				c.EVM[0].OperatorFactoryAddress = ptr(types.EIP55AddressFromAddress(val))
 			})
 			cfg3 := evmtest.NewChainScopedConfig(t, gcfg3)
 
@@ -276,10 +277,10 @@ func TestChainScopedConfig_GasEstimator(t *testing.T) {
 	assert.Equal(t, assets.GWei(20), ge.PriceDefault())
 	assert.Equal(t, assets.GWei(500), ge.PriceMax())
 	assert.Equal(t, assets.GWei(1), ge.PriceMin())
-	assert.Equal(t, uint32(500000), ge.LimitDefault())
-	assert.Equal(t, uint32(500000), ge.LimitMax())
+	assert.Equal(t, uint64(500000), ge.LimitDefault())
+	assert.Equal(t, uint64(500000), ge.LimitMax())
 	assert.Equal(t, float32(1), ge.LimitMultiplier())
-	assert.Equal(t, uint32(21000), ge.LimitTransfer())
+	assert.Equal(t, uint64(21000), ge.LimitTransfer())
 	assert.Equal(t, assets.GWei(5), ge.BumpMin())
 	assert.Equal(t, uint16(20), ge.BumpPercent())
 	assert.Equal(t, uint64(3), ge.BumpThreshold())
@@ -316,7 +317,7 @@ func TestChainScopedConfig_Profiles(t *testing.T) {
 	tests := []struct {
 		name                           string
 		chainID                        int64
-		expectedGasLimitDefault        uint32
+		expectedGasLimitDefault        uint64
 		expectedMinimumContractPayment string
 	}{
 		{"default", 0, 500000, "0.00001"},
@@ -335,7 +336,7 @@ func TestChainScopedConfig_Profiles(t *testing.T) {
 		{"harmonyMainnet", 1666600000, 500000, "0.00001"},
 		{"harmonyTestnet", 1666700000, 500000, "0.00001"},
 
-		{"xDai", 100, 500000, "0.00001"},
+		{"gnosisMainnet", 100, 500000, "0.00001"},
 	}
 	for _, test := range tests {
 		tt := test
@@ -474,6 +475,7 @@ func TestNodePoolConfig(t *testing.T) {
 	require.Equal(t, uint32(5), cfg.EVM().NodePool().SyncThreshold())
 	require.Equal(t, time.Duration(10000000000), cfg.EVM().NodePool().PollInterval())
 	require.Equal(t, uint32(5), cfg.EVM().NodePool().PollFailureThreshold())
+	require.Equal(t, false, cfg.EVM().NodePool().NodeIsSyncingEnabled())
 }
 
 func ptr[T any](t T) *T { return &t }

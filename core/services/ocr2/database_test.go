@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	medianconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/median/config"
 
 	"github.com/stretchr/testify/assert"
@@ -19,14 +20,13 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/testhelpers"
 )
 
 const defaultPluginID = 0
 
-func MustInsertOCROracleSpec(t *testing.T, db *sqlx.DB, transmitterAddress ethkey.EIP55Address) job.OCR2OracleSpec {
+func MustInsertOCROracleSpec(t *testing.T, db *sqlx.DB, transmitterAddress types.EIP55Address) job.OCR2OracleSpec {
 	t.Helper()
 
 	spec := job.OCR2OracleSpec{}

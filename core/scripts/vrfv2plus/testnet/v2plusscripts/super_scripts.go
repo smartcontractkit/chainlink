@@ -487,6 +487,10 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 	estimateGasMultiplier := deployCmd.Float64("estimate-gas-multiplier", 1.1, "")
 	pollPeriod := deployCmd.String("poll-period", "300ms", "")
 	requestTimeout := deployCmd.String("request-timeout", "30m0s", "")
+	bhsJobWaitBlocks := flag.Int("bhs-job-wait-blocks", 30, "")
+	bhsJobLookBackBlocks := flag.Int("bhs-job-look-back-blocks", 200, "")
+	bhsJobPollPeriod := flag.String("bhs-job-poll-period", "3s", "")
+	bhsJobRunTimeout := flag.String("bhs-job-run-timeout", "1m", "")
 	simulationBlock := deployCmd.String("simulation-block", "pending", "simulation block can be 'pending' or 'latest'")
 
 	// optional flags
@@ -503,7 +507,7 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 	flatFeeLinkDiscountPPM := deployCmd.Int64("flat-fee-link-discount-ppm", 100, "fulfillment flat fee discount for LINK payment denominated in native ppm")
 	nativePremiumPercentage := deployCmd.Int64("native-premium-percentage", 1, "premium percentage for native payment")
 	linkPremiumPercentage := deployCmd.Int64("link-premium-percentage", 1, "premium percentage for LINK payment")
-	gasLaneMaxGas := deployCmd.Int64("gas-lane-max-gas", 1e12, "gas lane max gas price")
+	provingKeyMaxGasPriceString := deployCmd.String("proving-key-max-gas-price", "1e12", "gas lane max gas price")
 
 	helpers.ParseArgs(
 		deployCmd, os.Args[2:],
@@ -526,6 +530,7 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 	subscriptionBalanceJuels := decimal.RequireFromString(*subscriptionBalanceJuelsString).BigInt()
 	subscriptionBalanceNativeWei := decimal.RequireFromString(*subscriptionBalanceNativeWeiString).BigInt()
 	fundingAmount := decimal.RequireFromString(*nodeSendingKeyFundingAmount).BigInt()
+	provingKeyMaxGasPrice := decimal.RequireFromString(*provingKeyMaxGasPriceString).BigInt()
 
 	var vrfPrimaryNodeSendingKeys []string
 	if len(*vrfPrimaryNodeSendingKeysString) > 0 {
@@ -577,6 +582,13 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 		RequestTimeout:                *requestTimeout,
 	}
 
+	bhsJobSpecConfig := model.BHSJobSpecConfig{
+		RunTimeout:     *bhsJobRunTimeout,
+		WaitBlocks:     *bhsJobWaitBlocks,
+		LookBackBlocks: *bhsJobLookBackBlocks,
+		PollPeriod:     *bhsJobPollPeriod,
+	}
+
 	VRFV2PlusDeployUniverse(
 		e,
 		subscriptionBalanceJuels,
@@ -584,11 +596,11 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 		vrfKeyRegistrationConfig,
 		contractAddresses,
 		coordinatorConfig,
-		*batchFulfillmentEnabled,
 		*nativeOnly,
 		nodesMap,
-		uint64(*gasLaneMaxGas),
+		provingKeyMaxGasPrice.Uint64(),
 		coordinatorJobSpecConfig,
+		bhsJobSpecConfig,
 		*simulationBlock,
 	)
 
@@ -605,11 +617,11 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 	vrfKeyRegistrationConfig model.VRFKeyRegistrationConfig,
 	contractAddresses model.ContractAddresses,
 	coordinatorConfig CoordinatorConfigV2Plus,
-	batchFulfillmentEnabled bool,
 	nativeOnly bool,
 	nodesMap map[string]model.Node,
-	gasLaneMaxGas uint64,
+	provingKeyMaxGasPrice uint64,
 	coordinatorJobSpecConfig model.CoordinatorJobSpecConfig,
+	bhsJobSpecConfig model.BHSJobSpecConfig,
 	simulationBlock string,
 ) model.JobSpecs {
 	var compressedPkHex string
@@ -695,7 +707,7 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 
 		//NOTE - register proving key against EOA account, and not against Oracle's sending address in other to be able
 		// easily withdraw funds from Coordinator contract back to EOA account
-		RegisterCoordinatorProvingKey(e, *coordinator, vrfKeyRegistrationConfig.VRFKeyUncompressedPubKey, gasLaneMaxGas)
+		RegisterCoordinatorProvingKey(e, *coordinator, vrfKeyRegistrationConfig.VRFKeyUncompressedPubKey, provingKeyMaxGasPrice)
 
 		fmt.Println("\nProving key registered, getting proving key hashes from deployed contract...")
 		registerdKeyHash, err2 := coordinator.SProvingKeyHashes(nil, big.NewInt(0))
@@ -789,9 +801,12 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 	formattedBHSJobSpec := fmt.Sprintf(
 		jobs.BHSPlusJobFormatted,
 		contractAddresses.CoordinatorAddress, //coordinatorAddress
-		30,                                   //waitBlocks
-		200,                                  //lookbackBlocks
+		contractAddresses.CoordinatorAddress, //coordinatorAddress
+		bhsJobSpecConfig.WaitBlocks,          //waitBlocks
+		bhsJobSpecConfig.LookBackBlocks,      //lookbackBlocks
 		contractAddresses.BhsContractAddress, //bhs address
+		bhsJobSpecConfig.PollPeriod,          //pollPeriod
+		bhsJobSpecConfig.RunTimeout,          //runTimeout
 		e.ChainID,                            //chain id
 		strings.Join(util.MapToAddressArr(nodesMap[model.BHSNodeName].SendingKeys), "\",\""), //sending addresses
 	)
@@ -799,9 +814,12 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 	formattedBHSBackupJobSpec := fmt.Sprintf(
 		jobs.BHSPlusJobFormatted,
 		contractAddresses.CoordinatorAddress, //coordinatorAddress
+		contractAddresses.CoordinatorAddress, //coordinatorAddress
 		100,                                  //waitBlocks
 		200,                                  //lookbackBlocks
 		contractAddresses.BhsContractAddress, //bhs adreess
+		bhsJobSpecConfig.PollPeriod,          //pollPeriod
+		bhsJobSpecConfig.RunTimeout,          //runTimeout
 		e.ChainID,                            //chain id
 		strings.Join(util.MapToAddressArr(nodesMap[model.BHSBackupNodeName].SendingKeys), "\",\""), //sending addresses
 	)
@@ -828,7 +846,7 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 		"\nVRF Subscription LINK Balance:", *subscriptionBalanceJuels,
 		"\nVRF Subscription Native Balance:", *subscriptionBalanceNativeWei,
 		"\nPossible VRF Request command: ",
-		fmt.Sprintf("go run . eoa-load-test-request-with-metrics --consumer-address=%s --sub-id=%d --key-hash=%s --request-confirmations %d --requests 1 --runs 1 --cb-gas-limit 1_000_000", consumerAddress, subID, keyHash, coordinatorConfig.MinConfs),
+		fmt.Sprintf("go run . eoa-load-test-request-with-metrics --consumer-address=%s --sub-id=%d --key-hash=%s --request-confirmations %d --native-payment-enabled=true --requests 1 --runs 1 --cb-gas-limit 1_000_000", consumerAddress, subID, keyHash, coordinatorConfig.MinConfs),
 		"\nRetrieve Request Status: ",
 		fmt.Sprintf("go run . eoa-load-test-read-metrics --consumer-address=%s", consumerAddress),
 		"\nA node can now be configured to run a VRF job with the below job spec :\n",
@@ -851,15 +869,16 @@ func DeployWrapperUniverse(e helpers.Environment) {
 	coordinatorAddress := cmd.String("coordinator-address", "", "address of the vrf coordinator v2 contract")
 	wrapperGasOverhead := cmd.Uint("wrapper-gas-overhead", 50_000, "amount of gas overhead in wrapper fulfillment")
 	coordinatorGasOverhead := cmd.Uint("coordinator-gas-overhead", 52_000, "amount of gas overhead in coordinator fulfillment")
-	wrapperPremiumPercentage := cmd.Uint("wrapper-premium-percentage", 25, "gas premium charged by wrapper")
+	wrapperNativePremiumPercentage := cmd.Uint("wrapper-native-premium-percentage", 25, "gas premium charged by wrapper for native payment")
+	wrapperLinkPremiumPercentage := cmd.Uint("wrapper-link-premium-percentage", 25, "gas premium charged by wrapper for link payment")
 	keyHash := cmd.String("key-hash", "", "the keyhash that wrapper requests should use")
 	maxNumWords := cmd.Uint("max-num-words", 10, "the keyhash that wrapper requests should use")
 	subFunding := cmd.String("sub-funding", "10000000000000000000", "amount to fund the subscription with")
 	consumerFunding := cmd.String("consumer-funding", "10000000000000000000", "amount to fund the consumer with")
 	fallbackWeiPerUnitLink := cmd.String("fallback-wei-per-unit-link", "", "the fallback wei per unit link")
 	stalenessSeconds := cmd.Uint("staleness-seconds", 86400, "the number of seconds of staleness to allow")
-	fulfillmentFlatFeeLinkPPM := cmd.Uint("fulfillment-flat-fee-link-ppm", 500, "the link flat fee in ppm to charge for fulfillment")
-	fulfillmentFlatFeeNativePPM := cmd.Uint("fulfillment-flat-fee-native-ppm", 500, "the native flat fee in ppm to charge for fulfillment")
+	fulfillmentFlatFeeNativePPM := cmd.Uint("fulfillment-flat-fee-native-ppm", 500, "the native flat fee in ppm to charge for fulfillment denominated in native")
+	fulfillmentFlatFeeLinkDiscountPPM := cmd.Uint("fulfillment-flat-fee-link-discount-ppm", 500, "the link flat fee discount in ppm to charge for fulfillment denominated in native")
 	helpers.ParseArgs(cmd, os.Args[2:], "link-address", "link-eth-feed", "coordinator-address", "key-hash", "fallback-wei-per-unit-link")
 
 	amount, s := big.NewInt(0).SetString(*subFunding, 10)
@@ -876,13 +895,14 @@ func DeployWrapperUniverse(e helpers.Environment) {
 		wrapper,
 		*wrapperGasOverhead,
 		*coordinatorGasOverhead,
-		*wrapperPremiumPercentage,
+		*wrapperNativePremiumPercentage,
+		*wrapperLinkPremiumPercentage,
 		*keyHash,
 		*maxNumWords,
 		decimal.RequireFromString(*fallbackWeiPerUnitLink).BigInt(),
 		uint32(*stalenessSeconds),
-		uint32(*fulfillmentFlatFeeLinkPPM),
 		uint32(*fulfillmentFlatFeeNativePPM),
+		uint32(*fulfillmentFlatFeeLinkDiscountPPM),
 	)
 
 	consumer := WrapperConsumerDeploy(e,

@@ -183,7 +183,7 @@ func NewConfirmer[
 }
 
 // Start is a comment to appease the linter
-func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Start(_ context.Context) error {
+func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Start(ctx context.Context) error {
 	return ec.StartOnce("Confirmer", func() error {
 		if ec.feeConfig.BumpThreshold() == 0 {
 			ec.lggr.Infow("Gas bumping is disabled (FeeEstimator.BumpThreshold set to 0)", "feeBumpThreshold", 0)
@@ -191,18 +191,18 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Sta
 			ec.lggr.Infow(fmt.Sprintf("Fee bumping is enabled, unconfirmed transactions will have their fee bumped every %d blocks", ec.feeConfig.BumpThreshold()), "feeBumpThreshold", ec.feeConfig.BumpThreshold())
 		}
 
-		return ec.startInternal()
+		return ec.startInternal(ctx)
 	})
 }
 
-func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) startInternal() error {
+func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) startInternal(ctx context.Context) error {
 	ec.initSync.Lock()
 	defer ec.initSync.Unlock()
 	if ec.isStarted {
 		return errors.New("Confirmer is already started")
 	}
 	var err error
-	ec.enabledAddresses, err = ec.ks.EnabledAddressesForChain(ec.chainID)
+	ec.enabledAddresses, err = ec.ks.EnabledAddressesForChain(ctx, ec.chainID)
 	if err != nil {
 		return fmt.Errorf("Confirmer: failed to load EnabledAddressesForChain: %w", err)
 	}
@@ -793,7 +793,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) bum
 	logFields := ec.logFieldsPreviousAttempt(previousAttempt)
 
 	var bumpedFee FEE
-	var bumpedFeeLimit uint32
+	var bumpedFeeLimit uint64
 	bumpedAttempt, bumpedFee, bumpedFeeLimit, _, err = ec.NewBumpTxAttempt(ctx, etx, previousAttempt, previousAttempts, ec.lggr)
 
 	// if no error, return attempt
@@ -1039,7 +1039,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) mar
 // This operates completely orthogonal to the normal Confirmer and can result in untracked attempts!
 // Only for emergency usage.
 // This is in case of some unforeseen scenario where the node is refusing to release the lock. KISS.
-func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) ForceRebroadcast(ctx context.Context, seqs []SEQ, fee FEE, address ADDR, overrideGasLimit uint32) error {
+func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) ForceRebroadcast(ctx context.Context, seqs []SEQ, fee FEE, address ADDR, overrideGasLimit uint64) error {
 	if len(seqs) == 0 {
 		ec.lggr.Infof("ForceRebroadcast: No sequences provided. Skipping")
 		return nil
@@ -1065,7 +1065,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) For
 			if overrideGasLimit != 0 {
 				etx.FeeLimit = overrideGasLimit
 			}
-			attempt, _, err := ec.NewCustomTxAttempt(*etx, fee, etx.FeeLimit, 0x0, ec.lggr)
+			attempt, _, err := ec.NewCustomTxAttempt(ctx, *etx, fee, etx.FeeLimit, 0x0, ec.lggr)
 			if err != nil {
 				ec.lggr.Errorw("ForceRebroadcast: failed to create new attempt", "txID", etx.ID, "err", err)
 				continue
@@ -1082,7 +1082,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) For
 	return nil
 }
 
-func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) sendEmptyTransaction(ctx context.Context, fromAddress ADDR, seq SEQ, overrideGasLimit uint32, fee FEE) (string, error) {
+func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) sendEmptyTransaction(ctx context.Context, fromAddress ADDR, seq SEQ, overrideGasLimit uint64, fee FEE) (string, error) {
 	gasLimit := overrideGasLimit
 	if gasLimit == 0 {
 		gasLimit = ec.feeConfig.LimitDefault()

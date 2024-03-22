@@ -151,8 +151,8 @@ func TestAutomationReorg(t *testing.T) {
 			defaultAutomationSettings["toml"] = networks.AddNetworkDetailedConfig(baseTOML, config.Pyroscope, networkTOML, network)
 
 			var overrideFn = func(_ interface{}, target interface{}) {
-				ctf_config.MustConfigOverrideChainlinkVersion(config.ChainlinkImage, target)
-				ctf_config.MightConfigOverridePyroscopeKey(config.Pyroscope, target)
+				ctf_config.MustConfigOverrideChainlinkVersion(config.GetChainlinkImageConfig(), target)
+				ctf_config.MightConfigOverridePyroscopeKey(config.GetPyroscopeConfig(), target)
 			}
 
 			cd := chainlink.NewWithOverride(0, defaultAutomationSettings, config.ChainlinkImage, overrideFn)
@@ -214,9 +214,14 @@ func TestAutomationReorg(t *testing.T) {
 
 			actions.CreateOCRKeeperJobs(t, chainlinkNodes, registry.Address(), network.ChainID, 0, registryVersion)
 			nodesWithoutBootstrap := chainlinkNodes[1:]
+			defaultOCRRegistryConfig.RegistryVersion = registryVersion
 			ocrConfig, err := actions.BuildAutoOCR2ConfigVars(t, nodesWithoutBootstrap, defaultOCRRegistryConfig, registrar.Address(), 5*time.Second, registry.ChainModuleAddress(), registry.ReorgProtectionEnabled())
 			require.NoError(t, err, "OCR2 config should be built successfully")
-			err = registry.SetConfig(defaultOCRRegistryConfig, ocrConfig)
+			if registryVersion == ethereum.RegistryVersion_2_0 {
+				err = registry.SetConfig(defaultOCRRegistryConfig, ocrConfig)
+			} else {
+				err = registry.SetConfigTypeSafe(ocrConfig)
+			}
 			require.NoError(t, err, "Registry config should be be set successfully")
 			require.NoError(t, chainClient.WaitForEvents(), "Waiting for config to be set")
 

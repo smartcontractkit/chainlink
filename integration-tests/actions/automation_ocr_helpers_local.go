@@ -152,20 +152,24 @@ func BuildAutoOCR2ConfigVarsWithKeyIndexLocal(
 		transmitters = append(transmitters, common.HexToAddress(string(transmitter)))
 	}
 
-	onchainConfig, err := registryConfig.EncodeOnChainConfig(registrar, registryOwnerAddress, chainModuleAddress, reorgProtectionEnabled)
-	if err != nil {
-		return contracts.OCRv2Config{}, err
-	}
-
-	l.Info().Msg("Done building OCR config")
-	return contracts.OCRv2Config{
+	ocrConfig := contracts.OCRv2Config{
 		Signers:               signers,
 		Transmitters:          transmitters,
 		F:                     f,
-		OnchainConfig:         onchainConfig,
 		OffchainConfigVersion: offchainConfigVersion,
 		OffchainConfig:        offchainConfig,
-	}, nil
+	}
+
+	if registryConfig.RegistryVersion == ethereum.RegistryVersion_2_0 {
+		ocrConfig.OnchainConfig = registryConfig.Encode20OnchainConfig(registrar)
+	} else if registryConfig.RegistryVersion == ethereum.RegistryVersion_2_1 {
+		ocrConfig.TypedOnchainConfig21 = registryConfig.Create21OnchainConfig(registrar, registryOwnerAddress)
+	} else if registryConfig.RegistryVersion == ethereum.RegistryVersion_2_2 {
+		ocrConfig.TypedOnchainConfig22 = registryConfig.Create22OnchainConfig(registrar, registryOwnerAddress, chainModuleAddress, reorgProtectionEnabled)
+	}
+
+	l.Info().Msg("Done building OCR config")
+	return ocrConfig, nil
 }
 
 // CreateOCRKeeperJobs bootstraps the first node and to the other nodes sends ocr jobs
@@ -186,8 +190,9 @@ func CreateOCRKeeperJobsLocal(
 	bootstrapP2PId := bootstrapP2PIds.Data[0].Attributes.PeerID
 
 	var contractVersion string
-	// TODO: use v2.1 for registry 2.2 for now until AUTO-9033 is done
-	if registryVersion == ethereum.RegistryVersion_2_1 || registryVersion == ethereum.RegistryVersion_2_2 {
+	if registryVersion == ethereum.RegistryVersion_2_2 {
+		contractVersion = "v2.1+"
+	} else if registryVersion == ethereum.RegistryVersion_2_1 {
 		contractVersion = "v2.1"
 	} else if registryVersion == ethereum.RegistryVersion_2_0 {
 		contractVersion = "v2.0"
