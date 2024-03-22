@@ -95,7 +95,7 @@ LOOP:
 					return nil
 				}
 
-				// If the capability is already cached, that means we've already registered it
+				// If the capability already exists, that means we've already registered it
 				if s.capability != nil {
 					return nil
 				}
@@ -564,6 +564,7 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 	// - that there are no step `ref` called `trigger` as this is reserved for any triggers
 	// - that there are no duplicate `ref`s
 	// - that the `ref` for any triggers is empty -- and filled in with `trigger`
+	// - that the resulting graph is strongly connected (i.e. no disjointed subgraphs exist)
 	// - etc.
 
 	workflow, err := Parse(cfg.Spec)
