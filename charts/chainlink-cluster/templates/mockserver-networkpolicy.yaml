@@ -15,10 +15,6 @@ spec:
         - podSelector:
             matchLabels:
               app: {{ $.Release.Name }}
-        # Allow http traffic from the runner pods.
-        - podSelector:
-            matchLabels:
-              app: runner
       ports:
         - protocol: TCP
           port: 1080
