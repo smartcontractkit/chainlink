@@ -178,7 +178,9 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
       BillingTokenPaymentParams memory billingTokenParams;
       for (uint256 i = 0; i < report.upkeepIds.length; i++) {
         if (upkeepTransmitInfo[i].earlyChecksPassed) {
-          billingTokenParams = _getBillingTokenPaymentParams(hotVars, upkeepTransmitInfo[i].upkeep.billingToken); // TODO avoid doing this every time
+          if (i == 0 || upkeepTransmitInfo[i].upkeep.billingToken != upkeepTransmitInfo[i - 1].upkeep.billingToken) {
+            billingTokenParams = _getBillingTokenPaymentParams(hotVars, upkeepTransmitInfo[i].upkeep.billingToken);
+          }
           PaymentReceipt memory receipt = _handlePayment(
             hotVars,
             PaymentParams({
@@ -200,8 +202,7 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
           emit UpkeepPerformed(
             report.upkeepIds[i],
             upkeepTransmitInfo[i].performSuccess,
-            // receipt.gasCharge + receipt.premium, // TODO - this is currently the billing token amount, but should it be?
-            receipt.gasReimbursementJuels + receipt.premiumJuels, // TODO - this is currently the link tokn amount, but should it be billing token instead?
+            receipt.gasReimbursementJuels + receipt.premiumJuels, // TODO - this is currently the LINK amount, but may change to billing token
             upkeepTransmitInfo[i].gasUsed,
             gasOverhead,
             report.triggers[i]
