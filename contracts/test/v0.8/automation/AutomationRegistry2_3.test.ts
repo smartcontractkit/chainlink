@@ -672,6 +672,7 @@ describe('AutomationRegistry2_3', () => {
       )
 
       const conditionalPrice = await registry.getMaxPaymentForGas(
+        upkeepId,
         Trigger.CONDITION,
         test.gas,
         linkToken.address,
@@ -688,6 +689,7 @@ describe('AutomationRegistry2_3', () => {
       )
 
       const logPrice = await registry.getMaxPaymentForGas(
+        upkeepId,
         Trigger.LOG,
         test.gas,
         linkToken.address,
@@ -1815,6 +1817,7 @@ describe('AutomationRegistry2_3', () => {
 
       itMaybe('can self fund', async () => {
         const maxPayment = await registry.getMaxPaymentForGas(
+          upkeepId,
           Trigger.CONDITION,
           performGas,
           linkToken.address,
@@ -3596,6 +3599,7 @@ describe('AutomationRegistry2_3', () => {
         expectedFallbackMaxPayment.toString(),
         (
           await registry.getMaxPaymentForGas(
+            upkeepId,
             Trigger.CONDITION,
             performGas,
             linkToken.address,
@@ -3615,6 +3619,7 @@ describe('AutomationRegistry2_3', () => {
         expectedFallbackMaxPayment.toString(),
         (
           await registry.getMaxPaymentForGas(
+            upkeepId,
             Trigger.CONDITION,
             performGas,
             linkToken.address,
@@ -3634,6 +3639,7 @@ describe('AutomationRegistry2_3', () => {
         expectedFallbackMaxPayment.toString(),
         (
           await registry.getMaxPaymentForGas(
+            upkeepId,
             Trigger.CONDITION,
             performGas,
             linkToken.address,
@@ -3681,6 +3687,7 @@ describe('AutomationRegistry2_3', () => {
         expectedFallbackMaxPayment.toString(),
         (
           await registry.getMaxPaymentForGas(
+            upkeepId,
             Trigger.CONDITION,
             performGas,
             linkToken.address,
@@ -3700,6 +3707,7 @@ describe('AutomationRegistry2_3', () => {
         expectedFallbackMaxPayment.toString(),
         (
           await registry.getMaxPaymentForGas(
+            upkeepId,
             Trigger.CONDITION,
             performGas,
             linkToken.address,
@@ -3719,6 +3727,7 @@ describe('AutomationRegistry2_3', () => {
         expectedFallbackMaxPayment.toString(),
         (
           await registry.getMaxPaymentForGas(
+            upkeepId,
             Trigger.CONDITION,
             performGas,
             linkToken.address,
