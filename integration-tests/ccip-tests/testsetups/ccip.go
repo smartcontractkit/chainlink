@@ -184,45 +184,43 @@ func (c *CCIPTestConfig) SetNetworkPairs(lggr zerolog.Logger) error {
 	// If provided networks is lesser than the required number of networks
 	// and the provided networks are simulated network, create replicas of the provided networks with
 	// different chain ids
-	if len(c.SelectedNetworks) < c.TestGroupInput.NoOfNetworks {
-		if simulated {
-			actualNoOfNetworks := len(c.SelectedNetworks)
-			n := c.SelectedNetworks[0]
-			var chainIDs []int64
-			for _, id := range chainselectors.TestChainIds() {
-				if id == 2337 {
-					continue
-				}
-				chainIDs = append(chainIDs, int64(id))
+	if simulated && len(c.SelectedNetworks) < c.TestGroupInput.NoOfNetworks {
+		actualNoOfNetworks := len(c.SelectedNetworks)
+		n := c.SelectedNetworks[0]
+		var chainIDs []int64
+		for _, id := range chainselectors.TestChainIds() {
+			if id == 2337 {
+				continue
 			}
-			for i := 0; i < c.TestGroupInput.NoOfNetworks-actualNoOfNetworks; i++ {
-				chainID := chainIDs[i]
-				c.SelectedNetworks = append(c.SelectedNetworks, blockchain.EVMNetwork{
-					Name:                      fmt.Sprintf("simulated-non-dev%d", len(c.SelectedNetworks)+1),
-					ChainID:                   chainID,
-					Simulated:                 true,
-					PrivateKeys:               []string{networks.AdditionalSimulatedPvtKeys[i]},
-					ChainlinkTransactionLimit: n.ChainlinkTransactionLimit,
-					Timeout:                   n.Timeout,
-					MinimumConfirmations:      n.MinimumConfirmations,
-					GasEstimationBuffer:       n.GasEstimationBuffer + 1000,
-					ClientImplementation:      n.ClientImplementation,
-					DefaultGasLimit:           n.DefaultGasLimit,
-				})
-				chainConfig := &ctftestenv.EthereumChainConfig{}
-				err := chainConfig.Default()
-				if err != nil {
-					allError = multierr.Append(allError, fmt.Errorf("failed to get default chain config: %w", err))
-				} else {
-					chainConfig.ChainID = int(chainID)
-					eth1 := ctftestenv.EthereumVersion_Eth1
-					geth := ctftestenv.ExecutionLayer_Geth
+			chainIDs = append(chainIDs, int64(id))
+		}
+		for i := 0; i < c.TestGroupInput.NoOfNetworks-actualNoOfNetworks; i++ {
+			chainID := chainIDs[i]
+			c.SelectedNetworks = append(c.SelectedNetworks, blockchain.EVMNetwork{
+				Name:                      fmt.Sprintf("simulated-non-dev%d", len(c.SelectedNetworks)+1),
+				ChainID:                   chainID,
+				Simulated:                 true,
+				PrivateKeys:               []string{networks.AdditionalSimulatedPvtKeys[i]},
+				ChainlinkTransactionLimit: n.ChainlinkTransactionLimit,
+				Timeout:                   n.Timeout,
+				MinimumConfirmations:      n.MinimumConfirmations,
+				GasEstimationBuffer:       n.GasEstimationBuffer + 1000,
+				ClientImplementation:      n.ClientImplementation,
+				DefaultGasLimit:           n.DefaultGasLimit,
+			})
+			chainConfig := &ctftestenv.EthereumChainConfig{}
+			err := chainConfig.Default()
+			if err != nil {
+				allError = multierr.Append(allError, fmt.Errorf("failed to get default chain config: %w", err))
+			} else {
+				chainConfig.ChainID = int(chainID)
+				eth1 := ctftestenv.EthereumVersion_Eth1
+				geth := ctftestenv.ExecutionLayer_Geth
 
-					c.EnvInput.PrivateEthereumNetworks[fmt.Sprint(chainID)] = &ctftestenv.EthereumNetwork{
-						EthereumVersion:     &eth1,
-						ExecutionLayer:      &geth,
-						EthereumChainConfig: chainConfig,
-					}
+				c.EnvInput.PrivateEthereumNetworks[fmt.Sprint(chainID)] = &ctftestenv.EthereumNetwork{
+					EthereumVersion:     &eth1,
+					ExecutionLayer:      &geth,
+					EthereumChainConfig: chainConfig,
 				}
 			}
 		}
