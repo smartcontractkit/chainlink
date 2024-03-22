@@ -3,7 +3,6 @@ pragma solidity 0.8.19;
 
 import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
 import {TypeAndVersionInterface} from "../../interfaces/TypeAndVersionInterface.sol";
-import {IVRFV2PlusMigrate} from "./interfaces/IVRFV2PlusMigrate.sol";
 import {VRFConsumerBaseV2Plus} from "./VRFConsumerBaseV2Plus.sol";
 import {LinkTokenInterface} from "../../shared/interfaces/LinkTokenInterface.sol";
 import {AggregatorV3Interface} from "../../shared/interfaces/AggregatorV3Interface.sol";
@@ -39,6 +38,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   error IncorrectExtraArgsLength(uint16 expectedMinimumLength, uint16 actualLength);
   error NativePaymentInOnTokenTransfer();
   error LINKPaymentInRequestRandomWordsInNative();
+  error SubscriptionIdMissing();
 
   /* Storage Slot 1: BEGIN */
   // 20 bytes used by VRFConsumerBaseV2Plus.s_vrfCoordinator
@@ -139,7 +139,12 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   mapping(uint256 => Callback) /* requestID */ /* callback */ public s_callbacks;
   /* Storage Slot 7: END */
 
-  constructor(address _link, address _linkNativeFeed, address _coordinator) VRFConsumerBaseV2Plus(_coordinator) {
+  constructor(
+    address _link,
+    address _linkNativeFeed,
+    address _coordinator,
+    uint256 _subId
+  ) VRFConsumerBaseV2Plus(_coordinator) {
     if (_link == address(0)) {
       revert ZeroAddress();
     }
@@ -148,11 +153,19 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     if (_linkNativeFeed != address(0)) {
       s_linkNativeFeed = AggregatorV3Interface(_linkNativeFeed);
     }
+    if (_subId == 0) {
+      revert SubscriptionIdMissing();
+    }
 
-    // Create this wrapper's subscription and add itself as a consumer.
-    uint256 subId = s_vrfCoordinator.createSubscription();
-    SUBSCRIPTION_ID = subId;
-    s_vrfCoordinator.addConsumer(subId, address(this));
+    // Sanity check: should revert if the subscription does not exist
+    s_vrfCoordinator.getSubscription(_subId);
+
+    // Subscription for the wrapper is created and managed by an external account.
+    // Expectation is that wrapper contract address will be added as a consumer
+    // to this subscription by the external account (owner of the subscription).
+    // Migration of the wrapper's subscription to the new coordinator has to be
+    // handled by the external account (owner of the subscription).
+    SUBSCRIPTION_ID = _subId;
   }
 
   /**
@@ -647,13 +660,5 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     // solhint-disable-next-line custom-errors
     require(!s_disabled, "wrapper is disabled");
     _;
-  }
-
-  /***************************************************************************
-   * Section: Migration of VRFV2PlusWrapper to latest VRFV2PlusCoordinator
-   ***************************************************************************/
-
-  function migrate(address newCoordinator) external onlyOwner {
-    IVRFV2PlusMigrate(address(s_vrfCoordinator)).migrate(SUBSCRIPTION_ID, newCoordinator);
   }
 }
