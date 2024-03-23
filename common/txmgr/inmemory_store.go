@@ -474,24 +474,15 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 		return false
 	}
 
-	txsLock := sync.Mutex{}
 	txs := []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
-	wg := sync.WaitGroup{}
 	ms.addressStatesLock.RLock()
 	defer ms.addressStatesLock.RUnlock()
 	for _, as := range ms.addressStates {
-		wg.Add(1)
-		go func(as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) {
-			for _, tx := range as.findTxs(states, filterFn) {
-				etx := ms.deepCopyTx(tx)
-				txsLock.Lock()
-				txs = append(txs, etx)
-				txsLock.Unlock()
-			}
-			wg.Done()
-		}(as)
+		for _, tx := range as.findTxs(states, filterFn) {
+			etx := ms.deepCopyTx(tx)
+			txs = append(txs, etx)
+		}
 	}
-	wg.Wait()
 
 	return txs, nil
 }
