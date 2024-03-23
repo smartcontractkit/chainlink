@@ -82,7 +82,7 @@ var _ ccippb.OffRampReaderServer = (*OffRampReaderGRPCServer)(nil)
 
 // Address i[github.com/smartcontractkit/chainlink-common/pkg/types/ccip.OffRampReader]
 func (o *OffRampReaderGRPCClient) Address(ctx context.Context) (cciptypes.Address, error) {
-	resp, err := o.client.Address(context.TODO(), &emptypb.Empty{})
+	resp, err := o.client.Address(ctx, &emptypb.Empty{})
 	if err != nil {
 		return cciptypes.Address(""), err
 	}
