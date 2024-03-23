@@ -15,7 +15,6 @@ import {Address} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/ut
 /// @dev Any other L2 contract which uses this contract's address as a privileged position,
 /// can be considered to be owned by the `l1Owner`
 contract ScrollCrossDomainForwarder is TypeAndVersionInterface, CrossDomainForwarder {
-  // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
   string public constant override typeAndVersion = "ScrollCrossDomainForwarder 1.0.0";
 
   address internal immutable i_scrollCrossDomainMessenger;

@@ -72,7 +72,6 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
     i_linkToken = LinkTokenInterface(link); // external but already deployed and unalterable
   }
 
-  // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
   string public constant typeAndVersion = "Operator 1.0.0";
 
   // @notice Creates the Chainlink request. This is a backwards compatible API

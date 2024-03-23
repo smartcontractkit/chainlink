@@ -20,7 +20,6 @@ contract OperatorFactory {
     linkToken = linkAddress;
   }
 
-  // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
   string public constant typeAndVersion = "OperatorFactory 1.0.0";
 
   // @notice creates a new Operator contract with the msg.sender as owner

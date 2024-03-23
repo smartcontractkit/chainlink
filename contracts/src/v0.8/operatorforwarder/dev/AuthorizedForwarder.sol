@@ -27,7 +27,6 @@ contract AuthorizedForwarder is ConfirmedOwnerWithProposal, AuthorizedReceiver {
     }
   }
 
-  // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
   string public constant typeAndVersion = "AuthorizedForwarder 1.1.0";
 
   // @notice Forward a call to another contract

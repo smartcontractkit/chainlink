@@ -19,7 +19,6 @@ contract ScrollValidator is TypeAndVersionInterface, AggregatorValidatorInterfac
   // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
   address public immutable L1_MSG_QUEUE_ADDR;
 
-  // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
   string public constant override typeAndVersion = "ScrollValidator 1.0.0";
   int256 private constant ANSWER_SEQ_OFFLINE = 1;
   uint32 private s_gasLimit;
