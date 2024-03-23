@@ -299,7 +299,7 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
       }
     }
     s_upkeep[id].balance = upkeep.balance - cancellationFee;
-    s_reserveAmounts[address(upkeep.billingToken)] = s_reserveAmounts[address(upkeep.billingToken)] - cancellationFee;
+    s_reserveAmounts[upkeep.billingToken] = s_reserveAmounts[upkeep.billingToken] - cancellationFee;
 
     emit UpkeepCanceled(id, uint64(height));
   }
@@ -312,6 +312,7 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
    * @dev migration permissions must be set on *both* sending and receiving registries
    * @dev only an upkeep admin can migrate their upkeeps
    */
+  // TODO - this is not efficient and need to be re-worked
   function migrateUpkeeps(uint256[] calldata ids, address destination) external {
     if (
       s_peerRegistryMigrationPermission[destination] != MigrationPermission.OUTGOING &&
@@ -321,7 +322,6 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
     if (ids.length == 0) revert ArrayHasNoEntries();
     uint256 id;
     Upkeep memory upkeep;
-    uint256 totalBalanceRemaining;
     address[] memory admins = new address[](ids.length);
     Upkeep[] memory upkeeps = new Upkeep[](ids.length);
     bytes[] memory checkDatas = new bytes[](ids.length);
@@ -337,7 +337,6 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
       checkDatas[idx] = s_checkData[id];
       triggerConfigs[idx] = s_upkeepTriggerConfig[id];
       offchainConfigs[idx] = s_upkeepOffchainConfig[id];
-      totalBalanceRemaining = totalBalanceRemaining + upkeep.balance;
       delete s_upkeep[id];
       delete s_checkData[id];
       delete s_upkeepTriggerConfig[id];
@@ -346,10 +345,9 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
       delete s_proposedAdmin[id];
       s_upkeepIDs.remove(id);
       emit UpkeepMigrated(id, upkeep.balance, destination);
+      s_reserveAmounts[upkeep.billingToken] = s_reserveAmounts[upkeep.billingToken] - upkeep.balance;
+      upkeep.billingToken.transfer(destination, upkeep.balance);
     }
-    s_reserveAmounts[address(upkeep.billingToken)] =
-      s_reserveAmounts[address(upkeep.billingToken)] -
-      totalBalanceRemaining;
     bytes memory encodedUpkeeps = abi.encode(
       ids,
       upkeeps,
@@ -366,7 +364,6 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
         encodedUpkeeps
       )
     );
-    i_link.transfer(destination, totalBalanceRemaining);
   }
 
   /**

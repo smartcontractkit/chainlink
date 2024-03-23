@@ -78,7 +78,7 @@ contract AutomationRegistryLogicC2_3 is AutomationRegistryBase2_3 {
     if (s_transmitterPayees[from] != msg.sender) revert OnlyCallableByPayee();
     uint96 balance = _updateTransmitterBalanceFromPool(from, s_hotVars.totalPremium, uint96(s_transmittersList.length));
     s_transmitters[from].balance = 0;
-    s_reserveAmounts[address(i_link)] = s_reserveAmounts[address(i_link)] - balance;
+    s_reserveAmounts[IERC20(address(i_link))] = s_reserveAmounts[IERC20(address(i_link))] - balance;
     i_link.transfer(to, balance);
     emit PaymentWithdrawn(from, balance, to, msg.sender);
   }
@@ -566,9 +566,10 @@ contract AutomationRegistryLogicC2_3 is AutomationRegistryBase2_3 {
   }
 
   /**
-   * @notice returns the fallback native price
+   * @notice returns the amount of a particular token that is reserved as
+   * user deposits / NOP payments
    */
-  function getReserveAmount(address billingToken) external view returns (uint256) {
+  function getReserveAmount(IERC20 billingToken) external view returns (uint256) {
     return s_reserveAmounts[billingToken];
   }
 }

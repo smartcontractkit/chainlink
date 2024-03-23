@@ -187,7 +187,7 @@ contract Withdraw is SetUp {
     assertGt(linkToken.balanceOf(address(registry)), 0);
 
     //check the link available for payment is the link balance
-    assertEq(registry.linkAvailableForPayment(), linkToken.balanceOf(address(registry)));
+    assertEq(uint256(registry.linkAvailableForPayment()), linkToken.balanceOf(address(registry)));
   }
 
   function testWithdrawLinkFeesRevertsBecauseOnlyFinanceAdminAllowed() public {
