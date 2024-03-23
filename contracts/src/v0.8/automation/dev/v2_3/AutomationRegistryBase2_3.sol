@@ -103,13 +103,13 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   uint256 internal s_fallbackGasPrice;
   uint256 internal s_fallbackLinkPrice;
   uint256 internal s_fallbackNativePrice;
-  mapping(address billingToken => uint256 reserveAmount) internal s_reserveAmounts; // unspent user deposits + unwithdrawn NOP payments
   mapping(address => MigrationPermission) internal s_peerRegistryMigrationPermission; // Permissions for migration to and fro
   mapping(uint256 => bytes) internal s_upkeepTriggerConfig; // upkeep triggers
   mapping(uint256 => bytes) internal s_upkeepOffchainConfig; // general config set by users for each upkeep
   mapping(uint256 => bytes) internal s_upkeepPrivilegeConfig; // general config set by an administrative role for an upkeep
   mapping(address => bytes) internal s_adminPrivilegeConfig; // general config set by an administrative role for an admin
   // billing
+  mapping(IERC20 billingToken => uint256 reserveAmount) internal s_reserveAmounts; // unspent user deposits + unwithdrawn NOP payments
   mapping(IERC20 billingToken => BillingConfig billingConfig) internal s_billingConfigs; // billing configurations for different tokens
   mapping(uint256 upkeepID => BillingOverrides billingOverrides) internal s_billingOverrides; // billing overrides for specific upkeeps
   IERC20[] internal s_billingTokens; // list of billing tokens
@@ -127,7 +127,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   error IncorrectNumberOfSignatures();
   error IncorrectNumberOfSigners();
   error IndexOutOfRange();
-  error InsufficientBalance(uint256 available, uint256 requested);
+  error InsufficientBalance(int256 available, uint256 requested);
   error InvalidBillingToken();
   error InvalidDataLength();
   error InvalidFeed();
@@ -224,21 +224,24 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
    */
   struct OnchainConfig {
     uint32 checkGasLimit;
-    uint24 stalenessSeconds;
-    uint16 gasCeilingMultiplier;
     uint32 maxPerformGas;
     uint32 maxCheckDataSize;
+    address transcoder;
+    // 1 word full
+    bool reorgProtectionEnabled;
+    uint24 stalenessSeconds;
     uint32 maxPerformDataSize;
     uint32 maxRevertDataSize;
+    address upkeepPrivilegeManager;
+    // 2 words full
+    uint16 gasCeilingMultiplier;
+    address financeAdmin;
+    // 3 words
     uint256 fallbackGasPrice;
     uint256 fallbackLinkPrice;
     uint256 fallbackNativePrice;
-    address transcoder;
     address[] registrars;
-    address upkeepPrivilegeManager;
     IChainModule chainModule;
-    bool reorgProtectionEnabled;
-    address financeAdmin; // TODO: pack this struct better
   }
 
   /**
@@ -378,7 +381,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     uint32 gasFeePPB;
     uint24 flatFeeMilliCents; // min fee is $0.00001, max fee is $167
     AggregatorV3Interface priceFeed;
-    // 1st word, read in getPrice()
+    // 1st word, read in calculating BillingTokenPaymentParams
     uint256 fallbackPrice;
     // 2nd word only read if stale
     uint96 minSpend;
@@ -544,7 +547,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     s_upkeep[id] = upkeep;
     s_upkeepAdmin[id] = admin;
     s_checkData[id] = checkData;
-    s_reserveAmounts[address(upkeep.billingToken)] = s_reserveAmounts[address(upkeep.billingToken)] + upkeep.balance;
+    s_reserveAmounts[upkeep.billingToken] = s_reserveAmounts[upkeep.billingToken] + upkeep.balance;
     s_upkeepTriggerConfig[id] = triggerConfig;
     s_upkeepOffchainConfig[id] = offchainConfig;
     s_upkeepIDs.add(id);
