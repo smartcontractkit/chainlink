@@ -36,11 +36,11 @@ contract ScrollValidator is TypeAndVersionInterface, AggregatorValidatorInterfac
     address l1MessageQueueAddr,
     uint32 gasLimit
   ) {
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(l1CrossDomainMessengerAddress != address(0), "Invalid xDomain Messenger address");
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(l1MessageQueueAddr != address(0), "Invalid L1 message queue address");
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(l2UptimeFeedAddr != address(0), "Invalid ScrollSequencerUptimeFeed contract address");
     L1_CROSS_DOMAIN_MESSENGER_ADDRESS = l1CrossDomainMessengerAddress;
     L2_UPTIME_FEED_ADDR = l2UptimeFeedAddr;

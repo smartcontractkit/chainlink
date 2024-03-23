@@ -152,7 +152,7 @@ devDependencies:
     specifier: ^2.2.7
     version: 2.2.7
   solhint:
-    specifier: ^4.1.1
+    specifier: ^4.5.2
     version: 4.5.2
   solhint-plugin-chainlink-solidity:
     specifier: git+https://github.com/smartcontractkit/chainlink-solhint-rules.git#v1.2.1

@@ -22,7 +22,7 @@ contract ScrollCrossDomainForwarder is TypeAndVersionInterface, CrossDomainForwa
   /// @param crossDomainMessengerAddr the xDomain bridge messenger (Scroll bridge L2) contract address
   /// @param l1OwnerAddr the L1 owner address that will be allowed to call the forward fn
   constructor(IScrollMessenger crossDomainMessengerAddr, address l1OwnerAddr) CrossDomainOwnable(l1OwnerAddr) {
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(address(crossDomainMessengerAddr) != address(0), "Invalid xDomain Messenger address");
     i_scrollCrossDomainMessenger = address(crossDomainMessengerAddr);
   }
@@ -40,9 +40,9 @@ contract ScrollCrossDomainForwarder is TypeAndVersionInterface, CrossDomainForwa
 
   /// @notice The call MUST come from the L1 owner (via cross-chain message.) Reverts otherwise.
   modifier onlyL1Owner() override {
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(msg.sender == i_scrollCrossDomainMessenger, "Sender is not the L2 messenger");
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(
       IScrollMessenger(i_scrollCrossDomainMessenger).xDomainMessageSender() == l1Owner(),
       "xDomain sender is not the L1 owner"
@@ -52,9 +52,9 @@ contract ScrollCrossDomainForwarder is TypeAndVersionInterface, CrossDomainForwa
 
   /// @notice The call MUST come from the proposed L1 owner (via cross-chain message.) Reverts otherwise.
   modifier onlyProposedL1Owner() override {
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(msg.sender == i_scrollCrossDomainMessenger, "Sender is not the L2 messenger");
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(
       IScrollMessenger(i_scrollCrossDomainMessenger).xDomainMessageSender() == s_l1PendingOwner,
       "Must be proposed L1 owner"

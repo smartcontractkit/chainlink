@@ -15,7 +15,7 @@ import {SafeCast} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/util
 
 // @title The Chainlink Operator contract
 // @notice Node operators can deploy this contract to fulfill requests sent to them
-// solhint-disable custom-errors
+// solhint-disable gas-custom-errors
 contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, OperatorInterface, WithdrawalInterface {
   using Address for address;
 

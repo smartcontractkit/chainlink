@@ -6,7 +6,7 @@ import {AuthorizedForwarder} from "./AuthorizedForwarder.sol";
 
 // @title Operator Factory
 // @notice Creates Operator contracts for node operators
-// solhint-disable custom-errors
+// solhint-disable gas-custom-errors
 contract OperatorFactory {
   // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
   address public immutable linkToken;
