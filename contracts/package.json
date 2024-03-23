@@ -37,13 +37,11 @@
     "@ethersproject/bignumber": "~5.7.0",
     "@ethersproject/contracts": "~5.7.0",
     "@ethersproject/providers": "~5.7.2",
-    "@ethersproject/random": "~5.7.0",
     "@nomicfoundation/hardhat-network-helpers": "^1.0.9",
     "@nomiclabs/hardhat-ethers": "^2.2.3",
     "@nomiclabs/hardhat-etherscan": "^3.1.7",
     "@nomiclabs/hardhat-waffle": "2.0.6",
     "@openzeppelin/hardhat-upgrades": "1.28.0",
-    "@openzeppelin/test-helpers": "^0.5.16",
     "@typechain/ethers-v5": "^7.2.0",
     "@typechain/hardhat": "^7.0.0",
     "@types/cbor": "5.0.1",
@@ -79,9 +77,8 @@
     "solhint-plugin-prettier": "^0.1.0",
     "solidity-coverage": "^0.8.5",
     "ts-node": "^10.9.2",
-    "tslib": "^2.6.2",
     "typechain": "^8.2.1",
-    "typescript": "^5.3.3"
+    "typescript": "^5.4.3"
   },
   "dependencies": {
     "@eth-optimism/contracts": "0.6.0",
