@@ -485,7 +485,7 @@ type GasEstimator struct {
 	LimitDefault    *uint64
 	LimitMax        *uint64
 	LimitMultiplier *decimal.Decimal
-	LimitTransfer   *uint32
+	LimitTransfer   *uint64
 	LimitJobType    GasLimitJobType `toml:",omitempty"`
 
 	BumpMin       *assets.Wei

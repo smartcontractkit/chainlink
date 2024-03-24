@@ -2,18 +2,19 @@
 pragma solidity ^0.8.0;
 
 interface IVRFV2PlusWrapper {
-  event LinkAndLinkNativeFeedSet(address link, address linkNativeFeed);
+  event LinkNativeFeedSet(address linkNativeFeed);
   event FulfillmentTxSizeSet(uint32 size);
   event ConfigSet(
     uint32 wrapperGasOverhead,
     uint32 coordinatorGasOverhead,
-    uint8 wrapperPremiumPercentage,
+    uint8 wrapperNativePremiumPercentage,
+    uint8 wrapperLinkPremiumPercentage,
     bytes32 keyHash,
     uint8 maxNumWords,
     uint32 stalenessSeconds,
     int256 fallbackWeiPerUnitLink,
-    uint32 fulfillmentFlatFeeLinkPPM,
-    uint32 fulfillmentFlatFeeNativePPM
+    uint32 fulfillmentFlatFeeNativePPM,
+    uint32 fulfillmentFlatFeeLinkDiscountPPM
   );
   event FallbackWeiPerUnitLinkUsed(uint256 requestId, int256 fallbackWeiPerUnitLink);
   event Withdrawn(address indexed to, uint256 amount);
@@ -87,4 +88,6 @@ interface IVRFV2PlusWrapper {
     uint32 _numWords,
     bytes memory extraArgs
   ) external payable returns (uint256 requestId);
+
+  function link() external view returns (address);
 }

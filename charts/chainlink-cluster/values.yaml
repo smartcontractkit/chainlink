@@ -232,7 +232,7 @@ tempo:
       trace:
         backend: local # backend configuration to use
         wal:
-          path: /tmp/tempo/wal # where to store the the wal locally
+          path: /tmp/tempo/wal # where to store the wal locally
         local:
           path: /tmp/tempo/blocks
 
@@ -361,6 +361,16 @@ ingress:
                 name: mockserver
                 port:
                   number: 1080
+    - host: chainlink-grafana.local
+      http:
+        paths:
+          - path: /
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: grafana
+                port:
+                  number: 80
 # monitoring.coreos.com/v1 PodMonitor for each node
 prometheusMonitor: true
 
