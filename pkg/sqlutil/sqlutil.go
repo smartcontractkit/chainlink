@@ -19,6 +19,8 @@ type DataSource interface {
 	sqlx.PreparerContext
 	GetContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
 	SelectContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
+	PrepareNamedContext(ctx context.Context, query string) (*sqlx.NamedStmt, error)
+	NamedExecContext(ctx context.Context, query string, arg interface{}) (sql.Result, error)
 }
 
 type TxOptions struct {
@@ -26,13 +28,21 @@ type TxOptions struct {
 	OnPanic func(recovered any, rollbackErr error)
 }
 
+// TransactDataSource is a helper for executing transactions.
+// This useful for executing raw SQL queries, or when using more than one type which is not supported by Transact.
+func TransactDataSource(ctx context.Context, ds DataSource, opts *TxOptions, fn func(tx DataSource) error) error {
+	return Transact(ctx, func(tx DataSource) DataSource { return tx }, ds, opts, fn)
+}
+
 // Transact is a helper for executing transactions with a domain specific type.
 // A typical use looks like:
 //
-//	func (d *MyD) Transaction(ctx context.Context, fn func(*MyD) error) (err error) {
+//	func (d *MyD) Transact(ctx context.Context, fn func(tx *MyD) error) (err error) {
 //	  return sqlutil.Transact(ctx, d.new, d.db, nil, fn)
 //	}
-func Transact[D any](ctx context.Context, newD func(DataSource) D, ds DataSource, opts *TxOptions, fn func(D) error) (err error) {
+//
+// If you need to combine multiple types in one transaction, you can declare a new type, or use TransactDataSource.
+func Transact[D any](ctx context.Context, newD func(DataSource) D, ds DataSource, opts *TxOptions, fn func(tx D) error) (err error) {
 	txds, ok := ds.(transactional)
 	if !ok {
 		// Unsupported or already inside another transaction.
@@ -81,14 +91,20 @@ func Transact[D any](ctx context.Context, newD func(DataSource) D, ds DataSource
 	return
 }
 
+var _ transactional = (*sqlx.DB)(nil)
+
 type transactional interface {
 	// BeginTxx is implemented by *sqlx.DB but not *sqlx.Tx.
 	BeginTxx(context.Context, *sql.TxOptions) (*sqlx.Tx, error)
 }
 
+var _ wrappedTransactional = (*wrappedTransactionalDataSource)(nil)
+
 type wrappedTransactional interface {
 	BeginWrappedTxx(context.Context, *sql.TxOptions) (transaction, error)
 }
+
+var _ transaction = (*wrappedTx)(nil)
 
 type transaction interface {
 	DataSource

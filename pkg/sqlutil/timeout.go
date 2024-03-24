@@ -9,11 +9,11 @@ import (
 
 // TimeoutHook returns a [QueryHook] which adds the defaultTimeout to each context.Context,
 // unless [WithoutDefaultTimeout] has been applied to bypass intentionally.
-func TimeoutHook(defaultTimeout time.Duration) QueryHook {
+func TimeoutHook(defaultTimeout func() time.Duration) QueryHook {
 	return func(ctx context.Context, lggr logger.Logger, do func(context.Context) error, query string, args ...any) error {
 		if wo := ctx.Value(ctxKeyWithoutDefaultTimeout{}); wo == nil {
 			var cancel func()
-			ctx, cancel = context.WithTimeout(ctx, defaultTimeout)
+			ctx, cancel = context.WithTimeout(ctx, defaultTimeout())
 			defer cancel()
 		}
 

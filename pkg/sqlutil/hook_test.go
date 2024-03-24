@@ -28,14 +28,20 @@ func TestWrapDataSource(t *testing.T) {
 	var ds DataSource = &dataSource{}
 	var sentinelErr = errors.New("intercepted error")
 	const fakeError = "fake warning"
-	ds = WrapDataSource(ds, lggr, TimeoutHook(selDur/2), noopHook, MonitorHook(func() bool { return true }), noopHook, func(ctx context.Context, lggr logger.Logger, do func(context.Context) error, query string, args ...any) error {
-		err := do(ctx)
-		if err != nil {
-			return err
-		}
-		lggr.Error(fakeError)
-		return sentinelErr
-	})
+	ds = WrapDataSource(ds, lggr,
+		TimeoutHook(func() time.Duration { return selDur / 2 }),
+		noopHook,
+		MonitorHook(func() bool { return true }),
+		noopHook,
+		func(ctx context.Context, lggr logger.Logger, do func(context.Context) error, query string, args ...any) error {
+			err := do(ctx)
+			if err != nil {
+				return err
+			}
+			lggr.Error(fakeError)
+			return sentinelErr
+		},
+	)
 	ctx := tests.Context(t)
 
 	// Error intercepted
@@ -125,7 +131,15 @@ func (q *dataSource) ExecContext(ctx context.Context, query string, args ...inte
 	return nil, nil
 }
 
+func (q *dataSource) NamedExecContext(ctx context.Context, query string, arg interface{}) (sql.Result, error) {
+	return nil, nil
+}
+
 func (q *dataSource) PrepareContext(ctx context.Context, query string) (*sql.Stmt, error) {
+	return nil, nil
+}
+
+func (q *dataSource) PrepareNamedContext(ctx context.Context, query string) (*sqlx.NamedStmt, error) {
 	return nil, nil
 }
 

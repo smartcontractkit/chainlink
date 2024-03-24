@@ -113,9 +113,25 @@ func (w *wrappedDataSource) ExecContext(ctx context.Context, query string, args 
 	return
 }
 
+func (w *wrappedDataSource) NamedExecContext(ctx context.Context, query string, arg interface{}) (res sql.Result, err error) {
+	err = w.hook(ctx, w.lggr, func(ctx context.Context) (err error) {
+		res, err = w.db.NamedExecContext(ctx, query, arg)
+		return
+	}, query, arg)
+	return
+}
+
 func (w *wrappedDataSource) PrepareContext(ctx context.Context, query string) (stmt *sql.Stmt, err error) {
 	err = w.hook(ctx, w.lggr, func(ctx context.Context) (err error) {
 		stmt, err = w.db.PrepareContext(ctx, query) //nolint:sqlclosecheck
+		return
+	}, query, nil)
+	return
+}
+
+func (w *wrappedDataSource) PrepareNamedContext(ctx context.Context, query string) (stmt *sqlx.NamedStmt, err error) {
+	err = w.hook(ctx, w.lggr, func(ctx context.Context) (err error) {
+		stmt, err = w.db.PrepareNamedContext(ctx, query) //nolint:sqlclosecheck
 		return
 	}, query, nil)
 	return
