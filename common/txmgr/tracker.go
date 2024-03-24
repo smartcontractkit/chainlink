@@ -112,16 +112,16 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) startIntern
 		return fmt.Errorf("failed to track abandoned txes: %w", err)
 	}
 
+	tr.isStarted = true
+
 	if len(tr.txCache) == 0 {
 		tr.lggr.Info("no abandoned txes found, skipping runLoop")
-		tr.isStarted = true
 		return nil
 	}
 
 	tr.lggr.Infof("%d abandoned txes found, starting runLoop", len(tr.txCache))
 	tr.wg.Add(1)
 	go tr.runLoop(tr.chStop.NewCtx())
-	tr.isStarted = true
 	return nil
 }
 
@@ -242,7 +242,6 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) trackAbando
 
 // handleTxesByState handles all txes in the txCache by their state
 // It's called on every new blockHeight and also on startup to handle all txes in the txCache
-// Note: This function is not thread safe and should be called with a lock
 func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) handleTxesByState(ctx context.Context, blockHeight int64) error {
 	ctx, cancel := context.WithTimeout(ctx, handleTxesTimeout)
 	defer cancel()
