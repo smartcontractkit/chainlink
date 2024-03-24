@@ -120,7 +120,7 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) startIntern
 		return nil
 	}
 
-	tr.lggr.Infof("%d abandoned txes found, starting runLoop", len(tr.txCache))
+	tr.lggr.Infof("%d abandoned txes found, starting runLoop", tr.AbandonedTxCount())
 	tr.wg.Add(1)
 	go tr.runLoop(tr.chStop.NewCtx())
 	return nil
@@ -237,7 +237,7 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) trackAbando
 		for _, tx := range nonFatalTxes {
 			if !tr.enabledAddrs[tx.FromAddress] {
 				tr.txCache[tx.ID] = tx.FromAddress
-				tr.lggr.Debugw(fmt.Sprintf("inserted tx %v", tx.ID))
+				tr.lggr.Debugf("inserted tx %v", tx.ID)
 			}
 		}
 		return uint(len(nonFatalTxes)), nil
@@ -283,7 +283,7 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) handleTxesB
 		case TxFatalError:
 			delete(tr.txCache, id)
 		default:
-			tr.lggr.Errorw(fmt.Sprintf("unhandled transaction state: %v", tx.State))
+			tr.lggr.Errorf("unhandled transaction state: %v", tx.State)
 		}
 	}
 
@@ -315,7 +315,7 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) markAllTxes
 	for id := range tr.txCache {
 		tx, err := tr.txStore.GetTxByID(ctx, id)
 		if err != nil {
-			tr.lggr.Errorw(fmt.Errorf("failed to get tx by ID: %w", err).Error())
+			tr.lggr.Errorf("failed to get tx by ID: %v", err.Error())
 			continue
 		}
 
