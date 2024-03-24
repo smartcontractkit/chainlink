@@ -154,8 +154,8 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop(ctx
 		select {
 		case <-tr.mb.Notify():
 			for {
-				blockHeight, exists := tr.mb.Retrieve()
-				if !exists {
+				blockHeight := tr.mb.RetrieveLatestAndClear()
+				if blockHeight == 0 {
 					break
 				}
 				tr.lggr.Infof("received blockHeight %v", blockHeight)
@@ -224,20 +224,20 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) setEnabledA
 
 // trackAbandonedTxes called on stratup to find and insert all abandoned txes into the tracker.
 func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) trackAbandonedTxes(ctx context.Context) (err error) {
-	tr.lock.Lock()
-	defer tr.lock.Unlock()
 	return sqlutil.Batch(func(offset, limit uint) (count uint, err error) {
 		nonFatalTxes, err := tr.txStore.GetNonFatalTransactionsByBatch(ctx, tr.chainID, offset, limit)
 		if err != nil {
 			return 0, fmt.Errorf("failed to get non fatal txes from txStore: %w", err)
 		}
 		// insert abandoned txes
+		tr.lock.Lock()
 		for _, tx := range nonFatalTxes {
 			if !tr.enabledAddrs[tx.FromAddress] {
 				tr.txCache[tx.ID] = tx.FromAddress
 				tr.lggr.Debugf("inserted tx %v", tx.ID)
 			}
 		}
+		tr.lock.Unlock()
 		return uint(len(nonFatalTxes)), nil
 	}, batchSize)
 }
@@ -258,6 +258,10 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) handleTxesB
 
 		switch tx.State {
 		case TxConfirmed:
+			if blockHeight == 0 {
+				// blockHeight is 0 on startup, so we can't know if tx is finalized yet
+				continue
+			}
 			// Check if confirmed txes have been finalized on chain such that
 			// the number of reciepts is greater than finality depth
 			finalized, err := tr.txStore.IsTxFinalized(ctx, blockHeight, tx.ID, tr.chainID)
