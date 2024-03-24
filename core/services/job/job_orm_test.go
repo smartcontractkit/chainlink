@@ -1724,6 +1724,7 @@ func mustInsertPipelineRun(t *testing.T, orm pipeline.ORM, j job.Job) pipeline.R
 
 	run := pipeline.Run{
 		PipelineSpecID: j.PipelineSpecID,
+		PruningKey:     j.ID,
 		State:          pipeline.RunStatusRunning,
 		Outputs:        pipeline.JSONSerializable{Valid: false},
 		AllErrors:      pipeline.RunErrors{},

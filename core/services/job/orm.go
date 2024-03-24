@@ -537,41 +537,43 @@ func (o *orm) InsertWebhookSpec(webhookSpec *WebhookSpec, qopts ...pg.QOpt) erro
 
 func (o *orm) InsertJob(job *Job, qopts ...pg.QOpt) error {
 	q := o.q.WithOpts(qopts...)
-	var query string
+	return q.Transaction(func(querier pg.Queryer) error {
+		var query string
 
-	// if job has id, emplace otherwise insert with a new id.
-	if job.ID == 0 {
-		query = `INSERT INTO jobs (pipeline_spec_id, name, stream_id, schema_version, type, max_task_duration, ocr_oracle_spec_id, ocr2_oracle_spec_id, direct_request_spec_id, flux_monitor_spec_id,
+		// if job has id, emplace otherwise insert with a new id.
+		if job.ID == 0 {
+			query = `INSERT INTO jobs (name, stream_id, schema_version, type, max_task_duration, ocr_oracle_spec_id, ocr2_oracle_spec_id, direct_request_spec_id, flux_monitor_spec_id,
 				keeper_spec_id, cron_spec_id, vrf_spec_id, webhook_spec_id, blockhash_store_spec_id, bootstrap_spec_id, block_header_feeder_spec_id, gateway_spec_id, 
                 legacy_gas_station_server_spec_id, legacy_gas_station_sidecar_spec_id, external_job_id, gas_limit, forwarding_allowed, created_at)
-		VALUES (:pipeline_spec_id, :name, :stream_id, :schema_version, :type, :max_task_duration, :ocr_oracle_spec_id, :ocr2_oracle_spec_id, :direct_request_spec_id, :flux_monitor_spec_id,
+		VALUES (:name, :stream_id, :schema_version, :type, :max_task_duration, :ocr_oracle_spec_id, :ocr2_oracle_spec_id, :direct_request_spec_id, :flux_monitor_spec_id,
 				:keeper_spec_id, :cron_spec_id, :vrf_spec_id, :webhook_spec_id, :blockhash_store_spec_id, :bootstrap_spec_id, :block_header_feeder_spec_id, :gateway_spec_id, 
 		        :legacy_gas_station_server_spec_id, :legacy_gas_station_sidecar_spec_id, :external_job_id, :gas_limit, :forwarding_allowed, NOW())
 		RETURNING *;`
-	} else {
-		query = `INSERT INTO jobs (pipeline_spec_id, id, name, stream_id, schema_version, type, max_task_duration, ocr_oracle_spec_id, ocr2_oracle_spec_id, direct_request_spec_id, flux_monitor_spec_id,
+		} else {
+			query = `INSERT INTO jobs (id, name, stream_id, schema_version, type, max_task_duration, ocr_oracle_spec_id, ocr2_oracle_spec_id, direct_request_spec_id, flux_monitor_spec_id,
 			keeper_spec_id, cron_spec_id, vrf_spec_id, webhook_spec_id, blockhash_store_spec_id, bootstrap_spec_id, block_header_feeder_spec_id, gateway_spec_id, 
                   legacy_gas_station_server_spec_id, legacy_gas_station_sidecar_spec_id, external_job_id, gas_limit, forwarding_allowed, created_at)
-		VALUES (:pipeline_spec_id, :id, :name, :stream_id, :schema_version, :type, :max_task_duration, :ocr_oracle_spec_id, :ocr2_oracle_spec_id, :direct_request_spec_id, :flux_monitor_spec_id,
+		VALUES (:id, :name, :stream_id, :schema_version, :type, :max_task_duration, :ocr_oracle_spec_id, :ocr2_oracle_spec_id, :direct_request_spec_id, :flux_monitor_spec_id,
 				:keeper_spec_id, :cron_spec_id, :vrf_spec_id, :webhook_spec_id, :blockhash_store_spec_id, :bootstrap_spec_id, :block_header_feeder_spec_id, :gateway_spec_id, 
 				:legacy_gas_station_server_spec_id, :legacy_gas_station_sidecar_spec_id, :external_job_id, :gas_limit, :forwarding_allowed, NOW())
 		RETURNING *;`
-	}
-	err := q.GetNamed(query, job, job)
-	if err != nil {
-		return err
-	}
+		}
+		err := q.GetNamed(query, job, job)
+		if err != nil {
+			return err
+		}
 
-	// Prevents trying to insert a PRIMARY job_pipeline_specs record when one already exists
-	// If none exists, it will insert a PRIMARY record
-	var alreadyHasPrimary bool
-	err = q.Get(&alreadyHasPrimary, `SELECT EXISTS (SELECT 1 FROM job_pipeline_specs WHERE job_id = $1 AND is_primary = true)`, job.ID)
-	if err != nil {
-		return errors.Wrap(err, "failed to check for existing primary job_pipeline_specs record")
-	}
-	sqlStmt := `INSERT INTO job_pipeline_specs (job_id, pipeline_spec_id, is_primary) VALUES ($1, $2, $3)`
-	_, err = q.Exec(sqlStmt, job.ID, job.PipelineSpecID, !alreadyHasPrimary)
-	return errors.Wrap(err, "failed to insert job_pipeline_specs relationship")
+		// Prevents trying to insert a PRIMARY job_pipeline_specs record when one already exists
+		// If none exists, it will insert a PRIMARY record
+		var alreadyHasPrimary bool
+		err = q.Get(&alreadyHasPrimary, `SELECT EXISTS (SELECT 1 FROM job_pipeline_specs WHERE job_id = $1 AND is_primary = true)`, job.ID)
+		if err != nil {
+			return errors.Wrap(err, "failed to check for existing primary job_pipeline_specs record")
+		}
+		sqlStmt := `INSERT INTO job_pipeline_specs (job_id, pipeline_spec_id, is_primary) VALUES ($1, $2, $3)`
+		_, err = q.Exec(sqlStmt, job.ID, job.PipelineSpecID, !alreadyHasPrimary)
+		return errors.Wrap(err, "failed to insert job_pipeline_specs relationship")
+	})
 }
 
 // DeleteJob removes a job
@@ -585,7 +587,7 @@ func (o *orm) DeleteJob(id int32, qopts ...pg.QOpt) error {
 	query := `
 		WITH deleted_jobs AS (
 			DELETE FROM jobs WHERE id = $1 RETURNING
-				pipeline_spec_id,
+				id,
 				ocr_oracle_spec_id,
 				ocr2_oracle_spec_id,
 				keeper_spec_id,
@@ -636,9 +638,9 @@ func (o *orm) DeleteJob(id int32, qopts ...pg.QOpt) error {
 			DELETE FROM gateway_specs WHERE id IN (SELECT gateway_spec_id FROM deleted_jobs)
 		),
 		deleted_job_pipeline_specs AS (
-			DELETE FROM job_pipeline_specs WHERE job_id IN (SELECT pipeline_spec_id FROM deleted_jobs)
+			DELETE FROM job_pipeline_specs WHERE job_id IN (SELECT id FROM deleted_jobs) RETURNING pipeline_spec_id
 		)
-		DELETE FROM pipeline_specs WHERE id IN (SELECT pipeline_spec_id FROM deleted_jobs)`
+		DELETE FROM pipeline_specs WHERE id IN (SELECT pipeline_spec_id FROM deleted_job_pipeline_specs)`
 	res, cancel, err := q.ExecQIter(query, id)
 	defer cancel()
 	if err != nil {
@@ -1161,7 +1163,7 @@ WHERE id = $1
 // CountPipelineRunsByJobID returns the total number of pipeline runs for a job.
 func (o *orm) CountPipelineRunsByJobID(jobID int32) (count int32, err error) {
 	err = o.q.Transaction(func(tx pg.Queryer) error {
-		stmt := "SELECT COUNT(*) FROM pipeline_runs JOIN jobs USING (pipeline_spec_id) WHERE jobs.id = $1"
+		stmt := "SELECT COUNT(*) FROM pipeline_runs JOIN job_pipeline_specs USING (pipeline_spec_id) WHERE job_pipeline_specs.job_id = $1"
 		if err = tx.Get(&count, stmt, jobID); err != nil {
 			return errors.Wrap(err, "error counting runs")
 		}
@@ -1176,7 +1178,7 @@ func (o *orm) FindJobsByPipelineSpecIDs(ids []int32) ([]Job, error) {
 	var jbs []Job
 
 	err := o.q.Transaction(func(tx pg.Queryer) error {
-		stmt := `SELECT jobs.*, job_pipeline_specs.pipeline_spec_id FROM jobs JOIN job_pipeline_specs ON (jobs.id = job_pipeline_specs.job_id) WHERE jobs.pipeline_spec_id = ANY($1) ORDER BY jobs.id ASC
+		stmt := `SELECT jobs.*, job_pipeline_specs.pipeline_spec_id FROM jobs JOIN job_pipeline_specs ON (jobs.id = job_pipeline_specs.job_id) WHERE job_pipeline_specs.pipeline_spec_id = ANY($1) ORDER BY jobs.id ASC
 `
 		if err := tx.Select(&jbs, stmt, ids); err != nil {
 			return errors.Wrap(err, "error fetching jobs by pipeline spec IDs")
@@ -1326,7 +1328,7 @@ func loadJobPipelineSpec(tx pg.Queryer, job *Job, id *int32) error {
 	}
 	err := tx.Get(
 		pipelineSpecRow,
-		`SELECT pipeline_specs.*
+		`SELECT pipeline_specs.*, job_pipeline_specs.job_id as job_id
 			FROM pipeline_specs 
     		JOIN job_pipeline_specs ON(pipeline_specs.id = job_pipeline_specs.pipeline_spec_id)
         	WHERE job_pipeline_specs.job_id = $1 AND job_pipeline_specs.pipeline_spec_id = $2`,

@@ -204,6 +204,7 @@ func NewRun(spec Spec, vars Vars) *Run {
 	return &Run{
 		State:          RunStatusRunning,
 		JobID:          spec.JobID,
+		PruningKey:     spec.JobID,
 		PipelineSpec:   spec,
 		PipelineSpecID: spec.ID,
 		Inputs:         JSONSerializable{Val: vars.vars, Valid: true},
