@@ -86,11 +86,10 @@ func (o *MercuryTriggerService) ProcessReport(reports []mercury.FeedReport) erro
 		}
 
 		ch, ok := o.chans[triggerID]
-		if ok {
-			ch <- capabilityResponse
-		} else {
+		if !ok {
 			return fmt.Errorf("no registration for %s", triggerID)
 		}
+		ch <- capabilityResponse
 	}
 	return nil
 }
