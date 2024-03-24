@@ -456,7 +456,7 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxesWithMetaFieldByStates(ctx context.Context, metaField string, states []txmgrtypes.TxState, chainID *big.Int) ([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
 	if ms.chainID.String() != chainID.String() {
-		return nil, fmt.Errorf("find_txes_with_meta_field_by_states: %w", ErrInvalidChainID)
+		panic("invalid chain ID")
 	}
 
 	filterFn := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
@@ -489,7 +489,7 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxesWithMetaFieldByReceiptBlockNum(ctx context.Context, metaField string, blockNum int64, chainID *big.Int) ([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
 	if ms.chainID.String() != chainID.String() {
-		return nil, fmt.Errorf("find_txes_with_meta_field_by_receipt_block_num: %w", ErrInvalidChainID)
+		panic("invalid chain ID")
 	}
 
 	filterFn := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
@@ -503,12 +503,12 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 		if _, ok := meta[metaField]; !ok {
 			return false
 		}
-		if tx.TxAttempts == nil || len(tx.TxAttempts) == 0 {
+		if len(tx.TxAttempts) == 0 {
 			return false
 		}
 
 		for _, attempt := range tx.TxAttempts {
-			if attempt.Receipts == nil || len(attempt.Receipts) == 0 {
+			if len(attempt.Receipts) == 0 {
 				continue
 			}
 			if attempt.Receipts[0].GetBlockNumber() == nil {
@@ -520,24 +520,15 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 		return false
 	}
 
-	txsLock := sync.Mutex{}
 	txs := []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
-	wg := sync.WaitGroup{}
 	ms.addressStatesLock.RLock()
 	defer ms.addressStatesLock.RUnlock()
 	for _, as := range ms.addressStates {
-		wg.Add(1)
-		go func(as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) {
-			for _, tx := range as.findTxs(nil, filterFn) {
-				etx := ms.deepCopyTx(tx)
-				txsLock.Lock()
-				txs = append(txs, etx)
-				txsLock.Unlock()
-			}
-			wg.Done()
-		}(as)
+		for _, tx := range as.findTxs(nil, filterFn) {
+			etx := ms.deepCopyTx(tx)
+			txs = append(txs, etx)
+		}
 	}
-	wg.Wait()
 
 	return txs, nil
 }

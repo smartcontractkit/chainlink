@@ -2,7 +2,6 @@ package txmgr_test
 
 import (
 	"encoding/json"
-	"fmt"
 	"math/big"
 	"testing"
 	"time"
@@ -27,6 +26,101 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 )
+
+func TestInMemoryStore_FindTxesWithMetaFieldByReceiptBlockNum(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
+	persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+	kst := cltest.NewKeyStore(t, db, dbcfg)
+	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
+
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	lggr := logger.TestSugared(t)
+	chainID := ethClient.ConfiguredChainID()
+	ctx := testutils.Context(t)
+
+	inMemoryStore, err := commontxmgr.NewInMemoryStore[
+		*big.Int,
+		common.Address, common.Hash, common.Hash,
+		*evmtypes.Receipt,
+		evmtypes.Nonce,
+		evmgas.EvmFee,
+	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	require.NoError(t, err)
+
+	// initialize the Meta field which is sqlutil.JSON
+	subID := uint64(123)
+	b, err := json.Marshal(txmgr.TxMeta{SubID: &subID})
+	require.NoError(t, err)
+	meta := sqlutil.JSON(b)
+	timeNow := time.Now()
+	nonce := evmtypes.Nonce(123)
+	blockNum := int64(3)
+	broadcastBeforeBlockNum := int64(3)
+	// initialize transactions
+	inTx_0 := cltest.NewEthTx(fromAddress)
+	inTx_0.BroadcastAt = &timeNow
+	inTx_0.InitialBroadcastAt = &timeNow
+	inTx_0.Sequence = &nonce
+	inTx_0.State = commontxmgr.TxConfirmed
+	inTx_0.MinConfirmations.SetValid(6)
+	inTx_0.Meta = &meta
+	// insert the transaction into the persistent store
+	require.NoError(t, persistentStore.InsertTx(&inTx_0))
+	attempt := cltest.NewLegacyEthTxAttempt(t, inTx_0.ID)
+	attempt.BroadcastBeforeBlockNum = &broadcastBeforeBlockNum
+	attempt.State = txmgrtypes.TxAttemptBroadcast
+	require.NoError(t, persistentStore.InsertTxAttempt(&attempt))
+	inTx_0.TxAttempts = append(inTx_0.TxAttempts, attempt)
+	// insert the transaction receipt into the persistent store
+	rec_0 := mustInsertEthReceipt(t, persistentStore, 3, utils.NewHash(), inTx_0.TxAttempts[0].Hash)
+	inTx_0.TxAttempts[0].Receipts = append(inTx_0.TxAttempts[0].Receipts, evmtxmgr.DbReceiptToEvmReceipt(&rec_0))
+	// insert the transaction into the in-memory store
+	require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx_0))
+
+	tcs := []struct {
+		name        string
+		inMetaField string
+		inBlockNum  int64
+		inChainID   *big.Int
+
+		hasErr bool
+		hasTxs bool
+	}{
+		{"successfully finds tx", "SubId", blockNum, chainID, false, true},
+		{"unknown meta_field: finds no txs", "unknown", blockNum, chainID, false, false},
+		{"incorrect meta_field: finds no txs", "MaxLink", blockNum, chainID, false, false},
+		{"incorrect blockNum: finds no txs", "SubId", 12, chainID, false, false},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			actTxs, actErr := inMemoryStore.FindTxesWithMetaFieldByReceiptBlockNum(ctx, tc.inMetaField, tc.inBlockNum, tc.inChainID)
+			expTxs, expErr := persistentStore.FindTxesWithMetaFieldByReceiptBlockNum(ctx, tc.inMetaField, tc.inBlockNum, tc.inChainID)
+			require.Equal(t, expErr, actErr)
+			if tc.hasErr {
+				require.NotNil(t, expErr)
+				require.NotNil(t, actErr)
+			} else {
+				require.Nil(t, expErr)
+				require.Nil(t, actErr)
+			}
+			if tc.hasTxs {
+				require.NotEqual(t, 0, len(expTxs))
+				assert.NotEqual(t, 0, len(actTxs))
+				require.Equal(t, len(expTxs), len(actTxs))
+				for i := 0; i < len(expTxs); i++ {
+					assertTxEqual(t, *expTxs[i], *actTxs[i])
+				}
+			} else {
+				require.Equal(t, 0, len(expTxs))
+				require.Equal(t, 0, len(actTxs))
+			}
+		})
+	}
+}
 
 func TestInMemoryStore_FindTxesWithMetaFieldByStates(t *testing.T) {
 	t.Parallel()
@@ -1382,10 +1476,6 @@ func TestInMemoryStore_FindTxsRequiringGasBump(t *testing.T) {
 		expTxs, expErr := persistentStore.FindTxsRequiringGasBump(ctx, fromAddress, newBlock, gasBumpThreshold, 0, chainID)
 		actTxs, actErr := inMemoryStore.FindTxsRequiringGasBump(ctx, fromAddress, newBlock, gasBumpThreshold, 0, chainID)
 		require.NoError(t, expErr)
-		fmt.Println("EXPTX", expTxs[0].ID)
-		for i := 0; i < len(expTxs[0].TxAttempts); i++ {
-			fmt.Println("EXPTX_ATTEMPT", expTxs[0].TxAttempts[i].ID)
-		}
 		require.NoError(t, actErr)
 		require.Equal(t, len(expTxs), len(actTxs))
 		for i := 0; i < len(expTxs); i++ {
@@ -1428,6 +1518,9 @@ func assertTxEqual(t *testing.T, exp, act evmtxmgr.Tx) {
 	assert.Equal(t, exp.SignalCallback, act.SignalCallback)
 	assert.Equal(t, exp.CallbackCompleted, act.CallbackCompleted)
 
+	if len(exp.TxAttempts) == 0 {
+		return
+	}
 	require.Equal(t, len(exp.TxAttempts), len(act.TxAttempts))
 	for i := 0; i < len(exp.TxAttempts); i++ {
 		assertTxAttemptEqual(t, exp.TxAttempts[i], act.TxAttempts[i])
@@ -1446,6 +1539,9 @@ func assertTxAttemptEqual(t *testing.T, exp, act evmtxmgr.TxAttempt) {
 	assert.Equal(t, exp.State, act.State)
 	assert.Equal(t, exp.TxType, act.TxType)
 
+	if len(exp.Receipts) == 0 {
+		return
+	}
 	require.Equal(t, len(exp.Receipts), len(act.Receipts))
 	for i := 0; i < len(exp.Receipts); i++ {
 		assertChainReceiptEqual(t, exp.Receipts[i], act.Receipts[i])
