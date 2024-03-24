@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-
 	"testing"
 
 	libocr "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -47,7 +46,7 @@ func (s staticFactory) Ready() error { panic("implement me") }
 
 func (s staticFactory) HealthReport() map[string]error { panic("implement me") }
 
-func (s staticFactory) NewReportingPlugin(config libocr.ReportingPluginConfig) (libocr.ReportingPlugin, libocr.ReportingPluginInfo, error) {
+func (s staticFactory) NewReportingPlugin(ctx context.Context, config libocr.ReportingPluginConfig) (libocr.ReportingPlugin, libocr.ReportingPluginInfo, error) {
 	err := s.equalConfig(config)
 	if err != nil {
 		return nil, libocr.ReportingPluginInfo{}, fmt.Errorf("config mismatch: %w", err)
@@ -97,9 +96,9 @@ func (s staticFactory) equalConfig(other libocr.ReportingPluginConfig) error {
 
 func RunFactory(t *testing.T, factory libocr.ReportingPluginFactory) {
 	expectedFactory := Factory
-	ctx := tests.Context(t)
 	t.Run("ReportingPluginFactory", func(t *testing.T) {
-		rp, gotRPI, err := factory.NewReportingPlugin(expectedFactory.ReportingPluginConfig)
+		ctx := tests.Context(t)
+		rp, gotRPI, err := factory.NewReportingPlugin(ctx, expectedFactory.ReportingPluginConfig)
 		require.NoError(t, err)
 		assert.Equal(t, expectedFactory.rpi, gotRPI)
 		t.Cleanup(func() { assert.NoError(t, rp.Close()) })

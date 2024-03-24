@@ -102,7 +102,7 @@ func TestFeedMonitor(t *testing.T) {
 			monitor.Run(ctx)
 		})
 
-		envelope, err := generateEnvelope()
+		envelope, err := generateEnvelope(ctx)
 		require.NoError(t, err)
 
 		var countEnvelopes int64

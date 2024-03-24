@@ -20,9 +20,8 @@ func NewOnchainConfigCodecClient(cc grpc.ClientConnInterface) *OnchainConfigCode
 	return &OnchainConfigCodecClient{grpc: mercury_pb.NewOnchainConfigCodecClient(cc)}
 }
 
-// TODO: BCF-2887 plumb context through
-func (o *OnchainConfigCodecClient) Encode(config mercury_types.OnchainConfig) ([]byte, error) {
-	reply, err := o.grpc.Encode(context.TODO(), &mercury_pb.EncodeOnchainConfigRequest{
+func (o *OnchainConfigCodecClient) Encode(ctx context.Context, config mercury_types.OnchainConfig) ([]byte, error) {
+	reply, err := o.grpc.Encode(ctx, &mercury_pb.EncodeOnchainConfigRequest{
 		OnchainConfig: pbOnchainConfig(config),
 	})
 	if err != nil {
@@ -31,8 +30,8 @@ func (o *OnchainConfigCodecClient) Encode(config mercury_types.OnchainConfig) ([
 	return reply.OnchainConfig, nil
 }
 
-func (o *OnchainConfigCodecClient) Decode(data []byte) (mercury_types.OnchainConfig, error) {
-	reply, err := o.grpc.Decode(context.TODO(), &mercury_pb.DecodeOnchainConfigRequest{
+func (o *OnchainConfigCodecClient) Decode(ctx context.Context, data []byte) (mercury_types.OnchainConfig, error) {
+	reply, err := o.grpc.Decode(ctx, &mercury_pb.DecodeOnchainConfigRequest{
 		OnchainConfig: data,
 	})
 	if err != nil {
@@ -68,7 +67,7 @@ func NewOnchainConfigCodecServer(impl mercury_types.OnchainConfigCodec) *Onchain
 }
 
 func (o *OnchainConfigCodecServer) Encode(ctx context.Context, request *mercury_pb.EncodeOnchainConfigRequest) (*mercury_pb.EncodeOnchainConfigReply, error) {
-	val, err := o.impl.Encode(onchainConfig(request.OnchainConfig))
+	val, err := o.impl.Encode(ctx, onchainConfig(request.OnchainConfig))
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +75,7 @@ func (o *OnchainConfigCodecServer) Encode(ctx context.Context, request *mercury_
 }
 
 func (o *OnchainConfigCodecServer) Decode(ctx context.Context, request *mercury_pb.DecodeOnchainConfigRequest) (*mercury_pb.DecodeOnchainConfigReply, error) {
-	val, err := o.impl.Decode(request.OnchainConfig)
+	val, err := o.impl.Decode(ctx, request.OnchainConfig)
 	if err != nil {
 		return nil, err
 	}

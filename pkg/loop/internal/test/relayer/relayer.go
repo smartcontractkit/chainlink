@@ -224,6 +224,7 @@ func (s staticPluginRelayer) Transact(ctx context.Context, f, t string, a *big.I
 func (s staticPluginRelayer) AssertEqual(ctx context.Context, t *testing.T, relayer loop.Relayer) {
 	t.Run("ConfigProvider", func(t *testing.T) {
 		t.Parallel()
+		ctx := tests.Context(t)
 		configProvider, err := relayer.NewConfigProvider(ctx, RelayArgs)
 		require.NoError(t, err)
 		require.NoError(t, configProvider.Start(ctx))
@@ -234,6 +235,7 @@ func (s staticPluginRelayer) AssertEqual(ctx context.Context, t *testing.T, rela
 
 	t.Run("MedianProvider", func(t *testing.T) {
 		t.Parallel()
+		ctx := tests.Context(t)
 		ra := newRelayArgsWithProviderType(types.Median)
 		p, err := relayer.NewPluginProvider(ctx, ra, PluginArgs)
 		require.NoError(t, err)
@@ -250,6 +252,7 @@ func (s staticPluginRelayer) AssertEqual(ctx context.Context, t *testing.T, rela
 
 	t.Run("PluginProvider", func(t *testing.T) {
 		t.Parallel()
+		ctx := tests.Context(t)
 		ra := newRelayArgsWithProviderType(types.GenericPlugin)
 		provider, err := relayer.NewPluginProvider(ctx, ra, PluginArgs)
 		require.NoError(t, err)
@@ -257,12 +260,14 @@ func (s staticPluginRelayer) AssertEqual(ctx context.Context, t *testing.T, rela
 		t.Cleanup(func() { assert.NoError(t, provider.Close()) })
 		t.Run("ReportingPluginProvider", func(t *testing.T) {
 			t.Parallel()
+			ctx := tests.Context(t)
 			s.agnosticProvider.AssertEqual(ctx, t, provider)
 		})
 	})
 
 	t.Run("GetChainStatus", func(t *testing.T) {
 		t.Parallel()
+		ctx := tests.Context(t)
 		gotChain, err := relayer.GetChainStatus(ctx)
 		require.NoError(t, err)
 		assert.Equal(t, s.chainStatus, gotChain)
@@ -270,6 +275,7 @@ func (s staticPluginRelayer) AssertEqual(ctx context.Context, t *testing.T, rela
 
 	t.Run("ListNodeStatuses", func(t *testing.T) {
 		t.Parallel()
+		ctx := tests.Context(t)
 		gotNodes, gotNextToken, gotCount, err := relayer.ListNodeStatuses(ctx, s.nodeRequest.pageSize, s.nodeRequest.pageToken)
 		require.NoError(t, err)
 		assert.Equal(t, s.nodeResponse.nodes, gotNodes)
@@ -279,6 +285,7 @@ func (s staticPluginRelayer) AssertEqual(ctx context.Context, t *testing.T, rela
 
 	t.Run("Transact", func(t *testing.T) {
 		t.Parallel()
+		ctx := tests.Context(t)
 		err := relayer.Transact(ctx, s.transactionRequest.from, s.transactionRequest.to, s.transactionRequest.amount, s.transactionRequest.balanceCheck)
 		require.NoError(t, err)
 	})
@@ -304,9 +311,8 @@ func newRelayArgsWithProviderType(_type types.OCR2PluginType) types.RelayArgs {
 }
 
 func RunPlugin(t *testing.T, p internal.PluginRelayer) {
-	ctx := tests.Context(t)
-
 	t.Run("Relayer", func(t *testing.T) {
+		ctx := tests.Context(t)
 		relayer, err := p.NewRelayer(ctx, ConfigTOML, testcore.Keystore)
 		require.NoError(t, err)
 		require.NoError(t, relayer.Start(ctx))

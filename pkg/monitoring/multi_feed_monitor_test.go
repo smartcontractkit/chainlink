@@ -69,7 +69,7 @@ func TestMultiFeedMonitorSynchronousMode(t *testing.T) {
 	count := 0
 	messages := []producerMessage{}
 
-	envelope, err := generateEnvelope()
+	envelope, err := generateEnvelope(ctx)
 	require.NoError(t, err)
 
 LOOP:
@@ -77,7 +77,7 @@ LOOP:
 		select {
 		case factory.updates <- envelope:
 			count++
-			envelope, err = generateEnvelope()
+			envelope, err = generateEnvelope(ctx)
 			require.NoError(t, err)
 		case <-ctx.Done():
 			break LOOP
@@ -152,7 +152,7 @@ func TestMultiFeedMonitorForPerformance(t *testing.T) {
 	var count int64
 	messages := []producerMessage{}
 
-	envelope, err := generateEnvelope()
+	envelope, err := generateEnvelope(ctx)
 	require.NoError(t, err)
 
 	subs.Go(func() {
@@ -161,7 +161,7 @@ func TestMultiFeedMonitorForPerformance(t *testing.T) {
 			select {
 			case factory.updates <- envelope:
 				count++
-				envelope, err = generateEnvelope()
+				envelope, err = generateEnvelope(ctx)
 				require.NoError(t, err)
 			case <-ctx.Done():
 				break LOOP
@@ -255,7 +255,7 @@ func TestMultiFeedMonitorErroringFactories(t *testing.T) {
 			100, // bufferCapacity for source pollers
 		)
 
-		envelope, err := generateEnvelope()
+		envelope, err := generateEnvelope(ctx)
 		require.NoError(t, err)
 
 		subs.Go(func() {

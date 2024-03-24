@@ -57,6 +57,6 @@ func (s staticConfigProvider) AssertEqual(ctx context.Context, t *testing.T, cp 
 	})
 	t.Run("ContractConfigTracker", func(t *testing.T) {
 		t.Parallel()
-		assert.NoError(t, s.contractConfigTracker.Evaluate(context.Background(), cp.ContractConfigTracker()))
+		assert.NoError(t, s.contractConfigTracker.Evaluate(ctx, cp.ContractConfigTracker()))
 	})
 }

@@ -200,7 +200,7 @@ func (s ocr3staticReportingPlugin) Observation(ctx context.Context, outcomeCtx o
 	return s.observationResponse.observation, nil
 }
 
-func (s ocr3staticReportingPlugin) ValidateObservation(outcomeCtx ocr3types.OutcomeContext, q libocr.Query, a libocr.AttributedObservation) error {
+func (s ocr3staticReportingPlugin) ValidateObservation(ctx context.Context, outcomeCtx ocr3types.OutcomeContext, q libocr.Query, a libocr.AttributedObservation) error {
 	err := s.checkOutCtx(outcomeCtx)
 	if err != nil {
 		return err
@@ -220,7 +220,7 @@ func (s ocr3staticReportingPlugin) ValidateObservation(outcomeCtx ocr3types.Outc
 	return nil
 }
 
-func (s ocr3staticReportingPlugin) ObservationQuorum(outcomeCtx ocr3types.OutcomeContext, q libocr.Query) (ocr3types.Quorum, error) {
+func (s ocr3staticReportingPlugin) ObservationQuorum(ctx context.Context, outcomeCtx ocr3types.OutcomeContext, q libocr.Query) (ocr3types.Quorum, error) {
 	err := s.checkOutCtx(outcomeCtx)
 	if err != nil {
 		return ocr3types.Quorum(0), err
@@ -232,7 +232,7 @@ func (s ocr3staticReportingPlugin) ObservationQuorum(outcomeCtx ocr3types.Outcom
 	return s.observationQuorumResponse.quorum, nil
 }
 
-func (s ocr3staticReportingPlugin) Outcome(outcomeCtx ocr3types.OutcomeContext, q libocr.Query, aos []libocr.AttributedObservation) (ocr3types.Outcome, error) {
+func (s ocr3staticReportingPlugin) Outcome(ctx context.Context, outcomeCtx ocr3types.OutcomeContext, q libocr.Query, aos []libocr.AttributedObservation) (ocr3types.Outcome, error) {
 	err := s.checkOutCtx(outcomeCtx)
 	if err != nil {
 		return nil, err
@@ -247,7 +247,7 @@ func (s ocr3staticReportingPlugin) Outcome(outcomeCtx ocr3types.OutcomeContext, 
 	return s.outcomeResponse.outcome, nil
 }
 
-func (s ocr3staticReportingPlugin) Reports(seq uint64, o ocr3types.Outcome) ([]ocr3types.ReportWithInfo[[]byte], error) {
+func (s ocr3staticReportingPlugin) Reports(ctx context.Context, seq uint64, o ocr3types.Outcome) ([]ocr3types.ReportWithInfo[[]byte], error) {
 	if seq != s.reportsRequest.seq {
 		return nil, fmt.Errorf("expected %x but got %x", s.reportsRequest.seq, seq)
 	}
@@ -300,18 +300,18 @@ func (s ocr3staticReportingPlugin) AssertEqual(ctx context.Context, t *testing.T
 	require.NoError(t, err)
 	assert.Equal(t, s.observationResponse.observation, gotObs)
 
-	err = rp.ValidateObservation(s.validateObservationRequest.outcomeCtx, s.validateObservationRequest.query, s.validateObservationRequest.attributedObservation)
+	err = rp.ValidateObservation(ctx, s.validateObservationRequest.outcomeCtx, s.validateObservationRequest.query, s.validateObservationRequest.attributedObservation)
 	require.NoError(t, err)
 
-	gotQuorum, err := rp.ObservationQuorum(s.observationQuorumRequest.outcomeCtx, s.observationQuorumRequest.query)
+	gotQuorum, err := rp.ObservationQuorum(ctx, s.observationQuorumRequest.outcomeCtx, s.observationQuorumRequest.query)
 	require.NoError(t, err)
 	assert.Equal(t, s.observationQuorumResponse.quorum, gotQuorum)
 
-	gotOutcome, err := rp.Outcome(s.outcomeRequest.outcomeCtx, s.outcomeRequest.query, s.outcomeRequest.observations)
+	gotOutcome, err := rp.Outcome(ctx, s.outcomeRequest.outcomeCtx, s.outcomeRequest.query, s.outcomeRequest.observations)
 	require.NoError(t, err)
 	assert.Equal(t, s.outcomeResponse.outcome, gotOutcome)
 
-	gotRI, err := rp.Reports(s.reportsRequest.seq, s.reportsRequest.outcome)
+	gotRI, err := rp.Reports(ctx, s.reportsRequest.seq, s.reportsRequest.outcome)
 	require.NoError(t, err)
 	assert.Equal(t, s.reportsResponse.reportWithInfo, gotRI)
 

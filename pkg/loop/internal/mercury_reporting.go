@@ -25,10 +25,7 @@ func newMercuryPluginFactoryClient(b *net.BrokerExt, cc grpc.ClientConnInterface
 	return &mercuryPluginFactoryClient{b.WithName("MercuryPluginProviderClient"), NewServiceClient(b, cc), mercurypb.NewMercuryPluginFactoryClient(cc)}
 }
 
-func (r *mercuryPluginFactoryClient) NewMercuryPlugin(config ocr3types.MercuryPluginConfig) (ocr3types.MercuryPlugin, ocr3types.MercuryPluginInfo, error) {
-	ctx, cancel := r.StopCtx()
-	defer cancel()
-
+func (r *mercuryPluginFactoryClient) NewMercuryPlugin(ctx context.Context, config ocr3types.MercuryPluginConfig) (ocr3types.MercuryPlugin, ocr3types.MercuryPluginInfo, error) {
 	response, err := r.grpc.NewMercuryPlugin(ctx, &mercurypb.NewMercuryPluginRequest{MercuryPluginConfig: &mercurypb.MercuryPluginConfig{
 		ConfigDigest:           config.ConfigDigest[:],
 		OracleID:               uint32(config.OracleID),
@@ -86,7 +83,7 @@ func (r *mercuryPluginFactoryServer) NewMercuryPlugin(ctx context.Context, reque
 	}
 	copy(cfg.ConfigDigest[:], request.MercuryPluginConfig.ConfigDigest)
 
-	rp, rpi, err := r.impl.NewMercuryPlugin(cfg)
+	rp, rpi, err := r.impl.NewMercuryPlugin(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -130,9 +127,8 @@ func (r *mercuryPluginClient) Observation(ctx context.Context, timestamp libocr.
 	return response.Observation, nil
 }
 
-// TODO: BCF-2887 plumb context through.
-func (r *mercuryPluginClient) Report(timestamp libocr.ReportTimestamp, previousReport libocr.Report, obs []libocr.AttributedObservation) (bool, libocr.Report, error) {
-	response, err := r.grpc.Report(context.TODO(), &mercurypb.ReportRequest{
+func (r *mercuryPluginClient) Report(ctx context.Context, timestamp libocr.ReportTimestamp, previousReport libocr.Report, obs []libocr.AttributedObservation) (bool, libocr.Report, error) {
+	response, err := r.grpc.Report(ctx, &mercurypb.ReportRequest{
 		ReportTimestamp: pb.ReportTimestampToPb(timestamp),
 		PreviousReport:  previousReport,
 		Observations:    mercurypbAttributedObservations(obs),
@@ -180,8 +176,7 @@ func (r *mercuryPluginServer) Report(ctx context.Context, request *mercurypb.Rep
 	if err != nil {
 		return nil, err
 	}
-	// TODO: BCF-2887 plumb context through
-	should, report, err := r.impl.Report(rts, request.PreviousReport, obs)
+	should, report, err := r.impl.Report(ctx, rts, request.PreviousReport, obs)
 	if err != nil {
 		return nil, err
 	}

@@ -39,7 +39,7 @@ type staticOnchainConfigCodec struct {
 
 var _ OnchainConfigCodecEvaluator = staticOnchainConfigCodec{}
 
-func (staticOnchainConfigCodec) Encode(c mercury_types.OnchainConfig) ([]byte, error) {
+func (staticOnchainConfigCodec) Encode(ctx context.Context, c mercury_types.OnchainConfig) ([]byte, error) {
 	if !reflect.DeepEqual(c, StaticOnChainConfigCodecFixtures.Decoded) {
 		return nil, fmt.Errorf("expected OnchainConfig %v but got %v", StaticOnChainConfigCodecFixtures.Decoded, c)
 	}
@@ -47,12 +47,12 @@ func (staticOnchainConfigCodec) Encode(c mercury_types.OnchainConfig) ([]byte, e
 	return StaticOnChainConfigCodecFixtures.Encoded, nil
 }
 
-func (staticOnchainConfigCodec) Decode([]byte) (mercury_types.OnchainConfig, error) {
+func (staticOnchainConfigCodec) Decode(context.Context, []byte) (mercury_types.OnchainConfig, error) {
 	return StaticOnChainConfigCodecFixtures.Decoded, nil
 }
 
 func (staticOnchainConfigCodec) Evaluate(ctx context.Context, other mercury_types.OnchainConfigCodec) error {
-	encoded, err := other.Encode(StaticOnChainConfigCodecFixtures.Decoded)
+	encoded, err := other.Encode(ctx, StaticOnChainConfigCodecFixtures.Decoded)
 	if err != nil {
 		return fmt.Errorf("failed to encode: %w", err)
 	}
@@ -60,7 +60,7 @@ func (staticOnchainConfigCodec) Evaluate(ctx context.Context, other mercury_type
 		return fmt.Errorf("expected encoded %x but got %x", StaticOnChainConfigCodecFixtures.Encoded, encoded)
 	}
 
-	decoded, err := other.Decode(StaticOnChainConfigCodecFixtures.Encoded)
+	decoded, err := other.Decode(ctx, StaticOnChainConfigCodecFixtures.Encoded)
 	if err != nil {
 		return fmt.Errorf("failed to decode: %w", err)
 	}

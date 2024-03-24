@@ -42,11 +42,11 @@ func NewMercuryV3Service(lggr logger.Logger, grpcOpts GRPCOpts, cmd func() *exec
 	return &ms
 }
 
-func (m *MercuryV3Service) NewMercuryPlugin(config ocr3types.MercuryPluginConfig) (ocr3types.MercuryPlugin, ocr3types.MercuryPluginInfo, error) {
+func (m *MercuryV3Service) NewMercuryPlugin(ctx context.Context, config ocr3types.MercuryPluginConfig) (ocr3types.MercuryPlugin, ocr3types.MercuryPluginInfo, error) {
 	if err := m.Wait(); err != nil {
 		return nil, ocr3types.MercuryPluginInfo{}, err
 	}
-	return m.Service.NewMercuryPlugin(config)
+	return m.Service.NewMercuryPlugin(ctx, config)
 }
 
 // MercuryV1Service is a [types.Service] that maintains an internal [types.PluginMedian].
@@ -74,11 +74,11 @@ func NewMercuryV1Service(lggr logger.Logger, grpcOpts GRPCOpts, cmd func() *exec
 	return &ms
 }
 
-func (m *MercuryV1Service) NewMercuryPlugin(config ocr3types.MercuryPluginConfig) (ocr3types.MercuryPlugin, ocr3types.MercuryPluginInfo, error) {
+func (m *MercuryV1Service) NewMercuryPlugin(ctx context.Context, config ocr3types.MercuryPluginConfig) (ocr3types.MercuryPlugin, ocr3types.MercuryPluginInfo, error) {
 	if err := m.Wait(); err != nil {
 		return nil, ocr3types.MercuryPluginInfo{}, err
 	}
-	return m.Service.NewMercuryPlugin(config)
+	return m.Service.NewMercuryPlugin(ctx, config)
 }
 
 var _ ocr3types.MercuryPluginFactory = (*MercuryV1Service)(nil)
@@ -108,11 +108,11 @@ func NewMercuryV2Service(lggr logger.Logger, grpcOpts GRPCOpts, cmd func() *exec
 	return &ms
 }
 
-func (m *MercuryV2Service) NewMercuryPlugin(config ocr3types.MercuryPluginConfig) (ocr3types.MercuryPlugin, ocr3types.MercuryPluginInfo, error) {
+func (m *MercuryV2Service) NewMercuryPlugin(ctx context.Context, config ocr3types.MercuryPluginConfig) (ocr3types.MercuryPlugin, ocr3types.MercuryPluginInfo, error) {
 	if err := m.Wait(); err != nil {
 		return nil, ocr3types.MercuryPluginInfo{}, err
 	}
-	return m.Service.NewMercuryPlugin(config)
+	return m.Service.NewMercuryPlugin(ctx, config)
 }
 
 var _ ocr3types.MercuryPluginFactory = (*MercuryV2Service)(nil)

@@ -98,15 +98,15 @@ func (r *reportingPlugin) Observation(ctx context.Context, outctx ocr3types.Outc
 	return proto.Marshal(obs)
 }
 
-func (r *reportingPlugin) ValidateObservation(outctx ocr3types.OutcomeContext, query types.Query, ao types.AttributedObservation) error {
+func (r *reportingPlugin) ValidateObservation(ctx context.Context, outctx ocr3types.OutcomeContext, query types.Query, ao types.AttributedObservation) error {
 	return nil
 }
 
-func (r *reportingPlugin) ObservationQuorum(outctx ocr3types.OutcomeContext, query types.Query) (ocr3types.Quorum, error) {
+func (r *reportingPlugin) ObservationQuorum(ctx context.Context, outctx ocr3types.OutcomeContext, query types.Query) (ocr3types.Quorum, error) {
 	return ocr3types.QuorumTwoFPlusOne, nil
 }
 
-func (r *reportingPlugin) Outcome(outctx ocr3types.OutcomeContext, query types.Query, aos []types.AttributedObservation) (ocr3types.Outcome, error) {
+func (r *reportingPlugin) Outcome(ctx context.Context, outctx ocr3types.OutcomeContext, query types.Query, aos []types.AttributedObservation) (ocr3types.Outcome, error) {
 	// execution ID -> oracle ID -> list of observations
 	m := map[string]map[ocrcommon.OracleID][]values.Value{}
 	for _, o := range aos {
@@ -189,7 +189,7 @@ func (r *reportingPlugin) Outcome(outctx ocr3types.OutcomeContext, query types.Q
 	return proto.Marshal(o)
 }
 
-func (r *reportingPlugin) Reports(seqNr uint64, outcome ocr3types.Outcome) ([]ocr3types.ReportWithInfo[[]byte], error) {
+func (r *reportingPlugin) Reports(ctx context.Context, seqNr uint64, outcome ocr3types.Outcome) ([]ocr3types.ReportWithInfo[[]byte], error) {
 	o := &pbtypes.Outcome{}
 	err := proto.Unmarshal(outcome, o)
 	if err != nil {
@@ -221,8 +221,12 @@ func (r *reportingPlugin) Reports(seqNr uint64, outcome ocr3types.Outcome) ([]oc
 			}
 
 			mv := values.FromMapValueProto(newOutcome.EncodableOutcome)
-			report, err = enc.Encode(context.Background(), *mv)
+			report, err = enc.Encode(ctx, *mv)
 			if err != nil {
+				if cerr := ctx.Err(); cerr != nil {
+					r.lggr.Errorw("report encoding cancelled", "err", cerr)
+					return nil, cerr
+				}
 				r.lggr.Errorw("could not encode report for workflow", "error", err, "workflowID", id.WorkflowId)
 				continue
 			}

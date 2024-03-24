@@ -34,37 +34,37 @@ var StaticReportCodecFixtures = StaticReportCodecValues{
 	ObservationTimestamp: 23,
 }
 
-func (s staticReportCodec) BuildReport(fields mercury_v2_types.ReportFields) (ocrtypes.Report, error) {
+func (s staticReportCodec) BuildReport(ctx context.Context, fields mercury_v2_types.ReportFields) (ocrtypes.Report, error) {
 	return StaticReportCodecFixtures.Report, nil
 }
 
 // MaxReportLength Returns the maximum length of a report based on n, the number of oracles.
 // The output of BuildReport must respect this maximum length.
-func (s staticReportCodec) MaxReportLength(n int) (int, error) {
+func (s staticReportCodec) MaxReportLength(ctx context.Context, n int) (int, error) {
 	return StaticReportCodecFixtures.MaxReportLength, nil
 }
 
 // CurrentBlockNumFromReport returns the median current block number from a report
-func (s staticReportCodec) ObservationTimestampFromReport(ocrtypes.Report) (uint32, error) {
+func (s staticReportCodec) ObservationTimestampFromReport(context.Context, ocrtypes.Report) (uint32, error) {
 	return StaticReportCodecFixtures.ObservationTimestamp, nil
 }
 
 func (s staticReportCodec) Evaluate(ctx context.Context, other mercury_v2_types.ReportCodec) error {
-	gotReport, err := other.BuildReport(Fixtures.ReportFields)
+	gotReport, err := other.BuildReport(ctx, Fixtures.ReportFields)
 	if err != nil {
 		return fmt.Errorf("failed to BuildReport: %w", err)
 	}
 	if !bytes.Equal(gotReport, Fixtures.Report) {
 		return fmt.Errorf("expected Report %x but got %x", Fixtures.Report, gotReport)
 	}
-	gotMax, err := other.MaxReportLength(Fixtures.MaxReportLength)
+	gotMax, err := other.MaxReportLength(ctx, Fixtures.MaxReportLength)
 	if err != nil {
 		return fmt.Errorf("failed to get MaxReportLength: %w", err)
 	}
 	if gotMax != Fixtures.MaxReportLength {
 		return fmt.Errorf("expected MaxReportLength %d but got %d", Fixtures.MaxReportLength, gotMax)
 	}
-	gotObservedTimestamp, err := other.ObservationTimestampFromReport(gotReport)
+	gotObservedTimestamp, err := other.ObservationTimestampFromReport(ctx, gotReport)
 	if err != nil {
 		return fmt.Errorf("failed to get ObservationTimestampFromReport: %w", err)
 	}

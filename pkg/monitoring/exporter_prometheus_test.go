@@ -35,10 +35,10 @@ func TestPrometheusExporter(t *testing.T) {
 		exporter, err := factory.NewExporter(ExporterParams{chainConfig, feedConfig, nodes})
 		require.NoError(t, err)
 
-		envelope1, err := generateEnvelope()
+		envelope1, err := generateEnvelope(ctx)
 		require.NoError(t, err)
 		envelope1.Transmitter = nodes[0].GetAccount()
-		envelope2, err := generateEnvelope()
+		envelope2, err := generateEnvelope(ctx)
 		require.NoError(t, err)
 		envelope2.Transmitter = nodes[1].GetAccount()
 
@@ -396,9 +396,9 @@ func TestPrometheusExporter(t *testing.T) {
 		exporter, err := factory.NewExporter(ExporterParams{chainConfig, feedConfig, nodes})
 		require.NoError(t, err)
 
-		envelope1, err := generateEnvelope()
+		envelope1, err := generateEnvelope(ctx)
 		require.NoError(t, err)
-		envelope2, err := generateEnvelope()
+		envelope2, err := generateEnvelope(ctx)
 		require.NoError(t, err)
 		envelope2.LatestAnswer = envelope1.LatestAnswer
 		envelope2.LatestTimestamp = envelope1.LatestTimestamp

@@ -67,14 +67,14 @@ type ReportCodec interface {
 	// ParsedAttributedObservation per observer, and that all observers are
 	// valid. However, observation values, timestamps, etc... should all be
 	// treated as untrusted.
-	BuildReport(fields ReportFields) (ocrtypes.Report, error)
+	BuildReport(ctx context.Context, fields ReportFields) (ocrtypes.Report, error)
 
 	// MaxReportLength Returns the maximum length of a report based on n, the number of oracles.
 	// The output of BuildReport must respect this maximum length.
-	MaxReportLength(n int) (int, error)
+	MaxReportLength(ctx context.Context, n int) (int, error)
 
 	// CurrentBlockNumFromReport returns the median current block number from a report
-	CurrentBlockNumFromReport(types.Report) (int64, error)
+	CurrentBlockNumFromReport(context.Context, types.Report) (int64, error)
 }
 
 // DataSource implementations must be thread-safe. Observe may be called by many

@@ -80,7 +80,7 @@ func (s staticMercuryPlugin) Observation(ctx context.Context, timestamp libocr.R
 	return s.observationResponse.observation, nil
 }
 
-func (s staticMercuryPlugin) Report(timestamp libocr.ReportTimestamp, previousReport libocr.Report, observations []libocr.AttributedObservation) (bool, libocr.Report, error) {
+func (s staticMercuryPlugin) Report(ctx context.Context, timestamp libocr.ReportTimestamp, previousReport libocr.Report, observations []libocr.AttributedObservation) (bool, libocr.Report, error) {
 	if timestamp != s.reportRequest.reportTimestamp {
 		return false, nil, fmt.Errorf("expected report timestamp %v but got %v", s.reportRequest.reportTimestamp, timestamp)
 	}
@@ -99,7 +99,7 @@ func (s staticMercuryPlugin) AssertEqual(ctx context.Context, t *testing.T, othe
 	gotObs, err := other.Observation(ctx, s.observationRequest.reportTimestamp, s.observationRequest.previousReport)
 	require.NoError(t, err)
 	assert.Equal(t, s.observationResponse.observation, gotObs)
-	gotOk, gotReport, err := other.Report(s.reportRequest.reportTimestamp, s.reportRequest.previousReport, s.reportRequest.observations)
+	gotOk, gotReport, err := other.Report(ctx, s.reportRequest.reportTimestamp, s.reportRequest.previousReport, s.reportRequest.observations)
 	require.NoError(t, err)
 	assert.Equal(t, s.reportResponse.shouldReport, gotOk)
 	assert.Equal(t, s.reportResponse.report, gotReport)

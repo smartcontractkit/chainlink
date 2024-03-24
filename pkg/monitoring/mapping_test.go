@@ -1,6 +1,7 @@
 package monitoring
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"testing"
@@ -9,9 +10,11 @@ import (
 )
 
 func TestMapping(t *testing.T) {
-	config, _, offchainConfig, _, err := generateContractConfig(31)
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	config, _, offchainConfig, _, err := generateContractConfig(ctx, 31)
 	require.NoError(t, err)
-	envelope, err := generateEnvelope()
+	envelope, err := generateEnvelope(ctx)
 	require.NoError(t, err)
 	envelope.ConfigDigest = config.ConfigDigest
 	envelope.ContractConfig = config

@@ -21,26 +21,26 @@ type staticOffchainConfigDigester struct {
 
 var _ libocr.OffchainConfigDigester = staticOffchainConfigDigester{}
 
-func (s staticOffchainConfigDigester) ConfigDigest(config libocr.ContractConfig) (libocr.ConfigDigest, error) {
+func (s staticOffchainConfigDigester) ConfigDigest(ctx context.Context, config libocr.ContractConfig) (libocr.ConfigDigest, error) {
 	if !assert.ObjectsAreEqual(s.contractConfig, config) {
 		return libocr.ConfigDigest{}, fmt.Errorf("expected contract config %v but got %v", s.configDigest, config)
 	}
 	return s.configDigest, nil
 }
 
-func (s staticOffchainConfigDigester) ConfigDigestPrefix() (libocr.ConfigDigestPrefix, error) {
+func (s staticOffchainConfigDigester) ConfigDigestPrefix(ctx context.Context) (libocr.ConfigDigestPrefix, error) {
 	return s.configDigestPrefix, nil
 }
 
 func (s staticOffchainConfigDigester) Evaluate(ctx context.Context, ocd libocr.OffchainConfigDigester) error {
-	gotDigestPrefix, err := ocd.ConfigDigestPrefix()
+	gotDigestPrefix, err := ocd.ConfigDigestPrefix(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get ConfigDigestPrefix: %w", err)
 	}
 	if gotDigestPrefix != s.configDigestPrefix {
 		return fmt.Errorf("expected ConfigDigestPrefix %x but got %x", s.configDigestPrefix, gotDigestPrefix)
 	}
-	gotDigest, err := ocd.ConfigDigest(contractConfig)
+	gotDigest, err := ocd.ConfigDigest(ctx, contractConfig)
 	if err != nil {
 		return fmt.Errorf("failed to get ConfigDigest: %w", err)
 	}

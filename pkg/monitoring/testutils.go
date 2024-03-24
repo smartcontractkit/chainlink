@@ -68,7 +68,7 @@ type fakeEnvelopeSource struct{}
 type fakeTxResultsSource struct{}
 
 func (f *fakeEnvelopeSource) Fetch(ctx context.Context) (interface{}, error) {
-	return generateEnvelope()
+	return generateEnvelope(ctx)
 }
 func (f *fakeTxResultsSource) Fetch(ctx context.Context) (interface{}, error) {
 	return generateTxResults(), nil
@@ -409,7 +409,7 @@ func generateOffchainConfig(numOracles int) (
 	return config, numericalMedianOffchainConfig, encodedConfig, nil
 }
 
-func generateContractConfig(n int) (
+func generateContractConfig(ctx context.Context, n int) (
 	types.ContractConfig,
 	median.OnchainConfig,
 	*pb.OffchainConfigProto,
@@ -429,7 +429,7 @@ func generateContractConfig(n int) (
 		Min: generateBigInt(128),
 		Max: generateBigInt(128),
 	}
-	onchainConfigEncoded, err := median.StandardOnchainConfigCodec{}.Encode(onchainConfig)
+	onchainConfigEncoded, err := median.StandardOnchainConfigCodec{}.Encode(ctx, onchainConfig)
 	if err != nil {
 		return types.ContractConfig{}, median.OnchainConfig{}, nil, nil, err
 	}
@@ -450,8 +450,8 @@ func generateContractConfig(n int) (
 	return contractConfig, onchainConfig, offchainConfig, pluginOffchainConfig, nil
 }
 
-func generateEnvelope() (Envelope, error) {
-	generated, _, _, _, err := generateContractConfig(31)
+func generateEnvelope(ctx context.Context) (Envelope, error) {
+	generated, _, _, _, err := generateContractConfig(ctx, 31)
 	if err != nil {
 		return Envelope{}, err
 	}

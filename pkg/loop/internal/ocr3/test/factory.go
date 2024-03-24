@@ -40,7 +40,7 @@ func (o ocr3staticPluginFactory) Ready() error { panic("implement me") }
 
 func (o ocr3staticPluginFactory) HealthReport() map[string]error { panic("implement me") }
 
-func (o ocr3staticPluginFactory) NewReportingPlugin(config ocr3types.ReportingPluginConfig) (ocr3types.ReportingPlugin[[]byte], ocr3types.ReportingPluginInfo, error) {
+func (o ocr3staticPluginFactory) NewReportingPlugin(ctx context.Context, config ocr3types.ReportingPluginConfig) (ocr3types.ReportingPlugin[[]byte], ocr3types.ReportingPluginInfo, error) {
 	err := o.equalConfig(config)
 	if err != nil {
 		return nil, ocr3types.ReportingPluginInfo{}, fmt.Errorf("config mismatch: %w", err)
@@ -87,9 +87,9 @@ func (o ocr3staticPluginFactory) equalConfig(other ocr3types.ReportingPluginConf
 
 func OCR3ReportingPluginFactory(t *testing.T, factory types.OCR3ReportingPluginFactory) {
 	expectedFactory := Factory
-	ctx := tests.Context(t)
 	t.Run("OCR3ReportingPluginFactory", func(t *testing.T) {
-		rp, gotRPI, err := factory.NewReportingPlugin(ocr3reportingPluginConfig)
+		ctx := tests.Context(t)
+		rp, gotRPI, err := factory.NewReportingPlugin(ctx, ocr3reportingPluginConfig)
 		require.NoError(t, err)
 		assert.Equal(t, ocr3rpi, gotRPI)
 		t.Cleanup(func() { assert.NoError(t, rp.Close()) })

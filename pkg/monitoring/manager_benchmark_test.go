@@ -90,7 +90,7 @@ func BenchmarkManager(b *testing.B) {
 		rddPoller,
 	)
 
-	envelope, err := generateEnvelope()
+	envelope, err := generateEnvelope(ctx)
 	if err != nil {
 		b.Fatalf("failed to generate config: %v", err)
 	}
