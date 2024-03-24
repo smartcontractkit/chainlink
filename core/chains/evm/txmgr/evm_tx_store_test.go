@@ -23,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 
 	"github.com/google/uuid"
@@ -1213,30 +1212,34 @@ func TestORM_LoadEthTxesAttempts(t *testing.T) {
 
 	t.Run("load new attempt inserted in current postgres transaction", func(t *testing.T) {
 		etx := mustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(t, txStore, 3, 9, time.Now(), fromAddress)
-		etx.TxAttempts = []txmgr.TxAttempt{}
-
-		q := pg.NewQ(db, logger.Test(t), cfg.Database())
-
 		newAttempt := cltest.NewDynamicFeeEthTxAttempt(t, etx.ID)
 		var dbAttempt txmgr.DbEthTxAttempt
 		dbAttempt.FromTxAttempt(&newAttempt)
-		err := q.Transaction(func(tx pg.Queryer) error {
-			const insertEthTxAttemptSQL = `INSERT INTO evm.tx_attempts (eth_tx_id, gas_price, signed_raw_tx, hash, broadcast_before_block_num, state, created_at, chain_specific_gas_limit, tx_type, gas_tip_cap, gas_fee_cap) VALUES (
-				:eth_tx_id, :gas_price, :signed_raw_tx, :hash, :broadcast_before_block_num, :state, NOW(), :chain_specific_gas_limit, :tx_type, :gas_tip_cap, :gas_fee_cap
-				) RETURNING *`
-			_, err := tx.NamedExec(insertEthTxAttemptSQL, dbAttempt)
+
+		func() {
+			tx, err := db.BeginTx(ctx, nil)
 			require.NoError(t, err)
 
+			const insertEthTxAttemptSQL = `INSERT INTO evm.tx_attempts (eth_tx_id, gas_price, signed_raw_tx, hash, broadcast_before_block_num, state, created_at, chain_specific_gas_limit, tx_type, gas_tip_cap, gas_fee_cap) VALUES (
+					:eth_tx_id, :gas_price, :signed_raw_tx, :hash, :broadcast_before_block_num, :state, NOW(), :chain_specific_gas_limit, :tx_type, :gas_tip_cap, :gas_fee_cap
+					) RETURNING *`
+			query, args, err := sqlutil.DataSource(db).BindNamed(insertEthTxAttemptSQL, dbAttempt)
+			require.NoError(t, err)
+			_, err = tx.ExecContext(ctx, query, args...)
+			require.NoError(t, err)
+
+			etx.TxAttempts = []txmgr.TxAttempt{}
 			err = txStore.LoadTxesAttempts(ctx, []*txmgr.Tx{&etx})
 			require.NoError(t, err)
 			assert.Len(t, etx.TxAttempts, 2)
 
-			return nil
-		})
-		require.NoError(t, err)
+			err = tx.Commit()
+			require.NoError(t, err)
+		}()
+
 		// also check after postgres transaction is committed
 		etx.TxAttempts = []txmgr.TxAttempt{}
-		err = txStore.LoadTxesAttempts(ctx, []*txmgr.Tx{&etx})
+		err := txStore.LoadTxesAttempts(ctx, []*txmgr.Tx{&etx})
 		require.NoError(t, err)
 		assert.Len(t, etx.TxAttempts, 2)
 	})
@@ -1360,7 +1363,6 @@ func TestORM_UpdateTxUnstartedToInProgress(t *testing.T) {
 	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
-	q := pg.NewQ(db, logger.Test(t), cfg.Database())
 	nonce := evmtypes.Nonce(123)
 
 	t.Run("update successful", func(t *testing.T) {
@@ -1383,7 +1385,7 @@ func TestORM_UpdateTxUnstartedToInProgress(t *testing.T) {
 
 		attempt := cltest.NewLegacyEthTxAttempt(t, etx.ID)
 
-		err := q.ExecQ("DELETE FROM evm.txes WHERE id = $1", etx.ID)
+		_, err := db.ExecContext(ctx, "DELETE FROM evm.txes WHERE id = $1", etx.ID)
 		require.NoError(t, err)
 
 		err = txStore.UpdateTxUnstartedToInProgress(testutils.Context(t), &etx, &attempt)
@@ -1395,7 +1397,6 @@ func TestORM_UpdateTxUnstartedToInProgress(t *testing.T) {
 	txStore = cltest.NewTestTxStore(t, db)
 	ethKeyStore = cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	_, fromAddress = cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
-	q = pg.NewQ(db, logger.Test(t), cfg.Database())
 
 	t.Run("update replaces abandoned tx with same hash", func(t *testing.T) {
 		etx := mustInsertInProgressEthTxWithAttempt(t, txStore, nonce, fromAddress)

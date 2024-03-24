@@ -7,6 +7,7 @@ import {Address} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/ut
 import {AutomationRegistryLogicC2_3} from "./AutomationRegistryLogicC2_3.sol";
 import {Chainable} from "../../Chainable.sol";
 import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
+import {SafeCast} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/math/SafeCast.sol";
 
 contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3, Chainable {
   using Address for address;
@@ -26,7 +27,8 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3, Chainable {
       logicC.getFastGasFeedAddress(),
       logicC.getAutomationForwarderLogic(),
       logicC.getAllowedReadOnlyAddress(),
-      logicC.getPayoutMode()
+      logicC.getPayoutMode(),
+      logicC.getWrappedNativeTokenAddress()
     )
     Chainable(address(logicC))
   {}
@@ -34,6 +36,63 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3, Chainable {
   // ================================================================
   // |                      UPKEEP MANAGEMENT                       |
   // ================================================================
+
+  /**
+   * @notice overrides the billing config for an upkeep
+   * @param id the upkeepID
+   * @param billingOverrides the override-able billing config
+   */
+  function setBillingOverrides(uint256 id, BillingOverrides calldata billingOverrides) external {
+    _onlyPrivilegeManagerAllowed();
+    if (s_upkeep[id].maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
+
+    s_upkeep[id].overridesEnabled = true;
+    s_billingOverrides[id] = billingOverrides;
+    emit BillingConfigOverridden(id);
+  }
+
+  /**
+   * @notice remove the overridden billing config for an upkeep
+   * @param id the upkeepID
+   */
+  function removeBillingOverrides(uint256 id) external {
+    _onlyPrivilegeManagerAllowed();
+
+    s_upkeep[id].overridesEnabled = false;
+    delete s_billingOverrides[id];
+    emit BillingConfigOverrideRemoved(id);
+  }
+
+  /**
+   * @notice adds fund to an upkeep
+   * @param id the upkeepID
+   * @param amount the amount of funds to add, in the upkeep's billing token
+   */
+  function addFunds(uint256 id, uint96 amount) external payable {
+    Upkeep memory upkeep = s_upkeep[id];
+    if (upkeep.maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
+
+    if (msg.value != 0) {
+      if (upkeep.billingToken != IERC20(i_wrappedNativeToken)) {
+        revert InvalidBillingToken();
+      }
+      amount = SafeCast.toUint96(msg.value);
+    }
+
+    s_upkeep[id].balance = upkeep.balance + amount;
+    s_reserveAmounts[upkeep.billingToken] = s_reserveAmounts[upkeep.billingToken] + amount;
+
+    if (msg.value == 0) {
+      // ERC20 payment
+      bool success = upkeep.billingToken.transferFrom(msg.sender, address(this), amount);
+      if (!success) revert TransferFailed();
+    } else {
+      // native payment
+      i_wrappedNativeToken.deposit{value: amount}();
+    }
+
+    emit FundsAdded(id, msg.sender, amount);
+  }
 
   /**
    * @notice transfers the address of an admin for an upkeep
@@ -137,7 +196,7 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3, Chainable {
     if (s_upkeepAdmin[id] != msg.sender) revert OnlyCallableByAdmin();
     if (upkeep.maxValidBlocknumber > s_hotVars.chainModule.blockNumber()) revert UpkeepNotCanceled();
     uint96 amountToWithdraw = s_upkeep[id].balance;
-    s_reserveAmounts[address(upkeep.billingToken)] = s_reserveAmounts[address(upkeep.billingToken)] - amountToWithdraw;
+    s_reserveAmounts[upkeep.billingToken] = s_reserveAmounts[upkeep.billingToken] - amountToWithdraw;
     s_upkeep[id].balance = 0;
     bool success = upkeep.billingToken.transfer(to, amountToWithdraw);
     if (!success) revert TransferFailed();
@@ -146,17 +205,18 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3, Chainable {
 
   /**
    * @notice LINK available to withdraw by the finance team
+   # @dev LINK max supply < 2^96, so casting to int256 is safe
    */
-  function linkAvailableForPayment() public view returns (uint256) {
-    return i_link.balanceOf(address(this)) - s_reserveAmounts[address(i_link)];
+  function linkAvailableForPayment() public view returns (int256) {
+    return int256(i_link.balanceOf(address(this))) - int256(s_reserveAmounts[IERC20(address(i_link))]);
   }
 
   function withdrawLinkFees(address to, uint256 amount) external {
     _onlyFinanceAdminAllowed();
     if (to == ZERO_ADDRESS) revert InvalidRecipient();
 
-    uint256 available = linkAvailableForPayment();
-    if (amount > available) revert InsufficientBalance(available, amount);
+    int256 available = linkAvailableForPayment();
+    if (available < 0 || amount > uint256(available)) revert InsufficientBalance(available, amount);
 
     bool transferStatus = i_link.transfer(to, amount);
     if (!transferStatus) {
