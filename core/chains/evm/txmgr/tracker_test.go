@@ -81,6 +81,7 @@ func TestEvmTracker_AddressTracking(t *testing.T) {
 			require.NoError(t, err)
 		}(tracker)
 
+		time.Sleep(waitTime)
 		addrs := tracker.GetAbandonedAddresses()
 		require.NotContains(t, addrs, inProgressAddr)
 		require.NotContains(t, addrs, unstartedAddr)
@@ -132,6 +133,7 @@ func TestEvmTracker_ExceedingTTL(t *testing.T) {
 			require.NoError(t, err)
 		}(tracker)
 
+		time.Sleep(waitTime)
 		require.Contains(t, tracker.GetAbandonedAddresses(), addr1)
 	})
 

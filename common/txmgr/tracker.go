@@ -98,31 +98,15 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) startIntern
 	tr.initSync.Lock()
 	defer tr.initSync.Unlock()
 
-	tr.chStop = make(chan struct{})
-
 	if err := tr.setEnabledAddresses(ctx); err != nil {
 		return fmt.Errorf("failed to set enabled addresses: %w", err)
 	}
 	tr.lggr.Infof("enabled addresses set for chainID %v", tr.chainID)
 
-	if err := tr.trackAbandonedTxes(ctx); err != nil {
-		return fmt.Errorf("failed to track abandoned txes: %w", err)
-	}
-
-	if err := tr.handleTxesByState(ctx, 0); err != nil {
-		return fmt.Errorf("failed to handle txes by state: %w", err)
-	}
-
-	tr.isStarted = true
-
-	if tr.AbandonedTxCount() == 0 {
-		tr.lggr.Info("no abandoned txes found, skipping runLoop")
-		return nil
-	}
-
-	tr.lggr.Infof("%d abandoned txes found, starting runLoop", tr.AbandonedTxCount())
+	tr.chStop = make(chan struct{})
 	tr.wg.Add(1)
 	go tr.runLoop(tr.chStop.NewCtx())
+	tr.isStarted = true
 	return nil
 }
 
@@ -150,6 +134,20 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) closeIntern
 func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop(ctx context.Context, cancel context.CancelFunc) {
 	defer tr.wg.Done()
 	defer cancel()
+
+	if err := tr.trackAbandonedTxes(ctx); err != nil {
+		tr.lggr.Errorf("failed to track abandoned txes: %v", err.Error())
+		return
+	}
+	if err := tr.handleTxesByState(ctx, 0); err != nil {
+		tr.lggr.Errorf("failed to handle txes by state: %v", err.Error())
+	}
+	if tr.AbandonedTxCount() == 0 {
+		tr.lggr.Info("no abandoned txes found, skipping runLoop")
+		return
+	}
+	tr.lggr.Infof("%d abandoned txes found, starting runLoop", tr.AbandonedTxCount())
+
 	ttlExceeded := time.NewTicker(tr.ttl)
 	defer ttlExceeded.Stop()
 	for {
@@ -162,7 +160,7 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop(ctx
 				}
 				tr.lggr.Infof("received blockHeight %v", blockHeight)
 				if err := tr.handleTxesByState(ctx, blockHeight); err != nil {
-					tr.lggr.Errorw(fmt.Errorf("failed to handle txes by state: %w", err).Error())
+					tr.lggr.Errorf("failed to handle txes by state: %v", err.Error())
 				}
 				if tr.AbandonedTxCount() == 0 {
 					tr.lggr.Info("all abandoned txes handled, stopping runLoop")
