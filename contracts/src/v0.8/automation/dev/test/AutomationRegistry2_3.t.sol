@@ -902,7 +902,7 @@ contract GetMinBalanceForUpkeep is SetUp {
 }
 
 contract BillingOverrides is SetUp {
-  event BillingConfigOverridden(uint256 indexed id);
+  event BillingConfigOverridden(uint256 indexed id, AutomationRegistryBase2_3.BillingOverrides overrides);
   event BillingConfigOverrideRemoved(uint256 indexed id);
 
   function test_RevertsWhen_NotPrivilegeManager() public {
@@ -937,7 +937,7 @@ contract BillingOverrides is SetUp {
     vm.startPrank(PRIVILEGE_MANAGER);
 
     vm.expectEmit();
-    emit BillingConfigOverridden(linkUpkeepID);
+    emit BillingConfigOverridden(linkUpkeepID, billingOverrides);
     registry.setBillingOverrides(linkUpkeepID, billingOverrides);
   }
 
@@ -947,5 +947,24 @@ contract BillingOverrides is SetUp {
     vm.expectEmit();
     emit BillingConfigOverrideRemoved(linkUpkeepID);
     registry.removeBillingOverrides(linkUpkeepID);
+  }
+
+  function test_Happy_MaxGasPayment_WithBillingOverrides() public {
+    uint96 maxPayment1 = registry.getMaxPaymentForGas(linkUpkeepID, 0, 5_000_000, address(linkToken));
+
+    // Double the two billing values
+    AutomationRegistryBase2_3.BillingOverrides memory billingOverrides = AutomationRegistryBase2_3.BillingOverrides({
+      gasFeePPB: DEFAULT_GAS_FEE_PPB * 2,
+      flatFeeMilliCents: DEFAULT_FLAT_FEE_MILLI_CENTS * 2
+    });
+
+    vm.startPrank(PRIVILEGE_MANAGER);
+    registry.setBillingOverrides(linkUpkeepID, billingOverrides);
+
+    // maxPayment2 should be greater than maxPayment1 after the overrides
+    // The 2 numbers should follow this: maxPayment2 - maxPayment1 == 2 * recepit.premium
+    // We do not apply the exact equation since we couldn't get the receipt.premium value
+    uint96 maxPayment2 = registry.getMaxPaymentForGas(linkUpkeepID, 0, 5_000_000, address(linkToken));
+    assertGt(maxPayment2, maxPayment1);
   }
 }
