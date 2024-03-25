@@ -47,7 +47,7 @@ describe('VRFCoordinatorV2', () => {
     )
     blockHashStore = await bhFactory.deploy()
     const mockAggregatorV3Factory = await ethers.getContractFactory(
-      'src/v0.7/tests/MockV3Aggregator.sol:MockV3Aggregator',
+      'src/v0.8/tests/MockV3Aggregator.sol:MockV3Aggregator',
       accounts[0],
     )
     mockLinkEth = await mockAggregatorV3Factory.deploy(0, linkEth)
@@ -899,7 +899,7 @@ describe('VRFCoordinatorV2', () => {
 
     it('non-positive link wei price should revert', async function () {
       const mockAggregatorV3Factory = await ethers.getContractFactory(
-        'src/v0.7/tests/MockV3Aggregator.sol:MockV3Aggregator',
+        'src/v0.8/tests/MockV3Aggregator.sol:MockV3Aggregator',
         owner,
       )
       const vrfCoordinatorV2TestHelperFactory = await ethers.getContractFactory(

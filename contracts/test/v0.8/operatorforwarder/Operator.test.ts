@@ -53,7 +53,7 @@ before(async () => {
     'src/v0.8/operatorforwarder/dev/tests/testhelpers/BasicConsumer.sol:BasicConsumer',
   )
   multiWordConsumerFactory = await ethers.getContractFactory(
-    'src/v0.7/tests/MultiWordConsumer.sol:MultiWordConsumer',
+    'src/v0.8/operatorforwarder/dev/tests/testhelpers/MultiWordConsumer.sol:MultiWordConsumer',
   )
   gasGuzzlingConsumerFactory = await ethers.getContractFactory(
     'src/v0.8/operatorforwarder/dev/tests/testhelpers/GasGuzzlingConsumer.sol:GasGuzzlingConsumer',
