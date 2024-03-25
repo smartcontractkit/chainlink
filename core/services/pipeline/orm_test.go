@@ -4,7 +4,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cometbft/cometbft/libs/rand"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -36,7 +35,7 @@ type ormconfig struct {
 
 func (ormconfig) JobPipelineMaxSuccessfulRuns() uint64 { return 123456 }
 
-func setupORM(t *testing.T, heavy bool) (db *sqlx.DB, orm pipeline.ORM) {
+func setupORM(t *testing.T, heavy bool) (db *sqlx.DB, orm pipeline.ORM, jorm job.ORM) {
 	t.Helper()
 
 	if heavy {
@@ -46,20 +45,26 @@ func setupORM(t *testing.T, heavy bool) (db *sqlx.DB, orm pipeline.ORM) {
 	}
 	cfg := ormconfig{pgtest.NewQConfig(true)}
 	orm = pipeline.NewORM(db, logger.TestLogger(t), cfg, cfg.JobPipelineMaxSuccessfulRuns())
+	config := configtest.NewTestGeneralConfig(t)
+	lggr := logger.TestLogger(t)
+	keyStore := cltest.NewKeyStore(t, db, config.Database())
+	bridgeORM := bridges.NewORM(db, lggr, config.Database())
+
+	jorm = job.NewORM(db, orm, bridgeORM, keyStore, lggr, config.Database())
 
 	return
 }
 
-func setupHeavyORM(t *testing.T) (db *sqlx.DB, orm pipeline.ORM) {
+func setupHeavyORM(t *testing.T) (db *sqlx.DB, orm pipeline.ORM, jorm job.ORM) {
 	return setupORM(t, true)
 }
 
-func setupLiteORM(t *testing.T) (db *sqlx.DB, orm pipeline.ORM) {
+func setupLiteORM(t *testing.T) (db *sqlx.DB, orm pipeline.ORM, jorm job.ORM) {
 	return setupORM(t, false)
 }
 
 func Test_PipelineORM_CreateSpec(t *testing.T) {
-	db, orm := setupLiteORM(t)
+	db, orm, _ := setupLiteORM(t)
 
 	var (
 		source          = ""
@@ -81,9 +86,11 @@ func Test_PipelineORM_CreateSpec(t *testing.T) {
 }
 
 func Test_PipelineORM_FindRun(t *testing.T) {
-	db, orm := setupLiteORM(t)
+	db, orm, _ := setupLiteORM(t)
 
-	_, err := db.Exec(`SET CONSTRAINTS pipeline_runs_pipeline_spec_id_fkey DEFERRED`)
+	_, err := db.Exec(`SET CONSTRAINTS fk_pipeline_runs_pruning_key DEFERRED`)
+	require.NoError(t, err)
+	_, err = db.Exec(`SET CONSTRAINTS pipeline_runs_pipeline_spec_id_fkey DEFERRED`)
 	require.NoError(t, err)
 	expected := mustInsertPipelineRun(t, orm)
 
@@ -108,7 +115,7 @@ func mustInsertPipelineRun(t *testing.T, orm pipeline.ORM) pipeline.Run {
 	return run
 }
 
-func mustInsertAsyncRun(t *testing.T, orm pipeline.ORM) *pipeline.Run {
+func mustInsertAsyncRun(t *testing.T, orm pipeline.ORM, jobORM job.ORM) *pipeline.Run {
 	t.Helper()
 
 	s := `
@@ -121,17 +128,24 @@ ds1->ds1_parse->ds1_multiply->answer1;
 answer1 [type=median index=0];
 answer2 [type=bridge name=election_winner index=1];
 `
-
-	p, err := pipeline.Parse(s)
-	require.NoError(t, err)
-	require.NotNil(t, p)
-
-	maxTaskDuration := models.Interval(1 * time.Minute)
-	specID, err := orm.CreateSpec(*p, maxTaskDuration)
+	jb := job.Job{
+		Type:            job.DirectRequest,
+		SchemaVersion:   1,
+		MaxTaskDuration: models.Interval(1 * time.Minute),
+		DirectRequestSpec: &job.DirectRequestSpec{
+			ContractAddress: cltest.NewEIP55Address(),
+			EVMChainID:      (*big.Big)(&cltest.FixtureChainID),
+		},
+		PipelineSpec: &pipeline.Spec{
+			DotDagSource: s,
+		},
+	}
+	err := jobORM.CreateJob(&jb)
 	require.NoError(t, err)
 
 	run := &pipeline.Run{
-		PipelineSpecID: specID,
+		PipelineSpecID: jb.PipelineSpecID,
+		PruningKey:     jb.ID,
 		State:          pipeline.RunStatusRunning,
 		Outputs:        pipeline.JSONSerializable{},
 		CreatedAt:      time.Now(),
@@ -143,9 +157,11 @@ answer2 [type=bridge name=election_winner index=1];
 }
 
 func TestInsertFinishedRuns(t *testing.T) {
-	db, orm := setupLiteORM(t)
+	db, orm, _ := setupLiteORM(t)
 
-	_, err := db.Exec(`SET CONSTRAINTS pipeline_runs_pipeline_spec_id_fkey DEFERRED`)
+	_, err := db.Exec(`SET CONSTRAINTS fk_pipeline_runs_pruning_key DEFERRED`)
+	require.NoError(t, err)
+	_, err = db.Exec(`SET CONSTRAINTS pipeline_runs_pipeline_spec_id_fkey DEFERRED`)
 	require.NoError(t, err)
 
 	ps := cltest.MustInsertPipelineSpec(t, db)
@@ -155,6 +171,7 @@ func TestInsertFinishedRuns(t *testing.T) {
 		now := time.Now()
 		r := pipeline.Run{
 			PipelineSpecID: ps.ID,
+			PruningKey:     ps.ID, // using the spec ID as the pruning key for test purposes, this is supposed to be the job ID
 			State:          pipeline.RunStatusRunning,
 			AllErrors:      pipeline.RunErrors{},
 			FatalErrors:    pipeline.RunErrors{},
@@ -201,9 +218,9 @@ func TestInsertFinishedRuns(t *testing.T) {
 
 // Tests that inserting run results, then later updating the run results via upsert will work correctly.
 func Test_PipelineORM_StoreRun_ShouldUpsert(t *testing.T) {
-	_, orm := setupLiteORM(t)
+	_, orm, jorm := setupLiteORM(t)
 
-	run := mustInsertAsyncRun(t, orm)
+	run := mustInsertAsyncRun(t, orm, jorm)
 
 	now := time.Now()
 
@@ -280,9 +297,9 @@ func Test_PipelineORM_StoreRun_ShouldUpsert(t *testing.T) {
 // Tests that trying to persist a partial run while new data became available (i.e. via /v2/restart)
 // will detect a restart and update the result data on the Run.
 func Test_PipelineORM_StoreRun_DetectsRestarts(t *testing.T) {
-	db, orm := setupLiteORM(t)
+	db, orm, jorm := setupLiteORM(t)
 
-	run := mustInsertAsyncRun(t, orm)
+	run := mustInsertAsyncRun(t, orm, jorm)
 
 	r, err := orm.FindRun(run.ID)
 	require.NoError(t, err)
@@ -345,9 +362,9 @@ func Test_PipelineORM_StoreRun_DetectsRestarts(t *testing.T) {
 }
 
 func Test_PipelineORM_StoreRun_UpdateTaskRunResult(t *testing.T) {
-	_, orm := setupLiteORM(t)
+	_, orm, jorm := setupLiteORM(t)
 
-	run := mustInsertAsyncRun(t, orm)
+	run := mustInsertAsyncRun(t, orm, jorm)
 
 	ds1_id := uuid.New()
 	now := time.Now()
@@ -426,9 +443,9 @@ func Test_PipelineORM_StoreRun_UpdateTaskRunResult(t *testing.T) {
 }
 
 func Test_PipelineORM_DeleteRun(t *testing.T) {
-	_, orm := setupLiteORM(t)
+	_, orm, jorm := setupLiteORM(t)
 
-	run := mustInsertAsyncRun(t, orm)
+	run := mustInsertAsyncRun(t, orm, jorm)
 
 	now := time.Now()
 
@@ -468,12 +485,12 @@ func Test_PipelineORM_DeleteRun(t *testing.T) {
 }
 
 func Test_PipelineORM_DeleteRunsOlderThan(t *testing.T) {
-	_, orm := setupHeavyORM(t)
+	_, orm, jorm := setupHeavyORM(t)
 
 	var runsIds []int64
 
 	for i := 1; i <= 2000; i++ {
-		run := mustInsertAsyncRun(t, orm)
+		run := mustInsertAsyncRun(t, orm, jorm)
 
 		now := time.Now()
 
@@ -557,6 +574,7 @@ func Test_GetUnfinishedRuns_Keepers(t *testing.T) {
 
 	err = porm.CreateRun(&pipeline.Run{
 		PipelineSpecID: keeperJob.PipelineSpecID,
+		PruningKey:     keeperJob.ID,
 		State:          pipeline.RunStatusRunning,
 		Outputs:        pipeline.JSONSerializable{},
 		CreatedAt:      time.Now(),
@@ -573,6 +591,7 @@ func Test_GetUnfinishedRuns_Keepers(t *testing.T) {
 
 	err = porm.CreateRun(&pipeline.Run{
 		PipelineSpecID: keeperJob.PipelineSpecID,
+		PruningKey:     keeperJob.ID,
 		State:          pipeline.RunStatusRunning,
 		Outputs:        pipeline.JSONSerializable{},
 		CreatedAt:      time.Now(),
@@ -655,6 +674,7 @@ func Test_GetUnfinishedRuns_DirectRequest(t *testing.T) {
 
 	err = porm.CreateRun(&pipeline.Run{
 		PipelineSpecID: drJob.PipelineSpecID,
+		PruningKey:     drJob.ID,
 		State:          pipeline.RunStatusRunning,
 		Outputs:        pipeline.JSONSerializable{},
 		CreatedAt:      time.Now(),
@@ -671,6 +691,7 @@ func Test_GetUnfinishedRuns_DirectRequest(t *testing.T) {
 
 	err = porm.CreateRun(&pipeline.Run{
 		PipelineSpecID: drJob.PipelineSpecID,
+		PruningKey:     drJob.ID,
 		State:          pipeline.RunStatusSuspended,
 		Outputs:        pipeline.JSONSerializable{},
 		CreatedAt:      time.Now(),
@@ -717,7 +738,7 @@ func Test_Prune(t *testing.T) {
 
 	ps1 := cltest.MustInsertPipelineSpec(t, db)
 
-	jobID := rand.Int32()
+	jobID := ps1.ID
 
 	t.Run("when there are no runs to prune, does nothing", func(t *testing.T) {
 		porm.Prune(db, jobID)
@@ -725,6 +746,9 @@ func Test_Prune(t *testing.T) {
 		// no error logs; it did nothing
 		assert.Empty(t, observed.All())
 	})
+
+	_, err := db.Exec(`SET CONSTRAINTS fk_pipeline_runs_pruning_key DEFERRED`)
+	require.NoError(t, err)
 
 	// ps1 has:
 	// - 20 completed runs
@@ -734,7 +758,7 @@ func Test_Prune(t *testing.T) {
 
 	ps2 := cltest.MustInsertPipelineSpec(t, db)
 
-	jobID2 := rand.Int32()
+	jobID2 := ps2.ID
 	// ps2 has:
 	// - 12 completed runs
 	// - 3 errored runs

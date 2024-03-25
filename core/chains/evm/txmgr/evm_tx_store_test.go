@@ -637,7 +637,7 @@ func TestORM_FindTxesPendingCallback(t *testing.T) {
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
 
-	pgtest.MustExec(t, db, `SET CONSTRAINTS fk_pipeline_runs_job DEFERRED`)
+	pgtest.MustExec(t, db, `SET CONSTRAINTS fk_pipeline_runs_pruning_key DEFERRED`)
 	pgtest.MustExec(t, db, `SET CONSTRAINTS pipeline_runs_pipeline_spec_id_fkey DEFERRED`)
 
 	head := evmtypes.Head{
