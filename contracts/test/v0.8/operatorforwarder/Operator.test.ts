@@ -31,7 +31,6 @@ import {
   RunRequest,
 } from '../../test-helpers/oracle'
 
-let v7ConsumerFactory: ContractFactory
 let basicConsumerFactory: ContractFactory
 let multiWordConsumerFactory: ContractFactory
 let gasGuzzlingConsumerFactory: ContractFactory
@@ -50,17 +49,14 @@ before(async () => {
   const users = await getUsers()
 
   roles = users.roles
-  v7ConsumerFactory = await ethers.getContractFactory(
-    'src/v0.7/tests/Consumer.sol:Consumer',
-  )
   basicConsumerFactory = await ethers.getContractFactory(
-    'src/v0.6/tests/BasicConsumer.sol:BasicConsumer',
+    'src/v0.8/operatorforwarder/dev/tests/testhelpers/BasicConsumer.sol:BasicConsumer',
   )
   multiWordConsumerFactory = await ethers.getContractFactory(
     'src/v0.7/tests/MultiWordConsumer.sol:MultiWordConsumer',
   )
   gasGuzzlingConsumerFactory = await ethers.getContractFactory(
-    'src/v0.6/tests/GasGuzzlingConsumer.sol:GasGuzzlingConsumer',
+    'src/v0.8/operatorforwarder/dev/tests/testhelpers/GasGuzzlingConsumer.sol:GasGuzzlingConsumer',
   )
   getterSetterFactory = await ethers.getContractFactory(
     'src/v0.8/operatorforwarder/dev/tests/testhelpers/GetterSetter.sol:GetterSetter',
@@ -72,7 +68,7 @@ before(async () => {
     'src/v0.8/operatorforwarder/dev/tests/testhelpers/MaliciousConsumer.sol:MaliciousConsumer',
   )
   maliciousMultiWordConsumerFactory = await ethers.getContractFactory(
-    'src/v0.6/tests/MaliciousMultiWordConsumer.sol:MaliciousMultiWordConsumer',
+    'src/v0.8/operatorforwarder/dev/tests/testhelpers/MaliciousMultiWordConsumer.sol:MaliciousMultiWordConsumer',
   )
   operatorFactory = await ethers.getContractFactory(
     'src/v0.8/operatorforwarder/dev/Operator.sol:Operator',
@@ -1079,15 +1075,15 @@ describe('Operator', () => {
       })
 
       describe('when fulfilled with the wrong function', () => {
-        let v7Consumer
+        let basicConsumer
         beforeEach(async () => {
-          v7Consumer = await v7ConsumerFactory
+          basicConsumer = await basicConsumerFactory
             .connect(roles.defaultAccount)
             .deploy(link.address, operator.address, specId)
           const paymentAmount = toWei('1')
-          await link.transfer(v7Consumer.address, paymentAmount)
+          await link.transfer(basicConsumer.address, paymentAmount)
           const currency = 'USD'
-          const tx = await v7Consumer.requestEthereumPrice(
+          const tx = await basicConsumer.requestEthereumPrice(
             currency,
             paymentAmount,
           )

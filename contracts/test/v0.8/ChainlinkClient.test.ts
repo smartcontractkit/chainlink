@@ -35,7 +35,7 @@ before(async () => {
     roles.defaultAccount,
   )
   operatorFactory = await ethers.getContractFactory(
-    'src/v0.7/Operator.sol:Operator',
+    'src/v0.8/operatorforwarder/dev/Operator.sol:Operator',
     roles.defaultAccount,
   )
   linkTokenFactory = await ethers.getContractFactory(
