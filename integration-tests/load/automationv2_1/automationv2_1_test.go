@@ -199,8 +199,10 @@ Load Config:
 			Values: map[string]interface{}{
 				"resources": gethNodeSpec,
 				"geth": map[string]interface{}{
-					"blocktime": *loadedTestConfig.Automation.General.BlockTime,
-					"capacity":  "20Gi",
+					"blocktime":      *loadedTestConfig.Automation.General.BlockTime,
+					"capacity":       "20Gi",
+					"startGaslimit":  20_00_000,
+					"targetGasLimit": 30_00_000,
 				},
 			},
 		}))
