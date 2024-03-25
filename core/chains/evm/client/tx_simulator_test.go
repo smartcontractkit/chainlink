@@ -46,8 +46,8 @@ func TestSimulateTx_Default(t *testing.T) {
 			To:   &toAddress,
 			Data: []byte("0x00"),
 		}
-		err = client.SimulateTransaction(ctx, ethClient, logger.TestSugared(t), "", msg)
-		require.NoError(t, err)
+		sendErr := client.SimulateTransaction(ctx, ethClient, logger.TestSugared(t), "", msg)
+		require.Empty(t, sendErr)
 	})
 
 	t.Run("returns error if simulation returns zk out-of-counters error", func(t *testing.T) {
@@ -77,8 +77,8 @@ func TestSimulateTx_Default(t *testing.T) {
 			To:   &toAddress,
 			Data: []byte("0x00"),
 		}
-		err = client.SimulateTransaction(ctx, ethClient, logger.TestSugared(t), "", msg)
-		require.Error(t, err, client.ErrOutOfCounters)
+		sendErr := client.SimulateTransaction(ctx, ethClient, logger.TestSugared(t), "", msg)
+		require.Equal(t, true, sendErr.IsOutOfCounters())
 	})
 
 	t.Run("returns without error if simulation returns non-OOC error", func(t *testing.T) {
@@ -93,7 +93,6 @@ func TestSimulateTx_Default(t *testing.T) {
 				return
 			case "eth_estimateGas":
 				resp.Error.Code = -32000
-				resp.Result = `"0x100"`
 				resp.Error.Message = "something went wrong"
 			}
 			return
@@ -108,7 +107,7 @@ func TestSimulateTx_Default(t *testing.T) {
 			To:   &toAddress,
 			Data: []byte("0x00"),
 		}
-		err = client.SimulateTransaction(ctx, ethClient, logger.TestSugared(t), "", msg)
-		require.NoError(t, err)
+		sendErr := client.SimulateTransaction(ctx, ethClient, logger.TestSugared(t), "", msg)
+		require.Equal(t, false, sendErr.IsOutOfCounters())
 	})
 }

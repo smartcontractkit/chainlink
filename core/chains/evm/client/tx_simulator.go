@@ -2,7 +2,6 @@ package client
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -21,24 +20,9 @@ type simulatorClient interface {
 // This method allows a caller to determine if a tx would fail due to OOC error by simulating the transaction
 // It will also return service unavailable or timeout errors for callers to react to retryable errors
 // Used as an entry point in case custom simulation is required across different chains
-func SimulateTransaction(ctx context.Context, client simulatorClient, lggr logger.SugaredLogger, chainType config.ChainType, msg ethereum.CallMsg) error {
+func SimulateTransaction(ctx context.Context, client simulatorClient, lggr logger.SugaredLogger, chainType config.ChainType, msg ethereum.CallMsg) *SendError {
 	err := simulateTransactionDefault(ctx, client, msg)
-	sendErr := NewSendError(err)
-	if sendErr == nil {
-		return nil
-	}
-	// Only return select errors to the caller
-	// Other errors are irrelevant to tx simulation to determin OOC error
-	if sendErr.IsOutOfCounters() {
-		return fmt.Errorf("%s: %w", ErrOutOfCounters, err)
-	}
-	if sendErr.IsServiceUnavailable() {
-		return fmt.Errorf("service not available when performing tx simulation: %w", err)
-	}
-	if sendErr.IsTimeout() {
-		return fmt.Errorf("timeout experienced when performing tx simulation: %w", err)
-	}
-	return nil
+	return NewSendError(err)
 }
 
 // eth_estimateGas returns out-of-counters (OOC) error if the transaction would result in an overflow

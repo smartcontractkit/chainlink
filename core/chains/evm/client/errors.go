@@ -521,10 +521,6 @@ func ClassifySendError(err error, lggr logger.SugaredLogger, tx *types.Transacti
 		)
 		return commonclient.ExceedsMaxFee
 	}
-	if sendError.IsOutOfCounters() {
-		lggr.Infow("Transaction encountered zk out-of-counters error", "err", sendError)
-		return commonclient.OutOfCounters
-	}
 	lggr.Criticalw("Unknown error encountered when sending transaction", "err", err, "etx", tx)
 	return commonclient.Unknown
 }

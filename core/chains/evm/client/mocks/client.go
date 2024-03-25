@@ -7,6 +7,8 @@ import (
 
 	assets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 
+	client "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+
 	common "github.com/ethereum/go-ethereum/common"
 
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
@@ -237,18 +239,20 @@ func (_m *Client) ChainID() (*big.Int, error) {
 }
 
 // CheckTxValidity provides a mock function with given fields: ctx, from, to, data
-func (_m *Client) CheckTxValidity(ctx context.Context, from common.Address, to common.Address, data []byte) error {
+func (_m *Client) CheckTxValidity(ctx context.Context, from common.Address, to common.Address, data []byte) *client.SendError {
 	ret := _m.Called(ctx, from, to, data)
 
 	if len(ret) == 0 {
 		panic("no return value specified for CheckTxValidity")
 	}
 
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, common.Address, common.Address, []byte) error); ok {
+	var r0 *client.SendError
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address, common.Address, []byte) *client.SendError); ok {
 		r0 = rf(ctx, from, to, data)
 	} else {
-		r0 = ret.Error(0)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*client.SendError)
+		}
 	}
 
 	return r0
