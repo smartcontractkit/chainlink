@@ -30,12 +30,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	evmregistry21 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/logprovider"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 func TestIntegration_LogEventProvider(t *testing.T) {
@@ -315,7 +313,7 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 		{
 			// total block history at this point should be 566
 			var minimumBlockCount int64 = 500
-			latestBlock, _ := lp.LatestBlock()
+			latestBlock, _ := lp.LatestBlock(ctx)
 
 			assert.GreaterOrEqual(t, latestBlock.BlockNumber, minimumBlockCount, "to ensure the integrety of the test, the minimum block count before the test should be %d but got %d", minimumBlockCount, latestBlock)
 		}
@@ -562,7 +560,7 @@ func waitLogPoller(ctx context.Context, t *testing.T, backend *backends.Simulate
 	require.NoError(t, err)
 	latestBlock := b.Number().Int64()
 	for {
-		latestPolled, lberr := lp.LatestBlock(pg.WithParentCtx(ctx))
+		latestPolled, lberr := lp.LatestBlock(ctx)
 		require.NoError(t, lberr)
 		if latestPolled.BlockNumber >= latestBlock {
 			break
@@ -660,8 +658,15 @@ func setupDependencies(t *testing.T, db *sqlx.DB, backend *backends.SimulatedBac
 	ethClient := evmclient.NewSimulatedBackendClient(t, backend, big.NewInt(1337))
 	pollerLggr := logger.TestLogger(t)
 	pollerLggr.SetLogLevel(zapcore.WarnLevel)
-	lorm := logpoller.NewORM(big.NewInt(1337), db, pollerLggr, pgtest.NewQConfig(false))
-	lp := logpoller.NewLogPoller(lorm, ethClient, pollerLggr, 100*time.Millisecond, false, 1, 2, 2, 1000, 0)
+	lorm := logpoller.NewORM(big.NewInt(1337), db, pollerLggr)
+	lpOpts := logpoller.Opts{
+		PollPeriod:               100 * time.Millisecond,
+		FinalityDepth:            1,
+		BackfillBatchSize:        2,
+		RpcBatchSize:             2,
+		KeepFinalizedBlocksDepth: 1000,
+	}
+	lp := logpoller.NewLogPoller(lorm, ethClient, pollerLggr, lpOpts)
 	return lp, ethClient
 }
 

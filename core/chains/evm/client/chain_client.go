@@ -35,7 +35,7 @@ type chainClient struct {
 		*evmtypes.Receipt,
 		*assets.Wei,
 		*evmtypes.Head,
-		RPCCLient,
+		RPCClient,
 		rpc.BatchElem,
 	]
 	logger logger.SugaredLogger
@@ -46,25 +46,12 @@ func NewChainClient(
 	selectionMode string,
 	leaseDuration time.Duration,
 	noNewHeadsThreshold time.Duration,
-	nodes []commonclient.Node[*big.Int, *evmtypes.Head, RPCCLient],
-	sendonlys []commonclient.SendOnlyNode[*big.Int, RPCCLient],
+	nodes []commonclient.Node[*big.Int, *evmtypes.Head, RPCClient],
+	sendonlys []commonclient.SendOnlyNode[*big.Int, RPCClient],
 	chainID *big.Int,
 	chainType config.ChainType,
 ) Client {
-	multiNode := commonclient.NewMultiNode[
-		*big.Int,
-		evmtypes.Nonce,
-		common.Address,
-		common.Hash,
-		*types.Transaction,
-		common.Hash,
-		types.Log,
-		ethereum.FilterQuery,
-		*evmtypes.Receipt,
-		*assets.Wei,
-		*evmtypes.Head,
-		RPCCLient,
-	](
+	multiNode := commonclient.NewMultiNode(
 		lggr,
 		selectionMode,
 		leaseDuration,
@@ -277,4 +264,8 @@ func (c *chainClient) TransactionReceipt(ctx context.Context, txHash common.Hash
 	}
 	//return rpc.TransactionReceipt(ctx, txHash)
 	return rpc.TransactionReceiptGeth(ctx, txHash)
+}
+
+func (c *chainClient) LatestFinalizedBlock(ctx context.Context) (*evmtypes.Head, error) {
+	return c.multiNode.LatestFinalizedBlock(ctx)
 }

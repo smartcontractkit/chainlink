@@ -82,8 +82,8 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig) vrfUniv
 	btORM := bridges.NewORM(db, lggr, cfg.Database())
 	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr, cfg.Database())
 	_, dbConfig, evmConfig := txmgr.MakeTestConfigs(t)
-	txm, err := txmgr.NewTxm(db, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), dbConfig, dbConfig.Listener(), ec, logger.TestLogger(t), nil, ks.Eth(), nil)
-	orm := headtracker.NewORM(db, lggr, cfg.Database(), *testutils.FixtureChainID)
+	txm, err := txmgr.NewTxm(db, db, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), dbConfig, dbConfig.Listener(), ec, logger.TestLogger(t), nil, ks.Eth(), nil)
+	orm := headtracker.NewORM(*testutils.FixtureChainID, db)
 	require.NoError(t, orm.IdempotentInsertHead(testutils.Context(t), cltest.Head(51)))
 	jrm := job.NewORM(db, prm, btORM, ks, lggr, cfg.Database())
 	t.Cleanup(func() { assert.NoError(t, jrm.Close()) })
@@ -91,7 +91,7 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig) vrfUniv
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 	pr := pipeline.NewRunner(prm, btORM, cfg.JobPipeline(), cfg.WebServer(), legacyChains, ks.Eth(), ks.VRF(), lggr, nil, nil)
 	require.NoError(t, ks.Unlock(testutils.Password))
-	k, err2 := ks.Eth().Create(testutils.FixtureChainID)
+	k, err2 := ks.Eth().Create(testutils.Context(t), testutils.FixtureChainID)
 	require.NoError(t, err2)
 	submitter := k.Address
 	require.NoError(t, err)
@@ -167,7 +167,7 @@ func setup(t *testing.T) (vrfUniverse, *v1.Listener, job.Job) {
 	require.NoError(t, err)
 	err = vuni.jrm.CreateJob(&jb)
 	require.NoError(t, err)
-	vl, err := vd.ServicesForSpec(jb)
+	vl, err := vd.ServicesForSpec(testutils.Context(t), jb)
 	require.NoError(t, err)
 	require.Len(t, vl, 1)
 	listener := vl[0].(*v1.Listener)
@@ -406,8 +406,7 @@ func TestDelegate_InvalidLog(t *testing.T) {
 	}
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := pgtest.NewQConfig(false)
-	txStore := txmgr.NewTxStore(db, logger.TestLogger(t), cfg)
+	txStore := txmgr.NewTxStore(db, logger.TestLogger(t))
 
 	txes, err := txStore.GetAllTxes(testutils.Context(t))
 	require.NoError(t, err)
@@ -565,7 +564,7 @@ func Test_CheckFromAddressesExist(t *testing.T) {
 
 		var fromAddresses []string
 		for i := 0; i < 3; i++ {
-			k, err := ks.Eth().Create(big.NewInt(1337))
+			k, err := ks.Eth().Create(testutils.Context(t), big.NewInt(1337))
 			assert.NoError(t, err)
 			fromAddresses = append(fromAddresses, k.Address.Hex())
 		}
@@ -581,7 +580,7 @@ func Test_CheckFromAddressesExist(t *testing.T) {
 			Toml())
 		assert.NoError(t, err)
 
-		assert.NoError(t, vrf.CheckFromAddressesExist(jb, ks.Eth()))
+		assert.NoError(t, vrf.CheckFromAddressesExist(testutils.Context(t), jb, ks.Eth()))
 	})
 
 	t.Run("one of from addresses doesn't exist", func(t *testing.T) {
@@ -593,7 +592,7 @@ func Test_CheckFromAddressesExist(t *testing.T) {
 
 		var fromAddresses []string
 		for i := 0; i < 3; i++ {
-			k, err := ks.Eth().Create(big.NewInt(1337))
+			k, err := ks.Eth().Create(testutils.Context(t), big.NewInt(1337))
 			assert.NoError(t, err)
 			fromAddresses = append(fromAddresses, k.Address.Hex())
 		}
@@ -611,7 +610,7 @@ func Test_CheckFromAddressesExist(t *testing.T) {
 			Toml())
 		assert.NoError(t, err)
 
-		assert.Error(t, vrf.CheckFromAddressesExist(jb, ks.Eth()))
+		assert.Error(t, vrf.CheckFromAddressesExist(testutils.Context(t), jb, ks.Eth()))
 	})
 }
 
@@ -701,7 +700,7 @@ func Test_VRFV2PlusServiceFailsWhenVRFOwnerProvided(t *testing.T) {
 	require.NoError(t, err)
 	err = vuni.jrm.CreateJob(&jb)
 	require.NoError(t, err)
-	_, err = vd.ServicesForSpec(jb)
+	_, err = vd.ServicesForSpec(testutils.Context(t), jb)
 	require.Error(t, err)
 	require.Equal(t, "VRF Owner is not supported for VRF V2 Plus", err.Error())
 }

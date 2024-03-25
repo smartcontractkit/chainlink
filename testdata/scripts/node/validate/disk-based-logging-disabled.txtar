@@ -172,6 +172,7 @@ MaxSuccessfulRuns = 10000
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '24h0m0s'
 ResultWriteQueueDepth = 100
+VerboseLogging = true
 
 [JobPipeline.HTTPRequest]
 DefaultTimeout = '15s'
@@ -285,6 +286,21 @@ LatestReportDeadline = '5s'
 [Mercury.TLS]
 CertFile = ''
 
+[Capabilities]
+[Capabilities.Peering]
+IncomingMessageBufferSize = 10
+OutgoingMessageBufferSize = 10
+PeerID = ''
+TraceLogging = false
+
+[Capabilities.Peering.V2]
+Enabled = false
+AnnounceAddresses = []
+DefaultBootstrappers = []
+DeltaDial = '15s'
+DeltaReconcile = '1m0s'
+ListenAddresses = []
+
 [[EVM]]
 ChainID = '1'
 AutoCreateKey = true
@@ -297,6 +313,7 @@ LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 3
 MinContractPayment = '0.1 link'
 NonceAutoSync = true
@@ -351,6 +368,7 @@ PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
 
 [EVM.OCR]
 ContractConfirmations = 4

@@ -3,7 +3,7 @@ package gas
 import (
 	"context"
 
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
@@ -58,7 +58,7 @@ func (f *fixedPriceEstimator) Start(context.Context) error {
 	return nil
 }
 
-func (f *fixedPriceEstimator) GetLegacyGas(_ context.Context, _ []byte, gasLimit uint32, maxGasPriceWei *assets.Wei, _ ...feetypes.Opt) (*assets.Wei, uint32, error) {
+func (f *fixedPriceEstimator) GetLegacyGas(_ context.Context, _ []byte, gasLimit uint64, maxGasPriceWei *assets.Wei, _ ...feetypes.Opt) (*assets.Wei, uint64, error) {
 	gasPrice := commonfee.CalculateFee(f.config.PriceDefault().ToInt(), maxGasPriceWei.ToInt(), f.config.PriceMax().ToInt())
 	chainSpecificGasLimit, err := commonfee.ApplyMultiplier(gasLimit, f.config.LimitMultiplier())
 	if err != nil {
@@ -70,10 +70,10 @@ func (f *fixedPriceEstimator) GetLegacyGas(_ context.Context, _ []byte, gasLimit
 func (f *fixedPriceEstimator) BumpLegacyGas(
 	_ context.Context,
 	originalGasPrice *assets.Wei,
-	originalGasLimit uint32,
+	originalGasLimit uint64,
 	maxGasPriceWei *assets.Wei,
 	_ []EvmPriorAttempt,
-) (*assets.Wei, uint32, error) {
+) (*assets.Wei, uint64, error) {
 	gasPrice, err := commonfee.CalculateBumpedFee(
 		f.lggr,
 		f.config.PriceDefault().ToInt(),
@@ -95,11 +95,11 @@ func (f *fixedPriceEstimator) BumpLegacyGas(
 	return assets.NewWei(gasPrice), chainSpecificGasLimit, err
 }
 
-func (f *fixedPriceEstimator) GetDynamicFee(_ context.Context, originalGasLimit uint32, maxGasPriceWei *assets.Wei) (d DynamicFee, chainSpecificGasLimit uint32, err error) {
+func (f *fixedPriceEstimator) GetDynamicFee(_ context.Context, originalGasLimit uint64, maxGasPriceWei *assets.Wei) (d DynamicFee, chainSpecificGasLimit uint64, err error) {
 	gasTipCap := f.config.TipCapDefault()
 
 	if gasTipCap == nil {
-		return d, 0, errors.New("cannot calculate dynamic fee: EthGasTipCapDefault was not set")
+		return d, 0, pkgerrors.New("cannot calculate dynamic fee: EthGasTipCapDefault was not set")
 	}
 	chainSpecificGasLimit, err = commonfee.ApplyMultiplier(originalGasLimit, f.config.LimitMultiplier())
 	if err != nil {
@@ -124,10 +124,10 @@ func (f *fixedPriceEstimator) GetDynamicFee(_ context.Context, originalGasLimit 
 func (f *fixedPriceEstimator) BumpDynamicFee(
 	_ context.Context,
 	originalFee DynamicFee,
-	originalGasLimit uint32,
+	originalGasLimit uint64,
 	maxGasPriceWei *assets.Wei,
 	_ []EvmPriorAttempt,
-) (bumped DynamicFee, chainSpecificGasLimit uint32, err error) {
+) (bumped DynamicFee, chainSpecificGasLimit uint64, err error) {
 
 	return BumpDynamicFeeOnly(
 		f.config,

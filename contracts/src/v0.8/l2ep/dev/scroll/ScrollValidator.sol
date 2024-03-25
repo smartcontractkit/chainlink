@@ -12,7 +12,6 @@ contract ScrollValidator is GasLimitValidator {
   // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
   address public immutable L1_MSG_QUEUE_ADDR;
 
-  // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
   string public constant override typeAndVersion = "ScrollValidator 1.0.0";
 
   /// @param l1CrossDomainMessengerAddress address the L1CrossDomainMessenger contract address

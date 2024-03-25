@@ -84,6 +84,7 @@ func initRestyClient(url string, email string, password string, timeout *time.Du
 		return nil, fmt.Errorf("error connecting to chainlink node after %d attempts: %w", retryCount, err)
 	}
 	rc.SetCookies(resp.Cookies())
+	log.Debug().Str("URL", url).Msg("Connected to Chainlink node")
 	return rc, nil
 }
 
@@ -117,6 +118,10 @@ func (c *ChainlinkClient) MustCreateJob(spec JobSpec) (*Job, error) {
 		return nil, err
 	}
 	return job, VerifyStatusCodeWithResponse(resp, http.StatusOK)
+}
+
+func (c *ChainlinkClient) GetConfig() ChainlinkConfig {
+	return *c.Config
 }
 
 // CreateJob creates a Chainlink job based on the provided spec struct

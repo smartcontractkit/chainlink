@@ -1,6 +1,7 @@
 package toml
 
 import (
+	"errors"
 	"fmt"
 	"net/url"
 	"slices"
@@ -17,12 +18,12 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/common/config"
-	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 )
+
+var ErrNotFound = errors.New("not found")
 
 type HasEVMConfigs interface {
 	EVMConfigs() EVMConfigs
@@ -145,7 +146,7 @@ func (cs EVMConfigs) Node(name string) (types.Node, error) {
 			}
 		}
 	}
-	return types.Node{}, fmt.Errorf("node %s: %w", name, chains.ErrNotFound)
+	return types.Node{}, fmt.Errorf("node %s: %w", name, ErrNotFound)
 }
 
 func (cs EVMConfigs) NodeStatus(name string) (commontypes.NodeStatus, error) {
@@ -156,7 +157,7 @@ func (cs EVMConfigs) NodeStatus(name string) (commontypes.NodeStatus, error) {
 			}
 		}
 	}
-	return commontypes.NodeStatus{}, fmt.Errorf("node %s: %w", name, chains.ErrNotFound)
+	return commontypes.NodeStatus{}, fmt.Errorf("node %s: %w", name, ErrNotFound)
 }
 
 func legacyNode(n *Node, chainID *big.Big) (v2 types.Node) {
@@ -205,7 +206,7 @@ func (cs EVMConfigs) Nodes(chainID string) (ns []types.Node, err error) {
 	}
 	nodes := cs.nodes(chainID)
 	if nodes == nil {
-		err = fmt.Errorf("no nodes: chain %q: %w", chainID, chains.ErrNotFound)
+		err = fmt.Errorf("no nodes: chain %q: %w", chainID, ErrNotFound)
 		return
 	}
 	for _, n := range nodes {
@@ -341,25 +342,26 @@ func (c *EVMConfig) TOMLString() (string, error) {
 }
 
 type Chain struct {
-	AutoCreateKey            *bool
-	BlockBackfillDepth       *uint32
-	BlockBackfillSkip        *bool
-	ChainType                *string
-	FinalityDepth            *uint32
-	FinalityTagEnabled       *bool
-	FlagsContractAddress     *ethkey.EIP55Address
-	LinkContractAddress      *ethkey.EIP55Address
-	LogBackfillBatchSize     *uint32
-	LogPollInterval          *commonconfig.Duration
-	LogKeepBlocksDepth       *uint32
-	LogPrunePageSize         *uint32
-	MinIncomingConfirmations *uint32
-	MinContractPayment       *commonassets.Link
-	NonceAutoSync            *bool
-	NoNewHeadsThreshold      *commonconfig.Duration
-	OperatorFactoryAddress   *ethkey.EIP55Address
-	RPCDefaultBatchSize      *uint32
-	RPCBlockQueryDelay       *uint16
+	AutoCreateKey             *bool
+	BlockBackfillDepth        *uint32
+	BlockBackfillSkip         *bool
+	ChainType                 *string
+	FinalityDepth             *uint32
+	FinalityTagEnabled        *bool
+	FlagsContractAddress      *types.EIP55Address
+	LinkContractAddress       *types.EIP55Address
+	LogBackfillBatchSize      *uint32
+	LogPollInterval           *commonconfig.Duration
+	LogKeepBlocksDepth        *uint32
+	LogPrunePageSize          *uint32
+	BackupLogPollerBlockDelay *uint64
+	MinIncomingConfirmations  *uint32
+	MinContractPayment        *commonassets.Link
+	NonceAutoSync             *bool
+	NoNewHeadsThreshold       *commonconfig.Duration
+	OperatorFactoryAddress    *types.EIP55Address
+	RPCDefaultBatchSize       *uint32
+	RPCBlockQueryDelay        *uint16
 
 	Transactions   Transactions      `toml:",omitempty"`
 	BalanceMonitor BalanceMonitor    `toml:",omitempty"`
@@ -450,8 +452,8 @@ func (a *Automation) setFrom(f *Automation) {
 }
 
 type ChainWriter struct {
-	FromAddress      *ethkey.EIP55Address `toml:",omitempty"`
-	ForwarderAddress *ethkey.EIP55Address `toml:",omitempty"`
+	FromAddress      *types.EIP55Address `toml:",omitempty"`
+	ForwarderAddress *types.EIP55Address `toml:",omitempty"`
 }
 
 func (m *ChainWriter) setFrom(f *ChainWriter) {
@@ -480,10 +482,10 @@ type GasEstimator struct {
 	PriceMax     *assets.Wei
 	PriceMin     *assets.Wei
 
-	LimitDefault    *uint32
-	LimitMax        *uint32
+	LimitDefault    *uint64
+	LimitMax        *uint64
 	LimitMultiplier *decimal.Decimal
-	LimitTransfer   *uint32
+	LimitTransfer   *uint64
 	LimitJobType    GasLimitJobType `toml:",omitempty"`
 
 	BumpMin       *assets.Wei
@@ -667,7 +669,7 @@ func (ks KeySpecificConfig) ValidateConfig() (err error) {
 }
 
 type KeySpecific struct {
-	Key          *ethkey.EIP55Address
+	Key          *types.EIP55Address
 	GasEstimator KeySpecificGasEstimator `toml:",omitempty"`
 }
 
@@ -705,6 +707,7 @@ type NodePool struct {
 	SelectionMode        *string
 	SyncThreshold        *uint32
 	LeaseDuration        *commonconfig.Duration
+	NodeIsSyncingEnabled *bool
 }
 
 func (p *NodePool) setFrom(f *NodePool) {
@@ -722,6 +725,9 @@ func (p *NodePool) setFrom(f *NodePool) {
 	}
 	if v := f.LeaseDuration; v != nil {
 		p.LeaseDuration = v
+	}
+	if v := f.NodeIsSyncingEnabled; v != nil {
+		p.NodeIsSyncingEnabled = v
 	}
 }
 

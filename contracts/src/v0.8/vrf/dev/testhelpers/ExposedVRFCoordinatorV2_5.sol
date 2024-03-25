@@ -2,6 +2,7 @@
 pragma solidity ^0.8.4;
 
 import {VRFCoordinatorV2_5} from "../VRFCoordinatorV2_5.sol";
+import {VRFTypes} from "../../VRFTypes.sol";
 import {EnumerableSet} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
 
 // solhint-disable-next-line contract-name-camelcase
@@ -25,7 +26,7 @@ contract ExposedVRFCoordinatorV2_5 is VRFCoordinatorV2_5 {
 
   function getRandomnessFromProofExternal(
     Proof calldata proof,
-    RequestCommitment calldata rc
+    VRFTypes.RequestCommitmentV2Plus calldata rc
   ) external view returns (Output memory) {
     return _getRandomnessFromProof(proof, rc);
   }
@@ -71,7 +72,7 @@ contract ExposedVRFCoordinatorV2_5 is VRFCoordinatorV2_5 {
     uint256 weiPerUnitGas,
     bool nativePayment,
     bool onlyPremium
-  ) external returns (uint96) {
+  ) external view returns (uint96, bool) {
     return _calculatePaymentAmount(startGas, weiPerUnitGas, nativePayment, onlyPremium);
   }
 }

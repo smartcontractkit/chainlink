@@ -24,14 +24,14 @@ contract ArbitrumCrossDomainForwarder is CrossDomainForwarder {
 
   /// @notice The call MUST come from the L1 owner (via cross-chain message.) Reverts otherwise.
   modifier onlyL1Owner() override {
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(msg.sender == crossDomainMessenger(), "Sender is not the L2 messenger");
     _;
   }
 
   /// @notice The call MUST come from the proposed L1 owner (via cross-chain message.) Reverts otherwise.
   modifier onlyProposedL1Owner() override {
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(msg.sender == AddressAliasHelper.applyL1ToL2Alias(s_l1PendingOwner), "Must be proposed L1 owner");
     _;
   }

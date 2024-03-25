@@ -67,14 +67,20 @@ func main() {
 	bhfCredsFile := flag.String("bhf-creds-file", "", "Creds to authenticate to the node")
 
 	numEthKeys := flag.Int("num-eth-keys", 5, "Number of eth keys to create")
-	maxGasPriceGwei := flag.Int("max-gas-price-gwei", 1e12, "Max gas price gwei of the eth keys")
+	provingKeyMaxGasPriceString := flag.String("proving-key-max-gas-price", "1e12", "Max Gas Price for proving key set in Coordinator config")
 	numVRFKeys := flag.Int("num-vrf-keys", 1, "Number of vrf keys to create")
+	numBHSSendingKeys := flag.Int("num-bhs-sending-keys", 1, "Number of sending keys for BHS to create")
+	numBHFSendingKeys := flag.Int("num-bhf-sending-keys", 1, "Number of sending keys for BHF to create")
 	batchFulfillmentEnabled := flag.Bool("batch-fulfillment-enabled", constants.BatchFulfillmentEnabled, "whether send randomness fulfillments in batches inside one tx from CL node")
 	batchFulfillmentGasMultiplier := flag.Float64("batch-fulfillment-gas-multiplier", 1.1, "")
 	estimateGasMultiplier := flag.Float64("estimate-gas-multiplier", 1.1, "")
 	pollPeriod := flag.String("poll-period", "300ms", "")
 	requestTimeout := flag.String("request-timeout", "30m0s", "")
 	revertsPipelineEnabled := flag.Bool("reverts-pipeline-enabled", true, "")
+	bhsJobWaitBlocks := flag.Int("bhs-job-wait-blocks", 30, "")
+	bhsJobLookBackBlocks := flag.Int("bhs-job-look-back-blocks", 200, "")
+	bhsJobPollPeriod := flag.String("bhs-job-poll-period", "3s", "")
+	bhsJobRunTimeout := flag.String("bhs-job-run-timeout", "1m", "")
 
 	vrfVersion := flag.String("vrf-version", "v2", "VRF version to use")
 	deployContractsAndCreateJobs := flag.Bool("deploy-contracts-and-create-jobs", false, "whether to deploy contracts and create jobs")
@@ -94,6 +100,13 @@ func main() {
 		"from this address you can perform `coordinator.oracleWithdraw` to withdraw earned funds from rand request fulfilments")
 	deployVRFOwner := flag.Bool("deploy-vrfv2-owner", true, "whether to deploy VRF owner contracts")
 	useTestCoordinator := flag.Bool("use-test-coordinator", true, "whether to use test coordinator contract or use the normal one")
+	maxGasLimit := flag.Int64("max-gas-limit", constants.MaxGasLimit, "max gas limit")
+	stalenessSeconds := flag.Int64("staleness-seconds", constants.StalenessSeconds, "staleness in seconds")
+	gasAfterPayment := flag.Int64("gas-after-payment", constants.GasAfterPayment, "gas after payment calculation")
+	flatFeeNativePPM := flag.Int64("flat-fee-native-ppm", 500, "fulfillment flat fee ETH ppm")
+	flatFeeLinkDiscountPPM := flag.Int64("flat-fee-link-discount-ppm", 100, "fulfillment flat fee discount for LINK payment denominated in native ppm")
+	nativePremiumPercentage := flag.Int64("native-premium-percentage", 1, "premium percentage for native payment")
+	linkPremiumPercentage := flag.Int64("link-premium-percentage", 1, "premium percentage for LINK payment")
 	simulationBlock := flag.String("simulation-block", "pending", "simulation block can be 'pending' or 'latest'")
 
 	e := helpers.SetupEnv(false)
@@ -112,6 +125,7 @@ func main() {
 	fundingAmount := decimal.RequireFromString(*nodeSendingKeyFundingAmount).BigInt()
 	subscriptionBalanceJuels := decimal.RequireFromString(*subscriptionBalanceJuelsString).BigInt()
 	subscriptionBalanceNativeWei := decimal.RequireFromString(*subscriptionBalanceNativeWeiString).BigInt()
+	provingKeyMaxGasPrice := decimal.RequireFromString(*provingKeyMaxGasPriceString).BigInt()
 
 	if *vrfPrimaryNodeURL != "" {
 		nodesMap[model.VRFPrimaryNodeName] = model.Node{
@@ -154,7 +168,16 @@ func main() {
 	for key, node := range nodesMap {
 		node := node
 		client, app := connectToNode(&node.URL, output, node.CredsFile)
-		ethKeys := createETHKeysIfNeeded(client, app, output, numEthKeys, &node.URL, maxGasPriceGwei)
+
+		// assumption that we are dealing with VRF nodes
+		numKeysToCreate := numEthKeys
+		if key == model.BHSNodeName || key == model.BHSBackupNodeName {
+			numKeysToCreate = numBHSSendingKeys
+		} else if key == model.BHFNodeName {
+			numKeysToCreate = numBHFSendingKeys
+		}
+		ethKeys := createETHKeysIfNeeded(client, app, output, numKeysToCreate, &node.URL)
+
 		if key == model.VRFPrimaryNodeName {
 			vrfKeys := createVRFKeyIfNeeded(client, app, output, numVRFKeys, &node.URL)
 			node.VrfKeys = mapVrfKeysToStringArr(vrfKeys)
@@ -208,9 +231,9 @@ func main() {
 
 			coordinatorConfigV2 := v2scripts.CoordinatorConfigV2{
 				MinConfs:               *minConfs,
-				MaxGasLimit:            constants.MaxGasLimit,
-				StalenessSeconds:       constants.StalenessSeconds,
-				GasAfterPayment:        constants.GasAfterPayment,
+				MaxGasLimit:            *maxGasLimit,
+				StalenessSeconds:       *stalenessSeconds,
+				GasAfterPayment:        *gasAfterPayment,
 				FallbackWeiPerUnitLink: constants.FallbackWeiPerUnitLink,
 				FeeConfig:              feeConfigV2,
 			}
@@ -224,6 +247,12 @@ func main() {
 				RevertsPipelineEnabled:        *revertsPipelineEnabled,
 			}
 
+			bhsJobSpecConfig := model.BHSJobSpecConfig{
+				RunTimeout:     *bhsJobRunTimeout,
+				WaitBlocks:     *bhsJobWaitBlocks,
+				LookBackBlocks: *bhsJobLookBackBlocks,
+				PollPeriod:     *bhsJobPollPeriod,
+			}
 			jobSpecs = v2scripts.VRFV2DeployUniverse(
 				e,
 				subscriptionBalanceJuels,
@@ -233,20 +262,21 @@ func main() {
 				nodesMap,
 				*deployVRFOwner,
 				coordinatorJobSpecConfig,
+				bhsJobSpecConfig,
 				*useTestCoordinator,
 				*simulationBlock,
 			)
 		case "v2plus":
 			coordinatorConfigV2Plus := v2plusscripts.CoordinatorConfigV2Plus{
 				MinConfs:                          *minConfs,
-				MaxGasLimit:                       constants.MaxGasLimit,
-				StalenessSeconds:                  constants.StalenessSeconds,
-				GasAfterPayment:                   constants.GasAfterPayment,
+				MaxGasLimit:                       *maxGasLimit,
+				StalenessSeconds:                  *stalenessSeconds,
+				GasAfterPayment:                   *gasAfterPayment,
 				FallbackWeiPerUnitLink:            constants.FallbackWeiPerUnitLink,
-				FulfillmentFlatFeeNativePPM:       constants.FlatFeeNativePPM,
-				FulfillmentFlatFeeLinkDiscountPPM: constants.FlatFeeLinkDiscountPPM,
-				NativePremiumPercentage:           constants.NativePremiumPercentage,
-				LinkPremiumPercentage:             constants.LinkPremiumPercentage,
+				FulfillmentFlatFeeNativePPM:       uint32(*flatFeeNativePPM),
+				FulfillmentFlatFeeLinkDiscountPPM: uint32(*flatFeeLinkDiscountPPM),
+				NativePremiumPercentage:           uint8(*nativePremiumPercentage),
+				LinkPremiumPercentage:             uint8(*linkPremiumPercentage),
 			}
 
 			coordinatorJobSpecConfig := model.CoordinatorJobSpecConfig{
@@ -256,7 +286,12 @@ func main() {
 				PollPeriod:                    *pollPeriod,
 				RequestTimeout:                *requestTimeout,
 			}
-
+			bhsJobSpecConfig := model.BHSJobSpecConfig{
+				RunTimeout:     *bhsJobRunTimeout,
+				WaitBlocks:     *bhsJobWaitBlocks,
+				LookBackBlocks: *bhsJobLookBackBlocks,
+				PollPeriod:     *bhsJobPollPeriod,
+			}
 			jobSpecs = v2plusscripts.VRFV2PlusDeployUniverse(
 				e,
 				subscriptionBalanceJuels,
@@ -264,11 +299,11 @@ func main() {
 				vrfKeyRegistrationConfig,
 				contractAddresses,
 				coordinatorConfigV2Plus,
-				*batchFulfillmentEnabled,
 				*nativeOnly,
 				nodesMap,
-				uint64(*maxGasPriceGwei),
+				provingKeyMaxGasPrice.Uint64(),
 				coordinatorJobSpecConfig,
+				bhsJobSpecConfig,
 				*simulationBlock,
 			)
 		}
@@ -306,6 +341,10 @@ func fundNodesIfNeeded(node model.Node, key string, e helpers.Environment) {
 	if node.SendingKeyFundingAmount.Cmp(big.NewInt(0)) == 1 {
 		fmt.Println("\nFunding", key, "Node's Sending Keys. Need to fund each key with", node.SendingKeyFundingAmount, "wei")
 		for _, sendingKey := range node.SendingKeys {
+			fmt.Println("Funding", sendingKey.Address, "with", node.SendingKeyFundingAmount, "wei", "BalanceEth:", sendingKey.BalanceEth.String())
+			if sendingKey.BalanceEth == nil {
+				sendingKey.BalanceEth = big.NewInt(0)
+			}
 			fundingToSendWei := new(big.Int).Sub(node.SendingKeyFundingAmount, sendingKey.BalanceEth)
 			if fundingToSendWei.Cmp(big.NewInt(0)) == 1 {
 				helpers.FundNode(e, sendingKey.Address, fundingToSendWei)
@@ -513,7 +552,7 @@ func createVRFKey(client *clcmd.Shell, app *cli.App, output *bytes.Buffer) prese
 	return newKey
 }
 
-func createETHKeysIfNeeded(client *clcmd.Shell, app *cli.App, output *bytes.Buffer, numEthKeys *int, nodeURL *string, maxGasPriceGwei *int) []presenters.ETHKeyResource {
+func createETHKeysIfNeeded(client *clcmd.Shell, app *cli.App, output *bytes.Buffer, numEthKeys *int, nodeURL *string) []presenters.ETHKeyResource {
 	var allETHKeysNode []presenters.ETHKeyResource
 	var ethKeys []presenters.ETHKeyResource
 	var newKeys []presenters.ETHKeyResource
@@ -536,9 +575,6 @@ func createETHKeysIfNeeded(client *clcmd.Shell, app *cli.App, output *bytes.Buff
 
 			flagSet := flag.NewFlagSet("blah", flag.ExitOnError)
 			flagSet.String("evm-chain-id", os.Getenv("ETH_CHAIN_ID"), "chain id")
-			if *maxGasPriceGwei > 0 {
-				helpers.PanicErr(flagSet.Set("max-gas-price-gwei", fmt.Sprintf("%d", *maxGasPriceGwei)))
-			}
 			err := flagSet.Parse([]string{"-evm-chain-id", os.Getenv("ETH_CHAIN_ID")})
 			helpers.PanicErr(err)
 			err = client.CreateETHKey(cli.NewContext(app, flagSet, nil))

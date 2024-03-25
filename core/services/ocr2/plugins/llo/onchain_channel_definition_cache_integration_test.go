@@ -1,6 +1,7 @@
 package llo_test
 
 import (
+	"context"
 	"math/rand"
 	"testing"
 	"time"
@@ -9,8 +10,8 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/test-go/testify/assert"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
@@ -26,7 +27,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 func Test_ChannelDefinitionCache_Integration(t *testing.T) {
@@ -77,7 +77,15 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("with zero fromblock", func(t *testing.T) {
-		lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.SimulatedChainID, db, lggr, pgtest.NewQConfig(true)), ethClient, lggr, 100*time.Millisecond, false, 1, 3, 2, 1000, 0)
+		lpOpts := logpoller.Opts{
+			PollPeriod:               100 * time.Millisecond,
+			FinalityDepth:            1,
+			BackfillBatchSize:        3,
+			RpcBatchSize:             2,
+			KeepFinalizedBlocksDepth: 1000,
+		}
+		lp := logpoller.NewLogPoller(
+			logpoller.NewORM(testutils.SimulatedChainID, db, lggr), ethClient, lggr, lpOpts)
 		servicetest.Run(t, lp)
 		cdc := llo.NewChannelDefinitionCache(lggr, orm, lp, configStoreAddress, 0)
 
@@ -141,12 +149,19 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 
 	t.Run("loads from ORM", func(t *testing.T) {
 		// Override logpoller to always return no logs
+		lpOpts := logpoller.Opts{
+			PollPeriod:               100 * time.Millisecond,
+			FinalityDepth:            1,
+			BackfillBatchSize:        3,
+			RpcBatchSize:             2,
+			KeepFinalizedBlocksDepth: 1000,
+		}
 		lp := &mockLogPoller{
-			LogPoller: logpoller.NewLogPoller(logpoller.NewORM(testutils.SimulatedChainID, db, lggr, pgtest.NewQConfig(true)), ethClient, lggr, 100*time.Millisecond, false, 1, 3, 2, 1000, 0),
-			LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
+			LogPoller: logpoller.NewLogPoller(logpoller.NewORM(testutils.SimulatedChainID, db, lggr), ethClient, lggr, lpOpts),
+			LatestBlockFn: func(ctx context.Context) (int64, error) {
 				return 0, nil
 			},
-			LogsWithSigsFn: func(start, end int64, eventSigs []common.Hash, address common.Address, qopts ...pg.QOpt) ([]logpoller.Log, error) {
+			LogsWithSigsFn: func(ctx context.Context, start, end int64, eventSigs []common.Hash, address common.Address) ([]logpoller.Log, error) {
 				return []logpoller.Log{}, nil
 			},
 		}
@@ -176,7 +191,14 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 	pgtest.MustExec(t, db, `DELETE FROM channel_definitions`)
 
 	t.Run("with non-zero fromBlock", func(t *testing.T) {
-		lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.SimulatedChainID, db, lggr, pgtest.NewQConfig(true)), ethClient, lggr, 100*time.Millisecond, false, 1, 3, 2, 1000, 0)
+		lpOpts := logpoller.Opts{
+			PollPeriod:               100 * time.Millisecond,
+			FinalityDepth:            1,
+			BackfillBatchSize:        3,
+			RpcBatchSize:             2,
+			KeepFinalizedBlocksDepth: 1000,
+		}
+		lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.SimulatedChainID, db, lggr), ethClient, lggr, lpOpts)
 		servicetest.Run(t, lp)
 		cdc := llo.NewChannelDefinitionCache(lggr, orm, lp, configStoreAddress, channel2Block.Number().Int64()+1)
 
@@ -200,14 +222,14 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 
 type mockLogPoller struct {
 	logpoller.LogPoller
-	LatestBlockFn  func(qopts ...pg.QOpt) (int64, error)
-	LogsWithSigsFn func(start, end int64, eventSigs []common.Hash, address common.Address, qopts ...pg.QOpt) ([]logpoller.Log, error)
+	LatestBlockFn  func(ctx context.Context) (int64, error)
+	LogsWithSigsFn func(ctx context.Context, start, end int64, eventSigs []common.Hash, address common.Address) ([]logpoller.Log, error)
 }
 
-func (p *mockLogPoller) LogsWithSigs(start, end int64, eventSigs []common.Hash, address common.Address, qopts ...pg.QOpt) ([]logpoller.Log, error) {
-	return p.LogsWithSigsFn(start, end, eventSigs, address, qopts...)
+func (p *mockLogPoller) LogsWithSigs(ctx context.Context, start, end int64, eventSigs []common.Hash, address common.Address) ([]logpoller.Log, error) {
+	return p.LogsWithSigsFn(ctx, start, end, eventSigs, address)
 }
-func (p *mockLogPoller) LatestBlock(qopts ...pg.QOpt) (logpoller.LogPollerBlock, error) {
-	block, err := p.LatestBlockFn(qopts...)
+func (p *mockLogPoller) LatestBlock(ctx context.Context) (logpoller.LogPollerBlock, error) {
+	block, err := p.LatestBlockFn(ctx)
 	return logpoller.LogPollerBlock{BlockNumber: block}, err
 }
