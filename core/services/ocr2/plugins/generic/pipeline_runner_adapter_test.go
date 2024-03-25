@@ -91,7 +91,6 @@ func newMockPipelineRunner() *mockPipelineRunner {
 type mockPipelineRunner struct {
 	results pipeline.TaskRunResults
 	err     error
-	run     *pipeline.Run
 	spec    pipeline.Spec
 	vars    pipeline.Vars
 }
