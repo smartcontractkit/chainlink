@@ -60,10 +60,7 @@ func (f *fixedPriceEstimator) Start(context.Context) error {
 
 func (f *fixedPriceEstimator) GetLegacyGas(_ context.Context, _ []byte, gasLimit uint64, maxGasPriceWei *assets.Wei, _ ...feetypes.Opt) (*assets.Wei, uint64, error) {
 	gasPrice := commonfee.CalculateFee(f.config.PriceDefault().ToInt(), maxGasPriceWei.ToInt(), f.config.PriceMax().ToInt())
-	chainSpecificGasLimit, err := commonfee.ApplyMultiplier(gasLimit, f.config.LimitMultiplier())
-	if err != nil {
-		return nil, 0, err
-	}
+	chainSpecificGasLimit := gasLimit
 	return assets.NewWei(gasPrice), chainSpecificGasLimit, nil
 }
 
@@ -88,10 +85,7 @@ func (f *fixedPriceEstimator) BumpLegacyGas(
 		return nil, 0, err
 	}
 
-	chainSpecificGasLimit, err := commonfee.ApplyMultiplier(originalGasLimit, f.config.LimitMultiplier())
-	if err != nil {
-		return nil, 0, err
-	}
+	chainSpecificGasLimit := originalGasLimit
 	return assets.NewWei(gasPrice), chainSpecificGasLimit, err
 }
 
@@ -101,10 +95,7 @@ func (f *fixedPriceEstimator) GetDynamicFee(_ context.Context, originalGasLimit 
 	if gasTipCap == nil {
 		return d, 0, pkgerrors.New("cannot calculate dynamic fee: EthGasTipCapDefault was not set")
 	}
-	chainSpecificGasLimit, err = commonfee.ApplyMultiplier(originalGasLimit, f.config.LimitMultiplier())
-	if err != nil {
-		return d, 0, err
-	}
+	chainSpecificGasLimit = originalGasLimit
 
 	var feeCap *assets.Wei
 	if f.config.BumpThreshold() == 0 {
