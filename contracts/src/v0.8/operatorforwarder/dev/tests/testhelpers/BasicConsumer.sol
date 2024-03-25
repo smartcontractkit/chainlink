@@ -7,6 +7,6 @@ contract BasicConsumer is Consumer {
   constructor(address _link, address _oracle, bytes32 _specId) {
     _setChainlinkToken(_link);
     _setChainlinkOracle(_oracle);
-    specId = _specId;
+    s_specId = _specId;
   }
 }

@@ -10,11 +10,11 @@ contract GasGuzzlingConsumer is Consumer {
   constructor(address _link, address _oracle, bytes32 _specId) {
     _setChainlinkToken(_link);
     _setChainlinkOracle(_oracle);
-    specId = _specId;
+    s_specId = _specId;
   }
 
   function gassyRequestEthereumPrice(uint256 _payment) public {
-    Chainlink.Request memory req = _buildChainlinkRequest(specId, address(this), this.gassyFulfill.selector);
+    Chainlink.Request memory req = _buildChainlinkRequest(s_specId, address(this), this.gassyFulfill.selector);
     req._add("get", "https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY");
     string[] memory path = new string[](1);
     path[0] = "USD";
@@ -27,7 +27,7 @@ contract GasGuzzlingConsumer is Consumer {
   }
 
   function gassyMultiWordRequest(uint256 _payment) public {
-    Chainlink.Request memory req = _buildChainlinkRequest(specId, address(this), this.gassyMultiWordFulfill.selector);
+    Chainlink.Request memory req = _buildChainlinkRequest(s_specId, address(this), this.gassyMultiWordFulfill.selector);
     req._add("get", "https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY");
     string[] memory path = new string[](1);
     path[0] = "USD";
