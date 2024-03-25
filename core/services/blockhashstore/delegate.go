@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
 	v1 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
@@ -18,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -74,7 +74,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 	if len(keys) == 0 {
 		return nil, fmt.Errorf("missing sending keys for chain ID: %v", chain.ID())
 	}
-	fromAddresses := []ethkey.EIP55Address{keys[0].EIP55Address}
+	fromAddresses := []types.EIP55Address{keys[0].EIP55Address}
 	if jb.BlockhashStoreSpec.FromAddresses != nil {
 		fromAddresses = jb.BlockhashStoreSpec.FromAddresses
 	}
@@ -107,7 +107,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 		}
 
 		var coord *V1Coordinator
-		coord, err = NewV1Coordinator(c, lp)
+		coord, err = NewV1Coordinator(ctx, c, lp)
 		if err != nil {
 			return nil, errors.Wrap(err, "building V1 coordinator")
 		}
@@ -122,7 +122,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 		}
 
 		var coord *V2Coordinator
-		coord, err = NewV2Coordinator(c, lp)
+		coord, err = NewV2Coordinator(ctx, c, lp)
 		if err != nil {
 			return nil, errors.Wrap(err, "building V2 coordinator")
 		}
@@ -137,7 +137,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 		}
 
 		var coord *V2PlusCoordinator
-		coord, err = NewV2PlusCoordinator(c, lp)
+		coord, err = NewV2PlusCoordinator(ctx, c, lp)
 		if err != nil {
 			return nil, errors.Wrap(err, "building V2Plus coordinator")
 		}
@@ -169,7 +169,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 		int(jb.BlockhashStoreSpec.LookbackBlocks),
 		jb.BlockhashStoreSpec.HeartbeatPeriod,
 		func(ctx context.Context) (uint64, error) {
-			head, err := lp.LatestBlock(pg.WithParentCtx(ctx))
+			head, err := lp.LatestBlock(ctx)
 			if err != nil {
 				return 0, errors.Wrap(err, "getting chain head")
 			}
@@ -194,7 +194,7 @@ func (d *Delegate) BeforeJobCreated(spec job.Job) {}
 func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
 
 // OnDeleteJob satisfies the job.Delegate interface.
-func (d *Delegate) OnDeleteJob(spec job.Job, q pg.Queryer) error { return nil }
+func (d *Delegate) OnDeleteJob(ctx context.Context, spec job.Job, q pg.Queryer) error { return nil }
 
 // service is a job.Service that runs the BHS feeder every pollPeriod.
 type service struct {

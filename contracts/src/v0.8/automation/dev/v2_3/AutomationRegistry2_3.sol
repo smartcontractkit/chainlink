@@ -4,10 +4,12 @@ pragma solidity 0.8.19;
 import {EnumerableSet} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
 import {Address} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
 import {AutomationRegistryBase2_3} from "./AutomationRegistryBase2_3.sol";
-import {AutomationRegistryLogicB2_3} from "./AutomationRegistryLogicB2_3.sol";
+import {AutomationRegistryLogicA2_3} from "./AutomationRegistryLogicA2_3.sol";
+import {AutomationRegistryLogicC2_3} from "./AutomationRegistryLogicC2_3.sol";
 import {Chainable} from "../../Chainable.sol";
 import {IERC677Receiver} from "../../../shared/interfaces/IERC677Receiver.sol";
 import {OCR2Abstract} from "../../../shared/ocr2/OCR2Abstract.sol";
+import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
 /**
  * @notice Registry for adding work for Chainlink nodes to perform on client
@@ -21,6 +23,8 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
   /**
    * @notice versions:
    * AutomationRegistry 2.3.0: supports native and ERC20 billing
+   *                           changes flat fee to USD-denominated
+   *                           adds support for custom billing overrides
    * AutomationRegistry 2.2.0: moves chain-specific integration code into a separate module
    * KeeperRegistry 2.1.0:     introduces support for log triggers
    *                           removes the need for "wrapped perform data"
@@ -43,17 +47,21 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
   string public constant override typeAndVersion = "AutomationRegistry 2.3.0";
 
   /**
-   * @param logicA the address of the first logic contract, but cast as logicB in order to call logicB functions
+   * @param logicA the address of the first logic contract
+   * @dev we cast the contract to logicC in order to call logicC functions (via fallback)
    */
   constructor(
-    AutomationRegistryLogicB2_3 logicA
+    AutomationRegistryLogicA2_3 logicA
   )
     AutomationRegistryBase2_3(
-      logicA.getLinkAddress(),
-      logicA.getLinkNativeFeedAddress(),
-      logicA.getFastGasFeedAddress(),
-      logicA.getAutomationForwarderLogic(),
-      logicA.getAllowedReadOnlyAddress()
+      AutomationRegistryLogicC2_3(address(logicA)).getLinkAddress(),
+      AutomationRegistryLogicC2_3(address(logicA)).getLinkUSDFeedAddress(),
+      AutomationRegistryLogicC2_3(address(logicA)).getNativeUSDFeedAddress(),
+      AutomationRegistryLogicC2_3(address(logicA)).getFastGasFeedAddress(),
+      AutomationRegistryLogicC2_3(address(logicA)).getAutomationForwarderLogic(),
+      AutomationRegistryLogicC2_3(address(logicA)).getAllowedReadOnlyAddress(),
+      AutomationRegistryLogicC2_3(address(logicA)).getPayoutMode(),
+      AutomationRegistryLogicC2_3(address(logicA)).getWrappedNativeTokenAddress()
     )
     Chainable(address(logicA))
   {}
@@ -63,9 +71,9 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
    */
   struct TransmitVars {
     uint16 numUpkeepsPassedChecks;
-    uint256 totalCalldataWeight;
     uint96 totalReimbursement;
     uint96 totalPremium;
+    uint256 totalCalldataWeight;
   }
 
   // ================================================================
@@ -167,26 +175,34 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
     gasOverhead = gasOverhead / transmitVars.numUpkeepsPassedChecks + ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD;
 
     {
-      uint96 reimbursement;
-      uint96 premium;
+      BillingTokenPaymentParams memory billingTokenParams;
       for (uint256 i = 0; i < report.upkeepIds.length; i++) {
         if (upkeepTransmitInfo[i].earlyChecksPassed) {
-          (reimbursement, premium) = _postPerformPayment(
+          if (i == 0 || upkeepTransmitInfo[i].upkeep.billingToken != upkeepTransmitInfo[i - 1].upkeep.billingToken) {
+            billingTokenParams = _getBillingTokenPaymentParams(hotVars, upkeepTransmitInfo[i].upkeep.billingToken);
+          }
+          PaymentReceipt memory receipt = _handlePayment(
             hotVars,
+            PaymentParams({
+              gasLimit: upkeepTransmitInfo[i].gasUsed,
+              gasOverhead: gasOverhead,
+              l1CostWei: (l1Fee * upkeepTransmitInfo[i].calldataWeight) / transmitVars.totalCalldataWeight,
+              fastGasWei: report.fastGasWei,
+              linkUSD: report.linkUSD,
+              nativeUSD: _getNativeUSD(hotVars),
+              billingToken: billingTokenParams,
+              isTransaction: true
+            }),
             report.upkeepIds[i],
-            upkeepTransmitInfo[i].gasUsed,
-            report.fastGasWei,
-            report.linkNative,
-            gasOverhead,
-            (l1Fee * upkeepTransmitInfo[i].calldataWeight) / transmitVars.totalCalldataWeight
+            upkeepTransmitInfo[i].upkeep
           );
-          transmitVars.totalPremium += premium;
-          transmitVars.totalReimbursement += reimbursement;
+          transmitVars.totalPremium += receipt.premiumJuels;
+          transmitVars.totalReimbursement += receipt.gasReimbursementJuels;
 
           emit UpkeepPerformed(
             report.upkeepIds[i],
             upkeepTransmitInfo[i].performSuccess,
-            reimbursement + premium,
+            receipt.gasReimbursementJuels + receipt.premiumJuels, // TODO - this is currently the LINK amount, but may change to billing token
             upkeepTransmitInfo[i].gasUsed,
             gasOverhead,
             report.triggers[i]
@@ -229,8 +245,9 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
     if (data.length != 32) revert InvalidDataLength();
     uint256 id = abi.decode(data, (uint256));
     if (s_upkeep[id].maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
+    if (address(s_upkeep[id].billingToken) != address(i_link)) revert InvalidBillingToken();
     s_upkeep[id].balance = s_upkeep[id].balance + uint96(amount);
-    s_expectedLinkBalance = s_expectedLinkBalance + amount;
+    s_reserveAmounts[IERC20(address(i_link))] = s_reserveAmounts[IERC20(address(i_link))] + amount;
     emit FundsAdded(id, sender, uint96(amount));
   }
 
@@ -250,13 +267,20 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
     uint64 offchainConfigVersion,
     bytes memory offchainConfig
   ) external override {
+    (OnchainConfig memory config, IERC20[] memory billingTokens, BillingConfig[] memory billingConfigs) = abi.decode(
+      onchainConfigBytes,
+      (OnchainConfig, IERC20[], BillingConfig[])
+    );
+
     setConfigTypeSafe(
       signers,
       transmitters,
       f,
-      abi.decode(onchainConfigBytes, (OnchainConfig)),
+      config,
       offchainConfigVersion,
-      offchainConfig
+      offchainConfig,
+      billingTokens,
+      billingConfigs
     );
   }
 
@@ -266,65 +290,26 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
     uint8 f,
     OnchainConfig memory onchainConfig,
     uint64 offchainConfigVersion,
-    bytes memory offchainConfig
+    bytes memory offchainConfig,
+    IERC20[] memory billingTokens,
+    BillingConfig[] memory billingConfigs
   ) public onlyOwner {
     if (signers.length > MAX_NUM_ORACLES) revert TooManyOracles();
     if (f == 0) revert IncorrectNumberOfFaultyOracles();
     if (signers.length != transmitters.length || signers.length <= 3 * f) revert IncorrectNumberOfSigners();
+    if (billingTokens.length != billingConfigs.length) revert ParameterLengthError();
+    // set billing config for tokens
+    _setBillingConfig(billingTokens, billingConfigs);
 
-    // move all pooled payments out of the pool to each transmitter's balance
-    uint96 totalPremium = s_hotVars.totalPremium;
-    uint96 oldLength = uint96(s_transmittersList.length);
-    for (uint256 i = 0; i < oldLength; i++) {
-      _updateTransmitterBalanceFromPool(s_transmittersList[i], totalPremium, oldLength);
-    }
-
-    // remove any old signer/transmitter addresses
-    address signerAddress;
-    address transmitterAddress;
-    for (uint256 i = 0; i < oldLength; i++) {
-      signerAddress = s_signersList[i];
-      transmitterAddress = s_transmittersList[i];
-      delete s_signers[signerAddress];
-      // Do not delete the whole transmitter struct as it has balance information stored
-      s_transmitters[transmitterAddress].active = false;
-    }
-    delete s_signersList;
-    delete s_transmittersList;
-
-    // add new signer/transmitter addresses
-    {
-      Transmitter memory transmitter;
-      address temp;
-      for (uint256 i = 0; i < signers.length; i++) {
-        if (s_signers[signers[i]].active) revert RepeatedSigner();
-        if (signers[i] == ZERO_ADDRESS) revert InvalidSigner();
-        s_signers[signers[i]] = Signer({active: true, index: uint8(i)});
-
-        temp = transmitters[i];
-        if (temp == ZERO_ADDRESS) revert InvalidTransmitter();
-        transmitter = s_transmitters[temp];
-        if (transmitter.active) revert RepeatedTransmitter();
-        transmitter.active = true;
-        transmitter.index = uint8(i);
-        // new transmitters start afresh from current totalPremium
-        // some spare change of premium from previous pool will be forfeited
-        transmitter.lastCollected = totalPremium;
-        s_transmitters[temp] = transmitter;
-      }
-    }
-    s_signersList = signers;
-    s_transmittersList = transmitters;
+    _updateTransmitters(signers, transmitters);
 
     s_hotVars = HotVars({
       f: f,
-      paymentPremiumPPB: onchainConfig.paymentPremiumPPB,
-      flatFeeMicroLink: onchainConfig.flatFeeMicroLink,
       stalenessSeconds: onchainConfig.stalenessSeconds,
       gasCeilingMultiplier: onchainConfig.gasCeilingMultiplier,
       paused: s_hotVars.paused,
       reentrancyGuard: s_hotVars.reentrancyGuard,
-      totalPremium: totalPremium,
+      totalPremium: s_hotVars.totalPremium,
       latestEpoch: 0, // DON restarts epoch
       reorgProtectionEnabled: onchainConfig.reorgProtectionEnabled,
       chainModule: onchainConfig.chainModule
@@ -332,20 +317,20 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
 
     s_storage = Storage({
       checkGasLimit: onchainConfig.checkGasLimit,
-      minUpkeepSpend: onchainConfig.minUpkeepSpend,
       maxPerformGas: onchainConfig.maxPerformGas,
       transcoder: onchainConfig.transcoder,
       maxCheckDataSize: onchainConfig.maxCheckDataSize,
       maxPerformDataSize: onchainConfig.maxPerformDataSize,
       maxRevertDataSize: onchainConfig.maxRevertDataSize,
       upkeepPrivilegeManager: onchainConfig.upkeepPrivilegeManager,
+      financeAdmin: onchainConfig.financeAdmin,
       nonce: s_storage.nonce,
       configCount: s_storage.configCount,
-      latestConfigBlockNumber: s_storage.latestConfigBlockNumber,
-      ownerLinkBalance: s_storage.ownerLinkBalance
+      latestConfigBlockNumber: s_storage.latestConfigBlockNumber
     });
     s_fallbackGasPrice = onchainConfig.fallbackGasPrice;
     s_fallbackLinkPrice = onchainConfig.fallbackLinkPrice;
+    s_fallbackNativePrice = onchainConfig.fallbackNativePrice;
 
     uint32 previousConfigBlockNumber = s_storage.latestConfigBlockNumber;
     s_storage.latestConfigBlockNumber = uint32(onchainConfig.chainModule.blockNumber());
@@ -365,9 +350,7 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
       offchainConfig
     );
 
-    for (uint256 idx = 0; idx < s_registrars.length(); idx++) {
-      s_registrars.remove(s_registrars.at(idx));
-    }
+    delete s_registrars;
 
     for (uint256 idx = 0; idx < onchainConfig.registrars.length; idx++) {
       s_registrars.add(onchainConfig.registrars[idx]);
@@ -384,6 +367,57 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
       offchainConfigVersion,
       offchainConfig
     );
+  }
+
+  function _updateTransmitters(address[] memory signers, address[] memory transmitters) internal {
+    // move all pooled payments out of the pool to each transmitter's balance
+    for (uint256 i = 0; i < s_transmittersList.length; i++) {
+      _updateTransmitterBalanceFromPool(
+        s_transmittersList[i],
+        s_hotVars.totalPremium,
+        uint96(s_transmittersList.length)
+      );
+    }
+
+    // remove any old signer/transmitter addresses
+    address transmitterAddress;
+    PayoutMode mode = s_payoutMode;
+    for (uint256 i = 0; i < s_transmittersList.length; i++) {
+      transmitterAddress = s_transmittersList[i];
+      delete s_signers[s_signersList[i]];
+      // Do not delete the whole transmitter struct as it has balance information stored
+      s_transmitters[transmitterAddress].active = false;
+      if (mode == PayoutMode.OFF_CHAIN && s_transmitters[transmitterAddress].balance > 0) {
+        s_deactivatedTransmitters.add(transmitterAddress);
+      }
+    }
+    delete s_signersList;
+    delete s_transmittersList;
+
+    // add new signer/transmitter addresses
+    Transmitter memory transmitter;
+    for (uint256 i = 0; i < signers.length; i++) {
+      if (s_signers[signers[i]].active) revert RepeatedSigner();
+      if (signers[i] == ZERO_ADDRESS) revert InvalidSigner();
+      s_signers[signers[i]] = Signer({active: true, index: uint8(i)});
+
+      transmitterAddress = transmitters[i];
+      if (transmitterAddress == ZERO_ADDRESS) revert InvalidTransmitter();
+      transmitter = s_transmitters[transmitterAddress];
+      if (transmitter.active) revert RepeatedTransmitter();
+      transmitter.active = true;
+      transmitter.index = uint8(i);
+      // new transmitters start afresh from current totalPremium
+      // some spare change of premium from previous pool will be forfeited
+      transmitter.lastCollected = s_hotVars.totalPremium;
+      s_transmitters[transmitterAddress] = transmitter;
+      if (mode == PayoutMode.OFF_CHAIN) {
+        s_deactivatedTransmitters.remove(transmitterAddress);
+      }
+    }
+
+    s_signersList = signers;
+    s_transmittersList = transmitters;
   }
 
   // ================================================================
