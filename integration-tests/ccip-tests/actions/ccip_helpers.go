@@ -960,11 +960,6 @@ func (d *DynamicPriceGetterConfig) AddAggregatorPriceConfig(tokenAddr string, ag
 	if err != nil {
 		return fmt.Errorf("error in updating round data %w", err)
 	}
-
-	err = aggregatorContract.WaitForTxConfirmations()
-	if err != nil {
-		return fmt.Errorf("error in waiting for tx confirmations %w", err)
-	}
 	// check if latest round data is populated
 	latestRoundData, err := aggregatorContract.Instance.LatestRoundData(nil)
 	if err != nil {

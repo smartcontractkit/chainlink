@@ -931,9 +931,10 @@ func (a *MockAggregator) UpdateRoundData(answer *big.Int) error {
 		Str("Round", round.String()).
 		Str("Answer", answer.String()).
 		Msg("Updated Round Data")
-	return a.client.ProcessTransaction(tx)
-}
+	_, err = bind.WaitMined(context.Background(), a.client.DeployBackend(), tx)
+	if err != nil {
+		return fmt.Errorf("error waiting for tx %s to be mined", tx.Hash().Hex())
+	}
 
-func (a *MockAggregator) WaitForTxConfirmations() error {
-	return a.client.WaitForEvents()
+	return a.client.MarkTxAsSentOnL2(tx)
 }
