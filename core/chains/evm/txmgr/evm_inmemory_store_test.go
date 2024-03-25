@@ -16,6 +16,7 @@ import (
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	evmgas "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtxmgr "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
@@ -26,6 +27,107 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 )
+
+func TestInMemoryStore_FindTxAttemptsRequiringResend(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
+	persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+	kst := cltest.NewKeyStore(t, db, dbcfg)
+	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
+
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	lggr := logger.TestSugared(t)
+	chainID := ethClient.ConfiguredChainID()
+	ctx := testutils.Context(t)
+
+	inMemoryStore, err := commontxmgr.NewInMemoryStore[
+		*big.Int,
+		common.Address, common.Hash, common.Hash,
+		*evmtypes.Receipt,
+		evmtypes.Nonce,
+		evmgas.EvmFee,
+	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	require.NoError(t, err)
+
+	// insert the transaction into the persistent store
+	inTx_1 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, persistentStore, 1, fromAddress, time.Unix(1616509200, 0))
+	inTx_3 := mustInsertUnconfirmedEthTxWithBroadcastDynamicFeeAttempt(t, persistentStore, 3, fromAddress, time.Unix(1616509400, 0))
+	inTx_0 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, persistentStore, 0, fromAddress, time.Unix(1616509100, 0))
+	inTx_2 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, persistentStore, 2, fromAddress, time.Unix(1616509300, 0))
+	// modify the attempts
+	attempt0_2 := newBroadcastLegacyEthTxAttempt(t, inTx_0.ID)
+	attempt0_2.TxFee = gas.EvmFee{Legacy: assets.NewWeiI(10)}
+	require.NoError(t, persistentStore.InsertTxAttempt(&attempt0_2))
+
+	attempt2_2 := newInProgressLegacyEthTxAttempt(t, inTx_2.ID)
+	attempt2_2.TxFee = gas.EvmFee{Legacy: assets.NewWeiI(10)}
+	require.NoError(t, persistentStore.InsertTxAttempt(&attempt2_2))
+
+	attempt3_2 := cltest.NewDynamicFeeEthTxAttempt(t, inTx_3.ID)
+	attempt3_2.TxFee.DynamicTipCap = assets.NewWeiI(10)
+	attempt3_2.TxFee.DynamicFeeCap = assets.NewWeiI(20)
+	attempt3_2.State = txmgrtypes.TxAttemptBroadcast
+	require.NoError(t, persistentStore.InsertTxAttempt(&attempt3_2))
+	attempt3_4 := cltest.NewDynamicFeeEthTxAttempt(t, inTx_3.ID)
+	attempt3_4.TxFee.DynamicTipCap = assets.NewWeiI(30)
+	attempt3_4.TxFee.DynamicFeeCap = assets.NewWeiI(40)
+	attempt3_4.State = txmgrtypes.TxAttemptBroadcast
+	require.NoError(t, persistentStore.InsertTxAttempt(&attempt3_4))
+	attempt3_3 := cltest.NewDynamicFeeEthTxAttempt(t, inTx_3.ID)
+	attempt3_3.TxFee.DynamicTipCap = assets.NewWeiI(20)
+	attempt3_3.TxFee.DynamicFeeCap = assets.NewWeiI(30)
+	attempt3_3.State = txmgrtypes.TxAttemptBroadcast
+	require.NoError(t, persistentStore.InsertTxAttempt(&attempt3_3))
+	// insert the transaction into the in-memory store
+	require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx_0))
+	require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx_1))
+	require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx_2))
+	require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx_3))
+
+	tcs := []struct {
+		name                      string
+		inOlderThan               time.Time
+		inMaxInFlightTransactions uint32
+		inChainID                 *big.Int
+		inFromAddress             common.Address
+
+		hasErr        bool
+		hasTxAttempts bool
+	}{
+		//{"finds nothing if transactions from a different key", time.Now(), 10, chainID, utils.RandomAddress(), false, false},
+		//{"returns the highest price attempt for each transaction that was last broadcast before or on the given time", time.Unix(1616509200, 0), 0, chainID, fromAddress, false, true},
+		//{"returns the highest price attempt for EIP-1559 transactions", time.Unix(1616509400, 0), 0, chainID, fromAddress, false, true},
+		{"applies limit", time.Unix(1616509200, 0), 1, chainID, fromAddress, false, true},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			actTxAttempts, actErr := inMemoryStore.FindTxAttemptsRequiringResend(ctx, tc.inOlderThan, tc.inMaxInFlightTransactions, tc.inChainID, tc.inFromAddress)
+			expTxAttempts, expErr := persistentStore.FindTxAttemptsRequiringResend(ctx, tc.inOlderThan, tc.inMaxInFlightTransactions, tc.inChainID, tc.inFromAddress)
+			require.Equal(t, expErr, actErr)
+			if tc.hasErr {
+				require.NotNil(t, expErr)
+				require.NotNil(t, actErr)
+			} else {
+				require.Nil(t, expErr)
+				require.Nil(t, actErr)
+			}
+			if tc.hasTxAttempts {
+				require.NotEqual(t, 0, len(expTxAttempts))
+				assert.NotEqual(t, 0, len(actTxAttempts))
+				require.Equal(t, len(expTxAttempts), len(actTxAttempts))
+				for i := 0; i < len(expTxAttempts); i++ {
+					assertTxAttemptEqual(t, expTxAttempts[i], actTxAttempts[i])
+				}
+			} else {
+				require.Equal(t, 0, len(expTxAttempts))
+				require.Equal(t, 0, len(actTxAttempts))
+			}
+		})
+	}
+}
 
 func TestInMemoryStore_FindTxesWithMetaFieldByReceiptBlockNum(t *testing.T) {
 	t.Parallel()

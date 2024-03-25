@@ -640,18 +640,18 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxAttemptsRequiringResend(_ context.Context, olderThan time.Time, maxInFlightTransactions uint32, chainID CHAIN_ID, address ADDR) ([]txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
 	if ms.chainID.String() != chainID.String() {
-		return nil, fmt.Errorf("find_tx_attempts_requiring_resend: %w", ErrInvalidChainID)
+		panic("invalid chain ID")
 	}
 
 	ms.addressStatesLock.RLock()
 	defer ms.addressStatesLock.RUnlock()
 	as, ok := ms.addressStates[address]
 	if !ok {
-		return nil, fmt.Errorf("find_tx_attempts_requiring_resend: %w", ErrAddressNotFound)
+		return nil, nil
 	}
 
 	txFilter := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
-		if tx.TxAttempts == nil || len(tx.TxAttempts) == 0 {
+		if len(tx.TxAttempts) == 0 {
 			return false
 		}
 		return tx.BroadcastAt.Before(olderThan) || tx.BroadcastAt.Equal(olderThan)
@@ -662,11 +662,17 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 	states := []txmgrtypes.TxState{TxUnconfirmed, TxConfirmedMissingReceipt}
 	attempts := as.findTxAttempts(states, txFilter, txAttemptFilter)
 	// sort by sequence ASC, gas_price DESC, gas_tip_cap DESC
-	sort.Slice(attempts, func(i, j int) bool {
-		return (*attempts[i].Tx.Sequence).Int64() < (*attempts[j].Tx.Sequence).Int64()
+	slices.SortFunc(attempts, func(a, b txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) int {
+		aSequence, bSequence := a.Tx.Sequence, b.Tx.Sequence
+		if aSequence == nil || bSequence == nil {
+			return 0
+		}
+		// TODO(jtw): figure out how to get gas price and gas tip cap from TxFee
+
+		return cmp.Compare((*aSequence).Int64(), (*bSequence).Int64())
 	})
 	// LIMIT by maxInFlightTransactions
-	if len(attempts) > int(maxInFlightTransactions) {
+	if maxInFlightTransactions > 0 && len(attempts) > int(maxInFlightTransactions) {
 		attempts = attempts[:maxInFlightTransactions]
 	}
 
