@@ -201,8 +201,8 @@ Load Config:
 				"geth": map[string]interface{}{
 					"blocktime":      *loadedTestConfig.Automation.General.BlockTime,
 					"capacity":       "20Gi",
-					"startGaslimit":  "2000000",
-					"targetGasLimit": "3000000",
+					"startGaslimit":  "20000000",
+					"targetGasLimit": "30000000",
 				},
 			},
 		}))
