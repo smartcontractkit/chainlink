@@ -147,7 +147,10 @@ func mercuryEventLoop(trigger *triggers.MercuryTriggerService, logger logger.Log
 		}
 
 		logger.Infow("New set of Mercury reports", "timestamp", time.Now().Unix(), "payload", reports)
-		trigger.ProcessReport(reports)
+		err := trigger.ProcessReport(reports)
+		if err != nil {
+			logger.Errorw("failed to process Mercury reports", "err", err, "timestamp", time.Now().Unix(), "payload", reports)
+		}
 	}
 }
 

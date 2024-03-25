@@ -375,6 +375,7 @@ func (e *Engine) queueIfReady(state executionState, step *step) {
 }
 
 func (e *Engine) finishExecution(ctx context.Context, executionID string, status string) error {
+	e.logger.Infow("finishing execution", "executionID", executionID, "status", status)
 	err := e.executionStates.updateStatus(ctx, executionID, status)
 	if err != nil {
 		return err
@@ -408,7 +409,7 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 		stepState.outputs.err = err
 		stepState.status = statusErrored
 	} else {
-		e.logger.Debugw("step executed successfully", "executionID", msg.state.executionID, "stepRef", msg.stepRef, "outputs", outputs)
+		e.logger.Infow("step executed successfully", "executionID", msg.state.executionID, "stepRef", msg.stepRef, "outputs", outputs)
 		stepState.outputs.value = outputs
 		stepState.status = statusCompleted
 	}
