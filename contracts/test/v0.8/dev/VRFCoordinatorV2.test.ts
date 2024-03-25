@@ -1,5 +1,5 @@
 import { ethers } from 'hardhat'
-import { Signer, Contract, BigNumber } from 'ethers'
+import { BigNumber, Contract, Signer } from 'ethers'
 import { assert, expect } from 'chai'
 import { publicAbi } from '../../test-helpers/helpers'
 import { randomAddressString } from 'hardhat/internal/hardhat-network/provider/utils/random'
@@ -42,7 +42,7 @@ describe('VRFCoordinatorV2', () => {
     )
     linkToken = await ltFactory.deploy()
     const bhFactory = await ethers.getContractFactory(
-      'src/v0.6/BlockhashStore.sol:BlockhashStore',
+      'src/v0.8/vrf/dev/BlockhashStore.sol:BlockhashStore',
       accounts[0],
     )
     blockHashStore = await bhFactory.deploy()

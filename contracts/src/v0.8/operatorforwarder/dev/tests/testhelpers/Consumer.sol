@@ -7,7 +7,7 @@ import {Chainlink} from "../../../../Chainlink.sol";
 contract Consumer is ChainlinkClient {
   using Chainlink for Chainlink.Request;
 
-  bytes32 internal specId;
+  bytes32 internal s_specId;
   bytes32 public currentPrice;
 
   event RequestFulfilled(
@@ -20,7 +20,7 @@ contract Consumer is ChainlinkClient {
   }
 
   function requestEthereumPriceByCallback(string memory _currency, uint256 _payment, address _callback) public {
-    Chainlink.Request memory req = _buildChainlinkRequest(specId, _callback, this.fulfill.selector);
+    Chainlink.Request memory req = _buildChainlinkRequest(s_specId, _callback, this.fulfill.selector);
     req._add("get", "https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY");
     string[] memory path = new string[](1);
     path[0] = _currency;
