@@ -902,7 +902,7 @@ contract GetMinBalanceForUpkeep is SetUp {
 }
 
 contract BillingOverrides is SetUp {
-  event BillingConfigOverridden(uint256 indexed id);
+  event BillingConfigOverridden(uint256 indexed id, AutomationRegistryBase2_3.BillingOverrides overrides);
   event BillingConfigOverrideRemoved(uint256 indexed id);
 
   function test_RevertsWhen_NotPrivilegeManager() public {
@@ -937,7 +937,7 @@ contract BillingOverrides is SetUp {
     vm.startPrank(PRIVILEGE_MANAGER);
 
     vm.expectEmit();
-    emit BillingConfigOverridden(linkUpkeepID);
+    emit BillingConfigOverridden(linkUpkeepID, billingOverrides);
     registry.setBillingOverrides(linkUpkeepID, billingOverrides);
   }
 
