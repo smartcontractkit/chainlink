@@ -127,7 +127,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   error IncorrectNumberOfSignatures();
   error IncorrectNumberOfSigners();
   error IndexOutOfRange();
-  error InsufficientBalance(int256 available, uint256 requested);
+  error InsufficientBalance(uint256 available, uint256 requested);
   error InvalidBillingToken();
   error InvalidDataLength();
   error InvalidFeed();

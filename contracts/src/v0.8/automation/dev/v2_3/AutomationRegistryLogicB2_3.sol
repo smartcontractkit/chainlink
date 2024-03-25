@@ -217,7 +217,11 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3, Chainable {
     if (to == ZERO_ADDRESS) revert InvalidRecipient();
 
     int256 available = linkAvailableForPayment();
-    if (available < 0 || amount > uint256(available)) revert InsufficientBalance(available, amount);
+    if (available < 0) {
+      revert InsufficientBalance(0, amount);
+    } else if (amount > uint256(available)) {
+      revert InsufficientBalance(uint256(available), amount);
+    }
 
     bool transferStatus = i_link.transfer(to, amount);
     if (!transferStatus) {
@@ -229,9 +233,10 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3, Chainable {
   function withdrawERC20Fees(IERC20 asset, address to, uint256 amount) external {
     _onlyFinanceAdminAllowed();
     if (to == ZERO_ADDRESS) revert InvalidRecipient();
+    uint256 available = asset.balanceOf(address(this)) - s_reserveAmounts[asset];
+    if (amount > available) revert InsufficientBalance(available, amount);
 
     asset.safeTransfer(to, amount);
-
     emit FeesWithdrawn(address(asset), to, amount);
   }
 

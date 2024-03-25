@@ -196,32 +196,32 @@ contract Withdraw is SetUp {
     assertEq(uint256(registry.linkAvailableForPayment()), linkToken.balanceOf(address(registry)));
   }
 
-  function testWithdrawLinkFeesRevertsBecauseOnlyFinanceAdminAllowed() public {
+  function testWithdrawLinkRevertsBecauseOnlyFinanceAdminAllowed() public {
     vm.expectRevert(abi.encodeWithSelector(Registry.OnlyFinanceAdmin.selector));
-    registry.withdrawLinkFees(aMockAddress, 1);
+    registry.withdrawLink(aMockAddress, 1);
   }
 
-  function testWithdrawLinkFeesRevertsBecauseOfInsufficientBalance() public {
+  function testWithdrawLinkRevertsBecauseOfInsufficientBalance() public {
     vm.startPrank(FINANCE_ADMIN);
 
     // try to withdraw 1 link while there is 0 balance
     vm.expectRevert(abi.encodeWithSelector(Registry.InsufficientBalance.selector, 0, 1));
-    registry.withdrawLinkFees(aMockAddress, 1);
+    registry.withdrawLink(aMockAddress, 1);
 
     vm.stopPrank();
   }
 
-  function testWithdrawLinkFeesRevertsBecauseOfInvalidRecipient() public {
+  function testWithdrawLinkRevertsBecauseOfInvalidRecipient() public {
     vm.startPrank(FINANCE_ADMIN);
 
     // try to withdraw 1 link while there is 0 balance
     vm.expectRevert(abi.encodeWithSelector(Registry.InvalidRecipient.selector));
-    registry.withdrawLinkFees(ZERO_ADDRESS, 1);
+    registry.withdrawLink(ZERO_ADDRESS, 1);
 
     vm.stopPrank();
   }
 
-  function testWithdrawLinkFeeSuccess() public {
+  function testWithdrawLinkSuccess() public {
     //simulate a deposit of link to the liquidity pool
     _mintLink(address(registry), 1e10);
 
@@ -231,7 +231,7 @@ contract Withdraw is SetUp {
     vm.startPrank(FINANCE_ADMIN);
 
     // try to withdraw 1 link while there is a ton of link available
-    registry.withdrawLinkFees(aMockAddress, 1);
+    registry.withdrawLink(aMockAddress, 1);
 
     vm.stopPrank();
 
@@ -241,8 +241,8 @@ contract Withdraw is SetUp {
 
   function test_WithdrawERC20Fees_RespectsReserveAmount() public {
     assertEq(registry.getBalance(usdUpkeepID), registry.getReserveAmount(address(usdToken)));
-    vm.expectRevert();
-    vm.prank(FINANCE_ADMIN);
+    vm.startPrank(FINANCE_ADMIN);
+    vm.expectRevert(abi.encodeWithSelector(Registry.InsufficientBalance.selector, 0, 1));
     registry.withdrawERC20Fees(address(usdToken), FINANCE_ADMIN, 1);
   }
 
