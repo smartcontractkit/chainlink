@@ -648,9 +648,9 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
       revert CoordinatorNotRegistered(newCoordinator);
     }
     (uint96 balance, uint96 nativeBalance, , address owner, address[] memory consumers) = getSubscription(subId);
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(owner == msg.sender, "Not subscription owner");
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(!pendingRequestExists(subId), "Pending request exists");
 
     V1MigrationData memory migrationData = V1MigrationData({
@@ -667,7 +667,7 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
 
     // Only transfer LINK if the token is active and there is a balance.
     if (address(LINK) != address(0) && balance != 0) {
-      // solhint-disable-next-line custom-errors
+      // solhint-disable-next-line gas-custom-errors
       require(LINK.transfer(address(newCoordinator), balance), "insufficient funds");
     }
 

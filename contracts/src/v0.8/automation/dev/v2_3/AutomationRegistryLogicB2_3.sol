@@ -80,7 +80,7 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3, Chainable {
     }
 
     s_upkeep[id].balance = upkeep.balance + amount;
-    s_reserveAmounts[address(upkeep.billingToken)] = s_reserveAmounts[address(upkeep.billingToken)] + amount;
+    s_reserveAmounts[upkeep.billingToken] = s_reserveAmounts[upkeep.billingToken] + amount;
 
     if (msg.value == 0) {
       // ERC20 payment
@@ -196,7 +196,7 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3, Chainable {
     if (s_upkeepAdmin[id] != msg.sender) revert OnlyCallableByAdmin();
     if (upkeep.maxValidBlocknumber > s_hotVars.chainModule.blockNumber()) revert UpkeepNotCanceled();
     uint96 amountToWithdraw = s_upkeep[id].balance;
-    s_reserveAmounts[address(upkeep.billingToken)] = s_reserveAmounts[address(upkeep.billingToken)] - amountToWithdraw;
+    s_reserveAmounts[upkeep.billingToken] = s_reserveAmounts[upkeep.billingToken] - amountToWithdraw;
     s_upkeep[id].balance = 0;
     bool success = upkeep.billingToken.transfer(to, amountToWithdraw);
     if (!success) revert TransferFailed();
@@ -205,17 +205,18 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3, Chainable {
 
   /**
    * @notice LINK available to withdraw by the finance team
+   # @dev LINK max supply < 2^96, so casting to int256 is safe
    */
-  function linkAvailableForPayment() public view returns (uint256) {
-    return i_link.balanceOf(address(this)) - s_reserveAmounts[address(i_link)];
+  function linkAvailableForPayment() public view returns (int256) {
+    return int256(i_link.balanceOf(address(this))) - int256(s_reserveAmounts[IERC20(address(i_link))]);
   }
 
   function withdrawLinkFees(address to, uint256 amount) external {
     _onlyFinanceAdminAllowed();
     if (to == ZERO_ADDRESS) revert InvalidRecipient();
 
-    uint256 available = linkAvailableForPayment();
-    if (amount > available) revert InsufficientBalance(available, amount);
+    int256 available = linkAvailableForPayment();
+    if (available < 0 || amount > uint256(available)) revert InsufficientBalance(available, amount);
 
     bool transferStatus = i_link.transfer(to, amount);
     if (!transferStatus) {
