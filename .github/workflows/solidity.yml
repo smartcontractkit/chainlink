@@ -27,8 +27,6 @@ jobs:
               - '.github/workflows/solidity.yml'
               - '.github/workflows/solidity-foundry.yml'
             old_sol:
-              - 'contracts/src/v0.4/**/*'
-              - 'contracts/src/v0.5/**/*'
               - 'contracts/src/v0.6/**/*'
               - 'contracts/src/v0.7/**/*'
 

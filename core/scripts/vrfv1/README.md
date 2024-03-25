@@ -87,7 +87,7 @@ Ownerless Consumer: <YOUR CONSUMER ADDRESS> TX Hash: <YOUR TX HASH>
 
 Since the ownerless consumer does not hold LINK funds, it can only request
 randomness through a transferAndCall from the 
-[LINK contract](../../../contracts/src/v0.4/LinkToken.sol). The transaction has
+[LINK contract](../../../contracts/src/v0.8/shared/token/ERC677/LinkToken.sol). The transaction has
 the following steps:
 1. An externally owned account (controlled by your private key) initiates a
    transferAndCall on the LinkToken contract.
