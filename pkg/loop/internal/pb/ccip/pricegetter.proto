@@ -5,12 +5,14 @@ option go_package = "github.com/smartcontractkit/chainlink-common/pkg/loop/inter
 
 package loop.internal.pb.ccip;
 import "relayer.proto";
+import "google/protobuf/empty.proto";
 
 
 // PriceGetter is a service that returns the price of a token in USD. It is a gRPC service adapter for the interface
 // [github.com/smartcontractkit/chainlink-common/chainlink-common/pkg/types/ccip/PriceGetter]
 service PriceGetter {
     rpc TokenPricesUSD(TokenPricesRequest) returns (TokenPricesResponse) {}
+    rpc Close(google.protobuf.Empty) returns (google.protobuf.Empty) {}
 }
 
 // TokenPricesRequest is a request for the price of a token in USD. It is a gRPC adapter for the input arguments of
