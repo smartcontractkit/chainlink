@@ -443,7 +443,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   }
 
   event AdminPrivilegeConfigSet(address indexed admin, bytes privilegeConfig);
-  event BillingConfigOverridden(uint256 indexed id);
+  event BillingConfigOverridden(uint256 indexed id, BillingOverrides overrides);
   event BillingConfigOverrideRemoved(uint256 indexed id);
   event CancelledUpkeepReport(uint256 indexed id, bytes trigger);
   event ChainSpecificModuleUpdated(address newModule);
