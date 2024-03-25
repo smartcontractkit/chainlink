@@ -2,4 +2,4 @@
 "chainlink": minor
 ---
 
-Applied LimitMultiplier to chainSpecificGasLimit in all gas estimators.
+Extracted Gas Limit Multiplier from gas estimators to WrappedEvmEstimator.

@@ -61,14 +61,6 @@ let config = {
   solidity: {
     compilers: [
       {
-        version: '0.4.24',
-        settings: COMPILER_SETTINGS,
-      },
-      {
-        version: '0.5.0',
-        settings: COMPILER_SETTINGS,
-      },
-      {
         version: '0.6.6',
         settings: COMPILER_SETTINGS,
       },
