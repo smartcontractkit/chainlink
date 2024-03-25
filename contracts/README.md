@@ -14,10 +14,8 @@ $ npm install @chainlink/contracts --save
 ```sh
 @chainlink/contracts
 ├── src # Solidity contracts
-│   ├── v0.7
 │   └── v0.8
 └── abi # ABI json output
-    ├── v0.7
     └── v0.8
 ```
 

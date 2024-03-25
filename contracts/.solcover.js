@@ -1,6 +1,5 @@
 module.exports = {
   skipFiles: [
-    'v0.7/',
     'v0.8/mocks',
     'v0.8/interfaces',
     'v0.8/vendor',
