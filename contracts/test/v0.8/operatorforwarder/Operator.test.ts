@@ -1204,6 +1204,7 @@ describe('Operator', () => {
         )
       })
 
+      // TODO BCF-3117
       // it('cannot call functions on the LINK token through callbacks', async () => {
       //   await evmRevert(
       //     maliciousRequester.request(
@@ -1746,6 +1747,7 @@ describe('Operator', () => {
           )
         })
 
+        // TODO BCF-3117
         // it('cannot call functions on the LINK token through callbacks', async () => {
         //   await evmRevert(
         //     maliciousRequester.request(
@@ -2302,6 +2304,7 @@ describe('Operator', () => {
             )
           })
 
+          // TODO BCF-3117
           // it('cannot call functions on the LINK token through callbacks', async () => {
           //   await evmRevert(
           //     maliciousRequester.request(
@@ -2835,6 +2838,7 @@ describe('Operator', () => {
             )
           })
 
+          // TODO BCF-3117
           // it('cannot call functions on the LINK token through callbacks', async () => {
           //   await evmRevert(
           //     maliciousRequester.request(
