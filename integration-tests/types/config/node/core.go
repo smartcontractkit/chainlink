@@ -18,10 +18,10 @@ import (
 	it_utils "github.com/smartcontractkit/chainlink/integration-tests/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -188,7 +188,7 @@ func WithPrivateEVMs(networks []blockchain.EVMNetwork) NodeConfigOpt {
 					HistoryDepth: ptr.Ptr(uint32(100)),
 				},
 				GasEstimator: evmcfg.GasEstimator{
-					LimitDefault:  ptr.Ptr(uint32(6000000)),
+					LimitDefault:  ptr.Ptr(uint64(6000000)),
 					PriceMax:      assets.GWei(200),
 					FeeCapDefault: assets.GWei(200),
 				},
@@ -214,7 +214,7 @@ func WithVRFv2EVMEstimator(addresses []string, maxGasPriceGWei int64) NodeConfig
 	var keySpecicifArr []evmcfg.KeySpecific
 	for _, addr := range addresses {
 		keySpecicifArr = append(keySpecicifArr, evmcfg.KeySpecific{
-			Key: ptr.Ptr(ethkey.EIP55Address(addr)),
+			Key: ptr.Ptr(types.EIP55Address(addr)),
 			GasEstimator: evmcfg.KeySpecificGasEstimator{
 				PriceMax: est,
 			},
@@ -223,7 +223,7 @@ func WithVRFv2EVMEstimator(addresses []string, maxGasPriceGWei int64) NodeConfig
 	return func(c *chainlink.Config) {
 		c.EVM[0].KeySpecific = keySpecicifArr
 		c.EVM[0].Chain.GasEstimator = evmcfg.GasEstimator{
-			LimitDefault: ptr.Ptr[uint32](3500000),
+			LimitDefault: ptr.Ptr[uint64](3500000),
 		}
 		c.EVM[0].Chain.Transactions = evmcfg.Transactions{
 			MaxQueued: ptr.Ptr[uint32](10000),

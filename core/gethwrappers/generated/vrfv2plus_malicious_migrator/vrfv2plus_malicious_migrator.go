@@ -5,6 +5,7 @@ package vrfv2plus_malicious_migrator
 
 import (
 	"errors"
+	"fmt"
 	"math/big"
 	"strings"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/event"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
 )
 
 var (
@@ -29,8 +31,8 @@ var (
 )
 
 var VRFV2PlusMaliciousMigratorMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_vrfCoordinator\",\"type\":\"address\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"setCoordinator\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
-	Bin: "0x608060405234801561001057600080fd5b506040516102e03803806102e083398101604081905261002f91610054565b600080546001600160a01b0319166001600160a01b0392909216919091179055610084565b60006020828403121561006657600080fd5b81516001600160a01b038116811461007d57600080fd5b9392505050565b61024d806100936000396000f3fe608060405234801561001057600080fd5b506004361061002b5760003560e01c80638ea9811714610030575b600080fd5b61004361003e36600461012a565b610045565b005b600080546040805160c081018252838152602080820185905281830185905260608201859052608082018590528251908101835293845260a0810193909352517f9b1c385e00000000000000000000000000000000000000000000000000000000815273ffffffffffffffffffffffffffffffffffffffff90911691639b1c385e916100d49190600401610180565b602060405180830381600087803b1580156100ee57600080fd5b505af1158015610102573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906101269190610167565b5050565b60006020828403121561013c57600080fd5b813573ffffffffffffffffffffffffffffffffffffffff8116811461016057600080fd5b9392505050565b60006020828403121561017957600080fd5b5051919050565b6000602080835283518184015280840151604084015261ffff6040850151166060840152606084015163ffffffff80821660808601528060808701511660a0860152505060a084015160c08085015280518060e086015260005b818110156101f757828101840151868201610100015283016101da565b8181111561020a57600061010083880101525b50601f017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe016939093016101000194935050505056fea164736f6c6343000806000a",
+	ABI: "[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_vrfCoordinator\",\"type\":\"address\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"vrfCoordinator\",\"type\":\"address\"}],\"name\":\"CoordinatorSet\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"setCoordinator\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
+	Bin: "0x608060405234801561001057600080fd5b506040516102cb3803806102cb83398101604081905261002f91610054565b600080546001600160a01b0319166001600160a01b0392909216919091179055610084565b60006020828403121561006657600080fd5b81516001600160a01b038116811461007d57600080fd5b9392505050565b610238806100936000396000f3fe608060405234801561001057600080fd5b506004361061002b5760003560e01c80638ea9811714610030575b600080fd5b61004361003e36600461011b565b610045565b005b600080546040805160c081018252838152602080820185905281830185905260608201859052608082018590528251908101835293845260a0810193909352517f9b1c385e00000000000000000000000000000000000000000000000000000000815273ffffffffffffffffffffffffffffffffffffffff90911691639b1c385e916100d49190600401610158565b6020604051808303816000875af11580156100f3573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906101179190610212565b5050565b60006020828403121561012d57600080fd5b813573ffffffffffffffffffffffffffffffffffffffff8116811461015157600080fd5b9392505050565b6000602080835283518184015280840151604084015261ffff6040850151166060840152606084015163ffffffff80821660808601528060808701511660a0860152505060a084015160c08085015280518060e086015260005b818110156101cf57828101840151868201610100015283016101b2565b5061010092506000838287010152827fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0601f830116860101935050505092915050565b60006020828403121561022457600080fd5b505191905056fea164736f6c6343000813000a",
 }
 
 var VRFV2PlusMaliciousMigratorABI = VRFV2PlusMaliciousMigratorMetaData.ABI
@@ -181,12 +183,151 @@ func (_VRFV2PlusMaliciousMigrator *VRFV2PlusMaliciousMigratorTransactorSession) 
 	return _VRFV2PlusMaliciousMigrator.Contract.SetCoordinator(&_VRFV2PlusMaliciousMigrator.TransactOpts, arg0)
 }
 
+type VRFV2PlusMaliciousMigratorCoordinatorSetIterator struct {
+	Event *VRFV2PlusMaliciousMigratorCoordinatorSet
+
+	contract *bind.BoundContract
+	event    string
+
+	logs chan types.Log
+	sub  ethereum.Subscription
+	done bool
+	fail error
+}
+
+func (it *VRFV2PlusMaliciousMigratorCoordinatorSetIterator) Next() bool {
+
+	if it.fail != nil {
+		return false
+	}
+
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(VRFV2PlusMaliciousMigratorCoordinatorSet)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+
+	select {
+	case log := <-it.logs:
+		it.Event = new(VRFV2PlusMaliciousMigratorCoordinatorSet)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+func (it *VRFV2PlusMaliciousMigratorCoordinatorSetIterator) Error() error {
+	return it.fail
+}
+
+func (it *VRFV2PlusMaliciousMigratorCoordinatorSetIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+type VRFV2PlusMaliciousMigratorCoordinatorSet struct {
+	VrfCoordinator common.Address
+	Raw            types.Log
+}
+
+func (_VRFV2PlusMaliciousMigrator *VRFV2PlusMaliciousMigratorFilterer) FilterCoordinatorSet(opts *bind.FilterOpts) (*VRFV2PlusMaliciousMigratorCoordinatorSetIterator, error) {
+
+	logs, sub, err := _VRFV2PlusMaliciousMigrator.contract.FilterLogs(opts, "CoordinatorSet")
+	if err != nil {
+		return nil, err
+	}
+	return &VRFV2PlusMaliciousMigratorCoordinatorSetIterator{contract: _VRFV2PlusMaliciousMigrator.contract, event: "CoordinatorSet", logs: logs, sub: sub}, nil
+}
+
+func (_VRFV2PlusMaliciousMigrator *VRFV2PlusMaliciousMigratorFilterer) WatchCoordinatorSet(opts *bind.WatchOpts, sink chan<- *VRFV2PlusMaliciousMigratorCoordinatorSet) (event.Subscription, error) {
+
+	logs, sub, err := _VRFV2PlusMaliciousMigrator.contract.WatchLogs(opts, "CoordinatorSet")
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+
+				event := new(VRFV2PlusMaliciousMigratorCoordinatorSet)
+				if err := _VRFV2PlusMaliciousMigrator.contract.UnpackLog(event, "CoordinatorSet", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+func (_VRFV2PlusMaliciousMigrator *VRFV2PlusMaliciousMigratorFilterer) ParseCoordinatorSet(log types.Log) (*VRFV2PlusMaliciousMigratorCoordinatorSet, error) {
+	event := new(VRFV2PlusMaliciousMigratorCoordinatorSet)
+	if err := _VRFV2PlusMaliciousMigrator.contract.UnpackLog(event, "CoordinatorSet", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+func (_VRFV2PlusMaliciousMigrator *VRFV2PlusMaliciousMigrator) ParseLog(log types.Log) (generated.AbigenLog, error) {
+	switch log.Topics[0] {
+	case _VRFV2PlusMaliciousMigrator.abi.Events["CoordinatorSet"].ID:
+		return _VRFV2PlusMaliciousMigrator.ParseCoordinatorSet(log)
+
+	default:
+		return nil, fmt.Errorf("abigen wrapper received unknown log topic: %v", log.Topics[0])
+	}
+}
+
+func (VRFV2PlusMaliciousMigratorCoordinatorSet) Topic() common.Hash {
+	return common.HexToHash("0xd1a6a14209a385a964d036e404cb5cfb71f4000cdb03c9366292430787261be6")
+}
+
 func (_VRFV2PlusMaliciousMigrator *VRFV2PlusMaliciousMigrator) Address() common.Address {
 	return _VRFV2PlusMaliciousMigrator.address
 }
 
 type VRFV2PlusMaliciousMigratorInterface interface {
 	SetCoordinator(opts *bind.TransactOpts, arg0 common.Address) (*types.Transaction, error)
+
+	FilterCoordinatorSet(opts *bind.FilterOpts) (*VRFV2PlusMaliciousMigratorCoordinatorSetIterator, error)
+
+	WatchCoordinatorSet(opts *bind.WatchOpts, sink chan<- *VRFV2PlusMaliciousMigratorCoordinatorSet) (event.Subscription, error)
+
+	ParseCoordinatorSet(log types.Log) (*VRFV2PlusMaliciousMigratorCoordinatorSet, error)
+
+	ParseLog(log types.Log) (generated.AbigenLog, error)
 
 	Address() common.Address
 }

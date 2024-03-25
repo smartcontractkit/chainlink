@@ -70,7 +70,7 @@ type (
 		// job. In case a given job type relies upon well-defined startup/shutdown
 		// ordering for services, they are started in the order they are given
 		// and stopped in reverse order.
-		ServicesForSpec(Job) ([]ServiceCtx, error)
+		ServicesForSpec(context.Context, Job) ([]ServiceCtx, error)
 		AfterJobCreated(Job)
 		BeforeJobDeleted(Job)
 		// OnDeleteJob will be called from within DELETE db transaction.  Any db
@@ -78,7 +78,7 @@ type (
 		// non-db side effects.  This is required in order to guarantee mutual atomicity between
 		// all tasks intended to happen during job deletion.  For the same reason, the job will
 		// not show up in the db within OnDeleteJob(), even though it is still actively running.
-		OnDeleteJob(jb Job, q pg.Queryer) error
+		OnDeleteJob(ctx context.Context, jb Job, q pg.Queryer) error
 	}
 
 	activeJob struct {
@@ -215,7 +215,7 @@ func (js *spawner) StartService(ctx context.Context, jb Job, qopts ...pg.QOpt) e
 		jb.PipelineSpec.GasLimit = &jb.GasLimit.Uint32
 	}
 
-	srvs, err := delegate.ServicesForSpec(jb)
+	srvs, err := delegate.ServicesForSpec(ctx, jb)
 	if err != nil {
 		lggr.Errorw("Error creating services for job", "err", err)
 		cctx, cancel := js.chStop.NewCtx()
@@ -340,7 +340,7 @@ func (js *spawner) DeleteJob(jobID int32, qopts ...pg.QOpt) error {
 		// we know the DELETE will succeed.  The DELETE will be finalized only if all db transactions in OnDeleteJob()
 		// succeed.  If either of those fails, the job will not be stopped and everything will be rolled back.
 		lggr.Debugw("Callback: OnDeleteJob")
-		err = aj.delegate.OnDeleteJob(aj.spec, tx)
+		err = aj.delegate.OnDeleteJob(ctx, aj.spec, tx)
 		if err != nil {
 			return err
 		}
@@ -391,11 +391,11 @@ func (n *NullDelegate) JobType() Type {
 }
 
 // ServicesForSpec does no-op.
-func (n *NullDelegate) ServicesForSpec(spec Job) (s []ServiceCtx, err error) {
+func (n *NullDelegate) ServicesForSpec(ctx context.Context, spec Job) (s []ServiceCtx, err error) {
 	return
 }
 
-func (n *NullDelegate) BeforeJobCreated(spec Job)                {}
-func (n *NullDelegate) AfterJobCreated(spec Job)                 {}
-func (n *NullDelegate) BeforeJobDeleted(spec Job)                {}
-func (n *NullDelegate) OnDeleteJob(spec Job, q pg.Queryer) error { return nil }
+func (n *NullDelegate) BeforeJobCreated(spec Job)                                     {}
+func (n *NullDelegate) AfterJobCreated(spec Job)                                      {}
+func (n *NullDelegate) BeforeJobDeleted(spec Job)                                     {}
+func (n *NullDelegate) OnDeleteJob(ctx context.Context, spec Job, q pg.Queryer) error { return nil }

@@ -565,6 +565,36 @@ func (_m *Client) LatestBlockHeight(ctx context.Context) (*big.Int, error) {
 	return r0, r1
 }
 
+// LatestFinalizedBlock provides a mock function with given fields: ctx
+func (_m *Client) LatestFinalizedBlock(ctx context.Context) (*evmtypes.Head, error) {
+	ret := _m.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for LatestFinalizedBlock")
+	}
+
+	var r0 *evmtypes.Head
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context) (*evmtypes.Head, error)); ok {
+		return rf(ctx)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context) *evmtypes.Head); ok {
+		r0 = rf(ctx)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*evmtypes.Head)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // NodeStates provides a mock function with given fields:
 func (_m *Client) NodeStates() map[string]string {
 	ret := _m.Called()

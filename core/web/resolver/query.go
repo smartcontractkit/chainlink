@@ -417,12 +417,12 @@ func (r *Resolver) ETHKeys(ctx context.Context) (*ETHKeysPayloadResolver, error)
 
 	ks := r.App.GetKeyStore().Eth()
 
-	keys, err := ks.GetAll()
+	keys, err := ks.GetAll(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("error getting unlocked keys: %v", err)
 	}
 
-	states, err := ks.GetStatesForKeys(keys)
+	states, err := ks.GetStatesForKeys(ctx, keys)
 	if err != nil {
 		return nil, fmt.Errorf("error getting key states: %v", err)
 	}
@@ -430,7 +430,7 @@ func (r *Resolver) ETHKeys(ctx context.Context) (*ETHKeysPayloadResolver, error)
 	var ethKeys []ETHKey
 
 	for _, state := range states {
-		k, err := ks.Get(state.Address.Hex())
+		k, err := ks.Get(ctx, state.Address.Hex())
 		if err != nil {
 			return nil, err
 		}
@@ -480,7 +480,7 @@ func (r *Resolver) EthTransaction(ctx context.Context, args struct {
 	}
 
 	hash := common.HexToHash(string(args.Hash))
-	etx, err := r.App.TxmStorageService().FindTxByHash(hash)
+	etx, err := r.App.TxmStorageService().FindTxByHash(ctx, hash)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewEthTransactionPayload(nil, err), nil
@@ -503,7 +503,7 @@ func (r *Resolver) EthTransactions(ctx context.Context, args struct {
 	offset := pageOffset(args.Offset)
 	limit := pageLimit(args.Limit)
 
-	txs, count, err := r.App.TxmStorageService().Transactions(offset, limit)
+	txs, count, err := r.App.TxmStorageService().Transactions(ctx, offset, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -522,7 +522,7 @@ func (r *Resolver) EthTransactionsAttempts(ctx context.Context, args struct {
 	offset := pageOffset(args.Offset)
 	limit := pageLimit(args.Limit)
 
-	attempts, count, err := r.App.TxmStorageService().TxAttempts(offset, limit)
+	attempts, count, err := r.App.TxmStorageService().TxAttempts(ctx, offset, limit)
 	if err != nil {
 		return nil, err
 	}

@@ -35,7 +35,7 @@ concurrency:
 jobs:
   e2e-soak-test:
     environment: sdlc
-    runs-on: ubuntu20.04-8cores-32GB
+    runs-on: ubuntu22.04-8cores-32GB
     permissions:
       contents: read
       id-token: write
@@ -49,7 +49,7 @@ jobs:
       WASP_LOG_LEVEL: info
     steps:
       - name: Checkout code
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
           fetch-depth: 0
       - name: Prepare Base64 TOML override
@@ -89,7 +89,7 @@ jobs:
           enabled=$pyroscope_enabled
           server_url="$PYROSCOPE_SERVER"
           environment="$PYROSCOPE_ENVIRONMENT"
-          key="$PYROSCOPE_KEY"
+          key_secret="$PYROSCOPE_KEY"
 
           [Logging]
           run_id="$RUN_ID"
@@ -100,7 +100,7 @@ jobs:
           [Logging.Loki]
           tenant_id="$LOKI_TENANT_ID"
           endpoint="$LOKI_URL"
-          basic_auth="$LOKI_BASIC_AUTH"
+          basic_auth_secret="$LOKI_BASIC_AUTH"
 
           [Logging.Grafana]
           base_url="$GRAFANA_URL"

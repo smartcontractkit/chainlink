@@ -35,7 +35,8 @@ type chainClient struct {
 		*evmtypes.Receipt,
 		*assets.Wei,
 		*evmtypes.Head,
-		RPCCLient,
+		RPCClient,
+		rpc.BatchElem,
 	]
 	logger logger.SugaredLogger
 }
@@ -45,25 +46,12 @@ func NewChainClient(
 	selectionMode string,
 	leaseDuration time.Duration,
 	noNewHeadsThreshold time.Duration,
-	nodes []commonclient.Node[*big.Int, *evmtypes.Head, RPCCLient],
-	sendonlys []commonclient.SendOnlyNode[*big.Int, RPCCLient],
+	nodes []commonclient.Node[*big.Int, *evmtypes.Head, RPCClient],
+	sendonlys []commonclient.SendOnlyNode[*big.Int, RPCClient],
 	chainID *big.Int,
 	chainType config.ChainType,
 ) Client {
-	multiNode := commonclient.NewMultiNode[
-		*big.Int,
-		evmtypes.Nonce,
-		common.Address,
-		common.Hash,
-		*types.Transaction,
-		common.Hash,
-		types.Log,
-		ethereum.FilterQuery,
-		*evmtypes.Receipt,
-		*assets.Wei,
-		*evmtypes.Head,
-		RPCCLient,
-	](
+	multiNode := commonclient.NewMultiNode(
 		lggr,
 		selectionMode,
 		leaseDuration,
@@ -88,20 +76,16 @@ func (c *chainClient) BalanceAt(ctx context.Context, account common.Address, blo
 	return c.multiNode.BalanceAt(ctx, account, blockNumber)
 }
 
+// Request specific errors for batch calls are returned to the individual BatchElem.
+// Ensure the same BatchElem slice provided by the caller is passed through the call stack
+// to ensure the caller has access to the errors.
 func (c *chainClient) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
-	batch := make([]any, len(b))
-	for i, arg := range b {
-		batch[i] = any(arg)
-	}
-	return c.multiNode.BatchCallContext(ctx, batch)
+	return c.multiNode.BatchCallContext(ctx, b)
 }
 
+// Similar to BatchCallContext, ensure the provided BatchElem slice is passed through
 func (c *chainClient) BatchCallContextAll(ctx context.Context, b []rpc.BatchElem) error {
-	batch := make([]any, len(b))
-	for i, arg := range b {
-		batch[i] = any(arg)
-	}
-	return c.multiNode.BatchCallContextAll(ctx, batch)
+	return c.multiNode.BatchCallContextAll(ctx, b)
 }
 
 // TODO-1663: return custom Block type instead of geth's once client.go is deprecated.
@@ -280,4 +264,8 @@ func (c *chainClient) TransactionReceipt(ctx context.Context, txHash common.Hash
 	}
 	//return rpc.TransactionReceipt(ctx, txHash)
 	return rpc.TransactionReceiptGeth(ctx, txHash)
+}
+
+func (c *chainClient) LatestFinalizedBlock(ctx context.Context) (*evmtypes.Head, error) {
+	return c.multiNode.LatestFinalizedBlock(ctx)
 }

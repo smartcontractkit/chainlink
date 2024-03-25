@@ -175,7 +175,7 @@ func TestETHKeysController_Index_NotDev(t *testing.T) {
 	defer cleanup()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
-	expectedKeys, err := app.KeyStore.Eth().GetAll()
+	expectedKeys, err := app.KeyStore.Eth().GetAll(testutils.Context(t))
 	require.NoError(t, err)
 	var actualBalances []webpresenters.ETHKeyResource
 	err = cltest.ParseJSONAPIResponse(t, resp, &actualBalances)
@@ -409,14 +409,14 @@ func TestETHKeysController_ChainSuccess_ResetWithAbandon(t *testing.T) {
 		FromAddress:    addr,
 		ToAddress:      testutils.NewAddress(),
 		EncodedPayload: []byte{1, 2, 3},
-		FeeLimit:       uint32(1000),
+		FeeLimit:       uint64(1000),
 		Meta:           nil,
 		Strategy:       strategy,
 	})
 	assert.NoError(t, err)
 
 	db := app.GetSqlxDB()
-	txStore := txmgr.NewTxStore(db, logger.TestLogger(t), cfg.Database())
+	txStore := txmgr.NewTxStore(db, logger.TestLogger(t))
 
 	txes, err := txStore.FindTxesByFromAddressAndState(testutils.Context(t), addr, "fatal_error")
 	require.NoError(t, err)

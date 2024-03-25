@@ -1,7 +1,7 @@
 pragma solidity 0.8.6;
 
 import "../BaseTest.t.sol";
-import {ChainSpecificUtil} from "../../../../src/v0.8/ChainSpecificUtil.sol";
+import {ChainSpecificUtil} from "../../../../src/v0.8/ChainSpecificUtil_v0_8_6.sol";
 import {ArbSys} from "../../../../src/v0.8/vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
 import {ArbGasInfo} from "../../../../src/v0.8/vendor/@arbitrum/nitro-contracts/src/precompiles/ArbGasInfo.sol";
 import {OVM_GasPriceOracle} from "../../../../src/v0.8/vendor/@eth-optimism/contracts/v0.8.6/contracts/L2/predeploys/OVM_GasPriceOracle.sol";

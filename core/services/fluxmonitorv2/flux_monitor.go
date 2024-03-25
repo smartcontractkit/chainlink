@@ -188,9 +188,9 @@ func NewFromJobSpec(
 	gasLimit := fcfg.LimitDefault()
 	fmLimit := fcfg.LimitJobType().FM()
 	if jobSpec.GasLimit.Valid {
-		gasLimit = jobSpec.GasLimit.Uint32
+		gasLimit = uint64(jobSpec.GasLimit.Uint32)
 	} else if fmLimit != nil {
-		gasLimit = *fmLimit
+		gasLimit = uint64(*fmLimit)
 	}
 
 	contractSubmitter := NewFluxAggregatorContractSubmitter(
@@ -466,12 +466,17 @@ func formatTime(at time.Time) string {
 // SetOracleAddress sets the oracle address which matches the node's keys.
 // If none match, it uses the first available key
 func (fm *FluxMonitor) SetOracleAddress() error {
+
+	// fm on deprecation path, using dangling context
+	ctx, cancel := fm.chStop.NewCtx()
+	defer cancel()
+
 	oracleAddrs, err := fm.fluxAggregator.GetOracles(nil)
 	if err != nil {
 		fm.logger.Error("failed to get list of oracles from FluxAggregator contract")
 		return errors.Wrap(err, "failed to get list of oracles from FluxAggregator contract")
 	}
-	keys, err := fm.keyStore.EnabledKeysForChain(fm.chainID)
+	keys, err := fm.keyStore.EnabledKeysForChain(ctx, fm.chainID)
 	if err != nil {
 		return errors.Wrap(err, "failed to load keys")
 	}
@@ -511,9 +516,11 @@ func (fm *FluxMonitor) processLogs() {
 }
 
 func (fm *FluxMonitor) processBroadcast(broadcast log.Broadcast) {
+	ctx, cancel := fm.chStop.NewCtx()
+	defer cancel()
 	// If the log is a duplicate of one we've seen before, ignore it (this
 	// happens because of the LogBroadcaster's backfilling behavior).
-	consumed, err := fm.logBroadcaster.WasAlreadyConsumed(broadcast)
+	consumed, err := fm.logBroadcaster.WasAlreadyConsumed(ctx, broadcast)
 
 	if err != nil {
 		fm.logger.Errorf("Error determining if log was already consumed: %v", err)
@@ -530,10 +537,10 @@ func (fm *FluxMonitor) processBroadcast(broadcast log.Broadcast) {
 		fm.respondToNewRoundLog(*log, broadcast)
 	case *flux_aggregator_wrapper.FluxAggregatorAnswerUpdated:
 		fm.respondToAnswerUpdatedLog(*log)
-		fm.markLogAsConsumed(broadcast, decodedLog, started)
+		fm.markLogAsConsumed(ctx, broadcast, decodedLog, started)
 	case *flags_wrapper.FlagsFlagRaised:
 		fm.respondToFlagsRaisedLog()
-		fm.markLogAsConsumed(broadcast, decodedLog, started)
+		fm.markLogAsConsumed(ctx, broadcast, decodedLog, started)
 	case *flags_wrapper.FlagsFlagLowered:
 		// Only reactivate if it is hibernating
 		if fm.pollManager.isHibernating.Load() {
@@ -545,8 +552,8 @@ func (fm *FluxMonitor) processBroadcast(broadcast log.Broadcast) {
 	}
 }
 
-func (fm *FluxMonitor) markLogAsConsumed(broadcast log.Broadcast, decodedLog interface{}, started time.Time) {
-	if err := fm.logBroadcaster.MarkConsumed(broadcast); err != nil {
+func (fm *FluxMonitor) markLogAsConsumed(ctx context.Context, broadcast log.Broadcast, decodedLog interface{}, started time.Time) {
+	if err := fm.logBroadcaster.MarkConsumed(ctx, broadcast); err != nil {
 		fm.logger.Errorw("Failed to mark log as consumed",
 			"err", err, "logType", fmt.Sprintf("%T", decodedLog), "log", broadcast.String(), "elapsed", time.Since(started))
 	}
@@ -601,7 +608,7 @@ func (fm *FluxMonitor) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggr
 	var markConsumed = true
 	defer func() {
 		if markConsumed {
-			if err := fm.logBroadcaster.MarkConsumed(lb); err != nil {
+			if err := fm.logBroadcaster.MarkConsumed(ctx, lb); err != nil {
 				fm.logger.Errorw("Failed to mark log consumed", "err", err, "log", lb.String())
 			}
 		}
@@ -779,7 +786,7 @@ func (fm *FluxMonitor) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggr
 		if err2 := fm.queueTransactionForTxm(ctx, tx, run.ID, answer, roundState.RoundId, &log); err2 != nil {
 			return err2
 		}
-		return fm.logBroadcaster.MarkConsumed(lb, pg.WithQueryer(tx))
+		return fm.logBroadcaster.MarkConsumed(ctx, lb)
 	})
 	// Either the tx failed and we want to reprocess the log, or it succeeded and already marked it consumed
 	markConsumed = false
@@ -825,7 +832,7 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 	var markConsumed = true
 	defer func() {
 		if markConsumed && broadcast != nil {
-			if err := fm.logBroadcaster.MarkConsumed(broadcast); err != nil {
+			if err := fm.logBroadcaster.MarkConsumed(ctx, broadcast); err != nil {
 				l.Errorw("Failed to mark log consumed", "err", err, "log", broadcast.String())
 			}
 		}
@@ -1007,7 +1014,7 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 		}
 		if broadcast != nil {
 			// In the case of a flag lowered, the pollEligible call is triggered by a log.
-			return fm.logBroadcaster.MarkConsumed(broadcast, pg.WithQueryer(tx))
+			return fm.logBroadcaster.MarkConsumed(ctx, broadcast)
 		}
 		return nil
 	})

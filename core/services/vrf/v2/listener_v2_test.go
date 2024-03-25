@@ -40,7 +40,7 @@ func makeTestTxm(t *testing.T, txStore txmgr.TestEvmTxStore, keyStore keystore.M
 	ec := evmtest.NewEthClientMockWithDefaultChain(t)
 	txmConfig := txmgr.NewEvmTxmConfig(evmConfig)
 	txm := txmgr.NewEvmTxm(ec.ConfiguredChainID(), txmConfig, evmConfig.Transactions(), keyStore.Eth(), logger.TestLogger(t), nil, nil,
-		nil, txStore, nil, nil, nil, nil, nil)
+		nil, txStore, nil, nil, nil, nil)
 
 	return txm
 }
@@ -87,7 +87,7 @@ func addEthTx(t *testing.T, txStore txmgr.TestEvmTxStore, from common.Address, s
 		MinConfirmations:  clnull.Uint32{Uint32: 0},
 		PipelineTaskRunID: uuid.NullUUID{},
 	}
-	err = txStore.InsertTx(tx)
+	err = txStore.InsertTx(testutils.Context(t), tx)
 	require.NoError(t, err)
 }
 
@@ -118,7 +118,7 @@ func addConfirmedEthTx(t *testing.T, txStore txmgr.TestEvmTxStore, from common.A
 		BroadcastAt:        &now,
 		InitialBroadcastAt: &now,
 	}
-	err = txStore.InsertTx(tx)
+	err = txStore.InsertTx(testutils.Context(t), tx)
 	require.NoError(t, err)
 }
 
@@ -145,7 +145,7 @@ func addEthTxNativePayment(t *testing.T, txStore txmgr.TestEvmTxStore, from comm
 		MinConfirmations:  clnull.Uint32{Uint32: 0},
 		PipelineTaskRunID: uuid.NullUUID{},
 	}
-	err = txStore.InsertTx(tx)
+	err = txStore.InsertTx(testutils.Context(t), tx)
 	require.NoError(t, err)
 }
 
@@ -175,7 +175,7 @@ func addConfirmedEthTxNativePayment(t *testing.T, txStore txmgr.TestEvmTxStore, 
 		BroadcastAt:        &now,
 		InitialBroadcastAt: &now,
 	}
-	err = txStore.InsertTx(tx)
+	err = txStore.InsertTx(testutils.Context(t), tx)
 	require.NoError(t, err)
 }
 
@@ -186,7 +186,7 @@ func testMaybeSubtractReservedLink(t *testing.T, vrfVersion vrfcommon.Version) {
 	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr, cfg)
 	require.NoError(t, ks.Unlock("blah"))
 	chainID := testutils.SimulatedChainID
-	k, err := ks.Eth().Create(chainID)
+	k, err := ks.Eth().Create(testutils.Context(t), chainID)
 	require.NoError(t, err)
 
 	subID := new(big.Int).SetUint64(1)
@@ -196,7 +196,7 @@ func testMaybeSubtractReservedLink(t *testing.T, vrfVersion vrfcommon.Version) {
 		RequestedConfsDelay: 10,
 	}).Toml())
 	require.NoError(t, err)
-	txstore := txmgr.NewTxStore(db, lggr, cfg)
+	txstore := txmgr.NewTxStore(db, lggr)
 	txm := makeTestTxm(t, txstore, ks)
 	chain := evmmocks.NewChain(t)
 	chain.On("TxManager").Return(txm)
@@ -236,7 +236,7 @@ func testMaybeSubtractReservedLink(t *testing.T, vrfVersion vrfcommon.Version) {
 	require.Equal(t, "80000", start.String())
 
 	// One key's data should not affect other keys' data in the case of different subscribers.
-	k2, err := ks.Eth().Create(testutils.SimulatedChainID)
+	k2, err := ks.Eth().Create(testutils.Context(t), testutils.SimulatedChainID)
 	require.NoError(t, err)
 
 	anotherSubID := new(big.Int).SetUint64(3)
@@ -268,7 +268,7 @@ func testMaybeSubtractReservedNative(t *testing.T, vrfVersion vrfcommon.Version)
 	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr, cfg)
 	require.NoError(t, ks.Unlock("blah"))
 	chainID := testutils.SimulatedChainID
-	k, err := ks.Eth().Create(chainID)
+	k, err := ks.Eth().Create(testutils.Context(t), chainID)
 	require.NoError(t, err)
 
 	subID := new(big.Int).SetUint64(1)
@@ -278,7 +278,7 @@ func testMaybeSubtractReservedNative(t *testing.T, vrfVersion vrfcommon.Version)
 		RequestedConfsDelay: 10,
 	}).Toml())
 	require.NoError(t, err)
-	txstore := txmgr.NewTxStore(db, logger.TestLogger(t), cfg)
+	txstore := txmgr.NewTxStore(db, logger.TestLogger(t))
 	txm := makeTestTxm(t, txstore, ks)
 	require.NoError(t, err)
 	chain := evmmocks.NewChain(t)
@@ -319,7 +319,7 @@ func testMaybeSubtractReservedNative(t *testing.T, vrfVersion vrfcommon.Version)
 	require.Equal(t, "80000", start.String())
 
 	// One key's data should not affect other keys' data in the case of different subscribers.
-	k2, err := ks.Eth().Create(testutils.SimulatedChainID)
+	k2, err := ks.Eth().Create(testutils.Context(t), testutils.SimulatedChainID)
 	require.NoError(t, err)
 
 	anotherSubID := new(big.Int).SetUint64(3)
@@ -353,7 +353,7 @@ func TestMaybeSubtractReservedNativeV2(t *testing.T) {
 		RequestedConfsDelay: 10,
 	}).Toml())
 	require.NoError(t, err)
-	txstore := txmgr.NewTxStore(db, logger.TestLogger(t), cfg)
+	txstore := txmgr.NewTxStore(db, logger.TestLogger(t))
 	txm := makeTestTxm(t, txstore, ks)
 	chain := evmmocks.NewChain(t)
 	chain.On("TxManager").Return(txm).Maybe()

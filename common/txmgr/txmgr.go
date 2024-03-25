@@ -107,7 +107,6 @@ type Txm[
 	tracker          *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 	fwdMgr           txmgrtypes.ForwarderManager[ADDR]
 	txAttemptBuilder txmgrtypes.TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
-	sequenceSyncer   SequenceSyncer[ADDR, TX_HASH, BLOCK_HASH, SEQ]
 }
 
 func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) RegisterResumeCallback(fn ResumeCallback) {
@@ -136,7 +135,6 @@ func NewTxm[
 	fwdMgr txmgrtypes.ForwarderManager[ADDR],
 	txAttemptBuilder txmgrtypes.TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	txStore txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
-	sequenceSyncer SequenceSyncer[ADDR, TX_HASH, BLOCK_HASH, SEQ],
 	broadcaster *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	confirmer *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
 	resender *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
@@ -157,7 +155,6 @@ func NewTxm[
 		reset:            make(chan reset),
 		fwdMgr:           fwdMgr,
 		txAttemptBuilder: txAttemptBuilder,
-		sequenceSyncer:   sequenceSyncer,
 		broadcaster:      broadcaster,
 		confirmer:        confirmer,
 		resender:         resender,
@@ -209,7 +206,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Start(ctx 
 		}
 
 		if b.resender != nil {
-			b.resender.Start()
+			b.resender.Start(ctx)
 		}
 
 		if b.fwdMgr != nil {
@@ -308,10 +305,13 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) HealthRepo
 }
 
 func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() {
+	ctx, cancel := b.chStop.NewCtx()
+	defer cancel()
+
 	// eb, ec and keyStates can all be modified by the runloop.
 	// This is concurrent-safe because the runloop ensures serial access.
 	defer b.wg.Done()
-	keysChanged, unsub := b.keyStore.SubscribeToKeyChanges()
+	keysChanged, unsub := b.keyStore.SubscribeToKeyChanges(ctx)
 	defer unsub()
 
 	close(b.chSubbed)
@@ -321,7 +321,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 
 	// execReset is defined as an inline function here because it closes over
 	// eb, ec and stopped
-	execReset := func(r *reset) {
+	execReset := func(ctx context.Context, r *reset) {
 		// These should always close successfully, since it should be logically
 		// impossible to enter this code path with ec/eb in a state other than
 		// "Started"
@@ -348,8 +348,6 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 		wg.Add(2)
 		go func() {
 			defer wg.Done()
-			ctx, cancel := b.chStop.NewCtx()
-			defer cancel()
 			// Retry indefinitely on failure
 			backoff := iutils.NewRedialBackoff()
 			for {
@@ -361,7 +359,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 						continue
 					}
 					return
-				case <-ctx.Done():
+				case <-b.chStop:
 					stopOnce.Do(func() { stopped = true })
 					return
 				}
@@ -374,7 +372,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 			for {
 				select {
 				case <-time.After(backoff.Duration()):
-					if err := b.confirmer.startInternal(); err != nil {
+					if err := b.confirmer.startInternal(ctx); err != nil {
 						b.logger.Criticalw("Failed to start Confirmer", "err", err)
 						b.SvcErrBuffer.Append(err)
 						continue
@@ -408,7 +406,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 				reset.done <- errors.New("Txm was stopped")
 				continue
 			}
-			execReset(&reset)
+			execReset(ctx, &reset)
 		case <-b.chStop:
 			// close and exit
 			//
@@ -441,7 +439,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 			if stopped {
 				continue
 			}
-			enabledAddresses, err := b.keyStore.EnabledAddressesForChain(b.chainID)
+			enabledAddresses, err := b.keyStore.EnabledAddressesForChain(ctx, b.chainID)
 			if err != nil {
 				b.logger.Critical("Failed to reload key states after key change")
 				b.SvcErrBuffer.Append(err)
@@ -449,7 +447,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 			}
 			b.logger.Debugw("Keys changed, reloading", "enabledAddresses", enabledAddresses)
 
-			execReset(nil)
+			execReset(ctx, nil)
 		}
 	}
 }
@@ -496,7 +494,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CreateTran
 		}
 	}
 
-	if err = b.checkEnabled(txRequest.FromAddress); err != nil {
+	if err = b.checkEnabled(ctx, txRequest.FromAddress); err != nil {
 		return tx, err
 	}
 
@@ -543,8 +541,8 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetForward
 	return
 }
 
-func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) checkEnabled(addr ADDR) error {
-	if err := b.keyStore.CheckEnabled(addr, b.chainID); err != nil {
+func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) checkEnabled(ctx context.Context, addr ADDR) error {
+	if err := b.keyStore.CheckEnabled(ctx, addr, b.chainID); err != nil {
 		return fmt.Errorf("cannot send transaction from %s on chain ID %s: %w", addr, b.chainID.String(), err)
 	}
 	return nil
@@ -560,7 +558,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SendNative
 		ToAddress:      to,
 		EncodedPayload: []byte{},
 		Value:          value,
-		FeeLimit:       gasLimit,
+		FeeLimit:       uint64(gasLimit),
 		Strategy:       NewSendEveryStrategy(),
 	}
 	etx, err = b.pruneQueueAndCreateTxn(ctx, txRequest, chainID)

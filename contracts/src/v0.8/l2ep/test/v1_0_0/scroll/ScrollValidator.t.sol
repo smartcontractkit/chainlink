@@ -3,6 +3,7 @@ pragma solidity 0.8.19;
 
 import {MockScrollL1CrossDomainMessenger} from "../../mocks/scroll/MockScrollL1CrossDomainMessenger.sol";
 import {MockScrollL2CrossDomainMessenger} from "../../mocks/scroll/MockScrollL2CrossDomainMessenger.sol";
+import {MockScrollL1MessageQueue} from "../../mocks/scroll/MockScrollL1MessageQueue.sol";
 import {ScrollSequencerUptimeFeed} from "../../../dev/scroll/ScrollSequencerUptimeFeed.sol";
 import {ScrollValidator} from "../../../dev/scroll/ScrollValidator.sol";
 import {L2EPTest} from "../L2EPTest.t.sol";
@@ -15,6 +16,7 @@ contract ScrollValidatorTest is L2EPTest {
   /// L2EP contracts
   MockScrollL1CrossDomainMessenger internal s_mockScrollL1CrossDomainMessenger;
   MockScrollL2CrossDomainMessenger internal s_mockScrollL2CrossDomainMessenger;
+  MockScrollL1MessageQueue internal s_mockScrollL1MessageQueue;
   ScrollSequencerUptimeFeed internal s_scrollSequencerUptimeFeed;
   ScrollValidator internal s_scrollValidator;
 
@@ -32,6 +34,7 @@ contract ScrollValidatorTest is L2EPTest {
   function setUp() public {
     s_mockScrollL1CrossDomainMessenger = new MockScrollL1CrossDomainMessenger();
     s_mockScrollL2CrossDomainMessenger = new MockScrollL2CrossDomainMessenger();
+    s_mockScrollL1MessageQueue = new MockScrollL1MessageQueue();
 
     s_scrollSequencerUptimeFeed = new ScrollSequencerUptimeFeed(
       address(s_mockScrollL1CrossDomainMessenger),
@@ -42,6 +45,7 @@ contract ScrollValidatorTest is L2EPTest {
     s_scrollValidator = new ScrollValidator(
       address(s_mockScrollL1CrossDomainMessenger),
       address(s_scrollSequencerUptimeFeed),
+      address(s_mockScrollL1MessageQueue),
       INIT_GAS_LIMIT
     );
   }

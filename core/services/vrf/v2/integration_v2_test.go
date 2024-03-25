@@ -67,7 +67,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -144,7 +143,7 @@ func makeTestTxm(t *testing.T, txStore txmgr.TestEvmTxStore, keyStore keystore.M
 	_, _, evmConfig := txmgr.MakeTestConfigs(t)
 	txmConfig := txmgr.NewEvmTxmConfig(evmConfig)
 	txm := txmgr.NewEvmTxm(ec.ConfiguredChainID(), txmConfig, evmConfig.Transactions(), keyStore.Eth(), logger.TestLogger(t), nil, nil,
-		nil, txStore, nil, nil, nil, nil, nil)
+		nil, txStore, nil, nil, nil, nil)
 
 	return txm
 }
@@ -751,6 +750,7 @@ func assertRandomWordsFulfilled(
 		for filter.Next() {
 			require.Equal(t, expectedSuccess, filter.Event().Success(), "fulfillment event success not correct, expected: %+v, actual: %+v", expectedSuccess, filter.Event().Success())
 			require.Equal(t, requestID, filter.Event().RequestID())
+			require.Equal(t, nativePayment, filter.Event().NativePayment())
 			found = true
 			rwfe = filter.Event()
 		}
@@ -779,8 +779,7 @@ func assertNumRandomWords(
 }
 
 func mine(t *testing.T, requestID, subID *big.Int, backend *backends.SimulatedBackend, db *sqlx.DB, vrfVersion vrfcommon.Version, chainId *big.Int) bool {
-	cfg := pgtest.NewQConfig(false)
-	txstore := txmgr.NewTxStore(db, logger.TestLogger(t), cfg)
+	txstore := txmgr.NewTxStore(db, logger.TestLogger(t))
 	var metaField string
 	if vrfVersion == vrfcommon.V2Plus {
 		metaField = "GlobalSubId"
@@ -807,8 +806,7 @@ func mine(t *testing.T, requestID, subID *big.Int, backend *backends.SimulatedBa
 
 func mineBatch(t *testing.T, requestIDs []*big.Int, subID *big.Int, backend *backends.SimulatedBackend, db *sqlx.DB, vrfVersion vrfcommon.Version, chainId *big.Int) bool {
 	requestIDMap := map[string]bool{}
-	cfg := pgtest.NewQConfig(false)
-	txstore := txmgr.NewTxStore(db, logger.TestLogger(t), cfg)
+	txstore := txmgr.NewTxStore(db, logger.TestLogger(t))
 	var metaField string
 	if vrfVersion == vrfcommon.V2Plus {
 		metaField = "GlobalSubId"
@@ -1011,7 +1009,7 @@ func testEoa(
 			Key:          ptr(key1.EIP55Address),
 			GasEstimator: toml.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
-		c.EVM[0].GasEstimator.LimitDefault = ptr(uint32(gasLimit))
+		c.EVM[0].GasEstimator.LimitDefault = ptr(uint64(gasLimit))
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 		c.EVM[0].FinalityDepth = ptr(finalityDepth)
 	})
@@ -1172,7 +1170,7 @@ func TestVRFV2Integration_SingleConsumer_Wrapper(t *testing.T) {
 			Key:          ptr(key1.EIP55Address),
 			GasEstimator: toml.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
-		c.EVM[0].GasEstimator.LimitDefault = ptr[uint32](3_500_000)
+		c.EVM[0].GasEstimator.LimitDefault = ptr[uint64](3_500_000)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 	})
 	ownerKey := cltest.MustGenerateRandomKey(t)
@@ -1252,7 +1250,7 @@ func TestVRFV2Integration_Wrapper_High_Gas(t *testing.T) {
 			Key:          ptr(key1.EIP55Address),
 			GasEstimator: toml.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
-		c.EVM[0].GasEstimator.LimitDefault = ptr[uint32](3_500_000)
+		c.EVM[0].GasEstimator.LimitDefault = ptr[uint64](3_500_000)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 		c.Feature.LogPoller = ptr(true)
 		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
@@ -1491,7 +1489,7 @@ func simulatedOverrides(t *testing.T, defaultGasPrice *assets.Wei, ks ...toml.Ke
 		if defaultGasPrice != nil {
 			c.EVM[0].GasEstimator.PriceDefault = defaultGasPrice
 		}
-		c.EVM[0].GasEstimator.LimitDefault = ptr[uint32](3_500_000)
+		c.EVM[0].GasEstimator.LimitDefault = ptr[uint64](3_500_000)
 
 		c.Feature.LogPoller = ptr(true)
 		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
@@ -1652,7 +1650,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 	carolContractAddress := uni.consumerContractAddresses[0]
 
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, key)
-	keys, err := app.KeyStore.Eth().EnabledKeysForChain(testutils.SimulatedChainID)
+	keys, err := app.KeyStore.Eth().EnabledKeysForChain(testutils.Context(t), testutils.SimulatedChainID)
 	require.NoError(t, err)
 	require.Zero(t, key.Cmp(keys[0]))
 
@@ -2045,9 +2043,9 @@ func TestFulfillmentCost(t *testing.T) {
 func TestStartingCountsV1(t *testing.T) {
 	cfg, db := heavyweight.FullTestDBNoFixturesV2(t, nil)
 
+	ctx := testutils.Context(t)
 	lggr := logger.TestLogger(t)
-	qCfg := pgtest.NewQConfig(false)
-	txStore := txmgr.NewTxStore(db, logger.TestLogger(t), qCfg)
+	txStore := txmgr.NewTxStore(db, logger.TestLogger(t))
 	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr, cfg.Database())
 	ec := evmclimocks.NewClient(t)
 	ec.On("ConfiguredChainID").Return(testutils.SimulatedChainID)
@@ -2067,7 +2065,7 @@ func TestStartingCountsV1(t *testing.T) {
 	assert.Equal(t, 0, len(counts))
 	err = ks.Unlock(testutils.Password)
 	require.NoError(t, err)
-	k, err := ks.Eth().Create(testutils.SimulatedChainID)
+	k, err := ks.Eth().Create(testutils.Context(t), testutils.SimulatedChainID)
 	require.NoError(t, err)
 	b := time.Now()
 	n1, n2, n3, n4 := evmtypes.Nonce(0), evmtypes.Nonce(1), evmtypes.Nonce(2), evmtypes.Nonce(3)
@@ -2161,7 +2159,7 @@ func TestStartingCountsV1(t *testing.T) {
 	}
 	txList := append(confirmedTxes, unconfirmedTxes...)
 	for i := range txList {
-		err = txStore.InsertTx(&txList[i])
+		err = txStore.InsertTx(ctx, &txList[i])
 		require.NoError(t, err)
 	}
 
@@ -2177,7 +2175,7 @@ func TestStartingCountsV1(t *testing.T) {
 			BroadcastBeforeBlockNum: &broadcastBlock,
 			State:                   txmgrtypes.TxAttemptBroadcast,
 			CreatedAt:               time.Now(),
-			ChainSpecificFeeLimit:   uint32(100),
+			ChainSpecificFeeLimit:   uint64(100),
 		})
 	}
 	// add tx attempt for unconfirmed
@@ -2189,14 +2187,14 @@ func TestStartingCountsV1(t *testing.T) {
 			Hash:                  evmutils.NewHash(),
 			State:                 txmgrtypes.TxAttemptInProgress,
 			CreatedAt:             time.Now(),
-			ChainSpecificFeeLimit: uint32(100),
+			ChainSpecificFeeLimit: uint64(100),
 		})
 	}
 	for _, txAttempt := range txAttempts {
 		t.Log("tx attempt eth tx id: ", txAttempt.TxID)
 	}
 	for i := range txAttempts {
-		err = txStore.InsertTxAttempt(&txAttempts[i])
+		err = txStore.InsertTxAttempt(ctx, &txAttempts[i])
 		require.NoError(t, err)
 	}
 
@@ -2211,7 +2209,7 @@ func TestStartingCountsV1(t *testing.T) {
 		})
 	}
 	for i := range receipts {
-		_, err = txStore.InsertReceipt(&receipts[i])
+		_, err = txStore.InsertReceipt(ctx, &receipts[i])
 		require.NoError(t, err)
 	}
 
