@@ -61,7 +61,6 @@ func naclBoxSealAnonymous(t *testing.T, peerPublicKey [curve25519.PointSize]byte
 	ciphertext, err := box.SealAnonymous(nil, plaintext, &peerPublicKey, cryptorand.Reader)
 	if err != nil {
 		t.Fatalf("encryption failed")
-		return nil
 	}
 
 	return ciphertext
