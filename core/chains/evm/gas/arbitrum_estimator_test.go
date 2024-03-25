@@ -90,7 +90,7 @@ func TestArbitrumEstimator(t *testing.T) {
 		require.NoError(t, err)
 		// Expected price for a standard l2_suggested_estimator would be 42, but we add a fixed gasPriceBufferPercentage.
 		assert.Equal(t, assets.NewWeiI(42).AddPercentage(gasPriceBufferPercentage), gasPrice)
-		assert.Equal(t, uint64(float32(gasLimit)*limitMultiplier), chainSpecificGasLimit)
+		assert.Equal(t, gasLimit, chainSpecificGasLimit)
 	})
 
 	t.Run("gas price is lower than user specified max gas price", func(t *testing.T) {
@@ -222,7 +222,7 @@ func TestArbitrumEstimator(t *testing.T) {
 		require.NotNil(t, gasPrice)
 		// Again, a normal l2_suggested_estimator would return 42, but arbitrum_estimator adds a buffer.
 		assert.Equal(t, "63 wei", gasPrice.String())
-		assert.Equal(t, uint64(float32(expLimit)*limitMultiplier), chainSpecificGasLimit, "expected %d but got %d", expLimit, chainSpecificGasLimit)
+		assert.Equal(t, expLimit, chainSpecificGasLimit, "expected %d but got %d", expLimit, chainSpecificGasLimit)
 	})
 
 	t.Run("limit exceeds max", func(t *testing.T) {

@@ -95,7 +95,7 @@ func NewEstimator(lggr logger.Logger, ethClient evmclient.Client, cfg Config, ge
 			return NewFixedPriceEstimator(geCfg, bh, lggr)
 		}
 	}
-	return NewWrappedEvmEstimator(lggr, newEstimator, df, l1Oracle)
+	return NewWrappedEvmEstimator(lggr, newEstimator, df, l1Oracle, geCfg)
 }
 
 // DynamicFee encompasses both FeeCap and TipCap for EIP1559 transactions
@@ -166,17 +166,19 @@ type WrappedEvmEstimator struct {
 	EvmEstimator
 	EIP1559Enabled bool
 	l1Oracle       rollups.L1Oracle
+	geCfg          GasEstimatorConfig
 }
 
 var _ EvmFeeEstimator = (*WrappedEvmEstimator)(nil)
 
-func NewWrappedEvmEstimator(lggr logger.Logger, newEstimator func(logger.Logger) EvmEstimator, eip1559Enabled bool, l1Oracle rollups.L1Oracle) EvmFeeEstimator {
+func NewWrappedEvmEstimator(lggr logger.Logger, newEstimator func(logger.Logger) EvmEstimator, eip1559Enabled bool, l1Oracle rollups.L1Oracle, geCfg GasEstimatorConfig) EvmFeeEstimator {
 	lggr = logger.Named(lggr, "WrappedEvmEstimator")
 	return &WrappedEvmEstimator{
 		lggr:           lggr,
 		EvmEstimator:   newEstimator(lggr),
 		EIP1559Enabled: eip1559Enabled,
 		l1Oracle:       l1Oracle,
+		geCfg:          geCfg,
 	}
 }
 
@@ -246,6 +248,7 @@ func (e *WrappedEvmEstimator) GetFee(ctx context.Context, calldata []byte, feeLi
 	if e.EIP1559Enabled {
 		var dynamicFee DynamicFee
 		dynamicFee, chainSpecificFeeLimit, err = e.EvmEstimator.GetDynamicFee(ctx, feeLimit, maxFeePrice)
+		chainSpecificFeeLimit = uint64(float32(chainSpecificFeeLimit) * e.geCfg.LimitMultiplier())
 		fee.DynamicFeeCap = dynamicFee.FeeCap
 		fee.DynamicTipCap = dynamicFee.TipCap
 		return
@@ -253,6 +256,8 @@ func (e *WrappedEvmEstimator) GetFee(ctx context.Context, calldata []byte, feeLi
 
 	// get legacy fee
 	fee.Legacy, chainSpecificFeeLimit, err = e.EvmEstimator.GetLegacyGas(ctx, calldata, feeLimit, maxFeePrice, opts...)
+	chainSpecificFeeLimit = uint64(float32(chainSpecificFeeLimit) * e.geCfg.LimitMultiplier())
+
 	return
 }
 
@@ -290,6 +295,7 @@ func (e *WrappedEvmEstimator) BumpFee(ctx context.Context, originalFee EvmFee, f
 				TipCap: originalFee.DynamicTipCap,
 				FeeCap: originalFee.DynamicFeeCap,
 			}, feeLimit, maxFeePrice, attempts)
+		chainSpecificFeeLimit = uint64(float32(chainSpecificFeeLimit) * e.geCfg.LimitMultiplier())
 		bumpedFee.DynamicFeeCap = bumpedDynamic.FeeCap
 		bumpedFee.DynamicTipCap = bumpedDynamic.TipCap
 		return
@@ -297,6 +303,7 @@ func (e *WrappedEvmEstimator) BumpFee(ctx context.Context, originalFee EvmFee, f
 
 	// bump legacy fee
 	bumpedFee.Legacy, chainSpecificFeeLimit, err = e.EvmEstimator.BumpLegacyGas(ctx, originalFee.Legacy, feeLimit, maxFeePrice, attempts)
+	chainSpecificFeeLimit = uint64(float32(chainSpecificFeeLimit) * e.geCfg.LimitMultiplier())
 	return
 }
 

@@ -16,7 +16,6 @@ import (
 	bigmath "github.com/smartcontractkit/chainlink-common/pkg/utils/big_math"
 
 	"github.com/smartcontractkit/chainlink/v2/common/fee"
-	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -167,10 +166,7 @@ func (*SuggestedPriceEstimator) BumpDynamicFee(_ context.Context, _ DynamicFee, 
 }
 
 func (o *SuggestedPriceEstimator) GetLegacyGas(ctx context.Context, _ []byte, GasLimit uint64, maxGasPriceWei *assets.Wei, opts ...feetypes.Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint64, err error) {
-	chainSpecificGasLimit, err = commonfee.ApplyMultiplier(GasLimit, o.cfg.LimitMultiplier())
-	if err != nil {
-		return
-	}
+	chainSpecificGasLimit = GasLimit
 	ok := o.IfStarted(func() {
 		if slices.Contains(opts, feetypes.OptForceRefetch) {
 			err = o.forceRefresh(ctx)
@@ -198,10 +194,7 @@ func (o *SuggestedPriceEstimator) GetLegacyGas(ctx context.Context, _ []byte, Ga
 // The only reason bumping logic would be called on the SuggestedPriceEstimator is if there was a significant price spike
 // between the last price update and when the tx was submitted. Refreshing the price helps ensure the latest market changes are accounted for.
 func (o *SuggestedPriceEstimator) BumpLegacyGas(ctx context.Context, originalFee *assets.Wei, feeLimit uint64, maxGasPriceWei *assets.Wei, _ []EvmPriorAttempt) (newGasPrice *assets.Wei, chainSpecificGasLimit uint64, err error) {
-	chainSpecificGasLimit, err = commonfee.ApplyMultiplier(feeLimit, o.cfg.LimitMultiplier())
-	if err != nil {
-		return
-	}
+	chainSpecificGasLimit = feeLimit
 	ok := o.IfStarted(func() {
 		// Immediately return error if original fee is greater than or equal to the max gas price
 		// Prevents a loop of resubmitting the attempt with the max gas price
@@ -231,7 +224,6 @@ func (o *SuggestedPriceEstimator) BumpLegacyGas(ctx context.Context, originalFee
 	// If the new suggested price is less than or equal to the max and the buffer puts the new price over the max, return the max price instead
 	// The buffer is added on top of the suggested price during bumping as just a precaution. It is better to resubmit the transaction with the max gas price instead of erroring.
 	newGasPrice = assets.NewWei(bigmath.Min(bufferedPrice, maxGasPriceWei.ToInt()))
-
 	// Return the original price if the refreshed price with the buffer is lower to ensure the bumped gas price is always equal or higher to the previous attempt
 	if originalFee != nil && originalFee.Cmp(newGasPrice) > 0 {
 		return originalFee, chainSpecificGasLimit, nil
