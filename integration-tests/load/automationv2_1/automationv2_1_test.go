@@ -461,7 +461,7 @@ Load Config:
 		Str("Duration", testSetupDuration.String()).
 		Msg("Test setup ended")
 
-	ts, err := sendSlackNotification("Started", l, &loadedTestConfig, testEnvironment.Cfg.Namespace, strconv.Itoa(*loadedTestConfig.Automation.General.NumberOfNodes),
+	ts, err := sendSlackNotification("Started :white_check_mark:", l, &loadedTestConfig, testEnvironment.Cfg.Namespace, strconv.Itoa(*loadedTestConfig.Automation.General.NumberOfNodes),
 		strconv.FormatInt(startTimeTestSetup.UnixMilli(), 10), "now",
 		[]slack.Block{extraBlockWithText("\bTest Config\b\n```" + testConfig + "```")}, slack.MsgOptionBlocks())
 	if err != nil {
@@ -512,6 +512,13 @@ Load Config:
 
 	startTimeTestReport := time.Now()
 	l.Info().Str("START_TIME", startTimeTestReport.String()).Msg("Test reporting started")
+
+	for _, gen := range p.Generators {
+		if len(gen.Errors()) != 0 {
+			l.Error().Strs("Errors", gen.Errors()).Msg("Error in load gen")
+			t.Fail()
+		}
+	}
 
 	upkeepDelaysFast := make([][]int64, 0)
 	upkeepDelaysRecovery := make([][]int64, 0)
@@ -686,6 +693,7 @@ Max: %d
 Total Perform Count: %d
 Perform Count Fast Execution: %d
 Perform Count Recovery Execution: %d
+Total Expected Log Triggering Events: %d
 Total Log Triggering Events Emitted: %d
 Total Events Missed: %d
 Percent Missed: %f
@@ -698,11 +706,22 @@ Test Duration: %s`
 		Str("Duration", testReDuration.String()).
 		Msg("Test reporting ended")
 
+	numberOfExpectedEvents := numberOfEventsEmittedPerSec * int64(loadDuration.Seconds())
+	if numberOfEventsEmitted < numberOfExpectedEvents {
+		l.Error().Msg("Number of events emitted is less than expected")
+		t.Fail()
+	}
 	testReport := fmt.Sprintf(testReportFormat, avgF, medianF, ninetyPctF, ninetyNinePctF, maximumF,
 		avgR, medianR, ninetyPctR, ninetyNinePctR, maximumR, len(allUpkeepDelays), len(allUpkeepDelaysFast),
-		len(allUpkeepDelaysRecovery), numberOfEventsEmitted, eventsMissed, percentMissed, testExDuration.String())
+		len(allUpkeepDelaysRecovery), numberOfExpectedEvents, numberOfEventsEmitted, eventsMissed, percentMissed, testExDuration.String())
+	l.Info().Str("Test Report", testReport).Msg("Test Report prepared")
 
-	_, err = sendSlackNotification("Finished", l, &loadedTestConfig, testEnvironment.Cfg.Namespace, strconv.Itoa(*loadedTestConfig.Automation.General.NumberOfNodes),
+	testStatus := "Failed :x:"
+	if !t.Failed() {
+		testStatus = "Finished :white_check_mark:"
+	}
+
+	_, err = sendSlackNotification(testStatus, l, &loadedTestConfig, testEnvironment.Cfg.Namespace, strconv.Itoa(*loadedTestConfig.Automation.General.NumberOfNodes),
 		strconv.FormatInt(startTimeTestSetup.UnixMilli(), 10), strconv.FormatInt(time.Now().UnixMilli(), 10),
 		[]slack.Block{extraBlockWithText("\bTest Report\b\n```" + testReport + "```")}, slack.MsgOptionTS(ts))
 	if err != nil {
@@ -712,7 +731,7 @@ Test Duration: %s`
 	t.Cleanup(func() {
 		if err = actions.TeardownRemoteSuite(t, testEnvironment.Cfg.Namespace, chainlinkNodes, nil, &loadedTestConfig, chainClient); err != nil {
 			l.Error().Err(err).Msg("Error when tearing down remote suite")
-			testEnvironment.Cfg.TTL = time.Hour * 48
+			testEnvironment.Cfg.TTL += time.Hour * 48
 			err := testEnvironment.Run()
 			if err != nil {
 				l.Error().Err(err).Msg("Error increasing TTL of namespace")
