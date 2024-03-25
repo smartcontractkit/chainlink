@@ -86,6 +86,7 @@ type ORM interface {
 	// InsertFinishedRuns inserts all the given runs into the database.
 	// If saveSuccessfulTaskRuns is false, only errored runs are saved.
 	InsertFinishedRuns(run []*Run, saveSuccessfulTaskRuns bool, qopts ...pg.QOpt) (err error)
+	InsertFinishedRunWithSpec(run *Run, saveSuccessfulTaskRuns bool, qopts ...pg.QOpt) (err error)
 
 	DeleteRunsOlderThan(context.Context, time.Duration) error
 	FindRun(id int64) (Run, error)
@@ -421,7 +422,37 @@ func (o *orm) InsertFinishedRun(run *Run, saveSuccessfulTaskRuns bool, qopts ...
 	}
 
 	q := o.q.WithOpts(qopts...)
+	err = q.Transaction(o.insertFinishedRunTx(run, saveSuccessfulTaskRuns))
+	return errors.Wrap(err, "InsertFinishedRun failed")
+}
+
+// InsertFinishedRunWithSpec works like InsertFinishedRun but also inserts the pipeline spec.
+func (o *orm) InsertFinishedRunWithSpec(run *Run, saveSuccessfulTaskRuns bool, qopts ...pg.QOpt) (err error) {
+	if err = o.checkFinishedRun(run, saveSuccessfulTaskRuns); err != nil {
+		return err
+	}
+
+	if o.maxSuccessfulRuns == 0 {
+		// optimisation: avoid persisting if we oughtn't to save any
+		return nil
+	}
+
+	q := o.q.WithOpts(qopts...)
 	err = q.Transaction(func(tx pg.Queryer) error {
+		sql := `INSERT INTO pipeline_specs (dot_dag_source, max_task_duration, created_at)
+	VALUES ($1, $2, NOW())
+	RETURNING id;`
+		err = tx.Get(&run.PipelineSpecID, sql, run.PipelineSpec.DotDagSource, run.PipelineSpec.MaxTaskDuration)
+		if err != nil {
+			return errors.Wrap(err, "failed to insert pipeline_specs")
+		}
+		return o.insertFinishedRunTx(run, saveSuccessfulTaskRuns)(tx)
+	})
+	return errors.Wrap(err, "InsertFinishedRun failed")
+}
+
+func (o *orm) insertFinishedRunTx(run *Run, saveSuccessfulTaskRuns bool) func(tx pg.Queryer) error {
+	return func(tx pg.Queryer) error {
 		sql := `INSERT INTO pipeline_runs (pipeline_spec_id, pruning_key, meta, all_errors, fatal_errors, inputs, outputs, created_at, finished_at, state)
 		VALUES (:pipeline_spec_id, :pruning_key, :meta, :all_errors, :fatal_errors, :inputs, :outputs, :created_at, :finished_at, :state)
 		RETURNING id;`
@@ -431,7 +462,7 @@ func (o *orm) InsertFinishedRun(run *Run, saveSuccessfulTaskRuns bool, qopts ...
 			return errors.Wrap(e, "failed to bind")
 		}
 
-		if err = tx.QueryRowx(query, args...).Scan(&run.ID); err != nil {
+		if err := tx.QueryRowx(query, args...).Scan(&run.ID); err != nil {
 			return errors.Wrap(err, "error inserting finished pipeline_run")
 		}
 
@@ -448,10 +479,9 @@ func (o *orm) InsertFinishedRun(run *Run, saveSuccessfulTaskRuns bool, qopts ...
 		sql = `
 		INSERT INTO pipeline_task_runs (pipeline_run_id, id, type, index, output, error, dot_id, created_at, finished_at)
 		VALUES (:pipeline_run_id, :id, :type, :index, :output, :error, :dot_id, :created_at, :finished_at);`
-		_, err = tx.NamedExec(sql, run.PipelineTaskRuns)
+		_, err := tx.NamedExec(sql, run.PipelineTaskRuns)
 		return errors.Wrap(err, "failed to insert pipeline_task_runs")
-	})
-	return errors.Wrap(err, "InsertFinishedRun failed")
+	}
 }
 
 // DeleteRunsOlderThan deletes all pipeline_runs that have been finished for a certain threshold to free DB space

@@ -50,6 +50,8 @@ type Runner interface {
 	// It is a combination of ExecuteRun and InsertFinishedRun.
 	// Note that the spec MUST have a DOT graph for this to work.
 	ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, vars Vars, l logger.Logger, saveSuccessfulTaskRuns bool) (runID int64, results TaskRunResults, err error)
+	// ExecuteAndInsertFinishedRunWithSpec works just like ExecuteAndInsertFinishedRun but also stores the spec in the DB.
+	ExecuteAndInsertFinishedRunWithSpec(ctx context.Context, spec Spec, vars Vars, l logger.Logger, saveSuccessfulTaskRuns bool) (runID int64, results TaskRunResults, err error)
 
 	OnRunFinished(func(*Run))
 	InitializePipeline(spec Spec) (*Pipeline, error)
@@ -566,6 +568,25 @@ func (r *runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, var
 
 	if err = r.orm.InsertFinishedRun(run, saveSuccessfulTaskRuns); err != nil {
 		return 0, trrs, pkgerrors.Wrapf(err, "error inserting finished results for spec ID %v", spec.ID)
+	}
+	return run.ID, trrs, nil
+
+}
+
+// ExecuteAndInsertFinishedRunWithSpec executes a run in memory then inserts the finished spec/run/task run records, returning the final result
+func (r *runner) ExecuteAndInsertFinishedRunWithSpec(ctx context.Context, spec Spec, vars Vars, l logger.Logger, saveSuccessfulTaskRuns bool) (runID int64, results TaskRunResults, err error) {
+	run, trrs, err := r.ExecuteRun(ctx, spec, vars, l)
+	if err != nil {
+		return 0, trrs, pkgerrors.Wrapf(err, "error executing run for spec ID %v", spec.ID)
+	}
+
+	// don't insert if we exited early
+	if run.FailSilently {
+		return 0, trrs, nil
+	}
+
+	if err = r.orm.InsertFinishedRunWithSpec(run, saveSuccessfulTaskRuns); err != nil {
+		return 0, trrs, pkgerrors.Wrapf(err, "error inserting finished results for spec ID %v", run.PipelineSpecID)
 	}
 	return run.ID, trrs, nil
 

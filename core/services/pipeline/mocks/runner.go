@@ -75,6 +75,43 @@ func (_m *Runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec pipeline
 	return r0, r1, r2
 }
 
+// ExecuteAndInsertFinishedRunWithSpec provides a mock function with given fields: ctx, spec, vars, l, saveSuccessfulTaskRuns
+func (_m *Runner) ExecuteAndInsertFinishedRunWithSpec(ctx context.Context, spec pipeline.Spec, vars pipeline.Vars, l logger.Logger, saveSuccessfulTaskRuns bool) (int64, pipeline.TaskRunResults, error) {
+	ret := _m.Called(ctx, spec, vars, l, saveSuccessfulTaskRuns)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ExecuteAndInsertFinishedRunWithSpec")
+	}
+
+	var r0 int64
+	var r1 pipeline.TaskRunResults
+	var r2 error
+	if rf, ok := ret.Get(0).(func(context.Context, pipeline.Spec, pipeline.Vars, logger.Logger, bool) (int64, pipeline.TaskRunResults, error)); ok {
+		return rf(ctx, spec, vars, l, saveSuccessfulTaskRuns)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, pipeline.Spec, pipeline.Vars, logger.Logger, bool) int64); ok {
+		r0 = rf(ctx, spec, vars, l, saveSuccessfulTaskRuns)
+	} else {
+		r0 = ret.Get(0).(int64)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, pipeline.Spec, pipeline.Vars, logger.Logger, bool) pipeline.TaskRunResults); ok {
+		r1 = rf(ctx, spec, vars, l, saveSuccessfulTaskRuns)
+	} else {
+		if ret.Get(1) != nil {
+			r1 = ret.Get(1).(pipeline.TaskRunResults)
+		}
+	}
+
+	if rf, ok := ret.Get(2).(func(context.Context, pipeline.Spec, pipeline.Vars, logger.Logger, bool) error); ok {
+		r2 = rf(ctx, spec, vars, l, saveSuccessfulTaskRuns)
+	} else {
+		r2 = ret.Error(2)
+	}
+
+	return r0, r1, r2
+}
+
 // ExecuteRun provides a mock function with given fields: ctx, spec, vars, l
 func (_m *Runner) ExecuteRun(ctx context.Context, spec pipeline.Spec, vars pipeline.Vars, l logger.Logger) (*pipeline.Run, pipeline.TaskRunResults, error) {
 	ret := _m.Called(ctx, spec, vars, l)

@@ -407,6 +407,7 @@ func MustInsertKeeperJob(t *testing.T, db *sqlx.DB, korm keeper.ORM, from evmtyp
 	jrm := job.NewORM(db, prm, btORM, nil, tlg, cfg.Database())
 	err = jrm.InsertJob(&jb)
 	require.NoError(t, err)
+	jb.PipelineSpec.JobID = jb.ID
 	return jb
 }
 
@@ -415,13 +416,13 @@ func MustInsertKeeperRegistry(t *testing.T, db *sqlx.DB, korm keeper.ORM, ethKey
 	from := key.EIP55Address
 	t.Helper()
 	contractAddress := NewEIP55Address()
-	job := MustInsertKeeperJob(t, db, korm, from, contractAddress)
+	jb := MustInsertKeeperJob(t, db, korm, from, contractAddress)
 	registry := keeper.Registry{
 		ContractAddress:   contractAddress,
 		BlockCountPerTurn: blockCountPerTurn,
 		CheckGas:          150_000,
 		FromAddress:       from,
-		JobID:             job.ID,
+		JobID:             jb.ID,
 		KeeperIndex:       keeperIndex,
 		NumKeepers:        numKeepers,
 		KeeperIndexMap: map[evmtypes.EIP55Address]int32{
@@ -430,7 +431,7 @@ func MustInsertKeeperRegistry(t *testing.T, db *sqlx.DB, korm keeper.ORM, ethKey
 	}
 	err := korm.UpsertRegistry(&registry)
 	require.NoError(t, err)
-	return registry, job
+	return registry, jb
 }
 
 func MustInsertUpkeepForRegistry(t *testing.T, db *sqlx.DB, cfg pg.QConfig, registry keeper.Registry) keeper.UpkeepRegistration {
