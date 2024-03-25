@@ -64,7 +64,7 @@ func Test_Pool(t *testing.T) {
 			serverURL := "example.com:443/ws"
 
 			client := newMockClient(lggr)
-			p.newClient = func(lggr logger.Logger, cprivk csakey.KeyV2, spubk []byte, surl string, cs cache.CacheSet) Client {
+			p.newClient = func(lggr logger.Logger, cprivk csakey.KeyV2, spubk []byte, surl string, cs cache.CacheSet, tlsCertFile *string) Client {
 				assert.Equal(t, clientPrivKey, cprivk)
 				assert.Equal(t, serverPubKey, spubk)
 				assert.Equal(t, serverURL, surl)
@@ -110,7 +110,7 @@ func Test_Pool(t *testing.T) {
 				"example.invalid:8000/ws",
 			}
 
-			p.newClient = func(lggr logger.Logger, cprivk csakey.KeyV2, spubk []byte, surl string, cs cache.CacheSet) Client {
+			p.newClient = func(lggr logger.Logger, cprivk csakey.KeyV2, spubk []byte, surl string, cs cache.CacheSet, tlsCertFile *string) Client {
 				return newMockClient(lggr)
 			}
 
@@ -226,7 +226,7 @@ func Test_Pool(t *testing.T) {
 		}
 
 		var clients []*mockClient
-		p.newClient = func(lggr logger.Logger, cprivk csakey.KeyV2, spubk []byte, surl string, cs cache.CacheSet) Client {
+		p.newClient = func(lggr logger.Logger, cprivk csakey.KeyV2, spubk []byte, surl string, cs cache.CacheSet, tlsCertFile *string) Client {
 			c := newMockClient(lggr)
 			clients = append(clients, c)
 			return c

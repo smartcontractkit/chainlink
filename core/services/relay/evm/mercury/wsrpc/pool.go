@@ -38,6 +38,7 @@ type connection struct {
 	clientPrivKey csakey.KeyV2
 	serverPubKey  []byte
 	serverURL     string
+	tlsCertFile   *string
 
 	pool *pool
 
@@ -60,7 +61,7 @@ func (conn *connection) checkout(ctx context.Context) (cco *clientCheckout, err 
 // not thread-safe, access must be serialized
 func (conn *connection) ensureStartedClient(ctx context.Context) error {
 	if len(conn.checkouts) == 0 {
-		conn.Client = conn.pool.newClient(conn.lggr, conn.clientPrivKey, conn.serverPubKey, conn.serverURL, conn.pool.cacheSet)
+		conn.Client = conn.pool.newClient(conn.lggr, conn.clientPrivKey, conn.serverPubKey, conn.serverURL, conn.pool.cacheSet, conn.tlsCertFile)
 		return conn.Client.Start(ctx)
 	}
 	return nil
@@ -121,7 +122,7 @@ type pool struct {
 	connections map[string]map[credentials.StaticSizedPublicKey]*connection
 
 	// embedding newClient makes testing/mocking easier
-	newClient func(lggr logger.Logger, privKey csakey.KeyV2, serverPubKey []byte, serverURL string, cacheSet cache.CacheSet) Client
+	newClient func(lggr logger.Logger, privKey csakey.KeyV2, serverPubKey []byte, serverURL string, cacheSet cache.CacheSet, tlsCertFile *string) Client
 
 	mu sync.RWMutex
 
