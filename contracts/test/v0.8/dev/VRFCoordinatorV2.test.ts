@@ -37,7 +37,7 @@ describe('VRFCoordinatorV2', () => {
     randomAddress = await random.getAddress()
     oracle = accounts[4]
     const ltFactory = await ethers.getContractFactory(
-      'src/v0.4/LinkToken.sol:LinkToken',
+      'src/v0.8/shared/test/helpers/LinkTokenTestHelper.sol:LinkTokenTestHelper',
       accounts[0],
     )
     linkToken = await ltFactory.deploy()
