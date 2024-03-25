@@ -1,7 +1,6 @@
 package txmgr_test
 
 import (
-	"context"
 	"math/big"
 	"testing"
 	"time"
@@ -29,14 +28,14 @@ func TestInMemoryStore_UpdateTxAttemptInProgressToBroadcast(t *testing.T) {
 	t.Run("successfully updates transactions from in progress to broadcast", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
-		persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+		persistentStore := cltest.NewTestTxStore(t, db)
 		kst := cltest.NewKeyStore(t, db, dbcfg)
 		_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
 
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 		lggr := logger.TestSugared(t)
 		chainID := ethClient.ConfiguredChainID()
-		ctx := context.Background()
+		ctx := testutils.Context(t)
 
 		inMemoryStore, err := commontxmgr.NewInMemoryStore[
 			*big.Int,
@@ -60,13 +59,13 @@ func TestInMemoryStore_UpdateTxAttemptInProgressToBroadcast(t *testing.T) {
 
 		// Update the transaction attempt
 		require.NoError(t, inMemoryStore.UpdateTxAttemptInProgressToBroadcast(
-			testutils.Context(t),
+			ctx,
 			&inTx,
 			inTxAttempt,
 			txmgrtypes.TxAttemptBroadcast,
 		))
 
-		expTx, err := persistentStore.FindTxWithAttempts(inTx.ID)
+		expTx, err := persistentStore.FindTxWithAttempts(ctx, inTx.ID)
 		require.NoError(t, err)
 		assert.Equal(t, commontxmgr.TxUnconfirmed, expTx.State)
 		assert.Equal(t, 1, len(expTx.TxAttempts))
@@ -86,14 +85,14 @@ func TestInMemoryStore_UpdateTxAttemptInProgressToBroadcast(t *testing.T) {
 	t.Run("verify in-memory error handling has parity with persistent store", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
-		persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+		persistentStore := cltest.NewTestTxStore(t, db)
 		kst := cltest.NewKeyStore(t, db, dbcfg)
 		_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
 
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 		lggr := logger.TestSugared(t)
 		chainID := ethClient.ConfiguredChainID()
-		ctx := context.Background()
+		ctx := testutils.Context(t)
 
 		inMemoryStore, err := commontxmgr.NewInMemoryStore[
 			*big.Int,
@@ -117,24 +116,24 @@ func TestInMemoryStore_UpdateTxAttemptInProgressToBroadcast(t *testing.T) {
 
 		t.Run("nil broadcast at", func(t *testing.T) {
 			inTx.BroadcastAt = nil
-			expErr := persistentStore.UpdateTxAttemptInProgressToBroadcast(testutils.Context(t), &inTx, inTxAttempt, txmgrtypes.TxAttemptBroadcast)
-			actErr := inMemoryStore.UpdateTxAttemptInProgressToBroadcast(testutils.Context(t), &inTx, inTxAttempt, txmgrtypes.TxAttemptBroadcast)
+			expErr := persistentStore.UpdateTxAttemptInProgressToBroadcast(ctx, &inTx, inTxAttempt, txmgrtypes.TxAttemptBroadcast)
+			actErr := inMemoryStore.UpdateTxAttemptInProgressToBroadcast(ctx, &inTx, inTxAttempt, txmgrtypes.TxAttemptBroadcast)
 			assert.Equal(t, expErr, actErr)
 			inTx.BroadcastAt = &time1 // reset
 		})
 
 		t.Run("nil initial broadcast at", func(t *testing.T) {
 			inTx.InitialBroadcastAt = nil
-			expErr := persistentStore.UpdateTxAttemptInProgressToBroadcast(testutils.Context(t), &inTx, inTxAttempt, txmgrtypes.TxAttemptBroadcast)
-			actErr := inMemoryStore.UpdateTxAttemptInProgressToBroadcast(testutils.Context(t), &inTx, inTxAttempt, txmgrtypes.TxAttemptBroadcast)
+			expErr := persistentStore.UpdateTxAttemptInProgressToBroadcast(ctx, &inTx, inTxAttempt, txmgrtypes.TxAttemptBroadcast)
+			actErr := inMemoryStore.UpdateTxAttemptInProgressToBroadcast(ctx, &inTx, inTxAttempt, txmgrtypes.TxAttemptBroadcast)
 			assert.Equal(t, expErr, actErr)
 			inTx.InitialBroadcastAt = &time1 // reset
 		})
 
 		t.Run("transaction not in progress", func(t *testing.T) {
 			inTx.State = commontxmgr.TxConfirmed
-			expErr := persistentStore.UpdateTxAttemptInProgressToBroadcast(testutils.Context(t), &inTx, inTxAttempt, txmgrtypes.TxAttemptBroadcast)
-			actErr := inMemoryStore.UpdateTxAttemptInProgressToBroadcast(testutils.Context(t), &inTx, inTxAttempt, txmgrtypes.TxAttemptBroadcast)
+			expErr := persistentStore.UpdateTxAttemptInProgressToBroadcast(ctx, &inTx, inTxAttempt, txmgrtypes.TxAttemptBroadcast)
+			actErr := inMemoryStore.UpdateTxAttemptInProgressToBroadcast(ctx, &inTx, inTxAttempt, txmgrtypes.TxAttemptBroadcast)
 			assert.ErrorContains(t, expErr, "can only transition to unconfirmed from in_progress")
 			assert.ErrorContains(t, actErr, "can only transition to unconfirmed from in_progress")
 			inTx.State = commontxmgr.TxInProgress // reset
@@ -142,23 +141,23 @@ func TestInMemoryStore_UpdateTxAttemptInProgressToBroadcast(t *testing.T) {
 
 		t.Run("transaction attempt not in progress", func(t *testing.T) {
 			inTxAttempt.State = txmgrtypes.TxAttemptBroadcast
-			expErr := persistentStore.UpdateTxAttemptInProgressToBroadcast(testutils.Context(t), &inTx, inTxAttempt, txmgrtypes.TxAttemptBroadcast)
-			actErr := inMemoryStore.UpdateTxAttemptInProgressToBroadcast(testutils.Context(t), &inTx, inTxAttempt, txmgrtypes.TxAttemptBroadcast)
+			expErr := persistentStore.UpdateTxAttemptInProgressToBroadcast(ctx, &inTx, inTxAttempt, txmgrtypes.TxAttemptBroadcast)
+			actErr := inMemoryStore.UpdateTxAttemptInProgressToBroadcast(ctx, &inTx, inTxAttempt, txmgrtypes.TxAttemptBroadcast)
 			assert.Equal(t, expErr, actErr)
 			inTxAttempt.State = txmgrtypes.TxAttemptInProgress // reset
 		})
 
 		t.Run("new attempt state not broadcast", func(t *testing.T) {
-			expErr := persistentStore.UpdateTxAttemptInProgressToBroadcast(testutils.Context(t), &inTx, inTxAttempt, txmgrtypes.TxAttemptInsufficientFunds)
-			actErr := inMemoryStore.UpdateTxAttemptInProgressToBroadcast(testutils.Context(t), &inTx, inTxAttempt, txmgrtypes.TxAttemptInsufficientFunds)
+			expErr := persistentStore.UpdateTxAttemptInProgressToBroadcast(ctx, &inTx, inTxAttempt, txmgrtypes.TxAttemptInsufficientFunds)
+			actErr := inMemoryStore.UpdateTxAttemptInProgressToBroadcast(ctx, &inTx, inTxAttempt, txmgrtypes.TxAttemptInsufficientFunds)
 			assert.ErrorContains(t, expErr, "new attempt state must be broadcast")
 			assert.ErrorContains(t, actErr, "new attempt state must be broadcast")
 		})
 
 		t.Run("incorrect from address", func(t *testing.T) {
 			inTx.FromAddress = common.Address{}
-			expErr := persistentStore.UpdateTxAttemptInProgressToBroadcast(testutils.Context(t), &inTx, inTxAttempt, txmgrtypes.TxAttemptBroadcast)
-			actErr := inMemoryStore.UpdateTxAttemptInProgressToBroadcast(testutils.Context(t), &inTx, inTxAttempt, txmgrtypes.TxAttemptBroadcast)
+			expErr := persistentStore.UpdateTxAttemptInProgressToBroadcast(ctx, &inTx, inTxAttempt, txmgrtypes.TxAttemptBroadcast)
+			actErr := inMemoryStore.UpdateTxAttemptInProgressToBroadcast(ctx, &inTx, inTxAttempt, txmgrtypes.TxAttemptBroadcast)
 			assert.NoError(t, expErr)
 			assert.NoError(t, actErr)
 			inTx.FromAddress = fromAddress // reset
