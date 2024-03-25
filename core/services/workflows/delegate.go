@@ -127,19 +127,19 @@ func mercuryEventLoop(trigger *triggers.MercuryTriggerService, logger logger.Log
 
 		reports := []mercury.FeedReport{
 			{
-				FeedID:               "0x1111111111111111111100000000000000000000000000000000000000000000",
+				FeedID:               mercury.Must(mercury.FromFeedIDString("0x1111111111111111111100000000000000000000000000000000000000000000")),
 				FullReport:           []byte{},
 				BenchmarkPrice:       prices[0],
 				ObservationTimestamp: time.Now().Unix(),
 			},
 			{
-				FeedID:               "0x2222222222222222222200000000000000000000000000000000000000000000",
+				FeedID:               mercury.Must(mercury.FromFeedIDString("0x2222222222222222222200000000000000000000000000000000000000000000")),
 				FullReport:           []byte{},
 				BenchmarkPrice:       prices[1],
 				ObservationTimestamp: time.Now().Unix(),
 			},
 			{
-				FeedID:               "0x3333333333333333333300000000000000000000000000000000000000000000",
+				FeedID:               mercury.Must(mercury.FromFeedIDString("0x3333333333333333333300000000000000000000000000000000000000000000")),
 				FullReport:           []byte{},
 				BenchmarkPrice:       prices[2],
 				ObservationTimestamp: time.Now().Unix(),
@@ -147,7 +147,10 @@ func mercuryEventLoop(trigger *triggers.MercuryTriggerService, logger logger.Log
 		}
 
 		logger.Infow("New set of Mercury reports", "timestamp", time.Now().Unix(), "payload", reports)
-		trigger.ProcessReport(reports)
+		err := trigger.ProcessReport(reports)
+		if err != nil {
+			logger.Errorw("failed to process Mercury reports", "err", err, "timestamp", time.Now().Unix(), "payload", reports)
+		}
 	}
 }
 

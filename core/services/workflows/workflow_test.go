@@ -11,12 +11,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-<<<<<<< HEAD
 	"sigs.k8s.io/yaml"
-=======
+
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/datafeeds"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
->>>>>>> 7be94c4ea2 (Update)
 )
 
 var fixtureDir = "./testdata/fixtures/workflows/"
