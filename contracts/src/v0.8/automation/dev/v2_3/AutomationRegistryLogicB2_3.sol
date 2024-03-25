@@ -212,7 +212,7 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3, Chainable {
     return int256(i_link.balanceOf(address(this))) - int256(s_reserveAmounts[IERC20(address(i_link))]);
   }
 
-  function withdrawLinkFees(address to, uint256 amount) external {
+  function withdrawLink(address to, uint256 amount) external {
     _onlyFinanceAdminAllowed();
     if (to == ZERO_ADDRESS) revert InvalidRecipient();
 
@@ -223,16 +223,16 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3, Chainable {
     if (!transferStatus) {
       revert TransferFailed();
     }
-    emit FeesWithdrawn(to, address(i_link), amount);
+    emit FeesWithdrawn(address(i_link), to, amount);
   }
 
-  function withdrawERC20Fees(address assetAddress, address to, uint256 amount) external {
+  function withdrawERC20Fees(IERC20 asset, address to, uint256 amount) external {
     _onlyFinanceAdminAllowed();
     if (to == ZERO_ADDRESS) revert InvalidRecipient();
 
-    IERC20(assetAddress).safeTransfer(to, amount);
+    asset.safeTransfer(to, amount);
 
-    emit FeesWithdrawn(to, assetAddress, amount);
+    emit FeesWithdrawn(address(asset), to, amount);
   }
 
   /**

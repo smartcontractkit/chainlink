@@ -76,6 +76,12 @@ contract SetUp is BaseTest {
       "",
       ""
     );
+
+    vm.startPrank(OWNER);
+    registry.addFunds(linkUpkeepID, registry.getMinBalanceForUpkeep(linkUpkeepID));
+    registry.addFunds(usdUpkeepID, registry.getMinBalanceForUpkeep(usdUpkeepID));
+    registry.addFunds(nativeUpkeepID, registry.getMinBalanceForUpkeep(nativeUpkeepID));
+    vm.stopPrank();
   }
 }
 
@@ -231,6 +237,13 @@ contract Withdraw is SetUp {
 
     assertEq(linkToken.balanceOf(address(aMockAddress)), 1);
     assertEq(linkToken.balanceOf(address(registry)), 1e10 - 1);
+  }
+
+  function test_WithdrawERC20Fees_RespectsReserveAmount() public {
+    assertEq(registry.getBalance(usdUpkeepID), registry.getReserveAmount(address(usdToken)));
+    vm.expectRevert();
+    vm.prank(FINANCE_ADMIN);
+    registry.withdrawERC20Fees(address(usdToken), FINANCE_ADMIN, 1);
   }
 
   function testWithdrawERC20FeeSuccess() public {

@@ -483,7 +483,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   event Unpaused(address account);
   // Event to emit when a billing configuration is set
   event BillingConfigSet(IERC20 indexed token, BillingConfig config);
-  event FeesWithdrawn(address indexed recipient, address indexed assetAddress, uint256 amount);
+  event FeesWithdrawn(address indexed assetAddress, address indexed recipient, uint256 amount);
 
   /**
    * @param link address of the LINK Token
