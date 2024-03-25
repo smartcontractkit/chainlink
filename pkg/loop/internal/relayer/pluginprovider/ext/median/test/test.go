@@ -8,8 +8,9 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	libocr "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	testcore "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test/core"
-	testpluginprovider "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test/ocr2/plugin_provider"
+	errorlogtest "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/core/services/errorlog/test"
+	chainreadertest "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer/pluginprovider/chainreader/test"
+	ocr2test "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer/pluginprovider/ocr2/test"
 )
 
 const ConfigTOML = `[Foo]
@@ -28,15 +29,15 @@ var (
 			provider:                  MedianProvider,
 			dataSource:                DataSource,
 			juelsPerFeeCoinDataSource: JuelsPerFeeCoinDataSource,
-			errorLog:                  testcore.ErrorLog,
+			errorLog:                  errorlogtest.ErrorLog,
 		},
 	}
 
 	MedianProvider = staticMedianProvider{
 		staticMedianProviderConfig: staticMedianProviderConfig{
-			offchainDigester:    testpluginprovider.OffchainConfigDigester,
-			contractTracker:     testpluginprovider.ContractConfigTracker,
-			contractTransmitter: testpluginprovider.ContractTransmitter,
+			offchainDigester:    ocr2test.OffchainConfigDigester,
+			contractTracker:     ocr2test.ContractConfigTracker,
+			contractTransmitter: ocr2test.ContractTransmitter,
 			reportCodec:         staticReportCodec{},
 			medianContract: staticMedianContract{
 				staticMedianContractConfig: staticMedianContractConfig{
@@ -49,7 +50,7 @@ var (
 				},
 			},
 			onchainConfigCodec: staticOnchainConfigCodec{},
-			chainReader:        testpluginprovider.ChainReader,
+			chainReader:        chainreadertest.ChainReader,
 		},
 	}
 )

@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	testpluginprovider "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test/ocr2/plugin_provider"
+	ocr2test "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer/pluginprovider/ocr2/test"
 	testtypes "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
@@ -31,9 +31,9 @@ type ExecProviderTester interface {
 var ExecutionProvider = staticExecProvider{
 	staticExecProviderConfig: staticExecProviderConfig{
 		addr:                      ccip.Address("some address"),
-		offchainDigester:          testpluginprovider.OffchainConfigDigester,
-		contractTracker:           testpluginprovider.ContractConfigTracker,
-		contractTransmitter:       testpluginprovider.ContractTransmitter,
+		offchainDigester:          ocr2test.OffchainConfigDigester,
+		contractTracker:           ocr2test.ContractConfigTracker,
+		contractTransmitter:       ocr2test.ContractTransmitter,
 		commitStoreReader:         CommitStoreReader,
 		offRampReader:             OffRampReader,
 		onRampReader:              OnRampReader,

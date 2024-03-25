@@ -8,10 +8,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	errorlogtest "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/core/services/errorlog/test"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/goplugin"
-	median_test "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer/pluginprovider/ext/median/test"
-	testcore "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test/core"
-	testreportingplugin "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test/ocr2/reporting_plugin"
+	mediantest "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer/pluginprovider/ext/median/test"
+	reportingplugintest "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/reportingplugin/test"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 )
 
@@ -20,12 +20,12 @@ func TestMedianService(t *testing.T) {
 
 	median := loop.NewMedianService(logger.Test(t), loop.GRPCOpts{}, func() *exec.Cmd {
 		return NewHelperProcessCommand(loop.PluginMedianName, false, 0)
-	}, median_test.MedianProvider, median_test.DataSource, median_test.JuelsPerFeeCoinDataSource, testcore.ErrorLog)
+	}, mediantest.MedianProvider, mediantest.DataSource, mediantest.JuelsPerFeeCoinDataSource, errorlogtest.ErrorLog)
 	hook := median.PluginService.XXXTestHook()
 	servicetest.Run(t, median)
 
 	t.Run("control", func(t *testing.T) {
-		testreportingplugin.RunFactory(t, median)
+		reportingplugintest.RunFactory(t, median)
 	})
 
 	t.Run("Kill", func(t *testing.T) {
@@ -34,7 +34,7 @@ func TestMedianService(t *testing.T) {
 		// wait for relaunch
 		time.Sleep(2 * goplugin.KeepAliveTickDuration)
 
-		testreportingplugin.RunFactory(t, median)
+		reportingplugintest.RunFactory(t, median)
 	})
 
 	t.Run("Reset", func(t *testing.T) {
@@ -43,7 +43,7 @@ func TestMedianService(t *testing.T) {
 		// wait for relaunch
 		time.Sleep(2 * goplugin.KeepAliveTickDuration)
 
-		testreportingplugin.RunFactory(t, median)
+		reportingplugintest.RunFactory(t, median)
 	})
 }
 
@@ -56,8 +56,8 @@ func TestMedianService_recovery(t *testing.T) {
 			Limit:   int(limit.Add(1)),
 		}
 		return h.New()
-	}, median_test.MedianProvider, median_test.DataSource, median_test.JuelsPerFeeCoinDataSource, &testcore.ErrorLog)
+	}, mediantest.MedianProvider, mediantest.DataSource, mediantest.JuelsPerFeeCoinDataSource, errorlogtest.ErrorLog)
 	servicetest.Run(t, median)
 
-	testreportingplugin.RunFactory(t, median)
+	reportingplugintest.RunFactory(t, median)
 }

@@ -8,9 +8,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	keystoretest "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/core/services/keystore/test"
+	relayertest "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer/test"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test"
-	testcore "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test/core"
-	relayer_test "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test/relayer"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
@@ -20,11 +20,11 @@ func TestPluginRelayer(t *testing.T) {
 	stopCh := newStopCh(t)
 	test.PluginTest(t, loop.PluginRelayerName,
 		&loop.GRPCPluginRelayer{
-			PluginServer: relayer_test.NewRelayerTester(false),
+			PluginServer: relayertest.NewRelayerTester(false),
 			BrokerConfig: loop.BrokerConfig{
 				Logger: logger.Test(t),
 				StopCh: stopCh}},
-		relayer_test.RunPlugin)
+		relayertest.RunPlugin)
 }
 
 func TestPluginRelayerExec(t *testing.T) {
@@ -33,7 +33,7 @@ func TestPluginRelayerExec(t *testing.T) {
 
 	pr := newPluginRelayerExec(t, true, stopCh)
 
-	relayer_test.RunPlugin(t, pr)
+	relayertest.RunPlugin(t, pr)
 }
 
 func FuzzPluginRelayer(f *testing.F) {
@@ -46,7 +46,7 @@ func FuzzPluginRelayer(f *testing.F) {
 		return relayer
 	}
 
-	relayer_test.RunFuzzPluginRelayer(f, testFunc)
+	relayertest.RunFuzzPluginRelayer(f, testFunc)
 }
 
 func FuzzRelayer(f *testing.F) {
@@ -56,14 +56,14 @@ func FuzzRelayer(f *testing.F) {
 		stopCh := newStopCh(t)
 		p := newPluginRelayerExec(t, false, stopCh)
 		ctx := tests.Context(t)
-		relayer, err := p.NewRelayer(ctx, test.ConfigTOML, testcore.Keystore)
+		relayer, err := p.NewRelayer(ctx, test.ConfigTOML, keystoretest.Keystore)
 
 		require.NoError(t, err)
 
 		return relayer
 	}
 
-	relayer_test.RunFuzzRelayer(f, testFunc)
+	relayertest.RunFuzzRelayer(f, testFunc)
 }
 
 func newPluginRelayerExec(t *testing.T, staticChecks bool, stopCh <-chan struct{}) loop.PluginRelayer {

@@ -1,4 +1,4 @@
-package core
+package test
 
 import "google.golang.org/grpc"
 

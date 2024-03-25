@@ -1,4 +1,4 @@
-package reportingplugin
+package test
 
 import (
 	"bytes"

@@ -8,9 +8,12 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	errorlogtest "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/core/services/errorlog/test"
+	pipelinetest "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/core/services/pipeline/test"
 	ocr3test "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/core/services/reportingplugin/ocr3/test"
+	telemetrytest "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/core/services/telemetry/test"
+	nettest "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/net/test"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test"
-	testcore "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
@@ -28,10 +31,10 @@ func PluginGenericTest(t *testing.T, p types.OCR3ReportingPluginClient) {
 		ctx := tests.Context(t)
 		factory, err := p.NewReportingPluginFactory(ctx,
 			types.ReportingPluginServiceConfig{},
-			testcore.MockConn{},
-			testcore.PipelineRunner,
-			testcore.Telemetry,
-			&testcore.ErrorLog,
+			nettest.MockConn{},
+			pipelinetest.PipelineRunner,
+			telemetrytest.Telemetry,
+			errorlogtest.ErrorLog,
 			types.CapabilitiesRegistry(nil))
 		require.NoError(t, err)
 

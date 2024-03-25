@@ -7,28 +7,28 @@ import (
 	libocr "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
 
-	mercury_v1_test "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer/pluginprovider/ext/mercury/v1/test"
-	mercury_v2_test "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer/pluginprovider/ext/mercury/v2/test"
-	mercury_v3_test "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer/pluginprovider/ext/mercury/v3/test"
+	mercuryv1test "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer/pluginprovider/ext/mercury/v1/test"
+	mercuryv2test "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer/pluginprovider/ext/mercury/v2/test"
+	mercuryv3test "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer/pluginprovider/ext/mercury/v3/test"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
-	mercury_types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
-	mercury_v1_types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v1"
-	mercury_v2_types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v2"
-	mercury_v3_types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
+	mercurytypes "github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
+	mercuryv1types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v1"
+	mercuryv2types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v2"
+	mercuryv3types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
 
-	testpluginprovider "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test/ocr2/plugin_provider"
+	ocr2test "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer/pluginprovider/ocr2/test"
 	testtypes "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test/types"
 )
 
 var MercuryProvider = staticMercuryProvider{
 	staticMercuryProviderConfig: staticMercuryProviderConfig{
-		offchainDigester:    testpluginprovider.OffchainConfigDigester,
-		contractTracker:     testpluginprovider.ContractConfigTracker,
-		contractTransmitter: testpluginprovider.ContractTransmitter,
-		reportCodecV1:       mercury_v1_test.ReportCodec,
-		reportCodecV2:       mercury_v2_test.ReportCodec,
-		reportCodecV3:       mercury_v3_test.ReportCodec,
+		offchainDigester:    ocr2test.OffchainConfigDigester,
+		contractTracker:     ocr2test.ContractConfigTracker,
+		contractTransmitter: ocr2test.ContractTransmitter,
+		reportCodecV1:       mercuryv1test.ReportCodec,
+		reportCodecV2:       mercuryv2test.ReportCodec,
+		reportCodecV3:       mercuryv3test.ReportCodec,
 		onchainConfigCodec:  OnchainConfigCodec,
 		mercuryChainReader:  ChainReader,
 		serviceFetcher:      ServerFetcher,
@@ -47,9 +47,9 @@ type staticMercuryProviderConfig struct {
 	offchainDigester    testtypes.OffchainConfigDigesterEvaluator
 	contractTracker     testtypes.ContractConfigTrackerEvaluator
 	contractTransmitter testtypes.ContractTransmitterEvaluator
-	reportCodecV1       mercury_v1_test.ReportCodecEvaluator
-	reportCodecV2       mercury_v2_test.ReportCodecEvaluator
-	reportCodecV3       mercury_v3_test.ReportCodecEvaluator
+	reportCodecV1       mercuryv1test.ReportCodecEvaluator
+	reportCodecV2       mercuryv2test.ReportCodecEvaluator
+	reportCodecV3       mercuryv3test.ReportCodecEvaluator
 	onchainConfigCodec  OnchainConfigCodecEvaluator
 	mercuryChainReader  MercuryChainReaderEvaluator
 	serviceFetcher      ServerFetcherEvaluator
@@ -83,23 +83,23 @@ func (s staticMercuryProvider) ContractTransmitter() libocr.ContractTransmitter 
 	return s.contractTransmitter
 }
 
-func (s staticMercuryProvider) ReportCodecV1() mercury_v1_types.ReportCodec {
+func (s staticMercuryProvider) ReportCodecV1() mercuryv1types.ReportCodec {
 	return s.reportCodecV1
 }
 
-func (s staticMercuryProvider) ReportCodecV2() mercury_v2_types.ReportCodec {
+func (s staticMercuryProvider) ReportCodecV2() mercuryv2types.ReportCodec {
 	return s.reportCodecV2
 }
 
-func (s staticMercuryProvider) ReportCodecV3() mercury_v3_types.ReportCodec {
+func (s staticMercuryProvider) ReportCodecV3() mercuryv3types.ReportCodec {
 	return s.reportCodecV3
 }
 
-func (s staticMercuryProvider) OnchainConfigCodec() mercury_types.OnchainConfigCodec {
+func (s staticMercuryProvider) OnchainConfigCodec() mercurytypes.OnchainConfigCodec {
 	return s.onchainConfigCodec
 }
 
-func (s staticMercuryProvider) MercuryChainReader() mercury_types.ChainReader {
+func (s staticMercuryProvider) MercuryChainReader() mercurytypes.ChainReader {
 	return s.mercuryChainReader
 }
 
@@ -108,7 +108,7 @@ func (s staticMercuryProvider) ChainReader() types.ChainReader {
 	return nil
 }
 
-func (s staticMercuryProvider) MercuryServerFetcher() mercury_types.ServerFetcher {
+func (s staticMercuryProvider) MercuryServerFetcher() mercurytypes.ServerFetcher {
 	return s.serviceFetcher
 }
 

@@ -7,6 +7,7 @@ import (
 	libocr "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
 
+	chainreadertest "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer/pluginprovider/chainreader/test"
 	testtypes "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 )
@@ -17,8 +18,8 @@ var AgnosticProvider = staticPluginProvider{
 	offchainConfigDigester: OffchainConfigDigester,
 	contractConfigTracker:  ContractConfigTracker,
 	contractTransmitter:    ContractTransmitter,
-	chainReader:            ChainReader,
-	codec:                  staticCodec{},
+	chainReader:            chainreadertest.ChainReader,
+	codec:                  chainreadertest.Codec,
 }
 
 // staticPluginProvider is a static implementation of PluginProviderTester
@@ -27,7 +28,7 @@ type staticPluginProvider struct {
 	contractConfigTracker  staticContractConfigTracker
 	contractTransmitter    testtypes.ContractTransmitterEvaluator
 	chainReader            testtypes.ChainReaderEvaluator
-	codec                  staticCodec
+	codec                  testtypes.CodecEvaluator
 }
 
 var _ testtypes.PluginProviderTester = staticPluginProvider{}
@@ -59,7 +60,7 @@ func (s staticPluginProvider) ChainReader() types.ChainReader {
 }
 
 func (s staticPluginProvider) Codec() types.Codec {
-	return staticCodec{}
+	return s.codec
 }
 
 func (s staticPluginProvider) AssertEqual(ctx context.Context, t *testing.T, provider types.PluginProvider) {
@@ -82,13 +83,6 @@ func (s staticPluginProvider) AssertEqual(ctx context.Context, t *testing.T, pro
 		t.Parallel()
 		assert.NoError(t, s.chainReader.Evaluate(ctx, provider.ChainReader()))
 	})
-
-	/*
-		t.Run("Codec", func(t *testing.T) {
-			t.Parallel()
-			assert.NoError(t, s.codec.Evaluate(ctx, provider.OnchainConfigCodec()))
-		})
-	*/
 }
 
 func (s staticPluginProvider) Evaluate(ctx context.Context, provider types.PluginProvider) error {
@@ -112,11 +106,5 @@ func (s staticPluginProvider) Evaluate(ctx context.Context, provider types.Plugi
 		return err
 	}
 
-	/*
-		err = s.codec.Evaluate(ctx, provider.OnchainConfigCodec())
-		if err != nil {
-			return err
-		}
-	*/
 	return nil
 }

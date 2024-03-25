@@ -1,4 +1,4 @@
-package pluginprovider
+package test
 
 import (
 	"context"

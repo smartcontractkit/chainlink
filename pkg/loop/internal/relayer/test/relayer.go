@@ -1,4 +1,4 @@
-package relayer_test
+package test
 
 import (
 	"bytes"
@@ -15,11 +15,11 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	keystoretest "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/core/services/keystore/test"
 	cciptest "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer/pluginprovider/ext/ccip/test"
 	mediantest "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer/pluginprovider/ext/median/test"
 	mercurytest "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer/pluginprovider/ext/mercury/test"
-	testcore "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test/core"
-	testpluginprovider "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test/ocr2/plugin_provider"
+	ocr2test "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer/pluginprovider/ocr2/test"
 	testtypes "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test/types"
 	looptypes "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -56,7 +56,7 @@ type staticPluginRelayerConfig struct {
 	agnosticProvider  testtypes.PluginProviderTester
 	mercuryProvider   mercurytest.MercuryProviderTester
 	executionProvider cciptest.ExecProviderTester
-	configProvider    testpluginprovider.ConfigProviderTester
+	configProvider    ocr2test.ConfigProviderTester
 	// Note: add other Provider testers here when we implement them
 	// eg Functions, Automation, etc
 	nodeRequest        nodeRequest
@@ -74,8 +74,8 @@ func NewRelayerTester(staticChecks bool) testtypes.RelayerTester {
 			medianProvider:    mediantest.MedianProvider,
 			mercuryProvider:   mercurytest.MercuryProvider,
 			executionProvider: cciptest.ExecutionProvider,
-			agnosticProvider:  testpluginprovider.AgnosticProvider,
-			configProvider:    testpluginprovider.ConfigProvider,
+			agnosticProvider:  ocr2test.AgnosticProvider,
+			configProvider:    ocr2test.ConfigProvider,
 			nodeRequest: nodeRequest{
 				pageSize:  137,
 				pageToken: "",
@@ -312,7 +312,7 @@ func newRelayArgsWithProviderType(_type types.OCR2PluginType) types.RelayArgs {
 func RunPlugin(t *testing.T, p looptypes.PluginRelayer) {
 	t.Run("Relayer", func(t *testing.T) {
 		ctx := tests.Context(t)
-		relayer, err := p.NewRelayer(ctx, ConfigTOML, testcore.Keystore)
+		relayer, err := p.NewRelayer(ctx, ConfigTOML, keystoretest.Keystore)
 		require.NoError(t, err)
 		require.NoError(t, relayer.Start(ctx))
 		t.Cleanup(func() { assert.NoError(t, relayer.Close()) })

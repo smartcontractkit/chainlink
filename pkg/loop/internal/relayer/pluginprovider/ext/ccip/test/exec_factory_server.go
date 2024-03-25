@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	testreportingplugin "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test/ocr2/reporting_plugin"
+	reportingplugintest "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/reportingplugin/test"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
@@ -35,7 +35,7 @@ func (e execFactoryServer) NewExecutionFactory(ctx context.Context, provider typ
 	if err != nil {
 		return nil, err
 	}
-	return testreportingplugin.Factory, nil
+	return reportingplugintest.Factory, nil
 }
 
 func RunExecutionLOOP(t *testing.T, p types.CCIPExecutionFactoryGenerator) {
@@ -72,9 +72,9 @@ func runReportingPluginFactory(t *testing.T, factory types.ReportingPluginFactor
 		// we expect the static implementation to be used under the covers
 		// we can't compare the types directly because the returned reporting plugin may be a grpc client
 		// that wraps the static implementation
-		var expectedReportingPlugin = testreportingplugin.ReportingPlugin
+		var expectedReportingPlugin = reportingplugintest.ReportingPlugin
 
-		rp, gotRPI, err := factory.NewReportingPlugin(tests.Context(t), testreportingplugin.Factory.ReportingPluginConfig)
+		rp, gotRPI, err := factory.NewReportingPlugin(tests.Context(t), reportingplugintest.Factory.ReportingPluginConfig)
 		require.NoError(t, err)
 		assert.Equal(t, rpi, gotRPI)
 		t.Cleanup(func() { assert.NoError(t, rp.Close()) })

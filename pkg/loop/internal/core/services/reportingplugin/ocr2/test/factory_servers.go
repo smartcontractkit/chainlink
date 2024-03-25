@@ -6,11 +6,12 @@ import (
 
 	"google.golang.org/grpc"
 
+	pipelinetest "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/core/services/pipeline/test"
+	telemetrytest "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/core/services/telemetry/test"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/net"
-	median_test "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer/pluginprovider/ext/median/test"
-	testcore "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test/core"
-	testpluginprovider "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test/ocr2/plugin_provider"
-	testreportingplugin "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test/ocr2/reporting_plugin"
+	mediantest "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer/pluginprovider/ext/median/test"
+	ocr2test "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer/pluginprovider/ocr2/test"
+	reportingplugintest "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/reportingplugin/test"
 	testtypes "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -18,9 +19,9 @@ import (
 
 var MedianProviderServer = medianFactoryServer{
 	medianGeneratorConfig: medianGeneratorConfig{
-		medianProvider: median_test.MedianProvider,
-		pipeline:       testcore.PipelineRunner,
-		telemetry:      testcore.Telemetry,
+		medianProvider: mediantest.MedianProvider,
+		pipeline:       pipelinetest.PipelineRunner,
+		telemetry:      telemetrytest.Telemetry,
 	},
 }
 
@@ -58,13 +59,13 @@ func (s medianFactoryServer) NewReportingPluginFactory(ctx context.Context, conf
 		return nil, fmt.Errorf("failed to evaluate telemetry: %w", err)
 	}
 
-	return testreportingplugin.Factory, nil
+	return reportingplugintest.Factory, nil
 }
 
 var AgnosticProviderServer = agnosticPluginFactoryServer{
-	provider:       testpluginprovider.AgnosticPluginProvider,
-	pipelineRunner: testcore.PipelineRunner,
-	telemetry:      testcore.Telemetry,
+	provider:       ocr2test.AgnosticPluginProvider,
+	pipelineRunner: pipelinetest.PipelineRunner,
+	telemetry:      telemetrytest.Telemetry,
 }
 
 var _ reportingplugins.ProviderServer[types.PluginProvider] = agnosticPluginFactoryServer{}
@@ -95,5 +96,5 @@ func (s agnosticPluginFactoryServer) NewReportingPluginFactory(ctx context.Conte
 		return nil, fmt.Errorf("failed to evaluate telemetry: %w", err)
 	}
 
-	return testreportingplugin.Factory, nil
+	return reportingplugintest.Factory, nil
 }
