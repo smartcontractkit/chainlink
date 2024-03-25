@@ -6,7 +6,7 @@ import (
 	"github.com/hashicorp/go-plugin"
 	"google.golang.org/grpc"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/reportingplugin/median"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 )
 
@@ -36,17 +36,17 @@ type GRPCPluginMedian struct {
 
 	PluginServer types.PluginMedian
 
-	pluginClient *internal.PluginMedianClient
+	pluginClient *median.PluginMedianClient
 }
 
 func (p *GRPCPluginMedian) GRPCServer(broker *plugin.GRPCBroker, server *grpc.Server) error {
-	return internal.RegisterPluginMedianServer(server, broker, p.BrokerConfig, p.PluginServer)
+	return median.RegisterPluginMedianServer(server, broker, p.BrokerConfig, p.PluginServer)
 }
 
 // GRPCClient implements [plugin.GRPCPlugin] and returns the pluginClient [types.PluginMedian], updated with the new broker and conn.
 func (p *GRPCPluginMedian) GRPCClient(_ context.Context, broker *plugin.GRPCBroker, conn *grpc.ClientConn) (interface{}, error) {
 	if p.pluginClient == nil {
-		p.pluginClient = internal.NewPluginMedianClient(broker, p.BrokerConfig, conn)
+		p.pluginClient = median.NewPluginMedianClient(broker, p.BrokerConfig, conn)
 	} else {
 		p.pluginClient.Refresh(broker, conn)
 	}

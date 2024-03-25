@@ -10,7 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
-	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/goplugin"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/net"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 )
@@ -19,7 +19,7 @@ var _ ocrtypes.ReportingPluginFactory = (*LOOPPService)(nil)
 
 // LOOPPService is a [types.Service] that maintains an internal [types.PluginClient].
 type LOOPPService struct {
-	internal.PluginService[*GRPCService[types.PluginProvider], types.ReportingPluginFactory]
+	goplugin.PluginService[*GRPCService[types.PluginProvider], types.ReportingPluginFactory]
 }
 
 // NewLOOPPService returns a new [*PluginService].

@@ -7,8 +7,11 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
-	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/core/services/reportingplugin/ocr2"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/net"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer/pluginprovider/ext/median"
+	pluginprovider "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer/pluginprovider/ocr2"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 )
 
@@ -37,7 +40,7 @@ type GRPCService[T types.PluginProvider] struct {
 
 	PluginServer ProviderServer[T]
 
-	pluginClient *internal.ReportingPluginServiceClient
+	pluginClient *ocr2.ReportingPluginServiceClient
 }
 
 type serverAdapter func(
@@ -70,16 +73,16 @@ func (g *GRPCService[T]) GRPCServer(broker *plugin.GRPCBroker, server *grpc.Serv
 		el types.ErrorLog,
 	) (types.ReportingPluginFactory, error) {
 		provider := g.PluginServer.ConnToProvider(conn, broker, g.BrokerConfig)
-		tc := internal.NewTelemetryClient(ts)
+		tc := telemetry.NewTelemetryClient(ts)
 		return g.PluginServer.NewReportingPluginFactory(ctx, cfg, provider, pr, tc, el)
 	}
-	return internal.RegisterReportingPluginServiceServer(server, broker, g.BrokerConfig, serverAdapter(adapter))
+	return ocr2.RegisterReportingPluginServiceServer(server, broker, g.BrokerConfig, serverAdapter(adapter))
 }
 
 // GRPCClient implements [plugin.GRPCPlugin] and returns the pluginClient [types.PluginClient], updated with the new broker and conn.
 func (g *GRPCService[T]) GRPCClient(_ context.Context, broker *plugin.GRPCBroker, conn *grpc.ClientConn) (interface{}, error) {
 	if g.pluginClient == nil {
-		g.pluginClient = internal.NewReportingPluginServiceClient(broker, g.BrokerConfig, conn)
+		g.pluginClient = ocr2.NewReportingPluginServiceClient(broker, g.BrokerConfig, conn)
 	} else {
 		g.pluginClient.Refresh(broker, conn)
 	}
@@ -100,5 +103,5 @@ func (g *GRPCService[T]) ClientConfig() *plugin.ClientConfig {
 // These implement `ConnToProvider` and return the conn wrapped as
 // the specified provider type. They can be embedded into the server struct
 // for ease of use.
-type PluginProviderServer = internal.PluginProviderServer
-type MedianProviderServer = internal.MedianProviderServer
+type PluginProviderServer = pluginprovider.PluginProviderServer
+type MedianProviderServer = median.ProviderServer

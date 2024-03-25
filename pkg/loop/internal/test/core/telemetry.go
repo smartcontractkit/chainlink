@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/core/services/telemetry"
 	testtypes "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 )
@@ -113,8 +113,8 @@ func (m mockClientConn) NewStream(ctx context.Context, desc *grpc.StreamDesc, me
 }
 
 func TestTelemetry(t *testing.T) {
-	tsc := internal.NewTelemetryServiceClient(mockClientConn{})
-	c := internal.NewTelemetryClient(tsc)
+	tsc := telemetry.NewTelemetryServiceClient(mockClientConn{})
+	c := telemetry.NewTelemetryClient(tsc)
 
 	type sendTest struct {
 		contractID    string

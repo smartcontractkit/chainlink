@@ -9,8 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
-	mercury_common_test "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/mercury/common/test"
-	mercury_test "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/mercury/common/test"
+	mercury_test "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer/pluginprovider/ext/mercury/test"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test"
 	testcore "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test/core"
 	relayer_test "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test/relayer"
@@ -71,7 +70,7 @@ func newMercuryProvider(t *testing.T, pr loop.PluginRelayer) types.MercuryProvid
 	r, err := pr.NewRelayer(ctx, test.ConfigTOML, testcore.Keystore)
 	require.NoError(t, err)
 	servicetest.Run(t, r)
-	p, err := r.NewPluginProvider(ctx, mercury_common_test.RelayArgs, mercury_common_test.PluginArgs)
+	p, err := r.NewPluginProvider(ctx, mercury_test.RelayArgs, mercury_test.PluginArgs)
 	mp, ok := p.(types.MercuryProvider)
 	require.True(t, ok)
 	require.NoError(t, err)

@@ -9,7 +9,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/goplugin"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 )
 
@@ -17,7 +17,7 @@ var _ ocrtypes.ReportingPluginFactory = (*MedianService)(nil)
 
 // MedianService is a [types.Service] that maintains an internal [types.PluginMedian].
 type MedianService struct {
-	internal.PluginService[*GRPCPluginMedian, types.ReportingPluginFactory]
+	goplugin.PluginService[*GRPCPluginMedian, types.ReportingPluginFactory]
 }
 
 // NewMedianService returns a new [*MedianService].

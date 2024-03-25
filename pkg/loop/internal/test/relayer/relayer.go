@@ -15,14 +15,13 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/loop"
-	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal"
-	ccip_test "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/ccip/test"
-	median_test "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/median/test"
-	mercury_common_test "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/mercury/common/test"
+	cciptest "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer/pluginprovider/ext/ccip/test"
+	mediantest "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer/pluginprovider/ext/median/test"
+	mercurytest "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer/pluginprovider/ext/mercury/test"
 	testcore "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test/core"
 	testpluginprovider "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test/ocr2/plugin_provider"
 	testtypes "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test/types"
+	looptypes "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
@@ -55,8 +54,8 @@ type staticPluginRelayerConfig struct {
 	pluginArgs        types.PluginArgs
 	medianProvider    testtypes.MedianProviderTester
 	agnosticProvider  testtypes.PluginProviderTester
-	mercuryProvider   mercury_common_test.MercuryProviderTester
-	executionProvider ccip_test.ExecProviderTester
+	mercuryProvider   mercurytest.MercuryProviderTester
+	executionProvider cciptest.ExecProviderTester
 	configProvider    testpluginprovider.ConfigProviderTester
 	// Note: add other Provider testers here when we implement them
 	// eg Functions, Automation, etc
@@ -72,9 +71,9 @@ func NewRelayerTester(staticChecks bool) testtypes.RelayerTester {
 			StaticChecks:      staticChecks,
 			relayArgs:         RelayArgs,
 			pluginArgs:        PluginArgs,
-			medianProvider:    median_test.MedianProvider,
-			mercuryProvider:   mercury_common_test.MercuryProvider,
-			executionProvider: ccip_test.ExecutionProvider,
+			medianProvider:    mediantest.MedianProvider,
+			mercuryProvider:   mercurytest.MercuryProvider,
+			executionProvider: cciptest.ExecutionProvider,
 			agnosticProvider:  testpluginprovider.AgnosticProvider,
 			configProvider:    testpluginprovider.ConfigProvider,
 			nodeRequest: nodeRequest{
@@ -101,7 +100,7 @@ type staticPluginRelayer struct {
 	staticPluginRelayerConfig
 }
 
-func (s staticPluginRelayer) NewRelayer(ctx context.Context, config string, keystore types.Keystore) (internal.Relayer, error) {
+func (s staticPluginRelayer) NewRelayer(ctx context.Context, config string, keystore types.Keystore) (looptypes.Relayer, error) {
 	if s.StaticChecks && config != ConfigTOML {
 		return nil, fmt.Errorf("expected config %q but got %q", ConfigTOML, config)
 	}
@@ -162,11 +161,11 @@ func (s staticPluginRelayer) NewPluginProvider(ctx context.Context, r types.Rela
 
 func (s staticPluginRelayer) NewMercuryProvider(ctx context.Context, r types.RelayArgs, p types.PluginArgs) (types.MercuryProvider, error) {
 	if s.StaticChecks {
-		if !equalRelayArgs(r, mercury_common_test.RelayArgs) {
-			return nil, fmt.Errorf("expected relay args:\n\t%v\nbut got:\n\t%v", mercury_common_test.RelayArgs, r)
+		if !equalRelayArgs(r, mercurytest.RelayArgs) {
+			return nil, fmt.Errorf("expected relay args:\n\t%v\nbut got:\n\t%v", mercurytest.RelayArgs, r)
 		}
-		if !reflect.DeepEqual(mercury_common_test.PluginArgs, p) {
-			return nil, fmt.Errorf("expected plugin args %v but got %v", mercury_common_test.PluginArgs, p)
+		if !reflect.DeepEqual(mercurytest.PluginArgs, p) {
+			return nil, fmt.Errorf("expected plugin args %v but got %v", mercurytest.PluginArgs, p)
 		}
 	}
 	return s.mercuryProvider, nil
@@ -174,11 +173,11 @@ func (s staticPluginRelayer) NewMercuryProvider(ctx context.Context, r types.Rel
 
 func (s staticPluginRelayer) NewExecutionProvider(ctx context.Context, r types.RelayArgs, p types.PluginArgs) (types.CCIPExecProvider, error) {
 	if s.StaticChecks {
-		if !equalRelayArgs(r, ccip_test.ExecutionRelayArgs) {
-			return nil, fmt.Errorf("expected relay args:\n\t%v\nbut got:\n\t%v", mercury_common_test.RelayArgs, r)
+		if !equalRelayArgs(r, cciptest.ExecutionRelayArgs) {
+			return nil, fmt.Errorf("expected relay args:\n\t%v\nbut got:\n\t%v", mercurytest.RelayArgs, r)
 		}
-		if !reflect.DeepEqual(ccip_test.ExecutionPluginArgs, p) {
-			return nil, fmt.Errorf("expected plugin args %v but got %v", mercury_common_test.PluginArgs, p)
+		if !reflect.DeepEqual(cciptest.ExecutionPluginArgs, p) {
+			return nil, fmt.Errorf("expected plugin args %v but got %v", mercurytest.PluginArgs, p)
 		}
 	}
 	return s.executionProvider, nil
@@ -221,7 +220,7 @@ func (s staticPluginRelayer) Transact(ctx context.Context, f, t string, a *big.I
 	return nil
 }
 
-func (s staticPluginRelayer) AssertEqual(ctx context.Context, t *testing.T, relayer loop.Relayer) {
+func (s staticPluginRelayer) AssertEqual(ctx context.Context, t *testing.T, relayer looptypes.Relayer) {
 	t.Run("ConfigProvider", func(t *testing.T) {
 		t.Parallel()
 		ctx := tests.Context(t)
@@ -310,7 +309,7 @@ func newRelayArgsWithProviderType(_type types.OCR2PluginType) types.RelayArgs {
 	}
 }
 
-func RunPlugin(t *testing.T, p internal.PluginRelayer) {
+func RunPlugin(t *testing.T, p looptypes.PluginRelayer) {
 	t.Run("Relayer", func(t *testing.T) {
 		ctx := tests.Context(t)
 		relayer, err := p.NewRelayer(ctx, ConfigTOML, testcore.Keystore)
@@ -321,13 +320,13 @@ func RunPlugin(t *testing.T, p internal.PluginRelayer) {
 	})
 }
 
-func Run(t *testing.T, relayer internal.Relayer) {
+func Run(t *testing.T, relayer looptypes.Relayer) {
 	ctx := tests.Context(t)
 	expectedRelayer := NewRelayerTester(false)
 	expectedRelayer.AssertEqual(ctx, t, relayer)
 }
 
-func RunFuzzPluginRelayer(f *testing.F, relayerFunc func(*testing.T) internal.PluginRelayer) {
+func RunFuzzPluginRelayer(f *testing.F, relayerFunc func(*testing.T) looptypes.PluginRelayer) {
 	var (
 		account = "testaccount"
 		signed  = []byte{5: 11}
@@ -356,7 +355,7 @@ func RunFuzzPluginRelayer(f *testing.F, relayerFunc func(*testing.T) internal.Pl
 	})
 }
 
-func RunFuzzRelayer(f *testing.F, relayerFunc func(*testing.T) internal.Relayer) {
+func RunFuzzRelayer(f *testing.F, relayerFunc func(*testing.T) looptypes.Relayer) {
 	validRaw := [16]byte(RelayArgs.ExternalJobID)
 	validRawBytes := make([]byte, 16)
 

@@ -6,8 +6,8 @@ import (
 
 	"google.golang.org/grpc"
 
-	median_test "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/median/test"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/net"
+	median_test "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer/pluginprovider/ext/median/test"
 	testcore "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test/core"
 	testpluginprovider "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test/ocr2/plugin_provider"
 	testreportingplugin "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test/ocr2/reporting_plugin"

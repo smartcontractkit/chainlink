@@ -8,11 +8,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
-	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal"
-	mercury_test "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/mercury/common/test"
-	mercury_v1_test "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/mercury/v1/test"
-	mercury_v2_test "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/mercury/v2/test"
-	mercury_v3_test "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/mercury/v3/test"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/goplugin"
+	mercury_test "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer/pluginprovider/ext/mercury/test"
+	mercury_v1_test "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer/pluginprovider/ext/mercury/v1/test"
+	mercury_v2_test "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer/pluginprovider/ext/mercury/v2/test"
+	mercury_v3_test "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer/pluginprovider/ext/mercury/v3/test"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 )
 
@@ -33,7 +33,7 @@ func TestMercuryV3Service(t *testing.T) {
 		hook.Kill()
 
 		// wait for relaunch
-		time.Sleep(2 * internal.KeepAliveTickDuration)
+		time.Sleep(2 * goplugin.KeepAliveTickDuration)
 
 		mercury_test.MercuryPluginFactory(t, mercuryV3)
 	})
@@ -42,7 +42,7 @@ func TestMercuryV3Service(t *testing.T) {
 		hook.Reset()
 
 		// wait for relaunch
-		time.Sleep(2 * internal.KeepAliveTickDuration)
+		time.Sleep(2 * goplugin.KeepAliveTickDuration)
 
 		mercury_test.MercuryPluginFactory(t, mercuryV3)
 	})
@@ -80,7 +80,7 @@ func TestMercuryV1Service(t *testing.T) {
 		hook.Kill()
 
 		// wait for relaunch
-		time.Sleep(2 * internal.KeepAliveTickDuration)
+		time.Sleep(2 * goplugin.KeepAliveTickDuration)
 
 		mercury_test.MercuryPluginFactory(t, mercuryV1)
 	})
@@ -89,7 +89,7 @@ func TestMercuryV1Service(t *testing.T) {
 		hook.Reset()
 
 		// wait for relaunch
-		time.Sleep(2 * internal.KeepAliveTickDuration)
+		time.Sleep(2 * goplugin.KeepAliveTickDuration)
 
 		mercury_test.MercuryPluginFactory(t, mercuryV1)
 	})
@@ -127,7 +127,7 @@ func TestMercuryV2Service(t *testing.T) {
 		hook.Kill()
 
 		// wait for relaunch
-		time.Sleep(2 * internal.KeepAliveTickDuration)
+		time.Sleep(2 * goplugin.KeepAliveTickDuration)
 
 		mercury_test.MercuryPluginFactory(t, mercuryV2)
 	})
@@ -136,7 +136,7 @@ func TestMercuryV2Service(t *testing.T) {
 		hook.Reset()
 
 		// wait for relaunch
-		time.Sleep(2 * internal.KeepAliveTickDuration)
+		time.Sleep(2 * goplugin.KeepAliveTickDuration)
 
 		mercury_test.MercuryPluginFactory(t, mercuryV2)
 	})

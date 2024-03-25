@@ -5,7 +5,7 @@ import (
 
 	"google.golang.org/grpc"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 )
 
@@ -18,10 +18,10 @@ func RegisterStandAloneProvider(s *grpc.Server, p types.PluginProvider, pType ty
 		if !ok {
 			return fmt.Errorf("expected median provider got %T", p)
 		}
-		internal.RegisterStandAloneMedianProvider(s, provider)
+		relayer.RegisterStandAloneMedianProvider(s, provider)
 		return nil
 	case types.GenericPlugin:
-		internal.RegisterStandAlonePluginProvider(s, p)
+		relayer.RegisterStandAlonePluginProvider(s, p)
 		return nil
 	default:
 		return fmt.Errorf("unsupported stand alone provider: %q", pType)

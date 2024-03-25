@@ -11,7 +11,8 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/goplugin"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/reportingplugin/ccip"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 )
 
@@ -32,17 +33,17 @@ type ExecutionLoop struct {
 
 	PluginServer types.CCIPExecutionFactoryGenerator
 
-	pluginClient *internal.ExecutionLOOPClient
+	pluginClient *ccip.ExecutionLOOPClient
 }
 
 func (p *ExecutionLoop) GRPCServer(broker *plugin.GRPCBroker, server *grpc.Server) error {
-	return internal.RegisterExecutionLOOPServer(server, broker, p.BrokerConfig, p.PluginServer)
+	return ccip.RegisterExecutionLOOPServer(server, broker, p.BrokerConfig, p.PluginServer)
 }
 
 // GRPCClient implements [plugin.GRPCPlugin] and returns the pluginClient [types.CCIPExecutionFactoryGenerator], updated with the new broker and conn.
 func (p *ExecutionLoop) GRPCClient(_ context.Context, broker *plugin.GRPCBroker, conn *grpc.ClientConn) (interface{}, error) {
 	if p.pluginClient == nil {
-		p.pluginClient = internal.NewExecutionLOOPClient(broker, p.BrokerConfig, conn)
+		p.pluginClient = ccip.NewExecutionLOOPClient(broker, p.BrokerConfig, conn)
 	} else {
 		p.pluginClient.Refresh(broker, conn)
 	}
@@ -64,7 +65,7 @@ var _ ocrtypes.ReportingPluginFactory = (*ExecutionFactoryService)(nil)
 
 // ExecutionFactoryService is a [types.Service] that maintains an internal [types.CCIPExecutionFactoryGenerator].
 type ExecutionFactoryService struct {
-	internal.PluginService[*ExecutionLoop, types.ReportingPluginFactory]
+	goplugin.PluginService[*ExecutionLoop, types.ReportingPluginFactory]
 }
 
 // NewExecutionService returns a new [*ExecutionFactoryService].

@@ -8,8 +8,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
-	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal"
-	median_test "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/median/test"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/goplugin"
+	median_test "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer/pluginprovider/ext/median/test"
 	testcore "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test/core"
 	testreportingplugin "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test/ocr2/reporting_plugin"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
@@ -32,7 +32,7 @@ func TestMedianService(t *testing.T) {
 		hook.Kill()
 
 		// wait for relaunch
-		time.Sleep(2 * internal.KeepAliveTickDuration)
+		time.Sleep(2 * goplugin.KeepAliveTickDuration)
 
 		testreportingplugin.RunFactory(t, median)
 	})
@@ -41,7 +41,7 @@ func TestMedianService(t *testing.T) {
 		hook.Reset()
 
 		// wait for relaunch
-		time.Sleep(2 * internal.KeepAliveTickDuration)
+		time.Sleep(2 * goplugin.KeepAliveTickDuration)
 
 		testreportingplugin.RunFactory(t, median)
 	})

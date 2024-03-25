@@ -8,8 +8,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
-	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal"
-	ocr3_test "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/ocr3/test"
+	ocr3_test "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/core/services/reportingplugin/ocr3/test"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/goplugin"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test"
 	testcore "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
@@ -69,7 +69,7 @@ func TestLOOPPService(t *testing.T) {
 			hook.Kill()
 
 			// wait for relaunch
-			time.Sleep(2 * internal.KeepAliveTickDuration)
+			time.Sleep(2 * goplugin.KeepAliveTickDuration)
 
 			ocr3_test.OCR3ReportingPluginFactory(t, looppSvc)
 		})
@@ -78,7 +78,7 @@ func TestLOOPPService(t *testing.T) {
 			hook.Reset()
 
 			// wait for relaunch
-			time.Sleep(2 * internal.KeepAliveTickDuration)
+			time.Sleep(2 * goplugin.KeepAliveTickDuration)
 
 			ocr3_test.OCR3ReportingPluginFactory(t, looppSvc)
 		})

@@ -8,7 +8,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
-	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/goplugin"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test"
 	testcore "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test/core"
 	testapi "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test/core/api"
@@ -63,7 +63,7 @@ func TestLOOPPService(t *testing.T) {
 			hook.Kill()
 
 			// wait for relaunch
-			time.Sleep(2 * internal.KeepAliveTickDuration)
+			time.Sleep(2 * goplugin.KeepAliveTickDuration)
 
 			testreportingplugin.RunFactory(t, looppSvc)
 		})
@@ -72,7 +72,7 @@ func TestLOOPPService(t *testing.T) {
 			hook.Reset()
 
 			// wait for relaunch
-			time.Sleep(2 * internal.KeepAliveTickDuration)
+			time.Sleep(2 * goplugin.KeepAliveTickDuration)
 
 			testreportingplugin.RunFactory(t, looppSvc)
 		})

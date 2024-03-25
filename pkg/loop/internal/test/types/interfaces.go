@@ -6,8 +6,7 @@ import (
 
 	libocr "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/loop"
-	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal"
+	looptypes "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 )
 
@@ -82,14 +81,14 @@ type MedianProviderTester interface {
 }
 
 type RelayerTester interface {
-	internal.PluginRelayer
-	internal.Relayer
+	looptypes.PluginRelayer
+	looptypes.Relayer
 	// implements all the possible providers as a one-stop shop for testing
-	internal.MercuryProvider
-	internal.MedianProvider
-	internal.CCIPExecProvider
+	looptypes.MercuryProvider
+	looptypes.MedianProvider
+	looptypes.CCIPExecProvider
 
-	AssertEqualer[loop.Relayer]
+	AssertEqualer[looptypes.Relayer]
 }
 
 type ReportingPluginTester interface {

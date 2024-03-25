@@ -7,9 +7,9 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
-	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/core/services/reportingplugin/ocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/net"
-	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/ocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 )
@@ -64,7 +64,7 @@ func (g *GRPCService[T]) GRPCServer(broker *plugin.GRPCBroker, server *grpc.Serv
 		capRegistry types.CapabilitiesRegistry,
 	) (types.OCR3ReportingPluginFactory, error) {
 		provider := g.PluginServer.ConnToProvider(conn, broker, g.BrokerConfig)
-		tc := internal.NewTelemetryClient(ts)
+		tc := telemetry.NewTelemetryClient(ts)
 		return g.PluginServer.NewReportingPluginFactory(ctx, cfg, provider, pr, tc, el, capRegistry)
 	}
 	return ocr3.RegisterReportingPluginServiceServer(server, broker, g.BrokerConfig, serverAdapter(adapter))

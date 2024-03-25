@@ -6,15 +6,16 @@ import (
 	"github.com/hashicorp/go-plugin"
 	"google.golang.org/grpc"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/net"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer"
+	looptypes "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 )
 
 // PluginRelayerName is the name for [types.PluginRelayer]/[NewGRPCPluginRelayer].
 const PluginRelayerName = "relayer"
 
-type PluginRelayer = internal.PluginRelayer
+type PluginRelayer = looptypes.PluginRelayer
 
 func PluginRelayerHandshakeConfig() plugin.HandshakeConfig {
 	return plugin.HandshakeConfig{
@@ -26,7 +27,7 @@ func PluginRelayerHandshakeConfig() plugin.HandshakeConfig {
 // Deprecated
 type Keystore = types.Keystore
 
-type Relayer = internal.Relayer
+type Relayer = looptypes.Relayer
 
 type BrokerConfig = net.BrokerConfig
 
@@ -40,18 +41,18 @@ type GRPCPluginRelayer struct {
 
 	PluginServer PluginRelayer
 
-	pluginClient *internal.PluginRelayerClient
+	pluginClient *relayer.PluginRelayerClient
 }
 
 func (p *GRPCPluginRelayer) GRPCServer(broker *plugin.GRPCBroker, server *grpc.Server) error {
-	return internal.RegisterPluginRelayerServer(server, broker, p.BrokerConfig, p.PluginServer)
+	return relayer.RegisterPluginRelayerServer(server, broker, p.BrokerConfig, p.PluginServer)
 }
 
 // GRPCClient implements [plugin.GRPCPlugin] and returns the pluginClient [types.PluginRelayer], updated with the new broker and conn.
 
 func (p *GRPCPluginRelayer) GRPCClient(_ context.Context, broker *plugin.GRPCBroker, conn *grpc.ClientConn) (interface{}, error) {
 	if p.pluginClient == nil {
-		p.pluginClient = internal.NewPluginRelayerClient(broker, p.BrokerConfig, conn)
+		p.pluginClient = relayer.NewPluginRelayerClient(broker, p.BrokerConfig, conn)
 	} else {
 		p.pluginClient.Refresh(broker, conn)
 	}

@@ -1,7 +1,7 @@
 package testutils
 
 import (
-	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test"
+	test "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer/pluginprovider/chainreader/test"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests"
 )
 

@@ -8,11 +8,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
-	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/goplugin"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test"
 	testcore "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test/core"
 	relayer_test "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test/relayer"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 )
 
@@ -32,7 +31,7 @@ func TestRelayerService(t *testing.T) {
 		hook.Kill()
 
 		// wait for relaunch
-		time.Sleep(2 * internal.KeepAliveTickDuration)
+		time.Sleep(2 * goplugin.KeepAliveTickDuration)
 
 		relayer_test.Run(t, relayer)
 	})
@@ -41,7 +40,7 @@ func TestRelayerService(t *testing.T) {
 		hook.Reset()
 
 		// wait for relaunch
-		time.Sleep(2 * internal.KeepAliveTickDuration)
+		time.Sleep(2 * goplugin.KeepAliveTickDuration)
 
 		relayer_test.Run(t, relayer)
 	})
