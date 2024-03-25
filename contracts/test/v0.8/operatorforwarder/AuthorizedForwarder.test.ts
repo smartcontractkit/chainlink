@@ -18,7 +18,7 @@ before(async () => {
 
   roles = users.roles
   getterSetterFactory = await ethers.getContractFactory(
-    'src/v0.4/tests/GetterSetter.sol:GetterSetter',
+    'src/v0.8/operatorforwarder/dev/tests/testhelpers/GetterSetter.sol:GetterSetter',
     roles.defaultAccount,
   )
   brokenFactory = await ethers.getContractFactory(
