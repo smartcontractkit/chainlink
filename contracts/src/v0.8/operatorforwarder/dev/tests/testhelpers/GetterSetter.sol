@@ -1,6 +1,7 @@
-pragma solidity 0.5.0;
+pragma solidity ^0.8.0;
 
 // GetterSetter is a contract to aid debugging and testing during development.
+// solhint-disable
 contract GetterSetter {
   bytes32 public getBytes32;
   uint256 public getUint256;
