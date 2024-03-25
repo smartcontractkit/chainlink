@@ -172,7 +172,7 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindL
 
 // CountUnconfirmedTransactions returns the number of unconfirmed transactions for a given address.
 // Unconfirmed transactions are transactions that have been broadcast but not confirmed on-chain.
-// NOTE(jtw): used to calculate total inflight transactions
+// NOTE: used to calculate total inflight transactions
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CountUnconfirmedTransactions(ctx context.Context, fromAddress ADDR, chainID CHAIN_ID) (uint32, error) {
 	if ms.chainID.String() != chainID.String() {
 		return 0, nil
