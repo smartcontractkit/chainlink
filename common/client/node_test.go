@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 )
 
@@ -14,6 +15,7 @@ type testNodeConfig struct {
 	pollInterval         time.Duration
 	selectionMode        string
 	syncThreshold        uint32
+	nodeIsSyncingEnabled bool
 }
 
 func (n testNodeConfig) PollFailureThreshold() uint32 {
@@ -30,6 +32,10 @@ func (n testNodeConfig) SelectionMode() string {
 
 func (n testNodeConfig) SyncThreshold() uint32 {
 	return n.syncThreshold
+}
+
+func (n testNodeConfig) NodeIsSyncingEnabled() bool {
+	return n.nodeIsSyncingEnabled
 }
 
 type testNode struct {

@@ -27,7 +27,7 @@ type ORM interface {
 	DeleteFluxMonitorRoundsBackThrough(aggregator common.Address, roundID uint32) error
 	FindOrCreateFluxMonitorRoundStats(aggregator common.Address, roundID uint32, newRoundLogs uint) (FluxMonitorRoundStatsV2, error)
 	UpdateFluxMonitorRoundStats(aggregator common.Address, roundID uint32, runID int64, newRoundLogsAddition uint, qopts ...pg.QOpt) error
-	CreateEthTransaction(ctx context.Context, fromAddress, toAddress common.Address, payload []byte, gasLimit uint32, idempotencyKey *string) error
+	CreateEthTransaction(ctx context.Context, fromAddress, toAddress common.Address, payload []byte, gasLimit uint64, idempotencyKey *string) error
 	CountFluxMonitorRoundStats() (count int, err error)
 }
 
@@ -119,7 +119,7 @@ func (o *orm) CreateEthTransaction(
 	fromAddress common.Address,
 	toAddress common.Address,
 	payload []byte,
-	gasLimit uint32,
+	gasLimit uint64,
 	idempotencyKey *string,
 ) (err error) {
 

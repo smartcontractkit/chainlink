@@ -1,6 +1,7 @@
 package common
 
 import (
+	"context"
 	"math/big"
 	"time"
 
@@ -16,6 +17,7 @@ type VRFKeyData struct {
 	VRFKey            *client.VRFKey
 	EncodedProvingKey VRFEncodedProvingKey
 	KeyHash           [32]byte
+	PubKeyCompressed  string
 }
 
 type VRFNodeType int
@@ -67,4 +69,8 @@ type VRFJobSpecConfig struct {
 	RequestTimeout                time.Duration
 	VRFOwnerConfig                *VRFOwnerConfig
 	SimulationBlock               *string
+}
+
+type VRFLoadTestConsumer interface {
+	GetLoadTestMetrics(ctx context.Context) (*contracts.VRFLoadTestMetrics, error)
 }

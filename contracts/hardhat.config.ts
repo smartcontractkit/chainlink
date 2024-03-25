@@ -35,6 +35,7 @@ subtask(TASK_COMPILE_SOLIDITY_GET_SOURCE_PATHS).setAction(
 let config = {
   abiExporter: {
     path: './abi',
+    runOnCompile: true,
   },
   paths: {
     artifacts: './artifacts',
@@ -106,7 +107,7 @@ let config = {
         },
       },
       'src/v0.8/vrf/dev/VRFCoordinatorV2_5.sol': {
-        version: '0.8.6',
+        version: '0.8.19',
         settings: {
           optimizer: {
             enabled: true,

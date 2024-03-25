@@ -1,6 +1,7 @@
 package ocr
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -20,12 +21,12 @@ import (
 
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/offchain_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -81,13 +82,13 @@ func (d *Delegate) JobType() job.Type {
 	return job.OffchainReporting
 }
 
-func (d *Delegate) BeforeJobCreated(spec job.Job)                {}
-func (d *Delegate) AfterJobCreated(spec job.Job)                 {}
-func (d *Delegate) BeforeJobDeleted(spec job.Job)                {}
-func (d *Delegate) OnDeleteJob(spec job.Job, q pg.Queryer) error { return nil }
+func (d *Delegate) BeforeJobCreated(spec job.Job)                                     {}
+func (d *Delegate) AfterJobCreated(spec job.Job)                                      {}
+func (d *Delegate) BeforeJobDeleted(spec job.Job)                                     {}
+func (d *Delegate) OnDeleteJob(ctx context.Context, spec job.Job, q pg.Queryer) error { return nil }
 
 // ServicesForSpec returns the OCR services that need to run for this job
-func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err error) {
+func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) (services []job.ServiceCtx, err error) {
 	if jb.OCROracleSpec == nil {
 		return nil, errors.Errorf("offchainreporting.Delegate expects an *job.OffchainreportingOracleSpec to be present, got %v", jb)
 	}
@@ -322,7 +323,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 	return services, nil
 }
 
-func (d *Delegate) maybeCreateConfigOverrider(logger logger.Logger, chain legacyevm.Chain, contractAddress ethkey.EIP55Address) (*ConfigOverriderImpl, error) {
+func (d *Delegate) maybeCreateConfigOverrider(logger logger.Logger, chain legacyevm.Chain, contractAddress types.EIP55Address) (*ConfigOverriderImpl, error) {
 	flagsContractAddress := chain.Config().EVM().FlagsContractAddress()
 	if flagsContractAddress != "" {
 		flags, err := NewFlags(flagsContractAddress, chain.Client())

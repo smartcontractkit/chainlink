@@ -948,7 +948,7 @@ func TestVRFV2PlusIntegration_MaxConsumersCost(t *testing.T) {
 		uni.rootContractAddress, uni.coordinatorABI,
 		"removeConsumer", subId, carolContractAddress)
 	t.Log(estimate)
-	assert.Less(t, estimate, uint64(320000))
+	assert.Less(t, estimate, uint64(540000))
 	estimate = estimateGas(t, uni.backend, carolContractAddress,
 		uni.rootContractAddress, uni.coordinatorABI,
 		"addConsumer", subId, testutils.NewAddress())
@@ -1151,7 +1151,7 @@ func TestVRFV2PlusIntegration_Migration(t *testing.T) {
 			Key:          ptr(key1.EIP55Address),
 			GasEstimator: toml.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
-		c.EVM[0].GasEstimator.LimitDefault = ptr[uint32](5_000_000)
+		c.EVM[0].GasEstimator.LimitDefault = ptr[uint64](5_000_000)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 		c.Feature.LogPoller = ptr(true)
 		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)

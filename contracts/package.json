@@ -22,7 +22,7 @@
   },
   "files": [
     "src/v0.8",
-    "abi/src/v0.8"
+    "abi/v0.8"
   ],
   "pnpm": {
     "_comment": "See https://github.com/ethers-io/ethers.js/discussions/2849#discussioncomment-2696454",
@@ -87,6 +87,9 @@
     "@eth-optimism/contracts": "0.6.0",
     "@scroll-tech/contracts": "0.1.0",
     "@openzeppelin/contracts": "4.9.3",
-    "@openzeppelin/contracts-upgradeable": "4.9.3"
+    "@openzeppelin/contracts-upgradeable": "4.9.3",
+    "@changesets/changelog-github": "^0.4.8",
+    "@changesets/cli": "~2.26.2",
+    "semver": "^7.5.4"
   }
 }

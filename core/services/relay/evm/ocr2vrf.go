@@ -1,6 +1,7 @@
 package evm
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -59,11 +60,15 @@ func NewOCR2VRFRelayer(db *sqlx.DB, chain legacyevm.Chain, lggr logger.Logger, e
 }
 
 func (r *ocr2vrfRelayer) NewDKGProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (DKGProvider, error) {
-	configWatcher, err := newOCR2VRFConfigProvider(r.lggr, r.chain, rargs)
+
+	// TODO https://smartcontract-it.atlassian.net/browse/BCF-2887
+	ctx := context.Background()
+
+	configWatcher, err := newOCR2VRFConfigProvider(ctx, r.lggr, r.chain, rargs)
 	if err != nil {
 		return nil, err
 	}
-	contractTransmitter, err := newOnChainContractTransmitter(r.lggr, rargs, pargs.TransmitterID, r.ethKeystore, configWatcher, configTransmitterOpts{}, OCR2AggregatorTransmissionContractABI)
+	contractTransmitter, err := newOnChainContractTransmitter(ctx, r.lggr, rargs, pargs.TransmitterID, r.ethKeystore, configWatcher, configTransmitterOpts{}, OCR2AggregatorTransmissionContractABI)
 	if err != nil {
 		return nil, err
 	}
@@ -82,11 +87,15 @@ func (r *ocr2vrfRelayer) NewDKGProvider(rargs commontypes.RelayArgs, pargs commo
 }
 
 func (r *ocr2vrfRelayer) NewOCR2VRFProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (OCR2VRFProvider, error) {
-	configWatcher, err := newOCR2VRFConfigProvider(r.lggr, r.chain, rargs)
+
+	// TODO https://smartcontract-it.atlassian.net/browse/BCF-2887
+	ctx := context.Background()
+
+	configWatcher, err := newOCR2VRFConfigProvider(ctx, r.lggr, r.chain, rargs)
 	if err != nil {
 		return nil, err
 	}
-	contractTransmitter, err := newOnChainContractTransmitter(r.lggr, rargs, pargs.TransmitterID, r.ethKeystore, configWatcher, configTransmitterOpts{}, OCR2AggregatorTransmissionContractABI)
+	contractTransmitter, err := newOnChainContractTransmitter(ctx, r.lggr, rargs, pargs.TransmitterID, r.ethKeystore, configWatcher, configTransmitterOpts{}, OCR2AggregatorTransmissionContractABI)
 	if err != nil {
 		return nil, err
 	}
@@ -131,7 +140,7 @@ func (c *ocr2vrfProvider) Codec() commontypes.Codec {
 	return nil
 }
 
-func newOCR2VRFConfigProvider(lggr logger.Logger, chain legacyevm.Chain, rargs commontypes.RelayArgs) (*configWatcher, error) {
+func newOCR2VRFConfigProvider(ctx context.Context, lggr logger.Logger, chain legacyevm.Chain, rargs commontypes.RelayArgs) (*configWatcher, error) {
 	var relayConfig types.RelayConfig
 	err := json.Unmarshal(rargs.RelayConfig, &relayConfig)
 	if err != nil {
@@ -143,6 +152,7 @@ func newOCR2VRFConfigProvider(lggr logger.Logger, chain legacyevm.Chain, rargs c
 
 	contractAddress := common.HexToAddress(rargs.ContractID)
 	configPoller, err := NewConfigPoller(
+		ctx,
 		lggr.With("contractID", rargs.ContractID),
 		CPConfig{
 			chain.Client(),

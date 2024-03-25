@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
@@ -483,7 +484,7 @@ func TestORM_CreateJob_VRFV2(t *testing.T) {
 		actual = append(actual, common.BytesToAddress(b).String())
 	}
 	require.ElementsMatch(t, fromAddresses, actual)
-	var vrfOwnerAddress ethkey.EIP55Address
+	var vrfOwnerAddress evmtypes.EIP55Address
 	require.NoError(t, db.Get(&vrfOwnerAddress, `SELECT vrf_owner_address FROM vrf_specs LIMIT 1`))
 	require.Equal(t, "0x32891BD79647DC9136Fc0a59AAB48c7825eb624c", vrfOwnerAddress.Address().String())
 	require.NoError(t, jobORM.DeleteJob(jb.ID))
@@ -567,7 +568,7 @@ func TestORM_CreateJob_VRFV2Plus(t *testing.T) {
 		actual = append(actual, common.BytesToAddress(b).String())
 	}
 	require.ElementsMatch(t, fromAddresses, actual)
-	var vrfOwnerAddress ethkey.EIP55Address
+	var vrfOwnerAddress evmtypes.EIP55Address
 	require.Error(t, db.Get(&vrfOwnerAddress, `SELECT vrf_owner_address FROM vrf_specs LIMIT 1`))
 	require.NoError(t, jobORM.DeleteJob(jb.ID))
 	cltest.AssertCount(t, db, "vrf_specs", 0)
@@ -900,57 +901,62 @@ func TestORM_ValidateKeyStoreMatch(t *testing.T) {
 	}
 
 	t.Run("test ETH key validation", func(t *testing.T) {
+		ctx := testutils.Context(t)
 		jb.OCR2OracleSpec.Relay = relay.EVM
-		err := job.ValidateKeyStoreMatch(jb.OCR2OracleSpec, keyStore, "bad key")
+		err := job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, "bad key")
 		require.EqualError(t, err, "no EVM key matching: \"bad key\"")
 
 		_, evmKey := cltest.MustInsertRandomKey(t, keyStore.Eth())
-		err = job.ValidateKeyStoreMatch(jb.OCR2OracleSpec, keyStore, evmKey.String())
+		err = job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, evmKey.String())
 		require.NoError(t, err)
 	})
 
 	t.Run("test Cosmos key validation", func(t *testing.T) {
+		ctx := testutils.Context(t)
 		jb.OCR2OracleSpec.Relay = relay.Cosmos
-		err := job.ValidateKeyStoreMatch(jb.OCR2OracleSpec, keyStore, "bad key")
+		err := job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, "bad key")
 		require.EqualError(t, err, "no Cosmos key matching: \"bad key\"")
 
 		cosmosKey, err := keyStore.Cosmos().Create()
 		require.NoError(t, err)
-		err = job.ValidateKeyStoreMatch(jb.OCR2OracleSpec, keyStore, cosmosKey.ID())
+		err = job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, cosmosKey.ID())
 		require.NoError(t, err)
 	})
 
 	t.Run("test Solana key validation", func(t *testing.T) {
+		ctx := testutils.Context(t)
 		jb.OCR2OracleSpec.Relay = relay.Solana
 
-		err := job.ValidateKeyStoreMatch(jb.OCR2OracleSpec, keyStore, "bad key")
+		err := job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, "bad key")
 		require.EqualError(t, err, "no Solana key matching: \"bad key\"")
 
 		solanaKey, err := keyStore.Solana().Create()
 		require.NoError(t, err)
-		err = job.ValidateKeyStoreMatch(jb.OCR2OracleSpec, keyStore, solanaKey.ID())
+		err = job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, solanaKey.ID())
 		require.NoError(t, err)
 	})
 
 	t.Run("test Starknet key validation", func(t *testing.T) {
+		ctx := testutils.Context(t)
 		jb.OCR2OracleSpec.Relay = relay.StarkNet
-		err := job.ValidateKeyStoreMatch(jb.OCR2OracleSpec, keyStore, "bad key")
+		err := job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, "bad key")
 		require.EqualError(t, err, "no Starknet key matching: \"bad key\"")
 
 		starkNetKey, err := keyStore.StarkNet().Create()
 		require.NoError(t, err)
-		err = job.ValidateKeyStoreMatch(jb.OCR2OracleSpec, keyStore, starkNetKey.ID())
+		err = job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, starkNetKey.ID())
 		require.NoError(t, err)
 	})
 
 	t.Run("test Mercury ETH key validation", func(t *testing.T) {
+		ctx := testutils.Context(t)
 		jb.OCR2OracleSpec.PluginType = types.Mercury
-		err := job.ValidateKeyStoreMatch(jb.OCR2OracleSpec, keyStore, "bad key")
+		err := job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, "bad key")
 		require.EqualError(t, err, "no CSA key matching: \"bad key\"")
 
 		csaKey, err := keyStore.CSA().Create()
 		require.NoError(t, err)
-		err = job.ValidateKeyStoreMatch(jb.OCR2OracleSpec, keyStore, csaKey.ID())
+		err = job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, csaKey.ID())
 		require.NoError(t, err)
 	})
 }

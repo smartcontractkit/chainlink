@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"regexp"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+	"golang.org/x/mod/semver"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -23,9 +25,10 @@ import (
 )
 
 const (
-	defaultStoredAllowlistBatchSize  = 1000
-	defaultOnchainAllowlistBatchSize = 100
-	defaultFetchingDelayInRangeSec   = 1
+	defaultStoredAllowlistBatchSize      = 1000
+	defaultOnchainAllowlistBatchSize     = 100
+	defaultFetchingDelayInRangeSec       = 1
+	tosContractMinBatchProcessingVersion = "v1.1.0"
 )
 
 type OnchainAllowlistConfig struct {
@@ -38,8 +41,6 @@ type OnchainAllowlistConfig struct {
 	UpdateTimeoutSec          uint `json:"updateTimeoutSec"`
 	StoredAllowlistBatchSize  uint `json:"storedAllowlistBatchSize"`
 	OnchainAllowlistBatchSize uint `json:"onchainAllowlistBatchSize"`
-	// StoreAllowedSendersEnabled is a feature flag that enables storing in db a copy of the allowlist.
-	StoreAllowedSendersEnabled bool `json:"storeAllowedSendersEnabled"`
 	// FetchingDelayInRangeSec prevents RPC client being rate limited when fetching the allowlist in ranges.
 	FetchingDelayInRangeSec uint `json:"fetchingDelayInRangeSec"`
 }
@@ -210,16 +211,21 @@ func (a *onchainAllowlist) updateFromContractV1(ctx context.Context, blockNum *b
 	}
 
 	var allowedSenderList []common.Address
-	if !a.config.StoreAllowedSendersEnabled {
-		allowedSenderList, err = tosContract.GetAllAllowedSenders(&bind.CallOpts{
-			Pending:     false,
-			BlockNumber: blockNum,
-			Context:     ctx,
-		})
-		if err != nil {
-			return errors.Wrap(err, "error calling GetAllAllowedSenders")
-		}
-	} else {
+	typeAndVersion, err := tosContract.TypeAndVersion(&bind.CallOpts{
+		Pending:     false,
+		BlockNumber: blockNum,
+		Context:     ctx,
+	})
+	if err != nil {
+		return errors.Wrap(err, "failed to fetch the tos contract type and version")
+	}
+
+	currentVersion, err := ExtractContractVersion(typeAndVersion)
+	if err != nil {
+		return fmt.Errorf("failed to extract version: %w", err)
+	}
+
+	if semver.Compare(tosContractMinBatchProcessingVersion, currentVersion) <= 0 {
 		err = a.syncBlockedSenders(ctx, tosContract, blockNum)
 		if err != nil {
 			return errors.Wrap(err, "failed to sync the stored allowed and blocked senders")
@@ -228,6 +234,25 @@ func (a *onchainAllowlist) updateFromContractV1(ctx context.Context, blockNum *b
 		allowedSenderList, err = a.getAllowedSendersBatched(ctx, tosContract, blockNum)
 		if err != nil {
 			return errors.Wrap(err, "failed to get allowed senders in rage")
+		}
+	} else {
+		allowedSenderList, err = tosContract.GetAllAllowedSenders(&bind.CallOpts{
+			Pending:     false,
+			BlockNumber: blockNum,
+			Context:     ctx,
+		})
+		if err != nil {
+			return errors.Wrap(err, "error calling GetAllAllowedSenders")
+		}
+
+		err = a.orm.PurgeAllowedSenders()
+		if err != nil {
+			a.lggr.Errorf("failed to purge allowedSenderList: %w", err)
+		}
+
+		err = a.orm.CreateAllowedSenders(allowedSenderList)
+		if err != nil {
+			a.lggr.Errorf("failed to update stored allowedSenderList: %w", err)
 		}
 	}
 
@@ -343,4 +368,15 @@ func (a *onchainAllowlist) loadStoredAllowedSenderList() {
 	}
 
 	a.update(allowedList)
+}
+
+func ExtractContractVersion(str string) (string, error) {
+	pattern := `v(\d+).(\d+).(\d+)`
+	re := regexp.MustCompile(pattern)
+
+	match := re.FindStringSubmatch(str)
+	if len(match) != 4 {
+		return "", fmt.Errorf("version not found in string: %s", str)
+	}
+	return fmt.Sprintf("v%s.%s.%s", match[1], match[2], match[3]), nil
 }

@@ -15,7 +15,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
@@ -297,11 +296,14 @@ func TestVRFv2Basic(t *testing.T) {
 
 		subscriptionCanceledEvent, err := vrfv2Contracts.CoordinatorV2.WaitForSubscriptionCanceledEvent([]uint64{subIDForCancelling}, time.Second*30)
 		require.NoError(t, err, "error waiting for subscription canceled event")
-
 		cancellationTxReceipt, err := env.EVMClient.GetTxReceipt(tx.Hash())
 		require.NoError(t, err, "error getting tx cancellation Tx Receipt")
 
 		txGasUsed := new(big.Int).SetUint64(cancellationTxReceipt.GasUsed)
+		// we don't have that information for older Geth versions
+		if cancellationTxReceipt.EffectiveGasPrice == nil {
+			cancellationTxReceipt.EffectiveGasPrice = new(big.Int).SetUint64(0)
+		}
 		cancellationTxFeeWei := new(big.Int).Mul(txGasUsed, cancellationTxReceipt.EffectiveGasPrice)
 
 		l.Info().
@@ -409,6 +411,10 @@ func TestVRFv2Basic(t *testing.T) {
 		require.NoError(t, err, "error getting tx cancellation Tx Receipt")
 
 		txGasUsed := new(big.Int).SetUint64(cancellationTxReceipt.GasUsed)
+		// we don't have that information for older Geth versions
+		if cancellationTxReceipt.EffectiveGasPrice == nil {
+			cancellationTxReceipt.EffectiveGasPrice = new(big.Int).SetUint64(0)
+		}
 		cancellationTxFeeWei := new(big.Int).Mul(txGasUsed, cancellationTxReceipt.EffectiveGasPrice)
 
 		l.Info().
@@ -533,8 +539,7 @@ func TestVRFv2MultipleSendingKeys(t *testing.T) {
 			require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
 
 			//todo - move TransactionByHash to EVMClient in CTF
-			fulfillmentTx, _, err := env.EVMClient.(*blockchain.EthereumMultinodeClient).DefaultClient.(*blockchain.EthereumClient).
-				Client.TransactionByHash(testcontext.Get(t), randomWordsFulfilledEvent.Raw.TxHash)
+			fulfillmentTx, _, err := actions.GetTxByHash(testcontext.Get(t), env.EVMClient, randomWordsFulfilledEvent.Raw.TxHash)
 			require.NoError(t, err, "error getting tx from hash")
 			fulfillmentTxFromAddress, err := actions.GetTxFromAddress(fulfillmentTx)
 			require.NoError(t, err, "error getting tx from address")
@@ -617,7 +622,7 @@ func TestVRFOwner(t *testing.T) {
 
 		err = linkToken.Transfer(
 			vrfv2Contracts.VRFV2Consumer[0].Address(),
-			conversions.EtherToWei(big.NewFloat(5)),
+			conversions.EtherToWei(big.NewFloat(*configCopy.VRFv2.General.SubscriptionFundingAmountLink)),
 		)
 		require.NoError(t, err, "error transferring link to consumer contract")
 

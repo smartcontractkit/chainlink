@@ -7,7 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -41,7 +41,7 @@ func Test_EthResender_resendUnconfirmed(t *testing.T) {
 	_, fromAddress2 := cltest.MustInsertRandomKey(t, ethKeyStore)
 	_, fromAddress3 := cltest.MustInsertRandomKey(t, ethKeyStore)
 
-	txStore := cltest.NewTestTxStore(t, db, logCfg)
+	txStore := cltest.NewTestTxStore(t, db)
 
 	originalBroadcastAt := time.Unix(1616509100, 0)
 
@@ -118,7 +118,7 @@ func Test_EthResender_alertUnconfirmed(t *testing.T) {
 
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 
-	txStore := cltest.NewTestTxStore(t, db, logCfg)
+	txStore := cltest.NewTestTxStore(t, db)
 
 	originalBroadcastAt := time.Unix(1616509100, 0)
 	er := txmgr.NewEvmResender(lggr, txStore, txmgr.NewEvmTxmClient(ethClient), txmgr.NewEvmTracker(txStore, ethKeyStore, big.NewInt(0), lggr), ethKeyStore, 100*time.Millisecond, ccfg.EVM(), ccfg.EVM().Transactions())
@@ -148,13 +148,14 @@ func Test_EthResender_Start(t *testing.T) {
 		// Set batch size low to test batching
 		c.EVM[0].RPCDefaultBatchSize = ptr[uint32](1)
 	})
-	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
+	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	ccfg := evmtest.NewChainScopedConfig(t, cfg)
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 	lggr := logger.Test(t)
 
 	t.Run("resends transactions that have been languishing unconfirmed for too long", func(t *testing.T) {
+		ctx := testutils.Context(t)
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
 		er := txmgr.NewEvmResender(lggr, txStore, txmgr.NewEvmTxmClient(ethClient), txmgr.NewEvmTracker(txStore, ethKeyStore, big.NewInt(0), lggr), ethKeyStore, 100*time.Millisecond, ccfg.EVM(), ccfg.EVM().Transactions())
@@ -176,11 +177,11 @@ func Test_EthResender_Start(t *testing.T) {
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			// It should update BroadcastAt even if there is an error here
-			elems[0].Error = errors.New("kaboom")
+			elems[0].Error = pkgerrors.New("kaboom")
 		})
 
 		func() {
-			er.Start()
+			er.Start(ctx)
 			defer er.Stop()
 
 			cltest.EventuallyExpectationsMet(t, ethClient, 5*time.Second, time.Second)

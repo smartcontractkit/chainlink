@@ -63,13 +63,13 @@ func (d *Delegate) JobType() job.Type {
 	return job.DirectRequest
 }
 
-func (d *Delegate) BeforeJobCreated(spec job.Job)                {}
-func (d *Delegate) AfterJobCreated(spec job.Job)                 {}
-func (d *Delegate) BeforeJobDeleted(spec job.Job)                {}
-func (d *Delegate) OnDeleteJob(spec job.Job, q pg.Queryer) error { return nil }
+func (d *Delegate) BeforeJobCreated(spec job.Job)                                     {}
+func (d *Delegate) AfterJobCreated(spec job.Job)                                      {}
+func (d *Delegate) BeforeJobDeleted(spec job.Job)                                     {}
+func (d *Delegate) OnDeleteJob(ctx context.Context, spec job.Job, q pg.Queryer) error { return nil }
 
 // ServicesForSpec returns the log listener service for a direct request job
-func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
+func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.ServiceCtx, error) {
 	if jb.DirectRequestSpec == nil {
 		return nil, errors.Errorf("DirectRequest: directrequest.Delegate expects a *job.DirectRequestSpec to be present, got %v", jb)
 	}
@@ -136,7 +136,7 @@ type listener struct {
 	minIncomingConfirmations uint32
 	requesters               models.AddressCollection
 	minContractPayment       *assets.Link
-	chStop                   chan struct{}
+	chStop                   services.StopChan
 }
 
 func (l *listener) HealthReport() map[string]error {
@@ -239,6 +239,9 @@ func (l *listener) processCancelOracleRequests() {
 }
 
 func (l *listener) handleReceivedLogs(mailbox *mailbox.Mailbox[log.Broadcast]) {
+	ctx, cancel := l.chStop.NewCtx()
+	defer cancel()
+
 	for {
 		select {
 		case <-l.chStop:
@@ -249,7 +252,7 @@ func (l *listener) handleReceivedLogs(mailbox *mailbox.Mailbox[log.Broadcast]) {
 		if !exists {
 			return
 		}
-		was, err := l.logBroadcaster.WasAlreadyConsumed(lb)
+		was, err := l.logBroadcaster.WasAlreadyConsumed(ctx, lb)
 		if err != nil {
 			l.logger.Errorw("Could not determine if log was already consumed", "err", err)
 			continue
@@ -260,7 +263,7 @@ func (l *listener) handleReceivedLogs(mailbox *mailbox.Mailbox[log.Broadcast]) {
 		logJobSpecID := lb.RawLog().Topics[1]
 		if logJobSpecID == (common.Hash{}) || (logJobSpecID != l.job.ExternalIDEncodeStringToTopic() && logJobSpecID != l.job.ExternalIDEncodeBytesToTopic()) {
 			l.logger.Debugw("Skipping Run for Log with wrong Job ID", "logJobSpecID", logJobSpecID)
-			l.markLogConsumed(lb)
+			l.markLogConsumed(ctx, lb)
 			continue
 		}
 
@@ -272,9 +275,9 @@ func (l *listener) handleReceivedLogs(mailbox *mailbox.Mailbox[log.Broadcast]) {
 
 		switch log := log.(type) {
 		case *operator_wrapper.OperatorOracleRequest:
-			l.handleOracleRequest(log, lb)
+			l.handleOracleRequest(ctx, log, lb)
 		case *operator_wrapper.OperatorCancelOracleRequest:
-			l.handleCancelOracleRequest(log, lb)
+			l.handleCancelOracleRequest(ctx, log, lb)
 		default:
 			l.logger.Warnf("Unexpected log type %T", log)
 		}
@@ -295,7 +298,7 @@ func oracleRequestToMap(request *operator_wrapper.OperatorOracleRequest) map[str
 	return result
 }
 
-func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleRequest, lb log.Broadcast) {
+func (l *listener) handleOracleRequest(ctx context.Context, request *operator_wrapper.OperatorOracleRequest, lb log.Broadcast) {
 	l.logger.Infow("Oracle request received",
 		"specId", fmt.Sprintf("%0x", request.SpecId),
 		"requester", request.Requester,
@@ -313,7 +316,7 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 			"requester", request.Requester,
 			"allowedRequesters", l.requesters.ToStrings(),
 		)
-		l.markLogConsumed(lb)
+		l.markLogConsumed(ctx, lb)
 		return
 	}
 
@@ -330,7 +333,7 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 				"minContractPayment", minContractPayment.String(),
 				"requestPayment", requestPayment.String(),
 			)
-			l.markLogConsumed(lb)
+			l.markLogConsumed(ctx, lb)
 			return
 		}
 	}
@@ -372,7 +375,7 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 	})
 	run := pipeline.NewRun(*l.job.PipelineSpec, vars)
 	_, err := l.pipelineRunner.Run(ctx, run, l.logger, true, func(tx pg.Queryer) error {
-		l.markLogConsumed(lb, pg.WithQueryer(tx))
+		l.markLogConsumed(ctx, lb)
 		return nil
 	})
 	if ctx.Err() != nil {
@@ -395,16 +398,16 @@ func (l *listener) allowRequester(requester common.Address) bool {
 }
 
 // Cancels runs that haven't been started yet, with the given request ID
-func (l *listener) handleCancelOracleRequest(request *operator_wrapper.OperatorCancelOracleRequest, lb log.Broadcast) {
+func (l *listener) handleCancelOracleRequest(ctx context.Context, request *operator_wrapper.OperatorCancelOracleRequest, lb log.Broadcast) {
 	runCloserChannelIf, loaded := l.runs.LoadAndDelete(formatRequestId(request.RequestId))
 	if loaded {
 		close(runCloserChannelIf.(services.StopChan))
 	}
-	l.markLogConsumed(lb)
+	l.markLogConsumed(ctx, lb)
 }
 
-func (l *listener) markLogConsumed(lb log.Broadcast, qopts ...pg.QOpt) {
-	if err := l.logBroadcaster.MarkConsumed(lb, qopts...); err != nil {
+func (l *listener) markLogConsumed(ctx context.Context, lb log.Broadcast) {
+	if err := l.logBroadcaster.MarkConsumed(ctx, lb); err != nil {
 		l.logger.Errorw("Unable to mark log consumed", "err", err, "log", lb.String())
 	}
 }

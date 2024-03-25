@@ -22,12 +22,12 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	medianconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/median/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -52,7 +52,7 @@ type ORM interface {
 	FindJobTx(ctx context.Context, id int32) (Job, error)
 	FindJob(ctx context.Context, id int32) (Job, error)
 	FindJobByExternalJobID(uuid uuid.UUID, qopts ...pg.QOpt) (Job, error)
-	FindJobIDByAddress(address ethkey.EIP55Address, evmChainID *big.Big, qopts ...pg.QOpt) (int32, error)
+	FindJobIDByAddress(address evmtypes.EIP55Address, evmChainID *big.Big, qopts ...pg.QOpt) (int32, error)
 	FindOCR2JobIDByAddress(contractID string, feedID *common.Hash, qopts ...pg.QOpt) (int32, error)
 	FindJobIDsWithBridge(name string) ([]int32, error)
 	DeleteJob(id int32, qopts ...pg.QOpt) error
@@ -192,7 +192,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 				}
 			}
 			if jb.OCROracleSpec.TransmitterAddress != nil {
-				_, err := o.keyStore.Eth().Get(jb.OCROracleSpec.TransmitterAddress.Hex())
+				_, err := o.keyStore.Eth().Get(q.ParentCtx, jb.OCROracleSpec.TransmitterAddress.Hex())
 				if err != nil {
 					return errors.Wrapf(ErrNoSuchTransmitterKey, "no key matching transmitter address: %s", jb.OCROracleSpec.TransmitterAddress.Hex())
 				}
@@ -239,7 +239,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			}
 
 			// checks if they are present and if they are valid
-			sendingKeysDefined, err := areSendingKeysDefined(jb, o.keyStore)
+			sendingKeysDefined, err := areSendingKeysDefined(q.ParentCtx, jb, o.keyStore)
 			if err != nil {
 				return err
 			}
@@ -249,7 +249,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			}
 
 			if !sendingKeysDefined {
-				if err = ValidateKeyStoreMatch(jb.OCR2OracleSpec, o.keyStore, jb.OCR2OracleSpec.TransmitterID.String); err != nil {
+				if err = ValidateKeyStoreMatch(q.ParentCtx, jb.OCR2OracleSpec, o.keyStore, jb.OCR2OracleSpec.TransmitterID.String); err != nil {
 					return errors.Wrap(ErrNoSuchTransmitterKey, err.Error())
 				}
 			}
@@ -467,40 +467,46 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 }
 
 // ValidateKeyStoreMatch confirms that the key has a valid match in the keystore
-func ValidateKeyStoreMatch(spec *OCR2OracleSpec, keyStore keystore.Master, key string) error {
-	if spec.PluginType == types.Mercury {
-		_, err := keyStore.CSA().Get(key)
+func ValidateKeyStoreMatch(ctx context.Context, spec *OCR2OracleSpec, keyStore keystore.Master, key string) (err error) {
+	switch spec.PluginType {
+	case types.Mercury, types.LLO:
+		_, err = keyStore.CSA().Get(key)
 		if err != nil {
-			return errors.Errorf("no CSA key matching: %q", key)
+			err = errors.Errorf("no CSA key matching: %q", key)
 		}
-	} else {
-		switch spec.Relay {
-		case relay.EVM:
-			_, err := keyStore.Eth().Get(key)
-			if err != nil {
-				return errors.Errorf("no EVM key matching: %q", key)
-			}
-		case relay.Cosmos:
-			_, err := keyStore.Cosmos().Get(key)
-			if err != nil {
-				return errors.Errorf("no Cosmos key matching: %q", key)
-			}
-		case relay.Solana:
-			_, err := keyStore.Solana().Get(key)
-			if err != nil {
-				return errors.Errorf("no Solana key matching: %q", key)
-			}
-		case relay.StarkNet:
-			_, err := keyStore.StarkNet().Get(key)
-			if err != nil {
-				return errors.Errorf("no Starknet key matching: %q", key)
-			}
+	default:
+		err = validateKeyStoreMatchForRelay(ctx, spec.Relay, keyStore, key)
+	}
+	return
+}
+
+func validateKeyStoreMatchForRelay(ctx context.Context, network relay.Network, keyStore keystore.Master, key string) error {
+	switch network {
+	case relay.EVM:
+		_, err := keyStore.Eth().Get(ctx, key)
+		if err != nil {
+			return errors.Errorf("no EVM key matching: %q", key)
+		}
+	case relay.Cosmos:
+		_, err := keyStore.Cosmos().Get(key)
+		if err != nil {
+			return errors.Errorf("no Cosmos key matching: %q", key)
+		}
+	case relay.Solana:
+		_, err := keyStore.Solana().Get(key)
+		if err != nil {
+			return errors.Errorf("no Solana key matching: %q", key)
+		}
+	case relay.StarkNet:
+		_, err := keyStore.StarkNet().Get(key)
+		if err != nil {
+			return errors.Errorf("no Starknet key matching: %q", key)
 		}
 	}
 	return nil
 }
 
-func areSendingKeysDefined(jb *Job, keystore keystore.Master) (bool, error) {
+func areSendingKeysDefined(ctx context.Context, jb *Job, keystore keystore.Master) (bool, error) {
 	if jb.OCR2OracleSpec.RelayConfig["sendingKeys"] != nil {
 		sendingKeys, err := SendingKeysForJob(jb)
 		if err != nil {
@@ -508,7 +514,7 @@ func areSendingKeysDefined(jb *Job, keystore keystore.Master) (bool, error) {
 		}
 
 		for _, sendingKey := range sendingKeys {
-			if err = ValidateKeyStoreMatch(jb.OCR2OracleSpec, keystore, sendingKey); err != nil {
+			if err = ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keystore, sendingKey); err != nil {
 				return false, errors.Wrap(ErrNoSuchSendingKey, err.Error())
 			}
 		}
@@ -725,7 +731,7 @@ type OCRConfig interface {
 	ContractSubscribeInterval() time.Duration
 	KeyBundleID() (string, error)
 	ObservationTimeout() time.Duration
-	TransmitterAddress() (ethkey.EIP55Address, error)
+	TransmitterAddress() (evmtypes.EIP55Address, error)
 }
 
 // LoadConfigVarsLocalOCR loads local OCR vars into the OCROracleSpec.
@@ -836,7 +842,7 @@ func (o *orm) FindJobByExternalJobID(externalJobID uuid.UUID, qopts ...pg.QOpt) 
 }
 
 // FindJobIDByAddress - finds a job id by contract address. Currently only OCR and FM jobs are supported
-func (o *orm) FindJobIDByAddress(address ethkey.EIP55Address, evmChainID *big.Big, qopts ...pg.QOpt) (jobID int32, err error) {
+func (o *orm) FindJobIDByAddress(address evmtypes.EIP55Address, evmChainID *big.Big, qopts ...pg.QOpt) (jobID int32, err error) {
 	q := o.q.WithOpts(qopts...)
 	err = q.Transaction(func(tx pg.Queryer) error {
 		stmt := `
@@ -1315,7 +1321,7 @@ func toVRFSpecRow(spec *VRFSpec) vrfSpecRow {
 func (r vrfSpecRow) toVRFSpec() *VRFSpec {
 	for _, a := range r.FromAddresses {
 		r.VRFSpec.FromAddresses = append(r.VRFSpec.FromAddresses,
-			ethkey.EIP55AddressFromAddress(common.BytesToAddress(a)))
+			evmtypes.EIP55AddressFromAddress(common.BytesToAddress(a)))
 	}
 	return r.VRFSpec
 }
@@ -1354,7 +1360,7 @@ func toBlockhashStoreSpecRow(spec *BlockhashStoreSpec) blockhashStoreSpecRow {
 func (r blockhashStoreSpecRow) toBlockhashStoreSpec() *BlockhashStoreSpec {
 	for _, a := range r.FromAddresses {
 		r.BlockhashStoreSpec.FromAddresses = append(r.BlockhashStoreSpec.FromAddresses,
-			ethkey.EIP55AddressFromAddress(common.BytesToAddress(a)))
+			evmtypes.EIP55AddressFromAddress(common.BytesToAddress(a)))
 	}
 	return r.BlockhashStoreSpec
 }
@@ -1393,7 +1399,7 @@ func toBlockHeaderFeederSpecRow(spec *BlockHeaderFeederSpec) blockHeaderFeederSp
 func (r blockHeaderFeederSpecRow) toBlockHeaderFeederSpec() *BlockHeaderFeederSpec {
 	for _, a := range r.FromAddresses {
 		r.BlockHeaderFeederSpec.FromAddresses = append(r.BlockHeaderFeederSpec.FromAddresses,
-			ethkey.EIP55AddressFromAddress(common.BytesToAddress(a)))
+			evmtypes.EIP55AddressFromAddress(common.BytesToAddress(a)))
 	}
 	return r.BlockHeaderFeederSpec
 }
@@ -1432,7 +1438,7 @@ func toLegacyGasStationServerSpecRow(spec *LegacyGasStationServerSpec) legacyGas
 func (r legacyGasStationServerSpecRow) toLegacyGasStationServerSpec() *LegacyGasStationServerSpec {
 	for _, a := range r.FromAddresses {
 		r.LegacyGasStationServerSpec.FromAddresses = append(r.LegacyGasStationServerSpec.FromAddresses,
-			ethkey.EIP55AddressFromAddress(common.BytesToAddress(a)))
+			evmtypes.EIP55AddressFromAddress(common.BytesToAddress(a)))
 	}
 	return r.LegacyGasStationServerSpec
 }

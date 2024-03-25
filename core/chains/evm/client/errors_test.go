@@ -3,14 +3,14 @@ package client_test
 import (
 	"testing"
 
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 )
 
 func newSendErrorWrapped(s string) *evmclient.SendError {
-	return evmclient.NewSendError(errors.Wrap(errors.New(s), "wrapped with some old bollocks"))
+	return evmclient.NewSendError(pkgerrors.Wrap(pkgerrors.New(s), "wrapped with some old bollocks"))
 }
 
 type errorCase struct {
@@ -155,6 +155,7 @@ func Test_Eth_Errors(t *testing.T) {
 			{"transaction underpriced", true, "Klaytn"},
 			{"intrinsic gas too low", true, "Klaytn"},
 			{"max fee per gas less than block base fee", true, "zkSync"},
+			{"virtual machine entered unexpected state. please contact developers and provide transaction details that caused this error. Error description: The operator included transaction with an unacceptable gas price", true, "zkSync"},
 		}
 
 		for _, test := range tests {
@@ -212,6 +213,7 @@ func Test_Eth_Errors(t *testing.T) {
 	t.Run("IsServiceUnavailable", func(t *testing.T) {
 		tests := []errorCase{
 			{"call failed: 503 Service Unavailable: <html>\r\n<head><title>503 Service Temporarily Unavailable</title></head>\r\n<body>\r\n<center><h1>503 Service Temporarily Unavailable</h1></center>\r\n</body>\r\n</html>\r\n", true, "Nethermind"},
+			{"call failed: 502 Bad Gateway: <html>\r\n<head><title>502 Bad Gateway</title></head>\r\n<body>\r\n<center><h1>502 Bad Gateway</h1></center>\r\n<hr><center>", true, "Arbitrum"},
 		}
 		for _, test := range tests {
 			err = evmclient.NewSendErrorS(test.message)
@@ -362,7 +364,7 @@ func Test_Eth_Errors_Fatal(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.message, func(t *testing.T) {
-			err := evmclient.NewSendError(errors.New(test.message))
+			err := evmclient.NewSendError(pkgerrors.New(test.message))
 			assert.Equal(t, test.expect, err.Fatal())
 		})
 	}

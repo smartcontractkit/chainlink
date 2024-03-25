@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
 
+// Deprecated: we are moving away from blockchain.EVMClient, use actions_seth.DeployForwarderContracts
 func DeployForwarderContracts(
 	t *testing.T,
 	contractDeployer contracts.ContractDeployer,
@@ -49,6 +50,7 @@ func DeployForwarderContracts(
 	return operators, authorizedForwarders, operatorFactoryInstance
 }
 
+// Deprecated: we are moving away from blockchain.EVMClient, use actions_seth.AcceptAuthorizedReceiversOperator
 func AcceptAuthorizedReceiversOperator(
 	t *testing.T,
 	operator common.Address,
@@ -178,6 +180,7 @@ func SubscribeOperatorFactoryEvents(
 	}()
 }
 
+// Deprecated: we are moving away from blockchain.EVMClient, use actions_seth.TrackForwarder
 func TrackForwarder(
 	t *testing.T,
 	chainClient blockchain.EVMClient,

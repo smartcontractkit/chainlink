@@ -3,6 +3,7 @@ package contracts
 import (
 	"errors"
 
+	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_load_test_with_metrics"
 
@@ -254,7 +255,7 @@ func (e *EthereumContractLoader) LoadOperatorContract(address common.Address) (O
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumOperator{
+	return &LegacyEthereumOperator{
 		address:  address,
 		client:   e.client,
 		operator: instance.(*operator_wrapper.Operator),
@@ -273,7 +274,7 @@ func (e *EthereumContractLoader) LoadAuthorizedForwarder(address common.Address)
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumAuthorizedForwarder{
+	return &LegacyEthereumAuthorizedForwarder{
 		address:             address,
 		client:              e.client,
 		authorizedForwarder: instance.(*authorized_forwarder.AuthorizedForwarder),
@@ -409,7 +410,7 @@ func (e *EthereumContractLoader) LoadVRFCoordinatorV2(addr string) (VRFCoordinat
 		address common.Address,
 		backend bind.ContractBackend,
 	) (interface{}, error) {
-		return vrf_coordinator_v2.NewVRFCoordinatorV2(address, backend)
+		return vrf_coordinator_v2.NewVRFCoordinatorV2(address, wrappers.MustNewWrappedContractBackend(e.client, nil))
 	})
 	if err != nil {
 		return nil, err

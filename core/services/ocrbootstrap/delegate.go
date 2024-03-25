@@ -39,8 +39,10 @@ type Delegate struct {
 	isNewlyCreatedJob bool
 }
 
-// Extra fields to enable router proxy contract support. Must match field names of functions' PluginConfig.
-type relayConfigRouterContractFields struct {
+type relayConfig struct {
+	// providerType used for determining which type of contract to track config on
+	ProviderType string `json:"providerType"`
+	// Extra fields to enable router proxy contract support. Must match field names of functions' PluginConfig.
 	DONID                           string `json:"donID"`
 	ContractVersion                 uint32 `json:"contractVersion"`
 	ContractUpdateCheckFrequencySec uint32 `json:"contractUpdateCheckFrequencySec"`
@@ -77,7 +79,7 @@ func (d *Delegate) BeforeJobCreated(spec job.Job) {
 }
 
 // ServicesForSpec satisfies the job.Delegate interface.
-func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err error) {
+func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) (services []job.ServiceCtx, err error) {
 	spec := jb.BootstrapSpec
 	if spec == nil {
 		return nil, errors.Errorf("Bootstrap.Delegate expects an *job.BootstrapSpec to be present, got %v", jb)
@@ -107,16 +109,16 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 		ContractID: spec.ContractID,
 		FeedID:     spec.FeedID,
 	}
-	ctx := ctxVals.ContextWithValues(context.Background())
+	ctx = ctxVals.ContextWithValues(ctx)
 
-	var routerFields relayConfigRouterContractFields
-	if err = json.Unmarshal(spec.RelayConfig.Bytes(), &routerFields); err != nil {
+	var relayCfg relayConfig
+	if err = json.Unmarshal(spec.RelayConfig.Bytes(), &relayCfg); err != nil {
 		return nil, err
 	}
 
 	var configProvider types.ConfigProvider
-	if routerFields.DONID != "" {
-		if routerFields.ContractVersion != 1 || routerFields.ContractUpdateCheckFrequencySec == 0 {
+	if relayCfg.DONID != "" {
+		if relayCfg.ContractVersion != 1 || relayCfg.ContractUpdateCheckFrequencySec == 0 {
 			return nil, errors.New("invalid router contract config")
 		}
 		configProvider, err = relayer.NewPluginProvider(
@@ -140,6 +142,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 			ContractID:    spec.ContractID,
 			New:           d.isNewlyCreatedJob,
 			RelayConfig:   spec.RelayConfig.Bytes(),
+			ProviderType:  relayCfg.ProviderType,
 		})
 	}
 
@@ -187,6 +190,6 @@ func (d *Delegate) AfterJobCreated(spec job.Job) {
 func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
 
 // OnDeleteJob satisfies the job.Delegate interface.
-func (d *Delegate) OnDeleteJob(spec job.Job, q pg.Queryer) error {
+func (d *Delegate) OnDeleteJob(ctx context.Context, spec job.Job, q pg.Queryer) error {
 	return nil
 }

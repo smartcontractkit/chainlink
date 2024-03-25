@@ -16,9 +16,21 @@ RUN curl https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - \
   && rm -rf /var/lib/apt/lists/*
 
 COPY ./chainlink /usr/local/bin/
+
 # Copy native libs if cgo is enabled
 COPY ./tmp/linux_${TARGETARCH}/libs /usr/local/bin/libs
 
+# Copy plugins and enable them
+COPY ./tmp/linux_${TARGETARCH}/plugins/* /usr/local/bin/
+# Allow individual plugins to be enabled by supplying their path 
+ARG CL_MEDIAN_CMD
+ARG CL_MERCURY_CMD
+ARG CL_SOLANA_CMD
+ARG CL_STARKNET_CMD
+ENV CL_MEDIAN_CMD=${CL_MEDIAN_CMD} \
+  CL_MERCURY_CMD=${CL_MERCURY_CMD} \
+  CL_SOLANA_CMD=${CL_SOLANA_CMD} \
+  CL_STARKNET_CMD=${CL_STARKNET_CMD}
 # Temp fix to patch correctly link the libwasmvm.so
 COPY ./tools/bin/ldd_fix /usr/local/bin/ldd_fix
 RUN chmod +x /usr/local/bin/ldd_fix

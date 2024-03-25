@@ -236,6 +236,7 @@ func NewApplicationWithKey(t *testing.T, flagsAndDeps ...interface{}) *TestAppli
 // NewApplicationWithConfigAndKey creates a new TestApplication with the given testorm
 // it will also provide an unlocked account on the keystore
 func NewApplicationWithConfigAndKey(t testing.TB, c chainlink.GeneralConfig, flagsAndDeps ...interface{}) *TestApplication {
+	ctx := testutils.Context(t)
 	app := NewApplicationWithConfig(t, c, flagsAndDeps...)
 
 	chainID := *ubig.New(&FixtureChainID)
@@ -252,9 +253,9 @@ func NewApplicationWithConfigAndKey(t testing.TB, c chainlink.GeneralConfig, fla
 	} else {
 		id, ks := chainID.ToInt(), app.KeyStore.Eth()
 		for _, k := range app.Keys {
-			ks.XXXTestingOnlyAdd(k)
-			require.NoError(t, ks.Add(k.Address, id))
-			require.NoError(t, ks.Enable(k.Address, id))
+			ks.XXXTestingOnlyAdd(ctx, k)
+			require.NoError(t, ks.Add(ctx, k.Address, id))
+			require.NoError(t, ks.Enable(ctx, k.Address, id))
 		}
 	}
 
@@ -362,6 +363,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		ChainOpts: legacyevm.ChainOpts{
 			AppConfig: cfg,
 			MailMon:   mailMon,
+			SqlxDB:    db,
 			DB:        db,
 		},
 		CSAETHKeystore: keyStore,
@@ -417,6 +419,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		Config:                     cfg,
 		MailMon:                    mailMon,
 		SqlxDB:                     db,
+		DB:                         db,
 		KeyStore:                   keyStore,
 		RelayerChainInteroperators: relayChainInterops,
 		Logger:                     lggr,
@@ -468,7 +471,7 @@ func NewEthMocksWithStartupAssertions(t testing.TB) *evmclimocks.Client {
 	c.On("Dial", mock.Anything).Maybe().Return(nil)
 	c.On("SubscribeNewHead", mock.Anything, mock.Anything).Maybe().Return(EmptyMockSubscription(t), nil)
 	c.On("SendTransaction", mock.Anything, mock.Anything).Maybe().Return(nil)
-	c.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Maybe().Return(Head(0), nil)
+	c.On("HeadByNumber", mock.Anything, mock.Anything).Maybe().Return(Head(0), nil)
 	c.On("ConfiguredChainID").Maybe().Return(&FixtureChainID)
 	c.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Maybe().Return([]byte{}, nil)
 	c.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(nil, errors.New("mocked"))
@@ -496,6 +499,7 @@ func NewEthMocksWithTransactionsOnBlocksAssertions(t testing.TB) *evmclimocks.Cl
 	h1 := HeadWithHash(1, h2.ParentHash)
 	h0 := HeadWithHash(0, h1.ParentHash)
 	c.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Maybe().Return(h2, nil)
+	c.On("HeadByNumber", mock.Anything, big.NewInt(0)).Maybe().Return(h0, nil) // finalized block
 	c.On("HeadByHash", mock.Anything, h1.Hash).Maybe().Return(h1, nil)
 	c.On("HeadByHash", mock.Anything, h0.Hash).Maybe().Return(h0, nil)
 	c.On("BatchCallContext", mock.Anything, mock.Anything).Maybe().Return(nil).Run(func(args mock.Arguments) {
@@ -571,9 +575,9 @@ func (ta *TestApplication) MustSeedNewSession(email string) (id string) {
 }
 
 // ImportKey adds private key to the application keystore and database
-func (ta *TestApplication) Import(content string) {
+func (ta *TestApplication) Import(ctx context.Context, content string) {
 	require.NoError(ta.t, ta.KeyStore.Unlock(Password))
-	_, err := ta.KeyStore.Eth().Import([]byte(content), Password, &FixtureChainID)
+	_, err := ta.KeyStore.Eth().Import(ctx, []byte(content), Password, &FixtureChainID)
 	require.NoError(ta.t, err)
 }
 
@@ -1555,8 +1559,8 @@ func NewTestChainScopedConfig(t testing.TB) evmconfig.ChainScopedConfig {
 	return evmtest.NewChainScopedConfig(t, cfg)
 }
 
-func NewTestTxStore(t *testing.T, db *sqlx.DB, cfg pg.QConfig) txmgr.TestEvmTxStore {
-	return txmgr.NewTxStore(db, logger.TestLogger(t), cfg)
+func NewTestTxStore(t *testing.T, db *sqlx.DB) txmgr.TestEvmTxStore {
+	return txmgr.NewTxStore(db, logger.TestLogger(t))
 }
 
 // ClearDBTables deletes all rows from the given tables
