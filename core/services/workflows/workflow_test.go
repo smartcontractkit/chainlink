@@ -11,7 +11,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+<<<<<<< HEAD
 	"sigs.k8s.io/yaml"
+=======
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/datafeeds"
+	"github.com/smartcontractkit/chainlink-common/pkg/values"
+>>>>>>> 7be94c4ea2 (Update)
 )
 
 var fixtureDir = "./testdata/fixtures/workflows/"
@@ -408,4 +413,20 @@ targets:
 			}
 		})
 	}
+}
+
+func TestParse(t *testing.T) {
+	wf, err := Parse(hardcodedWorkflow)
+	require.NoError(t, err)
+
+	n, err := wf.Vertex("evm_median")
+	require.NoError(t, err)
+
+	nconf, err := values.NewMap(n.Config["aggregation_config"].(map[string]any))
+	require.NoError(t, err)
+
+	ac, err := datafeeds.ParseConfig(*nconf)
+	require.NoError(t, err)
+
+	assert.Nil(t, ac)
 }
