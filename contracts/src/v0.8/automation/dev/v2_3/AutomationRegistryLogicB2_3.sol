@@ -8,11 +8,13 @@ import {AutomationRegistryLogicC2_3} from "./AutomationRegistryLogicC2_3.sol";
 import {Chainable} from "../../Chainable.sol";
 import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 import {SafeCast} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/math/SafeCast.sol";
+import {SafeERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/utils/SafeERC20.sol";
 
 contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3, Chainable {
   using Address for address;
   using EnumerableSet for EnumerableSet.UintSet;
   using EnumerableSet for EnumerableSet.AddressSet;
+  using SafeERC20 for IERC20;
 
   /**
    * @param logicC the address of the third logic contract
@@ -48,7 +50,7 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3, Chainable {
 
     s_upkeep[id].overridesEnabled = true;
     s_billingOverrides[id] = billingOverrides;
-    emit BillingConfigOverridden(id);
+    emit BillingConfigOverridden(id, billingOverrides);
   }
 
   /**
@@ -198,8 +200,7 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3, Chainable {
     uint96 amountToWithdraw = s_upkeep[id].balance;
     s_reserveAmounts[upkeep.billingToken] = s_reserveAmounts[upkeep.billingToken] - amountToWithdraw;
     s_upkeep[id].balance = 0;
-    bool success = upkeep.billingToken.transfer(to, amountToWithdraw);
-    if (!success) revert TransferFailed();
+    upkeep.billingToken.safeTransfer(to, amountToWithdraw);
     emit FundsWithdrawn(id, amountToWithdraw, to);
   }
 
@@ -229,11 +230,58 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3, Chainable {
     _onlyFinanceAdminAllowed();
     if (to == ZERO_ADDRESS) revert InvalidRecipient();
 
-    bool transferStatus = IERC20(assetAddress).transfer(to, amount);
-    if (!transferStatus) {
-      revert TransferFailed();
-    }
+    IERC20(assetAddress).safeTransfer(to, amount);
 
     emit FeesWithdrawn(to, assetAddress, amount);
+  }
+
+  /**
+   * @dev checkCallback is used specifically for automation data streams lookups (see StreamsLookupCompatibleInterface.sol)
+   * @param id the upkeepID to execute a callback for
+   * @param values the values returned from the data streams lookup
+   * @param extraData the user-provided extra context data
+   */
+  function checkCallback(
+    uint256 id,
+    bytes[] memory values,
+    bytes calldata extraData
+  )
+    external
+    returns (bool upkeepNeeded, bytes memory performData, UpkeepFailureReason upkeepFailureReason, uint256 gasUsed)
+  {
+    bytes memory payload = abi.encodeWithSelector(CHECK_CALLBACK_SELECTOR, values, extraData);
+    return executeCallback(id, payload);
+  }
+
+  /**
+   * @notice this is a generic callback executor that forwards a call to a user's contract with the configured
+   * gas limit
+   * @param id the upkeepID to execute a callback for
+   * @param payload the data (including function selector) to call on the upkeep target contract
+   */
+  function executeCallback(
+    uint256 id,
+    bytes memory payload
+  )
+    public
+    returns (bool upkeepNeeded, bytes memory performData, UpkeepFailureReason upkeepFailureReason, uint256 gasUsed)
+  {
+    _preventExecution();
+
+    Upkeep memory upkeep = s_upkeep[id];
+    gasUsed = gasleft();
+    (bool success, bytes memory result) = upkeep.forwarder.getTarget().call{gas: s_storage.checkGasLimit}(payload);
+    gasUsed = gasUsed - gasleft();
+    if (!success) {
+      return (false, bytes(""), UpkeepFailureReason.CALLBACK_REVERTED, gasUsed);
+    }
+    (upkeepNeeded, performData) = abi.decode(result, (bool, bytes));
+    if (!upkeepNeeded) {
+      return (false, bytes(""), UpkeepFailureReason.UPKEEP_NOT_NEEDED, gasUsed);
+    }
+    if (performData.length > s_storage.maxPerformDataSize) {
+      return (false, bytes(""), UpkeepFailureReason.PERFORM_DATA_EXCEEDS_LIMIT, gasUsed);
+    }
+    return (upkeepNeeded, performData, upkeepFailureReason, gasUsed);
   }
 }
