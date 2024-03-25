@@ -11,11 +11,11 @@ import { getUsers, Personas, Roles } from '../test-helpers/setup'
 import {
   evmWordToAddress,
   getLog,
+  getLogs,
+  numToBytes32,
   publicAbi,
   toBytes32String,
   toWei,
-  numToBytes32,
-  getLogs,
 } from '../test-helpers/helpers'
 
 let roles: Roles
@@ -38,7 +38,7 @@ before(async () => {
     roles.defaultAccount,
   )
   vrfD20Factory = await ethers.getContractFactory(
-    'src/v0.6/examples/VRFD20.sol:VRFD20',
+    'src/v0.8/vrf/testhelpers/VRFD20.sol:VRFD20',
     roles.defaultAccount,
   )
 })
