@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
-import {CrossDomainOwnableInterface} from "./interfaces/CrossDomainOwnableInterface.sol";
+import {ICrossDomainOwnableInterface} from "./interfaces/ICrossDomainOwnableInterface.sol";
 import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
-import {ForwarderInterface} from "./interfaces/ForwarderInterface.sol";
+import {IForwarderInterface} from "./interfaces/IForwarderInterface.sol";
 
 import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
 
@@ -15,8 +15,8 @@ import {Address} from "../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils
 ///   can consider that position to be held by the `l1Owner`
 abstract contract CrossDomainForwarder is
   ITypeAndVersion,
-  ForwarderInterface,
-  CrossDomainOwnableInterface,
+  IForwarderInterface,
+  ICrossDomainOwnableInterface,
   ConfirmedOwner
 {
   address internal s_l1Owner;
@@ -29,14 +29,14 @@ abstract contract CrossDomainForwarder is
 
   /// @notice Reverts if called by anyone other than the L1 owner.
   modifier onlyL1Owner() virtual {
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(msg.sender == s_l1Owner, "Only callable by L1 owner");
     _;
   }
 
   /// @notice Reverts if called by anyone other than the L1 owner.
   modifier onlyProposedL1Owner() virtual {
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(msg.sender == s_l1PendingOwner, "Only callable by proposed L1 owner");
     _;
   }
@@ -45,7 +45,7 @@ abstract contract CrossDomainForwarder is
   function crossDomainMessenger() external view virtual returns (address);
 
   /// @dev forwarded only if L2 Messenger calls with `xDomainMessageSender` being the L1 owner address
-  /// @inheritdoc ForwarderInterface
+  /// @inheritdoc IForwarderInterface
   function forward(address target, bytes memory data) external virtual override onlyL1Owner {
     Address.functionCall(target, data, "Forwarder call reverted");
   }
@@ -68,7 +68,7 @@ abstract contract CrossDomainForwarder is
 
   /// @notice validate, transfer ownership, and emit relevant events
   function _transferL1Ownership(address to) internal {
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(to != msg.sender, "Cannot transfer to self");
 
     s_l1PendingOwner = to;

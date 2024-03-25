@@ -25,7 +25,7 @@ contract OptimismCrossDomainGovernor is CrossDomainGovernor {
   ) CrossDomainGovernor(l1OwnerAddr) {
     i_crossDomainMessengerAddr = address(crossDomainMessengerAddr);
 
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(i_crossDomainMessengerAddr != address(0), "Invalid xDomain Messenger address");
   }
 
@@ -37,14 +37,14 @@ contract OptimismCrossDomainGovernor is CrossDomainGovernor {
   /// @notice The call MUST come from either the L1 owner (via cross-chain message) or the L2 owner. Reverts otherwise.
   function _requireLocalOrCrossDomainOwner() internal view override {
     // 1. The delegatecall MUST come from either the L1 owner (via cross-chain message) or the L2 owner
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(
       msg.sender == i_crossDomainMessengerAddr || msg.sender == owner(),
       "Sender is not the L2 messenger or owner"
     );
     // 2. The L2 Messenger's caller MUST be the L1 Owner
     if (msg.sender == i_crossDomainMessengerAddr) {
-      // solhint-disable-next-line custom-errors
+      // solhint-disable-next-line gas-custom-errors
       require(
         iOVM_CrossDomainMessenger(i_crossDomainMessengerAddr).xDomainMessageSender() == l1Owner(),
         "xDomain sender is not the L1 owner"
@@ -54,9 +54,9 @@ contract OptimismCrossDomainGovernor is CrossDomainGovernor {
 
   /// @notice The call MUST come from the L1 owner (via cross-chain message.) Reverts otherwise.
   modifier onlyL1Owner() override {
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(msg.sender == i_crossDomainMessengerAddr, "Sender is not the L2 messenger");
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(
       iOVM_CrossDomainMessenger(i_crossDomainMessengerAddr).xDomainMessageSender() == l1Owner(),
       "xDomain sender is not the L1 owner"
@@ -66,9 +66,9 @@ contract OptimismCrossDomainGovernor is CrossDomainGovernor {
 
   /// @notice The call MUST come from the proposed L1 owner (via cross-chain message.) Reverts otherwise.
   modifier onlyProposedL1Owner() override {
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(msg.sender == i_crossDomainMessengerAddr, "Sender is not the L2 messenger");
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(
       iOVM_CrossDomainMessenger(i_crossDomainMessengerAddr).xDomainMessageSender() == s_l1PendingOwner,
       "Must be proposed L1 owner"

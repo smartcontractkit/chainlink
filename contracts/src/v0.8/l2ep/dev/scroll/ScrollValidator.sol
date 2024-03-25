@@ -23,7 +23,7 @@ contract ScrollValidator is GasLimitValidator {
     address l1MessageQueueAddr,
     uint32 gasLimit
   ) GasLimitValidator(l1CrossDomainMessengerAddress, l2UptimeFeedAddr, gasLimit) {
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(l1MessageQueueAddr != address(0), "Invalid L1 message queue address");
     L1_MSG_QUEUE_ADDR = l1MessageQueueAddr;
   }

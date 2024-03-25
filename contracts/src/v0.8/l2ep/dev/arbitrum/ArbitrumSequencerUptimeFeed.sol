@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
-import {FlagsInterface} from "../interfaces/FlagsInterface.sol";
+import {IFlagsInterface} from "../interfaces/IFlagsInterface.sol";
 
 import {SequencerUptimeFeed} from "../SequencerUptimeFeed.sol";
 
@@ -26,12 +26,12 @@ contract ArbitrumSequencerUptimeFeed is SequencerUptimeFeed {
 
   /// @dev Flags contract to raise/lower flags on, during status transitions
   // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
-  FlagsInterface public immutable FLAGS;
+  IFlagsInterface public immutable FLAGS;
 
   /// @param flagsAddress Address of the Flags contract on L2
   /// @param l1SenderAddress Address of the L1 contract that is permissioned to call this contract
   constructor(address flagsAddress, address l1SenderAddress) SequencerUptimeFeed(l1SenderAddress, false) {
-    FLAGS = FlagsInterface(flagsAddress);
+    FLAGS = IFlagsInterface(flagsAddress);
   }
 
   /// @notice Reverts if the sender is not allowed to call `updateStatus`

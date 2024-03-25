@@ -249,7 +249,7 @@ contract ArbitrumValidator is Validator {
 
   /// @notice internal method that stores the gas configuration
   function _setGasConfig(uint64 maxGas, uint256 gasPriceBid, uint256 baseFee, address gasPriceL1FeedAddr) internal {
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(maxGas > 0, "Max gas is zero");
     // solhint-disable-next-line gas-custom-errors
     require(gasPriceBid > 0, "Gas price bid is zero");

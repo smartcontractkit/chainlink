@@ -3,7 +3,7 @@ pragma solidity 0.8.19;
 
 import {AccessControllerInterface} from "../../shared/interfaces/AccessControllerInterface.sol";
 import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
-import {FlagsInterface} from "./interfaces/FlagsInterface.sol";
+import {IFlagsInterface} from "./interfaces/IFlagsInterface.sol";
 
 import {SimpleReadAccessController} from "../../shared/access/SimpleReadAccessController.sol";
 
@@ -15,7 +15,7 @@ import {SimpleReadAccessController} from "../../shared/access/SimpleReadAccessCo
 /// An expected pattern is to allow addresses to raise flags on themselves, so if you are subscribing to
 /// FlagOn events you should filter for addresses you care about.
 // solhint-disable custom-errors
-contract Flags is ITypeAndVersion, FlagsInterface, SimpleReadAccessController {
+contract Flags is ITypeAndVersion, IFlagsInterface, SimpleReadAccessController {
   string public constant override typeAndVersion = "Flags 1.1.0";
 
   AccessControllerInterface public raisingAccessController;
@@ -60,6 +60,7 @@ contract Flags is ITypeAndVersion, FlagsInterface, SimpleReadAccessController {
   /// who always has access.
   /// @param subject The contract address whose flag is being raised
   function raiseFlag(address subject) external override {
+    // solhint-disable-next-line gas-custom-errors
     require(_allowedToRaiseFlags(), "Not allowed to raise flags");
 
     _tryToRaiseFlag(subject);
@@ -70,6 +71,7 @@ contract Flags is ITypeAndVersion, FlagsInterface, SimpleReadAccessController {
   /// who always has access.
   /// @param subjects List of the contract addresses whose flag is being raised
   function raiseFlags(address[] calldata subjects) external override {
+    // solhint-disable-next-line gas-custom-errors
     require(_allowedToRaiseFlags(), "Not allowed to raise flags");
 
     for (uint256 i = 0; i < subjects.length; i++) {
@@ -82,6 +84,7 @@ contract Flags is ITypeAndVersion, FlagsInterface, SimpleReadAccessController {
   /// who always has access.
   /// @param subject The contract address whose flag is being lowered
   function lowerFlag(address subject) external override {
+    // solhint-disable-next-line gas-custom-errors
     require(_allowedToLowerFlags(), "Not allowed to lower flags");
 
     _tryToLowerFlag(subject);
@@ -92,6 +95,7 @@ contract Flags is ITypeAndVersion, FlagsInterface, SimpleReadAccessController {
   /// who always has access.
   /// @param subjects List of the contract addresses whose flag is being lowered
   function lowerFlags(address[] calldata subjects) external override {
+    // solhint-disable-next-line gas-custom-errors
     require(_allowedToLowerFlags(), "Not allowed to lower flags");
 
     for (uint256 i = 0; i < subjects.length; i++) {

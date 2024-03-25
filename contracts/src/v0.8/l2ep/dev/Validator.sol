@@ -19,9 +19,9 @@ abstract contract Validator is ITypeAndVersion, AggregatorValidatorInterface, Si
   /// @param l1CrossDomainMessengerAddress address the L1CrossDomainMessenger contract address
   /// @param l2UptimeFeedAddr the address of the ScrollSequencerUptimeFeed contract address
   constructor(address l1CrossDomainMessengerAddress, address l2UptimeFeedAddr) {
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(l1CrossDomainMessengerAddress != address(0), "Invalid xDomain Messenger address");
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(l2UptimeFeedAddr != address(0), "Invalid SequencerUptimeFeed contract address");
     L1_CROSS_DOMAIN_MESSENGER_ADDRESS = l1CrossDomainMessengerAddress;
     L2_UPTIME_FEED_ADDR = l2UptimeFeedAddr;

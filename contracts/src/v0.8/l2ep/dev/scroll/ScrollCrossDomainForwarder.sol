@@ -20,7 +20,7 @@ contract ScrollCrossDomainForwarder is CrossDomainForwarder {
   constructor(IScrollMessenger crossDomainMessengerAddr, address l1OwnerAddr) CrossDomainForwarder(l1OwnerAddr) {
     i_crossDomainMessengerAddr = address(crossDomainMessengerAddr);
 
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(i_crossDomainMessengerAddr != address(0), "Invalid xDomain Messenger address");
   }
 
@@ -31,9 +31,9 @@ contract ScrollCrossDomainForwarder is CrossDomainForwarder {
 
   /// @notice The call MUST come from the L1 owner (via cross-chain message.) Reverts otherwise.
   modifier onlyL1Owner() override {
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(msg.sender == i_crossDomainMessengerAddr, "Sender is not the L2 messenger");
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(
       IScrollMessenger(i_crossDomainMessengerAddr).xDomainMessageSender() == l1Owner(),
       "xDomain sender is not the L1 owner"
@@ -43,9 +43,9 @@ contract ScrollCrossDomainForwarder is CrossDomainForwarder {
 
   /// @notice The call MUST come from the proposed L1 owner (via cross-chain message.) Reverts otherwise.
   modifier onlyProposedL1Owner() override {
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(msg.sender == i_crossDomainMessengerAddr, "Sender is not the L2 messenger");
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(
       IScrollMessenger(i_crossDomainMessengerAddr).xDomainMessageSender() == s_l1PendingOwner,
       "Must be proposed L1 owner"
