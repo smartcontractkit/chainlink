@@ -255,6 +255,14 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) delete
 	as._deleteTxs(txs...)
 }
 
+// deleteTxAttempts removes the attempts for the given transaction from the address state.
+func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) deleteTxAttempts(txID int64) {
+	as.Lock()
+	defer as.Unlock()
+
+	as._deleteTxAttempts(txID)
+}
+
 // peekNextUnstartedTx returns the next unstarted transaction in the queue without removing it from the unstarted queue.
 func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) peekNextUnstartedTx() (*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
 	return nil, nil
@@ -462,6 +470,21 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) _findT
 	}
 
 	return txs
+}
+
+func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) _deleteTxAttempts(
+	txID int64,
+) {
+	tx, ok := as.allTxs[txID]
+	if !ok {
+		return
+	}
+
+	for i := 0; i < len(tx.TxAttempts); i++ {
+		txAttempt := tx.TxAttempts[i]
+		delete(as.attemptHashToTxAttempt, txAttempt.Hash)
+	}
+	tx.TxAttempts = nil
 }
 
 func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) _deleteTxs(txs ...txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) {
