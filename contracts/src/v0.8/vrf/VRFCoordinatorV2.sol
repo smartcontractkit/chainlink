@@ -11,7 +11,6 @@ import {VRF} from "./VRF.sol";
 import {ConfirmedOwner} from "../shared/access/ConfirmedOwner.sol";
 import {VRFConsumerBaseV2} from "./VRFConsumerBaseV2.sol";
 import {ChainSpecificUtil} from "../ChainSpecificUtil_v0_8_6.sol";
-
 contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface, VRFCoordinatorV2Interface, IERC677Receiver {
   // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
   LinkTokenInterface public immutable LINK;

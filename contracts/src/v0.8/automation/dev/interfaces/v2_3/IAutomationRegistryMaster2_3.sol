@@ -115,7 +115,6 @@ interface IAutomationRegistryMaster2_3 {
   event UpkeepRegistered(uint256 indexed id, uint32 performGas, address admin);
   event UpkeepTriggerConfigSet(uint256 indexed id, bytes triggerConfig);
   event UpkeepUnpaused(uint256 indexed id);
-
   fallback() external payable;
   function acceptOwnership() external;
   function fallbackTo() external view returns (address);

@@ -137,7 +137,6 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   }
   /* Storage Slot 7: BEGIN */
   mapping(uint256 => Callback) /* requestID */ /* callback */ public s_callbacks;
-
   /* Storage Slot 7: END */
 
   constructor(
