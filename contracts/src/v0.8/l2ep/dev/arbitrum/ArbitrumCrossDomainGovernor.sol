@@ -56,7 +56,7 @@ contract ArbitrumCrossDomainGovernor is DelegateForwarderInterface, ArbitrumCros
    * @notice The call MUST come from either the L1 owner (via cross-chain message) or the L2 owner. Reverts otherwise.
    */
   modifier onlyLocalOrCrossDomainOwner() {
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(msg.sender == crossDomainMessenger() || msg.sender == owner(), "Sender is not the L2 messenger or owner");
     _;
   }
