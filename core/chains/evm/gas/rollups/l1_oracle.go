@@ -118,10 +118,17 @@ func IsRollupWithL1Support(chainType config.ChainType) bool {
 }
 
 func NewL1GasOracle(lggr logger.Logger, ethClient ethClient, chainType config.ChainType) L1Oracle {
+	var daPriceReader daPriceReader
+	if chainType == config.ChainOptimismBedrock || chainType == config.ChainKroma {
+		daPriceReader = newOPPriceReader(lggr, ethClient, chainType, KromaGasOracleAddress)
+	}
+	return newL1GasOracle(lggr, ethClient, chainType, daPriceReader)
+}
+
+func newL1GasOracle(lggr logger.Logger, ethClient ethClient, chainType config.ChainType, daPriceReader daPriceReader) L1Oracle {
 	var l1GasPriceAddress, gasPriceMethod, l1GasCostAddress, gasCostMethod string
 	var l1GasPriceMethodAbi, l1GasCostMethodAbi abi.ABI
 	var gasPriceErr, gasCostErr error
-	var daPriceReader daPriceReader
 
 	switch chainType {
 	case config.ChainArbitrum:
@@ -138,14 +145,12 @@ func NewL1GasOracle(lggr logger.Logger, ethClient ethClient, chainType config.Ch
 		l1GasCostAddress = OPGasOracleAddress
 		gasCostMethod = OPGasOracle_getL1Fee
 		l1GasCostMethodAbi, gasCostErr = abi.JSON(strings.NewReader(GetL1FeeAbiString))
-		daPriceReader = newOPPriceReader(lggr, ethClient, chainType, OPGasOracleAddress)
 	case config.ChainKroma:
 		l1GasPriceAddress = KromaGasOracleAddress
 		gasPriceMethod = KromaGasOracle_l1BaseFee
 		l1GasPriceMethodAbi, gasPriceErr = abi.JSON(strings.NewReader(L1BaseFeeAbiString))
 		l1GasCostAddress = ""
 		gasCostMethod = ""
-		daPriceReader = newOPPriceReader(lggr, ethClient, chainType, KromaGasOracleAddress)
 	case config.ChainScroll:
 		l1GasPriceAddress = ScrollGasOracleAddress
 		gasPriceMethod = ScrollGasOracle_l1BaseFee
