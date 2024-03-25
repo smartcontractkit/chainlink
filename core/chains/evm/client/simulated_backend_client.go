@@ -186,16 +186,8 @@ func (c *SimulatedBackendClient) blockNumber(number interface{}) (blockNumber *b
 			}
 			return blockNumber, nil
 		}
-	case *big.Int:
-		if n == nil {
-			return nil, nil
-		}
-		if n.Sign() < 0 {
-			return nil, fmt.Errorf("block number must be non-negative")
-		}
-		return n, nil
 	default:
-		return nil, fmt.Errorf("invalid type %T for block number, must be string or *big.Int", n)
+		return nil, fmt.Errorf("invalid type %T for block number, must be string", n)
 	}
 }
 
@@ -613,7 +605,7 @@ func (c *SimulatedBackendClient) ethEstimateGas(ctx context.Context, result inte
 
 	_, err := c.blockNumber(args[1])
 	if err != nil {
-		return fmt.Errorf("SimulatedBackendClient expected second arg to be the string 'latest' or a *big.Int for eth_call, got: %T", args[1])
+		return fmt.Errorf("SimulatedBackendClient expected second arg to be the string 'latest' or a hexadecimal string for eth_estimateGas, got: %T", args[1])
 	}
 
 	resp, err := c.b.EstimateGas(ctx, toCallMsg(params))
@@ -644,7 +636,7 @@ func (c *SimulatedBackendClient) ethCall(ctx context.Context, result interface{}
 	}
 
 	if _, err := c.blockNumber(args[1]); err != nil {
-		return fmt.Errorf("SimulatedBackendClient expected second arg to be the string 'latest' or a *big.Int for eth_call, got: %T", args[1])
+		return fmt.Errorf("SimulatedBackendClient expected second arg to be the string 'latest' or a hexadecimal string for eth_call, got: %T", args[1])
 	}
 
 	resp, err := c.b.CallContract(ctx, toCallMsg(params), nil /* always latest block on simulated backend */)
@@ -733,25 +725,12 @@ func (c *SimulatedBackendClient) ethGetLogs(ctx context.Context, result interfac
 		}
 	}
 
-	if a, ok := params["addresses"]; ok {
+	if a, ok := params["address"]; ok {
 		addresses = a.([]common.Address)
 	}
 
 	if t, ok := params["topics"]; ok {
-		tt := t.([][]common.Hash)
-		lastTopic := len(tt) - 1
-		for lastTopic >= 0 {
-			if tt[lastTopic] != nil {
-				break
-			}
-			lastTopic--
-		}
-		// lastTopic is the topic index of the last non-nil topic slice
-		//  We have to drop any nil values in the topics slice after that due to a quirk in FilterLogs(),
-		//  which will only use nil as a wildcard if there are non-nil values after it in the slice
-		for i := 0; i < lastTopic; i++ {
-			topics = append(topics, tt[i])
-		}
+		topics = t.([][]common.Hash)
 	}
 
 	query := ethereum.FilterQuery{

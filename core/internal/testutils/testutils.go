@@ -354,9 +354,14 @@ func IntToHex(n int) string {
 // risk of spamming
 const TestInterval = 100 * time.Millisecond
 
-// AssertEventually waits for f to return true
+// AssertEventually waits for f to return true; test will continue even if condition is never satisfied
 func AssertEventually(t *testing.T, f func() bool) {
 	assert.Eventually(t, f, WaitTimeout(t), TestInterval/2)
+}
+
+// RequireEventually waits for f to return true; test fails immediately if timeout is reached
+func RequireEventually(t *testing.T, f func() bool) {
+	require.Eventually(t, f, WaitTimeout(t), TestInterval/2)
 }
 
 // RequireLogMessage fails the test if emitted logs don't contain the given message
