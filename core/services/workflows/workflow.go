@@ -1,12 +1,15 @@
 package workflows
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/dominikbraun/graph"
 	"github.com/invopop/jsonschema"
+	"github.com/shopspring/decimal"
 	"sigs.k8s.io/yaml"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -16,6 +19,84 @@ import (
 type stepRequest struct {
 	stepRef string
 	state   executionState
+}
+
+type mapping map[string]any
+
+func (m *mapping) UnmarshalJSON(b []byte) error {
+	mp := map[string]any{}
+
+	d := json.NewDecoder(bytes.NewReader(b))
+	d.UseNumber()
+
+	err := d.Decode(&mp)
+	if err != nil {
+		return err
+	}
+
+	nm, err := convertNumbers(mp)
+	if err != nil {
+		return err
+	}
+
+	*m = (mapping)(nm)
+	return err
+}
+
+func convertNumber(el any) (any, error) {
+	switch elv := el.(type) {
+	case json.Number:
+		if strings.Contains(elv.String(), ".") {
+			f, err := elv.Float64()
+			if err == nil {
+				return decimal.NewFromFloat(f), nil
+			}
+		}
+
+		return elv.Int64()
+	default:
+		return el, nil
+	}
+}
+
+func convertNumbers(m map[string]any) (map[string]any, error) {
+	nm := map[string]any{}
+	for k, v := range m {
+		switch tv := v.(type) {
+		case map[string]any:
+			cm, err := convertNumbers(tv)
+			if err != nil {
+				return nil, err
+			}
+
+			nm[k] = cm
+		case []any:
+			na := make([]any, len(tv))
+			for i, v := range tv {
+				cv, err := convertNumber(v)
+				if err != nil {
+					return nil, err
+				}
+
+				na[i] = cv
+			}
+
+			nm[k] = na
+		default:
+			cv, err := convertNumber(v)
+			if err != nil {
+				return nil, err
+			}
+
+			nm[k] = cv
+		}
+	}
+
+	return nm, nil
+}
+
+func (m mapping) MarshalJSON() ([]byte, error) {
+	return json.Marshal(map[string]any(m))
 }
 
 // stepDefinition is the parsed representation of a step in a workflow.
@@ -77,7 +158,7 @@ type stepDefinition struct {
 	//  - Input reference cannot be resolved.
 	//  - Input is defined on triggers
 	// NOTE: Should introduce a custom validator to cover trigger case
-	Inputs map[string]any `json:"inputs,omitempty"`
+	Inputs mapping `json:"inputs,omitempty"`
 
 	// The configuration of a Capability will be done using the “config” property. Each capability is responsible for defining an external interface used during setup. This interface may be unique or identical, meaning multiple Capabilities might use the same configuration properties.
 	//
@@ -95,7 +176,7 @@ type stepDefinition struct {
 	//        address: "0xaabbcc"
 	//        method: "updateFeedValues(report bytes, role uint8)"
 	//        params: [$(inputs.report), 1]
-	Config map[string]any `json:"config" jsonschema:"required"`
+	Config mapping `json:"config" jsonschema:"required"`
 }
 
 // workflowSpec is the parsed representation of a workflow.
@@ -205,7 +286,10 @@ const (
 
 func Parse(yamlWorkflow string) (*workflow, error) {
 	spec := &workflowSpec{}
-	err := yaml.Unmarshal([]byte(yamlWorkflow), spec)
+	err := yaml.Unmarshal(
+		[]byte(yamlWorkflow),
+		spec,
+	)
 	if err != nil {
 		return nil, err
 	}

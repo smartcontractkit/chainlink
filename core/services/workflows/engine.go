@@ -2,11 +2,10 @@ package workflows
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"sync"
 	"time"
-
-	"github.com/google/uuid"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -217,7 +216,20 @@ func (e *Engine) loop(ctx context.Context) {
 				continue
 			}
 
-			err := e.startExecution(ctx, resp.Value)
+			te := &capabilities.TriggerEvent{}
+			err := resp.Value.UnwrapTo(te)
+			if err != nil {
+				e.logger.Errorf("could not unwrap trigger event", resp.Err)
+				continue
+			}
+
+			executionID, err := generateExecutionID(mockedWorkflowID, te.ID)
+			if err != nil {
+				e.logger.Errorf("could not generate execution ID", resp.Err)
+				continue
+			}
+
+			err = e.startExecution(ctx, executionID, resp.Value)
 			if err != nil {
 				e.logger.Errorf("failed to start execution: %w", err)
 			}
@@ -245,9 +257,23 @@ func (e *Engine) loop(ctx context.Context) {
 	}
 }
 
+func generateExecutionID(workflowID, eventID string) (string, error) {
+	s := sha256.New()
+	_, err := s.Write([]byte(workflowID))
+	if err != nil {
+		return "", err
+	}
+
+	_, err = s.Write([]byte(eventID))
+	if err != nil {
+		return "", err
+	}
+
+	return string(s.Sum(nil)), nil
+}
+
 // startExecution kicks off a new workflow execution when a trigger event is received.
-func (e *Engine) startExecution(ctx context.Context, event values.Value) error {
-	executionID := uuid.New().String()
+func (e *Engine) startExecution(ctx context.Context, executionID string, event values.Value) error {
 	e.logger.Debugw("executing on a trigger event", "event", event, "executionID", executionID)
 	ec := &executionState{
 		steps: map[string]*stepState{
@@ -375,6 +401,7 @@ func (e *Engine) queueIfReady(state executionState, step *step) {
 }
 
 func (e *Engine) finishExecution(ctx context.Context, executionID string, status string) error {
+	e.logger.Infow("finishing execution", "executionID", executionID, "status", status)
 	err := e.executionStates.updateStatus(ctx, executionID, status)
 	if err != nil {
 		return err
@@ -408,7 +435,7 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 		stepState.outputs.err = err
 		stepState.status = statusErrored
 	} else {
-		e.logger.Debugw("step executed successfully", "executionID", msg.state.executionID, "stepRef", msg.stepRef, "outputs", outputs)
+		e.logger.Infow("step executed successfully", "executionID", msg.state.executionID, "stepRef", msg.stepRef, "outputs", outputs)
 		stepState.outputs.value = outputs
 		stepState.status = statusCompleted
 	}
