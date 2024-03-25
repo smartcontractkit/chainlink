@@ -158,8 +158,12 @@ func SetupBHFNode(
 	l zerolog.Logger,
 	bhfNode *VRFNode,
 ) error {
+	evmClient, err := env.GetEVMClient(chainID.Int64())
+	if err != nil {
+		return err
+	}
 	bhfTXKeyAddressStrings, _, err := CreateFundAndGetSendingKeys(
-		env.EVMClient,
+		evmClient,
 		bhfNode,
 		txKeyFunding,
 		numberOfTxKeysToCreate,

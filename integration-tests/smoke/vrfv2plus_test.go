@@ -1440,10 +1440,14 @@ func TestVRFV2PlusWithBHF(t *testing.T) {
 	require.NoError(t, err, "Error getting config")
 	vrfv2PlusConfig := config.VRFv2Plus
 
+	chainID := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0].ChainID
+
 	cleanupFn := func() {
-		if env.EVMClient.NetworkSimulated() {
+		evmClient, err := env.GetEVMClient(chainID)
+		require.NoError(t, err, "Getting EVM client shouldn't fail")
+		if evmClient.NetworkSimulated() {
 			l.Info().
-				Str("Network Name", env.EVMClient.GetNetworkName()).
+				Str("Network Name", evmClient.GetNetworkName()).
 				Msg("Network is a simulated network. Skipping fund return for Coordinator Subscriptions.")
 		} else {
 			if *vrfv2PlusConfig.General.CancelSubsAfterTestRun {
@@ -1471,9 +1475,12 @@ func TestVRFV2PlusWithBHF(t *testing.T) {
 		UseTestCoordinator:     false,
 	}
 
-	env, vrfContracts, vrfKey, nodeTypeToNodeMap, err = vrfv2plus.SetupVRFV2PlusUniverse(testcontext.Get(t), t, config, cleanupFn, newEnvConfig, l)
+	env, vrfContracts, vrfKey, nodeTypeToNodeMap, err = vrfv2plus.SetupVRFV2PlusUniverse(
+		testcontext.Get(t), t, config, chainID, cleanupFn, newEnvConfig, l)
 	require.NoError(t, err)
-	defaultWalletAddress = env.EVMClient.GetDefaultWallet().Address()
+	evmClient, err := env.GetEVMClient(chainID)
+	require.NoError(t, err, "Getting EVM client shouldn't fail")
+	defaultWalletAddress = evmClient.GetDefaultWallet().Address()
 
 	var isNativeBilling = true
 	t.Run("BHF Job with complete E2E - wait 256 blocks to see if Rand Request is fulfilled", func(t *testing.T) {
@@ -1485,6 +1492,7 @@ func TestVRFV2PlusWithBHF(t *testing.T) {
 
 		consumers, subIDs, err := vrfv2plus.SetupNewConsumersAndSubs(
 			env,
+			chainID,
 			vrfContracts.CoordinatorV2Plus,
 			configCopy,
 			vrfContracts.LinkToken,
@@ -1522,7 +1530,7 @@ func TestVRFV2PlusWithBHF(t *testing.T) {
 		var wg sync.WaitGroup
 		wg.Add(1)
 		//Wait at least 260 blocks
-		_, err = actions.WaitForBlockNumberToBe(randRequestBlockNumber+uint64(260), env.EVMClient, &wg, time.Second*262, t)
+		_, err = actions.WaitForBlockNumberToBe(randRequestBlockNumber+uint64(260), evmClient, &wg, time.Second*262, t)
 		wg.Wait()
 		require.NoError(t, err)
 		configCopy.VRFv2Plus.General.SubscriptionFundingAmountNative = ptr.Ptr(float64(1)) // 1 ETH
@@ -1531,6 +1539,7 @@ func TestVRFV2PlusWithBHF(t *testing.T) {
 			Msg("Funding subscription")
 		err = vrfv2plus.FundSubscriptions(
 			env,
+			chainID,
 			big.NewFloat(*configCopy.VRFv2Plus.General.SubscriptionFundingAmountNative),
 			big.NewFloat(*configCopy.VRFv2Plus.General.SubscriptionRefundingAmountLink),
 			vrfContracts.LinkToken,

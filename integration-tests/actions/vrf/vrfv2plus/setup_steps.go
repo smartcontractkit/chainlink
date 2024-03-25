@@ -166,7 +166,7 @@ func SetupVRFV2_5Environment(
 				env,
 				configGeneral.General,
 				numberOfTxKeysToCreate,
-				chainID,
+				big.NewInt(chainID),
 				vrfContracts.CoordinatorV2Plus.Address(),
 				vrfContracts.BHS.Address(),
 				vrfContracts.BatchBHS.Address(),
