@@ -920,7 +920,7 @@ func (lp *logPoller) PollAndSaveLogs(ctx context.Context, currentBlockNumber int
 	// Although we need to fetch block 5 for reorg detection, it's finalized so we can include it in the batch
 	// request, the last block of which we always save
 	// start = currentBlockNumber = 3, end = latestBlockNumber - finality = 7-2 = 5 (inclusive range).
-	if latestFinalizedBlockNumber >= currentBlockNumber {
+	if currentBlockNumber < latestFinalizedBlockNumber {
 		lp.lggr.Infow("Backfilling logs", "start", currentBlockNumber, "end", latestFinalizedBlockNumber)
 		if err = lp.backfill(ctx, currentBlockNumber, latestFinalizedBlockNumber); err != nil {
 			// If there's an error backfilling, we can just return and retry from the last block saved
@@ -931,19 +931,18 @@ func (lp *logPoller) PollAndSaveLogs(ctx context.Context, currentBlockNumber int
 		currentBlockNumber = latestFinalizedBlockNumber + 1
 	}
 
-	if currentBlockNumber > currentBlock.Number {
-		// If we successfully backfilled we have logs up to and including lastSafeBackfillBlock,
-		// now load the first unfinalized block.
-		currentBlock, err = lp.getCurrentBlockMaybeHandleReorg(ctx, currentBlockNumber, nil)
-		if err != nil {
-			// If there's an error handling the reorg, we can't be sure what state the db was left in.
-			// Resume from the latest block saved.
-			lp.lggr.Errorw("Unable to get current block", "err", err)
-			return
-		}
-	}
-
 	for {
+		if currentBlockNumber > currentBlock.Number {
+			currentBlock, err = lp.getCurrentBlockMaybeHandleReorg(ctx, currentBlockNumber, nil)
+			if err != nil {
+				// If there's an error handling the reorg, we can't be sure what state the db was left in.
+				// Resume from the latest block saved.
+				lp.lggr.Errorw("Unable to get current block", "err", err)
+				return
+			}
+			currentBlockNumber = currentBlock.Number
+		}
+
 		h := currentBlock.Hash
 		var logs []types.Log
 		logs, err = lp.ec.FilterLogs(ctx, lp.Filter(nil, nil, &h))
@@ -968,14 +967,6 @@ func (lp *logPoller) PollAndSaveLogs(ctx context.Context, currentBlockNumber int
 		if currentBlockNumber > latestBlockNumber {
 			break
 		}
-		currentBlock, err = lp.getCurrentBlockMaybeHandleReorg(ctx, currentBlockNumber, nil)
-		if err != nil {
-			// If there's an error handling the reorg, we can't be sure what state the db was left in.
-			// Resume from the latest block saved.
-			lp.lggr.Errorw("Unable to get current block", "err", err)
-			return
-		}
-		currentBlockNumber = currentBlock.Number
 	}
 }
 
