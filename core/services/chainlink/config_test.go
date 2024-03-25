@@ -370,7 +370,7 @@ func TestConfig_Marshal(t *testing.T) {
 		ReaperInterval:            commoncfg.MustNewDuration(4 * time.Hour),
 		ReaperThreshold:           commoncfg.MustNewDuration(7 * 24 * time.Hour),
 		ResultWriteQueueDepth:     ptr[uint32](10),
-		VerboseLogging:            ptr(true),
+		VerboseLogging:            ptr(false),
 		HTTPRequest: toml.JobPipelineHTTPRequest{
 			MaxSize:        ptr[utils.FileSize](100 * utils.MB),
 			DefaultTimeout: commoncfg.MustNewDuration(time.Minute),
@@ -846,7 +846,7 @@ MaxSuccessfulRuns = 123456
 ReaperInterval = '4h0m0s'
 ReaperThreshold = '168h0m0s'
 ResultWriteQueueDepth = 10
-VerboseLogging = true
+VerboseLogging = false
 
 [JobPipeline.HTTPRequest]
 DefaultTimeout = '1m0s'

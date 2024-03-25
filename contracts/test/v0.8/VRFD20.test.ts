@@ -30,7 +30,7 @@ before(async () => {
   roles = users.roles
   personas = users.personas
   linkTokenFactory = await ethers.getContractFactory(
-    'src/v0.4/LinkToken.sol:LinkToken',
+    'src/v0.8/shared/test/helpers/LinkTokenTestHelper.sol:LinkTokenTestHelper',
     roles.defaultAccount,
   )
   vrfCoordinatorMockFactory = await ethers.getContractFactory(
