@@ -7,7 +7,7 @@ import {VRFConsumerBaseV2} from "../VRFConsumerBaseV2.sol";
 import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
 
 // solhint-disable chainlink-solidity/prefix-immutable-variables-with-i
-// solhint-disable custom-errors
+// solhint-disable gas-custom-errors
 // solhint-disable avoid-low-level-calls
 
 contract VRFCoordinatorV2Mock is VRFCoordinatorV2Interface, ConfirmedOwner {
