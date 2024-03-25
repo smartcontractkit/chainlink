@@ -392,8 +392,8 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
 
     // coordinatorCostWithPremiumAndFlatFeeWei is the coordinator cost with the percentage premium and flat fee applied
     // coordinator cost * premium multiplier + flat fee
-    uint256 coordinatorCostWithPremiumAndFlatFeeWei = ((coordinatorCostWei * (s_coordinatorNativePremiumPercentage + 100)) /
-      100) + (1e12 * uint256(s_fulfillmentFlatFeeNativePPM));
+    uint256 coordinatorCostWithPremiumAndFlatFeeWei = ((coordinatorCostWei *
+      (s_coordinatorNativePremiumPercentage + 100)) / 100) + (1e12 * uint256(s_fulfillmentFlatFeeNativePPM));
 
     return wrapperCostWei + coordinatorCostWithPremiumAndFlatFeeWei;
   }
@@ -415,8 +415,9 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
 
     // coordinatorCostWithPremiumAndFlatFeeWei is the coordinator cost with the percentage premium and flat fee applied
     // coordinator cost * premium multiplier + flat fee
-    uint256 coordinatorCostWithPremiumAndFlatFeeWei = ((coordinatorCostWei * (s_coordinatorLinkPremiumPercentage + 100)) /
-      100) + (1e12 * uint256(s_fulfillmentFlatFeeNativePPM - s_fulfillmentFlatFeeLinkDiscountPPM));
+    uint256 coordinatorCostWithPremiumAndFlatFeeWei = ((coordinatorCostWei *
+      (s_coordinatorLinkPremiumPercentage + 100)) / 100) +
+      (1e12 * uint256(s_fulfillmentFlatFeeNativePPM - s_fulfillmentFlatFeeLinkDiscountPPM));
 
     // requestPrice is denominated in juels (link)
     // (1e18 juels/link) * wei / (wei/link) = juels
