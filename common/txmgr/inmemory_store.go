@@ -674,7 +674,7 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 		if aSequence == nil || bSequence == nil {
 			return 0
 		}
-		// TODO(jtw): figure out how to get gas price and gas tip cap from TxFee
+		// TODO: FIGURE OUT HOW TO GET GAS PRICE AND GAS TIP CAP FROM TxFee
 
 		return cmp.Compare((*aSequence).Int64(), (*bSequence).Int64())
 	})
