@@ -955,19 +955,18 @@ func (lp *logPoller) PollAndSaveLogs(ctx context.Context, currentBlockNumber int
 		currentBlockNumber = lastSafeBackfillBlock + 1
 	}
 
-	if currentBlockNumber > currentBlock.Number {
-		// If we successfully backfilled we have logs up to and including lastSafeBackfillBlock,
-		// now load the first unfinalized block.
-		currentBlock, err = lp.getCurrentBlockMaybeHandleReorg(ctx, currentBlockNumber, nil)
-		if err != nil {
-			// If there's an error handling the reorg, we can't be sure what state the db was left in.
-			// Resume from the latest block saved.
-			lp.lggr.Errorw("Unable to get current block", "err", err)
-			return
-		}
-	}
-
 	for {
+		if currentBlockNumber > currentBlock.Number {
+			currentBlock, err = lp.getCurrentBlockMaybeHandleReorg(ctx, currentBlockNumber, nil)
+			if err != nil {
+				// If there's an error handling the reorg, we can't be sure what state the db was left in.
+				// Resume from the latest block saved.
+				lp.lggr.Errorw("Unable to get current block", "err", err)
+				return
+			}
+			currentBlockNumber = currentBlock.Number
+		}
+
 		h := currentBlock.Hash
 		var logs []types.Log
 		logs, err = lp.ec.FilterLogs(ctx, lp.Filter(nil, nil, &h))
@@ -992,14 +991,6 @@ func (lp *logPoller) PollAndSaveLogs(ctx context.Context, currentBlockNumber int
 		if currentBlockNumber > latestBlockNumber {
 			break
 		}
-		currentBlock, err = lp.getCurrentBlockMaybeHandleReorg(ctx, currentBlockNumber, nil)
-		if err != nil {
-			// If there's an error handling the reorg, we can't be sure what state the db was left in.
-			// Resume from the latest block saved.
-			lp.lggr.Errorw("Unable to get current block", "err", err)
-			return
-		}
-		currentBlockNumber = currentBlock.Number
 	}
 }
 
