@@ -3,7 +3,7 @@ package mocks
 import (
 	"context"
 
-	"github.com/smartcontractkit/wsrpc/connectivity"
+	"google.golang.org/grpc/connectivity"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
 )
@@ -34,8 +34,9 @@ type MockConn struct {
 	Closed bool
 }
 
-func (m *MockConn) Close() {
+func (m *MockConn) Close() error {
 	m.Closed = true
+	return nil
 }
 func (m MockConn) WaitForReady(ctx context.Context) bool {
 	return m.Ready

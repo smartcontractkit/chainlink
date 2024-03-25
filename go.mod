@@ -82,7 +82,7 @@ require (
 	github.com/smartcontractkit/libocr v0.0.0-20240419185742-fd3cab206b2c
 	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20230906073235-9e478e5e19f1
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20230906073235-9e478e5e19f1
-	github.com/smartcontractkit/wsrpc v0.8.1
+	github.com/smartcontractkit/wsrpc v0.8.2-0.20240514145711-32fc9d11097a
 	github.com/spf13/cast v1.6.0
 	github.com/stretchr/testify v1.9.0
 	github.com/theodesp/go-heaps v0.0.0-20190520121037-88e35354fe0a
@@ -108,7 +108,7 @@ require (
 	golang.org/x/time v0.5.0
 	golang.org/x/tools v0.18.0
 	gonum.org/v1/gonum v0.14.0
-	google.golang.org/grpc v1.59.0
+	google.golang.org/grpc v1.62.1
 	google.golang.org/protobuf v1.33.0
 	gopkg.in/guregu/null.v4 v4.0.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
@@ -204,7 +204,7 @@ require (
 	github.com/gofrs/flock v0.8.1 // indirect
 	github.com/gogo/protobuf v1.3.3 // indirect
 	github.com/golang-jwt/jwt/v5 v5.2.0 // indirect
-	github.com/golang/glog v1.1.2 // indirect
+	github.com/golang/glog v1.2.0 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/golang/snappy v0.0.5-0.20220116011046-fa5810519dcb // indirect
@@ -327,9 +327,9 @@ require (
 	golang.org/x/arch v0.7.0 // indirect
 	golang.org/x/sys v0.19.0 // indirect
 	google.golang.org/api v0.149.0 // indirect
-	google.golang.org/genproto v0.0.0-20231030173426-d783a09b4405 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20231016165738-49dd2c1f3d0b // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20231106174013-bbf56f31fb17 // indirect
+	google.golang.org/genproto v0.0.0-20240123012728-ef4313101c80 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20240123012728-ef4313101c80 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20240123012728-ef4313101c80 // indirect
 	gopkg.in/guregu/null.v2 v2.1.2 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
