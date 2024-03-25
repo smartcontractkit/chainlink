@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 	itutils "github.com/smartcontractkit/chainlink/integration-tests/utils"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
@@ -42,6 +43,7 @@ func WithPrivateEVMs(networks []blockchain.EVMNetwork, commonChainConfig *evmcfg
 		evmConfig := &evmcfg.EVMConfig{
 			ChainID: ubig.New(big.NewInt(network.ChainID)),
 			Nodes:   evmNodes,
+			Chain:   evmcfg.Chain{},
 		}
 		if commonChainConfig != nil {
 			evmConfig.Chain = *commonChainConfig
@@ -51,7 +53,12 @@ func WithPrivateEVMs(networks []blockchain.EVMNetwork, commonChainConfig *evmcfg
 				evmConfig.Chain = overriddenChainCfg
 			}
 		}
-
+		if evmConfig.Chain.FinalityDepth == nil && network.FinalityDepth > 0 {
+			evmConfig.Chain.FinalityDepth = ptr.Ptr(uint32(network.FinalityDepth))
+		}
+		if evmConfig.Chain.FinalityTagEnabled == nil && network.FinalityTag {
+			evmConfig.Chain.FinalityTagEnabled = ptr.Ptr(network.FinalityTag)
+		}
 		evmConfigs = append(evmConfigs, evmConfig)
 	}
 	return func(c *chainlink.Config) {

@@ -118,7 +118,7 @@ func (l *LoadArgs) SanityCheck() {
 // It assumes requests in both direction are in flight when this is called.
 // It assumes the ARM is not already cursed, it will fail the test if it is in cursed state.
 // It curses source ARM for forward lanes so that destination curse is also validated for reverse lanes.
-// It waits for 5 minutes for curse to be seen by ccip plugins and contracts.
+// It waits for 2 minutes for curse to be seen by ccip plugins and contracts.
 // It captures the curse timestamp to verify no execution state changed event is emitted after the cure is applied.
 // It uncurses the source ARM at the end so that it can be verified that rest of the requests are processed as expected.
 // Validates that even after uncursing the lane should not function for 30 more minutes.
@@ -164,7 +164,7 @@ func (l *LoadArgs) ValidateCurseFollowedByUncurse() {
 		// try to send requests on lanes on which curse is applied on source RMN and the request should revert
 		failedTx, _, _, err := lane.Source.SendRequest(
 			lane.Dest.ReceiverDapp.EthAddress,
-			actions.TokenTransfer, "msg sent when ARM is cursed",
+			actions.DataOnlyTransfer, "msg sent when ARM is cursed",
 			big.NewInt(600_000), // gas limit
 		)
 		if lane.Source.Common.ChainClient.GetNetworkConfig().MinimumConfirmations > 0 {
@@ -216,7 +216,7 @@ func (l *LoadArgs) ValidateCurseFollowedByUncurse() {
 			return lane.Dest.AssertNoExecutionStateChangedEventReceived(lane.Logger, 29*time.Minute, curseTimeStamp.Add(30*time.Second))
 		})
 	}
-
+	l.lggr.Info().Msg("waiting for no commit/execution validation")
 	err := errGrp.Wait()
 	require.NoError(l.t, err, "error received to validate no commit/execution is generated after lane is cursed")
 }
@@ -231,8 +231,8 @@ func (l *LoadArgs) TriggerLoadByLane() {
 			Str("Source Network", lane.SourceNetworkName).
 			Str("Destination Network", lane.DestNetworkName).
 			Msg("Starting load for lane")
-
-		ccipLoad := NewCCIPLoad(l.TestCfg.Test, lane, l.TestCfg.TestGroupInput.PhaseTimeout.Duration(), 100000)
+		sendMaxData := pointer.GetInt64(l.TestCfg.TestGroupInput.SendMaxDataInEveryMsgCount)
+		ccipLoad := NewCCIPLoad(l.TestCfg.Test, lane, l.TestCfg.TestGroupInput.PhaseTimeout.Duration(), 100000, sendMaxData)
 		ccipLoad.BeforeAllCall(l.TestCfg.TestGroupInput.MsgType, big.NewInt(*l.TestCfg.TestGroupInput.DestGasLimit))
 		lokiConfig := l.TestCfg.EnvInput.Logging.Loki
 		labels := make(map[string]string)
@@ -241,7 +241,7 @@ func (l *LoadArgs) TriggerLoadByLane() {
 		}
 		labels["source_chain"] = lane.SourceNetworkName
 		labels["dest_chain"] = lane.DestNetworkName
-		loadRunner, err := wasp.NewGenerator(&wasp.Config{
+		waspCfg := &wasp.Config{
 			T:                     l.TestCfg.Test,
 			GenName:               fmt.Sprintf("lane %s-> %s", lane.SourceNetworkName, lane.DestNetworkName),
 			Schedule:              l.schedules,
@@ -255,7 +255,9 @@ func (l *LoadArgs) TriggerLoadByLane() {
 			LokiConfig:            wasp.NewLokiConfig(lokiConfig.Endpoint, lokiConfig.TenantId, nil, nil),
 			Labels:                labels,
 			FailOnErr:             pointer.GetBool(l.TestCfg.TestGroupInput.FailOnFirstErrorInLoad),
-		})
+		}
+		waspCfg.LokiConfig.Timeout = time.Minute
+		loadRunner, err := wasp.NewGenerator(waspCfg)
 		require.NoError(l.TestCfg.Test, err, "initiating loadgen for lane %s --> %s",
 			lane.SourceNetworkName, lane.DestNetworkName)
 		loadRunner.Run(false)

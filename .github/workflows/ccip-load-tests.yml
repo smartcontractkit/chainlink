@@ -93,7 +93,6 @@ jobs:
   ccip-load-test:
     name: CCIP Load Test
     environment: integration
-    runs-on: ubuntu-latest
     needs: [ build-chainlink, build-test-image ]
     if: ${{ always() && !contains(needs.*.result, 'failure') }}
     permissions:
@@ -109,7 +108,6 @@ jobs:
       SLACK_CHANNEL: ${{ secrets.QA_SLACK_CHANNEL }}
       TEST_LOG_LEVEL: info
       REF_NAME: ${{ github.head_ref || github.ref_name }}
-      ENV_JOB_IMAGE_BASE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-ccip-tests
       BASE64_NETWORK_CONFIG: ${{ secrets.BASE64_NETWORK_CONFIG }}
     strategy:
       fail-fast: false
@@ -117,9 +115,12 @@ jobs:
         type:
           - name: stable-load
             run: ^TestLoadCCIPStableRPS$
+            os: ubuntu-latest
           - name: load-with-arm-curse-uncurse
             run: ^TestLoadCCIPStableRPSAfterARMCurseAndUncurse$
             config_path: ./integration-tests/ccip-tests/testconfig/tomls/load-with-arm-curse-uncurse.toml
+            os: ubuntu-latest
+    runs-on: ${{ matrix.type.os }}
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
@@ -177,7 +178,7 @@ jobs:
           DATABASE_URL: postgresql://postgres:node@localhost:5432/chainlink_test?sslmode=disable
           RR_MEM: 8Gi
           RR_CPU: 4
-          TEST_TRIGGERED_BY: ccip-load-test-ci
+          TEST_TRIGGERED_BY: ccip-load-test-ci-${{ matrix.type.name }}
         with:
           test_command_to_run: cd ./integration-tests/ccip-tests && go test -v -timeout 70m -count=1 -json -run ${{ matrix.type.run }} ./load 2>&1 | tee /tmp/gotest.log | gotestfmt
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
@@ -215,7 +216,6 @@ jobs:
       SLACK_CHANNEL: ${{ secrets.QA_SLACK_CHANNEL }}
       TEST_LOG_LEVEL: info
       REF_NAME: ${{ github.head_ref || github.ref_name }}
-      ENV_JOB_IMAGE_BASE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-ccip-tests
 
     steps:
       - name: Collect Metrics

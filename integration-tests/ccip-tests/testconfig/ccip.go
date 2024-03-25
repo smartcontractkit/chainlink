@@ -48,6 +48,8 @@ type CCIPTestConfig struct {
 	TimeoutForPriceUpdate      *config.Duration   `toml:",omitempty"`
 	WithPipeline               *bool              `toml:",omitempty"`
 	FailOnFirstErrorInLoad     *bool              `toml:",omitempty"`
+	DynamicPriceUpdateInterval *config.Duration   `toml:",omitempty"`
+	SendMaxDataInEveryMsgCount *int64             `toml:",omitempty"`
 }
 
 func (c *CCIPTestConfig) SetTestRunName(name string) {

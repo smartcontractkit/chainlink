@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"math/big"
-	"math/rand"
 	"net/http"
 	"runtime"
 	"strings"
@@ -25,6 +25,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/atomic"
+	"golang.org/x/exp/rand"
 	"golang.org/x/sync/errgroup"
 
 	ctftestenv "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
@@ -124,29 +125,29 @@ func GetUSDCDomain(networkName string, simulated bool) (uint32, error) {
 }
 
 type CCIPCommon struct {
-	ChainClient        blockchain.EVMClient
-	Deployer           *contracts.CCIPContractsDeployer
-	FeeToken           *contracts.LinkToken
-	BridgeTokens       []*contracts.ERC20Token
-	PriceAggregators   map[string]*contracts.MockAggregator
-	BridgeTokenPools   []*contracts.TokenPool
-	RemoteChains       *sync.Map
-	RateLimiterConfig  contracts.RateLimiterConfig
-	ARMContract        *common.Address
-	ARM                *contracts.ARM // populate only if the ARM contracts is not a mock and can be used to verify various ARM events; keep this nil for mock ARM
-	Router             *contracts.Router
-	PriceRegistry      *contracts.PriceRegistry
-	WrappedNative      common.Address
-	MulticallEnabled   bool
-	MulticallContract  common.Address
-	ExistingDeployment bool
-	USDCDeployment     bool
-	TokenMessenger     *common.Address
-	TokenTransmitter   *contracts.TokenTransmitter
-	poolFunds          *big.Int
-	gasUpdateWatcherMu *sync.Mutex
-	gasUpdateWatcher   map[uint64]*big.Int // key - destchain id; value - timestamp of update
-	priceUpdateSubs    []event.Subscription
+	ChainClient                  blockchain.EVMClient
+	Deployer                     *contracts.CCIPContractsDeployer
+	FeeToken                     *contracts.LinkToken
+	BridgeTokens                 []*contracts.ERC20Token
+	PriceAggregators             map[string]*contracts.MockAggregator
+	BridgeTokenPools             []*contracts.TokenPool
+	RemoteChains                 *sync.Map
+	RateLimiterConfig            contracts.RateLimiterConfig
+	ARMContract                  *common.Address
+	ARM                          *contracts.ARM // populate only if the ARM contracts is not a mock and can be used to verify various ARM events; keep this nil for mock ARM
+	Router                       *contracts.Router
+	PriceRegistry                *contracts.PriceRegistry
+	WrappedNative                common.Address
+	MulticallEnabled             bool
+	MulticallContract            common.Address
+	ExistingDeployment           bool
+	USDCDeployment               bool
+	TokenMessenger               *common.Address
+	TokenTransmitter             *contracts.TokenTransmitter
+	poolFunds                    *big.Int
+	gasUpdateWatcherMu           *sync.Mutex
+	gasUpdateWatcher             map[uint64]*big.Int // key - destchain id; value - timestamp of update
+	IsConnectionRestoredRecently *atomic.Bool
 }
 
 // FreeUpUnusedSpace sets nil to various elements of ccipModule which are only used
@@ -159,14 +160,9 @@ func (ccipModule *CCIPCommon) FreeUpUnusedSpace() {
 	ccipModule.gasUpdateWatcher = nil
 	ccipModule.gasUpdateWatcherMu = nil
 	ccipModule.TokenMessenger = nil
+	ccipModule.TokenTransmitter = nil
 	ccipModule.PriceRegistry = nil
 	runtime.GC()
-}
-
-func (ccipModule *CCIPCommon) StopWatchingPriceUpdates() {
-	for _, sub := range ccipModule.priceUpdateSubs {
-		sub.Unsubscribe()
-	}
 }
 
 func (ccipModule *CCIPCommon) UnvoteToCurseARM() error {
@@ -488,6 +484,7 @@ func (ccipModule *CCIPCommon) CleanUp() error {
 }
 
 func (ccipModule *CCIPCommon) WaitForPriceUpdates(
+	ctx context.Context,
 	lggr zerolog.Logger,
 	timeout time.Duration,
 	destChainId uint64,
@@ -513,7 +510,7 @@ func (ccipModule *CCIPCommon) WaitForPriceUpdates(
 	lggr.Info().Msgf("Waiting for UsdPerUnitGas for dest chain %d Price Registry %s", destChainId, ccipModule.PriceRegistry.Address())
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	localCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	for {
 		select {
@@ -529,13 +526,13 @@ func (ccipModule *CCIPCommon) WaitForPriceUpdates(
 					Msg("Price updated")
 				return nil
 			}
-		case <-ctx.Done():
+		case <-localCtx.Done():
 			return fmt.Errorf("UsdPerUnitGasUpdated is not found for chain %d", destChainId)
 		}
 	}
 }
 
-func (ccipModule *CCIPCommon) WatchForPriceUpdates() error {
+func (ccipModule *CCIPCommon) WatchForPriceUpdates(ctx context.Context) error {
 	gasUpdateEvent := make(chan *price_registry.PriceRegistryUsdPerUnitGasUpdated)
 	sub, err := ccipModule.PriceRegistry.Instance.WatchUsdPerUnitGasUpdated(nil, gasUpdateEvent, nil)
 	if err != nil {
@@ -543,6 +540,8 @@ func (ccipModule *CCIPCommon) WatchForPriceUpdates() error {
 	}
 
 	go func() {
+		defer sub.Unsubscribe()
+		backoff := 5 * time.Second
 		for {
 			select {
 			case e := <-gasUpdateEvent:
@@ -554,19 +553,58 @@ func (ccipModule *CCIPCommon) WatchForPriceUpdates() error {
 				ccipModule.gasUpdateWatcher[destChain] = e.Timestamp
 				ccipModule.gasUpdateWatcherMu.Unlock()
 				log.Info().
+					Uint64("chainSelector", e.DestChain).
 					Str("source_chain", ccipModule.ChainClient.GetNetworkName()).
 					Uint64("dest_chain", destChain).
 					Str("price_registry", ccipModule.PriceRegistry.Address()).
 					Msgf("UsdPerUnitGasUpdated event received for dest chain %d source chain %s",
 						destChain, ccipModule.ChainClient.GetNetworkName())
-			case <-sub.Err():
+			case err := <-sub.Err():
+				if err != nil {
+					log.Warn().
+						Err(err).
+						Str("Backoff", backoff.String()).
+						Msg("error on UsdPerUnitGasUpdated subscription, attempting to resubscribe")
+					sub, err = ccipModule.PriceRegistry.Instance.WatchUsdPerUnitGasUpdated(nil, gasUpdateEvent, nil)
+					if err != nil {
+						time.Sleep(backoff)
+						backoff = time.Duration(math.Min(float64(backoff)*2, float64(30*time.Second)))
+					}
+				}
+			case <-ctx.Done():
 				return
 			}
 		}
 	}()
-	ccipModule.priceUpdateSubs = append(ccipModule.priceUpdateSubs, sub)
 
 	return nil
+}
+
+// UpdateTokenPricesAtRegularInterval updates aggregator contract with updated answer at regular interval.
+// At each iteration of ticker it chooses one of the aggregator contracts and updates its round answer.
+func (ccipModule *CCIPCommon) UpdateTokenPricesAtRegularInterval(ctx context.Context, interval time.Duration) {
+	var aggregators []contracts.MockAggregator
+	for _, aggregatorContract := range ccipModule.PriceAggregators {
+		contract := *aggregatorContract
+		aggregators = append(aggregators, contract)
+	}
+	go func() {
+		rand.Seed(uint64(time.Now().UnixNano()))
+		ticker := time.NewTicker(interval)
+		for {
+			select {
+			case <-ticker.C:
+				// randomly choose an aggregator contract from slice of aggregators
+				randomIndex := rand.Intn(len(aggregators))
+				err := aggregators[randomIndex].UpdateRoundData(big.NewInt(time.Now().UnixNano()))
+				if err != nil {
+					continue
+				}
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
 }
 
 // SyncUSDCDomain makes domain updates to Source usdc pool domain with -
@@ -599,6 +637,29 @@ func (ccipModule *CCIPCommon) SyncUSDCDomain(destTransmitter *contracts.TokenTra
 		}
 	}
 	return ccipModule.ChainClient.WaitForEvents()
+}
+
+func (ccipModule *CCIPCommon) PollRPCConnection(ctx context.Context, lggr zerolog.Logger) {
+	for {
+		select {
+		case reconnectTime := <-ccipModule.ChainClient.ConnectionRestored():
+			if ccipModule.IsConnectionRestoredRecently == nil {
+				ccipModule.IsConnectionRestoredRecently = atomic.NewBool(true)
+			} else {
+				ccipModule.IsConnectionRestoredRecently.Store(true)
+			}
+			lggr.Info().Time("Restored At", reconnectTime).Str("Network", ccipModule.ChainClient.GetNetworkName()).Msg("Connection Restored")
+		case issueTime := <-ccipModule.ChainClient.ConnectionIssue():
+			if ccipModule.IsConnectionRestoredRecently == nil {
+				ccipModule.IsConnectionRestoredRecently = atomic.NewBool(false)
+			} else {
+				ccipModule.IsConnectionRestoredRecently.Store(false)
+			}
+			lggr.Info().Time("Started At", issueTime).Str("Network", ccipModule.ChainClient.GetNetworkName()).Msg("RPC Disconnected")
+		case <-ctx.Done():
+			return
+		}
+	}
 }
 
 // DeployContracts deploys the contracts which are necessary in both source and dest chain
@@ -1245,12 +1306,9 @@ func (sourceCCIP *SourceCCIPModule) AssertSendRequestedLogFinalized(
 	prevEventAt time.Time,
 	reqStats []*testreporters.RequestStat,
 ) (time.Time, uint64, error) {
-	if sourceCCIP.Common.ChainClient.NetworkSimulated() {
-		return prevEventAt, 0, nil
-	}
 	lggr.Info().Msg("Waiting for CCIPSendRequested event log to be finalized")
 	finalizedBlockNum, finalizedAt, err := sourceCCIP.Common.ChainClient.WaitForFinalizedTx(txHash)
-	if err != nil {
+	if err != nil || finalizedBlockNum == nil {
 		for _, stat := range reqStats {
 			stat.UpdateState(lggr, stat.SeqNum, testreporters.SourceLogFinalized, time.Since(prevEventAt), testreporters.Failure)
 		}
@@ -1277,9 +1335,9 @@ func (sourceCCIP *SourceCCIPModule) AssertEventCCIPSendRequested(
 	lggr.Info().Msg("Waiting for CCIPSendRequested event")
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+	resetTimer := 0
 	for {
 		select {
 		case <-ticker.C:
@@ -1298,7 +1356,20 @@ func (sourceCCIP *SourceCCIPModule) AssertEventCCIPSendRequested(
 					return sendRequestedEvents, prevEventAt, nil
 				}
 			}
-		case <-ctx.Done():
+		case <-timer.C:
+			// if there is connection issue reset the timer :
+			if sourceCCIP.Common.IsConnectionRestoredRecently != nil && !sourceCCIP.Common.IsConnectionRestoredRecently.Load() {
+				if resetTimer > 2 {
+					for _, stat := range reqStat {
+						stat.UpdateState(lggr, 0, testreporters.CCIPSendRe, time.Since(prevEventAt), testreporters.Failure)
+					}
+					return nil, time.Now(), fmt.Errorf("possible RPC issue - CCIPSendRequested event is not found for tx %s", txHash)
+				}
+				resetTimer++
+				timer.Reset(timeout)
+				lggr.Info().Int("count of reset", resetTimer).Msg("Resetting timer to validate CCIPSendRequested event")
+				continue
+			}
 			for _, stat := range reqStat {
 				stat.UpdateState(lggr, 0, testreporters.CCIPSendRe, time.Since(prevEventAt), testreporters.Failure)
 			}
@@ -1436,12 +1507,12 @@ type DestCCIPModule struct {
 	CommitStore             *contracts.CommitStore
 	ReceiverDapp            *contracts.ReceiverDapp
 	OffRamp                 *contracts.OffRamp
-	WrappedNative           common.Address
 	ReportAcceptedWatcher   *sync.Map
 	ExecStateChangedWatcher *sync.Map
 	ReportBlessedWatcher    *sync.Map
 	ReportBlessedBySeqNum   *sync.Map
 	NextSeqNumToCommit      *atomic.Uint64
+	DestStartBlock          uint64
 }
 
 func (destCCIP *DestCCIPModule) LoadContracts(conf *laneconfig.LaneConfig) {
@@ -1494,7 +1565,10 @@ func (destCCIP *DestCCIPModule) DeployContracts(
 	if err != nil {
 		return fmt.Errorf("failed to get chain selector for destination chain id %d: %w", destCCIP.Common.ChainClient.GetChainID().Uint64(), err)
 	}
-
+	destCCIP.DestStartBlock, err = destCCIP.Common.ChainClient.LatestBlockNumber(context.Background())
+	if err != nil {
+		return fmt.Errorf("getting latest block number shouldn't fail %w", err)
+	}
 	if destCCIP.CommitStore == nil {
 		if destCCIP.Common.ExistingDeployment {
 			return fmt.Errorf("commit store address not provided in lane config")
@@ -1746,9 +1820,11 @@ func (destCCIP *DestCCIPModule) AssertEventExecutionStateChanged(
 	execState testhelpers.MessageExecutionState,
 ) (uint8, error) {
 	lggr.Info().Int64("seqNum", int64(seqNum)).Msg("Waiting for ExecutionStateChanged event")
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
 	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+	resetTimer := 0
 	for {
 		select {
 		case <-ticker.C:
@@ -1760,7 +1836,7 @@ func (destCCIP *DestCCIPModule) AssertEventExecutionStateChanged(
 					destCCIP.ExecStateChangedWatcher.Delete(seqNum)
 					vLogs := e.Raw
 					receivedAt := time.Now().UTC()
-					hdr, err := destCCIP.Common.ChainClient.HeaderByNumber(ctx, big.NewInt(int64(vLogs.BlockNumber)))
+					hdr, err := destCCIP.Common.ChainClient.HeaderByNumber(context.Background(), big.NewInt(int64(vLogs.BlockNumber)))
 					if err == nil {
 						receivedAt = hdr.Timestamp
 					}
@@ -1787,7 +1863,20 @@ func (destCCIP *DestCCIPModule) AssertEventExecutionStateChanged(
 						execState, testhelpers.MessageExecutionState(e.State), e.ReturnData, seqNum, destCCIP.SourceChainId, destCCIP.Common.ChainClient.GetChainID())
 				}
 			}
-		case <-ctx.Done():
+		case <-timer.C:
+			// if there is connection issue reset the context :
+			if destCCIP.Common.IsConnectionRestoredRecently != nil && !destCCIP.Common.IsConnectionRestoredRecently.Load() {
+				// if timer already has been reset 2 times we fail with warning
+				if resetTimer > 2 {
+					reqStat.UpdateState(lggr, seqNum, testreporters.ExecStateChanged, time.Since(timeNow), testreporters.Failure)
+					return 0, fmt.Errorf("possible RPC issues - ExecutionStateChanged event not found for seq num %d for lane %d-->%d",
+						seqNum, destCCIP.SourceChainId, destCCIP.Common.ChainClient.GetChainID())
+				}
+				timer.Reset(timeout)
+				resetTimer++
+				lggr.Info().Int("count of reset", resetTimer).Msg("Resetting timer to validate ExecutionStateChanged event")
+				continue
+			}
 			reqStat.UpdateState(lggr, seqNum, testreporters.ExecStateChanged, time.Since(timeNow), testreporters.Failure)
 			return 0, fmt.Errorf("ExecutionStateChanged event not found for seq num %d for lane %d-->%d",
 				seqNum, destCCIP.SourceChainId, destCCIP.Common.ChainClient.GetChainID())
@@ -1803,9 +1892,11 @@ func (destCCIP *DestCCIPModule) AssertEventReportAccepted(
 	reqStat *testreporters.RequestStat,
 ) (*commit_store.CommitStoreCommitReport, time.Time, error) {
 	lggr.Info().Int64("seqNum", int64(seqNum)).Msg("Waiting for ReportAccepted event")
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+	resetTimerCount := 0
 	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
 	for {
 		select {
 		case <-ticker.C:
@@ -1816,7 +1907,7 @@ func (destCCIP *DestCCIPModule) AssertEventReportAccepted(
 					// if the value is processed, delete it from the map
 					destCCIP.ReportAcceptedWatcher.Delete(seqNum)
 					receivedAt := time.Now().UTC()
-					hdr, err := destCCIP.Common.ChainClient.HeaderByNumber(ctx, big.NewInt(int64(reportAccepted.Raw.BlockNumber)))
+					hdr, err := destCCIP.Common.ChainClient.HeaderByNumber(context.Background(), big.NewInt(int64(reportAccepted.Raw.BlockNumber)))
 					if err == nil {
 						receivedAt = hdr.Timestamp
 					}
@@ -1852,7 +1943,19 @@ func (destCCIP *DestCCIPModule) AssertEventReportAccepted(
 					return &reportAccepted.Report, receivedAt, nil
 				}
 			}
-		case <-ctx.Done():
+		case <-timer.C:
+			// if there is connection issue reset the context :
+			if destCCIP.Common.IsConnectionRestoredRecently != nil && !destCCIP.Common.IsConnectionRestoredRecently.Load() {
+				if resetTimerCount > 2 {
+					reqStat.UpdateState(lggr, seqNum, testreporters.Commit, time.Since(prevEventAt), testreporters.Failure)
+					return nil, time.Now().UTC(), fmt.Errorf("possible RPC issue - ReportAccepted is not found for seq num %d lane %d-->%d",
+						seqNum, destCCIP.SourceChainId, destCCIP.Common.ChainClient.GetChainID())
+				}
+				timer.Reset(timeout)
+				resetTimerCount++
+				lggr.Info().Int("count of reset", resetTimerCount).Msg("Resetting timer to validate ReportAccepted event")
+				continue
+			}
 			reqStat.UpdateState(lggr, seqNum, testreporters.Commit, time.Since(prevEventAt), testreporters.Failure)
 			return nil, time.Now().UTC(), fmt.Errorf("ReportAccepted is not found for seq num %d lane %d-->%d",
 				seqNum, destCCIP.SourceChainId, destCCIP.Common.ChainClient.GetChainID())
@@ -1873,9 +1976,11 @@ func (destCCIP *DestCCIPModule) AssertReportBlessed(
 		return prevEventAt, nil
 	}
 	lggr.Info().Interface("commit store interval", CommitReport.Interval).Msg("Waiting for Report To be blessed")
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+	resetTimerCount := 0
 	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
 	for {
 		select {
 		case <-ticker.C:
@@ -1903,7 +2008,7 @@ func (destCCIP *DestCCIPModule) AssertReportBlessed(
 						// if the value is processed, delete it from the map
 						destCCIP.ReportBlessedBySeqNum.Delete(seqNum)
 					}
-					hdr, err := destCCIP.Common.ChainClient.HeaderByNumber(ctx, big.NewInt(int64(vLogs.BlockNumber)))
+					hdr, err := destCCIP.Common.ChainClient.HeaderByNumber(context.Background(), big.NewInt(int64(vLogs.BlockNumber)))
 					if err == nil {
 						receivedAt = hdr.Timestamp
 					}
@@ -1924,7 +2029,19 @@ func (destCCIP *DestCCIPModule) AssertReportBlessed(
 					return receivedAt, nil
 				}
 			}
-		case <-ctx.Done():
+		case <-timer.C:
+			// if there is connection issue reset the context :
+			if destCCIP.Common.IsConnectionRestoredRecently != nil && !destCCIP.Common.IsConnectionRestoredRecently.Load() {
+				if resetTimerCount > 2 {
+					reqStat.UpdateState(lggr, seqNum, testreporters.ReportBlessed, time.Since(prevEventAt), testreporters.Failure)
+					return time.Now().UTC(), fmt.Errorf("possible RPC issue - ReportBlessed is not found for interval %+v lane %d-->%d",
+						CommitReport.Interval, destCCIP.SourceChainId, destCCIP.Common.ChainClient.GetChainID())
+				}
+				timer.Reset(timeout)
+				resetTimerCount++
+				lggr.Info().Int("count of reset", resetTimerCount).Msg("Resetting timer to validate ReportBlessed event")
+				continue
+			}
 			reqStat.UpdateState(lggr, seqNum, testreporters.ReportBlessed, time.Since(prevEventAt), testreporters.Failure)
 			return time.Now().UTC(), fmt.Errorf("ReportBlessed is not found for interval %+v lane %d-->%d",
 				CommitReport.Interval, destCCIP.SourceChainId, destCCIP.Common.ChainClient.GetChainID())
@@ -1939,10 +2056,12 @@ func (destCCIP *DestCCIPModule) AssertSeqNumberExecuted(
 	timeNow time.Time,
 	reqStat *testreporters.RequestStat,
 ) error {
-	lggr.Info().Int64("seqNum", int64(seqNumberBefore)).Msg("Waiting to be executed")
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
+	lggr.Info().Int64("seqNum", int64(seqNumberBefore)).Msg("Waiting to be processed by commit store")
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+	resetTimerCount := 0
 	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
 	for {
 		select {
 		case <-ticker.C:
@@ -1958,7 +2077,19 @@ func (destCCIP *DestCCIPModule) AssertSeqNumberExecuted(
 				destCCIP.NextSeqNumToCommit.Store(seqNumberAfter)
 				return nil
 			}
-		case <-ctx.Done():
+		case <-timer.C:
+			// if there is connection issue reset the context :
+			if destCCIP.Common.IsConnectionRestoredRecently != nil && !destCCIP.Common.IsConnectionRestoredRecently.Load() {
+				if resetTimerCount > 2 {
+					reqStat.UpdateState(lggr, seqNumberBefore, testreporters.Commit, time.Since(timeNow), testreporters.Failure)
+					return fmt.Errorf("possible RPC issue - sequence number is not increased for seq num %d lane %d-->%d",
+						seqNumberBefore, destCCIP.SourceChainId, destCCIP.Common.ChainClient.GetChainID())
+				}
+				timer.Reset(timeout)
+				resetTimerCount++
+				lggr.Info().Int("count of reset", resetTimerCount).Msg("Resetting timer to validate seqnumber increase in commit store")
+				continue
+			}
 			reqStat.UpdateState(lggr, seqNumberBefore, testreporters.Commit, time.Since(timeNow), testreporters.Failure)
 			return fmt.Errorf("sequence number is not increased for seq num %d lane %d-->%d",
 				seqNumberBefore, destCCIP.SourceChainId, destCCIP.Common.ChainClient.GetChainID())
@@ -2032,18 +2163,38 @@ type CCIPLane struct {
 	Context           context.Context
 	SrcNetworkLaneCfg *laneconfig.LaneConfig
 	DstNetworkLaneCfg *laneconfig.LaneConfig
-	Subscriptions     []event.Subscription
 }
 
-func (lane *CCIPLane) TokenPricesConfig() (string, error) {
+func (lane *CCIPLane) TokenPricesConfig(static bool) (string, error) {
 	d := DynamicPriceGetterConfig{
 		AggregatorPrices: make(map[common.Address]AggregatorPriceConfig),
 		StaticPrices:     make(map[common.Address]StaticPriceConfig),
 	}
-	for _, token := range lane.Dest.Common.BridgeTokens {
-		err := d.AddStaticPriceConfig(token.Address(), lane.DestChain.GetChainID().Uint64(), LinkToUSD)
+	if static {
+		for _, token := range lane.Dest.Common.BridgeTokens {
+			err := d.AddStaticPriceConfig(token.Address(), lane.DestChain.GetChainID().Uint64(), LinkToUSD)
+			if err != nil {
+				return "", fmt.Errorf("error in AddStaticPriceConfig for bridge token %s: %w", token.Address(), err)
+			}
+		}
+		err := d.AddStaticPriceConfig(lane.Dest.Common.FeeToken.Address(), lane.DestChain.GetChainID().Uint64(), LinkToUSD)
 		if err != nil {
-			return "", fmt.Errorf("error in AddStaticPriceConfig for bridge token %s: %w", token.Address(), err)
+			return "", fmt.Errorf("error in AddStaticPriceConfig for Fee token %s: %w", lane.Dest.Common.FeeToken.Address(), err)
+		}
+		err = d.AddStaticPriceConfig(lane.Dest.Common.WrappedNative.Hex(), lane.DestChain.GetChainID().Uint64(), WrappedNativeToUSD)
+		if err != nil {
+			return "", fmt.Errorf("error in AddStaticPriceConfig for WrappedNative token %s: %w", lane.Dest.Common.WrappedNative.Hex(), err)
+		}
+		err = d.AddStaticPriceConfig(lane.Source.Common.WrappedNative.Hex(), lane.SourceChain.GetChainID().Uint64(), WrappedNativeToUSD)
+		if err != nil {
+			return "", fmt.Errorf("error in AddStaticPriceConfig for WrappedNative token %s: %w", lane.Source.Common.WrappedNative.Hex(), err)
+		}
+		return d.String()
+	}
+	for _, token := range lane.Dest.Common.BridgeTokens {
+		err := d.AddAggregatorPriceConfig(token.Address(), lane.Dest.Common.PriceAggregators, LinkToUSD)
+		if err != nil {
+			return "", fmt.Errorf("error in AddAggregatorPriceConfig for bridge token %s: %w", token.Address(), err)
 		}
 	}
 	if err := d.AddAggregatorPriceConfig(lane.Dest.Common.FeeToken.Address(), lane.Dest.Common.PriceAggregators, LinkToUSD); err != nil {
@@ -2500,51 +2651,107 @@ func (lane *CCIPLane) ValidateRequestByTxHash(txHash common.Hash, execState test
 }
 
 func (lane *CCIPLane) StartEventWatchers() error {
-	if !lane.Source.Common.ChainClient.NetworkSimulated() &&
-		lane.Source.Common.ChainClient.GetNetworkConfig().FinalityDepth == 0 {
+	if lane.Source.Common.ChainClient.GetNetworkConfig().FinalityDepth == 0 {
 		err := lane.Source.Common.ChainClient.PollFinality()
 		if err != nil {
 			return err
 		}
 	}
 
+	go lane.Source.Common.PollRPCConnection(lane.Context, lane.Logger)
+	go lane.Dest.Common.PollRPCConnection(lane.Context, lane.Logger)
+
 	sendReqEvent := make(chan *evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested)
 	sub, err := lane.Source.OnRamp.Instance.WatchCCIPSendRequested(nil, sendReqEvent)
 	if err != nil {
 		return err
 	}
-	lane.Subscriptions = append(lane.Subscriptions, sub)
-	go func() {
+	go func(sub event.Subscription) {
+		defer sub.Unsubscribe()
+		resubscribed := false
 		for {
-			e := <-sendReqEvent
-			lane.Logger.Info().Msgf("CCIPSendRequested event received for seq number %d", e.Message.SequenceNumber)
-			eventsForTx, ok := lane.Source.CCIPSendRequestedWatcher.Load(e.Raw.TxHash.Hex())
-			if ok {
-				lane.Source.CCIPSendRequestedWatcher.Store(e.Raw.TxHash.Hex(), append(eventsForTx.([]*evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested), e))
-			} else {
-				lane.Source.CCIPSendRequestedWatcher.Store(e.Raw.TxHash.Hex(), []*evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested{e})
-			}
+			select {
+			case e := <-sendReqEvent:
+				lane.Logger.Info().Msgf("CCIPSendRequested event received for seq number %d", e.Message.SequenceNumber)
+				eventsForTx, ok := lane.Source.CCIPSendRequestedWatcher.Load(e.Raw.TxHash.Hex())
+				if ok {
+					lane.Source.CCIPSendRequestedWatcher.Store(e.Raw.TxHash.Hex(), append(eventsForTx.([]*evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested), e))
+				} else {
+					lane.Source.CCIPSendRequestedWatcher.Store(e.Raw.TxHash.Hex(), []*evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested{e})
+				}
 
-			lane.Source.CCIPSendRequestedWatcher = testutils.DeleteNilEntriesFromMap(lane.Source.CCIPSendRequestedWatcher)
+				lane.Source.CCIPSendRequestedWatcher = testutils.DeleteNilEntriesFromMap(lane.Source.CCIPSendRequestedWatcher)
+				// check every second if connection is restored
+			case <-time.After(1 * time.Second):
+				// if there is a connection issue, set resubscribed to false
+				if lane.Source.Common.IsConnectionRestoredRecently != nil && !lane.Source.Common.IsConnectionRestoredRecently.Load() {
+					resubscribed = false
+				}
+				// if connection is restored re-subscribe, if not already resubscribed
+				if lane.Source.Common.IsConnectionRestoredRecently != nil && lane.Source.Common.IsConnectionRestoredRecently.Load() && !resubscribed {
+					lane.Logger.Info().Msg("source connection restored restarting subscription")
+					if sub != nil {
+						sub.Unsubscribe()
+					}
+					sub, err = lane.Source.OnRamp.Instance.WatchCCIPSendRequested(&bind.WatchOpts{
+						Start: pointer.ToUint64(lane.Source.SrcStartBlock),
+					}, sendReqEvent)
+					if err != nil {
+						resubscribed = false
+						lane.Logger.Error().Err(err).Msg("error in resubscribing to CCIPSendRequested after restoring connection")
+					} else {
+						resubscribed = true
+					}
+				}
+			case <-lane.Context.Done():
+				return
+			}
 		}
-	}()
+	}(sub)
+
 	reportAcceptedEvent := make(chan *commit_store.CommitStoreReportAccepted)
 	sub, err = lane.Dest.CommitStore.Instance.WatchReportAccepted(nil, reportAcceptedEvent)
 	if err != nil {
 		return err
 	}
 
-	lane.Subscriptions = append(lane.Subscriptions, sub)
-
-	go func() {
+	go func(sub event.Subscription) {
+		defer sub.Unsubscribe()
+		resubscribed := false
 		for {
-			e := <-reportAcceptedEvent
-			for i := e.Report.Interval.Min; i <= e.Report.Interval.Max; i++ {
-				lane.Dest.ReportAcceptedWatcher.Store(i, e)
+			select {
+			case e := <-reportAcceptedEvent:
+				for i := e.Report.Interval.Min; i <= e.Report.Interval.Max; i++ {
+					lane.Dest.ReportAcceptedWatcher.Store(i, e)
+				}
+				lane.Dest.ReportAcceptedWatcher = testutils.DeleteNilEntriesFromMap(lane.Dest.ReportAcceptedWatcher)
+				// check every second if connection is restored
+			case <-time.After(1 * time.Second):
+				// if there is a connection issue, set resubscribed to false
+				if lane.Dest.Common.IsConnectionRestoredRecently != nil && !lane.Dest.Common.IsConnectionRestoredRecently.Load() {
+					resubscribed = false
+				}
+				// if connection is restored re-subscribe, if not already resubscribed
+				if lane.Dest.Common.IsConnectionRestoredRecently != nil && lane.Dest.Common.IsConnectionRestoredRecently.Load() && !resubscribed {
+					lane.Logger.Info().Msg("dest connection restored restarting ReportAccepted subscription")
+					if sub != nil {
+						sub.Unsubscribe()
+					}
+					sub, err = lane.Dest.CommitStore.Instance.WatchReportAccepted(&bind.WatchOpts{
+						Start: pointer.ToUint64(lane.Dest.DestStartBlock),
+					}, reportAcceptedEvent)
+					if err != nil {
+						resubscribed = false
+						lane.Logger.Error().Err(err).Msg("error in resubscribing to ReportAccepted after restoring connection")
+					} else {
+						resubscribed = true
+					}
+				}
+			case <-lane.Context.Done():
+				return
 			}
-			lane.Dest.ReportAcceptedWatcher = testutils.DeleteNilEntriesFromMap(lane.Dest.ReportAcceptedWatcher)
 		}
-	}()
+	}(sub)
 
 	if lane.Dest.Common.ARM != nil {
 		reportBlessedEvent := make(chan *arm_contract.ARMContractTaggedRootBlessed)
@@ -2553,46 +2760,95 @@ func (lane *CCIPLane) StartEventWatchers() error {
 			return err
 		}
 
-		lane.Subscriptions = append(lane.Subscriptions, sub)
-
-		go func() {
+		go func(sub event.Subscription) {
+			defer sub.Unsubscribe()
+			resubscribed := false
 			for {
-				e := <-reportBlessedEvent
-				lane.Logger.Info().Msgf("TaggedRootBlessed event received for root %x", e.TaggedRoot.Root)
-				if e.TaggedRoot.CommitStore == lane.Dest.CommitStore.EthAddress {
-					lane.Dest.ReportBlessedWatcher.Store(e.TaggedRoot.Root, &e.Raw)
+				select {
+				case e := <-reportBlessedEvent:
+					lane.Logger.Info().Msgf("TaggedRootBlessed event received for root %x", e.TaggedRoot.Root)
+					if e.TaggedRoot.CommitStore == lane.Dest.CommitStore.EthAddress {
+						lane.Dest.ReportBlessedWatcher.Store(e.TaggedRoot.Root, &e.Raw)
+					}
+					lane.Dest.ReportBlessedWatcher = testutils.DeleteNilEntriesFromMap(lane.Dest.ReportBlessedWatcher)
+					// check every second if connection is restored
+				case <-time.After(1 * time.Second):
+					// if there is a connection issue, set resubscribed to false
+					if lane.Dest.Common.IsConnectionRestoredRecently != nil && !lane.Dest.Common.IsConnectionRestoredRecently.Load() {
+						resubscribed = false
+					}
+					// if connection is restored re-subscribe, if not already resubscribed
+					if lane.Dest.Common.IsConnectionRestoredRecently != nil && lane.Dest.Common.IsConnectionRestoredRecently.Load() && !resubscribed {
+						lane.Logger.Info().Msg("dest connection restored restarting TaggedRootBlessed subscription")
+						if sub != nil {
+							sub.Unsubscribe()
+						}
+						sub, err = lane.Dest.Common.ARM.Instance.WatchTaggedRootBlessed(&bind.WatchOpts{
+							Start: pointer.ToUint64(lane.Dest.DestStartBlock),
+						}, reportBlessedEvent, nil)
+						if err != nil {
+							resubscribed = false
+							lane.Logger.Error().Err(err).Msg("error in resubscribing to TaggedRootBlessed after restoring connection")
+						} else {
+							resubscribed = true
+						}
+					}
+				case <-lane.Context.Done():
+					return
 				}
-				lane.Dest.ReportBlessedWatcher = testutils.DeleteNilEntriesFromMap(lane.Dest.ReportBlessedWatcher)
 			}
-		}()
+		}(sub)
 	}
+
 	execStateChangedEvent := make(chan *evm_2_evm_offramp.EVM2EVMOffRampExecutionStateChanged)
 	sub, err = lane.Dest.OffRamp.Instance.WatchExecutionStateChanged(nil, execStateChangedEvent, nil, nil)
 	if err != nil {
 		return err
 	}
 
-	lane.Subscriptions = append(lane.Subscriptions, sub)
-
-	go func() {
+	go func(sub event.Subscription) {
+		defer sub.Unsubscribe()
+		resubscribed := false
 		for {
-			e := <-execStateChangedEvent
-			lane.Logger.Info().Msgf("Execution state changed event received for seq number %d", e.SequenceNumber)
-			lane.Dest.ExecStateChangedWatcher.Store(e.SequenceNumber, e)
-			lane.Dest.ExecStateChangedWatcher = testutils.DeleteNilEntriesFromMap(lane.Dest.ExecStateChangedWatcher)
+			select {
+			case e := <-execStateChangedEvent:
+				lane.Logger.Info().Msgf("Execution state changed event received for seq number %d", e.SequenceNumber)
+				lane.Dest.ExecStateChangedWatcher.Store(e.SequenceNumber, e)
+				lane.Dest.ExecStateChangedWatcher = testutils.DeleteNilEntriesFromMap(lane.Dest.ExecStateChangedWatcher)
+				// check every second if connection is restored
+			case <-time.After(1 * time.Second):
+				// if there is a connection issue, set resubscribed to false
+				if lane.Dest.Common.IsConnectionRestoredRecently != nil && !lane.Dest.Common.IsConnectionRestoredRecently.Load() {
+					resubscribed = false
+				}
+				// if connection is restored re-subscribe, if not already resubscribed
+				if lane.Dest.Common.IsConnectionRestoredRecently != nil && lane.Dest.Common.IsConnectionRestoredRecently.Load() && !resubscribed {
+					lane.Logger.Info().Msg("dest connection restored restarting ExecutionStateChanged subscription")
+					if sub != nil {
+						sub.Unsubscribe()
+					}
+					sub, err = lane.Dest.OffRamp.Instance.WatchExecutionStateChanged(&bind.WatchOpts{
+						Start: pointer.ToUint64(lane.Dest.DestStartBlock),
+					}, execStateChangedEvent, nil, nil)
+					if err != nil {
+						resubscribed = false
+						lane.Logger.Error().Err(err).Msg("error in resubscribing to ExecutionStateChanged after restoring connection")
+					} else {
+						resubscribed = true
+					}
+				}
+			case <-lane.Context.Done():
+				return
+			}
 		}
-	}()
+	}(sub)
 	return nil
 }
 
 func (lane *CCIPLane) CleanUp(clearFees bool) error {
 	lane.Logger.Info().Msg("Cleaning up lane")
-	if !lane.Source.Common.ChainClient.NetworkSimulated() &&
-		lane.Source.Common.ChainClient.GetNetworkConfig().FinalityDepth == 0 {
+	if lane.Source.Common.ChainClient.GetNetworkConfig().FinalityDepth == 0 {
 		lane.Source.Common.ChainClient.CancelFinalityPolling()
-	}
-	for _, sub := range lane.Subscriptions {
-		sub.Unsubscribe()
 	}
 	// recover fees from onRamp contract
 	if clearFees && !lane.Source.Common.ChainClient.NetworkSimulated() {
@@ -2611,6 +2867,7 @@ func (lane *CCIPLane) CleanUp(clearFees bool) error {
 // DeployNewCCIPLane sets up a lane and initiates lane.Source and lane.Destination
 // If configureCLNodes is true it sets up jobs and contract config for the lane
 func (lane *CCIPLane) DeployNewCCIPLane(
+	setUpCtx context.Context,
 	env *CCIPTestEnv,
 	commitAndExecOnSameDON bool,
 	sourceCommon *CCIPCommon,
@@ -2620,6 +2877,7 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 	configureCLNodes bool,
 	jobErrGroup *errgroup.Group,
 	withPipeline bool,
+	staticPrice bool,
 ) (*laneconfig.LaneConfig, *laneconfig.LaneConfig, error) {
 	var err error
 	sourceChainClient := lane.SourceChain
@@ -2680,7 +2938,7 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 	if !configureCLNodes {
 		return lane.SrcNetworkLaneCfg, lane.DstNetworkLaneCfg, nil
 	}
-	err = lane.Source.Common.WatchForPriceUpdates()
+	err = lane.Source.Common.WatchForPriceUpdates(setUpCtx)
 	if err != nil {
 		return lane.SrcNetworkLaneCfg, lane.DstNetworkLaneCfg, fmt.Errorf("error in starting price update watch")
 	}
@@ -2735,7 +2993,7 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 		tokensUSDUrl := TokenPricePipelineURLs(tokenAddresses, killgrave, env.MockServer)
 		tokenPricesUSDPipeline = TokenFeeForMultipleTokenAddr(tokensUSDUrl)
 	} else {
-		tokenPricesConfigJson, err = lane.TokenPricesConfig()
+		tokenPricesConfigJson, err = lane.TokenPricesConfig(staticPrice)
 		if err != nil {
 			return lane.SrcNetworkLaneCfg, lane.DstNetworkLaneCfg, fmt.Errorf("error getting token prices config %w", err)
 		}
