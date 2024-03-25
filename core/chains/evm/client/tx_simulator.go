@@ -10,8 +10,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/common/config"
 )
 
-const ErrOutOfCounters = "not enough counters to continue the execution"
-
 type simulatorClient interface {
 	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
 }
