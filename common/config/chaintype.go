@@ -19,7 +19,6 @@ const (
 	ChainScroll          ChainType = "scroll"
 	ChainWeMix           ChainType = "wemix"
 	ChainXDai            ChainType = "xdai" // Deprecated: use ChainGnosis instead
-	ChainZkEvm           ChainType = "zkevm"
 	ChainZkSync          ChainType = "zksync"
 )
 
@@ -32,14 +31,13 @@ var ErrInvalidChainType = fmt.Errorf("must be one of %s or omitted", strings.Joi
 	string(ChainOptimismBedrock),
 	string(ChainScroll),
 	string(ChainWeMix),
-	string(ChainZkEvm),
 	string(ChainZkSync),
 }, ", "))
 
 // IsValid returns true if the ChainType value is known or empty.
 func (c ChainType) IsValid() bool {
 	switch c {
-	case "", ChainArbitrum, ChainCelo, ChainGnosis, ChainKroma, ChainMetis, ChainOptimismBedrock, ChainScroll, ChainWeMix, ChainXDai, ChainZkEvm, ChainZkSync:
+	case "", ChainArbitrum, ChainCelo, ChainGnosis, ChainKroma, ChainMetis, ChainOptimismBedrock, ChainScroll, ChainWeMix, ChainXDai, ChainZkSync:
 		return true
 	}
 	return false

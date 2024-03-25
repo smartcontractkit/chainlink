@@ -1,5 +1,4 @@
 ChainID = '1442'
-ChainType = 'zkevm'
 FinalityDepth = 500
 NoNewHeadsThreshold = '12m'
 MinIncomingConfirmations = 1
