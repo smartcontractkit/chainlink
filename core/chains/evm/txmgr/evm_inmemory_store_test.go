@@ -16,6 +16,7 @@ import (
 	evmgas "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	evmtxmgr "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
@@ -155,8 +156,12 @@ func TestInMemoryStore_UpdateTxAttemptInProgressToBroadcast(t *testing.T) {
 		})
 
 		t.Run("incorrect from address", func(t *testing.T) {
-			inTx.FromAddress = common.Address{}
+			inTx.FromAddress = utils.RandomAddress()
+			inTx.State = commontxmgr.TxInProgress
+			inTxAttempt.State = txmgrtypes.TxAttemptInProgress
 			expErr := persistentStore.UpdateTxAttemptInProgressToBroadcast(ctx, &inTx, inTxAttempt, txmgrtypes.TxAttemptBroadcast)
+			inTx.State = commontxmgr.TxInProgress
+			inTxAttempt.State = txmgrtypes.TxAttemptInProgress
 			actErr := inMemoryStore.UpdateTxAttemptInProgressToBroadcast(ctx, &inTx, inTxAttempt, txmgrtypes.TxAttemptBroadcast)
 			assert.NoError(t, expErr)
 			assert.NoError(t, actErr)

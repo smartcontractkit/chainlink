@@ -186,17 +186,19 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Updat
 	defer ms.addressStatesLock.RUnlock()
 	as, ok := ms.addressStates[tx.FromAddress]
 	if !ok {
-		return fmt.Errorf("update_tx_attempt_in_progress_to_broadcast: %w", ErrAddressNotFound)
+		return nil
 	}
 
+	originalError := tx.Error
+	originalBroadcastAt := tx.BroadcastAt
+	originalInitialBroadcastAt := tx.InitialBroadcastAt
 	// Persist to persistent storage
-	// TODO: THIS FUNCTION SIGNATURE NEEDS TO CHANGE... It modifies the tx and attempt in place
 	if err := ms.persistentTxStore.UpdateTxAttemptInProgressToBroadcast(ctx, tx, attempt, newAttemptState); err != nil {
 		return fmt.Errorf("update_tx_attempt_in_progress_to_broadcast: %w", err)
 	}
 
 	// Update in memory store
-	if err := as.moveInProgressToUnconfirmed(tx.Error, *tx.BroadcastAt, *tx.InitialBroadcastAt, attempt.ID); err != nil {
+	if err := as.moveInProgressToUnconfirmed(originalError, *originalBroadcastAt, *originalInitialBroadcastAt, attempt.ID); err != nil {
 		return fmt.Errorf("update_tx_attempt_in_progress_to_broadcast: %w", err)
 	}
 

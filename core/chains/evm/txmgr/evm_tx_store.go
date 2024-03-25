@@ -1590,7 +1590,6 @@ func (o *evmTxStore) UpdateTxAttemptInProgressToBroadcast(ctx context.Context, e
 	if etx.InitialBroadcastAt == nil {
 		return errors.New("unconfirmed transaction must have initial_broadcast_at time")
 	}
-	fmt.Println("etx.State:", etx.State)
 	if etx.State != txmgr.TxInProgress {
 		return pkgerrors.Errorf("can only transition to unconfirmed from in_progress, transaction is currently %s", etx.State)
 	}
