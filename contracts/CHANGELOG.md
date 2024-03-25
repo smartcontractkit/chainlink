@@ -4,7 +4,7 @@
 
 ...
 
-## 1.0.0 - 2024-03-15
+## 1.0.0 - 2024-03-25
 
 - Moved `VRFCoordinatorV2Mock.sol` to src/v0.8/vrf/mocks
 - Moved `VRFCoordinatorMock.sol` to src/v0.8/vrf/mocks
@@ -16,7 +16,7 @@
   - Functions Request IDs are now globally unique (#10891)
   - Add an event for broken down billing costs (#11185)
   - Add custom errors to OCR2Base contract (#11249)
-- Updated AutomationBase interface to check for ready only address on polygon 
+- Updated AutomationBase interface to check for ready only address on polygon
 
 ### Removed
 
@@ -25,7 +25,6 @@
 ## 0.8.0 - 2023-10-04
 
 ### Changed
-
 
 - Add a re-entrancy guard to VRFCoordinatorV2Mock to mimic VRFCoordinatorV2's behavior (#10585)
 - Enhanced support for destination configs in Data Streams verifiers (#10472)
