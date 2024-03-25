@@ -43,7 +43,7 @@ func (e *eventBinding) SetCodec(codec commontypes.RemoteCodec) {
 	e.codec = codec
 }
 
-func (e *eventBinding) Register() error {
+func (e *eventBinding) Register(ctx context.Context) error {
 	e.lock.Lock()
 	defer e.lock.Unlock()
 
@@ -52,7 +52,7 @@ func (e *eventBinding) Register() error {
 		return nil
 	}
 
-	if err := e.lp.RegisterFilter(logpoller.Filter{
+	if err := e.lp.RegisterFilter(ctx, logpoller.Filter{
 		Name:      e.id,
 		EventSigs: evmtypes.HashArray{e.hash},
 		Addresses: evmtypes.AddressArray{e.address},
@@ -62,7 +62,7 @@ func (e *eventBinding) Register() error {
 	return nil
 }
 
-func (e *eventBinding) Unregister() error {
+func (e *eventBinding) Unregister(ctx context.Context) error {
 	e.lock.Lock()
 	defer e.lock.Unlock()
 
@@ -70,7 +70,7 @@ func (e *eventBinding) Unregister() error {
 		return nil
 	}
 
-	if err := e.lp.UnregisterFilter(e.id); err != nil {
+	if err := e.lp.UnregisterFilter(ctx, e.id); err != nil {
 		return fmt.Errorf("%w: %w", commontypes.ErrInternal, err)
 	}
 	return nil
@@ -93,8 +93,8 @@ func (e *eventBinding) GetLatestValue(ctx context.Context, params, into any) err
 	return e.getLatestValueWithFilters(ctx, confs, params, into)
 }
 
-func (e *eventBinding) Bind(binding commontypes.BoundContract) error {
-	if err := e.Unregister(); err != nil {
+func (e *eventBinding) Bind(ctx context.Context, binding commontypes.BoundContract) error {
+	if err := e.Unregister(ctx); err != nil {
 		return err
 	}
 
@@ -103,13 +103,13 @@ func (e *eventBinding) Bind(binding commontypes.BoundContract) error {
 	e.bound = true
 
 	if e.registerCalled {
-		return e.Register()
+		return e.Register(ctx)
 	}
 	return nil
 }
 
 func (e *eventBinding) getLatestValueWithoutFilters(ctx context.Context, confs logpoller.Confirmations, into any) error {
-	log, err := e.lp.LatestLogByEventSigWithConfs(e.hash, e.address, confs)
+	log, err := e.lp.LatestLogByEventSigWithConfs(ctx, e.hash, e.address, confs)
 	if err = wrapInternalErr(err); err != nil {
 		return err
 	}
@@ -142,7 +142,7 @@ func (e *eventBinding) getLatestValueWithFilters(
 	fai := filtersAndIndices[0]
 	remainingFilters := filtersAndIndices[1:]
 
-	logs, err := e.lp.IndexedLogs(e.hash, e.address, 1, []common.Hash{fai}, confs)
+	logs, err := e.lp.IndexedLogs(ctx, e.hash, e.address, 1, []common.Hash{fai}, confs)
 	if err != nil {
 		return wrapInternalErr(err)
 	}

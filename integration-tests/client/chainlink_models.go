@@ -20,11 +20,11 @@ type EIServiceConfig struct {
 
 // ChainlinkConfig represents the variables needed to connect to a Chainlink node
 type ChainlinkConfig struct {
-	URL         string
-	Email       string
-	Password    string
-	InternalIP  string
-	HTTPTimeout *time.Duration
+	URL         string         `toml:",omitempty"`
+	Email       string         `toml:",omitempty"`
+	Password    string         `toml:",omitempty"`
+	InternalIP  string         `toml:",omitempty"`
+	HTTPTimeout *time.Duration `toml:"-"`
 }
 
 // ResponseSlice is the generic model that can be used for all Chainlink API responses that are an slice
@@ -673,7 +673,7 @@ estimate_gas [type=estimategaslimit
              data="$(generate_proof.output)"
 			 %s]
 simulate_fulfillment [type=ethcall
-					  from="{{ .FromAddress }}"	
+					  from="{{ .FromAddress }}"
                       to="{{ .Address }}"
                       gas="$(estimate_gas)"
                       gasPrice="$(jobSpec.maxGasPrice)"
@@ -1121,17 +1121,17 @@ relay                                  = "{{.Relay}}"
 schemaVersion                          = 1
 contractID                             = "{{.ContractID}}"
 {{- if .FeedID}}
-feedID                                 = "{{.FeedID}}" 
+feedID                                 = "{{.FeedID}}"
 {{end}}
 {{- if eq .JobType "offchainreporting2" }}
 ocrKeyBundleID                         = "{{.OCRKeyBundleID}}" {{end}}
 {{- if eq .JobType "offchainreporting2" }}
 transmitterID                          = "{{.TransmitterID}}" {{end}}
 {{- if .BlockchainTimeout}}
-blockchainTimeout                      = "{{.BlockchainTimeout}}" 
+blockchainTimeout                      = "{{.BlockchainTimeout}}"
 {{end}}
 {{- if .ContractConfirmations}}
-contractConfigConfirmations            = {{.ContractConfirmations}} 
+contractConfigConfirmations            = {{.ContractConfirmations}}
 {{end}}
 {{- if .TrackerPollInterval}}
 contractConfigTrackerPollInterval      = "{{.TrackerPollInterval}}"

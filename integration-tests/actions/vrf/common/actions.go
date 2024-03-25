@@ -12,6 +12,7 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -78,8 +79,13 @@ func SetupBHSNode(
 	l zerolog.Logger,
 	bhsNode *VRFNode,
 ) error {
+	evmClient, err := env.GetEVMClient(chainID.Int64())
+	if err != nil {
+		return err
+	}
+
 	bhsTXKeyAddressStrings, _, err := CreateFundAndGetSendingKeys(
-		env.EVMClient,
+		evmClient,
 		bhsNode,
 		txKeyFunding,
 		numberOfTxKeysToCreate,
@@ -191,14 +197,17 @@ func retrieveLoadTestMetrics(
 	metricsChannel <- metrics
 }
 
-func CreateNodeTypeToNodeMap(cluster *test_env.ClCluster, nodesToCreate []VRFNodeType) map[VRFNodeType]*VRFNode {
+func CreateNodeTypeToNodeMap(cluster *test_env.ClCluster, nodesToCreate []VRFNodeType) (map[VRFNodeType]*VRFNode, error) {
 	var nodesMap = make(map[VRFNodeType]*VRFNode)
+	if len(cluster.Nodes) < len(nodesToCreate) {
+		return nil, fmt.Errorf("not enough nodes in the cluster (cluster size is %d nodes) to create %d nodes", len(cluster.Nodes), len(nodesToCreate))
+	}
 	for i, nodeType := range nodesToCreate {
 		nodesMap[nodeType] = &VRFNode{
 			CLNode: cluster.Nodes[i],
 		}
 	}
-	return nodesMap
+	return nodesMap, nil
 }
 
 func CreateVRFKeyOnVRFNode(vrfNode *VRFNode, l zerolog.Logger) (*client.VRFKey, string, error) {
@@ -215,4 +224,36 @@ func CreateVRFKeyOnVRFNode(vrfNode *VRFNode, l zerolog.Logger) (*client.VRFKey, 
 		Str("VRF Uncompressed Key", vrfKey.Data.Attributes.Uncompressed).
 		Msg("VRF Key created on the Node")
 	return vrfKey, pubKeyCompressed, nil
+}
+
+func FundNodesIfNeeded(ctx context.Context, existingEnvConfig *vrf_common_config.ExistingEnvConfig, client blockchain.EVMClient, l zerolog.Logger) error {
+	if *existingEnvConfig.NodeSendingKeyFundingMin > 0 {
+		for _, sendingKey := range existingEnvConfig.NodeSendingKeys {
+			address := common.HexToAddress(sendingKey)
+			sendingKeyBalance, err := client.BalanceAt(ctx, address)
+			if err != nil {
+				return err
+			}
+			fundingAtLeast := conversions.EtherToWei(big.NewFloat(*existingEnvConfig.NodeSendingKeyFundingMin))
+			fundingToSendWei := new(big.Int).Sub(fundingAtLeast, sendingKeyBalance)
+			fundingToSendEth := conversions.WeiToEther(fundingToSendWei)
+			log := l.Info().
+				Str("Sending Key", sendingKey).
+				Str("Sending Key Current Balance", sendingKeyBalance.String()).
+				Str("Should have at least", fundingAtLeast.String())
+			if fundingToSendWei.Cmp(big.NewInt(0)) == 1 {
+				log.
+					Str("Funding Amount in ETH", fundingToSendEth.String()).
+					Msg("Funding Node's Sending Key")
+				err := actions.FundAddress(client, sendingKey, fundingToSendEth)
+				if err != nil {
+					return err
+				}
+			} else {
+				log.
+					Msg("Skipping Node's Sending Key funding as it has enough funds")
+			}
+		}
+	}
+	return nil
 }

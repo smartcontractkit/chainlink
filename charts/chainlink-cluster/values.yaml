@@ -120,8 +120,8 @@ geth:
     runAsUser: 999
     runAsGroup: 999
   version: v1.12.0
-  wsrpc-port: 8546
-  httprpc-port: 8544
+  wsRpcPort: 8546
+  httpRpcPort: 8544
   blocktime: 1
   chains:
     - networkId: 1337
@@ -160,38 +160,6 @@ mockserver:
     limits:
       cpu: 1
       memory: 1024Mi
-runner:
-  podSecurityContext:
-    fsGroup: 999
-  securityContext:
-    capabilities:
-      drop:
-        - ALL
-    readOnlyRootFilesystem: false
-    runAsNonRoot: true
-    runAsUser: 999
-    runAsGroup: 999
-  stateful: false
-  resources:
-    requests:
-      cpu: 1
-      memory: 512Mi
-    limits:
-      cpu: 1
-      memory: 512Mi
-  affinity: {}
-  tolerations: []
-  nodeSelector: {}
-  ingress:
-    enabled: false
-    className: ""
-    hosts: []
-    tls: []
-    annotations: {}
-  service:
-    type: NodePort
-    port: 8080
-
 opentelemetry-collector:
   enabled: true
   mode: deployment
@@ -264,7 +232,7 @@ tempo:
       trace:
         backend: local # backend configuration to use
         wal:
-          path: /tmp/tempo/wal # where to store the the wal locally
+          path: /tmp/tempo/wal # where to store the wal locally
         local:
           path: /tmp/tempo/blocks
 
@@ -393,6 +361,16 @@ ingress:
                 name: mockserver
                 port:
                   number: 1080
+    - host: chainlink-grafana.local
+      http:
+        paths:
+          - path: /
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: grafana
+                port:
+                  number: 80
 # monitoring.coreos.com/v1 PodMonitor for each node
 prometheusMonitor: true
 

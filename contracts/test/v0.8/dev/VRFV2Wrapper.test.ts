@@ -101,7 +101,7 @@ describe('VRFV2Wrapper', () => {
     linkEthFeed = await linkEthFeedFactory.deploy(18, weiPerUnitLink) // 1 LINK = 0.003 ETH
 
     const linkFactory = await ethers.getContractFactory(
-      'src/v0.4/LinkToken.sol:LinkToken',
+      'src/v0.8/shared/test/helpers/LinkTokenTestHelper.sol:LinkTokenTestHelper',
       owner,
     )
     link = await linkFactory.deploy()
