@@ -370,23 +370,24 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 	error,
 ) {
 	if ms.chainID.String() != chainID.String() {
-		return nil, fmt.Errorf("find_txes_pending_callback: %w", ErrInvalidChainID)
+		panic("invalid chain ID")
 	}
 
 	filterFn := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
-		if tx.TxAttempts == nil || len(tx.TxAttempts) == 0 {
+		if len(tx.TxAttempts) == 0 {
 			return false
 		}
 
-		// TODO: loop through all attempts since any of them can have a receipt
-		if tx.TxAttempts[0].Receipts == nil || len(tx.TxAttempts[0].Receipts) == 0 {
-			return false
-		}
+		for i := 0; i < len(tx.TxAttempts); i++ {
+			if len(tx.TxAttempts[i].Receipts) == 0 {
+				continue
+			}
 
-		if tx.PipelineTaskRunID.Valid && tx.SignalCallback && !tx.CallbackCompleted &&
-			tx.TxAttempts[0].Receipts[0].GetBlockNumber() != nil &&
-			big.NewInt(blockNum-int64(tx.MinConfirmations.Uint32)).Cmp(tx.TxAttempts[0].Receipts[0].GetBlockNumber()) > 0 {
-			return true
+			if tx.PipelineTaskRunID.Valid && tx.SignalCallback && !tx.CallbackCompleted &&
+				tx.TxAttempts[i].Receipts[0].GetBlockNumber() != nil &&
+				big.NewInt(blockNum-int64(tx.MinConfirmations.Uint32)).Cmp(tx.TxAttempts[i].Receipts[0].GetBlockNumber()) > 0 {
+				return true
+			}
 		}
 
 		return false
@@ -675,6 +676,13 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 			return 0
 		}
 		// TODO: FIGURE OUT HOW TO GET GAS PRICE AND GAS TIP CAP FROM TxFee
+		/*
+			v, ok := a.TxFee.(*gas.EvmFee)
+			if !ok {
+				panic("invalid gas fee")
+			}
+			fmt.Println("hereh", v)
+		*/
 
 		return cmp.Compare((*aSequence).Int64(), (*bSequence).Int64())
 	})

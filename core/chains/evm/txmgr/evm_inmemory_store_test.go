@@ -33,7 +33,7 @@ func TestInMemoryStore_FindTxAttemptsRequiringResend(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
-	persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+	persistentStore := cltest.NewTestTxStore(t, db)
 	kst := cltest.NewKeyStore(t, db, dbcfg)
 	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
 
@@ -59,27 +59,27 @@ func TestInMemoryStore_FindTxAttemptsRequiringResend(t *testing.T) {
 	// modify the attempts
 	attempt0_2 := newBroadcastLegacyEthTxAttempt(t, inTx_0.ID)
 	attempt0_2.TxFee = gas.EvmFee{Legacy: assets.NewWeiI(10)}
-	require.NoError(t, persistentStore.InsertTxAttempt(&attempt0_2))
+	require.NoError(t, persistentStore.InsertTxAttempt(ctx, &attempt0_2))
 
 	attempt2_2 := newInProgressLegacyEthTxAttempt(t, inTx_2.ID)
 	attempt2_2.TxFee = gas.EvmFee{Legacy: assets.NewWeiI(10)}
-	require.NoError(t, persistentStore.InsertTxAttempt(&attempt2_2))
+	require.NoError(t, persistentStore.InsertTxAttempt(ctx, &attempt2_2))
 
 	attempt3_2 := cltest.NewDynamicFeeEthTxAttempt(t, inTx_3.ID)
 	attempt3_2.TxFee.DynamicTipCap = assets.NewWeiI(10)
 	attempt3_2.TxFee.DynamicFeeCap = assets.NewWeiI(20)
 	attempt3_2.State = txmgrtypes.TxAttemptBroadcast
-	require.NoError(t, persistentStore.InsertTxAttempt(&attempt3_2))
+	require.NoError(t, persistentStore.InsertTxAttempt(ctx, &attempt3_2))
 	attempt3_4 := cltest.NewDynamicFeeEthTxAttempt(t, inTx_3.ID)
 	attempt3_4.TxFee.DynamicTipCap = assets.NewWeiI(30)
 	attempt3_4.TxFee.DynamicFeeCap = assets.NewWeiI(40)
 	attempt3_4.State = txmgrtypes.TxAttemptBroadcast
-	require.NoError(t, persistentStore.InsertTxAttempt(&attempt3_4))
+	require.NoError(t, persistentStore.InsertTxAttempt(ctx, &attempt3_4))
 	attempt3_3 := cltest.NewDynamicFeeEthTxAttempt(t, inTx_3.ID)
 	attempt3_3.TxFee.DynamicTipCap = assets.NewWeiI(20)
 	attempt3_3.TxFee.DynamicFeeCap = assets.NewWeiI(30)
 	attempt3_3.State = txmgrtypes.TxAttemptBroadcast
-	require.NoError(t, persistentStore.InsertTxAttempt(&attempt3_3))
+	require.NoError(t, persistentStore.InsertTxAttempt(ctx, &attempt3_3))
 	// insert the transaction into the in-memory store
 	require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx_0))
 	require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx_1))
@@ -134,7 +134,7 @@ func TestInMemoryStore_FindTxesWithMetaFieldByReceiptBlockNum(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
-	persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+	persistentStore := cltest.NewTestTxStore(t, db)
 	kst := cltest.NewKeyStore(t, db, dbcfg)
 	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
 
@@ -170,11 +170,11 @@ func TestInMemoryStore_FindTxesWithMetaFieldByReceiptBlockNum(t *testing.T) {
 	inTx_0.MinConfirmations.SetValid(6)
 	inTx_0.Meta = &meta
 	// insert the transaction into the persistent store
-	require.NoError(t, persistentStore.InsertTx(&inTx_0))
+	require.NoError(t, persistentStore.InsertTx(ctx, &inTx_0))
 	attempt := cltest.NewLegacyEthTxAttempt(t, inTx_0.ID)
 	attempt.BroadcastBeforeBlockNum = &broadcastBeforeBlockNum
 	attempt.State = txmgrtypes.TxAttemptBroadcast
-	require.NoError(t, persistentStore.InsertTxAttempt(&attempt))
+	require.NoError(t, persistentStore.InsertTxAttempt(ctx, &attempt))
 	inTx_0.TxAttempts = append(inTx_0.TxAttempts, attempt)
 	// insert the transaction receipt into the persistent store
 	rec_0 := mustInsertEthReceipt(t, persistentStore, 3, utils.NewHash(), inTx_0.TxAttempts[0].Hash)
@@ -229,7 +229,7 @@ func TestInMemoryStore_FindTxesWithMetaFieldByStates(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
-	persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+	persistentStore := cltest.NewTestTxStore(t, db)
 	kst := cltest.NewKeyStore(t, db, dbcfg)
 	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
 
@@ -256,7 +256,7 @@ func TestInMemoryStore_FindTxesWithMetaFieldByStates(t *testing.T) {
 	inTx_0 := cltest.NewEthTx(fromAddress)
 	inTx_0.Meta = &meta
 	// insert the transaction into the persistent store
-	require.NoError(t, persistentStore.InsertTx(&inTx_0))
+	require.NoError(t, persistentStore.InsertTx(ctx, &inTx_0))
 	// insert the transaction into the in-memory store
 	require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx_0))
 
@@ -304,7 +304,7 @@ func TestInMemoryStore_FindTxesByMetaFieldAndStates(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
-	persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+	persistentStore := cltest.NewTestTxStore(t, db)
 	kst := cltest.NewKeyStore(t, db, dbcfg)
 	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
 
@@ -331,7 +331,7 @@ func TestInMemoryStore_FindTxesByMetaFieldAndStates(t *testing.T) {
 	inTx_0 := cltest.NewEthTx(fromAddress)
 	inTx_0.Meta = &meta
 	// insert the transaction into the persistent store
-	require.NoError(t, persistentStore.InsertTx(&inTx_0))
+	require.NoError(t, persistentStore.InsertTx(ctx, &inTx_0))
 	// insert the transaction into the in-memory store
 	require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx_0))
 
@@ -381,7 +381,7 @@ func TestInMemoryStore_FindTxWithIdempotencyKey(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
-	persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+	persistentStore := cltest.NewTestTxStore(t, db)
 	kst := cltest.NewKeyStore(t, db, dbcfg)
 	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
 
@@ -403,7 +403,7 @@ func TestInMemoryStore_FindTxWithIdempotencyKey(t *testing.T) {
 	inTx := cltest.NewEthTx(fromAddress)
 	inTx.IdempotencyKey = &idempotencyKey
 	// insert the transaction into the persistent store
-	require.NoError(t, persistentStore.InsertTx(&inTx))
+	require.NoError(t, persistentStore.InsertTx(ctx, &inTx))
 	// insert the transaction into the in-memory store
 	require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
 
@@ -447,7 +447,7 @@ func TestInMemoryStore_CheckTxQueueCapacity(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
-	persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+	persistentStore := cltest.NewTestTxStore(t, db)
 	kst := cltest.NewKeyStore(t, db, dbcfg)
 	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
 
@@ -471,7 +471,7 @@ func TestInMemoryStore_CheckTxQueueCapacity(t *testing.T) {
 	}
 	for _, inTx := range inTxs {
 		// insert the transaction into the persistent store
-		require.NoError(t, persistentStore.InsertTx(&inTx))
+		require.NoError(t, persistentStore.InsertTx(ctx, &inTx))
 		// insert the transaction into the in-memory store
 		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
 	}
@@ -512,7 +512,7 @@ func TestInMemoryStore_CountUnstartedTransactions(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
-	persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+	persistentStore := cltest.NewTestTxStore(t, db)
 	kst := cltest.NewKeyStore(t, db, dbcfg)
 	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
 
@@ -537,7 +537,7 @@ func TestInMemoryStore_CountUnstartedTransactions(t *testing.T) {
 	}
 	for _, inTx := range inUnstartedTxs {
 		// insert the transaction into the persistent store
-		require.NoError(t, persistentStore.InsertTx(&inTx))
+		require.NoError(t, persistentStore.InsertTx(ctx, &inTx))
 		// insert the transaction into the in-memory store
 		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
 	}
@@ -577,7 +577,7 @@ func TestInMemoryStore_CountUnconfirmedTransactions(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
-	persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+	persistentStore := cltest.NewTestTxStore(t, db)
 	kst := cltest.NewKeyStore(t, db, dbcfg)
 	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
 
@@ -639,7 +639,7 @@ func TestInMemoryStore_FindTxAttemptsConfirmedMissingReceipt(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
-	persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+	persistentStore := cltest.NewTestTxStore(t, db)
 	kst := cltest.NewKeyStore(t, db, dbcfg)
 	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
 
@@ -713,7 +713,7 @@ func TestInMemoryStore_FindTxAttemptsRequiringReceiptFetch(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
-	persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+	persistentStore := cltest.NewTestTxStore(t, db)
 	kst := cltest.NewKeyStore(t, db, dbcfg)
 	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
 
@@ -787,7 +787,7 @@ func TestInMemoryStore_GetInProgressTxAttempts(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
-	persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+	persistentStore := cltest.NewTestTxStore(t, db)
 	kst := cltest.NewKeyStore(t, db, dbcfg)
 	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
 
@@ -835,7 +835,7 @@ func TestInMemoryStore_HasInProgressTransaction(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
-	persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+	persistentStore := cltest.NewTestTxStore(t, db)
 	kst := cltest.NewKeyStore(t, db, dbcfg)
 	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
 
@@ -880,7 +880,7 @@ func TestInMemoryStore_GetTxByID(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
-	persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+	persistentStore := cltest.NewTestTxStore(t, db)
 	kst := cltest.NewKeyStore(t, db, dbcfg)
 	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
 
@@ -928,7 +928,7 @@ func TestInMemoryStore_FindTxWithSequence(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
-	persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+	persistentStore := cltest.NewTestTxStore(t, db)
 	kst := cltest.NewKeyStore(t, db, dbcfg)
 	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
 
@@ -991,7 +991,7 @@ func TestInMemoryStore_CountTransactionsByState(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
-	persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+	persistentStore := cltest.NewTestTxStore(t, db)
 	kst := cltest.NewKeyStore(t, db, dbcfg)
 	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
 
@@ -1045,7 +1045,7 @@ func TestInMemoryStore_FindTxsRequiringResubmissionDueToInsufficientEth(t *testi
 
 	db := pgtest.NewSqlxDB(t)
 	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
-	persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+	persistentStore := cltest.NewTestTxStore(t, db)
 	kst := cltest.NewKeyStore(t, db, dbcfg)
 	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
 	_, otherAddress := cltest.MustInsertRandomKey(t, kst.Eth())
@@ -1079,7 +1079,7 @@ func TestInMemoryStore_FindTxsRequiringResubmissionDueToInsufficientEth(t *testi
 	attempt3_2 := cltest.NewLegacyEthTxAttempt(t, inTx_3.ID)
 	attempt3_2.State = txmgrtypes.TxAttemptInsufficientFunds
 	attempt3_2.TxFee.Legacy = assets.NewWeiI(100)
-	require.NoError(t, persistentStore.InsertTxAttempt(&attempt3_2))
+	require.NoError(t, persistentStore.InsertTxAttempt(ctx, &attempt3_2))
 	inTx_1 := mustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, persistentStore, 0, fromAddress)
 	// insert the transaction into the in-memory store
 	require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx_2))
@@ -1133,7 +1133,7 @@ func TestInMemoryStore_GetNonFatalTransactions(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
-	persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+	persistentStore := cltest.NewTestTxStore(t, db)
 	kst := cltest.NewKeyStore(t, db, dbcfg)
 	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
 
@@ -1193,7 +1193,7 @@ func TestInMemoryStore_FindTransactionsConfirmedInBlockRange(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
-	persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+	persistentStore := cltest.NewTestTxStore(t, db)
 	kst := cltest.NewKeyStore(t, db, dbcfg)
 	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
 
@@ -1256,7 +1256,7 @@ func TestInMemoryStore_FindEarliestUnconfirmedBroadcastTime(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
-	persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+	persistentStore := cltest.NewTestTxStore(t, db)
 	kst := cltest.NewKeyStore(t, db, dbcfg)
 	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
 
@@ -1313,7 +1313,7 @@ func TestInMemoryStore_FindEarliestUnconfirmedTxAttemptBlock(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
-	persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+	persistentStore := cltest.NewTestTxStore(t, db)
 	kst := cltest.NewKeyStore(t, db, dbcfg)
 	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
 
@@ -1347,7 +1347,7 @@ func TestInMemoryStore_FindEarliestUnconfirmedTxAttemptBlock(t *testing.T) {
 		attempt := cltest.NewLegacyEthTxAttempt(t, inTx.ID)
 		attempt.BroadcastBeforeBlockNum = &broadcastBeforeBlockNum
 		attempt.State = txmgrtypes.TxAttemptBroadcast
-		require.NoError(t, persistentStore.InsertTxAttempt(&attempt))
+		require.NoError(t, persistentStore.InsertTxAttempt(ctx, &attempt))
 		inTx.TxAttempts = append(inTx.TxAttempts, attempt)
 		// insert the transaction into the in-memory store
 		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
@@ -1377,7 +1377,7 @@ func TestInMemoryStore_LoadTxAttempts(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
-	persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+	persistentStore := cltest.NewTestTxStore(t, db)
 	kst := cltest.NewKeyStore(t, db, dbcfg)
 	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
 
@@ -1422,7 +1422,7 @@ func TestInMemoryStore_PreloadTxes(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
-	persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+	persistentStore := cltest.NewTestTxStore(t, db)
 	kst := cltest.NewKeyStore(t, db, dbcfg)
 	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
 
@@ -1467,7 +1467,7 @@ func TestInMemoryStore_IsTxFinalized(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
-	persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+	persistentStore := cltest.NewTestTxStore(t, db)
 	kst := cltest.NewKeyStore(t, db, dbcfg)
 	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
 
@@ -1540,7 +1540,7 @@ func TestInMemoryStore_FindTxsRequiringGasBump(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
-	persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+	persistentStore := cltest.NewTestTxStore(t, db)
 	kst := cltest.NewKeyStore(t, db, dbcfg)
 	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
 
