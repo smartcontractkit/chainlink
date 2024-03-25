@@ -18,7 +18,6 @@ type simulatorClient interface {
 
 // ZK chains can return an out-of-counters error
 // This method allows a caller to determine if a tx would fail due to OOC error by simulating the transaction
-// It will also return service unavailable or timeout errors for callers to react to retryable errors
 // Used as an entry point in case custom simulation is required across different chains
 func SimulateTransaction(ctx context.Context, client simulatorClient, lggr logger.SugaredLogger, chainType config.ChainType, msg ethereum.CallMsg) *SendError {
 	err := simulateTransactionDefault(ctx, client, msg)

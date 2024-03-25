@@ -96,7 +96,7 @@ type Client interface {
 
 	IsL2() bool
 
-	// Simulate the transaction prior to sending to catch zk out-of-counters error ahead of time. It will not return an error for non-zk chains.
+	// Simulate the transaction prior to sending to catch zk out-of-counters errors ahead of time
 	CheckTxValidity(ctx context.Context, from common.Address, to common.Address, data []byte) *SendError
 }
 
