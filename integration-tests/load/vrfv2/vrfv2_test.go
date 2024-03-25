@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/wasp"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -38,7 +39,6 @@ var (
 )
 
 func TestVRFV2Performance(t *testing.T) {
-
 	l := logging.GetTestLogger(t)
 
 	testType, err := tc.GetConfigurationNameFromEnv()
@@ -69,12 +69,17 @@ func TestVRFV2Performance(t *testing.T) {
 		Bool("UseExistingEnv", *vrfv2Config.General.UseExistingEnv).
 		Msg("Performance Test Configuration")
 
+	chainID := networks.MustGetSelectedNetworkConfig(testConfig.GetNetworkConfig())[0].ChainID
+
 	cleanupFn := func() {
 		teardown(t, vrfContracts.VRFV2Consumers[0], lc, updatedLabels, testReporter, testType, &testConfig)
 
-		if testEnv.EVMClient.NetworkSimulated() {
+		evmClient, err := testEnv.GetEVMClient(chainID)
+		require.NoError(t, err, "error getting EVM client")
+
+		if evmClient.NetworkSimulated() {
 			l.Info().
-				Str("Network Name", testEnv.EVMClient.GetNetworkName()).
+				Str("Network Name", evmClient.GetNetworkName()).
 				Msg("Network is a simulated network. Skipping fund return for Coordinator Subscriptions.")
 		} else {
 			if *vrfv2Config.General.CancelSubsAfterTestRun {
@@ -96,12 +101,16 @@ func TestVRFV2Performance(t *testing.T) {
 		UseTestCoordinator:     true,
 	}
 
-	testEnv, vrfContracts, vrfKey, _, err = vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, testConfig, cleanupFn, newEnvConfig, l)
-	require.NoError(t, err)
+	testEnv, vrfContracts, vrfKey, _, err = vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, testConfig, chainID, cleanupFn, newEnvConfig, l)
+	require.NoError(t, err, "error setting up VRFV2 universe")
+
+	evmClient, err := testEnv.GetEVMClient(chainID)
+	require.NoError(t, err, "error getting EVM client")
 
 	var consumers []contracts.VRFv2LoadTestConsumer
 	subIDs, consumers, err = vrfv2.SetupSubsAndConsumersForExistingEnv(
 		testEnv,
+		chainID,
 		vrfContracts.CoordinatorV2,
 		vrfContracts.LinkToken,
 		1,
@@ -111,7 +120,7 @@ func TestVRFV2Performance(t *testing.T) {
 	)
 	vrfContracts.VRFV2Consumers = consumers
 
-	eoaWalletAddress = testEnv.EVMClient.GetDefaultWallet().Address()
+	eoaWalletAddress = evmClient.GetDefaultWallet().Address()
 
 	l.Debug().Int("Number of Subs", len(subIDs)).Msg("Subs involved in the test")
 	for _, subID := range subIDs {
@@ -198,12 +207,17 @@ func TestVRFV2BHSPerformance(t *testing.T) {
 		Bool("UseExistingEnv", *vrfv2Config.General.UseExistingEnv).
 		Msg("Performance Test Configuration")
 
+	chainID := networks.MustGetSelectedNetworkConfig(testConfig.GetNetworkConfig())[0].ChainID
+
 	cleanupFn := func() {
 		teardown(t, vrfContracts.VRFV2Consumers[0], lc, updatedLabels, testReporter, testType, &testConfig)
 
-		if testEnv.EVMClient.NetworkSimulated() {
+		evmClient, err := testEnv.GetEVMClient(chainID)
+		require.NoError(t, err, "error getting EVM client")
+
+		if evmClient.NetworkSimulated() {
 			l.Info().
-				Str("Network Name", testEnv.EVMClient.GetNetworkName()).
+				Str("Network Name", evmClient.GetNetworkName()).
 				Msg("Network is a simulated network. Skipping fund return for Coordinator Subscriptions.")
 		} else {
 			if *vrfv2Config.General.CancelSubsAfterTestRun {
@@ -225,12 +239,16 @@ func TestVRFV2BHSPerformance(t *testing.T) {
 		UseTestCoordinator:     true,
 	}
 
-	testEnv, vrfContracts, vrfKey, _, err = vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, testConfig, cleanupFn, newEnvConfig, l)
-	require.NoError(t, err)
+	testEnv, vrfContracts, vrfKey, _, err = vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, testConfig, chainID, cleanupFn, newEnvConfig, l)
+	require.NoError(t, err, "error setting up VRFV2 universe")
+
+	evmClient, err := testEnv.GetEVMClient(chainID)
+	require.NoError(t, err, "error getting EVM client")
 
 	var consumers []contracts.VRFv2LoadTestConsumer
 	subIDs, consumers, err = vrfv2.SetupSubsAndConsumersForExistingEnv(
 		testEnv,
+		chainID,
 		vrfContracts.CoordinatorV2,
 		vrfContracts.LinkToken,
 		1,
@@ -240,7 +258,7 @@ func TestVRFV2BHSPerformance(t *testing.T) {
 	)
 	vrfContracts.VRFV2Consumers = consumers
 
-	eoaWalletAddress = testEnv.EVMClient.GetDefaultWallet().Address()
+	eoaWalletAddress = evmClient.GetDefaultWallet().Address()
 
 	l.Debug().Int("Number of Subs", len(subIDs)).Msg("Subs involved in the test")
 	for _, subID := range subIDs {
@@ -255,6 +273,7 @@ func TestVRFV2BHSPerformance(t *testing.T) {
 		configCopy.VRFv2.General.SubscriptionFundingAmountLink = ptr.Ptr(float64(0))
 		consumers, subIDs, err = vrfv2.SetupNewConsumersAndSubs(
 			testEnv,
+			chainID,
 			vrfContracts.CoordinatorV2,
 			configCopy,
 			vrfContracts.LinkToken,
@@ -298,12 +317,12 @@ func TestVRFV2BHSPerformance(t *testing.T) {
 		var wgBlockNumberTobe sync.WaitGroup
 		wgBlockNumberTobe.Add(1)
 		//Wait at least 256 blocks
-		latestBlockNumber, err := testEnv.EVMClient.LatestBlockNumber(testcontext.Get(t))
+		latestBlockNumber, err := evmClient.LatestBlockNumber(testcontext.Get(t))
 		require.NoError(t, err, "error getting latest block number")
-		_, err = actions.WaitForBlockNumberToBe(latestBlockNumber+uint64(256), testEnv.EVMClient, &wgBlockNumberTobe, configCopy.VRFv2.General.WaitFor256BlocksTimeout.Duration, t)
+		_, err = actions.WaitForBlockNumberToBe(latestBlockNumber+uint64(256), evmClient, &wgBlockNumberTobe, configCopy.VRFv2.General.WaitFor256BlocksTimeout.Duration, t)
 		wgBlockNumberTobe.Wait()
 		require.NoError(t, err, "error waiting for block number to be")
-		err = vrfv2.FundSubscriptions(testEnv, big.NewFloat(*configCopy.VRFv2.General.SubscriptionRefundingAmountLink), vrfContracts.LinkToken, vrfContracts.CoordinatorV2, subIDs)
+		err = vrfv2.FundSubscriptions(testEnv, chainID, big.NewFloat(*configCopy.VRFv2.General.SubscriptionRefundingAmountLink), vrfContracts.LinkToken, vrfContracts.CoordinatorV2, subIDs)
 		require.NoError(t, err, "error funding subscriptions")
 		var wgAllRequestsFulfilled sync.WaitGroup
 		wgAllRequestsFulfilled.Add(1)

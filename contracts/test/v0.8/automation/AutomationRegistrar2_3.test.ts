@@ -58,7 +58,7 @@ describe('AutomationRegistrar2_3', () => {
   const gasWei = BigNumber.from(100)
   const performGas = BigNumber.from(100000)
   const paymentPremiumPPB = BigNumber.from(250000000)
-  const flatFeeMicroLink = BigNumber.from(0)
+  const flatFeeMilliCents = BigNumber.from(0)
   const maxAllowedAutoApprove = 5
   const trigger = '0xdeadbeef'
   const offchainConfig = '0x01234567'
@@ -222,7 +222,7 @@ describe('AutomationRegistrar2_3', () => {
       [
         {
           gasFeePPB: paymentPremiumPPB,
-          flatFeeMicroLink,
+          flatFeeMilliCents,
           priceFeed: await registry.getLinkUSDFeedAddress(),
           fallbackPrice: 200,
           minSpend: minimumRegistrationAmount,
