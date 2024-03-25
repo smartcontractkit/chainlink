@@ -41,13 +41,13 @@ func UpdateLabels(labels map[string]string, t *testing.T) map[string]string {
 	return updatedLabels
 }
 
-func SendMetricsToLoki(metrics *contracts.VRFLoadTestMetrics, lc *wasp.LokiClient, updatedLabels map[string]string) {
+func SendMetricsToLoki(metrics *contracts.VRFV2PlusLoadTestMetrics, lc *wasp.LokiClient, updatedLabels map[string]string) {
 	if err := lc.HandleStruct(wasp.LabelsMapToModel(updatedLabels), time.Now(), metrics); err != nil {
 		log.Error().Err(err).Msg(ErrLokiPush)
 	}
 }
 
-func GetLoadTestMetrics(consumer contracts.VRFv2PlusLoadTestConsumer) *contracts.VRFLoadTestMetrics {
+func GetLoadTestMetrics(consumer contracts.VRFv2PlusLoadTestConsumer) *contracts.VRFV2PlusLoadTestMetrics {
 	metrics, err := consumer.GetLoadTestMetrics(context.Background())
 	if err != nil {
 		log.Error().Err(err).Msg(ErrMetrics)

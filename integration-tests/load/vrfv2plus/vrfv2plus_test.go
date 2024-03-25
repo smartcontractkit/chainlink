@@ -162,7 +162,7 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 		var wg sync.WaitGroup
 		wg.Add(1)
 		//todo - timeout should be configurable depending on the perf test type
-		requestCount, fulfilmentCount, err := vrfcommon.WaitForRequestCountEqualToFulfilmentCount(testcontext.Get(t), consumer, 2*time.Minute, &wg)
+		requestCount, fulfilmentCount, err := vrfv2plus.WaitForRequestCountEqualToFulfilmentCount(testcontext.Get(t), consumer, 2*time.Minute, &wg)
 		require.NoError(t, err)
 		wg.Wait()
 
@@ -351,6 +351,7 @@ func teardown(
 			AverageFulfillmentInMillions:         metrics.AverageFulfillmentInMillions,
 			SlowestFulfillment:                   metrics.SlowestFulfillment,
 			FastestFulfillment:                   metrics.FastestFulfillment,
+			ResponseTimesInBlocks:                metrics.ResponseTimesInBlocks,
 			AverageResponseTimeInSecondsMillions: metrics.AverageResponseTimeInSecondsMillions,
 			SlowestResponseTimeInSeconds:         metrics.SlowestResponseTimeInSeconds,
 			FastestResponseTimeInSeconds:         metrics.FastestResponseTimeInSeconds,

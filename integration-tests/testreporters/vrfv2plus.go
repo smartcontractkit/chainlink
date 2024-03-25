@@ -26,6 +26,7 @@ type VRFLoadTestMetrics struct {
 	AverageFulfillmentInMillions         *big.Int
 	SlowestFulfillment                   *big.Int
 	FastestFulfillment                   *big.Int
+	ResponseTimesInBlocks                []uint32
 	AverageResponseTimeInSecondsMillions *big.Int
 	SlowestResponseTimeInSeconds         *big.Int
 	FastestResponseTimeInSeconds         *big.Int
@@ -54,6 +55,8 @@ func (o *VRFV2PlusTestReporter) SendSlackNotification(t *testing.T, slackClient 
 	}
 
 	vrfv2lusConfig := o.VRFv2PlusTestConfig.GetVRFv2PlusConfig().Performance
+	responseTimesInBlocks := o.LoadTestMetrics.ResponseTimesInBlocks
+	responseTimesInBlocksLen := len(responseTimesInBlocks)
 	messageBlocks := testreporters.SlackNotifyBlocks(headerText, strings.Join(vtfv2PlusTestConfig.GetNetworkConfig().SelectedNetworks, ","), []string{
 		fmt.Sprintf(
 			"Summary\n"+
@@ -64,6 +67,8 @@ func (o *VRFV2PlusTestReporter) SendSlackNotification(t *testing.T, slackClient 
 				"Fulfilment Count: %s\n"+
 				"AverageFulfillmentInMillions (blocks): %s\n"+
 				"Slowest Fulfillment (blocks): %s\n"+
+				"P95 Fulfillment (blocks): %d\n"+
+				"P90 Fulfillment (blocks): %d\n"+
 				"Fastest Fulfillment (blocks): %s \n"+
 				"AverageFulfillmentInMillions (seconds): %s\n"+
 				"Slowest Fulfillment (seconds): %s\n"+
@@ -79,6 +84,8 @@ func (o *VRFV2PlusTestReporter) SendSlackNotification(t *testing.T, slackClient 
 			o.LoadTestMetrics.FulfilmentCount.String(),
 			o.LoadTestMetrics.AverageFulfillmentInMillions.String(),
 			o.LoadTestMetrics.SlowestFulfillment.String(),
+			responseTimesInBlocks[int(0.95*float64(responseTimesInBlocksLen))],
+			responseTimesInBlocks[int(0.9*float64(responseTimesInBlocksLen))],
 			o.LoadTestMetrics.FastestFulfillment.String(),
 			o.LoadTestMetrics.AverageResponseTimeInSecondsMillions.String(),
 			o.LoadTestMetrics.SlowestResponseTimeInSeconds.String(),

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"sort"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
@@ -560,7 +561,7 @@ func (v *EthereumVRFv2PlusLoadTestConsumer) GetLastRequestId(ctx context.Context
 	})
 }
 
-func (v *EthereumVRFv2PlusLoadTestConsumer) GetLoadTestMetrics(ctx context.Context) (*VRFLoadTestMetrics, error) {
+func (v *EthereumVRFv2PlusLoadTestConsumer) GetLoadTestMetrics(ctx context.Context) (*VRFV2PlusLoadTestMetrics, error) {
 	requestCount, err := v.consumer.SRequestCount(&bind.CallOpts{
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
 		Context: ctx,
@@ -622,12 +623,31 @@ func (v *EthereumVRFv2PlusLoadTestConsumer) GetLoadTestMetrics(ctx context.Conte
 		return nil, err
 	}
 
-	return &VRFLoadTestMetrics{
+	var responseTimesInBlocks []uint32
+	for {
+		currentResponseTimesInBlocks, err := v.consumer.GetRequestBlockTimes(&bind.CallOpts{
+			From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+			Context: ctx,
+		}, big.NewInt(int64(len(responseTimesInBlocks))), big.NewInt(1000))
+		if err != nil {
+			return nil, err
+		}
+		if len(currentResponseTimesInBlocks) == 0 {
+			sort.Slice(responseTimesInBlocks, func(i, j int) bool {
+				return responseTimesInBlocks[i] < responseTimesInBlocks[j]
+			})
+			break
+		}
+		responseTimesInBlocks = append(responseTimesInBlocks, currentResponseTimesInBlocks...)
+	}
+
+	return &VRFV2PlusLoadTestMetrics{
 		RequestCount:                         requestCount,
 		FulfilmentCount:                      fulfilmentCount,
 		AverageFulfillmentInMillions:         averageFulfillmentInMillions,
 		SlowestFulfillment:                   slowestFulfillment,
 		FastestFulfillment:                   fastestFulfillment,
+		ResponseTimesInBlocks:                responseTimesInBlocks,
 		AverageResponseTimeInSecondsMillions: averageResponseTimeInSeconds,
 		SlowestResponseTimeInSeconds:         slowestResponseTimeInSeconds,
 		FastestResponseTimeInSeconds:         fastestResponseTimeInSeconds,
