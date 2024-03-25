@@ -23,9 +23,9 @@ triggers:
   - type: "mercury-trigger"
     config:
       feedIds:
-        - "837699011992234352"
-        - "199223435283769901"
-        - "352837699011992234"
+        - "0x1111111111111111111100000000000000000000000000000000000000000000"
+        - "0x2222222222222222222200000000000000000000000000000000000000000000"
+        - "0x3333333333333333333300000000000000000000000000000000000000000000"
         
 consensus:
   - type: "offchain_reporting"
@@ -36,15 +36,15 @@ consensus:
     config:
       aggregation_method: "data_feeds_2_0"
       aggregation_config:
-        "837699011992234352":
+        "0x1111111111111111111100000000000000000000000000000000000000000000":
           deviation: "0.001"
-          heartbeat: "30m"
-        "199223435283769901":
+          heartbeat: 3600
+        "0x2222222222222222222200000000000000000000000000000000000000000000":
           deviation: "0.001"
-          heartbeat: "30m"
-        "352837699011992234":
+          heartbeat: 3600
+        "0x3333333333333333333300000000000000000000000000000000000000000000":
           deviation: "0.001"
-          heartbeat: "30m"
+          heartbeat: 3600
       encoder: "EVM"
       encoder_config:
         abi: "mercury_reports bytes[]"
@@ -127,19 +127,19 @@ func mercuryEventLoop(trigger *triggers.MercuryTriggerService, logger logger.Log
 
 		reports := []mercury.FeedReport{
 			{
-				FeedID:               837699011992234352,
+				FeedID:               "0x1111111111111111111100000000000000000000000000000000000000000000",
 				FullReport:           []byte{},
 				BenchmarkPrice:       prices[0],
 				ObservationTimestamp: time.Now().Unix(),
 			},
 			{
-				FeedID:               199223435283769901,
+				FeedID:               "0x2222222222222222222200000000000000000000000000000000000000000000",
 				FullReport:           []byte{},
 				BenchmarkPrice:       prices[1],
 				ObservationTimestamp: time.Now().Unix(),
 			},
 			{
-				FeedID:               352837699011992234,
+				FeedID:               "0x3333333333333333333300000000000000000000000000000000000000000000",
 				FullReport:           []byte{},
 				BenchmarkPrice:       prices[2],
 				ObservationTimestamp: time.Now().Unix(),
