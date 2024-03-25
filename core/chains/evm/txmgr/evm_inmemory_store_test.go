@@ -7,14 +7,17 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	commontxmgr "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 
+	clnull "github.com/smartcontractkit/chainlink-common/pkg/utils/null"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	evmgas "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
@@ -26,7 +29,165 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
+
+func TestInMemoryStore_FindTxesPendingCallback(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
+	persistentStore := cltest.NewTestTxStore(t, db)
+	kst := cltest.NewKeyStore(t, db, dbcfg)
+	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
+
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	lggr := logger.TestSugared(t)
+	chainID := ethClient.ConfiguredChainID()
+	ctx := testutils.Context(t)
+
+	inMemoryStore, err := commontxmgr.NewInMemoryStore[
+		*big.Int,
+		common.Address, common.Hash, common.Hash,
+		*evmtypes.Receipt,
+		evmtypes.Nonce,
+		evmgas.EvmFee,
+	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	require.NoError(t, err)
+
+	head := evmtypes.Head{
+		Hash:   utils.NewHash(),
+		Number: 10,
+		Parent: &evmtypes.Head{
+			Hash:   utils.NewHash(),
+			Number: 9,
+			Parent: &evmtypes.Head{
+				Number: 8,
+				Hash:   utils.NewHash(),
+				Parent: nil,
+			},
+		},
+	}
+	minConfirmations := int64(2)
+
+	pgtest.MustExec(t, db, `SET CONSTRAINTS pipeline_runs_pipeline_spec_id_fkey DEFERRED`)
+	// insert the transaction into the persistent store
+	// Suspended run waiting for callback
+	run1 := cltest.MustInsertPipelineRun(t, db)
+	tr1 := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, run1.ID)
+	pgtest.MustExec(t, db, `UPDATE pipeline_runs SET state = 'suspended' WHERE id = $1`, run1.ID)
+	inTx_0 := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, persistentStore, 3, 1, fromAddress)
+	pgtest.MustExec(t, db, `UPDATE evm.txes SET meta='{"FailOnRevert": true}'`)
+	attempt1 := inTx_0.TxAttempts[0]
+	r_0 := mustInsertEthReceipt(t, persistentStore, head.Number-minConfirmations, head.Hash, attempt1.Hash)
+	pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE WHERE id = $3`, &tr1.ID, minConfirmations, inTx_0.ID)
+	failOnRevert := null.BoolFrom(true)
+	b, err := json.Marshal(txmgr.TxMeta{FailOnRevert: failOnRevert})
+	require.NoError(t, err)
+	meta := sqlutil.JSON(b)
+	inTx_0.Meta = &meta
+	inTx_0.TxAttempts[0].Receipts = append(inTx_0.TxAttempts[0].Receipts, evmtxmgr.DbReceiptToEvmReceipt(&r_0))
+	inTx_0.MinConfirmations = clnull.Uint32From(uint32(minConfirmations))
+	inTx_0.PipelineTaskRunID = uuid.NullUUID{UUID: tr1.ID, Valid: true}
+	inTx_0.SignalCallback = true
+
+	// Callback to pipeline service completed. Should be ignored
+	run2 := cltest.MustInsertPipelineRunWithStatus(t, db, 0, pipeline.RunStatusCompleted)
+	tr2 := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, run2.ID)
+	inTx_1 := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, persistentStore, 4, 1, fromAddress)
+	pgtest.MustExec(t, db, `UPDATE evm.txes SET meta='{"FailOnRevert": false}'`)
+	attempt2 := inTx_1.TxAttempts[0]
+	r_1 := mustInsertEthReceipt(t, persistentStore, head.Number-minConfirmations, head.Hash, attempt2.Hash)
+	pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE, callback_completed = TRUE WHERE id = $3`, &tr2.ID, minConfirmations, inTx_1.ID)
+	failOnRevert = null.BoolFrom(false)
+	b, err = json.Marshal(txmgr.TxMeta{FailOnRevert: failOnRevert})
+	require.NoError(t, err)
+	meta = sqlutil.JSON(b)
+	inTx_1.Meta = &meta
+	inTx_1.TxAttempts[0].Receipts = append(inTx_1.TxAttempts[0].Receipts, evmtxmgr.DbReceiptToEvmReceipt(&r_1))
+	inTx_1.MinConfirmations = clnull.Uint32From(uint32(minConfirmations))
+	inTx_1.PipelineTaskRunID = uuid.NullUUID{UUID: tr2.ID, Valid: true}
+	inTx_1.SignalCallback = true
+	inTx_1.CallbackCompleted = true
+
+	// Suspended run younger than minConfirmations. Should be ignored
+	run3 := cltest.MustInsertPipelineRun(t, db)
+	tr3 := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, run3.ID)
+	pgtest.MustExec(t, db, `UPDATE pipeline_runs SET state = 'suspended' WHERE id = $1`, run3.ID)
+	inTx_2 := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, persistentStore, 5, 1, fromAddress)
+	pgtest.MustExec(t, db, `UPDATE evm.txes SET meta='{"FailOnRevert": false}'`)
+	attempt3 := inTx_2.TxAttempts[0]
+	r_2 := mustInsertEthReceipt(t, persistentStore, head.Number, head.Hash, attempt3.Hash)
+	pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE WHERE id = $3`, &tr3.ID, minConfirmations, inTx_2.ID)
+	failOnRevert = null.BoolFrom(false)
+	b, err = json.Marshal(txmgr.TxMeta{FailOnRevert: failOnRevert})
+	require.NoError(t, err)
+	meta = sqlutil.JSON(b)
+	inTx_2.Meta = &meta
+	inTx_2.TxAttempts[0].Receipts = append(inTx_2.TxAttempts[0].Receipts, evmtxmgr.DbReceiptToEvmReceipt(&r_2))
+	inTx_2.MinConfirmations = clnull.Uint32From(uint32(minConfirmations))
+	inTx_2.PipelineTaskRunID = uuid.NullUUID{UUID: tr3.ID, Valid: true}
+	inTx_2.SignalCallback = true
+
+	// Tx not marked for callback. Should be ignore
+	inTx_3 := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, persistentStore, 6, 1, fromAddress)
+	attempt4 := inTx_3.TxAttempts[0]
+	r_3 := mustInsertEthReceipt(t, persistentStore, head.Number, head.Hash, attempt4.Hash)
+	pgtest.MustExec(t, db, `UPDATE evm.txes SET min_confirmations = $1 WHERE id = $2`, minConfirmations, inTx_3.ID)
+	inTx_3.TxAttempts[0].Receipts = append(inTx_3.TxAttempts[0].Receipts, evmtxmgr.DbReceiptToEvmReceipt(&r_3))
+	inTx_3.MinConfirmations = clnull.Uint32From(uint32(minConfirmations))
+
+	// Unconfirmed Tx without receipts. Should be ignored
+	inTx_4 := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, persistentStore, 7, 1, fromAddress)
+	pgtest.MustExec(t, db, `UPDATE evm.txes SET min_confirmations = $1 WHERE id = $2`, minConfirmations, inTx_4.ID)
+	inTx_4.MinConfirmations = clnull.Uint32From(uint32(minConfirmations))
+
+	// insert the transaction into the in-memory store
+	require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx_0))
+	require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx_1))
+	require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx_2))
+	require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx_3))
+	require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx_4))
+
+	tcs := []struct {
+		name         string
+		inHeadNumber int64
+		inChainID    *big.Int
+
+		hasErr      bool
+		hasReceipts bool
+	}{
+		{"successfully finds receipts", head.Number, chainID, false, true},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			actReceipts, actErr := inMemoryStore.FindTxesPendingCallback(ctx, tc.inHeadNumber, tc.inChainID)
+			expReceipts, expErr := persistentStore.FindTxesPendingCallback(ctx, tc.inHeadNumber, tc.inChainID)
+			require.Equal(t, expErr, actErr)
+			if tc.hasErr {
+				require.NotNil(t, expErr)
+				require.NotNil(t, actErr)
+			} else {
+				require.Nil(t, expErr)
+				require.Nil(t, actErr)
+			}
+			if tc.hasReceipts {
+				require.NotEqual(t, 0, len(expReceipts))
+				assert.NotEqual(t, 0, len(actReceipts))
+				require.Equal(t, len(expReceipts), len(actReceipts))
+				for i := 0; i < len(expReceipts); i++ {
+					assert.Equal(t, expReceipts[i].ID, actReceipts[i].ID)
+					assert.Equal(t, expReceipts[i].FailOnRevert, actReceipts[i].FailOnRevert)
+					assertChainReceiptEqual(t, expReceipts[i].Receipt, actReceipts[i].Receipt)
+				}
+			} else {
+				require.Equal(t, 0, len(expReceipts))
+				require.Equal(t, 0, len(actReceipts))
+			}
+		})
+	}
+}
 
 func TestInMemoryStore_FindTxAttemptsRequiringResend(t *testing.T) {
 	t.Parallel()

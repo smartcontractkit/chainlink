@@ -383,9 +383,13 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 				continue
 			}
 
-			if tx.PipelineTaskRunID.Valid && tx.SignalCallback && !tx.CallbackCompleted &&
-				tx.TxAttempts[i].Receipts[0].GetBlockNumber() != nil &&
-				big.NewInt(blockNum-int64(tx.MinConfirmations.Uint32)).Cmp(tx.TxAttempts[i].Receipts[0].GetBlockNumber()) > 0 {
+			if !tx.PipelineTaskRunID.Valid || !tx.SignalCallback || tx.CallbackCompleted {
+				continue
+			}
+			receipt := tx.TxAttempts[i].Receipts[0]
+			minConfirmations := int64(tx.MinConfirmations.Uint32)
+			if receipt.GetBlockNumber() != nil &&
+				receipt.GetBlockNumber().Int64() <= (blockNum-minConfirmations) {
 				return true
 			}
 		}
@@ -412,10 +416,15 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 			failOnRevert = v
 		}
 
-		receiptsPlus[i] = txmgrtypes.ReceiptPlus[R]{
-			ID:           tx.PipelineTaskRunID.UUID,
-			Receipt:      (tx.TxAttempts[0].Receipts[0]).(R),
-			FailOnRevert: failOnRevert,
+		for j := 0; j < len(tx.TxAttempts); j++ {
+			if len(tx.TxAttempts[j].Receipts) == 0 {
+				continue
+			}
+			receiptsPlus[i] = txmgrtypes.ReceiptPlus[R]{
+				ID:           tx.PipelineTaskRunID.UUID,
+				Receipt:      tx.TxAttempts[j].Receipts[0].(R),
+				FailOnRevert: failOnRevert,
+			}
 		}
 		clear(meta)
 	}
