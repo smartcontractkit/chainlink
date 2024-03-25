@@ -12,14 +12,14 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb"
 )
 
-var _ libocr.ContractTransmitter = (*ContractTransmitterClient)(nil)
+var _ libocr.ContractTransmitter = (*contractTransmitterClient)(nil)
 
-type ContractTransmitterClient struct {
+type contractTransmitterClient struct {
 	*net.BrokerExt
 	grpc pb.ContractTransmitterClient
 }
 
-func (c *ContractTransmitterClient) Transmit(ctx context.Context, reportContext libocr.ReportContext, report libocr.Report, signatures []libocr.AttributedOnchainSignature) error {
+func (c *contractTransmitterClient) Transmit(ctx context.Context, reportContext libocr.ReportContext, report libocr.Report, signatures []libocr.AttributedOnchainSignature) error {
 	req := &pb.TransmitRequest{
 		ReportContext: &pb.ReportContext{
 			ReportTimestamp: &pb.ReportTimestamp{
@@ -45,7 +45,7 @@ func (c *ContractTransmitterClient) Transmit(ctx context.Context, reportContext 
 	return nil
 }
 
-func (c *ContractTransmitterClient) LatestConfigDigestAndEpoch(ctx context.Context) (configDigest libocr.ConfigDigest, epoch uint32, err error) {
+func (c *contractTransmitterClient) LatestConfigDigestAndEpoch(ctx context.Context) (configDigest libocr.ConfigDigest, epoch uint32, err error) {
 	var reply *pb.LatestConfigDigestAndEpochReply
 	reply, err = c.grpc.LatestConfigDigestAndEpoch(ctx, &pb.LatestConfigDigestAndEpochRequest{})
 	if err != nil {
@@ -60,7 +60,7 @@ func (c *ContractTransmitterClient) LatestConfigDigestAndEpoch(ctx context.Conte
 	return
 }
 
-func (c *ContractTransmitterClient) FromAccount(ctx context.Context) (libocr.Account, error) {
+func (c *contractTransmitterClient) FromAccount(ctx context.Context) (libocr.Account, error) {
 	reply, err := c.grpc.FromAccount(ctx, &pb.FromAccountRequest{})
 	if err != nil {
 		return "", err
@@ -68,14 +68,14 @@ func (c *ContractTransmitterClient) FromAccount(ctx context.Context) (libocr.Acc
 	return libocr.Account(reply.Account), nil
 }
 
-var _ pb.ContractTransmitterServer = (*ContractTransmitterServer)(nil)
+var _ pb.ContractTransmitterServer = (*contractTransmitterServer)(nil)
 
-type ContractTransmitterServer struct {
+type contractTransmitterServer struct {
 	pb.UnimplementedContractTransmitterServer
 	impl libocr.ContractTransmitter
 }
 
-func (c *ContractTransmitterServer) Transmit(ctx context.Context, request *pb.TransmitRequest) (*pb.TransmitReply, error) {
+func (c *contractTransmitterServer) Transmit(ctx context.Context, request *pb.TransmitRequest) (*pb.TransmitReply, error) {
 	var reportCtx libocr.ReportContext
 	if l := len(request.ReportContext.ReportTimestamp.ConfigDigest); l != 32 {
 		return nil, pb.ErrConfigDigestLen(l)
@@ -103,7 +103,7 @@ func (c *ContractTransmitterServer) Transmit(ctx context.Context, request *pb.Tr
 	return &pb.TransmitReply{}, c.impl.Transmit(ctx, reportCtx, request.Report, sigs)
 }
 
-func (c *ContractTransmitterServer) LatestConfigDigestAndEpoch(ctx context.Context, request *pb.LatestConfigDigestAndEpochRequest) (*pb.LatestConfigDigestAndEpochReply, error) {
+func (c *contractTransmitterServer) LatestConfigDigestAndEpoch(ctx context.Context, request *pb.LatestConfigDigestAndEpochRequest) (*pb.LatestConfigDigestAndEpochReply, error) {
 	digest, epoch, err := c.impl.LatestConfigDigestAndEpoch(ctx)
 	if err != nil {
 		return nil, err
@@ -111,7 +111,7 @@ func (c *ContractTransmitterServer) LatestConfigDigestAndEpoch(ctx context.Conte
 	return &pb.LatestConfigDigestAndEpochReply{ConfigDigest: digest[:], Epoch: epoch}, nil
 }
 
-func (c *ContractTransmitterServer) FromAccount(ctx context.Context, request *pb.FromAccountRequest) (*pb.FromAccountReply, error) {
+func (c *contractTransmitterServer) FromAccount(ctx context.Context, request *pb.FromAccountRequest) (*pb.FromAccountReply, error) {
 	a, err := c.impl.FromAccount(ctx)
 	if err != nil {
 		return nil, err

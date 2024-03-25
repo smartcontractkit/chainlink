@@ -30,9 +30,13 @@ var _ pb.ErrorLogServer = (*Server)(nil)
 type Server struct {
 	pb.UnimplementedErrorLogServer
 
-	Impl types.ErrorLog
+	impl types.ErrorLog
+}
+
+func NewServer(impl types.ErrorLog) *Server {
+	return &Server{impl: impl}
 }
 
 func (e *Server) SaveError(ctx context.Context, request *pb.SaveErrorRequest) (*emptypb.Empty, error) {
-	return &emptypb.Empty{}, e.Impl.SaveError(ctx, request.Message)
+	return &emptypb.Empty{}, e.impl.SaveError(ctx, request.Message)
 }

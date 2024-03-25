@@ -6,7 +6,7 @@ import (
 	"github.com/hashicorp/go-plugin"
 	"google.golang.org/grpc"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer/pluginprovider/ext/mercury"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/reportingplugin/mercury"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 )
 

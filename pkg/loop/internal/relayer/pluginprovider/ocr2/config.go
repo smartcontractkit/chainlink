@@ -27,8 +27,8 @@ type ConfigProviderClient struct {
 
 func NewConfigProviderClient(b *net.BrokerExt, cc grpc.ClientConnInterface) *ConfigProviderClient {
 	c := &ConfigProviderClient{ServiceClient: goplugin.NewServiceClient(b, cc)}
-	c.offchainDigester = &OffchainConfigDigesterClient{b, pb.NewOffchainConfigDigesterClient(cc)}
-	c.contractTracker = &ContractConfigTrackerClient{pb.NewContractConfigTrackerClient(cc)}
+	c.offchainDigester = &offchainConfigDigesterClient{b, pb.NewOffchainConfigDigesterClient(cc)}
+	c.contractTracker = &contractConfigTrackerClient{pb.NewContractConfigTrackerClient(cc)}
 	return c
 }
 
@@ -40,14 +40,14 @@ func (c *ConfigProviderClient) ContractConfigTracker() libocr.ContractConfigTrac
 	return c.contractTracker
 }
 
-var _ libocr.OffchainConfigDigester = (*OffchainConfigDigesterClient)(nil)
+var _ libocr.OffchainConfigDigester = (*offchainConfigDigesterClient)(nil)
 
-type OffchainConfigDigesterClient struct {
+type offchainConfigDigesterClient struct {
 	*net.BrokerExt
 	grpc pb.OffchainConfigDigesterClient
 }
 
-func (o *OffchainConfigDigesterClient) ConfigDigest(ctx context.Context, config libocr.ContractConfig) (digest libocr.ConfigDigest, err error) {
+func (o *offchainConfigDigesterClient) ConfigDigest(ctx context.Context, config libocr.ContractConfig) (digest libocr.ConfigDigest, err error) {
 	var reply *pb.ConfigDigestReply
 	reply, err = o.grpc.ConfigDigest(ctx, &pb.ConfigDigestRequest{
 		ContractConfig: pbContractConfig(config),
@@ -63,7 +63,7 @@ func (o *OffchainConfigDigesterClient) ConfigDigest(ctx context.Context, config 
 	return
 }
 
-func (o *OffchainConfigDigesterClient) ConfigDigestPrefix(ctx context.Context) (libocr.ConfigDigestPrefix, error) {
+func (o *offchainConfigDigesterClient) ConfigDigestPrefix(ctx context.Context) (libocr.ConfigDigestPrefix, error) {
 	reply, err := o.grpc.ConfigDigestPrefix(ctx, &pb.ConfigDigestPrefixRequest{})
 	if err != nil {
 		return 0, err
@@ -71,14 +71,14 @@ func (o *OffchainConfigDigesterClient) ConfigDigestPrefix(ctx context.Context) (
 	return libocr.ConfigDigestPrefix(reply.ConfigDigestPrefix), nil
 }
 
-var _ pb.OffchainConfigDigesterServer = (*OffchainConfigDigesterServer)(nil)
+var _ pb.OffchainConfigDigesterServer = (*offchainConfigDigesterServer)(nil)
 
-type OffchainConfigDigesterServer struct {
+type offchainConfigDigesterServer struct {
 	pb.UnimplementedOffchainConfigDigesterServer
 	impl libocr.OffchainConfigDigester
 }
 
-func (o *OffchainConfigDigesterServer) ConfigDigest(ctx context.Context, request *pb.ConfigDigestRequest) (*pb.ConfigDigestReply, error) {
+func (o *offchainConfigDigesterServer) ConfigDigest(ctx context.Context, request *pb.ConfigDigestRequest) (*pb.ConfigDigestReply, error) {
 	if request.ContractConfig.F > math.MaxUint8 {
 		return nil, pb.ErrUint8Bounds{Name: "F", U: request.ContractConfig.F}
 	}
@@ -103,7 +103,7 @@ func (o *OffchainConfigDigesterServer) ConfigDigest(ctx context.Context, request
 	return &pb.ConfigDigestReply{ConfigDigest: cd[:]}, nil
 }
 
-func (o *OffchainConfigDigesterServer) ConfigDigestPrefix(ctx context.Context, request *pb.ConfigDigestPrefixRequest) (*pb.ConfigDigestPrefixReply, error) {
+func (o *offchainConfigDigesterServer) ConfigDigestPrefix(ctx context.Context, request *pb.ConfigDigestPrefixRequest) (*pb.ConfigDigestPrefixReply, error) {
 	p, err := o.impl.ConfigDigestPrefix(ctx)
 	if err != nil {
 		return nil, err
@@ -111,15 +111,15 @@ func (o *OffchainConfigDigesterServer) ConfigDigestPrefix(ctx context.Context, r
 	return &pb.ConfigDigestPrefixReply{ConfigDigestPrefix: uint32(p)}, nil
 }
 
-var _ libocr.ContractConfigTracker = (*ContractConfigTrackerClient)(nil)
+var _ libocr.ContractConfigTracker = (*contractConfigTrackerClient)(nil)
 
-type ContractConfigTrackerClient struct {
+type contractConfigTrackerClient struct {
 	grpc pb.ContractConfigTrackerClient
 }
 
-func (c *ContractConfigTrackerClient) Notify() <-chan struct{} { return nil }
+func (c *contractConfigTrackerClient) Notify() <-chan struct{} { return nil }
 
-func (c *ContractConfigTrackerClient) LatestConfigDetails(ctx context.Context) (changedInBlock uint64, configDigest libocr.ConfigDigest, err error) {
+func (c *contractConfigTrackerClient) LatestConfigDetails(ctx context.Context) (changedInBlock uint64, configDigest libocr.ConfigDigest, err error) {
 	var reply *pb.LatestConfigDetailsReply
 	reply, err = c.grpc.LatestConfigDetails(ctx, &pb.LatestConfigDetailsRequest{})
 	if err != nil {
@@ -134,7 +134,7 @@ func (c *ContractConfigTrackerClient) LatestConfigDetails(ctx context.Context) (
 	return
 }
 
-func (c *ContractConfigTrackerClient) LatestConfig(ctx context.Context, changedInBlock uint64) (cfg libocr.ContractConfig, err error) {
+func (c *contractConfigTrackerClient) LatestConfig(ctx context.Context, changedInBlock uint64) (cfg libocr.ContractConfig, err error) {
 	var reply *pb.LatestConfigReply
 	reply, err = c.grpc.LatestConfig(ctx, &pb.LatestConfigRequest{
 		ChangedInBlock: changedInBlock,
@@ -166,7 +166,7 @@ func (c *ContractConfigTrackerClient) LatestConfig(ctx context.Context, changedI
 	return
 }
 
-func (c *ContractConfigTrackerClient) LatestBlockHeight(ctx context.Context) (blockHeight uint64, err error) {
+func (c *contractConfigTrackerClient) LatestBlockHeight(ctx context.Context) (blockHeight uint64, err error) {
 	var reply *pb.LatestBlockHeightReply
 	reply, err = c.grpc.LatestBlockHeight(ctx, &pb.LatestBlockHeightRequest{})
 	if err != nil {
@@ -176,14 +176,14 @@ func (c *ContractConfigTrackerClient) LatestBlockHeight(ctx context.Context) (bl
 	return
 }
 
-var _ pb.ContractConfigTrackerServer = (*ContractConfigTrackerServer)(nil)
+var _ pb.ContractConfigTrackerServer = (*contractConfigTrackerServer)(nil)
 
-type ContractConfigTrackerServer struct {
+type contractConfigTrackerServer struct {
 	pb.UnimplementedContractConfigTrackerServer
 	impl libocr.ContractConfigTracker
 }
 
-func (c *ContractConfigTrackerServer) LatestConfigDetails(ctx context.Context, request *pb.LatestConfigDetailsRequest) (*pb.LatestConfigDetailsReply, error) {
+func (c *contractConfigTrackerServer) LatestConfigDetails(ctx context.Context, request *pb.LatestConfigDetailsRequest) (*pb.LatestConfigDetailsReply, error) {
 	changedInBlock, configDigest, err := c.impl.LatestConfigDetails(ctx)
 	if err != nil {
 		return nil, err
@@ -191,7 +191,7 @@ func (c *ContractConfigTrackerServer) LatestConfigDetails(ctx context.Context, r
 	return &pb.LatestConfigDetailsReply{ChangedInBlock: changedInBlock, ConfigDigest: configDigest[:]}, nil
 }
 
-func (c *ContractConfigTrackerServer) LatestConfig(ctx context.Context, request *pb.LatestConfigRequest) (*pb.LatestConfigReply, error) {
+func (c *contractConfigTrackerServer) LatestConfig(ctx context.Context, request *pb.LatestConfigRequest) (*pb.LatestConfigReply, error) {
 	cc, err := c.impl.LatestConfig(ctx, request.ChangedInBlock)
 	if err != nil {
 		return nil, err
@@ -199,7 +199,7 @@ func (c *ContractConfigTrackerServer) LatestConfig(ctx context.Context, request 
 	return &pb.LatestConfigReply{ContractConfig: pbContractConfig(cc)}, nil
 }
 
-func (c *ContractConfigTrackerServer) LatestBlockHeight(ctx context.Context, request *pb.LatestBlockHeightRequest) (*pb.LatestBlockHeightReply, error) {
+func (c *contractConfigTrackerServer) LatestBlockHeight(ctx context.Context, request *pb.LatestBlockHeightRequest) (*pb.LatestBlockHeightReply, error) {
 	blockHeight, err := c.impl.LatestBlockHeight(ctx)
 	if err != nil {
 		return nil, err
@@ -225,10 +225,10 @@ func pbContractConfig(cc libocr.ContractConfig) *pb.ContractConfig {
 	return r
 }
 
-// TODO: where to put this helper?
+// RegisterPluginProviderServices registers the plugin provider services with the given grpc server
 func RegisterPluginProviderServices(s *grpc.Server, provider types.PluginProvider) {
 	RegisterConfigProviderServices(s, provider)
-	pb.RegisterContractTransmitterServer(s, &ContractTransmitterServer{impl: provider.ContractTransmitter()})
+	pb.RegisterContractTransmitterServer(s, &contractTransmitterServer{impl: provider.ContractTransmitter()})
 	// although these are part of the plugin provider interface, they are not actually implemented by all plugin providers (ie median)
 	// once we transition all plugins to the core node api, we can remove these checks
 	if provider.ChainReader() != nil {
@@ -242,6 +242,6 @@ func RegisterPluginProviderServices(s *grpc.Server, provider types.PluginProvide
 
 func RegisterConfigProviderServices(s *grpc.Server, provider types.ConfigProvider) {
 	pb.RegisterServiceServer(s, &goplugin.ServiceServer{Srv: provider})
-	pb.RegisterOffchainConfigDigesterServer(s, &OffchainConfigDigesterServer{impl: provider.OffchainConfigDigester()})
-	pb.RegisterContractConfigTrackerServer(s, &ContractConfigTrackerServer{impl: provider.ContractConfigTracker()})
+	pb.RegisterOffchainConfigDigesterServer(s, &offchainConfigDigesterServer{impl: provider.OffchainConfigDigester()})
+	pb.RegisterContractConfigTrackerServer(s, &contractConfigTrackerServer{impl: provider.ContractConfigTracker()})
 }

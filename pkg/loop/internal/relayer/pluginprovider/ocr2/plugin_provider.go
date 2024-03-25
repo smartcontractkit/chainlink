@@ -25,7 +25,7 @@ var _ goplugin.GRPCClientConn = (*PluginProviderClient)(nil)
 
 func NewPluginProviderClient(b *net.BrokerExt, cc grpc.ClientConnInterface) *PluginProviderClient {
 	p := &PluginProviderClient{ConfigProviderClient: NewConfigProviderClient(b.WithName("PluginProviderClient"), cc)}
-	p.contractTransmitter = &ContractTransmitterClient{b, pb.NewContractTransmitterClient(cc)}
+	p.contractTransmitter = &contractTransmitterClient{b, pb.NewContractTransmitterClient(cc)}
 	p.chainReader = chainreader.NewClient(b, cc)
 	p.codec = chainreader.NewCodecClient(b, cc)
 	return p

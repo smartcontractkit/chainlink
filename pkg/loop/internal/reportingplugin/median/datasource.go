@@ -12,17 +12,17 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb"
 )
 
-var _ median.DataSource = (*DataSourceClient)(nil)
+var _ median.DataSource = (*dataSourceClient)(nil)
 
-type DataSourceClient struct {
+type dataSourceClient struct {
 	grpc pb.DataSourceClient
 }
 
-func NewDataSourceClient(cc grpc.ClientConnInterface) *DataSourceClient {
-	return &DataSourceClient{grpc: pb.NewDataSourceClient(cc)}
+func newDataSourceClient(cc grpc.ClientConnInterface) *dataSourceClient {
+	return &dataSourceClient{grpc: pb.NewDataSourceClient(cc)}
 }
 
-func (d *DataSourceClient) Observe(ctx context.Context, timestamp types.ReportTimestamp) (*big.Int, error) {
+func (d *dataSourceClient) Observe(ctx context.Context, timestamp types.ReportTimestamp) (*big.Int, error) {
 	reply, err := d.grpc.Observe(ctx, &pb.ObserveRequest{
 		ReportTimestamp: pb.ReportTimestampToPb(timestamp),
 	})
@@ -32,19 +32,19 @@ func (d *DataSourceClient) Observe(ctx context.Context, timestamp types.ReportTi
 	return reply.Value.Int(), nil
 }
 
-var _ pb.DataSourceServer = (*DataSourceServer)(nil)
+var _ pb.DataSourceServer = (*dataSourceServer)(nil)
 
-type DataSourceServer struct {
+type dataSourceServer struct {
 	pb.UnimplementedDataSourceServer
 
 	impl median.DataSource
 }
 
-func NewDataSourceServer(impl median.DataSource) *DataSourceServer {
-	return &DataSourceServer{impl: impl}
+func newDataSourceServer(impl median.DataSource) *dataSourceServer {
+	return &dataSourceServer{impl: impl}
 }
 
-func (d *DataSourceServer) Observe(ctx context.Context, request *pb.ObserveRequest) (*pb.ObserveReply, error) {
+func (d *dataSourceServer) Observe(ctx context.Context, request *pb.ObserveRequest) (*pb.ObserveReply, error) {
 	timestamp, err := pb.ReportTimestampFromPb(request.ReportTimestamp)
 	if err != nil {
 		return nil, err

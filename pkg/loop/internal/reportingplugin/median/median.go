@@ -36,7 +36,7 @@ func NewPluginMedianClient(broker net.Broker, brokerCfg net.BrokerConfig, conn *
 func (m *PluginMedianClient) NewMedianFactory(ctx context.Context, provider types.MedianProvider, dataSource, juelsPerFeeCoin median.DataSource, errorLog types.ErrorLog) (types.ReportingPluginFactory, error) {
 	cc := m.NewClientConn("MedianPluginFactory", func(ctx context.Context) (id uint32, deps net.Resources, err error) {
 		dataSourceID, dsRes, err := m.ServeNew("DataSource", func(s *grpc.Server) {
-			pb.RegisterDataSourceServer(s, NewDataSourceServer(dataSource))
+			pb.RegisterDataSourceServer(s, newDataSourceServer(dataSource))
 		})
 		if err != nil {
 			return 0, nil, err
@@ -44,7 +44,7 @@ func (m *PluginMedianClient) NewMedianFactory(ctx context.Context, provider type
 		deps.Add(dsRes)
 
 		juelsPerFeeCoinDataSourceID, juelsPerFeeCoinDataSourceRes, err := m.ServeNew("JuelsPerFeeCoinDataSource", func(s *grpc.Server) {
-			pb.RegisterDataSourceServer(s, NewDataSourceServer(juelsPerFeeCoin))
+			pb.RegisterDataSourceServer(s, newDataSourceServer(juelsPerFeeCoin))
 		})
 		if err != nil {
 			return 0, nil, err
@@ -68,7 +68,7 @@ func (m *PluginMedianClient) NewMedianFactory(ctx context.Context, provider type
 		deps.Add(providerRes)
 
 		errorLogID, errorLogRes, err := m.ServeNew("ErrorLog", func(s *grpc.Server) {
-			pb.RegisterErrorLogServer(s, &errorlog.Server{Impl: errorLog})
+			pb.RegisterErrorLogServer(s, errorlog.NewServer(errorLog))
 		})
 		if err != nil {
 			return 0, nil, err
@@ -113,7 +113,7 @@ func (m *pluginMedianServer) NewMedianFactory(ctx context.Context, request *pb.N
 		return nil, net.ErrConnDial{Name: "DataSource", ID: request.DataSourceID, Err: err}
 	}
 	dsRes := net.Resource{Closer: dsConn, Name: "DataSource"}
-	dataSource := NewDataSourceClient(dsConn)
+	dataSource := newDataSourceClient(dsConn)
 
 	juelsConn, err := m.Dial(request.JuelsPerFeeCoinDataSourceID)
 	if err != nil {
@@ -121,7 +121,7 @@ func (m *pluginMedianServer) NewMedianFactory(ctx context.Context, request *pb.N
 		return nil, net.ErrConnDial{Name: "JuelsPerFeeCoinDataSource", ID: request.JuelsPerFeeCoinDataSourceID, Err: err}
 	}
 	juelsRes := net.Resource{Closer: juelsConn, Name: "JuelsPerFeeCoinDataSource"}
-	juelsPerFeeCoin := NewDataSourceClient(juelsConn)
+	juelsPerFeeCoin := newDataSourceClient(juelsConn)
 
 	providerConn, err := m.Dial(request.MedianProviderID)
 	if err != nil {

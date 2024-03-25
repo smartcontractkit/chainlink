@@ -9,17 +9,17 @@ import (
 	mercury_types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
 )
 
-var _ mercury_types.ChainReader = (*ChainReaderClient)(nil)
+var _ mercury_types.ChainReader = (*chainReaderClient)(nil)
 
-type ChainReaderClient struct {
+type chainReaderClient struct {
 	grpc mercury_pb.MercuryChainReaderClient
 }
 
-func NewChainReaderClient(cc grpc.ClientConnInterface) *ChainReaderClient {
-	return &ChainReaderClient{grpc: mercury_pb.NewMercuryChainReaderClient(cc)}
+func newChainReaderClient(cc grpc.ClientConnInterface) *chainReaderClient {
+	return &chainReaderClient{grpc: mercury_pb.NewMercuryChainReaderClient(cc)}
 }
 
-func (c *ChainReaderClient) LatestHeads(ctx context.Context, n int) ([]mercury_types.Head, error) {
+func (c *chainReaderClient) LatestHeads(ctx context.Context, n int) ([]mercury_types.Head, error) {
 	reply, err := c.grpc.LatestHeads(ctx, &mercury_pb.LatestHeadsRequest{
 		NumHeads: int64(n),
 	})
@@ -44,19 +44,19 @@ func headFromPb(head *mercury_pb.Head) mercury_types.Head {
 	}
 }
 
-var _ mercury_pb.MercuryChainReaderServer = (*ChainReaderServer)(nil)
+var _ mercury_pb.MercuryChainReaderServer = (*chainReaderServer)(nil)
 
-type ChainReaderServer struct {
+type chainReaderServer struct {
 	mercury_pb.UnimplementedMercuryChainReaderServer
 
 	impl mercury_types.ChainReader
 }
 
-func NewChainReaderServer(impl mercury_types.ChainReader) *ChainReaderServer {
-	return &ChainReaderServer{impl: impl}
+func newChainReaderServer(impl mercury_types.ChainReader) *chainReaderServer {
+	return &chainReaderServer{impl: impl}
 }
 
-func (c *ChainReaderServer) LatestHeads(ctx context.Context, request *mercury_pb.LatestHeadsRequest) (*mercury_pb.LatestHeadsReply, error) {
+func (c *chainReaderServer) LatestHeads(ctx context.Context, request *mercury_pb.LatestHeadsRequest) (*mercury_pb.LatestHeadsReply, error) {
 	heads, err := c.impl.LatestHeads(ctx, int(request.NumHeads))
 	if err != nil {
 		return nil, err

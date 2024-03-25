@@ -48,7 +48,7 @@ func (o *ReportingPluginServiceClient) NewReportingPluginFactory(
 		deps.Add(providerRes)
 
 		pipelineRunnerID, pipelineRunnerRes, err := o.ServeNew("PipelineRunner", func(s *grpc.Server) {
-			pb.RegisterPipelineRunnerServiceServer(s, &pipeline.RunnerServer{Impl: pipelineRunner})
+			pb.RegisterPipelineRunnerServiceServer(s, pipeline.NewRunnerServer(pipelineRunner))
 		})
 		if err != nil {
 			return 0, nil, err
@@ -64,7 +64,7 @@ func (o *ReportingPluginServiceClient) NewReportingPluginFactory(
 		deps.Add(telemetryRes)
 
 		errorLogID, errorLogRes, err := o.ServeNew("ErrorLog", func(s *grpc.Server) {
-			pb.RegisterErrorLogServer(s, &errorlog.Server{Impl: errorLog})
+			pb.RegisterErrorLogServer(s, errorlog.NewServer(errorLog))
 		})
 		if err != nil {
 			return 0, nil, err

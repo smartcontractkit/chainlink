@@ -54,7 +54,7 @@ func TestPipelineRunnerService(t *testing.T) {
 	}
 
 	mpr := &mockPipelineRunner{taskResults: originalResults}
-	srv := &RunnerServer{Impl: mpr}
+	srv := &RunnerServer{impl: mpr}
 	client := &pipelineRunnerServiceClient{grpc: &clientAdapter{srv: srv}}
 
 	trs, err := client.ExecuteRun(
@@ -69,7 +69,7 @@ func TestPipelineRunnerService(t *testing.T) {
 
 func TestPipelineRunnerService_CallArgs(t *testing.T) {
 	mpr := &mockPipelineRunner{}
-	srv := &RunnerServer{Impl: mpr}
+	srv := &RunnerServer{impl: mpr}
 	client := &pipelineRunnerServiceClient{grpc: &clientAdapter{srv: srv}}
 
 	spec := "my-spec"

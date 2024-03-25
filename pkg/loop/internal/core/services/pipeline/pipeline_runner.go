@@ -70,7 +70,11 @@ type RunnerServer struct {
 	pb.UnimplementedPipelineRunnerServiceServer
 	*net.BrokerExt
 
-	Impl types.PipelineRunnerService
+	impl types.PipelineRunnerService
+}
+
+func NewRunnerServer(impl types.PipelineRunnerService) *RunnerServer {
+	return &RunnerServer{impl: impl}
 }
 
 func (p *RunnerServer) ExecuteRun(ctx context.Context, rr *pb.RunRequest) (*pb.RunResponse, error) {
@@ -80,7 +84,7 @@ func (p *RunnerServer) ExecuteRun(ctx context.Context, rr *pb.RunRequest) (*pb.R
 	options := types.Options{
 		MaxTaskDuration: rr.Options.MaxTaskDuration.AsDuration(),
 	}
-	trs, err := p.Impl.ExecuteRun(ctx, rr.Spec, vars, options)
+	trs, err := p.impl.ExecuteRun(ctx, rr.Spec, vars, options)
 	if err != nil {
 		return nil, err
 	}
