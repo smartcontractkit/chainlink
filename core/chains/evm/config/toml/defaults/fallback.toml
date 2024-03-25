@@ -26,6 +26,22 @@ ResendAfterThreshold = '1m'
 [BalanceMonitor]
 Enabled = true
 
+[ClientErrorsRegex]
+NonceTooLow = ""
+NonceTooHigh = ""
+ReplacementTransactionUnderpriced = ""
+LimitReached = ""
+TransactionAlreadyInMempool = ""
+TerminallyUnderpriced = ""
+InsufficientEth = ""
+TxFeeExceedsCap = ""
+L2FeeTooLow = ""
+L2FeeTooHigh = ""
+L2Full = ""
+TransactionAlreadyMined = ""
+Fatal = ""
+ServiceUnavailable = ""
+
 [GasEstimator]
 Mode = 'BlockHistory'
 PriceDefault = '20 gwei'

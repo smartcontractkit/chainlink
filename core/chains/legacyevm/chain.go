@@ -218,7 +218,7 @@ func newChain(ctx context.Context, cfg *evmconfig.ChainScoped, nodes []*toml.Nod
 	if !cfg.EVMRPCEnabled() {
 		client = evmclient.NewNullClient(chainID, l)
 	} else if opts.GenEthClient == nil {
-		client = evmclient.NewEvmClient(cfg.EVM().NodePool(), cfg.EVM().NodeNoNewHeadsThreshold(), l, chainID, chainType, nodes)
+		client = evmclient.NewEvmClient(cfg.EVM().NodePool(), cfg.EVM().ClientErrors(), cfg.EVM().NodeNoNewHeadsThreshold(), l, chainID, chainType, nodes)
 	} else {
 		client = opts.GenEthClient(chainID)
 	}

@@ -25,8 +25,10 @@ import (
 	pkgerrors "github.com/pkg/errors"
 )
 
-const queryTimeout = 10 * time.Second
-const BALANCE_OF_ADDRESS_FUNCTION_SELECTOR = "0x70a08231"
+const (
+	queryTimeout                         = 10 * time.Second
+	BALANCE_OF_ADDRESS_FUNCTION_SELECTOR = "0x70a08231"
+)
 
 //go:generate mockery --quiet --name Client --output ./mocks/ --case=underscore
 
@@ -108,8 +110,10 @@ type client struct {
 	pool   *Pool
 }
 
-var _ Client = (*client)(nil)
-var _ htrktypes.Client[*evmtypes.Head, ethereum.Subscription, *big.Int, common.Hash] = (*client)(nil)
+var (
+	_ Client                                                                         = (*client)(nil)
+	_ htrktypes.Client[*evmtypes.Head, ethereum.Subscription, *big.Int, common.Hash] = (*client)(nil)
+)
 
 // NewClientWithNodes instantiates a client from a list of nodes
 // Currently only supports one primary
@@ -222,7 +226,8 @@ func (client *client) HeaderByHash(ctx context.Context, h common.Hash) (*types.H
 
 func (client *client) SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (commonclient.SendTxReturnCode, error) {
 	err := client.SendTransaction(ctx, tx)
-	returnCode := ClassifySendError(err, client.logger, tx, fromAddress, client.pool.ChainType().IsL2())
+	// nil is passed in as the second argument because this code is no longer being used.
+	returnCode := ClassifySendError(err, nil, client.logger, tx, fromAddress, client.pool.ChainType().IsL2())
 	return returnCode, err
 }
 
