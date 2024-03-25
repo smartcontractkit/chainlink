@@ -15,6 +15,12 @@ type Peer interface {
 	Receive() <-chan Message
 }
 
+//go:generate mockery --quiet --name PeerWrapper --output ./mocks/ --case=underscore
+type PeerWrapper interface {
+	services.Service
+	GetPeer() Peer
+}
+
 type Message struct {
 	Sender  ragetypes.PeerID
 	Payload []byte

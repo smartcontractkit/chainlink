@@ -22,14 +22,14 @@ import (
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_registrar_wrapper2_1"
-
 	ocr2keepers20config "github.com/smartcontractkit/chainlink-automation/pkg/v2/config"
 	ocr2keepers30config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_registrar_wrapper2_1"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -501,23 +501,30 @@ func (a *AutomationTest) SetConfigOnRegistry() error {
 		transmitters = append(transmitters, common.HexToAddress(string(transmitter)))
 	}
 
-	onchainConfig, err := a.RegistrySettings.EncodeOnChainConfig(a.Registrar.Address(), a.UpkeepPrivilegeManager, a.Registry.ChainModuleAddress(), a.Registry.ReorgProtectionEnabled())
-	if err != nil {
-		return errors.Join(err, fmt.Errorf("failed to encode onchain config"))
-	}
-
 	ocrConfig := contracts.OCRv2Config{
 		Signers:               signers,
 		Transmitters:          transmitters,
 		F:                     f,
-		OnchainConfig:         onchainConfig,
 		OffchainConfigVersion: offchainConfigVersion,
 		OffchainConfig:        offchainConfig,
 	}
 
-	err = a.Registry.SetConfig(a.RegistrySettings, ocrConfig)
-	if err != nil {
-		return errors.Join(err, fmt.Errorf("failed to set config on registry"))
+	if a.RegistrySettings.RegistryVersion == ethereum.RegistryVersion_2_0 {
+		ocrConfig.OnchainConfig = a.RegistrySettings.Encode20OnchainConfig(a.Registrar.Address())
+		err = a.Registry.SetConfig(a.RegistrySettings, ocrConfig)
+		if err != nil {
+			return errors.Join(err, fmt.Errorf("failed to set config on registry"))
+		}
+	} else {
+		if a.RegistrySettings.RegistryVersion == ethereum.RegistryVersion_2_1 {
+			ocrConfig.TypedOnchainConfig21 = a.RegistrySettings.Create21OnchainConfig(a.Registrar.Address(), a.UpkeepPrivilegeManager)
+		} else if a.RegistrySettings.RegistryVersion == ethereum.RegistryVersion_2_2 {
+			ocrConfig.TypedOnchainConfig22 = a.RegistrySettings.Create22OnchainConfig(a.Registrar.Address(), a.UpkeepPrivilegeManager, a.Registry.ChainModuleAddress(), a.Registry.ReorgProtectionEnabled())
+		}
+		err = a.Registry.SetConfigTypeSafe(ocrConfig)
+		if err != nil {
+			return errors.Join(err, fmt.Errorf("failed to set config on registry"))
+		}
 	}
 	return nil
 }

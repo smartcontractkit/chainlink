@@ -8,8 +8,6 @@ import (
 
 	context "context"
 
-	ethkey "github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
-
 	job "github.com/smartcontractkit/chainlink/v2/core/services/job"
 
 	mock "github.com/stretchr/testify/mock"
@@ -17,6 +15,8 @@ import (
 	pg "github.com/smartcontractkit/chainlink/v2/core/services/pg"
 
 	pipeline "github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+
+	types "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 
 	uuid "github.com/google/uuid"
 )
@@ -222,7 +222,7 @@ func (_m *ORM) FindJobByExternalJobID(_a0 uuid.UUID, qopts ...pg.QOpt) (job.Job,
 }
 
 // FindJobIDByAddress provides a mock function with given fields: address, evmChainID, qopts
-func (_m *ORM) FindJobIDByAddress(address ethkey.EIP55Address, evmChainID *big.Big, qopts ...pg.QOpt) (int32, error) {
+func (_m *ORM) FindJobIDByAddress(address types.EIP55Address, evmChainID *big.Big, qopts ...pg.QOpt) (int32, error) {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
@@ -238,16 +238,16 @@ func (_m *ORM) FindJobIDByAddress(address ethkey.EIP55Address, evmChainID *big.B
 
 	var r0 int32
 	var r1 error
-	if rf, ok := ret.Get(0).(func(ethkey.EIP55Address, *big.Big, ...pg.QOpt) (int32, error)); ok {
+	if rf, ok := ret.Get(0).(func(types.EIP55Address, *big.Big, ...pg.QOpt) (int32, error)); ok {
 		return rf(address, evmChainID, qopts...)
 	}
-	if rf, ok := ret.Get(0).(func(ethkey.EIP55Address, *big.Big, ...pg.QOpt) int32); ok {
+	if rf, ok := ret.Get(0).(func(types.EIP55Address, *big.Big, ...pg.QOpt) int32); ok {
 		r0 = rf(address, evmChainID, qopts...)
 	} else {
 		r0 = ret.Get(0).(int32)
 	}
 
-	if rf, ok := ret.Get(1).(func(ethkey.EIP55Address, *big.Big, ...pg.QOpt) error); ok {
+	if rf, ok := ret.Get(1).(func(types.EIP55Address, *big.Big, ...pg.QOpt) error); ok {
 		r1 = rf(address, evmChainID, qopts...)
 	} else {
 		r1 = ret.Error(1)

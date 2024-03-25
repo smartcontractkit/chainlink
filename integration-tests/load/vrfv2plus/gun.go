@@ -50,7 +50,8 @@ func (m *SingleHashGun) Call(_ *wasp.Generator) *wasp.Response {
 	}
 
 	//randomly increase/decrease randomness request count per TX
-	randomnessRequestCountPerRequest := deviateValue(*m.testConfig.GetVRFv2PlusConfig().General.RandomnessRequestCountPerRequest, *m.testConfig.GetVRFv2PlusConfig().General.RandomnessRequestCountPerRequestDeviation)
+	reqCount := deviateValue(*m.testConfig.GetVRFv2PlusConfig().General.RandomnessRequestCountPerRequest, *m.testConfig.GetVRFv2PlusConfig().General.RandomnessRequestCountPerRequestDeviation)
+	m.testConfig.GetVRFv2PlusConfig().General.RandomnessRequestCountPerRequest = &reqCount
 	_, err = vrfv2plus.RequestRandomnessAndWaitForFulfillment(
 		//the same consumer is used for all requests and in all subs
 		m.contracts.VRFV2PlusConsumer[0],
@@ -60,12 +61,7 @@ func (m *SingleHashGun) Call(_ *wasp.Generator) *wasp.Response {
 		m.subIDs[randInRange(0, len(m.subIDs)-1)],
 		//randomly pick payment type
 		billingType,
-		*m.testConfig.GetVRFv2PlusConfig().General.MinimumConfirmations,
-		*m.testConfig.GetVRFv2PlusConfig().General.CallbackGasLimit,
-		*m.testConfig.GetVRFv2PlusConfig().General.NumberOfWords,
-		randomnessRequestCountPerRequest,
-		*m.testConfig.GetVRFv2PlusConfig().General.RandomnessRequestCountPerRequestDeviation,
-		m.testConfig.GetVRFv2PlusConfig().General.RandomWordsFulfilledEventTimeout.Duration,
+		m.testConfig.GetVRFv2PlusConfig().General,
 		m.logger,
 	)
 	if err != nil {

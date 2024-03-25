@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/onsi/gomega"
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
@@ -93,7 +94,7 @@ func TestKeeperBasicSmoke(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t, &config)
+			chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(l, t, &config)
 			registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
 				t,
 				registryVersion,
@@ -174,7 +175,7 @@ func TestKeeperBlockCountPerTurn(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t, &config)
+			chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(l, t, &config)
 			registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
 				t,
 				registryVersion,
@@ -283,7 +284,7 @@ func TestKeeperSimulation(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t, &config)
+			chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(l, t, &config)
 			registry, _, consumersPerformance, upkeepIDs := actions.DeployPerformanceKeeperContracts(
 				t,
 				registryVersion,
@@ -360,7 +361,7 @@ func TestKeeperCheckPerformGasLimit(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t, &config)
+			chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(l, t, &config)
 			registry, _, consumersPerformance, upkeepIDs := actions.DeployPerformanceKeeperContracts(
 				t,
 				registryVersion,
@@ -477,7 +478,7 @@ func TestKeeperRegisterUpkeep(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t, &config)
+			chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(l, t, &config)
 			registry, registrar, consumers, upkeepIDs := actions.DeployKeeperContracts(
 				t,
 				registryVersion,
@@ -570,7 +571,7 @@ func TestKeeperAddFunds(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t, &config)
+			chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(l, t, &config)
 			registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
 				t,
 				registryVersion,
@@ -637,7 +638,7 @@ func TestKeeperRemove(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t, &config)
+			chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(l, t, &config)
 			registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
 				t,
 				registryVersion,
@@ -719,7 +720,7 @@ func TestKeeperPauseRegistry(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t, &config)
+			chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(l, t, &config)
 			registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
 				t,
 				registryVersion,
@@ -784,7 +785,7 @@ func TestKeeperMigrateRegistry(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t, &config)
+	chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(l, t, &config)
 	registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
 		t,
 		ethereum.RegistryVersion_1_2,
@@ -880,7 +881,7 @@ func TestKeeperNodeDown(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t, &config)
+			chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(l, t, &config)
 			registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
 				t,
 				registryVersion,
@@ -990,7 +991,7 @@ func TestKeeperPauseUnPauseUpkeep(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t, &config)
+	chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(l, t, &config)
 	registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
 		t,
 		ethereum.RegistryVersion_1_3,
@@ -1084,7 +1085,7 @@ func TestKeeperUpdateCheckData(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t, &config)
+	chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(l, t, &config)
 	registry, _, performDataChecker, upkeepIDs := actions.DeployPerformDataCheckerContracts(
 		t,
 		ethereum.RegistryVersion_1_3,
@@ -1143,7 +1144,7 @@ func TestKeeperUpdateCheckData(t *testing.T) {
 	}, "3m", "1s").Should(gomega.Succeed())
 }
 
-func setupKeeperTest(t *testing.T, config *tc.TestConfig) (
+func setupKeeperTest(l zerolog.Logger, t *testing.T, config *tc.TestConfig) (
 	blockchain.EVMClient,
 	[]*client.ChainlinkClient,
 	contracts.ContractDeployer,
@@ -1158,10 +1159,13 @@ func setupKeeperTest(t *testing.T, config *tc.TestConfig) (
 	clNodeConfig.Keeper.Registry.SyncInterval = &syncInterval
 	clNodeConfig.Keeper.Registry.PerformGasOverhead = &performGasOverhead
 
+	privateNetwork, err := actions.EthereumNetworkConfigFromConfig(l, config)
+	require.NoError(t, err, "Error building ethereum network config")
+
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestInstance(t).
 		WithTestConfig(config).
-		WithGeth().
+		WithPrivateEthereumNetwork(privateNetwork).
 		WithCLNodes(5).
 		WithCLNodeConfig(clNodeConfig).
 		WithFunding(big.NewFloat(.5)).
@@ -1189,7 +1193,7 @@ func TestKeeperJobReplacement(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t, &config)
+	chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(l, t, &config)
 	registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
 		t,
 		registryVersion,
