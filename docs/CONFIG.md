@@ -776,7 +776,7 @@ MaxSuccessfulRuns = 10000 # Default
 ReaperInterval = '1h' # Default
 ReaperThreshold = '24h' # Default
 ResultWriteQueueDepth = 100 # Default
-VerboseLogging = false # Default
+VerboseLogging = true # Default
 ```
 
 
@@ -826,13 +826,13 @@ ResultWriteQueueDepth controls how many writes will be buffered before subsequen
 
 ### VerboseLogging
 ```toml
-VerboseLogging = false # Default
+VerboseLogging = true # Default
 ```
 VerboseLogging enables detailed logging of pipeline execution steps.
-This is disabled by default because it increases log volume for pipeline
-runs, but can be useful for debugging failed runs without relying on the UI
-or database. Consider enabling this if you disabled run saving by setting
-MaxSuccessfulRuns to zero.
+This can be useful for debugging failed runs without relying on the UI
+or database.
+
+You may disable if this results in excessive log volume.
 
 ## JobPipeline.HTTPRequest
 ```toml
