@@ -149,10 +149,16 @@ func NewMercuryConfig(credentials *types.MercuryCredentials, abi abi.ABI) *Mercu
 }
 
 func (c *MercuryConfig) Credentials() *types.MercuryCredentials {
-	// remove the trailing slash from the URL if it exists
-	c.cred.URL = strings.TrimRight(c.cred.URL, "/")
-	c.cred.LegacyURL = strings.TrimRight(c.cred.LegacyURL, "/")
-	return c.cred
+	// make a copy and remove the trailing slash from the URL if it exists
+	cred := &types.MercuryCredentials{
+		URL:       c.cred.URL,
+		LegacyURL: c.cred.LegacyURL,
+		Password:  c.cred.Password,
+		Username:  c.cred.Username,
+	}
+	cred.LegacyURL = strings.TrimRight(cred.LegacyURL, "/")
+	cred.URL = strings.TrimRight(cred.URL, "/")
+	return cred
 }
 
 func (c *MercuryConfig) IsUpkeepAllowed(k string) (interface{}, bool) {
