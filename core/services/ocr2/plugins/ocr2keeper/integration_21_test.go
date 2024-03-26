@@ -255,8 +255,8 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 		t.Logf("Mined %d blocks, waiting for logs to be recovered", dummyBlocks)
 
 		listener, done := listenPerformedN(t, backend, registry, ids, int64(beforeDummyBlocks), recoverEmits)
+		defer done()
 		g.Eventually(listener, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.BeTrue())
-		done()
 	})
 }
 
@@ -421,6 +421,10 @@ func TestIntegration_KeeperPluginLogUpkeep_ErrHandler(t *testing.T) {
 		http.StatusUnauthorized,
 		http.StatusBadRequest,
 		http.StatusInternalServerError,
+		http.StatusNotFound,
+		http.StatusNotFound,
+		http.StatusNotFound,
+		http.StatusUnauthorized,
 	}
 	startMercuryServer(t, mercuryServer, func(i int) (int, []byte) {
 		var resp int
