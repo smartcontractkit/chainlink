@@ -78,9 +78,6 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   /* Storage Slot 4: END */
 
   /* Storage Slot 5: BEGIN */
-  /// @dev padding to make sure that the next variable is at a new storage slot
-  uint64 private s_padding;
-
   // s_stalenessSeconds is the number of seconds before we consider the feed price to be stale and
   // fallback to fallbackWeiPerUnitLink.
   uint32 private s_stalenessSeconds;
@@ -112,9 +109,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   // s_fulfillmentFlatFeeLinkDiscountPPM is the flat fee discount in millionths of native that VRFCoordinatorV2
   // charges for link payment.
   uint32 private s_fulfillmentFlatFeeLinkDiscountPPM;
-  /* Storage Slot 5: END */
 
-  /* Storage Slot 6: BEGIN */
   // s_coordinatorNativePremiumPercentage is the coordinator's premium ratio in percentage for native payment.
   // For example, a value of 0 indicates no premium. A value of 15 indicates a 15 percent premium.
   // Wrapper has no premium. This premium is for VRFCoordinator.
@@ -125,8 +120,8 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   // Wrapper has no premium. This premium is for VRFCoordinator.
   uint8 private s_coordinatorLinkPremiumPercentage;
 
-  // 30 bytes left
-  /* Storage Slot 6: END */
+  // 6 bytes left
+  /* Storage Slot 5: END */
 
   struct Callback {
     address callbackAddress;
@@ -137,9 +132,9 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     // GasPrice is unlikely to be more than 14 ETH on most chains
     uint64 requestGasPrice;
   }
-  /* Storage Slot 7: BEGIN */
+  /* Storage Slot 6: BEGIN */
   mapping(uint256 => Callback) /* requestID */ /* callback */ public s_callbacks;
-  /* Storage Slot 7: END */
+  /* Storage Slot 6: END */
 
   constructor(
     address _link,
