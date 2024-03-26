@@ -41,8 +41,9 @@ func TestShell_IndexStarkNetNodes(t *testing.T) {
 		URL:  commoncfg.MustParseURL("https://starknet2.example"),
 	}
 	chain := config.TOMLConfig{
-		ChainID: &id,
-		Nodes:   config.Nodes{&node1, &node2},
+		ChainID:   &id,
+		Nodes:     config.Nodes{&node1, &node2},
+		FeederURL: commoncfg.MustParseURL("http://feeder.url"),
 	}
 	app := starknetStartNewApplication(t, &chain)
 	client, r := app.NewShellAndRenderer()

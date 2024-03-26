@@ -13,9 +13,13 @@ RequestTimeout = '10s' # Default
 TxTimeout = '10s' # Default
 # ConfirmationPoll is how often to confirmer checks for tx inclusion on chain.
 ConfirmationPoll = '5s' # Default
+# Feeder URL is required to get tx metadata (that the RPC can't)
+FeederURL = 'http://feeder.url'
 
 [[Starknet.Nodes]]
 # Name is a unique (per-chain) identifier for this node.
 Name = 'primary' # Example
 # URL is the base HTTP(S) endpoint for this node.
 URL = 'http://stark.node' # Example
+# (Optional) APIKey Header is only required for Nethermind RPCs
+APIKey = 'key'
