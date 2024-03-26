@@ -1138,12 +1138,6 @@ CertFile = '/path/to/cert.pem'
 		t.Run(tt.name, func(t *testing.T) {
 			s, err := tt.config.TOMLString()
 			require.NoError(t, err)
-
-			// parsing from TOML requires stripping new lines
-			if tt.name == "full" || tt.name == "multi-chain" {
-				s = strings.TrimRight(s, "\n")
-			}
-
 			assert.Equal(t, tt.exp, s, diff.Diff(tt.exp, s))
 
 			var got Config
@@ -1370,7 +1364,7 @@ func Test_generalConfig_LogConfiguration(t *testing.T) {
 			if assert.Len(t, inputLogs, 1) {
 				assert.Equal(t, zapcore.InfoLevel, inputLogs[0].Level)
 				got := strings.TrimPrefix(inputLogs[0].Message, secrets)
-				got = strings.TrimRight(got, "\n")
+				got = strings.TrimSuffix(got, "\n")
 				assert.Equal(t, tt.wantSecrets, got)
 			}
 
@@ -1378,7 +1372,7 @@ func Test_generalConfig_LogConfiguration(t *testing.T) {
 			if assert.Len(t, inputLogs, 1) {
 				assert.Equal(t, zapcore.InfoLevel, inputLogs[0].Level)
 				got := strings.TrimPrefix(inputLogs[0].Message, input)
-				got = strings.TrimRight(got, "\n")
+				got = strings.TrimSuffix(got, "\n")
 				assert.Equal(t, tt.wantConfig, got)
 			}
 
@@ -1386,7 +1380,7 @@ func Test_generalConfig_LogConfiguration(t *testing.T) {
 			if assert.Len(t, inputLogs, 1) {
 				assert.Equal(t, zapcore.InfoLevel, inputLogs[0].Level)
 				got := strings.TrimPrefix(inputLogs[0].Message, effective)
-				got = strings.TrimRight(got, "\n")
+				got = strings.TrimSuffix(got, "\n")
 				assert.Equal(t, tt.wantEffective, got)
 			}
 
@@ -1394,7 +1388,7 @@ func Test_generalConfig_LogConfiguration(t *testing.T) {
 			if tt.wantWarning != "" && assert.Len(t, inputLogs, 1) {
 				assert.Equal(t, zapcore.WarnLevel, inputLogs[0].Level)
 				got := strings.TrimPrefix(inputLogs[0].Message, warning)
-				got = strings.TrimRight(got, "\n")
+				got = strings.TrimSuffix(got, "\n")
 				assert.Equal(t, tt.wantWarning, got)
 			}
 		})
@@ -1556,7 +1550,7 @@ func TestConfig_SetFrom(t *testing.T) {
 				require.NoError(t, c.SetFrom(&f))
 			}
 			ts, err := c.TOMLString()
-			ts = strings.TrimRight(ts, "\n")
+			ts = strings.TrimSuffix(ts, "\n")
 			require.NoError(t, err)
 			assert.Equal(t, tt.exp, ts)
 		})
