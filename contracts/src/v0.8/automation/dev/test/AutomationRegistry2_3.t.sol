@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
+import {Vm} from "forge-std/Test.sol";
 import {BaseTest} from "./BaseTest.t.sol";
 import {AutomationRegistryBase2_3 as AutoBase} from "../v2_3/AutomationRegistryBase2_3.sol";
+import {AutomationRegistrar2_3 as Registrar} from "../v2_3/AutomationRegistrar2_3.sol";
 import {IAutomationRegistryMaster2_3 as Registry, AutomationRegistryBase2_3} from "../interfaces/v2_3/IAutomationRegistryMaster2_3.sol";
 import {ChainModuleBase} from "../../chains/ChainModuleBase.sol";
 import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
@@ -543,7 +545,6 @@ contract SetConfig is SetUp {
       minSpend: 100_000
     });
 
-    bytes memory onchainConfigBytesWithBilling = abi.encode(cfg, billingTokens, billingConfigs);
     // deploy registry with OFF_CHAIN payout mode
     registry = deployRegistry(AutoBase.PayoutMode.OFF_CHAIN);
 
@@ -558,6 +559,109 @@ contract SetConfig is SetUp {
       billingTokens,
       billingConfigs
     );
+  }
+
+  function testSetConfigWithNewTransmittersSuccess() public {
+    registry = deployRegistry(AutoBase.PayoutMode.OFF_CHAIN);
+
+    (uint32 configCount, uint32 blockNumber, ) = registry.latestConfigDetails();
+    assertEq(configCount, 0);
+
+    address billingTokenAddress = address(0x1111111111111111111111111111111111111111);
+    address[] memory billingTokens = new address[](1);
+    billingTokens[0] = billingTokenAddress;
+
+    AutomationRegistryBase2_3.BillingConfig[] memory billingConfigs = new AutomationRegistryBase2_3.BillingConfig[](1);
+    billingConfigs[0] = AutomationRegistryBase2_3.BillingConfig({
+      gasFeePPB: 5_000,
+      flatFeeMilliCents: 20_000,
+      priceFeed: 0x2222222222222222222222222222222222222222,
+      fallbackPrice: 2_000_000_000, // $20
+      minSpend: 100_000
+    });
+
+    bytes memory onchainConfigBytes = abi.encode(cfg);
+
+    bytes32 configDigest = _configDigestFromConfigData(
+      block.chainid,
+      address(registry),
+      ++configCount,
+      SIGNERS,
+      TRANSMITTERS,
+      F,
+      onchainConfigBytes,
+      OFFCHAIN_CONFIG_VERSION,
+      offchainConfigBytes
+    );
+
+    vm.expectEmit();
+    emit ConfigSet(
+      blockNumber,
+      configDigest,
+      configCount,
+      SIGNERS,
+      TRANSMITTERS,
+      F,
+      onchainConfigBytes,
+      OFFCHAIN_CONFIG_VERSION,
+      offchainConfigBytes
+    );
+
+    registry.setConfigTypeSafe(
+      SIGNERS,
+      TRANSMITTERS,
+      F,
+      cfg,
+      OFFCHAIN_CONFIG_VERSION,
+      offchainConfigBytes,
+      billingTokens,
+      billingConfigs
+    );
+
+    (, , address[] memory signers, address[] memory transmitters, ) = registry.getState();
+    assertEq(signers, SIGNERS);
+    assertEq(transmitters, TRANSMITTERS);
+
+    (configCount, blockNumber, ) = registry.latestConfigDetails();
+    configDigest = _configDigestFromConfigData(
+      block.chainid,
+      address(registry),
+      ++configCount,
+      SIGNERS,
+      NEW_TRANSMITTERS,
+      F,
+      onchainConfigBytes,
+      OFFCHAIN_CONFIG_VERSION,
+      offchainConfigBytes
+    );
+
+    vm.expectEmit();
+    emit ConfigSet(
+      blockNumber,
+      configDigest,
+      configCount,
+      SIGNERS,
+      NEW_TRANSMITTERS,
+      F,
+      onchainConfigBytes,
+      OFFCHAIN_CONFIG_VERSION,
+      offchainConfigBytes
+    );
+
+    registry.setConfigTypeSafe(
+      SIGNERS,
+      NEW_TRANSMITTERS,
+      F,
+      cfg,
+      OFFCHAIN_CONFIG_VERSION,
+      offchainConfigBytes,
+      billingTokens,
+      billingConfigs
+    );
+
+    (, , signers, transmitters, ) = registry.getState();
+    assertEq(signers, SIGNERS);
+    assertEq(transmitters, NEW_TRANSMITTERS);
   }
 
   function _configDigestFromConfigData(
@@ -592,6 +696,7 @@ contract SetConfig is SetUp {
   }
 }
 
+// allow NOPs to withdraw balances made before disableOffchainNOPsOffchain is called
 contract NOPsSettlement is SetUp {
   event NOPsSettledOffchain(address[] payees, uint256[] payments);
 
@@ -640,29 +745,7 @@ contract NOPsSettlement is SetUp {
     registry.addFunds(id, 1e20);
 
     // manually create a transmit so transmitters earn some rewards
-    AutoBase.Report memory report;
-    {
-      uint256[] memory upkeepIds = new uint256[](1);
-      uint256[] memory gasLimits = new uint256[](1);
-      bytes[] memory performDatas = new bytes[](1);
-      bytes[] memory triggers = new bytes[](1);
-      upkeepIds[0] = id;
-      gasLimits[0] = 1000000;
-      triggers[0] = _encodeConditionalTrigger(
-        AutoBase.ConditionalTrigger(uint32(block.number - 1), blockhash(block.number - 1))
-      );
-      report = AutoBase.Report(uint256(1000000000), uint256(2000000000), upkeepIds, gasLimits, triggers, performDatas);
-    }
-    bytes memory reportBytes = _encodeReport(report);
-    (, , bytes32 configDigest) = registry.latestConfigDetails();
-    bytes32[3] memory reportContext = [configDigest, configDigest, configDigest];
-    uint256[] memory signerPKs = new uint256[](2);
-    signerPKs[0] = SIGNING_KEY0;
-    signerPKs[1] = SIGNING_KEY1;
-    (bytes32[] memory rs, bytes32[] memory ss, bytes32 vs) = _signReport(reportBytes, reportContext, signerPKs);
-
-    vm.startPrank(TRANSMITTERS[0]);
-    registry.transmit(reportContext, reportBytes, rs, ss, vs);
+    _transmit(id, registry);
 
     // verify transmitters have positive balances
     uint256[] memory payments = new uint256[](TRANSMITTERS.length);
@@ -684,8 +767,91 @@ contract NOPsSettlement is SetUp {
 
     // verify that transmitters balance has been zeroed out
     for (uint256 i = 0; i < TRANSMITTERS.length; i++) {
-      (bool active, uint8 index, uint96 balance, uint96 lastCollected, ) = registry.getTransmitterInfo(TRANSMITTERS[i]);
+      (bool active, uint8 index, uint96 balance, , ) = registry.getTransmitterInfo(TRANSMITTERS[i]);
       assertTrue(active);
+      assertEq(i, index);
+      assertEq(0, balance);
+    }
+  }
+
+  function testSettleNOPsOffchainForDeactivatedTransmittersSuccess() public {
+    // deploy and configure a registry with OFF_CHAIN payout
+    (Registry registry, Registrar registrar) = deployAndConfigureRegistryAndRegistrar(AutoBase.PayoutMode.OFF_CHAIN);
+
+    // register an upkeep and add funds
+    uint256 id = registry.registerUpkeep(address(TARGET1), 1000000, UPKEEP_ADMIN, 0, address(usdToken), "", "", "");
+    _mintERC20(UPKEEP_ADMIN, 1e20);
+    vm.startPrank(UPKEEP_ADMIN);
+    usdToken.approve(address(registry), 1e20);
+    registry.addFunds(id, 1e20);
+
+    // manually create a transmit so TRANSMITTERS earn some rewards
+    _transmit(id, registry);
+
+    // TRANSMITTERS have positive balance now
+    // configure the registry to use NEW_TRANSMITTERS
+    _configureWithNewTransmitters(registry, registrar);
+
+    _transmit(id, registry);
+
+    // verify all transmitters have positive balances
+    address[] memory expectedPayees = new address[](6);
+    uint256[] memory expectedPayments = new uint256[](6);
+    for (uint256 i = 0; i < NEW_TRANSMITTERS.length; i++) {
+      (bool active, uint8 index, uint96 balance, uint96 lastCollected, address payee) = registry.getTransmitterInfo(NEW_TRANSMITTERS[i]);
+      assertTrue(active);
+      assertEq(i, index);
+      assertTrue(lastCollected > 0);
+      expectedPayments[i] = balance;
+      expectedPayees[i] = payee;
+    }
+    for (uint256 i = 2; i < TRANSMITTERS.length; i++) {
+      (bool active, uint8 index, uint96 balance, uint96 lastCollected, address payee) = registry.getTransmitterInfo(TRANSMITTERS[i]);
+      assertFalse(active);
+      assertEq(i, index);
+      assertTrue(balance > 0);
+      assertTrue(lastCollected > 0);
+      expectedPayments[2 + i] = balance;
+      expectedPayees[2 + i] = payee;
+    }
+
+    // verify offchain settlement will emit NOPs' balances
+    vm.startPrank(FINANCE_ADMIN);
+
+    // simply expectEmit won't work here because s_deactivatedTransmitters is an enumerable set so the order of these
+    // deactivated transmitters is not guaranteed. To handle this, we record logs and decode data field manually.
+    vm.recordLogs();
+    registry.settleNOPsOffchain();
+    Vm.Log[] memory entries = vm.getRecordedLogs();
+
+    assertEq(entries.length, 1);
+    Vm.Log memory l = entries[0];
+    assertEq(l.topics[0], keccak256("NOPsSettledOffchain(address[],uint256[])"));
+    (address[] memory actualPayees, uint256[] memory actualPayments) = abi.decode(l.data, (address[], uint256[]));
+    assertEq(actualPayees.length, 6);
+    assertEq(actualPayments.length, 6);
+
+    // first 4 payees and payments are for NEW_TRANSMITTERS and they are ordered.
+    for (uint256 i = 0; i < NEW_TRANSMITTERS.length; i++) {
+      assertEq(actualPayees[i], expectedPayees[i]);
+      assertEq(actualPayments[i], expectedPayments[i]);
+    }
+
+    // the last 2 payees and payments for TRANSMITTERS[2] and TRANSMITTERS[3] and they are not ordered
+    assertTrue(actualPayments[5] == expectedPayments[5] && actualPayees[5] == expectedPayees[5] && actualPayments[4] == expectedPayments[4] && actualPayees[4] == expectedPayees[4]
+      || actualPayments[5] == expectedPayments[4] && actualPayees[5] == expectedPayees[4] && actualPayments[4] == expectedPayments[5] && actualPayees[4] == expectedPayees[5]);
+
+    // verify that new transmitters balance has been zeroed out
+    for (uint256 i = 0; i < NEW_TRANSMITTERS.length; i++) {
+      (bool active, uint8 index, uint96 balance, , ) = registry.getTransmitterInfo(NEW_TRANSMITTERS[i]);
+      assertTrue(active);
+      assertEq(i, index);
+      assertEq(0, balance);
+    }
+    // verify that deactivated transmitters (TRANSMITTERS[2] and TRANSMITTERS[3]) balance has been zeroed out
+    for (uint256 i = 2; i < TRANSMITTERS.length; i++) {
+      (bool active, uint8 index, uint96 balance, , ) = registry.getTransmitterInfo(TRANSMITTERS[i]);
+      assertFalse(active);
       assertEq(i, index);
       assertEq(0, balance);
     }
@@ -706,6 +872,107 @@ contract NOPsSettlement is SetUp {
     registry.disableOffchainPayments();
 
     assertEq(uint8(AutoBase.PayoutMode.ON_CHAIN), registry.getPayoutMode());
+  }
+
+  function testDisableOffchainPaymentsAndNodesCanWithdrawOnchain() public {
+    // deploy and configure a registry with OFF_CHAIN payout
+    (Registry registry, ) = deployAndConfigureRegistryAndRegistrar(AutoBase.PayoutMode.OFF_CHAIN);
+
+    // register an upkeep and add funds
+    uint256 id = registry.registerUpkeep(address(TARGET1), 1000000, UPKEEP_ADMIN, 0, address(usdToken), "", "", "");
+    _mintERC20(UPKEEP_ADMIN, 1e20);
+    vm.startPrank(UPKEEP_ADMIN);
+    usdToken.approve(address(registry), 1e20);
+    registry.addFunds(id, 1e20);
+
+    // manually create a transmit so transmitters earn some rewards
+    _transmit(id, registry);
+
+    // disable offchain payments
+
+    _mintLink(address(registry), 1e10);
+    vm.prank(registry.owner());
+    registry.disableOffchainPayments();
+
+    // payees should be able to withdraw onchain
+    for (uint256 i = 0; i < TRANSMITTERS.length; i++) {
+      (,, uint96 balance,, address payee) = registry.getTransmitterInfo(TRANSMITTERS[0]);
+      vm.prank(payee);
+      registry.withdrawPayment(TRANSMITTERS[i], payee);
+    }
+  }
+
+  function _transmit(uint256 id, Registry registry) internal {
+    uint256[] memory upkeepIds = new uint256[](1);
+    uint256[] memory gasLimits = new uint256[](1);
+    bytes[] memory performDatas = new bytes[](1);
+    bytes[] memory triggers = new bytes[](1);
+    upkeepIds[0] = id;
+    gasLimits[0] = 1000000;
+    triggers[0] = _encodeConditionalTrigger(
+      AutoBase.ConditionalTrigger(uint32(block.number - 1), blockhash(block.number - 1))
+    );
+    AutoBase.Report memory report = AutoBase.Report(uint256(1000000000), uint256(2000000000), upkeepIds, gasLimits, triggers, performDatas);
+
+    bytes memory reportBytes = _encodeReport(report);
+    (, , bytes32 configDigest) = registry.latestConfigDetails();
+    bytes32[3] memory reportContext = [configDigest, configDigest, configDigest];
+    uint256[] memory signerPKs = new uint256[](2);
+    signerPKs[0] = SIGNING_KEY0;
+    signerPKs[1] = SIGNING_KEY1;
+    (bytes32[] memory rs, bytes32[] memory ss, bytes32 vs) = _signReport(reportBytes, reportContext, signerPKs);
+
+    vm.startPrank(TRANSMITTERS[0]);
+    registry.transmit(reportContext, reportBytes, rs, ss, vs);
+    vm.stopPrank();
+  }
+
+  function _configureWithNewTransmitters(Registry registry, Registrar registrar) internal {
+    IERC20[] memory billingTokens = new IERC20[](1);
+    billingTokens[0] = IERC20(address(usdToken));
+    uint256[] memory minRegistrationFees = new uint256[](billingTokens.length);
+    minRegistrationFees[0] = 100000000000000000000; // 100 USD
+    address[] memory billingTokenAddresses = new address[](billingTokens.length);
+    for (uint256 i = 0; i < billingTokens.length; i++) {
+      billingTokenAddresses[i] = address(billingTokens[i]);
+    }
+    AutomationRegistryBase2_3.BillingConfig[]
+    memory billingTokenConfigs = new AutomationRegistryBase2_3.BillingConfig[](billingTokens.length);
+    billingTokenConfigs[0] = AutomationRegistryBase2_3.BillingConfig({
+      gasFeePPB: 10_000_000, // 15%
+      flatFeeMilliCents: 2_000, // 2 cents
+      priceFeed: address(USDTOKEN_USD_FEED),
+      fallbackPrice: 100_000_000, // $1
+      minSpend: 100000000000000000000 // 100 USD
+    });
+
+    address[] memory registrars;
+    registrars = new address[](1);
+    registrars[0] = address(registrar);
+    AutomationRegistryBase2_3.OnchainConfig memory cfg = AutomationRegistryBase2_3.OnchainConfig({
+      checkGasLimit: 5_000_000,
+      stalenessSeconds: 90_000,
+      gasCeilingMultiplier: 2,
+      maxPerformGas: 10_000_000,
+      maxCheckDataSize: 5_000,
+      maxPerformDataSize: 5_000,
+      maxRevertDataSize: 5_000,
+      fallbackGasPrice: 20_000_000_000,
+      fallbackLinkPrice: 2_000_000_000, // $20
+      fallbackNativePrice: 400_000_000_000, // $4,000
+      transcoder: 0xB1e66855FD67f6e85F0f0fA38cd6fBABdf00923c,
+      registrars: registrars,
+      upkeepPrivilegeManager: PRIVILEGE_MANAGER,
+      chainModule: address(new ChainModuleBase()),
+      reorgProtectionEnabled: true,
+      financeAdmin: FINANCE_ADMIN
+    });
+    registry.setConfigTypeSafe(SIGNERS, NEW_TRANSMITTERS, F, cfg,
+      OFFCHAIN_CONFIG_VERSION,
+      "",
+      billingTokenAddresses,
+      billingTokenConfigs);
+    registry.setPayees(NEW_PAYEES);
   }
 }
 
