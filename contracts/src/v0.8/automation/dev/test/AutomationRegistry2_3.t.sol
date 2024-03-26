@@ -798,7 +798,9 @@ contract NOPsSettlement is SetUp {
     address[] memory expectedPayees = new address[](6);
     uint256[] memory expectedPayments = new uint256[](6);
     for (uint256 i = 0; i < NEW_TRANSMITTERS.length; i++) {
-      (bool active, uint8 index, uint96 balance, uint96 lastCollected, address payee) = registry.getTransmitterInfo(NEW_TRANSMITTERS[i]);
+      (bool active, uint8 index, uint96 balance, uint96 lastCollected, address payee) = registry.getTransmitterInfo(
+        NEW_TRANSMITTERS[i]
+      );
       assertTrue(active);
       assertEq(i, index);
       assertTrue(lastCollected > 0);
@@ -806,7 +808,9 @@ contract NOPsSettlement is SetUp {
       expectedPayees[i] = payee;
     }
     for (uint256 i = 2; i < TRANSMITTERS.length; i++) {
-      (bool active, uint8 index, uint96 balance, uint96 lastCollected, address payee) = registry.getTransmitterInfo(TRANSMITTERS[i]);
+      (bool active, uint8 index, uint96 balance, uint96 lastCollected, address payee) = registry.getTransmitterInfo(
+        TRANSMITTERS[i]
+      );
       assertFalse(active);
       assertEq(i, index);
       assertTrue(balance > 0);
@@ -838,8 +842,16 @@ contract NOPsSettlement is SetUp {
     }
 
     // the last 2 payees and payments for TRANSMITTERS[2] and TRANSMITTERS[3] and they are not ordered
-    assertTrue(actualPayments[5] == expectedPayments[5] && actualPayees[5] == expectedPayees[5] && actualPayments[4] == expectedPayments[4] && actualPayees[4] == expectedPayees[4]
-      || actualPayments[5] == expectedPayments[4] && actualPayees[5] == expectedPayees[4] && actualPayments[4] == expectedPayments[5] && actualPayees[4] == expectedPayees[5]);
+    assertTrue(
+      (actualPayments[5] == expectedPayments[5] &&
+        actualPayees[5] == expectedPayees[5] &&
+        actualPayments[4] == expectedPayments[4] &&
+        actualPayees[4] == expectedPayees[4]) ||
+        (actualPayments[5] == expectedPayments[4] &&
+          actualPayees[5] == expectedPayees[4] &&
+          actualPayments[4] == expectedPayments[5] &&
+          actualPayees[4] == expectedPayees[5])
+    );
 
     // verify that new transmitters balance has been zeroed out
     for (uint256 i = 0; i < NEW_TRANSMITTERS.length; i++) {
@@ -896,7 +908,7 @@ contract NOPsSettlement is SetUp {
 
     // payees should be able to withdraw onchain
     for (uint256 i = 0; i < TRANSMITTERS.length; i++) {
-      (,, uint96 balance,, address payee) = registry.getTransmitterInfo(TRANSMITTERS[0]);
+      (, , uint96 balance, , address payee) = registry.getTransmitterInfo(TRANSMITTERS[0]);
       vm.prank(payee);
       registry.withdrawPayment(TRANSMITTERS[i], payee);
     }
@@ -912,7 +924,14 @@ contract NOPsSettlement is SetUp {
     triggers[0] = _encodeConditionalTrigger(
       AutoBase.ConditionalTrigger(uint32(block.number - 1), blockhash(block.number - 1))
     );
-    AutoBase.Report memory report = AutoBase.Report(uint256(1000000000), uint256(2000000000), upkeepIds, gasLimits, triggers, performDatas);
+    AutoBase.Report memory report = AutoBase.Report(
+      uint256(1000000000),
+      uint256(2000000000),
+      upkeepIds,
+      gasLimits,
+      triggers,
+      performDatas
+    );
 
     bytes memory reportBytes = _encodeReport(report);
     (, , bytes32 configDigest) = registry.latestConfigDetails();
@@ -937,7 +956,7 @@ contract NOPsSettlement is SetUp {
       billingTokenAddresses[i] = address(billingTokens[i]);
     }
     AutomationRegistryBase2_3.BillingConfig[]
-    memory billingTokenConfigs = new AutomationRegistryBase2_3.BillingConfig[](billingTokens.length);
+      memory billingTokenConfigs = new AutomationRegistryBase2_3.BillingConfig[](billingTokens.length);
     billingTokenConfigs[0] = AutomationRegistryBase2_3.BillingConfig({
       gasFeePPB: 10_000_000, // 15%
       flatFeeMilliCents: 2_000, // 2 cents
@@ -967,11 +986,16 @@ contract NOPsSettlement is SetUp {
       reorgProtectionEnabled: true,
       financeAdmin: FINANCE_ADMIN
     });
-    registry.setConfigTypeSafe(SIGNERS, NEW_TRANSMITTERS, F, cfg,
+    registry.setConfigTypeSafe(
+      SIGNERS,
+      NEW_TRANSMITTERS,
+      F,
+      cfg,
       OFFCHAIN_CONFIG_VERSION,
       "",
       billingTokenAddresses,
-      billingTokenConfigs);
+      billingTokenConfigs
+    );
     registry.setPayees(NEW_PAYEES);
   }
 }
