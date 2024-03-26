@@ -1,20 +1,27 @@
 package smoke
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"io"
+	"log"
 	"math/big"
+	"net/http"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	env "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
@@ -1318,7 +1325,7 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 		status, err := consumers[0].GetRequestStatus(testcontext.Get(t), randomWordsFulfilledEvent.RequestId)
 		require.NoError(t, err, "error getting rand request status")
 		require.True(t, status.Fulfilled)
-		l.Debug().Bool("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
+		l.Info().Bool("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
 
 		randRequestBlockHash, err := vrfContracts.BHS.GetBlockHash(testcontext.Get(t), big.NewInt(int64(randRequestBlockNumber)))
 		require.NoError(t, err, "error getting blockhash for a blocknumber which was stored in BHS contract")
@@ -1712,4 +1719,181 @@ func TestVRFv2PlusPendingBlockSimulationAndZeroConfirmationDelays(t *testing.T) 
 	require.NoError(t, err, "error getting rand request status")
 	require.True(t, status.Fulfilled)
 	l.Info().Bool("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
+}
+
+func TestReorg(t *testing.T) {
+	t.Parallel()
+	var (
+		env                          *test_env.CLClusterTestEnv
+		vrfContracts                 *vrfcommon.VRFContracts
+		subIDsForCancellingAfterTest []*big.Int
+		defaultWalletAddress         string
+		vrfKey                       *vrfcommon.VRFKeyData
+		//nodeTypeToNodeMap            map[vrfcommon.VRFNodeType]*vrfcommon.VRFNode
+	)
+	l := logging.GetTestLogger(t)
+
+	config, err := tc.GetConfig("Smoke", tc.VRFv2Plus)
+	require.NoError(t, err, "Error getting config")
+	vrfv2PlusConfig := config.VRFv2Plus
+	chainID := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0].ChainID
+
+	cleanupFn := func() {
+		evmClient, err := env.GetEVMClient(chainID)
+		require.NoError(t, err, "Getting EVM client shouldn't fail")
+
+		if evmClient.NetworkSimulated() {
+			l.Info().
+				Str("Network Name", evmClient.GetNetworkName()).
+				Msg("Network is a simulated network. Skipping fund return for Coordinator Subscriptions.")
+		} else {
+			if *vrfv2PlusConfig.General.CancelSubsAfterTestRun {
+				//cancel subs and return funds to sub owner
+				vrfv2plus.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, defaultWalletAddress, subIDsForCancellingAfterTest, l)
+			}
+		}
+		if !*vrfv2PlusConfig.General.UseExistingEnv {
+			if err := env.Cleanup(); err != nil {
+				l.Error().Err(err).Msg("Error cleaning up test environment")
+			}
+		}
+	}
+	newEnvConfig := vrfcommon.NewEnvConfig{
+		NodesToCreate:          []vrfcommon.VRFNodeType{vrfcommon.VRF},
+		NumberOfTxKeysToCreate: 0,
+		UseVRFOwner:            false,
+		UseTestCoordinator:     false,
+	}
+
+	env, vrfContracts, vrfKey, _, err = vrfv2plus.SetupVRFV2PlusUniverse(testcontext.Get(t), t, config, chainID, cleanupFn, newEnvConfig, l)
+	require.NoError(t, err, "Error setting up VRFv2Plus universe")
+
+	evmClient, err := env.GetEVMClient(chainID)
+	require.NoError(t, err, "Getting EVM client shouldn't fail")
+	defaultWalletAddress = evmClient.GetDefaultWallet().Address()
+
+	//fmt.Println("RpcProvider.PrivateHttpUrls", env.GetEVMClient(chainID))
+	//fmt.Println("RpcProvider.PublicHttpUrls", env.RpcProvider.PublicHttpUrls())
+	//fmt.Println("RpcProvider.PrivateWsUrsl", env.RpcProvider.PrivateWsUrsl())
+	//fmt.Println("RpcProvider.PublicWsUrls", env.RpcProvider.PublicWsUrls())
+
+	t.Run("Test Reorg", func(t *testing.T) {
+		configCopy := config.MustCopy().(tc.TestConfig)
+		var isNativeBilling = true
+
+		consumers, subIDs, err := vrfv2plus.SetupNewConsumersAndSubs(
+			env,
+			chainID,
+			vrfContracts.CoordinatorV2Plus,
+			configCopy,
+			vrfContracts.LinkToken,
+			1,
+			1,
+			l,
+		)
+		require.NoError(t, err, "error setting up new consumers and subs")
+		subID := subIDs[0]
+		subscription, err := vrfContracts.CoordinatorV2Plus.GetSubscription(testcontext.Get(t), subID)
+		require.NoError(t, err, "error getting subscription information")
+		vrfv2plus.LogSubDetails(l, subscription, subID, vrfContracts.CoordinatorV2Plus)
+		subIDsForCancellingAfterTest = append(subIDsForCancellingAfterTest, subIDs...)
+
+		//1. set minimum confirmations to 5 so that we can be sure that request wont be fulfilled before reorg
+		configCopy.VRFv2Plus.General.MinimumConfirmations = ptr.Ptr[uint16](5)
+
+		//2. request randomness
+		randomWordsRequestedEvent, err := vrfv2plus.RequestRandomnessAndWaitForRequestedEvent(
+			consumers[0],
+			vrfContracts.CoordinatorV2Plus,
+			vrfKey,
+			subID,
+			isNativeBilling,
+			configCopy.VRFv2Plus.General,
+			l,
+		)
+		require.NoError(t, err)
+
+		fmt.Println("reqRandomWordsRequestedEvent BlockNumber", randomWordsRequestedEvent.Raw.BlockNumber)
+		fmt.Println("reqRandomWordsRequestedEvent BlockHash", randomWordsRequestedEvent.Raw.BlockHash)
+
+		//3. rewind chain by n number of blocks - basically, mimicking reorg scenario
+		//todo - this will be replaced by proper method
+		makeReorg(t, evmClient, env, chainID, 10)
+
+		err = evmClient.WaitForEvents()
+		require.NoError(t, err, vrfcommon.ErrWaitTXsComplete)
+
+		latestBlockNumberAfterReorg, err := evmClient.LatestBlockNumber(testcontext.Get(t))
+		require.NoError(t, err)
+		fmt.Println("latestBlockNumber After Reorg", latestBlockNumberAfterReorg)
+
+		//4. ensure that chain is reorged and latest block number is less than the block number when request was made
+		require.Less(t, latestBlockNumberAfterReorg, randomWordsRequestedEvent.Raw.BlockNumber)
+
+		//5. wait for the fulfillment
+		randomWordsFulfilledEvent, err := vrfContracts.CoordinatorV2Plus.WaitForRandomWordsFulfilledEvent(
+			[]*big.Int{subID},
+			[]*big.Int{randomWordsRequestedEvent.RequestId},
+			time.Second*30,
+		)
+		require.NoError(t, err, "error waiting for randomness fulfilled event")
+		vrfv2plus.LogRandomWordsFulfilledEvent(l, vrfContracts.CoordinatorV2Plus, randomWordsFulfilledEvent, isNativeBilling)
+		status, err := consumers[0].GetRequestStatus(testcontext.Get(t), randomWordsFulfilledEvent.RequestId)
+		require.NoError(t, err, "error getting rand request status")
+		require.True(t, status.Fulfilled)
+		l.Info().Bool("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
+
+		//todo - is it possible to tell which blockhash was used for the fulfillment when reorg happened?
+
+	})
+
+}
+
+func makeReorg(t *testing.T, evmClient blockchain.EVMClient, env *test_env.CLClusterTestEnv, chainID int64, rewindChainByBlocks uint64) {
+	latestBlockNumber, err := evmClient.LatestBlockNumber(testcontext.Get(t))
+	require.NoError(t, err)
+	fmt.Println("latestBlockNumber", latestBlockNumber)
+
+	rewindChainToBlock := latestBlockNumber - rewindChainByBlocks
+
+	fmt.Println("rewindChainToBlock", rewindChainToBlock)
+
+	//var result interface{}
+	//err = evmClient.RawJsonRPCCall(testcontext.Get(t), &result, "debug_setHead", hexutil.EncodeUint64(rewindChainToBlock))
+	//require.NoError(t, err, "error setting head block")
+
+	//Encode the data
+	postBody, _ := json.Marshal(map[string]any{
+		"jsonrpc": "2.0",
+		"id":      1,
+		"method":  "debug_setHead",
+		"params":  []string{hexutil.EncodeUint64(rewindChainToBlock)},
+	})
+	requestBody := bytes.NewBuffer(postBody)
+
+	provider, err := env.GetRpcProvider(chainID)
+	require.NoError(t, err, "error getting rpc provider")
+
+	fmt.Println("requestBody", requestBody.String())
+
+	fmt.Println("provider.PublicHttpUrls()", provider.PublicHttpUrls())
+
+	makeRPCCall(err, provider, requestBody)
+}
+
+func makeRPCCall(err error, provider *env.RpcProvider, requestBody *bytes.Buffer) {
+	//Leverage Go's HTTP Post function to make request
+	resp, err := http.Post(provider.PublicHttpUrls()[0], "application/json", requestBody)
+	//Handle Error
+	if err != nil {
+		log.Fatalf("An Error Occured %v", err)
+	}
+	defer resp.Body.Close()
+	//Read the response body
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	sb := string(body)
+	fmt.Println(sb)
 }
