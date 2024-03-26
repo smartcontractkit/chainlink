@@ -232,6 +232,6 @@ func (nc *NullClient) LatestFinalizedBlock(_ context.Context) (*evmtypes.Head, e
 	return nil, nil
 }
 
-func (nc *NullClient) CheckTxValidity(_ context.Context, _ common.Address, _ common.Address, _ []byte) *SendError {
+func (nc *NullClient) CheckTxOverflow(_ context.Context, _ common.Address, _ common.Address, _ []byte) *SendError {
 	return nil
 }
