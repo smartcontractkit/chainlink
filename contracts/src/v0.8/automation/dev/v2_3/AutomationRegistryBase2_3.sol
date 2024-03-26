@@ -127,8 +127,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   error IncorrectNumberOfSignatures();
   error IncorrectNumberOfSigners();
   error IndexOutOfRange();
-  error InsufficientBalance(int256 available, uint256 requested);
-  error InvalidBillingToken();
+  error InsufficientBalance(uint256 available, uint256 requested);
   error InvalidDataLength();
   error InvalidFeed();
   error InvalidTrigger();
@@ -136,6 +135,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   error InvalidRecipient();
   error InvalidReport();
   error InvalidSigner();
+  error InvalidToken();
   error InvalidTransmitter();
   error InvalidTriggerType();
   error MigrationNotPermitted();
@@ -483,7 +483,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   event Unpaused(address account);
   // Event to emit when a billing configuration is set
   event BillingConfigSet(IERC20 indexed token, BillingConfig config);
-  event FeesWithdrawn(address indexed recipient, address indexed assetAddress, uint256 amount);
+  event FeesWithdrawn(address indexed assetAddress, address indexed recipient, uint256 amount);
 
   /**
    * @param link address of the LINK Token
@@ -543,7 +543,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     if (upkeep.performGas < PERFORM_GAS_MIN || upkeep.performGas > s_storage.maxPerformGas)
       revert GasLimitOutsideRange();
     if (address(s_upkeep[id].forwarder) != address(0)) revert UpkeepAlreadyExists();
-    if (address(s_billingConfigs[upkeep.billingToken].priceFeed) == address(0)) revert InvalidBillingToken();
+    if (address(s_billingConfigs[upkeep.billingToken].priceFeed) == address(0)) revert InvalidToken();
     s_upkeep[id] = upkeep;
     s_upkeepAdmin[id] = admin;
     s_checkData[id] = checkData;
@@ -1069,7 +1069,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
 
       // if LINK is a billing option, payout mode must be ON_CHAIN
       if (address(token) == address(i_link) && mode == PayoutMode.OFF_CHAIN) {
-        revert InvalidBillingToken();
+        revert InvalidToken();
       }
       if (address(token) == ZERO_ADDRESS || address(config.priceFeed) == ZERO_ADDRESS) {
         revert ZeroAddressNotAllowed();
