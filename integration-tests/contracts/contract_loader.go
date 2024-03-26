@@ -2,10 +2,11 @@ package contracts
 
 import (
 	"errors"
+	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_load_test_with_metrics"
-	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -461,7 +462,7 @@ func (e *EthereumContractLoader) LoadOcrContract(address common.Address) (Offcha
 	if err != nil {
 		return nil, err
 	}
-	return &LegacyEthereumOffchainAggregator{
+	return &EthereumOffchainAggregator{
 		client:  e.client,
 		ocr:     instance.(*offchainaggregator.OffchainAggregator),
 		address: &address,

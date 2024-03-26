@@ -28,10 +28,10 @@
     "@chainlink/gauntlet-core" "0.6.0"
     long "^5.2.3"
 
-"@chainlink/evm-gauntlet-cli@3.0.1":
-  version "3.0.1"
-  resolved "https://registry.yarnpkg.com/@chainlink/evm-gauntlet-cli/-/evm-gauntlet-cli-3.0.1.tgz#1131daba3ddbac42e024a7b5f941797b0b7531e3"
-  integrity sha512-Rm0yCCnLXjYhPJvTOk7TaRaRthZviU4NdtxypqU2/+Qg06voJauCG7q+hDRzFA9U+CbK1PCFhxCb1a0eNmb2EQ==
+"@chainlink/evm-gauntlet-cli@^3.0.0":
+  version "3.0.0"
+  resolved "https://registry.yarnpkg.com/@chainlink/evm-gauntlet-cli/-/evm-gauntlet-cli-3.0.0.tgz#d865527fb1d0f6a1c49c801867a21d29af160693"
+  integrity sha512-957rKW5Cv7CC+WVPX2wTmK4MtEWG0U5oCcmRE0fgmGU633JjI5SQlcJvrzq4kGIT5FyL/+TkTmPi7xNU82kerQ==
   dependencies:
     "@chainlink/evm-gauntlet" "*"
     "@chainlink/evm-gauntlet-abstract" "*"
@@ -123,9 +123,9 @@
     ethers "^6.11.1"
 
 "@chainlink/evm-gauntlet-safe@*":
-  version "3.1.0"
-  resolved "https://registry.yarnpkg.com/@chainlink/evm-gauntlet-safe/-/evm-gauntlet-safe-3.1.0.tgz#1bc2f69c70c4d67922c6a72f9663dcc51764c8b8"
-  integrity sha512-ssbGt0kRMpbd8ZIKqLR01W0qrV7GeTsGqrl5KBJ+tV3K7sWtYZwRF2JAXH14T2YLuY7O0l5qu04BNwhzJBFxIw==
+  version "3.0.0"
+  resolved "https://registry.yarnpkg.com/@chainlink/evm-gauntlet-safe/-/evm-gauntlet-safe-3.0.0.tgz#fbce0d5de1e8c27a893223fc4aa6fe095ef19cb2"
+  integrity sha512-aFfWu9LpizboOKcz7XZqJr/RiGTpiNp9YZl/Ta/FTJoo26pBxOmYwpDM4JupfCZxNDE5cMaGmF7PD1QvwUYbGw==
   dependencies:
     "@chainlink/evm-gauntlet" "*"
     "@chainlink/gauntlet-core" "0.6.0"
@@ -152,20 +152,10 @@
     ethers "^6.11.1"
     long "^5.2.1"
 
-"@chainlink/evm-gauntlet@*":
-  version "1.1.1"
-  resolved "https://registry.yarnpkg.com/@chainlink/evm-gauntlet/-/evm-gauntlet-1.1.1.tgz#2dd613b0a4f002d78311cb8095d2532ab8ef3c48"
-  integrity sha512-JQK9kjKsEtrMoCOCCcb5k5o+Uy4g8aDSXaQdL57YWrKYPDuTqidOJ9qPO5tHz2sTCYEBPAMsB9K4x0u53EftMg==
-  dependencies:
-    "@chainlink/gauntlet-core" "0.6.0"
-    ethers "^6.11.1"
-    mockttp "^3.10.1"
-    zod "^3.21.4"
-
-"@chainlink/evm-gauntlet@1.0.1":
-  version "1.0.1"
-  resolved "https://registry.yarnpkg.com/@chainlink/evm-gauntlet/-/evm-gauntlet-1.0.1.tgz#9419e7a5e228f5fd40b691d7e80df21f75158677"
-  integrity sha512-IS6TRIK90dXdos8ieApmToagsg34ESiSxcq4SAeU9dO4xzWc+d25Zc0nQYecDgsZrqBaDTPJg/f2qG49Jf8lNw==
+"@chainlink/evm-gauntlet@*", "@chainlink/evm-gauntlet@^1.0.0":
+  version "1.0.0"
+  resolved "https://registry.yarnpkg.com/@chainlink/evm-gauntlet/-/evm-gauntlet-1.0.0.tgz#eaea95fa3d6b2d43b93184e9488a64583d5469c2"
+  integrity sha512-87XyfAOnA3efLZsN9yOqH9WndRgcO/zlYsIbK0I/BFHp9PQrEhtP6FZXkLxrl8ZH91ejKeihXQedr9WsWg6u6Q==
   dependencies:
     "@chainlink/gauntlet-core" "0.6.0"
     ethers "^6.11.1"
@@ -207,9 +197,9 @@
     protobufjs "^6.11.2"
 
 "@chainlink/zksync-gauntlet@*":
-  version "1.0.1"
-  resolved "https://registry.yarnpkg.com/@chainlink/zksync-gauntlet/-/zksync-gauntlet-1.0.1.tgz#63e4185da1a5dc98e09bd098f273f66cdebca935"
-  integrity sha512-bJCeIST/Kn+hEupv8PEkPpU/DkYIsYY5ctVTpylsYHwsbayJO/uEZRwBzGyGjeBP4vM1IcLccblgZAnjZdC24g==
+  version "1.0.0"
+  resolved "https://registry.yarnpkg.com/@chainlink/zksync-gauntlet/-/zksync-gauntlet-1.0.0.tgz#4feb0186e052a3a729cb11e2b99f5821caa99357"
+  integrity sha512-eCr4Z1xtCpzbsqZGrnyCrF+GGx4OA5kWpZ/UJ9szNYeq9f+DH1oqSfQxcegU1nl960wtfOcCEgeaqCHWWLEcUQ==
   dependencies:
     "@chainlink/gauntlet-core" "0.6.0"
     ethers "^6.11.1"

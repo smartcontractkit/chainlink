@@ -1,34 +1,32 @@
 package smoke
 
 import (
-	"context"
-	"fmt"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/gauntlet"
-	"github.com/smartcontractkit/chainlink/integration-tests/gauntlet/configs"
+	contracts2 "github.com/smartcontractkit/chainlink/integration-tests/gauntlet/contracts"
 	"math/big"
-	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
 	"github.com/smartcontractkit/seth"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
@@ -142,8 +140,8 @@ type ZKSyncState struct {
 	Gauntlet        *gauntlet.Gauntlet
 	ChainlinkClient []*client.ChainlinkClient
 	ContractLoader  contracts.ContractLoader
-	OCRContract     []contracts.OffchainAggregator
 	L2RPC           string
+	OcrInstance     []contracts.OffchainAggregator
 }
 
 func TestOCRZkSync(t *testing.T) {
@@ -155,44 +153,26 @@ func TestOCRZkSync(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	network, err := actions.EthereumNetworkConfigFromConfig(l, &config)
-	require.NoError(t, err, "Error building ethereum network config")
-
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestInstance(t).
 		WithTestConfig(&config).
-		WithPrivateEthereumNetwork(network).
 		WithMockAdapter().
 		WithCLNodes(6).
+		WithFunding(big.NewFloat(.1)).
 		WithStandardCleanup().
-		WithSeth().
 		Build()
 	require.NoError(t, err)
 
-	selectedNetwork := networks.MustGetSelectedNetworkConfig(config.Network)[0]
-	sethClient, err := env.GetSethClient(selectedNetwork.ChainID)
-	require.NoError(t, err, "Error getting seth client")
-
-	nodeClients := env.ClCluster.NodeAPIs()
-	bootstrapNode, workerNodes := nodeClients[0], nodeClients[1:]
-
-	_, b, _, _ := runtime.Caller(0)
-	// ProjectRoot Root folder of this project
-	ProjectRoot := filepath.Join(filepath.Dir(b), "/../..")
-	// SolanaTestsRoot path to starknet e2e tests
-	IntegrationTestsRoot := filepath.Join(ProjectRoot, "integration-tests")
-
 	env.ParallelTransactions(true)
-	g, err := gauntlet.New("gauntlet:zksync", fmt.Sprintf("%s/", IntegrationTestsRoot))
-	require.NoError(t, err)
+
 	testState := &ZKSyncState{
-		Gauntlet:        g,
+		Gauntlet:        nil,
 		ChainlinkClient: nil,
 		ContractLoader:  nil,
 		L2RPC:           "",
+		OcrInstance:     nil,
 	}
-	err = testState.Gauntlet.SetupNetwork(config.Network.RpcHttpUrls[config.Network.SelectedNetworks[0]][0], config.Network.WalletKeys[config.Network.SelectedNetworks[0]][0])
-	require.NoError(t, err, "Setting up gauntlet network should not fail")
+	nodeClients := env.ClCluster.NodeAPIs()
 
 	testNetwork := networks.MustGetSelectedNetworkConfig(config.Network)[0]
 	chainClient, err := blockchain.ConnectEVMClient(testNetwork, l)
@@ -226,11 +206,11 @@ func TestOCRZkSync(t *testing.T) {
 	testState.Gauntlet.Contracts.LinkContract.Contract, err = testState.ContractLoader.LoadLINKToken(common.HexToAddress(testState.Gauntlet.Contracts.LinkContract.Address).String())
 	require.NoError(t, err)
 
-	//// Funding nodes
+	// Funding nodes
 	for _, key := range nKeys {
-		toAddress := common.HexToAddress(key.EthAddress)
+		toAddress := common.HexToAddress(key.TXKey.Data.ID)
 		l.Info().Stringer("toAddress", toAddress).Msg("Funding node")
-		amount := conversions.EtherToWei(big.NewFloat(0.2))
+		amount := big.NewInt(1.2e17)
 		callMsg := ethereum.CallMsg{
 			From:  common.HexToAddress(chainClient.GetDefaultWallet().Address()),
 			To:    &toAddress,
@@ -250,7 +230,7 @@ func TestOCRZkSync(t *testing.T) {
 	err = testState.Gauntlet.DeployAccessController()
 	require.NoError(t, err)
 
-	ocrConfig := configs.OCRConfig{}
+	ocrConfig := contracts2.OCRConfig{}
 	ocrConfig.DefaultOcrConfig()
 	ocrConfig.DefaultOcrContract()
 
@@ -280,39 +260,4 @@ func TestOCRZkSync(t *testing.T) {
 
 	err = testState.Gauntlet.SetConfig(testState.Gauntlet.Contracts.OCRContract.Address, ocrJsonConfig)
 	require.NoError(t, err)
-
-	chainClient.ParallelTransactions(true)
-	err = chainClient.WaitForEvents()
-	require.NoError(t, err)
-
-	testState.OCRContract = []contracts.OffchainAggregator{
-		testState.Gauntlet.Contracts.OCRContract.Contract,
-	}
-	var chainlinkClients []*client.ChainlinkClient
-	for _, k8sClient := range nodeClients {
-		chainlinkClients = append(chainlinkClients, k8sClient)
-	}
-
-	// Set Config
-	transmitterAddresses, err := actions.ChainlinkNodeAddressesLocal(nodeClients)
-	require.NoError(t, err)
-
-	// Exclude the first node, which will be used as a bootstrapper
-	err = testState.OCRContract[0].SetConfig(
-		contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(workerNodes),
-		contracts.DefaultOffChainAggregatorConfig(len(workerNodes)),
-		transmitterAddresses,
-	)
-	require.NoError(t, err)
-
-	err = actions.CreateOCRJobsLocal(testState.OCRContract, bootstrapNode, workerNodes, 5, env.MockAdapter, big.NewInt(sethClient.ChainID))
-	require.NoError(t, err, "Error creating OCR jobs")
-	//err = testState.OCRContract[0].RequestNewRound()
-	//require.NoError(t, err)
-
-	err = actions.StartNewRound(1, testState.OCRContract, chainClient, l)
-	require.NoError(t, err)
-
-	_, err = testState.OCRContract[0].GetLatestAnswer(context.Background())
-
 }
