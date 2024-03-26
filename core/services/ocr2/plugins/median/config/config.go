@@ -14,9 +14,10 @@ import (
 
 // The PluginConfig struct contains the custom arguments needed for the Median plugin.
 type PluginConfig struct {
-	JuelsPerFeeCoinPipeline      string          `json:"juelsPerFeeCoinSource"`
-	JuelsPerFeeCoinCacheDuration models.Interval `json:"juelsPerFeeCoinCacheDuration"`
-	JuelsPerFeeCoinCacheDisabled bool            `json:"juelsPerFeeCoinCacheDisabled"`
+	JuelsPerFeeCoinPipeline            string          `json:"juelsPerFeeCoinSource"`
+	JuelsPerFeeCoinCacheDuration       models.Interval `json:"juelsPerFeeCoinCacheDuration"`
+	JuelsPerFeeCoinCacheStalenessAlert models.Interval `json:"juelsPerFeeCoinCacheStalenessAlert"`
+	JuelsPerFeeCoinCacheDisabled       bool            `json:"juelsPerFeeCoinCacheDisabled"`
 }
 
 // ValidatePluginConfig validates the arguments for the Median plugin.

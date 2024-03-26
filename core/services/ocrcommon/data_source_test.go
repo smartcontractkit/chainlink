@@ -76,7 +76,7 @@ func Test_CachedInMemoryDataSourceErrHandling(t *testing.T) {
 		mockKVStore := mocks.KVStore{}
 		mockKVStore.On("Store", mock.Anything, mock.Anything).Return(nil)
 		mockKVStore.On("Get", mock.Anything, mock.IsType(&ocrcommon.ResultTimePair{})).Return(nil)
-		dsCache, err := ocrcommon.NewInMemoryDataSourceCache(ds, &mockKVStore, time.Second*2)
+		dsCache, err := ocrcommon.NewInMemoryDataSourceCache(ds, &mockKVStore, time.Second*2, 0)
 		require.NoError(t, err)
 
 		mockVal := int64(1)
@@ -109,7 +109,7 @@ func Test_CachedInMemoryDataSourceErrHandling(t *testing.T) {
 		})
 
 		// set updater to a long time so that it doesn't log errors after the test is done
-		dsCache, err := ocrcommon.NewInMemoryDataSourceCache(ds, &mockKVStore, time.Hour*100)
+		dsCache, err := ocrcommon.NewInMemoryDataSourceCache(ds, &mockKVStore, time.Hour*100, 0)
 		require.NoError(t, err)
 		changeResultValue(runner, "-1", true, false)
 
@@ -128,7 +128,7 @@ func Test_CachedInMemoryDataSourceErrHandling(t *testing.T) {
 		mockKVStore.On("Get", mock.Anything, mock.IsType(&ocrcommon.ResultTimePair{})).Return(nil).Return(assert.AnError)
 
 		// set updater to a long time so that it doesn't log errors after the test is done
-		dsCache, err := ocrcommon.NewInMemoryDataSourceCache(ds, &mockKVStore, time.Hour*100)
+		dsCache, err := ocrcommon.NewInMemoryDataSourceCache(ds, &mockKVStore, time.Hour*100, 0)
 		require.NoError(t, err)
 		changeResultValue(runner, "-1", true, false)
 
