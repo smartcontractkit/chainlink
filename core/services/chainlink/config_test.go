@@ -1138,12 +1138,19 @@ CertFile = '/path/to/cert.pem'
 		t.Run(tt.name, func(t *testing.T) {
 			s, err := tt.config.TOMLString()
 			require.NoError(t, err)
+
+			// parsing from TOML requires stripping new lines
+			if tt.name == "full" || tt.name == "multi-chain" {
+				s = strings.TrimRight(s, "\n")
+			}
+
 			assert.Equal(t, tt.exp, s, diff.Diff(tt.exp, s))
 
 			var got Config
 
 			require.NoError(t, config.DecodeTOML(strings.NewReader(s), &got))
 			ts, err := got.TOMLString()
+
 			require.NoError(t, err)
 			assert.Equal(t, tt.config, got, diff.Diff(s, ts))
 		})
@@ -1549,6 +1556,7 @@ func TestConfig_SetFrom(t *testing.T) {
 				require.NoError(t, c.SetFrom(&f))
 			}
 			ts, err := c.TOMLString()
+			ts = strings.TrimRight(ts, "\n")
 			require.NoError(t, err)
 			assert.Equal(t, tt.exp, ts)
 		})

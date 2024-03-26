@@ -33,19 +33,16 @@ func TestShell_IndexStarkNetNodes(t *testing.T) {
 
 	id := "starknet chain ID"
 	node1 := config.Node{
-		Name:   ptr("first"),
-		URL:    commoncfg.MustParseURL("https://starknet1.example"),
-		APIKey: ptr("key"),
+		Name: ptr("first"),
+		URL:  commoncfg.MustParseURL("https://starknet1.example"),
 	}
 	node2 := config.Node{
-		Name:   ptr("second"),
-		URL:    commoncfg.MustParseURL("https://starknet2.example"),
-		APIKey: ptr("key"),
+		Name: ptr("second"),
+		URL:  commoncfg.MustParseURL("https://starknet2.example"),
 	}
 	chain := config.TOMLConfig{
-		ChainID:   &id,
-		Nodes:     config.Nodes{&node1, &node2},
-		FeederURL: commoncfg.MustParseURL("http://feeder.url"),
+		ChainID: &id,
+		Nodes:   config.Nodes{&node1, &node2},
 	}
 	app := starknetStartNewApplication(t, &chain)
 	client, r := app.NewShellAndRenderer()
