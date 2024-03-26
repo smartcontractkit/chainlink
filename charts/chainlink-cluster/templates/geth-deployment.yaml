@@ -4,6 +4,10 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: geth-{{ $cfg.networkId }}
+  labels:
+    app: geth
+    release: {{ $.Release.Name }}
+    instance: geth-{{ $cfg.networkId }}
 spec:
   selector:
     matchLabels:
