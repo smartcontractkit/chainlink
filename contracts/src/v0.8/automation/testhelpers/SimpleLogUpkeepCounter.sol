@@ -62,7 +62,7 @@ contract SimpleLogUpkeepCounter is ILogAutomation, StreamsLookupCompatibleInterf
   }
 
   function checkLog(Log calldata log, bytes calldata checkData) external view override returns (bool, bytes memory) {
-    (uint256 checkBurnAmount, uint256 performBurnAmount, bytes32 eventSig) = abi.decode(
+    (uint256 checkBurnAmount, , bytes32 eventSig) = abi.decode(
       checkData,
       (uint256, uint256, bytes32)
     );
@@ -105,8 +105,8 @@ contract SimpleLogUpkeepCounter is ILogAutomation, StreamsLookupCompatibleInterf
     bytes[] memory values = new bytes[](2);
     values[0] = abi.encode(errCode);
     values[1] = abi.encode(extraData);
-    bytes memory performData = abi.encode(values, extraData);
-    return (shouldRetryOnError, performData);
+    bytes memory returnData = abi.encode(values, extraData);
+    return (shouldRetryOnError, returnData);
   }
 
   function performUpkeep(bytes calldata performData) external override {
@@ -116,19 +116,22 @@ contract SimpleLogUpkeepCounter is ILogAutomation, StreamsLookupCompatibleInterf
     lastBlock = block.number;
     counter = counter + 1;
     previousPerformBlock = lastBlock;
-    (bytes[] memory values, Log memory log, uint256 checkBlock, bytes memory extraData) = abi.decode(performData, (bytes[], Log, uint256, bytes));
+    (Log memory log, uint256 checkBlock, bytes memory extraData) = abi.decode(performData, (Log, uint256, bytes));
     timeToPerform = block.timestamp - log.timestamp;
     isRecovered = false;
     if (checkBlock != log.blockNumber) {
       isRecovered = true;
     }
-    (uint256 checkBurnAmount, uint256 performBurnAmount, bytes32 eventSig) = abi.decode(
+    (, , uint256 performBurnAmount, bytes32 eventSig) = abi.decode(
       extraData,
-      (uint256, uint256, bytes32)
+      (bytes[], uint256, uint256, bytes32)
     );
     uint256 startGas = gasleft();
     bytes32 dummyIndex = blockhash(block.number - 1);
     bool dummy;
+    if (log.topics[2] != eventSig) {
+      revert("Invalid event signature");
+    }
     // burn gas
     if (performBurnAmount > 0) {
       while (startGas - gasleft() < performBurnAmount) {
