@@ -16,6 +16,8 @@ Enter the shell (from the root project dir)
 nix develop
 ```
 
+some thing testing
+
 # Develop
 
 ## New cluster
