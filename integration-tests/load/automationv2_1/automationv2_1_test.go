@@ -2,6 +2,7 @@ package automationv2_1
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"math"
 	"math/big"
@@ -382,6 +383,7 @@ Load Config:
 				PerformBurnAmount:             u.PerformBurnAmount,
 				UpkeepGasLimit:                u.UpkeepGasLimit,
 				SharedTrigger:                 u.SharedTrigger,
+				Feeds:                         u.Feeds,
 			}
 
 			loadConfigs = append(loadConfigs, loadCfg)
@@ -415,17 +417,22 @@ Load Config:
 		}
 		encodedLogTriggerConfig, err := convenienceABI.Methods["_logTriggerConfig"].Inputs.Pack(&logTriggerConfigStruct)
 		require.NoError(t, err, "Error encoding log trigger config")
-		l.Debug().Bytes("Encoded Log Trigger Config", encodedLogTriggerConfig).Msg("Encoded Log Trigger Config")
+		l.Debug().
+			Interface("logTriggerConfigStruct", logTriggerConfigStruct).
+			Str("Encoded Log Trigger Config", hex.EncodeToString(encodedLogTriggerConfig)).Msg("Encoded Log Trigger Config")
 
 		checkDataStruct := simple_log_upkeep_counter_wrapper.CheckData{
 			CheckBurnAmount:   loadConfigs[i].CheckBurnAmount,
 			PerformBurnAmount: loadConfigs[i].PerformBurnAmount,
 			EventSig:          bytes1,
+			Feeds:             loadConfigs[i].Feeds,
 		}
 
 		encodedCheckDataStruct, err := consumerABI.Methods["_checkDataConfig"].Inputs.Pack(&checkDataStruct)
 		require.NoError(t, err, "Error encoding check data struct")
-		l.Debug().Bytes("Encoded Check Data Struct", encodedCheckDataStruct).Msg("Encoded Check Data Struct")
+		l.Debug().
+			Interface("checkDataStruct", checkDataStruct).
+			Str("Encoded Check Data Struct", hex.EncodeToString(encodedCheckDataStruct)).Msg("Encoded Check Data Struct")
 
 		upkeepConfig := automationv2.UpkeepConfig{
 			UpkeepName:     fmt.Sprintf("LogTriggerUpkeep-%d", i),

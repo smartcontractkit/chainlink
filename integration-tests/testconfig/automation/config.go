@@ -72,6 +72,7 @@ type Load struct {
 	SharedTrigger                 *bool    `toml:"shared_trigger"`
 	UpkeepGasLimit                *uint32  `toml:"upkeep_gas_limit"`
 	IsStreamsLookup               *bool    `toml:"is_streams_lookup"`
+	Feeds                         []string `toml:"feeds"`
 }
 
 func (c *Load) Validate() error {
@@ -92,6 +93,11 @@ func (c *Load) Validate() error {
 	}
 	if c.PerformBurnAmount == nil || c.PerformBurnAmount.Cmp(big.NewInt(0)) < 0 {
 		return errors.New("perform_burn_amount must be set to a non-negative integer")
+	}
+	if c.IsStreamsLookup == nil || *c.IsStreamsLookup {
+		if c.Feeds == nil {
+			c.Feeds = []string{}
+		}
 	}
 
 	return nil
