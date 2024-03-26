@@ -281,6 +281,7 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
           localBalance -= contractToFund.topUpAmount;
           emit TopUpSucceeded(targetAddress);
         } else {
+          s_targets[targetAddress].lastTopUpTimestamp = contractToFund.lastTopUpTimestamp;
           emit TopUpFailed(targetAddress);
         }
       } else {

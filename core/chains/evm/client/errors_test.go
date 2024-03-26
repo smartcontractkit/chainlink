@@ -127,6 +127,9 @@ func Test_Eth_Errors(t *testing.T) {
 			{"call failed: AlreadyKnown", true, "Nethermind"},
 			{"call failed: OwnNonceAlreadyUsed", true, "Nethermind"},
 			{"known transaction", true, "Klaytn"},
+			{"known transaction. transaction with hash 0x6013…3053 is already in the system", true, "zkSync"},
+			// This seems to be an erroneous message from the zkSync client, we'll have to match it anyway
+			{"ErrorObject { code: ServerError(3), message: \\\"known transaction. transaction with hash 0xf016…ad63 is already in the system\\\", data: Some(RawValue(\\\"0x\\\")) }", true, "zkSync"},
 		}
 		for _, test := range tests {
 			err = evmclient.NewSendErrorS(test.message)

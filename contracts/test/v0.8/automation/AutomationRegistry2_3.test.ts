@@ -111,7 +111,7 @@ const gasWei = BigNumber.from(1000000000) // 1 gwei
 const performGas = BigNumber.from('1000000')
 const paymentPremiumBase = BigNumber.from('1000000000')
 const paymentPremiumPPB = BigNumber.from('250000000')
-const flatFeeMicroLink = BigNumber.from(0)
+const flatFeeMilliCents = BigNumber.from(0)
 
 const randomBytes = '0x1234abcd'
 const emptyBytes = '0x'
@@ -428,7 +428,7 @@ describe('AutomationRegistry2_3', () => {
     automationUtils2_3 = await utilsFactory.deploy()
 
     linkTokenFactory = await ethers.getContractFactory(
-      'src/v0.4/LinkToken.sol:LinkToken',
+      'src/v0.8/shared/test/helpers/LinkTokenTestHelper.sol:LinkTokenTestHelper',
     )
     // need full path because there are two contracts with name MockV3Aggregator
     mockV3AggregatorFactory = (await ethers.getContractFactory(
@@ -532,7 +532,7 @@ describe('AutomationRegistry2_3', () => {
     gasOverhead: BigNumber,
     gasMultiplier: BigNumber,
     premiumPPB: BigNumber,
-    flatFee: BigNumber,
+    flatFee: BigNumber, // in millicents
     l1CostWei?: BigNumber,
   ) => {
     l1CostWei = l1CostWei === undefined ? BigNumber.from(0) : l1CostWei
@@ -552,9 +552,9 @@ describe('AutomationRegistry2_3', () => {
       .add(l1CostWei)
       .mul(premiumPPB)
       .mul(nativeUSD)
-      .div(linkUSD)
       .div(paymentPremiumBase)
-      .add(flatFee.mul('1000000000000'))
+      .add(flatFee.mul(BigNumber.from(10).pow(21)))
+      .div(linkUSD)
 
     return {
       total: gasPayment.add(premium),
@@ -663,7 +663,7 @@ describe('AutomationRegistry2_3', () => {
         [
           {
             gasFeePPB: test.premium,
-            flatFeeMicroLink: test.flatFee,
+            flatFeeMilliCents: test.flatFee,
             priceFeed: linkUSDFeed.address,
             fallbackPrice: fallbackLinkPrice,
             minSpend: minUpkeepSpend,
@@ -672,6 +672,7 @@ describe('AutomationRegistry2_3', () => {
       )
 
       const conditionalPrice = await registry.getMaxPaymentForGas(
+        upkeepId,
         Trigger.CONDITION,
         test.gas,
         linkToken.address,
@@ -688,6 +689,7 @@ describe('AutomationRegistry2_3', () => {
       )
 
       const logPrice = await registry.getMaxPaymentForGas(
+        upkeepId,
         Trigger.LOG,
         test.gas,
         linkToken.address,
@@ -951,7 +953,7 @@ describe('AutomationRegistry2_3', () => {
       [
         {
           gasFeePPB: paymentPremiumPPB,
-          flatFeeMicroLink,
+          flatFeeMilliCents,
           priceFeed: linkUSDFeed.address,
           fallbackPrice: fallbackLinkPrice,
           minSpend: minUpkeepSpend,
@@ -970,7 +972,7 @@ describe('AutomationRegistry2_3', () => {
       [
         {
           gasFeePPB: paymentPremiumPPB,
-          flatFeeMicroLink,
+          flatFeeMilliCents,
           priceFeed: linkUSDFeed.address,
           fallbackPrice: fallbackLinkPrice,
           minSpend: minUpkeepSpend,
@@ -989,7 +991,7 @@ describe('AutomationRegistry2_3', () => {
       [
         {
           gasFeePPB: paymentPremiumPPB,
-          flatFeeMicroLink,
+          flatFeeMilliCents,
           priceFeed: linkUSDFeed.address,
           fallbackPrice: fallbackLinkPrice,
           minSpend: minUpkeepSpend,
@@ -1715,7 +1717,7 @@ describe('AutomationRegistry2_3', () => {
             gasOverhead,
             BigNumber.from('1'), // Not the config multiplier, but the actual gas used
             paymentPremiumPPB,
-            flatFeeMicroLink,
+            flatFeeMilliCents,
           ).total.toString(),
           totalPayment.toString(),
         )
@@ -1726,7 +1728,7 @@ describe('AutomationRegistry2_3', () => {
             gasOverhead,
             BigNumber.from('1'), // Not the config multiplier, but the actual gas used
             paymentPremiumPPB,
-            flatFeeMicroLink,
+            flatFeeMilliCents,
           ).premium.toString(),
           premium.toString(),
         )
@@ -1756,7 +1758,7 @@ describe('AutomationRegistry2_3', () => {
             gasOverhead,
             gasCeilingMultiplier, // Should be same with exisitng multiplier
             paymentPremiumPPB,
-            flatFeeMicroLink,
+            flatFeeMilliCents,
           ).total.toString(),
           totalPayment.toString(),
         )
@@ -1806,7 +1808,7 @@ describe('AutomationRegistry2_3', () => {
             gasOverhead,
             gasCeilingMultiplier,
             paymentPremiumPPB,
-            flatFeeMicroLink,
+            flatFeeMilliCents,
             l1CostWeiArb,
           ).total.toString(),
           totalPayment.toString(),
@@ -1815,6 +1817,7 @@ describe('AutomationRegistry2_3', () => {
 
       itMaybe('can self fund', async () => {
         const maxPayment = await registry.getMaxPaymentForGas(
+          upkeepId,
           Trigger.CONDITION,
           performGas,
           linkToken.address,
@@ -2886,7 +2889,7 @@ describe('AutomationRegistry2_3', () => {
               gasOverhead,
               gasCeilingMultiplier,
               paymentPremiumPPB,
-              flatFeeMicroLink,
+              flatFeeMilliCents,
               l1CostWeiArb
                 .mul(upkeepCalldataWeights[i])
                 .div(totalCalldataWeight),
@@ -3580,7 +3583,7 @@ describe('AutomationRegistry2_3', () => {
           .add(chainModuleOverheads.chainModuleFixedOverhead),
         gasCeilingMultiplier.mul('2'), // fallbackGasPrice is 2x gas price
         paymentPremiumPPB,
-        flatFeeMicroLink,
+        flatFeeMilliCents,
       ).total
 
       // Stale feed
@@ -3596,6 +3599,7 @@ describe('AutomationRegistry2_3', () => {
         expectedFallbackMaxPayment.toString(),
         (
           await registry.getMaxPaymentForGas(
+            upkeepId,
             Trigger.CONDITION,
             performGas,
             linkToken.address,
@@ -3615,6 +3619,7 @@ describe('AutomationRegistry2_3', () => {
         expectedFallbackMaxPayment.toString(),
         (
           await registry.getMaxPaymentForGas(
+            upkeepId,
             Trigger.CONDITION,
             performGas,
             linkToken.address,
@@ -3634,6 +3639,7 @@ describe('AutomationRegistry2_3', () => {
         expectedFallbackMaxPayment.toString(),
         (
           await registry.getMaxPaymentForGas(
+            upkeepId,
             Trigger.CONDITION,
             performGas,
             linkToken.address,
@@ -3665,7 +3671,7 @@ describe('AutomationRegistry2_3', () => {
           .add(chainModuleOverheads.chainModuleFixedOverhead),
         gasCeilingMultiplier.mul('2'), // fallbackLinkPrice is 1/2 link price, so multiply by 2
         paymentPremiumPPB,
-        flatFeeMicroLink,
+        flatFeeMilliCents,
       ).total
 
       // Stale feed
@@ -3681,6 +3687,7 @@ describe('AutomationRegistry2_3', () => {
         expectedFallbackMaxPayment.toString(),
         (
           await registry.getMaxPaymentForGas(
+            upkeepId,
             Trigger.CONDITION,
             performGas,
             linkToken.address,
@@ -3700,6 +3707,7 @@ describe('AutomationRegistry2_3', () => {
         expectedFallbackMaxPayment.toString(),
         (
           await registry.getMaxPaymentForGas(
+            upkeepId,
             Trigger.CONDITION,
             performGas,
             linkToken.address,
@@ -3719,6 +3727,7 @@ describe('AutomationRegistry2_3', () => {
         expectedFallbackMaxPayment.toString(),
         (
           await registry.getMaxPaymentForGas(
+            upkeepId,
             Trigger.CONDITION,
             performGas,
             linkToken.address,
@@ -3736,8 +3745,6 @@ describe('AutomationRegistry2_3', () => {
   })
 
   describeMaybe('#setConfig - onchain', async () => {
-    const payment = BigNumber.from(1)
-    const flatFee = BigNumber.from(2)
     const maxGas = BigNumber.from(6)
     const staleness = BigNumber.from(4)
     const ceiling = BigNumber.from(5)
@@ -3836,10 +3843,8 @@ describe('AutomationRegistry2_3', () => {
 
     it('updates the onchainConfig and configDigest', async () => {
       const old = await registry.getState()
-      const oldConfig = old.config
+      const oldConfig = await registry.getConfig()
       const oldState = old.state
-      assert.isTrue(paymentPremiumPPB.eq(oldConfig.paymentPremiumPPB))
-      assert.isTrue(flatFeeMicroLink.eq(oldConfig.flatFeeMicroLink))
       assert.isTrue(stalenessSeconds.eq(oldConfig.stalenessSeconds))
       assert.isTrue(gasCeilingMultiplier.eq(oldConfig.gasCeilingMultiplier))
 
@@ -3859,8 +3864,6 @@ describe('AutomationRegistry2_3', () => {
       const updated = await registry.getState()
       const updatedConfig = updated.config
       const updatedState = updated.state
-      assert.equal(updatedConfig.paymentPremiumPPB, payment.toNumber())
-      assert.equal(updatedConfig.flatFeeMicroLink, flatFee.toNumber())
       assert.equal(updatedConfig.stalenessSeconds, staleness.toNumber())
       assert.equal(updatedConfig.gasCeilingMultiplier, ceiling.toNumber())
       assert.equal(
@@ -4633,7 +4636,7 @@ describe('AutomationRegistry2_3', () => {
   describe('#withdrawOwnerFunds', () => {
     it('can only be called by finance admin', async () => {
       await evmRevert(
-        registry.connect(keeper1).withdrawLinkFees(zeroAddress, 1),
+        registry.connect(keeper1).withdrawLink(zeroAddress, 1),
         'OnlyFinanceAdmin()',
       )
     })
@@ -4671,7 +4674,7 @@ describe('AutomationRegistry2_3', () => {
         [
           {
             gasFeePPB: paymentPremiumPPB,
-            flatFeeMicroLink,
+            flatFeeMilliCents,
             priceFeed: linkUSDFeed.address,
             fallbackPrice: fallbackLinkPrice,
             minSpend: newMinUpkeepSpend,
@@ -4690,7 +4693,7 @@ describe('AutomationRegistry2_3', () => {
       // Now withdraw
       await registry
         .connect(financeAdmin)
-        .withdrawLinkFees(await owner.getAddress(), ownerRegistryBalance)
+        .withdrawLink(await owner.getAddress(), ownerRegistryBalance)
 
       ownerRegistryBalance = await registry.linkAvailableForPayment()
       const ownerAfter = await linkToken.balanceOf(await owner.getAddress())
@@ -5215,6 +5218,7 @@ describe('AutomationRegistry2_3', () => {
 
       describe('when called by the owner when the admin has just canceled', () => {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        // @ts-ignore
         let oldExpiration: BigNumber
 
         beforeEach(async () => {
@@ -5335,7 +5339,7 @@ describe('AutomationRegistry2_3', () => {
             [
               {
                 gasFeePPB: paymentPremiumPPB,
-                flatFeeMicroLink,
+                flatFeeMilliCents,
                 priceFeed: linkUSDFeed.address,
                 fallbackPrice: fallbackLinkPrice,
                 minSpend: newMinUpkeepSpend,
@@ -5401,7 +5405,7 @@ describe('AutomationRegistry2_3', () => {
             [
               {
                 gasFeePPB: paymentPremiumPPB,
-                flatFeeMicroLink,
+                flatFeeMilliCents,
                 priceFeed: linkUSDFeed.address,
                 fallbackPrice: fallbackLinkPrice,
                 minSpend: newMinUpkeepSpend,
@@ -5462,7 +5466,7 @@ describe('AutomationRegistry2_3', () => {
             [
               {
                 gasFeePPB: paymentPremiumPPB,
-                flatFeeMicroLink,
+                flatFeeMilliCents,
                 priceFeed: linkUSDFeed.address,
                 fallbackPrice: fallbackLinkPrice,
                 minSpend: newMinUpkeepSpend,

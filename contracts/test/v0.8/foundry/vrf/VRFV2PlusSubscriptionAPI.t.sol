@@ -575,10 +575,10 @@ contract VRFV2PlusSubscriptionAPITest is BaseTest {
     }
 
     // try adding one more consumer, should revert
-    address consumer = makeAddr("consumer");
+    address lastConsumer = makeAddr("consumer");
     changePrank(subOwner);
     vm.expectRevert(SubscriptionAPI.TooManyConsumers.selector);
-    s_subscriptionAPI.addConsumer(subId, consumer);
+    s_subscriptionAPI.addConsumer(subId, lastConsumer);
   }
 
   function testAddConsumerReaddSameConsumer() public {

@@ -105,7 +105,7 @@ linters-settings:
             desc: Use gopkg.in/guregu/null.v4 instead
           - pkg: gopkg.in/guregu/null.v3
             desc: Use gopkg.in/guregu/null.v4 instead
-          - pkg: https://github.com/go-gorm/gorm
+          - pkg: github.com/go-gorm/gorm
             desc: Use github.com/jmoiron/sqlx directly instead
 issues:
   exclude-rules:

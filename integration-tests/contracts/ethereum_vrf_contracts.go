@@ -21,22 +21,22 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_wrapper"
 )
 
-// EthereumBatchBlockhashStore represents BatchBlockhashStore contract
-type EthereumBatchBlockhashStore struct {
+// LegacyEthereumBatchBlockhashStore represents BatchBlockhashStore contract
+type LegacyEthereumBatchBlockhashStore struct {
 	address             *common.Address
 	client              blockchain.EVMClient
 	batchBlockhashStore *batch_blockhash_store.BatchBlockhashStore
 }
 
-// EthereumBlockhashStore represents a blockhash store for VRF contract
-type EthereumBlockhashStore struct {
+// LegacyEthereumBlockhashStore represents a blockhash store for VRF contract
+type LegacyEthereumBlockhashStore struct {
 	address        *common.Address
 	client         blockchain.EVMClient
 	blockHashStore *blockhash_store.BlockhashStore
 }
 
-// EthereumVRFConsumer represents VRF consumer contract
-type EthereumVRFConsumer struct {
+// LegacyEthereumVRFConsumer represents VRF consumer contract
+type LegacyEthereumVRFConsumer struct {
 	address  *common.Address
 	client   blockchain.EVMClient
 	consumer *solidity_vrf_consumer_interface.VRFConsumer
@@ -52,8 +52,8 @@ type VRFConsumerRoundConfirmer struct {
 	done     bool
 }
 
-// EthereumVRF represents a VRF contract
-type EthereumVRF struct {
+// LegacyEthereumVRF represents a VRF contract
+type LegacyEthereumVRF struct {
 	client  blockchain.EVMClient
 	vrf     *solidity_vrf_wrapper.VRF
 	address *common.Address
@@ -70,7 +70,7 @@ func (e *EthereumContractDeployer) DeployVRFContract() (VRF, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumVRF{
+	return &LegacyEthereumVRF{
 		client:  e.client,
 		vrf:     instance.(*solidity_vrf_wrapper.VRF),
 		address: address,
@@ -88,7 +88,7 @@ func (e *EthereumContractDeployer) DeployBlockhashStore() (BlockHashStore, error
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumBlockhashStore{
+	return &LegacyEthereumBlockhashStore{
 		client:         e.client,
 		blockHashStore: instance.(*blockhash_store.BlockhashStore),
 		address:        address,
@@ -106,7 +106,7 @@ func (e *EthereumContractDeployer) DeployVRFCoordinator(linkAddr string, bhsAddr
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumVRFCoordinator{
+	return &LegacyEthereumVRFCoordinator{
 		client:      e.client,
 		coordinator: instance.(*solidity_vrf_coordinator_interface.VRFCoordinator),
 		address:     address,
@@ -124,18 +124,18 @@ func (e *EthereumContractDeployer) DeployVRFConsumer(linkAddr string, coordinato
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumVRFConsumer{
+	return &LegacyEthereumVRFConsumer{
 		client:   e.client,
 		consumer: instance.(*solidity_vrf_consumer_interface.VRFConsumer),
 		address:  address,
 	}, err
 }
 
-func (v *EthereumBlockhashStore) Address() string {
+func (v *LegacyEthereumBlockhashStore) Address() string {
 	return v.address.Hex()
 }
 
-func (v *EthereumBlockhashStore) GetBlockHash(ctx context.Context, blockNumber *big.Int) ([32]byte, error) {
+func (v *LegacyEthereumBlockhashStore) GetBlockHash(ctx context.Context, blockNumber *big.Int) ([32]byte, error) {
 	opts := &bind.CallOpts{
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
 		Context: ctx,
@@ -147,12 +147,12 @@ func (v *EthereumBlockhashStore) GetBlockHash(ctx context.Context, blockNumber *
 	return blockHash, nil
 }
 
-func (v *EthereumVRFCoordinator) Address() string {
+func (v *LegacyEthereumVRFCoordinator) Address() string {
 	return v.address.Hex()
 }
 
 // HashOfKey get a hash of proving key to use it as a request ID part for VRF
-func (v *EthereumVRFCoordinator) HashOfKey(ctx context.Context, pubKey [2]*big.Int) ([32]byte, error) {
+func (v *LegacyEthereumVRFCoordinator) HashOfKey(ctx context.Context, pubKey [2]*big.Int) ([32]byte, error) {
 	opts := &bind.CallOpts{
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
 		Context: ctx,
@@ -165,7 +165,7 @@ func (v *EthereumVRFCoordinator) HashOfKey(ctx context.Context, pubKey [2]*big.I
 }
 
 // RegisterProvingKey register VRF proving key
-func (v *EthereumVRFCoordinator) RegisterProvingKey(
+func (v *LegacyEthereumVRFCoordinator) RegisterProvingKey(
 	fee *big.Int,
 	oracleAddr string,
 	publicProvingKey [2]*big.Int,
@@ -182,11 +182,11 @@ func (v *EthereumVRFCoordinator) RegisterProvingKey(
 	return v.client.ProcessTransaction(tx)
 }
 
-func (v *EthereumVRFConsumer) Address() string {
+func (v *LegacyEthereumVRFConsumer) Address() string {
 	return v.address.Hex()
 }
 
-func (v *EthereumVRFConsumer) Fund(ethAmount *big.Float) error {
+func (v *LegacyEthereumVRFConsumer) Fund(ethAmount *big.Float) error {
 	gasEstimates, err := v.client.EstimateGas(ethereum.CallMsg{
 		To: v.address,
 	})
@@ -197,7 +197,7 @@ func (v *EthereumVRFConsumer) Fund(ethAmount *big.Float) error {
 }
 
 // RequestRandomness requests VRF randomness
-func (v *EthereumVRFConsumer) RequestRandomness(hash [32]byte, fee *big.Int) error {
+func (v *LegacyEthereumVRFConsumer) RequestRandomness(hash [32]byte, fee *big.Int) error {
 	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
 	if err != nil {
 		return err
@@ -210,7 +210,7 @@ func (v *EthereumVRFConsumer) RequestRandomness(hash [32]byte, fee *big.Int) err
 }
 
 // CurrentRoundID helper roundID counter in consumer to check when all randomness requests are finished
-func (v *EthereumVRFConsumer) CurrentRoundID(ctx context.Context) (*big.Int, error) {
+func (v *LegacyEthereumVRFConsumer) CurrentRoundID(ctx context.Context) (*big.Int, error) {
 	opts := &bind.CallOpts{
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
 		Context: ctx,
@@ -219,7 +219,7 @@ func (v *EthereumVRFConsumer) CurrentRoundID(ctx context.Context) (*big.Int, err
 }
 
 // RandomnessOutput get VRF randomness output
-func (v *EthereumVRFConsumer) RandomnessOutput(ctx context.Context) (*big.Int, error) {
+func (v *LegacyEthereumVRFConsumer) RandomnessOutput(ctx context.Context) (*big.Int, error) {
 	opts := &bind.CallOpts{
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
 		Context: ctx,
@@ -290,7 +290,7 @@ func (f *VRFConsumerRoundConfirmer) Wait() error {
 }
 
 // Fund sends specified currencies to the contract
-func (v *EthereumVRF) Fund(ethAmount *big.Float) error {
+func (v *LegacyEthereumVRF) Fund(ethAmount *big.Float) error {
 	gasEstimates, err := v.client.EstimateGas(ethereum.CallMsg{
 		To: v.address,
 	})
@@ -301,7 +301,7 @@ func (v *EthereumVRF) Fund(ethAmount *big.Float) error {
 }
 
 // ProofLength returns the PROOFLENGTH call from the VRF contract
-func (v *EthereumVRF) ProofLength(ctxt context.Context) (*big.Int, error) {
+func (v *LegacyEthereumVRF) ProofLength(ctxt context.Context) (*big.Int, error) {
 	opts := &bind.CallOpts{
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
 		Context: ctxt,
@@ -309,6 +309,6 @@ func (v *EthereumVRF) ProofLength(ctxt context.Context) (*big.Int, error) {
 	return v.vrf.PROOFLENGTH(opts)
 }
 
-func (v *EthereumBatchBlockhashStore) Address() string {
+func (v *LegacyEthereumBatchBlockhashStore) Address() string {
 	return v.address.Hex()
 }

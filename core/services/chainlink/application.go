@@ -28,6 +28,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
@@ -194,11 +195,13 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	if cfg.Capabilities().Peering().Enabled() {
 		externalPeerWrapper := externalp2p.NewExternalPeerWrapper(keyStore.P2P(), cfg.Capabilities().Peering(), globalLogger)
+		signer := externalPeerWrapper
 		srvcs = append(srvcs, externalPeerWrapper)
 
 		// NOTE: RegistrySyncer will depend on a Relayer when fully implemented
-		registrySyncer := capabilities.NewRegistrySyncer(externalPeerWrapper, registry, globalLogger)
-		srvcs = append(srvcs, registrySyncer)
+		dispatcher := remote.NewDispatcher(externalPeerWrapper, signer, registry, globalLogger)
+		registrySyncer := capabilities.NewRegistrySyncer(externalPeerWrapper, registry, dispatcher, globalLogger)
+		srvcs = append(srvcs, dispatcher, registrySyncer)
 	}
 
 	// LOOPs can be created as options, in the  case of LOOP relayers, or
