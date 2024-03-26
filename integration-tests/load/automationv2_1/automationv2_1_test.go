@@ -383,7 +383,11 @@ Load Config:
 				PerformBurnAmount:             u.PerformBurnAmount,
 				UpkeepGasLimit:                u.UpkeepGasLimit,
 				SharedTrigger:                 u.SharedTrigger,
-				Feeds:                         u.Feeds,
+				Feeds:                         []string{},
+			}
+
+			if *u.IsStreamsLookup {
+				loadCfg.Feeds = u.Feeds
 			}
 
 			loadConfigs = append(loadConfigs, loadCfg)
