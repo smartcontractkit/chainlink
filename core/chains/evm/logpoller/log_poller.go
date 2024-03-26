@@ -771,10 +771,15 @@ func convertTopics(topics []common.Hash) [][]byte {
 	return topicsForDB
 }
 
-func (lp *logPoller) blocksFromLogs(ctx context.Context, logs []types.Log) (blocks []LogPollerBlock, err error) {
+// blocksFromLogs fetches all of the blocks associated with a given list of logs. It will also unconditionally fetch endBlockNumber,
+// whether or not there are any logs in the list from that block
+func (lp *logPoller) blocksFromLogs(ctx context.Context, logs []types.Log, endBlockNumber uint64) (blocks []LogPollerBlock, err error) {
 	var numbers []uint64
 	for _, log := range logs {
 		numbers = append(numbers, log.BlockNumber)
+	}
+	if numbers[len(numbers)-1] != endBlockNumber {
+		numbers = append(numbers, endBlockNumber)
 	}
 	return lp.GetBlocksRange(ctx, numbers)
 }
@@ -789,6 +794,7 @@ func (lp *logPoller) backfill(ctx context.Context, start, end int64) error {
 	batchSize := lp.backfillBatchSize
 	for from := start; from <= end; from += batchSize {
 		to := mathutil.Min(from+batchSize-1, end)
+
 		gethLogs, err := lp.ec.FilterLogs(ctx, lp.Filter(big.NewInt(from), big.NewInt(to), nil))
 		if err != nil {
 			var rpcErr client.JsonError
@@ -810,13 +816,18 @@ func (lp *logPoller) backfill(ctx context.Context, start, end int64) error {
 		if len(gethLogs) == 0 {
 			continue
 		}
-		blocks, err := lp.blocksFromLogs(ctx, gethLogs)
+		blocks, err := lp.blocksFromLogs(ctx, gethLogs, uint64(to))
 		if err != nil {
 			return err
 		}
+		endblock := blocks[len(blocks)-1]
+		if gethLogs[len(gethLogs)-1].BlockNumber != uint64(to) {
+			// Pop endblock if there were no logs for it, so that length of blocks & gethLogs are the same to pass to convertLogs
+			blocks = blocks[:len(blocks)-1]
+		}
 
 		lp.lggr.Debugw("Backfill found logs", "from", from, "to", to, "logs", len(gethLogs), "blocks", blocks)
-		err = lp.orm.InsertLogsWithBlock(ctx, convertLogs(gethLogs, blocks, lp.lggr, lp.ec.ConfiguredChainID()), blocks[len(blocks)-1])
+		err = lp.orm.InsertLogsWithBlock(ctx, convertLogs(gethLogs, blocks, lp.lggr, lp.ec.ConfiguredChainID()), endblock)
 		if err != nil {
 			lp.lggr.Warnw("Unable to insert logs, retrying", "err", err, "from", from, "to", to)
 			return err
@@ -1243,12 +1254,16 @@ func (lp *logPoller) GetBlocksRange(ctx context.Context, numbers []uint64) ([]Lo
 	return blocks, nil
 }
 
+// fillRemainingBlocksFromRPC sends a batch request for each block in blocksRequested, and converts them from
+// geth blocks into LogPollerBlock strutcs. This is only intended to be used for requesting finalized blocks,
+// if any of the blocks coming back are not finalized they will be discarded
 func (lp *logPoller) fillRemainingBlocksFromRPC(
 	ctx context.Context,
 	blocksRequested map[uint64]struct{},
 	blocksFound map[uint64]LogPollerBlock,
 ) (map[uint64]LogPollerBlock, error) {
 	var remainingBlocks []string
+
 	for num := range blocksRequested {
 		if _, ok := blocksFound[num]; !ok {
 			remainingBlocks = append(remainingBlocks, hexutil.EncodeBig(new(big.Int).SetUint64(num)))
@@ -1279,51 +1294,100 @@ func (lp *logPoller) fillRemainingBlocksFromRPC(
 }
 
 func (lp *logPoller) batchFetchBlocks(ctx context.Context, blocksRequested []string, batchSize int64) ([]*evmtypes.Head, error) {
-	reqs := make([]rpc.BatchElem, 0, len(blocksRequested))
-	for _, num := range blocksRequested {
-		req := rpc.BatchElem{
+	var blocks = make([]*evmtypes.Head, 0, len(blocksRequested)+1)
+
+	validationReq := rpc.FinalizedBlockNumber.String()
+	if !lp.useFinalityTag {
+		validationReq = rpc.LatestBlockNumber.String()
+	}
+
+	getBlockReq := func(num string) rpc.BatchElem {
+		return rpc.BatchElem{
 			Method: "eth_getBlockByNumber",
 			Args:   []interface{}{num, false},
 			Result: &evmtypes.Head{},
 		}
-		reqs = append(reqs, req)
 	}
 
-	for i := 0; i < len(reqs); i += int(batchSize) {
+	for i := 0; i < len(blocksRequested); i += int(batchSize) {
 		j := i + int(batchSize)
-		if j > len(reqs) {
-			j = len(reqs)
+		if j > len(blocksRequested) {
+			j = len(blocksRequested)
+		}
+		reqs := make([]rpc.BatchElem, 0, j-i+1)
+
+		validationBlockIndex := int(j - i)
+		for k, num := range blocksRequested[i:j] {
+			if num == validationReq {
+				validationBlockIndex = k
+			}
+			reqs = append(reqs, getBlockReq(num))
 		}
 
-		err := lp.ec.BatchCallContext(ctx, reqs[i:j])
+		if validationBlockIndex == j-i {
+			// Add validation req if it wasn't in there already
+			reqs = append(reqs, getBlockReq(validationReq))
+		}
+
+		err := lp.ec.BatchCallContext(ctx, reqs)
 		if err != nil {
 			return nil, err
 		}
-	}
 
-	var blocks = make([]*evmtypes.Head, 0, len(reqs))
-	for _, r := range reqs {
-		if r.Error != nil {
-			return nil, r.Error
+		validationBlock, err := validateBlockResponse(reqs[validationBlockIndex])
+		if err != nil {
+			return nil, err
 		}
-		block, is := r.Result.(*evmtypes.Head)
+		latestFinalizedBlockNumber := validationBlock.Number
+		if validationReq == rpc.LatestBlockNumber.String() {
+			// subtract finalityDepth from "latest" to get finalized, when useFinalityTags = false
+			latestFinalizedBlockNumber = mathutil.Max(latestFinalizedBlockNumber-lp.finalityDepth, 0)
+		}
+		if len(reqs) == j-i+1 {
+			reqs = reqs[:j-i] // ignore last req if we added it explicitly for validation
+		}
 
-		if !is {
-			return nil, pkgerrors.Errorf("expected result to be a %T, got %T", &evmtypes.Head{}, r.Result)
+		for i, r := range reqs {
+			if i == validationBlockIndex {
+				// Already validated this one, just insert it in proper place
+				blocks = append(blocks, validationBlock)
+				continue
+			}
+
+			block, err := validateBlockResponse(r)
+			if err != nil {
+				return nil, err
+			}
+
+			blockRequested := r.Args[0].(string)
+			if blockRequested != rpc.LatestBlockNumber.String() && block.Number > latestFinalizedBlockNumber {
+				return nil, fmt.Errorf("Received unfinalized block %d while expecting finalized block (latestFinaliezdBlockNumber = %d)", block.Number, latestFinalizedBlockNumber)
+			}
+
+			blocks = append(blocks, block)
 		}
-		if block == nil {
-			return nil, pkgerrors.New("invariant violation: got nil block")
-		}
-		if block.Hash == (common.Hash{}) {
-			return nil, pkgerrors.Errorf("missing block hash for block number: %d", block.Number)
-		}
-		if block.Number < 0 {
-			return nil, pkgerrors.Errorf("expected block number to be >= to 0, got %d", block.Number)
-		}
-		blocks = append(blocks, block)
+
 	}
 
 	return blocks, nil
+}
+
+func validateBlockResponse(r rpc.BatchElem) (*evmtypes.Head, error) {
+	block, is := r.Result.(*evmtypes.Head)
+
+	if !is {
+		return nil, pkgerrors.Errorf("expected result to be a %T, got %T", &evmtypes.Head{}, r.Result)
+	}
+	if block == nil {
+		return nil, pkgerrors.New("invariant violation: got nil block")
+	}
+	if block.Hash == (common.Hash{}) {
+		return nil, pkgerrors.Errorf("missing block hash for block number: %d", block.Number)
+	}
+	if block.Number < 0 {
+		return nil, pkgerrors.Errorf("expected block number to be >= to 0, got %d", block.Number)
+	}
+	return block, nil
 }
 
 // IndexedLogsWithSigsExcluding returns the set difference(A-B) of logs with signature sigA and sigB, matching is done on the topics index
