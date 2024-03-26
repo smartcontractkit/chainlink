@@ -168,8 +168,6 @@ func (o *opStackGasPriceReader) getV1GasPrice(ctx context.Context) (*big.Int, er
 }
 
 func (o *opStackGasPriceReader) getEcotoneGasPrice(ctx context.Context) (*big.Int, error) {
-	l1GasUsedResult := ""
-	l1FeeResult := ""
 	rpcBatchCalls := []rpc.BatchElem{
 		{
 			Method: "eth_call",
@@ -181,7 +179,7 @@ func (o *opStackGasPriceReader) getEcotoneGasPrice(ctx context.Context) (*big.In
 				},
 				"latest",
 			},
-			Result: &l1GasUsedResult,
+			Result: new(string),
 		},
 		{
 			Method: "eth_call",
@@ -193,7 +191,7 @@ func (o *opStackGasPriceReader) getEcotoneGasPrice(ctx context.Context) (*big.In
 				},
 				"latest",
 			},
-			Result: &l1FeeResult,
+			Result: new(string),
 		},
 	}
 
@@ -208,14 +206,20 @@ func (o *opStackGasPriceReader) getEcotoneGasPrice(ctx context.Context) (*big.In
 		return nil, fmt.Errorf("%s call failed in a batch: %w", OPStackGasOracle_getL1Fee, err)
 	}
 
-	var l1GasUsed, l1Fee *big.Int
-	var ok bool
-	if l1GasUsed, ok = new(big.Int).SetString(l1GasUsedResult, 0); !ok {
-		return nil, fmt.Errorf("failed to parse %s rpc result: %s", OPStackGasOracle_getL1GasUsed, l1GasUsedResult)
+	l1GasUsedResult := *(rpcBatchCalls[0].Result.(*string))
+	l1FeeResult := *(rpcBatchCalls[1].Result.(*string))
+
+	l1GasUsedBytes, err := hexutil.Decode(l1GasUsedResult)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode %s rpc result: %w", OPStackGasOracle_getL1GasUsed, err)
 	}
-	if l1Fee, ok = new(big.Int).SetString(l1FeeResult, 0); !ok {
-		return nil, fmt.Errorf("failed to parse %s rpc result: %s", OPStackGasOracle_getL1Fee, l1FeeResult)
+	l1FeeBytes, err := hexutil.Decode(l1FeeResult)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode %s rpc result: %w", OPStackGasOracle_getL1Fee, err)
 	}
+
+	l1GasUsed := new(big.Int).SetBytes(l1GasUsedBytes)
+	l1Fee := new(big.Int).SetBytes(l1FeeBytes)
 
 	// for the same tx byte, l1Fee / l1GasUsed will give the l1 gas price
 	// note this price is per l1 gas, not l1 data byte
