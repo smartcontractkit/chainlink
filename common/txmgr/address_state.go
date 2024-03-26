@@ -377,18 +377,10 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) moveTx
 			attempt.State = txmgrtypes.TxAttemptBroadcast
 		}
 	}
-
-	switch tx.State {
-	case TxInProgress:
-		as.inprogressTx = nil
-	case TxUnconfirmed:
-		delete(as.unconfirmedTxs, tx.ID)
-	default:
-		panic(fmt.Sprintf("unknown transaction state: %q", tx.State))
-	}
-
 	tx.State = TxConfirmedMissingReceipt
+
 	as.confirmedMissingReceiptTxs[tx.ID] = tx
+	delete(as.unconfirmedTxs, tx.ID)
 
 	return nil
 }
