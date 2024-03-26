@@ -30,6 +30,8 @@ contract BaseTest is Test {
 
   // constants
   address internal constant ZERO_ADDRESS = address(0);
+  uint32 internal constant DEFAULT_GAS_FEE_PPB = 10_000_000;
+  uint24 internal constant DEFAULT_FLAT_FEE_MILLI_CENTS = 2_000;
 
   // config
   uint8 internal constant F = 1; // number of faulty nodes
@@ -52,6 +54,7 @@ contract BaseTest is Test {
   address internal constant FINANCE_ADMIN = address(uint160(uint256(keccak256("FINANCE_ADMIN"))));
   address internal constant STRANGER = address(uint160(uint256(keccak256("STRANGER"))));
   address internal constant BROKE_USER = address(uint160(uint256(keccak256("BROKE_USER")))); // do not mint to this address
+  address internal constant PRIVILEGE_MANAGER = address(uint160(uint256(keccak256("PRIVILEGE_MANAGER"))));
 
   // nodes
   uint256 internal constant SIGNING_KEY0 = 0x7b2e97fe057e6de99d6872a2ef2abf52c9b4469bc848c2465ac3fcd8d336e81d;
@@ -152,22 +155,22 @@ contract BaseTest is Test {
     AutomationRegistryBase2_3.BillingConfig[]
       memory billingTokenConfigs = new AutomationRegistryBase2_3.BillingConfig[](billingTokens.length);
     billingTokenConfigs[0] = AutomationRegistryBase2_3.BillingConfig({
-      gasFeePPB: 10_000_000, // 15%
-      flatFeeMilliCents: 2_000, // 2 cents
+      gasFeePPB: DEFAULT_GAS_FEE_PPB, // 15%
+      flatFeeMilliCents: DEFAULT_FLAT_FEE_MILLI_CENTS, // 2 cents
       priceFeed: address(USDTOKEN_USD_FEED),
       fallbackPrice: 100_000_000, // $1
       minSpend: 100000000000000000000 // 100 USD
     });
     billingTokenConfigs[1] = AutomationRegistryBase2_3.BillingConfig({
-      gasFeePPB: 10_000_000, // 15%
-      flatFeeMilliCents: 2_000, // 2 cents
+      gasFeePPB: DEFAULT_GAS_FEE_PPB, // 15%
+      flatFeeMilliCents: DEFAULT_FLAT_FEE_MILLI_CENTS, // 2 cents
       priceFeed: address(NATIVE_USD_FEED),
       fallbackPrice: 100_000_000, // $1
       minSpend: 5000000000000000000 // 5 Native
     });
     billingTokenConfigs[2] = AutomationRegistryBase2_3.BillingConfig({
-      gasFeePPB: 10_000_000, // 10%
-      flatFeeMilliCents: 2_000, // 2 cents
+      gasFeePPB: DEFAULT_GAS_FEE_PPB, // 10%
+      flatFeeMilliCents: DEFAULT_FLAT_FEE_MILLI_CENTS, // 2 cents
       priceFeed: address(LINK_USD_FEED),
       fallbackPrice: 1_000_000_000, // $10
       minSpend: 5000000000000000000 // 5 LINK
@@ -222,7 +225,7 @@ contract BaseTest is Test {
       fallbackNativePrice: 400_000_000_000, // $4,000
       transcoder: 0xB1e66855FD67f6e85F0f0fA38cd6fBABdf00923c,
       registrars: registrars,
-      upkeepPrivilegeManager: 0xD9c855F08A7e460691F41bBDDe6eC310bc0593D8,
+      upkeepPrivilegeManager: PRIVILEGE_MANAGER,
       chainModule: address(new ChainModuleBase()),
       reorgProtectionEnabled: true,
       financeAdmin: FINANCE_ADMIN

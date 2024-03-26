@@ -94,6 +94,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   mapping(address => Signer) internal s_signers;
   address[] internal s_signersList; // s_signersList contains the signing address of each oracle
   address[] internal s_transmittersList; // s_transmittersList contains the transmission address of each oracle
+  EnumerableSet.AddressSet internal s_deactivatedTransmitters;
   mapping(address => address) internal s_transmitterPayees; // s_payees contains the mapping from transmitter to payee.
   mapping(address => address) internal s_proposedPayee; // proposed payee for a transmitter
   bytes32 internal s_latestConfigDigest; // Read on transmit path in case of signature verification
@@ -102,14 +103,15 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   uint256 internal s_fallbackGasPrice;
   uint256 internal s_fallbackLinkPrice;
   uint256 internal s_fallbackNativePrice;
-  mapping(address billingToken => uint256 reserveAmount) internal s_reserveAmounts; // unspent user deposits + unwithdrawn NOP payments
   mapping(address => MigrationPermission) internal s_peerRegistryMigrationPermission; // Permissions for migration to and fro
   mapping(uint256 => bytes) internal s_upkeepTriggerConfig; // upkeep triggers
   mapping(uint256 => bytes) internal s_upkeepOffchainConfig; // general config set by users for each upkeep
   mapping(uint256 => bytes) internal s_upkeepPrivilegeConfig; // general config set by an administrative role for an upkeep
   mapping(address => bytes) internal s_adminPrivilegeConfig; // general config set by an administrative role for an admin
   // billing
+  mapping(IERC20 billingToken => uint256 reserveAmount) internal s_reserveAmounts; // unspent user deposits + unwithdrawn NOP payments
   mapping(IERC20 billingToken => BillingConfig billingConfig) internal s_billingConfigs; // billing configurations for different tokens
+  mapping(uint256 upkeepID => BillingOverrides billingOverrides) internal s_billingOverrides; // billing overrides for specific upkeeps
   IERC20[] internal s_billingTokens; // list of billing tokens
   PayoutMode internal s_payoutMode;
 
@@ -126,7 +128,6 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   error IncorrectNumberOfSigners();
   error IndexOutOfRange();
   error InsufficientBalance(uint256 available, uint256 requested);
-  error InvalidBillingToken();
   error InvalidDataLength();
   error InvalidFeed();
   error InvalidTrigger();
@@ -134,6 +135,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   error InvalidRecipient();
   error InvalidReport();
   error InvalidSigner();
+  error InvalidToken();
   error InvalidTransmitter();
   error InvalidTriggerType();
   error MigrationNotPermitted();
@@ -222,26 +224,30 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
    */
   struct OnchainConfig {
     uint32 checkGasLimit;
-    uint24 stalenessSeconds;
-    uint16 gasCeilingMultiplier;
     uint32 maxPerformGas;
     uint32 maxCheckDataSize;
+    address transcoder;
+    // 1 word full
+    bool reorgProtectionEnabled;
+    uint24 stalenessSeconds;
     uint32 maxPerformDataSize;
     uint32 maxRevertDataSize;
+    address upkeepPrivilegeManager;
+    // 2 words full
+    uint16 gasCeilingMultiplier;
+    address financeAdmin;
+    // 3 words
     uint256 fallbackGasPrice;
     uint256 fallbackLinkPrice;
     uint256 fallbackNativePrice;
-    address transcoder;
     address[] registrars;
-    address upkeepPrivilegeManager;
     IChainModule chainModule;
-    bool reorgProtectionEnabled;
-    address financeAdmin; // TODO: pack this struct better
   }
 
   /**
    * @notice relevant state of an upkeep which is used in transmit function
    * @member paused if this upkeep has been paused
+   * @member overridesEnabled if this upkeep has overrides enabled
    * @member performGas the gas limit of upkeep execution
    * @member maxValidBlocknumber until which block this upkeep is valid
    * @member forwarder the forwarder contract to use for this upkeep
@@ -251,10 +257,11 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
    */
   struct Upkeep {
     bool paused;
+    bool overridesEnabled;
     uint32 performGas;
     uint32 maxValidBlocknumber;
     IAutomationForwarder forwarder;
-    // 3 bytes left in 1st EVM word - read in transmit path
+    // 2 bytes left in 1st EVM word - read in transmit path
     uint128 amountSpent;
     uint96 balance;
     uint32 lastPerformedBlockNumber;
@@ -374,7 +381,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     uint32 gasFeePPB;
     uint24 flatFeeMilliCents; // min fee is $0.00001, max fee is $167
     AggregatorV3Interface priceFeed;
-    // 1st word, read in getPrice()
+    // 1st word, read in calculating BillingTokenPaymentParams
     uint256 fallbackPrice;
     // 2nd word only read if stale
     uint96 minSpend;
@@ -382,7 +389,15 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   }
 
   /**
-   * @notice pricing params for a biling token
+   * @notice override-able billing params of a billing token
+   */
+  struct BillingOverrides {
+    uint32 gasFeePPB;
+    uint24 flatFeeMilliCents;
+  }
+
+  /**
+   * @notice pricing params for a billing token
    * @dev this is a memory-only struct, so struct packing is less important
    */
   struct BillingTokenPaymentParams {
@@ -428,6 +443,8 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   }
 
   event AdminPrivilegeConfigSet(address indexed admin, bytes privilegeConfig);
+  event BillingConfigOverridden(uint256 indexed id, BillingOverrides overrides);
+  event BillingConfigOverrideRemoved(uint256 indexed id);
   event CancelledUpkeepReport(uint256 indexed id, bytes trigger);
   event ChainSpecificModuleUpdated(address newModule);
   event DedupKeyAdded(bytes32 indexed dedupKey);
@@ -466,7 +483,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   event Unpaused(address account);
   // Event to emit when a billing configuration is set
   event BillingConfigSet(IERC20 indexed token, BillingConfig config);
-  event FeesWithdrawn(address indexed recipient, address indexed assetAddress, uint256 amount);
+  event FeesWithdrawn(address indexed assetAddress, address indexed recipient, uint256 amount);
 
   /**
    * @param link address of the LINK Token
@@ -526,11 +543,11 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     if (upkeep.performGas < PERFORM_GAS_MIN || upkeep.performGas > s_storage.maxPerformGas)
       revert GasLimitOutsideRange();
     if (address(s_upkeep[id].forwarder) != address(0)) revert UpkeepAlreadyExists();
-    if (address(s_billingConfigs[upkeep.billingToken].priceFeed) == address(0)) revert InvalidBillingToken();
+    if (address(s_billingConfigs[upkeep.billingToken].priceFeed) == address(0)) revert InvalidToken();
     s_upkeep[id] = upkeep;
     s_upkeepAdmin[id] = admin;
     s_checkData[id] = checkData;
-    s_reserveAmounts[address(upkeep.billingToken)] = s_reserveAmounts[address(upkeep.billingToken)] + upkeep.balance;
+    s_reserveAmounts[upkeep.billingToken] = s_reserveAmounts[upkeep.billingToken] + upkeep.balance;
     s_upkeepTriggerConfig[id] = triggerConfig;
     s_upkeepOffchainConfig[id] = offchainConfig;
     s_upkeepIDs.add(id);
@@ -674,6 +691,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
    * maximum gas overhead, L1 fee
    */
   function _getMaxPayment(
+    uint256 upkeepId,
     HotVars memory hotVars,
     Trigger triggerType,
     uint32 performGas,
@@ -704,6 +722,14 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
       maxL1Fee = hotVars.gasCeilingMultiplier * hotVars.chainModule.getMaxL1Fee(maxCalldataSize);
     }
 
+    BillingTokenPaymentParams memory paymentParams = _getBillingTokenPaymentParams(hotVars, billingToken);
+    if (s_upkeep[upkeepId].overridesEnabled) {
+      BillingOverrides memory billingOverrides = s_billingOverrides[upkeepId];
+      // use the overridden configs
+      paymentParams.gasFeePPB = billingOverrides.gasFeePPB;
+      paymentParams.flatFeeMilliCents = billingOverrides.flatFeeMilliCents;
+    }
+
     PaymentReceipt memory receipt = _calculatePaymentAmount(
       hotVars,
       PaymentParams({
@@ -713,7 +739,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
         fastGasWei: fastGasWei,
         linkUSD: linkUSD,
         nativeUSD: nativeUSD,
-        billingToken: _getBillingTokenPaymentParams(hotVars, billingToken),
+        billingToken: paymentParams,
         isTransaction: false
       })
     );
@@ -941,11 +967,19 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   function _handlePayment(
     HotVars memory hotVars,
     PaymentParams memory paymentParams,
-    uint256 upkeepId
+    uint256 upkeepId,
+    Upkeep memory upkeep
   ) internal returns (PaymentReceipt memory) {
+    if (upkeep.overridesEnabled) {
+      BillingOverrides memory billingOverrides = s_billingOverrides[upkeepId];
+      // use the overridden configs
+      paymentParams.billingToken.gasFeePPB = billingOverrides.gasFeePPB;
+      paymentParams.billingToken.flatFeeMilliCents = billingOverrides.flatFeeMilliCents;
+    }
+
     PaymentReceipt memory receipt = _calculatePaymentAmount(hotVars, paymentParams);
 
-    uint96 balance = s_upkeep[upkeepId].balance;
+    uint96 balance = upkeep.balance;
     uint96 payment = receipt.gasCharge + receipt.premium;
 
     // this shouldn't happen, but in rare edge cases, we charge the full balance in case the user
@@ -1008,6 +1042,15 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   }
 
   /**
+   * @notice only allows privilege manager to call the function
+   */
+  function _onlyPrivilegeManagerAllowed() internal view {
+    if (msg.sender != s_storage.upkeepPrivilegeManager) {
+      revert OnlyCallableByUpkeepPrivilegeManager();
+    }
+  }
+
+  /**
    * @notice sets billing configuration for a token
    * @param billingTokens the addresses of tokens
    * @param billingConfigs the configs for tokens
@@ -1026,7 +1069,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
 
       // if LINK is a billing option, payout mode must be ON_CHAIN
       if (address(token) == address(i_link) && mode == PayoutMode.OFF_CHAIN) {
-        revert InvalidBillingToken();
+        revert InvalidToken();
       }
       if (address(token) == ZERO_ADDRESS || address(config.priceFeed) == ZERO_ADDRESS) {
         revert ZeroAddressNotAllowed();

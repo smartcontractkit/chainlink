@@ -76,6 +76,12 @@ contract SetUp is BaseTest {
       "",
       ""
     );
+
+    vm.startPrank(OWNER);
+    registry.addFunds(linkUpkeepID, registry.getMinBalanceForUpkeep(linkUpkeepID));
+    registry.addFunds(usdUpkeepID, registry.getMinBalanceForUpkeep(usdUpkeepID));
+    registry.addFunds(nativeUpkeepID, registry.getMinBalanceForUpkeep(nativeUpkeepID));
+    vm.stopPrank();
   }
 }
 
@@ -124,7 +130,7 @@ contract AddFunds is SetUp {
 
   // it fails when the billing token is not native, but trying to pay with native
   function test_RevertsWhen_NativePaymentDoesntMatchBillingToken() external {
-    vm.expectRevert(abi.encodeWithSelector(Registry.InvalidBillingToken.selector));
+    vm.expectRevert(abi.encodeWithSelector(Registry.InvalidToken.selector));
     registry.addFunds{value: 1}(linkUpkeepID, 0);
   }
 
@@ -140,13 +146,13 @@ contract AddFunds is SetUp {
   }
 
   function test_anyoneCanAddFunds() public {
-    assertEq(registry.getBalance(linkUpkeepID), 0);
+    uint256 startAmount = registry.getBalance(linkUpkeepID);
     vm.prank(UPKEEP_ADMIN);
     registry.addFunds(linkUpkeepID, 1);
-    assertEq(registry.getBalance(linkUpkeepID), 1);
+    assertEq(registry.getBalance(linkUpkeepID), startAmount + 1);
     vm.prank(STRANGER);
     registry.addFunds(linkUpkeepID, 1);
-    assertEq(registry.getBalance(linkUpkeepID), 2);
+    assertEq(registry.getBalance(linkUpkeepID), startAmount + 2);
   }
 
   function test_movesFundFromCorrectToken() public {
@@ -154,18 +160,20 @@ contract AddFunds is SetUp {
 
     uint256 startBalanceLINK = linkToken.balanceOf(address(registry));
     uint256 startBalanceUSDToken = usdToken.balanceOf(address(registry));
+    uint256 startLinkUpkeepBalance = registry.getBalance(linkUpkeepID);
+    uint256 startUSDUpkeepBalance = registry.getBalance(usdUpkeepID);
 
     registry.addFunds(linkUpkeepID, 1);
-    assertEq(registry.getBalance(linkUpkeepID), 1);
-    assertEq(registry.getBalance(usdUpkeepID), 0);
-    assertEq(linkToken.balanceOf(address(registry)), startBalanceLINK + 1);
-    assertEq(usdToken.balanceOf(address(registry)), startBalanceUSDToken);
+    assertEq(registry.getBalance(linkUpkeepID), startBalanceLINK + 1);
+    assertEq(registry.getBalance(usdUpkeepID), startBalanceUSDToken);
+    assertEq(linkToken.balanceOf(address(registry)), startLinkUpkeepBalance + 1);
+    assertEq(usdToken.balanceOf(address(registry)), startUSDUpkeepBalance);
 
     registry.addFunds(usdUpkeepID, 2);
-    assertEq(registry.getBalance(linkUpkeepID), 1);
-    assertEq(registry.getBalance(usdUpkeepID), 2);
-    assertEq(linkToken.balanceOf(address(registry)), startBalanceLINK + 1);
-    assertEq(usdToken.balanceOf(address(registry)), startBalanceUSDToken + 2);
+    assertEq(registry.getBalance(linkUpkeepID), startBalanceLINK + 1);
+    assertEq(registry.getBalance(usdUpkeepID), startBalanceUSDToken + 2);
+    assertEq(linkToken.balanceOf(address(registry)), startLinkUpkeepBalance + 1);
+    assertEq(usdToken.balanceOf(address(registry)), startUSDUpkeepBalance + 2);
   }
 
   function test_emitsAnEvent() public {
@@ -177,78 +185,97 @@ contract AddFunds is SetUp {
 }
 
 contract Withdraw is SetUp {
-  address internal aMockAddress = address(0x1111111111111111111111111111111111111113);
+  address internal aMockAddress = randomAddress();
 
   function testLinkAvailableForPaymentReturnsLinkBalance() public {
+    uint256 startBalance = linkToken.balanceOf(address(registry));
+    int256 startLinkAvailable = registry.linkAvailableForPayment();
+
     //simulate a deposit of link to the liquidity pool
     _mintLink(address(registry), 1e10);
 
     //check there's a balance
-    assertGt(linkToken.balanceOf(address(registry)), 0);
+    assertEq(linkToken.balanceOf(address(registry)), startBalance + 1e10);
 
-    //check the link available for payment is the link balance
-    assertEq(registry.linkAvailableForPayment(), linkToken.balanceOf(address(registry)));
+    //check the link available has increased by the same amount
+    assertEq(uint256(registry.linkAvailableForPayment()), uint256(startLinkAvailable) + 1e10);
   }
 
-  function testWithdrawLinkFeesRevertsBecauseOnlyFinanceAdminAllowed() public {
+  function testWithdrawLinkRevertsBecauseOnlyFinanceAdminAllowed() public {
     vm.expectRevert(abi.encodeWithSelector(Registry.OnlyFinanceAdmin.selector));
-    registry.withdrawLinkFees(aMockAddress, 1);
+    registry.withdrawLink(aMockAddress, 1);
   }
 
-  function testWithdrawLinkFeesRevertsBecauseOfInsufficientBalance() public {
+  function testWithdrawLinkRevertsBecauseOfInsufficientBalance() public {
     vm.startPrank(FINANCE_ADMIN);
 
     // try to withdraw 1 link while there is 0 balance
     vm.expectRevert(abi.encodeWithSelector(Registry.InsufficientBalance.selector, 0, 1));
-    registry.withdrawLinkFees(aMockAddress, 1);
+    registry.withdrawLink(aMockAddress, 1);
 
     vm.stopPrank();
   }
 
-  function testWithdrawLinkFeesRevertsBecauseOfInvalidRecipient() public {
+  function testWithdrawLinkRevertsBecauseOfInvalidRecipient() public {
     vm.startPrank(FINANCE_ADMIN);
 
     // try to withdraw 1 link while there is 0 balance
     vm.expectRevert(abi.encodeWithSelector(Registry.InvalidRecipient.selector));
-    registry.withdrawLinkFees(ZERO_ADDRESS, 1);
+    registry.withdrawLink(ZERO_ADDRESS, 1);
 
     vm.stopPrank();
   }
 
-  function testWithdrawLinkFeeSuccess() public {
+  function testWithdrawLinkSuccess() public {
     //simulate a deposit of link to the liquidity pool
     _mintLink(address(registry), 1e10);
-
-    //check there's a balance
-    assertGt(linkToken.balanceOf(address(registry)), 0);
+    uint256 startBalance = linkToken.balanceOf(address(registry));
 
     vm.startPrank(FINANCE_ADMIN);
 
     // try to withdraw 1 link while there is a ton of link available
-    registry.withdrawLinkFees(aMockAddress, 1);
+    registry.withdrawLink(aMockAddress, 1);
 
     vm.stopPrank();
 
     assertEq(linkToken.balanceOf(address(aMockAddress)), 1);
-    assertEq(linkToken.balanceOf(address(registry)), 1e10 - 1);
+    assertEq(linkToken.balanceOf(address(registry)), startBalance - 1);
+  }
+
+  function test_WithdrawERC20Fees_RespectsReserveAmount() public {
+    assertEq(registry.getBalance(usdUpkeepID), registry.getReserveAmount(address(usdToken)));
+    vm.startPrank(FINANCE_ADMIN);
+    vm.expectRevert(abi.encodeWithSelector(Registry.InsufficientBalance.selector, 0, 1));
+    registry.withdrawERC20Fees(address(usdToken), FINANCE_ADMIN, 1);
+  }
+
+  function test_WithdrawERC20Fees_RevertsWhenAttemptingToWithdrawLINK() public {
+    _mintLink(address(registry), 1e10);
+    vm.startPrank(FINANCE_ADMIN);
+    vm.expectRevert(Registry.InvalidToken.selector);
+    registry.withdrawERC20Fees(address(linkToken), FINANCE_ADMIN, 1); // should revert
+    registry.withdrawLink(FINANCE_ADMIN, 1); // but using link withdraw functions succeeds
   }
 
   function testWithdrawERC20FeeSuccess() public {
-    // simulate a deposit of ERC20 to the liquidity pool
+    // deposit excess USDToken to the registry (this goes to the "finance withdrawable" pool be default)
+    uint256 startReserveAmount = registry.getReserveAmount(address(usdToken));
+    uint256 startAmount = usdToken.balanceOf(address(registry));
     _mintERC20(address(registry), 1e10);
 
-    // check there's a balance
-    assertGt(usdToken.balanceOf(address(registry)), 0);
+    // depositing shouldn't change reserve amount
+    assertEq(registry.getReserveAmount(address(usdToken)), startReserveAmount);
 
     vm.startPrank(FINANCE_ADMIN);
 
-    // try to withdraw 1 link while there is a ton of link available
+    // try to withdraw 1 USDToken
     registry.withdrawERC20Fees(address(usdToken), aMockAddress, 1);
 
     vm.stopPrank();
 
     assertEq(usdToken.balanceOf(address(aMockAddress)), 1);
-    assertEq(usdToken.balanceOf(address(registry)), 1e10 - 1);
+    assertEq(usdToken.balanceOf(address(registry)), startAmount + 1e10 - 1);
+    assertEq(registry.getReserveAmount(address(usdToken)), startReserveAmount);
   }
 }
 
@@ -280,7 +307,7 @@ contract SetConfig is SetUp {
       fallbackNativePrice: 400_000_000_000, // $4,000
       transcoder: 0xB1e66855FD67f6e85F0f0fA38cd6fBABdf00923c,
       registrars: new address[](0),
-      upkeepPrivilegeManager: 0xD9c855F08A7e460691F41bBDDe6eC310bc0593D8,
+      upkeepPrivilegeManager: PRIVILEGE_MANAGER,
       chainModule: module,
       reorgProtectionEnabled: true,
       financeAdmin: FINANCE_ADMIN
@@ -530,7 +557,7 @@ contract SetConfig is SetUp {
     );
   }
 
-  function testSetConfigRevertDueToInvalidBillingToken() public {
+  function testSetConfigRevertDueToInvalidToken() public {
     address[] memory billingTokens = new address[](1);
     billingTokens[0] = address(linkToken);
 
@@ -547,7 +574,7 @@ contract SetConfig is SetUp {
     // deploy registry with OFF_CHAIN payout mode
     registry = deployRegistry(AutoBase.PayoutMode.OFF_CHAIN);
 
-    vm.expectRevert(abi.encodeWithSelector(Registry.InvalidBillingToken.selector));
+    vm.expectRevert(abi.encodeWithSelector(Registry.InvalidToken.selector));
     registry.setConfigTypeSafe(
       SIGNERS,
       TRANSMITTERS,
@@ -792,7 +819,7 @@ contract RegisterUpkeep is SetUp {
   }
 
   function test_RevertsWhen_TheBillingTokenIsNotConfigured() public {
-    vm.expectRevert(Registry.InvalidBillingToken.selector);
+    vm.expectRevert(Registry.InvalidToken.selector);
     registry.registerUpkeep(
       address(TARGET1),
       config.maxPerformGas,
@@ -871,7 +898,7 @@ contract OnTokenTransfer is SetUp {
 
   function test_RevertsWhen_TheUpkeepDoesNotUseLINKAsItsBillingToken() public {
     vm.startPrank(address(linkToken));
-    vm.expectRevert(Registry.InvalidBillingToken.selector);
+    vm.expectRevert(Registry.InvalidToken.selector);
     registry.onTokenTransfer(UPKEEP_ADMIN, 100, abi.encode(usdUpkeepID));
   }
 
@@ -898,5 +925,73 @@ contract GetMinBalanceForUpkeep is SetUp {
 
     uint256 minBalanceAfter = registry.getMinBalanceForUpkeep(usdUpkeepID);
     assertEq(minBalanceAfter, minBalanceBefore + (uint256(usdTokenConfig.flatFeeMilliCents) * 1e13));
+  }
+}
+
+contract BillingOverrides is SetUp {
+  event BillingConfigOverridden(uint256 indexed id, AutomationRegistryBase2_3.BillingOverrides overrides);
+  event BillingConfigOverrideRemoved(uint256 indexed id);
+
+  function test_RevertsWhen_NotPrivilegeManager() public {
+    AutomationRegistryBase2_3.BillingOverrides memory billingOverrides = AutomationRegistryBase2_3.BillingOverrides({
+      gasFeePPB: 5_000,
+      flatFeeMilliCents: 20_000
+    });
+
+    vm.expectRevert(Registry.OnlyCallableByUpkeepPrivilegeManager.selector);
+    registry.setBillingOverrides(linkUpkeepID, billingOverrides);
+  }
+
+  function test_RevertsWhen_UpkeepCancelled() public {
+    AutomationRegistryBase2_3.BillingOverrides memory billingOverrides = AutomationRegistryBase2_3.BillingOverrides({
+      gasFeePPB: 5_000,
+      flatFeeMilliCents: 20_000
+    });
+
+    registry.cancelUpkeep(linkUpkeepID);
+
+    vm.startPrank(PRIVILEGE_MANAGER);
+    vm.expectRevert(Registry.UpkeepCancelled.selector);
+    registry.setBillingOverrides(linkUpkeepID, billingOverrides);
+  }
+
+  function test_Happy_SetBillingOverrides() public {
+    AutomationRegistryBase2_3.BillingOverrides memory billingOverrides = AutomationRegistryBase2_3.BillingOverrides({
+      gasFeePPB: 5_000,
+      flatFeeMilliCents: 20_000
+    });
+
+    vm.startPrank(PRIVILEGE_MANAGER);
+
+    vm.expectEmit();
+    emit BillingConfigOverridden(linkUpkeepID, billingOverrides);
+    registry.setBillingOverrides(linkUpkeepID, billingOverrides);
+  }
+
+  function test_Happy_RemoveBillingOverrides() public {
+    vm.startPrank(PRIVILEGE_MANAGER);
+
+    vm.expectEmit();
+    emit BillingConfigOverrideRemoved(linkUpkeepID);
+    registry.removeBillingOverrides(linkUpkeepID);
+  }
+
+  function test_Happy_MaxGasPayment_WithBillingOverrides() public {
+    uint96 maxPayment1 = registry.getMaxPaymentForGas(linkUpkeepID, 0, 5_000_000, address(linkToken));
+
+    // Double the two billing values
+    AutomationRegistryBase2_3.BillingOverrides memory billingOverrides = AutomationRegistryBase2_3.BillingOverrides({
+      gasFeePPB: DEFAULT_GAS_FEE_PPB * 2,
+      flatFeeMilliCents: DEFAULT_FLAT_FEE_MILLI_CENTS * 2
+    });
+
+    vm.startPrank(PRIVILEGE_MANAGER);
+    registry.setBillingOverrides(linkUpkeepID, billingOverrides);
+
+    // maxPayment2 should be greater than maxPayment1 after the overrides
+    // The 2 numbers should follow this: maxPayment2 - maxPayment1 == 2 * recepit.premium
+    // We do not apply the exact equation since we couldn't get the receipt.premium value
+    uint96 maxPayment2 = registry.getMaxPaymentForGas(linkUpkeepID, 0, 5_000_000, address(linkToken));
+    assertGt(maxPayment2, maxPayment1);
   }
 }

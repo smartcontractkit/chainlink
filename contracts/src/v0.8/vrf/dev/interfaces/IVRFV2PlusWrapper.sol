@@ -7,8 +7,8 @@ interface IVRFV2PlusWrapper {
   event ConfigSet(
     uint32 wrapperGasOverhead,
     uint32 coordinatorGasOverhead,
-    uint8 wrapperNativePremiumPercentage,
-    uint8 wrapperLinkPremiumPercentage,
+    uint8 coordinatorNativePremiumPercentage,
+    uint8 coordinatorLinkPremiumPercentage,
     bytes32 keyHash,
     uint8 maxNumWords,
     uint32 stalenessSeconds,
