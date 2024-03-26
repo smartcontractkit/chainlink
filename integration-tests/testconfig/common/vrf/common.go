@@ -177,6 +177,12 @@ type General struct {
 	BHSJobLookBackBlocks *int                    `toml:"bhs_job_lookback_blocks"`
 	BHSJobPollPeriod     *blockchain.StrDuration `toml:"bhs_job_poll_period"`
 	BHSJobRunTimeout     *blockchain.StrDuration `toml:"bhs_job_run_timeout"`
+
+	//BHF Job Config
+	BHFJobWaitBlocks     *int                    `toml:"bhf_job_wait_blocks"`
+	BHFJobLookBackBlocks *int                    `toml:"bhf_job_lookback_blocks"`
+	BHFJobPollPeriod     *blockchain.StrDuration `toml:"bhf_job_poll_period"`
+	BHFJobRunTimeout     *blockchain.StrDuration `toml:"bhf_job_run_timeout"`
 }
 
 func (c *General) Validate() error {

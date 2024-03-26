@@ -575,12 +575,13 @@ func TestConfig_Marshal(t *testing.T) {
 				},
 
 				NodePool: evmcfg.NodePool{
-					PollFailureThreshold: ptr[uint32](5),
-					PollInterval:         &minute,
-					SelectionMode:        &selectionMode,
-					SyncThreshold:        ptr[uint32](13),
-					LeaseDuration:        &zeroSeconds,
-					NodeIsSyncingEnabled: ptr(true),
+					PollFailureThreshold:       ptr[uint32](5),
+					PollInterval:               &minute,
+					SelectionMode:              &selectionMode,
+					SyncThreshold:              ptr[uint32](13),
+					LeaseDuration:              &zeroSeconds,
+					NodeIsSyncingEnabled:       ptr(true),
+					FinalizedBlockPollInterval: &second,
 				},
 				OCR: evmcfg.OCR{
 					ContractConfirmations:              ptr[uint16](11),
@@ -1020,6 +1021,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 13
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = true
+FinalizedBlockPollInterval = '1s'
 
 [EVM.OCR]
 ContractConfirmations = 11
