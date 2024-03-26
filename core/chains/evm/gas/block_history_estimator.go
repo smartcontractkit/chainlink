@@ -396,9 +396,6 @@ func (b *BlockHistoryEstimator) GetDynamicFee(_ context.Context, gasLimit uint64
 	var tipCap *assets.Wei
 	ok := b.IfStarted(func() {
 		chainSpecificGasLimit = gasLimit
-		if err != nil {
-			return
-		}
 		b.priceMu.RLock()
 		defer b.priceMu.RUnlock()
 		tipCap = b.tipCap

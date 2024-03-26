@@ -212,27 +212,32 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3, Chainable {
     return int256(i_link.balanceOf(address(this))) - int256(s_reserveAmounts[IERC20(address(i_link))]);
   }
 
-  function withdrawLinkFees(address to, uint256 amount) external {
+  function withdrawLink(address to, uint256 amount) external {
     _onlyFinanceAdminAllowed();
     if (to == ZERO_ADDRESS) revert InvalidRecipient();
 
     int256 available = linkAvailableForPayment();
-    if (available < 0 || amount > uint256(available)) revert InsufficientBalance(available, amount);
+    if (available < 0) {
+      revert InsufficientBalance(0, amount);
+    } else if (amount > uint256(available)) {
+      revert InsufficientBalance(uint256(available), amount);
+    }
 
     bool transferStatus = i_link.transfer(to, amount);
     if (!transferStatus) {
       revert TransferFailed();
     }
-    emit FeesWithdrawn(to, address(i_link), amount);
+    emit FeesWithdrawn(address(i_link), to, amount);
   }
 
-  function withdrawERC20Fees(address assetAddress, address to, uint256 amount) external {
+  function withdrawERC20Fees(IERC20 asset, address to, uint256 amount) external {
     _onlyFinanceAdminAllowed();
     if (to == ZERO_ADDRESS) revert InvalidRecipient();
+    uint256 available = asset.balanceOf(address(this)) - s_reserveAmounts[asset];
+    if (amount > available) revert InsufficientBalance(available, amount);
 
-    IERC20(assetAddress).safeTransfer(to, amount);
-
-    emit FeesWithdrawn(to, assetAddress, amount);
+    asset.safeTransfer(to, amount);
+    emit FeesWithdrawn(address(asset), to, amount);
   }
 
   /**
