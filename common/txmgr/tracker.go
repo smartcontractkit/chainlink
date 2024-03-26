@@ -162,6 +162,7 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop(ctx
 				tr.lggr.Infof("received blockHeight %v", blockHeight)
 				if err := tr.handleTxesByState(ctx, blockHeight); err != nil {
 					tr.lggr.Errorf("failed to handle txes by state: %v", err)
+					return
 				}
 				if tr.AbandonedTxCount() == 0 {
 					tr.lggr.Info("all abandoned txes handled, stopping runLoop")
