@@ -512,38 +512,6 @@ deployments:
               memory: 1024Mi
         # default cluster shipped with latest Geth ( dev mode by default )
         geth:
-          securityContext:
-            capabilities:
-              drop:
-                - ALL
-            readOnlyRootFilesystem: false
-            runAsNonRoot: true
-            runAsUser: 999
-            runAsGroup: 999
-          version: v1.12.0
-          wsRpcPort: 8546
-          httpRpcPort: 8544
-          chains:
-            - networkId: 1337
-              customEVMConfigToml: |
-                [EVM.GasEstimator]
-                PriceMax = '200 gwei'
-                LimitDefault = 6000000
-                FeeCapDefault = '200 gwei'
-            - networkId: 2337
-              customEVMConfigToml: |
-                [EVM.GasEstimator]
-                PriceMax = '200 gwei'
-                LimitDefault = 6000000
-                FeeCapDefault = '200 gwei'
-          blocktime: 1
-          resources:
-            requests:
-              cpu: 1
-              memory: 1024Mi
-            limits:
-              cpu: 1
-              memory: 1024Mi
         ccip:
           deployContractsAndJobs: true
           ccipScriptsImage: ${DEVSPACE_CCIP_SCRIPTS_IMAGE}
@@ -552,30 +520,6 @@ deployments:
         mockserver:
           #  image: "mockserver/mockserver"
           #  version: "mockserver-5.15.0"
-          securityContext:
-            capabilities:
-              drop:
-                - ALL
-            readOnlyRootFilesystem: false
-            runAsNonRoot: true
-            runAsUser: 999
-            runAsGroup: 999
-          enabled: true
-          releasenameOverride: mockserver
-          app:
-            runAsUser: 999
-            readOnlyRootFilesystem: false
-          port: 1080
-          resources:
-            requests:
-              cpu: 1
-              memory: 1024Mi
-            limits:
-              cpu: 1
-              memory: 1024Mi
-
-        # monitoring.coreos.com/v1 PodMonitor for each node
-        prometheusMonitor: true
 
         # These ingresses create AWS ALB resources and Route 53 Records.
         ingress:
