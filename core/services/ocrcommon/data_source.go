@@ -101,6 +101,7 @@ func NewInMemoryDataSource(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, l
 }
 
 const defaultCacheFreshness = time.Minute * 5
+const defaultCacheFreshnessAlert = time.Hour * 24
 const dataSourceCacheKey = "dscache"
 
 func NewInMemoryDataSourceCache(ds median.DataSource, kvStore job.KVStore, cacheFreshness time.Duration) (median.DataSource, error) {
@@ -242,6 +243,11 @@ func (ds *inMemoryDataSourceCache) updater() {
 	}
 }
 
+type ResultTimePair struct {
+	Result serializablebig.Big `json:"result"`
+	Time   time.Time           `json:"time"`
+}
+
 func (ds *inMemoryDataSourceCache) updateCache(ctx context.Context) error {
 	ds.mu.Lock()
 	defer ds.mu.Unlock()
@@ -257,7 +263,7 @@ func (ds *inMemoryDataSourceCache) updateCache(ctx context.Context) error {
 		ds.latestUpdateErr = latestUpdateErr
 		// raise log severity
 		if previousUpdateErr != nil {
-			ds.lggr.Errorf("consecutive cache updates errored: previous err: %v new err: %v", previousUpdateErr, ds.latestUpdateErr)
+			ds.lggr.Warnf("consecutive cache updates errored: previous err: %v new err: %v", previousUpdateErr, ds.latestUpdateErr)
 		}
 		return errors.Wrapf(ds.latestUpdateErr, "error executing run for spec ID %v", ds.spec.ID)
 	}
@@ -270,7 +276,7 @@ func (ds *inMemoryDataSourceCache) updateCache(ctx context.Context) error {
 	}
 
 	// backup in case data source fails continuously and node gets rebooted
-	if err = ds.kvStore.Store(dataSourceCacheKey, serializablebig.New(value)); err != nil {
+	if err = ds.kvStore.Store(dataSourceCacheKey, &ResultTimePair{Result: *serializablebig.New(value), Time: time.Now()}); err != nil {
 		ds.lggr.Errorf("failed to persist latest task run value, err: %v", err)
 	}
 
@@ -296,11 +302,17 @@ func (ds *inMemoryDataSourceCache) get(ctx context.Context) (pipeline.FinalResul
 }
 
 func (ds *inMemoryDataSourceCache) Observe(ctx context.Context, timestamp ocr2types.ReportTimestamp) (*big.Int, error) {
-	var val serializablebig.Big
+	var resTime ResultTimePair
 	latestResult, latestTrrs := ds.get(ctx)
 	if latestTrrs == nil {
-		ds.lggr.Errorf("cache is empty, returning persisted value now")
-		return val.ToInt(), ds.kvStore.Get(dataSourceCacheKey, &val)
+		ds.lggr.Warnf("cache is empty, returning persisted value now")
+		if err := ds.kvStore.Get(dataSourceCacheKey, &resTime); err != nil {
+			return nil, err
+		}
+		if time.Since(resTime.Time) >= defaultCacheFreshnessAlert {
+			ds.lggr.Errorf("cache hasn't been updated for over %v, latestUpdateErr is: %v", defaultCacheFreshnessAlert, ds.latestUpdateErr)
+		}
+		return resTime.Result.ToInt(), nil
 	}
 
 	setEATelemetry(ds.inMemoryDataSource, latestResult, latestTrrs, ObservationTimestamp{
