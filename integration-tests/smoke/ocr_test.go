@@ -1,7 +1,17 @@
 package smoke
 
 import (
+	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/chainlink/integration-tests/gauntlet"
+	contracts2 "github.com/smartcontractkit/chainlink/integration-tests/gauntlet/contracts"
 	"math/big"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -124,4 +134,130 @@ func prepareORCv1SmokeTestEnv(t *testing.T, l zerolog.Logger, firstRoundResult i
 	require.Equal(t, firstRoundResult, answer.Int64(), "Expected latest answer from OCR contract to be 5 but got %d", answer.Int64())
 
 	return env, ocrInstances, sethClient
+}
+
+type ZKSyncState struct {
+	Gauntlet        *gauntlet.Gauntlet
+	ChainlinkClient []*client.ChainlinkClient
+	ContractLoader  contracts.ContractLoader
+	L2RPC           string
+	OcrInstance     []contracts.OffchainAggregator
+}
+
+func TestOCRZkSync(t *testing.T) {
+	t.Parallel()
+	l := logging.GetTestLogger(t)
+
+	config, err := tc.GetConfig("Smoke", tc.OCR)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	env, err := test_env.NewCLTestEnvBuilder().
+		WithTestInstance(t).
+		WithTestConfig(&config).
+		WithMockAdapter().
+		WithCLNodes(6).
+		WithFunding(big.NewFloat(.1)).
+		WithStandardCleanup().
+		Build()
+	require.NoError(t, err)
+
+	env.ParallelTransactions(true)
+
+	testState := &ZKSyncState{
+		Gauntlet:        nil,
+		ChainlinkClient: nil,
+		ContractLoader:  nil,
+		L2RPC:           "",
+		OcrInstance:     nil,
+	}
+	nodeClients := env.ClCluster.NodeAPIs()
+
+	testNetwork := networks.MustGetSelectedNetworkConfig(config.Network)[0]
+	chainClient, err := blockchain.ConnectEVMClient(testNetwork, l)
+	require.NoError(t, err)
+
+	nKeys, _, err := client.CreateNodeKeysBundle(nodeClients, testNetwork.Name, strconv.FormatInt(testNetwork.ChainID, 10))
+	require.NoError(t, err)
+
+	// Creating OCR config variables
+	var transmitters []string
+	var payees []string
+	var signers []string
+	var peerIds []string
+	var ocrConfigPubKeys []string
+
+	// Preparing OCR config
+	for _, key := range nKeys {
+		peerIds = append(peerIds, key.PeerID)
+		ocrConfigPubKeys = append(ocrConfigPubKeys, strings.Replace(key.OCRKeys.Data[0].Attributes.OffChainPublicKey, "ocroff_", "", 1))
+		transmitters = append(transmitters, strings.Replace(key.EthAddress, "0x", "", 1))
+		signers = append(signers, strings.Replace(key.OCRKeys.Data[0].Attributes.OnChainSigningAddress, "ocrsad_", "", 1))
+		payees = append(payees, strings.Replace(chainClient.GetDefaultWallet().Address(), "0x", "", 1))
+	}
+
+	err = testState.Gauntlet.DeployLinkToken()
+	require.NoError(t, err)
+
+	testState.ContractLoader, err = contracts.NewContractLoader(chainClient, l)
+	require.NoError(t, err)
+
+	testState.Gauntlet.Contracts.LinkContract.Contract, err = testState.ContractLoader.LoadLINKToken(common.HexToAddress(testState.Gauntlet.Contracts.LinkContract.Address).String())
+	require.NoError(t, err)
+
+	// Funding nodes
+	for _, key := range nKeys {
+		toAddress := common.HexToAddress(key.TXKey.Data.ID)
+		l.Info().Stringer("toAddress", toAddress).Msg("Funding node")
+		amount := big.NewInt(1.2e17)
+		callMsg := ethereum.CallMsg{
+			From:  common.HexToAddress(chainClient.GetDefaultWallet().Address()),
+			To:    &toAddress,
+			Value: amount,
+		}
+		l.Debug().Interface("CallMsg", callMsg).Msg("Estimating gas")
+
+		gasEstimates, err := chainClient.EstimateGas(callMsg)
+		require.NoError(t, err)
+		l.Debug().Stringer("toAddress", toAddress).Stringer("amount", amount).Interface("gasEstimates", gasEstimates).Msg("Transferring funds")
+
+		err = chainClient.Fund(toAddress.String(), big.NewFloat(0).SetInt(amount), gasEstimates)
+		require.NoError(t, err)
+		l.Info().Stringer("toAddress", toAddress).Stringer("amount", amount).Msg("Transferred funds")
+	}
+
+	err = testState.Gauntlet.DeployAccessController()
+	require.NoError(t, err)
+
+	ocrConfig := contracts2.OCRConfig{}
+	ocrConfig.DefaultOcrConfig()
+	ocrConfig.DefaultOcrContract()
+
+	ocrConfig.Contract.Link = testState.Gauntlet.Contracts.LinkContract.Address
+	ocrConfig.Contract.RequesterAccessController = testState.Gauntlet.Contracts.AccessControllerAddress
+	ocrConfig.Contract.BillingAccessController = testState.Gauntlet.Contracts.AccessControllerAddress
+	ocrConfig.Config.Signers = signers
+	ocrConfig.Config.Transmitters = transmitters
+	ocrConfig.Config.OcrConfigPublicKeys = ocrConfigPubKeys
+	ocrConfig.Config.OperatorsPeerIds = strings.Join(peerIds, ",")
+	ocrJsonContract, err := ocrConfig.MarshalContract()
+
+	err = testState.Gauntlet.DeployOCR(ocrJsonContract)
+	require.NoError(t, err)
+
+	testState.Gauntlet.Contracts.OCRContract.Contract, err = testState.ContractLoader.LoadOcrContract(common.HexToAddress(testState.Gauntlet.Contracts.OCRContract.Address))
+	require.NoError(t, err)
+
+	err = testState.Gauntlet.AddAccess(testState.Gauntlet.Contracts.OCRContract.Address)
+	require.NoError(t, err)
+
+	err = testState.Gauntlet.SetPayees(testState.Gauntlet.Contracts.OCRContract.Address, payees, transmitters)
+	require.NoError(t, err)
+
+	ocrJsonConfig, err := ocrConfig.MarshalConfig()
+	require.NoError(t, err)
+
+	err = testState.Gauntlet.SetConfig(testState.Gauntlet.Contracts.OCRContract.Address, ocrJsonConfig)
+	require.NoError(t, err)
 }
