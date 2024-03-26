@@ -918,14 +918,16 @@ func (v *EthereumVRFv2LoadTestConsumer) GetLoadTestMetrics(ctx context.Context) 
 	}
 
 	return &VRFLoadTestMetrics{
-		requestCount,
-		fulfilmentCount,
-		averageFulfillmentInMillions,
-		slowestFulfillment,
-		fastestFulfillment,
-		nil,
-		nil,
-		nil,
+		RequestCount:                         requestCount,
+		FulfilmentCount:                      fulfilmentCount,
+		AverageFulfillmentInMillions:         averageFulfillmentInMillions,
+		SlowestFulfillment:                   slowestFulfillment,
+		FastestFulfillment:                   fastestFulfillment,
+		P90FulfillmentBlockTime:              0.0,
+		P95FulfillmentBlockTime:              0.0,
+		AverageResponseTimeInSecondsMillions: nil,
+		SlowestResponseTimeInSeconds:         nil,
+		FastestResponseTimeInSeconds:         nil,
 	}, nil
 }
 
@@ -1044,14 +1046,16 @@ func (v *EthereumVRFV2WrapperLoadTestConsumer) GetLoadTestMetrics(ctx context.Co
 	}
 
 	return &VRFLoadTestMetrics{
-		requestCount,
-		fulfilmentCount,
-		averageFulfillmentInMillions,
-		slowestFulfillment,
-		fastestFulfillment,
-		nil,
-		nil,
-		nil,
+		RequestCount:                         requestCount,
+		FulfilmentCount:                      fulfilmentCount,
+		AverageFulfillmentInMillions:         averageFulfillmentInMillions,
+		SlowestFulfillment:                   slowestFulfillment,
+		FastestFulfillment:                   fastestFulfillment,
+		P90FulfillmentBlockTime:              0.0,
+		P95FulfillmentBlockTime:              0.0,
+		AverageResponseTimeInSecondsMillions: nil,
+		SlowestResponseTimeInSeconds:         nil,
+		FastestResponseTimeInSeconds:         nil,
 	}, nil
 }
 

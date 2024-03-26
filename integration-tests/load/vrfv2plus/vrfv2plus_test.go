@@ -148,7 +148,7 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 		consumer := vrfContracts.VRFV2PlusConsumer[0]
 		err = consumer.ResetMetrics()
 		require.NoError(t, err)
-		MonitorLoadStats(lc, consumer, updatedLabels)
+		MonitorLoadStats(testcontext.Get(t), lc, consumer, updatedLabels)
 
 		singleFeedConfig.Schedule = wasp.Plain(
 			*vrfv2PlusConfig.Performance.RPS,
@@ -162,7 +162,7 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 		var wg sync.WaitGroup
 		wg.Add(1)
 		//todo - timeout should be configurable depending on the perf test type
-		requestCount, fulfilmentCount, err := vrfv2plus.WaitForRequestCountEqualToFulfilmentCount(testcontext.Get(t), consumer, 2*time.Minute, &wg)
+		requestCount, fulfilmentCount, err := vrfcommon.WaitForRequestCountEqualToFulfilmentCount(testcontext.Get(t), consumer, 2*time.Minute, &wg)
 		require.NoError(t, err)
 		wg.Wait()
 
@@ -269,7 +269,7 @@ func TestVRFV2PlusBHSPerformance(t *testing.T) {
 		consumer := vrfContracts.VRFV2PlusConsumer[0]
 		err = consumer.ResetMetrics()
 		require.NoError(t, err)
-		MonitorLoadStats(lc, consumer, updatedLabels)
+		MonitorLoadStats(testcontext.Get(t), lc, consumer, updatedLabels)
 
 		singleFeedConfig := &wasp.Config{
 			T:                     t,
@@ -319,7 +319,7 @@ func TestVRFV2PlusBHSPerformance(t *testing.T) {
 
 		var wgAllRequestsFulfilled sync.WaitGroup
 		wgAllRequestsFulfilled.Add(1)
-		requestCount, fulfilmentCount, err := vrfv2plus.WaitForRequestCountEqualToFulfilmentCount(testcontext.Get(t), consumer, 2*time.Minute, &wgAllRequestsFulfilled)
+		requestCount, fulfilmentCount, err := vrfcommon.WaitForRequestCountEqualToFulfilmentCount(testcontext.Get(t), consumer, 2*time.Minute, &wgAllRequestsFulfilled)
 		require.NoError(t, err)
 		wgAllRequestsFulfilled.Wait()
 
@@ -340,7 +340,7 @@ func teardown(
 	testConfig *tc.TestConfig,
 ) {
 	//send final results to Loki
-	metrics := GetLoadTestMetrics(consumer)
+	metrics := GetLoadTestMetrics(testcontext.Get(t), consumer)
 	SendMetricsToLoki(metrics, lc, updatedLabels)
 	//set report data for Slack notification
 	testReporter.SetReportData(
@@ -351,7 +351,8 @@ func teardown(
 			AverageFulfillmentInMillions:         metrics.AverageFulfillmentInMillions,
 			SlowestFulfillment:                   metrics.SlowestFulfillment,
 			FastestFulfillment:                   metrics.FastestFulfillment,
-			ResponseTimesInBlocks:                metrics.ResponseTimesInBlocks,
+			P90FulfillmentBlockTime:              metrics.P90FulfillmentBlockTime,
+			P95FulfillmentBlockTime:              metrics.P95FulfillmentBlockTime,
 			AverageResponseTimeInSecondsMillions: metrics.AverageResponseTimeInSecondsMillions,
 			SlowestResponseTimeInSeconds:         metrics.SlowestResponseTimeInSeconds,
 			FastestResponseTimeInSeconds:         metrics.FastestResponseTimeInSeconds,

@@ -20,11 +20,11 @@ const (
 	ErrLokiPush   = "failed to push monitoring metrics to Loki"
 )
 
-func MonitorLoadStats(lc *wasp.LokiClient, consumer contracts.VRFv2PlusLoadTestConsumer, labels map[string]string) {
+func MonitorLoadStats(ctx context.Context, lc *wasp.LokiClient, consumer contracts.VRFv2PlusLoadTestConsumer, labels map[string]string) {
 	go func() {
 		for {
 			time.Sleep(1 * time.Second)
-			metrics := GetLoadTestMetrics(consumer)
+			metrics := GetLoadTestMetrics(ctx, consumer)
 			SendMetricsToLoki(metrics, lc, labels)
 		}
 	}()
@@ -41,14 +41,14 @@ func UpdateLabels(labels map[string]string, t *testing.T) map[string]string {
 	return updatedLabels
 }
 
-func SendMetricsToLoki(metrics *contracts.VRFV2PlusLoadTestMetrics, lc *wasp.LokiClient, updatedLabels map[string]string) {
+func SendMetricsToLoki(metrics *contracts.VRFLoadTestMetrics, lc *wasp.LokiClient, updatedLabels map[string]string) {
 	if err := lc.HandleStruct(wasp.LabelsMapToModel(updatedLabels), time.Now(), metrics); err != nil {
 		log.Error().Err(err).Msg(ErrLokiPush)
 	}
 }
 
-func GetLoadTestMetrics(consumer contracts.VRFv2PlusLoadTestConsumer) *contracts.VRFV2PlusLoadTestMetrics {
-	metrics, err := consumer.GetLoadTestMetrics(context.Background())
+func GetLoadTestMetrics(ctx context.Context, consumer contracts.VRFv2PlusLoadTestConsumer) *contracts.VRFLoadTestMetrics {
+	metrics, err := consumer.GetLoadTestMetrics(ctx)
 	if err != nil {
 		log.Error().Err(err).Msg(ErrMetrics)
 	}

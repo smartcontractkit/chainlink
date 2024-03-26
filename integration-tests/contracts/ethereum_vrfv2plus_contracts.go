@@ -4,13 +4,13 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"sort"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/montanaflynn/stats"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
@@ -561,7 +561,7 @@ func (v *EthereumVRFv2PlusLoadTestConsumer) GetLastRequestId(ctx context.Context
 	})
 }
 
-func (v *EthereumVRFv2PlusLoadTestConsumer) GetLoadTestMetrics(ctx context.Context) (*VRFV2PlusLoadTestMetrics, error) {
+func (v *EthereumVRFv2PlusLoadTestConsumer) GetLoadTestMetrics(ctx context.Context) (*VRFLoadTestMetrics, error) {
 	requestCount, err := v.consumer.SRequestCount(&bind.CallOpts{
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
 		Context: ctx,
@@ -569,6 +569,7 @@ func (v *EthereumVRFv2PlusLoadTestConsumer) GetLoadTestMetrics(ctx context.Conte
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("requestCount", requestCount)
 	fulfilmentCount, err := v.consumer.SResponseCount(&bind.CallOpts{
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
 		Context: ctx,
@@ -577,6 +578,8 @@ func (v *EthereumVRFv2PlusLoadTestConsumer) GetLoadTestMetrics(ctx context.Conte
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("fulfilmentCount", fulfilmentCount)
+
 	averageFulfillmentInMillions, err := v.consumer.SAverageResponseTimeInBlocksMillions(&bind.CallOpts{
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
 		Context: ctx,
@@ -592,6 +595,8 @@ func (v *EthereumVRFv2PlusLoadTestConsumer) GetLoadTestMetrics(ctx context.Conte
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("slowestFulfillment", slowestFulfillment)
+
 	fastestFulfillment, err := v.consumer.SFastestResponseTimeInBlocks(&bind.CallOpts{
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
 		Context: ctx,
@@ -599,6 +604,7 @@ func (v *EthereumVRFv2PlusLoadTestConsumer) GetLoadTestMetrics(ctx context.Conte
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("fastestFulfillment", fastestFulfillment)
 
 	averageResponseTimeInSeconds, err := v.consumer.SAverageResponseTimeInSecondsMillions(&bind.CallOpts{
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
@@ -607,14 +613,17 @@ func (v *EthereumVRFv2PlusLoadTestConsumer) GetLoadTestMetrics(ctx context.Conte
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("averageResponseTimeInSeconds", averageResponseTimeInSeconds)
+
 	slowestResponseTimeInSeconds, err := v.consumer.SSlowestResponseTimeInSeconds(&bind.CallOpts{
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
 		Context: ctx,
 	})
-
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("slowestResponseTimeInSeconds", slowestResponseTimeInSeconds)
+
 	fastestResponseTimeInSeconds, err := v.consumer.SFastestResponseTimeInSeconds(&bind.CallOpts{
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
 		Context: ctx,
@@ -622,6 +631,7 @@ func (v *EthereumVRFv2PlusLoadTestConsumer) GetLoadTestMetrics(ctx context.Conte
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("fastestResponseTimeInSeconds", fastestResponseTimeInSeconds)
 
 	var responseTimesInBlocks []uint32
 	for {
@@ -633,21 +643,34 @@ func (v *EthereumVRFv2PlusLoadTestConsumer) GetLoadTestMetrics(ctx context.Conte
 			return nil, err
 		}
 		if len(currentResponseTimesInBlocks) == 0 {
-			sort.Slice(responseTimesInBlocks, func(i, j int) bool {
-				return responseTimesInBlocks[i] < responseTimesInBlocks[j]
-			})
 			break
 		}
 		responseTimesInBlocks = append(responseTimesInBlocks, currentResponseTimesInBlocks...)
 	}
+	fmt.Println("responseTimesInBlocks", responseTimesInBlocks)
 
-	return &VRFV2PlusLoadTestMetrics{
+	responseTimesInBlocksFloat64 := make([]float64, len(responseTimesInBlocks))
+	for i, value := range responseTimesInBlocks {
+		responseTimesInBlocksFloat64[i] = float64(value)
+	}
+	p90FulfillmentBlockTime, err := stats.Percentile(responseTimesInBlocksFloat64, 90)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Println("p90FulfillmentBlockTime", p90FulfillmentBlockTime)
+	p95FulfillmentBlockTime, err := stats.Percentile(responseTimesInBlocksFloat64, 95)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Println("p95FulfillmentBlockTime", p95FulfillmentBlockTime)
+	return &VRFLoadTestMetrics{
 		RequestCount:                         requestCount,
 		FulfilmentCount:                      fulfilmentCount,
 		AverageFulfillmentInMillions:         averageFulfillmentInMillions,
 		SlowestFulfillment:                   slowestFulfillment,
 		FastestFulfillment:                   fastestFulfillment,
-		ResponseTimesInBlocks:                responseTimesInBlocks,
+		P90FulfillmentBlockTime:              p90FulfillmentBlockTime,
+		P95FulfillmentBlockTime:              p95FulfillmentBlockTime,
 		AverageResponseTimeInSecondsMillions: averageResponseTimeInSeconds,
 		SlowestResponseTimeInSeconds:         slowestResponseTimeInSeconds,
 		FastestResponseTimeInSeconds:         fastestResponseTimeInSeconds,
