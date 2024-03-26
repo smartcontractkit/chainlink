@@ -51,6 +51,8 @@ contract VRFV2PlusWrapperTest is BaseTest {
       address(s_testCoordinator),
       uint256(s_wrapperSubscriptionId)
     );
+    assertEq(address(s_linkToken), address(s_wrapper.link()));
+    assertEq(address(s_linkNativeFeed), address(s_wrapper.linkNativeFeed()));
 
     // Add wrapper as a consumer to the wrapper's subscription.
     s_testCoordinator.addConsumer(uint256(s_wrapperSubscriptionId), address(s_wrapper));
@@ -156,14 +158,14 @@ contract VRFV2PlusWrapperTest is BaseTest {
 
   function testVRFV2PlusWrapperZeroAddress() public {
     vm.expectRevert(VRFConsumerBaseV2Plus.ZeroAddress.selector);
-    new VRFV2PlusWrapper(address(s_linkToken), address(0), address(0), uint256(0));
+    new VRFV2PlusWrapper(address(s_linkToken), address(s_linkNativeFeed), address(0), uint256(0));
   }
 
   function testCreationOfANewVRFV2PlusWrapper() public {
     // second wrapper contract will simply add itself to the same subscription
     VRFV2PlusWrapper nextWrapper = new VRFV2PlusWrapper(
       address(s_linkToken),
-      address(0),
+      address(s_linkNativeFeed),
       address(s_testCoordinator),
       s_wrapperSubscriptionId
     );
@@ -172,27 +174,12 @@ contract VRFV2PlusWrapperTest is BaseTest {
 
   function testVRFV2PlusWrapperWithZeroSubscriptionId() public {
     vm.expectRevert(VRFV2PlusWrapper.SubscriptionIdMissing.selector);
-    new VRFV2PlusWrapper(address(s_linkToken), address(0), address(s_testCoordinator), uint256(0));
+    new VRFV2PlusWrapper(address(s_linkToken), address(s_linkNativeFeed), address(s_testCoordinator), uint256(0));
   }
 
   function testVRFV2PlusWrapperWithInvalidSubscriptionId() public {
     vm.expectRevert(SubscriptionAPI.InvalidSubscription.selector);
-    new VRFV2PlusWrapper(address(s_linkToken), address(0), address(s_testCoordinator), uint256(123456));
-  }
-
-  function testSetLinkAndLinkNativeFeed() public {
-    VRFV2PlusWrapper wrapper = new VRFV2PlusWrapper(
-      address(s_linkToken),
-      address(0),
-      address(s_testCoordinator),
-      uint256(s_wrapperSubscriptionId)
-    );
-
-    // Set LINK/Native feed on wrapper.
-    vm.expectEmit(false, false, false, true, address(wrapper));
-    emit LinkNativeFeedSet(address(s_linkNativeFeed));
-    wrapper.setLinkNativeFeed(address(s_linkNativeFeed));
-    assertEq(address(wrapper.s_linkNativeFeed()), address(s_linkNativeFeed));
+    new VRFV2PlusWrapper(address(s_linkToken), address(s_linkNativeFeed), address(s_testCoordinator), uint256(123456));
   }
 
   function testSetFulfillmentTxSize() public {
