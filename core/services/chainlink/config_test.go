@@ -1110,18 +1110,17 @@ URL = 'http://solana.bar'
 `},
 		{"Starknet", Config{Starknet: full.Starknet}, `[[Starknet]]
 ChainID = 'foobar'
+FeederURL = 'http://feeder.url'
 Enabled = true
 OCR2CachePollPeriod = '6h0m0s'
 OCR2CacheTTL = '3m0s'
 RequestTimeout = '1m3s'
 TxTimeout = '13s'
 ConfirmationPoll = '42s'
-FeederURL = 'http://feeder.url'
 
 [[Starknet.Nodes]]
 Name = 'primary'
 URL = 'http://stark.node'
-# optional
 APIKey = 'key'
 `},
 		{"Mercury", Config{Core: toml.Core{Mercury: full.Mercury}}, `[Mercury]
@@ -1364,7 +1363,7 @@ func Test_generalConfig_LogConfiguration(t *testing.T) {
 			if assert.Len(t, inputLogs, 1) {
 				assert.Equal(t, zapcore.InfoLevel, inputLogs[0].Level)
 				got := strings.TrimPrefix(inputLogs[0].Message, secrets)
-				got = strings.TrimSuffix(got, "\n")
+				got = strings.TrimRight(got, "\n")
 				assert.Equal(t, tt.wantSecrets, got)
 			}
 
@@ -1372,7 +1371,7 @@ func Test_generalConfig_LogConfiguration(t *testing.T) {
 			if assert.Len(t, inputLogs, 1) {
 				assert.Equal(t, zapcore.InfoLevel, inputLogs[0].Level)
 				got := strings.TrimPrefix(inputLogs[0].Message, input)
-				got = strings.TrimSuffix(got, "\n")
+				got = strings.TrimRight(got, "\n")
 				assert.Equal(t, tt.wantConfig, got)
 			}
 
@@ -1380,7 +1379,7 @@ func Test_generalConfig_LogConfiguration(t *testing.T) {
 			if assert.Len(t, inputLogs, 1) {
 				assert.Equal(t, zapcore.InfoLevel, inputLogs[0].Level)
 				got := strings.TrimPrefix(inputLogs[0].Message, effective)
-				got = strings.TrimSuffix(got, "\n")
+				got = strings.TrimRight(got, "\n")
 				assert.Equal(t, tt.wantEffective, got)
 			}
 
@@ -1388,7 +1387,7 @@ func Test_generalConfig_LogConfiguration(t *testing.T) {
 			if tt.wantWarning != "" && assert.Len(t, inputLogs, 1) {
 				assert.Equal(t, zapcore.WarnLevel, inputLogs[0].Level)
 				got := strings.TrimPrefix(inputLogs[0].Message, warning)
-				got = strings.TrimSuffix(got, "\n")
+				got = strings.TrimRight(got, "\n")
 				assert.Equal(t, tt.wantWarning, got)
 			}
 		})
