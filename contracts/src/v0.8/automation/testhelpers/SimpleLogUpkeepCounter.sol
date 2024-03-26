@@ -116,15 +116,16 @@ contract SimpleLogUpkeepCounter is ILogAutomation, StreamsLookupCompatibleInterf
     lastBlock = block.number;
     counter = counter + 1;
     previousPerformBlock = lastBlock;
-    (Log memory log, uint256 checkBlock, bytes memory extraData) = abi.decode(performData, (Log, uint256, bytes));
+    (, bytes memory extraData) = abi.decode(performData, (bytes[], bytes));
+    (Log memory log, uint256 checkBlock, bytes memory checkData) = abi.decode(extraData, (Log, uint256, bytes));
     timeToPerform = block.timestamp - log.timestamp;
     isRecovered = false;
     if (checkBlock != log.blockNumber) {
       isRecovered = true;
     }
-    (, , uint256 performBurnAmount, bytes32 eventSig) = abi.decode(
-      extraData,
-      (bytes[], uint256, uint256, bytes32)
+    (, uint256 performBurnAmount, bytes32 eventSig) = abi.decode(
+      checkData,
+      (uint256, uint256, bytes32)
     );
     uint256 startGas = gasleft();
     bytes32 dummyIndex = blockhash(block.number - 1);
