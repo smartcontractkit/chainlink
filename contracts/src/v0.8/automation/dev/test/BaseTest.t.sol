@@ -63,7 +63,9 @@ contract BaseTest is Test {
   uint256 internal constant SIGNING_KEY3 = 0x80f14b11da94ae7f29d9a7713ea13dc838e31960a5c0f2baf45ed458947b730a;
   address[] internal SIGNERS = new address[](4);
   address[] internal TRANSMITTERS = new address[](4);
+  address[] internal NEW_TRANSMITTERS = new address[](4);
   address[] internal PAYEES = new address[](4);
+  address[] internal NEW_PAYEES = new address[](4);
 
   function setUp() public virtual {
     vm.startPrank(OWNER);
@@ -89,11 +91,19 @@ contract BaseTest is Test {
     TRANSMITTERS[1] = address(uint160(uint256(keccak256("TRANSMITTER2"))));
     TRANSMITTERS[2] = address(uint160(uint256(keccak256("TRANSMITTER3"))));
     TRANSMITTERS[3] = address(uint160(uint256(keccak256("TRANSMITTER4"))));
+    NEW_TRANSMITTERS[0] = address(uint160(uint256(keccak256("TRANSMITTER1"))));
+    NEW_TRANSMITTERS[1] = address(uint160(uint256(keccak256("TRANSMITTER2"))));
+    NEW_TRANSMITTERS[2] = address(uint160(uint256(keccak256("TRANSMITTER5"))));
+    NEW_TRANSMITTERS[3] = address(uint160(uint256(keccak256("TRANSMITTER6"))));
 
     PAYEES[0] = address(100);
     PAYEES[1] = address(101);
     PAYEES[2] = address(102);
     PAYEES[3] = address(103);
+    NEW_PAYEES[0] = address(100);
+    NEW_PAYEES[1] = address(101);
+    NEW_PAYEES[2] = address(106);
+    NEW_PAYEES[3] = address(107);
 
     // mint funds
     vm.deal(OWNER, 100 ether);
@@ -159,7 +169,7 @@ contract BaseTest is Test {
       flatFeeMilliCents: DEFAULT_FLAT_FEE_MILLI_CENTS, // 2 cents
       priceFeed: address(USDTOKEN_USD_FEED),
       fallbackPrice: 100_000_000, // $1
-      minSpend: 100000000000000000000 // 100 USD
+      minSpend: 1000000000000000000 // 1 USD
     });
     billingTokenConfigs[1] = AutomationRegistryBase2_3.BillingConfig({
       gasFeePPB: DEFAULT_GAS_FEE_PPB, // 15%
@@ -173,7 +183,7 @@ contract BaseTest is Test {
       flatFeeMilliCents: DEFAULT_FLAT_FEE_MILLI_CENTS, // 2 cents
       priceFeed: address(LINK_USD_FEED),
       fallbackPrice: 1_000_000_000, // $10
-      minSpend: 5000000000000000000 // 5 LINK
+      minSpend: 1000000000000000000 // 1 LINK
     });
 
     if (payoutMode == AutoBase.PayoutMode.OFF_CHAIN) {
