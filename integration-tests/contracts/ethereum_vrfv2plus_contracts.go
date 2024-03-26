@@ -97,18 +97,6 @@ func (v *EthereumVRFV2PlusWrapper) GetSubID(ctx context.Context) (*big.Int, erro
 	})
 }
 
-func (v *EthereumVRFV2PlusWrapper) Migrate(newCoordinator common.Address) error {
-	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := v.wrapper.Migrate(opts, newCoordinator)
-	if err != nil {
-		return err
-	}
-	return v.client.ProcessTransaction(tx)
-}
-
 func (v *EthereumVRFV2PlusWrapper) Coordinator(ctx context.Context) (common.Address, error) {
 	opts := &bind.CallOpts{
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
@@ -951,12 +939,12 @@ func (e *EthereumContractDeployer) DeployVRFv2PlusLoadTestConsumer(coordinatorAd
 	}, err
 }
 
-func (e *EthereumContractDeployer) DeployVRFV2PlusWrapper(linkAddr string, linkEthFeedAddr string, coordinatorAddr string) (VRFV2PlusWrapper, error) {
+func (e *EthereumContractDeployer) DeployVRFV2PlusWrapper(linkAddr string, linkEthFeedAddr string, coordinatorAddr string, subId *big.Int) (VRFV2PlusWrapper, error) {
 	address, _, instance, err := e.client.DeployContract("VRFV2PlusWrapper", func(
 		auth *bind.TransactOpts,
 		_ bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		return vrfv2plus_wrapper.DeployVRFV2PlusWrapper(auth, wrappers.MustNewWrappedContractBackend(e.client, nil), common.HexToAddress(linkAddr), common.HexToAddress(linkEthFeedAddr), common.HexToAddress(coordinatorAddr))
+		return vrfv2plus_wrapper.DeployVRFV2PlusWrapper(auth, wrappers.MustNewWrappedContractBackend(e.client, nil), common.HexToAddress(linkAddr), common.HexToAddress(linkEthFeedAddr), common.HexToAddress(coordinatorAddr), subId)
 	})
 	if err != nil {
 		return nil, err

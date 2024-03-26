@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
-// solhint-disable custom-errors
+// solhint-disable gas-custom-errors
 abstract contract LinkTokenReceiver {
   // @notice Called when LINK is sent to the contract via `transferAndCall`
   // @dev The data payload's first 2 words will be overwritten by the `sender` and `amount`

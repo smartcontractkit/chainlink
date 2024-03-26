@@ -139,7 +139,7 @@ type ContractDeployer interface {
 	DeployVRFCoordinatorV2_5(bhsAddr string) (VRFCoordinatorV2_5, error)
 	DeployVRFCoordinatorV2PlusUpgradedVersion(bhsAddr string) (VRFCoordinatorV2PlusUpgradedVersion, error)
 	DeployVRFV2Wrapper(linkAddr string, linkEthFeedAddr string, coordinatorAddr string) (VRFV2Wrapper, error)
-	DeployVRFV2PlusWrapper(linkAddr string, linkEthFeedAddr string, coordinatorAddr string) (VRFV2PlusWrapper, error)
+	DeployVRFV2PlusWrapper(linkAddr string, linkEthFeedAddr string, coordinatorAddr string, subId *big.Int) (VRFV2PlusWrapper, error)
 	DeployDKG() (DKG, error)
 	DeployOCR2VRFCoordinator(beaconPeriodBlocksCount *big.Int, linkAddr string) (VRFCoordinatorV3, error)
 	DeployVRFBeacon(vrfCoordinatorAddress string, linkAddress string, dkgAddress string, keyId string) (VRFBeacon, error)
@@ -350,7 +350,7 @@ func (e *EthereumContractDeployer) DeployFluxAggregatorContract(
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumFluxAggregator{
+	return &LegacyEthereumFluxAggregator{
 		client:         e.client,
 		fluxAggregator: instance.(*flux_aggregator_wrapper.FluxAggregator),
 		address:        address,
@@ -539,7 +539,7 @@ func (e *EthereumContractDeployer) DeployLinkTokenContract() (LinkToken, error) 
 		return nil, err
 	}
 
-	return &EthereumLinkToken{
+	return &LegacyEthereumLinkToken{
 		client:   e.client,
 		instance: instance.(*link_token_interface.LinkToken),
 		address:  *linkTokenAddress,
@@ -558,7 +558,7 @@ func (e *EthereumContractDeployer) LoadLinkToken(address common.Address) (LinkTo
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumLinkToken{
+	return &LegacyEthereumLinkToken{
 		address:  address,
 		client:   e.client,
 		instance: instance.(*link_token_interface.LinkToken),
@@ -679,7 +679,7 @@ func (e *EthereumContractDeployer) DeployAPIConsumer(linkAddr string) (APIConsum
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumAPIConsumer{
+	return &LegacyEthereumAPIConsumer{
 		address:  addr,
 		client:   e.client,
 		consumer: instance.(*test_api_consumer_wrapper.TestAPIConsumer),
@@ -697,7 +697,7 @@ func (e *EthereumContractDeployer) DeployOracle(linkAddr string) (Oracle, error)
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumOracle{
+	return &LegacyEthereumOracle{
 		address: addr,
 		client:  e.client,
 		oracle:  instance.(*oracle_wrapper.Oracle),

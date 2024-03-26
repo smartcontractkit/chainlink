@@ -14,6 +14,11 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+<<<<<<< HEAD
+=======
+	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
+>>>>>>> 34dd367eb5b187de63677c1069e6264f2fb2cf49
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_test_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_mock_ethlink_aggregator"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_owner"
@@ -444,6 +449,14 @@ func (v *EthereumVRFCoordinatorV2) OwnerCancelSubscription(subID uint64) (*types
 	return tx, v.client.ProcessTransaction(tx)
 }
 
+func (v *EthereumVRFCoordinatorV2) ParseSubscriptionCanceled(log types.Log) (*vrf_coordinator_v2.VRFCoordinatorV2SubscriptionCanceled, error) {
+	return v.coordinator.ParseSubscriptionCanceled(log)
+}
+
+func (v *EthereumVRFCoordinatorV2) ParseLog(log types.Log) (generated.AbigenLog, error) {
+	return v.coordinator.ParseLog(log)
+}
+
 // CancelSubscription cancels subscription by Sub owner,
 // return funds to specified address,
 // checks if pending requests for a sub exist
@@ -501,8 +514,8 @@ func (v *EthereumVRFCoordinatorV2) WaitForRandomWordsFulfilledEvent(requestID []
 }
 
 func (v *EthereumVRFCoordinatorV2) WaitForRandomWordsRequestedEvent(keyHash [][32]byte, subID []uint64, sender []common.Address, timeout time.Duration) (*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested, error) {
-	randomWordsFulfilledEventsChannel := make(chan *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested)
-	subscription, err := v.coordinator.WatchRandomWordsRequested(nil, randomWordsFulfilledEventsChannel, keyHash, subID, sender)
+	eventsChannel := make(chan *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested)
+	subscription, err := v.coordinator.WatchRandomWordsRequested(nil, eventsChannel, keyHash, subID, sender)
 	if err != nil {
 		return nil, err
 	}
@@ -514,8 +527,8 @@ func (v *EthereumVRFCoordinatorV2) WaitForRandomWordsRequestedEvent(keyHash [][3
 			return nil, err
 		case <-time.After(timeout):
 			return nil, fmt.Errorf("timeout waiting for RandomWordsRequested event")
-		case randomWordsFulfilledEvent := <-randomWordsFulfilledEventsChannel:
-			return randomWordsFulfilledEvent, nil
+		case event := <-eventsChannel:
+			return event, nil
 		}
 	}
 }
@@ -1096,6 +1109,21 @@ func (v *EthereumVRFOwner) WaitForRandomWordsForcedEvent(requestIDs []*big.Int, 
 			return event, nil
 		}
 	}
+}
+
+func (v *EthereumVRFOwner) OwnerCancelSubscription(subID uint64) (*types.Transaction, error) {
+	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
+	if err != nil {
+		return nil, err
+	}
+	tx, err := v.vrfOwner.OwnerCancelSubscription(
+		opts,
+		subID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return tx, v.client.ProcessTransaction(tx)
 }
 
 func (v *EthereumVRFCoordinatorTestV2) Address() string {

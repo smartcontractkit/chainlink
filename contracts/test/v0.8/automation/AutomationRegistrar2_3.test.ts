@@ -21,6 +21,7 @@ enum Trigger {
   LOG,
 }
 const zeroAddress = ethers.constants.AddressZero
+const wrappedNativeTokenAddress = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2'
 
 type OnChainConfig = Parameters<IAutomationRegistry['setConfigTypeSafe']>[3]
 
@@ -34,7 +35,7 @@ before(async () => {
   personas = (await getUsers()).personas
 
   linkTokenFactory = await ethers.getContractFactory(
-    'src/v0.4/LinkToken.sol:LinkToken',
+    'src/v0.8/shared/test/helpers/LinkTokenTestHelper.sol:LinkTokenTestHelper',
   )
   mockV3AggregatorFactory = (await ethers.getContractFactory(
     'src/v0.8/tests/MockV3Aggregator.sol:MockV3Aggregator',
@@ -57,7 +58,7 @@ describe('AutomationRegistrar2_3', () => {
   const gasWei = BigNumber.from(100)
   const performGas = BigNumber.from(100000)
   const paymentPremiumPPB = BigNumber.from(250000000)
-  const flatFeeMicroLink = BigNumber.from(0)
+  const flatFeeMilliCents = BigNumber.from(0)
   const maxAllowedAutoApprove = 5
   const trigger = '0xdeadbeef'
   const offchainConfig = '0x01234567'
@@ -160,6 +161,7 @@ describe('AutomationRegistrar2_3', () => {
       gasPriceFeed.address,
       zeroAddress,
       0, // onchain payout mode
+      wrappedNativeTokenAddress,
     )
 
     mock = await upkeepMockFactory.deploy()
@@ -184,6 +186,7 @@ describe('AutomationRegistrar2_3', () => {
       ],
       [linkToken.address],
       [minimumRegistrationAmount],
+      wrappedNativeTokenAddress,
     )
 
     await linkToken
@@ -219,7 +222,7 @@ describe('AutomationRegistrar2_3', () => {
       [
         {
           gasFeePPB: paymentPremiumPPB,
-          flatFeeMicroLink,
+          flatFeeMilliCents,
           priceFeed: await registry.getLinkUSDFeedAddress(),
           fallbackPrice: 200,
           minSpend: minimumRegistrationAmount,

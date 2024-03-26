@@ -182,7 +182,7 @@ func (e *EthereumContractLoader) LoadLINKToken(addr string) (LinkToken, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumLinkToken{
+	return &LegacyEthereumLinkToken{
 		client:   e.client,
 		instance: instance.(*link_token_interface.LinkToken),
 		address:  common.HexToAddress(addr),

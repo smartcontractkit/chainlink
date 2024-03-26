@@ -19,6 +19,9 @@ import (
 // EVMWordByteLen the length of an EVM Word Byte
 const EVMWordByteLen = 32
 
+// DefaultQueryTimeout is the default timeout for database queries
+const DefaultQueryTimeout = 10 * time.Second
+
 // ZeroAddress is an address of all zeroes, otherwise in Ethereum as
 // 0x0000000000000000000000000000000000000000
 var ZeroAddress = common.Address{}
