@@ -30,6 +30,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
   uint256 public immutable SUBSCRIPTION_ID;
   LinkTokenInterface internal immutable i_link;
+  AggregatorV3Interface public immutable LINK_NATIVE_FEED;
 
   error LinkAlreadySet();
   error LinkDiscountTooHigh(uint32 flatFeeLinkDiscountPPM, uint32 flatFeeNativePPM);
@@ -76,17 +77,13 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   /* Storage Slot 4: END */
 
   /* Storage Slot 5: BEGIN */
+  /// @dev padding to make sure that the next variable is at a new storage slot
+  uint64 private s_padding;
+
   // s_stalenessSeconds is the number of seconds before we consider the feed price to be stale and
   // fallback to fallbackWeiPerUnitLink.
   uint32 private s_stalenessSeconds;
 
-  AggregatorV3Interface public s_linkNativeFeed;
-
-  /// @dev padding to make sure that the next variable is at a new storage slot
-  uint64 private s_padding;
-  /* Storage Slot 5: END */
-
-  /* Storage Slot 6: BEGIN */
   // s_wrapperGasOverhead reflects the gas overhead of the wrapper's fulfillRandomWords
   // function. The cost for this gas is passed to the user.
   uint32 private s_wrapperGasOverhead;
@@ -114,7 +111,9 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   // s_fulfillmentFlatFeeLinkDiscountPPM is the flat fee discount in millionths of native that VRFCoordinatorV2
   // charges for link payment.
   uint32 private s_fulfillmentFlatFeeLinkDiscountPPM;
+  /* Storage Slot 5: END */
 
+  /* Storage Slot 6: BEGIN */
   // s_coordinatorNativePremiumPercentage is the coordinator's premium ratio in percentage for native payment.
   // For example, a value of 0 indicates no premium. A value of 15 indicates a 15 percent premium.
   // Wrapper has no premium. This premium is for VRFCoordinator.
@@ -125,7 +124,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   // Wrapper has no premium. This premium is for VRFCoordinator.
   uint8 private s_coordinatorLinkPremiumPercentage;
 
-  // 10 bytes left
+  // 30 bytes left
   /* Storage Slot 6: END */
 
   struct Callback {
@@ -147,14 +146,9 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     address _coordinator,
     uint256 _subId
   ) VRFConsumerBaseV2Plus(_coordinator) {
-    if (_link == address(0)) {
-      revert ZeroAddress();
-    }
     i_link = LinkTokenInterface(_link);
+    LINK_NATIVE_FEED = AggregatorV3Interface(_linkNativeFeed);
 
-    if (_linkNativeFeed != address(0)) {
-      s_linkNativeFeed = AggregatorV3Interface(_linkNativeFeed);
-    }
     if (_subId == 0) {
       revert SubscriptionIdMissing();
     }
@@ -168,16 +162,6 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     // Migration of the wrapper's subscription to the new coordinator has to be
     // handled by the external account (owner of the subscription).
     SUBSCRIPTION_ID = _subId;
-  }
-
-  /**
-   * @notice set link native feed to be used by this wrapper
-   * @param linkNativeFeed address of the link native feed
-   */
-  function setLinkNativeFeed(address linkNativeFeed) external onlyOwner {
-    s_linkNativeFeed = AggregatorV3Interface(linkNativeFeed);
-
-    emit LinkNativeFeedSet(linkNativeFeed);
   }
 
   /**
@@ -602,7 +586,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   function _getFeedData() private view returns (int256 weiPerUnitLink, bool isFeedStale) {
     uint32 stalenessSeconds = s_stalenessSeconds;
     uint256 timestamp;
-    (, weiPerUnitLink, , timestamp, ) = s_linkNativeFeed.latestRoundData();
+    (, weiPerUnitLink, , timestamp, ) = LINK_NATIVE_FEED.latestRoundData();
     // solhint-disable-next-line not-rely-on-time
     isFeedStale = stalenessSeconds > 0 && stalenessSeconds < block.timestamp - timestamp;
     if (isFeedStale) {
