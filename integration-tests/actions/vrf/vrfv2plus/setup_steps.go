@@ -160,6 +160,27 @@ func SetupVRFV2_5Environment(
 		})
 	}
 
+	if bhfNode, exists := nodeTypeToNodeMap[vrfcommon.BHF]; exists {
+		g.Go(func() error {
+			err := vrfcommon.SetupBHFNode(
+				env,
+				configGeneral.General,
+				numberOfTxKeysToCreate,
+				big.NewInt(chainID),
+				vrfContracts.CoordinatorV2Plus.Address(),
+				vrfContracts.BHS.Address(),
+				vrfContracts.BatchBHS.Address(),
+				*vrfv2PlusTestConfig.GetCommonConfig().ChainlinkNodeFunding,
+				l,
+				bhfNode,
+			)
+			if err != nil {
+				return err
+			}
+			return nil
+		})
+	}
+
 	if err := g.Wait(); err != nil {
 		return nil, nil, nil, fmt.Errorf("VRF node setup ended up with an error: %w", err)
 	}
