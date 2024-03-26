@@ -51,51 +51,6 @@ jobs:
           ecr-hostname: ${{ secrets.AWS_SDLC_ECR_HOSTNAME }}
           ecr-image-name: ${{ env.ECR_IMAGE_NAME }}
 
-      - name: Get PR labels
-        id: pr-labels
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.number }}
-        run: |
-          RESPONSE=$(gh pr view ${PR_NUMBER} --json labels)
-          # Check if the labels command was successful
-          if [[ $? -ne 0 ]]; then
-            echo "Error fetching labels"
-            exit 1
-          fi
-          echo "RESPONSE=${RESPONSE}"
-          LABELS=$(echo "$RESPONSE" | jq -r '.labels | map(.name) | join(", ")')
-          # Check if any labels were found
-          if [[ -z "${LABELS:-}" ]]; then
-            echo "No labels found"
-          else
-            echo "labels=${LABELS}" | tee -a "${GITHUB_OUTPUT}"
-          fi
-
-      - name: Setup GAP
-        if: contains(steps.pr-labels.outputs.labels, 'crib')
-        uses: smartcontractkit/.github/actions/setup-gap@main
-        with:
-          aws-region: ${{ secrets.AWS_REGION }}
-          aws-role-arn: ${{ secrets.AWS_OIDC_IAM_ROLE_PUBLISH_PR_ARN }}
-          api-gateway-host: ${{ secrets.AWS_API_GW_HOST_ARGO_SAND }}
-          use-argocd: "true"
-          argocd-user: ${{ secrets.ARGOCD_USER_SAND }}
-          argocd-pass: ${{ secrets.ARGOCD_PASS_SAND }}
-
-      # Run an Argo CD sync after the image is built.
-      - name: Argo CD App Sync
-        if: contains(steps.pr-labels.outputs.labels, 'crib')
-        shell: bash
-        env:
-          PR_NUMBER: ${{ github.event.number }}
-        run: |
-          argocd app sync \
-            --plaintext \
-            --grpc-web \
-            --async \
-            "crib-ccip-${PR_NUMBER}"
-
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
