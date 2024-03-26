@@ -58,16 +58,13 @@ contract SimpleLogUpkeepCounter is ILogAutomation, StreamsLookupCompatibleInterf
   }
 
   function checkLog(Log calldata log, bytes calldata checkData) external view override returns (bool, bytes memory) {
-    (uint256 checkBurnAmount, , bytes32 eventSig, string[] memory feeds) = abi.decode(
-      checkData,
-      (uint256, uint256, bytes32, string[])
-    );
+    (CheckData memory _checkData) = abi.decode(checkData,(CheckData));
     uint256 startGas = gasleft();
     bytes32 dummyIndex = blockhash(block.number - 1);
     bool dummy;
     // burn gas
-    if (checkBurnAmount > 0) {
-      while (startGas - gasleft() < checkBurnAmount) {
+    if (_checkData.checkBurnAmount > 0) {
+      while (startGas - gasleft() < _checkData.checkBurnAmount) {
         dummy = dummy && dummyMap[dummyIndex]; // arbitrary storage reads
         dummyIndex = keccak256(abi.encode(dummyIndex, address(this)));
       }
@@ -76,9 +73,9 @@ contract SimpleLogUpkeepCounter is ILogAutomation, StreamsLookupCompatibleInterf
     values[0] = abi.encode(0x00);
     values[1] = abi.encode(0x00);
     bytes memory extraData = abi.encode(log, block.number, checkData);
-    if (log.topics[2] == eventSig) {
+    if (log.topics[2] == _checkData.eventSig) {
       if (isStreamsLookup) {
-        revert StreamsLookup(feedParamKey, feeds, timeParamKey, block.timestamp, extraData);
+        revert StreamsLookup(feedParamKey, _checkData.feeds, timeParamKey, block.timestamp, extraData);
       }
       return (true, abi.encode(values, extraData));
     }
@@ -119,16 +116,16 @@ contract SimpleLogUpkeepCounter is ILogAutomation, StreamsLookupCompatibleInterf
     if (checkBlock != log.blockNumber) {
       isRecovered = true;
     }
-    (, uint256 performBurnAmount, bytes32 eventSig, ) = abi.decode(checkData, (uint256, uint256, bytes32, string[]));
+    (CheckData memory _checkData) = abi.decode(checkData,(CheckData));
     uint256 startGas = gasleft();
     bytes32 dummyIndex = blockhash(block.number - 1);
     bool dummy;
-    if (log.topics[2] != eventSig) {
+    if (log.topics[2] != _checkData.eventSig) {
       revert("Invalid event signature");
     }
     // burn gas
-    if (performBurnAmount > 0) {
-      while (startGas - gasleft() < performBurnAmount) {
+    if (_checkData.performBurnAmount > 0) {
+      while (startGas - gasleft() < _checkData.performBurnAmount) {
         dummy = dummy && dummyMap[dummyIndex]; // arbitrary storage reads
         dummyIndex = keccak256(abi.encode(dummyIndex, address(this)));
       }
