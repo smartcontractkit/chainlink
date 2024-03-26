@@ -366,7 +366,7 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveS
 			tx.BroadcastAt = &broadcastAt
 		}
 
-		for i := range tx.TxAttempts {
+		for i := 0; i < len(tx.TxAttempts); i++ {
 			if tx.TxAttempts[i].ID == attempt.ID {
 				tx.TxAttempts[i].State = txmgrtypes.TxAttemptBroadcast
 				return
