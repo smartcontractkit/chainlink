@@ -139,9 +139,14 @@ func (b *logBuffer) dequeue(start, end int64, upkeepLimit, capacity int, upkeepS
 			// if the upkeep is not selected, skip it
 			continue
 		}
+		logsInRange := q.sizeOfRange(start, end)
+		if logsInRange == 0 {
+			// if there are no logs in the range, skip the upkeep
+			continue
+		}
 		if capacity == 0 {
 			// if there is no more capacity for results, just count the remaining logs
-			remainingLogs += q.sizeOfRange(start, end)
+			remainingLogs += logsInRange
 			continue
 		}
 		if upkeepLimit > capacity {
@@ -172,6 +177,8 @@ func (b *logBuffer) setUpkeepQueue(uid *big.Int, buf *upkeepLogQueue) {
 
 	b.queues[uid.String()] = buf
 }
+
+// TODO: separate files
 
 // upkeepLogQueue is a priority queue for logs associated to a specific upkeep.
 // It keeps track of the logs that were already visited and the capacity of the queue.
