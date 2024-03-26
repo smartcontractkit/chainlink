@@ -88,10 +88,10 @@ func (cr *chainReader) Bind(ctx context.Context, bindings []commontypes.BoundCon
 	return cr.contractBindings.Bind(ctx, bindings)
 }
 
-func (cr *chainReader) QueryKey(ctx context.Context, key string, queryFilter query.Filter, limitAndSort query.LimitAndSort, sequenceDataType any) ([]commontypes.Sequence, error) {
-	tokens := strings.Split(key, "-")
+func (cr *chainReader) QueryOne(ctx context.Context, keyFilter query.KeyFilter, limitAndSort query.LimitAndSort, sequenceDataType any) ([]commontypes.Sequence, error) {
+	tokens := strings.Split(keyFilter.Key, "-")
 	if len(tokens) < 3 {
-		return nil, fmt.Errorf("key: %s format is invalid, the key should look like contractName-readName", key)
+		return nil, fmt.Errorf("key: %s format is invalid, the key should look like contractName-readName", keyFilter.Key)
 	}
 
 	contractName, eventName := tokens[0], tokens[1]
@@ -100,49 +100,18 @@ func (cr *chainReader) QueryKey(ctx context.Context, key string, queryFilter que
 		return nil, err
 	}
 
-	return b.QueryKey(ctx, queryFilter, limitAndSort, sequenceDataType)
+	return b.QueryOne(ctx, keyFilter.Filter, limitAndSort, sequenceDataType)
 }
 
-func (cr *chainReader) QueryKeys(ctx context.Context, keys []string, queryFilter query.Filter, limitAndSort query.LimitAndSort, sequencesDataTypes []any) ([][]commontypes.Sequence, error) {
-	if len(keys) != len(sequencesDataTypes) {
+func (cr *chainReader) QueryMany(ctx context.Context, keysFilters []query.KeyFilter, limitsAndSorts []query.LimitAndSort, sequencesDataTypes []any) ([][]commontypes.Sequence, error) {
+	if len(keysFilters) != len(sequencesDataTypes) || len(sequencesDataTypes) != len(limitsAndSorts) {
 		return nil, fmt.Errorf("length of keys and sequencesDataTypes must be the same")
 	}
-
 	var sequencesMatrix [][]commontypes.Sequence
-	for i, key := range keys {
-		sequences, err := cr.QueryKey(ctx, key, queryFilter, limitAndSort, sequencesDataTypes[i])
-		if err != nil {
-			return nil, err
-		}
-		sequencesMatrix = append(sequencesMatrix, sequences)
-	}
-
-	return sequencesMatrix, nil
-}
-
-func (cr *chainReader) QueryByKeyValuesComparison(ctx context.Context, keyValuesComparator query.KeyValuesComparator, queryFilter query.Filter, limitAndSort query.LimitAndSort, sequenceDataType any) ([]commontypes.Sequence, error) {
-	tokens := strings.Split(keyValuesComparator.Key, "-")
-	if len(tokens) < 3 {
-		return nil, fmt.Errorf("key: %s format is invalid, the key should look like contractName-readName-valToSearch", keyValuesComparator.Key)
-	}
-
-	contractName, eventName, dataPointer := tokens[0], tokens[1], tokens[2]
-	b, err := cr.contractBindings.GetReadBinding(formatKey(contractName, eventName))
-	if err != nil {
-		return nil, err
-	}
-
-	return b.QueryByKeyValuesComparison(ctx, dataPointer, keyValuesComparator.ValueComparators, queryFilter, limitAndSort, sequenceDataType)
-}
-
-func (cr *chainReader) QueryByKeysValuesComparison(ctx context.Context, keysValuesComparator []query.KeyValuesComparator, queryFilter query.Filter, limitAndSort query.LimitAndSort, sequenceDataType []any) ([][]commontypes.Sequence, error) {
-	if len(keysValuesComparator) != len(sequenceDataType) {
-		return nil, fmt.Errorf("length of keys and sequencesDataTypes must be the same")
-	}
-
-	var sequencesMatrix [][]commontypes.Sequence
-	for i, keyValuesComparator := range keysValuesComparator {
-		sequences, err := cr.QueryByKeyValuesComparison(ctx, keyValuesComparator, queryFilter, limitAndSort, sequenceDataType[i])
+	for i, keyFilter := range keysFilters {
+		// TODO log poller can't handle this currently. Not even sure if this even can be one query since keys shouldn't get mixed up because then we can't know how its sequencesDataTypes.
+		// TODO Currently no products even use this feature, so might be okay to leave it unoptimised for now?
+		sequences, err := cr.QueryOne(ctx, keyFilter, limitsAndSorts[i], sequencesDataTypes[i])
 		if err != nil {
 			return nil, err
 		}

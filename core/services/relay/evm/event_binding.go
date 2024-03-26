@@ -53,12 +53,12 @@ func (e *eventBinding) decodeLogsIntoSequences(ctx context.Context, logs []logpo
 	var sequences []commontypes.Sequence
 	for _, log := range logs {
 		sequence := commontypes.Sequence{
-			// TODO SequenceCursor, should be combination of block, eventsig, topic ...
+			// TODO SequenceCursor, should be combination of block, eventsig, topic and also match a proper db cursor?...
 			Cursor: "TODO",
 			Head: commontypes.Head{
-				Number:    uint64(log.BlockNumber),
-				Hash:      log.BlockHash.Bytes(),
-				Timestamp: uint64(log.BlockTimestamp.Unix()),
+				Identifier: fmt.Sprint(log.BlockNumber),
+				Hash:       log.BlockHash.Bytes(),
+				Timestamp:  uint64(log.BlockTimestamp.Unix()),
 			},
 			// TODO test this
 			Data: reflect.New(reflect.TypeOf(into).Elem()),
@@ -128,38 +128,12 @@ func (e *eventBinding) GetLatestValue(ctx context.Context, params, into any) err
 	return e.getLatestValueWithFilters(ctx, confs, params, into)
 }
 
-func (e *eventBinding) QueryKey(ctx context.Context, queryFilter query.Filter, limitAndSort query.LimitAndSort, sequenceDataType any) ([]commontypes.Sequence, error) {
+func (e *eventBinding) QueryOne(ctx context.Context, queryFilter query.Filter, limitAndSort query.LimitAndSort, sequenceDataType any) ([]commontypes.Sequence, error) {
 	remappedQf, err := remapQueryFilter(queryFilter)
 	if err != nil {
 		return nil, err
 	}
 	remappedQf.Expressions = append(remappedQf.Expressions, NewEventFilter(e.address, e.hash))
-
-	logs, err := e.lp.FilteredLogs(remappedQf, limitAndSort)
-	if err != nil {
-		return nil, err
-	}
-
-	return e.decodeLogsIntoSequences(ctx, logs, sequenceDataType)
-}
-
-func (e *eventBinding) QueryByKeyValuesComparison(ctx context.Context, keyDataPointer string, valueComparators []query.ValueComparator, queryFilter query.Filter, limitAndSort query.LimitAndSort, sequenceDataType any) ([]commontypes.Sequence, error) {
-	remappedQf, err := remapQueryFilter(queryFilter)
-	if err != nil {
-		return nil, err
-	}
-	tInfo, isTopic := e.topicsInfo[keyDataPointer]
-	if isTopic {
-		remappedQf.Expressions = append(remappedQf.Expressions, NewEventByIndexFilter(e.address, e.hash, tInfo.topicIndex, valueComparators))
-	}
-
-	if !isTopic {
-		wordIndex, ok := e.eventDataWords[keyDataPointer]
-		if !ok {
-			return nil, fmt.Errorf("unrecognized key data pointer %s", keyDataPointer)
-		}
-		remappedQf.Expressions = append(remappedQf.Expressions, NewEventByWordFilter(e.address, e.hash, wordIndex, valueComparators))
-	}
 
 	logs, err := e.lp.FilteredLogs(remappedQf, limitAndSort)
 	if err != nil {
