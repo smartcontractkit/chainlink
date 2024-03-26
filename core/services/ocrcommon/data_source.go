@@ -158,7 +158,7 @@ func (ds *inMemoryDataSource) currentAnswer() (*big.Int, *big.Int) {
 func (ds *inMemoryDataSource) executeRun(ctx context.Context) (*pipeline.Run, pipeline.TaskRunResults, error) {
 	md, err := bridges.MarshalBridgeMetaData(ds.currentAnswer())
 	if err != nil {
-		ds.lggr.Warnw("unable to attach metadata for run", "err", err)
+		ds.lggr.Warnw("unable to attach metadata for run, err: %v", err)
 	}
 
 	vars := pipeline.NewVarsFrom(map[string]interface{}{
@@ -236,7 +236,7 @@ func (ds *inMemoryDataSourceCache) updater() {
 	for ; true; <-ticker.C {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 		if err := ds.updateCache(ctx); err != nil {
-			ds.lggr.Warnf("failed to update cache", "err", err)
+			ds.lggr.Warnf("failed to update cache, err: %v", err)
 		}
 		cancel()
 	}
@@ -257,7 +257,7 @@ func (ds *inMemoryDataSourceCache) updateCache(ctx context.Context) error {
 		ds.latestUpdateErr = latestUpdateErr
 		// raise log severity
 		if previousUpdateErr != nil {
-			ds.lggr.Errorf("consecutive cache updates errored: previous err: %w new err: %w", previousUpdateErr, ds.latestUpdateErr)
+			ds.lggr.Errorf("consecutive cache updates errored: previous err: %v new err: %v", previousUpdateErr, ds.latestUpdateErr)
 		}
 		return errors.Wrapf(ds.latestUpdateErr, "error executing run for spec ID %v", ds.spec.ID)
 	}
@@ -271,7 +271,7 @@ func (ds *inMemoryDataSourceCache) updateCache(ctx context.Context) error {
 
 	// backup in case data source fails continuously and node gets rebooted
 	if err = ds.kvStore.Store(dataSourceCacheKey, serializablebig.New(value)); err != nil {
-		ds.lggr.Errorf("failed to persist latest task run value", err)
+		ds.lggr.Errorf("failed to persist latest task run value, err: %v", err)
 	}
 
 	return nil
@@ -287,7 +287,7 @@ func (ds *inMemoryDataSourceCache) get(ctx context.Context) (pipeline.FinalResul
 	ds.mu.RUnlock()
 
 	if err := ds.updateCache(ctx); err != nil {
-		ds.lggr.Warnf("failed to update cache, returning stale result now", "err", err)
+		ds.lggr.Warnf("failed to update cache err: %v, returning stale result now, err: %v", err)
 	}
 
 	ds.mu.RLock()
