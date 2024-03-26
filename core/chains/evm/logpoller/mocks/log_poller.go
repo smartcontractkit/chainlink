@@ -105,6 +105,24 @@ func (_m *LogPoller) HealthReport() map[string]error {
 	return r0
 }
 
+// Healthy provides a mock function with given fields:
+func (_m *LogPoller) Healthy() error {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for Healthy")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func() error); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // IndexedLogs provides a mock function with given fields: ctx, eventSig, address, topicIndex, topicValues, confs
 func (_m *LogPoller) IndexedLogs(ctx context.Context, eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs logpoller.Confirmations) ([]logpoller.Log, error) {
 	ret := _m.Called(ctx, eventSig, address, topicIndex, topicValues, confs)
