@@ -100,9 +100,10 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 
 		c.Starknet = stkcfg.TOMLConfigs{
 			&stkcfg.TOMLConfig{
-				ChainID: &starknetChainID1,
-				Enabled: ptr(true),
-				Chain:   stkcfg.Chain{},
+				ChainID:   &starknetChainID1,
+				Enabled:   ptr(true),
+				Chain:     stkcfg.Chain{},
+				FeederURL: commonconfig.MustParseURL("http://feeder.url"),
 				Nodes: []*stkcfg.Node{
 					{
 						Name: ptr("starknet chain 1 node 1"),
@@ -119,9 +120,10 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				},
 			},
 			&stkcfg.TOMLConfig{
-				ChainID: &starknetChainID2,
-				Enabled: ptr(true),
-				Chain:   stkcfg.Chain{},
+				ChainID:   &starknetChainID2,
+				Enabled:   ptr(true),
+				Chain:     stkcfg.Chain{},
+				FeederURL: commonconfig.MustParseURL("http://feeder.url"),
 				Nodes: []*stkcfg.Node{
 					{
 						Name: ptr("starknet chain 2 node 1"),
