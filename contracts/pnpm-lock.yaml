@@ -142,6 +142,9 @@ devDependencies:
   moment:
     specifier: ^2.29.4
     version: 2.29.4
+  node-gyp-build:
+    specifier: ^4.8.0
+    version: 4.8.0
   prettier:
     specifier: ^3.2.5
     version: 3.2.5
@@ -3346,7 +3349,7 @@ packages:
     engines: {node: '>=6.14.2'}
     requiresBuild: true
     dependencies:
-      node-gyp-build: 4.5.0
+      node-gyp-build: 4.8.0
     dev: true
 
   /bufio@1.0.7:
@@ -7316,7 +7319,7 @@ packages:
     requiresBuild: true
     dependencies:
       node-addon-api: 2.0.2
-      node-gyp-build: 4.5.0
+      node-gyp-build: 4.8.0
       readable-stream: 3.6.0
     dev: true
 
@@ -8301,8 +8304,8 @@ packages:
     dependencies:
       whatwg-url: 5.0.0
 
-  /node-gyp-build@4.5.0:
-    resolution: {integrity: sha512-2iGbaQBV+ITgCz76ZEjmhUKAKVf7xfY1sRl4UiKQspfZMH2h06SyhNsnSVy50cwkFQDGLyif6m/6uFXHkOZ6rg==}
+  /node-gyp-build@4.8.0:
+    resolution: {integrity: sha512-u6fs2AEUljNho3EYTJNBfImO5QTo/J/1Etd+NVdCj7qWKUSN/bSLkZwhDv7I+w/MSC6qJ4cknepkAYykDdK8og==}
     hasBin: true
     dev: true
 
@@ -9728,7 +9731,7 @@ packages:
     dependencies:
       elliptic: 6.5.4
       node-addon-api: 2.0.2
-      node-gyp-build: 4.5.0
+      node-gyp-build: 4.8.0
     dev: true
 
   /seedrandom@3.0.1:
@@ -11353,7 +11356,7 @@ packages:
     engines: {node: '>=6.14.2'}
     requiresBuild: true
     dependencies:
-      node-gyp-build: 4.5.0
+      node-gyp-build: 4.8.0
     dev: true
 
   /utf8@3.0.0:
