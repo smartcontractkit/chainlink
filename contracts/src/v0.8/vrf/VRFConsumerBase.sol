@@ -193,7 +193,7 @@ abstract contract VRFConsumerBase is VRFRequestIDBase {
   // proof. rawFulfillRandomness then calls fulfillRandomness, after validating
   // the origin of the call
   function rawFulfillRandomness(bytes32 requestId, uint256 randomness) external {
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(msg.sender == vrfCoordinator, "Only VRFCoordinator can fulfill");
     fulfillRandomness(requestId, randomness);
   }
