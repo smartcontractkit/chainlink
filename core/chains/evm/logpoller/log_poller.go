@@ -700,7 +700,7 @@ func (lp *logPoller) BackupPollAndSaveLogs(ctx context.Context) {
 			return
 		}
 		// If this is our first run, start from block min(lastProcessed.FinalizedBlockNumber-1, lastProcessed.BlockNumber-backupPollerBlockDelay)
-		backupStartBlock := mathutil.Min(lastProcessed.FinalizedBlockNumber-1, lastProcessed.BlockNumber-lp.backupPollerBlockDelay)
+		backupStartBlock := mathutil.Min(lastProcessed.FinalizedBlockNumber, lastProcessed.BlockNumber-lp.backupPollerBlockDelay)
 		// (or at block 0 if whole blockchain is too short)
 		lp.backupPollerNextBlock = mathutil.Max(backupStartBlock, 0)
 	}
@@ -820,6 +820,7 @@ func (lp *logPoller) backfill(ctx context.Context, start, end int64) error {
 		if err != nil {
 			return err
 		}
+
 		endblock := blocks[len(blocks)-1]
 		if gethLogs[len(gethLogs)-1].BlockNumber != uint64(to) {
 			// Pop endblock if there were no logs for it, so that length of blocks & gethLogs are the same to pass to convertLogs
@@ -1316,7 +1317,7 @@ func (lp *logPoller) batchFetchBlocks(ctx context.Context, blocksRequested []str
 		}
 		reqs := make([]rpc.BatchElem, 0, j-i+1)
 
-		validationBlockIndex := int(j - i)
+		validationBlockIndex := j - i
 		for k, num := range blocksRequested[i:j] {
 			if num == validationReq {
 				validationBlockIndex = k

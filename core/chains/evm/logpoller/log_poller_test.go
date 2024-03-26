@@ -674,6 +674,7 @@ func TestLogPoller_BlockTimestamps(t *testing.T) {
 	require.NoError(t, err)
 
 	// Logs should have correct timestamps
+	require.NotZero(t, len(lg1))
 	b, _ := th.Client.BlockByHash(ctx, lg1[0].BlockHash)
 	t.Log(len(lg1), lg1[0].BlockTimestamp)
 	assert.Equal(t, int64(b.Time()), lg1[0].BlockTimestamp.UTC().Unix(), time1)
@@ -1179,6 +1180,7 @@ func TestLogPoller_PollAndSaveLogsDeepReorg(t *testing.T) {
 			// Check that L1_1 has a proper data payload
 			lgs, err := th.ORM.SelectLogsByBlockRange(testutils.Context(t), 2, 2)
 			require.NoError(t, err)
+			require.NotZero(t, len(lgs))
 			assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000001`), lgs[0].Data)
 
 			// Single block reorg and log poller not working for a while, mine blocks and progress with finalization
@@ -1206,6 +1208,7 @@ func TestLogPoller_PollAndSaveLogsDeepReorg(t *testing.T) {
 			// Expect L1_2 to be properly updated
 			lgs, err = th.ORM.SelectLogsByBlockRange(testutils.Context(t), 2, 2)
 			require.NoError(t, err)
+			require.NotZero(t, len(lgs))
 			assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000002`), lgs[0].Data)
 			th.assertHaveCanonical(t, 1, 1)
 			th.assertDontHave(t, 2, 3) // These blocks are backfilled
@@ -1299,6 +1302,7 @@ func TestLogPoller_LoadFilters(t *testing.T) {
 
 func TestLogPoller_GetBlocks_Range(t *testing.T) {
 	t.Parallel()
+
 	lpOpts := logpoller.Opts{
 		UseFinalityTag:           false,
 		FinalityDepth:            2,
@@ -1308,7 +1312,15 @@ func TestLogPoller_GetBlocks_Range(t *testing.T) {
 	}
 	th := SetupTH(t, lpOpts)
 
-	err := th.LogPoller.RegisterFilter(testutils.Context(t), logpoller.Filter{
+	_, err := th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(1)})
+	require.NoError(t, err)
+	th.Client.Commit() // Commit block #2 with log in it
+
+	_, err = th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(2)})
+	require.NoError(t, err)
+	th.Client.Commit() // Commit block #3 with a different log
+
+	err = th.LogPoller.RegisterFilter(testutils.Context(t), logpoller.Filter{
 		Name:      "GetBlocks Test",
 		EventSigs: []common.Hash{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID},
 		Addresses: []common.Address{th.EmitterAddress1, th.EmitterAddress2},
@@ -1328,16 +1340,13 @@ func TestLogPoller_GetBlocks_Range(t *testing.T) {
 	assert.Equal(t, 1, len(blocks))
 	assert.Equal(t, 1, int(blocks[0].BlockNumber))
 
-	// LP fails to retrieve block 2 because it's neither in DB nor returned by RPC
+	// LP fails to return block 2 because it hasn't been finalized yet
 	blockNums = []uint64{2}
 	_, err = th.LogPoller.GetBlocksRange(testutils.Context(t), blockNums)
 	require.Error(t, err)
-	assert.Equal(t, "blocks were not found in db or RPC call: [2]", err.Error())
+	assert.Equal(t, "Received unfinalized block 2 while expecting finalized block (latestFinaliezdBlockNumber = 1)", err.Error())
 
-	// Emit a log and mine block #2
-	_, err = th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(1)})
-	require.NoError(t, err)
-	th.Client.Commit()
+	th.Client.Commit() // Commit block #4, so that block #2 is finalized
 
 	// Assert block 2 is not yet in DB
 	_, err = th.ORM.SelectBlockByNumber(testutils.Context(t), 2)
@@ -1349,10 +1358,7 @@ func TestLogPoller_GetBlocks_Range(t *testing.T) {
 	assert.Equal(t, 1, len(rpcBlocks))
 	assert.Equal(t, 2, int(rpcBlocks[0].BlockNumber))
 
-	// Emit a log and mine block #3
-	_, err = th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(2)})
-	require.NoError(t, err)
-	th.Client.Commit()
+	th.Client.Commit() // commit block #5 so that #3 becomes finalized
 
 	// Assert block 3 is not yet in DB
 	_, err = th.ORM.SelectBlockByNumber(testutils.Context(t), 3)
@@ -1366,12 +1372,9 @@ func TestLogPoller_GetBlocks_Range(t *testing.T) {
 	assert.Equal(t, 1, int(rpcBlocks2[0].BlockNumber))
 	assert.Equal(t, 3, int(rpcBlocks2[1].BlockNumber))
 
-	// after calling PollAndSaveLogs, block 2 & 3 are persisted in DB
+	// after calling PollAndSaveLogs, block 3 (latest finalized block) is persisted in DB
 	th.LogPoller.PollAndSaveLogs(testutils.Context(t), 1)
-	block, err := th.ORM.SelectBlockByNumber(testutils.Context(t), 2)
-	require.NoError(t, err)
-	assert.Equal(t, 2, int(block.BlockNumber))
-	block, err = th.ORM.SelectBlockByNumber(testutils.Context(t), 3)
+	block, err := th.ORM.SelectBlockByNumber(testutils.Context(t), 3)
 	require.NoError(t, err)
 	assert.Equal(t, 3, int(block.BlockNumber))
 
@@ -1505,9 +1508,9 @@ func TestLogPoller_DBErrorHandling(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 	require.NoError(t, lp.Start(ctx))
-	require.Eventually(t, func() bool {
+	testutils.AssertEventually(t, func() bool {
 		return observedLogs.Len() >= 1
-	}, 2*time.Second, 20*time.Millisecond)
+	})
 	err = lp.Close()
 	require.NoError(t, err)
 
