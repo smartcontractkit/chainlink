@@ -5,7 +5,6 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	"golang.org/x/time/rate"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 )
@@ -21,9 +20,6 @@ type upkeepFilter struct {
 	// lastPollBlock is the last block number the logs were fetched for this upkeep
 	// used by log event provider.
 	lastPollBlock int64
-	// blockLimiter is used to limit the number of blocks to fetch logs for an upkeep.
-	// used by log event provider.
-	blockLimiter *rate.Limiter
 	// lastRePollBlock is the last block number the logs were recovered for this upkeep
 	// used by log recoverer.
 	lastRePollBlock int64
@@ -42,7 +38,6 @@ func (f upkeepFilter) Clone() upkeepFilter {
 		configUpdateBlock: f.configUpdateBlock,
 		lastPollBlock:     f.lastPollBlock,
 		lastRePollBlock:   f.lastRePollBlock,
-		blockLimiter:      f.blockLimiter,
 	}
 }
 

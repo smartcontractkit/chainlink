@@ -3,8 +3,6 @@ package logprovider
 import (
 	"time"
 
-	"golang.org/x/time/rate"
-
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -17,6 +15,9 @@ func New(lggr logger.Logger, poller logpoller.LogPoller, c client.Client, stateS
 	filterStore := NewUpkeepFilterStore()
 	packer := NewLogEventsPacker()
 	opts := NewOptions(int64(finalityDepth))
+	if len(opts.BufferVersion) == 0 { // TODO: remove once config is ready
+		opts.BufferVersion = "v1"
+	}
 	provider := NewLogProvider(lggr, poller, packer, filterStore, opts)
 	recoverer := NewLogRecoverer(lggr, poller, c, stateStore, packer, filterStore, opts)
 
@@ -31,12 +32,15 @@ type LogTriggersOptions struct {
 	LookbackBlocks int64
 	// ReadInterval is the interval to fetch logs in the background.
 	ReadInterval time.Duration
-	// BlockRateLimit is the rate limit on the range of blocks the we fetch logs for.
-	BlockRateLimit rate.Limit
-	// blockLimitBurst is the burst upper limit on the range of blocks the we fetch logs for.
-	BlockLimitBurst int
 	// Finality depth is the number of blocks to wait before considering a block final.
 	FinalityDepth int64
+
+	// v1 config
+	BufferVersion string
+
+	LogLimit uint32
+
+	BlockRate uint32
 }
 
 func NewOptions(finalityDepth int64) LogTriggersOptions {
@@ -58,13 +62,13 @@ func (o *LogTriggersOptions) Defaults(finalityDepth int64) {
 	if o.ReadInterval == 0 {
 		o.ReadInterval = time.Second
 	}
-	if o.BlockLimitBurst == 0 {
-		o.BlockLimitBurst = int(o.LookbackBlocks)
-	}
-	if o.BlockRateLimit == 0 {
-		o.BlockRateLimit = rate.Every(o.ReadInterval)
-	}
 	if o.FinalityDepth == 0 {
 		o.FinalityDepth = finalityDepth
+	}
+	if o.BlockRate == 0 {
+		o.BlockRate = 2
+	}
+	if o.LogLimit == 0 {
+		o.LogLimit = 4
 	}
 }

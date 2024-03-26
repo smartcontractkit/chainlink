@@ -11,7 +11,7 @@ func BlockWindow(block int64, blockRate int) (start int64, end int64) {
 		return block, block
 	}
 	start = block - (block % windowSize)
-	end = block + (windowSize - (block % windowSize) - 1)
+	end = start + windowSize - 1
 	return
 }
 
@@ -29,11 +29,11 @@ func LogSorter(a, b logpoller.Log) bool {
 //	 0 if a == b
 //	+1 if a >  b
 func LogComparator(a, b logpoller.Log) int {
-	if b.BlockNumber != a.BlockNumber {
+	if a.BlockNumber != b.BlockNumber {
 		return int(a.BlockNumber - b.BlockNumber)
 	}
-	if txDiff := a.TxHash.Big().Cmp(b.TxHash.Big()); txDiff != 0 {
-		return txDiff
-	}
+	// if txDiff := a.TxHash.Big().Cmp(b.TxHash.Big()); txDiff != 0 {
+	// 	return txDiff
+	// }
 	return int(a.LogIndex - b.LogIndex)
 }
