@@ -210,33 +210,23 @@ func (a *onchainAllowlist) updateFromContractV1(ctx context.Context, blockNum *b
 		return errors.Wrap(err, "unexpected error during functions_allow_list.NewTermsOfServiceAllowList")
 	}
 
-	var allowedSenderList []common.Address
-	typeAndVersion, err := tosContract.TypeAndVersion(&bind.CallOpts{
-		Pending:     false,
-		BlockNumber: blockNum,
-		Context:     ctx,
-	})
+	currentVersion, err := fetchTosCurrentVersion(ctx, tosContract, blockNum)
 	if err != nil {
-		return errors.Wrap(err, "failed to fetch the tos contract type and version")
-	}
-
-	currentVersion, err := ExtractContractVersion(typeAndVersion)
-	if err != nil {
-		return fmt.Errorf("failed to extract version: %w", err)
+		return fmt.Errorf("failed to fetch tos current version: %w", err)
 	}
 
 	if semver.Compare(tosContractMinBatchProcessingVersion, currentVersion) <= 0 {
-		err = a.syncBlockedSenders(ctx, tosContract, blockNum)
-		if err != nil {
-			return errors.Wrap(err, "failed to sync the stored allowed and blocked senders")
-		}
-
-		allowedSenderList, err = a.getAllowedSendersBatched(ctx, tosContract, blockNum)
+		err = a.updateAllowedSendersInBatches(ctx, tosContract, blockNum)
 		if err != nil {
 			return errors.Wrap(err, "failed to get allowed senders in rage")
 		}
+
+		err := a.syncBlockedSenders(ctx, tosContract, blockNum)
+		if err != nil {
+			return errors.Wrap(err, "failed to sync the stored allowed and blocked senders")
+		}
 	} else {
-		allowedSenderList, err = tosContract.GetAllAllowedSenders(&bind.CallOpts{
+		allowedSenderList, err := tosContract.GetAllAllowedSenders(&bind.CallOpts{
 			Pending:     false,
 			BlockNumber: blockNum,
 			Context:     ctx,
@@ -254,30 +244,42 @@ func (a *onchainAllowlist) updateFromContractV1(ctx context.Context, blockNum *b
 		if err != nil {
 			a.lggr.Errorf("failed to update stored allowedSenderList: %w", err)
 		}
+
+		a.update(allowedSenderList)
 	}
 
-	a.update(allowedSenderList)
 	return nil
 }
 
-func (a *onchainAllowlist) getAllowedSendersBatched(ctx context.Context, tosContract *functions_allow_list.TermsOfServiceAllowList, blockNum *big.Int) ([]common.Address, error) {
-	allowedSenderList := make([]common.Address, 0)
-	count, err := tosContract.GetAllowedSendersCount(&bind.CallOpts{
+// updateAllowedSendersInBatches will update the node's inmemory state and the orm layer representing the allowlist.
+// it will get the current node's in memory allowlist and start fetching and adding from the tos contract in batches.
+// the iteration order will give priority to new allowed senders
+func (a *onchainAllowlist) updateAllowedSendersInBatches(ctx context.Context, tosContract *functions_allow_list.TermsOfServiceAllowList, blockNum *big.Int) error {
+
+	// currentAllowedSenderList will be the starting point from which we will be adding the new allowed senders
+	currentAllowedSenderList := make(map[common.Address]struct{}, 0)
+	if cal := a.allowlist.Load(); cal != nil {
+		currentAllowedSenderList = *cal
+	}
+
+	currentAllowedSenderCount, err := tosContract.GetAllowedSendersCount(&bind.CallOpts{
 		Pending:     false,
 		BlockNumber: blockNum,
 		Context:     ctx,
 	})
 	if err != nil {
-		return nil, errors.Wrap(err, "unexpected error during functions_allow_list.GetAllowedSendersCount")
+		return errors.Wrap(err, "unexpected error during functions_allow_list.GetAllowedSendersCount")
 	}
 
 	throttleTicker := time.NewTicker(time.Duration(a.config.FetchingDelayInRangeSec) * time.Second)
-	for idxStart := uint64(0); idxStart < count; idxStart += uint64(a.config.OnchainAllowlistBatchSize) {
+
+	for i := int64(currentAllowedSenderCount); i > 0; i -= int64(a.config.OnchainAllowlistBatchSize) {
 		<-throttleTicker.C
 
-		idxEnd := idxStart + uint64(a.config.OnchainAllowlistBatchSize)
-		if idxEnd >= count {
-			idxEnd = count - 1
+		idxStart := uint64(i) - uint64(a.config.OnchainAllowlistBatchSize)
+		idxEnd := uint64(i)
+		if idxEnd >= currentAllowedSenderCount {
+			idxEnd = currentAllowedSenderCount - 1
 		}
 
 		allowedSendersBatch, err := tosContract.GetAllowedSendersInRange(&bind.CallOpts{
@@ -286,10 +288,17 @@ func (a *onchainAllowlist) getAllowedSendersBatched(ctx context.Context, tosCont
 			Context:     ctx,
 		}, idxStart, idxEnd)
 		if err != nil {
-			return nil, errors.Wrap(err, "error calling GetAllowedSendersInRange")
+			return errors.Wrap(err, "error calling GetAllowedSendersInRange")
 		}
 
-		allowedSenderList = append(allowedSenderList, allowedSendersBatch...)
+		// add the fetched batch to the currentAllowedSenderList and replace the existing allowlist
+		for _, addr := range allowedSendersBatch {
+			currentAllowedSenderList[addr] = struct{}{}
+		}
+		a.allowlist.Store(&currentAllowedSenderList)
+		a.lggr.Infow("allowlist updated in batches successfully", "len", len(currentAllowedSenderList))
+
+		// persist each batch to the underalying orm layer
 		err = a.orm.CreateAllowedSenders(ctx, allowedSendersBatch)
 		if err != nil {
 			a.lggr.Errorf("failed to update stored allowedSenderList: %w", err)
@@ -297,7 +306,7 @@ func (a *onchainAllowlist) getAllowedSendersBatched(ctx context.Context, tosCont
 	}
 	throttleTicker.Stop()
 
-	return allowedSenderList, nil
+	return nil
 }
 
 // syncBlockedSenders fetches the list of blocked addresses from the contract in batches
@@ -368,6 +377,19 @@ func (a *onchainAllowlist) loadStoredAllowedSenderList(ctx context.Context) {
 	}
 
 	a.update(allowedList)
+}
+
+func fetchTosCurrentVersion(ctx context.Context, tosContract *functions_allow_list.TermsOfServiceAllowList, blockNum *big.Int) (string, error) {
+	typeAndVersion, err := tosContract.TypeAndVersion(&bind.CallOpts{
+		Pending:     false,
+		BlockNumber: blockNum,
+		Context:     ctx,
+	})
+	if err != nil {
+		return "", errors.Wrap(err, "failed to fetch the tos contract type and version")
+	}
+
+	return ExtractContractVersion(typeAndVersion)
 }
 
 func ExtractContractVersion(str string) (string, error) {
