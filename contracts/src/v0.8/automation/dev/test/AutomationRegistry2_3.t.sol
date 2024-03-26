@@ -132,7 +132,7 @@ contract AddFunds is SetUp {
 
   // it fails when the billing token is not native, but trying to pay with native
   function test_RevertsWhen_NativePaymentDoesntMatchBillingToken() external {
-    vm.expectRevert(abi.encodeWithSelector(Registry.InvalidBillingToken.selector));
+    vm.expectRevert(abi.encodeWithSelector(Registry.InvalidToken.selector));
     registry.addFunds{value: 1}(linkUpkeepID, 0);
   }
 
@@ -249,6 +249,14 @@ contract Withdraw is SetUp {
     vm.startPrank(FINANCE_ADMIN);
     vm.expectRevert(abi.encodeWithSelector(Registry.InsufficientBalance.selector, 0, 1));
     registry.withdrawERC20Fees(address(usdToken), FINANCE_ADMIN, 1);
+  }
+
+  function test_WithdrawERC20Fees_RevertsWhenAttemptingToWithdrawLINK() public {
+    _mintLink(address(registry), 1e10);
+    vm.startPrank(FINANCE_ADMIN);
+    vm.expectRevert(Registry.InvalidToken.selector);
+    registry.withdrawERC20Fees(address(linkToken), FINANCE_ADMIN, 1); // should revert
+    registry.withdrawLink(FINANCE_ADMIN, 1); // but using link withdraw functions succeeds
   }
 
   function testWithdrawERC20FeeSuccess() public {
@@ -551,7 +559,7 @@ contract SetConfig is SetUp {
     );
   }
 
-  function testSetConfigRevertDueToInvalidBillingToken() public {
+  function testSetConfigRevertDueToInvalidToken() public {
     address[] memory billingTokens = new address[](1);
     billingTokens[0] = address(linkToken);
 
@@ -567,7 +575,7 @@ contract SetConfig is SetUp {
     // deploy registry with OFF_CHAIN payout mode
     registry = deployRegistry(AutoBase.PayoutMode.OFF_CHAIN);
 
-    vm.expectRevert(abi.encodeWithSelector(Registry.InvalidBillingToken.selector));
+    vm.expectRevert(abi.encodeWithSelector(Registry.InvalidToken.selector));
     registry.setConfigTypeSafe(
       SIGNERS,
       TRANSMITTERS,
@@ -1161,7 +1169,7 @@ contract RegisterUpkeep is SetUp {
   }
 
   function test_RevertsWhen_TheBillingTokenIsNotConfigured() public {
-    vm.expectRevert(Registry.InvalidBillingToken.selector);
+    vm.expectRevert(Registry.InvalidToken.selector);
     registry.registerUpkeep(
       address(TARGET1),
       config.maxPerformGas,
@@ -1240,7 +1248,7 @@ contract OnTokenTransfer is SetUp {
 
   function test_RevertsWhen_TheUpkeepDoesNotUseLINKAsItsBillingToken() public {
     vm.startPrank(address(linkToken));
-    vm.expectRevert(Registry.InvalidBillingToken.selector);
+    vm.expectRevert(Registry.InvalidToken.selector);
     registry.onTokenTransfer(UPKEEP_ADMIN, 100, abi.encode(usdUpkeepID));
   }
 
