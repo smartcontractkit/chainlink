@@ -119,7 +119,10 @@ func IsRollupWithL1Support(chainType config.ChainType) bool {
 
 func NewL1GasOracle(lggr logger.Logger, ethClient ethClient, chainType config.ChainType) L1Oracle {
 	var priceReader daPriceReader
-	if chainType == config.ChainOptimismBedrock || chainType == config.ChainKroma {
+	switch chainType {
+	case config.ChainOptimismBedrock:
+		priceReader = newOPPriceReader(lggr, ethClient, chainType, OPGasOracleAddress)
+	case config.ChainKroma:
 		priceReader = newOPPriceReader(lggr, ethClient, chainType, KromaGasOracleAddress)
 	}
 	return newL1GasOracle(lggr, ethClient, chainType, priceReader)
