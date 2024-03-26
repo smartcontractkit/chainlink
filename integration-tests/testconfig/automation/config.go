@@ -94,12 +94,19 @@ func (c *Load) Validate() error {
 	if c.PerformBurnAmount == nil || c.PerformBurnAmount.Cmp(big.NewInt(0)) < 0 {
 		return errors.New("perform_burn_amount must be set to a non-negative integer")
 	}
-	if c.IsStreamsLookup == nil || *c.IsStreamsLookup {
-		if c.Feeds == nil {
-			c.Feeds = []string{}
+	if c.SharedTrigger == nil {
+		return errors.New("shared_trigger must be set")
+	}
+	if c.UpkeepGasLimit == nil || *c.UpkeepGasLimit < 1 {
+		return errors.New("upkeep_gas_limit must be set to a positive integer")
+	}
+	if c.IsStreamsLookup == nil {
+		return errors.New("is_streams_lookup must be set")
+	}
+	if *c.IsStreamsLookup {
+		if len(c.Feeds) == 0 {
+			return errors.New("feeds must be set")
 		}
-	} else {
-		*c.IsStreamsLookup = false
 	}
 
 	return nil
@@ -128,6 +135,7 @@ func (c *DataStreams) Validate() error {
 			return errors.New("data_streams_feed_id must be set")
 		}
 	} else {
+		c.Enabled = new(bool)
 		*c.Enabled = false
 	}
 	return nil
