@@ -25,6 +25,9 @@ spec_type="minimum"
 chainlink_node_log_level="info"
 use_prometheus=false
 
+[Load.Automation.DataStreams]
+enabled=false
+
 [[Load.Automation.Load]]
 number_of_upkeeps=5
 number_of_events = 1

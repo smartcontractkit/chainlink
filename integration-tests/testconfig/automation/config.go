@@ -24,6 +24,11 @@ func (c *Config) Validate() error {
 			}
 		}
 	}
+	if c.DataStreams != nil {
+		if err := c.DataStreams.Validate(); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
