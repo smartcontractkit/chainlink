@@ -32,11 +32,11 @@ func TestWrappedEvmEstimator(t *testing.T) {
 
 	est := mocks.NewEvmEstimator(t)
 	est.On("GetDynamicFee", mock.Anything, mock.Anything, mock.Anything).
-		Return(dynamicFee, gasLimit, nil).Twice()
+		Return(dynamicFee, nil).Twice()
 	est.On("GetLegacyGas", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 		Return(legacyFee, gasLimit, nil).Twice()
 	est.On("BumpDynamicFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
-		Return(dynamicFee, gasLimit, nil).Once()
+		Return(dynamicFee, nil).Once()
 	est.On("BumpLegacyGas", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 		Return(legacyFee, gasLimit, nil).Once()
 	getRootEst := func(logger.Logger) gas.EvmEstimator { return est }
@@ -77,7 +77,7 @@ func TestWrappedEvmEstimator(t *testing.T) {
 		// expect dynamic fee data
 		dynamicFees = true
 		estimator = gas.NewWrappedEvmEstimator(lggr, getRootEst, dynamicFees, nil, geCfg)
-		fee, max, err = estimator.GetFee(ctx, nil, 0, nil)
+		fee, max, err = estimator.GetFee(ctx, nil, gasLimit, nil)
 		require.NoError(t, err)
 		assert.Equal(t, uint64(float32(gasLimit)*limitMultiplier), max)
 		assert.True(t, dynamicFee.FeeCap.Equal(fee.DynamicFeeCap))
@@ -103,7 +103,7 @@ func TestWrappedEvmEstimator(t *testing.T) {
 		fee, max, err = estimator.BumpFee(ctx, gas.EvmFee{
 			DynamicFeeCap: assets.NewWeiI(0),
 			DynamicTipCap: assets.NewWeiI(0),
-		}, 0, nil, nil)
+		}, gasLimit, nil, nil)
 		require.NoError(t, err)
 		assert.Equal(t, uint64(float32(gasLimit)*limitMultiplier), max)
 		assert.True(t, dynamicFee.FeeCap.Equal(fee.DynamicFeeCap))
