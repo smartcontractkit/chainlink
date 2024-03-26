@@ -4636,7 +4636,7 @@ describe('AutomationRegistry2_3', () => {
   describe('#withdrawOwnerFunds', () => {
     it('can only be called by finance admin', async () => {
       await evmRevert(
-        registry.connect(keeper1).withdrawLinkFees(zeroAddress, 1),
+        registry.connect(keeper1).withdrawLink(zeroAddress, 1),
         'OnlyFinanceAdmin()',
       )
     })
@@ -4693,7 +4693,7 @@ describe('AutomationRegistry2_3', () => {
       // Now withdraw
       await registry
         .connect(financeAdmin)
-        .withdrawLinkFees(await owner.getAddress(), ownerRegistryBalance)
+        .withdrawLink(await owner.getAddress(), ownerRegistryBalance)
 
       ownerRegistryBalance = await registry.linkAvailableForPayment()
       const ownerAfter = await linkToken.balanceOf(await owner.getAddress())
