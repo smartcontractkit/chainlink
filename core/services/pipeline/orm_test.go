@@ -216,6 +216,91 @@ func TestInsertFinishedRuns(t *testing.T) {
 
 }
 
+func Test_PipelineORM_InsertFinishedRunWithSpec(t *testing.T) {
+	db, orm, jorm := setupLiteORM(t)
+
+	s := `
+ds1 [type=bridge async=true name="example-bridge" timeout=0 requestData=<{"data": {"coin": "BTC", "market": "USD"}}>]
+ds1_parse [type=jsonparse lax=false  path="data,result"]
+ds1_multiply [type=multiply times=1000000000000000000]
+
+ds1->ds1_parse->ds1_multiply->answer1;
+
+answer1 [type=median index=0];
+answer2 [type=bridge name=election_winner index=1];
+`
+	jb := job.Job{
+		Type:            job.DirectRequest,
+		SchemaVersion:   1,
+		MaxTaskDuration: models.Interval(1 * time.Minute),
+		DirectRequestSpec: &job.DirectRequestSpec{
+			ContractAddress: cltest.NewEIP55Address(),
+			EVMChainID:      (*big.Big)(&cltest.FixtureChainID),
+		},
+		PipelineSpec: &pipeline.Spec{
+			DotDagSource: s,
+		},
+	}
+	err := jorm.CreateJob(&jb)
+	require.NoError(t, err)
+	spec := pipeline.Spec{
+		DotDagSource:    s,
+		CreatedAt:       time.Now(),
+		MaxTaskDuration: models.Interval(1 * time.Minute),
+		JobID:           jb.ID,
+		JobName:         jb.Name.ValueOrZero(),
+		JobType:         string(jb.Type),
+	}
+	defaultVars := map[string]interface{}{
+		"jb": map[string]interface{}{
+			"databaseID":    jb.ID,
+			"externalJobID": jb.ExternalJobID,
+			"name":          jb.Name.ValueOrZero(),
+		},
+	}
+	now := time.Now()
+	run := pipeline.NewRun(spec, pipeline.NewVarsFrom(defaultVars))
+	run.PipelineTaskRuns = []pipeline.TaskRun{
+		{
+			ID:            uuid.New(),
+			PipelineRunID: run.ID,
+			Type:          "bridge",
+			DotID:         "ds1",
+			CreatedAt:     now,
+			FinishedAt:    null.TimeFrom(now.Add(100 * time.Millisecond)),
+		},
+		{
+			ID:            uuid.New(),
+			PipelineRunID: run.ID,
+			Type:          "median",
+			DotID:         "answer2",
+			Output:        pipeline.JSONSerializable{Val: 1, Valid: true},
+			CreatedAt:     now,
+			FinishedAt:    null.TimeFrom(now.Add(200 * time.Millisecond)),
+		},
+	}
+	run.FinishedAt = null.TimeFrom(now.Add(300 * time.Millisecond))
+	run.Outputs = pipeline.JSONSerializable{
+		Val:   "stuff",
+		Valid: true,
+	}
+	run.AllErrors = append(run.AllErrors, null.NewString("", false))
+	run.State = pipeline.RunStatusCompleted
+
+	err = orm.InsertFinishedRunWithSpec(run, true)
+	require.NoError(t, err)
+
+	var pipelineSpec pipeline.Spec
+	err = db.Get(&pipelineSpec, "SELECT pipeline_specs.* FROM pipeline_specs JOIN job_pipeline_specs ON (pipeline_specs.id = job_pipeline_specs.pipeline_spec_id) WHERE job_pipeline_specs.job_id = $1 AND pipeline_specs.id = $2", jb.ID, run.PipelineSpecID)
+	require.NoError(t, err)
+	var jobPipelineSpec job.PipelineSpec
+	err = db.Get(&jobPipelineSpec, "SELECT * FROM job_pipeline_specs WHERE job_id = $1 AND pipeline_spec_id = $2", jb.ID, pipelineSpec.ID)
+	require.NoError(t, err)
+
+	assert.Equal(t, run.PipelineSpecID, pipelineSpec.ID)
+	assert.False(t, jobPipelineSpec.IsPrimary)
+}
+
 // Tests that inserting run results, then later updating the run results via upsert will work correctly.
 func Test_PipelineORM_StoreRun_ShouldUpsert(t *testing.T) {
 	_, orm, jorm := setupLiteORM(t)

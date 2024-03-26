@@ -82,11 +82,11 @@ type ORM interface {
 	StoreRun(run *Run, qopts ...pg.QOpt) (restart bool, err error)
 	UpdateTaskRunResult(taskID uuid.UUID, result Result) (run Run, start bool, err error)
 	InsertFinishedRun(run *Run, saveSuccessfulTaskRuns bool, qopts ...pg.QOpt) (err error)
+	InsertFinishedRunWithSpec(run *Run, saveSuccessfulTaskRuns bool, qopts ...pg.QOpt) (err error)
 
 	// InsertFinishedRuns inserts all the given runs into the database.
 	// If saveSuccessfulTaskRuns is false, only errored runs are saved.
 	InsertFinishedRuns(run []*Run, saveSuccessfulTaskRuns bool, qopts ...pg.QOpt) (err error)
-	InsertFinishedRunWithSpec(run *Run, saveSuccessfulTaskRuns bool, qopts ...pg.QOpt) (err error)
 
 	DeleteRunsOlderThan(context.Context, time.Duration) error
 	FindRun(id int64) (Run, error)
@@ -439,12 +439,18 @@ func (o *orm) InsertFinishedRunWithSpec(run *Run, saveSuccessfulTaskRuns bool, q
 
 	q := o.q.WithOpts(qopts...)
 	err = q.Transaction(func(tx pg.Queryer) error {
-		sql := `INSERT INTO pipeline_specs (dot_dag_source, max_task_duration, created_at)
+		sqlStmt1 := `INSERT INTO pipeline_specs (dot_dag_source, max_task_duration, created_at)
 	VALUES ($1, $2, NOW())
 	RETURNING id;`
-		err = tx.Get(&run.PipelineSpecID, sql, run.PipelineSpec.DotDagSource, run.PipelineSpec.MaxTaskDuration)
+		err = tx.Get(&run.PipelineSpecID, sqlStmt1, run.PipelineSpec.DotDagSource, run.PipelineSpec.MaxTaskDuration)
 		if err != nil {
 			return errors.Wrap(err, "failed to insert pipeline_specs")
+		}
+		// This `job_pipeline_specs` record won't be primary since when this method is called, the job already exists, so it will have primary record.
+		sqlStmt2 := `INSERT INTO job_pipeline_specs (job_id, pipeline_spec_id, is_primary) VALUES ($1, $2, false)`
+		_, err = tx.Exec(sqlStmt2, run.JobID, run.PipelineSpecID)
+		if err != nil {
+			return errors.Wrap(err, "failed to insert job_pipeline_specs")
 		}
 		return o.insertFinishedRunTx(run, saveSuccessfulTaskRuns)(tx)
 	})

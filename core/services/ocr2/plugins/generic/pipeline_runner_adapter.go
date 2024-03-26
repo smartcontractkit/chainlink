@@ -45,7 +45,7 @@ func (p *PipelineRunnerAdapter) ExecuteRun(ctx context.Context, spec string, var
 	merge(defaultVars, vars.Vars)
 
 	finalVars := pipeline.NewVarsFrom(defaultVars)
-	_, trrs, err := p.runner.ExecuteAndInsertFinishedRunWithSpec(ctx, s, finalVars, p.logger, false)
+	_, trrs, err := p.runner.ExecuteAndInsertFinishedRunWithSpec(ctx, s, finalVars, p.logger, true)
 	if err != nil {
 		return nil, err
 	}
