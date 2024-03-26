@@ -364,7 +364,8 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 				Str("Network", networkConfig.Name).
 				Int64("Chain ID", networkConfig.ChainID).
 				Msg("Private network config provided, but we are running on a live network. Ignoring private network config.")
-			b.te.rpcProviders[networkConfig.ChainID] = test_env.NewRPCProvider(networkConfig.HTTPURLs, networkConfig.URLs, networkConfig.HTTPURLs, networkConfig.URLs)
+			rpcProvider := test_env.NewRPCProvider(networkConfig.HTTPURLs, networkConfig.URLs, networkConfig.HTTPURLs, networkConfig.URLs)
+			b.te.rpcProviders[networkConfig.ChainID] = &rpcProvider
 			b.te.isSimulatedNetwork = false
 		}
 
