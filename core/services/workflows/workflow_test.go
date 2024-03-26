@@ -5,6 +5,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/datafeeds"
+	"github.com/smartcontractkit/chainlink-common/pkg/values"
 )
 
 func TestParse_Graph(t *testing.T) {
@@ -186,6 +189,34 @@ targets:
 				"a-target": {},
 			},
 		},
+		{
+			name: "non-trigger step with no refs",
+			yaml: `
+triggers:
+  - type: "a-trigger"
+  - type: "a-second-trigger"
+
+actions:
+  - type: "an-action"
+    ref: "an-action"
+    inputs:
+      hello: "world"
+
+consensus:
+  - type: "a-consensus"
+    ref: "a-consensus"
+    inputs:
+      trigger_output: $(trigger.outputs)
+      action_output: $(an-action.outputs)
+
+targets:
+  - type: "a-target"
+    ref: "a-target"
+    inputs:
+      consensus_output: $(a-consensus.outputs)
+`,
+			errMsg: "all non-trigger steps must have a ref",
+		},
 	}
 
 	for _, tc := range testCases {
@@ -213,4 +244,20 @@ targets:
 			}
 		})
 	}
+}
+
+func TestParse(t *testing.T) {
+	wf, err := Parse(hardcodedWorkflow)
+	require.NoError(t, err)
+
+	n, err := wf.Vertex("evm_median")
+	require.NoError(t, err)
+
+	nconf, err := values.NewMap(n.Config["aggregation_config"].(map[string]any))
+	require.NoError(t, err)
+
+	ac, err := datafeeds.ParseConfig(*nconf)
+	require.NoError(t, err)
+
+	assert.Nil(t, ac)
 }

@@ -95,7 +95,7 @@ LOOP:
 					return nil
 				}
 
-				// If the capability is already cached, that means we've already registered it
+				// If the capability already exists, that means we've already registered it
 				if s.capability != nil {
 					return nil
 				}
@@ -129,7 +129,7 @@ LOOP:
 
 				innerErr = cc.RegisterToWorkflow(ctx, reg)
 				if innerErr != nil {
-					return fmt.Errorf("failed to register to workflow: %+v", reg)
+					return fmt.Errorf("failed to register to workflow (%+v): %w", reg, innerErr)
 				}
 
 				s.capability = cc
@@ -375,6 +375,7 @@ func (e *Engine) queueIfReady(state executionState, step *step) {
 }
 
 func (e *Engine) finishExecution(ctx context.Context, executionID string, status string) error {
+	e.logger.Infow("finishing execution", "executionID", executionID, "status", status)
 	err := e.executionStates.updateStatus(ctx, executionID, status)
 	if err != nil {
 		return err
@@ -408,7 +409,7 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 		stepState.outputs.err = err
 		stepState.status = statusErrored
 	} else {
-		e.logger.Debugw("step executed successfully", "executionID", msg.state.executionID, "stepRef", msg.stepRef, "outputs", outputs)
+		e.logger.Infow("step executed successfully", "executionID", msg.state.executionID, "stepRef", msg.stepRef, "outputs", outputs)
 		stepState.outputs.value = outputs
 		stepState.status = statusCompleted
 	}
@@ -564,6 +565,7 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 	// - that there are no step `ref` called `trigger` as this is reserved for any triggers
 	// - that there are no duplicate `ref`s
 	// - that the `ref` for any triggers is empty -- and filled in with `trigger`
+	// - that the resulting graph is strongly connected (i.e. no disjointed subgraphs exist)
 	// - etc.
 
 	workflow, err := Parse(cfg.Spec)

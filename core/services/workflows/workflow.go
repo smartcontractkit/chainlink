@@ -1,6 +1,7 @@
 package workflows
 
 import (
+	"errors"
 	"fmt"
 
 	"gopkg.in/yaml.v3"
@@ -181,6 +182,11 @@ func Parse(yamlWorkflow string) (*workflow, error) {
 		if innerErr != nil {
 			return nil, innerErr
 		}
+
+		if stepRef != keywordTrigger && len(refs) == 0 {
+			return nil, errors.New("all non-trigger steps must have a ref")
+		}
+
 		step.dependencies = refs
 
 		for _, r := range refs {
