@@ -128,7 +128,6 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   error IncorrectNumberOfSigners();
   error IndexOutOfRange();
   error InsufficientBalance(uint256 available, uint256 requested);
-  error InvalidBillingToken();
   error InvalidDataLength();
   error InvalidFeed();
   error InvalidTrigger();
@@ -136,6 +135,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   error InvalidRecipient();
   error InvalidReport();
   error InvalidSigner();
+  error InvalidToken();
   error InvalidTransmitter();
   error InvalidTriggerType();
   error MigrationNotPermitted();
@@ -543,7 +543,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     if (upkeep.performGas < PERFORM_GAS_MIN || upkeep.performGas > s_storage.maxPerformGas)
       revert GasLimitOutsideRange();
     if (address(s_upkeep[id].forwarder) != address(0)) revert UpkeepAlreadyExists();
-    if (address(s_billingConfigs[upkeep.billingToken].priceFeed) == address(0)) revert InvalidBillingToken();
+    if (address(s_billingConfigs[upkeep.billingToken].priceFeed) == address(0)) revert InvalidToken();
     s_upkeep[id] = upkeep;
     s_upkeepAdmin[id] = admin;
     s_checkData[id] = checkData;
@@ -1069,7 +1069,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
 
       // if LINK is a billing option, payout mode must be ON_CHAIN
       if (address(token) == address(i_link) && mode == PayoutMode.OFF_CHAIN) {
-        revert InvalidBillingToken();
+        revert InvalidToken();
       }
       if (address(token) == ZERO_ADDRESS || address(config.priceFeed) == ZERO_ADDRESS) {
         revert ZeroAddressNotAllowed();
