@@ -49,6 +49,7 @@ func TestOCRLoad(t *testing.T) {
 
 	cfg := config.OCR
 	cfgl := config.Logging.Loki
+	l.Warn().Msgf("Loki config: %+v", cfgl)
 	lc, err := wasp.NewLokiClient(wasp.NewLokiConfig(cfgl.Endpoint, cfgl.TenantId, cfgl.BasicAuth, cfgl.BearerToken))
 	require.NoError(t, err, "Error creating loki client")
 
