@@ -297,7 +297,11 @@ func (b *BlockHistoryEstimator) BumpLegacyGas(_ context.Context, originalGasPric
 			return nil, 0, err
 		}
 	}
-	return BumpLegacyGasPriceOnly(b.eConfig, b.logger, b.getGasPrice(), originalGasPrice, gasLimit, maxGasPriceWei)
+	bumpedGasPrice, err = BumpLegacyGasPriceOnly(b.eConfig, b.logger, b.getGasPrice(), originalGasPrice, maxGasPriceWei)
+	if err != nil {
+		return nil, 0, err
+	}
+	return bumpedGasPrice, gasLimit, err
 }
 
 // checkConnectivity detects if the transaction is not being included due to
@@ -387,15 +391,14 @@ func (b *BlockHistoryEstimator) checkConnectivity(attempts []EvmPriorAttempt) er
 	return nil
 }
 
-func (b *BlockHistoryEstimator) GetDynamicFee(_ context.Context, gasLimit uint64, maxGasPriceWei *assets.Wei) (fee DynamicFee, chainSpecificGasLimit uint64, err error) {
+func (b *BlockHistoryEstimator) GetDynamicFee(_ context.Context, gasLimit uint64, maxGasPriceWei *assets.Wei) (fee DynamicFee, err error) {
 	if !b.eConfig.EIP1559DynamicFees() {
-		return fee, 0, pkgerrors.New("Can't get dynamic fee, EIP1559 is disabled")
+		return fee, pkgerrors.New("Can't get dynamic fee, EIP1559 is disabled")
 	}
 
 	var feeCap *assets.Wei
 	var tipCap *assets.Wei
 	ok := b.IfStarted(func() {
-		chainSpecificGasLimit = gasLimit
 		b.priceMu.RLock()
 		defer b.priceMu.RUnlock()
 		tipCap = b.tipCap
@@ -427,10 +430,10 @@ func (b *BlockHistoryEstimator) GetDynamicFee(_ context.Context, gasLimit uint64
 		}
 	})
 	if !ok {
-		return fee, 0, pkgerrors.New("BlockHistoryEstimator is not started; cannot estimate gas")
+		return fee, pkgerrors.New("BlockHistoryEstimator is not started; cannot estimate gas")
 	}
 	if err != nil {
-		return fee, 0, err
+		return fee, err
 	}
 	fee.FeeCap = feeCap
 	fee.TipCap = tipCap
@@ -457,7 +460,7 @@ func calcFeeCap(latestAvailableBaseFeePerGas *assets.Wei, bufferBlocks int, tipC
 	return feeCap
 }
 
-func (b *BlockHistoryEstimator) BumpDynamicFee(_ context.Context, originalFee DynamicFee, originalGasLimit uint64, maxGasPriceWei *assets.Wei, attempts []EvmPriorAttempt) (bumped DynamicFee, chainSpecificGasLimit uint64, err error) {
+func (b *BlockHistoryEstimator) BumpDynamicFee(_ context.Context, originalFee DynamicFee, originalGasLimit uint64, maxGasPriceWei *assets.Wei, attempts []EvmPriorAttempt) (bumped DynamicFee, err error) {
 	if b.bhConfig.CheckInclusionBlocks() > 0 {
 		if err = b.checkConnectivity(attempts); err != nil {
 			if pkgerrors.Is(err, commonfee.ErrConnectivity) {
@@ -465,10 +468,10 @@ func (b *BlockHistoryEstimator) BumpDynamicFee(_ context.Context, originalFee Dy
 				b.SvcErrBuffer.Append(err)
 				promBlockHistoryEstimatorConnectivityFailureCount.WithLabelValues(b.chainID.String(), "eip1559").Inc()
 			}
-			return bumped, 0, err
+			return bumped, err
 		}
 	}
-	return BumpDynamicFeeOnly(b.eConfig, b.bhConfig.EIP1559FeeCapBufferBlocks(), b.logger, b.getTipCap(), b.getCurrentBaseFee(), originalFee, originalGasLimit, maxGasPriceWei)
+	return BumpDynamicFeeOnly(b.eConfig, b.bhConfig.EIP1559FeeCapBufferBlocks(), b.logger, b.getTipCap(), b.getCurrentBaseFee(), originalFee, maxGasPriceWei)
 }
 
 func (b *BlockHistoryEstimator) runLoop() {

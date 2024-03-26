@@ -88,13 +88,12 @@ func (f *fixedPriceEstimator) BumpLegacyGas(
 	return assets.NewWei(gasPrice), chainSpecificGasLimit, err
 }
 
-func (f *fixedPriceEstimator) GetDynamicFee(_ context.Context, originalGasLimit uint64, maxGasPriceWei *assets.Wei) (d DynamicFee, chainSpecificGasLimit uint64, err error) {
+func (f *fixedPriceEstimator) GetDynamicFee(_ context.Context, originalGasLimit uint64, maxGasPriceWei *assets.Wei) (d DynamicFee, err error) {
 	gasTipCap := f.config.TipCapDefault()
 
 	if gasTipCap == nil {
-		return d, 0, pkgerrors.New("cannot calculate dynamic fee: EthGasTipCapDefault was not set")
+		return d, pkgerrors.New("cannot calculate dynamic fee: EthGasTipCapDefault was not set")
 	}
-	chainSpecificGasLimit = originalGasLimit
 
 	var feeCap *assets.Wei
 	if f.config.BumpThreshold() == 0 {
@@ -108,7 +107,7 @@ func (f *fixedPriceEstimator) GetDynamicFee(_ context.Context, originalGasLimit 
 	return DynamicFee{
 		FeeCap: feeCap,
 		TipCap: gasTipCap,
-	}, chainSpecificGasLimit, nil
+	}, nil
 }
 
 func (f *fixedPriceEstimator) BumpDynamicFee(
@@ -117,7 +116,7 @@ func (f *fixedPriceEstimator) BumpDynamicFee(
 	originalGasLimit uint64,
 	maxGasPriceWei *assets.Wei,
 	_ []EvmPriorAttempt,
-) (bumped DynamicFee, chainSpecificGasLimit uint64, err error) {
+) (bumped DynamicFee, err error) {
 
 	return BumpDynamicFeeOnly(
 		f.config,
@@ -126,7 +125,6 @@ func (f *fixedPriceEstimator) BumpDynamicFee(
 		f.config.TipCapDefault(),
 		nil,
 		originalFee,
-		originalGasLimit,
 		maxGasPriceWei,
 	)
 }

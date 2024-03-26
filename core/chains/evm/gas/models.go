@@ -131,13 +131,13 @@ type EvmEstimator interface {
 	BumpLegacyGas(ctx context.Context, originalGasPrice *assets.Wei, gasLimit uint64, maxGasPriceWei *assets.Wei, attempts []EvmPriorAttempt) (bumpedGasPrice *assets.Wei, chainSpecificGasLimit uint64, err error)
 	// GetDynamicFee Calculates initial gas fee for gas for EIP1559 transactions
 	// maxGasPriceWei parameter is the highest possible gas fee cap that the function will return
-	GetDynamicFee(ctx context.Context, gasLimit uint64, maxGasPriceWei *assets.Wei) (fee DynamicFee, chainSpecificGasLimit uint64, err error)
+	GetDynamicFee(ctx context.Context, gasLimit uint64, maxGasPriceWei *assets.Wei) (fee DynamicFee, err error)
 	// BumpDynamicFee Increases gas price and/or limit for non-EIP1559 transactions
 	// if the bumped gas fee or tip caps are greater than maxGasPriceWei, the method returns an error
 	// attempts must:
 	//   - be sorted in order from highest price to lowest price
 	//   - all be of transaction type 0x2
-	BumpDynamicFee(ctx context.Context, original DynamicFee, gasLimit uint64, maxGasPriceWei *assets.Wei, attempts []EvmPriorAttempt) (bumped DynamicFee, chainSpecificGasLimit uint64, err error)
+	BumpDynamicFee(ctx context.Context, original DynamicFee, gasLimit uint64, maxGasPriceWei *assets.Wei, attempts []EvmPriorAttempt) (bumped DynamicFee, err error)
 }
 
 var _ feetypes.Fee = (*EvmFee)(nil)
@@ -247,11 +247,11 @@ func (e *WrappedEvmEstimator) GetFee(ctx context.Context, calldata []byte, feeLi
 	// get dynamic fee
 	if e.EIP1559Enabled {
 		var dynamicFee DynamicFee
-		dynamicFee, chainSpecificFeeLimit, err = e.EvmEstimator.GetDynamicFee(ctx, feeLimit, maxFeePrice)
+		dynamicFee, err = e.EvmEstimator.GetDynamicFee(ctx, feeLimit, maxFeePrice)
 		if err != nil {
 			return
 		}
-		chainSpecificFeeLimit, err = commonfee.ApplyMultiplier(chainSpecificFeeLimit, e.geCfg.LimitMultiplier())
+		chainSpecificFeeLimit, err = commonfee.ApplyMultiplier(feeLimit, e.geCfg.LimitMultiplier())
 		fee.DynamicFeeCap = dynamicFee.FeeCap
 		fee.DynamicTipCap = dynamicFee.TipCap
 		return
@@ -296,7 +296,7 @@ func (e *WrappedEvmEstimator) BumpFee(ctx context.Context, originalFee EvmFee, f
 	// bump dynamic original
 	if originalFee.ValidDynamic() {
 		var bumpedDynamic DynamicFee
-		bumpedDynamic, chainSpecificFeeLimit, err = e.EvmEstimator.BumpDynamicFee(ctx,
+		bumpedDynamic, err = e.EvmEstimator.BumpDynamicFee(ctx,
 			DynamicFee{
 				TipCap: originalFee.DynamicTipCap,
 				FeeCap: originalFee.DynamicFeeCap,
@@ -304,7 +304,7 @@ func (e *WrappedEvmEstimator) BumpFee(ctx context.Context, originalFee EvmFee, f
 		if err != nil {
 			return
 		}
-		chainSpecificFeeLimit, err = commonfee.ApplyMultiplier(chainSpecificFeeLimit, e.geCfg.LimitMultiplier())
+		chainSpecificFeeLimit, err = commonfee.ApplyMultiplier(feeLimit, e.geCfg.LimitMultiplier())
 		bumpedFee.DynamicFeeCap = bumpedDynamic.FeeCap
 		bumpedFee.DynamicTipCap = bumpedDynamic.TipCap
 		return
@@ -374,13 +374,12 @@ func HexToInt64(input interface{}) int64 {
 	}
 }
 
-// BumpLegacyGasPriceOnly will increase the price and apply multiplier to the gas limit
-func BumpLegacyGasPriceOnly(cfg bumpConfig, lggr logger.SugaredLogger, currentGasPrice, originalGasPrice *assets.Wei, originalGasLimit uint64, maxGasPriceWei *assets.Wei) (gasPrice *assets.Wei, chainSpecificGasLimit uint64, err error) {
+// BumpLegacyGasPriceOnly will increase the price
+func BumpLegacyGasPriceOnly(cfg bumpConfig, lggr logger.SugaredLogger, currentGasPrice, originalGasPrice *assets.Wei, maxGasPriceWei *assets.Wei) (gasPrice *assets.Wei, err error) {
 	gasPrice, err = bumpGasPrice(cfg, lggr, currentGasPrice, originalGasPrice, maxGasPriceWei)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
-	chainSpecificGasLimit, err = commonfee.ApplyMultiplier(originalGasLimit, cfg.LimitMultiplier())
 	return
 }
 
@@ -410,12 +409,11 @@ func bumpGasPrice(cfg bumpConfig, lggr logger.SugaredLogger, currentGasPrice, or
 }
 
 // BumpDynamicFeeOnly bumps the tip cap and max gas price if necessary
-func BumpDynamicFeeOnly(config bumpConfig, feeCapBufferBlocks uint16, lggr logger.SugaredLogger, currentTipCap, currentBaseFee *assets.Wei, originalFee DynamicFee, originalGasLimit uint64, maxGasPriceWei *assets.Wei) (bumped DynamicFee, chainSpecificGasLimit uint64, err error) {
+func BumpDynamicFeeOnly(config bumpConfig, feeCapBufferBlocks uint16, lggr logger.SugaredLogger, currentTipCap, currentBaseFee *assets.Wei, originalFee DynamicFee, maxGasPriceWei *assets.Wei) (bumped DynamicFee, err error) {
 	bumped, err = bumpDynamicFee(config, feeCapBufferBlocks, lggr, currentTipCap, currentBaseFee, originalFee, maxGasPriceWei)
 	if err != nil {
-		return bumped, 0, err
+		return bumped, err
 	}
-	chainSpecificGasLimit, err = commonfee.ApplyMultiplier(originalGasLimit, config.LimitMultiplier())
 	return
 }
 

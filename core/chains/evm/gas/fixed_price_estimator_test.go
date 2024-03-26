@@ -74,10 +74,10 @@ func Test_FixedPriceEstimator(t *testing.T) {
 		gasPrice, gasLimit, err := f.BumpLegacyGas(testutils.Context(t), assets.NewWeiI(42), 100000, maxGasPrice, nil)
 		require.NoError(t, err)
 
-		expectedGasPrice, expectedGasLimit, err := gas.BumpLegacyGasPriceOnly(config, lggr, nil, assets.NewWeiI(42), 100000, maxGasPrice)
+		expectedGasPrice, err := gas.BumpLegacyGasPriceOnly(config, lggr, nil, assets.NewWeiI(42), maxGasPrice)
 		require.NoError(t, err)
 
-		assert.Equal(t, expectedGasLimit, gasLimit)
+		assert.Equal(t, 100000, int(gasLimit))
 		assert.Equal(t, expectedGasPrice, gasPrice)
 	})
 
@@ -91,9 +91,8 @@ func Test_FixedPriceEstimator(t *testing.T) {
 		lggr := logger.Test(t)
 		f := gas.NewFixedPriceEstimator(config, &blockHistoryConfig{}, lggr)
 
-		fee, gasLimit, err := f.GetDynamicFee(testutils.Context(t), 100000, maxGasPrice)
+		fee, err := f.GetDynamicFee(testutils.Context(t), 100000, maxGasPrice)
 		require.NoError(t, err)
-		assert.Equal(t, 100000, int(gasLimit))
 
 		assert.Equal(t, assets.NewWeiI(52), fee.TipCap)
 		assert.Equal(t, assets.NewWeiI(100), fee.FeeCap)
@@ -101,17 +100,15 @@ func Test_FixedPriceEstimator(t *testing.T) {
 		// Gas bumping disabled
 		config.BumpThresholdF = uint64(0)
 
-		fee, gasLimit, err = f.GetDynamicFee(testutils.Context(t), 100000, maxGasPrice)
+		fee, err = f.GetDynamicFee(testutils.Context(t), 100000, maxGasPrice)
 		require.NoError(t, err)
-		assert.Equal(t, 100000, int(gasLimit))
 
 		assert.Equal(t, assets.NewWeiI(52), fee.TipCap)
 		assert.Equal(t, maxGasPrice, fee.FeeCap)
 
 		// override max gas price
-		fee, gasLimit, err = f.GetDynamicFee(testutils.Context(t), 100000, assets.NewWeiI(10))
+		fee, err = f.GetDynamicFee(testutils.Context(t), 100000, assets.NewWeiI(10))
 		require.NoError(t, err)
-		assert.Equal(t, 100000, int(gasLimit))
 
 		assert.Equal(t, assets.NewWeiI(52), fee.TipCap)
 		assert.Equal(t, assets.NewWeiI(10), fee.FeeCap)
@@ -128,13 +125,12 @@ func Test_FixedPriceEstimator(t *testing.T) {
 		f := gas.NewFixedPriceEstimator(config, &blockHistoryConfig{}, lggr)
 
 		originalFee := gas.DynamicFee{FeeCap: assets.NewWeiI(100), TipCap: assets.NewWeiI(25)}
-		fee, gasLimit, err := f.BumpDynamicFee(testutils.Context(t), originalFee, 100000, maxGasPrice, nil)
+		fee, err := f.BumpDynamicFee(testutils.Context(t), originalFee, 100000, maxGasPrice, nil)
 		require.NoError(t, err)
 
-		expectedFee, expectedGasLimit, err := gas.BumpDynamicFeeOnly(config, 0, lggr, nil, nil, originalFee, 100000, maxGasPrice)
+		expectedFee, err := gas.BumpDynamicFeeOnly(config, 0, lggr, nil, nil, originalFee, maxGasPrice)
 		require.NoError(t, err)
 
-		assert.Equal(t, expectedGasLimit, gasLimit)
 		assert.Equal(t, expectedFee, fee)
 	})
 }
