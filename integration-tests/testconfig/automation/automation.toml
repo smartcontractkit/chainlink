@@ -37,6 +37,8 @@ check_burn_amount = 0
 perform_burn_amount = 0
 upkeep_gas_limit = 1000000
 shared_trigger = false
+is_streams_lookup = false
+feeds = ["0x000200"]
 
 [[Load.Automation.Load]]
 number_of_upkeeps=5
@@ -47,6 +49,8 @@ check_burn_amount = 0
 perform_burn_amount = 0
 upkeep_gas_limit = 1000000
 shared_trigger = true
+is_streams_lookup = false
+feeds = ["0x000200"]
 
 [Load.Pyroscope]
 enabled=false

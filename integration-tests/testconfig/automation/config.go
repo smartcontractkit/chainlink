@@ -98,6 +98,8 @@ func (c *Load) Validate() error {
 		if c.Feeds == nil {
 			c.Feeds = []string{}
 		}
+	} else {
+		*c.IsStreamsLookup = false
 	}
 
 	return nil
