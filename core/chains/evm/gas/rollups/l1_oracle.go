@@ -124,6 +124,8 @@ func NewL1GasOracle(lggr logger.Logger, ethClient ethClient, chainType config.Ch
 		priceReader = newOPPriceReader(lggr, ethClient, chainType, OPGasOracleAddress)
 	case config.ChainKroma:
 		priceReader = newOPPriceReader(lggr, ethClient, chainType, KromaGasOracleAddress)
+	default:
+		priceReader = nil
 	}
 	return newL1GasOracle(lggr, ethClient, chainType, priceReader)
 }
