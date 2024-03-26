@@ -196,7 +196,7 @@ func (e *ExecProviderServer) NewCommitStoreReader(ctx context.Context, req *ccip
 		return nil, fmt.Errorf("failed to create offramp reader grpc server: %w", err)
 	}
 	// the id is handle to the broker, we will need it on the other sider to dial the resource
-	commitStoreID, csResource, err := e.ServeNew("OffRampReader", func(s *grpc.Server) {
+	commitStoreID, csResource, err := e.ServeNew("CommitStoreReader", func(s *grpc.Server) {
 		ccippb.RegisterCommitStoreReaderServer(s, commitStoreHandler)
 	})
 	if err != nil {

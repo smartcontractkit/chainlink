@@ -9,16 +9,17 @@ import (
 type CCIPCommitProvider interface {
 	PluginProvider
 
-	NewOnRampReader(ctx context.Context, addr ccip.Address) (ccip.OnRampReader, error)
-	NewOffRampReader(ctx context.Context, addr ccip.Address) (ccip.OffRampReader, error)
 	NewCommitStoreReader(ctx context.Context, addr ccip.Address) (ccip.CommitStoreReader, error)
-	NewPriceRegistryReader(ctx context.Context, addr ccip.Address) (ccip.PriceRegistryReader, error)
+	NewOffRampReader(ctx context.Context, addr ccip.Address) (ccip.OffRampReader, error)
+	NewOnRampReader(ctx context.Context, addr ccip.Address) (ccip.OnRampReader, error)
 	NewPriceGetter(ctx context.Context) (ccip.PriceGetter, error)
+	NewPriceRegistryReader(ctx context.Context, addr ccip.Address) (ccip.PriceRegistryReader, error)
 	SourceNativeToken(ctx context.Context) (ccip.Address, error)
 }
 
 type CCIPExecProvider interface {
 	PluginProvider
+
 	NewCommitStoreReader(ctx context.Context, addr ccip.Address) (ccip.CommitStoreReader, error)
 	NewOffRampReader(ctx context.Context, addr ccip.Address) (ccip.OffRampReader, error)
 	NewOnRampReader(ctx context.Context, addr ccip.Address) (ccip.OnRampReader, error)

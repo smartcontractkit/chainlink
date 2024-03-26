@@ -276,4 +276,5 @@ const (
 	offRampComponent       = "offRamp"
 	onRampComponent        = "onRamp"
 	priceRegistryComponent = "priceRegistry"
+	priceGetterComponent   = "priceGetter"
 )

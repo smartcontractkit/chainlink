@@ -63,7 +63,7 @@ func NewCommitStoreReaderGRPCServer(impl ccip.CommitStoreReader, brokerExt *net.
 	// wrap the reader in a grpc server and serve it
 	estimatorHandler := NewCommitGasEstimatorGRPCServer(estimator)
 	// the id is handle to the broker, we will need it on the other side to dial the resource
-	estimatorID, spawnedServer, err := brokerExt.ServeNew("OffRamapGasEstimator", func(s *grpc.Server) {
+	estimatorID, spawnedServer, err := brokerExt.ServeNew("CommitStoreReader.OffRampGasEstimator", func(s *grpc.Server) {
 		ccippb.RegisterGasPriceEstimatorCommitServer(s, estimatorHandler)
 	})
 	if err != nil {

@@ -72,7 +72,7 @@ func TestPriceGetterGRPC(t *testing.T) {
 	client := ccip.NewPriceGetterGRPCClient(conn)
 
 	// test the client
-	roundPriceGetterTests(ctx, t, client)
+	roundTripPriceGetterTests(ctx, t, client)
 	// closing the client executes the shutdown callback
 	// which stops the server.  the wg.Wait() below ensures
 	// that the server has stopped, which is what we care about.
@@ -81,7 +81,7 @@ func TestPriceGetterGRPC(t *testing.T) {
 	wg.Wait()
 }
 
-func roundPriceGetterTests(ctx context.Context, t *testing.T, client cciptypes.PriceGetter) {
+func roundTripPriceGetterTests(ctx context.Context, t *testing.T, client cciptypes.PriceGetter) {
 	t.Run("TokenPricesUSD", func(t *testing.T) {
 		// test token prices
 		prices, err := client.TokenPricesUSD(ctx, PriceGetter.config.Addresses)

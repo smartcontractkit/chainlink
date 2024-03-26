@@ -31,10 +31,14 @@ type OffRampReaderGRPCClient struct {
 	b *net.BrokerExt
 }
 
+// NewOffRampReaderGRPCClient creates a new OffRampReaderGRPCClient. It is used by the reporting plugin to call the offramp reader service.
+// The client is created by wrapping a grpc client connection. It requires a brokerExt to allocate and serve the gas estimator server.
+// *must* be the same broker used by the server BCF-3061
 func NewOffRampReaderGRPCClient(cc grpc.ClientConnInterface, brokerExt *net.BrokerExt) *OffRampReaderGRPCClient {
 	return &OffRampReaderGRPCClient{client: ccippb.NewOffRampReaderClient(cc), b: brokerExt}
 }
 
+// OffRampReaderGRPCServer implements [ccippb.OffRampReaderServer] by wrapping a [cciptypes.OffRampReader] implementation.
 type OffRampReaderGRPCServer struct {
 	ccippb.UnimplementedOffRampReaderServer
 
@@ -51,6 +55,9 @@ type OffRampReaderGRPCServer struct {
 	deps []io.Closer
 }
 
+// NewOffRampReaderGRPCServer creates a new OffRampReaderGRPCServer. It is used by the relayer to serve the offramp reader service.
+// The server is created by wrapping a [cciptypes.OffRampReader] implementation. It requires a brokerExt to allocate and serve the gas estimator server.
+// *must* be the same broker used by the client. BCF-3061
 func NewOffRampReaderGRPCServer(impl cciptypes.OffRampReader, brokerExt *net.BrokerExt) (*OffRampReaderGRPCServer, error) {
 	// offramp reader server needs to serve the gas estimator server
 	estimator, err := impl.GasPriceEstimator(context.Background())
@@ -60,7 +67,7 @@ func NewOffRampReaderGRPCServer(impl cciptypes.OffRampReader, brokerExt *net.Bro
 	// wrap the reader in a grpc server and serve it
 	estimatorHandler := NewExecGasEstimatorGRPCServer(estimator)
 	// the id is handle to the broker, we will need it on the other side to dial the resource
-	estimatorID, spawnedServer, err := brokerExt.ServeNew("OffRamapGasEstimator", func(s *grpc.Server) {
+	estimatorID, spawnedServer, err := brokerExt.ServeNew("OffRampReader.OffRampGasEstimator", func(s *grpc.Server) {
 		ccippb.RegisterGasPriceEstimatorExecServer(s, estimatorHandler)
 	})
 	if err != nil {

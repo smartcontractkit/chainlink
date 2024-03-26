@@ -20,6 +20,7 @@ import (
 	loopnettest "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/net/test"
 	ccippb "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb/ccip"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer/pluginprovider/ext/ccip"
+	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
@@ -96,7 +97,8 @@ func TestOffRampGRPC(t *testing.T) {
 // roundTripOffRampTests tests the round trip of the client<->server.
 // it should exercise all the methods of the client.
 // do not add client.Close to this test, test that from the driver test
-func roundTripOffRampTests(ctx context.Context, t *testing.T, client *ccip.OffRampReaderGRPCClient) {
+// func roundTripOffRampTests(ctx context.Context, t *testing.T, client *ccip.OffRampReaderGRPCClient) {
+func roundTripOffRampTests(ctx context.Context, t *testing.T, client cciptypes.OffRampReader) {
 	t.Run("Address", func(t *testing.T) {
 		address, err := client.Address(ctx)
 		require.NoError(t, err)

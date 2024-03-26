@@ -23,6 +23,10 @@ var PriceGetter = staticPriceGetter{
 	},
 }
 
+type PriceGetterEvaluator interface {
+	cciptypes.PriceGetter
+	testtypes.Evaluator[cciptypes.PriceGetter]
+}
 type staticPriceGetterConfig struct {
 	Prices    map[cciptypes.Address]*big.Int
 	Addresses []cciptypes.Address
@@ -31,8 +35,7 @@ type staticPriceGetter struct {
 	config staticPriceGetterConfig
 }
 
-var _ cciptypes.PriceGetter = (*staticPriceGetter)(nil)
-var _ testtypes.Evaluator[cciptypes.PriceGetter] = (*staticPriceGetter)(nil)
+var _ PriceGetterEvaluator = staticPriceGetter{}
 
 // Close implements ccip.PriceGetter.
 func (s staticPriceGetter) Close() error {

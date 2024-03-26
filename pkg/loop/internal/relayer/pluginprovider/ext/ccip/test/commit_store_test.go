@@ -20,6 +20,7 @@ import (
 	loopnettest "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/net/test"
 	ccippb "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb/ccip"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer/pluginprovider/ext/ccip"
+	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
@@ -96,7 +97,7 @@ func TestCommitStoreGRPC(t *testing.T) {
 // roundTripCommitStoreTests tests the round trip of the client<->server.
 // it should exercise all the methods of the client.
 // do not add client.Close to this test, test that from the driver test
-func roundTripCommitStoreTests(ctx context.Context, t *testing.T, client *ccip.CommitStoreGRPCClient) {
+func roundTripCommitStoreTests(ctx context.Context, t *testing.T, client cciptypes.CommitStoreReader) {
 	t.Run("ChangeConfig", func(t *testing.T) {
 		gotAddr, err := client.ChangeConfig(ctx, CommitStoreReader.changeConfigRequest.onchainConfig, CommitStoreReader.changeConfigRequest.offchainConfig)
 		require.NoError(t, err)

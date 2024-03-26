@@ -2,6 +2,7 @@ package ccip
 
 import (
 	"context"
+	"io"
 	"math/big"
 	"time"
 
@@ -12,41 +13,28 @@ import (
 
 // all methods need to accept a context and return an error
 type OffRampReader interface {
-	// EncodeExecutionReport will error if messages are not a compatible version.
-	EncodeExecutionReport(ctx context.Context, report ExecReport) ([]byte, error)
-
-	// DecodeExecutionReport will error if messages are not a compatible version.
-	DecodeExecutionReport(ctx context.Context, report []byte) (ExecReport, error)
-
-	// GetExecutionStateChangesBetweenSeqNums returns all the execution state change events for the provided message sequence numbers (inclusive).
-	GetExecutionStateChangesBetweenSeqNums(ctx context.Context, seqNumMin, seqNumMax uint64, confirmations int) ([]ExecutionStateChangedWithTxMeta, error)
-
 	Address(ctx context.Context) (Address, error)
-
 	// ChangeConfig notifies the reader that the config has changed onchain
 	ChangeConfig(ctx context.Context, onchainConfig []byte, offchainConfig []byte) (Address, Address, error)
-
+	CurrentRateLimiterState(ctx context.Context) (TokenBucketRateLimit, error)
+	// DecodeExecutionReport will error if messages are not a compatible version.
+	DecodeExecutionReport(ctx context.Context, report []byte) (ExecReport, error)
+	// EncodeExecutionReport will error if messages are not a compatible version.
+	EncodeExecutionReport(ctx context.Context, report ExecReport) ([]byte, error)
+	// GasPriceEstimator returns the gas price estimator for the offramp.
+	GasPriceEstimator(ctx context.Context) (GasPriceEstimatorExec, error)
+	GetExecutionState(ctx context.Context, sequenceNumber uint64) (uint8, error)
+	// GetExecutionStateChangesBetweenSeqNums returns all the execution state change events for the provided message sequence numbers (inclusive).
+	GetExecutionStateChangesBetweenSeqNums(ctx context.Context, seqNumMin, seqNumMax uint64, confirmations int) ([]ExecutionStateChangedWithTxMeta, error)
+	GetRouter(ctx context.Context) (Address, error)
+	GetSenderNonce(ctx context.Context, sender Address) (uint64, error)
+	GetSourceToDestTokensMapping(ctx context.Context) (map[Address]Address, error)
+	GetStaticConfig(ctx context.Context) (OffRampStaticConfig, error)
+	GetTokens(ctx context.Context) (OffRampTokens, error)
 	OffchainConfig(ctx context.Context) (ExecOffchainConfig, error)
-
 	OnchainConfig(ctx context.Context) (ExecOnchainConfig, error)
 
-	GasPriceEstimator(ctx context.Context) (GasPriceEstimatorExec, error)
-
-	GetSenderNonce(ctx context.Context, sender Address) (uint64, error)
-
-	CurrentRateLimiterState(ctx context.Context) (TokenBucketRateLimit, error)
-
-	GetExecutionState(ctx context.Context, sequenceNumber uint64) (uint8, error)
-
-	GetStaticConfig(ctx context.Context) (OffRampStaticConfig, error)
-
-	GetSourceToDestTokensMapping(ctx context.Context) (map[Address]Address, error)
-
-	GetTokens(ctx context.Context) (OffRampTokens, error)
-
-	GetRouter(ctx context.Context) (Address, error)
-
-	Close() error
+	io.Closer
 }
 
 type ExecReport struct {

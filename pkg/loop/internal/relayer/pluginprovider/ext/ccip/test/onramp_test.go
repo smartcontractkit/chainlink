@@ -17,6 +17,7 @@ import (
 
 	ccippb "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb/ccip"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer/pluginprovider/ext/ccip"
+	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
@@ -85,7 +86,7 @@ func TestOnRampGRPC(t *testing.T) {
 	wg.Wait()
 }
 
-func roundTripOnRampTests(ctx context.Context, t *testing.T, client *ccip.OnRampReaderGRPCClient) {
+func roundTripOnRampTests(ctx context.Context, t *testing.T, client cciptypes.OnRampReader) {
 	// test the client
 
 	t.Run("Address", func(t *testing.T) {

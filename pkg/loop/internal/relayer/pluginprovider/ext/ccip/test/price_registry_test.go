@@ -16,6 +16,7 @@ import (
 
 	ccippb "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb/ccip"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer/pluginprovider/ext/ccip"
+	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
@@ -83,7 +84,7 @@ func TestPriceRegistryGRPC(t *testing.T) {
 // roundTripPriceRegistryTests tests the round trip of the client<->server.
 // it should exercise all the methods of the client.
 // do not add client.Close to this test, test that from the driver test
-func roundTripPriceRegistryTests(ctx context.Context, t *testing.T, client *ccip.PriceRegistryGRPCClient) {
+func roundTripPriceRegistryTests(ctx context.Context, t *testing.T, client cciptypes.PriceRegistryReader) {
 	t.Run("Address", func(t *testing.T) {
 		address, err := client.Address(ctx)
 		require.NoError(t, err)
