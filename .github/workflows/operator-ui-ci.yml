@@ -41,7 +41,7 @@ jobs:
         id: get-operator-ui-tag
         shell: bash
         run: |
-          TAG=$(cat ./operator_ui/TAG)
+          TAG=$(cat operator_ui/TAG)
           echo "TAG=$TAG" >> $GITHUB_OUTPUT
 
       - uses: convictional/trigger-workflow-and-wait@f69fa9eedd3c62a599220f4d5745230e237904be #v1.6.5
