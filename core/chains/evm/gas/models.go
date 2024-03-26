@@ -248,7 +248,10 @@ func (e *WrappedEvmEstimator) GetFee(ctx context.Context, calldata []byte, feeLi
 	if e.EIP1559Enabled {
 		var dynamicFee DynamicFee
 		dynamicFee, chainSpecificFeeLimit, err = e.EvmEstimator.GetDynamicFee(ctx, feeLimit, maxFeePrice)
-		chainSpecificFeeLimit = uint64(float32(chainSpecificFeeLimit) * e.geCfg.LimitMultiplier())
+		if err != nil {
+			return
+		}
+		chainSpecificFeeLimit, err = commonfee.ApplyMultiplier(chainSpecificFeeLimit, e.geCfg.LimitMultiplier())
 		fee.DynamicFeeCap = dynamicFee.FeeCap
 		fee.DynamicTipCap = dynamicFee.TipCap
 		return
@@ -256,7 +259,10 @@ func (e *WrappedEvmEstimator) GetFee(ctx context.Context, calldata []byte, feeLi
 
 	// get legacy fee
 	fee.Legacy, chainSpecificFeeLimit, err = e.EvmEstimator.GetLegacyGas(ctx, calldata, feeLimit, maxFeePrice, opts...)
-	chainSpecificFeeLimit = uint64(float32(chainSpecificFeeLimit) * e.geCfg.LimitMultiplier())
+	if err != nil {
+		return
+	}
+	chainSpecificFeeLimit, err = commonfee.ApplyMultiplier(chainSpecificFeeLimit, e.geCfg.LimitMultiplier())
 
 	return
 }

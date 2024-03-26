@@ -67,7 +67,6 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 	minGasPrice := assets.NewWeiI(1)
 	maxGasPrice := assets.NewWeiI(100)
 
-	geCfg.LimitMultiplierF = float32(1)
 	geCfg.PriceMinF = minGasPrice
 	geCfg.PriceMaxF = maxGasPrice
 
@@ -112,7 +111,6 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 	t.Run("starts and loads partial history if fetch context times out", func(t *testing.T) {
 		geCfg2 := &gas.MockGasEstimatorConfig{}
 		geCfg2.EIP1559DynamicFeesF = true
-		geCfg2.LimitMultiplierF = float32(1)
 		geCfg2.PriceMinF = minGasPrice
 
 		bhCfg2 := newBlockHistoryConfig()
@@ -1785,7 +1783,6 @@ func TestBlockHistoryEstimator_GetLegacyGas(t *testing.T) {
 	maxGasPrice := assets.NewWeiI(1000000)
 	geCfg := &gas.MockGasEstimatorConfig{}
 	geCfg.EIP1559DynamicFeesF = false
-	geCfg.LimitMultiplierF = float32(1)
 	geCfg.PriceMaxF = maxGasPrice
 	geCfg.PriceMinF = assets.NewWeiI(0)
 
@@ -1828,7 +1825,6 @@ func TestBlockHistoryEstimator_GetLegacyGas(t *testing.T) {
 
 	cfg = gas.NewMockConfig()
 
-	geCfg.LimitMultiplierF = float32(1)
 	geCfg.PriceMaxF = assets.NewWeiI(700)
 	geCfg.PriceMinF = assets.NewWeiI(0)
 
@@ -1867,7 +1863,6 @@ func TestBlockHistoryEstimator_UseDefaultPriceAsFallback(t *testing.T) {
 
 		geCfg := &gas.MockGasEstimatorConfig{}
 		geCfg.EIP1559DynamicFeesF = false
-		geCfg.LimitMultiplierF = float32(1)
 		geCfg.PriceMaxF = assets.NewWeiI(1000000)
 		geCfg.PriceDefaultF = assets.NewWeiI(100)
 
@@ -1917,7 +1912,6 @@ func TestBlockHistoryEstimator_UseDefaultPriceAsFallback(t *testing.T) {
 		bhCfg.EIP1559FeeCapBufferBlocksF = uint16(4)
 		geCfg := &gas.MockGasEstimatorConfig{}
 		geCfg.EIP1559DynamicFeesF = true
-		geCfg.LimitMultiplierF = float32(1)
 		geCfg.PriceMaxF = assets.NewWeiI(1000000)
 		geCfg.PriceDefaultF = assets.NewWeiI(100)
 		geCfg.TipCapDefaultF = assets.NewWeiI(50)
@@ -1970,7 +1964,6 @@ func TestBlockHistoryEstimator_GetDynamicFee(t *testing.T) {
 	bhCfg.TransactionPercentileF = uint16(35)
 	geCfg := &gas.MockGasEstimatorConfig{}
 	geCfg.EIP1559DynamicFeesF = true
-	geCfg.LimitMultiplierF = float32(1)
 	geCfg.PriceMaxF = maxGasPrice
 	geCfg.TipCapMinF = assets.NewWeiI(0)
 	geCfg.PriceMinF = assets.NewWeiI(0)
@@ -2379,7 +2372,6 @@ func TestBlockHistoryEstimator_Bumps(t *testing.T) {
 		geCfg.BumpPercentF = 10
 		geCfg.BumpMinF = assets.NewWeiI(150)
 		geCfg.PriceMaxF = maxGasPrice
-		geCfg.LimitMultiplierF = float32(1.1)
 
 		bhe := newBlockHistoryEstimator(t, nil, cfg, geCfg, bhCfg)
 
@@ -2491,7 +2483,6 @@ func TestBlockHistoryEstimator_Bumps(t *testing.T) {
 		geCfg.BumpPercentF = 10
 		geCfg.BumpMinF = assets.NewWeiI(150)
 		geCfg.PriceMaxF = maxGasPrice
-		geCfg.LimitMultiplierF = float32(1.1)
 
 		bhe := newBlockHistoryEstimator(t, nil, cfg, geCfg, bhCfg)
 

@@ -64,7 +64,6 @@ func Test_FixedPriceEstimator(t *testing.T) {
 	t.Run("BumpLegacyGas calls BumpLegacyGasPriceOnly", func(t *testing.T) {
 		config := &gas.MockGasEstimatorConfig{}
 		config.PriceDefaultF = assets.NewWeiI(42)
-		config.LimitMultiplierF = float32(1.0)
 		config.PriceMaxF = maxGasPrice
 		config.BumpPercentF = uint16(10)
 		config.BumpMinF = assets.NewWeiI(150)
