@@ -78,6 +78,12 @@ contract SetUp is BaseTest {
       "",
       ""
     );
+
+    vm.startPrank(OWNER);
+    registry.addFunds(linkUpkeepID, registry.getMinBalanceForUpkeep(linkUpkeepID));
+    registry.addFunds(usdUpkeepID, registry.getMinBalanceForUpkeep(usdUpkeepID));
+    registry.addFunds(nativeUpkeepID, registry.getMinBalanceForUpkeep(nativeUpkeepID));
+    vm.stopPrank();
   }
 }
 
@@ -142,13 +148,13 @@ contract AddFunds is SetUp {
   }
 
   function test_anyoneCanAddFunds() public {
-    assertEq(registry.getBalance(linkUpkeepID), 0);
+    uint256 startAmount = registry.getBalance(linkUpkeepID);
     vm.prank(UPKEEP_ADMIN);
     registry.addFunds(linkUpkeepID, 1);
-    assertEq(registry.getBalance(linkUpkeepID), 1);
+    assertEq(registry.getBalance(linkUpkeepID), startAmount + 1);
     vm.prank(STRANGER);
     registry.addFunds(linkUpkeepID, 1);
-    assertEq(registry.getBalance(linkUpkeepID), 2);
+    assertEq(registry.getBalance(linkUpkeepID), startAmount + 2);
   }
 
   function test_movesFundFromCorrectToken() public {
@@ -156,18 +162,20 @@ contract AddFunds is SetUp {
 
     uint256 startBalanceLINK = linkToken.balanceOf(address(registry));
     uint256 startBalanceUSDToken = usdToken.balanceOf(address(registry));
+    uint256 startLinkUpkeepBalance = registry.getBalance(linkUpkeepID);
+    uint256 startUSDUpkeepBalance = registry.getBalance(usdUpkeepID);
 
     registry.addFunds(linkUpkeepID, 1);
-    assertEq(registry.getBalance(linkUpkeepID), 1);
-    assertEq(registry.getBalance(usdUpkeepID), 0);
-    assertEq(linkToken.balanceOf(address(registry)), startBalanceLINK + 1);
-    assertEq(usdToken.balanceOf(address(registry)), startBalanceUSDToken);
+    assertEq(registry.getBalance(linkUpkeepID), startBalanceLINK + 1);
+    assertEq(registry.getBalance(usdUpkeepID), startBalanceUSDToken);
+    assertEq(linkToken.balanceOf(address(registry)), startLinkUpkeepBalance + 1);
+    assertEq(usdToken.balanceOf(address(registry)), startUSDUpkeepBalance);
 
     registry.addFunds(usdUpkeepID, 2);
-    assertEq(registry.getBalance(linkUpkeepID), 1);
-    assertEq(registry.getBalance(usdUpkeepID), 2);
-    assertEq(linkToken.balanceOf(address(registry)), startBalanceLINK + 1);
-    assertEq(usdToken.balanceOf(address(registry)), startBalanceUSDToken + 2);
+    assertEq(registry.getBalance(linkUpkeepID), startBalanceLINK + 1);
+    assertEq(registry.getBalance(usdUpkeepID), startBalanceUSDToken + 2);
+    assertEq(linkToken.balanceOf(address(registry)), startLinkUpkeepBalance + 1);
+    assertEq(usdToken.balanceOf(address(registry)), startUSDUpkeepBalance + 2);
   }
 
   function test_emitsAnEvent() public {
@@ -179,78 +187,89 @@ contract AddFunds is SetUp {
 }
 
 contract Withdraw is SetUp {
-  address internal aMockAddress = address(0x1111111111111111111111111111111111111113);
+  address internal aMockAddress = randomAddress();
 
   function testLinkAvailableForPaymentReturnsLinkBalance() public {
+    uint256 startBalance = linkToken.balanceOf(address(registry));
+    int256 startLinkAvailable = registry.linkAvailableForPayment();
+
     //simulate a deposit of link to the liquidity pool
     _mintLink(address(registry), 1e10);
 
     //check there's a balance
-    assertGt(linkToken.balanceOf(address(registry)), 0);
+    assertEq(linkToken.balanceOf(address(registry)), startBalance + 1e10);
 
-    //check the link available for payment is the link balance
-    assertEq(uint256(registry.linkAvailableForPayment()), linkToken.balanceOf(address(registry)));
+    //check the link available has increased by the same amount
+    assertEq(uint256(registry.linkAvailableForPayment()), uint256(startLinkAvailable) + 1e10);
   }
 
-  function testWithdrawLinkFeesRevertsBecauseOnlyFinanceAdminAllowed() public {
+  function testWithdrawLinkRevertsBecauseOnlyFinanceAdminAllowed() public {
     vm.expectRevert(abi.encodeWithSelector(Registry.OnlyFinanceAdmin.selector));
-    registry.withdrawLinkFees(aMockAddress, 1);
+    registry.withdrawLink(aMockAddress, 1);
   }
 
-  function testWithdrawLinkFeesRevertsBecauseOfInsufficientBalance() public {
+  function testWithdrawLinkRevertsBecauseOfInsufficientBalance() public {
     vm.startPrank(FINANCE_ADMIN);
 
     // try to withdraw 1 link while there is 0 balance
     vm.expectRevert(abi.encodeWithSelector(Registry.InsufficientBalance.selector, 0, 1));
-    registry.withdrawLinkFees(aMockAddress, 1);
+    registry.withdrawLink(aMockAddress, 1);
 
     vm.stopPrank();
   }
 
-  function testWithdrawLinkFeesRevertsBecauseOfInvalidRecipient() public {
+  function testWithdrawLinkRevertsBecauseOfInvalidRecipient() public {
     vm.startPrank(FINANCE_ADMIN);
 
     // try to withdraw 1 link while there is 0 balance
     vm.expectRevert(abi.encodeWithSelector(Registry.InvalidRecipient.selector));
-    registry.withdrawLinkFees(ZERO_ADDRESS, 1);
+    registry.withdrawLink(ZERO_ADDRESS, 1);
 
     vm.stopPrank();
   }
 
-  function testWithdrawLinkFeeSuccess() public {
+  function testWithdrawLinkSuccess() public {
     //simulate a deposit of link to the liquidity pool
     _mintLink(address(registry), 1e10);
-
-    //check there's a balance
-    assertGt(linkToken.balanceOf(address(registry)), 0);
+    uint256 startBalance = linkToken.balanceOf(address(registry));
 
     vm.startPrank(FINANCE_ADMIN);
 
     // try to withdraw 1 link while there is a ton of link available
-    registry.withdrawLinkFees(aMockAddress, 1);
+    registry.withdrawLink(aMockAddress, 1);
 
     vm.stopPrank();
 
     assertEq(linkToken.balanceOf(address(aMockAddress)), 1);
-    assertEq(linkToken.balanceOf(address(registry)), 1e10 - 1);
+    assertEq(linkToken.balanceOf(address(registry)), startBalance - 1);
+  }
+
+  function test_WithdrawERC20Fees_RespectsReserveAmount() public {
+    assertEq(registry.getBalance(usdUpkeepID), registry.getReserveAmount(address(usdToken)));
+    vm.startPrank(FINANCE_ADMIN);
+    vm.expectRevert(abi.encodeWithSelector(Registry.InsufficientBalance.selector, 0, 1));
+    registry.withdrawERC20Fees(address(usdToken), FINANCE_ADMIN, 1);
   }
 
   function testWithdrawERC20FeeSuccess() public {
-    // simulate a deposit of ERC20 to the liquidity pool
+    // deposit excess USDToken to the registry (this goes to the "finance withdrawable" pool be default)
+    uint256 startReserveAmount = registry.getReserveAmount(address(usdToken));
+    uint256 startAmount = usdToken.balanceOf(address(registry));
     _mintERC20(address(registry), 1e10);
 
-    // check there's a balance
-    assertGt(usdToken.balanceOf(address(registry)), 0);
+    // depositing shouldn't change reserve amount
+    assertEq(registry.getReserveAmount(address(usdToken)), startReserveAmount);
 
     vm.startPrank(FINANCE_ADMIN);
 
-    // try to withdraw 1 link while there is a ton of link available
+    // try to withdraw 1 USDToken
     registry.withdrawERC20Fees(address(usdToken), aMockAddress, 1);
 
     vm.stopPrank();
 
     assertEq(usdToken.balanceOf(address(aMockAddress)), 1);
-    assertEq(usdToken.balanceOf(address(registry)), 1e10 - 1);
+    assertEq(usdToken.balanceOf(address(registry)), startAmount + 1e10 - 1);
+    assertEq(registry.getReserveAmount(address(usdToken)), startReserveAmount);
   }
 }
 
