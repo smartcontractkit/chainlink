@@ -111,7 +111,7 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 				return
 			}
 			if latest != nil {
-				obs.MaxFinalizedBlockNumber.Val, obs.MaxFinalizedBlockNumber.Err = ds.codec.CurrentBlockNumFromReport(latest)
+				obs.MaxFinalizedBlockNumber.Val, obs.MaxFinalizedBlockNumber.Err = ds.codec.CurrentBlockNumFromReport(ctx, latest)
 				return
 			}
 			val, fetchErr := ds.fetcher.FetchInitialMaxFinalizedBlockNumber(ctx)

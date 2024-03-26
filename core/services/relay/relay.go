@@ -70,15 +70,17 @@ func (i *ID) UnmarshalString(s string) error {
 	return nil
 }
 
-// ServerAdapter extends [loop.RelayerAdapter] by overriding NewPluginProvider to dispatches calls according to `RelayArgs.ProviderType`.
+var _ loop.Relayer = (*ServerAdapter)(nil)
+
+// ServerAdapter extends [types.Relayer] to implement [loop.Relayer] with NewPluginProvider to dispatches calls according to `RelayArgs.ProviderType`.
 // This should only be used to adapt relayers not running via GRPC in a LOOPP.
 type ServerAdapter struct {
-	loop.RelayerAdapter
+	types.Relayer
 }
 
 // NewServerAdapter returns a new ServerAdapter.
-func NewServerAdapter(r types.Relayer, e loop.RelayerExt) *ServerAdapter { //nolint:staticcheck
-	return &ServerAdapter{RelayerAdapter: loop.RelayerAdapter{Relayer: r, RelayerExt: e}}
+func NewServerAdapter(r types.Relayer) *ServerAdapter { //nolint:staticcheck
+	return &ServerAdapter{Relayer: r}
 }
 
 func (r *ServerAdapter) NewPluginProvider(ctx context.Context, rargs types.RelayArgs, pargs types.PluginArgs) (types.PluginProvider, error) {
@@ -92,7 +94,7 @@ func (r *ServerAdapter) NewPluginProvider(ctx context.Context, rargs types.Relay
 	case types.OCR2Keeper:
 		return r.NewAutomationProvider(ctx, rargs, pargs)
 	case types.DKG, types.OCR2VRF, types.GenericPlugin:
-		return r.RelayerAdapter.NewPluginProvider(ctx, rargs, pargs)
+		return r.Relayer.NewPluginProvider(ctx, rargs, pargs)
 	case types.LLO, types.CCIPCommit, types.CCIPExecution:
 		return nil, fmt.Errorf("provider type not supported: %s", rargs.ProviderType)
 	}

@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	functions_srv "github.com/smartcontractkit/chainlink/v2/core/services/functions"
@@ -42,7 +43,7 @@ func preparePlugin(t *testing.T, batchSize uint32, maxTotalGasLimit uint32) (typ
 	}
 	pluginConfigBytes, err := config.EncodeReportingPluginConfig(&pluginConfig)
 	require.NoError(t, err)
-	plugin, _, err := factory.NewReportingPlugin(types.ReportingPluginConfig{
+	plugin, _, err := factory.NewReportingPlugin(tests.Context(t), types.ReportingPluginConfig{
 		N:              4,
 		F:              1,
 		OffchainConfig: pluginConfigBytes,

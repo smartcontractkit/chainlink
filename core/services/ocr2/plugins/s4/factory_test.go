@@ -4,6 +4,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/s4"
 	s4_mocks "github.com/smartcontractkit/chainlink/v2/core/services/s4/mocks"
@@ -42,7 +43,7 @@ func TestS4ReportingPluginFactory_NewReportingPlugin(t *testing.T) {
 	rpConfig := types.ReportingPluginConfig{
 		OffchainConfig: make([]byte, 100),
 	}
-	plugin, pluginInfo, err := f.NewReportingPlugin(rpConfig)
+	plugin, pluginInfo, err := f.NewReportingPlugin(tests.Context(t), rpConfig)
 	require.NoError(t, err)
 	require.NotNil(t, plugin)
 	require.Equal(t, types.ReportingPluginInfo{
@@ -67,7 +68,7 @@ func TestS4ReportingPluginFactory_NewReportingPlugin(t *testing.T) {
 		rpConfig := types.ReportingPluginConfig{
 			OffchainConfig: make([]byte, 100),
 		}
-		plugin, _, err := f.NewReportingPlugin(rpConfig)
+		plugin, _, err := f.NewReportingPlugin(tests.Context(t), rpConfig)
 		require.ErrorContains(t, err, "some error")
 		require.Nil(t, plugin)
 	})

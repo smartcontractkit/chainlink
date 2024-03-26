@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/big"
 	"strings"
 	"sync"
 
@@ -144,13 +145,12 @@ func (r *Relayer) Name() string {
 	return r.lggr.Name()
 }
 
-// Start does noop: no subservices started on relay start, but when the first job is started
-func (r *Relayer) Start(context.Context) error {
-	return nil
+func (r *Relayer) Start(ctx context.Context) error {
+	return r.chain.Start(ctx)
 }
 
 func (r *Relayer) Close() error {
-	return nil
+	return r.chain.Close()
 }
 
 // Ready does noop: always ready
@@ -159,16 +159,32 @@ func (r *Relayer) Ready() error {
 }
 
 func (r *Relayer) HealthReport() (report map[string]error) {
-	report = make(map[string]error)
+	report = map[string]error{r.Name(): r.Ready()}
 	maps.Copy(report, r.chain.HealthReport())
 	return
 }
 
-func (r *Relayer) NewPluginProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.PluginProvider, error) {
+func (r *Relayer) GetChainStatus(ctx context.Context) (commontypes.ChainStatus, error) {
+	return r.chain.GetChainStatus(ctx)
+}
 
-	// TODO https://smartcontract-it.atlassian.net/browse/BCF-2887
-	ctx := context.Background()
+func (r *Relayer) ListNodeStatuses(ctx context.Context, pageSize int32, pageToken string) (stats []commontypes.NodeStatus, nextPageToken string, total int, err error) {
+	return r.chain.ListNodeStatuses(ctx, pageSize, pageToken)
+}
 
+func (r *Relayer) Transact(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
+	return r.chain.Transact(ctx, from, to, amount, balanceCheck)
+}
+
+func (r *Relayer) ID() string {
+	return r.chain.ID().String()
+}
+
+func (r *Relayer) Chain() legacyevm.Chain {
+	return r.chain
+}
+
+func (r *Relayer) NewPluginProvider(ctx context.Context, rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.PluginProvider, error) {
 	lggr := r.lggr.Named("PluginProvider").Named(rargs.ExternalJobID.String())
 
 	configWatcher, err := newStandardConfigProvider(ctx, r.lggr, r.chain, types.NewRelayOpts(rargs))
@@ -190,9 +206,7 @@ func (r *Relayer) NewPluginProvider(rargs commontypes.RelayArgs, pargs commontyp
 	), nil
 }
 
-func (r *Relayer) NewMercuryProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.MercuryProvider, error) {
-	// TODO https://smartcontract-it.atlassian.net/browse/BCF-2887
-	ctx := context.Background()
+func (r *Relayer) NewMercuryProvider(ctx context.Context, rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.MercuryProvider, error) {
 	lggr := r.lggr.Named("MercuryProvider").Named(rargs.ExternalJobID.String())
 	relayOpts := types.NewRelayOpts(rargs)
 	relayConfig, err := relayOpts.RelayConfig()
@@ -258,11 +272,7 @@ func (r *Relayer) NewMercuryProvider(rargs commontypes.RelayArgs, pargs commonty
 	return NewMercuryProvider(cp, r.chainReader, r.codec, NewMercuryChainReader(r.chain.HeadTracker()), transmitter, reportCodecV1, reportCodecV2, reportCodecV3, lggr), nil
 }
 
-func (r *Relayer) NewLLOProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.LLOProvider, error) {
-
-	// TODO https://smartcontract-it.atlassian.net/browse/BCF-2887
-	ctx := context.Background()
-
+func (r *Relayer) NewLLOProvider(ctx context.Context, rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.LLOProvider, error) {
 	relayOpts := types.NewRelayOpts(rargs)
 	var relayConfig types.RelayConfig
 	{
@@ -319,21 +329,14 @@ func (r *Relayer) NewLLOProvider(rargs commontypes.RelayArgs, pargs commontypes.
 	return NewLLOProvider(cp, transmitter, r.lggr, cdc), nil
 }
 
-func (r *Relayer) NewFunctionsProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.FunctionsProvider, error) {
-
-	// TODO https://smartcontract-it.atlassian.net/browse/BCF-2887
-	ctx := context.Background()
-
+func (r *Relayer) NewFunctionsProvider(ctx context.Context, rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.FunctionsProvider, error) {
 	lggr := r.lggr.Named("FunctionsProvider").Named(rargs.ExternalJobID.String())
 	// TODO(FUN-668): Not ready yet (doesn't implement FunctionsEvents() properly)
 	return NewFunctionsProvider(ctx, r.chain, rargs, pargs, lggr, r.ks.Eth(), functions.FunctionsPlugin)
 }
 
 // NewConfigProvider is called by bootstrap jobs
-func (r *Relayer) NewConfigProvider(args commontypes.RelayArgs) (configProvider commontypes.ConfigProvider, err error) {
-	// TODO https://smartcontract-it.atlassian.net/browse/BCF-2887
-	ctx := context.Background()
-
+func (r *Relayer) NewConfigProvider(ctx context.Context, args commontypes.RelayArgs) (configProvider commontypes.ConfigProvider, err error) {
 	lggr := r.lggr.Named("ConfigProvider").Named(args.ExternalJobID.String())
 	relayOpts := types.NewRelayOpts(args)
 	relayConfig, err := relayOpts.RelayConfig()
@@ -557,10 +560,7 @@ func newOnChainContractTransmitter(ctx context.Context, lggr logger.Logger, rarg
 	)
 }
 
-func (r *Relayer) NewMedianProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.MedianProvider, error) {
-	// TODO https://smartcontract-it.atlassian.net/browse/BCF-2887
-	ctx := context.Background()
-
+func (r *Relayer) NewMedianProvider(ctx context.Context, rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.MedianProvider, error) {
 	lggr := r.lggr.Named("MedianProvider").Named(rargs.ExternalJobID.String())
 	relayOpts := types.NewRelayOpts(rargs)
 	relayConfig, err := relayOpts.RelayConfig()
@@ -629,7 +629,7 @@ func (r *Relayer) NewMedianProvider(rargs commontypes.RelayArgs, pargs commontyp
 	return &medianProvider, nil
 }
 
-func (r *Relayer) NewAutomationProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.AutomationProvider, error) {
+func (r *Relayer) NewAutomationProvider(ctx context.Context, rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.AutomationProvider, error) {
 	lggr := r.lggr.Named("AutomationProvider").Named(rargs.ExternalJobID.String())
 	ocr2keeperRelayer := NewOCR2KeeperRelayer(r.db, r.chain, lggr.Named("OCR2KeeperRelayer"), r.ks.Eth(), r.pgCfg)
 

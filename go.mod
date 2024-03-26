@@ -2,6 +2,10 @@ module github.com/smartcontractkit/chainlink/v2
 
 go 1.21.7
 
+replace github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin => github.com/jmank88/tdh2/go/ocr2/decryptionplugin v0.0.0-20240323111842-07045992ea06
+
+replace github.com/smartcontractkit/tdh2/go/tdh2 => github.com/jmank88/tdh2/go/tdh2 v0.0.0-20240323111842-07045992ea06
+
 require (
 	github.com/Depado/ginprom v1.8.0
 	github.com/Masterminds/semver/v3 v3.2.1
@@ -70,15 +74,15 @@ require (
 	github.com/shopspring/decimal v1.3.1
 	github.com/smartcontractkit/caigo v0.0.0-20230621050857-b29a4ca8c704
 	github.com/smartcontractkit/chain-selectors v1.0.10
-	github.com/smartcontractkit/chainlink-automation v1.0.2-0.20240311111125-22812a072c35
-	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240324144450-2bc22a6738ac
-	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240213120401-01a23955f9f8
-	github.com/smartcontractkit/chainlink-data-streams v0.0.0-20240220203239-09be0ea34540
-	github.com/smartcontractkit/chainlink-feeds v0.0.0-20240119021347-3c541a78cdb8
-	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20240216142700-c5869534c19e
-	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20240213121419-1272736c2ac0
-	github.com/smartcontractkit/chainlink-vrf v0.0.0-20231120191722-fef03814f868
-	github.com/smartcontractkit/libocr v0.0.0-20240229181116-bfb2432a7a66
+	github.com/smartcontractkit/chainlink-automation v1.0.2-0.20240322235341-67354bde3ba9
+	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240324182820-92b84cfb6373
+	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240325014258-b275e705179b
+	github.com/smartcontractkit/chainlink-data-streams v0.0.0-20240325014229-d9718e73cff8
+	github.com/smartcontractkit/chainlink-feeds v0.0.0-20240325014324-38983442cab5
+	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20240322235813-18bd0e72971f
+	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20240325130322-9170caf24ce4
+	github.com/smartcontractkit/chainlink-vrf v0.0.0-20240323112415-be2b2ccbdfd5
+	github.com/smartcontractkit/libocr v0.0.0-20240322223357-61738d25af14
 	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20230906073235-9e478e5e19f1
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20230906073235-9e478e5e19f1
 	github.com/smartcontractkit/wsrpc v0.7.2
@@ -130,6 +134,8 @@ require (
 	github.com/DataDog/zstd v1.5.2 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Microsoft/go-winio v0.6.1 // indirect
+	github.com/NethermindEth/juno v0.3.1 // indirect
+	github.com/NethermindEth/starknet.go v0.6.1-0.20231218140327-915109ab5bc1 // indirect
 	github.com/VictoriaMetrics/fastcache v1.12.1 // indirect
 	github.com/armon/go-metrics v0.4.1 // indirect
 	github.com/aybabtme/rgbterm v0.0.0-20170906152045-cc83f3b3ce59 // indirect
@@ -294,6 +300,7 @@ require (
 	github.com/tecbot/gorocksdb v0.0.0-20191217155057-f0fad39f321c // indirect
 	github.com/tendermint/go-amino v0.16.0 // indirect
 	github.com/teris-io/shortid v0.0.0-20201117134242-e59966efd125 // indirect
+	github.com/test-go/testify v1.1.4 // indirect
 	github.com/tidwall/btree v1.6.0 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect

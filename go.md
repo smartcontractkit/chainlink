@@ -60,7 +60,6 @@ flowchart LR
   chainlink-feeds --> libocr
   chainlink-solana --> chainlink-common
   chainlink-solana --> libocr
-  chainlink-starknet/relayer --> caigo
   chainlink-starknet/relayer --> chainlink-common
   chainlink-starknet/relayer --> libocr
   chainlink-vrf --> libocr

@@ -178,8 +178,8 @@ func (t *ocr3keeperProviderContractTransmitter) Transmit(
 	)
 }
 
-func (t *ocr3keeperProviderContractTransmitter) FromAccount() (ocrtypes.Account, error) {
-	return t.contractTransmitter.FromAccount()
+func (t *ocr3keeperProviderContractTransmitter) FromAccount(ctx context.Context) (ocrtypes.Account, error) {
+	return t.contractTransmitter.FromAccount(ctx)
 }
 
 type ocr2keeperProvider struct {

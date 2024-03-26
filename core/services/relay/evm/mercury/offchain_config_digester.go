@@ -1,6 +1,7 @@
 package mercury
 
 import (
+	"context"
 	"crypto/ed25519"
 	"encoding/hex"
 	"math/big"
@@ -28,7 +29,7 @@ type OffchainConfigDigester struct {
 	ContractAddress common.Address
 }
 
-func (d OffchainConfigDigester) ConfigDigest(cc ocrtypes.ContractConfig) (ocrtypes.ConfigDigest, error) {
+func (d OffchainConfigDigester) ConfigDigest(ctx context.Context, cc ocrtypes.ContractConfig) (ocrtypes.ConfigDigest, error) {
 	signers := []common.Address{}
 	for i, signer := range cc.Signers {
 		if len(signer) != 20 {
@@ -66,6 +67,6 @@ func (d OffchainConfigDigester) ConfigDigest(cc ocrtypes.ContractConfig) (ocrtyp
 	), nil
 }
 
-func (d OffchainConfigDigester) ConfigDigestPrefix() (ocrtypes.ConfigDigestPrefix, error) {
+func (d OffchainConfigDigester) ConfigDigestPrefix(ctx context.Context) (ocrtypes.ConfigDigestPrefix, error) {
 	return ocrtypes.ConfigDigestPrefixMercuryV02, nil
 }

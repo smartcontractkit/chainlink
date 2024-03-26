@@ -9,7 +9,6 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -152,28 +151,24 @@ type mockRelayer struct {
 	types.Relayer
 }
 
-func (m *mockRelayer) NewMedianProvider(rargs types.RelayArgs, pargs types.PluginArgs) (types.MedianProvider, error) {
+func (m *mockRelayer) NewMedianProvider(ctx context.Context, rargs types.RelayArgs, pargs types.PluginArgs) (types.MedianProvider, error) {
 	return staticMedianProvider{}, nil
 }
 
-func (m *mockRelayer) NewFunctionsProvider(rargs types.RelayArgs, pargs types.PluginArgs) (types.FunctionsProvider, error) {
+func (m *mockRelayer) NewFunctionsProvider(ctx context.Context, rargs types.RelayArgs, pargs types.PluginArgs) (types.FunctionsProvider, error) {
 	return staticFunctionsProvider{}, nil
 }
 
-func (m *mockRelayer) NewMercuryProvider(rargs types.RelayArgs, pargs types.PluginArgs) (types.MercuryProvider, error) {
+func (m *mockRelayer) NewMercuryProvider(ctx context.Context, rargs types.RelayArgs, pargs types.PluginArgs) (types.MercuryProvider, error) {
 	return staticMercuryProvider{}, nil
 }
 
-func (m *mockRelayer) NewAutomationProvider(rargs types.RelayArgs, pargs types.PluginArgs) (types.AutomationProvider, error) {
+func (m *mockRelayer) NewAutomationProvider(ctx context.Context, rargs types.RelayArgs, pargs types.PluginArgs) (types.AutomationProvider, error) {
 	return staticAutomationProvider{}, nil
 }
 
-func (m *mockRelayer) NewPluginProvider(rargs types.RelayArgs, pargs types.PluginArgs) (types.PluginProvider, error) {
+func (m *mockRelayer) NewPluginProvider(ctx context.Context, rargs types.RelayArgs, pargs types.PluginArgs) (types.PluginProvider, error) {
 	return staticPluginProvider{}, nil
-}
-
-type mockRelayerExt struct {
-	loop.RelayerExt
 }
 
 func isType[T any](p any) bool {
@@ -183,7 +178,7 @@ func isType[T any](p any) bool {
 
 func TestRelayerServerAdapter(t *testing.T) {
 	r := &mockRelayer{}
-	sa := NewServerAdapter(r, mockRelayerExt{})
+	sa := NewServerAdapter(r)
 
 	testCases := []struct {
 		ProviderType string
@@ -222,17 +217,19 @@ func TestRelayerServerAdapter(t *testing.T) {
 
 	ctx := testutils.Context(t)
 	for _, tc := range testCases {
-		pp, err := sa.NewPluginProvider(
-			ctx,
-			types.RelayArgs{ProviderType: tc.ProviderType},
-			types.PluginArgs{},
-		)
+		t.Run(tc.ProviderType, func(t *testing.T) {
+			pp, err := sa.NewPluginProvider(
+				ctx,
+				types.RelayArgs{ProviderType: tc.ProviderType},
+				types.PluginArgs{},
+			)
 
-		if tc.Error != "" {
-			assert.ErrorContains(t, err, tc.Error)
-		} else {
-			assert.NoError(t, err)
-			assert.True(t, tc.Test(pp))
-		}
+			if tc.Error != "" {
+				assert.ErrorContains(t, err, tc.Error)
+			} else {
+				assert.NoError(t, err)
+				assert.True(t, tc.Test(pp))
+			}
+		})
 	}
 }
