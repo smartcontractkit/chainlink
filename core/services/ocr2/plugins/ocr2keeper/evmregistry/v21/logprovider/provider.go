@@ -112,7 +112,7 @@ func NewLogProvider(lggr logger.Logger, poller logpoller.LogPoller, packer LogDa
 		lggr:        lggr.Named("KeepersRegistry.LogEventProvider"),
 		packer:      packer,
 		buffer:      newLogEventBuffer(lggr, int(opts.LookbackBlocks), defaultNumOfLogUpkeeps, defaultFastExecLogsHigh),
-		bufferV1:    NewLogBuffer(lggr, uint(opts.LookbackBlocks), uint(opts.LogLimitHigh)),
+		bufferV1:    NewLogBuffer(lggr, uint(opts.LookbackBlocks), uint(opts.BlockRate), uint(opts.LogLimit)),
 		poller:      poller,
 		opts:        opts,
 		filterStore: filterStore,
@@ -200,7 +200,7 @@ func (p *logEventProvider) getPayloadsFromBuffer(latestBlock int64) []ocr2keeper
 
 	switch p.opts.BufferVersion {
 	case "v1":
-		blockRate, logLimitLow, maxResults := int(p.opts.BlockRate), int(p.opts.LogLimitLow), MaxPayloads
+		blockRate, logLimitLow, maxResults := int(p.opts.BlockRate), int(p.opts.LogLimit), MaxPayloads
 		for len(payloads) < maxResults && start <= latestBlock {
 			logs, remaining := p.bufferV1.Dequeue(start, blockRate, logLimitLow, maxResults-len(payloads), DefaultUpkeepSelector)
 			if len(logs) > 0 {
@@ -393,8 +393,6 @@ func (p *logEventProvider) readLogs(ctx context.Context, latest int64, filters [
 		// special case of a new blockchain (e.g. simulated chain)
 		lookbackBlocks = latest - 1
 	}
-	// maxBurst will be used to increase the burst limit to allow a long range scan
-	maxBurst := int(lookbackBlocks + 1)
 
 	for i, filter := range filters {
 		if len(filter.addr) == 0 {
@@ -404,13 +402,6 @@ func (p *logEventProvider) readLogs(ctx context.Context, latest int64, filters [
 		// range should not exceed [lookbackBlocks, latest]
 		if start < latest-lookbackBlocks {
 			start = latest - lookbackBlocks
-			filter.blockLimiter.SetBurst(maxBurst)
-		}
-
-		resv := filter.blockLimiter.ReserveN(time.Now(), int(latest-start))
-		if !resv.OK() {
-			merr = errors.Join(merr, fmt.Errorf("%w: %s", ErrBlockLimitExceeded, filter.upkeepID.String()))
-			continue
 		}
 		// adding a buffer to check for reorged logs.
 		start = start - reorgBuffer
@@ -421,8 +412,6 @@ func (p *logEventProvider) readLogs(ctx context.Context, latest int64, filters [
 		// query logs based on contract address, event sig, and blocks
 		logs, err := p.poller.LogsWithSigs(start, latest, []common.Hash{filter.topics[0]}, common.BytesToAddress(filter.addr), pg.WithParentCtx(ctx))
 		if err != nil {
-			// cancel limit reservation as we failed to get logs
-			resv.Cancel()
 			if ctx.Err() != nil {
 				// exit if the context was canceled
 				return merr
@@ -432,20 +421,12 @@ func (p *logEventProvider) readLogs(ctx context.Context, latest int64, filters [
 		}
 		filteredLogs := filter.Select(logs...)
 
-		// if this limiter's burst was set to the max ->
-		// reset it and cancel the reservation to allow further processing
-		if filter.blockLimiter.Burst() == maxBurst {
-			resv.Cancel()
-			filter.blockLimiter.SetBurst(p.opts.BlockLimitBurst)
-		}
-
 		switch p.opts.BufferVersion {
 		case "v1":
 			p.bufferV1.Enqueue(filter.upkeepID, filteredLogs...)
 		default:
 			p.buffer.enqueue(filter.upkeepID, filteredLogs...)
 		}
-
 		// Update the lastPollBlock for filter in slice this is then
 		// updated into filter store in updateFiltersLastPoll
 		filters[i].lastPollBlock = latest

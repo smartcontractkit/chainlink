@@ -11,7 +11,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/time/rate"
 
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
@@ -310,10 +309,9 @@ func newEntry(p *logEventProvider, i int, args ...string) (LogTriggerConfig, upk
 	topics := make([]common.Hash, len(filter.EventSigs))
 	copy(topics, filter.EventSigs)
 	f := upkeepFilter{
-		upkeepID:     uid,
-		addr:         filter.Addresses[0].Bytes(),
-		topics:       topics,
-		blockLimiter: rate.NewLimiter(p.opts.BlockRateLimit, p.opts.BlockLimitBurst),
+		upkeepID: uid,
+		addr:     filter.Addresses[0].Bytes(),
+		topics:   topics,
 	}
 	return cfg, f
 }

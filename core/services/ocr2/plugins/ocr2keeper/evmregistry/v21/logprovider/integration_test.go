@@ -2,7 +2,6 @@ package logprovider_test
 
 import (
 	"context"
-	"errors"
 	"math/big"
 	"testing"
 	"time"
@@ -15,10 +14,8 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/jmoiron/sqlx"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
-	"golang.org/x/time/rate"
 
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
@@ -39,16 +36,16 @@ import (
 
 func TestIntegration_LogEventProvider(t *testing.T) {
 	tests := []struct {
-		name                string
-		version             string
-		limitLow, limitHigh int32
+		name     string
+		version  string
+		logLimit uint32
 	}{
-		{"default version", "", 10, 100},
-		{"v1", "v1", 10, 100},
+		{"default version", "", 10},
+		{"v1", "v1", 10},
 	}
 
 	for _, tc := range tests {
-		bufferVersion, limitLow, limitHigh := tc.version, tc.limitLow, tc.limitHigh
+		bufferVersion, logLimit := tc.version, tc.logLimit
 		t.Run(tc.name, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(testutils.Context(t))
 			defer cancel()
@@ -63,8 +60,7 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 			opts := logprovider.NewOptions(200)
 			opts.ReadInterval = time.Second / 2
 			opts.BufferVersion = bufferVersion
-			opts.LogLimitLow = limitLow
-			opts.LogLimitHigh = limitHigh
+			opts.LogLimit = logLimit
 
 			lp, ethClient := setupDependencies(t, db, backend)
 			filterStore := logprovider.NewUpkeepFilterStore()
@@ -218,16 +214,16 @@ func TestIntegration_LogEventProvider_UpdateConfig(t *testing.T) {
 
 func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
 	tests := []struct {
-		name                string
-		bufferVersion       string
-		limitLow, limitHigh int32
+		name          string
+		bufferVersion string
+		logLimit      uint32
 	}{
-		{"default version", "", 10, 100},
-		{"v1", "v1", 10, 100},
+		{"default version", "", 10},
+		{"v1", "v1", 10},
 	}
 
 	for _, tc := range tests {
-		bufferVersion, limitLow, limitHigh := tc.bufferVersion, tc.limitLow, tc.limitHigh
+		bufferVersion, limitLow := tc.bufferVersion, tc.logLimit
 		t.Run(tc.name, func(t *testing.T) {
 
 			ctx, cancel := context.WithTimeout(testutils.Context(t), time.Second*60)
@@ -243,8 +239,7 @@ func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
 			opts := logprovider.NewOptions(200)
 			opts.ReadInterval = time.Second / 4
 			opts.BufferVersion = bufferVersion
-			opts.LogLimitLow = limitLow
-			opts.LogLimitHigh = limitHigh
+			opts.LogLimit = limitLow
 
 			lp, ethClient := setupDependencies(t, db, backend)
 			filterStore := logprovider.NewUpkeepFilterStore()
@@ -283,211 +278,6 @@ func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
 			require.GreaterOrEqual(t, len(allPayloads), len(contracts), "failed to backfill logs")
 		})
 	}
-}
-
-func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
-	setupTest := func(
-		t *testing.T,
-		opts *logprovider.LogTriggersOptions,
-	) (
-		context.Context,
-		*backends.SimulatedBackend,
-		func(blockHash common.Hash),
-		logprovider.LogEventProviderTest,
-		[]*big.Int,
-		func(),
-	) {
-		ctx, cancel := context.WithCancel(testutils.Context(t))
-		backend, stopMining, accounts := setupBackend(t)
-		userContractAccount := accounts[2]
-		db := setupDB(t)
-
-		deferFunc := func() {
-			cancel()
-			stopMining()
-			_ = db.Close()
-		}
-		lp, ethClient := setupDependencies(t, db, backend)
-		filterStore := logprovider.NewUpkeepFilterStore()
-		provider, _ := setup(logger.TestLogger(t), lp, nil, nil, filterStore, opts)
-		logProvider := provider.(logprovider.LogEventProviderTest)
-		backend.Commit()
-		lp.PollAndSaveLogs(ctx, 1) // Ensure log poller has a latest block
-
-		rounds := 5
-		numberOfUserContracts := 10
-		poll := pollFn(ctx, t, lp, ethClient)
-
-		// deployUpkeepCounter creates 'n' blocks and 'n' contracts
-		ids, _, contracts := deployUpkeepCounter(
-			ctx,
-			t,
-			numberOfUserContracts,
-			ethClient,
-			backend,
-			userContractAccount,
-			logProvider)
-
-		// have log poller save logs for current blocks
-		lp.PollAndSaveLogs(ctx, int64(numberOfUserContracts))
-
-		for i := 0; i < rounds; i++ {
-			triggerEvents(
-				ctx,
-				t,
-				backend,
-				userContractAccount,
-				numberOfUserContracts,
-				poll,
-				contracts...)
-
-			for dummyBlocks := 0; dummyBlocks < numberOfUserContracts; dummyBlocks++ {
-				_ = backend.Commit()
-			}
-
-			poll(backend.Commit())
-		}
-
-		{
-			// total block history at this point should be 566
-			var minimumBlockCount int64 = 500
-			latestBlock, _ := lp.LatestBlock()
-
-			assert.GreaterOrEqual(t, latestBlock.BlockNumber, minimumBlockCount, "to ensure the integrety of the test, the minimum block count before the test should be %d but got %d", minimumBlockCount, latestBlock)
-		}
-
-		require.NoError(t, logProvider.ReadLogs(ctx, ids...))
-
-		return ctx, backend, poll, logProvider, ids, deferFunc
-	}
-
-	// polling for logs at approximately the same rate as a chain produces
-	// blocks should not encounter rate limits
-	t.Run("should allow constant polls within the rate and burst limit", func(t *testing.T) {
-		ctx, backend, poll, logProvider, ids, deferFunc := setupTest(t, &logprovider.LogTriggersOptions{
-			LookbackBlocks: 200,
-			// BlockRateLimit is set low to ensure the test does not exceed the
-			// rate limit
-			BlockRateLimit: rate.Every(50 * time.Millisecond),
-			// BlockLimitBurst is just set to a non-zero value
-			BlockLimitBurst: 5,
-		})
-
-		defer deferFunc()
-
-		// set the wait time between reads higher than the rate limit
-		readWait := 50 * time.Millisecond
-		timer := time.NewTimer(readWait)
-
-		for i := 0; i < 4; i++ {
-			<-timer.C
-
-			// advance 1 block for every read
-			poll(backend.Commit())
-
-			err := logProvider.ReadLogs(ctx, ids...)
-			if err != nil {
-				assert.False(t, errors.Is(err, logprovider.ErrBlockLimitExceeded), "error should not contain block limit exceeded")
-			}
-
-			timer.Reset(readWait)
-		}
-
-		poll(backend.Commit())
-
-		_, err := logProvider.GetLatestPayloads(ctx)
-
-		require.NoError(t, err)
-	})
-
-	t.Run("should produce a rate limit error for over burst limit", func(t *testing.T) {
-		ctx, backend, poll, logProvider, ids, deferFunc := setupTest(t, &logprovider.LogTriggersOptions{
-			LookbackBlocks: 200,
-			// BlockRateLimit is set low to ensure the test does not exceed the
-			// rate limit
-			BlockRateLimit: rate.Every(50 * time.Millisecond),
-			// BlockLimitBurst is just set to a non-zero value
-			BlockLimitBurst: 5,
-		})
-
-		defer deferFunc()
-
-		// set the wait time between reads higher than the rate limit
-		readWait := 50 * time.Millisecond
-		timer := time.NewTimer(readWait)
-
-		for i := 0; i < 4; i++ {
-			<-timer.C
-
-			// advance 4 blocks for every read
-			for x := 0; x < 4; x++ {
-				poll(backend.Commit())
-			}
-
-			err := logProvider.ReadLogs(ctx, ids...)
-			if err != nil {
-				assert.True(t, errors.Is(err, logprovider.ErrBlockLimitExceeded), "error should not contain block limit exceeded")
-			}
-
-			timer.Reset(readWait)
-		}
-
-		poll(backend.Commit())
-
-		_, err := logProvider.GetLatestPayloads(ctx)
-
-		require.NoError(t, err)
-	})
-
-	t.Run("should allow polling after lookback number of blocks have passed", func(t *testing.T) {
-		ctx, backend, poll, logProvider, ids, deferFunc := setupTest(t, &logprovider.LogTriggersOptions{
-			// BlockRateLimit is set low to ensure the test does not exceed the
-			// rate limit
-			BlockRateLimit: rate.Every(50 * time.Millisecond),
-			// BlockLimitBurst is set low to ensure the test exceeds the burst limit
-			BlockLimitBurst: 5,
-			// LogBlocksLookback is set low to reduce the number of blocks required
-			// to reset the block limiter to maxBurst
-			LookbackBlocks: 50,
-		})
-
-		defer deferFunc()
-
-		// simulate a burst in unpolled blocks
-		for i := 0; i < 20; i++ {
-			_ = backend.Commit()
-		}
-
-		poll(backend.Commit())
-
-		// all entries should error at this point because there are too many
-		// blocks to processes
-		err := logProvider.ReadLogs(ctx, ids...)
-		if err != nil {
-			assert.True(t, errors.Is(err, logprovider.ErrBlockLimitExceeded), "error should not contain block limit exceeded")
-		}
-
-		// progress the chain by the same number of blocks as the lookback limit
-		// to trigger the usage of maxBurst
-		for i := 0; i < 50; i++ {
-			_ = backend.Commit()
-		}
-
-		poll(backend.Commit())
-
-		// all entries should reset to the maxBurst because they are beyond
-		// the log lookback
-		err = logProvider.ReadLogs(ctx, ids...)
-		if err != nil {
-			assert.True(t, errors.Is(err, logprovider.ErrBlockLimitExceeded), "error should not contain block limit exceeded")
-		}
-
-		poll(backend.Commit())
-
-		_, err = logProvider.GetLatestPayloads(ctx)
-
-		require.NoError(t, err)
-	})
 }
 
 func TestIntegration_LogRecoverer_Backfill(t *testing.T) {
