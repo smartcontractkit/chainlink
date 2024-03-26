@@ -89,5 +89,5 @@ interface IVRFV2PlusWrapper {
   ) external payable returns (uint256 requestId);
 
   function link() external view returns (address);
-  function link_native_feed() external view returns (address);
+  function linkNativeFeed() external view returns (address);
 }

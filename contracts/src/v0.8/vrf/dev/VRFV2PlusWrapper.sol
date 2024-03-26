@@ -578,7 +578,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     return address(i_link);
   }
 
-  function link_native_feed() external view override returns (address) {
+  function linkNativeFeed() external view override returns (address) {
     return address(i_link_native_feed);
   }
 
