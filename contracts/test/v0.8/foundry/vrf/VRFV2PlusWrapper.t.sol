@@ -52,7 +52,7 @@ contract VRFV2PlusWrapperTest is BaseTest {
       uint256(s_wrapperSubscriptionId)
     );
     assertEq(address(s_linkToken), address(s_wrapper.link()));
-    assertEq(address(s_linkNativeFeed), address(s_wrapper.LINK_NATIVE_FEED()));
+    assertEq(address(s_linkNativeFeed), address(s_wrapper.link_native_feed()));
 
     // Add wrapper as a consumer to the wrapper's subscription.
     s_testCoordinator.addConsumer(uint256(s_wrapperSubscriptionId), address(s_wrapper));

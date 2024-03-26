@@ -30,8 +30,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
   uint256 public immutable SUBSCRIPTION_ID;
   LinkTokenInterface internal immutable i_link;
-  // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
-  AggregatorV3Interface public immutable LINK_NATIVE_FEED;
+  AggregatorV3Interface public immutable i_link_native_feed;
 
   error LinkAlreadySet();
   error LinkDiscountTooHigh(uint32 flatFeeLinkDiscountPPM, uint32 flatFeeNativePPM);
@@ -143,7 +142,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     uint256 _subId
   ) VRFConsumerBaseV2Plus(_coordinator) {
     i_link = LinkTokenInterface(_link);
-    LINK_NATIVE_FEED = AggregatorV3Interface(_linkNativeFeed);
+    i_link_native_feed = AggregatorV3Interface(_linkNativeFeed);
 
     if (_subId == 0) {
       revert SubscriptionIdMissing();
@@ -579,10 +578,14 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     return address(i_link);
   }
 
+  function link_native_feed() external view override returns (address) {
+    return address(i_link_native_feed);
+  }
+
   function _getFeedData() private view returns (int256 weiPerUnitLink, bool isFeedStale) {
     uint32 stalenessSeconds = s_stalenessSeconds;
     uint256 timestamp;
-    (, weiPerUnitLink, , timestamp, ) = LINK_NATIVE_FEED.latestRoundData();
+    (, weiPerUnitLink, , timestamp, ) = i_link_native_feed.latestRoundData();
     // solhint-disable-next-line not-rely-on-time
     isFeedStale = stalenessSeconds > 0 && stalenessSeconds < block.timestamp - timestamp;
     if (isFeedStale) {
