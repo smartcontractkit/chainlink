@@ -1,34 +1,31 @@
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
-import "../BaseTest.t.sol";
-import {VRF} from "../../../../src/v0.8/vrf/VRF.sol";
+import {BaseTest} from "../BaseTest.t.sol";
 import {MockLinkToken} from "../../../../src/v0.8/mocks/MockLinkToken.sol";
 import {MockV3Aggregator} from "../../../../src/v0.8/tests/MockV3Aggregator.sol";
 import {ExposedVRFCoordinatorV2_5} from "../../../../src/v0.8/vrf/dev/testhelpers/ExposedVRFCoordinatorV2_5.sol";
 import {VRFCoordinatorV2Plus_V2Example} from "../../../../src/v0.8/vrf/dev/testhelpers/VRFCoordinatorV2Plus_V2Example.sol";
-import {VRFV2PlusWrapperConsumerBase} from "../../../../src/v0.8/vrf/dev/VRFV2PlusWrapperConsumerBase.sol";
 import {VRFV2PlusWrapperConsumerExample} from "../../../../src/v0.8/vrf/dev/testhelpers/VRFV2PlusWrapperConsumerExample.sol";
 import {SubscriptionAPI} from "../../../../src/v0.8/vrf/dev/SubscriptionAPI.sol";
-import {VRFCoordinatorV2_5} from "../../../../src/v0.8/vrf/dev/VRFCoordinatorV2_5.sol";
 import {VRFV2PlusWrapper} from "../../../../src/v0.8/vrf/dev/VRFV2PlusWrapper.sol";
-import {VRFV2PlusClient} from "../../../../src/v0.8/vrf/dev/libraries/VRFV2PlusClient.sol";
 
 contract VRFV2PlusWrapper_MigrationTest is BaseTest {
   address internal constant LINK_WHALE = 0xD883a6A1C22fC4AbFE938a5aDF9B2Cc31b1BF18B;
   uint256 internal constant DEFAULT_NATIVE_FUNDING = 7 ether; // 7 ETH
   uint256 internal constant DEFAULT_LINK_FUNDING = 10 ether; // 10 ETH
-  bytes32 vrfKeyHash = hex"9f2353bde94264dbc3d554a94cceba2d7d2b4fdce4304d3e09a1fea9fbeb1528";
-  uint32 wrapperGasOverhead = 10_000;
-  uint32 coordinatorGasOverhead = 20_000;
-  uint256 s_wrapperSubscriptionId;
+  bytes32 private vrfKeyHash = hex"9f2353bde94264dbc3d554a94cceba2d7d2b4fdce4304d3e09a1fea9fbeb1528";
+  uint32 private wrapperGasOverhead = 10_000;
+  uint32 private coordinatorGasOverhead = 20_000;
+  uint256 private s_wrapperSubscriptionId;
 
-  ExposedVRFCoordinatorV2_5 s_testCoordinator;
-  MockLinkToken s_linkToken;
-  MockV3Aggregator s_linkNativeFeed;
-  VRFV2PlusWrapper s_wrapper;
-  VRFV2PlusWrapperConsumerExample s_consumer;
+  ExposedVRFCoordinatorV2_5 private s_testCoordinator;
+  MockLinkToken private s_linkToken;
+  MockV3Aggregator private s_linkNativeFeed;
+  VRFV2PlusWrapper private s_wrapper;
+  VRFV2PlusWrapperConsumerExample private s_consumer;
 
-  VRFCoordinatorV2Plus_V2Example s_newCoordinator;
+  VRFCoordinatorV2Plus_V2Example private s_newCoordinator;
 
   event CoordinatorRegistered(address coordinatorAddress);
   event MigrationCompleted(address newCoordinator, uint256 subId);
@@ -121,15 +118,15 @@ contract VRFV2PlusWrapper_MigrationTest is BaseTest {
       ,
       uint32 _wrapperGasOverhead,
       uint32 _coordinatorGasOverhead,
-      uint8 _wrapperNativePremiumPercentage,
-      uint8 _wrapperLinkPremiumPercentage,
+      uint8 _coordinatorNativePremiumPercentage,
+      uint8 _coordinatorLinkPremiumPercentage,
       bytes32 _keyHash,
       uint8 _maxNumWords
     ) = s_wrapper.getConfig();
     assertEq(_wrapperGasOverhead, wrapperGasOverhead);
     assertEq(_coordinatorGasOverhead, coordinatorGasOverhead);
-    assertEq(0, _wrapperNativePremiumPercentage);
-    assertEq(0, _wrapperLinkPremiumPercentage);
+    assertEq(0, _coordinatorNativePremiumPercentage);
+    assertEq(0, _coordinatorLinkPremiumPercentage);
     assertEq(vrfKeyHash, _keyHash);
     assertEq(10, _maxNumWords);
   }

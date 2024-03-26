@@ -76,7 +76,7 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3, Chainable {
 
     if (msg.value != 0) {
       if (upkeep.billingToken != IERC20(i_wrappedNativeToken)) {
-        revert InvalidBillingToken();
+        revert InvalidToken();
       }
       amount = SafeCast.toUint96(msg.value);
     }
@@ -205,13 +205,18 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3, Chainable {
   }
 
   /**
-   * @notice LINK available to withdraw by the finance team
+   * @notice returns the size of the LINK liquidity pool
    # @dev LINK max supply < 2^96, so casting to int256 is safe
    */
   function linkAvailableForPayment() public view returns (int256) {
     return int256(i_link.balanceOf(address(this))) - int256(s_reserveAmounts[IERC20(address(i_link))]);
   }
 
+  /**
+   * @notice withdraws excess LINK from the liquidity pool
+   * @param to the address to send the fees to
+   * @param amount the amount to withdraw
+   */
   function withdrawLink(address to, uint256 amount) external {
     _onlyFinanceAdminAllowed();
     if (to == ZERO_ADDRESS) revert InvalidRecipient();
@@ -230,9 +235,16 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3, Chainable {
     emit FeesWithdrawn(address(i_link), to, amount);
   }
 
+  /**
+   * @notice withdraws non-LINK fees earned by the contract
+   * @param asset the asset to withdraw
+   * @param to the address to send the fees to
+   * @param amount the amount to withdraw
+   */
   function withdrawERC20Fees(IERC20 asset, address to, uint256 amount) external {
     _onlyFinanceAdminAllowed();
     if (to == ZERO_ADDRESS) revert InvalidRecipient();
+    if (address(asset) == address(i_link)) revert InvalidToken();
     uint256 available = asset.balanceOf(address(this)) - s_reserveAmounts[asset];
     if (amount > available) revert InsufficientBalance(available, amount);
 
