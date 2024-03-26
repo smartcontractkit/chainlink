@@ -428,7 +428,7 @@ describe('AutomationRegistry2_3', () => {
     automationUtils2_3 = await utilsFactory.deploy()
 
     linkTokenFactory = await ethers.getContractFactory(
-      'src/v0.4/LinkToken.sol:LinkToken',
+      'src/v0.8/shared/test/helpers/LinkTokenTestHelper.sol:LinkTokenTestHelper',
     )
     // need full path because there are two contracts with name MockV3Aggregator
     mockV3AggregatorFactory = (await ethers.getContractFactory(
@@ -3745,8 +3745,6 @@ describe('AutomationRegistry2_3', () => {
   })
 
   describeMaybe('#setConfig - onchain', async () => {
-    const payment = BigNumber.from(1)
-    const flatFee = BigNumber.from(2)
     const maxGas = BigNumber.from(6)
     const staleness = BigNumber.from(4)
     const ceiling = BigNumber.from(5)
@@ -5220,6 +5218,7 @@ describe('AutomationRegistry2_3', () => {
 
       describe('when called by the owner when the admin has just canceled', () => {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        // @ts-ignore
         let oldExpiration: BigNumber
 
         beforeEach(async () => {

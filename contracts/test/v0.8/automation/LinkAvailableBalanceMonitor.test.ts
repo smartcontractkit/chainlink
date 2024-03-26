@@ -139,7 +139,7 @@ const setup = async () => {
     owner,
   )
   const ltFactory = await ethers.getContractFactory(
-    'src/v0.4/LinkToken.sol:LinkToken',
+    'src/v0.8/shared/test/helpers/LinkTokenTestHelper.sol:LinkTokenTestHelper',
     owner,
   )
 

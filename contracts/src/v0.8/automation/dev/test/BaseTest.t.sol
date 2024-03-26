@@ -30,6 +30,8 @@ contract BaseTest is Test {
 
   // constants
   address internal constant ZERO_ADDRESS = address(0);
+  uint32 internal constant DEFAULT_GAS_FEE_PPB = 10_000_000;
+  uint24 internal constant DEFAULT_FLAT_FEE_MILLI_CENTS = 2_000;
 
   // config
   uint8 internal constant F = 1; // number of faulty nodes
@@ -163,22 +165,22 @@ contract BaseTest is Test {
     AutomationRegistryBase2_3.BillingConfig[]
       memory billingTokenConfigs = new AutomationRegistryBase2_3.BillingConfig[](billingTokens.length);
     billingTokenConfigs[0] = AutomationRegistryBase2_3.BillingConfig({
-      gasFeePPB: 10_000_000, // 15%
-      flatFeeMilliCents: 2_000, // 2 cents
+      gasFeePPB: DEFAULT_GAS_FEE_PPB, // 15%
+      flatFeeMilliCents: DEFAULT_FLAT_FEE_MILLI_CENTS, // 2 cents
       priceFeed: address(USDTOKEN_USD_FEED),
       fallbackPrice: 100_000_000, // $1
       minSpend: 100000000000000000000 // 100 USD
     });
     billingTokenConfigs[1] = AutomationRegistryBase2_3.BillingConfig({
-      gasFeePPB: 10_000_000, // 15%
-      flatFeeMilliCents: 2_000, // 2 cents
+      gasFeePPB: DEFAULT_GAS_FEE_PPB, // 15%
+      flatFeeMilliCents: DEFAULT_FLAT_FEE_MILLI_CENTS, // 2 cents
       priceFeed: address(NATIVE_USD_FEED),
       fallbackPrice: 100_000_000, // $1
       minSpend: 5000000000000000000 // 5 Native
     });
     billingTokenConfigs[2] = AutomationRegistryBase2_3.BillingConfig({
-      gasFeePPB: 10_000_000, // 10%
-      flatFeeMilliCents: 2_000, // 2 cents
+      gasFeePPB: DEFAULT_GAS_FEE_PPB, // 10%
+      flatFeeMilliCents: DEFAULT_FLAT_FEE_MILLI_CENTS, // 2 cents
       priceFeed: address(LINK_USD_FEED),
       fallbackPrice: 1_000_000_000, // $10
       minSpend: 5000000000000000000 // 5 LINK
