@@ -271,7 +271,7 @@ func (c *chainClient) LatestFinalizedBlock(ctx context.Context) (*evmtypes.Head,
 	return c.multiNode.LatestFinalizedBlock(ctx)
 }
 
-func (c *chainClient) CheckTxOverflow(ctx context.Context, from common.Address, to common.Address, data []byte) *SendError {
+func (c *chainClient) CheckTxValidity(ctx context.Context, from common.Address, to common.Address, data []byte) *SendError {
 	msg := ethereum.CallMsg{
 		From: from,
 		To:   &to,
