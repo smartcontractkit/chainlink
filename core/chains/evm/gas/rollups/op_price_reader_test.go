@@ -1,6 +1,7 @@
 package rollups
 
 import (
+	"fmt"
 	"math/big"
 	"strings"
 	"testing"
@@ -9,101 +10,126 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/common/config"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
-func TestDAPriceReader_GasDAPrice(t *testing.T) {
-	t.Parallel()
+func TestDAPriceReader_ReadV1GasPrice(t *testing.T) {
+	testCases := []struct {
+		name           string
+		isEcotoneError bool
+		returnBadData  bool
+	}{
+		{
+			name:           "calling isEcotone returns false",
+			isEcotoneError: false,
+		},
+		{
+			name:           "calling isEcotone when chain has not made Ecotone upgrade",
+			isEcotoneError: true,
+		},
+		{
+			name:           "calling isEcotone returns bad data",
+			isEcotoneError: false,
+			returnBadData:  true,
+		},
+	}
 
-	t.Run("Calling GasPrice on unstarted L1Oracle returns error", func(t *testing.T) {
-		ethClient := mocks.NewETHClient(t)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			l1BaseFee := big.NewInt(100)
+			oracleAddress := common.HexToAddress("0x1234").String()
 
-		oracle := NewL1GasOracle(logger.Test(t), ethClient, config.ChainOptimismBedrock)
+			l1BaseFeeMethodAbi, err := abi.JSON(strings.NewReader(L1BaseFeeAbiString))
+			require.NoError(t, err)
+			l1BaseFeeCalldata, err := l1BaseFeeMethodAbi.Pack(OPStackGasOracle_l1BaseFee)
+			require.NoError(t, err)
 
-		_, err := oracle.GasPrice(testutils.Context(t))
-		assert.EqualError(t, err, "L1GasOracle is not started; cannot estimate gas")
-	})
+			isEcotoneMethodAbi, err := abi.JSON(strings.NewReader(OPIsEcotoneAbiString))
+			require.NoError(t, err)
+			isEcotoneCalldata, err := isEcotoneMethodAbi.Pack(OPStackGasOracle_isEcotone)
+			require.NoError(t, err)
 
-	t.Run("Calling GasPrice on started Arbitrum L1Oracle returns Arbitrum l1GasPrice", func(t *testing.T) {
+			ethClient := mocks.NewETHClient(t)
+			call := ethClient.On("CallContract", mock.Anything, mock.IsType(ethereum.CallMsg{}), mock.IsType(&big.Int{})).Run(func(args mock.Arguments) {
+				callMsg := args.Get(1).(ethereum.CallMsg)
+				blockNumber := args.Get(2).(*big.Int)
+				require.Equal(t, isEcotoneCalldata, callMsg.Data)
+				require.Equal(t, oracleAddress, callMsg.To.Hex())
+				assert.Nil(t, blockNumber)
+			})
+
+			if tc.returnBadData {
+				call.Return([]byte{0x2, 0x2}, nil).Once()
+			} else if tc.isEcotoneError {
+				call.Return(nil, fmt.Errorf("test error")).Once()
+			} else {
+				call.Return(isEcotoneMethodAbi.Methods["isEcotone"].Outputs.Pack(false)).Once()
+			}
+
+			if !tc.returnBadData {
+				ethClient.On("CallContract", mock.Anything, mock.IsType(ethereum.CallMsg{}), mock.IsType(&big.Int{})).Run(func(args mock.Arguments) {
+					callMsg := args.Get(1).(ethereum.CallMsg)
+					blockNumber := args.Get(2).(*big.Int)
+					require.Equal(t, l1BaseFeeCalldata, callMsg.Data)
+					require.Equal(t, oracleAddress, callMsg.To.Hex())
+					assert.Nil(t, blockNumber)
+				}).Return(common.BigToHash(l1BaseFee).Bytes(), nil).Once()
+			}
+
+			oracle := newOPPriceReader(logger.Test(t), ethClient, config.ChainOptimismBedrock, oracleAddress)
+			gasPrice, err := oracle.GetDAGasPrice(testutils.Context(t))
+
+			if tc.returnBadData {
+				assert.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, l1BaseFee, gasPrice)
+			}
+		})
+	}
+
+	t.Run("Calling l1BaseFee when chain has not made Ecotone upgrade", func(t *testing.T) {
 		l1BaseFee := big.NewInt(100)
-		l1GasPriceMethodAbi, err := abi.JSON(strings.NewReader(GetL1BaseFeeEstimateAbiString))
+		oracleAddress := common.HexToAddress("0x1234").String()
+
+		l1BaseFeeMethodAbi, err := abi.JSON(strings.NewReader(L1BaseFeeAbiString))
+		require.NoError(t, err)
+		l1BaseFeeCalldata, err := l1BaseFeeMethodAbi.Pack(OPStackGasOracle_l1BaseFee)
+		require.NoError(t, err)
+
+		isEcotoneMethodAbi, err := abi.JSON(strings.NewReader(OPIsEcotoneAbiString))
+		require.NoError(t, err)
+		isEcotoneCalldata, err := isEcotoneMethodAbi.Pack(OPStackGasOracle_isEcotone)
 		require.NoError(t, err)
 
 		ethClient := mocks.NewETHClient(t)
 		ethClient.On("CallContract", mock.Anything, mock.IsType(ethereum.CallMsg{}), mock.IsType(&big.Int{})).Run(func(args mock.Arguments) {
 			callMsg := args.Get(1).(ethereum.CallMsg)
 			blockNumber := args.Get(2).(*big.Int)
-			var payload []byte
-			payload, err = l1GasPriceMethodAbi.Pack("getL1BaseFeeEstimate")
-			require.NoError(t, err)
-			require.Equal(t, payload, callMsg.Data)
+			require.Equal(t, isEcotoneCalldata, callMsg.Data)
+			require.Equal(t, oracleAddress, callMsg.To.Hex())
 			assert.Nil(t, blockNumber)
-		}).Return(common.BigToHash(l1BaseFee).Bytes(), nil)
+		}).Return(isEcotoneMethodAbi.Methods["isEcotone"].Outputs.Pack(false)).Once()
 
-		oracle := NewL1GasOracle(logger.Test(t), ethClient, config.ChainArbitrum)
-		servicetest.RunHealthy(t, oracle)
-
-		gasPrice, err := oracle.GasPrice(testutils.Context(t))
-		require.NoError(t, err)
-
-		assert.Equal(t, assets.NewWei(l1BaseFee), gasPrice)
-	})
-
-	t.Run("Calling GasPrice on started Kroma L1Oracle returns Kroma l1GasPrice", func(t *testing.T) {
-		l1BaseFee := big.NewInt(100)
-		l1GasPriceMethodAbi, err := abi.JSON(strings.NewReader(L1BaseFeeAbiString))
-		require.NoError(t, err)
-
-		ethClient := mocks.NewETHClient(t)
 		ethClient.On("CallContract", mock.Anything, mock.IsType(ethereum.CallMsg{}), mock.IsType(&big.Int{})).Run(func(args mock.Arguments) {
 			callMsg := args.Get(1).(ethereum.CallMsg)
 			blockNumber := args.Get(2).(*big.Int)
-			var payload []byte
-			payload, err = l1GasPriceMethodAbi.Pack("l1BaseFee")
-			require.NoError(t, err)
-			require.Equal(t, payload, callMsg.Data)
+			require.Equal(t, l1BaseFeeCalldata, callMsg.Data)
+			require.Equal(t, oracleAddress, callMsg.To.Hex())
 			assert.Nil(t, blockNumber)
-		}).Return(common.BigToHash(l1BaseFee).Bytes(), nil)
+		}).Return(common.BigToHash(l1BaseFee).Bytes(), nil).Once()
 
-		oracle := NewL1GasOracle(logger.Test(t), ethClient, config.ChainKroma)
-		servicetest.RunHealthy(t, oracle)
+		oracle := newOPPriceReader(logger.Test(t), ethClient, config.ChainOptimismBedrock, oracleAddress)
 
-		gasPrice, err := oracle.GasPrice(testutils.Context(t))
+		gasPrice, err := oracle.GetDAGasPrice(testutils.Context(t))
 		require.NoError(t, err)
 
-		assert.Equal(t, assets.NewWei(l1BaseFee), gasPrice)
-	})
-
-	t.Run("Calling GasPrice on started OPStack L1Oracle returns OPStack l1GasPrice", func(t *testing.T) {
-		l1BaseFee := big.NewInt(100)
-		l1GasPriceMethodAbi, err := abi.JSON(strings.NewReader(L1BaseFeeAbiString))
-		require.NoError(t, err)
-
-		ethClient := mocks.NewETHClient(t)
-		ethClient.On("CallContract", mock.Anything, mock.IsType(ethereum.CallMsg{}), mock.IsType(&big.Int{})).Run(func(args mock.Arguments) {
-			callMsg := args.Get(1).(ethereum.CallMsg)
-			blockNumber := args.Get(2).(*big.Int)
-			var payload []byte
-			payload, err = l1GasPriceMethodAbi.Pack("l1BaseFee")
-			require.NoError(t, err)
-			require.Equal(t, payload, callMsg.Data)
-			assert.Nil(t, blockNumber)
-		}).Return(common.BigToHash(l1BaseFee).Bytes(), nil)
-
-		oracle := NewL1GasOracle(logger.Test(t), ethClient, config.ChainOptimismBedrock)
-		servicetest.RunHealthy(t, oracle)
-
-		gasPrice, err := oracle.GasPrice(testutils.Context(t))
-		require.NoError(t, err)
-
-		assert.Equal(t, assets.NewWei(l1BaseFee), gasPrice)
+		assert.Equal(t, l1BaseFee, gasPrice)
 	})
 }

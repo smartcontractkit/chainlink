@@ -112,6 +112,8 @@ func (o *opStackGasPriceReader) GetDAGasPrice(ctx context.Context) (*big.Int, er
 		return nil, err
 	}
 
+	o.logger.Infof("Chain isEcotone result: %t", isEcotone)
+
 	if isEcotone {
 		return o.getEcotoneGasPrice(ctx)
 	}
