@@ -124,7 +124,7 @@ func TestDAPriceReader_ReadEcotoneGasPrice(t *testing.T) {
 
 	t.Parallel()
 
-	t.Run("Calling l1BaseFee when chain has not made Ecotone upgrade", func(t *testing.T) {
+	t.Run("correctly fetches weighted gas price if chain has upgraded to Ecotone", func(t *testing.T) {
 		ethClient := setupIsEcotone(t, oracleAddress)
 		getL1GasUsedMethodAbi, err := abi.JSON(strings.NewReader(OPGetL1GasUsedAbiString))
 		require.NoError(t, err)
@@ -184,7 +184,7 @@ func TestDAPriceReader_ReadEcotoneGasPrice(t *testing.T) {
 		assert.Error(t, err)
 	})
 
-	t.Run("fetching Ecotone price but one of the RPC call errors", func(t *testing.T) {
+	t.Run("fetching Ecotone price but one of the sub rpc call errors", func(t *testing.T) {
 		ethClient := setupIsEcotone(t, oracleAddress)
 		ethClient.On("BatchCallContext", mock.Anything, mock.IsType([]rpc.BatchElem{})).Run(func(args mock.Arguments) {
 			rpcElements := args.Get(1).([]rpc.BatchElem)
