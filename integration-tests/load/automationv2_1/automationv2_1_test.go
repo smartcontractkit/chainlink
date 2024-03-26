@@ -62,6 +62,11 @@ Enabled = true
 Enabled = true
 AnnounceAddresses = ["0.0.0.0:6690"]
 ListenAddresses = ["0.0.0.0:6690"]`
+	secretsTOML = `[Mercury.Credentials.%s]
+LegacyURL = '%s'
+URL = '%s'
+Username = '%s'
+Password = '%s'`
 
 	minimumNodeSpec = map[string]interface{}{
 		"resources": map[string]interface{}{
@@ -235,6 +240,16 @@ Load Config:
 		loadedTestConfig.Pyroscope.Environment = &testEnvironment.Cfg.Namespace
 	}
 
+	if *loadedTestConfig.Automation.DataStreams.Enabled {
+		secretsTOML = fmt.Sprintf(
+			secretsTOML, "cred1",
+			*loadedTestConfig.Automation.DataStreams.URL, *loadedTestConfig.Automation.DataStreams.URL,
+			*loadedTestConfig.Automation.DataStreams.Username, *loadedTestConfig.Automation.DataStreams.Password,
+		)
+	} else {
+		secretsTOML = ""
+	}
+
 	numberOfUpkeeps := *loadedTestConfig.Automation.General.NumberOfNodes
 
 	for i := 0; i < numberOfUpkeeps+1; i++ { // +1 for the OCR boot node
@@ -252,10 +267,11 @@ Load Config:
 		}
 
 		cd := chainlink.NewWithOverride(i, map[string]any{
-			"toml":       nodeTOML,
-			"chainlink":  nodeSpec,
-			"db":         dbSpec,
-			"prometheus": *loadedTestConfig.Automation.General.UsePrometheus,
+			"toml":        nodeTOML,
+			"chainlink":   nodeSpec,
+			"db":          dbSpec,
+			"prometheus":  *loadedTestConfig.Automation.General.UsePrometheus,
+			"secretsToml": secretsTOML,
 		}, loadedTestConfig.ChainlinkImage, overrideFn)
 
 		testEnvironment.AddHelm(cd)
@@ -310,6 +326,10 @@ Load Config:
 		F:                                       1,
 	}
 
+	if *loadedTestConfig.Automation.DataStreams.Enabled {
+		a.MercuryCredentialName = "cred1"
+	}
+
 	startTimeTestSetup := time.Now()
 	l.Info().Str("START_TIME", startTimeTestSetup.String()).Msg("Test setup started")
 
@@ -344,7 +364,7 @@ Load Config:
 
 	for _, u := range loadedTestConfig.Automation.Load {
 		for i := 0; i < *u.NumberOfUpkeeps; i++ {
-			consumerContract, err := contractDeployer.DeployAutomationSimpleLogTriggerConsumer()
+			consumerContract, err := contractDeployer.DeployAutomationSimpleLogTriggerConsumer(*u.IsStreamsLookup)
 			require.NoError(t, err, "Error deploying automation consumer contract")
 			consumerContracts = append(consumerContracts, consumerContract)
 			l.Debug().
