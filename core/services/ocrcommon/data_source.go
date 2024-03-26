@@ -159,7 +159,7 @@ func (ds *inMemoryDataSource) currentAnswer() (*big.Int, *big.Int) {
 func (ds *inMemoryDataSource) executeRun(ctx context.Context) (*pipeline.Run, pipeline.TaskRunResults, error) {
 	md, err := bridges.MarshalBridgeMetaData(ds.currentAnswer())
 	if err != nil {
-		ds.lggr.Warnw("unable to attach metadata for run, err: %v", err)
+		ds.lggr.Warnf("unable to attach metadata for run, err: %v", err)
 	}
 
 	vars := pipeline.NewVarsFrom(map[string]interface{}{
