@@ -75,7 +75,7 @@ func Test_CachedInMemoryDataSourceErrHandling(t *testing.T) {
 		ds := ocrcommon.NewInMemoryDataSource(runner, job.Job{}, pipeline.Spec{}, logger.TestLogger(t))
 		mockKVStore := mocks.KVStore{}
 		mockKVStore.On("Store", mock.Anything, mock.Anything).Return(nil)
-		mockKVStore.On("Get", mock.Anything, mock.AnythingOfType("*big.Big")).Return(nil)
+		mockKVStore.On("Get", mock.Anything, mock.IsType(&ocrcommon.ResultTimePair{})).Return(nil)
 		dsCache, err := ocrcommon.NewInMemoryDataSourceCache(ds, &mockKVStore, time.Second*2)
 		require.NoError(t, err)
 
@@ -98,14 +98,14 @@ func Test_CachedInMemoryDataSourceErrHandling(t *testing.T) {
 	})
 
 	t.Run("test total updater fail with persisted value recovery", func(t *testing.T) {
-		persistedVal := big.NewInt(1337)
 		runner := pipelinemocks.NewRunner(t)
 		ds := ocrcommon.NewInMemoryDataSource(runner, job.Job{}, pipeline.Spec{}, logger.TestLogger(t))
 
 		mockKVStore := mocks.KVStore{}
-		mockKVStore.On("Get", mock.Anything, mock.AnythingOfType("*big.Big")).Return(nil).Run(func(args mock.Arguments) {
-			arg := args.Get(1).(*serializablebig.Big)
-			arg.ToInt().Set(persistedVal)
+		persistedVal := serializablebig.NewI(1337)
+		mockKVStore.On("Get", mock.Anything, mock.IsType(&ocrcommon.ResultTimePair{})).Return(nil).Run(func(args mock.Arguments) {
+			arg := args.Get(1).(*ocrcommon.ResultTimePair)
+			arg.Result = *persistedVal
 		})
 
 		// set updater to a long time so that it doesn't log errors after the test is done
@@ -125,7 +125,7 @@ func Test_CachedInMemoryDataSourceErrHandling(t *testing.T) {
 		ds := ocrcommon.NewInMemoryDataSource(runner, job.Job{}, pipeline.Spec{}, logger.TestLogger(t))
 
 		mockKVStore := mocks.KVStore{}
-		mockKVStore.On("Get", mock.Anything, mock.AnythingOfType("*big.Big")).Return(nil).Return(assert.AnError)
+		mockKVStore.On("Get", mock.Anything, mock.IsType(&ocrcommon.ResultTimePair{})).Return(nil).Return(assert.AnError)
 
 		// set updater to a long time so that it doesn't log errors after the test is done
 		dsCache, err := ocrcommon.NewInMemoryDataSourceCache(ds, &mockKVStore, time.Hour*100)

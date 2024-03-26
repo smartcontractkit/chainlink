@@ -1,31 +1,29 @@
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
-import "../BaseTest.t.sol";
-import {VRF} from "../../../../src/v0.8/vrf/VRF.sol";
+import {BaseTest} from "../BaseTest.t.sol";
 import {MockLinkToken} from "../../../../src/v0.8/mocks/MockLinkToken.sol";
 import {MockV3Aggregator} from "../../../../src/v0.8/tests/MockV3Aggregator.sol";
 import {ExposedVRFCoordinatorV2_5} from "../../../../src/v0.8/vrf/dev/testhelpers/ExposedVRFCoordinatorV2_5.sol";
 import {SubscriptionAPI} from "../../../../src/v0.8/vrf/dev/SubscriptionAPI.sol";
-import {VRFV2PlusWrapperConsumerBase} from "../../../../src/v0.8/vrf/dev/VRFV2PlusWrapperConsumerBase.sol";
 import {VRFV2PlusWrapperConsumerExample} from "../../../../src/v0.8/vrf/dev/testhelpers/VRFV2PlusWrapperConsumerExample.sol";
 import {VRFCoordinatorV2_5} from "../../../../src/v0.8/vrf/dev/VRFCoordinatorV2_5.sol";
 import {VRFConsumerBaseV2Plus} from "../../../../src/v0.8/vrf/dev/VRFConsumerBaseV2Plus.sol";
 import {VRFV2PlusWrapper} from "../../../../src/v0.8/vrf/dev/VRFV2PlusWrapper.sol";
 import {VRFV2PlusClient} from "../../../../src/v0.8/vrf/dev/libraries/VRFV2PlusClient.sol";
-import {console} from "forge-std/console.sol";
 
 contract VRFV2PlusWrapperTest is BaseTest {
   address internal constant LINK_WHALE = 0xD883a6A1C22fC4AbFE938a5aDF9B2Cc31b1BF18B;
-  bytes32 vrfKeyHash = hex"9f2353bde94264dbc3d554a94cceba2d7d2b4fdce4304d3e09a1fea9fbeb1528";
-  uint32 wrapperGasOverhead = 10_000;
-  uint32 coordinatorGasOverhead = 20_000;
-  uint256 s_wrapperSubscriptionId;
+  bytes32 private vrfKeyHash = hex"9f2353bde94264dbc3d554a94cceba2d7d2b4fdce4304d3e09a1fea9fbeb1528";
+  uint32 private wrapperGasOverhead = 10_000;
+  uint32 private coordinatorGasOverhead = 20_000;
+  uint256 private s_wrapperSubscriptionId;
 
-  ExposedVRFCoordinatorV2_5 s_testCoordinator;
-  MockLinkToken s_linkToken;
-  MockV3Aggregator s_linkNativeFeed;
-  VRFV2PlusWrapper s_wrapper;
-  VRFV2PlusWrapperConsumerExample s_consumer;
+  ExposedVRFCoordinatorV2_5 private s_testCoordinator;
+  MockLinkToken private s_linkToken;
+  MockV3Aggregator private s_linkNativeFeed;
+  VRFV2PlusWrapper private s_wrapper;
+  VRFV2PlusWrapperConsumerExample private s_consumer;
 
   function setUp() public override {
     BaseTest.setUp();
@@ -53,6 +51,8 @@ contract VRFV2PlusWrapperTest is BaseTest {
       address(s_testCoordinator),
       uint256(s_wrapperSubscriptionId)
     );
+    assertEq(address(s_linkToken), address(s_wrapper.link()));
+    assertEq(address(s_linkNativeFeed), address(s_wrapper.linkNativeFeed()));
 
     // Add wrapper as a consumer to the wrapper's subscription.
     s_testCoordinator.addConsumer(uint256(s_wrapperSubscriptionId), address(s_wrapper));
@@ -104,15 +104,15 @@ contract VRFV2PlusWrapperTest is BaseTest {
       ,
       uint32 _wrapperGasOverhead,
       uint32 _coordinatorGasOverhead,
-      uint8 _wrapperNativePremiumPercentage,
-      uint8 _wrapperLinkPremiumPercentage,
+      uint8 _coordinatorNativePremiumPercentage,
+      uint8 _coordinatorLinkPremiumPercentage,
       bytes32 _keyHash,
       uint8 _maxNumWords
     ) = s_wrapper.getConfig();
     assertEq(_wrapperGasOverhead, wrapperGasOverhead);
     assertEq(_coordinatorGasOverhead, coordinatorGasOverhead);
-    assertEq(0, _wrapperNativePremiumPercentage);
-    assertEq(0, _wrapperLinkPremiumPercentage);
+    assertEq(0, _coordinatorNativePremiumPercentage);
+    assertEq(0, _coordinatorLinkPremiumPercentage);
     assertEq(vrfKeyHash, _keyHash);
     assertEq(10, _maxNumWords);
   }
@@ -135,8 +135,8 @@ contract VRFV2PlusWrapperTest is BaseTest {
   event ConfigSet(
     uint32 wrapperGasOverhead,
     uint32 coordinatorGasOverhead,
-    uint8 wrapperNativePremiumPercentage,
-    uint8 wrapperLinkPremiumPercentage,
+    uint8 coordinatorNativePremiumPercentage,
+    uint8 coordinatorLinkPremiumPercentage,
     bytes32 keyHash,
     uint8 maxNumWords,
     uint32 stalenessSeconds,
@@ -156,16 +156,16 @@ contract VRFV2PlusWrapperTest is BaseTest {
   // SubscriptionAPI events
   event SubscriptionConsumerAdded(uint256 indexed subId, address consumer);
 
-  function testVRFV2PlusWrapper_ZeroAddress() public {
+  function testVRFV2PlusWrapperZeroAddress() public {
     vm.expectRevert(VRFConsumerBaseV2Plus.ZeroAddress.selector);
-    new VRFV2PlusWrapper(address(s_linkToken), address(0), address(0), uint256(0));
+    new VRFV2PlusWrapper(address(s_linkToken), address(s_linkNativeFeed), address(0), uint256(0));
   }
 
   function testCreationOfANewVRFV2PlusWrapper() public {
     // second wrapper contract will simply add itself to the same subscription
     VRFV2PlusWrapper nextWrapper = new VRFV2PlusWrapper(
       address(s_linkToken),
-      address(0),
+      address(s_linkNativeFeed),
       address(s_testCoordinator),
       s_wrapperSubscriptionId
     );
@@ -174,27 +174,12 @@ contract VRFV2PlusWrapperTest is BaseTest {
 
   function testVRFV2PlusWrapperWithZeroSubscriptionId() public {
     vm.expectRevert(VRFV2PlusWrapper.SubscriptionIdMissing.selector);
-    new VRFV2PlusWrapper(address(s_linkToken), address(0), address(s_testCoordinator), uint256(0));
+    new VRFV2PlusWrapper(address(s_linkToken), address(s_linkNativeFeed), address(s_testCoordinator), uint256(0));
   }
 
   function testVRFV2PlusWrapperWithInvalidSubscriptionId() public {
     vm.expectRevert(SubscriptionAPI.InvalidSubscription.selector);
-    new VRFV2PlusWrapper(address(s_linkToken), address(0), address(s_testCoordinator), uint256(123456));
-  }
-
-  function testSetLinkAndLinkNativeFeed() public {
-    VRFV2PlusWrapper wrapper = new VRFV2PlusWrapper(
-      address(s_linkToken),
-      address(0),
-      address(s_testCoordinator),
-      uint256(s_wrapperSubscriptionId)
-    );
-
-    // Set LINK/Native feed on wrapper.
-    vm.expectEmit(false, false, false, true, address(wrapper));
-    emit LinkNativeFeedSet(address(s_linkNativeFeed));
-    wrapper.setLinkNativeFeed(address(s_linkNativeFeed));
-    assertEq(address(wrapper.s_linkNativeFeed()), address(s_linkNativeFeed));
+    new VRFV2PlusWrapper(address(s_linkToken), address(s_linkNativeFeed), address(s_testCoordinator), uint256(123456));
   }
 
   function testSetFulfillmentTxSize() public {
@@ -205,7 +190,7 @@ contract VRFV2PlusWrapperTest is BaseTest {
     assertEq(s_wrapper.s_fulfillmentTxSizeBytes(), fulfillmentTxSize);
   }
 
-  function testSetCoordinator_ZeroAddress() public {
+  function testSetCoordinatorZeroAddress() public {
     vm.expectRevert(VRFConsumerBaseV2Plus.ZeroAddress.selector);
     s_wrapper.setCoordinator(address(0));
   }
@@ -283,7 +268,7 @@ contract VRFV2PlusWrapperTest is BaseTest {
     assertEq(address(s_wrapper).balance, 0);
   }
 
-  function testSetConfig_FulfillmentFlatFee_LinkDiscountTooHigh() public {
+  function testSetConfigFulfillmentFlatFee_LinkDiscountTooHigh() public {
     // Test that setting link discount flat fee higher than native flat fee reverts
     vm.expectRevert(abi.encodeWithSelector(VRFV2PlusWrapper.LinkDiscountTooHigh.selector, uint32(501), uint32(500)));
     s_wrapper.setConfig(
@@ -300,7 +285,7 @@ contract VRFV2PlusWrapperTest is BaseTest {
     );
   }
 
-  function testSetConfig_FulfillmentFlatFee_LinkDiscountEqualsNative() public {
+  function testSetConfigFulfillmentFlatFee_LinkDiscountEqualsNative() public {
     // Test that setting link discount flat fee equal to native flat fee does not revert
     s_wrapper.setConfig(
       wrapperGasOverhead, // wrapper gas overhead
@@ -316,7 +301,7 @@ contract VRFV2PlusWrapperTest is BaseTest {
     );
   }
 
-  function testSetConfig_NativePremiumPercentage_InvalidPremiumPercentage() public {
+  function testSetConfigNativePremiumPercentageInvalidPremiumPercentage() public {
     // Test that setting native premium percentage higher than 155 will revert
     vm.expectRevert(
       abi.encodeWithSelector(VRFCoordinatorV2_5.InvalidPremiumPercentage.selector, uint8(156), uint8(155))
@@ -335,7 +320,7 @@ contract VRFV2PlusWrapperTest is BaseTest {
     );
   }
 
-  function testSetConfig_LinkPremiumPercentage_InvalidPremiumPercentage() public {
+  function testSetConfigLinkPremiumPercentageInvalidPremiumPercentage() public {
     // Test that setting LINK premium percentage higher than 155 will revert
     vm.expectRevert(
       abi.encodeWithSelector(VRFCoordinatorV2_5.InvalidPremiumPercentage.selector, uint8(202), uint8(155))
@@ -415,7 +400,7 @@ contract VRFV2PlusWrapperTest is BaseTest {
     assertEq(s_linkToken.balanceOf(address(s_wrapper)), 0);
   }
 
-  function testRequestRandomWordsLINKWrapper_FallbackWeiPerUnitLinkUsed() public {
+  function testRequestRandomWordsLINKWrapperFallbackWeiPerUnitLinkUsed() public {
     // Fund subscription.
     s_linkToken.transferAndCall(address(s_testCoordinator), 10 ether, abi.encode(s_wrapper.SUBSCRIPTION_ID()));
     s_linkToken.transfer(address(s_consumer), 10 ether);
@@ -452,7 +437,7 @@ contract VRFV2PlusWrapperTest is BaseTest {
     s_consumer.makeRequest(callbackGasLimit, 0, 1);
   }
 
-  function testRequestRandomWordsInNative_NotConfigured() public {
+  function testRequestRandomWordsInNativeNotConfigured() public {
     VRFV2PlusWrapper wrapper = new VRFV2PlusWrapper(
       address(s_linkToken),
       address(s_linkNativeFeed),
@@ -464,7 +449,7 @@ contract VRFV2PlusWrapperTest is BaseTest {
     wrapper.requestRandomWordsInNative(500_000, 0, 1, "");
   }
 
-  function testRequestRandomWordsInNative_Disabled() public {
+  function testRequestRandomWordsInNativeDisabled() public {
     s_wrapper.disable();
 
     vm.expectRevert("wrapper is disabled");
