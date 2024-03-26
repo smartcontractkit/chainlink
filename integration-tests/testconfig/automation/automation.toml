@@ -12,6 +12,13 @@ spec_type="minimum"
 chainlink_node_log_level="info"
 use_prometheus=false
 
+[Adhoc.Automation]
+[Adhoc.Automation.Adhoc]
+deploy_contracts=true
+load_contracts=false
+setup_upkeeps=true
+tear_down_deployment=false
+
 # load test specific overrides
 [Load.Common]
 chainlink_node_funding = 100

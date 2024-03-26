@@ -8,6 +8,7 @@ import (
 type Config struct {
 	General *General `toml:"General"`
 	Load    []Load   `toml:"Load"`
+	Adhoc   Adhoc    `toml:"Adhoc"`
 }
 
 func (c *Config) Validate() error {
@@ -87,5 +88,78 @@ func (c *Load) Validate() error {
 		return errors.New("perform_burn_amount must be set to a non-negative integer")
 	}
 
+	return nil
+}
+
+type Adhoc struct {
+	DeployContracts       *bool   `toml:"deploy_contracts"`
+	LoadContracts         *bool   `toml:"load_contracts"`
+	SetupUpkeeps          *bool   `toml:"setup_upkeeps"`
+	ConnectDataStream     *bool   `toml:"connect_data_stream"`
+	TearDownDeployment    *bool   `toml:"tear_down_deployment"`
+	DeleteExistingJobs    *bool   `toml:"delete_existing_jobs"`
+	LinkTokenAddress      *string `toml:"link_token_address"`
+	NativeLinkFeedAddress *string `toml:"native_link_feed_address"`
+	FastGasFeedAddress    *string `toml:"fast_gas_feed_address"`
+	TranscoderAddress     *string `toml:"transcoder_address"`
+	RegistryAddress       *string `toml:"registry_address"`
+	RegistrarAddress      *string `toml:"registrar_address"`
+	DataStreamURL         *string `toml:"data_stream_url"`
+	DataStreamUsername    *string `toml:"data_stream_username"`
+	DataStreamPassword    *string `toml:"data_stream_password"`
+	DataStreamFeedId      *string `toml:"data_stream_feed_id"`
+}
+
+func (c *Adhoc) Validate() error {
+	if c.DeployContracts == nil {
+		return errors.New("deploy_contracts must be set")
+	}
+	if c.LoadContracts == nil {
+		return errors.New("load_contracts must be set")
+	}
+	if c.SetupUpkeeps == nil {
+		return errors.New("setup_upkeeps must be set")
+	}
+	if c.TearDownDeployment == nil {
+		return errors.New("tear_down_deployment must be set")
+	}
+	if *c.LoadContracts {
+		if c.DeleteExistingJobs == nil {
+			return errors.New("delete_existing_jobs must be set")
+		}
+		if c.LinkTokenAddress == nil {
+			return errors.New("link_token_address must be set")
+		}
+		if c.NativeLinkFeedAddress == nil {
+			return errors.New("native_link_feed_address must be set")
+		}
+		if c.FastGasFeedAddress == nil {
+			return errors.New("fast_gas_feed_address must be set")
+		}
+		if c.TranscoderAddress == nil {
+			return errors.New("transcoder_address must be set")
+		}
+		if c.RegistryAddress == nil {
+			return errors.New("registry_address must be set")
+		}
+		if c.RegistrarAddress == nil {
+			return errors.New("registrar_address must be set")
+		}
+
+	}
+	if *c.ConnectDataStream {
+		if c.DataStreamURL == nil {
+			return errors.New("data_stream_url must be set")
+		}
+		if c.DataStreamUsername == nil {
+			return errors.New("data_stream_username must be set")
+		}
+		if c.DataStreamPassword == nil {
+			return errors.New("data_stream_password must be set")
+		}
+		if c.DataStreamFeedId == nil {
+			return errors.New("data_stream_feed_id must be set")
+		}
+	}
 	return nil
 }

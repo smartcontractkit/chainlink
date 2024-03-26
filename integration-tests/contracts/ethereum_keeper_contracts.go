@@ -98,6 +98,13 @@ type KeeperConsumer interface {
 	Start() error
 }
 
+type DataStreamsConsumer interface {
+	SetFeeds(feeds []string) error
+	Address() string
+	Counter(ctx context.Context) (*big.Int, error)
+	Start() error
+}
+
 type UpkeepCounter interface {
 	Address() string
 	Fund(ethAmount *big.Float) error
@@ -1929,6 +1936,18 @@ func (v *EthereumAutomationStreamsLookupUpkeepConsumer) Start() error {
 	return v.client.ProcessTransaction(tx)
 }
 
+func (v *EthereumAutomationStreamsLookupUpkeepConsumer) SetFeeds(feeds []string) error {
+	txOpts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := v.consumer.SetFeeds(txOpts, feeds)
+	if err != nil {
+		return err
+	}
+	return v.client.ProcessTransaction(tx)
+}
+
 func (v *EthereumAutomationStreamsLookupUpkeepConsumer) Counter(ctx context.Context) (*big.Int, error) {
 	opts := &bind.CallOpts{
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
@@ -1959,6 +1978,18 @@ func (v *EthereumAutomationLogTriggeredStreamsLookupUpkeepConsumer) Start() erro
 	}
 
 	tx, err := v.consumer.Start(txOpts)
+	if err != nil {
+		return err
+	}
+	return v.client.ProcessTransaction(tx)
+}
+
+func (v *EthereumAutomationLogTriggeredStreamsLookupUpkeepConsumer) SetFeeds(feeds []string) error {
+	txOpts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := v.consumer.SetFeedsHex(txOpts, feeds)
 	if err != nil {
 		return err
 	}

@@ -743,6 +743,7 @@ func (a *AutomationTest) LoadAutomationDeployment(t *testing.T, linkTokenAddress
 	err = a.LoadRegistrar(registrarAddress)
 	require.NoError(t, err, "Error loading registrar contract")
 
-	a.AddJobsAndSetConfig(t)
+	// TODO - figure out proper way to control this
+	//a.AddJobsAndSetConfig(t)
 
 }

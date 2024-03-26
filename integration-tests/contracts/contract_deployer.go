@@ -112,8 +112,8 @@ type ContractDeployer interface {
 	DeployKeeperConsumer(updateInterval *big.Int) (KeeperConsumer, error)
 	DeployAutomationLogTriggerConsumer(testInterval *big.Int) (KeeperConsumer, error)
 	DeployAutomationSimpleLogTriggerConsumer() (KeeperConsumer, error)
-	DeployAutomationStreamsLookupUpkeepConsumer(testRange *big.Int, interval *big.Int, useArbBlock bool, staging bool, verify bool) (KeeperConsumer, error)
-	DeployAutomationLogTriggeredStreamsLookupUpkeepConsumer() (KeeperConsumer, error)
+	DeployAutomationStreamsLookupUpkeepConsumer(testRange *big.Int, interval *big.Int, useArbBlock bool, staging bool, verify bool) (DataStreamsConsumer, error)
+	DeployAutomationLogTriggeredStreamsLookupUpkeepConsumer() (DataStreamsConsumer, error)
 	DeployKeeperConsumerPerformance(
 		testBlockRange,
 		averageCadence,
@@ -1536,7 +1536,7 @@ func (e *EthereumContractDeployer) DeployAutomationSimpleLogTriggerConsumer() (K
 	}, err
 }
 
-func (e *EthereumContractDeployer) DeployAutomationStreamsLookupUpkeepConsumer(testRange *big.Int, interval *big.Int, useArbBlock bool, staging bool, verify bool) (KeeperConsumer, error) {
+func (e *EthereumContractDeployer) DeployAutomationStreamsLookupUpkeepConsumer(testRange *big.Int, interval *big.Int, useArbBlock bool, staging bool, verify bool) (DataStreamsConsumer, error) {
 	address, _, instance, err := e.client.DeployContract("StreamsLookupUpkeep", func(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
@@ -1555,13 +1555,13 @@ func (e *EthereumContractDeployer) DeployAutomationStreamsLookupUpkeepConsumer(t
 	}, err
 }
 
-func (e *EthereumContractDeployer) DeployAutomationLogTriggeredStreamsLookupUpkeepConsumer() (KeeperConsumer, error) {
+func (e *EthereumContractDeployer) DeployAutomationLogTriggeredStreamsLookupUpkeepConsumer() (DataStreamsConsumer, error) {
 	address, _, instance, err := e.client.DeployContract("LogTriggeredStreamsLookupUpkeep", func(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
 		return log_triggered_streams_lookup_wrapper.DeployLogTriggeredStreamsLookup(
-			auth, wrappers.MustNewWrappedContractBackend(e.client, nil), false, false, false,
+			auth, wrappers.MustNewWrappedContractBackend(e.client, nil), false, false,
 		)
 	})
 	if err != nil {
