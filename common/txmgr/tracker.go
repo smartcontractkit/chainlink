@@ -224,7 +224,7 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) setEnabledA
 	return nil
 }
 
-// trackAbandonedTxes called on stratup to find and insert all abandoned txes into the tracker.
+// trackAbandonedTxes called on startup to find and insert all abandoned txes into the tracker.
 func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) trackAbandonedTxes(ctx context.Context) (err error) {
 	return sqlutil.Batch(func(offset, limit uint) (count uint, err error) {
 		nonFatalTxes, err := tr.txStore.GetNonFatalTransactionsByBatch(ctx, tr.chainID, offset, limit)
