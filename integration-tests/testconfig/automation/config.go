@@ -101,7 +101,7 @@ type DataStreams struct {
 }
 
 func (c *DataStreams) Validate() error {
-	if *c.Enabled == true {
+	if c.Enabled != nil && *c.Enabled {
 		if c.URL == nil {
 			return errors.New("data_streams_url must be set")
 		}
@@ -114,6 +114,8 @@ func (c *DataStreams) Validate() error {
 		if c.DefaultFeedID == nil {
 			return errors.New("data_streams_feed_id must be set")
 		}
+	} else {
+		*c.Enabled = false
 	}
 	return nil
 }
