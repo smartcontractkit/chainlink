@@ -60,7 +60,7 @@ type l1Oracle struct {
 	gasCostMethod      string
 	l1GasCostMethodAbi abi.ABI
 
-	daPriceReader daPriceReader
+	priceReader daPriceReader
 
 	chInitialised chan struct{}
 	chStop        services.StopChan
@@ -118,14 +118,14 @@ func IsRollupWithL1Support(chainType config.ChainType) bool {
 }
 
 func NewL1GasOracle(lggr logger.Logger, ethClient ethClient, chainType config.ChainType) L1Oracle {
-	var daPriceReader daPriceReader
+	var priceReader daPriceReader
 	if chainType == config.ChainOptimismBedrock || chainType == config.ChainKroma {
-		daPriceReader = newOPPriceReader(lggr, ethClient, chainType, KromaGasOracleAddress)
+		priceReader = newOPPriceReader(lggr, ethClient, chainType, KromaGasOracleAddress)
 	}
-	return newL1GasOracle(lggr, ethClient, chainType, daPriceReader)
+	return newL1GasOracle(lggr, ethClient, chainType, priceReader)
 }
 
-func newL1GasOracle(lggr logger.Logger, ethClient ethClient, chainType config.ChainType, daPriceReader daPriceReader) L1Oracle {
+func newL1GasOracle(lggr logger.Logger, ethClient ethClient, chainType config.ChainType, priceReader daPriceReader) L1Oracle {
 	var l1GasPriceAddress, gasPriceMethod, l1GasCostAddress, gasCostMethod string
 	var l1GasPriceMethodAbi, l1GasCostMethodAbi abi.ABI
 	var gasPriceErr, gasCostErr error
@@ -182,7 +182,7 @@ func newL1GasOracle(lggr logger.Logger, ethClient ethClient, chainType config.Ch
 		gasCostMethod:       gasCostMethod,
 		l1GasCostMethodAbi:  l1GasCostMethodAbi,
 
-		daPriceReader: daPriceReader,
+		priceReader: priceReader,
 
 		chInitialised: make(chan struct{}),
 		chStop:        make(chan struct{}),
@@ -254,9 +254,9 @@ func (o *l1Oracle) refreshWithError() (t *time.Timer, err error) {
 }
 
 func (o *l1Oracle) fetchL1GasPrice(ctx context.Context) (price *big.Int, err error) {
-	// if dedicated daPriceReader exists, use the reader
-	if o.daPriceReader != nil {
-		return o.daPriceReader.GetDAGasPrice(ctx)
+	// if dedicated priceReader exists, use the reader
+	if o.priceReader != nil {
+		return o.priceReader.GetDAGasPrice(ctx)
 	}
 
 	var callData, b []byte

@@ -23,7 +23,7 @@ import (
 
 func TestDAPriceReader_ReadV1GasPrice(t *testing.T) {
 	t.Parallel()
-	
+
 	testCases := []struct {
 		name           string
 		isEcotoneError bool
