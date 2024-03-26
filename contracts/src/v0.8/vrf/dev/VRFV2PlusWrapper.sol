@@ -30,6 +30,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
   uint256 public immutable SUBSCRIPTION_ID;
   LinkTokenInterface internal immutable i_link;
+  // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
   AggregatorV3Interface public immutable LINK_NATIVE_FEED;
 
   error LinkAlreadySet();
