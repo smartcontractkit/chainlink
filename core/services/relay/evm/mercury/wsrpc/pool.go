@@ -126,23 +126,20 @@ type pool struct {
 
 	mu sync.RWMutex
 
+	tlsCertFile *string
+
 	cacheSet cache.CacheSet
 
 	closed bool
 }
 
-func NewPool(lggr logger.Logger, cacheCfg cache.Config) Pool {
-	lggr = lggr.Named("Mercury.WSRPCPool")
-	p := newPool(lggr)
-	p.newClient = NewClient
-	p.cacheSet = cache.NewCacheSet(lggr, cacheCfg)
-	return p
-}
-
-func newPool(lggr logger.Logger) *pool {
+func NewPool(lggr logger.Logger, cacheCfg cache.Config, tlsCertFile *string) Pool {
 	return &pool{
-		lggr:        lggr,
+		lggr:        lggr.Named("Mercury.WSRPCPool"),
 		connections: make(map[string]map[credentials.StaticSizedPublicKey]*connection),
+		cacheSet:    cache.NewCacheSet(lggr, cacheCfg),
+		newClient:   NewClient,
+		tlsCertFile: tlsCertFile,
 	}
 }
 
