@@ -718,6 +718,8 @@ contract SetConfig is SetUp {
 // allow NOPs to withdraw balances made before disableOffchainNOPsOffchain is called
 contract NOPsSettlement is SetUp {
   event NOPsSettledOffchain(address[] payees, uint256[] payments);
+  event FundsWithdrawn(uint256 indexed id, uint256 amount, address to);
+  event PaymentWithdrawn(address indexed transmitter, uint256 indexed amount, address indexed to, address payee);
 
   function testSettleNOPsOffchainRevertDueToUnauthorizedCaller() public {
     (Registry registry, ) = deployAndConfigureRegistryAndRegistrar(AutoBase.PayoutMode.ON_CHAIN);
@@ -905,7 +907,7 @@ contract NOPsSettlement is SetUp {
     assertEq(uint8(AutoBase.PayoutMode.ON_CHAIN), registry.getPayoutMode());
   }
 
-  function testDisableOffchainPaymentsAndNodesCanWithdrawOnchain() public {
+  function testSinglePerformAndNodesCanWithdrawOnchain() public {
     // deploy and configure a registry with OFF_CHAIN payout
     (Registry registry, ) = deployAndConfigureRegistryAndRegistrar(AutoBase.PayoutMode.OFF_CHAIN);
 
@@ -920,17 +922,74 @@ contract NOPsSettlement is SetUp {
     _transmit(id, registry);
 
     // disable offchain payments
-
-    _mintLink(address(registry), 1e10);
+    _mintLink(address(registry), 1e19);
     vm.prank(registry.owner());
     registry.disableOffchainPayments();
 
     // payees should be able to withdraw onchain
     for (uint256 i = 0; i < TRANSMITTERS.length; i++) {
-      (, , uint96 balance, , address payee) = registry.getTransmitterInfo(TRANSMITTERS[0]);
+      (, , uint96 balance, , address payee) = registry.getTransmitterInfo(TRANSMITTERS[i]);
       vm.prank(payee);
+      vm.expectEmit();
+      emit PaymentWithdrawn(TRANSMITTERS[i], balance, payee, payee);
       registry.withdrawPayment(TRANSMITTERS[i], payee);
     }
+
+    // allow upkeep admin to withdraw funds
+    vm.startPrank(UPKEEP_ADMIN);
+    registry.cancelUpkeep(id);
+    vm.roll(100 + block.number);
+    vm.expectEmit();
+    // the upkeep spent less than minimum spending limit so upkeep admin can only withdraw upkeep balance - min spend value
+    emit FundsWithdrawn(id, 9.9e19, UPKEEP_ADMIN);
+    registry.withdrawFunds(id, UPKEEP_ADMIN);
+  }
+
+  function testMultiplePerformsAndNodesCanWithdrawOnchain() public {
+    // deploy and configure a registry with OFF_CHAIN payout
+    (Registry registry, ) = deployAndConfigureRegistryAndRegistrar(AutoBase.PayoutMode.OFF_CHAIN);
+
+    // register an upkeep and add funds
+    uint256 id = registry.registerUpkeep(address(TARGET1), 1000000, UPKEEP_ADMIN, 0, address(usdToken), "", "", "");
+    _mintERC20(UPKEEP_ADMIN, 1e20);
+    vm.startPrank(UPKEEP_ADMIN);
+    usdToken.approve(address(registry), 1e20);
+    registry.addFunds(id, 1e20);
+
+    // manually call transmit so transmitters earn some rewards
+    for (uint256 i = 0; i < 50; i++) {
+      vm.roll(100 + block.number);
+      _transmit(id, registry);
+    }
+
+    // disable offchain payments
+    _mintLink(address(registry), 1e19);
+    vm.prank(registry.owner());
+    registry.disableOffchainPayments();
+
+    // manually call transmit after offchain payment is disabled
+    for (uint256 i = 0; i < 50; i++) {
+      vm.roll(100 + block.number);
+      _transmit(id, registry);
+    }
+
+    // payees should be able to withdraw onchain
+    for (uint256 i = 0; i < TRANSMITTERS.length; i++) {
+      (, , uint96 balance, , address payee) = registry.getTransmitterInfo(TRANSMITTERS[i]);
+      vm.prank(payee);
+      vm.expectEmit();
+      emit PaymentWithdrawn(TRANSMITTERS[i], balance, payee, payee);
+      registry.withdrawPayment(TRANSMITTERS[i], payee);
+    }
+
+    // allow upkeep admin to withdraw funds
+    vm.startPrank(UPKEEP_ADMIN);
+    registry.cancelUpkeep(id);
+    vm.roll(100 + block.number);
+    uint256 balance = registry.getBalance(id);
+    vm.expectEmit();
+    emit FundsWithdrawn(id, balance, UPKEEP_ADMIN);
+    registry.withdrawFunds(id, UPKEEP_ADMIN);
   }
 
   function _transmit(uint256 id, Registry registry) internal {
@@ -981,7 +1040,7 @@ contract NOPsSettlement is SetUp {
       flatFeeMilliCents: 2_000, // 2 cents
       priceFeed: address(USDTOKEN_USD_FEED),
       fallbackPrice: 100_000_000, // $1
-      minSpend: 100000000000000000000 // 100 USD
+      minSpend: 1000000000000000000 // 1 USD
     });
 
     address[] memory registrars;

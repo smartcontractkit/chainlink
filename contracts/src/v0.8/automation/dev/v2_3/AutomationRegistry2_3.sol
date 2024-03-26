@@ -190,7 +190,8 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
               fastGasWei: report.fastGasWei,
               linkUSD: report.linkUSD,
               nativeUSD: _getNativeUSD(hotVars),
-              billingToken: billingTokenParams,
+              billingToken: upkeepTransmitInfo[i].upkeep.billingToken,
+              billingTokenParams: billingTokenParams,
               isTransaction: true
             }),
             report.upkeepIds[i],
@@ -213,6 +214,7 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
     // record payments
     s_transmitters[msg.sender].balance += transmitVars.totalReimbursement;
     s_hotVars.totalPremium += transmitVars.totalPremium;
+    s_reserveAmounts[IERC20(address(i_link))] += transmitVars.totalReimbursement + transmitVars.totalPremium;
   }
 
   /**
