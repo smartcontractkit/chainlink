@@ -9,6 +9,7 @@ struct CheckData {
   uint256 checkBurnAmount;
   uint256 performBurnAmount;
   bytes32 eventSig;
+  string[] feeds;
 }
 
 contract SimpleLogUpkeepCounter is ILogAutomation, StreamsLookupCompatibleInterface {
@@ -31,7 +32,6 @@ contract SimpleLogUpkeepCounter is ILogAutomation, StreamsLookupCompatibleInterf
   bool internal isRecovered;
   bool public isStreamsLookup;
   bool public shouldRetryOnError;
-  string[] public feedsHex = ["0x000200"];
   string public feedParamKey = "feedIDs";
   string public timeParamKey = "timestamp";
 
@@ -53,16 +53,15 @@ contract SimpleLogUpkeepCounter is ILogAutomation, StreamsLookupCompatibleInterf
     feedParamKey = feedParam;
   }
 
-  function setFeedsHex(string[] memory newFeeds) external {
-    feedsHex = newFeeds;
-  }
-
   function setShouldRetryOnErrorBool(bool value) public {
     shouldRetryOnError = value;
   }
 
   function checkLog(Log calldata log, bytes calldata checkData) external view override returns (bool, bytes memory) {
-    (uint256 checkBurnAmount, , bytes32 eventSig) = abi.decode(checkData, (uint256, uint256, bytes32));
+    (uint256 checkBurnAmount, , bytes32 eventSig, string[] memory feeds) = abi.decode(
+      checkData,
+      (uint256, uint256, bytes32, string[])
+    );
     uint256 startGas = gasleft();
     bytes32 dummyIndex = blockhash(block.number - 1);
     bool dummy;
@@ -79,7 +78,7 @@ contract SimpleLogUpkeepCounter is ILogAutomation, StreamsLookupCompatibleInterf
     bytes memory extraData = abi.encode(log, block.number, checkData);
     if (log.topics[2] == eventSig) {
       if (isStreamsLookup) {
-        revert StreamsLookup(feedParamKey, feedsHex, timeParamKey, block.number, extraData);
+        revert StreamsLookup(feedParamKey, feeds, timeParamKey, block.timestamp, extraData);
       }
       return (true, abi.encode(values, extraData));
     }
@@ -120,7 +119,7 @@ contract SimpleLogUpkeepCounter is ILogAutomation, StreamsLookupCompatibleInterf
     if (checkBlock != log.blockNumber) {
       isRecovered = true;
     }
-    (, uint256 performBurnAmount, bytes32 eventSig) = abi.decode(checkData, (uint256, uint256, bytes32));
+    (, uint256 performBurnAmount, bytes32 eventSig, ) = abi.decode(checkData, (uint256, uint256, bytes32, string[]));
     uint256 startGas = gasleft();
     bytes32 dummyIndex = blockhash(block.number - 1);
     bool dummy;
