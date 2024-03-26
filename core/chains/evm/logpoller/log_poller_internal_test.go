@@ -12,6 +12,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 	pkgerrors "github.com/pkg/errors"
@@ -222,6 +223,7 @@ func TestLogPoller_BackupPollerStartup(t *testing.T) {
 	ec.On("HeadByNumber", mock.Anything, mock.Anything).Return(&head, nil)
 	ec.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{log1}, nil)
 	ec.On("ConfiguredChainID").Return(chainID, nil)
+	mockBatchCallContext(t, ec)
 
 	ctx := testutils.Context(t)
 	lpOpts := Opts{
@@ -243,7 +245,30 @@ func TestLogPoller_BackupPollerStartup(t *testing.T) {
 	require.Equal(t, int64(3), lastProcessed.BlockNumber)
 
 	lp.BackupPollAndSaveLogs(ctx)
-	assert.Equal(t, int64(1), lp.backupPollerNextBlock) // Ensure non-negative!
+	assert.Equal(t, int64(2), lp.backupPollerNextBlock)
+}
+
+func mockBatchCallContext(t *testing.T, ec *evmclimocks.Client) {
+	ec.On("BatchCallContext", mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+		elems := args.Get(1).([]rpc.BatchElem)
+		for _, e := range elems {
+			var num int64
+			block := e.Args[0].(string)
+			switch block {
+			case "latest":
+				num = 8
+			case "finalized":
+				num = 5
+			default:
+				n, err := hexutil.DecodeUint64(block)
+				require.NoError(t, err)
+				num = int64(n)
+			}
+			result := e.Result.(*evmtypes.Head)
+			*result = evmtypes.Head{Number: num, Hash: utils.NewHash()}
+
+		}
+	})
 }
 
 func TestLogPoller_Replay(t *testing.T) {
@@ -272,6 +297,8 @@ func TestLogPoller_Replay(t *testing.T) {
 	ec.On("HeadByNumber", mock.Anything, mock.Anything).Return(&head, nil)
 	ec.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{log1}, nil).Twice()
 	ec.On("ConfiguredChainID").Return(chainID, nil)
+	mockBatchCallContext(t, ec)
+
 	lpOpts := Opts{
 		PollPeriod:               time.Hour,
 		FinalityDepth:            3,
