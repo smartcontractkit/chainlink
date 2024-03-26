@@ -58,7 +58,7 @@ contract SimpleLogUpkeepCounter is ILogAutomation, StreamsLookupCompatibleInterf
   }
 
   function checkLog(Log calldata log, bytes calldata checkData) external view override returns (bool, bytes memory) {
-    (CheckData memory _checkData) = abi.decode(checkData,(CheckData));
+    CheckData memory _checkData = abi.decode(checkData, (CheckData));
     uint256 startGas = gasleft();
     bytes32 dummyIndex = blockhash(block.number - 1);
     bool dummy;
@@ -116,7 +116,7 @@ contract SimpleLogUpkeepCounter is ILogAutomation, StreamsLookupCompatibleInterf
     if (checkBlock != log.blockNumber) {
       isRecovered = true;
     }
-    (CheckData memory _checkData) = abi.decode(checkData,(CheckData));
+    CheckData memory _checkData = abi.decode(checkData, (CheckData));
     uint256 startGas = gasleft();
     bytes32 dummyIndex = blockhash(block.number - 1);
     bool dummy;
