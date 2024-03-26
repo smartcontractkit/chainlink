@@ -355,28 +355,40 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) moveUn
 	return nil
 }
 
-// moveInProgressToConfirmedMissingReceipt moves the in-progress transaction to the confirmed missing receipt state.
-// If there is no in-progress transaction, an error is returned.
-func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) moveInProgressToConfirmedMissingReceipt(txAttempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], broadcastAt time.Time) error {
+// moveInProgressToConfirmedMissingReceipt moves transaction to the confirmed missing receipt state.
+func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) moveTxToConfirmedMissingReceipt(txAttempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], broadcastAt time.Time) error {
 	as.Lock()
 	defer as.Unlock()
 
-	tx := as.inprogressTx
-	if tx == nil {
-		return fmt.Errorf("move_in_progress_to_confirmed_missing_receipt: no transaction in progress")
+	tx, ok := as.allTxs[txAttempt.TxID]
+	if !ok {
+		return fmt.Errorf("move_in_progress_to_confirmed_missing_receipt: no transaction with ID %d", txAttempt.TxID)
 	}
 	if len(tx.TxAttempts) == 0 {
 		return fmt.Errorf("move_in_progress_to_confirmed_missing_receipt: no attempts for transaction with ID %d", tx.ID)
 	}
-	if tx.BroadcastAt.Before(broadcastAt) {
+	if tx.BroadcastAt != nil && tx.BroadcastAt.Before(broadcastAt) {
 		tx.BroadcastAt = &broadcastAt
 	}
-	tx.State = TxConfirmedMissingReceipt
-	txAttempt.State = txmgrtypes.TxAttemptBroadcast
-	tx.TxAttempts = append(tx.TxAttempts, txAttempt)
 
+	for i := 0; i < len(tx.TxAttempts); i++ {
+		if tx.TxAttempts[i].ID == txAttempt.ID {
+			attempt := tx.TxAttempts[i]
+			attempt.State = txmgrtypes.TxAttemptBroadcast
+		}
+	}
+
+	switch tx.State {
+	case TxInProgress:
+		as.inprogressTx = nil
+	case TxUnconfirmed:
+		delete(as.unconfirmedTxs, tx.ID)
+	default:
+		panic(fmt.Sprintf("unknown transaction state: %q", tx.State))
+	}
+
+	tx.State = TxConfirmedMissingReceipt
 	as.confirmedMissingReceiptTxs[tx.ID] = tx
-	as.inprogressTx = nil
 
 	return nil
 }
