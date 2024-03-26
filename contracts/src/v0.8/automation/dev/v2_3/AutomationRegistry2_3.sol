@@ -176,6 +176,7 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
 
     {
       BillingTokenPaymentParams memory billingTokenParams;
+      uint256 nativeUSD = _getNativeUSD(hotVars);
       for (uint256 i = 0; i < report.upkeepIds.length; i++) {
         if (upkeepTransmitInfo[i].earlyChecksPassed) {
           if (i == 0 || upkeepTransmitInfo[i].upkeep.billingToken != upkeepTransmitInfo[i - 1].upkeep.billingToken) {
@@ -189,7 +190,7 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
               l1CostWei: (l1Fee * upkeepTransmitInfo[i].calldataWeight) / transmitVars.totalCalldataWeight,
               fastGasWei: report.fastGasWei,
               linkUSD: report.linkUSD,
-              nativeUSD: _getNativeUSD(hotVars),
+              nativeUSD: nativeUSD,
               billingToken: upkeepTransmitInfo[i].upkeep.billingToken,
               billingTokenParams: billingTokenParams,
               isTransaction: true
