@@ -1533,14 +1533,13 @@ func TestVRFV2PlusWithBHF(t *testing.T) {
 		_, err = actions.WaitForBlockNumberToBe(randRequestBlockNumber+uint64(260), evmClient, &wg, time.Second*262, t)
 		wg.Wait()
 		require.NoError(t, err)
-		configCopy.VRFv2Plus.General.SubscriptionFundingAmountNative = ptr.Ptr(float64(1)) // 1 ETH
-		l.Info().Float64("SubscriptionFundingAmountNative", *configCopy.VRFv2Plus.General.SubscriptionFundingAmountNative).
-			Float64("SubscriptionFundingAmountLink", *configCopy.VRFv2Plus.General.SubscriptionFundingAmountLink).
+		l.Info().Float64("SubscriptionFundingAmountNative", *configCopy.VRFv2Plus.General.SubscriptionRefundingAmountNative).
+			Float64("SubscriptionFundingAmountLink", *configCopy.VRFv2Plus.General.SubscriptionRefundingAmountLink).
 			Msg("Funding subscription")
 		err = vrfv2plus.FundSubscriptions(
 			env,
 			chainID,
-			big.NewFloat(*configCopy.VRFv2Plus.General.SubscriptionFundingAmountNative),
+			big.NewFloat(*configCopy.VRFv2Plus.General.SubscriptionRefundingAmountNative),
 			big.NewFloat(*configCopy.VRFv2Plus.General.SubscriptionRefundingAmountLink),
 			vrfContracts.LinkToken,
 			vrfContracts.CoordinatorV2Plus,
