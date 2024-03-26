@@ -86,7 +86,6 @@ type chainConfig interface {
 type estimatorGasEstimatorConfig interface {
 	EIP1559DynamicFees() bool
 	BumpThreshold() uint64
-	LimitMultiplier() float32
 	PriceDefault() *assets.Wei
 	TipCapDefault() *assets.Wei
 	TipCapMin() *assets.Wei

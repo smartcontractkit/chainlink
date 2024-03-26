@@ -295,7 +295,10 @@ func (e *WrappedEvmEstimator) BumpFee(ctx context.Context, originalFee EvmFee, f
 				TipCap: originalFee.DynamicTipCap,
 				FeeCap: originalFee.DynamicFeeCap,
 			}, feeLimit, maxFeePrice, attempts)
-		chainSpecificFeeLimit = uint64(float32(chainSpecificFeeLimit) * e.geCfg.LimitMultiplier())
+		if err != nil {
+			return
+		}
+		chainSpecificFeeLimit, err = commonfee.ApplyMultiplier(chainSpecificFeeLimit, e.geCfg.LimitMultiplier())
 		bumpedFee.DynamicFeeCap = bumpedDynamic.FeeCap
 		bumpedFee.DynamicTipCap = bumpedDynamic.TipCap
 		return
@@ -303,7 +306,10 @@ func (e *WrappedEvmEstimator) BumpFee(ctx context.Context, originalFee EvmFee, f
 
 	// bump legacy fee
 	bumpedFee.Legacy, chainSpecificFeeLimit, err = e.EvmEstimator.BumpLegacyGas(ctx, originalFee.Legacy, feeLimit, maxFeePrice, attempts)
-	chainSpecificFeeLimit = uint64(float32(chainSpecificFeeLimit) * e.geCfg.LimitMultiplier())
+	if err != nil {
+		return
+	}
+	chainSpecificFeeLimit, err = commonfee.ApplyMultiplier(chainSpecificFeeLimit, e.geCfg.LimitMultiplier())
 	return
 }
 

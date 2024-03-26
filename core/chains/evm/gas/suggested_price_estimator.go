@@ -29,7 +29,6 @@ var (
 type suggestedPriceConfig interface {
 	BumpPercent() uint16
 	BumpMin() *assets.Wei
-	LimitMultiplier() float32
 }
 
 //go:generate mockery --quiet --name rpcClient --output ./mocks/ --case=underscore --structname RPCClient

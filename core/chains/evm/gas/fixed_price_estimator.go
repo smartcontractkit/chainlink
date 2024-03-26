@@ -30,7 +30,6 @@ type bumpConfig interface {
 type fixedPriceEstimatorConfig interface {
 	BumpThreshold() uint64
 	FeeCapDefault() *assets.Wei
-	LimitMultiplier() float32
 	PriceDefault() *assets.Wei
 	TipCapDefault() *assets.Wei
 	PriceMax() *assets.Wei
