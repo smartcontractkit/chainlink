@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/chainlink/integration-tests/gauntlet/configs"
 	"os"
 	"strings"
 
@@ -30,7 +31,7 @@ type LinkContract struct {
 
 type OCRContract struct {
 	Address  string
-	Contract contracts.OffchainAggregator
+	Contract contracts.EthereumOffchainAggregator
 }
 
 // Response Default response output for gauntlet commands
@@ -52,8 +53,8 @@ type Response struct {
 }
 
 // New Creates a default gauntlet config
-func New(workingDir string) (*Gauntlet, error) {
-	config, err := gauntlet.NewGauntlet("gauntlet", "")
+func New(binaryName string, workingDir string) (*Gauntlet, error) {
+	config, err := gauntlet.NewGauntlet(binaryName, "yarn")
 	config.SetWorkingDir(workingDir)
 	if err != nil {
 		return nil, err
@@ -144,6 +145,19 @@ func (g *Gauntlet) DeployOCR(ocrContractValues string) error {
 	return nil
 }
 
+func (g *Gauntlet) AddAccess(ocrAddress string) error {
+	_, err := g.Config.ExecCommand([]string{"access_controller:add_access", fmt.Sprintf("--address=%s", ocrAddress), g.Contracts.AccessControllerAddress}, *g.options)
+	if err != nil {
+		return err
+	}
+	_, err = g.FetchGauntletJsonOutput()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (g *Gauntlet) SetPayees(ocrAddress string, payees []string, transmitters []string) error {
 	_, err := g.Config.ExecCommand([]string{
 		"ocr:set_payees",
@@ -161,8 +175,8 @@ func (g *Gauntlet) SetPayees(ocrAddress string, payees []string, transmitters []
 	return nil
 }
 
-func (g *Gauntlet) AddAccess(ocrAddress string) error {
-	_, err := g.Config.ExecCommand([]string{"access_controller:add_access", fmt.Sprintf("--address=%s", ocrAddress), g.Contracts.AccessControllerAddress}, *g.options)
+func (g *Gauntlet) SetConfig(ocrAddress string, ocrConfigValues string) error {
+	_, err := g.Config.ExecCommand([]string{"ocr:set_config", ocrAddress, fmt.Sprintf("--input=%s", ocrConfigValues)}, *g.options)
 	if err != nil {
 		return err
 	}
@@ -174,12 +188,49 @@ func (g *Gauntlet) AddAccess(ocrAddress string) error {
 	return nil
 }
 
-func (g *Gauntlet) SetConfig(ocrAddress string, ocrConfigValues string) error {
-	_, err := g.Config.ExecCommand([]string{"ocr:set_config", ocrAddress, fmt.Sprintf("--input=%s", ocrConfigValues)}, *g.options)
+func (g *Gauntlet) DeployContracts(ocrConfig *configs.OCRConfig, transmitters []string, signers []string, peerIDs []string, payees []string) error {
+	err := g.DeployLinkToken()
 	if err != nil {
 		return err
 	}
-	_, err = g.FetchGauntletJsonOutput()
+
+	err = g.DeployAccessController()
+	if err != nil {
+		return err
+	}
+
+	ocrConfig.Contract.Link = g.Contracts.LinkContract.Address
+	ocrConfig.Contract.BillingAccessController = g.Contracts.AccessControllerAddress
+	ocrConfig.Contract.RequesterAccessController = g.Contracts.AccessControllerAddress
+	ocrConfig.Config.Transmitters = transmitters
+	ocrConfig.Config.Signers = signers
+	ocrConfig.Config.OperatorsPeerIds = strings.Join(peerIDs, ",")
+
+	ocrJsonContract, err := ocrConfig.MarshalContract()
+	if err != nil {
+		return err
+	}
+
+	err = g.DeployOCR(ocrJsonContract)
+	if err != nil {
+		return err
+	}
+
+	err = g.AddAccess(g.Contracts.OCRContract.Address)
+	if err != nil {
+		return err
+	}
+
+	err = g.SetPayees(g.Contracts.OCRContract.Address, payees, transmitters)
+	if err != nil {
+		return err
+	}
+
+	ocrJsonConfig, err := ocrConfig.MarshalConfig()
+	if err != nil {
+		return err
+	}
+	err = g.SetConfig(g.Contracts.OCRContract.Address, ocrJsonConfig)
 	if err != nil {
 		return err
 	}
