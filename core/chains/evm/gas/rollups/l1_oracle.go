@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/rpc"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -28,6 +29,12 @@ import (
 //go:generate mockery --quiet --name ethClient --output ./mocks/ --case=underscore --structname ETHClient
 type ethClient interface {
 	CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error)
+	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
+}
+
+//go:generate mockery --quiet --name daPriceReader --output ./mocks/ --case=underscore --structname DAPriceReader
+type daPriceReader interface {
+	GetDAGasPrice(ctx context.Context) (*big.Int, error)
 }
 
 type priceEntry struct {
@@ -52,6 +59,8 @@ type l1Oracle struct {
 	l1GasCostAddress   string
 	gasCostMethod      string
 	l1GasCostMethodAbi abi.ABI
+
+	priceReader daPriceReader
 
 	chInitialised chan struct{}
 	chStop        services.StopChan
@@ -109,9 +118,23 @@ func IsRollupWithL1Support(chainType config.ChainType) bool {
 }
 
 func NewL1GasOracle(lggr logger.Logger, ethClient ethClient, chainType config.ChainType) L1Oracle {
+	var priceReader daPriceReader
+	switch chainType {
+	case config.ChainOptimismBedrock:
+		priceReader = newOPPriceReader(lggr, ethClient, chainType, OPGasOracleAddress)
+	case config.ChainKroma:
+		priceReader = newOPPriceReader(lggr, ethClient, chainType, KromaGasOracleAddress)
+	default:
+		priceReader = nil
+	}
+	return newL1GasOracle(lggr, ethClient, chainType, priceReader)
+}
+
+func newL1GasOracle(lggr logger.Logger, ethClient ethClient, chainType config.ChainType, priceReader daPriceReader) L1Oracle {
 	var l1GasPriceAddress, gasPriceMethod, l1GasCostAddress, gasCostMethod string
 	var l1GasPriceMethodAbi, l1GasCostMethodAbi abi.ABI
 	var gasPriceErr, gasCostErr error
+
 	switch chainType {
 	case config.ChainArbitrum:
 		l1GasPriceAddress = ArbGasInfoAddress
@@ -163,6 +186,8 @@ func NewL1GasOracle(lggr logger.Logger, ethClient ethClient, chainType config.Ch
 		l1GasCostAddress:    l1GasCostAddress,
 		gasCostMethod:       gasCostMethod,
 		l1GasCostMethodAbi:  l1GasCostMethodAbi,
+
+		priceReader: priceReader,
 
 		chInitialised: make(chan struct{}),
 		chStop:        make(chan struct{}),
@@ -222,13 +247,30 @@ func (o *l1Oracle) refreshWithError() (t *time.Timer, err error) {
 	ctx, cancel := o.chStop.CtxCancel(evmclient.ContextWithDefaultTimeout())
 	defer cancel()
 
+	price, err := o.fetchL1GasPrice(ctx)
+	if err != nil {
+		return t, err
+	}
+
+	o.l1GasPriceMu.Lock()
+	defer o.l1GasPriceMu.Unlock()
+	o.l1GasPrice = priceEntry{price: assets.NewWei(price), timestamp: time.Now()}
+	return
+}
+
+func (o *l1Oracle) fetchL1GasPrice(ctx context.Context) (price *big.Int, err error) {
+	// if dedicated priceReader exists, use the reader
+	if o.priceReader != nil {
+		return o.priceReader.GetDAGasPrice(ctx)
+	}
+
 	var callData, b []byte
 	precompile := common.HexToAddress(o.l1GasPriceAddress)
 	callData, err = o.l1GasPriceMethodAbi.Pack(o.gasPriceMethod)
 	if err != nil {
 		errMsg := fmt.Sprintf("failed to pack calldata for %s L1 gas price method", o.chainType)
 		o.logger.Errorf(errMsg)
-		return t, fmt.Errorf("%s: %w", errMsg, err)
+		return nil, fmt.Errorf("%s: %w", errMsg, err)
 	}
 	b, err = o.client.CallContract(ctx, ethereum.CallMsg{
 		To:   &precompile,
@@ -237,20 +279,16 @@ func (o *l1Oracle) refreshWithError() (t *time.Timer, err error) {
 	if err != nil {
 		errMsg := "gas oracle contract call failed"
 		o.logger.Errorf(errMsg)
-		return t, fmt.Errorf("%s: %w", errMsg, err)
+		return nil, fmt.Errorf("%s: %w", errMsg, err)
 	}
 
 	if len(b) != 32 { // returns uint256;
 		errMsg := fmt.Sprintf("return data length (%d) different than expected (%d)", len(b), 32)
 		o.logger.Criticalf(errMsg)
-		return t, fmt.Errorf(errMsg)
+		return nil, fmt.Errorf(errMsg)
 	}
-	price := new(big.Int).SetBytes(b)
-
-	o.l1GasPriceMu.Lock()
-	defer o.l1GasPriceMu.Unlock()
-	o.l1GasPrice = priceEntry{price: assets.NewWei(price), timestamp: time.Now()}
-	return
+	price = new(big.Int).SetBytes(b)
+	return price, nil
 }
 
 func (o *l1Oracle) GasPrice(_ context.Context) (l1GasPrice *assets.Wei, err error) {

@@ -91,12 +91,7 @@ func NewEvmRegistry(
 	blockSub *BlockSubscriber,
 	finalityDepth uint32,
 ) *EvmRegistry {
-	mercuryConfig := &MercuryConfig{
-		cred:             mc,
-		Abi:              core.StreamsCompatibleABI,
-		AllowListCache:   cache.New(defaultAllowListExpiration, cleanupInterval),
-		pluginRetryCache: cache.New(defaultPluginRetryExpiration, cleanupInterval),
-	}
+	mercuryConfig := NewMercuryConfig(mc, core.StreamsCompatibleABI)
 	hc := http.DefaultClient
 
 	return &EvmRegistry{
@@ -139,9 +134,16 @@ type MercuryConfig struct {
 	pluginRetryCache *cache.Cache
 }
 
-func NewMercuryConfig(credentials *types.MercuryCredentials, abi abi.ABI) *MercuryConfig {
+func NewMercuryConfig(cred *types.MercuryCredentials, abi abi.ABI) *MercuryConfig {
+	c := &types.MercuryCredentials{}
+	if cred != nil {
+		c.Password = cred.Password
+		c.Username = cred.Username
+		c.URL = strings.TrimRight(cred.URL, "/")
+		c.LegacyURL = strings.TrimRight(cred.LegacyURL, "/")
+	}
 	return &MercuryConfig{
-		cred:             credentials,
+		cred:             c,
 		Abi:              abi,
 		AllowListCache:   cache.New(defaultPluginRetryExpiration, cleanupInterval),
 		pluginRetryCache: cache.New(defaultPluginRetryExpiration, cleanupInterval),
@@ -149,9 +151,6 @@ func NewMercuryConfig(credentials *types.MercuryCredentials, abi abi.ABI) *Mercu
 }
 
 func (c *MercuryConfig) Credentials() *types.MercuryCredentials {
-	// remove the trailing slash from the URL if it exists
-	c.cred.URL = strings.TrimRight(c.cred.URL, "/")
-	c.cred.LegacyURL = strings.TrimRight(c.cred.LegacyURL, "/")
 	return c.cred
 }
 
