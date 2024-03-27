@@ -8,6 +8,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/net"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -396,7 +397,7 @@ func pbRegisterCapability(s *grpc.Server, b *net.BrokerExt, impl capabilities.Ba
 	switch t {
 	case capabilities.CapabilityTypeTrigger:
 		i, _ := impl.(capabilities.TriggerCapability)
-		pb.RegisterTriggerExecutableServer(s, &triggerExecutableServer{
+		capabilitiespb.RegisterTriggerExecutableServer(s, &triggerExecutableServer{
 			BrokerExt:   b,
 			impl:        i,
 			cancelFuncs: map[string]func(){},
@@ -404,7 +405,7 @@ func pbRegisterCapability(s *grpc.Server, b *net.BrokerExt, impl capabilities.Ba
 	case capabilities.CapabilityTypeAction:
 		i, _ := impl.(capabilities.ActionCapability)
 
-		pb.RegisterCallbackExecutableServer(s, &callbackExecutableServer{
+		capabilitiespb.RegisterCallbackExecutableServer(s, &callbackExecutableServer{
 			BrokerExt:   b,
 			impl:        i,
 			cancelFuncs: map[string]func(){},
@@ -412,20 +413,20 @@ func pbRegisterCapability(s *grpc.Server, b *net.BrokerExt, impl capabilities.Ba
 	case capabilities.CapabilityTypeConsensus:
 		i, _ := impl.(capabilities.ConsensusCapability)
 
-		pb.RegisterCallbackExecutableServer(s, &callbackExecutableServer{
+		capabilitiespb.RegisterCallbackExecutableServer(s, &callbackExecutableServer{
 			BrokerExt:   b,
 			impl:        i,
 			cancelFuncs: map[string]func(){},
 		})
 	case capabilities.CapabilityTypeTarget:
 		i, _ := impl.(capabilities.TargetCapability)
-		pb.RegisterCallbackExecutableServer(s, &callbackExecutableServer{
+		capabilitiespb.RegisterCallbackExecutableServer(s, &callbackExecutableServer{
 			BrokerExt:   b,
 			impl:        i,
 			cancelFuncs: map[string]func(){},
 		})
 	}
-	pb.RegisterBaseCapabilityServer(s, newBaseCapabilityServer(impl))
+	capabilitiespb.RegisterBaseCapabilityServer(s, newBaseCapabilityServer(impl))
 }
 
 func getExecuteAPIType(c capabilities.CapabilityType) int32 {
