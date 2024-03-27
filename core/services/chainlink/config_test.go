@@ -1552,7 +1552,7 @@ func TestConfig_SetFrom(t *testing.T) {
 				require.NoError(t, c.SetFrom(&f))
 			}
 			ts, err := c.TOMLString()
-			ts = strings.TrimSuffix(ts, "\n")
+
 			require.NoError(t, err)
 			assert.Equal(t, tt.exp, ts)
 		})
