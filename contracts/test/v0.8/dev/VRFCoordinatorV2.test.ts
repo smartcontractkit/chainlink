@@ -1,5 +1,5 @@
 import { ethers } from 'hardhat'
-import { Signer, Contract, BigNumber } from 'ethers'
+import { BigNumber, Contract, Signer } from 'ethers'
 import { assert, expect } from 'chai'
 import { publicAbi } from '../../test-helpers/helpers'
 import { randomAddressString } from 'hardhat/internal/hardhat-network/provider/utils/random'
@@ -37,17 +37,17 @@ describe('VRFCoordinatorV2', () => {
     randomAddress = await random.getAddress()
     oracle = accounts[4]
     const ltFactory = await ethers.getContractFactory(
-      'src/v0.4/LinkToken.sol:LinkToken',
+      'src/v0.8/shared/test/helpers/LinkTokenTestHelper.sol:LinkTokenTestHelper',
       accounts[0],
     )
     linkToken = await ltFactory.deploy()
     const bhFactory = await ethers.getContractFactory(
-      'src/v0.6/BlockhashStore.sol:BlockhashStore',
+      'src/v0.8/vrf/dev/BlockhashStore.sol:BlockhashStore',
       accounts[0],
     )
     blockHashStore = await bhFactory.deploy()
     const mockAggregatorV3Factory = await ethers.getContractFactory(
-      'src/v0.7/tests/MockV3Aggregator.sol:MockV3Aggregator',
+      'src/v0.8/tests/MockV3Aggregator.sol:MockV3Aggregator',
       accounts[0],
     )
     mockLinkEth = await mockAggregatorV3Factory.deploy(0, linkEth)
@@ -899,7 +899,7 @@ describe('VRFCoordinatorV2', () => {
 
     it('non-positive link wei price should revert', async function () {
       const mockAggregatorV3Factory = await ethers.getContractFactory(
-        'src/v0.7/tests/MockV3Aggregator.sol:MockV3Aggregator',
+        'src/v0.8/tests/MockV3Aggregator.sol:MockV3Aggregator',
         owner,
       )
       const vrfCoordinatorV2TestHelperFactory = await ethers.getContractFactory(

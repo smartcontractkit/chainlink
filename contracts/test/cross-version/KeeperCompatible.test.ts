@@ -4,7 +4,7 @@ import { expect } from 'chai'
 import { publicAbi } from '../test-helpers/helpers'
 
 describe('KeeperCompatible', () => {
-  for (let version = 6; version <= 8; version++) {
+  for (let version = 8; version <= 8; version++) {
     describe(`version v0.${version}`, () => {
       let contract: Contract
 

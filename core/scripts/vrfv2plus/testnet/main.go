@@ -304,7 +304,7 @@ func main() {
 		ps, err := proof.BigToSeed(decimal.RequireFromString(*preSeed).BigInt())
 		helpers.PanicErr(err)
 
-		parsedSubID := parseSubID(*subID)
+		parsedSubID := parseUInt256String(*subID)
 		extraArgs, err := extraargs.ExtraArgsV1(*nativePayment)
 		helpers.PanicErr(err)
 		preSeedData := proof.PreSeedDataV2Plus{
@@ -567,7 +567,7 @@ func main() {
 		registerKeyAddress := coordinatorRegisterKey.String("address", "", "coordinator address")
 		registerKeyUncompressedPubKey := coordinatorRegisterKey.String("pubkey", "", "uncompressed pubkey")
 		gasLaneMaxGas := coordinatorRegisterKey.Uint64("gas-lane-max-gas", 1e12, "gas lane max gas price")
-		helpers.ParseArgs(coordinatorRegisterKey, os.Args[2:], "address", "pubkey", "oracle-address")
+		helpers.ParseArgs(coordinatorRegisterKey, os.Args[2:], "address", "pubkey")
 
 		coordinator, err := vrf_coordinator_v2_5.NewVRFCoordinatorV25(common.HexToAddress(*registerKeyAddress), e.Ec)
 		helpers.PanicErr(err)
@@ -605,10 +605,20 @@ func main() {
 		coordinator, err := vrf_coordinator_v2_5.NewVRFCoordinatorV25(common.HexToAddress(*address), e.Ec)
 		helpers.PanicErr(err)
 		fmt.Println("sub-id", *subID, "address", *address, coordinator.Address())
-		parsedSubID := parseSubID(*subID)
+		parsedSubID := parseUInt256String(*subID)
 		s, err := coordinator.GetSubscription(nil, parsedSubID)
 		helpers.PanicErr(err)
 		fmt.Printf("Subscription %+v\n", s)
+	case "coordinator-get-commitment":
+		coordinatorCommitment := flag.NewFlagSet("coordinator-get-commitment", flag.ExitOnError)
+		coordinatorAddress := coordinatorCommitment.String("coordinator-address", "", "coordinator address")
+		requestId := coordinatorCommitment.String("request-id", "", "consumer's request ID")
+		helpers.ParseArgs(coordinatorCommitment, os.Args[2:], "coordinator-address", "request-id")
+		coordinator, err := vrf_coordinator_v2_5.NewVRFCoordinatorV25(common.HexToAddress(*coordinatorAddress), e.Ec)
+		helpers.PanicErr(err)
+		res, err := coordinator.SRequestCommitments(nil, parseUInt256String(*requestId))
+		helpers.PanicErr(err)
+		fmt.Printf("Request ID: %+v - commitment: %v\n", *requestId, hexutil.Encode(res[:]))
 	case "consumer-deploy":
 		consumerDeployCmd := flag.NewFlagSet("consumer-deploy", flag.ExitOnError)
 		consumerCoordinator := consumerDeployCmd.String("coordinator-address", "", "coordinator address")
@@ -757,7 +767,7 @@ func main() {
 		helpers.ParseArgs(addSubConsCmd, os.Args[2:], "coordinator-address", "sub-id", "consumer-address")
 		coordinator, err := vrf_coordinator_v2_5.NewVRFCoordinatorV25(common.HexToAddress(*coordinatorAddress), e.Ec)
 		helpers.PanicErr(err)
-		parsedSubID := parseSubID(*subID)
+		parsedSubID := parseUInt256String(*subID)
 		v2plusscripts.EoaAddConsumerToSub(e, *coordinator, parsedSubID, *consumerAddress)
 	case "eoa-create-fund-authorize-sub":
 		// Lets just treat the owner key as the EOA controlling the sub
@@ -817,7 +827,7 @@ func main() {
 			common.HexToAddress(*consumerAddress),
 			e.Ec)
 		helpers.PanicErr(err)
-		tx, err := consumer.RequestRandomWords(e.Owner, parseSubID(*subID), uint32(*cbGasLimit), uint16(*requestConfirmations), uint32(*numWords), keyHashBytes, *nativePayment)
+		tx, err := consumer.RequestRandomWords(e.Owner, parseUInt256String(*subID), uint32(*cbGasLimit), uint16(*requestConfirmations), uint32(*numWords), keyHashBytes, *nativePayment)
 		helpers.PanicErr(err)
 		fmt.Println("TX", helpers.ExplorerLink(e.ChainID, tx.Hash()))
 		r, err := bind.WaitMined(context.Background(), e.Ec, tx)
@@ -950,7 +960,7 @@ func main() {
 		helpers.ParseArgs(trans, os.Args[2:], "coordinator-address", "sub-id", "to")
 		coordinator, err := vrf_coordinator_v2_5.NewVRFCoordinatorV25(common.HexToAddress(*coordinatorAddress), e.Ec)
 		helpers.PanicErr(err)
-		tx, err := coordinator.RequestSubscriptionOwnerTransfer(e.Owner, parseSubID(*subID), common.HexToAddress(*to))
+		tx, err := coordinator.RequestSubscriptionOwnerTransfer(e.Owner, parseUInt256String(*subID), common.HexToAddress(*to))
 		helpers.PanicErr(err)
 		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 	case "eoa-accept-sub":
@@ -960,7 +970,7 @@ func main() {
 		helpers.ParseArgs(accept, os.Args[2:], "coordinator-address", "sub-id")
 		coordinator, err := vrf_coordinator_v2_5.NewVRFCoordinatorV25(common.HexToAddress(*coordinatorAddress), e.Ec)
 		helpers.PanicErr(err)
-		tx, err := coordinator.AcceptSubscriptionOwnerTransfer(e.Owner, parseSubID(*subID))
+		tx, err := coordinator.AcceptSubscriptionOwnerTransfer(e.Owner, parseUInt256String(*subID))
 		helpers.PanicErr(err)
 		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 	case "eoa-cancel-sub":
@@ -970,7 +980,7 @@ func main() {
 		helpers.ParseArgs(cancel, os.Args[2:], "coordinator-address", "sub-id")
 		coordinator, err := vrf_coordinator_v2_5.NewVRFCoordinatorV25(common.HexToAddress(*coordinatorAddress), e.Ec)
 		helpers.PanicErr(err)
-		tx, err := coordinator.CancelSubscription(e.Owner, parseSubID(*subID), e.Owner.From)
+		tx, err := coordinator.CancelSubscription(e.Owner, parseUInt256String(*subID), e.Owner.From)
 		helpers.PanicErr(err)
 		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 	case "eoa-fund-sub-with-native-token":
@@ -983,7 +993,7 @@ func main() {
 		if !s {
 			panic(fmt.Sprintf("failed to parse top up amount '%s'", *amountStr))
 		}
-		parsedSubID := parseSubID(*subID)
+		parsedSubID := parseUInt256String(*subID)
 
 		v2plusscripts.EoaFundSubWithNative(e, common.HexToAddress(*coordinatorAddress), parsedSubID, amount)
 	case "eoa-fund-sub":
@@ -1000,7 +1010,7 @@ func main() {
 		coordinator, err := vrf_coordinator_v2_5.NewVRFCoordinatorV25(common.HexToAddress(*coordinatorAddress), e.Ec)
 		helpers.PanicErr(err)
 
-		v2plusscripts.EoaFundSubWithLink(e, *coordinator, *consumerLinkAddress, amount, parseSubID(*subID))
+		v2plusscripts.EoaFundSubWithLink(e, *coordinator, *consumerLinkAddress, amount, parseUInt256String(*subID))
 	case "eoa-read":
 		cmd := flag.NewFlagSet("eoa-read", flag.ExitOnError)
 		consumerAddress := cmd.String("consumer", "", "consumer address")
@@ -1021,7 +1031,7 @@ func main() {
 		helpers.ParseArgs(cancel, os.Args[2:], "coordinator-address", "sub-id")
 		coordinator, err := vrf_coordinator_v2_5.NewVRFCoordinatorV25(common.HexToAddress(*coordinatorAddress), e.Ec)
 		helpers.PanicErr(err)
-		tx, err := coordinator.OwnerCancelSubscription(e.Owner, parseSubID(*subID))
+		tx, err := coordinator.OwnerCancelSubscription(e.Owner, parseUInt256String(*subID))
 		helpers.PanicErr(err)
 		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 	case "sub-balance":
@@ -1031,7 +1041,7 @@ func main() {
 		helpers.ParseArgs(consumerBalanceCmd, os.Args[2:], "coordinator-address", "sub-id")
 		coordinator, err := vrf_coordinator_v2_5.NewVRFCoordinatorV25(common.HexToAddress(*coordinatorAddress), e.Ec)
 		helpers.PanicErr(err)
-		resp, err := coordinator.GetSubscription(nil, parseSubID(*subID))
+		resp, err := coordinator.GetSubscription(nil, parseUInt256String(*subID))
 		helpers.PanicErr(err)
 		fmt.Println("sub id", *subID, "balance:", resp.Balance)
 	case "coordinator-withdrawable-tokens":
@@ -1150,7 +1160,7 @@ func main() {
 			common.HexToAddress(*linkAddress),
 			common.HexToAddress(*linkETHFeedAddress),
 			common.HexToAddress(*coordinatorAddress),
-			parseSubID(*subID))
+			parseUInt256String(*subID))
 	case "wrapper-withdraw":
 		cmd := flag.NewFlagSet("wrapper-withdraw", flag.ExitOnError)
 		wrapperAddress := cmd.String("wrapper-address", "", "address of the VRFV2Wrapper contract")
@@ -1306,7 +1316,7 @@ func main() {
 	}
 }
 
-func parseSubID(subID string) *big.Int {
+func parseUInt256String(subID string) *big.Int {
 	parsedSubID, ok := new(big.Int).SetString(subID, 10)
 	if !ok {
 		helpers.PanicErr(fmt.Errorf("sub ID %s cannot be parsed", subID))

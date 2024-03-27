@@ -8,11 +8,13 @@ import {AutomationRegistryLogicC2_3} from "./AutomationRegistryLogicC2_3.sol";
 import {Chainable} from "../../Chainable.sol";
 import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 import {SafeCast} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/math/SafeCast.sol";
+import {SafeERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/utils/SafeERC20.sol";
 
 contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3, Chainable {
   using Address for address;
   using EnumerableSet for EnumerableSet.UintSet;
   using EnumerableSet for EnumerableSet.AddressSet;
+  using SafeERC20 for IERC20;
 
   /**
    * @param logicC the address of the third logic contract
@@ -38,6 +40,32 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3, Chainable {
   // ================================================================
 
   /**
+   * @notice overrides the billing config for an upkeep
+   * @param id the upkeepID
+   * @param billingOverrides the override-able billing config
+   */
+  function setBillingOverrides(uint256 id, BillingOverrides calldata billingOverrides) external {
+    _onlyPrivilegeManagerAllowed();
+    if (s_upkeep[id].maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
+
+    s_upkeep[id].overridesEnabled = true;
+    s_billingOverrides[id] = billingOverrides;
+    emit BillingConfigOverridden(id, billingOverrides);
+  }
+
+  /**
+   * @notice remove the overridden billing config for an upkeep
+   * @param id the upkeepID
+   */
+  function removeBillingOverrides(uint256 id) external {
+    _onlyPrivilegeManagerAllowed();
+
+    s_upkeep[id].overridesEnabled = false;
+    delete s_billingOverrides[id];
+    emit BillingConfigOverrideRemoved(id);
+  }
+
+  /**
    * @notice adds fund to an upkeep
    * @param id the upkeepID
    * @param amount the amount of funds to add, in the upkeep's billing token
@@ -48,13 +76,13 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3, Chainable {
 
     if (msg.value != 0) {
       if (upkeep.billingToken != IERC20(i_wrappedNativeToken)) {
-        revert InvalidBillingToken();
+        revert InvalidToken();
       }
       amount = SafeCast.toUint96(msg.value);
     }
 
     s_upkeep[id].balance = upkeep.balance + amount;
-    s_reserveAmounts[address(upkeep.billingToken)] = s_reserveAmounts[address(upkeep.billingToken)] + amount;
+    s_reserveAmounts[upkeep.billingToken] = s_reserveAmounts[upkeep.billingToken] + amount;
 
     if (msg.value == 0) {
       // ERC20 payment
@@ -170,43 +198,107 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3, Chainable {
     if (s_upkeepAdmin[id] != msg.sender) revert OnlyCallableByAdmin();
     if (upkeep.maxValidBlocknumber > s_hotVars.chainModule.blockNumber()) revert UpkeepNotCanceled();
     uint96 amountToWithdraw = s_upkeep[id].balance;
-    s_reserveAmounts[address(upkeep.billingToken)] = s_reserveAmounts[address(upkeep.billingToken)] - amountToWithdraw;
+    s_reserveAmounts[upkeep.billingToken] = s_reserveAmounts[upkeep.billingToken] - amountToWithdraw;
     s_upkeep[id].balance = 0;
-    bool success = upkeep.billingToken.transfer(to, amountToWithdraw);
-    if (!success) revert TransferFailed();
+    upkeep.billingToken.safeTransfer(to, amountToWithdraw);
     emit FundsWithdrawn(id, amountToWithdraw, to);
   }
 
   /**
-   * @notice LINK available to withdraw by the finance team
+   * @notice returns the size of the LINK liquidity pool
+   # @dev LINK max supply < 2^96, so casting to int256 is safe
    */
-  function linkAvailableForPayment() public view returns (uint256) {
-    return i_link.balanceOf(address(this)) - s_reserveAmounts[address(i_link)];
+  function linkAvailableForPayment() public view returns (int256) {
+    return int256(i_link.balanceOf(address(this))) - int256(s_reserveAmounts[IERC20(address(i_link))]);
   }
 
-  function withdrawLinkFees(address to, uint256 amount) external {
+  /**
+   * @notice withdraws excess LINK from the liquidity pool
+   * @param to the address to send the fees to
+   * @param amount the amount to withdraw
+   */
+  function withdrawLink(address to, uint256 amount) external {
     _onlyFinanceAdminAllowed();
     if (to == ZERO_ADDRESS) revert InvalidRecipient();
 
-    uint256 available = linkAvailableForPayment();
-    if (amount > available) revert InsufficientBalance(available, amount);
+    int256 available = linkAvailableForPayment();
+    if (available < 0) {
+      revert InsufficientBalance(0, amount);
+    } else if (amount > uint256(available)) {
+      revert InsufficientBalance(uint256(available), amount);
+    }
 
     bool transferStatus = i_link.transfer(to, amount);
     if (!transferStatus) {
       revert TransferFailed();
     }
-    emit FeesWithdrawn(to, address(i_link), amount);
+    emit FeesWithdrawn(address(i_link), to, amount);
   }
 
-  function withdrawERC20Fees(address assetAddress, address to, uint256 amount) external {
+  /**
+   * @notice withdraws non-LINK fees earned by the contract
+   * @param asset the asset to withdraw
+   * @param to the address to send the fees to
+   * @param amount the amount to withdraw
+   */
+  function withdrawERC20Fees(IERC20 asset, address to, uint256 amount) external {
     _onlyFinanceAdminAllowed();
     if (to == ZERO_ADDRESS) revert InvalidRecipient();
+    if (address(asset) == address(i_link)) revert InvalidToken();
+    uint256 available = asset.balanceOf(address(this)) - s_reserveAmounts[asset];
+    if (amount > available) revert InsufficientBalance(available, amount);
 
-    bool transferStatus = IERC20(assetAddress).transfer(to, amount);
-    if (!transferStatus) {
-      revert TransferFailed();
+    asset.safeTransfer(to, amount);
+    emit FeesWithdrawn(address(asset), to, amount);
+  }
+
+  /**
+   * @dev checkCallback is used specifically for automation data streams lookups (see StreamsLookupCompatibleInterface.sol)
+   * @param id the upkeepID to execute a callback for
+   * @param values the values returned from the data streams lookup
+   * @param extraData the user-provided extra context data
+   */
+  function checkCallback(
+    uint256 id,
+    bytes[] memory values,
+    bytes calldata extraData
+  )
+    external
+    returns (bool upkeepNeeded, bytes memory performData, UpkeepFailureReason upkeepFailureReason, uint256 gasUsed)
+  {
+    bytes memory payload = abi.encodeWithSelector(CHECK_CALLBACK_SELECTOR, values, extraData);
+    return executeCallback(id, payload);
+  }
+
+  /**
+   * @notice this is a generic callback executor that forwards a call to a user's contract with the configured
+   * gas limit
+   * @param id the upkeepID to execute a callback for
+   * @param payload the data (including function selector) to call on the upkeep target contract
+   */
+  function executeCallback(
+    uint256 id,
+    bytes memory payload
+  )
+    public
+    returns (bool upkeepNeeded, bytes memory performData, UpkeepFailureReason upkeepFailureReason, uint256 gasUsed)
+  {
+    _preventExecution();
+
+    Upkeep memory upkeep = s_upkeep[id];
+    gasUsed = gasleft();
+    (bool success, bytes memory result) = upkeep.forwarder.getTarget().call{gas: s_storage.checkGasLimit}(payload);
+    gasUsed = gasUsed - gasleft();
+    if (!success) {
+      return (false, bytes(""), UpkeepFailureReason.CALLBACK_REVERTED, gasUsed);
     }
-
-    emit FeesWithdrawn(to, assetAddress, amount);
+    (upkeepNeeded, performData) = abi.decode(result, (bool, bytes));
+    if (!upkeepNeeded) {
+      return (false, bytes(""), UpkeepFailureReason.UPKEEP_NOT_NEEDED, gasUsed);
+    }
+    if (performData.length > s_storage.maxPerformDataSize) {
+      return (false, bytes(""), UpkeepFailureReason.PERFORM_DATA_EXCEEDS_LIMIT, gasUsed);
+    }
+    return (upkeepNeeded, performData, upkeepFailureReason, gasUsed);
   }
 }

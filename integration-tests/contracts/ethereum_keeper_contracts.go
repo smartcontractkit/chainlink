@@ -174,6 +174,7 @@ type KeeperRegistrySettings struct {
 	FallbackLinkPrice    *big.Int // LINK price used if the LINK price feed is stale
 	MaxCheckDataSize     uint32
 	MaxPerformDataSize   uint32
+	MaxRevertDataSize    uint32
 	RegistryVersion      ethereum.KeeperRegistryVersion
 }
 
@@ -258,7 +259,7 @@ func (rcs *KeeperRegistrySettings) Create22OnchainConfig(registrar string, regis
 		MaxPerformGas:          rcs.MaxPerformGas,
 		MaxCheckDataSize:       rcs.MaxCheckDataSize,
 		MaxPerformDataSize:     rcs.MaxPerformDataSize,
-		MaxRevertDataSize:      uint32(1000),
+		MaxRevertDataSize:      rcs.MaxRevertDataSize,
 		FallbackGasPrice:       rcs.FallbackGasPrice,
 		FallbackLinkPrice:      rcs.FallbackLinkPrice,
 		Transcoder:             common.Address{},
@@ -280,7 +281,7 @@ func (rcs *KeeperRegistrySettings) Create21OnchainConfig(registrar string, regis
 		MaxPerformGas:          rcs.MaxPerformGas,
 		MaxCheckDataSize:       rcs.MaxCheckDataSize,
 		MaxPerformDataSize:     rcs.MaxPerformDataSize,
-		MaxRevertDataSize:      uint32(1000),
+		MaxRevertDataSize:      rcs.MaxRevertDataSize,
 		FallbackGasPrice:       rcs.FallbackGasPrice,
 		FallbackLinkPrice:      rcs.FallbackLinkPrice,
 		Transcoder:             common.Address{},

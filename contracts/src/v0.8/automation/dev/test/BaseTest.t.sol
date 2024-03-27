@@ -30,6 +30,8 @@ contract BaseTest is Test {
 
   // constants
   address internal constant ZERO_ADDRESS = address(0);
+  uint32 internal constant DEFAULT_GAS_FEE_PPB = 10_000_000;
+  uint24 internal constant DEFAULT_FLAT_FEE_MILLI_CENTS = 2_000;
 
   // config
   uint8 internal constant F = 1; // number of faulty nodes
@@ -52,6 +54,7 @@ contract BaseTest is Test {
   address internal constant FINANCE_ADMIN = address(uint160(uint256(keccak256("FINANCE_ADMIN"))));
   address internal constant STRANGER = address(uint160(uint256(keccak256("STRANGER"))));
   address internal constant BROKE_USER = address(uint160(uint256(keccak256("BROKE_USER")))); // do not mint to this address
+  address internal constant PRIVILEGE_MANAGER = address(uint160(uint256(keccak256("PRIVILEGE_MANAGER"))));
 
   // nodes
   uint256 internal constant SIGNING_KEY0 = 0x7b2e97fe057e6de99d6872a2ef2abf52c9b4469bc848c2465ac3fcd8d336e81d;
@@ -60,7 +63,9 @@ contract BaseTest is Test {
   uint256 internal constant SIGNING_KEY3 = 0x80f14b11da94ae7f29d9a7713ea13dc838e31960a5c0f2baf45ed458947b730a;
   address[] internal SIGNERS = new address[](4);
   address[] internal TRANSMITTERS = new address[](4);
+  address[] internal NEW_TRANSMITTERS = new address[](4);
   address[] internal PAYEES = new address[](4);
+  address[] internal NEW_PAYEES = new address[](4);
 
   function setUp() public virtual {
     vm.startPrank(OWNER);
@@ -86,11 +91,19 @@ contract BaseTest is Test {
     TRANSMITTERS[1] = address(uint160(uint256(keccak256("TRANSMITTER2"))));
     TRANSMITTERS[2] = address(uint160(uint256(keccak256("TRANSMITTER3"))));
     TRANSMITTERS[3] = address(uint160(uint256(keccak256("TRANSMITTER4"))));
+    NEW_TRANSMITTERS[0] = address(uint160(uint256(keccak256("TRANSMITTER1"))));
+    NEW_TRANSMITTERS[1] = address(uint160(uint256(keccak256("TRANSMITTER2"))));
+    NEW_TRANSMITTERS[2] = address(uint160(uint256(keccak256("TRANSMITTER5"))));
+    NEW_TRANSMITTERS[3] = address(uint160(uint256(keccak256("TRANSMITTER6"))));
 
     PAYEES[0] = address(100);
     PAYEES[1] = address(101);
     PAYEES[2] = address(102);
     PAYEES[3] = address(103);
+    NEW_PAYEES[0] = address(100);
+    NEW_PAYEES[1] = address(101);
+    NEW_PAYEES[2] = address(106);
+    NEW_PAYEES[3] = address(107);
 
     // mint funds
     vm.deal(OWNER, 100 ether);
@@ -113,9 +126,7 @@ contract BaseTest is Test {
     vm.stopPrank();
   }
 
-  /**
-   * @notice deploys the component parts of a registry, but nothing more
-   */
+  /// @notice deploys the component parts of a registry, but nothing more
   function deployRegistry(AutoBase.PayoutMode payoutMode) internal returns (IAutomationRegistryMaster2_3) {
     AutomationForwarderLogic forwarderLogic = new AutomationForwarderLogic();
     AutomationRegistryLogicC2_3 logicC2_3 = new AutomationRegistryLogicC2_3(
@@ -133,14 +144,59 @@ contract BaseTest is Test {
     return IAutomationRegistryMaster2_3(payable(address(new AutomationRegistry2_3(logicA2_3))));
   }
 
-  /**
-   * @notice deploys and configures a registry, registrar, and everything needed for most tests
-   */
+  /// @notice deploys and configures a registry, registrar, and everything needed for most tests
   function deployAndConfigureRegistryAndRegistrar(
     AutoBase.PayoutMode payoutMode
   ) internal returns (IAutomationRegistryMaster2_3, AutomationRegistrar2_3) {
     IAutomationRegistryMaster2_3 registry = deployRegistry(payoutMode);
-    // deploy & configure registrar
+
+    IERC20[] memory billingTokens = new IERC20[](3);
+    billingTokens[0] = IERC20(address(usdToken));
+    billingTokens[1] = IERC20(address(weth));
+    billingTokens[2] = IERC20(address(linkToken));
+    uint256[] memory minRegistrationFees = new uint256[](billingTokens.length);
+    minRegistrationFees[0] = 100000000000000000000; // 100 USD
+    minRegistrationFees[1] = 5000000000000000000; // 5 Native
+    minRegistrationFees[2] = 5000000000000000000; // 5 LINK
+    address[] memory billingTokenAddresses = new address[](billingTokens.length);
+    for (uint256 i = 0; i < billingTokens.length; i++) {
+      billingTokenAddresses[i] = address(billingTokens[i]);
+    }
+    AutomationRegistryBase2_3.BillingConfig[]
+      memory billingTokenConfigs = new AutomationRegistryBase2_3.BillingConfig[](billingTokens.length);
+    billingTokenConfigs[0] = AutomationRegistryBase2_3.BillingConfig({
+      gasFeePPB: DEFAULT_GAS_FEE_PPB, // 15%
+      flatFeeMilliCents: DEFAULT_FLAT_FEE_MILLI_CENTS, // 2 cents
+      priceFeed: address(USDTOKEN_USD_FEED),
+      fallbackPrice: 100_000_000, // $1
+      minSpend: 1000000000000000000 // 1 USD
+    });
+    billingTokenConfigs[1] = AutomationRegistryBase2_3.BillingConfig({
+      gasFeePPB: DEFAULT_GAS_FEE_PPB, // 15%
+      flatFeeMilliCents: DEFAULT_FLAT_FEE_MILLI_CENTS, // 2 cents
+      priceFeed: address(NATIVE_USD_FEED),
+      fallbackPrice: 100_000_000, // $1
+      minSpend: 5000000000000000000 // 5 Native
+    });
+    billingTokenConfigs[2] = AutomationRegistryBase2_3.BillingConfig({
+      gasFeePPB: DEFAULT_GAS_FEE_PPB, // 10%
+      flatFeeMilliCents: DEFAULT_FLAT_FEE_MILLI_CENTS, // 2 cents
+      priceFeed: address(LINK_USD_FEED),
+      fallbackPrice: 1_000_000_000, // $10
+      minSpend: 1000000000000000000 // 1 LINK
+    });
+
+    if (payoutMode == AutoBase.PayoutMode.OFF_CHAIN) {
+      // remove LINK as a payment method if we are settling offchain
+      assembly {
+        mstore(billingTokens, 2)
+        mstore(minRegistrationFees, 2)
+        mstore(billingTokenAddresses, 2)
+        mstore(billingTokenConfigs, 2)
+      }
+    }
+
+    // deploy registrar
     AutomationRegistrar2_3.InitialTriggerConfig[]
       memory triggerConfigs = new AutomationRegistrar2_3.InitialTriggerConfig[](2);
     triggerConfigs[0] = AutomationRegistrar2_3.InitialTriggerConfig({
@@ -153,102 +209,23 @@ contract BaseTest is Test {
       autoApproveType: AutomationRegistrar2_3.AutoApproveType.DISABLED,
       autoApproveMaxAllowed: 0
     });
+    AutomationRegistrar2_3 registrar = new AutomationRegistrar2_3(
+      address(linkToken),
+      registry,
+      triggerConfigs,
+      billingTokens,
+      minRegistrationFees,
+      IWrappedNative(address(weth))
+    );
 
-    AutomationRegistrar2_3 registrar;
-    IERC20[] memory billingTokens;
-    uint256[] memory minRegistrationFees;
     address[] memory registrars;
-    address[] memory billingTokenAddresses;
-    AutomationRegistryBase2_3.BillingConfig[] memory billingTokenConfigs;
-
-    if (payoutMode == AutoBase.PayoutMode.OFF_CHAIN) {
-      IERC20[] memory billingTokens = new IERC20[](2);
-      billingTokens[0] = IERC20(address(usdToken));
-      billingTokens[1] = IERC20(address(weth));
-      minRegistrationFees = new uint256[](billingTokens.length);
-      minRegistrationFees[0] = 100000000000000000000; // 100 USD
-      registrar = new AutomationRegistrar2_3(
-        address(linkToken),
-        registry,
-        triggerConfigs,
-        billingTokens,
-        minRegistrationFees,
-        IWrappedNative(address(weth))
-      );
-      // configure registry
-      registrars = new address[](1);
-      registrars[0] = address(registrar);
-      billingTokenAddresses = new address[](billingTokens.length);
-      for (uint256 i = 0; i < billingTokens.length; i++) {
-        billingTokenAddresses[i] = address(billingTokens[i]);
-      }
-      billingTokenConfigs = new AutomationRegistryBase2_3.BillingConfig[](billingTokens.length);
-      billingTokenConfigs[0] = AutomationRegistryBase2_3.BillingConfig({
-        gasFeePPB: 10_000_000, // 15%
-        flatFeeMicroLink: 100_000,
-        priceFeed: address(USDTOKEN_USD_FEED),
-        fallbackPrice: 100_000_000, // $1
-        minSpend: 100000000000000000000 // 100 USD
-      });
-      billingTokenConfigs[1] = AutomationRegistryBase2_3.BillingConfig({
-        gasFeePPB: 10_000_000, // 15%
-        flatFeeMicroLink: 100_000,
-        priceFeed: address(USDTOKEN_USD_FEED),
-        fallbackPrice: 100_000_000, // $1
-        minSpend: 5000000000000000000 // 5 Native
-      });
-    } else {
-      billingTokens = new IERC20[](3);
-      billingTokens[0] = IERC20(address(linkToken));
-      billingTokens[1] = IERC20(address(usdToken));
-      billingTokens[2] = IERC20(address(weth));
-      minRegistrationFees = new uint256[](billingTokens.length);
-      minRegistrationFees[0] = 5000000000000000000; // 5 LINK
-      minRegistrationFees[1] = 100000000000000000000; // 100 USD
-      minRegistrationFees[2] = 5000000000000000000; // 5 Native
-      registrar = new AutomationRegistrar2_3(
-        address(linkToken),
-        registry,
-        triggerConfigs,
-        billingTokens,
-        minRegistrationFees,
-        IWrappedNative(address(weth))
-      );
-      // configure registry
-      registrars = new address[](1);
-      registrars[0] = address(registrar);
-      billingTokenAddresses = new address[](billingTokens.length);
-      for (uint256 i = 0; i < billingTokens.length; i++) {
-        billingTokenAddresses[i] = address(billingTokens[i]);
-      }
-      billingTokenConfigs = new AutomationRegistryBase2_3.BillingConfig[](billingTokens.length);
-      billingTokenConfigs[0] = AutomationRegistryBase2_3.BillingConfig({
-        gasFeePPB: 10_000_000, // 10%
-        flatFeeMicroLink: 100_000,
-        priceFeed: address(LINK_USD_FEED),
-        fallbackPrice: 1_000_000_000, // $10
-        minSpend: 5000000000000000000 // 5 LINK
-      });
-      billingTokenConfigs[1] = AutomationRegistryBase2_3.BillingConfig({
-        gasFeePPB: 10_000_000, // 15%
-        flatFeeMicroLink: 100_000,
-        priceFeed: address(USDTOKEN_USD_FEED),
-        fallbackPrice: 100_000_000, // $1
-        minSpend: 100000000000000000000 // 100 USD
-      });
-      billingTokenConfigs[2] = AutomationRegistryBase2_3.BillingConfig({
-        gasFeePPB: 10_000_000, // 15%
-        flatFeeMicroLink: 100_000,
-        priceFeed: address(USDTOKEN_USD_FEED),
-        fallbackPrice: 100_000_000, // $1
-        minSpend: 5000000000000000000 // 5 Native
-      });
-    }
+    registrars = new address[](1);
+    registrars[0] = address(registrar);
 
     AutomationRegistryBase2_3.OnchainConfig memory cfg = AutomationRegistryBase2_3.OnchainConfig({
       checkGasLimit: 5_000_000,
       stalenessSeconds: 90_000,
-      gasCeilingMultiplier: 0,
+      gasCeilingMultiplier: 2,
       maxPerformGas: 10_000_000,
       maxCheckDataSize: 5_000,
       maxPerformDataSize: 5_000,
@@ -258,7 +235,7 @@ contract BaseTest is Test {
       fallbackNativePrice: 400_000_000_000, // $4,000
       transcoder: 0xB1e66855FD67f6e85F0f0fA38cd6fBABdf00923c,
       registrars: registrars,
-      upkeepPrivilegeManager: 0xD9c855F08A7e460691F41bBDDe6eC310bc0593D8,
+      upkeepPrivilegeManager: PRIVILEGE_MANAGER,
       chainModule: address(new ChainModuleBase()),
       reorgProtectionEnabled: true,
       financeAdmin: FINANCE_ADMIN
@@ -276,6 +253,42 @@ contract BaseTest is Test {
     );
     registry.setPayees(PAYEES);
     return (registry, registrar);
+  }
+
+  /// @notice this function updates the billing config for the provided token on the provided registry,
+  /// and throws an error if the token is not found
+  function _updateBillingTokenConfig(
+    IAutomationRegistryMaster2_3 registry,
+    address billingToken,
+    AutomationRegistryBase2_3.BillingConfig memory newConfig
+  ) internal {
+    (, , address[] memory signers, address[] memory transmitters, uint8 f) = registry.getState();
+    AutomationRegistryBase2_3.OnchainConfig memory config = registry.getConfig();
+    address[] memory billingTokens = registry.getBillingTokens();
+    AutomationRegistryBase2_3.BillingConfig[]
+      memory billingTokenConfigs = new AutomationRegistryBase2_3.BillingConfig[](billingTokens.length);
+
+    bool found = false;
+    for (uint256 i = 0; i < billingTokens.length; i++) {
+      if (billingTokens[i] == billingToken) {
+        found = true;
+        billingTokenConfigs[i] = newConfig;
+      } else {
+        billingTokenConfigs[i] = registry.getBillingTokenConfig(billingTokens[i]);
+      }
+    }
+    require(found, "could not find billing token provided on registry");
+
+    registry.setConfigTypeSafe(
+      signers,
+      transmitters,
+      f,
+      config,
+      OFFCHAIN_CONFIG_VERSION,
+      "",
+      billingTokens,
+      billingTokenConfigs
+    );
   }
 
   /// @notice Gather signatures on report data

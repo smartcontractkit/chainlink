@@ -23,6 +23,8 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
   /**
    * @notice versions:
    * AutomationRegistry 2.3.0: supports native and ERC20 billing
+   *                           changes flat fee to USD-denominated
+   *                           adds support for custom billing overrides
    * AutomationRegistry 2.2.0: moves chain-specific integration code into a separate module
    * KeeperRegistry 2.1.0:     introduces support for log triggers
    *                           removes the need for "wrapped perform data"
@@ -174,9 +176,12 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
 
     {
       BillingTokenPaymentParams memory billingTokenParams;
+      uint256 nativeUSD = _getNativeUSD(hotVars);
       for (uint256 i = 0; i < report.upkeepIds.length; i++) {
         if (upkeepTransmitInfo[i].earlyChecksPassed) {
-          billingTokenParams = _getBillingTokenPaymentParams(hotVars, upkeepTransmitInfo[i].upkeep.billingToken); // TODO avoid doing this every time
+          if (i == 0 || upkeepTransmitInfo[i].upkeep.billingToken != upkeepTransmitInfo[i - 1].upkeep.billingToken) {
+            billingTokenParams = _getBillingTokenPaymentParams(hotVars, upkeepTransmitInfo[i].upkeep.billingToken);
+          }
           PaymentReceipt memory receipt = _handlePayment(
             hotVars,
             PaymentParams({
@@ -185,11 +190,13 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
               l1CostWei: (l1Fee * upkeepTransmitInfo[i].calldataWeight) / transmitVars.totalCalldataWeight,
               fastGasWei: report.fastGasWei,
               linkUSD: report.linkUSD,
-              nativeUSD: _getNativeUSD(hotVars),
-              billingToken: billingTokenParams,
+              nativeUSD: nativeUSD,
+              billingToken: upkeepTransmitInfo[i].upkeep.billingToken,
+              billingTokenParams: billingTokenParams,
               isTransaction: true
             }),
-            report.upkeepIds[i]
+            report.upkeepIds[i],
+            upkeepTransmitInfo[i].upkeep
           );
           transmitVars.totalPremium += receipt.premiumJuels;
           transmitVars.totalReimbursement += receipt.gasReimbursementJuels;
@@ -197,8 +204,7 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
           emit UpkeepPerformed(
             report.upkeepIds[i],
             upkeepTransmitInfo[i].performSuccess,
-            // receipt.gasCharge + receipt.premium, // TODO - this is currently the billing token amount, but should it be?
-            receipt.gasReimbursementJuels + receipt.premiumJuels, // TODO - this is currently the link tokn amount, but should it be billing token instead?
+            receipt.gasReimbursementJuels + receipt.premiumJuels, // TODO - this is currently the LINK amount, but may change to billing token
             upkeepTransmitInfo[i].gasUsed,
             gasOverhead,
             report.triggers[i]
@@ -209,6 +215,7 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
     // record payments
     s_transmitters[msg.sender].balance += transmitVars.totalReimbursement;
     s_hotVars.totalPremium += transmitVars.totalPremium;
+    s_reserveAmounts[IERC20(address(i_link))] += transmitVars.totalReimbursement + transmitVars.totalPremium;
   }
 
   /**
@@ -241,9 +248,9 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
     if (data.length != 32) revert InvalidDataLength();
     uint256 id = abi.decode(data, (uint256));
     if (s_upkeep[id].maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
-    if (address(s_upkeep[id].billingToken) != address(i_link)) revert InvalidBillingToken();
+    if (address(s_upkeep[id].billingToken) != address(i_link)) revert InvalidToken();
     s_upkeep[id].balance = s_upkeep[id].balance + uint96(amount);
-    s_reserveAmounts[address(i_link)] = s_reserveAmounts[address(i_link)] + amount;
+    s_reserveAmounts[IERC20(address(i_link))] = s_reserveAmounts[IERC20(address(i_link))] + amount;
     emit FundsAdded(id, sender, uint96(amount));
   }
 
@@ -297,51 +304,7 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
     // set billing config for tokens
     _setBillingConfig(billingTokens, billingConfigs);
 
-    // move all pooled payments out of the pool to each transmitter's balance
-    for (uint256 i = 0; i < s_transmittersList.length; i++) {
-      _updateTransmitterBalanceFromPool(
-        s_transmittersList[i],
-        s_hotVars.totalPremium,
-        uint96(s_transmittersList.length)
-      );
-    }
-
-    // remove any old signer/transmitter addresses
-    address signerAddress;
-    address transmitterAddress;
-    for (uint256 i = 0; i < s_transmittersList.length; i++) {
-      signerAddress = s_signersList[i];
-      transmitterAddress = s_transmittersList[i];
-      delete s_signers[signerAddress];
-      // Do not delete the whole transmitter struct as it has balance information stored
-      s_transmitters[transmitterAddress].active = false;
-    }
-    delete s_signersList;
-    delete s_transmittersList;
-
-    // add new signer/transmitter addresses
-    {
-      Transmitter memory transmitter;
-      address temp;
-      for (uint256 i = 0; i < signers.length; i++) {
-        if (s_signers[signers[i]].active) revert RepeatedSigner();
-        if (signers[i] == ZERO_ADDRESS) revert InvalidSigner();
-        s_signers[signers[i]] = Signer({active: true, index: uint8(i)});
-
-        temp = transmitters[i];
-        if (temp == ZERO_ADDRESS) revert InvalidTransmitter();
-        transmitter = s_transmitters[temp];
-        if (transmitter.active) revert RepeatedTransmitter();
-        transmitter.active = true;
-        transmitter.index = uint8(i);
-        // new transmitters start afresh from current totalPremium
-        // some spare change of premium from previous pool will be forfeited
-        transmitter.lastCollected = s_hotVars.totalPremium;
-        s_transmitters[temp] = transmitter;
-      }
-    }
-    s_signersList = signers;
-    s_transmittersList = transmitters;
+    _updateTransmitters(signers, transmitters);
 
     s_hotVars = HotVars({
       f: f,
@@ -390,9 +353,7 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
       offchainConfig
     );
 
-    for (uint256 idx = 0; idx < s_registrars.length(); idx++) {
-      s_registrars.remove(s_registrars.at(idx));
-    }
+    delete s_registrars;
 
     for (uint256 idx = 0; idx < onchainConfig.registrars.length; idx++) {
       s_registrars.add(onchainConfig.registrars[idx]);
@@ -409,6 +370,57 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
       offchainConfigVersion,
       offchainConfig
     );
+  }
+
+  function _updateTransmitters(address[] memory signers, address[] memory transmitters) internal {
+    // move all pooled payments out of the pool to each transmitter's balance
+    for (uint256 i = 0; i < s_transmittersList.length; i++) {
+      _updateTransmitterBalanceFromPool(
+        s_transmittersList[i],
+        s_hotVars.totalPremium,
+        uint96(s_transmittersList.length)
+      );
+    }
+
+    // remove any old signer/transmitter addresses
+    address transmitterAddress;
+    PayoutMode mode = s_payoutMode;
+    for (uint256 i = 0; i < s_transmittersList.length; i++) {
+      transmitterAddress = s_transmittersList[i];
+      delete s_signers[s_signersList[i]];
+      // Do not delete the whole transmitter struct as it has balance information stored
+      s_transmitters[transmitterAddress].active = false;
+      if (mode == PayoutMode.OFF_CHAIN && s_transmitters[transmitterAddress].balance > 0) {
+        s_deactivatedTransmitters.add(transmitterAddress);
+      }
+    }
+    delete s_signersList;
+    delete s_transmittersList;
+
+    // add new signer/transmitter addresses
+    Transmitter memory transmitter;
+    for (uint256 i = 0; i < signers.length; i++) {
+      if (s_signers[signers[i]].active) revert RepeatedSigner();
+      if (signers[i] == ZERO_ADDRESS) revert InvalidSigner();
+      s_signers[signers[i]] = Signer({active: true, index: uint8(i)});
+
+      transmitterAddress = transmitters[i];
+      if (transmitterAddress == ZERO_ADDRESS) revert InvalidTransmitter();
+      transmitter = s_transmitters[transmitterAddress];
+      if (transmitter.active) revert RepeatedTransmitter();
+      transmitter.active = true;
+      transmitter.index = uint8(i);
+      // new transmitters start afresh from current totalPremium
+      // some spare change of premium from previous pool will be forfeited
+      transmitter.lastCollected = s_hotVars.totalPremium;
+      s_transmitters[transmitterAddress] = transmitter;
+      if (mode == PayoutMode.OFF_CHAIN) {
+        s_deactivatedTransmitters.remove(transmitterAddress);
+      }
+    }
+
+    s_signersList = signers;
+    s_transmittersList = transmitters;
   }
 
   // ================================================================
