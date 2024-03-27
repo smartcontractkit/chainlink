@@ -17,6 +17,8 @@ import (
 	"github.com/rs/zerolog/log"
 	"golang.org/x/crypto/curve25519"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
+
 	ocrconfighelper2 "github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
 	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
@@ -725,27 +727,27 @@ func (e *CCIPContractsDeployer) NewMockAggregator(addr common.Address) (*MockAgg
 }
 
 var OCR2ParamsForCommit = contracts.OffChainAggregatorV2Config{
-	DeltaProgress:                           2 * time.Minute,
-	DeltaResend:                             5 * time.Second,
-	DeltaRound:                              75 * time.Second,
-	DeltaGrace:                              5 * time.Second,
-	MaxDurationQuery:                        100 * time.Millisecond,
-	MaxDurationObservation:                  35 * time.Second,
-	MaxDurationReport:                       10 * time.Second,
-	MaxDurationShouldAcceptFinalizedReport:  5 * time.Second,
-	MaxDurationShouldTransmitAcceptedReport: 10 * time.Second,
+	DeltaProgress:                           config.MustNewDuration(2 * time.Minute),
+	DeltaResend:                             config.MustNewDuration(5 * time.Second),
+	DeltaRound:                              config.MustNewDuration(75 * time.Second),
+	DeltaGrace:                              config.MustNewDuration(5 * time.Second),
+	MaxDurationQuery:                        config.MustNewDuration(100 * time.Millisecond),
+	MaxDurationObservation:                  config.MustNewDuration(35 * time.Second),
+	MaxDurationReport:                       config.MustNewDuration(10 * time.Second),
+	MaxDurationShouldAcceptFinalizedReport:  config.MustNewDuration(5 * time.Second),
+	MaxDurationShouldTransmitAcceptedReport: config.MustNewDuration(10 * time.Second),
 }
 
 var OCR2ParamsForExec = contracts.OffChainAggregatorV2Config{
-	DeltaProgress:                           100 * time.Second,
-	DeltaResend:                             5 * time.Second,
-	DeltaRound:                              40 * time.Second,
-	DeltaGrace:                              5 * time.Second,
-	MaxDurationQuery:                        100 * time.Millisecond,
-	MaxDurationObservation:                  20 * time.Second,
-	MaxDurationReport:                       8 * time.Second,
-	MaxDurationShouldAcceptFinalizedReport:  5 * time.Second,
-	MaxDurationShouldTransmitAcceptedReport: 8 * time.Second,
+	DeltaProgress:                           config.MustNewDuration(100 * time.Second),
+	DeltaResend:                             config.MustNewDuration(5 * time.Second),
+	DeltaRound:                              config.MustNewDuration(40 * time.Second),
+	DeltaGrace:                              config.MustNewDuration(5 * time.Second),
+	MaxDurationQuery:                        config.MustNewDuration(100 * time.Millisecond),
+	MaxDurationObservation:                  config.MustNewDuration(20 * time.Second),
+	MaxDurationReport:                       config.MustNewDuration(8 * time.Second),
+	MaxDurationShouldAcceptFinalizedReport:  config.MustNewDuration(5 * time.Second),
+	MaxDurationShouldTransmitAcceptedReport: config.MustNewDuration(8 * time.Second),
 }
 
 func OffChainAggregatorV2ConfigWithNodes(numberNodes int, inflightExpiry time.Duration, cfg contracts.OffChainAggregatorV2Config) contracts.OffChainAggregatorV2Config {
@@ -770,7 +772,7 @@ func OffChainAggregatorV2ConfigWithNodes(numberNodes int, inflightExpiry time.Du
 		DeltaResend:                             cfg.DeltaResend,
 		DeltaRound:                              cfg.DeltaRound,
 		DeltaGrace:                              cfg.DeltaGrace,
-		DeltaStage:                              inflightExpiry,
+		DeltaStage:                              config.MustNewDuration(inflightExpiry),
 		RMax:                                    3,
 		S:                                       s,
 		F:                                       faultyNodes,
@@ -855,20 +857,20 @@ func NewOffChainAggregatorV2ConfigForCCIPPlugin[T ccipconfig.OffchainConfig](
 	}
 
 	_, _, f_, onchainConfig_, offchainConfigVersion, offchainConfig, err = ocrconfighelper2.ContractSetConfigArgsForTests(
-		ocrConfig.DeltaProgress,
-		ocrConfig.DeltaResend,
-		ocrConfig.DeltaRound,
-		ocrConfig.DeltaGrace,
-		ocrConfig.DeltaStage,
+		ocrConfig.DeltaProgress.Duration(),
+		ocrConfig.DeltaResend.Duration(),
+		ocrConfig.DeltaRound.Duration(),
+		ocrConfig.DeltaGrace.Duration(),
+		ocrConfig.DeltaStage.Duration(),
 		ocrConfig.RMax,
 		ocrConfig.S,
 		ocrConfig.Oracles,
 		ocrConfig.ReportingPluginConfig,
-		ocrConfig.MaxDurationQuery,
-		ocrConfig.MaxDurationObservation,
-		ocrConfig.MaxDurationReport,
-		ocrConfig.MaxDurationShouldAcceptFinalizedReport,
-		ocrConfig.MaxDurationShouldTransmitAcceptedReport,
+		ocrConfig.MaxDurationQuery.Duration(),
+		ocrConfig.MaxDurationObservation.Duration(),
+		ocrConfig.MaxDurationReport.Duration(),
+		ocrConfig.MaxDurationShouldAcceptFinalizedReport.Duration(),
+		ocrConfig.MaxDurationShouldTransmitAcceptedReport.Duration(),
 		ocrConfig.F,
 		ocrConfig.OnchainConfig,
 	)

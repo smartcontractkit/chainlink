@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"dario.cat/mergo"
 	"github.com/AlekSi/pointer"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -34,6 +35,8 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+
+	"github.com/smartcontractkit/ccip/integration-tests/ccip-tests/contracts"
 
 	integrationactions "github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/actions"
@@ -198,6 +201,10 @@ func (c *CCIPTestConfig) SetNetworkPairs(lggr zerolog.Logger) error {
 		}
 		for i := 0; i < c.TestGroupInput.NoOfNetworks-actualNoOfNetworks; i++ {
 			chainID := chainIDs[i]
+			// if i is greater than the number of simulated pvt keys, rotate the keys
+			if i > len(networks.AdditionalSimulatedPvtKeys)-1 {
+				networks.AdditionalSimulatedPvtKeys = append(networks.AdditionalSimulatedPvtKeys, networks.AdditionalSimulatedPvtKeys...)
+			}
 			c.SelectedNetworks = append(c.SelectedNetworks, blockchain.EVMNetwork{
 				Name:                      fmt.Sprintf("simulated-non-dev%d", len(c.SelectedNetworks)+1),
 				ChainID:                   chainID,
@@ -259,6 +266,28 @@ func (c *CCIPTestConfig) FormNetworkPairCombinations() {
 	}
 }
 
+func (c *CCIPTestConfig) SetOCRParams() error {
+	if c.TestGroupInput.CommitOCRParams != nil {
+		err := mergo.Merge(&contracts.OCR2ParamsForCommit, c.TestGroupInput.CommitOCRParams, mergo.WithOverride)
+		if err != nil {
+			return err
+		}
+	}
+	if c.TestGroupInput.ExecOCRParams != nil {
+		err := mergo.Merge(&contracts.OCR2ParamsForExec, c.TestGroupInput.ExecOCRParams, mergo.WithOverride)
+		if err != nil {
+			return err
+		}
+	}
+	if c.TestGroupInput.ExecInflightExpiry != nil && c.TestGroupInput.ExecInflightExpiry.Duration() > 0 {
+		actions.InflightExpiryExec = c.TestGroupInput.ExecInflightExpiry.Duration()
+	}
+	if c.TestGroupInput.CommitInflightExpiry != nil && c.TestGroupInput.CommitInflightExpiry.Duration() > 0 {
+		actions.InflightExpiryCommit = c.TestGroupInput.CommitInflightExpiry.Duration()
+	}
+	return nil
+}
+
 func NewCCIPTestConfig(t *testing.T, lggr zerolog.Logger, tType string) *CCIPTestConfig {
 	testCfg := testconfig.GlobalTestConfig()
 	groupCfg, exists := testCfg.CCIP.Groups[tType]
@@ -280,7 +309,11 @@ func NewCCIPTestConfig(t *testing.T, lggr zerolog.Logger, tType string) *CCIPTes
 		TestGroupInput:      groupCfg,
 		GethResourceProfile: GethResourceProfile,
 	}
-	err := ccipTestConfig.SetNetworkPairs(lggr)
+	err := ccipTestConfig.SetOCRParams()
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = ccipTestConfig.SetNetworkPairs(lggr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -926,11 +959,11 @@ func (o *CCIPTestSetUpOutputs) CreateEnvironment(
 	if pointer.GetBool(testConfig.TestGroupInput.LocalCluster) {
 		require.NotNil(t, ccipEnv.LocalCluster, "Local cluster shouldn't be nil")
 		for _, n := range ccipEnv.LocalCluster.EVMNetworks {
-			if evmClient, err := ccipEnv.LocalCluster.GetEVMClient(n.ChainID); err == nil {
+			if evmClient, err := blockchain.NewEVMClientFromNetwork(*n, lggr); err == nil {
 				chainByChainID[evmClient.GetChainID().Int64()] = evmClient
 				chains = append(chains, evmClient)
 			} else {
-				lggr.Error().Msgf("EVMClient for chainID %d not found", n.ChainID)
+				lggr.Error().Err(err).Msgf("EVMClient for chainID %d not found", n.ChainID)
 			}
 		}
 	} else {
