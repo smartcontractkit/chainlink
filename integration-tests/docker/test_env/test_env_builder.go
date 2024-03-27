@@ -145,29 +145,6 @@ func (b *CLTestEnvBuilder) WithFunding(eth *big.Float) *CLTestEnvBuilder {
 	return b
 }
 
-<<<<<<< HEAD
-// Deprecated
-// WithGeth is only for backward compatibility. Use WithPrivateEthereumNetwork or WithPrivateGethChains instead
-func (b *CLTestEnvBuilder) WithGeth() *CLTestEnvBuilder {
-	ethBuilder := test_env.NewEthereumNetworkBuilder()
-	cfg, err := ethBuilder.
-		WithEthereumVersion(test_env.EthereumVersion_Eth1).
-		WithExecutionLayer(test_env.ExecutionLayer_Geth).
-		WithTest(b.t).
-		Build()
-
-	if err != nil {
-		panic(err)
-	}
-
-	b.privateEthereumNetwork = &cfg
-
-	return b
-}
-
-// WithSeth uses the new Seth as the EVM client
-=======
->>>>>>> 34dd367eb5b187de63677c1069e6264f2fb2cf49
 func (b *CLTestEnvBuilder) WithSeth() *CLTestEnvBuilder {
 	b.hasSeth = true
 	b.hasEVMClient = false
@@ -180,14 +157,8 @@ func (b *CLTestEnvBuilder) WithPrivateEthereumNetwork(en test_env.EthereumNetwor
 	return b
 }
 
-<<<<<<< HEAD
-// WithPrivateGethChains sets the test environment to use 1 or more private, simulated Geth chains
-func (b *CLTestEnvBuilder) WithPrivateGethChains(evmNetworks []blockchain.EVMNetwork) *CLTestEnvBuilder {
-	b.nonDevGethNetworks = evmNetworks
-=======
 func (b *CLTestEnvBuilder) WithPrivateEthereumNetworks(ens []*test_env.EthereumNetwork) *CLTestEnvBuilder {
 	b.privateEthereumNetworks = ens
->>>>>>> 34dd367eb5b187de63677c1069e6264f2fb2cf49
 	return b
 }
 
