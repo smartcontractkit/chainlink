@@ -485,7 +485,9 @@ func Test_PipelineRunner_HandleFaultsPersistRun(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	r := pipeline.NewRunner(orm, btORM, cfg.JobPipeline(), cfg.WebServer(), legacyChains, ethKeyStore, nil, lggr, nil, nil)
 
-	spec := pipeline.Spec{DotDagSource: `
+	spec := pipeline.Spec{
+		ID: 1,
+		DotDagSource: `
 fail_but_i_dont_care [type=fail]
 succeed1             [type=memo value=10]
 succeed2             [type=memo value=11]
@@ -506,7 +508,7 @@ succeed2 -> final;
 	assert.Equal(t, "10.5", finalResult.Values[0].(decimal.Decimal).String())
 }
 
-func Test_PipelineRunner_ExecuteAndInsertFinishedRunWithSpec(t *testing.T) {
+func Test_PipelineRunner_ExecuteAndInsertFinishedRun_SavingTheSpec(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	orm := mocks.NewORM(t)
 	btORM := bridgesMocks.NewORM(t)
@@ -524,7 +526,8 @@ func Test_PipelineRunner_ExecuteAndInsertFinishedRunWithSpec(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	r := pipeline.NewRunner(orm, btORM, cfg.JobPipeline(), cfg.WebServer(), legacyChains, ethKeyStore, nil, lggr, nil, nil)
 
-	spec := pipeline.Spec{DotDagSource: `
+	spec := pipeline.Spec{
+		DotDagSource: `
 fail_but_i_dont_care [type=fail]
 succeed1             [type=memo value=10]
 succeed2             [type=memo value=11]
@@ -536,7 +539,7 @@ succeed2 -> final;
 `}
 	vars := pipeline.NewVarsFrom(nil)
 
-	_, taskResults, err := r.ExecuteAndInsertFinishedRunWithSpec(testutils.Context(t), spec, vars, lggr, false)
+	_, taskResults, err := r.ExecuteAndInsertFinishedRun(testutils.Context(t), spec, vars, lggr, false)
 	finalResult := taskResults.FinalResult(lggr)
 	require.NoError(t, err)
 	assert.True(t, finalResult.HasErrors())
