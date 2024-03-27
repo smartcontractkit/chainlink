@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"math"
 	"math/big"
 	"net/http"
@@ -143,9 +144,20 @@ func setUpDataStreamsWireMock(url string) error {
 		return err
 	}
 	resp, err := http.Post(fmt.Sprintf("%s/__admin/mappings/save", url), "application/json", nil)
-	if err != nil || resp.StatusCode != 200 {
+	if err != nil {
 		return errors.New("error saving wiremock mappings")
 	}
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			panic(err)
+		}
+	}(resp.Body)
+
+	if resp.StatusCode != 200 {
+		return errors.New("error saving wiremock mappings")
+	}
+
 	return nil
 }
 
