@@ -8,6 +8,8 @@ log_producer_retry_limit=10
 
 [ChainlinkImage]
 postgres_version="15.6"
+image="public.ecr.aws/chainlink/chainlink"
+version="2.9.1"
 
 [Network]
 selected_networks=["simulated"]

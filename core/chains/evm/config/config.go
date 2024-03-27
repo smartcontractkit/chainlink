@@ -141,6 +141,7 @@ type NodePool interface {
 	SyncThreshold() uint32
 	LeaseDuration() time.Duration
 	NodeIsSyncingEnabled() bool
+	FinalizedBlockPollInterval() time.Duration
 }
 
 // TODO BCF-2509 does the chainscopedconfig really need the entire app config?

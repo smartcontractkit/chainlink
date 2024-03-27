@@ -127,8 +127,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   error IncorrectNumberOfSignatures();
   error IncorrectNumberOfSigners();
   error IndexOutOfRange();
-  error InsufficientBalance(int256 available, uint256 requested);
-  error InvalidBillingToken();
+  error InsufficientBalance(uint256 available, uint256 requested);
   error InvalidDataLength();
   error InvalidFeed();
   error InvalidTrigger();
@@ -136,6 +135,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   error InvalidRecipient();
   error InvalidReport();
   error InvalidSigner();
+  error InvalidToken();
   error InvalidTransmitter();
   error InvalidTriggerType();
   error MigrationNotPermitted();
@@ -414,6 +414,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
    * @member fastGasWei the fast gas price
    * @member linkUSD the exchange ratio between LINK and USD
    * @member nativeUSD the exchange ratio between the chain's native token and USD
+   * @member billingToken the billing token
    * @member billingTokenParams the payment params specific to a particular payment token
    * @member isTransaction is this an eth_call or a transaction
    */
@@ -424,7 +425,8 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     uint256 fastGasWei;
     uint256 linkUSD;
     uint256 nativeUSD;
-    BillingTokenPaymentParams billingToken;
+    IERC20 billingToken;
+    BillingTokenPaymentParams billingTokenParams;
     bool isTransaction;
   }
 
@@ -483,7 +485,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   event Unpaused(address account);
   // Event to emit when a billing configuration is set
   event BillingConfigSet(IERC20 indexed token, BillingConfig config);
-  event FeesWithdrawn(address indexed recipient, address indexed assetAddress, uint256 amount);
+  event FeesWithdrawn(address indexed assetAddress, address indexed recipient, uint256 amount);
 
   /**
    * @param link address of the LINK Token
@@ -543,7 +545,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     if (upkeep.performGas < PERFORM_GAS_MIN || upkeep.performGas > s_storage.maxPerformGas)
       revert GasLimitOutsideRange();
     if (address(s_upkeep[id].forwarder) != address(0)) revert UpkeepAlreadyExists();
-    if (address(s_billingConfigs[upkeep.billingToken].priceFeed) == address(0)) revert InvalidBillingToken();
+    if (address(s_billingConfigs[upkeep.billingToken].priceFeed) == address(0)) revert InvalidToken();
     s_upkeep[id] = upkeep;
     s_upkeepAdmin[id] = admin;
     s_checkData[id] = checkData;
@@ -674,13 +676,13 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     uint256 gasPaymentHexaicosaUSD = (gasWei *
       (paymentParams.gasLimit + paymentParams.gasOverhead) +
       paymentParams.l1CostWei) * paymentParams.nativeUSD; // gasPaymentHexaicosaUSD has an extra 8 zeros because of decimals on nativeUSD feed
-    receipt.gasCharge = SafeCast.toUint96(gasPaymentHexaicosaUSD / paymentParams.billingToken.priceUSD); // has units of attoBillingToken, or "wei"
+    receipt.gasCharge = SafeCast.toUint96(gasPaymentHexaicosaUSD / paymentParams.billingTokenParams.priceUSD); // has units of attoBillingToken, or "wei"
     receipt.gasReimbursementJuels = SafeCast.toUint96(gasPaymentHexaicosaUSD / paymentParams.linkUSD);
-    uint256 flatFeeHexaicosaUSD = uint256(paymentParams.billingToken.flatFeeMilliCents) * 1e21; // 1e13 for milliCents to attoUSD and 1e8 for attoUSD to hexaicosaUSD
+    uint256 flatFeeHexaicosaUSD = uint256(paymentParams.billingTokenParams.flatFeeMilliCents) * 1e21; // 1e13 for milliCents to attoUSD and 1e8 for attoUSD to hexaicosaUSD
     uint256 premiumHexaicosaUSD = ((((gasWei * paymentParams.gasLimit) + paymentParams.l1CostWei) *
-      paymentParams.billingToken.gasFeePPB *
+      paymentParams.billingTokenParams.gasFeePPB *
       paymentParams.nativeUSD) / 1e9) + flatFeeHexaicosaUSD;
-    receipt.premium = SafeCast.toUint96(premiumHexaicosaUSD / paymentParams.billingToken.priceUSD);
+    receipt.premium = SafeCast.toUint96(premiumHexaicosaUSD / paymentParams.billingTokenParams.priceUSD);
     receipt.premiumJuels = SafeCast.toUint96(premiumHexaicosaUSD / paymentParams.linkUSD);
 
     return receipt;
@@ -739,7 +741,8 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
         fastGasWei: fastGasWei,
         linkUSD: linkUSD,
         nativeUSD: nativeUSD,
-        billingToken: paymentParams,
+        billingToken: billingToken,
+        billingTokenParams: paymentParams,
         isTransaction: false
       })
     );
@@ -973,8 +976,8 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     if (upkeep.overridesEnabled) {
       BillingOverrides memory billingOverrides = s_billingOverrides[upkeepId];
       // use the overridden configs
-      paymentParams.billingToken.gasFeePPB = billingOverrides.gasFeePPB;
-      paymentParams.billingToken.flatFeeMilliCents = billingOverrides.flatFeeMilliCents;
+      paymentParams.billingTokenParams.gasFeePPB = billingOverrides.gasFeePPB;
+      paymentParams.billingTokenParams.flatFeeMilliCents = billingOverrides.flatFeeMilliCents;
     }
 
     PaymentReceipt memory receipt = _calculatePaymentAmount(hotVars, paymentParams);
@@ -988,19 +991,20 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
       // if the user can't cover the gas fee, then direct all of the payment to the transmitter and distribute no premium to the DON
       payment = balance;
       receipt.gasReimbursementJuels = SafeCast.toUint96(
-        (balance * paymentParams.billingToken.priceUSD) / paymentParams.linkUSD
+        (balance * paymentParams.billingTokenParams.priceUSD) / paymentParams.linkUSD
       );
       receipt.premiumJuels = 0;
     } else if (balance < payment) {
       // if the user can cover the gas fee, but not the premium, then reduce the premium
       payment = balance;
       receipt.premiumJuels = SafeCast.toUint96(
-        ((balance * paymentParams.billingToken.priceUSD) / paymentParams.linkUSD) - receipt.gasReimbursementJuels
+        ((balance * paymentParams.billingTokenParams.priceUSD) / paymentParams.linkUSD) - receipt.gasReimbursementJuels
       );
     }
 
     s_upkeep[upkeepId].balance -= payment;
     s_upkeep[upkeepId].amountSpent += payment;
+    s_reserveAmounts[paymentParams.billingToken] -= payment;
 
     return receipt;
   }
@@ -1069,7 +1073,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
 
       // if LINK is a billing option, payout mode must be ON_CHAIN
       if (address(token) == address(i_link) && mode == PayoutMode.OFF_CHAIN) {
-        revert InvalidBillingToken();
+        revert InvalidToken();
       }
       if (address(token) == ZERO_ADDRESS || address(config.priceFeed) == ZERO_ADDRESS) {
         revert ZeroAddressNotAllowed();
