@@ -186,8 +186,9 @@ var (
 				Chain: stkcfg.Chain{
 					ConfirmationPoll: commoncfg.MustNewDuration(time.Hour),
 				},
+				FeederURL: commoncfg.MustParseURL("http://feeder.url"),
 				Nodes: []*stkcfg.Node{
-					{Name: ptr("primary"), URL: commoncfg.MustParseURL("http://stark.node")},
+					{Name: ptr("primary"), URL: commoncfg.MustParseURL("http://stark.node"), APIKey: ptr("key")},
 				},
 			},
 		},
@@ -654,8 +655,9 @@ func TestConfig_Marshal(t *testing.T) {
 				TxTimeout:           commoncfg.MustNewDuration(13 * time.Second),
 				ConfirmationPoll:    commoncfg.MustNewDuration(42 * time.Second),
 			},
+			FeederURL: commoncfg.MustParseURL("http://feeder.url"),
 			Nodes: []*stkcfg.Node{
-				{Name: ptr("primary"), URL: commoncfg.MustParseURL("http://stark.node")},
+				{Name: ptr("primary"), URL: commoncfg.MustParseURL("http://stark.node"), APIKey: ptr("key")},
 			},
 		},
 	}
@@ -1110,6 +1112,7 @@ URL = 'http://solana.bar'
 `},
 		{"Starknet", Config{Starknet: full.Starknet}, `[[Starknet]]
 ChainID = 'foobar'
+FeederURL = 'http://feeder.url'
 Enabled = true
 OCR2CachePollPeriod = '6h0m0s'
 OCR2CacheTTL = '3m0s'
@@ -1120,6 +1123,7 @@ ConfirmationPoll = '42s'
 [[Starknet.Nodes]]
 Name = 'primary'
 URL = 'http://stark.node'
+APIKey = 'key'
 `},
 		{"Mercury", Config{Core: toml.Core{Mercury: full.Mercury}}, `[Mercury]
 [Mercury.Cache]
@@ -1142,6 +1146,7 @@ CertFile = '/path/to/cert.pem'
 
 			require.NoError(t, config.DecodeTOML(strings.NewReader(s), &got))
 			ts, err := got.TOMLString()
+
 			require.NoError(t, err)
 			assert.Equal(t, tt.config, got, diff.Diff(s, ts))
 		})
@@ -1547,6 +1552,7 @@ func TestConfig_SetFrom(t *testing.T) {
 				require.NoError(t, c.SetFrom(&f))
 			}
 			ts, err := c.TOMLString()
+
 			require.NoError(t, err)
 			assert.Equal(t, tt.exp, ts)
 		})
