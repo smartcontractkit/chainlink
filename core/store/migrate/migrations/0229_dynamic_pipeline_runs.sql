@@ -16,7 +16,7 @@ INSERT INTO job_pipeline_specs (job_id, pipeline_spec_id, is_primary)
 SELECT id, pipeline_spec_id, TRUE
 FROM jobs;
 
-ALTER TABLE jobs DROP COLUMN pipeline_spec_id; -- Do we use CASCADE here? Does it have any relationship with other tables?
+ALTER TABLE jobs DROP COLUMN pipeline_spec_id;
 
 ALTER TABLE pipeline_runs ADD COLUMN pruning_key INT;
 
@@ -44,5 +44,5 @@ ALTER TABLE pipeline_runs DROP COLUMN pruning_key;
 
 DROP INDEX IF EXISTS idx_unique_primary_per_job;
 
-DROP TABLE IF EXISTS job_pipeline_specs; -- Do we use CASCADE here?
+DROP TABLE IF EXISTS job_pipeline_specs;
 -- +goose StatementEnd
