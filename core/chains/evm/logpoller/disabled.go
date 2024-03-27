@@ -21,6 +21,10 @@ func (disabled) Start(ctx context.Context) error { return ErrDisabled }
 
 func (disabled) Close() error { return ErrDisabled }
 
+func (disabled) Healthy() error {
+	return ErrDisabled
+}
+
 func (disabled) Ready() error { return ErrDisabled }
 
 func (disabled) HealthReport() map[string]error {
