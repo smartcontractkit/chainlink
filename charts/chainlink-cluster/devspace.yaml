@@ -184,7 +184,6 @@ deployments:
         db:
           stateful: false
         # default cluster shipped with latest Geth ( dev mode by default )
-        geth:
         ccip:
           deployContractsAndJobs: true
           ccipScriptsImage: ${DEVSPACE_CCIP_SCRIPTS_IMAGE}
