@@ -8,25 +8,22 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/gauntlet"
-	contracts2 "github.com/smartcontractkit/chainlink/integration-tests/gauntlet/contracts"
+	"github.com/smartcontractkit/chainlink/integration-tests/gauntlet/configs"
 	"math/big"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
 	"github.com/smartcontractkit/seth"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
@@ -140,6 +137,7 @@ type ZKSyncState struct {
 	Gauntlet        *gauntlet.Gauntlet
 	ChainlinkClient []*client.ChainlinkClient
 	ContractLoader  contracts.ContractLoader
+	OCRContract     contracts.EthereumOffchainAggregator
 	L2RPC           string
 	OcrInstance     []contracts.OffchainAggregator
 }
@@ -153,26 +151,36 @@ func TestOCRZkSync(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	network, err := actions.EthereumNetworkConfigFromConfig(l, &config)
+	require.NoError(t, err, "Error building ethereum network config")
+
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestInstance(t).
 		WithTestConfig(&config).
+		WithPrivateEthereumNetwork(network).
 		WithMockAdapter().
 		WithCLNodes(6).
-		WithFunding(big.NewFloat(.1)).
 		WithStandardCleanup().
+		WithSeth().
 		Build()
 	require.NoError(t, err)
 
-	env.ParallelTransactions(true)
+	selectedNetwork := networks.MustGetSelectedNetworkConfig(config.Network)[0]
+	sethClient, err := env.GetSethClient(selectedNetwork.ChainID)
+	require.NoError(t, err, "Error getting seth client")
 
+	nodeClients := env.ClCluster.NodeAPIs()
+
+	env.ParallelTransactions(true)
+	g, err := gauntlet.New("gauntlet", "./")
+	require.NoError(t, err)
 	testState := &ZKSyncState{
-		Gauntlet:        nil,
+		Gauntlet:        g,
 		ChainlinkClient: nil,
 		ContractLoader:  nil,
 		L2RPC:           "",
 		OcrInstance:     nil,
 	}
-	nodeClients := env.ClCluster.NodeAPIs()
 
 	testNetwork := networks.MustGetSelectedNetworkConfig(config.Network)[0]
 	chainClient, err := blockchain.ConnectEVMClient(testNetwork, l)
@@ -230,7 +238,7 @@ func TestOCRZkSync(t *testing.T) {
 	err = testState.Gauntlet.DeployAccessController()
 	require.NoError(t, err)
 
-	ocrConfig := contracts2.OCRConfig{}
+	ocrConfig := configs.OCRConfig{}
 	ocrConfig.DefaultOcrConfig()
 	ocrConfig.DefaultOcrContract()
 
@@ -246,7 +254,7 @@ func TestOCRZkSync(t *testing.T) {
 	err = testState.Gauntlet.DeployOCR(ocrJsonContract)
 	require.NoError(t, err)
 
-	testState.Gauntlet.Contracts.OCRContract.Contract, err = testState.ContractLoader.LoadOcrContract(common.HexToAddress(testState.Gauntlet.Contracts.OCRContract.Address))
+	testState.Gauntlet.Contracts.OCRContract.Contract, err = contracts.LoadOffchainAggregator(l, sethClient, common.HexToAddress(testState.Gauntlet.Contracts.OCRContract.Address))
 	require.NoError(t, err)
 
 	err = testState.Gauntlet.AddAccess(testState.Gauntlet.Contracts.OCRContract.Address)

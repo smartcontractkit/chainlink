@@ -1,6 +1,8 @@
-package contracts
+package configs
 
-import "encoding/json"
+import (
+	"encoding/json"
+)
 
 type OCRConfig struct {
 	Contract *Contract
