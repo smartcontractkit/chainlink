@@ -1,19 +1,19 @@
 pragma solidity 0.8.19;
 
-import "../BaseTest.t.sol";
-import {VRF} from "../../../../src/v0.8/vrf/VRF.sol";
-import {MockLinkToken} from "../../../../src/v0.8/mocks/MockLinkToken.sol";
-import {MockV3Aggregator} from "../../../../src/v0.8/tests/MockV3Aggregator.sol";
-import {ExposedVRFCoordinatorV2_5} from "../../../../src/v0.8/vrf/dev/testhelpers/ExposedVRFCoordinatorV2_5.sol";
-import {VRFCoordinatorV2_5} from "../../../../src/v0.8/vrf/dev/VRFCoordinatorV2_5.sol";
-import {SubscriptionAPI} from "../../../../src/v0.8/vrf/dev/SubscriptionAPI.sol";
-import {BlockhashStore} from "../../../../src/v0.8/vrf/dev/BlockhashStore.sol";
-import {VRFV2PlusConsumerExample} from "../../../../src/v0.8/vrf/dev/testhelpers/VRFV2PlusConsumerExample.sol";
-import {VRFV2PlusClient} from "../../../../src/v0.8/vrf/dev/libraries/VRFV2PlusClient.sol";
-import {VRFTypes} from "../../../../src/v0.8/vrf/VRFTypes.sol";
+import "./BaseTest.t.sol";
+import {VRF} from "../VRF.sol";
+import {MockLinkToken} from "../../mocks/MockLinkToken.sol";
+import {MockV3Aggregator} from "../../tests/MockV3Aggregator.sol";
+import {ExposedVRFCoordinatorV2_5} from "../dev/testhelpers/ExposedVRFCoordinatorV2_5.sol";
+import {VRFCoordinatorV2_5} from "../dev/VRFCoordinatorV2_5.sol";
+import {SubscriptionAPI} from "../dev/SubscriptionAPI.sol";
+import {BlockhashStore} from "../dev/BlockhashStore.sol";
+import {VRFV2PlusConsumerExample} from "../dev/testhelpers/VRFV2PlusConsumerExample.sol";
+import {VRFV2PlusClient} from "../dev/libraries/VRFV2PlusClient.sol";
+import {VRFTypes} from "../VRFTypes.sol";
 import {console} from "forge-std/console.sol";
 import {VmSafe} from "forge-std/Vm.sol";
-import {VRFV2PlusLoadTestWithMetrics} from "../../../../src/v0.8/vrf/dev/testhelpers/VRFV2PlusLoadTestWithMetrics.sol";
+import {VRFV2PlusLoadTestWithMetrics} from "../dev/testhelpers/VRFV2PlusLoadTestWithMetrics.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol"; // for Math.ceilDiv
 
 /*
