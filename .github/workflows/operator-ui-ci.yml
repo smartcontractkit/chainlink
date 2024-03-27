@@ -2,6 +2,9 @@ name: Operator UI CI
 on:
   pull_request:
 
+env:
+  TARGET_BRANCH_NAME: ${{ github.event.pull_request.base.ref }}
+
 jobs:
   check-gql:
     permissions:
@@ -44,8 +47,12 @@ jobs:
         id: get-operator-ui-tag
         shell: bash
         run: |
-          TAG=$(cat ./operator_ui/TAG)
-          echo "TAG=$TAG" >> $GITHUB_OUTPUT
+          if [[ $TARGET_BRANCH_NAME == release/* ]]; then
+            TAG=$(cat ./operator_ui/TAG)
+            echo "TAG=$TAG" >> $GITHUB_OUTPUT
+          else
+            echo "TAG=main" >> $GITHUB_OUTPUT
+          fi
 
       - uses: convictional/trigger-workflow-and-wait@f69fa9eedd3c62a599220f4d5745230e237904be #v1.6.5
         with:
