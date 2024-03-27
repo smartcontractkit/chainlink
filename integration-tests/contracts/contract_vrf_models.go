@@ -357,6 +357,8 @@ type VRFLoadTestMetrics struct {
 	AverageFulfillmentInMillions         *big.Int
 	SlowestFulfillment                   *big.Int
 	FastestFulfillment                   *big.Int
+	P90FulfillmentBlockTime              float64
+	P95FulfillmentBlockTime              float64
 	AverageResponseTimeInSecondsMillions *big.Int
 	SlowestResponseTimeInSeconds         *big.Int
 	FastestResponseTimeInSeconds         *big.Int
