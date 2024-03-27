@@ -26,15 +26,14 @@ jobs:
               - 'contracts/**/*'
               - '.github/workflows/solidity.yml'
               - '.github/workflows/solidity-foundry.yml'
-            old_sol:
-              - 'contracts/src/v0.6/**/*'
-              - 'contracts/src/v0.7/**/*'
+            read_only_sol:
+              - 'contracts/src/v0.8/interfaces/**/*'
 
       - name: Fail if read-only files have changed
-        if: ${{ steps.changes.outputs.old_sol == 'true' }}
+        if: ${{ steps.changes.outputs.read_only_sol == 'true' }}
         run: |
           echo "One or more read-only Solidity file(s) has changed."
-          for file in ${{ steps.changes.outputs.old_sol_files }}; do
+          for file in ${{ steps.changes.outputs.read_only_sol_files }}; do
             echo "$file was changed"
           done
           exit 1
