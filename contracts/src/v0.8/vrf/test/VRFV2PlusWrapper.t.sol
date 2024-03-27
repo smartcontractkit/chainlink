@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
-import {BaseTest} from "../BaseTest.t.sol";
-import {MockLinkToken} from "../../../../src/v0.8/mocks/MockLinkToken.sol";
-import {MockV3Aggregator} from "../../../../src/v0.8/tests/MockV3Aggregator.sol";
-import {ExposedVRFCoordinatorV2_5} from "../../../../src/v0.8/vrf/dev/testhelpers/ExposedVRFCoordinatorV2_5.sol";
-import {SubscriptionAPI} from "../../../../src/v0.8/vrf/dev/SubscriptionAPI.sol";
-import {VRFV2PlusWrapperConsumerExample} from "../../../../src/v0.8/vrf/dev/testhelpers/VRFV2PlusWrapperConsumerExample.sol";
-import {VRFCoordinatorV2_5} from "../../../../src/v0.8/vrf/dev/VRFCoordinatorV2_5.sol";
-import {VRFConsumerBaseV2Plus} from "../../../../src/v0.8/vrf/dev/VRFConsumerBaseV2Plus.sol";
-import {VRFV2PlusWrapper} from "../../../../src/v0.8/vrf/dev/VRFV2PlusWrapper.sol";
-import {VRFV2PlusClient} from "../../../../src/v0.8/vrf/dev/libraries/VRFV2PlusClient.sol";
+import {BaseTest} from "./BaseTest.t.sol";
+import {MockLinkToken} from "../../mocks/MockLinkToken.sol";
+import {MockV3Aggregator} from "../../tests/MockV3Aggregator.sol";
+import {ExposedVRFCoordinatorV2_5} from "../dev/testhelpers/ExposedVRFCoordinatorV2_5.sol";
+import {SubscriptionAPI} from "../dev/SubscriptionAPI.sol";
+import {VRFV2PlusWrapperConsumerExample} from "../dev/testhelpers/VRFV2PlusWrapperConsumerExample.sol";
+import {VRFCoordinatorV2_5} from "../dev/VRFCoordinatorV2_5.sol";
+import {VRFConsumerBaseV2Plus} from "../dev/VRFConsumerBaseV2Plus.sol";
+import {VRFV2PlusWrapper} from "../dev/VRFV2PlusWrapper.sol";
+import {VRFV2PlusClient} from "../dev/libraries/VRFV2PlusClient.sol";
 
 contract VRFV2PlusWrapperTest is BaseTest {
   address internal constant LINK_WHALE = 0xD883a6A1C22fC4AbFE938a5aDF9B2Cc31b1BF18B;
