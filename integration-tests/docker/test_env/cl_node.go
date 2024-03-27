@@ -43,6 +43,11 @@ var (
 	ErrStartCLNodeContainer = "failed to start CL node container"
 )
 
+const (
+	RestartContainer  = true
+	StartNewContainer = false
+)
+
 type ClNode struct {
 	test_env.EnvComponent
 	API                   *client.ChainlinkClient `json:"-"`
@@ -158,7 +163,7 @@ func (n *ClNode) Restart(cfg *chainlink.Config) error {
 		return err
 	}
 	n.NodeConfig = cfg
-	return n.StartContainer()
+	return n.RestartContainer()
 }
 
 // UpgradeVersion restarts the cl node with new image and version
@@ -285,8 +290,13 @@ func (n *ClNode) Fund(evmClient blockchain.EVMClient, amount *big.Float) error {
 	return evmClient.Fund(toAddress, amount, gasEstimates)
 }
 
-func (n *ClNode) StartContainer() error {
-	err := n.PostgresDb.StartContainer()
+func (n *ClNode) containerStartOrRestart(restartDb bool) error {
+	var err error
+	if restartDb {
+		err = n.PostgresDb.RestartContainer()
+	} else {
+		err = n.PostgresDb.StartContainer()
+	}
 	if err != nil {
 		return err
 	}
@@ -357,6 +367,14 @@ func (n *ClNode) StartContainer() error {
 	n.API = clClient
 
 	return nil
+}
+
+func (n *ClNode) RestartContainer() error {
+	return n.containerStartOrRestart(RestartContainer)
+}
+
+func (n *ClNode) StartContainer() error {
+	return n.containerStartOrRestart(StartNewContainer)
 }
 
 func (n *ClNode) ExecGetVersion() (string, error) {

@@ -819,3 +819,12 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 	}
 	return n.RPC().TransactionReceipt(ctx, txHash)
 }
+
+func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT, BATCH_ELEM]) LatestFinalizedBlock(ctx context.Context) (head HEAD, err error) {
+	n, err := c.selectNode()
+	if err != nil {
+		return head, err
+	}
+
+	return n.RPC().LatestFinalizedBlock(ctx)
+}

@@ -130,7 +130,7 @@ func TestAutomationChaos(t *testing.T) {
 	}
 
 	for name, registryVersion := range registryVersions {
-		registryVersion := registryVersion
+		rv := registryVersion
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -223,7 +223,7 @@ func TestAutomationChaos(t *testing.T) {
 							WsURL:   network.URL,
 							HttpURL: network.HTTPURLs[0],
 						}))
-					err := testEnvironment.Run()
+					err = testEnvironment.Run()
 					require.NoError(t, err, "Error setting up test environment")
 					if testEnvironment.WillUseRemoteRunner() {
 						return
@@ -264,7 +264,7 @@ func TestAutomationChaos(t *testing.T) {
 
 					registry, registrar := actions.DeployAutoOCRRegistryAndRegistrar(
 						t,
-						registryVersion,
+						rv,
 						defaultOCRRegistryConfig,
 						linkToken,
 						contractDeployer,
@@ -275,12 +275,17 @@ func TestAutomationChaos(t *testing.T) {
 					err = linkToken.Transfer(registry.Address(), big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(numberOfUpkeeps))))
 					require.NoError(t, err, "Funding keeper registry contract shouldn't fail")
 
-					actions.CreateOCRKeeperJobs(t, chainlinkNodes, registry.Address(), network.ChainID, 0, registryVersion)
+					actions.CreateOCRKeeperJobs(t, chainlinkNodes, registry.Address(), network.ChainID, 0, rv)
 					nodesWithoutBootstrap := chainlinkNodes[1:]
-					defaultOCRRegistryConfig.RegistryVersion = registryVersion
+					defaultOCRRegistryConfig.RegistryVersion = rv
 					ocrConfig, err := actions.BuildAutoOCR2ConfigVars(t, nodesWithoutBootstrap, defaultOCRRegistryConfig, registrar.Address(), 30*time.Second, registry.ChainModuleAddress(), registry.ReorgProtectionEnabled())
 					require.NoError(t, err, "Error building OCR config vars")
-					err = registry.SetConfig(defaultOCRRegistryConfig, ocrConfig)
+
+					if rv == eth_contracts.RegistryVersion_2_0 {
+						err = registry.SetConfig(defaultOCRRegistryConfig, ocrConfig)
+					} else {
+						err = registry.SetConfigTypeSafe(ocrConfig)
+					}
 					require.NoError(t, err, "Registry config should be be set successfully")
 					require.NoError(t, chainClient.WaitForEvents(), "Waiting for config to be set")
 

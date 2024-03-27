@@ -53,7 +53,7 @@ func (*nullTracker) Ready() error                   { return nil }
 func (*nullTracker) HealthReport() map[string]error { return map[string]error{} }
 func (*nullTracker) Name() string                   { return "" }
 func (*nullTracker) SetLogLevel(zapcore.Level)      {}
-func (*nullTracker) Backfill(ctx context.Context, headWithChain *evmtypes.Head, depth uint) (err error) {
+func (*nullTracker) Backfill(ctx context.Context, headWithChain, latestFinalized *evmtypes.Head) (err error) {
 	return nil
 }
 func (*nullTracker) LatestChain() *evmtypes.Head { return nil }

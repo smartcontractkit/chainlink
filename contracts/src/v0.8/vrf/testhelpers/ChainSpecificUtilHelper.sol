@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../../ChainSpecificUtil.sol";
+import {ChainSpecificUtil} from "../../ChainSpecificUtil_v0_8_6.sol";
 
 /// @dev A helper contract that exposes ChainSpecificUtil methods for testing
 contract ChainSpecificUtilHelper {

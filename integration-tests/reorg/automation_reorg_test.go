@@ -217,7 +217,11 @@ func TestAutomationReorg(t *testing.T) {
 			defaultOCRRegistryConfig.RegistryVersion = registryVersion
 			ocrConfig, err := actions.BuildAutoOCR2ConfigVars(t, nodesWithoutBootstrap, defaultOCRRegistryConfig, registrar.Address(), 5*time.Second, registry.ChainModuleAddress(), registry.ReorgProtectionEnabled())
 			require.NoError(t, err, "OCR2 config should be built successfully")
-			err = registry.SetConfig(defaultOCRRegistryConfig, ocrConfig)
+			if registryVersion == ethereum.RegistryVersion_2_0 {
+				err = registry.SetConfig(defaultOCRRegistryConfig, ocrConfig)
+			} else {
+				err = registry.SetConfigTypeSafe(ocrConfig)
+			}
 			require.NoError(t, err, "Registry config should be be set successfully")
 			require.NoError(t, chainClient.WaitForEvents(), "Waiting for config to be set")
 

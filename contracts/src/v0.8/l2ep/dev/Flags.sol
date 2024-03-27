@@ -17,7 +17,7 @@ import {FlagsInterface} from "./interfaces/FlagsInterface.sol";
  * An expected pattern is to allow addresses to raise flags on themselves, so if you are subscribing to
  * FlagOn events you should filter for addresses you care about.
  */
-// solhint-disable custom-errors
+// solhint-disable gas-custom-errors
 contract Flags is ITypeAndVersion, FlagsInterface, SimpleReadAccessController {
   AccessControllerInterface public raisingAccessController;
   AccessControllerInterface public loweringAccessController;

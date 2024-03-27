@@ -11,7 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
-	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
+	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_v21_plus_common"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -53,7 +53,7 @@ func TestPerformedEventsScanner(t *testing.T) {
 					BlockNumber: 1,
 					Address:     registryAddr,
 					Topics: convertTopics([]common.Hash{
-						iregistry21.IKeeperRegistryMasterDedupKeyAdded{}.Topic(),
+						ac.IAutomationV21PlusCommonDedupKeyAdded{}.Topic(),
 						common.HexToHash("0x290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563"),
 					}),
 				},
@@ -70,7 +70,7 @@ func TestPerformedEventsScanner(t *testing.T) {
 					BlockNumber: 1,
 					Address:     registryAddr,
 					Topics: convertTopics([]common.Hash{
-						iregistry21.IKeeperRegistryMasterDedupKeyAdded{}.Topic(),
+						ac.IAutomationV21PlusCommonDedupKeyAdded{}.Topic(),
 					}),
 				},
 			},
@@ -83,7 +83,7 @@ func TestPerformedEventsScanner(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			mp := new(mocks.LogPoller)
-			mp.On("RegisterFilter", mock.Anything).Return(nil)
+			mp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
 			mp.On("UnregisterFilter", mock.Anything, mock.Anything).Return(nil)
 			scanner := NewPerformedEventsScanner(lggr, mp, registryAddr, 100)
 
@@ -123,7 +123,7 @@ func TestPerformedEventsScanner_Batch(t *testing.T) {
 			BlockNumber: 1,
 			Address:     registryAddr,
 			Topics: convertTopics([]common.Hash{
-				iregistry21.IKeeperRegistryMasterDedupKeyAdded{}.Topic(),
+				ac.IAutomationV21PlusCommonDedupKeyAdded{}.Topic(),
 				common.HexToHash("0x290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563"),
 			}),
 		},
@@ -133,7 +133,7 @@ func TestPerformedEventsScanner_Batch(t *testing.T) {
 			BlockNumber: 3,
 			Address:     registryAddr,
 			Topics: convertTopics([]common.Hash{
-				iregistry21.IKeeperRegistryMasterDedupKeyAdded{}.Topic(),
+				ac.IAutomationV21PlusCommonDedupKeyAdded{}.Topic(),
 				common.HexToHash("0x331decd9548b62a8d603457658386fc84ba6bc95888008f6362f93160ef3b663"),
 			}),
 		},

@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/lib/pq"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
@@ -50,7 +49,7 @@ func Test_QueryArgs(t *testing.T) {
 			name:      "hash array converted to bytes array",
 			queryArgs: newEmptyArgs().withEventSigArray([]common.Hash{{}, {}}),
 			want: map[string]interface{}{
-				"event_sig_array": pq.ByteaArray{make([]byte, 32), make([]byte, 32)},
+				"event_sig_array": [][]byte{make([]byte, 32), make([]byte, 32)},
 			},
 		},
 		{

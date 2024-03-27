@@ -10,22 +10,16 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
-
-	"github.com/jmoiron/sqlx"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 )
 
-var promSQLQueryTime = promauto.NewHistogram(prometheus.HistogramOpts{
-	Name:    "sql_query_timeout_percent",
-	Help:    "SQL query time as a pecentage of timeout.",
-	Buckets: []float64{10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120},
-})
-
+// QOpt is deprecated. Use [sqlutil.DataSource] with [sqlutil.QueryHook]s instead.
+//
 // QOpt pattern for ORM methods aims to clarify usage and remove some common footguns, notably:
 //
 // 1. It should be easy and obvious how to pass a parent context or a transaction into an ORM method
@@ -114,6 +108,7 @@ type QConfig interface {
 //
 // This is not the prettiest construct but without macros its about the best we
 // can do.
+// Deprecated: Use a `sqlutil.DataSource` with `sqlutil.QueryHook`s instead
 type Q struct {
 	Queryer
 	ParentCtx    context.Context
@@ -385,5 +380,5 @@ func (q *queryLogger) postSqlLog(ctx context.Context, begin time.Time) {
 		q.logger.Warnw("SLOW SQL QUERY", kvs...)
 	}
 
-	promSQLQueryTime.Observe(pct)
+	sqlutil.PromSQLQueryTime.Observe(pct)
 }

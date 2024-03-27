@@ -17,6 +17,7 @@ import (
 	"github.com/ugorji/go/codec"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
+
 	htrktypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
 	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -43,6 +44,7 @@ type Head struct {
 	StateRoot        common.Hash
 	Difficulty       *big.Int
 	TotalDifficulty  *big.Int
+	IsFinalized      bool
 }
 
 var _ commontypes.Head[common.Hash] = &Head{}
@@ -163,6 +165,14 @@ func (h *Head) ChainHashes() []common.Hash {
 		h = h.Parent
 	}
 	return hashes
+}
+
+func (h *Head) LatestFinalizedHead() commontypes.Head[common.Hash] {
+	for h != nil && !h.IsFinalized {
+		h = h.Parent
+	}
+
+	return h
 }
 
 func (h *Head) ChainID() *big.Int {

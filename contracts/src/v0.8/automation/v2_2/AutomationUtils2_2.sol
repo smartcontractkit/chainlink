@@ -3,6 +3,7 @@ pragma solidity 0.8.19;
 
 import {AutomationRegistryBase2_2} from "./AutomationRegistryBase2_2.sol";
 import {Log} from "../interfaces/ILogAutomation.sol";
+import {IAutomationV21PlusCommon} from "../interfaces/IAutomationV21PlusCommon.sol";
 
 /**
  * @notice this file exposes structs that are otherwise internal to the automation registry
@@ -26,7 +27,7 @@ contract AutomationUtils2_2 {
   /**
    * @dev this can be removed as OnchainConfig is now exposed directly from the registry
    */
-  function _onChainConfig(AutomationRegistryBase2_2.OnchainConfig memory) external {} // 0x2ff92a81
+  function _onChainConfig(IAutomationV21PlusCommon.OnchainConfigLegacy memory) external {} // 0x2ff92a81
 
   function _report(AutomationRegistryBase2_2.Report memory) external {} // 0xe65d6546
 

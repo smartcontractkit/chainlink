@@ -19,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 type ContractTransmitter interface {
@@ -56,6 +55,7 @@ func transmitterFilterName(addr common.Address) string {
 }
 
 func NewOCRContractTransmitter(
+	ctx context.Context,
 	address gethcommon.Address,
 	caller contractReader,
 	contractABI abi.ABI,
@@ -69,7 +69,7 @@ func NewOCRContractTransmitter(
 		return nil, errors.New("invalid ABI, missing transmitted")
 	}
 
-	err := lp.RegisterFilter(logpoller.Filter{Name: transmitterFilterName(address), EventSigs: []common.Hash{transmitted.ID}, Addresses: []common.Address{address}})
+	err := lp.RegisterFilter(ctx, logpoller.Filter{Name: transmitterFilterName(address), EventSigs: []common.Hash{transmitted.ID}, Addresses: []common.Address{address}})
 	if err != nil {
 		return nil, err
 	}
@@ -181,8 +181,7 @@ func (oc *contractTransmitter) LatestConfigDigestAndEpoch(ctx context.Context) (
 	if err != nil {
 		return ocrtypes.ConfigDigest{}, 0, err
 	}
-	latest, err := oc.lp.LatestLogByEventSigWithConfs(
-		oc.transmittedEventSig, oc.contractAddress, 1, pg.WithParentCtx(ctx))
+	latest, err := oc.lp.LatestLogByEventSigWithConfs(ctx, oc.transmittedEventSig, oc.contractAddress, 1)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			// No transmissions yet

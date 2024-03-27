@@ -12,7 +12,6 @@ import (
 	v1 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
 	v2plus "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus_interface"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 var (
@@ -71,8 +70,8 @@ type V1Coordinator struct {
 }
 
 // NewV1Coordinator creates a new V1Coordinator from the given contract.
-func NewV1Coordinator(c v1.VRFCoordinatorInterface, lp logpoller.LogPoller) (*V1Coordinator, error) {
-	err := lp.RegisterFilter(logpoller.Filter{
+func NewV1Coordinator(ctx context.Context, c v1.VRFCoordinatorInterface, lp logpoller.LogPoller) (*V1Coordinator, error) {
+	err := lp.RegisterFilter(ctx, logpoller.Filter{
 		Name: logpoller.FilterName("VRFv1CoordinatorFeeder", c.Address()),
 		EventSigs: []common.Hash{
 			v1.VRFCoordinatorRandomnessRequest{}.Topic(),
@@ -92,13 +91,13 @@ func (v *V1Coordinator) Requests(
 	toBlock uint64,
 ) ([]Event, error) {
 	logs, err := v.lp.LogsWithSigs(
+		ctx,
 		int64(fromBlock),
 		int64(toBlock),
 		[]common.Hash{
 			v1.VRFCoordinatorRandomnessRequest{}.Topic(),
 		},
-		v.c.Address(),
-		pg.WithParentCtx(ctx))
+		v.c.Address())
 	if err != nil {
 		return nil, errors.Wrap(err, "filter v1 requests")
 	}
@@ -121,19 +120,19 @@ func (v *V1Coordinator) Requests(
 
 // Fulfillments satisfies the Coordinator interface.
 func (v *V1Coordinator) Fulfillments(ctx context.Context, fromBlock uint64) ([]Event, error) {
-	toBlock, err := v.lp.LatestBlock(pg.WithParentCtx(ctx))
+	toBlock, err := v.lp.LatestBlock(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "fetching latest block")
 	}
 
 	logs, err := v.lp.LogsWithSigs(
+		ctx,
 		int64(fromBlock),
 		toBlock.BlockNumber,
 		[]common.Hash{
 			v1.VRFCoordinatorRandomnessRequestFulfilled{}.Topic(),
 		},
-		v.c.Address(),
-		pg.WithParentCtx(ctx))
+		v.c.Address())
 	if err != nil {
 		return nil, errors.Wrap(err, "filter v1 fulfillments")
 	}
@@ -160,8 +159,8 @@ type V2Coordinator struct {
 }
 
 // NewV2Coordinator creates a new V2Coordinator from the given contract.
-func NewV2Coordinator(c v2.VRFCoordinatorV2Interface, lp logpoller.LogPoller) (*V2Coordinator, error) {
-	err := lp.RegisterFilter(logpoller.Filter{
+func NewV2Coordinator(ctx context.Context, c v2.VRFCoordinatorV2Interface, lp logpoller.LogPoller) (*V2Coordinator, error) {
+	err := lp.RegisterFilter(ctx, logpoller.Filter{
 		Name: logpoller.FilterName("VRFv2CoordinatorFeeder", c.Address()),
 		EventSigs: []common.Hash{
 			v2.VRFCoordinatorV2RandomWordsRequested{}.Topic(),
@@ -183,13 +182,13 @@ func (v *V2Coordinator) Requests(
 	toBlock uint64,
 ) ([]Event, error) {
 	logs, err := v.lp.LogsWithSigs(
+		ctx,
 		int64(fromBlock),
 		int64(toBlock),
 		[]common.Hash{
 			v2.VRFCoordinatorV2RandomWordsRequested{}.Topic(),
 		},
-		v.c.Address(),
-		pg.WithParentCtx(ctx))
+		v.c.Address())
 	if err != nil {
 		return nil, errors.Wrap(err, "filter v2 requests")
 	}
@@ -212,19 +211,19 @@ func (v *V2Coordinator) Requests(
 
 // Fulfillments satisfies the Coordinator interface.
 func (v *V2Coordinator) Fulfillments(ctx context.Context, fromBlock uint64) ([]Event, error) {
-	toBlock, err := v.lp.LatestBlock(pg.WithParentCtx(ctx))
+	toBlock, err := v.lp.LatestBlock(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "fetching latest block")
 	}
 
 	logs, err := v.lp.LogsWithSigs(
+		ctx,
 		int64(fromBlock),
 		toBlock.BlockNumber,
 		[]common.Hash{
 			v2.VRFCoordinatorV2RandomWordsFulfilled{}.Topic(),
 		},
-		v.c.Address(),
-		pg.WithParentCtx(ctx))
+		v.c.Address())
 	if err != nil {
 		return nil, errors.Wrap(err, "filter v2 fulfillments")
 	}
@@ -251,8 +250,8 @@ type V2PlusCoordinator struct {
 }
 
 // NewV2Coordinator creates a new V2Coordinator from the given contract.
-func NewV2PlusCoordinator(c v2plus.IVRFCoordinatorV2PlusInternalInterface, lp logpoller.LogPoller) (*V2PlusCoordinator, error) {
-	err := lp.RegisterFilter(logpoller.Filter{
+func NewV2PlusCoordinator(ctx context.Context, c v2plus.IVRFCoordinatorV2PlusInternalInterface, lp logpoller.LogPoller) (*V2PlusCoordinator, error) {
+	err := lp.RegisterFilter(ctx, logpoller.Filter{
 		Name: logpoller.FilterName("VRFv2PlusCoordinatorFeeder", c.Address()),
 		EventSigs: []common.Hash{
 			v2plus.IVRFCoordinatorV2PlusInternalRandomWordsRequested{}.Topic(),
@@ -274,13 +273,13 @@ func (v *V2PlusCoordinator) Requests(
 	toBlock uint64,
 ) ([]Event, error) {
 	logs, err := v.lp.LogsWithSigs(
+		ctx,
 		int64(fromBlock),
 		int64(toBlock),
 		[]common.Hash{
 			v2plus.IVRFCoordinatorV2PlusInternalRandomWordsRequested{}.Topic(),
 		},
-		v.c.Address(),
-		pg.WithParentCtx(ctx))
+		v.c.Address())
 	if err != nil {
 		return nil, errors.Wrap(err, "filter v2 requests")
 	}
@@ -303,19 +302,19 @@ func (v *V2PlusCoordinator) Requests(
 
 // Fulfillments satisfies the Coordinator interface.
 func (v *V2PlusCoordinator) Fulfillments(ctx context.Context, fromBlock uint64) ([]Event, error) {
-	toBlock, err := v.lp.LatestBlock(pg.WithParentCtx(ctx))
+	toBlock, err := v.lp.LatestBlock(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "fetching latest block")
 	}
 
 	logs, err := v.lp.LogsWithSigs(
+		ctx,
 		int64(fromBlock),
 		toBlock.BlockNumber,
 		[]common.Hash{
 			v2plus.IVRFCoordinatorV2PlusInternalRandomWordsFulfilled{}.Topic(),
 		},
-		v.c.Address(),
-		pg.WithParentCtx(ctx))
+		v.c.Address())
 	if err != nil {
 		return nil, errors.Wrap(err, "filter v2 fulfillments")
 	}

@@ -27,11 +27,11 @@ func (m *methodBinding) SetCodec(codec commontypes.RemoteCodec) {
 	m.codec = codec
 }
 
-func (m *methodBinding) Register() error {
+func (m *methodBinding) Register(ctx context.Context) error {
 	return nil
 }
 
-func (m *methodBinding) Unregister() error {
+func (m *methodBinding) Unregister(ctx context.Context) error {
 	return nil
 }
 
@@ -59,7 +59,7 @@ func (m *methodBinding) GetLatestValue(ctx context.Context, params, returnValue 
 	return m.codec.Decode(ctx, bytes, returnValue, wrapItemType(m.contractName, m.method, false))
 }
 
-func (m *methodBinding) Bind(binding commontypes.BoundContract) error {
+func (m *methodBinding) Bind(ctx context.Context, binding commontypes.BoundContract) error {
 	m.address = common.HexToAddress(binding.Address)
 	m.bound = true
 	return nil

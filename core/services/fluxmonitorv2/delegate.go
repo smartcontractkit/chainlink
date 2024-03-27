@@ -56,10 +56,10 @@ func (d *Delegate) JobType() job.Type {
 	return job.FluxMonitor
 }
 
-func (d *Delegate) BeforeJobCreated(spec job.Job)                {}
-func (d *Delegate) AfterJobCreated(spec job.Job)                 {}
-func (d *Delegate) BeforeJobDeleted(spec job.Job)                {}
-func (d *Delegate) OnDeleteJob(spec job.Job, q pg.Queryer) error { return nil }
+func (d *Delegate) BeforeJobCreated(spec job.Job)                                     {}
+func (d *Delegate) AfterJobCreated(spec job.Job)                                      {}
+func (d *Delegate) BeforeJobDeleted(spec job.Job)                                     {}
+func (d *Delegate) OnDeleteJob(ctx context.Context, spec job.Job, q pg.Queryer) error { return nil }
 
 // ServicesForSpec returns the flux monitor service for the job spec
 func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) (services []job.ServiceCtx, err error) {

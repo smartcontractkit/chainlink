@@ -36,9 +36,10 @@ runs:
         # I feel like there's some clever, fully jq way to do this, but I ain't got the motivation to figure it out
         echo "Querying test results at https://api.github.com/repos/${{inputs.github_repository}}/actions/runs/${{ inputs.workflow_run_id }}/jobs"
 
+        # we can get a maximum of 100 jobs per page, after that we need to start using pagination
         PARSED_RESULTS=$(curl \
         -H "Authorization: Bearer ${{ inputs.github_token }}" \
-        'https://api.github.com/repos/${{inputs.github_repository}}/actions/runs/${{ inputs.workflow_run_id }}/jobs' \
+        'https://api.github.com/repos/${{inputs.github_repository}}/actions/runs/${{ inputs.workflow_run_id }}/jobs?per_page=100' \
         | jq -r --arg pattern "${{ inputs.github_job_name_regex }}" '.jobs[]
         | select(.name | test($pattern)) as $job
         | $job.steps[]
@@ -59,9 +60,9 @@ runs:
 
         echo all_success=$ALL_SUCCESS >> $GITHUB_OUTPUT
 
-        FORMATTED_RESULTS=$(echo $PARSED_RESULTS | jq -s '[.[] 
-        | { 
-          conclusion: .conclusion, 
+        FORMATTED_RESULTS=$(echo $PARSED_RESULTS | jq -s '[.[]
+        | {
+          conclusion: .conclusion,
           cap: .cap,
           html_url: .html_url
           }

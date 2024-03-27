@@ -85,6 +85,8 @@ core/scripts/gateway @smartcontractkit/functions
 
 # At the end, match any files missed by the patterns above
 /contracts/scripts/native_solc_compile_all_events_mock @smartcontractkit/functions
+# Remove changeset files from the codeowners
+/contracts/.changeset
 
 
 # Tests

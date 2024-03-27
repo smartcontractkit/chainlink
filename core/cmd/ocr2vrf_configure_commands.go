@@ -209,7 +209,7 @@ func (s *Shell) ConfigureOCR2VRFNode(c *cli.Context, owner *bind.TransactOpts, e
 		if err != nil {
 			return nil, err
 		}
-		err = s.authorizeForwarder(c, ldb.DB(), lggr, chainID, ec, owner, sendingKeysAddresses)
+		err = s.authorizeForwarder(c, ldb.DB(), chainID, ec, owner, sendingKeysAddresses)
 		if err != nil {
 			return nil, err
 		}
@@ -319,7 +319,7 @@ func (s *Shell) appendForwarders(ctx context.Context, chainID int64, ks keystore
 	return sendingKeys, sendingKeysAddresses, nil
 }
 
-func (s *Shell) authorizeForwarder(c *cli.Context, db *sqlx.DB, lggr logger.Logger, chainID int64, ec *ethclient.Client, owner *bind.TransactOpts, sendingKeysAddresses []common.Address) error {
+func (s *Shell) authorizeForwarder(c *cli.Context, db *sqlx.DB, chainID int64, ec *ethclient.Client, owner *bind.TransactOpts, sendingKeysAddresses []common.Address) error {
 	ctx := s.ctx()
 	// Replace the transmitter ID with the forwarder address.
 	forwarderAddress := c.String("forwarder-address")
@@ -342,8 +342,8 @@ func (s *Shell) authorizeForwarder(c *cli.Context, db *sqlx.DB, lggr logger.Logg
 	}
 
 	// Create forwarder for management in forwarder_manager.go.
-	orm := forwarders.NewORM(db, lggr, s.Config.Database())
-	_, err = orm.CreateForwarder(common.HexToAddress(forwarderAddress), *ubig.NewI(chainID))
+	orm := forwarders.NewORM(db)
+	_, err = orm.CreateForwarder(ctx, common.HexToAddress(forwarderAddress), *ubig.NewI(chainID))
 	if err != nil {
 		return err
 	}

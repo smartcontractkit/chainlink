@@ -27,7 +27,7 @@ import { OptimismModule__factory as OptimismModuleFactory } from '../../../typec
 import { ILogAutomation__factory as ILogAutomationactory } from '../../../typechain/factories/ILogAutomation__factory'
 import { IAutomationForwarder__factory as IAutomationForwarderFactory } from '../../../typechain/factories/IAutomationForwarder__factory'
 import { MockArbSys__factory as MockArbSysFactory } from '../../../typechain/factories/MockArbSys__factory'
-import { AutomationUtils2_2 as AutomationUtils } from '../../../typechain/AutomationUtils2_2'
+import { AutomationCompatibleUtils } from '../../../typechain/AutomationCompatibleUtils'
 import { MockArbGasInfo } from '../../../typechain/MockArbGasInfo'
 import { MockOVMGasPriceOracle } from '../../../typechain/MockOVMGasPriceOracle'
 import { StreamsLookupUpkeep } from '../../../typechain/StreamsLookupUpkeep'
@@ -75,11 +75,12 @@ enum Trigger {
 }
 
 // un-exported types that must be extracted from the utils contract
-type Report = Parameters<AutomationUtils['_report']>[0]
-type OnChainConfig = Parameters<AutomationUtils['_onChainConfig']>[0]
-type LogTrigger = Parameters<AutomationUtils['_logTrigger']>[0]
-type ConditionalTrigger = Parameters<AutomationUtils['_conditionalTrigger']>[0]
-type Log = Parameters<AutomationUtils['_log']>[0]
+type Report = Parameters<AutomationCompatibleUtils['_report']>[0]
+type LogTrigger = Parameters<AutomationCompatibleUtils['_logTrigger']>[0]
+type ConditionalTrigger = Parameters<
+  AutomationCompatibleUtils['_conditionalTrigger']
+>[0]
+type Log = Parameters<AutomationCompatibleUtils['_log']>[0]
 
 // -----------------------------------------------------------------------------------------------
 
@@ -170,7 +171,7 @@ let chainModuleBase: ChainModuleBase
 let arbitrumModule: ArbitrumModule
 let optimismModule: OptimismModule
 let streamsLookupUpkeep: StreamsLookupUpkeep
-let automationUtils: AutomationUtils
+let automationUtils: AutomationCompatibleUtils
 
 function now() {
   return Math.floor(Date.now() / 1000)
@@ -198,15 +199,6 @@ const getTriggerType = (upkeepId: BigNumber): Trigger => {
     }
   }
   return bytes[15] as Trigger
-}
-
-const encodeConfig = (onchainConfig: OnChainConfig) => {
-  return (
-    '0x' +
-    automationUtils.interface
-      .encodeFunctionData('_onChainConfig', [onchainConfig])
-      .slice(10)
-  )
 }
 
 const encodeBlockTrigger = (conditionalTrigger: ConditionalTrigger) => {
@@ -409,16 +401,18 @@ describe('AutomationRegistry2_2', () => {
   let config: any
   let arbConfig: any
   let opConfig: any
-  let baseConfig: Parameters<IAutomationRegistry['setConfig']>
-  let arbConfigParams: Parameters<IAutomationRegistry['setConfig']>
-  let opConfigParams: Parameters<IAutomationRegistry['setConfig']>
+  let baseConfig: Parameters<IAutomationRegistry['setConfigTypeSafe']>
+  let arbConfigParams: Parameters<IAutomationRegistry['setConfigTypeSafe']>
+  let opConfigParams: Parameters<IAutomationRegistry['setConfigTypeSafe']>
   let upkeepManager: string
 
   before(async () => {
     personas = (await getUsers()).personas
 
-    const utilsFactory = await ethers.getContractFactory('AutomationUtils2_2')
-    automationUtils = await utilsFactory.deploy()
+    const convFactory = await ethers.getContractFactory(
+      'AutomationCompatibleUtils',
+    )
+    automationUtils = await convFactory.deploy()
 
     linkTokenFactory = await ethers.getContractFactory(
       'src/v0.4/LinkToken.sol:LinkToken',
@@ -625,11 +619,11 @@ describe('AutomationRegistry2_2', () => {
       .add(chainModuleOverheads.chainModuleFixedOverhead)
 
     for (const test of tests) {
-      await registry.connect(owner).setConfig(
+      await registry.connect(owner).setConfigTypeSafe(
         signerAddresses,
         keeperAddresses,
         f,
-        encodeConfig({
+        {
           paymentPremiumPPB: test.premium,
           flatFeeMicroLink: test.flatFee,
           checkGasLimit,
@@ -647,7 +641,7 @@ describe('AutomationRegistry2_2', () => {
           upkeepPrivilegeManager: upkeepManager,
           chainModule: chainModule.address,
           reorgProtectionEnabled: true,
-        }),
+        },
         offchainVersion,
         offchainBytes,
       )
@@ -915,7 +909,7 @@ describe('AutomationRegistry2_2', () => {
       signerAddresses,
       keeperAddresses,
       f,
-      encodeConfig(config),
+      config,
       offchainVersion,
       offchainBytes,
     ]
@@ -923,7 +917,7 @@ describe('AutomationRegistry2_2', () => {
       signerAddresses,
       keeperAddresses,
       f,
-      encodeConfig(arbConfig),
+      arbConfig,
       offchainVersion,
       offchainBytes,
     ]
@@ -931,7 +925,7 @@ describe('AutomationRegistry2_2', () => {
       signerAddresses,
       keeperAddresses,
       f,
-      encodeConfig(opConfig),
+      opConfig,
       offchainVersion,
       offchainBytes,
     ]
@@ -987,10 +981,10 @@ describe('AutomationRegistry2_2', () => {
       await registry.getTransmitCalldataPerSignerBytesOverhead()
     cancellationDelay = (await registry.getCancellationDelay()).toNumber()
 
-    await registry.connect(owner).setConfig(...baseConfig)
-    await mgRegistry.connect(owner).setConfig(...baseConfig)
-    await arbRegistry.connect(owner).setConfig(...arbConfigParams)
-    await opRegistry.connect(owner).setConfig(...opConfigParams)
+    await registry.connect(owner).setConfigTypeSafe(...baseConfig)
+    await mgRegistry.connect(owner).setConfigTypeSafe(...baseConfig)
+    await arbRegistry.connect(owner).setConfigTypeSafe(...arbConfigParams)
+    await opRegistry.connect(owner).setConfigTypeSafe(...opConfigParams)
     for (const reg of [registry, arbRegistry, opRegistry, mgRegistry]) {
       await reg.connect(owner).setPayees(payees)
       await linkToken.connect(admin).approve(reg.address, toWei('1000'))
@@ -1326,7 +1320,7 @@ describe('AutomationRegistry2_2', () => {
           ['conditional', upkeepId],
           ['log-trigger', logUpkeepId],
         ]
-        let newConfig = config
+        const newConfig = config
         newConfig.reorgProtectionEnabled = false
         await registry // used to test initial configurations
           .connect(owner)
@@ -1358,7 +1352,7 @@ describe('AutomationRegistry2_2', () => {
       })
 
       it('allows very old trigger block numbers when bypassing reorg protection with reorgProtectionEnabled config', async () => {
-        let newConfig = config
+        const newConfig = config
         newConfig.reorgProtectionEnabled = false
         await registry // used to test initial configurations
           .connect(owner)
@@ -1459,7 +1453,7 @@ describe('AutomationRegistry2_2', () => {
       })
 
       it('returns early when future block number is provided as trigger, irrespective of reorgProtectionEnabled config', async () => {
-        let newConfig = config
+        const newConfig = config
         newConfig.reorgProtectionEnabled = false
         await registry // used to test initial configurations
           .connect(owner)
@@ -2892,7 +2886,7 @@ describe('AutomationRegistry2_2', () => {
       await registry.connect(owner).addFunds(upkeepID, minBalance1)
 
       // upkeep check should return false, 2 should return true
-      let checkUpkeepResult = await registry
+      const checkUpkeepResult = await registry
         .connect(zeroAddress)
         .callStatic['checkUpkeep(uint256)'](upkeepID)
       assert.equal(checkUpkeepResult.upkeepNeeded, false)
@@ -3679,7 +3673,7 @@ describe('AutomationRegistry2_2', () => {
     const newRegistrars = [randomAddress(), randomAddress()]
     const upkeepManager = randomAddress()
 
-    const newConfig: OnChainConfig = {
+    const newConfig = {
       paymentPremiumPPB: payment,
       flatFeeMicroLink: flatFee,
       checkGasLimit: maxGas,
@@ -5070,7 +5064,7 @@ describe('AutomationRegistry2_2', () => {
     })
 
     it('reverts if the payee is the zero address', async () => {
-      await blankRegistry.connect(owner).setConfig(...baseConfig) // used to test initial config
+      await blankRegistry.connect(owner).setConfigTypeSafe(...baseConfig) // used to test initial config
 
       await evmRevert(
         blankRegistry // used to test initial config
@@ -5084,7 +5078,7 @@ describe('AutomationRegistry2_2', () => {
       'sets the payees when exisitng payees are zero address',
       async () => {
         //Initial payees should be zero address
-        await blankRegistry.connect(owner).setConfig(...baseConfig) // used to test initial config
+        await blankRegistry.connect(owner).setConfigTypeSafe(...baseConfig) // used to test initial config
 
         for (let i = 0; i < keeperAddresses.length; i++) {
           const payee = (

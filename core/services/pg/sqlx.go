@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
+// Queryer is deprecated. Use sqlutil.DataSource instead
 type Queryer interface {
 	sqlx.Ext
 	sqlx.ExtContext

@@ -29,7 +29,7 @@ contract OptimismCrossDomainForwarder is TypeAndVersionInterface, CrossDomainFor
    * @param l1OwnerAddr the L1 owner address that will be allowed to call the forward fn
    */
   constructor(iOVM_CrossDomainMessenger crossDomainMessengerAddr, address l1OwnerAddr) CrossDomainOwnable(l1OwnerAddr) {
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(address(crossDomainMessengerAddr) != address(0), "Invalid xDomain Messenger address");
     OVM_CROSS_DOMAIN_MESSENGER = crossDomainMessengerAddr;
   }
@@ -65,9 +65,9 @@ contract OptimismCrossDomainForwarder is TypeAndVersionInterface, CrossDomainFor
    * @notice The call MUST come from the L1 owner (via cross-chain message.) Reverts otherwise.
    */
   modifier onlyL1Owner() override {
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(msg.sender == crossDomainMessenger(), "Sender is not the L2 messenger");
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(
       iOVM_CrossDomainMessenger(crossDomainMessenger()).xDomainMessageSender() == l1Owner(),
       "xDomain sender is not the L1 owner"
@@ -80,9 +80,9 @@ contract OptimismCrossDomainForwarder is TypeAndVersionInterface, CrossDomainFor
    */
   modifier onlyProposedL1Owner() override {
     address messenger = crossDomainMessenger();
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(msg.sender == messenger, "Sender is not the L2 messenger");
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(
       iOVM_CrossDomainMessenger(messenger).xDomainMessageSender() == s_l1PendingOwner,
       "Must be proposed L1 owner"

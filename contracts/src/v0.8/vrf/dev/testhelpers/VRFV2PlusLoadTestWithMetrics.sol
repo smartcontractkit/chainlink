@@ -21,6 +21,8 @@ contract VRFV2PlusLoadTestWithMetrics is VRFConsumerBaseV2Plus {
 
   uint256 public s_lastRequestId;
 
+  uint32[] public s_requestBlockTimes;
+
   struct RequestStatus {
     bool fulfilled;
     uint256[] randomWords;
@@ -70,6 +72,8 @@ contract VRFV2PlusLoadTestWithMetrics is VRFConsumerBaseV2Plus {
     );
 
     s_responseCount++;
+
+    s_requestBlockTimes.push(uint32(responseTimeInBlocks));
   }
 
   function requestRandomWords(
@@ -116,6 +120,7 @@ contract VRFV2PlusLoadTestWithMetrics is VRFConsumerBaseV2Plus {
     s_fastestResponseTimeInSeconds = 999;
     s_requestCount = 0;
     s_responseCount = 0;
+    delete s_requestBlockTimes;
   }
 
   function getRequestStatus(
@@ -160,5 +165,19 @@ contract VRFV2PlusLoadTestWithMetrics is VRFConsumerBaseV2Plus {
       : _requestDelayInMillions;
 
     return (_slowestResponseTime, _fastestResponseTime, averageInMillions);
+  }
+
+  function getRequestBlockTimes(uint256 offset, uint256 quantity) external view returns (uint32[] memory) {
+    uint256 end = offset + quantity;
+    if (end > s_requestBlockTimes.length) {
+      end = s_requestBlockTimes.length;
+    }
+
+    uint32[] memory blockTimes = new uint32[](end - offset);
+    for (uint256 i = offset; i < end; i++) {
+      blockTimes[i - offset] = s_requestBlockTimes[i];
+    }
+
+    return blockTimes;
   }
 }

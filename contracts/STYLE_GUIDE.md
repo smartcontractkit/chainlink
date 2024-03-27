@@ -64,8 +64,6 @@ uint256 networkFeeUSDCents; // good
 
 ### Structs
 
-- All structs should be packed to have the lowest memory footprint to reduce gas usage. Even structs that will never be written to storage should be packed.
-  - A contract can be considered a struct; it should also be packed to reduce gas cost.
 - Structs should contain struct packing comments to clearly indicate the storage slot layout
   - Using the exact characters from the example below will ensure visually appealing struct packing comments.
   - Notice there is no line on the unpacked last `fee` item.
@@ -378,17 +376,22 @@ function getNum() external view returns (uint64 num) {
 
 Use [custom errors](https://blog.soliditylang.org/2021/04/21/custom-errors/) instead of emitting strings. This saves contract code size and simultaneously provides more informative error messages.
 
-rule: `custom-errors`
+rule: `gas-custom-errors`
 
 ## Interfaces
 
 Interfaces should be named `IFoo` instead of `FooInterface`. This follows the patterns of popular [libraries like OpenZeppelin’s](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/IERC20.sol#L9). 
 
-rule: `tbd`
+rule: `interface-starts-with-i`
 
 ## Structs
 
-Structs should be constructed with named arguments. This prevents accidental assignment to the wrong field and makes the code more readable.
+- All structs should be packed to have the lowest memory footprint to reduce gas usage. Even structs that will never be written to storage should be packed.
+  - A contract can be considered a struct; it should also be packed to reduce gas cost.
+
+rule: `gas-struct-packing`
+
+- Structs should be constructed with named arguments. This prevents accidental assignment to the wrong field and makes the code more readable.
 
 ```solidity
 // Good

@@ -89,6 +89,7 @@ func NewChainRelayExtOpts(t testing.TB, testopts TestChainOpts) legacyevm.ChainR
 			AppConfig:    testopts.GeneralConfig,
 			MailMon:      testopts.MailMon,
 			GasEstimator: testopts.GasEstimator,
+			SqlxDB:       testopts.DB,
 			DB:           testopts.DB,
 		},
 	}

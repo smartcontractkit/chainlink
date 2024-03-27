@@ -413,9 +413,9 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 		app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, backend.Backend(), nodeKey)
 		require.NoError(t, app.Start(testutils.Context(t)))
 
-		forwarderORM := forwarders.NewORM(db, logger.TestLogger(t), config.Database())
+		forwarderORM := forwarders.NewORM(db)
 		chainID := ubig.Big(*backend.ConfiguredChainID())
-		_, err = forwarderORM.CreateForwarder(fwdrAddress, chainID)
+		_, err = forwarderORM.CreateForwarder(testutils.Context(t), fwdrAddress, chainID)
 		require.NoError(t, err)
 
 		addr, err := app.GetRelayers().LegacyEVMChains().Slice()[0].TxManager().GetForwarderForEOA(nodeAddress)

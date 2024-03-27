@@ -142,6 +142,13 @@ func (te *CLClusterTestEnv) StartEthereumNetwork(cfg *test_env.EthereumNetwork) 
 		}
 		cfg = &c
 	}
+
+	te.l.Info().
+		Str("Execution Layer", string(*cfg.ExecutionLayer)).
+		Str("Ethereum Version", string(*cfg.EthereumVersion)).
+		Str("Custom Docker Images", fmt.Sprintf("%v", cfg.CustomDockerImages)).
+		Msg("Starting Ethereum network")
+
 	n, rpc, err := cfg.Start()
 
 	if err != nil {

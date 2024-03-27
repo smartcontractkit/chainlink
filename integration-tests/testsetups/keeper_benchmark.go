@@ -246,20 +246,26 @@ func (k *KeeperBenchmarkTest) Run() {
 		if inputs.ForceSingleTxnKey {
 			txKeyId = 0
 		}
+		kr := k.keeperRegistries[rIndex]
 		ocrConfig, err := actions.BuildAutoOCR2ConfigVarsWithKeyIndex(
-			k.t, nodesWithoutBootstrap, *inputs.KeeperRegistrySettings, k.keeperRegistrars[rIndex].Address(), k.Inputs.DeltaStage, txKeyId, common.Address{}, k.keeperRegistries[rIndex].ChainModuleAddress(), k.keeperRegistries[rIndex].ReorgProtectionEnabled(),
+			k.t, nodesWithoutBootstrap, *inputs.KeeperRegistrySettings, kr.Address(), k.Inputs.DeltaStage, txKeyId, common.Address{}, kr.ChainModuleAddress(), kr.ReorgProtectionEnabled(),
 		)
 		require.NoError(k.t, err, "Building OCR config shouldn't fail")
 
+		rv := inputs.RegistryVersions[rIndex]
 		// Send keeper jobs to registry and chainlink nodes
-		if inputs.RegistryVersions[rIndex] == ethereum.RegistryVersion_2_0 || inputs.RegistryVersions[rIndex] == ethereum.RegistryVersion_2_1 || inputs.RegistryVersions[rIndex] == ethereum.RegistryVersion_2_2 {
-			actions.CreateOCRKeeperJobs(k.t, k.chainlinkNodes, k.keeperRegistries[rIndex].Address(), k.chainClient.GetChainID().Int64(), txKeyId, inputs.RegistryVersions[rIndex])
-			err = k.keeperRegistries[rIndex].SetConfig(*inputs.KeeperRegistrySettings, ocrConfig)
+		if rv == ethereum.RegistryVersion_2_0 || rv == ethereum.RegistryVersion_2_1 || rv == ethereum.RegistryVersion_2_2 {
+			actions.CreateOCRKeeperJobs(k.t, k.chainlinkNodes, kr.Address(), k.chainClient.GetChainID().Int64(), txKeyId, rv)
+			if rv == ethereum.RegistryVersion_2_0 {
+				err = kr.SetConfig(*inputs.KeeperRegistrySettings, ocrConfig)
+			} else {
+				err = kr.SetConfigTypeSafe(ocrConfig)
+			}
 			require.NoError(k.t, err, "Registry config should be be set successfully")
 			// Give time for OCR nodes to bootstrap
 			time.Sleep(1 * time.Minute)
 		} else {
-			actions.CreateKeeperJobsWithKeyIndex(k.t, k.chainlinkNodes, k.keeperRegistries[rIndex], txKeyId, ocrConfig, k.chainClient.GetChainID().String())
+			actions.CreateKeeperJobsWithKeyIndex(k.t, k.chainlinkNodes, kr, txKeyId, ocrConfig, k.chainClient.GetChainID().String())
 		}
 		err = k.chainClient.WaitForEvents()
 		require.NoError(k.t, err, "Error waiting for registry setConfig")
@@ -657,7 +663,11 @@ func (k *KeeperBenchmarkTest) DeployBenchmarkKeeperContracts(index int) {
 		ocrConfig, err := actions.BuildAutoOCR2ConfigVars(k.t, k.chainlinkNodes[1:], *k.Inputs.KeeperRegistrySettings, registrar.Address(), k.Inputs.DeltaStage, registry.ChainModuleAddress(), registry.ReorgProtectionEnabled())
 		k.log.Debug().Interface("KeeperRegistrySettings", *k.Inputs.KeeperRegistrySettings).Interface("OCRConfig", ocrConfig).Msg("Config")
 		require.NoError(k.t, err, "Error building OCR config vars")
-		err = registry.SetConfig(*k.Inputs.KeeperRegistrySettings, ocrConfig)
+		if registryVersion == ethereum.RegistryVersion_2_0 {
+			err = registry.SetConfig(*k.Inputs.KeeperRegistrySettings, ocrConfig)
+		} else {
+			err = registry.SetConfigTypeSafe(ocrConfig)
+		}
 		require.NoError(k.t, err, "Registry config should be be set successfully")
 
 	}

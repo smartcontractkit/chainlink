@@ -26,7 +26,7 @@ interface IVRFSubscriptionV2Plus {
   function cancelSubscription(uint256 subId, address to) external;
 
   /**
-   * @notice Request subscription owner transfer.
+   * @notice Accept subscription owner transfer.
    * @param subId - ID of the subscription
    * @dev will revert if original owner of subId has
    * not requested that msg.sender become the new owner.
@@ -92,7 +92,7 @@ interface IVRFSubscriptionV2Plus {
   /**
    * @notice Fund a subscription with native.
    * @param subId - ID of the subscription
-   * @notice This method expects msg.value to be greater than 0.
+   * @notice This method expects msg.value to be greater than or equal to 0.
    */
   function fundSubscriptionWithNative(uint256 subId) external payable;
 }

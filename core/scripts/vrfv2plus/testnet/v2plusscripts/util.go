@@ -200,37 +200,32 @@ func RegisterCoordinatorProvingKey(e helpers.Environment,
 
 func WrapperDeploy(
 	e helpers.Environment,
-	link, linkEthFeed, coordinator common.Address,
-) (common.Address, *big.Int) {
+	link, linkEthFeed, coordinator common.Address, subID *big.Int,
+) common.Address {
 	address, tx, _, err := vrfv2plus_wrapper.DeployVRFV2PlusWrapper(e.Owner, e.Ec,
 		link,
 		linkEthFeed,
-		coordinator)
+		coordinator,
+		subID)
 	helpers.PanicErr(err)
 
 	helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 	fmt.Println("VRFV2Wrapper address:", address)
 
-	wrapper, err := vrfv2plus_wrapper.NewVRFV2PlusWrapper(address, e.Ec)
-	helpers.PanicErr(err)
-
-	subID, err := wrapper.SUBSCRIPTIONID(nil)
-	helpers.PanicErr(err)
-	fmt.Println("VRFV2Wrapper subscription id:", subID)
-
-	return address, subID
+	return address
 }
 
 func WrapperConfigure(
 	e helpers.Environment,
 	wrapperAddress common.Address,
-	wrapperGasOverhead, coordinatorGasOverhead, premiumPercentage uint,
+	wrapperGasOverhead, coordinatorGasOverhead uint,
+	nativePremiumPercentage, linkPremiumPercentage uint,
 	keyHash string,
 	maxNumWords uint,
 	fallbackWeiPerUnitLink *big.Int,
 	stalenessSeconds uint32,
-	fulfillmentFlatFeeLinkPPM uint32,
 	fulfillmentFlatFeeNativePPM uint32,
+	fulfillmentFlatFeeLinkDiscountPPM uint32,
 ) {
 	wrapper, err := vrfv2plus_wrapper.NewVRFV2PlusWrapper(wrapperAddress, e.Ec)
 	helpers.PanicErr(err)
@@ -239,13 +234,14 @@ func WrapperConfigure(
 		e.Owner,
 		uint32(wrapperGasOverhead),
 		uint32(coordinatorGasOverhead),
-		uint8(premiumPercentage),
+		uint8(nativePremiumPercentage),
+		uint8(linkPremiumPercentage),
 		common.HexToHash(keyHash),
 		uint8(maxNumWords),
 		stalenessSeconds,
 		fallbackWeiPerUnitLink,
-		fulfillmentFlatFeeLinkPPM,
 		fulfillmentFlatFeeNativePPM,
+		fulfillmentFlatFeeLinkDiscountPPM,
 	)
 
 	helpers.PanicErr(err)
@@ -257,7 +253,6 @@ func WrapperConsumerDeploy(
 	link, wrapper common.Address,
 ) common.Address {
 	address, tx, _, err := vrfv2plus_wrapper_consumer_example.DeployVRFV2PlusWrapperConsumerExample(e.Owner, e.Ec,
-		link,
 		wrapper)
 	helpers.PanicErr(err)
 

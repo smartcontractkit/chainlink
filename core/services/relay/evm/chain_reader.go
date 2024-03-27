@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/google/uuid"
@@ -39,7 +40,7 @@ type chainReader struct {
 }
 
 // NewChainReaderService is a constructor for ChainReader, returns nil if there is any error
-func NewChainReaderService(lggr logger.Logger, lp logpoller.LogPoller, chain legacyevm.Chain, config types.ChainReaderConfig) (ChainReaderService, error) {
+func NewChainReaderService(ctx context.Context, lggr logger.Logger, lp logpoller.LogPoller, chain legacyevm.Chain, config types.ChainReaderConfig) (ChainReaderService, error) {
 	cr := &chainReader{
 		lggr:             lggr.Named("ChainReader"),
 		lp:               lp,
@@ -57,7 +58,7 @@ func NewChainReaderService(lggr logger.Logger, lp logpoller.LogPoller, chain leg
 		return nil, err
 	}
 
-	err = cr.contractBindings.ForEach(func(b readBinding) error {
+	err = cr.contractBindings.ForEach(ctx, func(b readBinding, c context.Context) error {
 		b.SetCodec(cr.codec)
 		return nil
 	})
@@ -78,8 +79,8 @@ func (cr *chainReader) GetLatestValue(ctx context.Context, contractName, method 
 	return b.GetLatestValue(ctx, params, returnVal)
 }
 
-func (cr *chainReader) Bind(_ context.Context, bindings []commontypes.BoundContract) error {
-	return cr.contractBindings.Bind(bindings)
+func (cr *chainReader) Bind(ctx context.Context, bindings []commontypes.BoundContract) error {
+	return cr.contractBindings.Bind(ctx, bindings)
 }
 
 func (cr *chainReader) init(chainContractReaders map[string]types.ChainContractReader) error {
@@ -110,15 +111,17 @@ func (cr *chainReader) init(chainContractReaders map[string]types.ChainContractR
 	return nil
 }
 
-func (cr *chainReader) Start(_ context.Context) error {
+func (cr *chainReader) Start(ctx context.Context) error {
 	return cr.StartOnce("ChainReader", func() error {
-		return cr.contractBindings.ForEach(readBinding.Register)
+		return cr.contractBindings.ForEach(ctx, readBinding.Register)
 	})
 }
 
 func (cr *chainReader) Close() error {
 	return cr.StopOnce("ChainReader", func() error {
-		return cr.contractBindings.ForEach(readBinding.Unregister)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		return cr.contractBindings.ForEach(ctx, readBinding.Unregister)
 	})
 }
 

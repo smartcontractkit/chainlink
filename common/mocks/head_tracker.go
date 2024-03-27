@@ -14,17 +14,17 @@ type HeadTracker[H types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable] struct {
 	mock.Mock
 }
 
-// Backfill provides a mock function with given fields: ctx, headWithChain, depth
-func (_m *HeadTracker[H, BLOCK_HASH]) Backfill(ctx context.Context, headWithChain H, depth uint) error {
-	ret := _m.Called(ctx, headWithChain, depth)
+// Backfill provides a mock function with given fields: ctx, headWithChain, latestFinalized
+func (_m *HeadTracker[H, BLOCK_HASH]) Backfill(ctx context.Context, headWithChain H, latestFinalized H) error {
+	ret := _m.Called(ctx, headWithChain, latestFinalized)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Backfill")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, H, uint) error); ok {
-		r0 = rf(ctx, headWithChain, depth)
+	if rf, ok := ret.Get(0).(func(context.Context, H, H) error); ok {
+		r0 = rf(ctx, headWithChain, latestFinalized)
 	} else {
 		r0 = ret.Error(0)
 	}

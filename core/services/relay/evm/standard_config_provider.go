@@ -1,6 +1,7 @@
 package evm
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -14,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
-func newStandardConfigProvider(lggr logger.Logger, chain legacyevm.Chain, opts *types.RelayOpts) (*configWatcher, error) {
+func newStandardConfigProvider(ctx context.Context, lggr logger.Logger, chain legacyevm.Chain, opts *types.RelayOpts) (*configWatcher, error) {
 	if !common.IsHexAddress(opts.ContractID) {
 		return nil, errors.New("invalid contractID, expected hex address")
 	}
@@ -24,10 +25,10 @@ func newStandardConfigProvider(lggr logger.Logger, chain legacyevm.Chain, opts *
 		ChainID:         chain.Config().EVM().ChainID().Uint64(),
 		ContractAddress: aggregatorAddress,
 	}
-	return newContractConfigProvider(lggr, chain, opts, aggregatorAddress, OCR2AggregatorLogDecoder, offchainConfigDigester)
+	return newContractConfigProvider(ctx, lggr, chain, opts, aggregatorAddress, OCR2AggregatorLogDecoder, offchainConfigDigester)
 }
 
-func newContractConfigProvider(lggr logger.Logger, chain legacyevm.Chain, opts *types.RelayOpts, aggregatorAddress common.Address, ld LogDecoder, digester ocrtypes.OffchainConfigDigester) (*configWatcher, error) {
+func newContractConfigProvider(ctx context.Context, lggr logger.Logger, chain legacyevm.Chain, opts *types.RelayOpts, aggregatorAddress common.Address, ld LogDecoder, digester ocrtypes.OffchainConfigDigester) (*configWatcher, error) {
 	var cp types.ConfigPoller
 
 	relayConfig, err := opts.RelayConfig()
@@ -35,6 +36,7 @@ func newContractConfigProvider(lggr logger.Logger, chain legacyevm.Chain, opts *
 		return nil, fmt.Errorf("failed to get relay config: %w", err)
 	}
 	cp, err = NewConfigPoller(
+		ctx,
 		lggr,
 		CPConfig{
 			chain.Client(),

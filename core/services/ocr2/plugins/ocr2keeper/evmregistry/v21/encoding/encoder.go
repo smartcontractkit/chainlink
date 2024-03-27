@@ -8,7 +8,7 @@ import (
 
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
+	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_compatible_utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 )
 
@@ -33,7 +33,7 @@ func (e reportEncoder) Encode(results ...ocr2keepers.CheckResult) ([]byte, error
 		return nil, ErrEmptyResults
 	}
 
-	report := automation_utils_2_1.KeeperRegistryBase21Report{
+	report := ac.IAutomationV21PlusCommonReport{
 		FastGasWei:   big.NewInt(0),
 		LinkNative:   big.NewInt(0),
 		UpkeepIds:    make([]*big.Int, len(results)),

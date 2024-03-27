@@ -1,6 +1,7 @@
 package smoke
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 	"testing"
@@ -97,6 +98,8 @@ func executeBasicLogPollerTest(t *testing.T) {
 	lpTestEnv := prepareEnvironment(l, t, &testConfig)
 	testEnv := lpTestEnv.testEnv
 
+	ctx := testcontext.Get(t)
+
 	// Register log triggered upkeep for each combination of log emitter contract and event signature (topic)
 	// We need to register a separate upkeep for each event signature, because log trigger doesn't support multiple topics (even if log poller does)
 	err = logpoller.RegisterFiltersAndAssertUniquness(l, lpTestEnv.registry, lpTestEnv.upkeepIDs, lpTestEnv.logEmitters, cfg, lpTestEnv.upKeepsNeeded)
@@ -108,7 +111,7 @@ func executeBasicLogPollerTest(t *testing.T) {
 	require.NoError(t, err, "Error encountered when waiting for setting trigger config for upkeeps")
 
 	expectedFilters := logpoller.GetExpectedFilters(lpTestEnv.logEmitters, cfg)
-	waitForAllNodesToHaveExpectedFiltersRegisteredOrFail(l, coreLogger, t, testEnv, expectedFilters)
+	waitForAllNodesToHaveExpectedFiltersRegisteredOrFail(ctx, l, coreLogger, t, testEnv, expectedFilters)
 
 	// Save block number before starting to emit events, so that we can later use it when querying logs
 	sb, err := testEnv.EVMClient.LatestBlockNumber(testcontext.Get(t))
@@ -176,6 +179,8 @@ func executeLogPollerReplay(t *testing.T, consistencyTimeout string) {
 	lpTestEnv := prepareEnvironment(l, t, &testConfig)
 	testEnv := lpTestEnv.testEnv
 
+	ctx := testcontext.Get(t)
+
 	// Save block number before starting to emit events, so that we can later use it when querying logs
 	sb, err := testEnv.EVMClient.LatestBlockNumber(testcontext.Get(t))
 	require.NoError(t, err, "Error getting latest block number")
@@ -213,7 +218,7 @@ func executeLogPollerReplay(t *testing.T, consistencyTimeout string) {
 	err = testEnv.EVMClient.WaitForEvents()
 	require.NoError(t, err, "Error encountered when waiting for setting trigger config for upkeeps")
 
-	waitForAllNodesToHaveExpectedFiltersRegisteredOrFail(l, coreLogger, t, testEnv, expectedFilters)
+	waitForAllNodesToHaveExpectedFiltersRegisteredOrFail(ctx, l, coreLogger, t, testEnv, expectedFilters)
 
 	blockFinalisationWaitDuration := "5m"
 	l.Warn().Str("Duration", blockFinalisationWaitDuration).Msg("Waiting for all CL nodes to have end block finalised")
@@ -317,7 +322,7 @@ func prepareEnvironment(l zerolog.Logger, t *testing.T, testConfig *tc.TestConfi
 }
 
 // waitForAllNodesToHaveExpectedFiltersRegisteredOrFail waits until all nodes have expected filters registered until timeout
-func waitForAllNodesToHaveExpectedFiltersRegisteredOrFail(l zerolog.Logger, coreLogger core_logger.SugaredLogger, t *testing.T, testEnv *test_env.CLClusterTestEnv, expectedFilters []logpoller.ExpectedFilter) {
+func waitForAllNodesToHaveExpectedFiltersRegisteredOrFail(ctx context.Context, l zerolog.Logger, coreLogger core_logger.SugaredLogger, t *testing.T, testEnv *test_env.CLClusterTestEnv, expectedFilters []logpoller.ExpectedFilter) {
 	// Make sure that all nodes have expected filters registered before starting to emit events
 	gom := gomega.NewGomegaWithT(t)
 	gom.Eventually(func(g gomega.Gomega) {
@@ -330,7 +335,7 @@ func waitForAllNodesToHaveExpectedFiltersRegisteredOrFail(l zerolog.Logger, core
 			var message string
 			var err error
 
-			hasFilters, message, err = logpoller.NodeHasExpectedFilters(expectedFilters, coreLogger, testEnv.EVMClient.GetChainID(), testEnv.ClCluster.Nodes[i].PostgresDb)
+			hasFilters, message, err = logpoller.NodeHasExpectedFilters(ctx, expectedFilters, coreLogger, testEnv.EVMClient.GetChainID(), testEnv.ClCluster.Nodes[i].PostgresDb)
 			if !hasFilters || err != nil {
 				l.Warn().
 					Str("Details", message).

@@ -163,7 +163,7 @@ contract VRF {
       )
     }
     if (callResult == 0) {
-      // solhint-disable-next-line custom-errors
+      // solhint-disable-next-line gas-custom-errors
       revert("bigModExp failure!");
     }
     return output[0];
@@ -189,9 +189,9 @@ contract VRF {
   function _isOnCurve(uint256[2] memory p) internal pure returns (bool) {
     // Section 2.3.6. in https://www.secg.org/sec1-v2.pdf
     // requires each ordinate to be in [0, ..., FIELD_SIZE-1]
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(p[0] < FIELD_SIZE, "invalid x-ordinate");
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(p[1] < FIELD_SIZE, "invalid y-ordinate");
     return _ySquared(p[0]) == mulmod(p[1], p[1], FIELD_SIZE);
   }
@@ -268,7 +268,7 @@ contract VRF {
     uint256 scalar,
     uint256[2] memory product
   ) internal pure returns (bool verifies) {
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(scalar != 0, "zero scalar"); // Rules out an ecrecover failure case
     uint256 x = multiplicand[0]; // x ordinate of multiplicand
     uint8 v = multiplicand[1] % 2 == 0 ? 27 : 28; // parity of y ordinate
@@ -409,7 +409,7 @@ contract VRF {
     uint256 y;
     uint256 z;
     (x, y, z) = _projectiveECAdd(p1[0], p1[1], p2[0], p2[1]);
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(mulmod(z, invZ, FIELD_SIZE) == 1, "invZ must be inverse of z");
     // Clear the z ordinate of the projective representation by dividing through
     // by it, to obtain the affine representation
@@ -426,7 +426,7 @@ contract VRF {
   ) internal pure returns (bool) {
     // Rule out ecrecover failure modes which return address 0.
     unchecked {
-      // solhint-disable-next-line custom-errors
+      // solhint-disable-next-line gas-custom-errors
       require(lcWitness != address(0), "bad witness");
       uint8 v = (p[1] % 2 == 0) ? 27 : 28; // parity of y-ordinate of p
       // Note this cannot wrap (X - Y % X), but we use unchecked to save
@@ -462,11 +462,11 @@ contract VRF {
   ) internal pure returns (uint256[2] memory) {
     unchecked {
       // Note we are relying on the wrap around here
-      // solhint-disable-next-line custom-errors
+      // solhint-disable-next-line gas-custom-errors
       require((cp1Witness[0] % FIELD_SIZE) != (sp2Witness[0] % FIELD_SIZE), "points in sum must be distinct");
-      // solhint-disable-next-line custom-errors
+      // solhint-disable-next-line gas-custom-errors
       require(_ecmulVerify(p1, c, cp1Witness), "First mul check failed");
-      // solhint-disable-next-line custom-errors
+      // solhint-disable-next-line gas-custom-errors
       require(_ecmulVerify(p2, s, sp2Witness), "Second mul check failed");
       return _affineECAdd(cp1Witness, sp2Witness, zInv);
     }
@@ -518,20 +518,20 @@ contract VRF {
     uint256 zInv
   ) internal view {
     unchecked {
-      // solhint-disable-next-line custom-errors
+      // solhint-disable-next-line gas-custom-errors
       require(_isOnCurve(pk), "public key is not on curve");
-      // solhint-disable-next-line custom-errors
+      // solhint-disable-next-line gas-custom-errors
       require(_isOnCurve(gamma), "gamma is not on curve");
-      // solhint-disable-next-line custom-errors
+      // solhint-disable-next-line gas-custom-errors
       require(_isOnCurve(cGammaWitness), "cGammaWitness is not on curve");
-      // solhint-disable-next-line custom-errors
+      // solhint-disable-next-line gas-custom-errors
       require(_isOnCurve(sHashWitness), "sHashWitness is not on curve");
       // Step 5. of IETF draft section 5.3 (pk corresponds to 5.3's Y, and here
       // we use the address of u instead of u itself. Also, here we add the
       // terms instead of taking the difference, and in the proof construction in
       // vrf.GenerateProof, we correspondingly take the difference instead of
       // taking the sum as they do in step 7 of section 5.1.)
-      // solhint-disable-next-line custom-errors
+      // solhint-disable-next-line gas-custom-errors
       require(_verifyLinearCombinationWithGenerator(c, pk, s, uWitness), "addr(c*pk+s*g)!=_uWitness");
       // Step 4. of IETF draft section 5.3 (pk corresponds to Y, seed to alpha_string)
       uint256[2] memory hash = _hashToCurve(pk, seed);
@@ -539,7 +539,7 @@ contract VRF {
       uint256[2] memory v = _linearCombination(c, gamma, cGammaWitness, s, hash, sHashWitness, zInv);
       // Steps 7. and 8. of IETF draft section 5.3
       uint256 derivedC = _scalarFromCurvePoints(hash, pk, gamma, uWitness, v);
-      // solhint-disable-next-line custom-errors
+      // solhint-disable-next-line gas-custom-errors
       require(c == derivedC, "invalid proof");
     }
   }

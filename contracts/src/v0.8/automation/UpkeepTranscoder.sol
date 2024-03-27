@@ -17,7 +17,6 @@ contract UpkeepTranscoder is UpkeepTranscoderInterface, TypeAndVersionInterface 
    * @notice versions:
    * - UpkeepTranscoder 1.0.0: placeholder to allow new formats in the future
    */
-  // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
   string public constant override typeAndVersion = "UpkeepTranscoder 1.0.0";
 
   /**

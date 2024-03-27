@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+\#!/usr/bin/env bash
 
 set -e
 
@@ -6,7 +6,7 @@ echo " ┌───────────────────────�
 echo " │          Compiling VRF contracts...          │"
 echo " └──────────────────────────────────────────────┘"
 
-SOLC_VERSION="0.8.6"
+SOLC_VERSION="0.8.19"
 OPTIMIZE_RUNS=1000000
 
 SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
@@ -37,17 +37,10 @@ compileContractAltOpts () {
       "$ROOT"/contracts/src/v0.8/"$1"
 }
 
-# VRF
-compileContract vrf/VRFRequestIDBase.sol
-compileContract vrf/VRFConsumerBase.sol
-compileContract vrf/testhelpers/VRFConsumer.sol
-compileContract vrf/testhelpers/VRFRequestIDBaseTestHelper.sol
-compileContract vrf/mocks/VRFCoordinatorMock.sol
-
 # VRF V2Plus
 compileContract vrf/dev/interfaces/IVRFCoordinatorV2PlusInternal.sol
 compileContract vrf/dev/testhelpers/VRFV2PlusConsumerExample.sol
-compileContractAltOpts vrf/dev/VRFCoordinatorV2_5.sol 50
+compileContractAltOpts vrf/dev/VRFCoordinatorV2_5.sol 500
 compileContract vrf/dev/BatchVRFCoordinatorV2Plus.sol
 compileContract vrf/dev/VRFV2PlusWrapper.sol
 compileContract vrf/dev/testhelpers/VRFConsumerV2PlusUpgradeableExample.sol
@@ -60,10 +53,11 @@ compileContract vrf/dev/testhelpers/VRFConsumerV2PlusUpgradeableExample.sol
 compileContract vrf/dev/testhelpers/VRFV2PlusMaliciousMigrator.sol
 compileContract vrf/dev/libraries/VRFV2PlusClient.sol
 compileContract vrf/dev/testhelpers/VRFCoordinatorV2Plus_V2Example.sol
-compileContract vrf/dev/BlockhashStore.sol
 compileContract vrf/dev/TrustedBlockhashStore.sol
 compileContract vrf/dev/testhelpers/VRFV2PlusLoadTestWithMetrics.sol
 compileContractAltOpts vrf/dev/testhelpers/VRFCoordinatorV2PlusUpgradedVersion.sol 5
 compileContract vrf/dev/testhelpers/VRFV2PlusWrapperLoadTestConsumer.sol
 compileContract vrf/testhelpers/VRFMockETHLINKAggregator.sol
 compileContract vrf/dev/testhelpers/VRFV2PlusLoadTestWithMetrics.sol
+compileContract vrf/BatchBlockhashStore.sol
+compileContract vrf/dev/BlockhashStore.sol

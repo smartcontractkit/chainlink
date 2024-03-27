@@ -66,7 +66,7 @@ contract SimpleWriteAccessController is AccessControllerInterface, ConfirmedOwne
 
   /// @dev reverts if the caller does not have access
   modifier checkAccess() {
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(hasAccess(msg.sender, msg.data), "No access");
     _;
   }

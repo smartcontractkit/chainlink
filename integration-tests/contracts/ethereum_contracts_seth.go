@@ -18,6 +18,7 @@ import (
 	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
+	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_factory"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_wrapper"
@@ -80,7 +81,7 @@ func DeployOffchainAggregator(l zerolog.Logger, seth *seth.Client, linkTokenAddr
 		return EthereumOffchainAggregator{}, fmt.Errorf("OCR instance deployment have failed: %w", err)
 	}
 
-	ocr, err := offchainaggregator.NewOffchainAggregator(ocrDeploymentData.Address, seth.Client)
+	ocr, err := offchainaggregator.NewOffchainAggregator(ocrDeploymentData.Address, wrappers.MustNewWrappedContractBackend(nil, seth))
 	if err != nil {
 		return EthereumOffchainAggregator{}, fmt.Errorf("failed to instantiate OCR instance: %w", err)
 	}
@@ -458,7 +459,7 @@ func DeployOffchainAggregatorV2(l zerolog.Logger, seth *seth.Client, linkTokenAd
 		return EthereumOffchainAggregatorV2{}, fmt.Errorf("OCR instance deployment have failed: %w", err)
 	}
 
-	ocr2, err := ocr2aggregator.NewOCR2Aggregator(ocrDeploymentData2.Address, seth.Client)
+	ocr2, err := ocr2aggregator.NewOCR2Aggregator(ocrDeploymentData2.Address, wrappers.MustNewWrappedContractBackend(nil, seth))
 	if err != nil {
 		return EthereumOffchainAggregatorV2{}, fmt.Errorf("failed to instantiate OCR instance: %w", err)
 	}

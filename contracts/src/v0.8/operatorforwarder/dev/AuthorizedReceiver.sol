@@ -3,7 +3,7 @@ pragma solidity 0.8.19;
 
 import {AuthorizedReceiverInterface} from "./interfaces/AuthorizedReceiverInterface.sol";
 
-// solhint-disable custom-errors
+// solhint-disable gas-custom-errors
 abstract contract AuthorizedReceiver is AuthorizedReceiverInterface {
   mapping(address sender => bool authorized) private s_authorizedSenders;
   address[] private s_authorizedSenderList;

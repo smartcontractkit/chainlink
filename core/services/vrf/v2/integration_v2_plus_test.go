@@ -948,7 +948,7 @@ func TestVRFV2PlusIntegration_MaxConsumersCost(t *testing.T) {
 		uni.rootContractAddress, uni.coordinatorABI,
 		"removeConsumer", subId, carolContractAddress)
 	t.Log(estimate)
-	assert.Less(t, estimate, uint64(320000))
+	assert.Less(t, estimate, uint64(540000))
 	estimate = estimateGas(t, uni.backend, carolContractAddress,
 		uni.rootContractAddress, uni.coordinatorABI,
 		"addConsumer", subId, testutils.NewAddress())

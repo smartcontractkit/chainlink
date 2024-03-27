@@ -19,7 +19,7 @@ contract WERC20Mock is ERC20 {
   }
 
   function withdraw(uint256 wad) public {
-    // solhint-disable-next-line custom-errors, reason-string
+    // solhint-disable-next-line gas-custom-errors, reason-string
     require(balanceOf(msg.sender) >= wad);
     _burn(msg.sender, wad);
     payable(msg.sender).transfer(wad);

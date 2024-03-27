@@ -192,7 +192,7 @@ func (l *functionsListener) Start(context.Context) error {
 		switch l.pluginConfig.ContractVersion {
 		case 1:
 			l.shutdownWaitGroup.Add(1)
-			go l.processOracleEventsV1()
+			go l.processOracleEventsV1(l.serviceContext)
 		default:
 			return fmt.Errorf("unsupported contract version: %d", l.pluginConfig.ContractVersion)
 		}
@@ -221,7 +221,7 @@ func (l *functionsListener) Close() error {
 	})
 }
 
-func (l *functionsListener) processOracleEventsV1() {
+func (l *functionsListener) processOracleEventsV1(ctx context.Context) {
 	defer l.shutdownWaitGroup.Done()
 	freqMillis := l.pluginConfig.ListenerEventsCheckFrequencyMillis
 	if freqMillis == 0 {
@@ -235,7 +235,7 @@ func (l *functionsListener) processOracleEventsV1() {
 		case <-l.chStop:
 			return
 		case <-ticker.C:
-			requests, responses, err := l.logPollerWrapper.LatestEvents()
+			requests, responses, err := l.logPollerWrapper.LatestEvents(ctx)
 			if err != nil {
 				l.logger.Errorw("error when calling LatestEvents()", "err", err)
 				break

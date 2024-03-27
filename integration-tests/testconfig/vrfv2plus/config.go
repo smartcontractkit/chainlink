@@ -43,6 +43,7 @@ type General struct {
 	*vrf_common_config.General
 	SubscriptionBillingType           *string  `toml:"subscription_billing_type"`              // Billing type for the subscription
 	SubscriptionFundingAmountNative   *float64 `toml:"subscription_funding_amount_native"`     // Amount of LINK to fund the subscription with
+	SubscriptionRefundingAmountNative *float64 `toml:"subscription_refunding_amount_native"`   // Amount of LINK to fund the subscription with
 	FulfillmentFlatFeeNativePPM       *uint32  `toml:"fulfillment_flat_fee_native_ppm"`        // Flat fee in ppm for native currency for the VRF Coordinator config
 	FulfillmentFlatFeeLinkPPM         *uint32  `toml:"fulfillment_flat_fee_link_ppm"`          // Flat fee in ppm for LINK for the VRF Coordinator config
 	FulfillmentFlatFeeLinkDiscountPPM *uint32  `toml:"fulfillment_flat_fee_link_discount_ppm"` // Flat fee discount in ppm for LINK for the VRF Coordinator config
@@ -59,6 +60,9 @@ func (c *General) Validate() error {
 	}
 	if c.SubscriptionFundingAmountNative == nil || *c.SubscriptionFundingAmountNative <= 0 {
 		return errors.New("subscription_funding_amount_native must be greater than 0")
+	}
+	if c.SubscriptionRefundingAmountNative == nil || *c.SubscriptionRefundingAmountNative <= 0 {
+		return errors.New("subscription_refunding_amount_native must be greater than 0")
 	}
 	if c.FulfillmentFlatFeeNativePPM == nil {
 		return errors.New("fulfillment_flat_fee_native_ppm must not be nil")

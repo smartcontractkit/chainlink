@@ -1,3 +1,11 @@
+[PrivateEthereumNetwork]
+ethereum_version="eth2"
+consensus_layer="prysm"
+
+[PrivateEthereumNetwork.EthereumChainConfig]
+seconds_per_slot=4
+slots_per_epoch=2
+
 # product defaults
 [LogPoller]
 [LogPoller.General]

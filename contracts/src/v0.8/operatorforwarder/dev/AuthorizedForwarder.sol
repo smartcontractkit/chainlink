@@ -5,7 +5,7 @@ import {ConfirmedOwnerWithProposal} from "../../shared/access/ConfirmedOwnerWith
 import {AuthorizedReceiver} from "./AuthorizedReceiver.sol";
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 
-// solhint-disable custom-errors
+// solhint-disable gas-custom-errors
 contract AuthorizedForwarder is ConfirmedOwnerWithProposal, AuthorizedReceiver {
   using Address for address;
 
@@ -27,7 +27,6 @@ contract AuthorizedForwarder is ConfirmedOwnerWithProposal, AuthorizedReceiver {
     }
   }
 
-  // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
   string public constant typeAndVersion = "AuthorizedForwarder 1.1.0";
 
   // @notice Forward a call to another contract

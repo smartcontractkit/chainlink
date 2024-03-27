@@ -144,7 +144,7 @@ type abiPacker struct {
 }
 
 func NewAbiPacker() *abiPacker {
-	return &abiPacker{registryABI: core.RegistryABI, streamsABI: core.StreamsCompatibleABI}
+	return &abiPacker{registryABI: core.AutoV2CommonABI, streamsABI: core.StreamsCompatibleABI}
 }
 
 // DecodeStreamsLookupRequest decodes the revert error StreamsLookup(string feedParamKey, string[] feeds, string feedParamKey, uint256 time, byte[] extraData)

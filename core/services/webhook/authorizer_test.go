@@ -51,7 +51,7 @@ func Test_Authorizer(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("no user no ei never authorizes", func(t *testing.T) {
-		a := webhook.NewAuthorizer(db.DB, nil, nil)
+		a := webhook.NewAuthorizer(db, nil, nil)
 
 		can, err := a.CanRun(testutils.Context(t), nil, jobWithFooAndBarEI.ExternalJobID)
 		require.NoError(t, err)
@@ -65,7 +65,7 @@ func Test_Authorizer(t *testing.T) {
 	})
 
 	t.Run("with user no ei always authorizes", func(t *testing.T) {
-		a := webhook.NewAuthorizer(db.DB, &sessions.User{}, nil)
+		a := webhook.NewAuthorizer(db, &sessions.User{}, nil)
 
 		can, err := a.CanRun(testutils.Context(t), nil, jobWithFooAndBarEI.ExternalJobID)
 		require.NoError(t, err)
@@ -79,7 +79,7 @@ func Test_Authorizer(t *testing.T) {
 	})
 
 	t.Run("no user with ei authorizes conditionally", func(t *testing.T) {
-		a := webhook.NewAuthorizer(db.DB, nil, &eiFoo)
+		a := webhook.NewAuthorizer(db, nil, &eiFoo)
 
 		can, err := a.CanRun(testutils.Context(t), eiEnabledCfg{}, jobWithFooAndBarEI.ExternalJobID)
 		require.NoError(t, err)

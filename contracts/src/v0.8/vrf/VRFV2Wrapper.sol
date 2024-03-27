@@ -10,7 +10,7 @@ import {AggregatorV3Interface} from "../shared/interfaces/AggregatorV3Interface.
 import {VRFCoordinatorV2Interface} from "./interfaces/VRFCoordinatorV2Interface.sol";
 import {VRFV2WrapperInterface} from "./interfaces/VRFV2WrapperInterface.sol";
 import {VRFV2WrapperConsumerBase} from "./VRFV2WrapperConsumerBase.sol";
-import {ChainSpecificUtil} from "../ChainSpecificUtil.sol";
+import {ChainSpecificUtil} from "../ChainSpecificUtil_v0_8_6.sol";
 
 /**
  * @notice A wrapper for VRFCoordinatorV2 that provides an interface better suited to one-off
@@ -278,7 +278,7 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
    *        uint16 requestConfirmations, and uint32 numWords.
    */
   function onTokenTransfer(address _sender, uint256 _amount, bytes calldata _data) external onlyConfiguredNotDisabled {
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(msg.sender == address(LINK), "only callable from LINK");
 
     (uint32 callbackGasLimit, uint16 requestConfirmations, uint32 numWords) = abi.decode(
@@ -288,9 +288,9 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
     uint32 eip150Overhead = _getEIP150Overhead(callbackGasLimit);
     int256 weiPerUnitLink = _getFeedData();
     uint256 price = _calculateRequestPrice(callbackGasLimit, tx.gasprice, weiPerUnitLink);
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(_amount >= price, "fee too low");
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(numWords <= s_maxNumWords, "numWords too high");
 
     uint256 requestId = COORDINATOR.requestRandomWords(
@@ -340,7 +340,7 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
   function fulfillRandomWords(uint256 _requestId, uint256[] memory _randomWords) internal override {
     Callback memory callback = s_callbacks[_requestId];
     delete s_callbacks[_requestId];
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(callback.callbackAddress != address(0), "request not found"); // This should never happen
 
     VRFV2WrapperConsumerBase c;
@@ -361,7 +361,7 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
     if (staleFallback && s_stalenessSeconds < block.timestamp - timestamp) {
       weiPerUnitLink = s_fallbackWeiPerUnitLink;
     }
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(weiPerUnitLink >= 0, "Invalid LINK wei price");
     return weiPerUnitLink;
   }
@@ -411,9 +411,9 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
   }
 
   modifier onlyConfiguredNotDisabled() {
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(s_configured, "wrapper is not configured");
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(!s_disabled, "wrapper is disabled");
     _;
   }
