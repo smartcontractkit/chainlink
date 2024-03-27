@@ -5,20 +5,6 @@ package gethwrappers
 // Make sure solidity compiler artifacts are up-to-date. Only output stdout on failure.
 //go:generate ./generation/compile_contracts.sh
 
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.6/FluxAggregator/FluxAggregator.abi ../../contracts/solc/v0.6/FluxAggregator/FluxAggregator.bin FluxAggregator flux_aggregator_wrapper
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.6/VRF/VRF.abi ../../contracts/solc/v0.6/VRF/VRF.bin VRF solidity_vrf_wrapper
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.6/VRFTestHelper/VRFTestHelper.abi ../../contracts/solc/v0.6/VRFTestHelper/VRFTestHelper.bin VRFTestHelper solidity_vrf_verifier_wrapper
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.6/VRFCoordinator/VRFCoordinator.abi ../../contracts/solc/v0.6/VRFCoordinator/VRFCoordinator.bin VRFCoordinator solidity_vrf_coordinator_interface
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.6/VRFConsumer/VRFConsumer.abi ../../contracts/solc/v0.6/VRFConsumer/VRFConsumer.bin VRFConsumer solidity_vrf_consumer_interface
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.6/VRFRequestIDBaseTestHelper/VRFRequestIDBaseTestHelper.abi ../../contracts/solc/v0.6/VRFRequestIDBaseTestHelper/VRFRequestIDBaseTestHelper.bin VRFRequestIDBaseTestHelper solidity_vrf_request_id
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.6/Flags/Flags.abi ../../contracts/solc/v0.6/Flags/Flags.bin Flags flags_wrapper
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.6/Oracle/Oracle.abi ../../contracts/solc/v0.6/Oracle/Oracle.bin Oracle oracle_wrapper
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.6/TestAPIConsumer/TestAPIConsumer.abi ../../contracts/solc/v0.6/TestAPIConsumer/TestAPIConsumer.bin TestAPIConsumer test_api_consumer_wrapper
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.6/MockETHLINKAggregator/MockETHLINKAggregator.abi ../../contracts/solc/v0.6/MockETHLINKAggregator/MockETHLINKAggregator.bin MockETHLINKAggregator mock_ethlink_aggregator_wrapper
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.6/MockGASAggregator/MockGASAggregator.abi ../../contracts/solc/v0.6/MockGASAggregator/MockGASAggregator.bin MockGASAggregator mock_gas_aggregator_wrapper
-
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.7/Consumer/Consumer.abi ../../contracts/solc/v0.7/Consumer/Consumer.bin Consumer consumer_wrapper
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.7/MultiWordConsumer/MultiWordConsumer.abi ../../contracts/solc/v0.7/MultiWordConsumer/MultiWordConsumer.bin MultiWordConsumer multiwordconsumer_wrapper
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/Operator/Operator.abi ../../contracts/solc/v0.8.19/Operator/Operator.bin Operator operator_wrapper
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/OperatorFactory/OperatorFactory.abi ../../contracts/solc/v0.8.19/OperatorFactory/OperatorFactory.bin OperatorFactory operator_factory
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/AuthorizedForwarder/AuthorizedForwarder.abi ../../contracts/solc/v0.8.19/AuthorizedForwarder/AuthorizedForwarder.bin AuthorizedForwarder authorized_forwarder
@@ -26,10 +12,6 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go OffchainAggregator/OffchainAggregator.abi - OffchainAggregator offchain_aggregator_wrapper
 
 // Automation
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.7/KeeperRegistry1_1/KeeperRegistry1_1.abi ../../contracts/solc/v0.7/KeeperRegistry1_1/KeeperRegistry1_1.bin KeeperRegistry keeper_registry_wrapper1_1
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.7/KeeperRegistry1_1Mock/KeeperRegistry1_1Mock.abi ../../contracts/solc/v0.7/KeeperRegistry1_1Mock/KeeperRegistry1_1Mock.bin KeeperRegistryMock keeper_registry_wrapper1_1_mock
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.7/UpkeepPerformCounterRestrictive/UpkeepPerformCounterRestrictive.abi ../../contracts/solc/v0.7/UpkeepPerformCounterRestrictive/UpkeepPerformCounterRestrictive.bin UpkeepPerformCounterRestrictive upkeep_perform_counter_restrictive_wrapper
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.7/UpkeepCounter/UpkeepCounter.abi ../../contracts/solc/v0.7/UpkeepCounter/UpkeepCounter.bin UpkeepCounter upkeep_counter_wrapper
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/CronUpkeepFactory/CronUpkeepFactory.abi - CronUpkeepFactory cron_upkeep_factory_wrapper
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/CronUpkeepFactory/CronUpkeep.abi - CronUpkeep cron_upkeep_wrapper
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/KeeperRegistrar1_2/KeeperRegistrar.abi ../../contracts/solc/v0.8.6/KeeperRegistrar1_2/KeeperRegistrar.bin KeeperRegistrar keeper_registrar_wrapper1_2

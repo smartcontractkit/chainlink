@@ -23,7 +23,7 @@ test = 'src/v0.8/functions/tests/v1_X'
 gas_price = 3_000_000_000 # 3 gwei
 
 [profile.vrf]
-optimizer_runs = 1000
+optimizer_runs = 1_000
 src = 'src/v0.8/vrf'
 test = 'test/v0.8/foundry/vrf' # skips tests for no VRF foundry tests
 
@@ -36,18 +36,18 @@ optimizer_runs = 1_000_000
 src = 'src/v0.8/vrf'
 
 [profile.automation]
-optimizer_runs = 10000
+optimizer_runs = 10_000
 src = 'src/v0.8/automation'
 test = 'src/v0.8/automation/test'
 
 [profile.l2ep]
-optimizer_runs = 1000000
+optimizer_runs = 1_000_000
 src = 'src/v0.8/l2ep'
 test = 'src/v0.8/l2ep/test'
 solc_version = '0.8.19'
 
 [profile.llo-feeds]
-optimizer_runs = 1000000
+optimizer_runs = 1_000_000
 src = 'src/v0.8/llo-feeds'
 test = 'src/v0.8/llo-feeds/test'
 solc_version = '0.8.19'
@@ -59,8 +59,14 @@ src = 'src/v0.8/keystone'
 test = 'src/v0.8/keystone/test'
 optimizer_runs = 10_000
 
+[profile.operatorforwarder]
+optimizer_runs = 1_000_000
+solc_version = '0.8.19'
+src = 'src/v0.8/operatorforwarder'
+test = 'src/v0.8/operatorforwarder/test'
+
 [profile.shared]
-optimizer_runs = 1000000
+optimizer_runs = 1_000_000
 src = 'src/v0.8/shared'
 test = 'src/v0.8/shared/test'
 solc_version = '0.8.19'
