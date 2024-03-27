@@ -135,14 +135,15 @@ type MercuryConfig struct {
 }
 
 func NewMercuryConfig(cred *types.MercuryCredentials, abi abi.ABI) *MercuryConfig {
+	c := &types.MercuryCredentials{}
+	if cred != nil {
+		c.Password = cred.Password
+		c.Username = cred.Username
+		c.URL = strings.TrimRight(cred.URL, "/")
+		c.LegacyURL = strings.TrimRight(cred.LegacyURL, "/")
+	}
 	return &MercuryConfig{
-		cred: &types.MercuryCredentials{
-			// removing trailing slashes from URLs
-			URL:       strings.TrimRight(cred.URL, "/"),
-			LegacyURL: strings.TrimRight(cred.LegacyURL, "/"),
-			Password:  cred.Password,
-			Username:  cred.Username,
-		},
+		cred:             c,
 		Abi:              abi,
 		AllowListCache:   cache.New(defaultPluginRetryExpiration, cleanupInterval),
 		pluginRetryCache: cache.New(defaultPluginRetryExpiration, cleanupInterval),
