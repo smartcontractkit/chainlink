@@ -8,7 +8,7 @@ contract MaliciousRequester is MaliciousChainlinked {
   uint256 private constant ORACLE_PAYMENT = 1 ether;
   uint256 private s_expiration;
 
-  constructor(address _link, address _oracle) public {
+  constructor(address _link, address _oracle) {
     setLinkToken(_link);
     setOracle(_oracle);
   }

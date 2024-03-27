@@ -3745,8 +3745,6 @@ describe('AutomationRegistry2_3', () => {
   })
 
   describeMaybe('#setConfig - onchain', async () => {
-    const payment = BigNumber.from(1)
-    const flatFee = BigNumber.from(2)
     const maxGas = BigNumber.from(6)
     const staleness = BigNumber.from(4)
     const ceiling = BigNumber.from(5)
@@ -4638,7 +4636,7 @@ describe('AutomationRegistry2_3', () => {
   describe('#withdrawOwnerFunds', () => {
     it('can only be called by finance admin', async () => {
       await evmRevert(
-        registry.connect(keeper1).withdrawLinkFees(zeroAddress, 1),
+        registry.connect(keeper1).withdrawLink(zeroAddress, 1),
         'OnlyFinanceAdmin()',
       )
     })
@@ -4695,7 +4693,7 @@ describe('AutomationRegistry2_3', () => {
       // Now withdraw
       await registry
         .connect(financeAdmin)
-        .withdrawLinkFees(await owner.getAddress(), ownerRegistryBalance)
+        .withdrawLink(await owner.getAddress(), ownerRegistryBalance)
 
       ownerRegistryBalance = await registry.linkAvailableForPayment()
       const ownerAfter = await linkToken.balanceOf(await owner.getAddress())
@@ -5220,6 +5218,7 @@ describe('AutomationRegistry2_3', () => {
 
       describe('when called by the owner when the admin has just canceled', () => {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        // @ts-ignore
         let oldExpiration: BigNumber
 
         beforeEach(async () => {
