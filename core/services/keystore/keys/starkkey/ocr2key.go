@@ -7,8 +7,8 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/caigo"
-	caigotypes "github.com/smartcontractkit/caigo/types"
+	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/starknet.go/curve"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
@@ -26,7 +26,8 @@ func NewOCR2Key(material io.Reader) (*OCR2Key, error) {
 }
 
 func (sk *OCR2Key) PublicKey() types.OnchainPublicKey {
-	return caigotypes.BigToFelt(sk.pub.X).Bytes()
+	ans := new(felt.Felt).SetBytes(sk.pub.X.Bytes()).Bytes()
+	return ans[:]
 }
 
 func ReportToSigData(reportCtx types.ReportContext, report types.Report) (*big.Int, error) {
@@ -46,7 +47,7 @@ func ReportToSigData(reportCtx types.ReportContext, report types.Report) (*big.I
 		dataArray = append(dataArray, new(big.Int).SetBytes(splitReport[i]))
 	}
 
-	hash, err := caigo.Curve.ComputeHashOnElements(dataArray)
+	hash, err := curve.Curve.ComputeHashOnElements(dataArray)
 	if err != nil {
 		return &big.Int{}, err
 	}
@@ -58,14 +59,14 @@ func (sk *OCR2Key) Sign(reportCtx types.ReportContext, report types.Report) ([]b
 	if err != nil {
 		return []byte{}, err
 	}
-	r, s, err := caigo.Curve.Sign(hash, sk.priv)
+	r, s, err := curve.Curve.Sign(hash, sk.priv)
 	if err != nil {
 		return []byte{}, err
 	}
 
 	// enforce s <= N/2 to prevent signature malleability
-	if s.Cmp(new(big.Int).Rsh(caigo.Curve.N, 1)) > 0 {
-		s.Sub(caigo.Curve.N, s)
+	if s.Cmp(new(big.Int).Rsh(curve.Curve.N, 1)) > 0 {
+		s.Sub(curve.Curve.N, s)
 	}
 
 	// encoding: public key (32 bytes) + r (32 bytes) + s (32 bytes)
@@ -97,7 +98,7 @@ func (sk *OCR2Key) Verify(publicKey types.OnchainPublicKey, reportCtx types.Repo
 	// convert OnchainPublicKey (starkkey) into ecdsa public keys (prepend 2 or 3 to indicate +/- Y coord)
 	var keys [2]PublicKey
 	keys[0].X = new(big.Int).SetBytes(publicKey)
-	keys[0].Y = caigo.Curve.GetYCoordinate(keys[0].X)
+	keys[0].Y = curve.Curve.GetYCoordinate(keys[0].X)
 
 	// When there is no point with the provided x-coordinate, the GetYCoordinate function returns the nil value.
 	if keys[0].Y == nil {
@@ -116,11 +117,11 @@ func (sk *OCR2Key) Verify(publicKey types.OnchainPublicKey, reportCtx types.Repo
 	s := new(big.Int).SetBytes(signature[64:])
 
 	// Only allow canonical signatures to avoid signature malleability. Verify s <= N/2
-	if s.Cmp(new(big.Int).Rsh(caigo.Curve.N, 1)) == 1 {
+	if s.Cmp(new(big.Int).Rsh(curve.Curve.N, 1)) == 1 {
 		return false
 	}
 
-	return caigo.Curve.Verify(hash, r, s, keys[0].X, keys[0].Y) || caigo.Curve.Verify(hash, r, s, keys[1].X, keys[1].Y)
+	return curve.Curve.Verify(hash, r, s, keys[0].X, keys[0].Y) || curve.Curve.Verify(hash, r, s, keys[1].X, keys[1].Y)
 }
 
 func (sk *OCR2Key) Verify3(publicKey types.OnchainPublicKey, cd types.ConfigDigest, seqNr uint64, r types.Report, signature []byte) bool {

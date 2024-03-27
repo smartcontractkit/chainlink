@@ -28,6 +28,9 @@ jobs:
               - '.github/workflows/solidity-foundry.yml'
             read_only_sol:
               - 'contracts/src/v0.8/interfaces/**/*'
+              - 'contracts/src/v0.8/automation/v1_2/**/*'
+              - 'contracts/src/v0.8/automation/v1_3/**/*'
+              - 'contracts/src/v0.8/automation/v2_0/**/*'
 
       - name: Fail if read-only files have changed
         if: ${{ steps.changes.outputs.read_only_sol == 'true' }}
