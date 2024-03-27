@@ -1,6 +1,8 @@
 [[Starknet]]
 # ChainID is the Starknet chain ID.
 ChainID = 'foobar' # Example
+# FeederURL is required to get tx metadata (that the RPC can't)
+FeederURL = 'http://feeder.url' # Example
 # Enabled enables this chain.
 Enabled = true # Default
 # OCR2CachePollPeriod is the rate to poll for the OCR2 state cache.
@@ -19,3 +21,5 @@ ConfirmationPoll = '5s' # Default
 Name = 'primary' # Example
 # URL is the base HTTP(S) endpoint for this node.
 URL = 'http://stark.node' # Example
+# APIKey Header is optional and only required for Nethermind RPCs
+APIKey = 'key' # Example
