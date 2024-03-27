@@ -767,12 +767,15 @@ func OffChainAggregatorV2ConfigWithNodes(numberNodes int, inflightExpiry time.Du
 	if faultyNodes == 0 {
 		faultyNodes = 1
 	}
+	if cfg.DeltaStage == nil {
+		cfg.DeltaStage = config.MustNewDuration(inflightExpiry)
+	}
 	return contracts.OffChainAggregatorV2Config{
 		DeltaProgress:                           cfg.DeltaProgress,
 		DeltaResend:                             cfg.DeltaResend,
 		DeltaRound:                              cfg.DeltaRound,
 		DeltaGrace:                              cfg.DeltaGrace,
-		DeltaStage:                              config.MustNewDuration(inflightExpiry),
+		DeltaStage:                              cfg.DeltaStage,
 		RMax:                                    3,
 		S:                                       s,
 		F:                                       faultyNodes,
