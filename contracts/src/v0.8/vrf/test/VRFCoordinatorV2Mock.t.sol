@@ -1,11 +1,11 @@
 pragma solidity 0.8.6;
 
-import "../BaseTest.t.sol";
-import {VRF} from "../../../../src/v0.8/vrf/VRF.sol";
-import {MockLinkToken} from "../../../../src/v0.8/mocks/MockLinkToken.sol";
-import {MockV3Aggregator} from "../../../../src/v0.8/tests/MockV3Aggregator.sol";
-import {VRFCoordinatorV2Mock} from "../../../../src/v0.8/vrf/mocks/VRFCoordinatorV2Mock.sol";
-import {VRFConsumerV2} from "../../../../src/v0.8/vrf/testhelpers/VRFConsumerV2.sol";
+import "./BaseTest.t.sol";
+import {VRF} from "../VRF.sol";
+import {MockLinkToken} from "../../mocks/MockLinkToken.sol";
+import {MockV3Aggregator} from "../../tests/MockV3Aggregator.sol";
+import {VRFCoordinatorV2Mock} from "../mocks/VRFCoordinatorV2Mock.sol";
+import {VRFConsumerV2} from "../testhelpers/VRFConsumerV2.sol";
 
 contract VRFCoordinatorV2MockTest is BaseTest {
   MockLinkToken internal s_linkToken;
