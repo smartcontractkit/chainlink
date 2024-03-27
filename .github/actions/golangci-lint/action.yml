@@ -68,6 +68,7 @@ runs:
       if: always()
       uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
       with:
+        id: chainlink-golang-ci
         basic-auth: ${{ inputs.gc-basic-auth }}
         hostname: ${{ inputs.gc-host }}
         org-id: ${{ inputs.gc-org-id }}
