@@ -104,16 +104,43 @@ type logEventProvider struct {
 	currentPartitionIdx uint64
 }
 
-func NewLogProvider(lggr logger.Logger, poller logpoller.LogPoller, packer LogDataPacker, filterStore UpkeepFilterStore, opts LogTriggersOptions) *logEventProvider {
+func NewLogProvider(lggr logger.Logger, poller logpoller.LogPoller, chainID *big.Int, packer LogDataPacker, filterStore UpkeepFilterStore, opts LogTriggersOptions) *logEventProvider {
+	var defaultBlockRate, defaultLogLimit uint32
+
+	// identify the default block rate for this chain ID
+	switch chainID.Int64() {
+	case 42161, 421613, 421614: // Arbitrum
+		defaultBlockRate = 4
+	default:
+		defaultBlockRate = 1
+	}
+
+	// identify the default log limit for this chain ID
+	switch chainID.Int64() {
+	case 42161, 421613, 421614: // Arbitrum
+		defaultLogLimit = 1
+	case 1, 4, 5, 42, 11155111: // Eth
+		defaultLogLimit = 20
+	case 10, 420, 56, 97, 137, 80001, 43113, 43114, 8453, 84531: // Optimism, BSC, Polygon, Avax, Base
+		defaultLogLimit = 5
+	default:
+		defaultLogLimit = 1
+	}
+
 	return &logEventProvider{
 		threadCtrl:  utils.NewThreadControl(),
 		lggr:        lggr.Named("KeepersRegistry.LogEventProvider"),
 		packer:      packer,
-		buffer:      newLogEventBuffer(lggr, int(opts.LookbackBlocks), defaultNumOfLogUpkeeps, defaultFastExecLogsHigh),
+		buffer:      newLogEventBuffer(lggr, int(opts.LookbackBlocks), defaultNumOfLogUpkeeps, defaultFastExecLogsHigh, defaultBlockRate, defaultLogLimit),
 		poller:      poller,
 		opts:        opts,
 		filterStore: filterStore,
 	}
+}
+
+func (p *logEventProvider) SetConfig(cfg ocr2keepers.LogEventProviderConfig) {
+	p.lggr.With("where", "setConfig").Infow("setting config ", "bockRate", cfg.BlockRate, "logLimit", cfg.LogLimit)
+	p.buffer.SetConfig(cfg.BlockRate, cfg.LogLimit)
 }
 
 func (p *logEventProvider) Start(context.Context) error {

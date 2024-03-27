@@ -207,7 +207,7 @@ func TestLogEventBuffer_EnqueueDequeue(t *testing.T) {
 			logpoller.Log{BlockNumber: 1, TxHash: common.HexToHash("0x1"), LogIndex: 1},
 			logpoller.Log{BlockNumber: 1, TxHash: common.HexToHash("0x1"), LogIndex: 2},
 		))
-		buf.SetLimits(10, 3)
+		buf.SetConfig(10, 3)
 		require.Equal(t, 3, buf.enqueue(big.NewInt(1),
 			logpoller.Log{BlockNumber: 2, TxHash: common.HexToHash("0x21"), LogIndex: 0},
 			logpoller.Log{BlockNumber: 2, TxHash: common.HexToHash("0x21"), LogIndex: 1},
@@ -230,7 +230,7 @@ func TestLogEventBuffer_EnqueueDequeue(t *testing.T) {
 			logpoller.Log{BlockNumber: 1, TxHash: common.HexToHash("0x1"), LogIndex: 2},
 			logpoller.Log{BlockNumber: 1, TxHash: common.HexToHash("0x1"), LogIndex: 3},
 		))
-		buf.SetLimits(10, 3)
+		buf.SetConfig(10, 3)
 		require.Equal(t, 3, buf.enqueue(big.NewInt(1),
 			logpoller.Log{BlockNumber: 2, TxHash: common.HexToHash("0x21"), LogIndex: 0},
 			logpoller.Log{BlockNumber: 2, TxHash: common.HexToHash("0x21"), LogIndex: 1},
@@ -869,6 +869,54 @@ func TestLogEventBuffer_FetchedBlock_Clone(t *testing.T) {
 	b1.logs[0].log.BlockNumber = 2
 	require.NotEqual(t, b1.blockNumber, b2.blockNumber)
 	require.NotEqual(t, b1.logs[0].log.BlockNumber, b2.logs[0].log.BlockNumber)
+}
+
+func TestLogEventBuffer_SetConfig(t *testing.T) {
+	for _, tc := range []struct {
+		blockRate uint32
+		logLimit  uint32
+
+		wantBlockRate uint32
+		wantLogLimit  uint32
+	}{
+		{
+			blockRate: 10,
+			logLimit:  20,
+
+			wantBlockRate: 10,
+			wantLogLimit:  20,
+		},
+		{
+			blockRate: 10,
+			logLimit:  0,
+
+			wantBlockRate: 10,
+			wantLogLimit:  defaultLogLimit,
+		},
+		{
+			blockRate: 0,
+			logLimit:  50,
+
+			wantBlockRate: defaultBlockRate,
+			wantLogLimit:  50,
+		},
+		{
+			blockRate: 0,
+			logLimit:  0,
+
+			wantBlockRate: defaultBlockRate,
+			wantLogLimit:  defaultLogLimit,
+		},
+	} {
+		buffer := &logEventBuffer{
+			lggr: logger.TestLogger(t),
+		}
+
+		buffer.SetConfig(tc.blockRate, tc.logLimit)
+
+		require.Equal(t, tc.wantBlockRate, buffer.blockRate)
+		require.Equal(t, tc.wantLogLimit, buffer.logLimit)
+	}
 }
 
 func verifyBlockNumbers(t *testing.T, logs []fetchedLog, bns ...int64) {
