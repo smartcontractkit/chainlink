@@ -104,7 +104,7 @@ const defaultCacheFreshness = time.Minute * 5
 const defaultCacheFreshnessAlert = time.Hour * 24
 const dataSourceCacheKey = "dscache"
 
-func NewInMemoryDataSourceCache(ds median.DataSource, kvStore job.KVStore, cacheFreshness time.Duration) (median.DataSource, error) {
+func NewInMemoryDataSourceCache(ds median.DataSource, kvStore job.KVStore, cacheFreshness, cacheFreshnessAlert time.Duration) (median.DataSource, error) {
 	inMemoryDS, ok := ds.(*inMemoryDataSource)
 	if !ok {
 		return nil, errors.Errorf("unsupported data source type: %T, only inMemoryDataSource supported", ds)
@@ -114,10 +114,15 @@ func NewInMemoryDataSourceCache(ds median.DataSource, kvStore job.KVStore, cache
 		cacheFreshness = defaultCacheFreshness
 	}
 
+	if cacheFreshnessAlert == 0 {
+		cacheFreshnessAlert = defaultCacheFreshnessAlert
+	}
+
 	dsCache := &inMemoryDataSourceCache{
-		kvStore:            kvStore,
-		cacheFreshness:     cacheFreshness,
-		inMemoryDataSource: inMemoryDS,
+		kvStore:             kvStore,
+		cacheFreshness:      cacheFreshness,
+		cacheFreshnessAlert: cacheFreshnessAlert,
+		inMemoryDataSource:  inMemoryDS,
 	}
 	go func() { dsCache.updater() }()
 	return dsCache, nil
@@ -223,12 +228,14 @@ type inMemoryDataSourceCache struct {
 	*inMemoryDataSource
 	// cacheFreshness indicates duration between cache updates.
 	// Even if updates fail, previous values are returned.
-	cacheFreshness  time.Duration
-	mu              sync.RWMutex
-	latestUpdateErr error
-	latestTrrs      pipeline.TaskRunResults
-	latestResult    pipeline.FinalResult
-	kvStore         job.KVStore
+	cacheFreshness time.Duration
+	// cacheFreshnessAlert indicates duration before logs raise severity level because of stale cache.
+	cacheFreshnessAlert time.Duration
+	mu                  sync.RWMutex
+	latestUpdateErr     error
+	latestTrrs          pipeline.TaskRunResults
+	latestResult        pipeline.FinalResult
+	kvStore             job.KVStore
 }
 
 // updater periodically updates data source cache.
@@ -309,8 +316,8 @@ func (ds *inMemoryDataSourceCache) Observe(ctx context.Context, timestamp ocr2ty
 		if err := ds.kvStore.Get(dataSourceCacheKey, &resTime); err != nil {
 			return nil, err
 		}
-		if time.Since(resTime.Time) >= defaultCacheFreshnessAlert {
-			ds.lggr.Errorf("cache hasn't been updated for over %v, latestUpdateErr is: %v", defaultCacheFreshnessAlert, ds.latestUpdateErr)
+		if time.Since(resTime.Time) >= ds.cacheFreshnessAlert {
+			ds.lggr.Errorf("cache hasn't been updated for over %v, latestUpdateErr is: %v", ds.cacheFreshnessAlert, ds.latestUpdateErr)
 		}
 		return resTime.Result.ToInt(), nil
 	}
