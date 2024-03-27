@@ -1689,7 +1689,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WithConnectivityCheck(t *testing
 		kst := ksmocks.NewEth(t)
 
 		estimator := gasmocks.NewEvmEstimator(t)
-		estimator.On("BumpDynamicFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(gas.DynamicFee{}, uint64(0), pkgerrors.Wrapf(commonfee.ErrConnectivity, "transaction..."))
+		estimator.On("BumpDynamicFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(gas.DynamicFee{}, pkgerrors.Wrapf(commonfee.ErrConnectivity, "transaction..."))
 		newEst := func(logger.Logger) gas.EvmEstimator { return estimator }
 		// Create confirmer with necessary state
 		ge := ccfg.EVM().GasEstimator()

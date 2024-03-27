@@ -131,13 +131,13 @@ type EvmEstimator interface {
 	BumpLegacyGas(ctx context.Context, originalGasPrice *assets.Wei, gasLimit uint64, maxGasPriceWei *assets.Wei, attempts []EvmPriorAttempt) (bumpedGasPrice *assets.Wei, chainSpecificGasLimit uint64, err error)
 	// GetDynamicFee Calculates initial gas fee for gas for EIP1559 transactions
 	// maxGasPriceWei parameter is the highest possible gas fee cap that the function will return
-	GetDynamicFee(ctx context.Context, gasLimit uint64, maxGasPriceWei *assets.Wei) (fee DynamicFee, err error)
+	GetDynamicFee(ctx context.Context, maxGasPriceWei *assets.Wei) (fee DynamicFee, err error)
 	// BumpDynamicFee Increases gas price and/or limit for non-EIP1559 transactions
 	// if the bumped gas fee or tip caps are greater than maxGasPriceWei, the method returns an error
 	// attempts must:
 	//   - be sorted in order from highest price to lowest price
 	//   - all be of transaction type 0x2
-	BumpDynamicFee(ctx context.Context, original DynamicFee, gasLimit uint64, maxGasPriceWei *assets.Wei, attempts []EvmPriorAttempt) (bumped DynamicFee, err error)
+	BumpDynamicFee(ctx context.Context, original DynamicFee, maxGasPriceWei *assets.Wei, attempts []EvmPriorAttempt) (bumped DynamicFee, err error)
 }
 
 var _ feetypes.Fee = (*EvmFee)(nil)
@@ -247,7 +247,7 @@ func (e *WrappedEvmEstimator) GetFee(ctx context.Context, calldata []byte, feeLi
 	// get dynamic fee
 	if e.EIP1559Enabled {
 		var dynamicFee DynamicFee
-		dynamicFee, err = e.EvmEstimator.GetDynamicFee(ctx, feeLimit, maxFeePrice)
+		dynamicFee, err = e.EvmEstimator.GetDynamicFee(ctx, maxFeePrice)
 		if err != nil {
 			return
 		}
@@ -300,7 +300,7 @@ func (e *WrappedEvmEstimator) BumpFee(ctx context.Context, originalFee EvmFee, f
 			DynamicFee{
 				TipCap: originalFee.DynamicTipCap,
 				FeeCap: originalFee.DynamicFeeCap,
-			}, feeLimit, maxFeePrice, attempts)
+			}, maxFeePrice, attempts)
 		if err != nil {
 			return
 		}

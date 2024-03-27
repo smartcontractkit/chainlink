@@ -391,7 +391,7 @@ func (b *BlockHistoryEstimator) checkConnectivity(attempts []EvmPriorAttempt) er
 	return nil
 }
 
-func (b *BlockHistoryEstimator) GetDynamicFee(_ context.Context, gasLimit uint64, maxGasPriceWei *assets.Wei) (fee DynamicFee, err error) {
+func (b *BlockHistoryEstimator) GetDynamicFee(_ context.Context, maxGasPriceWei *assets.Wei) (fee DynamicFee, err error) {
 	if !b.eConfig.EIP1559DynamicFees() {
 		return fee, pkgerrors.New("Can't get dynamic fee, EIP1559 is disabled")
 	}
@@ -460,7 +460,7 @@ func calcFeeCap(latestAvailableBaseFeePerGas *assets.Wei, bufferBlocks int, tipC
 	return feeCap
 }
 
-func (b *BlockHistoryEstimator) BumpDynamicFee(_ context.Context, originalFee DynamicFee, originalGasLimit uint64, maxGasPriceWei *assets.Wei, attempts []EvmPriorAttempt) (bumped DynamicFee, err error) {
+func (b *BlockHistoryEstimator) BumpDynamicFee(_ context.Context, originalFee DynamicFee, maxGasPriceWei *assets.Wei, attempts []EvmPriorAttempt) (bumped DynamicFee, err error) {
 	if b.bhConfig.CheckInclusionBlocks() > 0 {
 		if err = b.checkConnectivity(attempts); err != nil {
 			if pkgerrors.Is(err, commonfee.ErrConnectivity) {
