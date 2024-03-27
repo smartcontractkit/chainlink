@@ -25,7 +25,7 @@ gas_price = 3_000_000_000 # 3 gwei
 [profile.vrf]
 optimizer_runs = 1_000
 src = 'src/v0.8/vrf'
-test = 'test/v0.8/vrf/test'
+test = 'src/v0.8/vrf/test'
 
 [profile.vrfv2plus_coordinator]
 optimizer_runs = 500
