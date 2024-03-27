@@ -20,7 +20,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/json_serializable"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
@@ -652,7 +652,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 	// Now simulate a new result coming in
 	task := run.ByDotID("ds1")
 	task.Error = null.NewString("", false)
-	task.Output = json_serializable.JSONSerializable{
+	task.Output = jsonserializable.JSONSerializable{
 		Val:   `{"data":{"result":"9700"}}` + "\n",
 		Valid: true,
 	}
@@ -767,7 +767,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 		// Now simulate a new result coming in while we were running
 		task := run.ByDotID("ds1")
 		task.Error = null.NewString("", false)
-		task.Output = json_serializable.JSONSerializable{
+		task.Output = jsonserializable.JSONSerializable{
 			Val:   `{"data":{"result":"9700"}}` + "\n",
 			Valid: true,
 		}

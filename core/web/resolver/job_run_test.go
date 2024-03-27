@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/json_serializable"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
@@ -117,11 +117,11 @@ func TestResolver_JobRun(t *testing.T) {
 	gError := errors.New("error")
 	_, idError := stringutils.ToInt64("asdasads")
 
-	inputs := json_serializable.JSONSerializable{}
+	inputs := jsonserializable.JSONSerializable{}
 	err := inputs.UnmarshalJSON([]byte(`{"foo": "bar"}`))
 	require.NoError(t, err)
 
-	outputs := json_serializable.JSONSerializable{}
+	outputs := jsonserializable.JSONSerializable{}
 	err = outputs.UnmarshalJSON([]byte(`[{"baz": "bar"}]`))
 	require.NoError(t, err)
 
@@ -268,11 +268,11 @@ func TestResolver_RunJob(t *testing.T) {
 		"id": idStr,
 	}
 
-	inputs := json_serializable.JSONSerializable{}
+	inputs := jsonserializable.JSONSerializable{}
 	err := inputs.UnmarshalJSON([]byte(`{"foo": "bar"}`))
 	require.NoError(t, err)
 
-	outputs := json_serializable.JSONSerializable{}
+	outputs := jsonserializable.JSONSerializable{}
 	err = outputs.UnmarshalJSON([]byte(`[{"baz": "bar"}]`))
 	require.NoError(t, err)
 

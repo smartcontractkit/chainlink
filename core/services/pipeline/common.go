@@ -17,7 +17,7 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	cutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/json_serializable"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	cnull "github.com/smartcontractkit/chainlink/v2/core/null"
@@ -135,8 +135,8 @@ type Result struct {
 }
 
 // OutputDB dumps a single result output for a pipeline_run or pipeline_task_run
-func (result Result) OutputDB() json_serializable.JSONSerializable {
-	return json_serializable.JSONSerializable{Val: result.Value, Valid: !(result.Value == nil || (reflect.ValueOf(result.Value).Kind() == reflect.Ptr && reflect.ValueOf(result.Value).IsNil()))}
+func (result Result) OutputDB() jsonserializable.JSONSerializable {
+	return jsonserializable.JSONSerializable{Val: result.Value, Valid: !(result.Value == nil || (reflect.ValueOf(result.Value).Kind() == reflect.Ptr && reflect.ValueOf(result.Value).IsNil()))}
 }
 
 // ErrorDB dumps a single result error for a pipeline_task_run

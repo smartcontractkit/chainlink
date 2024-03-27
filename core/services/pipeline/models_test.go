@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/json_serializable"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
@@ -39,7 +39,7 @@ func TestRun_Status(t *testing.T) {
 			run: &pipeline.Run{
 				AllErrors:   pipeline.RunErrors{},
 				FatalErrors: pipeline.RunErrors{},
-				Outputs:     json_serializable.JSONSerializable{},
+				Outputs:     jsonserializable.JSONSerializable{},
 				FinishedAt:  null.Time{},
 			},
 			want: pipeline.RunStatusRunning,
@@ -49,7 +49,7 @@ func TestRun_Status(t *testing.T) {
 			run: &pipeline.Run{
 				AllErrors:   pipeline.RunErrors{},
 				FatalErrors: pipeline.RunErrors{},
-				Outputs:     json_serializable.JSONSerializable{Val: []interface{}{10, 10}, Valid: true},
+				Outputs:     jsonserializable.JSONSerializable{Val: []interface{}{10, 10}, Valid: true},
 				FinishedAt:  now,
 			},
 			want: pipeline.RunStatusCompleted,
@@ -59,7 +59,7 @@ func TestRun_Status(t *testing.T) {
 			run: &pipeline.Run{
 				AllErrors:   pipeline.RunErrors{null.StringFrom(errors.New("fail").Error())},
 				FatalErrors: pipeline.RunErrors{null.StringFrom(errors.New("fail").Error())},
-				Outputs:     json_serializable.JSONSerializable{},
+				Outputs:     jsonserializable.JSONSerializable{},
 				FinishedAt:  null.Time{},
 			},
 			want: pipeline.RunStatusErrored,
@@ -87,7 +87,7 @@ func TestRun_StringOutputs(t *testing.T) {
 
 	t.Run("invalid outputs", func(t *testing.T) {
 		run := &pipeline.Run{
-			Outputs: json_serializable.JSONSerializable{
+			Outputs: jsonserializable.JSONSerializable{
 				Valid: false,
 			},
 		}
@@ -117,7 +117,7 @@ func TestRun_StringOutputs(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			run := &pipeline.Run{
-				Outputs: json_serializable.JSONSerializable{
+				Outputs: jsonserializable.JSONSerializable{
 					Valid: true,
 					Val:   []interface{}{tc.val},
 				},
