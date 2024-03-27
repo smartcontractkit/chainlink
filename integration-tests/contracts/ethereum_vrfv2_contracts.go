@@ -822,18 +822,7 @@ func (v *EthereumVRFv2LoadTestConsumer) RequestRandomness(
 	if err != nil {
 		return nil, fmt.Errorf("GetTxReceipt failed, err: %w", err)
 	}
-
-	var randomWordsRequestedEvent *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested
-	for _, eventLog := range receipt.Logs {
-		for _, topic := range eventLog.Topics {
-			if topic.Cmp(vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{}.Topic()) == 0 {
-				randomWordsRequestedEvent, err = coordinator.ParseRandomWordsRequested(*eventLog)
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
-	}
+	randomWordsRequestedEvent, err := parseRequestRandomnessLogs(coordinator, receipt.Logs)
 	return randomWordsRequestedEvent, err
 }
 
@@ -1020,17 +1009,9 @@ func (v *EthereumVRFV2WrapperLoadTestConsumer) RequestRandomness(coordinator VRF
 	if err != nil {
 		return nil, fmt.Errorf("GetTxReceipt failed, err: %w", err)
 	}
-
-	var randomWordsRequestedEvent *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested
-	for _, eventLog := range receipt.Logs {
-		for _, topic := range eventLog.Topics {
-			if topic.Cmp(vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{}.Topic()) == 0 {
-				randomWordsRequestedEvent, err = coordinator.ParseRandomWordsRequested(*eventLog)
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
+	randomWordsRequestedEvent, err := parseRequestRandomnessLogs(coordinator, receipt.Logs)
+	if err != nil {
+		return nil, err
 	}
 	return randomWordsRequestedEvent, err
 }
@@ -1213,4 +1194,20 @@ func (v *EthereumVRFMockETHLINKFeed) SetBlockTimestampDeduction(blockTimestampDe
 		return err
 	}
 	return v.client.ProcessTransaction(tx)
+}
+
+func parseRequestRandomnessLogs(coordinator VRFCoordinatorV2, logs []*types.Log) (*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested, error) {
+	var randomWordsRequestedEvent *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested
+	var err error
+	for _, eventLog := range logs {
+		for _, topic := range eventLog.Topics {
+			if topic.Cmp(vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{}.Topic()) == 0 {
+				randomWordsRequestedEvent, err = coordinator.ParseRandomWordsRequested(*eventLog)
+				if err != nil {
+					return nil, fmt.Errorf("parse RandomWordsRequested log failed, err: %w", err)
+				}
+			}
+		}
+	}
+	return randomWordsRequestedEvent, nil
 }
