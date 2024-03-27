@@ -1301,7 +1301,7 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 		err = vrfv2plus.FundSubscriptions(
 			env,
 			chainID,
-			big.NewFloat(*configCopy.VRFv2Plus.General.SubscriptionFundingAmountNative),
+			big.NewFloat(*configCopy.VRFv2Plus.General.SubscriptionRefundingAmountNative),
 			big.NewFloat(*configCopy.VRFv2Plus.General.SubscriptionRefundingAmountLink),
 			vrfContracts.LinkToken,
 			vrfContracts.CoordinatorV2Plus,
