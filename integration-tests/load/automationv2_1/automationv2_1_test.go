@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/wiremock"
 	"math"
 	"math/big"
 	"net/http"
@@ -13,6 +11,10 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/pkg/errors"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/wiremock"
 
 	geth "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -36,6 +38,8 @@ import (
 
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/config"
 
+	gowiremock "github.com/wiremock/go-wiremock"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/automationv2"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -47,7 +51,6 @@ import (
 	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_compatible_utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_emitter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/simple_log_upkeep_counter_wrapper"
-	gowiremock "github.com/wiremock/go-wiremock"
 )
 
 const (
