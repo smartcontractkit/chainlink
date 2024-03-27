@@ -2,7 +2,6 @@ package contracts
 
 import (
 	"errors"
-
 	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_load_test_with_metrics"
@@ -84,6 +83,8 @@ func NewContractLoader(bcClient blockchain.EVMClient, logger zerolog.Logger) (Co
 		return &BSCContractLoader{NewEthereumContractLoader(clientImpl, logger)}, nil
 	case *blockchain.GnosisClient:
 		return &GnosisContractLoader{NewEthereumContractLoader(clientImpl, logger)}, nil
+	case *blockchain.ZKSyncClient:
+		return &ZKSyncContractLoader{NewEthereumContractLoader(clientImpl, logger)}, nil
 	}
 	return nil, errors.New("unknown blockchain client implementation for contract Loader, register blockchain client in NewContractLoader")
 }
@@ -159,6 +160,11 @@ type BSCContractLoader struct {
 
 // GnosisContractLoader wraps for Gnosis
 type GnosisContractLoader struct {
+	*EthereumContractLoader
+}
+
+// ZKSyncContractLoader wraps for ZKSync
+type ZKSyncContractLoader struct {
 	*EthereumContractLoader
 }
 
