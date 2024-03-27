@@ -1,20 +1,22 @@
-pragma solidity ^0.8.15;
+pragma solidity 0.8.19;
 
-import "../BaseTest.t.sol";
-import "../../../../src/v0.8/transmission/dev/ERC-4337/SmartContractAccountFactory.sol";
-import "../../../../src/v0.8/transmission/dev/testhelpers/SmartContractAccountHelper.sol";
-import "../../../../src/v0.8/transmission/dev/ERC-4337/SCA.sol";
-import "../../../../src/v0.8/transmission/dev/testhelpers/Greeter.sol";
-import "../../../../src/v0.8/transmission/dev/ERC-4337/Paymaster.sol";
-import "../../../../src/v0.8/vendor/entrypoint/interfaces/UserOperation.sol";
-import "../../../../src/v0.8/vendor/entrypoint/core/EntryPoint.sol";
-import "../../../../src/v0.8/vendor/entrypoint/interfaces/IEntryPoint.sol";
-import "../../../../src/v0.8/transmission/dev/ERC-4337/SCALibrary.sol";
-import "../../../../src/v0.8/mocks/MockLinkToken.sol";
-import "../../../../src/v0.8/shared/interfaces/LinkTokenInterface.sol";
-import "../../../../src/v0.8/vrf/mocks/VRFCoordinatorMock.sol";
-import "../../../../src/v0.8/tests/MockV3Aggregator.sol";
-import "../../../../src/v0.8/vrf/testhelpers/VRFConsumer.sol";
+import "../../shared/interfaces/LinkTokenInterface.sol";
+
+import "./BaseTest.t.sol";
+import "../dev/ERC-4337/SmartContractAccountFactory.sol";
+import "../dev/testhelpers/SmartContractAccountHelper.sol";
+import "../dev/ERC-4337/SCA.sol";
+import "../dev/testhelpers/Greeter.sol";
+import "../dev/ERC-4337/Paymaster.sol";
+import "../../transmission/dev/ERC-4337/SCALibrary.sol";
+import "../../mocks/MockLinkToken.sol";
+import "../../tests/MockV3Aggregator.sol";
+import "../../vrf/mocks/VRFCoordinatorMock.sol";
+import "../../vrf/testhelpers/VRFConsumer.sol";
+
+import "../../vendor/entrypoint/interfaces/UserOperation.sol";
+import "../../vendor/entrypoint/core/EntryPoint.sol";
+import "../../vendor/entrypoint/interfaces/IEntryPoint.sol";
 
 /*--------------------------------------------------------------------------------------------------------------------+
 | EIP 712 + 1014 + 4337                                                                                               |
@@ -27,7 +29,7 @@ import "../../../../src/v0.8/vrf/testhelpers/VRFConsumer.sol";
 |                                                                                                                     |
 | The below tests illustrate end-user flows for interacting with this meta-transaction system. For users with         |
 | existing Smart Contract Accounts (SCAs), they simply sign off on the operation, after which  the executor           |
-| invokes the EntryPoint that authorizes the operation on the end-user's SCA, and then exectute the transaction       |
+| invokes the EntryPoint that authorizes the operation on the end-user's SCA, and then execute the transaction        |
 | as the SCA. For users without existing SCAs, EIP-1014 ensures that the address of an SCA can be known in advance,   |
 | so users can sign-off on transactions that will be executed by a not-yet-deployed SCA. The EntryPoint contract      |
 | takes advantage of this functionality and allows for the SCA to be created in the same user operation that invokes  |
@@ -39,12 +41,6 @@ import "../../../../src/v0.8/vrf/testhelpers/VRFConsumer.sol";
 | immutable identity.                                                                                                 |
 |                                                                                                                     |
 -+---------------------------------------------------------------------------------------------------------------------*/
-
-/*----------------------------+
-| TESTS                       |
-| ________________            |
-|                             |
-+----------------------------*/
 
 contract EIP_712_1014_4337 is BaseTest {
   event RandomnessRequest(address indexed sender, bytes32 indexed keyHash, uint256 indexed seed, uint256 fee);
@@ -69,7 +65,7 @@ contract EIP_712_1014_4337 is BaseTest {
     // Impersonate a LINK whale.
     changePrank(LINK_WHALE);
 
-    // Create simople greeter contract.
+    // Create simple greeter contract.
     greeter = new Greeter();
     assertEq("", greeter.getGreeting());
 
@@ -178,7 +174,7 @@ contract EIP_712_1014_4337 is BaseTest {
       encodedGreetingCall
     );
 
-    // Construct the user opeartion.
+    // Construct the user operation.
     UserOperation memory op = UserOperation({
       sender: toDeployAddress,
       nonce: 0,
@@ -322,7 +318,7 @@ contract EIP_712_1014_4337 is BaseTest {
       topupAmount: 10 ether
     });
 
-    // Construct the user opeartion.
+    // Construct the user operation.
     UserOperation memory op = UserOperation({
       sender: toDeployAddress,
       nonce: 0,
@@ -344,7 +340,7 @@ contract EIP_712_1014_4337 is BaseTest {
     // Deposit funds for the transaction.
     entryPoint.depositTo{value: 10 ether}(address(paymaster));
 
-    // Assert correct log is emmitted for the end-contract vrf request.
+    // Assert correct log is emitted for the end-contract vrf request.
     vm.expectEmit(true, true, true, true);
     emit RandomnessRequest(
       address(vrfConsumer),
