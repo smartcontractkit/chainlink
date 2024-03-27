@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"reflect"
 	"testing"
 	"time"
 
@@ -1282,6 +1283,20 @@ func TestLogPoller_LoadFilters(t *testing.T) {
 		assert.True(t, th.LogPoller.HasFilter("second Filter"))
 		assert.True(t, th.LogPoller.HasFilter("third Filter"))
 		assert.False(t, th.LogPoller.HasFilter("fourth Filter"))
+	})
+
+	t.Run("GetFilters", func(t *testing.T) {
+		filters := th.LogPoller.GetFilters()
+		assert.Equal(t, 3, len(filters))
+		assert.True(t, filters["first Filter"].Name == "first Filter")
+		assert.True(t, reflect.DeepEqual(filters["first Filter"].EventSigs, filter1.EventSigs))
+		assert.True(t, reflect.DeepEqual(filters["first Filter"].Addresses, filter1.Addresses))
+		assert.True(t, filters["second Filter"].Name == "second Filter")
+		assert.True(t, reflect.DeepEqual(filters["second Filter"].EventSigs, filter2.EventSigs))
+		assert.True(t, reflect.DeepEqual(filters["second Filter"].Addresses, filter2.Addresses))
+		assert.True(t, filters["third Filter"].Name == "third Filter")
+		assert.True(t, reflect.DeepEqual(filters["third Filter"].EventSigs, filter3.EventSigs))
+		assert.True(t, reflect.DeepEqual(filters["third Filter"].Addresses, filter3.Addresses))
 	})
 }
 
