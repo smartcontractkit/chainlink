@@ -35,43 +35,281 @@ chainlink:
         limits:
           cpu: 2000m
           memory: 2048Mi
-    # override default config per node
-    # for example, use OCRv2 P2P setup, the whole config
-    #      toml: |
-    #        RootDir = './clroot'
-    #        [Log]
-    #        JSONConsole = true
-    #        Level = 'debug'
-    #        [WebServer]
-    #        AllowOrigins = '*'
-    #        SecureCookies = false
-    #        SessionTimeout = '999h0m0s'
-    #        [OCR2]
-    #        Enabled = true
-    #        [P2P]
-    #        [P2P.V2]
-    #        Enabled = false
-    #        AnnounceAddresses = []
-    #        DefaultBootstrappers = []
-    #        DeltaDial = '15s'
-    #        DeltaReconcile = '1m0s'
-    #        ListenAddresses = []
-    #        [[EVM]]
-    #        ChainID = '1337'
-    #        MinContractPayment = '0'
-    #        [[EVM.Nodes]]
-    #        Name = 'node-0'
-    #        WSURL = 'ws://geth:8546'
-    #        HTTPURL = 'http://geth:8544'
-    #        [WebServer.TLS]
-    #        HTTPSPort = 0
-    # or use overridesToml to override some part of configuration
-    #      overridesToml: |
+      overridesToml: |
+        [Feature]
+        LogPoller = true
+        CCIP = true
+
+        [Log]
+        Level = 'debug'
+        JSONConsole = true
+
+        [Log.File]
+        MaxSize = '0b'
+
+        [WebServer]
+        AllowOrigins = '*'
+        HTTPPort = 6688
+        SecureCookies = false
+        HTTPWriteTimeout = '1m'
+
+        [WebServer.RateLimit]
+        Authenticated = 2000
+        Unauthenticated = 1000
+
+        [WebServer.TLS]
+        HTTPSPort = 0
+
+        [Database]
+        MaxIdleConns = 50
+        MaxOpenConns = 50
+        MigrateOnStartup = true
+
+        [OCR2]
+        Enabled = true
+        DefaultTransactionQueueDepth = 0
+
+        [OCR]
+        Enabled = false
+        DefaultTransactionQueueDepth = 0
+
+        [P2P]
+        [P2P.V2]
+        Enabled = true
+        ListenAddresses = ['0.0.0.0:6690']
+        AnnounceAddresses = ['0.0.0.0:6690']
+        DeltaDial = '500ms'
+        DeltaReconcile = '5s'
     - name: node-2
+      overridesToml: |
+        [Feature]
+        LogPoller = true
+        CCIP = true
+
+        [Log]
+        Level = 'debug'
+        JSONConsole = true
+
+        [Log.File]
+        MaxSize = '0b'
+
+        [WebServer]
+        AllowOrigins = '*'
+        HTTPPort = 6688
+        SecureCookies = false
+        HTTPWriteTimeout = '1m'
+
+        [WebServer.RateLimit]
+        Authenticated = 2000
+        Unauthenticated = 1000
+
+        [WebServer.TLS]
+        HTTPSPort = 0
+
+        [Database]
+        MaxIdleConns = 50
+        MaxOpenConns = 50
+        MigrateOnStartup = true
+
+        [OCR2]
+        Enabled = true
+        DefaultTransactionQueueDepth = 0
+
+        [OCR]
+        Enabled = false
+        DefaultTransactionQueueDepth = 0
+
+        [P2P]
+        [P2P.V2]
+        Enabled = true
+        ListenAddresses = ['0.0.0.0:6690']
+        AnnounceAddresses = ['0.0.0.0:6690']
+        DeltaDial = '500ms'
+        DeltaReconcile = '5s'
     - name: node-3
+      overridesToml: |
+        [Feature]
+        LogPoller = true
+        CCIP = true
+
+        [Log]
+        Level = 'debug'
+        JSONConsole = true
+
+        [Log.File]
+        MaxSize = '0b'
+
+        [WebServer]
+        AllowOrigins = '*'
+        HTTPPort = 6688
+        SecureCookies = false
+        HTTPWriteTimeout = '1m'
+
+        [WebServer.RateLimit]
+        Authenticated = 2000
+        Unauthenticated = 1000
+
+        [WebServer.TLS]
+        HTTPSPort = 0
+
+        [Database]
+        MaxIdleConns = 50
+        MaxOpenConns = 50
+        MigrateOnStartup = true
+
+        [OCR2]
+        Enabled = true
+        DefaultTransactionQueueDepth = 0
+
+        [OCR]
+        Enabled = false
+        DefaultTransactionQueueDepth = 0
+
+        [P2P]
+        [P2P.V2]
+        Enabled = true
+        ListenAddresses = ['0.0.0.0:6690']
+        AnnounceAddresses = ['0.0.0.0:6690']
+        DeltaDial = '500ms'
+        DeltaReconcile = '5s'
     - name: node-4
+      overridesToml: |
+        [Feature]
+        LogPoller = true
+        CCIP = true
+
+        [Log]
+        Level = 'debug'
+        JSONConsole = true
+
+        [Log.File]
+        MaxSize = '0b'
+
+        [WebServer]
+        AllowOrigins = '*'
+        HTTPPort = 6688
+        SecureCookies = false
+        HTTPWriteTimeout = '1m'
+
+        [WebServer.RateLimit]
+        Authenticated = 2000
+        Unauthenticated = 1000
+
+        [WebServer.TLS]
+        HTTPSPort = 0
+
+        [Database]
+        MaxIdleConns = 50
+        MaxOpenConns = 50
+        MigrateOnStartup = true
+
+        [OCR2]
+        Enabled = true
+        DefaultTransactionQueueDepth = 0
+
+        [OCR]
+        Enabled = false
+        DefaultTransactionQueueDepth = 0
+
+        [P2P]
+        [P2P.V2]
+        Enabled = true
+        ListenAddresses = ['0.0.0.0:6690']
+        AnnounceAddresses = ['0.0.0.0:6690']
+        DeltaDial = '500ms'
+        DeltaReconcile = '5s'
     - name: node-5
+      overridesToml: |
+        [Feature]
+        LogPoller = true
+        CCIP = true
+
+        [Log]
+        Level = 'debug'
+        JSONConsole = true
+
+        [Log.File]
+        MaxSize = '0b'
+
+        [WebServer]
+        AllowOrigins = '*'
+        HTTPPort = 6688
+        SecureCookies = false
+        HTTPWriteTimeout = '1m'
+
+        [WebServer.RateLimit]
+        Authenticated = 2000
+        Unauthenticated = 1000
+
+        [WebServer.TLS]
+        HTTPSPort = 0
+
+        [Database]
+        MaxIdleConns = 50
+        MaxOpenConns = 50
+        MigrateOnStartup = true
+
+        [OCR2]
+        Enabled = true
+        DefaultTransactionQueueDepth = 0
+
+        [OCR]
+        Enabled = false
+        DefaultTransactionQueueDepth = 0
+
+        [P2P]
+        [P2P.V2]
+        Enabled = true
+        ListenAddresses = ['0.0.0.0:6690']
+        AnnounceAddresses = ['0.0.0.0:6690']
+        DeltaDial = '500ms'
+        DeltaReconcile = '5s'
     - name: node-6
+      overridesToml: |
+        [Feature]
+        LogPoller = true
+        CCIP = true
+
+        [Log]
+        Level = 'debug'
+        JSONConsole = true
+
+        [Log.File]
+        MaxSize = '0b'
+
+        [WebServer]
+        AllowOrigins = '*'
+        HTTPPort = 6688
+        SecureCookies = false
+        HTTPWriteTimeout = '1m'
+
+        [WebServer.RateLimit]
+        Authenticated = 2000
+        Unauthenticated = 1000
+
+        [WebServer.TLS]
+        HTTPSPort = 0
+
+        [Database]
+        MaxIdleConns = 50
+        MaxOpenConns = 50
+        MigrateOnStartup = true
+
+        [OCR2]
+        Enabled = true
+        DefaultTransactionQueueDepth = 0
+
+        [OCR]
+        Enabled = false
+        DefaultTransactionQueueDepth = 0
+
+        [P2P]
+        [P2P.V2]
+        Enabled = true
+        ListenAddresses = ['0.0.0.0:6690']
+        AnnounceAddresses = ['0.0.0.0:6690']
+        DeltaDial = '500ms'
+        DeltaReconcile = '5s'
   resources:
     requests:
       cpu: 350m
