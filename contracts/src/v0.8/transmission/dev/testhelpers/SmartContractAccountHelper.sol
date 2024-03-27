@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.15;
+pragma solidity ^0.8.19;
 
 import {SCA} from "../ERC-4337/SCA.sol";
 import {SmartContractAccountFactory} from "../ERC-4337/SmartContractAccountFactory.sol";

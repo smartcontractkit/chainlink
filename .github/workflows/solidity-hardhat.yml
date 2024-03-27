@@ -25,7 +25,7 @@ jobs:
         with:
           filters: |
             src:
-              - 'contracts/src/!(v0.8/(llo-feeds|keystone|ccip)/**)/**/*'
+              - 'contracts/src/!(v0.8/(llo-feeds|keystone|ccip|functions|transmission)/**)/**/*'
               - 'contracts/test/**/*'
               - 'contracts/package.json'
               - 'contracts/pnpm-lock.yaml'

@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: MIT
-/// TODO: decide on a compiler version. Must not be dynamic, and must be > 0.8.12.
-pragma solidity 0.8.15;
+pragma solidity 0.8.19;
 
 import {IAccount} from "../../../vendor/entrypoint/interfaces/IAccount.sol";
 import {SCALibrary} from "./SCALibrary.sol";
