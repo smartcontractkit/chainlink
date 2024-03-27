@@ -42,6 +42,14 @@ func vars(p Props) []dashboard.Option {
 			query.Request("label_values(up{namespace=\"$namespace\"}, job)"),
 			query.Sort(query.NumericalAsc),
 		),
+		dashboard.VariableAsQuery(
+			"service",
+			query.DataSource(p.PrometheusDataSource),
+			query.Multiple(),
+			query.IncludeAll(),
+			query.Request("label_values(up{namespace=\"$namespace\"}, service)"),
+			query.Sort(query.NumericalAsc),
+		),
 	}
 }
 

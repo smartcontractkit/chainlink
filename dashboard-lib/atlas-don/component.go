@@ -39,6 +39,46 @@ func vars(p Props) []dashboard.Option {
 	}
 }
 
+func summary(p Props) []dashboard.Option {
+	return []dashboard.Option{
+		dashboard.Row("Summary",
+			row.Collapse(),
+			row.WithStat(
+				"Telemetry Down",
+				stat.DataSource(p.PrometheusDataSource),
+				stat.Text(stat.TextValueAndName),
+				stat.Description("Which jobs are not receiving any telemetry?"),
+				stat.Orientation(stat.OrientationHorizontal),
+				stat.TitleFontSize(12),
+				stat.ValueFontSize(12),
+				stat.Span(12),
+				stat.WithPrometheusTarget(
+					`bool:`+p.OcrVersion+`_telemetry_down{`+p.PlatformOpts.LabelQuery+`} == 1`,
+					prometheus.Legend("{{job}} | {{report_type}}"),
+				),
+			),
+			row.WithStat(
+				"Oracles Down",
+				stat.DataSource(p.PrometheusDataSource),
+				stat.Text(stat.TextName),
+				stat.Description("Which NOPs are not providing any telemetry?"),
+				stat.Orientation(stat.OrientationHorizontal),
+				stat.TitleFontSize(12),
+				stat.ValueFontSize(12),
+				stat.Span(12),
+				stat.ValueType(stat.Last),
+				stat.WithPrometheusTarget(
+					`bool:`+p.OcrVersion+`_oracle_telemetry_down_except_telemetry_down{job=~"${job}", oracle!="csa_unknown"} == 1`,
+					prometheus.Legend("{{oracle}} | {{report_type}}"),
+				),
+				stat.AbsoluteThresholds([]stat.ThresholdStep{
+					{Color: "#FF0000", Value: float64Ptr(1.0)},
+				}),
+			),
+		),
+	}
+}
+
 func ocrContractConfigOracle(p Props) []dashboard.Option {
 	return []dashboard.Option{
 		dashboard.Row("OCR Contract Oracle",
@@ -381,6 +421,7 @@ func roundEpochProgression(p Props) []dashboard.Option {
 
 func New(p Props) []dashboard.Option {
 	opts := vars(p)
+	opts = append(opts, summary(p)...)
 	opts = append(opts, ocrContractConfigOracle(p)...)
 	opts = append(opts, ocrContractConfigNodes(p)...)
 	opts = append(opts, ocrContractConfigDelta(p)...)
