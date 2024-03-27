@@ -22,16 +22,19 @@ func TestNewEvmClient(t *testing.T) {
 	syncThreshold := ptr(uint32(5))
 	nodeIsSyncingEnabled := ptr(false)
 	chainTypeStr := ""
-	nodeConfigs := []client.TestNodeConfig{
+	nodeConfigs := []client.NodeConfig{
 		{
 			Name:    ptr("foo"),
 			WSURL:   ptr("ws://foo.test"),
 			HTTPURL: ptr("http://foo.test"),
 		},
 	}
-	nodePool, nodes, chainType, err := client.NewClientConfigs(selectionMode, leaseDuration, chainTypeStr, nodeConfigs, pollFailureThreshold, pollInterval, syncThreshold, nodeIsSyncingEnabled)
+	finalityDepth := ptr(uint32(10))
+	finalityTagEnabled := ptr(true)
+	chainCfg, nodePool, nodes, err := client.NewClientConfigs(selectionMode, leaseDuration, chainTypeStr, nodeConfigs,
+		pollFailureThreshold, pollInterval, syncThreshold, nodeIsSyncingEnabled, noNewHeadsThreshold, finalityDepth, finalityTagEnabled)
 	require.NoError(t, err)
 
-	client := client.NewEvmClient(nodePool, noNewHeadsThreshold, logger.TestLogger(t), testutils.FixtureChainID, chainType, nodes)
+	client := client.NewEvmClient(nodePool, chainCfg, logger.TestLogger(t), testutils.FixtureChainID, nodes)
 	require.NotNil(t, client)
 }

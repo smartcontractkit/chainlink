@@ -1,12 +1,14 @@
 package client_test
 
 import (
+	"math/big"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestClientConfigBuilder(t *testing.T) {
@@ -19,14 +21,18 @@ func TestClientConfigBuilder(t *testing.T) {
 	syncThreshold := ptr(uint32(5))
 	nodeIsSyncingEnabled := ptr(false)
 	chainTypeStr := ""
-	nodeConfigs := []client.TestNodeConfig{
+	nodeConfigs := []client.NodeConfig{
 		{
 			Name:    ptr("foo"),
 			WSURL:   ptr("ws://foo.test"),
 			HTTPURL: ptr("http://foo.test"),
 		},
 	}
-	nodePool, nodes, chainType, err := client.NewClientConfigs(selectionMode, leaseDuration, chainTypeStr, nodeConfigs, pollFailureThreshold, pollInterval, syncThreshold, nodeIsSyncingEnabled)
+	finalityDepth := ptr(uint32(10))
+	finalityTagEnabled := ptr(true)
+	noNewHeadsThreshold := time.Second
+	chainCfg, nodePool, nodes, err := client.NewClientConfigs(selectionMode, leaseDuration, chainTypeStr, nodeConfigs,
+		pollFailureThreshold, pollInterval, syncThreshold, nodeIsSyncingEnabled, noNewHeadsThreshold, finalityDepth, finalityTagEnabled)
 	require.NoError(t, err)
 
 	// Validate node pool configs
@@ -42,15 +48,21 @@ func TestClientConfigBuilder(t *testing.T) {
 	require.Equal(t, *nodeConfigs[0].WSURL, (*nodes[0].WSURL).String())
 	require.Equal(t, *nodeConfigs[0].HTTPURL, (*nodes[0].HTTPURL).String())
 
-	// Validate chain type
-	require.Equal(t, chainTypeStr, string(chainType))
+	// Validate chain config
+	require.Equal(t, chainTypeStr, string(chainCfg.ChainType()))
+	require.Equal(t, noNewHeadsThreshold, chainCfg.NodeNoNewHeadsThreshold())
+	require.Equal(t, *finalityDepth, chainCfg.FinalityDepth())
+	require.Equal(t, *finalityTagEnabled, chainCfg.FinalityTagEnabled())
+
+	// let combiler tell us, when we do not have sufficient data to create evm client
+	_ = client.NewEvmClient(nodePool, chainCfg, logger.TestLogger(t), big.NewInt(10), nodes)
 }
 
 func TestNodeConfigs(t *testing.T) {
 	t.Parallel()
 
 	t.Run("parsing unique node configs succeeds", func(t *testing.T) {
-		nodeConfigs := []client.TestNodeConfig{
+		nodeConfigs := []client.NodeConfig{
 			{
 				Name:    ptr("foo1"),
 				WSURL:   ptr("ws://foo1.test"),
@@ -68,7 +80,7 @@ func TestNodeConfigs(t *testing.T) {
 	})
 
 	t.Run("parsing missing ws url fails", func(t *testing.T) {
-		nodeConfigs := []client.TestNodeConfig{
+		nodeConfigs := []client.NodeConfig{
 			{
 				Name:    ptr("foo1"),
 				HTTPURL: ptr("http://foo1.test"),
@@ -79,7 +91,7 @@ func TestNodeConfigs(t *testing.T) {
 	})
 
 	t.Run("parsing missing http url fails", func(t *testing.T) {
-		nodeConfigs := []client.TestNodeConfig{
+		nodeConfigs := []client.NodeConfig{
 			{
 				Name:  ptr("foo1"),
 				WSURL: ptr("ws://foo1.test"),
@@ -90,7 +102,7 @@ func TestNodeConfigs(t *testing.T) {
 	})
 
 	t.Run("parsing invalid ws url fails", func(t *testing.T) {
-		nodeConfigs := []client.TestNodeConfig{
+		nodeConfigs := []client.NodeConfig{
 			{
 				Name:    ptr("foo1"),
 				WSURL:   ptr("http://foo1.test"),
@@ -102,7 +114,7 @@ func TestNodeConfigs(t *testing.T) {
 	})
 
 	t.Run("parsing duplicate http url fails", func(t *testing.T) {
-		nodeConfigs := []client.TestNodeConfig{
+		nodeConfigs := []client.NodeConfig{
 			{
 				Name:    ptr("foo1"),
 				WSURL:   ptr("ws://foo1.test"),
@@ -114,7 +126,7 @@ func TestNodeConfigs(t *testing.T) {
 	})
 
 	t.Run("parsing duplicate node names fails", func(t *testing.T) {
-		nodeConfigs := []client.TestNodeConfig{
+		nodeConfigs := []client.NodeConfig{
 			{
 				Name:    ptr("foo1"),
 				WSURL:   ptr("ws://foo1.test"),
@@ -131,7 +143,7 @@ func TestNodeConfigs(t *testing.T) {
 	})
 
 	t.Run("parsing duplicate node ws urls fails", func(t *testing.T) {
-		nodeConfigs := []client.TestNodeConfig{
+		nodeConfigs := []client.NodeConfig{
 			{
 				Name:    ptr("foo1"),
 				WSURL:   ptr("ws://foo1.test"),
@@ -148,7 +160,7 @@ func TestNodeConfigs(t *testing.T) {
 	})
 
 	t.Run("parsing duplicate node http urls fails", func(t *testing.T) {
-		nodeConfigs := []client.TestNodeConfig{
+		nodeConfigs := []client.NodeConfig{
 			{
 				Name:    ptr("foo1"),
 				WSURL:   ptr("ws://foo1.test"),
@@ -165,7 +177,7 @@ func TestNodeConfigs(t *testing.T) {
 	})
 
 	t.Run("parsing order too large fails", func(t *testing.T) {
-		nodeConfigs := []client.TestNodeConfig{
+		nodeConfigs := []client.NodeConfig{
 			{
 				Name:    ptr("foo1"),
 				WSURL:   ptr("ws://foo1.test"),

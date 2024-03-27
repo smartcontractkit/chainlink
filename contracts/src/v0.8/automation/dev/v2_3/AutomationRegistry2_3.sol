@@ -176,6 +176,7 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
 
     {
       BillingTokenPaymentParams memory billingTokenParams;
+      uint256 nativeUSD = _getNativeUSD(hotVars);
       for (uint256 i = 0; i < report.upkeepIds.length; i++) {
         if (upkeepTransmitInfo[i].earlyChecksPassed) {
           if (i == 0 || upkeepTransmitInfo[i].upkeep.billingToken != upkeepTransmitInfo[i - 1].upkeep.billingToken) {
@@ -189,8 +190,9 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
               l1CostWei: (l1Fee * upkeepTransmitInfo[i].calldataWeight) / transmitVars.totalCalldataWeight,
               fastGasWei: report.fastGasWei,
               linkUSD: report.linkUSD,
-              nativeUSD: _getNativeUSD(hotVars),
-              billingToken: billingTokenParams,
+              nativeUSD: nativeUSD,
+              billingToken: upkeepTransmitInfo[i].upkeep.billingToken,
+              billingTokenParams: billingTokenParams,
               isTransaction: true
             }),
             report.upkeepIds[i],
@@ -213,6 +215,7 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
     // record payments
     s_transmitters[msg.sender].balance += transmitVars.totalReimbursement;
     s_hotVars.totalPremium += transmitVars.totalPremium;
+    s_reserveAmounts[IERC20(address(i_link))] += transmitVars.totalReimbursement + transmitVars.totalPremium;
   }
 
   /**
@@ -245,7 +248,7 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
     if (data.length != 32) revert InvalidDataLength();
     uint256 id = abi.decode(data, (uint256));
     if (s_upkeep[id].maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
-    if (address(s_upkeep[id].billingToken) != address(i_link)) revert InvalidBillingToken();
+    if (address(s_upkeep[id].billingToken) != address(i_link)) revert InvalidToken();
     s_upkeep[id].balance = s_upkeep[id].balance + uint96(amount);
     s_reserveAmounts[IERC20(address(i_link))] = s_reserveAmounts[IERC20(address(i_link))] + amount;
     emit FundsAdded(id, sender, uint96(amount));
