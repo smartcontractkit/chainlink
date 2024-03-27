@@ -4,8 +4,8 @@ import type { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 import {
   LinkToken,
   VRFSubscriptionBalanceMonitorExposed,
-} from '../../typechain'
-import * as h from '../test-helpers/helpers'
+} from '../../../typechain'
+import * as h from '../../test-helpers/helpers'
 import { BigNumber, Contract } from 'ethers'
 
 const OWNABLE_ERR = 'Only callable by owner'
