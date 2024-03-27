@@ -44,12 +44,12 @@ func (s staticContractTransmitter) LatestConfigDigestAndEpoch(ctx context.Contex
 	return s.ConfigDigest, s.Epoch, nil
 }
 
-func (s staticContractTransmitter) FromAccount(ctx context.Context) (libocr.Account, error) {
+func (s staticContractTransmitter) FromAccount() (libocr.Account, error) {
 	return s.Account, nil
 }
 
 func (s staticContractTransmitter) Evaluate(ctx context.Context, ct libocr.ContractTransmitter) error {
-	gotAccount, err := ct.FromAccount(ctx)
+	gotAccount, err := ct.FromAccount()
 	if err != nil {
 		return fmt.Errorf("failed to get FromAccount: %w", err)
 	}

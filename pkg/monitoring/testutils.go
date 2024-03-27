@@ -429,7 +429,7 @@ func generateContractConfig(ctx context.Context, n int) (
 		Min: generateBigInt(128),
 		Max: generateBigInt(128),
 	}
-	onchainConfigEncoded, err := median.StandardOnchainConfigCodec{}.Encode(ctx, onchainConfig)
+	onchainConfigEncoded, err := median.StandardOnchainConfigCodec{}.Encode(onchainConfig)
 	if err != nil {
 		return types.ContractConfig{}, median.OnchainConfig{}, nil, nil, err
 	}

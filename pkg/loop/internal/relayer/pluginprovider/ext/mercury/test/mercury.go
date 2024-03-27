@@ -193,7 +193,7 @@ func (s staticMercuryPluginFactory) Ready() error { panic("implement me") }
 
 func (s staticMercuryPluginFactory) HealthReport() map[string]error { panic("implement me") }
 
-func (s staticMercuryPluginFactory) NewMercuryPlugin(ctx context.Context, config ocr3types.MercuryPluginConfig) (ocr3types.MercuryPlugin, ocr3types.MercuryPluginInfo, error) {
+func (s staticMercuryPluginFactory) NewMercuryPlugin(config ocr3types.MercuryPluginConfig) (ocr3types.MercuryPlugin, ocr3types.MercuryPluginInfo, error) {
 	if config.ConfigDigest != mercuryPluginConfig.ConfigDigest {
 		return nil, ocr3types.MercuryPluginInfo{}, fmt.Errorf("expected ConfigDigest %x but got %x", mercuryPluginConfig.ConfigDigest, config.ConfigDigest)
 	}
@@ -227,7 +227,7 @@ func MercuryPluginFactory(t *testing.T, factory types.MercuryPluginFactory) {
 	expectedMercuryPlugin := OCR3Plugin
 	t.Run("ReportingPluginFactory", func(t *testing.T) {
 		ctx := tests.Context(t)
-		rp, gotRPI, err := factory.NewMercuryPlugin(ctx, mercuryPluginConfig)
+		rp, gotRPI, err := factory.NewMercuryPlugin(mercuryPluginConfig)
 		require.NoError(t, err)
 		assert.Equal(t, mercuryPluginInfo, gotRPI)
 		t.Cleanup(func() { assert.NoError(t, rp.Close()) })

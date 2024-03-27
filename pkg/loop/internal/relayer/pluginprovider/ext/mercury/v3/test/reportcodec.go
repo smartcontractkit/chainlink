@@ -22,34 +22,34 @@ type staticReportCodec struct{}
 
 var _ ReportCodecEvaluator = staticReportCodec{}
 
-func (staticReportCodec) BuildReport(ctx context.Context, fields mercury_v3_types.ReportFields) (ocr2plus_types.Report, error) {
+func (staticReportCodec) BuildReport(fields mercury_v3_types.ReportFields) (ocr2plus_types.Report, error) {
 	return Fixtures.Report, nil
 }
 
-func (staticReportCodec) MaxReportLength(ctx context.Context, n int) (int, error) {
+func (staticReportCodec) MaxReportLength(n int) (int, error) {
 	return Fixtures.MaxReportLength, nil
 }
 
-func (staticReportCodec) ObservationTimestampFromReport(ctx context.Context, report ocr2plus_types.Report) (uint32, error) {
+func (staticReportCodec) ObservationTimestampFromReport(report ocr2plus_types.Report) (uint32, error) {
 	return Fixtures.ObservationTimestamp, nil
 }
 
 func (staticReportCodec) Evaluate(ctx context.Context, other mercury_v3_types.ReportCodec) error {
-	gotReport, err := other.BuildReport(ctx, Fixtures.ReportFields)
+	gotReport, err := other.BuildReport(Fixtures.ReportFields)
 	if err != nil {
 		return fmt.Errorf("failed to BuildReport: %w", err)
 	}
 	if !bytes.Equal(gotReport, Fixtures.Report) {
 		return fmt.Errorf("expected Report %x but got %x", Fixtures.Report, gotReport)
 	}
-	gotMax, err := other.MaxReportLength(ctx, Fixtures.MaxReportLength)
+	gotMax, err := other.MaxReportLength(Fixtures.MaxReportLength)
 	if err != nil {
 		return fmt.Errorf("failed to get MaxReportLength: %w", err)
 	}
 	if gotMax != Fixtures.MaxReportLength {
 		return fmt.Errorf("expected MaxReportLength %d but got %d", Fixtures.MaxReportLength, gotMax)
 	}
-	gotObservedTimestamp, err := other.ObservationTimestampFromReport(ctx, gotReport)
+	gotObservedTimestamp, err := other.ObservationTimestampFromReport(gotReport)
 	if err != nil {
 		return fmt.Errorf("failed to get ObservationTimestampFromReport: %w", err)
 	}

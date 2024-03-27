@@ -50,9 +50,9 @@ func NewLOOPPService(
 	return &ps
 }
 
-func (g *LOOPPService) NewReportingPlugin(ctx context.Context, config ocrtypes.ReportingPluginConfig) (ocrtypes.ReportingPlugin, ocrtypes.ReportingPluginInfo, error) {
+func (g *LOOPPService) NewReportingPlugin(config ocrtypes.ReportingPluginConfig) (ocrtypes.ReportingPlugin, ocrtypes.ReportingPluginInfo, error) {
 	if err := g.Wait(); err != nil {
 		return nil, ocrtypes.ReportingPluginInfo{}, err
 	}
-	return g.Service.NewReportingPlugin(ctx, config)
+	return g.Service.NewReportingPlugin(config)
 }

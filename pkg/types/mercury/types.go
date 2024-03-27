@@ -19,8 +19,8 @@ type OnchainConfig struct {
 }
 
 type OnchainConfigCodec interface {
-	Encode(context.Context, OnchainConfig) ([]byte, error)
-	Decode(context.Context, []byte) (OnchainConfig, error)
+	Encode(OnchainConfig) ([]byte, error)
+	Decode([]byte) (OnchainConfig, error)
 }
 
 type ServerFetcher interface {

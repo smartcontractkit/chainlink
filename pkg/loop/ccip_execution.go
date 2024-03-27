@@ -86,9 +86,9 @@ func NewExecutionService(lggr logger.Logger, grpcOpts GRPCOpts, cmd func() *exec
 	return &efs
 }
 
-func (m *ExecutionFactoryService) NewReportingPlugin(ctx context.Context, config ocrtypes.ReportingPluginConfig) (ocrtypes.ReportingPlugin, ocrtypes.ReportingPluginInfo, error) {
+func (m *ExecutionFactoryService) NewReportingPlugin(config ocrtypes.ReportingPluginConfig) (ocrtypes.ReportingPlugin, ocrtypes.ReportingPluginInfo, error) {
 	if err := m.Wait(); err != nil {
 		return nil, ocrtypes.ReportingPluginInfo{}, err
 	}
-	return m.Service.NewReportingPlugin(ctx, config)
+	return m.Service.NewReportingPlugin(config)
 }

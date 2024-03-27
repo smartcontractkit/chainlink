@@ -45,7 +45,7 @@ type NodeStatus struct {
 	State   string
 }
 
-// ChainService is a sub-interface that encapsulates the explicit interactions with a chain, rather than through a provider.
+// ChainService is a sub-interface of [loop.Relayer] that encapsulates the explicit interactions with a chain
 type ChainService interface {
 	Service
 
@@ -54,15 +54,14 @@ type ChainService interface {
 	Transact(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error
 }
 
-// Relayer extends ChainService with providers for each product.
+// Deprecated: use loop.Relayer, which includes context.Context.
 type Relayer interface {
-	ChainService
-
-	NewConfigProvider(ctx context.Context, rargs RelayArgs) (ConfigProvider, error)
-	NewMedianProvider(ctx context.Context, rargs RelayArgs, pargs PluginArgs) (MedianProvider, error)
-	NewMercuryProvider(ctx context.Context, rargs RelayArgs, pargs PluginArgs) (MercuryProvider, error)
-	NewFunctionsProvider(ctx context.Context, rargs RelayArgs, pargs PluginArgs) (FunctionsProvider, error)
-	NewAutomationProvider(ctx context.Context, rargs RelayArgs, pargs PluginArgs) (AutomationProvider, error)
-	NewLLOProvider(ctx context.Context, rargs RelayArgs, pargs PluginArgs) (LLOProvider, error)
-	NewPluginProvider(ctx context.Context, rargs RelayArgs, pargs PluginArgs) (PluginProvider, error)
+	Service
+	NewConfigProvider(rargs RelayArgs) (ConfigProvider, error)
+	NewMedianProvider(rargs RelayArgs, pargs PluginArgs) (MedianProvider, error)
+	NewMercuryProvider(rargs RelayArgs, pargs PluginArgs) (MercuryProvider, error)
+	NewFunctionsProvider(rargs RelayArgs, pargs PluginArgs) (FunctionsProvider, error)
+	NewAutomationProvider(rargs RelayArgs, pargs PluginArgs) (AutomationProvider, error)
+	NewLLOProvider(rargs RelayArgs, pargs PluginArgs) (LLOProvider, error)
+	NewPluginProvider(rargs RelayArgs, pargs PluginArgs) (PluginProvider, error)
 }

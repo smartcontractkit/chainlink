@@ -26,7 +26,9 @@ func NewPluginFactoryClient(b *net.BrokerExt, cc grpc.ClientConnInterface) *Plug
 	return &PluginFactoryClient{b.WithName("MercuryPluginProviderClient"), goplugin.NewServiceClient(b, cc), mercurypb.NewMercuryPluginFactoryClient(cc)}
 }
 
-func (r *PluginFactoryClient) NewMercuryPlugin(ctx context.Context, config ocr3types.MercuryPluginConfig) (ocr3types.MercuryPlugin, ocr3types.MercuryPluginInfo, error) {
+func (r *PluginFactoryClient) NewMercuryPlugin(config ocr3types.MercuryPluginConfig) (ocr3types.MercuryPlugin, ocr3types.MercuryPluginInfo, error) {
+	ctx, cancel := r.StopCtx()
+	defer cancel()
 	response, err := r.client.NewMercuryPlugin(ctx, &mercurypb.NewMercuryPluginRequest{MercuryPluginConfig: &mercurypb.MercuryPluginConfig{
 		ConfigDigest:           config.ConfigDigest[:],
 		OracleID:               uint32(config.OracleID),
@@ -84,7 +86,7 @@ func (r *mercuryPluginFactoryServer) NewMercuryPlugin(ctx context.Context, reque
 	}
 	copy(cfg.ConfigDigest[:], request.MercuryPluginConfig.ConfigDigest)
 
-	rp, rpi, err := r.impl.NewMercuryPlugin(ctx, cfg)
+	rp, rpi, err := r.impl.NewMercuryPlugin(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -128,7 +130,9 @@ func (r *mercuryPluginClient) Observation(ctx context.Context, timestamp libocr.
 	return response.Observation, nil
 }
 
-func (r *mercuryPluginClient) Report(ctx context.Context, timestamp libocr.ReportTimestamp, previousReport libocr.Report, obs []libocr.AttributedObservation) (bool, libocr.Report, error) {
+func (r *mercuryPluginClient) Report(timestamp libocr.ReportTimestamp, previousReport libocr.Report, obs []libocr.AttributedObservation) (bool, libocr.Report, error) {
+	ctx, cancel := r.StopCtx()
+	defer cancel()
 	response, err := r.grpc.Report(ctx, &mercurypb.ReportRequest{
 		ReportTimestamp: pb.ReportTimestampToPb(timestamp),
 		PreviousReport:  previousReport,
@@ -177,7 +181,7 @@ func (r *mercuryPluginServer) Report(ctx context.Context, request *mercurypb.Rep
 	if err != nil {
 		return nil, err
 	}
-	should, report, err := r.impl.Report(ctx, rts, request.PreviousReport, obs)
+	should, report, err := r.impl.Report(rts, request.PreviousReport, obs)
 	if err != nil {
 		return nil, err
 	}

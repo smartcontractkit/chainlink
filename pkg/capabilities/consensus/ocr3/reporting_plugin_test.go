@@ -213,7 +213,7 @@ func TestReportingPlugin_Outcome(t *testing.T) {
 		},
 	}
 
-	outcome, err := rp.Outcome(tests.Context(t), ocr3types.OutcomeContext{}, qb, aos)
+	outcome, err := rp.Outcome(ocr3types.OutcomeContext{}, qb, aos)
 	require.NoError(t, err)
 
 	opb := &pbtypes.Outcome{}
@@ -262,7 +262,7 @@ func TestReportingPlugin_Reports_ShouldReportFalse(t *testing.T) {
 	}
 	pl, err := proto.Marshal(outcome)
 	require.NoError(t, err)
-	reports, err := rp.Reports(tests.Context(t), sqNr, pl)
+	reports, err := rp.Reports(sqNr, pl)
 	require.NoError(t, err)
 
 	assert.Len(t, reports, 1)
@@ -314,7 +314,7 @@ func TestReportingPlugin_Reports_ShouldReportTrue(t *testing.T) {
 	}
 	pl, err := proto.Marshal(outcome)
 	require.NoError(t, err)
-	reports, err := rp.Reports(tests.Context(t), sqNr, pl)
+	reports, err := rp.Reports(sqNr, pl)
 	require.NoError(t, err)
 
 	assert.Len(t, reports, 1)

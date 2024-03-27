@@ -29,7 +29,9 @@ func NewReportingPluginFactoryClient(b *net.BrokerExt, cc grpc.ClientConnInterfa
 	}
 }
 
-func (r *ReportingPluginFactoryClient) NewReportingPlugin(ctx context.Context, config libocr.ReportingPluginConfig) (libocr.ReportingPlugin, libocr.ReportingPluginInfo, error) {
+func (r *ReportingPluginFactoryClient) NewReportingPlugin(config libocr.ReportingPluginConfig) (libocr.ReportingPlugin, libocr.ReportingPluginInfo, error) {
+	ctx, cancel := r.StopCtx()
+	defer cancel()
 	reply, err := r.grpc.NewReportingPlugin(ctx, &pb.NewReportingPluginRequest{ReportingPluginConfig: &pb.ReportingPluginConfig{
 		ConfigDigest:                            config.ConfigDigest[:],
 		OracleID:                                uint32(config.OracleID),
@@ -96,7 +98,7 @@ func (r *ReportingPluginFactoryServer) NewReportingPlugin(ctx context.Context, r
 	}
 	copy(cfg.ConfigDigest[:], request.ReportingPluginConfig.ConfigDigest)
 
-	rp, rpi, err := r.impl.NewReportingPlugin(ctx, cfg)
+	rp, rpi, err := r.impl.NewReportingPlugin(cfg)
 	if err != nil {
 		return nil, err
 	}

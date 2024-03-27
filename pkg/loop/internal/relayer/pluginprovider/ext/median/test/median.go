@@ -47,7 +47,7 @@ func ReportingPluginFactory(t *testing.T, factory types.ReportingPluginFactory) 
 		// that wraps the static implementation
 		var expectedReportingPlugin = reportingplugintest.ReportingPlugin
 
-		rp, gotRPI, err := factory.NewReportingPlugin(tests.Context(t), reportingPluginConfig)
+		rp, gotRPI, err := factory.NewReportingPlugin(reportingPluginConfig)
 		require.NoError(t, err)
 		assert.Equal(t, rpi, gotRPI)
 		t.Cleanup(func() { assert.NoError(t, rp.Close()) })
@@ -114,7 +114,7 @@ func (s staticReportingPluginFactory) Ready() error { panic("implement me") }
 
 func (s staticReportingPluginFactory) HealthReport() map[string]error { panic("implement me") }
 
-func (s staticReportingPluginFactory) NewReportingPlugin(ctx context.Context, config libocr.ReportingPluginConfig) (libocr.ReportingPlugin, libocr.ReportingPluginInfo, error) {
+func (s staticReportingPluginFactory) NewReportingPlugin(config libocr.ReportingPluginConfig) (libocr.ReportingPlugin, libocr.ReportingPluginInfo, error) {
 	if config.ConfigDigest != s.ConfigDigest {
 		return nil, libocr.ReportingPluginInfo{}, fmt.Errorf("expected ConfigDigest %x but got %x", s.ConfigDigest, config.ConfigDigest)
 	}
@@ -301,21 +301,21 @@ var _ testtypes.Evaluator[median.ReportCodec] = staticReportCodec{}
 var _ median.ReportCodec = staticReportCodec{}
 
 // TODO BCF-3068 remove hard coded values, use the staticXXXConfig pattern elsewhere in the test framework
-func (s staticReportCodec) BuildReport(ctx context.Context, os []median.ParsedAttributedObservation) (libocr.Report, error) {
+func (s staticReportCodec) BuildReport(os []median.ParsedAttributedObservation) (libocr.Report, error) {
 	if !assert.ObjectsAreEqual(pobs, os) {
 		return nil, fmt.Errorf("expected observations %v but got %v", pobs, os)
 	}
 	return report, nil
 }
 
-func (s staticReportCodec) MedianFromReport(ctx context.Context, r libocr.Report) (*big.Int, error) {
+func (s staticReportCodec) MedianFromReport(r libocr.Report) (*big.Int, error) {
 	if !bytes.Equal(report, r) {
 		return nil, fmt.Errorf("expected report %x but got %x", report, r)
 	}
 	return medianValue, nil
 }
 
-func (s staticReportCodec) MaxReportLength(ctx context.Context, n2 int) (int, error) {
+func (s staticReportCodec) MaxReportLength(n2 int) (int, error) {
 	if n != n2 {
 		return -1, fmt.Errorf("expected n %d but got %d", n, n2)
 	}
@@ -323,21 +323,21 @@ func (s staticReportCodec) MaxReportLength(ctx context.Context, n2 int) (int, er
 }
 
 func (s staticReportCodec) Evaluate(ctx context.Context, rc median.ReportCodec) error {
-	gotReport, err := rc.BuildReport(ctx, pobs)
+	gotReport, err := rc.BuildReport(pobs)
 	if err != nil {
 		return fmt.Errorf("failed to BuildReport: %w", err)
 	}
 	if !bytes.Equal(gotReport, report) {
 		return fmt.Errorf("expected Report %x but got %x", report, gotReport)
 	}
-	gotMedianValue, err := rc.MedianFromReport(ctx, report)
+	gotMedianValue, err := rc.MedianFromReport(report)
 	if err != nil {
 		return fmt.Errorf("failed to get MedianFromReport: %w", err)
 	}
 	if medianValue.Cmp(gotMedianValue) != 0 {
 		return fmt.Errorf("expected MedianValue %s but got %s", medianValue, gotMedianValue)
 	}
-	gotMax, err := rc.MaxReportLength(ctx, n)
+	gotMax, err := rc.MaxReportLength(n)
 	if err != nil {
 		return fmt.Errorf("failed to get MaxReportLength: %w", err)
 	}
@@ -418,7 +418,7 @@ type staticOnchainConfigCodec struct{}
 var _ testtypes.Evaluator[median.OnchainConfigCodec] = staticOnchainConfigCodec{}
 var _ median.OnchainConfigCodec = staticOnchainConfigCodec{}
 
-func (s staticOnchainConfigCodec) Encode(ctx context.Context, c median.OnchainConfig) ([]byte, error) {
+func (s staticOnchainConfigCodec) Encode(c median.OnchainConfig) ([]byte, error) {
 	if !assert.ObjectsAreEqual(onchainConfig.Max, c.Max) {
 		return nil, fmt.Errorf("expected max %s but got %s", onchainConfig.Max, c.Max)
 	}
@@ -428,7 +428,7 @@ func (s staticOnchainConfigCodec) Encode(ctx context.Context, c median.OnchainCo
 	return encodedOnchainConfig, nil
 }
 
-func (s staticOnchainConfigCodec) Decode(ctx context.Context, b []byte) (median.OnchainConfig, error) {
+func (s staticOnchainConfigCodec) Decode(b []byte) (median.OnchainConfig, error) {
 	if !bytes.Equal(encodedOnchainConfig, b) {
 		return median.OnchainConfig{}, fmt.Errorf("expected encoded %x but got %x", encodedOnchainConfig, b)
 	}
@@ -436,14 +436,14 @@ func (s staticOnchainConfigCodec) Decode(ctx context.Context, b []byte) (median.
 }
 
 func (s staticOnchainConfigCodec) Evaluate(ctx context.Context, occ median.OnchainConfigCodec) error {
-	gotEncoded, err := occ.Encode(ctx, onchainConfig)
+	gotEncoded, err := occ.Encode(onchainConfig)
 	if err != nil {
 		return fmt.Errorf("failed to Encode: %w", err)
 	}
 	if !bytes.Equal(gotEncoded, encodedOnchainConfig) {
 		return fmt.Errorf("expected Encoded %s but got %s", encodedOnchainConfig, gotEncoded)
 	}
-	gotDecoded, err := occ.Decode(ctx, encodedOnchainConfig)
+	gotDecoded, err := occ.Decode(encodedOnchainConfig)
 	if err != nil {
 		return fmt.Errorf("failed to Decode: %w", err)
 	}
