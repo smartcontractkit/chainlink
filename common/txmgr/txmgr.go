@@ -189,12 +189,9 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Start(ctx 
 			return fmt.Errorf("Txm: Estimator failed to start: %w", err)
 		}
 
-		/* Tracker currently disabled for BCI-2638; refactor required
-		b.logger.Info("Txm starting tracker")
 		if err := ms.Start(ctx, b.tracker); err != nil {
 			return fmt.Errorf("Txm: Tracker failed to start: %w", err)
 		}
-		*/
 
 		b.logger.Info("Txm starting runLoop")
 		b.wg.Add(1)
@@ -274,12 +271,6 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Close() (m
 			merr = errors.Join(merr, fmt.Errorf("Txm: failed to close TxAttemptBuilder: %w", err))
 		}
 
-		/* Tracker currently disabled for BCI-2638; refactor required
-		if err := b.tracker.Close(); err != nil {
-			merr = errors.Join(merr, fmt.Errorf("Txm: failed to close Tracker: %w", err))
-		}
-		*/
-
 		return nil
 	})
 }
@@ -328,6 +319,9 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 		if err := b.broadcaster.closeInternal(); err != nil {
 			b.logger.Panicw(fmt.Sprintf("Failed to Close Broadcaster: %v", err), "err", err)
 		}
+		if err := b.tracker.closeInternal(); err != nil {
+			b.logger.Panicw(fmt.Sprintf("Failed to Close Tracker: %v", err), "err", err)
+		}
 		if err := b.confirmer.closeInternal(); err != nil {
 			b.logger.Panicw(fmt.Sprintf("Failed to Close Confirmer: %v", err), "err", err)
 		}
@@ -336,16 +330,17 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 			close(r.done)
 		}
 		var wg sync.WaitGroup
-		// two goroutines to handle independent backoff retries starting:
+		// three goroutines to handle independent backoff retries starting:
 		// - Broadcaster
 		// - Confirmer
+		// - Tracker
 		// If chStop is closed, we mark stopped=true so that the main runloop
 		// can check and exit early if necessary
 		//
 		// execReset will not return until either:
-		// 1. Both Broadcaster and Confirmer started successfully
+		// 1. Broadcaster, Confirmer, and Tracker all started successfully
 		// 2. chStop was closed (txmgr exit)
-		wg.Add(2)
+		wg.Add(3)
 		go func() {
 			defer wg.Done()
 			// Retry indefinitely on failure
@@ -355,6 +350,25 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 				case <-time.After(backoff.Duration()):
 					if err := b.broadcaster.startInternal(ctx); err != nil {
 						b.logger.Criticalw("Failed to start Broadcaster", "err", err)
+						b.SvcErrBuffer.Append(err)
+						continue
+					}
+					return
+				case <-b.chStop:
+					stopOnce.Do(func() { stopped = true })
+					return
+				}
+			}
+		}()
+		go func() {
+			defer wg.Done()
+			// Retry indefinitely on failure
+			backoff := iutils.NewRedialBackoff()
+			for {
+				select {
+				case <-time.After(backoff.Duration()):
+					if err := b.tracker.startInternal(ctx); err != nil {
+						b.logger.Criticalw("Failed to start Tracker", "err", err)
 						b.SvcErrBuffer.Append(err)
 						continue
 					}
@@ -394,8 +408,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 			b.broadcaster.Trigger(address)
 		case head := <-b.chHeads:
 			b.confirmer.mb.Deliver(head)
-			// Tracker currently disabled for BCI-2638; refactor required
-			// b.tracker.mb.Deliver(head.BlockNumber())
+			b.tracker.mb.Deliver(head.BlockNumber())
 		case reset := <-b.reset:
 			// This check prevents the weird edge-case where you can select
 			// into this block after chStop has already been closed and the
@@ -423,12 +436,10 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 			if err != nil && (!errors.Is(err, services.ErrAlreadyStopped) || !errors.Is(err, services.ErrCannotStopUnstarted)) {
 				b.logger.Errorw(fmt.Sprintf("Failed to Close Confirmer: %v", err), "err", err)
 			}
-			/* Tracker currently disabled for BCI-2638; refactor required
 			err = b.tracker.Close()
 			if err != nil && (!errors.Is(err, services.ErrAlreadyStopped) || !errors.Is(err, services.ErrCannotStopUnstarted)) {
 				b.logger.Errorw(fmt.Sprintf("Failed to Close Tracker: %v", err), "err", err)
 			}
-			*/
 			return
 		case <-keysChanged:
 			// This check prevents the weird edge-case where you can select

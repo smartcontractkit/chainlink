@@ -851,29 +851,29 @@ func (_m *EvmTxStore) GetInProgressTxAttempts(ctx context.Context, address commo
 	return r0, r1
 }
 
-// GetNonFatalTransactions provides a mock function with given fields: ctx, chainID
-func (_m *EvmTxStore) GetNonFatalTransactions(ctx context.Context, chainID *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
-	ret := _m.Called(ctx, chainID)
+// GetNonFatalTransactionsByBatch provides a mock function with given fields: ctx, chainID, offset, limit
+func (_m *EvmTxStore) GetNonFatalTransactionsByBatch(ctx context.Context, chainID *big.Int, offset uint, limit uint) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
+	ret := _m.Called(ctx, chainID, offset, limit)
 
 	if len(ret) == 0 {
-		panic("no return value specified for GetNonFatalTransactions")
+		panic("no return value specified for GetNonFatalTransactionsByBatch")
 	}
 
 	var r0 []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
-		return rf(ctx, chainID)
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int, uint, uint) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
+		return rf(ctx, chainID, offset, limit)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
-		r0 = rf(ctx, chainID)
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int, uint, uint) []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+		r0 = rf(ctx, chainID, offset, limit)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, *big.Int) error); ok {
-		r1 = rf(ctx, chainID)
+	if rf, ok := ret.Get(1).(func(context.Context, *big.Int, uint, uint) error); ok {
+		r1 = rf(ctx, chainID, offset, limit)
 	} else {
 		r1 = ret.Error(1)
 	}

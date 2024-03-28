@@ -1292,26 +1292,25 @@ func (o *evmTxStore) SaveInProgressAttempt(ctx context.Context, attempt *TxAttem
 	return nil
 }
 
-func (o *evmTxStore) GetNonFatalTransactions(ctx context.Context, chainID *big.Int) (txes []*Tx, err error) {
+func (o *evmTxStore) GetNonFatalTransactionsByBatch(ctx context.Context, chainID *big.Int, offset, limit uint) (txes []*Tx, err error) {
 	var cancel context.CancelFunc
 	ctx, cancel = o.mergeContexts(ctx)
 	defer cancel()
+
 	err = o.Transaction(ctx, true, func(orm *evmTxStore) error {
-		stmt := `SELECT * FROM evm.txes WHERE state <> 'fatal_error' AND evm_chain_id = $1`
+		query := `SELECT * FROM evm.txes WHERE state <> 'fatal_error' AND evm_chain_id = $1 
+                       OFFSET $2 LIMIT $3 `
+
 		var dbEtxs []DbEthTx
-		if err = orm.q.SelectContext(ctx, &dbEtxs, stmt, chainID.String()); err != nil {
+		if err = orm.q.SelectContext(ctx, &dbEtxs, query, chainID.String(), offset, limit); err != nil {
 			return fmt.Errorf("failed to load evm.txes: %w", err)
 		}
 		txes = make([]*Tx, len(dbEtxs))
 		dbEthTxsToEvmEthTxPtrs(dbEtxs, txes)
-		err = o.LoadTxesAttempts(ctx, txes)
-		if err != nil {
-			return fmt.Errorf("failed to load evm.txes: %w", err)
-		}
 		return nil
 	})
 
-	return txes, nil
+	return txes, err
 }
 
 func (o *evmTxStore) GetTxByID(ctx context.Context, id int64) (txe *Tx, err error) {
