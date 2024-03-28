@@ -105,27 +105,8 @@ type logEventProvider struct {
 }
 
 func NewLogProvider(lggr logger.Logger, poller logpoller.LogPoller, chainID *big.Int, packer LogDataPacker, filterStore UpkeepFilterStore, opts LogTriggersOptions) *logEventProvider {
-	var defaultBlockRate, defaultLogLimit uint32
-
-	// identify the default block rate for this chain ID
-	switch chainID.Int64() {
-	case 42161, 421613, 421614: // Arbitrum
-		defaultBlockRate = 4
-	default:
-		defaultBlockRate = 1
-	}
-
-	// identify the default log limit for this chain ID
-	switch chainID.Int64() {
-	case 42161, 421613, 421614: // Arbitrum
-		defaultLogLimit = 1
-	case 1, 4, 5, 42, 11155111: // Eth
-		defaultLogLimit = 20
-	case 10, 420, 56, 97, 137, 80001, 43113, 43114, 8453, 84531: // Optimism, BSC, Polygon, Avax, Base
-		defaultLogLimit = 5
-	default:
-		defaultLogLimit = 1
-	}
+	defaultBlockRate := defaultBlockRateForChain(chainID)
+	defaultLogLimit := defaultLogLimitForChain(chainID)
 
 	return &logEventProvider{
 		threadCtrl:  utils.NewThreadControl(),
@@ -434,4 +415,26 @@ func (p *logEventProvider) readLogs(ctx context.Context, latest int64, filters [
 	}
 
 	return merr
+}
+
+func defaultBlockRateForChain(chainID *big.Int) uint32 {
+	switch chainID.Int64() {
+	case 42161, 421613, 421614: // Arbitrum
+		return 4
+	default:
+		return 1
+	}
+}
+
+func defaultLogLimitForChain(chainID *big.Int) uint32 {
+	switch chainID.Int64() {
+	case 42161, 421613, 421614: // Arbitrum
+		return 1
+	case 1, 4, 5, 42, 11155111: // Eth
+		return 20
+	case 10, 420, 56, 97, 137, 80001, 43113, 43114, 8453, 84531: // Optimism, BSC, Polygon, Avax, Base
+		return 5
+	default:
+		return 1
+	}
 }
