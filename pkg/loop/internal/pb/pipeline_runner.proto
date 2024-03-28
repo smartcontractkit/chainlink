@@ -20,7 +20,7 @@ message RunRequest {
 message TaskResult {
   string id = 1;
   string type = 2;
-  google.protobuf.Value value = 3;
+  bytes value = 3;
   string error = 4;
   bool has_error = 5;
   bool is_terminal = 6;

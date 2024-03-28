@@ -8,6 +8,7 @@ import (
 
 	testtypes "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 )
 
 const pipleineSpec = `
@@ -27,7 +28,10 @@ var PipelineRunner = staticPipelineRunnerService{
 		taskResults: types.TaskResults([]types.TaskResult{
 			{
 				TaskValue: types.TaskValue{
-					Value: "hello",
+					Value: jsonserializable.JSONSerializable{
+						Val:   "hello",
+						Valid: true,
+					},
 				},
 				Index: 0,
 			},
