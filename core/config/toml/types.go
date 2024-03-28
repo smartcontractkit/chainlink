@@ -666,7 +666,7 @@ func (w *WebServer) ValidateConfig() (err error) {
 		err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.AdminUserGroupCN", Msg: "LDAP AdminUserGroupCN can not be empty"})
 	}
 	if *w.LDAP.EditUserGroupCN == "" {
-		err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.RunUserGroupCN", Msg: "LDAP ReadUserGroupCN can not be empty"})
+		err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.EditUserGroupCN", Msg: "LDAP EditUserGroupCN can not be empty"})
 	}
 	if *w.LDAP.RunUserGroupCN == "" {
 		err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.RunUserGroupCN", Msg: "LDAP RunUserGroupCN can not be empty"})
@@ -766,9 +766,6 @@ type WebServerLDAP struct {
 func (w *WebServerLDAP) setFrom(f *WebServerLDAP) {
 	if v := f.ServerTLS; v != nil {
 		w.ServerTLS = v
-	}
-	if v := f.SessionTimeout; v != nil {
-		w.SessionTimeout = v
 	}
 	if v := f.SessionTimeout; v != nil {
 		w.SessionTimeout = v
