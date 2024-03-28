@@ -155,7 +155,7 @@ func (s *Shell) CreateOCRKeyBundle(_ *cli.Context) error {
 	return s.renderAPIResponse(resp, &presenter, "Created OCR key bundle")
 }
 
-// DeleteOCR2KeyBundle deletes an OCR key bundle
+// DeleteOCRKeyBundle deletes an OCR key bundle
 func (s *Shell) DeleteOCRKeyBundle(c *cli.Context) error {
 	if !c.Args().Present() {
 		return s.errorOut(errors.New("Must pass the key ID to be deleted"))
@@ -188,7 +188,7 @@ func (s *Shell) DeleteOCRKeyBundle(c *cli.Context) error {
 	return s.renderAPIResponse(resp, &presenter, "OCR key bundle deleted")
 }
 
-// ImportOCR2Key imports OCR key bundle
+// ImportOCRKey imports OCR key bundle
 func (s *Shell) ImportOCRKey(c *cli.Context) (err error) {
 	if !c.Args().Present() {
 		return s.errorOut(errors.New("Must pass the filepath of the key to be imported"))
@@ -224,7 +224,7 @@ func (s *Shell) ImportOCRKey(c *cli.Context) (err error) {
 	return s.renderAPIResponse(resp, &presenter, "Imported OCR key bundle")
 }
 
-// ExportOCR2Key exports an OCR key bundle by ID
+// ExportOCRKey exports an OCR key bundle by ID
 func (s *Shell) ExportOCRKey(c *cli.Context) (err error) {
 	if !c.Args().Present() {
 		return s.errorOut(errors.New("Must pass the ID of the key to export"))
