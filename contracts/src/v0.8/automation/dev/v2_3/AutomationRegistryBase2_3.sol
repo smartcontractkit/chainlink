@@ -50,8 +50,8 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   // Next block of constants are only used in maxPayment estimation during checkUpkeep simulation
   // These values are calibrated using hardhat tests which simulates various cases and verifies that
   // the variables result in accurate estimation
-  uint256 internal constant REGISTRY_CONDITIONAL_OVERHEAD = 60_000; // Fixed gas overhead for conditional upkeeps
-  uint256 internal constant REGISTRY_LOG_OVERHEAD = 85_000; // Fixed gas overhead for log upkeeps
+  uint256 internal constant REGISTRY_CONDITIONAL_OVERHEAD = 93_000; // Fixed gas overhead for conditional upkeeps
+  uint256 internal constant REGISTRY_LOG_OVERHEAD = 118_000; // Fixed gas overhead for log upkeeps
   uint256 internal constant REGISTRY_PER_SIGNER_GAS_OVERHEAD = 5_600; // Value scales with f
   uint256 internal constant REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD = 24; // Per perform data byte overhead
 
@@ -65,8 +65,8 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   // tx itself, but since payment processing itself takes gas, and it needs the overhead as input, we use fixed constants
   // to account for gas used in payment processing. These values are calibrated using hardhat tests which simulates various cases and verifies that
   // the variables result in accurate estimation
-  uint256 internal constant ACCOUNTING_FIXED_GAS_OVERHEAD = 22_000; // Fixed overhead per tx
-  uint256 internal constant ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD = 7_000; // Overhead per upkeep performed in batch
+  uint256 internal constant ACCOUNTING_FIXED_GAS_OVERHEAD = 51_000; // Fixed overhead per tx
+  uint256 internal constant ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD = 9_000; // Overhead per upkeep performed in batch
 
   LinkTokenInterface internal immutable i_link;
   AggregatorV3Interface internal immutable i_linkUSDFeed;

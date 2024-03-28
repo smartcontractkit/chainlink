@@ -1,7 +1,7 @@
 import { ethers } from 'hardhat'
 import { Contract } from 'ethers'
 import { expect } from 'chai'
-import { publicAbi } from '../test-helpers/helpers'
+import { publicAbi } from '../../test-helpers/helpers'
 
 describe('KeeperCompatible', () => {
   for (let version = 8; version <= 8; version++) {
