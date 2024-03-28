@@ -4,12 +4,19 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"sort"
+	"sync"
 
 	"golang.org/x/sync/errgroup"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
+)
+
+const (
+	offRampBatchSizeLimit = 30
 )
 
 func GetMessageIDsAsHexString(messages []cciptypes.EVM2EVMMessage) []string {
@@ -23,6 +30,63 @@ func GetMessageIDsAsHexString(messages []cciptypes.EVM2EVMMessage) []string {
 type BackfillArgs struct {
 	SourceLP, DestLP                 logpoller.LogPoller
 	SourceStartBlock, DestStartBlock uint64
+}
+
+func GetSortedChainTokens(ctx context.Context, offRamps []ccipdata.OffRampReader, priceRegistry cciptypes.PriceRegistryReader) (chainTokens []cciptypes.Address, err error) {
+	return getSortedChainTokensWithBatchLimit(ctx, offRamps, priceRegistry, offRampBatchSizeLimit)
+}
+
+// GetChainTokens returns union of all tokens supported on the destination chain, including fee tokens from the provided price registry
+// and the bridgeable tokens from all the offRamps living on the chain.
+func getSortedChainTokensWithBatchLimit(ctx context.Context, offRamps []ccipdata.OffRampReader, priceRegistry cciptypes.PriceRegistryReader, batchSize int) (chainTokens []cciptypes.Address, err error) {
+	if batchSize == 0 {
+		return nil, fmt.Errorf("batch size must be greater than 0")
+	}
+
+	eg := new(errgroup.Group)
+	eg.SetLimit(batchSize)
+
+	var destFeeTokens []cciptypes.Address
+	var destBridgeableTokens []cciptypes.Address
+	mu := &sync.RWMutex{}
+
+	eg.Go(func() error {
+		tokens, err := priceRegistry.GetFeeTokens(ctx)
+		if err != nil {
+			return fmt.Errorf("get dest fee tokens: %w", err)
+		}
+		destFeeTokens = tokens
+		return nil
+	})
+
+	for _, o := range offRamps {
+		offRamp := o
+		eg.Go(func() error {
+			tokens, err := offRamp.GetTokens(ctx)
+			if err != nil {
+				return fmt.Errorf("get dest bridgeable tokens: %w", err)
+			}
+			mu.Lock()
+			destBridgeableTokens = append(destBridgeableTokens, tokens.DestinationTokens...)
+			mu.Unlock()
+			return nil
+		})
+	}
+
+	if err := eg.Wait(); err != nil {
+		return nil, err
+	}
+
+	// same token can be returned by multiple offRamps, and fee token can overlap with bridgeable tokens,
+	// we need to dedup them to arrive at chain token set
+	chainTokens = FlattenUniqueSlice(destFeeTokens, destBridgeableTokens)
+
+	// return the tokens in deterministic order to aid with testing and debugging
+	sort.Slice(chainTokens, func(i, j int) bool {
+		return chainTokens[i] < chainTokens[j]
+	})
+
+	return chainTokens, nil
 }
 
 // GetDestinationTokens returns the destination chain fee tokens from the provided price registry

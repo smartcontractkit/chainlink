@@ -12,10 +12,12 @@ import (
 	"github.com/stretchr/testify/require"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp_1_0_0"
 	mock_contracts "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/mocks/v1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -209,4 +211,25 @@ func Test_LogsAreProperlyMarkedAsFinalized(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestGetRouter(t *testing.T) {
+	routerAddr := utils.RandomAddress()
+
+	mockOffRamp := mock_contracts.NewEVM2EVMOffRampInterface(t)
+	mockOffRamp.On("GetDynamicConfig", mock.Anything).Return(evm_2_evm_offramp_1_0_0.EVM2EVMOffRampDynamicConfig{
+		Router: routerAddr,
+	}, nil)
+
+	offRamp := OffRamp{
+		offRampV100: mockOffRamp,
+	}
+
+	ctx := testutils.Context(t)
+	gotRouterAddr, err := offRamp.GetRouter(ctx)
+	require.NoError(t, err)
+
+	gotRouterEvmAddr, err := ccipcalc.GenericAddrToEvm(gotRouterAddr)
+	require.NoError(t, err)
+	assert.Equal(t, routerAddr, gotRouterEvmAddr)
 }

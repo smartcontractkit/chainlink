@@ -270,6 +270,34 @@ func (_m *OffRampReader) GetExecutionStateChangesBetweenSeqNums(ctx context.Cont
 	return r0, r1
 }
 
+// GetRouter provides a mock function with given fields: ctx
+func (_m *OffRampReader) GetRouter(ctx context.Context) (ccip.Address, error) {
+	ret := _m.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetRouter")
+	}
+
+	var r0 ccip.Address
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context) (ccip.Address, error)); ok {
+		return rf(ctx)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context) ccip.Address); ok {
+		r0 = rf(ctx)
+	} else {
+		r0 = ret.Get(0).(ccip.Address)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetSenderNonce provides a mock function with given fields: ctx, sender
 func (_m *OffRampReader) GetSenderNonce(ctx context.Context, sender ccip.Address) (uint64, error) {
 	ret := _m.Called(ctx, sender)
