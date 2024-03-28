@@ -206,7 +206,7 @@ func validateGenericPluginSpec(ctx context.Context, spec *job.OCR2OracleSpec, rc
 
 	envVars, err := plugins.ParseEnvFile(plugEnv.Env.Get())
 	if err != nil {
-		return fmt.Errorf("failed to parse median env file: %w", err)
+		return fmt.Errorf("failed to parse env file: %w", err)
 	}
 	if len(p.EnvVars) > 0 {
 		for k, v := range p.EnvVars {
