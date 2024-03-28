@@ -456,11 +456,8 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 		jb.PipelineSpecID = pipelineSpecID
 
 		err = o.InsertJob(jb, pg.WithQueryer(tx))
-		if err != nil {
-			return errors.Wrap(err, "failed to insert job")
-		}
 		jobID = jb.ID
-		return nil
+		return errors.Wrap(err, "failed to insert job")
 	})
 	if err != nil {
 		return errors.Wrap(err, "CreateJobFailed")
