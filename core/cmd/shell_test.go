@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 
+	commoncfg "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
@@ -474,22 +475,25 @@ func TestSetupStarkNetRelayer(t *testing.T) {
 	tConfig := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Starknet = stkcfg.TOMLConfigs{
 			&stkcfg.TOMLConfig{
-				ChainID: ptr[string]("starknet-id-1"),
-				Enabled: ptr(true),
-				Chain:   stkcfg.Chain{},
-				Nodes:   []*config.Node{},
+				ChainID:   ptr[string]("starknet-id-1"),
+				Enabled:   ptr(true),
+				Chain:     stkcfg.Chain{},
+				Nodes:     []*config.Node{},
+				FeederURL: commoncfg.MustParseURL("https://feeder.url"),
 			},
 			&stkcfg.TOMLConfig{
-				ChainID: ptr[string]("starknet-id-2"),
-				Enabled: ptr(true),
-				Chain:   stkcfg.Chain{},
-				Nodes:   []*config.Node{},
+				ChainID:   ptr[string]("starknet-id-2"),
+				Enabled:   ptr(true),
+				Chain:     stkcfg.Chain{},
+				Nodes:     []*config.Node{},
+				FeederURL: commoncfg.MustParseURL("https://feeder.url"),
 			},
 			&stkcfg.TOMLConfig{
-				ChainID: ptr[string]("disabled-starknet-id-1"),
-				Enabled: ptr(false),
-				Chain:   stkcfg.Chain{},
-				Nodes:   []*config.Node{},
+				ChainID:   ptr[string]("disabled-starknet-id-1"),
+				Enabled:   ptr(false),
+				Chain:     stkcfg.Chain{},
+				Nodes:     []*config.Node{},
+				FeederURL: commoncfg.MustParseURL("https://feeder.url"),
 			},
 		}
 	})
@@ -497,10 +501,11 @@ func TestSetupStarkNetRelayer(t *testing.T) {
 	t2Config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Starknet = stkcfg.TOMLConfigs{
 			&stkcfg.TOMLConfig{
-				ChainID: ptr[string]("starknet-id-3"),
-				Enabled: ptr(true),
-				Chain:   stkcfg.Chain{},
-				Nodes:   []*config.Node{},
+				ChainID:   ptr[string]("starknet-id-3"),
+				Enabled:   ptr(true),
+				Chain:     stkcfg.Chain{},
+				Nodes:     []*config.Node{},
+				FeederURL: commoncfg.MustParseURL("https://feeder.url"),
 			},
 		}
 	})
@@ -534,16 +539,18 @@ func TestSetupStarkNetRelayer(t *testing.T) {
 	duplicateConfig := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Starknet = stkcfg.TOMLConfigs{
 			&stkcfg.TOMLConfig{
-				ChainID: ptr[string]("dupe"),
-				Enabled: ptr(true),
-				Chain:   stkcfg.Chain{},
-				Nodes:   []*config.Node{},
+				ChainID:   ptr[string]("dupe"),
+				Enabled:   ptr(true),
+				Chain:     stkcfg.Chain{},
+				Nodes:     []*config.Node{},
+				FeederURL: commoncfg.MustParseURL("https://feeder.url"),
 			},
 			&stkcfg.TOMLConfig{
-				ChainID: ptr[string]("dupe"),
-				Enabled: ptr(true),
-				Chain:   stkcfg.Chain{},
-				Nodes:   []*config.Node{},
+				ChainID:   ptr[string]("dupe"),
+				Enabled:   ptr(true),
+				Chain:     stkcfg.Chain{},
+				Nodes:     []*config.Node{},
+				FeederURL: commoncfg.MustParseURL("https://feeder.url"),
 			},
 		}
 	})

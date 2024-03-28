@@ -3,7 +3,7 @@ on:
   pull_request:
 
 env:
-  BRANCH_NAME: ${{ github.event.pull_request.head.ref }}
+  TARGET_BRANCH_NAME: ${{ github.event.pull_request.base.ref }}
 
 jobs:
   check-gql:
@@ -47,7 +47,7 @@ jobs:
         id: get-operator-ui-tag
         shell: bash
         run: |
-          if [[ $BRANCH_NAME == release/* ]]; then
+          if [[ $TARGET_BRANCH_NAME == release/* ]]; then
             TAG=$(cat ./operator_ui/TAG)
             echo "TAG=$TAG" >> $GITHUB_OUTPUT
           else
