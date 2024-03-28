@@ -5,6 +5,7 @@ import {MockScrollL1CrossDomainMessenger} from "../../mocks/scroll/MockScrollL1C
 import {MockScrollL2CrossDomainMessenger} from "../../mocks/scroll/MockScrollL2CrossDomainMessenger.sol";
 import {MockScrollL1MessageQueue} from "../../mocks/scroll/MockScrollL1MessageQueue.sol";
 import {ScrollSequencerUptimeFeed} from "../../../dev/scroll/ScrollSequencerUptimeFeed.sol";
+import {SequencerUptimeFeed} from "../../../dev/SequencerUptimeFeed.sol";
 import {ScrollValidator} from "../../../dev/scroll/ScrollValidator.sol";
 import {L2EPTest} from "../L2EPTest.t.sol";
 
@@ -87,7 +88,7 @@ contract ScrollValidator_Validate is ScrollValidatorTest {
       0, // value
       0, // nonce
       INIT_GAS_LIMIT, // gas limit
-      abi.encodeWithSelector(ScrollSequencerUptimeFeed.updateStatus.selector, false, futureTimestampInSeconds) // message
+      abi.encodeWithSelector(SequencerUptimeFeed.updateStatus.selector, false, futureTimestampInSeconds) // message
     );
 
     // Runs the function (which produces the event to test)
@@ -112,7 +113,7 @@ contract ScrollValidator_Validate is ScrollValidatorTest {
       0, // value
       0, // nonce
       INIT_GAS_LIMIT, // gas limit
-      abi.encodeWithSelector(ScrollSequencerUptimeFeed.updateStatus.selector, true, futureTimestampInSeconds) // message
+      abi.encodeWithSelector(SequencerUptimeFeed.updateStatus.selector, true, futureTimestampInSeconds) // message
     );
 
     // Runs the function (which produces the event to test)

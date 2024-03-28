@@ -3,6 +3,7 @@ pragma solidity 0.8.19;
 
 import {MockScrollCrossDomainMessenger} from "../../mocks/scroll/MockScrollCrossDomainMessenger.sol";
 import {ScrollCrossDomainGovernor} from "../../../dev/scroll/ScrollCrossDomainGovernor.sol";
+import {CrossDomainGovernor} from "../../../dev/CrossDomainGovernor.sol";
 import {Greeter} from "../../../../tests/Greeter.sol";
 import {L2EPTest} from "../L2EPTest.t.sol";
 
@@ -193,7 +194,7 @@ contract ScrollCrossDomainGovernor_ForwardDelegate is ScrollCrossDomainGovernorT
       address(s_scrollCrossDomainGovernor), // target
       0, // value
       abi.encodeWithSelector(
-        ScrollCrossDomainGovernor.forwardDelegate.selector,
+        CrossDomainGovernor.forwardDelegate.selector,
         address(s_greeter),
         abi.encodeWithSelector(Greeter.triggerRevert.selector)
       ), // message

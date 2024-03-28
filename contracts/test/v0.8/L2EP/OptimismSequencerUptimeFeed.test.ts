@@ -77,14 +77,14 @@ describe('OptimismSequencerUptimeFeed', () => {
 
   describe('#updateStatus', () => {
     it('should revert if called by an address that is not the L2 Cross Domain Messenger', async () => {
-      let timestamp = await optimismUptimeFeed.latestTimestamp()
+      const timestamp = await optimismUptimeFeed.latestTimestamp()
       expect(
         optimismUptimeFeed.connect(dummy).updateStatus(true, timestamp),
       ).to.be.revertedWith('InvalidSender')
     })
 
     it('should revert if called by an address that is not the L2 Cross Domain Messenger and is not the L1 sender', async () => {
-      let timestamp = await optimismUptimeFeed.latestTimestamp()
+      const timestamp = await optimismUptimeFeed.latestTimestamp()
       await l2CrossDomainMessenger.setSender(dummy.address)
       expect(
         optimismUptimeFeed.connect(dummy).updateStatus(true, timestamp),
@@ -319,7 +319,7 @@ describe('OptimismSequencerUptimeFeed', () => {
       // Assert update
       expect(await optimismUptimeFeed.latestAnswer()).to.equal(1)
       expect(updateTx.cumulativeGasUsed.toNumber()).to.be.closeTo(
-        60170,
+        58567,
         gasUsedDeviation,
       )
     })
@@ -341,7 +341,7 @@ describe('OptimismSequencerUptimeFeed', () => {
         )
         const tx = await _tx.wait(1)
         expect(tx.cumulativeGasUsed.toNumber()).to.be.closeTo(
-          30952,
+          31144,
           gasUsedDeviation,
         )
       })
@@ -354,7 +354,7 @@ describe('OptimismSequencerUptimeFeed', () => {
         )
         const tx = await _tx.wait(1)
         expect(tx.cumulativeGasUsed.toNumber()).to.be.closeTo(
-          28523,
+          28628,
           gasUsedDeviation,
         )
       })
@@ -367,7 +367,7 @@ describe('OptimismSequencerUptimeFeed', () => {
         )
         const tx = await _tx.wait(1)
         expect(tx.cumulativeGasUsed.toNumber()).to.be.closeTo(
-          28329,
+          28282,
           gasUsedDeviation,
         )
       })
@@ -380,7 +380,7 @@ describe('OptimismSequencerUptimeFeed', () => {
         )
         const tx = await _tx.wait(1)
         expect(tx.cumulativeGasUsed.toNumber()).to.be.closeTo(
-          28229,
+          28175,
           gasUsedDeviation,
         )
       })
@@ -393,7 +393,7 @@ describe('OptimismSequencerUptimeFeed', () => {
         )
         const tx = await _tx.wait(1)
         expect(tx.cumulativeGasUsed.toNumber()).to.be.closeTo(
-          28245,
+          28186,
           gasUsedDeviation,
         )
       })
@@ -406,7 +406,7 @@ describe('OptimismSequencerUptimeFeed', () => {
         )
         const tx = await _tx.wait(1)
         expect(tx.cumulativeGasUsed.toNumber()).to.be.closeTo(
-          30682,
+          30809,
           gasUsedDeviation,
         )
       })
@@ -419,7 +419,7 @@ describe('OptimismSequencerUptimeFeed', () => {
         )
         const tx = await _tx.wait(1)
         expect(tx.cumulativeGasUsed.toNumber()).to.be.closeTo(
-          30570,
+          30697,
           gasUsedDeviation,
         )
       })

@@ -5,6 +5,7 @@ import {MockOptimismL1CrossDomainMessenger} from "../../../../tests/MockOptimism
 import {MockOptimismL2CrossDomainMessenger} from "../../../../tests/MockOptimismL2CrossDomainMessenger.sol";
 import {OptimismSequencerUptimeFeed} from "../../../dev/optimism/OptimismSequencerUptimeFeed.sol";
 import {OptimismValidator} from "../../../dev/optimism/OptimismValidator.sol";
+import {SequencerUptimeFeed} from "../../../dev/SequencerUptimeFeed.sol";
 import {L2EPTest} from "../L2EPTest.t.sol";
 
 contract OptimismValidatorTest is L2EPTest {
@@ -73,7 +74,7 @@ contract OptimismValidator_Validate is OptimismValidatorTest {
     emit SentMessage(
       L2_SEQ_STATUS_RECORDER_ADDRESS, // target
       address(s_optimismValidator), // sender
-      abi.encodeWithSelector(OptimismSequencerUptimeFeed.updateStatus.selector, false, futureTimestampInSeconds), // message
+      abi.encodeWithSelector(SequencerUptimeFeed.updateStatus.selector, false, futureTimestampInSeconds), // message
       0, // nonce
       INIT_GAS_LIMIT // gas limit
     );
@@ -97,7 +98,7 @@ contract OptimismValidator_Validate is OptimismValidatorTest {
     emit SentMessage(
       L2_SEQ_STATUS_RECORDER_ADDRESS, // target
       address(s_optimismValidator), // sender
-      abi.encodeWithSelector(OptimismSequencerUptimeFeed.updateStatus.selector, true, futureTimestampInSeconds), // message
+      abi.encodeWithSelector(SequencerUptimeFeed.updateStatus.selector, true, futureTimestampInSeconds), // message
       0, // nonce
       INIT_GAS_LIMIT // gas limit
     );
