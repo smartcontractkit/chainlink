@@ -372,7 +372,7 @@ func (r *ExecutionReportingPlugin) buildBatch(
 				// Chain holds existing nonce.
 				nonce, err := r.offRampReader.GetSenderNonce(ctx, msg.Sender)
 				if err != nil {
-					lggr.Errorw("unable to get sender nonce", "err", err, "seqNr", msg.SequenceNumber)
+					msgLggr.Errorw("unable to get sender nonce", "err", err, "seqNr", msg.SequenceNumber)
 					continue
 				}
 				expectedNonces[msg.Sender] = nonce + 1
