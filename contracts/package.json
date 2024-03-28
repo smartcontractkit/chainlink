@@ -44,11 +44,11 @@
     "@typechain/ethers-v5": "^7.2.0",
     "@typechain/hardhat": "^7.0.0",
     "@types/cbor": "5.0.1",
-    "@types/chai": "^4.3.11",
+    "@types/chai": "^4.3.14",
     "@types/debug": "^4.1.12",
     "@types/deep-equal-in-any-order": "^1.0.3",
     "@types/mocha": "^10.0.6",
-    "@types/node": "^16.18.80",
+    "@types/node": "^16.18.91",
     "@typescript-eslint/eslint-plugin": "^6.21.0",
     "@typescript-eslint/parser": "^6.21.0",
     "abi-to-sol": "^0.6.6",
@@ -61,12 +61,12 @@
     "eslint-plugin-prettier": "^5.1.3",
     "ethereum-waffle": "^3.4.4",
     "ethers": "~5.7.2",
-    "hardhat": "~2.19.2",
+    "hardhat": "~2.19.5",
     "hardhat-abi-exporter": "^2.10.1",
     "hardhat-contract-sizer": "^2.10.0",
     "hardhat-gas-reporter": "^1.0.9",
-    "hardhat-ignore-warnings": "^0.2.6",
-    "moment": "^2.29.4",
+    "hardhat-ignore-warnings": "^0.2.9",
+    "moment": "^2.30.1",
     "prettier": "^3.2.5",
     "prettier-plugin-solidity": "1.3.1",
     "rlp": "^2.2.7",
@@ -84,6 +84,6 @@
     "@openzeppelin/contracts-upgradeable": "4.9.3",
     "@changesets/changelog-github": "^0.4.8",
     "@changesets/cli": "~2.26.2",
-    "semver": "^7.5.4"
+    "semver": "^7.6.0"
   }
 }
