@@ -153,14 +153,11 @@ jobs:
         id: run-tests
         env:
           OUTPUT_FILE: ./output.txt
-          USE_TEE: false
+          USE_TEE: true
         run: ./tools/bin/${{ matrix.cmd }} ./...
       - name: Print Filtered Test Results
         if: ${{ failure() && matrix.cmd == 'go_core_tests' && needs.filter.outputs.changes == 'true' }}
-        uses: smartcontractkit/chainlink-github-actions/go/go-test-results-parsing@5bee84d30d90295010bda68b0cd46be3a1eea917 # v2.3.9
-        with:
-          results-file: ./output.txt
-          output-file: ./output-short.txt
+        run: cat output.txt | gotestloghelper -ci
       - name: Print Races
         if: ${{ failure() && matrix.cmd == 'go_core_race_tests' && needs.filter.outputs.changes == 'true' }}
         run: find race.* | xargs cat
