@@ -134,7 +134,9 @@ func (p *logEventProvider) SetConfig(cfg ocr2keepers.LogEventProviderConfig) {
 	}
 
 	p.lggr.With("where", "setConfig").Infow("setting config ", "bockRate", blockRate, "logLimit", logLimit)
-	p.buffer.SetConfig(blockRate, logLimit)
+
+	// TODO set block rate and log limit on the buffer
+	//p.buffer.SetConfig(blockRate, logLimit)
 }
 
 func (p *logEventProvider) Start(context.Context) error {

@@ -871,54 +871,6 @@ func TestLogEventBuffer_FetchedBlock_Clone(t *testing.T) {
 	require.NotEqual(t, b1.logs[0].log.BlockNumber, b2.logs[0].log.BlockNumber)
 }
 
-func TestLogEventBuffer_SetConfig(t *testing.T) {
-	for _, tc := range []struct {
-		blockRate uint32
-		logLimit  uint32
-
-		wantBlockRate uint32
-		wantLogLimit  uint32
-	}{
-		{
-			blockRate: 10,
-			logLimit:  20,
-
-			wantBlockRate: 10,
-			wantLogLimit:  20,
-		},
-		{
-			blockRate: 10,
-			logLimit:  0,
-
-			wantBlockRate: 10,
-			wantLogLimit:  0,
-		},
-		{
-			blockRate: 0,
-			logLimit:  50,
-
-			wantBlockRate: 0,
-			wantLogLimit:  50,
-		},
-		{
-			blockRate: 0,
-			logLimit:  0,
-
-			wantBlockRate: 0,
-			wantLogLimit:  0,
-		},
-	} {
-		buffer := &logEventBuffer{
-			lggr: logger.TestLogger(t),
-		}
-
-		buffer.SetConfig(tc.blockRate, tc.logLimit)
-
-		require.Equal(t, tc.wantBlockRate, buffer.blockRate)
-		require.Equal(t, tc.wantLogLimit, buffer.logLimit)
-	}
-}
-
 func verifyBlockNumbers(t *testing.T, logs []fetchedLog, bns ...int64) {
 	require.Equal(t, len(bns), len(logs), "expected length mismatch")
 	for i, log := range logs {

@@ -154,15 +154,15 @@ type logEventBuffer struct {
 	latestBlock int64
 }
 
-func newLogEventBuffer(lggr logger.Logger, size int, numOfLogUpkeeps, fastExecLogsHigh int, defaultBlockRate, defaultLogLimit uint32) *logEventBuffer {
+func newLogEventBuffer(lggr logger.Logger, size int, numOfLogUpkeeps, fastExecLogsHigh int, blockRate, logLimit uint32) *logEventBuffer {
 	return &logEventBuffer{
 		lggr:             lggr.Named("KeepersRegistry.LogEventBuffer"),
 		size:             int32(size),
 		blocks:           make([]fetchedBlock, size),
 		numOfLogUpkeeps:  uint32(numOfLogUpkeeps),
 		fastExecLogsHigh: uint32(fastExecLogsHigh),
-		blockRate:        defaultBlockRate,
-		logLimit:         defaultLogLimit,
+		blockRate:        blockRate,
+		logLimit:         logLimit,
 	}
 }
 
@@ -174,11 +174,9 @@ func (b *logEventBuffer) bufferSize() int {
 	return int(atomic.LoadInt32(&b.size))
 }
 
-func (b *logEventBuffer) SetConfig(blockRate, logLimit uint32) {
-	b.lggr.With("where", "setConfig").Infow("setting config", "blockRate", blockRate, "logLimit", logLimit)
-
-	atomic.StoreUint32(&b.blockRate, blockRate)
-	atomic.StoreUint32(&b.logLimit, logLimit)
+func (b *logEventBuffer) SetConfig(numOfLogUpkeeps, fastExecLogsHigh int) {
+	atomic.StoreUint32(&b.numOfLogUpkeeps, uint32(numOfLogUpkeeps))
+	atomic.StoreUint32(&b.fastExecLogsHigh, uint32(fastExecLogsHigh))
 }
 
 // enqueue adds logs (if not exist) to the buffer, returning the number of logs added
