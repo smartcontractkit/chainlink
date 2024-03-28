@@ -75,6 +75,13 @@ type CapabilityRequest struct {
 	Inputs   *values.Map
 }
 
+type TriggerEvent struct {
+	TriggerType    string
+	ID             string
+	Timestamp      string
+	BatchedPayload map[string]any
+}
+
 type RegisterToWorkflowRequest struct {
 	Metadata RegistrationMetadata
 	Config   *values.Map

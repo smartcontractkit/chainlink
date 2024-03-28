@@ -63,16 +63,18 @@ func (o *MercuryTriggerService) ProcessReport(reports []mercury.FeedReport) erro
 	// Then for each trigger id, find which reports correspond to that trigger and create an event bundling the reports
 	// and send it to the channel associated with the trigger id.
 	for triggerID, reportIDs := range triggerIDsToReports {
-		reportPayload := make([]mercury.FeedReport, 0)
+		reportList := make([]mercury.FeedReport, 0)
+		reportMap := make(map[string]any)
 		for _, reportID := range reportIDs {
-			reportPayload = append(reportPayload, reports[reportID])
+			reportList = append(reportList, reports[reportID])
+			reportMap[strconv.FormatInt(reports[reportID].FeedID, 10)] = reports[reportID]
 		}
 
-		triggerEvent := mercury.TriggerEvent{
-			TriggerType: "mercury",
-			ID:          GenerateTriggerEventID(reportPayload),
-			Timestamp:   strconv.FormatInt(unixTimestampMillis, 10),
-			Payload:     reportPayload,
+		triggerEvent := capabilities.TriggerEvent{
+			TriggerType:    "mercury",
+			ID:             GenerateTriggerEventID(reportList),
+			Timestamp:      strconv.FormatInt(unixTimestampMillis, 10),
+			BatchedPayload: reportMap,
 		}
 
 		val, err := mercury.Codec{}.WrapMercuryTriggerEvent(triggerEvent)
@@ -207,24 +209,25 @@ func ValidateInput(mercuryTriggerEvent values.Value) error {
 }
 
 func ExampleOutput() (values.Value, error) {
-	event := mercury.TriggerEvent{
-		TriggerType: "mercury",
-		ID:          "123",
-		Timestamp:   "2024-01-17T04:00:10Z",
-		Payload: []mercury.FeedReport{
-			{
-				FeedID:               2,
-				FullReport:           []byte("hello"),
-				BenchmarkPrice:       100,
-				ObservationTimestamp: 123,
-			},
-			{
-				FeedID:               3,
-				FullReport:           []byte("world"),
-				BenchmarkPrice:       100,
-				ObservationTimestamp: 123,
-			},
+	feeds := map[string]any{
+		"2": mercury.FeedReport{
+			FeedID:               2,
+			FullReport:           []byte("hello"),
+			BenchmarkPrice:       100,
+			ObservationTimestamp: 123,
 		},
+		"3": mercury.FeedReport{
+			FeedID:               3,
+			FullReport:           []byte("world"),
+			BenchmarkPrice:       100,
+			ObservationTimestamp: 123,
+		},
+	}
+	event := capabilities.TriggerEvent{
+		TriggerType:    "mercury",
+		ID:             "123",
+		Timestamp:      "2024-01-17T04:00:10Z",
+		BatchedPayload: feeds,
 	}
 	return mercury.Codec{}.WrapMercuryTriggerEvent(event)
 }

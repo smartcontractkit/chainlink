@@ -50,8 +50,8 @@ func TestMercuryTrigger(t *testing.T) {
 	unwrapped, _ := mercury.Codec{}.UnwrapMercuryTriggerEvent(msg.Value)
 	assert.Equal(t, "mercury", unwrapped.TriggerType)
 	assert.Equal(t, GenerateTriggerEventID(fr), unwrapped.ID)
-	assert.Len(t, unwrapped.Payload, 1)
-	assert.Equal(t, fr[0], unwrapped.Payload[0])
+	assert.Len(t, unwrapped.BatchedPayload, 1)
+	assert.Equal(t, fr[0], unwrapped.BatchedPayload["1"])
 
 	// Unregister the trigger and check that events no longer go on the callback
 	require.NoError(t, ts.UnregisterTrigger(ctx, cr))
@@ -139,10 +139,10 @@ func TestMultipleMercuryTriggers(t *testing.T) {
 	payload := make([]mercury.FeedReport, 0)
 	payload = append(payload, fr1[0], fr1[1], fr1[3])
 	assert.Equal(t, GenerateTriggerEventID(payload), unwrapped.ID)
-	assert.Len(t, unwrapped.Payload, 3)
-	assert.Equal(t, fr1[0], unwrapped.Payload[0])
-	assert.Equal(t, fr1[1], unwrapped.Payload[1])
-	assert.Equal(t, fr1[3], unwrapped.Payload[2])
+	assert.Len(t, unwrapped.BatchedPayload, 3)
+	assert.Equal(t, fr1[0], unwrapped.BatchedPayload["1"])
+	assert.Equal(t, fr1[1], unwrapped.BatchedPayload["3"])
+	assert.Equal(t, fr1[3], unwrapped.BatchedPayload["4"])
 
 	msg = <-callback2
 	unwrapped, _ = mercury.Codec{}.UnwrapMercuryTriggerEvent(msg.Value)
@@ -150,9 +150,9 @@ func TestMultipleMercuryTriggers(t *testing.T) {
 	payload = make([]mercury.FeedReport, 0)
 	payload = append(payload, fr1[1], fr1[2]) // Because GenerateTriggerEventID sorts the reports by feedID, this works
 	assert.Equal(t, GenerateTriggerEventID(payload), unwrapped.ID)
-	assert.Len(t, unwrapped.Payload, 2)
-	assert.Equal(t, fr1[2], unwrapped.Payload[0])
-	assert.Equal(t, fr1[1], unwrapped.Payload[1])
+	assert.Len(t, unwrapped.BatchedPayload, 2)
+	assert.Equal(t, fr1[2], unwrapped.BatchedPayload["2"])
+	assert.Equal(t, fr1[1], unwrapped.BatchedPayload["3"])
 
 	require.NoError(t, ts.UnregisterTrigger(ctx, cr1))
 	fr2 := []mercury.FeedReport{
@@ -174,8 +174,8 @@ func TestMultipleMercuryTriggers(t *testing.T) {
 	payload = make([]mercury.FeedReport, 0)
 	payload = append(payload, fr2[0])
 	assert.Equal(t, GenerateTriggerEventID(payload), unwrapped.ID)
-	assert.Len(t, unwrapped.Payload, 1)
-	assert.Equal(t, fr2[0], unwrapped.Payload[0])
+	assert.Len(t, unwrapped.BatchedPayload, 1)
+	assert.Equal(t, fr2[0], unwrapped.BatchedPayload["3"])
 
 	require.NoError(t, ts.UnregisterTrigger(ctx, cr2))
 	err = ts.ProcessReport(fr1)

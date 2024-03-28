@@ -9,6 +9,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/shopspring/decimal"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 )
 
@@ -60,13 +61,6 @@ type FeedReport struct {
 	ObservationTimestamp int64  `json:"observationTimestamp"`
 }
 
-type TriggerEvent struct {
-	TriggerType string       `json:"triggerType"`
-	ID          string       `json:"id"`
-	Timestamp   string       `json:"timestamp"`
-	Payload     []FeedReport `json:"payload"`
-}
-
 // TODO implement an actual codec
 type Codec struct {
 }
@@ -108,12 +102,12 @@ func (m Codec) Wrap(reportSet ReportSet) (values.Value, error) {
 	)
 }
 
-func (m Codec) WrapMercuryTriggerEvent(event TriggerEvent) (values.Value, error) {
+func (m Codec) WrapMercuryTriggerEvent(event capabilities.TriggerEvent) (values.Value, error) {
 	return values.Wrap(event)
 }
 
-func (m Codec) UnwrapMercuryTriggerEvent(raw values.Value) (TriggerEvent, error) {
-	mercuryTriggerEvent := TriggerEvent{}
+func (m Codec) UnwrapMercuryTriggerEvent(raw values.Value) (capabilities.TriggerEvent, error) {
+	mercuryTriggerEvent := capabilities.TriggerEvent{}
 	val, err := raw.Unwrap()
 	if err != nil {
 		return mercuryTriggerEvent, err
@@ -122,15 +116,15 @@ func (m Codec) UnwrapMercuryTriggerEvent(raw values.Value) (TriggerEvent, error)
 	mercuryTriggerEvent.TriggerType = event["TriggerType"].(string)
 	mercuryTriggerEvent.ID = event["ID"].(string)
 	mercuryTriggerEvent.Timestamp = event["Timestamp"].(string)
-	mercuryTriggerEvent.Payload = make([]FeedReport, 0)
-	for _, report := range event["Payload"].([]any) {
+	mercuryTriggerEvent.BatchedPayload = make(map[string]any)
+	for id, report := range event["BatchedPayload"].(map[string]any) {
 		reportMap := report.(map[string]any)
 		var mercuryReport FeedReport
 		err = mapstructure.Decode(reportMap, &mercuryReport)
 		if err != nil {
 			return mercuryTriggerEvent, err
 		}
-		mercuryTriggerEvent.Payload = append(mercuryTriggerEvent.Payload, mercuryReport)
+		mercuryTriggerEvent.BatchedPayload[id] = mercuryReport
 	}
 	return mercuryTriggerEvent, nil
 }

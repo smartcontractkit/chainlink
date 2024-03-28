@@ -1,10 +1,12 @@
 package mercury_test
 
 import (
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/mercury"
 )
 
@@ -33,12 +35,12 @@ func TestCodec(t *testing.T) {
 	const testFullReport = "0x1234"
 	const testBenchmarkPrice = int64(2)
 	const testObservationTimestamp = int64(3)
-	te := mercury.TriggerEvent{
+	te := capabilities.TriggerEvent{
 		TriggerType: "mercury",
 		ID:          testID,
 		Timestamp:   testTimestamp,
-		Payload: []mercury.FeedReport{
-			{
+		BatchedPayload: map[string]any{
+			strconv.FormatInt(testFeedID, 10): mercury.FeedReport{
 				FeedID:               testFeedID,
 				FullReport:           []byte(testFullReport),
 				BenchmarkPrice:       testBenchmarkPrice,
