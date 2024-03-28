@@ -533,7 +533,6 @@ func (d *Delegate) newServicesGenericPlugin(
 	capabilitiesRegistry types.CapabilitiesRegistry,
 ) (srvs []job.ServiceCtx, err error) {
 	spec := jb.OCR2OracleSpec
-
 	// NOTE: we don't need to validate this config, since that happens as part of creating the job.
 	// See: validate/validate.go's `validateSpec`.
 	pCfg := validate.OCR2GenericPluginConfig{}

@@ -267,6 +267,8 @@ var _ commontypes.MercuryProvider = (*testProvider)(nil)
 
 type testRegistrarConfig struct{}
 
+func (c *testRegistrarConfig) UnregisterLOOP(ID string) {}
+
 // RegisterLOOP implements plugins.RegistrarConfig.
 func (*testRegistrarConfig) RegisterLOOP(config plugins.CmdConfig) (func() *exec.Cmd, loop.GRPCOpts, error) {
 	return nil, loop.GRPCOpts{}, nil

@@ -18,6 +18,7 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink/v2/plugins"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
@@ -102,22 +103,23 @@ type Service interface {
 type service struct {
 	services.StateMachine
 
-	orm          ORM
-	jobORM       job.ORM
-	q            pg.Q
-	csaKeyStore  keystore.CSA
-	p2pKeyStore  keystore.P2P
-	ocr1KeyStore keystore.OCR
-	ocr2KeyStore keystore.OCR2
-	jobSpawner   job.Spawner
-	insecureCfg  InsecureConfig
-	jobCfg       JobConfig
-	ocrCfg       OCRConfig
-	ocr2cfg      OCR2Config
-	connMgr      ConnectionsManager
-	legacyChains legacyevm.LegacyChainContainer
-	lggr         logger.Logger
-	version      string
+	orm                 ORM
+	jobORM              job.ORM
+	q                   pg.Q
+	csaKeyStore         keystore.CSA
+	p2pKeyStore         keystore.P2P
+	ocr1KeyStore        keystore.OCR
+	ocr2KeyStore        keystore.OCR2
+	jobSpawner          job.Spawner
+	insecureCfg         InsecureConfig
+	jobCfg              JobConfig
+	ocrCfg              OCRConfig
+	ocr2cfg             OCR2Config
+	connMgr             ConnectionsManager
+	legacyChains        legacyevm.LegacyChainContainer
+	lggr                logger.Logger
+	version             string
+	loopRegistrarConfig plugins.RegistrarConfig
 }
 
 // NewService constructs a new feeds service
@@ -135,25 +137,27 @@ func NewService(
 	legacyChains legacyevm.LegacyChainContainer,
 	lggr logger.Logger,
 	version string,
+	rc plugins.RegistrarConfig,
 ) *service {
 	lggr = lggr.Named("Feeds")
 	svc := &service{
-		orm:          orm,
-		jobORM:       jobORM,
-		q:            pg.NewQ(db, lggr, dbCfg),
-		jobSpawner:   jobSpawner,
-		p2pKeyStore:  keyStore.P2P(),
-		csaKeyStore:  keyStore.CSA(),
-		ocr1KeyStore: keyStore.OCR(),
-		ocr2KeyStore: keyStore.OCR2(),
-		insecureCfg:  insecureCfg,
-		jobCfg:       jobCfg,
-		ocrCfg:       ocrCfg,
-		ocr2cfg:      ocr2Cfg,
-		connMgr:      newConnectionsManager(lggr),
-		legacyChains: legacyChains,
-		lggr:         lggr,
-		version:      version,
+		orm:                 orm,
+		jobORM:              jobORM,
+		q:                   pg.NewQ(db, lggr, dbCfg),
+		jobSpawner:          jobSpawner,
+		p2pKeyStore:         keyStore.P2P(),
+		csaKeyStore:         keyStore.CSA(),
+		ocr1KeyStore:        keyStore.OCR(),
+		ocr2KeyStore:        keyStore.OCR2(),
+		insecureCfg:         insecureCfg,
+		jobCfg:              jobCfg,
+		ocrCfg:              ocrCfg,
+		ocr2cfg:             ocr2Cfg,
+		connMgr:             newConnectionsManager(lggr),
+		legacyChains:        legacyChains,
+		lggr:                lggr,
+		version:             version,
+		loopRegistrarConfig: rc,
 	}
 
 	return svc
@@ -534,7 +538,7 @@ type ProposeJobArgs struct {
 // belonging to another feeds manager, we do not update it.
 func (s *service) ProposeJob(ctx context.Context, args *ProposeJobArgs) (int64, error) {
 	// Validate the args
-	if err := s.validateProposeJobArgs(*args); err != nil {
+	if err := s.validateProposeJobArgs(ctx, *args); err != nil {
 		return 0, err
 	}
 
@@ -717,7 +721,7 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 		return errors.Wrap(err, "fms rpc client")
 	}
 
-	j, err := s.generateJob(spec.Definition)
+	j, err := s.generateJob(ctx, spec.Definition)
 	if err != nil {
 		return errors.Wrap(err, "could not generate job from spec")
 	}
@@ -1121,7 +1125,7 @@ func (s *service) findExistingJobForOCRFlux(j *job.Job, qopts pg.QOpt) (int32, e
 }
 
 // generateJob validates and generates a job from a spec.
-func (s *service) generateJob(spec string) (*job.Job, error) {
+func (s *service) generateJob(ctx context.Context, spec string) (*job.Job, error) {
 	jobType, err := job.ValidateSpec(spec)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse job spec TOML")
@@ -1138,7 +1142,7 @@ func (s *service) generateJob(spec string) (*job.Job, error) {
 		if !s.ocr2cfg.Enabled() {
 			return nil, ErrOCR2Disabled
 		}
-		js, err = ocr2.ValidatedOracleSpecToml(s.ocr2cfg, s.insecureCfg, spec)
+		js, err = ocr2.ValidatedOracleSpecToml(ctx, s.ocr2cfg, s.insecureCfg, spec, s.loopRegistrarConfig)
 	case job.Bootstrap:
 		if !s.ocr2cfg.Enabled() {
 			return nil, ErrOCR2Disabled
@@ -1297,9 +1301,9 @@ func (s *service) newOCR2ConfigMsg(cfg OCR2ConfigModel) (*pb.OCR2Config, error) 
 	return msg, nil
 }
 
-func (s *service) validateProposeJobArgs(args ProposeJobArgs) error {
+func (s *service) validateProposeJobArgs(ctx context.Context, args ProposeJobArgs) error {
 	// Validate the job spec
-	j, err := s.generateJob(args.Spec)
+	j, err := s.generateJob(ctx, args.Spec)
 	if err != nil {
 		return errors.Wrap(err, "failed to generate a job based on spec")
 	}

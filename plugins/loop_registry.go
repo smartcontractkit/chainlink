@@ -70,6 +70,23 @@ func (m *LoopRegistry) Register(id string) (*RegisteredLoop, error) {
 	return m.registry[id], nil
 }
 
+// Unregister remove a loop from the registry
+// Safe for concurrent use.
+func (m *LoopRegistry) Unregister(id string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	loop, exists := m.registry[id]
+	if !exists {
+		m.lggr.Debugf("Trying to unregistered a loop that is not registered %q", id)
+		return
+	}
+
+	freeport.Return([]int{loop.EnvCfg.PrometheusPort})
+	delete(m.registry, id)
+	m.lggr.Debugf("Unregistered loopp %q", id)
+}
+
 // Return slice sorted by plugin name. Safe for concurrent use.
 func (m *LoopRegistry) List() []*RegisteredLoop {
 	var registeredLoops []*RegisteredLoop
