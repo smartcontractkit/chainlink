@@ -19,11 +19,16 @@ const (
 	MESSAGE_SENT_FILTER_NAME = "USDC message sent"
 )
 
+var _ USDCReader = &USDCReaderImpl{}
+
 //go:generate mockery --quiet --name USDCReader --filename usdc_reader_mock.go --case=underscore
 type USDCReader interface {
-	// GetLastUSDCMessagePriorToLogIndexInTx returns the last USDC message that was sent
-	// before the provided log index in the given transaction.
-	GetLastUSDCMessagePriorToLogIndexInTx(ctx context.Context, logIndex int64, txHash string) ([]byte, error)
+	// GetUSDCMessagePriorToLogIndexInTx returns the specified USDC message data.
+	// e.g. if msg contains 3 tokens: [usdc1, wETH, usdc2] ignoring non-usdc tokens
+	// if usdcTokenIndexOffset is 0 we select usdc2
+	// if usdcTokenIndexOffset is 1 we select usdc1
+	// The message logs are found using the provided transaction hash.
+	GetUSDCMessagePriorToLogIndexInTx(ctx context.Context, logIndex int64, usdcTokenIndexOffset int, txHash string) ([]byte, error)
 }
 
 type USDCReaderImpl struct {
@@ -64,7 +69,8 @@ func parseUSDCMessageSent(logData []byte) ([]byte, error) {
 	return decodeAbiStruct, nil
 }
 
-func (u *USDCReaderImpl) GetLastUSDCMessagePriorToLogIndexInTx(ctx context.Context, logIndex int64, txHash string) ([]byte, error) {
+func (u *USDCReaderImpl) GetUSDCMessagePriorToLogIndexInTx(ctx context.Context, logIndex int64, usdcTokenIndexOffset int, txHash string) ([]byte, error) {
+	// fetch all the usdc logs for the provided tx hash
 	logs, err := u.lp.IndexedLogsByTxHash(
 		u.usdcMessageSent,
 		u.transmitterAddress,
@@ -75,14 +81,27 @@ func (u *USDCReaderImpl) GetLastUSDCMessagePriorToLogIndexInTx(ctx context.Conte
 		return nil, err
 	}
 
-	for i := range logs {
-		current := logs[len(logs)-i-1]
+	// collect the logs with log index less than the provided log index
+	allUsdcTokensData := make([][]byte, 0)
+	for _, current := range logs {
 		if current.LogIndex < logIndex {
 			u.lggr.Infow("Found USDC message", "logIndex", current.LogIndex, "txHash", current.TxHash.Hex(), "data", hexutil.Encode(current.Data))
-			return parseUSDCMessageSent(current.Data)
+			allUsdcTokensData = append(allUsdcTokensData, current.Data)
 		}
 	}
-	return nil, errors.Errorf("no USDC message found prior to log index %d in tx %s", logIndex, txHash)
+
+	usdcTokenIndex := (len(allUsdcTokensData) - 1) - usdcTokenIndexOffset
+
+	if usdcTokenIndex < 0 || usdcTokenIndex >= len(allUsdcTokensData) {
+		u.lggr.Errorw("usdc message not found",
+			"logIndex", logIndex,
+			"allUsdcTokenData", len(allUsdcTokensData),
+			"txHash", txHash,
+			"usdcTokenIndex", usdcTokenIndex,
+		)
+		return nil, errors.Errorf("usdc token index %d is not valid", usdcTokenIndex)
+	}
+	return parseUSDCMessageSent(allUsdcTokensData[usdcTokenIndex])
 }
 
 func NewUSDCReader(lggr logger.Logger, jobID string, transmitter common.Address, lp logpoller.LogPoller, registerFilters bool, qopts ...pg.QOpt) (*USDCReaderImpl, error) {

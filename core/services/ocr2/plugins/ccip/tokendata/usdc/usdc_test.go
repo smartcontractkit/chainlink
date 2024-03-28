@@ -3,6 +3,8 @@ package usdc
 import (
 	"context"
 	"encoding/json"
+	"math/big"
+	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -11,6 +13,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
@@ -18,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	ccipdatamocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/tokendata"
@@ -34,7 +38,7 @@ func TestUSDCReader_callAttestationApi(t *testing.T) {
 	require.NoError(t, err)
 	lggr := logger.TestLogger(t)
 	usdcReader, _ := ccipdata.NewUSDCReader(lggr, "job_123", mockMsgTransmitter, nil, false)
-	usdcService := NewUSDCTokenDataReader(lggr, usdcReader, attestationURI, 0)
+	usdcService := NewUSDCTokenDataReader(lggr, usdcReader, attestationURI, 0, common.Address{})
 
 	attestation, err := usdcService.callAttestationApi(context.Background(), [32]byte(common.FromHex(usdcMessageHash)))
 	require.NoError(t, err)
@@ -57,7 +61,7 @@ func TestUSDCReader_callAttestationApiMock(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	lp := mocks.NewLogPoller(t)
 	usdcReader, _ := ccipdata.NewUSDCReader(lggr, "job_123", mockMsgTransmitter, lp, false)
-	usdcService := NewUSDCTokenDataReader(lggr, usdcReader, attestationURI, 0)
+	usdcService := NewUSDCTokenDataReader(lggr, usdcReader, attestationURI, 0, common.Address{})
 	attestation, err := usdcService.callAttestationApi(context.Background(), utils.RandomBytes32())
 	require.NoError(t, err)
 
@@ -192,7 +196,7 @@ func TestUSDCReader_callAttestationApiMockError(t *testing.T) {
 			lggr := logger.TestLogger(t)
 			lp := mocks.NewLogPoller(t)
 			usdcReader, _ := ccipdata.NewUSDCReader(lggr, "job_123", mockMsgTransmitter, lp, false)
-			usdcService := NewUSDCTokenDataReader(lggr, usdcReader, attestationURI, test.customTimeoutSeconds)
+			usdcService := NewUSDCTokenDataReader(lggr, usdcReader, attestationURI, test.customTimeoutSeconds, common.Address{})
 			lp.On("RegisterFilter", mock.Anything).Return(nil)
 			require.NoError(t, usdcReader.RegisterFilters())
 
@@ -224,15 +228,77 @@ func getMockUSDCEndpoint(t *testing.T, response attestationResponse) *httptest.S
 func TestGetUSDCMessageBody(t *testing.T) {
 	expectedBody := []byte("0x0000000000000001000000020000000000048d71000000000000000000000000eb08f243e5d3fcff26a9e38ae5520a669f4019d000000000000000000000000023a04d5935ed8bc8e3eb78db3541f0abfb001c6e0000000000000000000000006cb3ed9b441eb674b58495c8b3324b59faff5243000000000000000000000000000000005425890298aed601595a70ab815c96711a31bc65000000000000000000000000ab4f961939bfe6a93567cc57c59eed7084ce2131000000000000000000000000000000000000000000000000000000000000271000000000000000000000000035e08285cfed1ef159236728f843286c55fc0861")
 	usdcReader := ccipdatamocks.USDCReader{}
-	usdcReader.On("GetLastUSDCMessagePriorToLogIndexInTx", mock.Anything, mock.Anything, mock.Anything).Return(expectedBody, nil)
+	usdcReader.On("GetUSDCMessagePriorToLogIndexInTx", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(expectedBody, nil)
 
+	usdcTokenAddr := utils.RandomAddress()
 	lggr := logger.TestLogger(t)
-	usdcService := NewUSDCTokenDataReader(lggr, &usdcReader, nil, 0)
+	usdcService := NewUSDCTokenDataReader(lggr, &usdcReader, nil, 0, usdcTokenAddr)
 
 	// Make the first call and assert the underlying function is called
-	body, err := usdcService.getUSDCMessageBody(context.Background(), cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta{})
+	body, err := usdcService.getUSDCMessageBody(context.Background(), cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta{
+		EVM2EVMMessage: cciptypes.EVM2EVMMessage{
+			TokenAmounts: []cciptypes.TokenAmount{
+				{
+					Token:  ccipcalc.EvmAddrToGeneric(usdcTokenAddr),
+					Amount: big.NewInt(rand.Int63()),
+				},
+			},
+		},
+	}, 0)
 	require.NoError(t, err)
 	require.Equal(t, body, expectedBody)
 
-	usdcReader.AssertNumberOfCalls(t, "GetLastUSDCMessagePriorToLogIndexInTx", 1)
+	usdcReader.AssertNumberOfCalls(t, "GetUSDCMessagePriorToLogIndexInTx", 1)
+}
+
+func TestTokenDataReader_getUsdcTokenEndOffset(t *testing.T) {
+	usdcToken := utils.RandomAddress()
+	nonUsdcToken := utils.RandomAddress()
+
+	multipleTokens := []common.Address{
+		usdcToken, // 2
+		nonUsdcToken,
+		nonUsdcToken,
+		usdcToken, // 1
+		usdcToken, // 0
+		nonUsdcToken,
+	}
+
+	testCases := []struct {
+		name       string
+		tokens     []common.Address
+		tokenIndex int
+		expOffset  int
+		expErr     bool
+	}{
+		{name: "one non usdc token", tokens: []common.Address{nonUsdcToken}, tokenIndex: 0, expOffset: 0, expErr: true},
+		{name: "one usdc token", tokens: []common.Address{usdcToken}, tokenIndex: 0, expOffset: 0, expErr: false},
+		{name: "one usdc token wrong index", tokens: []common.Address{usdcToken}, tokenIndex: 1, expOffset: 0, expErr: true},
+		{name: "multiple tokens 1", tokens: multipleTokens, tokenIndex: 0, expOffset: 2},
+		{name: "multiple tokens - non usdc selected", tokens: multipleTokens, tokenIndex: 2, expErr: true},
+		{name: "multiple tokens 2", tokens: multipleTokens, tokenIndex: 3, expOffset: 1},
+		{name: "multiple tokens 3", tokens: multipleTokens, tokenIndex: 4, expOffset: 0},
+		{name: "multiple tokens not found", tokens: multipleTokens, tokenIndex: 5, expErr: true},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			r := &TokenDataReader{usdcTokenAddress: usdcToken}
+			tokenAmounts := make([]cciptypes.TokenAmount, len(tc.tokens))
+			for i := range tokenAmounts {
+				tokenAmounts[i] = cciptypes.TokenAmount{
+					Token:  ccipcalc.EvmAddrToGeneric(tc.tokens[i]),
+					Amount: big.NewInt(rand.Int63()),
+				}
+			}
+			msg := cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta{EVM2EVMMessage: cciptypes.EVM2EVMMessage{TokenAmounts: tokenAmounts}}
+			offset, err := r.getUsdcTokenEndOffset(msg, tc.tokenIndex)
+			if tc.expErr {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
+			assert.Equal(t, tc.expOffset, offset)
+		})
+	}
 }

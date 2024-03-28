@@ -87,19 +87,21 @@ func TestUSDCReader_ReadTokenData(t *testing.T) {
 			logIndex := int64(4)
 
 			usdcReader := ccipdatamocks.USDCReader{}
-			usdcReader.On("GetLastUSDCMessagePriorToLogIndexInTx",
+			usdcReader.On("GetUSDCMessagePriorToLogIndexInTx",
 				mock.Anything,
 				logIndex,
+				0,
 				common.Hash(txHash).String(),
 			).Return(hexutil.MustDecode(message), nil)
 			attestationURI, err := url.ParseRequestURI(ts.URL)
 			require.NoError(t, err)
 
-			usdcService := usdc.NewUSDCTokenDataReader(lggr, &usdcReader, attestationURI, 0)
+			addr := utils.RandomAddress()
+			usdcService := usdc.NewUSDCTokenDataReader(lggr, &usdcReader, attestationURI, 0, addr)
 			msgAndAttestation, err := usdcService.ReadTokenData(context.Background(), cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta{
 				EVM2EVMMessage: cciptypes.EVM2EVMMessage{
 					SequenceNumber: seqNum,
-					TokenAmounts:   []cciptypes.TokenAmount{{Token: ccipcalc.EvmAddrToGeneric(utils.RandomAddress()), Amount: nil}},
+					TokenAmounts:   []cciptypes.TokenAmount{{Token: ccipcalc.EvmAddrToGeneric(addr), Amount: nil}},
 				},
 				TxHash:   cciptypes.Hash(txHash).String(),
 				LogIndex: uint(logIndex),

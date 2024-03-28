@@ -3,6 +3,8 @@ package observability
 import (
 	"context"
 	"encoding/json"
+	"math/big"
+	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -17,7 +19,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/mocks"
 	http2 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/tokendata/http"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/tokendata/usdc"
@@ -80,17 +84,25 @@ func testMonitoring(t *testing.T, name string, server *httptest.Server, requests
 	// Mock USDC reader.
 	usdcReader := mocks.NewUSDCReader(t)
 	msgBody := []byte{0xb0, 0xd1}
-	usdcReader.On("GetLastUSDCMessagePriorToLogIndexInTx", mock.Anything, mock.Anything, mock.Anything).Return(msgBody, nil)
+	usdcReader.On("GetUSDCMessagePriorToLogIndexInTx", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(msgBody, nil)
 
 	// Service with monitored http client.
+	usdcTokenAddr := utils.RandomAddress()
 	observedHttpClient := http2.NewObservedIHttpClientWithMetric(&http2.HttpClient{}, histogram)
-	tokenDataReaderDefault := usdc.NewUSDCTokenDataReader(log, usdcReader, attestationURI, 0)
-	tokenDataReader := usdc.NewUSDCTokenDataReaderWithHttpClient(*tokenDataReaderDefault, observedHttpClient)
+	tokenDataReaderDefault := usdc.NewUSDCTokenDataReader(log, usdcReader, attestationURI, 0, usdcTokenAddr)
+	tokenDataReader := usdc.NewUSDCTokenDataReaderWithHttpClient(*tokenDataReaderDefault, observedHttpClient, usdcTokenAddr)
 	require.NotNil(t, tokenDataReader)
 
 	for i := 0; i < requests; i++ {
 		_, _ = tokenDataReader.ReadTokenData(context.Background(), cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta{
-			EVM2EVMMessage: cciptypes.EVM2EVMMessage{TokenAmounts: make([]cciptypes.TokenAmount, 1)},
+			EVM2EVMMessage: cciptypes.EVM2EVMMessage{
+				TokenAmounts: []cciptypes.TokenAmount{
+					{
+						Token:  ccipcalc.EvmAddrToGeneric(usdcTokenAddr),
+						Amount: big.NewInt(rand.Int63()),
+					},
+				},
+			},
 		}, 0)
 	}
 

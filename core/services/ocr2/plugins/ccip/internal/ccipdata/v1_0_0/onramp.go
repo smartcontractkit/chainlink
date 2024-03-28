@@ -189,7 +189,7 @@ func (o *OnRamp) IsSourceCursed(ctx context.Context) (bool, error) {
 	return cursed, nil
 }
 
-func (o *OnRamp) GetLastUSDCMessagePriorToLogIndexInTx(ctx context.Context, logIndex int64, txHash common.Hash) ([]byte, error) {
+func (o *OnRamp) GetUSDCMessagePriorToLogIndexInTx(ctx context.Context, logIndex, offsetFromFinal int64, txHash common.Hash) ([]byte, error) {
 	return nil, errors.New("USDC not supported in < 1.2.0")
 }
 

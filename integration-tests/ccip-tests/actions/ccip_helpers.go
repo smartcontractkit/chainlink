@@ -141,7 +141,7 @@ type CCIPCommon struct {
 	MulticallEnabled             bool
 	MulticallContract            common.Address
 	ExistingDeployment           bool
-	USDCDeployment               bool
+	NoOfUSDCTokens               *int
 	TokenMessenger               *common.Address
 	TokenTransmitter             *contracts.TokenTransmitter
 	poolFunds                    *big.Int
@@ -275,7 +275,8 @@ func (ccipModule *CCIPCommon) Copy(logger zerolog.Logger, chainClient blockchain
 	}
 	var pools []*contracts.TokenPool
 	for i := range ccipModule.BridgeTokenPools {
-		if ccipModule.USDCDeployment {
+		// if there is usdc token, the corresponding pool will always be added as first one in the slice
+		if ccipModule.IsUSDCDeployment() && i == 0 {
 			pool, err := newCD.NewUSDCTokenPoolContract(common.HexToAddress(ccipModule.BridgeTokenPools[i].Address()))
 			if err != nil {
 				return nil, err
@@ -319,7 +320,7 @@ func (ccipModule *CCIPCommon) Copy(logger zerolog.Logger, chainClient blockchain
 		MulticallContract:  ccipModule.MulticallContract,
 		ExistingDeployment: ccipModule.ExistingDeployment,
 		MulticallEnabled:   ccipModule.MulticallEnabled,
-		USDCDeployment:     ccipModule.USDCDeployment,
+		NoOfUSDCTokens:     ccipModule.NoOfUSDCTokens,
 		TokenMessenger:     ccipModule.TokenMessenger,
 		poolFunds:          ccipModule.poolFunds,
 		gasUpdateWatcherMu: &sync.Mutex{},
@@ -613,7 +614,7 @@ func (ccipModule *CCIPCommon) UpdateTokenPricesAtRegularInterval(ctx context.Con
 func (ccipModule *CCIPCommon) SyncUSDCDomain(destTransmitter *contracts.TokenTransmitter, destPoolAddr []common.Address, destChainID uint64) error {
 	// if not USDC new deployment, return
 	// if existing deployment, consider that no syncing is required and return
-	if ccipModule.ExistingDeployment || !ccipModule.USDCDeployment {
+	if ccipModule.ExistingDeployment || !ccipModule.IsUSDCDeployment() {
 		return nil
 	}
 	if destTransmitter == nil || len(destPoolAddr) == 0 {
@@ -623,15 +624,13 @@ func (ccipModule *CCIPCommon) SyncUSDCDomain(destTransmitter *contracts.TokenTra
 	if err != nil {
 		return fmt.Errorf("invalid chain id %w", err)
 	}
-	if len(destPoolAddr) != len(ccipModule.BridgeTokenPools) {
-		return fmt.Errorf("invalid pool address")
-	}
+
 	// sync USDC domain
 	for i, pool := range ccipModule.BridgeTokenPools {
 		if pool.USDCPool == nil {
 			continue
 		}
-		err := pool.SyncUSDCDomain(destTransmitter, destPoolAddr[i], destChainSelector)
+		err = pool.SyncUSDCDomain(destTransmitter, destPoolAddr[i], destChainSelector)
 		if err != nil {
 			return err
 		}
@@ -660,6 +659,10 @@ func (ccipModule *CCIPCommon) PollRPCConnection(ctx context.Context, lggr zerolo
 			return
 		}
 	}
+}
+
+func (ccipModule *CCIPCommon) IsUSDCDeployment() bool {
+	return pointer.GetInt(ccipModule.NoOfUSDCTokens) > 0
 }
 
 // DeployContracts deploys the contracts which are necessary in both source and dest chain
@@ -733,7 +736,7 @@ func (ccipModule *CCIPCommon) DeployContracts(noOfTokens int,
 		ccipModule.Router = r
 	}
 	// if usdc deployment ,look for token transmitter and token messenger
-	if ccipModule.USDCDeployment {
+	if ccipModule.IsUSDCDeployment() {
 		// if existing deployment, no need to deploy new USDC contracts, it should be considered as a generic erc20 token
 		if ccipModule.ExistingDeployment {
 			return fmt.Errorf("existing deployment and new USDC deployment cannot be done together")
@@ -799,7 +802,7 @@ func (ccipModule *CCIPCommon) DeployContracts(noOfTokens int,
 				var token *contracts.ERC20Token
 				var err error
 				if len(tokenDeployerFns) != noOfTokens {
-					if ccipModule.USDCDeployment {
+					if ccipModule.IsUSDCDeployment() && i == 0 {
 						// if it's USDC deployment, we deploy the burn mint token 677 with decimal 6 and cast it to ERC20Token
 						erc677Token, err := cd.DeployBurnMintERC677(new(big.Int).Mul(big.NewInt(1e6), big.NewInt(1e18)))
 						if err != nil {
@@ -869,7 +872,8 @@ func (ccipModule *CCIPCommon) DeployContracts(noOfTokens int,
 		// deploy native token pool
 		for i := len(ccipModule.BridgeTokenPools); i < len(ccipModule.BridgeTokens); i++ {
 			token := ccipModule.BridgeTokens[i]
-			if ccipModule.USDCDeployment {
+			// usdc pool need to be the first one in the slice
+			if ccipModule.IsUSDCDeployment() && i == 0 {
 				// deploy usdc token pool in case of usdc deployment
 				if ccipModule.TokenMessenger == nil {
 					return fmt.Errorf("TokenMessenger contract address is not provided")
@@ -1011,7 +1015,7 @@ type StaticPriceConfig struct {
 	Price   *big.Int `json:"price"`
 }
 
-func DefaultCCIPModule(logger zerolog.Logger, chainClient blockchain.EVMClient, existingDeployment, multiCall, usdc bool) (*CCIPCommon, error) {
+func DefaultCCIPModule(logger zerolog.Logger, chainClient blockchain.EVMClient, existingDeployment, multiCall bool, NoOfUSDCToken *int) (*CCIPCommon, error) {
 	cd, err := contracts.NewCCIPContractsDeployer(logger, chainClient)
 	if err != nil {
 		return nil, err
@@ -1026,7 +1030,7 @@ func DefaultCCIPModule(logger zerolog.Logger, chainClient blockchain.EVMClient, 
 		ExistingDeployment: existingDeployment,
 		RemoteChains:       &sync.Map{},
 		MulticallEnabled:   multiCall,
-		USDCDeployment:     usdc,
+		NoOfUSDCTokens:     NoOfUSDCToken,
 		poolFunds:          testhelpers.Link(5),
 		gasUpdateWatcherMu: &sync.Mutex{},
 		gasUpdateWatcher:   make(map[uint64]*big.Int),
@@ -1251,7 +1255,11 @@ func (sourceCCIP *SourceCCIPModule) UpdateBalance(
 ) {
 	if len(sourceCCIP.TransferAmount) > 0 {
 		for i := range sourceCCIP.TransferAmount {
-			token := sourceCCIP.Common.BridgeTokens[i]
+			// if length of sourceCCIP.TransferAmount is more than available bridge token use first bridge token
+			token := sourceCCIP.Common.BridgeTokens[0]
+			if i < len(sourceCCIP.Common.BridgeTokens) {
+				token = sourceCCIP.Common.BridgeTokens[i]
+			}
 			name := fmt.Sprintf("BridgeToken-%s-Address-%s", token.Address(), sourceCCIP.Sender.Hex())
 			balances.Update(name, BalanceItem{
 				Address:  sourceCCIP.Sender,
@@ -1260,11 +1268,18 @@ func (sourceCCIP *SourceCCIPModule) UpdateBalance(
 			})
 		}
 		for i := range sourceCCIP.TransferAmount {
-			pool := sourceCCIP.Common.BridgeTokenPools[i]
-			name := fmt.Sprintf("BridgeToken-%s-TokenPool-%s", sourceCCIP.Common.BridgeTokens[i].Address(), pool.Address())
+			// if length of sourceCCIP.TransferAmount is more than available bridge token use first bridge token
+			pool := sourceCCIP.Common.BridgeTokenPools[0]
+			index := 0
+			if i < len(sourceCCIP.Common.BridgeTokenPools) {
+				pool = sourceCCIP.Common.BridgeTokenPools[i]
+				index = i
+			}
+
+			name := fmt.Sprintf("BridgeToken-%s-TokenPool-%s", sourceCCIP.Common.BridgeTokens[index].Address(), pool.Address())
 			balances.Update(name, BalanceItem{
 				Address:  pool.EthAddress,
-				Getter:   GetterForLinkToken(sourceCCIP.Common.BridgeTokens[i].BalanceOf, pool.Address()),
+				Getter:   GetterForLinkToken(sourceCCIP.Common.BridgeTokens[index].BalanceOf, pool.Address()),
 				AmtToAdd: bigmath.Mul(big.NewInt(noOfReq), sourceCCIP.TransferAmount[i]),
 			})
 		}
@@ -1382,7 +1397,11 @@ func (sourceCCIP *SourceCCIPModule) CCIPMsg(
 	tokenAndAmounts := []router.ClientEVMTokenAmount{}
 	if msgType == TokenTransfer {
 		for i, amount := range sourceCCIP.TransferAmount {
-			token := sourceCCIP.Common.BridgeTokens[i]
+			// if length of sourceCCIP.TransferAmount is more than available bridge token use first bridge token
+			token := sourceCCIP.Common.BridgeTokens[0]
+			if i < len(sourceCCIP.Common.BridgeTokens) {
+				token = sourceCCIP.Common.BridgeTokens[i]
+			}
 			tokenAndAmounts = append(tokenAndAmounts, router.ClientEVMTokenAmount{
 				Token: common.HexToAddress(token.Address()), Amount: amount,
 			})
@@ -1470,11 +1489,6 @@ func DefaultSourceCCIPModule(logger zerolog.Logger, chainClient blockchain.EVMCl
 	cmn, err := ccipCommon.Copy(logger, chainClient)
 	if err != nil {
 		return nil, err
-	}
-	// if transfer amounts are provided for number of tokens greater than the number of supported bridge tokens, then update the transfer amount to be
-	// equivalent to the number of tokens supported by the bridge
-	if len(transferAmount) > 0 && len(transferAmount) > len(cmn.BridgeTokens) {
-		transferAmount = transferAmount[:len(cmn.BridgeTokens)]
 	}
 
 	destChainSelector, err := chainselectors.SelectorFromChainId(destChainId)
@@ -1703,7 +1717,10 @@ func (destCCIP *DestCCIPModule) UpdateBalance(
 ) {
 	if len(transferAmount) > 0 {
 		for i := range transferAmount {
-			token := destCCIP.Common.BridgeTokens[i]
+			token := destCCIP.Common.BridgeTokens[0]
+			if i < len(destCCIP.Common.BridgeTokens) {
+				token = destCCIP.Common.BridgeTokens[i]
+			}
 			name := fmt.Sprintf("BridgeToken-%s-Address-%s", token.Address(), destCCIP.ReceiverDapp.Address())
 			balance.Update(name, BalanceItem{
 				Address:  destCCIP.ReceiverDapp.EthAddress,
@@ -1712,11 +1729,16 @@ func (destCCIP *DestCCIPModule) UpdateBalance(
 			})
 		}
 		for i := range transferAmount {
-			pool := destCCIP.Common.BridgeTokenPools[i]
-			name := fmt.Sprintf("BridgeToken-%s-TokenPool-%s", destCCIP.Common.BridgeTokens[i].Address(), pool.Address())
+			pool := destCCIP.Common.BridgeTokenPools[0]
+			index := 0
+			if i < len(destCCIP.Common.BridgeTokenPools) {
+				pool = destCCIP.Common.BridgeTokenPools[i]
+				index = i
+			}
+			name := fmt.Sprintf("BridgeToken-%s-TokenPool-%s", destCCIP.Common.BridgeTokens[index].Address(), pool.Address())
 			balance.Update(name, BalanceItem{
 				Address:  pool.EthAddress,
-				Getter:   GetterForLinkToken(destCCIP.Common.BridgeTokens[i].BalanceOf, pool.Address()),
+				Getter:   GetterForLinkToken(destCCIP.Common.BridgeTokens[index].BalanceOf, pool.Address()),
 				AmtToSub: bigmath.Mul(big.NewInt(noOfReq), transferAmount[i]),
 			})
 		}
@@ -2371,7 +2393,11 @@ func (lane *CCIPLane) Multicall(noOfRequests int, msgType string, multiSendAddr 
 		// if token transfer is required, transfer the token amount to multisend
 		if msgType == TokenTransfer {
 			for i, amount := range lane.Source.TransferAmount {
-				token := lane.Source.Common.BridgeTokens[i]
+				// if length of sourceCCIP.TransferAmount is more than available bridge token use first bridge token
+				token := lane.Source.Common.BridgeTokens[0]
+				if i < len(lane.Source.Common.BridgeTokens) {
+					token = lane.Source.Common.BridgeTokens[i]
+				}
 				err := token.Transfer(multiSendAddr.Hex(), amount)
 				if err != nil {
 					return err
@@ -2919,6 +2945,9 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 	// if it's a new USDC deployment, sync the USDC domain
 	var destPools []common.Address
 	for _, pool := range lane.Dest.Common.BridgeTokenPools {
+		if pool.USDCPool == nil {
+			continue
+		}
 		destPools = append(destPools, pool.EthAddress)
 	}
 	err = lane.Source.Common.SyncUSDCDomain(lane.Dest.Common.TokenTransmitter, destPools, lane.Source.DestinationChainId)
@@ -3006,7 +3035,7 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 		PriceGetterConfig:      tokenPricesConfigJson,
 		DestStartBlock:         currentBlockOnDest,
 	}
-	if !lane.Source.Common.ExistingDeployment && lane.Source.Common.USDCDeployment {
+	if !lane.Source.Common.ExistingDeployment && lane.Source.Common.IsUSDCDeployment() {
 		api := ""
 		if killgrave != nil {
 			api = killgrave.InternalEndpoint
@@ -3017,6 +3046,8 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 		if lane.Source.Common.TokenTransmitter == nil {
 			return lane.SrcNetworkLaneCfg, lane.DstNetworkLaneCfg, fmt.Errorf("token transmitter address not set")
 		}
+		// TODO: Need to know if there can be more than one USDC token per chain
+		// currently the jobspec supports only one. Need to update this if more than two is supported
 		jobParams.USDCConfig = &config.USDCConfig{
 			SourceTokenAddress:              common.HexToAddress(lane.Source.Common.BridgeTokens[0].Address()),
 			SourceMessageTransmitterAddress: lane.Source.Common.TokenTransmitter.ContractAddress,

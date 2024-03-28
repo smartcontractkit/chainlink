@@ -80,7 +80,11 @@ func (c *CCIPE2ELoad) BeforeAllCall(msgType string, gasLimit *big.Int) {
 	destCCIP := c.Lane.Dest
 	var tokenAndAmounts []router.ClientEVMTokenAmount
 	for i := range c.Lane.Source.TransferAmount {
-		token := sourceCCIP.Common.BridgeTokens[i]
+		// if length of sourceCCIP.TransferAmount is more than available bridge token use first bridge token
+		token := sourceCCIP.Common.BridgeTokens[0]
+		if i < len(sourceCCIP.Common.BridgeTokens) {
+			token = sourceCCIP.Common.BridgeTokens[i]
+		}
 		tokenAndAmounts = append(tokenAndAmounts, router.ClientEVMTokenAmount{
 			Token: common.HexToAddress(token.Address()), Amount: c.Lane.Source.TransferAmount[i],
 		})
@@ -111,7 +115,11 @@ func (c *CCIPE2ELoad) BeforeAllCall(msgType string, gasLimit *big.Int) {
 	// if the msg is sent via multicall, transfer the token transfer amount to multicall contract
 	if sourceCCIP.Common.MulticallEnabled && sourceCCIP.Common.MulticallContract != (common.Address{}) {
 		for i, amount := range sourceCCIP.TransferAmount {
-			token := sourceCCIP.Common.BridgeTokens[i]
+			// if length of sourceCCIP.TransferAmount is more than available bridge token use first bridge token
+			token := sourceCCIP.Common.BridgeTokens[0]
+			if i < len(sourceCCIP.Common.BridgeTokens) {
+				token = sourceCCIP.Common.BridgeTokens[i]
+			}
 			amountToApprove := new(big.Int).Mul(amount, big.NewInt(c.NoOfReq))
 			bal, err := token.BalanceOf(context.Background(), sourceCCIP.Common.MulticallContract.Hex())
 			require.NoError(c.t, err, "Failed to get token balance")

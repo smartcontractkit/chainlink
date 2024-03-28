@@ -103,7 +103,12 @@ func (m *CCIPMultiCallLoadGenerator) Stop() error {
 	var tokens []*contracts.ERC20Token
 	for _, e2eLoad := range m.E2ELoads {
 		for i := range e2eLoad.Lane.Source.TransferAmount {
-			if _, ok := tokenMap[e2eLoad.Lane.Source.Common.BridgeTokens[i].Address()]; !ok {
+			// if length of sourceCCIP.TransferAmount is more than available bridge token use first bridge token
+			token := e2eLoad.Lane.Source.Common.BridgeTokens[0]
+			if i < len(e2eLoad.Lane.Source.Common.BridgeTokens) {
+				token = e2eLoad.Lane.Source.Common.BridgeTokens[i]
+			}
+			if _, ok := tokenMap[token.Address()]; !ok {
 				tokens = append(tokens, e2eLoad.Lane.Source.Common.BridgeTokens[i])
 			}
 		}

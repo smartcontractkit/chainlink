@@ -383,7 +383,7 @@ func (o *CCIPTestSetUpOutputs) DeployChainContracts(
 		lggr, chain,
 		pointer.GetBool(o.Cfg.TestGroupInput.ExistingDeployment),
 		pointer.GetBool(o.Cfg.TestGroupInput.MulticallInOneTx),
-		pointer.GetBool(o.Cfg.TestGroupInput.USDCMockDeployment))
+		o.Cfg.TestGroupInput.NoOfUSDCMockTokens)
 	if err != nil {
 		return errors.WithStack(fmt.Errorf("failed to create ccip common module for %s: %w", networkCfg.Name, err))
 	}
@@ -806,7 +806,7 @@ func CCIPDefaultTestSetUp(
 			// regex to match the path for all tokens across all lanes
 			actions.SetMockserverWithTokenPriceValue(killgrave, setUpArgs.Env.MockServer)
 		}
-		if pointer.GetBool(setUpArgs.Cfg.TestGroupInput.USDCMockDeployment) {
+		if setUpArgs.Cfg.TestGroupInput.NoOfUSDCMockTokens != nil {
 			// if it's a new USDC deployment, set up mock server for attestation,
 			// we need to set it only once for all the lanes as the attestation path uses regex to match the path for
 			// all messages across all lanes
