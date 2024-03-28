@@ -39,7 +39,7 @@ spec:
             - bash
             - /scripts/wait_for_endpoint.sh
             {{- with (index $.Values.chainlink.nodes 0) }}
-            - "http://app-{{.name}}.{{$.Release.Namespace}}.svc.cluster.local:{{$.Values.chainlink.web_port}}"
+            - "http://{{$.Release.Name}}-{{.name}}.{{$.Release.Namespace}}.svc.cluster.local:{{$.Values.chainlink.web_port}}"
             {{- end }}
       containers:
         - name: ccip-scripts

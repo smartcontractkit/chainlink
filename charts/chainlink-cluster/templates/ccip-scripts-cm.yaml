@@ -11,7 +11,7 @@ data:
         "Env": "{{$.Release.Namespace}}",
         "Bootstrap": {
            {{- with (index $.Values.chainlink.nodes 0) }}
-          "URL": "http://app-{{.name}}.{{$.Release.Namespace}}.svc.cluster.local:{{$.Values.chainlink.web_port}}",
+          "URL": "http://{{$.Release.Name}}-{{.name}}.{{$.Release.Namespace}}.svc.cluster.local:{{$.Values.chainlink.web_port}}",
           "Email": "notreal@fakeemail.ch",
           "Password": "fj293fbBnlQ!f9vNs",
           "InternalIP": "{{$.Release.Name}}-{{.name}}",
@@ -23,7 +23,7 @@ data:
             {{- if ne $index 0}}
             {{- $nameWithoutHyphen := $cfg.name | replace "-" "" }}
           {{- if ne $index 1 }},{{- end }}{
-      "URL": "http://app-{{$cfg.name}}.{{$.Release.Namespace}}.svc.cluster.local:{{$.Values.chainlink.web_port}}",
+      "URL": "http://{{$.Release.Name}}-{{$cfg.name}}.{{$.Release.Namespace}}.svc.cluster.local:{{$.Values.chainlink.web_port}}",
       "Email": "notreal@fakeemail.ch",
       "Password": "fj293fbBnlQ!f9vNs",
       "InternalIP": "{{$.Release.Name}}-{{$cfg.name}}",
