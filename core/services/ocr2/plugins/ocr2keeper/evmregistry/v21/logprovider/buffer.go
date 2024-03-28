@@ -147,19 +147,22 @@ type logEventBuffer struct {
 	size int32
 
 	numOfLogUpkeeps, fastExecLogsHigh uint32
+	blockRate, logLimit               uint32
 	// blocks is the circular buffer of fetched blocks
 	blocks []fetchedBlock
 	// latestBlock is the latest block number seen
 	latestBlock int64
 }
 
-func newLogEventBuffer(lggr logger.Logger, size, numOfLogUpkeeps, fastExecLogsHigh int) *logEventBuffer {
+func newLogEventBuffer(lggr logger.Logger, size int, numOfLogUpkeeps, fastExecLogsHigh int, blockRate, logLimit uint32) *logEventBuffer {
 	return &logEventBuffer{
 		lggr:             lggr.Named("KeepersRegistry.LogEventBuffer"),
 		size:             int32(size),
 		blocks:           make([]fetchedBlock, size),
 		numOfLogUpkeeps:  uint32(numOfLogUpkeeps),
 		fastExecLogsHigh: uint32(fastExecLogsHigh),
+		blockRate:        blockRate,
+		logLimit:         logLimit,
 	}
 }
 
@@ -171,7 +174,7 @@ func (b *logEventBuffer) bufferSize() int {
 	return int(atomic.LoadInt32(&b.size))
 }
 
-func (b *logEventBuffer) SetLimits(numOfLogUpkeeps, fastExecLogsHigh int) {
+func (b *logEventBuffer) SetConfig(numOfLogUpkeeps, fastExecLogsHigh int) {
 	atomic.StoreUint32(&b.numOfLogUpkeeps, uint32(numOfLogUpkeeps))
 	atomic.StoreUint32(&b.fastExecLogsHigh, uint32(fastExecLogsHigh))
 }
