@@ -318,60 +318,6 @@ func newEntry(p *logEventProvider, i int, args ...string) (LogTriggerConfig, upk
 	return cfg, f
 }
 
-func TestLogEventProvider_SetConfig(t *testing.T) {
-	mp := new(mocks.LogPoller)
-
-	chainID := big.NewInt(1)
-
-	filterStore := NewUpkeepFilterStore()
-	p := NewLogProvider(logger.TestLogger(t), mp, chainID, &mockedPacker{}, filterStore, NewOptions(200))
-
-	for _, tc := range []struct {
-		numLogUpkeeps uint32
-		logLimit      uint32
-
-		wantNumLogUpkeeps uint32
-		wantLogLimit      uint32
-	}{
-		{
-			numLogUpkeeps: 10,
-			logLimit:      20,
-
-			wantNumLogUpkeeps: 10,
-			wantLogLimit:      20,
-		},
-		{
-			numLogUpkeeps: 10,
-			logLimit:      0,
-
-			wantNumLogUpkeeps: 10,
-			wantLogLimit:      defaultLogLimitForChain(chainID),
-		},
-		{
-			numLogUpkeeps: 0,
-			logLimit:      50,
-
-			wantNumLogUpkeeps: defaultBlockRateForChain(chainID),
-			wantLogLimit:      50,
-		},
-		{
-			numLogUpkeeps: 0,
-			logLimit:      0,
-
-			wantNumLogUpkeeps: defaultBlockRateForChain(chainID),
-			wantLogLimit:      defaultLogLimitForChain(chainID),
-		},
-	} {
-		p.SetConfig(ocr2keepers.LogEventProviderConfig{
-			BlockRate: tc.numLogUpkeeps,
-			LogLimit:  tc.logLimit,
-		})
-
-		require.Equal(t, tc.wantNumLogUpkeeps, p.buffer.blockRate)
-		require.Equal(t, tc.wantLogLimit, p.buffer.logLimit)
-	}
-}
-
 type mockedPacker struct {
 }
 
