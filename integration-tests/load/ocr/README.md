@@ -1,10 +1,12 @@
-### OCR Load tests
+# OCR Load tests
 
 ## Setup
-These tests can connect to any cluster create with [chainlink-cluster](../../../charts/chainlink-cluster/README.md)
+
+These tests can connect to any cluster created with [chainlink-cluster](../../../charts/chainlink-cluster/README.md)
 
 Create your cluster, if you already have one just use `kubefwd`
-```
+
+```sh
 kubectl create ns cl-cluster
 devspace use namespace cl-cluster
 devspace deploy
@@ -17,7 +19,7 @@ If you haven't changed anything in [devspace.yaml](../../../charts/chainlink-clu
 
 ## Usage
 
-```
+```sh
 export LOKI_TOKEN=...
 export LOKI_URL=...
 

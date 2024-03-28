@@ -24,6 +24,7 @@ import (
 	k8s_config "github.com/smartcontractkit/chainlink-testing-framework/k8s/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/osutil"
+
 	a_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/automation"
 	f_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/functions"
 	keeper_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/keeper"
@@ -110,7 +111,7 @@ type TestConfig struct {
 }
 
 var embeddedConfigs embed.FS
-var areConfigsEmbedded bool
+var configsEmbedded bool
 
 func init() {
 	embeddedConfigs = embeddedConfigsFs
@@ -310,7 +311,7 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 
 	// read embedded configs is build tag "embed" is set
 	// this makes our life much easier when using a binary
-	if areConfigsEmbedded {
+	if configsEmbedded {
 		logger.Info().Msg("Reading embedded configs")
 		embeddedFiles := []string{"default.toml", fmt.Sprintf("%s/%s.toml", product, product)}
 		for _, fileName := range embeddedFiles {
@@ -370,7 +371,7 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 		logger.Debug().Msg("Base64 config override from environment variable not found")
 	}
 
-	// it neede some custom logic, so we do it separately
+	// it needs some custom logic, so we do it separately
 	err := testConfig.readNetworkConfiguration()
 	if err != nil {
 		return TestConfig{}, errors.Wrapf(err, "error reading network config")

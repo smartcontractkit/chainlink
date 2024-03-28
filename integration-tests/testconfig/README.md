@@ -2,13 +2,6 @@
 
 ## Introduction
 
-Final implementation has undergone minor adjustments in comparison to the approach by Adam Hamric, Anindita Ghosh, and Sergey Kudasov stated in the ADR. The primary changes are as follows:
-
-* `TEST_LOG_LEVEL` remains an environment variable, pending the release of version 2.
-* `TEST_TYPE` is also kept as an environment variable to facilitate dynamic configuration selection by some tests.
-* TOML configuration of Chainlink nodes themselves has not been added, awaiting version 2.
-* The hierarchy of configuration overrides has been streamlined for simplicity.
-
 By design, all test configurations are intended to reside within the `testconfig` package, organized into application-specific folders. However, the system can locate these configurations in any folder within the `integration-tests` directory, selecting the first one found. To identify the configurations in use, execute tests with the `debug` log level.
 
 The `testconfig` package serves as a centralized resource for accessing configurations across all products, including shared settings like logging and network preferences, as well as initial funding for Chainlink nodes. Product configurations, if present, are subjected to validation based on logical assumptions and observed code values. The `TestConfig` structure includes a `Save()` method, allowing for the preservation of test configurations after all adjustments have been applied.
@@ -17,10 +10,10 @@ The `testconfig` package serves as a centralized resource for accessing configur
 
 The order of precedence for overrides is as follows:
 
-* Environment variable `BASE64_CONFIG_OVERRIDE`
-* File `overrides.toml`
-* Product-specific file, e.g., `[product_name].toml`
-* The `default.toml` file
+1. Environment variable `BASE64_CONFIG_OVERRIDE`
+2. File `overrides.toml`
+3. Product-specific file, e.g., `[product_name].toml`
+4. The `default.toml` file
 
 The `BASE64_CONFIG_OVERRIDE` environment variable is primarily intended for use in continuous integration environments, enabling the substitution of default settings with confidential or user-specific parameters. For instance:
 
@@ -133,13 +126,13 @@ For local testing, it is advisable to place these variables in the `overrides.to
 
 Because Go automatically excludes TOML files during the compilation of binaries, we must take deliberate steps to include our configuration files in the compiled binary. This can be accomplished by using a custom build tag `-o embed`. Implementing this tag will incorporate all the default configurations located in the `./testconfig` folder directly into the binary. Therefore, when executing tests from the binary, you'll only need to supply the `overrides.toml` file. This file should list only the settings you wish to modify; all other configurations will be sourced from the embedded configurations. You can access these embedded configurations [here](.integration-tests/testconfig/configs_embed.go).
 
-## To bear in mind
+## Keep in Mind
 
 ### Validation failures
 
 When the system encounters even a single setting related to a specific product or configuration within the configurations, it triggers a comprehensive validation of the entire configuration for that product. This approach is based on the assumption that if any configuration for a given product is specified, the entire set of configurations for that product must be complete and valid. This is particularly crucial when dealing with the `overrides.toml` file, where it's easy to overlook the need to comment out or adjust values when switching between configurations for different products. Essentially, the presence of any specific configuration detail necessitates that all relevant configurations for that product be fully defined and correct to prevent validation errors.
 
-## Possible nil pointers
+### Possible `nil` pointers
 
 If no configuration values are set for a product or its logging parameters, the system won't perform validation checks. This can lead to a 'nil pointer exception' error if you attempt to access a configuration property later on. This situation arises because we use pointers to facilitate optional overrides; accessing an unset (nil) pointer will cause an error. To avoid such issues, especially when general validations might not cover every scenario, it's crucial for users to ensure that all necessary configuration options are explicitly set. Additionally, it's highly recommended to implement test-specific validations to confirm that all required values for a particular test are indeed established. This proactive approach helps prevent runtime errors and ensures smooth test execution.
 
@@ -176,3 +169,12 @@ You should not replicate the entire `TestConfig` structure. Instead, create an i
 
 * Duplicate file names in different locations may lead to unpredictable configurations being selected.
 * The use of pointer fields for optional configuration elements necessitates careful handling, especially for programmatic modifications, to avoid unintended consequences. The `MustCopy()` function is recommended for creating deep copies of configurations for isolated modifications. Unfortunately some of the custom types are not copied at all, you need to set them manually. It's true for example for `blockchain.StrDuration` type.
+
+## Changes from Original ADR
+
+The final implementation has undergone minor adjustments in comparison to the approach by Adam Hamrick, Anindita Ghosh, and Sergey Kudasov stated in the ADR. The primary changes are as follows:
+
+* `TEST_LOG_LEVEL` remains an environment variable, pending the release of version 2.
+* `TEST_TYPE` is also kept as an environment variable to facilitate dynamic configuration selection by some tests.
+* TOML configuration of Chainlink nodes themselves has not been added, awaiting version 2.
+* The hierarchy of configuration overrides has been streamlined for simplicity.

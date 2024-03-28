@@ -115,26 +115,31 @@ func (b *CLTestEnvBuilder) WithoutLogStream() *CLTestEnvBuilder {
 	return b
 }
 
+// WithCLNodes sets the number of Chainlink nodes to start in the test environment
 func (b *CLTestEnvBuilder) WithCLNodes(clNodesCount int) *CLTestEnvBuilder {
 	b.clNodesCount = clNodesCount
 	return b
 }
 
+// WithTestConfig allows to override the test config on a code level for the test environment
 func (b *CLTestEnvBuilder) WithTestConfig(cfg tc.GlobalTestConfig) *CLTestEnvBuilder {
 	b.testConfig = cfg
 	return b
 }
 
+// WithCustomNodeCsaKeys sets custom CL Node settings
 func (b *CLTestEnvBuilder) WithCLNodeOptions(opt ...ClNodeOption) *CLTestEnvBuilder {
 	b.clNodesOpts = append(b.clNodesOpts, opt...)
 	return b
 }
 
+// WithForwarders sets the test environment to utilize contract forwarders
 func (b *CLTestEnvBuilder) WithForwarders() *CLTestEnvBuilder {
 	b.hasForwarders = true
 	return b
 }
 
+// WithFunding funds the Chainlink nodes with a specified amount of ETH
 func (b *CLTestEnvBuilder) WithFunding(eth *big.Float) *CLTestEnvBuilder {
 	b.ETHFunds = eth
 	return b
@@ -146,6 +151,7 @@ func (b *CLTestEnvBuilder) WithSeth() *CLTestEnvBuilder {
 	return b
 }
 
+// WithPrivateEthereumNetwork sets the test environment to use a private, realistic Ethereum network
 func (b *CLTestEnvBuilder) WithPrivateEthereumNetwork(en test_env.EthereumNetwork) *CLTestEnvBuilder {
 	b.privateEthereumNetworks = append(b.privateEthereumNetworks, &en)
 	return b
@@ -156,16 +162,19 @@ func (b *CLTestEnvBuilder) WithPrivateEthereumNetworks(ens []*test_env.EthereumN
 	return b
 }
 
+// WithCLNodeConfig sets the Chainlink node config for all created Chainlink nodes
 func (b *CLTestEnvBuilder) WithCLNodeConfig(cfg *chainlink.Config) *CLTestEnvBuilder {
 	b.clNodeConfig = cfg
 	return b
 }
 
+// WithSecretsConfig sets the secrets config for all created Chainlink nodes
 func (b *CLTestEnvBuilder) WithSecretsConfig(secrets string) *CLTestEnvBuilder {
 	b.secretsConfig = secrets
 	return b
 }
 
+// WithMockAdapter adds a mock adapter to the test environment for testing external adapters
 func (b *CLTestEnvBuilder) WithMockAdapter() *CLTestEnvBuilder {
 	b.hasKillgrave = true
 	return b
@@ -177,24 +186,29 @@ func (b *CLTestEnvBuilder) WithNonEVM() *CLTestEnvBuilder {
 	return b
 }
 
+// WithStandardCleanup will do a general cleanup of the test environment after the test
 func (b *CLTestEnvBuilder) WithStandardCleanup() *CLTestEnvBuilder {
 	b.cleanUpType = CleanUpTypeStandard
 	return b
 }
 
+// WithoutCleanup will not do any cleanup of the test environment after the test
 func (b *CLTestEnvBuilder) WithoutCleanup() *CLTestEnvBuilder {
 	b.cleanUpType = CleanUpTypeNone
 	return b
 }
 
+// WithCustomCleanup will do a custom cleanup of the test environment after the test
 func (b *CLTestEnvBuilder) WithCustomCleanup(customFn func()) *CLTestEnvBuilder {
 	b.cleanUpType = CleanUpTypeCustom
 	b.cleanUpCustomFn = customFn
 	return b
 }
 
+// ChainOption is a function that modifies the private EVM chain configuration
 type ChainOption = func(*evmcfg.Chain) *evmcfg.Chain
 
+// WithChainOptions sets options for custom configuration of a private chain
 func (b *CLTestEnvBuilder) WithChainOptions(opts ...ChainOption) *CLTestEnvBuilder {
 	b.chainOptionsFn = make([]ChainOption, 0)
 	b.chainOptionsFn = append(b.chainOptionsFn, opts...)
@@ -202,6 +216,7 @@ func (b *CLTestEnvBuilder) WithChainOptions(opts ...ChainOption) *CLTestEnvBuild
 	return b
 }
 
+// EVMClientNetworkOption is a function that modifies the EVM client network configuration
 type EVMClientNetworkOption = func(*blockchain.EVMNetwork) *blockchain.EVMNetwork
 
 func (b *CLTestEnvBuilder) EVMClientNetworkOptions(opts ...EVMClientNetworkOption) *CLTestEnvBuilder {

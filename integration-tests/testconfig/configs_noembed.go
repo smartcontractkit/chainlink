@@ -8,5 +8,5 @@ import "embed"
 var embeddedConfigsFs embed.FS
 
 func init() {
-	areConfigsEmbedded = false
+	configsEmbedded = false
 }
