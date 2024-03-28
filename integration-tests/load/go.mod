@@ -15,8 +15,8 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.30.0
 	github.com/slack-go/slack v0.12.2
-	github.com/smartcontractkit/chainlink-automation v1.0.2-0.20240327153605-196602c73071
-	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240327003736-b5f6f5e99c70
+	github.com/smartcontractkit/chainlink-automation v1.0.2-0.20240328181230-013359a1c355
+	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240328181140-b17c24ff9ebe
 	github.com/smartcontractkit/chainlink-testing-framework v1.27.8
 	github.com/smartcontractkit/chainlink/integration-tests v0.0.0-20240214231432-4ad5eb95178c
 	github.com/smartcontractkit/chainlink/v2 v2.9.0-beta0.0.20240216210048-da02459ddad8
