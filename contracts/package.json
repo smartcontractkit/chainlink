@@ -63,8 +63,6 @@
     "ethers": "~5.7.2",
     "hardhat": "~2.19.5",
     "hardhat-abi-exporter": "^2.10.1",
-    "hardhat-contract-sizer": "^2.10.0",
-    "hardhat-gas-reporter": "^1.0.9",
     "moment": "^2.30.1",
     "prettier": "^3.2.5",
     "prettier-plugin-solidity": "1.3.1",
