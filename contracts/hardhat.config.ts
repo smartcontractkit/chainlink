@@ -1,12 +1,8 @@
-import '@nomiclabs/hardhat-ethers'
-import '@nomiclabs/hardhat-etherscan'
+import '@nomicfoundation/hardhat-ethers'
+import '@nomicfoundation/hardhat-verify'
 import '@nomiclabs/hardhat-waffle'
-import '@openzeppelin/hardhat-upgrades'
 import '@typechain/hardhat'
 import 'hardhat-abi-exporter'
-import 'hardhat-contract-sizer'
-import 'hardhat-gas-reporter'
-import 'hardhat-ignore-warnings'
 import { subtask } from 'hardhat/config'
 import { TASK_COMPILE_SOLIDITY_GET_SOURCE_PATHS } from 'hardhat/builtin-tasks/task-names'
 
@@ -99,17 +95,9 @@ let config = {
       },
     },
   },
-  contractSizer: {
-    alphaSort: true,
-    runOnCompile: false,
-    disambiguatePaths: false,
-  },
   mocha: {
     timeout: 150000,
     forbidOnly: Boolean(process.env.CI),
-  },
-  gasReporter: {
-    enabled: Boolean(process.env.REPORT_GAS),
   },
   warnings: !process.env.HIDE_WARNINGS,
 }
