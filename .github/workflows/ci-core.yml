@@ -55,7 +55,7 @@ jobs:
 
   golangci:
     # We don't directly merge dependabot PRs, so let's not waste the resources
-    if: ${{ github.event_name == 'pull_request' ||  github.event_name == 'schedule' && github.actor != 'dependabot[bot]' }}
+    if: ${{ (github.event_name == 'pull_request' ||  github.event_name == 'schedule') && github.actor != 'dependabot[bot]' }}
     name: lint
     runs-on: ubuntu22.04-8cores-32GB
     needs: [filter]
