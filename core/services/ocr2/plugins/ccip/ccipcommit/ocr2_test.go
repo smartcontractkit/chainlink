@@ -2,10 +2,12 @@ package ccipcommit
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"math/rand"
 	"reflect"
+	"slices"
 	"sort"
 	"testing"
 	"time"
@@ -37,6 +39,7 @@ import (
 	ccipcachemocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcommon"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/factory"
 	ccipdatamocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_0_0"
@@ -49,7 +52,28 @@ import (
 
 func TestCommitReportingPlugin_Observation(t *testing.T) {
 	sourceNativeTokenAddr := ccipcalc.HexToAddress("1000")
-	someTokenAddr := ccipcalc.HexToAddress("2000")
+
+	bridgedTokens := []cciptypes.Address{
+		ccipcalc.HexToAddress("2000"),
+		ccipcalc.HexToAddress("3000"),
+	}
+
+	// Token price in 1e18 USD precision
+	bridgedTokenPrices := map[cciptypes.Address]*big.Int{
+		bridgedTokens[0]: big.NewInt(1),
+		bridgedTokens[1]: big.NewInt(2e18),
+	}
+
+	bridgedTokenDecimals := map[cciptypes.Address]uint8{
+		bridgedTokens[0]: 8,
+		bridgedTokens[1]: 18,
+	}
+
+	// Token price of 1e18 token amount in 1e18 USD precision
+	expectedEncodedTokenPrice := map[cciptypes.Address]*big.Int{
+		bridgedTokens[0]: big.NewInt(1e10),
+		bridgedTokens[1]: big.NewInt(2e18),
+	}
 
 	testCases := []struct {
 		name                   string
@@ -62,6 +86,7 @@ func TestCommitReportingPlugin_Observation(t *testing.T) {
 		tokenDecimals          map[cciptypes.Address]uint8
 		fee                    *big.Int
 		priceReportingDisabled bool
+		multiOffRamps          bool
 
 		expErr bool
 		expObs ccip.CommitObservation
@@ -70,21 +95,42 @@ func TestCommitReportingPlugin_Observation(t *testing.T) {
 			name:              "base report",
 			commitStoreSeqNum: 54,
 			tokenPrices: map[cciptypes.Address]*big.Int{
-				someTokenAddr:         big.NewInt(2),
+				bridgedTokens[0]:      bridgedTokenPrices[bridgedTokens[0]],
+				bridgedTokens[1]:      bridgedTokenPrices[bridgedTokens[1]],
 				sourceNativeTokenAddr: big.NewInt(2e18),
 			},
 			sendReqs: []cciptypes.EVM2EVMMessageWithTxMeta{
 				{EVM2EVMMessage: cciptypes.EVM2EVMMessage{SequenceNumber: 54}},
 				{EVM2EVMMessage: cciptypes.EVM2EVMMessage{SequenceNumber: 55}},
 			},
-			fee: big.NewInt(2e18),
-			tokenDecimals: map[cciptypes.Address]uint8{
-				someTokenAddr: 8,
-			},
+			fee:           big.NewInt(2e18),
+			tokenDecimals: bridgedTokenDecimals,
 			expObs: ccip.CommitObservation{
-				TokenPricesUSD: map[cciptypes.Address]*big.Int{
-					someTokenAddr: big.NewInt(20000000000),
+				TokenPricesUSD:    expectedEncodedTokenPrice,
+				SourceGasPriceUSD: big.NewInt(4e18),
+				Interval: cciptypes.CommitStoreInterval{
+					Min: 54,
+					Max: 55,
 				},
+			},
+		},
+		{
+			name:              "multiple offRamps observation",
+			commitStoreSeqNum: 54,
+			tokenPrices: map[cciptypes.Address]*big.Int{
+				bridgedTokens[0]:      bridgedTokenPrices[bridgedTokens[0]],
+				bridgedTokens[1]:      bridgedTokenPrices[bridgedTokens[1]],
+				sourceNativeTokenAddr: big.NewInt(2e18),
+			},
+			sendReqs: []cciptypes.EVM2EVMMessageWithTxMeta{
+				{EVM2EVMMessage: cciptypes.EVM2EVMMessage{SequenceNumber: 54}},
+				{EVM2EVMMessage: cciptypes.EVM2EVMMessage{SequenceNumber: 55}},
+			},
+			fee:           big.NewInt(2e18),
+			tokenDecimals: bridgedTokenDecimals,
+			multiOffRamps: true,
+			expObs: ccip.CommitObservation{
+				TokenPricesUSD:    expectedEncodedTokenPrice,
 				SourceGasPriceUSD: big.NewInt(4e18),
 				Interval: cciptypes.CommitStoreInterval{
 					Min: 54,
@@ -96,17 +142,16 @@ func TestCommitReportingPlugin_Observation(t *testing.T) {
 			name:              "price reporting disabled",
 			commitStoreSeqNum: 54,
 			tokenPrices: map[cciptypes.Address]*big.Int{
-				someTokenAddr:         big.NewInt(2),
+				bridgedTokens[0]:      bridgedTokenPrices[bridgedTokens[0]],
+				bridgedTokens[1]:      bridgedTokenPrices[bridgedTokens[1]],
 				sourceNativeTokenAddr: big.NewInt(2e18),
 			},
 			sendReqs: []cciptypes.EVM2EVMMessageWithTxMeta{
 				{EVM2EVMMessage: cciptypes.EVM2EVMMessage{SequenceNumber: 54}},
 				{EVM2EVMMessage: cciptypes.EVM2EVMMessage{SequenceNumber: 55}},
 			},
-			fee: big.NewInt(2e18),
-			tokenDecimals: map[cciptypes.Address]uint8{
-				someTokenAddr: 8,
-			},
+			fee:                    big.NewInt(2e18),
+			tokenDecimals:          bridgedTokenDecimals,
 			priceReportingDisabled: true,
 			expObs: ccip.CommitObservation{
 				TokenPricesUSD:    nil,
@@ -149,13 +194,23 @@ func TestCommitReportingPlugin_Observation(t *testing.T) {
 					Return(tc.sendReqs, nil)
 			}
 
+			var destTokens []cciptypes.Address
+			for tk := range tc.tokenDecimals {
+				destTokens = append(destTokens, tk)
+			}
+			// ensure destTokens and destDecimals are in the same order, avoid flaky test from unordered map iteration
+			sort.Slice(destTokens, func(i, j int) bool {
+				return destTokens[i] < destTokens[j]
+			})
+			var destDecimals []uint8
+			for _, token := range destTokens {
+				destDecimals = append(destDecimals, tc.tokenDecimals[token])
+			}
+
 			priceGet := pricegetter.NewMockPriceGetter(t)
 			if !tc.priceReportingDisabled && len(tc.tokenPrices) > 0 {
-				addrs := []cciptypes.Address{sourceNativeTokenAddr}
-				for addr := range tc.tokenDecimals {
-					addrs = append(addrs, addr)
-				}
-				priceGet.On("TokenPricesUSD", mock.Anything, addrs).Return(tc.tokenPrices, nil)
+				queryTokens := ccipcommon.FlattenUniqueSlice([]cciptypes.Address{sourceNativeTokenAddr}, destTokens)
+				priceGet.On("TokenPricesUSD", mock.Anything, queryTokens).Return(tc.tokenPrices, nil)
 			}
 
 			gasPriceEstimator := prices.NewMockGasPriceEstimatorCommit(t)
@@ -166,15 +221,8 @@ func TestCommitReportingPlugin_Observation(t *testing.T) {
 				gasPriceEstimator.On("DenoteInUSD", p, tc.tokenPrices[sourceNativeTokenAddr]).Return(pUSD, nil)
 			}
 
-			destTokens := make([]cciptypes.Address, 0)
-			destDecimals := make([]uint8, 0)
-			for tk, d := range tc.tokenDecimals {
-				destTokens = append(destTokens, tk)
-				destDecimals = append(destDecimals, d)
-			}
-
-			offRampReader := ccipdatamocks.NewOffRampReader(t)
-			offRampReader.On("GetTokens", ctx).Return(cciptypes.OffRampTokens{
+			offRampReaderMocks := []*ccipdatamocks.OffRampReader{ccipdatamocks.NewOffRampReader(t)}
+			offRampReaderMocks[0].On("GetTokens", ctx).Return(cciptypes.OffRampTokens{
 				DestinationTokens: destTokens,
 			}, nil).Maybe()
 
@@ -182,12 +230,27 @@ func TestCommitReportingPlugin_Observation(t *testing.T) {
 			destPriceRegReader.On("GetFeeTokens", ctx).Return(nil, nil).Maybe()
 			destPriceRegReader.On("GetTokensDecimals", ctx, destTokens).Return(destDecimals, nil).Maybe()
 
+			if tc.multiOffRamps {
+				offRampReaderMocks = append(offRampReaderMocks, ccipdatamocks.NewOffRampReader(t))
+				offRampReaderMocks = append(offRampReaderMocks, ccipdatamocks.NewOffRampReader(t))
+				offRampReaderMocks[1].On("GetTokens", ctx).Return(cciptypes.OffRampTokens{
+					DestinationTokens: destTokens[0:1],
+				}, nil).Once()
+				offRampReaderMocks[2].On("GetTokens", ctx).Return(cciptypes.OffRampTokens{
+					DestinationTokens: destTokens[1:2],
+				}, nil).Once()
+			}
+			var offRampReaders []ccipdata.OffRampReader
+			for _, offRamp := range offRampReaderMocks {
+				offRampReaders = append(offRampReaders, offRamp)
+			}
+
 			p := &CommitReportingPlugin{}
 			p.lggr = logger.TestLogger(t)
 			p.inflightReports = newInflightCommitReportsContainer(time.Hour)
 			p.commitStoreReader = commitStoreReader
 			p.onRampReader = onRampReader
-			p.offRampReader = offRampReader
+			p.offRampReaders = offRampReaders
 			p.destPriceRegistryReader = destPriceRegReader
 			p.priceGetter = priceGet
 			p.sourceNative = sourceNativeTokenAddr
@@ -204,9 +267,19 @@ func TestCommitReportingPlugin_Observation(t *testing.T) {
 			}
 			assert.NoError(t, err)
 
-			expObsBytes, err := tc.expObs.Marshal()
-			assert.NoError(t, err)
-			assert.Equal(t, expObsBytes, []byte(obs))
+			if tc.expObs.TokenPricesUSD != nil {
+				// field ordering in mapping is not guaranteed, if TokenPricesUSD exists, unmarshal to compare mapping
+				var obsStuct ccip.CommitObservation
+				err = json.Unmarshal(obs, &obsStuct)
+				assert.NoError(t, err)
+
+				assert.Equal(t, tc.expObs, obsStuct)
+			} else {
+				// if TokenPricesUSD is nil, compare the bytes directly, marshal then unmarshal turns nil map to empty
+				expObsBytes, err := tc.expObs.Marshal()
+				assert.NoError(t, err)
+				assert.Equal(t, expObsBytes, []byte(obs))
+			}
 		})
 	}
 }
@@ -224,7 +297,7 @@ func TestCommitReportingPlugin_Report(t *testing.T) {
 
 		offRampReader := ccipdatamocks.NewOffRampReader(t)
 		destPriceRegReader := ccipdatamocks.NewPriceRegistryReader(t)
-		p.offRampReader = offRampReader
+		p.offRampReaders = []ccipdata.OffRampReader{offRampReader}
 		p.destPriceRegistryReader = destPriceRegReader
 		offRampReader.On("GetTokens", ctx).Return(cciptypes.OffRampTokens{}, nil).Maybe()
 		destPriceRegReader.On("GetFeeTokens", ctx).Return(nil, nil).Maybe()
@@ -253,6 +326,7 @@ func TestCommitReportingPlugin_Report(t *testing.T) {
 		tokenPriceUpdates      []cciptypes.TokenPriceUpdateWithTxMeta
 		sendRequests           []cciptypes.EVM2EVMMessageWithTxMeta
 		priceReportingDisabled bool
+		multiOffRamps          bool
 		expCommitReport        *cciptypes.CommitStoreReport
 		expSeqNumRange         cciptypes.CommitStoreInterval
 		expErr                 bool
@@ -288,6 +362,62 @@ func TestCommitReportingPlugin_Report(t *testing.T) {
 				Interval:    cciptypes.CommitStoreInterval{Min: 1, Max: 1},
 				TokenPrices: nil,
 				GasPrices:   []cciptypes.GasPrice{{DestChainSelector: sourceChainSelector, Value: gasPrice}},
+			},
+			expErr: false,
+		},
+		{
+			name: "multiple offRamps report with token prices",
+			observations: []ccip.CommitObservation{
+				{
+					Interval:          cciptypes.CommitStoreInterval{Min: 1, Max: 1},
+					SourceGasPriceUSD: gasPrice,
+					TokenPricesUSD: map[cciptypes.Address]*big.Int{
+						ccipcalc.HexToAddress("2000"): big.NewInt(2000),
+						ccipcalc.HexToAddress("3000"): big.NewInt(3000),
+					},
+				},
+				{
+					Interval:          cciptypes.CommitStoreInterval{Min: 1, Max: 1},
+					SourceGasPriceUSD: gasPrice,
+					TokenPricesUSD: map[cciptypes.Address]*big.Int{
+						ccipcalc.HexToAddress("2000"): big.NewInt(2000),
+						ccipcalc.HexToAddress("3000"): big.NewInt(3000),
+					},
+				},
+			},
+			tokenDecimals: map[cciptypes.Address]uint8{
+				ccipcalc.HexToAddress("2000"): 8,
+				ccipcalc.HexToAddress("3000"): 18,
+			},
+			f: 1,
+			sendRequests: []cciptypes.EVM2EVMMessageWithTxMeta{
+				{
+					EVM2EVMMessage: cciptypes.EVM2EVMMessage{
+						SequenceNumber: 1,
+					},
+				},
+			},
+			gasPriceUpdates: []cciptypes.GasPriceUpdateWithTxMeta{
+				{
+					GasPriceUpdate: cciptypes.GasPriceUpdate{
+						GasPrice: cciptypes.GasPrice{
+							DestChainSelector: sourceChainSelector,
+							Value:             big.NewInt(1),
+						},
+						TimestampUnixSec: big.NewInt(time.Now().Add(-2 * gasPriceHeartBeat.Duration()).Unix()),
+					},
+				},
+			},
+			multiOffRamps:  true,
+			expSeqNumRange: cciptypes.CommitStoreInterval{Min: 1, Max: 1},
+			expCommitReport: &cciptypes.CommitStoreReport{
+				MerkleRoot: [32]byte{},
+				Interval:   cciptypes.CommitStoreInterval{Min: 1, Max: 1},
+				TokenPrices: []cciptypes.TokenPrice{
+					{Token: ccipcalc.HexToAddress("2000"), Value: big.NewInt(2000)},
+					{Token: ccipcalc.HexToAddress("3000"), Value: big.NewInt(3000)},
+				},
+				GasPrices: []cciptypes.GasPrice{{DestChainSelector: sourceChainSelector, Value: gasPrice}},
 			},
 			expErr: false,
 		},
@@ -381,20 +511,47 @@ func TestCommitReportingPlugin_Report(t *testing.T) {
 				gasPriceEstimator.On("Deviates", mock.Anything, mock.Anything, mock.Anything).Return(false, nil)
 			}
 
-			destTokens := make([]cciptypes.Address, 0)
-			destDecimals := make([]uint8, 0)
-			for tk, d := range tc.tokenDecimals {
+			var destTokens []cciptypes.Address
+			for tk := range tc.tokenDecimals {
 				destTokens = append(destTokens, tk)
-				destDecimals = append(destDecimals, d)
+			}
+			sort.Slice(destTokens, func(i, j int) bool {
+				return destTokens[i] < destTokens[j]
+			})
+			var destDecimals []uint8
+			for _, token := range destTokens {
+				destDecimals = append(destDecimals, tc.tokenDecimals[token])
 			}
 
-			offRampReader := ccipdatamocks.NewOffRampReader(t)
-			offRampReader.On("GetTokens", ctx).Return(cciptypes.OffRampTokens{
+			offRampReaderMocks := []*ccipdatamocks.OffRampReader{ccipdatamocks.NewOffRampReader(t)}
+			offRampReaderMocks[0].On("GetTokens", ctx).Return(cciptypes.OffRampTokens{
 				DestinationTokens: destTokens,
 			}, nil).Maybe()
 
 			destPriceRegistryReader.On("GetFeeTokens", ctx).Return(nil, nil).Maybe()
-			destPriceRegistryReader.On("GetTokensDecimals", ctx, destTokens).Return(destDecimals, nil).Maybe()
+			destPriceRegistryReader.On("GetTokensDecimals", ctx, mock.MatchedBy(func(tokens []cciptypes.Address) bool {
+				for _, token := range tokens {
+					if !slices.Contains(destTokens, token) {
+						return false
+					}
+				}
+				return true
+			})).Return(destDecimals, nil).Maybe()
+
+			if tc.multiOffRamps {
+				offRampReaderMocks = append(offRampReaderMocks, ccipdatamocks.NewOffRampReader(t))
+				offRampReaderMocks = append(offRampReaderMocks, ccipdatamocks.NewOffRampReader(t))
+				offRampReaderMocks[1].On("GetTokens", ctx).Return(cciptypes.OffRampTokens{
+					DestinationTokens: destTokens[0:1],
+				}, nil).Once()
+				offRampReaderMocks[2].On("GetTokens", ctx).Return(cciptypes.OffRampTokens{
+					DestinationTokens: destTokens[1:2],
+				}, nil).Once()
+			}
+			var offRampReaders []ccipdata.OffRampReader
+			for _, offRamp := range offRampReaderMocks {
+				offRampReaders = append(offRampReaders, offRamp)
+			}
 
 			lp := mocks2.NewLogPoller(t)
 			commitStoreReader, err := v1_2_0.NewCommitStore(logger.TestLogger(t), utils.RandomAddress(), nil, lp, nil, nil)
@@ -409,7 +566,7 @@ func TestCommitReportingPlugin_Report(t *testing.T) {
 			p.destPriceRegistryReader = destPriceRegistryReader
 			p.onRampReader = onRampReader
 			p.sourceChainSelector = sourceChainSelector
-			p.offRampReader = offRampReader
+			p.offRampReaders = offRampReaders
 			p.gasPriceEstimator = gasPriceEstimator
 			p.offchainConfig.GasPriceHeartBeat = gasPriceHeartBeat.Duration()
 			p.commitStoreReader = commitStoreReader
@@ -1265,15 +1422,22 @@ func TestCommitReportingPlugin_generatePriceUpdates(t *testing.T) {
 			gasPriceEstimator := prices.NewMockGasPriceEstimatorCommit(t)
 			defer gasPriceEstimator.AssertExpectations(t)
 
-			tokens := make([]cciptypes.Address, 0, len(tc.tokenDecimals))
+			var destTokens []cciptypes.Address
 			for tk := range tc.tokenDecimals {
-				tokens = append(tokens, tk)
+				destTokens = append(destTokens, tk)
 			}
-			tokens = ccipcommon.FlattenUniqueSlice(tokens, []cciptypes.Address{tc.sourceNativeToken})
-			sort.Slice(tokens, func(i, j int) bool { return tokens[i] < tokens[j] })
+			sort.Slice(destTokens, func(i, j int) bool {
+				return destTokens[i] < destTokens[j]
+			})
+			var destDecimals []uint8
+			for _, token := range destTokens {
+				destDecimals = append(destDecimals, tc.tokenDecimals[token])
+			}
 
-			if len(tokens) > 0 {
-				priceGetter.On("TokenPricesUSD", mock.Anything, tokens).Return(tc.priceGetterRespData, tc.priceGetterRespErr)
+			queryTokens := ccipcommon.FlattenUniqueSlice([]cciptypes.Address{tc.sourceNativeToken}, destTokens)
+
+			if len(queryTokens) > 0 {
+				priceGetter.On("TokenPricesUSD", mock.Anything, queryTokens).Return(tc.priceGetterRespData, tc.priceGetterRespErr)
 			}
 
 			if tc.maxGasPrice > 0 {
@@ -1288,13 +1452,6 @@ func TestCommitReportingPlugin_generatePriceUpdates(t *testing.T) {
 				sourceNative:      tc.sourceNativeToken,
 				priceGetter:       priceGetter,
 				gasPriceEstimator: gasPriceEstimator,
-			}
-
-			destTokens := make([]cciptypes.Address, 0, len(tc.tokenDecimals))
-			destDecimals := make([]uint8, 0, len(tc.tokenDecimals))
-			for tk, d := range tc.tokenDecimals {
-				destTokens = append(destTokens, tk)
-				destDecimals = append(destDecimals, d)
 			}
 
 			destPriceReg := ccipdatamocks.NewPriceRegistryReader(t)

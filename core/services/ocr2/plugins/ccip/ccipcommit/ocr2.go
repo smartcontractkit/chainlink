@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mathutil"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -60,7 +61,7 @@ type CommitPluginStaticConfig struct {
 	sourceChainSelector uint64
 	sourceNative        cciptypes.Address
 	// Dest
-	offRamp               ccipdata.OffRampReader
+	offRamps              []ccipdata.OffRampReader
 	commitStore           ccipdata.CommitStoreReader
 	destChainSelector     uint64
 	priceRegistryProvider ccipdataprovider.PriceRegistry
@@ -81,7 +82,7 @@ type CommitReportingPlugin struct {
 	commitStoreReader       ccipdata.CommitStoreReader
 	destPriceRegistryReader ccipdata.PriceRegistryReader
 	offchainConfig          cciptypes.CommitOffchainConfig
-	offRampReader           ccipdata.OffRampReader
+	offRampReaders          []ccipdata.OffRampReader
 	F                       int
 	// Offchain
 	priceGetter      pricegetter.PriceGetter
@@ -213,13 +214,12 @@ func (r *CommitReportingPlugin) observePriceUpdates(
 		return nil, nil, nil
 	}
 
-	feeTokens, bridgeableTokens, err := ccipcommon.GetDestinationTokens(ctx, r.offRampReader, r.destPriceRegistryReader)
+	sortedChainTokens, err := ccipcommon.GetSortedChainTokens(ctx, r.offRampReaders, r.destPriceRegistryReader)
 	if err != nil {
 		return nil, nil, fmt.Errorf("get destination tokens: %w", err)
 	}
-	destTokens := ccipcommon.FlattenUniqueSlice(feeTokens, bridgeableTokens)
 
-	return r.generatePriceUpdates(ctx, lggr, destTokens)
+	return r.generatePriceUpdates(ctx, lggr, sortedChainTokens)
 }
 
 // All prices are USD ($1=1e18) denominated. All prices must be not nil.
@@ -227,12 +227,11 @@ func (r *CommitReportingPlugin) observePriceUpdates(
 func (r *CommitReportingPlugin) generatePriceUpdates(
 	ctx context.Context,
 	lggr logger.Logger,
-	destTokens []cciptypes.Address,
+	sortedChainTokens []cciptypes.Address,
 ) (sourceGasPriceUSD *big.Int, tokenPricesUSD map[cciptypes.Address]*big.Int, err error) {
 	// Include wrapped native in our token query as way to identify the source native USD price.
 	// notice USD is in 1e18 scale, i.e. $1 = 1e18
-	queryTokens := ccipcommon.FlattenUniqueSlice([]cciptypes.Address{r.sourceNative}, destTokens)
-	sort.Slice(queryTokens, func(i, j int) bool { return queryTokens[i] < queryTokens[j] }) // make the query deterministic
+	queryTokens := ccipcommon.FlattenUniqueSlice([]cciptypes.Address{r.sourceNative}, sortedChainTokens)
 
 	rawTokenPricesUSD, err := r.priceGetter.TokenPricesUSD(ctx, queryTokens)
 	if err != nil {
@@ -252,13 +251,13 @@ func (r *CommitReportingPlugin) generatePriceUpdates(
 		return nil, nil, fmt.Errorf("missing source native (%s) price", r.sourceNative)
 	}
 
-	destTokensDecimals, err := r.destPriceRegistryReader.GetTokensDecimals(ctx, destTokens)
+	destTokensDecimals, err := r.destPriceRegistryReader.GetTokensDecimals(ctx, sortedChainTokens)
 	if err != nil {
 		return nil, nil, fmt.Errorf("get tokens decimals: %w", err)
 	}
 
 	tokenPricesUSD = make(map[cciptypes.Address]*big.Int, len(rawTokenPricesUSD))
-	for i, token := range destTokens {
+	for i, token := range sortedChainTokens {
 		tokenPricesUSD[token] = calculateUsdPer1e18TokenAmount(rawTokenPricesUSD[token], destTokensDecimals[i])
 	}
 
@@ -380,14 +379,13 @@ func (r *CommitReportingPlugin) Report(ctx context.Context, epochAndRound types.
 
 	parsableObservations := ccip.GetParsableObservations[ccip.CommitObservation](lggr, observations)
 
-	feeTokens, bridgeableTokens, err := ccipcommon.GetDestinationTokens(ctx, r.offRampReader, r.destPriceRegistryReader)
+	sortedChainTokens, err := ccipcommon.GetSortedChainTokens(ctx, r.offRampReaders, r.destPriceRegistryReader)
 	if err != nil {
 		return false, nil, fmt.Errorf("get destination tokens: %w", err)
 	}
-	destTokens := ccipcommon.FlattenUniqueSlice(feeTokens, bridgeableTokens)
 
 	// Filters out parsable but faulty observations
-	validObservations, err := validateObservations(ctx, lggr, destTokens, r.F, parsableObservations, r.offchainConfig.PriceReportingDisabled)
+	validObservations, err := validateObservations(ctx, lggr, sortedChainTokens, r.F, parsableObservations, r.offchainConfig.PriceReportingDisabled)
 	if err != nil {
 		return false, nil, err
 	}
