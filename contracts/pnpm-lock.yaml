@@ -46,15 +46,15 @@ devDependencies:
   '@ethersproject/providers':
     specifier: ~5.7.2
     version: 5.7.2
+  '@nomicfoundation/hardhat-ethers':
+    specifier: ^3.0.5
+    version: 3.0.5(ethers@5.7.2)(hardhat@2.19.5)
   '@nomicfoundation/hardhat-network-helpers':
     specifier: ^1.0.9
     version: 1.0.10(hardhat@2.19.5)
   '@nomicfoundation/hardhat-verify':
     specifier: ^2.0.5
     version: 2.0.5(hardhat@2.19.5)
-  '@nomiclabs/hardhat-ethers':
-    specifier: ^2.2.3
-    version: 2.2.3(ethers@5.7.2)(hardhat@2.19.5)
   '@nomiclabs/hardhat-waffle':
     specifier: 2.0.6
     version: 2.0.6(@nomiclabs/hardhat-ethers@2.2.3)(@types/sinon-chai@3.2.8)(ethereum-waffle@3.4.4)(ethers@5.7.2)(hardhat@2.19.5)
@@ -1159,6 +1159,20 @@ packages:
       - bufferutil
       - supports-color
       - utf-8-validate
+    dev: true
+
+  /@nomicfoundation/hardhat-ethers@3.0.5(ethers@5.7.2)(hardhat@2.19.5):
+    resolution: {integrity: sha512-RNFe8OtbZK6Ila9kIlHp0+S80/0Bu/3p41HUpaRIoHLm6X3WekTd83vob3rE54Duufu1edCiBDxspBzi2rxHHw==}
+    peerDependencies:
+      ethers: ^6.1.0
+      hardhat: ^2.0.0
+    dependencies:
+      debug: 4.3.4(supports-color@8.1.1)
+      ethers: 5.7.2
+      hardhat: 2.19.5(ts-node@10.9.2)(typescript@5.4.3)
+      lodash.isequal: 4.5.0
+    transitivePeerDependencies:
+      - supports-color
     dev: true
 
   /@nomicfoundation/hardhat-network-helpers@1.0.10(hardhat@2.19.5):
@@ -7352,6 +7366,10 @@ packages:
 
   /lodash.clonedeep@4.5.0:
     resolution: {integrity: sha512-H5ZhCF25riFd9uB5UCkVKo61m3S/xZk1x4wA6yp/L3RFP6Z/eHH1ymQcGLo7J3GMPfm0V/7m1tryHuGVxpqEBQ==}
+    dev: true
+
+  /lodash.isequal@4.5.0:
+    resolution: {integrity: sha512-pDo3lu8Jhfjqls6GkMgpahsF9kCyayhgykjyLMNFTKWrpVdAQtYyB4muAMWozBB4ig/dtWAmsMxLEI8wuz+DYQ==}
     dev: true
 
   /lodash.mapvalues@4.6.0:
