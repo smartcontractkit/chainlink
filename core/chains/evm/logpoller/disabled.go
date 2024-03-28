@@ -41,6 +41,8 @@ func (disabled) UnregisterFilter(ctx context.Context, name string) error { retur
 
 func (disabled) HasFilter(name string) bool { return false }
 
+func (disabled) GetFilters() map[string]Filter { return nil }
+
 func (disabled) LatestBlock(ctx context.Context) (LogPollerBlock, error) {
 	return LogPollerBlock{}, ErrDisabled
 }
