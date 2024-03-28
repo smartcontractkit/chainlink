@@ -3,10 +3,6 @@
   "basePath": "./contracts/test/",
   "splits": [
     {
-      "dir": "cross-version",
-      "numOfSplits": 1
-    },
-    {
       "dir": "v0.8",
       "numOfSplits": 5,
       "slowTests": [
