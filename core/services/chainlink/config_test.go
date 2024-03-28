@@ -1200,7 +1200,7 @@ func TestConfig_Validate(t *testing.T) {
 		- LDAP.UsersDN: invalid value (<nil>): LDAP UsersDN can not be empty
 		- LDAP.GroupsDN: invalid value (<nil>): LDAP GroupsDN can not be empty
 		- LDAP.AdminUserGroupCN: invalid value (<nil>): LDAP AdminUserGroupCN can not be empty
-		- LDAP.RunUserGroupCN: invalid value (<nil>): LDAP ReadUserGroupCN can not be empty
+		- LDAP.EditUserGroupCN: invalid value (<nil>): LDAP EditUserGroupCN can not be empty
 		- LDAP.RunUserGroupCN: invalid value (<nil>): LDAP RunUserGroupCN can not be empty
 		- LDAP.ReadUserGroupCN: invalid value (<nil>): LDAP ReadUserGroupCN can not be empty
 	- EVM: 8 errors:
