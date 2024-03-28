@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math"
 	"math/big"
-	"reflect"
 	"testing"
 	"time"
 
@@ -1288,15 +1287,15 @@ func TestLogPoller_LoadFilters(t *testing.T) {
 	t.Run("GetFilters", func(t *testing.T) {
 		filters := th.LogPoller.GetFilters()
 		assert.Equal(t, 3, len(filters))
-		assert.True(t, filters["first Filter"].Name == "first Filter")
-		assert.True(t, reflect.DeepEqual(filters["first Filter"].EventSigs, filter1.EventSigs))
-		assert.True(t, reflect.DeepEqual(filters["first Filter"].Addresses, filter1.Addresses))
-		assert.True(t, filters["second Filter"].Name == "second Filter")
-		assert.True(t, reflect.DeepEqual(filters["second Filter"].EventSigs, filter2.EventSigs))
-		assert.True(t, reflect.DeepEqual(filters["second Filter"].Addresses, filter2.Addresses))
-		assert.True(t, filters["third Filter"].Name == "third Filter")
-		assert.True(t, reflect.DeepEqual(filters["third Filter"].EventSigs, filter3.EventSigs))
-		assert.True(t, reflect.DeepEqual(filters["third Filter"].Addresses, filter3.Addresses))
+		assert.Equal(t, filters["first Filter"].Name, "first Filter")
+		assert.Equal(t, filters["first Filter"].EventSigs, filter1.EventSigs)
+		assert.Equal(t, filters["first Filter"].Addresses, filter1.Addresses)
+		assert.Equal(t, filters["second Filter"].Name, "second Filter")
+		assert.Equal(t, filters["second Filter"].EventSigs, filter2.EventSigs)
+		assert.Equal(t, filters["second Filter"].Addresses, filter2.Addresses)
+		assert.Equal(t, filters["third Filter"].Name, "third Filter")
+		assert.Equal(t, filters["third Filter"].EventSigs, filter3.EventSigs)
+		assert.Equal(t, filters["third Filter"].Addresses, filter3.Addresses)
 	})
 }
 
