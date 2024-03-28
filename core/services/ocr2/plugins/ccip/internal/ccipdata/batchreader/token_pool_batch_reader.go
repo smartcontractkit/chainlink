@@ -4,17 +4,18 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+
 	type_and_version "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/type_and_version_interface_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_4_0"
@@ -172,7 +173,7 @@ func getBatchedTypeAndVersion(ctx context.Context, evmBatchCaller rpclib.EvmBatc
 		if err1 != nil {
 			// typeAndVersion method do not exist for 1.0 pools. We are going to get an ErrEmptyOutput in that case.
 			// Some chains, like the simulated chains, will simply revert with "execution reverted"
-			if errors.Is(err1, rpclib.ErrEmptyOutput) || strings.Contains(err1.Error(), "execution reverted") {
+			if errors.Is(err1, rpclib.ErrEmptyOutput) || ccipcommon.IsTxRevertError(err1) {
 				return "LegacyPool " + ccipdata.V1_0_0, nil
 			}
 			return "", err1

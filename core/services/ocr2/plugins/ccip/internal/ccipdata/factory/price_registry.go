@@ -2,16 +2,17 @@ package factory
 
 import (
 	"context"
-	"strings"
 
 	"github.com/pkg/errors"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
@@ -36,8 +37,7 @@ func initOrClosePriceRegistryReader(ctx context.Context, lggr logger.Logger, ver
 	}
 
 	contractType, version, err := versionFinder.TypeAndVersion(priceRegistryAddress, cl)
-	isV1_0_0 := (err != nil && strings.Contains(err.Error(), "execution reverted")) ||
-		(contractType == ccipconfig.PriceRegistry && version.String() == ccipdata.V1_0_0)
+	isV1_0_0 := ccipcommon.IsTxRevertError(err) || (contractType == ccipconfig.PriceRegistry && version.String() == ccipdata.V1_0_0)
 	if isV1_0_0 {
 		lggr.Infof("Assuming %v is 1.0.0 price registry, got %v", priceRegistryEvmAddr, err)
 		// Unfortunately the v1 price registry doesn't have a method to get the version so assume if it reverts its v1.
