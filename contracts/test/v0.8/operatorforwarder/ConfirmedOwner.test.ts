@@ -2,7 +2,7 @@ import { ethers } from 'hardhat'
 import { publicAbi } from '../../test-helpers/helpers'
 import { assert, expect } from 'chai'
 import { Contract, ContractFactory, Signer } from 'ethers'
-import { Personas, getUsers } from '../../test-helpers/setup'
+import { getUsers, Personas } from '../../test-helpers/setup'
 import { evmRevert } from '../../test-helpers/matchers'
 
 let confirmedOwnerTestHelperFactory: ContractFactory
@@ -13,6 +13,7 @@ let owner: Signer
 let nonOwner: Signer
 let newOwner: Signer
 
+// TODO rewrite in Foundry
 before(async () => {
   const users = await getUsers()
   personas = users.personas
@@ -21,7 +22,7 @@ before(async () => {
   newOwner = personas.Ned
 
   confirmedOwnerTestHelperFactory = await ethers.getContractFactory(
-    'src/v0.7/tests/ConfirmedOwnerTestHelper.sol:ConfirmedOwnerTestHelper',
+    'src/v0.8/shared/test/testhelpers/ConfirmedOwnerTestHelper.sol:ConfirmedOwnerTestHelper',
     owner,
   )
   confirmedOwnerFactory = await ethers.getContractFactory(

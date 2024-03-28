@@ -59,11 +59,11 @@ contract OptimismCrossDomainGovernor is DelegateForwarderInterface, OptimismCros
   modifier onlyLocalOrCrossDomainOwner() {
     address messenger = crossDomainMessenger();
     // 1. The delegatecall MUST come from either the L1 owner (via cross-chain message) or the L2 owner
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(msg.sender == messenger || msg.sender == owner(), "Sender is not the L2 messenger or owner");
     // 2. The L2 Messenger's caller MUST be the L1 Owner
     if (msg.sender == messenger) {
-      // solhint-disable-next-line custom-errors
+      // solhint-disable-next-line gas-custom-errors
       require(
         iOVM_CrossDomainMessenger(messenger).xDomainMessageSender() == l1Owner(),
         "xDomain sender is not the L1 owner"

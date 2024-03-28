@@ -92,6 +92,7 @@ ListenAddresses = ["0.0.0.0:6690"]`
 		FallbackLinkPrice:    big.NewInt(2e18),
 		MaxCheckDataSize:     uint32(5000),
 		MaxPerformDataSize:   uint32(5000),
+		MaxRevertDataSize:    uint32(5000),
 	}
 )
 

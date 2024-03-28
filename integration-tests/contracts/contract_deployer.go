@@ -111,7 +111,7 @@ type ContractDeployer interface {
 	LoadKeeperRegistry(address common.Address, registryVersion eth_contracts.KeeperRegistryVersion) (KeeperRegistry, error)
 	DeployKeeperConsumer(updateInterval *big.Int) (KeeperConsumer, error)
 	DeployAutomationLogTriggerConsumer(testInterval *big.Int) (KeeperConsumer, error)
-	DeployAutomationSimpleLogTriggerConsumer() (KeeperConsumer, error)
+	DeployAutomationSimpleLogTriggerConsumer(isStreamsLookup bool) (KeeperConsumer, error)
 	DeployAutomationStreamsLookupUpkeepConsumer(testRange *big.Int, interval *big.Int, useArbBlock bool, staging bool, verify bool) (KeeperConsumer, error)
 	DeployAutomationLogTriggeredStreamsLookupUpkeepConsumer() (KeeperConsumer, error)
 	DeployKeeperConsumerPerformance(
@@ -133,13 +133,13 @@ type ContractDeployer interface {
 	DeployVRFv2LoadTestConsumer(coordinatorAddr string) (VRFv2LoadTestConsumer, error)
 	DeployVRFV2WrapperLoadTestConsumer(linkAddr string, vrfV2WrapperAddr string) (VRFv2WrapperLoadTestConsumer, error)
 	DeployVRFv2PlusLoadTestConsumer(coordinatorAddr string) (VRFv2PlusLoadTestConsumer, error)
-	DeployVRFV2PlusWrapperLoadTestConsumer(linkAddr string, vrfV2PlusWrapperAddr string) (VRFv2PlusWrapperLoadTestConsumer, error)
+	DeployVRFV2PlusWrapperLoadTestConsumer(vrfV2PlusWrapperAddr string) (VRFv2PlusWrapperLoadTestConsumer, error)
 	DeployVRFCoordinator(linkAddr string, bhsAddr string) (VRFCoordinator, error)
 	DeployVRFCoordinatorV2(linkAddr string, bhsAddr string, linkEthFeedAddr string) (VRFCoordinatorV2, error)
 	DeployVRFCoordinatorV2_5(bhsAddr string) (VRFCoordinatorV2_5, error)
 	DeployVRFCoordinatorV2PlusUpgradedVersion(bhsAddr string) (VRFCoordinatorV2PlusUpgradedVersion, error)
 	DeployVRFV2Wrapper(linkAddr string, linkEthFeedAddr string, coordinatorAddr string) (VRFV2Wrapper, error)
-	DeployVRFV2PlusWrapper(linkAddr string, linkEthFeedAddr string, coordinatorAddr string) (VRFV2PlusWrapper, error)
+	DeployVRFV2PlusWrapper(linkAddr string, linkEthFeedAddr string, coordinatorAddr string, subId *big.Int) (VRFV2PlusWrapper, error)
 	DeployDKG() (DKG, error)
 	DeployOCR2VRFCoordinator(beaconPeriodBlocksCount *big.Int, linkAddr string) (VRFCoordinatorV3, error)
 	DeployVRFBeacon(vrfCoordinatorAddress string, linkAddress string, dkgAddress string, keyId string) (VRFBeacon, error)
@@ -350,7 +350,7 @@ func (e *EthereumContractDeployer) DeployFluxAggregatorContract(
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumFluxAggregator{
+	return &LegacyEthereumFluxAggregator{
 		client:         e.client,
 		fluxAggregator: instance.(*flux_aggregator_wrapper.FluxAggregator),
 		address:        address,
@@ -539,7 +539,7 @@ func (e *EthereumContractDeployer) DeployLinkTokenContract() (LinkToken, error) 
 		return nil, err
 	}
 
-	return &EthereumLinkToken{
+	return &LegacyEthereumLinkToken{
 		client:   e.client,
 		instance: instance.(*link_token_interface.LinkToken),
 		address:  *linkTokenAddress,
@@ -558,7 +558,7 @@ func (e *EthereumContractDeployer) LoadLinkToken(address common.Address) (LinkTo
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumLinkToken{
+	return &LegacyEthereumLinkToken{
 		address:  address,
 		client:   e.client,
 		instance: instance.(*link_token_interface.LinkToken),
@@ -679,7 +679,7 @@ func (e *EthereumContractDeployer) DeployAPIConsumer(linkAddr string) (APIConsum
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumAPIConsumer{
+	return &LegacyEthereumAPIConsumer{
 		address:  addr,
 		client:   e.client,
 		consumer: instance.(*test_api_consumer_wrapper.TestAPIConsumer),
@@ -697,7 +697,7 @@ func (e *EthereumContractDeployer) DeployOracle(linkAddr string) (Oracle, error)
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumOracle{
+	return &LegacyEthereumOracle{
 		address: addr,
 		client:  e.client,
 		oracle:  instance.(*oracle_wrapper.Oracle),
@@ -1517,13 +1517,13 @@ func (e *EthereumContractDeployer) DeployAutomationLogTriggerConsumer(testInterv
 	}, err
 }
 
-func (e *EthereumContractDeployer) DeployAutomationSimpleLogTriggerConsumer() (KeeperConsumer, error) {
+func (e *EthereumContractDeployer) DeployAutomationSimpleLogTriggerConsumer(isStreamsLookup bool) (KeeperConsumer, error) {
 	address, _, instance, err := e.client.DeployContract("SimpleLogUpkeepCounter", func(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
 		return simple_log_upkeep_counter_wrapper.DeploySimpleLogUpkeepCounter(
-			auth, backend,
+			auth, backend, isStreamsLookup,
 		)
 	})
 	if err != nil {

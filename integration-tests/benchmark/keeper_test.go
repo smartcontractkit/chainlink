@@ -165,6 +165,7 @@ func TestAutomationBenchmark(t *testing.T) {
 				FallbackLinkPrice:    big.NewInt(2e18),
 				MaxCheckDataSize:     uint32(5_000),
 				MaxPerformDataSize:   uint32(5_000),
+				MaxRevertDataSize:    uint32(5_000),
 			},
 			Upkeeps: &testsetups.UpkeepConfig{
 				NumberOfUpkeeps:     *config.Keeper.Common.NumberOfUpkeeps,
@@ -244,7 +245,7 @@ func getNetworkConfig(config *tc.TestConfig) NetworkConfig {
 	var nc NetworkConfig
 	var ok bool
 	if nc, ok = networkConfig[evmNetwork.Name]; !ok {
-		return defaultNetworkConfig
+		nc = defaultNetworkConfig
 	}
 
 	if evmNetwork.Name == networks.SimulatedEVM.Name || evmNetwork.Name == networks.SimulatedEVMNonDev.Name {
@@ -284,7 +285,7 @@ var networkConfig = map[string]NetworkConfig{
 		blockTime:  12 * time.Second,
 		deltaStage: time.Duration(0),
 	},
-	networks.BaseGoerli.Name: {
+	networks.BaseSepolia.Name: {
 		upkeepSLA:  int64(60),
 		blockTime:  2 * time.Second,
 		deltaStage: 20 * time.Second,

@@ -27,11 +27,11 @@ func SetupCluster(
 	if err != nil {
 		return common.Address{}, err
 	}
-	linkDeploymentData, err := contracts.DeployLinkTokenContract(seth)
+	linkContract, err := contracts.DeployLinkTokenContract(l, seth)
 	if err != nil {
 		return common.Address{}, err
 	}
-	return linkDeploymentData.Address, nil
+	return common.HexToAddress(linkContract.Address()), nil
 }
 
 func SetupFeed(
