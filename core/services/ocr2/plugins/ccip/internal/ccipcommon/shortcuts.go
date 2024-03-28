@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"sort"
+	"strings"
 	"sync"
 
 	"golang.org/x/sync/errgroup"
@@ -136,4 +137,15 @@ func FlattenUniqueSlice[T comparable](slices ...[]T) []T {
 		}
 	}
 	return flattened
+}
+
+func IsTxRevertError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	// Geth eth_call reverts with "execution reverted"
+	// Nethermind, Parity, OpenEthereum eth_call reverts with "VM execution error"
+	// See: https://github.com/ethereum/go-ethereum/issues/21886
+	return strings.Contains(err.Error(), "execution reverted") || strings.Contains(err.Error(), "VM execution error")
 }

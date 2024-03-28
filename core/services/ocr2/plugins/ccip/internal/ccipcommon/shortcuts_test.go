@@ -1,6 +1,7 @@
 package ccipcommon
 
 import (
+	"fmt"
 	"math/rand"
 	"sort"
 	"strconv"
@@ -219,6 +220,25 @@ func TestGetChainTokensWithBatchLimit(t *testing.T) {
 
 			assert.NoError(t, err)
 			assert.Equal(t, expectedTokens, chainTokens)
+		})
+	}
+}
+
+func TestIsTxRevertError(t *testing.T) {
+	testCases := []struct {
+		name           string
+		inputError     error
+		expectedOutput bool
+	}{
+		{name: "empty", inputError: nil, expectedOutput: false},
+		{name: "non-revert error", inputError: fmt.Errorf("nothing"), expectedOutput: false},
+		{name: "geth error", inputError: fmt.Errorf("execution reverted"), expectedOutput: true},
+		{name: "nethermind error", inputError: fmt.Errorf("VM execution error"), expectedOutput: true},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.expectedOutput, IsTxRevertError(tc.inputError))
 		})
 	}
 }
