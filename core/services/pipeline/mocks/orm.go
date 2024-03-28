@@ -275,6 +275,31 @@ func (_m *ORM) InsertFinishedRun(run *pipeline.Run, saveSuccessfulTaskRuns bool,
 	return r0
 }
 
+// InsertFinishedRunWithSpec provides a mock function with given fields: run, saveSuccessfulTaskRuns, qopts
+func (_m *ORM) InsertFinishedRunWithSpec(run *pipeline.Run, saveSuccessfulTaskRuns bool, qopts ...pg.QOpt) error {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, run, saveSuccessfulTaskRuns)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for InsertFinishedRunWithSpec")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(*pipeline.Run, bool, ...pg.QOpt) error); ok {
+		r0 = rf(run, saveSuccessfulTaskRuns, qopts...)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // InsertFinishedRuns provides a mock function with given fields: run, saveSuccessfulTaskRuns, qopts
 func (_m *ORM) InsertFinishedRuns(run []*pipeline.Run, saveSuccessfulTaskRuns bool, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))

@@ -163,7 +163,7 @@ type Job struct {
 	EALSpecID                     *int32
 	LiquidityBalancerSpec         *LiquidityBalancerSpec
 	LiquidityBalancerSpecID       *int32
-	PipelineSpecID                int32
+	PipelineSpecID                int32 // This is deprecated in favor of the `job_pipeline_specs` table relationship
 	PipelineSpec                  *pipeline.Spec
 	JobSpecErrors                 []SpecError
 	Type                          Type          `toml:"type"`
@@ -208,6 +208,12 @@ func (j *Job) SetID(value string) error {
 	return nil
 }
 
+type PipelineSpec struct {
+	JobID          int32 `json:"-"`
+	PipelineSpecID int32 `json:"-"`
+	IsPrimary      bool  `json:"is_primary"`
+}
+
 type SpecError struct {
 	ID          int64
 	JobID       int32
@@ -229,7 +235,8 @@ func (j *SpecError) SetID(value string) error {
 }
 
 type PipelineRun struct {
-	ID int64 `json:"-"`
+	ID         int64 `json:"-"`
+	PruningKey int64 `json:"-"`
 }
 
 func (pr PipelineRun) GetID() string {

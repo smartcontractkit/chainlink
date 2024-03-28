@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -14,7 +15,7 @@ import (
 var _ types.PipelineRunnerService = (*PipelineRunnerAdapter)(nil)
 
 type pipelineRunner interface {
-	ExecuteRun(ctx context.Context, spec pipeline.Spec, vars pipeline.Vars, l logger.Logger) (run *pipeline.Run, trrs pipeline.TaskRunResults, err error)
+	ExecuteAndInsertFinishedRun(ctx context.Context, spec pipeline.Spec, vars pipeline.Vars, l logger.Logger, saveSuccessfulTaskRuns bool) (runID int64, results pipeline.TaskRunResults, err error)
 }
 
 type PipelineRunnerAdapter struct {
@@ -44,7 +45,7 @@ func (p *PipelineRunnerAdapter) ExecuteRun(ctx context.Context, spec string, var
 	merge(defaultVars, vars.Vars)
 
 	finalVars := pipeline.NewVarsFrom(defaultVars)
-	_, trrs, err := p.runner.ExecuteRun(ctx, s, finalVars, p.logger)
+	_, trrs, err := p.runner.ExecuteAndInsertFinishedRun(ctx, s, finalVars, p.logger, true)
 	if err != nil {
 		return nil, err
 	}
