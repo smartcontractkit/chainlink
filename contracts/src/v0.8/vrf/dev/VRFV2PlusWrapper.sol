@@ -637,7 +637,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   }
 
   function typeAndVersion() external pure virtual override returns (string memory) {
-    return "VRFV2Wrapper 1.0.0";
+    return "VRFV2PlusWrapper 1.0.0";
   }
 
   modifier onlyConfiguredNotDisabled() {
