@@ -71,7 +71,7 @@ require (
 	github.com/shirou/gopsutil/v3 v3.23.11
 	github.com/shopspring/decimal v1.3.1
 	github.com/smartcontractkit/chain-selectors v1.0.10
-	github.com/smartcontractkit/chainlink-automation v1.0.2-0.20240327010126-18c6a086beed
+	github.com/smartcontractkit/chainlink-automation v1.0.2-0.20240327153605-196602c73071
 	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240327003736-b5f6f5e99c70
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240213120401-01a23955f9f8
 	github.com/smartcontractkit/chainlink-data-streams v0.0.0-20240220203239-09be0ea34540
