@@ -1,2 +1,3 @@
 GETH_VERSION: 1.13.8
 forwarder: ../../../contracts/solc/v0.8.19/KeystoneForwarder/KeystoneForwarder.abi ../../../contracts/solc/v0.8.19/KeystoneForwarder/KeystoneForwarder.bin 4886b538e1fdc8aaf860901de36269e0c35acfd3e6eb190654d693ff9dbd4b6d
+ocr3_capability: ../../../contracts/solc/v0.8.19/OCR3Capability/OCR3Capability.abi ../../../contracts/solc/v0.8.19/OCR3Capability/OCR3Capability.bin 9dcbdf55bd5729ba266148da3f17733eb592c871c2108ccca546618628fd9ad2
