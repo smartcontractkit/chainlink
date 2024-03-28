@@ -1,13 +1,47 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/smartcontractkit/chainlink/v2/core/services/workflows/workflow-spec",
-  "$ref": "#/$defs/workflowSpec",
+  "$id": "https://github.com/smartcontractkit/chainlink/v2/core/services/workflows/workflow-spec-yaml",
+  "$ref": "#/$defs/workflowSpecYaml",
   "$defs": {
-    "stepDefinition": {
-      "properties": {
-        "type": {
+    "stepDefinitionType": {
+      "oneOf": [
+        {
           "type": "string",
           "pattern": "^[a-z0-9_\\-:]+@(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$"
+        },
+        {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "$id": "https://github.com/smartcontractkit/chainlink/v2/core/services/workflows/step-definition-table-type",
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "version": {
+              "type": "string",
+              "pattern": "(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$"
+            },
+            "tags": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "name",
+            "version",
+            "tags"
+          ]
+        }
+      ],
+      "title": "type"
+    },
+    "stepDefinitionYaml": {
+      "properties": {
+        "type": {
+          "$ref": "#/$defs/stepDefinitionType"
         },
         "ref": {
           "type": "string",
@@ -27,29 +61,29 @@
         "config"
       ]
     },
-    "workflowSpec": {
+    "workflowSpecYaml": {
       "properties": {
         "triggers": {
           "items": {
-            "$ref": "#/$defs/stepDefinition"
+            "$ref": "#/$defs/stepDefinitionYaml"
           },
           "type": "array"
         },
         "actions": {
           "items": {
-            "$ref": "#/$defs/stepDefinition"
+            "$ref": "#/$defs/stepDefinitionYaml"
           },
           "type": "array"
         },
         "consensus": {
           "items": {
-            "$ref": "#/$defs/stepDefinition"
+            "$ref": "#/$defs/stepDefinitionYaml"
           },
           "type": "array"
         },
         "targets": {
           "items": {
-            "$ref": "#/$defs/stepDefinition"
+            "$ref": "#/$defs/stepDefinitionYaml"
           },
           "type": "array"
         }
