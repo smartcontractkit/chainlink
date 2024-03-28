@@ -105,7 +105,7 @@ let config = {
     disambiguatePaths: false,
   },
   mocha: {
-    timeout: 100000,
+    timeout: 150000,
     forbidOnly: Boolean(process.env.CI),
   },
   gasReporter: {

@@ -2109,7 +2109,6 @@ describe('AutomationRegistry2_3', () => {
         },
       )
 
-      // skipping it for now as it is passing in local but failing in CI
       describeMaybe(
         'Gas benchmarking conditional upkeeps [ @skip-coverage ]',
         function () {
