@@ -21,39 +21,32 @@ type EvmEstimator struct {
 	mock.Mock
 }
 
-// BumpDynamicFee provides a mock function with given fields: ctx, original, gasLimit, maxGasPriceWei, attempts
-func (_m *EvmEstimator) BumpDynamicFee(ctx context.Context, original gas.DynamicFee, gasLimit uint64, maxGasPriceWei *assets.Wei, attempts []gas.EvmPriorAttempt) (gas.DynamicFee, uint64, error) {
-	ret := _m.Called(ctx, original, gasLimit, maxGasPriceWei, attempts)
+// BumpDynamicFee provides a mock function with given fields: ctx, original, maxGasPriceWei, attempts
+func (_m *EvmEstimator) BumpDynamicFee(ctx context.Context, original gas.DynamicFee, maxGasPriceWei *assets.Wei, attempts []gas.EvmPriorAttempt) (gas.DynamicFee, error) {
+	ret := _m.Called(ctx, original, maxGasPriceWei, attempts)
 
 	if len(ret) == 0 {
 		panic("no return value specified for BumpDynamicFee")
 	}
 
 	var r0 gas.DynamicFee
-	var r1 uint64
-	var r2 error
-	if rf, ok := ret.Get(0).(func(context.Context, gas.DynamicFee, uint64, *assets.Wei, []gas.EvmPriorAttempt) (gas.DynamicFee, uint64, error)); ok {
-		return rf(ctx, original, gasLimit, maxGasPriceWei, attempts)
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, gas.DynamicFee, *assets.Wei, []gas.EvmPriorAttempt) (gas.DynamicFee, error)); ok {
+		return rf(ctx, original, maxGasPriceWei, attempts)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, gas.DynamicFee, uint64, *assets.Wei, []gas.EvmPriorAttempt) gas.DynamicFee); ok {
-		r0 = rf(ctx, original, gasLimit, maxGasPriceWei, attempts)
+	if rf, ok := ret.Get(0).(func(context.Context, gas.DynamicFee, *assets.Wei, []gas.EvmPriorAttempt) gas.DynamicFee); ok {
+		r0 = rf(ctx, original, maxGasPriceWei, attempts)
 	} else {
 		r0 = ret.Get(0).(gas.DynamicFee)
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, gas.DynamicFee, uint64, *assets.Wei, []gas.EvmPriorAttempt) uint64); ok {
-		r1 = rf(ctx, original, gasLimit, maxGasPriceWei, attempts)
+	if rf, ok := ret.Get(1).(func(context.Context, gas.DynamicFee, *assets.Wei, []gas.EvmPriorAttempt) error); ok {
+		r1 = rf(ctx, original, maxGasPriceWei, attempts)
 	} else {
-		r1 = ret.Get(1).(uint64)
+		r1 = ret.Error(1)
 	}
 
-	if rf, ok := ret.Get(2).(func(context.Context, gas.DynamicFee, uint64, *assets.Wei, []gas.EvmPriorAttempt) error); ok {
-		r2 = rf(ctx, original, gasLimit, maxGasPriceWei, attempts)
-	} else {
-		r2 = ret.Error(2)
-	}
-
-	return r0, r1, r2
+	return r0, r1
 }
 
 // BumpLegacyGas provides a mock function with given fields: ctx, originalGasPrice, gasLimit, maxGasPriceWei, attempts
@@ -111,39 +104,32 @@ func (_m *EvmEstimator) Close() error {
 	return r0
 }
 
-// GetDynamicFee provides a mock function with given fields: ctx, gasLimit, maxGasPriceWei
-func (_m *EvmEstimator) GetDynamicFee(ctx context.Context, gasLimit uint64, maxGasPriceWei *assets.Wei) (gas.DynamicFee, uint64, error) {
-	ret := _m.Called(ctx, gasLimit, maxGasPriceWei)
+// GetDynamicFee provides a mock function with given fields: ctx, maxGasPriceWei
+func (_m *EvmEstimator) GetDynamicFee(ctx context.Context, maxGasPriceWei *assets.Wei) (gas.DynamicFee, error) {
+	ret := _m.Called(ctx, maxGasPriceWei)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetDynamicFee")
 	}
 
 	var r0 gas.DynamicFee
-	var r1 uint64
-	var r2 error
-	if rf, ok := ret.Get(0).(func(context.Context, uint64, *assets.Wei) (gas.DynamicFee, uint64, error)); ok {
-		return rf(ctx, gasLimit, maxGasPriceWei)
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, *assets.Wei) (gas.DynamicFee, error)); ok {
+		return rf(ctx, maxGasPriceWei)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, uint64, *assets.Wei) gas.DynamicFee); ok {
-		r0 = rf(ctx, gasLimit, maxGasPriceWei)
+	if rf, ok := ret.Get(0).(func(context.Context, *assets.Wei) gas.DynamicFee); ok {
+		r0 = rf(ctx, maxGasPriceWei)
 	} else {
 		r0 = ret.Get(0).(gas.DynamicFee)
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, uint64, *assets.Wei) uint64); ok {
-		r1 = rf(ctx, gasLimit, maxGasPriceWei)
+	if rf, ok := ret.Get(1).(func(context.Context, *assets.Wei) error); ok {
+		r1 = rf(ctx, maxGasPriceWei)
 	} else {
-		r1 = ret.Get(1).(uint64)
+		r1 = ret.Error(1)
 	}
 
-	if rf, ok := ret.Get(2).(func(context.Context, uint64, *assets.Wei) error); ok {
-		r2 = rf(ctx, gasLimit, maxGasPriceWei)
-	} else {
-		r2 = ret.Error(2)
-	}
-
-	return r0, r1, r2
+	return r0, r1
 }
 
 // GetLegacyGas provides a mock function with given fields: ctx, calldata, gasLimit, maxGasPriceWei, opts
