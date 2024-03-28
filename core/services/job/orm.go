@@ -916,7 +916,7 @@ WHERE ocr2spec.id IS NOT NULL OR bs.id IS NOT NULL
 func (o *orm) findJob(jb *Job, col string, arg interface{}, qopts ...pg.QOpt) error {
 	q := o.q.WithOpts(qopts...)
 	err := q.Transaction(func(tx pg.Queryer) error {
-		sql := fmt.Sprintf(`SELECT jobs.*, job_pipeline_specs.pipeline_spec_id FROM jobs JOIN job_pipeline_specs ON (jobs.id = job_pipeline_specs.job_id) WHERE jobs.%s = $1 LIMIT 1`, col)
+		sql := fmt.Sprintf(`SELECT jobs.*, job_pipeline_specs.pipeline_spec_id FROM jobs JOIN job_pipeline_specs ON (jobs.id = job_pipeline_specs.job_id) WHERE jobs.%s = $1 AND job_pipeline_specs.is_primary = true LIMIT 1`, col)
 		err := tx.Get(jb, sql, arg)
 		if err != nil {
 			return errors.Wrap(err, "failed to load job")
