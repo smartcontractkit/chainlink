@@ -102,6 +102,8 @@ type logEventProvider struct {
 	opts LogTriggersOptions
 
 	currentPartitionIdx uint64
+
+	chainID *big.Int
 }
 
 func NewLogProvider(lggr logger.Logger, poller logpoller.LogPoller, chainID *big.Int, packer LogDataPacker, filterStore UpkeepFilterStore, opts LogTriggersOptions) *logEventProvider {
@@ -116,12 +118,23 @@ func NewLogProvider(lggr logger.Logger, poller logpoller.LogPoller, chainID *big
 		poller:      poller,
 		opts:        opts,
 		filterStore: filterStore,
+		chainID:     chainID,
 	}
 }
 
 func (p *logEventProvider) SetConfig(cfg ocr2keepers.LogEventProviderConfig) {
-	p.lggr.With("where", "setConfig").Infow("setting config ", "bockRate", cfg.BlockRate, "logLimit", cfg.LogLimit)
-	p.buffer.SetConfig(cfg.BlockRate, cfg.LogLimit)
+	blockRate := cfg.BlockRate
+	logLimit := cfg.LogLimit
+
+	if blockRate == 0 {
+		blockRate = defaultBlockRateForChain(p.chainID)
+	}
+	if logLimit == 0 {
+		logLimit = defaultLogLimitForChain(p.chainID)
+	}
+
+	p.lggr.With("where", "setConfig").Infow("setting config ", "bockRate", blockRate, "logLimit", logLimit)
+	p.buffer.SetConfig(blockRate, logLimit)
 }
 
 func (p *logEventProvider) Start(context.Context) error {

@@ -152,9 +152,6 @@ type logEventBuffer struct {
 	blocks []fetchedBlock
 	// latestBlock is the latest block number seen
 	latestBlock int64
-
-	defaultBlockRate uint32
-	defaultLogLimit  uint32
 }
 
 func newLogEventBuffer(lggr logger.Logger, size int, numOfLogUpkeeps, fastExecLogsHigh int, defaultBlockRate, defaultLogLimit uint32) *logEventBuffer {
@@ -164,8 +161,6 @@ func newLogEventBuffer(lggr logger.Logger, size int, numOfLogUpkeeps, fastExecLo
 		blocks:           make([]fetchedBlock, size),
 		numOfLogUpkeeps:  uint32(numOfLogUpkeeps),
 		fastExecLogsHigh: uint32(fastExecLogsHigh),
-		defaultBlockRate: defaultBlockRate,
-		defaultLogLimit:  defaultLogLimit,
 		blockRate:        defaultBlockRate,
 		logLimit:         defaultLogLimit,
 	}
@@ -180,13 +175,6 @@ func (b *logEventBuffer) bufferSize() int {
 }
 
 func (b *logEventBuffer) SetConfig(blockRate, logLimit uint32) {
-	if blockRate == 0 {
-		blockRate = b.defaultBlockRate
-	}
-	if logLimit == 0 {
-		logLimit = b.defaultLogLimit
-	}
-
 	b.lggr.With("where", "setConfig").Infow("setting config", "blockRate", blockRate, "logLimit", logLimit)
 
 	atomic.StoreUint32(&b.blockRate, blockRate)

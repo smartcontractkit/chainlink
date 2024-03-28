@@ -22,7 +22,7 @@ import (
 )
 
 func TestLogEventProvider_GetFilters(t *testing.T) {
-	p := NewLogProvider(logger.TestLogger(t), nil, &mockedPacker{}, NewUpkeepFilterStore(), NewOptions(200))
+	p := NewLogProvider(logger.TestLogger(t), nil, big.NewInt(1), &mockedPacker{}, NewUpkeepFilterStore(), NewOptions(200))
 
 	_, f := newEntry(p, 1)
 	p.filterStore.AddActiveUpkeeps(f)
@@ -64,7 +64,7 @@ func TestLogEventProvider_GetFilters(t *testing.T) {
 }
 
 func TestLogEventProvider_UpdateEntriesLastPoll(t *testing.T) {
-	p := NewLogProvider(logger.TestLogger(t), nil, &mockedPacker{}, NewUpkeepFilterStore(), NewOptions(200))
+	p := NewLogProvider(logger.TestLogger(t), nil, big.NewInt(1), &mockedPacker{}, NewUpkeepFilterStore(), NewOptions(200))
 
 	n := 10
 
@@ -180,7 +180,7 @@ func TestLogEventProvider_ScheduleReadJobs(t *testing.T) {
 			opts := NewOptions(200)
 			opts.ReadInterval = readInterval
 
-			p := NewLogProvider(logger.TestLogger(t), mp, &mockedPacker{}, NewUpkeepFilterStore(), opts)
+			p := NewLogProvider(logger.TestLogger(t), mp, big.NewInt(1), &mockedPacker{}, NewUpkeepFilterStore(), opts)
 
 			var ids []*big.Int
 			for i, id := range tc.ids {
@@ -255,7 +255,7 @@ func TestLogEventProvider_ReadLogs(t *testing.T) {
 	}, nil)
 
 	filterStore := NewUpkeepFilterStore()
-	p := NewLogProvider(logger.TestLogger(t), mp, &mockedPacker{}, filterStore, NewOptions(200))
+	p := NewLogProvider(logger.TestLogger(t), mp, big.NewInt(1), &mockedPacker{}, filterStore, NewOptions(200))
 
 	var ids []*big.Int
 	for i := 0; i < 10; i++ {
@@ -321,8 +321,10 @@ func newEntry(p *logEventProvider, i int, args ...string) (LogTriggerConfig, upk
 func TestLogEventProvider_SetConfig(t *testing.T) {
 	mp := new(mocks.LogPoller)
 
+	chainID := big.NewInt(1)
+
 	filterStore := NewUpkeepFilterStore()
-	p := NewLogProvider(logger.TestLogger(t), mp, &mockedPacker{}, filterStore, NewOptions(200))
+	p := NewLogProvider(logger.TestLogger(t), mp, chainID, &mockedPacker{}, filterStore, NewOptions(200))
 
 	for _, tc := range []struct {
 		numLogUpkeeps uint32
@@ -343,21 +345,21 @@ func TestLogEventProvider_SetConfig(t *testing.T) {
 			logLimit:      0,
 
 			wantNumLogUpkeeps: 10,
-			wantLogLimit:      defaultLogLimit,
+			wantLogLimit:      defaultLogLimitForChain(chainID),
 		},
 		{
 			numLogUpkeeps: 0,
 			logLimit:      50,
 
-			wantNumLogUpkeeps: defaultBlockRate,
+			wantNumLogUpkeeps: defaultBlockRateForChain(chainID),
 			wantLogLimit:      50,
 		},
 		{
 			numLogUpkeeps: 0,
 			logLimit:      0,
 
-			wantNumLogUpkeeps: defaultBlockRate,
-			wantLogLimit:      defaultLogLimit,
+			wantNumLogUpkeeps: defaultBlockRateForChain(chainID),
+			wantLogLimit:      defaultLogLimitForChain(chainID),
 		},
 	} {
 		p.SetConfig(ocr2keepers.LogEventProviderConfig{
