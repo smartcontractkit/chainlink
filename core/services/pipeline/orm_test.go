@@ -823,6 +823,12 @@ func Test_Prune(t *testing.T) {
 
 	ps1 := cltest.MustInsertPipelineSpec(t, db)
 
+	// We need a job_pipeline_specs entry to test the pruning mechanism
+	_, err := db.Exec(`SET CONSTRAINTS fk_job_pipeline_spec_job DEFERRED`)
+	require.NoError(t, err)
+	_, err = db.Exec(`INSERT INTO job_pipeline_specs (job_id,pipeline_spec_id, is_primary) VALUES ($1, $2, false)`, ps1.ID, ps1.ID)
+	require.NoError(t, err)
+
 	jobID := ps1.ID
 
 	t.Run("when there are no runs to prune, does nothing", func(t *testing.T) {
@@ -832,7 +838,7 @@ func Test_Prune(t *testing.T) {
 		assert.Empty(t, observed.All())
 	})
 
-	_, err := db.Exec(`SET CONSTRAINTS fk_pipeline_runs_pruning_key DEFERRED`)
+	_, err = db.Exec(`SET CONSTRAINTS fk_pipeline_runs_pruning_key DEFERRED`)
 	require.NoError(t, err)
 
 	// ps1 has:

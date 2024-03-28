@@ -486,10 +486,6 @@ func MustInsertPipelineRunWithStatus(t *testing.T, db *sqlx.DB, pipelineSpecID i
 func MustInsertPipelineSpec(t *testing.T, db *sqlx.DB) (spec pipeline.Spec) {
 	err := db.Get(&spec, `INSERT INTO pipeline_specs (dot_dag_source,created_at) VALUES ('',NOW()) RETURNING *`)
 	require.NoError(t, err)
-	_, err = db.Exec(`SET CONSTRAINTS fk_job_pipeline_spec_job DEFERRED`)
-	require.NoError(t, err)
-	_, err = db.Exec(`INSERT INTO job_pipeline_specs (job_id,pipeline_spec_id, is_primary) VALUES ($1, $2, false)`, spec.ID, spec.ID)
-	require.NoError(t, err)
 	return
 }
 
