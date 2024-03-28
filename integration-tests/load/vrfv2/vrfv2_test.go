@@ -134,7 +134,7 @@ func TestVRFV2Performance(t *testing.T) {
 		require.Len(t, vrfContracts.VRFV2Consumers, 1, "only one consumer should be created for Load Test")
 		err = vrfContracts.VRFV2Consumers[0].ResetMetrics()
 		require.NoError(t, err)
-		MonitorLoadStats(lc, vrfContracts.VRFV2Consumers[0], updatedLabels)
+		MonitorLoadStats(testcontext.Get(t), lc, vrfContracts.VRFV2Consumers[0], updatedLabels)
 
 		singleFeedConfig := &wasp.Config{
 			T:                     t,
@@ -286,7 +286,7 @@ func TestVRFV2BHSPerformance(t *testing.T) {
 		require.Len(t, vrfContracts.VRFV2Consumers, 1, "only one consumer should be created for Load Test")
 		err = vrfContracts.VRFV2Consumers[0].ResetMetrics()
 		require.NoError(t, err, "error resetting consumer metrics")
-		MonitorLoadStats(lc, vrfContracts.VRFV2Consumers[0], updatedLabels)
+		MonitorLoadStats(testcontext.Get(t), lc, vrfContracts.VRFV2Consumers[0], updatedLabels)
 
 		singleFeedConfig := &wasp.Config{
 			T:                     t,
@@ -346,16 +346,18 @@ func teardown(
 	testConfig *tc.TestConfig,
 ) {
 	//send final results to Loki
-	metrics := GetLoadTestMetrics(consumer)
+	metrics := GetLoadTestMetrics(testcontext.Get(t), consumer)
 	SendMetricsToLoki(metrics, lc, updatedLabels)
 	//set report data for Slack notification
 	testReporter.SetReportData(
 		testType,
-		metrics.RequestCount,
-		metrics.FulfilmentCount,
-		metrics.AverageFulfillmentInMillions,
-		metrics.SlowestFulfillment,
-		metrics.FastestFulfillment,
+		testreporters.VRFLoadTestMetrics{
+			RequestCount:                 metrics.RequestCount,
+			FulfilmentCount:              metrics.FulfilmentCount,
+			AverageFulfillmentInMillions: metrics.AverageFulfillmentInMillions,
+			SlowestFulfillment:           metrics.SlowestFulfillment,
+			FastestFulfillment:           metrics.FastestFulfillment,
+		},
 		testConfig,
 	)
 

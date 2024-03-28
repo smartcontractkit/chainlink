@@ -53,7 +53,7 @@ func (d *DataSource) Observe(ctx context.Context, reportTimestamp ocrtypes.Repor
 		return nil, fmt.Errorf("pipeline execution failed: %w", finalResult.Error)
 	}
 
-	asDecimal, err := utils.ToDecimal(finalResult.Value)
+	asDecimal, err := utils.ToDecimal(finalResult.Value.Val)
 	if err != nil {
 		return nil, errors.New("cannot convert observation to decimal")
 	}
