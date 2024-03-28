@@ -467,14 +467,14 @@ mockserver:
     limits:
       cpu: 1
       memory: 1024Mi
-    securityContext:
-      capabilities:
-        drop:
-          - ALL
-      readOnlyRootFilesystem: false
-      runAsNonRoot: true
-      runAsUser: 999
-      runAsGroup: 999
+  securityContext:
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: false
+    runAsNonRoot: true
+    runAsUser: 999
+    runAsGroup: 999
 opentelemetry-collector:
   enabled: true
   mode: deployment
