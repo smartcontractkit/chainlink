@@ -63,6 +63,7 @@
     "ethers": "~5.7.2",
     "hardhat": "~2.20.1",
     "hardhat-abi-exporter": "^2.10.1",
+    "hardhat-ignore-warnings": "^0.2.6",
     "moment": "^2.30.1",
     "prettier": "^3.2.5",
     "prettier-plugin-solidity": "1.3.1",

@@ -124,6 +124,9 @@ devDependencies:
   hardhat-abi-exporter:
     specifier: ^2.10.1
     version: 2.10.1(hardhat@2.20.1)
+  hardhat-ignore-warnings:
+    specifier: ^0.2.6
+    version: 0.2.11
   moment:
     specifier: ^2.30.1
     version: 2.30.1
@@ -5764,6 +5767,14 @@ packages:
       hardhat: 2.20.1(ts-node@10.9.2)(typescript@5.4.3)
     dev: true
 
+  /hardhat-ignore-warnings@0.2.11:
+    resolution: {integrity: sha512-+nHnRbP6COFZaXE7HAY7TZNE3au5vHe5dkcnyq0XaP07ikT2fJ3NhFY0vn7Deh4Qbz0Z/9Xpnj2ki6Ktgk61pg==}
+    dependencies:
+      minimatch: 5.1.6
+      node-interval-tree: 2.1.2
+      solidity-comments: 0.0.2
+    dev: true
+
   /hardhat@2.20.1(ts-node@10.9.2)(typescript@5.4.3):
     resolution: {integrity: sha512-q75xDQiQtCZcTMBwjTovrXEU5ECr49baxr4/OBkIu/ULTPzlB20yk1dRWNmD2IFbAeAeXggaWvQAdpiScaHtPw==}
     hasBin: true
@@ -7612,6 +7623,13 @@ packages:
     hasBin: true
     dev: true
 
+  /node-interval-tree@2.1.2:
+    resolution: {integrity: sha512-bJ9zMDuNGzVQg1xv0bCPzyEDxHgbrx7/xGj6CDokvizZZmastPsOh0JJLuY8wA5q2SfX1TLNMk7XNV8WxbGxzA==}
+    engines: {node: '>= 14.0.0'}
+    dependencies:
+      shallowequal: 1.1.0
+    dev: true
+
   /nofilter@1.0.4:
     resolution: {integrity: sha512-N8lidFp+fCz+TD51+haYdbDGrcBWwuHX40F5+z0qkUjMJ5Tp+rdSuAkMJ9N9eoolDlEVTf6u5icM+cNKkKW2mA==}
     engines: {node: '>=8'}
@@ -9032,6 +9050,10 @@ packages:
       nan: 2.13.2
     dev: true
 
+  /shallowequal@1.1.0:
+    resolution: {integrity: sha512-y0m1JoUZSlPAjXVtPPW70aZWfIL/dSP7AFkRnniLCrK/8MDKog3TySTBmckD+RObVxH0v4Tox67+F14PdED2oQ==}
+    dev: true
+
   /shebang-command@1.2.0:
     resolution: {integrity: sha512-EV3L1+UQWGor21OmnvojK36mhg+TyIKDh3iFBKBohr5xeXIhNBcx8oWdgkTEEQ+BEFFYdLRuqMfd5L84N1V5Vg==}
     engines: {node: '>=0.10.0'}
@@ -9237,8 +9259,114 @@ packages:
       prettier: 2.8.8
     dev: true
 
+  /solidity-comments-darwin-arm64@0.0.2:
+    resolution: {integrity: sha512-HidWkVLSh7v+Vu0CA7oI21GWP/ZY7ro8g8OmIxE8oTqyMwgMbE8F1yc58Sj682Hj199HCZsjmtn1BE4PCbLiGA==}
+    engines: {node: '>= 10'}
+    cpu: [arm64]
+    os: [darwin]
+    requiresBuild: true
+    dev: true
+    optional: true
+
+  /solidity-comments-darwin-x64@0.0.2:
+    resolution: {integrity: sha512-Zjs0Ruz6faBTPT6fBecUt6qh4CdloT8Bwoc0+qxRoTn9UhYscmbPQkUgQEbS0FQPysYqVzzxJB4h1Ofbf4wwtA==}
+    engines: {node: '>= 10'}
+    cpu: [x64]
+    os: [darwin]
+    requiresBuild: true
+    dev: true
+    optional: true
+
   /solidity-comments-extractor@0.0.8:
     resolution: {integrity: sha512-htM7Vn6LhHreR+EglVMd2s+sZhcXAirB1Zlyrv5zBuTxieCvjfnRpd7iZk75m/u6NOlEyQ94C6TWbBn2cY7w8g==}
+    dev: true
+
+  /solidity-comments-freebsd-x64@0.0.2:
+    resolution: {integrity: sha512-8Qe4mpjuAxFSwZJVk7B8gAoLCdbtS412bQzBwk63L8dmlHogvE39iT70aAk3RHUddAppT5RMBunlPUCFYJ3ZTw==}
+    engines: {node: '>= 10'}
+    cpu: [x64]
+    os: [freebsd]
+    requiresBuild: true
+    dev: true
+    optional: true
+
+  /solidity-comments-linux-arm64-gnu@0.0.2:
+    resolution: {integrity: sha512-spkb0MZZnmrP+Wtq4UxP+nyPAVRe82idOjqndolcNR0S9Xvu4ebwq+LvF4HiUgjTDmeiqYiFZQ8T9KGdLSIoIg==}
+    engines: {node: '>= 10'}
+    cpu: [arm64]
+    os: [linux]
+    requiresBuild: true
+    dev: true
+    optional: true
+
+  /solidity-comments-linux-arm64-musl@0.0.2:
+    resolution: {integrity: sha512-guCDbHArcjE+JDXYkxx5RZzY1YF6OnAKCo+sTC5fstyW/KGKaQJNPyBNWuwYsQiaEHpvhW1ha537IvlGek8GqA==}
+    engines: {node: '>= 10'}
+    cpu: [arm64]
+    os: [linux]
+    requiresBuild: true
+    dev: true
+    optional: true
+
+  /solidity-comments-linux-x64-gnu@0.0.2:
+    resolution: {integrity: sha512-zIqLehBK/g7tvrFmQljrfZXfkEeLt2v6wbe+uFu6kH/qAHZa7ybt8Vc0wYcmjo2U0PeBm15d79ee3AkwbIjFdQ==}
+    engines: {node: '>= 10'}
+    cpu: [x64]
+    os: [linux]
+    requiresBuild: true
+    dev: true
+    optional: true
+
+  /solidity-comments-linux-x64-musl@0.0.2:
+    resolution: {integrity: sha512-R9FeDloVlFGTaVkOlELDVC7+1Tjx5WBPI5L8r0AGOPHK3+jOcRh6sKYpI+VskSPDc3vOO46INkpDgUXrKydlIw==}
+    engines: {node: '>= 10'}
+    cpu: [x64]
+    os: [linux]
+    requiresBuild: true
+    dev: true
+    optional: true
+
+  /solidity-comments-win32-arm64-msvc@0.0.2:
+    resolution: {integrity: sha512-QnWJoCQcJj+rnutULOihN9bixOtYWDdF5Rfz9fpHejL1BtNjdLW1om55XNVHGAHPqBxV4aeQQ6OirKnp9zKsug==}
+    engines: {node: '>= 10'}
+    cpu: [arm64]
+    os: [win32]
+    requiresBuild: true
+    dev: true
+    optional: true
+
+  /solidity-comments-win32-ia32-msvc@0.0.2:
+    resolution: {integrity: sha512-vUg4nADtm/NcOtlIymG23NWJUSuMsvX15nU7ynhGBsdKtt8xhdP3C/zA6vjDk8Jg+FXGQL6IHVQ++g/7rSQi0w==}
+    engines: {node: '>= 10'}
+    cpu: [ia32]
+    os: [win32]
+    requiresBuild: true
+    dev: true
+    optional: true
+
+  /solidity-comments-win32-x64-msvc@0.0.2:
+    resolution: {integrity: sha512-36j+KUF4V/y0t3qatHm/LF5sCUCBx2UndxE1kq5bOzh/s+nQgatuyB+Pd5BfuPQHdWu2KaExYe20FlAa6NL7+Q==}
+    engines: {node: '>= 10'}
+    cpu: [x64]
+    os: [win32]
+    requiresBuild: true
+    dev: true
+    optional: true
+
+  /solidity-comments@0.0.2:
+    resolution: {integrity: sha512-G+aK6qtyUfkn1guS8uzqUeua1dURwPlcOjoTYW/TwmXAcE7z/1+oGCfZUdMSe4ZMKklNbVZNiG5ibnF8gkkFfw==}
+    engines: {node: '>= 12'}
+    optionalDependencies:
+      solidity-comments-darwin-arm64: 0.0.2
+      solidity-comments-darwin-x64: 0.0.2
+      solidity-comments-freebsd-x64: 0.0.2
+      solidity-comments-linux-arm64-gnu: 0.0.2
+      solidity-comments-linux-arm64-musl: 0.0.2
+      solidity-comments-linux-x64-gnu: 0.0.2
+      solidity-comments-linux-x64-musl: 0.0.2
+      solidity-comments-win32-arm64-msvc: 0.0.2
+      solidity-comments-win32-ia32-msvc: 0.0.2
+      solidity-comments-win32-x64-msvc: 0.0.2
     dev: true
 
   /sort-any@2.0.0:
