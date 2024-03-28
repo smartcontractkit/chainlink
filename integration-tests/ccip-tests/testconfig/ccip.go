@@ -13,43 +13,49 @@ import (
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/config"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
 
 type CCIPTestConfig struct {
-	KeepEnvAlive               *bool              `toml:",omitempty"`
-	BiDirectionalLane          *bool              `toml:",omitempty"`
-	CommitAndExecuteOnSameDON  *bool              `toml:",omitempty"`
-	NoOfCommitNodes            int                `toml:",omitempty"`
-	MsgType                    string             `toml:",omitempty"`
-	DestGasLimit               *int64             `toml:",omitempty"`
-	MulticallInOneTx           *bool              `toml:",omitempty"`
-	NoOfSendsInMulticall       int                `toml:",omitempty"`
-	PhaseTimeout               *config.Duration   `toml:",omitempty"`
-	TestDuration               *config.Duration   `toml:",omitempty"`
-	LocalCluster               *bool              `toml:",omitempty"`
-	ExistingDeployment         *bool              `toml:",omitempty"`
-	TestRunName                string             `toml:",omitempty"`
-	ReuseContracts             *bool              `toml:",omitempty"`
-	NodeFunding                float64            `toml:",omitempty"`
-	RequestPerUnitTime         []int64            `toml:",omitempty"`
-	TimeUnit                   *config.Duration   `toml:",omitempty"`
-	StepDuration               []*config.Duration `toml:",omitempty"`
-	WaitBetweenChaosDuringLoad *config.Duration   `toml:",omitempty"`
-	NetworkPairs               []string           `toml:",omitempty"`
-	NoOfNetworks               int                `toml:",omitempty"`
-	NoOfRoutersPerPair         int                `toml:",omitempty"`
-	Blockscout                 bool               `toml:",omitempty"`
-	NoOfTokensPerChain         int                `toml:",omitempty"`
-	NoOfTokensInMsg            int                `toml:",omitempty"`
-	AmountPerToken             int64              `toml:",omitempty"`
-	MaxNoOfLanes               int                `toml:",omitempty"`
-	ChaosDuration              *config.Duration   `toml:",omitempty"`
-	USDCMockDeployment         *bool              `toml:",omitempty"`
-	TimeoutForPriceUpdate      *config.Duration   `toml:",omitempty"`
-	WithPipeline               *bool              `toml:",omitempty"`
-	FailOnFirstErrorInLoad     *bool              `toml:",omitempty"`
-	DynamicPriceUpdateInterval *config.Duration   `toml:",omitempty"`
-	SendMaxDataInEveryMsgCount *int64             `toml:",omitempty"`
+	KeepEnvAlive               *bool                                 `toml:",omitempty"`
+	BiDirectionalLane          *bool                                 `toml:",omitempty"`
+	CommitAndExecuteOnSameDON  *bool                                 `toml:",omitempty"`
+	NoOfCommitNodes            int                                   `toml:",omitempty"`
+	MsgType                    string                                `toml:",omitempty"`
+	DestGasLimit               *int64                                `toml:",omitempty"`
+	MulticallInOneTx           *bool                                 `toml:",omitempty"`
+	NoOfSendsInMulticall       int                                   `toml:",omitempty"`
+	PhaseTimeout               *config.Duration                      `toml:",omitempty"`
+	TestDuration               *config.Duration                      `toml:",omitempty"`
+	LocalCluster               *bool                                 `toml:",omitempty"`
+	ExistingDeployment         *bool                                 `toml:",omitempty"`
+	TestRunName                string                                `toml:",omitempty"`
+	ReuseContracts             *bool                                 `toml:",omitempty"`
+	NodeFunding                float64                               `toml:",omitempty"`
+	RequestPerUnitTime         []int64                               `toml:",omitempty"`
+	TimeUnit                   *config.Duration                      `toml:",omitempty"`
+	StepDuration               []*config.Duration                    `toml:",omitempty"`
+	WaitBetweenChaosDuringLoad *config.Duration                      `toml:",omitempty"`
+	NetworkPairs               []string                              `toml:",omitempty"`
+	NoOfNetworks               int                                   `toml:",omitempty"`
+	NoOfRoutersPerPair         int                                   `toml:",omitempty"`
+	Blockscout                 bool                                  `toml:",omitempty"`
+	NoOfTokensPerChain         int                                   `toml:",omitempty"`
+	NoOfTokensInMsg            int                                   `toml:",omitempty"`
+	AmountPerToken             int64                                 `toml:",omitempty"`
+	MaxNoOfLanes               int                                   `toml:",omitempty"`
+	ChaosDuration              *config.Duration                      `toml:",omitempty"`
+	USDCMockDeployment         *bool                                 `toml:",omitempty"`
+	TimeoutForPriceUpdate      *config.Duration                      `toml:",omitempty"`
+	WithPipeline               *bool                                 `toml:",omitempty"`
+	FailOnFirstErrorInLoad     *bool                                 `toml:",omitempty"`
+	DynamicPriceUpdateInterval *config.Duration                      `toml:",omitempty"`
+	SendMaxDataInEveryMsgCount *int64                                `toml:",omitempty"`
+	CommitOCRParams            *contracts.OffChainAggregatorV2Config `toml:",omitempty"`
+	ExecOCRParams              *contracts.OffChainAggregatorV2Config `toml:",omitempty"`
+	CommitInflightExpiry       *config.Duration                      `toml:",omitempty"`
+	ExecInflightExpiry         *config.Duration                      `toml:",omitempty"`
 }
 
 func (c *CCIPTestConfig) SetTestRunName(name string) {

@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/logstream"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/runid"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
 	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
