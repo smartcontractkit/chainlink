@@ -51,7 +51,8 @@ func TestPingController_Show_ExternalInitiatorCredentials(t *testing.T) {
 
 	ei, err := bridges.NewExternalInitiator(eia, eir)
 	require.NoError(t, err)
-	err = app.BridgeORM().CreateExternalInitiator(ei)
+	ctx := testutils.Context(t)
+	err = app.BridgeORM().CreateExternalInitiator(ctx, ei)
 	require.NoError(t, err)
 
 	url := app.Server.URL + "/v2/ping"

@@ -52,7 +52,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	externalp2p "github.com/smartcontractkit/chainlink/v2/core/services/p2p/wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/periodicbackup"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/promreporter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
@@ -78,7 +77,7 @@ type Application interface {
 	GetAuditLogger() audit.AuditLogger
 	GetHealthChecker() services.Checker
 	GetSqlxDB() *sqlx.DB // Deprecated: use GetDB
-	GetDB() sqlutil.DataSource
+	GetDS() sqlutil.DataSource
 	GetConfig() GeneralConfig
 	SetLogLevel(lvl zapcore.Level) error
 	GetKeyStore() keystore.Master
@@ -144,8 +143,8 @@ type ChainlinkApplication struct {
 	logger                   logger.SugaredLogger
 	AuditLogger              audit.AuditLogger
 	closeLogger              func() error
-	sqlxDB                   *sqlx.DB // Deprecated: use db instead
-	db                       sqlutil.DataSource
+	db                       *sqlx.DB // Deprecated: use db instead
+	ds                       sqlutil.DataSource
 	secretGenerator          SecretGenerator
 	profiler                 *pyroscope.Profiler
 	loopRegistry             *plugins.LoopRegistry
@@ -159,7 +158,7 @@ type ApplicationOpts struct {
 	Logger                     logger.Logger
 	MailMon                    *mailbox.Monitor
 	SqlxDB                     *sqlx.DB // Deprecated: use DB instead
-	DB                         sqlutil.DataSource
+	DS                         sqlutil.DataSource
 	KeyStore                   keystore.Master
 	RelayerChainInteroperators *CoreRelayerChainInteroperators
 	AuditLogger                audit.AuditLogger
@@ -305,11 +304,11 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 
 	var (
-		pipelineORM    = pipeline.NewORM(sqlxDB, globalLogger, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
-		bridgeORM      = bridges.NewORM(sqlxDB, globalLogger, cfg.Database())
+		pipelineORM    = pipeline.NewORM(sqlxDB, globalLogger, cfg.JobPipeline().MaxSuccessfulRuns())
+		bridgeORM      = bridges.NewORM(opts.DS)
 		mercuryORM     = mercury.NewORM(sqlxDB, globalLogger, cfg.Database())
 		pipelineRunner = pipeline.NewRunner(pipelineORM, bridgeORM, cfg.JobPipeline(), cfg.WebServer(), legacyEVMChains, keyStore.Eth(), keyStore.VRF(), globalLogger, restrictedHTTPClient, unrestrictedHTTPClient)
-		jobORM         = job.NewORM(sqlxDB, pipelineORM, bridgeORM, keyStore, globalLogger, cfg.Database())
+		jobORM         = job.NewORM(opts.DS, pipelineORM, bridgeORM, keyStore, globalLogger)
 		txmORM         = txmgr.NewTxStore(sqlxDB, globalLogger)
 		streamRegistry = streams.NewRegistry(globalLogger, pipelineRunner)
 	)
@@ -337,13 +336,12 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				legacyEVMChains,
 				mailMon),
 			job.VRF: vrf.NewDelegate(
-				sqlxDB,
+				opts.DS,
 				keyStore,
 				pipelineRunner,
 				pipelineORM,
 				legacyEVMChains,
 				globalLogger,
-				cfg.Database(),
 				mailMon),
 			job.Webhook: webhook.NewDelegate(
 				pipelineRunner,
@@ -410,7 +408,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	if cfg.OCR().Enabled() {
 		delegates[job.OffchainReporting] = ocr.NewDelegate(
-			sqlxDB,
+			opts.DS,
 			jobORM,
 			keyStore,
 			pipelineRunner,
@@ -467,7 +465,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	for _, c := range legacyEVMChains.Slice() {
 		lbs = append(lbs, c.LogBroadcaster())
 	}
-	jobSpawner := job.NewSpawner(jobORM, cfg.Database(), healthChecker, delegates, sqlxDB, globalLogger, lbs)
+	jobSpawner := job.NewSpawner(jobORM, cfg.Database(), healthChecker, delegates, globalLogger, lbs)
 	srvcs = append(srvcs, jobSpawner, pipelineRunner)
 
 	// We start the log poller after the job spawner
@@ -480,18 +478,17 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	var feedsService feeds.Service
 	if cfg.Feature().FeedsManager() {
-		feedsORM := feeds.NewORM(sqlxDB, opts.Logger, cfg.Database())
+		feedsORM := feeds.NewORM(opts.DS)
 		feedsService = feeds.NewService(
 			feedsORM,
 			jobORM,
-			sqlxDB,
+			opts.DS,
 			jobSpawner,
 			keyStore,
 			cfg.Insecure(),
 			cfg.JobPipeline(),
 			cfg.OCR(),
 			cfg.OCR2(),
-			cfg.Database(),
 			legacyEVMChains,
 			globalLogger,
 			opts.Version,
@@ -534,8 +531,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		profiler:                 profiler,
 		loopRegistry:             loopRegistry,
 
-		sqlxDB: opts.SqlxDB,
-		db:     opts.DB,
+		db: opts.SqlxDB,
+		ds: opts.DS,
 
 		// NOTE: Can keep things clean by putting more things in srvcs instead of manually start/closing
 		srvcs: srvcs,
@@ -725,7 +722,7 @@ func (app *ChainlinkApplication) WakeSessionReaper() {
 }
 
 func (app *ChainlinkApplication) AddJobV2(ctx context.Context, j *job.Job) error {
-	return app.jobSpawner.CreateJob(j, pg.WithParentCtx(ctx))
+	return app.jobSpawner.CreateJob(ctx, nil, j)
 }
 
 func (app *ChainlinkApplication) DeleteJob(ctx context.Context, jobID int32) error {
@@ -739,7 +736,7 @@ func (app *ChainlinkApplication) DeleteJob(ctx context.Context, jobID int32) err
 		return errors.New("job must be deleted in the feeds manager")
 	}
 
-	return app.jobSpawner.DeleteJob(jobID, pg.WithParentCtx(ctx))
+	return app.jobSpawner.DeleteJob(ctx, nil, jobID)
 }
 
 func (app *ChainlinkApplication) RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta pipeline.JSONSerializable) (int64, error) {
@@ -816,7 +813,7 @@ func (app *ChainlinkApplication) ResumeJobV2(
 	taskID uuid.UUID,
 	result pipeline.Result,
 ) error {
-	return app.pipelineRunner.ResumeRun(taskID, result.Value, result.Error)
+	return app.pipelineRunner.ResumeRun(ctx, taskID, result.Value, result.Error)
 }
 
 func (app *ChainlinkApplication) GetFeedsService() feeds.Service {
@@ -841,11 +838,11 @@ func (app *ChainlinkApplication) GetRelayers() RelayerChainInteroperators {
 }
 
 func (app *ChainlinkApplication) GetSqlxDB() *sqlx.DB {
-	return app.sqlxDB
+	return app.db
 }
 
-func (app *ChainlinkApplication) GetDB() sqlutil.DataSource {
-	return app.db
+func (app *ChainlinkApplication) GetDS() sqlutil.DataSource {
+	return app.ds
 }
 
 // Returns the configuration to use for creating and authenticating

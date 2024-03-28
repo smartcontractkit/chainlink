@@ -144,15 +144,6 @@ func (q Q) originalLogger() logger.Logger {
 	return logger.Helper(q.logger, -2)
 }
 
-func PrepareQueryRowx(q Queryer, sql string, dest interface{}, arg interface{}) error {
-	stmt, err := q.PrepareNamed(sql)
-	if err != nil {
-		return errors.Wrap(err, "error preparing named statement")
-	}
-	defer stmt.Close()
-	return errors.Wrap(stmt.QueryRowx(arg).Scan(dest), "error querying row")
-}
-
 func (q Q) WithOpts(qopts ...QOpt) Q {
 	return NewQ(q.db, q.originalLogger(), q.config, qopts...)
 }
@@ -194,6 +185,7 @@ func (q Q) ExecQIter(query string, args ...interface{}) (sql.Result, context.Can
 	res, err := q.Queryer.ExecContext(ctx, query, args...)
 	return res, cancel, ql.withLogError(err)
 }
+
 func (q Q) ExecQWithRowsAffected(query string, args ...interface{}) (int64, error) {
 	res, cancel, err := q.ExecQIter(query, args...)
 	defer cancel()
@@ -215,6 +207,7 @@ func (q Q) ExecQ(query string, args ...interface{}) error {
 	_, err := q.Queryer.ExecContext(ctx, query, args...)
 	return ql.withLogError(err)
 }
+
 func (q Q) ExecQNamed(query string, arg interface{}) (err error) {
 	query, args, err := q.BindNamed(query, arg)
 	if err != nil {

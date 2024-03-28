@@ -67,7 +67,8 @@ func (r *RelayerFactory) NewEVM(ctx context.Context, config EVMFactoryConfig) (m
 		}
 
 		relayerOpts := evmrelay.RelayerOpts{
-			DB:             ccOpts.SqlxDB,
+			DB:             ccOpts.DB,
+			DS:             ccOpts.DS,
 			QConfig:        ccOpts.AppConfig.Database(),
 			CSAETHKeystore: config.CSAETHKeystore,
 			MercuryPool:    r.MercuryPool,

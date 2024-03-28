@@ -313,7 +313,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 			cltest.AssertRecordEventually(t, app.GetSqlxDB(), &registry, fmt.Sprintf("SELECT * FROM keeper_registries WHERE id = %d", registry.ID), func() bool {
 				return registry.KeeperIndex == -1
 			})
-			runs, err := app.PipelineORM().GetAllRuns()
+			runs, err := app.PipelineORM().GetAllRuns(testutils.Context(t))
 			require.NoError(t, err)
 			// Since we set grace period to 0, we can have more than 1 pipeline run per perform
 			// This happens in case we start a pipeline run before previous perform tx is committed to chain
@@ -436,7 +436,7 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 			SchemaVersion:     1,
 			ForwardingAllowed: true,
 		}
-		err = app.JobORM().CreateJob(&jb)
+		err = app.JobORM().CreateJob(testutils.Context(t), &jb)
 		require.NoError(t, err)
 
 		registry := keeper.Registry{

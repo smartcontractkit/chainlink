@@ -9,10 +9,10 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
@@ -38,10 +38,12 @@ func (d *Delegate) JobType() job.Type {
 	return job.Stream
 }
 
-func (d *Delegate) BeforeJobCreated(jb job.Job)                                     {}
-func (d *Delegate) AfterJobCreated(jb job.Job)                                      {}
-func (d *Delegate) BeforeJobDeleted(jb job.Job)                                     {}
-func (d *Delegate) OnDeleteJob(ctx context.Context, jb job.Job, q pg.Queryer) error { return nil }
+func (d *Delegate) BeforeJobCreated(jb job.Job) {}
+func (d *Delegate) AfterJobCreated(jb job.Job)  {}
+func (d *Delegate) BeforeJobDeleted(jb job.Job) {}
+func (d *Delegate) OnDeleteJob(ctx context.Context, jb job.Job, q sqlutil.DataSource) error {
+	return nil
+}
 
 func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) (services []job.ServiceCtx, err error) {
 	if jb.StreamID == nil {

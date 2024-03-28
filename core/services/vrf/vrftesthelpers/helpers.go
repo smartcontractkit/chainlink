@@ -74,7 +74,8 @@ func CreateAndStartBHSJob(
 	jb, err := blockhashstore.ValidatedSpec(s.Toml())
 	require.NoError(t, err)
 
-	require.NoError(t, app.JobSpawner().CreateJob(&jb))
+	ctx := testutils.Context(t)
+	require.NoError(t, app.JobSpawner().CreateJob(ctx, nil, &jb))
 	gomega.NewWithT(t).Eventually(func() bool {
 		jbs := app.JobSpawner().ActiveJobs()
 		for _, jb := range jbs {
@@ -115,7 +116,8 @@ func CreateAndStartBlockHeaderFeederJob(
 	jb, err := blockheaderfeeder.ValidatedSpec(s.Toml())
 	require.NoError(t, err)
 
-	require.NoError(t, app.JobSpawner().CreateJob(&jb))
+	ctx := testutils.Context(t)
+	require.NoError(t, app.JobSpawner().CreateJob(ctx, nil, &jb))
 	gomega.NewWithT(t).Eventually(func() bool {
 		jbs := app.JobSpawner().ActiveJobs()
 		for _, jb := range jbs {

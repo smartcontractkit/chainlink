@@ -24,8 +24,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/jmoiron/sqlx"
-
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -37,7 +36,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/tomlutils"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
@@ -138,7 +136,7 @@ func mustInt32FromString(t *testing.T, s string) int32 {
 
 func TestJobController_Create_HappyPath(t *testing.T) {
 	app, client := setupJobsControllerTests(t)
-	b1, b2 := setupBridges(t, app.GetSqlxDB(), app.GetConfig().Database())
+	b1, b2 := setupBridges(t, app.GetDS())
 	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
 	var pks []vrfkey.KeyV2
 	var k []p2pkey.KeyV2
@@ -217,7 +215,8 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				// services failed to start
 				require.Contains(t, errs.Errors[0].Detail, "no contract code at given address")
 				// but the job should still exist
-				jb, err := jorm.FindJobByExternalJobID(uuid.MustParse(nameAndExternalJobID))
+				ctx := testutils.Context(t)
+				jb, err := jorm.FindJobByExternalJobID(ctx, uuid.MustParse(nameAndExternalJobID))
 				require.NoError(t, err)
 				require.NotNil(t, jb.KeeperSpec)
 
@@ -330,7 +329,8 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				// services failed to start
 				require.Contains(t, errs.Errors[0].Detail, "no contract code at given address")
 				// but the job should still exist
-				jb, err := jorm.FindJobByExternalJobID(uuid.MustParse(nameAndExternalJobID))
+				ctx := testutils.Context(t)
+				jb, err := jorm.FindJobByExternalJobID(ctx, uuid.MustParse(nameAndExternalJobID))
 				require.NoError(t, err)
 				require.NotNil(t, jb.FluxMonitorSpec)
 
@@ -409,8 +409,8 @@ func TestJobsController_Create_WebhookSpec(t *testing.T) {
 	require.NoError(t, app.Start(testutils.Context(t)))
 	t.Cleanup(func() { assert.NoError(t, app.Stop()) })
 
-	_, fetchBridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig().Database())
-	_, submitBridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig().Database())
+	_, fetchBridge := cltest.MustCreateBridge(t, app.GetDS(), cltest.BridgeOpts{})
+	_, submitBridge := cltest.MustCreateBridge(t, app.GetDS(), cltest.BridgeOpts{})
 
 	client := app.NewHTTPClient(nil)
 
@@ -549,8 +549,8 @@ func TestJobsController_Update_HappyPath(t *testing.T) {
 	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig().Database())
-	_, bridge2 := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig().Database())
+	_, bridge := cltest.MustCreateBridge(t, app.GetDS(), cltest.BridgeOpts{})
+	_, bridge2 := cltest.MustCreateBridge(t, app.GetDS(), cltest.BridgeOpts{})
 
 	client := app.NewHTTPClient(nil)
 
@@ -613,8 +613,8 @@ func TestJobsController_Update_NonExistentID(t *testing.T) {
 	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
 	require.NoError(t, app.Start(ctx))
 
-	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig().Database())
-	_, bridge2 := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig().Database())
+	_, bridge := cltest.MustCreateBridge(t, app.GetDS(), cltest.BridgeOpts{})
+	_, bridge2 := cltest.MustCreateBridge(t, app.GetDS(), cltest.BridgeOpts{})
 
 	client := app.NewHTTPClient(nil)
 
@@ -681,9 +681,9 @@ func runDirectRequestJobSpecAssertions(t *testing.T, ereJobSpecFromFile job.Job,
 	assert.Contains(t, ereJobSpecFromServer.DirectRequestSpec.UpdatedAt.String(), "20")
 }
 
-func setupBridges(t *testing.T, db *sqlx.DB, cfg pg.QConfig) (b1, b2 string) {
-	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, cfg)
-	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, cfg)
+func setupBridges(t *testing.T, ds sqlutil.DataSource) (b1, b2 string) {
+	_, bridge := cltest.MustCreateBridge(t, ds, cltest.BridgeOpts{})
+	_, bridge2 := cltest.MustCreateBridge(t, ds, cltest.BridgeOpts{})
 	return bridge.Name.String(), bridge2.Name.String()
 }
 
@@ -726,8 +726,8 @@ func setupJobSpecsControllerTestsWithJobs(t *testing.T) (*cltest.TestApplication
 	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
 	require.NoError(t, app.Start(ctx))
 
-	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig().Database())
-	_, bridge2 := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig().Database())
+	_, bridge := cltest.MustCreateBridge(t, app.GetDS(), cltest.BridgeOpts{})
+	_, bridge2 := cltest.MustCreateBridge(t, app.GetDS(), cltest.BridgeOpts{})
 
 	client := app.NewHTTPClient(nil)
 

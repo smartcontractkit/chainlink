@@ -11,8 +11,7 @@ import (
 	"github.com/theodesp/go-heaps/pairing"
 	"go.uber.org/multierr"
 
-	"github.com/jmoiron/sqlx"
-
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
@@ -26,7 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	v1 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/v1"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/v2"
@@ -34,7 +32,7 @@ import (
 )
 
 type Delegate struct {
-	q            pg.Q
+	ds           sqlutil.DataSource
 	pr           pipeline.Runner
 	porm         pipeline.ORM
 	ks           keystore.Master
@@ -44,16 +42,15 @@ type Delegate struct {
 }
 
 func NewDelegate(
-	db *sqlx.DB,
+	ds sqlutil.DataSource,
 	ks keystore.Master,
 	pr pipeline.Runner,
 	porm pipeline.ORM,
 	legacyChains legacyevm.LegacyChainContainer,
 	lggr logger.Logger,
-	cfg pg.QConfig,
 	mailMon *mailbox.Monitor) *Delegate {
 	return &Delegate{
-		q:            pg.NewQ(db, lggr, cfg),
+		ds:           ds,
 		ks:           ks,
 		pr:           pr,
 		porm:         porm,
@@ -67,10 +64,10 @@ func (d *Delegate) JobType() job.Type {
 	return job.VRF
 }
 
-func (d *Delegate) BeforeJobCreated(job.Job)                               {}
-func (d *Delegate) AfterJobCreated(job.Job)                                {}
-func (d *Delegate) BeforeJobDeleted(job.Job)                               {}
-func (d *Delegate) OnDeleteJob(context.Context, job.Job, pg.Queryer) error { return nil }
+func (d *Delegate) BeforeJobCreated(job.Job)                                       {}
+func (d *Delegate) AfterJobCreated(job.Job)                                        {}
+func (d *Delegate) BeforeJobDeleted(job.Job)                                       {}
+func (d *Delegate) OnDeleteJob(context.Context, job.Job, sqlutil.DataSource) error { return nil }
 
 // ServicesForSpec satisfies the job.Delegate interface.
 func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.ServiceCtx, error) {
@@ -171,7 +168,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 					lV2Plus,
 					chain,
 					chain.ID(),
-					d.q,
+					d.ds,
 					v2.NewCoordinatorV2_5(coordinatorV2Plus),
 					batchCoordinatorV2,
 					vrfOwner,
@@ -225,7 +222,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 				lV2,
 				chain,
 				chain.ID(),
-				d.q,
+				d.ds,
 				v2.NewCoordinatorV2(coordinatorV2),
 				batchCoordinatorV2,
 				vrfOwner,
@@ -246,7 +243,6 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 				Cfg:            chain.Config().EVM(),
 				FeeCfg:         chain.Config().EVM().GasEstimator(),
 				L:              logger.Sugared(lV1),
-				Q:              d.q,
 				Coordinator:    coordinator,
 				PipelineRunner: d.pr,
 				GethKs:         d.ks.Eth(),

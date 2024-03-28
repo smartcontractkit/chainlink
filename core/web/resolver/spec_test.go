@@ -6,6 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
@@ -36,7 +37,7 @@ func TestResolver_CronSpec(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
-				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", id).Return(job.Job{
+				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", mock.Anything, id).Return(job.Job{
 					Type: job.Cron,
 					CronSpec: &job.CronSpec{
 						CronSchedule: "CRON_TZ=UTC 0 0 1 1 *",
@@ -90,7 +91,7 @@ func TestResolver_DirectRequestSpec(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
-				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", id).Return(job.Job{
+				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", mock.Anything, id).Return(job.Job{
 					Type: job.DirectRequest,
 					DirectRequestSpec: &job.DirectRequestSpec{
 						ContractAddress:          contractAddress,
@@ -155,7 +156,7 @@ func TestResolver_FluxMonitorSpec(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
-				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", id).Return(job.Job{
+				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", mock.Anything, id).Return(job.Job{
 					Type: job.FluxMonitor,
 					FluxMonitorSpec: &job.FluxMonitorSpec{
 						ContractAddress:   contractAddress,
@@ -222,7 +223,7 @@ func TestResolver_FluxMonitorSpec(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
-				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", id).Return(job.Job{
+				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", mock.Anything, id).Return(job.Job{
 					Type: job.FluxMonitor,
 					FluxMonitorSpec: &job.FluxMonitorSpec{
 						ContractAddress:     contractAddress,
@@ -305,7 +306,7 @@ func TestResolver_KeeperSpec(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
-				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", id).Return(job.Job{
+				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", mock.Anything, id).Return(job.Job{
 					Type: job.Keeper,
 					KeeperSpec: &job.KeeperSpec{
 						ContractAddress: contractAddress,
@@ -369,7 +370,7 @@ func TestResolver_OCRSpec(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
-				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", id).Return(job.Job{
+				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", mock.Anything, id).Return(job.Job{
 					Type: job.OffchainReporting,
 					OCROracleSpec: &job.OCROracleSpec{
 						BlockchainTimeout:                      models.Interval(1 * time.Minute),
@@ -474,7 +475,7 @@ func TestResolver_OCR2Spec(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
-				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", id).Return(job.Job{
+				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", mock.Anything, id).Return(job.Job{
 					Type: job.OffchainReporting2,
 					OCR2OracleSpec: &job.OCR2OracleSpec{
 						BlockchainTimeout:                 models.Interval(1 * time.Minute),
@@ -576,7 +577,7 @@ func TestResolver_VRFSpec(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
-				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", id).Return(job.Job{
+				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", mock.Anything, id).Return(job.Job{
 					Type: job.VRF,
 					VRFSpec: &job.VRFSpec{
 						BatchCoordinatorAddress:       &batchCoordinatorAddress,
@@ -672,7 +673,7 @@ func TestResolver_WebhookSpec(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
-				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", id).Return(job.Job{
+				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", mock.Anything, id).Return(job.Job{
 					Type: job.Webhook,
 					WebhookSpec: &job.WebhookSpec{
 						CreatedAt: f.Timestamp(),
@@ -741,7 +742,7 @@ func TestResolver_BlockhashStoreSpec(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
-				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", id).Return(job.Job{
+				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", mock.Anything, id).Return(job.Job{
 					Type: job.BlockhashStore,
 					BlockhashStoreSpec: &job.BlockhashStoreSpec{
 						CoordinatorV1Address:           &coordinatorV1Address,
@@ -845,7 +846,7 @@ func TestResolver_BlockHeaderFeederSpec(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
-				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", id).Return(job.Job{
+				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", mock.Anything, id).Return(job.Job{
 					Type: job.BlockHeaderFeeder,
 					BlockHeaderFeederSpec: &job.BlockHeaderFeederSpec{
 						CoordinatorV1Address:       &coordinatorV1Address,
@@ -932,7 +933,7 @@ func TestResolver_BootstrapSpec(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
-				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", id).Return(job.Job{
+				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", mock.Anything, id).Return(job.Job{
 					Type: job.Bootstrap,
 					BootstrapSpec: &job.BootstrapSpec{
 						ID:                                id,
@@ -1008,7 +1009,7 @@ func TestResolver_GatewaySpec(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
-				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", id).Return(job.Job{
+				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", mock.Anything, id).Return(job.Job{
 					Type: job.Gateway,
 					GatewaySpec: &job.GatewaySpec{
 						ID:            id,

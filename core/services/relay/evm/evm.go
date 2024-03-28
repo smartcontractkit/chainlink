@@ -21,6 +21,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
@@ -70,12 +71,11 @@ func init() {
 var _ commontypes.Relayer = &Relayer{} //nolint:staticcheck
 
 type Relayer struct {
-	db          *sqlx.DB
+	ds          sqlutil.DataSource
 	chain       legacyevm.Chain
 	lggr        logger.Logger
 	ks          CSAETHKeystore
 	mercuryPool wsrpc.Pool
-	pgCfg       pg.QConfig
 	chainReader commontypes.ChainReader
 	codec       commontypes.Codec
 
@@ -93,7 +93,8 @@ type CSAETHKeystore interface {
 }
 
 type RelayerOpts struct {
-	*sqlx.DB
+	DB *sqlx.DB
+	DS sqlutil.DataSource
 	pg.QConfig
 	CSAETHKeystore
 	MercuryPool wsrpc.Pool
@@ -103,6 +104,9 @@ func (c RelayerOpts) Validate() error {
 	var err error
 	if c.DB == nil {
 		err = errors.Join(err, errors.New("nil DB"))
+	}
+	if c.DS == nil {
+		err = errors.Join(err, errors.New("nil DataSource"))
 	}
 	if c.QConfig == nil {
 		err = errors.Join(err, errors.New("nil QConfig"))
@@ -128,12 +132,11 @@ func NewRelayer(lggr logger.Logger, chain legacyevm.Chain, opts RelayerOpts) (*R
 	lloORM := llo.NewORM(pg.NewQ(opts.DB, lggr, opts.QConfig), chain.ID())
 	cdcFactory := llo.NewChannelDefinitionCacheFactory(lggr, lloORM, chain.LogPoller())
 	return &Relayer{
-		db:          opts.DB,
+		ds:          opts.DS,
 		chain:       chain,
 		lggr:        lggr,
 		ks:          opts.CSAETHKeystore,
 		mercuryPool: opts.MercuryPool,
-		pgCfg:       opts.QConfig,
 		cdcFactory:  cdcFactory,
 		lloORM:      lloORM,
 		mercuryORM:  mercuryORM,
@@ -588,7 +591,7 @@ func (r *Relayer) NewMedianProvider(rargs commontypes.RelayArgs, pargs commontyp
 		return nil, err
 	}
 
-	medianContract, err := newMedianContract(configWatcher.ContractConfigTracker(), configWatcher.contractAddress, configWatcher.chain, rargs.JobID, r.db, lggr)
+	medianContract, err := newMedianContract(configWatcher.ContractConfigTracker(), configWatcher.contractAddress, configWatcher.chain, rargs.JobID, r.ds, lggr)
 	if err != nil {
 		return nil, err
 	}
@@ -631,7 +634,7 @@ func (r *Relayer) NewMedianProvider(rargs commontypes.RelayArgs, pargs commontyp
 
 func (r *Relayer) NewAutomationProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.AutomationProvider, error) {
 	lggr := r.lggr.Named("AutomationProvider").Named(rargs.ExternalJobID.String())
-	ocr2keeperRelayer := NewOCR2KeeperRelayer(r.db, r.chain, lggr.Named("OCR2KeeperRelayer"), r.ks.Eth(), r.pgCfg)
+	ocr2keeperRelayer := NewOCR2KeeperRelayer(r.ds, r.chain, lggr.Named("OCR2KeeperRelayer"), r.ks.Eth())
 
 	return ocr2keeperRelayer.NewOCR2KeeperProvider(rargs, pargs)
 }

@@ -395,7 +395,7 @@ func (l *functionsListener) handleRequest(ctx context.Context, requestID Request
 	requestIDStr := formatRequestId(requestID)
 	l.logger.Infow("processing request", "requestID", requestIDStr)
 
-	eaClient, err := l.bridgeAccessor.NewExternalAdapterClient()
+	eaClient, err := l.bridgeAccessor.NewExternalAdapterClient(ctx)
 	if err != nil {
 		l.logger.Errorw("failed to create ExternalAdapterClient", "requestID", requestIDStr, "err", err)
 		l.setError(ctx, requestID, INTERNAL_ERROR, []byte(err.Error()))

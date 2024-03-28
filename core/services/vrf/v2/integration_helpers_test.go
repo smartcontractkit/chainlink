@@ -62,6 +62,7 @@ func testSingleConsumerHappyPath(
 		rwfe v22.RandomWordsFulfilled,
 		subID *big.Int),
 ) {
+	ctx := testutils.Context(t)
 	key1 := cltest.MustGenerateRandomKey(t)
 	key2 := cltest.MustGenerateRandomKey(t)
 	gasLanePriceWei := assets.GWei(10)
@@ -111,7 +112,7 @@ func testSingleConsumerHappyPath(
 	// Wait for fulfillment to be queued.
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		uni.backend.Commit()
-		runs, err := app.PipelineORM().GetAllRuns()
+		runs, err := app.PipelineORM().GetAllRuns(ctx)
 		require.NoError(t, err)
 		t.Log("runs", len(runs))
 		return len(runs) == 1
@@ -133,7 +134,7 @@ func testSingleConsumerHappyPath(
 	requestID2, _ := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, 500_000, coordinator, uni.backend, nativePayment)
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		uni.backend.Commit()
-		runs, err := app.PipelineORM().GetAllRuns()
+		runs, err := app.PipelineORM().GetAllRuns(ctx)
 		require.NoError(t, err)
 		t.Log("runs", len(runs))
 		return len(runs) == 2
@@ -182,6 +183,7 @@ func testMultipleConsumersNeedBHS(
 		coordinator v22.CoordinatorV2_X,
 		rwfe v22.RandomWordsFulfilled),
 ) {
+	ctx := testutils.Context(t)
 	nConsumers := len(consumers)
 	vrfKey := cltest.MustGenerateRandomKey(t)
 	sendEth(t, ownerKey, uni.backend, vrfKey.Address, 10)
@@ -284,7 +286,7 @@ func testMultipleConsumersNeedBHS(
 		// Wait for fulfillment to be queued.
 		gomega.NewGomegaWithT(t).Eventually(func() bool {
 			uni.backend.Commit()
-			runs, err := app.PipelineORM().GetAllRuns()
+			runs, err := app.PipelineORM().GetAllRuns(ctx)
 			require.NoError(t, err)
 			t.Log("runs", len(runs))
 			return len(runs) == 1
@@ -320,6 +322,7 @@ func testMultipleConsumersNeedTrustedBHS(
 		coordinator v22.CoordinatorV2_X,
 		rwfe v22.RandomWordsFulfilled),
 ) {
+	ctx := testutils.Context(t)
 	nConsumers := len(consumers)
 	vrfKey := cltest.MustGenerateRandomKey(t)
 	sendEth(t, ownerKey, uni.backend, vrfKey.Address, 10)
@@ -445,7 +448,7 @@ func testMultipleConsumersNeedTrustedBHS(
 		// Wait for fulfillment to be queued.
 		gomega.NewGomegaWithT(t).Eventually(func() bool {
 			uni.backend.Commit()
-			runs, err := app.PipelineORM().GetAllRuns()
+			runs, err := app.PipelineORM().GetAllRuns(ctx)
 			require.NoError(t, err)
 			t.Log("runs", len(runs))
 			return len(runs) == 1
@@ -534,6 +537,7 @@ func testSingleConsumerHappyPathBatchFulfillment(
 		rwfe v22.RandomWordsFulfilled,
 		subID *big.Int),
 ) {
+	ctx := testutils.Context(t)
 	key1 := cltest.MustGenerateRandomKey(t)
 	gasLanePriceWei := assets.GWei(10)
 	config, db := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -590,7 +594,7 @@ func testSingleConsumerHappyPathBatchFulfillment(
 	// Wait for fulfillment to be queued.
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		uni.backend.Commit()
-		runs, err := app.PipelineORM().GetAllRuns()
+		runs, err := app.PipelineORM().GetAllRuns(ctx)
 		require.NoError(t, err)
 		t.Log("runs", len(runs))
 		if bigGasCallback {
@@ -640,6 +644,7 @@ func testSingleConsumerNeedsTopUp(
 		coordinator v22.CoordinatorV2_X,
 		rwfe v22.RandomWordsFulfilled),
 ) {
+	ctx := testutils.Context(t)
 	key := cltest.MustGenerateRandomKey(t)
 	gasLanePriceWei := assets.GWei(1000)
 	config, db := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -682,7 +687,7 @@ func testSingleConsumerNeedsTopUp(
 	// Fulfillment will not be enqueued because subscriber doesn't have enough LINK.
 	gomega.NewGomegaWithT(t).Consistently(func() bool {
 		uni.backend.Commit()
-		runs, err := app.PipelineORM().GetAllRuns()
+		runs, err := app.PipelineORM().GetAllRuns(ctx)
 		require.NoError(t, err)
 		t.Log("assert 1", "runs", len(runs))
 		return len(runs) == 0
@@ -695,7 +700,7 @@ func testSingleConsumerNeedsTopUp(
 	// Wait for fulfillment to go through.
 	gomega.NewWithT(t).Eventually(func() bool {
 		uni.backend.Commit()
-		runs, err := app.PipelineORM().GetAllRuns()
+		runs, err := app.PipelineORM().GetAllRuns(ctx)
 		require.NoError(t, err)
 		t.Log("assert 2", "runs", len(runs))
 		return len(runs) == 1
@@ -737,6 +742,7 @@ func testBlockHeaderFeeder(
 		coordinator v22.CoordinatorV2_X,
 		rwfe v22.RandomWordsFulfilled),
 ) {
+	ctx := testutils.Context(t)
 	nConsumers := len(consumers)
 
 	vrfKey := cltest.MustGenerateRandomKey(t)
@@ -821,7 +827,7 @@ func testBlockHeaderFeeder(
 		// Wait for fulfillment to be queued.
 		gomega.NewGomegaWithT(t).Eventually(func() bool {
 			uni.backend.Commit()
-			runs, err := app.PipelineORM().GetAllRuns()
+			runs, err := app.PipelineORM().GetAllRuns(ctx)
 			require.NoError(t, err)
 			t.Log("runs", len(runs))
 			return len(runs) == 1
@@ -1065,6 +1071,7 @@ func testSingleConsumerEIP150(
 	vrfVersion vrfcommon.Version,
 	nativePayment bool,
 ) {
+	ctx := testutils.Context(t)
 	callBackGasLimit := int64(2_500_000) // base callback gas.
 
 	key1 := cltest.MustGenerateRandomKey(t)
@@ -1114,7 +1121,7 @@ func testSingleConsumerEIP150(
 	// Wait for simulation to pass.
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		uni.backend.Commit()
-		runs, err := app.PipelineORM().GetAllRuns()
+		runs, err := app.PipelineORM().GetAllRuns(ctx)
 		require.NoError(t, err)
 		t.Log("runs", len(runs))
 		return len(runs) == 1
@@ -1132,6 +1139,7 @@ func testSingleConsumerEIP150Revert(
 	vrfVersion vrfcommon.Version,
 	nativePayment bool,
 ) {
+	ctx := testutils.Context(t)
 	callBackGasLimit := int64(2_500_000)            // base callback gas.
 	eip150Fee := int64(0)                           // no premium given for callWithExactGas
 	coordinatorFulfillmentOverhead := int64(90_000) // fixed gas used in coordinator fulfillment
@@ -1184,7 +1192,7 @@ func testSingleConsumerEIP150Revert(
 	// Simulation should not pass.
 	gomega.NewGomegaWithT(t).Consistently(func() bool {
 		uni.backend.Commit()
-		runs, err := app.PipelineORM().GetAllRuns()
+		runs, err := app.PipelineORM().GetAllRuns(ctx)
 		require.NoError(t, err)
 		t.Log("runs", len(runs))
 		return len(runs) == 0
@@ -1198,10 +1206,10 @@ func testSingleConsumerBigGasCallbackSandwich(
 	ownerKey ethkey.KeyV2,
 	uni coordinatorV2UniverseCommon,
 	batchCoordinatorAddress common.Address,
-	batchEnabled bool,
 	vrfVersion vrfcommon.Version,
 	nativePayment bool,
 ) {
+	ctx := testutils.Context(t)
 	key1 := cltest.MustGenerateRandomKey(t)
 	gasLanePriceWei := assets.GWei(100)
 	config, db := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -1253,7 +1261,7 @@ func testSingleConsumerBigGasCallbackSandwich(
 
 	// Assert that we've completed 0 runs before adding 3 new requests.
 	{
-		runs, err := app.PipelineORM().GetAllRuns()
+		runs, err := app.PipelineORM().GetAllRuns(ctx)
 		require.NoError(t, err)
 		assert.Equal(t, 0, len(runs))
 		assert.Equal(t, 3, len(reqIDs))
@@ -1262,7 +1270,7 @@ func testSingleConsumerBigGasCallbackSandwich(
 	// Wait for the 50_000 gas randomness request to be enqueued.
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		uni.backend.Commit()
-		runs, err := app.PipelineORM().GetAllRuns()
+		runs, err := app.PipelineORM().GetAllRuns(ctx)
 		require.NoError(t, err)
 		t.Log("runs", len(runs))
 		return len(runs) == 1
@@ -1271,7 +1279,7 @@ func testSingleConsumerBigGasCallbackSandwich(
 	// After the first successful request, no more will be enqueued.
 	gomega.NewGomegaWithT(t).Consistently(func() bool {
 		uni.backend.Commit()
-		runs, err := app.PipelineORM().GetAllRuns()
+		runs, err := app.PipelineORM().GetAllRuns(ctx)
 		require.NoError(t, err)
 		t.Log("assert 1", "runs", len(runs))
 		return len(runs) == 1
@@ -1285,7 +1293,7 @@ func testSingleConsumerBigGasCallbackSandwich(
 
 	// Assert that we've still only completed 1 run before adding new requests.
 	{
-		runs, err := app.PipelineORM().GetAllRuns()
+		runs, err := app.PipelineORM().GetAllRuns(ctx)
 		require.NoError(t, err)
 		assert.Equal(t, 1, len(runs))
 	}
@@ -1300,7 +1308,7 @@ func testSingleConsumerBigGasCallbackSandwich(
 	// Fulfillment will not be enqueued because subscriber doesn't have enough LINK for any of the requests.
 	gomega.NewGomegaWithT(t).Consistently(func() bool {
 		uni.backend.Commit()
-		runs, err := app.PipelineORM().GetAllRuns()
+		runs, err := app.PipelineORM().GetAllRuns(ctx)
 		require.NoError(t, err)
 		t.Log("assert 1", "runs", len(runs))
 		return len(runs) == 1
@@ -1314,10 +1322,10 @@ func testSingleConsumerMultipleGasLanes(
 	ownerKey ethkey.KeyV2,
 	uni coordinatorV2UniverseCommon,
 	batchCoordinatorAddress common.Address,
-	batchEnabled bool,
 	vrfVersion vrfcommon.Version,
 	nativePayment bool,
 ) {
+	ctx := testutils.Context(t)
 	cheapKey := cltest.MustGenerateRandomKey(t)
 	expensiveKey := cltest.MustGenerateRandomKey(t)
 	cheapGasLane := assets.GWei(10)
@@ -1374,7 +1382,7 @@ func testSingleConsumerMultipleGasLanes(
 	// Wait for fulfillment to be queued for cheap key hash.
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		uni.backend.Commit()
-		runs, err := app.PipelineORM().GetAllRuns()
+		runs, err := app.PipelineORM().GetAllRuns(ctx)
 		require.NoError(t, err)
 		t.Log("assert 1", "runs", len(runs))
 		return len(runs) == 1
@@ -1394,7 +1402,7 @@ func testSingleConsumerMultipleGasLanes(
 	// We should not have any new fulfillments until a top up.
 	gomega.NewWithT(t).Consistently(func() bool {
 		uni.backend.Commit()
-		runs, err := app.PipelineORM().GetAllRuns()
+		runs, err := app.PipelineORM().GetAllRuns(ctx)
 		require.NoError(t, err)
 		t.Log("assert 2", "runs", len(runs))
 		return len(runs) == 1
@@ -1406,7 +1414,7 @@ func testSingleConsumerMultipleGasLanes(
 	// Wait for fulfillment to be queued for expensive key hash.
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		uni.backend.Commit()
-		runs, err := app.PipelineORM().GetAllRuns()
+		runs, err := app.PipelineORM().GetAllRuns(ctx)
 		require.NoError(t, err)
 		t.Log("assert 1", "runs", len(runs))
 		return len(runs) == 2
@@ -1442,6 +1450,7 @@ func testSingleConsumerAlwaysRevertingCallbackStillFulfilled(
 	vrfVersion vrfcommon.Version,
 	nativePayment bool,
 ) {
+	ctx := testutils.Context(t)
 	key := cltest.MustGenerateRandomKey(t)
 	gasLanePriceWei := assets.GWei(10)
 	config, db := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -1488,7 +1497,7 @@ func testSingleConsumerAlwaysRevertingCallbackStillFulfilled(
 	// Wait for fulfillment to be queued.
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		uni.backend.Commit()
-		runs, err := app.PipelineORM().GetAllRuns()
+		runs, err := app.PipelineORM().GetAllRuns(ctx)
 		require.NoError(t, err)
 		t.Log("runs", len(runs))
 		return len(runs) == 1
@@ -1511,6 +1520,7 @@ func testConsumerProxyHappyPath(
 	vrfVersion vrfcommon.Version,
 	nativePayment bool,
 ) {
+	ctx := testutils.Context(t)
 	key1 := cltest.MustGenerateRandomKey(t)
 	key2 := cltest.MustGenerateRandomKey(t)
 	gasLanePriceWei := assets.GWei(10)
@@ -1565,7 +1575,7 @@ func testConsumerProxyHappyPath(
 	// Wait for fulfillment to be queued.
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		uni.backend.Commit()
-		runs, err := app.PipelineORM().GetAllRuns()
+		runs, err := app.PipelineORM().GetAllRuns(ctx)
 		require.NoError(t, err)
 		t.Log("runs", len(runs))
 		return len(runs) == 1
@@ -1591,7 +1601,7 @@ func testConsumerProxyHappyPath(
 		t, consumerContract, consumerOwner, keyHash, subID, numWords, 750_000, uni.rootContract, uni.backend, nativePayment)
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		uni.backend.Commit()
-		runs, err := app.PipelineORM().GetAllRuns()
+		runs, err := app.PipelineORM().GetAllRuns(ctx)
 		require.NoError(t, err)
 		t.Log("runs", len(runs))
 		return len(runs) == 2
@@ -1644,6 +1654,7 @@ func testMaliciousConsumer(
 	batchEnabled bool,
 	vrfVersion vrfcommon.Version,
 ) {
+	ctx := testutils.Context(t)
 	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].GasEstimator.LimitDefault = ptr[uint64](2_000_000)
 		c.EVM[0].GasEstimator.PriceMax = assets.GWei(1)
@@ -1680,7 +1691,7 @@ func testMaliciousConsumer(
 	}).Toml()
 	jb, err := vrfcommon.ValidatedVRFSpec(s)
 	require.NoError(t, err)
-	err = app.JobSpawner().CreateJob(&jb)
+	err = app.JobSpawner().CreateJob(ctx, nil, &jb)
 	require.NoError(t, err)
 	time.Sleep(1 * time.Second)
 
@@ -1759,6 +1770,7 @@ func testReplayOldRequestsOnStartUp(
 		rwfe v22.RandomWordsFulfilled,
 		subID *big.Int),
 ) {
+	ctx := testutils.Context(t)
 	sendingKey := cltest.MustGenerateRandomKey(t)
 	gasLanePriceWei := assets.GWei(10)
 	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -1846,7 +1858,7 @@ func testReplayOldRequestsOnStartUp(
 	jb, err := vrfcommon.ValidatedVRFSpec(spec)
 	require.NoError(t, err)
 	t.Log(jb.VRFSpec.PublicKey.MustHash(), vrfKey.PublicKey.MustHash())
-	err = app.JobSpawner().CreateJob(&jb)
+	err = app.JobSpawner().CreateJob(ctx, nil, &jb)
 	require.NoError(t, err)
 
 	// Wait until all jobs are active and listening for logs
@@ -1863,7 +1875,7 @@ func testReplayOldRequestsOnStartUp(
 	// Wait for fulfillment to be queued.
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		uni.backend.Commit()
-		runs, err := app.PipelineORM().GetAllRuns()
+		runs, err := app.PipelineORM().GetAllRuns(ctx)
 		require.NoError(t, err)
 		t.Log("runs", len(runs))
 		return len(runs) == 1

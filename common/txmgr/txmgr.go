@@ -26,7 +26,7 @@ import (
 // https://www.notion.so/chainlink/Txm-Architecture-Overview-9dc62450cd7a443ba9e7dceffa1a8d6b
 
 // ResumeCallback is assumed to be idempotent
-type ResumeCallback func(id uuid.UUID, result interface{}, err error) error
+type ResumeCallback func(ctx context.Context, id uuid.UUID, result interface{}, err error) error
 
 // TxManager is the main component of the transaction manager.
 // It is also the interface to external callers.

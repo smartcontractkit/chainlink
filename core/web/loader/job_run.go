@@ -14,7 +14,7 @@ type jobRunBatcher struct {
 	app chainlink.Application
 }
 
-func (b *jobRunBatcher) loadByIDs(_ context.Context, keys dataloader.Keys) []*dataloader.Result {
+func (b *jobRunBatcher) loadByIDs(ctx context.Context, keys dataloader.Keys) []*dataloader.Result {
 	// Create a map for remembering the order of keys passed in
 	keyOrder := make(map[string]int, len(keys))
 	// Collect the keys to search for
@@ -29,7 +29,7 @@ func (b *jobRunBatcher) loadByIDs(_ context.Context, keys dataloader.Keys) []*da
 	}
 
 	// Fetch the runs
-	runs, err := b.app.JobORM().FindPipelineRunsByIDs(runIDs)
+	runs, err := b.app.JobORM().FindPipelineRunsByIDs(ctx, runIDs)
 	if err != nil {
 		return []*dataloader.Result{{Data: nil, Error: err}}
 	}

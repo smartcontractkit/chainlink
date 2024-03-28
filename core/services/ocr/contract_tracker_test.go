@@ -97,7 +97,6 @@ func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrack
 		db,
 		uni.db,
 		cfg.EVM(),
-		cfg.Database(),
 		uni.hb,
 		mailMon,
 	)
@@ -146,7 +145,7 @@ func Test_OCRContractTracker_LatestBlockHeight(t *testing.T) {
 		uni := newContractTrackerUni(t)
 
 		uni.hb.On("Subscribe", uni.tracker).Return(&evmtypes.Head{Number: 42}, func() {})
-		uni.db.On("LoadLatestRoundRequested").Return(offchainaggregator.OffchainAggregatorRoundRequested{}, nil)
+		uni.db.On("LoadLatestRoundRequested", mock.Anything).Return(offchainaggregator.OffchainAggregatorRoundRequested{}, nil)
 		uni.lb.On("Register", uni.tracker, mock.Anything).Return(func() {})
 
 		servicetest.Run(t, uni.tracker)
@@ -172,7 +171,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 		rawLog := cltest.LogFromFixture(t, "../../testdata/jsonrpc/round_requested_log_1_1.json")
 		logBroadcast.On("RawLog").Return(rawLog).Maybe()
 		logBroadcast.On("String").Return("").Maybe()
-		uni.lb.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
+		uni.lb.On("MarkConsumed", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		uni.lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 
 		configDigest, epoch, round, err := uni.tracker.LatestRoundRequested(testutils.Context(t), 0)
@@ -181,7 +180,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 		require.Equal(t, 0, int(round))
 		require.Equal(t, 0, int(epoch))
 
-		uni.tracker.HandleLog(logBroadcast)
+		uni.tracker.HandleLog(testutils.Context(t), logBroadcast)
 
 		configDigest, epoch, round, err = uni.tracker.LatestRoundRequested(testutils.Context(t), 0)
 		require.NoError(t, err)
@@ -203,7 +202,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 		require.Equal(t, 0, int(round))
 		require.Equal(t, 0, int(epoch))
 
-		uni.tracker.HandleLog(logBroadcast)
+		uni.tracker.HandleLog(testutils.Context(t), logBroadcast)
 
 		configDigest, epoch, round, err = uni.tracker.LatestRoundRequested(testutils.Context(t), 0)
 		require.NoError(t, err)
@@ -228,13 +227,13 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 		logBroadcast.On("RawLog").Return(rawLog).Maybe()
 		logBroadcast.On("String").Return("").Maybe()
 		uni.lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
-		uni.lb.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
+		uni.lb.On("MarkConsumed", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-		uni.db.On("SaveLatestRoundRequested", mock.Anything, mock.MatchedBy(func(rr offchainaggregator.OffchainAggregatorRoundRequested) bool {
+		uni.db.On("SaveLatestRoundRequested", mock.Anything, mock.Anything, mock.MatchedBy(func(rr offchainaggregator.OffchainAggregatorRoundRequested) bool {
 			return rr.Epoch == 1 && rr.Round == 1
 		})).Return(nil)
 
-		uni.tracker.HandleLog(logBroadcast)
+		uni.tracker.HandleLog(testutils.Context(t), logBroadcast)
 
 		configDigest, epoch, round, err = uni.tracker.LatestRoundRequested(testutils.Context(t), 0)
 		require.NoError(t, err)
@@ -248,13 +247,13 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 		logBroadcast2.On("RawLog").Return(rawLog2)
 		logBroadcast2.On("String").Return("").Maybe()
 		uni.lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
-		uni.lb.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
+		uni.lb.On("MarkConsumed", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-		uni.db.On("SaveLatestRoundRequested", mock.Anything, mock.MatchedBy(func(rr offchainaggregator.OffchainAggregatorRoundRequested) bool {
+		uni.db.On("SaveLatestRoundRequested", mock.Anything, mock.Anything, mock.MatchedBy(func(rr offchainaggregator.OffchainAggregatorRoundRequested) bool {
 			return rr.Epoch == 1 && rr.Round == 9
 		})).Return(nil)
 
-		uni.tracker.HandleLog(logBroadcast2)
+		uni.tracker.HandleLog(testutils.Context(t), logBroadcast2)
 
 		configDigest, epoch, round, err = uni.tracker.LatestRoundRequested(testutils.Context(t), 0)
 		require.NoError(t, err)
@@ -263,7 +262,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 		assert.Equal(t, 9, int(round))
 
 		// Same round with lower epoch is ignored
-		uni.tracker.HandleLog(logBroadcast)
+		uni.tracker.HandleLog(testutils.Context(t), logBroadcast)
 
 		configDigest, epoch, round, err = uni.tracker.LatestRoundRequested(testutils.Context(t), 0)
 		require.NoError(t, err)
@@ -277,13 +276,13 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 		logBroadcast3.On("RawLog").Return(rawLog3).Maybe()
 		logBroadcast3.On("String").Return("").Maybe()
 		uni.lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
-		uni.lb.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
+		uni.lb.On("MarkConsumed", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-		uni.db.On("SaveLatestRoundRequested", mock.Anything, mock.MatchedBy(func(rr offchainaggregator.OffchainAggregatorRoundRequested) bool {
+		uni.db.On("SaveLatestRoundRequested", mock.Anything, mock.Anything, mock.MatchedBy(func(rr offchainaggregator.OffchainAggregatorRoundRequested) bool {
 			return rr.Epoch == 2 && rr.Round == 1
 		})).Return(nil)
 
-		uni.tracker.HandleLog(logBroadcast3)
+		uni.tracker.HandleLog(testutils.Context(t), logBroadcast3)
 
 		configDigest, epoch, round, err = uni.tracker.LatestRoundRequested(testutils.Context(t), 0)
 		require.NoError(t, err)
@@ -301,9 +300,9 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 		logBroadcast.On("String").Return("").Maybe()
 		uni.lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 
-		uni.db.On("SaveLatestRoundRequested", mock.Anything, mock.Anything).Return(errors.New("something exploded"))
+		uni.db.On("SaveLatestRoundRequested", mock.Anything, mock.Anything, mock.Anything).Return(errors.New("something exploded"))
 
-		uni.tracker.HandleLog(logBroadcast)
+		uni.tracker.HandleLog(testutils.Context(t), logBroadcast)
 
 		configDigest, epoch, round, err := uni.tracker.LatestRoundRequested(testutils.Context(t), 0)
 		require.NoError(t, err)
@@ -331,7 +330,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 		eventuallyCloseHeadBroadcaster := cltest.NewAwaiter()
 		uni.hb.On("Subscribe", uni.tracker).Return((*evmtypes.Head)(nil), func() { eventuallyCloseHeadBroadcaster.ItHappened() })
 
-		uni.db.On("LoadLatestRoundRequested").Return(rr, nil)
+		uni.db.On("LoadLatestRoundRequested", mock.Anything).Return(rr, nil)
 
 		require.NoError(t, uni.tracker.Start(testutils.Context(t)))
 

@@ -17,7 +17,8 @@ func TestPipelineJobSpecErrorsController_Delete_2(t *testing.T) {
 
 	description := "job spec error description"
 
-	require.NoError(t, app.JobORM().RecordError(jID, description))
+	ctx := testutils.Context(t)
+	require.NoError(t, app.JobORM().RecordError(ctx, jID, description))
 
 	// FindJob -> find error
 	j, err := app.JobORM().FindJob(testutils.Context(t), jID)
