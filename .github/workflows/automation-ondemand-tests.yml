@@ -56,8 +56,9 @@ jobs:
       - name: Collect Metrics
         if: inputs.chainlinkImage == ''
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@0281b09807758be1dcc41651e44e62b353808c47 # v2.1.0
+        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
         with:
+          id: automation-on-demand-build-chainlink
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
@@ -102,8 +103,9 @@ jobs:
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@0281b09807758be1dcc41651e44e62b353808c47 # v2.1.0
+        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
         with:
+          id: automation-on-demand-build-test-image
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
@@ -138,6 +140,7 @@ jobs:
       matrix:
         tests:
           - name: chaos
+            id: chaos
             suite: chaos
             nodes: 15
             os: ubuntu-latest
@@ -146,6 +149,7 @@ jobs:
             network: SIMULATED
             command: -run ^TestAutomationChaos$ ./chaos
           - name: reorg
+            id: reorg
             suite: reorg
             nodes: 5
             os: ubuntu-latest
@@ -154,6 +158,7 @@ jobs:
             network: SIMULATED_NONDEV
             command: -run ^TestAutomationReorg$ ./reorg
           - name: upgrade 2.0
+            id: upgrade-2.0
             type: upgrade
             suite: smoke
             nodes: 1
@@ -163,6 +168,7 @@ jobs:
             network: SIMULATED
             command: -run ^TestAutomationNodeUpgrade/registry_2_0 ./smoke
           - name: upgrade 2.1
+            id: upgrade-2.1
             type: upgrade
             suite: smoke
             nodes: 5
@@ -172,6 +178,7 @@ jobs:
             network: SIMULATED
             command: -run ^TestAutomationNodeUpgrade/registry_2_1 ./smoke
           - name: upgrade 2.2
+            id: upgrade-2.2
             type: upgrade
             suite: smoke
             nodes: 5
@@ -286,8 +293,9 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@0281b09807758be1dcc41651e44e62b353808c47 # v2.1.0
+        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
         with:
+          id: automation-on-demand-tests-${{ matrix.tests.id }}
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
