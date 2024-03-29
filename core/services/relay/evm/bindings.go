@@ -34,8 +34,31 @@ func (b contractBindings) Bind(ctx context.Context, boundContracts []commontypes
 		if !rbsExist {
 			return fmt.Errorf("%w: no contract named %s", commontypes.ErrInvalidConfig, bc.Name)
 		}
-		if err := rb.Bind(ctx, bc); err != nil {
+
+		address, err := validateEthereumAddress(bc.Address)
+		if err != nil {
 			return err
+		}
+
+		if err = rb.Bind(ctx, address); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (b contractBindings) UnBind(ctx context.Context, boundContracts []commontypes.BoundContract) error {
+	for _, bc := range boundContracts {
+		rb, rbsExist := b[bc.Name]
+		if rbsExist {
+			address, err := validateEthereumAddress(bc.Address)
+			if err != nil {
+				return err
+			}
+			if err := rb.UnBind(ctx, address); err != nil {
+				return err
+			}
+			delete(b, bc.Name)
 		}
 	}
 	return nil
@@ -51,5 +74,5 @@ func (b contractBindings) ForEach(ctx context.Context, fn func(readBinding, cont
 }
 
 func formatKey(str ...string) string {
-	return strings.Join(str, "-")
+	return strings.Join(str, ".")
 }

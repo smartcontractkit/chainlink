@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/google/uuid"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -19,15 +20,15 @@ import (
 )
 
 type eventBinding struct {
-	address        common.Address
-	contractName   string
-	eventName      string
+	contractName string
+	eventName    string
+	// used to allow Register and Unregister to be unique in case two bindings have the same event.
+	// otherwise, if one unregisters, it'll unregister both with the LogPoller.
+	ids            map[common.Address]string
 	lp             logpoller.LogPoller
 	hash           common.Hash
 	codec          commontypes.RemoteCodec
 	pending        bool
-	bound          bool
-	registerCalled bool
 	lock           sync.Mutex
 	inputInfo      types.CodecEntry
 	inputModifier  codec.Modifier
@@ -37,9 +38,6 @@ type eventBinding struct {
 	// key is a predefined generic name for evm log event data word
 	// for eg. first evm data word(32bytes) of USDC log event is value so the key can be called value
 	eventDataWords map[string]uint8
-	// used to allow Register and Unregister to be unique in case two bindings have the same event.
-	// otherwise, if one unregisters, it'll unregister both with the LogPoller.
-	id string
 }
 
 type topicInfo struct {
@@ -78,42 +76,56 @@ func (e *eventBinding) SetCodec(codec commontypes.RemoteCodec) {
 	e.codec = codec
 }
 
-func (e *eventBinding) Register(ctx context.Context) error {
+func (e *eventBinding) Register(ctx context.Context, address common.Address) error {
 	e.lock.Lock()
 	defer e.lock.Unlock()
 
-	e.registerCalled = true
-	if !e.bound || e.lp.HasFilter(e.id) {
+	id, exists := e.ids[address]
+	if exists && e.lp.HasFilter(id) {
 		return nil
 	}
 
+	id = address.String() + "." + wrapItemType(e.contractName, e.eventName, false) + uuid.NewString()
 	if err := e.lp.RegisterFilter(ctx, logpoller.Filter{
-		Name:      e.id,
+		Name:      id,
 		EventSigs: evmtypes.HashArray{e.hash},
-		Addresses: evmtypes.AddressArray{e.address},
+		Addresses: evmtypes.AddressArray{address},
 	}); err != nil {
 		return fmt.Errorf("%w: %w", commontypes.ErrInternal, err)
 	}
+	e.ids[address] = id
 	return nil
 }
 
-func (e *eventBinding) Unregister(ctx context.Context) error {
+func (e *eventBinding) Unregister(ctx context.Context, address common.Address) error {
 	e.lock.Lock()
 	defer e.lock.Unlock()
 
-	if !e.lp.HasFilter(e.id) {
+	id, exists := e.ids[address]
+	if !exists || !e.lp.HasFilter(id) {
 		return nil
 	}
 
-	if err := e.lp.UnregisterFilter(ctx, e.id); err != nil {
+	if err := e.lp.UnregisterFilter(ctx, id); err != nil {
 		return fmt.Errorf("%w: %w", commontypes.ErrInternal, err)
 	}
 	return nil
 }
 
-func (e *eventBinding) GetLatestValue(ctx context.Context, params, into any) error {
-	if !e.bound {
-		return fmt.Errorf("%w: event not bound", commontypes.ErrInvalidType)
+func (e *eventBinding) UnregisterAll(ctx context.Context) error {
+	e.lock.Lock()
+	defer e.lock.Unlock()
+	for _, id := range e.ids {
+		if err := e.lp.UnregisterFilter(ctx, id); err != nil {
+			return fmt.Errorf("%w: %w", commontypes.ErrInternal, err)
+		}
+	}
+	return nil
+}
+
+func (e *eventBinding) GetLatestValue(ctx context.Context, address common.Address, params, into any) error {
+	if _, exists := e.ids[address]; !exists {
+		return fmt.Errorf("%w: event not bound for address %s", commontypes.ErrInvalidType, address)
 	}
 
 	confs := evmtypes.Finalized
@@ -122,18 +134,18 @@ func (e *eventBinding) GetLatestValue(ctx context.Context, params, into any) err
 	}
 
 	if len(e.inputInfo.Args()) == 0 {
-		return e.getLatestValueWithoutFilters(ctx, confs, into)
+		return e.getLatestValueWithoutFilters(ctx, address, confs, into)
 	}
 
-	return e.getLatestValueWithFilters(ctx, confs, params, into)
+	return e.getLatestValueWithFilters(ctx, address, confs, params, into)
 }
 
-func (e *eventBinding) QueryOne(ctx context.Context, queryFilter query.Filter, limitAndSort query.LimitAndSort, sequenceDataType any) ([]commontypes.Sequence, error) {
+func (e *eventBinding) QueryOne(ctx context.Context, address common.Address, queryFilter query.Filter, limitAndSort query.LimitAndSort, sequenceDataType any) ([]commontypes.Sequence, error) {
 	remappedQf, err := remapQueryFilter(queryFilter)
 	if err != nil {
 		return nil, err
 	}
-	remappedQf.Expressions = append(remappedQf.Expressions, NewEventFilter(e.address, e.hash))
+	remappedQf.Expressions = append(remappedQf.Expressions, NewEventFilter(address, e.hash))
 
 	logs, err := e.lp.FilteredLogs(remappedQf, limitAndSort)
 	if err != nil {
@@ -143,23 +155,24 @@ func (e *eventBinding) QueryOne(ctx context.Context, queryFilter query.Filter, l
 	return e.decodeLogsIntoSequences(ctx, logs, sequenceDataType)
 }
 
-func (e *eventBinding) Bind(ctx context.Context, binding commontypes.BoundContract) error {
-	if err := e.Unregister(ctx); err != nil {
+func (e *eventBinding) Bind(ctx context.Context, address common.Address) error {
+	if err := e.Unregister(ctx, address); err != nil {
 		return err
 	}
 
-	e.address = common.HexToAddress(binding.Address)
-	e.pending = binding.Pending
-	e.bound = true
-
-	if e.registerCalled {
-		return e.Register(ctx)
+	if _, exists := e.ids[address]; exists {
+		return nil
 	}
-	return nil
+
+	return e.Register(ctx, address)
 }
 
-func (e *eventBinding) getLatestValueWithoutFilters(ctx context.Context, confs evmtypes.Confirmations, into any) error {
-	log, err := e.lp.LatestLogByEventSigWithConfs(ctx, e.hash, e.address, confs)
+func (e *eventBinding) UnBind(ctx context.Context, address common.Address) error {
+	return e.Unregister(ctx, address)
+}
+
+func (e *eventBinding) getLatestValueWithoutFilters(ctx context.Context, address common.Address, confs evmtypes.Confirmations, into any) error {
+	log, err := e.lp.LatestLogByEventSigWithConfs(ctx, e.hash, address, confs)
 	if err = wrapInternalErr(err); err != nil {
 		return err
 	}
@@ -168,7 +181,7 @@ func (e *eventBinding) getLatestValueWithoutFilters(ctx context.Context, confs e
 }
 
 func (e *eventBinding) getLatestValueWithFilters(
-	ctx context.Context, confs evmtypes.Confirmations, params, into any) error {
+	ctx context.Context, address common.Address, confs evmtypes.Confirmations, params, into any) error {
 	offChain, err := e.convertToOffChainType(params)
 	if err != nil {
 		return err
@@ -192,7 +205,7 @@ func (e *eventBinding) getLatestValueWithFilters(
 	fai := filtersAndIndices[0]
 	remainingFilters := filtersAndIndices[1:]
 
-	logs, err := e.lp.IndexedLogs(ctx, e.hash, e.address, 1, []common.Hash{fai}, confs)
+	logs, err := e.lp.IndexedLogs(ctx, e.hash, address, 1, []common.Hash{fai}, confs)
 	if err != nil {
 		return wrapInternalErr(err)
 	}

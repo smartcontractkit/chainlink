@@ -4,11 +4,12 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"regexp"
 	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/google/uuid"
+	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
@@ -74,51 +75,40 @@ func (cr *chainReader) Name() string { return cr.lggr.Name() }
 
 var _ commontypes.ContractTypeProvider = &chainReader{}
 
-func (cr *chainReader) GetLatestValue(ctx context.Context, contractName, method string, params any, returnVal any) error {
-	//TODO contractName and method should be merged into key
-	b, err := cr.contractBindings.GetReadBinding(formatKey(contractName, method))
+func (cr *chainReader) GetLatestValue(ctx context.Context, contract commontypes.BoundContract, method string, params any, returnVal any) error {
+	b, err := cr.contractBindings.GetReadBinding(formatKey(contract.Name, method))
 	if err != nil {
 		return err
 	}
 
-	return b.GetLatestValue(ctx, params, returnVal)
+	address, err := validateEthereumAddress(contract.Address)
+	if err != nil {
+		return err
+	}
+
+	return b.GetLatestValue(ctx, address, params, returnVal)
 }
 
 func (cr *chainReader) Bind(ctx context.Context, bindings []commontypes.BoundContract) error {
 	return cr.contractBindings.Bind(ctx, bindings)
 }
 
-func (cr *chainReader) QueryOne(ctx context.Context, keyFilter query.KeyFilter, limitAndSort query.LimitAndSort, sequenceDataType any) ([]commontypes.Sequence, error) {
-	tokens := strings.Split(keyFilter.Key, "-")
-	if len(tokens) < 3 {
-		return nil, fmt.Errorf("key: %s format is invalid, the key should look like contractName-readName", keyFilter.Key)
-	}
+func (cr *chainReader) UnBind(ctx context.Context, bindings []commontypes.BoundContract) error {
+	return cr.contractBindings.Bind(ctx, bindings)
+}
 
-	contractName, eventName := tokens[0], tokens[1]
-	b, err := cr.contractBindings.GetReadBinding(formatKey(contractName, eventName))
+func (cr *chainReader) QueryOne(ctx context.Context, contract commontypes.BoundContract, keyFilter query.KeyFilter, limitAndSort query.LimitAndSort, sequenceDataType any) ([]commontypes.Sequence, error) {
+	b, err := cr.contractBindings.GetReadBinding(keyFilter.Key)
 	if err != nil {
 		return nil, err
 	}
 
-	return b.QueryOne(ctx, keyFilter.Filter, limitAndSort, sequenceDataType)
-}
-
-func (cr *chainReader) QueryMany(ctx context.Context, keysFilters []query.KeyFilter, limitsAndSorts []query.LimitAndSort, sequencesDataTypes []any) ([][]commontypes.Sequence, error) {
-	if len(keysFilters) != len(sequencesDataTypes) || len(sequencesDataTypes) != len(limitsAndSorts) {
-		return nil, fmt.Errorf("length of keys and sequencesDataTypes must be the same")
-	}
-	var sequencesMatrix [][]commontypes.Sequence
-	for i, keyFilter := range keysFilters {
-		// TODO log poller can't handle this currently. Not even sure if this even can be one query since keys shouldn't get mixed up because then we can't know how its sequencesDataTypes.
-		// TODO Currently no products even use this feature, so might be okay to leave it unoptimised for now?
-		sequences, err := cr.QueryOne(ctx, keyFilter, limitsAndSorts[i], sequencesDataTypes[i])
-		if err != nil {
-			return nil, err
-		}
-		sequencesMatrix = append(sequencesMatrix, sequences)
+	address, err := validateEthereumAddress(contract.Address)
+	if err != nil {
+		return nil, err
 	}
 
-	return sequencesMatrix, nil
+	return b.QueryOne(ctx, address, keyFilter.Filter, limitAndSort, sequenceDataType)
 }
 
 func (cr *chainReader) init(chainContractReaders map[string]types.ChainContractReader) error {
@@ -151,7 +141,9 @@ func (cr *chainReader) init(chainContractReaders map[string]types.ChainContractR
 
 func (cr *chainReader) Start(ctx context.Context) error {
 	return cr.StartOnce("ChainReader", func() error {
-		return cr.contractBindings.ForEach(ctx, readBinding.Register)
+		// TODO Seems like this is not needed since register requries addresses and addresses are piped through Bind.
+		//return cr.contractBindings.ForEach(ctx, readBinding.Register)
+		return nil
 	})
 }
 
@@ -159,7 +151,7 @@ func (cr *chainReader) Close() error {
 	return cr.StopOnce("ChainReader", func() error {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
-		return cr.contractBindings.ForEach(ctx, readBinding.Unregister)
+		return cr.contractBindings.ForEach(ctx, readBinding.UnregisterAll)
 	})
 }
 
@@ -195,8 +187,7 @@ func wrapItemType(contractName, methodName string, isParams bool) string {
 }
 
 func (cr *chainReader) addMethod(
-	contractName,
-	methodName string,
+	contractName, methodName string,
 	abi abi.ABI,
 	chainReaderDefinition types.ChainReaderDefinition) error {
 	method, methodExists := abi.Methods[chainReaderDefinition.ChainSpecificName]
@@ -257,7 +248,6 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 		inputInfo:      inputInfo,
 		inputModifier:  inputModifier,
 		codecTopicInfo: codecTopicInfo,
-		id:             wrapItemType(contractName, eventName, false) + uuid.NewString(),
 		topicsInfo:     make(map[string]topicInfo),
 		eventDataWords: chainReaderDefinition.GenericDataWordNames,
 	}
@@ -406,4 +396,12 @@ func setupEventInput(event abi.Event, def types.ChainReaderDefinition) ([]abi.Ar
 	}
 
 	return filterArgs, types.NewCodecEntry(inputArgs, nil, nil), indexArgNames
+}
+
+func validateEthereumAddress(address string) (common.Address, error) {
+	re := regexp.MustCompile("^0x[0-9a-fA-F]{40}$")
+	if !re.MatchString(address) {
+		return common.Address{}, fmt.Errorf("address %s is not a valid ethereum address", address)
+	}
+	return common.HexToAddress(address), nil
 }
