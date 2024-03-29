@@ -272,10 +272,6 @@ contract AutomationRegistryLogicC2_3 is AutomationRegistryBase2_3 {
     return s_payoutMode;
   }
 
-  function upkeepTranscoderVersion() public pure returns (UpkeepFormat) {
-    return UPKEEP_TRANSCODER_VERSION_BASE;
-  }
-
   function upkeepVersion() public pure returns (uint8) {
     return UPKEEP_VERSION_BASE;
   }

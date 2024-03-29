@@ -872,7 +872,7 @@ describe('AutomationRegistry2_3', () => {
       .connect(owner)
       .deploy(8, nativeUSD)
     const upkeepTranscoderFactory = await ethers.getContractFactory(
-      'UpkeepTranscoder4_0',
+      'UpkeepTranscoder5_0',
     )
     transcoder = await upkeepTranscoderFactory.connect(owner).deploy()
     mockArbGasInfo = await mockArbGasInfoFactory.connect(owner).deploy()
