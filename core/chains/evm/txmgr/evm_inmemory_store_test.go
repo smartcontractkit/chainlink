@@ -22,6 +22,72 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 )
 
+func TestInMemoryStore_SaveInsufficientFundsAttempt(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
+	persistentStore := cltest.NewTestTxStore(t, db)
+	kst := cltest.NewKeyStore(t, db, dbcfg)
+	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
+
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	lggr := logger.TestSugared(t)
+	chainID := ethClient.ConfiguredChainID()
+	ctx := testutils.Context(t)
+
+	inMemoryStore, err := commontxmgr.NewInMemoryStore[
+		*big.Int,
+		common.Address, common.Hash, common.Hash,
+		*evmtypes.Receipt,
+		evmtypes.Nonce,
+		evmgas.EvmFee,
+	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	require.NoError(t, err)
+
+	defaultDuration := time.Second * 5
+	t.Run("updates attempt state and checks error returns", func(t *testing.T) {
+		// Insert a transaction into persistent store
+		inTx := mustInsertInProgressEthTxWithAttempt(t, persistentStore, 1, fromAddress)
+		now := time.Now()
+		// Insert the transaction into the in-memory store
+		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
+
+		err := inMemoryStore.SaveInsufficientFundsAttempt(
+			ctx,
+			defaultDuration,
+			&inTx.TxAttempts[0],
+			now,
+		)
+		require.NoError(t, err)
+
+		expTx, err := persistentStore.FindTxWithAttempts(ctx, inTx.ID)
+		require.NoError(t, err)
+		fn := func(tx *evmtxmgr.Tx) bool { return true }
+		actTxs := inMemoryStore.XXXTestFindTxs(nil, fn, inTx.ID)
+		require.Equal(t, 1, len(actTxs))
+		actTx := actTxs[0]
+		assertTxEqual(t, expTx, actTx)
+		assert.Equal(t, txmgrtypes.TxAttemptInsufficientFunds, actTx.TxAttempts[0].State)
+
+		// wrong tx id
+		inTx.TxAttempts[0].TxID = 123
+		actErr := inMemoryStore.SaveInsufficientFundsAttempt(ctx, defaultDuration, &inTx.TxAttempts[0], now)
+		expErr := persistentStore.SaveInsufficientFundsAttempt(ctx, defaultDuration, &inTx.TxAttempts[0], now)
+		assert.NoError(t, actErr)
+		assert.NoError(t, expErr)
+		inTx.TxAttempts[0].TxID = inTx.ID // reset
+
+		// wrong attempt state
+		inTx.TxAttempts[0].State = txmgrtypes.TxAttemptBroadcast
+		actErr = inMemoryStore.SaveInsufficientFundsAttempt(ctx, defaultDuration, &inTx.TxAttempts[0], now)
+		expErr = persistentStore.SaveInsufficientFundsAttempt(ctx, defaultDuration, &inTx.TxAttempts[0], now)
+		assert.Error(t, actErr)
+		assert.Error(t, expErr)
+		inTx.TxAttempts[0].State = txmgrtypes.TxAttemptInsufficientFunds // reset
+	})
+}
+
 func TestInMemoryStore_SaveSentAttempt(t *testing.T) {
 	t.Parallel()
 

@@ -356,6 +356,53 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveI
 	return nil
 }
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveInsufficientFundsAttempt(ctx context.Context, timeout time.Duration, attempt *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], broadcastAt time.Time) error {
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
+
+	if !(attempt.State == txmgrtypes.TxAttemptInProgress || attempt.State == txmgrtypes.TxAttemptInsufficientFunds) {
+		return fmt.Errorf("expected state to be in_progress or insufficient_funds")
+	}
+
+	var tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	var as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
+	filter := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool { return true }
+	for _, vas := range ms.addressStates {
+		txs := vas.findTxs(nil, filter, attempt.TxID)
+		if len(txs) > 0 {
+			tx = &txs[0]
+			as = vas
+			break
+		}
+	}
+	if tx == nil {
+		return nil
+	}
+
+	// Persist to persistent storage
+	if err := ms.persistentTxStore.SaveInsufficientFundsAttempt(ctx, timeout, attempt, broadcastAt); err != nil {
+		return err
+	}
+
+	// Update in memory store
+	fn := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) {
+		if tx.ID != attempt.TxID {
+			return
+		}
+		if tx.TxAttempts == nil || len(tx.TxAttempts) == 0 {
+			return
+		}
+		if tx.BroadcastAt != nil && tx.BroadcastAt.Before(broadcastAt) {
+			tx.BroadcastAt = &broadcastAt
+		}
+
+		for i := 0; i < len(tx.TxAttempts); i++ {
+			if tx.TxAttempts[i].ID == attempt.ID {
+				tx.TxAttempts[i].State = txmgrtypes.TxAttemptInsufficientFunds
+			}
+		}
+	}
+	as.applyToTxsByState(nil, fn, attempt.TxID)
+
 	return nil
 }
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveSentAttempt(ctx context.Context, timeout time.Duration, attempt *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], broadcastAt time.Time) error {
