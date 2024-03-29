@@ -1283,6 +1283,20 @@ func TestLogPoller_LoadFilters(t *testing.T) {
 		assert.True(t, th.LogPoller.HasFilter("third Filter"))
 		assert.False(t, th.LogPoller.HasFilter("fourth Filter"))
 	})
+
+	t.Run("GetFilters", func(t *testing.T) {
+		filters := th.LogPoller.GetFilters()
+		assert.Equal(t, 3, len(filters))
+		assert.Equal(t, filters["first Filter"].Name, "first Filter")
+		assert.Equal(t, filters["first Filter"].EventSigs, filter1.EventSigs)
+		assert.Equal(t, filters["first Filter"].Addresses, filter1.Addresses)
+		assert.Equal(t, filters["second Filter"].Name, "second Filter")
+		assert.Equal(t, filters["second Filter"].EventSigs, filter2.EventSigs)
+		assert.Equal(t, filters["second Filter"].Addresses, filter2.Addresses)
+		assert.Equal(t, filters["third Filter"].Name, "third Filter")
+		assert.Equal(t, filters["third Filter"].EventSigs, filter3.EventSigs)
+		assert.Equal(t, filters["third Filter"].Addresses, filter3.Addresses)
+	})
 }
 
 func TestLogPoller_GetBlocks_Range(t *testing.T) {
