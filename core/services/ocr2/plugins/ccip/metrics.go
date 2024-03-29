@@ -19,21 +19,22 @@ var (
 	sequenceNumberCounter = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "ccip_sequence_number_counter",
 		Help: "Sequence number of the last message processed by the plugin",
-	}, []string{"plugin", "source", "dest"})
+	}, []string{"plugin", "source", "dest", "ocrPhase"})
 )
 
 type ocrPhase string
 
 const (
-	Observation ocrPhase = "observation"
-	Report      ocrPhase = "report"
+	Observation  ocrPhase = "observation"
+	Report       ocrPhase = "report"
+	ShouldAccept ocrPhase = "shouldAccept"
 )
 
 type PluginMetricsCollector interface {
 	NumberOfMessagesProcessed(phase ocrPhase, count int)
 	NumberOfMessagesBasedOnInterval(phase ocrPhase, seqNrMin, seqNrMax uint64)
 	UnexpiredCommitRoots(count int)
-	SequenceNumber(seqNr uint64)
+	SequenceNumber(phase ocrPhase, seqNr uint64)
 }
 
 type pluginMetricsCollector struct {
@@ -67,14 +68,14 @@ func (p *pluginMetricsCollector) UnexpiredCommitRoots(count int) {
 		Set(float64(count))
 }
 
-func (p *pluginMetricsCollector) SequenceNumber(seqNr uint64) {
+func (p *pluginMetricsCollector) SequenceNumber(phase ocrPhase, seqNr uint64) {
 	// Don't publish price reports
 	if seqNr == 0 {
 		return
 	}
 
 	sequenceNumberCounter.
-		WithLabelValues(p.pluginName, p.source, p.dest).
+		WithLabelValues(p.pluginName, p.source, p.dest, string(phase)).
 		Set(float64(seqNr))
 }
 
@@ -94,5 +95,5 @@ func (d noop) NumberOfMessagesBasedOnInterval(ocrPhase, uint64, uint64) {
 func (d noop) UnexpiredCommitRoots(int) {
 }
 
-func (d noop) SequenceNumber(uint64) {
+func (d noop) SequenceNumber(ocrPhase, uint64) {
 }

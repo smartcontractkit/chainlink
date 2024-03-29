@@ -710,7 +710,6 @@ func (r *ExecutionReportingPlugin) buildReport(ctx context.Context, lggr logger.
 		return nil, err
 	}
 
-	r.metricsCollector.NumberOfMessagesProcessed(ccip.Report, len(execReport.Messages))
 	encodedReport, err := r.offRampReader.EncodeExecutionReport(ctx, execReport)
 	if err != nil {
 		return nil, err
@@ -729,6 +728,10 @@ func (r *ExecutionReportingPlugin) buildReport(ctx context.Context, lggr logger.
 	}
 	if !valid {
 		return nil, errors.New("root does not verify")
+	}
+	if len(execReport.Messages) > 0 {
+		r.metricsCollector.NumberOfMessagesProcessed(ccip.Report, len(execReport.Messages))
+		r.metricsCollector.SequenceNumber(ccip.Report, execReport.Messages[len(execReport.Messages)-1].SequenceNumber)
 	}
 	return encodedReport, nil
 }
@@ -849,6 +852,9 @@ func (r *ExecutionReportingPlugin) ShouldAcceptFinalizedReport(ctx context.Conte
 	// Else just assume in flight
 	if err = r.inflightReports.add(lggr, execReport.Messages); err != nil {
 		return false, err
+	}
+	if len(execReport.Messages) > 0 {
+		r.metricsCollector.SequenceNumber(ccip.ShouldAccept, execReport.Messages[len(execReport.Messages)-1].SequenceNumber)
 	}
 	lggr.Info("Accepting finalized report")
 	return true, nil

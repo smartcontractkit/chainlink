@@ -418,6 +418,7 @@ func (r *CommitReportingPlugin) Report(ctx context.Context, epochAndRound types.
 	if err != nil {
 		return false, nil, err
 	}
+	r.metricsCollector.SequenceNumber(ccip.Report, report.Interval.Max)
 	r.metricsCollector.NumberOfMessagesBasedOnInterval(ccip.Report, report.Interval.Min, report.Interval.Max)
 	lggr.Infow("Report",
 		"merkleRoot", hex.EncodeToString(report.MerkleRoot[:]),
@@ -719,7 +720,7 @@ func (r *CommitReportingPlugin) ShouldAcceptFinalizedReport(ctx context.Context,
 	if err := r.inflightReports.add(lggr, parsedReport, epochAndRound); err != nil {
 		return false, err
 	}
-	r.metricsCollector.SequenceNumber(parsedReport.Interval.Max)
+	r.metricsCollector.SequenceNumber(ccip.ShouldAccept, parsedReport.Interval.Max)
 	lggr.Infow("Accepting finalized report", "merkleRoot", hexutil.Encode(parsedReport.MerkleRoot[:]))
 	return true, nil
 }

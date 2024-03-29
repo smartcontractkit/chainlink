@@ -324,6 +324,7 @@ func TestExecutionReportingPlugin_ShouldAcceptFinalizedReport(t *testing.T) {
 		lggr:             logger.TestLogger(t),
 		inflightReports:  newInflightExecReportsContainer(1 * time.Hour),
 		chainHealthcheck: chainHealthcheck,
+		metricsCollector: ccip.NoopMetricsCollector,
 	}
 
 	mockedExecState := mockOffRampReader.On("GetExecutionState", mock.Anything, uint64(12)).Return(uint8(cciptypes.ExecutionStateUntouched), nil).Once()
