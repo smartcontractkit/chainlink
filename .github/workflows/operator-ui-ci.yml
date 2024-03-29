@@ -3,7 +3,7 @@ on:
   pull_request:
 
 env:
-  BRANCH_NAME: ${{ github.event.pull_request.head.ref }}
+  TARGET_BRANCH_NAME: ${{ github.event.pull_request.base.ref }}
 
 jobs:
   check-gql:
@@ -18,8 +18,9 @@ jobs:
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@0281b09807758be1dcc41651e44e62b353808c47 # v2.1.0
+        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
         with:
+          id: operator-ui-ci
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
@@ -47,7 +48,7 @@ jobs:
         id: get-operator-ui-tag
         shell: bash
         run: |
-          if [[ $BRANCH_NAME == release/* ]]; then
+          if [[ $TARGET_BRANCH_NAME == release/* ]]; then
             TAG=$(cat ./operator_ui/TAG)
             echo "TAG=$TAG" >> $GITHUB_OUTPUT
           else

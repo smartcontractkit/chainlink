@@ -19,6 +19,7 @@ func main() {
 		src.NewGenerateJobSpecsCommand(),
 		src.NewDeployJobSpecsCommand(),
 		src.NewDeleteJobsCommand(),
+		src.NewFetchKeysCommand(),
 	}
 
 	commandsList := func(commands []command) string {

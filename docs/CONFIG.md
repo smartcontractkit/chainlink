@@ -7384,6 +7384,7 @@ URL is the HTTP(S) endpoint for this node.
 ```toml
 [[Starknet]]
 ChainID = 'foobar' # Example
+FeederURL = 'http://feeder.url' # Example
 Enabled = true # Default
 OCR2CachePollPeriod = '5s' # Default
 OCR2CacheTTL = '1m' # Default
@@ -7398,6 +7399,12 @@ ConfirmationPoll = '5s' # Default
 ChainID = 'foobar' # Example
 ```
 ChainID is the Starknet chain ID.
+
+### FeederURL
+```toml
+FeederURL = 'http://feeder.url' # Example
+```
+FeederURL is required to get tx metadata (that the RPC can't)
 
 ### Enabled
 ```toml
@@ -7440,6 +7447,7 @@ ConfirmationPoll is how often to confirmer checks for tx inclusion on chain.
 [[Starknet.Nodes]]
 Name = 'primary' # Example
 URL = 'http://stark.node' # Example
+APIKey = 'key' # Example
 ```
 
 
@@ -7454,4 +7462,10 @@ Name is a unique (per-chain) identifier for this node.
 URL = 'http://stark.node' # Example
 ```
 URL is the base HTTP(S) endpoint for this node.
+
+### APIKey
+```toml
+APIKey = 'key' # Example
+```
+APIKey Header is optional and only required for Nethermind RPCs
 
