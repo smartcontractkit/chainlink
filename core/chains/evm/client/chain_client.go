@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 
@@ -39,7 +40,13 @@ type chainClient struct {
 		rpc.BatchElem,
 	]
 	logger    logger.SugaredLogger
-	chainType config.ChainType
+}
+
+type TxSimulationRequest struct {
+	From  common.Address
+	To    *common.Address
+	Data  []byte
+	Error *SendError
 }
 
 func NewChainClient(
@@ -272,14 +279,57 @@ func (c *chainClient) LatestFinalizedBlock(ctx context.Context) (*evmtypes.Head,
 }
 
 func (c *chainClient) CheckTxValidity(ctx context.Context, from common.Address, to common.Address, data []byte) *SendError {
-	msg := TxSimulationRequest{
-		From: from,
-		To:   &to,
-		Data: data,
+	reqs := []TxSimulationRequest{
+		{
+			From: from,
+			To:   &to,
+			Data: data,
+		},
 	}
-	return SimulateTransaction(ctx, c, c.chainType, msg)
+	err := c.BatchCheckTxValidity(ctx, reqs)
+	if err != nil {
+		return NewSendError(err)
+	}
+	return reqs[0].Error
 }
 
 func (c *chainClient) BatchCheckTxValidity(ctx context.Context, reqs []TxSimulationRequest) error {
-	return BatchSimulateTransaction(ctx, c, c.chainType, reqs)
+	rpcBatchCalls := make([]rpc.BatchElem, len(reqs))
+	for i, req := range reqs {
+		toAddress := common.Address{}
+		if req.To != nil {
+			toAddress = *req.To
+		}
+		rpcBatchCalls[i] = rpc.BatchElem{
+			Method: "eth_estimateGas",
+			Args: []any{
+				map[string]interface{}{
+					"from": req.From,
+					"to":   toAddress,
+					"data": hexutil.Bytes(req.Data),
+				},
+				"pending",
+			},
+			Result: new(hexutil.Big),
+		}
+	}
+	err := c.BatchCallContext(ctx, rpcBatchCalls)
+	if err != nil {
+		return err
+	}
+
+	for _, elem := range rpcBatchCalls {
+		params := elem.Args[0].(map[string]interface{})
+		for i := 0; i < len(reqs); i++ {
+			req := &reqs[i]
+			// Match the request to rpc response to set the error in the proper object
+			if params["from"] == req.From &&
+				(req.To == nil && params["to"] == common.Address{} || req.To != nil && params["to"] == *req.To) &&
+				params["data"].(hexutil.Bytes).String() == hexutil.Bytes(req.Data).String() {
+				// Wrap RPC error in SendError
+				req.Error = NewSendError(elem.Error)
+			}
+		}
+	}
+	return nil
 }
