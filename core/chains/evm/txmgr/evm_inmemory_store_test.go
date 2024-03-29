@@ -1,13 +1,79 @@
 package txmgr_test
 
 import (
+	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	commontxmgr "github.com/smartcontractkit/chainlink/v2/common/txmgr"
+
+	evmgas "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	evmtxmgr "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 )
+
+func TestInMemoryStore_Abandon(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
+	persistentStore := cltest.NewTestTxStore(t, db)
+	kst := cltest.NewKeyStore(t, db, dbcfg)
+	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
+
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	lggr := logger.TestSugared(t)
+	chainID := ethClient.ConfiguredChainID()
+	ctx := testutils.Context(t)
+
+	inMemoryStore, err := commontxmgr.NewInMemoryStore[
+		*big.Int,
+		common.Address, common.Hash, common.Hash,
+		*evmtypes.Receipt,
+		evmtypes.Nonce,
+		evmgas.EvmFee,
+	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	require.NoError(t, err)
+
+	t.Run("Abandon transactions successfully", func(t *testing.T) {
+		nTxs := 3
+		for i := 0; i < nTxs; i++ {
+			inTx := cltest.NewEthTx(fromAddress)
+			// insert the transaction into the persistent store
+			require.NoError(t, persistentStore.InsertTx(ctx, &inTx))
+			// insert the transaction into the in-memory store
+			require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
+		}
+
+		actErr := inMemoryStore.Abandon(ctx, chainID, fromAddress)
+		expErr := persistentStore.Abandon(ctx, chainID, fromAddress)
+		require.NoError(t, actErr)
+		require.NoError(t, expErr)
+
+		expTxs, err := persistentStore.FindTxesByFromAddressAndState(ctx, fromAddress, "fatal_error")
+		require.NoError(t, err)
+		require.NotNil(t, expTxs)
+		require.Equal(t, nTxs, len(expTxs))
+
+		// Check the in-memory store
+		fn := func(tx *evmtxmgr.Tx) bool { return true }
+		actTxs := inMemoryStore.XXXTestFindTxs(nil, fn)
+		require.NotNil(t, actTxs)
+		require.Equal(t, nTxs, len(actTxs))
+
+		for i := 0; i < nTxs; i++ {
+			assertTxEqual(t, *expTxs[i], actTxs[i])
+		}
+	})
+}
 
 // assertTxEqual asserts that two transactions are equal
 func assertTxEqual(t *testing.T, exp, act evmtxmgr.Tx) {
