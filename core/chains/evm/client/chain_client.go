@@ -39,7 +39,7 @@ type chainClient struct {
 		RPCClient,
 		rpc.BatchElem,
 	]
-	logger    logger.SugaredLogger
+	logger logger.SugaredLogger
 }
 
 type TxSimulationRequest struct {
