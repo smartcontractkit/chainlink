@@ -82,4 +82,6 @@ func TestJobKVStore(t *testing.T) {
 	require.NoError(t, kvStore.Store(key, td2))
 	require.NoError(t, kvStore.Get(key, &retData))
 	require.Equal(t, td2, retData)
+
+	require.NoError(t, jobORM.DeleteJob(jobID))
 }
