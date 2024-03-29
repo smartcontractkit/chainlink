@@ -39,13 +39,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   uint32 internal constant UINT32_MAX = type(uint32).max;
   // The first byte of the mask can be 0, because we only ever have 31 oracles
   uint256 internal constant ORACLE_MASK = 0x0001010101010101010101010101010101010101010101010101010101010101;
-  /**
-   * @dev UPKEEP_TRANSCODER_VERSION_BASE is temporary necessity for backwards compatibility with
-   * MigratableAutomationRegistryInterfaceV1 - it should be removed in future versions in favor of
-   * UPKEEP_VERSION_BASE and MigratableAutomationRegistryInterfaceV2
-   */
-  UpkeepFormat internal constant UPKEEP_TRANSCODER_VERSION_BASE = UpkeepFormat.V1;
-  uint8 internal constant UPKEEP_VERSION_BASE = 3;
+  uint8 internal constant UPKEEP_VERSION_BASE = 4;
 
   // Next block of constants are only used in maxPayment estimation during checkUpkeep simulation
   // These values are calibrated using hardhat tests which simulates various cases and verifies that
