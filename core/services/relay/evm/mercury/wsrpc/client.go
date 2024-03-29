@@ -16,6 +16,7 @@ import (
 	"google.golang.org/grpc"
 	grpc_connectivity "google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/smartcontractkit/wsrpc"
 	"github.com/smartcontractkit/wsrpc/connectivity"
@@ -202,7 +203,7 @@ func (w *client) dial(ctx context.Context, opts ...wsrpc.DialOption) error {
 	w.dialCountMetric.Inc()
 	conn, err := wsrpc.DialWithContext(ctx, w.serverURL,
 		append(opts,
-			wsrpc.WithTransportCreds(w.csaKey.Raw().Bytes(), w.serverPubKey),
+			// wsrpc.WithTransportCreds(w.csaKey.Raw().Bytes(), w.serverPubKey),
 			wsrpc.WithLogger(w.logger),
 		)...,
 	)
@@ -226,6 +227,26 @@ func (w *client) dial(ctx context.Context, opts ...wsrpc.DialOption) error {
 // with error.
 func (c *client) dialGrpc(ctx context.Context, opts ...grpc.DialOption) error {
 
+	if c.tlsCertFile == nil {
+		conn, err := grpc.DialContext(ctx, c.serverURL,
+			append(opts,
+				grpc.WithTransportCredentials(
+					insecure.NewCredentials(),
+				),
+			)...,
+		)
+		
+		if err != nil {
+			c.dialErrorCountMetric.Inc()
+			setLivenessMetric(false)
+			return errors.Wrap(err, "failed to dial wsrpc client")
+		}
+		c.dialSuccessCountMetric.Inc()
+		setLivenessMetric(true)
+		c.conn = NewAdaptedGrpcClientConn(conn)
+		c.rawClient = pb.NewMercuryGrpcClient(conn)
+		return nil
+	}
 	// TODO: move this block to TOML config validation
 	b, err := os.ReadFile(*c.tlsCertFile)
 	if err != nil {

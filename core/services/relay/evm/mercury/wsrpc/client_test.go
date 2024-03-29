@@ -2,11 +2,15 @@ package wsrpc
 
 import (
 	"context"
+	"fmt"
+	"net"
 	"testing"
 	"time"
 
+	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -15,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
+	"github.com/smartcontractkit/wsrpc"
 )
 
 // simulate start without dialling
@@ -176,3 +181,119 @@ func Test_Client_LatestReport(t *testing.T) {
 		})
 	}
 }
+
+type TestServer interface {
+	Serve(lis net.Listener) error
+	Stop()
+}
+
+type WrappedWsrpcServer struct {
+	*wsrpc.Server
+}
+
+func (s *WrappedWsrpcServer) Serve(lis net.Listener) error {
+	s.Server.Serve(lis)
+	return nil
+}
+
+func NewWrappedWsrpcServer() TestServer {
+	return &WrappedWsrpcServer{wsrpc.NewServer()}
+}
+
+// Tests that when start is called, the appropriate type of connection is made
+func Test_Start_Dial(t *testing.T) {
+	wsrpcName := "WSRPC"
+	grpcName := "GRPC"
+	tests := []struct {
+		name string
+		tlsCertFile *string
+		server TestServer
+	}{
+		{
+			name: wsrpcName,
+			tlsCertFile: nil,
+			server: NewWrappedWsrpcServer(),
+		},
+		{
+			name: grpcName,
+			tlsCertFile: ptr("./fixtures/domain.pem"), // TODO: dialing with insecure creds for now
+			server: grpc.NewServer(),
+		},
+	}
+	lggr := logger.TestLogger(t)
+	ctx := testutils.Context(t)
+
+	for _, tt := range tests {
+
+		t.Logf("Running test for %s", tt.name)
+		port := freeport.GetOne(t)
+		addr := fmt.Sprintf("127.0.0.1:%v", port)
+
+		// Set up client
+		c := newClient(lggr, csakey.KeyV2{}, nil, addr, newNoopCacheSet(), nil)
+
+		// Set up server
+		lis, err := net.Listen("tcp",  addr)
+		require.NoError(t, err)
+		s := tt.server
+		go s.Serve(lis)
+		t.Cleanup(s.Stop)
+
+		// Start client
+		err = c.Start(ctx)
+		require.NoError(t, err)
+		t.Cleanup(func() {c.Close()})
+
+		// Validate connection type
+		switch tt.name {
+		case wsrpcName:
+			_, ok := c.conn.(*wsrpc.ClientConn); 
+			if !ok {
+				t.Fatalf("expected wsrpc.ClientConn, got %T", c.conn)
+			}
+		case grpcName:
+			_, ok:= c.conn.(*AdapatedGrpcClientConn)
+			if !ok { // will always fail for now while I'm hacking tlsCertFile to be null
+				t.Fatalf("expected AdaptedGrpcClientConn, got %T", c.conn)
+			}
+		}
+
+		}
+}
+
+// Tests that when start is called, a the appropriate type of connection is made
+// spin up server, make dial, validate type of connection is correct
+func Test_Start_Dial_GRPC(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	ctx := testutils.Context(t)
+
+	port := freeport.GetOne(t)
+	addr := fmt.Sprintf("127.0.0.1:%v", port)
+
+	// Set up client
+	c := newClient(lggr, csakey.KeyV2{}, nil, addr, newNoopCacheSet(), nil)
+
+	// Set up server
+	lis, err := net.Listen("tcp",  addr)
+	require.NoError(t, err)
+	s := grpc.NewServer()
+	err = s.Serve(lis)
+	require.NoError(t, err)
+
+	// Start client
+	err = c.Start(ctx)
+	require.NoError(t, err)
+
+	// Validate connection type
+	_, ok:= c.conn.(*AdapatedGrpcClientConn)
+	if !ok {
+		t.Fatalf("expected AdaptedGrpcClientConn, got %T", c.conn)
+	}
+
+}
+
+// TODO:
+// * figure out if I want a mode where the client can dial the grpc server without a cert bundle
+
+
+func ptr[T any](t T) *T { return &t }

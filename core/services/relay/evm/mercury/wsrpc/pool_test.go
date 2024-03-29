@@ -23,6 +23,7 @@ type mockClient struct {
 	started   bool
 	closed    bool
 	rawClient pb.MercuryClient
+	lggr      logger.Logger
 }
 
 func (c *mockClient) Transmit(ctx context.Context, in *pb.TransmitRequest) (out *pb.TransmitResponse, err error) {
@@ -46,7 +47,9 @@ func (c *mockClient) ServerURL() string              { return "mock client url" 
 func (c *mockClient) RawClient() pb.MercuryClient    { return c.rawClient }
 
 func newMockClient(lggr logger.Logger) *mockClient {
-	return &mockClient{}
+	return &mockClient{
+		lggr: lggr,
+	}
 }
 
 func Test_Pool(t *testing.T) {
