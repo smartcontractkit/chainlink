@@ -31,7 +31,7 @@ func SimulateAndMonitorOCRAnswers(
 	msClient *client2.MockserverClient,
 	labels map[string]string,
 ) {
-	go MonitorOCRRouds(logger, lc, ocrInstances, labels)
+	go MonitorOCRRounds(logger, lc, ocrInstances, labels)
 	go SimulateEAActivity(logger, eaChangeInterval, ocrInstances, workerNodes, msClient)
 }
 
@@ -58,8 +58,8 @@ func SimulateEAActivity(
 	}
 }
 
-// MonitorOCRRouds polls OCR contracts and pushes their round data to Loki every second
-func MonitorOCRRouds(
+// MonitorOCRRounds polls OCR contracts and pushes their round data to Loki every second
+func MonitorOCRRounds(
 	l zerolog.Logger,
 	lc *wasp.LokiClient,
 	ocrInstances []contracts.OffchainAggregator,
