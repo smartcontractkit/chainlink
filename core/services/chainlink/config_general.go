@@ -409,10 +409,6 @@ func (g *generalConfig) ShutdownGracePeriod() time.Duration {
 	return g.c.ShutdownGracePeriod.Duration()
 }
 
-func (g *generalConfig) FluxMonitor() config.FluxMonitor {
-	return &fluxMonitorConfig{c: g.c.FluxMonitor}
-}
-
 func (g *generalConfig) InsecureFastScrypt() bool {
 	return *g.c.InsecureFastScrypt
 }

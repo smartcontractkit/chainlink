@@ -17,7 +17,6 @@ func TestKeeperConfig(t *testing.T) {
 
 	keeper := cfg.Keeper()
 
-	assert.Equal(t, uint32(17), keeper.DefaultTransactionQueueDepth())
 	assert.Equal(t, uint16(12), keeper.GasPriceBufferPercent())
 	assert.Equal(t, uint16(43), keeper.GasTipCapBufferPercent())
 	assert.Equal(t, uint16(89), keeper.BaseFeeBufferPercent())

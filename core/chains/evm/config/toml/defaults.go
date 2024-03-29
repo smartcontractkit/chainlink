@@ -164,6 +164,12 @@ func (c *Chain) SetFrom(f *Chain) {
 	if v := f.RPCBlockQueryDelay; v != nil {
 		c.RPCBlockQueryDelay = v
 	}
+	if v:= f.SimulateTransactions; v != nil {
+		c.SimulateTransactions = v
+	}
+	if v:= f.DefaultTransactionQueueDepth; v != nil {
+		c.DefaultTransactionQueueDepth = v
+	}
 
 	c.Transactions.setFrom(&f.Transactions)
 	c.BalanceMonitor.setFrom(&f.BalanceMonitor)

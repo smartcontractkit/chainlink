@@ -34,9 +34,7 @@ func TestOCR2Config(t *testing.T) {
 	require.Equal(t, expectedDatabaseTimeout, ocr2Cfg.DatabaseTimeout())
 	require.Equal(t, expectedContractPollInterval, ocr2Cfg.ContractPollInterval())
 	require.Equal(t, expectedContractSubscribeInterval, ocr2Cfg.ContractSubscribeInterval())
-	require.Equal(t, false, ocr2Cfg.SimulateTransactions())
 	require.Equal(t, false, ocr2Cfg.TraceLogging())
-	require.Equal(t, uint32(1), ocr2Cfg.DefaultTransactionQueueDepth())
 	require.Equal(t, false, ocr2Cfg.CaptureEATelemetry())
 	require.Equal(t, true, ocr2Cfg.CaptureAutomationCustomTelemetry())
 

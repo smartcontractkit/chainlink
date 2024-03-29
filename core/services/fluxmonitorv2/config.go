@@ -23,10 +23,6 @@ type EvmTransactionsConfig interface {
 	MaxQueued() uint64 // Evm
 }
 
-type FluxMonitorConfig interface {
-	DefaultTransactionQueueDepth() uint32
-}
-
 type JobPipelineConfig interface {
 	DefaultHTTPTimeout() commonconfig.Duration
 }

@@ -45,7 +45,6 @@ type Core struct {
 	Log              Log              `toml:",omitempty"`
 	WebServer        WebServer        `toml:",omitempty"`
 	JobPipeline      JobPipeline      `toml:",omitempty"`
-	FluxMonitor      FluxMonitor      `toml:",omitempty"`
 	OCR2             OCR2             `toml:",omitempty"`
 	OCR              OCR              `toml:",omitempty"`
 	P2P              P2P              `toml:",omitempty"`
@@ -80,7 +79,6 @@ func (c *Core) SetFrom(f *Core) {
 	c.WebServer.setFrom(&f.WebServer)
 	c.JobPipeline.setFrom(&f.JobPipeline)
 
-	c.FluxMonitor.setFrom(&f.FluxMonitor)
 	c.OCR2.setFrom(&f.OCR2)
 	c.OCR.setFrom(&f.OCR)
 	c.P2P.setFrom(&f.P2P)
@@ -899,20 +897,6 @@ func (j *JobPipelineHTTPRequest) setFrom(f *JobPipelineHTTPRequest) {
 	}
 }
 
-type FluxMonitor struct {
-	DefaultTransactionQueueDepth *uint32
-	SimulateTransactions         *bool
-}
-
-func (m *FluxMonitor) setFrom(f *FluxMonitor) {
-	if v := f.DefaultTransactionQueueDepth; v != nil {
-		m.DefaultTransactionQueueDepth = v
-	}
-	if v := f.SimulateTransactions; v != nil {
-		m.SimulateTransactions = v
-	}
-}
-
 type OCR2 struct {
 	Enabled                            *bool
 	ContractConfirmations              *uint32
@@ -924,8 +908,6 @@ type OCR2 struct {
 	KeyBundleID                        *models.Sha256Hash
 	CaptureEATelemetry                 *bool
 	CaptureAutomationCustomTelemetry   *bool
-	DefaultTransactionQueueDepth       *uint32
-	SimulateTransactions               *bool
 	TraceLogging                       *bool
 }
 
@@ -960,12 +942,6 @@ func (o *OCR2) setFrom(f *OCR2) {
 	if v := f.CaptureAutomationCustomTelemetry; v != nil {
 		o.CaptureAutomationCustomTelemetry = v
 	}
-	if v := f.DefaultTransactionQueueDepth; v != nil {
-		o.DefaultTransactionQueueDepth = v
-	}
-	if v := f.SimulateTransactions; v != nil {
-		o.SimulateTransactions = v
-	}
 	if v := f.TraceLogging; v != nil {
 		o.TraceLogging = v
 	}
@@ -977,10 +953,8 @@ type OCR struct {
 	BlockchainTimeout            *commonconfig.Duration
 	ContractPollInterval         *commonconfig.Duration
 	ContractSubscribeInterval    *commonconfig.Duration
-	DefaultTransactionQueueDepth *uint32
 	// Optional
 	KeyBundleID          *models.Sha256Hash
-	SimulateTransactions *bool
 	TransmitterAddress   *types.EIP55Address
 	CaptureEATelemetry   *bool
 	TraceLogging         *bool
@@ -1002,14 +976,8 @@ func (o *OCR) setFrom(f *OCR) {
 	if v := f.ContractSubscribeInterval; v != nil {
 		o.ContractSubscribeInterval = v
 	}
-	if v := f.DefaultTransactionQueueDepth; v != nil {
-		o.DefaultTransactionQueueDepth = v
-	}
 	if v := f.KeyBundleID; v != nil {
 		o.KeyBundleID = v
-	}
-	if v := f.SimulateTransactions; v != nil {
-		o.SimulateTransactions = v
 	}
 	if v := f.TransmitterAddress; v != nil {
 		o.TransmitterAddress = v
@@ -1079,7 +1047,6 @@ func (p *P2PV2) setFrom(f *P2PV2) {
 }
 
 type Keeper struct {
-	DefaultTransactionQueueDepth *uint32
 	GasPriceBufferPercent        *uint16
 	GasTipCapBufferPercent       *uint16
 	BaseFeeBufferPercent         *uint16
@@ -1090,9 +1057,6 @@ type Keeper struct {
 }
 
 func (k *Keeper) setFrom(f *Keeper) {
-	if v := f.DefaultTransactionQueueDepth; v != nil {
-		k.DefaultTransactionQueueDepth = v
-	}
 	if v := f.GasPriceBufferPercent; v != nil {
 		k.GasPriceBufferPercent = v
 	}

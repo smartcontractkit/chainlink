@@ -199,10 +199,10 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) (services []
 		}
 
 		cfg := chain.Config()
-		strategy := txmgrcommon.NewQueueingTxStrategy(jb.ExternalJobID, cfg.OCR().DefaultTransactionQueueDepth(), cfg.Database().DefaultQueryTimeout())
+		strategy := txmgrcommon.NewQueueingTxStrategy(jb.ExternalJobID, cfg.EVM().DefaultTransactionQueueDepth(), cfg.Database().DefaultQueryTimeout())
 
 		var checker txmgr.TransmitCheckerSpec
-		if chain.Config().OCR().SimulateTransactions() {
+		if chain.Config().EVM().SimulateTransactions() {
 			checker.CheckerType = txmgr.TransmitCheckerTypeSimulate
 		}
 

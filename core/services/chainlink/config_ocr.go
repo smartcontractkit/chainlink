@@ -44,10 +44,6 @@ func (o *ocrConfig) ObservationTimeout() time.Duration {
 	return o.c.ObservationTimeout.Duration()
 }
 
-func (o *ocrConfig) SimulateTransactions() bool {
-	return *o.c.SimulateTransactions
-}
-
 func (o *ocrConfig) TransmitterAddress() (types.EIP55Address, error) {
 	a := *o.c.TransmitterAddress
 	if a.IsZero() {
@@ -58,10 +54,6 @@ func (o *ocrConfig) TransmitterAddress() (types.EIP55Address, error) {
 
 func (o *ocrConfig) TraceLogging() bool {
 	return *o.c.TraceLogging
-}
-
-func (o *ocrConfig) DefaultTransactionQueueDepth() uint32 {
-	return *o.c.DefaultTransactionQueueDepth
 }
 
 func (o *ocrConfig) CaptureEATelemetry() bool {

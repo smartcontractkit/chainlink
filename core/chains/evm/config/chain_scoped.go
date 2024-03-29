@@ -201,3 +201,11 @@ func (e *EVMConfig) OperatorFactoryAddress() string {
 func (e *EVMConfig) LogPrunePageSize() uint32 {
 	return *e.C.LogPrunePageSize
 }
+
+func (e *EVMConfig) SimulateTransactions() bool {
+	return *e.C.SimulateTransactions
+}
+
+func (e *EVMConfig) DefaultTransactionQueueDepth() uint32 {
+	return *e.C.DefaultTransactionQueueDepth
+}

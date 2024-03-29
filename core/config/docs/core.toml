@@ -293,13 +293,6 @@ DefaultTimeout = '15s' # Default
 # MaxSize defines the maximum size for HTTP requests and responses made by `http` and `bridge` adapters.
 MaxSize = '32768' # Default
 
-[FluxMonitor]
-# **ADVANCED**
-# DefaultTransactionQueueDepth controls the queue size for `DropOldestStrategy` in Flux Monitor. Set to 0 to use `SendEvery` strategy instead.
-DefaultTransactionQueueDepth = 1 # Default
-# SimulateTransactions enables transaction simulation for Flux Monitor.
-SimulateTransactions = false # Default
-
 [OCR2]
 # Enabled enables OCR2 jobs.
 Enabled = false # Default
@@ -355,10 +348,6 @@ KeyBundleID = '7a5f66bbe6594259325bf2b4f5b1a9c900000000000000000000000000000000'
 CaptureEATelemetry = false # Default
 # CaptureAutomationCustomTelemetry toggles collecting automation specific telemetry
 CaptureAutomationCustomTelemetry = true # Default
-# DefaultTransactionQueueDepth controls the queue size for `DropOldestStrategy` in OCR2. Set to 0 to use `SendEvery` strategy instead.
-DefaultTransactionQueueDepth = 1 # Default
-# SimulateTransactions enables transaction simulation for OCR2.
-SimulateTransactions = false # Default
 # TraceLogging enables trace level logging.
 TraceLogging = false # Default
 
@@ -382,13 +371,8 @@ ContractPollInterval = '1m' # Default
 # ContractSubscribeInterval is the interval at which we try to establish a subscription on ContractConfigTracker
 # if one doesn't exist. Recommended values are between two and five minutes.
 ContractSubscribeInterval = '2m' # Default
-# **ADVANCED**
-# DefaultTransactionQueueDepth controls the queue size for `DropOldestStrategy` in OCR. Set to 0 to use `SendEvery` strategy instead.
-DefaultTransactionQueueDepth = 1 # Default
 # KeyBundleID is the default key bundle ID to use for OCR jobs. If you have an OCR job that does not explicitly specify a key bundle ID, it will fall back to this value.
 KeyBundleID = 'acdd42797a8b921b2910497badc5000600000000000000000000000000000000' # Example
-# SimulateTransactions enables transaction simulation for OCR.
-SimulateTransactions = false # Default
 # TransmitterAddress is the default sending address to use for OCR. If you have an OCR job that does not explicitly specify a transmitter address, it will fall back to this value.
 TransmitterAddress = '0xa0788FC17B1dEe36f057c42B6F373A34B014687e' # Example
 # CaptureEATelemetry toggles collecting extra information from External Adaptares
@@ -482,9 +466,6 @@ DeltaReconcile = '1m' # Default
 ListenAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
 
 [Keeper]
-# **ADVANCED**
-# DefaultTransactionQueueDepth controls the queue size for `DropOldestStrategy` in Keeper. Set to 0 to use `SendEvery` strategy instead.
-DefaultTransactionQueueDepth = 1 # Default
 # **ADVANCED**
 # GasPriceBufferPercent specifies the percentage to add to the gas price used for checking whether to perform an upkeep. Only applies in legacy mode (EIP-1559 off).
 GasPriceBufferPercent = 20 # Default

@@ -87,6 +87,10 @@ RPCDefaultBatchSize = 250 # Default
 # available from the connected node via RPC, due to race conditions in the code of the remote ETH node. In this case you will get false
 # "zero" blocks that are missing transactions.
 RPCBlockQueryDelay = 1 # Default
+# DefaultTransactionQueueDepth controls the queue size for `DropOldestStrategy` in TXM. Set to 0 to use `SendEvery` strategy instead.
+DefaultTransactionQueueDepth = 1 # Default
+# SimulateTransactions enables transaction simulation for TransmitChecker.
+SimulateTransactions = false # Default
 
 [EVM.Transactions]
 # ForwardersEnabled enables or disables sending transactions through forwarder contracts.

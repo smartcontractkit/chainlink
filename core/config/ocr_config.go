@@ -15,10 +15,8 @@ type OCR interface {
 	ContractSubscribeInterval() time.Duration
 	KeyBundleID() (string, error)
 	ObservationTimeout() time.Duration
-	SimulateTransactions() bool
 	TransmitterAddress() (types.EIP55Address, error) // OCR2 can support non-evm changes
 	// OCR1 config, cannot override in jobs
 	TraceLogging() bool
-	DefaultTransactionQueueDepth() uint32
 	CaptureEATelemetry() bool
 }

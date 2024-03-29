@@ -7,11 +7,9 @@ MaxOpenConns = 50
 
 [OCR2]
 Enabled = true
-DefaultTransactionQueueDepth = 0
 
 [OCR]
 Enabled = false
-DefaultTransactionQueueDepth = 0
 
 [P2P]
 [P2P.V2]

@@ -32,7 +32,6 @@ data:
     UICSAKeys = true
     [OCR]
     Enabled = true
-    DefaultTransactionQueueDepth = 0
     [P2P]
     [P2P.V2]
     Enabled = true
@@ -46,6 +45,7 @@ data:
     MinContractPayment = '0'
     AutoCreateKey = true
     FinalityDepth = 1
+    DefaultTransactionQueueDepth = 0
     {{- if (hasKey $chainCfg "customEVMConfigToml") }}
     {{- $chainCfg.customEVMConfigToml | nindent 4 }}
     {{- end }}

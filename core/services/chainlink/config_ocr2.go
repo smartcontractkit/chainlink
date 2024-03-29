@@ -60,11 +60,3 @@ func (o *ocr2Config) CaptureEATelemetry() bool {
 func (o *ocr2Config) CaptureAutomationCustomTelemetry() bool {
 	return *o.c.CaptureAutomationCustomTelemetry
 }
-
-func (o *ocr2Config) DefaultTransactionQueueDepth() uint32 {
-	return *o.c.DefaultTransactionQueueDepth
-}
-
-func (o *ocr2Config) SimulateTransactions() bool {
-	return *o.c.SimulateTransactions
-}

@@ -514,10 +514,10 @@ func newOnChainContractTransmitter(ctx context.Context, lggr logger.Logger, rarg
 		subject = *opts.subjectID
 	}
 	scoped := configWatcher.chain.Config()
-	strategy := txmgrcommon.NewQueueingTxStrategy(subject, scoped.OCR2().DefaultTransactionQueueDepth(), scoped.Database().DefaultQueryTimeout())
+	strategy := txmgrcommon.NewQueueingTxStrategy(subject, scoped.EVM().DefaultTransactionQueueDepth(), scoped.Database().DefaultQueryTimeout())
 
 	var checker txm.TransmitCheckerSpec
-	if configWatcher.chain.Config().OCR2().SimulateTransactions() {
+	if configWatcher.chain.Config().EVM().SimulateTransactions() {
 		checker.CheckerType = txm.TransmitCheckerTypeSimulate
 	}
 

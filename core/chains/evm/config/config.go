@@ -45,6 +45,8 @@ type EVM interface {
 	OperatorFactoryAddress() string
 	RPCDefaultBatchSize() uint32
 	NodeNoNewHeadsThreshold() time.Duration
+	SimulateTransactions() bool
+	DefaultTransactionQueueDepth() uint32
 
 	IsEnabled() bool
 	TOMLString() (string, error)

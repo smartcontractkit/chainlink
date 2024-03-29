@@ -128,10 +128,6 @@ VerboseLogging = false
 DefaultTimeout = '1m0s'
 MaxSize = '100.00mb'
 
-[FluxMonitor]
-DefaultTransactionQueueDepth = 100
-SimulateTransactions = true
-
 [OCR2]
 Enabled = true
 ContractConfirmations = 11
@@ -143,8 +139,6 @@ DatabaseTimeout = '8s'
 KeyBundleID = '7a5f66bbe6594259325bf2b4f5b1a9c900000000000000000000000000000000'
 CaptureEATelemetry = false
 CaptureAutomationCustomTelemetry = true
-DefaultTransactionQueueDepth = 1
-SimulateTransactions = false
 TraceLogging = false
 
 [OCR]
@@ -153,9 +147,7 @@ ObservationTimeout = '11s'
 BlockchainTimeout = '3s'
 ContractPollInterval = '1h0m0s'
 ContractSubscribeInterval = '1m0s'
-DefaultTransactionQueueDepth = 12
 KeyBundleID = 'acdd42797a8b921b2910497badc5000600000000000000000000000000000000'
-SimulateTransactions = true
 TransmitterAddress = '0xa0788FC17B1dEe36f057c42B6F373A34B014687e'
 CaptureEATelemetry = false
 TraceLogging = false
@@ -175,7 +167,6 @@ DeltaReconcile = '1s'
 ListenAddresses = ['foo', 'bar']
 
 [Keeper]
-DefaultTransactionQueueDepth = 17
 GasPriceBufferPercent = 12
 GasTipCapBufferPercent = 43
 BaseFeeBufferPercent = 89

@@ -30,9 +30,7 @@ func TestOCRConfig(t *testing.T) {
 	require.Equal(t, expectedBlockchainTimeout, ocrCfg.BlockchainTimeout())
 	require.Equal(t, expectedContractPollInterval, ocrCfg.ContractPollInterval())
 	require.Equal(t, expectedContractSubscribeInterval, ocrCfg.ContractSubscribeInterval())
-	require.Equal(t, true, ocrCfg.SimulateTransactions())
 	require.Equal(t, false, ocrCfg.TraceLogging())
-	require.Equal(t, uint32(12), ocrCfg.DefaultTransactionQueueDepth())
 	require.Equal(t, false, ocrCfg.CaptureEATelemetry())
 
 	keyBundleID, err := ocrCfg.KeyBundleID()

@@ -38,7 +38,6 @@ type AppConfig interface {
 	Capabilities() Capabilities
 	Database() Database
 	Feature() Feature
-	FluxMonitor() FluxMonitor
 	Insecure() Insecure
 	JobPipeline() JobPipeline
 	Keeper() Keeper

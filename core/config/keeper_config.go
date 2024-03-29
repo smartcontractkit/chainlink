@@ -11,7 +11,6 @@ type Registry interface {
 }
 
 type Keeper interface {
-	DefaultTransactionQueueDepth() uint32
 	GasPriceBufferPercent() uint16
 	GasTipCapBufferPercent() uint16
 	BaseFeeBufferPercent() uint16

@@ -376,10 +376,6 @@ func TestConfig_Marshal(t *testing.T) {
 			DefaultTimeout: commoncfg.MustNewDuration(time.Minute),
 		},
 	}
-	full.FluxMonitor = toml.FluxMonitor{
-		DefaultTransactionQueueDepth: ptr[uint32](100),
-		SimulateTransactions:         ptr(true),
-	}
 	full.OCR2 = toml.OCR2{
 		Enabled:                            ptr(true),
 		ContractConfirmations:              ptr[uint32](11),
@@ -391,22 +387,18 @@ func TestConfig_Marshal(t *testing.T) {
 		KeyBundleID:                        ptr(models.MustSha256HashFromHex("7a5f66bbe6594259325bf2b4f5b1a9c9")),
 		CaptureEATelemetry:                 ptr(false),
 		CaptureAutomationCustomTelemetry:   ptr(true),
-		DefaultTransactionQueueDepth:       ptr[uint32](1),
-		SimulateTransactions:               ptr(false),
 		TraceLogging:                       ptr(false),
 	}
 	full.OCR = toml.OCR{
-		Enabled:                      ptr(true),
-		ObservationTimeout:           commoncfg.MustNewDuration(11 * time.Second),
-		BlockchainTimeout:            commoncfg.MustNewDuration(3 * time.Second),
-		ContractPollInterval:         commoncfg.MustNewDuration(time.Hour),
-		ContractSubscribeInterval:    commoncfg.MustNewDuration(time.Minute),
-		DefaultTransactionQueueDepth: ptr[uint32](12),
-		KeyBundleID:                  ptr(models.MustSha256HashFromHex("acdd42797a8b921b2910497badc50006")),
-		SimulateTransactions:         ptr(true),
-		TransmitterAddress:           ptr(types.MustEIP55Address("0xa0788FC17B1dEe36f057c42B6F373A34B014687e")),
-		CaptureEATelemetry:           ptr(false),
-		TraceLogging:                 ptr(false),
+		Enabled:                   ptr(true),
+		ObservationTimeout:        commoncfg.MustNewDuration(11 * time.Second),
+		BlockchainTimeout:         commoncfg.MustNewDuration(3 * time.Second),
+		ContractPollInterval:      commoncfg.MustNewDuration(time.Hour),
+		ContractSubscribeInterval: commoncfg.MustNewDuration(time.Minute),
+		KeyBundleID:               ptr(models.MustSha256HashFromHex("acdd42797a8b921b2910497badc50006")),
+		TransmitterAddress:        ptr(types.MustEIP55Address("0xa0788FC17B1dEe36f057c42B6F373A34B014687e")),
+		CaptureEATelemetry:        ptr(false),
+		TraceLogging:              ptr(false),
 	}
 	full.P2P = toml.P2P{
 		IncomingMessageBufferSize: ptr[int64](13),
@@ -445,12 +437,11 @@ func TestConfig_Marshal(t *testing.T) {
 		},
 	}
 	full.Keeper = toml.Keeper{
-		DefaultTransactionQueueDepth: ptr[uint32](17),
-		GasPriceBufferPercent:        ptr[uint16](12),
-		GasTipCapBufferPercent:       ptr[uint16](43),
-		BaseFeeBufferPercent:         ptr[uint16](89),
-		MaxGracePeriod:               ptr[int64](31),
-		TurnLookBack:                 ptr[int64](91),
+		GasPriceBufferPercent:  ptr[uint16](12),
+		GasTipCapBufferPercent: ptr[uint16](43),
+		BaseFeeBufferPercent:   ptr[uint16](89),
+		MaxGracePeriod:         ptr[int64](31),
+		TurnLookBack:           ptr[int64](91),
 		Registry: toml.KeeperRegistry{
 			CheckGasOverhead:    ptr[uint32](90),
 			PerformGasOverhead:  ptr[uint32](math.MaxUint32),
@@ -836,10 +827,6 @@ HTTPSPort = 6789
 KeyPath = 'tls/key/path'
 ListenIP = '192.158.1.38'
 `},
-		{"FluxMonitor", Config{Core: toml.Core{FluxMonitor: full.FluxMonitor}}, `[FluxMonitor]
-DefaultTransactionQueueDepth = 100
-SimulateTransactions = true
-`},
 		{"JobPipeline", Config{Core: toml.Core{JobPipeline: full.JobPipeline}}, `[JobPipeline]
 ExternalInitiatorsEnabled = true
 MaxRunDuration = '1h0m0s'
@@ -859,9 +846,7 @@ ObservationTimeout = '11s'
 BlockchainTimeout = '3s'
 ContractPollInterval = '1h0m0s'
 ContractSubscribeInterval = '1m0s'
-DefaultTransactionQueueDepth = 12
 KeyBundleID = 'acdd42797a8b921b2910497badc5000600000000000000000000000000000000'
-SimulateTransactions = true
 TransmitterAddress = '0xa0788FC17B1dEe36f057c42B6F373A34B014687e'
 CaptureEATelemetry = false
 TraceLogging = false
@@ -877,8 +862,6 @@ DatabaseTimeout = '8s'
 KeyBundleID = '7a5f66bbe6594259325bf2b4f5b1a9c900000000000000000000000000000000'
 CaptureEATelemetry = false
 CaptureAutomationCustomTelemetry = true
-DefaultTransactionQueueDepth = 1
-SimulateTransactions = false
 TraceLogging = false
 `},
 		{"P2P", Config{Core: toml.Core{P2P: full.P2P}}, `[P2P]
@@ -896,7 +879,6 @@ DeltaReconcile = '1s'
 ListenAddresses = ['foo', 'bar']
 `},
 		{"Keeper", Config{Core: toml.Core{Keeper: full.Keeper}}, `[Keeper]
-DefaultTransactionQueueDepth = 17
 GasPriceBufferPercent = 12
 GasTipCapBufferPercent = 43
 BaseFeeBufferPercent = 89

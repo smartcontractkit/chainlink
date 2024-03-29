@@ -854,27 +854,6 @@ MaxSize = '32768' # Default
 ```
 MaxSize defines the maximum size for HTTP requests and responses made by `http` and `bridge` adapters.
 
-## FluxMonitor
-```toml
-[FluxMonitor]
-DefaultTransactionQueueDepth = 1 # Default
-SimulateTransactions = false # Default
-```
-
-
-### DefaultTransactionQueueDepth
-:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
-```toml
-DefaultTransactionQueueDepth = 1 # Default
-```
-DefaultTransactionQueueDepth controls the queue size for `DropOldestStrategy` in Flux Monitor. Set to 0 to use `SendEvery` strategy instead.
-
-### SimulateTransactions
-```toml
-SimulateTransactions = false # Default
-```
-SimulateTransactions enables transaction simulation for Flux Monitor.
-
 ## OCR2
 ```toml
 [OCR2]
@@ -888,8 +867,6 @@ DatabaseTimeout = '10s' # Default
 KeyBundleID = '7a5f66bbe6594259325bf2b4f5b1a9c900000000000000000000000000000000' # Example
 CaptureEATelemetry = false # Default
 CaptureAutomationCustomTelemetry = true # Default
-DefaultTransactionQueueDepth = 1 # Default
-SimulateTransactions = false # Default
 TraceLogging = false # Default
 ```
 
@@ -988,18 +965,6 @@ CaptureAutomationCustomTelemetry = true # Default
 ```
 CaptureAutomationCustomTelemetry toggles collecting automation specific telemetry
 
-### DefaultTransactionQueueDepth
-```toml
-DefaultTransactionQueueDepth = 1 # Default
-```
-DefaultTransactionQueueDepth controls the queue size for `DropOldestStrategy` in OCR2. Set to 0 to use `SendEvery` strategy instead.
-
-### SimulateTransactions
-```toml
-SimulateTransactions = false # Default
-```
-SimulateTransactions enables transaction simulation for OCR2.
-
 ### TraceLogging
 ```toml
 TraceLogging = false # Default
@@ -1014,9 +979,7 @@ ObservationTimeout = '5s' # Default
 BlockchainTimeout = '20s' # Default
 ContractPollInterval = '1m' # Default
 ContractSubscribeInterval = '2m' # Default
-DefaultTransactionQueueDepth = 1 # Default
 KeyBundleID = 'acdd42797a8b921b2910497badc5000600000000000000000000000000000000' # Example
-SimulateTransactions = false # Default
 TransmitterAddress = '0xa0788FC17B1dEe36f057c42B6F373A34B014687e' # Example
 CaptureEATelemetry = false # Default
 TraceLogging = false # Default
@@ -1061,24 +1024,11 @@ ContractSubscribeInterval = '2m' # Default
 ContractSubscribeInterval is the interval at which we try to establish a subscription on ContractConfigTracker
 if one doesn't exist. Recommended values are between two and five minutes.
 
-### DefaultTransactionQueueDepth
-:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
-```toml
-DefaultTransactionQueueDepth = 1 # Default
-```
-DefaultTransactionQueueDepth controls the queue size for `DropOldestStrategy` in OCR. Set to 0 to use `SendEvery` strategy instead.
-
 ### KeyBundleID
 ```toml
 KeyBundleID = 'acdd42797a8b921b2910497badc5000600000000000000000000000000000000' # Example
 ```
 KeyBundleID is the default key bundle ID to use for OCR jobs. If you have an OCR job that does not explicitly specify a key bundle ID, it will fall back to this value.
-
-### SimulateTransactions
-```toml
-SimulateTransactions = false # Default
-```
-SimulateTransactions enables transaction simulation for OCR.
 
 ### TransmitterAddress
 ```toml
@@ -1301,7 +1251,6 @@ but the host and port must be fully specified and cannot be empty. You can speci
 ## Keeper
 ```toml
 [Keeper]
-DefaultTransactionQueueDepth = 1 # Default
 GasPriceBufferPercent = 20 # Default
 GasTipCapBufferPercent = 20 # Default
 BaseFeeBufferPercent = 20 # Default
@@ -1309,13 +1258,6 @@ MaxGracePeriod = 100 # Default
 TurnLookBack = 1_000 # Default
 ```
 
-
-### DefaultTransactionQueueDepth
-:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
-```toml
-DefaultTransactionQueueDepth = 1 # Default
-```
-DefaultTransactionQueueDepth controls the queue size for `DropOldestStrategy` in Keeper. Set to 0 to use `SendEvery` strategy instead.
 
 ### GasPriceBufferPercent
 :warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
@@ -1722,6 +1664,8 @@ NoNewHeadsThreshold = '3m0s'
 OperatorFactoryAddress = '0x3E64Cd889482443324F91bFA9c84fE72A511f48A'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
+SimulateTransactions = false
+DefaultTransactionQueueDepth = 1
 
 [Transactions]
 ForwardersEnabled = false
@@ -1807,6 +1751,8 @@ NonceAutoSync = true
 NoNewHeadsThreshold = '3m0s'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
+SimulateTransactions = false
+DefaultTransactionQueueDepth = 1
 
 [Transactions]
 ForwardersEnabled = false
@@ -1892,6 +1838,8 @@ NonceAutoSync = true
 NoNewHeadsThreshold = '3m0s'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
+SimulateTransactions = false
+DefaultTransactionQueueDepth = 1
 
 [Transactions]
 ForwardersEnabled = false
@@ -1977,6 +1925,8 @@ NonceAutoSync = true
 NoNewHeadsThreshold = '3m0s'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
+SimulateTransactions = false
+DefaultTransactionQueueDepth = 1
 
 [Transactions]
 ForwardersEnabled = false
@@ -2063,6 +2013,8 @@ NonceAutoSync = true
 NoNewHeadsThreshold = '40s'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
+SimulateTransactions = false
+DefaultTransactionQueueDepth = 1
 
 [Transactions]
 ForwardersEnabled = false
@@ -2148,6 +2100,8 @@ NonceAutoSync = true
 NoNewHeadsThreshold = '3m0s'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
+SimulateTransactions = false
+DefaultTransactionQueueDepth = 1
 
 [Transactions]
 ForwardersEnabled = false
@@ -2233,6 +2187,8 @@ NonceAutoSync = true
 NoNewHeadsThreshold = '3m0s'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
+SimulateTransactions = false
+DefaultTransactionQueueDepth = 1
 
 [Transactions]
 ForwardersEnabled = false
@@ -2319,6 +2275,8 @@ NoNewHeadsThreshold = '3m0s'
 OperatorFactoryAddress = '0x8007e24251b1D2Fc518Eb843A701d9cD21fe0aA3'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
+SimulateTransactions = false
+DefaultTransactionQueueDepth = 1
 
 [Transactions]
 ForwardersEnabled = false
@@ -2404,6 +2362,8 @@ NonceAutoSync = true
 NoNewHeadsThreshold = '30s'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 2
+SimulateTransactions = false
+DefaultTransactionQueueDepth = 1
 
 [Transactions]
 ForwardersEnabled = false
@@ -2488,6 +2448,8 @@ NonceAutoSync = true
 NoNewHeadsThreshold = '3m0s'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
+SimulateTransactions = false
+DefaultTransactionQueueDepth = 1
 
 [Transactions]
 ForwardersEnabled = false
@@ -2572,6 +2534,8 @@ NonceAutoSync = true
 NoNewHeadsThreshold = '3m0s'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
+SimulateTransactions = false
+DefaultTransactionQueueDepth = 1
 
 [Transactions]
 ForwardersEnabled = false
@@ -2657,6 +2621,8 @@ NonceAutoSync = true
 NoNewHeadsThreshold = '30s'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 2
+SimulateTransactions = false
+DefaultTransactionQueueDepth = 1
 
 [Transactions]
 ForwardersEnabled = false
@@ -2743,6 +2709,8 @@ NonceAutoSync = true
 NoNewHeadsThreshold = '3m0s'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
+SimulateTransactions = false
+DefaultTransactionQueueDepth = 1
 
 [Transactions]
 ForwardersEnabled = false
@@ -2828,6 +2796,8 @@ NonceAutoSync = true
 NoNewHeadsThreshold = '30s'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 2
+SimulateTransactions = false
+DefaultTransactionQueueDepth = 1
 
 [Transactions]
 ForwardersEnabled = false
@@ -2913,6 +2883,8 @@ NonceAutoSync = true
 NoNewHeadsThreshold = '30s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 10
+SimulateTransactions = false
+DefaultTransactionQueueDepth = 1
 
 [Transactions]
 ForwardersEnabled = false
@@ -2998,6 +2970,8 @@ NonceAutoSync = true
 NoNewHeadsThreshold = '30s'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 2
+SimulateTransactions = false
+DefaultTransactionQueueDepth = 1
 
 [Transactions]
 ForwardersEnabled = false
@@ -3083,6 +3057,8 @@ NonceAutoSync = true
 NoNewHeadsThreshold = '40s'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
+SimulateTransactions = false
+DefaultTransactionQueueDepth = 1
 
 [Transactions]
 ForwardersEnabled = false
@@ -3168,6 +3144,8 @@ NonceAutoSync = true
 NoNewHeadsThreshold = '1m0s'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
+SimulateTransactions = false
+DefaultTransactionQueueDepth = 1
 
 [Transactions]
 ForwardersEnabled = false
@@ -3253,6 +3231,8 @@ NonceAutoSync = true
 NoNewHeadsThreshold = '1m0s'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
+SimulateTransactions = false
+DefaultTransactionQueueDepth = 1
 
 [Transactions]
 ForwardersEnabled = false
@@ -3338,6 +3318,8 @@ NonceAutoSync = true
 NoNewHeadsThreshold = '1m0s'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
+SimulateTransactions = false
+DefaultTransactionQueueDepth = 1
 
 [Transactions]
 ForwardersEnabled = false
@@ -3424,6 +3406,8 @@ NonceAutoSync = true
 NoNewHeadsThreshold = '40s'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
+SimulateTransactions = false
+DefaultTransactionQueueDepth = 1
 
 [Transactions]
 ForwardersEnabled = false
@@ -3509,6 +3493,8 @@ NonceAutoSync = true
 NoNewHeadsThreshold = '0s'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
+SimulateTransactions = false
+DefaultTransactionQueueDepth = 1
 
 [Transactions]
 ForwardersEnabled = false
@@ -3593,6 +3579,8 @@ NonceAutoSync = true
 NoNewHeadsThreshold = '30s'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
+SimulateTransactions = false
+DefaultTransactionQueueDepth = 1
 
 [Transactions]
 ForwardersEnabled = false
@@ -3678,6 +3666,8 @@ NonceAutoSync = true
 NoNewHeadsThreshold = '0s'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
+SimulateTransactions = false
+DefaultTransactionQueueDepth = 1
 
 [Transactions]
 ForwardersEnabled = false
@@ -3762,6 +3752,8 @@ NonceAutoSync = true
 NoNewHeadsThreshold = '6m0s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 15
+SimulateTransactions = false
+DefaultTransactionQueueDepth = 1
 
 [Transactions]
 ForwardersEnabled = false
@@ -3847,6 +3839,8 @@ NonceAutoSync = true
 NoNewHeadsThreshold = '30s'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
+SimulateTransactions = false
+DefaultTransactionQueueDepth = 1
 
 [Transactions]
 ForwardersEnabled = false
@@ -3932,6 +3926,8 @@ NonceAutoSync = true
 NoNewHeadsThreshold = '30s'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
+SimulateTransactions = false
+DefaultTransactionQueueDepth = 1
 
 [Transactions]
 ForwardersEnabled = false
@@ -4016,6 +4012,8 @@ NonceAutoSync = true
 NoNewHeadsThreshold = '0s'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
+SimulateTransactions = false
+DefaultTransactionQueueDepth = 1
 
 [Transactions]
 ForwardersEnabled = false
@@ -4100,6 +4098,8 @@ NonceAutoSync = true
 NoNewHeadsThreshold = '12m0s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 1
+SimulateTransactions = false
+DefaultTransactionQueueDepth = 1
 
 [Transactions]
 ForwardersEnabled = false
@@ -4185,6 +4185,8 @@ NonceAutoSync = true
 NoNewHeadsThreshold = '40s'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
+SimulateTransactions = false
+DefaultTransactionQueueDepth = 1
 
 [Transactions]
 ForwardersEnabled = false
@@ -4269,6 +4271,8 @@ NonceAutoSync = true
 NoNewHeadsThreshold = '12m0s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 1
+SimulateTransactions = false
+DefaultTransactionQueueDepth = 1
 
 [Transactions]
 ForwardersEnabled = false
@@ -4354,6 +4358,8 @@ NonceAutoSync = true
 NoNewHeadsThreshold = '0s'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 2
+SimulateTransactions = false
+DefaultTransactionQueueDepth = 1
 
 [Transactions]
 ForwardersEnabled = false
@@ -4438,6 +4444,8 @@ NonceAutoSync = true
 NoNewHeadsThreshold = '30s'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
+SimulateTransactions = false
+DefaultTransactionQueueDepth = 1
 
 [Transactions]
 ForwardersEnabled = false
@@ -4523,6 +4531,8 @@ NonceAutoSync = true
 NoNewHeadsThreshold = '40s'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
+SimulateTransactions = false
+DefaultTransactionQueueDepth = 1
 
 [Transactions]
 ForwardersEnabled = false
@@ -4608,6 +4618,8 @@ NonceAutoSync = true
 NoNewHeadsThreshold = '3m0s'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
+SimulateTransactions = false
+DefaultTransactionQueueDepth = 1
 
 [Transactions]
 ForwardersEnabled = false
@@ -4694,6 +4706,8 @@ NonceAutoSync = true
 NoNewHeadsThreshold = '0s'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
+SimulateTransactions = false
+DefaultTransactionQueueDepth = 1
 
 [Transactions]
 ForwardersEnabled = false
@@ -4779,6 +4793,8 @@ NonceAutoSync = true
 NoNewHeadsThreshold = '1m0s'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
+SimulateTransactions = false
+DefaultTransactionQueueDepth = 1
 
 [Transactions]
 ForwardersEnabled = false
@@ -4864,6 +4880,8 @@ NonceAutoSync = true
 NoNewHeadsThreshold = '30s'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 2
+SimulateTransactions = false
+DefaultTransactionQueueDepth = 1
 
 [Transactions]
 ForwardersEnabled = false
@@ -4949,6 +4967,8 @@ NonceAutoSync = true
 NoNewHeadsThreshold = '30s'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 2
+SimulateTransactions = false
+DefaultTransactionQueueDepth = 1
 
 [Transactions]
 ForwardersEnabled = false
@@ -5034,6 +5054,8 @@ NonceAutoSync = true
 NoNewHeadsThreshold = '1m0s'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
+SimulateTransactions = false
+DefaultTransactionQueueDepth = 1
 
 [Transactions]
 ForwardersEnabled = false
@@ -5118,6 +5140,8 @@ NonceAutoSync = true
 NoNewHeadsThreshold = '0s'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
+SimulateTransactions = false
+DefaultTransactionQueueDepth = 1
 
 [Transactions]
 ForwardersEnabled = false
@@ -5202,6 +5226,8 @@ NonceAutoSync = true
 NoNewHeadsThreshold = '0s'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
+SimulateTransactions = false
+DefaultTransactionQueueDepth = 1
 
 [Transactions]
 ForwardersEnabled = false
@@ -5287,6 +5313,8 @@ NonceAutoSync = true
 NoNewHeadsThreshold = '30s'
 RPCDefaultBatchSize = 100
 RPCBlockQueryDelay = 10
+SimulateTransactions = false
+DefaultTransactionQueueDepth = 1
 
 [Transactions]
 ForwardersEnabled = false
@@ -5372,6 +5400,8 @@ NonceAutoSync = true
 NoNewHeadsThreshold = '40s'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
+SimulateTransactions = false
+DefaultTransactionQueueDepth = 1
 
 [Transactions]
 ForwardersEnabled = false
@@ -5457,6 +5487,8 @@ NonceAutoSync = true
 NoNewHeadsThreshold = '40s'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
+SimulateTransactions = false
+DefaultTransactionQueueDepth = 1
 
 [Transactions]
 ForwardersEnabled = false
@@ -5543,6 +5575,8 @@ NonceAutoSync = true
 NoNewHeadsThreshold = '0s'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
+SimulateTransactions = false
+DefaultTransactionQueueDepth = 1
 
 [Transactions]
 ForwardersEnabled = false
@@ -5629,6 +5663,8 @@ NonceAutoSync = true
 NoNewHeadsThreshold = '0s'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
+SimulateTransactions = false
+DefaultTransactionQueueDepth = 1
 
 [Transactions]
 ForwardersEnabled = false
@@ -5714,6 +5750,8 @@ NonceAutoSync = true
 NoNewHeadsThreshold = '0s'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
+SimulateTransactions = false
+DefaultTransactionQueueDepth = 1
 
 [Transactions]
 ForwardersEnabled = false
@@ -5799,6 +5837,8 @@ NonceAutoSync = true
 NoNewHeadsThreshold = '0s'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
+SimulateTransactions = false
+DefaultTransactionQueueDepth = 1
 
 [Transactions]
 ForwardersEnabled = false
@@ -5884,6 +5924,8 @@ NonceAutoSync = true
 NoNewHeadsThreshold = '0s'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
+SimulateTransactions = false
+DefaultTransactionQueueDepth = 1
 
 [Transactions]
 ForwardersEnabled = false
@@ -5969,6 +6011,8 @@ NonceAutoSync = true
 NoNewHeadsThreshold = '3m0s'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
+SimulateTransactions = false
+DefaultTransactionQueueDepth = 1
 
 [Transactions]
 ForwardersEnabled = false
@@ -6054,6 +6098,8 @@ NonceAutoSync = true
 NoNewHeadsThreshold = '40s'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
+SimulateTransactions = false
+DefaultTransactionQueueDepth = 1
 
 [Transactions]
 ForwardersEnabled = false
@@ -6139,6 +6185,8 @@ NonceAutoSync = true
 NoNewHeadsThreshold = '30s'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
+SimulateTransactions = false
+DefaultTransactionQueueDepth = 1
 
 [Transactions]
 ForwardersEnabled = false
@@ -6224,6 +6272,8 @@ NonceAutoSync = true
 NoNewHeadsThreshold = '30s'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
+SimulateTransactions = false
+DefaultTransactionQueueDepth = 1
 
 [Transactions]
 ForwardersEnabled = false
@@ -6462,6 +6512,18 @@ CAUTION: You might be tempted to set this to 0 to use the latest possible
 block, but it is possible to receive a head BEFORE that block is actually
 available from the connected node via RPC, due to race conditions in the code of the remote ETH node. In this case you will get false
 "zero" blocks that are missing transactions.
+
+### DefaultTransactionQueueDepth
+```toml
+DefaultTransactionQueueDepth = 1 # Default
+```
+DefaultTransactionQueueDepth controls the queue size for `DropOldestStrategy` in TXM. Set to 0 to use `SendEvery` strategy instead.
+
+### SimulateTransactions
+```toml
+SimulateTransactions = false # Default
+```
+SimulateTransactions enables transaction simulation for TransmitChecker.
 
 ## EVM.Transactions
 ```toml

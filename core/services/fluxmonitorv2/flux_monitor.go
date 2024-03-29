@@ -160,7 +160,6 @@ func NewFromJobSpec(
 	cfg Config,
 	fcfg EvmFeeConfig,
 	ecfg EvmTransactionsConfig,
-	fmcfg FluxMonitorConfig,
 	jcfg JobPipelineConfig,
 	dbCfg pg.QConfig,
 	lggr logger.Logger,

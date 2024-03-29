@@ -41,10 +41,6 @@ func (k *keeperConfig) Registry() config.Registry {
 	return &registryConfig{c: k.c.Registry}
 }
 
-func (k *keeperConfig) DefaultTransactionQueueDepth() uint32 {
-	return *k.c.DefaultTransactionQueueDepth
-}
-
 func (k *keeperConfig) GasPriceBufferPercent() uint16 {
 	return *k.c.GasPriceBufferPercent
 }
