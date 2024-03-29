@@ -4,6 +4,7 @@ import (
 	"context"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 )
 
@@ -64,5 +65,11 @@ func (o *ObservedOffRampReader) GetSourceToDestTokensMapping(ctx context.Context
 func (o *ObservedOffRampReader) GetTokens(ctx context.Context) (cciptypes.OffRampTokens, error) {
 	return withObservedInteraction(o.metric, "GetTokens", func() (cciptypes.OffRampTokens, error) {
 		return o.OffRampReader.GetTokens(ctx)
+	})
+}
+
+func (o *ObservedOffRampReader) GetSendersNonce(ctx context.Context, senders []cciptypes.Address) (map[cciptypes.Address]uint64, error) {
+	return withObservedInteraction(o.metric, "GetSendersNonce", func() (map[cciptypes.Address]uint64, error) {
+		return o.OffRampReader.GetSendersNonce(ctx, senders)
 	})
 }

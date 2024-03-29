@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/logpollerutil"
 
@@ -191,6 +192,52 @@ func (o *OffRamp) GetSenderNonce(ctx context.Context, sender cciptypes.Address) 
 		return 0, err
 	}
 	return o.offRampV100.GetSenderNonce(&bind.CallOpts{Context: ctx}, evmAddr)
+}
+
+func (o *OffRamp) GetSendersNonce(ctx context.Context, senders []cciptypes.Address) (map[cciptypes.Address]uint64, error) {
+	if len(senders) == 0 {
+		return make(map[cciptypes.Address]uint64), nil
+	}
+
+	evmSenders, err := ccipcalc.GenericAddrsToEvm(senders...)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to convert generic addresses to evm addresses")
+	}
+
+	evmCalls := make([]rpclib.EvmCall, 0, len(evmSenders))
+	for _, evmAddr := range evmSenders {
+		evmCalls = append(evmCalls, rpclib.NewEvmCall(
+			abiOffRamp,
+			"getSenderNonce",
+			o.addr,
+			evmAddr,
+		))
+	}
+
+	results, err := o.evmBatchCaller.BatchCall(ctx, 0, evmCalls)
+	if err != nil {
+		o.Logger.Errorw("error while batch fetching sender nonces", "err", err, "senders", evmSenders)
+		return nil, err
+	}
+
+	nonces, err := rpclib.ParseOutputs[uint64](results, func(d rpclib.DataAndErr) (uint64, error) {
+		return rpclib.ParseOutput[uint64](d, 0)
+	})
+	if err != nil {
+		o.Logger.Errorw("error while parsing sender nonces", "err", err, "senders", evmSenders)
+		return nil, err
+	}
+
+	if len(senders) != len(nonces) {
+		o.Logger.Errorw("unexpected number of nonces returned", "senders", evmSenders, "nonces", nonces)
+		return nil, errors.New("unexpected number of nonces returned")
+	}
+
+	senderNonce := make(map[cciptypes.Address]uint64, len(senders))
+	for i, sender := range senders {
+		senderNonce[sender] = nonces[i]
+	}
+	return senderNonce, nil
 }
 
 func (o *OffRamp) CurrentRateLimiterState(ctx context.Context) (cciptypes.TokenBucketRateLimit, error) {
