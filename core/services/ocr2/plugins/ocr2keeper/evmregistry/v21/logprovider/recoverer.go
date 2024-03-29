@@ -348,8 +348,9 @@ func (r *logRecoverer) recover(ctx context.Context) error {
 		return nil
 	}
 
-	r.lggr.Debugw("recovering logs", "filters", filters, "startBlock", start, "offsetBlock", offsetBlock, "latestBlock", latest)
+	r.lggr.Debugw("recovering logs", "numberOfFilters", len(filters), "filters", filters, "startBlock", start, "offsetBlock", offsetBlock, "latestBlock", latest)
 
+	// This is unbounded, should we use a worker pool?
 	var wg sync.WaitGroup
 	for _, f := range filters {
 		wg.Add(1)
@@ -392,7 +393,12 @@ func (r *logRecoverer) recoverFilter(ctx context.Context, f upkeepFilter, startB
 	if err != nil {
 		return fmt.Errorf("could not read logs: %w", err)
 	}
+
+	r.lggr.Debugw("got logs with sigs", "logs", len(logs))
+
 	logs = f.Select(logs...)
+
+	r.lggr.Debugw("filtered logs with sigs", "logs", len(logs))
 
 	workIDs := make([]string, 0)
 	for _, log := range logs {
@@ -406,6 +412,8 @@ func (r *logRecoverer) recoverFilter(ctx context.Context, f upkeepFilter, startB
 		workIDs = append(workIDs, core.UpkeepWorkID(*upkeepId, trigger))
 	}
 
+	r.lggr.Debugw("selecting workIDs", "workIDs", len(workIDs))
+
 	states, err := r.states.SelectByWorkIDs(ctx, workIDs...)
 	if err != nil {
 		return fmt.Errorf("could not read states: %w", err)
@@ -414,6 +422,8 @@ func (r *logRecoverer) recoverFilter(ctx context.Context, f upkeepFilter, startB
 		return fmt.Errorf("log and state count mismatch: %d != %d", len(logs), len(states))
 	}
 	filteredLogs := r.filterFinalizedStates(f, logs, states)
+
+	r.lggr.Debugw("filtered logs", "logs", len(filteredLogs))
 
 	added, alreadyPending, ok := r.populatePending(f, filteredLogs)
 	if added > 0 {
