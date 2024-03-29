@@ -190,10 +190,39 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Updat
 
 // Close closes the inMemoryStore
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Close() {
+	// Close the event recorder
+	ms.persistentTxStore.Close()
+
+	// Clear all address states
+	ms.addressStatesLock.Lock()
+	for _, as := range ms.addressStates {
+		as.close()
+	}
+	clear(ms.addressStates)
+	ms.addressStatesLock.Unlock()
 }
 
 // Abandon removes all transactions for a given address
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Abandon(ctx context.Context, chainID CHAIN_ID, addr ADDR) error {
+	if ms.chainID.String() != chainID.String() {
+		panic("invalid chain ID")
+	}
+
+	// Mark all persisted transactions as abandoned
+	if err := ms.persistentTxStore.Abandon(ctx, chainID, addr); err != nil {
+		return err
+	}
+
+	// check that the address exists in the unstarted transactions
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
+	as, ok := ms.addressStates[addr]
+	if !ok {
+		as = newAddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE](ms.lggr, chainID, addr, ms.maxUnstarted, nil)
+		ms.addressStates[addr] = as
+	}
+	as.abandon()
+
 	return nil
 }
 
