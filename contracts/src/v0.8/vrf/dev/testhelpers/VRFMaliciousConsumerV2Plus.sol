@@ -45,7 +45,7 @@ contract VRFMaliciousConsumerV2Plus is VRFConsumerBaseV2Plus {
   }
 
   function updateSubscription(address[] memory consumers) external {
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(s_subId != 0, "subID not set");
     for (uint256 i = 0; i < consumers.length; i++) {
       s_vrfCoordinator.addConsumer(s_subId, consumers[i]);

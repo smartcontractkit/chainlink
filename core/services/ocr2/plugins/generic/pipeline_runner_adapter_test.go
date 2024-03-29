@@ -57,7 +57,7 @@ func TestAdapter_Integration(t *testing.T) {
 	results, err := pra.ExecuteRun(testutils.Context(t), spec, types.Vars{Vars: map[string]interface{}{"val": 1}}, types.Options{})
 	require.NoError(t, err)
 
-	finalResult := results[0].Value.(decimal.Decimal)
+	finalResult := results[0].Value.Val.(decimal.Decimal)
 
 	assert.True(t, decimal.NewFromInt(3).Equal(finalResult))
 }

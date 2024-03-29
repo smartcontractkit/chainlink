@@ -52,29 +52,42 @@ func FundChainlinkNodes(
 	privateKey *ecdsa.PrivateKey,
 	amount *big.Float,
 ) error {
-	refundErrors := []error{}
 	for _, cl := range nodes {
 		toAddress, err := cl.PrimaryEthAddress()
 		if err != nil {
 			return err
 		}
 
-		err = SendFunds(logger, client, FundsToSendPayload{
+		fromAddress, err := privateKeyToAddress(privateKey)
+		if err != nil {
+			return err
+		}
+
+		receipt, err := SendFunds(logger, client, FundsToSendPayload{
 			ToAddress:  common.HexToAddress(toAddress),
 			Amount:     conversions.EtherToWei(amount),
 			PrivateKey: privateKey,
 		})
 		if err != nil {
-			refundErrors = append(refundErrors, err)
-		}
-	}
+			logger.Err(err).
+				Str("From", fromAddress.Hex()).
+				Str("To", toAddress).
+				Msg("Failed to fund Chainlink node")
 
-	if len(refundErrors) > 0 {
-		var wrapped error
-		for _, e := range refundErrors {
-			wrapped = errors.Wrapf(e, ", ")
+			return err
 		}
-		return fmt.Errorf("failed to fund chainlink nodes due to following errors: %w", wrapped)
+
+		txHash := "(none)"
+		if receipt != nil {
+			txHash = receipt.TxHash.String()
+		}
+
+		logger.Info().
+			Str("From", fromAddress.Hex()).
+			Str("To", toAddress).
+			Str("TxHash", txHash).
+			Str("Amount", amount.String()).
+			Msg("Funded Chainlink node")
 	}
 
 	return nil
@@ -90,46 +103,72 @@ type FundsToSendPayload struct {
 // TODO: move to CTF?
 // SendFunds sends native token amount (expressed in human-scale) from address controlled by private key
 // to given address. If no gas limit is set, then network's default will be used.
-func SendFunds(logger zerolog.Logger, client *seth.Client, payload FundsToSendPayload) error {
-	ctx, cancel := context.WithTimeout(context.Background(), client.Cfg.Network.TxnTimeout.Duration())
-
-	publicKey := payload.PrivateKey.Public()
-	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
-	if !ok {
-		return errors.New("error casting public key to ECDSA")
+func SendFunds(logger zerolog.Logger, client *seth.Client, payload FundsToSendPayload) (*types.Receipt, error) {
+	fromAddress, err := privateKeyToAddress(payload.PrivateKey)
+	if err != nil {
+		return nil, err
 	}
-	fromAddress := crypto.PubkeyToAddress(*publicKeyECDSA)
+
+	ctx, cancel := context.WithTimeout(context.Background(), client.Cfg.Network.TxnTimeout.Duration())
 	nonce, err := client.Client.PendingNonceAt(ctx, fromAddress)
 	defer cancel()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	gasLimit := uint64(client.Cfg.Network.GasLimit)
+	gasLimit := uint64(client.Cfg.Network.TransferGasFee)
 	if payload.GasLimit != nil {
 		gasLimit = *payload.GasLimit
 	}
 
-	rawTx := &types.LegacyTx{
-		Nonce:    nonce,
-		To:       &payload.ToAddress,
-		Value:    payload.Amount,
-		Gas:      gasLimit,
-		GasPrice: big.NewInt(client.Cfg.Network.GasPrice),
+	var signedTx *types.Transaction
+
+	if client.Cfg.Network.EIP1559DynamicFees {
+		rawTx := &types.DynamicFeeTx{
+			Nonce:     nonce,
+			To:        &payload.ToAddress,
+			Value:     payload.Amount,
+			Gas:       gasLimit,
+			GasFeeCap: big.NewInt(client.Cfg.Network.GasFeeCap),
+			GasTipCap: big.NewInt(client.Cfg.Network.GasTipCap),
+		}
+		signedTx, err = types.SignNewTx(payload.PrivateKey, types.NewLondonSigner(big.NewInt(client.ChainID)), rawTx)
+	} else {
+		rawTx := &types.LegacyTx{
+			Nonce:    nonce,
+			To:       &payload.ToAddress,
+			Value:    payload.Amount,
+			Gas:      gasLimit,
+			GasPrice: big.NewInt(client.Cfg.Network.GasPrice),
+		}
+		signedTx, err = types.SignNewTx(payload.PrivateKey, types.NewEIP155Signer(big.NewInt(client.ChainID)), rawTx)
 	}
-	signedTx, err := types.SignNewTx(payload.PrivateKey, types.NewEIP155Signer(big.NewInt(client.ChainID)), rawTx)
+
 	if err != nil {
-		return errors.Wrap(err, "failed to sign tx")
+		return nil, errors.Wrap(err, "failed to sign tx")
 	}
 
 	ctx, cancel = context.WithTimeout(ctx, client.Cfg.Network.TxnTimeout.Duration())
 	defer cancel()
 	err = client.Client.SendTransaction(ctx, signedTx)
 	if err != nil {
-		return errors.Wrap(err, "failed to send transaction")
+		return nil, errors.Wrap(err, "failed to send transaction")
 	}
-	_, err = client.WaitMined(ctx, logger, client.Client, signedTx)
-	return err
+
+	logger.Debug().
+		Str("From", fromAddress.Hex()).
+		Str("To", payload.ToAddress.Hex()).
+		Str("TxHash", signedTx.Hash().String()).
+		Str("Amount", conversions.WeiToEther(payload.Amount).String()).
+		Uint64("Nonce", nonce).
+		Uint64("Gas Limit", gasLimit).
+		Int64("Gas Price", client.Cfg.Network.GasPrice).
+		Int64("Gas Fee Cap", client.Cfg.Network.GasFeeCap).
+		Int64("Gas Tip Cap", client.Cfg.Network.GasTipCap).
+		Bool("Dynamic fees", client.Cfg.Network.EIP1559DynamicFees).
+		Msg("Sent funds")
+
+	return client.WaitMined(ctx, logger, client.Client, signedTx)
 }
 
 // DeployForwarderContracts first deploys Operator Factory and then uses it to deploy given number of
@@ -138,10 +177,10 @@ func SendFunds(logger zerolog.Logger, client *seth.Client, payload FundsToSendPa
 func DeployForwarderContracts(
 	t *testing.T,
 	seth *seth.Client,
-	linkTokenData seth.DeploymentData,
+	linkTokenAddress common.Address,
 	numberOfOperatorForwarderPairs int,
 ) (operators []common.Address, authorizedForwarders []common.Address, operatorFactoryInstance contracts.OperatorFactory) {
-	instance, err := contracts.DeployEthereumOperatorFactory(seth, linkTokenData.Address)
+	instance, err := contracts.DeployEthereumOperatorFactory(seth, linkTokenAddress)
 	require.NoError(t, err, "failed to create new instance of operator factory")
 	operatorFactoryInstance = &instance
 
@@ -170,10 +209,10 @@ func DeployForwarderContracts(
 	return operators, authorizedForwarders, operatorFactoryInstance
 }
 
-// WatchNewRound watches for a new OCR round, similarly to StartNewRound, but it does not explicitly request a new
+// WatchNewOCRRound watches for a new OCR round, similarly to StartNewRound, but it does not explicitly request a new
 // round from the contract, as this can cause some odd behavior in some cases. It announces success if latest round
 // is >= roundNumber.
-func WatchNewRound(
+func WatchNewOCRRound(
 	l zerolog.Logger,
 	seth *seth.Client,
 	roundNumber int64,
@@ -252,13 +291,13 @@ func TrackForwarder(
 	t *testing.T,
 	seth *seth.Client,
 	authorizedForwarder common.Address,
-	node *client.ChainlinkK8sClient,
+	node contracts.ChainlinkNodeWithForwarder,
 ) {
 	l := logging.GetTestLogger(t)
 	chainID := big.NewInt(seth.ChainID)
 	_, _, err := node.TrackForwarder(chainID, authorizedForwarder)
 	require.NoError(t, err, "Forwarder track should be created")
-	l.Info().Str("NodeURL", node.Config.URL).
+	l.Info().Str("NodeURL", node.GetConfig().URL).
 		Str("ForwarderAddress", authorizedForwarder.Hex()).
 		Str("ChaindID", chainID.String()).
 		Msg("Forwarder tracked")
@@ -525,4 +564,46 @@ func deployAnyOCRv1Contracts(
 	}
 
 	return ocrInstances, nil
+}
+
+func privateKeyToAddress(privateKey *ecdsa.PrivateKey) (common.Address, error) {
+	publicKey := privateKey.Public()
+	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
+	if !ok {
+		return common.Address{}, errors.New("error casting public key to ECDSA")
+	}
+	return crypto.PubkeyToAddress(*publicKeyECDSA), nil
+}
+
+func WatchNewFluxRound(
+	l zerolog.Logger,
+	seth *seth.Client,
+	roundNumber int64,
+	fluxInstance contracts.FluxAggregator,
+	timeout time.Duration,
+) error {
+	timeoutC := time.After(timeout)
+	ticker := time.NewTicker(time.Millisecond * 200)
+	defer ticker.Stop()
+
+	l.Info().Msgf("Waiting for flux round %d to be confirmed by flux aggregator", roundNumber)
+
+	for {
+		select {
+		case <-timeoutC:
+			return fmt.Errorf("timeout waiting for round %d to be confirmed", roundNumber)
+		case <-ticker.C:
+			ctx, cancel := context.WithTimeout(context.Background(), seth.Cfg.Network.TxnTimeout.Duration())
+			roundId, err := fluxInstance.LatestRoundID(ctx)
+			if err != nil {
+				cancel()
+				return fmt.Errorf("getting latest round from flux instance has failed: %w", err)
+			}
+			cancel()
+			if roundId.Cmp(big.NewInt(roundNumber)) >= 0 {
+				l.Debug().Msgf("Flux instance confirmed round %d", roundNumber)
+				return nil
+			}
+		}
+	}
 }

@@ -5,7 +5,6 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -24,7 +23,7 @@ func Test_BumpLegacyGasPriceOnly(t *testing.T) {
 		bumpMin                *assets.Wei
 		priceMax               *assets.Wei
 		expectedGasPrice       *assets.Wei
-		originalLimit          uint32
+		originalLimit          uint64
 		limitMultiplierPercent float32
 		expectedLimit          uint64
 	}{
@@ -95,12 +94,11 @@ func Test_BumpLegacyGasPriceOnly(t *testing.T) {
 			cfg.BumpMinF = test.bumpMin
 			cfg.PriceMaxF = test.priceMax
 			cfg.LimitMultiplierF = test.limitMultiplierPercent
-			actual, limit, err := gas.BumpLegacyGasPriceOnly(cfg, logger.TestSugared(t), test.currentGasPrice, test.originalGasPrice, test.originalLimit, test.priceMax)
+			actual, err := gas.BumpLegacyGasPriceOnly(cfg, logger.TestSugared(t), test.currentGasPrice, test.originalGasPrice, test.priceMax)
 			require.NoError(t, err)
 			if actual.Cmp(test.expectedGasPrice) != 0 {
 				t.Fatalf("Expected %s but got %s", test.expectedGasPrice.String(), actual.String())
 			}
-			assert.Equal(t, int(test.expectedLimit), int(limit))
 		})
 	}
 }
@@ -115,7 +113,7 @@ func Test_BumpLegacyGasPriceOnly_HitsMaxError(t *testing.T) {
 	cfg.PriceMaxF = priceMax
 
 	originalGasPrice := toWei("3e10") // 30 GWei
-	_, _, err := gas.BumpLegacyGasPriceOnly(cfg, logger.TestSugared(t), nil, originalGasPrice, 42, priceMax)
+	_, err := gas.BumpLegacyGasPriceOnly(cfg, logger.TestSugared(t), nil, originalGasPrice, priceMax)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "bumped gas price of 45 gwei would exceed configured max gas price of 40 gwei (original price was 30 gwei)")
 }
@@ -132,13 +130,13 @@ func Test_BumpLegacyGasPriceOnly_NoBumpError(t *testing.T) {
 	cfg.PriceMaxF = priceMax
 
 	originalGasPrice := toWei("3e10") // 30 GWei
-	_, _, err := gas.BumpLegacyGasPriceOnly(cfg, lggr, nil, originalGasPrice, 42, priceMax)
+	_, err := gas.BumpLegacyGasPriceOnly(cfg, lggr, nil, originalGasPrice, priceMax)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "bumped gas price of 30 gwei is equal to original gas price of 30 gwei. ACTION REQUIRED: This is a configuration error, you must increase either EVM.GasEstimator.BumpPercent or EVM.GasEstimator.BumpMin")
 
 	// Even if it's exactly the maximum
 	originalGasPrice = toWei("4e10") // 40 GWei
-	_, _, err = gas.BumpLegacyGasPriceOnly(cfg, lggr, nil, originalGasPrice, 42, priceMax)
+	_, err = gas.BumpLegacyGasPriceOnly(cfg, lggr, nil, originalGasPrice, priceMax)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "bumped gas price of 40 gwei is equal to original gas price of 40 gwei. ACTION REQUIRED: This is a configuration error, you must increase either EVM.GasEstimator.BumpPercent or EVM.GasEstimator.BumpMin")
 }
@@ -156,7 +154,7 @@ func Test_BumpDynamicFeeOnly(t *testing.T) {
 		bumpMin                *assets.Wei
 		priceMax               *assets.Wei
 		expectedFee            gas.DynamicFee
-		originalLimit          uint32
+		originalLimit          uint64
 		limitMultiplierPercent float32
 		expectedLimit          uint64
 	}{
@@ -298,7 +296,7 @@ func Test_BumpDynamicFeeOnly(t *testing.T) {
 			cfg.LimitMultiplierF = test.limitMultiplierPercent
 
 			bufferBlocks := uint16(4)
-			actual, limit, err := gas.BumpDynamicFeeOnly(cfg, bufferBlocks, logger.TestSugared(t), test.currentTipCap, test.currentBaseFee, test.originalFee, test.originalLimit, test.priceMax)
+			actual, err := gas.BumpDynamicFeeOnly(cfg, bufferBlocks, logger.TestSugared(t), test.currentTipCap, test.currentBaseFee, test.originalFee, test.priceMax)
 			require.NoError(t, err)
 			if actual.TipCap.Cmp(test.expectedFee.TipCap) != 0 {
 				t.Fatalf("TipCap not equal, expected %s but got %s", test.expectedFee.TipCap.String(), actual.TipCap.String())
@@ -306,7 +304,6 @@ func Test_BumpDynamicFeeOnly(t *testing.T) {
 			if actual.FeeCap.Cmp(test.expectedFee.FeeCap) != 0 {
 				t.Fatalf("FeeCap not equal, expected %s but got %s", test.expectedFee.FeeCap.String(), actual.FeeCap.String())
 			}
-			assert.Equal(t, int(test.expectedLimit), int(limit))
 		})
 	}
 }
@@ -324,14 +321,14 @@ func Test_BumpDynamicFeeOnly_HitsMaxError(t *testing.T) {
 
 	t.Run("tip cap hits max", func(t *testing.T) {
 		originalFee := gas.DynamicFee{TipCap: assets.GWei(30), FeeCap: assets.GWei(100)}
-		_, _, err := gas.BumpDynamicFeeOnly(cfg, 0, logger.TestSugared(t), nil, nil, originalFee, 42, priceMax)
+		_, err := gas.BumpDynamicFeeOnly(cfg, 0, logger.TestSugared(t), nil, nil, originalFee, priceMax)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "bumped tip cap of 45 gwei would exceed configured max gas price of 40 gwei (original fee: tip cap 30 gwei, fee cap 100 gwei)")
 	})
 
 	t.Run("fee cap hits max", func(t *testing.T) {
 		originalFee := gas.DynamicFee{TipCap: assets.GWei(10), FeeCap: assets.GWei(100)}
-		_, _, err := gas.BumpDynamicFeeOnly(cfg, 0, logger.TestSugared(t), nil, nil, originalFee, 42, priceMax)
+		_, err := gas.BumpDynamicFeeOnly(cfg, 0, logger.TestSugared(t), nil, nil, originalFee, priceMax)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "bumped fee cap of 150 gwei would exceed configured max gas price of 40 gwei (original fee: tip cap 10 gwei, fee cap 100 gwei)")
 	})

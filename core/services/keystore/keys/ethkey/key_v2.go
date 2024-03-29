@@ -9,6 +9,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
 var curve = crypto.S256()
@@ -22,7 +24,7 @@ func (raw Raw) Key() KeyV2 {
 	privateKey.D = d
 	privateKey.PublicKey.X, privateKey.PublicKey.Y = curve.ScalarBaseMult(d.Bytes())
 	address := crypto.PubkeyToAddress(privateKey.PublicKey)
-	eip55 := EIP55AddressFromAddress(address)
+	eip55 := types.EIP55AddressFromAddress(address)
 	return KeyV2{
 		Address:      address,
 		EIP55Address: eip55,
@@ -42,7 +44,7 @@ var _ fmt.GoStringer = &KeyV2{}
 
 type KeyV2 struct {
 	Address      common.Address
-	EIP55Address EIP55Address
+	EIP55Address types.EIP55Address
 	privateKey   *ecdsa.PrivateKey
 }
 
@@ -56,7 +58,7 @@ func NewV2() (KeyV2, error) {
 
 func FromPrivateKey(privKey *ecdsa.PrivateKey) (key KeyV2) {
 	address := crypto.PubkeyToAddress(privKey.PublicKey)
-	eip55 := EIP55AddressFromAddress(address)
+	eip55 := types.EIP55AddressFromAddress(address)
 	return KeyV2{
 		Address:      address,
 		EIP55Address: eip55,

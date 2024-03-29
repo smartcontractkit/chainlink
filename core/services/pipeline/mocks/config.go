@@ -104,6 +104,24 @@ func (_m *Config) ReaperThreshold() time.Duration {
 	return r0
 }
 
+// VerboseLogging provides a mock function with given fields:
+func (_m *Config) VerboseLogging() bool {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for VerboseLogging")
+	}
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
 // NewConfig creates a new instance of Config. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func NewConfig(t interface {

@@ -18,6 +18,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -125,6 +127,10 @@ func (c *SimulatedBackendClient) currentBlockNumber() *big.Int {
 	return c.b.Blockchain().CurrentBlock().Number
 }
 
+func (c *SimulatedBackendClient) finalizedBlockNumber() *big.Int {
+	return c.b.Blockchain().CurrentFinalBlock().Number
+}
+
 func (c *SimulatedBackendClient) TokenBalance(ctx context.Context, address common.Address, contractAddress common.Address) (balance *big.Int, err error) {
 	callData, err := balanceOfABI.Pack("balanceOf", address)
 	if err != nil {
@@ -171,6 +177,8 @@ func (c *SimulatedBackendClient) blockNumber(number interface{}) (blockNumber *b
 		case "pending":
 			panic("pending block not supported by simulated backend client") // I don't understand the semantics of this.
 			// return big.NewInt(0).Add(c.currentBlockNumber(), big.NewInt(1)), nil
+		case "finalized":
+			return c.finalizedBlockNumber(), nil
 		default:
 			blockNumber, err := hexutil.DecodeBig(n)
 			if err != nil {
@@ -179,12 +187,16 @@ func (c *SimulatedBackendClient) blockNumber(number interface{}) (blockNumber *b
 			return blockNumber, nil
 		}
 	case *big.Int:
+		if n == nil {
+			return nil, nil
+		}
 		if n.Sign() < 0 {
 			return nil, fmt.Errorf("block number must be non-negative")
 		}
 		return n, nil
+	default:
+		return nil, fmt.Errorf("invalid type %T for block number, must be string or *big.Int", n)
 	}
-	panic("can never reach here")
 }
 
 // HeadByNumber returns our own header type.
@@ -455,20 +467,24 @@ func (c *SimulatedBackendClient) BatchCallContext(ctx context.Context, b []rpc.B
 	}
 
 	for i, elem := range b {
+		var method func(context.Context, interface{}, ...interface{}) error
 		switch elem.Method {
 		case "eth_getTransactionReceipt":
-			b[i].Error = c.ethGetTransactionReceipt(ctx, b[i].Result, b[i].Args...)
+			method = c.ethGetTransactionReceipt
 		case "eth_getBlockByNumber":
-			b[i].Error = c.ethGetBlockByNumber(ctx, b[i].Result, b[i].Args...)
+			method = c.ethGetBlockByNumber
 		case "eth_call":
-			b[i].Error = c.ethCall(ctx, b[i].Result, b[i].Args...)
+			method = c.ethCall
 		case "eth_getHeaderByNumber":
-			b[i].Error = c.ethGetHeaderByNumber(ctx, b[i].Result, b[i].Args...)
+			method = c.ethGetHeaderByNumber
 		case "eth_estimateGas":
-			b[i].Error = c.ethEstimateGas(ctx, b[i].Result, b[i].Args...)
+			method = c.ethEstimateGas
+		case "eth_getLogs":
+			method = c.ethGetLogs
 		default:
 			return fmt.Errorf("SimulatedBackendClient got unsupported method %s", elem.Method)
 		}
+		b[i].Error = method(ctx, b[i].Result, b[i].Args...)
 	}
 
 	return nil
@@ -677,6 +693,91 @@ func (c *SimulatedBackendClient) ethGetHeaderByNumber(ctx context.Context, resul
 	return nil
 }
 
+func (c *SimulatedBackendClient) LatestFinalizedBlock(ctx context.Context) (*evmtypes.Head, error) {
+	block := c.b.Blockchain().CurrentFinalBlock()
+	return &evmtypes.Head{
+		EVMChainID: ubig.NewI(c.chainId.Int64()),
+		Hash:       block.Hash(),
+		Number:     block.Number.Int64(),
+		ParentHash: block.ParentHash,
+		Timestamp:  time.Unix(int64(block.Time), 0),
+	}, nil
+}
+
+func (c *SimulatedBackendClient) ethGetLogs(ctx context.Context, result interface{}, args ...interface{}) error {
+	var from, to *big.Int
+	var hash *common.Hash
+	var err error
+	var addresses []common.Address
+	var topics [][]common.Hash
+
+	params := args[0].(map[string]interface{})
+	if blockHash, ok := params["blockHash"]; ok {
+		hash, err = interfaceToHash(blockHash)
+		if err != nil {
+			return fmt.Errorf("SimultaedBackendClient received unexpected 'blockhash' param: %w", err)
+		}
+	}
+
+	if fromBlock, ok := params["fromBlock"]; ok {
+		from, err = c.blockNumber(fromBlock)
+		if err != nil {
+			return fmt.Errorf("SimulatedBackendClient expected 'fromBlock' to be a string: %w", err)
+		}
+	}
+
+	if toBlock, ok := params["toBlock"]; ok {
+		to, err = c.blockNumber(toBlock)
+		if err != nil {
+			return fmt.Errorf("SimulatedBackendClient expected 'toBlock' to be a string: %w", err)
+		}
+	}
+
+	if a, ok := params["addresses"]; ok {
+		addresses = a.([]common.Address)
+	}
+
+	if t, ok := params["topics"]; ok {
+		tt := t.([][]common.Hash)
+		lastTopic := len(tt) - 1
+		for lastTopic >= 0 {
+			if tt[lastTopic] != nil {
+				break
+			}
+			lastTopic--
+		}
+		// lastTopic is the topic index of the last non-nil topic slice
+		//  We have to drop any nil values in the topics slice after that due to a quirk in FilterLogs(),
+		//  which will only use nil as a wildcard if there are non-nil values after it in the slice
+		for i := 0; i < lastTopic; i++ {
+			topics = append(topics, tt[i])
+		}
+	}
+
+	query := ethereum.FilterQuery{
+		BlockHash: hash,
+		FromBlock: from,
+		ToBlock:   to,
+		Addresses: addresses,
+		Topics:    topics,
+	}
+	logs, err := c.b.FilterLogs(ctx, query)
+	if err != nil {
+		return err
+	}
+	switch r := result.(type) {
+	case *[]types.Log:
+		*r = logs
+		return nil
+	default:
+		return fmt.Errorf("SimulatedBackendClient unexpected Type %T", r)
+	}
+}
+
+func (c *SimulatedBackendClient) CheckTxValidity(ctx context.Context, from common.Address, to common.Address, data []byte) *SendError {
+	return nil
+}
+
 func toCallMsg(params map[string]interface{}) ethereum.CallMsg {
 	var callMsg ethereum.CallMsg
 	toAddr, err := interfaceToAddress(params["to"])
@@ -776,5 +877,23 @@ func interfaceToAddress(value interface{}) (common.Address, error) {
 		return common.BigToAddress(v), nil
 	default:
 		return common.Address{}, fmt.Errorf("unrecognized value type: %T for converting value to common.Address; use hex encoded string, *big.Int, or common.Address", v)
+	}
+}
+
+func interfaceToHash(value interface{}) (*common.Hash, error) {
+	switch v := value.(type) {
+	case common.Hash:
+		return &v, nil
+	case *common.Hash:
+		return v, nil
+	case string:
+		b, err := hex.DecodeString(v)
+		if err != nil || len(b) != 32 {
+			return nil, fmt.Errorf("string does not represent a 32-byte hexadecimal number")
+		}
+		h := common.Hash(b)
+		return &h, nil
+	default:
+		return nil, fmt.Errorf("unrecognized value type: %T for converting value to common.Hash; use hex encoded string or common.Hash", v)
 	}
 }

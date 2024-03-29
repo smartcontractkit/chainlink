@@ -63,6 +63,7 @@ const (
 	TransactionAlreadyMined
 	Fatal
 	ServiceUnavailable
+	OutOfCounters
 )
 
 type ClientErrors = map[int]*regexp.Regexp
@@ -140,6 +141,7 @@ var arbitrum = ClientErrors{
 	Fatal:                 arbitrumFatal,
 	L2FeeTooLow:           regexp.MustCompile(`(: |^)max fee per gas less than block base fee(:|$)`),
 	L2Full:                regexp.MustCompile(`(: |^)(queue full|sequencer pending tx pool full, please try again)(:|$)`),
+	ServiceUnavailable:    regexp.MustCompile(`(: |^)502 Bad Gateway: [\s\S]*$`),
 }
 
 var celo = ClientErrors{
@@ -223,10 +225,15 @@ var zkSync = ClientErrors{
 	// can't start a transaction from a non-account - trying to send from an invalid address, e.g. estimating a contract -> contract tx
 	// max fee per gas higher than 2^64-1 			- uint64 overflow
 	// oversized data 								- data too large
-	Fatal: regexp.MustCompile(`(?:: |^)(?:exceeds block gas limit|intrinsic gas too low|Not enough gas for transaction validation|Failed to pay the fee to the operator|Error function_selector = 0x, data = 0x|invalid sender. can't start a transaction from a non-account|max(?: priority)? fee per (?:gas|pubdata byte) higher than 2\^64-1|oversized data. max: \d+; actual: \d+)$`),
+	Fatal:                       regexp.MustCompile(`(?:: |^)(?:exceeds block gas limit|intrinsic gas too low|Not enough gas for transaction validation|Failed to pay the fee to the operator|Error function_selector = 0x, data = 0x|invalid sender. can't start a transaction from a non-account|max(?: priority)? fee per (?:gas|pubdata byte) higher than 2\^64-1|oversized data. max: \d+; actual: \d+)$`),
+	TransactionAlreadyInMempool: regexp.MustCompile(`known transaction. transaction with hash .* is already in the system`),
 }
 
-var clients = []ClientErrors{parity, geth, arbitrum, metis, substrate, avalanche, nethermind, harmony, besu, erigon, klaytn, celo, zkSync}
+var zkEvm = ClientErrors{
+	OutOfCounters: regexp.MustCompile(`(?:: |^)not enough .* counters to continue the execution$`),
+}
+
+var clients = []ClientErrors{parity, geth, arbitrum, metis, substrate, avalanche, nethermind, harmony, besu, erigon, klaytn, celo, zkSync, zkEvm}
 
 func (s *SendError) is(errorType int) bool {
 	if s == nil || s.err == nil {
@@ -306,6 +313,11 @@ func (s *SendError) IsL2Full() bool {
 // IsServiceUnavailable indicates if the error was caused by a service being unavailable
 func (s *SendError) IsServiceUnavailable() bool {
 	return s.is(ServiceUnavailable)
+}
+
+// IsOutOfCounters is a zk chain specific error returned if the transaction is too complex to prove on zk circuits
+func (s *SendError) IsOutOfCounters() bool {
+	return s.is(OutOfCounters)
 }
 
 // IsTimeout indicates if the error was caused by an exceeded context deadline

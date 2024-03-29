@@ -2,7 +2,7 @@
 pragma solidity ^0.8.16;
 
 import "../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
-import "../automation/interfaces/v2_1/IKeeperRegistryMaster.sol";
+import {IKeeperRegistryMaster, IAutomationV21PlusCommon} from "../automation/interfaces/v2_1/IKeeperRegistryMaster.sol";
 import {ArbSys} from "../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
 import "../automation/v2_1/AutomationRegistrar2_1.sol";
 import {LogTriggerConfig} from "../automation/v2_1/AutomationUtils2_1.sol";
@@ -291,7 +291,7 @@ abstract contract VerifiableLoadBase is ConfirmedOwner {
 
   function topUpFund(uint256 upkeepId, uint256 blockNum) public {
     if (blockNum - lastTopUpBlocks[upkeepId] > upkeepTopUpCheckInterval) {
-      KeeperRegistryBase2_1.UpkeepInfo memory info = registry.getUpkeep(upkeepId);
+      IAutomationV21PlusCommon.UpkeepInfoLegacy memory info = registry.getUpkeep(upkeepId);
       uint96 minBalance = registry.getMinBalanceForUpkeep(upkeepId);
       if (info.balance < minBalanceThresholdMultiplier * minBalance) {
         addFunds(upkeepId, addLinkAmount);
@@ -463,7 +463,7 @@ abstract contract VerifiableLoadBase is ConfirmedOwner {
     }
   }
 
-  function getUpkeepInfo(uint256 upkeepId) public view returns (KeeperRegistryBase2_1.UpkeepInfo memory) {
+  function getUpkeepInfo(uint256 upkeepId) public view returns (IAutomationV21PlusCommon.UpkeepInfoLegacy memory) {
     return registry.getUpkeep(upkeepId);
   }
 

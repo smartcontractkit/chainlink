@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	commontxmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
@@ -116,12 +117,12 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 				FinishedAt:     null.TimeFrom(f),
 				AllErrors:      pipeline.RunErrors{null.String{}},
 				FatalErrors:    pipeline.RunErrors{null.String{}},
-				Outputs:        pipeline.JSONSerializable{Val: []interface{}{10}, Valid: true},
+				Outputs:        jsonserializable.JSONSerializable{Val: []interface{}{10}, Valid: true},
 				PipelineTaskRuns: []pipeline.TaskRun{
 					{
 						ID:         uuid.New(),
 						Type:       pipeline.TaskTypeHTTP,
-						Output:     pipeline.JSONSerializable{Val: 10, Valid: true},
+						Output:     jsonserializable.JSONSerializable{Val: 10, Valid: true},
 						CreatedAt:  f,
 						FinishedAt: null.TimeFrom(f),
 					},
@@ -180,7 +181,7 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 		_, from  = cltest.MustInsertRandomKey(t, ethKeyStore)
 		to       = testutils.NewAddress()
 		payload  = []byte{1, 0, 0}
-		gasLimit = uint32(21000)
+		gasLimit = uint64(21000)
 	)
 	idempotencyKey := uuid.New().String()
 	txm.On("CreateTransaction", mock.Anything, txmgr.TxRequest{
