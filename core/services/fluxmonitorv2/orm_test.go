@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	commontxmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
@@ -116,12 +117,12 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 				FinishedAt:     null.TimeFrom(f),
 				AllErrors:      pipeline.RunErrors{null.String{}},
 				FatalErrors:    pipeline.RunErrors{null.String{}},
-				Outputs:        pipeline.JSONSerializable{Val: []interface{}{10}, Valid: true},
+				Outputs:        jsonserializable.JSONSerializable{Val: []interface{}{10}, Valid: true},
 				PipelineTaskRuns: []pipeline.TaskRun{
 					{
 						ID:         uuid.New(),
 						Type:       pipeline.TaskTypeHTTP,
-						Output:     pipeline.JSONSerializable{Val: 10, Valid: true},
+						Output:     jsonserializable.JSONSerializable{Val: 10, Valid: true},
 						CreatedAt:  f,
 						FinishedAt: null.TimeFrom(f),
 					},

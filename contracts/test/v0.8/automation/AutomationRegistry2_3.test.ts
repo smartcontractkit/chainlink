@@ -119,7 +119,7 @@ const emptyBytes32 =
   '0x0000000000000000000000000000000000000000000000000000000000000000'
 
 const transmitGasOverhead = 1_000_000
-const checkGasOverhead = 500_000
+const checkGasOverhead = 600_000
 
 const stalenessSeconds = BigNumber.from(43820)
 const gasCeilingMultiplier = BigNumber.from(2)
@@ -872,7 +872,7 @@ describe('AutomationRegistry2_3', () => {
       .connect(owner)
       .deploy(8, nativeUSD)
     const upkeepTranscoderFactory = await ethers.getContractFactory(
-      'UpkeepTranscoder4_0',
+      'UpkeepTranscoder5_0',
     )
     transcoder = await upkeepTranscoderFactory.connect(owner).deploy()
     mockArbGasInfo = await mockArbGasInfoFactory.connect(owner).deploy()
@@ -2109,278 +2109,290 @@ describe('AutomationRegistry2_3', () => {
         },
       )
 
-      // skipping it for now as it is passing in local but failing in CI
-      describe.skip('Gas benchmarking conditional upkeeps [ @skip-coverage ]', function () {
-        const fs = [1, 10]
-        fs.forEach(function (newF) {
-          it(
-            'When f=' +
-              newF +
-              ' calculates gas overhead appropriately within a margin for different scenarios',
-            async () => {
-              // Perform the upkeep once to remove non-zero storage slots and have predictable gas measurement
-              let tx = await getTransmitTx(registry, keeper1, [upkeepId])
-              await tx.wait()
+      describeMaybe(
+        'Gas benchmarking conditional upkeeps [ @skip-coverage ]',
+        function () {
+          const fs = [1, 10]
+          fs.forEach(function (newF) {
+            it(
+              'When f=' +
+                newF +
+                ' calculates gas overhead appropriately within a margin for different scenarios',
+              async () => {
+                // Perform the upkeep once to remove non-zero storage slots and have predictable gas measurement
+                let tx = await getTransmitTx(registry, keeper1, [upkeepId])
+                await tx.wait()
 
-              // Different test scenarios
-              let longBytes = '0x'
-              for (let i = 0; i < maxPerformDataSize.toNumber(); i++) {
-                longBytes += '11'
-              }
-              const upkeepSuccessArray = [true, false]
-              const performGasArray = [5000, performGas]
-              const performDataArray = ['0x', longBytes]
-              const chainModuleOverheads =
-                await chainModuleBase.getGasOverhead()
-
-              for (const i in upkeepSuccessArray) {
-                for (const j in performGasArray) {
-                  for (const k in performDataArray) {
-                    const upkeepSuccess = upkeepSuccessArray[i]
-                    const performGas = performGasArray[j]
-                    const performData = performDataArray[k]
-
-                    await mock.setCanPerform(upkeepSuccess)
-                    await mock.setPerformGasToBurn(performGas)
-                    await registry
-                      .connect(owner)
-                      .setConfigTypeSafe(
-                        signerAddresses,
-                        keeperAddresses,
-                        newF,
-                        config,
-                        offchainVersion,
-                        offchainBytes,
-                        baseConfig[6],
-                        baseConfig[7],
-                      )
-                    tx = await getTransmitTx(registry, keeper1, [upkeepId], {
-                      numSigners: newF + 1,
-                      performDatas: [performData],
-                    })
-                    const receipt = await tx.wait()
-                    const upkeepPerformedLogs =
-                      parseUpkeepPerformedLogs(receipt)
-                    // exactly 1 Upkeep Performed should be emitted
-                    assert.equal(upkeepPerformedLogs.length, 1)
-                    const upkeepPerformedLog = upkeepPerformedLogs[0]
-
-                    const upkeepGasUsed = upkeepPerformedLog.args.gasUsed
-                    const chargedGasOverhead =
-                      upkeepPerformedLog.args.gasOverhead
-                    const actualGasOverhead = receipt.gasUsed.sub(upkeepGasUsed)
-                    const estimatedGasOverhead = registryConditionalOverhead
-                      .add(
-                        registryPerSignerGasOverhead.mul(
-                          BigNumber.from(newF + 1),
-                        ),
-                      )
-                      .add(
-                        registryPerPerformByteGasOverhead
-                          .add(chainModuleOverheads.chainModulePerByteOverhead)
-                          .mul(
-                            BigNumber.from(performData.length / 2 - 1)
-                              .add(registryTransmitCalldataFixedBytesOverhead)
-                              .add(
-                                registryTransmitCalldataPerSignerBytesOverhead.mul(
-                                  BigNumber.from(newF + 1),
-                                ),
-                              ),
-                          ),
-                      )
-                      .add(chainModuleOverheads.chainModuleFixedOverhead)
-
-                    assert.isTrue(upkeepGasUsed.gt(BigNumber.from('0')))
-                    assert.isTrue(chargedGasOverhead.gt(BigNumber.from('0')))
-                    assert.isTrue(actualGasOverhead.gt(BigNumber.from('0')))
-
-                    console.log(
-                      'Gas Benchmarking conditional upkeeps:',
-                      'upkeepSuccess=',
-                      upkeepSuccess,
-                      'performGas=',
-                      performGas.toString(),
-                      'performData length=',
-                      performData.length / 2 - 1,
-                      'sig verification ( f =',
-                      newF,
-                      '): estimated overhead: ',
-                      estimatedGasOverhead.toString(),
-                      ' charged overhead: ',
-                      chargedGasOverhead.toString(),
-                      ' actual overhead: ',
-                      actualGasOverhead.toString(),
-                      ' calculation margin over gasUsed: ',
-                      chargedGasOverhead.sub(actualGasOverhead).toString(),
-                      ' estimation margin over gasUsed: ',
-                      estimatedGasOverhead.sub(actualGasOverhead).toString(),
-                    )
-
-                    // The actual gas overhead should be less than charged gas overhead, but not by a lot
-                    // The charged gas overhead is controlled by ACCOUNTING_FIXED_GAS_OVERHEAD and
-                    // ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD, and their correct values should be set to
-                    // satisfy constraints in multiple places
-                    assert.isTrue(
-                      chargedGasOverhead.gt(actualGasOverhead),
-                      'Gas overhead calculated is too low, increase account gas variables (ACCOUNTING_FIXED_GAS_OVERHEAD/ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD) by at least ' +
-                        actualGasOverhead.sub(chargedGasOverhead).toString(),
-                    )
-                    assert.isTrue(
-                      chargedGasOverhead
-                        .sub(actualGasOverhead)
-                        .lt(gasCalculationMargin),
-                      'Gas overhead calculated is too high, decrease account gas variables (ACCOUNTING_FIXED_GAS_OVERHEAD/ACCOUNTING_PER_SIGNER_GAS_OVERHEAD)  by at least ' +
-                        chargedGasOverhead
-                          .sub(actualGasOverhead)
-                          .sub(gasCalculationMargin)
-                          .toString(),
-                    )
-
-                    // The estimated overhead during checkUpkeep should be close to the actual overhead in transaction
-                    // It should be greater than the actual overhead but not by a lot
-                    // The estimated overhead is controlled by variables
-                    // REGISTRY_CONDITIONAL_OVERHEAD, REGISTRY_LOG_OVERHEAD, REGISTRY_PER_SIGNER_GAS_OVERHEAD
-                    // REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD
-                    assert.isTrue(
-                      estimatedGasOverhead.gt(actualGasOverhead),
-                      'Gas overhead estimated in check upkeep is too low, increase estimation gas variables (REGISTRY_CONDITIONAL_OVERHEAD/REGISTRY_LOG_OVERHEAD/REGISTRY_PER_SIGNER_GAS_OVERHEAD/REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD) by at least ' +
-                        estimatedGasOverhead.sub(chargedGasOverhead).toString(),
-                    )
-                    assert.isTrue(
-                      estimatedGasOverhead
-                        .sub(actualGasOverhead)
-                        .lt(gasEstimationMargin),
-                      'Gas overhead estimated is too high, decrease estimation gas variables (REGISTRY_CONDITIONAL_OVERHEAD/REGISTRY_LOG_OVERHEAD/REGISTRY_PER_SIGNER_GAS_OVERHEAD/REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD)  by at least ' +
-                        estimatedGasOverhead
-                          .sub(actualGasOverhead)
-                          .sub(gasEstimationMargin)
-                          .toString(),
-                    )
-                  }
+                // Different test scenarios
+                let longBytes = '0x'
+                for (let i = 0; i < maxPerformDataSize.toNumber(); i++) {
+                  longBytes += '11'
                 }
-              }
-            },
-          )
-        })
-      })
+                const upkeepSuccessArray = [true, false]
+                const performGasArray = [5000, performGas]
+                const performDataArray = ['0x', longBytes]
+                const chainModuleOverheads =
+                  await chainModuleBase.getGasOverhead()
 
-      describe.skip('Gas benchmarking log upkeeps [ @skip-coverage ]', function () {
-        const fs = [1, 10]
-        fs.forEach(function (newF) {
-          it(
-            'When f=' +
-              newF +
-              ' calculates gas overhead appropriately within a margin',
-            async () => {
-              // Perform the upkeep once to remove non-zero storage slots and have predictable gas measurement
-              let tx = await getTransmitTx(registry, keeper1, [logUpkeepId])
-              await tx.wait()
-              const performData = '0x'
-              await mock.setCanPerform(true)
-              await mock.setPerformGasToBurn(performGas)
-              await registry.setConfigTypeSafe(
-                signerAddresses,
-                keeperAddresses,
-                newF,
-                config,
-                offchainVersion,
-                offchainBytes,
-                baseConfig[6],
-                baseConfig[7],
-              )
-              tx = await getTransmitTx(registry, keeper1, [logUpkeepId], {
-                numSigners: newF + 1,
-                performDatas: [performData],
-              })
-              const receipt = await tx.wait()
-              const upkeepPerformedLogs = parseUpkeepPerformedLogs(receipt)
-              // exactly 1 Upkeep Performed should be emitted
-              assert.equal(upkeepPerformedLogs.length, 1)
-              const upkeepPerformedLog = upkeepPerformedLogs[0]
-              const chainModuleOverheads =
-                await chainModuleBase.getGasOverhead()
+                for (const i in upkeepSuccessArray) {
+                  for (const j in performGasArray) {
+                    for (const k in performDataArray) {
+                      const upkeepSuccess = upkeepSuccessArray[i]
+                      const performGas = performGasArray[j]
+                      const performData = performDataArray[k]
 
-              const upkeepGasUsed = upkeepPerformedLog.args.gasUsed
-              const chargedGasOverhead = upkeepPerformedLog.args.gasOverhead
-              const actualGasOverhead = receipt.gasUsed.sub(upkeepGasUsed)
-              const estimatedGasOverhead = registryLogOverhead
-                .add(registryPerSignerGasOverhead.mul(BigNumber.from(newF + 1)))
-                .add(
-                  registryPerPerformByteGasOverhead
-                    .add(chainModuleOverheads.chainModulePerByteOverhead)
-                    .mul(
-                      BigNumber.from(performData.length / 2 - 1)
-                        .add(registryTransmitCalldataFixedBytesOverhead)
+                      await mock.setCanPerform(upkeepSuccess)
+                      await mock.setPerformGasToBurn(performGas)
+                      await registry
+                        .connect(owner)
+                        .setConfigTypeSafe(
+                          signerAddresses,
+                          keeperAddresses,
+                          newF,
+                          config,
+                          offchainVersion,
+                          offchainBytes,
+                          baseConfig[6],
+                          baseConfig[7],
+                        )
+                      tx = await getTransmitTx(registry, keeper1, [upkeepId], {
+                        numSigners: newF + 1,
+                        performDatas: [performData],
+                      })
+                      const receipt = await tx.wait()
+                      const upkeepPerformedLogs =
+                        parseUpkeepPerformedLogs(receipt)
+                      // exactly 1 Upkeep Performed should be emitted
+                      assert.equal(upkeepPerformedLogs.length, 1)
+                      const upkeepPerformedLog = upkeepPerformedLogs[0]
+
+                      const upkeepGasUsed = upkeepPerformedLog.args.gasUsed
+                      const chargedGasOverhead =
+                        upkeepPerformedLog.args.gasOverhead
+                      const actualGasOverhead =
+                        receipt.gasUsed.sub(upkeepGasUsed)
+                      const estimatedGasOverhead = registryConditionalOverhead
                         .add(
-                          registryTransmitCalldataPerSignerBytesOverhead.mul(
+                          registryPerSignerGasOverhead.mul(
                             BigNumber.from(newF + 1),
                           ),
-                        ),
-                    ),
+                        )
+                        .add(
+                          registryPerPerformByteGasOverhead
+                            .add(
+                              chainModuleOverheads.chainModulePerByteOverhead,
+                            )
+                            .mul(
+                              BigNumber.from(performData.length / 2 - 1)
+                                .add(registryTransmitCalldataFixedBytesOverhead)
+                                .add(
+                                  registryTransmitCalldataPerSignerBytesOverhead.mul(
+                                    BigNumber.from(newF + 1),
+                                  ),
+                                ),
+                            ),
+                        )
+                        .add(chainModuleOverheads.chainModuleFixedOverhead)
+
+                      assert.isTrue(upkeepGasUsed.gt(BigNumber.from('0')))
+                      assert.isTrue(chargedGasOverhead.gt(BigNumber.from('0')))
+                      assert.isTrue(actualGasOverhead.gt(BigNumber.from('0')))
+
+                      console.log(
+                        'Gas Benchmarking conditional upkeeps:',
+                        'upkeepSuccess=',
+                        upkeepSuccess,
+                        'performGas=',
+                        performGas.toString(),
+                        'performData length=',
+                        performData.length / 2 - 1,
+                        'sig verification ( f =',
+                        newF,
+                        '): estimated overhead: ',
+                        estimatedGasOverhead.toString(),
+                        ' charged overhead: ',
+                        chargedGasOverhead.toString(),
+                        ' actual overhead: ',
+                        actualGasOverhead.toString(),
+                        ' calculation margin over gasUsed: ',
+                        chargedGasOverhead.sub(actualGasOverhead).toString(),
+                        ' estimation margin over gasUsed: ',
+                        estimatedGasOverhead.sub(actualGasOverhead).toString(),
+                      )
+
+                      // The actual gas overhead should be less than charged gas overhead, but not by a lot
+                      // The charged gas overhead is controlled by ACCOUNTING_FIXED_GAS_OVERHEAD and
+                      // ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD, and their correct values should be set to
+                      // satisfy constraints in multiple places
+                      assert.isTrue(
+                        chargedGasOverhead.gt(actualGasOverhead),
+                        'Gas overhead calculated is too low, increase account gas variables (ACCOUNTING_FIXED_GAS_OVERHEAD/ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD) by at least ' +
+                          actualGasOverhead.sub(chargedGasOverhead).toString(),
+                      )
+                      assert.isTrue(
+                        chargedGasOverhead
+                          .sub(actualGasOverhead)
+                          .lt(gasCalculationMargin),
+                        'Gas overhead calculated is too high, decrease account gas variables (ACCOUNTING_FIXED_GAS_OVERHEAD/ACCOUNTING_PER_SIGNER_GAS_OVERHEAD)  by at least ' +
+                          chargedGasOverhead
+                            .sub(actualGasOverhead)
+                            .sub(gasCalculationMargin)
+                            .toString(),
+                      )
+
+                      // The estimated overhead during checkUpkeep should be close to the actual overhead in transaction
+                      // It should be greater than the actual overhead but not by a lot
+                      // The estimated overhead is controlled by variables
+                      // REGISTRY_CONDITIONAL_OVERHEAD, REGISTRY_LOG_OVERHEAD, REGISTRY_PER_SIGNER_GAS_OVERHEAD
+                      // REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD
+                      assert.isTrue(
+                        estimatedGasOverhead.gt(actualGasOverhead),
+                        'Gas overhead estimated in check upkeep is too low, increase estimation gas variables (REGISTRY_CONDITIONAL_OVERHEAD/REGISTRY_LOG_OVERHEAD/REGISTRY_PER_SIGNER_GAS_OVERHEAD/REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD) by at least ' +
+                          estimatedGasOverhead
+                            .sub(chargedGasOverhead)
+                            .toString(),
+                      )
+                      assert.isTrue(
+                        estimatedGasOverhead
+                          .sub(actualGasOverhead)
+                          .lt(gasEstimationMargin),
+                        'Gas overhead estimated is too high, decrease estimation gas variables (REGISTRY_CONDITIONAL_OVERHEAD/REGISTRY_LOG_OVERHEAD/REGISTRY_PER_SIGNER_GAS_OVERHEAD/REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD)  by at least ' +
+                          estimatedGasOverhead
+                            .sub(actualGasOverhead)
+                            .sub(gasEstimationMargin)
+                            .toString(),
+                      )
+                    }
+                  }
+                }
+              },
+            )
+          })
+        },
+      )
+
+      describeMaybe(
+        'Gas benchmarking log upkeeps [ @skip-coverage ]',
+        function () {
+          const fs = [1, 10]
+          fs.forEach(function (newF) {
+            it(
+              'When f=' +
+                newF +
+                ' calculates gas overhead appropriately within a margin',
+              async () => {
+                // Perform the upkeep once to remove non-zero storage slots and have predictable gas measurement
+                let tx = await getTransmitTx(registry, keeper1, [logUpkeepId])
+                await tx.wait()
+                const performData = '0x'
+                await mock.setCanPerform(true)
+                await mock.setPerformGasToBurn(performGas)
+                await registry.setConfigTypeSafe(
+                  signerAddresses,
+                  keeperAddresses,
+                  newF,
+                  config,
+                  offchainVersion,
+                  offchainBytes,
+                  baseConfig[6],
+                  baseConfig[7],
                 )
-                .add(chainModuleOverheads.chainModuleFixedOverhead)
+                tx = await getTransmitTx(registry, keeper1, [logUpkeepId], {
+                  numSigners: newF + 1,
+                  performDatas: [performData],
+                })
+                const receipt = await tx.wait()
+                const upkeepPerformedLogs = parseUpkeepPerformedLogs(receipt)
+                // exactly 1 Upkeep Performed should be emitted
+                assert.equal(upkeepPerformedLogs.length, 1)
+                const upkeepPerformedLog = upkeepPerformedLogs[0]
+                const chainModuleOverheads =
+                  await chainModuleBase.getGasOverhead()
 
-              assert.isTrue(upkeepGasUsed.gt(BigNumber.from('0')))
-              assert.isTrue(chargedGasOverhead.gt(BigNumber.from('0')))
-              assert.isTrue(actualGasOverhead.gt(BigNumber.from('0')))
+                const upkeepGasUsed = upkeepPerformedLog.args.gasUsed
+                const chargedGasOverhead = upkeepPerformedLog.args.gasOverhead
+                const actualGasOverhead = receipt.gasUsed.sub(upkeepGasUsed)
+                const estimatedGasOverhead = registryLogOverhead
+                  .add(
+                    registryPerSignerGasOverhead.mul(BigNumber.from(newF + 1)),
+                  )
+                  .add(
+                    registryPerPerformByteGasOverhead
+                      .add(chainModuleOverheads.chainModulePerByteOverhead)
+                      .mul(
+                        BigNumber.from(performData.length / 2 - 1)
+                          .add(registryTransmitCalldataFixedBytesOverhead)
+                          .add(
+                            registryTransmitCalldataPerSignerBytesOverhead.mul(
+                              BigNumber.from(newF + 1),
+                            ),
+                          ),
+                      ),
+                  )
+                  .add(chainModuleOverheads.chainModuleFixedOverhead)
 
-              console.log(
-                'Gas Benchmarking log upkeeps:',
-                'upkeepSuccess=',
-                true,
-                'performGas=',
-                performGas.toString(),
-                'performData length=',
-                performData.length / 2 - 1,
-                'sig verification ( f =',
-                newF,
-                '): estimated overhead: ',
-                estimatedGasOverhead.toString(),
-                ' charged overhead: ',
-                chargedGasOverhead.toString(),
-                ' actual overhead: ',
-                actualGasOverhead.toString(),
-                ' calculation margin over gasUsed: ',
-                chargedGasOverhead.sub(actualGasOverhead).toString(),
-                ' estimation margin over gasUsed: ',
-                estimatedGasOverhead.sub(actualGasOverhead).toString(),
-              )
+                assert.isTrue(upkeepGasUsed.gt(BigNumber.from('0')))
+                assert.isTrue(chargedGasOverhead.gt(BigNumber.from('0')))
+                assert.isTrue(actualGasOverhead.gt(BigNumber.from('0')))
 
-              assert.isTrue(
-                chargedGasOverhead.gt(actualGasOverhead),
-                'Gas overhead calculated is too low, increase account gas variables (ACCOUNTING_FIXED_GAS_OVERHEAD/ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD) by at least ' +
-                  actualGasOverhead.sub(chargedGasOverhead).toString(),
-              )
-              assert.isTrue(
-                chargedGasOverhead
-                  .sub(actualGasOverhead)
-                  .lt(gasCalculationMargin),
-                'Gas overhead calculated is too high, decrease account gas variables (ACCOUNTING_FIXED_GAS_OVERHEAD/ACCOUNTING_PER_SIGNER_GAS_OVERHEAD)  by at least ' +
+                console.log(
+                  'Gas Benchmarking log upkeeps:',
+                  'upkeepSuccess=',
+                  true,
+                  'performGas=',
+                  performGas.toString(),
+                  'performData length=',
+                  performData.length / 2 - 1,
+                  'sig verification ( f =',
+                  newF,
+                  '): estimated overhead: ',
+                  estimatedGasOverhead.toString(),
+                  ' charged overhead: ',
+                  chargedGasOverhead.toString(),
+                  ' actual overhead: ',
+                  actualGasOverhead.toString(),
+                  ' calculation margin over gasUsed: ',
+                  chargedGasOverhead.sub(actualGasOverhead).toString(),
+                  ' estimation margin over gasUsed: ',
+                  estimatedGasOverhead.sub(actualGasOverhead).toString(),
+                )
+
+                assert.isTrue(
+                  chargedGasOverhead.gt(actualGasOverhead),
+                  'Gas overhead calculated is too low, increase account gas variables (ACCOUNTING_FIXED_GAS_OVERHEAD/ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD) by at least ' +
+                    actualGasOverhead.sub(chargedGasOverhead).toString(),
+                )
+                assert.isTrue(
                   chargedGasOverhead
                     .sub(actualGasOverhead)
-                    .sub(gasCalculationMargin)
-                    .toString(),
-              )
+                    .lt(gasCalculationMargin),
+                  'Gas overhead calculated is too high, decrease account gas variables (ACCOUNTING_FIXED_GAS_OVERHEAD/ACCOUNTING_PER_SIGNER_GAS_OVERHEAD)  by at least ' +
+                    chargedGasOverhead
+                      .sub(actualGasOverhead)
+                      .sub(gasCalculationMargin)
+                      .toString(),
+                )
 
-              assert.isTrue(
-                estimatedGasOverhead.gt(actualGasOverhead),
-                'Gas overhead estimated in check upkeep is too low, increase estimation gas variables (REGISTRY_CONDITIONAL_OVERHEAD/REGISTRY_LOG_OVERHEAD/REGISTRY_PER_SIGNER_GAS_OVERHEAD/REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD) by at least ' +
-                  estimatedGasOverhead.sub(chargedGasOverhead).toString(),
-              )
-              assert.isTrue(
-                estimatedGasOverhead
-                  .sub(actualGasOverhead)
-                  .lt(gasEstimationMargin),
-                'Gas overhead estimated is too high, decrease estimation gas variables (REGISTRY_CONDITIONAL_OVERHEAD/REGISTRY_LOG_OVERHEAD/REGISTRY_PER_SIGNER_GAS_OVERHEAD/REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD)  by at least ' +
+                assert.isTrue(
+                  estimatedGasOverhead.gt(actualGasOverhead),
+                  'Gas overhead estimated in check upkeep is too low, increase estimation gas variables (REGISTRY_CONDITIONAL_OVERHEAD/REGISTRY_LOG_OVERHEAD/REGISTRY_PER_SIGNER_GAS_OVERHEAD/REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD) by at least ' +
+                    estimatedGasOverhead.sub(chargedGasOverhead).toString(),
+                )
+                assert.isTrue(
                   estimatedGasOverhead
                     .sub(actualGasOverhead)
-                    .sub(gasEstimationMargin)
-                    .toString(),
-              )
-            },
-          )
-        })
-      })
+                    .lt(gasEstimationMargin),
+                  'Gas overhead estimated is too high, decrease estimation gas variables (REGISTRY_CONDITIONAL_OVERHEAD/REGISTRY_LOG_OVERHEAD/REGISTRY_PER_SIGNER_GAS_OVERHEAD/REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD)  by at least ' +
+                    estimatedGasOverhead
+                      .sub(actualGasOverhead)
+                      .sub(gasEstimationMargin)
+                      .toString(),
+                )
+              },
+            )
+          })
+        },
+      )
     })
   })
 
@@ -2642,7 +2654,7 @@ describe('AutomationRegistry2_3', () => {
               },
             )
 
-            it.skip(
+            it(
               '[Conditional:' +
                 numPassingConditionalUpkeeps +
                 ',Log' +
@@ -2776,7 +2788,7 @@ describe('AutomationRegistry2_3', () => {
         }
       }
 
-      it.skip('has enough perform gas overhead for large batches [ @skip-coverage ]', async () => {
+      it('has enough perform gas overhead for large batches [ @skip-coverage ]', async () => {
         const numUpkeeps = 20
         const upkeepIds: BigNumber[] = []
         let totalPerformGas = BigNumber.from('0')

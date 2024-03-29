@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/montanaflynn/stats"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
@@ -598,7 +599,6 @@ func (v *EthereumVRFv2PlusLoadTestConsumer) GetLoadTestMetrics(ctx context.Conte
 	if err != nil {
 		return nil, err
 	}
-
 	averageResponseTimeInSeconds, err := v.consumer.SAverageResponseTimeInSecondsMillions(&bind.CallOpts{
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
 		Context: ctx,
@@ -610,7 +610,6 @@ func (v *EthereumVRFv2PlusLoadTestConsumer) GetLoadTestMetrics(ctx context.Conte
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
 		Context: ctx,
 	})
-
 	if err != nil {
 		return nil, err
 	}
@@ -621,13 +620,40 @@ func (v *EthereumVRFv2PlusLoadTestConsumer) GetLoadTestMetrics(ctx context.Conte
 	if err != nil {
 		return nil, err
 	}
-
+	var responseTimesInBlocks []uint32
+	for {
+		currentResponseTimesInBlocks, err := v.consumer.GetRequestBlockTimes(&bind.CallOpts{
+			From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+			Context: ctx,
+		}, big.NewInt(int64(len(responseTimesInBlocks))), big.NewInt(1000))
+		if err != nil {
+			return nil, err
+		}
+		if len(currentResponseTimesInBlocks) == 0 {
+			break
+		}
+		responseTimesInBlocks = append(responseTimesInBlocks, currentResponseTimesInBlocks...)
+	}
+	responseTimesInBlocksFloat64 := make([]float64, len(responseTimesInBlocks))
+	for i, value := range responseTimesInBlocks {
+		responseTimesInBlocksFloat64[i] = float64(value)
+	}
+	p90FulfillmentBlockTime, err := stats.Percentile(responseTimesInBlocksFloat64, 90)
+	if err != nil {
+		return nil, err
+	}
+	p95FulfillmentBlockTime, err := stats.Percentile(responseTimesInBlocksFloat64, 95)
+	if err != nil {
+		return nil, err
+	}
 	return &VRFLoadTestMetrics{
 		RequestCount:                         requestCount,
 		FulfilmentCount:                      fulfilmentCount,
 		AverageFulfillmentInMillions:         averageFulfillmentInMillions,
 		SlowestFulfillment:                   slowestFulfillment,
 		FastestFulfillment:                   fastestFulfillment,
+		P90FulfillmentBlockTime:              p90FulfillmentBlockTime,
+		P95FulfillmentBlockTime:              p95FulfillmentBlockTime,
 		AverageResponseTimeInSecondsMillions: averageResponseTimeInSeconds,
 		SlowestResponseTimeInSeconds:         slowestResponseTimeInSeconds,
 		FastestResponseTimeInSeconds:         fastestResponseTimeInSeconds,
