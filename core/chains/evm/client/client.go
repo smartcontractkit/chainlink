@@ -98,6 +98,7 @@ type Client interface {
 
 	// Simulate the transaction prior to sending to catch zk out-of-counters errors ahead of time
 	CheckTxValidity(ctx context.Context, from common.Address, to common.Address, data []byte) *SendError
+	BatchCheckTxValidity(ctx context.Context, reqs []TxSimulationRequest) error
 }
 
 func ContextWithDefaultTimeout() (ctx context.Context, cancel context.CancelFunc) {
@@ -376,5 +377,9 @@ func (client *client) LatestFinalizedBlock(_ context.Context) (*evmtypes.Head, e
 }
 
 func (client *client) CheckTxValidity(ctx context.Context, from common.Address, to common.Address, data []byte) *SendError {
+	return NewSendError(pkgerrors.New("not implemented. client was deprecated. New methods are added only to satisfy type constraints while we are migrating to new alternatives"))
+}
+
+func (client *client) BatchCheckTxValidity(ctx context.Context, reqs []TxSimulationRequest) error {
 	return NewSendError(pkgerrors.New("not implemented. client was deprecated. New methods are added only to satisfy type constraints while we are migrating to new alternatives"))
 }

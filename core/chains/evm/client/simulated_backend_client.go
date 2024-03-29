@@ -778,6 +778,10 @@ func (c *SimulatedBackendClient) CheckTxValidity(ctx context.Context, from commo
 	return nil
 }
 
+func (c *SimulatedBackendClient) BatchCheckTxValidity(ctx context.Context, reqs []TxSimulationRequest) error {
+	return nil
+}
+
 func toCallMsg(params map[string]interface{}) ethereum.CallMsg {
 	var callMsg ethereum.CallMsg
 	toAddr, err := interfaceToAddress(params["to"])

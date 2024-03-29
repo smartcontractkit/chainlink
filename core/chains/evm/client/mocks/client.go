@@ -97,6 +97,24 @@ func (_m *Client) BatchCallContextAll(ctx context.Context, b []rpc.BatchElem) er
 	return r0
 }
 
+// BatchCheckTxValidity provides a mock function with given fields: ctx, reqs
+func (_m *Client) BatchCheckTxValidity(ctx context.Context, reqs []client.TxSimulationRequest) error {
+	ret := _m.Called(ctx, reqs)
+
+	if len(ret) == 0 {
+		panic("no return value specified for BatchCheckTxValidity")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, []client.TxSimulationRequest) error); ok {
+		r0 = rf(ctx, reqs)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // BlockByHash provides a mock function with given fields: ctx, hash
 func (_m *Client) BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
 	ret := _m.Called(ctx, hash)

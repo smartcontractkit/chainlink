@@ -272,10 +272,14 @@ func (c *chainClient) LatestFinalizedBlock(ctx context.Context) (*evmtypes.Head,
 }
 
 func (c *chainClient) CheckTxValidity(ctx context.Context, from common.Address, to common.Address, data []byte) *SendError {
-	msg := ethereum.CallMsg{
+	msg := TxSimulationRequest{
 		From: from,
 		To:   &to,
 		Data: data,
 	}
-	return SimulateTransaction(ctx, c, c.logger, c.chainType, msg)
+	return SimulateTransaction(ctx, c, c.chainType, msg)
+}
+
+func (c *chainClient) BatchCheckTxValidity(ctx context.Context, reqs []TxSimulationRequest) error {
+	return BatchSimulateTransaction(ctx, c, c.chainType, reqs)
 }
