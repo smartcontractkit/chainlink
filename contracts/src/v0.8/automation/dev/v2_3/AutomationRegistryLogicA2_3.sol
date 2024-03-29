@@ -145,8 +145,9 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
    * @dev a transcoder must be set in order to enable migration
    * @dev migration permissions must be set on *both* sending and receiving registries
    * @dev only an upkeep admin can migrate their upkeeps
+   * @dev this function is most gas-efficient if upkeepIDs are sorted by billing token
+   * @dev TODO - this needs better multi-token testing
    */
-  // TODO - this is not efficient and need to be re-worked
   function migrateUpkeeps(uint256[] calldata ids, address destination) external {
     if (
       s_peerRegistryMigrationPermission[destination] != MigrationPermission.OUTGOING &&
@@ -154,6 +155,8 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
     ) revert MigrationNotPermitted();
     if (s_storage.transcoder == ZERO_ADDRESS) revert TranscoderNotSet();
     if (ids.length == 0) revert ArrayHasNoEntries();
+    IERC20 billingToken;
+    uint256 balanceToTransfer;
     uint256 id;
     Upkeep memory upkeep;
     address[] memory admins = new address[](ids.length);
@@ -164,6 +167,19 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
     for (uint256 idx = 0; idx < ids.length; idx++) {
       id = ids[idx];
       upkeep = s_upkeep[id];
+
+      if (idx == 0) {
+        billingToken = s_upkeep[id].billingToken;
+        balanceToTransfer = upkeep.balance;
+      }
+
+      // if we encounter a new billing token, send the sum from the last billing token to the destination registry
+      if (upkeep.billingToken != billingToken) {
+        s_reserveAmounts[billingToken] = s_reserveAmounts[billingToken] - balanceToTransfer;
+        billingToken.safeTransfer(destination, balanceToTransfer);
+        billingToken = upkeep.billingToken;
+        balanceToTransfer = upkeep.balance;
+      }
       _requireAdminAndNotCancelled(id);
       upkeep.forwarder.updateRegistry(destination);
       upkeeps[idx] = upkeep;
@@ -179,8 +195,12 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
       delete s_proposedAdmin[id];
       s_upkeepIDs.remove(id);
       emit UpkeepMigrated(id, upkeep.balance, destination);
-      s_reserveAmounts[upkeep.billingToken] = s_reserveAmounts[upkeep.billingToken] - upkeep.balance;
-      upkeep.billingToken.safeTransfer(destination, upkeep.balance);
+
+      // always transfer the rolling sum at the end of the array
+      if (idx == ids.length - 1) {
+        s_reserveAmounts[billingToken] = s_reserveAmounts[billingToken] - balanceToTransfer;
+        billingToken.safeTransfer(destination, balanceToTransfer);
+      }
     }
     bytes memory encodedUpkeeps = abi.encode(
       ids,
