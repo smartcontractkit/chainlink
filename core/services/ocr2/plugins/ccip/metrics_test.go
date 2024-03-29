@@ -15,11 +15,11 @@ const (
 func Test_SequenceNumbers(t *testing.T) {
 	collector := NewPluginMetricsCollector("test", sourceChainId, destChainId)
 
-	collector.SequenceNumber(10)
-	assert.Equal(t, float64(10), testutil.ToFloat64(sequenceNumberCounter.WithLabelValues("test", "1337", "2337")))
+	collector.SequenceNumber(Report, 10)
+	assert.Equal(t, float64(10), testutil.ToFloat64(sequenceNumberCounter.WithLabelValues("test", "1337", "2337", "report")))
 
-	collector.SequenceNumber(0)
-	assert.Equal(t, float64(10), testutil.ToFloat64(sequenceNumberCounter.WithLabelValues("test", "1337", "2337")))
+	collector.SequenceNumber(Report, 0)
+	assert.Equal(t, float64(10), testutil.ToFloat64(sequenceNumberCounter.WithLabelValues("test", "1337", "2337", "report")))
 }
 
 func Test_NumberOfMessages(t *testing.T) {
