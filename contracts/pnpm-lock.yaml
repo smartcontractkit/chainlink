@@ -46,6 +46,9 @@ devDependencies:
   '@ethersproject/providers':
     specifier: ~5.7.2
     version: 5.7.2
+  '@nomicfoundation/hardhat-chai-matchers':
+    specifier: ^1.0.6
+    version: 1.0.6(@nomiclabs/hardhat-ethers@2.2.3)(chai@4.4.1)(ethers@5.7.2)(hardhat@2.20.1)
   '@nomicfoundation/hardhat-ethers':
     specifier: ^3.0.5
     version: 3.0.5(ethers@5.7.2)(hardhat@2.20.1)
@@ -1131,6 +1134,25 @@ packages:
       - supports-color
     dev: true
 
+  /@nomicfoundation/hardhat-chai-matchers@1.0.6(@nomiclabs/hardhat-ethers@2.2.3)(chai@4.4.1)(ethers@5.7.2)(hardhat@2.20.1):
+    resolution: {integrity: sha512-f5ZMNmabZeZegEfuxn/0kW+mm7+yV7VNDxLpMOMGXWFJ2l/Ct3QShujzDRF9cOkK9Ui/hbDeOWGZqyQALDXVCQ==}
+    peerDependencies:
+      '@nomiclabs/hardhat-ethers': ^2.0.0
+      chai: ^4.2.0
+      ethers: ^5.0.0
+      hardhat: ^2.9.4
+    dependencies:
+      '@ethersproject/abi': 5.7.0
+      '@nomiclabs/hardhat-ethers': 2.2.3(ethers@5.7.2)(hardhat@2.20.1)
+      '@types/chai-as-promised': 7.1.8
+      chai: 4.4.1
+      chai-as-promised: 7.1.1(chai@4.4.1)
+      deep-eql: 4.1.3
+      ethers: 5.7.2
+      hardhat: 2.20.1(ts-node@10.9.2)(typescript@5.4.3)
+      ordinal: 1.0.3
+    dev: true
+
   /@nomicfoundation/hardhat-ethers@3.0.5(ethers@5.7.2)(hardhat@2.20.1):
     resolution: {integrity: sha512-RNFe8OtbZK6Ila9kIlHp0+S80/0Bu/3p41HUpaRIoHLm6X3WekTd83vob3rE54Duufu1edCiBDxspBzi2rxHHw==}
     peerDependencies:
@@ -1624,6 +1646,12 @@ packages:
     resolution: {integrity: sha512-zVqJy2KzusZPLOgyGJDnOIbu3DxIGGqxYbEwtEEe4Z+la8jwIhOyb+GMrlHafs5tvKruwf8f8qOYP6zTvse/pw==}
     dependencies:
       '@types/node': 16.18.91
+    dev: true
+
+  /@types/chai-as-promised@7.1.8:
+    resolution: {integrity: sha512-ThlRVIJhr69FLlh6IctTXFkmhtP3NpMZ2QGq69StYLyKZFp/HOp1VdKZj7RvfNWYYcJ1xlbLGLLWj1UvP5u/Gw==}
+    dependencies:
+      '@types/chai': 4.3.14
     dev: true
 
   /@types/chai@4.3.14:
@@ -3283,6 +3311,15 @@ packages:
     engines: {node: '>=12.19'}
     dependencies:
       nofilter: 3.1.0
+    dev: true
+
+  /chai-as-promised@7.1.1(chai@4.4.1):
+    resolution: {integrity: sha512-azL6xMoi+uxu6z4rhWQ1jbdUhOMhis2PvscD/xjLqNMkv3BPPp2JyyuTHOrf9BOosGpNQ11v6BKv/g57RXbiaA==}
+    peerDependencies:
+      chai: '>= 2.1.2 < 5'
+    dependencies:
+      chai: 4.4.1
+      check-error: 1.0.3
     dev: true
 
   /chai@4.4.1:
@@ -7796,6 +7833,10 @@ packages:
       levn: 0.4.1
       prelude-ls: 1.2.1
       type-check: 0.4.0
+    dev: true
+
+  /ordinal@1.0.3:
+    resolution: {integrity: sha512-cMddMgb2QElm8G7vdaa02jhUNbTSrhsgAGUz1OokD83uJTwSUn+nKoNoKVVaRa08yF6sgfO7Maou1+bgLd9rdQ==}
     dev: true
 
   /os-homedir@1.0.2:
