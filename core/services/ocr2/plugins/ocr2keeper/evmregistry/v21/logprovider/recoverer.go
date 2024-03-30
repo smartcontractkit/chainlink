@@ -359,6 +359,8 @@ func (r *logRecoverer) recover(ctx context.Context) error {
 		wg.Add(1)
 		go func(f upkeepFilter) {
 			defer wg.Done()
+			recoverFilterID := uuid.New()
+			ctx := context.WithValue(ctx, "recoverFilterID", recoverFilterID)
 			if err := r.recoverFilter(ctx, f, start, offsetBlock); err != nil {
 				r.lggr.Debugw("error recovering filter", "err", err.Error(), "recoverID", ctx.Value("recoverID"))
 			}
@@ -397,11 +399,11 @@ func (r *logRecoverer) recoverFilter(ctx context.Context, f upkeepFilter, startB
 		return fmt.Errorf("could not read logs: %w", err)
 	}
 
-	r.lggr.Debugw("got logs with sigs", "logs", len(logs), "recoverID", ctx.Value("recoverID"))
+	r.lggr.Debugw("got logs with sigs", "logs", len(logs), "recoverID", ctx.Value("recoverID"), "recoverFilterID", ctx.Value("recoverFilterID"))
 
 	logs = f.Select(logs...)
 
-	r.lggr.Debugw("filtered logs with sigs", "logs", len(logs), "recoverID", ctx.Value("recoverID"))
+	r.lggr.Debugw("filtered logs with sigs", "logs", len(logs), "recoverID", ctx.Value("recoverID"), "recoverFilterID", ctx.Value("recoverFilterID"))
 
 	workIDs := make([]string, 0)
 	for _, log := range logs {
@@ -409,13 +411,13 @@ func (r *logRecoverer) recoverFilter(ctx context.Context, f upkeepFilter, startB
 		upkeepId := &ocr2keepers.UpkeepIdentifier{}
 		ok := upkeepId.FromBigInt(f.upkeepID)
 		if !ok {
-			r.lggr.Warnw("failed to convert upkeepID to UpkeepIdentifier", "upkeepID", f.upkeepID, "recoverID", ctx.Value("recoverID"))
+			r.lggr.Warnw("failed to convert upkeepID to UpkeepIdentifier", "upkeepID", f.upkeepID, "recoverID", ctx.Value("recoverID"), "recoverFilterID", ctx.Value("recoverFilterID"))
 			continue
 		}
 		workIDs = append(workIDs, core.UpkeepWorkID(*upkeepId, trigger))
 	}
 
-	r.lggr.Debugw("selecting workIDs", "workIDs", len(workIDs), "recoverID", ctx.Value("recoverID"))
+	r.lggr.Debugw("selecting workIDs", "workIDs", len(workIDs), "recoverID", ctx.Value("recoverID"), "recoverFilterID", ctx.Value("recoverFilterID"))
 
 	states, err := r.states.SelectByWorkIDs(ctx, workIDs...)
 	if err != nil {
@@ -426,7 +428,7 @@ func (r *logRecoverer) recoverFilter(ctx context.Context, f upkeepFilter, startB
 	}
 	filteredLogs := r.filterFinalizedStates(f, logs, states)
 
-	r.lggr.Debugw("filtered logs", "logs", len(filteredLogs), "recoverID", ctx.Value("recoverID"))
+	r.lggr.Debugw("filtered logs", "logs", len(filteredLogs), "recoverID", ctx.Value("recoverID"), "recoverFilterID", ctx.Value("recoverFilterID"))
 
 	added, alreadyPending, ok := r.populatePending(f, filteredLogs)
 	if added > 0 {
