@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"github.com/google/uuid"
 	"io"
 	"math"
 	"math/big"
@@ -139,6 +140,8 @@ func (r *logRecoverer) Start(ctx context.Context) error {
 			for {
 				select {
 				case <-recoveryTicker.C:
+					recoverID := uuid.New()
+					ctx := context.WithValue(ctx, "recoverID", recoverID)
 					if err := r.recover(ctx); err != nil {
 						r.lggr.Warnw("failed to recover logs", "err", err)
 					}
@@ -348,7 +351,7 @@ func (r *logRecoverer) recover(ctx context.Context) error {
 		return nil
 	}
 
-	r.lggr.Debugw("recovering logs", "numberOfFilters", len(filters), "filters", filters, "startBlock", start, "offsetBlock", offsetBlock, "latestBlock", latest)
+	r.lggr.Debugw("recovering logs", "numberOfFilters", len(filters), "filters", filters, "startBlock", start, "offsetBlock", offsetBlock, "latestBlock", latest, "recoverID", ctx.Value("recoverID"))
 
 	// This is unbounded, should we use a worker pool?
 	var wg sync.WaitGroup
@@ -357,7 +360,7 @@ func (r *logRecoverer) recover(ctx context.Context) error {
 		go func(f upkeepFilter) {
 			defer wg.Done()
 			if err := r.recoverFilter(ctx, f, start, offsetBlock); err != nil {
-				r.lggr.Debugw("error recovering filter", "err", err.Error())
+				r.lggr.Debugw("error recovering filter", "err", err.Error(), "recoverID", ctx.Value("recoverID"))
 			}
 		}(f)
 	}
@@ -394,11 +397,11 @@ func (r *logRecoverer) recoverFilter(ctx context.Context, f upkeepFilter, startB
 		return fmt.Errorf("could not read logs: %w", err)
 	}
 
-	r.lggr.Debugw("got logs with sigs", "logs", len(logs))
+	r.lggr.Debugw("got logs with sigs", "logs", len(logs), "recoverID", ctx.Value("recoverID"))
 
 	logs = f.Select(logs...)
 
-	r.lggr.Debugw("filtered logs with sigs", "logs", len(logs))
+	r.lggr.Debugw("filtered logs with sigs", "logs", len(logs), "recoverID", ctx.Value("recoverID"))
 
 	workIDs := make([]string, 0)
 	for _, log := range logs {
@@ -406,13 +409,13 @@ func (r *logRecoverer) recoverFilter(ctx context.Context, f upkeepFilter, startB
 		upkeepId := &ocr2keepers.UpkeepIdentifier{}
 		ok := upkeepId.FromBigInt(f.upkeepID)
 		if !ok {
-			r.lggr.Warnw("failed to convert upkeepID to UpkeepIdentifier", "upkeepID", f.upkeepID)
+			r.lggr.Warnw("failed to convert upkeepID to UpkeepIdentifier", "upkeepID", f.upkeepID, "recoverID", ctx.Value("recoverID"))
 			continue
 		}
 		workIDs = append(workIDs, core.UpkeepWorkID(*upkeepId, trigger))
 	}
 
-	r.lggr.Debugw("selecting workIDs", "workIDs", len(workIDs))
+	r.lggr.Debugw("selecting workIDs", "workIDs", len(workIDs), "recoverID", ctx.Value("recoverID"))
 
 	states, err := r.states.SelectByWorkIDs(ctx, workIDs...)
 	if err != nil {
@@ -423,7 +426,7 @@ func (r *logRecoverer) recoverFilter(ctx context.Context, f upkeepFilter, startB
 	}
 	filteredLogs := r.filterFinalizedStates(f, logs, states)
 
-	r.lggr.Debugw("filtered logs", "logs", len(filteredLogs))
+	r.lggr.Debugw("filtered logs", "logs", len(filteredLogs), "recoverID", ctx.Value("recoverID"))
 
 	added, alreadyPending, ok := r.populatePending(f, filteredLogs)
 	if added > 0 {
