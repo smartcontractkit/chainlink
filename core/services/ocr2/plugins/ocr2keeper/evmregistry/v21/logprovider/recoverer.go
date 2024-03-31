@@ -445,6 +445,8 @@ func (r *logRecoverer) recoverFilter(ctx context.Context, f upkeepFilter, startB
 		return uf1
 	}, f)
 
+	r.lggr.Debugw("recovered filter", "logs", len(filteredLogs), "recoverID", ctx.Value("recoverID"), "recoverFilterID", ctx.Value("recoverFilterID"))
+
 	return nil
 }
 
