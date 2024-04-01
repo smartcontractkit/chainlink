@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -38,7 +40,7 @@ func TestUSDCReader_callAttestationApi(t *testing.T) {
 	require.NoError(t, err)
 	lggr := logger.TestLogger(t)
 	usdcReader, _ := ccipdata.NewUSDCReader(lggr, "job_123", mockMsgTransmitter, nil, false)
-	usdcService := NewUSDCTokenDataReader(lggr, usdcReader, attestationURI, 0, common.Address{})
+	usdcService := NewUSDCTokenDataReader(lggr, usdcReader, attestationURI, 0, common.Address{}, 0)
 
 	attestation, err := usdcService.callAttestationApi(context.Background(), [32]byte(common.FromHex(usdcMessageHash)))
 	require.NoError(t, err)
@@ -61,7 +63,7 @@ func TestUSDCReader_callAttestationApiMock(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	lp := mocks.NewLogPoller(t)
 	usdcReader, _ := ccipdata.NewUSDCReader(lggr, "job_123", mockMsgTransmitter, lp, false)
-	usdcService := NewUSDCTokenDataReader(lggr, usdcReader, attestationURI, 0, common.Address{})
+	usdcService := NewUSDCTokenDataReader(lggr, usdcReader, attestationURI, 0, common.Address{}, 0)
 	attestation, err := usdcService.callAttestationApi(context.Background(), utils.RandomBytes32())
 	require.NoError(t, err)
 
@@ -196,7 +198,7 @@ func TestUSDCReader_callAttestationApiMockError(t *testing.T) {
 			lggr := logger.TestLogger(t)
 			lp := mocks.NewLogPoller(t)
 			usdcReader, _ := ccipdata.NewUSDCReader(lggr, "job_123", mockMsgTransmitter, lp, false)
-			usdcService := NewUSDCTokenDataReader(lggr, usdcReader, attestationURI, test.customTimeoutSeconds, common.Address{})
+			usdcService := NewUSDCTokenDataReader(lggr, usdcReader, attestationURI, test.customTimeoutSeconds, common.Address{}, 0)
 			lp.On("RegisterFilter", mock.Anything).Return(nil)
 			require.NoError(t, usdcReader.RegisterFilters())
 
@@ -232,7 +234,7 @@ func TestGetUSDCMessageBody(t *testing.T) {
 
 	usdcTokenAddr := utils.RandomAddress()
 	lggr := logger.TestLogger(t)
-	usdcService := NewUSDCTokenDataReader(lggr, &usdcReader, nil, 0, usdcTokenAddr)
+	usdcService := NewUSDCTokenDataReader(lggr, &usdcReader, nil, 0, usdcTokenAddr, 0)
 
 	// Make the first call and assert the underlying function is called
 	body, err := usdcService.getUSDCMessageBody(context.Background(), cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta{
@@ -299,6 +301,99 @@ func TestTokenDataReader_getUsdcTokenEndOffset(t *testing.T) {
 			}
 			assert.NoError(t, err)
 			assert.Equal(t, tc.expOffset, offset)
+		})
+	}
+}
+
+func TestUSDCReader_rateLimiting(t *testing.T) {
+	testCases := []struct {
+		name             string
+		requests         uint64
+		testRequestDelay time.Duration
+		rateConfig       time.Duration
+		rateLimits       int
+	}{
+		{
+			name:       "no rate limit",
+			requests:   10,
+			rateConfig: 0,
+			rateLimits: 0,
+		},
+		{
+			name:       "yes rate limit",
+			requests:   10,
+			rateConfig: 100 * time.Millisecond,
+			rateLimits: 9,
+		},
+		{
+			name:             "no limit when throttled",
+			requests:         10,
+			rateConfig:       10 * time.Millisecond,
+			rateLimits:       0,
+			testRequestDelay: 20 * time.Millisecond,
+		},
+		{
+			name:             "yes half limited",
+			requests:         10,
+			rateConfig:       10 * time.Millisecond,
+			rateLimits:       5,
+			testRequestDelay: 9 * time.Millisecond,
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			response := attestationResponse{
+				Status:      attestationStatusSuccess,
+				Attestation: "720502893578a89a8a87982982ef781c18b193",
+			}
+
+			ts := getMockUSDCEndpoint(t, response)
+			defer ts.Close()
+			attestationURI, err := url.ParseRequestURI(ts.URL)
+			require.NoError(t, err)
+
+			lggr := logger.TestLogger(t)
+			lp := mocks.NewLogPoller(t)
+			usdcReader, _ := ccipdata.NewUSDCReader(lggr, "job_123", mockMsgTransmitter, lp, false)
+			usdcService := NewUSDCTokenDataReader(lggr, usdcReader, attestationURI, 0, utils.RandomAddress(), tc.rateConfig)
+
+			errorChan := make(chan error, tc.requests)
+			wg := sync.WaitGroup{}
+			for i := 0; i < int(tc.requests); i++ {
+				time.Sleep(tc.testRequestDelay)
+
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+
+					_, err := usdcService.ReadTokenData(context.Background(), cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta{
+						EVM2EVMMessage: cciptypes.EVM2EVMMessage{
+							TokenAmounts: []cciptypes.TokenAmount{{Token: ccipcalc.EvmAddrToGeneric(utils.ZeroAddress), Amount: nil}}, // trigger failure due to wrong address
+						},
+					}, 0)
+
+					errorChan <- err
+				}()
+			}
+
+			// Wait for requests to complete
+			wg.Wait()
+			close(errorChan)
+
+			// Collect errors
+			rateLimits := 0
+			for err := range errorChan {
+				if errors.Is(err, tokendata.ErrSelfRateLimit) {
+					rateLimits++
+				} else if err != nil && !strings.Contains(err.Error(), "failed getting the USDC message body") {
+					require.Fail(t, "unexpected error", err)
+				}
+			}
+			require.Equal(t, tc.rateLimits, rateLimits)
 		})
 	}
 }

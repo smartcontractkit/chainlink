@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"golang.org/x/time/rate"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -33,10 +34,13 @@ const (
 
 	// defaultCoolDownDurationSec defines the default time to wait after getting rate limited.
 	// this value is only used if the 429 response does not contain the Retry-After header
-	defaultCoolDownDuration = 60 * time.Second
+	defaultCoolDownDuration = 5 * time.Minute
 
 	// maxCoolDownDuration defines the maximum duration we can wait till firing the next request
 	maxCoolDownDuration = 10 * time.Minute
+
+	// USDCRequestInterval defines the rate in requests per second that the attestation API can be called
+	RequestInterval = 100 * time.Millisecond
 )
 
 type attestationStatus string
@@ -85,6 +89,7 @@ type TokenDataReader struct {
 	attestationApi        *url.URL
 	attestationApiTimeout time.Duration
 	usdcTokenAddress      common.Address
+	rate                  *rate.Limiter
 
 	// coolDownUntil defines whether requests are blocked or not.
 	coolDownUntil time.Time
@@ -105,6 +110,7 @@ func NewUSDCTokenDataReader(
 	usdcAttestationApi *url.URL,
 	usdcAttestationApiTimeoutSeconds int,
 	usdcTokenAddress common.Address,
+	requestInterval time.Duration,
 ) *TokenDataReader {
 	timeout := time.Duration(usdcAttestationApiTimeoutSeconds) * time.Second
 	if usdcAttestationApiTimeoutSeconds == 0 {
@@ -118,6 +124,7 @@ func NewUSDCTokenDataReader(
 		attestationApiTimeout: timeout,
 		usdcTokenAddress:      usdcTokenAddress,
 		coolDownMu:            &sync.RWMutex{},
+		rate:                  rate.NewLimiter(rate.Every(requestInterval), 1),
 	}
 }
 
@@ -145,6 +152,12 @@ func (s *TokenDataReader) ReadTokenData(ctx context.Context, msg cciptypes.EVM2E
 	if s.inCoolDownPeriod() {
 		// rate limiting cool-down period, we prevent new requests from being sent
 		return nil, tokendata.ErrRequestsBlocked
+	}
+
+	// Using 'Allow' instead of 'Wait' to avoid blocking the current goroutine.
+	if !s.rate.Allow() {
+		// self rate limiting to avoid hitting the rate limit.
+		return nil, tokendata.ErrSelfRateLimit
 	}
 
 	messageBody, err := s.getUSDCMessageBody(ctx, msg, tokenIndex)

@@ -12,9 +12,10 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
+
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
-	"go.uber.org/multierr"
 
 	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -160,6 +161,7 @@ func initTokenDataProviders(lggr logger.Logger, jobID string, pluginConfig ccipc
 				attestationURI,
 				pluginConfig.USDCConfig.AttestationAPITimeoutSeconds,
 				pluginConfig.USDCConfig.SourceTokenAddress,
+				usdc.RequestInterval,
 			)
 	}
 
