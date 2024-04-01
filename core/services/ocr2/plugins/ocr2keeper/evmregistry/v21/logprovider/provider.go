@@ -115,13 +115,6 @@ type logEventProvider struct {
 }
 
 func NewLogProvider(lggr logger.Logger, poller logpoller.LogPoller, chainID *big.Int, packer LogDataPacker, filterStore UpkeepFilterStore, opts LogTriggersOptions) *logEventProvider {
-	defaultBlockRate := defaultBlockRateForChain(chainID)
-	defaultLogLimit := defaultLogLimitForChain(chainID)
-
-	// TODO apply these to the log buffer later
-	_ = defaultBlockRate
-	_ = defaultLogLimit
-
 	return &logEventProvider{
 		threadCtrl:  utils.NewThreadControl(),
 		lggr:        lggr.Named("KeepersRegistry.LogEventProvider"),
@@ -140,16 +133,22 @@ func (p *logEventProvider) SetConfig(cfg ocr2keepers.LogEventProviderConfig) {
 	logLimit := cfg.LogLimit
 
 	if blockRate == 0 {
-		blockRate = defaultBlockRateForChain(p.chainID)
+		blockRate = p.opts.defaultBlockRate()
 	}
 	if logLimit == 0 {
-		logLimit = defaultLogLimitForChain(p.chainID)
+		logLimit = p.opts.defaultLogLimit()
 	}
 
 	p.lggr.With("where", "setConfig").Infow("setting config ", "bockRate", blockRate, "logLimit", logLimit)
 
-	// TODO set block rate and log limit on the buffer
-	//p.buffer.SetConfig(blockRate, logLimit)
+	atomic.StoreUint32(&p.opts.BlockRate, blockRate)
+	atomic.StoreUint32(&p.opts.LogLimit, logLimit)
+
+	switch p.opts.BufferVersion {
+	case BufferVersionV1:
+		p.bufferV1.SetConfig(uint32(p.opts.LookbackBlocks), uint32(blockRate), uint32(logLimit))
+	default:
+	}
 }
 
 func (p *logEventProvider) WithBufferVersion(v BufferVersion) {
@@ -520,26 +519,4 @@ func (p *logEventProvider) readLogs(ctx context.Context, latest int64, filters [
 	}
 
 	return merr
-}
-
-func defaultBlockRateForChain(chainID *big.Int) uint32 {
-	switch chainID.Int64() {
-	case 42161, 421613, 421614: // Arbitrum
-		return 4
-	default:
-		return 1
-	}
-}
-
-func defaultLogLimitForChain(chainID *big.Int) uint32 {
-	switch chainID.Int64() {
-	case 42161, 421613, 421614: // Arbitrum
-		return 1
-	case 1, 4, 5, 42, 11155111: // Eth
-		return 20
-	case 10, 420, 56, 97, 137, 80001, 43113, 43114, 8453, 84531: // Optimism, BSC, Polygon, Avax, Base
-		return 5
-	default:
-		return 1
-	}
 }

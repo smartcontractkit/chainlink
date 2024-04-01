@@ -15,7 +15,7 @@ import (
 func New(lggr logger.Logger, poller logpoller.LogPoller, c client.Client, stateStore core.UpkeepStateReader, finalityDepth uint32, chainID *big.Int) (LogEventProvider, LogRecoverer) {
 	filterStore := NewUpkeepFilterStore()
 	packer := NewLogEventsPacker()
-	opts := NewOptions(int64(finalityDepth))
+	opts := NewOptions(int64(finalityDepth), chainID)
 
 	provider := NewLogProvider(lggr, poller, chainID, packer, filterStore, opts)
 	recoverer := NewLogRecoverer(lggr, poller, c, stateStore, packer, filterStore, opts)
@@ -25,6 +25,7 @@ func New(lggr logger.Logger, poller logpoller.LogPoller, c client.Client, stateS
 
 // LogTriggersOptions holds the options for the log trigger components.
 type LogTriggersOptions struct {
+	chainID *big.Int
 	// LookbackBlocks is the number of blocks the provider will look back for logs.
 	// The recoverer will scan for logs up to this depth.
 	// NOTE: MUST be set to a greater-or-equal to the chain's finality depth.
@@ -50,8 +51,9 @@ const (
 	BufferVersionV1   BufferVersion = "v1"
 )
 
-func NewOptions(finalityDepth int64) LogTriggersOptions {
+func NewOptions(finalityDepth int64, chainID *big.Int) LogTriggersOptions {
 	opts := new(LogTriggersOptions)
+	opts.chainID = chainID
 	opts.Defaults(finalityDepth)
 	return *opts
 }
@@ -73,9 +75,31 @@ func (o *LogTriggersOptions) Defaults(finalityDepth int64) {
 		o.FinalityDepth = finalityDepth
 	}
 	if o.BlockRate == 0 {
-		o.BlockRate = 2
+		o.BlockRate = o.defaultBlockRate()
 	}
 	if o.LogLimit == 0 {
-		o.LogLimit = 4
+		o.LogLimit = o.defaultLogLimit()
+	}
+}
+
+func (o *LogTriggersOptions) defaultBlockRate() uint32 {
+	switch o.chainID.Int64() {
+	case 42161, 421613, 421614: // Arbitrum
+		return 4
+	default:
+		return 1
+	}
+}
+
+func (o *LogTriggersOptions) defaultLogLimit() uint32 {
+	switch o.chainID.Int64() {
+	case 42161, 421613, 421614: // Arbitrum
+		return 1
+	case 1, 4, 5, 42, 11155111: // Eth
+		return 20
+	case 10, 420, 56, 97, 137, 80001, 43113, 43114, 8453, 84531: // Optimism, BSC, Polygon, Avax, Base
+		return 5
+	default:
+		return 2
 	}
 }
