@@ -10,7 +10,7 @@ import {AggregatorV3Interface} from "../shared/interfaces/AggregatorV3Interface.
 import {VRFCoordinatorV2Interface} from "./interfaces/VRFCoordinatorV2Interface.sol";
 import {VRFV2WrapperInterface} from "./interfaces/VRFV2WrapperInterface.sol";
 import {VRFV2WrapperConsumerBase} from "./VRFV2WrapperConsumerBase.sol";
-import {ChainSpecificUtil} from "../ChainSpecificUtil.sol";
+import {ChainSpecificUtil} from "../ChainSpecificUtil_v0_8_6.sol";
 
 /**
  * @notice A wrapper for VRFCoordinatorV2 that provides an interface better suited to one-off

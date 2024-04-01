@@ -252,8 +252,7 @@ func Test_RegistrySynchronizer1_2_ConfigSetLog(t *testing.T) {
 		Keepers: []common.Address{fromAddress},
 	}).Once()
 
-	cfg := configtest.NewGeneralConfig(t, nil)
-	head := cltest.MustInsertHead(t, db, cfg.Database(), 1)
+	head := cltest.MustInsertHead(t, db, 1)
 	rawLog := types.Log{BlockHash: head.Hash}
 	log := registry1_2.KeeperRegistryConfigSet{}
 	logBroadcast := logmocks.NewBroadcast(t)
@@ -303,8 +302,7 @@ func Test_RegistrySynchronizer1_2_KeepersUpdatedLog(t *testing.T) {
 		Keepers: addresses,
 	}).Once()
 
-	cfg := configtest.NewGeneralConfig(t, nil)
-	head := cltest.MustInsertHead(t, db, cfg.Database(), 1)
+	head := cltest.MustInsertHead(t, db, 1)
 	rawLog := types.Log{BlockHash: head.Hash}
 	log := registry1_2.KeeperRegistryKeepersUpdated{}
 	logBroadcast := logmocks.NewBroadcast(t)
@@ -345,8 +343,7 @@ func Test_RegistrySynchronizer1_2_UpkeepCanceledLog(t *testing.T) {
 	cltest.WaitForCount(t, db, "keeper_registries", 1)
 	cltest.WaitForCount(t, db, "upkeep_registrations", 3)
 
-	cfg := configtest.NewGeneralConfig(t, nil)
-	head := cltest.MustInsertHead(t, db, cfg.Database(), 1)
+	head := cltest.MustInsertHead(t, db, 1)
 	rawLog := types.Log{BlockHash: head.Hash}
 	log := registry1_2.KeeperRegistryUpkeepCanceled{Id: big.NewInt(3)}
 	logBroadcast := logmocks.NewBroadcast(t)
@@ -387,8 +384,7 @@ func Test_RegistrySynchronizer1_2_UpkeepRegisteredLog(t *testing.T) {
 	registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_2ABI, contractAddress)
 	registryMock.MockResponse("getUpkeep", upkeepConfig1_2).Once()
 
-	cfg := configtest.NewGeneralConfig(t, nil)
-	head := cltest.MustInsertHead(t, db, cfg.Database(), 1)
+	head := cltest.MustInsertHead(t, db, 1)
 	rawLog := types.Log{BlockHash: head.Hash}
 	log := registry1_2.KeeperRegistryUpkeepRegistered{Id: big.NewInt(420)}
 	logBroadcast := logmocks.NewBroadcast(t)
@@ -430,8 +426,7 @@ func Test_RegistrySynchronizer1_2_UpkeepPerformedLog(t *testing.T) {
 
 	pgtest.MustExec(t, db, `UPDATE upkeep_registrations SET last_run_block_height = 100`)
 
-	cfg := configtest.NewGeneralConfig(t, nil)
-	head := cltest.MustInsertHead(t, db, cfg.Database(), 1)
+	head := cltest.MustInsertHead(t, db, 1)
 	rawLog := types.Log{BlockHash: head.Hash, BlockNumber: 200}
 	log := registry1_2.KeeperRegistryUpkeepPerformed{Id: big.NewInt(3), From: fromAddress}
 	logBroadcast := logmocks.NewBroadcast(t)
@@ -495,8 +490,7 @@ func Test_RegistrySynchronizer1_2_UpkeepGasLimitSetLog(t *testing.T) {
 	newConfig.ExecuteGas = 4_000_000 // change from default
 	registryMock.MockResponse("getUpkeep", newConfig).Once()
 
-	cfg := configtest.NewGeneralConfig(t, nil)
-	head := cltest.MustInsertHead(t, db, cfg.Database(), 1)
+	head := cltest.MustInsertHead(t, db, 1)
 	rawLog := types.Log{BlockHash: head.Hash}
 	log := registry1_2.KeeperRegistryUpkeepGasLimitSet{Id: big.NewInt(3), GasLimit: big.NewInt(4_000_000)}
 	logBroadcast := logmocks.NewBroadcast(t)
@@ -537,8 +531,7 @@ func Test_RegistrySynchronizer1_2_UpkeepReceivedLog(t *testing.T) {
 	registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_2ABI, contractAddress)
 	registryMock.MockResponse("getUpkeep", upkeepConfig1_2).Once()
 
-	cfg := configtest.NewGeneralConfig(t, nil)
-	head := cltest.MustInsertHead(t, db, cfg.Database(), 1)
+	head := cltest.MustInsertHead(t, db, 1)
 	rawLog := types.Log{BlockHash: head.Hash}
 	log := registry1_2.KeeperRegistryUpkeepReceived{Id: big.NewInt(420)}
 	logBroadcast := logmocks.NewBroadcast(t)
@@ -576,8 +569,7 @@ func Test_RegistrySynchronizer1_2_UpkeepMigratedLog(t *testing.T) {
 	cltest.WaitForCount(t, db, "keeper_registries", 1)
 	cltest.WaitForCount(t, db, "upkeep_registrations", 3)
 
-	cfg := configtest.NewGeneralConfig(t, nil)
-	head := cltest.MustInsertHead(t, db, cfg.Database(), 1)
+	head := cltest.MustInsertHead(t, db, 1)
 	rawLog := types.Log{BlockHash: head.Hash}
 	log := registry1_2.KeeperRegistryUpkeepMigrated{Id: big.NewInt(3)}
 	logBroadcast := logmocks.NewBroadcast(t)

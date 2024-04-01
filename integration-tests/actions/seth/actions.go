@@ -116,7 +116,7 @@ func SendFunds(logger zerolog.Logger, client *seth.Client, payload FundsToSendPa
 		return nil, err
 	}
 
-	gasLimit := uint64(client.Cfg.Network.GasLimit)
+	gasLimit := uint64(client.Cfg.Network.TransferGasFee)
 	if payload.GasLimit != nil {
 		gasLimit = *payload.GasLimit
 	}

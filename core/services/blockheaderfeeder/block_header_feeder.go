@@ -12,10 +12,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 )
 
 var (
@@ -48,7 +48,7 @@ func NewBlockHeaderFeeder(
 	gethks keystore.Eth,
 	getBlockhashesBatchSize uint16,
 	storeBlockhashesBatchSize uint16,
-	fromAddresses []ethkey.EIP55Address,
+	fromAddresses []types.EIP55Address,
 	chainID *big.Int,
 ) *BlockHeaderFeeder {
 	return &BlockHeaderFeeder{
@@ -86,7 +86,7 @@ type BlockHeaderFeeder struct {
 	getBlockhashesBatchSize   uint16
 	storeBlockhashesBatchSize uint16
 	gethks                    keystore.Eth
-	fromAddresses             []ethkey.EIP55Address
+	fromAddresses             []types.EIP55Address
 	chainID                   *big.Int
 }
 
