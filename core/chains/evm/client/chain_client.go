@@ -318,18 +318,9 @@ func (c *chainClient) BatchCheckTxValidity(ctx context.Context, reqs []TxSimulat
 		return err
 	}
 
-	for _, elem := range rpcBatchCalls {
-		params := elem.Args[0].(map[string]interface{})
-		for i := 0; i < len(reqs); i++ {
-			req := &reqs[i]
-			// Match the request to rpc response to set the error in the proper object
-			if params["from"] == req.From &&
-				(req.To == nil && params["to"] == common.Address{} || req.To != nil && params["to"] == *req.To) &&
-				params["data"].(hexutil.Bytes).String() == hexutil.Bytes(req.Data).String() {
-				// Wrap RPC error in SendError
-				req.Error = NewSendError(elem.Error)
-			}
-		}
+	for i, elem := range rpcBatchCalls {
+		req := &reqs[i]
+		req.Error = NewSendError(elem.Error)
 	}
 	return nil
 }
