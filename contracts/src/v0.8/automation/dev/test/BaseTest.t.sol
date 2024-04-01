@@ -12,7 +12,7 @@ import {AutomationRegistryBase2_3 as AutoBase} from "../v2_3/AutomationRegistryB
 import {AutomationRegistryLogicA2_3} from "../v2_3/AutomationRegistryLogicA2_3.sol";
 import {AutomationRegistryLogicB2_3} from "../v2_3/AutomationRegistryLogicB2_3.sol";
 import {AutomationRegistryLogicC2_3} from "../v2_3/AutomationRegistryLogicC2_3.sol";
-import {IAutomationRegistryMaster2_3, AutomationRegistryBase2_3} from "../interfaces/v2_3/IAutomationRegistryMaster2_3.sol";
+import {IAutomationRegistryMaster2_3 as Registry, AutomationRegistryBase2_3} from "../interfaces/v2_3/IAutomationRegistryMaster2_3.sol";
 import {AutomationRegistrar2_3} from "../v2_3/AutomationRegistrar2_3.sol";
 import {ChainModuleBase} from "../../chains/ChainModuleBase.sol";
 import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
@@ -127,7 +127,7 @@ contract BaseTest is Test {
   }
 
   /// @notice deploys the component parts of a registry, but nothing more
-  function deployRegistry(AutoBase.PayoutMode payoutMode) internal returns (IAutomationRegistryMaster2_3) {
+  function deployRegistry(AutoBase.PayoutMode payoutMode) internal returns (Registry) {
     AutomationForwarderLogic forwarderLogic = new AutomationForwarderLogic();
     AutomationRegistryLogicC2_3 logicC2_3 = new AutomationRegistryLogicC2_3(
       address(linkToken),
@@ -141,14 +141,14 @@ contract BaseTest is Test {
     );
     AutomationRegistryLogicB2_3 logicB2_3 = new AutomationRegistryLogicB2_3(logicC2_3);
     AutomationRegistryLogicA2_3 logicA2_3 = new AutomationRegistryLogicA2_3(logicB2_3);
-    return IAutomationRegistryMaster2_3(payable(address(new AutomationRegistry2_3(logicA2_3))));
+    return Registry(payable(address(new AutomationRegistry2_3(logicA2_3))));
   }
 
   /// @notice deploys and configures a registry, registrar, and everything needed for most tests
   function deployAndConfigureRegistryAndRegistrar(
     AutoBase.PayoutMode payoutMode
-  ) internal returns (IAutomationRegistryMaster2_3, AutomationRegistrar2_3) {
-    IAutomationRegistryMaster2_3 registry = deployRegistry(payoutMode);
+  ) internal returns (Registry, AutomationRegistrar2_3) {
+    Registry registry = deployRegistry(payoutMode);
 
     IERC20[] memory billingTokens = new IERC20[](3);
     billingTokens[0] = IERC20(address(usdToken));
@@ -258,7 +258,7 @@ contract BaseTest is Test {
   /// @notice this function updates the billing config for the provided token on the provided registry,
   /// and throws an error if the token is not found
   function _updateBillingTokenConfig(
-    IAutomationRegistryMaster2_3 registry,
+    Registry registry,
     address billingToken,
     AutomationRegistryBase2_3.BillingConfig memory newConfig
   ) internal {
@@ -289,6 +289,52 @@ contract BaseTest is Test {
       billingTokens,
       billingTokenConfigs
     );
+  }
+
+  function _transmit(uint256 id, Registry registry) internal {
+    uint256[] memory ids = new uint256[](1);
+    ids[0] = id;
+    _transmit(ids, registry);
+  }
+
+  function _transmit(uint256[] memory ids, Registry registry) internal {
+    uint256[] memory upkeepIds = new uint256[](ids.length);
+    uint256[] memory gasLimits = new uint256[](ids.length);
+    bytes[] memory performDatas = new bytes[](ids.length);
+    bytes[] memory triggers = new bytes[](ids.length);
+    for (uint256 i = 0; i < ids.length; i++) {
+      upkeepIds[i] = ids[i];
+      gasLimits[i] = registry.getUpkeep(ids[i]).performGas;
+      performDatas[i] = new bytes(0);
+      uint8 triggerType = registry.getTriggerType(ids[i]);
+      if (triggerType == 0) {
+        triggers[i] = _encodeConditionalTrigger(
+          AutoBase.ConditionalTrigger(uint32(block.number - 1), blockhash(block.number - 1))
+        );
+      } else {
+        revert("not implemented");
+      }
+    }
+    AutoBase.Report memory report = AutoBase.Report(
+      uint256(1000000000),
+      uint256(2000000000),
+      upkeepIds,
+      gasLimits,
+      triggers,
+      performDatas
+    );
+
+    bytes memory reportBytes = _encodeReport(report);
+    (, , bytes32 configDigest) = registry.latestConfigDetails();
+    bytes32[3] memory reportContext = [configDigest, configDigest, configDigest];
+    uint256[] memory signerPKs = new uint256[](2);
+    signerPKs[0] = SIGNING_KEY0;
+    signerPKs[1] = SIGNING_KEY1;
+    (bytes32[] memory rs, bytes32[] memory ss, bytes32 vs) = _signReport(reportBytes, reportContext, signerPKs);
+
+    vm.startPrank(TRANSMITTERS[0]);
+    registry.transmit(reportContext, reportBytes, rs, ss, vs);
+    vm.stopPrank();
   }
 
   /// @notice Gather signatures on report data
