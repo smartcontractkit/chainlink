@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	serializablebig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -232,7 +233,7 @@ type inMemoryDataSourceCache struct {
 	// Even if updates fail, previous values are returned.
 	cacheFreshness  time.Duration
 	mu              sync.RWMutex
-	chStop          chan struct{}
+	chStop          services.StopChan
 	chDone          chan struct{}
 	latestUpdateErr error
 	latestTrrs      pipeline.TaskRunResults
@@ -254,12 +255,12 @@ func (ds *inMemoryDataSourceCache) Close() error {
 // updater periodically updates data source cache.
 func (ds *inMemoryDataSourceCache) updater() {
 	ticker := time.NewTicker(ds.cacheFreshness)
+	ctx, cancel := ds.chStop.CtxCancel(context.WithTimeout(context.Background(), time.Second*10))
+	defer cancel()
 	updateCache := func() {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 		if err := ds.updateCache(ctx); err != nil {
 			ds.lggr.Warnf("failed to update cache, err: %v", err)
 		}
-		cancel()
 	}
 
 	updateCache()
