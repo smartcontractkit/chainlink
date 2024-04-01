@@ -41,7 +41,7 @@ contract AutomationRegistryLogicC2_3 is AutomationRegistryBase2_3 {
   {}
 
   // ================================================================
-  // |                       NODE MANAGEMENT                        |
+  // |                         NODE ACTIONS                         |
   // ================================================================
 
   /**
@@ -270,10 +270,6 @@ contract AutomationRegistryLogicC2_3 is AutomationRegistryBase2_3 {
 
   function getPayoutMode() external view returns (PayoutMode) {
     return s_payoutMode;
-  }
-
-  function upkeepTranscoderVersion() public pure returns (UpkeepFormat) {
-    return UPKEEP_TRANSCODER_VERSION_BASE;
   }
 
   function upkeepVersion() public pure returns (uint8) {
@@ -571,5 +567,12 @@ contract AutomationRegistryLogicC2_3 is AutomationRegistryBase2_3 {
    */
   function getReserveAmount(IERC20 billingToken) external view returns (uint256) {
     return s_reserveAmounts[billingToken];
+  }
+
+  /**
+   * @notice returns the size of the LINK liquidity pool
+   */
+  function linkAvailableForPayment() public view returns (int256) {
+    return _linkAvailableForPayment();
   }
 }

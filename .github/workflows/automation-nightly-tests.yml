@@ -21,8 +21,9 @@ jobs:
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@0281b09807758be1dcc41651e44e62b353808c47 # v2.1.0
+        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
         with:
+          id: automation-nightly-build-chainlink
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
@@ -59,18 +60,21 @@ jobs:
       matrix:
         tests:
           - name: Upgrade 2.0
+            id: upgrade-2-0
             suite: smoke
             nodes: 1
             os: ubuntu22.04-8cores-32GB
             network: SIMULATED
             command: -run ^TestAutomationNodeUpgrade/registry_2_0 ./smoke
           - name: Upgrade 2.1
+            id: upgrade-2-1
             suite: smoke
             nodes: 5
             os: ubuntu22.04-8cores-32GB
             network: SIMULATED
             command: -run ^TestAutomationNodeUpgrade/registry_2_1 ./smoke
           - name: Upgrade 2.2
+            id: upgrade-2-2
             suite: smoke
             nodes: 5
             os: ubuntu22.04-8cores-32GB
@@ -119,8 +123,9 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@0281b09807758be1dcc41651e44e62b353808c47 # v2.1.0
+        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
         with:
+          id: automation-nightly-upgrade-tests-${{ matrix.tests.id }}
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
