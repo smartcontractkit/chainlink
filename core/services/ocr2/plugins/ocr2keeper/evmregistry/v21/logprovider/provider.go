@@ -482,7 +482,7 @@ func (p *logEventProvider) readLogs(ctx context.Context, latest int64, filters [
 		filteredLogs := filter.Select(logs...)
 
 		switch p.opts.BufferVersion {
-		case "v1":
+		case BufferVersionV1:
 			p.bufferV1.Enqueue(filter.upkeepID, filteredLogs...)
 		default:
 			p.buffer.enqueue(filter.upkeepID, filteredLogs...)

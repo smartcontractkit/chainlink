@@ -43,8 +43,9 @@ type LogTriggersOptions struct {
 type BufferVersion string
 
 const (
-	BufferVersionV0 BufferVersion = ""
-	BufferVersionV1 BufferVersion = "v1"
+	BufferVersionNone BufferVersion = ""
+	BufferVersionV0   BufferVersion = "v0"
+	BufferVersionV1   BufferVersion = "v1"
 )
 
 func NewOptions(finalityDepth int64) LogTriggersOptions {
