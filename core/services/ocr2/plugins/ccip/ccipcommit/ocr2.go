@@ -14,8 +14,6 @@ import (
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/mathutil"
-
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache"
@@ -88,7 +86,6 @@ type CommitReportingPlugin struct {
 	priceGetter      pricegetter.PriceGetter
 	metricsCollector ccip.PluginMetricsCollector
 	// State
-	inflightReports  *inflightCommitReportsContainer
 	chainHealthcheck cache.ChainHealthcheck
 }
 
@@ -108,7 +105,6 @@ func (r *CommitReportingPlugin) Observation(ctx context.Context, epochAndRound t
 	} else if !healthy {
 		return nil, ccip.ErrChainIsNotHealthy
 	}
-	r.inflightReports.expire(lggr)
 
 	// Will return 0,0 if no messages are found. This is a valid case as the report could
 	// still contain fee updates.
@@ -145,17 +141,17 @@ func (r *CommitReportingPlugin) Observation(ctx context.Context, epochAndRound t
 }
 
 func (r *CommitReportingPlugin) calculateMinMaxSequenceNumbers(ctx context.Context, lggr logger.Logger) (uint64, uint64, []cciptypes.Hash, error) {
-	nextInflightMin, _, err := r.nextMinSeqNum(ctx, lggr)
+	nextSeqNum, err := r.commitStoreReader.GetExpectedNextSequenceNumber(ctx)
 	if err != nil {
 		return 0, 0, []cciptypes.Hash{}, err
 	}
 
-	msgRequests, err := r.onRampReader.GetSendRequestsBetweenSeqNums(ctx, nextInflightMin, nextInflightMin+OnRampMessagesScanLimit, true)
+	msgRequests, err := r.onRampReader.GetSendRequestsBetweenSeqNums(ctx, nextSeqNum, nextSeqNum+OnRampMessagesScanLimit, true)
 	if err != nil {
 		return 0, 0, []cciptypes.Hash{}, err
 	}
 	if len(msgRequests) == 0 {
-		lggr.Infow("No new requests", "minSeqNr", nextInflightMin)
+		lggr.Infow("No new requests", "nextSeqNum", nextSeqNum)
 		return 0, 0, []cciptypes.Hash{}, nil
 	}
 
@@ -168,41 +164,15 @@ func (r *CommitReportingPlugin) calculateMinMaxSequenceNumbers(ctx context.Conte
 
 	minSeqNr := seqNrs[0]
 	maxSeqNr := seqNrs[len(seqNrs)-1]
-	if minSeqNr != nextInflightMin {
+	if minSeqNr != nextSeqNum {
 		// Still report the observation as even partial reports have value e.g. all nodes are
 		// missing a single, different log each, they would still be able to produce a valid report.
-		lggr.Warnf("Missing sequence number range [%d-%d]", nextInflightMin, minSeqNr)
+		lggr.Warnf("Missing sequence number range [%d-%d]", nextSeqNum, minSeqNr)
 	}
 	if !ccipcalc.ContiguousReqs(lggr, minSeqNr, maxSeqNr, seqNrs) {
 		return 0, 0, []cciptypes.Hash{}, errors.New("unexpected gap in seq nums")
 	}
 	return minSeqNr, maxSeqNr, messageIDs, nil
-}
-
-func (r *CommitReportingPlugin) nextMinSeqNum(ctx context.Context, lggr logger.Logger) (inflightMin, onChainMin uint64, err error) {
-	nextMinOnChain, err := r.commitStoreReader.GetExpectedNextSequenceNumber(ctx)
-	if err != nil {
-		return 0, 0, err
-	}
-	// There are several scenarios to consider here for nextMin and inflight intervals.
-	// 1. nextMin=2, inflight=[[2,3],[4,5]]. Node is waiting for [2,3] and [4,5] to be included, should return 6 to build on top.
-	// 2. nextMin=2, inflight=[[4,5]]. [2,3] is expired but not yet visible onchain (means our cache expiry
-	// was too low). In this case still want to return 6.
-	// 3. nextMin=2, inflight=[] but other nodes have inflight=[2,3]. Say our node restarted and lost its cache. In this case
-	// we still return the chain's nextMin, other oracles will ignore our observation. Other nodes however will build [4,5]
-	// and then we'll add that to our cache in ShouldAcceptFinalizedReport, putting us into the previous position at which point
-	// we can start contributing again.
-	// 4. nextMin=4, inflight=[[2,3],[4,5]]. We see the onchain update, but haven't expired from our cache yet. Should happen
-	// regularly and we just return 6.
-	// 5. nextMin=2, inflight=[[4,5]]. [2,3] failed to get onchain for some reason. We'll return 6 and continue building even though
-	// subsequent reports will revert, but eventually they will all expire OR we'll hit MaxInflightSeqNumGap and forcibly
-	// expire them all. This scenario can also occur if there is a reorg which reorders the reports such that one reverts.
-	maxInflight := r.inflightReports.maxInflightSeqNr()
-	if (maxInflight > nextMinOnChain) && ((maxInflight - nextMinOnChain) > MaxInflightSeqNumGap) {
-		r.inflightReports.reset(lggr)
-		return nextMinOnChain, nextMinOnChain, nil
-	}
-	return mathutil.Max(nextMinOnChain, maxInflight+1), nextMinOnChain, nil
 }
 
 // observePriceUpdates only observes price updates if price reporting is enabled
@@ -288,7 +258,7 @@ func calculateUsdPer1e18TokenAmount(price *big.Int, decimals uint8) *big.Int {
 
 // Gets the latest token price updates based on logs within the heartbeat
 // The updates returned by this function are guaranteed to not contain nil values.
-func (r *CommitReportingPlugin) getLatestTokenPriceUpdates(ctx context.Context, now time.Time, checkInflight bool) (map[cciptypes.Address]update, error) {
+func (r *CommitReportingPlugin) getLatestTokenPriceUpdates(ctx context.Context, now time.Time) (map[cciptypes.Address]update, error) {
 	tokenPriceUpdates, err := r.destPriceRegistryReader.GetTokenPriceUpdatesCreatedAfter(
 		ctx,
 		now.Add(-r.offchainConfig.TokenPriceHeartBeat),
@@ -310,38 +280,13 @@ func (r *CommitReportingPlugin) getLatestTokenPriceUpdates(ctx context.Context, 
 			}
 		}
 	}
-	if !checkInflight {
-		return latestUpdates, nil
-	}
-
-	// todo this comparison is faulty, as a previously-sent update's onchain timestamp can be higher than inflight timestamp
-	// to properly fix, need a solution to map from onchain request to offchain timestamp
-	// leaving it as is, as token prices are updated infrequently, so this should not cause many issues
-	latestInflightTokenPriceUpdates := r.inflightReports.latestInflightTokenPriceUpdates()
-	for inflightToken, latestInflightUpdate := range latestInflightTokenPriceUpdates {
-		if latestInflightUpdate.timestamp.After(latestUpdates[inflightToken].timestamp) && latestInflightUpdate.value != nil {
-			latestUpdates[inflightToken] = latestInflightUpdate
-		}
-	}
 
 	return latestUpdates, nil
 }
 
 // getLatestGasPriceUpdate returns the latest gas price update based on logs within the heartbeat.
 // If an update is found, it is not expected to contain a nil value. If no updates found, empty update with nil value is returned.
-func (r *CommitReportingPlugin) getLatestGasPriceUpdate(ctx context.Context, now time.Time, checkInflight bool) (gasUpdate update, error error) {
-	if checkInflight {
-		latestInflightGasPriceUpdates := r.inflightReports.latestInflightGasPriceUpdates()
-		if inflightUpdate, exists := latestInflightGasPriceUpdates[r.sourceChainSelector]; exists {
-			gasUpdate = inflightUpdate
-			r.lggr.Infow("Latest gas price from inflight", "gasPriceUpdateVal", gasUpdate.value, "gasPriceUpdateTs", gasUpdate.timestamp)
-
-			// Gas price can fluctuate frequently, many updates may be in flight.
-			// If there is gas price update inflight, use it as source of truth, no need to check onchain.
-			return gasUpdate, nil
-		}
-	}
-
+func (r *CommitReportingPlugin) getLatestGasPriceUpdate(ctx context.Context, now time.Time) (gasUpdate update, error error) {
 	// If there are no price updates inflight, check latest prices onchain
 	gasPriceUpdates, err := r.destPriceRegistryReader.GetGasPriceUpdatesCreatedAfter(
 		ctx,
@@ -559,12 +504,12 @@ func (r *CommitReportingPlugin) selectPriceUpdates(ctx context.Context, now time
 		return nil, nil, nil
 	}
 
-	latestGasPrice, err := r.getLatestGasPriceUpdate(ctx, now, true)
+	latestGasPrice, err := r.getLatestGasPriceUpdate(ctx, now)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	latestTokenPrices, err := r.getLatestTokenPriceUpdates(ctx, now, true)
+	latestTokenPrices, err := r.getLatestTokenPriceUpdates(ctx, now)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -711,15 +656,11 @@ func (r *CommitReportingPlugin) ShouldAcceptFinalizedReport(ctx context.Context,
 		return false, ccip.ErrChainIsNotHealthy
 	}
 
-	if r.isStaleReport(ctx, lggr, parsedReport, true, reportTimestamp) {
+	if r.isStaleReport(ctx, lggr, parsedReport, reportTimestamp) {
 		lggr.Infow("Rejecting stale report")
 		return false, nil
 	}
 
-	epochAndRound := ccipcalc.MergeEpochAndRound(reportTimestamp.Epoch, reportTimestamp.Round)
-	if err := r.inflightReports.add(lggr, parsedReport, epochAndRound); err != nil {
-		return false, err
-	}
 	r.metricsCollector.SequenceNumber(ccip.ShouldAccept, parsedReport.Interval.Max)
 	lggr.Infow("Accepting finalized report", "merkleRoot", hexutil.Encode(parsedReport.MerkleRoot[:]))
 	return true, nil
@@ -740,7 +681,7 @@ func (r *CommitReportingPlugin) ShouldTransmitAcceptedReport(ctx context.Context
 	// If report is not stale we transmit.
 	// When the commitTransmitter enqueues the tx for tx manager,
 	// we mark it as fulfilled, effectively removing it from the set of inflight messages.
-	shouldTransmit := !r.isStaleReport(ctx, lggr, parsedReport, false, reportTimestamp)
+	shouldTransmit := !r.isStaleReport(ctx, lggr, parsedReport, reportTimestamp)
 
 	lggr.Infow("ShouldTransmitAcceptedReport",
 		"shouldTransmit", shouldTransmit,
@@ -762,10 +703,10 @@ func (r *CommitReportingPlugin) ShouldTransmitAcceptedReport(ctx context.Context
 // If only price updates are included, the price updates are used to check for staleness
 // If nothing is included the report is always considered stale.
 // If PriceReportingDisabled is set, this effectively only checks merkle root, as prices will always be empty.
-func (r *CommitReportingPlugin) isStaleReport(ctx context.Context, lggr logger.Logger, report cciptypes.CommitStoreReport, checkInflight bool, reportTimestamp types.ReportTimestamp) bool {
+func (r *CommitReportingPlugin) isStaleReport(ctx context.Context, lggr logger.Logger, report cciptypes.CommitStoreReport, reportTimestamp types.ReportTimestamp) bool {
 	// If there is a merkle root, ignore all other staleness checks and only check for sequence number staleness
 	if report.MerkleRoot != [32]byte{} {
-		return r.isStaleMerkleRoot(ctx, lggr, report.Interval, checkInflight)
+		return r.isStaleMerkleRoot(ctx, lggr, report.Interval)
 	}
 
 	hasGasPriceUpdate := len(report.GasPrices) > 0
@@ -783,8 +724,8 @@ func (r *CommitReportingPlugin) isStaleReport(ctx context.Context, lggr logger.L
 	}
 
 	// We consider a price update as stale when, there isn't an update or there is an update that is stale.
-	gasPriceStale := !hasGasPriceUpdate || r.isStaleGasPrice(ctx, lggr, report.GasPrices[0], checkInflight)
-	tokenPricesStale := !hasTokenPriceUpdates || r.isStaleTokenPrices(ctx, lggr, report.TokenPrices, checkInflight)
+	gasPriceStale := !hasGasPriceUpdate || r.isStaleGasPrice(ctx, lggr, report.GasPrices[0])
+	tokenPricesStale := !hasTokenPriceUpdates || r.isStaleTokenPrices(ctx, lggr, report.TokenPrices)
 
 	if gasPriceStale && tokenPricesStale {
 		return true
@@ -801,26 +742,16 @@ func (r *CommitReportingPlugin) isStaleReport(ctx context.Context, lggr logger.L
 	return lastPriceEpochAndRound >= thisEpochAndRound
 }
 
-func (r *CommitReportingPlugin) isStaleMerkleRoot(ctx context.Context, lggr logger.Logger, reportInterval cciptypes.CommitStoreInterval, checkInflight bool) bool {
-	nextInflightMin, nextOnChainMin, err := r.nextMinSeqNum(ctx, lggr)
+func (r *CommitReportingPlugin) isStaleMerkleRoot(ctx context.Context, lggr logger.Logger, reportInterval cciptypes.CommitStoreInterval) bool {
+	nextSeqNum, err := r.commitStoreReader.GetExpectedNextSequenceNumber(ctx)
 	if err != nil {
 		// Assume it's a transient issue getting the last report and try again on the next round
 		return true
 	}
 
-	if checkInflight && nextInflightMin != reportInterval.Min {
-		// There are sequence numbers missing between the commitStoreReader/inflight txs and the proposed report.
-		// The report will fail onchain unless the inflight cache is in an incorrect state. A state like this
-		// could happen for various reasons, e.g. a reboot of the node emptying the caches, and should be self-healing.
-		// We do not submit a tx and wait for the protocol to self-heal by updating the caches or invalidating
-		// inflight caches over time.
-		lggr.Errorw("Next inflight min is not equal to the proposed min of the report", "nextInflightMin", nextInflightMin)
-		return true
-	}
-
-	if !checkInflight && nextOnChainMin > reportInterval.Min {
+	if nextSeqNum > reportInterval.Min {
 		// If the next min is already greater than this reports min, this report is stale.
-		lggr.Infow("Report is stale because of root", "onchain min", nextOnChainMin, "report min", reportInterval.Min)
+		lggr.Infow("Report is stale because of root", "onchain min", nextSeqNum, "report min", reportInterval.Min)
 		return true
 	}
 
@@ -828,8 +759,8 @@ func (r *CommitReportingPlugin) isStaleMerkleRoot(ctx context.Context, lggr logg
 	return false
 }
 
-func (r *CommitReportingPlugin) isStaleGasPrice(ctx context.Context, lggr logger.Logger, gasPrice cciptypes.GasPrice, checkInflight bool) bool {
-	latestGasPrice, err := r.getLatestGasPriceUpdate(ctx, time.Now(), checkInflight)
+func (r *CommitReportingPlugin) isStaleGasPrice(ctx context.Context, lggr logger.Logger, gasPrice cciptypes.GasPrice) bool {
+	latestGasPrice, err := r.getLatestGasPriceUpdate(ctx, time.Now())
 	if err != nil {
 		lggr.Errorw("Report is stale because getLatestGasPriceUpdate failed", "err", err)
 		return true
@@ -854,10 +785,10 @@ func (r *CommitReportingPlugin) isStaleGasPrice(ctx context.Context, lggr logger
 	return false
 }
 
-func (r *CommitReportingPlugin) isStaleTokenPrices(ctx context.Context, lggr logger.Logger, priceUpdates []cciptypes.TokenPrice, checkInflight bool) bool {
+func (r *CommitReportingPlugin) isStaleTokenPrices(ctx context.Context, lggr logger.Logger, priceUpdates []cciptypes.TokenPrice) bool {
 	// getting the last price updates without including inflight is like querying
 	// current prices onchain, but uses logpoller's data to save on the RPC requests
-	latestTokenPriceUpdates, err := r.getLatestTokenPriceUpdates(ctx, time.Now(), checkInflight)
+	latestTokenPriceUpdates, err := r.getLatestTokenPriceUpdates(ctx, time.Now())
 	if err != nil {
 		return true
 	}
