@@ -81,11 +81,20 @@ func NewInMemoryStore[
 		ms.maxUnstarted = 10000
 	}
 
+	addressesToTxs := map[ADDR][]txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
+	// populate all enabled addresses
+	enabledAddresses, err := keyStore.EnabledAddressesForChain(ctx, chainID)
+	if err != nil {
+		return nil, fmt.Errorf("new_in_memory_store: %w", err)
+	}
+	for _, addr := range enabledAddresses {
+		addressesToTxs[addr] = []txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
+	}
+
 	txs, err := persistentTxStore.GetAllTransactions(ctx, chainID)
 	if err != nil {
 		return nil, fmt.Errorf("address_state: initialization: %w", err)
 	}
-	addressesToTxs := map[ADDR][]txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
 	for _, tx := range txs {
 		at, exists := addressesToTxs[tx.FromAddress]
 		if !exists {
@@ -228,6 +237,33 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Aband
 
 // SetBroadcastBeforeBlockNum sets the broadcast_before_block_num for a given chain ID
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SetBroadcastBeforeBlockNum(ctx context.Context, blockNum int64, chainID CHAIN_ID) error {
+	if ms.chainID.String() != chainID.String() {
+		panic("invalid chain ID")
+	}
+
+	// Persist to persistent storage
+	if err := ms.persistentTxStore.SetBroadcastBeforeBlockNum(ctx, blockNum, chainID); err != nil {
+		return fmt.Errorf("set_broadcast_before_block_num: %w", err)
+	}
+
+	fn := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) {
+		if tx.TxAttempts == nil || len(tx.TxAttempts) == 0 {
+			return
+		}
+
+		for i := 0; i < len(tx.TxAttempts); i++ {
+			attempt := tx.TxAttempts[i]
+			if attempt.State == txmgrtypes.TxAttemptBroadcast && attempt.BroadcastBeforeBlockNum == nil {
+				tx.TxAttempts[i].BroadcastBeforeBlockNum = &blockNum
+			}
+		}
+	}
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
+	for _, as := range ms.addressStates {
+		as.applyToTxsByState(nil, fn)
+	}
+
 	return nil
 }
 
