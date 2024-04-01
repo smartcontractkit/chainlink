@@ -151,7 +151,7 @@ func TestContractTransmitter_Transmit_V1(t *testing.T) {
 		EncodedPayload:   payload,
 		FeeLimit:         gasLimit,
 		ForwarderAddress: gethcommon.Address{},
-		Meta:             &txmgr.TxMeta{},
+		Meta:             nil,
 		Strategy:         strategy,
 	}).Return(txmgr.Tx{}, nil).Once()
 	require.NoError(t, ot.Transmit(testutils.Context(t), ocrtypes.ReportContext{}, reportBytes, []ocrtypes.AttributedOnchainSignature{}))
@@ -235,7 +235,7 @@ func TestContractTransmitter_Transmit_V1_CoordinatorMismatch(t *testing.T) {
 		EncodedPayload:   payload,
 		FeeLimit:         gasLimit,
 		ForwarderAddress: gethcommon.Address{},
-		Meta:             &txmgr.TxMeta{},
+		Meta:             nil,
 		Strategy:         strategy,
 	}).Return(txmgr.Tx{}, nil).Once()
 	require.NoError(t, ot.Transmit(testutils.Context(t), ocrtypes.ReportContext{}, reportBytes, []ocrtypes.AttributedOnchainSignature{}))
