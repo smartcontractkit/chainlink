@@ -91,7 +91,6 @@ func (rf *CommitReportingPluginFactory) NewReportingPlugin(config types.Reportin
 			priceGetter:             rf.config.priceGetter,
 			F:                       config.F,
 			lggr:                    lggr,
-			inflightReports:         newInflightCommitReportsContainer(rf.config.commitStore.OffchainConfig().InflightCacheExpiry),
 			destPriceRegistryReader: rf.destPriceRegReader,
 			offRampReaders:          rf.config.offRamps,
 			gasPriceEstimator:       rf.config.commitStore.GasPriceEstimator(),
