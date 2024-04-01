@@ -119,7 +119,7 @@ func NewFunctionsContractTransmitter(
 	}, nil
 }
 
-func (oc *contractTransmitter) createEthTransaction(ctx context.Context, toAddress common.Address, payload []byte, txMeta *txmgr.TxMeta) error {
+func (oc *contractTransmitter) createEthTransaction(ctx context.Context, toAddress common.Address, payload []byte) error {
 
 	roundRobinFromAddress, err := oc.keystore.GetRoundRobinAddress(ctx, oc.chainID, oc.fromAddresses...)
 	if err != nil {
@@ -134,7 +134,7 @@ func (oc *contractTransmitter) createEthTransaction(ctx context.Context, toAddre
 		ForwarderAddress: oc.forwarderAddress(),
 		Strategy:         oc.strategy,
 		Checker:          oc.checker,
-		Meta:             txMeta,
+		Meta:             nil,
 	})
 	return errors.Wrap(err, "skipped OCR transmission")
 }
@@ -204,8 +204,8 @@ func (oc *contractTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.
 		return errors.Wrap(err, "abi.Pack failed")
 	}
 
-	oc.lggr.Debugw("FunctionsContractTransmitter: transmitting report", "contractAddress", destinationContract, "txMeta", txMeta, "payloadSize", len(payload))
-	return errors.Wrap(oc.createEthTransaction(ctx, destinationContract, payload, txMeta), "failed to send Eth transaction")
+	oc.lggr.Debugw("FunctionsContractTransmitter: transmitting report", "contractAddress", destinationContract, "txMeta", nil, "payloadSize", len(payload))
+	return errors.Wrap(oc.createEthTransaction(ctx, destinationContract, payload), "failed to send Eth transaction")
 }
 
 type contractReader interface {
