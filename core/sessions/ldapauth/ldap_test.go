@@ -200,6 +200,9 @@ func TestORM_FindUser_FallbackMatchLocalAdmin(t *testing.T) {
 
 	// Initilaize LDAP Authentication Provider with mock client
 	mockLdapClient := mocks.NewLDAPClient(t)
+	mockLdapConnProvider := mocks.NewLDAPConn(t)
+	mockLdapClient.On("CreateEphemeralConnection").Return(mockLdapConnProvider, nil)
+	mockLdapConnProvider.On("Close").Return(nil)
 	_, ldapAuthProvider := setupAuthenticationProvider(t, mockLdapClient)
 
 	// Not in upstream, but utilize text fixture admin user presence in test DB. Succeed
