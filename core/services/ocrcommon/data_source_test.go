@@ -78,6 +78,7 @@ func Test_CachedInMemoryDataSourceErrHandling(t *testing.T) {
 		mockKVStore.On("Get", mock.Anything, mock.IsType(&ocrcommon.ResultTimePair{})).Return(nil)
 		dsCache, err := ocrcommon.NewInMemoryDataSourceCache(ds, &mockKVStore, time.Second*2)
 		require.NoError(t, err)
+		require.NoError(t, dsCache.Start(testutils.Context(t)))
 
 		mockVal := int64(1)
 		// Test if Observe notices that cache updater failed and can refresh the cache on its own
@@ -95,6 +96,7 @@ func Test_CachedInMemoryDataSourceErrHandling(t *testing.T) {
 		val, err = dsCache.Observe(testutils.Context(t), types.ReportTimestamp{})
 		require.NoError(t, err)
 		assert.Equal(t, mockVal+2, val.Int64())
+		require.NoError(t, dsCache.Close())
 	})
 
 	t.Run("test total updater fail with persisted value recovery", func(t *testing.T) {
@@ -112,12 +114,13 @@ func Test_CachedInMemoryDataSourceErrHandling(t *testing.T) {
 		dsCache, err := ocrcommon.NewInMemoryDataSourceCache(ds, &mockKVStore, time.Hour*100)
 		require.NoError(t, err)
 		changeResultValue(runner, "-1", true, false)
+		require.NoError(t, dsCache.Start(testutils.Context(t)))
 
 		time.Sleep(time.Millisecond * 100)
 		val, err := dsCache.Observe(testutils.Context(t), types.ReportTimestamp{})
 		require.NoError(t, err)
 		assert.Equal(t, persistedVal.String(), val.String())
-
+		require.NoError(t, dsCache.Close())
 	})
 
 	t.Run("test total updater fail with no persisted value ", func(t *testing.T) {
@@ -131,10 +134,12 @@ func Test_CachedInMemoryDataSourceErrHandling(t *testing.T) {
 		dsCache, err := ocrcommon.NewInMemoryDataSourceCache(ds, &mockKVStore, time.Hour*100)
 		require.NoError(t, err)
 		changeResultValue(runner, "-1", true, false)
+		require.NoError(t, dsCache.Start(testutils.Context(t)))
 
 		time.Sleep(time.Millisecond * 100)
 		_, err = dsCache.Observe(testutils.Context(t), types.ReportTimestamp{})
 		require.Error(t, err)
+		require.NoError(t, dsCache.Close())
 	})
 }
 

@@ -104,7 +104,13 @@ const defaultCacheFreshness = time.Minute * 5
 const defaultCacheFreshnessAlert = time.Hour * 24
 const dataSourceCacheKey = "dscache"
 
-func NewInMemoryDataSourceCache(ds median.DataSource, kvStore job.KVStore, cacheFreshness time.Duration) (median.DataSource, error) {
+type DataSourceCacheService interface {
+	Start(context.Context) error
+	Close() error
+	median.DataSource
+}
+
+func NewInMemoryDataSourceCache(ds median.DataSource, kvStore job.KVStore, cacheFreshness time.Duration) (DataSourceCacheService, error) {
 	inMemoryDS, ok := ds.(*inMemoryDataSource)
 	if !ok {
 		return nil, errors.Errorf("unsupported data source type: %T, only inMemoryDataSource supported", ds)
@@ -118,8 +124,9 @@ func NewInMemoryDataSourceCache(ds median.DataSource, kvStore job.KVStore, cache
 		kvStore:            kvStore,
 		cacheFreshness:     cacheFreshness,
 		inMemoryDataSource: inMemoryDS,
+		chStop:             make(chan struct{}),
+		chDone:             make(chan struct{}),
 	}
-	go func() { dsCache.updater() }()
 	return dsCache, nil
 }
 
@@ -225,21 +232,45 @@ type inMemoryDataSourceCache struct {
 	// Even if updates fail, previous values are returned.
 	cacheFreshness  time.Duration
 	mu              sync.RWMutex
+	chStop          chan struct{}
+	chDone          chan struct{}
 	latestUpdateErr error
 	latestTrrs      pipeline.TaskRunResults
 	latestResult    pipeline.FinalResult
 	kvStore         job.KVStore
 }
 
+func (ds *inMemoryDataSourceCache) Start(context.Context) error {
+	go func() { ds.updater() }()
+	return nil
+}
+
+func (ds *inMemoryDataSourceCache) Close() error {
+	close(ds.chStop)
+	<-ds.chDone
+	return nil
+}
+
 // updater periodically updates data source cache.
 func (ds *inMemoryDataSourceCache) updater() {
 	ticker := time.NewTicker(ds.cacheFreshness)
-	for ; true; <-ticker.C {
+	updateCache := func() {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 		if err := ds.updateCache(ctx); err != nil {
 			ds.lggr.Warnf("failed to update cache, err: %v", err)
 		}
 		cancel()
+	}
+
+	updateCache()
+	for {
+		select {
+		case <-ticker.C:
+			updateCache()
+		case <-ds.chStop:
+			close(ds.chDone)
+			return
+		}
 	}
 }
 
