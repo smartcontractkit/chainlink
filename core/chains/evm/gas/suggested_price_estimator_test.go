@@ -26,7 +26,7 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 	calldata := []byte{0x00, 0x00, 0x01, 0x02, 0x03}
 	const gasLimit uint64 = 80000
 
-	cfg := &gas.MockGasEstimatorConfig{BumpPercentF: 10, BumpMinF: assets.NewWei(big.NewInt(1)), BumpThresholdF: 1, LimitMultiplierF: 1}
+	cfg := &gas.MockGasEstimatorConfig{BumpPercentF: 10, BumpMinF: assets.NewWei(big.NewInt(1)), BumpThresholdF: 1}
 
 	t.Run("calling GetLegacyGas on unstarted estimator returns error", func(t *testing.T) {
 		client := mocks.NewRPCClient(t)

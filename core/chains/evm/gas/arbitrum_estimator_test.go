@@ -23,10 +23,9 @@ import (
 )
 
 type arbConfig struct {
-	v               uint64
-	bumpPercent     uint16
-	bumpMin         *assets.Wei
-	limitMultiplier float32
+	v           uint64
+	bumpPercent uint16
+	bumpMin     *assets.Wei
 }
 
 func (a *arbConfig) LimitMax() uint64 {
@@ -39,10 +38,6 @@ func (a *arbConfig) BumpPercent() uint16 {
 
 func (a *arbConfig) BumpMin() *assets.Wei {
 	return a.bumpMin
-}
-
-func (a *arbConfig) LimitMultiplier() float32 {
-	return a.limitMultiplier
 }
 
 func TestArbitrumEstimator(t *testing.T) {
@@ -85,7 +80,7 @@ func TestArbitrumEstimator(t *testing.T) {
 			assert.Equal(t, big.NewInt(-1), blockNumber)
 		}).Return(zeros.Bytes(), nil)
 
-		o := gas.NewArbitrumEstimator(logger.Test(t), &arbConfig{v: maxGasLimit, bumpPercent: bumpPercent, bumpMin: bumpMin, limitMultiplier: limitMultiplier}, rpcClient, ethClient)
+		o := gas.NewArbitrumEstimator(logger.Test(t), &arbConfig{v: maxGasLimit, bumpPercent: bumpPercent, bumpMin: bumpMin}, rpcClient, ethClient)
 		servicetest.RunHealthy(t, o)
 		gasPrice, chainSpecificGasLimit, err := o.GetLegacyGas(testutils.Context(t), calldata, gasLimit, maxGasPrice)
 		require.NoError(t, err)
@@ -216,7 +211,7 @@ func TestArbitrumEstimator(t *testing.T) {
 			assert.Equal(t, big.NewInt(-1), blockNumber)
 		}).Return(b.Bytes(), nil)
 
-		o := gas.NewArbitrumEstimator(logger.Test(t), &arbConfig{v: maxGasLimit, bumpPercent: bumpPercent, bumpMin: bumpMin, limitMultiplier: limitMultiplier}, rpcClient, ethClient)
+		o := gas.NewArbitrumEstimator(logger.Test(t), &arbConfig{v: maxGasLimit, bumpPercent: bumpPercent, bumpMin: bumpMin}, rpcClient, ethClient)
 		servicetest.RunHealthy(t, o)
 		gasPrice, chainSpecificGasLimit, err := o.GetLegacyGas(testutils.Context(t), calldata, gasLimit, maxGasPrice)
 		require.NoError(t, err)
