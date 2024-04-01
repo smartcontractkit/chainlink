@@ -162,12 +162,10 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Updat
 
 	ms.addressStatesLock.RLock()
 	defer ms.addressStatesLock.RUnlock()
-	fmt.Println("ms.addressStates", tx.FromAddress)
 	as, ok := ms.addressStates[tx.FromAddress]
 	if !ok {
 		return nil
 	}
-	fmt.Println("2ms.addressStates", tx.FromAddress)
 
 	// Persist to persistent storage
 	if err := ms.persistentTxStore.UpdateTxUnstartedToInProgress(ctx, tx, attempt); err != nil {

@@ -28,14 +28,14 @@ func TestInMemoryStore_UpdateTxUnstartedToInProgress(t *testing.T) {
 	t.Run("successfully updates unstarted tx to inprogress", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
-		persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+		persistentStore := cltest.NewTestTxStore(t, db)
 		kst := cltest.NewKeyStore(t, db, dbcfg)
 		_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
 
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 		lggr := logger.TestSugared(t)
 		chainID := ethClient.ConfiguredChainID()
-		ctx := context.Background()
+		ctx := testutils.Context(t)
 
 		inMemoryStore, err := commontxmgr.NewInMemoryStore[
 			*big.Int,
@@ -55,9 +55,9 @@ func TestInMemoryStore_UpdateTxUnstartedToInProgress(t *testing.T) {
 		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
 
 		// Update the transaction to in-progress
-		require.NoError(t, inMemoryStore.UpdateTxUnstartedToInProgress(testutils.Context(t), &inTx, &inTxAttempt))
+		require.NoError(t, inMemoryStore.UpdateTxUnstartedToInProgress(ctx, &inTx, &inTxAttempt))
 
-		expTx, err := persistentStore.FindTxWithAttempts(inTx.ID)
+		expTx, err := persistentStore.FindTxWithAttempts(ctx, inTx.ID)
 		require.NoError(t, err)
 		assert.Equal(t, commontxmgr.TxInProgress, expTx.State)
 		assert.Equal(t, 1, len(expTx.TxAttempts))
@@ -73,7 +73,7 @@ func TestInMemoryStore_UpdateTxUnstartedToInProgress(t *testing.T) {
 	t.Run("wrong input error scenarios", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
-		persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+		persistentStore := cltest.NewTestTxStore(t, db)
 		kst := cltest.NewKeyStore(t, db, dbcfg)
 		_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
 
@@ -108,8 +108,8 @@ func TestInMemoryStore_UpdateTxUnstartedToInProgress(t *testing.T) {
 		// sequence nil
 		inTx1.Sequence = nil
 		inTx2.Sequence = nil
-		expErr := persistentStore.UpdateTxUnstartedToInProgress(testutils.Context(t), &inTx1, &inTxAttempt1)
-		actErr := inMemoryStore.UpdateTxUnstartedToInProgress(testutils.Context(t), &inTx2, &inTxAttempt2)
+		expErr := persistentStore.UpdateTxUnstartedToInProgress(ctx, &inTx1, &inTxAttempt1)
+		actErr := inMemoryStore.UpdateTxUnstartedToInProgress(ctx, &inTx2, &inTxAttempt2)
 		assert.Equal(t, expErr, actErr)
 		assert.Error(t, actErr)
 		assert.Error(t, expErr)
@@ -119,8 +119,8 @@ func TestInMemoryStore_UpdateTxUnstartedToInProgress(t *testing.T) {
 		// tx not in unstarted state
 		inTx1.State = commontxmgr.TxInProgress
 		inTx2.State = commontxmgr.TxInProgress
-		expErr = persistentStore.UpdateTxUnstartedToInProgress(testutils.Context(t), &inTx1, &inTxAttempt1)
-		actErr = inMemoryStore.UpdateTxUnstartedToInProgress(testutils.Context(t), &inTx2, &inTxAttempt2)
+		expErr = persistentStore.UpdateTxUnstartedToInProgress(ctx, &inTx1, &inTxAttempt1)
+		actErr = inMemoryStore.UpdateTxUnstartedToInProgress(ctx, &inTx2, &inTxAttempt2)
 		assert.Error(t, actErr)
 		assert.Error(t, expErr)
 		inTx1.State = commontxmgr.TxUnstarted // reset
@@ -129,8 +129,8 @@ func TestInMemoryStore_UpdateTxUnstartedToInProgress(t *testing.T) {
 		// tx attempt not in in-progress state
 		inTxAttempt1.State = txmgrtypes.TxAttemptBroadcast
 		inTxAttempt2.State = txmgrtypes.TxAttemptBroadcast
-		expErr = persistentStore.UpdateTxUnstartedToInProgress(testutils.Context(t), &inTx1, &inTxAttempt1)
-		actErr = inMemoryStore.UpdateTxUnstartedToInProgress(testutils.Context(t), &inTx2, &inTxAttempt2)
+		expErr = persistentStore.UpdateTxUnstartedToInProgress(ctx, &inTx1, &inTxAttempt1)
+		actErr = inMemoryStore.UpdateTxUnstartedToInProgress(ctx, &inTx2, &inTxAttempt2)
 		assert.Equal(t, expErr, actErr)
 		assert.Error(t, actErr)
 		assert.Error(t, expErr)
@@ -140,8 +140,8 @@ func TestInMemoryStore_UpdateTxUnstartedToInProgress(t *testing.T) {
 		// wrong from address
 		inTx1.FromAddress = cltest.NewEIP55Address().Address()
 		inTx2.FromAddress = cltest.NewEIP55Address().Address()
-		expErr = persistentStore.UpdateTxUnstartedToInProgress(testutils.Context(t), &inTx1, &inTxAttempt1)
-		actErr = inMemoryStore.UpdateTxUnstartedToInProgress(testutils.Context(t), &inTx2, &inTxAttempt2)
+		expErr = persistentStore.UpdateTxUnstartedToInProgress(ctx, &inTx1, &inTxAttempt1)
+		actErr = inMemoryStore.UpdateTxUnstartedToInProgress(ctx, &inTx2, &inTxAttempt2)
 		assert.NoError(t, actErr)
 		assert.NoError(t, expErr)
 		inTx1.FromAddress = fromAddress // reset
