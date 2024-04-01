@@ -132,6 +132,7 @@ func NewUSDCTokenDataReaderWithHttpClient(
 	origin TokenDataReader,
 	httpClient http.IHttpClient,
 	usdcTokenAddress common.Address,
+	requestInterval time.Duration,
 ) *TokenDataReader {
 	return &TokenDataReader{
 		lggr:                  origin.lggr,
@@ -141,6 +142,7 @@ func NewUSDCTokenDataReaderWithHttpClient(
 		attestationApiTimeout: origin.attestationApiTimeout,
 		coolDownMu:            origin.coolDownMu,
 		usdcTokenAddress:      usdcTokenAddress,
+		rate:                  rate.NewLimiter(rate.Every(requestInterval), 1),
 	}
 }
 
@@ -155,7 +157,7 @@ func (s *TokenDataReader) ReadTokenData(ctx context.Context, msg cciptypes.EVM2E
 	}
 
 	// Using 'Allow' instead of 'Wait' to avoid blocking the current goroutine.
-	if !s.rate.Allow() {
+	if s.rate != nil && !s.rate.Allow() {
 		// self rate limiting to avoid hitting the rate limit.
 		return nil, tokendata.ErrSelfRateLimit
 	}
