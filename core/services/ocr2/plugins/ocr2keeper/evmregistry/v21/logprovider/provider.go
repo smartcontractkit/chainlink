@@ -146,7 +146,7 @@ func (p *logEventProvider) SetConfig(cfg ocr2keepers.LogEventProviderConfig) {
 
 	switch p.opts.BufferVersion {
 	case BufferVersionV1:
-		p.bufferV1.SetConfig(uint32(p.opts.LookbackBlocks), uint32(blockRate), uint32(logLimit))
+		p.bufferV1.SetConfig(uint32(p.opts.LookbackBlocks), blockRate, logLimit)
 	default:
 	}
 }
