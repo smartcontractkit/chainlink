@@ -31,6 +31,10 @@ type LogBuffer interface {
 	Dequeue(block int64, blockRate, upkeepLimit, maxResults int, upkeepSelector func(id *big.Int) bool) ([]BufferedLog, int)
 	// SetConfig sets the buffer size and the maximum number of logs to keep for each upkeep.
 	SetConfig(lookback, blockRate, logLimit uint32)
+	// NumOfUpkeeps returns the number of upkeeps that are being tracked by the buffer.
+	NumOfUpkeeps() int
+	// SyncFilters removes upkeeps that are not in the filter store.
+	SyncFilters(filterStore UpkeepFilterStore) error
 }
 
 func DefaultUpkeepSelector(id *big.Int) bool {
@@ -66,7 +70,7 @@ func (o *logBufferOptions) override(lookback, blockRate, logLimit uint32) {
 func (o *logBufferOptions) windows() uint {
 	blockRate := o.blockRate.Load()
 	if blockRate == 0 {
-		return 1
+		blockRate = 1
 	}
 	return uint(math.Ceil(float64(o.bufferSize.Load()) / float64(blockRate)))
 }
@@ -88,13 +92,6 @@ func NewLogBuffer(lggr logger.Logger, lookback, blockRate, logLimit uint) LogBuf
 		lastBlockSeen: new(atomic.Int64),
 		queues:        make(map[string]*upkeepLogQueue),
 	}
-}
-
-func (b *logBuffer) SetConfig(lookback, blockRate, logLimit uint32) {
-	b.lock.Lock()
-	defer b.lock.Unlock()
-
-	b.opts.override(lookback, blockRate, logLimit)
 }
 
 // Enqueue adds logs to the buffer and might also drop logs if the limit for the
@@ -161,6 +158,36 @@ func (b *logBuffer) dequeue(start, end int64, upkeepLimit, capacity int, upkeepS
 		remainingLogs += remaining
 	}
 	return result, remainingLogs
+}
+
+func (b *logBuffer) SetConfig(lookback, blockRate, logLimit uint32) {
+	b.lock.Lock()
+	defer b.lock.Unlock()
+
+	b.opts.override(lookback, blockRate, logLimit)
+}
+
+func (b *logBuffer) NumOfUpkeeps() int {
+	b.lock.RLock()
+	defer b.lock.RUnlock()
+
+	return len(b.queues)
+}
+
+func (b *logBuffer) SyncFilters(filterStore UpkeepFilterStore) error {
+	b.lock.Lock()
+	defer b.lock.Unlock()
+
+	for upkeepID := range b.queues {
+		uid := new(big.Int)
+		_, ok := uid.SetString(upkeepID, 10)
+		if ok && !filterStore.Has(uid) {
+			// remove upkeep that is not in the filter store
+			delete(b.queues, upkeepID)
+		}
+	}
+
+	return nil
 }
 
 func (b *logBuffer) getUpkeepQueue(uid *big.Int) (*upkeepLogQueue, bool) {

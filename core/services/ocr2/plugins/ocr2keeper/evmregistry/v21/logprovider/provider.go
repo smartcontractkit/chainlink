@@ -47,6 +47,8 @@ var (
 	// reorgBuffer is the number of blocks to add as a buffer to the block range when reading logs.
 	reorgBuffer   = int64(32)
 	readerThreads = 4
+
+	bufferSyncInterval = 10 * time.Minute
 )
 
 // LogTriggerConfig is an alias for log trigger config.
@@ -145,6 +147,27 @@ func (p *logEventProvider) Start(context.Context) error {
 			})
 		})
 
+		p.threadCtrl.Go(func(ctx context.Context) {
+			// sync filters with buffer periodically,
+			// to ensure that inactive upkeeps won't waste capacity.
+			ticker := time.NewTicker(bufferSyncInterval)
+			defer ticker.Stop()
+
+			for {
+				select {
+				case <-ticker.C:
+					if p.bufferV1 != nil {
+						err := p.bufferV1.SyncFilters(p.filterStore)
+						if err != nil {
+							p.lggr.Warnw("failed to sync filters", "err", err)
+						}
+					}
+				case <-ctx.Done():
+					return
+				}
+			}
+		})
+
 		return nil
 	})
 }
@@ -166,7 +189,7 @@ func (p *logEventProvider) GetLatestPayloads(ctx context.Context) ([]ocr2keepers
 		return nil, fmt.Errorf("%w: %s", ErrHeadNotAvailable, err)
 	}
 	prommetrics.AutomationLogProviderLatestBlock.Set(float64(latest.BlockNumber))
-	payloads := p.getPayloadsFromBuffer(latest.BlockNumber)
+	payloads := p.getLogsFromBuffer(latest.BlockNumber)
 
 	if len(payloads) > 0 {
 		p.lggr.Debugw("Fetched payloads from buffer", "latestBlock", latest.BlockNumber, "payloads", len(payloads))
@@ -190,17 +213,41 @@ func (p *logEventProvider) createPayload(id *big.Int, log logpoller.Log) (ocr2ke
 	return payload, nil
 }
 
-func (p *logEventProvider) getPayloadsFromBuffer(latestBlock int64) []ocr2keepers.UpkeepPayload {
+// getBufferDequeueArgs returns the arguments for the buffer to dequeue logs.
+// It adjust the log limit low based on the number of upkeeps to ensure that more upkeeps get slots in the result set.
+func (p *logEventProvider) getBufferDequeueArgs() (blockRate, logLimitLow, maxResults, numOfUpkeeps int) {
+	blockRate, logLimitLow, maxResults, numOfUpkeeps = int(p.opts.BlockRate), int(p.opts.LogLimit), MaxPayloads, p.bufferV1.NumOfUpkeeps()
+	// in case we have more upkeeps than the max results, we reduce the log limit low
+	// so that more upkeeps will get slots in the result set.
+	for numOfUpkeeps > maxResults/logLimitLow {
+		if logLimitLow == 1 {
+			// Log limit low can't go less than 1.
+			// If some upkeeps are not getting slots in the result set, they supposed to be picked up
+			// in the next iteration if the range is still applicable.
+			// TODO: alerts to notify the system is at full capacity.
+			// TODO: handle this case properly by distributing available slots across upkeeps to avoid
+			// starvation when log volume is high.
+			p.lggr.Warnw("The system is at full capacity", "maxResults", maxResults, "numOfUpkeeps", numOfUpkeeps, "logLimitLow", logLimitLow)
+			break
+		}
+		p.lggr.Debugw("Too many upkeeps, reducing the log limit low", "maxResults", maxResults, "numOfUpkeeps", numOfUpkeeps, "logLimitLow_before", logLimitLow)
+		logLimitLow--
+	}
+	return
+}
+
+func (p *logEventProvider) getLogsFromBuffer(latestBlock int64) []ocr2keepers.UpkeepPayload {
 	var payloads []ocr2keepers.UpkeepPayload
 
 	start := latestBlock - p.opts.LookbackBlocks
-	if start <= 0 {
+	if start <= 0 { // edge case when the chain is new (e.g. tests)
 		start = 1
 	}
 
 	switch p.opts.BufferVersion {
 	case "v1":
-		blockRate, logLimitLow, maxResults := int(p.opts.BlockRate), int(p.opts.LogLimit), MaxPayloads
+		// in v1, we use a greedy approach - we keep dequeuing logs until we reach the max results or cover the entire range.
+		blockRate, logLimitLow, maxResults, _ := p.getBufferDequeueArgs()
 		for len(payloads) < maxResults && start <= latestBlock {
 			logs, remaining := p.bufferV1.Dequeue(start, blockRate, logLimitLow, maxResults-len(payloads), DefaultUpkeepSelector)
 			if len(logs) > 0 {
@@ -214,7 +261,7 @@ func (p *logEventProvider) getPayloadsFromBuffer(latestBlock int64) []ocr2keeper
 			}
 			if remaining > 0 {
 				p.lggr.Debugw("Remaining logs", "start", start, "latestBlock", latestBlock, "remaining", remaining)
-				// TODO: handle remaining logs in a better way than consuming the entire window
+				// TODO: handle remaining logs in a better way than consuming the entire window, e.g. do not repeat more than x times
 				continue
 			}
 			start += int64(blockRate)
