@@ -21,6 +21,7 @@ import (
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups"
 )
 
 type ArbConfig interface {
@@ -54,13 +55,15 @@ type arbitrumEstimator struct {
 	chInitialised  chan struct{}
 	chStop         services.StopChan
 	chDone         chan struct{}
+
+	l1Oracle *rollups.L1Oracle
 }
 
 func NewArbitrumEstimator(lggr logger.Logger, cfg ArbConfig, rpcClient rpcClient, ethClient ethClient) EvmEstimator {
 	lggr = logger.Named(lggr, "ArbitrumEstimator")
 	return &arbitrumEstimator{
 		cfg:            cfg,
-		EvmEstimator:   NewSuggestedPriceEstimator(lggr, rpcClient, cfg),
+		EvmEstimator:   NewSuggestedPriceEstimator(lggr, ethClient, rpcClient, cfg, "arbitrum"),
 		client:         ethClient,
 		pollPeriod:     10 * time.Second,
 		logger:         lggr,

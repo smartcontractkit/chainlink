@@ -26,7 +26,7 @@ func Test_FixedPriceEstimator(t *testing.T) {
 
 	t.Run("GetLegacyGas returns EvmGasPriceDefault from config", func(t *testing.T) {
 		config := &gas.MockGasEstimatorConfig{}
-		f := gas.NewFixedPriceEstimator(config, &blockHistoryConfig{}, logger.Test(t))
+		f := gas.NewFixedPriceEstimator(config, nil, &blockHistoryConfig{}, logger.Test(t), "")
 
 		config.PriceDefaultF = assets.NewWeiI(42)
 		config.PriceMaxF = maxGasPrice
@@ -41,7 +41,7 @@ func Test_FixedPriceEstimator(t *testing.T) {
 		config := &gas.MockGasEstimatorConfig{}
 		config.PriceDefaultF = assets.NewWeiI(42)
 		config.PriceMaxF = assets.NewWeiI(35)
-		f := gas.NewFixedPriceEstimator(config, &blockHistoryConfig{}, logger.Test(t))
+		f := gas.NewFixedPriceEstimator(config, nil, &blockHistoryConfig{}, logger.Test(t), "")
 
 		gasPrice, gasLimit, err := f.GetLegacyGas(testutils.Context(t), nil, 100000, assets.NewWeiI(30))
 		require.NoError(t, err)
@@ -54,7 +54,7 @@ func Test_FixedPriceEstimator(t *testing.T) {
 		config.PriceDefaultF = assets.NewWeiI(42)
 		config.PriceMaxF = assets.NewWeiI(20)
 
-		f := gas.NewFixedPriceEstimator(config, &blockHistoryConfig{}, logger.Test(t))
+		f := gas.NewFixedPriceEstimator(config, nil, &blockHistoryConfig{}, logger.Test(t), "")
 		gasPrice, gasLimit, err := f.GetLegacyGas(testutils.Context(t), nil, 100000, assets.NewWeiI(30))
 		require.NoError(t, err)
 		assert.Equal(t, 100000, int(gasLimit))
@@ -69,7 +69,7 @@ func Test_FixedPriceEstimator(t *testing.T) {
 		config.BumpMinF = assets.NewWeiI(150)
 
 		lggr := logger.TestSugared(t)
-		f := gas.NewFixedPriceEstimator(config, &blockHistoryConfig{}, lggr)
+		f := gas.NewFixedPriceEstimator(config, nil, &blockHistoryConfig{}, lggr, "")
 
 		gasPrice, gasLimit, err := f.BumpLegacyGas(testutils.Context(t), assets.NewWeiI(42), 100000, maxGasPrice, nil)
 		require.NoError(t, err)
@@ -89,7 +89,7 @@ func Test_FixedPriceEstimator(t *testing.T) {
 		config.BumpThresholdF = uint64(3)
 
 		lggr := logger.Test(t)
-		f := gas.NewFixedPriceEstimator(config, &blockHistoryConfig{}, lggr)
+		f := gas.NewFixedPriceEstimator(config, nil, &blockHistoryConfig{}, lggr, "")
 
 		fee, err := f.GetDynamicFee(testutils.Context(t), maxGasPrice)
 		require.NoError(t, err)
@@ -122,7 +122,7 @@ func Test_FixedPriceEstimator(t *testing.T) {
 		config.BumpPercentF = uint16(10)
 
 		lggr := logger.TestSugared(t)
-		f := gas.NewFixedPriceEstimator(config, &blockHistoryConfig{}, lggr)
+		f := gas.NewFixedPriceEstimator(config, nil, &blockHistoryConfig{}, lggr, "")
 
 		originalFee := gas.DynamicFee{FeeCap: assets.NewWeiI(100), TipCap: assets.NewWeiI(25)}
 		fee, err := f.BumpDynamicFee(testutils.Context(t), originalFee, maxGasPrice, nil)

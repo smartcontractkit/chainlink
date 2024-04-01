@@ -30,7 +30,7 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 
 	t.Run("calling GetLegacyGas on unstarted estimator returns error", func(t *testing.T) {
 		client := mocks.NewRPCClient(t)
-		o := gas.NewSuggestedPriceEstimator(logger.Test(t), client, cfg)
+		o := gas.NewSuggestedPriceEstimator(logger.Test(t), client, cfg, "")
 		_, _, err := o.GetLegacyGas(testutils.Context(t), calldata, gasLimit, maxGasPrice)
 		assert.EqualError(t, err, "estimator is not started")
 	})
@@ -42,7 +42,7 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 			(*big.Int)(res).SetInt64(42)
 		})
 
-		o := gas.NewSuggestedPriceEstimator(logger.Test(t), client, cfg)
+		o := gas.NewSuggestedPriceEstimator(logger.Test(t), client, cfg, "")
 		servicetest.RunHealthy(t, o)
 		gasPrice, chainSpecificGasLimit, err := o.GetLegacyGas(testutils.Context(t), calldata, gasLimit, maxGasPrice)
 		require.NoError(t, err)
@@ -52,7 +52,7 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 
 	t.Run("gas price is lower than user specified max gas price", func(t *testing.T) {
 		client := mocks.NewRPCClient(t)
-		o := gas.NewSuggestedPriceEstimator(logger.Test(t), client, cfg)
+		o := gas.NewSuggestedPriceEstimator(logger.Test(t), client, cfg, "")
 
 		client.On("CallContext", mock.Anything, mock.Anything, "eth_gasPrice").Return(nil).Run(func(args mock.Arguments) {
 			res := args.Get(1).(*hexutil.Big)
@@ -69,7 +69,7 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 
 	t.Run("gas price is lower than global max gas price", func(t *testing.T) {
 		client := mocks.NewRPCClient(t)
-		o := gas.NewSuggestedPriceEstimator(logger.Test(t), client, cfg)
+		o := gas.NewSuggestedPriceEstimator(logger.Test(t), client, cfg, "")
 
 		client.On("CallContext", mock.Anything, mock.Anything, "eth_gasPrice").Return(nil).Run(func(args mock.Arguments) {
 			res := args.Get(1).(*hexutil.Big)
@@ -85,7 +85,7 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 
 	t.Run("calling GetLegacyGas on started estimator if initial call failed returns error", func(t *testing.T) {
 		client := mocks.NewRPCClient(t)
-		o := gas.NewSuggestedPriceEstimator(logger.Test(t), client, cfg)
+		o := gas.NewSuggestedPriceEstimator(logger.Test(t), client, cfg, "")
 
 		client.On("CallContext", mock.Anything, mock.Anything, "eth_gasPrice").Return(pkgerrors.New("kaboom"))
 
@@ -97,21 +97,21 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 
 	t.Run("calling GetDynamicFee always returns error", func(t *testing.T) {
 		client := mocks.NewRPCClient(t)
-		o := gas.NewSuggestedPriceEstimator(logger.Test(t), client, cfg)
+		o := gas.NewSuggestedPriceEstimator(logger.Test(t), client, cfg, "")
 		_, err := o.GetDynamicFee(testutils.Context(t), maxGasPrice)
 		assert.EqualError(t, err, "dynamic fees are not implemented for this estimator")
 	})
 
 	t.Run("calling BumpLegacyGas on unstarted estimator returns error", func(t *testing.T) {
 		client := mocks.NewRPCClient(t)
-		o := gas.NewSuggestedPriceEstimator(logger.Test(t), client, cfg)
+		o := gas.NewSuggestedPriceEstimator(logger.Test(t), client, cfg, "")
 		_, _, err := o.BumpLegacyGas(testutils.Context(t), assets.NewWeiI(42), gasLimit, maxGasPrice, nil)
 		assert.EqualError(t, err, "estimator is not started")
 	})
 
 	t.Run("calling BumpDynamicFee always returns error", func(t *testing.T) {
 		client := mocks.NewRPCClient(t)
-		o := gas.NewSuggestedPriceEstimator(logger.Test(t), client, cfg)
+		o := gas.NewSuggestedPriceEstimator(logger.Test(t), client, cfg, "")
 		fee := gas.DynamicFee{
 			FeeCap: assets.NewWeiI(42),
 			TipCap: assets.NewWeiI(5),
@@ -127,7 +127,7 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 			(*big.Int)(res).SetInt64(40)
 		})
 
-		o := gas.NewSuggestedPriceEstimator(logger.Test(t), client, cfg)
+		o := gas.NewSuggestedPriceEstimator(logger.Test(t), client, cfg, "")
 		servicetest.RunHealthy(t, o)
 		gasPrice, chainSpecificGasLimit, err := o.BumpLegacyGas(testutils.Context(t), assets.NewWeiI(10), gasLimit, maxGasPrice, nil)
 		require.NoError(t, err)
@@ -143,7 +143,7 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 		})
 
 		testCfg := &gas.MockGasEstimatorConfig{BumpPercentF: 1, BumpMinF: assets.NewWei(big.NewInt(1)), BumpThresholdF: 1, LimitMultiplierF: 1}
-		o := gas.NewSuggestedPriceEstimator(logger.Test(t), client, testCfg)
+		o := gas.NewSuggestedPriceEstimator(logger.Test(t), client, testCfg, "")
 		servicetest.RunHealthy(t, o)
 		gasPrice, chainSpecificGasLimit, err := o.BumpLegacyGas(testutils.Context(t), assets.NewWeiI(10), gasLimit, maxGasPrice, nil)
 		require.NoError(t, err)
@@ -158,7 +158,7 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 			(*big.Int)(res).SetInt64(5)
 		})
 
-		o := gas.NewSuggestedPriceEstimator(logger.Test(t), client, cfg)
+		o := gas.NewSuggestedPriceEstimator(logger.Test(t), client, cfg, "")
 		servicetest.RunHealthy(t, o)
 		gasPrice, chainSpecificGasLimit, err := o.BumpLegacyGas(testutils.Context(t), assets.NewWeiI(10), gasLimit, maxGasPrice, nil)
 		require.NoError(t, err)
@@ -168,7 +168,7 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 
 	t.Run("calling BumpLegacyGas on started estimator returns error, suggested gas price is higher than max gas price", func(t *testing.T) {
 		client := mocks.NewRPCClient(t)
-		o := gas.NewSuggestedPriceEstimator(logger.Test(t), client, cfg)
+		o := gas.NewSuggestedPriceEstimator(logger.Test(t), client, cfg, "")
 
 		client.On("CallContext", mock.Anything, mock.Anything, "eth_gasPrice").Return(nil).Run(func(args mock.Arguments) {
 			res := args.Get(1).(*hexutil.Big)
@@ -185,7 +185,7 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 
 	t.Run("calling BumpLegacyGas on started estimator returns max gas price when suggested price under max but the buffer exceeds it", func(t *testing.T) {
 		client := mocks.NewRPCClient(t)
-		o := gas.NewSuggestedPriceEstimator(logger.Test(t), client, cfg)
+		o := gas.NewSuggestedPriceEstimator(logger.Test(t), client, cfg, "")
 
 		client.On("CallContext", mock.Anything, mock.Anything, "eth_gasPrice").Return(nil).Run(func(args mock.Arguments) {
 			res := args.Get(1).(*hexutil.Big)
@@ -201,7 +201,7 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 
 	t.Run("calling BumpLegacyGas on started estimator if initial call failed returns error", func(t *testing.T) {
 		client := mocks.NewRPCClient(t)
-		o := gas.NewSuggestedPriceEstimator(logger.Test(t), client, cfg)
+		o := gas.NewSuggestedPriceEstimator(logger.Test(t), client, cfg, "")
 
 		client.On("CallContext", mock.Anything, mock.Anything, "eth_gasPrice").Return(pkgerrors.New("kaboom"))
 
@@ -213,7 +213,7 @@ func TestSuggestedPriceEstimator(t *testing.T) {
 
 	t.Run("calling BumpLegacyGas on started estimator if refresh call failed returns price from previous update", func(t *testing.T) {
 		client := mocks.NewRPCClient(t)
-		o := gas.NewSuggestedPriceEstimator(logger.Test(t), client, cfg)
+		o := gas.NewSuggestedPriceEstimator(logger.Test(t), client, cfg, "")
 
 		client.On("CallContext", mock.Anything, mock.Anything, "eth_gasPrice").Return(nil).Run(func(args mock.Arguments) {
 			res := args.Get(1).(*hexutil.Big)

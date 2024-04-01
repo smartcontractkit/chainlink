@@ -83,16 +83,16 @@ func NewEstimator(lggr logger.Logger, ethClient evmclient.Client, cfg Config, ge
 		}
 	case "FixedPrice":
 		newEstimator = func(l logger.Logger) EvmEstimator {
-			return NewFixedPriceEstimator(geCfg, bh, lggr)
+			return NewFixedPriceEstimator(geCfg, ethClient, bh, lggr, cfg.ChainType())
 		}
 	case "L2Suggested", "SuggestedPrice":
 		newEstimator = func(l logger.Logger) EvmEstimator {
-			return NewSuggestedPriceEstimator(lggr, ethClient, geCfg)
+			return NewSuggestedPriceEstimator(lggr, ethClient, geCfg, cfg.ChainType())
 		}
 	default:
 		lggr.Warnf("GasEstimator: unrecognised mode '%s', falling back to FixedPriceEstimator", s)
 		newEstimator = func(l logger.Logger) EvmEstimator {
-			return NewFixedPriceEstimator(geCfg, bh, lggr)
+			return NewFixedPriceEstimator(geCfg, ethClient, bh, lggr, cfg.ChainType())
 		}
 	}
 	return NewWrappedEvmEstimator(lggr, newEstimator, df, l1Oracle, geCfg)

@@ -4,14 +4,13 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"slices"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/rpc"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -25,24 +24,8 @@ import (
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 )
 
-//go:generate mockery --quiet --name ethClient --output ./mocks/ --case=underscore --structname ETHClient
-type ethClient interface {
-	CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error)
-	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
-}
-
-//go:generate mockery --quiet --name daPriceReader --output ./mocks/ --case=underscore --structname DAPriceReader
-type daPriceReader interface {
-	GetDAGasPrice(ctx context.Context) (*big.Int, error)
-}
-
-type priceEntry struct {
-	price     *assets.Wei
-	timestamp time.Time
-}
-
 // Reads L2-specific precompiles and caches the l1GasPrice set by the L2.
-type l1Oracle struct {
+type scrollL1Oracle struct {
 	services.StateMachine
 	client     ethClient
 	pollPeriod time.Duration
@@ -67,45 +50,73 @@ type l1Oracle struct {
 }
 
 const (
-	// Interval at which to poll for L1BaseFee. A good starting point is the L1 block time.
-	PollPeriod = 6 * time.Second
+	// ScrollGasOracleAddress is the address of the precompiled contract that exists on Scroll chain.
+	ScrollGasOracleAddress = "0x5300000000000000000000000000000000000002"
+	// ScrollGasOracle_l1BaseFee is a hex encoded call to:
+	// `function l1BaseFee() external view returns (uint256);`
+	ScrollGasOracle_l1BaseFee = "l1BaseFee"
+	// ScrollGasOracle_getL1Fee is a hex encoded call to:
+	// `function getL1Fee(bytes) external view returns (uint256);`
+	ScrollGasOracle_getL1Fee = "getL1Fee"
 )
 
-var supportedChainTypes = []config.ChainType{config.ChainArbitrum, config.ChainOptimismBedrock, config.ChainKroma, config.ChainScroll}
-
-func IsRollupWithL1Support(chainType config.ChainType) bool {
-	return slices.Contains(supportedChainTypes, chainType)
-}
-
-func NewL1GasOracle(lggr logger.Logger, ethClient ethClient, chainType config.ChainType) L1Oracle {
-	var l1Oracle L1Oracle
-	switch chainType {
-	case config.ChainOptimismBedrock:
-		l1Oracle = NewOpStackL1GasOracle(lggr, ethClient, chainType)
-	case config.ChainKroma:
-		l1Oracle = NewOpStackL1GasOracle(lggr, ethClient, chainType)
-	case config.ChainArbitrum:
-		l1Oracle = NewArbitrumL1GasOracle(lggr, ethClient)
-	case config.ChainScroll:
-		l1Oracle = NewScrollL1GasOracle(lggr, ethClient)
-	default:
-		panic(fmt.Sprintf("Received unspported chaintype %s", chainType))
-	}
+func NewScrollL1GasOracle(lggr logger.Logger, ethClient ethClient) L1Oracle {
+	l1Oracle := newScrollL1GasOracle(lggr, ethClient)
 	return l1Oracle
 }
 
-func (o *l1Oracle) Name() string {
+func newScrollL1GasOracle(lggr logger.Logger, ethClient ethClient) L1Oracle {
+	var l1GasPriceAddress, gasPriceMethod, l1GasCostAddress, gasCostMethod string
+	var l1GasPriceMethodAbi, l1GasCostMethodAbi abi.ABI
+	var gasPriceErr, gasCostErr error
+
+	l1GasPriceAddress = ScrollGasOracleAddress
+	gasPriceMethod = ScrollGasOracle_l1BaseFee
+	l1GasPriceMethodAbi, gasPriceErr = abi.JSON(strings.NewReader(L1BaseFeeAbiString))
+	l1GasCostAddress = ScrollGasOracleAddress
+	gasCostMethod = ScrollGasOracle_getL1Fee
+	l1GasCostMethodAbi, gasCostErr = abi.JSON(strings.NewReader(GetL1FeeAbiString))
+
+	if gasPriceErr != nil {
+		panic(fmt.Sprintf("Failed to parse L1 gas price method ABI for chain: scroll"))
+	}
+	if gasCostErr != nil {
+		panic(fmt.Sprintf("Failed to parse L1 gas cost method ABI for chain: scroll"))
+	}
+
+	return &scrollL1Oracle{
+		client:     ethClient,
+		pollPeriod: PollPeriod,
+		logger:     logger.Sugared(logger.Named(lggr, fmt.Sprintf("L1GasOracle(scroll)"))),
+		chainType:  "scroll",
+
+		l1GasPriceAddress:   l1GasPriceAddress,
+		gasPriceMethod:      gasPriceMethod,
+		l1GasPriceMethodAbi: l1GasPriceMethodAbi,
+		l1GasCostAddress:    l1GasCostAddress,
+		gasCostMethod:       gasCostMethod,
+		l1GasCostMethodAbi:  l1GasCostMethodAbi,
+
+		priceReader: nil,
+
+		chInitialised: make(chan struct{}),
+		chStop:        make(chan struct{}),
+		chDone:        make(chan struct{}),
+	}
+}
+
+func (o *scrollL1Oracle) Name() string {
 	return o.logger.Name()
 }
 
-func (o *l1Oracle) Start(ctx context.Context) error {
+func (o *scrollL1Oracle) Start(ctx context.Context) error {
 	return o.StartOnce(o.Name(), func() error {
 		go o.run()
 		<-o.chInitialised
 		return nil
 	})
 }
-func (o *l1Oracle) Close() error {
+func (o *scrollL1Oracle) Close() error {
 	return o.StopOnce(o.Name(), func() error {
 		close(o.chStop)
 		<-o.chDone
@@ -113,11 +124,11 @@ func (o *l1Oracle) Close() error {
 	})
 }
 
-func (o *l1Oracle) HealthReport() map[string]error {
+func (o *scrollL1Oracle) HealthReport() map[string]error {
 	return map[string]error{o.Name(): o.Healthy()}
 }
 
-func (o *l1Oracle) run() {
+func (o *scrollL1Oracle) run() {
 	defer close(o.chDone)
 
 	t := o.refresh()
@@ -132,7 +143,7 @@ func (o *l1Oracle) run() {
 		}
 	}
 }
-func (o *l1Oracle) refresh() (t *time.Timer) {
+func (o *scrollL1Oracle) refresh() (t *time.Timer) {
 	t, err := o.refreshWithError()
 	if err != nil {
 		o.SvcErrBuffer.Append(err)
@@ -140,7 +151,7 @@ func (o *l1Oracle) refresh() (t *time.Timer) {
 	return
 }
 
-func (o *l1Oracle) refreshWithError() (t *time.Timer, err error) {
+func (o *scrollL1Oracle) refreshWithError() (t *time.Timer, err error) {
 	t = time.NewTimer(utils.WithJitter(o.pollPeriod))
 
 	ctx, cancel := o.chStop.CtxCancel(evmclient.ContextWithDefaultTimeout())
@@ -157,7 +168,7 @@ func (o *l1Oracle) refreshWithError() (t *time.Timer, err error) {
 	return
 }
 
-func (o *l1Oracle) fetchL1GasPrice(ctx context.Context) (price *big.Int, err error) {
+func (o *scrollL1Oracle) fetchL1GasPrice(ctx context.Context) (price *big.Int, err error) {
 	// if dedicated priceReader exists, use the reader
 	if o.priceReader != nil {
 		return o.priceReader.GetDAGasPrice(ctx)
@@ -190,7 +201,7 @@ func (o *l1Oracle) fetchL1GasPrice(ctx context.Context) (price *big.Int, err err
 	return price, nil
 }
 
-func (o *l1Oracle) GasPrice(_ context.Context) (l1GasPrice *assets.Wei, err error) {
+func (o *scrollL1Oracle) GasPrice(_ context.Context) (l1GasPrice *assets.Wei, err error) {
 	var timestamp time.Time
 	ok := o.IfStarted(func() {
 		o.l1GasPriceMu.RLock()
@@ -214,7 +225,7 @@ func (o *l1Oracle) GasPrice(_ context.Context) (l1GasPrice *assets.Wei, err erro
 
 // Gets the L1 gas cost for the provided transaction at the specified block num
 // If block num is not provided, the value on the latest block num is used
-func (o *l1Oracle) GetGasCost(ctx context.Context, tx *gethtypes.Transaction, blockNum *big.Int) (*assets.Wei, error) {
+func (o *scrollL1Oracle) GetGasCost(ctx context.Context, tx *gethtypes.Transaction, blockNum *big.Int) (*assets.Wei, error) {
 	ctx, cancel := context.WithTimeout(ctx, client.QueryTimeout)
 	defer cancel()
 	var callData, b []byte

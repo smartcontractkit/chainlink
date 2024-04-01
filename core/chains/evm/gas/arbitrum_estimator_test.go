@@ -56,6 +56,7 @@ func TestArbitrumEstimator(t *testing.T) {
 	const bumpPercent = 10
 	var bumpMin = assets.NewWei(big.NewInt(1))
 	const limitMultiplier = 1
+	const chainType = "arbitrum"
 
 	t.Run("calling GetLegacyGas on unstarted estimator returns error", func(t *testing.T) {
 		rpcClient := mocks.NewRPCClient(t)
@@ -249,7 +250,7 @@ func TestArbitrumEstimator(t *testing.T) {
 			assert.Equal(t, big.NewInt(-1), blockNumber)
 		}).Return(b.Bytes(), nil)
 
-		o := gas.NewArbitrumEstimator(logger.Test(t), &arbConfig{v: maxGasLimit, bumpPercent: bumpPercent, bumpMin: bumpMin, limitMultiplier: limitMultiplier}, rpcClient, ethClient)
+		o := gas.NewArbitrumEstimator(logger.Test(t), &arbConfig{v: maxGasLimit, bumpPercent: bumpPercent, bumpMin: bumpMin, limitMultiplier: limitMultiplier}, rpcClient, ethClient,)
 		servicetest.RunHealthy(t, o)
 		gasPrice, chainSpecificGasLimit, err := o.GetLegacyGas(testutils.Context(t), calldata, gasLimit, maxGasPrice)
 		require.Error(t, err, "expected error but got (%s, %d)", gasPrice, chainSpecificGasLimit)
