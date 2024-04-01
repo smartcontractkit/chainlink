@@ -6,19 +6,13 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-<<<<<<< HEAD
-=======
 	"github.com/google/uuid"
->>>>>>> jtw/step-3-01
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commontxmgr "github.com/smartcontractkit/chainlink/v2/common/txmgr"
-<<<<<<< HEAD
-=======
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
->>>>>>> jtw/step-3-01
 
 	evmgas "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	evmtxmgr "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
@@ -29,11 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 )
 
-<<<<<<< HEAD
 func TestInMemoryStore_UpdateBroadcastAts(t *testing.T) {
-=======
-func TestInMemoryStore_UpdateTxCallbackCompleted(t *testing.T) {
->>>>>>> jtw/step-3-01
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
@@ -56,9 +46,85 @@ func TestInMemoryStore_UpdateTxCallbackCompleted(t *testing.T) {
 	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
 	require.NoError(t, err)
 
-<<<<<<< HEAD
 	t.Run("does not update when broadcast_at is Null", func(t *testing.T) {
-=======
+		// Insert a transaction into persistent store
+		inTx := mustInsertInProgressEthTxWithAttempt(t, persistentStore, 1, fromAddress)
+		require.Nil(t, inTx.BroadcastAt)
+		now := time.Now()
+		// Insert the transaction into the in-memory store
+		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
+
+		err := inMemoryStore.UpdateBroadcastAts(
+			ctx,
+			now,
+			[]int64{inTx.ID},
+		)
+		require.NoError(t, err)
+
+		expTx, err := persistentStore.FindTxWithAttempts(ctx, inTx.ID)
+		require.NoError(t, err)
+		fn := func(tx *evmtxmgr.Tx) bool { return true }
+		actTxs := inMemoryStore.XXXTestFindTxs(nil, fn, inTx.ID)
+		require.Equal(t, 1, len(actTxs))
+		actTx := actTxs[0]
+		assertTxEqual(t, expTx, actTx)
+		assert.Nil(t, actTx.BroadcastAt)
+	})
+
+	t.Run("updates broadcast_at when not null", func(t *testing.T) {
+		// Insert a transaction into persistent store
+		time1 := time.Now()
+		inTx := cltest.NewEthTx(fromAddress)
+		inTx.Sequence = new(evmtypes.Nonce)
+		inTx.State = commontxmgr.TxUnconfirmed
+		inTx.BroadcastAt = &time1
+		inTx.InitialBroadcastAt = &time1
+		require.NoError(t, persistentStore.InsertTx(ctx, &inTx))
+		// Insert the transaction into the in-memory store
+		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
+
+		time2 := time1.Add(1 * time.Hour)
+		err := inMemoryStore.UpdateBroadcastAts(
+			ctx,
+			time2,
+			[]int64{inTx.ID},
+		)
+		require.NoError(t, err)
+
+		expTx, err := persistentStore.FindTxWithAttempts(ctx, inTx.ID)
+		require.NoError(t, err)
+		fn := func(tx *evmtxmgr.Tx) bool { return true }
+		actTxs := inMemoryStore.XXXTestFindTxs(nil, fn, inTx.ID)
+		require.Equal(t, 1, len(actTxs))
+		actTx := actTxs[0]
+		assertTxEqual(t, expTx, actTx)
+		assert.NotNil(t, actTx.BroadcastAt)
+	})
+}
+
+func TestInMemoryStore_UpdateTxCallbackCompleted(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
+	persistentStore := cltest.NewTestTxStore(t, db)
+	kst := cltest.NewKeyStore(t, db, dbcfg)
+	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
+
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	lggr := logger.TestSugared(t)
+	chainID := ethClient.ConfiguredChainID()
+	ctx := testutils.Context(t)
+
+	inMemoryStore, err := commontxmgr.NewInMemoryStore[
+		*big.Int,
+		common.Address, common.Hash, common.Hash,
+		*evmtypes.Receipt,
+		evmtypes.Nonce,
+		evmgas.EvmFee,
+	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	require.NoError(t, err)
+
 	t.Run("sets tx callback as completed", func(t *testing.T) {
 		// Insert a transaction into persistent store
 		inTx := cltest.NewEthTx(fromAddress)
@@ -183,7 +249,6 @@ func TestInMemoryStore_SaveSentAttempt(t *testing.T) {
 
 	defaultDuration := time.Second * 5
 	t.Run("updates attempt state to broadcast and checks error returns", func(t *testing.T) {
->>>>>>> jtw/step-3-01
 		// Insert a transaction into persistent store
 		inTx := mustInsertInProgressEthTxWithAttempt(t, persistentStore, 1, fromAddress)
 		require.Nil(t, inTx.BroadcastAt)
@@ -191,18 +256,11 @@ func TestInMemoryStore_SaveSentAttempt(t *testing.T) {
 		// Insert the transaction into the in-memory store
 		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
 
-<<<<<<< HEAD
-		err := inMemoryStore.UpdateBroadcastAts(
-			ctx,
-			now,
-			[]int64{inTx.ID},
-=======
 		err := inMemoryStore.SaveSentAttempt(
 			ctx,
 			defaultDuration,
 			&inTx.TxAttempts[0],
 			now,
->>>>>>> jtw/step-3-01
 		)
 		require.NoError(t, err)
 
@@ -213,39 +271,6 @@ func TestInMemoryStore_SaveSentAttempt(t *testing.T) {
 		require.Equal(t, 1, len(actTxs))
 		actTx := actTxs[0]
 		assertTxEqual(t, expTx, actTx)
-<<<<<<< HEAD
-		assert.Nil(t, actTx.BroadcastAt)
-	})
-
-	t.Run("updates broadcast_at when not null", func(t *testing.T) {
-		// Insert a transaction into persistent store
-		time1 := time.Now()
-		inTx := cltest.NewEthTx(fromAddress)
-		inTx.Sequence = new(evmtypes.Nonce)
-		inTx.State = commontxmgr.TxUnconfirmed
-		inTx.BroadcastAt = &time1
-		inTx.InitialBroadcastAt = &time1
-		require.NoError(t, persistentStore.InsertTx(ctx, &inTx))
-		// Insert the transaction into the in-memory store
-		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
-
-		time2 := time1.Add(1 * time.Hour)
-		err := inMemoryStore.UpdateBroadcastAts(
-			ctx,
-			time2,
-			[]int64{inTx.ID},
-		)
-		require.NoError(t, err)
-
-		expTx, err := persistentStore.FindTxWithAttempts(ctx, inTx.ID)
-		require.NoError(t, err)
-		fn := func(tx *evmtxmgr.Tx) bool { return true }
-		actTxs := inMemoryStore.XXXTestFindTxs(nil, fn, inTx.ID)
-		require.Equal(t, 1, len(actTxs))
-		actTx := actTxs[0]
-		assertTxEqual(t, expTx, actTx)
-		assert.NotNil(t, actTx.BroadcastAt)
-=======
 		assert.Equal(t, txmgrtypes.TxAttemptBroadcast, actTx.TxAttempts[0].State)
 
 		// wrong tx id
@@ -318,7 +343,6 @@ func TestInMemoryStore_Abandon(t *testing.T) {
 		for i := 0; i < nTxs; i++ {
 			assertTxEqual(t, *expTxs[i], actTxs[i])
 		}
->>>>>>> jtw/step-3-01
 	})
 }
 
