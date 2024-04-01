@@ -274,7 +274,7 @@ func (q *upkeepLogQueue) dequeue(start, end int64, limit int) ([]logpoller.Log, 
 		q.lggr.Debugw("Dequeued logs", "start", start, "end", end, "limit", limit, "results", len(results), "remaining", remaining)
 	}
 
-	prommetrics.AutomationLogsInLogBuffer.Sub(float64(len(results)))
+	prommetrics.AutomationLogBufferFlow.WithLabelValues(prommetrics.LogBufferFlowDirectionEgress).Add(float64(len(results)))
 
 	return results, remaining
 }
@@ -310,7 +310,8 @@ func (q *upkeepLogQueue) enqueue(blockThreshold int64, logsToAdd ...logpoller.Lo
 		q.lggr.Debugw("Enqueued logs", "added", added, "dropped", dropped, "blockThreshold", blockThreshold, "q size", len(q.logs), "visited size", len(q.visited))
 	}
 
-	prommetrics.AutomationLogsInLogBuffer.Add(float64(added))
+	prommetrics.AutomationLogBufferFlow.WithLabelValues(prommetrics.LogBufferFlowDirectionIngress).Add(float64(added))
+	prommetrics.AutomationLogBufferFlow.WithLabelValues(prommetrics.LogBufferFlowDirectionDropped).Add(float64(dropped))
 
 	return added, dropped
 }
@@ -334,7 +335,7 @@ func (q *upkeepLogQueue) clean(blockThreshold int64) int {
 	var currentWindowStart int64
 	for _, l := range q.logs {
 		if blockThreshold > l.BlockNumber { // old log, removed
-			prommetrics.AutomationLogsInLogBuffer.Dec()
+			prommetrics.AutomationLogBufferFlow.WithLabelValues(prommetrics.LogBufferFlowDirectionExpired).Inc()
 			// q.lggr.Debugw("Expiring old log", "blockNumber", l.BlockNumber, "blockThreshold", blockThreshold, "logIndex", l.LogIndex)
 			logid := logID(l)
 			delete(q.visited, logid)
@@ -350,7 +351,7 @@ func (q *upkeepLogQueue) clean(blockThreshold int64) int {
 		currentWindowCapacity++
 		// if capacity has been reached, drop the log
 		if currentWindowCapacity > maxLogsPerWindow {
-			prommetrics.AutomationLogsInLogBuffer.Dec()
+			prommetrics.AutomationLogBufferFlow.WithLabelValues(prommetrics.LogBufferFlowDirectionDropped).Inc()
 			// TODO: check if we should clean visited as well, so it will be possible to add the log again
 			q.lggr.Debugw("Reached log buffer limits, dropping log", "blockNumber", l.BlockNumber,
 				"blockHash", l.BlockHash, "txHash", l.TxHash, "logIndex", l.LogIndex, "len updated", len(updated),

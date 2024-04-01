@@ -13,6 +13,7 @@ const (
 	LogBufferFlowDirectionIngress = "ingress"
 	LogBufferFlowDirectionEgress  = "egress"
 	LogBufferFlowDirectionDropped = "dropped"
+	LogBufferFlowDirectionExpired = "expired"
 )
 
 // Automation metrics
