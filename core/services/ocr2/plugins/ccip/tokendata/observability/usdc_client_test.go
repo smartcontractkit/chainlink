@@ -89,7 +89,7 @@ func testMonitoring(t *testing.T, name string, server *httptest.Server, requests
 	// Service with monitored http client.
 	usdcTokenAddr := utils.RandomAddress()
 	observedHttpClient := http2.NewObservedIHttpClientWithMetric(&http2.HttpClient{}, histogram)
-	tokenDataReaderDefault := usdc.NewUSDCTokenDataReader(log, usdcReader, attestationURI, 0, usdcTokenAddr)
+	tokenDataReaderDefault := usdc.NewUSDCTokenDataReader(log, usdcReader, attestationURI, 0, usdcTokenAddr, 0)
 	tokenDataReader := usdc.NewUSDCTokenDataReaderWithHttpClient(*tokenDataReaderDefault, observedHttpClient, usdcTokenAddr)
 	require.NotNil(t, tokenDataReader)
 
