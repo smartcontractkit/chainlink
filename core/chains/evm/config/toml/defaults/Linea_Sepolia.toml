@@ -1,5 +1,4 @@
 ChainID = '59141'
-# Block time 12s, finality < 3m
 FinalityDepth = 900
 
 [GasEstimator]
