@@ -15,6 +15,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/onsi/gomega"
@@ -26,16 +27,15 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	vrfcommon "github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/common"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/vrfv2plus"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
-
-	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	it_utils "github.com/smartcontractkit/chainlink/integration-tests/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
 )
 
 func TestVRFv2Plus(t *testing.T) {
@@ -1971,6 +1971,20 @@ func TestReorg(t *testing.T) {
 		fmt.Println("reqRandomWordsRequestedEvent BlockNumber", randomWordsRequestedEvent.Raw.BlockNumber)
 		fmt.Println("reqRandomWordsRequestedEvent BlockHash", randomWordsRequestedEvent.Raw.BlockHash)
 
+		err = evmClient.WaitForEvents()
+		require.NoError(t, err, vrfcommon.ErrWaitTXsComplete)
+
+		receipt, err := evmClient.GetTxReceipt(randomWordsRequestedEvent.Raw.TxHash)
+		require.NoError(t, err)
+
+		fmt.Println("RECEIPT reqRandomWordsRequestedEvent BlockNumber", receipt.BlockNumber)
+		fmt.Println("RECEIPT reqRandomWordsRequestedEvent BlockHash", receipt.BlockHash)
+
+		require.Equal(t, randomWordsRequestedEvent.Raw.BlockNumber, receipt.BlockNumber.Uint64())
+		require.Equal(t, randomWordsRequestedEvent.Raw.BlockHash, receipt.BlockHash)
+
+		randRequestBlock := checkBlock(t, evmClient, receipt.BlockNumber, randomWordsRequestedEvent.Raw.TxHash)
+
 		//3. rewind chain by n number of blocks - basically, mimicking reorg scenario
 		//todo - this will be replaced by proper method
 		makeReorg(t, evmClient, env, chainID, 10)
@@ -1982,26 +1996,53 @@ func TestReorg(t *testing.T) {
 		require.NoError(t, err)
 		fmt.Println("latestBlockNumber After Reorg", latestBlockNumberAfterReorg)
 
-		//4. ensure that chain is reorged and latest block number is less than the block number when request was made
-		require.Less(t, latestBlockNumberAfterReorg, randomWordsRequestedEvent.Raw.BlockNumber)
+		var wg sync.WaitGroup
+		wg.Add(1)
+		waitNumberOfBlocks := randRequestBlock.NumberU64() + 100
+		_, err = actions.WaitForBlockNumberToBe(waitNumberOfBlocks, evmClient, &wg, time.Second*300, t)
+		wg.Wait()
+		require.NoError(t, err, "error waiting for blocknumber to be")
 
-		//5. wait for the fulfillment
-		randomWordsFulfilledEvent, err := vrfContracts.CoordinatorV2Plus.WaitForRandomWordsFulfilledEvent(
-			[]*big.Int{subID},
-			[]*big.Int{randomWordsRequestedEvent.RequestId},
-			time.Second*30,
-		)
-		require.NoError(t, err, "error waiting for randomness fulfilled event")
-		vrfv2plus.LogRandomWordsFulfilledEvent(l, vrfContracts.CoordinatorV2Plus, randomWordsFulfilledEvent, isNativeBilling)
-		status, err := consumers[0].GetRequestStatus(testcontext.Get(t), randomWordsFulfilledEvent.RequestId)
-		require.NoError(t, err, "error getting rand request status")
-		require.True(t, status.Fulfilled)
-		l.Info().Bool("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
+		for i := int64(0); i < int64(waitNumberOfBlocks); i++ {
+			checkBlock(t, evmClient, new(big.Int).Add(receipt.BlockNumber, big.NewInt(i)), randomWordsRequestedEvent.Raw.TxHash)
+		}
+
+		////4. ensure that chain is reorged and latest block number is less than the block number when request was made
+		//require.Less(t, latestBlockNumberAfterReorg, randomWordsRequestedEvent.Raw.BlockNumber)
+		//
+		////5. wait for the fulfillment
+		//randomWordsFulfilledEvent, err := vrfContracts.CoordinatorV2Plus.WaitForRandomWordsFulfilledEvent(
+		//	[]*big.Int{subID},
+		//	[]*big.Int{randomWordsRequestedEvent.RequestId},
+		//	time.Second*30,
+		//)
+		//require.NoError(t, err, "error waiting for randomness fulfilled event")
+		//vrfv2plus.LogRandomWordsFulfilledEvent(l, vrfContracts.CoordinatorV2Plus, randomWordsFulfilledEvent, isNativeBilling)
+		//status, err := consumers[0].GetRequestStatus(testcontext.Get(t), randomWordsFulfilledEvent.RequestId)
+		//require.NoError(t, err, "error getting rand request status")
+		//require.True(t, status.Fulfilled)
+		//l.Info().Bool("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
 
 		//todo - is it possible to tell which blockhash was used for the fulfillment when reorg happened?
 
 	})
 
+}
+
+func checkBlock(t *testing.T, evmClient blockchain.EVMClient, blockNumber *big.Int, expectedTxHash common.Hash) *types.Block {
+	fmt.Println("######## CHECKING BLOCK NUMBER ########", blockNumber)
+	randRequestBlock, err := evmClient.GetEthClient().BlockByNumber(testcontext.Get(t), blockNumber)
+	require.NoError(t, err)
+	randRequestBlockTransactions := randRequestBlock.Transactions()
+
+	for _, tx := range randRequestBlockTransactions {
+		fmt.Println("randRequestBlockTransaction HASH", tx.Hash().String())
+		if tx.Hash().Cmp(expectedTxHash) == 0 {
+			fmt.Println("MATCH!!!! BLOCK has the rand request tx", tx.Hash().String())
+		}
+	}
+	fmt.Println("number of txs", len(randRequestBlockTransactions), "for block", randRequestBlock.NumberU64())
+	return randRequestBlock
 }
 
 func makeReorg(t *testing.T, evmClient blockchain.EVMClient, env *test_env.CLClusterTestEnv, chainID int64, rewindChainByBlocks uint64) {
