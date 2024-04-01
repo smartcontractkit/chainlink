@@ -2,8 +2,12 @@ ChainID = '59141'
 FinalityDepth = 900
 
 [GasEstimator]
-BumpPercent = 40
+EIP1559DynamicFees = true
+BumpPercent = 10
 
 [Transactions]
 # increase resend time to align with finality
 ResendAfterThreshold = '3m'
+
+[HeadTracker]
+HistoryDepth = 1000
