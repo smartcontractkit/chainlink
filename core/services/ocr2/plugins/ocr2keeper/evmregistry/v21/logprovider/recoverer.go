@@ -353,6 +353,7 @@ func (r *logRecoverer) recover(ctx context.Context) error {
 
 	r.lggr.Debugw("recovering logs", "numberOfFilters", len(filters), "filters", filters, "startBlock", start, "offsetBlock", offsetBlock, "latestBlock", latest, "recoverID", ctx.Value("recoverID"))
 
+	startTime := time.Now()
 	// This is unbounded, should we use a worker pool?
 	var wg sync.WaitGroup
 	for _, f := range filters {
@@ -367,6 +368,8 @@ func (r *logRecoverer) recover(ctx context.Context) error {
 		}(f)
 	}
 	wg.Wait()
+	finishTime := time.Now().Sub(startTime)
+	r.lggr.Debugw("finished recovering logs", "timeTaken", finishTime.String(), "timeTakenMS", finishTime.Milliseconds(), "numberOfFilters", len(filters), "filters", filters, "startBlock", start, "offsetBlock", offsetBlock, "latestBlock", latest, "recoverID", ctx.Value("recoverID"))
 
 	return nil
 }
