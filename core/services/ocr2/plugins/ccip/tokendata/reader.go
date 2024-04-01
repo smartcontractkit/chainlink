@@ -9,6 +9,7 @@ import (
 var (
 	ErrNotReady        = errors.New("token data not ready")
 	ErrRateLimit       = errors.New("token data API is being rate limited")
+	ErrSelfRateLimit   = errors.New("token data API is being self rate limited")
 	ErrTimeout         = errors.New("token data API timed out")
 	ErrRequestsBlocked = errors.New("requests are currently blocked")
 )
