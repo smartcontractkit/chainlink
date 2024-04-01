@@ -153,6 +153,36 @@ func TestLogComparatorSorter(t *testing.T) {
 			wantCmp:  1,
 			wantSort: true,
 		},
+		{
+			name: "a > b: tx hash",
+			a: logpoller.Log{
+				BlockNumber: 1,
+				TxHash:      common.HexToHash("0x21"),
+				LogIndex:    2,
+			},
+			b: logpoller.Log{
+				BlockNumber: 1,
+				TxHash:      common.HexToHash("0x1"),
+				LogIndex:    2,
+			},
+			wantCmp:  1,
+			wantSort: true,
+		},
+		{
+			name: "a < b: tx hash",
+			a: logpoller.Log{
+				BlockNumber: 1,
+				TxHash:      common.HexToHash("0x1"),
+				LogIndex:    2,
+			},
+			b: logpoller.Log{
+				BlockNumber: 1,
+				TxHash:      common.HexToHash("0x4"),
+				LogIndex:    2,
+			},
+			wantCmp:  -1,
+			wantSort: false,
+		},
 	}
 
 	for _, tc := range tests {

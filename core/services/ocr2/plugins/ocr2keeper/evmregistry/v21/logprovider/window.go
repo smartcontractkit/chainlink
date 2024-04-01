@@ -21,7 +21,8 @@ func LogSorter(a, b logpoller.Log) bool {
 	return LogComparator(a, b) > 0
 }
 
-// LogComparator compares the logs based on block number, tx hash and log index.
+// LogComparator compares the logs based on block number, log index.
+// tx hash is also checked in case the log index is not unique within a block.
 //
 // Returns:
 //
@@ -32,8 +33,9 @@ func LogComparator(a, b logpoller.Log) int {
 	if a.BlockNumber != b.BlockNumber {
 		return int(a.BlockNumber - b.BlockNumber)
 	}
-	// if txDiff := a.TxHash.Big().Cmp(b.TxHash.Big()); txDiff != 0 {
-	// 	return txDiff
-	// }
-	return int(a.LogIndex - b.LogIndex)
+	logIndexDiff := a.LogIndex - b.LogIndex
+	if logIndexDiff == 0 {
+		return a.TxHash.Big().Cmp(b.TxHash.Big())
+	}
+	return int(logIndexDiff)
 }
