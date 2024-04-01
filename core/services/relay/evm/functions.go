@@ -201,7 +201,6 @@ func newFunctionsContractTransmitter(ctx context.Context, contractVersion uint32
 		OCR2AggregatorTransmissionContractABI,
 		configWatcher.chain.LogPoller(),
 		lggr,
-		nil,
 		contractVersion,
 		configWatcher.chain.TxManager(),
 		fromAddresses,

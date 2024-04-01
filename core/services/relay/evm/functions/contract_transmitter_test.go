@@ -61,9 +61,11 @@ func TestContractTransmitter_LatestConfigDigestAndEpoch(t *testing.T) {
 	strategy := newMockTxStrategy(t)
 	lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
 
-	functionsTransmitter, err := functions.NewFunctionsContractTransmitter(c, contractABI, lp, lggr, func(b []byte) (*txmgr.TxMeta, error) {
-		return &txmgr.TxMeta{}, nil
-	},
+	functionsTransmitter, err := functions.NewFunctionsContractTransmitter(
+		c,
+		contractABI,
+		lp,
+		lggr,
 		1,
 		txm,
 		[]gethcommon.Address{fromAddress},
@@ -105,9 +107,12 @@ func TestContractTransmitter_Transmit_V1(t *testing.T) {
 	strategy := newMockTxStrategy(t)
 	lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
 
-	ot, err := functions.NewFunctionsContractTransmitter(c, contractABI, lp, lggr, func(b []byte) (*txmgr.TxMeta, error) {
-		return &txmgr.TxMeta{}, nil
-	}, contractVersion,
+	ot, err := functions.NewFunctionsContractTransmitter(
+		c,
+		contractABI,
+		lp,
+		lggr,
+		contractVersion,
 		txm,
 		[]gethcommon.Address{fromAddress},
 		gasLimit,
@@ -181,9 +186,12 @@ func TestContractTransmitter_Transmit_V1_CoordinatorMismatch(t *testing.T) {
 	strategy := newMockTxStrategy(t)
 	lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
 
-	ot, err := functions.NewFunctionsContractTransmitter(c, contractABI, lp, lggr, func(b []byte) (*txmgr.TxMeta, error) {
-		return &txmgr.TxMeta{}, nil
-	}, contractVersion,
+	ot, err := functions.NewFunctionsContractTransmitter(
+		c,
+		contractABI,
+		lp,
+		lggr,
+		contractVersion,
 		txm,
 		[]gethcommon.Address{fromAddress},
 		gasLimit,

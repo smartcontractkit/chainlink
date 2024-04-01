@@ -41,10 +41,6 @@ type FunctionsContractTransmitter interface {
 
 type ReportToEthMetadata func([]byte) (*txmgr.TxMeta, error)
 
-func reportToEvmTxMetaNoop([]byte) (*txmgr.TxMeta, error) {
-	return nil, nil
-}
-
 type contractTransmitter struct {
 	contractAddress             atomic.Pointer[common.Address]
 	contractABI                 abi.ABI
@@ -52,7 +48,6 @@ type contractTransmitter struct {
 	contractReader              contractReader
 	lp                          logpoller.LogPoller
 	lggr                        logger.Logger
-	reportToEvmTxMeta           ReportToEthMetadata
 	contractVersion             uint32
 	reportCodec                 encoding.ReportCodec
 	txm                         txManager
@@ -77,7 +72,6 @@ func NewFunctionsContractTransmitter(
 	contractABI abi.ABI,
 	lp logpoller.LogPoller,
 	lggr logger.Logger,
-	reportToEvmTxMeta ReportToEthMetadata,
 	contractVersion uint32,
 	txm txManager,
 	fromAddresses []common.Address,
@@ -102,9 +96,6 @@ func NewFunctionsContractTransmitter(
 		return nil, fmt.Errorf("unsupported contract version: %d", contractVersion)
 	}
 
-	if reportToEvmTxMeta == nil {
-		reportToEvmTxMeta = reportToEvmTxMetaNoop
-	}
 	codec, err := encoding.NewReportCodec(contractVersion)
 	if err != nil {
 		return nil, err
@@ -114,8 +105,7 @@ func NewFunctionsContractTransmitter(
 		transmittedEventSig:         transmitted.ID,
 		lp:                          lp,
 		contractReader:              caller,
-		lggr:                        lggr.Named("OCRContractTransmitter"),
-		reportToEvmTxMeta:           reportToEvmTxMeta,
+		lggr:                        lggr.Named("OCRFunctionsContractTransmitter"),
 		contractVersion:             contractVersion,
 		reportCodec:                 codec,
 		txm:                         txm,
@@ -176,11 +166,6 @@ func (oc *contractTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.
 		vs[i] = v
 	}
 	rawReportCtx := evmutil.RawReportContext(reportCtx)
-
-	txMeta, err := oc.reportToEvmTxMeta(report)
-	if err != nil {
-		oc.lggr.Warnw("failed to generate tx metadata for report", "err", err)
-	}
 
 	var destinationContract common.Address
 	switch oc.contractVersion {
