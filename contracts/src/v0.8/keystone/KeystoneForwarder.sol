@@ -6,7 +6,7 @@ import {ConfirmedOwner} from "../shared/access/ConfirmedOwner.sol";
 import {TypeAndVersionInterface} from "../interfaces/TypeAndVersionInterface.sol";
 import {Utils} from "./libraries/Utils.sol";
 
-// solhint-disable custom-errors, no-unused-vars
+// solhint-disable gas-custom-errors, no-unused-vars
 contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterface {
   error ReentrantCall();
 

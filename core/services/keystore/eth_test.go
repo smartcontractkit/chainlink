@@ -115,7 +115,7 @@ func Test_EthKeyStore(t *testing.T) {
 		cltest.AssertCount(t, db, statesTableName, 1)
 
 		// add one eth_tx
-		txStore := cltest.NewTestTxStore(t, db, cfg.Database())
+		txStore := cltest.NewTestTxStore(t, db)
 		cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 0, 42, key.Address)
 
 		_, err = ethKeyStore.Delete(ctx, key.ID())

@@ -5,6 +5,7 @@
 import { AutomationRegistry2_3__factory as Registry } from '../typechain/factories/AutomationRegistry2_3__factory'
 import { AutomationRegistryLogicA2_3__factory as RegistryLogicA } from '../typechain/factories/AutomationRegistryLogicA2_3__factory'
 import { AutomationRegistryLogicB2_3__factory as RegistryLogicB } from '../typechain/factories/AutomationRegistryLogicB2_3__factory'
+import { AutomationRegistryLogicC2_3__factory as RegistryLogicC } from '../typechain/factories/AutomationRegistryLogicC2_3__factory'
 import { utils } from 'ethers'
 import fs from 'fs'
 import { exec } from 'child_process'
@@ -15,7 +16,12 @@ const tmpDest = `${dest}/tmp.txt`
 
 const combinedABI = []
 const abiSet = new Set()
-const abis = [Registry.abi, RegistryLogicA.abi, RegistryLogicB.abi]
+const abis = [
+  Registry.abi,
+  RegistryLogicA.abi,
+  RegistryLogicB.abi,
+  RegistryLogicC.abi,
+]
 
 for (const abi of abis) {
   for (const entry of abi) {
@@ -40,7 +46,7 @@ const checksum = utils.id(abis.join(''))
 fs.writeFileSync(`${tmpDest}`, JSON.stringify(combinedABI))
 
 const cmd = `
-cat ${tmpDest} | pnpm abi-to-sol --solidity-version ^0.8.4 --license MIT > ${srcDest} IAutomationRegistryMaster;
+cat ${tmpDest} | pnpm abi-to-sol --solidity-version ^0.8.4 --license MIT > ${srcDest} IAutomationRegistryMaster2_3;
 echo "// abi-checksum: ${checksum}" | cat - ${srcDest} > ${tmpDest} && mv ${tmpDest} ${srcDest};
 pnpm prettier --write ${srcDest};
 `

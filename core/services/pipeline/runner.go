@@ -16,6 +16,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
@@ -204,8 +205,8 @@ func NewRun(spec Spec, vars Vars) *Run {
 		State:          RunStatusRunning,
 		PipelineSpec:   spec,
 		PipelineSpecID: spec.ID,
-		Inputs:         JSONSerializable{Val: vars.vars, Valid: true},
-		Outputs:        JSONSerializable{Val: nil, Valid: false},
+		Inputs:         jsonserializable.JSONSerializable{Val: vars.vars, Valid: true},
+		Outputs:        jsonserializable.JSONSerializable{Val: nil, Valid: false},
 		CreatedAt:      time.Now(),
 	}
 }
@@ -319,7 +320,7 @@ func (r *runner) InitializePipeline(spec Spec) (pipeline *Pipeline, err error) {
 }
 
 func (r *runner) run(ctx context.Context, pipeline *Pipeline, run *Run, vars Vars, l logger.Logger) TaskRunResults {
-	l = l.With("jobID", run.PipelineSpec.JobID, "jobName", run.PipelineSpec.JobName)
+	l = l.With("run.ID", run.ID, "executionID", uuid.New(), "specID", run.PipelineSpecID, "jobID", run.PipelineSpec.JobID, "jobName", run.PipelineSpec.JobName)
 	l.Debug("Initiating tasks for pipeline run of spec")
 
 	scheduler := newScheduler(pipeline, run, vars, l)
@@ -362,12 +363,12 @@ func (r *runner) run(ctx context.Context, pipeline *Pipeline, run *Run, vars Var
 	run.FailSilently = scheduler.exiting
 	run.State = RunStatusSuspended
 
+	var runTime time.Duration
 	if !scheduler.pending {
 		run.FinishedAt = null.TimeFrom(time.Now())
 
 		// NOTE: runTime can be very long now because it'll include suspend
-		runTime := run.FinishedAt.Time.Sub(run.CreatedAt)
-		l.Debugw("Finished all tasks for pipeline run", "specID", run.PipelineSpecID, "runTime", runTime)
+		runTime = run.FinishedAt.Time.Sub(run.CreatedAt)
 		PromPipelineRunTotalTimeToCompletion.WithLabelValues(fmt.Sprintf("%d", run.PipelineSpec.JobID), run.PipelineSpec.JobName).Set(float64(runTime))
 	}
 
@@ -389,6 +390,9 @@ func (r *runner) run(ctx context.Context, pipeline *Pipeline, run *Run, vars Var
 		})
 
 		sort.Slice(run.PipelineTaskRuns, func(i, j int) bool {
+			if run.PipelineTaskRuns[i].task.OutputIndex() == run.PipelineTaskRuns[j].task.OutputIndex() {
+				return run.PipelineTaskRuns[i].FinishedAt.ValueOrZero().Before(run.PipelineTaskRuns[j].FinishedAt.ValueOrZero())
+			}
 			return run.PipelineTaskRuns[i].task.OutputIndex() < run.PipelineTaskRuns[j].task.OutputIndex()
 		})
 	}
@@ -411,7 +415,7 @@ func (r *runner) run(ctx context.Context, pipeline *Pipeline, run *Run, vars Var
 		}
 		run.AllErrors = errors
 		run.FatalErrors = fatalErrors
-		run.Outputs = JSONSerializable{Val: outputs, Valid: true}
+		run.Outputs = jsonserializable.JSONSerializable{Val: outputs, Valid: true}
 
 		if run.HasFatalErrors() {
 			run.State = RunStatusErrored
@@ -437,6 +441,33 @@ func (r *runner) run(ctx context.Context, pipeline *Pipeline, run *Run, vars Var
 	})
 	for i := range taskRunResults {
 		idxs[i] = taskRunResults[i].Task.OutputIndex()
+	}
+
+	if r.config.VerboseLogging() {
+		l = l.With(
+			"run.PipelineTaskRuns", run.PipelineTaskRuns,
+			"run.Outputs", run.Outputs,
+			"run.CreatedAt", run.CreatedAt,
+			"run.FinishedAt", run.FinishedAt,
+			"run.Meta", run.Meta,
+			"run.Inputs", run.Inputs,
+		)
+	}
+	if run.HasFatalErrors() {
+		l = l.With("run.FatalErrors", run.FatalErrors)
+	}
+	if run.HasErrors() {
+		l = l.With("run.AllErrors", run.AllErrors)
+	}
+	l = l.With("run.State", run.State, "fatal", run.HasFatalErrors(), "runTime", runTime)
+	if run.HasFatalErrors() {
+		// This will also log at error level in OCR if it fails Observe so the
+		// level is appropriate
+		l.Errorw("Completed pipeline run with fatal errors")
+	} else if run.HasErrors() {
+		l.Debugw("Completed pipeline run with errors")
+	} else {
+		l.Debugw("Completed pipeline run successfully")
 	}
 
 	return taskRunResults
@@ -480,7 +511,9 @@ func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryT
 		loggerFields = append(loggerFields, "resultString", fmt.Sprintf("%q", v))
 		loggerFields = append(loggerFields, "resultHex", fmt.Sprintf("%x", v))
 	}
-	l.Tracew("Pipeline task completed", loggerFields...)
+	if r.config.VerboseLogging() {
+		l.Tracew("Pipeline task completed", loggerFields...)
+	}
 
 	now := time.Now()
 

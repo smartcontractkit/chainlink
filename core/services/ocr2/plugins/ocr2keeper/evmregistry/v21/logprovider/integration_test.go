@@ -26,12 +26,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	evmregistry21 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/logprovider"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 func TestIntegration_LogEventProvider(t *testing.T) {
@@ -388,7 +386,7 @@ func waitLogPoller(ctx context.Context, t *testing.T, backend *backends.Simulate
 	require.NoError(t, err)
 	latestBlock := b.Number().Int64()
 	for {
-		latestPolled, lberr := lp.LatestBlock(pg.WithParentCtx(ctx))
+		latestPolled, lberr := lp.LatestBlock(ctx)
 		require.NoError(t, lberr)
 		if latestPolled.BlockNumber >= latestBlock {
 			break
@@ -486,7 +484,7 @@ func setupDependencies(t *testing.T, db *sqlx.DB, backend *backends.SimulatedBac
 	ethClient := evmclient.NewSimulatedBackendClient(t, backend, big.NewInt(1337))
 	pollerLggr := logger.TestLogger(t)
 	pollerLggr.SetLogLevel(zapcore.WarnLevel)
-	lorm := logpoller.NewORM(big.NewInt(1337), db, pollerLggr, pgtest.NewQConfig(false))
+	lorm := logpoller.NewORM(big.NewInt(1337), db, pollerLggr)
 	lpOpts := logpoller.Opts{
 		PollPeriod:               100 * time.Millisecond,
 		FinalityDepth:            1,

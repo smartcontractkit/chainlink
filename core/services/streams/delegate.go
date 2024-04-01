@@ -38,10 +38,10 @@ func (d *Delegate) JobType() job.Type {
 	return job.Stream
 }
 
-func (d *Delegate) BeforeJobCreated(jb job.Job)                {}
-func (d *Delegate) AfterJobCreated(jb job.Job)                 {}
-func (d *Delegate) BeforeJobDeleted(jb job.Job)                {}
-func (d *Delegate) OnDeleteJob(jb job.Job, q pg.Queryer) error { return nil }
+func (d *Delegate) BeforeJobCreated(jb job.Job)                                     {}
+func (d *Delegate) AfterJobCreated(jb job.Job)                                      {}
+func (d *Delegate) BeforeJobDeleted(jb job.Job)                                     {}
+func (d *Delegate) OnDeleteJob(ctx context.Context, jb job.Job, q pg.Queryer) error { return nil }
 
 func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) (services []job.ServiceCtx, err error) {
 	if jb.StreamID == nil {

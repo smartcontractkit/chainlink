@@ -1,5 +1,5 @@
 ChainID = '1101'
-FinalityDepth = 1
+FinalityDepth = 500
 NoNewHeadsThreshold = '6m'
 MinIncomingConfirmations = 1
 LogPollInterval = '30s'
@@ -21,4 +21,5 @@ BumpMin = '100 mwei'
 BlockHistorySize = 12
 
 [HeadTracker]
-HistoryDepth = 50
+# Polygon suffers from a tremendous number of re-orgs, we need to set this to something very large to be conservative enough
+HistoryDepth = 2000

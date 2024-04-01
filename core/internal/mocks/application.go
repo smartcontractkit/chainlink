@@ -17,6 +17,8 @@ import (
 
 	job "github.com/smartcontractkit/chainlink/v2/core/services/job"
 
+	jsonserializable "github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
+
 	keystore "github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 
 	logger "github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -30,6 +32,8 @@ import (
 	services "github.com/smartcontractkit/chainlink/v2/core/services"
 
 	sessions "github.com/smartcontractkit/chainlink/v2/core/sessions"
+
+	sqlutil "github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
 	sqlx "github.com/jmoiron/sqlx"
 
@@ -199,6 +203,26 @@ func (_m *Application) GetConfig() chainlink.GeneralConfig {
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(chainlink.GeneralConfig)
+		}
+	}
+
+	return r0
+}
+
+// GetDB provides a mock function with given fields:
+func (_m *Application) GetDB() sqlutil.DataSource {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetDB")
+	}
+
+	var r0 sqlutil.DataSource
+	if rf, ok := ret.Get(0).(func() sqlutil.DataSource); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(sqlutil.DataSource)
 		}
 	}
 
@@ -528,7 +552,7 @@ func (_m *Application) RunJobV2(ctx context.Context, jobID int32, meta map[strin
 }
 
 // RunWebhookJobV2 provides a mock function with given fields: ctx, jobUUID, requestBody, meta
-func (_m *Application) RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta pipeline.JSONSerializable) (int64, error) {
+func (_m *Application) RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta jsonserializable.JSONSerializable) (int64, error) {
 	ret := _m.Called(ctx, jobUUID, requestBody, meta)
 
 	if len(ret) == 0 {
@@ -537,16 +561,16 @@ func (_m *Application) RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, r
 
 	var r0 int64
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, string, pipeline.JSONSerializable) (int64, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, string, jsonserializable.JSONSerializable) (int64, error)); ok {
 		return rf(ctx, jobUUID, requestBody, meta)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, string, pipeline.JSONSerializable) int64); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, string, jsonserializable.JSONSerializable) int64); ok {
 		r0 = rf(ctx, jobUUID, requestBody, meta)
 	} else {
 		r0 = ret.Get(0).(int64)
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, uuid.UUID, string, pipeline.JSONSerializable) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, uuid.UUID, string, jsonserializable.JSONSerializable) error); ok {
 		r1 = rf(ctx, jobUUID, requestBody, meta)
 	} else {
 		r1 = ret.Error(1)
