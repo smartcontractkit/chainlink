@@ -146,6 +146,86 @@ func CreateBHSJob(
 	return job, nil
 }
 
+func SetupBHFNode(
+	env *test_env.CLClusterTestEnv,
+	config *vrf_common_config.General,
+	numberOfTxKeysToCreate int,
+	chainID *big.Int,
+	coordinatorAddress string,
+	BHSAddress string,
+	batchBHSAddress string,
+	txKeyFunding float64,
+	l zerolog.Logger,
+	bhfNode *VRFNode,
+) error {
+	evmClient, err := env.GetEVMClient(chainID.Int64())
+	if err != nil {
+		return err
+	}
+	bhfTXKeyAddressStrings, _, err := CreateFundAndGetSendingKeys(
+		evmClient,
+		bhfNode,
+		txKeyFunding,
+		numberOfTxKeysToCreate,
+		chainID,
+	)
+	if err != nil {
+		return err
+	}
+	bhfNode.TXKeyAddressStrings = bhfTXKeyAddressStrings
+	bhfSpec := client.BlockHeaderFeederJobSpec{
+		ForwardingAllowed:          false,
+		CoordinatorV2Address:       coordinatorAddress,
+		CoordinatorV2PlusAddress:   coordinatorAddress,
+		BlockhashStoreAddress:      BHSAddress,
+		BatchBlockhashStoreAddress: batchBHSAddress,
+		FromAddresses:              bhfTXKeyAddressStrings,
+		EVMChainID:                 chainID.String(),
+		WaitBlocks:                 *config.BHFJobWaitBlocks,
+		LookbackBlocks:             *config.BHFJobLookBackBlocks,
+		PollPeriod:                 config.BHFJobPollPeriod.Duration,
+		RunTimeout:                 config.BHFJobRunTimeout.Duration,
+	}
+	l.Info().Msg("Creating BHF Job")
+	bhfJob, err := CreateBHFJob(
+		bhfNode.CLNode.API,
+		bhfSpec,
+	)
+	if err != nil {
+		return fmt.Errorf("%s, err %w", "", err)
+	}
+	bhfNode.Job = bhfJob
+	return nil
+}
+
+func CreateBHFJob(
+	chainlinkNode *client.ChainlinkClient,
+	bhfJobSpecConfig client.BlockHeaderFeederJobSpec,
+) (*client.Job, error) {
+	jobUUID := uuid.New()
+	spec := &client.BlockHeaderFeederJobSpec{
+		Name:                       fmt.Sprintf("bhf-%s", jobUUID),
+		ForwardingAllowed:          bhfJobSpecConfig.ForwardingAllowed,
+		CoordinatorV2Address:       bhfJobSpecConfig.CoordinatorV2Address,
+		CoordinatorV2PlusAddress:   bhfJobSpecConfig.CoordinatorV2PlusAddress,
+		BlockhashStoreAddress:      bhfJobSpecConfig.BlockhashStoreAddress,
+		BatchBlockhashStoreAddress: bhfJobSpecConfig.BatchBlockhashStoreAddress,
+		FromAddresses:              bhfJobSpecConfig.FromAddresses,
+		EVMChainID:                 bhfJobSpecConfig.EVMChainID,
+		ExternalJobID:              jobUUID.String(),
+		WaitBlocks:                 bhfJobSpecConfig.WaitBlocks,
+		LookbackBlocks:             bhfJobSpecConfig.LookbackBlocks,
+		PollPeriod:                 bhfJobSpecConfig.PollPeriod,
+		RunTimeout:                 bhfJobSpecConfig.RunTimeout,
+	}
+
+	job, err := chainlinkNode.MustCreateJob(spec)
+	if err != nil {
+		return nil, fmt.Errorf("%s, err %w", ErrCreatingBHSJob, err)
+	}
+	return job, nil
+}
+
 func WaitForRequestCountEqualToFulfilmentCount(
 	ctx context.Context,
 	consumer VRFLoadTestConsumer,
