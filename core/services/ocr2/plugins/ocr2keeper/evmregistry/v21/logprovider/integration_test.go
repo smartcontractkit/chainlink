@@ -34,16 +34,24 @@ import (
 
 func TestIntegration_LogEventProvider(t *testing.T) {
 	tests := []struct {
-		name     string
-		version  string
-		logLimit uint32
+		name          string
+		bufferVersion logprovider.BufferVersion
+		logLimit      uint32
 	}{
-		{"default version", "", 10},
-		{"v1", "v1", 10},
+		{
+			name:          "default version",
+			bufferVersion: logprovider.BufferVersionV0,
+			logLimit:      10,
+		},
+		{
+			name:          "v1",
+			bufferVersion: logprovider.BufferVersionV1,
+			logLimit:      10,
+		},
 	}
 
 	for _, tc := range tests {
-		bufferVersion, logLimit := tc.version, tc.logLimit
+		bufferVersion, logLimit := tc.bufferVersion, tc.logLimit
 		t.Run(tc.name, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(testutils.Context(t))
 			defer cancel()
@@ -213,11 +221,19 @@ func TestIntegration_LogEventProvider_UpdateConfig(t *testing.T) {
 func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
 	tests := []struct {
 		name          string
-		bufferVersion string
+		bufferVersion logprovider.BufferVersion
 		logLimit      uint32
 	}{
-		{"default version", "", 10},
-		{"v1", "v1", 10},
+		{
+			name:          "default version",
+			bufferVersion: logprovider.BufferVersionV0,
+			logLimit:      10,
+		},
+		{
+			name:          "v1",
+			bufferVersion: logprovider.BufferVersionV1,
+			logLimit:      10,
+		},
 	}
 
 	for _, tc := range tests {

@@ -81,8 +81,13 @@ type LogEventProviderTest interface {
 	CurrentPartitionIdx() uint64
 }
 
+type LogEventProviderFeatures interface {
+	WithBufferVersion(v BufferVersion)
+}
+
 var _ LogEventProvider = &logEventProvider{}
 var _ LogEventProviderTest = &logEventProvider{}
+var _ LogEventProviderFeatures = &logEventProvider{}
 
 // logEventProvider manages log filters for upkeeps and enables to read the log events.
 type logEventProvider struct {
@@ -118,6 +123,15 @@ func NewLogProvider(lggr logger.Logger, poller logpoller.LogPoller, packer LogDa
 		opts:        opts,
 		filterStore: filterStore,
 	}
+}
+
+func (p *logEventProvider) WithBufferVersion(v BufferVersion) {
+	p.lock.Lock()
+	defer p.lock.Unlock()
+
+	p.lggr.Debugw("with buffer version", "version", v)
+
+	p.opts.BufferVersion = v
 }
 
 func (p *logEventProvider) Start(context.Context) error {
@@ -244,7 +258,7 @@ func (p *logEventProvider) getLogsFromBuffer(latestBlock int64) []ocr2keepers.Up
 	}
 
 	switch p.opts.BufferVersion {
-	case "v1":
+	case BufferVersionV1:
 		// in v1, we use a greedy approach - we keep dequeuing logs until we reach the max results or cover the entire range.
 		blockRate, logLimitLow, maxResults, _ := p.getBufferDequeueArgs()
 		for len(payloads) < maxResults && start <= latestBlock {

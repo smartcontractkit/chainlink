@@ -15,9 +15,6 @@ func New(lggr logger.Logger, poller logpoller.LogPoller, c client.Client, stateS
 	filterStore := NewUpkeepFilterStore()
 	packer := NewLogEventsPacker()
 	opts := NewOptions(int64(finalityDepth))
-	if len(opts.BufferVersion) == 0 { // TODO: remove once config is ready
-		opts.BufferVersion = "v1"
-	}
 	provider := NewLogProvider(lggr, poller, packer, filterStore, opts)
 	recoverer := NewLogRecoverer(lggr, poller, c, stateStore, packer, filterStore, opts)
 
@@ -36,12 +33,19 @@ type LogTriggersOptions struct {
 	FinalityDepth int64
 
 	// v1 config
-	BufferVersion string
+	BufferVersion BufferVersion
 
 	LogLimit uint32
 
 	BlockRate uint32
 }
+
+type BufferVersion string
+
+const (
+	BufferVersionV0 BufferVersion = ""
+	BufferVersionV1 BufferVersion = "v1"
+)
 
 func NewOptions(finalityDepth int64) LogTriggersOptions {
 	opts := new(LogTriggersOptions)
