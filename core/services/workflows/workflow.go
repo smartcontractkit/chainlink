@@ -1,11 +1,12 @@
 package workflows
 
 import (
+	"encoding/json"
 	"fmt"
 
-	"gopkg.in/yaml.v3"
-
 	"github.com/dominikbraun/graph"
+	"github.com/invopop/jsonschema"
+	"sigs.k8s.io/yaml"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
@@ -17,19 +18,101 @@ type stepRequest struct {
 }
 
 // stepDefinition is the parsed representation of a step in a workflow.
+//
+// Within the workflow spec, they are called "Capability Properties".
 type stepDefinition struct {
-	Type   string         `yaml:"type"`
-	Ref    string         `yaml:"ref"`
-	Inputs map[string]any `yaml:"inputs"`
-	Config map[string]any `yaml:"config"`
+	// A universally unique name for a capability will be defined under the “type” property. The uniqueness will, eventually, be enforced in the Capability Registry . Semver must be used to specify the version of the Capability at the end of the type field. Capability versions must be immutable.
+	//
+	// Initially, we will require major versions. This will ease upgrades early on while we develop the infrastructure.
+	//
+	// Eventually, we might support minor version and specific version pins. This will allow workflow authors to have flexibility when selecting the version, and node operators will be able to determine when they should update their capabilities.
+	//
+	// There are two ways to specify a type - using a string as a fully qualified ID or a structured table. When using a table, tags are ordered alphanumerically and joined into a string following a
+	//  {type}:{tag1_key}_{tag1_value}:{tag2_key}_{tag2_value}@{version}
+	// pattern.
+	//
+	// The “type” supports [a-z0-9_-:] characters followed by an @ and [semver regex] at the end.
+	//
+	// Validation must throw an error if:
+	//
+	// Unsupported characters are used.
+	// (For Keystone only.) More specific than a major version is specified.
+	//
+	// Example (string)
+	//  type: read_chain:chain_ethereum:network_mainnet@1
+	//
+	// Example (table)
+	//
+	//  type:
+	//    name: read_chain
+	//    version: 1
+	//    tags:
+	//      chain: ethereum
+	//      network: mainnet
+	//
+	// [semver regex]: https://semver.org/#is-there-a-suggested-regular-expression-regex-to-check-a-semver-string
+	Type string `json:"type" jsonschema:"required,pattern=^[a-z0-9_\\-:]+@(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$"`
+
+	// Actions and Consensus capabilities have a required “ref” property that must be unique within a Workflow file (not universally) This property enables referencing outputs and is required because Actions and Consensus always need to be referenced in the following phases. Triggers can optionally specify  if they need to be referenced.
+	//
+	// The “ref” supports [a-z0-9_] characters.
+	//
+	// Validation must throw an error if:
+	//  - Unsupported characters are used.
+	//  - The same “ref” appears in the workflow multiple times.
+	//  - “ref” is used on a Target capability.
+	//  - “ref” has a circular reference.
+	//
+	// NOTE: Should introduce a custom validator to cover trigger case
+	Ref string `json:"ref,omitempty" jsonschema:"pattern=^[a-z0-9_]+$"`
+
+	// Capabilities can specify an additional optional ”inputs” property. It allows specifying a dependency on the result of one or more other capabilities. These are always runtime values that cannot be provided upfront. It takes a map of the argument name internal to the capability and an explicit reference to the values.
+	//
+	// References are specified using the [type].[ref].[path_to_value] pattern.
+	//
+	// The interpolation of “inputs” is allowed
+	//
+	// Validation must throw an error if:
+	//  - Input reference cannot be resolved.
+	//  - Input is defined on triggers
+	// NOTE: Should introduce a custom validator to cover trigger case
+	Inputs map[string]any `json:"inputs,omitempty"`
+
+	// The configuration of a Capability will be done using the “config” property. Each capability is responsible for defining an external interface used during setup. This interface may be unique or identical, meaning multiple Capabilities might use the same configuration properties.
+	//
+	// The interpolation of “inputs”
+	//
+	// Interpolation of self inputs is allowed from within the “config” property.
+	//
+	// Example
+	//  targets:
+	//    - type: write_polygon_mainnet@1
+	//      inputs:
+	//        report:
+	//          - consensus.evm_median.outputs.report
+	//      config:
+	//        address: "0xaabbcc"
+	//        method: "updateFeedValues(report bytes, role uint8)"
+	//        params: [$(inputs.report), 1]
+	Config map[string]any `json:"config" jsonschema:"required"`
 }
 
 // workflowSpec is the parsed representation of a workflow.
 type workflowSpec struct {
-	Triggers  []stepDefinition `yaml:"triggers"`
-	Actions   []stepDefinition `yaml:"actions"`
-	Consensus []stepDefinition `yaml:"consensus"`
-	Targets   []stepDefinition `yaml:"targets"`
+	// Triggers define a starting condition for the workflow, based on specific events or conditions.
+	Triggers []stepDefinition `json:"triggers" jsonschema:"required"`
+	// Actions represent a discrete operation within the workflow, potentially transforming input data.
+	Actions []stepDefinition `json:"actions,omitempty"`
+	// Consensus encapsulates the logic for aggregating and validating the results from various nodes.
+	Consensus []stepDefinition `json:"consensus" jsonschema:"required"`
+	// Targets represents the final step of the workflow, delivering the processed data to a specified location.
+	Targets []stepDefinition `json:"targets" jsonschema:"required"`
+}
+
+func GenerateJsonSchema() ([]byte, error) {
+	schema := jsonschema.Reflect(&workflowSpec{})
+
+	return json.MarshalIndent(schema, "", "  ")
 }
 
 func (w *workflowSpec) steps() []stepDefinition {

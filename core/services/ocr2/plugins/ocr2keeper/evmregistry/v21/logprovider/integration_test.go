@@ -91,7 +91,7 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 		// assuming that our service was closed and restarted,
 		// we should be able to backfill old logs and fetch new ones
 		filterStore := logprovider.NewUpkeepFilterStore()
-		logProvider2 := logprovider.NewLogProvider(logger.TestLogger(t), lp, logprovider.NewLogEventsPacker(), filterStore, opts)
+		logProvider2 := logprovider.NewLogProvider(logger.TestLogger(t), lp, big.NewInt(1), logprovider.NewLogEventsPacker(), filterStore, opts)
 
 		poll(backend.Commit())
 		go func() {
@@ -676,7 +676,7 @@ func setup(lggr logger.Logger, poller logpoller.LogPoller, c client.Client, stat
 		o := logprovider.NewOptions(200)
 		opts = &o
 	}
-	provider := logprovider.NewLogProvider(lggr, poller, packer, filterStore, *opts)
+	provider := logprovider.NewLogProvider(lggr, poller, big.NewInt(1), packer, filterStore, *opts)
 	recoverer := logprovider.NewLogRecoverer(lggr, poller, c, stateStore, packer, filterStore, *opts)
 
 	return provider, recoverer

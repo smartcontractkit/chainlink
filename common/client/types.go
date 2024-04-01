@@ -53,6 +53,7 @@ type RPC[
 type Head interface {
 	BlockNumber() int64
 	BlockDifficulty() *big.Int
+	IsValid() bool
 }
 
 // NodeClient includes all the necessary RPC methods required by a node.
@@ -72,6 +73,7 @@ type NodeClient[
 	SetAliveLoopSub(types.Subscription)
 	UnsubscribeAllExceptAliveLoop()
 	IsSyncing(ctx context.Context) (bool, error)
+	LatestFinalizedBlock(ctx context.Context) (HEAD, error)
 }
 
 // clientAPI includes all the direct RPC methods required by the generalized common client to implement its own.

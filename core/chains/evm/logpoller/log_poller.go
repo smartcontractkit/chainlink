@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
@@ -34,11 +35,13 @@ import (
 //go:generate mockery --quiet --name LogPoller --output ./mocks/ --case=underscore --structname LogPoller --filename log_poller.go
 type LogPoller interface {
 	services.Service
+	Healthy() error
 	Replay(ctx context.Context, fromBlock int64) error
 	ReplayAsync(fromBlock int64)
 	RegisterFilter(ctx context.Context, filter Filter) error
 	UnregisterFilter(ctx context.Context, name string) error
 	HasFilter(name string) bool
+	GetFilters() map[string]Filter
 	LatestBlock(ctx context.Context) (LogPollerBlock, error)
 	GetBlocksRange(ctx context.Context, numbers []uint64) ([]LogPollerBlock, error)
 
@@ -92,6 +95,7 @@ var (
 	ErrReplayRequestAborted               = pkgerrors.New("aborted, replay request cancelled")
 	ErrReplayInProgress                   = pkgerrors.New("replay request cancelled, but replay is already in progress")
 	ErrLogPollerShutdown                  = pkgerrors.New("replay aborted due to log poller shutdown")
+	ErrFinalityViolated                   = pkgerrors.New("finality violated")
 )
 
 type logPoller struct {
@@ -120,6 +124,12 @@ type logPoller struct {
 	ctx            context.Context
 	cancel         context.CancelFunc
 	wg             sync.WaitGroup
+	// This flag is raised whenever the log poller detects that the chain's finality has been violated.
+	// It can happen when reorg is deeper than the latest finalized block that LogPoller saw in a previous PollAndSave tick.
+	// Usually the only way to recover is to manually remove the offending logs and block from the database.
+	// LogPoller keeps running in infinite loop, so whenever the invalid state is removed from the database it should
+	// recover automatically without needing to restart the LogPoller.
+	finalityViolated *atomic.Bool
 }
 
 type Opts struct {
@@ -163,6 +173,7 @@ func NewLogPoller(orm ORM, ec Client, lggr logger.Logger, opts Opts) *logPoller 
 		logPrunePageSize:         opts.LogPrunePageSize,
 		filters:                  make(map[string]Filter),
 		filterDirty:              true, // Always build Filter on first call to cache an empty filter if nothing registered yet.
+		finalityViolated:         new(atomic.Bool),
 	}
 }
 
@@ -304,6 +315,35 @@ func (lp *logPoller) HasFilter(name string) bool {
 
 	_, ok := lp.filters[name]
 	return ok
+}
+
+// GetFilters returns a deep copy of the filters map.
+func (lp *logPoller) GetFilters() map[string]Filter {
+	lp.filterMu.RLock()
+	defer lp.filterMu.RUnlock()
+
+	filters := make(map[string]Filter)
+	for k, v := range lp.filters {
+		deepCopyFilter := Filter{
+			Name:         v.Name,
+			Addresses:    make(evmtypes.AddressArray, len(v.Addresses)),
+			EventSigs:    make(evmtypes.HashArray, len(v.EventSigs)),
+			Topic2:       make(evmtypes.HashArray, len(v.Topic2)),
+			Topic3:       make(evmtypes.HashArray, len(v.Topic3)),
+			Topic4:       make(evmtypes.HashArray, len(v.Topic4)),
+			Retention:    v.Retention,
+			MaxLogsKept:  v.MaxLogsKept,
+			LogsPerBlock: v.LogsPerBlock,
+		}
+		copy(deepCopyFilter.Addresses, v.Addresses)
+		copy(deepCopyFilter.EventSigs, v.EventSigs)
+		copy(deepCopyFilter.Topic2, v.Topic2)
+		copy(deepCopyFilter.Topic3, v.Topic3)
+		copy(deepCopyFilter.Topic4, v.Topic4)
+
+		filters[k] = deepCopyFilter
+	}
+	return filters
 }
 
 func (lp *logPoller) Filter(from, to *big.Int, bh *common.Hash) ethereum.FilterQuery {
@@ -464,6 +504,13 @@ func (lp *logPoller) Close() error {
 		lp.wg.Wait()
 		return nil
 	})
+}
+
+func (lp *logPoller) Healthy() error {
+	if lp.finalityViolated.Load() {
+		return ErrFinalityViolated
+	}
+	return nil
 }
 
 func (lp *logPoller) Name() string {
@@ -786,7 +833,13 @@ func (lp *logPoller) backfill(ctx context.Context, start, end int64) error {
 // 1. Find the LCA by following parent hashes.
 // 2. Delete all logs and blocks after the LCA
 // 3. Return the LCA+1, i.e. our new current (unprocessed) block.
-func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, currentBlockNumber int64, currentBlock *evmtypes.Head) (*evmtypes.Head, error) {
+func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, currentBlockNumber int64, currentBlock *evmtypes.Head) (head *evmtypes.Head, err error) {
+	defer func() {
+		if err == nil {
+			lp.finalityViolated.Store(false)
+		}
+	}()
+
 	var err1 error
 	if currentBlock == nil {
 		// If we don't have the current block already, lets get it.
@@ -1012,6 +1065,7 @@ func (lp *logPoller) findBlockAfterLCA(ctx context.Context, current *evmtypes.He
 	lp.lggr.Criticalw("Reorg greater than finality depth detected", "finalityTag", lp.useFinalityTag, "current", current.Number, "latestFinalized", latestFinalizedBlockNumber)
 	rerr := pkgerrors.New("Reorg greater than finality depth")
 	lp.SvcErrBuffer.Append(rerr)
+	lp.finalityViolated.Store(true)
 	return nil, rerr
 }
 

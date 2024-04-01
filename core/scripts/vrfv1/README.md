@@ -93,7 +93,7 @@ the following steps:
    transferAndCall on the LinkToken contract.
 2. The LinkToken contract transfers funds to the ownerless consumer.
 3. The ownerless consumer requests randomness from the
-   [VRF Coordinator](../../../contracts/src/v0.6/VRFCoordinator.sol), using the
+   [VRF Coordinator](https://github.com/smartcontractkit/chainlink-contracts-deprecated/blob/main/contracts/src/v0.6/VRFCoordinator.sol), using the
    LINK from step 2 to pay for it.
 
 To request randomness for your chosen consumer, run:

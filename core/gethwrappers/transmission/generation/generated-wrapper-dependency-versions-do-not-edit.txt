@@ -1,9 +1,9 @@
 GETH_VERSION: 1.13.8
-entry_point: ../../../contracts/solc/v0.8.15/EntryPoint/EntryPoint.abi ../../../contracts/solc/v0.8.15/EntryPoint/EntryPoint.bin 2cb4bb2ba3efa8df3dfb0a57eb3727d17b68fe202682024fa7cfb4faf026833e
-greeter: ../../../contracts/solc/v0.8.15/Greeter.abi ../../../contracts/solc/v0.8.15/Greeter.bin 653dcba5c33a46292073939ce1e639372cf521c0ec2814d4c9f20c72f796f18c
-greeter_wrapper: ../../../contracts/solc/v0.8.15/Greeter/Greeter.abi ../../../contracts/solc/v0.8.15/Greeter/Greeter.bin 653dcba5c33a46292073939ce1e639372cf521c0ec2814d4c9f20c72f796f18c
-paymaster_wrapper: ../../../contracts/solc/v0.8.15/Paymaster/Paymaster.abi ../../../contracts/solc/v0.8.15/Paymaster/Paymaster.bin 189ef817a5b7a6ff53ddf35b1988465b8aec479c47b77236fe20bf7e67d48100
-sca: ../../../contracts/solc/v0.8.15/SCA.abi ../../../contracts/solc/v0.8.15/SCA.bin ae0f860cdac87d4ac505edbd228bd3ea1108550453aba67aebcb61f09cf70d0b
-sca_wrapper: ../../../contracts/solc/v0.8.15/SCA/SCA.abi ../../../contracts/solc/v0.8.15/SCA/SCA.bin 2a8100fbdb41e6ce917ed333a624eaa4a8984b07e2d8d8ca6bba9bc9f74b05d7
-smart_contract_account_factory: ../../../contracts/solc/v0.8.15/SmartContractAccountFactory/SmartContractAccountFactory.abi ../../../contracts/solc/v0.8.15/SmartContractAccountFactory/SmartContractAccountFactory.bin a44d6fa2dbf9cb3441d6d637d89e1cd656f28b6bf4146f58d508067474bf845b
-smart_contract_account_helper: ../../../contracts/solc/v0.8.15/SmartContractAccountHelper/SmartContractAccountHelper.abi ../../../contracts/solc/v0.8.15/SmartContractAccountHelper/SmartContractAccountHelper.bin 22f960a74bd1581a12aa4f8f438a3f265f32f43682f5c1897ca50707b9982d56
+entry_point: ../../../contracts/solc/v0.8.19/EntryPoint/EntryPoint.abi ../../../contracts/solc/v0.8.19/EntryPoint/EntryPoint.bin e43da0e61256471b317cab1c87f2425cecba9b81ac21633334f889bab2f0777d
+greeter: ../../../contracts/solc/v0.8.19/Greeter.abi ../../../contracts/solc/v0.8.19/Greeter.bin 653dcba5c33a46292073939ce1e639372cf521c0ec2814d4c9f20c72f796f18c
+greeter_wrapper: ../../../contracts/solc/v0.8.19/Greeter/Greeter.abi ../../../contracts/solc/v0.8.19/Greeter/Greeter.bin 7f6def58e337a53553a46cb7992cf2d75ec951014d79376fcb869a2b16b53f6d
+paymaster_wrapper: ../../../contracts/solc/v0.8.19/Paymaster/Paymaster.abi ../../../contracts/solc/v0.8.19/Paymaster/Paymaster.bin dbdd1341cfa2d5c09730e0decc32339f62d1a4ea89835a51ff774226ddfbd04b
+sca: ../../../contracts/solc/v0.8.19/SCA.abi ../../../contracts/solc/v0.8.19/SCA.bin ae0f860cdac87d4ac505edbd228bd3ea1108550453aba67aebcb61f09cf70d0b
+sca_wrapper: ../../../contracts/solc/v0.8.19/SCA/SCA.abi ../../../contracts/solc/v0.8.19/SCA/SCA.bin 6ef817bdefad1b5e84f06e0bdc40848000ab00e1a38371435b793946f425a8e6
+smart_contract_account_factory: ../../../contracts/solc/v0.8.19/SmartContractAccountFactory/SmartContractAccountFactory.abi ../../../contracts/solc/v0.8.19/SmartContractAccountFactory/SmartContractAccountFactory.bin a357132e2782c462fa31ed80c270fe002e666a48ecfe407b71c278fc3a0d3679
+smart_contract_account_helper: ../../../contracts/solc/v0.8.19/SmartContractAccountHelper/SmartContractAccountHelper.abi ../../../contracts/solc/v0.8.19/SmartContractAccountHelper/SmartContractAccountHelper.bin a06aff23aded74d53bd342fdc32d80c3b474ff38223df27f3395e9fd90abd12a
