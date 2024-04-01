@@ -1,6 +1,7 @@
 package logprovider
 
 import (
+	"math/big"
 	"time"
 
 	"golang.org/x/time/rate"
@@ -13,11 +14,12 @@ import (
 
 // New creates a new log event provider and recoverer.
 // using default values for the options.
-func New(lggr logger.Logger, poller logpoller.LogPoller, c client.Client, stateStore core.UpkeepStateReader, finalityDepth uint32) (LogEventProvider, LogRecoverer) {
+func New(lggr logger.Logger, poller logpoller.LogPoller, c client.Client, stateStore core.UpkeepStateReader, finalityDepth uint32, chainID *big.Int) (LogEventProvider, LogRecoverer) {
 	filterStore := NewUpkeepFilterStore()
 	packer := NewLogEventsPacker()
 	opts := NewOptions(int64(finalityDepth))
-	provider := NewLogProvider(lggr, poller, packer, filterStore, opts)
+
+	provider := NewLogProvider(lggr, poller, chainID, packer, filterStore, opts)
 	recoverer := NewLogRecoverer(lggr, poller, c, stateStore, packer, filterStore, opts)
 
 	return provider, recoverer
