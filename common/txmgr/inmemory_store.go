@@ -112,16 +112,16 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Creat
 ) {
 	tx := txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
 	if ms.chainID.String() != chainID.String() {
-		panic(fmt.Sprintf(ErrInvalidChainID.Error()+": %s", chainID.String()))
+		panic("invalid chain ID")
 	}
 
 	ms.addressStatesLock.Lock()
-	defer ms.addressStatesLock.Unlock()
 	as, ok := ms.addressStates[txRequest.FromAddress]
 	if !ok {
 		as = newAddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE](ms.lggr, chainID, txRequest.FromAddress, ms.maxUnstarted, nil)
 		ms.addressStates[txRequest.FromAddress] = as
 	}
+	ms.addressStatesLock.Unlock()
 
 	// Persist Transaction to persistent storage
 	tx, err := ms.persistentTxStore.CreateTransaction(ctx, txRequest, chainID)
@@ -132,7 +132,6 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Creat
 	// Update in memory store
 	// Add the request to the Unstarted channel to be processed by the Broadcaster
 	as.addTxToUnstartedQueue(&tx)
-
 	return *ms.deepCopyTx(tx), nil
 }
 
