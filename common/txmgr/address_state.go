@@ -247,8 +247,7 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) findTx
 func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) pruneUnstartedTxQueue(ids []int64) {
 }
 
-// reapConfirmedTxs removes confirmed transactions that are older than the given time threshold.
-// It also removes confirmed transactions that are older than the given block number threshold.
+// reapConfirmedTxs removes confirmed transactions that are older than the given time threshold and have receipts older than the given block number threshold.
 func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) reapConfirmedTxs(minBlockNumberToKeep int64, timeThreshold time.Time) {
 	as.Lock()
 	defer as.Unlock()
