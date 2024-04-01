@@ -14,6 +14,7 @@ import (
 	commontxmgr "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 
+	evmassets "github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmgas "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	evmtxmgr "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -22,6 +23,69 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 )
+
+func TestInMemoryStore_CreateTransaction(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
+	persistentStore := cltest.NewTestTxStore(t, db)
+	kst := cltest.NewKeyStore(t, db, dbcfg)
+	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
+
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	lggr := logger.TestSugared(t)
+	chainID := ethClient.ConfiguredChainID()
+	ctx := testutils.Context(t)
+
+	inMemoryStore, err := commontxmgr.NewInMemoryStore[
+		*big.Int,
+		common.Address, common.Hash, common.Hash,
+		*evmtypes.Receipt,
+		evmtypes.Nonce,
+		evmgas.EvmFee,
+	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	require.NoError(t, err)
+
+	toAddress := testutils.NewAddress()
+	gasLimit := uint32(1000)
+	payload := []byte{1, 2, 3}
+
+	t.Run("with queue under capacity inserts eth_tx", func(t *testing.T) {
+		subject := uuid.New()
+		strategy := newMockTxStrategy(t)
+		strategy.On("Subject").Return(uuid.NullUUID{UUID: subject, Valid: true})
+		actTx, err := inMemoryStore.CreateTransaction(ctx, evmtxmgr.TxRequest{
+			FromAddress:    fromAddress,
+			ToAddress:      toAddress,
+			EncodedPayload: payload,
+			FeeLimit:       uint64(gasLimit),
+			Meta:           nil,
+			Strategy:       strategy,
+		}, chainID)
+		require.NoError(t, err)
+
+		// check that the transaction was inserted into the persistent store
+		cltest.AssertCount(t, db, "evm.txes", 1)
+
+		var dbEthTx evmtxmgr.DbEthTx
+		require.NoError(t, db.Get(&dbEthTx, `SELECT * FROM evm.txes ORDER BY id ASC LIMIT 1`))
+
+		assert.Equal(t, commontxmgr.TxUnstarted, dbEthTx.State)
+		assert.Equal(t, gasLimit, dbEthTx.GasLimit)
+		assert.Equal(t, fromAddress, dbEthTx.FromAddress)
+		assert.Equal(t, toAddress, dbEthTx.ToAddress)
+		assert.Equal(t, payload, dbEthTx.EncodedPayload)
+		assert.Equal(t, evmassets.NewEthValue(0), dbEthTx.Value)
+		assert.Equal(t, subject, dbEthTx.Subject.UUID)
+
+		var expTx evmtxmgr.Tx
+		dbEthTx.ToTx(&expTx)
+
+		// check that the in-memory store has the same transaction data as the persistent store
+		assertTxEqual(t, expTx, actTx)
+	})
+}
 
 func TestInMemoryStore_PruneUnstartedTxQueue(t *testing.T) {
 	t.Parallel()
