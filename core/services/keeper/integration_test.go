@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/basic_upkeep_contract"
@@ -36,7 +37,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	webpresenters "github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
@@ -77,7 +77,7 @@ func deployKeeperRegistry(
 		require.NoError(t, err)
 		backend.Commit()
 
-		wrapper, err := keeper.NewRegistryWrapper(ethkey.EIP55AddressFromAddress(regAddr), backend)
+		wrapper, err := keeper.NewRegistryWrapper(evmtypes.EIP55AddressFromAddress(regAddr), backend)
 		require.NoError(t, err)
 		return regAddr, wrapper
 	case keeper.RegistryVersion_1_2:
@@ -104,7 +104,7 @@ func deployKeeperRegistry(
 		)
 		require.NoError(t, err)
 		backend.Commit()
-		wrapper, err := keeper.NewRegistryWrapper(ethkey.EIP55AddressFromAddress(regAddr), backend)
+		wrapper, err := keeper.NewRegistryWrapper(evmtypes.EIP55AddressFromAddress(regAddr), backend)
 		require.NoError(t, err)
 		return regAddr, wrapper
 	case keeper.RegistryVersion_1_3:
@@ -140,7 +140,7 @@ func deployKeeperRegistry(
 		)
 		require.NoError(t, err)
 		backend.Commit()
-		wrapper, err := keeper.NewRegistryWrapper(ethkey.EIP55AddressFromAddress(regAddr), backend)
+		wrapper, err := keeper.NewRegistryWrapper(evmtypes.EIP55AddressFromAddress(regAddr), backend)
 		require.NoError(t, err)
 		return regAddr, wrapper
 	default:
@@ -181,7 +181,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 			// setup node key
 			nodeKey := cltest.MustGenerateRandomKey(t)
 			nodeAddress := nodeKey.Address
-			nodeAddressEIP55 := ethkey.EIP55AddressFromAddress(nodeAddress)
+			nodeAddressEIP55 := evmtypes.EIP55AddressFromAddress(nodeAddress)
 
 			// setup blockchain
 			sergey := testutils.MustNewSimTransactor(t) // owns all the link
@@ -254,7 +254,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 			require.NoError(t, app.Start(testutils.Context(t)))
 
 			// create job
-			regAddrEIP55 := ethkey.EIP55AddressFromAddress(regAddr)
+			regAddrEIP55 := evmtypes.EIP55AddressFromAddress(regAddr)
 			job := cltest.MustInsertKeeperJob(t, db, korm, nodeAddressEIP55, regAddrEIP55)
 			err = app.JobSpawner().StartService(testutils.Context(t), job)
 			require.NoError(t, err)
@@ -333,7 +333,7 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 		// setup node key
 		nodeKey := cltest.MustGenerateRandomKey(t)
 		nodeAddress := nodeKey.Address
-		nodeAddressEIP55 := ethkey.EIP55AddressFromAddress(nodeAddress)
+		nodeAddressEIP55 := evmtypes.EIP55AddressFromAddress(nodeAddress)
 
 		// setup blockchain
 		sergey := testutils.MustNewSimTransactor(t) // owns all the link
@@ -413,9 +413,9 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 		app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, backend.Backend(), nodeKey)
 		require.NoError(t, app.Start(testutils.Context(t)))
 
-		forwarderORM := forwarders.NewORM(db, logger.TestLogger(t), config.Database())
+		forwarderORM := forwarders.NewORM(db)
 		chainID := ubig.Big(*backend.ConfiguredChainID())
-		_, err = forwarderORM.CreateForwarder(fwdrAddress, chainID)
+		_, err = forwarderORM.CreateForwarder(testutils.Context(t), fwdrAddress, chainID)
 		require.NoError(t, err)
 
 		addr, err := app.GetRelayers().LegacyEVMChains().Slice()[0].TxManager().GetForwarderForEOA(nodeAddress)
@@ -423,7 +423,7 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 		require.Equal(t, addr, fwdrAddress)
 
 		// create job
-		regAddrEIP55 := ethkey.EIP55AddressFromAddress(regAddr)
+		regAddrEIP55 := evmtypes.EIP55AddressFromAddress(regAddr)
 
 		jb := job.Job{
 			ID:   1,
@@ -447,9 +447,9 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 			JobID:             jb.ID,
 			KeeperIndex:       0,
 			NumKeepers:        2,
-			KeeperIndexMap: map[ethkey.EIP55Address]int32{
+			KeeperIndexMap: map[evmtypes.EIP55Address]int32{
 				nodeAddressEIP55: 0,
-				ethkey.EIP55AddressFromAddress(nelly.From): 1,
+				evmtypes.EIP55AddressFromAddress(nelly.From): 1,
 			},
 		}
 		err = korm.UpsertRegistry(&registry)
@@ -489,7 +489,7 @@ func TestMaxPerformDataSize(t *testing.T) {
 		// setup node key
 		nodeKey := cltest.MustGenerateRandomKey(t)
 		nodeAddress := nodeKey.Address
-		nodeAddressEIP55 := ethkey.EIP55AddressFromAddress(nodeAddress)
+		nodeAddressEIP55 := evmtypes.EIP55AddressFromAddress(nodeAddress)
 
 		// setup blockchain
 		sergey := testutils.MustNewSimTransactor(t) // owns all the link
@@ -558,7 +558,7 @@ func TestMaxPerformDataSize(t *testing.T) {
 		require.NoError(t, app.Start(testutils.Context(t)))
 
 		// create job
-		regAddrEIP55 := ethkey.EIP55AddressFromAddress(regAddr)
+		regAddrEIP55 := evmtypes.EIP55AddressFromAddress(regAddr)
 		job := cltest.MustInsertKeeperJob(t, db, korm, nodeAddressEIP55, regAddrEIP55)
 		err = app.JobSpawner().StartService(testutils.Context(t), job)
 		require.NoError(t, err)

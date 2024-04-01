@@ -13,10 +13,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -81,7 +81,7 @@ func TestResolver_DirectRequestSpec(t *testing.T) {
 		id               = int32(1)
 		requesterAddress = common.HexToAddress("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
 	)
-	contractAddress, err := ethkey.NewEIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C")
+	contractAddress, err := evmtypes.NewEIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C")
 	require.NoError(t, err)
 
 	testCases := []GQLTestCase{
@@ -146,7 +146,7 @@ func TestResolver_FluxMonitorSpec(t *testing.T) {
 	var (
 		id = int32(1)
 	)
-	contractAddress, err := ethkey.NewEIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C")
+	contractAddress, err := evmtypes.NewEIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C")
 	require.NoError(t, err)
 
 	testCases := []GQLTestCase{
@@ -296,7 +296,7 @@ func TestResolver_KeeperSpec(t *testing.T) {
 		id          = int32(1)
 		fromAddress = common.HexToAddress("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
 	)
-	contractAddress, err := ethkey.NewEIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C")
+	contractAddress, err := evmtypes.NewEIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C")
 	require.NoError(t, err)
 
 	testCases := []GQLTestCase{
@@ -311,7 +311,7 @@ func TestResolver_KeeperSpec(t *testing.T) {
 						ContractAddress: contractAddress,
 						CreatedAt:       f.Timestamp(),
 						EVMChainID:      ubig.NewI(42),
-						FromAddress:     ethkey.EIP55AddressFromAddress(fromAddress),
+						FromAddress:     evmtypes.EIP55AddressFromAddress(fromAddress),
 					},
 				}, nil)
 			},
@@ -355,10 +355,10 @@ func TestResolver_OCRSpec(t *testing.T) {
 	var (
 		id = int32(1)
 	)
-	contractAddress, err := ethkey.NewEIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C")
+	contractAddress, err := evmtypes.NewEIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C")
 	require.NoError(t, err)
 
-	transmitterAddress, err := ethkey.NewEIP55Address("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
+	transmitterAddress, err := evmtypes.NewEIP55Address("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
 	require.NoError(t, err)
 
 	keyBundleID := models.MustSha256HashFromHex("f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5")
@@ -452,10 +452,10 @@ func TestResolver_OCR2Spec(t *testing.T) {
 	var (
 		id = int32(1)
 	)
-	contractAddress, err := ethkey.NewEIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C")
+	contractAddress, err := evmtypes.NewEIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C")
 	require.NoError(t, err)
 
-	transmitterAddress, err := ethkey.NewEIP55Address("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
+	transmitterAddress, err := evmtypes.NewEIP55Address("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
 	require.NoError(t, err)
 
 	keyBundleID := models.MustSha256HashFromHex("f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5")
@@ -555,16 +555,16 @@ func TestResolver_VRFSpec(t *testing.T) {
 	var (
 		id = int32(1)
 	)
-	coordinatorAddress, err := ethkey.NewEIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C")
+	coordinatorAddress, err := evmtypes.NewEIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C")
 	require.NoError(t, err)
 
-	batchCoordinatorAddress, err := ethkey.NewEIP55Address("0x0ad9FE7a58216242a8475ca92F222b0640E26B63")
+	batchCoordinatorAddress, err := evmtypes.NewEIP55Address("0x0ad9FE7a58216242a8475ca92F222b0640E26B63")
 	require.NoError(t, err)
 
-	fromAddress1, err := ethkey.NewEIP55Address("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
+	fromAddress1, err := evmtypes.NewEIP55Address("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
 	require.NoError(t, err)
 
-	fromAddress2, err := ethkey.NewEIP55Address("0x2301958F1BFbC9A068C2aC9c6166Bf483b95864C")
+	fromAddress2, err := evmtypes.NewEIP55Address("0x2301958F1BFbC9A068C2aC9c6166Bf483b95864C")
 	require.NoError(t, err)
 
 	pubKey, err := secp256k1.NewPublicKeyFromHex("0x9dc09a0f898f3b5e8047204e7ce7e44b587920932f08431e29c9bf6923b8450a01")
@@ -586,7 +586,7 @@ func TestResolver_VRFSpec(t *testing.T) {
 						CoordinatorAddress:            coordinatorAddress,
 						CreatedAt:                     f.Timestamp(),
 						EVMChainID:                    ubig.NewI(42),
-						FromAddresses:                 []ethkey.EIP55Address{fromAddress1, fromAddress2},
+						FromAddresses:                 []evmtypes.EIP55Address{fromAddress1, fromAddress2},
 						PollPeriod:                    1 * time.Minute,
 						PublicKey:                     pubKey,
 						RequestedConfsDelay:           10,
@@ -713,25 +713,25 @@ func TestResolver_BlockhashStoreSpec(t *testing.T) {
 	var (
 		id = int32(1)
 	)
-	coordinatorV1Address, err := ethkey.NewEIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C")
+	coordinatorV1Address, err := evmtypes.NewEIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C")
 	require.NoError(t, err)
 
-	coordinatorV2Address, err := ethkey.NewEIP55Address("0x2fcA960AF066cAc46085588a66dA2D614c7Cd337")
+	coordinatorV2Address, err := evmtypes.NewEIP55Address("0x2fcA960AF066cAc46085588a66dA2D614c7Cd337")
 	require.NoError(t, err)
 
-	coordinatorV2PlusAddress, err := ethkey.NewEIP55Address("0x92B5e28Ac583812874e4271380c7d070C5FB6E6b")
+	coordinatorV2PlusAddress, err := evmtypes.NewEIP55Address("0x92B5e28Ac583812874e4271380c7d070C5FB6E6b")
 	require.NoError(t, err)
 
-	fromAddress1, err := ethkey.NewEIP55Address("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
+	fromAddress1, err := evmtypes.NewEIP55Address("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
 	require.NoError(t, err)
 
-	fromAddress2, err := ethkey.NewEIP55Address("0xD479d7c994D298cA05bF270136ED9627b7E684D3")
+	fromAddress2, err := evmtypes.NewEIP55Address("0xD479d7c994D298cA05bF270136ED9627b7E684D3")
 	require.NoError(t, err)
 
-	blockhashStoreAddress, err := ethkey.NewEIP55Address("0xb26A6829D454336818477B946f03Fb21c9706f3A")
+	blockhashStoreAddress, err := evmtypes.NewEIP55Address("0xb26A6829D454336818477B946f03Fb21c9706f3A")
 	require.NoError(t, err)
 
-	trustedBlockhashStoreAddress, err := ethkey.NewEIP55Address("0x0ad9FE7a58216242a8475ca92F222b0640E26B63")
+	trustedBlockhashStoreAddress, err := evmtypes.NewEIP55Address("0x0ad9FE7a58216242a8475ca92F222b0640E26B63")
 	require.NoError(t, err)
 	trustedBlockhashStoreBatchSize := int32(20)
 
@@ -749,7 +749,7 @@ func TestResolver_BlockhashStoreSpec(t *testing.T) {
 						CoordinatorV2PlusAddress:       &coordinatorV2PlusAddress,
 						CreatedAt:                      f.Timestamp(),
 						EVMChainID:                     ubig.NewI(42),
-						FromAddresses:                  []ethkey.EIP55Address{fromAddress1, fromAddress2},
+						FromAddresses:                  []evmtypes.EIP55Address{fromAddress1, fromAddress2},
 						PollPeriod:                     1 * time.Minute,
 						RunTimeout:                     37 * time.Second,
 						WaitBlocks:                     100,
@@ -821,22 +821,22 @@ func TestResolver_BlockHeaderFeederSpec(t *testing.T) {
 	var (
 		id = int32(1)
 	)
-	coordinatorV1Address, err := ethkey.NewEIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C")
+	coordinatorV1Address, err := evmtypes.NewEIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C")
 	require.NoError(t, err)
 
-	coordinatorV2Address, err := ethkey.NewEIP55Address("0x2fcA960AF066cAc46085588a66dA2D614c7Cd337")
+	coordinatorV2Address, err := evmtypes.NewEIP55Address("0x2fcA960AF066cAc46085588a66dA2D614c7Cd337")
 	require.NoError(t, err)
 
-	coordinatorV2PlusAddress, err := ethkey.NewEIP55Address("0x92B5e28Ac583812874e4271380c7d070C5FB6E6b")
+	coordinatorV2PlusAddress, err := evmtypes.NewEIP55Address("0x92B5e28Ac583812874e4271380c7d070C5FB6E6b")
 	require.NoError(t, err)
 
-	fromAddress, err := ethkey.NewEIP55Address("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
+	fromAddress, err := evmtypes.NewEIP55Address("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
 	require.NoError(t, err)
 
-	blockhashStoreAddress, err := ethkey.NewEIP55Address("0xb26A6829D454336818477B946f03Fb21c9706f3A")
+	blockhashStoreAddress, err := evmtypes.NewEIP55Address("0xb26A6829D454336818477B946f03Fb21c9706f3A")
 	require.NoError(t, err)
 
-	batchBHSAddress, err := ethkey.NewEIP55Address("0xd23BAE30019853Caf1D08b4C03291b10AD7743Df")
+	batchBHSAddress, err := evmtypes.NewEIP55Address("0xd23BAE30019853Caf1D08b4C03291b10AD7743Df")
 	require.NoError(t, err)
 
 	testCases := []GQLTestCase{
@@ -853,7 +853,7 @@ func TestResolver_BlockHeaderFeederSpec(t *testing.T) {
 						CoordinatorV2PlusAddress:   &coordinatorV2PlusAddress,
 						CreatedAt:                  f.Timestamp(),
 						EVMChainID:                 ubig.NewI(42),
-						FromAddresses:              []ethkey.EIP55Address{fromAddress},
+						FromAddresses:              []evmtypes.EIP55Address{fromAddress},
 						PollPeriod:                 1 * time.Minute,
 						RunTimeout:                 37 * time.Second,
 						WaitBlocks:                 100,

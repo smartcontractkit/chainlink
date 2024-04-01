@@ -15,6 +15,7 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -23,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	bigmath "github.com/smartcontractkit/chainlink/v2/core/utils/big_math"
 )
@@ -400,9 +400,9 @@ func TestKeeperDB_NewSetLastRunInfoForUpkeepOnJob(t *testing.T) {
 	registry, j := cltest.MustInsertKeeperRegistry(t, db, orm, ethKeyStore, 0, 1, 20)
 	upkeep := cltest.MustInsertUpkeepForRegistry(t, db, config.Database(), registry)
 	registry.NumKeepers = 2
-	registry.KeeperIndexMap = map[ethkey.EIP55Address]int32{
+	registry.KeeperIndexMap = map[types.EIP55Address]int32{
 		registry.FromAddress: 0,
-		ethkey.EIP55AddressFromAddress(evmutils.ZeroAddress): 1,
+		types.EIP55AddressFromAddress(evmutils.ZeroAddress): 1,
 	}
 	err := orm.UpsertRegistry(&registry)
 	require.NoError(t, err, "UPDATE keeper_registries")
@@ -418,7 +418,7 @@ func TestKeeperDB_NewSetLastRunInfoForUpkeepOnJob(t *testing.T) {
 	require.Equal(t, rowsAffected, int64(0))
 	assertLastRunHeight(t, db, upkeep, 100, 0)
 	// update to same block height allowed
-	rowsAffected, err = orm.SetLastRunInfoForUpkeepOnJob(j.ID, upkeep.UpkeepID, 100, ethkey.EIP55AddressFromAddress(evmutils.ZeroAddress))
+	rowsAffected, err = orm.SetLastRunInfoForUpkeepOnJob(j.ID, upkeep.UpkeepID, 100, types.EIP55AddressFromAddress(evmutils.ZeroAddress))
 	require.NoError(t, err)
 	require.Equal(t, rowsAffected, int64(1))
 	assertLastRunHeight(t, db, upkeep, 100, 1)

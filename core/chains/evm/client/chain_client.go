@@ -51,20 +51,7 @@ func NewChainClient(
 	chainID *big.Int,
 	chainType config.ChainType,
 ) Client {
-	multiNode := commonclient.NewMultiNode[
-		*big.Int,
-		evmtypes.Nonce,
-		common.Address,
-		common.Hash,
-		*types.Transaction,
-		common.Hash,
-		types.Log,
-		ethereum.FilterQuery,
-		*evmtypes.Receipt,
-		*assets.Wei,
-		*evmtypes.Head,
-		RPCClient,
-	](
+	multiNode := commonclient.NewMultiNode(
 		lggr,
 		selectionMode,
 		leaseDuration,
@@ -277,4 +264,8 @@ func (c *chainClient) TransactionReceipt(ctx context.Context, txHash common.Hash
 	}
 	//return rpc.TransactionReceipt(ctx, txHash)
 	return rpc.TransactionReceiptGeth(ctx, txHash)
+}
+
+func (c *chainClient) LatestFinalizedBlock(ctx context.Context) (*evmtypes.Head, error) {
+	return c.multiNode.LatestFinalizedBlock(ctx)
 }
