@@ -11,9 +11,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/pkg/errors"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
@@ -231,6 +232,15 @@ func (s *TokenDataReader) getUsdcTokenEndOffset(msg cciptypes.EVM2EVMOnRampCCIPS
 	return usdcTokenEndOffset, nil
 }
 
+// callAttestationApi calls the USDC attestation API with the given USDC message hash.
+// The attestation service rate limit is 10 requests per second. If you exceed 10 requests
+// per second, the service blocks all API requests for the next 5 minutes and returns an
+// HTTP 429 response.
+//
+// Documentation:
+//
+//	https://developers.circle.com/stablecoins/reference/getattestation
+//	https://developers.circle.com/stablecoins/docs/transfer-usdc-on-testnet-from-ethereum-to-avalanche
 func (s *TokenDataReader) callAttestationApi(ctx context.Context, usdcMessageHash [32]byte) (attestationResponse, error) {
 	body, _, headers, err := s.httpClient.Get(
 		ctx,
