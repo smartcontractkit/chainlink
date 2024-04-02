@@ -351,7 +351,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			// but I don't know how that config file is to be created or whether anyone ever done that
 			var rpcProvider test_env.RpcProvider
 			b.privateEthereumNetworks[0].DockerNetworkNames = []string{b.te.DockerNetwork.Name}
-			networkConfig, rpcProvider, err = b.te.StartEthereumNetwork(b.privateEthereumNetworks[0])
+			networkConfig, rpcProvider, err := b.te.StartEthereumNetwork(b.privateEthereumNetworks[0])
 			if err != nil {
 				return nil, err
 			}

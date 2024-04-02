@@ -3,11 +3,11 @@
   "version": "1.0.0",
   "license": "MIT",
   "scripts": {
-    "gauntlet-zksync": "node ./node_modules/@chainlink/evm-gauntlet-cli/dist/zksync.js"
+    "gauntlet:zksync": "SKIP_PROMPTS=true node ./node_modules/@chainlink/evm-gauntlet-cli/dist/zksync.js"
   },
   "dependencies": {
-    "@chainlink/evm-gauntlet": "^1.0.0",
-    "@chainlink/evm-gauntlet-cli": "^3.0.0",
+    "@chainlink/evm-gauntlet": "1.0.1",
+    "@chainlink/evm-gauntlet-cli": "3.0.1",
     "@chainlink/evm-gauntlet-mcm": "^1.0.0",
     "@chainlink/evm-gauntlet-mercury": "^16.0.0"
   }

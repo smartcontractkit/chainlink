@@ -31,7 +31,7 @@ type LinkContract struct {
 
 type OCRContract struct {
 	Address  string
-	Contract contracts.EthereumOffchainAggregator
+	Contract contracts.OffchainAggregator
 }
 
 // Response Default response output for gauntlet commands
@@ -43,8 +43,8 @@ type Response struct {
 			Status  string `json:"status"`
 
 			Tx struct {
-				Type  string `json:"type"`
-				Nonce string `json:"nonce"`
+				Type  int    `json:"type"`
+				Nonce int    `json:"nonce"`
 				Hash  string `json:"hash"`
 			} `json:"tx"`
 		} `json:"tx"`
@@ -54,16 +54,26 @@ type Response struct {
 
 // New Creates a default gauntlet config
 func New(binaryName string, workingDir string) (*Gauntlet, error) {
-	config, err := gauntlet.NewGauntlet(binaryName, "yarn")
+	config, err := gauntlet.NewGauntlet("yarn", binaryName)
 	config.SetWorkingDir(workingDir)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Gauntlet{
-		dir:       workingDir,
-		Config:    config,
-		Contracts: &Contracts{},
+		dir:    workingDir,
+		Config: config,
+		Contracts: &Contracts{
+			LinkContract: &LinkContract{
+				Address:  "",
+				Contract: nil,
+			},
+			OCRContract: &OCRContract{
+				Address:  "",
+				Contract: nil,
+			},
+			AccessControllerAddress: "",
+		},
 		options: &gauntlet.ExecCommandOptions{
 			ErrHandling:       []string{},
 			CheckErrorsInRead: true,
@@ -86,16 +96,11 @@ func (g *Gauntlet) FetchGauntletJsonOutput() (*Response, error) {
 }
 
 // SetupNetwork Sets up a new network and sets the NODE_URL for the RPC
-func (g *Gauntlet) SetupNetwork(addr string, account string, privateKey string) error {
-	err := os.Setenv("NODE_URL", addr)
-	if err != nil {
-		return err
-	}
-	err = os.Setenv("ACCOUNT", account)
-	if err != nil {
-		return err
-	}
-	err = os.Setenv("PRIVATE_KEY", privateKey)
+func (g *Gauntlet) SetupNetwork(addr string, privateKey string) error {
+	g.Config.AddNetworkConfigVar("NODE_URL", addr)
+	g.Config.AddNetworkConfigVar("PRIVATE_KEY", privateKey)
+
+	err := g.Config.WriteNetworkConfigMap(g.dir + "networks/")
 	if err != nil {
 		return err
 	}
