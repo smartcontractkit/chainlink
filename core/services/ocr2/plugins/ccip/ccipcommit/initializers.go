@@ -124,6 +124,7 @@ func jobSpecToCommitPluginConfig(ctx context.Context, lggr logger.Logger, jb job
 
 	lggr.Infow("Initializing commit plugin",
 		"CommitStore", params.commitStoreAddress,
+		"OffRamp", params.pluginConfig.OffRamp,
 		"OnRamp", params.commitStoreStaticCfg.OnRamp,
 		"ArmProxy", params.commitStoreStaticCfg.ArmProxy,
 		"SourceChainSelector", params.commitStoreStaticCfg.SourceChainSelector,
