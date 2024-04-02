@@ -723,7 +723,6 @@ contract SetConfig is SetUp {
   }
 }
 
-// allow NOPs to withdraw balances made before disableOffchainNOPsOffchain is called
 contract NOPsSettlement is SetUp {
   event NOPsSettledOffchain(address[] payees, uint256[] payments);
   event FundsWithdrawn(uint256 indexed id, uint256 amount, address to);
@@ -998,38 +997,6 @@ contract NOPsSettlement is SetUp {
     vm.expectEmit();
     emit FundsWithdrawn(id, balance, UPKEEP_ADMIN);
     registry.withdrawFunds(id, UPKEEP_ADMIN);
-  }
-
-  function _transmit(uint256 id, Registry registry) internal {
-    uint256[] memory upkeepIds = new uint256[](1);
-    uint256[] memory gasLimits = new uint256[](1);
-    bytes[] memory performDatas = new bytes[](1);
-    bytes[] memory triggers = new bytes[](1);
-    upkeepIds[0] = id;
-    gasLimits[0] = 1000000;
-    triggers[0] = _encodeConditionalTrigger(
-      AutoBase.ConditionalTrigger(uint32(block.number - 1), blockhash(block.number - 1))
-    );
-    AutoBase.Report memory report = AutoBase.Report(
-      uint256(1000000000),
-      uint256(2000000000),
-      upkeepIds,
-      gasLimits,
-      triggers,
-      performDatas
-    );
-
-    bytes memory reportBytes = _encodeReport(report);
-    (, , bytes32 configDigest) = registry.latestConfigDetails();
-    bytes32[3] memory reportContext = [configDigest, configDigest, configDigest];
-    uint256[] memory signerPKs = new uint256[](2);
-    signerPKs[0] = SIGNING_KEY0;
-    signerPKs[1] = SIGNING_KEY1;
-    (bytes32[] memory rs, bytes32[] memory ss, bytes32 vs) = _signReport(reportBytes, reportContext, signerPKs);
-
-    vm.startPrank(TRANSMITTERS[0]);
-    registry.transmit(reportContext, reportBytes, rs, ss, vs);
-    vm.stopPrank();
   }
 
   function _configureWithNewTransmitters(Registry registry, Registrar registrar) internal {
@@ -1343,5 +1310,49 @@ contract BillingOverrides is SetUp {
     // We do not apply the exact equation since we couldn't get the receipt.premium value
     uint96 maxPayment2 = registry.getMaxPaymentForGas(linkUpkeepID, 0, 5_000_000, address(linkToken));
     assertGt(maxPayment2, maxPayment1);
+  }
+}
+
+contract Transmit is SetUp {
+  function test_handlesMixedBatchOfBillingTokens() external {
+    uint256[] memory prevUpkeepBalances = new uint256[](3);
+    prevUpkeepBalances[0] = registry.getBalance(linkUpkeepID);
+    prevUpkeepBalances[1] = registry.getBalance(usdUpkeepID);
+    prevUpkeepBalances[2] = registry.getBalance(nativeUpkeepID);
+    uint256[] memory prevTokenBalances = new uint256[](3);
+    prevTokenBalances[0] = linkToken.balanceOf(address(registry));
+    prevTokenBalances[1] = usdToken.balanceOf(address(registry));
+    prevTokenBalances[2] = weth.balanceOf(address(registry));
+    uint256[] memory prevReserveBalances = new uint256[](3);
+    prevReserveBalances[0] = registry.getReserveAmount(address(linkToken));
+    prevReserveBalances[1] = registry.getReserveAmount(address(usdToken));
+    prevReserveBalances[2] = registry.getReserveAmount(address(weth));
+    uint256[] memory upkeepIDs = new uint256[](3);
+    upkeepIDs[0] = linkUpkeepID;
+    upkeepIDs[1] = usdUpkeepID;
+    upkeepIDs[2] = nativeUpkeepID;
+    // do the thing
+    _transmit(upkeepIDs, registry);
+    // assert upkeep balances have decreased
+    require(prevUpkeepBalances[0] > registry.getBalance(linkUpkeepID), "link upkeep balance should have decreased");
+    require(prevUpkeepBalances[1] > registry.getBalance(usdUpkeepID), "usd upkeep balance should have decreased");
+    require(prevUpkeepBalances[2] > registry.getBalance(nativeUpkeepID), "native upkeep balance should have decreased");
+    // assert token balances have not changed
+    assertEq(prevTokenBalances[0], linkToken.balanceOf(address(registry)));
+    assertEq(prevTokenBalances[1], usdToken.balanceOf(address(registry)));
+    assertEq(prevTokenBalances[2], weth.balanceOf(address(registry)));
+    // assert reserve amounts have adjusted accordingly
+    require(
+      prevReserveBalances[0] < registry.getReserveAmount(address(linkToken)),
+      "usd reserve amount should have increased"
+    ); // link reserve amount increases in value equal to the decrease of the other reserve amounts
+    require(
+      prevReserveBalances[1] > registry.getReserveAmount(address(usdToken)),
+      "usd reserve amount should have decreased"
+    );
+    require(
+      prevReserveBalances[2] > registry.getReserveAmount(address(weth)),
+      "native reserve amount should have decreased"
+    );
   }
 }
