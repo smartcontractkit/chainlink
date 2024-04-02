@@ -359,23 +359,26 @@ func (r *logRecoverer) recover(ctx context.Context) error {
 	for _, f := range filters {
 		wg.Add(1)
 		go func(f upkeepFilter) {
+
 			defer wg.Done()
 			recoverFilterID := uuid.New()
 			ctx := context.WithValue(ctx, "recoverFilterID", recoverFilterID)
 			if err := r.recoverFilter(ctx, f, start, offsetBlock); err != nil {
 				r.lggr.Debugw("error recovering filter", "err", err.Error(), "recoverID", ctx.Value("recoverID"))
 			}
+
 		}(f)
 	}
 	wg.Wait()
 	finishTime := time.Now().Sub(startTime)
-	r.lggr.Debugw("finished recovering logs", "timeTaken", finishTime.String(), "timeTakenMS", finishTime.Milliseconds(), "numberOfFilters", len(filters), "filters", filters, "startBlock", start, "offsetBlock", offsetBlock, "latestBlock", latest, "recoverID", ctx.Value("recoverID"))
+	r.lggr.Debugw("finished recovering logs", "timeTaken", finishTime.String(), "numberOfFilters", len(filters), "filters", filters, "startBlock", start, "offsetBlock", offsetBlock, "latestBlock", latest, "recoverID", ctx.Value("recoverID"))
 
 	return nil
 }
 
 // recoverFilter recovers logs for a single upkeep filter.
 func (r *logRecoverer) recoverFilter(ctx context.Context, f upkeepFilter, startBlock, offsetBlock int64) error {
+	filterStartTime := time.Now()
 	start := f.lastRePollBlock + 1 // NOTE: we expect f.lastRePollBlock + 1 <= offsetBlock, as others would have been filtered out
 	// ensure we don't recover logs from before the filter was created
 	if configUpdateBlock := int64(f.configUpdateBlock); start < configUpdateBlock {
@@ -448,7 +451,9 @@ func (r *logRecoverer) recoverFilter(ctx context.Context, f upkeepFilter, startB
 		return uf1
 	}, f)
 
-	r.lggr.Debugw("recovered filter", "logs", len(filteredLogs), "recoverID", ctx.Value("recoverID"), "recoverFilterID", ctx.Value("recoverFilterID"))
+	filterFinishTime := time.Now().Sub(filterStartTime)
+
+	r.lggr.Debugw("recovered filter", "timeTaken", filterFinishTime.String(), "logs", len(filteredLogs), "recoverID", ctx.Value("recoverID"), "recoverFilterID", ctx.Value("recoverFilterID"))
 
 	return nil
 }
