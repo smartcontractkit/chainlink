@@ -50,25 +50,25 @@ before(async () => {
 
   roles = users.roles
   basicConsumerFactory = await ethers.getContractFactory(
-    'src/v0.8/operatorforwarder/dev/tests/testhelpers/BasicConsumer.sol:BasicConsumer',
+    'src/v0.8/operatorforwarder/dev/test/testhelpers/BasicConsumer.sol:BasicConsumer',
   )
   multiWordConsumerFactory = await ethers.getContractFactory(
-    'src/v0.8/operatorforwarder/dev/tests/testhelpers/MultiWordConsumer.sol:MultiWordConsumer',
+    'src/v0.8/operatorforwarder/dev/test/testhelpers/MultiWordConsumer.sol:MultiWordConsumer',
   )
   gasGuzzlingConsumerFactory = await ethers.getContractFactory(
-    'src/v0.8/operatorforwarder/dev/tests/testhelpers/GasGuzzlingConsumer.sol:GasGuzzlingConsumer',
+    'src/v0.8/operatorforwarder/dev/test/testhelpers/GasGuzzlingConsumer.sol:GasGuzzlingConsumer',
   )
   getterSetterFactory = await ethers.getContractFactory(
-    'src/v0.8/operatorforwarder/dev/tests/testhelpers/GetterSetter.sol:GetterSetter',
+    'src/v0.8/operatorforwarder/dev/test/testhelpers/GetterSetter.sol:GetterSetter',
   )
   maliciousRequesterFactory = await ethers.getContractFactory(
-    'src/v0.8/operatorforwarder/dev/tests/testhelpers/MaliciousRequester.sol:MaliciousRequester',
+    'src/v0.8/operatorforwarder/dev/test/testhelpers/MaliciousRequester.sol:MaliciousRequester',
   )
   maliciousConsumerFactory = await ethers.getContractFactory(
-    'src/v0.8/operatorforwarder/dev/tests/testhelpers/MaliciousConsumer.sol:MaliciousConsumer',
+    'src/v0.8/operatorforwarder/dev/test/testhelpers/MaliciousConsumer.sol:MaliciousConsumer',
   )
   maliciousMultiWordConsumerFactory = await ethers.getContractFactory(
-    'src/v0.8/operatorforwarder/dev/tests/testhelpers/MaliciousMultiWordConsumer.sol:MaliciousMultiWordConsumer',
+    'src/v0.8/operatorforwarder/dev/test/testhelpers/MaliciousMultiWordConsumer.sol:MaliciousMultiWordConsumer',
   )
   operatorFactory = await ethers.getContractFactory(
     'src/v0.8/operatorforwarder/dev/Operator.sol:Operator',
