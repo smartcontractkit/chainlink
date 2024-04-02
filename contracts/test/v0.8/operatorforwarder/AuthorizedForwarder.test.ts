@@ -254,7 +254,7 @@ describe('AuthorizedForwarder', () => {
               forwarder
                 .connect(roles.defaultAccount)
                 .forward(brokenMock.address, brokenMsgPayload),
-              "reverted with reason string 'Failure message'",
+              'Failure message',
             )
           })
         })
@@ -371,7 +371,7 @@ describe('AuthorizedForwarder', () => {
               forwarder
                 .connect(roles.defaultAccount)
                 .multiForward([brokenMock.address], [brokenMsgPayload]),
-              "reverted with reason string 'Failure message'",
+              'Failure message',
             )
           })
         })
@@ -463,7 +463,7 @@ describe('AuthorizedForwarder', () => {
               forwarder
                 .connect(roles.defaultAccount)
                 .multiForward([brokenMock.address], [brokenMsgPayload]),
-              "reverted with reason string 'Failure message'",
+              'Failure message',
             )
           })
         })
@@ -509,7 +509,7 @@ describe('AuthorizedForwarder', () => {
                   [brokenMock.address, mock.address],
                   [brokenMsgPayload, payload],
                 ),
-              "reverted with reason string 'Failure message'",
+              'Failure message',
             )
 
             await evmRevert(
@@ -519,7 +519,7 @@ describe('AuthorizedForwarder', () => {
                   [mock.address, brokenMock.address],
                   [payload, brokenMsgPayload],
                 ),
-              "reverted with reason string 'Failure message'",
+              'Failure message',
             )
           })
         })
