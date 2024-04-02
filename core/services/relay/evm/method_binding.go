@@ -3,9 +3,11 @@ package evm
 import (
 	"context"
 	"fmt"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/rpc"
 
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
@@ -16,6 +18,7 @@ type methodBinding struct {
 	address      common.Address
 	contractName string
 	method       string
+	blockNumber  *big.Int
 	client       evmclient.Client
 	codec        commontypes.Codec
 	bound        bool
@@ -51,7 +54,7 @@ func (m *methodBinding) GetLatestValue(ctx context.Context, params, returnValue 
 		Data: data,
 	}
 
-	bytes, err := m.client.CallContract(ctx, callMsg, nil)
+	bytes, err := m.client.CallContract(ctx, callMsg, m.blockNumber)
 	if err != nil {
 		return fmt.Errorf("%w: %w", commontypes.ErrInternal, err)
 	}
@@ -62,5 +65,8 @@ func (m *methodBinding) GetLatestValue(ctx context.Context, params, returnValue 
 func (m *methodBinding) Bind(ctx context.Context, binding commontypes.BoundContract) error {
 	m.address = common.HexToAddress(binding.Address)
 	m.bound = true
+	if binding.Pending {
+		m.blockNumber = big.NewInt(rpc.PendingBlockNumber.Int64())
+	}
 	return nil
 }
