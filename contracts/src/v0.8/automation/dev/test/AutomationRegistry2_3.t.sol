@@ -251,12 +251,23 @@ contract Withdraw is SetUp {
     registry.withdrawERC20Fees(address(usdToken), FINANCE_ADMIN, 1);
   }
 
-  function test_WithdrawERC20Fees_RevertsWhenAttemptingToWithdrawLINK() public {
+  function test_WithdrawERC20Fees_RevertsWhen_AttemptingToWithdrawLINK() public {
     _mintLink(address(registry), 1e10);
     vm.startPrank(FINANCE_ADMIN);
     vm.expectRevert(Registry.InvalidToken.selector);
     registry.withdrawERC20Fees(address(linkToken), FINANCE_ADMIN, 1); // should revert
     registry.withdrawLink(FINANCE_ADMIN, 1); // but using link withdraw functions succeeds
+  }
+
+  function test_WithdrawERC20Fees_RevertsWhen_LinkAvailableForPaymentIsNegative() public {
+    _transmit(usdUpkeepID, registry); // adds USD token to finance withdrawable, and gives NOPs a LINK balance
+    require(registry.linkAvailableForPayment() < 0, "linkAvailableForPayment should be negative");
+    vm.expectRevert(Registry.InsufficientLinkLiquidity.selector);
+    vm.prank(FINANCE_ADMIN);
+    registry.withdrawERC20Fees(address(usdToken), FINANCE_ADMIN, 1); // should revert
+    _mintLink(address(registry), uint256(registry.linkAvailableForPayment() * -10)); // top up LINK liquidity pool
+    vm.prank(FINANCE_ADMIN);
+    registry.withdrawERC20Fees(address(usdToken), FINANCE_ADMIN, 1); // now finance can withdraw
   }
 
   function testWithdrawERC20FeeSuccess() public {
