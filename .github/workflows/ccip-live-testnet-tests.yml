@@ -103,6 +103,9 @@ jobs:
     name: CCIP Load Test
     environment: integration
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        config: [mainnet.toml, mainnet-secondary.toml]
     needs: [ build-chainlink, build-test-image ]
     # if the event is a scheduled event or the test type is load and no previous job failed
     if: ${{ (github.event_name == 'schedule' || inputs.test_type == 'load') && !contains(needs.*.result, 'failure') }}
@@ -148,7 +151,7 @@ jobs:
             echo "TEST_BASE64_CCIP_CONFIG_OVERRIDE=$BASE64_CCIP_CONFIG_OVERRIDE" >> $GITHUB_ENV
           fi
           if [[ "${{ github.event_name }}" == "schedule" ]]; then
-            BASE64_CCIP_CONFIG_OVERRIDE=$(base64 -w 0 -i ./integration-tests/ccip-tests/testconfig/override/mainnet.toml)
+            BASE64_CCIP_CONFIG_OVERRIDE=$(base64 -w 0 -i ./integration-tests/ccip-tests/testconfig/override/${{ matrix.config }})
             echo ::add-mask::$BASE64_CCIP_CONFIG_OVERRIDE
             echo "BASE64_CCIP_CONFIG_OVERRIDE=$BASE64_CCIP_CONFIG_OVERRIDE" >> $GITHUB_ENV
             echo "TEST_BASE64_CCIP_CONFIG_OVERRIDE=$BASE64_CCIP_CONFIG_OVERRIDE" >> $GITHUB_ENV
