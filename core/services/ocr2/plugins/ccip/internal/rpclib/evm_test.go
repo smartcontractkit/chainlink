@@ -2,9 +2,13 @@ package rpclib_test
 
 import (
 	"fmt"
+	"strconv"
 	"testing"
 
+	"github.com/cometbft/cometbft/libs/rand"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -81,7 +85,7 @@ func TestDefaultEvmBatchCaller_BatchCallDynamicLimit(t *testing.T) {
 			batchSizes := make([]int, 0)
 
 			ec := mocks.NewClient(t)
-			bc := rpclib.NewDynamicLimitedBatchCaller(logger.TestLogger(t), ec, tc.maxBatchSize, tc.backOffMultiplier)
+			bc := rpclib.NewDynamicLimitedBatchCaller(logger.TestLogger(t), ec, tc.maxBatchSize, tc.backOffMultiplier, 1)
 			ctx := testutils.Context(t)
 			calls := make([]rpclib.EvmCall, tc.numCalls)
 			emptyAbi := abihelpers.MustParseABI("[]")
@@ -98,6 +102,62 @@ func TestDefaultEvmBatchCaller_BatchCallDynamicLimit(t *testing.T) {
 		})
 	}
 
+}
+
+func TestDefaultEvmBatchCaller_batchCallLimit(t *testing.T) {
+	ctx := testutils.Context(t)
+
+	testCases := []struct {
+		numCalls              uint
+		batchSize             uint
+		parallelRpcCallsLimit uint
+	}{
+		{numCalls: 100, batchSize: 10, parallelRpcCallsLimit: 5},
+		{numCalls: 10, batchSize: 100, parallelRpcCallsLimit: 10},
+		{numCalls: 1, batchSize: 100, parallelRpcCallsLimit: 10},
+		{numCalls: 1000, batchSize: 10, parallelRpcCallsLimit: 2},
+		{numCalls: rand.Uint() % 1000, batchSize: rand.Uint() % 500, parallelRpcCallsLimit: rand.Uint() % 500},
+	}
+
+	for _, tc := range testCases {
+		t.Run(fmt.Sprintf("%v", tc), func(t *testing.T) {
+			ec := mocks.NewClient(t)
+			bc := rpclib.NewDynamicLimitedBatchCaller(logger.TestLogger(t), ec, tc.batchSize, 99999, tc.parallelRpcCallsLimit)
+
+			// generate the abi and the rpc calls
+			intTyp, err := abi.NewType("uint64", "uint64", nil)
+			assert.NoError(t, err)
+			calls := make([]rpclib.EvmCall, tc.numCalls)
+			mockAbi := abihelpers.MustParseABI("[]")
+			for i := range calls {
+				name := fmt.Sprintf("method_%d", i)
+				meth := abi.NewMethod(name, name, abi.Function, "nonpayable", true, false, abi.Arguments{abi.Argument{Name: "a", Type: intTyp}}, abi.Arguments{abi.Argument{Name: "b", Type: intTyp}})
+				mockAbi.Methods[name] = meth
+				calls[i] = rpclib.NewEvmCall(mockAbi, name, common.Address{}, uint64(i))
+			}
+
+			// mock the rpc call to batch call context
+			// for simplicity we just set an error
+			ec.On("BatchCallContext", mock.Anything, mock.Anything).
+				Run(func(args mock.Arguments) {
+					evmCalls := args.Get(1).([]rpc.BatchElem)
+					for i := range evmCalls {
+						arg := evmCalls[i].Args[0].(map[string]interface{})["data"].(hexutil.Bytes)
+						arg = arg[len(arg)-10:]
+						evmCalls[i].Error = fmt.Errorf("%s", arg)
+					}
+				}).Return(nil)
+
+			// make the call and make sure the results are received in order
+			results, _ := bc.BatchCall(ctx, 0, calls)
+			assert.Len(t, results, len(calls))
+			for i, res := range results {
+				resNum, err := strconv.ParseInt(res.Err.Error()[2:], 16, 64)
+				assert.NoError(t, err)
+				assert.Equal(t, int64(i), resNum)
+			}
+		})
+	}
 }
 
 func TestParseOutput(t *testing.T) {

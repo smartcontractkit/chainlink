@@ -242,7 +242,13 @@ func jobSpecToExecPluginConfig(ctx context.Context, lggr logger.Logger, jb job.J
 		"sourceNative", sourceWrappedNative,
 		"sourceRouter", sourceRouter.Address())
 
-	batchCaller := rpclib.NewDynamicLimitedBatchCaller(lggr, params.destChain.Client(), rpclib.DefaultRpcBatchSizeLimit, rpclib.DefaultRpcBatchBackOffMultiplier)
+	batchCaller := rpclib.NewDynamicLimitedBatchCaller(
+		lggr,
+		params.destChain.Client(),
+		rpclib.DefaultRpcBatchSizeLimit,
+		rpclib.DefaultRpcBatchBackOffMultiplier,
+		rpclib.DefaultMaxParallelRpcCalls,
+	)
 
 	offrampAddress, err := offRampReader.Address(ctx)
 	if err != nil {
