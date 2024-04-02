@@ -62,7 +62,7 @@ describe('Cron', () => {
             await expect(
               cron.encodeCronString(input),
               `expected ${input} to be invalid`,
-            ).to.be.revertedWith('')
+            ).to.be.reverted
           }
         })
       })
