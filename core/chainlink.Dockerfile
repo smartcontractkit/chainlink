@@ -14,6 +14,8 @@ ARG COMMIT_SHA
 
 COPY . .
 
+RUN apt-get update && apt-get install -y jq
+
 # Build the golang binary
 RUN make install-chainlink
 
@@ -38,7 +40,7 @@ FROM ubuntu:20.04
 
 ARG CHAINLINK_USER=root
 ENV DEBIAN_FRONTEND noninteractive
-RUN apt-get update && apt-get install -y ca-certificates gnupg lsb-release curl jq
+RUN apt-get update && apt-get install -y ca-certificates gnupg lsb-release curl
 
 # Install Postgres for CLI tools, needed specifically for DB backups
 RUN curl https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - \
