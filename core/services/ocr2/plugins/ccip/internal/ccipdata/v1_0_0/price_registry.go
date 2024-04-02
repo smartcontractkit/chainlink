@@ -92,6 +92,7 @@ func NewPriceRegistry(lggr logger.Logger, priceRegistryAddr common.Address, lp l
 			ec,
 			rpclib.DefaultRpcBatchSizeLimit,
 			rpclib.DefaultRpcBatchBackOffMultiplier,
+			rpclib.DefaultMaxParallelRpcCalls,
 		),
 		lggr:            lggr,
 		gasUpdated:      UsdPerUnitGasUpdated,

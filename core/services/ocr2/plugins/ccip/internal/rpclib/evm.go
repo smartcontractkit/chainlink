@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -35,6 +36,9 @@ const (
 	// 2. 20/4 = 5
 	// 3. 5/4  = 1
 	DefaultRpcBatchBackOffMultiplier = 5
+
+	// DefaultMaxParallelRpcCalls defines the default maximum number of individual in-parallel rpc calls.
+	DefaultMaxParallelRpcCalls = 10
 )
 
 // DynamicLimitedBatchCaller makes batched rpc calls and perform retries by reducing the batch size on each retry.
@@ -42,9 +46,11 @@ type DynamicLimitedBatchCaller struct {
 	bc *defaultEvmBatchCaller
 }
 
-func NewDynamicLimitedBatchCaller(lggr logger.Logger, batchSender client.BatchSender, batchSizeLimit, backOffMultiplier uint) *DynamicLimitedBatchCaller {
+func NewDynamicLimitedBatchCaller(
+	lggr logger.Logger, batchSender client.BatchSender, batchSizeLimit, backOffMultiplier, parallelRpcCallsLimit uint,
+) *DynamicLimitedBatchCaller {
 	return &DynamicLimitedBatchCaller{
-		bc: newDefaultEvmBatchCaller(lggr, batchSender, batchSizeLimit, backOffMultiplier),
+		bc: newDefaultEvmBatchCaller(lggr, batchSender, batchSizeLimit, backOffMultiplier, parallelRpcCallsLimit),
 	}
 }
 
@@ -53,16 +59,19 @@ func (c *DynamicLimitedBatchCaller) BatchCall(ctx context.Context, blockNumber u
 }
 
 type defaultEvmBatchCaller struct {
-	lggr              logger.Logger
-	batchSender       client.BatchSender
-	batchSizeLimit    uint
-	backOffMultiplier uint
+	lggr                  logger.Logger
+	batchSender           client.BatchSender
+	batchSizeLimit        uint
+	parallelRpcCallsLimit uint
+	backOffMultiplier     uint
 }
 
 // NewDefaultEvmBatchCaller returns a new batch caller instance.
 // batchCallLimit defines the maximum number of calls for BatchCallLimit method, pass 0 to keep the default.
 // backOffMultiplier defines the back-off strategy for retries on BatchCallDynamicLimitRetries method, pass 0 to keep the default.
-func newDefaultEvmBatchCaller(lggr logger.Logger, batchSender client.BatchSender, batchSizeLimit, backOffMultiplier uint) *defaultEvmBatchCaller {
+func newDefaultEvmBatchCaller(
+	lggr logger.Logger, batchSender client.BatchSender, batchSizeLimit, backOffMultiplier, parallelRpcCallsLimit uint,
+) *defaultEvmBatchCaller {
 	batchSize := uint(DefaultRpcBatchSizeLimit)
 	if batchSizeLimit > 0 {
 		batchSize = batchSizeLimit
@@ -73,11 +82,17 @@ func newDefaultEvmBatchCaller(lggr logger.Logger, batchSender client.BatchSender
 		multiplier = backOffMultiplier
 	}
 
+	parallelRpcCalls := uint(DefaultMaxParallelRpcCalls)
+	if parallelRpcCallsLimit > 0 {
+		parallelRpcCalls = parallelRpcCallsLimit
+	}
+
 	return &defaultEvmBatchCaller{
-		lggr:              lggr,
-		batchSender:       batchSender,
-		batchSizeLimit:    batchSize,
-		backOffMultiplier: multiplier,
+		lggr:                  lggr,
+		batchSender:           batchSender,
+		batchSizeLimit:        batchSize,
+		parallelRpcCallsLimit: parallelRpcCalls,
+		backOffMultiplier:     multiplier,
 	}
 }
 
@@ -184,22 +199,53 @@ func (c *defaultEvmBatchCaller) batchCallLimit(ctx context.Context, blockNumber 
 		return c.batchCall(ctx, blockNumber, calls)
 	}
 
-	results := make([]DataAndErr, 0, len(calls))
+	type job struct {
+		blockNumber uint64
+		calls       []EvmCall
+		results     []DataAndErr
+	}
 
+	jobs := make([]job, 0)
 	for i := 0; i < len(calls); i += int(batchSizeLimit) {
 		idxFrom := i
 		idxTo := idxFrom + int(batchSizeLimit)
 		if idxTo > len(calls) {
 			idxTo = len(calls)
 		}
-
-		subResults, err := c.batchCall(ctx, blockNumber, calls[idxFrom:idxTo])
-		if err != nil {
-			return nil, err
-		}
-		results = append(results, subResults...)
+		jobs = append(jobs, job{blockNumber: blockNumber, calls: calls[idxFrom:idxTo], results: nil})
 	}
 
+	if c.parallelRpcCallsLimit > 1 {
+		eg := new(errgroup.Group)
+		eg.SetLimit(int(c.parallelRpcCallsLimit))
+		for jobIdx := range jobs {
+			jobIdx := jobIdx
+			eg.Go(func() error {
+				res, err := c.batchCall(ctx, jobs[jobIdx].blockNumber, jobs[jobIdx].calls)
+				if err != nil {
+					return err
+				}
+				jobs[jobIdx].results = res
+				return nil
+			})
+		}
+		if err := eg.Wait(); err != nil {
+			return nil, err
+		}
+	} else {
+		var err error
+		for jobIdx := range jobs {
+			jobs[jobIdx].results, err = c.batchCall(ctx, jobs[jobIdx].blockNumber, jobs[jobIdx].calls)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	results := make([]DataAndErr, 0)
+	for _, jb := range jobs {
+		results = append(results, jb.results...)
+	}
 	return results, nil
 }
 
