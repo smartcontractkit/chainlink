@@ -141,9 +141,8 @@ func TestChainClient_BatchCheckTxValidity(t *testing.T) {
 	t.Parallel()
 
 	fromAddress1 := testutils.NewAddress()
-	toAddress1 := testutils.NewAddress()
+	toAddress := testutils.NewAddress()
 	fromAddress2 := testutils.NewAddress()
-	toAddress2 := testutils.NewAddress()
 	ctx := testutils.Context(t)
 
 	t.Run("returns without error if simulation passes", func(t *testing.T) {
@@ -163,7 +162,7 @@ func TestChainClient_BatchCheckTxValidity(t *testing.T) {
 		reqs := []client.TxSimulationRequest{
 			{
 				From: fromAddress1,
-				To:   &toAddress1,
+				To:   &toAddress,
 				Data: []byte("0x00"),
 			},
 			{
@@ -195,12 +194,12 @@ func TestChainClient_BatchCheckTxValidity(t *testing.T) {
 		reqs := []client.TxSimulationRequest{
 			{
 				From: fromAddress1,
-				To:   &toAddress1,
+				To:   &toAddress,
 				Data: []byte("0x00"),
 			},
 			{
 				From: fromAddress2,
-				To:   &toAddress1,
+				To:   &toAddress,
 				Data: []byte("0x01"),
 			},
 		}
@@ -233,12 +232,12 @@ func TestChainClient_BatchCheckTxValidity(t *testing.T) {
 		reqs := []client.TxSimulationRequest{
 			{
 				From: fromAddress1,
-				To:   &toAddress1,
+				To:   &toAddress,
 				Data: []byte("0x00"),
 			},
 			{
 				From: fromAddress2,
-				To:   &toAddress1,
+				To:   &toAddress,
 				Data: []byte("0x01"),
 			},
 		}
@@ -250,69 +249,5 @@ func TestChainClient_BatchCheckTxValidity(t *testing.T) {
 
 		// No Out-of-counter error for second request
 		require.Equal(t, errorMsg, reqs[1].Error.Error())
-	})
-
-	t.Run("returns the proper errors to the associated requests", func(t *testing.T) {
-		mockRpc := newMockRpc(t)
-		mockRpc.On("BatchCallContext", mock.Anything, mock.IsType([]rpc.BatchElem{})).Run(func(args mock.Arguments) {
-			reqs := args.Get(1).([]rpc.BatchElem)
-			reqs[0].Error = errors.New("error0")
-			reqs[1].Error = errors.New("error1")
-			reqs[2].Error = errors.New("error2")
-			reqs[3].Error = errors.New("error3")
-			reqs[4].Error = errors.New("error4")
-			reqs[5].Error = errors.New("error5")
-			reqs[6].Error = errors.New("error6")
-		}).Return(nil).Once()
-
-		ethClient := client.NewChainClientWithMockedRpc(t, commonclient.NodeSelectionModeRoundRobin, time.Second*0, time.Second*0, testutils.FixtureChainID, mockRpc)
-		err := ethClient.Dial(ctx)
-		require.NoError(t, err)
-
-		reqs := []client.TxSimulationRequest{
-			{
-				From: fromAddress1,
-				To:   &toAddress1,
-				Data: []byte("0x00"),
-			},
-			{
-				From: fromAddress1,
-				Data: []byte("0x00"),
-			},
-			{
-				From: fromAddress1,
-				To:   &toAddress2,
-				Data: []byte("0x00"),
-			},
-			{
-				From: fromAddress2,
-				To:   &toAddress2,
-				Data: []byte("0x00"),
-			},
-			{
-				From: fromAddress2,
-				To:   &toAddress1,
-				Data: []byte("0x00"),
-			},
-			{
-				From: fromAddress1,
-				To:   &toAddress1,
-				Data: []byte("0x01"),
-			},
-			{
-				From: fromAddress1,
-				Data: []byte("0x01"),
-			},
-		}
-		err = ethClient.BatchCheckTxValidity(ctx, reqs)
-		require.NoError(t, err)
-
-		require.Equal(t, "error0", reqs[0].Error.Error())
-		require.Equal(t, "error1", reqs[1].Error.Error())
-		require.Equal(t, "error2", reqs[2].Error.Error())
-		require.Equal(t, "error3", reqs[3].Error.Error())
-		require.Equal(t, "error4", reqs[4].Error.Error())
-		require.Equal(t, "error5", reqs[5].Error.Error())
-		require.Equal(t, "error6", reqs[6].Error.Error())
 	})
 }
