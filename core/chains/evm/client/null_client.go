@@ -232,8 +232,8 @@ func (nc *NullClient) LatestFinalizedBlock(_ context.Context) (*evmtypes.Head, e
 	return nil, nil
 }
 
-func (nc *NullClient) CheckTxValidity(_ context.Context, _ common.Address, _ common.Address, _ []byte) *SendError {
-	return nil
+func (nc *NullClient) CheckTxValidity(_ context.Context, _ common.Address, _ common.Address, _ []byte) (*SendError, error) {
+	return nil, nil
 }
 
 func (nc *NullClient) BatchCheckTxValidity(_ context.Context, _ []TxSimulationRequest) error {

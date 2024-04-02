@@ -257,7 +257,7 @@ func (_m *Client) ChainID() (*big.Int, error) {
 }
 
 // CheckTxValidity provides a mock function with given fields: ctx, from, to, data
-func (_m *Client) CheckTxValidity(ctx context.Context, from common.Address, to common.Address, data []byte) *client.SendError {
+func (_m *Client) CheckTxValidity(ctx context.Context, from common.Address, to common.Address, data []byte) (*client.SendError, error) {
 	ret := _m.Called(ctx, from, to, data)
 
 	if len(ret) == 0 {
@@ -265,6 +265,10 @@ func (_m *Client) CheckTxValidity(ctx context.Context, from common.Address, to c
 	}
 
 	var r0 *client.SendError
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address, common.Address, []byte) (*client.SendError, error)); ok {
+		return rf(ctx, from, to, data)
+	}
 	if rf, ok := ret.Get(0).(func(context.Context, common.Address, common.Address, []byte) *client.SendError); ok {
 		r0 = rf(ctx, from, to, data)
 	} else {
@@ -273,7 +277,13 @@ func (_m *Client) CheckTxValidity(ctx context.Context, from common.Address, to c
 		}
 	}
 
-	return r0
+	if rf, ok := ret.Get(1).(func(context.Context, common.Address, common.Address, []byte) error); ok {
+		r1 = rf(ctx, from, to, data)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 // Close provides a mock function with given fields:

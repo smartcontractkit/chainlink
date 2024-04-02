@@ -774,8 +774,8 @@ func (c *SimulatedBackendClient) ethGetLogs(ctx context.Context, result interfac
 	}
 }
 
-func (c *SimulatedBackendClient) CheckTxValidity(ctx context.Context, from common.Address, to common.Address, data []byte) *SendError {
-	return nil
+func (c *SimulatedBackendClient) CheckTxValidity(ctx context.Context, from common.Address, to common.Address, data []byte) (*SendError, error) {
+	return nil, nil
 }
 
 func (c *SimulatedBackendClient) BatchCheckTxValidity(ctx context.Context, reqs []TxSimulationRequest) error {

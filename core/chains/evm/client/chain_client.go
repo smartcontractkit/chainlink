@@ -278,7 +278,7 @@ func (c *chainClient) LatestFinalizedBlock(ctx context.Context) (*evmtypes.Head,
 	return c.multiNode.LatestFinalizedBlock(ctx)
 }
 
-func (c *chainClient) CheckTxValidity(ctx context.Context, from common.Address, to common.Address, data []byte) *SendError {
+func (c *chainClient) CheckTxValidity(ctx context.Context, from common.Address, to common.Address, data []byte) (*SendError, error) {
 	reqs := []TxSimulationRequest{
 		{
 			From: from,
@@ -288,9 +288,9 @@ func (c *chainClient) CheckTxValidity(ctx context.Context, from common.Address, 
 	}
 	err := c.BatchCheckTxValidity(ctx, reqs)
 	if err != nil {
-		return NewSendError(err)
+		return nil, err
 	}
-	return reqs[0].Error
+	return reqs[0].Error, nil
 }
 
 func (c *chainClient) BatchCheckTxValidity(ctx context.Context, reqs []TxSimulationRequest) error {

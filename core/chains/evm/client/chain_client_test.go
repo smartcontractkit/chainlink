@@ -91,7 +91,8 @@ func TestChainClient_CheckTxValidity(t *testing.T) {
 		err := ethClient.Dial(ctx)
 		require.NoError(t, err)
 
-		sendErr := ethClient.CheckTxValidity(ctx, fromAddress, toAddress, []byte("0x00"))
+		sendErr, err := ethClient.CheckTxValidity(ctx, fromAddress, toAddress, []byte("0x00"))
+		require.NoError(t, err)
 		require.Empty(t, sendErr)
 	})
 
@@ -109,7 +110,8 @@ func TestChainClient_CheckTxValidity(t *testing.T) {
 		err := ethClient.Dial(ctx)
 		require.NoError(t, err)
 
-		sendErr := ethClient.CheckTxValidity(ctx, fromAddress, toAddress, []byte("0x00"))
+		sendErr, err := ethClient.CheckTxValidity(ctx, fromAddress, toAddress, []byte("0x00"))
+		require.NoError(t, err)
 		require.Equal(t, true, sendErr.IsOutOfCounters())
 	})
 
@@ -128,7 +130,8 @@ func TestChainClient_CheckTxValidity(t *testing.T) {
 		err := ethClient.Dial(ctx)
 		require.NoError(t, err)
 
-		sendErr := ethClient.CheckTxValidity(ctx, fromAddress, toAddress, []byte("0x00"))
+		sendErr, err := ethClient.CheckTxValidity(ctx, fromAddress, toAddress, []byte("0x00"))
+		require.NoError(t, err)
 		require.Equal(t, errorMsg, sendErr.Error())
 		require.Equal(t, false, sendErr.IsOutOfCounters())
 	})

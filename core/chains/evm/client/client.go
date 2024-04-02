@@ -97,7 +97,7 @@ type Client interface {
 	IsL2() bool
 
 	// Simulate the transaction prior to sending to catch zk out-of-counters errors ahead of time
-	CheckTxValidity(ctx context.Context, from common.Address, to common.Address, data []byte) *SendError
+	CheckTxValidity(ctx context.Context, from common.Address, to common.Address, data []byte) (*SendError, error)
 	BatchCheckTxValidity(ctx context.Context, reqs []TxSimulationRequest) error
 }
 
@@ -376,8 +376,8 @@ func (client *client) LatestFinalizedBlock(_ context.Context) (*evmtypes.Head, e
 	return nil, pkgerrors.New("not implemented. client was deprecated. New methods are added only to satisfy type constraints while we are migrating to new alternatives")
 }
 
-func (client *client) CheckTxValidity(ctx context.Context, from common.Address, to common.Address, data []byte) *SendError {
-	return NewSendError(pkgerrors.New("not implemented. client was deprecated. New methods are added only to satisfy type constraints while we are migrating to new alternatives"))
+func (client *client) CheckTxValidity(ctx context.Context, from common.Address, to common.Address, data []byte) (*SendError, error) {
+	return nil, NewSendError(pkgerrors.New("not implemented. client was deprecated. New methods are added only to satisfy type constraints while we are migrating to new alternatives"))
 }
 
 func (client *client) BatchCheckTxValidity(ctx context.Context, reqs []TxSimulationRequest) error {
