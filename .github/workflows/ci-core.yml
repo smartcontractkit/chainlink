@@ -39,10 +39,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
           repository: smartcontractkit/chainlink
-      - uses: dorny/paths-filter@0bc4621a3135347011ad047f9ecf449bf72ce2bd # v3.0.0
+      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
         id: changes
         with:
           filters: |
@@ -55,12 +55,12 @@ jobs:
 
   golangci:
     # We don't directly merge dependabot PRs, so let's not waste the resources
-    if: ${{ github.event_name == 'pull_request' ||  github.event_name == 'schedule' && github.actor != 'dependabot[bot]' }}
+    if: ${{ (github.event_name == 'pull_request' ||  github.event_name == 'schedule') && github.actor != 'dependabot[bot]' }}
     name: lint
     runs-on: ubuntu22.04-8cores-32GB
     needs: [filter]
     steps:
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1 
+      - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
       - name: Golang Lint
         uses: ./.github/actions/golangci-lint
         if: ${{ needs.filter.outputs.changes == 'true' }}
@@ -81,8 +81,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        cmd: ["go_core_tests", "go_core_race_tests", "go_core_fuzz"]
-    name: Core Tests (${{ matrix.cmd }})
+        type:
+          - cmd: go_core_tests
+            id: core_unit
+          - cmd: go_core_race_tests
+            id: core_race
+          - cmd: go_core_fuzz
+            id: core_fuzz
+    name: Core Tests (${{ matrix.type.cmd }})
     # We don't directly merge dependabot PRs, so let's not waste the resources
     if: github.actor != 'dependabot[bot]'
     needs: [filter]
@@ -91,7 +97,7 @@ jobs:
       CL_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
       - name: Setup node
         if: ${{ needs.filter.outputs.changes == 'true' }}
         uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8 # v4.0.2
@@ -154,15 +160,15 @@ jobs:
         env:
           OUTPUT_FILE: ./output.txt
           USE_TEE: false
-        run: ./tools/bin/${{ matrix.cmd }} ./...
+        run: ./tools/bin/${{ matrix.type.cmd }} ./...
       - name: Print Filtered Test Results
-        if: ${{ failure() && matrix.cmd == 'go_core_tests' && needs.filter.outputs.changes == 'true' }}
-        uses: smartcontractkit/chainlink-github-actions/go/go-test-results-parsing@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
+        if: ${{ failure() && matrix.type.cmd == 'go_core_tests' && needs.filter.outputs.changes == 'true' }}
+        uses: smartcontractkit/chainlink-github-actions/go/go-test-results-parsing@5bee84d30d90295010bda68b0cd46be3a1eea917 # v2.3.9
         with:
           results-file: ./output.txt
           output-file: ./output-short.txt
       - name: Print Races
-        if: ${{ failure() && matrix.cmd == 'go_core_race_tests' && needs.filter.outputs.changes == 'true' }}
+        if: ${{ failure() && matrix.type.cmd == 'go_core_race_tests' && needs.filter.outputs.changes == 'true' }}
         run: find race.* | xargs cat
       - name: Print postgres logs
         if: ${{ always() &&  needs.filter.outputs.changes == 'true' }}
@@ -170,9 +176,9 @@ jobs:
         working-directory: ./.github/actions/setup-postgres
       - name: Store logs artifacts
         if: ${{ needs.filter.outputs.changes == 'true' && always() }}
-        uses: actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32 # v3.1.3
+        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
         with:
-          name: ${{ matrix.cmd }}_logs
+          name: ${{ matrix.type.cmd }}_logs
           path: |
             ./output.txt
             ./output-short.txt
@@ -180,7 +186,7 @@ jobs:
             ./coverage.txt
             ./postgres_logs.txt
       - name: Notify Slack
-        if: ${{ failure() && matrix.cmd == 'go_core_race_tests' && (github.event_name == 'merge_group' || github.event.branch == 'develop') &&  needs.filter.outputs.changes == 'true' }}
+        if: ${{ failure() && matrix.type.cmd == 'go_core_race_tests' && (github.event_name == 'merge_group' || github.event.branch == 'develop') &&  needs.filter.outputs.changes == 'true' }}
         uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
         env:
           SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
@@ -190,12 +196,13 @@ jobs:
       - name: Collect Metrics
         if: ${{ needs.filter.outputs.changes == 'true' && always() }}
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@0281b09807758be1dcc41651e44e62b353808c47 # v2.1.0
+        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
         with:
+          id: ${{ matrix.type.id }}
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: Core Tests (${{ matrix.cmd }})
+          this-job-name: Core Tests (${{ matrix.type.cmd }})
           test-results-file: '{"testType":"go","filePath":"./output.txt"}'
         continue-on-error: true
 
@@ -208,7 +215,7 @@ jobs:
       CL_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
       - name: Setup node
         if: ${{ needs.filter.outputs.changes == 'true' }}
         uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8 # v4.0.2
@@ -241,7 +248,7 @@ jobs:
         run: ./chainlink.test local db preparetest
       - name: Load test outputs
         if: ${{ needs.filter.outputs.changes == 'true' }}
-        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+        uses: actions/download-artifact@c850b930e6ba138125429b7e5c93fc707a7f8427 # v4.1.4
         with:
           path: ./artifacts
       - name: Build flakey test runner
@@ -271,7 +278,7 @@ jobs:
             `ls -R ./artifacts/go_core_tests*/output.txt`
       - name: Store logs artifacts
         if: ${{ needs.filter.outputs.changes == 'true' && always() }}
-        uses: actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32 # v3.1.3
+        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
         with:
           name: flakey_test_runner_logs
           path: |
@@ -284,11 +291,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
           fetch-depth: 0 # fetches all history for all tags and branches to provide more metadata for sonar reports
       - name: Download all workflow run artifacts
-        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+        uses: actions/download-artifact@c850b930e6ba138125429b7e5c93fc707a7f8427 # v4.1.4
       - name: Set SonarQube Report Paths
         id: sonarqube_report_paths
         shell: bash
@@ -308,8 +315,9 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@0281b09807758be1dcc41651e44e62b353808c47 # v2.1.0
+        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
         with:
+          id: ci-core-sonarqube
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
@@ -329,7 +337,7 @@ jobs:
         run: |
           echo "## \`skip-smoke-tests\` label is active, skipping E2E smoke tests" >>$GITHUB_STEP_SUMMARY
           exit 0
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
           fetch-depth: 0
       - name: Setup Go
@@ -349,8 +357,9 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@0281b09807758be1dcc41651e44e62b353808c47 # v2.1.0
+        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
         with:
+          id: ci-core-generate
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}

@@ -22,12 +22,14 @@ import (
 	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
@@ -99,7 +101,7 @@ type Application interface {
 	TxmStorageService() txmgr.EvmTxStore
 	AddJobV2(ctx context.Context, job *job.Job) error
 	DeleteJob(ctx context.Context, jobID int32) error
-	RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta pipeline.JSONSerializable) (int64, error)
+	RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta jsonserializable.JSONSerializable) (int64, error)
 	ResumeJobV2(ctx context.Context, taskID uuid.UUID, result pipeline.Result) error
 	// Testing only
 	RunJobV2(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error)
@@ -194,11 +196,13 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	if cfg.Capabilities().Peering().Enabled() {
 		externalPeerWrapper := externalp2p.NewExternalPeerWrapper(keyStore.P2P(), cfg.Capabilities().Peering(), globalLogger)
+		signer := externalPeerWrapper
 		srvcs = append(srvcs, externalPeerWrapper)
 
 		// NOTE: RegistrySyncer will depend on a Relayer when fully implemented
-		registrySyncer := capabilities.NewRegistrySyncer(externalPeerWrapper, registry, globalLogger)
-		srvcs = append(srvcs, registrySyncer)
+		dispatcher := remote.NewDispatcher(externalPeerWrapper, signer, registry, globalLogger)
+		registrySyncer := capabilities.NewRegistrySyncer(externalPeerWrapper, registry, dispatcher, globalLogger)
+		srvcs = append(srvcs, dispatcher, registrySyncer)
 	}
 
 	// LOOPs can be created as options, in the  case of LOOP relayers, or
@@ -307,7 +311,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		mercuryORM     = mercury.NewORM(sqlxDB, globalLogger, cfg.Database())
 		pipelineRunner = pipeline.NewRunner(pipelineORM, bridgeORM, cfg.JobPipeline(), cfg.WebServer(), legacyEVMChains, keyStore.Eth(), keyStore.VRF(), globalLogger, restrictedHTTPClient, unrestrictedHTTPClient)
 		jobORM         = job.NewORM(sqlxDB, pipelineORM, bridgeORM, keyStore, globalLogger, cfg.Database())
-		txmORM         = txmgr.NewTxStore(sqlxDB, globalLogger, cfg.Database())
+		txmORM         = txmgr.NewTxStore(sqlxDB, globalLogger)
 		streamRegistry = streams.NewRegistry(globalLogger, pipelineRunner)
 	)
 
@@ -739,7 +743,7 @@ func (app *ChainlinkApplication) DeleteJob(ctx context.Context, jobID int32) err
 	return app.jobSpawner.DeleteJob(jobID, pg.WithParentCtx(ctx))
 }
 
-func (app *ChainlinkApplication) RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta pipeline.JSONSerializable) (int64, error) {
+func (app *ChainlinkApplication) RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta jsonserializable.JSONSerializable) (int64, error) {
 	return app.webhookJobRunner.RunJob(ctx, jobUUID, requestBody, meta)
 }
 

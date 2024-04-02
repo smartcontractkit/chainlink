@@ -15,6 +15,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -1725,7 +1726,7 @@ func mustInsertPipelineRun(t *testing.T, orm pipeline.ORM, j job.Job) pipeline.R
 	run := pipeline.Run{
 		PipelineSpecID: j.PipelineSpecID,
 		State:          pipeline.RunStatusRunning,
-		Outputs:        pipeline.JSONSerializable{Valid: false},
+		Outputs:        jsonserializable.JSONSerializable{Valid: false},
 		AllErrors:      pipeline.RunErrors{},
 		CreatedAt:      time.Now(),
 		FinishedAt:     null.Time{},

@@ -461,7 +461,7 @@ var WeiPerEth = new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
 
 // ChainlinkFulfilledTopic is the signature for the event emitted after calling
 // ChainlinkClient.validateChainlinkCallback(requestId). See
-// ../../contracts/src/v0.6/ChainlinkClient.sol
+// ../../contracts/src/v0.8/ChainlinkClient.sol
 var ChainlinkFulfilledTopic = utils.MustHash("ChainlinkFulfilled(bytes32)")
 
 // ReceiptIndicatesRunLogFulfillment returns true if this tx receipt is the result of a

@@ -7,6 +7,10 @@ kind: Deployment
 {{ end }}
 metadata:
   name: {{ $.Release.Name }}-{{ $cfg.name }}-db
+  labels:
+    app: {{ $.Release.Name }}-db
+    instance: {{ $cfg.name }}-db
+    release: {{ $.Release.Name }}
 spec:
   {{ if $.Values.db.stateful }}
   serviceName: {{ $.Release.Name }}-db-${{ $cfg.name }}

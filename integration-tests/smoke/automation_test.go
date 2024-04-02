@@ -58,6 +58,7 @@ var (
 		FallbackLinkPrice:    big.NewInt(2e18),
 		MaxCheckDataSize:     uint32(5000),
 		MaxPerformDataSize:   uint32(5000),
+		MaxRevertDataSize:    uint32(5000),
 	}
 )
 
@@ -1175,11 +1176,14 @@ func setupAutomationTestDocker(
 		Password = 'nodepass'`
 		secretsConfig = fmt.Sprintf(secretsConfig, env.MockAdapter.InternalEndpoint, env.MockAdapter.InternalEndpoint)
 
+		rpcProvider, err := env.GetRpcProvider(network.ChainID)
+		require.NoError(t, err, "Error getting rpc provider")
+
 		var httpUrls []string
 		var wsUrls []string
 		if network.Simulated {
-			httpUrls = []string{env.RpcProvider.PrivateHttpUrls()[0]}
-			wsUrls = []string{env.RpcProvider.PrivateWsUrsl()[0]}
+			httpUrls = []string{rpcProvider.PrivateHttpUrls()[0]}
+			wsUrls = []string{rpcProvider.PrivateWsUrsl()[0]}
 		} else {
 			httpUrls = network.HTTPURLs
 			wsUrls = network.URLs
@@ -1209,7 +1213,10 @@ func setupAutomationTestDocker(
 	env.ParallelTransactions(true)
 	nodeClients := env.ClCluster.NodeAPIs()
 
-	a := automationv2.NewAutomationTestDocker(env.EVMClient, env.ContractDeployer, nodeClients)
+	evmClient, err := env.GetEVMClient(network.ChainID)
+	require.NoError(t, err, "Error getting evm client")
+
+	a := automationv2.NewAutomationTestDocker(evmClient, env.ContractDeployer, nodeClients)
 	a.MercuryCredentialName = "cred1"
 	a.RegistrySettings = registryConfig
 	a.RegistrarSettings = contracts.KeeperRegistrarSettings{

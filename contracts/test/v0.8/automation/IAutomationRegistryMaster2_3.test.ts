@@ -4,11 +4,11 @@ import { assert } from 'chai'
 import { AutomationRegistry2_3__factory as AutomationRegistryFactory } from '../../../typechain/factories/AutomationRegistry2_3__factory'
 import { AutomationRegistryLogicA2_3__factory as AutomationRegistryLogicAFactory } from '../../../typechain/factories/AutomationRegistryLogicA2_3__factory'
 import { AutomationRegistryLogicB2_3__factory as AutomationRegistryLogicBFactory } from '../../../typechain/factories/AutomationRegistryLogicB2_3__factory'
+import { AutomationRegistryLogicC2_3__factory as AutomationRegistryLogicCFactory } from '../../../typechain/factories/AutomationRegistryLogicC2_3__factory'
 import { AutomationRegistryBase2_3__factory as AutomationRegistryBaseFactory } from '../../../typechain/factories/AutomationRegistryBase2_3__factory'
 import { Chainable__factory as ChainableFactory } from '../../../typechain/factories/Chainable__factory'
 import { IAutomationRegistryMaster2_3__factory as IAutomationRegistryMasterFactory } from '../../../typechain/factories/IAutomationRegistryMaster2_3__factory'
 import { IAutomationRegistryConsumer__factory as IAutomationRegistryConsumerFactory } from '../../../typechain/factories/IAutomationRegistryConsumer__factory'
-import { MigratableKeeperRegistryInterface__factory as MigratableKeeperRegistryInterfaceFactory } from '../../../typechain/factories/MigratableKeeperRegistryInterface__factory'
 import { MigratableKeeperRegistryInterfaceV2__factory as MigratableKeeperRegistryInterfaceV2Factory } from '../../../typechain/factories/MigratableKeeperRegistryInterfaceV2__factory'
 import { OCR2Abstract__factory as OCR2AbstractFactory } from '../../../typechain/factories/OCR2Abstract__factory'
 import { IAutomationV21PlusCommon__factory as IAutomationV21PlusCommonFactory } from '../../../typechain/factories/IAutomationV21PlusCommon__factory'
@@ -22,6 +22,7 @@ const compositeABIs = [
   AutomationRegistryFactory.abi,
   AutomationRegistryLogicAFactory.abi,
   AutomationRegistryLogicBFactory.abi,
+  AutomationRegistryLogicCFactory.abi,
 ]
 
 /**
@@ -76,13 +77,6 @@ describe('IAutomationRegistryMaster2_3', () => {
     assertSatisfiesInterface(
       IAutomationRegistryMasterFactory.abi,
       IAutomationRegistryConsumerFactory.abi,
-    )
-  })
-
-  it('satisfies the MigratableKeeperRegistryInterface interface', async () => {
-    assertSatisfiesInterface(
-      IAutomationRegistryMasterFactory.abi,
-      MigratableKeeperRegistryInterfaceFactory.abi,
     )
   })
 

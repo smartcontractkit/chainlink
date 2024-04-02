@@ -26,7 +26,7 @@ const TARGET_PERFORM_GAS_LIMIT = 2_000_000
 const TARGET_CHECK_GAS_LIMIT = 3_500_000
 //                                                                                              //
 //////////////////////////////////////////////////////////////////////////////////////////////////
-const INVALID_WATCHLIST_ERR = `InvalidWatchList()`
+const INVALID_WATCHLIST_ERR = `InvalidWatchList`
 const PAUSED_ERR = 'Pausable: paused'
 
 const zeroLINK = ethers.utils.parseEther('0')
@@ -139,7 +139,7 @@ const setup = async () => {
     owner,
   )
   const ltFactory = await ethers.getContractFactory(
-    'src/v0.4/LinkToken.sol:LinkToken',
+    'src/v0.8/shared/test/helpers/LinkTokenTestHelper.sol:LinkTokenTestHelper',
     owner,
   )
 
@@ -353,7 +353,6 @@ describe('LinkAvailableBalanceMonitor', () => {
     })
 
     it('Should not allow different length arrays in the watchlist', async () => {
-      const errMsg = `InvalidWatchList()`
       let tx = labm
         .connect(owner)
         .setWatchList(
@@ -362,11 +361,13 @@ describe('LinkAvailableBalanceMonitor', () => {
           [oneLINK, oneLINK],
           [1, 2],
         )
-      await expect(tx).to.be.revertedWith(errMsg)
+      await expect(tx).to.be.revertedWithCustomError(
+        labm,
+        INVALID_WATCHLIST_ERR,
+      )
     })
 
     it('Should not allow duplicates in the watchlist', async () => {
-      const errMsg = `DuplicateAddress("${watchAddress1}")`
       let tx = labm
         .connect(owner)
         .setWatchList(
@@ -375,7 +376,9 @@ describe('LinkAvailableBalanceMonitor', () => {
           [oneLINK, oneLINK, oneLINK],
           [1, 2, 3],
         )
-      await expect(tx).to.be.revertedWith(errMsg)
+      await expect(tx)
+        .to.be.revertedWithCustomError(labm, 'DuplicateAddress')
+        .withArgs(watchAddress1)
     })
 
     it('Should not allow strangers to set the watchlist', async () => {
@@ -394,7 +397,10 @@ describe('LinkAvailableBalanceMonitor', () => {
           [oneLINK, oneLINK],
           [1, 2],
         )
-      await expect(tx).to.be.revertedWith(INVALID_WATCHLIST_ERR)
+      await expect(tx).to.be.revertedWithCustomError(
+        labm,
+        INVALID_WATCHLIST_ERR,
+      )
     })
 
     it('Should allow owner to add multiple addresses with dstChainSelector 0 to the watchlist', async () => {
