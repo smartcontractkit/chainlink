@@ -26,7 +26,9 @@ func MergeSethAndEvmNetworkConfigs(evmNetwork blockchain.EVMNetwork, sethConfig 
 		if evmNetwork.Simulated {
 			if conf.Name == seth.GETH {
 				conf.PrivateKeys = evmNetwork.PrivateKeys
-				conf.URLs = evmNetwork.URLs
+				if len(conf.URLs) == 0 {
+					conf.URLs = evmNetwork.URLs
+				}
 				// important since Besu doesn't support EIP-1559, but other EVM clients do
 				conf.EIP1559DynamicFees = evmNetwork.SupportsEIP1559
 
@@ -35,7 +37,9 @@ func MergeSethAndEvmNetworkConfigs(evmNetwork blockchain.EVMNetwork, sethConfig 
 			}
 		} else if conf.ChainID == fmt.Sprint(evmNetwork.ChainID) {
 			conf.PrivateKeys = evmNetwork.PrivateKeys
-			conf.URLs = evmNetwork.URLs
+			if len(conf.URLs) == 0 {
+				conf.URLs = evmNetwork.URLs
+			}
 
 			sethNetwork = conf
 			break
