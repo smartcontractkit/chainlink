@@ -18,6 +18,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
+	"google.golang.org/grpc"
+	grpc_creds "google.golang.org/grpc/credentials"
 
 	"github.com/smartcontractkit/wsrpc"
 	"github.com/smartcontractkit/wsrpc/credentials"
@@ -109,6 +111,34 @@ func startMercuryServer(t *testing.T, srv *mercuryServer, pubKeys []ed25519.Publ
 
 	// Register mercury implementation with the wsrpc server
 	pb.RegisterMercuryServer(s, srv)
+
+	// Start serving
+	go s.Serve(lis)
+	t.Cleanup(s.Stop)
+
+	return
+}
+
+func startMercuryGrpcServer(t *testing.T, srv *mercuryServer) (serverURL string) {
+	// Set up the wsrpc server
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("[MAIN] failed to listen: %v", err)
+	}
+
+
+	serverURL = lis.Addr().String()
+
+	serverCreds, err := grpc_creds.NewServerTLSFromFile("./fixtures/domain.pem", "./fixtures/domain.key")
+	require.NoError(t, err)
+	s := grpc.NewServer( 
+		grpc.Creds(
+			serverCreds,
+		),
+	)
+
+	// Register mercury implementation with the wsrpc server
+	pb.RegisterGrpcMercuryServer(s, srv)
 
 	// Start serving
 	go s.Serve(lis)

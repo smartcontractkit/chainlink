@@ -174,8 +174,7 @@ func (w *client) Start(ctx context.Context) error {
 		w.wg.Add(1)
 		go w.runloop()
 		return nil
-	})
-}
+	})}
 
 // chooseDial chooses between dialing via wsrpc or grpc connection
 func (w *client) chooseDial(ctx context.Context) error {
@@ -203,7 +202,7 @@ func (w *client) dial(ctx context.Context, opts ...wsrpc.DialOption) error {
 	w.dialCountMetric.Inc()
 	conn, err := wsrpc.DialWithContext(ctx, w.serverURL,
 		append(opts,
-			// wsrpc.WithTransportCreds(w.csaKey.Raw().Bytes(), w.serverPubKey),
+			wsrpc.WithTransportCreds(w.csaKey.Raw().Bytes(), w.serverPubKey),
 			wsrpc.WithLogger(w.logger),
 		)...,
 	)
