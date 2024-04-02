@@ -27,15 +27,16 @@ jobs:
           core_ref=$(echo $comment | grep -oP 'core ref: \K\S+' || true)
           if [ ! -z "$core_ref" ]; then
             echo "CUSTOM_CORE_REF=${core_ref}" >> "${GITHUB_ENV}"
-          else 
+          else
             echo "CUSTOM_CORE_REF=develop" >> "${GITHUB_ENV}"
           fi
       - name: Collect Metrics
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@v1
+        uses: smartcontractkit/push-gha-metrics-action@v2.2.0
         with:
-          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           this-job-name: Build Chainlink Image
         continue-on-error: true
       - name: Checkout the repo
@@ -71,15 +72,16 @@ jobs:
           solana_ref=$(echo $comment | grep -oP 'solana ref: \K\S+' || true)
           if [ ! -z "$solana_ref" ]; then
             echo "CUSTOM_SOLANA_REF=${solana_ref}" >> "${GITHUB_ENV}"
-          else 
+          else
             echo "CUSTOM_SOLANA_REF=develop" >> "${GITHUB_ENV}"
           fi
       - name: Collect Metrics
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@v1
+        uses: smartcontractkit/push-gha-metrics-action@v2.2.0
         with:
-          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           this-job-name: Solana Build Relay
         continue-on-error: true
       - name: Checkout the solana repo
@@ -116,15 +118,16 @@ jobs:
           starknet_ref=$(echo $comment | grep -oP 'starknet ref: \K\S+' || true)
           if [ ! -z "$starknet_ref" ]; then
             echo "CUSTOM_STARKNET_REF=${starknet_ref}" >> "${GITHUB_ENV}"
-          else 
+          else
             echo "CUSTOM_STARKNET_REF=develop" >> "${GITHUB_ENV}"
           fi
       - name: Collect Metrics
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@v1
+        uses: smartcontractkit/push-gha-metrics-action@v2.2.0
         with:
-          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           this-job-name: Starknet Build Relay
         continue-on-error: true
       - name: Checkout the starknet repo
@@ -137,7 +140,7 @@ jobs:
         with:
           go-version-file: ./relayer/go.mod
       - name: Replace chainlink-common deps
-        run: | 
+        run: |
             cd relayer
             go get github.com/smartcontractkit/chainlink-common@${{ github.event.pull_request.head.sha }}
             go mod tidy
@@ -159,10 +162,11 @@ jobs:
   #   steps:
   #     - name: Collect Metrics
   #       id: collect-gha-metrics
-  #       uses: smartcontractkit/push-gha-metrics-action@v1
+  #       uses: smartcontractkit/push-gha-metrics-action@v2.2.0
   #       with:
-  #         basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-  #         hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+  #         basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+  #         hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+  #         org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
   #         this-job-name: Terra Build Relay
   #       continue-on-error: true
   #     - name: Checkout the terra repo
