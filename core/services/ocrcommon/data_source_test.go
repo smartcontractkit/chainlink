@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	serializablebig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -75,9 +76,10 @@ func Test_CachedInMemoryDataSourceErrHandling(t *testing.T) {
 		ds := ocrcommon.NewInMemoryDataSource(runner, job.Job{}, pipeline.Spec{}, logger.TestLogger(t))
 		mockKVStore := mocks.KVStore{}
 		mockKVStore.On("Store", mock.Anything, mock.Anything).Return(nil)
-		mockKVStore.On("Get", mock.Anything, mock.AnythingOfType("*big.Big")).Return(nil)
+		mockKVStore.On("Get", mock.Anything, mock.IsType(&ocrcommon.ResultTimePair{})).Return(nil)
 		dsCache, err := ocrcommon.NewInMemoryDataSourceCache(ds, &mockKVStore, time.Second*2)
 		require.NoError(t, err)
+		servicetest.Run(t, dsCache)
 
 		mockVal := int64(1)
 		// Test if Observe notices that cache updater failed and can refresh the cache on its own
@@ -98,26 +100,26 @@ func Test_CachedInMemoryDataSourceErrHandling(t *testing.T) {
 	})
 
 	t.Run("test total updater fail with persisted value recovery", func(t *testing.T) {
-		persistedVal := big.NewInt(1337)
 		runner := pipelinemocks.NewRunner(t)
 		ds := ocrcommon.NewInMemoryDataSource(runner, job.Job{}, pipeline.Spec{}, logger.TestLogger(t))
 
 		mockKVStore := mocks.KVStore{}
-		mockKVStore.On("Get", mock.Anything, mock.AnythingOfType("*big.Big")).Return(nil).Run(func(args mock.Arguments) {
-			arg := args.Get(1).(*serializablebig.Big)
-			arg.ToInt().Set(persistedVal)
+		persistedVal := serializablebig.NewI(1337)
+		mockKVStore.On("Get", mock.Anything, mock.IsType(&ocrcommon.ResultTimePair{})).Return(nil).Run(func(args mock.Arguments) {
+			arg := args.Get(1).(*ocrcommon.ResultTimePair)
+			arg.Result = *persistedVal
 		})
 
 		// set updater to a long time so that it doesn't log errors after the test is done
 		dsCache, err := ocrcommon.NewInMemoryDataSourceCache(ds, &mockKVStore, time.Hour*100)
 		require.NoError(t, err)
 		changeResultValue(runner, "-1", true, false)
+		servicetest.Run(t, dsCache)
 
 		time.Sleep(time.Millisecond * 100)
 		val, err := dsCache.Observe(testutils.Context(t), types.ReportTimestamp{})
 		require.NoError(t, err)
 		assert.Equal(t, persistedVal.String(), val.String())
-
 	})
 
 	t.Run("test total updater fail with no persisted value ", func(t *testing.T) {
@@ -125,12 +127,13 @@ func Test_CachedInMemoryDataSourceErrHandling(t *testing.T) {
 		ds := ocrcommon.NewInMemoryDataSource(runner, job.Job{}, pipeline.Spec{}, logger.TestLogger(t))
 
 		mockKVStore := mocks.KVStore{}
-		mockKVStore.On("Get", mock.Anything, mock.AnythingOfType("*big.Big")).Return(nil).Return(assert.AnError)
+		mockKVStore.On("Get", mock.Anything, mock.IsType(&ocrcommon.ResultTimePair{})).Return(nil).Return(assert.AnError)
 
 		// set updater to a long time so that it doesn't log errors after the test is done
 		dsCache, err := ocrcommon.NewInMemoryDataSourceCache(ds, &mockKVStore, time.Hour*100)
 		require.NoError(t, err)
 		changeResultValue(runner, "-1", true, false)
+		servicetest.Run(t, dsCache)
 
 		time.Sleep(time.Millisecond * 100)
 		_, err = dsCache.Observe(testutils.Context(t), types.ReportTimestamp{})

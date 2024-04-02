@@ -111,7 +111,7 @@ type ContractDeployer interface {
 	LoadKeeperRegistry(address common.Address, registryVersion eth_contracts.KeeperRegistryVersion) (KeeperRegistry, error)
 	DeployKeeperConsumer(updateInterval *big.Int) (KeeperConsumer, error)
 	DeployAutomationLogTriggerConsumer(testInterval *big.Int) (KeeperConsumer, error)
-	DeployAutomationSimpleLogTriggerConsumer() (KeeperConsumer, error)
+	DeployAutomationSimpleLogTriggerConsumer(isStreamsLookup bool) (KeeperConsumer, error)
 	DeployAutomationStreamsLookupUpkeepConsumer(testRange *big.Int, interval *big.Int, useArbBlock bool, staging bool, verify bool) (KeeperConsumer, error)
 	DeployAutomationLogTriggeredStreamsLookupUpkeepConsumer() (KeeperConsumer, error)
 	DeployKeeperConsumerPerformance(
@@ -1517,13 +1517,13 @@ func (e *EthereumContractDeployer) DeployAutomationLogTriggerConsumer(testInterv
 	}, err
 }
 
-func (e *EthereumContractDeployer) DeployAutomationSimpleLogTriggerConsumer() (KeeperConsumer, error) {
+func (e *EthereumContractDeployer) DeployAutomationSimpleLogTriggerConsumer(isStreamsLookup bool) (KeeperConsumer, error) {
 	address, _, instance, err := e.client.DeployContract("SimpleLogUpkeepCounter", func(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
 		return simple_log_upkeep_counter_wrapper.DeploySimpleLogUpkeepCounter(
-			auth, backend,
+			auth, backend, isStreamsLookup,
 		)
 	})
 	if err != nil {

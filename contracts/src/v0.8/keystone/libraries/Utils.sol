@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-// solhint-disable custom-errors
+// solhint-disable gas-custom-errors
 library Utils {
   // solhint-disable avoid-low-level-calls, chainlink-solidity/explicit-returns
   function _splitSignature(bytes memory sig) internal pure returns (bytes32 r, bytes32 s, uint8 v) {
