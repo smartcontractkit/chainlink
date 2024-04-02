@@ -195,7 +195,7 @@ jobs:
 
   publish-beta:
     name: Publish Beta NPM
-    environment: publish
+    environment: publish-contracts
     needs: [tag-check, changes, lint, prettier, native-compile, prepublish-test]
     runs-on: ubuntu-latest
     if: needs.tag-check.outputs.is-pre-release == 'true'
@@ -212,12 +212,12 @@ jobs:
           echo "Bumping version to ${{ needs.tag-check.outputs.pre-release-version }}"
           pnpm version ${{ needs.tag-check.outputs.pre-release-version }} --no-git-tag-version --no-commit-hooks --no-git-checks
 
-      - name: Publish to NPM
+      - name: Publish to NPM (Dry Run)
         uses: smartcontractkit/.github/actions/ci-publish-npm@e1c9d45fc66369d6be5d3863c65af1750797a7f5 # ci-publish-npm@0.3.0     
         with:
           npm-token: ${{ secrets.NPM_TOKEN }}
           create-github-release: false
-          publish-command: "pnpm publish-beta --no-git-checks"
+          publish-command: "pnpm publish-beta --no-git-checks --dry-run"
           package-json-directory: contracts
 
       - name: Collect Metrics
@@ -232,7 +232,7 @@ jobs:
 
   publish-prod:
     name: Publish Prod NPM
-    environment: publish
+    environment: publish-contracts
     needs: [tag-check, changes, lint, prettier, native-compile, prepublish-test]
     runs-on: ubuntu-latest
     permissions:
@@ -254,7 +254,7 @@ jobs:
             exit 1
           fi
 
-      - name: Publish to NPM
+      - name: Publish to NPM (Dry Run)
         uses: smartcontractkit/.github/actions/ci-publish-npm@e1c9d45fc66369d6be5d3863c65af1750797a7f5 # ci-publish-npm@0.3.0     
         with:
           npm-token: ${{ secrets.NPM_TOKEN }}
@@ -262,7 +262,7 @@ jobs:
           github-release-tag-name: ${{ github.ref_name }}
           github-release-changelog-path: "contracts/CHANGELOG.md"
           create-github-release: true
-          publish-command: "pnpm publish-prod"
+          publish-command: "pnpm publish-prod --dry-run"
           package-json-directory: contracts
 
       - name: Collect Metrics
