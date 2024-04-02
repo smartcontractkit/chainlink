@@ -96,6 +96,7 @@ LimitDefault = 5_000_000`
 		FallbackLinkPrice:    big.NewInt(2e18),
 		MaxCheckDataSize:     uint32(5000),
 		MaxPerformDataSize:   uint32(5000),
+		MaxRevertDataSize:    uint32(5000),
 	}
 )
 

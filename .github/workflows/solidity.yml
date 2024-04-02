@@ -26,17 +26,17 @@ jobs:
               - 'contracts/**/*'
               - '.github/workflows/solidity.yml'
               - '.github/workflows/solidity-foundry.yml'
-            old_sol:
-              - 'contracts/src/v0.4/**/*'
-              - 'contracts/src/v0.5/**/*'
-              - 'contracts/src/v0.6/**/*'
-              - 'contracts/src/v0.7/**/*'
+            read_only_sol:
+              - 'contracts/src/v0.8/interfaces/**/*'
+              - 'contracts/src/v0.8/automation/v1_2/**/*'
+              - 'contracts/src/v0.8/automation/v1_3/**/*'
+              - 'contracts/src/v0.8/automation/v2_0/**/*'
 
       - name: Fail if read-only files have changed
-        if: ${{ steps.changes.outputs.old_sol == 'true' }}
+        if: ${{ steps.changes.outputs.read_only_sol == 'true' }}
         run: |
           echo "One or more read-only Solidity file(s) has changed."
-          for file in ${{ steps.changes.outputs.old_sol_files }}; do
+          for file in ${{ steps.changes.outputs.read_only_sol_files }}; do
             echo "$file was changed"
           done
           exit 1
@@ -56,8 +56,9 @@ jobs:
         run: pnpm prepublishOnly
       - name: Collect Metrics
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@0281b09807758be1dcc41651e44e62b353808c47 # v2.1.0
+        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
         with:
+          id: solidity-prepublish-test
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
@@ -101,8 +102,9 @@ jobs:
         run: gh pr comment -b 'Go solidity wrappers are out-of-date, regenerate them via the `make wrappers-all` command'
       - name: Collect Metrics
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@0281b09807758be1dcc41651e44e62b353808c47 # v2.1.0
+        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
         with:
+          id: solidity-native-compile
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
@@ -133,8 +135,9 @@ jobs:
       - name: Collect Metrics
         if: needs.changes.outputs.changes == 'true'
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@0281b09807758be1dcc41651e44e62b353808c47 # v2.1.0
+        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
         with:
+          id: solidity-lint
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
@@ -160,8 +163,9 @@ jobs:
       - name: Collect Metrics
         if: needs.changes.outputs.changes == 'true'
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@0281b09807758be1dcc41651e44e62b353808c47 # v2.1.0
+        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
         with:
+          id: solidity-prettier
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}

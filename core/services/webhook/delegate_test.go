@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -34,7 +35,7 @@ func TestWebhookDelegate(t *testing.T) {
 		}
 
 		requestBody = "foo"
-		meta        = pipeline.JSONSerializable{Val: "bar", Valid: true}
+		meta        = jsonserializable.JSONSerializable{Val: "bar", Valid: true}
 		vars        = map[string]interface{}{
 			"jobSpec": map[string]interface{}{
 				"databaseID":    spec.ID,

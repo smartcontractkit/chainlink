@@ -54,6 +54,26 @@ func (_m *Peer) HealthReport() map[string]error {
 	return r0
 }
 
+// ID provides a mock function with given fields:
+func (_m *Peer) ID() ragep2ptypes.PeerID {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for ID")
+	}
+
+	var r0 ragep2ptypes.PeerID
+	if rf, ok := ret.Get(0).(func() ragep2ptypes.PeerID); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(ragep2ptypes.PeerID)
+		}
+	}
+
+	return r0
+}
+
 // Name provides a mock function with given fields:
 func (_m *Peer) Name() string {
 	ret := _m.Called()

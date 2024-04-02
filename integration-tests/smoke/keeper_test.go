@@ -15,6 +15,7 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -1178,10 +1179,14 @@ func setupKeeperTest(l zerolog.Logger, t *testing.T, config *tc.TestConfig) (
 	linkTokenContract, err := env.ContractDeployer.DeployLinkTokenContract()
 	require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
 
-	err = env.EVMClient.WaitForEvents()
+	network := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0]
+	evmClient, err := env.GetEVMClient(network.ChainID)
+	require.NoError(t, err, "Getting EVM client shouldn't fail")
+
+	err = evmClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for events")
 
-	return env.EVMClient, env.ClCluster.NodeAPIs(), env.ContractDeployer, linkTokenContract, env
+	return evmClient, env.ClCluster.NodeAPIs(), env.ContractDeployer, linkTokenContract, env
 }
 
 func TestKeeperJobReplacement(t *testing.T) {

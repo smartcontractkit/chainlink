@@ -217,10 +217,10 @@ func SendFunds(logger zerolog.Logger, client *seth.Client, payload FundsToSendPa
 func DeployForwarderContracts(
 	t *testing.T,
 	seth *seth.Client,
-	linkTokenData seth.DeploymentData,
+	linkTokenAddress common.Address,
 	numberOfOperatorForwarderPairs int,
 ) (operators []common.Address, authorizedForwarders []common.Address, operatorFactoryInstance contracts.OperatorFactory) {
-	instance, err := contracts.DeployEthereumOperatorFactory(seth, linkTokenData.Address)
+	instance, err := contracts.DeployEthereumOperatorFactory(seth, linkTokenAddress)
 	require.NoError(t, err, "failed to create new instance of operator factory")
 	operatorFactoryInstance = &instance
 
@@ -249,10 +249,10 @@ func DeployForwarderContracts(
 	return operators, authorizedForwarders, operatorFactoryInstance
 }
 
-// WatchNewRound watches for a new OCR round, similarly to StartNewRound, but it does not explicitly request a new
+// WatchNewOCRRound watches for a new OCR round, similarly to StartNewRound, but it does not explicitly request a new
 // round from the contract, as this can cause some odd behavior in some cases. It announces success if latest round
 // is >= roundNumber.
-func WatchNewRound(
+func WatchNewOCRRound(
 	l zerolog.Logger,
 	seth *seth.Client,
 	roundNumber int64,
@@ -331,13 +331,13 @@ func TrackForwarder(
 	t *testing.T,
 	seth *seth.Client,
 	authorizedForwarder common.Address,
-	node *client.ChainlinkK8sClient,
+	node contracts.ChainlinkNodeWithForwarder,
 ) {
 	l := logging.GetTestLogger(t)
 	chainID := big.NewInt(seth.ChainID)
 	_, _, err := node.TrackForwarder(chainID, authorizedForwarder)
 	require.NoError(t, err, "Forwarder track should be created")
-	l.Info().Str("NodeURL", node.Config.URL).
+	l.Info().Str("NodeURL", node.GetConfig().URL).
 		Str("ForwarderAddress", authorizedForwarder.Hex()).
 		Str("ChaindID", chainID.String()).
 		Msg("Forwarder tracked")
@@ -613,4 +613,37 @@ func privateKeyToAddress(privateKey *ecdsa.PrivateKey) (common.Address, error) {
 		return common.Address{}, errors.New("error casting public key to ECDSA")
 	}
 	return crypto.PubkeyToAddress(*publicKeyECDSA), nil
+}
+
+func WatchNewFluxRound(
+	l zerolog.Logger,
+	seth *seth.Client,
+	roundNumber int64,
+	fluxInstance contracts.FluxAggregator,
+	timeout time.Duration,
+) error {
+	timeoutC := time.After(timeout)
+	ticker := time.NewTicker(time.Millisecond * 200)
+	defer ticker.Stop()
+
+	l.Info().Msgf("Waiting for flux round %d to be confirmed by flux aggregator", roundNumber)
+
+	for {
+		select {
+		case <-timeoutC:
+			return fmt.Errorf("timeout waiting for round %d to be confirmed", roundNumber)
+		case <-ticker.C:
+			ctx, cancel := context.WithTimeout(context.Background(), seth.Cfg.Network.TxnTimeout.Duration())
+			roundId, err := fluxInstance.LatestRoundID(ctx)
+			if err != nil {
+				cancel()
+				return fmt.Errorf("getting latest round from flux instance has failed: %w", err)
+			}
+			cancel()
+			if roundId.Cmp(big.NewInt(roundNumber)) >= 0 {
+				l.Debug().Msgf("Flux instance confirmed round %d", roundNumber)
+				return nil
+			}
+		}
+	}
 }
