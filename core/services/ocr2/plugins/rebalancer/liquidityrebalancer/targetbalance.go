@@ -112,6 +112,7 @@ func (r *MinLiquidityRebalancer) findNetworksRequiringFunding(graphNow, graphLat
 		res = append(res, net)
 	}
 
+	sort.Slice(res, func(i, j int) bool { return liqDiffsLater[res[i]].Cmp(liqDiffsLater[res[j]]) > 0 })
 	return res, liqDiffsNow, liqDiffsLater, nil
 }
 
