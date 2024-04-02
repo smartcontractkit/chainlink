@@ -39,6 +39,7 @@ type serverAdapter func(
 	types.TelemetryService,
 	types.ErrorLog,
 	types.CapabilitiesRegistry,
+	types.KeyValueStore,
 ) (types.OCR3ReportingPluginFactory, error)
 
 func (s serverAdapter) NewReportingPluginFactory(
@@ -49,8 +50,9 @@ func (s serverAdapter) NewReportingPluginFactory(
 	ts types.TelemetryService,
 	errorLog types.ErrorLog,
 	capRegistry types.CapabilitiesRegistry,
+	kv types.KeyValueStore,
 ) (types.OCR3ReportingPluginFactory, error) {
-	return s(ctx, config, conn, pr, ts, errorLog, capRegistry)
+	return s(ctx, config, conn, pr, ts, errorLog, capRegistry, kv)
 }
 
 func (g *GRPCService[T]) GRPCServer(broker *plugin.GRPCBroker, server *grpc.Server) error {
@@ -62,10 +64,11 @@ func (g *GRPCService[T]) GRPCServer(broker *plugin.GRPCBroker, server *grpc.Serv
 		ts types.TelemetryService,
 		el types.ErrorLog,
 		capRegistry types.CapabilitiesRegistry,
+		kv types.KeyValueStore,
 	) (types.OCR3ReportingPluginFactory, error) {
 		provider := g.PluginServer.ConnToProvider(conn, broker, g.BrokerConfig)
 		tc := telemetry.NewTelemetryClient(ts)
-		return g.PluginServer.NewReportingPluginFactory(ctx, cfg, provider, pr, tc, el, capRegistry)
+		return g.PluginServer.NewReportingPluginFactory(ctx, cfg, provider, pr, tc, el, capRegistry, kv)
 	}
 	return ocr3.RegisterReportingPluginServiceServer(server, broker, g.BrokerConfig, serverAdapter(adapter))
 }

@@ -34,13 +34,14 @@ func NewLOOPPService(
 	pipelineRunner types.PipelineRunnerService,
 	telemetryService types.TelemetryService,
 	errorLog types.ErrorLog,
+	keyValueStore types.KeyValueStore,
 ) *LOOPPService {
 	newService := func(ctx context.Context, instance any) (types.ReportingPluginFactory, error) {
 		plug, ok := instance.(types.ReportingPluginClient)
 		if !ok {
 			return nil, fmt.Errorf("expected GenericPluginClient but got %T", instance)
 		}
-		return plug.NewReportingPluginFactory(ctx, config, providerConn, pipelineRunner, telemetryService, errorLog)
+		return plug.NewReportingPluginFactory(ctx, config, providerConn, pipelineRunner, telemetryService, errorLog, keyValueStore)
 	}
 	stopCh := make(chan struct{})
 	lggr = logger.Named(lggr, "GenericService")
