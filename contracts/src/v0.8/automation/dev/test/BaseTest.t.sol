@@ -7,6 +7,7 @@ import {LinkToken} from "../../../shared/token/ERC677/LinkToken.sol";
 import {ERC20Mock} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/mocks/ERC20Mock.sol";
 import {MockV3Aggregator} from "../../../tests/MockV3Aggregator.sol";
 import {AutomationForwarderLogic} from "../../AutomationForwarderLogic.sol";
+import {UpkeepTranscoder5_0 as Transcoder} from "../v2_3/UpkeepTranscoder5_0.sol";
 import {AutomationRegistry2_3} from "../v2_3/AutomationRegistry2_3.sol";
 import {AutomationRegistryBase2_3 as AutoBase} from "../v2_3/AutomationRegistryBase2_3.sol";
 import {AutomationRegistryLogicA2_3} from "../v2_3/AutomationRegistryLogicA2_3.sol";
@@ -47,6 +48,7 @@ contract BaseTest is Test {
   MockV3Aggregator internal FAST_GAS_FEED;
   MockUpkeep internal TARGET1;
   MockUpkeep internal TARGET2;
+  Transcoder internal TRANSCODER;
 
   // roles
   address internal constant OWNER = address(uint160(uint256(keccak256("OWNER"))));
@@ -81,6 +83,8 @@ contract BaseTest is Test {
 
     TARGET1 = new MockUpkeep();
     TARGET2 = new MockUpkeep();
+
+    TRANSCODER = new Transcoder();
 
     SIGNERS[0] = vm.addr(SIGNING_KEY0); //0xc110458BE52CaA6bB68E66969C3218A4D9Db0211
     SIGNERS[1] = vm.addr(SIGNING_KEY1); //0xc110a19c08f1da7F5FfB281dc93630923F8E3719
@@ -233,7 +237,7 @@ contract BaseTest is Test {
       fallbackGasPrice: 20_000_000_000,
       fallbackLinkPrice: 2_000_000_000, // $20
       fallbackNativePrice: 400_000_000_000, // $4,000
-      transcoder: 0xB1e66855FD67f6e85F0f0fA38cd6fBABdf00923c,
+      transcoder: address(TRANSCODER),
       registrars: registrars,
       upkeepPrivilegeManager: PRIVILEGE_MANAGER,
       chainModule: address(new ChainModuleBase()),
@@ -265,6 +269,7 @@ contract BaseTest is Test {
     (, , address[] memory signers, address[] memory transmitters, uint8 f) = registry.getState();
     AutomationRegistryBase2_3.OnchainConfig memory config = registry.getConfig();
     address[] memory billingTokens = registry.getBillingTokens();
+
     AutomationRegistryBase2_3.BillingConfig[]
       memory billingTokenConfigs = new AutomationRegistryBase2_3.BillingConfig[](billingTokens.length);
 
@@ -287,6 +292,38 @@ contract BaseTest is Test {
       OFFCHAIN_CONFIG_VERSION,
       "",
       billingTokens,
+      billingTokenConfigs
+    );
+  }
+
+  /// @notice this function removes a billing token from the registry
+  function _removeBillingTokenConfig(Registry registry, address billingToken) internal {
+    (, , address[] memory signers, address[] memory transmitters, uint8 f) = registry.getState();
+    AutomationRegistryBase2_3.OnchainConfig memory config = registry.getConfig();
+    address[] memory billingTokens = registry.getBillingTokens();
+
+    address[] memory newBillingTokens = new address[](billingTokens.length - 1);
+    AutomationRegistryBase2_3.BillingConfig[]
+      memory billingTokenConfigs = new AutomationRegistryBase2_3.BillingConfig[](billingTokens.length - 1);
+
+    uint256 j = 0;
+    for (uint256 i = 0; i < billingTokens.length; i++) {
+      if (billingTokens[i] != billingToken) {
+        if (j == newBillingTokens.length) revert("could not find billing token provided on registry");
+        newBillingTokens[j] = billingTokens[i];
+        billingTokenConfigs[j] = registry.getBillingTokenConfig(billingTokens[i]);
+        j++;
+      }
+    }
+
+    registry.setConfigTypeSafe(
+      signers,
+      transmitters,
+      f,
+      config,
+      OFFCHAIN_CONFIG_VERSION,
+      "",
+      newBillingTokens,
       billingTokenConfigs
     );
   }
