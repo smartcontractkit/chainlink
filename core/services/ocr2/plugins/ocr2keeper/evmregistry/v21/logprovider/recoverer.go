@@ -499,6 +499,8 @@ func (r *logRecoverer) populatePending(f upkeepFilter, filteredLogs []logpoller.
 			}
 		}
 	}
+	r.lggr.Debugw("finished populatePending", "numPending", len(r.pending), "added", len(r.pending)-pendingSizeBefore, "pendingSizeBefore", pendingSizeBefore, "alreadyPending", alreadyPending)
+
 	return len(r.pending) - pendingSizeBefore, alreadyPending, len(errs) == 0
 }
 
@@ -691,6 +693,7 @@ func (r *logRecoverer) addPending(payload ocr2keepers.UpkeepPayload) error {
 		}
 	}
 	if upkeepPayloads >= maxPendingPayloadsPerUpkeep {
+		r.lggr.Debugw("upkeepPayloads exceeds maxPendingPayloadsPerUpkeep", "upkeepPayloads", upkeepPayloads, "maxPendingPayloadsPerUpkeep", maxPendingPayloadsPerUpkeep)
 		return fmt.Errorf("upkeep %v has too many payloads in pending queue", payload.UpkeepID)
 	}
 	if !exist {
