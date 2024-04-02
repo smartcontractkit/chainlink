@@ -262,7 +262,7 @@ jobs:
           github-release-tag-name: ${{ github.ref_name }}
           github-release-changelog-path: "contracts/CHANGELOG.md"
           create-github-release: true
-          publish-command: "pnpm publish-prod --dry-run"
+          publish-command: "pnpm publish-prod --no-git-checks --dry-run"
           package-json-directory: contracts
 
       - name: Collect Metrics
