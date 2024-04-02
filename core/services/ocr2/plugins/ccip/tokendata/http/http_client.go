@@ -34,7 +34,7 @@ func (s *HttpClient) Get(ctx context.Context, url string, timeout time.Duration)
 			return nil, http.StatusRequestTimeout, nil, tokendata.ErrTimeout
 		}
 		// On error, res is nil in most cases, do not read res.StatusCode, return BadRequest
-		return nil, http.StatusBadRequest, res.Header, err
+		return nil, http.StatusBadRequest, nil, err
 	}
 	defer res.Body.Close()
 
