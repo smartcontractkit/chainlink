@@ -251,12 +251,23 @@ contract Withdraw is SetUp {
     registry.withdrawERC20Fees(address(usdToken), FINANCE_ADMIN, 1);
   }
 
-  function test_WithdrawERC20Fees_RevertsWhenAttemptingToWithdrawLINK() public {
+  function test_WithdrawERC20Fees_RevertsWhen_AttemptingToWithdrawLINK() public {
     _mintLink(address(registry), 1e10);
     vm.startPrank(FINANCE_ADMIN);
     vm.expectRevert(Registry.InvalidToken.selector);
     registry.withdrawERC20Fees(address(linkToken), FINANCE_ADMIN, 1); // should revert
     registry.withdrawLink(FINANCE_ADMIN, 1); // but using link withdraw functions succeeds
+  }
+
+  function test_WithdrawERC20Fees_RevertsWhen_LinkAvailableForPaymentIsNegative() public {
+    _transmit(usdUpkeepID, registry); // adds USD token to finance withdrawable, and gives NOPs a LINK balance
+    require(registry.linkAvailableForPayment() < 0, "linkAvailableForPayment should be negative");
+    vm.expectRevert(Registry.InsufficientLinkLiquidity.selector);
+    vm.prank(FINANCE_ADMIN);
+    registry.withdrawERC20Fees(address(usdToken), FINANCE_ADMIN, 1); // should revert
+    _mintLink(address(registry), uint256(registry.linkAvailableForPayment() * -10)); // top up LINK liquidity pool
+    vm.prank(FINANCE_ADMIN);
+    registry.withdrawERC20Fees(address(usdToken), FINANCE_ADMIN, 1); // now finance can withdraw
   }
 
   function testWithdrawERC20FeeSuccess() public {
@@ -1354,5 +1365,160 @@ contract Transmit is SetUp {
       prevReserveBalances[2] > registry.getReserveAmount(address(weth)),
       "native reserve amount should have decreased"
     );
+  }
+}
+
+contract MigrateReceive is SetUp {
+  event UpkeepMigrated(uint256 indexed id, uint256 remainingBalance, address destination);
+  event UpkeepReceived(uint256 indexed id, uint256 startingBalance, address importedFrom);
+
+  Registry newRegistry;
+  uint256[] idsToMigrate;
+
+  function setUp() public override {
+    super.setUp();
+    (newRegistry, ) = deployAndConfigureRegistryAndRegistrar(AutoBase.PayoutMode.ON_CHAIN);
+    idsToMigrate.push(linkUpkeepID);
+    idsToMigrate.push(usdUpkeepID);
+    idsToMigrate.push(nativeUpkeepID);
+    registry.setPeerRegistryMigrationPermission(address(newRegistry), 1);
+    newRegistry.setPeerRegistryMigrationPermission(address(registry), 2);
+  }
+
+  function test_RevertsWhen_PermissionsNotSet() external {
+    // no permissions
+    registry.setPeerRegistryMigrationPermission(address(newRegistry), 0);
+    newRegistry.setPeerRegistryMigrationPermission(address(registry), 0);
+    vm.expectRevert(Registry.MigrationNotPermitted.selector);
+    vm.prank(UPKEEP_ADMIN);
+    registry.migrateUpkeeps(idsToMigrate, address(newRegistry));
+
+    // only outgoing permissions
+    registry.setPeerRegistryMigrationPermission(address(newRegistry), 1);
+    newRegistry.setPeerRegistryMigrationPermission(address(registry), 0);
+    vm.expectRevert(Registry.MigrationNotPermitted.selector);
+    vm.prank(UPKEEP_ADMIN);
+    registry.migrateUpkeeps(idsToMigrate, address(newRegistry));
+
+    // only incoming permissions
+    registry.setPeerRegistryMigrationPermission(address(newRegistry), 0);
+    newRegistry.setPeerRegistryMigrationPermission(address(registry), 2);
+    vm.expectRevert(Registry.MigrationNotPermitted.selector);
+    vm.prank(UPKEEP_ADMIN);
+    registry.migrateUpkeeps(idsToMigrate, address(newRegistry));
+
+    // permissions opposite direction
+    registry.setPeerRegistryMigrationPermission(address(newRegistry), 2);
+    newRegistry.setPeerRegistryMigrationPermission(address(registry), 1);
+    vm.expectRevert(Registry.MigrationNotPermitted.selector);
+    vm.prank(UPKEEP_ADMIN);
+    registry.migrateUpkeeps(idsToMigrate, address(newRegistry));
+  }
+
+  function test_RevertsWhen_ReceivingRegistryDoesNotSupportToken() external {
+    _removeBillingTokenConfig(newRegistry, address(weth));
+    vm.expectRevert(Registry.InvalidToken.selector);
+    vm.prank(UPKEEP_ADMIN);
+    registry.migrateUpkeeps(idsToMigrate, address(newRegistry));
+    idsToMigrate.pop(); // remove native upkeep id
+    vm.prank(UPKEEP_ADMIN);
+    registry.migrateUpkeeps(idsToMigrate, address(newRegistry)); // should succeed now
+  }
+
+  function test_RevertsWhen_CalledByNonAdmin() external {
+    vm.expectRevert(Registry.OnlyCallableByAdmin.selector);
+    vm.prank(STRANGER);
+    registry.migrateUpkeeps(idsToMigrate, address(newRegistry));
+  }
+
+  function test_Success() external {
+    vm.startPrank(UPKEEP_ADMIN);
+
+    // add some changes in upkeep data to the mix
+    registry.pauseUpkeep(usdUpkeepID);
+    registry.setUpkeepTriggerConfig(linkUpkeepID, randomBytes(100));
+    registry.setUpkeepCheckData(nativeUpkeepID, randomBytes(25));
+
+    // record previous state
+    uint256[] memory prevUpkeepBalances = new uint256[](3);
+    prevUpkeepBalances[0] = registry.getBalance(linkUpkeepID);
+    prevUpkeepBalances[1] = registry.getBalance(usdUpkeepID);
+    prevUpkeepBalances[2] = registry.getBalance(nativeUpkeepID);
+    uint256[] memory prevReserveBalances = new uint256[](3);
+    prevReserveBalances[0] = registry.getReserveAmount(address(linkToken));
+    prevReserveBalances[1] = registry.getReserveAmount(address(usdToken));
+    prevReserveBalances[2] = registry.getReserveAmount(address(weth));
+    uint256[] memory prevTokenBalances = new uint256[](3);
+    prevTokenBalances[0] = linkToken.balanceOf(address(registry));
+    prevTokenBalances[1] = usdToken.balanceOf(address(registry));
+    prevTokenBalances[2] = weth.balanceOf(address(registry));
+    bytes[] memory prevUpkeepData = new bytes[](3);
+    prevUpkeepData[0] = abi.encode(registry.getUpkeep(linkUpkeepID));
+    prevUpkeepData[1] = abi.encode(registry.getUpkeep(usdUpkeepID));
+    prevUpkeepData[2] = abi.encode(registry.getUpkeep(nativeUpkeepID));
+    bytes[] memory prevUpkeepTriggerData = new bytes[](3);
+    prevUpkeepTriggerData[0] = registry.getUpkeepTriggerConfig(linkUpkeepID);
+    prevUpkeepTriggerData[1] = registry.getUpkeepTriggerConfig(usdUpkeepID);
+    prevUpkeepTriggerData[2] = registry.getUpkeepTriggerConfig(nativeUpkeepID);
+
+    // event expectations
+    vm.expectEmit(address(registry));
+    emit UpkeepMigrated(linkUpkeepID, prevUpkeepBalances[0], address(newRegistry));
+    vm.expectEmit(address(registry));
+    emit UpkeepMigrated(usdUpkeepID, prevUpkeepBalances[1], address(newRegistry));
+    vm.expectEmit(address(registry));
+    emit UpkeepMigrated(nativeUpkeepID, prevUpkeepBalances[2], address(newRegistry));
+    vm.expectEmit(address(newRegistry));
+    emit UpkeepReceived(linkUpkeepID, prevUpkeepBalances[0], address(registry));
+    vm.expectEmit(address(newRegistry));
+    emit UpkeepReceived(usdUpkeepID, prevUpkeepBalances[1], address(registry));
+    vm.expectEmit(address(newRegistry));
+    emit UpkeepReceived(nativeUpkeepID, prevUpkeepBalances[2], address(registry));
+
+    // do the thing
+    registry.migrateUpkeeps(idsToMigrate, address(newRegistry));
+
+    // assert upkeep balances have been migrated
+    assertEq(registry.getBalance(linkUpkeepID), 0);
+    assertEq(registry.getBalance(usdUpkeepID), 0);
+    assertEq(registry.getBalance(nativeUpkeepID), 0);
+    assertEq(newRegistry.getBalance(linkUpkeepID), prevUpkeepBalances[0]);
+    assertEq(newRegistry.getBalance(usdUpkeepID), prevUpkeepBalances[1]);
+    assertEq(newRegistry.getBalance(nativeUpkeepID), prevUpkeepBalances[2]);
+
+    // assert reserve balances have been adjusted
+    assertEq(newRegistry.getReserveAmount(address(linkToken)), newRegistry.getBalance(linkUpkeepID));
+    assertEq(newRegistry.getReserveAmount(address(usdToken)), newRegistry.getBalance(usdUpkeepID));
+    assertEq(newRegistry.getReserveAmount(address(weth)), newRegistry.getBalance(nativeUpkeepID));
+    assertEq(
+      newRegistry.getReserveAmount(address(linkToken)),
+      prevReserveBalances[0] - registry.getReserveAmount(address(linkToken))
+    );
+    assertEq(
+      newRegistry.getReserveAmount(address(usdToken)),
+      prevReserveBalances[1] - registry.getReserveAmount(address(usdToken))
+    );
+    assertEq(
+      newRegistry.getReserveAmount(address(weth)),
+      prevReserveBalances[2] - registry.getReserveAmount(address(weth))
+    );
+
+    // assert token have been transfered
+    assertEq(linkToken.balanceOf(address(newRegistry)), newRegistry.getBalance(linkUpkeepID));
+    assertEq(usdToken.balanceOf(address(newRegistry)), newRegistry.getBalance(usdUpkeepID));
+    assertEq(weth.balanceOf(address(newRegistry)), newRegistry.getBalance(nativeUpkeepID));
+    assertEq(linkToken.balanceOf(address(registry)), prevTokenBalances[0] - linkToken.balanceOf(address(newRegistry)));
+    assertEq(usdToken.balanceOf(address(registry)), prevTokenBalances[1] - usdToken.balanceOf(address(newRegistry)));
+    assertEq(weth.balanceOf(address(registry)), prevTokenBalances[2] - weth.balanceOf(address(newRegistry)));
+
+    // assert upkeep data matches
+    assertEq(prevUpkeepData[0], abi.encode(newRegistry.getUpkeep(linkUpkeepID)));
+    assertEq(prevUpkeepData[1], abi.encode(newRegistry.getUpkeep(usdUpkeepID)));
+    assertEq(prevUpkeepData[2], abi.encode(newRegistry.getUpkeep(nativeUpkeepID)));
+    assertEq(prevUpkeepTriggerData[0], newRegistry.getUpkeepTriggerConfig(linkUpkeepID));
+    assertEq(prevUpkeepTriggerData[1], newRegistry.getUpkeepTriggerConfig(usdUpkeepID));
+    assertEq(prevUpkeepTriggerData[2], newRegistry.getUpkeepTriggerConfig(nativeUpkeepID));
+
+    vm.stopPrank();
   }
 }
