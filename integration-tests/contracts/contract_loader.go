@@ -5,6 +5,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_load_test_with_metrics"
+	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -50,6 +51,9 @@ type ContractLoader interface {
 	LoadVRFv2LoadTestConsumer(addr string) (VRFv2LoadTestConsumer, error)
 	LoadVRFCoordinatorV2_5(addr string) (VRFCoordinatorV2_5, error)
 	LoadVRFv2PlusLoadTestConsumer(addr string) (VRFv2PlusLoadTestConsumer, error)
+
+	// OCR
+	LoadOcrContract(address common.Address) (OffchainAggregator, error)
 }
 
 // NewContractLoader returns an instance of a contract Loader based on the client type
@@ -443,5 +447,23 @@ func (e *EthereumContractLoader) LoadVRFv2LoadTestConsumer(addr string) (VRFv2Lo
 		client:   e.client,
 		consumer: instance.(*vrf_load_test_with_metrics.VRFV2LoadTestWithMetrics),
 		address:  &address,
+	}, err
+}
+
+// LoadOcrContract returns deployed on given address OCR contract
+func (e *EthereumContractLoader) LoadOcrContract(address common.Address) (OffchainAggregator, error) {
+	instance, err := e.client.LoadContract("OffChain Aggregator", address, func(
+		address common.Address,
+		backend bind.ContractBackend,
+	) (interface{}, error) {
+		return offchainaggregator.NewOffchainAggregator(address, backend)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &LegacyEthereumOffchainAggregator{
+		client:  e.client,
+		ocr:     instance.(*offchainaggregator.OffchainAggregator),
+		address: &address,
 	}, err
 }
