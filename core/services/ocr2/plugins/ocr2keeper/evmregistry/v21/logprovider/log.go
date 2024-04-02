@@ -1,19 +1,12 @@
 package logprovider
 
 import (
+	"encoding/hex"
+
+	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 )
-
-// BlockWindow returns the start and end block for the given window.
-func BlockWindow(block int64, blockRate int) (start int64, end int64) {
-	windowSize := int64(blockRate)
-	if windowSize == 0 {
-		return block, block
-	}
-	start = block - (block % windowSize)
-	end = start + windowSize - 1
-	return
-}
 
 // LogSorter sorts the logs based on block number, tx hash and log index.
 // returns true if b should come before a.
@@ -38,4 +31,26 @@ func LogComparator(a, b logpoller.Log) int {
 		return a.TxHash.Big().Cmp(b.TxHash.Big())
 	}
 	return int(logIndexDiff)
+}
+
+// logID returns a unique identifier for a log, which is an hex string
+// of ocr2keepers.LogTriggerExtension.LogIdentifier()
+func logID(l logpoller.Log) string {
+	ext := ocr2keepers.LogTriggerExtension{
+		Index: uint32(l.LogIndex),
+	}
+	copy(ext.TxHash[:], l.TxHash[:])
+	copy(ext.BlockHash[:], l.BlockHash[:])
+	return hex.EncodeToString(ext.LogIdentifier())
+}
+
+// latestBlockNumber returns the latest block number from the given logs
+func latestBlockNumber(logs ...logpoller.Log) int64 {
+	var latest int64
+	for _, l := range logs {
+		if l.BlockNumber > latest {
+			latest = l.BlockNumber
+		}
+	}
+	return latest
 }

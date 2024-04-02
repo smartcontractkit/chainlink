@@ -1,14 +1,12 @@
 package logprovider
 
 import (
-	"encoding/hex"
 	"math"
 	"math/big"
 	"sort"
 	"sync"
 	"sync/atomic"
 
-	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/prommetrics"
@@ -120,7 +118,7 @@ func (b *logBuffer) Dequeue(block int64, blockRate, upkeepLimit, maxResults int,
 	b.lock.RLock()
 	defer b.lock.RUnlock()
 
-	start, end := BlockWindow(block, blockRate)
+	start, end := getBlockWindow(block, blockRate)
 	return b.dequeue(start, end, upkeepLimit, maxResults, upkeepSelector)
 }
 
@@ -342,7 +340,7 @@ func (q *upkeepLogQueue) clean(blockThreshold int64) int {
 			expired++
 			continue
 		}
-		start, _ := BlockWindow(l.BlockNumber, blockRate)
+		start, _ := getBlockWindow(l.BlockNumber, blockRate)
 		if start != currentWindowStart {
 			// new window, reset capacity
 			currentWindowStart = start
@@ -381,24 +379,13 @@ func (q *upkeepLogQueue) cleanVisited(blockThreshold int64) {
 	}
 }
 
-// logID returns a unique identifier for a log, which is an hex string
-// of ocr2keepers.LogTriggerExtension.LogIdentifier()
-func logID(l logpoller.Log) string {
-	ext := ocr2keepers.LogTriggerExtension{
-		Index: uint32(l.LogIndex),
+// getBlockWindow returns the start and end block of the window for the given block.
+func getBlockWindow(block int64, blockRate int) (start int64, end int64) {
+	windowSize := int64(blockRate)
+	if windowSize == 0 {
+		return block, block
 	}
-	copy(ext.TxHash[:], l.TxHash[:])
-	copy(ext.BlockHash[:], l.BlockHash[:])
-	return hex.EncodeToString(ext.LogIdentifier())
-}
-
-// latestBlockNumber returns the latest block number from the given logs
-func latestBlockNumber(logs ...logpoller.Log) int64 {
-	var latest int64
-	for _, l := range logs {
-		if l.BlockNumber > latest {
-			latest = l.BlockNumber
-		}
-	}
-	return latest
+	start = block - (block % windowSize)
+	end = start + windowSize - 1
+	return
 }
