@@ -32,6 +32,11 @@ func MergeSethAndEvmNetworkConfigs(evmNetwork blockchain.EVMNetwork, sethConfig 
 				// important since Besu doesn't support EIP-1559, but other EVM clients do
 				conf.EIP1559DynamicFees = evmNetwork.SupportsEIP1559
 
+				// might be needed for cases, when node is incapable of estimating gas limit (e.g. Geth < v1.10.0)
+				if evmNetwork.DefaultGasLimit != 0 {
+					conf.GasLimit = evmNetwork.DefaultGasLimit
+				}
+
 				sethNetwork = conf
 				break
 			}
@@ -96,9 +101,6 @@ func ValidateSethNetworkConfig(cfg *seth.Network) error {
 	}
 	if cfg.TxnTimeout.Duration() == 0 {
 		return fmt.Errorf("TxnTimeout needs to be above 0. It's the timeout for a transaction")
-	}
-	if cfg.GasLimit == 0 {
-		return fmt.Errorf("GasLimit needs to be above 0. It's the gas limit for a transaction")
 	}
 	if cfg.EIP1559DynamicFees {
 		if cfg.GasFeeCap == 0 {

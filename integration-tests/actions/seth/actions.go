@@ -134,7 +134,7 @@ func SendFunds(logger zerolog.Logger, client *seth.Client, payload FundsToSendPa
 		// if any of the dynamic fees are not set, we need to either estimate them or read them from config
 		if payload.GasFeeCap == nil || payload.GasTipCap == nil {
 			// estimatior or config reading happens here
-			txOptions := client.NewTXOpts()
+			txOptions := client.NewTXOpts(seth.WithGasLimit(gasLimit))
 			gasFeeCap = txOptions.GasFeeCap
 			gasTipCap = txOptions.GasTipCap
 		}
@@ -151,7 +151,7 @@ func SendFunds(logger zerolog.Logger, client *seth.Client, payload FundsToSendPa
 
 	if !client.Cfg.Network.EIP1559DynamicFees {
 		if payload.GasPrice == nil {
-			txOptions := client.NewTXOpts()
+			txOptions := client.NewTXOpts((seth.WithGasLimit(gasLimit)))
 			gasPrice = txOptions.GasPrice
 		} else {
 			gasPrice = payload.GasPrice
