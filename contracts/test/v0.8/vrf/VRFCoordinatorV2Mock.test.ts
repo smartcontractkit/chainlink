@@ -91,7 +91,10 @@ describe('VRFCoordinatorV2Mock', () => {
         vrfCoordinatorV2Mock
           .connect(subOwner)
           .addConsumer(4, testConsumerAddress),
-      ).to.be.revertedWith('InvalidSubscription')
+      ).to.be.revertedWithCustomError(
+        vrfCoordinatorV2Mock,
+        'InvalidSubscription',
+      )
     })
     it('cannot add more than the consumer maximum', async function () {
       let subId = await createSubscription()
@@ -109,7 +112,7 @@ describe('VRFCoordinatorV2Mock', () => {
         vrfCoordinatorV2Mock
           .connect(subOwner)
           .addConsumer(subId, testConsumerAddress),
-      ).to.be.revertedWith('TooManyConsumers')
+      ).to.be.revertedWithCustomError(vrfCoordinatorV2Mock, 'TooManyConsumers')
     })
   })
   describe('#removeConsumer', async function () {
@@ -142,7 +145,10 @@ describe('VRFCoordinatorV2Mock', () => {
         vrfCoordinatorV2Mock
           .connect(subOwner)
           .removeConsumer(4, testConsumerAddress),
-      ).to.be.revertedWith('InvalidSubscription')
+      ).to.be.revertedWithCustomError(
+        vrfCoordinatorV2Mock,
+        'InvalidSubscription',
+      )
     })
     it('cannot remove a consumer after it is already removed', async function () {
       let subId = await createSubscription()
@@ -163,7 +169,7 @@ describe('VRFCoordinatorV2Mock', () => {
         vrfCoordinatorV2Mock
           .connect(subOwner)
           .removeConsumer(subId, testConsumerAddress),
-      ).to.be.revertedWith('InvalidConsumer')
+      ).to.be.revertedWithCustomError(vrfCoordinatorV2Mock, 'InvalidConsumer')
     })
   })
   describe('#fundSubscription', async function () {
@@ -182,7 +188,10 @@ describe('VRFCoordinatorV2Mock', () => {
     it('cannot fund a nonexistent subscription', async function () {
       await expect(
         vrfCoordinatorV2Mock.connect(subOwner).fundSubscription(4, oneLink),
-      ).to.be.revertedWith('InvalidSubscription')
+      ).to.be.revertedWithCustomError(
+        vrfCoordinatorV2Mock,
+        'InvalidSubscription',
+      )
     })
   })
   describe('#cancelSubscription', async function () {
@@ -200,7 +209,10 @@ describe('VRFCoordinatorV2Mock', () => {
 
       await expect(
         vrfCoordinatorV2Mock.connect(subOwner).getSubscription(subId),
-      ).to.be.revertedWith('InvalidSubscription')
+      ).to.be.revertedWithCustomError(
+        vrfCoordinatorV2Mock,
+        'InvalidSubscription',
+      )
     })
   })
   describe('#fulfillRandomWords', async function () {
@@ -211,7 +223,7 @@ describe('VRFCoordinatorV2Mock', () => {
         vrfCoordinatorV2Mock
           .connect(subOwner)
           .requestRandomWords(keyhash, subId, 3, 500_000, 2),
-      ).to.be.revertedWith('InvalidConsumer')
+      ).to.be.revertedWithCustomError(vrfCoordinatorV2Mock, 'InvalidConsumer')
     })
     it('fails to fulfill with insufficient funds', async function () {
       let subId = await createSubscription()
@@ -231,7 +243,10 @@ describe('VRFCoordinatorV2Mock', () => {
         vrfCoordinatorV2Mock
           .connect(random)
           .fulfillRandomWords(1, vrfConsumerV2.address),
-      ).to.be.revertedWith('InsufficientBalance')
+      ).to.be.revertedWithCustomError(
+        vrfCoordinatorV2Mock,
+        'InsufficientBalance',
+      )
     })
     it('can request and fulfill [ @skip-coverage ]', async function () {
       let subId = await createSubscription()
@@ -302,7 +317,10 @@ describe('VRFCoordinatorV2Mock', () => {
             vrfConsumerV2.address,
             [1, 2, 3, 4, 5],
           ),
-      ).to.be.revertedWith('InvalidRandomWords')
+      ).to.be.revertedWithCustomError(
+        vrfCoordinatorV2Mock,
+        'InvalidRandomWords',
+      )
 
       // Call override correctly.
       let tx = await vrfCoordinatorV2Mock
