@@ -5,7 +5,7 @@ import {ConfirmedOwner} from "./shared/access/ConfirmedOwner.sol";
 import {AggregatorValidatorInterface} from "./shared/interfaces/AggregatorValidatorInterface.sol";
 import {TypeAndVersionInterface} from "./interfaces/TypeAndVersionInterface.sol";
 
-// solhint-disable custom-errors
+// solhint-disable gas-custom-errors
 contract ValidatorProxy is AggregatorValidatorInterface, TypeAndVersionInterface, ConfirmedOwner {
   /// @notice Uses a single storage slot to store the current address
   struct AggregatorConfiguration {

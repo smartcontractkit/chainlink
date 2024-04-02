@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity 0.8.19;
 
 import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
 import {LinkTokenInterface} from "../../shared/interfaces/LinkTokenInterface.sol";
@@ -63,8 +63,9 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
   struct ConsumerConfig {
     bool active;
     uint64 nonce;
+    uint64 pendingReqCount;
   }
-  // Note a nonce of 0 indicates an the consumer is not assigned to that subscription.
+  // Note a nonce of 0 indicates the consumer is not assigned to that subscription.
   mapping(address => mapping(uint256 => ConsumerConfig)) /* consumerAddress */ /* subId */ /* consumerConfig */
     internal s_consumers;
   mapping(uint256 => SubscriptionConfig) /* subId */ /* subscriptionConfig */ internal s_subscriptionConfigs;
@@ -170,11 +171,11 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
    * @dev notably can be called even if there are pending requests, outstanding ones may fail onchain
    */
   function ownerCancelSubscription(uint256 subId) external onlyOwner {
-    address owner = s_subscriptionConfigs[subId].owner;
-    if (owner == address(0)) {
+    address subOwner = s_subscriptionConfigs[subId].owner;
+    if (subOwner == address(0)) {
       revert InvalidSubscription();
     }
-    _cancelSubscriptionHelper(subId, owner);
+    _cancelSubscriptionHelper(subId, subOwner);
   }
 
   /**
@@ -310,17 +311,17 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
     public
     view
     override
-    returns (uint96 balance, uint96 nativeBalance, uint64 reqCount, address owner, address[] memory consumers)
+    returns (uint96 balance, uint96 nativeBalance, uint64 reqCount, address subOwner, address[] memory consumers)
   {
-    owner = s_subscriptionConfigs[subId].owner;
-    if (owner == address(0)) {
+    subOwner = s_subscriptionConfigs[subId].owner;
+    if (subOwner == address(0)) {
       revert InvalidSubscription();
     }
     return (
       s_subscriptions[subId].balance,
       s_subscriptions[subId].nativeBalance,
       s_subscriptions[subId].reqCount,
-      owner,
+      subOwner,
       s_subscriptionConfigs[subId].consumers
     );
   }
@@ -471,12 +472,12 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
   }
 
   function _onlySubOwner(uint256 subId) internal view {
-    address owner = s_subscriptionConfigs[subId].owner;
-    if (owner == address(0)) {
+    address subOwner = s_subscriptionConfigs[subId].owner;
+    if (subOwner == address(0)) {
       revert InvalidSubscription();
     }
-    if (msg.sender != owner) {
-      revert MustBeSubOwner(owner);
+    if (msg.sender != subOwner) {
+      revert MustBeSubOwner(subOwner);
     }
   }
 }

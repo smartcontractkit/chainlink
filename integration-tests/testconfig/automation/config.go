@@ -6,8 +6,9 @@ import (
 )
 
 type Config struct {
-	General *General `toml:"General"`
-	Load    []Load   `toml:"Load"`
+	General     *General     `toml:"General"`
+	Load        []Load       `toml:"Load"`
+	DataStreams *DataStreams `toml:"DataStreams"`
 }
 
 func (c *Config) Validate() error {
@@ -21,6 +22,11 @@ func (c *Config) Validate() error {
 			if err := load.Validate(); err != nil {
 				return err
 			}
+		}
+	}
+	if c.DataStreams != nil {
+		if err := c.DataStreams.Validate(); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -65,6 +71,8 @@ type Load struct {
 	PerformBurnAmount             *big.Int `toml:"perform_burn_amount"`
 	SharedTrigger                 *bool    `toml:"shared_trigger"`
 	UpkeepGasLimit                *uint32  `toml:"upkeep_gas_limit"`
+	IsStreamsLookup               *bool    `toml:"is_streams_lookup"`
+	Feeds                         []string `toml:"feeds"`
 }
 
 func (c *Load) Validate() error {
@@ -86,6 +94,49 @@ func (c *Load) Validate() error {
 	if c.PerformBurnAmount == nil || c.PerformBurnAmount.Cmp(big.NewInt(0)) < 0 {
 		return errors.New("perform_burn_amount must be set to a non-negative integer")
 	}
+	if c.SharedTrigger == nil {
+		return errors.New("shared_trigger must be set")
+	}
+	if c.UpkeepGasLimit == nil || *c.UpkeepGasLimit < 1 {
+		return errors.New("upkeep_gas_limit must be set to a positive integer")
+	}
+	if c.IsStreamsLookup == nil {
+		return errors.New("is_streams_lookup must be set")
+	}
+	if *c.IsStreamsLookup {
+		if len(c.Feeds) == 0 {
+			return errors.New("feeds must be set")
+		}
+	}
 
+	return nil
+}
+
+type DataStreams struct {
+	Enabled       *bool   `toml:"enabled"`
+	URL           *string `toml:"url"`
+	Username      *string `toml:"username"`
+	Password      *string `toml:"password"`
+	DefaultFeedID *string `toml:"default_feed_id"`
+}
+
+func (c *DataStreams) Validate() error {
+	if c.Enabled != nil && *c.Enabled {
+		if c.URL == nil {
+			return errors.New("data_streams_url must be set")
+		}
+		if c.Username == nil {
+			return errors.New("data_streams_username must be set")
+		}
+		if c.Password == nil {
+			return errors.New("data_streams_password must be set")
+		}
+		if c.DefaultFeedID == nil {
+			return errors.New("data_streams_feed_id must be set")
+		}
+	} else {
+		c.Enabled = new(bool)
+		*c.Enabled = false
+	}
 	return nil
 }

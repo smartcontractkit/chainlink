@@ -81,7 +81,7 @@ var (
 	}, promLabels)
 	promCallbacksToReport = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "ocr2vrf_coordinator_callbacks_to_report",
-		Help:    "Number of unfulfilled and and in-flight callbacks fit in current report in reportBlocks",
+		Help:    "Number of unfulfilled and in-flight callbacks fit in current report in reportBlocks",
 		Buckets: counterBuckets,
 	}, promLabels)
 	promBlocksInReport = promauto.NewHistogramVec(prometheus.HistogramOpts{
