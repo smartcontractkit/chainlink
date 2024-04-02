@@ -85,7 +85,7 @@ interface IVRFV2PlusWrapper {
     uint32 _callbackGasLimit,
     uint16 _requestConfirmations,
     uint32 _numWords,
-    bytes memory extraArgs
+    bytes calldata extraArgs
   ) external payable returns (uint256 requestId);
 
   function link() external view returns (address);

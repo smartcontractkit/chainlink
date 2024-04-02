@@ -15,8 +15,8 @@ import {VRFV2PlusClient} from "../dev/libraries/VRFV2PlusClient.sol";
 contract VRFV2PlusWrapperTest is BaseTest {
   address internal constant LINK_WHALE = 0xD883a6A1C22fC4AbFE938a5aDF9B2Cc31b1BF18B;
   bytes32 private vrfKeyHash = hex"9f2353bde94264dbc3d554a94cceba2d7d2b4fdce4304d3e09a1fea9fbeb1528";
-  uint32 private wrapperGasOverhead = 10_000;
-  uint32 private coordinatorGasOverhead = 20_000;
+  uint32 private wrapperGasOverhead = 100_000;
+  uint32 private coordinatorGasOverhead = 200_000;
   uint256 private s_wrapperSubscriptionId;
 
   ExposedVRFCoordinatorV2_5 private s_testCoordinator;
@@ -75,10 +75,10 @@ contract VRFV2PlusWrapperTest is BaseTest {
       1, // stalenessSeconds
       50_000, // gasAfterPaymentCalculation
       50000000000000000, // fallbackWeiPerUnitLink
-      500_000, // fulfillmentFlatFeeNativePPM
-      100_000, // fulfillmentFlatFeeLinkDiscountPPM
-      15, // nativePremiumPercentage
-      10 // linkPremiumPercentage
+      0, // fulfillmentFlatFeeNativePPM
+      0, // fulfillmentFlatFeeLinkDiscountPPM
+      0, // nativePremiumPercentage
+      0 // linkPremiumPercentage
     );
   }
 
@@ -208,7 +208,7 @@ contract VRFV2PlusWrapperTest is BaseTest {
     emit Disabled();
     s_wrapper.disable();
     vm.expectRevert("wrapper is disabled");
-    s_consumer.makeRequestNative(500_000, 0, 1);
+    s_consumer.makeRequestNative(100_000, 0, 0);
     vm.expectEmit(false, false, false, true, address(s_wrapper));
     emit Enabled();
     s_wrapper.enable();
