@@ -2,6 +2,7 @@ package logpoller
 
 import (
 	"fmt"
+	"math"
 	"math/big"
 	"testing"
 	"time"
@@ -16,6 +17,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/testutil"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -121,6 +123,40 @@ func TestCountersAreProperlyPopulatedForWrites(t *testing.T) {
 	require.Error(t, orm.InsertLogsWithBlock(logs, NewLogPollerBlock(utils.RandomBytes32(), 0, time.Now(), 0)))
 	assert.Equal(t, float64(20), testutil.ToFloat64(orm.logsInserted.WithLabelValues("420")))
 	assert.Equal(t, float64(2), testutil.ToFloat64(orm.blocksInserted.WithLabelValues("420")))
+}
+
+func TestCounterAreProperlyPopulatedForDeletes(t *testing.T) {
+	orm := createObservedORM(t, 420)
+	logs := generateRandomLogs(420, 20)
+
+	for _, log := range logs {
+		err := orm.InsertLogsWithBlock([]Log{log}, NewLogPollerBlock(utils.RandomBytes32(), log.BlockNumber, time.Now(), 0))
+		require.NoError(t, err)
+	}
+
+	// Delete 5 logs
+	removed, err := orm.DeleteBlocksBefore(logs[4].BlockNumber, 100)
+	require.NoError(t, err)
+	assert.Equal(t, int64(5), removed)
+	assert.Equal(t, float64(5), testutil.ToFloat64(orm.datasetSize.WithLabelValues("420", "DeleteBlocksBefore", "delete")))
+
+	// Delete 1 more log
+	removed, err = orm.DeleteBlocksBefore(logs[5].BlockNumber, 100)
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), removed)
+	assert.Equal(t, float64(1), testutil.ToFloat64(orm.datasetSize.WithLabelValues("420", "DeleteBlocksBefore", "delete")))
+
+	// Delete all
+	removed, err = orm.DeleteBlocksBefore(logs[len(logs)-1].BlockNumber, 0)
+	require.NoError(t, err)
+	assert.Equal(t, int64(14), removed)
+	assert.Equal(t, float64(14), testutil.ToFloat64(orm.datasetSize.WithLabelValues("420", "DeleteBlocksBefore", "delete")))
+
+	// Nothing to be deleted
+	removed, err = orm.DeleteBlocksBefore(math.MaxInt, 0)
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), removed)
+	assert.Equal(t, float64(0), testutil.ToFloat64(orm.datasetSize.WithLabelValues("420", "DeleteBlocksBefore", "delete")))
 }
 
 func generateRandomLogs(chainId, count int) []Log {
