@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
-import {OCR2Setup} from "./OCR2Setup.t.sol";
 import {OCR2Base} from "../../ocr/OCR2Base.sol";
 import {OCR2Helper} from "../helpers/OCR2Helper.sol";
+import {OCR2Setup} from "./OCR2Setup.t.sol";
 
 contract OCR2BaseSetup is OCR2Setup {
   event ConfigSet(
@@ -47,18 +47,17 @@ contract OCR2BaseSetup is OCR2Setup {
 
   function getBasicConfigDigest(uint8 f, uint64 currentConfigCount) internal view returns (bytes32) {
     bytes memory configBytes = abi.encode("");
-    return
-      s_OCR2Base.configDigestFromConfigData(
-        block.chainid,
-        address(s_OCR2Base),
-        currentConfigCount + 1,
-        s_valid_signers,
-        s_valid_transmitters,
-        f,
-        configBytes,
-        s_offchainConfigVersion,
-        configBytes
-      );
+    return s_OCR2Base.configDigestFromConfigData(
+      block.chainid,
+      address(s_OCR2Base),
+      currentConfigCount + 1,
+      s_valid_signers,
+      s_valid_transmitters,
+      f,
+      configBytes,
+      s_offchainConfigVersion,
+      configBytes
+    );
   }
 
   function getTestReportDigest() internal view returns (bytes32) {
@@ -73,18 +72,17 @@ contract OCR2BaseSetup is OCR2Setup {
     uint64 currentConfigCount,
     bytes memory onchainConfig
   ) internal view returns (bytes32) {
-    return
-      s_OCR2Base.configDigestFromConfigData(
-        block.chainid,
-        contractAddress,
-        currentConfigCount + 1,
-        s_valid_signers,
-        s_valid_transmitters,
-        f,
-        onchainConfig,
-        s_offchainConfigVersion,
-        abi.encode("")
-      );
+    return s_OCR2Base.configDigestFromConfigData(
+      block.chainid,
+      contractAddress,
+      currentConfigCount + 1,
+      s_valid_signers,
+      s_valid_transmitters,
+      f,
+      onchainConfig,
+      s_offchainConfigVersion,
+      abi.encode("")
+    );
   }
 }
 
@@ -97,12 +95,7 @@ contract OCR2Base_transmit is OCR2BaseSetup {
 
     s_configDigest = getBasicConfigDigest(s_f, 0);
     s_OCR2Base.setOCR2Config(
-      s_valid_signers,
-      s_valid_transmitters,
-      s_f,
-      configBytes,
-      s_offchainConfigVersion,
-      configBytes
+      s_valid_signers, s_valid_transmitters, s_f, configBytes, s_offchainConfigVersion, configBytes
     );
   }
 
@@ -214,12 +207,7 @@ contract OCR2Base_setOCR2Config is OCR2BaseSetup {
     );
 
     s_OCR2Base.setOCR2Config(
-      s_valid_signers,
-      s_valid_transmitters,
-      s_f,
-      configBytes,
-      s_offchainConfigVersion,
-      configBytes
+      s_valid_signers, s_valid_transmitters, s_f, configBytes, s_offchainConfigVersion, configBytes
     );
 
     transmitters = s_OCR2Base.getTransmitters();
@@ -241,12 +229,7 @@ contract OCR2Base_setOCR2Config is OCR2BaseSetup {
     );
     vm.resumeGasMetering();
     s_OCR2Base.setOCR2Config(
-      s_valid_signers,
-      s_valid_transmitters,
-      s_f,
-      configBytes,
-      s_offchainConfigVersion,
-      configBytes
+      s_valid_signers, s_valid_transmitters, s_f, configBytes, s_offchainConfigVersion, configBytes
     );
   }
 

@@ -141,11 +141,7 @@ contract ARM is IARM, OwnerIsCreator, ITypeAndVersion {
     uint16 accumulatedWeight
   );
   event UnvotedToCurse(
-    uint32 indexed configVersion,
-    address indexed voter,
-    uint8 weight,
-    uint32 voteCount,
-    bytes32 cursesHash
+    uint32 indexed configVersion, address indexed voter, uint8 weight, uint32 voteCount, bytes32 cursesHash
   );
   event SkippedUnvoteToCurse(address indexed voter, bytes32 expectedCursesHash, bytes32 actualCursesHash);
   event OwnerCursed(uint256 timestamp);
@@ -286,11 +282,7 @@ contract ARM is IARM, OwnerIsCreator, ITypeAndVersion {
     if (curserRecord.cursesHash != cursesHash) revert InvalidCursesHash(curserRecord.cursesHash, cursesHash);
 
     emit UnvotedToCurse(
-      s_versionedConfig.configVersion,
-      curseVoteAddr,
-      curserRecord.weight,
-      curserRecord.voteCount,
-      cursesHash
+      s_versionedConfig.configVersion, curseVoteAddr, curserRecord.weight, curserRecord.voteCount, cursesHash
     );
     curserRecord.voteCount = 0;
     curserRecord.cursesHash = 0;
@@ -328,9 +320,8 @@ contract ARM is IARM, OwnerIsCreator, ITypeAndVersion {
       curserRecord.cursesHash,
       curseVoteProgress.accumulatedWeight
     );
-    if (
-      !curseVoteProgress.curseActive && curseVoteProgress.accumulatedWeight >= curseVoteProgress.curseWeightThreshold
-    ) {
+    if (!curseVoteProgress.curseActive && curseVoteProgress.accumulatedWeight >= curseVoteProgress.curseWeightThreshold)
+    {
       curseVoteProgress.curseActive = true;
       emit Cursed(configVersion, block.timestamp);
     }
@@ -377,8 +368,8 @@ contract ARM is IARM, OwnerIsCreator, ITypeAndVersion {
     }
 
     if (
-      s_curseVoteProgress.curseActive &&
-      s_curseVoteProgress.accumulatedWeight < s_curseVoteProgress.curseWeightThreshold
+      s_curseVoteProgress.curseActive
+        && s_curseVoteProgress.accumulatedWeight < s_curseVoteProgress.curseWeightThreshold
     ) {
       s_curseVoteProgress.curseActive = false;
       emit RecoveredFromCurse();
@@ -420,9 +411,11 @@ contract ARM is IARM, OwnerIsCreator, ITypeAndVersion {
   /// @return accumulatedWeight sum of weights of voters, will be zero if voting took place with an older config version
   /// @return blessed will be accurate regardless of when voting took place
   /// @dev This is a helper method for offchain code so efficiency is not really a concern.
-  function getBlessProgress(
-    IARM.TaggedRoot calldata taggedRoot
-  ) external view returns (address[] memory blessVoteAddrs, uint16 accumulatedWeight, bool blessed) {
+  function getBlessProgress(IARM.TaggedRoot calldata taggedRoot)
+    external
+    view
+    returns (address[] memory blessVoteAddrs, uint16 accumulatedWeight, bool blessed)
+  {
     bytes32 taggedRootHash = _taggedRootHash(taggedRoot);
     BlessVoteProgress memory progress = s_blessVoteProgressByTaggedRootHash[taggedRootHash];
     blessed = progress.weightThresholdMet;
@@ -481,10 +474,8 @@ contract ARM is IARM, OwnerIsCreator, ITypeAndVersion {
 
   function _validateConfig(Config memory config) internal pure returns (bool) {
     if (
-      config.voters.length == 0 ||
-      config.voters.length > MAX_NUM_VOTERS ||
-      config.blessWeightThreshold == 0 ||
-      config.curseWeightThreshold == 0
+      config.voters.length == 0 || config.voters.length > MAX_NUM_VOTERS || config.blessWeightThreshold == 0
+        || config.curseWeightThreshold == 0
     ) {
       return false;
     }
@@ -495,10 +486,8 @@ contract ARM is IARM, OwnerIsCreator, ITypeAndVersion {
     for (uint256 i = 0; i < config.voters.length; ++i) {
       Voter memory voter = config.voters[i];
       if (
-        voter.blessVoteAddr == address(0) ||
-        voter.curseVoteAddr == address(0) ||
-        voter.curseUnvoteAddr == address(0) ||
-        (voter.blessWeight == 0 && voter.curseWeight == 0)
+        voter.blessVoteAddr == address(0) || voter.curseVoteAddr == address(0) || voter.curseUnvoteAddr == address(0)
+          || (voter.blessWeight == 0 && voter.curseWeight == 0)
       ) {
         return false;
       }
@@ -547,11 +536,8 @@ contract ARM is IARM, OwnerIsCreator, ITypeAndVersion {
 
     for (uint8 i = 0; i < config.voters.length; ++i) {
       Voter memory voter = config.voters[i];
-      s_blesserRecords[voter.blessVoteAddr] = BlesserRecord({
-        configVersion: configVersion,
-        index: i,
-        weight: voter.blessWeight
-      });
+      s_blesserRecords[voter.blessVoteAddr] =
+        BlesserRecord({configVersion: configVersion, index: i, weight: voter.blessWeight});
       s_curserRecords[voter.curseVoteAddr] = CurserRecord({
         active: true,
         weight: voter.curseWeight,
@@ -563,11 +549,8 @@ contract ARM is IARM, OwnerIsCreator, ITypeAndVersion {
     s_versionedConfig.blockNumber = uint32(block.number);
     emit ConfigSet(configVersion, config);
 
-    CurseVoteProgress memory newCurseVoteProgress = CurseVoteProgress({
-      curseWeightThreshold: config.curseWeightThreshold,
-      accumulatedWeight: 0,
-      curseActive: false
-    });
+    CurseVoteProgress memory newCurseVoteProgress =
+      CurseVoteProgress({curseWeightThreshold: config.curseWeightThreshold, accumulatedWeight: 0, curseActive: false});
 
     // Retain votes for the cursers who are still part of the new config and delete records for the cursers who are not.
     for (uint8 i = 0; i < oldConfig.voters.length; ++i) {

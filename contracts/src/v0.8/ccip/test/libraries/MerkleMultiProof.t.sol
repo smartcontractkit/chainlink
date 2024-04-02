@@ -3,8 +3,8 @@ pragma solidity 0.8.19;
 
 import "../BaseTest.t.sol";
 
-import {MerkleHelper} from "../helpers/MerkleHelper.sol";
 import {MerkleMultiProof} from "../../libraries/MerkleMultiProof.sol";
+import {MerkleHelper} from "../helpers/MerkleHelper.sol";
 
 contract MerkleMultiProofTest is BaseTest {
   // This must match the spec

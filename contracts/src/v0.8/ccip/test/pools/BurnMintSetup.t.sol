@@ -2,9 +2,9 @@
 pragma solidity 0.8.19;
 
 import {BurnMintERC677} from "../../../shared/token/ERC677/BurnMintERC677.sol";
+import {Router} from "../../Router.sol";
 import {BurnMintTokenPool} from "../../pools/BurnMintTokenPool.sol";
 import {TokenPool} from "../../pools/TokenPool.sol";
-import {Router} from "../../Router.sol";
 import {RouterSetup} from "../router/RouterSetup.t.sol";
 
 contract BurnMintSetup is RouterSetup {

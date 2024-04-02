@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
-import {IPool} from "../interfaces/pools/IPool.sol";
 import {IARM} from "../interfaces/IARM.sol";
 import {IRouter} from "../interfaces/IRouter.sol";
+import {IPool} from "../interfaces/pools/IPool.sol";
 
 import {OwnerIsCreator} from "../../shared/access/OwnerIsCreator.sol";
 import {RateLimiter} from "../libraries/RateLimiter.sol";
@@ -209,17 +209,21 @@ abstract contract TokenPool is IPool, OwnerIsCreator, IERC165 {
 
   /// @notice Gets the token bucket with its values for the block it was requested at.
   /// @return The token bucket.
-  function getCurrentOutboundRateLimiterState(
-    uint64 remoteChainSelector
-  ) external view returns (RateLimiter.TokenBucket memory) {
+  function getCurrentOutboundRateLimiterState(uint64 remoteChainSelector)
+    external
+    view
+    returns (RateLimiter.TokenBucket memory)
+  {
     return s_outboundRateLimits[remoteChainSelector]._currentTokenBucketState();
   }
 
   /// @notice Gets the token bucket with its values for the block it was requested at.
   /// @return The token bucket.
-  function getCurrentInboundRateLimiterState(
-    uint64 remoteChainSelector
-  ) external view returns (RateLimiter.TokenBucket memory) {
+  function getCurrentInboundRateLimiterState(uint64 remoteChainSelector)
+    external
+    view
+    returns (RateLimiter.TokenBucket memory)
+  {
     return s_inboundRateLimits[remoteChainSelector]._currentTokenBucketState();
   }
 

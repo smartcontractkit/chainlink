@@ -4,8 +4,8 @@ pragma solidity 0.8.19;
 import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
 import {IBurnMintERC20} from "../../shared/token/ERC20/IBurnMintERC20.sol";
 
-import {TokenPool} from "./TokenPool.sol";
 import {BurnMintTokenPoolAbstract} from "./BurnMintTokenPoolAbstract.sol";
+import {TokenPool} from "./TokenPool.sol";
 
 /// @notice This pool mints and burns a 3rd-party token.
 /// @dev Pool whitelisting mode is set in the constructor and cannot be modified later.

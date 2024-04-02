@@ -4,15 +4,15 @@ pragma solidity 0.8.19;
 import {IBurnMintERC20} from "../../../shared/token/ERC20/IBurnMintERC20.sol";
 import {IPool} from "../../interfaces/pools/IPool.sol";
 
-import {BaseTest} from "../BaseTest.t.sol";
-import {MockUSDCTransmitter} from "../mocks/MockUSDCTransmitter.sol";
-import {TokenPool} from "../../pools/TokenPool.sol";
+import {BurnMintERC677} from "../../../shared/token/ERC677/BurnMintERC677.sol";
 import {Router} from "../../Router.sol";
 import {RateLimiter} from "../../libraries/RateLimiter.sol";
+import {TokenPool} from "../../pools/TokenPool.sol";
 import {USDCTokenPool} from "../../pools/USDC/USDCTokenPool.sol";
-import {BurnMintERC677} from "../../../shared/token/ERC677/BurnMintERC677.sol";
-import {MockUSDCTokenMessenger} from "../mocks/MockUSDCTokenMessenger.sol";
+import {BaseTest} from "../BaseTest.t.sol";
 import {USDCTokenPoolHelper} from "../helpers/USDCTokenPoolHelper.sol";
+import {MockUSDCTokenMessenger} from "../mocks/MockUSDCTokenMessenger.sol";
+import {MockUSDCTransmitter} from "../mocks/MockUSDCTransmitter.sol";
 
 import {IERC165} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/introspection/IERC165.sol";
 
@@ -56,23 +56,13 @@ contract USDCTokenPoolSetup is BaseTest {
     s_mockUSDCTransmitter = new MockUSDCTransmitter(0, DEST_DOMAIN_IDENTIFIER);
     s_mockUSDC = new MockUSDCTokenMessenger(0, address(s_mockUSDCTransmitter));
 
-    s_usdcTokenPool = new USDCTokenPoolHelper(
-      s_mockUSDC,
-      s_token,
-      new address[](0),
-      address(s_mockARM),
-      address(s_router)
-    );
+    s_usdcTokenPool =
+      new USDCTokenPoolHelper(s_mockUSDC, s_token, new address[](0), address(s_mockARM), address(s_router));
     linkToken.grantMintAndBurnRoles(address(s_mockUSDC));
 
     s_allowedList.push(USER_1);
-    s_usdcTokenPoolWithAllowList = new USDCTokenPoolHelper(
-      s_mockUSDC,
-      s_token,
-      s_allowedList,
-      address(s_mockARM),
-      address(s_router)
-    );
+    s_usdcTokenPoolWithAllowList =
+      new USDCTokenPoolHelper(s_mockUSDC, s_token, s_allowedList, address(s_mockARM), address(s_router));
 
     TokenPool.ChainUpdate[] memory chainUpdates = new TokenPool.ChainUpdate[](2);
     chainUpdates[0] = TokenPool.ChainUpdate({
@@ -117,17 +107,16 @@ contract USDCTokenPoolSetup is BaseTest {
   }
 
   function _generateUSDCMessage(USDCMessage memory usdcMessage) internal pure returns (bytes memory) {
-    return
-      abi.encodePacked(
-        usdcMessage.version,
-        usdcMessage.sourceDomain,
-        usdcMessage.destinationDomain,
-        usdcMessage.nonce,
-        usdcMessage.sender,
-        usdcMessage.recipient,
-        usdcMessage.destinationCaller,
-        usdcMessage.messageBody
-      );
+    return abi.encodePacked(
+      usdcMessage.version,
+      usdcMessage.sourceDomain,
+      usdcMessage.destinationDomain,
+      usdcMessage.nonce,
+      usdcMessage.sender,
+      usdcMessage.recipient,
+      usdcMessage.destinationCaller,
+      usdcMessage.messageBody
+    );
   }
 }
 
@@ -174,13 +163,8 @@ contract USDCTokenPool_lockOrBurn is USDCTokenPoolSetup {
     vm.expectEmit();
     emit Burned(s_routerAllowedOnRamp, amount);
 
-    bytes memory encodedNonce = s_usdcTokenPool.lockOrBurn(
-      OWNER,
-      abi.encodePacked(receiver),
-      amount,
-      DEST_CHAIN_SELECTOR,
-      bytes("")
-    );
+    bytes memory encodedNonce =
+      s_usdcTokenPool.lockOrBurn(OWNER, abi.encodePacked(receiver), amount, DEST_CHAIN_SELECTOR, bytes(""));
     uint64 nonce = abi.decode(encodedNonce, (uint64));
     assertEq(s_mockUSDC.s_nonce() - 1, nonce);
   }
@@ -211,13 +195,8 @@ contract USDCTokenPool_lockOrBurn is USDCTokenPoolSetup {
     vm.expectEmit();
     emit Burned(s_routerAllowedOnRamp, amount);
 
-    bytes memory encodedNonce = s_usdcTokenPool.lockOrBurn(
-      OWNER,
-      abi.encodePacked(destinationReceiver),
-      amount,
-      DEST_CHAIN_SELECTOR,
-      bytes("")
-    );
+    bytes memory encodedNonce =
+      s_usdcTokenPool.lockOrBurn(OWNER, abi.encodePacked(destinationReceiver), amount, DEST_CHAIN_SELECTOR, bytes(""));
     uint64 nonce = abi.decode(encodedNonce, (uint64));
     assertEq(s_mockUSDC.s_nonce() - 1, nonce);
   }
@@ -247,11 +226,7 @@ contract USDCTokenPool_lockOrBurn is USDCTokenPoolSetup {
     emit Burned(s_routerAllowedOnRamp, amount);
 
     bytes memory encodedNonce = s_usdcTokenPoolWithAllowList.lockOrBurn(
-      s_allowedList[0],
-      abi.encodePacked(destinationReceiver),
-      amount,
-      DEST_CHAIN_SELECTOR,
-      bytes("")
+      s_allowedList[0], abi.encodePacked(destinationReceiver), amount, DEST_CHAIN_SELECTOR, bytes("")
     );
     uint64 nonce = abi.decode(encodedNonce, (uint64));
     assertEq(s_mockUSDC.s_nonce() - 1, nonce);
@@ -297,11 +272,7 @@ contract USDCTokenPool_lockOrBurn is USDCTokenPoolSetup {
     vm.expectRevert(abi.encodeWithSelector(SenderNotAllowed.selector, STRANGER));
 
     s_usdcTokenPoolWithAllowList.lockOrBurn(
-      STRANGER,
-      abi.encodePacked(address(0)),
-      1000,
-      DEST_CHAIN_SELECTOR,
-      bytes("")
+      STRANGER, abi.encodePacked(address(0)), 1000, DEST_CHAIN_SELECTOR, bytes("")
     );
   }
 }
@@ -347,8 +318,8 @@ contract USDCTokenPool_releaseOrMint is USDCTokenPoolSetup {
 
   // https://etherscan.io/tx/0xac9f501fe0b76df1f07a22e1db30929fd12524bc7068d74012dff948632f0883
   function testReleaseOrMintRealTxSuccess() public {
-    bytes
-      memory encodedUsdcMessage = hex"000000000000000300000000000000000000127a00000000000000000000000019330d10d9cc8751218eaf51e8885d058642e08a000000000000000000000000bd3fa81b58ba92a82136038b25adec7066af3155000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000af88d065e77c8cc2239327c5edb3a432268e58310000000000000000000000004af08f56978be7dce2d1be3c65c005b41e79401c000000000000000000000000000000000000000000000000000000002057ff7a0000000000000000000000003a23f943181408eac424116af7b7790c94cb97a50000000000000000000000000000000000000000000000000000000000000000000000000000008274119237535fd659626b090f87e365ff89ebc7096bb32e8b0e85f155626b73ae7c4bb2485c184b7cc3cf7909045487890b104efb62ae74a73e32901bdcec91df1bb9ee08ccb014fcbcfe77b74d1263fd4e0b0e8de05d6c9a5913554364abfd5ea768b222f50c715908183905d74044bb2b97527c7e70ae7983c443a603557cac3b1c000000000000000000000000000000000000000000000000000000000000";
+    bytes memory encodedUsdcMessage =
+      hex"000000000000000300000000000000000000127a00000000000000000000000019330d10d9cc8751218eaf51e8885d058642e08a000000000000000000000000bd3fa81b58ba92a82136038b25adec7066af3155000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000af88d065e77c8cc2239327c5edb3a432268e58310000000000000000000000004af08f56978be7dce2d1be3c65c005b41e79401c000000000000000000000000000000000000000000000000000000002057ff7a0000000000000000000000003a23f943181408eac424116af7b7790c94cb97a50000000000000000000000000000000000000000000000000000000000000000000000000000008274119237535fd659626b090f87e365ff89ebc7096bb32e8b0e85f155626b73ae7c4bb2485c184b7cc3cf7909045487890b104efb62ae74a73e32901bdcec91df1bb9ee08ccb014fcbcfe77b74d1263fd4e0b0e8de05d6c9a5913554364abfd5ea768b222f50c715908183905d74044bb2b97527c7e70ae7983c443a603557cac3b1c000000000000000000000000000000000000000000000000000000000000";
     bytes memory attestation = bytes("attestation bytes");
 
     uint32 nonce = 4730;
@@ -406,9 +377,8 @@ contract USDCTokenPool_releaseOrMint is USDCTokenPoolSetup {
     address recipient = address(1);
     vm.startPrank(s_routerAllowedOffRamp);
 
-    bytes memory extraData = abi.encode(
-      USDCTokenPool.MessageAndAttestation({message: bytes(""), attestation: bytes("")})
-    );
+    bytes memory extraData =
+      abi.encode(USDCTokenPool.MessageAndAttestation({message: bytes(""), attestation: bytes("")}));
 
     vm.expectRevert(
       abi.encodeWithSelector(RateLimiter.TokenMaxCapacityExceeded.selector, capacity, amount, address(s_token))
@@ -451,11 +421,8 @@ contract USDCTokenPool_setDomains is USDCTokenPoolSetup {
         enabled: true
       });
 
-      s_chainToDomain[destChainSelectors[i]] = USDCTokenPool.Domain({
-        domainIdentifier: domainIdentifiers[i],
-        allowedCaller: allowedCallers[i],
-        enabled: true
-      });
+      s_chainToDomain[destChainSelectors[i]] =
+        USDCTokenPool.Domain({domainIdentifier: domainIdentifiers[i], allowedCaller: allowedCallers[i], enabled: true});
     }
 
     vm.expectEmit();
@@ -530,8 +497,7 @@ contract USDCTokenPool__validateMessage is USDCTokenPoolSetup {
 
     vm.resumeGasMetering();
     s_usdcTokenPool.validateMessage(
-      encodedUsdcMessage,
-      USDCTokenPool.SourceTokenDataPayload({nonce: nonce, sourceDomain: sourceDomain})
+      encodedUsdcMessage, USDCTokenPool.SourceTokenDataPayload({nonce: nonce, sourceDomain: sourceDomain})
     );
   }
 
@@ -549,10 +515,8 @@ contract USDCTokenPool__validateMessage is USDCTokenPoolSetup {
       messageBody: bytes("")
     });
 
-    USDCTokenPool.SourceTokenDataPayload memory sourceTokenData = USDCTokenPool.SourceTokenDataPayload({
-      nonce: usdcMessage.nonce,
-      sourceDomain: usdcMessage.sourceDomain
-    });
+    USDCTokenPool.SourceTokenDataPayload memory sourceTokenData =
+      USDCTokenPool.SourceTokenDataPayload({nonce: usdcMessage.nonce, sourceDomain: usdcMessage.sourceDomain});
 
     bytes memory encodedUsdcMessage = _generateUSDCMessage(usdcMessage);
 
@@ -579,9 +543,7 @@ contract USDCTokenPool__validateMessage is USDCTokenPoolSetup {
     usdcMessage.destinationDomain = DEST_DOMAIN_IDENTIFIER + 1;
     vm.expectRevert(
       abi.encodeWithSelector(
-        USDCTokenPool.InvalidDestinationDomain.selector,
-        DEST_DOMAIN_IDENTIFIER,
-        usdcMessage.destinationDomain
+        USDCTokenPool.InvalidDestinationDomain.selector, DEST_DOMAIN_IDENTIFIER, usdcMessage.destinationDomain
       )
     );
 

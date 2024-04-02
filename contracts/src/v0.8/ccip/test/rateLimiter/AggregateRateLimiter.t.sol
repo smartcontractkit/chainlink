@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
-import {RateLimiter} from "../../libraries/RateLimiter.sol";
-import {Internal} from "../../libraries/Internal.sol";
-import {Client} from "../../libraries/Client.sol";
-import {AggregateRateLimiterHelper} from "../helpers/AggregateRateLimiterHelper.sol";
 import {AggregateRateLimiter} from "../../AggregateRateLimiter.sol";
+import {Client} from "../../libraries/Client.sol";
+import {Internal} from "../../libraries/Internal.sol";
+import {RateLimiter} from "../../libraries/RateLimiter.sol";
+import {AggregateRateLimiterHelper} from "../helpers/AggregateRateLimiterHelper.sol";
 import {PriceRegistrySetup} from "../priceRegistry/PriceRegistry.t.sol";
 
 import {BaseTest, stdError} from "../BaseTest.t.sol";

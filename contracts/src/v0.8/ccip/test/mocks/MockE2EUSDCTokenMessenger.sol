@@ -15,9 +15,9 @@
  */
 pragma solidity 0.8.19;
 
+import {IBurnMintERC20} from "../../../shared/token/ERC20/IBurnMintERC20.sol";
 import {ITokenMessenger} from "../../pools/USDC/ITokenMessenger.sol";
 import {IMessageTransmitterWithRelay} from "./interfaces/IMessageTransmitterWithRelay.sol";
-import {IBurnMintERC20} from "../../../shared/token/ERC20/IBurnMintERC20.sol";
 
 // This contract mocks both the ITokenMessenger and IMessageTransmitter
 // contracts involved with the Cross Chain Token Protocol.
@@ -48,19 +48,10 @@ contract MockE2EUSDCTokenMessenger is ITokenMessenger {
     IBurnMintERC20(burnToken).transferFrom(msg.sender, address(this), amount);
     IBurnMintERC20(burnToken).burn(amount);
     // Format message body
-    bytes memory _burnMessage = abi.encodePacked(
-      i_messageBodyVersion,
-      burnToken,
-      mintRecipient,
-      amount,
-      bytes32(uint256(uint160((msg.sender))))
-    );
-    s_nonce = _sendDepositForBurnMessage(
-      destinationDomain,
-      i_destinationTokenMessenger,
-      destinationCaller,
-      _burnMessage
-    );
+    bytes memory _burnMessage =
+      abi.encodePacked(i_messageBodyVersion, burnToken, mintRecipient, amount, bytes32(uint256(uint160((msg.sender)))));
+    s_nonce =
+      _sendDepositForBurnMessage(destinationDomain, i_destinationTokenMessenger, destinationCaller, _burnMessage);
     emit DepositForBurn(
       s_nonce,
       burnToken,
@@ -102,13 +93,9 @@ contract MockE2EUSDCTokenMessenger is ITokenMessenger {
     if (_destinationCaller == bytes32(0)) {
       return localMessageTransmitterWithRelay.sendMessage(_destinationDomain, _destinationTokenMessenger, _burnMessage);
     } else {
-      return
-        localMessageTransmitterWithRelay.sendMessageWithCaller(
-          _destinationDomain,
-          _destinationTokenMessenger,
-          _destinationCaller,
-          _burnMessage
-        );
+      return localMessageTransmitterWithRelay.sendMessageWithCaller(
+        _destinationDomain, _destinationTokenMessenger, _destinationCaller, _burnMessage
+      );
     }
   }
 }

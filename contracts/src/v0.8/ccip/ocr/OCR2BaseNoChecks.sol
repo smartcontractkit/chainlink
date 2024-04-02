@@ -62,17 +62,15 @@ abstract contract OCR2BaseNoChecks is OwnerIsCreator, OCR2Abstract {
   // The constant-length components of the msg.data sent to transmit.
   // See the "If we wanted to call sam" example on for example reasoning
   // https://solidity.readthedocs.io/en/v0.7.2/abi-spec.html
-  uint16 private constant TRANSMIT_MSGDATA_CONSTANT_LENGTH_COMPONENT =
-    4 + // function selector
-      32 *
-      3 + // 3 words containing reportContext
-      32 + // word containing start location of abiencoded report value
-      32 + // word containing location start of abiencoded rs value
-      32 + // word containing start location of abiencoded ss value
-      32 + // rawVs value
-      32 + // word containing length of report
-      32 + // word containing length rs
-      32; // word containing length of ss
+  uint16 private constant TRANSMIT_MSGDATA_CONSTANT_LENGTH_COMPONENT = 4 // function selector
+    + 32 * 3 // 3 words containing reportContext
+    + 32 // word containing start location of abiencoded report value
+    + 32 // word containing location start of abiencoded rs value
+    + 32 // word containing start location of abiencoded ss value
+    + 32 // rawVs value
+    + 32 // word containing length of report
+    + 32 // word containing length rs
+    + 32; // word containing length of ss
 
   uint256 internal immutable i_chainID;
 
@@ -191,16 +189,14 @@ abstract contract OCR2BaseNoChecks is OwnerIsCreator, OCR2Abstract {
     {
       Oracle memory transmitter = s_oracles[msg.sender];
       // Check that sender is authorized to report
-      if (!(transmitter.role == Role.Transmitter && msg.sender == s_transmitters[transmitter.index]))
+      if (!(transmitter.role == Role.Transmitter && msg.sender == s_transmitters[transmitter.index])) {
         revert UnauthorizedTransmitter();
+      }
     }
 
-    uint256 expectedDataLength = uint256(TRANSMIT_MSGDATA_CONSTANT_LENGTH_COMPONENT) +
-      report.length + // one byte pure entry in _report
-      rs.length *
-      32 + // 32 bytes per entry in _rs
-      ss.length *
-      32; // 32 bytes per entry in _ss)
+    uint256 expectedDataLength = uint256(TRANSMIT_MSGDATA_CONSTANT_LENGTH_COMPONENT) + report.length // one byte pure entry in _report
+      + rs.length * 32 // 32 bytes per entry in _rs
+      + ss.length * 32; // 32 bytes per entry in _ss)
     if (msg.data.length != expectedDataLength) revert WrongMessageLength(expectedDataLength, msg.data.length);
   }
 

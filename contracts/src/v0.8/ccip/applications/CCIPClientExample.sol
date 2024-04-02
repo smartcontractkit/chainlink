@@ -3,9 +3,9 @@ pragma solidity ^0.8.0;
 
 import {IRouterClient} from "../interfaces/IRouterClient.sol";
 
+import {OwnerIsCreator} from "../../shared/access/OwnerIsCreator.sol";
 import {Client} from "../libraries/Client.sol";
 import {CCIPReceiver} from "./CCIPReceiver.sol";
-import {OwnerIsCreator} from "../../shared/access/OwnerIsCreator.sol";
 
 import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
@@ -58,9 +58,13 @@ contract CCIPClientExample is CCIPReceiver, OwnerIsCreator {
     delete s_chains[chainSelector];
   }
 
-  function ccipReceive(
-    Client.Any2EVMMessage calldata message
-  ) external virtual override onlyRouter validChain(message.sourceChainSelector) {
+  function ccipReceive(Client.Any2EVMMessage calldata message)
+    external
+    virtual
+    override
+    onlyRouter
+    validChain(message.sourceChainSelector)
+  {
     // Extremely important to ensure only router calls this.
     // Tokens in message if any will be transferred to this contract
     // TODO: Validate sender/origin chain and process message and/or tokens.

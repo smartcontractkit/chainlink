@@ -1,17 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+import {IAny2EVMMessageReceiver} from "../../interfaces/IAny2EVMMessageReceiver.sol";
 import {IRouter} from "../../interfaces/IRouter.sol";
 import {IRouterClient} from "../../interfaces/IRouterClient.sol";
-import {IAny2EVMMessageReceiver} from "../../interfaces/IAny2EVMMessageReceiver.sol";
 
-import {Client} from "../../libraries/Client.sol";
 import {CallWithExactGas} from "../../../shared/call/CallWithExactGas.sol";
+import {Client} from "../../libraries/Client.sol";
 import {Internal} from "../../libraries/Internal.sol";
 
-import {SafeERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
-import {ERC165Checker} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/introspection/ERC165Checker.sol";
+import {SafeERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/utils/SafeERC20.sol";
+import {ERC165Checker} from
+  "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/introspection/ERC165Checker.sol";
 
 contract MockCCIPRouter is IRouter, IRouterClient {
   using SafeERC20 for IERC20;
@@ -43,17 +44,14 @@ contract MockCCIPRouter is IRouter, IRouterClient {
     address receiver
   ) internal returns (bool success, bytes memory retData, uint256 gasUsed) {
     // Only send through the router if the receiver is a contract and implements the IAny2EVMMessageReceiver interface.
-    if (receiver.code.length == 0 || !receiver.supportsInterface(type(IAny2EVMMessageReceiver).interfaceId))
+    if (receiver.code.length == 0 || !receiver.supportsInterface(type(IAny2EVMMessageReceiver).interfaceId)) {
       return (true, "", 0);
+    }
 
     bytes memory data = abi.encodeWithSelector(IAny2EVMMessageReceiver.ccipReceive.selector, message);
 
     (success, retData, gasUsed) = CallWithExactGas._callWithExactGasSafeReturnData(
-      data,
-      receiver,
-      gasLimit,
-      gasForCallExactCheck,
-      Internal.MAX_RET_BYTES
+      data, receiver, gasLimit, gasForCallExactCheck, Internal.MAX_RET_BYTES
     );
 
     // Event to assist testing, does not exist on real deployments
@@ -93,7 +91,7 @@ contract MockCCIPRouter is IRouter, IRouterClient {
       IERC20(message.tokenAmounts[i].token).safeTransferFrom(msg.sender, receiver, message.tokenAmounts[i].amount);
     }
 
-    (bool success, bytes memory retData, ) = _routeMessage(executableMsg, GAS_FOR_CALL_EXACT_CHECK, gasLimit, receiver);
+    (bool success, bytes memory retData,) = _routeMessage(executableMsg, GAS_FOR_CALL_EXACT_CHECK, gasLimit, receiver);
 
     if (!success) revert ReceiverError(retData);
 
@@ -124,12 +122,12 @@ contract MockCCIPRouter is IRouter, IRouterClient {
   }
 
   /// @notice Always returns address(1234567890)
-  function getOnRamp(uint64 /* destChainSelector */) external pure returns (address onRampAddress) {
+  function getOnRamp(uint64 /* destChainSelector */ ) external pure returns (address onRampAddress) {
     return address(1234567890);
   }
 
   /// @notice Always returns true
-  function isOffRamp(uint64 /* sourceChainSelector */, address /* offRamp */) external pure returns (bool) {
+  function isOffRamp(uint64, /* sourceChainSelector */ address /* offRamp */ ) external pure returns (bool) {
     return true;
   }
 }

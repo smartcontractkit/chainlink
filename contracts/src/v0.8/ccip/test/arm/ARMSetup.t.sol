@@ -3,8 +3,8 @@ pragma solidity 0.8.19;
 
 import {IARM} from "../../interfaces/IARM.sol";
 
-import {BaseTest} from "../BaseTest.t.sol";
 import {ARM} from "../../ARM.sol";
+import {BaseTest} from "../BaseTest.t.sol";
 
 contract ARMSetup is BaseTest {
   function makeTaggedRootsInclusive(uint256 from, uint256 to) internal pure returns (IARM.TaggedRoot[] memory) {
@@ -41,7 +41,7 @@ contract ARMSetup is BaseTest {
   }
 
   function hasVotedToBlessRoot(address voter, IARM.TaggedRoot memory taggedRoot_) internal view returns (bool) {
-    (address[] memory voters, , ) = s_arm.getBlessProgress(taggedRoot_);
+    (address[] memory voters,,) = s_arm.getBlessProgress(taggedRoot_);
     for (uint256 i = 0; i < voters.length; ++i) {
       if (voters[i] == voter) {
         return true;
@@ -51,7 +51,7 @@ contract ARMSetup is BaseTest {
   }
 
   function getWeightOfVotesToBlessRoot(IARM.TaggedRoot memory taggedRoot_) internal view returns (uint16) {
-    (, uint16 weight, ) = s_arm.getBlessProgress(taggedRoot_);
+    (, uint16 weight,) = s_arm.getBlessProgress(taggedRoot_);
     return weight;
   }
 }

@@ -3,6 +3,8 @@ on: [pull_request]
 
 env:
   FOUNDRY_PROFILE: ci
+  # Has to match the `make foundry` version in `contracts/GNUmakefile`
+  FOUNDRY_VERSION: nightly-2cb875799419c907cc3709e586ece2559e6b340e
 
 jobs:
   changes:
@@ -58,9 +60,10 @@ jobs:
         uses: ./.github/actions/setup-nodejs
 
       - name: Install Foundry
+        if: needs.changes.outputs.changes == 'true'
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: nightly
+          version: ${{ env.FOUNDRY_VERSION }}
 
       - name: Run Forge build
         if: ${{ needs.changes.outputs.changes == 'true' }}
@@ -121,8 +124,7 @@ jobs:
         if: needs.changes.outputs.changes == 'true'
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          # Has to match the `make foundry` version.
-          version: nightly-2cb875799419c907cc3709e586ece2559e6b340e
+          version: ${{ env.FOUNDRY_VERSION }}
 
       - name: Run Forge build
         if: needs.changes.outputs.changes == 'true'
@@ -148,6 +150,58 @@ jobs:
         run: |
           forge snapshot --nmt "testFuzz_\w{1,}?" --check gas-snapshots/${{ matrix.product }}.gas-snapshot
         id: snapshot
+        working-directory: contracts
+        env:
+          FOUNDRY_PROFILE: ${{ matrix.product }}
+
+      - name: Collect Metrics
+        if: needs.changes.outputs.changes == 'true'
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@0281b09807758be1dcc41651e44e62b353808c47 # v2.1.0
+        with:
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: Foundry Tests ${{ matrix.product }}
+        continue-on-error: true
+
+
+  fmt:
+    strategy:
+      fail-fast: false
+      matrix:
+        product: [ ccip ]
+    needs: [ changes ]
+    name: Forge fmt ${{ matrix.product }}
+    # See https://github.com/foundry-rs/foundry/issues/3827
+    runs-on: ubuntu-22.04
+
+    # The if statements for steps after checkout repo is workaround for
+    # passing required check for PRs that don't have filtered changes.
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          submodules: recursive
+
+      # Only needed because we use the NPM versions of packages
+      # and not native Foundry. This is to make sure the dependencies
+      # stay in sync.
+      - name: Setup NodeJS
+        if: needs.changes.outputs.changes == 'true'
+        uses: ./.github/actions/setup-nodejs
+
+      - name: Install Foundry
+        if: needs.changes.outputs.changes == 'true'
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: ${{ env.FOUNDRY_VERSION }}
+
+      - name: Run Forge fmt
+        if: needs.changes.outputs.changes == 'true'
+        run: |
+          forge fmt --check
+        id: fmt
         working-directory: contracts
         env:
           FOUNDRY_PROFILE: ${{ matrix.product }}

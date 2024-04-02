@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {BurnMintTokenPool} from "../../pools/BurnMintTokenPool.sol";
 import {IBurnMintERC20} from "../../../shared/token/ERC20/IBurnMintERC20.sol";
+import {BurnMintTokenPool} from "../../pools/BurnMintTokenPool.sol";
 
 contract MaybeRevertingBurnMintTokenPool is BurnMintTokenPool {
   bytes public s_revertReason = "";

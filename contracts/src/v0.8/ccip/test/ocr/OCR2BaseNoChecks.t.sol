@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
-import {OCR2Setup} from "./OCR2Setup.t.sol";
 import {OCR2BaseNoChecks} from "../../ocr/OCR2BaseNoChecks.sol";
 import {OCR2NoChecksHelper} from "../helpers/OCR2NoChecksHelper.sol";
+import {OCR2Setup} from "./OCR2Setup.t.sol";
 
 contract OCR2BaseNoChecksSetup is OCR2Setup {
   OCR2NoChecksHelper internal s_OCR2Base;
@@ -19,18 +19,17 @@ contract OCR2BaseNoChecksSetup is OCR2Setup {
 
   function getBasicConfigDigest(uint8 f, uint64 currentConfigCount) internal view returns (bytes32) {
     bytes memory configBytes = abi.encode("");
-    return
-      s_OCR2Base.configDigestFromConfigData(
-        block.chainid,
-        address(s_OCR2Base),
-        currentConfigCount + 1,
-        s_valid_signers,
-        s_valid_transmitters,
-        f,
-        configBytes,
-        s_offchainConfigVersion,
-        configBytes
-      );
+    return s_OCR2Base.configDigestFromConfigData(
+      block.chainid,
+      address(s_OCR2Base),
+      currentConfigCount + 1,
+      s_valid_signers,
+      s_valid_transmitters,
+      f,
+      configBytes,
+      s_offchainConfigVersion,
+      configBytes
+    );
   }
 }
 
@@ -43,12 +42,7 @@ contract OCR2BaseNoChecks_transmit is OCR2BaseNoChecksSetup {
 
     s_configDigest = getBasicConfigDigest(s_f, 0);
     s_OCR2Base.setOCR2Config(
-      s_valid_signers,
-      s_valid_transmitters,
-      s_f,
-      configBytes,
-      s_offchainConfigVersion,
-      configBytes
+      s_valid_signers, s_valid_transmitters, s_f, configBytes, s_offchainConfigVersion, configBytes
     );
   }
 
@@ -132,12 +126,7 @@ contract OCR2BaseNoChecks_setOCR2Config is OCR2BaseNoChecksSetup {
     );
 
     s_OCR2Base.setOCR2Config(
-      s_valid_signers,
-      s_valid_transmitters,
-      s_f,
-      configBytes,
-      s_offchainConfigVersion,
-      configBytes
+      s_valid_signers, s_valid_transmitters, s_f, configBytes, s_offchainConfigVersion, configBytes
     );
 
     transmitters = s_OCR2Base.getTransmitters();
@@ -159,12 +148,7 @@ contract OCR2BaseNoChecks_setOCR2Config is OCR2BaseNoChecksSetup {
     );
     vm.resumeGasMetering();
     s_OCR2Base.setOCR2Config(
-      s_valid_signers,
-      s_valid_transmitters,
-      s_f,
-      configBytes,
-      s_offchainConfigVersion,
-      configBytes
+      s_valid_signers, s_valid_transmitters, s_f, configBytes, s_offchainConfigVersion, configBytes
     );
   }
 

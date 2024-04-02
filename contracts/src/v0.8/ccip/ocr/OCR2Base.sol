@@ -68,17 +68,15 @@ abstract contract OCR2Base is OwnerIsCreator, OCR2Abstract {
   // The constant-length components of the msg.data sent to transmit.
   // See the "If we wanted to call sam" example on for example reasoning
   // https://solidity.readthedocs.io/en/v0.7.2/abi-spec.html
-  uint16 private constant TRANSMIT_MSGDATA_CONSTANT_LENGTH_COMPONENT =
-    4 + // function selector
-      32 *
-      3 + // 3 words containing reportContext
-      32 + // word containing start location of abiencoded report value
-      32 + // word containing location start of abiencoded rs value
-      32 + // word containing start location of abiencoded ss value
-      32 + // rawVs value
-      32 + // word containing length of report
-      32 + // word containing length rs
-      32; // word containing length of ss
+  uint16 private constant TRANSMIT_MSGDATA_CONSTANT_LENGTH_COMPONENT = 4 // function selector
+    + 32 * 3 // 3 words containing reportContext
+    + 32 // word containing start location of abiencoded report value
+    + 32 // word containing location start of abiencoded rs value
+    + 32 // word containing start location of abiencoded ss value
+    + 32 // rawVs value
+    + 32 // word containing length of report
+    + 32 // word containing length rs
+    + 32; // word containing length of ss
 
   bool internal immutable i_uniqueReports;
   uint256 internal immutable i_chainID;
@@ -89,11 +87,7 @@ abstract contract OCR2Base is OwnerIsCreator, OCR2Abstract {
   }
 
   // Reverts transaction if config args are invalid
-  modifier checkConfigValid(
-    uint256 numSigners,
-    uint256 numTransmitters,
-    uint256 f
-  ) {
+  modifier checkConfigValid(uint256 numSigners, uint256 numTransmitters, uint256 f) {
     if (numSigners > MAX_NUM_ORACLES) revert InvalidConfig("too many signers");
     if (f == 0) revert InvalidConfig("f must be positive");
     if (numSigners != numTransmitters) revert InvalidConfig("oracle addresses out of registration");
@@ -207,8 +201,9 @@ abstract contract OCR2Base is OwnerIsCreator, OCR2Abstract {
     bytes32 configDigest = reportContext[0];
     ConfigInfo memory configInfo = s_configInfo;
 
-    if (configInfo.latestConfigDigest != configDigest)
+    if (configInfo.latestConfigDigest != configDigest) {
       revert ConfigDigestMismatch(configInfo.latestConfigDigest, configDigest);
+    }
     // If the cached chainID at time of deployment doesn't match the current chainID, we reject all signed reports.
     // This avoids a (rare) scenario where chain A forks into chain A and A', A' still has configDigest
     // calculated from chain A and so OCR reports will be valid on both forks.
@@ -229,17 +224,15 @@ abstract contract OCR2Base is OwnerIsCreator, OCR2Abstract {
     {
       Oracle memory transmitter = s_oracles[msg.sender];
       // Check that sender is authorized to report
-      if (!(transmitter.role == Role.Transmitter && msg.sender == s_transmitters[transmitter.index]))
+      if (!(transmitter.role == Role.Transmitter && msg.sender == s_transmitters[transmitter.index])) {
         revert UnauthorizedTransmitter();
+      }
     }
     // Scoping this reduces stack pressure and gas usage
     {
-      uint256 expectedDataLength = uint256(TRANSMIT_MSGDATA_CONSTANT_LENGTH_COMPONENT) +
-        report.length + // one byte pure entry in _report
-        rs.length *
-        32 + // 32 bytes per entry in _rs
-        ss.length *
-        32; // 32 bytes per entry in _ss)
+      uint256 expectedDataLength = uint256(TRANSMIT_MSGDATA_CONSTANT_LENGTH_COMPONENT) + report.length // one byte pure entry in _report
+        + rs.length * 32 // 32 bytes per entry in _rs
+        + ss.length * 32; // 32 bytes per entry in _ss)
       if (msg.data.length != expectedDataLength) revert WrongMessageLength(expectedDataLength, msg.data.length);
     }
 

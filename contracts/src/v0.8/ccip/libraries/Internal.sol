@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {Client} from "./Client.sol";
 import {MerkleMultiProof} from "../libraries/MerkleMultiProof.sol";
+import {Client} from "./Client.sol";
 
 // Library for CCIP internal definitions common to multiple contracts.
 library Internal {
@@ -95,14 +95,13 @@ library Internal {
     EVM2EVMMessage memory original,
     Client.EVMTokenAmount[] memory destTokenAmounts
   ) internal pure returns (Client.Any2EVMMessage memory message) {
-    return
-      Client.Any2EVMMessage({
-        messageId: original.messageId,
-        sourceChainSelector: original.sourceChainSelector,
-        sender: abi.encode(original.sender),
-        data: original.data,
-        destTokenAmounts: destTokenAmounts
-      });
+    return Client.Any2EVMMessage({
+      messageId: original.messageId,
+      sourceChainSelector: original.sourceChainSelector,
+      sender: abi.encode(original.sender),
+      data: original.data,
+      destTokenAmounts: destTokenAmounts
+    });
   }
 
   bytes32 internal constant EVM_2_EVM_MESSAGE_HASH = keccak256("EVM2EVMMessageHashV2");
@@ -110,28 +109,27 @@ library Internal {
   function _hash(EVM2EVMMessage memory original, bytes32 metadataHash) internal pure returns (bytes32) {
     // Fixed-size message fields are included in nested hash to reduce stack pressure.
     // This hashing scheme is also used by RMN. If changing it, please notify the RMN maintainers.
-    return
-      keccak256(
-        abi.encode(
-          MerkleMultiProof.LEAF_DOMAIN_SEPARATOR,
-          metadataHash,
-          keccak256(
-            abi.encode(
-              original.sender,
-              original.receiver,
-              original.sequenceNumber,
-              original.gasLimit,
-              original.strict,
-              original.nonce,
-              original.feeToken,
-              original.feeTokenAmount
-            )
-          ),
-          keccak256(original.data),
-          keccak256(abi.encode(original.tokenAmounts)),
-          keccak256(abi.encode(original.sourceTokenData))
-        )
-      );
+    return keccak256(
+      abi.encode(
+        MerkleMultiProof.LEAF_DOMAIN_SEPARATOR,
+        metadataHash,
+        keccak256(
+          abi.encode(
+            original.sender,
+            original.receiver,
+            original.sequenceNumber,
+            original.gasLimit,
+            original.strict,
+            original.nonce,
+            original.feeToken,
+            original.feeTokenAmount
+          )
+        ),
+        keccak256(original.data),
+        keccak256(abi.encode(original.tokenAmounts)),
+        keccak256(abi.encode(original.sourceTokenData))
+      )
+    );
   }
 
   /// @notice Enum listing the possible message execution states within

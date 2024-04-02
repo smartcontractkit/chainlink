@@ -16,6 +16,12 @@ gas_price = 1
 block_timestamp = 1234567890
 block_number = 12345
 
+[fmt]
+tab_width = 2
+multiline_func_header = "params_first"
+sort_imports = true
+single_line_statement_blocks = "preserve"
+
 [profile.ccip]
 solc_version = '0.8.19'
 src = 'src/v0.8/ccip'

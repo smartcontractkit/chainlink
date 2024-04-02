@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
-import {BaseTest} from "../BaseTest.t.sol";
-import {TokenPool} from "../../pools/TokenPool.sol";
 import {EVM2EVMOnRamp} from "../../onRamp/EVM2EVMOnRamp.sol";
-import {BurnMintSetup} from "./BurnMintSetup.t.sol";
 import {BurnWithFromMintTokenPool} from "../../pools/BurnWithFromMintTokenPool.sol";
+import {TokenPool} from "../../pools/TokenPool.sol";
+import {BaseTest} from "../BaseTest.t.sol";
+import {BurnMintSetup} from "./BurnMintSetup.t.sol";
 
 contract BurnWithFromMintTokenPoolSetup is BurnMintSetup {
   BurnWithFromMintTokenPool internal s_pool;
@@ -13,12 +13,8 @@ contract BurnWithFromMintTokenPoolSetup is BurnMintSetup {
   function setUp() public virtual override {
     BurnMintSetup.setUp();
 
-    s_pool = new BurnWithFromMintTokenPool(
-      s_burnMintERC677,
-      new address[](0),
-      address(s_mockARM),
-      address(s_sourceRouter)
-    );
+    s_pool =
+      new BurnWithFromMintTokenPool(s_burnMintERC677, new address[](0), address(s_mockARM), address(s_sourceRouter));
     s_burnMintERC677.grantMintAndBurnRoles(address(s_pool));
 
     _applyChainUpdates(address(s_pool));

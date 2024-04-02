@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
+import {BurnMintERC677} from "../../../shared/token/ERC677/BurnMintERC677.sol";
+import {Router} from "../../Router.sol";
+import {RateLimiter} from "../../libraries/RateLimiter.sol";
+import {TokenPool} from "../../pools/TokenPool.sol";
 import {BaseTest} from "../BaseTest.t.sol";
 import {TokenPoolHelper} from "../helpers/TokenPoolHelper.sol";
-import {TokenPool} from "../../pools/TokenPool.sol";
-import {RateLimiter} from "../../libraries/RateLimiter.sol";
-import {BurnMintERC677} from "../../../shared/token/ERC677/BurnMintERC677.sol";
 import {RouterSetup} from "../router/RouterSetup.t.sol";
-import {Router} from "../../Router.sol";
 
 import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
@@ -36,20 +36,13 @@ contract TokenPool_constructor is TokenPoolSetup {
   function testZeroAddressNotAllowedReverts() public {
     vm.expectRevert(TokenPool.ZeroAddressNotAllowed.selector);
 
-    s_tokenPool = new TokenPoolHelper(
-      IERC20(address(0)),
-      new address[](0),
-      address(s_mockARM),
-      address(s_sourceRouter)
-    );
+    s_tokenPool = new TokenPoolHelper(IERC20(address(0)), new address[](0), address(s_mockARM), address(s_sourceRouter));
   }
 }
 
 contract TokenPool_applyChainUpdates is TokenPoolSetup {
   event ChainAdded(
-    uint64 chainSelector,
-    RateLimiter.Config outboundRateLimiterConfig,
-    RateLimiter.Config inboundRateLimiterConfig
+    uint64 chainSelector, RateLimiter.Config outboundRateLimiterConfig, RateLimiter.Config inboundRateLimiterConfig
   );
   event ChainRemoved(uint64 chainSelector);
 
@@ -61,9 +54,8 @@ contract TokenPool_applyChainUpdates is TokenPoolSetup {
 
     for (uint256 i = 0; i < chainUpdates.length; ++i) {
       assertTrue(s_tokenPool.isSupportedChain(chainUpdates[i].remoteChainSelector));
-      RateLimiter.TokenBucket memory bkt = s_tokenPool.getCurrentOutboundRateLimiterState(
-        chainUpdates[i].remoteChainSelector
-      );
+      RateLimiter.TokenBucket memory bkt =
+        s_tokenPool.getCurrentOutboundRateLimiterState(chainUpdates[i].remoteChainSelector);
       assertEq(bkt.capacity, chainUpdates[i].outboundRateLimiterConfig.capacity);
       assertEq(bkt.rate, chainUpdates[i].outboundRateLimiterConfig.rate);
       assertEq(bkt.isEnabled, chainUpdates[i].outboundRateLimiterConfig.isEnabled);
@@ -261,9 +253,7 @@ contract TokenPool_applyChainUpdates is TokenPoolSetup {
 contract TokenPool_setChainRateLimiterConfig is TokenPoolSetup {
   event ConfigChanged(RateLimiter.Config);
   event ChainConfigured(
-    uint64 chainSelector,
-    RateLimiter.Config outboundRateLimiterConfig,
-    RateLimiter.Config inboundRateLimiterConfig
+    uint64 chainSelector, RateLimiter.Config outboundRateLimiterConfig, RateLimiter.Config inboundRateLimiterConfig
   );
 
   uint64 internal s_remoteChainSelector;
@@ -294,11 +284,8 @@ contract TokenPool_setChainRateLimiterConfig is TokenPoolSetup {
     uint256 oldInboundTokens = s_tokenPool.getCurrentInboundRateLimiterState(s_remoteChainSelector).tokens;
 
     RateLimiter.Config memory newOutboundConfig = RateLimiter.Config({isEnabled: true, capacity: capacity, rate: rate});
-    RateLimiter.Config memory newInboundConfig = RateLimiter.Config({
-      isEnabled: true,
-      capacity: capacity / 2,
-      rate: rate / 2
-    });
+    RateLimiter.Config memory newInboundConfig =
+      RateLimiter.Config({isEnabled: true, capacity: capacity / 2, rate: rate / 2});
 
     vm.expectEmit();
     emit ConfigChanged(newOutboundConfig);
@@ -333,9 +320,7 @@ contract TokenPool_setChainRateLimiterConfig is TokenPoolSetup {
 
     vm.expectRevert("Only callable by owner");
     s_tokenPool.setChainRateLimiterConfig(
-      s_remoteChainSelector,
-      getOutboundRateLimiterConfig(),
-      getInboundRateLimiterConfig()
+      s_remoteChainSelector, getOutboundRateLimiterConfig(), getInboundRateLimiterConfig()
     );
   }
 
@@ -344,9 +329,7 @@ contract TokenPool_setChainRateLimiterConfig is TokenPoolSetup {
 
     vm.expectRevert(abi.encodeWithSelector(TokenPool.NonExistentChain.selector, wrongChainSelector));
     s_tokenPool.setChainRateLimiterConfig(
-      wrongChainSelector,
-      getOutboundRateLimiterConfig(),
-      getInboundRateLimiterConfig()
+      wrongChainSelector, getOutboundRateLimiterConfig(), getInboundRateLimiterConfig()
     );
   }
 }

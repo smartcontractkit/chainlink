@@ -45,10 +45,14 @@ contract DefensiveExample is CCIPClientExample {
   /// never revert, all errors should be handled internally in this contract.
   /// @param message The message to process.
   /// @dev Extremely important to ensure only router calls this.
-  function ccipReceive(
-    Client.Any2EVMMessage calldata message
-  ) external override onlyRouter validChain(message.sourceChainSelector) {
-    try this.processMessage(message) {} catch (bytes memory err) {
+  function ccipReceive(Client.Any2EVMMessage calldata message)
+    external
+    override
+    onlyRouter
+    validChain(message.sourceChainSelector)
+  {
+    try this.processMessage(message) {}
+    catch (bytes memory err) {
       // Could set different error codes based on the caught error. Each could be
       // handled differently.
       s_failedMessages.set(message.messageId, uint256(ErrorCode.BASIC));
@@ -66,9 +70,11 @@ contract DefensiveExample is CCIPClientExample {
   /// @dev This example just sends the tokens to the owner of this contracts. More
   /// interesting functions could be implemented.
   /// @dev It has to be external because of the try/catch.
-  function processMessage(
-    Client.Any2EVMMessage calldata message
-  ) external onlySelf validChain(message.sourceChainSelector) {
+  function processMessage(Client.Any2EVMMessage calldata message)
+    external
+    onlySelf
+    validChain(message.sourceChainSelector)
+  {
     // Simulate a revert
     if (s_simRevert) revert ErrorCase();
 

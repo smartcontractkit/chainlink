@@ -15,18 +15,17 @@ contract OCR2Helper is OCR2Base(false) {
     uint64 offchainConfigVersion,
     bytes memory offchainConfig
   ) public pure returns (bytes32) {
-    return
-      _configDigestFromConfigData(
-        chainSelector,
-        contractAddress,
-        configCount,
-        signers,
-        transmitters,
-        f,
-        onchainConfig,
-        offchainConfigVersion,
-        offchainConfig
-      );
+    return _configDigestFromConfigData(
+      chainSelector,
+      contractAddress,
+      configCount,
+      signers,
+      transmitters,
+      f,
+      onchainConfig,
+      offchainConfigVersion,
+      offchainConfig
+    );
   }
 
   function _report(bytes calldata report, uint40 epochAndRound) internal override {}

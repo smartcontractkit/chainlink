@@ -3,11 +3,11 @@ pragma solidity 0.8.19;
 
 import {IRouterClient} from "../interfaces/IRouterClient.sol";
 
-import {Client} from "../libraries/Client.sol";
 import {OwnerIsCreator} from "../../shared/access/OwnerIsCreator.sol";
+import {Client} from "../libraries/Client.sol";
 
-import {SafeERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/utils/SafeERC20.sol";
 
 contract TokenProxy is OwnerIsCreator {
   using SafeERC20 for IERC20;
@@ -68,8 +68,9 @@ contract TokenProxy is OwnerIsCreator {
     if (message.tokenAmounts.length != 1 || message.tokenAmounts[0].token != i_token) revert InvalidToken();
     if (message.data.length > 0) revert NoDataAllowed();
 
-    if (message.extraArgs.length == 0 || bytes4(message.extraArgs) != Client.EVM_EXTRA_ARGS_V1_TAG)
+    if (message.extraArgs.length == 0 || bytes4(message.extraArgs) != Client.EVM_EXTRA_ARGS_V1_TAG) {
       revert GasShouldBeZero();
+    }
 
     if (abi.decode(message.extraArgs[4:], (Client.EVMExtraArgsV1)).gasLimit != 0) revert GasShouldBeZero();
   }

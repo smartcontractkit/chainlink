@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
+import {RateLimiter} from "../../libraries/RateLimiter.sol";
 import {BaseTest} from "../BaseTest.t.sol";
 import {RateLimiterHelper} from "../helpers/RateLimiterHelper.sol";
-import {RateLimiter} from "../../libraries/RateLimiter.sol";
 
 contract RateLimiterSetup is BaseTest {
   RateLimiterHelper internal s_helper;
@@ -37,11 +37,8 @@ contract RateLimiter_setTokenBucketConfig is RateLimiterSetup {
     assertEq(s_config.rate, rateLimiter.rate);
     assertEq(s_config.capacity, rateLimiter.capacity);
 
-    s_config = RateLimiter.Config({
-      isEnabled: true,
-      rate: uint128(rateLimiter.rate * 2),
-      capacity: rateLimiter.capacity * 8
-    });
+    s_config =
+      RateLimiter.Config({isEnabled: true, rate: uint128(rateLimiter.rate * 2), capacity: rateLimiter.capacity * 8});
 
     vm.expectEmit();
     emit ConfigChanged(s_config);
@@ -219,9 +216,7 @@ contract RateLimiter_consume is RateLimiterSetup {
 
     vm.expectRevert(
       abi.encodeWithSelector(
-        RateLimiter.AggregateValueMaxCapacityExceeded.selector,
-        rateLimiter.capacity,
-        rateLimiter.capacity + 1
+        RateLimiter.AggregateValueMaxCapacityExceeded.selector, rateLimiter.capacity, rateLimiter.capacity + 1
       )
     );
     s_helper.consume(rateLimiter.capacity + 1, address(0));
@@ -232,10 +227,7 @@ contract RateLimiter_consume is RateLimiterSetup {
 
     vm.expectRevert(
       abi.encodeWithSelector(
-        RateLimiter.TokenMaxCapacityExceeded.selector,
-        rateLimiter.capacity,
-        rateLimiter.capacity + 1,
-        s_token
+        RateLimiter.TokenMaxCapacityExceeded.selector, rateLimiter.capacity, rateLimiter.capacity + 1, s_token
       )
     );
     s_helper.consume(rateLimiter.capacity + 1, s_token);
@@ -265,9 +257,7 @@ contract RateLimiter_consume is RateLimiterSetup {
 
     vm.expectRevert(
       abi.encodeWithSelector(
-        RateLimiter.AggregateValueRateLimitReached.selector,
-        waitInSeconds,
-        rateLimiter.capacity - requestTokens1
+        RateLimiter.AggregateValueRateLimitReached.selector, waitInSeconds, rateLimiter.capacity - requestTokens1
       )
     );
     s_helper.consume(requestTokens2, address(0));
@@ -286,10 +276,7 @@ contract RateLimiter_consume is RateLimiterSetup {
 
     vm.expectRevert(
       abi.encodeWithSelector(
-        RateLimiter.TokenRateLimitReached.selector,
-        waitInSeconds,
-        rateLimiter.capacity - requestTokens1,
-        s_token
+        RateLimiter.TokenRateLimitReached.selector, waitInSeconds, rateLimiter.capacity - requestTokens1, s_token
       )
     );
     s_helper.consume(requestTokens2, s_token);

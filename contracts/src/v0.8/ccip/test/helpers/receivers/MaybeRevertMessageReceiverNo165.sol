@@ -6,6 +6,7 @@ import "../../../interfaces/IAny2EVMMessageReceiver.sol";
 contract MaybeRevertMessageReceiverNo165 is IAny2EVMMessageReceiver {
   address private s_manager;
   bool public s_toRevert;
+
   event MessageReceived();
 
   constructor(bool toRevert) {

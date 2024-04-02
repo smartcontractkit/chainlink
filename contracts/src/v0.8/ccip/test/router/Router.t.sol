@@ -1,19 +1,19 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
-import {IRouter} from "../../interfaces/IRouter.sol";
-import {IWrappedNative} from "../../interfaces/IWrappedNative.sol";
-import {IRouterClient} from "../../interfaces/IRouterClient.sol";
 import {IAny2EVMMessageReceiver} from "../../interfaces/IAny2EVMMessageReceiver.sol";
+import {IRouter} from "../../interfaces/IRouter.sol";
+import {IRouterClient} from "../../interfaces/IRouterClient.sol";
+import {IWrappedNative} from "../../interfaces/IWrappedNative.sol";
 
-import {EVM2EVMOnRamp} from "../../onRamp/EVM2EVMOnRamp.sol";
-import {EVM2EVMOnRampSetup} from "../onRamp/EVM2EVMOnRampSetup.t.sol";
-import {EVM2EVMOffRampSetup} from "../offRamp/EVM2EVMOffRampSetup.t.sol";
 import {Router} from "../../Router.sol";
-import {RouterSetup} from "../router/RouterSetup.t.sol";
-import {MaybeRevertMessageReceiver} from "../helpers/receivers/MaybeRevertMessageReceiver.sol";
 import {Client} from "../../libraries/Client.sol";
 import {Internal} from "../../libraries/Internal.sol";
+import {EVM2EVMOnRamp} from "../../onRamp/EVM2EVMOnRamp.sol";
+import {MaybeRevertMessageReceiver} from "../helpers/receivers/MaybeRevertMessageReceiver.sol";
+import {EVM2EVMOffRampSetup} from "../offRamp/EVM2EVMOffRampSetup.t.sol";
+import {EVM2EVMOnRampSetup} from "../onRamp/EVM2EVMOnRampSetup.t.sol";
+import {RouterSetup} from "../router/RouterSetup.t.sol";
 
 import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
@@ -269,12 +269,8 @@ contract Router_ccipSend is EVM2EVMOnRampSetup {
     s_priceRegistry.applyFeeTokensUpdates(feeTokens, new address[](0));
 
     // Update the price of the newly set feeToken
-    Internal.PriceUpdates memory priceUpdates = getSingleTokenAndGasPriceUpdateStruct(
-      feeTokenWithZeroFeeAndGas,
-      2_000 ether,
-      DEST_CHAIN_SELECTOR,
-      0
-    );
+    Internal.PriceUpdates memory priceUpdates =
+      getSingleTokenAndGasPriceUpdateStruct(feeTokenWithZeroFeeAndGas, 2_000 ether, DEST_CHAIN_SELECTOR, 0);
     s_priceRegistry.updatePrices(priceUpdates);
 
     // Set the feeToken args on the onRamp
@@ -412,10 +408,7 @@ contract Router_applyRampUpdates is RouterSetup {
 
     vm.expectRevert(IRouter.OnlyOffRamp.selector);
     s_sourceRouter.routeMessage(
-      generateReceiverMessage(offRamp.sourceChainSelector),
-      GAS_FOR_CALL_EXACT_CHECK,
-      100_000,
-      address(s_receiver)
+      generateReceiverMessage(offRamp.sourceChainSelector), GAS_FOR_CALL_EXACT_CHECK, 100_000, address(s_receiver)
     );
   }
 
@@ -833,7 +826,7 @@ contract Router_routeMessage is EVM2EVMOffRampSetup {
       expectedRetData = abi.encodeWithSelector(MaybeRevertMessageReceiver.CustomError.selector, error);
     }
 
-    (bool success, bytes memory retData, ) = s_destRouter.routeMessage(
+    (bool success, bytes memory retData,) = s_destRouter.routeMessage(
       generateReceiverMessage(SOURCE_CHAIN_SELECTOR),
       GAS_FOR_CALL_EXACT_CHECK,
       generateManualGasLimit(message.data.length),
@@ -845,20 +838,14 @@ contract Router_routeMessage is EVM2EVMOffRampSetup {
   }
 
   function testAutoExecSuccess() public {
-    (bool success, , ) = s_destRouter.routeMessage(
-      generateReceiverMessage(SOURCE_CHAIN_SELECTOR),
-      GAS_FOR_CALL_EXACT_CHECK,
-      100_000,
-      address(s_receiver)
+    (bool success,,) = s_destRouter.routeMessage(
+      generateReceiverMessage(SOURCE_CHAIN_SELECTOR), GAS_FOR_CALL_EXACT_CHECK, 100_000, address(s_receiver)
     );
 
     assertTrue(success);
 
-    (success, , ) = s_destRouter.routeMessage(
-      generateReceiverMessage(SOURCE_CHAIN_SELECTOR),
-      GAS_FOR_CALL_EXACT_CHECK,
-      1,
-      address(s_receiver)
+    (success,,) = s_destRouter.routeMessage(
+      generateReceiverMessage(SOURCE_CHAIN_SELECTOR), GAS_FOR_CALL_EXACT_CHECK, 1, address(s_receiver)
     );
 
     // Can run out of gas, should return false
@@ -872,10 +859,7 @@ contract Router_routeMessage is EVM2EVMOffRampSetup {
 
     vm.expectRevert(IRouter.OnlyOffRamp.selector);
     s_destRouter.routeMessage(
-      generateReceiverMessage(SOURCE_CHAIN_SELECTOR),
-      GAS_FOR_CALL_EXACT_CHECK,
-      100_000,
-      address(s_receiver)
+      generateReceiverMessage(SOURCE_CHAIN_SELECTOR), GAS_FOR_CALL_EXACT_CHECK, 100_000, address(s_receiver)
     );
   }
 
@@ -883,10 +867,7 @@ contract Router_routeMessage is EVM2EVMOffRampSetup {
     s_mockARM.voteToCurse(bytes32(0));
     vm.expectRevert(Router.BadARMSignal.selector);
     s_destRouter.routeMessage(
-      generateReceiverMessage(SOURCE_CHAIN_SELECTOR),
-      GAS_FOR_CALL_EXACT_CHECK,
-      100_000,
-      address(s_receiver)
+      generateReceiverMessage(SOURCE_CHAIN_SELECTOR), GAS_FOR_CALL_EXACT_CHECK, 100_000, address(s_receiver)
     );
   }
 }

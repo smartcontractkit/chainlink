@@ -89,9 +89,8 @@ library RateLimiter {
     // We update the bucket to reflect the status at the exact time of the
     // call. This means we might need to refill a part of the bucket based
     // on the time that has passed since the last update.
-    bucket.tokens = uint128(
-      _calculateRefill(bucket.capacity, bucket.tokens, block.timestamp - bucket.lastUpdated, bucket.rate)
-    );
+    bucket.tokens =
+      uint128(_calculateRefill(bucket.capacity, bucket.tokens, block.timestamp - bucket.lastUpdated, bucket.rate));
     bucket.lastUpdated = uint32(block.timestamp);
     return bucket;
   }

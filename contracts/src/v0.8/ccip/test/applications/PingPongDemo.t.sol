@@ -2,8 +2,8 @@
 pragma solidity 0.8.19;
 
 import "../../applications/PingPongDemo.sol";
-import "../onRamp/EVM2EVMOnRampSetup.t.sol";
 import "../../libraries/Client.sol";
+import "../onRamp/EVM2EVMOnRampSetup.t.sol";
 
 // setup
 contract PingPongDappSetup is EVM2EVMOnRampSetup {

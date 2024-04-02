@@ -52,9 +52,7 @@ contract ARMProxy is OwnerIsCreator, ITypeAndVersion {
     assembly {
       // Revert if no contract present at destination address, otherwise call
       // might succeed unintentionally.
-      if iszero(extcodesize(arm)) {
-        revert(0, 0)
-      }
+      if iszero(extcodesize(arm)) { revert(0, 0) }
       // We use memory starting at zero, overwriting anything that might already
       // be stored there. This messes with Solidity's expectations around memory
       // layout, but it's fine because we always exit execution of this contract
@@ -69,9 +67,7 @@ contract ARMProxy is OwnerIsCreator, ITypeAndVersion {
       // Copy the returned data.
       returndatacopy(0, 0, returndatasize())
       // Pass through successful return or revert and associated data.
-      if success {
-        return(0, returndatasize())
-      }
+      if success { return(0, returndatasize()) }
       revert(0, returndatasize())
     }
   }

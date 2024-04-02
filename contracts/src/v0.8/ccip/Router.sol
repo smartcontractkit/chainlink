@@ -2,21 +2,21 @@
 pragma solidity 0.8.19;
 
 import {ITypeAndVersion} from "../shared/interfaces/ITypeAndVersion.sol";
-import {IRouterClient} from "./interfaces/IRouterClient.sol";
-import {IRouter} from "./interfaces/IRouter.sol";
-import {IEVM2AnyOnRamp} from "./interfaces/IEVM2AnyOnRamp.sol";
 import {IARM} from "./interfaces/IARM.sol";
-import {IWrappedNative} from "./interfaces/IWrappedNative.sol";
 import {IAny2EVMMessageReceiver} from "./interfaces/IAny2EVMMessageReceiver.sol";
+import {IEVM2AnyOnRamp} from "./interfaces/IEVM2AnyOnRamp.sol";
+import {IRouter} from "./interfaces/IRouter.sol";
+import {IRouterClient} from "./interfaces/IRouterClient.sol";
+import {IWrappedNative} from "./interfaces/IWrappedNative.sol";
 
+import {OwnerIsCreator} from "../shared/access/OwnerIsCreator.sol";
+import {CallWithExactGas} from "../shared/call/CallWithExactGas.sol";
 import {Client} from "./libraries/Client.sol";
 import {Internal} from "./libraries/Internal.sol";
-import {CallWithExactGas} from "../shared/call/CallWithExactGas.sol";
-import {OwnerIsCreator} from "../shared/access/OwnerIsCreator.sol";
 
-import {EnumerableSet} from "../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/structs/EnumerableSet.sol";
-import {SafeERC20} from "../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/utils/SafeERC20.sol";
+import {EnumerableSet} from "../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/structs/EnumerableSet.sol";
 
 /// @title Router
 /// @notice This is the entry point for the end user wishing to send data across chains.
@@ -164,11 +164,7 @@ contract Router is IRouter, IRouterClient, ITypeAndVersion, OwnerIsCreator {
     bytes memory data = abi.encodeWithSelector(IAny2EVMMessageReceiver.ccipReceive.selector, message);
 
     (success, retData, gasUsed) = CallWithExactGas._callWithExactGasSafeReturnData(
-      data,
-      receiver,
-      gasLimit,
-      gasForCallExactCheck,
-      Internal.MAX_RET_BYTES
+      data, receiver, gasLimit, gasForCallExactCheck, Internal.MAX_RET_BYTES
     );
 
     emit MessageExecuted(message.messageId, message.sourceChainSelector, msg.sender, keccak256(data));
@@ -216,10 +212,8 @@ contract Router is IRouter, IRouterClient, ITypeAndVersion, OwnerIsCreator {
     OffRamp[] memory offRamps = new OffRamp[](encodedOffRamps.length);
     for (uint256 i = 0; i < encodedOffRamps.length; ++i) {
       uint256 encodedOffRamp = encodedOffRamps[i];
-      offRamps[i] = OffRamp({
-        sourceChainSelector: uint64(encodedOffRamp >> 160),
-        offRamp: address(uint160(encodedOffRamp))
-      });
+      offRamps[i] =
+        OffRamp({sourceChainSelector: uint64(encodedOffRamp >> 160), offRamp: address(uint160(encodedOffRamp))});
     }
     return offRamps;
   }
@@ -251,8 +245,9 @@ contract Router is IRouter, IRouterClient, ITypeAndVersion, OwnerIsCreator {
       address offRampAddress = offRampRemoves[i].offRamp;
 
       // If the selector-offRamp pair does not exist, revert.
-      if (!s_chainSelectorAndOffRamps.remove(_mergeChainSelectorAndOffRamp(sourceChainSelector, offRampAddress)))
+      if (!s_chainSelectorAndOffRamps.remove(_mergeChainSelectorAndOffRamp(sourceChainSelector, offRampAddress))) {
         revert OffRampMismatch(sourceChainSelector, offRampAddress);
+      }
 
       emit OffRampRemoved(sourceChainSelector, offRampAddress);
     }
@@ -276,7 +271,7 @@ contract Router is IRouter, IRouterClient, ITypeAndVersion, OwnerIsCreator {
     if (to == address(0)) revert InvalidRecipientAddress(to);
 
     if (tokenAddress == address(0)) {
-      (bool success, ) = to.call{value: amount}("");
+      (bool success,) = to.call{value: amount}("");
       if (!success) revert FailedToSendValue();
       return;
     }

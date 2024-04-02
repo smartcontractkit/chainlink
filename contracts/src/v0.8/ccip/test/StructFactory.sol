@@ -4,10 +4,10 @@ pragma solidity 0.8.19;
 import {IPool} from "../interfaces/pools/IPool.sol";
 
 import {ARM} from "../ARM.sol";
+import {Internal} from "../libraries/Internal.sol";
+import {RateLimiter} from "../libraries/RateLimiter.sol";
 import {EVM2EVMOffRamp} from "../offRamp/EVM2EVMOffRamp.sol";
 import {EVM2EVMOnRamp} from "../onRamp/EVM2EVMOnRamp.sol";
-import {RateLimiter} from "../libraries/RateLimiter.sol";
-import {Internal} from "../libraries/Internal.sol";
 
 contract StructFactory {
   // Addresses
@@ -65,12 +65,11 @@ contract StructFactory {
       blessWeight: WEIGHT_40,
       curseWeight: WEIGHT_40
     });
-    return
-      ARM.Config({
-        voters: voters,
-        blessWeightThreshold: WEIGHT_10 + WEIGHT_20 + WEIGHT_40,
-        curseWeightThreshold: WEIGHT_1 + WEIGHT_10 + WEIGHT_20 + WEIGHT_40
-      });
+    return ARM.Config({
+      voters: voters,
+      blessWeightThreshold: WEIGHT_10 + WEIGHT_20 + WEIGHT_40,
+      curseWeightThreshold: WEIGHT_1 + WEIGHT_10 + WEIGHT_20 + WEIGHT_40
+    });
   }
 
   uint8 internal constant ZERO = 0;
@@ -101,12 +100,9 @@ contract StructFactory {
 
   // Total L1 data availability overhead estimate is 33_596 gas.
   // This value includes complete CommitStore and OffRamp call data.
-  uint32 internal constant DEST_DATA_AVAILABILITY_OVERHEAD_GAS =
-    188 + // Fixed data availability overhead in OP stack.
-      (32 * 31 + 4) *
-      DEST_GAS_PER_DATA_AVAILABILITY_BYTE + // CommitStore single-root transmission takes up about 31 slots, plus selector.
-      (32 * 34 + 4) *
-      DEST_GAS_PER_DATA_AVAILABILITY_BYTE; // OffRamp transmission excluding EVM2EVMMessage takes up about 34 slots, plus selector.
+  uint32 internal constant DEST_DATA_AVAILABILITY_OVERHEAD_GAS = 188 // Fixed data availability overhead in OP stack.
+    + (32 * 31 + 4) * DEST_GAS_PER_DATA_AVAILABILITY_BYTE // CommitStore single-root transmission takes up about 31 slots, plus selector.
+    + (32 * 34 + 4) * DEST_GAS_PER_DATA_AVAILABILITY_BYTE; // OffRamp transmission excluding EVM2EVMMessage takes up about 34 slots, plus selector.
 
   // Multiples of bps, or 0.0001, use 6840 to be same as OP mainnet compression factor of 0.684.
   uint16 internal constant DEST_GAS_DATA_AVAILABILITY_MULTIPLIER_BPS = 6840;
@@ -129,34 +125,32 @@ contract StructFactory {
     address router,
     address priceRegistry
   ) internal pure returns (EVM2EVMOffRamp.DynamicConfig memory) {
-    return
-      EVM2EVMOffRamp.DynamicConfig({
-        permissionLessExecutionThresholdSeconds: PERMISSION_LESS_EXECUTION_THRESHOLD_SECONDS,
-        router: router,
-        priceRegistry: priceRegistry,
-        maxNumberOfTokensPerMsg: MAX_TOKENS_LENGTH,
-        maxDataBytes: MAX_DATA_SIZE,
-        maxPoolReleaseOrMintGas: MAX_TOKEN_POOL_RELEASE_OR_MINT_GAS
-      });
+    return EVM2EVMOffRamp.DynamicConfig({
+      permissionLessExecutionThresholdSeconds: PERMISSION_LESS_EXECUTION_THRESHOLD_SECONDS,
+      router: router,
+      priceRegistry: priceRegistry,
+      maxNumberOfTokensPerMsg: MAX_TOKENS_LENGTH,
+      maxDataBytes: MAX_DATA_SIZE,
+      maxPoolReleaseOrMintGas: MAX_TOKEN_POOL_RELEASE_OR_MINT_GAS
+    });
   }
 
   function generateDynamicOnRampConfig(
     address router,
     address priceRegistry
   ) internal pure returns (EVM2EVMOnRamp.DynamicConfig memory) {
-    return
-      EVM2EVMOnRamp.DynamicConfig({
-        router: router,
-        maxNumberOfTokensPerMsg: MAX_TOKENS_LENGTH,
-        destGasOverhead: DEST_GAS_OVERHEAD,
-        destGasPerPayloadByte: DEST_GAS_PER_PAYLOAD_BYTE,
-        destDataAvailabilityOverheadGas: DEST_DATA_AVAILABILITY_OVERHEAD_GAS,
-        destGasPerDataAvailabilityByte: DEST_GAS_PER_DATA_AVAILABILITY_BYTE,
-        destDataAvailabilityMultiplierBps: DEST_GAS_DATA_AVAILABILITY_MULTIPLIER_BPS,
-        priceRegistry: priceRegistry,
-        maxDataBytes: MAX_DATA_SIZE,
-        maxPerMsgGasLimit: MAX_GAS_LIMIT
-      });
+    return EVM2EVMOnRamp.DynamicConfig({
+      router: router,
+      maxNumberOfTokensPerMsg: MAX_TOKENS_LENGTH,
+      destGasOverhead: DEST_GAS_OVERHEAD,
+      destGasPerPayloadByte: DEST_GAS_PER_PAYLOAD_BYTE,
+      destDataAvailabilityOverheadGas: DEST_DATA_AVAILABILITY_OVERHEAD_GAS,
+      destGasPerDataAvailabilityByte: DEST_GAS_PER_DATA_AVAILABILITY_BYTE,
+      destDataAvailabilityMultiplierBps: DEST_GAS_DATA_AVAILABILITY_MULTIPLIER_BPS,
+      priceRegistry: priceRegistry,
+      maxDataBytes: MAX_DATA_SIZE,
+      maxPerMsgGasLimit: MAX_GAS_LIMIT
+    });
   }
 
   function getTokensAndPools(
@@ -196,10 +190,8 @@ contract StructFactory {
     Internal.TokenPriceUpdate[] memory tokenPriceUpdates = new Internal.TokenPriceUpdate[](1);
     tokenPriceUpdates[0] = Internal.TokenPriceUpdate({sourceToken: token, usdPerToken: price});
 
-    Internal.PriceUpdates memory priceUpdates = Internal.PriceUpdates({
-      tokenPriceUpdates: tokenPriceUpdates,
-      gasPriceUpdates: new Internal.GasPriceUpdate[](0)
-    });
+    Internal.PriceUpdates memory priceUpdates =
+      Internal.PriceUpdates({tokenPriceUpdates: tokenPriceUpdates, gasPriceUpdates: new Internal.GasPriceUpdate[](0)});
 
     return priceUpdates;
   }
@@ -211,10 +203,8 @@ contract StructFactory {
     Internal.GasPriceUpdate[] memory gasPriceUpdates = new Internal.GasPriceUpdate[](1);
     gasPriceUpdates[0] = Internal.GasPriceUpdate({destChainSelector: chainSelector, usdPerUnitGas: usdPerUnitGas});
 
-    Internal.PriceUpdates memory priceUpdates = Internal.PriceUpdates({
-      tokenPriceUpdates: new Internal.TokenPriceUpdate[](0),
-      gasPriceUpdates: gasPriceUpdates
-    });
+    Internal.PriceUpdates memory priceUpdates =
+      Internal.PriceUpdates({tokenPriceUpdates: new Internal.TokenPriceUpdate[](0), gasPriceUpdates: gasPriceUpdates});
 
     return priceUpdates;
   }
@@ -240,20 +230,17 @@ contract StructFactory {
     for (uint256 i = 0; i < length; ++i) {
       tokenPriceUpdates[i] = Internal.TokenPriceUpdate({sourceToken: tokens[i], usdPerToken: prices[i]});
     }
-    Internal.PriceUpdates memory priceUpdates = Internal.PriceUpdates({
-      tokenPriceUpdates: tokenPriceUpdates,
-      gasPriceUpdates: new Internal.GasPriceUpdate[](0)
-    });
+    Internal.PriceUpdates memory priceUpdates =
+      Internal.PriceUpdates({tokenPriceUpdates: tokenPriceUpdates, gasPriceUpdates: new Internal.GasPriceUpdate[](0)});
 
     return priceUpdates;
   }
 
   // OffRamp
   function getEmptyPriceUpdates() internal pure returns (Internal.PriceUpdates memory priceUpdates) {
-    return
-      Internal.PriceUpdates({
-        tokenPriceUpdates: new Internal.TokenPriceUpdate[](0),
-        gasPriceUpdates: new Internal.GasPriceUpdate[](0)
-      });
+    return Internal.PriceUpdates({
+      tokenPriceUpdates: new Internal.TokenPriceUpdate[](0),
+      gasPriceUpdates: new Internal.GasPriceUpdate[](0)
+    });
   }
 }

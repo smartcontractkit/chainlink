@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
-import {Internal} from "../../../libraries/Internal.sol";
 import {Client} from "../../../libraries/Client.sol";
+import {Internal} from "../../../libraries/Internal.sol";
+import {EVM2EVMOnRampSetup} from "../../onRamp/EVM2EVMOnRampSetup.t.sol";
 import {FacadeClient} from "./FacadeClient.sol";
 import {ReentrantMaliciousTokenPool} from "./ReentrantMaliciousTokenPool.sol";
-import {EVM2EVMOnRampSetup} from "../../onRamp/EVM2EVMOnRampSetup.t.sol";
 
 import {IERC20} from "../../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
@@ -26,10 +26,7 @@ contract OnRampTokenPoolReentrancy is EVM2EVMOnRampSetup {
     s_facadeClient = new FacadeClient(address(s_sourceRouter), DEST_CHAIN_SELECTOR, s_sourceToken, s_feeToken);
 
     s_maliciousTokenPool = new ReentrantMaliciousTokenPool(
-      address(s_facadeClient),
-      s_sourceToken,
-      address(s_mockARM),
-      address(s_sourceRouter)
+      address(s_facadeClient), s_sourceToken, address(s_mockARM), address(s_sourceRouter)
     );
 
     Internal.PoolUpdate[] memory removes = new Internal.PoolUpdate[](1);

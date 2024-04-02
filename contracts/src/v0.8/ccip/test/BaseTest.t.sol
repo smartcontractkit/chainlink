@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
-import {Test, stdError} from "forge-std/Test.sol";
-import {MockARM} from "./mocks/MockARM.sol";
 import {StructFactory} from "./StructFactory.sol";
+import {MockARM} from "./mocks/MockARM.sol";
+import {Test, stdError} from "forge-std/Test.sol";
 
 contract BaseTest is Test, StructFactory {
   bool private s_baseTestInitialized;

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
-import {Test} from "forge-std/Test.sol";
 import {ARMProxy} from "../../ARMProxy.sol";
+import {Test} from "forge-std/Test.sol";
 
 contract ARMProxyStandaloneTest is Test {
   event ARMSet(address arm);
@@ -74,7 +74,7 @@ contract ARMProxyStandaloneTest is Test {
     s_armProxy.setARM(EMPTY_ADDRESS); // No code at address 1, should revert.
     vm.expectRevert();
     bytes memory b = new bytes(0);
-    (bool success, ) = address(s_armProxy).call(b);
+    (bool success,) = address(s_armProxy).call(b);
     success;
   }
 }

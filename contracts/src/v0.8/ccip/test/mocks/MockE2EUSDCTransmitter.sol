@@ -137,14 +137,7 @@ contract MockE2EUSDCTransmitter is IMessageTransmitterWithRelay {
     require(_recipient != bytes32(0), "Recipient must be nonzero");
     // serialize message
     bytes memory _message = abi.encodePacked(
-      i_version,
-      i_localDomain,
-      _destinationDomain,
-      _nonce,
-      _sender,
-      _recipient,
-      _destinationCaller,
-      _messageBody
+      i_version, i_localDomain, _destinationDomain, _nonce, _sender, _recipient, _destinationCaller, _messageBody
     );
 
     // Emit MessageSent event

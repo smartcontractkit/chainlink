@@ -2,21 +2,21 @@
 pragma solidity 0.8.19;
 
 import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
-import {ICommitStore} from "../interfaces/ICommitStore.sol";
 import {IARM} from "../interfaces/IARM.sol";
-import {IPool} from "../interfaces/pools/IPool.sol";
-import {IRouter} from "../interfaces/IRouter.sol";
-import {IPriceRegistry} from "../interfaces/IPriceRegistry.sol";
 import {IAny2EVMMessageReceiver} from "../interfaces/IAny2EVMMessageReceiver.sol";
 import {IAny2EVMOffRamp} from "../interfaces/IAny2EVMOffRamp.sol";
+import {ICommitStore} from "../interfaces/ICommitStore.sol";
+import {IPriceRegistry} from "../interfaces/IPriceRegistry.sol";
+import {IRouter} from "../interfaces/IRouter.sol";
+import {IPool} from "../interfaces/pools/IPool.sol";
 
+import {CallWithExactGas} from "../../shared/call/CallWithExactGas.sol";
+import {EnumerableMapAddresses} from "../../shared/enumerable/EnumerableMapAddresses.sol";
+import {AggregateRateLimiter} from "../AggregateRateLimiter.sol";
 import {Client} from "../libraries/Client.sol";
 import {Internal} from "../libraries/Internal.sol";
 import {RateLimiter} from "../libraries/RateLimiter.sol";
-import {CallWithExactGas} from "../../shared/call/CallWithExactGas.sol";
 import {OCR2BaseNoChecks} from "../ocr/OCR2BaseNoChecks.sol";
-import {AggregateRateLimiter} from "../AggregateRateLimiter.sol";
-import {EnumerableMapAddresses} from "../../shared/enumerable/EnumerableMapAddresses.sol";
 
 import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 import {ERC165Checker} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/introspection/ERC165Checker.sol";
@@ -67,10 +67,7 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
   event SkippedSenderWithPreviousRampMessageInflight(uint64 indexed nonce, address indexed sender);
   /// @dev RMN depends on this event, if changing, please notify the RMN maintainers.
   event ExecutionStateChanged(
-    uint64 indexed sequenceNumber,
-    bytes32 indexed messageId,
-    Internal.MessageExecutionState state,
-    bytes returnData
+    uint64 indexed sequenceNumber, bytes32 indexed messageId, Internal.MessageExecutionState state, bytes returnData
   );
 
   /// @notice Static offRamp config
@@ -177,11 +174,10 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
   /// @return The current execution state of the message.
   /// @dev we use the literal number 128 because using a constant increased gas usage.
   function getExecutionState(uint64 sequenceNumber) public view returns (Internal.MessageExecutionState) {
-    return
-      Internal.MessageExecutionState(
-        (s_executionStates[sequenceNumber / 128] >> ((sequenceNumber % 128) * MESSAGE_EXECUTION_STATE_BIT_WIDTH)) &
-          MESSAGE_EXECUTION_STATE_MASK
-      );
+    return Internal.MessageExecutionState(
+      (s_executionStates[sequenceNumber / 128] >> ((sequenceNumber % 128) * MESSAGE_EXECUTION_STATE_BIT_WIDTH))
+        & MESSAGE_EXECUTION_STATE_MASK
+    );
   }
 
   /// @notice Sets a new execution state for a given sequence number. It will overwrite any existing state.
@@ -273,17 +269,20 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
       // and failed. This check protects against reentry and re-execution because the other states are
       // IN_PROGRESS and SUCCESS, both should not be allowed to execute.
       if (
-        !(originalState == Internal.MessageExecutionState.UNTOUCHED ||
-          originalState == Internal.MessageExecutionState.FAILURE)
+        !(
+          originalState == Internal.MessageExecutionState.UNTOUCHED
+            || originalState == Internal.MessageExecutionState.FAILURE
+        )
       ) revert AlreadyExecuted(message.sequenceNumber);
 
       if (manualExecution) {
-        bool isOldCommitReport = (block.timestamp - timestampCommitted) >
-          s_dynamicConfig.permissionLessExecutionThresholdSeconds;
+        bool isOldCommitReport =
+          (block.timestamp - timestampCommitted) > s_dynamicConfig.permissionLessExecutionThresholdSeconds;
         // Manually execution is fine if we previously failed or if the commit report is just too old
         // Acceptable state transitions: FAILURE->SUCCESS, UNTOUCHED->SUCCESS, FAILURE->FAILURE
-        if (!(isOldCommitReport || originalState == Internal.MessageExecutionState.FAILURE))
+        if (!(isOldCommitReport || originalState == Internal.MessageExecutionState.FAILURE)) {
           revert ManualExecutionNotYetEnabled();
+        }
 
         // Manual execution gas limit can override gas limit specified in the message. Value of 0 indicates no override.
         if (manualExecGasLimits[i] != 0) {
@@ -350,8 +349,9 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
 
       // The only valid prior states are UNTOUCHED and FAILURE (checked above)
       // The only valid post states are FAILURE and SUCCESS (checked below)
-      if (newState != Internal.MessageExecutionState.FAILURE && newState != Internal.MessageExecutionState.SUCCESS)
+      if (newState != Internal.MessageExecutionState.FAILURE && newState != Internal.MessageExecutionState.SUCCESS) {
         revert InvalidNewState(message.sequenceNumber, newState);
+      }
 
       // Nonce changes per state transition
       // UNTOUCHED -> FAILURE  nonce bump
@@ -381,11 +381,13 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
     uint256 offchainTokenDataLength
   ) private view {
     if (sourceChainSelector != i_sourceChainSelector) revert InvalidSourceChain(sourceChainSelector);
-    if (numberOfTokens > uint256(s_dynamicConfig.maxNumberOfTokensPerMsg))
+    if (numberOfTokens > uint256(s_dynamicConfig.maxNumberOfTokensPerMsg)) {
       revert UnsupportedNumberOfTokens(sequenceNumber);
+    }
     if (numberOfTokens != offchainTokenDataLength) revert TokenDataMismatch(sequenceNumber);
-    if (dataLength > uint256(s_dynamicConfig.maxDataBytes))
+    if (dataLength > uint256(s_dynamicConfig.maxDataBytes)) {
       revert MessageTooLarge(uint256(s_dynamicConfig.maxDataBytes), dataLength);
+    }
   }
 
   /// @notice Try executing a message.
@@ -397,7 +399,8 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
     Internal.EVM2EVMMessage memory message,
     bytes[] memory offchainTokenData
   ) internal returns (Internal.MessageExecutionState, bytes memory) {
-    try this.executeSingleMessage(message, offchainTokenData) {} catch (bytes memory err) {
+    try this.executeSingleMessage(message, offchainTokenData) {}
+    catch (bytes memory err) {
       if (ReceiverError.selector == bytes4(err) || TokenHandlingError.selector == bytes4(err)) {
         // If CCIP receiver execution is not successful, bubble up receiver revert data,
         // prepended by the 4 bytes of ReceiverError.selector or TokenHandlingError.selector
@@ -424,19 +427,15 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
     Client.EVMTokenAmount[] memory destTokenAmounts = new Client.EVMTokenAmount[](0);
     if (message.tokenAmounts.length > 0) {
       destTokenAmounts = _releaseOrMintTokens(
-        message.tokenAmounts,
-        abi.encode(message.sender),
-        message.receiver,
-        message.sourceTokenData,
-        offchainTokenData
+        message.tokenAmounts, abi.encode(message.sender), message.receiver, message.sourceTokenData, offchainTokenData
       );
     }
     if (
-      message.receiver.code.length == 0 ||
-      !message.receiver.supportsInterface(type(IAny2EVMMessageReceiver).interfaceId)
+      message.receiver.code.length == 0
+        || !message.receiver.supportsInterface(type(IAny2EVMMessageReceiver).interfaceId)
     ) return;
 
-    (bool success, bytes memory returnData, ) = IRouter(s_dynamicConfig.router).routeMessage(
+    (bool success, bytes memory returnData,) = IRouter(s_dynamicConfig.router).routeMessage(
       Internal._toAny2EVMMessage(message, destTokenAmounts),
       Internal.GAS_FOR_CALL_EXACT_CHECK,
       message.gasLimit,
@@ -459,15 +458,14 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
   /// @dev This function will always return the same struct as the contents is static and can never change.
   /// RMN depends on this function, if changing, please notify the RMN maintainers.
   function getStaticConfig() external view returns (StaticConfig memory) {
-    return
-      StaticConfig({
-        commitStore: i_commitStore,
-        chainSelector: i_chainSelector,
-        sourceChainSelector: i_sourceChainSelector,
-        onRamp: i_onRamp,
-        prevOffRamp: i_prevOffRamp,
-        armProxy: i_armProxy
-      });
+    return StaticConfig({
+      commitStore: i_commitStore,
+      chainSelector: i_chainSelector,
+      sourceChainSelector: i_sourceChainSelector,
+      onRamp: i_onRamp,
+      prevOffRamp: i_prevOffRamp,
+      armProxy: i_armProxy
+    });
   }
 
   /// @notice Returns the current dynamic config.
@@ -506,7 +504,7 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
   function getSupportedTokens() external view returns (IERC20[] memory sourceTokens) {
     sourceTokens = new IERC20[](s_poolsBySourceToken.length());
     for (uint256 i = 0; i < sourceTokens.length; ++i) {
-      (address token, ) = s_poolsBySourceToken.at(i);
+      (address token,) = s_poolsBySourceToken.at(i);
       sourceTokens[i] = IERC20(token);
     }
     return sourceTokens;
@@ -542,7 +540,7 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
   function getDestinationTokens() external view returns (IERC20[] memory destTokens) {
     destTokens = new IERC20[](s_poolsByDestToken.length());
     for (uint256 i = 0; i < destTokens.length; ++i) {
-      (address token, ) = s_poolsByDestToken.at(i);
+      (address token,) = s_poolsByDestToken.at(i);
       destTokens[i] = IERC20(token);
     }
     return destTokens;
@@ -610,7 +608,7 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
       // Call the pool with exact gas to increase resistance against malicious tokens or token pools.
       // _callWithExactGas also protects against return data bombs by capping the return data size
       // at MAX_RET_BYTES.
-      (bool success, bytes memory returnData, ) = CallWithExactGas._callWithExactGasSafeReturnData(
+      (bool success, bytes memory returnData,) = CallWithExactGas._callWithExactGasSafeReturnData(
         abi.encodeWithSelector(
           pool.releaseOrMint.selector,
           originalSender,

@@ -3,8 +3,8 @@ pragma solidity 0.8.19;
 
 import {IBurnMintERC20} from "../../../shared/token/ERC20/IBurnMintERC20.sol";
 
-import {USDCTokenPool} from "../../pools/USDC/USDCTokenPool.sol";
 import {ITokenMessenger} from "../../pools/USDC/ITokenMessenger.sol";
+import {USDCTokenPool} from "../../pools/USDC/USDCTokenPool.sol";
 
 contract USDCTokenPoolHelper is USDCTokenPool {
   constructor(
