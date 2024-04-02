@@ -9,9 +9,9 @@ import * as h from '../../test-helpers/helpers'
 import { BigNumber, Contract } from 'ethers'
 
 const OWNABLE_ERR = 'Only callable by owner'
-const INVALID_WATCHLIST_ERR = `InvalidWatchList()`
+const INVALID_WATCHLIST_ERR = `InvalidWatchList`
 const PAUSED_ERR = 'Pausable: paused'
-const ONLY_KEEPER_ERR = `OnlyKeeperRegistry()`
+const ONLY_KEEPER_ERR = `OnlyKeeperRegistry`
 
 const zeroLINK = ethers.utils.parseEther('0')
 const oneLINK = ethers.utils.parseEther('1')
@@ -240,7 +240,7 @@ describe('VRFSubscriptionBalanceMonitor', () => {
     })
 
     it('Should not allow duplicates in the watchlist', async () => {
-      const errMsg = `DuplicateSubcriptionId(${sub1})`
+      const errMsg = `DuplicateSubcriptionId`
       const setTx = bm
         .connect(owner)
         .setWatchList(
@@ -248,7 +248,9 @@ describe('VRFSubscriptionBalanceMonitor', () => {
           [oneLINK, twoLINK, threeLINK],
           [twoLINK, threeLINK, fiveLINK],
         )
-      await expect(setTx).to.be.revertedWith(errMsg)
+      await expect(setTx)
+        .to.be.revertedWithCustomError(bm, errMsg)
+        .withArgs(sub1)
     })
 
     it('Should not allow a topUpAmountJuels les than or equal to minBalance in the watchlist', async () => {
@@ -259,7 +261,10 @@ describe('VRFSubscriptionBalanceMonitor', () => {
           [oneLINK, twoLINK, threeLINK],
           [zeroLINK, twoLINK, threeLINK],
         )
-      await expect(setTx).to.be.revertedWith(INVALID_WATCHLIST_ERR)
+      await expect(setTx).to.be.revertedWithCustomError(
+        bm,
+        INVALID_WATCHLIST_ERR,
+      )
     })
 
     it('Should not allow strangers to set the watchlist', async () => {
@@ -271,25 +276,25 @@ describe('VRFSubscriptionBalanceMonitor', () => {
 
     it('Should revert if the list lengths differ', async () => {
       let tx = bm.connect(owner).setWatchList([sub1], [], [twoLINK])
-      await expect(tx).to.be.revertedWith(INVALID_WATCHLIST_ERR)
+      await expect(tx).to.be.revertedWithCustomError(bm, INVALID_WATCHLIST_ERR)
       tx = bm.connect(owner).setWatchList([sub1], [oneLINK], [])
-      await expect(tx).to.be.revertedWith(INVALID_WATCHLIST_ERR)
+      await expect(tx).to.be.revertedWithCustomError(bm, INVALID_WATCHLIST_ERR)
       tx = bm.connect(owner).setWatchList([], [oneLINK], [twoLINK])
-      await expect(tx).to.be.revertedWith(INVALID_WATCHLIST_ERR)
+      await expect(tx).to.be.revertedWithCustomError(bm, INVALID_WATCHLIST_ERR)
     })
 
     it('Should revert if any of the subIDs are zero', async () => {
       let tx = bm
         .connect(owner)
         .setWatchList([sub1, 0], [oneLINK, oneLINK], [twoLINK, twoLINK])
-      await expect(tx).to.be.revertedWith(INVALID_WATCHLIST_ERR)
+      await expect(tx).to.be.revertedWithCustomError(bm, INVALID_WATCHLIST_ERR)
     })
 
     it('Should revert if any of the top up amounts are 0', async () => {
       const tx = bm
         .connect(owner)
         .setWatchList([sub1, sub2], [oneLINK, oneLINK], [twoLINK, zeroLINK])
-      await expect(tx).to.be.revertedWith(INVALID_WATCHLIST_ERR)
+      await expect(tx).to.be.revertedWithCustomError(bm, INVALID_WATCHLIST_ERR)
     })
   })
 
@@ -573,9 +578,15 @@ describe('VRFSubscriptionBalanceMonitor', () => {
 
       it('Should only be callable by the keeper registry contract', async () => {
         let performTx = bm.connect(owner).performUpkeep(validPayload)
-        await expect(performTx).to.be.revertedWith(ONLY_KEEPER_ERR)
+        await expect(performTx).to.be.revertedWithCustomError(
+          bm,
+          ONLY_KEEPER_ERR,
+        )
         performTx = bm.connect(stranger).performUpkeep(validPayload)
-        await expect(performTx).to.be.revertedWith(ONLY_KEEPER_ERR)
+        await expect(performTx).to.be.revertedWithCustomError(
+          bm,
+          ONLY_KEEPER_ERR,
+        )
       })
 
       it('Should protect against running out of gas', async () => {
