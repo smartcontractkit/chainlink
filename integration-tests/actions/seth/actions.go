@@ -131,12 +131,15 @@ func SendFunds(logger zerolog.Logger, client *seth.Client, payload FundsToSendPa
 	}
 
 	if client.Cfg.Network.EIP1559DynamicFees {
+		// if any of the dynamic fees are not set, we need to either estimate them or read them from config
 		if payload.GasFeeCap == nil || payload.GasTipCap == nil {
+			// estimatior or config reading happens here
 			txOptions := client.NewTXOpts()
 			gasFeeCap = txOptions.GasFeeCap
 			gasTipCap = txOptions.GasTipCap
 		}
 
+		// override with payload values if they are set
 		if payload.GasFeeCap != nil {
 			gasFeeCap = payload.GasFeeCap
 		}
@@ -155,10 +158,10 @@ func SendFunds(logger zerolog.Logger, client *seth.Client, payload FundsToSendPa
 		}
 	}
 
-	var signedTx *types.Transaction
+	var rawTx types.TxData
 
 	if client.Cfg.Network.EIP1559DynamicFees {
-		rawTx := &types.DynamicFeeTx{
+		rawTx = &types.DynamicFeeTx{
 			Nonce:     nonce,
 			To:        &payload.ToAddress,
 			Value:     payload.Amount,
@@ -166,18 +169,17 @@ func SendFunds(logger zerolog.Logger, client *seth.Client, payload FundsToSendPa
 			GasFeeCap: gasFeeCap,
 			GasTipCap: gasTipCap,
 		}
-		// in the future we might need to dynamically set the signer to reflect the hard fork for given chain
-		signedTx, err = types.SignNewTx(payload.PrivateKey, types.NewLondonSigner(big.NewInt(client.ChainID)), rawTx)
 	} else {
-		rawTx := &types.LegacyTx{
+		rawTx = &types.LegacyTx{
 			Nonce:    nonce,
 			To:       &payload.ToAddress,
 			Value:    payload.Amount,
 			Gas:      gasLimit,
 			GasPrice: gasPrice,
 		}
-		signedTx, err = types.SignNewTx(payload.PrivateKey, types.NewEIP155Signer(big.NewInt(client.ChainID)), rawTx)
 	}
+
+	signedTx, err := types.SignNewTx(payload.PrivateKey, types.LatestSignerForChainID(big.NewInt(client.ChainID)), rawTx)
 
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to sign tx")

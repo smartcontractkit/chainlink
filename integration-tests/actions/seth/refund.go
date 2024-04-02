@@ -274,6 +274,7 @@ func ReturnFunds(log zerolog.Logger, sethClient *seth.Client, chainlinkNodes []c
 				return err
 			}
 
+			// if not set, it will be just set to empty string, which is okay as long as gas estimation is disabled
 			txPriority := sethClient.Cfg.Network.GasEstimationTxPriority
 			txTimeout := sethClient.Cfg.Network.TxnTimeout.Duration()
 
@@ -291,19 +292,19 @@ func ReturnFunds(log zerolog.Logger, sethClient *seth.Client, chainlinkNodes []c
 				Priority:             txPriority,
 			})
 
-			var totalGasCost *big.Int
+			var maxTotalGasCost *big.Int
 			if sethClient.Cfg.Network.EIP1559DynamicFees {
-				totalGasCost = new(big.Int).Mul(big.NewInt(0).SetInt64(sethClient.Cfg.Network.TransferGasFee), estimations.GasFeeCap)
+				maxTotalGasCost = new(big.Int).Mul(big.NewInt(0).SetInt64(sethClient.Cfg.Network.TransferGasFee), estimations.GasFeeCap)
 			} else {
-				totalGasCost = new(big.Int).Mul(big.NewInt(0).SetInt64(sethClient.Cfg.Network.TransferGasFee), estimations.GasPrice)
+				maxTotalGasCost = new(big.Int).Mul(big.NewInt(0).SetInt64(sethClient.Cfg.Network.TransferGasFee), estimations.GasPrice)
 			}
 
-			toSend := new(big.Int).Sub(balance, totalGasCost)
+			toSend := new(big.Int).Sub(balance, maxTotalGasCost)
 
 			if toSend.Cmp(big.NewInt(0)) <= 0 {
 				log.Warn().
 					Str("Address", fromAddress.String()).
-					Str("Estimated total cost", totalGasCost.String()).
+					Str("Estimated maximum total gas cost", maxTotalGasCost.String()).
 					Str("Balance", balance.String()).
 					Str("To send", toSend.String()).
 					Msg("Not enough balance to cover gas cost. Skipping return.")
