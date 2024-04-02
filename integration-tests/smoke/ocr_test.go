@@ -7,7 +7,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/gauntlet"
@@ -226,11 +225,11 @@ func TestOCRZkSync(t *testing.T) {
 	testState.Gauntlet.Contracts.LinkContract.Contract, err = testState.ContractLoader.LoadLINKToken(common.HexToAddress(testState.Gauntlet.Contracts.LinkContract.Address).String())
 	require.NoError(t, err)
 
-	//// Funding nodes
+	// Funding nodes
 	for _, key := range nKeys {
 		toAddress := common.HexToAddress(key.EthAddress)
 		l.Info().Stringer("toAddress", toAddress).Msg("Funding node")
-		amount := conversions.EtherToWei(big.NewFloat(0.2))
+		amount := big.NewInt(1)
 		callMsg := ethereum.CallMsg{
 			From:  common.HexToAddress(chainClient.GetDefaultWallet().Address()),
 			To:    &toAddress,
@@ -242,7 +241,7 @@ func TestOCRZkSync(t *testing.T) {
 		require.NoError(t, err)
 		l.Debug().Stringer("toAddress", toAddress).Stringer("amount", amount).Interface("gasEstimates", gasEstimates).Msg("Transferring funds")
 
-		err = chainClient.Fund(toAddress.String(), big.NewFloat(0).SetInt(amount), gasEstimates)
+		err = chainClient.Fund(toAddress.String(), big.NewFloat(*config.Common.ChainlinkNodeFunding), gasEstimates)
 		require.NoError(t, err)
 		l.Info().Stringer("toAddress", toAddress).Stringer("amount", amount).Msg("Transferred funds")
 	}
@@ -307,12 +306,13 @@ func TestOCRZkSync(t *testing.T) {
 
 	err = actions.CreateOCRJobsLocal(testState.OCRContract, bootstrapNode, workerNodes, 5, env.MockAdapter, big.NewInt(sethClient.ChainID))
 	require.NoError(t, err, "Error creating OCR jobs")
-	//err = testState.OCRContract[0].RequestNewRound()
-	//require.NoError(t, err)
+	err = testState.OCRContract[0].RequestNewRound()
+	require.NoError(t, err)
 
 	err = actions.StartNewRound(1, testState.OCRContract, chainClient, l)
 	require.NoError(t, err)
 
-	_, err = testState.OCRContract[0].GetLatestAnswer(context.Background())
+	answer, err := testState.OCRContract[0].GetLatestAnswer(context.Background())
+	fmt.Println(answer)
 
 }
