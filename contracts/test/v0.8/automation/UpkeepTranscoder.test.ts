@@ -1,6 +1,6 @@
 import { ethers } from 'hardhat'
 import { assert } from 'chai'
-import { evmRevert } from '../../test-helpers/matchers'
+import { evmRevert, evmRevertCustomError } from '../../test-helpers/matchers'
 import { UpkeepTranscoder__factory as UpkeepTranscoderFactory } from '../../../typechain/factories/UpkeepTranscoder__factory'
 import { UpkeepTranscoder } from '../../../typechain'
 
@@ -35,9 +35,10 @@ describe('UpkeepTranscoder', () => {
     })
 
     it('reverts if the from type != to type', async () => {
-      await evmRevert(
+      await evmRevertCustomError(
         transcoder.transcodeUpkeeps(1, 2, encodedData),
-        'InvalidTranscoding()',
+        transcoder,
+        'InvalidTranscoding',
       )
     })
 

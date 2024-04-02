@@ -1,6 +1,6 @@
 import '@nomicfoundation/hardhat-ethers'
 import '@nomicfoundation/hardhat-verify'
-import '@nomiclabs/hardhat-waffle'
+import '@nomicfoundation/hardhat-chai-matchers'
 import '@typechain/hardhat'
 import 'hardhat-abi-exporter'
 import { subtask } from 'hardhat/config'

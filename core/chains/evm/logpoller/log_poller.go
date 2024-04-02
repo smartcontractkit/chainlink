@@ -41,6 +41,7 @@ type LogPoller interface {
 	RegisterFilter(ctx context.Context, filter Filter) error
 	UnregisterFilter(ctx context.Context, name string) error
 	HasFilter(name string) bool
+	GetFilters() map[string]Filter
 	LatestBlock(ctx context.Context) (LogPollerBlock, error)
 	GetBlocksRange(ctx context.Context, numbers []uint64) ([]LogPollerBlock, error)
 
@@ -314,6 +315,35 @@ func (lp *logPoller) HasFilter(name string) bool {
 
 	_, ok := lp.filters[name]
 	return ok
+}
+
+// GetFilters returns a deep copy of the filters map.
+func (lp *logPoller) GetFilters() map[string]Filter {
+	lp.filterMu.RLock()
+	defer lp.filterMu.RUnlock()
+
+	filters := make(map[string]Filter)
+	for k, v := range lp.filters {
+		deepCopyFilter := Filter{
+			Name:         v.Name,
+			Addresses:    make(evmtypes.AddressArray, len(v.Addresses)),
+			EventSigs:    make(evmtypes.HashArray, len(v.EventSigs)),
+			Topic2:       make(evmtypes.HashArray, len(v.Topic2)),
+			Topic3:       make(evmtypes.HashArray, len(v.Topic3)),
+			Topic4:       make(evmtypes.HashArray, len(v.Topic4)),
+			Retention:    v.Retention,
+			MaxLogsKept:  v.MaxLogsKept,
+			LogsPerBlock: v.LogsPerBlock,
+		}
+		copy(deepCopyFilter.Addresses, v.Addresses)
+		copy(deepCopyFilter.EventSigs, v.EventSigs)
+		copy(deepCopyFilter.Topic2, v.Topic2)
+		copy(deepCopyFilter.Topic3, v.Topic3)
+		copy(deepCopyFilter.Topic4, v.Topic4)
+
+		filters[k] = deepCopyFilter
+	}
+	return filters
 }
 
 func (lp *logPoller) Filter(from, to *big.Int, bh *common.Hash) ethereum.FilterQuery {

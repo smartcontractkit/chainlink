@@ -39,13 +39,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   uint32 internal constant UINT32_MAX = type(uint32).max;
   // The first byte of the mask can be 0, because we only ever have 31 oracles
   uint256 internal constant ORACLE_MASK = 0x0001010101010101010101010101010101010101010101010101010101010101;
-  /**
-   * @dev UPKEEP_TRANSCODER_VERSION_BASE is temporary necessity for backwards compatibility with
-   * MigratableAutomationRegistryInterfaceV1 - it should be removed in future versions in favor of
-   * UPKEEP_VERSION_BASE and MigratableAutomationRegistryInterfaceV2
-   */
-  UpkeepFormat internal constant UPKEEP_TRANSCODER_VERSION_BASE = UpkeepFormat.V1;
-  uint8 internal constant UPKEEP_VERSION_BASE = 3;
+  uint8 internal constant UPKEEP_VERSION_BASE = 4;
 
   // Next block of constants are only used in maxPayment estimation during checkUpkeep simulation
   // These values are calibrated using hardhat tests which simulates various cases and verifies that
@@ -128,6 +122,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   error IncorrectNumberOfSigners();
   error IndexOutOfRange();
   error InsufficientBalance(uint256 available, uint256 requested);
+  error InsufficientLinkLiquidity();
   error InvalidDataLength();
   error InvalidFeed();
   error InvalidTrigger();
@@ -447,9 +442,11 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   event AdminPrivilegeConfigSet(address indexed admin, bytes privilegeConfig);
   event BillingConfigOverridden(uint256 indexed id, BillingOverrides overrides);
   event BillingConfigOverrideRemoved(uint256 indexed id);
+  event BillingConfigSet(IERC20 indexed token, BillingConfig config);
   event CancelledUpkeepReport(uint256 indexed id, bytes trigger);
   event ChainSpecificModuleUpdated(address newModule);
   event DedupKeyAdded(bytes32 indexed dedupKey);
+  event FeesWithdrawn(address indexed assetAddress, address indexed recipient, uint256 amount);
   event FundsAdded(uint256 indexed id, address indexed from, uint96 amount);
   event FundsWithdrawn(uint256 indexed id, uint256 amount, address to);
   event InsufficientFundsUpkeepReport(uint256 indexed id, bytes trigger);
@@ -483,9 +480,6 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   event UpkeepTriggerConfigSet(uint256 indexed id, bytes triggerConfig);
   event UpkeepUnpaused(uint256 indexed id);
   event Unpaused(address account);
-  // Event to emit when a billing configuration is set
-  event BillingConfigSet(IERC20 indexed token, BillingConfig config);
-  event FeesWithdrawn(address indexed assetAddress, address indexed recipient, uint256 amount);
 
   /**
    * @param link address of the LINK Token
@@ -1090,5 +1084,67 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
 
       emit BillingConfigSet(token, config);
     }
+  }
+
+  /**
+   * @notice updates the signers and transmitters lists
+   */
+  function _updateTransmitters(address[] memory signers, address[] memory transmitters) internal {
+    // move all pooled payments out of the pool to each transmitter's balance
+    for (uint256 i = 0; i < s_transmittersList.length; i++) {
+      _updateTransmitterBalanceFromPool(
+        s_transmittersList[i],
+        s_hotVars.totalPremium,
+        uint96(s_transmittersList.length)
+      );
+    }
+
+    // remove any old signer/transmitter addresses
+    address transmitterAddress;
+    PayoutMode mode = s_payoutMode;
+    for (uint256 i = 0; i < s_transmittersList.length; i++) {
+      transmitterAddress = s_transmittersList[i];
+      delete s_signers[s_signersList[i]];
+      // Do not delete the whole transmitter struct as it has balance information stored
+      s_transmitters[transmitterAddress].active = false;
+      if (mode == PayoutMode.OFF_CHAIN && s_transmitters[transmitterAddress].balance > 0) {
+        s_deactivatedTransmitters.add(transmitterAddress);
+      }
+    }
+    delete s_signersList;
+    delete s_transmittersList;
+
+    // add new signer/transmitter addresses
+    Transmitter memory transmitter;
+    for (uint256 i = 0; i < signers.length; i++) {
+      if (s_signers[signers[i]].active) revert RepeatedSigner();
+      if (signers[i] == ZERO_ADDRESS) revert InvalidSigner();
+      s_signers[signers[i]] = Signer({active: true, index: uint8(i)});
+
+      transmitterAddress = transmitters[i];
+      if (transmitterAddress == ZERO_ADDRESS) revert InvalidTransmitter();
+      transmitter = s_transmitters[transmitterAddress];
+      if (transmitter.active) revert RepeatedTransmitter();
+      transmitter.active = true;
+      transmitter.index = uint8(i);
+      // new transmitters start afresh from current totalPremium
+      // some spare change of premium from previous pool will be forfeited
+      transmitter.lastCollected = s_hotVars.totalPremium;
+      s_transmitters[transmitterAddress] = transmitter;
+      if (mode == PayoutMode.OFF_CHAIN) {
+        s_deactivatedTransmitters.remove(transmitterAddress);
+      }
+    }
+
+    s_signersList = signers;
+    s_transmittersList = transmitters;
+  }
+
+  /**
+   * @notice returns the size of the LINK liquidity pool
+   # @dev LINK max supply < 2^96, so casting to int256 is safe
+   */
+  function _linkAvailableForPayment() internal view returns (int256) {
+    return int256(i_link.balanceOf(address(this))) - int256(s_reserveAmounts[IERC20(address(i_link))]);
   }
 }
