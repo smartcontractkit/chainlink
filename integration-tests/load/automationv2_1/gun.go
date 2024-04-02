@@ -1,6 +1,8 @@
 package automationv2_1
 
 import (
+	"github.com/ethereum/go-ethereum"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"math/big"
 	"sync"
 
@@ -100,5 +102,27 @@ func (m *LogTriggerGun) Call(_ *wasp.Generator) *wasp.Response {
 		}(a, m)
 	}
 	wg.Wait()
+	return &wasp.Response{}
+}
+
+type BlockGeneratorGun struct {
+	evmClient blockchain.EVMClient
+}
+
+func NewBlockGeneratorGun(evmClient blockchain.EVMClient) *BlockGeneratorGun {
+	return &BlockGeneratorGun{
+		evmClient: evmClient,
+	}
+}
+
+func (m *BlockGeneratorGun) Call(_ *wasp.Generator) *wasp.Response {
+	toAddr, _ := utils.ParseEthereumAddress("0x")
+	gasEstimates, err := m.evmClient.EstimateGas(ethereum.CallMsg{
+		To: &toAddr,
+	})
+	if err != nil {
+		return &wasp.Response{Error: err.Error(), Failed: true}
+	}
+	err = m.evmClient.Fund(toAddr.String(), big.NewFloat(0.0), gasEstimates)
 	return &wasp.Response{}
 }

@@ -49,8 +49,8 @@ func (c *General) Validate() error {
 	if c.Duration == nil || *c.Duration < 1 {
 		return errors.New("duration must be set to a positive integer")
 	}
-	if c.BlockTime == nil || *c.BlockTime < 1 {
-		return errors.New("block_time must be set to a positive integer")
+	if c.BlockTime == nil || *c.BlockTime < 0 {
+		return errors.New("block_time must be set to greater than or equal to 0")
 	}
 	if c.SpecType == nil {
 		return errors.New("spec_type must be set")

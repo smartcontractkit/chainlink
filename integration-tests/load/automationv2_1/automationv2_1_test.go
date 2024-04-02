@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"io"
 	"math"
 	"math/big"
@@ -393,6 +394,41 @@ Load Config:
 
 	err = actions.FundChainlinkNodesAddress(chainlinkNodes[1:], chainClient, big.NewFloat(*loadedTestConfig.Common.ChainlinkNodeFunding), 0)
 	require.NoError(t, err, "Error funding chainlink nodes")
+
+	if *loadedTestConfig.Automation.General.BlockTime == 0 {
+		blockGenEVMClient, err := blockchain.ConcurrentEVMClient(testNetwork, testEnvironment, chainClient, l)
+		require.NoError(t, err, "Error building concurrent chain client")
+		toAddr, _ := utils.ParseEthereumAddress(blockGenEVMClient.GetWallets()[1].Address())
+		gasEstimates, err := blockGenEVMClient.EstimateGas(geth.CallMsg{
+			To: &toAddr,
+		})
+		require.NoError(t, err, "Error estimating gas")
+		err = blockGenEVMClient.Fund(toAddr.String(), big.NewFloat(10000), gasEstimates)
+		require.NoError(t, err, "Error funding block generator wallet")
+		err = blockGenEVMClient.SetDefaultWallet(1)
+		require.NoError(t, err, "Error setting default wallet")
+
+		p1 := wasp.NewProfile()
+		g1, err := wasp.NewGenerator(&wasp.Config{
+			T:           t,
+			LoadType:    wasp.RPS,
+			GenName:     "block_generator",
+			CallTimeout: time.Minute * 3,
+			Schedule: wasp.Plain(
+				1,
+				loadDuration+time.Hour,
+			),
+			Gun: NewBlockGeneratorGun(
+				blockGenEVMClient,
+			),
+			CallResultBufLen: 1000,
+			Logger:           l.Output(nil),
+		})
+		p1.Add(g1, err)
+
+		l.Info().Msg("Starting load generators")
+		_, err = p1.Run(false)
+	}
 
 	consumerContracts := make([]contracts.KeeperConsumer, 0)
 	triggerContracts := make([]contracts.LogEmitter, 0)
