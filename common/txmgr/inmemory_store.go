@@ -304,7 +304,7 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Delet
 		return fmt.Errorf("DeleteInProgressAttempt: expected attempt state to be in_progress")
 	}
 	if attempt.ID == 0 {
-		return fmt.Errorf("delete_in_progress_attempt: expected attempt to have an ID")
+		return fmt.Errorf("DeleteInProgressAttempt: expected attempt to have an id")
 	}
 
 	// Check if fromaddress enabled
@@ -333,7 +333,7 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Delet
 	}
 
 	// Update in memory store
-	as.deleteTxAttempts(attempt)
+	as.deleteTxAttempt(attempt.TxID, attempt.ID)
 
 	return nil
 }
