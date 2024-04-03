@@ -11,6 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commontxmgr "github.com/smartcontractkit/chainlink/v2/common/txmgr"
+	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 
 	evmgas "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
@@ -168,6 +169,55 @@ func TestInMemoryStore_UpdateTxAttemptInProgressToBroadcast(t *testing.T) {
 			inTx.FromAddress = fromAddress // reset
 		})
 
+	})
+}
+
+func TestInMemoryStore_UpdateTxsUnconfirmed(t *testing.T) {
+	t.Parallel()
+
+	t.Run("successfully updates transactions to unconfirmed", func(t *testing.T) {
+		db := pgtest.NewSqlxDB(t)
+		_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
+		persistentStore := cltest.NewTestTxStore(t, db)
+		kst := cltest.NewKeyStore(t, db, dbcfg)
+		_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
+
+		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+		lggr := logger.TestSugared(t)
+		chainID := ethClient.ConfiguredChainID()
+		ctx := testutils.Context(t)
+
+		inMemoryStore, err := commontxmgr.NewInMemoryStore[
+			*big.Int,
+			common.Address, common.Hash, common.Hash,
+			*evmtypes.Receipt,
+			evmtypes.Nonce,
+			evmgas.EvmFee,
+		](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+		require.NoError(t, err)
+
+		// Insert a transaction into persistent store
+		originalBroadcastAt := time.Unix(1616509100, 0)
+		inTx := mustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(
+			t, persistentStore, 0, 1, originalBroadcastAt, fromAddress)
+		assert.Equal(t, txmgrcommon.TxConfirmedMissingReceipt, inTx.State)
+		// Insert the transaction into the in-memory store
+		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
+
+		// Update the transaction to unconfirmed
+		require.NoError(t, inMemoryStore.UpdateTxsUnconfirmed(ctx, []int64{inTx.ID}))
+
+		expTx, err := persistentStore.FindTxWithAttempts(ctx, inTx.ID)
+		require.NoError(t, err)
+		assert.Equal(t, commontxmgr.TxUnconfirmed, expTx.State)
+		assert.Equal(t, 1, len(expTx.TxAttempts))
+
+		fn := func(tx *evmtxmgr.Tx) bool { return true }
+		actTxs := inMemoryStore.XXXTestFindTxs(nil, fn, inTx.ID)
+		require.Equal(t, 1, len(actTxs))
+		actTx := actTxs[0]
+		assertTxEqual(t, expTx, actTx)
+		assert.Equal(t, commontxmgr.TxUnconfirmed, actTx.State)
 	})
 }
 
