@@ -30,7 +30,10 @@ func LogComparator(a, b logpoller.Log) int {
 	if logIndexDiff == 0 {
 		return a.TxHash.Big().Cmp(b.TxHash.Big())
 	}
-	return int(logIndexDiff)
+	if logIndexDiff > 0 {
+		return 1
+	}
+	return -1
 }
 
 // logID returns a unique identifier for a log, which is an hex string
