@@ -4,6 +4,12 @@ import (
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
+const (
+	MethodRegisterTrigger   = "RegisterTrigger"
+	MethodUnRegisterTrigger = "UnregisterTrigger"
+	MethodTriggerEvent      = "TriggerEvent"
+)
+
 //go:generate mockery --quiet --name Dispatcher --output ./mocks/ --case=underscore
 type Dispatcher interface {
 	SetReceiver(capabilityId string, donId string, receiver Receiver) error
@@ -14,6 +20,10 @@ type Dispatcher interface {
 //go:generate mockery --quiet --name Receiver --output ./mocks/ --case=underscore
 type Receiver interface {
 	Receive(msg *MessageBody)
+}
+
+type Aggregator interface {
+	Aggregate(eventID string, responses [][]byte) ([]byte, error)
 }
 
 // NOTE: this type will become part of the Registry (KS-108)
