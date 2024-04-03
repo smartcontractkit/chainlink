@@ -84,10 +84,12 @@ contract VRFV2PlusWrapperTest is BaseTest {
 
   function setConfigWrapper() internal {
     vm.expectEmit(false, false, false, true, address(s_wrapper));
-    emit ConfigSet(wrapperGasOverhead, coordinatorGasOverhead, 0, 0, vrfKeyHash, 10, 1, 50000000000000000, 0, 0);
+    emit ConfigSet(wrapperGasOverhead, 0, coordinatorGasOverhead, 0, 0, 0, vrfKeyHash, 10, 1, 50000000000000000, 0, 0);
     s_wrapper.setConfig(
       wrapperGasOverhead, // wrapper gas overhead
+      0, // wrapper gas overhead per word
       coordinatorGasOverhead, // coordinator gas overhead
+      0, // coordinator gas overhead per word
       0, // native premium percentage,
       0, // link premium percentage
       vrfKeyHash, // keyHash
@@ -103,14 +105,18 @@ contract VRFV2PlusWrapperTest is BaseTest {
       ,
       ,
       uint32 _wrapperGasOverhead,
+      uint16 _wrapperGasOverheadPerWord,
       uint32 _coordinatorGasOverhead,
+      uint16 _coordinatorGasOverheadPerWord,
       uint8 _coordinatorNativePremiumPercentage,
       uint8 _coordinatorLinkPremiumPercentage,
       bytes32 _keyHash,
       uint8 _maxNumWords
     ) = s_wrapper.getConfig();
     assertEq(_wrapperGasOverhead, wrapperGasOverhead);
+    assertEq(0, _wrapperGasOverheadPerWord);
     assertEq(_coordinatorGasOverhead, coordinatorGasOverhead);
+    assertEq(0, _coordinatorGasOverheadPerWord);
     assertEq(0, _coordinatorNativePremiumPercentage);
     assertEq(0, _coordinatorLinkPremiumPercentage);
     assertEq(vrfKeyHash, _keyHash);
@@ -134,7 +140,9 @@ contract VRFV2PlusWrapperTest is BaseTest {
   event FulfillmentTxSizeSet(uint32 size);
   event ConfigSet(
     uint32 wrapperGasOverhead,
+    uint16 wrapperGasOverheadPerWord,
     uint32 coordinatorGasOverhead,
+    uint16 coordinatorGasOverheadPerWord,
     uint8 coordinatorNativePremiumPercentage,
     uint8 coordinatorLinkPremiumPercentage,
     bytes32 keyHash,
@@ -238,8 +246,8 @@ contract VRFV2PlusWrapperTest is BaseTest {
 
     (uint256 paid, bool fulfilled, bool native) = s_consumer.s_requests(requestId);
     uint32 expectedPaid = callbackGasLimit + wrapperGasOverhead + coordinatorGasOverhead;
-    uint256 wrapperNativeCostEstimate = s_wrapper.estimateRequestPriceNative(callbackGasLimit, tx.gasprice);
-    uint256 wrapperCostCalculation = s_wrapper.calculateRequestPriceNative(callbackGasLimit);
+    uint256 wrapperNativeCostEstimate = s_wrapper.estimateRequestPriceNative(callbackGasLimit, 0, tx.gasprice);
+    uint256 wrapperCostCalculation = s_wrapper.calculateRequestPriceNative(callbackGasLimit, 0);
     assertEq(paid, expectedPaid);
     assertEq(uint256(paid), wrapperNativeCostEstimate);
     assertEq(wrapperNativeCostEstimate, wrapperCostCalculation);
@@ -273,7 +281,9 @@ contract VRFV2PlusWrapperTest is BaseTest {
     vm.expectRevert(abi.encodeWithSelector(VRFV2PlusWrapper.LinkDiscountTooHigh.selector, uint32(501), uint32(500)));
     s_wrapper.setConfig(
       wrapperGasOverhead, // wrapper gas overhead
+      0, // wrapper gas overhead per word
       coordinatorGasOverhead, // coordinator gas overhead
+      0, // coordinator gas overhead per word
       0, // native premium percentage,
       0, // link premium percentage
       vrfKeyHash, // keyHash
@@ -289,7 +299,9 @@ contract VRFV2PlusWrapperTest is BaseTest {
     // Test that setting link discount flat fee equal to native flat fee does not revert
     s_wrapper.setConfig(
       wrapperGasOverhead, // wrapper gas overhead
+      0, // wrapper gas overhead per word
       coordinatorGasOverhead, // coordinator gas overhead
+      0, // coordinator gas overhead per word
       0, // native premium percentage,
       0, // link premium percentage
       vrfKeyHash, // keyHash
@@ -308,7 +320,9 @@ contract VRFV2PlusWrapperTest is BaseTest {
     );
     s_wrapper.setConfig(
       wrapperGasOverhead, // wrapper gas overhead
+      0, // wrapper gas overhead per word
       coordinatorGasOverhead, // coordinator gas overhead
+      0, // coordinator gas overhead per word
       156, // native premium percentage,
       0, // link premium percentage
       vrfKeyHash, // keyHash
@@ -327,7 +341,9 @@ contract VRFV2PlusWrapperTest is BaseTest {
     );
     s_wrapper.setConfig(
       wrapperGasOverhead, // wrapper gas overhead
+      0, // wrapper gas overhead per word
       coordinatorGasOverhead, // coordinator gas overhead
+      0, // coordinator gas overhead per word
       15, // native premium percentage,
       202, // link premium percentage
       vrfKeyHash, // keyHash
@@ -370,8 +386,8 @@ contract VRFV2PlusWrapperTest is BaseTest {
     // Assert that the request was made correctly.
     (uint256 paid, bool fulfilled, bool native) = s_consumer.s_requests(requestId);
     uint32 expectedPaid = (callbackGasLimit + wrapperGasOverhead + coordinatorGasOverhead) * 2;
-    uint256 wrapperCostEstimate = s_wrapper.estimateRequestPrice(callbackGasLimit, tx.gasprice);
-    uint256 wrapperCostCalculation = s_wrapper.calculateRequestPrice(callbackGasLimit);
+    uint256 wrapperCostEstimate = s_wrapper.estimateRequestPrice(callbackGasLimit, 0, tx.gasprice);
+    uint256 wrapperCostCalculation = s_wrapper.calculateRequestPrice(callbackGasLimit, 0);
     assertEq(paid, expectedPaid); // 1_030_000 * 2 for link/native ratio
     assertEq(uint256(paid), wrapperCostEstimate);
     assertEq(wrapperCostEstimate, wrapperCostCalculation);
