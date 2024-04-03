@@ -74,6 +74,10 @@ spec:
               value: postgresql://postgres:verylongdatabasepassword@{{ $.Release.Name }}-db-{{ $cfg.name }}/chainlink?sslmode=disable
             - name: CL_DEV
               value: "false"
+            {{- range $name, $value := $.Values.chainlink.extraEnvVars }}
+            - name: "{{ $name }}"
+              value: "{{ $value }}"
+            {{- end }}
           volumeMounts:
             - name: {{ $.Release.Name }}-{{ $cfg.name }}-cm
               mountPath: /etc/node-secrets-volume/
