@@ -184,9 +184,7 @@ describe('ArbitrumSequencerUptimeFeed', () => {
       tx = await arbitrumSequencerUptimeFeed
         .connect(l2Messenger)
         .updateStatus(false, staleTimestamp)
-      await expect(tx)
-        .to.not.emit(arbitrumSequencerUptimeFeed, 'AnswerUpdated')
-        .withArgs(1, 2 /** roundId */, timestamp)
+      await expect(tx).to.not.emit(arbitrumSequencerUptimeFeed, 'AnswerUpdated')
       await expect(tx).to.emit(arbitrumSequencerUptimeFeed, 'UpdateIgnored')
     })
   })

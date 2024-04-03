@@ -55,7 +55,7 @@ jobs:
 
   golangci:
     # We don't directly merge dependabot PRs, so let's not waste the resources
-    if: ${{ github.event_name == 'pull_request' ||  github.event_name == 'schedule' && github.actor != 'dependabot[bot]' }}
+    if: ${{ (github.event_name == 'pull_request' ||  github.event_name == 'schedule') && github.actor != 'dependabot[bot]' }}
     name: lint
     runs-on: ubuntu22.04-8cores-32GB
     needs: [filter]
@@ -81,8 +81,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        cmd: ["go_core_tests", "go_core_race_tests", "go_core_fuzz"]
-    name: Core Tests (${{ matrix.cmd }})
+        type:
+          - cmd: go_core_tests
+            id: core_unit
+          - cmd: go_core_race_tests
+            id: core_race
+          - cmd: go_core_fuzz
+            id: core_fuzz
+    name: Core Tests (${{ matrix.type.cmd }})
     # We don't directly merge dependabot PRs, so let's not waste the resources
     if: github.actor != 'dependabot[bot]'
     needs: [filter]
@@ -154,15 +160,15 @@ jobs:
         env:
           OUTPUT_FILE: ./output.txt
           USE_TEE: false
-        run: ./tools/bin/${{ matrix.cmd }} ./...
+        run: ./tools/bin/${{ matrix.type.cmd }} ./...
       - name: Print Filtered Test Results
-        if: ${{ failure() && matrix.cmd == 'go_core_tests' && needs.filter.outputs.changes == 'true' }}
+        if: ${{ failure() && matrix.type.cmd == 'go_core_tests' && needs.filter.outputs.changes == 'true' }}
         uses: smartcontractkit/chainlink-github-actions/go/go-test-results-parsing@5bee84d30d90295010bda68b0cd46be3a1eea917 # v2.3.9
         with:
           results-file: ./output.txt
           output-file: ./output-short.txt
       - name: Print Races
-        if: ${{ failure() && matrix.cmd == 'go_core_race_tests' && needs.filter.outputs.changes == 'true' }}
+        if: ${{ failure() && matrix.type.cmd == 'go_core_race_tests' && needs.filter.outputs.changes == 'true' }}
         run: find race.* | xargs cat
       - name: Print postgres logs
         if: ${{ always() &&  needs.filter.outputs.changes == 'true' }}
@@ -172,7 +178,7 @@ jobs:
         if: ${{ needs.filter.outputs.changes == 'true' && always() }}
         uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
         with:
-          name: ${{ matrix.cmd }}_logs
+          name: ${{ matrix.type.cmd }}_logs
           path: |
             ./output.txt
             ./output-short.txt
@@ -180,7 +186,7 @@ jobs:
             ./coverage.txt
             ./postgres_logs.txt
       - name: Notify Slack
-        if: ${{ failure() && matrix.cmd == 'go_core_race_tests' && (github.event_name == 'merge_group' || github.event.branch == 'develop') &&  needs.filter.outputs.changes == 'true' }}
+        if: ${{ failure() && matrix.type.cmd == 'go_core_race_tests' && (github.event_name == 'merge_group' || github.event.branch == 'develop') &&  needs.filter.outputs.changes == 'true' }}
         uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
         env:
           SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
@@ -190,12 +196,13 @@ jobs:
       - name: Collect Metrics
         if: ${{ needs.filter.outputs.changes == 'true' && always() }}
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@0281b09807758be1dcc41651e44e62b353808c47 # v2.1.0
+        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
         with:
+          id: ${{ matrix.type.id }}
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: Core Tests (${{ matrix.cmd }})
+          this-job-name: Core Tests (${{ matrix.type.cmd }})
           test-results-file: '{"testType":"go","filePath":"./output.txt"}'
         continue-on-error: true
 
@@ -308,8 +315,9 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@0281b09807758be1dcc41651e44e62b353808c47 # v2.1.0
+        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
         with:
+          id: ci-core-sonarqube
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
@@ -349,8 +357,9 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@0281b09807758be1dcc41651e44e62b353808c47 # v2.1.0
+        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
         with:
+          id: ci-core-generate
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}

@@ -195,9 +195,7 @@ describe('ScrollSequencerUptimeFeed', () => {
       tx = await scrollUptimeFeed
         .connect(l2Messenger)
         .updateStatus(false, staleTimestamp)
-      await expect(tx)
-        .to.not.emit(scrollUptimeFeed, 'AnswerUpdated')
-        .withArgs(1, 2 /** roundId */, timestamp)
+      await expect(tx).to.not.emit(scrollUptimeFeed, 'AnswerUpdated')
       await expect(tx).to.emit(scrollUptimeFeed, 'UpdateIgnored')
     })
   })

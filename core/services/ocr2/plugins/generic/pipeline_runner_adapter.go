@@ -55,9 +55,8 @@ func (p *PipelineRunnerAdapter) ExecuteRun(ctx context.Context, spec string, var
 			ID:    trr.ID.String(),
 			Type:  string(trr.Task.Type()),
 			Index: int(trr.Task.OutputIndex()),
-
 			TaskValue: types.TaskValue{
-				Value:      trr.Result.Value,
+				Value:      trr.Result.OutputDB(),
 				Error:      trr.Result.Error,
 				IsTerminal: len(trr.Task.Outputs()) == 0,
 			},

@@ -20,11 +20,11 @@ const (
 	ErrLokiPush   = "failed to push monitoring metrics to Loki"
 )
 
-func MonitorLoadStats(lc *wasp.LokiClient, consumer contracts.VRFv2LoadTestConsumer, labels map[string]string) {
+func MonitorLoadStats(ctx context.Context, lc *wasp.LokiClient, consumer contracts.VRFv2LoadTestConsumer, labels map[string]string) {
 	go func() {
 		for {
 			time.Sleep(1 * time.Second)
-			metrics := GetLoadTestMetrics(consumer)
+			metrics := GetLoadTestMetrics(ctx, consumer)
 			SendMetricsToLoki(metrics, lc, labels)
 		}
 	}()
@@ -47,8 +47,8 @@ func SendMetricsToLoki(metrics *contracts.VRFLoadTestMetrics, lc *wasp.LokiClien
 	}
 }
 
-func GetLoadTestMetrics(consumer contracts.VRFv2LoadTestConsumer) *contracts.VRFLoadTestMetrics {
-	metrics, err := consumer.GetLoadTestMetrics(context.Background())
+func GetLoadTestMetrics(ctx context.Context, consumer contracts.VRFv2LoadTestConsumer) *contracts.VRFLoadTestMetrics {
+	metrics, err := consumer.GetLoadTestMetrics(ctx)
 	if err != nil {
 		log.Error().Err(err).Msg(ErrMetrics)
 	}
