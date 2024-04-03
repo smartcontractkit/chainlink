@@ -47,15 +47,16 @@ type Tracker[
 	chainID  CHAIN_ID
 	lggr     logger.Logger
 
+	lock         sync.Mutex
 	enabledAddrs map[ADDR]bool
 	txCache      map[int64]ADDR // cache tx fromAddress by txID
-	ttl          time.Duration
-	mb           *mailbox.Mailbox[int64]
 
-	lock      sync.Mutex
+	ttl time.Duration
+	mb  *mailbox.Mailbox[int64]
+
+	initSync  sync.Mutex
 	wg        sync.WaitGroup
 	chStop    services.StopChan
-	initSync  sync.Mutex
 	isStarted bool
 }
 
@@ -265,6 +266,11 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) handleTxesB
 		tx, err := tr.txStore.GetTxByID(ctx, id)
 		if err != nil {
 			tr.lggr.Errorf("failed to get tx by ID: %v", err)
+			continue
+		}
+		if tx == nil {
+			tr.lggr.Warnf("tx with ID %v no longer exists, removing from tracker", id)
+			delete(tr.txCache, tx.ID)
 			continue
 		}
 
