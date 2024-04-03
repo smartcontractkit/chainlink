@@ -1297,20 +1297,17 @@ func (o *evmTxStore) GetAbandonedTransactionsByBatch(ctx context.Context, chainI
 	ctx, cancel = o.mergeContexts(ctx)
 	defer cancel()
 
-	var enabledAddrsStr string
-	for i, addr := range enabledAddrs {
-		if i > 0 {
-			enabledAddrsStr += ","
-		}
-		enabledAddrsStr += fmt.Sprintf("'%s'", addr)
+	var enabledAddrsBytea [][]byte
+	for _, addr := range enabledAddrs {
+		enabledAddrsBytea = append(enabledAddrsBytea, addr[:])
 	}
 
 	err = o.Transaction(ctx, true, func(orm *evmTxStore) error {
 		query := `SELECT * FROM evm.txes WHERE state <> 'fatal_error' AND evm_chain_id = $1 
-                       AND from_address NOT IN ($2) ORDER BY nonce ASC OFFSET $3 LIMIT $4`
+                       AND from_address <> ALL($2) ORDER BY nonce ASC OFFSET $3 LIMIT $4`
 
 		var dbEtxs []DbEthTx
-		if err = orm.q.SelectContext(ctx, &dbEtxs, query, chainID.String(), enabledAddrsStr, offset, limit); err != nil {
+		if err = orm.q.SelectContext(ctx, &dbEtxs, query, chainID.String(), enabledAddrsBytea, offset, limit); err != nil {
 			return fmt.Errorf("failed to load evm.txes: %w", err)
 		}
 		txes = make([]*Tx, len(dbEtxs))

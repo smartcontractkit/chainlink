@@ -1479,9 +1479,18 @@ func TestORM_GetAbandonedTransactionsByBatch(t *testing.T) {
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
-	enabledAddrs := []common.Address{fromAddress}
+	_, enabled := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
+	enabledAddrs := []common.Address{enabled}
 
-	t.Run("gets 0 non finalized eth transaction", func(t *testing.T) {
+	t.Run("get 0 abandoned transactions", func(t *testing.T) {
+		txes, err := txStore.GetAbandonedTransactionsByBatch(testutils.Context(t), ethClient.ConfiguredChainID(), enabledAddrs, 0, 10)
+		require.NoError(t, err)
+		require.Empty(t, txes)
+	})
+
+	t.Run("do not return enabled addresses", func(t *testing.T) {
+		_ = mustInsertInProgressEthTxWithAttempt(t, txStore, 123, enabled)
+		_ = mustCreateUnstartedGeneratedTx(t, txStore, enabled, ethClient.ConfiguredChainID())
 		txes, err := txStore.GetAbandonedTransactionsByBatch(testutils.Context(t), ethClient.ConfiguredChainID(), enabledAddrs, 0, 10)
 		require.NoError(t, err)
 		require.Empty(t, txes)
