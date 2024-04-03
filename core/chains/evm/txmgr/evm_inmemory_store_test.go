@@ -1,7 +1,6 @@
 package txmgr_test
 
 import (
-	"context"
 	"math/big"
 	"testing"
 	"time"
@@ -29,14 +28,14 @@ func TestInMemoryStore_UpdateTxsUnconfirmed(t *testing.T) {
 	t.Run("successfully updates transactions to unconfirmed", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
-		persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+		persistentStore := cltest.NewTestTxStore(t, db)
 		kst := cltest.NewKeyStore(t, db, dbcfg)
 		_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
 
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 		lggr := logger.TestSugared(t)
 		chainID := ethClient.ConfiguredChainID()
-		ctx := context.Background()
+		ctx := testutils.Context(t)
 
 		inMemoryStore, err := commontxmgr.NewInMemoryStore[
 			*big.Int,
@@ -56,9 +55,9 @@ func TestInMemoryStore_UpdateTxsUnconfirmed(t *testing.T) {
 		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
 
 		// Update the transaction to unconfirmed
-		require.NoError(t, inMemoryStore.UpdateTxsUnconfirmed(testutils.Context(t), []int64{inTx.ID}))
+		require.NoError(t, inMemoryStore.UpdateTxsUnconfirmed(ctx, []int64{inTx.ID}))
 
-		expTx, err := persistentStore.FindTxWithAttempts(inTx.ID)
+		expTx, err := persistentStore.FindTxWithAttempts(ctx, inTx.ID)
 		require.NoError(t, err)
 		assert.Equal(t, commontxmgr.TxUnconfirmed, expTx.State)
 		assert.Equal(t, 1, len(expTx.TxAttempts))
