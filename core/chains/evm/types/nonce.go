@@ -14,6 +14,10 @@ func (n Nonce) Int64() int64 {
 	return int64(n)
 }
 
+func (n Nonce) Uint64() uint64 {
+	return uint64(n)
+}
+
 func (n Nonce) String() string {
 	return strconv.FormatInt(n.Int64(), 10)
 }

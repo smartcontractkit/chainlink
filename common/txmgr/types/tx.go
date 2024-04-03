@@ -185,6 +185,11 @@ type TxAttempt[
 	TxType                  int
 }
 
+func (a *TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) PrettyPrint() string {
+	return fmt.Sprintf("txAttempt: { attemptID:%v, txID:%v, TxFee:%v, FeeLimit: %v, TxHash: %v, CreatedAt: %v, BroadcastBefore: %v, TxType:%d } ",
+		a.ID, a.TxID, a.TxFee, a.ChainSpecificFeeLimit, a.Hash, a.CreatedAt, a.BroadcastBeforeBlockNum, a.TxType)
+}
+
 func (a *TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) String() string {
 	return fmt.Sprintf("TxAttempt(ID:%d,TxID:%d,Fee:%s,TxType:%d", a.ID, a.TxID, a.TxFee, a.TxType)
 }
@@ -233,6 +238,11 @@ type Tx[
 	SignalCallback bool
 	// Marks tx callback as signaled
 	CallbackCompleted bool
+}
+
+func (e *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) PrettyPrint() string {
+	return fmt.Sprintf("tx: { txID:%v, Sequence: %v, FromAddress: %v, ToAddress: %v, Value: %v, FeeLimit: %v, Error: %v, BroadcastAt: %v, InitialBroadcastAt: %v, CreatedAt: %v, State: %v } ",
+		e.ID, e.Sequence, e.FromAddress, e.ToAddress, e.Value, e.FeeLimit, e.Error, e.BroadcastAt, e.InitialBroadcastAt, e.CreatedAt, e.State)
 }
 
 func (e *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) GetError() error {

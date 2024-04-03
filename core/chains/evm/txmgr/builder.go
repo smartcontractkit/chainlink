@@ -73,7 +73,7 @@ func NewEvmTxm(
 	fwdMgr FwdMgr,
 	txAttemptBuilder TxAttemptBuilder,
 	txStore TxStore,
-	broadcaster *Broadcaster,
+	broadcaster *EvmBroadcaster,
 	confirmer *Confirmer,
 	resender *Resender,
 	tracker *Tracker,
@@ -138,7 +138,7 @@ func NewEvmBroadcaster(
 	logger logger.Logger,
 	checkerFactory TransmitCheckerFactory,
 	autoSyncNonce bool,
-) *Broadcaster {
+) *EvmBroadcaster {
 	nonceTracker := NewNonceTracker(logger, txStore, client)
 	return txmgr.NewBroadcaster(txStore, client, chainConfig, feeConfig, txConfig, listenerConfig, keystore, txAttemptBuilder, nonceTracker, logger, checkerFactory, autoSyncNonce)
 }
