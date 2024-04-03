@@ -86,7 +86,7 @@ type logBuffer struct {
 func NewLogBuffer(lggr logger.Logger, lookback, blockRate, logLimit uint32) LogBuffer {
 	return &logBuffer{
 		lggr:          lggr.Named("KeepersRegistry.LogEventBufferV1"),
-		opts:          newLogBufferOptions(uint32(lookback), uint32(blockRate), uint32(logLimit)),
+		opts:          newLogBufferOptions(lookback, blockRate, logLimit),
 		lastBlockSeen: new(atomic.Int64),
 		queues:        make(map[string]*upkeepLogQueue),
 	}
