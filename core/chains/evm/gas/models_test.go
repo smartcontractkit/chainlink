@@ -28,16 +28,20 @@ func TestWrappedEvmEstimator(t *testing.T) {
 		FeeCap: assets.NewWeiI(20),
 		TipCap: assets.NewWeiI(1),
 	}
+	limitMultiplier := float32(1.5)
+
 	est := mocks.NewEvmEstimator(t)
-	est.On("GetDynamicFee", mock.Anything, mock.Anything, mock.Anything).
-		Return(dynamicFee, gasLimit, nil).Twice()
+	est.On("GetDynamicFee", mock.Anything, mock.Anything).
+		Return(dynamicFee, nil).Twice()
 	est.On("GetLegacyGas", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 		Return(legacyFee, gasLimit, nil).Twice()
-	est.On("BumpDynamicFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
-		Return(dynamicFee, gasLimit, nil).Once()
+	est.On("BumpDynamicFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+		Return(dynamicFee, nil).Once()
 	est.On("BumpLegacyGas", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 		Return(legacyFee, gasLimit, nil).Once()
 	getRootEst := func(logger.Logger) gas.EvmEstimator { return est }
+	geCfg := gas.NewMockGasConfig()
+	geCfg.LimitMultiplierF = limitMultiplier
 
 	mockEstimatorName := "WrappedEvmEstimator"
 	mockEvmEstimatorName := "WrappedEvmEstimator.MockEstimator"
@@ -46,13 +50,13 @@ func TestWrappedEvmEstimator(t *testing.T) {
 	t.Run("L1Oracle", func(t *testing.T) {
 		lggr := logger.Test(t)
 		// expect nil
-		estimator := gas.NewWrappedEvmEstimator(lggr, getRootEst, false, nil)
+		estimator := gas.NewWrappedEvmEstimator(lggr, getRootEst, false, nil, nil)
 		l1Oracle := estimator.L1Oracle()
 		assert.Nil(t, l1Oracle)
 
 		// expect l1Oracle
 		oracle := rollupMocks.NewL1Oracle(t)
-		estimator = gas.NewWrappedEvmEstimator(lggr, getRootEst, false, oracle)
+		estimator = gas.NewWrappedEvmEstimator(lggr, getRootEst, false, oracle, geCfg)
 		l1Oracle = estimator.L1Oracle()
 		assert.Equal(t, oracle, l1Oracle)
 	})
@@ -62,20 +66,20 @@ func TestWrappedEvmEstimator(t *testing.T) {
 		lggr := logger.Test(t)
 		// expect legacy fee data
 		dynamicFees := false
-		estimator := gas.NewWrappedEvmEstimator(lggr, getRootEst, dynamicFees, nil)
+		estimator := gas.NewWrappedEvmEstimator(lggr, getRootEst, dynamicFees, nil, geCfg)
 		fee, max, err := estimator.GetFee(ctx, nil, 0, nil)
 		require.NoError(t, err)
-		assert.Equal(t, gasLimit, max)
+		assert.Equal(t, uint64(float32(gasLimit)*limitMultiplier), max)
 		assert.True(t, legacyFee.Equal(fee.Legacy))
 		assert.Nil(t, fee.DynamicTipCap)
 		assert.Nil(t, fee.DynamicFeeCap)
 
 		// expect dynamic fee data
 		dynamicFees = true
-		estimator = gas.NewWrappedEvmEstimator(lggr, getRootEst, dynamicFees, nil)
-		fee, max, err = estimator.GetFee(ctx, nil, 0, nil)
+		estimator = gas.NewWrappedEvmEstimator(lggr, getRootEst, dynamicFees, nil, geCfg)
+		fee, max, err = estimator.GetFee(ctx, nil, gasLimit, nil)
 		require.NoError(t, err)
-		assert.Equal(t, gasLimit, max)
+		assert.Equal(t, uint64(float32(gasLimit)*limitMultiplier), max)
 		assert.True(t, dynamicFee.FeeCap.Equal(fee.DynamicFeeCap))
 		assert.True(t, dynamicFee.TipCap.Equal(fee.DynamicTipCap))
 		assert.Nil(t, fee.Legacy)
@@ -85,12 +89,12 @@ func TestWrappedEvmEstimator(t *testing.T) {
 	t.Run("BumpFee", func(t *testing.T) {
 		lggr := logger.Test(t)
 		dynamicFees := false
-		estimator := gas.NewWrappedEvmEstimator(lggr, getRootEst, dynamicFees, nil)
+		estimator := gas.NewWrappedEvmEstimator(lggr, getRootEst, dynamicFees, nil, geCfg)
 
 		// expect legacy fee data
 		fee, max, err := estimator.BumpFee(ctx, gas.EvmFee{Legacy: assets.NewWeiI(0)}, 0, nil, nil)
 		require.NoError(t, err)
-		assert.Equal(t, gasLimit, max)
+		assert.Equal(t, uint64(float32(gasLimit)*limitMultiplier), max)
 		assert.True(t, legacyFee.Equal(fee.Legacy))
 		assert.Nil(t, fee.DynamicTipCap)
 		assert.Nil(t, fee.DynamicFeeCap)
@@ -99,9 +103,9 @@ func TestWrappedEvmEstimator(t *testing.T) {
 		fee, max, err = estimator.BumpFee(ctx, gas.EvmFee{
 			DynamicFeeCap: assets.NewWeiI(0),
 			DynamicTipCap: assets.NewWeiI(0),
-		}, 0, nil, nil)
+		}, gasLimit, nil, nil)
 		require.NoError(t, err)
-		assert.Equal(t, gasLimit, max)
+		assert.Equal(t, uint64(float32(gasLimit)*limitMultiplier), max)
 		assert.True(t, dynamicFee.FeeCap.Equal(fee.DynamicFeeCap))
 		assert.True(t, dynamicFee.TipCap.Equal(fee.DynamicTipCap))
 		assert.Nil(t, fee.Legacy)
@@ -123,18 +127,20 @@ func TestWrappedEvmEstimator(t *testing.T) {
 
 		// expect legacy fee data
 		dynamicFees := false
-		estimator := gas.NewWrappedEvmEstimator(lggr, getRootEst, dynamicFees, nil)
+		estimator := gas.NewWrappedEvmEstimator(lggr, getRootEst, dynamicFees, nil, geCfg)
 		total, err := estimator.GetMaxCost(ctx, val, nil, gasLimit, nil)
 		require.NoError(t, err)
 		fee := new(big.Int).Mul(legacyFee.ToInt(), big.NewInt(int64(gasLimit)))
+		fee, _ = new(big.Float).Mul(new(big.Float).SetInt(fee), big.NewFloat(float64(limitMultiplier))).Int(nil)
 		assert.Equal(t, new(big.Int).Add(val.ToInt(), fee), total)
 
 		// expect dynamic fee data
 		dynamicFees = true
-		estimator = gas.NewWrappedEvmEstimator(lggr, getRootEst, dynamicFees, nil)
+		estimator = gas.NewWrappedEvmEstimator(lggr, getRootEst, dynamicFees, nil, geCfg)
 		total, err = estimator.GetMaxCost(ctx, val, nil, gasLimit, nil)
 		require.NoError(t, err)
 		fee = new(big.Int).Mul(dynamicFee.FeeCap.ToInt(), big.NewInt(int64(gasLimit)))
+		fee, _ = new(big.Float).Mul(new(big.Float).SetInt(fee), big.NewFloat(float64(limitMultiplier))).Int(nil)
 		assert.Equal(t, new(big.Int).Add(val.ToInt(), fee), total)
 	})
 
@@ -147,7 +153,7 @@ func TestWrappedEvmEstimator(t *testing.T) {
 
 		estimator := gas.NewWrappedEvmEstimator(lggr, func(logger.Logger) gas.EvmEstimator {
 			return evmEstimator
-		}, false, oracle)
+		}, false, oracle, geCfg)
 
 		require.Equal(t, mockEstimatorName, estimator.Name())
 		require.Equal(t, mockEvmEstimatorName, evmEstimator.Name())
@@ -164,13 +170,13 @@ func TestWrappedEvmEstimator(t *testing.T) {
 		oracle.On("Close").Return(nil).Once()
 		getEst := func(logger.Logger) gas.EvmEstimator { return evmEstimator }
 
-		estimator := gas.NewWrappedEvmEstimator(lggr, getEst, false, nil)
+		estimator := gas.NewWrappedEvmEstimator(lggr, getEst, false, nil, geCfg)
 		err := estimator.Start(ctx)
 		require.NoError(t, err)
 		err = estimator.Close()
 		require.NoError(t, err)
 
-		estimator = gas.NewWrappedEvmEstimator(lggr, getEst, false, oracle)
+		estimator = gas.NewWrappedEvmEstimator(lggr, getEst, false, oracle, geCfg)
 		err = estimator.Start(ctx)
 		require.NoError(t, err)
 		err = estimator.Close()
@@ -186,11 +192,11 @@ func TestWrappedEvmEstimator(t *testing.T) {
 		oracle.On("Ready").Return(nil).Once()
 		getEst := func(logger.Logger) gas.EvmEstimator { return evmEstimator }
 
-		estimator := gas.NewWrappedEvmEstimator(lggr, getEst, false, nil)
+		estimator := gas.NewWrappedEvmEstimator(lggr, getEst, false, nil, geCfg)
 		err := estimator.Ready()
 		require.NoError(t, err)
 
-		estimator = gas.NewWrappedEvmEstimator(lggr, getEst, false, oracle)
+		estimator = gas.NewWrappedEvmEstimator(lggr, getEst, false, oracle, geCfg)
 		err = estimator.Ready()
 		require.NoError(t, err)
 	})
@@ -209,13 +215,13 @@ func TestWrappedEvmEstimator(t *testing.T) {
 		oracle.On("HealthReport").Return(map[string]error{oracleKey: oracleError}).Once()
 		getEst := func(logger.Logger) gas.EvmEstimator { return evmEstimator }
 
-		estimator := gas.NewWrappedEvmEstimator(lggr, getEst, false, nil)
+		estimator := gas.NewWrappedEvmEstimator(lggr, getEst, false, nil, geCfg)
 		report := estimator.HealthReport()
 		require.True(t, pkgerrors.Is(report[evmEstimatorKey], evmEstimatorError))
 		require.Nil(t, report[oracleKey])
 		require.NotNil(t, report[mockEstimatorName])
 
-		estimator = gas.NewWrappedEvmEstimator(lggr, getEst, false, oracle)
+		estimator = gas.NewWrappedEvmEstimator(lggr, getEst, false, oracle, geCfg)
 		report = estimator.HealthReport()
 		require.True(t, pkgerrors.Is(report[evmEstimatorKey], evmEstimatorError))
 		require.True(t, pkgerrors.Is(report[oracleKey], oracleError))

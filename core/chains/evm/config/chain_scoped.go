@@ -20,7 +20,7 @@ import (
 func NewTOMLChainScopedConfig(appCfg config.AppConfig, tomlConfig *toml.EVMConfig, lggr logger.Logger) *ChainScoped {
 	return &ChainScoped{
 		AppConfig: appCfg,
-		evmConfig: &evmConfig{c: tomlConfig},
+		evmConfig: &EVMConfig{C: tomlConfig},
 		lggr:      lggr}
 }
 
@@ -29,7 +29,7 @@ type ChainScoped struct {
 	config.AppConfig
 	lggr logger.Logger
 
-	evmConfig *evmConfig
+	evmConfig *EVMConfig
 }
 
 func (c *ChainScoped) EVM() EVM {
@@ -37,7 +37,7 @@ func (c *ChainScoped) EVM() EVM {
 }
 
 func (c *ChainScoped) Nodes() toml.EVMNodes {
-	return c.evmConfig.c.Nodes
+	return c.evmConfig.C.Nodes
 }
 
 func (c *ChainScoped) BlockEmissionIdleWarningThreshold() time.Duration {
@@ -62,142 +62,142 @@ func (c *ChainScoped) Validate() (err error) {
 	return
 }
 
-type evmConfig struct {
-	c *toml.EVMConfig
+type EVMConfig struct {
+	C *toml.EVMConfig
 }
 
-func (e *evmConfig) IsEnabled() bool {
-	return e.c.IsEnabled()
+func (e *EVMConfig) IsEnabled() bool {
+	return e.C.IsEnabled()
 }
 
-func (e *evmConfig) TOMLString() (string, error) {
-	return e.c.TOMLString()
+func (e *EVMConfig) TOMLString() (string, error) {
+	return e.C.TOMLString()
 }
 
-func (e *evmConfig) BalanceMonitor() BalanceMonitor {
-	return &balanceMonitorConfig{c: e.c.BalanceMonitor}
+func (e *EVMConfig) BalanceMonitor() BalanceMonitor {
+	return &balanceMonitorConfig{c: e.C.BalanceMonitor}
 }
 
-func (e *evmConfig) Transactions() Transactions {
-	return &transactionsConfig{c: e.c.Transactions}
+func (e *EVMConfig) Transactions() Transactions {
+	return &transactionsConfig{c: e.C.Transactions}
 }
 
-func (e *evmConfig) HeadTracker() HeadTracker {
-	return &headTrackerConfig{c: e.c.HeadTracker}
+func (e *EVMConfig) HeadTracker() HeadTracker {
+	return &headTrackerConfig{c: e.C.HeadTracker}
 }
 
-func (e *evmConfig) OCR() OCR {
-	return &ocrConfig{c: e.c.OCR}
+func (e *EVMConfig) OCR() OCR {
+	return &ocrConfig{c: e.C.OCR}
 }
 
-func (e *evmConfig) OCR2() OCR2 {
-	return &ocr2Config{c: e.c.OCR2}
+func (e *EVMConfig) OCR2() OCR2 {
+	return &ocr2Config{c: e.C.OCR2}
 }
 
-func (e *evmConfig) ChainWriter() ChainWriter {
-	return &chainWriterConfig{c: e.c.ChainWriter}
+func (e *EVMConfig) ChainWriter() ChainWriter {
+	return &chainWriterConfig{c: e.C.ChainWriter}
 }
 
-func (e *evmConfig) GasEstimator() GasEstimator {
-	return &gasEstimatorConfig{c: e.c.GasEstimator, blockDelay: e.c.RPCBlockQueryDelay, transactionsMaxInFlight: e.c.Transactions.MaxInFlight, k: e.c.KeySpecific}
+func (e *EVMConfig) GasEstimator() GasEstimator {
+	return &gasEstimatorConfig{c: e.C.GasEstimator, blockDelay: e.C.RPCBlockQueryDelay, transactionsMaxInFlight: e.C.Transactions.MaxInFlight, k: e.C.KeySpecific}
 }
 
-func (e *evmConfig) AutoCreateKey() bool {
-	return *e.c.AutoCreateKey
+func (e *EVMConfig) AutoCreateKey() bool {
+	return *e.C.AutoCreateKey
 }
 
-func (e *evmConfig) BlockBackfillDepth() uint64 {
-	return uint64(*e.c.BlockBackfillDepth)
+func (e *EVMConfig) BlockBackfillDepth() uint64 {
+	return uint64(*e.C.BlockBackfillDepth)
 }
 
-func (e *evmConfig) BlockBackfillSkip() bool {
-	return *e.c.BlockBackfillSkip
+func (e *EVMConfig) BlockBackfillSkip() bool {
+	return *e.C.BlockBackfillSkip
 }
 
-func (e *evmConfig) LogBackfillBatchSize() uint32 {
-	return *e.c.LogBackfillBatchSize
+func (e *EVMConfig) LogBackfillBatchSize() uint32 {
+	return *e.C.LogBackfillBatchSize
 }
 
-func (e *evmConfig) LogPollInterval() time.Duration {
-	return e.c.LogPollInterval.Duration()
+func (e *EVMConfig) LogPollInterval() time.Duration {
+	return e.C.LogPollInterval.Duration()
 }
 
-func (e *evmConfig) FinalityDepth() uint32 {
-	return *e.c.FinalityDepth
+func (e *EVMConfig) FinalityDepth() uint32 {
+	return *e.C.FinalityDepth
 }
 
-func (e *evmConfig) FinalityTagEnabled() bool {
-	return *e.c.FinalityTagEnabled
+func (e *EVMConfig) FinalityTagEnabled() bool {
+	return *e.C.FinalityTagEnabled
 }
 
-func (e *evmConfig) LogKeepBlocksDepth() uint32 {
-	return *e.c.LogKeepBlocksDepth
+func (e *EVMConfig) LogKeepBlocksDepth() uint32 {
+	return *e.C.LogKeepBlocksDepth
 }
 
-func (e *evmConfig) BackupLogPollerBlockDelay() uint64 {
-	return *e.c.BackupLogPollerBlockDelay
+func (e *EVMConfig) BackupLogPollerBlockDelay() uint64 {
+	return *e.C.BackupLogPollerBlockDelay
 }
 
-func (e *evmConfig) NonceAutoSync() bool {
-	return *e.c.NonceAutoSync
+func (e *EVMConfig) NonceAutoSync() bool {
+	return *e.C.NonceAutoSync
 }
 
-func (e *evmConfig) RPCDefaultBatchSize() uint32 {
-	return *e.c.RPCDefaultBatchSize
+func (e *EVMConfig) RPCDefaultBatchSize() uint32 {
+	return *e.C.RPCDefaultBatchSize
 }
 
-func (e *evmConfig) BlockEmissionIdleWarningThreshold() time.Duration {
-	return e.c.NoNewHeadsThreshold.Duration()
+func (e *EVMConfig) BlockEmissionIdleWarningThreshold() time.Duration {
+	return e.C.NoNewHeadsThreshold.Duration()
 }
 
-func (e *evmConfig) ChainType() commonconfig.ChainType {
-	if e.c.ChainType == nil {
+func (e *EVMConfig) ChainType() commonconfig.ChainType {
+	if e.C.ChainType == nil {
 		return ""
 	}
-	return commonconfig.ChainType(*e.c.ChainType)
+	return commonconfig.ChainType(*e.C.ChainType)
 }
 
-func (e *evmConfig) ChainID() *big.Int {
-	return e.c.ChainID.ToInt()
+func (e *EVMConfig) ChainID() *big.Int {
+	return e.C.ChainID.ToInt()
 }
 
-func (e *evmConfig) MinIncomingConfirmations() uint32 {
-	return *e.c.MinIncomingConfirmations
+func (e *EVMConfig) MinIncomingConfirmations() uint32 {
+	return *e.C.MinIncomingConfirmations
 }
 
-func (e *evmConfig) NodePool() NodePool {
-	return &NodePoolConfig{C: e.c.NodePool}
+func (e *EVMConfig) NodePool() NodePool {
+	return &NodePoolConfig{C: e.C.NodePool}
 }
 
-func (e *evmConfig) NodeNoNewHeadsThreshold() time.Duration {
-	return e.c.NoNewHeadsThreshold.Duration()
+func (e *EVMConfig) NodeNoNewHeadsThreshold() time.Duration {
+	return e.C.NoNewHeadsThreshold.Duration()
 }
 
-func (e *evmConfig) MinContractPayment() *assets.Link {
-	return e.c.MinContractPayment
+func (e *EVMConfig) MinContractPayment() *assets.Link {
+	return e.C.MinContractPayment
 }
 
-func (e *evmConfig) FlagsContractAddress() string {
-	if e.c.FlagsContractAddress == nil {
+func (e *EVMConfig) FlagsContractAddress() string {
+	if e.C.FlagsContractAddress == nil {
 		return ""
 	}
-	return e.c.FlagsContractAddress.String()
+	return e.C.FlagsContractAddress.String()
 }
 
-func (e *evmConfig) LinkContractAddress() string {
-	if e.c.LinkContractAddress == nil {
+func (e *EVMConfig) LinkContractAddress() string {
+	if e.C.LinkContractAddress == nil {
 		return ""
 	}
-	return e.c.LinkContractAddress.String()
+	return e.C.LinkContractAddress.String()
 }
 
-func (e *evmConfig) OperatorFactoryAddress() string {
-	if e.c.OperatorFactoryAddress == nil {
+func (e *EVMConfig) OperatorFactoryAddress() string {
+	if e.C.OperatorFactoryAddress == nil {
 		return ""
 	}
-	return e.c.OperatorFactoryAddress.String()
+	return e.C.OperatorFactoryAddress.String()
 }
 
-func (e *evmConfig) LogPrunePageSize() uint32 {
-	return *e.c.LogPrunePageSize
+func (e *EVMConfig) LogPrunePageSize() uint32 {
+	return *e.C.LogPrunePageSize
 }
