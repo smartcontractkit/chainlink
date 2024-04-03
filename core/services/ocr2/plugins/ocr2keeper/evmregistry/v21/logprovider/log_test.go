@@ -40,7 +40,7 @@ func TestLogComparatorSorter(t *testing.T) {
 				LogIndex:    1,
 			},
 			b: logpoller.Log{
-				BlockNumber: 2,
+				BlockNumber: 4,
 				TxHash:      common.HexToHash("0x1"),
 				LogIndex:    1,
 			},
@@ -82,7 +82,7 @@ func TestLogComparatorSorter(t *testing.T) {
 			a: logpoller.Log{
 				BlockNumber: 1,
 				TxHash:      common.HexToHash("0x1"),
-				LogIndex:    3,
+				LogIndex:    4,
 			},
 			b: logpoller.Log{
 				BlockNumber: 1,

@@ -23,17 +23,27 @@ func LogSorter(a, b logpoller.Log) bool {
 //	 0 if a == b
 //	+1 if a >  b
 func LogComparator(a, b logpoller.Log) int {
-	if a.BlockNumber != b.BlockNumber {
-		return int(a.BlockNumber - b.BlockNumber)
+	blockDiff := int(a.BlockNumber - b.BlockNumber)
+	if blockDiff != 0 {
+		return normalizeCompareResult(blockDiff)
 	}
-	logIndexDiff := a.LogIndex - b.LogIndex
-	if logIndexDiff == 0 {
-		return a.TxHash.Big().Cmp(b.TxHash.Big())
+	logIndexDiff := int(a.LogIndex - b.LogIndex)
+	if logIndexDiff != 0 {
+		return normalizeCompareResult(logIndexDiff)
 	}
-	if logIndexDiff > 0 {
+	return a.TxHash.Big().Cmp(b.TxHash.Big())
+}
+
+// normalizeCompareResult normalizes the result of a comparison to -1, 0, 1
+func normalizeCompareResult(res int) int {
+	switch {
+	case res < 0:
+		return -1
+	case res > 0:
 		return 1
+	default:
+		return 0
 	}
-	return -1
 }
 
 // logID returns a unique identifier for a log, which is an hex string
