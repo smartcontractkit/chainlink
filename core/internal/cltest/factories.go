@@ -24,6 +24,7 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
@@ -457,14 +458,14 @@ func MustInsertPipelineRun(t *testing.T, db *sqlx.DB) (run pipeline.Run) {
 
 func MustInsertPipelineRunWithStatus(t *testing.T, db *sqlx.DB, pipelineSpecID int32, status pipeline.RunStatus) (run pipeline.Run) {
 	var finishedAt *time.Time
-	var outputs pipeline.JSONSerializable
+	var outputs jsonserializable.JSONSerializable
 	var allErrors pipeline.RunErrors
 	var fatalErrors pipeline.RunErrors
 	now := time.Now()
 	switch status {
 	case pipeline.RunStatusCompleted:
 		finishedAt = &now
-		outputs = pipeline.JSONSerializable{
+		outputs = jsonserializable.JSONSerializable{
 			Val:   "foo",
 			Valid: true,
 		}
