@@ -1,7 +1,6 @@
 package txmgr_test
 
 import (
-	"context"
 	"math/big"
 	"testing"
 	"time"
@@ -30,14 +29,14 @@ func TestInMemoryStore_SaveFetchedReceipts(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
-	persistentStore := cltest.NewTestTxStore(t, db, dbcfg)
+	persistentStore := cltest.NewTestTxStore(t, db)
 	kst := cltest.NewKeyStore(t, db, dbcfg)
 	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	lggr := logger.TestSugared(t)
 	chainID := ethClient.ConfiguredChainID()
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 
 	inMemoryStore, err := commontxmgr.NewInMemoryStore[
 		*big.Int,
@@ -65,14 +64,14 @@ func TestInMemoryStore_SaveFetchedReceipts(t *testing.T) {
 
 	t.Run("successfully save fetched receipts", func(t *testing.T) {
 		err := inMemoryStore.SaveFetchedReceipts(
-			testutils.Context(t),
+			ctx,
 			[]*evmtypes.Receipt{&txmReceipt},
 			chainID,
 		)
 		require.NoError(t, err)
 
 		// persistent store check
-		expTx, err := persistentStore.FindTxWithAttempts(inTx.ID)
+		expTx, err := persistentStore.FindTxWithAttempts(ctx, inTx.ID)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(expTx.TxAttempts))
 		require.Equal(t, 1, len(expTx.TxAttempts[0].Receipts))
@@ -91,20 +90,217 @@ func TestInMemoryStore_SaveFetchedReceipts(t *testing.T) {
 	})
 	t.Run("incorrect tx hash", func(t *testing.T) {
 		txmReceipt.TxHash = utils.NewHash()
-		expErr := persistentStore.SaveFetchedReceipts(testutils.Context(t), []*evmtypes.Receipt{&txmReceipt}, chainID)
-		actErr := inMemoryStore.SaveFetchedReceipts(testutils.Context(t), []*evmtypes.Receipt{&txmReceipt}, chainID)
+		expErr := persistentStore.SaveFetchedReceipts(ctx, []*evmtypes.Receipt{&txmReceipt}, chainID)
+		actErr := inMemoryStore.SaveFetchedReceipts(ctx, []*evmtypes.Receipt{&txmReceipt}, chainID)
 		assert.Error(t, expErr)
 		assert.Error(t, actErr)
 		txmReceipt.TxHash = inTx.TxAttempts[0].Hash // reset
 	})
 	t.Run("incorrect chain id", func(t *testing.T) {
 		wrongChainID := big.NewInt(42)
-		expErr := persistentStore.SaveFetchedReceipts(testutils.Context(t), []*evmtypes.Receipt{&txmReceipt}, wrongChainID)
-		actErr := inMemoryStore.SaveFetchedReceipts(testutils.Context(t), []*evmtypes.Receipt{&txmReceipt}, wrongChainID)
+		expErr := persistentStore.SaveFetchedReceipts(ctx, []*evmtypes.Receipt{&txmReceipt}, wrongChainID)
+		actErr := inMemoryStore.SaveFetchedReceipts(ctx, []*evmtypes.Receipt{&txmReceipt}, wrongChainID)
 		assert.Error(t, expErr)
 		assert.Error(t, actErr)
 	})
 
+}
+
+func TestInMemoryStore_UpdateTxAttemptInProgressToBroadcast(t *testing.T) {
+	t.Parallel()
+
+	t.Run("successfully updates transactions from in progress to broadcast", func(t *testing.T) {
+		db := pgtest.NewSqlxDB(t)
+		_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
+		persistentStore := cltest.NewTestTxStore(t, db)
+		kst := cltest.NewKeyStore(t, db, dbcfg)
+		_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
+
+		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+		lggr := logger.TestSugared(t)
+		chainID := ethClient.ConfiguredChainID()
+		ctx := testutils.Context(t)
+
+		inMemoryStore, err := commontxmgr.NewInMemoryStore[
+			*big.Int,
+			common.Address, common.Hash, common.Hash,
+			*evmtypes.Receipt,
+			evmtypes.Nonce,
+			evmgas.EvmFee,
+		](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+		require.NoError(t, err)
+
+		// Insert a transaction into persistent store
+		inTx := mustInsertInProgressEthTxWithAttempt(t, persistentStore, 13, fromAddress)
+		inTxAttempt := inTx.TxAttempts[0]
+		require.Equal(t, txmgrtypes.TxAttemptInProgress, inTxAttempt.State)
+		// Insert the transaction into the in-memory store
+		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
+
+		time1 := time.Now()
+		inTx.BroadcastAt = &time1
+		inTx.InitialBroadcastAt = &time1
+
+		// Update the transaction attempt
+		require.NoError(t, inMemoryStore.UpdateTxAttemptInProgressToBroadcast(
+			ctx,
+			&inTx,
+			inTxAttempt,
+			txmgrtypes.TxAttemptBroadcast,
+		))
+
+		expTx, err := persistentStore.FindTxWithAttempts(ctx, inTx.ID)
+		require.NoError(t, err)
+		assert.Equal(t, commontxmgr.TxUnconfirmed, expTx.State)
+		assert.Equal(t, 1, len(expTx.TxAttempts))
+		assert.Equal(t, txmgrtypes.TxAttemptBroadcast, expTx.TxAttempts[0].State)
+
+		fn := func(tx *evmtxmgr.Tx) bool { return true }
+		actTxs := inMemoryStore.XXXTestFindTxs(nil, fn, inTx.ID)
+		require.Equal(t, 1, len(actTxs))
+		actTx := actTxs[0]
+		assert.Equal(t, commontxmgr.TxUnconfirmed, actTx.State)
+		assert.Equal(t, txmgrtypes.TxAttemptBroadcast, actTx.TxAttempts[0].State)
+
+		// verify that both the in-memory and persistent store have the same transaction state
+		assertTxEqual(t, expTx, actTx)
+	})
+
+	t.Run("verify in-memory error handling has parity with persistent store", func(t *testing.T) {
+		db := pgtest.NewSqlxDB(t)
+		_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
+		persistentStore := cltest.NewTestTxStore(t, db)
+		kst := cltest.NewKeyStore(t, db, dbcfg)
+		_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
+
+		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+		lggr := logger.TestSugared(t)
+		chainID := ethClient.ConfiguredChainID()
+		ctx := testutils.Context(t)
+
+		inMemoryStore, err := commontxmgr.NewInMemoryStore[
+			*big.Int,
+			common.Address, common.Hash, common.Hash,
+			*evmtypes.Receipt,
+			evmtypes.Nonce,
+			evmgas.EvmFee,
+		](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+		require.NoError(t, err)
+
+		// Insert a transaction into persistent store
+		inTx := mustInsertInProgressEthTxWithAttempt(t, persistentStore, 13, fromAddress)
+		inTxAttempt := inTx.TxAttempts[0]
+		require.Equal(t, txmgrtypes.TxAttemptInProgress, inTxAttempt.State)
+		// Insert the transaction into the in-memory store
+		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
+
+		time1 := time.Now()
+		inTx.BroadcastAt = &time1
+		inTx.InitialBroadcastAt = &time1
+
+		t.Run("nil broadcast at", func(t *testing.T) {
+			inTx.BroadcastAt = nil
+			expErr := persistentStore.UpdateTxAttemptInProgressToBroadcast(ctx, &inTx, inTxAttempt, txmgrtypes.TxAttemptBroadcast)
+			actErr := inMemoryStore.UpdateTxAttemptInProgressToBroadcast(ctx, &inTx, inTxAttempt, txmgrtypes.TxAttemptBroadcast)
+			assert.Equal(t, expErr, actErr)
+			inTx.BroadcastAt = &time1 // reset
+		})
+
+		t.Run("nil initial broadcast at", func(t *testing.T) {
+			inTx.InitialBroadcastAt = nil
+			expErr := persistentStore.UpdateTxAttemptInProgressToBroadcast(ctx, &inTx, inTxAttempt, txmgrtypes.TxAttemptBroadcast)
+			actErr := inMemoryStore.UpdateTxAttemptInProgressToBroadcast(ctx, &inTx, inTxAttempt, txmgrtypes.TxAttemptBroadcast)
+			assert.Equal(t, expErr, actErr)
+			inTx.InitialBroadcastAt = &time1 // reset
+		})
+
+		t.Run("transaction not in progress", func(t *testing.T) {
+			inTx.State = commontxmgr.TxConfirmed
+			expErr := persistentStore.UpdateTxAttemptInProgressToBroadcast(ctx, &inTx, inTxAttempt, txmgrtypes.TxAttemptBroadcast)
+			actErr := inMemoryStore.UpdateTxAttemptInProgressToBroadcast(ctx, &inTx, inTxAttempt, txmgrtypes.TxAttemptBroadcast)
+			assert.ErrorContains(t, expErr, "can only transition to unconfirmed from in_progress")
+			assert.ErrorContains(t, actErr, "can only transition to unconfirmed from in_progress")
+			inTx.State = commontxmgr.TxInProgress // reset
+		})
+
+		t.Run("transaction attempt not in progress", func(t *testing.T) {
+			inTxAttempt.State = txmgrtypes.TxAttemptBroadcast
+			expErr := persistentStore.UpdateTxAttemptInProgressToBroadcast(ctx, &inTx, inTxAttempt, txmgrtypes.TxAttemptBroadcast)
+			actErr := inMemoryStore.UpdateTxAttemptInProgressToBroadcast(ctx, &inTx, inTxAttempt, txmgrtypes.TxAttemptBroadcast)
+			assert.Equal(t, expErr, actErr)
+			inTxAttempt.State = txmgrtypes.TxAttemptInProgress // reset
+		})
+
+		t.Run("new attempt state not broadcast", func(t *testing.T) {
+			expErr := persistentStore.UpdateTxAttemptInProgressToBroadcast(ctx, &inTx, inTxAttempt, txmgrtypes.TxAttemptInsufficientFunds)
+			actErr := inMemoryStore.UpdateTxAttemptInProgressToBroadcast(ctx, &inTx, inTxAttempt, txmgrtypes.TxAttemptInsufficientFunds)
+			assert.ErrorContains(t, expErr, "new attempt state must be broadcast")
+			assert.ErrorContains(t, actErr, "new attempt state must be broadcast")
+		})
+
+		t.Run("incorrect from address", func(t *testing.T) {
+			inTx.FromAddress = utils.RandomAddress()
+			inTx.State = commontxmgr.TxInProgress
+			inTxAttempt.State = txmgrtypes.TxAttemptInProgress
+			expErr := persistentStore.UpdateTxAttemptInProgressToBroadcast(ctx, &inTx, inTxAttempt, txmgrtypes.TxAttemptBroadcast)
+			inTx.State = commontxmgr.TxInProgress
+			inTxAttempt.State = txmgrtypes.TxAttemptInProgress
+			actErr := inMemoryStore.UpdateTxAttemptInProgressToBroadcast(ctx, &inTx, inTxAttempt, txmgrtypes.TxAttemptBroadcast)
+			assert.NoError(t, expErr)
+			assert.NoError(t, actErr)
+			inTx.FromAddress = fromAddress // reset
+		})
+
+	})
+}
+
+func TestInMemoryStore_UpdateTxsUnconfirmed(t *testing.T) {
+	t.Parallel()
+
+	t.Run("successfully updates transactions to unconfirmed", func(t *testing.T) {
+		db := pgtest.NewSqlxDB(t)
+		_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
+		persistentStore := cltest.NewTestTxStore(t, db)
+		kst := cltest.NewKeyStore(t, db, dbcfg)
+		_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
+
+		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+		lggr := logger.TestSugared(t)
+		chainID := ethClient.ConfiguredChainID()
+		ctx := testutils.Context(t)
+
+		inMemoryStore, err := commontxmgr.NewInMemoryStore[
+			*big.Int,
+			common.Address, common.Hash, common.Hash,
+			*evmtypes.Receipt,
+			evmtypes.Nonce,
+			evmgas.EvmFee,
+		](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+		require.NoError(t, err)
+
+		// Insert a transaction into persistent store
+		originalBroadcastAt := time.Unix(1616509100, 0)
+		inTx := mustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(
+			t, persistentStore, 0, 1, originalBroadcastAt, fromAddress)
+		assert.Equal(t, txmgrcommon.TxConfirmedMissingReceipt, inTx.State)
+		// Insert the transaction into the in-memory store
+		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
+
+		// Update the transaction to unconfirmed
+		require.NoError(t, inMemoryStore.UpdateTxsUnconfirmed(ctx, []int64{inTx.ID}))
+
+		expTx, err := persistentStore.FindTxWithAttempts(ctx, inTx.ID)
+		require.NoError(t, err)
+		assert.Equal(t, commontxmgr.TxUnconfirmed, expTx.State)
+		assert.Equal(t, 1, len(expTx.TxAttempts))
+
+		fn := func(tx *evmtxmgr.Tx) bool { return true }
+		actTxs := inMemoryStore.XXXTestFindTxs(nil, fn, inTx.ID)
+		require.Equal(t, 1, len(actTxs))
+		actTx := actTxs[0]
+		assertTxEqual(t, expTx, actTx)
+		assert.Equal(t, commontxmgr.TxUnconfirmed, actTx.State)
+	})
 }
 
 // assertTxEqual asserts that two transactions are equal
@@ -118,8 +314,16 @@ func assertTxEqual(t *testing.T, exp, act evmtxmgr.Tx) {
 	assert.Equal(t, exp.Value, act.Value)
 	assert.Equal(t, exp.FeeLimit, act.FeeLimit)
 	assert.Equal(t, exp.Error, act.Error)
-	assert.Equal(t, exp.BroadcastAt, act.BroadcastAt)
-	assert.Equal(t, exp.InitialBroadcastAt, act.InitialBroadcastAt)
+	if exp.BroadcastAt != nil && act.BroadcastAt != nil {
+		assert.Equal(t, exp.BroadcastAt.Unix(), act.BroadcastAt.Unix())
+	} else {
+		assert.Equal(t, exp.BroadcastAt, act.BroadcastAt)
+	}
+	if exp.InitialBroadcastAt != nil && act.InitialBroadcastAt != nil {
+		assert.Equal(t, exp.InitialBroadcastAt.Unix(), act.InitialBroadcastAt.Unix())
+	} else {
+		assert.Equal(t, exp.InitialBroadcastAt, act.InitialBroadcastAt)
+	}
 	assert.Equal(t, exp.CreatedAt, act.CreatedAt)
 	assert.Equal(t, exp.State, act.State)
 	assert.Equal(t, exp.Meta, act.Meta)

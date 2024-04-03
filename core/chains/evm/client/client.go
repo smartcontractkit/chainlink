@@ -63,6 +63,7 @@ type Client interface {
 	HeadByNumber(ctx context.Context, n *big.Int) (*evmtypes.Head, error)
 	HeadByHash(ctx context.Context, n common.Hash) (*evmtypes.Head, error)
 	SubscribeNewHead(ctx context.Context, ch chan<- *evmtypes.Head) (ethereum.Subscription, error)
+	LatestFinalizedBlock(ctx context.Context) (head *evmtypes.Head, err error)
 
 	SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (commonclient.SendTxReturnCode, error)
 
@@ -365,4 +366,8 @@ func (client *client) SuggestGasTipCap(ctx context.Context) (tipCap *big.Int, er
 
 func (client *client) IsL2() bool {
 	return client.pool.ChainType().IsL2()
+}
+
+func (client *client) LatestFinalizedBlock(_ context.Context) (*evmtypes.Head, error) {
+	return nil, pkgerrors.New("not implemented. client was deprecated. New methods are added only to satisfy type constraints while we are migrating to new alternatives")
 }

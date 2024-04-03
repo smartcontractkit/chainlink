@@ -44,6 +44,7 @@ type inMemoryStore[
 	lggr    logger.SugaredLogger
 	chainID CHAIN_ID
 
+	maxUnstarted      uint64
 	keyStore          txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
 	persistentTxStore txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 
@@ -75,20 +76,26 @@ func NewInMemoryStore[
 		addressStates: map[ADDR]*addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{},
 	}
 
-	maxUnstarted := config.MaxQueued()
-	if maxUnstarted <= 0 {
-		maxUnstarted = 10000
+	ms.maxUnstarted = config.MaxQueued()
+	if ms.maxUnstarted <= 0 {
+		ms.maxUnstarted = 10000
 	}
-	addresses, err := keyStore.EnabledAddressesForChain(ctx, chainID)
+
+	txs, err := persistentTxStore.GetAllTransactions(ctx, chainID)
 	if err != nil {
-		return nil, fmt.Errorf("new_in_memory_store: %w", err)
+		return nil, fmt.Errorf("address_state: initialization: %w", err)
 	}
-	for _, fromAddr := range addresses {
-		txs, err := persistentTxStore.GetAllTransactions(ctx, fromAddr, chainID)
-		if err != nil {
-			return nil, fmt.Errorf("address_state: initialization: %w", err)
+	addressesToTxs := map[ADDR][]txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
+	for _, tx := range txs {
+		at, exists := addressesToTxs[tx.FromAddress]
+		if !exists {
+			at = []txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
 		}
-		ms.addressStates[fromAddr] = newAddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE](lggr, chainID, fromAddr, maxUnstarted, txs)
+		at = append(at, tx)
+		addressesToTxs[tx.FromAddress] = at
+	}
+	for fromAddr, txs := range addressesToTxs {
+		ms.addressStates[fromAddr] = newAddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE](lggr, chainID, fromAddr, ms.maxUnstarted, txs)
 	}
 
 	return &ms, nil
@@ -159,6 +166,42 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Updat
 	attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	newAttemptState txmgrtypes.TxAttemptState,
 ) error {
+	if tx.BroadcastAt == nil {
+		return fmt.Errorf("unconfirmed transaction must have broadcast_at time")
+	}
+	if tx.InitialBroadcastAt == nil {
+		return fmt.Errorf("unconfirmed transaction must have initial_broadcast_at time")
+	}
+	if tx.State != TxInProgress {
+		return fmt.Errorf("update_tx_attempt_in_progress_to_broadcast: can only transition to unconfirmed from in_progress, transaction is currently %s", tx.State)
+	}
+	if attempt.State != txmgrtypes.TxAttemptInProgress {
+		return fmt.Errorf("attempt must be in in_progress state")
+	}
+	if newAttemptState != txmgrtypes.TxAttemptBroadcast {
+		return fmt.Errorf("update_tx_attempt_in_progress_to_broadcast: new attempt state must be broadcast, got: %s", newAttemptState)
+	}
+
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
+	as, ok := ms.addressStates[tx.FromAddress]
+	if !ok {
+		return nil
+	}
+
+	originalError := tx.Error
+	originalBroadcastAt := tx.BroadcastAt
+	originalInitialBroadcastAt := tx.InitialBroadcastAt
+	// Persist to persistent storage
+	if err := ms.persistentTxStore.UpdateTxAttemptInProgressToBroadcast(ctx, tx, attempt, newAttemptState); err != nil {
+		return fmt.Errorf("update_tx_attempt_in_progress_to_broadcast: %w", err)
+	}
+
+	// Update in memory store
+	if err := as.moveInProgressToUnconfirmed(originalError, *originalBroadcastAt, *originalInitialBroadcastAt, attempt.ID); err != nil {
+		return fmt.Errorf("update_tx_attempt_in_progress_to_broadcast: %w", err)
+	}
+
 	return nil
 }
 
@@ -210,6 +253,23 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Updat
 
 // UpdateTxsUnconfirmed updates the unconfirmed transactions for a given set of ids
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxsUnconfirmed(ctx context.Context, txIDs []int64) error {
+	// Persist to persistent storage
+	if err := ms.persistentTxStore.UpdateTxsUnconfirmed(ctx, txIDs); err != nil {
+		return err
+	}
+
+	// Update in memory store
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
+
+	for _, as := range ms.addressStates {
+		for _, txID := range txIDs {
+			if err := as.moveConfirmedMissingReceiptToUnconfirmed(txID); err != nil {
+				continue
+			}
+		}
+	}
+
 	return nil
 }
 

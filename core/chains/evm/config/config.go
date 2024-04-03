@@ -10,8 +10,8 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 )
 
 type EVM interface {
@@ -130,8 +130,8 @@ type BlockHistory interface {
 }
 
 type ChainWriter interface {
-	FromAddress() *ethkey.EIP55Address
-	ForwarderAddress() *ethkey.EIP55Address
+	FromAddress() *types.EIP55Address
+	ForwarderAddress() *types.EIP55Address
 }
 
 type NodePool interface {

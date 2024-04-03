@@ -241,7 +241,10 @@ func (t *OCRContractTracker) processLogs() {
 // HandleLog complies with LogListener interface
 // It is not thread safe
 func (t *OCRContractTracker) HandleLog(lb log.Broadcast) {
-	was, err := t.logBroadcaster.WasAlreadyConsumed(lb)
+	ctx, cancel := t.chStop.NewCtx()
+	defer cancel()
+
+	was, err := t.logBroadcaster.WasAlreadyConsumed(ctx, lb)
 	if err != nil {
 		t.logger.Errorw("could not determine if log was already consumed", "err", err)
 		return
@@ -252,14 +255,14 @@ func (t *OCRContractTracker) HandleLog(lb log.Broadcast) {
 	raw := lb.RawLog()
 	if raw.Address != t.contract.Address() {
 		t.logger.Errorf("log address of 0x%x does not match configured contract address of 0x%x", raw.Address, t.contract.Address())
-		if err2 := t.logBroadcaster.MarkConsumed(lb); err2 != nil {
+		if err2 := t.logBroadcaster.MarkConsumed(ctx, lb); err2 != nil {
 			t.logger.Errorw("failed to mark log consumed", "err", err2)
 		}
 		return
 	}
 	topics := raw.Topics
 	if len(topics) == 0 {
-		if err2 := t.logBroadcaster.MarkConsumed(lb); err2 != nil {
+		if err2 := t.logBroadcaster.MarkConsumed(ctx, lb); err2 != nil {
 			t.logger.Errorw("failed to mark log consumed", "err", err2)
 		}
 		return
@@ -272,7 +275,7 @@ func (t *OCRContractTracker) HandleLog(lb log.Broadcast) {
 		configSet, err = t.contractFilterer.ParseConfigSet(raw)
 		if err != nil {
 			t.logger.Errorw("could not parse config set", "err", err)
-			if err2 := t.logBroadcaster.MarkConsumed(lb); err2 != nil {
+			if err2 := t.logBroadcaster.MarkConsumed(ctx, lb); err2 != nil {
 				t.logger.Errorw("failed to mark log consumed", "err", err2)
 			}
 			return
@@ -289,7 +292,7 @@ func (t *OCRContractTracker) HandleLog(lb log.Broadcast) {
 		rr, err = t.contractFilterer.ParseRoundRequested(raw)
 		if err != nil {
 			t.logger.Errorw("could not parse round requested", "err", err)
-			if err2 := t.logBroadcaster.MarkConsumed(lb); err2 != nil {
+			if err2 := t.logBroadcaster.MarkConsumed(ctx, lb); err2 != nil {
 				t.logger.Errorw("failed to mark log consumed", "err", err2)
 			}
 			return
@@ -299,7 +302,7 @@ func (t *OCRContractTracker) HandleLog(lb log.Broadcast) {
 				if err = t.ocrDB.SaveLatestRoundRequested(tx, *rr); err != nil {
 					return err
 				}
-				return t.logBroadcaster.MarkConsumed(lb, pg.WithQueryer(tx))
+				return t.logBroadcaster.MarkConsumed(ctx, lb)
 			})
 			if err != nil {
 				t.logger.Error(err)
@@ -317,7 +320,7 @@ func (t *OCRContractTracker) HandleLog(lb log.Broadcast) {
 		t.logger.Debugw("got unrecognised log topic", "topic", topics[0])
 	}
 	if !consumed {
-		if err := t.logBroadcaster.MarkConsumed(lb); err != nil {
+		if err := t.logBroadcaster.MarkConsumed(ctx, lb); err != nil {
 			t.logger.Errorw("failed to mark log consumed", "err", err)
 		}
 	}
@@ -402,7 +405,7 @@ func (t *OCRContractTracker) LatestBlockHeight(ctx context.Context) (blockheight
 		// care about the block height; we have no way of getting the L1 block
 		// height anyway
 		return 0, nil
-	case "", config.ChainArbitrum, config.ChainCelo, config.ChainOptimismBedrock, config.ChainXDai, config.ChainKroma, config.ChainWeMix, config.ChainZkSync, config.ChainScroll:
+	case "", config.ChainArbitrum, config.ChainCelo, config.ChainGnosis, config.ChainKroma, config.ChainOptimismBedrock, config.ChainScroll, config.ChainWeMix, config.ChainXDai, config.ChainZkSync:
 		// continue
 	}
 	latestBlockHeight := t.getLatestBlockHeight()
