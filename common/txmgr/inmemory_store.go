@@ -384,19 +384,15 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveC
 		return fmt.Errorf("expected state to be in_progress")
 	}
 
-	var tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 	var as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
-	filter := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool { return true }
 	for _, vas := range ms.addressStates {
-		txs := vas.findTxs(nil, filter, attempt.TxID)
-		if len(txs) != 0 {
-			tx = &txs[0]
+		if vas.hasTx(attempt.TxID) {
 			as = vas
 			break
 		}
 	}
-	if tx == nil {
-		return fmt.Errorf("save_confirmed_missing_receipt_attempt: %w", ErrTxnNotFound)
+	if as == nil {
+		return fmt.Errorf("save_confirmed_missing_receipt_attempt: %w: %q", ErrTxnNotFound, attempt.TxID)
 	}
 
 	// Persist to persistent storage
@@ -405,7 +401,7 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveC
 	}
 
 	// Update in memory store
-	return as.moveTxToConfirmedMissingReceipt(*attempt, broadcastAt)
+	return as.moveTxAttemptToBroadcast(*attempt, broadcastAt)
 }
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveInProgressAttempt(ctx context.Context, attempt *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
 	return nil
