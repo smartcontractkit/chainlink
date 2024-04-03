@@ -325,10 +325,10 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) moveIn
 	return nil
 }
 
-// moveTxToConfirmed moves a transaction to the confirmed state.
+// moveUnconfirmedToConfirmed moves a unconfirmed transaction to the confirmed state.
 // It returns an error if there is no transaction with the given ID.
 // It returns an error if there is no attempt with the given receipt.
-func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) moveTxToConfirmed(
+func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) moveUnconfirmedToConfirmed(
 	receipt txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
 ) error {
 	as.Lock()

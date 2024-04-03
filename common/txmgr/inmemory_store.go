@@ -310,7 +310,7 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveF
 		var found bool
 		var receiptErrs error
 		for _, as := range ms.addressStates {
-			err := as.moveTxToConfirmed(receipt)
+			err := as.moveUnconfirmedToConfirmed(receipt)
 			if err == nil {
 				found = true
 				break
