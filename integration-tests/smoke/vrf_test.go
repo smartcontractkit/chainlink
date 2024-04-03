@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/vrfv1"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -29,10 +30,13 @@ func TestVRFBasic(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	privateNetwork, err := actions.EthereumNetworkConfigFromConfig(l, &config)
+	require.NoError(t, err, "Error building ethereum network config")
+
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestInstance(t).
 		WithTestConfig(&config).
-		WithGeth().
+		WithPrivateEthereumNetwork(privateNetwork).
 		WithCLNodes(1).
 		WithFunding(big.NewFloat(.1)).
 		WithStandardCleanup().
@@ -123,10 +127,13 @@ func TestVRFJobReplacement(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	privateNetwork, err := actions.EthereumNetworkConfigFromConfig(l, &config)
+	require.NoError(t, err, "Error building ethereum network config")
+
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestInstance(t).
 		WithTestConfig(&config).
-		WithGeth().
+		WithPrivateEthereumNetwork(privateNetwork).
 		WithCLNodes(1).
 		WithFunding(big.NewFloat(.1)).
 		WithStandardCleanup().
