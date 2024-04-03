@@ -136,7 +136,7 @@ func TestLogEventBufferV1_Dequeue(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			buf := NewLogBuffer(logger.TestLogger(t), uint(tc.lookback), uint(tc.args.blockRate), uint(tc.args.upkeepLimit))
+			buf := NewLogBuffer(logger.TestLogger(t), uint32(tc.lookback), uint32(tc.args.blockRate), uint32(tc.args.upkeepLimit))
 			for id, logs := range tc.logsInBuffer {
 				added, dropped := buf.Enqueue(id, logs...)
 				require.Equal(t, len(logs), added+dropped)
@@ -155,7 +155,7 @@ func TestLogEventBufferV1_Enqueue(t *testing.T) {
 		added, dropped                   map[string]int
 		sizeOfRange                      map[*big.Int]int
 		rangeStart, rangeEnd             int64
-		lookback, blockRate, upkeepLimit uint
+		lookback, blockRate, upkeepLimit uint32
 	}{
 		{
 			name:        "empty",
@@ -361,7 +361,7 @@ func TestLogEventBufferV1_UpkeepQueue_clean(t *testing.T) {
 		require.Equal(t, 2, q.sizeOfRange(1, 18))
 		q.lock.Lock()
 		defer q.lock.Unlock()
-		require.Equal(t, 2, len(q.visited))
+		require.Equal(t, 2, len(q.states))
 	})
 }
 
