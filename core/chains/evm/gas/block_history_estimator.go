@@ -238,6 +238,10 @@ func (b *BlockHistoryEstimator) Start(ctx context.Context) error {
 	})
 }
 
+func (b *BlockHistoryEstimator) L1Oracle() rollups.L1Oracle {
+	return *b.l1Oracle
+}
+
 func (b *BlockHistoryEstimator) Close() error {
 	return b.StopOnce("BlockHistoryEstimator", func() error {
 		b.ctxCancel()

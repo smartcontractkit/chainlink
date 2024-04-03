@@ -3,6 +3,7 @@ package rollups
 import (
 	"context"
 	"fmt"
+	"math"
 	"math/big"
 	"strings"
 	"sync"
@@ -23,6 +24,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 )
+
+type ArbL1GasOracle interface {
+	L1Oracle
+	GetPricesInArbGas() (perL2Tx uint32, perL1CalldataUnit uint32, err error)
+}
 
 // Reads L2-specific precompiles and caches the l1GasPrice set by the L2.
 type arbitrumL1Oracle struct {
@@ -62,13 +68,16 @@ const (
 	// ArbGasInfo_getPricesInArbGas is the a hex encoded call to:
 	// `function gasEstimateL1Component(address to, bool contractCreation, bytes calldata data) external payable returns (uint64 gasEstimateForL1, uint256 baseFee, uint256 l1BaseFeeEstimate);`
 	ArbNodeInterface_gasEstimateL1Component = "gasEstimateL1Component"
+	// ArbGasInfo_getPricesInArbGas is the a hex encoded call to:
+	// `function getPricesInArbGas() external view returns (uint256, uint256, uint256);`
+	ArbGasInfo_getPricesInArbGas = "02199f34"
 )
 
-func NewArbitrumL1GasOracle(lggr logger.Logger, ethClient ethClient) L1Oracle {
+func NewArbitrumL1GasOracle(lggr logger.Logger, ethClient ethClient) ArbL1GasOracle {
 	return newArbitrumL1GasOracle(lggr, ethClient)
 }
 
-func newArbitrumL1GasOracle(lggr logger.Logger, ethClient ethClient) L1Oracle {
+func newArbitrumL1GasOracle(lggr logger.Logger, ethClient ethClient) ArbL1GasOracle {
 	var l1GasPriceAddress, gasPriceMethod, l1GasCostAddress, gasCostMethod string
 	var l1GasPriceMethodAbi, l1GasCostMethodAbi abi.ABI
 	var gasPriceErr, gasCostErr error
@@ -259,4 +268,47 @@ func (o *arbitrumL1Oracle) GetGasCost(ctx context.Context, tx *gethtypes.Transac
 	l1GasCost = new(big.Int).SetBytes(b[:8])
 
 	return assets.NewWei(l1GasCost), nil
+}
+
+// callGetPricesInArbGas calls ArbGasInfo.getPricesInArbGas() on the precompile contract ArbGasInfoAddress.
+//
+// @return (per L2 tx, per L1 calldata unit, per storage allocation)
+// function getPricesInArbGas() external view returns (uint256, uint256, uint256);
+//
+// https://github.com/OffchainLabs/nitro/blob/f7645453cfc77bf3e3644ea1ac031eff629df325/contracts/src/precompiles/ArbGasInfo.sol#L69
+
+func (o *arbitrumL1Oracle) GetPricesInArbGas() (perL2Tx uint32, perL1CalldataUnit uint32, err error) {
+	ctx, cancel := o.chStop.CtxCancel(evmclient.ContextWithDefaultTimeout())
+	defer cancel()
+
+	precompile := common.HexToAddress(ArbGasInfoAddress)
+	b, err := o.client.CallContract(ctx, ethereum.CallMsg{
+		To:   &precompile,
+		Data: common.Hex2Bytes(ArbGasInfo_getPricesInArbGas),
+	}, big.NewInt(-1))
+	if err != nil {
+		return 0, 0, err
+	}
+
+	if len(b) != 3*32 { // returns (uint256, uint256, uint256);
+		err = fmt.Errorf("return data length (%d) different than expected (%d)", len(b), 3*32)
+		return
+	}
+	bPerL2Tx := new(big.Int).SetBytes(b[:32])
+	bPerL1CalldataUnit := new(big.Int).SetBytes(b[32:64])
+	// ignore perStorageAllocation
+	if !bPerL2Tx.IsUint64() || !bPerL1CalldataUnit.IsUint64() {
+		err = fmt.Errorf("returned integers are not uint64 (%s, %s)", bPerL2Tx.String(), bPerL1CalldataUnit.String())
+		return
+	}
+
+	perL2TxU64 := bPerL2Tx.Uint64()
+	perL1CalldataUnitU64 := bPerL1CalldataUnit.Uint64()
+	if perL2TxU64 > math.MaxUint32 || perL1CalldataUnitU64 > math.MaxUint32 {
+		err = fmt.Errorf("returned integers are not uint32 (%d, %d)", perL2TxU64, perL1CalldataUnitU64)
+		return
+	}
+	perL2Tx = uint32(perL2TxU64)
+	perL1CalldataUnit = uint32(perL1CalldataUnitU64)
+	return
 }

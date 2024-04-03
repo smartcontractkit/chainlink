@@ -136,6 +136,10 @@ func (f *fixedPriceEstimator) BumpDynamicFee(
 	)
 }
 
+func (f *fixedPriceEstimator) L1Oracle() rollups.L1Oracle {
+	return *f.l1Oracle
+}
+
 func (f *fixedPriceEstimator) Name() string                                          { return f.lggr.Name() }
 func (f *fixedPriceEstimator) Ready() error                                          { return nil }
 func (f *fixedPriceEstimator) HealthReport() map[string]error                        { return map[string]error{} }

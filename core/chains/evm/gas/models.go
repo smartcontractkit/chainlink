@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/rpc"
 	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -39,6 +41,13 @@ type EvmFeeEstimator interface {
 
 	// GetMaxCost returns the total value = max price x fee units + transferred value
 	GetMaxCost(ctx context.Context, amount assets.Eth, calldata []byte, feeLimit uint64, maxFeePrice *assets.Wei, opts ...feetypes.Opt) (*big.Int, error)
+}
+
+//go:generate mockery --quiet --name ethClient --output ./mocks/ --case=underscore --structname ETHClient
+type ethClient interface {
+	CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error)
+	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
+	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
 }
 
 // NewEstimator returns the estimator for a given config
@@ -75,7 +84,7 @@ func NewEstimator(lggr logger.Logger, ethClient evmclient.Client, cfg Config, ge
 	switch s {
 	case "Arbitrum":
 		newEstimator = func(l logger.Logger) EvmEstimator {
-			return NewArbitrumEstimator(lggr, geCfg, ethClient, ethClient)
+			return NewArbitrumEstimator(lggr, geCfg, ethClient)
 		}
 	case "BlockHistory":
 		newEstimator = func(l logger.Logger) EvmEstimator {
@@ -138,6 +147,8 @@ type EvmEstimator interface {
 	//   - be sorted in order from highest price to lowest price
 	//   - all be of transaction type 0x2
 	BumpDynamicFee(ctx context.Context, original DynamicFee, maxGasPriceWei *assets.Wei, attempts []EvmPriorAttempt) (bumped DynamicFee, err error)
+
+	L1Oracle() rollups.L1Oracle
 }
 
 var _ feetypes.Fee = (*EvmFee)(nil)
@@ -191,8 +202,9 @@ func (e *WrappedEvmEstimator) Start(ctx context.Context) error {
 		if err := e.EvmEstimator.Start(ctx); err != nil {
 			return pkgerrors.Wrap(err, "failed to start EVMEstimator")
 		}
-		if e.l1Oracle != nil {
-			if err := e.l1Oracle.Start(ctx); err != nil {
+		l1Oracle := e.L1Oracle()
+		if l1Oracle != nil {
+			if err := l1Oracle.Start(ctx); err != nil {
 				return pkgerrors.Wrap(err, "failed to start L1Oracle")
 			}
 		}
@@ -204,8 +216,9 @@ func (e *WrappedEvmEstimator) Close() error {
 		var errEVM, errOracle error
 
 		errEVM = pkgerrors.Wrap(e.EvmEstimator.Close(), "failed to stop EVMEstimator")
-		if e.l1Oracle != nil {
-			errOracle = pkgerrors.Wrap(e.l1Oracle.Close(), "failed to stop L1Oracle")
+		l1Oracle := e.L1Oracle()
+		if l1Oracle != nil {
+			errOracle = pkgerrors.Wrap(l1Oracle.Close(), "failed to stop L1Oracle")
 		}
 
 		if errEVM != nil {
@@ -240,7 +253,7 @@ func (e *WrappedEvmEstimator) HealthReport() map[string]error {
 }
 
 func (e *WrappedEvmEstimator) L1Oracle() rollups.L1Oracle {
-	return e.l1Oracle
+	return e.EvmEstimator.L1Oracle()
 }
 
 func (e *WrappedEvmEstimator) GetFee(ctx context.Context, calldata []byte, feeLimit uint64, maxFeePrice *assets.Wei, opts ...feetypes.Opt) (fee EvmFee, chainSpecificFeeLimit uint64, err error) {

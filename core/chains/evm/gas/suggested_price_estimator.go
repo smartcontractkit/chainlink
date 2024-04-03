@@ -33,17 +33,12 @@ type suggestedPriceConfig interface {
 	BumpMin() *assets.Wei
 }
 
-//go:generate mockery --quiet --name rpcClient --output ./mocks/ --case=underscore --structname RPCClient
-type rpcClient interface {
-	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
-}
-
 // SuggestedPriceEstimator is an Estimator which uses the suggested gas price from eth_gasPrice.
 type SuggestedPriceEstimator struct {
 	services.StateMachine
 
 	cfg        suggestedPriceConfig
-	client     rpcClient
+	client     ethClient
 	pollPeriod time.Duration
 	logger     logger.Logger
 
@@ -59,7 +54,7 @@ type SuggestedPriceEstimator struct {
 }
 
 // NewSuggestedPriceEstimator returns a new Estimator which uses the suggested gas price.
-func NewSuggestedPriceEstimator(lggr logger.Logger, client rpcClient, cfg suggestedPriceConfig, chainType config.ChainType) EvmEstimator {
+func NewSuggestedPriceEstimator(lggr logger.Logger, client ethClient, cfg suggestedPriceConfig, chainType config.ChainType) EvmEstimator {
 	var l1Oracle rollups.L1Oracle
 	if rollups.IsRollupWithL1Support(chainType) {
 		l1Oracle = rollups.NewL1GasOracle(lggr, client, chainType)
@@ -79,6 +74,10 @@ func NewSuggestedPriceEstimator(lggr logger.Logger, client rpcClient, cfg sugges
 
 func (o *SuggestedPriceEstimator) Name() string {
 	return o.logger.Name()
+}
+
+func (o *SuggestedPriceEstimator) L1Oracle() rollups.L1Oracle {
+	return *o.l1Oracle
 }
 
 func (o *SuggestedPriceEstimator) Start(context.Context) error {

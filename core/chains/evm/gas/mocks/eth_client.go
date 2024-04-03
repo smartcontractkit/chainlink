@@ -36,6 +36,27 @@ func (_m *ETHClient) BatchCallContext(ctx context.Context, b []rpc.BatchElem) er
 	return r0
 }
 
+// CallContext provides a mock function with given fields: ctx, result, method, args
+func (_m *ETHClient) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
+	var _ca []interface{}
+	_ca = append(_ca, ctx, result, method)
+	_ca = append(_ca, args...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CallContext")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, interface{}, string, ...interface{}) error); ok {
+		r0 = rf(ctx, result, method, args...)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // CallContract provides a mock function with given fields: ctx, msg, blockNumber
 func (_m *ETHClient) CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error) {
 	ret := _m.Called(ctx, msg, blockNumber)

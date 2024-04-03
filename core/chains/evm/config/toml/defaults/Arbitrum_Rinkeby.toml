@@ -15,6 +15,7 @@ PriceMax = '115792089237316195423570985008687907853269984665.6405640394575840079
 FeeCapDefault = '1000 gwei'
 # Disable gas bumping on arbitrum
 BumpThreshold = 0
+BumpPercent = 50
 
 [GasEstimator.BlockHistory]
 # Force an error if someone set GAS_UPDATER_ENABLED=true by accident; we never want to run the block history estimator on arbitrum
