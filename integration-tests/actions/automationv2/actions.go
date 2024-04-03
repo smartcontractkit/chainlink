@@ -1,6 +1,7 @@
 package automationv2
 
 import (
+	"context"
 	"crypto/ed25519"
 	"encoding/hex"
 	"encoding/json"
@@ -14,10 +15,12 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
+	"github.com/rs/zerolog"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	ocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	ocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	"github.com/smartcontractkit/seth"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/guregu/null.v4"
@@ -25,7 +28,6 @@ import (
 	ocr2keepers20config "github.com/smartcontractkit/chainlink-automation/pkg/v2/config"
 	ocr2keepers30config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
@@ -53,8 +55,7 @@ type NodeDetails struct {
 }
 
 type AutomationTest struct {
-	ChainClient blockchain.EVMClient
-	Deployer    contracts.ContractDeployer
+	ChainClient *seth.Client
 
 	LinkToken   contracts.LinkToken
 	Transcoder  contracts.UpkeepTranscoder
@@ -81,6 +82,8 @@ type AutomationTest struct {
 	DefaultP2Pv2Bootstrapper string
 	MercuryCredentialName    string
 	TransmitterKeyIndex      int
+
+	Logger zerolog.Logger
 }
 
 type UpkeepConfig struct {
@@ -97,32 +100,32 @@ type UpkeepConfig struct {
 }
 
 func NewAutomationTestK8s(
-	chainClient blockchain.EVMClient,
-	deployer contracts.ContractDeployer,
+	l zerolog.Logger,
+	chainClient *seth.Client,
 	chainlinkNodes []*client.ChainlinkK8sClient,
 ) *AutomationTest {
 	return &AutomationTest{
 		ChainClient:            chainClient,
-		Deployer:               deployer,
 		ChainlinkNodesk8s:      chainlinkNodes,
 		IsOnk8s:                true,
 		TransmitterKeyIndex:    0,
-		UpkeepPrivilegeManager: common.HexToAddress(chainClient.GetDefaultWallet().Address()),
+		UpkeepPrivilegeManager: chainClient.Addresses[0],
+		Logger:                 l,
 	}
 }
 
 func NewAutomationTestDocker(
-	chainClient blockchain.EVMClient,
-	deployer contracts.ContractDeployer,
+	l zerolog.Logger,
+	chainClient *seth.Client,
 	chainlinkNodes []*client.ChainlinkClient,
 ) *AutomationTest {
 	return &AutomationTest{
 		ChainClient:            chainClient,
-		Deployer:               deployer,
 		ChainlinkNodes:         chainlinkNodes,
 		IsOnk8s:                false,
 		TransmitterKeyIndex:    0,
-		UpkeepPrivilegeManager: common.HexToAddress(chainClient.GetDefaultWallet().Address()),
+		UpkeepPrivilegeManager: chainClient.Addresses[0],
+		Logger:                 l,
 	}
 }
 
@@ -147,20 +150,16 @@ func (a *AutomationTest) SetDockerEnv(env *test_env.CLClusterTestEnv) {
 }
 
 func (a *AutomationTest) DeployLINK() error {
-	linkToken, err := a.Deployer.DeployLinkTokenContract()
+	linkToken, err := contracts.DeployLinkTokenContract(a.Logger, a.ChainClient)
 	if err != nil {
 		return err
 	}
 	a.LinkToken = linkToken
-	err = a.ChainClient.WaitForEvents()
-	if err != nil {
-		return errors.Join(err, fmt.Errorf("failed waiting for link token contract to deploy"))
-	}
 	return nil
 }
 
 func (a *AutomationTest) LoadLINK(address string) error {
-	linkToken, err := a.Deployer.LoadLinkToken(common.HexToAddress(address))
+	linkToken, err := contracts.LoadLinkTokenContract(a.Logger, a.ChainClient, common.HexToAddress(address))
 	if err != nil {
 		return err
 	}
@@ -169,20 +168,16 @@ func (a *AutomationTest) LoadLINK(address string) error {
 }
 
 func (a *AutomationTest) DeployTranscoder() error {
-	transcoder, err := a.Deployer.DeployUpkeepTranscoder()
+	transcoder, err := contracts.DeployUpkeepTranscoder(a.ChainClient)
 	if err != nil {
 		return err
 	}
 	a.Transcoder = transcoder
-	err = a.ChainClient.WaitForEvents()
-	if err != nil {
-		return errors.Join(err, fmt.Errorf("failed waiting for transcoder contract to deploy"))
-	}
 	return nil
 }
 
 func (a *AutomationTest) LoadTranscoder(address string) error {
-	transcoder, err := a.Deployer.LoadUpkeepTranscoder(common.HexToAddress(address))
+	transcoder, err := contracts.LoadUpkeepTranscoder(a.ChainClient, common.HexToAddress(address))
 	if err != nil {
 		return err
 	}
@@ -191,20 +186,16 @@ func (a *AutomationTest) LoadTranscoder(address string) error {
 }
 
 func (a *AutomationTest) DeployEthLinkFeed() error {
-	ethLinkFeed, err := a.Deployer.DeployMockETHLINKFeed(a.RegistrySettings.FallbackLinkPrice)
+	ethLinkFeed, err := contracts.DeployMockETHLINKFeed(a.ChainClient, a.RegistrySettings.FallbackLinkPrice)
 	if err != nil {
 		return err
 	}
 	a.EthLinkFeed = ethLinkFeed
-	err = a.ChainClient.WaitForEvents()
-	if err != nil {
-		return errors.Join(err, fmt.Errorf("failed waiting for Mock ETH LINK feed to deploy"))
-	}
 	return nil
 }
 
 func (a *AutomationTest) LoadEthLinkFeed(address string) error {
-	ethLinkFeed, err := a.Deployer.LoadETHLINKFeed(common.HexToAddress(address))
+	ethLinkFeed, err := contracts.LoadMockETHLINKFeed(a.ChainClient, common.HexToAddress(address))
 	if err != nil {
 		return err
 	}
@@ -213,20 +204,16 @@ func (a *AutomationTest) LoadEthLinkFeed(address string) error {
 }
 
 func (a *AutomationTest) DeployGasFeed() error {
-	gasFeed, err := a.Deployer.DeployMockGasFeed(a.RegistrySettings.FallbackGasPrice)
+	gasFeed, err := contracts.DeployMockGASFeed(a.ChainClient, a.RegistrySettings.FallbackGasPrice)
 	if err != nil {
 		return err
 	}
 	a.GasFeed = gasFeed
-	err = a.ChainClient.WaitForEvents()
-	if err != nil {
-		return errors.Join(err, fmt.Errorf("failed waiting for mock gas feed to deploy"))
-	}
 	return nil
 }
 
 func (a *AutomationTest) LoadEthGasFeed(address string) error {
-	gasFeed, err := a.Deployer.LoadGasFeed(common.HexToAddress(address))
+	gasFeed, err := contracts.LoadMockGASFeed(a.ChainClient, common.HexToAddress(address))
 	if err != nil {
 		return err
 	}
@@ -244,20 +231,16 @@ func (a *AutomationTest) DeployRegistry() error {
 		RegistrarAddr:   utils.ZeroAddress.Hex(),
 		Settings:        a.RegistrySettings,
 	}
-	registry, err := a.Deployer.DeployKeeperRegistry(registryOpts)
+	registry, err := contracts.DeployKeeperRegistry(a.ChainClient, registryOpts)
 	if err != nil {
 		return err
 	}
 	a.Registry = registry
-	err = a.ChainClient.WaitForEvents()
-	if err != nil {
-		return errors.Join(err, fmt.Errorf("failed waiting for registry contract to deploy"))
-	}
 	return nil
 }
 
 func (a *AutomationTest) LoadRegistry(address string) error {
-	registry, err := a.Deployer.LoadKeeperRegistry(common.HexToAddress(address), a.RegistrySettings.RegistryVersion)
+	registry, err := contracts.LoadKeeperRegistry(a.Logger, a.ChainClient, common.HexToAddress(address), a.RegistrySettings.RegistryVersion)
 	if err != nil {
 		return err
 	}
@@ -270,15 +253,11 @@ func (a *AutomationTest) DeployRegistrar() error {
 		return fmt.Errorf("registry must be deployed or loaded before registrar")
 	}
 	a.RegistrarSettings.RegistryAddr = a.Registry.Address()
-	registrar, err := a.Deployer.DeployKeeperRegistrar(a.RegistrySettings.RegistryVersion, a.LinkToken.Address(), a.RegistrarSettings)
+	registrar, err := contracts.DeployKeeperRegistrar(a.ChainClient, a.RegistrySettings.RegistryVersion, a.LinkToken.Address(), a.RegistrarSettings)
 	if err != nil {
 		return err
 	}
 	a.Registrar = registrar
-	err = a.ChainClient.WaitForEvents()
-	if err != nil {
-		return errors.Join(err, fmt.Errorf("failed waiting for registrar contract to deploy"))
-	}
 	return nil
 }
 
@@ -287,7 +266,7 @@ func (a *AutomationTest) LoadRegistrar(address string) error {
 		return fmt.Errorf("registry must be deployed or loaded before registrar")
 	}
 	a.RegistrarSettings.RegistryAddr = a.Registry.Address()
-	registrar, err := a.Deployer.LoadKeeperRegistrar(common.HexToAddress(address), a.RegistrySettings.RegistryVersion)
+	registrar, err := contracts.LoadKeeperRegistrar(a.ChainClient, common.HexToAddress(address), a.RegistrySettings.RegistryVersion)
 	if err != nil {
 		return err
 	}
@@ -332,7 +311,7 @@ func (a *AutomationTest) CollectNodeDetails() error {
 			}
 		}
 
-		TransmitterKeys, err := node.EthAddressesForChain(a.ChainClient.GetChainID().String())
+		TransmitterKeys, err := node.EthAddressesForChain(fmt.Sprint(a.ChainClient.ChainID))
 		nodeDetail.TransmitterAddresses = make([]string, 0)
 		if err != nil {
 			return errors.Join(err, fmt.Errorf("failed to read Transmitter keys from node %d", i))
@@ -358,7 +337,7 @@ func (a *AutomationTest) AddBootstrapJob() error {
 			ContractID: a.Registry.Address(),
 			Relay:      "evm",
 			RelayConfig: map[string]interface{}{
-				"chainID": int(a.ChainClient.GetChainID().Int64()),
+				"chainID": int(a.ChainClient.ChainID),
 			},
 			ContractConfigTrackerPollInterval: *models.NewInterval(time.Second * 15),
 		},
@@ -390,7 +369,7 @@ func (a *AutomationTest) AddAutomationJobs() error {
 				ContractID: a.Registry.Address(),
 				Relay:      "evm",
 				RelayConfig: map[string]interface{}{
-					"chainID": int(a.ChainClient.GetChainID().Int64()),
+					"chainID": int(a.ChainClient.ChainID),
 				},
 				PluginConfig: map[string]interface{}{
 					"mercuryCredentialName": "\"" + a.MercuryCredentialName + "\"",
@@ -610,7 +589,7 @@ func (a *AutomationTest) RegisterUpkeeps(upkeepConfigs []UpkeepConfig) ([]common
 				upkeepConfig.UpkeepContract, upkeepConfig.GasLimit, upkeepConfig.AdminAddress,
 				upkeepConfig.CheckData,
 				upkeepConfig.OffchainConfig, upkeepConfig.FundingAmount,
-				common.HexToAddress(a.ChainClient.GetDefaultWallet().Address()))
+				a.ChainClient.Addresses[0])
 			if err != nil {
 				return nil, errors.Join(err, fmt.Errorf("failed to pack registrar request"))
 			}
@@ -624,7 +603,7 @@ func (a *AutomationTest) RegisterUpkeeps(upkeepConfigs []UpkeepConfig) ([]common
 				upkeepConfig.UpkeepContract, upkeepConfig.GasLimit, upkeepConfig.AdminAddress,
 				upkeepConfig.TriggerType, upkeepConfig.CheckData, upkeepConfig.TriggerConfig,
 				upkeepConfig.OffchainConfig, upkeepConfig.FundingAmount,
-				common.HexToAddress(a.ChainClient.GetDefaultWallet().Address()))
+				a.ChainClient.Addresses[0])
 			if err != nil {
 				return nil, errors.Join(err, fmt.Errorf("failed to pack registrar request"))
 			}
@@ -643,7 +622,7 @@ func (a *AutomationTest) RegisterUpkeeps(upkeepConfigs []UpkeepConfig) ([]common
 func (a *AutomationTest) ConfirmUpkeepsRegistered(registrationTxHashes []common.Hash) ([]*big.Int, error) {
 	upkeepIds := make([]*big.Int, 0)
 	for _, txHash := range registrationTxHashes {
-		receipt, err := a.ChainClient.GetTxReceipt(txHash)
+		receipt, err := a.ChainClient.Client.TransactionReceipt(context.Background(), txHash)
 		if err != nil {
 			return nil, errors.Join(err, fmt.Errorf("failed to confirm upkeep registration"))
 		}

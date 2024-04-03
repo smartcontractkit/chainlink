@@ -1714,18 +1714,18 @@ func (o *OffchainAggregatorV2RoundConfirmer) Complete() bool {
 	return o.complete
 }
 
-// EthereumMockETHLINKFeed represents mocked ETH/LINK feed contract
-type EthereumMockETHLINKFeed struct {
+// LegacyEthereumMockETHLINKFeed represents mocked ETH/LINK feed contract
+type LegacyEthereumMockETHLINKFeed struct {
 	client  blockchain.EVMClient
 	feed    *mock_ethlink_aggregator_wrapper.MockETHLINKAggregator
 	address *common.Address
 }
 
-func (v *EthereumMockETHLINKFeed) Address() string {
+func (v *LegacyEthereumMockETHLINKFeed) Address() string {
 	return v.address.Hex()
 }
 
-func (v *EthereumMockETHLINKFeed) LatestRoundData() (*big.Int, error) {
+func (v *LegacyEthereumMockETHLINKFeed) LatestRoundData() (*big.Int, error) {
 	data, err := v.feed.LatestRoundData(&bind.CallOpts{
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
 		Context: context.Background(),
@@ -1736,7 +1736,7 @@ func (v *EthereumMockETHLINKFeed) LatestRoundData() (*big.Int, error) {
 	return data.Ans, nil
 }
 
-func (v *EthereumMockETHLINKFeed) LatestRoundDataUpdatedAt() (*big.Int, error) {
+func (v *LegacyEthereumMockETHLINKFeed) LatestRoundDataUpdatedAt() (*big.Int, error) {
 	data, err := v.feed.LatestRoundData(&bind.CallOpts{
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
 		Context: context.Background(),
@@ -1747,14 +1747,14 @@ func (v *EthereumMockETHLINKFeed) LatestRoundDataUpdatedAt() (*big.Int, error) {
 	return data.UpdatedAt, nil
 }
 
-// EthereumMockGASFeed represents mocked Gas feed contract
-type EthereumMockGASFeed struct {
+// LegacyEthereumMockGASFeed represents mocked Gas feed contract
+type LegacyEthereumMockGASFeed struct {
 	client  blockchain.EVMClient
 	feed    *mock_gas_aggregator_wrapper.MockGASAggregator
 	address *common.Address
 }
 
-func (v *EthereumMockGASFeed) Address() string {
+func (v *LegacyEthereumMockGASFeed) Address() string {
 	return v.address.Hex()
 }
 
