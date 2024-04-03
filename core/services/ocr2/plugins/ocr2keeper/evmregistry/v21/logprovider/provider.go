@@ -120,7 +120,7 @@ func NewLogProvider(lggr logger.Logger, poller logpoller.LogPoller, chainID *big
 		lggr:        lggr.Named("KeepersRegistry.LogEventProvider"),
 		packer:      packer,
 		buffer:      newLogEventBuffer(lggr, int(opts.LookbackBlocks), defaultNumOfLogUpkeeps, defaultFastExecLogsHigh),
-		bufferV1:    NewLogBuffer(lggr, uint(opts.LookbackBlocks), uint(opts.BlockRate), uint(opts.LogLimit)),
+		bufferV1:    NewLogBuffer(lggr, uint32(opts.LookbackBlocks), opts.BlockRate, opts.LogLimit),
 		poller:      poller,
 		opts:        opts,
 		filterStore: filterStore,
