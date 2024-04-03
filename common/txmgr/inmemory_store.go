@@ -310,21 +310,15 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Delet
 	// Check if fromaddress enabled
 	ms.addressStatesLock.RLock()
 	defer ms.addressStatesLock.RUnlock()
-	filter := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
-		return true
-	}
 	var as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
-	var tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 	for _, vas := range ms.addressStates {
-		txs := vas.findTxs(nil, filter, attempt.TxID)
-		if len(txs) == 1 {
-			tx = &txs[0]
+		if vas.hasTx(attempt.TxID) {
 			as = vas
 			break
 		}
 	}
-	if tx == nil {
-		return fmt.Errorf("delete_in_progress_attempt: %w", ErrTxnNotFound)
+	if as == nil {
+		return fmt.Errorf("delete_in_progress_attempt: %w: %q", ErrTxnNotFound, attempt.TxID)
 	}
 
 	// Persist to persistent storage
