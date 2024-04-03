@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
 
@@ -33,11 +34,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-var (
-	maxTransmitQueueSize = 10_000
-	maxDeleteQueueSize   = 10_000
-	transmitTimeout      = 5 * time.Second
-)
+// var (
+//     maxTransmitQueueSize = 10_000
+//     maxDeleteQueueSize   = 10_000
+//     transmitTimeout      = 5 * time.Second
+// )
 
 const (
 	// Mercury server error codes
@@ -104,9 +105,15 @@ type TransmitterReportDecoder interface {
 
 var _ Transmitter = (*mercuryTransmitter)(nil)
 
+type TransmitterConfig interface {
+	MaxTransmitQueueSize() uint32
+	TransmitTimeout() commonconfig.Duration
+}
+
 type mercuryTransmitter struct {
 	services.StateMachine
 	lggr logger.Logger
+	cfg  TransmitterConfig
 
 	servers map[string]*server
 
@@ -141,6 +148,8 @@ func getPayloadTypes() abi.Arguments {
 
 type server struct {
 	lggr logger.Logger
+
+	transmitTimeout time.Duration
 
 	c  wsrpc.Client
 	pm *PersistenceManager
@@ -221,7 +230,7 @@ func (s *server) runQueueLoop(stopCh services.StopChan, wg *sync.WaitGroup, feed
 			// queue was closed
 			return
 		}
-		ctx, cancel := context.WithTimeout(runloopCtx, utils.WithJitter(transmitTimeout))
+		ctx, cancel := context.WithTimeout(runloopCtx, utils.WithJitter(s.transmitTimeout))
 		res, err := s.c.Transmit(ctx, t.Req)
 		cancel()
 		if runloopCtx.Err() != nil {
@@ -272,18 +281,19 @@ func (s *server) runQueueLoop(stopCh services.StopChan, wg *sync.WaitGroup, feed
 	}
 }
 
-func NewTransmitter(lggr logger.Logger, clients map[string]wsrpc.Client, fromAccount ed25519.PublicKey, jobID int32, feedID [32]byte, orm ORM, codec TransmitterReportDecoder) *mercuryTransmitter {
+func NewTransmitter(lggr logger.Logger, cfg TransmitterConfig, clients map[string]wsrpc.Client, fromAccount ed25519.PublicKey, jobID int32, feedID [32]byte, orm ORM, codec TransmitterReportDecoder) *mercuryTransmitter {
 	feedIDHex := fmt.Sprintf("0x%x", feedID[:])
 	servers := make(map[string]*server, len(clients))
 	for serverURL, client := range clients {
 		cLggr := lggr.Named(serverURL).With("serverURL", serverURL)
-		pm := NewPersistenceManager(cLggr, serverURL, orm, jobID, maxTransmitQueueSize, flushDeletesFrequency, pruneFrequency)
+		pm := NewPersistenceManager(cLggr, serverURL, orm, jobID, int(cfg.MaxTransmitQueueSize()), flushDeletesFrequency, pruneFrequency)
 		servers[serverURL] = &server{
 			cLggr,
+			cfg.TransmitTimeout().Duration(),
 			client,
 			pm,
-			NewTransmitQueue(cLggr, serverURL, feedIDHex, maxTransmitQueueSize, pm),
-			make(chan *pb.TransmitRequest, maxDeleteQueueSize),
+			NewTransmitQueue(cLggr, serverURL, feedIDHex, int(cfg.MaxTransmitQueueSize()), pm),
+			make(chan *pb.TransmitRequest, int(cfg.MaxTransmitQueueSize())),
 			transmitSuccessCount.WithLabelValues(feedIDHex, serverURL),
 			transmitDuplicateCount.WithLabelValues(feedIDHex, serverURL),
 			transmitConnectionErrorCount.WithLabelValues(feedIDHex, serverURL),
@@ -295,6 +305,7 @@ func NewTransmitter(lggr logger.Logger, clients map[string]wsrpc.Client, fromAcc
 	return &mercuryTransmitter{
 		services.StateMachine{},
 		lggr.Named("MercuryTransmitter").With("feedID", feedIDHex),
+		cfg,
 		servers,
 		codec,
 		feedID,
