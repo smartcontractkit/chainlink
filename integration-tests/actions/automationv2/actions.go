@@ -371,7 +371,6 @@ func (a *AutomationTest) AddBootstrapJob() error {
 }
 
 func (a *AutomationTest) AddAutomationJobs() error {
-	useBufferV1 := "true" // TODO: load from config
 	var contractVersion string
 	if a.RegistrySettings.RegistryVersion == ethereum.RegistryVersion_2_2 {
 		contractVersion = "v2.1+"
@@ -379,16 +378,8 @@ func (a *AutomationTest) AddAutomationJobs() error {
 		contractVersion = "v2.1"
 	} else if a.RegistrySettings.RegistryVersion == ethereum.RegistryVersion_2_0 {
 		contractVersion = "v2.0"
-		useBufferV1 = ""
 	} else {
 		return fmt.Errorf("v2.0, v2.1, and v2.2 are the only supported versions")
-	}
-	pluginCfg := map[string]interface{}{
-		"mercuryCredentialName": "\"" + a.MercuryCredentialName + "\"",
-		"contractVersion":       "\"" + contractVersion + "\"",
-	}
-	if len(useBufferV1) > 0 {
-		pluginCfg["useBufferV1"] = useBufferV1
 	}
 	for i := 1; i < len(a.ChainlinkNodes); i++ {
 		autoOCR2JobSpec := client.OCR2TaskJobSpec{
@@ -401,7 +392,10 @@ func (a *AutomationTest) AddAutomationJobs() error {
 				RelayConfig: map[string]interface{}{
 					"chainID": int(a.ChainClient.GetChainID().Int64()),
 				},
-				PluginConfig:                      pluginCfg,
+				PluginConfig: map[string]interface{}{
+					"mercuryCredentialName": "\"" + a.MercuryCredentialName + "\"",
+					"contractVersion":       "\"" + contractVersion + "\"",
+				},
 				ContractConfigTrackerPollInterval: *models.NewInterval(time.Second * 15),
 				TransmitterID:                     null.StringFrom(a.NodeDetails[i].TransmitterAddresses[a.TransmitterKeyIndex]),
 				P2PV2Bootstrappers:                pq.StringArray{a.DefaultP2Pv2Bootstrapper},
