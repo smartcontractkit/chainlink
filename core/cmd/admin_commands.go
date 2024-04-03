@@ -145,8 +145,8 @@ func (p *AdminUsersPresenter) ToRow() []string {
 		p.ID,
 		string(p.Role),
 		p.HasActiveApiToken,
-		p.CreatedAt.String(),
-		p.UpdatedAt.String(),
+		p.CreatedAt.In(time.Local).String(),
+		p.UpdatedAt.In(time.Local).String(),
 	}
 	return row
 }
