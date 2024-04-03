@@ -254,7 +254,7 @@ func (a *onchainAllowlist) updateFromContractV1(ctx context.Context, blockNum *b
 // updateAllowedSendersInBatches will update the node's inmemory state and the orm layer representing the allowlist.
 // it will get the current node's in memory allowlist and start fetching and adding from the tos contract in batches.
 // the iteration order will give priority to new allowed senders
-func (a *onchainAllowlist) updateAllowedSendersInBatches(ctx context.Context, tosContract *functions_allow_list.TermsOfServiceAllowList, blockNum *big.Int) error {
+func (a *onchainAllowlist) updateAllowedSendersInBatches(ctx context.Context, tosContract functions_allow_list.TermsOfServiceAllowListInterface, blockNum *big.Int) error {
 
 	// currentAllowedSenderList will be the starting point from which we will be adding the new allowed senders
 	currentAllowedSenderList := make(map[common.Address]struct{}, 0)
@@ -277,7 +277,7 @@ func (a *onchainAllowlist) updateAllowedSendersInBatches(ctx context.Context, to
 		<-throttleTicker.C
 
 		idxStart := uint64(i) - uint64(a.config.OnchainAllowlistBatchSize)
-		idxEnd := uint64(i)
+		idxEnd := uint64(i) - 1
 		if idxEnd >= currentAllowedSenderCount {
 			idxEnd = currentAllowedSenderCount - 1
 		}
