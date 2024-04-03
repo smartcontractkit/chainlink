@@ -1,6 +1,6 @@
 import { ethers } from 'hardhat'
 import { assert, expect } from 'chai'
-import { evmRevert } from '../../test-helpers/matchers'
+import { evmRevert, evmRevertCustomError } from '../../test-helpers/matchers'
 import { getUsers, Personas } from '../../test-helpers/setup'
 import { BigNumber, Signer } from 'ethers'
 import { LinkToken__factory as LinkTokenFactory } from '../../../typechain/factories/LinkToken__factory'
@@ -42,9 +42,9 @@ before(async () => {
 
 const errorMsgs = {
   onlyOwner: 'revert Only callable by owner',
-  onlyAdmin: 'OnlyAdminOrOwner()',
-  hashPayload: 'HashMismatch()',
-  requestNotFound: 'RequestNotFound()',
+  onlyAdmin: 'OnlyAdminOrOwner',
+  hashPayload: 'HashMismatch',
+  requestNotFound: 'RequestNotFound',
 }
 
 describe('KeeperRegistrar', () => {
@@ -158,7 +158,7 @@ describe('KeeperRegistrar', () => {
 
   describe('#register', () => {
     it('reverts if not called by the LINK token', async () => {
-      await evmRevert(
+      await evmRevertCustomError(
         registrar
           .connect(someAddress)
           .register(
@@ -172,7 +172,8 @@ describe('KeeperRegistrar', () => {
             source,
             await requestSender.getAddress(),
           ),
-        'OnlyLink()',
+        registrar,
+        'OnlyLink',
       )
     })
 
@@ -201,11 +202,12 @@ describe('KeeperRegistrar', () => {
         ],
       )
 
-      await evmRevert(
+      await evmRevertCustomError(
         linkToken
           .connect(requestSender)
           .transferAndCall(registrar.address, amount, abiEncodedBytes),
-        'AmountMismatch()',
+        registrar,
+        'AmountMismatch',
       )
     })
 
@@ -224,11 +226,12 @@ describe('KeeperRegistrar', () => {
           await admin.getAddress(), // Should have been requestSender.getAddress()
         ],
       )
-      await evmRevert(
+      await evmRevertCustomError(
         linkToken
           .connect(requestSender)
           .transferAndCall(registrar.address, amount, abiEncodedBytes),
-        'SenderMismatch()',
+        registrar,
+        'SenderMismatch',
       )
     })
 
@@ -248,11 +251,12 @@ describe('KeeperRegistrar', () => {
         ],
       )
 
-      await evmRevert(
+      await evmRevertCustomError(
         linkToken
           .connect(requestSender)
           .transferAndCall(registrar.address, amount, abiEncodedBytes),
-        'RegistrationRequestFailed()',
+        registrar,
+        'RegistrationRequestFailed',
       )
     })
 
@@ -638,7 +642,7 @@ describe('KeeperRegistrar', () => {
           emptyBytes,
           '0x000000000000000000000000322813fd9a801c5507c9de605d63cea4f2ce6c44',
         )
-      await evmRevert(tx, errorMsgs.requestNotFound)
+      await evmRevertCustomError(tx, registrar, errorMsgs.requestNotFound)
     })
 
     it('reverts if any member of the payload changes', async () => {
@@ -652,7 +656,7 @@ describe('KeeperRegistrar', () => {
           emptyBytes,
           hash,
         )
-      await evmRevert(tx, errorMsgs.hashPayload)
+      await evmRevertCustomError(tx, registrar, errorMsgs.hashPayload)
       tx = registrar
         .connect(registrarOwner)
         .approve(
@@ -663,7 +667,7 @@ describe('KeeperRegistrar', () => {
           emptyBytes,
           hash,
         )
-      await evmRevert(tx, errorMsgs.hashPayload)
+      await evmRevertCustomError(tx, registrar, errorMsgs.hashPayload)
       tx = registrar
         .connect(registrarOwner)
         .approve(
@@ -674,7 +678,7 @@ describe('KeeperRegistrar', () => {
           emptyBytes,
           hash,
         )
-      await evmRevert(tx, errorMsgs.hashPayload)
+      await evmRevertCustomError(tx, registrar, errorMsgs.hashPayload)
       tx = registrar
         .connect(registrarOwner)
         .approve(
@@ -685,7 +689,7 @@ describe('KeeperRegistrar', () => {
           '0x1234',
           hash,
         )
-      await evmRevert(tx, errorMsgs.hashPayload)
+      await evmRevertCustomError(tx, registrar, errorMsgs.hashPayload)
     })
 
     it('approves an existing registration request', async () => {
@@ -723,7 +727,7 @@ describe('KeeperRegistrar', () => {
           emptyBytes,
           hash,
         )
-      await evmRevert(tx, errorMsgs.requestNotFound)
+      await evmRevertCustomError(tx, registrar, errorMsgs.requestNotFound)
     })
   })
 
@@ -768,7 +772,7 @@ describe('KeeperRegistrar', () => {
 
     it('reverts if not called by the admin / owner', async () => {
       const tx = registrar.connect(stranger).cancel(hash)
-      await evmRevert(tx, errorMsgs.onlyAdmin)
+      await evmRevertCustomError(tx, registrar, errorMsgs.onlyAdmin)
     })
 
     it('reverts if the hash does not exist', async () => {
@@ -777,7 +781,7 @@ describe('KeeperRegistrar', () => {
         .cancel(
           '0x000000000000000000000000322813fd9a801c5507c9de605d63cea4f2ce6c44',
         )
-      await evmRevert(tx, errorMsgs.requestNotFound)
+      await evmRevertCustomError(tx, registrar, errorMsgs.requestNotFound)
     })
 
     it('refunds the total request balance to the admin address', async () => {
@@ -791,7 +795,7 @@ describe('KeeperRegistrar', () => {
     it('deletes the request hash', async () => {
       await registrar.connect(registrarOwner).cancel(hash)
       let tx = registrar.connect(registrarOwner).cancel(hash)
-      await evmRevert(tx, errorMsgs.requestNotFound)
+      await evmRevertCustomError(tx, registrar, errorMsgs.requestNotFound)
       tx = registrar
         .connect(registrarOwner)
         .approve(
@@ -802,7 +806,7 @@ describe('KeeperRegistrar', () => {
           emptyBytes,
           hash,
         )
-      await evmRevert(tx, errorMsgs.requestNotFound)
+      await evmRevertCustomError(tx, registrar, errorMsgs.requestNotFound)
     })
   })
 })

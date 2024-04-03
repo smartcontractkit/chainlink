@@ -1,8 +1,8 @@
 import { ethers } from 'hardhat'
 import { publicAbi } from '../test-helpers/helpers'
-import { expect, assert } from 'chai'
+import { assert, expect } from 'chai'
 import { Contract, ContractFactory } from 'ethers'
-import { Personas, getUsers } from '../test-helpers/setup'
+import { getUsers, Personas } from '../test-helpers/setup'
 
 const PERMISSION_NOT_SET = 'PermissionNotSet'
 
@@ -129,7 +129,7 @@ describe('PermissionedForwardProxy', () => {
           controller
             .connect(personas.Carol)
             .forward(await personas.Eddy.getAddress(), '0x'),
-        ).to.be.revertedWith(PERMISSION_NOT_SET)
+        ).to.be.revertedWithCustomError(controller, PERMISSION_NOT_SET)
       })
     })
 
