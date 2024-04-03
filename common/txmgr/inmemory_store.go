@@ -294,7 +294,7 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Updat
 
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveFetchedReceipts(ctx context.Context, receipts []R, chainID CHAIN_ID) error {
 	if ms.chainID.String() != chainID.String() {
-		return fmt.Errorf("save_fetched_receipts: %w: %s", ErrInvalidChainID, chainID)
+		panic("invalid chain ID")
 	}
 
 	// Persist to persistent storage
@@ -318,7 +318,7 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveF
 			receiptErrs = errors.Join(receiptErrs, err)
 		}
 		if !found {
-			receiptErrs = fmt.Errorf("receipt was not found: %w", receiptErrs)
+			receiptErrs = fmt.Errorf("save_fetched_receipts: errors occured while moving tx to confirmed: %w", receiptErrs)
 			errs = errors.Join(errs, receiptErrs)
 		}
 	}
