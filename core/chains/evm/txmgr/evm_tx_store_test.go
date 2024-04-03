@@ -3,6 +3,7 @@ package txmgr_test
 import (
 	"database/sql"
 	"fmt"
+	"github.com/ethereum/go-ethereum/common"
 	"math/big"
 	"testing"
 	"time"
@@ -1468,7 +1469,7 @@ func TestORM_GetTxInProgress(t *testing.T) {
 	})
 }
 
-func TestORM_GetNonFatalTransactionsByBatch(t *testing.T) {
+func TestORM_GetAbandonedTransactionsByBatch(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
@@ -1477,9 +1478,10 @@ func TestORM_GetNonFatalTransactionsByBatch(t *testing.T) {
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
+	enabledAddrs := []common.Address{fromAddress}
 
 	t.Run("gets 0 non finalized eth transaction", func(t *testing.T) {
-		txes, err := txStore.GetNonFatalTransactionsByBatch(testutils.Context(t), ethClient.ConfiguredChainID(), 0, 10)
+		txes, err := txStore.GetAbandonedTransactionsByBatch(testutils.Context(t), ethClient.ConfiguredChainID(), enabledAddrs, 0, 10)
 		require.NoError(t, err)
 		require.Empty(t, txes)
 	})
@@ -1488,8 +1490,9 @@ func TestORM_GetNonFatalTransactionsByBatch(t *testing.T) {
 		inProgressTx := mustInsertInProgressEthTxWithAttempt(t, txStore, 123, fromAddress)
 		unstartedTx := mustCreateUnstartedGeneratedTx(t, txStore, fromAddress, ethClient.ConfiguredChainID())
 
-		txes, err := txStore.GetNonFatalTransactionsByBatch(testutils.Context(t), ethClient.ConfiguredChainID(), 0, 10)
+		txes, err := txStore.GetAbandonedTransactionsByBatch(testutils.Context(t), ethClient.ConfiguredChainID(), enabledAddrs, 0, 10)
 		require.NoError(t, err)
+		require.Len(t, txes, 2)
 
 		for _, tx := range txes {
 			require.True(t, tx.ID == inProgressTx.ID || tx.ID == unstartedTx.ID)
@@ -1505,7 +1508,7 @@ func TestORM_GetNonFatalTransactionsByBatch(t *testing.T) {
 
 		allTxes := make([]*txmgr.Tx, 0)
 		err := sqlutil.Batch(func(offset, limit uint) (count uint, err error) {
-			batchTxes, err := txStore.GetNonFatalTransactionsByBatch(testutils.Context(t), ethClient.ConfiguredChainID(), offset, limit)
+			batchTxes, err := txStore.GetAbandonedTransactionsByBatch(testutils.Context(t), ethClient.ConfiguredChainID(), enabledAddrs, offset, limit)
 			require.NoError(t, err)
 			allTxes = append(allTxes, batchTxes...)
 			return uint(len(batchTxes)), nil

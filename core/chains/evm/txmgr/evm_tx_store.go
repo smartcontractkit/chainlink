@@ -1292,17 +1292,25 @@ func (o *evmTxStore) SaveInProgressAttempt(ctx context.Context, attempt *TxAttem
 	return nil
 }
 
-func (o *evmTxStore) GetNonFatalTransactionsByBatch(ctx context.Context, chainID *big.Int, offset, limit uint) (txes []*Tx, err error) {
+func (o *evmTxStore) GetAbandonedTransactionsByBatch(ctx context.Context, chainID *big.Int, enabledAddrs []common.Address, offset, limit uint) (txes []*Tx, err error) {
 	var cancel context.CancelFunc
 	ctx, cancel = o.mergeContexts(ctx)
 	defer cancel()
 
+	var enabledAddrsStr string
+	for i, addr := range enabledAddrs {
+		if i > 0 {
+			enabledAddrsStr += ","
+		}
+		enabledAddrsStr += fmt.Sprintf("'%s'", addr)
+	}
+
 	err = o.Transaction(ctx, true, func(orm *evmTxStore) error {
 		query := `SELECT * FROM evm.txes WHERE state <> 'fatal_error' AND evm_chain_id = $1 
-                       OFFSET $2 LIMIT $3 `
+                       AND from_address NOT IN ($2) ORDER BY nonce ASC OFFSET $3 LIMIT $4`
 
 		var dbEtxs []DbEthTx
-		if err = orm.q.SelectContext(ctx, &dbEtxs, query, chainID.String(), offset, limit); err != nil {
+		if err = orm.q.SelectContext(ctx, &dbEtxs, query, chainID.String(), enabledAddrsStr, offset, limit); err != nil {
 			return fmt.Errorf("failed to load evm.txes: %w", err)
 		}
 		txes = make([]*Tx, len(dbEtxs))

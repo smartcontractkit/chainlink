@@ -821,6 +821,36 @@ func (_m *EvmTxStore) FindTxsRequiringResubmissionDueToInsufficientFunds(ctx con
 	return r0, r1
 }
 
+// GetAbandonedTransactionsByBatch provides a mock function with given fields: ctx, chainID, enabledAddrs, offset, limit
+func (_m *EvmTxStore) GetAbandonedTransactionsByBatch(ctx context.Context, chainID *big.Int, enabledAddrs []common.Address, offset uint, limit uint) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
+	ret := _m.Called(ctx, chainID, enabledAddrs, offset, limit)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetAbandonedTransactionsByBatch")
+	}
+
+	var r0 []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int, []common.Address, uint, uint) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
+		return rf(ctx, chainID, enabledAddrs, offset, limit)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int, []common.Address, uint, uint) []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+		r0 = rf(ctx, chainID, enabledAddrs, offset, limit)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, *big.Int, []common.Address, uint, uint) error); ok {
+		r1 = rf(ctx, chainID, enabledAddrs, offset, limit)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetInProgressTxAttempts provides a mock function with given fields: ctx, address, chainID
 func (_m *EvmTxStore) GetInProgressTxAttempts(ctx context.Context, address common.Address, chainID *big.Int) ([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
 	ret := _m.Called(ctx, address, chainID)
@@ -844,36 +874,6 @@ func (_m *EvmTxStore) GetInProgressTxAttempts(ctx context.Context, address commo
 
 	if rf, ok := ret.Get(1).(func(context.Context, common.Address, *big.Int) error); ok {
 		r1 = rf(ctx, address, chainID)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// GetNonFatalTransactionsByBatch provides a mock function with given fields: ctx, chainID, offset, limit
-func (_m *EvmTxStore) GetNonFatalTransactionsByBatch(ctx context.Context, chainID *big.Int, offset uint, limit uint) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
-	ret := _m.Called(ctx, chainID, offset, limit)
-
-	if len(ret) == 0 {
-		panic("no return value specified for GetNonFatalTransactionsByBatch")
-	}
-
-	var r0 []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, *big.Int, uint, uint) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
-		return rf(ctx, chainID, offset, limit)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, *big.Int, uint, uint) []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
-		r0 = rf(ctx, chainID, offset, limit)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, *big.Int, uint, uint) error); ok {
-		r1 = rf(ctx, chainID, offset, limit)
 	} else {
 		r1 = ret.Error(1)
 	}
