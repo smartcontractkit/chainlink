@@ -125,21 +125,21 @@ func mercuryEventLoop(trigger *triggers.MercuryTriggerService, logger logger.Log
 			prices[i] = prices[i] + 1
 		}
 
-		reports := []mercury.FeedReport{
+		reports := []triggers.FeedReport{
 			{
-				FeedID:               mercury.Must(mercury.FromFeedIDString("0x1111111111111111111100000000000000000000000000000000000000000000")),
+				FeedID:               mercury.FeedID("0x1111111111111111111100000000000000000000000000000000000000000000").Bytes(),
 				FullReport:           []byte{},
 				BenchmarkPrice:       prices[0],
 				ObservationTimestamp: time.Now().Unix(),
 			},
 			{
-				FeedID:               mercury.Must(mercury.FromFeedIDString("0x2222222222222222222200000000000000000000000000000000000000000000")),
+				FeedID:               mercury.FeedID("0x2222222222222222222200000000000000000000000000000000000000000000").Bytes(),
 				FullReport:           []byte{},
 				BenchmarkPrice:       prices[1],
 				ObservationTimestamp: time.Now().Unix(),
 			},
 			{
-				FeedID:               mercury.Must(mercury.FromFeedIDString("0x3333333333333333333300000000000000000000000000000000000000000000")),
+				FeedID:               mercury.FeedID("0x3333333333333333333300000000000000000000000000000000000000000000").Bytes(),
 				FullReport:           []byte{},
 				BenchmarkPrice:       prices[2],
 				ObservationTimestamp: time.Now().Unix(),
