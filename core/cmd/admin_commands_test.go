@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"math/rand"
+	"strings"
 	"testing"
 	"time"
 
@@ -147,11 +148,19 @@ func TestShell_ListUsers(t *testing.T) {
 	assert.NoError(t, client.ListUsers(c), user.Email)
 
 	output := buffer.String()
-	assert.Contains(t, output, user.Email)
-	assert.Contains(t, output, user.Role)
-	assert.Contains(t, output, user.TokenKey.String)
-	assert.Contains(t, output, user.CreatedAt.String())
-	assert.Contains(t, output, user.UpdatedAt.String())
+
+	users := parseUsers(output)
+	emailToUser := map[string]User{}
+	for _, user := range users {
+		emailToUser[user.Email] = user
+	}
+
+	userToCompare := emailToUser[user.Email]
+	assert.Equal(t, user.Email, userToCompare.Email)
+	assert.Equal(t, string(user.Role), userToCompare.Role)
+	assert.Equal(t, user.TokenKey.Valid, userToCompare.HasAPIToken)
+	assert.True(t, user.CreatedAt.Equal(userToCompare.CreatedAt))
+	assert.True(t, user.UpdatedAt.Equal(userToCompare.UpdatedAt))
 }
 
 func TestAdminUsersPresenter_RenderTable(t *testing.T) {
@@ -186,4 +195,53 @@ func TestAdminUsersPresenter_RenderTable(t *testing.T) {
 	assert.Contains(t, output, user.TokenKey.String)
 	assert.Contains(t, output, user.CreatedAt.String())
 	assert.Contains(t, output, user.UpdatedAt.String())
+}
+
+type User struct {
+	Email       string
+	Role        string
+	HasAPIToken bool
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
+func parseUsers(input string) []User {
+	var users []User
+	userData := strings.Split(input, "------------------------------------------------------------------")
+
+	for _, data := range userData {
+		data = strings.TrimSpace(data)
+		if data == "" {
+			continue
+		}
+
+		var user User
+		fields := strings.Split(data, "\n")
+		for _, field := range fields {
+			parts := strings.SplitN(field, ":", 2)
+			if len(parts) != 2 {
+				continue
+			}
+
+			value := strings.TrimSpace(parts[1])
+			switch parts[0] {
+			case "Email":
+				user.Email = value
+			case "Role":
+				user.Role = value
+			case "Has API token":
+				user.HasAPIToken = value == "true"
+			case "Created at":
+				t, _ := time.Parse("2006-01-02 15:04:05.999999 -0700 MST", value)
+				user.CreatedAt = t
+			case "Updated at":
+				t, _ := time.Parse("2006-01-02 15:04:05.999999 -0700 MST", value)
+				user.UpdatedAt = t
+			}
+		}
+
+		users = append(users, user)
+	}
+
+	return users
 }
