@@ -274,6 +274,12 @@ func ReturnFunds(log zerolog.Logger, sethClient *seth.Client, chainlinkNodes []c
 				return err
 			}
 
+			if balance.Cmp(big.NewInt(0)) == 0 {
+				log.Info().
+					Str("Address", fromAddress.String()).
+					Msg("No balance to return. Skipping return.")
+			}
+
 			// if not set, it will be just set to empty string, which is okay as long as gas estimation is disabled
 			txPriority := sethClient.Cfg.Network.GasEstimationTxPriority
 			txTimeout := sethClient.Cfg.Network.TxnTimeout.Duration()
