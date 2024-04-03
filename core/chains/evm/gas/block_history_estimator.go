@@ -95,34 +95,32 @@ type estimatorGasEstimatorConfig interface {
 }
 
 //go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore
-type (
-	BlockHistoryEstimator struct {
-		services.StateMachine
-		ethClient evmclient.Client
-		chainID   big.Int
-		config    chainConfig
-		eConfig   estimatorGasEstimatorConfig
-		bhConfig  BlockHistoryConfig
-		// NOTE: it is assumed that blocks will be kept sorted by
-		// block number ascending
-		blocks    []evmtypes.Block
-		blocksMu  sync.RWMutex
-		size      int64
-		mb        *mailbox.Mailbox[*evmtypes.Head]
-		wg        *sync.WaitGroup
-		ctx       context.Context
-		ctxCancel context.CancelFunc
+type BlockHistoryEstimator struct {
+	services.StateMachine
+	ethClient evmclient.Client
+	chainID   big.Int
+	config    chainConfig
+	eConfig   estimatorGasEstimatorConfig
+	bhConfig  BlockHistoryConfig
+	// NOTE: it is assumed that blocks will be kept sorted by
+	// block number ascending
+	blocks    []evmtypes.Block
+	blocksMu  sync.RWMutex
+	size      int64
+	mb        *mailbox.Mailbox[*evmtypes.Head]
+	wg        *sync.WaitGroup
+	ctx       context.Context
+	ctxCancel context.CancelFunc
 
-		gasPrice     *assets.Wei
-		tipCap       *assets.Wei
-		priceMu      sync.RWMutex
-		latest       *evmtypes.Head
-		latestMu     sync.RWMutex
-		initialFetch atomic.Bool
+	gasPrice     *assets.Wei
+	tipCap       *assets.Wei
+	priceMu      sync.RWMutex
+	latest       *evmtypes.Head
+	latestMu     sync.RWMutex
+	initialFetch atomic.Bool
 
-		logger logger.SugaredLogger
-	}
-)
+	logger logger.SugaredLogger
+}
 
 // NewBlockHistoryEstimator returns a new BlockHistoryEstimator that listens
 // for new heads and updates the base gas price dynamically based on the
