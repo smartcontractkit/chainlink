@@ -178,11 +178,11 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 		logBufferVersion logprovider.BufferVersion
 	}{
 		{
-			name:             "default",
-			logBufferVersion: logprovider.BufferVersionV0,
+			name:             "default buffer",
+			logBufferVersion: logprovider.BufferVersionDefault,
 		},
 		{
-			name:             "v1",
+			name:             "buffer v1",
 			logBufferVersion: logprovider.BufferVersionV1,
 		},
 	}
@@ -285,11 +285,11 @@ func TestIntegration_KeeperPluginLogUpkeep_Retry(t *testing.T) {
 		logBufferVersion logprovider.BufferVersion
 	}{
 		{
-			name:             "default",
-			logBufferVersion: logprovider.BufferVersionV0,
+			name:             "default buffer",
+			logBufferVersion: logprovider.BufferVersionDefault,
 		},
 		{
-			name:             "v1",
+			name:             "buffer v1",
 			logBufferVersion: logprovider.BufferVersionV1,
 		},
 	}
@@ -420,11 +420,11 @@ func TestIntegration_KeeperPluginLogUpkeep_ErrHandler(t *testing.T) {
 		logBufferVersion logprovider.BufferVersion
 	}{
 		{
-			name:             "default",
-			logBufferVersion: logprovider.BufferVersionV0,
+			name:             "default buffer",
+			logBufferVersion: logprovider.BufferVersionDefault,
 		},
 		{
-			name:             "v1",
+			name:             "buffer v1",
 			logBufferVersion: logprovider.BufferVersionV1,
 		},
 	}

@@ -39,12 +39,12 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 		logLimit      uint32
 	}{
 		{
-			name:          "default version",
-			bufferVersion: logprovider.BufferVersionV0,
+			name:          "default buffer",
+			bufferVersion: logprovider.BufferVersionDefault,
 			logLimit:      10,
 		},
 		{
-			name:          "v1",
+			name:          "buffer v1",
 			bufferVersion: logprovider.BufferVersionV1,
 			logLimit:      10,
 		},
@@ -225,12 +225,12 @@ func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
 		logLimit      uint32
 	}{
 		{
-			name:          "default version",
-			bufferVersion: logprovider.BufferVersionV0,
+			name:          "default buffer",
+			bufferVersion: logprovider.BufferVersionDefault,
 			logLimit:      10,
 		},
 		{
-			name:          "v1",
+			name:          "buffer v1",
 			bufferVersion: logprovider.BufferVersionV1,
 			logLimit:      10,
 		},

@@ -48,6 +48,8 @@ var (
 	readerThreads = 4
 
 	bufferSyncInterval = 10 * time.Minute
+	// logLimitMinimum is how low the log limit can go.
+	logLimitMinimum = 1
 )
 
 // LogTriggerConfig is an alias for log trigger config.
@@ -196,8 +198,7 @@ func (p *logEventProvider) Start(context.Context) error {
 				select {
 				case <-ticker.C:
 					if p.bufferV1 != nil {
-						err := p.bufferV1.SyncFilters(p.filterStore)
-						if err != nil {
+						if err := p.bufferV1.SyncFilters(p.filterStore); err != nil {
 							p.lggr.Warnw("failed to sync filters", "err", err)
 						}
 					}
@@ -259,8 +260,8 @@ func (p *logEventProvider) getBufferDequeueArgs() (blockRate, logLimitLow, maxRe
 	// in case we have more upkeeps than the max results, we reduce the log limit low
 	// so that more upkeeps will get slots in the result set.
 	for numOfUpkeeps > maxResults/logLimitLow {
-		if logLimitLow == 1 {
-			// Log limit low can't go less than 1.
+		if logLimitLow == logLimitMinimum {
+			// Log limit low can't go less than logLimitMinimum (1).
 			// If some upkeeps are not getting slots in the result set, they supposed to be picked up
 			// in the next iteration if the range is still applicable.
 			// TODO: alerts to notify the system is at full capacity.

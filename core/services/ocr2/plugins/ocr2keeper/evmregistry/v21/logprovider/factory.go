@@ -43,12 +43,13 @@ type LogTriggersOptions struct {
 	BlockRate uint32
 }
 
+// BufferVersion is the version of the log buffer.
+// TODO: remove once we have a single version
 type BufferVersion string
 
 const (
-	BufferVersionNone BufferVersion = ""
-	BufferVersionV0   BufferVersion = "v0"
-	BufferVersionV1   BufferVersion = "v1"
+	BufferVersionDefault BufferVersion = ""
+	BufferVersionV1      BufferVersion = "v1"
 )
 
 func NewOptions(finalityDepth int64, chainID *big.Int) LogTriggersOptions {
