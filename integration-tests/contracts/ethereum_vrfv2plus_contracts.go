@@ -57,7 +57,9 @@ func (v *EthereumVRFV2PlusWrapper) Address() string {
 }
 
 func (v *EthereumVRFV2PlusWrapper) SetConfig(wrapperGasOverhead uint32,
+	wrapperGasOverheadPerWord uint16,
 	coordinatorGasOverhead uint32,
+	coordinatorGasOverheadPerWord uint16,
 	wrapperNativePremiumPercentage uint8,
 	wrapperLinkPremiumPercentage uint8,
 	keyHash [32]byte,
@@ -74,7 +76,9 @@ func (v *EthereumVRFV2PlusWrapper) SetConfig(wrapperGasOverhead uint32,
 	tx, err := v.wrapper.SetConfig(
 		opts,
 		wrapperGasOverhead,
+		wrapperGasOverheadPerWord,
 		coordinatorGasOverhead,
+		coordinatorGasOverheadPerWord,
 		wrapperNativePremiumPercentage,
 		wrapperLinkPremiumPercentage,
 		keyHash,

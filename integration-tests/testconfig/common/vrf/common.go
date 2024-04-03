@@ -157,7 +157,9 @@ type General struct {
 
 	// Wrapper Config
 	WrapperGasOverhead                      *uint32  `toml:"wrapped_gas_overhead"`
+	WrapperGasOverheadPerWord               *uint16  `toml:"wrapped_gas_overhead_per_word"`
 	CoordinatorGasOverhead                  *uint32  `toml:"coordinator_gas_overhead"`
+	CoordinatorGasOverheadPerWord           *uint16  `toml:"coordinator_gas_overhead_per_word"`
 	WrapperPremiumPercentage                *uint8   `toml:"wrapper_premium_percentage"`
 	WrapperMaxNumberOfWords                 *uint8   `toml:"wrapper_max_number_of_words"`
 	WrapperConsumerFundingAmountNativeToken *float64 `toml:"wrapper_consumer_funding_amount_native_token"`
