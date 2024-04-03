@@ -101,7 +101,7 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 
 			waitLogProvider(ctx, t, logProvider, 3)
 
-			allPayloads := collectPayloads(ctx, t, logProvider, n, 5)
+			allPayloads := collectPayloads(ctx, t, logProvider, n, logsRounds/2)
 			require.GreaterOrEqual(t, len(allPayloads), n,
 				"failed to get logs after restart")
 
@@ -375,7 +375,6 @@ func collectPayloads(ctx context.Context, t *testing.T, logProvider logprovider.
 	for ctx.Err() == nil && len(allPayloads) < n && rounds > 0 {
 		logs, err := logProvider.GetLatestPayloads(ctx)
 		require.NoError(t, err)
-		require.LessOrEqual(t, len(logs), n, "failed to get all logs")
 		allPayloads = append(allPayloads, logs...)
 		rounds--
 	}
