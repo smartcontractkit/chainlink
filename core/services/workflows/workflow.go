@@ -7,6 +7,7 @@ import (
 
 	"github.com/dominikbraun/graph"
 	"github.com/invopop/jsonschema"
+	"github.com/shopspring/decimal"
 	"sigs.k8s.io/yaml"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -16,6 +17,64 @@ import (
 type stepRequest struct {
 	stepRef string
 	state   executionState
+}
+
+type mapping map[string]any
+
+func (m *mapping) UnmarshalJSON(b []byte) error {
+	mp := map[string]any{}
+	err := json.Unmarshal(b, &mp)
+	if err != nil {
+		return err
+	}
+
+	for _, v := range mp {
+		switch vt := v.(type) {
+		case map[string]any:
+			nm, err := convertNumbers(vt)
+			if err != nil {
+				return err
+			}
+
+			mp = nm
+
+		}
+	}
+
+	m = (*mapping)(&mp)
+	return err
+}
+
+func convertNumbers(m map[string]any) (map[string]any, error) {
+	nm := map[string]any{}
+	for k, v := range m {
+		switch tv := v.(type) {
+		case json.Number:
+			f, err := tv.Float64()
+			if err == nil {
+				nm[k] = decimal.NewFromFloat(f)
+				continue
+			}
+
+			i, err := tv.Int64()
+			if err == nil {
+				nm[k] = i
+			}
+		case map[string]any:
+			cm, err := convertNumbers(tv)
+			if err != nil {
+				return nil, err
+			}
+
+			nm[k] = cm
+		}
+	}
+
+	return nm, nil
+}
+
+func (m mapping) MarshalJSON() ([]byte, error) {
+	return json.Marshal(map[string]any(m))
 }
 
 // stepDefinition is the parsed representation of a step in a workflow.
@@ -77,7 +136,7 @@ type stepDefinition struct {
 	//  - Input reference cannot be resolved.
 	//  - Input is defined on triggers
 	// NOTE: Should introduce a custom validator to cover trigger case
-	Inputs map[string]any `json:"inputs,omitempty"`
+	Inputs mapping `json:"inputs,omitempty"`
 
 	// The configuration of a Capability will be done using the “config” property. Each capability is responsible for defining an external interface used during setup. This interface may be unique or identical, meaning multiple Capabilities might use the same configuration properties.
 	//
@@ -95,7 +154,7 @@ type stepDefinition struct {
 	//        address: "0xaabbcc"
 	//        method: "updateFeedValues(report bytes, role uint8)"
 	//        params: [$(inputs.report), 1]
-	Config map[string]any `json:"config" jsonschema:"required"`
+	Config mapping `json:"config" jsonschema:"required"`
 }
 
 // workflowSpec is the parsed representation of a workflow.
@@ -205,7 +264,14 @@ const (
 
 func Parse(yamlWorkflow string) (*workflow, error) {
 	spec := &workflowSpec{}
-	err := yaml.Unmarshal([]byte(yamlWorkflow), spec)
+	err := yaml.Unmarshal(
+		[]byte(yamlWorkflow),
+		spec,
+		func(d *json.Decoder) *json.Decoder {
+			d.UseNumber()
+			return d
+		},
+	)
 	if err != nil {
 		return nil, err
 	}
