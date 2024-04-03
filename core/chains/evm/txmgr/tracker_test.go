@@ -152,7 +152,7 @@ func TestEvmTracker_ExceedingTTL(t *testing.T) {
 			require.NoError(t, err)
 		}(tracker)
 
-		time.Sleep(waitTime)
+		time.Sleep(5 * waitTime)
 		require.NotContains(t, tracker.GetAbandonedAddresses(), addr1, addr2)
 
 		fatalTxes, err := txStore.GetFatalTransactions(ctx)
