@@ -219,7 +219,7 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveR
 	// delete the old attempt
 	as.deleteTxAttempt(oldAttempt.TxID, oldAttempt.ID)
 	// add the new attempt
-	if err := as.addTxAttempts(*replacementAttempt); err != nil {
+	if err := as.addTxAttempt(*replacementAttempt); err != nil {
 		return fmt.Errorf("save_replacement_in_progress_attempt: failed to add a replacement transaction attempt: %w", err)
 	}
 

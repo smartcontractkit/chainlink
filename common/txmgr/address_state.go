@@ -1,7 +1,6 @@
 package txmgr
 
 import (
-	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -330,29 +329,24 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) delete
 }
 
 // addTxAttempt adds the given attempt to the transaction which matches its TxID.
-func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) addTxAttempts(txAttempts ...txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
+func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) addTxAttempt(txAttempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
 	as.Lock()
 	defer as.Unlock()
 
-	var errs error
-	for i := 0; i < len(txAttempts); i++ {
-		txAttempt := txAttempts[i]
-		tx := as.allTxs[txAttempt.TxID]
-		if tx == nil {
-			errs = errors.Join(errs, fmt.Errorf("no transaction with ID %d", txAttempt.TxID))
-			continue
-		}
-
-		// add the attempt to the transaction
-		if tx.TxAttempts == nil {
-			tx.TxAttempts = []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
-		}
-		tx.TxAttempts = append(tx.TxAttempts, txAttempt)
-		// add the attempt to the hash lookup map
-		as.attemptHashToTxAttempt[txAttempt.Hash] = &txAttempt
+	tx, ok := as.allTxs[txAttempt.TxID]
+	if !ok || tx == nil {
+		return fmt.Errorf("no transaction with ID %d", txAttempt.TxID)
 	}
 
-	return errs
+	// add the attempt to the transaction
+	if tx.TxAttempts == nil {
+		tx.TxAttempts = []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
+	}
+	tx.TxAttempts = append(tx.TxAttempts, txAttempt)
+	// add the attempt to the hash lookup map
+	as.attemptHashToTxAttempt[txAttempt.Hash] = &txAttempt
+
+	return nil
 }
 
 // peekNextUnstartedTx returns the next unstarted transaction in the queue without removing it from the unstarted queue.
