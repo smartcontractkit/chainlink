@@ -300,6 +300,35 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Count
 }
 
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) DeleteInProgressAttempt(ctx context.Context, attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
+	if attempt.State != txmgrtypes.TxAttemptInProgress {
+		return fmt.Errorf("DeleteInProgressAttempt: expected attempt state to be in_progress")
+	}
+	if attempt.ID == 0 {
+		return fmt.Errorf("DeleteInProgressAttempt: expected attempt to have an id")
+	}
+
+	// Check if fromaddress enabled
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
+	var as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
+	for _, vas := range ms.addressStates {
+		if vas.hasTx(attempt.TxID) {
+			as = vas
+			break
+		}
+	}
+	if as == nil {
+		return fmt.Errorf("delete_in_progress_attempt: %w: %q", ErrTxnNotFound, attempt.TxID)
+	}
+
+	// Persist to persistent storage
+	if err := ms.persistentTxStore.DeleteInProgressAttempt(ctx, attempt); err != nil {
+		return fmt.Errorf("delete_in_progress_attempt: %w", err)
+	}
+
+	// Update in memory store
+	as.deleteTxAttempt(attempt.TxID, attempt.ID)
+
 	return nil
 }
 

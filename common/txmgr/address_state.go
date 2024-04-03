@@ -198,6 +198,15 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) findTx
 	return nil
 }
 
+// hasTx returns true if the transaction with the given ID is in the address state.
+func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) hasTx(txID int64) bool {
+	as.RLock()
+	defer as.RUnlock()
+
+	_, ok := as.allTxs[txID]
+	return ok
+}
+
 // findTxs returns all transactions that match the given filters.
 // If txIDs are provided, only the transactions with those IDs are considered.
 // If no txIDs are provided, all transactions are considered.
@@ -291,6 +300,32 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) delete
 	defer as.Unlock()
 
 	as._deleteTxs(txIDs...)
+}
+
+// deleteTxAttempt removes the attempt with a given ID from the transaction with the given ID.
+// It removes the attempts from the hash lookup map and from the transaction.
+// If an attempt is not found in the hash lookup map, it is ignored.
+// If a transaction is not found in the allTxs map, it is ignored.
+// No error is returned if the transaction or attempt is not found.
+func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) deleteTxAttempt(txID, txAttemptID int64) {
+	as.Lock()
+	defer as.Unlock()
+
+	tx, ok := as.allTxs[txID]
+	if !ok || tx == nil {
+		return
+	}
+
+	for i := 0; i < len(tx.TxAttempts); i++ {
+		txAttempt := tx.TxAttempts[i]
+		if txAttempt.ID == txAttemptID {
+			// remove the attempt from the hash lookup map
+			delete(as.attemptHashToTxAttempt, txAttempt.Hash)
+			// remove the attempt from the transaction
+			tx.TxAttempts = append(tx.TxAttempts[:i], tx.TxAttempts[i+1:]...)
+			break
+		}
+	}
 }
 
 // peekNextUnstartedTx returns the next unstarted transaction in the queue without removing it from the unstarted queue.
