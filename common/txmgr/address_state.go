@@ -350,6 +350,8 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) moveTx
 		txAttempt.BroadcastBeforeBlockNum = &blockNum
 	}
 	tx.State = TxConfirmed
+	as.confirmedTxs[tx.ID] = tx
+	delete(as.unconfirmedTxs, tx.ID)
 	for i := 0; i < len(tx.TxAttempts); i++ {
 		if tx.TxAttempts[i].ID == txAttempt.ID {
 			tx.TxAttempts[i] = *txAttempt
