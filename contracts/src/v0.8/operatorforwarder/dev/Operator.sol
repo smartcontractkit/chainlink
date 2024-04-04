@@ -10,7 +10,7 @@ import {OperatorInterface} from "../../interfaces/OperatorInterface.sol";
 import {IOwnable} from "../../shared/interfaces/IOwnable.sol";
 import {WithdrawalInterface} from "./interfaces/WithdrawalInterface.sol";
 import {OracleInterface} from "../../interfaces/OracleInterface.sol";
-import {Address} from "@openzeppelin/contracts/utils/Address.sol";
+import {Address} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/Address.sol";
 import {SafeCast} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/math/SafeCast.sol";
 
 // @title The Chainlink Operator contract
