@@ -214,7 +214,7 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindN
 	error,
 ) {
 	if ms.chainID.String() != chainID.String() {
-		return nil, fmt.Errorf("find_next_unstarted_transaction_from_address: %w: %q", ErrInvalidChainID, chainID)
+		panic("invalid chain ID")
 	}
 	ms.addressStatesLock.RLock()
 	defer ms.addressStatesLock.RUnlock()
