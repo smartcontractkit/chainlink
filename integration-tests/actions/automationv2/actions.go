@@ -79,8 +79,10 @@ type AutomationTest struct {
 
 	NodeDetails              []NodeDetails
 	DefaultP2Pv2Bootstrapper string
-	MercuryCredentialName    string
+	mercuryCredentialName    string
 	TransmitterKeyIndex      int
+
+	useLogBufferV1 bool
 }
 
 type UpkeepConfig struct {
@@ -108,6 +110,8 @@ func NewAutomationTestK8s(
 		IsOnk8s:                true,
 		TransmitterKeyIndex:    0,
 		UpkeepPrivilegeManager: common.HexToAddress(chainClient.GetDefaultWallet().Address()),
+		mercuryCredentialName:  "",
+		useLogBufferV1:         false,
 	}
 }
 
@@ -123,6 +127,8 @@ func NewAutomationTestDocker(
 		IsOnk8s:                false,
 		TransmitterKeyIndex:    0,
 		UpkeepPrivilegeManager: common.HexToAddress(chainClient.GetDefaultWallet().Address()),
+		mercuryCredentialName:  "",
+		useLogBufferV1:         false,
 	}
 }
 
@@ -131,7 +137,11 @@ func (a *AutomationTest) SetIsOnk8s(flag bool) {
 }
 
 func (a *AutomationTest) SetMercuryCredentialName(name string) {
-	a.MercuryCredentialName = name
+	a.mercuryCredentialName = name
+}
+
+func (a *AutomationTest) SetUseLogBufferV1(flag bool) {
+	a.useLogBufferV1 = flag
 }
 
 func (a *AutomationTest) SetTransmitterKeyIndex(index int) {
@@ -381,6 +391,17 @@ func (a *AutomationTest) AddAutomationJobs() error {
 	} else {
 		return fmt.Errorf("v2.0, v2.1, and v2.2 are the only supported versions")
 	}
+	pluginCfg := map[string]interface{}{
+		"contractVersion": "\"" + contractVersion + "\"",
+	}
+	if strings.Contains(contractVersion, "v2.1") {
+		if a.mercuryCredentialName != "" {
+			pluginCfg["mercuryCredentialName"] = "\"" + a.mercuryCredentialName + "\""
+		}
+		if a.useLogBufferV1 {
+			pluginCfg["useBufferV1"] = "true"
+		}
+	}
 	for i := 1; i < len(a.ChainlinkNodes); i++ {
 		autoOCR2JobSpec := client.OCR2TaskJobSpec{
 			Name:    "automation-" + contractVersion + "-" + a.Registry.Address(),
@@ -392,10 +413,7 @@ func (a *AutomationTest) AddAutomationJobs() error {
 				RelayConfig: map[string]interface{}{
 					"chainID": int(a.ChainClient.GetChainID().Int64()),
 				},
-				PluginConfig: map[string]interface{}{
-					"mercuryCredentialName": "\"" + a.MercuryCredentialName + "\"",
-					"contractVersion":       "\"" + contractVersion + "\"",
-				},
+				PluginConfig:                      pluginCfg,
 				ContractConfigTrackerPollInterval: *models.NewInterval(time.Second * 15),
 				TransmitterID:                     null.StringFrom(a.NodeDetails[i].TransmitterAddresses[a.TransmitterKeyIndex]),
 				P2PV2Bootstrappers:                pq.StringArray{a.DefaultP2Pv2Bootstrapper},
@@ -570,15 +588,7 @@ func calculateOCR3ConfigArgs(a *AutomationTest, S []int, oracleIdentities []conf
 	offchainConfig []byte,
 	err error,
 ) {
-	offC, _ := json.Marshal(ocr2keepers30config.OffchainConfig{
-		TargetProbability:    a.PluginConfig.TargetProbability,
-		TargetInRounds:       a.PluginConfig.TargetInRounds,
-		PerformLockoutWindow: a.PluginConfig.PerformLockoutWindow,
-		GasLimitPerReport:    a.PluginConfig.GasLimitPerReport,
-		GasOverheadPerUpkeep: a.PluginConfig.GasOverheadPerUpkeep,
-		MinConfirmations:     a.PluginConfig.MinConfirmations,
-		MaxUpkeepBatchSize:   a.PluginConfig.MaxUpkeepBatchSize,
-	})
+	offC, _ := json.Marshal(a.PluginConfig)
 
 	return ocr3.ContractSetConfigArgsForTests(
 		a.PublicConfig.DeltaProgress, a.PublicConfig.DeltaResend, a.PublicConfig.DeltaInitial,
@@ -671,7 +681,7 @@ func (a *AutomationTest) AddJobsAndSetConfig(t *testing.T) {
 	err = a.AddAutomationJobs()
 	require.NoError(t, err, "Error adding automation jobs")
 
-	l.Debug().
+	l.Info().
 		Interface("Plugin Config", a.PluginConfig).
 		Interface("Public Config", a.PublicConfig).
 		Interface("Registry Settings", a.RegistrySettings).
