@@ -242,6 +242,10 @@ func (b *Broadcaster) SetResumeCallback(callback txmgr.ResumeCallback) {
 	b.resumeCallback = callback
 }
 
+func (b *Broadcaster) HealthReport() map[string]error {
+	return map[string]error{b.lggr.Name(): b.Healthy()}
+}
+
 func newResendBackoff() backoff.Backoff {
 	return backoff.Backoff{
 		Min:    1 * time.Second,
@@ -315,6 +319,14 @@ func (b *Broadcaster) monitorTxs(addr common.Address, triggerCh chan struct{}) {
 // First handle any in_progress transactions left over from last time.
 // Then keep looking up unstarted transactions and processing them until there are none remaining.
 func (b *Broadcaster) ProcessUnstartedTxs(ctx context.Context, fromAddress common.Address) (retryable bool, err error) {
+	var n uint
+	mark := time.Now()
+	defer func() {
+		if n > 0 {
+			b.lggr.Debugw("Finished ProcessUnstartedTxs", "address", fromAddress, "time", time.Since(mark), "n", n)
+		}
+	}()
+
 	retryable, err = b.handleAnyInProgressTx(ctx, fromAddress)
 	if err != nil {
 		return retryable, fmt.Errorf("ProcessUnstartedTxs failed on handleAnyInProgressTx: %w", err)
@@ -341,15 +353,16 @@ func (b *Broadcaster) ProcessUnstartedTxs(ctx context.Context, fromAddress commo
 				continue
 			}
 		}
-		etx, err := b.nextUnstartedTransactionWithSequence(fromAddress)
+		tx, err := b.nextUnstartedTransactionWithSequence(fromAddress)
 		if err != nil {
 			return true, fmt.Errorf("processUnstartedTxs failed on nextUnstartedTransactionWithSequence: %w", err)
 		}
-		if etx == nil {
+		if tx == nil {
 			return false, nil
 		}
+		n++
 
-		if retryable, err := b.handleUnstartedTx(ctx, etx); err != nil {
+		if retryable, err := b.handleUnstartedTx(ctx, tx); err != nil {
 			return retryable, fmt.Errorf("processUnstartedTxs failed on handleUnstartedTx: %w", err)
 		}
 	}
@@ -375,7 +388,7 @@ func (b *Broadcaster) handleAnyInProgressTx(ctx context.Context, fromAddress com
 func (b *Broadcaster) nextUnstartedTransactionWithSequence(fromAddress common.Address) (*Tx, error) {
 	ctx, cancel := b.chStop.NewCtx()
 	defer cancel()
-	etx, err := b.txStore.FindNextUnstartedTransactionFromAddress(ctx, fromAddress, b.chainID)
+	tx, err := b.txStore.FindNextUnstartedTransactionFromAddress(ctx, fromAddress, b.chainID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
@@ -383,12 +396,12 @@ func (b *Broadcaster) nextUnstartedTransactionWithSequence(fromAddress common.Ad
 		return nil, fmt.Errorf("findNextUnstartedTransactionFromAddress failed: %w", err)
 	}
 
-	sequence, err := b.sequenceTracker.GetNextSequence(ctx, etx.FromAddress)
+	sequence, err := b.sequenceTracker.GetNextSequence(ctx, tx.FromAddress)
 	if err != nil {
 		return nil, err
 	}
-	etx.Sequence = &sequence
-	return etx, nil
+	tx.Sequence = &sequence
+	return tx, nil
 }
 
 func (b *Broadcaster) handleUnstartedTx(ctx context.Context, tx *Tx) (bool, error) {
@@ -464,7 +477,7 @@ func (b *Broadcaster) saveFatallyErroredTransaction(tx *Tx) error {
 	if tx.PipelineTaskRunID.Valid && b.resumeCallback != nil && tx.SignalCallback {
 		err := b.resumeCallback(tx.PipelineTaskRunID.UUID, nil, fmt.Errorf("fatal error while sending transaction: %s", tx.Error.String))
 		if errors.Is(err, sql.ErrNoRows) {
-			b.lggr.Debugw("callback missing or already resumed", "etxID", tx.ID)
+			b.lggr.Debugw("callback missing or already resumed", "txID", tx.ID)
 		} else if err != nil {
 			return fmt.Errorf("failed to resume pipeline: %w", err)
 		} else {
@@ -485,7 +498,7 @@ func (b *Broadcaster) handleInProgressTx(ctx context.Context, tx Tx, attempt TxA
 
 	signedTx, err := GetGethSignedTx(attempt.SignedRawTx)
 	if err != nil {
-		return false, fmt.Errorf("error while sending transaction %s (tx ID %d): %w", attempt.Hash.String(), tx.ID, err)
+		return false, fmt.Errorf("error while signing transaction %d: %w", tx.ID, err)
 	}
 
 	errType, err := b.client.SendTransactionReturnCode(ctx, signedTx, tx.FromAddress)
@@ -596,12 +609,13 @@ func (b *Broadcaster) tryAgainWithNewEstimation(ctx context.Context, tx Tx, atte
 	if bump {
 		replacementAttempt, err = b.txAttemptBuilder.NewBumpAttempt(ctx, tx, attempt, nil, b.lggr)
 		if err != nil {
-			return false, fmt.Errorf("tryAgainBumpingGas failed: %w", err)
+			return true, fmt.Errorf("tryAgainBumpingGas failed: %w", err)
 		}
-	}
-	replacementAttempt, err = b.txAttemptBuilder.NewAttempt(ctx, tx, b.lggr, feetypes.OptForceRefetch)
-	if err != nil {
-		return false, fmt.Errorf("tryAgainWithNewEstimation failed to build new attempt: %w", err)
+	} else {
+		replacementAttempt, err = b.txAttemptBuilder.NewAttempt(ctx, tx, b.lggr, feetypes.OptForceRefetch)
+		if err != nil {
+			return true, fmt.Errorf("tryAgainWithNewEstimation failed to build new attempt: %w", err)
+		}
 	}
 
 	b.lggr.Warnw("RPC rejected transaction due to incorrect fee, re-estimated and will try again",
@@ -620,7 +634,7 @@ func (b *Broadcaster) saveTryAgainAttempt(
 	newFeeLimit uint64,
 ) (retyrable bool, err error) {
 	if err = b.txStore.SaveReplacementInProgressAttempt(ctx, attempt, &replacementAttempt); err != nil {
-		return true, fmt.Errorf("tryAgainWithNewFee failed: %w", err)
+		return true, fmt.Errorf("saveTryAgainAttempt failed: %w", err)
 	}
 	b.lggr.Infow("Bumped fee on initial send", "txID", tx.ID, "oldFee", attempt.TxFee.String(), "newFee", newFee.String(), "newFeeLimit", newFeeLimit)
 	return b.handleInProgressTx(ctx, tx, replacementAttempt, initialBroadcastAt)

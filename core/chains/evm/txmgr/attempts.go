@@ -68,6 +68,7 @@ func (c *evmTxAttemptBuilder) NewBumpAttempt(ctx context.Context, tx Tx, previou
 	return attempt, err
 }
 
+// Deprecated: use NewAttempt instead.
 func (c *evmTxAttemptBuilder) NewTxAttempt(ctx context.Context, etx Tx, lggr logger.Logger, opts ...feetypes.Opt) (attempt TxAttempt, fee gas.EvmFee, feeLimit uint64, retryable bool, err error) {
 	txType := 0x0
 	if c.feeConfig.EIP1559DynamicFees() {
