@@ -1,20 +1,21 @@
 package keeper
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	registry1_1 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_1"
 	registry1_2 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_2"
 	registry1_3 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_3"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 )
 
-func (rs *RegistrySynchronizer) processLogs() {
+func (rs *RegistrySynchronizer) processLogs(ctx context.Context) {
 	for _, broadcast := range rs.mbLogs.RetrieveAll() {
 		eventLog := broadcast.DecodedLog()
 		if eventLog == nil || reflect.ValueOf(eventLog).IsNil() {
@@ -22,7 +23,7 @@ func (rs *RegistrySynchronizer) processLogs() {
 			continue
 		}
 
-		was, err := rs.logBroadcaster.WasAlreadyConsumed(broadcast)
+		was, err := rs.logBroadcaster.WasAlreadyConsumed(ctx, broadcast)
 		if err != nil {
 			rs.logger.Warn(errors.Wrap(err, "unable to check if log was consumed"))
 			continue
@@ -84,7 +85,7 @@ func (rs *RegistrySynchronizer) processLogs() {
 			rs.logger.Error(err)
 		}
 
-		err = rs.logBroadcaster.MarkConsumed(broadcast)
+		err = rs.logBroadcaster.MarkConsumed(ctx, broadcast)
 		if err != nil {
 			rs.logger.Error(errors.Wrapf(err, "unable to mark %T log as consumed, log: %v", broadcast.RawLog(), broadcast.String()))
 		}
@@ -144,7 +145,7 @@ func (rs *RegistrySynchronizer) handleUpkeepPerformed(broadcast log.Broadcast) e
 	if err != nil {
 		return errors.Wrap(err, "Unable to fetch upkeep ID from performed log")
 	}
-	rowsAffected, err := rs.orm.SetLastRunInfoForUpkeepOnJob(rs.job.ID, big.New(log.UpkeepID), int64(broadcast.RawLog().BlockNumber), ethkey.EIP55AddressFromAddress(log.FromKeeper))
+	rowsAffected, err := rs.orm.SetLastRunInfoForUpkeepOnJob(rs.job.ID, big.New(log.UpkeepID), int64(broadcast.RawLog().BlockNumber), types.EIP55AddressFromAddress(log.FromKeeper))
 	if err != nil {
 		return errors.Wrap(err, "failed to set last run to 0")
 	}
@@ -152,7 +153,7 @@ func (rs *RegistrySynchronizer) handleUpkeepPerformed(broadcast log.Broadcast) e
 		"jobID", rs.job.ID,
 		"upkeepID", log.UpkeepID.String(),
 		"blockNumber", int64(broadcast.RawLog().BlockNumber),
-		"fromAddr", ethkey.EIP55AddressFromAddress(log.FromKeeper),
+		"fromAddr", types.EIP55AddressFromAddress(log.FromKeeper),
 		"rowsAffected", rowsAffected,
 	)
 	return nil

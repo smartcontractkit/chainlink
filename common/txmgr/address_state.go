@@ -1,7 +1,6 @@
 package txmgr
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
@@ -172,7 +171,43 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) findTx
 	filter func(*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool,
 	txIDs ...int64,
 ) []txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {
-	return nil
+	as.RLock()
+	defer as.RUnlock()
+
+	// if txStates is empty then apply the filter to only the as.allTransactions map
+	if len(txStates) == 0 {
+		return as._findTxs(as.allTxs, filter, txIDs...)
+	}
+
+	var txs []txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	for _, txState := range txStates {
+		switch txState {
+		case TxUnstarted:
+			filter2 := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
+				if tx.State != TxUnstarted {
+					return false
+				}
+				return filter(tx)
+			}
+			txs = append(txs, as._findTxs(as.allTxs, filter2, txIDs...)...)
+		case TxInProgress:
+			if as.inprogressTx != nil && filter(as.inprogressTx) {
+				txs = append(txs, *as.inprogressTx)
+			}
+		case TxUnconfirmed:
+			txs = append(txs, as._findTxs(as.unconfirmedTxs, filter, txIDs...)...)
+		case TxConfirmedMissingReceipt:
+			txs = append(txs, as._findTxs(as.confirmedMissingReceiptTxs, filter, txIDs...)...)
+		case TxConfirmed:
+			txs = append(txs, as._findTxs(as.confirmedTxs, filter, txIDs...)...)
+		case TxFatalError:
+			txs = append(txs, as._findTxs(as.fatalErroredTxs, filter, txIDs...)...)
+		default:
+			panic("findTxs: unknown transaction state")
+		}
+	}
+
+	return txs
 }
 
 // pruneUnstartedTxQueue removes the transactions with the given IDs from the unstarted transaction queue.
@@ -181,7 +216,7 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) pruneU
 	defer as.Unlock()
 
 	txs := as.unstartedTxs.PruneByTxIDs(ids)
-	as.deleteTxs(txs...)
+	as._deleteTxs(txs...)
 }
 
 // deleteTxs removes the transactions with the given IDs from the address state.
@@ -211,27 +246,15 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) peekIn
 }
 
 // addTxToUnstartedQueue adds the given transaction to the unstarted queue.
-// If the queue is full, an error is returned.
-// If the transaction was successfully added, nil is returned.
-// If the transaction's idempotency key already exists, an error is returned.
-func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) addTxToUnstartedQueue(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
+func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) addTxToUnstartedQueue(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) {
 	as.Lock()
 	defer as.Unlock()
-
-	if tx.IdempotencyKey != nil && as.idempotencyKeyToTx[*tx.IdempotencyKey] != nil {
-		return fmt.Errorf("add_tx_to_unstarted_queue: address %s idempotency key %s already exists", as.fromAddress, *tx.IdempotencyKey)
-	}
-	if as.unstartedTxs.Len() >= as.unstartedTxs.Cap() {
-		return fmt.Errorf("add_tx_to_unstarted_queue: address %s unstarted queue capacity has been reached", as.fromAddress)
-	}
 
 	as.unstartedTxs.AddTx(tx)
 	as.allTxs[tx.ID] = tx
 	if tx.IdempotencyKey != nil {
 		as.idempotencyKeyToTx[*tx.IdempotencyKey] = tx
 	}
-
-	return nil
 }
 
 // moveUnstartedToInProgress moves the next unstarted transaction to the in-progress state.
@@ -303,4 +326,32 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) _delet
 		delete(as.fatalErroredTxs, txID)
 		as.unstartedTxs.RemoveTxByID(txID)
 	}
+}
+
+// This method is not concurrent safe and should only be called from within a lock
+func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) _findTxs(
+	txIDsToTx map[int64]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
+	filter func(*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool,
+	txIDs ...int64,
+) []txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {
+	var txs []txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	// if txIDs is not empty then only apply the filter to those transactions
+	if len(txIDs) > 0 {
+		for _, txID := range txIDs {
+			tx := txIDsToTx[txID]
+			if tx != nil && filter(tx) {
+				txs = append(txs, *tx)
+			}
+		}
+		return txs
+	}
+
+	// if txIDs is empty then apply the filter to all transactions
+	for _, tx := range txIDsToTx {
+		if filter(tx) {
+			txs = append(txs, *tx)
+		}
+	}
+
+	return txs
 }
