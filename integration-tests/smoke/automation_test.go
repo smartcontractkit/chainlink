@@ -140,13 +140,6 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool, automationTestConfig t
 			)
 
 			for i := 0; i < len(upkeepIDs); i++ {
-				if isLogTrigger || isMercuryV02 {
-					if err := consumers[i].Start(); err != nil {
-						l.Error().Msg("Error when starting consumer")
-						return
-					}
-				}
-
 				if isMercury {
 					// Set privilege config to enable mercury
 					privilegeConfigBytes, _ := json.Marshal(streams.UpkeepPrivilegeConfig{
@@ -154,6 +147,13 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool, automationTestConfig t
 					})
 					if err := a.Registry.SetUpkeepPrivilegeConfig(upkeepIDs[i], privilegeConfigBytes); err != nil {
 						l.Error().Msg("Error when setting upkeep privilege config")
+						return
+					}
+				}
+
+				if isLogTrigger || isMercuryV02 {
+					if err := consumers[i].Start(); err != nil {
+						l.Error().Msg("Error when starting consumer")
 						return
 					}
 				}
