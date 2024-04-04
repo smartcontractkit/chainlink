@@ -208,6 +208,9 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Updat
 	if !ok {
 		return fmt.Errorf("update_tx_fatal_error: %w", ErrAddressNotFound)
 	}
+	if !as.hasTx(tx.ID) {
+		return fmt.Errorf("update_tx_fatal_error: %w: %q", ErrTxnNotFound, tx.ID)
+	}
 
 	// Persist to persistent storage
 	if err := ms.persistentTxStore.UpdateTxFatalError(ctx, tx); err != nil {
