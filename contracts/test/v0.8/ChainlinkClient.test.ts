@@ -27,15 +27,15 @@ before(async () => {
     roles.defaultAccount,
   )
   emptyOracleFactory = await ethers.getContractFactory(
-    'src/v0.6/tests/EmptyOracle.sol:EmptyOracle',
+    'src/v0.8/operatorforwarder/dev/test/testhelpers/EmptyOracle.sol:EmptyOracle',
     roles.defaultAccount,
   )
   getterSetterFactory = await ethers.getContractFactory(
-    'src/v0.8/operatorforwarder/dev/tests/testhelpers/GetterSetter.sol:GetterSetter',
+    'src/v0.8/operatorforwarder/dev/test/testhelpers/GetterSetter.sol:GetterSetter',
     roles.defaultAccount,
   )
   operatorFactory = await ethers.getContractFactory(
-    'src/v0.7/Operator.sol:Operator',
+    'src/v0.8/operatorforwarder/dev/Operator.sol:Operator',
     roles.defaultAccount,
   )
   linkTokenFactory = await ethers.getContractFactory(

@@ -67,6 +67,26 @@ func (_m *LogPoller) GetBlocksRange(ctx context.Context, numbers []uint64) ([]lo
 	return r0, r1
 }
 
+// GetFilters provides a mock function with given fields:
+func (_m *LogPoller) GetFilters() map[string]logpoller.Filter {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetFilters")
+	}
+
+	var r0 map[string]logpoller.Filter
+	if rf, ok := ret.Get(0).(func() map[string]logpoller.Filter); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(map[string]logpoller.Filter)
+		}
+	}
+
+	return r0
+}
+
 // HasFilter provides a mock function with given fields: name
 func (_m *LogPoller) HasFilter(name string) bool {
 	ret := _m.Called(name)

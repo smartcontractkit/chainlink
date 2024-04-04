@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
+import {Vm} from "forge-std/Test.sol";
 import {BaseTest} from "./BaseTest.t.sol";
 import {AutomationRegistryBase2_3 as AutoBase} from "../v2_3/AutomationRegistryBase2_3.sol";
+import {AutomationRegistrar2_3 as Registrar} from "../v2_3/AutomationRegistrar2_3.sol";
 import {IAutomationRegistryMaster2_3 as Registry, AutomationRegistryBase2_3} from "../interfaces/v2_3/IAutomationRegistryMaster2_3.sol";
 import {ChainModuleBase} from "../../chains/ChainModuleBase.sol";
 import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
@@ -249,12 +251,23 @@ contract Withdraw is SetUp {
     registry.withdrawERC20Fees(address(usdToken), FINANCE_ADMIN, 1);
   }
 
-  function test_WithdrawERC20Fees_RevertsWhenAttemptingToWithdrawLINK() public {
+  function test_WithdrawERC20Fees_RevertsWhen_AttemptingToWithdrawLINK() public {
     _mintLink(address(registry), 1e10);
     vm.startPrank(FINANCE_ADMIN);
     vm.expectRevert(Registry.InvalidToken.selector);
     registry.withdrawERC20Fees(address(linkToken), FINANCE_ADMIN, 1); // should revert
     registry.withdrawLink(FINANCE_ADMIN, 1); // but using link withdraw functions succeeds
+  }
+
+  function test_WithdrawERC20Fees_RevertsWhen_LinkAvailableForPaymentIsNegative() public {
+    _transmit(usdUpkeepID, registry); // adds USD token to finance withdrawable, and gives NOPs a LINK balance
+    require(registry.linkAvailableForPayment() < 0, "linkAvailableForPayment should be negative");
+    vm.expectRevert(Registry.InsufficientLinkLiquidity.selector);
+    vm.prank(FINANCE_ADMIN);
+    registry.withdrawERC20Fees(address(usdToken), FINANCE_ADMIN, 1); // should revert
+    _mintLink(address(registry), uint256(registry.linkAvailableForPayment() * -10)); // top up LINK liquidity pool
+    vm.prank(FINANCE_ADMIN);
+    registry.withdrawERC20Fees(address(usdToken), FINANCE_ADMIN, 1); // now finance can withdraw
   }
 
   function testWithdrawERC20FeeSuccess() public {
@@ -570,7 +583,6 @@ contract SetConfig is SetUp {
       minSpend: 100_000
     });
 
-    bytes memory onchainConfigBytesWithBilling = abi.encode(cfg, billingTokens, billingConfigs);
     // deploy registry with OFF_CHAIN payout mode
     registry = deployRegistry(AutoBase.PayoutMode.OFF_CHAIN);
 
@@ -585,6 +597,109 @@ contract SetConfig is SetUp {
       billingTokens,
       billingConfigs
     );
+  }
+
+  function testSetConfigWithNewTransmittersSuccess() public {
+    registry = deployRegistry(AutoBase.PayoutMode.OFF_CHAIN);
+
+    (uint32 configCount, uint32 blockNumber, ) = registry.latestConfigDetails();
+    assertEq(configCount, 0);
+
+    address billingTokenAddress = address(0x1111111111111111111111111111111111111111);
+    address[] memory billingTokens = new address[](1);
+    billingTokens[0] = billingTokenAddress;
+
+    AutomationRegistryBase2_3.BillingConfig[] memory billingConfigs = new AutomationRegistryBase2_3.BillingConfig[](1);
+    billingConfigs[0] = AutomationRegistryBase2_3.BillingConfig({
+      gasFeePPB: 5_000,
+      flatFeeMilliCents: 20_000,
+      priceFeed: 0x2222222222222222222222222222222222222222,
+      fallbackPrice: 2_000_000_000, // $20
+      minSpend: 100_000
+    });
+
+    bytes memory onchainConfigBytes = abi.encode(cfg);
+
+    bytes32 configDigest = _configDigestFromConfigData(
+      block.chainid,
+      address(registry),
+      ++configCount,
+      SIGNERS,
+      TRANSMITTERS,
+      F,
+      onchainConfigBytes,
+      OFFCHAIN_CONFIG_VERSION,
+      offchainConfigBytes
+    );
+
+    vm.expectEmit();
+    emit ConfigSet(
+      blockNumber,
+      configDigest,
+      configCount,
+      SIGNERS,
+      TRANSMITTERS,
+      F,
+      onchainConfigBytes,
+      OFFCHAIN_CONFIG_VERSION,
+      offchainConfigBytes
+    );
+
+    registry.setConfigTypeSafe(
+      SIGNERS,
+      TRANSMITTERS,
+      F,
+      cfg,
+      OFFCHAIN_CONFIG_VERSION,
+      offchainConfigBytes,
+      billingTokens,
+      billingConfigs
+    );
+
+    (, , address[] memory signers, address[] memory transmitters, ) = registry.getState();
+    assertEq(signers, SIGNERS);
+    assertEq(transmitters, TRANSMITTERS);
+
+    (configCount, blockNumber, ) = registry.latestConfigDetails();
+    configDigest = _configDigestFromConfigData(
+      block.chainid,
+      address(registry),
+      ++configCount,
+      SIGNERS,
+      NEW_TRANSMITTERS,
+      F,
+      onchainConfigBytes,
+      OFFCHAIN_CONFIG_VERSION,
+      offchainConfigBytes
+    );
+
+    vm.expectEmit();
+    emit ConfigSet(
+      blockNumber,
+      configDigest,
+      configCount,
+      SIGNERS,
+      NEW_TRANSMITTERS,
+      F,
+      onchainConfigBytes,
+      OFFCHAIN_CONFIG_VERSION,
+      offchainConfigBytes
+    );
+
+    registry.setConfigTypeSafe(
+      SIGNERS,
+      NEW_TRANSMITTERS,
+      F,
+      cfg,
+      OFFCHAIN_CONFIG_VERSION,
+      offchainConfigBytes,
+      billingTokens,
+      billingConfigs
+    );
+
+    (, , signers, transmitters, ) = registry.getState();
+    assertEq(signers, SIGNERS);
+    assertEq(transmitters, NEW_TRANSMITTERS);
   }
 
   function _configDigestFromConfigData(
@@ -621,6 +736,8 @@ contract SetConfig is SetUp {
 
 contract NOPsSettlement is SetUp {
   event NOPsSettledOffchain(address[] payees, uint256[] payments);
+  event FundsWithdrawn(uint256 indexed id, uint256 amount, address to);
+  event PaymentWithdrawn(address indexed transmitter, uint256 indexed amount, address indexed to, address payee);
 
   function testSettleNOPsOffchainRevertDueToUnauthorizedCaller() public {
     (Registry registry, ) = deployAndConfigureRegistryAndRegistrar(AutoBase.PayoutMode.ON_CHAIN);
@@ -667,29 +784,7 @@ contract NOPsSettlement is SetUp {
     registry.addFunds(id, 1e20);
 
     // manually create a transmit so transmitters earn some rewards
-    AutoBase.Report memory report;
-    {
-      uint256[] memory upkeepIds = new uint256[](1);
-      uint256[] memory gasLimits = new uint256[](1);
-      bytes[] memory performDatas = new bytes[](1);
-      bytes[] memory triggers = new bytes[](1);
-      upkeepIds[0] = id;
-      gasLimits[0] = 1000000;
-      triggers[0] = _encodeConditionalTrigger(
-        AutoBase.ConditionalTrigger(uint32(block.number - 1), blockhash(block.number - 1))
-      );
-      report = AutoBase.Report(uint256(1000000000), uint256(2000000000), upkeepIds, gasLimits, triggers, performDatas);
-    }
-    bytes memory reportBytes = _encodeReport(report);
-    (, , bytes32 configDigest) = registry.latestConfigDetails();
-    bytes32[3] memory reportContext = [configDigest, configDigest, configDigest];
-    uint256[] memory signerPKs = new uint256[](2);
-    signerPKs[0] = SIGNING_KEY0;
-    signerPKs[1] = SIGNING_KEY1;
-    (bytes32[] memory rs, bytes32[] memory ss, bytes32 vs) = _signReport(reportBytes, reportContext, signerPKs);
-
-    vm.startPrank(TRANSMITTERS[0]);
-    registry.transmit(reportContext, reportBytes, rs, ss, vs);
+    _transmit(id, registry);
 
     // verify transmitters have positive balances
     uint256[] memory payments = new uint256[](TRANSMITTERS.length);
@@ -711,8 +806,103 @@ contract NOPsSettlement is SetUp {
 
     // verify that transmitters balance has been zeroed out
     for (uint256 i = 0; i < TRANSMITTERS.length; i++) {
-      (bool active, uint8 index, uint96 balance, uint96 lastCollected, ) = registry.getTransmitterInfo(TRANSMITTERS[i]);
+      (bool active, uint8 index, uint96 balance, , ) = registry.getTransmitterInfo(TRANSMITTERS[i]);
       assertTrue(active);
+      assertEq(i, index);
+      assertEq(0, balance);
+    }
+  }
+
+  function testSettleNOPsOffchainForDeactivatedTransmittersSuccess() public {
+    // deploy and configure a registry with OFF_CHAIN payout
+    (Registry registry, Registrar registrar) = deployAndConfigureRegistryAndRegistrar(AutoBase.PayoutMode.OFF_CHAIN);
+
+    // register an upkeep and add funds
+    uint256 id = registry.registerUpkeep(address(TARGET1), 1000000, UPKEEP_ADMIN, 0, address(usdToken), "", "", "");
+    _mintERC20(UPKEEP_ADMIN, 1e20);
+    vm.startPrank(UPKEEP_ADMIN);
+    usdToken.approve(address(registry), 1e20);
+    registry.addFunds(id, 1e20);
+
+    // manually create a transmit so TRANSMITTERS earn some rewards
+    _transmit(id, registry);
+
+    // TRANSMITTERS have positive balance now
+    // configure the registry to use NEW_TRANSMITTERS
+    _configureWithNewTransmitters(registry, registrar);
+
+    _transmit(id, registry);
+
+    // verify all transmitters have positive balances
+    address[] memory expectedPayees = new address[](6);
+    uint256[] memory expectedPayments = new uint256[](6);
+    for (uint256 i = 0; i < NEW_TRANSMITTERS.length; i++) {
+      (bool active, uint8 index, uint96 balance, uint96 lastCollected, address payee) = registry.getTransmitterInfo(
+        NEW_TRANSMITTERS[i]
+      );
+      assertTrue(active);
+      assertEq(i, index);
+      assertTrue(lastCollected > 0);
+      expectedPayments[i] = balance;
+      expectedPayees[i] = payee;
+    }
+    for (uint256 i = 2; i < TRANSMITTERS.length; i++) {
+      (bool active, uint8 index, uint96 balance, uint96 lastCollected, address payee) = registry.getTransmitterInfo(
+        TRANSMITTERS[i]
+      );
+      assertFalse(active);
+      assertEq(i, index);
+      assertTrue(balance > 0);
+      assertTrue(lastCollected > 0);
+      expectedPayments[2 + i] = balance;
+      expectedPayees[2 + i] = payee;
+    }
+
+    // verify offchain settlement will emit NOPs' balances
+    vm.startPrank(FINANCE_ADMIN);
+
+    // simply expectEmit won't work here because s_deactivatedTransmitters is an enumerable set so the order of these
+    // deactivated transmitters is not guaranteed. To handle this, we record logs and decode data field manually.
+    vm.recordLogs();
+    registry.settleNOPsOffchain();
+    Vm.Log[] memory entries = vm.getRecordedLogs();
+
+    assertEq(entries.length, 1);
+    Vm.Log memory l = entries[0];
+    assertEq(l.topics[0], keccak256("NOPsSettledOffchain(address[],uint256[])"));
+    (address[] memory actualPayees, uint256[] memory actualPayments) = abi.decode(l.data, (address[], uint256[]));
+    assertEq(actualPayees.length, 6);
+    assertEq(actualPayments.length, 6);
+
+    // first 4 payees and payments are for NEW_TRANSMITTERS and they are ordered.
+    for (uint256 i = 0; i < NEW_TRANSMITTERS.length; i++) {
+      assertEq(actualPayees[i], expectedPayees[i]);
+      assertEq(actualPayments[i], expectedPayments[i]);
+    }
+
+    // the last 2 payees and payments for TRANSMITTERS[2] and TRANSMITTERS[3] and they are not ordered
+    assertTrue(
+      (actualPayments[5] == expectedPayments[5] &&
+        actualPayees[5] == expectedPayees[5] &&
+        actualPayments[4] == expectedPayments[4] &&
+        actualPayees[4] == expectedPayees[4]) ||
+        (actualPayments[5] == expectedPayments[4] &&
+          actualPayees[5] == expectedPayees[4] &&
+          actualPayments[4] == expectedPayments[5] &&
+          actualPayees[4] == expectedPayees[5])
+    );
+
+    // verify that new transmitters balance has been zeroed out
+    for (uint256 i = 0; i < NEW_TRANSMITTERS.length; i++) {
+      (bool active, uint8 index, uint96 balance, , ) = registry.getTransmitterInfo(NEW_TRANSMITTERS[i]);
+      assertTrue(active);
+      assertEq(i, index);
+      assertEq(0, balance);
+    }
+    // verify that deactivated transmitters (TRANSMITTERS[2] and TRANSMITTERS[3]) balance has been zeroed out
+    for (uint256 i = 2; i < TRANSMITTERS.length; i++) {
+      (bool active, uint8 index, uint96 balance, , ) = registry.getTransmitterInfo(TRANSMITTERS[i]);
+      assertFalse(active);
       assertEq(i, index);
       assertEq(0, balance);
     }
@@ -733,6 +923,144 @@ contract NOPsSettlement is SetUp {
     registry.disableOffchainPayments();
 
     assertEq(uint8(AutoBase.PayoutMode.ON_CHAIN), registry.getPayoutMode());
+  }
+
+  function testSinglePerformAndNodesCanWithdrawOnchain() public {
+    // deploy and configure a registry with OFF_CHAIN payout
+    (Registry registry, ) = deployAndConfigureRegistryAndRegistrar(AutoBase.PayoutMode.OFF_CHAIN);
+
+    // register an upkeep and add funds
+    uint256 id = registry.registerUpkeep(address(TARGET1), 1000000, UPKEEP_ADMIN, 0, address(usdToken), "", "", "");
+    _mintERC20(UPKEEP_ADMIN, 1e20);
+    vm.startPrank(UPKEEP_ADMIN);
+    usdToken.approve(address(registry), 1e20);
+    registry.addFunds(id, 1e20);
+
+    // manually create a transmit so transmitters earn some rewards
+    _transmit(id, registry);
+
+    // disable offchain payments
+    _mintLink(address(registry), 1e19);
+    vm.prank(registry.owner());
+    registry.disableOffchainPayments();
+
+    // payees should be able to withdraw onchain
+    for (uint256 i = 0; i < TRANSMITTERS.length; i++) {
+      (, , uint96 balance, , address payee) = registry.getTransmitterInfo(TRANSMITTERS[i]);
+      vm.prank(payee);
+      vm.expectEmit();
+      emit PaymentWithdrawn(TRANSMITTERS[i], balance, payee, payee);
+      registry.withdrawPayment(TRANSMITTERS[i], payee);
+    }
+
+    // allow upkeep admin to withdraw funds
+    vm.startPrank(UPKEEP_ADMIN);
+    registry.cancelUpkeep(id);
+    vm.roll(100 + block.number);
+    vm.expectEmit();
+    // the upkeep spent less than minimum spending limit so upkeep admin can only withdraw upkeep balance - min spend value
+    emit FundsWithdrawn(id, 9.9e19, UPKEEP_ADMIN);
+    registry.withdrawFunds(id, UPKEEP_ADMIN);
+  }
+
+  function testMultiplePerformsAndNodesCanWithdrawOnchain() public {
+    // deploy and configure a registry with OFF_CHAIN payout
+    (Registry registry, ) = deployAndConfigureRegistryAndRegistrar(AutoBase.PayoutMode.OFF_CHAIN);
+
+    // register an upkeep and add funds
+    uint256 id = registry.registerUpkeep(address(TARGET1), 1000000, UPKEEP_ADMIN, 0, address(usdToken), "", "", "");
+    _mintERC20(UPKEEP_ADMIN, 1e20);
+    vm.startPrank(UPKEEP_ADMIN);
+    usdToken.approve(address(registry), 1e20);
+    registry.addFunds(id, 1e20);
+
+    // manually call transmit so transmitters earn some rewards
+    for (uint256 i = 0; i < 50; i++) {
+      vm.roll(100 + block.number);
+      _transmit(id, registry);
+    }
+
+    // disable offchain payments
+    _mintLink(address(registry), 1e19);
+    vm.prank(registry.owner());
+    registry.disableOffchainPayments();
+
+    // manually call transmit after offchain payment is disabled
+    for (uint256 i = 0; i < 50; i++) {
+      vm.roll(100 + block.number);
+      _transmit(id, registry);
+    }
+
+    // payees should be able to withdraw onchain
+    for (uint256 i = 0; i < TRANSMITTERS.length; i++) {
+      (, , uint96 balance, , address payee) = registry.getTransmitterInfo(TRANSMITTERS[i]);
+      vm.prank(payee);
+      vm.expectEmit();
+      emit PaymentWithdrawn(TRANSMITTERS[i], balance, payee, payee);
+      registry.withdrawPayment(TRANSMITTERS[i], payee);
+    }
+
+    // allow upkeep admin to withdraw funds
+    vm.startPrank(UPKEEP_ADMIN);
+    registry.cancelUpkeep(id);
+    vm.roll(100 + block.number);
+    uint256 balance = registry.getBalance(id);
+    vm.expectEmit();
+    emit FundsWithdrawn(id, balance, UPKEEP_ADMIN);
+    registry.withdrawFunds(id, UPKEEP_ADMIN);
+  }
+
+  function _configureWithNewTransmitters(Registry registry, Registrar registrar) internal {
+    IERC20[] memory billingTokens = new IERC20[](1);
+    billingTokens[0] = IERC20(address(usdToken));
+    uint256[] memory minRegistrationFees = new uint256[](billingTokens.length);
+    minRegistrationFees[0] = 100000000000000000000; // 100 USD
+    address[] memory billingTokenAddresses = new address[](billingTokens.length);
+    for (uint256 i = 0; i < billingTokens.length; i++) {
+      billingTokenAddresses[i] = address(billingTokens[i]);
+    }
+    AutomationRegistryBase2_3.BillingConfig[]
+      memory billingTokenConfigs = new AutomationRegistryBase2_3.BillingConfig[](billingTokens.length);
+    billingTokenConfigs[0] = AutomationRegistryBase2_3.BillingConfig({
+      gasFeePPB: 10_000_000, // 15%
+      flatFeeMilliCents: 2_000, // 2 cents
+      priceFeed: address(USDTOKEN_USD_FEED),
+      fallbackPrice: 100_000_000, // $1
+      minSpend: 1000000000000000000 // 1 USD
+    });
+
+    address[] memory registrars;
+    registrars = new address[](1);
+    registrars[0] = address(registrar);
+    AutomationRegistryBase2_3.OnchainConfig memory cfg = AutomationRegistryBase2_3.OnchainConfig({
+      checkGasLimit: 5_000_000,
+      stalenessSeconds: 90_000,
+      gasCeilingMultiplier: 2,
+      maxPerformGas: 10_000_000,
+      maxCheckDataSize: 5_000,
+      maxPerformDataSize: 5_000,
+      maxRevertDataSize: 5_000,
+      fallbackGasPrice: 20_000_000_000,
+      fallbackLinkPrice: 2_000_000_000, // $20
+      fallbackNativePrice: 400_000_000_000, // $4,000
+      transcoder: 0xB1e66855FD67f6e85F0f0fA38cd6fBABdf00923c,
+      registrars: registrars,
+      upkeepPrivilegeManager: PRIVILEGE_MANAGER,
+      chainModule: address(new ChainModuleBase()),
+      reorgProtectionEnabled: true,
+      financeAdmin: FINANCE_ADMIN
+    });
+    registry.setConfigTypeSafe(
+      SIGNERS,
+      NEW_TRANSMITTERS,
+      F,
+      cfg,
+      OFFCHAIN_CONFIG_VERSION,
+      "",
+      billingTokenAddresses,
+      billingTokenConfigs
+    );
+    registry.setPayees(NEW_PAYEES);
   }
 }
 
@@ -993,5 +1321,204 @@ contract BillingOverrides is SetUp {
     // We do not apply the exact equation since we couldn't get the receipt.premium value
     uint96 maxPayment2 = registry.getMaxPaymentForGas(linkUpkeepID, 0, 5_000_000, address(linkToken));
     assertGt(maxPayment2, maxPayment1);
+  }
+}
+
+contract Transmit is SetUp {
+  function test_handlesMixedBatchOfBillingTokens() external {
+    uint256[] memory prevUpkeepBalances = new uint256[](3);
+    prevUpkeepBalances[0] = registry.getBalance(linkUpkeepID);
+    prevUpkeepBalances[1] = registry.getBalance(usdUpkeepID);
+    prevUpkeepBalances[2] = registry.getBalance(nativeUpkeepID);
+    uint256[] memory prevTokenBalances = new uint256[](3);
+    prevTokenBalances[0] = linkToken.balanceOf(address(registry));
+    prevTokenBalances[1] = usdToken.balanceOf(address(registry));
+    prevTokenBalances[2] = weth.balanceOf(address(registry));
+    uint256[] memory prevReserveBalances = new uint256[](3);
+    prevReserveBalances[0] = registry.getReserveAmount(address(linkToken));
+    prevReserveBalances[1] = registry.getReserveAmount(address(usdToken));
+    prevReserveBalances[2] = registry.getReserveAmount(address(weth));
+    uint256[] memory upkeepIDs = new uint256[](3);
+    upkeepIDs[0] = linkUpkeepID;
+    upkeepIDs[1] = usdUpkeepID;
+    upkeepIDs[2] = nativeUpkeepID;
+    // do the thing
+    _transmit(upkeepIDs, registry);
+    // assert upkeep balances have decreased
+    require(prevUpkeepBalances[0] > registry.getBalance(linkUpkeepID), "link upkeep balance should have decreased");
+    require(prevUpkeepBalances[1] > registry.getBalance(usdUpkeepID), "usd upkeep balance should have decreased");
+    require(prevUpkeepBalances[2] > registry.getBalance(nativeUpkeepID), "native upkeep balance should have decreased");
+    // assert token balances have not changed
+    assertEq(prevTokenBalances[0], linkToken.balanceOf(address(registry)));
+    assertEq(prevTokenBalances[1], usdToken.balanceOf(address(registry)));
+    assertEq(prevTokenBalances[2], weth.balanceOf(address(registry)));
+    // assert reserve amounts have adjusted accordingly
+    require(
+      prevReserveBalances[0] < registry.getReserveAmount(address(linkToken)),
+      "usd reserve amount should have increased"
+    ); // link reserve amount increases in value equal to the decrease of the other reserve amounts
+    require(
+      prevReserveBalances[1] > registry.getReserveAmount(address(usdToken)),
+      "usd reserve amount should have decreased"
+    );
+    require(
+      prevReserveBalances[2] > registry.getReserveAmount(address(weth)),
+      "native reserve amount should have decreased"
+    );
+  }
+}
+
+contract MigrateReceive is SetUp {
+  event UpkeepMigrated(uint256 indexed id, uint256 remainingBalance, address destination);
+  event UpkeepReceived(uint256 indexed id, uint256 startingBalance, address importedFrom);
+
+  Registry newRegistry;
+  uint256[] idsToMigrate;
+
+  function setUp() public override {
+    super.setUp();
+    (newRegistry, ) = deployAndConfigureRegistryAndRegistrar(AutoBase.PayoutMode.ON_CHAIN);
+    idsToMigrate.push(linkUpkeepID);
+    idsToMigrate.push(usdUpkeepID);
+    idsToMigrate.push(nativeUpkeepID);
+    registry.setPeerRegistryMigrationPermission(address(newRegistry), 1);
+    newRegistry.setPeerRegistryMigrationPermission(address(registry), 2);
+  }
+
+  function test_RevertsWhen_PermissionsNotSet() external {
+    // no permissions
+    registry.setPeerRegistryMigrationPermission(address(newRegistry), 0);
+    newRegistry.setPeerRegistryMigrationPermission(address(registry), 0);
+    vm.expectRevert(Registry.MigrationNotPermitted.selector);
+    vm.prank(UPKEEP_ADMIN);
+    registry.migrateUpkeeps(idsToMigrate, address(newRegistry));
+
+    // only outgoing permissions
+    registry.setPeerRegistryMigrationPermission(address(newRegistry), 1);
+    newRegistry.setPeerRegistryMigrationPermission(address(registry), 0);
+    vm.expectRevert(Registry.MigrationNotPermitted.selector);
+    vm.prank(UPKEEP_ADMIN);
+    registry.migrateUpkeeps(idsToMigrate, address(newRegistry));
+
+    // only incoming permissions
+    registry.setPeerRegistryMigrationPermission(address(newRegistry), 0);
+    newRegistry.setPeerRegistryMigrationPermission(address(registry), 2);
+    vm.expectRevert(Registry.MigrationNotPermitted.selector);
+    vm.prank(UPKEEP_ADMIN);
+    registry.migrateUpkeeps(idsToMigrate, address(newRegistry));
+
+    // permissions opposite direction
+    registry.setPeerRegistryMigrationPermission(address(newRegistry), 2);
+    newRegistry.setPeerRegistryMigrationPermission(address(registry), 1);
+    vm.expectRevert(Registry.MigrationNotPermitted.selector);
+    vm.prank(UPKEEP_ADMIN);
+    registry.migrateUpkeeps(idsToMigrate, address(newRegistry));
+  }
+
+  function test_RevertsWhen_ReceivingRegistryDoesNotSupportToken() external {
+    _removeBillingTokenConfig(newRegistry, address(weth));
+    vm.expectRevert(Registry.InvalidToken.selector);
+    vm.prank(UPKEEP_ADMIN);
+    registry.migrateUpkeeps(idsToMigrate, address(newRegistry));
+    idsToMigrate.pop(); // remove native upkeep id
+    vm.prank(UPKEEP_ADMIN);
+    registry.migrateUpkeeps(idsToMigrate, address(newRegistry)); // should succeed now
+  }
+
+  function test_RevertsWhen_CalledByNonAdmin() external {
+    vm.expectRevert(Registry.OnlyCallableByAdmin.selector);
+    vm.prank(STRANGER);
+    registry.migrateUpkeeps(idsToMigrate, address(newRegistry));
+  }
+
+  function test_Success() external {
+    vm.startPrank(UPKEEP_ADMIN);
+
+    // add some changes in upkeep data to the mix
+    registry.pauseUpkeep(usdUpkeepID);
+    registry.setUpkeepTriggerConfig(linkUpkeepID, randomBytes(100));
+    registry.setUpkeepCheckData(nativeUpkeepID, randomBytes(25));
+
+    // record previous state
+    uint256[] memory prevUpkeepBalances = new uint256[](3);
+    prevUpkeepBalances[0] = registry.getBalance(linkUpkeepID);
+    prevUpkeepBalances[1] = registry.getBalance(usdUpkeepID);
+    prevUpkeepBalances[2] = registry.getBalance(nativeUpkeepID);
+    uint256[] memory prevReserveBalances = new uint256[](3);
+    prevReserveBalances[0] = registry.getReserveAmount(address(linkToken));
+    prevReserveBalances[1] = registry.getReserveAmount(address(usdToken));
+    prevReserveBalances[2] = registry.getReserveAmount(address(weth));
+    uint256[] memory prevTokenBalances = new uint256[](3);
+    prevTokenBalances[0] = linkToken.balanceOf(address(registry));
+    prevTokenBalances[1] = usdToken.balanceOf(address(registry));
+    prevTokenBalances[2] = weth.balanceOf(address(registry));
+    bytes[] memory prevUpkeepData = new bytes[](3);
+    prevUpkeepData[0] = abi.encode(registry.getUpkeep(linkUpkeepID));
+    prevUpkeepData[1] = abi.encode(registry.getUpkeep(usdUpkeepID));
+    prevUpkeepData[2] = abi.encode(registry.getUpkeep(nativeUpkeepID));
+    bytes[] memory prevUpkeepTriggerData = new bytes[](3);
+    prevUpkeepTriggerData[0] = registry.getUpkeepTriggerConfig(linkUpkeepID);
+    prevUpkeepTriggerData[1] = registry.getUpkeepTriggerConfig(usdUpkeepID);
+    prevUpkeepTriggerData[2] = registry.getUpkeepTriggerConfig(nativeUpkeepID);
+
+    // event expectations
+    vm.expectEmit(address(registry));
+    emit UpkeepMigrated(linkUpkeepID, prevUpkeepBalances[0], address(newRegistry));
+    vm.expectEmit(address(registry));
+    emit UpkeepMigrated(usdUpkeepID, prevUpkeepBalances[1], address(newRegistry));
+    vm.expectEmit(address(registry));
+    emit UpkeepMigrated(nativeUpkeepID, prevUpkeepBalances[2], address(newRegistry));
+    vm.expectEmit(address(newRegistry));
+    emit UpkeepReceived(linkUpkeepID, prevUpkeepBalances[0], address(registry));
+    vm.expectEmit(address(newRegistry));
+    emit UpkeepReceived(usdUpkeepID, prevUpkeepBalances[1], address(registry));
+    vm.expectEmit(address(newRegistry));
+    emit UpkeepReceived(nativeUpkeepID, prevUpkeepBalances[2], address(registry));
+
+    // do the thing
+    registry.migrateUpkeeps(idsToMigrate, address(newRegistry));
+
+    // assert upkeep balances have been migrated
+    assertEq(registry.getBalance(linkUpkeepID), 0);
+    assertEq(registry.getBalance(usdUpkeepID), 0);
+    assertEq(registry.getBalance(nativeUpkeepID), 0);
+    assertEq(newRegistry.getBalance(linkUpkeepID), prevUpkeepBalances[0]);
+    assertEq(newRegistry.getBalance(usdUpkeepID), prevUpkeepBalances[1]);
+    assertEq(newRegistry.getBalance(nativeUpkeepID), prevUpkeepBalances[2]);
+
+    // assert reserve balances have been adjusted
+    assertEq(newRegistry.getReserveAmount(address(linkToken)), newRegistry.getBalance(linkUpkeepID));
+    assertEq(newRegistry.getReserveAmount(address(usdToken)), newRegistry.getBalance(usdUpkeepID));
+    assertEq(newRegistry.getReserveAmount(address(weth)), newRegistry.getBalance(nativeUpkeepID));
+    assertEq(
+      newRegistry.getReserveAmount(address(linkToken)),
+      prevReserveBalances[0] - registry.getReserveAmount(address(linkToken))
+    );
+    assertEq(
+      newRegistry.getReserveAmount(address(usdToken)),
+      prevReserveBalances[1] - registry.getReserveAmount(address(usdToken))
+    );
+    assertEq(
+      newRegistry.getReserveAmount(address(weth)),
+      prevReserveBalances[2] - registry.getReserveAmount(address(weth))
+    );
+
+    // assert token have been transfered
+    assertEq(linkToken.balanceOf(address(newRegistry)), newRegistry.getBalance(linkUpkeepID));
+    assertEq(usdToken.balanceOf(address(newRegistry)), newRegistry.getBalance(usdUpkeepID));
+    assertEq(weth.balanceOf(address(newRegistry)), newRegistry.getBalance(nativeUpkeepID));
+    assertEq(linkToken.balanceOf(address(registry)), prevTokenBalances[0] - linkToken.balanceOf(address(newRegistry)));
+    assertEq(usdToken.balanceOf(address(registry)), prevTokenBalances[1] - usdToken.balanceOf(address(newRegistry)));
+    assertEq(weth.balanceOf(address(registry)), prevTokenBalances[2] - weth.balanceOf(address(newRegistry)));
+
+    // assert upkeep data matches
+    assertEq(prevUpkeepData[0], abi.encode(newRegistry.getUpkeep(linkUpkeepID)));
+    assertEq(prevUpkeepData[1], abi.encode(newRegistry.getUpkeep(usdUpkeepID)));
+    assertEq(prevUpkeepData[2], abi.encode(newRegistry.getUpkeep(nativeUpkeepID)));
+    assertEq(prevUpkeepTriggerData[0], newRegistry.getUpkeepTriggerConfig(linkUpkeepID));
+    assertEq(prevUpkeepTriggerData[1], newRegistry.getUpkeepTriggerConfig(usdUpkeepID));
+    assertEq(prevUpkeepTriggerData[2], newRegistry.getUpkeepTriggerConfig(nativeUpkeepID));
+
+    vm.stopPrank();
   }
 }

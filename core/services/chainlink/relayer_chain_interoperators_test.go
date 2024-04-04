@@ -100,32 +100,38 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 
 		c.Starknet = stkcfg.TOMLConfigs{
 			&stkcfg.TOMLConfig{
-				ChainID: &starknetChainID1,
-				Enabled: ptr(true),
-				Chain:   stkcfg.Chain{},
+				ChainID:   &starknetChainID1,
+				Enabled:   ptr(true),
+				Chain:     stkcfg.Chain{},
+				FeederURL: commonconfig.MustParseURL("http://feeder.url"),
 				Nodes: []*stkcfg.Node{
 					{
-						Name: ptr("starknet chain 1 node 1"),
-						URL:  ((*commonconfig.URL)(commonconfig.MustParseURL("http://localhost:8547").URL())),
+						Name:   ptr("starknet chain 1 node 1"),
+						URL:    ((*commonconfig.URL)(commonconfig.MustParseURL("http://localhost:8547").URL())),
+						APIKey: ptr("key"),
 					},
 					{
-						Name: ptr("starknet chain 1 node 2"),
-						URL:  ((*commonconfig.URL)(commonconfig.MustParseURL("http://localhost:8548").URL())),
+						Name:   ptr("starknet chain 1 node 2"),
+						URL:    ((*commonconfig.URL)(commonconfig.MustParseURL("http://localhost:8548").URL())),
+						APIKey: ptr("key"),
 					},
 					{
-						Name: ptr("starknet chain 1 node 3"),
-						URL:  ((*commonconfig.URL)(commonconfig.MustParseURL("http://localhost:8549").URL())),
+						Name:   ptr("starknet chain 1 node 3"),
+						URL:    ((*commonconfig.URL)(commonconfig.MustParseURL("http://localhost:8549").URL())),
+						APIKey: ptr("key"),
 					},
 				},
 			},
 			&stkcfg.TOMLConfig{
-				ChainID: &starknetChainID2,
-				Enabled: ptr(true),
-				Chain:   stkcfg.Chain{},
+				ChainID:   &starknetChainID2,
+				Enabled:   ptr(true),
+				Chain:     stkcfg.Chain{},
+				FeederURL: commonconfig.MustParseURL("http://feeder.url"),
 				Nodes: []*stkcfg.Node{
 					{
-						Name: ptr("starknet chain 2 node 1"),
-						URL:  ((*commonconfig.URL)(commonconfig.MustParseURL("http://localhost:3547").URL())),
+						Name:   ptr("starknet chain 2 node 1"),
+						URL:    ((*commonconfig.URL)(commonconfig.MustParseURL("http://localhost:3547").URL())),
+						APIKey: ptr("key"),
 					},
 				},
 			},

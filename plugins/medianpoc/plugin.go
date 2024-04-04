@@ -59,6 +59,7 @@ func (p *Plugin) NewReportingPluginFactory(
 	pipelineRunner types.PipelineRunnerService,
 	telemetry types.TelemetryClient,
 	errorLog types.ErrorLog,
+	keyValueStore types.KeyValueStore,
 ) (types.ReportingPluginFactory, error) {
 	f, err := p.newFactory(ctx, config, provider, pipelineRunner, telemetry, errorLog)
 	if err != nil {

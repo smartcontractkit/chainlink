@@ -8,8 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/patrickmn/go-cache"
-
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	coreTypes "github.com/ethereum/go-ethereum/core/types"
@@ -32,7 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/logprovider"
 )
 
-func TestCredentials_RemoveTrailingSlash(t *testing.T) {
+func TestMercuryConfig_RemoveTrailingSlash(t *testing.T) {
 	tests := []struct {
 		Name      string
 		URL       string
@@ -57,17 +55,12 @@ func TestCredentials_RemoveTrailingSlash(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
-			mockConfig := &MercuryConfig{
-				cred: &types.MercuryCredentials{
-					URL:       test.URL,
-					LegacyURL: test.LegacyURL,
-					Username:  "user",
-					Password:  "pass",
-				},
-				Abi:              core.StreamsCompatibleABI,
-				AllowListCache:   cache.New(defaultPluginRetryExpiration, cleanupInterval),
-				pluginRetryCache: cache.New(defaultPluginRetryExpiration, cleanupInterval),
-			}
+			mockConfig := NewMercuryConfig(&types.MercuryCredentials{
+				URL:       test.URL,
+				LegacyURL: test.LegacyURL,
+				Username:  "user",
+				Password:  "pass",
+			}, core.StreamsCompatibleABI)
 
 			result := mockConfig.Credentials()
 
