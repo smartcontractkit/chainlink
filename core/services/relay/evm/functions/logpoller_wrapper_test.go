@@ -213,3 +213,31 @@ func TestLogPollerWrapper_FilterPreviouslyDetectedEvents_FiltersPreviouslyDetect
 	assert.Equal(t, 0, len(mockedDetectedEvents.detectedEventsOrdered))
 	assert.Equal(t, 0, len(mockedDetectedEvents.isPreviouslyDetected))
 }
+
+func TestLogPollerWrapper_UnregisterOldFiltersOnRouteUpgrade(t *testing.T) {
+	t.Parallel()
+	ctx := testutils.Context(t)
+	lp, lpWrapper, _ := setUp(t, 100_000) // check only once
+	wrapper := lpWrapper.(*logPollerWrapper)
+
+	activeCoord := common.HexToAddress("0x1")
+	proposedCoord := common.HexToAddress("0x2")
+	newActiveCoord := proposedCoord
+	newProposedCoord := common.HexToAddress("0x3")
+
+	wrapper.activeCoordinator = activeCoord
+	wrapper.proposedCoordinator = proposedCoord
+
+	lp.On("RegisterFilter", ctx, mock.Anything).Return(nil)
+	existingFilters := map[string]logpoller.Filter{
+		filterName(activeCoord):      {Name: filterName(activeCoord)},
+		filterName(proposedCoord):    {Name: filterName(proposedCoord)},
+		filterName(newProposedCoord): {Name: filterName(newProposedCoord)},
+	}
+	lp.On("GetFilters").Return(existingFilters, nil)
+	lp.On("UnregisterFilter", ctx, filterName(activeCoord)).Return(nil)
+
+	wrapper.handleRouteUpdate(ctx, newActiveCoord, newProposedCoord)
+
+	lp.AssertCalled(t, "UnregisterFilter", ctx, filterName(activeCoord))
+}
