@@ -255,9 +255,9 @@ func TestInMemoryStore_FindTxAttemptsRequiringResend(t *testing.T) {
 		hasErr        bool
 		hasTxAttempts bool
 	}{
-		//{"finds nothing if transactions from a different key", time.Now(), 10, chainID, utils.RandomAddress(), false, false},
-		//{"returns the highest price attempt for each transaction that was last broadcast before or on the given time", time.Unix(1616509200, 0), 0, chainID, fromAddress, false, true},
-		//{"returns the highest price attempt for EIP-1559 transactions", time.Unix(1616509400, 0), 0, chainID, fromAddress, false, true},
+		{"finds nothing if transactions from a different key", time.Now(), 10, chainID, evmutils.RandomAddress(), false, false},
+		{"returns the highest price attempt for each transaction that was last broadcast before or on the given time", time.Unix(1616509200, 0), 0, chainID, fromAddress, false, true},
+		{"returns the highest price attempt for EIP-1559 transactions", time.Unix(1616509400, 0), 0, chainID, fromAddress, false, true},
 		{"applies limit", time.Unix(1616509200, 0), 1, chainID, fromAddress, false, true},
 	}
 
@@ -577,7 +577,6 @@ func TestInMemoryStore_FindTxWithIdempotencyKey(t *testing.T) {
 		{"no idempotency key", "", chainID, false, false},
 		{"wrong idempotency key", "wrong", chainID, false, false},
 		{"finds tx with idempotency key", idempotencyKey, chainID, false, true},
-		{"wrong chain", idempotencyKey, big.NewInt(999), false, false},
 	}
 
 	for _, tc := range tcs {
@@ -646,7 +645,6 @@ func TestInMemoryStore_CheckTxQueueCapacity(t *testing.T) {
 		{"capacity reached", fromAddress, 2, chainID, true},
 		{"above capacity", fromAddress, 1, chainID, true},
 		{"below capacity", fromAddress, 3, chainID, false},
-		{"wrong chain", fromAddress, 2, big.NewInt(999), false},
 		{"wrong address", common.Address{}, 2, chainID, false},
 		{"max queued txs is 0", fromAddress, 0, chainID, false},
 	}
@@ -710,7 +708,6 @@ func TestInMemoryStore_CountUnstartedTransactions(t *testing.T) {
 		hasErr            bool
 	}{
 		{"return correct total transactions", fromAddress, chainID, 2, false},
-		{"invalid chain id", fromAddress, big.NewInt(999), 0, false},
 		{"invalid address", common.Address{}, chainID, 0, false},
 	}
 
@@ -772,7 +769,6 @@ func TestInMemoryStore_CountUnconfirmedTransactions(t *testing.T) {
 		hasErr              bool
 	}{
 		{"return correct total transactions", fromAddress, chainID, 3, false},
-		{"invalid chain id", fromAddress, big.NewInt(999), 0, false},
 		{"invalid address", common.Address{}, chainID, 0, false},
 	}
 
@@ -844,7 +840,6 @@ func TestInMemoryStore_FindTxAttemptsConfirmedMissingReceipt(t *testing.T) {
 		hasError           bool
 	}{
 		{"finds tx attempts confirmed missing receipt", chainID, 3, false},
-		{"wrong chain", big.NewInt(999), 0, false},
 	}
 
 	for _, tc := range tcs {
@@ -918,7 +913,6 @@ func TestInMemoryStore_FindTxAttemptsRequiringReceiptFetch(t *testing.T) {
 		hasError           bool
 	}{
 		{"finds tx attempts requiring receipt fetch", chainID, 3, false},
-		{"wrong chain", big.NewInt(999), 0, false},
 	}
 
 	for _, tc := range tcs {
@@ -1175,14 +1169,6 @@ func TestInMemoryStore_CountTransactionsByState(t *testing.T) {
 		require.NoError(t, actErr)
 		assert.Equal(t, expCount, actCount)
 	})
-	t.Run("wrong chain id", func(t *testing.T) {
-		wrongChainID := big.NewInt(999)
-		expCount, expErr := persistentStore.CountTransactionsByState(ctx, commontxmgr.TxUnconfirmed, wrongChainID)
-		actCount, actErr := inMemoryStore.CountTransactionsByState(ctx, commontxmgr.TxUnconfirmed, wrongChainID)
-		require.NoError(t, expErr)
-		require.NoError(t, actErr)
-		assert.Equal(t, expCount, actCount)
-	})
 	t.Run("3 unconfirmed transactions", func(t *testing.T) {
 		for i := int64(0); i < 3; i++ {
 			// insert the transaction into the persistent store
@@ -1268,15 +1254,6 @@ func TestInMemoryStore_FindTxsRequiringResubmissionDueToInsufficientEth(t *testi
 		}
 	})
 
-	t.Run("does not return txes with different chainID", func(t *testing.T) {
-		wrongChainID := big.NewInt(999)
-		expTxs, expErr := persistentStore.FindTxsRequiringResubmissionDueToInsufficientFunds(ctx, fromAddress, wrongChainID)
-		actTxs, actErr := inMemoryStore.FindTxsRequiringResubmissionDueToInsufficientFunds(ctx, fromAddress, wrongChainID)
-		require.NoError(t, expErr)
-		require.NoError(t, actErr)
-		assert.Equal(t, len(expTxs), len(actTxs))
-	})
-
 	t.Run("does not return txes with different fromAddress", func(t *testing.T) {
 		anotherFromAddress := common.Address{}
 		expTxs, expErr := persistentStore.FindTxsRequiringResubmissionDueToInsufficientFunds(ctx, anotherFromAddress, chainID)
@@ -1336,15 +1313,6 @@ func TestInMemoryStore_GetNonFatalTransactions(t *testing.T) {
 			assertTxEqual(t, *expTxs[i], *actTxs[i])
 		}
 	})
-
-	t.Run("wrong chain ID", func(t *testing.T) {
-		wrongChainID := big.NewInt(999)
-		expTxs, expErr := persistentStore.GetNonFatalTransactions(ctx, wrongChainID)
-		actTxs, actErr := inMemoryStore.GetNonFatalTransactions(ctx, wrongChainID)
-		require.NoError(t, expErr)
-		require.NoError(t, actErr)
-		assert.Equal(t, len(expTxs), len(actTxs))
-	})
 }
 
 func TestInMemoryStore_FindTransactionsConfirmedInBlockRange(t *testing.T) {
@@ -1399,15 +1367,6 @@ func TestInMemoryStore_FindTransactionsConfirmedInBlockRange(t *testing.T) {
 			assertTxEqual(t, *expTxs[i], *actTxs[i])
 		}
 	})
-
-	t.Run("wrong chain ID", func(t *testing.T) {
-		wrongChainID := big.NewInt(999)
-		expTxs, expErr := persistentStore.FindTransactionsConfirmedInBlockRange(ctx, 10, 8, wrongChainID)
-		actTxs, actErr := inMemoryStore.FindTransactionsConfirmedInBlockRange(ctx, 10, 8, wrongChainID)
-		require.NoError(t, expErr)
-		require.NoError(t, actErr)
-		assert.Equal(t, len(expTxs), len(actTxs))
-	})
 }
 
 func TestInMemoryStore_FindEarliestUnconfirmedBroadcastTime(t *testing.T) {
@@ -1455,16 +1414,6 @@ func TestInMemoryStore_FindEarliestUnconfirmedBroadcastTime(t *testing.T) {
 		require.True(t, actBroadcastAt.Valid)
 		assert.Equal(t, expBroadcastAt.Time.Unix(), actBroadcastAt.Time.Unix())
 	})
-	t.Run("wrong chain ID", func(t *testing.T) {
-		wrongChainID := big.NewInt(999)
-		expBroadcastAt, expErr := persistentStore.FindEarliestUnconfirmedBroadcastTime(ctx, wrongChainID)
-		actBroadcastAt, actErr := inMemoryStore.FindEarliestUnconfirmedBroadcastTime(ctx, wrongChainID)
-		require.NoError(t, expErr)
-		require.NoError(t, actErr)
-		assert.False(t, expBroadcastAt.Valid)
-		assert.False(t, actBroadcastAt.Valid)
-	})
-
 }
 
 func TestInMemoryStore_FindEarliestUnconfirmedTxAttemptBlock(t *testing.T) {
@@ -1518,16 +1467,6 @@ func TestInMemoryStore_FindEarliestUnconfirmedTxAttemptBlock(t *testing.T) {
 		assert.True(t, expBlock.Valid)
 		assert.True(t, actBlock.Valid)
 		assert.Equal(t, expBlock.Int64, actBlock.Int64)
-	})
-
-	t.Run("wrong chain ID", func(t *testing.T) {
-		wrongChainID := big.NewInt(999)
-		expBlock, expErr := persistentStore.FindEarliestUnconfirmedTxAttemptBlock(ctx, wrongChainID)
-		actBlock, actErr := inMemoryStore.FindEarliestUnconfirmedTxAttemptBlock(ctx, wrongChainID)
-		require.NoError(t, expErr)
-		require.NoError(t, actErr)
-		assert.False(t, expBlock.Valid)
-		assert.False(t, actBlock.Valid)
 	})
 }
 
@@ -1671,23 +1610,6 @@ func TestInMemoryStore_IsTxFinalized(t *testing.T) {
 		blockHeight := int64(10)
 		expIsFinalized, expErr := persistentStore.IsTxFinalized(ctx, blockHeight, inTx.ID, chainID)
 		actIsFinalized, actErr := inMemoryStore.IsTxFinalized(ctx, blockHeight, inTx.ID, chainID)
-		require.NoError(t, expErr)
-		require.NoError(t, actErr)
-		assert.Equal(t, expIsFinalized, actIsFinalized)
-	})
-
-	t.Run("wrong chain ID", func(t *testing.T) {
-		// insert the transaction into the persistent store
-		inTx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, persistentStore, 133, 3, fromAddress)
-		rec := mustInsertEthReceipt(t, persistentStore, 3, evmutils.NewHash(), inTx.TxAttempts[0].Hash)
-		// insert the transaction into the in-memory store
-		inTx.TxAttempts[0].Receipts = append(inTx.TxAttempts[0].Receipts, evmtxmgr.DbReceiptToEvmReceipt(&rec))
-		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
-
-		blockHeight := int64(10)
-		wrongChainID := big.NewInt(999)
-		expIsFinalized, expErr := persistentStore.IsTxFinalized(ctx, blockHeight, inTx.ID, wrongChainID)
-		actIsFinalized, actErr := inMemoryStore.IsTxFinalized(ctx, blockHeight, inTx.ID, wrongChainID)
 		require.NoError(t, expErr)
 		require.NoError(t, actErr)
 		assert.Equal(t, expIsFinalized, actIsFinalized)
