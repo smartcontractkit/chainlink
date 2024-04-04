@@ -128,16 +128,16 @@ func newOpStackL1GasOracle(lggr logger.Logger, ethClient ethClient, priceReader 
 	l1GasCostMethodAbi, gasCostErr = abi.JSON(strings.NewReader(GetL1FeeAbiString))
 
 	if gasPriceErr != nil {
-		panic(fmt.Sprintf("Failed to parse L1 gas price method ABI for chain: optimismBedrock"))
+		panic(fmt.Sprintf("Failed to parse L1 gas price method ABI for chain: %s", chainType))
 	}
 	if gasCostErr != nil {
-		panic(fmt.Sprintf("Failed to parse L1 gas cost method ABI for chain: optimismBedrock"))
+		panic(fmt.Sprintf("Failed to parse L1 gas cost method ABI for chain: %s", chainType))
 	}
 
 	return &optimismL1Oracle{
 		client:     ethClient,
 		pollPeriod: PollPeriod,
-		logger:     logger.Sugared(logger.Named(lggr, fmt.Sprintf("L1GasOracle(optimismBedrock)"))),
+		logger:     logger.Sugared(logger.Named(lggr, "L1GasOracle(optimismBedrock)")),
 		chainType:  chainType,
 
 		l1GasPriceAddress:   l1GasPriceAddress,

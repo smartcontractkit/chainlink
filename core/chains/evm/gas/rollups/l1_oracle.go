@@ -5,15 +5,12 @@ import (
 	"fmt"
 	"math/big"
 	"slices"
-	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/rpc"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	"github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -33,31 +30,6 @@ type daPriceReader interface {
 type priceEntry struct {
 	price     *assets.Wei
 	timestamp time.Time
-}
-
-// Reads L2-specific precompiles and caches the l1GasPrice set by the L2.
-type l1Oracle struct {
-	services.StateMachine
-	client     ethClient
-	pollPeriod time.Duration
-	logger     logger.SugaredLogger
-	chainType  config.ChainType
-
-	l1GasPriceAddress   string
-	gasPriceMethod      string
-	l1GasPriceMethodAbi abi.ABI
-	l1GasPriceMu        sync.RWMutex
-	l1GasPrice          priceEntry
-
-	l1GasCostAddress   string
-	gasCostMethod      string
-	l1GasCostMethodAbi abi.ABI
-
-	priceReader daPriceReader
-
-	chInitialised chan struct{}
-	chStop        services.StopChan
-	chDone        chan struct{}
 }
 
 const (

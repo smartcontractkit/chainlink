@@ -90,16 +90,16 @@ func newArbitrumL1GasOracle(lggr logger.Logger, ethClient ethClient) ArbL1GasOra
 	l1GasCostMethodAbi, gasCostErr = abi.JSON(strings.NewReader(GasEstimateL1ComponentAbiString))
 
 	if gasPriceErr != nil {
-		panic(fmt.Sprintf("Failed to parse L1 gas price method ABI for chain: arbitrum"))
+		panic("Failed to parse L1 gas price method ABI for chain: arbitrum")
 	}
 	if gasCostErr != nil {
-		panic(fmt.Sprintf("Failed to parse L1 gas cost method ABI for chain: arbitrum"))
+		panic("Failed to parse L1 gas cost method ABI for chain: arbitrum")
 	}
 
 	return &arbitrumL1Oracle{
 		client:     ethClient,
 		pollPeriod: PollPeriod,
-		logger:     logger.Sugared(logger.Named(lggr, fmt.Sprintf("L1GasOracle(%s)", "arbitrum"))),
+		logger:     logger.Sugared(logger.Named(lggr, "L1GasOracle(arbitrum)")),
 		chainType:  "arbitrum",
 
 		l1GasPriceAddress:   l1GasPriceAddress,
@@ -190,7 +190,7 @@ func (o *arbitrumL1Oracle) fetchL1GasPrice(ctx context.Context) (price *big.Int,
 	precompile := common.HexToAddress(o.l1GasPriceAddress)
 	callData, err = o.l1GasPriceMethodAbi.Pack(o.gasPriceMethod)
 	if err != nil {
-		errMsg := fmt.Sprintf("failed to pack calldata for %s L1 gas price method", o.chainType)
+		errMsg := "failed to pack calldata for arbitrum L1 gas price method"
 		o.logger.Errorf(errMsg)
 		return nil, fmt.Errorf("%s: %w", errMsg, err)
 	}

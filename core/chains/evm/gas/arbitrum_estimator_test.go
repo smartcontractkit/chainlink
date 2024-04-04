@@ -48,10 +48,8 @@ func TestArbitrumEstimator(t *testing.T) {
 	const maxGasLimit uint64 = 500_000
 	calldata := []byte{0x00, 0x00, 0x01, 0x02, 0x03}
 	const gasLimit uint64 = 80000
-	const gasPriceBufferPercentage = 50
 	const bumpPercent = 10
 	var bumpMin = assets.NewWei(big.NewInt(1))
-	const chainType = "arbitrum"
 
 	t.Run("calling GetLegacyGas on unstarted estimator returns error", func(t *testing.T) {
 		ethClient := mocks.NewETHClient(t)

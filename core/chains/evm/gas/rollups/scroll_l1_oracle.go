@@ -78,16 +78,16 @@ func newScrollL1GasOracle(lggr logger.Logger, ethClient ethClient) L1Oracle {
 	l1GasCostMethodAbi, gasCostErr = abi.JSON(strings.NewReader(GetL1FeeAbiString))
 
 	if gasPriceErr != nil {
-		panic(fmt.Sprintf("Failed to parse L1 gas price method ABI for chain: scroll"))
+		panic("Failed to parse L1 gas price method ABI for chain: scroll")
 	}
 	if gasCostErr != nil {
-		panic(fmt.Sprintf("Failed to parse L1 gas cost method ABI for chain: scroll"))
+		panic("Failed to parse L1 gas cost method ABI for chain: scroll")
 	}
 
 	return &scrollL1Oracle{
 		client:     ethClient,
 		pollPeriod: PollPeriod,
-		logger:     logger.Sugared(logger.Named(lggr, fmt.Sprintf("L1GasOracle(scroll)"))),
+		logger:     logger.Sugared(logger.Named(lggr, "L1GasOracle(scroll)")),
 		chainType:  "scroll",
 
 		l1GasPriceAddress:   l1GasPriceAddress,
@@ -178,7 +178,7 @@ func (o *scrollL1Oracle) fetchL1GasPrice(ctx context.Context) (price *big.Int, e
 	precompile := common.HexToAddress(o.l1GasPriceAddress)
 	callData, err = o.l1GasPriceMethodAbi.Pack(o.gasPriceMethod)
 	if err != nil {
-		errMsg := fmt.Sprintf("failed to pack calldata for %s L1 gas price method", o.chainType)
+		errMsg := "failed to pack calldata for scroll L1 gas price method"
 		o.logger.Errorf(errMsg)
 		return nil, fmt.Errorf("%s: %w", errMsg, err)
 	}
