@@ -193,6 +193,42 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Updat
 	attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	newAttemptState txmgrtypes.TxAttemptState,
 ) error {
+	if tx.BroadcastAt == nil {
+		return fmt.Errorf("unconfirmed transaction must have broadcast_at time")
+	}
+	if tx.InitialBroadcastAt == nil {
+		return fmt.Errorf("unconfirmed transaction must have initial_broadcast_at time")
+	}
+	if tx.State != TxInProgress {
+		return fmt.Errorf("update_tx_attempt_in_progress_to_broadcast: can only transition to unconfirmed from in_progress, transaction is currently %s", tx.State)
+	}
+	if attempt.State != txmgrtypes.TxAttemptInProgress {
+		return fmt.Errorf("attempt must be in in_progress state")
+	}
+	if newAttemptState != txmgrtypes.TxAttemptBroadcast {
+		return fmt.Errorf("update_tx_attempt_in_progress_to_broadcast: new attempt state must be broadcast, got: %s", newAttemptState)
+	}
+
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
+	as, ok := ms.addressStates[tx.FromAddress]
+	if !ok {
+		return nil
+	}
+
+	originalError := tx.Error
+	originalBroadcastAt := tx.BroadcastAt
+	originalInitialBroadcastAt := tx.InitialBroadcastAt
+	// Persist to persistent storage
+	if err := ms.persistentTxStore.UpdateTxAttemptInProgressToBroadcast(ctx, tx, attempt, newAttemptState); err != nil {
+		return fmt.Errorf("update_tx_attempt_in_progress_to_broadcast: %w", err)
+	}
+
+	// Update in memory store
+	if err := as.moveInProgressToUnconfirmed(originalError, *originalBroadcastAt, *originalInitialBroadcastAt, attempt.ID); err != nil {
+		return fmt.Errorf("update_tx_attempt_in_progress_to_broadcast: %w", err)
+	}
+
 	return nil
 }
 
@@ -244,6 +280,23 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Updat
 
 // UpdateTxsUnconfirmed updates the unconfirmed transactions for a given set of ids
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxsUnconfirmed(ctx context.Context, txIDs []int64) error {
+	// Persist to persistent storage
+	if err := ms.persistentTxStore.UpdateTxsUnconfirmed(ctx, txIDs); err != nil {
+		return err
+	}
+
+	// Update in memory store
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
+
+	for _, as := range ms.addressStates {
+		for _, txID := range txIDs {
+			if err := as.moveConfirmedMissingReceiptToUnconfirmed(txID); err != nil {
+				continue
+			}
+		}
+	}
+
 	return nil
 }
 
