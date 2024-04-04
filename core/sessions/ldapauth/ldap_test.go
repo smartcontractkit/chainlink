@@ -202,7 +202,12 @@ func TestORM_FindUser_FallbackMatchLocalAdmin(t *testing.T) {
 	mockLdapClient := mocks.NewLDAPClient(t)
 	mockLdapConnProvider := mocks.NewLDAPConn(t)
 	mockLdapClient.On("CreateEphemeralConnection").Return(mockLdapConnProvider, nil)
+
+	// Expected user not in upstream for this test case
+	noResults := ldap.SearchResult{Entries: []*ldap.Entry{}}
+	mockLdapConnProvider.On("Search", mock.AnythingOfType("*ldap.SearchRequest")).Return(&noResults, nil)
 	mockLdapConnProvider.On("Close").Return(nil)
+
 	_, ldapAuthProvider := setupAuthenticationProvider(t, mockLdapClient)
 
 	// Not in upstream, but utilize text fixture admin user presence in test DB. Succeed
