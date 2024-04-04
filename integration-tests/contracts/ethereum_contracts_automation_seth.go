@@ -980,7 +980,7 @@ func DeployKeeperRegistry(
 	registryGasOverhead := big.NewInt(80000)
 	switch opts.RegistryVersion {
 	case eth_contracts.RegistryVersion_1_0, eth_contracts.RegistryVersion_1_1:
-		return deployRegistry11_10(client, opts)
+		return deployRegistry10_11(client, opts)
 	case eth_contracts.RegistryVersion_1_2:
 		return deployRegistry12(client, opts)
 	case eth_contracts.RegistryVersion_1_3:
@@ -996,7 +996,7 @@ func DeployKeeperRegistry(
 	}
 }
 
-func deployRegistry11_10(client *seth.Client, opts *KeeperRegistryOpts) (KeeperRegistry, error) {
+func deployRegistry10_11(client *seth.Client, opts *KeeperRegistryOpts) (KeeperRegistry, error) {
 	abi, err := keeper_registry_wrapper1_1.KeeperRegistryMetaData.GetAbi()
 	if err != nil {
 		return &EthereumKeeperRegistry{}, fmt.Errorf("failed to get KeeperRegistry1_1 ABI: %w", err)

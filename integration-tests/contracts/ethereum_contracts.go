@@ -2078,18 +2078,18 @@ func (e *EthereumKeeperRegistryCheckUpkeepGasUsageWrapper) Address() string {
 
 /* Functions 1_0_0 */
 
-type EthereumFunctionsRouter struct {
+type LegacyEthereumFunctionsRouter struct {
 	address  common.Address
 	client   blockchain.EVMClient
 	instance *functions_router.FunctionsRouter
 	l        zerolog.Logger
 }
 
-func (e *EthereumFunctionsRouter) Address() string {
+func (e *LegacyEthereumFunctionsRouter) Address() string {
 	return e.address.Hex()
 }
 
-func (e *EthereumFunctionsRouter) CreateSubscriptionWithConsumer(consumer string) (uint64, error) {
+func (e *LegacyEthereumFunctionsRouter) CreateSubscriptionWithConsumer(consumer string) (uint64, error) {
 	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
 	if err != nil {
 		return 0, err
@@ -2129,13 +2129,13 @@ func (e *EthereumFunctionsRouter) CreateSubscriptionWithConsumer(consumer string
 	return topicsMap["subscriptionId"].(uint64), nil
 }
 
-type EthereumFunctionsCoordinator struct {
+type LegacyEthereumFunctionsCoordinator struct {
 	address  common.Address
 	client   blockchain.EVMClient
 	instance *functions_coordinator.FunctionsCoordinator
 }
 
-func (e *EthereumFunctionsCoordinator) GetThresholdPublicKey() ([]byte, error) {
+func (e *LegacyEthereumFunctionsCoordinator) GetThresholdPublicKey() ([]byte, error) {
 	opts := &bind.CallOpts{
 		From:    common.HexToAddress(e.client.GetDefaultWallet().Address()),
 		Context: context.Background(),
@@ -2143,7 +2143,7 @@ func (e *EthereumFunctionsCoordinator) GetThresholdPublicKey() ([]byte, error) {
 	return e.instance.GetThresholdPublicKey(opts)
 }
 
-func (e *EthereumFunctionsCoordinator) GetDONPublicKey() ([]byte, error) {
+func (e *LegacyEthereumFunctionsCoordinator) GetDONPublicKey() ([]byte, error) {
 	opts := &bind.CallOpts{
 		From:    common.HexToAddress(e.client.GetDefaultWallet().Address()),
 		Context: context.Background(),
@@ -2151,17 +2151,17 @@ func (e *EthereumFunctionsCoordinator) GetDONPublicKey() ([]byte, error) {
 	return e.instance.GetDONPublicKey(opts)
 }
 
-func (e *EthereumFunctionsCoordinator) Address() string {
+func (e *LegacyEthereumFunctionsCoordinator) Address() string {
 	return e.address.Hex()
 }
 
-type EthereumFunctionsLoadTestClient struct {
+type LegacyEthereumFunctionsLoadTestClient struct {
 	address  common.Address
 	client   blockchain.EVMClient
 	instance *functions_load_test_client.FunctionsLoadTestClient
 }
 
-func (e *EthereumFunctionsLoadTestClient) Address() string {
+func (e *LegacyEthereumFunctionsLoadTestClient) Address() string {
 	return e.address.Hex()
 }
 
@@ -2180,7 +2180,7 @@ func Bytes32ToSlice(a [32]byte) (r []byte) {
 	return
 }
 
-func (e *EthereumFunctionsLoadTestClient) GetStats() (*EthereumFunctionsLoadStats, error) {
+func (e *LegacyEthereumFunctionsLoadTestClient) GetStats() (*EthereumFunctionsLoadStats, error) {
 	opts := &bind.CallOpts{
 		From:    common.HexToAddress(e.client.GetDefaultWallet().Address()),
 		Context: context.Background(),
@@ -2200,7 +2200,7 @@ func (e *EthereumFunctionsLoadTestClient) GetStats() (*EthereumFunctionsLoadStat
 	}, nil
 }
 
-func (e *EthereumFunctionsLoadTestClient) ResetStats() error {
+func (e *LegacyEthereumFunctionsLoadTestClient) ResetStats() error {
 	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
 	if err != nil {
 		return err
@@ -2212,7 +2212,7 @@ func (e *EthereumFunctionsLoadTestClient) ResetStats() error {
 	return e.client.ProcessTransaction(tx)
 }
 
-func (e *EthereumFunctionsLoadTestClient) SendRequest(times uint32, source string, encryptedSecretsReferences []byte, args []string, subscriptionId uint64, jobId [32]byte) error {
+func (e *LegacyEthereumFunctionsLoadTestClient) SendRequest(times uint32, source string, encryptedSecretsReferences []byte, args []string, subscriptionId uint64, jobId [32]byte) error {
 	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
 	if err != nil {
 		return err
@@ -2224,7 +2224,7 @@ func (e *EthereumFunctionsLoadTestClient) SendRequest(times uint32, source strin
 	return e.client.ProcessTransaction(tx)
 }
 
-func (e *EthereumFunctionsLoadTestClient) SendRequestWithDONHostedSecrets(times uint32, source string, slotID uint8, slotVersion uint64, args []string, subscriptionId uint64, donID [32]byte) error {
+func (e *LegacyEthereumFunctionsLoadTestClient) SendRequestWithDONHostedSecrets(times uint32, source string, slotID uint8, slotVersion uint64, args []string, subscriptionId uint64, donID [32]byte) error {
 	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
 	if err != nil {
 		return err

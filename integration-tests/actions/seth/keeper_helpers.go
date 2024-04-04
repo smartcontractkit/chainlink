@@ -65,9 +65,10 @@ func DeployKeeperContracts(
 		RegistryAddr:          registry.Address(),
 		MinLinkJuels:          big.NewInt(0),
 	}
-	registrar := DeployKeeperRegistrar(t, client, registryVersion, linkToken, registrarSettings, registry)
 
+	registrar := DeployKeeperRegistrar(t, client, registryVersion, linkToken, registrarSettings, registry)
 	upkeeps := DeployKeeperConsumers(t, client, numberOfUpkeeps, false, false)
+
 	var upkeepsAddresses []string
 	for _, upkeep := range upkeeps {
 		upkeepsAddresses = append(upkeepsAddresses, upkeep.Address())
@@ -178,8 +179,8 @@ func DeployPerformDataCheckerContracts(
 		RegistryAddr:          registry.Address(),
 		MinLinkJuels:          big.NewInt(0),
 	}
-	registrar := DeployKeeperRegistrar(t, client, registryVersion, linkToken, registrarSettings, registry)
 
+	registrar := DeployKeeperRegistrar(t, client, registryVersion, linkToken, registrarSettings, registry)
 	upkeeps := DeployPerformDataChecker(t, client, numberOfContracts, expectedData)
 
 	var upkeepsAddresses []string
