@@ -601,15 +601,14 @@ transmitterID = "0x74103Cf8b436465870b26aa9Fa2F62AD62b22E35"
 [relayConfig]
 chainID = 4
 
-[pluginConfig.coreConfig]
+[pluginConfig]
 `,
 			assertion: func(t *testing.T, os job.Job, err error) {
 				require.Error(t, err)
 				require.ErrorContains(t, err, "must provide plugin name")
 			},
-		},
-		{
-			name: "Generic plugin config validation - plugin name provided",
+		}, {
+			name: "Generic plugin config validation - ocr version",
 			toml: `
 type = "offchainreporting2"
 schemaVersion = 1
@@ -629,15 +628,15 @@ transmitterID = "0x74103Cf8b436465870b26aa9Fa2F62AD62b22E35"
 chainID = 4
 
 [pluginConfig]
-pluginName = "median"
+PluginName="some random name"
 `,
 			assertion: func(t *testing.T, os job.Job, err error) {
 				require.Error(t, err)
-				require.ErrorContains(t, err, "must provide telemetry type")
+				require.ErrorContains(t, err, "only OCR version 2 and 3 are supported")
 			},
 		},
 		{
-			name: "Generic plugin config validation - all provided",
+			name: "Generic plugin config validation - no command",
 			toml: `
 type = "offchainreporting2"
 schemaVersion = 1
@@ -657,11 +656,42 @@ transmitterID = "0x74103Cf8b436465870b26aa9Fa2F62AD62b22E35"
 chainID = 4
 
 [pluginConfig]
-pluginName = "median"
-telemetryType = "median"
+PluginName="some random name"
+OCRVersion=2
 `,
 			assertion: func(t *testing.T, os job.Job, err error) {
-				require.NoError(t, err)
+				require.Error(t, err)
+				require.ErrorContains(t, err, "no command found")
+			},
+		},
+		{
+			name: "Generic plugin config validation - no binary",
+			toml: `
+type = "offchainreporting2"
+schemaVersion = 1
+name = "dkg"
+externalJobID = "6d46d85f-d38c-4f4a-9f00-ac29a25b6330"
+maxTaskDuration = "1s"
+contractID = "0x3e54dCc49F16411A3aaa4cDbC41A25bCa9763Cee"
+ocrKeyBundleID = "08d14c6eed757414d72055d28de6caf06535806c6a14e450f3a2f1c854420e17"
+p2pv2Bootstrappers = [
+	"12D3KooWSbPRwXY4gxFRJT7LWCnjgGbR4S839nfCRCDgQUiNenxa@127.0.0.1:8000"
+]
+relay = "evm"
+pluginType = "plugin"
+transmitterID = "0x74103Cf8b436465870b26aa9Fa2F62AD62b22E35"
+
+[relayConfig]
+chainID = 4
+
+[pluginConfig]
+PluginName="some random name"
+OCRVersion=2
+Command="some random command"
+`,
+			assertion: func(t *testing.T, os job.Job, err error) {
+				require.Error(t, err)
+				require.ErrorContains(t, err, "failed to find binary")
 			},
 		},
 	}
@@ -674,7 +704,7 @@ telemetryType = "median"
 					tc.overrides(c, s)
 				}
 			})
-			s, err := validate.ValidatedOracleSpecToml(c.OCR2(), c.Insecure(), tc.toml)
+			s, err := validate.ValidatedOracleSpecToml(testutils.Context(t), c.OCR2(), c.Insecure(), tc.toml, nil)
 			tc.assertion(t, s, err)
 		})
 	}
