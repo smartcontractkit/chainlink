@@ -1529,7 +1529,7 @@ func (e *EthereumContractDeployer) DeployAutomationSimpleLogTriggerConsumer(isSt
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumAutomationSimpleLogCounterConsumer{
+	return &LegacyEthereumAutomationSimpleLogCounterConsumer{
 		client:   e.client,
 		consumer: instance.(*simple_log_upkeep_counter_wrapper.SimpleLogUpkeepCounter),
 		address:  address,
@@ -1901,7 +1901,7 @@ func (e *EthereumContractDeployer) DeployLogEmitterContract() (LogEmitter, error
 	if err != nil {
 		return nil, err
 	}
-	return &LogEmitterContract{
+	return &LegacyLogEmitterContract{
 		client:   e.client,
 		instance: instance.(*le.LogEmitter),
 		address:  *address,

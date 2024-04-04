@@ -50,6 +50,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/optimism_module"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/perform_data_checker_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/scroll_module"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/simple_log_upkeep_counter_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/streams_lookup_upkeep_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_counter_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_perform_counter_restrictive_wrapper"
@@ -2171,6 +2172,49 @@ func DeployKeeperConsumerPerformance(
 	}
 
 	return &EthereumKeeperConsumerPerformance{
+		client:   client,
+		consumer: instance,
+		address:  &data.Address,
+	}, err
+}
+
+type EthereumAutomationSimpleLogCounterConsumer struct {
+	client   *seth.Client
+	consumer *simple_log_upkeep_counter_wrapper.SimpleLogUpkeepCounter
+	address  *common.Address
+}
+
+func (v *EthereumAutomationSimpleLogCounterConsumer) Address() string {
+	return v.address.Hex()
+}
+
+func (v *EthereumAutomationSimpleLogCounterConsumer) Start() error {
+	return nil
+}
+
+func (v *EthereumAutomationSimpleLogCounterConsumer) Counter(ctx context.Context) (*big.Int, error) {
+	return v.consumer.Counter(&bind.CallOpts{
+		From:    v.client.Addresses[0],
+		Context: ctx,
+	})
+}
+
+func DeployAutomationSimpleLogTriggerConsumer(client *seth.Client, isStreamsLookup bool) (KeeperConsumer, error) {
+	abi, err := simple_log_upkeep_counter_wrapper.SimpleLogUpkeepCounterMetaData.GetAbi()
+	if err != nil {
+		return &EthereumAutomationSimpleLogCounterConsumer{}, fmt.Errorf("failed to get SimpleLogUpkeepCounter ABI: %w", err)
+	}
+	data, err := client.DeployContract(client.NewTXOpts(), "SimpleLogUpkeepCounter", *abi, common.FromHex(simple_log_upkeep_counter_wrapper.SimpleLogUpkeepCounterMetaData.Bin), isStreamsLookup)
+	if err != nil {
+		return &EthereumAutomationSimpleLogCounterConsumer{}, fmt.Errorf("SimpleLogUpkeepCounter instance deployment have failed: %w", err)
+	}
+
+	instance, err := simple_log_upkeep_counter_wrapper.NewSimpleLogUpkeepCounter(data.Address, wrappers.MustNewWrappedContractBackend(nil, client))
+	if err != nil {
+		return &EthereumAutomationSimpleLogCounterConsumer{}, fmt.Errorf("failed to instantiate SimpleLogUpkeepCounter instance: %w", err)
+	}
+
+	return &EthereumAutomationSimpleLogCounterConsumer{
 		client:   client,
 		consumer: instance,
 		address:  &data.Address,

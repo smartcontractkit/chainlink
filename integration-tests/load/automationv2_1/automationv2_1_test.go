@@ -16,6 +16,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/wiremock"
+	"github.com/smartcontractkit/seth"
 
 	geth "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -30,7 +31,6 @@ import (
 	ocr2keepers30config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/ethereum"
@@ -41,14 +41,15 @@ import (
 
 	gowiremock "github.com/wiremock/go-wiremock"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/automationv2"
+	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	contractseth "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	aconfig "github.com/smartcontractkit/chainlink/integration-tests/testconfig/automation"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
+	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_compatible_utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_emitter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/simple_log_upkeep_counter_wrapper"
@@ -191,7 +192,7 @@ Spec Type: %s
 Log Level: %s
 Image: %s
 Tag: %s
-		
+
 Load Config:
 %s`
 
@@ -336,21 +337,24 @@ Load Config:
 	err = testEnvironment.Run()
 	require.NoError(t, err, "Error running chainlink DON")
 
-	chainClient, err := blockchain.NewEVMClient(testNetwork, testEnvironment, l)
-	require.NoError(t, err, "Error building chain client")
+	testNetwork = utils.MustReplaceSimulatedNetworkUrlWithK8(l, testNetwork, *testEnvironment)
+	readSethCfg := loadedTestConfig.GetSethConfig()
+	require.NotNil(t, readSethCfg, "Seth config shouldn't be nil")
 
-	contractDeployer, err := contracts.NewContractDeployer(chainClient, l)
-	require.NoError(t, err, "Error building contract deployer")
+	sethCfg := utils.MergeSethAndEvmNetworkConfigs(l, testNetwork, *readSethCfg)
+	err = utils.ValidateSethNetworkConfig(sethCfg.Network)
+	require.NoError(t, err, "Error validating seth network config")
+
+	chainClient, err := seth.NewClientWithConfig(&sethCfg)
+	require.NoError(t, err, "Error creating seth client")
 
 	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
 	require.NoError(t, err, "Error connecting to chainlink nodes")
 
-	chainClient.ParallelTransactions(true)
-
-	multicallAddress, err := contractDeployer.DeployMultiCallContract()
+	multicallAddress, err := contracts.DeployMultiCallContract(chainClient)
 	require.NoError(t, err, "Error deploying multicall contract")
 
-	a := automationv2.NewAutomationTestK8s(chainClient, contractDeployer, chainlinkNodes)
+	a := automationv2.NewAutomationTestK8s(l, chainClient, chainlinkNodes)
 	a.RegistrySettings = *registrySettings
 	a.RegistrarSettings = contracts.KeeperRegistrarSettings{
 		AutoApproveConfigType: uint8(2),
@@ -391,7 +395,7 @@ Load Config:
 
 	a.SetupAutomationDeployment(t)
 
-	err = actions.FundChainlinkNodesAddress(chainlinkNodes[1:], chainClient, big.NewFloat(*loadedTestConfig.Common.ChainlinkNodeFunding), 0)
+	err = actions_seth.FundChainlinkNodesFromRootAddress(l, chainClient, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(chainlinkNodes[1:]), big.NewFloat(*loadedTestConfig.Common.ChainlinkNodeFunding))
 	require.NoError(t, err, "Error funding chainlink nodes")
 
 	consumerContracts := make([]contracts.KeeperConsumer, 0)
@@ -415,12 +419,12 @@ Load Config:
 
 	upkeepConfigs := make([]automationv2.UpkeepConfig, 0)
 	loadConfigs := make([]aconfig.Load, 0)
-	cEVMClient, err := blockchain.ConcurrentEVMClient(testNetwork, testEnvironment, chainClient, l)
-	require.NoError(t, err, "Error building concurrent chain client")
+	// cEVMClient, err := blockchain.ConcurrentEVMClient(testNetwork, testEnvironment, chainClient, l)
+	// require.NoError(t, err, "Error building concurrent chain client")
 
 	for _, u := range loadedTestConfig.Automation.Load {
 		for i := 0; i < *u.NumberOfUpkeeps; i++ {
-			consumerContract, err := contractDeployer.DeployAutomationSimpleLogTriggerConsumer(*u.IsStreamsLookup)
+			consumerContract, err := contracts.DeployAutomationSimpleLogTriggerConsumer(chainClient, *u.IsStreamsLookup)
 			require.NoError(t, err, "Error deploying automation consumer contract")
 			consumerContracts = append(consumerContracts, consumerContract)
 			l.Debug().
@@ -450,7 +454,7 @@ Load Config:
 				triggerAddresses = append(triggerAddresses, triggerAddresses[len(triggerAddresses)-1])
 				continue
 			}
-			triggerContract, err := contractDeployer.DeployLogEmitterContract()
+			triggerContract, err := contracts.DeployLogEmitterContract(l, chainClient)
 			require.NoError(t, err, "Error deploying log emitter contract")
 			triggerContracts = append(triggerContracts, triggerContract)
 			triggerAddresses = append(triggerAddresses, triggerContract.Address())
@@ -460,8 +464,6 @@ Load Config:
 				Int("Out Of", *u.NumberOfUpkeeps).
 				Msg("Deployed Automation Log Trigger Emitter Contract")
 		}
-		err = chainClient.WaitForEvents()
-		require.NoError(t, err, "Failed waiting for contracts to deploy")
 	}
 
 	for i, consumerContract := range consumerContracts {
@@ -497,7 +499,7 @@ Load Config:
 			EncryptedEmail: []byte("test@mail.com"),
 			UpkeepContract: common.HexToAddress(consumerContract.Address()),
 			GasLimit:       *loadConfigs[i].UpkeepGasLimit,
-			AdminAddress:   common.HexToAddress(chainClient.GetDefaultWallet().Address()),
+			AdminAddress:   chainClient.Addresses[0],
 			TriggerType:    uint8(1),
 			CheckData:      encodedCheckDataStruct,
 			TriggerConfig:  encodedLogTriggerConfig,
@@ -511,9 +513,6 @@ Load Config:
 	registrationTxHashes, err := a.RegisterUpkeeps(upkeepConfigs)
 	require.NoError(t, err, "Error registering upkeeps")
 
-	err = chainClient.WaitForEvents()
-	require.NoError(t, err, "Failed waiting for upkeeps to register")
-
 	upkeepIds, err := a.ConfirmUpkeepsRegistered(registrationTxHashes)
 	require.NoError(t, err, "Error confirming upkeeps registered")
 
@@ -522,7 +521,7 @@ Load Config:
 	l.Info().Str("STARTUP_WAIT_TIME", StartupWaitTime.String()).Msg("Waiting for plugin to start")
 	time.Sleep(StartupWaitTime)
 
-	startBlock, err := chainClient.LatestBlockNumber(ctx)
+	startBlock, err := chainClient.Client.BlockNumber(ctx)
 	require.NoError(t, err, "Error getting latest block number")
 
 	p := wasp.NewProfile()
@@ -568,7 +567,7 @@ Load Config:
 		Gun: NewLogTriggerUser(
 			l,
 			configs,
-			cEVMClient,
+			chainClient,
 			multicallAddress.Hex(),
 		),
 		CallResultBufLen: 1000,
@@ -594,7 +593,7 @@ Load Config:
 		Msg("Test execution ended")
 
 	l.Info().Str("Duration", testExDuration.String()).Msg("Test Execution Duration")
-	endBlock, err := chainClient.LatestBlockNumber(ctx)
+	endBlock, err := chainClient.Client.BlockNumber(ctx)
 	require.NoError(t, err, "Error getting latest block number")
 	l.Info().Uint64("Starting Block", startBlock).Uint64("Ending Block", endBlock).Msg("Test Block Range")
 
@@ -636,7 +635,7 @@ Load Config:
 					logsInBatch []types.Log
 				)
 				ctx2, cancel := context.WithTimeout(ctx, timeout)
-				logsInBatch, err = chainClient.FilterLogs(ctx2, filterQuery)
+				logsInBatch, err = chainClient.Client.FilterLogs(ctx2, filterQuery)
 				cancel()
 				if err != nil {
 					l.Error().Err(err).
@@ -663,7 +662,7 @@ Load Config:
 				eventDetails, err := consumerABI.EventByID(log.Topics[0])
 				require.NoError(t, err, "Error getting event details")
 				consumer, err := simple_log_upkeep_counter_wrapper.NewSimpleLogUpkeepCounter(
-					address, chainClient.Backend(),
+					address, chainClient.Client,
 				)
 				require.NoError(t, err, "Error getting consumer contract")
 				if eventDetails.Name == "PerformingUpkeep" {
@@ -700,7 +699,7 @@ Load Config:
 					logsInBatch []types.Log
 				)
 				ctx2, cancel := context.WithTimeout(ctx, timeout)
-				logsInBatch, err = chainClient.FilterLogs(ctx2, filterQuery)
+				logsInBatch, err = chainClient.Client.FilterLogs(ctx2, filterQuery)
 				cancel()
 				if err != nil {
 					l.Error().Err(err).
@@ -817,14 +816,14 @@ Test Duration: %s`
 	}
 
 	t.Cleanup(func() {
-		if err = actions.TeardownRemoteSuite(t, testEnvironment.Cfg.Namespace, chainlinkNodes, nil, &loadedTestConfig, chainClient); err != nil {
+		if err = actions_seth.TeardownRemoteSuite(t, chainClient, testEnvironment.Cfg.Namespace, chainlinkNodes, nil, &loadedTestConfig); err != nil {
 			l.Error().Err(err).Msg("Error when tearing down remote suite")
 			testEnvironment.Cfg.TTL += time.Hour * 48
 			err := testEnvironment.Run()
 			if err != nil {
 				l.Error().Err(err).Msg("Error increasing TTL of namespace")
 			}
-		} else if chainClient.NetworkSimulated() {
+		} else if chainClient.Cfg.IsSimulatedNetwork() {
 			err := testEnvironment.Client.RemoveNamespace(testEnvironment.Cfg.Namespace)
 			if err != nil {
 				l.Error().Err(err).Msg("Error removing namespace")

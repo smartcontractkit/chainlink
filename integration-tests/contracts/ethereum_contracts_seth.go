@@ -5,7 +5,9 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"strings"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -1110,4 +1112,18 @@ func LoadMockGASFeed(client *seth.Client, address common.Address) (MockGasFeed, 
 		client:  client,
 		feed:    instance,
 	}, nil
+}
+
+func DeployMultiCallContract(client *seth.Client) (common.Address, error) {
+	abi, err := abi.JSON(strings.NewReader(MultiCallABI))
+	if err != nil {
+		return common.Address{}, err
+	}
+
+	data, err := client.DeployContract(client.NewTXOpts(), "MultiCall", abi, common.FromHex(MultiCallBIN))
+	if err != nil {
+		return common.Address{}, fmt.Errorf("MultiCall instance deployment have failed: %w", err)
+	}
+
+	return data.Address, nil
 }

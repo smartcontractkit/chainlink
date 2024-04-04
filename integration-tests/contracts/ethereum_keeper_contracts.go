@@ -2013,21 +2013,21 @@ func (v *LegacyEthereumAutomationLogCounterConsumer) Counter(ctx context.Context
 	return cnt, nil
 }
 
-type EthereumAutomationSimpleLogCounterConsumer struct {
+type LegacyEthereumAutomationSimpleLogCounterConsumer struct {
 	client   blockchain.EVMClient
 	consumer *simple_log_upkeep_counter_wrapper.SimpleLogUpkeepCounter
 	address  *common.Address
 }
 
-func (v *EthereumAutomationSimpleLogCounterConsumer) Address() string {
+func (v *LegacyEthereumAutomationSimpleLogCounterConsumer) Address() string {
 	return v.address.Hex()
 }
 
-func (v *EthereumAutomationSimpleLogCounterConsumer) Start() error {
+func (v *LegacyEthereumAutomationSimpleLogCounterConsumer) Start() error {
 	return nil
 }
 
-func (v *EthereumAutomationSimpleLogCounterConsumer) Counter(ctx context.Context) (*big.Int, error) {
+func (v *LegacyEthereumAutomationSimpleLogCounterConsumer) Counter(ctx context.Context) (*big.Int, error) {
 	opts := &bind.CallOpts{
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
 		Context: ctx,
