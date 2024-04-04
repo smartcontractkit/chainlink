@@ -84,3 +84,9 @@ func (o *Capability) NewReportingPluginFactory(ctx context.Context, cfg commonty
 
 	return factory, err
 }
+
+func (o *Capability) NewValidationService(ctx context.Context) (commontypes.ValidationService, error) {
+	s := &validationService{lggr: o.Logger}
+	o.SubService(s)
+	return s, nil
+}

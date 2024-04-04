@@ -20,6 +20,7 @@ const _ = grpc.SupportPackageIsVersion7
 
 const (
 	ReportingPluginService_NewReportingPluginFactory_FullMethodName = "/loop.ReportingPluginService/NewReportingPluginFactory"
+	ReportingPluginService_NewValidationService_FullMethodName      = "/loop.ReportingPluginService/NewValidationService"
 )
 
 // ReportingPluginServiceClient is the client API for ReportingPluginService service.
@@ -27,6 +28,7 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ReportingPluginServiceClient interface {
 	NewReportingPluginFactory(ctx context.Context, in *NewReportingPluginFactoryRequest, opts ...grpc.CallOption) (*NewReportingPluginFactoryReply, error)
+	NewValidationService(ctx context.Context, in *ValidationServiceRequest, opts ...grpc.CallOption) (*ValidationServiceResponse, error)
 }
 
 type reportingPluginServiceClient struct {
@@ -46,11 +48,21 @@ func (c *reportingPluginServiceClient) NewReportingPluginFactory(ctx context.Con
 	return out, nil
 }
 
+func (c *reportingPluginServiceClient) NewValidationService(ctx context.Context, in *ValidationServiceRequest, opts ...grpc.CallOption) (*ValidationServiceResponse, error) {
+	out := new(ValidationServiceResponse)
+	err := c.cc.Invoke(ctx, ReportingPluginService_NewValidationService_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ReportingPluginServiceServer is the server API for ReportingPluginService service.
 // All implementations must embed UnimplementedReportingPluginServiceServer
 // for forward compatibility
 type ReportingPluginServiceServer interface {
 	NewReportingPluginFactory(context.Context, *NewReportingPluginFactoryRequest) (*NewReportingPluginFactoryReply, error)
+	NewValidationService(context.Context, *ValidationServiceRequest) (*ValidationServiceResponse, error)
 	mustEmbedUnimplementedReportingPluginServiceServer()
 }
 
@@ -60,6 +72,9 @@ type UnimplementedReportingPluginServiceServer struct {
 
 func (UnimplementedReportingPluginServiceServer) NewReportingPluginFactory(context.Context, *NewReportingPluginFactoryRequest) (*NewReportingPluginFactoryReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method NewReportingPluginFactory not implemented")
+}
+func (UnimplementedReportingPluginServiceServer) NewValidationService(context.Context, *ValidationServiceRequest) (*ValidationServiceResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method NewValidationService not implemented")
 }
 func (UnimplementedReportingPluginServiceServer) mustEmbedUnimplementedReportingPluginServiceServer() {
 }
@@ -93,6 +108,24 @@ func _ReportingPluginService_NewReportingPluginFactory_Handler(srv interface{}, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ReportingPluginService_NewValidationService_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ValidationServiceRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ReportingPluginServiceServer).NewValidationService(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ReportingPluginService_NewValidationService_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ReportingPluginServiceServer).NewValidationService(ctx, req.(*ValidationServiceRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ReportingPluginService_ServiceDesc is the grpc.ServiceDesc for ReportingPluginService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -103,6 +136,10 @@ var ReportingPluginService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "NewReportingPluginFactory",
 			Handler:    _ReportingPluginService_NewReportingPluginFactory_Handler,
+		},
+		{
+			MethodName: "NewValidationService",
+			Handler:    _ReportingPluginService_NewValidationService_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

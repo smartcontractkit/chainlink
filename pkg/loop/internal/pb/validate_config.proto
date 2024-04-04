@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+option go_package = "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb";
+
+package loop;
+
+import "google/protobuf/struct.proto";
+
+service ValidationService {
+  rpc ValidateConfig(ValidateConfigRequest) returns (ValidateConfigResponse){}
+}
+
+message ValidateConfigRequest {
+  google.protobuf.Struct config =1;
+}
+
+message ValidateConfigResponse {
+
+}

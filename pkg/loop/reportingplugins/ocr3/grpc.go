@@ -31,16 +31,28 @@ type GRPCService[T types.PluginProvider] struct {
 	pluginClient *ocr3.ReportingPluginServiceClient
 }
 
-type serverAdapter func(
-	context.Context,
-	types.ReportingPluginServiceConfig,
-	grpc.ClientConnInterface,
-	types.PipelineRunnerService,
-	types.TelemetryService,
-	types.ErrorLog,
-	types.CapabilitiesRegistry,
-	types.KeyValueStore,
-) (types.OCR3ReportingPluginFactory, error)
+type serverAdapter struct {
+	NewReportingPluginFactoryFn func(
+		context.Context,
+		types.ReportingPluginServiceConfig,
+		grpc.ClientConnInterface,
+		types.PipelineRunnerService,
+		types.TelemetryService,
+		types.ErrorLog,
+		types.CapabilitiesRegistry,
+		types.KeyValueStore,
+	) (types.OCR3ReportingPluginFactory, error)
+
+	ValidateConfigService
+}
+
+type ValidateConfigService interface {
+	NewValidationService(ctx context.Context) (types.ValidationService, error)
+}
+
+func (s serverAdapter) NewValidationService(ctx context.Context) (types.ValidationService, error) {
+	return s.ValidateConfigService.NewValidationService(ctx)
+}
 
 func (s serverAdapter) NewReportingPluginFactory(
 	ctx context.Context,
@@ -52,11 +64,11 @@ func (s serverAdapter) NewReportingPluginFactory(
 	capRegistry types.CapabilitiesRegistry,
 	kv types.KeyValueStore,
 ) (types.OCR3ReportingPluginFactory, error) {
-	return s(ctx, config, conn, pr, ts, errorLog, capRegistry, kv)
+	return s.NewReportingPluginFactoryFn(ctx, config, conn, pr, ts, errorLog, capRegistry, kv)
 }
 
 func (g *GRPCService[T]) GRPCServer(broker *plugin.GRPCBroker, server *grpc.Server) error {
-	adapter := func(
+	newReportingPluginFactoryFn := func(
 		ctx context.Context,
 		cfg types.ReportingPluginServiceConfig,
 		conn grpc.ClientConnInterface,
@@ -70,7 +82,11 @@ func (g *GRPCService[T]) GRPCServer(broker *plugin.GRPCBroker, server *grpc.Serv
 		tc := telemetry.NewTelemetryClient(ts)
 		return g.PluginServer.NewReportingPluginFactory(ctx, cfg, provider, pr, tc, el, capRegistry, kv)
 	}
-	return ocr3.RegisterReportingPluginServiceServer(server, broker, g.BrokerConfig, serverAdapter(adapter))
+
+	return ocr3.RegisterReportingPluginServiceServer(server, broker, g.BrokerConfig, serverAdapter{
+		NewReportingPluginFactoryFn: newReportingPluginFactoryFn,
+		ValidateConfigService:       g.PluginServer,
+	})
 }
 
 func (g *GRPCService[T]) GRPCClient(_ context.Context, broker *plugin.GRPCBroker, conn *grpc.ClientConn) (interface{}, error) {

@@ -6,6 +6,15 @@ package loop;
 
 service ReportingPluginService {
   rpc NewReportingPluginFactory (NewReportingPluginFactoryRequest) returns (NewReportingPluginFactoryReply) {}
+  rpc NewValidationService(ValidationServiceRequest) returns (ValidationServiceResponse){}
+}
+
+message ValidationServiceRequest {
+//Add services as needed
+}
+
+message ValidationServiceResponse {
+  uint32 ID = 1;
 }
 
 message ReportingPluginServiceConfig {

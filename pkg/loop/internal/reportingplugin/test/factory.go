@@ -8,6 +8,7 @@ import (
 
 	libocr "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	validationtest "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/core/services/validation/test"
 	testtypes "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/test/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
@@ -105,5 +106,15 @@ func RunFactory(t *testing.T, factory libocr.ReportingPluginFactory) {
 		t.Run("ReportingPlugin", func(t *testing.T) {
 			expectedFactory.reportingPlugin.AssertEqual(ctx, t, rp)
 		})
+	})
+}
+
+func RunValidation(t *testing.T, validationService types.ValidationService) {
+	ctx := tests.Context(t)
+	t.Run("ValidationService", func(t *testing.T) {
+		err := validationService.ValidateConfig(ctx, validationtest.GoodPluginConfig)
+		require.NoError(t, err)
+		err = validationService.ValidateConfig(ctx, nil)
+		require.Error(t, err)
 	})
 }

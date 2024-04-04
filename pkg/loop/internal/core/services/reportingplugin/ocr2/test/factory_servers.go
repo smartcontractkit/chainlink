@@ -8,6 +8,7 @@ import (
 
 	pipelinetest "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/core/services/pipeline/test"
 	telemetrytest "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/core/services/telemetry/test"
+	validationtest "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/core/services/validation/test"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/net"
 	mediantest "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer/pluginprovider/ext/median/test"
 	ocr2test "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer/pluginprovider/ocr2/test"
@@ -19,18 +20,20 @@ import (
 
 var MedianProviderServer = medianFactoryServer{
 	medianGeneratorConfig: medianGeneratorConfig{
-		medianProvider: mediantest.MedianProvider,
-		pipeline:       pipelinetest.PipelineRunner,
-		telemetry:      telemetrytest.Telemetry,
+		medianProvider:    mediantest.MedianProvider,
+		pipeline:          pipelinetest.PipelineRunner,
+		telemetry:         telemetrytest.Telemetry,
+		validationService: validationtest.ValidationService,
 	},
 }
 
 const MedianID = "ocr2-reporting-plugin-with-median-provider"
 
 type medianGeneratorConfig struct {
-	medianProvider testtypes.MedianProviderTester
-	pipeline       testtypes.Evaluator[types.PipelineRunnerService]
-	telemetry      testtypes.Evaluator[types.TelemetryClient]
+	medianProvider    testtypes.MedianProviderTester
+	pipeline          testtypes.Evaluator[types.PipelineRunnerService]
+	telemetry         testtypes.Evaluator[types.TelemetryClient]
+	validationService testtypes.ValidationEvaluator
 }
 
 type medianFactoryServer struct {
@@ -38,6 +41,10 @@ type medianFactoryServer struct {
 }
 
 var _ reportingplugins.ProviderServer[types.MedianProvider] = medianFactoryServer{}
+
+func (s medianFactoryServer) NewValidationService(ctx context.Context) (types.ValidationService, error) {
+	return s.validationService, nil
+}
 
 func (s medianFactoryServer) ConnToProvider(conn grpc.ClientConnInterface, broker net.Broker, brokerConfig net.BrokerConfig) types.MedianProvider {
 	return s.medianProvider
@@ -63,17 +70,23 @@ func (s medianFactoryServer) NewReportingPluginFactory(ctx context.Context, conf
 }
 
 var AgnosticProviderServer = agnosticPluginFactoryServer{
-	provider:       ocr2test.AgnosticPluginProvider,
-	pipelineRunner: pipelinetest.PipelineRunner,
-	telemetry:      telemetrytest.Telemetry,
+	provider:          ocr2test.AgnosticPluginProvider,
+	pipelineRunner:    pipelinetest.PipelineRunner,
+	telemetry:         telemetrytest.Telemetry,
+	validationService: validationtest.ValidationService,
 }
 
 var _ reportingplugins.ProviderServer[types.PluginProvider] = agnosticPluginFactoryServer{}
 
 type agnosticPluginFactoryServer struct {
-	provider       testtypes.PluginProviderTester
-	pipelineRunner testtypes.PipelineEvaluator
-	telemetry      testtypes.TelemetryEvaluator
+	provider          testtypes.PluginProviderTester
+	pipelineRunner    testtypes.PipelineEvaluator
+	telemetry         testtypes.TelemetryEvaluator
+	validationService testtypes.ValidationEvaluator
+}
+
+func (s agnosticPluginFactoryServer) NewValidationService(ctx context.Context) (types.ValidationService, error) {
+	return s.validationService, nil
 }
 
 func (s agnosticPluginFactoryServer) ConnToProvider(conn grpc.ClientConnInterface, broker net.Broker, brokerConfig net.BrokerConfig) types.PluginProvider {

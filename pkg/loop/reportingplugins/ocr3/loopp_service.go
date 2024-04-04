@@ -54,3 +54,23 @@ func (g *LOOPPService) NewReportingPlugin(config ocr3types.ReportingPluginConfig
 	}
 	return g.Service.NewReportingPlugin(config)
 }
+
+func NewLOOPPServiceValidation(
+	lggr logger.Logger,
+	grpcOpts loop.GRPCOpts,
+	cmd func() *exec.Cmd,
+) *reportingplugins.LOOPPServiceValidation {
+	newService := func(ctx context.Context, instance any) (types.ValidationService, error) {
+		plug, ok := instance.(types.OCR3ReportingPluginClient)
+		if !ok {
+			return nil, fmt.Errorf("expected ValidationServiceClient but got %T", instance)
+		}
+		return plug.NewValidationService(ctx)
+	}
+	stopCh := make(chan struct{})
+	lggr = logger.Named(lggr, "GenericService")
+	var ps reportingplugins.LOOPPServiceValidation
+	broker := net.BrokerConfig{StopCh: stopCh, Logger: lggr, GRPCOpts: grpcOpts}
+	ps.Init(PluginServiceName, &reportingplugins.GRPCService[types.PluginProvider]{BrokerConfig: broker}, newService, lggr, cmd, stopCh)
+	return &ps
+}

@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/core/services/errorlog"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/core/services/telemetry"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/core/services/validation"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/goplugin"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/net"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb"
@@ -114,6 +115,17 @@ func (o *ReportingPluginServiceClient) NewReportingPluginFactory(
 	return newReportingPluginFactoryClient(o.PluginClient.BrokerExt, cc), nil
 }
 
+func (o *ReportingPluginServiceClient) NewValidationService(ctx context.Context) (types.ValidationService, error) {
+	cc := o.NewClientConn("ValidationService", func(ctx context.Context) (id uint32, deps net.Resources, err error) {
+		reply, err := o.reportingPluginService.NewValidationService(ctx, &pb.ValidationServiceRequest{})
+		if err != nil {
+			return 0, nil, err
+		}
+		return reply.ID, nil, nil
+	})
+	return validation.NewValidationServiceClient(o.PluginClient.BrokerExt, cc), nil
+}
+
 var _ pb.ReportingPluginServiceServer = (*reportingPluginServiceServer)(nil)
 
 type reportingPluginServiceServer struct {
@@ -121,6 +133,23 @@ type reportingPluginServiceServer struct {
 
 	*net.BrokerExt
 	impl types.OCR3ReportingPluginClient
+}
+
+func (m reportingPluginServiceServer) NewValidationService(ctx context.Context, request *pb.ValidationServiceRequest) (*pb.ValidationServiceResponse, error) {
+	service, err := m.impl.NewValidationService(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	id, _, err := m.ServeNew("ValidationService", func(s *grpc.Server) {
+		pb.RegisterServiceServer(s, &goplugin.ServiceServer{Srv: service})
+		pb.RegisterValidationServiceServer(s, validation.NewValidationServiceServer(service, m.BrokerExt))
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.ValidationServiceResponse{ID: id}, nil
 }
 
 func (m reportingPluginServiceServer) NewReportingPluginFactory(ctx context.Context, request *pb.NewReportingPluginFactoryRequest) (*pb.NewReportingPluginFactoryReply, error) {
