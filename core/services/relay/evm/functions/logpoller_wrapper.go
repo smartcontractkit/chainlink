@@ -411,7 +411,6 @@ func (l *logPollerWrapper) handleRouteUpdate(ctx context.Context, activeCoordina
 
 	l.lggr.Debugw("LogPollerWrapper: new routes", "activeCoordinator", activeCoordinator.Hex(), "proposedCoordinator", proposedCoordinator.Hex())
 
-	previousActiveCoordinator := l.activeCoordinator
 	l.activeCoordinator = activeCoordinator
 	l.proposedCoordinator = proposedCoordinator
 
@@ -422,15 +421,26 @@ func (l *logPollerWrapper) handleRouteUpdate(ctx context.Context, activeCoordina
 		}
 	}
 
-	if previousActiveCoordinator != l.activeCoordinator && previousActiveCoordinator != l.proposedCoordinator && l.logPoller.HasFilter(filterName(previousActiveCoordinator)) {
-		if err := l.logPoller.UnregisterFilter(ctx, filterName(previousActiveCoordinator)); err != nil {
-			l.lggr.Errorw("LogPollerWrapper: Failed to unregister filter for previous active coordinator", "filterName", filterName(previousActiveCoordinator), "err", err)
+	filters := l.logPoller.GetFilters()
+	for _, filter := range filters {
+		if filter.Name[:len(l.filterPrefix())] != l.filterPrefix() {
+			continue
+		}
+		if filter.Name == l.filterName(l.activeCoordinator) || filter.Name == l.filterName(l.proposedCoordinator) {
+			continue
+		}
+		if err := l.logPoller.UnregisterFilter(ctx, filter.Name); err != nil {
+			l.lggr.Errorw("LogPollerWrapper: Failed to unregister filter", "filterName", filter.Name, "err", err)
 		}
 	}
 }
 
-func filterName(addr common.Address) string {
-	return logpoller.FilterName("FunctionsLogPollerWrapper", addr.String())
+func (l *logPollerWrapper) filterPrefix() string {
+	return "FunctionsLogPollerWrapper:" + l.pluginConfig.DONID
+}
+
+func (l *logPollerWrapper) filterName(addr common.Address) string {
+	return logpoller.FilterName(l.filterPrefix(), addr.String())
 }
 
 func (l *logPollerWrapper) registerFilters(ctx context.Context, coordinatorAddress common.Address) error {
@@ -440,7 +450,7 @@ func (l *logPollerWrapper) registerFilters(ctx context.Context, coordinatorAddre
 	return l.logPoller.RegisterFilter(
 		ctx,
 		logpoller.Filter{
-			Name: filterName(coordinatorAddress),
+			Name: l.filterName(coordinatorAddress),
 			EventSigs: []common.Hash{
 				functions_coordinator.FunctionsCoordinatorOracleRequest{}.Topic(),
 				functions_coordinator.FunctionsCoordinatorOracleResponse{}.Topic(),

@@ -95,7 +95,7 @@ func TestLogPollerWrapper_SingleSubscriberEmptyEvents(t *testing.T) {
 	lp.On("Logs", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]logpoller.Log{}, nil)
 	client.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(addr(t, "01"), nil)
 	lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
-	lp.On("HasFilter", filterName(common.HexToAddress("0x0"))).Return(false)
+	lp.On("GetFilters").Return(map[string]logpoller.Filter{}, nil)
 
 	subscriber := newSubscriber(1)
 	lpWrapper.SubscribeToUpdates(ctx, "mock_subscriber", subscriber)
@@ -128,7 +128,8 @@ func TestLogPollerWrapper_LatestEvents_ReorgHandling(t *testing.T) {
 	lp.On("LatestBlock", mock.Anything).Return(logpoller.LogPollerBlock{BlockNumber: int64(100)}, nil)
 	client.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(addr(t, "01"), nil)
 	lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
-	lp.On("HasFilter", filterName(common.HexToAddress("0x0"))).Return(false)
+	lp.On("GetFilters").Return(map[string]logpoller.Filter{}, nil)
+
 	subscriber := newSubscriber(1)
 	lpWrapper.SubscribeToUpdates(ctx, "mock_subscriber", subscriber)
 	mockedLog := getMockedRequestLog(t)
@@ -229,12 +230,20 @@ func TestLogPollerWrapper_UnregisterOldFiltersOnRouteUpgrade(t *testing.T) {
 
 	wrapper.activeCoordinator = activeCoord
 	wrapper.proposedCoordinator = proposedCoord
+	activeCoordFilterName := wrapper.filterName(activeCoord)
+	proposedCoordFilterName := wrapper.filterName(proposedCoord)
+	newProposedCoordFilterName := wrapper.filterName(newProposedCoord)
 
 	lp.On("RegisterFilter", ctx, mock.Anything).Return(nil)
-	lp.On("HasFilter", filterName(activeCoord)).Return(true)
-	lp.On("UnregisterFilter", ctx, filterName(activeCoord)).Return(nil)
+	existingFilters := map[string]logpoller.Filter{
+		activeCoordFilterName:      {Name: activeCoordFilterName},
+		proposedCoordFilterName:    {Name: proposedCoordFilterName},
+		newProposedCoordFilterName: {Name: newProposedCoordFilterName},
+	}
+	lp.On("GetFilters").Return(existingFilters, nil)
+	lp.On("UnregisterFilter", ctx, activeCoordFilterName).Return(nil)
 
 	wrapper.handleRouteUpdate(ctx, newActiveCoord, newProposedCoord)
 
-	lp.AssertCalled(t, "UnregisterFilter", ctx, filterName(activeCoord))
+	lp.AssertCalled(t, "UnregisterFilter", ctx, activeCoordFilterName)
 }
