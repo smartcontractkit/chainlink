@@ -334,8 +334,8 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) moveIn
 	return nil
 }
 
-// moveUnconfirmedToConfirmed moves the unconfirmed transaction to the confirmed state.
-// It returns an error if there is no unconfirmed transaction with the given ID.
+// moveUnconfirmedToConfirmed moves a unconfirmed transaction to the confirmed state.
+// It returns an error if there is no transaction with the given ID.
 // It returns an error if there is no attempt with the given receipt.
 func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) moveUnconfirmedToConfirmed(
 	receipt txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
@@ -345,13 +345,13 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) moveUn
 
 	txAttempt, ok := as.attemptHashToTxAttempt[receipt.GetTxHash()]
 	if !ok {
-		return fmt.Errorf("move_unconfirmed_to_confirmed: no attempt found with receipt %v", receipt)
+		return fmt.Errorf("no attempt found with receipt %q", receipt.GetTxHash())
 	}
 
 	txAttempt.Receipts = []txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH]{receipt}
-	tx, ok := as.unconfirmedTxs[txAttempt.TxID]
+	tx, ok := as.allTxs[txAttempt.TxID]
 	if !ok {
-		return fmt.Errorf("move_unconfirmed_to_confirmed: no unconfirmed transaction with ID %d", txAttempt.TxID)
+		return fmt.Errorf("no transaction with ID %d found for hash %q", txAttempt.TxID, receipt.GetTxHash())
 	}
 	txAttempt.State = txmgrtypes.TxAttemptBroadcast
 	if txAttempt.BroadcastBeforeBlockNum == nil {
@@ -359,6 +359,14 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) moveUn
 		txAttempt.BroadcastBeforeBlockNum = &blockNum
 	}
 	tx.State = TxConfirmed
+	as.confirmedTxs[tx.ID] = tx
+	delete(as.unconfirmedTxs, tx.ID)
+	for i := 0; i < len(tx.TxAttempts); i++ {
+		if tx.TxAttempts[i].ID == txAttempt.ID {
+			tx.TxAttempts[i] = *txAttempt
+			break
+		}
+	}
 
 	return nil
 }
