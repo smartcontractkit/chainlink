@@ -23,6 +23,113 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 )
 
+func TestInMemoryStore_SaveInProgressAttempt(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
+	persistentStore := cltest.NewTestTxStore(t, db)
+	kst := cltest.NewKeyStore(t, db, dbcfg)
+	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
+
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	lggr := logger.TestSugared(t)
+	chainID := ethClient.ConfiguredChainID()
+	ctx := testutils.Context(t)
+
+	inMemoryStore, err := commontxmgr.NewInMemoryStore[
+		*big.Int,
+		common.Address, common.Hash, common.Hash,
+		*evmtypes.Receipt,
+		evmtypes.Nonce,
+		evmgas.EvmFee,
+	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	require.NoError(t, err)
+
+	t.Run("saves new in_progress attempt if attempt is new", func(t *testing.T) {
+		// Insert a transaction into persistent store
+		inTx := cltest.MustInsertUnconfirmedEthTx(t, persistentStore, 1, fromAddress)
+		// Insert the transaction into the in-memory store
+		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
+
+		// generate new attempt
+		inTxAttempt := cltest.NewLegacyEthTxAttempt(t, inTx.ID)
+		require.Equal(t, int64(0), inTxAttempt.ID)
+
+		err := inMemoryStore.SaveInProgressAttempt(ctx, &inTxAttempt)
+		require.NoError(t, err)
+
+		expTx, err := persistentStore.FindTxWithAttempts(ctx, inTx.ID)
+		require.NoError(t, err)
+
+		// Check that the in-memory store has the new attempt
+		fn := func(tx *evmtxmgr.Tx) bool { return true }
+		actTxs := inMemoryStore.XXXTestFindTxs(nil, fn, inTx.ID)
+		require.NotNil(t, actTxs)
+		actTx := actTxs[0]
+		require.Equal(t, len(expTx.TxAttempts), len(actTx.TxAttempts))
+
+		assertTxEqual(t, expTx, actTx)
+	})
+	t.Run("updates old attempt to in_progress when insufficient_funds", func(t *testing.T) {
+		// Insert a transaction into persistent store
+		inTx := mustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, persistentStore, 23, fromAddress)
+		// Insert the transaction into the in-memory store
+		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
+
+		// use old attempt
+		inTxAttempt := inTx.TxAttempts[0]
+		require.Equal(t, txmgrtypes.TxAttemptInsufficientFunds, inTxAttempt.State)
+		require.NotEqual(t, int64(0), inTxAttempt.ID)
+
+		inTxAttempt.BroadcastBeforeBlockNum = nil
+		inTxAttempt.State = txmgrtypes.TxAttemptInProgress
+		err := inMemoryStore.SaveInProgressAttempt(ctx, &inTxAttempt)
+		require.NoError(t, err)
+
+		expTx, err := persistentStore.FindTxWithAttempts(ctx, inTx.ID)
+		require.NoError(t, err)
+
+		// Check that the in-memory store has the new attempt
+		fn := func(tx *evmtxmgr.Tx) bool { return true }
+		actTxs := inMemoryStore.XXXTestFindTxs(nil, fn, inTx.ID)
+		require.NotNil(t, actTxs)
+		actTx := actTxs[0]
+		require.Equal(t, len(expTx.TxAttempts), len(actTx.TxAttempts))
+
+		assertTxEqual(t, expTx, actTx)
+	})
+	t.Run("handles errors the same way as the persistent store", func(t *testing.T) {
+		// Insert a transaction into persistent store
+		inTx := cltest.MustInsertUnconfirmedEthTx(t, persistentStore, 55, fromAddress)
+		// Insert the transaction into the in-memory store
+		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
+
+		// generate new attempt
+		inTxAttempt := cltest.NewLegacyEthTxAttempt(t, inTx.ID)
+		require.Equal(t, int64(0), inTxAttempt.ID)
+
+		t.Run("wrong tx id", func(t *testing.T) {
+			inTxAttempt.TxID = 999
+			actErr := inMemoryStore.SaveInProgressAttempt(ctx, &inTxAttempt)
+			expErr := persistentStore.SaveInProgressAttempt(ctx, &inTxAttempt)
+			assert.Error(t, actErr)
+			assert.Error(t, expErr)
+			inTxAttempt.TxID = inTx.ID // reset
+		})
+
+		t.Run("wrong state", func(t *testing.T) {
+			inTxAttempt.State = txmgrtypes.TxAttemptBroadcast
+			actErr := inMemoryStore.SaveInProgressAttempt(ctx, &inTxAttempt)
+			expErr := persistentStore.SaveInProgressAttempt(ctx, &inTxAttempt)
+			assert.Error(t, actErr)
+			assert.Error(t, expErr)
+			assert.Equal(t, expErr, actErr)
+			inTxAttempt.State = txmgrtypes.TxAttemptInProgress // reset
+		})
+	})
+}
+
 func TestInMemoryStore_UpdateBroadcastAts(t *testing.T) {
 	t.Parallel()
 
@@ -453,7 +560,6 @@ func assertTxEqual(t *testing.T, exp, act evmtxmgr.Tx) {
 func assertTxAttemptEqual(t *testing.T, exp, act evmtxmgr.TxAttempt) {
 	assert.Equal(t, exp.ID, act.ID)
 	assert.Equal(t, exp.TxID, act.TxID)
-	assert.Equal(t, exp.Tx, act.Tx)
 	assert.Equal(t, exp.TxFee, act.TxFee)
 	assert.Equal(t, exp.ChainSpecificFeeLimit, act.ChainSpecificFeeLimit)
 	assert.Equal(t, exp.SignedRawTx, act.SignedRawTx)
