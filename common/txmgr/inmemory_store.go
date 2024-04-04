@@ -332,41 +332,47 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 	[]txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	error,
 ) {
-	if ms.chainID.String() != chainID.String() {
-		panic("invalid chain ID")
-	}
+	return ms.persistentTxStore.FindTxAttemptsConfirmedMissingReceipt(ctx, chainID)
 
-	txFilter := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
-		return tx.TxAttempts != nil && len(tx.TxAttempts) > 0
-	}
-	txAttemptFilter := func(attempt *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
-		return true
-	}
-	states := []txmgrtypes.TxState{TxConfirmedMissingReceipt}
-	attempts := []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
-	ms.addressStatesLock.RLock()
-	defer ms.addressStatesLock.RUnlock()
-	for _, as := range ms.addressStates {
-		attempts = append(attempts, as.findTxAttempts(states, txFilter, txAttemptFilter)...)
-	}
-	// sort by tx_id ASC, gas_price DESC, gas_tip_cap DESC
-	// TODO: FIGURE OUT HOW TO GET GAS PRICE AND GAS TIP CAP FROM TxFee
-	slices.SortFunc(attempts, func(a, b txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) int {
-		aSequence, bSequence := a.Tx.Sequence, b.Tx.Sequence
-		if aSequence == nil || bSequence == nil {
-			return 0
+	// TODO: THE SORTING OF GAS PRICE AND GAS TIP CAP IS NOT IMPLEMENTED CORRECTLY. NEED TO FIGURE OUT HOW TO GET GAS PRICE AND GAS TIP CAP FROM TxFee
+	// THIS WORK WILL NEED TO BE DONE IN A SEPARATE PR WHICH CHANGES THE FEE GENERIC
+	/*
+		if ms.chainID.String() != chainID.String() {
+			panic("invalid chain ID")
 		}
 
-		return cmp.Compare((*aSequence).Int64(), (*bSequence).Int64())
-	})
+		txFilter := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
+			return tx.TxAttempts != nil && len(tx.TxAttempts) > 0
+		}
+		txAttemptFilter := func(attempt *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
+			return true
+		}
+		states := []txmgrtypes.TxState{TxConfirmedMissingReceipt}
+		attempts := []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
+		ms.addressStatesLock.RLock()
+		defer ms.addressStatesLock.RUnlock()
+		for _, as := range ms.addressStates {
+			attempts = append(attempts, as.findTxAttempts(states, txFilter, txAttemptFilter)...)
+		}
+		// sort by tx_id ASC, gas_price DESC, gas_tip_cap DESC
+		// TODO: FIGURE OUT HOW TO GET GAS PRICE AND GAS TIP CAP FROM TxFee
+		slices.SortFunc(attempts, func(a, b txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) int {
+			aSequence, bSequence := a.Tx.Sequence, b.Tx.Sequence
+			if aSequence == nil || bSequence == nil {
+				return 0
+			}
 
-	// deep copy the attempts
-	var eAttempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
-	for _, attempt := range attempts {
-		eAttempts = append(eAttempts, ms.deepCopyTxAttempt(attempt.Tx, attempt))
-	}
+			return cmp.Compare((*aSequence).Int64(), (*bSequence).Int64())
+		})
 
-	return eAttempts, nil
+		// deep copy the attempts
+		var eAttempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+		for _, attempt := range attempts {
+			eAttempts = append(eAttempts, ms.deepCopyTxAttempt(attempt.Tx, attempt))
+		}
+
+		return eAttempts, nil
+	*/
 }
 
 // UpdateBroadcastAts updates the broadcast_at time for a given set of attempts
@@ -402,41 +408,47 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 	attempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	err error,
 ) {
-	if ms.chainID.String() != chainID.String() {
-		panic("invalid chain ID")
-	}
+	return ms.persistentTxStore.FindTxAttemptsRequiringReceiptFetch(ctx, chainID)
 
-	txFilterFn := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
-		return len(tx.TxAttempts) > 0
-	}
-	txAttemptFilterFn := func(attempt *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
-		return attempt.State != txmgrtypes.TxAttemptInsufficientFunds
-	}
-	states := []txmgrtypes.TxState{TxUnconfirmed, TxConfirmedMissingReceipt}
-	attempts = []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
-	ms.addressStatesLock.RLock()
-	defer ms.addressStatesLock.RUnlock()
-	for _, as := range ms.addressStates {
-		attempts = append(attempts, as.findTxAttempts(states, txFilterFn, txAttemptFilterFn)...)
-	}
-	// sort by sequence ASC, gas_price DESC, gas_tip_cap DESC
-	// TODO: FIGURE OUT HOW TO GET GAS PRICE AND GAS TIP CAP FROM TxFee
-	slices.SortFunc(attempts, func(a, b txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) int {
-		aSequence, bSequence := a.Tx.Sequence, b.Tx.Sequence
-		if aSequence == nil || bSequence == nil {
-			return 0
+	// TODO: THE SORTING OF GAS PRICE AND GAS TIP CAP IS NOT IMPLEMENTED CORRECTLY. NEED TO FIGURE OUT HOW TO GET GAS PRICE AND GAS TIP CAP FROM TxFee
+	// THIS WORK WILL NEED TO BE DONE IN A SEPARATE PR WHICH CHANGES THE FEE GENERIC
+	/*
+		if ms.chainID.String() != chainID.String() {
+			panic("invalid chain ID")
 		}
 
-		return cmp.Compare((*aSequence).Int64(), (*bSequence).Int64())
-	})
+		txFilterFn := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
+			return len(tx.TxAttempts) > 0
+		}
+		txAttemptFilterFn := func(attempt *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
+			return attempt.State != txmgrtypes.TxAttemptInsufficientFunds
+		}
+		states := []txmgrtypes.TxState{TxUnconfirmed, TxConfirmedMissingReceipt}
+		attempts = []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
+		ms.addressStatesLock.RLock()
+		defer ms.addressStatesLock.RUnlock()
+		for _, as := range ms.addressStates {
+			attempts = append(attempts, as.findTxAttempts(states, txFilterFn, txAttemptFilterFn)...)
+		}
+		// sort by sequence ASC, gas_price DESC, gas_tip_cap DESC
+		// TODO: FIGURE OUT HOW TO GET GAS PRICE AND GAS TIP CAP FROM TxFee
+		slices.SortFunc(attempts, func(a, b txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) int {
+			aSequence, bSequence := a.Tx.Sequence, b.Tx.Sequence
+			if aSequence == nil || bSequence == nil {
+				return 0
+			}
 
-	// deep copy the attempts
-	var eAttempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
-	for _, attempt := range attempts {
-		eAttempts = append(eAttempts, ms.deepCopyTxAttempt(attempt.Tx, attempt))
-	}
+			return cmp.Compare((*aSequence).Int64(), (*bSequence).Int64())
+		})
 
-	return eAttempts, nil
+		// deep copy the attempts
+		var eAttempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+		for _, attempt := range attempts {
+			eAttempts = append(eAttempts, ms.deepCopyTxAttempt(attempt.Tx, attempt))
+		}
+
+		return eAttempts, nil
+	*/
 }
 
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxesPendingCallback(ctx context.Context, blockNum int64, chainID CHAIN_ID) (
@@ -751,51 +763,57 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 	return etxs, nil
 }
 
-func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxAttemptsRequiringResend(_ context.Context, olderThan time.Time, maxInFlightTransactions uint32, chainID CHAIN_ID, address ADDR) ([]txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
-	if ms.chainID.String() != chainID.String() {
-		panic("invalid chain ID")
-	}
+func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxAttemptsRequiringResend(ctx context.Context, olderThan time.Time, maxInFlightTransactions uint32, chainID CHAIN_ID, address ADDR) ([]txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
+	return ms.persistentTxStore.FindTxAttemptsRequiringResend(ctx, olderThan, maxInFlightTransactions, chainID, address)
 
-	ms.addressStatesLock.RLock()
-	defer ms.addressStatesLock.RUnlock()
-	as, ok := ms.addressStates[address]
-	if !ok {
-		return nil, nil
-	}
-
-	txFilter := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
-		if len(tx.TxAttempts) == 0 {
-			return false
-		}
-		return tx.BroadcastAt.Before(olderThan) || tx.BroadcastAt.Equal(olderThan)
-	}
-	txAttemptFilter := func(attempt *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
-		return attempt.State != txmgrtypes.TxAttemptInProgress
-	}
-	states := []txmgrtypes.TxState{TxUnconfirmed, TxConfirmedMissingReceipt}
-	attempts := as.findTxAttempts(states, txFilter, txAttemptFilter)
-	// sort by sequence ASC, gas_price DESC, gas_tip_cap DESC
-	// TODO: FIGURE OUT HOW TO GET GAS PRICE AND GAS TIP CAP FROM TxFee
-	slices.SortFunc(attempts, func(a, b txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) int {
-		aSequence, bSequence := a.Tx.Sequence, b.Tx.Sequence
-		if aSequence == nil || bSequence == nil {
-			return 0
+	// TODO: THE SORTING OF GAS PRICE AND GAS TIP CAP IS NOT IMPLEMENTED CORRECTLY. NEED TO FIGURE OUT HOW TO GET GAS PRICE AND GAS TIP CAP FROM TxFee
+	// THIS WORK WILL NEED TO BE DONE IN A SEPARATE PR WHICH CHANGES THE FEE GENERIC
+	/*
+		if ms.chainID.String() != chainID.String() {
+			panic("invalid chain ID")
 		}
 
-		return cmp.Compare((*aSequence).Int64(), (*bSequence).Int64())
-	})
-	// LIMIT by maxInFlightTransactions
-	if maxInFlightTransactions > 0 && len(attempts) > int(maxInFlightTransactions) {
-		attempts = attempts[:maxInFlightTransactions]
-	}
+		ms.addressStatesLock.RLock()
+		defer ms.addressStatesLock.RUnlock()
+		as, ok := ms.addressStates[address]
+		if !ok {
+			return nil, nil
+		}
 
-	// deep copy the attempts
-	var eAttempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
-	for _, attempt := range attempts {
-		eAttempts = append(eAttempts, ms.deepCopyTxAttempt(attempt.Tx, attempt))
-	}
+		txFilter := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
+			if len(tx.TxAttempts) == 0 {
+				return false
+			}
+			return tx.BroadcastAt.Before(olderThan) || tx.BroadcastAt.Equal(olderThan)
+		}
+		txAttemptFilter := func(attempt *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
+			return attempt.State != txmgrtypes.TxAttemptInProgress
+		}
+		states := []txmgrtypes.TxState{TxUnconfirmed, TxConfirmedMissingReceipt}
+		attempts := as.findTxAttempts(states, txFilter, txAttemptFilter)
+		// sort by sequence ASC, gas_price DESC, gas_tip_cap DESC
+		// TODO: FIGURE OUT HOW TO GET GAS PRICE AND GAS TIP CAP FROM TxFee
+		slices.SortFunc(attempts, func(a, b txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) int {
+			aSequence, bSequence := a.Tx.Sequence, b.Tx.Sequence
+			if aSequence == nil || bSequence == nil {
+				return 0
+			}
 
-	return eAttempts, nil
+			return cmp.Compare((*aSequence).Int64(), (*bSequence).Int64())
+		})
+		// LIMIT by maxInFlightTransactions
+		if maxInFlightTransactions > 0 && len(attempts) > int(maxInFlightTransactions) {
+			attempts = attempts[:maxInFlightTransactions]
+		}
+
+		// deep copy the attempts
+		var eAttempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+		for _, attempt := range attempts {
+			eAttempts = append(eAttempts, ms.deepCopyTxAttempt(attempt.Tx, attempt))
+		}
+
+		return eAttempts, nil
+	*/
 }
 
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxWithSequence(_ context.Context, fromAddress ADDR, seq SEQ) (*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
