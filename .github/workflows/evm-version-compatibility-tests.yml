@@ -114,7 +114,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       - name: Build Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-tests@5bee84d30d90295010bda68b0cd46be3a1eea917 # v2.3.9
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-tests@7882cf348cd6a1f6bcf1ee8280185584ebba96e9 # v2.3.10
         with:
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -226,7 +226,7 @@ jobs:
           customEthClientDockerImage: ${{ matrix.evm_node.docker_image }}
 
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@5bee84d30d90295010bda68b0cd46be3a1eea917 # v2.3.9
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@7882cf348cd6a1f6bcf1ee8280185584ebba96e9 # v2.3.10
         with:
           test_command_to_run: cd ./integration-tests && go test -timeout 45m -count=1 -json -test.parallel=2 ${{ steps.build-go-test-command.outputs.run_command }} 2>&1 | tee /tmp/gotest.log | gotestfmt
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
@@ -245,7 +245,7 @@ jobs:
           should_tidy: "false"
       - name: Print failed test summary
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@5bee84d30d90295010bda68b0cd46be3a1eea917 # v2.3.9
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@7882cf348cd6a1f6bcf1ee8280185584ebba96e9 # v2.3.10
 
   start-slack-thread:
     name: Start Slack Thread

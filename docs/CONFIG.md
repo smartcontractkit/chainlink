@@ -80,7 +80,7 @@ DefaultLockTimeout = '15s' # Default
 DefaultQueryTimeout = '10s' # Default
 LogQueries = false # Default
 MaxIdleConns = 10 # Default
-MaxOpenConns = 20 # Default
+MaxOpenConns = 100 # Default
 MigrateOnStartup = true # Default
 ```
 
@@ -119,7 +119,7 @@ Postgres has connection limits, so you must use caution when increasing this val
 
 ### MaxOpenConns
 ```toml
-MaxOpenConns = 20 # Default
+MaxOpenConns = 100 # Default
 ```
 MaxOpenConns configures the maximum number of database connections that a Chainlink node will have open at any one time. Think of this as the maximum burst upper bound limit of database connections per Chainlink node instance. Increasing this number can help to improve performance under database-heavy workloads.
 
@@ -1782,7 +1782,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5400000
+GasLimit = 10500000
 ```
 
 </p></details>
@@ -6029,7 +6029,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5400000
+GasLimit = 10500000
 ```
 
 </p></details>
