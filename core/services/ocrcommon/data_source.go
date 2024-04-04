@@ -2,7 +2,9 @@ package ocrcommon
 
 import (
 	"context"
+	"encoding/json"
 	errjoin "errors"
+	"fmt"
 	"math/big"
 	"sync"
 	"time"
@@ -308,7 +310,13 @@ func (ds *inMemoryDataSourceCache) updateCache(ctx context.Context) error {
 	}
 
 	// backup in case data source fails continuously and node gets rebooted
-	if err = ds.kvStore.Store(dataSourceCacheKey, &ResultTimePair{Result: *serializablebig.New(value), Time: time.Now()}); err != nil {
+
+	timePairBytes, err := json.Marshal(&ResultTimePair{Result: *serializablebig.New(value), Time: time.Now()})
+	if err != nil {
+		return fmt.Errorf("failed to marshal result time pair, err: %w", err)
+	}
+
+	if err = ds.kvStore.Store(ctx, dataSourceCacheKey, timePairBytes); err != nil {
 		ds.lggr.Errorf("failed to persist latest task run value, err: %v", err)
 	}
 
@@ -338,9 +346,16 @@ func (ds *inMemoryDataSourceCache) Observe(ctx context.Context, timestamp ocr2ty
 	latestResult, latestTrrs := ds.get(ctx)
 	if latestTrrs == nil {
 		ds.lggr.Warnf("cache is empty, returning persisted value now")
-		if err := ds.kvStore.Get(dataSourceCacheKey, &resTime); err != nil {
-			return nil, err
+
+		timePairBytes, err := ds.kvStore.Get(ctx, dataSourceCacheKey)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get result time pair bytes, err: %w", err)
 		}
+
+		if err := json.Unmarshal(timePairBytes, &resTime); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal result time pair bytes, err: %w", err)
+		}
+
 		if time.Since(resTime.Time) >= defaultCacheFreshnessAlert {
 			ds.lggr.Errorf("cache hasn't been updated for over %v, latestUpdateErr is: %v", defaultCacheFreshnessAlert, ds.latestUpdateErr)
 		}
