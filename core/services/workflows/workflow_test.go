@@ -8,13 +8,11 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/santhosh-tekuri/jsonschema/v5"
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"sigs.k8s.io/yaml"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/datafeeds"
-	"github.com/smartcontractkit/chainlink-common/pkg/values"
 )
 
 var fixtureDir = "./testdata/fixtures/workflows/"
@@ -109,8 +107,8 @@ func TestWorkflowSpecMarshalling(t *testing.T) {
 	numbers, ok := booleanCoercions["numbers"]
 	require.True(t, ok, "expected numbers to be present in boolean_coercions")
 	for _, v := range numbers.([]interface{}) {
-		_, ok = v.(float64)
-		require.True(t, ok, "expected float64 but got %T", v)
+		_, ok = v.(int64)
+		require.True(t, ok, "expected int64 but got %T", v)
 	}
 }
 
@@ -413,18 +411,30 @@ targets:
 	}
 }
 
-func TestParse(t *testing.T) {
+func TestParsesIntsCorrectly(t *testing.T) {
 	wf, err := Parse(hardcodedWorkflow)
 	require.NoError(t, err)
 
 	n, err := wf.Vertex("evm_median")
 	require.NoError(t, err)
 
-	nconf, err := values.NewMap(n.Config["aggregation_config"].(map[string]any))
-	require.NoError(t, err)
+	assert.Equal(t, int64(3600), n.Config["aggregation_config"].(map[string]any)["0x1111111111111111111100000000000000000000000000000000000000000000"].(map[string]any)["heartbeat"])
 
-	ac, err := datafeeds.ParseConfig(*nconf)
-	require.NoError(t, err)
+}
 
-	assert.Nil(t, ac)
+func TestMappingCustomType(t *testing.T) {
+	m := mapping(map[string]any{})
+	data := `
+{
+	"foo": 100,
+	"bar": 100.00,
+	"baz": { "gnat": 11.10 }
+}`
+
+	err := m.UnmarshalJSON([]byte(data))
+	require.NoError(t, err)
+	assert.Equal(t, int64(100), m["foo"], m)
+	assert.Equal(t, decimal.NewFromFloat(100.00), m["bar"], m)
+	assert.Equal(t, decimal.NewFromFloat(11.10), m["baz"].(map[string]any)["gnat"], m)
+
 }

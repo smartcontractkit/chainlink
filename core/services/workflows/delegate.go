@@ -20,7 +20,7 @@ import (
 
 const hardcodedWorkflow = `
 triggers:
-  - type: "mercury-trigger"
+  - type: "on_mercury_report"
     config:
       feedIds:
         - "0x1111111111111111111100000000000000000000000000000000000000000000"

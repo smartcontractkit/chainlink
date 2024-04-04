@@ -1,9 +1,11 @@
 package workflows
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/dominikbraun/graph"
 	"github.com/invopop/jsonschema"
@@ -23,43 +25,44 @@ type mapping map[string]any
 
 func (m *mapping) UnmarshalJSON(b []byte) error {
 	mp := map[string]any{}
-	err := json.Unmarshal(b, &mp)
+
+	d := json.NewDecoder(bytes.NewReader(b))
+	d.UseNumber()
+
+	err := d.Decode(&mp)
 	if err != nil {
 		return err
 	}
 
-	for _, v := range mp {
-		switch vt := v.(type) {
-		case map[string]any:
-			nm, err := convertNumbers(vt)
-			if err != nil {
-				return err
-			}
-
-			mp = nm
-
-		}
+	nm, err := convertNumbers(mp)
+	if err != nil {
+		return err
 	}
 
-	m = (*mapping)(&mp)
+	*m = (mapping)(nm)
 	return err
+}
+
+func convertNumber(el any) (any, error) {
+	switch elv := el.(type) {
+	case json.Number:
+		if strings.Contains(elv.String(), ".") {
+			f, err := elv.Float64()
+			if err == nil {
+				return decimal.NewFromFloat(f), nil
+			}
+		}
+
+		return elv.Int64()
+	default:
+		return el, nil
+	}
 }
 
 func convertNumbers(m map[string]any) (map[string]any, error) {
 	nm := map[string]any{}
 	for k, v := range m {
 		switch tv := v.(type) {
-		case json.Number:
-			f, err := tv.Float64()
-			if err == nil {
-				nm[k] = decimal.NewFromFloat(f)
-				continue
-			}
-
-			i, err := tv.Int64()
-			if err == nil {
-				nm[k] = i
-			}
 		case map[string]any:
 			cm, err := convertNumbers(tv)
 			if err != nil {
@@ -67,6 +70,25 @@ func convertNumbers(m map[string]any) (map[string]any, error) {
 			}
 
 			nm[k] = cm
+		case []any:
+			na := make([]any, len(tv))
+			for i, v := range tv {
+				cv, err := convertNumber(v)
+				if err != nil {
+					return nil, err
+				}
+
+				na[i] = cv
+			}
+
+			nm[k] = na
+		default:
+			cv, err := convertNumber(v)
+			if err != nil {
+				return nil, err
+			}
+
+			nm[k] = cv
 		}
 	}
 
@@ -267,10 +289,6 @@ func Parse(yamlWorkflow string) (*workflow, error) {
 	err := yaml.Unmarshal(
 		[]byte(yamlWorkflow),
 		spec,
-		func(d *json.Decoder) *json.Decoder {
-			d.UseNumber()
-			return d
-		},
 	)
 	if err != nil {
 		return nil, err

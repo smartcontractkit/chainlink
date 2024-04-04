@@ -3,6 +3,9 @@
   "$id": "https://github.com/smartcontractkit/chainlink/v2/core/services/workflows/workflow-spec",
   "$ref": "#/$defs/workflowSpec",
   "$defs": {
+    "mapping": {
+      "type": "object"
+    },
     "stepDefinition": {
       "properties": {
         "type": {
@@ -14,10 +17,10 @@
           "pattern": "^[a-z0-9_]+$"
         },
         "inputs": {
-          "type": "object"
+	  "$ref": "#/$defs/mapping"
         },
         "config": {
-          "type": "object"
+	  "$ref": "#/$defs/mapping"
         }
       },
       "additionalProperties": false,
