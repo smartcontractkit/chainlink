@@ -2,6 +2,7 @@ package txmgr
 
 import (
 	"context"
+	"sort"
 	"time"
 
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
@@ -93,6 +94,14 @@ func (b *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) XXXTes
 	for _, as := range b.addressStates {
 		txs = append(txs, as.findTxs(txStates, filter, txIDs...)...)
 	}
+	// sort by created_at asc and then by id asc
+	sort.Slice(txs, func(i, j int) bool {
+		if txs[i].CreatedAt.Equal(txs[j].CreatedAt) {
+			return txs[i].ID < txs[j].ID
+		}
+
+		return txs[i].CreatedAt.Before(txs[j].CreatedAt)
+	})
 
 	return txs
 }

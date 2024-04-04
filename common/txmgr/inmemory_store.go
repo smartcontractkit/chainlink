@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"math/big"
 	"slices"
-	"sort"
 	"strconv"
 	"sync"
 	"time"
@@ -21,7 +20,6 @@ import (
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
-	evmgas "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 )
 
 var (
@@ -88,11 +86,20 @@ func NewInMemoryStore[
 		ms.maxUnstarted = 10000
 	}
 
+	addressesToTxs := map[ADDR][]txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
+	// populate all enabled addresses
+	enabledAddresses, err := keyStore.EnabledAddressesForChain(ctx, chainID)
+	if err != nil {
+		return nil, fmt.Errorf("new_in_memory_store: %w", err)
+	}
+	for _, addr := range enabledAddresses {
+		addressesToTxs[addr] = []txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
+	}
+
 	txs, err := persistentTxStore.GetAllTransactions(ctx, chainID)
 	if err != nil {
 		return nil, fmt.Errorf("address_state: initialization: %w", err)
 	}
-	addressesToTxs := map[ADDR][]txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
 	for _, tx := range txs {
 		at, exists := addressesToTxs[tx.FromAddress]
 		if !exists {
@@ -123,7 +130,7 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Creat
 // FindTxWithIdempotencyKey returns a transaction with the given idempotency key
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxWithIdempotencyKey(ctx context.Context, idempotencyKey string, chainID CHAIN_ID) (*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
 	if ms.chainID.String() != chainID.String() {
-		return nil, nil
+		panic("invalid chain ID")
 	}
 
 	// Check if the transaction is in the pending queue of all address states
@@ -144,7 +151,7 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Check
 		return nil
 	}
 	if ms.chainID.String() != chainID.String() {
-		return nil
+		panic("invalid chain ID")
 	}
 
 	ms.addressStatesLock.RLock()
@@ -175,7 +182,7 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindL
 // NOTE: used to calculate total inflight transactions
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CountUnconfirmedTransactions(ctx context.Context, fromAddress ADDR, chainID CHAIN_ID) (uint32, error) {
 	if ms.chainID.String() != chainID.String() {
-		return 0, nil
+		panic("invalid chain ID")
 	}
 
 	ms.addressStatesLock.RLock()
@@ -193,7 +200,7 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Count
 // NOTE(jtw): used to calculate total inflight transactions
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CountUnstartedTransactions(ctx context.Context, fromAddress ADDR, chainID CHAIN_ID) (uint32, error) {
 	if ms.chainID.String() != chainID.String() {
-		return 0, nil
+		panic("invalid chain ID")
 	}
 
 	ms.addressStatesLock.RLock()
@@ -252,15 +259,71 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Updat
 
 // Close closes the inMemoryStore
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Close() {
+	// Close the event recorder
+	ms.persistentTxStore.Close()
+
+	// Clear all address states
+	ms.addressStatesLock.Lock()
+	for _, as := range ms.addressStates {
+		as.close()
+	}
+	clear(ms.addressStates)
+	ms.addressStatesLock.Unlock()
 }
 
 // Abandon removes all transactions for a given address
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Abandon(ctx context.Context, chainID CHAIN_ID, addr ADDR) error {
+	if ms.chainID.String() != chainID.String() {
+		panic("invalid chain ID")
+	}
+
+	// Mark all persisted transactions as abandoned
+	if err := ms.persistentTxStore.Abandon(ctx, chainID, addr); err != nil {
+		return err
+	}
+
+	// check that the address exists in the unstarted transactions
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
+	as, ok := ms.addressStates[addr]
+	if !ok {
+		as = newAddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE](ms.lggr, chainID, addr, ms.maxUnstarted, nil)
+		ms.addressStates[addr] = as
+	}
+	as.abandon()
+
 	return nil
 }
 
 // SetBroadcastBeforeBlockNum sets the broadcast_before_block_num for a given chain ID
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SetBroadcastBeforeBlockNum(ctx context.Context, blockNum int64, chainID CHAIN_ID) error {
+	if ms.chainID.String() != chainID.String() {
+		panic("invalid chain ID")
+	}
+
+	// Persist to persistent storage
+	if err := ms.persistentTxStore.SetBroadcastBeforeBlockNum(ctx, blockNum, chainID); err != nil {
+		return fmt.Errorf("set_broadcast_before_block_num: %w", err)
+	}
+
+	fn := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) {
+		if tx.TxAttempts == nil || len(tx.TxAttempts) == 0 {
+			return
+		}
+
+		for i := 0; i < len(tx.TxAttempts); i++ {
+			attempt := tx.TxAttempts[i]
+			if attempt.State == txmgrtypes.TxAttemptBroadcast && attempt.BroadcastBeforeBlockNum == nil {
+				tx.TxAttempts[i].BroadcastBeforeBlockNum = &blockNum
+			}
+		}
+	}
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
+	for _, as := range ms.addressStates {
+		as.applyToTxsByState(nil, fn)
+	}
+
 	return nil
 }
 
@@ -270,7 +333,7 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 	error,
 ) {
 	if ms.chainID.String() != chainID.String() {
-		return nil, nil
+		panic("invalid chain ID")
 	}
 
 	txFilter := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
@@ -287,21 +350,14 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 		attempts = append(attempts, as.findTxAttempts(states, txFilter, txAttemptFilter)...)
 	}
 	// sort by tx_id ASC, gas_price DESC, gas_tip_cap DESC
-	sort.SliceStable(attempts, func(i, j int) bool {
-		if attempts[i].TxID == attempts[j].TxID {
-			var iGasPrice, jGasPrice evmgas.EvmFee
-			// TODO: FIGURE OUT HOW TO GET GAS PRICE AND GAS TIP CAP FROM TxFee
-
-			if iGasPrice.Legacy.Cmp(jGasPrice.Legacy) == 0 {
-				// sort by gas_tip_cap DESC
-				return iGasPrice.DynamicFeeCap.Cmp(jGasPrice.DynamicFeeCap) > 0
-			} else {
-				// sort by gas_price DESC
-				return iGasPrice.Legacy.Cmp(jGasPrice.Legacy) > 0
-			}
+	// TODO: FIGURE OUT HOW TO GET GAS PRICE AND GAS TIP CAP FROM TxFee
+	slices.SortFunc(attempts, func(a, b txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) int {
+		aSequence, bSequence := a.Tx.Sequence, b.Tx.Sequence
+		if aSequence == nil || bSequence == nil {
+			return 0
 		}
 
-		return attempts[i].TxID < attempts[j].TxID
+		return cmp.Compare((*aSequence).Int64(), (*bSequence).Int64())
 	})
 
 	// deep copy the attempts
@@ -314,7 +370,25 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 }
 
 // UpdateBroadcastAts updates the broadcast_at time for a given set of attempts
-func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateBroadcastAts(ctx context.Context, now time.Time, txIDs []int64) error {
+func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateBroadcastAts(ctx context.Context, inTime time.Time, txIDs []int64) error {
+	// Persist to persistent storage
+	if err := ms.persistentTxStore.UpdateBroadcastAts(ctx, inTime, txIDs); err != nil {
+		return err
+	}
+
+	// Update in memory store
+	fn := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) {
+		if tx.BroadcastAt != nil && tx.BroadcastAt.Before(inTime) {
+			tx.BroadcastAt = &inTime
+		}
+	}
+
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
+	for _, as := range ms.addressStates {
+		as.applyToTxsByState(nil, fn, txIDs...)
+	}
+
 	return nil
 }
 
@@ -329,7 +403,7 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 	err error,
 ) {
 	if ms.chainID.String() != chainID.String() {
-		return attempts, nil
+		panic("invalid chain ID")
 	}
 
 	txFilterFn := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
@@ -433,6 +507,28 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 }
 
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxCallbackCompleted(ctx context.Context, pipelineTaskRunRid uuid.UUID, chainId CHAIN_ID) error {
+	if ms.chainID.String() != chainId.String() {
+		panic("invalid chain ID")
+	}
+
+	// Persist to persistent storage
+	if err := ms.persistentTxStore.UpdateTxCallbackCompleted(ctx, pipelineTaskRunRid, chainId); err != nil {
+		return err
+	}
+
+	// Update in memory store
+	fn := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) {
+		if tx.PipelineTaskRunID.UUID == pipelineTaskRunRid {
+			tx.CallbackCompleted = true
+		}
+	}
+
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
+	for _, as := range ms.addressStates {
+		as.applyToTxsByState(nil, fn)
+	}
+
 	return nil
 }
 
@@ -552,7 +648,7 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxesWithAttemptsAndReceiptsByIdsAndState(ctx context.Context, ids []big.Int, states []txmgrtypes.TxState, chainID *big.Int) (tx []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error) {
 	if ms.chainID.String() != chainID.String() {
-		return nil, fmt.Errorf("find_txes_with_attempts_and_receipts_by_ids_and_state: %w", ErrInvalidChainID)
+		panic("invalid chain ID")
 	}
 
 	filterFn := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
@@ -595,7 +691,7 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) ReapT
 }
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CountTransactionsByState(_ context.Context, state txmgrtypes.TxState, chainID CHAIN_ID) (uint32, error) {
 	if ms.chainID.String() != chainID.String() {
-		return 0, nil
+		panic("invalid chain ID")
 	}
 
 	var total int
@@ -614,7 +710,7 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Delet
 
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxsRequiringResubmissionDueToInsufficientFunds(_ context.Context, address ADDR, chainID CHAIN_ID) ([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
 	if ms.chainID.String() != chainID.String() {
-		return nil, nil
+		panic("invalid chain ID")
 	}
 
 	ms.addressStatesLock.RLock()
@@ -679,19 +775,12 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 	states := []txmgrtypes.TxState{TxUnconfirmed, TxConfirmedMissingReceipt}
 	attempts := as.findTxAttempts(states, txFilter, txAttemptFilter)
 	// sort by sequence ASC, gas_price DESC, gas_tip_cap DESC
+	// TODO: FIGURE OUT HOW TO GET GAS PRICE AND GAS TIP CAP FROM TxFee
 	slices.SortFunc(attempts, func(a, b txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) int {
 		aSequence, bSequence := a.Tx.Sequence, b.Tx.Sequence
 		if aSequence == nil || bSequence == nil {
 			return 0
 		}
-		// TODO: FIGURE OUT HOW TO GET GAS PRICE AND GAS TIP CAP FROM TxFee
-		/*
-			v, ok := a.TxFee.(*gas.EvmFee)
-			if !ok {
-				panic("invalid gas fee")
-			}
-			fmt.Println("hereh", v)
-		*/
 
 		return cmp.Compare((*aSequence).Int64(), (*bSequence).Int64())
 	})
@@ -735,7 +824,7 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTransactionsConfirmedInBlockRange(_ context.Context, highBlockNumber, lowBlockNumber int64, chainID CHAIN_ID) ([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
 	if ms.chainID.String() != chainID.String() {
-		return nil, nil
+		panic("invalid chain ID")
 	}
 
 	filter := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
@@ -787,7 +876,7 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 }
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindEarliestUnconfirmedBroadcastTime(ctx context.Context, chainID CHAIN_ID) (null.Time, error) {
 	if ms.chainID.String() != chainID.String() {
-		return null.Time{}, nil
+		panic("invalid chain ID")
 	}
 
 	filter := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
@@ -820,7 +909,7 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindE
 
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindEarliestUnconfirmedTxAttemptBlock(ctx context.Context, chainID CHAIN_ID) (null.Int, error) {
 	if ms.chainID.String() != chainID.String() {
-		return null.Int{}, nil
+		panic("invalid chain ID")
 	}
 
 	filter := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
@@ -860,7 +949,7 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindE
 
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetInProgressTxAttempts(ctx context.Context, address ADDR, chainID CHAIN_ID) ([]txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
 	if ms.chainID.String() != chainID.String() {
-		return nil, fmt.Errorf("get_in_progress_tx_attempts: %w", ErrInvalidChainID)
+		panic("invalid chain ID")
 	}
 
 	ms.addressStatesLock.RLock()
@@ -890,7 +979,7 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetIn
 
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetNonFatalTransactions(ctx context.Context, chainID CHAIN_ID) ([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
 	if ms.chainID.String() != chainID.String() {
-		return nil, nil
+		panic("invalid chain ID")
 	}
 
 	filter := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
@@ -930,7 +1019,7 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetTx
 
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) HasInProgressTransaction(_ context.Context, account ADDR, chainID CHAIN_ID) (bool, error) {
 	if ms.chainID.String() != chainID.String() {
-		return false, fmt.Errorf("has_in_progress_transaction: %w", ErrInvalidChainID)
+		panic("invalid chain ID")
 	}
 
 	ms.addressStatesLock.RLock()
@@ -999,12 +1088,145 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveC
 	return nil
 }
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveInProgressAttempt(ctx context.Context, attempt *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
-	return nil
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
+
+	if attempt.State != txmgrtypes.TxAttemptInProgress {
+		return fmt.Errorf("SaveInProgressAttempt failed: attempt state must be in_progress")
+	}
+
+	var tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	var as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
+	for _, vas := range ms.addressStates {
+		fn := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
+			return true
+		}
+		txs := vas.findTxs(nil, fn, attempt.TxID)
+		if len(txs) != 0 {
+			tx = &txs[0]
+			as = vas
+			break
+		}
+	}
+	if tx == nil {
+		return fmt.Errorf("save_in_progress_attempt: %w: with attempt hash %q", ErrTxnNotFound, attempt.Hash)
+	}
+
+	// Check if the attempt already exists by checking if id is zero
+	// this will be used by memory store
+	var txAttemptExists bool
+	if attempt.ID != 0 {
+		txAttemptExists = true
+	}
+
+	// Persist to persistent storage
+	if err := ms.persistentTxStore.SaveInProgressAttempt(ctx, attempt); err != nil {
+		return err
+	}
+
+	// Update in memory store
+	if txAttemptExists {
+		return as.updateInProgressTxAttempt(*attempt)
+	}
+
+	return as.addInProgressTxAttempt(*attempt)
 }
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveInsufficientFundsAttempt(ctx context.Context, timeout time.Duration, attempt *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], broadcastAt time.Time) error {
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
+
+	if !(attempt.State == txmgrtypes.TxAttemptInProgress || attempt.State == txmgrtypes.TxAttemptInsufficientFunds) {
+		return fmt.Errorf("expected state to be in_progress or insufficient_funds")
+	}
+
+	var tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	var as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
+	filter := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool { return true }
+	for _, vas := range ms.addressStates {
+		txs := vas.findTxs(nil, filter, attempt.TxID)
+		if len(txs) > 0 {
+			tx = &txs[0]
+			as = vas
+			break
+		}
+	}
+	if tx == nil {
+		return nil
+	}
+
+	// Persist to persistent storage
+	if err := ms.persistentTxStore.SaveInsufficientFundsAttempt(ctx, timeout, attempt, broadcastAt); err != nil {
+		return err
+	}
+
+	// Update in memory store
+	fn := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) {
+		if tx.ID != attempt.TxID {
+			return
+		}
+		if tx.TxAttempts == nil || len(tx.TxAttempts) == 0 {
+			return
+		}
+		if tx.BroadcastAt != nil && tx.BroadcastAt.Before(broadcastAt) {
+			tx.BroadcastAt = &broadcastAt
+		}
+
+		for i := 0; i < len(tx.TxAttempts); i++ {
+			if tx.TxAttempts[i].ID == attempt.ID {
+				tx.TxAttempts[i].State = txmgrtypes.TxAttemptInsufficientFunds
+			}
+		}
+	}
+	as.applyToTxsByState(nil, fn, attempt.TxID)
+
 	return nil
 }
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveSentAttempt(ctx context.Context, timeout time.Duration, attempt *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], broadcastAt time.Time) error {
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
+
+	if attempt.State != txmgrtypes.TxAttemptInProgress {
+		return fmt.Errorf("expected state to be in_progress")
+	}
+
+	var tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	var as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
+	filter := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool { return true }
+	for _, vas := range ms.addressStates {
+		txs := vas.findTxs(nil, filter, attempt.TxID)
+		if len(txs) != 0 {
+			tx = &txs[0]
+			as = vas
+			break
+		}
+	}
+	if tx == nil {
+		return fmt.Errorf("save_sent_attempt: %w", ErrTxnNotFound)
+	}
+
+	// Persist to persistent storage
+	if err := ms.persistentTxStore.SaveSentAttempt(ctx, timeout, attempt, broadcastAt); err != nil {
+		return err
+	}
+
+	// Update in memory store
+	fn := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) {
+		if len(tx.TxAttempts) == 0 {
+			return
+		}
+		if tx.BroadcastAt != nil && tx.BroadcastAt.Before(broadcastAt) {
+			tx.BroadcastAt = &broadcastAt
+		}
+
+		for i := 0; i < len(tx.TxAttempts); i++ {
+			if tx.TxAttempts[i].ID == attempt.ID {
+				tx.TxAttempts[i].State = txmgrtypes.TxAttemptBroadcast
+				return
+			}
+		}
+	}
+	as.applyToTxsByState(nil, fn, attempt.TxID)
+
 	return nil
 }
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxForRebroadcast(ctx context.Context, etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], etxAttempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
@@ -1012,7 +1234,7 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Updat
 }
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) IsTxFinalized(ctx context.Context, blockHeight int64, txID int64, chainID CHAIN_ID) (bool, error) {
 	if ms.chainID.String() != chainID.String() {
-		return false, nil
+		panic("invalid chain ID")
 	}
 
 	txFilter := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
@@ -1050,7 +1272,7 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) IsTxF
 
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxsRequiringGasBump(ctx context.Context, address ADDR, blockNum, gasBumpThreshold, depth int64, chainID CHAIN_ID) ([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
 	if ms.chainID.String() != chainID.String() {
-		return nil, nil
+		panic("invalid chain ID")
 	}
 	if gasBumpThreshold == 0 {
 		return nil, nil
