@@ -30,12 +30,18 @@ func (id FeedID) String() string {
 	return string(id)
 }
 
-func (id FeedID) Bytes() [32]byte {
+// Bytes() converts the FeedID string into a [32]byte
+// value.
+// Note: this function panics if the underlying
+// string isn't of the right length. For production (i.e.)
+// non-test uses, please create the FeedID via the NewFeedID
+// constructor, which will validate the string.
+func (id FeedID) Bytes() [FeedIDBytesLen]byte {
 	b, _ := hex.DecodeString(string(id)[2:])
-	return [32]byte(b)
+	return [FeedIDBytesLen]byte(b)
 }
 
-func (id FeedID) Validate() error {
+func (id FeedID) validate() error {
 	if len(id) != 2*FeedIDBytesLen+2 {
 		return ErrInvalidFeedID
 	}
@@ -49,7 +55,12 @@ func (id FeedID) Validate() error {
 	return err
 }
 
-func FeedIDFromBytes(b [32]byte) FeedID {
+func NewFeedID(s string) (FeedID, error) {
+	id := FeedID(s)
+	return id, id.validate()
+}
+
+func FeedIDFromBytes(b [FeedIDBytesLen]byte) FeedID {
 	return FeedID("0x" + hex.EncodeToString(b[:]))
 }
 

@@ -44,10 +44,10 @@ func NewMercuryTriggerService() *MercuryTriggerService {
 }
 
 type FeedReport struct {
-	FeedID               [32]byte `json:"feedId"`
-	FullReport           []byte   `json:"fullReport"`
-	BenchmarkPrice       int64    `json:"benchmarkPrice"`
-	ObservationTimestamp int64    `json:"observationTimestamp"`
+	FeedID               [mercury.FeedIDBytesLen]byte `json:"feedId"`
+	FullReport           []byte                       `json:"fullReport"`
+	BenchmarkPrice       int64                        `json:"benchmarkPrice"`
+	ObservationTimestamp int64                        `json:"observationTimestamp"`
 }
 
 func (o *MercuryTriggerService) ProcessReport(reports []FeedReport) error {
@@ -189,8 +189,8 @@ func (o *MercuryTriggerService) GetFeedIDs(req capabilities.CapabilityRequest) (
 			// Copy to feedIds
 			for _, feed := range feeds {
 				if id, ok := feed.(string); ok {
-					mfid := mercury.FeedID(id)
-					if err := mfid.Validate(); err != nil {
+					mfid, err := mercury.NewFeedID(id)
+					if err != nil {
 						return nil, err
 					}
 					feedIDs = append(feedIDs, mfid)
