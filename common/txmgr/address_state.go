@@ -449,36 +449,40 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) moveUn
 	if !ok || tx == nil {
 		return fmt.Errorf("move_unconfirmed_to_confirmed_missing_receipt: no unconfirmed transaction with ID %d", txID)
 	}
-	tx.State = TxConfirmedMissingReceipt
-
-	as.confirmedMissingReceiptTxs[tx.ID] = tx
-	delete(as.unconfirmedTxs, tx.ID)
+	as._moveUnconfirmedToConfirmedMissingReceipt(tx)
 
 	return nil
 }
 
-// moveInProgressToConfirmedMissingReceipt moves the in-progress transaction to the confirmed missing receipt state.
-// If there is no in-progress transaction, an error is returned.
-func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) moveInProgressToConfirmedMissingReceipt(txAttempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], broadcastAt time.Time) error {
+// moveTxAttemptToBroadcast moves the transaction attempt to the broadcast state.
+func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) moveTxAttemptToBroadcast(
+	txAttempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
+	broadcastAt time.Time,
+) error {
 	as.Lock()
 	defer as.Unlock()
 
-	tx := as.inprogressTx
-	if tx == nil {
-		return fmt.Errorf("move_in_progress_to_confirmed_missing_receipt: no transaction in progress")
+	tx, ok := as.allTxs[txAttempt.TxID]
+	if !ok || tx == nil {
+		return fmt.Errorf("move_in_progress_to_confirmed_missing_receipt: no transaction with ID %d", txAttempt.TxID)
 	}
-	if len(tx.TxAttempts) == 0 {
-		return fmt.Errorf("move_in_progress_to_confirmed_missing_receipt: no attempts for transaction with ID %d", tx.ID)
+
+	var found bool
+	for i := 0; i < len(tx.TxAttempts); i++ {
+		if tx.TxAttempts[i].ID == txAttempt.ID {
+			tx.TxAttempts[i].State = txmgrtypes.TxAttemptBroadcast
+			as.attemptHashToTxAttempt[txAttempt.Hash] = &tx.TxAttempts[i]
+			found = true
+			break
+		}
 	}
-	if tx.BroadcastAt.Before(broadcastAt) {
+	if !found {
+		return fmt.Errorf("move_in_progress_to_confirmed_missing_receipt: transaction with ID %d has no attempt with ID: %q", txAttempt.TxID, txAttempt.ID)
+	}
+	if tx.BroadcastAt != nil && tx.BroadcastAt.Before(broadcastAt) {
 		tx.BroadcastAt = &broadcastAt
 	}
-	tx.State = TxConfirmedMissingReceipt
-	txAttempt.State = txmgrtypes.TxAttemptBroadcast
-	tx.TxAttempts = append(tx.TxAttempts, txAttempt)
-
-	as.confirmedMissingReceiptTxs[tx.ID] = tx
-	as.inprogressTx = nil
+	as._moveUnconfirmedToConfirmedMissingReceipt(tx)
 
 	return nil
 }
@@ -621,4 +625,12 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) _moveT
 	tx.InitialBroadcastAt = nil
 	tx.Error = txError
 	as.fatalErroredTxs[tx.ID] = tx
+}
+
+func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) _moveUnconfirmedToConfirmedMissingReceipt(
+	tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
+) {
+	tx.State = TxConfirmedMissingReceipt
+	as.confirmedMissingReceiptTxs[tx.ID] = tx
+	delete(as.unconfirmedTxs, tx.ID)
 }
