@@ -422,7 +422,7 @@ func (l *logPollerWrapper) handleRouteUpdate(ctx context.Context, activeCoordina
 		}
 	}
 
-	if previousActiveCoordinator != l.activeCoordinator && l.logPoller.HasFilter(filterName(previousActiveCoordinator)) {
+	if previousActiveCoordinator != l.activeCoordinator && previousActiveCoordinator != l.proposedCoordinator && l.logPoller.HasFilter(filterName(previousActiveCoordinator)) {
 		if err := l.logPoller.UnregisterFilter(ctx, filterName(previousActiveCoordinator)); err != nil {
 			l.lggr.Errorw("LogPollerWrapper: Failed to unregister filter for previous active coordinator", "filterName", filterName(previousActiveCoordinator), "err", err)
 		}
