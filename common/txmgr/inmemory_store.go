@@ -237,6 +237,33 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Aband
 
 // SetBroadcastBeforeBlockNum sets the broadcast_before_block_num for a given chain ID
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SetBroadcastBeforeBlockNum(ctx context.Context, blockNum int64, chainID CHAIN_ID) error {
+	if ms.chainID.String() != chainID.String() {
+		panic("invalid chain ID")
+	}
+
+	// Persist to persistent storage
+	if err := ms.persistentTxStore.SetBroadcastBeforeBlockNum(ctx, blockNum, chainID); err != nil {
+		return fmt.Errorf("set_broadcast_before_block_num: %w", err)
+	}
+
+	fn := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) {
+		if tx.TxAttempts == nil || len(tx.TxAttempts) == 0 {
+			return
+		}
+
+		for i := 0; i < len(tx.TxAttempts); i++ {
+			attempt := tx.TxAttempts[i]
+			if attempt.State == txmgrtypes.TxAttemptBroadcast && attempt.BroadcastBeforeBlockNum == nil {
+				tx.TxAttempts[i].BroadcastBeforeBlockNum = &blockNum
+			}
+		}
+	}
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
+	for _, as := range ms.addressStates {
+		as.applyToTxsByState(nil, fn)
+	}
+
 	return nil
 }
 
@@ -249,7 +276,25 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 }
 
 // UpdateBroadcastAts updates the broadcast_at time for a given set of attempts
-func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateBroadcastAts(ctx context.Context, now time.Time, txIDs []int64) error {
+func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateBroadcastAts(ctx context.Context, inTime time.Time, txIDs []int64) error {
+	// Persist to persistent storage
+	if err := ms.persistentTxStore.UpdateBroadcastAts(ctx, inTime, txIDs); err != nil {
+		return err
+	}
+
+	// Update in memory store
+	fn := func(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) {
+		if tx.BroadcastAt != nil && tx.BroadcastAt.Before(inTime) {
+			tx.BroadcastAt = &inTime
+		}
+	}
+
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
+	for _, as := range ms.addressStates {
+		as.applyToTxsByState(nil, fn, txIDs...)
+	}
+
 	return nil
 }
 

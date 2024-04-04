@@ -130,6 +130,156 @@ func TestInMemoryStore_SaveInProgressAttempt(t *testing.T) {
 	})
 }
 
+func TestInMemoryStore_UpdateBroadcastAts(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
+	persistentStore := cltest.NewTestTxStore(t, db)
+	kst := cltest.NewKeyStore(t, db, dbcfg)
+	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
+
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	lggr := logger.TestSugared(t)
+	chainID := ethClient.ConfiguredChainID()
+	ctx := testutils.Context(t)
+
+	inMemoryStore, err := commontxmgr.NewInMemoryStore[
+		*big.Int,
+		common.Address, common.Hash, common.Hash,
+		*evmtypes.Receipt,
+		evmtypes.Nonce,
+		evmgas.EvmFee,
+	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	require.NoError(t, err)
+
+	t.Run("does not update when broadcast_at is Null", func(t *testing.T) {
+		// Insert a transaction into persistent store
+		inTx := mustInsertInProgressEthTxWithAttempt(t, persistentStore, 1, fromAddress)
+		require.Nil(t, inTx.BroadcastAt)
+		now := time.Now()
+		// Insert the transaction into the in-memory store
+		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
+
+		err := inMemoryStore.UpdateBroadcastAts(
+			ctx,
+			now,
+			[]int64{inTx.ID},
+		)
+		require.NoError(t, err)
+
+		expTx, err := persistentStore.FindTxWithAttempts(ctx, inTx.ID)
+		require.NoError(t, err)
+		fn := func(tx *evmtxmgr.Tx) bool { return true }
+		actTxs := inMemoryStore.XXXTestFindTxs(nil, fn, inTx.ID)
+		require.Equal(t, 1, len(actTxs))
+		actTx := actTxs[0]
+		assertTxEqual(t, expTx, actTx)
+		assert.Nil(t, actTx.BroadcastAt)
+	})
+
+	t.Run("updates broadcast_at when not null", func(t *testing.T) {
+		// Insert a transaction into persistent store
+		time1 := time.Now()
+		inTx := cltest.NewEthTx(fromAddress)
+		inTx.Sequence = new(evmtypes.Nonce)
+		inTx.State = commontxmgr.TxUnconfirmed
+		inTx.BroadcastAt = &time1
+		inTx.InitialBroadcastAt = &time1
+		require.NoError(t, persistentStore.InsertTx(ctx, &inTx))
+		// Insert the transaction into the in-memory store
+		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
+
+		time2 := time1.Add(1 * time.Hour)
+		err := inMemoryStore.UpdateBroadcastAts(
+			ctx,
+			time2,
+			[]int64{inTx.ID},
+		)
+		require.NoError(t, err)
+
+		expTx, err := persistentStore.FindTxWithAttempts(ctx, inTx.ID)
+		require.NoError(t, err)
+		fn := func(tx *evmtxmgr.Tx) bool { return true }
+		actTxs := inMemoryStore.XXXTestFindTxs(nil, fn, inTx.ID)
+		require.Equal(t, 1, len(actTxs))
+		actTx := actTxs[0]
+		assertTxEqual(t, expTx, actTx)
+		assert.NotNil(t, actTx.BroadcastAt)
+	})
+}
+
+func TestInMemoryStore_SetBroadcastBeforeBlockNum(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
+	persistentStore := cltest.NewTestTxStore(t, db)
+	kst := cltest.NewKeyStore(t, db, dbcfg)
+	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
+
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	lggr := logger.TestSugared(t)
+	chainID := ethClient.ConfiguredChainID()
+	ctx := testutils.Context(t)
+
+	inMemoryStore, err := commontxmgr.NewInMemoryStore[
+		*big.Int,
+		common.Address, common.Hash, common.Hash,
+		*evmtypes.Receipt,
+		evmtypes.Nonce,
+		evmgas.EvmFee,
+	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	require.NoError(t, err)
+
+	t.Run("saves block num to unconfirmed evm.tx_attempts without one", func(t *testing.T) {
+		// Insert a transaction into persistent store
+		inTx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, persistentStore, 1, fromAddress)
+		// Insert the transaction into the in-memory store
+		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
+
+		headNum := int64(9000)
+		err := inMemoryStore.SetBroadcastBeforeBlockNum(ctx, headNum, chainID)
+		require.NoError(t, err)
+
+		expTx, err := persistentStore.FindTxWithAttempts(ctx, inTx.ID)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(expTx.TxAttempts))
+		assert.Equal(t, headNum, *expTx.TxAttempts[0].BroadcastBeforeBlockNum)
+		fn := func(tx *evmtxmgr.Tx) bool { return true }
+		actTxs := inMemoryStore.XXXTestFindTxs(nil, fn, inTx.ID)
+		require.Equal(t, 1, len(actTxs))
+		actTx := actTxs[0]
+		assertTxEqual(t, expTx, actTx)
+	})
+
+	t.Run("does not change evm.tx_attempts that already have BroadcastBeforeBlockNum set", func(t *testing.T) {
+		n := int64(42)
+		// Insert a transaction into persistent store
+		inTx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, persistentStore, 11, fromAddress)
+		inTxAttempt := newBroadcastLegacyEthTxAttempt(t, inTx.ID, 2)
+		inTxAttempt.BroadcastBeforeBlockNum = &n
+		require.NoError(t, persistentStore.InsertTxAttempt(ctx, &inTxAttempt))
+		// Insert the transaction into the in-memory store
+		inTx.TxAttempts = append([]evmtxmgr.TxAttempt{inTxAttempt}, inTx.TxAttempts...)
+		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
+
+		headNum := int64(9000)
+		err := inMemoryStore.SetBroadcastBeforeBlockNum(ctx, headNum, chainID)
+		require.NoError(t, err)
+
+		expTx, err := persistentStore.FindTxWithAttempts(ctx, inTx.ID)
+		require.NoError(t, err)
+		require.Equal(t, 2, len(expTx.TxAttempts))
+		assert.Equal(t, n, *expTx.TxAttempts[0].BroadcastBeforeBlockNum)
+		fn := func(tx *evmtxmgr.Tx) bool { return true }
+		actTxs := inMemoryStore.XXXTestFindTxs(nil, fn, inTx.ID)
+		require.Equal(t, 1, len(actTxs))
+		actTx := actTxs[0]
+		assertTxEqual(t, expTx, actTx)
+	})
+}
+
 func TestInMemoryStore_UpdateTxCallbackCompleted(t *testing.T) {
 	t.Parallel()
 
@@ -385,7 +535,10 @@ func assertTxEqual(t *testing.T, exp, act evmtxmgr.Tx) {
 	assert.Equal(t, exp.Value, act.Value)
 	assert.Equal(t, exp.FeeLimit, act.FeeLimit)
 	assert.Equal(t, exp.Error, act.Error)
-	assert.Equal(t, exp.BroadcastAt, act.BroadcastAt)
+	if exp.BroadcastAt != nil {
+		require.NotNil(t, act.BroadcastAt)
+		assert.Equal(t, exp.BroadcastAt.Unix(), act.BroadcastAt.Unix())
+	}
 	assert.Equal(t, exp.InitialBroadcastAt, act.InitialBroadcastAt)
 	assert.Equal(t, exp.CreatedAt, act.CreatedAt)
 	assert.Equal(t, exp.State, act.State)
