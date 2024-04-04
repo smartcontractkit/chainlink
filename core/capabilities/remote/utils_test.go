@@ -1,6 +1,7 @@
 package remote_test
 
 import (
+	"bytes"
 	"crypto/ed25519"
 	"crypto/rand"
 	"testing"
@@ -9,6 +10,10 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
+
+	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/values"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
@@ -56,11 +61,11 @@ func newKeyPair(t *testing.T) (ed25519.PrivateKey, ragetypes.PeerID) {
 
 func encodeAndSign(t *testing.T, senderPrivKey ed25519.PrivateKey, senderId p2ptypes.PeerID, receiverId p2ptypes.PeerID, capabilityId string, donId string, payload []byte) p2ptypes.Message {
 	body := remotetypes.MessageBody{
-		Sender:       senderId[:],
-		Receiver:     receiverId[:],
-		CapabilityId: capabilityId,
-		DonId:        donId,
-		Payload:      payload,
+		Sender:          senderId[:],
+		Receiver:        receiverId[:],
+		CapabilityId:    capabilityId,
+		CapabilityDonId: donId,
+		Payload:         payload,
 	}
 	rawBody, err := proto.Marshal(&body)
 	require.NoError(t, err)
@@ -77,4 +82,37 @@ func encodeAndSign(t *testing.T, senderPrivKey ed25519.PrivateKey, senderId p2pt
 		Sender:  senderId,
 		Payload: rawMsg,
 	}
+}
+
+func TestToPeerID(t *testing.T) {
+	id := remote.ToPeerID([]byte("12345678901234567890123456789012"))
+	require.Equal(t, "12D3KooWD8QYTQVYjB6oog4Ej8PcPpqTrPRnxLQap8yY8KUQRVvq", id.String())
+}
+
+func TestDefaultModeAggregator_Aggregate(t *testing.T) {
+	capResponse1 := marshalCapabilityResponse(t, triggerEvent1, nil)
+	capResponse2 := marshalCapabilityResponse(t, triggerEvent2, nil)
+
+	agg := remote.NewDefaultModeAggregator(2)
+	_, err := agg.Aggregate("", [][]byte{capResponse1})
+	require.Error(t, err)
+
+	_, err = agg.Aggregate("", [][]byte{capResponse1, capResponse2})
+	require.Error(t, err)
+
+	res, err := agg.Aggregate("", [][]byte{capResponse1, capResponse2, capResponse1})
+	require.NoError(t, err)
+	require.True(t, bytes.Equal(res, capResponse1))
+}
+
+func marshalCapabilityResponse(t *testing.T, capValue any, capError error) []byte {
+	val, err := values.Wrap(capValue)
+	require.NoError(t, err)
+	capResponse := commoncap.CapabilityResponse{
+		Value: val,
+		Err:   capError,
+	}
+	marshaled, err := pb.MarshalCapabilityResponse(capResponse)
+	require.NoError(t, err)
+	return marshaled
 }
