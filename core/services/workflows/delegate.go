@@ -103,10 +103,17 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 
 func NewDelegate(logger logger.Logger, registry types.CapabilitiesRegistry, legacyEVMChains legacyevm.LegacyChainContainer) *Delegate {
 	// NOTE: we temporarily do registration inside NewDelegate, this will be moved out of job specs in the future
-	_ = targets.InitializeWrite(registry, legacyEVMChains, logger)
+	err := targets.InitializeWrite(registry, legacyEVMChains, logger)
+	if err != nil {
+		logger.Errorw("could not initialize writes", err)
+	}
 
 	trigger := triggers.NewMercuryTriggerService()
-	registry.Add(context.Background(), trigger)
+	err = registry.Add(context.Background(), trigger)
+	if err != nil {
+		logger.Errorw("could not add mercury trigger to registry", err)
+	}
+
 	go mercuryEventLoop(trigger, logger)
 
 	return &Delegate{logger: logger, registry: registry}
