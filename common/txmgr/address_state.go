@@ -520,7 +520,6 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) _findT
 				for i := 0; i < len(tx.TxAttempts); i++ {
 					txAttempt := tx.TxAttempts[i]
 					if txAttemptFilter(&txAttempt) {
-						txAttempt.Tx = *tx
 						txAttempts = append(txAttempts, txAttempt)
 					}
 				}
@@ -535,7 +534,6 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) _findT
 			for i := 0; i < len(tx.TxAttempts); i++ {
 				txAttempt := tx.TxAttempts[i]
 				if txAttemptFilter(&txAttempt) {
-					txAttempt.Tx = *tx
 					txAttempts = append(txAttempts, txAttempt)
 				}
 			}
