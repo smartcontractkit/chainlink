@@ -105,7 +105,7 @@ func (jc *JobsController) Create(c *gin.Context) {
 		return
 	}
 
-	jb, status, err := jc.validateJobSpec(request.TOML)
+	jb, status, err := jc.validateJobSpec(c.Request.Context(), request.TOML)
 	if err != nil {
 		jsonAPIError(c, status, err)
 		return
@@ -174,7 +174,7 @@ func (jc *JobsController) Update(c *gin.Context) {
 		return
 	}
 
-	jb, status, err := jc.validateJobSpec(request.TOML)
+	jb, status, err := jc.validateJobSpec(c.Request.Context(), request.TOML)
 	if err != nil {
 		jsonAPIError(c, status, err)
 		return
@@ -214,12 +214,11 @@ func (jc *JobsController) Update(c *gin.Context) {
 	jsonAPIResponse(c, presenters.NewJobResource(jb), jb.Type.String())
 }
 
-func (jc *JobsController) validateJobSpec(tomlString string) (jb job.Job, statusCode int, err error) {
+func (jc *JobsController) validateJobSpec(ctx context.Context, tomlString string) (jb job.Job, statusCode int, err error) {
 	jobType, err := job.ValidateSpec(tomlString)
 	if err != nil {
 		return jb, http.StatusUnprocessableEntity, errors.Wrap(err, "failed to parse TOML")
 	}
-
 	config := jc.App.GetConfig()
 	switch jobType {
 	case job.OffchainReporting:
@@ -228,7 +227,7 @@ func (jc *JobsController) validateJobSpec(tomlString string) (jb job.Job, status
 			return jb, http.StatusNotImplemented, errors.New("The Offchain Reporting feature is disabled by configuration")
 		}
 	case job.OffchainReporting2:
-		jb, err = validate.ValidatedOracleSpecToml(config.OCR2(), config.Insecure(), tomlString)
+		jb, err = validate.ValidatedOracleSpecToml(ctx, config.OCR2(), config.Insecure(), tomlString, jc.App.GetLoopRegistrarConfig())
 		if !config.OCR2().Enabled() {
 			return jb, http.StatusNotImplemented, errors.New("The Offchain Reporting 2 feature is disabled by configuration")
 		}
