@@ -192,25 +192,25 @@ func (c *PluginConfig) Validate() error {
 	if err := c.LogProviderConfig.Validate(); err != nil {
 		return err
 	}
-	if *c.PerformLockoutWindow < 0 || c.PerformLockoutWindow == nil {
+	if c.PerformLockoutWindow == nil || *c.PerformLockoutWindow < 0 {
 		return errors.New("perform_lockout_window must be set to a non-negative integer")
 	}
-	if *c.TargetProbability == "" || c.TargetProbability == nil {
+	if c.TargetProbability == nil || *c.TargetProbability == "" {
 		return errors.New("target_probability must be set")
 	}
-	if *c.TargetInRounds < 1 || c.TargetInRounds == nil {
+	if c.TargetInRounds == nil || *c.TargetInRounds < 1 {
 		return errors.New("target_in_rounds must be set to a positive integer")
 	}
-	if *c.MinConfirmations < 0 || c.MinConfirmations == nil {
+	if c.MinConfirmations == nil || *c.MinConfirmations < 0 {
 		return errors.New("min_confirmations must be set to a non-negative integer")
 	}
-	if *c.GasLimitPerReport < 1 || c.GasLimitPerReport == nil {
+	if c.GasLimitPerReport == nil || *c.GasLimitPerReport < 1 {
 		return errors.New("gas_limit_per_report must be set to a positive integer")
 	}
-	if *c.GasOverheadPerUpkeep < 1 || c.GasOverheadPerUpkeep == nil {
+	if c.GasOverheadPerUpkeep == nil || *c.GasOverheadPerUpkeep < 1 {
 		return errors.New("gas_overhead_per_upkeep must be set to a positive integer")
 	}
-	if *c.MaxUpkeepBatchSize < 1 || c.MaxUpkeepBatchSize == nil {
+	if c.MaxUpkeepBatchSize == nil || *c.MaxUpkeepBatchSize < 1 {
 		return errors.New("max_upkeep_batch_size must be set to a positive integer")
 	}
 	return nil
@@ -218,10 +218,10 @@ func (c *PluginConfig) Validate() error {
 }
 
 func (c *LogProviderConfig) Validate() error {
-	if *c.BlockRate < 1 || c.BlockRate == nil {
+	if c.BlockRate == nil || *c.BlockRate < 1 {
 		return errors.New("block_rate must be set to a positive integer")
 	}
-	if *c.LogLimit < 1 || c.LogLimit == nil {
+	if c.LogLimit == nil || *c.LogLimit < 1 {
 		return errors.New("log_limit must be set to a positive integer")
 	}
 	return nil
@@ -245,43 +245,43 @@ type PublicConfig struct {
 }
 
 func (c *PublicConfig) Validate() error {
-	if *c.DeltaProgress < 0 || c.DeltaProgress == nil {
+	if c.DeltaProgress == nil || *c.DeltaProgress < 0 {
 		return errors.New("delta_progress must be set to a non-negative duration")
 	}
-	if *c.DeltaResend < 0 || c.DeltaResend == nil {
+	if c.DeltaResend == nil || *c.DeltaResend < 0 {
 		return errors.New("delta_resend must be set to a non-negative duration")
 	}
-	if *c.DeltaInitial < 0 || c.DeltaInitial == nil {
+	if c.DeltaInitial == nil || *c.DeltaInitial < 0 {
 		return errors.New("delta_initial must be set to a non-negative duration")
 	}
-	if *c.DeltaRound < 0 || c.DeltaRound == nil {
+	if c.DeltaRound == nil || *c.DeltaRound < 0 {
 		return errors.New("delta_round must be set to a non-negative duration")
 	}
-	if *c.DeltaGrace < 0 || c.DeltaGrace == nil {
+	if c.DeltaGrace == nil || *c.DeltaGrace < 0 {
 		return errors.New("delta_grace must be set to a non-negative duration")
 	}
-	if *c.DeltaCertifiedCommitRequest < 0 || c.DeltaCertifiedCommitRequest == nil {
+	if c.DeltaCertifiedCommitRequest == nil || *c.DeltaCertifiedCommitRequest < 0 {
 		return errors.New("delta_certified_commit_request must be set to a non-negative duration")
 	}
-	if *c.DeltaStage < 0 || c.DeltaStage == nil {
+	if c.DeltaStage == nil || *c.DeltaStage < 0 {
 		return errors.New("delta_stage must be set to a non-negative duration")
 	}
-	if *c.RMax < 1 || c.RMax == nil {
+	if c.RMax == nil || *c.RMax < 1 {
 		return errors.New("r_max must be set to a positive integer")
 	}
-	if *c.F < 1 || c.F == nil {
+	if c.F == nil || *c.F < 1 {
 		return errors.New("f must be set to a positive integer")
 	}
-	if *c.MaxDurationQuery < 0 || c.MaxDurationQuery == nil {
+	if c.MaxDurationQuery == nil || *c.MaxDurationQuery < 0 {
 		return errors.New("max_duration_query must be set to a non-negative duration")
 	}
-	if *c.MaxDurationObservation < 0 || c.MaxDurationObservation == nil {
+	if c.MaxDurationObservation == nil || *c.MaxDurationObservation < 0 {
 		return errors.New("max_duration_observation must be set to a non-negative duration")
 	}
-	if *c.MaxDurationShouldAcceptAttestedReport < 0 || c.MaxDurationShouldAcceptAttestedReport == nil {
+	if c.MaxDurationShouldAcceptAttestedReport == nil || *c.MaxDurationShouldAcceptAttestedReport < 0 {
 		return errors.New("max_duration_should_accept_attested_report must be set to a non-negative duration")
 	}
-	if *c.MaxDurationShouldTransmitAcceptedReport < 0 || c.MaxDurationShouldTransmitAcceptedReport == nil {
+	if c.MaxDurationShouldTransmitAcceptedReport == nil || *c.MaxDurationShouldTransmitAcceptedReport < 0 {
 		return errors.New("max_duration_should_transmit_accepted_report must be set to a non-negative duration")
 	}
 	return nil
@@ -310,7 +310,7 @@ func (c *RegistrySettings) Validate() error {
 	if c.FlatFeeMicroLINK == nil {
 		return errors.New("flat_fee_micro_link must be set to a non-negative integer")
 	}
-	if *c.CheckGasLimit < 1 || c.CheckGasLimit == nil {
+	if c.CheckGasLimit == nil || *c.CheckGasLimit < 1 {
 		return errors.New("check_gas_limit must be set to a positive integer")
 	}
 	if c.StalenessSeconds == nil || c.StalenessSeconds.Cmp(big.NewInt(0)) < 0 {
@@ -319,7 +319,7 @@ func (c *RegistrySettings) Validate() error {
 	if c.GasCeilingMultiplier == nil {
 		return errors.New("gas_ceiling_multiplier must be set to a non-negative integer")
 	}
-	if *c.MaxPerformGas < 1 || c.MaxPerformGas == nil {
+	if c.MaxPerformGas == nil || *c.MaxPerformGas < 1 {
 		return errors.New("max_perform_gas must be set to a positive integer")
 	}
 	if c.MinUpkeepSpend == nil || c.MinUpkeepSpend.Cmp(big.NewInt(0)) < 0 {
@@ -331,13 +331,13 @@ func (c *RegistrySettings) Validate() error {
 	if c.FallbackLinkPrice == nil || c.FallbackLinkPrice.Cmp(big.NewInt(0)) < 0 {
 		return errors.New("fallback_link_price must be set to a non-negative integer")
 	}
-	if *c.MaxCheckDataSize < 1 || c.MaxCheckDataSize == nil {
+	if c.MaxCheckDataSize == nil || *c.MaxCheckDataSize < 1 {
 		return errors.New("max_check_data_size must be set to a positive integer")
 	}
-	if *c.MaxPerformDataSize < 1 || c.MaxPerformDataSize == nil {
+	if c.MaxPerformDataSize == nil || *c.MaxPerformDataSize < 1 {
 		return errors.New("max_perform_data_size must be set to a positive integer")
 	}
-	if *c.MaxRevertDataSize < 1 || c.MaxRevertDataSize == nil {
+	if c.MaxRevertDataSize == nil || *c.MaxRevertDataSize < 1 {
 		return errors.New("max_revert_data_size must be set to a positive integer")
 	}
 	return nil
