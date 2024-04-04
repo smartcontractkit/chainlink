@@ -410,6 +410,8 @@ func (l *logPollerWrapper) handleRouteUpdate(ctx context.Context, activeCoordina
 	}
 
 	l.lggr.Debugw("LogPollerWrapper: new routes", "activeCoordinator", activeCoordinator.Hex(), "proposedCoordinator", proposedCoordinator.Hex())
+
+	previousActiveCoordinator := l.activeCoordinator
 	l.activeCoordinator = activeCoordinator
 	l.proposedCoordinator = proposedCoordinator
 
@@ -420,14 +422,9 @@ func (l *logPollerWrapper) handleRouteUpdate(ctx context.Context, activeCoordina
 		}
 	}
 
-	// Unregister filters with the logPoller for any previous coordinators that are no longer active or proposed
-	filters := l.logPoller.GetFilters()
-	for _, filter := range filters {
-		if filter.Name == filterName(l.activeCoordinator) || filter.Name == filterName(l.proposedCoordinator) {
-			continue
-		}
-		if err := l.logPoller.UnregisterFilter(ctx, filter.Name); err != nil {
-			l.lggr.Errorw("LogPollerWrapper: Failed to unregister filter", "filterName", filter.Name, "err", err)
+	if previousActiveCoordinator != l.activeCoordinator && l.logPoller.HasFilter(filterName(previousActiveCoordinator)) {
+		if err := l.logPoller.UnregisterFilter(ctx, filterName(previousActiveCoordinator)); err != nil {
+			l.lggr.Errorw("LogPollerWrapper: Failed to unregister filter for previous active coordinator", "filterName", filterName(previousActiveCoordinator), "err", err)
 		}
 	}
 }
