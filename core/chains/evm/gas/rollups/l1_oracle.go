@@ -16,8 +16,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 )
 
-//go:generate mockery --quiet --name ethClient --output ./mocks/ --case=underscore --structname ETHClient
-type ethClient interface {
+//go:generate mockery --quiet --name l1OracleClient --output ./mocks/ --case=underscore --structname L1OracleClient
+type l1OracleClient interface {
 	CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error)
 	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
 }
@@ -43,7 +43,7 @@ func IsRollupWithL1Support(chainType config.ChainType) bool {
 	return slices.Contains(supportedChainTypes, chainType)
 }
 
-func NewL1GasOracle(lggr logger.Logger, ethClient ethClient, chainType config.ChainType) L1Oracle {
+func NewL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType config.ChainType) L1Oracle {
 	var l1Oracle L1Oracle
 	switch chainType {
 	case config.ChainOptimismBedrock:

@@ -493,7 +493,7 @@ func bumpFeePrice(originalFeePrice *assets.Wei, feeBumpPercent uint16, feeBumpUn
 func maxBumpedFee(lggr logger.SugaredLogger, currentFeePrice, bumpedFeePrice, maxGasPrice *assets.Wei, feeType string) *assets.Wei {
 	if currentFeePrice != nil {
 		if currentFeePrice.Cmp(maxGasPrice) > 0 {
-			// Shouldn't happen because the estimaxtor should not be allowed to
+			// Shouldn't happen because the estimator should not be allowed to
 			// estimate a higher gas than the maximum allowed
 			lggr.AssumptionViolationf("Ignoring current %s of %s that would exceed max %s of %s", feeType, currentFeePrice.String(), feeType, maxGasPrice.String())
 		} else if bumpedFeePrice.Cmp(currentFeePrice) < 0 {

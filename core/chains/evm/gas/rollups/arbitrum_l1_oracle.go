@@ -33,7 +33,7 @@ type ArbL1GasOracle interface {
 // Reads L2-specific precompiles and caches the l1GasPrice set by the L2.
 type arbitrumL1Oracle struct {
 	services.StateMachine
-	client     ethClient
+	client     l1OracleClient
 	pollPeriod time.Duration
 	logger     logger.SugaredLogger
 	chainType  config.ChainType
@@ -73,11 +73,11 @@ const (
 	ArbGasInfo_getPricesInArbGas = "02199f34"
 )
 
-func NewArbitrumL1GasOracle(lggr logger.Logger, ethClient ethClient) ArbL1GasOracle {
+func NewArbitrumL1GasOracle(lggr logger.Logger, ethClient l1OracleClient) ArbL1GasOracle {
 	return newArbitrumL1GasOracle(lggr, ethClient)
 }
 
-func newArbitrumL1GasOracle(lggr logger.Logger, ethClient ethClient) ArbL1GasOracle {
+func newArbitrumL1GasOracle(lggr logger.Logger, ethClient l1OracleClient) ArbL1GasOracle {
 	var l1GasPriceAddress, gasPriceMethod, l1GasCostAddress, gasCostMethod string
 	var l1GasPriceMethodAbi, l1GasCostMethodAbi abi.ABI
 	var gasPriceErr, gasCostErr error

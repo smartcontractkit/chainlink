@@ -27,7 +27,7 @@ import (
 // Reads L2-specific precompiles and caches the l1GasPrice set by the L2.
 type scrollL1Oracle struct {
 	services.StateMachine
-	client     ethClient
+	client     l1OracleClient
 	pollPeriod time.Duration
 	logger     logger.SugaredLogger
 	chainType  config.ChainType
@@ -60,12 +60,12 @@ const (
 	ScrollGasOracle_getL1Fee = "getL1Fee"
 )
 
-func NewScrollL1GasOracle(lggr logger.Logger, ethClient ethClient) L1Oracle {
+func NewScrollL1GasOracle(lggr logger.Logger, ethClient l1OracleClient) L1Oracle {
 	l1Oracle := newScrollL1GasOracle(lggr, ethClient)
 	return l1Oracle
 }
 
-func newScrollL1GasOracle(lggr logger.Logger, ethClient ethClient) L1Oracle {
+func newScrollL1GasOracle(lggr logger.Logger, ethClient l1OracleClient) L1Oracle {
 	var l1GasPriceAddress, gasPriceMethod, l1GasCostAddress, gasCostMethod string
 	var l1GasPriceMethodAbi, l1GasCostMethodAbi abi.ABI
 	var gasPriceErr, gasCostErr error

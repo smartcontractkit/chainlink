@@ -27,7 +27,7 @@ func TestL1Oracle(t *testing.T) {
 	t.Parallel()
 
 	t.Run("Unsupported ChainType returns nil", func(t *testing.T) {
-		ethClient := mocks.NewETHClient(t)
+		ethClient := mocks.NewL1OracleClient(t)
 
 		assert.Panicsf(t, func() { NewL1GasOracle(logger.Test(t), ethClient, config.ChainCelo) }, "Received unspported chaintype %s", config.ChainCelo)
 	})
@@ -37,7 +37,7 @@ func TestL1Oracle_GasPrice(t *testing.T) {
 	t.Parallel()
 
 	t.Run("Calling GasPrice on unstarted L1Oracle returns error", func(t *testing.T) {
-		ethClient := mocks.NewETHClient(t)
+		ethClient := mocks.NewL1OracleClient(t)
 
 		oracle := NewL1GasOracle(logger.Test(t), ethClient, config.ChainOptimismBedrock)
 
@@ -50,7 +50,7 @@ func TestL1Oracle_GasPrice(t *testing.T) {
 		l1GasPriceMethodAbi, err := abi.JSON(strings.NewReader(GetL1BaseFeeEstimateAbiString))
 		require.NoError(t, err)
 
-		ethClient := mocks.NewETHClient(t)
+		ethClient := mocks.NewL1OracleClient(t)
 		ethClient.On("CallContract", mock.Anything, mock.IsType(ethereum.CallMsg{}), mock.IsType(&big.Int{})).Run(func(args mock.Arguments) {
 			callMsg := args.Get(1).(ethereum.CallMsg)
 			blockNumber := args.Get(2).(*big.Int)
@@ -105,7 +105,7 @@ func TestL1Oracle_GasPrice(t *testing.T) {
 		l1GasPriceMethodAbi, err := abi.JSON(strings.NewReader(L1BaseFeeAbiString))
 		require.NoError(t, err)
 
-		ethClient := mocks.NewETHClient(t)
+		ethClient := mocks.NewL1OracleClient(t)
 		ethClient.On("CallContract", mock.Anything, mock.IsType(ethereum.CallMsg{}), mock.IsType(&big.Int{})).Run(func(args mock.Arguments) {
 			callMsg := args.Get(1).(ethereum.CallMsg)
 			blockNumber := args.Get(2).(*big.Int)
@@ -149,7 +149,7 @@ func TestL1Oracle_GetGasCost(t *testing.T) {
 		result = append(result, baseFee...)
 		result = append(result, l1BaseFeeEstimate...)
 
-		ethClient := mocks.NewETHClient(t)
+		ethClient := mocks.NewL1OracleClient(t)
 		ethClient.On("CallContract", mock.Anything, mock.IsType(ethereum.CallMsg{}), mock.IsType(&big.Int{})).Run(func(args mock.Arguments) {
 			callMsg := args.Get(1).(ethereum.CallMsg)
 			blockNumber := args.Get(2).(*big.Int)
@@ -171,7 +171,7 @@ func TestL1Oracle_GetGasCost(t *testing.T) {
 		blockNum := big.NewInt(1000)
 		tx := types.NewTx(&types.LegacyTx{})
 
-		ethClient := mocks.NewETHClient(t)
+		ethClient := mocks.NewL1OracleClient(t)
 		oracle := NewL1GasOracle(logger.Test(t), ethClient, config.ChainKroma)
 
 		_, err := oracle.GetGasCost(testutils.Context(t), tx, blockNum)
@@ -195,7 +195,7 @@ func TestL1Oracle_GetGasCost(t *testing.T) {
 		encodedTx, err := tx.MarshalBinary()
 		require.NoError(t, err)
 
-		ethClient := mocks.NewETHClient(t)
+		ethClient := mocks.NewL1OracleClient(t)
 		ethClient.On("CallContract", mock.Anything, mock.IsType(ethereum.CallMsg{}), mock.IsType(&big.Int{})).Run(func(args mock.Arguments) {
 			callMsg := args.Get(1).(ethereum.CallMsg)
 			blockNumber := args.Get(2).(*big.Int)
@@ -230,7 +230,7 @@ func TestL1Oracle_GetGasCost(t *testing.T) {
 		encodedTx, err := tx.MarshalBinary()
 		require.NoError(t, err)
 
-		ethClient := mocks.NewETHClient(t)
+		ethClient := mocks.NewL1OracleClient(t)
 		ethClient.On("CallContract", mock.Anything, mock.IsType(ethereum.CallMsg{}), mock.IsType(&big.Int{})).Run(func(args mock.Arguments) {
 			callMsg := args.Get(1).(ethereum.CallMsg)
 			blockNumber := args.Get(2).(*big.Int)

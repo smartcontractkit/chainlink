@@ -29,7 +29,7 @@ import (
 // Reads L2-specific precompiles and caches the l1GasPrice set by the L2.
 type optimismL1Oracle struct {
 	services.StateMachine
-	client     ethClient
+	client     l1OracleClient
 	pollPeriod time.Duration
 	logger     logger.SugaredLogger
 	chainType  config.ChainType
@@ -52,7 +52,7 @@ type optimismL1Oracle struct {
 }
 
 type opStackGasPriceReader struct {
-	client ethClient
+	client l1OracleClient
 	logger logger.SugaredLogger
 
 	oracleAddress      common.Address
@@ -101,7 +101,7 @@ const (
 	KromaGasOracle_l1BaseFee = "l1BaseFee"
 )
 
-func NewOpStackL1GasOracle(lggr logger.Logger, ethClient ethClient, chainType config.ChainType) L1Oracle {
+func NewOpStackL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType config.ChainType) L1Oracle {
 	var precompileAddress string
 	switch chainType {
 	case config.ChainOptimismBedrock:
@@ -115,7 +115,7 @@ func NewOpStackL1GasOracle(lggr logger.Logger, ethClient ethClient, chainType co
 	return newOpStackL1GasOracle(lggr, ethClient, priceReader, chainType)
 }
 
-func newOpStackL1GasOracle(lggr logger.Logger, ethClient ethClient, priceReader daPriceReader, chainType config.ChainType) L1Oracle {
+func newOpStackL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, priceReader daPriceReader, chainType config.ChainType) L1Oracle {
 	var l1GasPriceAddress, gasPriceMethod, l1GasCostAddress, gasCostMethod string
 	var l1GasPriceMethodAbi, l1GasCostMethodAbi abi.ABI
 	var gasPriceErr, gasCostErr error
@@ -314,7 +314,7 @@ func (o *optimismL1Oracle) GetGasCost(ctx context.Context, tx *gethtypes.Transac
 	return assets.NewWei(l1GasCost), nil
 }
 
-func newOPPriceReader(lggr logger.Logger, ethClient ethClient, chainType config.ChainType, oracleAddress string) daPriceReader {
+func newOPPriceReader(lggr logger.Logger, ethClient l1OracleClient, chainType config.ChainType, oracleAddress string) daPriceReader {
 	// encode calldata for each method; these calldata will remain the same for each call, we can encode them just once
 	l1BaseFeeMethodAbi, err := abi.JSON(strings.NewReader(L1BaseFeeAbiString))
 	if err != nil {

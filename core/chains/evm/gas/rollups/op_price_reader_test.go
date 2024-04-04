@@ -60,7 +60,7 @@ func TestDAPriceReader_ReadV1GasPrice(t *testing.T) {
 			isEcotoneCalldata, err := isEcotoneMethodAbi.Pack(OPStackGasOracle_isEcotone)
 			require.NoError(t, err)
 
-			ethClient := mocks.NewETHClient(t)
+			ethClient := mocks.NewL1OracleClient(t)
 			call := ethClient.On("CallContract", mock.Anything, mock.IsType(ethereum.CallMsg{}), mock.IsType(&big.Int{})).Run(func(args mock.Arguments) {
 				callMsg := args.Get(1).(ethereum.CallMsg)
 				blockNumber := args.Get(2).(*big.Int)
@@ -100,13 +100,13 @@ func TestDAPriceReader_ReadV1GasPrice(t *testing.T) {
 	}
 }
 
-func setupIsEcotone(t *testing.T, oracleAddress string) *mocks.ETHClient {
+func setupIsEcotone(t *testing.T, oracleAddress string) *mocks.L1OracleClient {
 	isEcotoneMethodAbi, err := abi.JSON(strings.NewReader(OPIsEcotoneAbiString))
 	require.NoError(t, err)
 	isEcotoneCalldata, err := isEcotoneMethodAbi.Pack(OPStackGasOracle_isEcotone)
 	require.NoError(t, err)
 
-	ethClient := mocks.NewETHClient(t)
+	ethClient := mocks.NewL1OracleClient(t)
 	ethClient.On("CallContract", mock.Anything, mock.IsType(ethereum.CallMsg{}), mock.IsType(&big.Int{})).Run(func(args mock.Arguments) {
 		callMsg := args.Get(1).(ethereum.CallMsg)
 		blockNumber := args.Get(2).(*big.Int)
