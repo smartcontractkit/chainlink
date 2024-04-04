@@ -163,8 +163,8 @@ func (s *TokenDataReader) ReadTokenData(ctx context.Context, msg cciptypes.EVM2E
 	if s.rate != nil {
 		// Wait blocks until it the attestation API can be called or the
 		// context is Done.
-		if err := s.rate.Wait(ctx); err != nil {
-			return nil, fmt.Errorf("usdc rate limiting error: %w", err)
+		if waitErr := s.rate.Wait(ctx); err != nil {
+			return nil, fmt.Errorf("usdc rate limiting error: %w", waitErr)
 		}
 	}
 
