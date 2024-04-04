@@ -307,37 +307,40 @@ func TestTokenDataReader_getUsdcTokenEndOffset(t *testing.T) {
 
 func TestUSDCReader_rateLimiting(t *testing.T) {
 	testCases := []struct {
-		name             string
-		requests         uint64
-		testRequestDelay time.Duration
-		rateConfig       time.Duration
-		rateLimits       int
+		name         string
+		requests     uint64
+		rateConfig   time.Duration
+		testDuration time.Duration
+		timeout      time.Duration
+		err          string
 	}{
 		{
-			name:       "no rate limit",
-			requests:   10,
-			rateConfig: 0,
-			rateLimits: 0,
+			name:         "no rate limit when disabled",
+			requests:     10,
+			rateConfig:   0,
+			testDuration: 1 * time.Millisecond,
 		},
 		{
-			name:       "yes rate limit",
-			requests:   10,
-			rateConfig: 100 * time.Millisecond,
-			rateLimits: 9,
+			name:         "yes rate limit when not disabled",
+			requests:     5,
+			rateConfig:   100 * time.Millisecond,
+			testDuration: 4 * 100 * time.Millisecond,
 		},
 		{
-			name:             "no limit when throttled",
-			requests:         10,
-			rateConfig:       10 * time.Millisecond,
-			rateLimits:       0,
-			testRequestDelay: 20 * time.Millisecond,
+			name:         "timeout after first request",
+			requests:     5,
+			rateConfig:   100 * time.Millisecond,
+			testDuration: 1 * time.Millisecond,
+			timeout:      1 * time.Millisecond,
+			err:          "usdc rate limiting error: rate: Wait(n=1) would exceed context deadline",
 		},
 		{
-			name:             "yes half limited",
-			requests:         10,
-			rateConfig:       10 * time.Millisecond,
-			rateLimits:       5,
-			testRequestDelay: 9 * time.Millisecond,
+			name:         "timeout after second request",
+			requests:     5,
+			rateConfig:   100 * time.Millisecond,
+			testDuration: 150 * time.Millisecond,
+			timeout:      150 * time.Millisecond,
+			err:          "usdc rate limiting error: rate: Wait(n=1) would exceed context deadline",
 		},
 	}
 
@@ -361,16 +364,23 @@ func TestUSDCReader_rateLimiting(t *testing.T) {
 			usdcReader, _ := ccipdata.NewUSDCReader(lggr, "job_123", mockMsgTransmitter, lp, false)
 			usdcService := NewUSDCTokenDataReader(lggr, usdcReader, attestationURI, 0, utils.RandomAddress(), tc.rateConfig)
 
+			ctx := context.Background()
+			if tc.timeout > 0 {
+				var cf context.CancelFunc
+				ctx, cf = context.WithTimeout(ctx, tc.timeout)
+				defer cf()
+			}
+
+			trigger := make(chan struct{})
 			errorChan := make(chan error, tc.requests)
 			wg := sync.WaitGroup{}
 			for i := 0; i < int(tc.requests); i++ {
-				time.Sleep(tc.testRequestDelay)
-
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
 
-					_, err := usdcService.ReadTokenData(context.Background(), cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta{
+					<-trigger
+					_, err := usdcService.ReadTokenData(ctx, cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta{
 						EVM2EVMMessage: cciptypes.EVM2EVMMessage{
 							TokenAmounts: []cciptypes.TokenAmount{{Token: ccipcalc.EvmAddrToGeneric(utils.ZeroAddress), Amount: nil}}, // trigger failure due to wrong address
 						},
@@ -380,20 +390,32 @@ func TestUSDCReader_rateLimiting(t *testing.T) {
 				}()
 			}
 
+			// Start the test
+			start := time.Now()
+			close(trigger)
+
 			// Wait for requests to complete
 			wg.Wait()
+			finish := time.Now()
 			close(errorChan)
 
 			// Collect errors
-			rateLimits := 0
+			var errs []error
+			errorFound := false
 			for err := range errorChan {
-				if errors.Is(err, tokendata.ErrSelfRateLimit) {
-					rateLimits++
-				} else if err != nil && !strings.Contains(err.Error(), "failed getting the USDC message body") {
+				errs = append(errs, err)
+				if tc.err != "" && !strings.Contains(err.Error(), tc.err) {
+					errorFound = true
+				} else if !strings.Contains(err.Error(), "failed getting USDC message body") {
+					// ignore this error, it's expected because of how mocking is used.
+				} else {
 					require.Fail(t, "unexpected error", err)
 				}
 			}
-			require.Equal(t, tc.rateLimits, rateLimits)
+			if tc.err != "" {
+				assert.True(t, errorFound)
+			}
+			assert.WithinDuration(t, start.Add(tc.testDuration), finish, 50*time.Millisecond)
 		})
 	}
 }

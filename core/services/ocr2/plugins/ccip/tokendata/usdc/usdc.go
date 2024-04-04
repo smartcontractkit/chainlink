@@ -146,6 +146,10 @@ func NewUSDCTokenDataReaderWithHttpClient(
 	}
 }
 
+// ReadTokenData queries the USDC attestation API to construct a message and
+// attestation response. When called back to back, or multiple times
+// concurrently, responses are delayed according how the request interval is
+// configured.
 func (s *TokenDataReader) ReadTokenData(ctx context.Context, msg cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta, tokenIndex int) (messageAndAttestation []byte, err error) {
 	if tokenIndex < 0 || tokenIndex >= len(msg.TokenAmounts) {
 		return nil, fmt.Errorf("token index out of bounds")
@@ -156,10 +160,12 @@ func (s *TokenDataReader) ReadTokenData(ctx context.Context, msg cciptypes.EVM2E
 		return nil, tokendata.ErrRequestsBlocked
 	}
 
-	// Using 'Allow' instead of 'Wait' to avoid blocking the current goroutine.
-	if s.rate != nil && !s.rate.Allow() {
-		// self rate limiting to avoid hitting the rate limit.
-		return nil, tokendata.ErrSelfRateLimit
+	if s.rate != nil {
+		// Wait blocks until it the attestation API can be called or the
+		// context is Done.
+		if err := s.rate.Wait(ctx); err != nil {
+			return nil, fmt.Errorf("usdc rate limiting error: %w", err)
+		}
 	}
 
 	messageBody, err := s.getUSDCMessageBody(ctx, msg, tokenIndex)
