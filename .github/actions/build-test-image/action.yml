@@ -71,7 +71,7 @@ runs:
     - name: Check if test base image exists
       if: steps.version.outputs.is_semantic == 'false'
       id: check-base-image
-      uses: smartcontractkit/chainlink-github-actions/docker/image-exists@5bee84d30d90295010bda68b0cd46be3a1eea917 # v2.3.9
+      uses: smartcontractkit/chainlink-github-actions/docker/image-exists@7882cf348cd6a1f6bcf1ee8280185584ebba96e9 # v2.3.10
       with:
         repository: ${{ inputs.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ inputs.QA_AWS_REGION }}.amazonaws.com/test-base-image
         tag: ${{ steps.long_sha.outputs.long_sha }}
@@ -92,7 +92,7 @@ runs:
     # Test Runner Logic
     - name: Check if image exists
       id: check-image
-      uses: smartcontractkit/chainlink-github-actions/docker/image-exists@5bee84d30d90295010bda68b0cd46be3a1eea917 # v2.3.9
+      uses: smartcontractkit/chainlink-github-actions/docker/image-exists@7882cf348cd6a1f6bcf1ee8280185584ebba96e9 # v2.3.10
       with:
         repository: ${{ inputs.repository }}
         tag: ${{ inputs.tag }}
