@@ -185,14 +185,12 @@ opentelemetry-collector:
       otlp:
         protocols:
           grpc:
-            endpoint: "0.0.0.0:4317"
+            endpoint: ${env:MY_POD_IP}:4317
           http:
-            endpoint: "0.0.0.0:3100"
+            endpoint: ${env:MY_POD_IP}:4318
     exporters:
-      file:
-        path: /tracing/trace-data.json
       otlp:
-        endpoint: tempo:4317
+        endpoint: app-tempo:4317
         tls:
           insecure: true
     service:
@@ -202,27 +200,13 @@ opentelemetry-collector:
       pipelines:
         traces:
           receivers: [otlp]
-          exporters: [file, otlp]
+          exporters: [otlp]
 
 tempo:
   enabled: true
   image:
     tag: "1.7.2"
-  server:
-    http_listen_port: 3200
   # default storage path: /var/tempo/
-  readinessProbe:
-    httpGet:
-      path: /ready
-      port: 3200
-    initialDelaySeconds: 10
-    periodSeconds: 5
-  livenessProbe:
-    httpGet:
-      path: /ready
-      port: 3200
-    initialDelaySeconds: 20
-    periodSeconds: 10
   securityContext:
     runAsNonRoot: true
     runAsUser: 10001
@@ -239,7 +223,7 @@ tempo:
 grafana:
   enabled: true
   image:
-    tag: 7.3.2
+    tag: 10.4.1
   rbac:
     namespaced: true
   datasources:
@@ -250,7 +234,7 @@ grafana:
           type: tempo
           access: proxy
           orgId: 1
-          url: http://tempo:3200
+          url: http://app-tempo:3100
           basicAuth: false
           isDefault: true
           version: 1
@@ -264,7 +248,7 @@ grafana:
     GF_AUTH_ANONYMOUS_ENABLED: "true"
     GF_AUTH_ANONYMOUS_ORG_ROLE: "Admin"
     GF_AUTH_DISABLE_LOGIN_FORM: "true"
-    GF_FEATURE_TOGGLES_ENABLE: "traceqlEditor"
+    GF_FEATURE_TOGGLES_ENABLE: "traceqlEditor tempoSearch tempoServiceGraph"
 
 ingress:
   enabled: false
@@ -430,7 +414,7 @@ networkPolicies:
                   app: tempo
           ports:
             - protocol: TCP
-              port: 3100
+              port: 4317
 
 # Configure the default network policy.
 networkPolicyDefault:

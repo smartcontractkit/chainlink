@@ -284,6 +284,20 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			}
 
 		})
+
+		// this is not the cleanest way to do this, but when we originally build ethereum networks, we don't have the logstream reference
+		// so we need to rebuild them here and pass logstream to them
+		for i := range b.privateEthereumNetworks {
+			builder := test_env.NewEthereumNetworkBuilder()
+			netWithLs, err := builder.
+				WithExistingConfig(*b.privateEthereumNetworks[i]).
+				WithLogStream(b.te.LogStream).
+				Build()
+			if err != nil {
+				return nil, err
+			}
+			b.privateEthereumNetworks[i] = &netWithLs
+		}
 	}
 
 	// in this case we will use the builder only to start chains, not the cluster, because currently we support only 1 network config per cluster
@@ -297,9 +311,6 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			if err != nil {
 				return nil, err
 			}
-
-			// TODO: remove after fixing in CTF
-			networkConfig.ChainID = int64(en.EthereumChainConfig.ChainID)
 
 			if b.hasEVMClient {
 				evmClient, err := blockchain.NewEVMClientFromNetwork(networkConfig, b.l)

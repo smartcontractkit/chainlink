@@ -384,7 +384,7 @@ func (e *EthereumContractDeployer) DeployFunctionsLoadTestClient(router string) 
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumFunctionsLoadTestClient{
+	return &LegacyEthereumFunctionsLoadTestClient{
 		client:   e.client,
 		instance: instance.(*functions_load_test_client.FunctionsLoadTestClient),
 		address:  *address,
