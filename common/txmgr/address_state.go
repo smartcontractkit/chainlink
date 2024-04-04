@@ -302,6 +302,14 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) delete
 	as._deleteTxs(txIDs...)
 }
 
+// deleteAllTxAttempts removes all attempts for the given transactions.
+func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) deleteAllTxAttempts(txID int64) {
+	as.Lock()
+	defer as.Unlock()
+
+	as._deleteAllTxAttempts(txID)
+}
+
 // deleteTxAttempt removes the attempt with a given ID from the transaction with the given ID.
 // It removes the attempts from the hash lookup map and from the transaction.
 // If an attempt is not found in the hash lookup map, it is ignored.
@@ -328,14 +336,35 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) delete
 	}
 }
 
+// addTxAttempt adds the given attempt to the transaction which matches its TxID.
+func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) addTxAttempt(txAttempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
+	as.Lock()
+	defer as.Unlock()
+
+	tx, ok := as.allTxs[txAttempt.TxID]
+	if !ok || tx == nil {
+		return fmt.Errorf("no transaction with ID %d", txAttempt.TxID)
+	}
+
+	// add the attempt to the transaction
+	if tx.TxAttempts == nil {
+		tx.TxAttempts = []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
+	}
+	tx.TxAttempts = append(tx.TxAttempts, txAttempt)
+	// add the attempt to the hash lookup map
+	as.attemptHashToTxAttempt[txAttempt.Hash] = &txAttempt
+
+	return nil
+}
+
 // peekNextUnstartedTx returns the next unstarted transaction in the queue without removing it from the unstarted queue.
 func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) peekNextUnstartedTx() (*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
 	return nil, nil
 }
 
 // peekInProgressTx returns the in-progress transaction without removing it from the in-progress state.
-func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) peekInProgressTx() (*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
-	return nil, nil
+func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) peekInProgressTx() *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {
+	return nil
 }
 
 // addTxToUnstarted adds the given transaction to the unstarted queue.
@@ -539,6 +568,21 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) _findT
 	}
 
 	return txs
+}
+
+func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) _deleteAllTxAttempts(
+	txID int64,
+) {
+	tx, ok := as.allTxs[txID]
+	if !ok {
+		return
+	}
+
+	for i := 0; i < len(tx.TxAttempts); i++ {
+		txAttempt := tx.TxAttempts[i]
+		delete(as.attemptHashToTxAttempt, txAttempt.Hash)
+	}
+	tx.TxAttempts = nil
 }
 
 func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) _deleteTxs(txIDs ...int64) {

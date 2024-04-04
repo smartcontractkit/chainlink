@@ -190,11 +190,74 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveR
 	oldAttempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	replacementAttempt *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 ) error {
+	if oldAttempt.State != txmgrtypes.TxAttemptInProgress || replacementAttempt.State != txmgrtypes.TxAttemptInProgress {
+		return fmt.Errorf("expected attempts to be in_progress")
+	}
+	if oldAttempt.ID == 0 {
+		return fmt.Errorf("expected oldAttempt to have an ID")
+	}
+
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
+	var as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
+	for _, vas := range ms.addressStates {
+		if vas.hasTx(oldAttempt.TxID) {
+			as = vas
+			break
+		}
+	}
+	if as == nil {
+		return fmt.Errorf("save_replacement_in_progress_attempt: %w: %q", ErrTxnNotFound, oldAttempt.TxID)
+	}
+
+	// Persist to persistent storage
+	if err := ms.persistentTxStore.SaveReplacementInProgressAttempt(ctx, oldAttempt, replacementAttempt); err != nil {
+		return fmt.Errorf("save_replacement_in_progress_attempt: %w", err)
+	}
+
+	// Update in memory store
+	// delete the old attempt
+	as.deleteTxAttempt(oldAttempt.TxID, oldAttempt.ID)
+	// add the new attempt
+	if err := as.addTxAttempt(*replacementAttempt); err != nil {
+		return fmt.Errorf("save_replacement_in_progress_attempt: failed to add a replacement transaction attempt: %w", err)
+	}
+
 	return nil
 }
 
 // UpdateTxFatalError updates a transaction to fatal_error.
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxFatalError(ctx context.Context, tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
+	if tx.State != TxInProgress && tx.State != TxUnstarted {
+		return fmt.Errorf("update_tx_fatal_error: can only transition to fatal_error from in_progress, transaction is currently %s", tx.State)
+	}
+	if !tx.Error.Valid {
+		return fmt.Errorf("update_tx_fatal_error: expected error field to be set")
+	}
+
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
+	as, ok := ms.addressStates[tx.FromAddress]
+	if !ok {
+		return fmt.Errorf("update_tx_fatal_error: %w", ErrAddressNotFound)
+	}
+	if !as.hasTx(tx.ID) {
+		return fmt.Errorf("update_tx_fatal_error: %w: %q", ErrTxnNotFound, tx.ID)
+	}
+
+	// Persist to persistent storage
+	if err := ms.persistentTxStore.UpdateTxFatalError(ctx, tx); err != nil {
+		return fmt.Errorf("update_tx_fatal_error: %w", err)
+	}
+
+	// Update in memory store
+	// remove all tx attempts for the transaction
+	as.deleteAllTxAttempts(tx.ID)
+	// move the transaction to fatal_error state
+	if err := as.moveTxToFatalError(tx.ID, tx.Error); err != nil {
+		return fmt.Errorf("update_tx_fatal_error: %w", err)
+	}
+
 	return nil
 }
 
