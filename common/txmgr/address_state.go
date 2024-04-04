@@ -163,6 +163,15 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) findTx
 	return nil
 }
 
+// hasTx returns true if the transaction with the given ID is in the address state.
+func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) hasTx(txID int64) bool {
+	as.RLock()
+	defer as.RUnlock()
+
+	_, ok := as.allTxs[txID]
+	return ok
+}
+
 // findTxs returns all transactions that match the given filters.
 // If txIDs are provided, only the transactions with those IDs are considered.
 // If no txIDs are provided, all transactions are considered.
@@ -239,7 +248,7 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) addTxT
 // It returns an error if there is already a transaction in progress.
 // It returns an error if there is no unstarted transaction to move to in_progress.
 func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) moveUnstartedToInProgress(
-	txID int64, seq SEQ, broadcastAt time.Time, initialBroadcastAt time.Time,
+	txID int64, seq *SEQ, broadcastAt *time.Time, initialBroadcastAt *time.Time,
 	txAttempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 ) error {
 	as.Lock()
@@ -255,9 +264,9 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) moveUn
 	}
 	tx.State = TxInProgress
 	tx.TxAttempts = []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{txAttempt}
-	tx.Sequence = &seq
-	tx.BroadcastAt = &broadcastAt
-	tx.InitialBroadcastAt = &initialBroadcastAt
+	tx.Sequence = seq
+	tx.BroadcastAt = broadcastAt
+	tx.InitialBroadcastAt = initialBroadcastAt
 
 	as.attemptHashToTxAttempt[txAttempt.Hash] = &txAttempt
 	as.inprogressTx = tx

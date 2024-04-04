@@ -24,6 +24,133 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 )
 
+func TestInMemoryStore_UpdateTxUnstartedToInProgress(t *testing.T) {
+	t.Parallel()
+
+	t.Run("successfully updates unstarted tx to inprogress", func(t *testing.T) {
+		db := pgtest.NewSqlxDB(t)
+		_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
+		persistentStore := cltest.NewTestTxStore(t, db)
+		kst := cltest.NewKeyStore(t, db, dbcfg)
+		_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
+
+		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+		lggr := logger.TestSugared(t)
+		chainID := ethClient.ConfiguredChainID()
+		ctx := testutils.Context(t)
+
+		inMemoryStore, err := commontxmgr.NewInMemoryStore[
+			*big.Int,
+			common.Address, common.Hash, common.Hash,
+			*evmtypes.Receipt,
+			evmtypes.Nonce,
+			evmgas.EvmFee,
+		](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+		require.NoError(t, err)
+
+		nonce := evmtypes.Nonce(123)
+		// Insert a transaction into persistent store
+		inTx := mustCreateUnstartedGeneratedTx(t, persistentStore, fromAddress, chainID)
+		inTx.Sequence = &nonce
+		inTxAttempt := cltest.NewLegacyEthTxAttempt(t, inTx.ID)
+		// Insert the transaction into the in-memory store
+		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
+
+		// Update the transaction to in-progress
+		require.NoError(t, inMemoryStore.UpdateTxUnstartedToInProgress(ctx, &inTx, &inTxAttempt))
+
+		expTx, err := persistentStore.FindTxWithAttempts(ctx, inTx.ID)
+		require.NoError(t, err)
+		assert.Equal(t, commontxmgr.TxInProgress, expTx.State)
+		assert.Equal(t, 1, len(expTx.TxAttempts))
+
+		fn := func(tx *evmtxmgr.Tx) bool { return true }
+		actTxs := inMemoryStore.XXXTestFindTxs(nil, fn, inTx.ID)
+		require.Equal(t, 1, len(actTxs))
+		actTx := actTxs[0]
+		assertTxEqual(t, expTx, actTx)
+		assert.Equal(t, commontxmgr.TxInProgress, actTx.State)
+	})
+
+	t.Run("wrong input error scenarios", func(t *testing.T) {
+		db := pgtest.NewSqlxDB(t)
+		_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
+		persistentStore := cltest.NewTestTxStore(t, db)
+		kst := cltest.NewKeyStore(t, db, dbcfg)
+		_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
+
+		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+		lggr := logger.TestSugared(t)
+		chainID := ethClient.ConfiguredChainID()
+		ctx := testutils.Context(t)
+
+		inMemoryStore, err := commontxmgr.NewInMemoryStore[
+			*big.Int,
+			common.Address, common.Hash, common.Hash,
+			*evmtypes.Receipt,
+			evmtypes.Nonce,
+			evmgas.EvmFee,
+		](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+		require.NoError(t, err)
+
+		nonce1 := evmtypes.Nonce(1)
+		nonce2 := evmtypes.Nonce(2)
+		// Insert a transaction into persistent store
+		inTx1 := mustCreateUnstartedGeneratedTx(t, persistentStore, fromAddress, chainID)
+		inTx2 := mustCreateUnstartedGeneratedTx(t, persistentStore, fromAddress, chainID)
+		inTx1.Sequence = &nonce1
+		inTx2.Sequence = &nonce2
+		inTxAttempt1 := cltest.NewLegacyEthTxAttempt(t, inTx1.ID)
+		inTxAttempt2 := cltest.NewLegacyEthTxAttempt(t, inTx2.ID)
+		// Insert the transaction into the in-memory store
+		//inTx2 := cltest.NewEthTx(fromAddress)
+		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx1))
+		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx2))
+
+		// sequence nil
+		inTx1.Sequence = nil
+		inTx2.Sequence = nil
+		expErr := persistentStore.UpdateTxUnstartedToInProgress(ctx, &inTx1, &inTxAttempt1)
+		actErr := inMemoryStore.UpdateTxUnstartedToInProgress(ctx, &inTx2, &inTxAttempt2)
+		assert.Equal(t, expErr, actErr)
+		assert.Error(t, actErr)
+		assert.Error(t, expErr)
+		inTx1.Sequence = &nonce1 // reset
+		inTx2.Sequence = &nonce2 // reset
+
+		// tx not in unstarted state
+		inTx1.State = commontxmgr.TxInProgress
+		inTx2.State = commontxmgr.TxInProgress
+		expErr = persistentStore.UpdateTxUnstartedToInProgress(ctx, &inTx1, &inTxAttempt1)
+		actErr = inMemoryStore.UpdateTxUnstartedToInProgress(ctx, &inTx2, &inTxAttempt2)
+		assert.Error(t, actErr)
+		assert.Error(t, expErr)
+		inTx1.State = commontxmgr.TxUnstarted // reset
+		inTx2.State = commontxmgr.TxUnstarted // reset
+
+		// tx attempt not in in-progress state
+		inTxAttempt1.State = txmgrtypes.TxAttemptBroadcast
+		inTxAttempt2.State = txmgrtypes.TxAttemptBroadcast
+		expErr = persistentStore.UpdateTxUnstartedToInProgress(ctx, &inTx1, &inTxAttempt1)
+		actErr = inMemoryStore.UpdateTxUnstartedToInProgress(ctx, &inTx2, &inTxAttempt2)
+		assert.Equal(t, expErr, actErr)
+		assert.Error(t, actErr)
+		assert.Error(t, expErr)
+		inTxAttempt1.State = txmgrtypes.TxAttemptInProgress // reset
+		inTxAttempt2.State = txmgrtypes.TxAttemptInProgress // reset
+
+		// wrong from address
+		inTx1.FromAddress = cltest.NewEIP55Address().Address()
+		inTx2.FromAddress = cltest.NewEIP55Address().Address()
+		expErr = persistentStore.UpdateTxUnstartedToInProgress(ctx, &inTx1, &inTxAttempt1)
+		actErr = inMemoryStore.UpdateTxUnstartedToInProgress(ctx, &inTx2, &inTxAttempt2)
+		assert.NoError(t, actErr)
+		assert.NoError(t, expErr)
+		inTx1.FromAddress = fromAddress // reset
+		inTx2.FromAddress = fromAddress // reset
+	})
+}
+
 func TestInMemoryStore_SaveFetchedReceipts(t *testing.T) {
 	t.Parallel()
 
