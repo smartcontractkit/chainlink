@@ -35,16 +35,16 @@ type LogTriggersOptions struct {
 	// Finality depth is the number of blocks to wait before considering a block final.
 	FinalityDepth int64
 
-	// v1 config
+	// TODO: (AUTO-9355) remove once we have a single version
 	BufferVersion BufferVersion
-
+	// LogLimit is the minimum number of logs to process in a single block window.
 	LogLimit uint32
-
+	// BlockRate determines the block window for log processing.
 	BlockRate uint32
 }
 
 // BufferVersion is the version of the log buffer.
-// TODO: remove once we have a single version
+// TODO: (AUTO-9355) remove once we have a single version
 type BufferVersion string
 
 const (
