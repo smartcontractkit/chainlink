@@ -1,5 +1,7 @@
 # @chainlink/contracts CHANGELOG.md
 
+## 1.0.1 - TEST RELEASE
+
 ## Unreleased
 
 - Moved `VRFCoordinatorV2Mock.sol` to src/v0.8/vrf/mocks
