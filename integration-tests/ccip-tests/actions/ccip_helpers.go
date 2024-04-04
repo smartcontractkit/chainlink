@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"math"
 	"math/big"
 	"net/http"
 	"runtime"
@@ -129,9 +128,9 @@ type CCIPCommon struct {
 	Deployer                     *contracts.CCIPContractsDeployer
 	FeeToken                     *contracts.LinkToken
 	BridgeTokens                 []*contracts.ERC20Token
-	PriceAggregators             map[string]*contracts.MockAggregator
+	PriceAggregators             map[common.Address]*contracts.MockAggregator
+	RemoteChains                 []uint64
 	BridgeTokenPools             []*contracts.TokenPool
-	RemoteChains                 *sync.Map
 	RateLimiterConfig            contracts.RateLimiterConfig
 	ARMContract                  *common.Address
 	ARM                          *contracts.ARM // populate only if the ARM contracts is not a mock and can be used to verify various ARM events; keep this nil for mock ARM
@@ -157,11 +156,8 @@ func (ccipModule *CCIPCommon) FreeUpUnusedSpace() {
 	ccipModule.PriceAggregators = nil
 	ccipModule.BridgeTokenPools = []*contracts.TokenPool{}
 	ccipModule.RemoteChains = nil
-	ccipModule.gasUpdateWatcher = nil
-	ccipModule.gasUpdateWatcherMu = nil
 	ccipModule.TokenMessenger = nil
 	ccipModule.TokenTransmitter = nil
-	ccipModule.PriceRegistry = nil
 	runtime.GC()
 }
 
@@ -212,15 +208,8 @@ func (ccipModule *CCIPCommon) SetRemoteChainsOnPools() error {
 	if ccipModule.ExistingDeployment {
 		return nil
 	}
-	var selectors []uint64
-	ccipModule.RemoteChains.Range(func(key, value any) bool {
-		if value != nil {
-			selectors = append(selectors, key.(uint64))
-		}
-		return true
-	})
 	for _, pool := range ccipModule.BridgeTokenPools {
-		err := pool.SetRemoteChainOnPool(selectors)
+		err := pool.SetRemoteChainOnPool(ccipModule.RemoteChains)
 		if err != nil {
 			return fmt.Errorf("error updating remote chain selectors %w", err)
 		}
@@ -259,92 +248,6 @@ func (ccipModule *CCIPCommon) CurseARM() (*types.Transaction, error) {
 		Str("Network", ccipModule.ChainClient.GetNetworkName()).
 		Msg("ARM is cursed")
 	return tx, ccipModule.ChainClient.WaitForEvents()
-}
-
-func (ccipModule *CCIPCommon) Copy(logger zerolog.Logger, chainClient blockchain.EVMClient) (*CCIPCommon, error) {
-	newCD, err := contracts.NewCCIPContractsDeployer(logger, chainClient)
-	if err != nil {
-		return nil, err
-	}
-	var arm *contracts.ARM
-	if ccipModule.ARM != nil {
-		arm, err = newCD.NewARMContract(*ccipModule.ARMContract)
-		if err != nil {
-			return nil, err
-		}
-	}
-	var pools []*contracts.TokenPool
-	for i := range ccipModule.BridgeTokenPools {
-		// if there is usdc token, the corresponding pool will always be added as first one in the slice
-		if ccipModule.IsUSDCDeployment() && i == 0 {
-			pool, err := newCD.NewUSDCTokenPoolContract(common.HexToAddress(ccipModule.BridgeTokenPools[i].Address()))
-			if err != nil {
-				return nil, err
-			}
-			pools = append(pools, pool)
-		} else {
-			pool, err := newCD.NewLockReleaseTokenPoolContract(common.HexToAddress(ccipModule.BridgeTokenPools[i].Address()))
-			if err != nil {
-				return nil, err
-			}
-			pools = append(pools, pool)
-		}
-	}
-	var tokens []*contracts.ERC20Token
-	for i := range ccipModule.BridgeTokens {
-		token, err := newCD.NewERC20TokenContract(common.HexToAddress(ccipModule.BridgeTokens[i].Address()))
-		if err != nil {
-			return nil, err
-		}
-		tokens = append(tokens, token)
-	}
-	priceAggregators := make(map[string]*contracts.MockAggregator)
-	for k, v := range ccipModule.PriceAggregators {
-		aggregator, err := newCD.NewMockAggregator(v.ContractAddress)
-		if err != nil {
-			return nil, err
-		}
-		priceAggregators[k] = aggregator
-	}
-	newCommon := &CCIPCommon{
-		ChainClient:        chainClient,
-		Deployer:           newCD,
-		BridgeTokens:       tokens,
-		PriceAggregators:   priceAggregators,
-		BridgeTokenPools:   pools,
-		RemoteChains:       ccipModule.RemoteChains,
-		RateLimiterConfig:  ccipModule.RateLimiterConfig,
-		ARMContract:        ccipModule.ARMContract,
-		ARM:                arm,
-		WrappedNative:      ccipModule.WrappedNative,
-		MulticallContract:  ccipModule.MulticallContract,
-		ExistingDeployment: ccipModule.ExistingDeployment,
-		MulticallEnabled:   ccipModule.MulticallEnabled,
-		NoOfUSDCTokens:     ccipModule.NoOfUSDCTokens,
-		TokenMessenger:     ccipModule.TokenMessenger,
-		poolFunds:          ccipModule.poolFunds,
-		gasUpdateWatcherMu: &sync.Mutex{},
-		gasUpdateWatcher:   make(map[uint64]*big.Int),
-	}
-	newCommon.FeeToken, err = newCommon.Deployer.NewLinkTokenContract(common.HexToAddress(ccipModule.FeeToken.Address()))
-	if err != nil {
-		return nil, err
-	}
-	newCommon.PriceRegistry, err = newCommon.Deployer.NewPriceRegistry(common.HexToAddress(ccipModule.PriceRegistry.Address()))
-	if err != nil {
-		return nil, err
-	}
-	newCommon.Router, err = newCommon.Deployer.NewRouter(common.HexToAddress(ccipModule.Router.Address()))
-	if err != nil {
-		return nil, err
-	}
-	if ccipModule.TokenTransmitter != nil {
-		newCommon.TokenTransmitter, err = newCommon.Deployer.NewTokenTransmitter(ccipModule.TokenTransmitter.ContractAddress)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return newCommon, nil
 }
 
 func (ccipModule *CCIPCommon) LoadContractAddresses(conf *laneconfig.LaneConfig) {
@@ -415,6 +318,17 @@ func (ccipModule *CCIPCommon) LoadContractAddresses(conf *laneconfig.LaneConfig)
 				}
 			}
 			ccipModule.BridgeTokenPools = pools
+		}
+		if len(conf.PriceAggregators) > 0 {
+			priceAggrs := make(map[common.Address]*contracts.MockAggregator)
+			for token, aggr := range conf.PriceAggregators {
+				if common.IsHexAddress(aggr) {
+					priceAggrs[common.HexToAddress(token)] = &contracts.MockAggregator{
+						ContractAddress: common.HexToAddress(aggr),
+					}
+				}
+			}
+			ccipModule.PriceAggregators = priceAggrs
 		}
 	}
 }
@@ -535,14 +449,12 @@ func (ccipModule *CCIPCommon) WaitForPriceUpdates(
 
 func (ccipModule *CCIPCommon) WatchForPriceUpdates(ctx context.Context) error {
 	gasUpdateEvent := make(chan *price_registry.PriceRegistryUsdPerUnitGasUpdated)
-	sub, err := ccipModule.PriceRegistry.Instance.WatchUsdPerUnitGasUpdated(nil, gasUpdateEvent, nil)
-	if err != nil {
-		return err
-	}
+	sub := event.Resubscribe(2*time.Hour, func(ctx context.Context) (event.Subscription, error) {
+		return ccipModule.PriceRegistry.Instance.WatchUsdPerUnitGasUpdated(nil, gasUpdateEvent, nil)
+	})
 
 	go func() {
 		defer sub.Unsubscribe()
-		backoff := 5 * time.Second
 		for {
 			select {
 			case e := <-gasUpdateEvent:
@@ -560,18 +472,6 @@ func (ccipModule *CCIPCommon) WatchForPriceUpdates(ctx context.Context) error {
 					Str("price_registry", ccipModule.PriceRegistry.Address()).
 					Msgf("UsdPerUnitGasUpdated event received for dest chain %d source chain %s",
 						destChain, ccipModule.ChainClient.GetNetworkName())
-			case err := <-sub.Err():
-				if err != nil {
-					log.Warn().
-						Err(err).
-						Str("Backoff", backoff.String()).
-						Msg("error on UsdPerUnitGasUpdated subscription, attempting to resubscribe")
-					sub, err = ccipModule.PriceRegistry.Instance.WatchUsdPerUnitGasUpdated(nil, gasUpdateEvent, nil)
-					if err != nil {
-						time.Sleep(backoff)
-						backoff = time.Duration(math.Min(float64(backoff)*2, float64(30*time.Second)))
-					}
-				}
 			case <-ctx.Done():
 				return
 			}
@@ -583,21 +483,27 @@ func (ccipModule *CCIPCommon) WatchForPriceUpdates(ctx context.Context) error {
 
 // UpdateTokenPricesAtRegularInterval updates aggregator contract with updated answer at regular interval.
 // At each iteration of ticker it chooses one of the aggregator contracts and updates its round answer.
-func (ccipModule *CCIPCommon) UpdateTokenPricesAtRegularInterval(ctx context.Context, interval time.Duration) {
-	var aggregators []contracts.MockAggregator
-	for _, aggregatorContract := range ccipModule.PriceAggregators {
-		contract := *aggregatorContract
+func (ccipModule *CCIPCommon) UpdateTokenPricesAtRegularInterval(ctx context.Context, interval time.Duration, conf *laneconfig.LaneConfig) error {
+	if ccipModule.ExistingDeployment {
+		return nil
+	}
+	var aggregators []*contracts.MockAggregator
+	for _, aggregatorContract := range conf.PriceAggregators {
+		contract, err := ccipModule.Deployer.NewMockAggregator(common.HexToAddress(aggregatorContract))
+		if err != nil {
+			return err
+		}
 		aggregators = append(aggregators, contract)
 	}
 	go func() {
-		rand.Seed(uint64(time.Now().UnixNano()))
+		rand.NewSource(new(big.Int).Mul(big.NewInt(1e18), big.NewInt(10)).Uint64())
 		ticker := time.NewTicker(interval)
 		for {
 			select {
 			case <-ticker.C:
 				// randomly choose an aggregator contract from slice of aggregators
 				randomIndex := rand.Intn(len(aggregators))
-				err := aggregators[randomIndex].UpdateRoundData(big.NewInt(time.Now().UnixNano()))
+				err := aggregators[randomIndex].UpdateRoundData(big.NewInt(int64(rand.Uint64())))
 				if err != nil {
 					continue
 				}
@@ -606,6 +512,7 @@ func (ccipModule *CCIPCommon) UpdateTokenPricesAtRegularInterval(ctx context.Con
 			}
 		}
 	}()
+	return nil
 }
 
 // SyncUSDCDomain makes domain updates to Source usdc pool domain with -
@@ -665,6 +572,54 @@ func (ccipModule *CCIPCommon) IsUSDCDeployment() bool {
 	return pointer.GetInt(ccipModule.NoOfUSDCTokens) > 0
 }
 
+func (ccipModule *CCIPCommon) WriteLaneConfig(conf *laneconfig.LaneConfig) {
+	var btAddresses, btpAddresses []string
+	priceAggrs := make(map[string]string)
+	for i, bt := range ccipModule.BridgeTokens {
+		btAddresses = append(btAddresses, bt.Address())
+		btpAddresses = append(btpAddresses, ccipModule.BridgeTokenPools[i].Address())
+	}
+	for k, v := range ccipModule.PriceAggregators {
+		priceAggrs[k.Hex()] = v.ContractAddress.Hex()
+	}
+	conf.CommonContracts = laneconfig.CommonContracts{
+		FeeToken:         ccipModule.FeeToken.Address(),
+		BridgeTokens:     btAddresses,
+		BridgeTokenPools: btpAddresses,
+		ARM:              ccipModule.ARMContract.Hex(),
+		Router:           ccipModule.Router.Address(),
+		PriceRegistry:    ccipModule.PriceRegistry.Address(),
+		PriceAggregators: priceAggrs,
+		WrappedNative:    ccipModule.WrappedNative.Hex(),
+		Multicall:        ccipModule.MulticallContract.Hex(),
+	}
+	if ccipModule.TokenTransmitter != nil {
+		conf.CommonContracts.TokenTransmitter = ccipModule.TokenTransmitter.ContractAddress.Hex()
+	}
+	if ccipModule.TokenMessenger != nil {
+		conf.CommonContracts.TokenMessenger = ccipModule.TokenMessenger.Hex()
+	}
+	if ccipModule.ARM == nil {
+		conf.CommonContracts.IsMockARM = true
+	}
+}
+
+func (ccipModule *CCIPCommon) AddPriceAggregatorToken(token common.Address, initialAns *big.Int) error {
+	var err error
+	if aggregator, ok := ccipModule.PriceAggregators[token]; !ok {
+		ccipModule.PriceAggregators[token], err = ccipModule.Deployer.DeployMockAggregator(18, initialAns)
+		if err != nil {
+			return fmt.Errorf("deploying mock aggregator contract shouldn't fail %w", err)
+		}
+	} else {
+		ccipModule.PriceAggregators[token], err = ccipModule.Deployer.NewMockAggregator(aggregator.ContractAddress)
+		if err != nil {
+			return fmt.Errorf("error instantiating price aggregator for token %s", token.Hex())
+		}
+	}
+	return nil
+}
+
 // DeployContracts deploys the contracts which are necessary in both source and dest chain
 // This reuses common contracts for bidirectional lanes
 func (ccipModule *CCIPCommon) DeployContracts(noOfTokens int,
@@ -704,11 +659,10 @@ func (ccipModule *CCIPCommon) DeployContracts(noOfTokens int,
 		if err != nil {
 			return fmt.Errorf("deploying wrapped native shouldn't fail %w", err)
 		}
-		aggregator, err := cd.DeployMockAggregator(18, WrappedNativeToUSD)
+		err = ccipModule.AddPriceAggregatorToken(*weth9addr, WrappedNativeToUSD)
 		if err != nil {
 			return fmt.Errorf("deploying mock aggregator contract shouldn't fail %w", err)
 		}
-		ccipModule.PriceAggregators[weth9addr.Hex()] = aggregator
 		err = ccipModule.ChainClient.WaitForEvents()
 		if err != nil {
 			return fmt.Errorf("waiting for deploying wrapped native shouldn't fail %w", err)
@@ -776,11 +730,10 @@ func (ccipModule *CCIPCommon) DeployContracts(noOfTokens int,
 		}
 
 		ccipModule.FeeToken = token
-		aggregator, err := cd.DeployMockAggregator(18, LinkToUSD)
+		err = ccipModule.AddPriceAggregatorToken(ccipModule.FeeToken.EthAddress, LinkToUSD)
 		if err != nil {
 			return fmt.Errorf("deploying mock aggregator contract shouldn't fail %w", err)
 		}
-		ccipModule.PriceAggregators[ccipModule.FeeToken.Address()] = aggregator
 		err = ccipModule.ChainClient.WaitForEvents()
 		if err != nil {
 			return fmt.Errorf("error in waiting for feetoken deployment %w", err)
@@ -830,22 +783,20 @@ func (ccipModule *CCIPCommon) DeployContracts(noOfTokens int,
 						if err != nil {
 							return fmt.Errorf("getting new bridge token contract shouldn't fail %w", err)
 						}
-						aggregator, err := cd.DeployMockAggregator(18, LinkToUSD)
+						err = ccipModule.AddPriceAggregatorToken(linkToken.EthAddress, LinkToUSD)
 						if err != nil {
 							return fmt.Errorf("deploying mock aggregator contract shouldn't fail %w", err)
 						}
-						ccipModule.PriceAggregators[linkToken.Address()] = aggregator
 					}
 				} else {
 					token, err = cd.DeployERC20TokenContract(tokenDeployerFns[i])
 					if err != nil {
 						return fmt.Errorf("deploying bridge token contract shouldn't fail %w", err)
 					}
-					aggregator, err := cd.DeployMockAggregator(18, LinkToUSD)
+					err = ccipModule.AddPriceAggregatorToken(token.ContractAddress, LinkToUSD)
 					if err != nil {
 						return fmt.Errorf("deploying mock aggregator contract shouldn't fail %w", err)
 					}
-					ccipModule.PriceAggregators[token.Address()] = aggregator
 				}
 				ccipModule.BridgeTokens = append(ccipModule.BridgeTokens, token)
 			}
@@ -943,6 +894,10 @@ func (ccipModule *CCIPCommon) DeployContracts(noOfTokens int,
 	}
 
 	log.Info().Msg("finished deploying common contracts")
+	err = ccipModule.SetRemoteChainsOnPools()
+	if err != nil {
+		return fmt.Errorf("error setting remote chains %w", err)
+	}
 	// approve router to spend fee token
 	return ccipModule.ApproveTokens()
 }
@@ -954,8 +909,8 @@ type DynamicPriceGetterConfig struct {
 	StaticPrices     map[common.Address]StaticPriceConfig     `json:"staticPrices"`
 }
 
-func (d *DynamicPriceGetterConfig) AddAggregatorPriceConfig(tokenAddr string, aggregatorMap map[string]*contracts.MockAggregator, price *big.Int) error {
-	aggregatorContract, ok := aggregatorMap[tokenAddr]
+func (d *DynamicPriceGetterConfig) AddAggregatorPriceConfig(tokenAddr string, aggregatorMap map[common.Address]*contracts.MockAggregator, price *big.Int) error {
+	aggregatorContract, ok := aggregatorMap[common.HexToAddress(tokenAddr)]
 	if !ok || aggregatorContract == nil {
 		return fmt.Errorf("aggregator contract not found for token %s", tokenAddr)
 	}
@@ -1015,6 +970,78 @@ type StaticPriceConfig struct {
 	Price   *big.Int `json:"price"`
 }
 
+func NewCCIPCommonFromConfig(logger zerolog.Logger, chainClient blockchain.EVMClient, existingDeployment, multiCall bool, NoOfUSDCToken *int, laneConfig *laneconfig.LaneConfig) (*CCIPCommon, error) {
+	newCCIPModule, err := DefaultCCIPModule(logger, chainClient, existingDeployment, multiCall, NoOfUSDCToken)
+	if err != nil {
+		return nil, err
+	}
+	newCD := newCCIPModule.Deployer
+	newCCIPModule.LoadContractAddresses(laneConfig)
+	var arm *contracts.ARM
+	if newCCIPModule.ARM != nil {
+		arm, err = newCD.NewARMContract(*newCCIPModule.ARMContract)
+		if err != nil {
+			return nil, err
+		}
+		newCCIPModule.ARM = arm
+	}
+	var pools []*contracts.TokenPool
+	for i := range newCCIPModule.BridgeTokenPools {
+		// if there is usdc token, the corresponding pool will always be added as first one in the slice
+		if newCCIPModule.IsUSDCDeployment() && i == 0 {
+			pool, err := newCD.NewUSDCTokenPoolContract(common.HexToAddress(newCCIPModule.BridgeTokenPools[i].Address()))
+			if err != nil {
+				return nil, err
+			}
+			pools = append(pools, pool)
+		} else {
+			pool, err := newCD.NewLockReleaseTokenPoolContract(common.HexToAddress(newCCIPModule.BridgeTokenPools[i].Address()))
+			if err != nil {
+				return nil, err
+			}
+			pools = append(pools, pool)
+		}
+	}
+	newCCIPModule.BridgeTokenPools = pools
+	var tokens []*contracts.ERC20Token
+	for i := range newCCIPModule.BridgeTokens {
+		token, err := newCD.NewERC20TokenContract(common.HexToAddress(newCCIPModule.BridgeTokens[i].Address()))
+		if err != nil {
+			return nil, err
+		}
+		tokens = append(tokens, token)
+	}
+	newCCIPModule.BridgeTokens = tokens
+	priceAggregators := make(map[common.Address]*contracts.MockAggregator)
+	for k, v := range newCCIPModule.PriceAggregators {
+		aggregator, err := newCD.NewMockAggregator(v.ContractAddress)
+		if err != nil {
+			return nil, err
+		}
+		priceAggregators[k] = aggregator
+	}
+	newCCIPModule.PriceAggregators = priceAggregators
+	newCCIPModule.FeeToken, err = newCCIPModule.Deployer.NewLinkTokenContract(common.HexToAddress(newCCIPModule.FeeToken.Address()))
+	if err != nil {
+		return nil, err
+	}
+	newCCIPModule.PriceRegistry, err = newCCIPModule.Deployer.NewPriceRegistry(common.HexToAddress(newCCIPModule.PriceRegistry.Address()))
+	if err != nil {
+		return nil, err
+	}
+	newCCIPModule.Router, err = newCCIPModule.Deployer.NewRouter(common.HexToAddress(newCCIPModule.Router.Address()))
+	if err != nil {
+		return nil, err
+	}
+	if newCCIPModule.TokenTransmitter != nil {
+		newCCIPModule.TokenTransmitter, err = newCCIPModule.Deployer.NewTokenTransmitter(newCCIPModule.TokenTransmitter.ContractAddress)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return newCCIPModule, nil
+}
+
 func DefaultCCIPModule(logger zerolog.Logger, chainClient blockchain.EVMClient, existingDeployment, multiCall bool, NoOfUSDCToken *int) (*CCIPCommon, error) {
 	cd, err := contracts.NewCCIPContractsDeployer(logger, chainClient)
 	if err != nil {
@@ -1028,13 +1055,12 @@ func DefaultCCIPModule(logger zerolog.Logger, chainClient blockchain.EVMClient, 
 			Capacity: contracts.HundredCoins,
 		},
 		ExistingDeployment: existingDeployment,
-		RemoteChains:       &sync.Map{},
 		MulticallEnabled:   multiCall,
 		NoOfUSDCTokens:     NoOfUSDCToken,
 		poolFunds:          testhelpers.Link(5),
 		gasUpdateWatcherMu: &sync.Mutex{},
 		gasUpdateWatcher:   make(map[uint64]*big.Int),
-		PriceAggregators:   make(map[string]*contracts.MockAggregator),
+		PriceAggregators:   make(map[common.Address]*contracts.MockAggregator),
 	}, nil
 }
 
@@ -1198,10 +1224,6 @@ func (sourceCCIP *SourceCCIPModule) DeployContracts(lane *laneconfig.LaneConfig)
 		if err != nil {
 			return fmt.Errorf("getting new onramp contractshouldn't fail %w", err)
 		}
-	}
-	if !sourceCCIP.Common.ExistingDeployment {
-		// update list of remote chains to add on the pools later
-		sourceCCIP.Common.RemoteChains.Store(sourceCCIP.DestChainSelector, true)
 	}
 	return nil
 }
@@ -1456,7 +1478,7 @@ func (sourceCCIP *SourceCCIPModule) SendRequest(
 	timeNow := time.Now()
 	feeToken := common.HexToAddress(sourceCCIP.Common.FeeToken.Address())
 	// initiate the transfer
-	// if the token address is 0x0 it will use Native as fee token and the fee amount should be mentioned in bind.TransactOpts's value
+	// if the fee token address is 0x0 it will use Native as fee token and the fee amount should be mentioned in bind.TransactOpts's value
 	if feeToken != (common.Address{}) {
 		sendTx, err = sourceCCIP.Common.Router.CCIPSendAndProcessTx(destChainSelector, msg, nil)
 		if err != nil {
@@ -1485,8 +1507,18 @@ func (sourceCCIP *SourceCCIPModule) SendRequest(
 	return sendTx.Hash(), time.Since(timeNow), fee, nil
 }
 
-func DefaultSourceCCIPModule(logger zerolog.Logger, chainClient blockchain.EVMClient, destChainId uint64, destChain string, transferAmount []*big.Int, ccipCommon *CCIPCommon) (*SourceCCIPModule, error) {
-	cmn, err := ccipCommon.Copy(logger, chainClient)
+func DefaultSourceCCIPModule(
+	logger zerolog.Logger,
+	chainClient blockchain.EVMClient,
+	destChainId uint64,
+	destChain string,
+	transferAmount []*big.Int,
+	existingDeployment bool,
+	multiCall bool,
+	NoOfUSDCToken *int,
+	laneConf *laneconfig.LaneConfig,
+) (*SourceCCIPModule, error) {
+	cmn, err := NewCCIPCommonFromConfig(logger, chainClient, existingDeployment, multiCall, NoOfUSDCToken, laneConf)
 	if err != nil {
 		return nil, err
 	}
@@ -1656,10 +1688,6 @@ func (destCCIP *DestCCIPModule) DeployContracts(
 			return fmt.Errorf("getting new offramp shouldn't fail %w", err)
 		}
 	}
-	if !destCCIP.Common.ExistingDeployment {
-		// update list of remote chains to add on the pools later
-		destCCIP.Common.RemoteChains.Store(destCCIP.SourceChainSelector, true)
-	}
 	if destCCIP.ReceiverDapp == nil {
 		// ReceiverDapp
 		destCCIP.ReceiverDapp, err = contractDeployer.DeployReceiverDapp(false)
@@ -1763,10 +1791,11 @@ func (destCCIP *DestCCIPModule) AssertNoReportAcceptedEventReceived(lggr zerolog
 	ctx, cancel := context.WithTimeout(context.Background(), timeRange)
 	defer cancel()
 	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
 	for {
 		select {
 		case <-ticker.C:
-			eventFoundAfterCursing := false
+			var eventFoundAfterCursing *time.Time
 			// verify if CommitReportAccepted is received, it's not generated after provided lastSeenTimestamp
 			destCCIP.ReportAcceptedWatcher.Range(func(key, value any) bool {
 				e, exists := value.(*evm_2_evm_offramp.EVM2EVMOffRampExecutionStateChanged)
@@ -1777,14 +1806,14 @@ func (destCCIP *DestCCIPModule) AssertNoReportAcceptedEventReceived(lggr zerolog
 						return true
 					}
 					if hdr.Timestamp.After(lastSeenTimestamp) {
-						eventFoundAfterCursing = true
+						eventFoundAfterCursing = pointer.ToTime(hdr.Timestamp)
 						return false
 					}
 				}
 				return true
 			})
-			if eventFoundAfterCursing {
-				return fmt.Errorf("CommitReportAccepted Event detected after %s", lastSeenTimestamp)
+			if eventFoundAfterCursing != nil {
+				return fmt.Errorf("CommitReportAccepted Event detected at %s after %s", lastSeenTimestamp, eventFoundAfterCursing.String())
 			}
 		case <-ctx.Done():
 			lggr.Info().Msgf("successfully validated that no CommitReportAccepted detected after %s for %s", lastSeenTimestamp, timeRange)
@@ -1798,10 +1827,11 @@ func (destCCIP *DestCCIPModule) AssertNoExecutionStateChangedEventReceived(lggr 
 	ctx, cancel := context.WithTimeout(context.Background(), timeRange)
 	defer cancel()
 	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
 	for {
 		select {
 		case <-ticker.C:
-			eventFoundAfterCursing := false
+			var eventFoundAfterCursing *time.Time
 			// verify if executionstate changed is received, it's not generated after provided lastSeenTimestamp
 			destCCIP.ExecStateChangedWatcher.Range(func(key, value any) bool {
 				e, exists := value.(*evm_2_evm_offramp.EVM2EVMOffRampExecutionStateChanged)
@@ -1812,14 +1842,14 @@ func (destCCIP *DestCCIPModule) AssertNoExecutionStateChangedEventReceived(lggr 
 						return true
 					}
 					if hdr.Timestamp.After(lastSeenTimestamp) {
-						eventFoundAfterCursing = true
+						eventFoundAfterCursing = pointer.ToTime(hdr.Timestamp)
 						return false
 					}
 				}
 				return true
 			})
-			if eventFoundAfterCursing {
-				return fmt.Errorf("ExecutionStateChanged Event detected after %s", lastSeenTimestamp)
+			if eventFoundAfterCursing != nil {
+				return fmt.Errorf("ExecutionStateChanged Event detected at %s after %s", lastSeenTimestamp, eventFoundAfterCursing.String())
 			}
 		case <-ctx.Done():
 			lggr.Info().Msgf("successfully validated that no ExecutionStateChanged detected after %s for %s", lastSeenTimestamp, timeRange)
@@ -2114,8 +2144,17 @@ func (destCCIP *DestCCIPModule) AssertSeqNumberExecuted(
 	}
 }
 
-func DefaultDestinationCCIPModule(logger zerolog.Logger, chainClient blockchain.EVMClient, sourceChainId uint64, sourceChain string, ccipCommon *CCIPCommon) (*DestCCIPModule, error) {
-	cmn, err := ccipCommon.Copy(logger, chainClient)
+func DefaultDestinationCCIPModule(
+	logger zerolog.Logger,
+	chainClient blockchain.EVMClient,
+	sourceChainId uint64,
+	sourceChain string,
+	existingDeployment bool,
+	multiCall bool,
+	NoOfUSDCToken *int,
+	laneConf *laneconfig.LaneConfig,
+) (*DestCCIPModule, error) {
+	cmn, err := NewCCIPCommonFromConfig(logger, chainClient, existingDeployment, multiCall, NoOfUSDCToken, laneConf)
 	if err != nil {
 		return nil, err
 	}
@@ -2250,62 +2289,14 @@ func (lane *CCIPLane) OptimizeStorage() {
 }
 
 func (lane *CCIPLane) UpdateLaneConfig() {
-	var btAddresses, btpAddresses []string
-
-	for i, bt := range lane.Source.Common.BridgeTokens {
-		btAddresses = append(btAddresses, bt.Address())
-		btpAddresses = append(btpAddresses, lane.Source.Common.BridgeTokenPools[i].Address())
-	}
-	lane.SrcNetworkLaneCfg.CommonContracts = laneconfig.CommonContracts{
-		FeeToken:         lane.Source.Common.FeeToken.Address(),
-		BridgeTokens:     btAddresses,
-		BridgeTokenPools: btpAddresses,
-		ARM:              lane.Source.Common.ARMContract.Hex(),
-		Router:           lane.Source.Common.Router.Address(),
-		PriceRegistry:    lane.Source.Common.PriceRegistry.Address(),
-		WrappedNative:    lane.Source.Common.WrappedNative.Hex(),
-		Multicall:        lane.Source.Common.MulticallContract.Hex(),
-	}
-	if lane.Source.Common.TokenTransmitter != nil {
-		lane.SrcNetworkLaneCfg.CommonContracts.TokenTransmitter = lane.Source.Common.TokenTransmitter.ContractAddress.Hex()
-	}
-	if lane.Source.Common.TokenMessenger != nil {
-		lane.SrcNetworkLaneCfg.CommonContracts.TokenMessenger = lane.Source.Common.TokenMessenger.Hex()
-	}
-	if lane.Source.Common.ARM == nil {
-		lane.SrcNetworkLaneCfg.CommonContracts.IsMockARM = true
-	}
+	lane.Source.Common.WriteLaneConfig(lane.SrcNetworkLaneCfg)
 	lane.SrcNetworkLaneCfg.SrcContractsMu.Lock()
 	lane.SrcNetworkLaneCfg.SrcContracts[lane.Source.DestNetworkName] = laneconfig.SourceContracts{
 		OnRamp:     lane.Source.OnRamp.Address(),
 		DepolyedAt: lane.Source.SrcStartBlock,
 	}
 	lane.SrcNetworkLaneCfg.SrcContractsMu.Unlock()
-	btAddresses, btpAddresses = []string{}, []string{}
-
-	for i, bt := range lane.Dest.Common.BridgeTokens {
-		btAddresses = append(btAddresses, bt.Address())
-		btpAddresses = append(btpAddresses, lane.Dest.Common.BridgeTokenPools[i].Address())
-	}
-	lane.DstNetworkLaneCfg.CommonContracts = laneconfig.CommonContracts{
-		FeeToken:         lane.Dest.Common.FeeToken.Address(),
-		BridgeTokens:     btAddresses,
-		BridgeTokenPools: btpAddresses,
-		ARM:              lane.Dest.Common.ARMContract.Hex(),
-		Router:           lane.Dest.Common.Router.Address(),
-		PriceRegistry:    lane.Dest.Common.PriceRegistry.Address(),
-		WrappedNative:    lane.Dest.Common.WrappedNative.Hex(),
-		Multicall:        lane.Dest.Common.MulticallContract.Hex(),
-	}
-	if lane.Dest.Common.TokenTransmitter != nil {
-		lane.DstNetworkLaneCfg.CommonContracts.TokenTransmitter = lane.Dest.Common.TokenTransmitter.ContractAddress.Hex()
-	}
-	if lane.Dest.Common.TokenMessenger != nil {
-		lane.DstNetworkLaneCfg.CommonContracts.TokenMessenger = lane.Dest.Common.TokenMessenger.Hex()
-	}
-	if lane.Dest.Common.ARM == nil {
-		lane.DstNetworkLaneCfg.CommonContracts.IsMockARM = true
-	}
+	lane.Dest.Common.WriteLaneConfig(lane.DstNetworkLaneCfg)
 	lane.DstNetworkLaneCfg.DestContractsMu.Lock()
 	lane.DstNetworkLaneCfg.DestContracts[lane.Dest.SourceNetworkName] = laneconfig.DestContracts{
 		OffRamp:      lane.Dest.OffRamp.Address(),
@@ -2343,13 +2334,13 @@ func (lane *CCIPLane) AddToSentReqs(txHash common.Hash, reqStats []*testreporter
 	for _, stat := range reqStats {
 		allRequests = append(allRequests, CCIPRequest{
 			ReqNo:                   stat.ReqNo,
-			txHash:                  request.txHash,
+			txHash:                  rcpt.TxHash.Hex(),
 			txConfirmationTimestamp: request.txConfirmationTimestamp,
 			RequestStat:             stat,
 		})
 		lane.NumberOfReq++
 	}
-	lane.SentReqs[txHash] = allRequests
+	lane.SentReqs[rcpt.TxHash] = allRequests
 	return rcpt, nil
 }
 
@@ -2489,7 +2480,7 @@ func (lane *CCIPLane) SendRequests(noOfRequests int, msgType string, gasLimit *b
 			testreporters.TX, txConfirmationDur, testreporters.Success, testreporters.TransactionStats{
 				Fee:                fee.String(),
 				GasUsed:            gasUsed,
-				TxHash:             txHash.Hex(),
+				TxHash:             rcpt.TxHash.Hex(),
 				NoOfTokensSent:     noOfTokens,
 				MessageBytesLength: len([]byte(msg)),
 			})
@@ -2891,55 +2882,49 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 	setUpCtx context.Context,
 	env *CCIPTestEnv,
 	commitAndExecOnSameDON bool,
-	sourceCommon *CCIPCommon,
-	destCommon *CCIPCommon,
 	transferAmounts []*big.Int,
 	bootstrapAdded *atomic.Bool,
 	configureCLNodes bool,
 	jobErrGroup *errgroup.Group,
 	withPipeline bool,
 	staticPrice bool,
-) (*laneconfig.LaneConfig, *laneconfig.LaneConfig, error) {
+	existingDeployment bool,
+	multiCall bool,
+	NoOfUSDCToken *int,
+) error {
 	var err error
 	sourceChainClient := lane.SourceChain
 	destChainClient := lane.DestChain
-
-	if sourceCommon == nil {
-		return nil, nil, fmt.Errorf("common contracts for source chain %s not found", sourceChainClient.GetChainID().String())
-	}
-
-	if destCommon == nil {
-		return nil, nil, fmt.Errorf("common contracts for destination chain %s not found", destChainClient.GetChainID().String())
-	}
-
+	srcConf := lane.SrcNetworkLaneCfg
+	destConf := lane.DstNetworkLaneCfg
 	lane.Source, err = DefaultSourceCCIPModule(
 		lane.Logger,
 		sourceChainClient, destChainClient.GetChainID().Uint64(),
-		destChainClient.GetNetworkName(), transferAmounts, sourceCommon)
+		destChainClient.GetNetworkName(), transferAmounts,
+		existingDeployment, multiCall, NoOfUSDCToken, srcConf,
+	)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create source module: %w", err)
+		return fmt.Errorf("failed to create source module: %w", err)
 	}
 	lane.Dest, err = DefaultDestinationCCIPModule(
 		lane.Logger,
 		destChainClient, sourceChainClient.GetChainID().Uint64(),
-		sourceChainClient.GetNetworkName(), destCommon)
+		sourceChainClient.GetNetworkName(),
+		existingDeployment, multiCall, NoOfUSDCToken, destConf,
+	)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create destination module: %w", err)
+		return fmt.Errorf("failed to create destination module: %w", err)
 	}
-
-	srcConf := lane.SrcNetworkLaneCfg
-
-	destConf := lane.DstNetworkLaneCfg
 
 	// deploy all source contracts
 	err = lane.Source.DeployContracts(srcConf)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to deploy source contracts: %w", err)
+		return fmt.Errorf("failed to deploy source contracts: %w", err)
 	}
 	// deploy all destination contracts
 	err = lane.Dest.DeployContracts(*lane.Source, destConf)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to deploy destination contracts: %w", err)
+		return fmt.Errorf("failed to deploy destination contracts: %w", err)
 	}
 
 	// if it's a new USDC deployment, sync the USDC domain
@@ -2952,7 +2937,7 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 	}
 	err = lane.Source.Common.SyncUSDCDomain(lane.Dest.Common.TokenTransmitter, destPools, lane.Source.DestinationChainId)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to sync USDC domain: %w", err)
+		return fmt.Errorf("failed to sync USDC domain: %w", err)
 	}
 
 	lane.UpdateLaneConfig()
@@ -2960,25 +2945,25 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 	// if lane is being set up for already configured CL nodes and contracts
 	// no further action is necessary
 	if !configureCLNodes {
-		return lane.SrcNetworkLaneCfg, lane.DstNetworkLaneCfg, nil
+		return nil
 	}
 	err = lane.Source.Common.WatchForPriceUpdates(setUpCtx)
 	if err != nil {
-		return lane.SrcNetworkLaneCfg, lane.DstNetworkLaneCfg, fmt.Errorf("error in starting price update watch")
+		return fmt.Errorf("error in starting price update watch")
 	}
 	if env == nil {
-		return lane.SrcNetworkLaneCfg, lane.DstNetworkLaneCfg, fmt.Errorf("test environment not set")
+		return fmt.Errorf("test environment not set")
 	}
 	// wait for the CL nodes to be ready before moving ahead with job creation
 	err = env.CLNodeWithKeyReady.Wait()
 	if err != nil {
-		return lane.SrcNetworkLaneCfg, lane.DstNetworkLaneCfg, fmt.Errorf("failed to wait for CL nodes to be ready: %w", err)
+		return fmt.Errorf("failed to wait for CL nodes to be ready: %w", err)
 	}
 	clNodesWithKeys := env.CLNodesWithKeys
 	// set up ocr2 jobs
 	clNodes, exists := clNodesWithKeys[lane.Dest.Common.ChainClient.GetChainID().String()]
 	if !exists {
-		return lane.SrcNetworkLaneCfg, lane.DstNetworkLaneCfg, fmt.Errorf("could not find CL nodes for %s", lane.Dest.Common.ChainClient.GetChainID().String())
+		return fmt.Errorf("could not find CL nodes for %s", lane.Dest.Common.ChainClient.GetChainID().String())
 	}
 	bootstrapCommit := clNodes[0]
 	var bootstrapExec *client.CLNodesWithKeys
@@ -2986,7 +2971,7 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 	execNodes := clNodes[env.ExecNodeStartIndex : env.ExecNodeStartIndex+env.NumOfExecNodes]
 	if !commitAndExecOnSameDON {
 		if len(clNodes) < 11 {
-			return lane.SrcNetworkLaneCfg, lane.DstNetworkLaneCfg, fmt.Errorf("not enough CL nodes for separate commit and execution nodes")
+			return fmt.Errorf("not enough CL nodes for separate commit and execution nodes")
 		}
 		bootstrapExec = clNodes[1] // for a set-up of different commit and execution nodes second node is the bootstrapper for execution nodes
 	}
@@ -2997,7 +2982,7 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 	// Here for simplicity we are just taking the current block number just before the job is created.
 	currentBlockOnDest, err := destChainClient.LatestBlockNumber(context.Background())
 	if err != nil {
-		return lane.SrcNetworkLaneCfg, lane.DstNetworkLaneCfg, fmt.Errorf("getting current block should be successful in destination chain %w", err)
+		return fmt.Errorf("getting current block should be successful in destination chain %w", err)
 	}
 
 	var killgrave *ctftestenv.Killgrave
@@ -3019,7 +3004,7 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 	} else {
 		tokenPricesConfigJson, err = lane.TokenPricesConfig(staticPrice)
 		if err != nil {
-			return lane.SrcNetworkLaneCfg, lane.DstNetworkLaneCfg, fmt.Errorf("error getting token prices config %w", err)
+			return fmt.Errorf("error getting token prices config %w", err)
 		}
 		lane.Logger.Info().Str("tokenPricesConfigJson", tokenPricesConfigJson).Msg("Price getter config")
 	}
@@ -3044,7 +3029,7 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 			api = env.MockServer.Config.ClusterURL
 		}
 		if lane.Source.Common.TokenTransmitter == nil {
-			return lane.SrcNetworkLaneCfg, lane.DstNetworkLaneCfg, fmt.Errorf("token transmitter address not set")
+			return fmt.Errorf("token transmitter address not set")
 		}
 		// TODO: Need to know if there can be more than one USDC token per chain
 		// currently the jobspec supports only one. Need to update this if more than two is supported
@@ -3059,7 +3044,7 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 		bootstrapAdded.Store(true)
 		err := CreateBootstrapJob(jobParams, bootstrapCommit, bootstrapExec)
 		if err != nil {
-			return lane.SrcNetworkLaneCfg, lane.DstNetworkLaneCfg, fmt.Errorf("failed to create bootstrap job: %w", err)
+			return fmt.Errorf("failed to create bootstrap job: %w", err)
 		}
 	}
 
@@ -3082,12 +3067,12 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 	// set up ocr2 config
 	err = SetOCR2Configs(commitNodes, execNodes, *lane.Dest)
 	if err != nil {
-		return lane.SrcNetworkLaneCfg, lane.DstNetworkLaneCfg, fmt.Errorf("failed to set ocr2 config: %w", err)
+		return fmt.Errorf("failed to set ocr2 config: %w", err)
 	}
 
 	err = CreateOCR2CCIPCommitJobs(lane.Logger, jobParams, commitNodes, env.nodeMutexes, jobErrGroup)
 	if err != nil {
-		return lane.SrcNetworkLaneCfg, lane.DstNetworkLaneCfg, fmt.Errorf("failed to create ocr2 commit jobs: %w", err)
+		return fmt.Errorf("failed to create ocr2 commit jobs: %w", err)
 	}
 	if p2pBootstrappersExec != nil {
 		jobParams.P2PV2Bootstrappers = []string{p2pBootstrappersExec.P2PV2Bootstrapper()}
@@ -3095,13 +3080,13 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 
 	err = CreateOCR2CCIPExecutionJobs(lane.Logger, jobParams, execNodes, env.nodeMutexes, jobErrGroup)
 	if err != nil {
-		return lane.SrcNetworkLaneCfg, lane.DstNetworkLaneCfg, fmt.Errorf("failed to create ocr2 execution jobs: %w", err)
+		return fmt.Errorf("failed to create ocr2 execution jobs: %w", err)
 	}
 
 	lane.Dest.Common.ChainClient.ParallelTransactions(false)
 	lane.Source.Common.ChainClient.ParallelTransactions(false)
 
-	return lane.SrcNetworkLaneCfg, lane.DstNetworkLaneCfg, nil
+	return nil
 }
 
 // SetOCR2Configs sets the oracle config in ocr2 contracts

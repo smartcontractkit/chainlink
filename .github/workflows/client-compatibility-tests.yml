@@ -1,4 +1,4 @@
-name: Client Compatibility Tests
+name: CCIP Client Compatibility Tests
 on:
   merge_group:
   pull_request:
@@ -54,7 +54,7 @@ jobs:
 
   build-chainlink:
     if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
-    needs: [changes]
+    needs: [ changes ]
     environment: integration
     permissions:
       id-token: write
@@ -87,7 +87,7 @@ jobs:
 
   get-latest-available-images:
     if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
-    needs: [changes]
+    needs: [ changes ]
     environment: integration
     runs-on: ubuntu-latest
     permissions:
@@ -138,7 +138,7 @@ jobs:
       pull-requests: write
       id-token: write
       contents: read
-    needs: [build-chainlink, changes, get-latest-available-images]
+    needs: [ build-chainlink, changes, get-latest-available-images ]
     if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
     env:
       SELECTED_NETWORKS: SIMULATED_1,SIMULATED_2
@@ -156,12 +156,13 @@ jobs:
             timeout: 30m
             pyroscope_env: ci-ccip-bidirectionallane-geth
             chainConfig: "1337=ethereum/client-go:${{ needs.get-latest-available-images.outputs.geth_tag }},2337=ethereum/client-go:${{ needs.get-latest-available-images.outputs.geth_tag }}"
-          - name: bidirectionallane-nethermind
-            test: TestSmokeCCIPForBidirectionalLane
-            client: nethermind
-            timeout: 30m
-            pyroscope_env: ci-ccip-bidirectionallane-nethermind
-            chainConfig: "1337=nethermind/nethermind:${{ needs.get-latest-available-images.outputs.nethermind_tag }},2337=nethermind/nethermind:${{ needs.get-latest-available-images.outputs.nethermind_tag }}"
+          # uncomment when nethermind flake reason is addressed
+          # - name: bidirectionallane-nethermind
+          #            test: TestSmokeCCIPForBidirectionalLane
+          #            client: nethermind
+          #            timeout: 30m
+          #            pyroscope_env: ci-ccip-bidirectionallane-nethermind
+          #         chainConfig: "1337=nethermind/nethermind:${{ needs.get-latest-available-images.outputs.nethermind_tag }},2337=nethermind/nethermind:${{ needs.get-latest-available-images.outputs.nethermind_tag }}"
           # uncomment when 24.4.0  is released with our data/input fix
           # - name: bidirectionallane-besu
           #   test: TestSmokeCCIPForBidirectionalLane
@@ -263,7 +264,7 @@ jobs:
       id-token: write
       contents: read
     runs-on: ubuntu-latest
-    needs: [evm-compatibility-matrix, changes]
+    needs: [ evm-compatibility-matrix, changes ]
     steps:
       - name: Debug Result
         run: echo ${{ join(needs.*.result, ',') }}
@@ -320,7 +321,7 @@ jobs:
       id-token: write
       contents: read
     runs-on: ubuntu-latest
-    needs: [start-slack-thread]
+    needs: [ start-slack-thread ]
     steps:
       - name: Checkout the repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1

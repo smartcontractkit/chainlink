@@ -1,5 +1,5 @@
 ## To Override the default config, and secret config:
-# example usage: make set_config override_toml=../config/config.toml secret_toml=../config/secret.toml
+# example usage: make set_config override_toml=../config/config.toml secret_toml=../config/secret.toml network_config_toml=../config/network.toml
 .PHONY: set_config
 set_config:
 	if [ -s "$(override_toml)" ]; then \
@@ -10,13 +10,17 @@ set_config:
       		echo "No override config found, using default config"; \
         	echo  > ./testconfig/override/.env; \
 	fi
+	if [ -s "$(network_config_toml)" ]; then \
+  	  echo "Overriding network config with $(network_config_toml)"; \
+      echo "export BASE64_NETWORK_CONFIG=$$(base64 -i $(network_config_toml))" >> ./testconfig/override/.env; \
+    fi
 
 	@echo "setting secret config with $(secret_toml)"
 	@echo "export BASE64_CCIP_SECRETS_CONFIG=$$(base64 -i $(secret_toml))" >> ./testconfig/override/.env
 	@echo "export TEST_BASE64_CCIP_SECRETS_CONFIG=$$(base64 -i $(secret_toml))" >> ./testconfig/override/.env
 
 
-# example usage: make test_load_ccip testimage=chainlink-ccip-tests:latest testname=TestLoadCCIPStableRPS override_toml=./testconfig/override/config.toml secret_toml=./testconfig/tomls/secrets.toml
+# example usage: make test_load_ccip testimage=chainlink-ccip-tests:latest testname=TestLoadCCIPStableRPS override_toml=./testconfig/override/config.toml secret_toml=./testconfig/tomls/secrets.toml network_config_toml=../config/network.toml
 .PHONY: test_load_ccip
 test_load_ccip: set_config
 	source ./testconfig/override/.env && \
@@ -30,7 +34,7 @@ test_load_ccip: set_config
 	go test -timeout 24h -count=1 -v -run ^$(testname)$$ ./load
 
 
-# example usage: make test_smoke_ccip testimage=chainlink-ccip-tests:latest testname=TestSmokeCCIPForBidirectionalLane override_toml=../testconfig/override/config.toml secret_toml=./testconfig/tomls/secrets.toml
+# example usage: make test_smoke_ccip testimage=chainlink-ccip-tests:latest testname=TestSmokeCCIPForBidirectionalLane override_toml=../testconfig/override/config.toml secret_toml=./testconfig/tomls/secrets.toml network_config_toml=../config/network.toml
 .PHONY: test_smoke_ccip
 test_smoke_ccip: set_config
 	source ./testconfig/override/.env && \

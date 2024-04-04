@@ -36,7 +36,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 
-	"github.com/smartcontractkit/ccip/integration-tests/ccip-tests/contracts"
+	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/contracts"
 
 	integrationactions "github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/actions"
@@ -79,6 +79,10 @@ type CCIPTestConfig struct {
 
 func (c *CCIPTestConfig) useExistingDeployment() bool {
 	return pointer.GetBool(c.TestGroupInput.ExistingDeployment)
+}
+
+func (c *CCIPTestConfig) MultiCallEnabled() bool {
+	return pointer.GetBool(c.TestGroupInput.MulticallInOneTx)
 }
 
 func (c *CCIPTestConfig) localCluster() bool {
@@ -328,20 +332,19 @@ type BiDirectionalLaneConfig struct {
 }
 
 type CCIPTestSetUpOutputs struct {
-	SetUpContext             context.Context
-	Cfg                      *CCIPTestConfig
-	LaneContractsByNetwork   sync.Map
-	laneMutex                *sync.Mutex
-	Lanes                    []*BiDirectionalLaneConfig
-	CommonContractsByNetwork sync.Map
-	Reporter                 *testreporters.CCIPTestReporter
-	LaneConfigFile           string
-	LaneConfig               *laneconfig.Lanes
-	TearDown                 func() error
-	Env                      *actions.CCIPTestEnv
-	Balance                  *actions.BalanceSheet
-	BootstrapAdded           *atomic.Bool
-	JobAddGrp                *errgroup.Group
+	SetUpContext           context.Context
+	Cfg                    *CCIPTestConfig
+	LaneContractsByNetwork *sync.Map
+	laneMutex              *sync.Mutex
+	Lanes                  []*BiDirectionalLaneConfig
+	Reporter               *testreporters.CCIPTestReporter
+	LaneConfigFile         string
+	LaneConfig             *laneconfig.Lanes
+	TearDown               func() error
+	Env                    *actions.CCIPTestEnv
+	Balance                *actions.BalanceSheet
+	BootstrapAdded         *atomic.Bool
+	JobAddGrp              *errgroup.Group
 }
 
 func (o *CCIPTestSetUpOutputs) AddToLanes(lane *BiDirectionalLaneConfig) {
@@ -357,11 +360,12 @@ func (o *CCIPTestSetUpOutputs) ReadLanes() []*BiDirectionalLaneConfig {
 }
 
 func (o *CCIPTestSetUpOutputs) DeployChainContracts(
+	lggr zerolog.Logger,
 	chainClient blockchain.EVMClient,
 	networkCfg blockchain.EVMNetwork,
 	noOfTokens int,
 	tokenDeployerFns []blockchain.ContractDeployer,
-	lggr zerolog.Logger,
+	selectors []uint64,
 ) error {
 	var k8Env *environment.Environment
 	ccipEnv := o.Env
@@ -381,21 +385,45 @@ func (o *CCIPTestSetUpOutputs) DeployChainContracts(
 	defer chain.Close()
 	ccipCommon, err := actions.DefaultCCIPModule(
 		lggr, chain,
-		pointer.GetBool(o.Cfg.TestGroupInput.ExistingDeployment),
-		pointer.GetBool(o.Cfg.TestGroupInput.MulticallInOneTx),
+		o.Cfg.useExistingDeployment(),
+		o.Cfg.MultiCallEnabled(),
 		o.Cfg.TestGroupInput.NoOfUSDCMockTokens)
 	if err != nil {
 		return errors.WithStack(fmt.Errorf("failed to create ccip common module for %s: %w", networkCfg.Name, err))
 	}
-
+	ccipCommon.RemoteChains = selectors
 	cfg := o.LaneConfig.ReadLaneConfig(networkCfg.Name)
 
 	err = ccipCommon.DeployContracts(noOfTokens, tokenDeployerFns, cfg)
 	if err != nil {
 		return errors.WithStack(fmt.Errorf("failed to deploy common ccip contracts for %s: %w", networkCfg.Name, err))
 	}
+	ccipCommon.WriteLaneConfig(cfg)
 	o.LaneContractsByNetwork.Store(networkCfg.Name, cfg)
-	o.CommonContractsByNetwork.Store(networkCfg.Name, ccipCommon)
+
+	return nil
+}
+
+func (o *CCIPTestSetUpOutputs) SetupDynamicTokenPriceUpdates() error {
+	interval := o.Cfg.TestGroupInput.DynamicPriceUpdateInterval.Duration()
+	covered := make(map[string]struct{})
+	for _, lanes := range o.ReadLanes() {
+		lane := lanes.ForwardLane
+		if _, exists := covered[lane.SourceNetworkName]; !exists {
+			covered[lane.SourceNetworkName] = struct{}{}
+			err := lane.Source.Common.UpdateTokenPricesAtRegularInterval(lane.Context, interval, o.LaneConfig.ReadLaneConfig(lane.SourceNetworkName))
+			if err != nil {
+				return err
+			}
+		}
+		if _, exists := covered[lane.DestNetworkName]; !exists {
+			covered[lane.DestNetworkName] = struct{}{}
+			err := lane.Dest.Common.UpdateTokenPricesAtRegularInterval(lane.Context, interval, o.LaneConfig.ReadLaneConfig(lane.SourceNetworkName))
+			if err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
 
@@ -511,68 +539,70 @@ func (o *CCIPTestSetUpOutputs) AddLanesForNetworkPair(
 	}
 	o.AddToLanes(bidirectionalLane)
 
-	c1, ok := o.CommonContractsByNetwork.Load(networkA.Name)
-	var networkACmn *actions.CCIPCommon
-	if ok {
-		networkACmn = c1.(*actions.CCIPCommon)
-	}
-	if networkACmn == nil {
-		return errors.WithStack(fmt.Errorf("chain contracts for network %s not found", networkA.Name))
-	}
-	c2, ok := o.CommonContractsByNetwork.Load(networkB.Name)
-	var networkBCmn *actions.CCIPCommon
-	if ok {
-		networkBCmn = c2.(*actions.CCIPCommon)
-	}
-	if networkBCmn == nil {
-		return errors.WithStack(fmt.Errorf("chain contracts for network %s not found", networkB.Name))
-	}
 	staticPrice := o.Cfg.TestGroupInput.DynamicPriceUpdateInterval == nil
 	setUpFuncs.Go(func() error {
 		lggr.Info().Msgf("Setting up lane %s to %s", networkA.Name, networkB.Name)
-		srcConfig, destConfig, err := ccipLaneA2B.DeployNewCCIPLane(o.SetUpContext, o.Env, commitAndExecOnSameDON, networkACmn, networkBCmn,
-			transferAmounts, o.BootstrapAdded, configureCLNode, o.JobAddGrp, withPipeline, staticPrice)
+		err := ccipLaneA2B.DeployNewCCIPLane(o.SetUpContext, o.Env, commitAndExecOnSameDON,
+			transferAmounts, o.BootstrapAdded, configureCLNode, o.JobAddGrp,
+			withPipeline, staticPrice,
+			o.Cfg.useExistingDeployment(),
+			o.Cfg.MultiCallEnabled(),
+			o.Cfg.TestGroupInput.NoOfUSDCMockTokens,
+		)
 		if err != nil {
 			allErrors.Store(multierr.Append(allErrors.Load(), fmt.Errorf("deploying lane %s to %s; err - %w", networkA.Name, networkB.Name, errors.WithStack(err))))
 			return err
 		}
-		err = o.LaneConfig.WriteLaneConfig(networkA.Name, srcConfig)
+		err = o.LaneConfig.WriteLaneConfig(networkA.Name, ccipLaneA2B.SrcNetworkLaneCfg)
 		if err != nil {
 			lggr.Error().Err(err).Msgf("error deploying lane %s to %s", networkA.Name, networkB.Name)
 			allErrors.Store(multierr.Append(allErrors.Load(), fmt.Errorf("writing lane config for %s; err - %w", networkA.Name, errors.WithStack(err))))
 			return err
 		}
-		err = o.LaneConfig.WriteLaneConfig(networkB.Name, destConfig)
+		err = o.LaneConfig.WriteLaneConfig(networkB.Name, ccipLaneA2B.DstNetworkLaneCfg)
 		if err != nil {
 			allErrors.Store(multierr.Append(allErrors.Load(), fmt.Errorf("writing lane config for %s; err - %w", networkB.Name, errors.WithStack(err))))
 			return err
 		}
 		lggr.Info().Msgf("done setting up lane %s to %s", networkA.Name, networkB.Name)
+		if pointer.GetBool(o.Cfg.TestGroupInput.OptimizeSpace) {
+			// This is to optimize memory space for load tests with high number of networks, lanes, tokens
+			ccipLaneA2B.OptimizeStorage()
+		}
 		return nil
 	})
 
 	setUpFuncs.Go(func() error {
 		if bidirectional {
 			lggr.Info().Msgf("Setting up lane %s to %s", networkB.Name, networkA.Name)
-			srcConfig, destConfig, err := ccipLaneB2A.DeployNewCCIPLane(o.SetUpContext, o.Env, commitAndExecOnSameDON, networkBCmn, networkACmn,
-				transferAmounts, o.BootstrapAdded, configureCLNode, o.JobAddGrp, withPipeline, staticPrice)
+			err := ccipLaneB2A.DeployNewCCIPLane(o.SetUpContext, o.Env, commitAndExecOnSameDON,
+				transferAmounts, o.BootstrapAdded, configureCLNode, o.JobAddGrp,
+				withPipeline, staticPrice,
+				o.Cfg.useExistingDeployment(),
+				o.Cfg.MultiCallEnabled(),
+				o.Cfg.TestGroupInput.NoOfUSDCMockTokens,
+			)
 			if err != nil {
 				lggr.Error().Err(err).Msgf("error deploying lane %s to %s", networkB.Name, networkA.Name)
 				allErrors.Store(multierr.Append(allErrors.Load(), fmt.Errorf("deploying lane %s to %s; err -  %w", networkB.Name, networkA.Name, errors.WithStack(err))))
 				return err
 			}
 
-			err = o.LaneConfig.WriteLaneConfig(networkB.Name, srcConfig)
+			err = o.LaneConfig.WriteLaneConfig(networkB.Name, ccipLaneB2A.SrcNetworkLaneCfg)
 			if err != nil {
 				allErrors.Store(multierr.Append(allErrors.Load(), fmt.Errorf("writing lane config for %s; err - %w", networkA.Name, errors.WithStack(err))))
 				return err
 			}
-			err = o.LaneConfig.WriteLaneConfig(networkA.Name, destConfig)
+			err = o.LaneConfig.WriteLaneConfig(networkA.Name, ccipLaneB2A.DstNetworkLaneCfg)
 			if err != nil {
 				allErrors.Store(multierr.Append(allErrors.Load(), fmt.Errorf("writing lane config for %s; err - %w", networkB.Name, errors.WithStack(err))))
 				return err
 			}
 			lggr.Info().Msgf("done setting up lane %s to %s", networkB.Name, networkA.Name)
+			if pointer.GetBool(o.Cfg.TestGroupInput.OptimizeSpace) {
+				// This is to optimize memory space for load tests with high number of networks, lanes, tokens
+				ccipLaneB2A.OptimizeStorage()
+			}
 			return nil
 		}
 		return nil
@@ -606,47 +636,6 @@ func (o *CCIPTestSetUpOutputs) StartEventWatchers() {
 			require.NoError(o.Cfg.Test, err)
 		}
 	}
-}
-
-func (o *CCIPTestSetUpOutputs) SetupDynamicTokenPriceUpdates() {
-	interval := o.Cfg.TestGroupInput.DynamicPriceUpdateInterval.Duration()
-	covered := make(map[string]struct{})
-	for _, lanes := range o.ReadLanes() {
-		lane := lanes.ForwardLane
-		if _, exists := covered[lane.SourceNetworkName]; !exists {
-			covered[lane.SourceNetworkName] = struct{}{}
-			lane.Source.Common.UpdateTokenPricesAtRegularInterval(lane.Context, interval)
-		}
-		if _, exists := covered[lane.DestNetworkName]; !exists {
-			covered[lane.DestNetworkName] = struct{}{}
-			lane.Dest.Common.UpdateTokenPricesAtRegularInterval(lane.Context, interval)
-		}
-	}
-}
-
-func (o *CCIPTestSetUpOutputs) AddRemoteChainsToPools() {
-	ccipCommonByNetwork := make(map[string]*actions.CCIPCommon)
-	var allLanes []*actions.CCIPLane
-	for _, lanes := range o.ReadLanes() {
-		allLanes = append(allLanes, lanes.ForwardLane)
-		allLanes = append(allLanes, lanes.ReverseLane)
-	}
-	for _, lane := range allLanes {
-		if _, exists := ccipCommonByNetwork[lane.SourceNetworkName]; !exists {
-			ccipCommonByNetwork[lane.SourceNetworkName] = lane.Source.Common
-		}
-		if _, exists := ccipCommonByNetwork[lane.DestNetworkName]; !exists {
-			ccipCommonByNetwork[lane.DestNetworkName] = lane.Dest.Common
-		}
-	}
-	grp, _ := errgroup.WithContext(o.SetUpContext)
-	for _, cmn := range ccipCommonByNetwork {
-		cmn := cmn
-		grp.Go(func() error {
-			return cmn.SetRemoteChainsOnPools()
-		})
-	}
-	require.NoError(o.Cfg.Test, grp.Wait(), "error waiting for setting remote chains on pools")
 }
 
 func (o *CCIPTestSetUpOutputs) WaitForPriceUpdates() {
@@ -728,14 +717,15 @@ func CCIPDefaultTestSetUp(
 	parent, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	setUpArgs := &CCIPTestSetUpOutputs{
-		SetUpContext:   parent,
-		Cfg:            testConfig,
-		Reporter:       testreporters.NewCCIPTestReporter(t, lggr),
-		LaneConfigFile: filename,
-		Balance:        actions.NewBalanceSheet(),
-		BootstrapAdded: atomic.NewBool(false),
-		JobAddGrp:      &errgroup.Group{},
-		laneMutex:      &sync.Mutex{},
+		SetUpContext:           parent,
+		Cfg:                    testConfig,
+		Reporter:               testreporters.NewCCIPTestReporter(t, lggr),
+		LaneConfigFile:         filename,
+		LaneContractsByNetwork: &sync.Map{},
+		Balance:                actions.NewBalanceSheet(),
+		BootstrapAdded:         atomic.NewBool(false),
+		JobAddGrp:              &errgroup.Group{},
+		laneMutex:              &sync.Mutex{},
 	}
 
 	chainByChainID := setUpArgs.CreateEnvironment(lggr, envName)
@@ -782,13 +772,26 @@ func CCIPDefaultTestSetUp(
 	// deploy all chain specific common contracts
 	chainAddGrp, _ := errgroup.WithContext(setUpArgs.SetUpContext)
 	lggr.Info().Msg("Deploying common contracts")
+	chainSelectors := make(map[int64]uint64)
+	for _, net := range testConfig.AllNetworks {
+		if _, exists := chainSelectors[net.ChainID]; !exists {
+			chainSelectors[net.ChainID], err = chainselectors.SelectorFromChainId(uint64(net.ChainID))
+			require.NoError(t, err)
+		}
+	}
 	for _, net := range testConfig.AllNetworks {
 		chain := chainByChainID[net.ChainID]
 		net := net
 		net.HTTPURLs = chain.GetNetworkConfig().HTTPURLs
 		net.URLs = chain.GetNetworkConfig().URLs
+		var selectors []uint64
+		for chainId, selector := range chainSelectors {
+			if chainId != net.ChainID {
+				selectors = append(selectors, selector)
+			}
+		}
 		chainAddGrp.Go(func() error {
-			return setUpArgs.DeployChainContracts(chain, net, testConfig.TestGroupInput.NoOfTokensPerChain, tokenDeployerFns, lggr)
+			return setUpArgs.DeployChainContracts(lggr, chain, net, testConfig.TestGroupInput.NoOfTokensPerChain, tokenDeployerFns, selectors)
 		})
 	}
 	require.NoError(t, chainAddGrp.Wait(), "Deploying common contracts shouldn't fail")
@@ -817,6 +820,8 @@ func CCIPDefaultTestSetUp(
 	// deploy all lane specific contracts
 	lggr.Info().Msg("Deploying chain specific contracts")
 	laneAddGrp, _ := errgroup.WithContext(setUpArgs.SetUpContext)
+	// for memory management set a batch size for active lane deployment group
+	laneAddGrp.SetLimit(200)
 	for _, networkPair := range testConfig.NetworkPairs {
 		n := networkPair
 		var ok bool
@@ -845,10 +850,10 @@ func CCIPDefaultTestSetUp(
 	require.NoError(t, err)
 	require.Equal(t, len(setUpArgs.Lanes), len(testConfig.NetworkPairs),
 		"Number of bi-directional lanes should be equal to number of network pairs")
+	// only required for env set up
+	setUpArgs.LaneContractsByNetwork = nil
 
 	if configureCLNode {
-		// add all remote chains to pools
-		setUpArgs.AddRemoteChainsToPools()
 		// wait for all jobs to get created
 		lggr.Info().Msg("Waiting for jobs to be created")
 		require.NoError(t, setUpArgs.JobAddGrp.Wait(), "Creating jobs shouldn't fail")
@@ -856,7 +861,7 @@ func CCIPDefaultTestSetUp(
 		setUpArgs.WaitForPriceUpdates()
 		// if dynamic price update is required
 		if setUpArgs.Cfg.TestGroupInput.DynamicPriceUpdateInterval != nil {
-			setUpArgs.SetupDynamicTokenPriceUpdates()
+			require.NoError(t, setUpArgs.SetupDynamicTokenPriceUpdates(), "setting up dynamic price update should not fail")
 		}
 	}
 

@@ -56,6 +56,7 @@ type CCIPTestConfig struct {
 	ExecOCRParams              *contracts.OffChainAggregatorV2Config `toml:",omitempty"`
 	CommitInflightExpiry       *config.Duration                      `toml:",omitempty"`
 	ExecInflightExpiry         *config.Duration                      `toml:",omitempty"`
+	OptimizeSpace              *bool                                 `toml:",omitempty"`
 }
 
 func (c *CCIPTestConfig) SetTestRunName(name string) {

@@ -303,16 +303,18 @@ func (c *CLCluster) Validate() error {
 }
 
 type ChainlinkDeployment struct {
-	Common     *Node    `toml:",omitempty"`
-	NodeMemory string   `toml:",omitempty"`
-	NodeCPU    string   `toml:",omitempty"`
-	DBMemory   string   `toml:",omitempty"`
-	DBCPU      string   `toml:",omitempty"`
-	DBCapacity string   `toml:",omitempty"`
-	IsStateful *bool    `toml:",omitempty"`
-	DBArgs     []string `toml:",omitempty"`
-	NoOfNodes  *int     `toml:",omitempty"`
-	Nodes      []*Node  `toml:",omitempty"` // to be mentioned only if diff nodes follow diff configs; not required if all nodes follow CommonConfig
+	Common         *Node    `toml:",omitempty"`
+	NodeMemory     string   `toml:",omitempty"`
+	NodeCPU        string   `toml:",omitempty"`
+	DBMemory       string   `toml:",omitempty"`
+	DBCPU          string   `toml:",omitempty"`
+	DBCapacity     string   `toml:",omitempty"`
+	DBStorageClass *string  `toml:",omitempty"`
+	PromPgExporter *bool    `toml:",omitempty"`
+	IsStateful     *bool    `toml:",omitempty"`
+	DBArgs         []string `toml:",omitempty"`
+	NoOfNodes      *int     `toml:",omitempty"`
+	Nodes          []*Node  `toml:",omitempty"` // to be mentioned only if diff nodes follow diff configs; not required if all nodes follow CommonConfig
 }
 
 func (c *ChainlinkDeployment) Validate() error {
