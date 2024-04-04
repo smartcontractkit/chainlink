@@ -49,14 +49,24 @@ func TestWrappedEvmEstimator(t *testing.T) {
 	// L1Oracle returns the correct L1Oracle interface
 	t.Run("L1Oracle", func(t *testing.T) {
 		lggr := logger.Test(t)
+
+		evmEstimator := mocks.NewEvmEstimator(t)
+		evmEstimator.On("L1Oracle").Return(nil).Once()
+
+		getEst := func(logger.Logger) gas.EvmEstimator { return evmEstimator }
+
 		// expect nil
-		estimator := gas.NewWrappedEvmEstimator(lggr, getRootEst, false, nil, nil)
+		estimator := gas.NewWrappedEvmEstimator(lggr, getEst, false, nil, nil)
 		l1Oracle := estimator.L1Oracle()
+
 		assert.Nil(t, l1Oracle)
 
 		// expect l1Oracle
 		oracle := rollupMocks.NewL1Oracle(t)
-		estimator = gas.NewWrappedEvmEstimator(lggr, getRootEst, false, oracle, geCfg)
+		estimator = gas.NewWrappedEvmEstimator(lggr, getEst, false, oracle, geCfg)
+
+		evmEstimator.On("L1Oracle").Return(oracle).Once()
+
 		l1Oracle = estimator.L1Oracle()
 		assert.Equal(t, oracle, l1Oracle)
 	})
@@ -170,11 +180,15 @@ func TestWrappedEvmEstimator(t *testing.T) {
 		oracle.On("Close").Return(nil).Once()
 		getEst := func(logger.Logger) gas.EvmEstimator { return evmEstimator }
 
+		evmEstimator.On("L1Oracle", mock.Anything).Return(nil).Twice()
+
 		estimator := gas.NewWrappedEvmEstimator(lggr, getEst, false, nil, geCfg)
 		err := estimator.Start(ctx)
 		require.NoError(t, err)
 		err = estimator.Close()
 		require.NoError(t, err)
+
+		evmEstimator.On("L1Oracle", mock.Anything).Return(oracle).Twice()
 
 		estimator = gas.NewWrappedEvmEstimator(lggr, getEst, false, oracle, geCfg)
 		err = estimator.Start(ctx)

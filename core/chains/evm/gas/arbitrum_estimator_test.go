@@ -17,8 +17,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
-	clientMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
@@ -54,7 +54,7 @@ func TestArbitrumEstimator(t *testing.T) {
 	const chainType = "arbitrum"
 
 	t.Run("calling GetLegacyGas on unstarted estimator returns error", func(t *testing.T) {
-		ethClient := clientMocks.NewClient(t)
+		ethClient := mocks.NewETHClient(t)
 		o := gas.NewArbitrumEstimator(logger.Test(t), &arbConfig{}, ethClient)
 		_, _, err := o.GetLegacyGas(testutils.Context(t), calldata, gasLimit, maxGasPrice)
 		assert.EqualError(t, err, "estimator is not started")
@@ -65,7 +65,7 @@ func TestArbitrumEstimator(t *testing.T) {
 	zeros.Write(common.BigToHash(big.NewInt(0)).Bytes())
 	zeros.Write(common.BigToHash(big.NewInt(123455)).Bytes())
 	t.Run("calling GetLegacyGas on started estimator returns estimates", func(t *testing.T) {
-		ethClient := clientMocks.NewClient(t)
+		ethClient := mocks.NewETHClient(t)
 		ethClient.On("CallContext", mock.Anything, mock.Anything, "eth_gasPrice").Return(nil).Run(func(args mock.Arguments) {
 			res := args.Get(1).(*hexutil.Big)
 			(*big.Int)(res).SetInt64(42)
@@ -82,13 +82,12 @@ func TestArbitrumEstimator(t *testing.T) {
 		servicetest.RunHealthy(t, o)
 		gasPrice, chainSpecificGasLimit, err := o.GetLegacyGas(testutils.Context(t), calldata, gasLimit, maxGasPrice)
 		require.NoError(t, err)
-		// Expected price for a standard l2_suggested_estimator would be 42, but we add a fixed gasPriceBufferPercentage.
-		assert.Equal(t, assets.NewWeiI(42).AddPercentage(gasPriceBufferPercentage), gasPrice)
+		assert.Equal(t, assets.NewWeiI(42), gasPrice)
 		assert.Equal(t, gasLimit, chainSpecificGasLimit)
 	})
 
 	t.Run("gas price is lower than user specified max gas price", func(t *testing.T) {
-		ethClient := clientMocks.NewClient(t)
+		ethClient := mocks.NewETHClient(t)
 		o := gas.NewArbitrumEstimator(logger.Test(t), &arbConfig{}, ethClient)
 
 		ethClient.On("CallContext", mock.Anything, mock.Anything, "eth_gasPrice").Return(nil).Run(func(args mock.Arguments) {
@@ -98,7 +97,7 @@ func TestArbitrumEstimator(t *testing.T) {
 		ethClient.On("CallContract", mock.Anything, mock.IsType(ethereum.CallMsg{}), mock.IsType(&big.Int{})).Run(func(args mock.Arguments) {
 			callMsg := args.Get(1).(ethereum.CallMsg)
 			blockNumber := args.Get(2).(*big.Int)
-			assert.Equal(t, rollups.ArbGasInfo_getPricesInArbGas, callMsg.To.String())
+			assert.Equal(t, rollups.ArbGasInfoAddress, callMsg.To.String())
 			assert.Equal(t, rollups.ArbGasInfo_getPricesInArbGas, fmt.Sprintf("%x", callMsg.Data))
 			assert.Equal(t, big.NewInt(-1), blockNumber)
 		}).Return(zeros.Bytes(), nil)
@@ -112,7 +111,7 @@ func TestArbitrumEstimator(t *testing.T) {
 	})
 
 	t.Run("gas price is lower than global max gas price", func(t *testing.T) {
-		ethClient := clientMocks.NewClient(t)
+		ethClient := mocks.NewETHClient(t)
 		o := gas.NewArbitrumEstimator(logger.Test(t), &arbConfig{}, ethClient)
 
 		ethClient.On("CallContext", mock.Anything, mock.Anything, "eth_gasPrice").Return(nil).Run(func(args mock.Arguments) {
@@ -122,7 +121,7 @@ func TestArbitrumEstimator(t *testing.T) {
 		ethClient.On("CallContract", mock.Anything, mock.IsType(ethereum.CallMsg{}), mock.IsType(&big.Int{})).Run(func(args mock.Arguments) {
 			callMsg := args.Get(1).(ethereum.CallMsg)
 			blockNumber := args.Get(2).(*big.Int)
-			assert.Equal(t, rollups.ArbGasInfo_getPricesInArbGas, callMsg.To.String())
+			assert.Equal(t, rollups.ArbGasInfoAddress, callMsg.To.String())
 			assert.Equal(t, rollups.ArbGasInfo_getPricesInArbGas, fmt.Sprintf("%x", callMsg.Data))
 			assert.Equal(t, big.NewInt(-1), blockNumber)
 		}).Return(zeros.Bytes(), nil)
@@ -135,21 +134,21 @@ func TestArbitrumEstimator(t *testing.T) {
 	})
 
 	t.Run("calling BumpLegacyGas on unstarted arbitrum estimator returns error", func(t *testing.T) {
-		ethClient := clientMocks.NewClient(t)
+		ethClient := mocks.NewETHClient(t)
 		o := gas.NewArbitrumEstimator(logger.Test(t), &arbConfig{}, ethClient)
 		_, _, err := o.BumpLegacyGas(testutils.Context(t), assets.NewWeiI(42), gasLimit, assets.NewWeiI(10), nil)
 		assert.EqualError(t, err, "estimator is not started")
 	})
 
 	t.Run("calling GetLegacyGas on started estimator if initial call failed returns error", func(t *testing.T) {
-		ethClient := clientMocks.NewClient(t)
+		ethClient := mocks.NewETHClient(t)
 		o := gas.NewArbitrumEstimator(logger.Test(t), &arbConfig{}, ethClient)
 
 		ethClient.On("CallContext", mock.Anything, mock.Anything, "eth_gasPrice").Return(pkgerrors.New("kaboom"))
 		ethClient.On("CallContract", mock.Anything, mock.IsType(ethereum.CallMsg{}), mock.IsType(&big.Int{})).Run(func(args mock.Arguments) {
 			callMsg := args.Get(1).(ethereum.CallMsg)
 			blockNumber := args.Get(2).(*big.Int)
-			assert.Equal(t, rollups.ArbGasInfo_getPricesInArbGas, callMsg.To.String())
+			assert.Equal(t, rollups.ArbGasInfoAddress, callMsg.To.String())
 			assert.Equal(t, rollups.ArbGasInfo_getPricesInArbGas, fmt.Sprintf("%x", callMsg.Data))
 			assert.Equal(t, big.NewInt(-1), blockNumber)
 		}).Return(zeros.Bytes(), nil)
@@ -161,14 +160,14 @@ func TestArbitrumEstimator(t *testing.T) {
 	})
 
 	t.Run("calling GetDynamicFee always returns error", func(t *testing.T) {
-		ethClient := clientMocks.NewClient(t)
+		ethClient := mocks.NewETHClient(t)
 		o := gas.NewArbitrumEstimator(logger.Test(t), &arbConfig{}, ethClient)
 		_, err := o.GetDynamicFee(testutils.Context(t), maxGasPrice)
 		assert.EqualError(t, err, "dynamic fees are not implemented for this estimator")
 	})
 
 	t.Run("calling BumpDynamicFee always returns error", func(t *testing.T) {
-		ethClient := clientMocks.NewClient(t)
+		ethClient := mocks.NewETHClient(t)
 		o := gas.NewArbitrumEstimator(logger.Test(t), &arbConfig{}, ethClient)
 		fee := gas.DynamicFee{
 			FeeCap: assets.NewWeiI(42),
@@ -179,7 +178,7 @@ func TestArbitrumEstimator(t *testing.T) {
 	})
 
 	t.Run("limit computes", func(t *testing.T) {
-		ethClient := clientMocks.NewClient(t)
+		ethClient := mocks.NewETHClient(t)
 		ethClient.On("CallContext", mock.Anything, mock.Anything, "eth_gasPrice").Return(nil).Run(func(args mock.Arguments) {
 			res := args.Get(1).(*hexutil.Big)
 			(*big.Int)(res).SetInt64(42)
@@ -197,7 +196,7 @@ func TestArbitrumEstimator(t *testing.T) {
 		ethClient.On("CallContract", mock.Anything, mock.IsType(ethereum.CallMsg{}), mock.IsType(&big.Int{})).Run(func(args mock.Arguments) {
 			callMsg := args.Get(1).(ethereum.CallMsg)
 			blockNumber := args.Get(2).(*big.Int)
-			assert.Equal(t, rollups.ArbGasInfo_getPricesInArbGas, callMsg.To.String())
+			assert.Equal(t, rollups.ArbGasInfoAddress, callMsg.To.String())
 			assert.Equal(t, rollups.ArbGasInfo_getPricesInArbGas, fmt.Sprintf("%x", callMsg.Data))
 			assert.Equal(t, big.NewInt(-1), blockNumber)
 		}).Return(b.Bytes(), nil)
@@ -207,13 +206,12 @@ func TestArbitrumEstimator(t *testing.T) {
 		gasPrice, chainSpecificGasLimit, err := o.GetLegacyGas(testutils.Context(t), calldata, gasLimit, maxGasPrice)
 		require.NoError(t, err)
 		require.NotNil(t, gasPrice)
-		// Again, a normal l2_suggested_estimator would return 42, but arbitrum_estimator adds a buffer.
-		assert.Equal(t, "63 wei", gasPrice.String())
+		assert.Equal(t, "42 wei", gasPrice.String())
 		assert.Equal(t, expLimit, chainSpecificGasLimit, "expected %d but got %d", expLimit, chainSpecificGasLimit)
 	})
 
 	t.Run("limit exceeds max", func(t *testing.T) {
-		ethClient := clientMocks.NewClient(t)
+		ethClient := mocks.NewETHClient(t)
 		ethClient.On("CallContext", mock.Anything, mock.Anything, "eth_gasPrice").Return(nil).Run(func(args mock.Arguments) {
 			res := args.Get(1).(*hexutil.Big)
 			(*big.Int)(res).SetInt64(42)
@@ -230,7 +228,7 @@ func TestArbitrumEstimator(t *testing.T) {
 		ethClient.On("CallContract", mock.Anything, mock.IsType(ethereum.CallMsg{}), mock.IsType(&big.Int{})).Run(func(args mock.Arguments) {
 			callMsg := args.Get(1).(ethereum.CallMsg)
 			blockNumber := args.Get(2).(*big.Int)
-			assert.Equal(t, rollups.ArbGasInfo_getPricesInArbGas, callMsg.To.String())
+			assert.Equal(t, rollups.ArbGasInfoAddress, callMsg.To.String())
 			assert.Equal(t, rollups.ArbGasInfo_getPricesInArbGas, fmt.Sprintf("%x", callMsg.Data))
 			assert.Equal(t, big.NewInt(-1), blockNumber)
 		}).Return(b.Bytes(), nil)

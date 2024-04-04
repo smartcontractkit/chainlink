@@ -138,7 +138,7 @@ func newOpStackL1GasOracle(lggr logger.Logger, ethClient ethClient, priceReader 
 		client:     ethClient,
 		pollPeriod: PollPeriod,
 		logger:     logger.Sugared(logger.Named(lggr, fmt.Sprintf("L1GasOracle(optimismBedrock)"))),
-		chainType:  "optimismBedrock",
+		chainType:  chainType,
 
 		l1GasPriceAddress:   l1GasPriceAddress,
 		gasPriceMethod:      gasPriceMethod,
@@ -280,6 +280,9 @@ func (o *optimismL1Oracle) GetGasCost(ctx context.Context, tx *gethtypes.Transac
 	defer cancel()
 	var callData, b []byte
 	var err error
+	if o.chainType == config.ChainKroma {
+		return nil, fmt.Errorf("L1 gas cost not supported for this chain: %s", o.chainType)
+	}
 	// Append rlp-encoded tx
 	var encodedtx []byte
 	if encodedtx, err = tx.MarshalBinary(); err != nil {

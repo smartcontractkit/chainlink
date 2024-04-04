@@ -280,7 +280,6 @@ func (o *arbitrumL1Oracle) GetGasCost(ctx context.Context, tx *gethtypes.Transac
 func (o *arbitrumL1Oracle) GetPricesInArbGas() (perL2Tx uint32, perL1CalldataUnit uint32, err error) {
 	ctx, cancel := o.chStop.CtxCancel(evmclient.ContextWithDefaultTimeout())
 	defer cancel()
-
 	precompile := common.HexToAddress(ArbGasInfoAddress)
 	b, err := o.client.CallContract(ctx, ethereum.CallMsg{
 		To:   &precompile,
