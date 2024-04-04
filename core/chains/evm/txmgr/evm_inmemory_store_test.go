@@ -24,6 +24,88 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 )
 
+func TestInMemoryStore_SaveFetchedReceipts(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
+	persistentStore := cltest.NewTestTxStore(t, db)
+	kst := cltest.NewKeyStore(t, db, dbcfg)
+	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
+
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	lggr := logger.TestSugared(t)
+	chainID := ethClient.ConfiguredChainID()
+	ctx := testutils.Context(t)
+
+	inMemoryStore, err := commontxmgr.NewInMemoryStore[
+		*big.Int,
+		common.Address, common.Hash, common.Hash,
+		*evmtypes.Receipt,
+		evmtypes.Nonce,
+		evmgas.EvmFee,
+	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	require.NoError(t, err)
+
+	// Insert a transaction into persistent store
+	originalBroadcastAt := time.Unix(1616509100, 0)
+	inTx := mustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(t, persistentStore, 0, 1, originalBroadcastAt, fromAddress)
+	require.Len(t, inTx.TxAttempts, 1)
+	// Insert the transaction into the in-memory store
+	require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
+
+	// create receipt associated with transaction
+	txmReceipt := evmtypes.Receipt{
+		TxHash:           inTx.TxAttempts[0].Hash,
+		BlockHash:        utils.NewHash(),
+		BlockNumber:      big.NewInt(42),
+		TransactionIndex: uint(1),
+	}
+
+	t.Run("successfully save fetched receipts", func(t *testing.T) {
+		err := inMemoryStore.SaveFetchedReceipts(
+			ctx,
+			[]*evmtypes.Receipt{&txmReceipt},
+			chainID,
+		)
+		require.NoError(t, err)
+
+		// persistent store check
+		expTx, err := persistentStore.FindTxWithAttempts(ctx, inTx.ID)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(expTx.TxAttempts))
+		require.Equal(t, 1, len(expTx.TxAttempts[0].Receipts))
+		require.Equal(t, txmReceipt.BlockHash, expTx.TxAttempts[0].Receipts[0].GetBlockHash())
+		require.Equal(t, txmgrcommon.TxConfirmed, expTx.State)
+
+		// in-memory store check
+		fn := func(tx *evmtxmgr.Tx) bool { return true }
+		actTxs := inMemoryStore.XXXTestFindTxs(nil, fn, inTx.ID)
+		require.Equal(t, 1, len(actTxs))
+		actTx := actTxs[0]
+		require.Equal(t, 1, len(actTx.TxAttempts))
+		require.Equal(t, 1, len(actTx.TxAttempts[0].Receipts))
+		assertTxEqual(t, expTx, actTx)
+		assert.Equal(t, txmgrtypes.TxAttemptBroadcast, actTx.TxAttempts[0].State)
+	})
+	t.Run("incorrect tx hash", func(t *testing.T) {
+		txmReceipt.TxHash = utils.NewHash()
+		expErr := persistentStore.SaveFetchedReceipts(ctx, []*evmtypes.Receipt{&txmReceipt}, chainID)
+		actErr := inMemoryStore.SaveFetchedReceipts(ctx, []*evmtypes.Receipt{&txmReceipt}, chainID)
+		assert.Error(t, expErr)
+		assert.Error(t, actErr)
+		txmReceipt.TxHash = inTx.TxAttempts[0].Hash // reset
+	})
+	t.Run("incorrect chain id", func(t *testing.T) {
+		wrongChainID := big.NewInt(42)
+		expErr := persistentStore.SaveFetchedReceipts(ctx, []*evmtypes.Receipt{&txmReceipt}, wrongChainID)
+		actErr := inMemoryStore.SaveFetchedReceipts(ctx, []*evmtypes.Receipt{&txmReceipt}, wrongChainID)
+		assert.Error(t, expErr)
+		assert.Error(t, actErr)
+	})
+
+}
+
 func TestInMemoryStore_UpdateTxAttemptInProgressToBroadcast(t *testing.T) {
 	t.Parallel()
 
