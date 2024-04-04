@@ -1357,6 +1357,30 @@ func (sourceCCIP *SourceCCIPModule) AssertSendRequestedLogFinalized(
 	return finalizedAt, finalizedBlockNum.Uint64(), nil
 }
 
+func (sourceCCIP *SourceCCIPModule) IsRequestTriggeredWithinTimeframe(timeframe *config2.Duration) *time.Time {
+	if timeframe == nil {
+		return nil
+	}
+	var foundAt *time.Time
+	lastSeenTimestamp := time.Now().UTC().Add(-timeframe.Duration())
+	sourceCCIP.CCIPSendRequestedWatcher.Range(func(key, value any) bool {
+		if sendRequestedEvents, exists := value.([]*evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested); exists {
+			for _, sendRequestedEvent := range sendRequestedEvents {
+				raw := sendRequestedEvent.Raw
+				hdr, err := sourceCCIP.Common.ChainClient.HeaderByNumber(context.Background(), big.NewInt(int64(raw.BlockNumber)))
+				if err == nil {
+					if hdr.Timestamp.After(lastSeenTimestamp) {
+						foundAt = pointer.ToTime(hdr.Timestamp)
+						return false
+					}
+				}
+			}
+		}
+		return true
+	})
+	return foundAt
+}
+
 func (sourceCCIP *SourceCCIPModule) AssertEventCCIPSendRequested(
 	lggr zerolog.Logger,
 	txHash string,

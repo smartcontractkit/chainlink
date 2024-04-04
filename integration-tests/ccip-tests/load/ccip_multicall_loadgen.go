@@ -88,7 +88,11 @@ func NewMultiCallLoadGenerator(testCfg *testsetups.CCIPTestConfig, lanes []*acti
 	for _, lane := range lanes {
 		// for multicall load generator, we don't want to send max data intermittently, it might
 		// cause oversized data for multicall
-		ccipLoad := NewCCIPLoad(testCfg.Test, lane, testCfg.TestGroupInput.PhaseTimeout.Duration(), 100000, 0)
+		ccipLoad := NewCCIPLoad(
+			testCfg.Test, lane, testCfg.TestGroupInput.PhaseTimeout.Duration(),
+			100000, 0,
+			testCfg.TestGroupInput.SkipRequestIfAnotherRequestTriggeredWithin,
+		)
 		ccipLoad.BeforeAllCall(testCfg.TestGroupInput.MsgType, big.NewInt(*testCfg.TestGroupInput.DestGasLimit))
 		m.E2ELoads[fmt.Sprintf("%s-%s", lane.SourceNetworkName, lane.DestNetworkName)] = ccipLoad
 	}

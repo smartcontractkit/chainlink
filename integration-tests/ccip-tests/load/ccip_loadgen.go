@@ -19,6 +19,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/atomic"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
@@ -38,19 +40,27 @@ type CCIPLaneOptimized struct {
 }
 
 type CCIPE2ELoad struct {
-	t                                   *testing.T
-	Lane                                *CCIPLaneOptimized
-	NoOfReq                             int64         // approx no of Request fired
-	CurrentMsgSerialNo                  *atomic.Int64 // current msg serial number in the load sequence
-	CallTimeOut                         time.Duration // max time to wait for various on-chain events
-	msg                                 router.ClientEVM2AnyMessage
-	MaxDataBytes                        uint32
-	SendMaxDataIntermittentlyInMsgCount int64
-	LastFinalizedTxBlock                atomic.Uint64
-	LastFinalizedTimestamp              atomic.Time
+	t                                          *testing.T
+	Lane                                       *CCIPLaneOptimized
+	NoOfReq                                    int64         // approx no of Request fired
+	CurrentMsgSerialNo                         *atomic.Int64 // current msg serial number in the load sequence
+	CallTimeOut                                time.Duration // max time to wait for various on-chain events
+	msg                                        router.ClientEVM2AnyMessage
+	MaxDataBytes                               uint32
+	SendMaxDataIntermittentlyInMsgCount        int64
+	SkipRequestIfAnotherRequestTriggeredWithin *config.Duration
+	LastFinalizedTxBlock                       atomic.Uint64
+	LastFinalizedTimestamp                     atomic.Time
 }
 
-func NewCCIPLoad(t *testing.T, lane *actions.CCIPLane, timeout time.Duration, noOfReq int64, sendMaxDataIntermittentlyInEveryMsgCount int64) *CCIPE2ELoad {
+func NewCCIPLoad(
+	t *testing.T,
+	lane *actions.CCIPLane,
+	timeout time.Duration,
+	noOfReq int64,
+	sendMaxDataIntermittentlyInEveryMsgCount int64,
+	SkipRequestIfAnotherRequestTriggeredWithin *config.Duration,
+) *CCIPE2ELoad {
 	// to avoid holding extra data
 	loadLane := &CCIPLaneOptimized{
 		Logger:            lane.Logger,
@@ -68,6 +78,7 @@ func NewCCIPLoad(t *testing.T, lane *actions.CCIPLane, timeout time.Duration, no
 		CallTimeOut:                         timeout,
 		NoOfReq:                             noOfReq,
 		SendMaxDataIntermittentlyInMsgCount: sendMaxDataIntermittentlyInEveryMsgCount,
+		SkipRequestIfAnotherRequestTriggeredWithin: SkipRequestIfAnotherRequestTriggeredWithin,
 	}
 }
 
@@ -175,7 +186,14 @@ func (c *CCIPE2ELoad) CCIPMsg() (router.ClientEVM2AnyMessage, *testreporters.Req
 func (c *CCIPE2ELoad) Call(_ *wasp.Generator) *wasp.Response {
 	res := &wasp.Response{}
 	sourceCCIP := c.Lane.Source
-
+	recentRequestFoundAt := sourceCCIP.IsRequestTriggeredWithinTimeframe(c.SkipRequestIfAnotherRequestTriggeredWithin)
+	if recentRequestFoundAt != nil {
+		c.Lane.Logger.
+			Info().
+			Str("Found At=", recentRequestFoundAt.String()).
+			Msgf("Skipping ...Another Request found within given timeframe %s", c.SkipRequestIfAnotherRequestTriggeredWithin.String())
+		return res
+	}
 	msg, stats := c.CCIPMsg()
 	msgSerialNo := stats.ReqNo
 	lggr := c.Lane.Logger.With().Int64("msg Number", stats.ReqNo).Logger()

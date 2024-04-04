@@ -691,12 +691,13 @@ PhaseTimeout = '20m'
 TestDuration = '5h'
 ExistingDeployment = true
 RequestPerUnitTime = [1]
-TimeUnit = '2h'
+TimeUnit = '1h'
 NoOfTokensPerChain = 1
 NoOfTokensInMsg = 1
 AmountPerToken = 1
 TestRunName = 'mainnet-2.7-ccip1.2'
 FailOnFirstErrorInLoad = true
+SkipRequestIfAnotherRequestTriggeredWithin = '40m'
 
 [CCIP.Groups.smoke]
 MsgType = 'WithoutToken'

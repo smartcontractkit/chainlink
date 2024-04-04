@@ -234,7 +234,11 @@ func (l *LoadArgs) TriggerLoadByLane() {
 			Str("Destination Network", lane.DestNetworkName).
 			Msg("Starting load for lane")
 		sendMaxData := pointer.GetInt64(l.TestCfg.TestGroupInput.SendMaxDataInEveryMsgCount)
-		ccipLoad := NewCCIPLoad(l.TestCfg.Test, lane, l.TestCfg.TestGroupInput.PhaseTimeout.Duration(), 100000, sendMaxData)
+		ccipLoad := NewCCIPLoad(
+			l.TestCfg.Test, lane, l.TestCfg.TestGroupInput.PhaseTimeout.Duration(),
+			100000, sendMaxData,
+			l.TestCfg.TestGroupInput.SkipRequestIfAnotherRequestTriggeredWithin,
+		)
 		ccipLoad.BeforeAllCall(l.TestCfg.TestGroupInput.MsgType, big.NewInt(*l.TestCfg.TestGroupInput.DestGasLimit))
 		lokiConfig := l.TestCfg.EnvInput.Logging.Loki
 		labels := make(map[string]string)
