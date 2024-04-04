@@ -159,9 +159,9 @@ func initTokenDataProviders(lggr logger.Logger, jobID string, pluginConfig ccipc
 				lggr,
 				usdcReader,
 				attestationURI,
-				pluginConfig.USDCConfig.AttestationAPITimeoutSeconds,
+				int(pluginConfig.USDCConfig.AttestationAPITimeoutSeconds),
 				pluginConfig.USDCConfig.SourceTokenAddress,
-				usdc.RequestInterval,
+				time.Duration(pluginConfig.USDCConfig.AttestationAPIIntervalMilliseconds)*time.Millisecond,
 			)
 	}
 

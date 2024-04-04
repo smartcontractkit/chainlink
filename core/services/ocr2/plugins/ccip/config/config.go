@@ -98,18 +98,16 @@ type ExecutionPluginJobSpecConfig struct {
 }
 
 type USDCConfig struct {
-	SourceTokenAddress              common.Address
-	SourceMessageTransmitterAddress common.Address
-	AttestationAPI                  string
-	AttestationAPITimeoutSeconds    int
+	SourceTokenAddress                 common.Address
+	SourceMessageTransmitterAddress    common.Address
+	AttestationAPI                     string
+	AttestationAPITimeoutSeconds       uint
+	AttestationAPIIntervalMilliseconds uint
 }
 
 func (uc *USDCConfig) ValidateUSDCConfig() error {
 	if uc.AttestationAPI == "" {
 		return errors.New("AttestationAPI is required")
-	}
-	if uc.AttestationAPITimeoutSeconds < 0 {
-		return errors.New("AttestationAPITimeoutSeconds must be non-negative")
 	}
 	if uc.SourceTokenAddress == utils.ZeroAddress {
 		return errors.New("SourceTokenAddress is required")
