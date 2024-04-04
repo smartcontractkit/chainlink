@@ -302,6 +302,14 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) delete
 	as._deleteTxs(txIDs...)
 }
 
+// deleteAllTxAttempts removes all attempts for the given transactions.
+func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) deleteAllTxAttempts(txID int64) {
+	as.Lock()
+	defer as.Unlock()
+
+	as._deleteAllTxAttempts(txID)
+}
+
 // deleteTxAttempt removes the attempt with a given ID from the transaction with the given ID.
 // It removes the attempts from the hash lookup map and from the transaction.
 // If an attempt is not found in the hash lookup map, it is ignored.
@@ -556,6 +564,21 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) _findT
 	}
 
 	return txs
+}
+
+func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) _deleteAllTxAttempts(
+	txID int64,
+) {
+	tx, ok := as.allTxs[txID]
+	if !ok {
+		return
+	}
+
+	for i := 0; i < len(tx.TxAttempts); i++ {
+		txAttempt := tx.TxAttempts[i]
+		delete(as.attemptHashToTxAttempt, txAttempt.Hash)
+	}
+	tx.TxAttempts = nil
 }
 
 func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) _deleteTxs(txIDs ...int64) {
