@@ -338,7 +338,7 @@ func TestUSDCReader_rateLimiting(t *testing.T) {
 			name:         "timeout after second request",
 			requests:     5,
 			rateConfig:   100 * time.Millisecond,
-			testDuration: 150 * time.Millisecond,
+			testDuration: 100 * time.Millisecond,
 			timeout:      150 * time.Millisecond,
 			err:          "usdc rate limiting error: rate: Wait(n=1) would exceed context deadline",
 		},
@@ -400,15 +400,13 @@ func TestUSDCReader_rateLimiting(t *testing.T) {
 			close(errorChan)
 
 			// Collect errors
-			var errs []error
 			errorFound := false
 			for err := range errorChan {
-				errs = append(errs, err)
 				if tc.err != "" && !strings.Contains(err.Error(), tc.err) {
 					errorFound = true
-				} else if !strings.Contains(err.Error(), "failed getting USDC message body") {
-					// ignore this error, it's expected because of how mocking is used.
-				} else {
+				} else if err != nil && !strings.Contains(err.Error(), "get usdc token 0 end offset") {
+					// Ignore that one error, it's expected because of how mocking is used.
+					// Anything else is unexpected.
 					require.Fail(t, "unexpected error", err)
 				}
 			}
