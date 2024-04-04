@@ -166,6 +166,9 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Updat
 	if !ok {
 		return nil
 	}
+	if !as.hasTx(tx.ID) {
+		return fmt.Errorf("update_tx_unstarted_to_in_progress: %w: %q", ErrTxnNotFound, tx.ID)
+	}
 
 	// Persist to persistent storage
 	if err := ms.persistentTxStore.UpdateTxUnstartedToInProgress(ctx, tx, attempt); err != nil {

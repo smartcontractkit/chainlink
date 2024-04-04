@@ -163,6 +163,15 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) findTx
 	return nil
 }
 
+// hasTx returns true if the transaction with the given ID is in the address state.
+func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) hasTx(txID int64) bool {
+	as.RLock()
+	defer as.RUnlock()
+
+	_, ok := as.allTxs[txID]
+	return ok
+}
+
 // findTxs returns all transactions that match the given filters.
 // If txIDs are provided, only the transactions with those IDs are considered.
 // If no txIDs are provided, all transactions are considered.
