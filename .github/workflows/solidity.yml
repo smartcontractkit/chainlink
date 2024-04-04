@@ -217,7 +217,7 @@ jobs:
         with:
           npm-token: ${{ secrets.NPM_TOKEN }}
           create-github-release: false
-          publish-command: "pnpm publish-beta --no-git-checks --dry-run"
+          publish-command: "pnpm publish-beta --no-git-checks"
           package-json-directory: contracts
 
       - name: Collect Metrics
@@ -262,7 +262,7 @@ jobs:
           github-release-tag-name: ${{ github.ref_name }}
           github-release-changelog-path: "contracts/CHANGELOG.md"
           create-github-release: true
-          publish-command: "pnpm publish-prod --no-git-checks --dry-run"
+          publish-command: "pnpm publish-prod --no-git-checks"
           package-json-directory: contracts
 
       - name: Collect Metrics
