@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"sort"
 	"strconv"
@@ -26,8 +27,8 @@ var mercuryInfo = capabilities.MustNewCapabilityInfo(
 type MercuryTriggerService struct {
 	capabilities.CapabilityInfo
 	chans               map[string]chan<- capabilities.CapabilityResponse
-	feedIDsForTriggerID map[string][]int64 // TODO: switch this to uint64 when value.go supports it
-	triggerIDsForFeedID map[int64]map[string]bool
+	feedIDsForTriggerID map[string][]mercury.FeedID
+	triggerIDsForFeedID map[mercury.FeedID]map[string]bool
 	mu                  sync.Mutex
 }
 
@@ -37,12 +38,19 @@ func NewMercuryTriggerService() *MercuryTriggerService {
 	return &MercuryTriggerService{
 		CapabilityInfo:      mercuryInfo,
 		chans:               map[string]chan<- capabilities.CapabilityResponse{},
-		feedIDsForTriggerID: make(map[string][]int64),
-		triggerIDsForFeedID: make(map[int64]map[string]bool),
+		feedIDsForTriggerID: make(map[string][]mercury.FeedID),
+		triggerIDsForFeedID: make(map[mercury.FeedID]map[string]bool),
 	}
 }
 
-func (o *MercuryTriggerService) ProcessReport(reports []mercury.FeedReport) error {
+type FeedReport struct {
+	FeedID               [32]byte `json:"feedId"`
+	FullReport           []byte   `json:"fullReport"`
+	BenchmarkPrice       int64    `json:"benchmarkPrice"`
+	ObservationTimestamp int64    `json:"observationTimestamp"`
+}
+
+func (o *MercuryTriggerService) ProcessReport(reports []FeedReport) error {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
@@ -51,7 +59,7 @@ func (o *MercuryTriggerService) ProcessReport(reports []mercury.FeedReport) erro
 	triggerIDsToReports := make(map[string][]int)
 
 	for reportIndex, report := range reports {
-		for triggerID := range o.triggerIDsForFeedID[report.FeedID] {
+		for triggerID := range o.triggerIDsForFeedID[mercury.FeedIDFromBytes(report.FeedID)] {
 			// if its not initialized, initialize it
 			if _, ok := triggerIDsToReports[triggerID]; !ok {
 				triggerIDsToReports[triggerID] = make([]int, 0)
@@ -66,8 +74,16 @@ func (o *MercuryTriggerService) ProcessReport(reports []mercury.FeedReport) erro
 		reportList := make([]mercury.FeedReport, 0)
 		reportMap := make(map[string]any)
 		for _, reportID := range reportIDs {
-			reportList = append(reportList, reports[reportID])
-			reportMap[strconv.FormatInt(reports[reportID].FeedID, 10)] = reports[reportID]
+			rep := reports[reportID]
+			feedID := mercury.FeedIDFromBytes(rep.FeedID)
+			mercRep := mercury.FeedReport{
+				FeedID:               feedID.String(),
+				FullReport:           rep.FullReport,
+				BenchmarkPrice:       rep.BenchmarkPrice,
+				ObservationTimestamp: rep.ObservationTimestamp,
+			}
+			reportList = append(reportList, mercRep)
+			reportMap[feedID.String()] = mercRep
 		}
 
 		triggerEvent := capabilities.TriggerEvent{
@@ -111,7 +127,15 @@ func (o *MercuryTriggerService) RegisterTrigger(ctx context.Context, callback ch
 	if _, ok := o.chans[triggerID]; ok {
 		return fmt.Errorf("triggerId %s already registered", triggerID)
 	}
-	feedIDs := o.GetFeedIDs(req) // TODO: what if feedIds is empty? should we throw an error or allow it?
+
+	feedIDs, err := o.GetFeedIDs(req)
+	if err != nil {
+		return err
+	}
+
+	if len(feedIDs) == 0 {
+		return errors.New("no feedIDs to register")
+	}
 
 	o.chans[triggerID] = callback
 	o.feedIDsForTriggerID[triggerID] = feedIDs
@@ -157,20 +181,25 @@ func (o *MercuryTriggerService) UnregisterTrigger(ctx context.Context, req capab
 }
 
 // Get array of feedIds from CapabilityRequest req
-func (o *MercuryTriggerService) GetFeedIDs(req capabilities.CapabilityRequest) []int64 {
-	feedIDs := make([]int64, 0)
+func (o *MercuryTriggerService) GetFeedIDs(req capabilities.CapabilityRequest) ([]mercury.FeedID, error) {
+	feedIDs := make([]mercury.FeedID, 0)
 	// Unwrap the inputs which should return pair (map, nil) and then get the feedIds from the map
-	if inputs, err := req.Inputs.Unwrap(); err == nil {
-		if feeds, ok := inputs.(map[string]interface{})["feedIds"].([]any); ok {
+	if config, err := req.Config.Unwrap(); err == nil {
+		if feeds, ok := config.(map[string]interface{})["feedIds"].([]any); ok {
 			// Copy to feedIds
 			for _, feed := range feeds {
-				if id, ok := feed.(int64); ok {
-					feedIDs = append(feedIDs, id)
+				if id, ok := feed.(string); ok {
+					mfid := mercury.FeedID(id)
+					if err := mfid.Validate(); err != nil {
+						return nil, err
+					}
+					feedIDs = append(feedIDs, mfid)
 				}
 			}
 		}
 	}
-	return feedIDs
+
+	return feedIDs, nil
 }
 
 // Get the triggerId from the CapabilityRequest req map
@@ -198,7 +227,7 @@ func GenerateTriggerEventID(reports []mercury.FeedReport) string {
 	})
 	s := ""
 	for _, report := range reports {
-		s += strconv.FormatInt(report.FeedID, 10) + strconv.FormatInt(report.ObservationTimestamp, 10) + ","
+		s += report.FeedID + strconv.FormatInt(report.ObservationTimestamp, 10) + ","
 	}
 	return sha256Hash(s)
 }
@@ -209,15 +238,18 @@ func ValidateInput(mercuryTriggerEvent values.Value) error {
 }
 
 func ExampleOutput() (values.Value, error) {
+	feedOne := "0x111111111111111111110000000000000000000000000000000000000000"
+	feedTwo := "0x222222222222222222220000000000000000000000000000000000000000"
+
 	feeds := map[string]any{
-		"2": mercury.FeedReport{
-			FeedID:               2,
+		feedOne: mercury.FeedReport{
+			FeedID:               feedOne,
 			FullReport:           []byte("hello"),
 			BenchmarkPrice:       100,
 			ObservationTimestamp: 123,
 		},
-		"3": mercury.FeedReport{
-			FeedID:               3,
+		feedTwo: mercury.FeedReport{
+			FeedID:               feedTwo,
 			FullReport:           []byte("world"),
 			BenchmarkPrice:       100,
 			ObservationTimestamp: 123,

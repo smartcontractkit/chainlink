@@ -1,7 +1,6 @@
 package mercury_test
 
 import (
-	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -31,7 +30,7 @@ func TestCodec(t *testing.T) {
 	// Test WrapMercuryTriggerEvent
 	const testID = "test-id-1"
 	const testTimestamp = "2021-01-01T00:00:00Z"
-	const testFeedID = int64(1)
+	var testFeedID = mercury.FeedID("0x1111111111111111111100000000000000000000000000000000000000000000")
 	const testFullReport = "0x1234"
 	const testBenchmarkPrice = int64(2)
 	const testObservationTimestamp = int64(3)
@@ -40,8 +39,8 @@ func TestCodec(t *testing.T) {
 		ID:          testID,
 		Timestamp:   testTimestamp,
 		BatchedPayload: map[string]any{
-			strconv.FormatInt(testFeedID, 10): mercury.FeedReport{
-				FeedID:               testFeedID,
+			testFeedID.String(): mercury.FeedReport{
+				FeedID:               string(testFeedID),
 				FullReport:           []byte(testFullReport),
 				BenchmarkPrice:       testBenchmarkPrice,
 				ObservationTimestamp: testObservationTimestamp,
@@ -50,8 +49,8 @@ func TestCodec(t *testing.T) {
 	}
 	wrappedTE, err := mercury.Codec{}.WrapMercuryTriggerEvent(te)
 	require.NoError(t, err)
-	// Test UnwrapMercuryTriggerEvent
 
+	// Test UnwrapMercuryTriggerEvent
 	unwrappedTE, err := mercury.Codec{}.UnwrapMercuryTriggerEvent(wrappedTE)
 	require.NoError(t, err)
 	require.Equal(t, te, unwrappedTE)

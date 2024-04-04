@@ -101,13 +101,28 @@ func TestDataFeedsAggregator_ParseConfig(t *testing.T) {
 		require.Equal(t, deviationA, parsedConfig.Feeds[feedIDA].Deviation)
 		require.Equal(t, heartbeatA, parsedConfig.Feeds[feedIDA].Heartbeat)
 	})
+
+	t.Run("parsed workflow config", func(t *testing.T) {
+		fdID := mercury.FeedID("0x1111111111111111111100000000000000000000000000000000000000000000")
+		cfg, err := values.NewMap(map[string]any{
+			fdID.String(): map[string]any{
+				"deviation": "0.1",
+				"heartbeat": 60,
+			},
+		})
+		require.NoError(t, err)
+		parsedConfig, err := datafeeds.ParseConfig(*cfg)
+		require.NoError(t, err)
+		require.Equal(t, deviationA, parsedConfig.Feeds[fdID].Deviation, parsedConfig)
+		require.Equal(t, heartbeatA, parsedConfig.Feeds[fdID].Heartbeat)
+	})
 }
 
 func getConfig(t *testing.T, feedID string, deviation decimal.Decimal, heartbeat int) *values.Map {
 	unwrappedConfig := map[string]any{
 		feedIDA.String(): map[string]any{
-			"Deviation": deviation,
-			"Heartbeat": heartbeat,
+			"deviation": deviation.String(),
+			"heartbeat": heartbeat,
 		},
 	}
 	config, err := values.NewMap(unwrappedConfig)

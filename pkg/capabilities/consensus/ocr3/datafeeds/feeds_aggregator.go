@@ -1,9 +1,9 @@
 package datafeeds
 
 import (
+	"fmt"
 	"math"
 
-	"github.com/mitchellh/mapstructure"
 	"github.com/shopspring/decimal"
 	ocrcommon "github.com/smartcontractkit/libocr/commontypes"
 	"google.golang.org/protobuf/proto"
@@ -21,8 +21,9 @@ type aggregatorConfig struct {
 }
 
 type feedConfig struct {
-	Deviation decimal.Decimal
-	Heartbeat int
+	Deviation       decimal.Decimal `mapstructure:"-"`
+	Heartbeat       int
+	DeviationString string `mapstructure:"deviation"`
 }
 
 //go:generate mockery --quiet --name MercuryCodec --output ./mocks/ --case=underscore
@@ -90,6 +91,11 @@ func (a *dataFeedsAggregator) Aggregate(previousOutcome *types.AggregationOutcom
 	reportsNeedingUpdate := []any{} // [][]byte
 	for feedID, previousReportInfo := range currentState.FeedInfo {
 		feedID := mercury.FeedID(feedID)
+		err := feedID.Validate()
+		if err != nil {
+			a.lggr.Errorf("could not convert %s to feedID", feedID)
+			continue
+		}
 		latestReport, ok := latestReportPerFeed[feedID]
 		if !ok {
 			a.lggr.Errorf("no new Mercury report for feed: %v", feedID)
@@ -137,7 +143,7 @@ func deviation(old, new float64) float64 {
 func NewDataFeedsAggregator(config values.Map, mercuryCodec MercuryCodec, lggr logger.Logger) (types.Aggregator, error) {
 	parsedConfig, err := ParseConfig(config)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to parse config (%+v): %w", config, err)
 	}
 	return &dataFeedsAggregator{
 		config:       parsedConfig,
@@ -156,14 +162,19 @@ func ParseConfig(config values.Map) (aggregatorConfig, error) {
 		if err != nil {
 			return aggregatorConfig{}, err
 		}
-		unwrappedConfig, err := feedCfg.Unwrap()
+		var parsedFeedConfig feedConfig
+		err = feedCfg.UnwrapTo(&parsedFeedConfig)
 		if err != nil {
 			return aggregatorConfig{}, err
 		}
-		var parsedFeedConfig feedConfig
-		err = mapstructure.Decode(unwrappedConfig, &parsedFeedConfig)
-		if err != nil {
-			return aggregatorConfig{}, err
+
+		if parsedFeedConfig.DeviationString != "" {
+			dec, err := decimal.NewFromString(parsedFeedConfig.DeviationString)
+			if err != nil {
+				return aggregatorConfig{}, err
+			}
+
+			parsedFeedConfig.Deviation = dec
 		}
 		parsedConfig.Feeds[feedID] = parsedFeedConfig
 	}
