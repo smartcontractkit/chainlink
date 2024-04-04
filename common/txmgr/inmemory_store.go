@@ -190,6 +190,39 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveR
 	oldAttempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	replacementAttempt *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 ) error {
+	if oldAttempt.State != txmgrtypes.TxAttemptInProgress || replacementAttempt.State != txmgrtypes.TxAttemptInProgress {
+		return fmt.Errorf("expected attempts to be in_progress")
+	}
+	if oldAttempt.ID == 0 {
+		return fmt.Errorf("expected oldAttempt to have an ID")
+	}
+
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
+	var as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
+	for _, vas := range ms.addressStates {
+		if vas.hasTx(oldAttempt.TxID) {
+			as = vas
+			break
+		}
+	}
+	if as == nil {
+		return fmt.Errorf("save_replacement_in_progress_attempt: %w: %q", ErrTxnNotFound, oldAttempt.TxID)
+	}
+
+	// Persist to persistent storage
+	if err := ms.persistentTxStore.SaveReplacementInProgressAttempt(ctx, oldAttempt, replacementAttempt); err != nil {
+		return fmt.Errorf("save_replacement_in_progress_attempt: %w", err)
+	}
+
+	// Update in memory store
+	// delete the old attempt
+	as.deleteTxAttempt(oldAttempt.TxID, oldAttempt.ID)
+	// add the new attempt
+	if err := as.addTxAttempt(*replacementAttempt); err != nil {
+		return fmt.Errorf("save_replacement_in_progress_attempt: failed to add a replacement transaction attempt: %w", err)
+	}
+
 	return nil
 }
 
