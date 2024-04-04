@@ -15,10 +15,11 @@ import (
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+
 	"github.com/smartcontractkit/chainlink/v2/core/build"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/parse"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
@@ -853,6 +854,7 @@ type JobPipeline struct {
 	ReaperInterval            *commonconfig.Duration
 	ReaperThreshold           *commonconfig.Duration
 	ResultWriteQueueDepth     *uint32
+	VerboseLogging            *bool
 
 	HTTPRequest JobPipelineHTTPRequest `toml:",omitempty"`
 }
@@ -875,6 +877,9 @@ func (j *JobPipeline) setFrom(f *JobPipeline) {
 	}
 	if v := f.ResultWriteQueueDepth; v != nil {
 		j.ResultWriteQueueDepth = v
+	}
+	if v := f.VerboseLogging; v != nil {
+		j.VerboseLogging = v
 	}
 	j.HTTPRequest.setFrom(&f.HTTPRequest)
 
@@ -976,7 +981,7 @@ type OCR struct {
 	// Optional
 	KeyBundleID          *models.Sha256Hash
 	SimulateTransactions *bool
-	TransmitterAddress   *ethkey.EIP55Address
+	TransmitterAddress   *types.EIP55Address
 	CaptureEATelemetry   *bool
 	TraceLogging         *bool
 }

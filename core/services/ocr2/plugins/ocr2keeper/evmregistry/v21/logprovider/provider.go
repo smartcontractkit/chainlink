@@ -102,9 +102,18 @@ type logEventProvider struct {
 	opts LogTriggersOptions
 
 	currentPartitionIdx uint64
+
+	chainID *big.Int
 }
 
-func NewLogProvider(lggr logger.Logger, poller logpoller.LogPoller, packer LogDataPacker, filterStore UpkeepFilterStore, opts LogTriggersOptions) *logEventProvider {
+func NewLogProvider(lggr logger.Logger, poller logpoller.LogPoller, chainID *big.Int, packer LogDataPacker, filterStore UpkeepFilterStore, opts LogTriggersOptions) *logEventProvider {
+	defaultBlockRate := defaultBlockRateForChain(chainID)
+	defaultLogLimit := defaultLogLimitForChain(chainID)
+
+	// TODO apply these to the log buffer later
+	_ = defaultBlockRate
+	_ = defaultLogLimit
+
 	return &logEventProvider{
 		threadCtrl:  utils.NewThreadControl(),
 		lggr:        lggr.Named("KeepersRegistry.LogEventProvider"),
@@ -113,7 +122,25 @@ func NewLogProvider(lggr logger.Logger, poller logpoller.LogPoller, packer LogDa
 		poller:      poller,
 		opts:        opts,
 		filterStore: filterStore,
+		chainID:     chainID,
 	}
+}
+
+func (p *logEventProvider) SetConfig(cfg ocr2keepers.LogEventProviderConfig) {
+	blockRate := cfg.BlockRate
+	logLimit := cfg.LogLimit
+
+	if blockRate == 0 {
+		blockRate = defaultBlockRateForChain(p.chainID)
+	}
+	if logLimit == 0 {
+		logLimit = defaultLogLimitForChain(p.chainID)
+	}
+
+	p.lggr.With("where", "setConfig").Infow("setting config ", "bockRate", blockRate, "logLimit", logLimit)
+
+	// TODO set block rate and log limit on the buffer
+	//p.buffer.SetConfig(blockRate, logLimit)
 }
 
 func (p *logEventProvider) Start(context.Context) error {
@@ -407,4 +434,26 @@ func (p *logEventProvider) readLogs(ctx context.Context, latest int64, filters [
 	}
 
 	return merr
+}
+
+func defaultBlockRateForChain(chainID *big.Int) uint32 {
+	switch chainID.Int64() {
+	case 42161, 421613, 421614: // Arbitrum
+		return 4
+	default:
+		return 1
+	}
+}
+
+func defaultLogLimitForChain(chainID *big.Int) uint32 {
+	switch chainID.Int64() {
+	case 42161, 421613, 421614: // Arbitrum
+		return 1
+	case 1, 4, 5, 42, 11155111: // Eth
+		return 20
+	case 10, 420, 56, 97, 137, 80001, 43113, 43114, 8453, 84531: // Optimism, BSC, Polygon, Avax, Base
+		return 5
+	default:
+		return 1
+	}
 }

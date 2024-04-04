@@ -6,6 +6,9 @@ import {IAutomationRegistryMaster2_3} from "../interfaces/v2_3/IAutomationRegist
 import {TypeAndVersionInterface} from "../../../interfaces/TypeAndVersionInterface.sol";
 import {ConfirmedOwner} from "../../../shared/access/ConfirmedOwner.sol";
 import {IERC677Receiver} from "../../../shared/interfaces/IERC677Receiver.sol";
+import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
+import {IWrappedNative} from "../interfaces/v2_3/IWrappedNative.sol";
+import {SafeCast} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/math/SafeCast.sol";
 
 /**
  * @notice Contract to accept requests for upkeep registrations
@@ -28,13 +31,6 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
     ENABLED_SENDER_ALLOWLIST,
     ENABLED_ALL
   }
-
-  bytes4 private constant REGISTER_REQUEST_SELECTOR = this.register.selector;
-
-  mapping(bytes32 => PendingRequest) private s_pendingRequests;
-  mapping(uint8 => TriggerRegistrationStorage) private s_triggerRegistrations;
-
-  LinkTokenInterface public immutable LINK;
 
   /**
    * @notice versions:
@@ -75,32 +71,49 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
     uint32 autoApproveMaxAllowed;
   }
 
-  struct RegistrarConfig {
-    IAutomationRegistryMaster2_3 AutomationRegistry;
-    uint96 minLINKJuels;
-  }
-
   struct PendingRequest {
     address admin;
     uint96 balance;
   }
-
+  /**
+   * @member upkeepContract address to perform upkeep on
+   * @member amount quantity of LINK upkeep is funded with (specified in wei)
+   * @member adminAddress address to cancel upkeep and withdraw remaining funds
+   * @member gasLimit amount of gas to provide the target contract when performing upkeep
+   * @member triggerType the type of trigger for the upkeep
+   * @member billingToken the token to pay with
+   * @member name string of the upkeep to be registered
+   * @member encryptedEmail email address of upkeep contact
+   * @member checkData data passed to the contract when checking for upkeep
+   * @member triggerConfig the config for the trigger
+   * @member offchainConfig offchainConfig for upkeep in bytes
+   */
   struct RegistrationParams {
+    address upkeepContract;
+    uint96 amount;
+    // 1 word full
+    address adminAddress;
+    uint32 gasLimit;
+    uint8 triggerType;
+    // 7 bytes left in 2nd word
+    IERC20 billingToken;
+    // 12 bytes left in 3rd word
     string name;
     bytes encryptedEmail;
-    address upkeepContract;
-    uint32 gasLimit;
-    address adminAddress;
-    uint8 triggerType;
     bytes checkData;
     bytes triggerConfig;
     bytes offchainConfig;
-    uint96 amount;
   }
 
-  RegistrarConfig private s_config;
-  // Only applicable if s_config.configType is ENABLED_SENDER_ALLOWLIST
+  LinkTokenInterface public immutable i_LINK;
+  IWrappedNative public immutable i_WRAPPED_NATIVE_TOKEN;
+  IAutomationRegistryMaster2_3 private s_registry;
+
+  // Only applicable if trigger config is set to ENABLED_SENDER_ALLOWLIST
   mapping(address => bool) private s_autoApproveAllowedSenders;
+  mapping(IERC20 => uint256) private s_minRegistrationAmounts;
+  mapping(bytes32 => PendingRequest) private s_pendingRequests;
+  mapping(uint8 => TriggerRegistrationStorage) private s_triggerRegistrations;
 
   event RegistrationRequested(
     bytes32 indexed hash,
@@ -122,37 +135,39 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
 
   event AutoApproveAllowedSenderSet(address indexed senderAddress, bool allowed);
 
-  event ConfigChanged(address AutomationRegistry, uint96 minLINKJuels);
+  event ConfigChanged();
 
   event TriggerConfigSet(uint8 triggerType, AutoApproveType autoApproveType, uint32 autoApproveMaxAllowed);
 
-  error InvalidAdminAddress();
-  error RequestNotFound();
   error HashMismatch();
-  error OnlyAdminOrOwner();
   error InsufficientPayment();
-  error RegistrationRequestFailed();
-  error OnlyLink();
-  error AmountMismatch();
-  error SenderMismatch();
-  error FunctionNotPermitted();
-  error LinkTransferFailed(address to);
+  error InvalidAdminAddress();
+  error InvalidBillingToken();
   error InvalidDataLength();
+  error TransferFailed(address to);
+  error OnlyAdminOrOwner();
+  error OnlyLink();
+  error RequestNotFound();
 
   /**
    * @param LINKAddress Address of Link token
-   * @param AutomationRegistry keeper registry address
-   * @param minLINKJuels minimum LINK that new registrations should fund their upkeep with
+   * @param registry keeper registry address
    * @param triggerConfigs the initial config for individual triggers
+   * @param billingTokens the tokens allowed for billing
+   * @param minRegistrationFees the minimum amount for registering with each billing token
+   * @param wrappedNativeToken wrapped native token
    */
   constructor(
     address LINKAddress,
-    address AutomationRegistry,
-    uint96 minLINKJuels,
-    InitialTriggerConfig[] memory triggerConfigs
+    IAutomationRegistryMaster2_3 registry,
+    InitialTriggerConfig[] memory triggerConfigs,
+    IERC20[] memory billingTokens,
+    uint256[] memory minRegistrationFees,
+    IWrappedNative wrappedNativeToken
   ) ConfirmedOwner(msg.sender) {
-    LINK = LinkTokenInterface(LINKAddress);
-    setConfig(AutomationRegistry, minLINKJuels);
+    i_LINK = LinkTokenInterface(LINKAddress);
+    i_WRAPPED_NATIVE_TOKEN = wrappedNativeToken;
+    setConfig(registry, billingTokens, minRegistrationFees);
     for (uint256 idx = 0; idx < triggerConfigs.length; idx++) {
       setTriggerConfig(
         triggerConfigs[idx].triggerType,
@@ -165,103 +180,40 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
   //EXTERNAL
 
   /**
-   * @notice register can only be called through transferAndCall on LINK contract
-   * @param name string of the upkeep to be registered
-   * @param encryptedEmail email address of upkeep contact
-   * @param upkeepContract address to perform upkeep on
-   * @param gasLimit amount of gas to provide the target contract when performing upkeep
-   * @param adminAddress address to cancel upkeep and withdraw remaining funds
-   * @param triggerType the type of trigger for the upkeep
-   * @param checkData data passed to the contract when checking for upkeep
-   * @param triggerConfig the config for the trigger
-   * @param offchainConfig offchainConfig for upkeep in bytes
-   * @param amount quantity of LINK upkeep is funded with (specified in Juels)
-   * @param sender address of the sender making the request
-   */
-  function register(
-    string memory name,
-    bytes calldata encryptedEmail,
-    address upkeepContract,
-    uint32 gasLimit,
-    address adminAddress,
-    uint8 triggerType,
-    bytes memory checkData,
-    bytes memory triggerConfig,
-    bytes memory offchainConfig,
-    uint96 amount,
-    address sender
-  ) external onlyLINK {
-    _register(
-      RegistrationParams({
-        name: name,
-        encryptedEmail: encryptedEmail,
-        upkeepContract: upkeepContract,
-        gasLimit: gasLimit,
-        adminAddress: adminAddress,
-        triggerType: triggerType,
-        checkData: checkData,
-        triggerConfig: triggerConfig,
-        offchainConfig: offchainConfig,
-        amount: amount
-      }),
-      sender
-    );
-  }
-
-  /**
    * @notice Allows external users to register upkeeps; assumes amount is approved for transfer by the contract
    * @param requestParams struct of all possible registration parameters
    */
-  function registerUpkeep(RegistrationParams calldata requestParams) external returns (uint256) {
-    if (requestParams.amount < s_config.minLINKJuels) {
-      revert InsufficientPayment();
+  function registerUpkeep(RegistrationParams memory requestParams) external payable returns (uint256) {
+    if (requestParams.billingToken == IERC20(i_WRAPPED_NATIVE_TOKEN) && msg.value != 0) {
+      requestParams.amount = SafeCast.toUint96(msg.value);
+      // wrap and send native payment
+      i_WRAPPED_NATIVE_TOKEN.deposit{value: msg.value}();
+    } else {
+      // send ERC20 payment, including wrapped native token
+      if (!requestParams.billingToken.transferFrom(msg.sender, address(this), requestParams.amount)) {
+        revert TransferFailed(address(this));
+      }
     }
-
-    LINK.transferFrom(msg.sender, address(this), requestParams.amount);
 
     return _register(requestParams, msg.sender);
   }
 
   /**
    * @dev register upkeep on AutomationRegistry contract and emit RegistrationApproved event
+   * @param requestParams struct of all possible registration parameters
+   * @param hash the committment of the registration request
    */
-  function approve(
-    string memory name,
-    address upkeepContract,
-    uint32 gasLimit,
-    address adminAddress,
-    uint8 triggerType,
-    bytes calldata checkData,
-    bytes memory triggerConfig,
-    bytes calldata offchainConfig,
-    bytes32 hash
-  ) external onlyOwner {
+  function approve(RegistrationParams calldata requestParams, bytes32 hash) external onlyOwner {
     PendingRequest memory request = s_pendingRequests[hash];
     if (request.admin == address(0)) {
       revert RequestNotFound();
     }
-    bytes32 expectedHash = keccak256(
-      abi.encode(upkeepContract, gasLimit, adminAddress, triggerType, checkData, triggerConfig, offchainConfig)
-    );
+    bytes32 expectedHash = keccak256(abi.encode(requestParams));
     if (hash != expectedHash) {
       revert HashMismatch();
     }
     delete s_pendingRequests[hash];
-    _approve(
-      RegistrationParams({
-        name: name,
-        encryptedEmail: "",
-        upkeepContract: upkeepContract,
-        gasLimit: gasLimit,
-        adminAddress: adminAddress,
-        triggerType: triggerType,
-        checkData: checkData,
-        triggerConfig: triggerConfig,
-        offchainConfig: offchainConfig,
-        amount: request.balance
-      }),
-      expectedHash
-    );
+    _approve(requestParams, expectedHash);
   }
 
   /**
@@ -277,24 +229,30 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
       revert RequestNotFound();
     }
     delete s_pendingRequests[hash];
-    bool success = LINK.transfer(request.admin, request.balance);
+    bool success = i_LINK.transfer(request.admin, request.balance);
     if (!success) {
-      revert LinkTransferFailed(request.admin);
+      revert TransferFailed(request.admin);
     }
     emit RegistrationRejected(hash);
   }
 
   /**
    * @notice owner calls this function to set contract config
-   * @param AutomationRegistry new keeper registry address
-   * @param minLINKJuels minimum LINK that new registrations should fund their upkeep with
+   * @param registry new keeper registry address
+   * @param billingTokens the billing tokens that this registrar supports (registy must also support these)
+   * @param minBalances minimum balances that users must supply to register with the corresponding billing token
    */
-  function setConfig(address AutomationRegistry, uint96 minLINKJuels) public onlyOwner {
-    s_config = RegistrarConfig({
-      minLINKJuels: minLINKJuels,
-      AutomationRegistry: IAutomationRegistryMaster2_3(AutomationRegistry)
-    });
-    emit ConfigChanged(AutomationRegistry, minLINKJuels);
+  function setConfig(
+    IAutomationRegistryMaster2_3 registry,
+    IERC20[] memory billingTokens,
+    uint256[] memory minBalances
+  ) public onlyOwner {
+    if (billingTokens.length != minBalances.length) revert InvalidDataLength();
+    s_registry = registry;
+    for (uint256 i = 0; i < billingTokens.length; i++) {
+      s_minRegistrationAmounts[billingTokens[i]] = minBalances[i];
+    }
+    emit ConfigChanged();
   }
 
   /**
@@ -333,11 +291,17 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
   }
 
   /**
-   * @notice read the current registration configuration
+   * @notice gets the registry that this registrar is pointed to
    */
-  function getConfig() external view returns (address AutomationRegistry, uint256 minLINKJuels) {
-    RegistrarConfig memory config = s_config;
-    return (address(config.AutomationRegistry), config.minLINKJuels);
+  function getRegistry() external view returns (IAutomationRegistryMaster2_3) {
+    return s_registry;
+  }
+
+  /**
+   * @notice get the minimum registration fee for a particular billing token
+   */
+  function getMinimumRegistrationAmount(IERC20 billingToken) external view returns (uint256) {
+    return s_minRegistrationAmounts[billingToken];
   }
 
   /**
@@ -362,26 +326,12 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
    * @param amount Amount of LINK sent (specified in Juels)
    * @param data Payload of the transaction
    */
-  function onTokenTransfer(
-    address sender,
-    uint256 amount,
-    bytes calldata data
-  )
-    external
-    override
-    onlyLINK
-    permittedFunctionsForLINK(data)
-    isActualAmount(amount, data)
-    isActualSender(sender, data)
-  {
-    if (amount < s_config.minLINKJuels) {
-      revert InsufficientPayment();
-    }
-    (bool success, ) = address(this).delegatecall(data);
-    // calls register
-    if (!success) {
-      revert RegistrationRequestFailed();
-    }
+  function onTokenTransfer(address sender, uint256 amount, bytes calldata data) external override {
+    if (msg.sender != address(i_LINK)) revert OnlyLink();
+    RegistrationParams memory params = abi.decode(data, (RegistrationParams));
+    if (address(params.billingToken) != address(i_LINK)) revert OnlyLink();
+    params.amount = uint96(amount); // ignore whatever is sent in registration params, use actual value; casting safe because max supply LINK < 2^96
+    _register(params, sender);
   }
 
   // ================================================================
@@ -390,22 +340,21 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
 
   /**
    * @dev verify registration request and emit RegistrationRequested event
+   * @dev we currently allow multiple duplicate registrations by adding to the original registration's balance
+   * we could make this much simpler by using a nonce to differentiate otherwise identical requests and then
+   * we don't have to worry about identical registrations
    */
   function _register(RegistrationParams memory params, address sender) private returns (uint256) {
+    if (params.amount < s_minRegistrationAmounts[params.billingToken]) {
+      revert InsufficientPayment();
+    }
     if (params.adminAddress == address(0)) {
       revert InvalidAdminAddress();
     }
-    bytes32 hash = keccak256(
-      abi.encode(
-        params.upkeepContract,
-        params.gasLimit,
-        params.adminAddress,
-        params.triggerType,
-        params.checkData,
-        params.triggerConfig,
-        params.offchainConfig
-      )
-    );
+    if (!s_registry.supportsBillingToken(address(params.billingToken))) {
+      revert InvalidBillingToken();
+    }
+    bytes32 hash = keccak256(abi.encode(params));
 
     emit RegistrationRequested(
       hash,
@@ -437,19 +386,28 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
    * @dev register upkeep on AutomationRegistry contract and emit RegistrationApproved event
    */
   function _approve(RegistrationParams memory params, bytes32 hash) private returns (uint256) {
-    IAutomationRegistryMaster2_3 AutomationRegistry = s_config.AutomationRegistry;
-    uint256 upkeepId = AutomationRegistry.registerUpkeep(
+    IAutomationRegistryMaster2_3 registry = s_registry;
+    uint256 upkeepId = registry.registerUpkeep(
       params.upkeepContract,
       params.gasLimit,
       params.adminAddress,
       params.triggerType,
+      address(params.billingToken), // have to cast as address because master interface doesn't use contract types
       params.checkData,
       params.triggerConfig,
       params.offchainConfig
     );
-    bool success = LINK.transferAndCall(address(AutomationRegistry), params.amount, abi.encode(upkeepId));
+    bool success;
+    if (address(params.billingToken) == address(i_LINK)) {
+      success = i_LINK.transferAndCall(address(registry), params.amount, abi.encode(upkeepId));
+    } else {
+      success = params.billingToken.approve(address(registry), params.amount);
+      if (success) {
+        registry.addFunds(upkeepId, params.amount);
+      }
+    }
     if (!success) {
-      revert LinkTransferFailed(address(AutomationRegistry));
+      revert TransferFailed(address(registry));
     }
     emit RegistrationApproved(hash, params.name, upkeepId);
     return upkeepId;
@@ -469,69 +427,5 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
       return true;
     }
     return false;
-  }
-
-  // ================================================================
-  // |                          MODIFIERS                           |
-  // ================================================================
-
-  /**
-   * @dev Reverts if not sent from the LINK token
-   */
-  modifier onlyLINK() {
-    if (msg.sender != address(LINK)) {
-      revert OnlyLink();
-    }
-    _;
-  }
-
-  /**
-   * @dev Reverts if the given data does not begin with the `register` function selector
-   * @param _data The data payload of the request
-   */
-  modifier permittedFunctionsForLINK(bytes memory _data) {
-    bytes4 funcSelector;
-    assembly {
-      // solhint-disable-next-line avoid-low-level-calls
-      funcSelector := mload(add(_data, 32)) // First 32 bytes contain length of data
-    }
-    if (funcSelector != REGISTER_REQUEST_SELECTOR) {
-      revert FunctionNotPermitted();
-    }
-    _;
-  }
-
-  /**
-   * @dev Reverts if the actual amount passed does not match the expected amount
-   * @param expected amount that should match the actual amount
-   * @param data bytes
-   */
-  modifier isActualAmount(uint256 expected, bytes calldata data) {
-    // decode register function arguments to get actual amount
-    (, , , , , , , , , uint96 amount, ) = abi.decode(
-      data[4:],
-      (string, bytes, address, uint32, address, uint8, bytes, bytes, bytes, uint96, address)
-    );
-    if (expected != amount) {
-      revert AmountMismatch();
-    }
-    _;
-  }
-
-  /**
-   * @dev Reverts if the actual sender address does not match the expected sender address
-   * @param expected address that should match the actual sender address
-   * @param data bytes
-   */
-  modifier isActualSender(address expected, bytes calldata data) {
-    // decode register function arguments to get actual sender
-    (, , , , , , , , , , address sender) = abi.decode(
-      data[4:],
-      (string, bytes, address, uint32, address, uint8, bytes, bytes, bytes, uint96, address)
-    );
-    if (expected != sender) {
-      revert SenderMismatch();
-    }
-    _;
   }
 }

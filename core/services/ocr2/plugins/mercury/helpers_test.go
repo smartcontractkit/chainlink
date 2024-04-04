@@ -137,7 +137,7 @@ type Node struct {
 
 func (node *Node) AddJob(t *testing.T, spec string) {
 	c := node.App.GetConfig()
-	job, err := validate.ValidatedOracleSpecToml(c.OCR2(), c.Insecure(), spec)
+	job, err := validate.ValidatedOracleSpecToml(testutils.Context(t), c.OCR2(), c.Insecure(), spec, nil)
 	require.NoError(t, err)
 	err = node.App.AddJobV2(testutils.Context(t), &job)
 	require.NoError(t, err)
@@ -168,6 +168,7 @@ func setupNode(
 		// [JobPipeline]
 		// MaxSuccessfulRuns = 0
 		c.JobPipeline.MaxSuccessfulRuns = ptr(uint64(0))
+		c.JobPipeline.VerboseLogging = ptr(true)
 
 		// [Feature]
 		// UICSAKeys=true

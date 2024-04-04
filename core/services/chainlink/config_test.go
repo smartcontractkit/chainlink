@@ -30,12 +30,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	legacy "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink/cfgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -186,8 +186,9 @@ var (
 				Chain: stkcfg.Chain{
 					ConfirmationPoll: commoncfg.MustNewDuration(time.Hour),
 				},
+				FeederURL: commoncfg.MustParseURL("http://feeder.url"),
 				Nodes: []*stkcfg.Node{
-					{Name: ptr("primary"), URL: commoncfg.MustParseURL("http://stark.node")},
+					{Name: ptr("primary"), URL: commoncfg.MustParseURL("http://stark.node"), APIKey: ptr("key")},
 				},
 			},
 		},
@@ -209,8 +210,8 @@ func TestConfig_Marshal(t *testing.T) {
 		require.NoError(t, err)
 		return &d
 	}
-	mustAddress := func(s string) *ethkey.EIP55Address {
-		a, err := ethkey.NewEIP55Address(s)
+	mustAddress := func(s string) *types.EIP55Address {
+		a, err := types.NewEIP55Address(s)
 		require.NoError(t, err)
 		return &a
 	}
@@ -370,6 +371,7 @@ func TestConfig_Marshal(t *testing.T) {
 		ReaperInterval:            commoncfg.MustNewDuration(4 * time.Hour),
 		ReaperThreshold:           commoncfg.MustNewDuration(7 * 24 * time.Hour),
 		ResultWriteQueueDepth:     ptr[uint32](10),
+		VerboseLogging:            ptr(false),
 		HTTPRequest: toml.JobPipelineHTTPRequest{
 			MaxSize:        ptr[utils.FileSize](100 * utils.MB),
 			DefaultTimeout: commoncfg.MustNewDuration(time.Minute),
@@ -403,7 +405,7 @@ func TestConfig_Marshal(t *testing.T) {
 		DefaultTransactionQueueDepth: ptr[uint32](12),
 		KeyBundleID:                  ptr(models.MustSha256HashFromHex("acdd42797a8b921b2910497badc50006")),
 		SimulateTransactions:         ptr(true),
-		TransmitterAddress:           ptr(ethkey.MustEIP55Address("0xa0788FC17B1dEe36f057c42B6F373A34B014687e")),
+		TransmitterAddress:           ptr(types.MustEIP55Address("0xa0788FC17B1dEe36f057c42B6F373A34B014687e")),
 		CaptureEATelemetry:           ptr(false),
 		TraceLogging:                 ptr(false),
 	}
@@ -509,7 +511,7 @@ func TestConfig_Marshal(t *testing.T) {
 					LimitDefault:       ptr[uint64](12),
 					LimitMax:           ptr[uint64](17),
 					LimitMultiplier:    mustDecimal("1.234"),
-					LimitTransfer:      ptr[uint32](100),
+					LimitTransfer:      ptr[uint64](100),
 					TipCapDefault:      assets.NewWeiI(2),
 					TipCapMin:          assets.NewWeiI(1),
 					PriceDefault:       assets.NewWeiI(math.MaxInt64),
@@ -574,12 +576,13 @@ func TestConfig_Marshal(t *testing.T) {
 				},
 
 				NodePool: evmcfg.NodePool{
-					PollFailureThreshold: ptr[uint32](5),
-					PollInterval:         &minute,
-					SelectionMode:        &selectionMode,
-					SyncThreshold:        ptr[uint32](13),
-					LeaseDuration:        &zeroSeconds,
-					NodeIsSyncingEnabled: ptr(true),
+					PollFailureThreshold:       ptr[uint32](5),
+					PollInterval:               &minute,
+					SelectionMode:              &selectionMode,
+					SyncThreshold:              ptr[uint32](13),
+					LeaseDuration:              &zeroSeconds,
+					NodeIsSyncingEnabled:       ptr(true),
+					FinalizedBlockPollInterval: &second,
 				},
 				OCR: evmcfg.OCR{
 					ContractConfirmations:              ptr[uint16](11),
@@ -652,8 +655,9 @@ func TestConfig_Marshal(t *testing.T) {
 				TxTimeout:           commoncfg.MustNewDuration(13 * time.Second),
 				ConfirmationPoll:    commoncfg.MustNewDuration(42 * time.Second),
 			},
+			FeederURL: commoncfg.MustParseURL("http://feeder.url"),
 			Nodes: []*stkcfg.Node{
-				{Name: ptr("primary"), URL: commoncfg.MustParseURL("http://stark.node")},
+				{Name: ptr("primary"), URL: commoncfg.MustParseURL("http://stark.node"), APIKey: ptr("key")},
 			},
 		},
 	}
@@ -845,6 +849,7 @@ MaxSuccessfulRuns = 123456
 ReaperInterval = '4h0m0s'
 ReaperThreshold = '168h0m0s'
 ResultWriteQueueDepth = 10
+VerboseLogging = false
 
 [JobPipeline.HTTPRequest]
 DefaultTimeout = '1m0s'
@@ -1018,6 +1023,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 13
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = true
+FinalizedBlockPollInterval = '1s'
 
 [EVM.OCR]
 ContractConfirmations = 11
@@ -1106,6 +1112,7 @@ URL = 'http://solana.bar'
 `},
 		{"Starknet", Config{Starknet: full.Starknet}, `[[Starknet]]
 ChainID = 'foobar'
+FeederURL = 'http://feeder.url'
 Enabled = true
 OCR2CachePollPeriod = '6h0m0s'
 OCR2CacheTTL = '3m0s'
@@ -1116,6 +1123,7 @@ ConfirmationPoll = '42s'
 [[Starknet.Nodes]]
 Name = 'primary'
 URL = 'http://stark.node'
+APIKey = 'key'
 `},
 		{"Mercury", Config{Core: toml.Core{Mercury: full.Mercury}}, `[Mercury]
 [Mercury.Cache]
@@ -1138,6 +1146,7 @@ CertFile = '/path/to/cert.pem'
 
 			require.NoError(t, config.DecodeTOML(strings.NewReader(s), &got))
 			ts, err := got.TOMLString()
+
 			require.NoError(t, err)
 			assert.Equal(t, tt.config, got, diff.Diff(s, ts))
 		})
@@ -1149,7 +1158,7 @@ func TestConfig_full(t *testing.T) {
 	require.NoError(t, config.DecodeTOML(strings.NewReader(fullTOML), &got))
 	// Except for some EVM node fields.
 	for c := range got.EVM {
-		addr, err := ethkey.NewEIP55Address("0x2a3e23c6f242F5345320814aC8a1b4E58707D292")
+		addr, err := types.NewEIP55Address("0x2a3e23c6f242F5345320814aC8a1b4E58707D292")
 		require.NoError(t, err)
 		if got.EVM[c].ChainWriter.FromAddress == nil {
 			got.EVM[c].ChainWriter.FromAddress = &addr
@@ -1543,6 +1552,7 @@ func TestConfig_SetFrom(t *testing.T) {
 				require.NoError(t, c.SetFrom(&f))
 			}
 			ts, err := c.TOMLString()
+
 			require.NoError(t, err)
 			assert.Equal(t, tt.exp, ts)
 		})

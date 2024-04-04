@@ -21,6 +21,10 @@ func (disabled) Start(ctx context.Context) error { return ErrDisabled }
 
 func (disabled) Close() error { return ErrDisabled }
 
+func (disabled) Healthy() error {
+	return ErrDisabled
+}
+
 func (disabled) Ready() error { return ErrDisabled }
 
 func (disabled) HealthReport() map[string]error {
@@ -36,6 +40,8 @@ func (disabled) RegisterFilter(ctx context.Context, filter Filter) error { retur
 func (disabled) UnregisterFilter(ctx context.Context, name string) error { return ErrDisabled }
 
 func (disabled) HasFilter(name string) bool { return false }
+
+func (disabled) GetFilters() map[string]Filter { return nil }
 
 func (disabled) LatestBlock(ctx context.Context) (LogPollerBlock, error) {
 	return LogPollerBlock{}, ErrDisabled

@@ -76,7 +76,7 @@ func (g *gasEstimatorConfig) LimitMultiplier() float32 {
 	return f
 }
 
-func (g *gasEstimatorConfig) LimitTransfer() uint32 {
+func (g *gasEstimatorConfig) LimitTransfer() uint64 {
 	return *g.c.LimitTransfer
 }
 

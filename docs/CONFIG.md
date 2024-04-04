@@ -80,7 +80,7 @@ DefaultLockTimeout = '15s' # Default
 DefaultQueryTimeout = '10s' # Default
 LogQueries = false # Default
 MaxIdleConns = 10 # Default
-MaxOpenConns = 20 # Default
+MaxOpenConns = 100 # Default
 MigrateOnStartup = true # Default
 ```
 
@@ -119,7 +119,7 @@ Postgres has connection limits, so you must use caution when increasing this val
 
 ### MaxOpenConns
 ```toml
-MaxOpenConns = 20 # Default
+MaxOpenConns = 100 # Default
 ```
 MaxOpenConns configures the maximum number of database connections that a Chainlink node will have open at any one time. Think of this as the maximum burst upper bound limit of database connections per Chainlink node instance. Increasing this number can help to improve performance under database-heavy workloads.
 
@@ -776,6 +776,7 @@ MaxSuccessfulRuns = 10000 # Default
 ReaperInterval = '1h' # Default
 ReaperThreshold = '24h' # Default
 ResultWriteQueueDepth = 100 # Default
+VerboseLogging = true # Default
 ```
 
 
@@ -822,6 +823,16 @@ ReaperThreshold determines the age limit for job runs. Completed job runs older 
 ResultWriteQueueDepth = 100 # Default
 ```
 ResultWriteQueueDepth controls how many writes will be buffered before subsequent writes are dropped, for jobs that write results asynchronously for performance reasons, such as OCR.
+
+### VerboseLogging
+```toml
+VerboseLogging = true # Default
+```
+VerboseLogging enables detailed logging of pipeline execution steps.
+This can be useful for debugging failed runs without relying on the UI
+or database.
+
+You may disable if this results in excessive log volume.
 
 ## JobPipeline.HTTPRequest
 ```toml
@@ -1759,6 +1770,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
 
 [OCR]
 ContractConfirmations = 4
@@ -1770,7 +1782,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5400000
+GasLimit = 10500000
 ```
 
 </p></details>
@@ -1843,6 +1855,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
 
 [OCR]
 ContractConfirmations = 4
@@ -1927,6 +1940,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
 
 [OCR]
 ContractConfirmations = 4
@@ -2011,6 +2025,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
 
 [OCR]
 ContractConfirmations = 4
@@ -2096,6 +2111,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
 
 [OCR]
 ContractConfirmations = 1
@@ -2180,6 +2196,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
 
 [OCR]
 ContractConfirmations = 4
@@ -2264,6 +2281,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
 
 [OCR]
 ContractConfirmations = 4
@@ -2349,6 +2367,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
 
 [OCR]
 ContractConfirmations = 4
@@ -2433,6 +2452,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
 
 [OCR]
 ContractConfirmations = 4
@@ -2516,6 +2536,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
 
 [OCR]
 ContractConfirmations = 4
@@ -2599,6 +2620,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
 
 [OCR]
 ContractConfirmations = 4
@@ -2683,6 +2705,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
 
 [OCR]
 ContractConfirmations = 4
@@ -2768,6 +2791,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
 
 [OCR]
 ContractConfirmations = 4
@@ -2852,6 +2876,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
 
 [OCR]
 ContractConfirmations = 4
@@ -2936,6 +2961,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
 
 [OCR]
 ContractConfirmations = 4
@@ -3020,6 +3046,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
 
 [OCR]
 ContractConfirmations = 4
@@ -3104,6 +3131,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
 
 [OCR]
 ContractConfirmations = 1
@@ -3188,6 +3216,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
 
 [OCR]
 ContractConfirmations = 4
@@ -3272,6 +3301,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
 
 [OCR]
 ContractConfirmations = 4
@@ -3356,6 +3386,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
 
 [OCR]
 ContractConfirmations = 4
@@ -3441,6 +3472,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
 
 [OCR]
 ContractConfirmations = 1
@@ -3525,6 +3557,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
 
 [OCR]
 ContractConfirmations = 1
@@ -3608,6 +3641,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
 
 [OCR]
 ContractConfirmations = 1
@@ -3692,6 +3726,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
 
 [OCR]
 ContractConfirmations = 1
@@ -3775,6 +3810,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
 
 [OCR]
 ContractConfirmations = 1
@@ -3859,6 +3895,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
 
 [OCR]
 ContractConfirmations = 1
@@ -3943,6 +3980,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
 
 [OCR]
 ContractConfirmations = 1
@@ -4026,6 +4064,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
 
 [OCR]
 ContractConfirmations = 1
@@ -4109,6 +4148,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
 
 [OCR]
 ContractConfirmations = 1
@@ -4193,6 +4233,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
 
 [OCR]
 ContractConfirmations = 1
@@ -4276,6 +4317,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
 
 [OCR]
 ContractConfirmations = 1
@@ -4360,6 +4402,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
 
 [OCR]
 ContractConfirmations = 4
@@ -4443,6 +4486,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
 
 [OCR]
 ContractConfirmations = 1
@@ -4527,6 +4571,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
 
 [OCR]
 ContractConfirmations = 1
@@ -4611,6 +4656,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
 
 [OCR]
 ContractConfirmations = 4
@@ -4696,6 +4742,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
 
 [OCR]
 ContractConfirmations = 1
@@ -4780,6 +4827,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
 
 [OCR]
 ContractConfirmations = 1
@@ -4864,6 +4912,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
 
 [OCR]
 ContractConfirmations = 1
@@ -4948,6 +4997,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
 
 [OCR]
 ContractConfirmations = 1
@@ -5032,6 +5082,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
 
 [OCR]
 ContractConfirmations = 1
@@ -5115,6 +5166,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
 
 [OCR]
 ContractConfirmations = 4
@@ -5198,6 +5250,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
 
 [OCR]
 ContractConfirmations = 4
@@ -5282,6 +5335,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
 
 [OCR]
 ContractConfirmations = 4
@@ -5366,6 +5420,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
 
 [OCR]
 ContractConfirmations = 1
@@ -5450,6 +5505,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
 
 [OCR]
 ContractConfirmations = 1
@@ -5535,6 +5591,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
 
 [OCR]
 ContractConfirmations = 1
@@ -5620,6 +5677,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
 
 [OCR]
 ContractConfirmations = 1
@@ -5704,6 +5762,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
 
 [OCR]
 ContractConfirmations = 1
@@ -5788,6 +5847,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
 
 [OCR]
 ContractConfirmations = 1
@@ -5872,6 +5932,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
 
 [OCR]
 ContractConfirmations = 1
@@ -5956,6 +6017,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
 
 [OCR]
 ContractConfirmations = 4
@@ -5967,7 +6029,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5400000
+GasLimit = 10500000
 ```
 
 </p></details>
@@ -6040,6 +6102,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
 
 [OCR]
 ContractConfirmations = 1
@@ -6124,6 +6187,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
 
 [OCR]
 ContractConfirmations = 4
@@ -6208,6 +6272,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
 
 [OCR]
 ContractConfirmations = 4
@@ -6852,6 +6917,7 @@ SelectionMode = 'HighestHead' # Default
 SyncThreshold = 5 # Default
 LeaseDuration = '0s' # Default
 NodeIsSyncingEnabled = false # Default
+FinalizedBlockPollInterval = '5s' # Default
 ```
 The node pool manages multiple RPC endpoints.
 
@@ -6912,6 +6978,18 @@ Node transitions and remains in `Syncing` state while RPC signals this state (In
 All of the requests to node in state `Syncing` are rejected.
 
 Set true to enable this check
+
+### FinalizedBlockPollInterval
+```toml
+FinalizedBlockPollInterval = '5s' # Default
+```
+FinalizedBlockPollInterval controls how often to poll RPC for new finalized blocks.
+The finalized block is only used to report to the `pool_rpc_node_highest_finalized_block` metric. We plan to use it
+in RPCs health assessment in the future.
+If `FinalityTagEnabled = false`, poll is not performed and `pool_rpc_node_highest_finalized_block` is
+reported based on latest block and finality depth.
+
+Set to 0 to disable.
 
 ## EVM.OCR
 ```toml
@@ -7306,6 +7384,7 @@ URL is the HTTP(S) endpoint for this node.
 ```toml
 [[Starknet]]
 ChainID = 'foobar' # Example
+FeederURL = 'http://feeder.url' # Example
 Enabled = true # Default
 OCR2CachePollPeriod = '5s' # Default
 OCR2CacheTTL = '1m' # Default
@@ -7320,6 +7399,12 @@ ConfirmationPoll = '5s' # Default
 ChainID = 'foobar' # Example
 ```
 ChainID is the Starknet chain ID.
+
+### FeederURL
+```toml
+FeederURL = 'http://feeder.url' # Example
+```
+FeederURL is required to get tx metadata (that the RPC can't)
 
 ### Enabled
 ```toml
@@ -7362,6 +7447,7 @@ ConfirmationPoll is how often to confirmer checks for tx inclusion on chain.
 [[Starknet.Nodes]]
 Name = 'primary' # Example
 URL = 'http://stark.node' # Example
+APIKey = 'key' # Example
 ```
 
 
@@ -7376,4 +7462,10 @@ Name is a unique (per-chain) identifier for this node.
 URL = 'http://stark.node' # Example
 ```
 URL is the base HTTP(S) endpoint for this node.
+
+### APIKey
+```toml
+APIKey = 'key' # Example
+```
+APIKey Header is optional and only required for Nethermind RPCs
 

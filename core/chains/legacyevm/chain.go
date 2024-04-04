@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/monitor"
@@ -32,7 +33,6 @@ import (
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 )
 
 //go:generate mockery --quiet --name Chain --output ./mocks/ --case=underscore
@@ -212,13 +212,13 @@ func NewTOMLChain(ctx context.Context, chain *toml.EVMConfig, opts ChainRelayExt
 }
 
 func newChain(ctx context.Context, cfg *evmconfig.ChainScoped, nodes []*toml.Node, opts ChainRelayExtenderConfig) (*chain, error) {
-	chainID, chainType := cfg.EVM().ChainID(), cfg.EVM().ChainType()
+	chainID := cfg.EVM().ChainID()
 	l := opts.Logger
 	var client evmclient.Client
 	if !cfg.EVMRPCEnabled() {
 		client = evmclient.NewNullClient(chainID, l)
 	} else if opts.GenEthClient == nil {
-		client = evmclient.NewEvmClient(cfg.EVM().NodePool(), cfg.EVM().NodeNoNewHeadsThreshold(), l, chainID, chainType, nodes)
+		client = evmclient.NewEvmClient(cfg.EVM().NodePool(), cfg.EVM(), l, chainID, nodes)
 	} else {
 		client = opts.GenEthClient(chainID)
 	}
@@ -279,7 +279,7 @@ func newChain(ctx context.Context, cfg *evmconfig.ChainScoped, nodes []*toml.Nod
 	if !cfg.EVMRPCEnabled() {
 		logBroadcaster = &log.NullBroadcaster{ErrMsg: fmt.Sprintf("Ethereum is disabled for chain %d", chainID)}
 	} else if opts.GenLogBroadcaster == nil {
-		logORM := log.NewORM(opts.SqlxDB, l, cfg.Database(), *chainID)
+		logORM := log.NewORM(opts.SqlxDB, *chainID)
 		logBroadcaster = log.NewBroadcaster(logORM, client, cfg.EVM(), l, highestSeenHead, opts.MailMon)
 	} else {
 		logBroadcaster = opts.GenLogBroadcaster(chainID)
