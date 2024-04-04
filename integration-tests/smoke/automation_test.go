@@ -88,17 +88,17 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool, automationTestConfig t
 	t.Parallel()
 
 	registryVersions := map[string]ethereum.KeeperRegistryVersion{
-		// "registry_2_0":                                 ethereum.RegistryVersion_2_0,
-		// "registry_2_1_conditional":                     ethereum.RegistryVersion_2_1,
-		// "registry_2_1_logtrigger":                      ethereum.RegistryVersion_2_1,
-		// "registry_2_1_with_mercury_v02":                ethereum.RegistryVersion_2_1,
-		// "registry_2_1_with_mercury_v03":                ethereum.RegistryVersion_2_1,
-		// "registry_2_1_with_logtrigger_and_mercury_v02": ethereum.RegistryVersion_2_1, //fails
-		// "registry_2_2_conditional": ethereum.RegistryVersion_2_2,
-		// "registry_2_2_logtrigger":                      ethereum.RegistryVersion_2_2,
-		// "registry_2_2_with_mercury_v02":                ethereum.RegistryVersion_2_2,
-		// "registry_2_2_with_mercury_v03":                ethereum.RegistryVersion_2_2,
-		"registry_2_2_with_logtrigger_and_mercury_v02": ethereum.RegistryVersion_2_2, //fails?
+		"registry_2_0":                                 ethereum.RegistryVersion_2_0,
+		"registry_2_1_conditional":                     ethereum.RegistryVersion_2_1,
+		"registry_2_1_logtrigger":                      ethereum.RegistryVersion_2_1,
+		"registry_2_1_with_mercury_v02":                ethereum.RegistryVersion_2_1,
+		"registry_2_1_with_mercury_v03":                ethereum.RegistryVersion_2_1,
+		"registry_2_1_with_logtrigger_and_mercury_v02": ethereum.RegistryVersion_2_1,
+		"registry_2_2_conditional":                     ethereum.RegistryVersion_2_2,
+		"registry_2_2_logtrigger":                      ethereum.RegistryVersion_2_2,
+		"registry_2_2_with_mercury_v02":                ethereum.RegistryVersion_2_2,
+		"registry_2_2_with_mercury_v03":                ethereum.RegistryVersion_2_2,
+		"registry_2_2_with_logtrigger_and_mercury_v02": ethereum.RegistryVersion_2_2,
 	}
 
 	for n, rv := range registryVersions {
@@ -173,7 +173,7 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool, automationTestConfig t
 					g.Expect(counter.Int64()).Should(gomega.BeNumerically(">=", int64(expect)),
 						"Expected consumer counter to be greater than %d, but got %d", expect, counter.Int64())
 				}
-			}, "15m", "1s").Should(gomega.Succeed()) // ~1m for cluster setup, ~2m for performing each upkeep 5 times, ~2m buffer
+			}, "10m", "1s").Should(gomega.Succeed()) // ~1m for cluster setup, ~2m for performing each upkeep 5 times, ~2m buffer
 
 			l.Info().Msgf("Total time taken to get 5 performs for each upkeep: %s", time.Since(startTime))
 
