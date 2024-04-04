@@ -82,8 +82,7 @@ func NewConnection(uri string, dialect dialects.DialectName, config ConnectionCo
 	if _, err = db.Exec(stmt); err != nil {
 		return nil, err
 	}
-	db.SetMaxOpenConns(config.MaxOpenConns())
-	db.SetMaxIdleConns(config.MaxIdleConns())
+	setMaxConns(db, config)
 
 	if os.Getenv("SKIP_PG_VERSION_CHECK") != "true" {
 		if err := checkVersion(db, MinRequiredPGVersion); err != nil {
@@ -92,6 +91,33 @@ func NewConnection(uri string, dialect dialects.DialectName, config ConnectionCo
 	}
 
 	return db, disallowReplica(db)
+}
+
+func setMaxConns(db *sqlx.DB, config ConnectionConfig) {
+	db.SetMaxOpenConns(config.MaxOpenConns())
+	db.SetMaxIdleConns(config.MaxIdleConns())
+
+	// HACK: In the case of mercury jobs, one conn is needed per job for good
+	// performance. Most nops will forget to increase the defaults to account
+	// for this so we detect it here instead.
+	//
+	// This problem will be solved by replacing mercury with parallel
+	// compositions (llo plugin).
+	//
+	// See: https://smartcontract-it.atlassian.net/browse/MERC-3654
+	var cnt int
+	if err := db.Get(&cnt, `SELECT COUNT(*) FROM ocr2_oracle_specs WHERE plugin_type = 'mercury'`); err != nil {
+		log.Printf("Error checking mercury jobs: %s", err.Error())
+		return
+	}
+	if cnt > config.MaxOpenConns() {
+		log.Printf("Detected %d mercury jobs, increasing max open connections from %d to %d", cnt, config.MaxOpenConns(), cnt)
+		db.SetMaxOpenConns(cnt)
+	}
+	if cnt > config.MaxIdleConns() {
+		log.Printf("Detected %d mercury jobs, increasing max idle connections from %d to %d", cnt, config.MaxIdleConns(), cnt)
+		db.SetMaxIdleConns(cnt)
+	}
 }
 
 type Getter interface {
