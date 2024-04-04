@@ -34,9 +34,9 @@ func ValidatePluginConfig(config PluginConfig) error {
 	if config.JuelsPerFeeCoinCache != nil {
 		updateInterval := config.JuelsPerFeeCoinCache.UpdateInterval.Duration()
 		if updateInterval != 0 && updateInterval < time.Second*30 {
-			return errors.Errorf("juelsPerFeeCoinSource update interval: %s is below 30 second minimum", updateInterval.String())
+			return errors.Errorf("juelsPerFeeCoinSourceCache update interval: %s is below 30 second minimum", updateInterval.String())
 		} else if updateInterval > time.Minute*20 {
-			return errors.Errorf("juelsPerFeeCoinSource update interval: %s is above 20 minute maximum", updateInterval.String())
+			return errors.Errorf("juelsPerFeeCoinSourceCache update interval: %s is above 20 minute maximum", updateInterval.String())
 		}
 	}
 
