@@ -41,10 +41,31 @@ jobs:
           done
           exit 1
 
-  prepublish-test:
+  tag-check:
     needs: [changes]
-    if: needs.changes.outputs.changes == 'true'
-    name: Prepublish Test ${{ fromJSON('["(skipped)", ""]')[needs.changes.outputs.changes == 'true'] }}
+    name: Tag Check
+    runs-on: ubuntu-latest
+    outputs:
+      is-release: ${{ steps.release-tag-check.outputs.is-release }}
+      is-pre-release: ${{ steps.release-tag-check.outputs.is-pre-release }}
+      release-version: ${{ steps.release-tag-check.outputs.release-version }}
+      pre-release-version: ${{ steps.release-tag-check.outputs.pre-release-version }}
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - name: Check release tag
+        id: release-tag-check
+        uses: smartcontractkit/chainlink-github-actions/release/release-tag-check@2031e56eb4edb8115ce8ba07cbbfb457149d865d # v2.3.8
+        env:
+          # Match semver git tags with a "contracts-" prefix.
+          RELEASE_REGEX: '^contracts-v[0-9]+\.[0-9]+\.[0-9]+$'
+          PRE_RELEASE_REGEX: '^contracts-v[0-9]+\.[0-9]+\.[0-9]+-(.+)$'
+          # Get the version by stripping the "contracts-v" prefix. 
+          VERSION_PREFIX: 'contracts-v'
+
+  prepublish-test:
+    needs: [changes, tag-check]
+    if: needs.changes.outputs.changes == 'true' || needs.tag-check.outputs.is-pre-release == 'true'
+    name: Prepublish Test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
@@ -66,9 +87,9 @@ jobs:
         continue-on-error: true
 
   native-compile:
-    needs: [changes]
-    if: needs.changes.outputs.changes == 'true'
-    name: Native Compilation ${{ fromJSON('["(skipped)", ""]')[needs.changes.outputs.changes == 'true'] }}
+    needs: [changes, tag-check]
+    if: needs.changes.outputs.changes == 'true' || needs.tag-check.outputs.is-release == 'true' || needs.tag-check.outputs.is-pre-release == 'true'
+    name: Native Compilation
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
@@ -141,7 +162,7 @@ jobs:
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: Lint
+          this-job-name: Solidity Lint
         continue-on-error: true
 
   prettier:
@@ -170,4 +191,86 @@ jobs:
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
           this-job-name: Prettier Formatting
+        continue-on-error: true
+
+  publish-beta:
+    name: Publish Beta NPM
+    environment: publish-contracts
+    needs: [tag-check, changes, lint, prettier, native-compile, prepublish-test]
+    runs-on: ubuntu-latest
+    if: needs.tag-check.outputs.is-pre-release == 'true'
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      - name: Setup NodeJS
+        uses: ./.github/actions/setup-nodejs
+
+      - name: Version package.json
+        working-directory: contracts
+        run: |
+          echo "Bumping version to ${{ needs.tag-check.outputs.pre-release-version }}"
+          pnpm version ${{ needs.tag-check.outputs.pre-release-version }} --no-git-tag-version --no-commit-hooks --no-git-checks
+
+      - name: Publish to NPM (Dry Run)
+        uses: smartcontractkit/.github/actions/ci-publish-npm@e1c9d45fc66369d6be5d3863c65af1750797a7f5 # ci-publish-npm@0.3.0     
+        with:
+          npm-token: ${{ secrets.NPM_TOKEN }}
+          create-github-release: false
+          publish-command: "pnpm publish-beta --no-git-checks"
+          package-json-directory: contracts
+
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@0281b09807758be1dcc41651e44e62b353808c47 # v2.1.0
+        with:
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: Publish Beta NPM
+        continue-on-error: true
+
+  publish-prod:
+    name: Publish Prod NPM
+    environment: publish-contracts
+    needs: [tag-check, changes, lint, prettier, native-compile, prepublish-test]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    if: needs.tag-check.outputs.is-release == 'true'
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      - name: Setup NodeJS
+        uses: ./.github/actions/setup-nodejs
+
+      - name: Validate version
+        working-directory: contracts
+        run: |
+          PACKAGE_JSON_VERSION="$(cat package.json | jq -r '.version')"
+          if [ "$PACKAGE_JSON_VERSION" != "${{ needs.tag-check.outputs.release-version }}" ]; then
+            echo "::error version mismatch: package.json version ($PACKAGE_JSON_VERSION) does not match version computed from tag ${{ needs.tag-check.outputs.release-version }}"
+            exit 1
+          fi
+
+      - name: Publish to NPM (Dry Run)
+        uses: smartcontractkit/.github/actions/ci-publish-npm@e1c9d45fc66369d6be5d3863c65af1750797a7f5 # ci-publish-npm@0.3.0     
+        with:
+          npm-token: ${{ secrets.NPM_TOKEN }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-release-tag-name: ${{ github.ref_name }}
+          github-release-changelog-path: "contracts/CHANGELOG.md"
+          create-github-release: true
+          publish-command: "pnpm publish-prod --no-git-checks"
+          package-json-directory: contracts
+
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@0281b09807758be1dcc41651e44e62b353808c47 # v2.1.0
+        with:
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: Publish Prod NPM
         continue-on-error: true
