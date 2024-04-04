@@ -30,10 +30,6 @@ func BigIntHook(_, to reflect.Type, data any) (any, error) {
 		bigInt := big.NewInt(0)
 
 		switch v := data.(type) {
-		case float64:
-			bigInt.SetInt64(int64(v))
-		case float32:
-			bigInt.SetInt64(int64(v))
 		case int:
 			bigInt.SetInt64(int64(v))
 		case int8:
