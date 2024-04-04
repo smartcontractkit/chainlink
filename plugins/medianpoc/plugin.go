@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
-
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -28,6 +27,12 @@ type Plugin struct {
 	loop.Plugin
 	stop services.StopChan
 	reportingplugins.MedianProviderServer
+}
+
+func (p *Plugin) NewValidationService(ctx context.Context) (types.ValidationService, error) {
+	s := &reportingPluginValidationService{lggr: p.Logger}
+	p.SubService(s)
+	return s, nil
 }
 
 type pipelineSpec struct {
@@ -128,5 +133,39 @@ func (r *reportingPluginFactoryService) Close() error {
 }
 
 func (r *reportingPluginFactoryService) HealthReport() map[string]error {
+	return map[string]error{r.Name(): r.Healthy()}
+}
+
+type reportingPluginValidationService struct {
+	services.StateMachine
+	lggr logger.Logger
+}
+
+func (r *reportingPluginValidationService) ValidateConfig(ctx context.Context, config map[string]interface{}) error {
+	tt, ok := config["telemetryType"]
+	if !ok {
+		return fmt.Errorf("expected telemtry type")
+	}
+	telemetryType, ok := tt.(string)
+	if !ok {
+		return fmt.Errorf("expected telemtry type to be of type string but got %T", tt)
+	}
+	if telemetryType != "median" {
+		return fmt.Errorf("expected telemtry type to be median but got %q", telemetryType)
+	}
+
+	return nil
+}
+func (r *reportingPluginValidationService) Name() string { return r.lggr.Name() }
+
+func (r *reportingPluginValidationService) Start(ctx context.Context) error {
+	return r.StartOnce("ValidationService", func() error { return nil })
+}
+
+func (r *reportingPluginValidationService) Close() error {
+	return r.StopOnce("ValidationService", func() error { return nil })
+}
+
+func (r *reportingPluginValidationService) HealthReport() map[string]error {
 	return map[string]error{r.Name(): r.Healthy()}
 }
