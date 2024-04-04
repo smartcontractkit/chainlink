@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commontxmgr "github.com/smartcontractkit/chainlink/v2/common/txmgr"
+
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 
 	evmassets "github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -23,6 +24,147 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 )
+
+func TestInMemoryStore_GetTxInProgress(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
+	persistentStore := cltest.NewTestTxStore(t, db)
+	kst := cltest.NewKeyStore(t, db, dbcfg)
+	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
+	_, otherAddress := cltest.MustInsertRandomKey(t, kst.Eth())
+
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	lggr := logger.TestSugared(t)
+	chainID := ethClient.ConfiguredChainID()
+	ctx := testutils.Context(t)
+
+	inMemoryStore, err := commontxmgr.NewInMemoryStore[
+		*big.Int,
+		common.Address, common.Hash, common.Hash,
+		*evmtypes.Receipt,
+		evmtypes.Nonce,
+		evmgas.EvmFee,
+	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	require.NoError(t, err)
+
+	// insert the transaction into the persistent store
+	inTx := mustInsertInProgressEthTxWithAttempt(t, persistentStore, 123, fromAddress)
+	require.NotNil(t, inTx)
+	// insert the transaction into the in-memory store
+	require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
+
+	// insert non in-progress transaction for another address
+	otherTx := cltest.NewEthTx(otherAddress)
+	require.NoError(t, persistentStore.InsertTx(ctx, &otherTx))
+	require.NoError(t, inMemoryStore.XXXTestInsertTx(otherAddress, &otherTx))
+
+	tcs := []struct {
+		name        string
+		fromAddress common.Address
+
+		hasErr bool
+		hasTx  bool
+	}{
+		{"finds the correct inprogress transaction", fromAddress, false, true},
+		{"wrong fromAddress", common.Address{}, false, false},
+		{"no inprogress transaction", otherAddress, false, false},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			actTx, actErr := inMemoryStore.GetTxInProgress(ctx, tc.fromAddress)
+			expTx, expErr := persistentStore.GetTxInProgress(ctx, tc.fromAddress)
+			if tc.hasErr {
+				require.NotNil(t, actErr)
+				require.NotNil(t, expErr)
+				require.Equal(t, expErr, actErr)
+			} else {
+				require.Nil(t, actErr)
+				require.Nil(t, expErr)
+			}
+			if tc.hasTx {
+				require.NotNil(t, actTx)
+				require.NotNil(t, expTx)
+				assertTxEqual(t, *expTx, *actTx)
+			} else {
+				require.Nil(t, actTx)
+				require.Nil(t, expTx)
+			}
+		})
+	}
+}
+
+func TestInMemoryStore_FindNextUnstartedTransactionFromAddress(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	_, dbcfg, evmcfg := evmtxmgr.MakeTestConfigs(t)
+	persistentStore := cltest.NewTestTxStore(t, db)
+	kst := cltest.NewKeyStore(t, db, dbcfg)
+	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
+	_, otherAddress := cltest.MustInsertRandomKey(t, kst.Eth())
+
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	lggr := logger.TestSugared(t)
+	chainID := ethClient.ConfiguredChainID()
+	ctx := testutils.Context(t)
+
+	inMemoryStore, err := commontxmgr.NewInMemoryStore[
+		*big.Int,
+		common.Address, common.Hash, common.Hash,
+		*evmtypes.Receipt,
+		evmtypes.Nonce,
+		evmgas.EvmFee,
+	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	require.NoError(t, err)
+
+	// insert the transaction into the persistent store
+	inTx := mustCreateUnstartedGeneratedTx(t, persistentStore, fromAddress, chainID)
+	// insert the transaction into the in-memory store
+	require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
+
+	// insert non in-progress transaction for another address
+	otherTx := mustInsertInProgressEthTxWithAttempt(t, persistentStore, 13, otherAddress)
+	require.NoError(t, inMemoryStore.XXXTestInsertTx(otherAddress, &otherTx))
+
+	tcs := []struct {
+		name        string
+		fromAddress common.Address
+		chainID     *big.Int
+
+		hasErr bool
+		hasTx  bool
+	}{
+		{"finds the correct inprogress transaction", fromAddress, chainID, false, true},
+		{"no unstarted transaction", otherAddress, chainID, true, false},
+		{"wrong chainID", fromAddress, big.NewInt(123), true, false},
+		{"unknown address", common.Address{}, chainID, true, false},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			actTx, actErr := inMemoryStore.FindNextUnstartedTransactionFromAddress(ctx, tc.fromAddress, tc.chainID)
+			expTx, expErr := persistentStore.FindNextUnstartedTransactionFromAddress(ctx, tc.fromAddress, tc.chainID)
+			if tc.hasErr {
+				require.NotNil(t, actErr)
+				require.NotNil(t, expErr)
+			} else {
+				require.Nil(t, actErr)
+				require.Nil(t, expErr)
+			}
+			if tc.hasTx {
+				require.NotNil(t, actTx)
+				require.NotNil(t, expTx)
+				assertTxEqual(t, *expTx, *actTx)
+			} else {
+				require.Nil(t, actTx)
+				require.Nil(t, expTx)
+			}
+		})
+	}
+}
 
 func TestInMemoryStore_CreateTransaction(t *testing.T) {
 	t.Parallel()
