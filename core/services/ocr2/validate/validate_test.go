@@ -604,6 +604,7 @@ USDCConfig.SourceTokenAddress = "0x1234567890123456789012345678901234567890"
 USDCConfig.SourceMessageTransmitterAddress = "0x0987654321098765432109876543210987654321"
 USDCConfig.AttestationAPI = "some api"
 USDCConfig.AttestationAPITimeoutSeconds = 12
+USDCConfig.AttestationAPIIntervalMilliseconds = 100
 `,
 			assertion: func(t *testing.T, os job.Job, err error) {
 				require.NoError(t, err)
@@ -611,10 +612,11 @@ USDCConfig.AttestationAPITimeoutSeconds = 12
 					SourceStartBlock: 1,
 					DestStartBlock:   2,
 					USDCConfig: config.USDCConfig{
-						SourceTokenAddress:              common.HexToAddress("0x1234567890123456789012345678901234567890"),
-						SourceMessageTransmitterAddress: common.HexToAddress("0x0987654321098765432109876543210987654321"),
-						AttestationAPI:                  "some api",
-						AttestationAPITimeoutSeconds:    12,
+						SourceTokenAddress:                 common.HexToAddress("0x1234567890123456789012345678901234567890"),
+						SourceMessageTransmitterAddress:    common.HexToAddress("0x0987654321098765432109876543210987654321"),
+						AttestationAPI:                     "some api",
+						AttestationAPITimeoutSeconds:       12,
+						AttestationAPIIntervalMilliseconds: 100,
 					},
 				}
 				var cfg config.ExecutionPluginJobSpecConfig
@@ -666,11 +668,12 @@ DestStartBlock = 2
 USDCConfig.SourceTokenAddress = "0x1234567890123456789012345678901234567890"
 USDCConfig.SourceMessageTransmitterAddress = "0x0987654321098765432109876543210987654321"
 USDCConfig.AttestationAPI = "some api"
+USDCConfig.AttestationAPIIntervalMilliseconds = 100
 USDCConfig.AttestationAPITimeoutSeconds = -12
 `,
 			assertion: func(t *testing.T, os job.Job, err error) {
 				require.Error(t, err)
-				require.Contains(t, err.Error(), "AttestationAPITimeoutSeconds must be non-negative")
+				require.Contains(t, err.Error(), "error while unmarshalling plugin config: json: cannot unmarshal number -12 into Go struct field USDCConfig.USDCConfig.AttestationAPITimeoutSeconds of type uint")
 			},
 		},
 		{

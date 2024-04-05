@@ -189,15 +189,6 @@ func TestUSDCValidate(t *testing.T) {
 			},
 			err: "",
 		},
-		{
-			config: USDCConfig{
-				AttestationAPI:                  "api",
-				SourceTokenAddress:              utils.RandomAddress(),
-				SourceMessageTransmitterAddress: utils.RandomAddress(),
-				AttestationAPITimeoutSeconds:    -1,
-			},
-			err: "AttestationAPITimeoutSeconds must be non-negative",
-		},
 	}
 
 	for _, tc := range testcases {
