@@ -670,7 +670,7 @@ USDCConfig.AttestationAPITimeoutSeconds = -12
 `,
 			assertion: func(t *testing.T, os job.Job, err error) {
 				require.Error(t, err)
-				require.Contains(t, err.Error(), "AttestationAPITimeoutSeconds must be non-negative")
+				require.Contains(t, err.Error(), "error while unmarshalling plugin config: json: cannot unmarshal number -12 into Go struct field USDCConfig.USDCConfig.AttestationAPITimeoutSeconds of type uint")
 			},
 		},
 		{
