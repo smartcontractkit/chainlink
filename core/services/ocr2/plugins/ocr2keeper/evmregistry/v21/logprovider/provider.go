@@ -197,10 +197,8 @@ func (p *logEventProvider) Start(context.Context) error {
 			for {
 				select {
 				case <-ticker.C:
-					if p.bufferV1 != nil {
-						if err := p.bufferV1.SyncFilters(p.filterStore); err != nil {
-							p.lggr.Warnw("failed to sync filters", "err", err)
-						}
+					if err := p.syncBufferFilters(); err != nil {
+						p.lggr.Warnw("failed to sync buffer filters", "err", err)
 					}
 				case <-ctx.Done():
 					return
@@ -520,4 +518,17 @@ func (p *logEventProvider) readLogs(ctx context.Context, latest int64, filters [
 	}
 
 	return merr
+}
+
+func (p *logEventProvider) syncBufferFilters() error {
+	p.lock.RLock()
+	buffVersion := p.opts.BufferVersion
+	p.lock.RUnlock()
+
+	switch buffVersion {
+	case BufferVersionV1:
+		return p.bufferV1.SyncFilters(p.filterStore)
+	default:
+		return nil
+	}
 }
