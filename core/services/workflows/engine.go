@@ -3,6 +3,7 @@ package workflows
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/base64"
 	"fmt"
 	"sync"
 	"time"
@@ -269,7 +270,7 @@ func generateExecutionID(workflowID, eventID string) (string, error) {
 		return "", err
 	}
 
-	return string(s.Sum(nil)), nil
+	return base64.StdEncoding.EncodeToString(s.Sum(nil)), nil
 }
 
 // startExecution kicks off a new workflow execution when a trigger event is received.
@@ -431,7 +432,7 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 
 	inputs, outputs, err := e.executeStep(ctx, msg)
 	if err != nil {
-		e.logger.Errorf("error executing step request: %w", err, "executionID", msg.state.executionID, "stepRef", msg.stepRef)
+		e.logger.Errorf("error executing step request: %s", err, "executionID", msg.state.executionID, "stepRef", msg.stepRef)
 		stepState.outputs.err = err
 		stepState.status = statusErrored
 	} else {

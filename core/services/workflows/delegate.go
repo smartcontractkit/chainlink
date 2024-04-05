@@ -53,7 +53,7 @@ targets:
   - type: "write_polygon-testnet-mumbai"
     inputs:
       report:
-        - "$(evm_median.outputs.reports)"
+        - "$(evm_median.outputs.report)"
     config:
       address: "0x3F3554832c636721F1fD1822Ccca0354576741Ef"
       params: ["$(inputs.report)"]
@@ -61,7 +61,7 @@ targets:
   - type: "write_ethereum-testnet-sepolia"
     inputs:
       report:
-        - "$(evm_median.outputs.reports)"
+        - "$(evm_median.outputs.report)"
     config:
       address: "0x54e220867af6683aE6DcBF535B4f952cB5116510"
       params: ["$(inputs.report)"]
