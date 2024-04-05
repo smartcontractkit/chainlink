@@ -43,8 +43,10 @@ const (
 	// this is set according to the APIs documentated 10 requests per second rate limit.
 	defaultRequestInterval = 100 * time.Millisecond
 
+	// APIIntervalRateLimitDisabled is a special value to disable the rate limiting.
 	APIIntervalRateLimitDisabled = -1
-	APIIntervalRateLimitDefault  = 0
+	// APIIntervalRateLimitDefault is a special value to select the default rate limit interval.
+	APIIntervalRateLimitDefault = 0
 )
 
 type attestationStatus string
@@ -121,10 +123,9 @@ func NewUSDCTokenDataReader(
 		timeout = defaultAttestationTimeout
 	}
 
-	switch requestInterval {
-	case APIIntervalRateLimitDisabled:
+	if requestInterval == APIIntervalRateLimitDisabled {
 		requestInterval = 0
-	case APIIntervalRateLimitDefault:
+	} else if requestInterval == APIIntervalRateLimitDefault {
 		requestInterval = defaultRequestInterval
 	}
 
