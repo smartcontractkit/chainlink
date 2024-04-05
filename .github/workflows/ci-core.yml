@@ -164,7 +164,7 @@ jobs:
       - name: Print Filtered Test Results
         if: ${{ failure() && matrix.type.cmd == 'go_core_tests' && needs.filter.outputs.changes == 'true' }}
         run: |
-          go install github.com/smartcontractkit/chainlink-testing-framework/tools/gotestloghelper@v1.0.2
+          go install github.com/smartcontractkit/chainlink-testing-framework/tools/gotestloghelper@v1.0.3
           cat output.txt | gotestloghelper -ci
       - name: Print Races
         if: ${{ failure() && matrix.type.cmd == 'go_core_race_tests' && needs.filter.outputs.changes == 'true' }}
