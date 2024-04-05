@@ -102,6 +102,7 @@ func (s *triggerSubscriber) RegisterTrigger(ctx context.Context, callback chan<-
 		callback:   callback,
 		rawRequest: rawRequest,
 	}
+	s.lggr.Infow("RegisterTrigger called", "capabilityId", s.capInfo.ID, "donId", s.capDonInfo.ID, "workflowID", request.Metadata.WorkflowID)
 	return nil
 }
 
@@ -114,8 +115,8 @@ func (s *triggerSubscriber) registrationLoop() {
 		case <-s.stopCh:
 			return
 		case <-ticker.C:
-			s.lggr.Infow("register trigger for remote capability", "capabilityId", s.capInfo.ID, "donId", s.capDonInfo.ID, "nMembers", len(s.capDonInfo.Members))
 			s.mu.RLock()
+			s.lggr.Infow("register trigger for remote capability", "capabilityId", s.capInfo.ID, "donId", s.capDonInfo.ID, "nMembers", len(s.capDonInfo.Members), "nWorkflows", len(s.registeredWorkflows))
 			for _, registration := range s.registeredWorkflows {
 				// NOTE: send to all by default, introduce different strategies later (KS-76)
 				for _, peerID := range s.capDonInfo.Members {
@@ -180,18 +181,14 @@ func (s *triggerSubscriber) Receive(msg *types.MessageBody) {
 				continue
 			}
 			if ready {
+				s.lggr.Debugw("trigger event ready to aggregate", "triggerEventID", meta.TriggerEventId, "capabilityId", s.capInfo.ID, "workflowId", workflowId)
 				aggregatedResponse, err := s.aggregator.Aggregate(meta.TriggerEventId, payloads)
 				if err != nil {
-					s.lggr.Errorw("failed to aggregate responses", "capabilityId", s.capInfo.ID, "workflowId", workflowId, "err", err)
+					s.lggr.Errorw("failed to aggregate responses", "triggerEventID", meta.TriggerEventId, "capabilityId", s.capInfo.ID, "workflowId", workflowId, "err", err)
 					continue
 				}
-				unmarshaled, err := pb.UnmarshalCapabilityResponse(aggregatedResponse)
-				if err != nil {
-					s.lggr.Errorw("failed to unmarshal responses", "capabilityId", s.capInfo.ID, "workflowId", workflowId, "err", err)
-					continue
-				}
-				s.lggr.Info("remote trigger event aggregated", "triggerEventID", meta.TriggerEventId, "capabilityId", s.capInfo.ID, "workflowId", workflowId)
-				registration.callback <- unmarshaled
+				s.lggr.Infow("remote trigger event aggregated", "triggerEventID", meta.TriggerEventId, "capabilityId", s.capInfo.ID, "workflowId", workflowId)
+				registration.callback <- aggregatedResponse
 			}
 		}
 	} else {
