@@ -157,6 +157,28 @@ func encodePayload(args []any, rawSelector string) ([]byte, error) {
 	// return append(method.ID, arguments...), nil
 }
 
+func extractReport(r map[string]any) (map[string]any, error) {
+	rep, ok := r["report"]
+	if !ok {
+		return nil, errors.New("malformed data: inputs doesn't contain a report key")
+	}
+
+	ra, ok := rep.([]any)
+	if !ok {
+		return nil, errors.New("malformed data: report isn't an array")
+	}
+
+	if len(r) != 1 {
+		return nil, errors.New("malformed data: report doesn't contain one element")
+	}
+
+	if ra[0] == nil {
+		return nil, nil
+	}
+
+	return ra[0].(map[string]any), nil
+}
+
 func (cap *EvmWrite) Execute(ctx context.Context, callback chan<- capabilities.CapabilityResponse, request capabilities.CapabilityRequest) error {
 	cap.lggr.Debugw("Execute", "request", request)
 	// TODO: idempotency
@@ -175,10 +197,27 @@ func (cap *EvmWrite) Execute(ctx context.Context, callback chan<- capabilities.C
 	if err != nil {
 		return err
 	}
+
 	inputs := inputsAny.(map[string]any)
+	rep, err := extractReport(inputs)
+	if err != nil {
+		return err
+	}
+
+	if rep == nil {
+		// We received any empty report -- this means we should skip transmission.
+		go func() {
+			// TODO: cast tx.Error to Err (or Value to Value?)
+			callback <- capabilities.CapabilityResponse{
+				Value: nil,
+				Err:   nil,
+			}
+			close(callback)
+		}()
+	}
 
 	// evaluate any variables in reqConfig.Params
-	args, err := evaluateParams(reqConfig.Params, inputs)
+	args, err := evaluateParams(reqConfig.Params, rep)
 	if err != nil {
 		return err
 	}
