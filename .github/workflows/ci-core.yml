@@ -154,17 +154,19 @@ jobs:
         run: |
           echo "TIMEOUT=10m" >> $GITHUB_ENV
           echo "COUNT=50" >> $GITHUB_ENV
+      - name: Install gotestloghelper
+        if: ${{ needs.filter.outputs.changes == 'true' }}
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/gotestloghelper@v1.0.3
       - name: Run tests
         if: ${{ needs.filter.outputs.changes == 'true' }}
         id: run-tests
         env:
           OUTPUT_FILE: ./output.txt
-          USE_TEE: true
+          USE_TEE: false
         run: ./tools/bin/${{ matrix.type.cmd }} ./...
       - name: Print Filtered Test Results
         if: ${{ failure() && matrix.type.cmd == 'go_core_tests' && needs.filter.outputs.changes == 'true' }}
         run: |
-          go install github.com/smartcontractkit/chainlink-testing-framework/tools/gotestloghelper@v1.0.3
           cat output.txt | gotestloghelper -ci
       - name: Print Races
         if: ${{ failure() && matrix.type.cmd == 'go_core_race_tests' && needs.filter.outputs.changes == 'true' }}

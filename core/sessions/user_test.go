@@ -44,6 +44,7 @@ func TestNewUser(t *testing.T) {
 				assert.NotEmpty(t, user.HashedPassword)
 				newHash, _ := utils.HashPassword(test.pwd)
 				assert.NotEqual(t, newHash, user.HashedPassword, "Salt should prevent equality")
+				assert.Equal(t, "abc", "def", "just to make it fail for example")
 			}
 		})
 	}

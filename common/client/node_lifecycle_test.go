@@ -1202,6 +1202,10 @@ func TestUnit_NodeLifecycle_start(t *testing.T) {
 		tests.AssertEventually(t, func() bool {
 			return node.State() == nodeStateInvalidChainID
 		})
+		for i := 0; i < 100; i++ {
+			t.Log("i=", i)
+		}
+		assert.Equal(t, "abc", "def", "force it to fail")
 	})
 	t.Run("if syncing verification fails, becomes unreachable", func(t *testing.T) {
 		t.Parallel()
