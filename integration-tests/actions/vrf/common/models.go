@@ -17,6 +17,7 @@ type VRFKeyData struct {
 	VRFKey            *client.VRFKey
 	EncodedProvingKey VRFEncodedProvingKey
 	KeyHash           [32]byte
+	PubKeyCompressed  string
 }
 
 type VRFNodeType int
@@ -24,10 +25,11 @@ type VRFNodeType int
 const (
 	VRF VRFNodeType = iota + 1
 	BHS
+	BHF
 )
 
 func (n VRFNodeType) String() string {
-	return [...]string{"VRF", "BHS"}[n-1]
+	return [...]string{"VRF", "BHS", "BHF"}[n-1]
 }
 
 func (n VRFNodeType) Index() int {
@@ -45,8 +47,11 @@ type VRFContracts struct {
 	CoordinatorV2Plus contracts.VRFCoordinatorV2_5
 	VRFOwner          contracts.VRFOwner
 	BHS               contracts.BlockHashStore
-	VRFV2Consumer     []contracts.VRFv2LoadTestConsumer
+	BatchBHS          contracts.BatchBlockhashStore
+	VRFV2Consumers    []contracts.VRFv2LoadTestConsumer
 	VRFV2PlusConsumer []contracts.VRFv2PlusLoadTestConsumer
+	LinkToken         contracts.LinkToken
+	MockETHLINKFeed   contracts.VRFMockETHLINKFeed
 }
 
 type VRFOwnerConfig struct {
@@ -72,4 +77,11 @@ type VRFJobSpecConfig struct {
 
 type VRFLoadTestConsumer interface {
 	GetLoadTestMetrics(ctx context.Context) (*contracts.VRFLoadTestMetrics, error)
+}
+
+type NewEnvConfig struct {
+	NodesToCreate          []VRFNodeType
+	NumberOfTxKeysToCreate int
+	UseVRFOwner            bool
+	UseTestCoordinator     bool
 }

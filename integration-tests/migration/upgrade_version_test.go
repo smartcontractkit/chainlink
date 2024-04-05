@@ -33,6 +33,7 @@ func TestVersionUpgrade(t *testing.T) {
 		WithPrivateEthereumNetwork(privateNetwork).
 		WithCLNodes(1).
 		WithStandardCleanup().
+		WithSeth().
 		Build()
 	require.NoError(t, err)
 

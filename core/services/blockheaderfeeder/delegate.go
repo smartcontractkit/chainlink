@@ -105,7 +105,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job, opt ...pg.QO
 			return nil, errors.Wrap(err, "building V1 coordinator")
 		}
 		var coord *blockhashstore.V1Coordinator
-		coord, err = blockhashstore.NewV1Coordinator(c, lp)
+		coord, err = blockhashstore.NewV1Coordinator(ctx, c, lp)
 		if err != nil {
 			return nil, errors.Wrap(err, "building V1 coordinator")
 		}
@@ -119,7 +119,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job, opt ...pg.QO
 			return nil, errors.Wrap(err, "building V2 coordinator")
 		}
 		var coord *blockhashstore.V2Coordinator
-		coord, err = blockhashstore.NewV2Coordinator(c, lp)
+		coord, err = blockhashstore.NewV2Coordinator(ctx, c, lp)
 		if err != nil {
 			return nil, errors.Wrap(err, "building V2 coordinator")
 		}
@@ -133,7 +133,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job, opt ...pg.QO
 			return nil, errors.Wrap(err, "building V2 plus coordinator")
 		}
 		var coord *blockhashstore.V2PlusCoordinator
-		coord, err = blockhashstore.NewV2PlusCoordinator(c, lp)
+		coord, err = blockhashstore.NewV2PlusCoordinator(ctx, c, lp)
 		if err != nil {
 			return nil, errors.Wrap(err, "building V2 plus coordinator")
 		}
@@ -209,7 +209,7 @@ func (d *Delegate) BeforeJobCreated(spec job.Job) {}
 func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
 
 // OnDeleteJob satisfies the job.Delegate interface.
-func (d *Delegate) OnDeleteJob(spec job.Job, q pg.Queryer) error { return nil }
+func (d *Delegate) OnDeleteJob(ctx context.Context, spec job.Job, q pg.Queryer) error { return nil }
 
 // service is a job.Service that runs the BHS feeder every pollPeriod.
 type service struct {

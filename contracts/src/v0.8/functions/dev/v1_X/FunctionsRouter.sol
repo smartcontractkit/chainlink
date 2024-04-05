@@ -18,7 +18,6 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
   using FunctionsResponse for FunctionsResponse.Commitment;
   using FunctionsResponse for FunctionsResponse.FulfillResult;
 
-  // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
   string public constant override typeAndVersion = "Functions Router v2.0.0";
 
   // We limit return data to a selector plus 4 words. This is to avoid

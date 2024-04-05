@@ -80,6 +80,26 @@ func (_m *ChainScopedConfig) AutoPprof() coreconfig.AutoPprof {
 	return r0
 }
 
+// Capabilities provides a mock function with given fields:
+func (_m *ChainScopedConfig) Capabilities() coreconfig.Capabilities {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for Capabilities")
+	}
+
+	var r0 coreconfig.Capabilities
+	if rf, ok := ret.Get(0).(func() coreconfig.Capabilities); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(coreconfig.Capabilities)
+		}
+	}
+
+	return r0
+}
+
 // CosmosEnabled provides a mock function with given fields:
 func (_m *ChainScopedConfig) CosmosEnabled() bool {
 	ret := _m.Called()

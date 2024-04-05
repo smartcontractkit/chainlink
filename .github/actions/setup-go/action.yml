@@ -26,7 +26,7 @@ runs:
     - name: Get branch name
       if: ${{ inputs.only-modules == 'false' }}
       id: branch-name
-      uses: tj-actions/branch-names@2e5354c6733793113f416314375826df030ada23 #v6.5
+      uses: tj-actions/branch-names@6871f53176ad61624f978536bbf089c574dc19a2 # v8.0.1
 
     - name: Set go cache keys
       shell: bash
@@ -40,7 +40,7 @@ runs:
       shell: bash
       run: echo "path=./${{ inputs.go-module-file }}" >> $GITHUB_OUTPUT
 
-    - uses: actions/cache@v3
+    - uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
       name: Cache Go Modules
       with:
         path: |
@@ -51,7 +51,7 @@ runs:
         restore-keys: |
           ${{ runner.os }}-gomod-${{ inputs.cache-version }}-
 
-    - uses: actions/cache@v3
+    - uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
       if: ${{ inputs.only-modules == 'false' }}
       name: Cache Go Build Outputs
       with:

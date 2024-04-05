@@ -164,7 +164,7 @@ type Node struct {
 
 func (node *Node) AddJob(t *testing.T, spec string) {
 	c := node.App.GetConfig()
-	jb, err := validate.ValidatedOracleSpecToml(c.OCR2(), c.Insecure(), spec)
+	jb, err := validate.ValidatedOracleSpecToml(testutils.Context(t), c.OCR2(), c.Insecure(), spec, nil)
 	require.NoError(t, err)
 	err = node.App.AddJobV2(testutils.Context(t), &jb)
 	require.NoError(t, err)
@@ -436,9 +436,9 @@ func setupForwarderForNode(
 	backend.Commit()
 
 	// add forwarder address to be tracked in db
-	forwarderORM := forwarders.NewORM(app.GetSqlxDB(), logger.TestLogger(t), app.GetConfig().Database())
+	forwarderORM := forwarders.NewORM(app.GetDB())
 	chainID := ubig.Big(*backend.Blockchain().Config().ChainID)
-	_, err = forwarderORM.CreateForwarder(faddr, chainID)
+	_, err = forwarderORM.CreateForwarder(testutils.Context(t), faddr, chainID)
 	require.NoError(t, err)
 
 	chain, err := app.GetRelayers().LegacyEVMChains().Get((*big.Int)(&chainID).String())

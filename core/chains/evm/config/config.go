@@ -10,8 +10,8 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 )
 
 type EVM interface {
@@ -100,7 +100,7 @@ type GasEstimator interface {
 	LimitDefault() uint64
 	LimitMax() uint64
 	LimitMultiplier() float32
-	LimitTransfer() uint32
+	LimitTransfer() uint64
 	PriceDefault() *assets.Wei
 	TipCapDefault() *assets.Wei
 	TipCapMin() *assets.Wei
@@ -130,8 +130,8 @@ type BlockHistory interface {
 }
 
 type ChainWriter interface {
-	FromAddress() *ethkey.EIP55Address
-	ForwarderAddress() *ethkey.EIP55Address
+	FromAddress() *types.EIP55Address
+	ForwarderAddress() *types.EIP55Address
 }
 
 type NodePool interface {
@@ -141,6 +141,7 @@ type NodePool interface {
 	SyncThreshold() uint32
 	LeaseDuration() time.Duration
 	NodeIsSyncingEnabled() bool
+	FinalizedBlockPollInterval() time.Duration
 }
 
 // TODO BCF-2509 does the chainscopedconfig really need the entire app config?

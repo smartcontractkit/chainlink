@@ -22,7 +22,7 @@ import (
 )
 
 func TestLogEventProvider_GetFilters(t *testing.T) {
-	p := NewLogProvider(logger.TestLogger(t), nil, &mockedPacker{}, NewUpkeepFilterStore(), NewOptions(200))
+	p := NewLogProvider(logger.TestLogger(t), nil, big.NewInt(1), &mockedPacker{}, NewUpkeepFilterStore(), NewOptions(200))
 
 	_, f := newEntry(p, 1)
 	p.filterStore.AddActiveUpkeeps(f)
@@ -64,7 +64,7 @@ func TestLogEventProvider_GetFilters(t *testing.T) {
 }
 
 func TestLogEventProvider_UpdateEntriesLastPoll(t *testing.T) {
-	p := NewLogProvider(logger.TestLogger(t), nil, &mockedPacker{}, NewUpkeepFilterStore(), NewOptions(200))
+	p := NewLogProvider(logger.TestLogger(t), nil, big.NewInt(1), &mockedPacker{}, NewUpkeepFilterStore(), NewOptions(200))
 
 	n := 10
 
@@ -180,7 +180,7 @@ func TestLogEventProvider_ScheduleReadJobs(t *testing.T) {
 			opts := NewOptions(200)
 			opts.ReadInterval = readInterval
 
-			p := NewLogProvider(logger.TestLogger(t), mp, &mockedPacker{}, NewUpkeepFilterStore(), opts)
+			p := NewLogProvider(logger.TestLogger(t), mp, big.NewInt(1), &mockedPacker{}, NewUpkeepFilterStore(), opts)
 
 			var ids []*big.Int
 			for i, id := range tc.ids {
@@ -242,7 +242,7 @@ func TestLogEventProvider_ReadLogs(t *testing.T) {
 
 	mp := new(mocks.LogPoller)
 
-	mp.On("RegisterFilter", mock.Anything).Return(nil)
+	mp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
 	mp.On("ReplayAsync", mock.Anything).Return()
 	mp.On("HasFilter", mock.Anything).Return(false)
 	mp.On("UnregisterFilter", mock.Anything, mock.Anything).Return(nil)
@@ -255,7 +255,7 @@ func TestLogEventProvider_ReadLogs(t *testing.T) {
 	}, nil)
 
 	filterStore := NewUpkeepFilterStore()
-	p := NewLogProvider(logger.TestLogger(t), mp, &mockedPacker{}, filterStore, NewOptions(200))
+	p := NewLogProvider(logger.TestLogger(t), mp, big.NewInt(1), &mockedPacker{}, filterStore, NewOptions(200))
 
 	var ids []*big.Int
 	for i := 0; i < 10; i++ {

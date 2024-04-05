@@ -4,6 +4,7 @@ package contracts
 import (
 	"context"
 	"math/big"
+	"net/http"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -141,6 +142,11 @@ type ChainlinkNodeWithKeysAndAddress interface {
 	MustReadP2PKeys() (*client.P2PKeys, error)
 	ExportEVMKeysForChain(string) ([]*client.ExportedEVMKey, error)
 	PrimaryEthAddress() (string, error)
+}
+
+type ChainlinkNodeWithForwarder interface {
+	TrackForwarder(chainID *big.Int, address common.Address) (*client.Forwarder, *http.Response, error)
+	GetConfig() client.ChainlinkConfig
 }
 
 type OffChainAggregatorWithRounds interface {

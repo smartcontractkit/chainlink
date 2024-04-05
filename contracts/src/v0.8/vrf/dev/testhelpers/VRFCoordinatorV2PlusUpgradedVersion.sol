@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.4;
+pragma solidity 0.8.19;
 
 import {BlockhashStoreInterface} from "../../interfaces/BlockhashStoreInterface.sol";
 // solhint-disable-next-line no-unused-import
@@ -240,8 +240,9 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
     // Its important to ensure that the consumer is in fact who they say they
     // are, otherwise they could use someone else's subscription balance.
     // A nonce of 0 indicates consumer is not allocated to the sub.
-    uint64 currentNonce = s_consumers[msg.sender][req.subId];
-    if (currentNonce == 0) {
+    mapping(uint256 => ConsumerConfig) storage consumerConfigs = s_consumers[msg.sender];
+    ConsumerConfig memory consumerConfig = consumerConfigs[req.subId];
+    if (!consumerConfig.active) {
       revert InvalidConsumer(req.subId, msg.sender);
     }
     // Input validation using the config storage word.
@@ -267,8 +268,8 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
     // Note we do not check whether the keyHash is valid to save gas.
     // The consequence for users is that they can send requests
     // for invalid keyHashes which will simply not be fulfilled.
-    uint64 nonce = currentNonce + 1;
-    (uint256 requestId, uint256 preSeed) = _computeRequestId(req.keyHash, msg.sender, req.subId, nonce);
+    ++consumerConfig.nonce;
+    (uint256 requestId, uint256 preSeed) = _computeRequestId(req.keyHash, msg.sender, req.subId, consumerConfig.nonce);
 
     VRFV2PlusClient.ExtraArgsV1 memory extraArgs = _fromBytes(req.extraArgs);
     bytes memory extraArgsBytes = VRFV2PlusClient._argsToBytes(extraArgs);
@@ -294,7 +295,7 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
       extraArgsBytes,
       msg.sender
     );
-    s_consumers[msg.sender][req.subId] = nonce;
+    s_consumers[msg.sender][req.subId] = consumerConfig;
 
     return requestId;
   }
@@ -548,7 +549,7 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
           s_provingKeyHashes[j],
           subConfig.consumers[i],
           subId,
-          s_consumers[subConfig.consumers[i]][subId]
+          s_consumers[subConfig.consumers[i]][subId].nonce
         );
         if (s_requestCommitments[reqId] != 0) {
           return true;
@@ -565,7 +566,7 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
     if (pendingRequestExists(subId)) {
       revert PendingRequestExists();
     }
-    if (s_consumers[consumer][subId] == 0) {
+    if (!s_consumers[consumer][subId].active) {
       revert InvalidConsumer(subId, consumer);
     }
     // Note bounded by MAX_CONSUMERS
@@ -647,9 +648,9 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
       revert CoordinatorNotRegistered(newCoordinator);
     }
     (uint96 balance, uint96 nativeBalance, , address owner, address[] memory consumers) = getSubscription(subId);
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(owner == msg.sender, "Not subscription owner");
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(!pendingRequestExists(subId), "Pending request exists");
 
     V1MigrationData memory migrationData = V1MigrationData({
@@ -666,7 +667,7 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
 
     // Only transfer LINK if the token is active and there is a balance.
     if (address(LINK) != address(0) && balance != 0) {
-      // solhint-disable-next-line custom-errors
+      // solhint-disable-next-line gas-custom-errors
       require(LINK.transfer(address(newCoordinator), balance), "insufficient funds");
     }
 
@@ -712,7 +713,11 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
     }
 
     for (uint256 i = 0; i < migrationData.consumers.length; i++) {
-      s_consumers[migrationData.consumers[i]][migrationData.subId] = 1;
+      s_consumers[migrationData.consumers[i]][migrationData.subId] = ConsumerConfig({
+        active: true,
+        nonce: 0,
+        pendingReqCount: 0
+      });
     }
 
     s_subscriptions[migrationData.subId] = Subscription({
