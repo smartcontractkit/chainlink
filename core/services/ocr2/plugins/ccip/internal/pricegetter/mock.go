@@ -34,6 +34,34 @@ func (_m *MockPriceGetter) Close() error {
 	return r0
 }
 
+// IsTokenConfigured provides a mock function with given fields: token
+func (_m *MockPriceGetter) IsTokenConfigured(ctx context.Context, token ccip.Address) (bool, error) {
+	ret := _m.Called(token)
+
+	if len(ret) == 0 {
+		panic("no return value specified for IsTokenConfigured")
+	}
+
+	var r0 bool
+	var r1 error
+	if rf, ok := ret.Get(0).(func(ccip.Address) (bool, error)); ok {
+		return rf(token)
+	}
+	if rf, ok := ret.Get(0).(func(ccip.Address) bool); ok {
+		r0 = rf(token)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	if rf, ok := ret.Get(1).(func(ccip.Address) error); ok {
+		r1 = rf(token)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // TokenPricesUSD provides a mock function with given fields: ctx, tokens
 func (_m *MockPriceGetter) TokenPricesUSD(ctx context.Context, tokens []ccip.Address) (map[ccip.Address]*big.Int, error) {
 	ret := _m.Called(ctx, tokens)

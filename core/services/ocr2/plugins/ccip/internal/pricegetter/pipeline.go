@@ -3,6 +3,7 @@ package pricegetter
 import (
 	"context"
 	"math/big"
+	"strings"
 	"time"
 
 	mapset "github.com/deckarep/golang-set/v2"
@@ -42,6 +43,13 @@ func NewPipelineGetter(source string, runner pipeline.Runner, jobID int32, exter
 		name:          name,
 		lggr:          lggr,
 	}, nil
+}
+
+// IsTokenConfigured implements the PriceGetter interface.
+// It returns if a token has a pipeline job configured on the TokenPricesUSDPipeline
+func (d *PipelineGetter) IsTokenConfigured(ctx context.Context, token cciptypes.Address) (bool, error) {
+	contains := strings.Contains(d.source, string(token))
+	return contains, nil
 }
 
 func (d *PipelineGetter) TokenPricesUSD(ctx context.Context, tokens []cciptypes.Address) (map[cciptypes.Address]*big.Int, error) {
