@@ -40,7 +40,7 @@ func TestUSDCReader_callAttestationApi(t *testing.T) {
 	require.NoError(t, err)
 	lggr := logger.TestLogger(t)
 	usdcReader, _ := ccipdata.NewUSDCReader(lggr, "job_123", mockMsgTransmitter, nil, false)
-	usdcService := NewUSDCTokenDataReader(lggr, usdcReader, attestationURI, 0, common.Address{}, -1)
+	usdcService := NewUSDCTokenDataReader(lggr, usdcReader, attestationURI, 0, common.Address{}, APIIntervalRateLimitDisabled)
 
 	attestation, err := usdcService.callAttestationApi(context.Background(), [32]byte(common.FromHex(usdcMessageHash)))
 	require.NoError(t, err)
@@ -63,7 +63,7 @@ func TestUSDCReader_callAttestationApiMock(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	lp := mocks.NewLogPoller(t)
 	usdcReader, _ := ccipdata.NewUSDCReader(lggr, "job_123", mockMsgTransmitter, lp, false)
-	usdcService := NewUSDCTokenDataReader(lggr, usdcReader, attestationURI, 0, common.Address{}, -1)
+	usdcService := NewUSDCTokenDataReader(lggr, usdcReader, attestationURI, 0, common.Address{}, APIIntervalRateLimitDisabled)
 	attestation, err := usdcService.callAttestationApi(context.Background(), utils.RandomBytes32())
 	require.NoError(t, err)
 
@@ -198,7 +198,7 @@ func TestUSDCReader_callAttestationApiMockError(t *testing.T) {
 			lggr := logger.TestLogger(t)
 			lp := mocks.NewLogPoller(t)
 			usdcReader, _ := ccipdata.NewUSDCReader(lggr, "job_123", mockMsgTransmitter, lp, false)
-			usdcService := NewUSDCTokenDataReader(lggr, usdcReader, attestationURI, test.customTimeoutSeconds, common.Address{}, -1)
+			usdcService := NewUSDCTokenDataReader(lggr, usdcReader, attestationURI, test.customTimeoutSeconds, common.Address{}, APIIntervalRateLimitDisabled)
 			lp.On("RegisterFilter", mock.Anything).Return(nil)
 			require.NoError(t, usdcReader.RegisterFilters())
 
@@ -234,7 +234,7 @@ func TestGetUSDCMessageBody(t *testing.T) {
 
 	usdcTokenAddr := utils.RandomAddress()
 	lggr := logger.TestLogger(t)
-	usdcService := NewUSDCTokenDataReader(lggr, &usdcReader, nil, 0, usdcTokenAddr, -1)
+	usdcService := NewUSDCTokenDataReader(lggr, &usdcReader, nil, 0, usdcTokenAddr, APIIntervalRateLimitDisabled)
 
 	// Make the first call and assert the underlying function is called
 	body, err := usdcService.getUSDCMessageBody(context.Background(), cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta{
@@ -317,13 +317,13 @@ func TestUSDCReader_rateLimiting(t *testing.T) {
 		{
 			name:         "no rate limit when disabled",
 			requests:     10,
-			rateConfig:   -1,
+			rateConfig:   APIIntervalRateLimitDisabled,
 			testDuration: 1 * time.Millisecond,
 		},
 		{
 			name:         "yes rate limited with default config",
 			requests:     5,
-			rateConfig:   0,
+			rateConfig:   APIIntervalRateLimitDefault,
 			testDuration: 4 * defaultRequestInterval,
 		},
 		{

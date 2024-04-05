@@ -42,6 +42,9 @@ const (
 	// defaultRequestInterval defines the rate in requests per second that the attestation API can be called.
 	// this is set according to the APIs documentated 10 requests per second rate limit.
 	defaultRequestInterval = 100 * time.Millisecond
+
+	APIIntervalRateLimitDisabled = -1
+	APIIntervalRateLimitDefault  = 0
 )
 
 type attestationStatus string
@@ -117,9 +120,14 @@ func NewUSDCTokenDataReader(
 	if usdcAttestationApiTimeoutSeconds == 0 {
 		timeout = defaultAttestationTimeout
 	}
-	if requestInterval == 0 {
+
+	switch requestInterval {
+	case APIIntervalRateLimitDisabled:
+		requestInterval = 0
+	case APIIntervalRateLimitDefault:
 		requestInterval = defaultRequestInterval
 	}
+
 	return &TokenDataReader{
 		lggr:                  lggr,
 		usdcReader:            usdcReader,
