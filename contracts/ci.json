@@ -8,8 +8,7 @@
       "slowTests": [
         "CronUpkeepFactory",
         "AutomationRegistry2_2",
-        "AutomationRegistry2_3",
-        "KeeperRegistry2_1"
+        "AutomationRegistry2_3"
       ]
     }
   ]

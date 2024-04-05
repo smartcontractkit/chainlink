@@ -107,7 +107,7 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
 
   LinkTokenInterface public immutable i_LINK;
   IWrappedNative public immutable i_WRAPPED_NATIVE_TOKEN;
-  IAutomationRegistryMaster2_3 s_registry;
+  IAutomationRegistryMaster2_3 private s_registry;
 
   // Only applicable if trigger config is set to ENABLED_SENDER_ALLOWLIST
   mapping(address => bool) private s_autoApproveAllowedSenders;

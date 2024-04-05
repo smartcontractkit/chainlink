@@ -195,9 +195,7 @@ describe('OptimismSequencerUptimeFeed', () => {
       tx = await optimismUptimeFeed
         .connect(l2Messenger)
         .updateStatus(false, staleTimestamp)
-      await expect(tx)
-        .to.not.emit(optimismUptimeFeed, 'AnswerUpdated')
-        .withArgs(1, 2 /** roundId */, timestamp)
+      await expect(tx).to.not.emit(optimismUptimeFeed, 'AnswerUpdated')
       await expect(tx).to.emit(optimismUptimeFeed, 'UpdateIgnored')
     })
   })

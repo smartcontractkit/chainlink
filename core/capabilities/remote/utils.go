@@ -3,6 +3,9 @@ package remote
 import (
 	"bytes"
 	"crypto/ed25519"
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
 	"fmt"
 
 	"google.golang.org/protobuf/proto"
@@ -36,4 +39,42 @@ func ValidateMessage(msg p2ptypes.Message, expectedReceiver p2ptypes.PeerID) (*r
 		return &body, fmt.Errorf("receiver in message body does not match expected receiver")
 	}
 	return &body, nil
+}
+
+func ToPeerID(peerID []byte) p2ptypes.PeerID {
+	var id p2ptypes.PeerID
+	copy(id[:], peerID)
+	return id
+}
+
+// Default MODE Aggregator needs a configurable number of identical responses for aggregation to succeed
+type defaultModeAggregator struct {
+	minIdenticalResponses uint32
+}
+
+var _ remotetypes.Aggregator = &defaultModeAggregator{}
+
+func NewDefaultModeAggregator(minIdenticalResponses uint32) *defaultModeAggregator {
+	return &defaultModeAggregator{
+		minIdenticalResponses: minIdenticalResponses,
+	}
+}
+
+func (a *defaultModeAggregator) Aggregate(_ string, responses [][]byte) ([]byte, error) {
+	hashToCount := make(map[string]uint32)
+	var found []byte
+	for _, resp := range responses {
+		hasher := sha256.New()
+		hasher.Write(resp)
+		sha := hex.EncodeToString(hasher.Sum(nil))
+		hashToCount[sha]++
+		if hashToCount[sha] >= a.minIdenticalResponses {
+			found = resp
+			break
+		}
+	}
+	if found == nil {
+		return nil, errors.New("not enough identical responses found")
+	}
+	return found, nil
 }

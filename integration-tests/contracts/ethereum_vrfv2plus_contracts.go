@@ -634,17 +634,23 @@ func (v *EthereumVRFv2PlusLoadTestConsumer) GetLoadTestMetrics(ctx context.Conte
 		}
 		responseTimesInBlocks = append(responseTimesInBlocks, currentResponseTimesInBlocks...)
 	}
-	responseTimesInBlocksFloat64 := make([]float64, len(responseTimesInBlocks))
-	for i, value := range responseTimesInBlocks {
-		responseTimesInBlocksFloat64[i] = float64(value)
-	}
-	p90FulfillmentBlockTime, err := stats.Percentile(responseTimesInBlocksFloat64, 90)
-	if err != nil {
-		return nil, err
-	}
-	p95FulfillmentBlockTime, err := stats.Percentile(responseTimesInBlocksFloat64, 95)
-	if err != nil {
-		return nil, err
+	var p90FulfillmentBlockTime, p95FulfillmentBlockTime float64
+	if len(responseTimesInBlocks) == 0 {
+		p90FulfillmentBlockTime = 0
+		p95FulfillmentBlockTime = 0
+	} else {
+		responseTimesInBlocksFloat64 := make([]float64, len(responseTimesInBlocks))
+		for i, value := range responseTimesInBlocks {
+			responseTimesInBlocksFloat64[i] = float64(value)
+		}
+		p90FulfillmentBlockTime, err = stats.Percentile(responseTimesInBlocksFloat64, 90)
+		if err != nil {
+			return nil, err
+		}
+		p95FulfillmentBlockTime, err = stats.Percentile(responseTimesInBlocksFloat64, 95)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return &VRFLoadTestMetrics{
 		RequestCount:                         requestCount,
