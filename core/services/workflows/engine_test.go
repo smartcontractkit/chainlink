@@ -153,7 +153,7 @@ targets:
   - type: "write_polygon-testnet-mumbai"
     inputs:
       report:
-        - "$(evm_median.outputs.reports)"
+        - "$(evm_median.outputs.report)"
     config:
       address: "0x3F3554832c636721F1fD1822Ccca0354576741Ef"
       params: ["$(inputs.report)"]
@@ -207,9 +207,9 @@ func mockConsensus() *mockCapability {
 		),
 		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
 			obs := req.Inputs.Underlying["observations"]
-			reports := obs.(*values.List)
+			report := obs.(*values.List)
 			rm := map[string]any{
-				"reports": reports.Underlying[0],
+				"report": report.Underlying[0],
 			}
 			rv, err := values.NewMap(rm)
 			if err != nil {
@@ -315,7 +315,7 @@ targets:
   - type: "write_polygon-testnet-mumbai"
     inputs:
       report:
-        - "$(evm_median.outputs.reports)"
+        - "$(evm_median.outputs.report)"
     config:
       address: "0x3F3554832c636721F1fD1822Ccca0354576741Ef"
       params: ["$(inputs.report)"]

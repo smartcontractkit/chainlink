@@ -97,7 +97,7 @@ jobs:
           NETWORKS="${NETWORKS//,/\",\"}"
           echo "matrix=${NETWORKS}" >> "$GITHUB_OUTPUT"
       - name: Build Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-tests@5bee84d30d90295010bda68b0cd46be3a1eea917 # v2.3.9
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-tests@7882cf348cd6a1f6bcf1ee8280185584ebba96e9 # v2.3.10
         with:
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -160,7 +160,7 @@ jobs:
         with:
           name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@5bee84d30d90295010bda68b0cd46be3a1eea917 # v2.3.9
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@7882cf348cd6a1f6bcf1ee8280185584ebba96e9 # v2.3.10
         with:
           test_command_to_run: ./tests -test.v -test.timeout 4h -test.count=1 -test.parallel=1 -test.run ${{ env.test_list }}
           binary_name: tests
@@ -178,6 +178,6 @@ jobs:
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
       - name: Print failed test summary
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@5bee84d30d90295010bda68b0cd46be3a1eea917 # v2.3.9
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@7882cf348cd6a1f6bcf1ee8280185584ebba96e9 # v2.3.10
         with:
           test_directory: "./"
