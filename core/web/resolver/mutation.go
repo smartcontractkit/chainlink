@@ -1024,7 +1024,7 @@ func (r *Resolver) CreateJob(ctx context.Context, args struct {
 			return nil, errors.New("The Offchain Reporting feature is disabled by configuration")
 		}
 	case job.OffchainReporting2:
-		jb, err = validate.ValidatedOracleSpecToml(r.App.GetConfig().OCR2(), r.App.GetConfig().Insecure(), args.Input.TOML)
+		jb, err = validate.ValidatedOracleSpecToml(ctx, r.App.GetConfig().OCR2(), r.App.GetConfig().Insecure(), args.Input.TOML, r.App.GetLoopRegistrarConfig())
 		if !config.OCR2().Enabled() {
 			return nil, errors.New("The Offchain Reporting 2 feature is disabled by configuration")
 		}

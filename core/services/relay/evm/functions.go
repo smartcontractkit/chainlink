@@ -21,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	functionsRelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions"
 	evmRelayTypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
@@ -197,7 +196,12 @@ func newFunctionsContractTransmitter(ctx context.Context, contractVersion uint32
 		gasLimit = uint64(*ocr2Limit)
 	}
 
-	transmitter, err := ocrcommon.NewTransmitter(
+	functionsTransmitter, err := functionsRelay.NewFunctionsContractTransmitter(
+		configWatcher.chain.Client(),
+		OCR2AggregatorTransmissionContractABI,
+		configWatcher.chain.LogPoller(),
+		lggr,
+		contractVersion,
 		configWatcher.chain.TxManager(),
 		fromAddresses,
 		gasLimit,
@@ -206,20 +210,6 @@ func newFunctionsContractTransmitter(ctx context.Context, contractVersion uint32
 		checker,
 		configWatcher.chain.ID(),
 		ethKeystore,
-	)
-
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create transmitter")
-	}
-
-	functionsTransmitter, err := functionsRelay.NewFunctionsContractTransmitter(
-		configWatcher.chain.Client(),
-		OCR2AggregatorTransmissionContractABI,
-		transmitter,
-		configWatcher.chain.LogPoller(),
-		lggr,
-		nil,
-		contractVersion,
 	)
 	if err != nil {
 		return nil, err

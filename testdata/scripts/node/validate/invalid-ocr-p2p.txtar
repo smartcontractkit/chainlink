@@ -54,7 +54,7 @@ DefaultLockTimeout = '15s'
 DefaultQueryTimeout = '10s'
 LogQueries = false
 MaxIdleConns = 10
-MaxOpenConns = 20
+MaxOpenConns = 100
 MigrateOnStartup = true
 
 [Database.Backup]
