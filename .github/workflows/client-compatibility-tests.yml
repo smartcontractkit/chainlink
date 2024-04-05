@@ -100,23 +100,23 @@ jobs:
       besu_tag: ${{ env.BESU_TAG }}
       erigon_tag: ${{ env.ERIGON_TAG }}
     steps:
-      - # Setup AWS creds
-        - name: Configure AWS Credentials
-          uses: aws-actions/configure-aws-credentials@010d0da01d0b5a38af31e9c3470dbfdabdecca3a # v4.0.1
-          with:
+         # Setup AWS creds
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@010d0da01d0b5a38af31e9c3470dbfdabdecca3a # v4.0.1
+        with:
             aws-region: ${{ secrets.QA_AWS_REGION }}
             role-to-assume: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
             role-duration-seconds: 3600
         # Login to ECR
-        - name: Login to Amazon ECR
-          id: login-ecr
-          uses: aws-actions/amazon-ecr-login@062b18b96a7aff071d4dc91bc00c4c1a7945b076 # v2.0.1
-          with:
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@062b18b96a7aff071d4dc91bc00c4c1a7945b076 # v2.0.1
+        with:
             mask-password: 'true'
-          env:
+        env:
             AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-        - name: Get latest docker images from ECR
-          run: |
+      - name: Get latest docker images from ECR
+        run: |
             geth_tag=$(aws ecr describe-images --repository-name ethereum/client-go --region ${{ secrets.QA_AWS_REGION }} --query 'sort_by(imageDetails,& imageTags[0])[-10:]' --output json | jq -r '[.[] | .imageTags[] | {original: ., numeric: (ltrimstr("v") | (split(".") + ["0","0"])[:3] | map(tonumber) | .[0]*10000 + .[1]*100 + .[2])}] | max_by(.numeric) | .original')
             echo "GETH_TAG=$geth_tag" >> $GITHUB_ENV
             echo "Geth latest tag: $geth_tag"

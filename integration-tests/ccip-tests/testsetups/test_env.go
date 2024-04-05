@@ -225,6 +225,8 @@ func DeployLocalCluster(
 		WithoutCleanup().
 		Build()
 	require.NoError(t, err)
+	// the builder builds network with a static network config, we don't want that.
+	env.EVMNetworks = []*blockchain.EVMNetwork{}
 	for i, networkCfg := range selectedNetworks {
 		rpcProvider, err := env.GetRpcProvider(networkCfg.ChainID)
 		require.NoError(t, err, "Error getting rpc provider")
