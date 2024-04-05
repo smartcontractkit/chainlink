@@ -1,5 +1,5 @@
 ---
-"chainlink": major
+"chainlink": minor
 ---
 
 Move JuelsPerFeeCoinCacheDuration under JuelsPerFeeCoinCache struct in config. Rename JuelsPerFeeCoinCacheDuration to updateInterval. Add stalenessAlertThreshold to  JuelsPerFeeCoinCache config.
