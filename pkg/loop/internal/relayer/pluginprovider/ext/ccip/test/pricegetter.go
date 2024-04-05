@@ -42,6 +42,16 @@ func (s staticPriceGetter) Close() error {
 	return nil
 }
 
+// IsTokenConfigured implements ccip.PriceGetter.
+func (s staticPriceGetter) IsTokenConfigured(ctx context.Context, token cciptypes.Address) (bool, error) {
+	for _, addr := range s.config.Addresses {
+		if addr == token {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 // TokenPricesUSD implements ccip.PriceGetter.
 func (s staticPriceGetter) TokenPricesUSD(ctx context.Context, tokens []cciptypes.Address) (map[cciptypes.Address]*big.Int, error) {
 	if ok := assert.ObjectsAreEqual(s.config.Addresses, tokens); !ok {
