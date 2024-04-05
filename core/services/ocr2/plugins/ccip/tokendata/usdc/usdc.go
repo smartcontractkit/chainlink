@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"golang.org/x/time/rate"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -33,10 +34,19 @@ const (
 
 	// defaultCoolDownDurationSec defines the default time to wait after getting rate limited.
 	// this value is only used if the 429 response does not contain the Retry-After header
-	defaultCoolDownDuration = 60 * time.Second
+	defaultCoolDownDuration = 5 * time.Minute
 
 	// maxCoolDownDuration defines the maximum duration we can wait till firing the next request
 	maxCoolDownDuration = 10 * time.Minute
+
+	// defaultRequestInterval defines the rate in requests per second that the attestation API can be called.
+	// this is set according to the APIs documentated 10 requests per second rate limit.
+	defaultRequestInterval = 100 * time.Millisecond
+
+	// APIIntervalRateLimitDisabled is a special value to disable the rate limiting.
+	APIIntervalRateLimitDisabled = -1
+	// APIIntervalRateLimitDefault is a special value to select the default rate limit interval.
+	APIIntervalRateLimitDefault = 0
 )
 
 type attestationStatus string
@@ -85,6 +95,7 @@ type TokenDataReader struct {
 	attestationApi        *url.URL
 	attestationApiTimeout time.Duration
 	usdcTokenAddress      common.Address
+	rate                  *rate.Limiter
 
 	// coolDownUntil defines whether requests are blocked or not.
 	coolDownUntil time.Time
@@ -105,11 +116,19 @@ func NewUSDCTokenDataReader(
 	usdcAttestationApi *url.URL,
 	usdcAttestationApiTimeoutSeconds int,
 	usdcTokenAddress common.Address,
+	requestInterval time.Duration,
 ) *TokenDataReader {
 	timeout := time.Duration(usdcAttestationApiTimeoutSeconds) * time.Second
 	if usdcAttestationApiTimeoutSeconds == 0 {
 		timeout = defaultAttestationTimeout
 	}
+
+	if requestInterval == APIIntervalRateLimitDisabled {
+		requestInterval = 0
+	} else if requestInterval == APIIntervalRateLimitDefault {
+		requestInterval = defaultRequestInterval
+	}
+
 	return &TokenDataReader{
 		lggr:                  lggr,
 		usdcReader:            usdcReader,
@@ -118,6 +137,7 @@ func NewUSDCTokenDataReader(
 		attestationApiTimeout: timeout,
 		usdcTokenAddress:      usdcTokenAddress,
 		coolDownMu:            &sync.RWMutex{},
+		rate:                  rate.NewLimiter(rate.Every(requestInterval), 1),
 	}
 }
 
@@ -125,6 +145,7 @@ func NewUSDCTokenDataReaderWithHttpClient(
 	origin TokenDataReader,
 	httpClient http.IHttpClient,
 	usdcTokenAddress common.Address,
+	requestInterval time.Duration,
 ) *TokenDataReader {
 	return &TokenDataReader{
 		lggr:                  origin.lggr,
@@ -134,9 +155,14 @@ func NewUSDCTokenDataReaderWithHttpClient(
 		attestationApiTimeout: origin.attestationApiTimeout,
 		coolDownMu:            origin.coolDownMu,
 		usdcTokenAddress:      usdcTokenAddress,
+		rate:                  rate.NewLimiter(rate.Every(requestInterval), 1),
 	}
 }
 
+// ReadTokenData queries the USDC attestation API to construct a message and
+// attestation response. When called back to back, or multiple times
+// concurrently, responses are delayed according how the request interval is
+// configured.
 func (s *TokenDataReader) ReadTokenData(ctx context.Context, msg cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta, tokenIndex int) (messageAndAttestation []byte, err error) {
 	if tokenIndex < 0 || tokenIndex >= len(msg.TokenAmounts) {
 		return nil, fmt.Errorf("token index out of bounds")
@@ -145,6 +171,14 @@ func (s *TokenDataReader) ReadTokenData(ctx context.Context, msg cciptypes.EVM2E
 	if s.inCoolDownPeriod() {
 		// rate limiting cool-down period, we prevent new requests from being sent
 		return nil, tokendata.ErrRequestsBlocked
+	}
+
+	if s.rate != nil {
+		// Wait blocks until it the attestation API can be called or the
+		// context is Done.
+		if waitErr := s.rate.Wait(ctx); err != nil {
+			return nil, fmt.Errorf("usdc rate limiting error: %w", waitErr)
+		}
 	}
 
 	messageBody, err := s.getUSDCMessageBody(ctx, msg, tokenIndex)

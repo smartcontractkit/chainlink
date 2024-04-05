@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -38,7 +40,7 @@ func TestUSDCReader_callAttestationApi(t *testing.T) {
 	require.NoError(t, err)
 	lggr := logger.TestLogger(t)
 	usdcReader, _ := ccipdata.NewUSDCReader(lggr, "job_123", mockMsgTransmitter, nil, false)
-	usdcService := NewUSDCTokenDataReader(lggr, usdcReader, attestationURI, 0, common.Address{})
+	usdcService := NewUSDCTokenDataReader(lggr, usdcReader, attestationURI, 0, common.Address{}, APIIntervalRateLimitDisabled)
 
 	attestation, err := usdcService.callAttestationApi(context.Background(), [32]byte(common.FromHex(usdcMessageHash)))
 	require.NoError(t, err)
@@ -61,7 +63,7 @@ func TestUSDCReader_callAttestationApiMock(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	lp := mocks.NewLogPoller(t)
 	usdcReader, _ := ccipdata.NewUSDCReader(lggr, "job_123", mockMsgTransmitter, lp, false)
-	usdcService := NewUSDCTokenDataReader(lggr, usdcReader, attestationURI, 0, common.Address{})
+	usdcService := NewUSDCTokenDataReader(lggr, usdcReader, attestationURI, 0, common.Address{}, APIIntervalRateLimitDisabled)
 	attestation, err := usdcService.callAttestationApi(context.Background(), utils.RandomBytes32())
 	require.NoError(t, err)
 
@@ -196,7 +198,7 @@ func TestUSDCReader_callAttestationApiMockError(t *testing.T) {
 			lggr := logger.TestLogger(t)
 			lp := mocks.NewLogPoller(t)
 			usdcReader, _ := ccipdata.NewUSDCReader(lggr, "job_123", mockMsgTransmitter, lp, false)
-			usdcService := NewUSDCTokenDataReader(lggr, usdcReader, attestationURI, test.customTimeoutSeconds, common.Address{})
+			usdcService := NewUSDCTokenDataReader(lggr, usdcReader, attestationURI, test.customTimeoutSeconds, common.Address{}, APIIntervalRateLimitDisabled)
 			lp.On("RegisterFilter", mock.Anything).Return(nil)
 			require.NoError(t, usdcReader.RegisterFilters())
 
@@ -232,7 +234,7 @@ func TestGetUSDCMessageBody(t *testing.T) {
 
 	usdcTokenAddr := utils.RandomAddress()
 	lggr := logger.TestLogger(t)
-	usdcService := NewUSDCTokenDataReader(lggr, &usdcReader, nil, 0, usdcTokenAddr)
+	usdcService := NewUSDCTokenDataReader(lggr, &usdcReader, nil, 0, usdcTokenAddr, APIIntervalRateLimitDisabled)
 
 	// Make the first call and assert the underlying function is called
 	body, err := usdcService.getUSDCMessageBody(context.Background(), cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta{
@@ -299,6 +301,125 @@ func TestTokenDataReader_getUsdcTokenEndOffset(t *testing.T) {
 			}
 			assert.NoError(t, err)
 			assert.Equal(t, tc.expOffset, offset)
+		})
+	}
+}
+
+func TestUSDCReader_rateLimiting(t *testing.T) {
+	testCases := []struct {
+		name         string
+		requests     uint64
+		rateConfig   time.Duration
+		testDuration time.Duration
+		timeout      time.Duration
+		err          string
+	}{
+		{
+			name:         "no rate limit when disabled",
+			requests:     10,
+			rateConfig:   APIIntervalRateLimitDisabled,
+			testDuration: 1 * time.Millisecond,
+		},
+		{
+			name:         "yes rate limited with default config",
+			requests:     5,
+			rateConfig:   APIIntervalRateLimitDefault,
+			testDuration: 4 * defaultRequestInterval,
+		},
+		{
+			name:         "yes rate limited with config",
+			requests:     10,
+			rateConfig:   50 * time.Millisecond,
+			testDuration: 9 * 50 * time.Millisecond,
+		},
+		{
+			name:         "timeout after first request",
+			requests:     5,
+			rateConfig:   100 * time.Millisecond,
+			testDuration: 1 * time.Millisecond,
+			timeout:      1 * time.Millisecond,
+			err:          "usdc rate limiting error: rate: Wait(n=1) would exceed context deadline",
+		},
+		{
+			name:         "timeout after second request",
+			requests:     5,
+			rateConfig:   100 * time.Millisecond,
+			testDuration: 100 * time.Millisecond,
+			timeout:      150 * time.Millisecond,
+			err:          "usdc rate limiting error: rate: Wait(n=1) would exceed context deadline",
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			response := attestationResponse{
+				Status:      attestationStatusSuccess,
+				Attestation: "720502893578a89a8a87982982ef781c18b193",
+			}
+
+			ts := getMockUSDCEndpoint(t, response)
+			defer ts.Close()
+			attestationURI, err := url.ParseRequestURI(ts.URL)
+			require.NoError(t, err)
+
+			lggr := logger.TestLogger(t)
+			lp := mocks.NewLogPoller(t)
+			usdcReader, _ := ccipdata.NewUSDCReader(lggr, "job_123", mockMsgTransmitter, lp, false)
+			usdcService := NewUSDCTokenDataReader(lggr, usdcReader, attestationURI, 0, utils.RandomAddress(), tc.rateConfig)
+
+			ctx := context.Background()
+			if tc.timeout > 0 {
+				var cf context.CancelFunc
+				ctx, cf = context.WithTimeout(ctx, tc.timeout)
+				defer cf()
+			}
+
+			trigger := make(chan struct{})
+			errorChan := make(chan error, tc.requests)
+			wg := sync.WaitGroup{}
+			for i := 0; i < int(tc.requests); i++ {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+
+					<-trigger
+					_, err := usdcService.ReadTokenData(ctx, cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta{
+						EVM2EVMMessage: cciptypes.EVM2EVMMessage{
+							TokenAmounts: []cciptypes.TokenAmount{{Token: ccipcalc.EvmAddrToGeneric(utils.ZeroAddress), Amount: nil}}, // trigger failure due to wrong address
+						},
+					}, 0)
+
+					errorChan <- err
+				}()
+			}
+
+			// Start the test
+			start := time.Now()
+			close(trigger)
+
+			// Wait for requests to complete
+			wg.Wait()
+			finish := time.Now()
+			close(errorChan)
+
+			// Collect errors
+			errorFound := false
+			for err := range errorChan {
+				if tc.err != "" && !strings.Contains(err.Error(), tc.err) {
+					errorFound = true
+				} else if err != nil && !strings.Contains(err.Error(), "get usdc token 0 end offset") {
+					// Ignore that one error, it's expected because of how mocking is used.
+					// Anything else is unexpected.
+					require.Fail(t, "unexpected error", err)
+				}
+			}
+			if tc.err != "" {
+				assert.True(t, errorFound)
+			}
+			assert.WithinDuration(t, start.Add(tc.testDuration), finish, 50*time.Millisecond)
 		})
 	}
 }
