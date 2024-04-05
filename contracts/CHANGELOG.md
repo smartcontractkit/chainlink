@@ -81,9 +81,6 @@
 
 - [#12531](https://github.com/smartcontractkit/chainlink/pull/12531) [`88e010d604`](https://github.com/smartcontractkit/chainlink/commit/88e010d604682c54c4f99e0a0916f94c0d13ece6) Thanks [@jinhoonbang](https://github.com/jinhoonbang)! - increase num optimizations to 500 for v2.5 coordinator
 
-## Unreleased
-
-...
 
 ## 1.0.0 - 2024-03-25
 
