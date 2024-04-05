@@ -212,7 +212,7 @@ jobs:
   publish-beta:
     name: Publish Beta NPM
     environment: publish-contracts
-    needs: [tag-check, changes, lint, prettier, native-compile, prepublish-test]
+    needs: [tag-check, changes, lint, prettier, native-compile]
     runs-on: ubuntu-latest
     if: needs.tag-check.outputs.is-pre-release == 'true'
     steps:
@@ -249,7 +249,7 @@ jobs:
   publish-prod:
     name: Publish Prod NPM
     environment: publish-contracts
-    needs: [tag-check, changes, lint, prettier, native-compile, prepublish-test]
+    needs: [tag-check, changes, lint, prettier, native-compile]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -289,67 +289,4 @@ jobs:
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
           this-job-name: Publish Prod NPM
-        continue-on-error: true
-
-  publish-beta:
-    needs: [initialize, changes, native-compile, lint, prettier]
-    name: Publish Beta NPM
-    runs-on: ubuntu-latest
-    if: needs.initialize.outputs.is-pre-release == 'true'
-    steps:
-      - name: Checkout the repo
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
-      - name: Setup NodeJS
-        uses: ./.github/actions/setup-nodejs
-      - name: Configure npmrc
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" >> ~/.npmrc
-          echo "registry=https://registry.npmjs.org/" >> ~/.npmrc
-      - name: Publish Beta
-        run: pnpm publish-beta --publish-branch "${GITHUB_REF_NAME}" --no-git-checks
-        working-directory: contracts
-      - name: Collect Metrics
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@0281b09807758be1dcc41651e44e62b353808c47 # v2.1.0
-        with:
-          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: Publish-Beta
-        continue-on-error: true
-
-  publish-prod:
-    needs: [initialize, changes, native-compile, lint, prettier]
-    name: Publish Prod NPM
-    runs-on: ubuntu-latest
-    if: needs.initialize.outputs.is-release == 'true'
-    steps:
-      - name: Checkout the repo
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
-      - name: Setup NodeJS
-        uses: ./.github/actions/setup-nodejs
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844 # v1
-        with:
-          tag_name: ${{ github.ref_name }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Configure npmrc
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" >> ~/.npmrc
-          echo "registry=https://registry.npmjs.org/" >> ~/.npmrc
-      - name: Publish Prod
-        run: pnpm publish-prod --publish-branch "${GITHUB_REF_NAME}" --no-git-checks
-        working-directory: contracts
-      - name: Collect Metrics
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@0281b09807758be1dcc41651e44e62b353808c47 # v2.1.0
-        with:
-          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: Publish-Prod
         continue-on-error: true
