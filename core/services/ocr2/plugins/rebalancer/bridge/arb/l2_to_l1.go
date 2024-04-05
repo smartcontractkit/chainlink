@@ -30,7 +30,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/abiutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/models"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 type l2ToL1Bridge struct {
@@ -73,32 +72,38 @@ func NewL2ToL1Bridge(
 	}
 	l2FilterName := fmt.Sprintf("ArbitrumL2ToL1Bridge-L2-Rebalancer:%s-Local:%s-Remote:%s",
 		l2RebalancerAddress.Hex(), localChain.Name, remoteChain.Name)
-	err := l2LogPoller.RegisterFilter(logpoller.Filter{
-		Name: l2FilterName,
-		EventSigs: []common.Hash{
-			LiquidityTransferredTopic,
-		},
-		Addresses: []common.Address{l2RebalancerAddress},
-		Retention: DurationMonth,
-	})
+	// FIXME Makram fix the context plax
+	ctx := context.Background()
+	err := l2LogPoller.RegisterFilter(
+		ctx,
+		logpoller.Filter{
+			Name: l2FilterName,
+			EventSigs: []common.Hash{
+				LiquidityTransferredTopic,
+			},
+			Addresses: []common.Address{l2RebalancerAddress},
+			Retention: DurationMonth,
+		})
 	if err != nil {
 		return nil, fmt.Errorf("register filter for Arbitrum L2 to L1 bridge: %w", err)
 	}
 
 	l1FilterName := fmt.Sprintf("ArbitrumL2ToL1Bridge-L1-Rollup:%s-Rebalancer:%s-Local:%s-Remote:%s",
 		l1RollupAddress.Hex(), l1RebalancerAddress.Hex(), localChain.Name, remoteChain.Name)
-	err = l1LogPoller.RegisterFilter(logpoller.Filter{
-		Name: l1FilterName,
-		EventSigs: []common.Hash{
-			NodeConfirmedTopic,        // emitted by rollup
-			LiquidityTransferredTopic, // emitted by rebalancer
-		},
-		Addresses: []common.Address{
-			l1RollupAddress,     // to get node confirmed logs
-			l1RebalancerAddress, // to get LiquidityTransferred logs
-		},
-		Retention: DurationMonth,
-	})
+	err = l1LogPoller.RegisterFilter(
+		ctx,
+		logpoller.Filter{
+			Name: l1FilterName,
+			EventSigs: []common.Hash{
+				NodeConfirmedTopic,        // emitted by rollup
+				LiquidityTransferredTopic, // emitted by rebalancer
+			},
+			Addresses: []common.Address{
+				l1RollupAddress,     // to get node confirmed logs
+				l1RebalancerAddress, // to get LiquidityTransferred logs
+			},
+			Retention: DurationMonth,
+		})
 	if err != nil {
 		return nil, fmt.Errorf("register filter for Arbitrum L1 to L2 bridge: %w", err)
 	}
@@ -205,8 +210,8 @@ func (l *l2ToL1Bridge) GetBridgePayloadAndFee(ctx context.Context, transfer mode
 // Close implements bridge.Bridge.
 func (l *l2ToL1Bridge) Close(ctx context.Context) error {
 	return multierr.Combine(
-		l.l2LogPoller.UnregisterFilter(l.l2FilterName),
-		l.l1LogPoller.UnregisterFilter(l.l1FilterName),
+		l.l2LogPoller.UnregisterFilter(ctx, l.l2FilterName),
+		l.l1LogPoller.UnregisterFilter(ctx, l.l1FilterName),
 	)
 }
 
@@ -217,6 +222,7 @@ func (l *l2ToL1Bridge) GetTransfers(ctx context.Context, localToken models.Addre
 	// that should be enough time to catch all the transfers that were potentially not finalized.
 	// TODO: make more performant. Perhaps filter on more than just one topic here to avoid doing in-memory filtering.
 	sendLogs, err := l.l2LogPoller.IndexedLogsCreatedAfter(
+		ctx,
 		LiquidityTransferredTopic,
 		l.l2Rebalancer.Address(),
 		LiquidityTransferredToChainSelectorTopicIndex,
@@ -227,7 +233,6 @@ func (l *l2ToL1Bridge) GetTransfers(ctx context.Context, localToken models.Addre
 		// todo: heavy query warning
 		time.Now().Add(-DurationMonth/2),
 		logpoller.Finalized,
-		pg.WithParentCtx(ctx),
 	)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, fmt.Errorf("get L2 -> L1 transfers from log poller (on L2): %w", err)
@@ -237,6 +242,7 @@ func (l *l2ToL1Bridge) GetTransfers(ctx context.Context, localToken models.Addre
 	// Note: we don't filter on finalized because we want to avoid marking a sent tx as
 	// ready to finalize more than once, since that will cause reverts onchain.
 	receiveLogs, err := l.l1LogPoller.IndexedLogsCreatedAfter(
+		ctx,
 		LiquidityTransferredTopic,
 		l.l1Rebalancer.Address(),
 		LiquidityTransferredFromChainSelectorTopicIndex,
@@ -245,7 +251,6 @@ func (l *l2ToL1Bridge) GetTransfers(ctx context.Context, localToken models.Addre
 		},
 		time.Now().Add(-DurationMonth/2),
 		1,
-		pg.WithParentCtx(ctx),
 	)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, fmt.Errorf("get L2 -> L1 finalizations from log poller (on L1): %w", err)
@@ -545,10 +550,10 @@ func (l *l2ToL1Bridge) getSendCountForBlock(ctx context.Context, blockHash [32]b
 
 func (l *l2ToL1Bridge) getLatestNodeConfirmed(ctx context.Context) (*arbitrum_rollup_core.ArbRollupCoreNodeConfirmed, error) {
 	lg, err := l.l1LogPoller.LatestLogByEventSigWithConfs(
+		ctx,
 		NodeConfirmedTopic,
 		l.rollupCore.Address(),
 		logpoller.Finalized,
-		pg.WithParentCtx(ctx),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("get latest node confirmed: %w, topic: %s, address: %s", err, NodeConfirmedTopic, l.rollupCore.Address())

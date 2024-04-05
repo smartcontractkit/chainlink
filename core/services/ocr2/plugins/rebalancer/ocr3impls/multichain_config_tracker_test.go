@@ -30,7 +30,7 @@ import (
 func setupLogPoller[RI ocr3impls.MultichainMeta](t *testing.T, db *sqlx.DB, bs *keyringsAndSigners[RI]) (logpoller.LogPoller, testUniverse[RI]) {
 	lggr := logger.TestLogger(t)
 
-	o := logpoller.NewORM(testutils.SimulatedChainID, db, lggr, pgtest.NewQConfig(false))
+	o := logpoller.NewORM(testutils.SimulatedChainID, db, lggr)
 
 	// create the universe which will deploy the OCR contract and set config
 	// we will replay on the log poller to get the appropriate ConfigSet log

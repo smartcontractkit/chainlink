@@ -7,6 +7,7 @@ import (
 	"github.com/pkg/errors"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -55,7 +56,7 @@ func initOrCloseCommitStoreReader(lggr logger.Logger, versionFinder VersionFinde
 			return nil, err
 		}
 		if closeReader {
-			return nil, cs.Close(pgOpts...)
+			return nil, cs.Close()
 		}
 		return cs, cs.RegisterFilters(pgOpts...)
 	case ccipdata.V1_2_0:
@@ -64,9 +65,9 @@ func initOrCloseCommitStoreReader(lggr logger.Logger, versionFinder VersionFinde
 			return nil, err
 		}
 		if closeReader {
-			return nil, cs.Close(pgOpts...)
+			return nil, cs.Close()
 		}
-		return cs, cs.RegisterFilters(pgOpts...)
+		return cs, cs.RegisterFilters()
 	default:
 		return nil, errors.Errorf("unsupported commit store version %v", version.String())
 	}

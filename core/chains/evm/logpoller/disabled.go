@@ -25,10 +25,6 @@ func (disabled) Healthy() error {
 
 func (disabled) Close() error { return ErrDisabled }
 
-func (disabled) Healthy() error {
-	return ErrDisabled
-}
-
 func (disabled) Ready() error { return ErrDisabled }
 
 func (disabled) HealthReport() map[string]error {

@@ -17,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/rebalancer/generated/rebalancer"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/models"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 var (
@@ -46,28 +45,34 @@ func New(
 	sourceClient, destClient client.Client,
 	lggr logger.Logger,
 ) (*testBridge, error) {
-	err := sourceLogPoller.RegisterFilter(logpoller.Filter{
-		Name: logpoller.FilterName("L1-LiquidityTransferred", sourceSelector),
-		EventSigs: []common.Hash{
-			LiquidityTransferredTopic,
-		},
-		Addresses: []common.Address{
-			common.Address(sourceRebalancerAddress),
-		},
-	})
+	// FIXME Makram ctx
+	ctx := context.Background()
+	err := sourceLogPoller.RegisterFilter(
+		ctx,
+		logpoller.Filter{
+			Name: logpoller.FilterName("L1-LiquidityTransferred", sourceSelector),
+			EventSigs: []common.Hash{
+				LiquidityTransferredTopic,
+			},
+			Addresses: []common.Address{
+				common.Address(sourceRebalancerAddress),
+			},
+		})
 	if err != nil {
 		return nil, fmt.Errorf("register filter for source log poller: %w", err)
 	}
 
-	err = destLogPoller.RegisterFilter(logpoller.Filter{
-		Name: logpoller.FilterName("L2-LiquidityTransferred", destSelector),
-		EventSigs: []common.Hash{
-			LiquidityTransferredTopic,
-		},
-		Addresses: []common.Address{
-			common.Address(destRebalancerAddress),
-		},
-	})
+	err = destLogPoller.RegisterFilter(
+		ctx,
+		logpoller.Filter{
+			Name: logpoller.FilterName("L2-LiquidityTransferred", destSelector),
+			EventSigs: []common.Hash{
+				LiquidityTransferredTopic,
+			},
+			Addresses: []common.Address{
+				common.Address(destRebalancerAddress),
+			},
+		})
 	if err != nil {
 		return nil, fmt.Errorf("register filter for dest log poller: %w", err)
 	}
@@ -135,33 +140,33 @@ func (t *testBridge) GetBridgePayloadAndFee(ctx context.Context, transfer models
 
 // GetTransfers implements bridge.Bridge.
 func (t *testBridge) GetTransfers(ctx context.Context, localToken models.Address, remoteToken models.Address) ([]models.PendingTransfer, error) {
-	latestSourceBlock, err := t.sourceLogPoller.LatestBlock(pg.WithParentCtx(ctx))
+	latestSourceBlock, err := t.sourceLogPoller.LatestBlock(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("get latest block: %w", err)
 	}
 
-	latestDestBlock, err := t.destLogPoller.LatestBlock(pg.WithParentCtx(ctx))
+	latestDestBlock, err := t.destLogPoller.LatestBlock(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("get latest block: %w", err)
 	}
 
 	sendLogs, err := t.sourceLogPoller.LogsWithSigs(
+		ctx,
 		1,
 		latestSourceBlock.BlockNumber,
 		[]common.Hash{LiquidityTransferredTopic},
 		t.sourceRebalancer.Address(),
-		pg.WithParentCtx(ctx),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("get source LiquidityTransferred logs: %w", err)
 	}
 
 	receiveLogs, err := t.destLogPoller.LogsWithSigs(
+		ctx,
 		1,
 		latestDestBlock.BlockNumber,
 		[]common.Hash{LiquidityTransferredTopic},
 		t.destRebalancer.Address(),
-		pg.WithParentCtx(ctx),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("get dest LiquidityTransferred logs: %w", err)

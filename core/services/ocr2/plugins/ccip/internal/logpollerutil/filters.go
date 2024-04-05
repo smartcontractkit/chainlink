@@ -1,31 +1,34 @@
 package logpollerutil
 
 import (
+	"context"
+
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
-func RegisterLpFilters(lp logpoller.LogPoller, filters []logpoller.Filter, qopts ...pg.QOpt) error {
+func RegisterLpFilters(lp logpoller.LogPoller, filters []logpoller.Filter) error {
 	for _, lpFilter := range filters {
 		if filterContainsZeroAddress(lpFilter.Addresses) {
 			continue
 		}
-		if err := lp.RegisterFilter(lpFilter, qopts...); err != nil {
+		// FIXME Dim pgOpts removed from LogPoller
+		if err := lp.RegisterFilter(context.Background(), lpFilter); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func UnregisterLpFilters(lp logpoller.LogPoller, filters []logpoller.Filter, qopts ...pg.QOpt) error {
+func UnregisterLpFilters(lp logpoller.LogPoller, filters []logpoller.Filter) error {
 	for _, lpFilter := range filters {
 		if filterContainsZeroAddress(lpFilter.Addresses) {
 			continue
 		}
-		if err := lp.UnregisterFilter(lpFilter.Name, qopts...); err != nil {
+		// FIXME Dim pgOpts removed from LogPoller
+		if err := lp.UnregisterFilter(context.Background(), lpFilter.Name); err != nil {
 			return err
 		}
 	}

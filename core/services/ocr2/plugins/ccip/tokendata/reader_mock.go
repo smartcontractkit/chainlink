@@ -15,6 +15,24 @@ type MockReader struct {
 	mock.Mock
 }
 
+// Close provides a mock function with given fields:
+func (_m *MockReader) Close() error {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for Close")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func() error); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // ReadTokenData provides a mock function with given fields: ctx, msg, tokenIndex
 func (_m *MockReader) ReadTokenData(ctx context.Context, msg ccip.EVM2EVMOnRampCCIPSendRequestedWithMeta, tokenIndex int) ([]byte, error) {
 	ret := _m.Called(ctx, msg, tokenIndex)

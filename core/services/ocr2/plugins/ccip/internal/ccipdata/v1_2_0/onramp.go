@@ -22,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/hashlib"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/logpollerutil"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 var (
@@ -109,11 +108,11 @@ func NewOnRamp(lggr logger.Logger, sourceSelector, destSelector uint64, onRampAd
 	}, nil
 }
 
-func (o *OnRamp) Address() (cciptypes.Address, error) {
+func (o *OnRamp) Address(context.Context) (cciptypes.Address, error) {
 	return cciptypes.Address(o.onRamp.Address().String()), nil
 }
 
-func (o *OnRamp) GetDynamicConfig() (cciptypes.OnRampDynamicConfig, error) {
+func (o *OnRamp) GetDynamicConfig(context.Context) (cciptypes.OnRampDynamicConfig, error) {
 	if o.onRamp == nil {
 		return cciptypes.OnRampDynamicConfig{}, fmt.Errorf("onramp not initialized")
 	}
@@ -137,7 +136,7 @@ func (o *OnRamp) GetDynamicConfig() (cciptypes.OnRampDynamicConfig, error) {
 
 func (o *OnRamp) SourcePriceRegistryAddress(ctx context.Context) (cciptypes.Address, error) {
 	return o.cachedSourcePriceRegistryAddress.Get(ctx, func(ctx context.Context) (cciptypes.Address, error) {
-		c, err := o.GetDynamicConfig()
+		c, err := o.GetDynamicConfig(ctx)
 		if err != nil {
 			return "", err
 		}
@@ -147,13 +146,14 @@ func (o *OnRamp) SourcePriceRegistryAddress(ctx context.Context) (cciptypes.Addr
 
 func (o *OnRamp) GetSendRequestsBetweenSeqNums(ctx context.Context, seqNumMin, seqNumMax uint64, finalized bool) ([]cciptypes.EVM2EVMMessageWithTxMeta, error) {
 	logs, err := o.lp.LogsDataWordRange(
+		ctx,
 		o.sendRequestedEventSig,
 		o.address,
 		o.sendRequestedSeqNumberWord,
 		logpoller.EvmWord(seqNumMin),
 		logpoller.EvmWord(seqNumMax),
 		ccipdata.LogsConfirmations(finalized),
-		pg.WithParentCtx(ctx))
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -174,7 +174,7 @@ func (o *OnRamp) GetSendRequestsBetweenSeqNums(ctx context.Context, seqNumMin, s
 	return res, nil
 }
 
-func (o *OnRamp) RouterAddress() (cciptypes.Address, error) {
+func (o *OnRamp) RouterAddress(context.Context) (cciptypes.Address, error) {
 	config, err := o.onRamp.GetDynamicConfig(nil)
 	if err != nil {
 		return "", err
@@ -207,12 +207,12 @@ func (o *OnRamp) IsSourceCursed(ctx context.Context) (bool, error) {
 	return cursed, nil
 }
 
-func (o *OnRamp) Close(qopts ...pg.QOpt) error {
-	return logpollerutil.UnregisterLpFilters(o.lp, o.filters, qopts...)
+func (o *OnRamp) Close() error {
+	return logpollerutil.UnregisterLpFilters(o.lp, o.filters)
 }
 
-func (o *OnRamp) RegisterFilters(qopts ...pg.QOpt) error {
-	return logpollerutil.RegisterLpFilters(o.lp, o.filters, qopts...)
+func (o *OnRamp) RegisterFilters() error {
+	return logpollerutil.RegisterLpFilters(o.lp, o.filters)
 }
 
 func (o *OnRamp) logToMessage(log types.Log) (*cciptypes.EVM2EVMMessage, error) {

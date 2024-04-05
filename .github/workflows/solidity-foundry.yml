@@ -27,71 +27,6 @@ jobs:
               - 'contracts/foundry-lib'
               - '.gitmodules'
 
-  coverage:
-    needs: [changes]
-    name: Coverage
-    runs-on: ubuntu-latest
-    env:
-      FOUNDRY_PROFILE: ccip
-
-    steps:
-      - name: Collect Metrics
-        if: ${{ needs.changes.outputs.changes == 'true' }}
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@0281b09807758be1dcc41651e44e62b353808c47 # v2.1.0
-        with:
-          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: Coverage
-        continue-on-error: true
-
-      - uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
-        with:
-          submodules: recursive
-
-      # Only needed because we use the NPM versions of packages
-      # and not native Foundry. This is to make sure the dependencies
-      # stay in sync.
-      - name: Setup NodeJS
-        uses: ./.github/actions/setup-nodejs
-
-      - name: Install Foundry
-        if: needs.changes.outputs.changes == 'true'
-        uses: foundry-rs/foundry-toolchain@v1
-        with:
-          version: ${{ env.FOUNDRY_VERSION }}
-
-      - name: Run Forge build
-        if: ${{ needs.changes.outputs.changes == 'true' }}
-        working-directory: contracts
-        run: |
-          forge --version
-          forge build
-        id: build
-
-      - name: Run coverage
-        if: ${{ needs.changes.outputs.changes == 'true' }}
-        working-directory: contracts
-        run: forge coverage --report lcov
-
-      - name: Prune report
-        if: ${{ needs.changes.outputs.changes == 'true' }}
-        run: |
-          sudo apt-get install lcov
-          ./tools/ci/ccip_lcov_prune ./contracts/lcov.info ./lcov.info.pruned
-
-      - name: Report code coverage
-        if: ${{ needs.changes.outputs.changes == 'true' }}
-        uses: zgosalvez/github-actions-report-lcov@v1
-        with:
-          update-comment: true
-          coverage-files: lcov.info.pruned
-          minimum-coverage: 98.5
-          artifact-name: code-coverage-report
-          working-directory: ./contracts
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
   tests:
     strategy:
       fail-fast: false
@@ -194,7 +129,7 @@ jobs:
         if: needs.changes.outputs.changes == 'true'
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: ${{ env.FOUNDRY_VERSION }}
+          version: nightly-de33b6af53005037b463318d2628b5cfcaf39916
 
       - name: Run Forge fmt
         if: needs.changes.outputs.changes == 'true'
