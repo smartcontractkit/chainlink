@@ -153,6 +153,7 @@ func setupNodeOCR3(
 			},
 			MailMon: mailMon,
 			DB:      db,
+			SqlxDB:  db,
 		},
 		CSAETHKeystore: keystore,
 	}

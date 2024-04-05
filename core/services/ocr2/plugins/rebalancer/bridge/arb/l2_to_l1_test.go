@@ -67,7 +67,7 @@ func Test_l2ToL1Bridge_getLatestNodeConfirmed(t *testing.T) {
 				data, err := utils.ABIEncode(`[{"type": "bytes32"}, {"type": "bytes32"}]`, want.BlockHash, want.SendRoot)
 				require.NoError(t, err)
 				rollupAddress := testutils.NewAddress()
-				f.l1LogPoller.On("LatestLogByEventSigWithConfs", NodeConfirmedTopic, rollupAddress, logpoller.Finalized, mock.Anything).
+				f.l1LogPoller.On("LatestLogByEventSigWithConfs", mock.Anything, NodeConfirmedTopic, rollupAddress, logpoller.Finalized).
 					Return(&logpoller.Log{
 						Topics: [][]byte{
 							NodeConfirmedTopic[:],
@@ -96,7 +96,7 @@ func Test_l2ToL1Bridge_getLatestNodeConfirmed(t *testing.T) {
 			true,
 			func(t *testing.T, f fields, want *arbitrum_rollup_core.ArbRollupCoreNodeConfirmed) {
 				rollupAddress := testutils.NewAddress()
-				f.l1LogPoller.On("LatestLogByEventSigWithConfs", NodeConfirmedTopic, rollupAddress, logpoller.Finalized, mock.Anything).
+				f.l1LogPoller.On("LatestLogByEventSigWithConfs", mock.Anything, NodeConfirmedTopic, rollupAddress, logpoller.Finalized, mock.Anything).
 					Return(nil, errors.New("not found"))
 				f.rollupCore.On("Address").Return(rollupAddress)
 			},
@@ -125,7 +125,7 @@ func Test_l2ToL1Bridge_getLatestNodeConfirmed(t *testing.T) {
 				data, err := utils.ABIEncode(`[{"type": "bytes32"}, {"type": "bytes32"}]`, want.BlockHash, want.SendRoot)
 				require.NoError(t, err)
 				rollupAddress := testutils.NewAddress()
-				f.l1LogPoller.On("LatestLogByEventSigWithConfs", NodeConfirmedTopic, rollupAddress, logpoller.Finalized, mock.Anything).
+				f.l1LogPoller.On("LatestLogByEventSigWithConfs", mock.Anything, NodeConfirmedTopic, rollupAddress, logpoller.Finalized, mock.Anything).
 					Return(&logpoller.Log{
 						Topics: [][]byte{
 							NodeConfirmedTopic[:],
