@@ -477,92 +477,6 @@ jobs:
 #          QA_KUBECONFIG: ""
 #          should_tidy: "false"
 
-  eth-smoke-tests-matrix-log-poller:
-    if: ${{ !(contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') || github.event_name == 'workflow_dispatch') || inputs.distinct_run_name != '' }}
-    environment: integration
-    permissions:
-      checks: write
-      pull-requests: write
-      id-token: write
-      contents: read
-    needs:
-      [build-chainlink, changes, compare-tests, build-lint-integration-tests]
-    env:
-      SELECTED_NETWORKS: SIMULATED,SIMULATED_1,SIMULATED_2
-      CHAINLINK_COMMIT_SHA: ${{ github.sha }}
-      CHAINLINK_ENV_USER: ${{ github.actor }}
-      TEST_LOG_LEVEL: debug
-    strategy:
-      fail-fast: false
-      matrix:
-        product: ${{fromJson(needs.compare-tests.outputs.lp-matrix)}}
-    runs-on: ${{ matrix.product.os }}
-    name: ETH Smoke Tests ${{ matrix.product.name }}
-    steps:
-      - name: Collect Metrics
-        if: needs.changes.outputs.src == 'true'
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
-        with:
-          id: ${{ env.COLLECTION_ID }}-matrix-${{ matrix.product.name }}
-          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: ETH Smoke Tests ${{ matrix.product.name }}
-          test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
-        continue-on-error: true
-      - name: Checkout the repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
-        with:
-          repository: smartcontractkit/chainlink
-          ref: ${{ inputs.cl_ref || github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
-      - name: Build Go Test Command
-        id: build-go-test-command
-        run: |
-          # if the matrix.product.run is set, use it for a different command
-          if [ "${{ matrix.product.run }}" != "" ]; then
-            echo "run_command=${{ matrix.product.run }} ./smoke/${{ matrix.product.file }}_test.go" >> "$GITHUB_OUTPUT"
-          else
-            echo "run_command=./smoke/${{ matrix.product.name }}_test.go" >> "$GITHUB_OUTPUT"
-          fi
-      - name: Prepare Base64 TOML override
-        uses: ./.github/actions/setup-create-base64-config
-        with:
-          runId: ${{ github.run_id }}
-          testLogCollect: ${{ vars.TEST_LOG_COLLECT }}
-          selectedNetworks: ${{ env.SELECTED_NETWORKS }}
-          chainlinkImage: ${{ env.CHAINLINK_IMAGE }}
-          chainlinkVersion: ${{ github.sha }}
-          pyroscopeServer: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
-          pyroscopeEnvironment: ${{ matrix.product.pyroscope_env }}
-          pyroscopeKey: ${{ secrets.QA_PYROSCOPE_KEY }}
-          lokiEndpoint: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
-          lokiTenantId: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          lokiBasicAuth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
-          grafanaUrl: ${{ vars.GRAFANA_URL }}
-          grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
-      ## Run this step when changes that require tests to be run are made
-      - name: Run Tests
-        if: needs.changes.outputs.src == 'true'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@7882cf348cd6a1f6bcf1ee8280185584ebba96e9 # v2.3.10
-        with:
-          test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ${{ steps.build-go-test-command.outputs.run_command }} 2>&1 | tee /tmp/gotest.log | gotestfmt
-          test_download_vendor_packages_command: cd ./integration-tests && go mod download
-          cl_repo: ${{ env.CHAINLINK_IMAGE }}
-          cl_image_tag: ${{ github.sha }}
-          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-          artifacts_location: ./integration-tests/smoke/logs/
-          publish_check_name: ${{ matrix.product.name }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-          go_mod_path: ./integration-tests/go.mod
-          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
-          cache_restore_only: "true"
-          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-          QA_KUBECONFIG: ""
-          should_tidy: "false"
-
   eth-smoke-tests-matrix:
     if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
     environment: integration
@@ -898,14 +812,12 @@ jobs:
     if: always()
     runs-on: ubuntu-latest
     name: ETH Smoke Tests
-    needs: [eth-smoke-tests-matrix, eth-smoke-tests-matrix-automation, eth-smoke-tests-matrix-log-poller]
+    needs: [eth-smoke-tests-matrix]
     steps:
       - name: Check smoke test matrix status
-        if: needs.eth-smoke-tests-matrix.result != 'success' || needs.eth-smoke-tests-matrix-automation.result != 'success' || needs.eth-smoke-tests-matrix-log-poller.result != 'success'
+        if: needs.eth-smoke-tests-matrix.result != 'success'
         run: |
-          echo "ETH Smoke Tests: ${{ needs.eth-smoke-tests-matrix.result }}"
-          echo "Automation: ${{ needs.eth-smoke-tests-matrix-automation.result }}"
-          echo "Log Poller: ${{ needs.eth-smoke-tests-matrix-log-poller.result }}"
+          echo "${{ needs.eth-smoke-tests-matrix.result }}"
           exit 1
       - name: Collect Metrics
         if: always()
@@ -1060,7 +972,7 @@ jobs:
           test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
         continue-on-error: true
 
-  ## Solana Section
+# Solana Section
 #  get_solana_sha:
 #    # We don't directly merge dependabot PRs, so let's not waste the resources
 #    if: ${{ github.actor != 'dependabot[bot]' && inputs.run_solana != 'false' }}
@@ -1175,7 +1087,7 @@ jobs:
 #        id: collect-gha-metrics
 #        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
 #        with:
-          id: ${{ env.COLLECTION_ID }}-solana-build-contracts
+#          id: ${{ env.COLLECTION_ID }}-solana-build-contracts
 #          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
 #          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
 #          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
