@@ -432,6 +432,7 @@ func (l *logPollerWrapper) handleRouteUpdate(ctx context.Context, activeCoordina
 		if err := l.logPoller.UnregisterFilter(ctx, filter.Name); err != nil {
 			l.lggr.Errorw("LogPollerWrapper: Failed to unregister filter", "filterName", filter.Name, "err", err)
 		}
+		l.lggr.Debugw("LogPollerWrapper: Successfully unregistered filter", "filterName", filter.Name)
 	}
 }
 
