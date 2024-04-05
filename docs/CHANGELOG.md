@@ -23,7 +23,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add Juels Fee Per Coin data source caching for OCR2 Feeds. Cache is time based and is turned on by default with default cache refresh of 5 minutes. Cache can be configured through pluginconfig using "juelsPerFeeCoinCacheDuration" and "juelsPerFeeCoinCacheDisabled" tags. Duration tag accepts values between "30s" and "20m" with default of "0s" that is overridden on cache startup to 5 minutes.
 - Add rebalancer support for feeds manager ocr2 plugins.
 
-
 ### Fixed
 
 - `P2P.V2` is required in configuration when either `OCR` or `OCR2` are enabled. The node will fail to boot if `P2P.V2` is not enabled.
