@@ -146,7 +146,6 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
    * @dev migration permissions must be set on *both* sending and receiving registries
    * @dev only an upkeep admin can migrate their upkeeps
    * @dev this function is most gas-efficient if upkeepIDs are sorted by billing token
-   * @dev TODO - this needs better multi-token testing
    */
   function migrateUpkeeps(uint256[] calldata ids, address destination) external {
     if (
