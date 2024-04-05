@@ -30,6 +30,7 @@ jobs:
           pnpm-use-cache: false
           pr-draft: true
           pr-labels: "DO_NOT_MERGE"
+          pr-title: "[DO NOT MERGE] Release Preview - Changeset"
           # aws inputs
           aws-region: ${{ secrets.AWS_REGION }}
           aws-role-arn: ${{ secrets.AWS_OIDC_CHAINLINK_CI_AUTO_PR_TOKEN_ISSUER_ROLE_ARN }}
