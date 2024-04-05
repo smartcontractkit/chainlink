@@ -37,13 +37,13 @@ func TestLogPollerClient_GetSendRequestsBetweenSeqNums1_4_0(t *testing.T) {
 			require.NoError(t, err)
 
 			lp.On("LogsDataWordRange",
+				mock.Anything,
 				onRampV2.sendRequestedEventSig,
 				onRampAddr,
 				onRampV2.sendRequestedSeqNumberWord,
 				abihelpers.EvmWord(seqNum),
 				abihelpers.EvmWord(seqNum+limit),
 				tt.confirmations,
-				mock.Anything,
 			).Once().Return([]logpoller.Log{}, nil)
 
 			events, err1 := onRampV2.GetSendRequestsBetweenSeqNums(context.Background(), seqNum, seqNum+limit, tt.finalized)

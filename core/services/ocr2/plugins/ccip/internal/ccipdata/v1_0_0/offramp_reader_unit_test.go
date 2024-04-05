@@ -197,7 +197,7 @@ func Test_LogsAreProperlyMarkedAsFinalized(t *testing.T) {
 			lp := mocks.NewLogPoller(t)
 			lp.On("LatestBlock", mock.Anything).
 				Return(logpoller.LogPollerBlock{FinalizedBlockNumber: int64(tt.lastFinalizedBlock)}, nil)
-			lp.On("IndexedLogsTopicRange", ExecutionStateChangedEvent, offrampAddress, 1, logpoller.EvmWord(minSeqNr), logpoller.EvmWord(maxSeqNr), logpoller.Confirmations(0), mock.Anything).
+			lp.On("IndexedLogsTopicRange", mock.Anything, ExecutionStateChangedEvent, offrampAddress, 1, logpoller.EvmWord(minSeqNr), logpoller.EvmWord(maxSeqNr), logpoller.Confirmations(0)).
 				Return(inputLogs, nil)
 
 			offRamp, err := NewOffRamp(logger.TestLogger(t), offrampAddress, evmclimocks.NewClient(t), lp, nil, nil)

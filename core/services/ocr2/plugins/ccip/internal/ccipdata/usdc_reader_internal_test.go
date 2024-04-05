@@ -37,10 +37,10 @@ func TestLogPollerClient_GetUSDCMessagePriorToLogIndexInTx(t *testing.T) {
 		u, _ := NewUSDCReader(lggr, "job_123", utils.RandomAddress(), lp, false)
 
 		lp.On("IndexedLogsByTxHash",
+			mock.Anything,
 			u.usdcMessageSent,
 			u.transmitterAddress,
 			txHash,
-			mock.Anything,
 		).Return([]logpoller.Log{
 			{LogIndex: ccipLogIndex - 2, Data: []byte("-2")},
 			{LogIndex: ccipLogIndex - 1, Data: hexutil.MustDecode(expectedData)},
@@ -58,10 +58,10 @@ func TestLogPollerClient_GetUSDCMessagePriorToLogIndexInTx(t *testing.T) {
 		u, _ := NewUSDCReader(lggr, "job_123", utils.RandomAddress(), lp, false)
 
 		lp.On("IndexedLogsByTxHash",
+			mock.Anything,
 			u.usdcMessageSent,
 			u.transmitterAddress,
 			txHash,
-			mock.Anything,
 		).Return([]logpoller.Log{
 			{LogIndex: ccipLogIndex - 2, Data: hexutil.MustDecode(expectedData)},
 			{LogIndex: ccipLogIndex - 1, Data: []byte("-2")},
@@ -78,10 +78,10 @@ func TestLogPollerClient_GetUSDCMessagePriorToLogIndexInTx(t *testing.T) {
 		lp := lpmocks.NewLogPoller(t)
 		u, _ := NewUSDCReader(lggr, "job_123", utils.RandomAddress(), lp, false)
 		lp.On("IndexedLogsByTxHash",
+			mock.Anything,
 			u.usdcMessageSent,
 			u.transmitterAddress,
 			txHash,
-			mock.Anything,
 		).Return([]logpoller.Log{}, nil)
 
 		usdcMessageData, err := u.GetUSDCMessagePriorToLogIndexInTx(context.Background(), ccipLogIndex, 0, txHash.String())
@@ -109,7 +109,7 @@ func TestFilters(t *testing.T) {
 		lggr := logger.TestLogger(t)
 		chainID := testutils.NewRandomEVMChainID()
 		db := pgtest.NewSqlxDB(t)
-		o := logpoller.NewORM(chainID, db, lggr, pgtest.NewQConfig(true))
+		o := logpoller.NewORM(chainID, db, lggr)
 		ec := backends.NewSimulatedBackend(map[common.Address]core.GenesisAccount{}, 10e6)
 		esc := client.NewSimulatedBackendClient(t, ec, chainID)
 		lpOpts := logpoller.Opts{

@@ -15,6 +15,24 @@ type TokenPoolBatchedReader struct {
 	mock.Mock
 }
 
+// Close provides a mock function with given fields:
+func (_m *TokenPoolBatchedReader) Close() error {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for Close")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func() error); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // GetInboundTokenPoolRateLimits provides a mock function with given fields: ctx, tokenPoolReaders
 func (_m *TokenPoolBatchedReader) GetInboundTokenPoolRateLimits(ctx context.Context, tokenPoolReaders []ccip.Address) ([]ccip.TokenBucketRateLimit, error) {
 	ret := _m.Called(ctx, tokenPoolReaders)

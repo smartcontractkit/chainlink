@@ -40,11 +40,13 @@ type USDCReaderImpl struct {
 }
 
 func (u *USDCReaderImpl) Close(qopts ...pg.QOpt) error {
-	return u.lp.UnregisterFilter(u.filter.Name, qopts...)
+	// FIXME Dim pgOpts removed from LogPoller
+	return u.lp.UnregisterFilter(context.Background(), u.filter.Name)
 }
 
 func (u *USDCReaderImpl) RegisterFilters(qopts ...pg.QOpt) error {
-	return u.lp.RegisterFilter(u.filter, qopts...)
+	// FIXME Dim pgOpts removed from LogPoller
+	return u.lp.RegisterFilter(context.Background(), u.filter)
 }
 
 // usdcPayload has to match the onchain event emitted by the USDC message transmitter
@@ -72,10 +74,10 @@ func parseUSDCMessageSent(logData []byte) ([]byte, error) {
 func (u *USDCReaderImpl) GetUSDCMessagePriorToLogIndexInTx(ctx context.Context, logIndex int64, usdcTokenIndexOffset int, txHash string) ([]byte, error) {
 	// fetch all the usdc logs for the provided tx hash
 	logs, err := u.lp.IndexedLogsByTxHash(
+		ctx,
 		u.usdcMessageSent,
 		u.transmitterAddress,
 		common.HexToHash(txHash),
-		pg.WithParentCtx(ctx),
 	)
 	if err != nil {
 		return nil, err

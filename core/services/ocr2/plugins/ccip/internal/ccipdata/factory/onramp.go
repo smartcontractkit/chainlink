@@ -4,6 +4,7 @@ import (
 	"github.com/pkg/errors"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -48,36 +49,36 @@ func initOrCloseOnRampReader(lggr logger.Logger, versionFinder VersionFinder, so
 			return nil, err
 		}
 		if closeReader {
-			return nil, onRamp.Close(pgOpts...)
+			return nil, onRamp.Close()
 		}
-		return onRamp, onRamp.RegisterFilters(pgOpts...)
+		return onRamp, onRamp.RegisterFilters()
 	case ccipdata.V1_1_0:
 		onRamp, err := v1_1_0.NewOnRamp(lggr, sourceSelector, destSelector, onRampAddrEvm, sourceLP, source)
 		if err != nil {
 			return nil, err
 		}
 		if closeReader {
-			return nil, onRamp.Close(pgOpts...)
+			return nil, onRamp.Close()
 		}
-		return onRamp, onRamp.RegisterFilters(pgOpts...)
+		return onRamp, onRamp.RegisterFilters()
 	case ccipdata.V1_2_0:
 		onRamp, err := v1_2_0.NewOnRamp(lggr, sourceSelector, destSelector, onRampAddrEvm, sourceLP, source)
 		if err != nil {
 			return nil, err
 		}
 		if closeReader {
-			return nil, onRamp.Close(pgOpts...)
+			return nil, onRamp.Close()
 		}
-		return onRamp, onRamp.RegisterFilters(pgOpts...)
+		return onRamp, onRamp.RegisterFilters()
 	case ccipdata.V1_5_0:
 		onRamp, err := v1_5_0.NewOnRamp(lggr, sourceSelector, destSelector, onRampAddrEvm, sourceLP, source)
 		if err != nil {
 			return nil, err
 		}
 		if closeReader {
-			return nil, onRamp.Close(pgOpts...)
+			return nil, onRamp.Close()
 		}
-		return onRamp, onRamp.RegisterFilters(pgOpts...)
+		return onRamp, onRamp.RegisterFilters()
 	default:
 		return nil, errors.Errorf("unsupported onramp version %v", version.String())
 	}

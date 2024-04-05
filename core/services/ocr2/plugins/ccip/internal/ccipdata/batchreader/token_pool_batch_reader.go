@@ -186,3 +186,7 @@ func getBatchedTypeAndVersion(ctx context.Context, evmBatchCaller rpclib.EvmBatc
 	}
 	return result, nil
 }
+
+func (br *EVMTokenPoolBatchedReader) Close() error {
+	return nil
+}

@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmclientmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -158,7 +159,7 @@ func setupOffRampReaderTH(t *testing.T, version string) offRampReaderTH {
 	ctx := testutils.Context(t)
 	user, bc := ccipdata.NewSimulation(t)
 	log := logger.TestLogger(t)
-	orm := logpoller.NewORM(testutils.SimulatedChainID, pgtest.NewSqlxDB(t), log, pgtest.NewQConfig(true))
+	orm := logpoller.NewORM(testutils.SimulatedChainID, pgtest.NewSqlxDB(t), log)
 	lpOpts := logpoller.Opts{
 		PollPeriod:               100 * time.Millisecond,
 		FinalityDepth:            2,
@@ -171,7 +172,7 @@ func setupOffRampReaderTH(t *testing.T, version string) offRampReaderTH {
 		bc,
 		log,
 		lpOpts)
-	assert.NoError(t, orm.InsertBlock(common.Hash{}, 1, time.Now(), 1))
+	assert.NoError(t, orm.InsertBlock(ctx, common.Hash{}, 1, time.Now(), 1))
 	// Setup offRamp.
 	var offRampAddress common.Address
 	switch version {
@@ -401,7 +402,7 @@ func TestNewOffRampReader(t *testing.T) {
 			c.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(b, nil)
 			addr := ccipcalc.EvmAddrToGeneric(utils.RandomAddress())
 			lp := lpmocks.NewLogPoller(t)
-			lp.On("RegisterFilter", mock.Anything).Return(nil).Maybe()
+			lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil).Maybe()
 			_, err = factory.NewOffRampReader(logger.TestLogger(t), factory.NewEvmVersionFinder(), addr, c, lp, nil, nil, true)
 			if tc.expectedErr != "" {
 				assert.EqualError(t, err, tc.expectedErr)

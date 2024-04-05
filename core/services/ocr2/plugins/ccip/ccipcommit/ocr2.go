@@ -359,7 +359,7 @@ func (r *CommitReportingPlugin) Report(ctx context.Context, epochAndRound types.
 	if err != nil {
 		return false, nil, err
 	}
-	encodedReport, err := r.commitStoreReader.EncodeCommitReport(report)
+	encodedReport, err := r.commitStoreReader.EncodeCommitReport(ctx, report)
 	if err != nil {
 		return false, nil, err
 	}
@@ -632,7 +632,7 @@ func (r *CommitReportingPlugin) buildReport(ctx context.Context, lggr logger.Log
 }
 
 func (r *CommitReportingPlugin) ShouldAcceptFinalizedReport(ctx context.Context, reportTimestamp types.ReportTimestamp, report types.Report) (bool, error) {
-	parsedReport, err := r.commitStoreReader.DecodeCommitReport(report)
+	parsedReport, err := r.commitStoreReader.DecodeCommitReport(ctx, report)
 	if err != nil {
 		return false, err
 	}
@@ -669,7 +669,7 @@ func (r *CommitReportingPlugin) ShouldAcceptFinalizedReport(ctx context.Context,
 // ShouldTransmitAcceptedReport checks if the report is stale, if it is it should not be transmitted.
 func (r *CommitReportingPlugin) ShouldTransmitAcceptedReport(ctx context.Context, reportTimestamp types.ReportTimestamp, report types.Report) (bool, error) {
 	lggr := r.lggr.Named("CommitShouldTransmitAcceptedReport")
-	parsedReport, err := r.commitStoreReader.DecodeCommitReport(report)
+	parsedReport, err := r.commitStoreReader.DecodeCommitReport(ctx, report)
 	if err != nil {
 		return false, err
 	}

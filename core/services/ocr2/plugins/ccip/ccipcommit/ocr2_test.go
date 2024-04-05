@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/mocks"
 	mocks2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
@@ -614,7 +615,7 @@ func TestCommitReportingPlugin_ShouldAcceptFinalizedReport(t *testing.T) {
 
 		commitStoreReader := ccipdatamocks.NewCommitStoreReader(t)
 		p.commitStoreReader = commitStoreReader
-		commitStoreReader.On("DecodeCommitReport", encodedReport).
+		commitStoreReader.On("DecodeCommitReport", mock.Anything, encodedReport).
 			Return(cciptypes.CommitStoreReport{}, errors.New("unable to decode report"))
 
 		_, err := p.ShouldAcceptFinalizedReport(ctx, types.ReportTimestamp{}, encodedReport)
@@ -628,7 +629,7 @@ func TestCommitReportingPlugin_ShouldAcceptFinalizedReport(t *testing.T) {
 
 		commitStoreReader := ccipdatamocks.NewCommitStoreReader(t)
 		p.commitStoreReader = commitStoreReader
-		commitStoreReader.On("DecodeCommitReport", mock.Anything).Return(report, nil)
+		commitStoreReader.On("DecodeCommitReport", mock.Anything, mock.Anything).Return(report, nil)
 
 		chainHealthCheck := ccipcachemocks.NewChainHealthcheck(t)
 		chainHealthCheck.On("IsHealthy", ctx).Return(true, nil).Maybe()
@@ -654,7 +655,7 @@ func TestCommitReportingPlugin_ShouldAcceptFinalizedReport(t *testing.T) {
 			MerkleRoot: [32]byte{123}, // this report is considered non-empty since it has a merkle root
 		}
 
-		commitStoreReader.On("DecodeCommitReport", mock.Anything).Return(report, nil)
+		commitStoreReader.On("DecodeCommitReport", mock.Anything, mock.Anything).Return(report, nil)
 		commitStoreReader.On("GetExpectedNextSequenceNumber", mock.Anything).Return(onChainSeqNum, nil)
 
 		chainHealthCheck := ccipcachemocks.NewChainHealthcheck(t)
@@ -702,7 +703,7 @@ func TestCommitReportingPlugin_ShouldAcceptFinalizedReport(t *testing.T) {
 			},
 			MerkleRoot: [32]byte{123},
 		}
-		commitStoreReader.On("DecodeCommitReport", mock.Anything).Return(report, nil)
+		commitStoreReader.On("DecodeCommitReport", mock.Anything, mock.Anything).Return(report, nil)
 		commitStoreReader.On("GetExpectedNextSequenceNumber", mock.Anything).Return(onChainSeqNum, nil)
 
 		// non-stale since report interval is not behind on-chain seq num
@@ -752,7 +753,7 @@ func TestCommitReportingPlugin_ShouldTransmitAcceptedReport(t *testing.T) {
 		report.Interval = cciptypes.CommitStoreInterval{Min: onChainSeqNum, Max: onChainSeqNum + 10}
 		encodedReport, err := encodeCommitReport(report)
 		assert.NoError(t, err)
-		commitStoreReader.On("DecodeCommitReport", encodedReport).Return(report, nil).Once()
+		commitStoreReader.On("DecodeCommitReport", mock.Anything, encodedReport).Return(report, nil).Once()
 		shouldTransmit, err := p.ShouldTransmitAcceptedReport(ctx, types.ReportTimestamp{}, encodedReport)
 		assert.NoError(t, err)
 		assert.True(t, shouldTransmit)
@@ -763,7 +764,7 @@ func TestCommitReportingPlugin_ShouldTransmitAcceptedReport(t *testing.T) {
 		report.Interval = cciptypes.CommitStoreInterval{Min: onChainSeqNum - 2, Max: onChainSeqNum + 10}
 		encodedReport, err := encodeCommitReport(report)
 		assert.NoError(t, err)
-		commitStoreReader.On("DecodeCommitReport", encodedReport).Return(report, nil).Once()
+		commitStoreReader.On("DecodeCommitReport", mock.Anything, encodedReport).Return(report, nil).Once()
 		shouldTransmit, err := p.ShouldTransmitAcceptedReport(ctx, types.ReportTimestamp{}, encodedReport)
 		assert.NoError(t, err)
 		assert.False(t, shouldTransmit)
@@ -771,7 +772,7 @@ func TestCommitReportingPlugin_ShouldTransmitAcceptedReport(t *testing.T) {
 
 	t.Run("error when report cannot be decoded", func(t *testing.T) {
 		reportBytes := []byte("whatever")
-		commitStoreReader.On("DecodeCommitReport", reportBytes).
+		commitStoreReader.On("DecodeCommitReport", mock.Anything, reportBytes).
 			Return(cciptypes.CommitStoreReport{}, errors.New("decode error")).Once()
 		_, err := p.ShouldTransmitAcceptedReport(ctx, types.ReportTimestamp{}, reportBytes)
 		assert.Error(t, err)

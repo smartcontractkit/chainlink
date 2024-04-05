@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	mocks2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
@@ -31,12 +32,12 @@ func TestOnRamp(t *testing.T) {
 		}
 		versionFinder := newMockVersionFinder(ccipconfig.EVM2EVMOnRamp, *semver.MustParse(versionStr), nil)
 
-		lp.On("RegisterFilter", mock.Anything).Return(nil).Times(len(expFilterNames))
+		lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil).Times(len(expFilterNames))
 		_, err := NewOnRampReader(lggr, versionFinder, sourceSelector, destSelector, addr, lp, nil)
 		assert.NoError(t, err)
 
 		for _, f := range expFilterNames {
-			lp.On("UnregisterFilter", f).Return(nil)
+			lp.On("UnregisterFilter", mock.Anything, f).Return(nil)
 		}
 		err = CloseOnRampReader(lggr, versionFinder, sourceSelector, destSelector, addr, lp, nil)
 		assert.NoError(t, err)

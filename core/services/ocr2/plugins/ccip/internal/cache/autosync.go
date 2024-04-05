@@ -10,7 +10,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 type AutoSync[T any] interface {
@@ -90,7 +89,7 @@ func (c *LogpollerEventsBased[T]) hasExpired(ctx context.Context) (expired bool,
 	// NOTE: latest block should be fetched before LatestBlockByEventSigsAddrsWithConfs
 	// Otherwise there might be new events between LatestBlockByEventSigsAddrsWithConfs and
 	// latestBlock which will be missed.
-	latestBlock, err := c.logPoller.LatestBlock(pg.WithParentCtx(ctx))
+	latestBlock, err := c.logPoller.LatestBlock(ctx)
 	latestFinalizedBlock := int64(0)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return false, 0, fmt.Errorf("get latest log poller block: %w", err)
@@ -106,11 +105,11 @@ func (c *LogpollerEventsBased[T]) hasExpired(ctx context.Context) (expired bool,
 	}
 
 	blockOfLatestEvent, err = c.logPoller.LatestBlockByEventSigsAddrsWithConfs(
+		ctx,
 		blockOfCurrentValue,
 		c.observedEvents,
 		[]common.Address{c.address},
 		logpoller.Finalized,
-		pg.WithParentCtx(ctx),
 	)
 	if err != nil {
 		return false, 0, fmt.Errorf("get latest events form lp: %w", err)
