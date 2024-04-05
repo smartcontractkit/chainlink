@@ -78,6 +78,16 @@ func Test_ListUnwrapTo(t *testing.T) {
 		err = l.UnwrapTo(&a)
 		assert.ErrorContains(t, err, "cannot unwrap to type *struct {}")
 	})
+
+	t.Run("can unwrap a list with nil element", func(t *testing.T) {
+		expected := []any{nil}
+		w, err := Wrap([]any{nil})
+		require.NoError(t, err)
+
+		got, err := w.Unwrap()
+		require.NoError(t, err)
+		assert.Equal(t, expected, got)
+	})
 }
 
 func sliceTest[T any](t *testing.T, expected []T, got []T) {

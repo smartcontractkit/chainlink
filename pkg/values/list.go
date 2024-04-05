@@ -54,9 +54,11 @@ func (l *List) UnwrapTo(to any) error {
 		for _, el := range l.Underlying {
 			newEl := reflect.New(reflect.Indirect(val).Type().Elem()).Elem()
 			ptrEl := newEl.Addr().Interface()
-			err := el.UnwrapTo(ptrEl)
-			if err != nil {
-				return err
+			if el != nil {
+				err := el.UnwrapTo(ptrEl)
+				if err != nil {
+					return err
+				}
 			}
 			newList = reflect.Append(newList, reflect.Indirect(reflect.ValueOf(ptrEl)))
 		}
