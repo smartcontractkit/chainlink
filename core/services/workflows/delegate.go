@@ -121,8 +121,8 @@ func NewDelegate(logger logger.Logger, registry types.CapabilitiesRegistry, lega
 }
 
 func mercuryEventLoop(trigger *triggers.MercuryTriggerService, logger logger.Logger) {
-	sleepSec := 60
-	ticker := time.NewTicker(time.Duration(sleepSec) * time.Second)
+	sleepSec := 60 * time.Second
+	ticker := time.NewTicker(sleepSec)
 	defer ticker.Stop()
 
 	prices := []int64{300000, 2000, 5000000}
@@ -132,33 +132,38 @@ func mercuryEventLoop(trigger *triggers.MercuryTriggerService, logger logger.Log
 			prices[i] = prices[i] + 1
 		}
 
-		reports := []triggers.FeedReport{
-			{
-				FeedID:               mercury.FeedID("0x1111111111111111111100000000000000000000000000000000000000000000").Bytes(),
-				FullReport:           []byte{},
-				BenchmarkPrice:       prices[0],
-				ObservationTimestamp: time.Now().Unix(),
-			},
-			{
-				FeedID:               mercury.FeedID("0x2222222222222222222200000000000000000000000000000000000000000000").Bytes(),
-				FullReport:           []byte{},
-				BenchmarkPrice:       prices[1],
-				ObservationTimestamp: time.Now().Unix(),
-			},
-			{
-				FeedID:               mercury.FeedID("0x3333333333333333333300000000000000000000000000000000000000000000").Bytes(),
-				FullReport:           []byte{},
-				BenchmarkPrice:       prices[2],
-				ObservationTimestamp: time.Now().Unix(),
-			},
-		}
-
-		logger.Infow("New set of Mercury reports", "timestamp", time.Now().Unix(), "payload", reports)
-		err := trigger.ProcessReport(reports)
+		t := time.Now().Round(sleepSec).Unix()
+		reports, err := emitReports(logger, trigger, t, prices)
 		if err != nil {
 			logger.Errorw("failed to process Mercury reports", "err", err, "timestamp", time.Now().Unix(), "payload", reports)
 		}
 	}
+}
+
+func emitReports(logger logger.Logger, trigger *triggers.MercuryTriggerService, t int64, prices []int64) ([]triggers.FeedReport, error) {
+	reports := []triggers.FeedReport{
+		{
+			FeedID:               mercury.FeedID("0x1111111111111111111100000000000000000000000000000000000000000000").Bytes(),
+			FullReport:           []byte{},
+			BenchmarkPrice:       prices[0],
+			ObservationTimestamp: t,
+		},
+		{
+			FeedID:               mercury.FeedID("0x2222222222222222222200000000000000000000000000000000000000000000").Bytes(),
+			FullReport:           []byte{},
+			BenchmarkPrice:       prices[1],
+			ObservationTimestamp: t,
+		},
+		{
+			FeedID:               mercury.FeedID("0x3333333333333333333300000000000000000000000000000000000000000000").Bytes(),
+			FullReport:           []byte{},
+			BenchmarkPrice:       prices[2],
+			ObservationTimestamp: t,
+		},
+	}
+
+	logger.Infow("New set of Mercury reports", "timestamp", time.Now().Unix(), "payload", reports)
+	return reports, trigger.ProcessReport(reports)
 }
 
 func ValidatedWorkflowSpec(tomlString string) (job.Job, error) {

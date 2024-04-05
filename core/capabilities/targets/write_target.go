@@ -222,7 +222,7 @@ func (cap *EvmWrite) Execute(ctx context.Context, callback chan<- capabilities.C
 	if err != nil {
 		return err
 	}
-	fmt.Printf("Transaction submitted %v", tx.ID)
+	cap.lggr.Debugw("Transaction submitted", "request", request, "transaction", tx)
 	go func() {
 		// TODO: cast tx.Error to Err (or Value to Value?)
 		callback <- capabilities.CapabilityResponse{
