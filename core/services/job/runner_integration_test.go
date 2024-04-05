@@ -227,7 +227,7 @@ func TestRunner(t *testing.T) {
 		assert.Contains(t, err.Error(), "not all bridges exist")
 
 		// Same for ocr2
-		jb2, err := validate.ValidatedOracleSpecToml(config.OCR2(), config.Insecure(), fmt.Sprintf(`
+		jb2, err := validate.ValidatedOracleSpecToml(testutils.Context(t), config.OCR2(), config.Insecure(), fmt.Sprintf(`
 type               = "offchainreporting2"
 pluginType         = "median"
 schemaVersion      = 1
@@ -254,7 +254,7 @@ ds1_multiply [type=multiply times=1.23];
 ds1 -> ds1_parse -> ds1_multiply -> answer1;
 answer1      [type=median index=0];
 """
-`, placeHolderAddress.String(), b.Name.String()))
+`, placeHolderAddress.String(), b.Name.String()), nil)
 		require.NoError(t, err)
 		// Should error creating it because of the juels per fee coin non-existent bridge
 		err = jobORM.CreateJob(&jb2)
@@ -262,7 +262,7 @@ answer1      [type=median index=0];
 		assert.Contains(t, err.Error(), "not all bridges exist")
 
 		// Duplicate bridge names that exist is ok
-		jb3, err := validate.ValidatedOracleSpecToml(config.OCR2(), config.Insecure(), fmt.Sprintf(`
+		jb3, err := validate.ValidatedOracleSpecToml(testutils.Context(t), config.OCR2(), config.Insecure(), fmt.Sprintf(`
 type               = "offchainreporting2"
 pluginType         = "median"
 schemaVersion      = 1
@@ -293,7 +293,7 @@ ds2_multiply [type=multiply times=1.23];
 ds2 -> ds2_parse -> ds2_multiply -> answer1;
 answer1      [type=median index=0];
 """
-`, placeHolderAddress, b.Name.String(), b.Name.String(), b.Name.String()))
+`, placeHolderAddress, b.Name.String(), b.Name.String(), b.Name.String()), nil)
 		require.NoError(t, err)
 		// Should not error with duplicate bridges
 		err = jobORM.CreateJob(&jb3)
