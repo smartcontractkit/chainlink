@@ -39,8 +39,9 @@ const (
 	// maxCoolDownDuration defines the maximum duration we can wait till firing the next request
 	maxCoolDownDuration = 10 * time.Minute
 
-	// USDCRequestInterval defines the rate in requests per second that the attestation API can be called
-	RequestInterval = 100 * time.Millisecond
+	// defaultRequestInterval defines the rate in requests per second that the attestation API can be called.
+	// this is set according to the APIs documentated 10 requests per second rate limit.
+	defaultRequestInterval = 100 * time.Millisecond
 )
 
 type attestationStatus string
@@ -115,6 +116,9 @@ func NewUSDCTokenDataReader(
 	timeout := time.Duration(usdcAttestationApiTimeoutSeconds) * time.Second
 	if usdcAttestationApiTimeoutSeconds == 0 {
 		timeout = defaultAttestationTimeout
+	}
+	if requestInterval == 0 {
+		requestInterval = defaultRequestInterval
 	}
 	return &TokenDataReader{
 		lggr:                  lggr,

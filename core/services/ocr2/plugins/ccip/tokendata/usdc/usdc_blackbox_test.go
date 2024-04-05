@@ -97,7 +97,7 @@ func TestUSDCReader_ReadTokenData(t *testing.T) {
 			require.NoError(t, err)
 
 			addr := utils.RandomAddress()
-			usdcService := usdc.NewUSDCTokenDataReader(lggr, &usdcReader, attestationURI, 0, addr, 0)
+			usdcService := usdc.NewUSDCTokenDataReader(lggr, &usdcReader, attestationURI, 0, addr, -1)
 			msgAndAttestation, err := usdcService.ReadTokenData(context.Background(), cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta{
 				EVM2EVMMessage: cciptypes.EVM2EVMMessage{
 					SequenceNumber: seqNum,
