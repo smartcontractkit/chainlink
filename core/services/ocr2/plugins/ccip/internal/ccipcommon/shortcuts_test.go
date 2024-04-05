@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 
@@ -17,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	ccipdatamocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/pricegetter"
 )
 
 func TestGetMessageIDsAsHexString(t *testing.T) {
@@ -78,12 +80,14 @@ func TestGetChainTokens(t *testing.T) {
 		name                string
 		feeTokens           []cciptypes.Address
 		destTokens          [][]cciptypes.Address
+		confTokens          []cciptypes.Address
 		expectedChainTokens []cciptypes.Address
 	}{
 		{
 			name:                "empty",
 			feeTokens:           []cciptypes.Address{},
 			destTokens:          [][]cciptypes.Address{{}},
+			confTokens:          []cciptypes.Address{},
 			expectedChainTokens: []cciptypes.Address{},
 		},
 		{
@@ -92,6 +96,7 @@ func TestGetChainTokens(t *testing.T) {
 			destTokens: [][]cciptypes.Address{
 				{tokens[1], tokens[2], tokens[3]},
 			},
+			confTokens:          []cciptypes.Address{tokens[0], tokens[1], tokens[2], tokens[3]},
 			expectedChainTokens: []cciptypes.Address{tokens[0], tokens[1], tokens[2], tokens[3]},
 		},
 		{
@@ -102,6 +107,7 @@ func TestGetChainTokens(t *testing.T) {
 				{tokens[3], tokens[4]},
 				{tokens[5]},
 			},
+			confTokens:          []cciptypes.Address{tokens[0], tokens[1], tokens[2], tokens[3], tokens[4], tokens[5]},
 			expectedChainTokens: []cciptypes.Address{tokens[0], tokens[1], tokens[2], tokens[3], tokens[4], tokens[5]},
 		},
 		{
@@ -112,7 +118,19 @@ func TestGetChainTokens(t *testing.T) {
 				{tokens[0], tokens[2], tokens[3], tokens[4], tokens[5]},
 				{tokens[5]},
 			},
+			confTokens:          []cciptypes.Address{tokens[0], tokens[1], tokens[2], tokens[3], tokens[4], tokens[5]},
 			expectedChainTokens: []cciptypes.Address{tokens[0], tokens[1], tokens[2], tokens[3], tokens[4], tokens[5]},
+		},
+		{
+			name:      "unconfigured tokens",
+			feeTokens: []cciptypes.Address{tokens[0]},
+			destTokens: [][]cciptypes.Address{
+				{tokens[0], tokens[1], tokens[2], tokens[3]},
+				{tokens[0], tokens[2], tokens[3], tokens[4], tokens[5]},
+				{tokens[5]},
+			},
+			confTokens:          []cciptypes.Address{tokens[0], tokens[1], tokens[2], tokens[3], tokens[4]},
+			expectedChainTokens: []cciptypes.Address{tokens[0], tokens[1], tokens[2], tokens[3], tokens[4]},
 		},
 	}
 
@@ -123,6 +141,11 @@ func TestGetChainTokens(t *testing.T) {
 			priceRegistry := ccipdatamocks.NewPriceRegistryReader(t)
 			priceRegistry.On("GetFeeTokens", ctx).Return(tc.feeTokens, nil).Once()
 
+			priceGet := pricegetter.NewMockPriceGetter(t)
+			for _, confToken := range tc.confTokens {
+				priceGet.On("IsTokenConfigured", mock.Anything, confToken).Return(true, nil)
+			}
+
 			var offRamps []ccipdata.OffRampReader
 			for _, destTokens := range tc.destTokens {
 				offRamp := ccipdatamocks.NewOffRampReader(t)
@@ -130,7 +153,7 @@ func TestGetChainTokens(t *testing.T) {
 				offRamps = append(offRamps, offRamp)
 			}
 
-			chainTokens, err := GetSortedChainTokens(ctx, offRamps, priceRegistry)
+			chainTokens, err := GetSortedChainTokens(ctx, offRamps, priceRegistry, priceGet)
 			assert.NoError(t, err)
 
 			sort.Slice(tc.expectedChainTokens, func(i, j int) bool {

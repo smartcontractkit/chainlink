@@ -82,6 +82,7 @@ func TestCommitReportingPlugin_Observation(t *testing.T) {
 		sourceChainCursed      bool
 		commitStoreSeqNum      uint64
 		tokenPrices            map[cciptypes.Address]*big.Int
+		priceGetterConfTokens  []cciptypes.Address
 		sendReqs               []cciptypes.EVM2EVMMessageWithTxMeta
 		tokenDecimals          map[cciptypes.Address]uint8
 		fee                    *big.Int
@@ -98,6 +99,10 @@ func TestCommitReportingPlugin_Observation(t *testing.T) {
 				bridgedTokens[0]:      bridgedTokenPrices[bridgedTokens[0]],
 				bridgedTokens[1]:      bridgedTokenPrices[bridgedTokens[1]],
 				sourceNativeTokenAddr: big.NewInt(2e18),
+			},
+			priceGetterConfTokens: []cciptypes.Address{
+				bridgedTokens[0],
+				bridgedTokens[1],
 			},
 			sendReqs: []cciptypes.EVM2EVMMessageWithTxMeta{
 				{EVM2EVMMessage: cciptypes.EVM2EVMMessage{SequenceNumber: 54}},
@@ -122,6 +127,10 @@ func TestCommitReportingPlugin_Observation(t *testing.T) {
 				bridgedTokens[1]:      bridgedTokenPrices[bridgedTokens[1]],
 				sourceNativeTokenAddr: big.NewInt(2e18),
 			},
+			priceGetterConfTokens: []cciptypes.Address{
+				bridgedTokens[0],
+				bridgedTokens[1],
+			},
 			sendReqs: []cciptypes.EVM2EVMMessageWithTxMeta{
 				{EVM2EVMMessage: cciptypes.EVM2EVMMessage{SequenceNumber: 54}},
 				{EVM2EVMMessage: cciptypes.EVM2EVMMessage{SequenceNumber: 55}},
@@ -145,6 +154,11 @@ func TestCommitReportingPlugin_Observation(t *testing.T) {
 				bridgedTokens[0]:      bridgedTokenPrices[bridgedTokens[0]],
 				bridgedTokens[1]:      bridgedTokenPrices[bridgedTokens[1]],
 				sourceNativeTokenAddr: big.NewInt(2e18),
+			},
+			priceGetterConfTokens: []cciptypes.Address{
+				sourceNativeTokenAddr,
+				bridgedTokens[0],
+				bridgedTokens[1],
 			},
 			sendReqs: []cciptypes.EVM2EVMMessageWithTxMeta{
 				{EVM2EVMMessage: cciptypes.EVM2EVMMessage{SequenceNumber: 54}},
@@ -211,6 +225,9 @@ func TestCommitReportingPlugin_Observation(t *testing.T) {
 			if !tc.priceReportingDisabled && len(tc.tokenPrices) > 0 {
 				queryTokens := ccipcommon.FlattenUniqueSlice([]cciptypes.Address{sourceNativeTokenAddr}, destTokens)
 				priceGet.On("TokenPricesUSD", mock.Anything, queryTokens).Return(tc.tokenPrices, nil)
+				for _, confToken := range tc.priceGetterConfTokens {
+					priceGet.On("IsTokenConfigured", mock.Anything, confToken).Return(true, nil)
+				}
 			}
 
 			gasPriceEstimator := prices.NewMockGasPriceEstimatorCommit(t)

@@ -74,6 +74,23 @@ func NewDynamicPriceGetter(cfg config.DynamicPriceGetterConfig, evmClients map[u
 	return &priceGetter, nil
 }
 
+// IsTokenConfigured implements the PriceGetter interface.
+// It returns if a token has a price resolution rule configured on the PriceGetterConfig
+func (d *DynamicPriceGetter) IsTokenConfigured(ctx context.Context, token cciptypes.Address) (bool, error) {
+	evmAddr, err := ccipcalc.GenericAddrToEvm(token)
+	if err != nil {
+		return false, err
+	}
+
+	if _, isAgg := d.cfg.AggregatorPrices[evmAddr]; isAgg {
+		return isAgg, nil
+	} else if _, isStatic := d.cfg.StaticPrices[evmAddr]; isStatic {
+		return isStatic, nil
+	} else {
+		return false, nil
+	}
+}
+
 // TokenPricesUSD implements the PriceGetter interface.
 // It returns static prices stored in the price getter, and batch calls to aggregators (on per chain) for aggregator-based prices.
 func (d *DynamicPriceGetter) TokenPricesUSD(ctx context.Context, tokens []cciptypes.Address) (map[cciptypes.Address]*big.Int, error) {
