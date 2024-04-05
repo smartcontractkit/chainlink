@@ -131,6 +131,9 @@ func NewLogProvider(lggr logger.Logger, poller logpoller.LogPoller, chainID *big
 }
 
 func (p *logEventProvider) SetConfig(cfg ocr2keepers.LogEventProviderConfig) {
+	p.lock.Lock()
+	defer p.lock.Unlock()
+
 	blockRate := cfg.BlockRate
 	logLimit := cfg.LogLimit
 
