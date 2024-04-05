@@ -55,8 +55,8 @@ log_triggered_streams_lookup_wrapper: ../../contracts/solc/v0.8.16/LogTriggeredS
 log_upkeep_counter_wrapper: ../../contracts/solc/v0.8.6/LogUpkeepCounter/LogUpkeepCounter.abi ../../contracts/solc/v0.8.6/LogUpkeepCounter/LogUpkeepCounter.bin 42426bbb83f96dfbe55fc576d6c65020eaeed690e2289cf99b0c4aa810a5f4ec
 mock_aggregator_proxy: ../../contracts/solc/v0.8.6/MockAggregatorProxy/MockAggregatorProxy.abi ../../contracts/solc/v0.8.6/MockAggregatorProxy/MockAggregatorProxy.bin b16c108f3dd384c342ddff5e94da7c0a8d39d1be5e3d8f2cf61ecc7f0e50ff42
 offchain_aggregator_wrapper: OffchainAggregator/OffchainAggregator.abi - 5c8d6562e94166d4790f1ee6e4321d359d9f7262e6c5452a712b1f1c896f45cf
-operator_factory: ../../contracts/solc/v0.8.19/OperatorFactory/OperatorFactory.abi ../../contracts/solc/v0.8.19/OperatorFactory/OperatorFactory.bin b387ab42b7b5dd7d65d45a6d07e9ff7a36f7b46749c4e2596f8f3635d35a8e4e
-operator_wrapper: ../../contracts/solc/v0.8.19/Operator/Operator.abi ../../contracts/solc/v0.8.19/Operator/Operator.bin 038a19aad41125dc6c67b920e0d2b349b6b07c4106db19df5f5109170aabfa07
+operator_factory: ../../contracts/solc/v0.8.19/OperatorFactory/OperatorFactory.abi ../../contracts/solc/v0.8.19/OperatorFactory/OperatorFactory.bin 88e6baa5d9b255eea02616fbcb2cbe21a25ab46adeb6395f6289d169dec949ae
+operator_wrapper: ../../contracts/solc/v0.8.19/Operator/Operator.abi ../../contracts/solc/v0.8.19/Operator/Operator.bin 23c3888eaa7259e6adf2153d09abae8f4b1987dc44200363faab1e65483f32d5
 optimism_module: ../../contracts/solc/v0.8.19/OptimismModule/OptimismModule.abi ../../contracts/solc/v0.8.19/OptimismModule/OptimismModule.bin a1f8ee97e12b1b2311db03b94dc52b91f3c2e9a2f8d554031a9c7b41e4432280
 perform_data_checker_wrapper: ../../contracts/solc/v0.8.16/PerformDataChecker/PerformDataChecker.abi ../../contracts/solc/v0.8.16/PerformDataChecker/PerformDataChecker.bin 48d8309c2117c29a24e1155917ab0b780956b2cd6a8a39ef06ae66a7f6d94f73
 scroll_module: ../../contracts/solc/v0.8.19/ScrollModule/ScrollModule.abi ../../contracts/solc/v0.8.19/ScrollModule/ScrollModule.bin 8de157cb7e5bc78146548212803d60926c8483aca7e912d802b7c66dc5d2ab11
