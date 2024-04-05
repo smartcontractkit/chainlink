@@ -7,8 +7,8 @@ name: Release Preview - Changeset
 
 on:
   push:
-    # branches:
-    #   - develop
+    branches:
+      - develop
 
 jobs:
   cd-release:
