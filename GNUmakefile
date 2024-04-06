@@ -27,7 +27,7 @@ gomod: ## Ensure chainlink's go dependencies are installed.
 	go mod download
 
 .PHONY: gomodtidy
-gomodtidy: gomods ## Run go mod tidy on all modules.
+gomodtidy: ## Run go mod tidy on all modules.
 	go mod tidy
 	cd ./core/scripts && go mod tidy
 	cd ./integration-tests && go mod tidy
@@ -86,8 +86,13 @@ abigen: ## Build & install abigen.
 	./tools/bin/build_abigen
 
 .PHONY: generate
-generate: abigen codecgen mockery protoc gomods ## Execute all go:generate commands.
-	gomods -w go generate -x ./...
+generate: abigen codecgen mockery protoc ## Execute all go:generate commands.
+	go generate -x ./...
+	cd ./core/scripts && go generate -x ./...
+	cd ./integration-tests && go generate -x ./...
+	cd ./integration-tests/load && go generate -x ./...
+	cd ./dashboard-lib && go generate -x ./...
+	cd ./charts/chainlink-cluster && go generate -x ./...
 
 .PHONY: testscripts
 testscripts: chainlink-test ## Install and run testscript against testdata/scripts/* files.
