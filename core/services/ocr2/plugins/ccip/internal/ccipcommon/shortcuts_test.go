@@ -80,14 +80,12 @@ func TestGetChainTokens(t *testing.T) {
 		name                string
 		feeTokens           []cciptypes.Address
 		destTokens          [][]cciptypes.Address
-		confTokens          []cciptypes.Address
 		expectedChainTokens []cciptypes.Address
 	}{
 		{
 			name:                "empty",
 			feeTokens:           []cciptypes.Address{},
 			destTokens:          [][]cciptypes.Address{{}},
-			confTokens:          []cciptypes.Address{},
 			expectedChainTokens: []cciptypes.Address{},
 		},
 		{
@@ -96,7 +94,6 @@ func TestGetChainTokens(t *testing.T) {
 			destTokens: [][]cciptypes.Address{
 				{tokens[1], tokens[2], tokens[3]},
 			},
-			confTokens:          []cciptypes.Address{tokens[0], tokens[1], tokens[2], tokens[3]},
 			expectedChainTokens: []cciptypes.Address{tokens[0], tokens[1], tokens[2], tokens[3]},
 		},
 		{
@@ -107,7 +104,6 @@ func TestGetChainTokens(t *testing.T) {
 				{tokens[3], tokens[4]},
 				{tokens[5]},
 			},
-			confTokens:          []cciptypes.Address{tokens[0], tokens[1], tokens[2], tokens[3], tokens[4], tokens[5]},
 			expectedChainTokens: []cciptypes.Address{tokens[0], tokens[1], tokens[2], tokens[3], tokens[4], tokens[5]},
 		},
 		{
@@ -118,8 +114,91 @@ func TestGetChainTokens(t *testing.T) {
 				{tokens[0], tokens[2], tokens[3], tokens[4], tokens[5]},
 				{tokens[5]},
 			},
-			confTokens:          []cciptypes.Address{tokens[0], tokens[1], tokens[2], tokens[3], tokens[4], tokens[5]},
 			expectedChainTokens: []cciptypes.Address{tokens[0], tokens[1], tokens[2], tokens[3], tokens[4], tokens[5]},
+		},
+	}
+
+	ctx := testutils.Context(t)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+
+			priceRegistry := ccipdatamocks.NewPriceRegistryReader(t)
+			priceRegistry.On("GetFeeTokens", ctx).Return(tc.feeTokens, nil).Once()
+
+			var offRamps []ccipdata.OffRampReader
+			for _, destTokens := range tc.destTokens {
+				offRamp := ccipdatamocks.NewOffRampReader(t)
+				offRamp.On("GetTokens", ctx).Return(cciptypes.OffRampTokens{DestinationTokens: destTokens}, nil).Once()
+				offRamps = append(offRamps, offRamp)
+			}
+
+			chainTokens, err := GetSortedChainTokens(ctx, offRamps, priceRegistry)
+			assert.NoError(t, err)
+
+			sort.Slice(tc.expectedChainTokens, func(i, j int) bool {
+				return tc.expectedChainTokens[i] < tc.expectedChainTokens[j]
+			})
+			assert.Equal(t, tc.expectedChainTokens, chainTokens)
+		})
+	}
+}
+
+func TestGetFilteredChainTokens(t *testing.T) {
+	const numTokens = 6
+	var tokens []cciptypes.Address
+	for i := 0; i < numTokens; i++ {
+		tokens = append(tokens, ccipcalc.EvmAddrToGeneric(utils.RandomAddress()))
+	}
+
+	testCases := []struct {
+		name                   string
+		feeTokens              []cciptypes.Address
+		destTokens             [][]cciptypes.Address
+		tokenHasPriceGetter    [numTokens]bool
+		expectedChainTokens    []cciptypes.Address
+		expectedFilteredTokens []cciptypes.Address
+	}{
+		{
+			name:                   "empty",
+			feeTokens:              []cciptypes.Address{},
+			destTokens:             [][]cciptypes.Address{{}},
+			tokenHasPriceGetter:    [numTokens]bool{false, false, false, false, false, false},
+			expectedChainTokens:    []cciptypes.Address{},
+			expectedFilteredTokens: []cciptypes.Address{},
+		},
+		{
+			name:      "single offRamp",
+			feeTokens: []cciptypes.Address{tokens[0]},
+			destTokens: [][]cciptypes.Address{
+				{tokens[1], tokens[2], tokens[3]},
+			},
+			tokenHasPriceGetter:    [numTokens]bool{true, true, true, true, false, false},
+			expectedChainTokens:    []cciptypes.Address{tokens[0], tokens[1], tokens[2], tokens[3]},
+			expectedFilteredTokens: []cciptypes.Address{},
+		},
+		{
+			name:      "multiple offRamps with distinct tokens",
+			feeTokens: []cciptypes.Address{tokens[0]},
+			destTokens: [][]cciptypes.Address{
+				{tokens[1], tokens[2]},
+				{tokens[3], tokens[4]},
+				{tokens[5]},
+			},
+			tokenHasPriceGetter:    [numTokens]bool{true, true, true, true, true, true},
+			expectedChainTokens:    []cciptypes.Address{tokens[0], tokens[1], tokens[2], tokens[3], tokens[4], tokens[5]},
+			expectedFilteredTokens: []cciptypes.Address{},
+		},
+		{
+			name:      "overlapping tokens",
+			feeTokens: []cciptypes.Address{tokens[0]},
+			destTokens: [][]cciptypes.Address{
+				{tokens[0], tokens[1], tokens[2], tokens[3]},
+				{tokens[0], tokens[2], tokens[3], tokens[4], tokens[5]},
+				{tokens[5]},
+			},
+			tokenHasPriceGetter:    [numTokens]bool{true, true, true, true, true, true},
+			expectedChainTokens:    []cciptypes.Address{tokens[0], tokens[1], tokens[2], tokens[3], tokens[4], tokens[5]},
+			expectedFilteredTokens: []cciptypes.Address{},
 		},
 		{
 			name:      "unconfigured tokens",
@@ -129,8 +208,9 @@ func TestGetChainTokens(t *testing.T) {
 				{tokens[0], tokens[2], tokens[3], tokens[4], tokens[5]},
 				{tokens[5]},
 			},
-			confTokens:          []cciptypes.Address{tokens[0], tokens[1], tokens[2], tokens[3], tokens[4]},
-			expectedChainTokens: []cciptypes.Address{tokens[0], tokens[1], tokens[2], tokens[3], tokens[4]},
+			tokenHasPriceGetter:    [numTokens]bool{true, true, true, true, true, false},
+			expectedChainTokens:    []cciptypes.Address{tokens[0], tokens[1], tokens[2], tokens[3], tokens[4]},
+			expectedFilteredTokens: []cciptypes.Address{tokens[5]},
 		},
 	}
 
@@ -142,8 +222,8 @@ func TestGetChainTokens(t *testing.T) {
 			priceRegistry.On("GetFeeTokens", ctx).Return(tc.feeTokens, nil).Once()
 
 			priceGet := pricegetter.NewMockPriceGetter(t)
-			for _, confToken := range tc.confTokens {
-				priceGet.On("IsTokenConfigured", mock.Anything, confToken).Return(true, nil)
+			for i, token := range tokens {
+				priceGet.On("IsTokenConfigured", mock.Anything, token).Return(tc.tokenHasPriceGetter[i], nil).Maybe()
 			}
 
 			var offRamps []ccipdata.OffRampReader
@@ -153,34 +233,38 @@ func TestGetChainTokens(t *testing.T) {
 				offRamps = append(offRamps, offRamp)
 			}
 
-			chainTokens, err := GetSortedChainTokens(ctx, offRamps, priceRegistry, priceGet)
+			chainTokens, filteredTokens, err := GetFilteredSortedChainTokens(ctx, offRamps, priceRegistry, priceGet)
 			assert.NoError(t, err)
 
 			sort.Slice(tc.expectedChainTokens, func(i, j int) bool {
 				return tc.expectedChainTokens[i] < tc.expectedChainTokens[j]
 			})
 			assert.Equal(t, tc.expectedChainTokens, chainTokens)
+			assert.Equal(t, tc.expectedFilteredTokens, filteredTokens)
 		})
 	}
 }
 
 func TestGetChainTokensWithBatchLimit(t *testing.T) {
 	numTokens := 100
+	numFeeTokens := 10
 	var tokens []cciptypes.Address
 	for i := 0; i < numTokens; i++ {
 		tokens = append(tokens, ccipcalc.EvmAddrToGeneric(utils.RandomAddress()))
 	}
 
-	expectedTokens := make([]cciptypes.Address, numTokens)
-	copy(expectedTokens, tokens)
-	sort.Slice(expectedTokens, func(i, j int) bool {
-		return expectedTokens[i] < expectedTokens[j]
+	expectedFeeTokens := make([]cciptypes.Address, numFeeTokens)
+	copy(expectedFeeTokens, tokens[0:numFeeTokens])
+	expectedBridgeableTokens := make([]cciptypes.Address, numTokens)
+	copy(expectedBridgeableTokens, tokens)
+	sort.Slice(expectedBridgeableTokens, func(i, j int) bool {
+		return expectedBridgeableTokens[i] < expectedBridgeableTokens[j]
 	})
 
 	testCases := []struct {
 		name        string
 		batchSize   int
-		numOffRamps uint
+		numOffRamps int
 		expectError bool
 	}{
 		{
@@ -226,23 +310,24 @@ func TestGetChainTokensWithBatchLimit(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 
 			priceRegistry := ccipdatamocks.NewPriceRegistryReader(t)
-			priceRegistry.On("GetFeeTokens", ctx).Return(tokens[0:10], nil).Maybe()
+			priceRegistry.On("GetFeeTokens", ctx).Return(expectedFeeTokens, nil).Maybe()
 
 			var offRamps []ccipdata.OffRampReader
-			for i := 0; i < int(tc.numOffRamps); i++ {
+			for i := 0; i < tc.numOffRamps; i++ {
 				offRamp := ccipdatamocks.NewOffRampReader(t)
 				offRamp.On("GetTokens", ctx).Return(cciptypes.OffRampTokens{DestinationTokens: tokens[i%numTokens:]}, nil).Maybe()
 				offRamps = append(offRamps, offRamp)
 			}
 
-			chainTokens, err := getSortedChainTokensWithBatchLimit(ctx, offRamps, priceRegistry, tc.batchSize)
+			destFeeTokens, destBridgeableTokens, err := getTokensWithBatchLimit(ctx, offRamps, priceRegistry, tc.batchSize)
 			if tc.expectError {
 				assert.Error(t, err)
 				return
 			}
 
 			assert.NoError(t, err)
-			assert.Equal(t, expectedTokens, chainTokens)
+			assert.Equal(t, expectedFeeTokens, destFeeTokens)
+			assert.Equal(t, expectedBridgeableTokens, destBridgeableTokens)
 		})
 	}
 }
