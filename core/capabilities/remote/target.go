@@ -42,6 +42,12 @@ func (c *remoteTargetCaller) Info(ctx context.Context) (commoncap.CapabilityInfo
 	return c.capInfo, nil
 }
 
+func (c *remoteTargetCaller) GetRequestConfigJSONSchema() *commoncap.CapabilityResponse {
+	return &commoncap.CapabilityResponse{
+		Err: errors.New("not implemented"),
+	}
+}
+
 func (c *remoteTargetCaller) RegisterToWorkflow(ctx context.Context, request commoncap.RegisterToWorkflowRequest) error {
 	return errors.New("not implemented")
 }

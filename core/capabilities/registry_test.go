@@ -17,6 +17,7 @@ import (
 
 type mockCapability struct {
 	capabilities.CapabilityInfo
+	capabilities.Validatable
 }
 
 func (m *mockCapability) Execute(ctx context.Context, callback chan<- capabilities.CapabilityResponse, req capabilities.CapabilityRequest) error {

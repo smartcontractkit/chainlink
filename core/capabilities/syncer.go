@@ -2,6 +2,7 @@ package capabilities
 
 import (
 	"context"
+	"errors"
 	"slices"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -170,6 +171,12 @@ type noOpTrigger struct {
 
 func (t *noOpTrigger) Info(_ context.Context) (commoncap.CapabilityInfo, error) {
 	return t.info, nil
+}
+
+func (t *noOpTrigger) GetRequestConfigJSONSchema() *commoncap.CapabilityResponse {
+	return &commoncap.CapabilityResponse{
+		Err: errors.New("not implemented"),
+	}
 }
 
 func (t *noOpTrigger) RegisterTrigger(_ context.Context, _ chan<- commoncap.CapabilityResponse, request commoncap.CapabilityRequest) error {

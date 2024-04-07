@@ -87,6 +87,10 @@ func (t *testTrigger) Info(_ context.Context) (commoncap.CapabilityInfo, error) 
 	return t.info, nil
 }
 
+func (t *testTrigger) GetRequestConfigJSONSchema() (*commoncap.CapabilityResponse) {
+	return nil 
+}
+
 func (t *testTrigger) RegisterTrigger(_ context.Context, _ chan<- commoncap.CapabilityResponse, request commoncap.CapabilityRequest) error {
 	t.registrationsCh <- request
 	return nil

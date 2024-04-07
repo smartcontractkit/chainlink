@@ -45,6 +45,7 @@ var (
 const defaultGasLimit = 200000
 
 type EvmWrite struct {
+	*capabilities.Validator
 	chain legacyevm.Chain
 	capabilities.CapabilityInfo
 	lggr logger.Logger
@@ -66,6 +67,7 @@ func NewEvmWrite(chain legacyevm.Chain, lggr logger.Logger) *EvmWrite {
 	)
 
 	return &EvmWrite{
+		capabilities.NewValidator(EvmConfig{}, nil),
 		chain,
 		info,
 		lggr.Named("EvmWrite"),

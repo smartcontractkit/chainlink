@@ -18,6 +18,7 @@ import (
 
 type mockCapability struct {
 	capabilities.CapabilityInfo
+	capabilities.Validatable
 	capabilities.CallbackExecutable
 	response  chan capabilities.CapabilityResponse
 	transform func(capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error)
@@ -52,6 +53,7 @@ func (m *mockCapability) UnregisterFromWorkflow(ctx context.Context, request cap
 }
 
 type mockTriggerCapability struct {
+	capabilities.Validatable
 	capabilities.CapabilityInfo
 	triggerEvent capabilities.CapabilityResponse
 }

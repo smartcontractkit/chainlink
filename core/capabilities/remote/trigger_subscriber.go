@@ -88,6 +88,12 @@ func (s *triggerSubscriber) Info(ctx context.Context) (commoncap.CapabilityInfo,
 	return s.capInfo, nil
 }
 
+func (s *triggerSubscriber) GetRequestConfigJSONSchema() *commoncap.CapabilityResponse {
+	return &commoncap.CapabilityResponse{
+		Err: errors.New("not implemented"),
+	}
+}
+
 func (s *triggerSubscriber) RegisterTrigger(ctx context.Context, callback chan<- commoncap.CapabilityResponse, request commoncap.CapabilityRequest) error {
 	rawRequest, err := pb.MarshalCapabilityRequest(request)
 	if err != nil {
