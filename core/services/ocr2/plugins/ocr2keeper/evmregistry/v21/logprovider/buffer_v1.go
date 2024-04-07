@@ -66,11 +66,7 @@ func (o *logBufferOptions) override(lookback, blockRate, logLimit uint32) {
 }
 
 func (o *logBufferOptions) windows() int {
-	blockRate := o.blockRate.Load()
-	if blockRate == 0 {
-		blockRate = 1
-	}
-	return int(math.Ceil(float64(o.lookback.Load()) / float64(blockRate)))
+	return int(math.Ceil(float64(o.lookback.Load()) / float64(o.blockRate.Load())))
 }
 
 type logBuffer struct {
