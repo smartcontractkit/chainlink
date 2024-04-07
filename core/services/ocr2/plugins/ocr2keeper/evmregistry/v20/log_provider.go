@@ -11,7 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 
-	pluginutils "github.com/smartcontractkit/chainlink-automation/pkg/util"
+	pluginutils "github.com/smartcontractkit/chainlink-automation/pkg/util/v2"
 	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v2"
 	"github.com/smartcontractkit/chainlink-automation/pkg/v2/encoding"
 
