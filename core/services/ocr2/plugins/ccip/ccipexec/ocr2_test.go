@@ -34,7 +34,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/batchreader"
-	tokenpoolbatchedmocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/batchreader/mocks"
 	ccipdataprovidermocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/ccipdataprovider/mocks"
 	ccipdatamocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_0_0"
@@ -512,7 +511,6 @@ func TestExecutionReportingPlugin_buildBatch(t *testing.T) {
 		tokenLimit, destGasPrice *big.Int
 		srcPrices, dstPrices     map[cciptypes.Address]*big.Int
 		offRampNoncesBySender    map[cciptypes.Address]uint64
-		destRateLimits           map[cciptypes.Address]*big.Int
 		srcToDestTokens          map[cciptypes.Address]cciptypes.Address
 		expectedSeqNrs           []ccip.ObservedMessage
 	}{
@@ -570,22 +568,6 @@ func TestExecutionReportingPlugin_buildBatch(t *testing.T) {
 			dstPrices:             map[cciptypes.Address]*big.Int{destNative: big.NewInt(1)},
 			offRampNoncesBySender: map[cciptypes.Address]uint64{sender1: 0},
 			expectedSeqNrs:        nil,
-		},
-		{
-			name:                  "rate limit hit",
-			reqs:                  []cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta{msg4},
-			tokenLimit:            big.NewInt(0),
-			destGasPrice:          big.NewInt(10),
-			srcPrices:             map[cciptypes.Address]*big.Int{srcNative: big.NewInt(1)},
-			dstPrices:             map[cciptypes.Address]*big.Int{destNative: big.NewInt(1)},
-			offRampNoncesBySender: map[cciptypes.Address]uint64{sender1: 0},
-			destRateLimits: map[cciptypes.Address]*big.Int{
-				destNative: big.NewInt(99),
-			},
-			srcToDestTokens: map[cciptypes.Address]cciptypes.Address{
-				srcNative: destNative,
-			},
-			expectedSeqNrs: nil,
 		},
 		{
 			name:         "message with tokens is not executed if limit is reached",
@@ -710,269 +692,8 @@ func TestExecutionReportingPlugin_buildBatch(t *testing.T) {
 				tc.dstPrices,
 				tc.destGasPrice,
 				tc.srcToDestTokens,
-				tc.destRateLimits,
 			)
 			assert.Equal(t, tc.expectedSeqNrs, seqNrs)
-		})
-	}
-}
-
-func TestExecutionReportingPlugin_isRateLimitEnoughForTokenPool(t *testing.T) {
-	testCases := []struct {
-		name                    string
-		destTokenPoolRateLimits map[cciptypes.Address]*big.Int
-		tokenAmounts            []cciptypes.TokenAmount
-		inflightTokenAmounts    map[cciptypes.Address]*big.Int
-		srcToDestToken          map[cciptypes.Address]cciptypes.Address
-		exp                     bool
-	}{
-		{
-			name: "base",
-			destTokenPoolRateLimits: map[cciptypes.Address]*big.Int{
-				cciptypes.Address("10"): big.NewInt(100),
-				cciptypes.Address("20"): big.NewInt(50),
-			},
-			tokenAmounts: []cciptypes.TokenAmount{
-				{Token: ccipcalc.HexToAddress("1"), Amount: big.NewInt(50)},
-				{Token: ccipcalc.HexToAddress("2"), Amount: big.NewInt(20)},
-			},
-			srcToDestToken: map[cciptypes.Address]cciptypes.Address{
-				cciptypes.Address("1"): cciptypes.Address("10"),
-				cciptypes.Address("2"): cciptypes.Address("20"),
-			},
-			inflightTokenAmounts: map[cciptypes.Address]*big.Int{
-				cciptypes.Address("1"): big.NewInt(20),
-				cciptypes.Address("2"): big.NewInt(30),
-			},
-			exp: true,
-		},
-		{
-			name: "rate limit hit",
-			destTokenPoolRateLimits: map[cciptypes.Address]*big.Int{
-				cciptypes.Address("10"): big.NewInt(100),
-				cciptypes.Address("20"): big.NewInt(50),
-			},
-			srcToDestToken: map[cciptypes.Address]cciptypes.Address{
-				cciptypes.Address("1"): cciptypes.Address("10"),
-				cciptypes.Address("2"): cciptypes.Address("20"),
-			},
-			tokenAmounts: []cciptypes.TokenAmount{
-				{Token: cciptypes.Address("1"), Amount: big.NewInt(50)},
-				{Token: cciptypes.Address("2"), Amount: big.NewInt(51)},
-			},
-			exp: true,
-		},
-		{
-			name: "rate limit hit, inflight included",
-			destTokenPoolRateLimits: map[cciptypes.Address]*big.Int{
-				cciptypes.Address("10"): big.NewInt(100),
-				cciptypes.Address("20"): big.NewInt(50),
-			},
-			srcToDestToken: map[cciptypes.Address]cciptypes.Address{
-				cciptypes.Address("1"): cciptypes.Address("10"),
-				cciptypes.Address("2"): cciptypes.Address("20"),
-			},
-			tokenAmounts: []cciptypes.TokenAmount{
-				{Token: cciptypes.Address("1"), Amount: big.NewInt(50)},
-				{Token: cciptypes.Address("2"), Amount: big.NewInt(20)},
-			},
-			inflightTokenAmounts: map[cciptypes.Address]*big.Int{
-				cciptypes.Address("1"): big.NewInt(51),
-				cciptypes.Address("2"): big.NewInt(30),
-			},
-			exp: true,
-		},
-		{
-			destTokenPoolRateLimits: map[cciptypes.Address]*big.Int{},
-			tokenAmounts: []cciptypes.TokenAmount{
-				{Token: cciptypes.Address("1"), Amount: big.NewInt(50)},
-				{Token: cciptypes.Address("2"), Amount: big.NewInt(20)},
-			},
-			srcToDestToken: map[cciptypes.Address]cciptypes.Address{
-				cciptypes.Address("1"): cciptypes.Address("10"),
-				cciptypes.Address("2"): cciptypes.Address("20"),
-			},
-			inflightTokenAmounts: map[cciptypes.Address]*big.Int{
-				cciptypes.Address("1"): big.NewInt(20),
-				cciptypes.Address("2"): big.NewInt(30),
-			},
-			name: "rate limit not applied to token",
-			exp:  false,
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			p := &ExecutionReportingPlugin{lggr: logger.TestLogger(t)}
-			p.isRateLimitEnoughForTokenPool(tc.destTokenPoolRateLimits, tc.tokenAmounts, tc.inflightTokenAmounts, tc.srcToDestToken)
-		})
-	}
-}
-
-func TestExecutionReportingPlugin_destPoolRateLimits(t *testing.T) {
-	randAddr := func() cciptypes.Address {
-		return cciptypes.Address(utils.RandomAddress().String())
-	}
-	tk1 := randAddr()
-	tk1dest := randAddr()
-	tk1pool := randAddr()
-
-	tk2 := randAddr()
-	tk2dest := randAddr()
-	tk2pool := randAddr()
-
-	testCases := []struct {
-		name         string
-		tokenAmounts []cciptypes.TokenAmount
-		// the order of the following fields: sourceTokens, destTokens and poolRateLimits
-		// should follow the order of the tokenAmounts
-		sourceTokens      []cciptypes.Address
-		destTokens        []cciptypes.Address
-		destPools         []cciptypes.Address
-		poolRateLimits    []cciptypes.TokenBucketRateLimit
-		destPoolsCacheErr error
-
-		expRateLimits map[cciptypes.Address]*big.Int
-		expErr        bool
-	}{
-		{
-			name: "happy flow",
-			tokenAmounts: []cciptypes.TokenAmount{
-				{Token: tk1},
-				{Token: tk2},
-				{Token: tk1},
-				{Token: tk1},
-			},
-			sourceTokens: []cciptypes.Address{tk1, tk2},
-			destTokens:   []cciptypes.Address{tk1dest, tk2dest},
-			destPools:    []cciptypes.Address{tk1pool, tk2pool},
-			poolRateLimits: []cciptypes.TokenBucketRateLimit{
-				{Tokens: big.NewInt(1000), IsEnabled: true},
-				{Tokens: big.NewInt(2000), IsEnabled: true},
-			},
-			expRateLimits: map[cciptypes.Address]*big.Int{
-				tk1dest: big.NewInt(1000),
-				tk2dest: big.NewInt(2000),
-			},
-			expErr: false,
-		},
-		{
-			name: "missing from source to dest mapping should not return error",
-			tokenAmounts: []cciptypes.TokenAmount{
-				{Token: tk1},
-				{Token: tk2}, // <- missing
-			},
-			sourceTokens: []cciptypes.Address{tk1},
-			destTokens:   []cciptypes.Address{tk1dest},
-			destPools:    []cciptypes.Address{tk1pool},
-			poolRateLimits: []cciptypes.TokenBucketRateLimit{
-				{Tokens: big.NewInt(1000), IsEnabled: true},
-			},
-			expRateLimits: map[cciptypes.Address]*big.Int{
-				tk1dest: big.NewInt(1000),
-			},
-			expErr: false,
-		},
-		{
-			name: "pool is disabled",
-			tokenAmounts: []cciptypes.TokenAmount{
-				{Token: tk1},
-				{Token: tk2},
-			},
-			sourceTokens: []cciptypes.Address{tk1, tk2},
-			destTokens:   []cciptypes.Address{tk1dest, tk2dest},
-			destPools:    []cciptypes.Address{tk1pool, tk2pool},
-			poolRateLimits: []cciptypes.TokenBucketRateLimit{
-				{Tokens: big.NewInt(1000), IsEnabled: true},
-				{Tokens: big.NewInt(2000), IsEnabled: false},
-			},
-			expRateLimits: map[cciptypes.Address]*big.Int{
-				tk1dest: big.NewInt(1000),
-			},
-			expErr: false,
-		},
-		{
-			name: "dest pool cache error",
-			tokenAmounts: []cciptypes.TokenAmount{
-				{Token: tk1},
-			},
-			sourceTokens: []cciptypes.Address{tk1},
-			destTokens:   []cciptypes.Address{tk1dest},
-			destPools:    []cciptypes.Address{tk1pool},
-			poolRateLimits: []cciptypes.TokenBucketRateLimit{
-				{Tokens: big.NewInt(1000), IsEnabled: true},
-			},
-			expRateLimits: map[cciptypes.Address]*big.Int{
-				tk1dest: big.NewInt(1000),
-			},
-			destPoolsCacheErr: errors.New("some err"),
-			expErr:            true,
-		},
-		{
-			name: "pool for token not found",
-			tokenAmounts: []cciptypes.TokenAmount{
-				{Token: tk1}, {Token: tk2}, {Token: tk1}, {Token: tk2},
-			},
-			sourceTokens: []cciptypes.Address{tk1, tk2},
-			destTokens:   []cciptypes.Address{tk1dest, tk2dest},
-			destPools:    []cciptypes.Address{tk1pool}, // <-- pool2 not found
-			poolRateLimits: []cciptypes.TokenBucketRateLimit{
-				{Tokens: big.NewInt(1000), IsEnabled: true},
-			},
-			expRateLimits: map[cciptypes.Address]*big.Int{
-				tk1dest: big.NewInt(1000),
-			},
-			expErr: true,
-		},
-	}
-
-	ctx := testutils.Context(t)
-	lggr := logger.TestLogger(t)
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			sourceToDestMapping := make(map[cciptypes.Address]cciptypes.Address)
-			for i, srcTk := range tc.sourceTokens {
-				sourceToDestMapping[srcTk] = tc.destTokens[i]
-			}
-
-			poolsMapping := make(map[cciptypes.Address]cciptypes.Address)
-			for i, poolAddr := range tc.destPools {
-				poolsMapping[tc.destTokens[i]] = poolAddr
-			}
-
-			p := &ExecutionReportingPlugin{}
-			p.lggr = lggr
-
-			offRampAddr := utils.RandomAddress()
-			mockOffRampReader := ccipdatamocks.NewOffRampReader(t)
-			mockOffRampReader.On("Address").Return(offRampAddr, nil).Maybe()
-			mockOffRampReader.On("GetTokens", ctx).Return(cciptypes.OffRampTokens{
-				DestinationPool: poolsMapping,
-			}, tc.destPoolsCacheErr).Maybe()
-			p.offRampReader = mockOffRampReader
-
-			tokenPoolFactoryMock := tokenpoolbatchedmocks.NewTokenPoolBatchedReader(t)
-			tokenPoolFactoryMock.On("GetInboundTokenPoolRateLimits", mock.Anything, mock.Anything).Return(tc.poolRateLimits, nil).Maybe()
-			p.tokenPoolBatchedReader = tokenPoolFactoryMock
-
-			rateLimits, err := p.destPoolRateLimits(ctx, []commitReportWithSendRequests{
-				{
-					sendRequestsWithMeta: []cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta{
-						{
-							EVM2EVMMessage: cciptypes.EVM2EVMMessage{
-								TokenAmounts: tc.tokenAmounts,
-							},
-						},
-					},
-				},
-			}, sourceToDestMapping)
-
-			if tc.expErr {
-				assert.Error(t, err)
-				return
-			}
-			assert.NoError(t, err)
-			assert.Equal(t, tc.expRateLimits, rateLimits)
 		})
 	}
 }
@@ -1516,7 +1237,7 @@ func Test_inflightAggregates(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			inflightAggrVal, inflightTokenAmounts, err := inflightAggregates(
+			inflightAggrVal, err := inflightAggregates(
 				tc.inflight, tc.destTokenPrices, tc.sourceToDest)
 
 			if tc.expErr {
@@ -1525,7 +1246,6 @@ func Test_inflightAggregates(t *testing.T) {
 			}
 			assert.NoError(t, err)
 			assert.True(t, reflect.DeepEqual(tc.expInflightAggrVal, inflightAggrVal))
-			assert.True(t, reflect.DeepEqual(tc.expInflightTokenAmounts, inflightTokenAmounts))
 		})
 	}
 }
