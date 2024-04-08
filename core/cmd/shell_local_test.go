@@ -302,6 +302,7 @@ func TestShell_RebroadcastTransactions_Txm(t *testing.T) {
 	app.On("GetSqlxDB").Return(sqlxDB)
 	app.On("GetKeyStore").Return(keyStore)
 	app.On("ID").Maybe().Return(uuid.New())
+	app.On("GetConfig").Return(config)
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	legacy := cltest.NewLegacyChainsWithMockChain(t, ethClient, config)
 
@@ -383,6 +384,7 @@ func TestShell_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 			app.On("GetSqlxDB").Return(sqlxDB)
 			app.On("GetKeyStore").Return(keyStore)
 			app.On("ID").Maybe().Return(uuid.New())
+			app.On("GetConfig").Return(config)
 			ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 			ethClient.On("Dial", mock.Anything).Return(nil)
 			legacy := cltest.NewLegacyChainsWithMockChain(t, ethClient, config)
@@ -487,6 +489,7 @@ func TestShell_RebroadcastTransactions_AddressCheck(t *testing.T) {
 			if test.shouldError {
 				require.ErrorContains(t, client.RebroadcastTransactions(c), test.errorContains)
 			} else {
+				app.On("GetConfig").Return(config).Once()
 				require.NoError(t, client.RebroadcastTransactions(c))
 			}
 
