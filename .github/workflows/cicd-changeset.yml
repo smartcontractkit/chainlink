@@ -16,14 +16,10 @@ jobs:
     permissions:
       id-token: write
       contents: read
-      pull-requests: write
-    outputs:
-      hasChangesets: ${{ steps.cd-release.outputs.hasChangesets }}
-      changesetPrId: ${{ steps.cd-release.outputs.pullRequestNumber }}
     steps:
       - name: cd-release
         id: cd-release
-        uses: smartcontractkit/.github/actions/cicd-changesets@3c553cf15578c321b73edbe74265e4bde2cb6445 # cicd-changesets@0.3.0
+        uses: smartcontractkit/.github/actions/cicd-changesets@re-2428/fix-upsert-pr-draft # TODO: pin specific release after testing
         with:
           # general inputs
           git-user: app-token-issuer-releng[bot]
@@ -35,8 +31,3 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
           aws-role-arn: ${{ secrets.AWS_OIDC_CHAINLINK_CI_AUTO_PR_TOKEN_ISSUER_ROLE_ARN }}
           aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
-      - name: Set PR to draft
-        shell: bash
-        run: gh pr ready ${{ steps.cd-release.outputs.changesetPrId }} --undo
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
