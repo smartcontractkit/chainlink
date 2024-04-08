@@ -26,14 +26,14 @@ func TestInterpolateKey(t *testing.T) {
 	testCases := []struct {
 		name     string
 		key      string
-		state    *executionState
+		state    executionState
 		expected any
 		errMsg   string
 	}{
 		{
 			name: "digging into a string",
 			key:  "evm_median.outputs.reports",
-			state: &executionState{
+			state: executionState{
 				steps: map[string]*stepState{
 					"evm_median": {
 						outputs: &stepOutput{
@@ -42,12 +42,12 @@ func TestInterpolateKey(t *testing.T) {
 					},
 				},
 			},
-			errMsg: "could not interpolate ref part `reports` in `<a report>`",
+			errMsg: "could not interpolate ref part `reports` (ref: `evm_median.outputs.reports`) in `<a report>`",
 		},
 		{
 			name: "ref doesn't exist",
 			key:  "evm_median.outputs.reports",
-			state: &executionState{
+			state: executionState{
 				steps: map[string]*stepState{},
 			},
 			errMsg: "could not find ref `evm_median`",
@@ -55,7 +55,7 @@ func TestInterpolateKey(t *testing.T) {
 		{
 			name: "less than 2 parts",
 			key:  "evm_median",
-			state: &executionState{
+			state: executionState{
 				steps: map[string]*stepState{},
 			},
 			errMsg: "must have at least two parts",
@@ -63,7 +63,7 @@ func TestInterpolateKey(t *testing.T) {
 		{
 			name: "second part isn't `inputs` or `outputs`",
 			key:  "evm_median.foo",
-			state: &executionState{
+			state: executionState{
 				steps: map[string]*stepState{
 					"evm_median": {
 						outputs: &stepOutput{
@@ -77,7 +77,7 @@ func TestInterpolateKey(t *testing.T) {
 		{
 			name: "outputs has errored",
 			key:  "evm_median.outputs",
-			state: &executionState{
+			state: executionState{
 				steps: map[string]*stepState{
 					"evm_median": {
 						outputs: &stepOutput{
@@ -91,7 +91,7 @@ func TestInterpolateKey(t *testing.T) {
 		{
 			name: "digging into a recursive map",
 			key:  "evm_median.outputs.reports.inner",
-			state: &executionState{
+			state: executionState{
 				steps: map[string]*stepState{
 					"evm_median": {
 						outputs: &stepOutput{
@@ -105,7 +105,7 @@ func TestInterpolateKey(t *testing.T) {
 		{
 			name: "missing key in map",
 			key:  "evm_median.outputs.reports.missing",
-			state: &executionState{
+			state: executionState{
 				steps: map[string]*stepState{
 					"evm_median": {
 						outputs: &stepOutput{
@@ -114,12 +114,12 @@ func TestInterpolateKey(t *testing.T) {
 					},
 				},
 			},
-			errMsg: "could not find ref part `missing` in",
+			errMsg: "could not find ref part `missing` (ref: `evm_median.outputs.reports.missing`) in",
 		},
 		{
 			name: "digging into an array",
 			key:  "evm_median.outputs.reportsList.0",
-			state: &executionState{
+			state: executionState{
 				steps: map[string]*stepState{
 					"evm_median": {
 						outputs: &stepOutput{
@@ -133,7 +133,7 @@ func TestInterpolateKey(t *testing.T) {
 		{
 			name: "digging into an array that's too small",
 			key:  "evm_median.outputs.reportsList.2",
-			state: &executionState{
+			state: executionState{
 				steps: map[string]*stepState{
 					"evm_median": {
 						outputs: &stepOutput{
@@ -142,12 +142,12 @@ func TestInterpolateKey(t *testing.T) {
 					},
 				},
 			},
-			errMsg: "cannot fetch index 2",
+			errMsg: "index out of bounds 2",
 		},
 		{
 			name: "digging into an array with a string key",
 			key:  "evm_median.outputs.reportsList.notAString",
-			state: &executionState{
+			state: executionState{
 				steps: map[string]*stepState{
 					"evm_median": {
 						outputs: &stepOutput{
@@ -156,12 +156,12 @@ func TestInterpolateKey(t *testing.T) {
 					},
 				},
 			},
-			errMsg: "could not interpolate ref part `notAString` in `[listElement]`: `notAString` is not convertible to an int",
+			errMsg: "could not interpolate ref part `notAString` (ref: `evm_median.outputs.reportsList.notAString`) in `[listElement]`: `notAString` is not convertible to an int",
 		},
 		{
 			name: "digging into an array with a negative index",
 			key:  "evm_median.outputs.reportsList.-1",
-			state: &executionState{
+			state: executionState{
 				steps: map[string]*stepState{
 					"evm_median": {
 						outputs: &stepOutput{
@@ -170,12 +170,12 @@ func TestInterpolateKey(t *testing.T) {
 					},
 				},
 			},
-			errMsg: "could not interpolate ref part `-1` in `[listElement]`: index -1 must be a positive number",
+			errMsg: "could not interpolate ref part `-1` (ref: `evm_median.outputs.reportsList.-1`) in `[listElement]`: index out of bounds -1",
 		},
 		{
 			name: "empty element",
 			key:  "evm_median.outputs..notAString",
-			state: &executionState{
+			state: executionState{
 				steps: map[string]*stepState{
 					"evm_median": {
 						outputs: &stepOutput{
@@ -184,7 +184,7 @@ func TestInterpolateKey(t *testing.T) {
 					},
 				},
 			},
-			errMsg: "could not find ref part `` in",
+			errMsg: "could not find ref part `` (ref: `evm_median.outputs..notAString`) in",
 		},
 	}
 
@@ -205,7 +205,7 @@ func TestInterpolateInputsFromState(t *testing.T) {
 	testCases := []struct {
 		name     string
 		inputs   map[string]any
-		state    *executionState
+		state    executionState
 		expected any
 		errMsg   string
 	}{
@@ -216,7 +216,7 @@ func TestInterpolateInputsFromState(t *testing.T) {
 					"shouldinterpolate": "$(evm_median.outputs)",
 				},
 			},
-			state: &executionState{
+			state: executionState{
 				steps: map[string]*stepState{
 					"evm_median": {
 						outputs: &stepOutput{
@@ -236,7 +236,7 @@ func TestInterpolateInputsFromState(t *testing.T) {
 			inputs: map[string]any{
 				"foo": "bar",
 			},
-			state: &executionState{
+			state: executionState{
 				steps: map[string]*stepState{
 					"evm_median": {
 						outputs: &stepOutput{

@@ -147,6 +147,10 @@ type MockGasEstimatorConfig struct {
 	ModeF               string
 }
 
+func NewMockGasConfig() *MockGasEstimatorConfig {
+	return &MockGasEstimatorConfig{}
+}
+
 func (m *MockGasEstimatorConfig) BumpPercent() uint16 {
 	return m.BumpPercentF
 }

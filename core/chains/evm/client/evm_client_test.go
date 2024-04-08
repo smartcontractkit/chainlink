@@ -6,9 +6,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestNewEvmClient(t *testing.T) {
@@ -22,16 +23,19 @@ func TestNewEvmClient(t *testing.T) {
 	syncThreshold := ptr(uint32(5))
 	nodeIsSyncingEnabled := ptr(false)
 	chainTypeStr := ""
-	nodeConfigs := []client.TestNodeConfig{
+	nodeConfigs := []client.NodeConfig{
 		{
 			Name:    ptr("foo"),
 			WSURL:   ptr("ws://foo.test"),
 			HTTPURL: ptr("http://foo.test"),
 		},
 	}
-	nodePool, nodes, chainType, err := client.NewClientConfigs(selectionMode, leaseDuration, chainTypeStr, nodeConfigs, pollFailureThreshold, pollInterval, syncThreshold, nodeIsSyncingEnabled)
+	finalityDepth := ptr(uint32(10))
+	finalityTagEnabled := ptr(true)
+	chainCfg, nodePool, nodes, err := client.NewClientConfigs(selectionMode, leaseDuration, chainTypeStr, nodeConfigs,
+		pollFailureThreshold, pollInterval, syncThreshold, nodeIsSyncingEnabled, noNewHeadsThreshold, finalityDepth, finalityTagEnabled)
 	require.NoError(t, err)
 
-	client := client.NewEvmClient(nodePool, noNewHeadsThreshold, logger.TestLogger(t), testutils.FixtureChainID, chainType, nodes)
+	client := client.NewEvmClient(nodePool, chainCfg, logger.Test(t), testutils.FixtureChainID, nodes)
 	require.NotNil(t, client)
 }

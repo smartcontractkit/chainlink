@@ -7,7 +7,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/caigo"
+	"github.com/NethermindEth/starknet.go/curve"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	adapters "github.com/smartcontractkit/chainlink-common/pkg/loop/adapters/starknet"
@@ -179,7 +179,7 @@ func (lk *StarknetLooppSigner) Sign(ctx context.Context, id string, hash []byte)
 	}
 
 	starkHash := new(big.Int).SetBytes(hash)
-	x, y, err := caigo.Curve.Sign(starkHash, k.ToPrivKey())
+	x, y, err := curve.Curve.Sign(starkHash, k.ToPrivKey())
 	if err != nil {
 		return nil, fmt.Errorf("error signing data with curve: %w", err)
 	}

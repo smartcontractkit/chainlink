@@ -21,6 +21,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
@@ -70,7 +71,8 @@ func init() {
 var _ commontypes.Relayer = &Relayer{} //nolint:staticcheck
 
 type Relayer struct {
-	db          *sqlx.DB
+	db          *sqlx.DB // legacy: prefer to use ds instead
+	ds          sqlutil.DataSource
 	chain       legacyevm.Chain
 	lggr        logger.Logger
 	ks          CSAETHKeystore
@@ -93,7 +95,8 @@ type CSAETHKeystore interface {
 }
 
 type RelayerOpts struct {
-	*sqlx.DB
+	*sqlx.DB // legacy: prefer to use ds instead
+	DS       sqlutil.DataSource
 	pg.QConfig
 	CSAETHKeystore
 	MercuryPool wsrpc.Pool
@@ -103,6 +106,9 @@ func (c RelayerOpts) Validate() error {
 	var err error
 	if c.DB == nil {
 		err = errors.Join(err, errors.New("nil DB"))
+	}
+	if c.DS == nil {
+		err = errors.Join(err, errors.New("nil DataSource"))
 	}
 	if c.QConfig == nil {
 		err = errors.Join(err, errors.New("nil QConfig"))
@@ -129,6 +135,7 @@ func NewRelayer(lggr logger.Logger, chain legacyevm.Chain, opts RelayerOpts) (*R
 	cdcFactory := llo.NewChannelDefinitionCacheFactory(lggr, lloORM, chain.LogPoller())
 	return &Relayer{
 		db:          opts.DB,
+		ds:          opts.DS,
 		chain:       chain,
 		lggr:        lggr,
 		ks:          opts.CSAETHKeystore,
@@ -588,7 +595,7 @@ func (r *Relayer) NewMedianProvider(rargs commontypes.RelayArgs, pargs commontyp
 		return nil, err
 	}
 
-	medianContract, err := newMedianContract(configWatcher.ContractConfigTracker(), configWatcher.contractAddress, configWatcher.chain, rargs.JobID, r.db, lggr)
+	medianContract, err := newMedianContract(configWatcher.ContractConfigTracker(), configWatcher.contractAddress, configWatcher.chain, rargs.JobID, r.ds, lggr)
 	if err != nil {
 		return nil, err
 	}

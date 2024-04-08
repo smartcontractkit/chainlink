@@ -22,12 +22,14 @@ import (
 	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
@@ -87,6 +89,7 @@ type Application interface {
 	GetExternalInitiatorManager() webhook.ExternalInitiatorManager
 	GetRelayers() RelayerChainInteroperators
 	GetLoopRegistry() *plugins.LoopRegistry
+	GetLoopRegistrarConfig() plugins.RegistrarConfig
 
 	// V2 Jobs (TOML specified)
 	JobSpawner() job.Spawner
@@ -99,7 +102,7 @@ type Application interface {
 	TxmStorageService() txmgr.EvmTxStore
 	AddJobV2(ctx context.Context, job *job.Job) error
 	DeleteJob(ctx context.Context, jobID int32) error
-	RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta pipeline.JSONSerializable) (int64, error)
+	RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta jsonserializable.JSONSerializable) (int64, error)
 	ResumeJobV2(ctx context.Context, taskID uuid.UUID, result pipeline.Result) error
 	// Testing only
 	RunJobV2(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error)
@@ -148,6 +151,7 @@ type ChainlinkApplication struct {
 	secretGenerator          SecretGenerator
 	profiler                 *pyroscope.Profiler
 	loopRegistry             *plugins.LoopRegistry
+	loopRegistrarConfig      plugins.RegistrarConfig
 
 	started     bool
 	startStopMu sync.Mutex
@@ -194,11 +198,13 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	if cfg.Capabilities().Peering().Enabled() {
 		externalPeerWrapper := externalp2p.NewExternalPeerWrapper(keyStore.P2P(), cfg.Capabilities().Peering(), globalLogger)
+		signer := externalPeerWrapper
 		srvcs = append(srvcs, externalPeerWrapper)
 
 		// NOTE: RegistrySyncer will depend on a Relayer when fully implemented
-		registrySyncer := capabilities.NewRegistrySyncer(externalPeerWrapper, registry, globalLogger)
-		srvcs = append(srvcs, registrySyncer)
+		dispatcher := remote.NewDispatcher(externalPeerWrapper, signer, registry, globalLogger)
+		registrySyncer := capabilities.NewRegistrySyncer(externalPeerWrapper, registry, dispatcher, globalLogger)
+		srvcs = append(srvcs, dispatcher, registrySyncer)
 	}
 
 	// LOOPs can be created as options, in the  case of LOOP relayers, or
@@ -425,10 +431,14 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	} else {
 		globalLogger.Debug("Off-chain reporting disabled")
 	}
+
+	loopRegistrarConfig := plugins.NewRegistrarConfig(opts.GRPCOpts, opts.LoopRegistry.Register, opts.LoopRegistry.Unregister)
+
 	if cfg.OCR2().Enabled() {
 		globalLogger.Debug("Off-chain reporting v2 enabled")
-		registrarConfig := plugins.NewRegistrarConfig(opts.GRPCOpts, opts.LoopRegistry.Register)
-		ocr2DelegateConfig := ocr2.NewDelegateConfig(cfg.OCR2(), cfg.Mercury(), cfg.Threshold(), cfg.Insecure(), cfg.JobPipeline(), cfg.Database(), registrarConfig)
+
+		ocr2DelegateConfig := ocr2.NewDelegateConfig(cfg.OCR2(), cfg.Mercury(), cfg.Threshold(), cfg.Insecure(), cfg.JobPipeline(), cfg.Database(), loopRegistrarConfig)
+
 		delegates[job.OffchainReporting2] = ocr2.NewDelegate(
 			sqlxDB,
 			jobORM,
@@ -497,6 +507,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			legacyEVMChains,
 			globalLogger,
 			opts.Version,
+			loopRegistrarConfig,
 		)
 	} else {
 		feedsService = &feeds.NullService{}
@@ -535,6 +546,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		secretGenerator:          opts.SecretGenerator,
 		profiler:                 profiler,
 		loopRegistry:             loopRegistry,
+		loopRegistrarConfig:      loopRegistrarConfig,
 
 		sqlxDB: opts.SqlxDB,
 		db:     opts.DB,
@@ -604,6 +616,9 @@ func (app *ChainlinkApplication) StopIfStarted() error {
 
 func (app *ChainlinkApplication) GetLoopRegistry() *plugins.LoopRegistry {
 	return app.loopRegistry
+}
+func (app *ChainlinkApplication) GetLoopRegistrarConfig() plugins.RegistrarConfig {
+	return app.loopRegistrarConfig
 }
 
 // Stop allows the application to exit by halting schedules, closing
@@ -744,7 +759,7 @@ func (app *ChainlinkApplication) DeleteJob(ctx context.Context, jobID int32) err
 	return app.jobSpawner.DeleteJob(jobID, pg.WithParentCtx(ctx))
 }
 
-func (app *ChainlinkApplication) RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta pipeline.JSONSerializable) (int64, error) {
+func (app *ChainlinkApplication) RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta jsonserializable.JSONSerializable) (int64, error) {
 	return app.webhookJobRunner.RunJob(ctx, jobUUID, requestBody, meta)
 }
 

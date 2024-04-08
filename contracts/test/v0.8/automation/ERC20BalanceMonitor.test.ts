@@ -8,9 +8,9 @@ import { ERC20BalanceMonitorExposed, LinkToken } from '../../../typechain'
 import { BigNumber } from 'ethers'
 
 const OWNABLE_ERR = 'Only callable by owner'
-const INVALID_WATCHLIST_ERR = `InvalidWatchList()`
+const INVALID_WATCHLIST_ERR = `InvalidWatchList`
 const PAUSED_ERR = 'Pausable: paused'
-const ONLY_KEEPER_ERR = `OnlyKeeperRegistry()`
+const ONLY_KEEPER_ERR = `OnlyKeeperRegistry`
 
 const zeroLINK = ethers.utils.parseEther('0')
 const oneLINK = ethers.utils.parseEther('1')
@@ -67,7 +67,7 @@ describe('ERC20BalanceMonitor', () => {
       owner,
     )
     const ltFactory = await ethers.getContractFactory(
-      'src/v0.4/LinkToken.sol:LinkToken',
+      'src/v0.8/shared/test/helpers/LinkTokenTestHelper.sol:LinkTokenTestHelper',
       owner,
     )
     const reFactory = await ethers.getContractFactory('ReceiveEmitter', owner)
@@ -221,7 +221,7 @@ describe('ERC20BalanceMonitor', () => {
     })
 
     it('Should not allow duplicates in the watchlist', async () => {
-      const errMsg = `DuplicateAddress("${watchAddress1}")`
+      const errMsg = `DuplicateAddress`
       const setTx = bm
         .connect(owner)
         .setWatchList(
@@ -229,7 +229,9 @@ describe('ERC20BalanceMonitor', () => {
           [oneLINK, twoLINK, threeLINK],
           [twoLINK, threeLINK, fiveLINK],
         )
-      await expect(setTx).to.be.revertedWith(errMsg)
+      await expect(setTx)
+        .to.be.revertedWithCustomError(bm, errMsg)
+        .withArgs(watchAddress1)
     })
 
     it('Should not allow a topUpLevel les than or equal to minBalance in the watchlist', async () => {
@@ -240,7 +242,10 @@ describe('ERC20BalanceMonitor', () => {
           [oneLINK, twoLINK, threeLINK],
           [zeroLINK, twoLINK, threeLINK],
         )
-      await expect(setTx).to.be.revertedWith(INVALID_WATCHLIST_ERR)
+      await expect(setTx).to.be.revertedWithCustomError(
+        bm,
+        INVALID_WATCHLIST_ERR,
+      )
     })
 
     it('Should not allow larger than maximum watchlist size', async () => {
@@ -253,7 +258,7 @@ describe('ERC20BalanceMonitor', () => {
       const tx = bm
         .connect(owner)
         .setWatchList(watchlist[0], watchlist[1], watchlist[2])
-      await expect(tx).to.be.revertedWith(INVALID_WATCHLIST_ERR)
+      await expect(tx).to.be.revertedWithCustomError(bm, INVALID_WATCHLIST_ERR)
     })
 
     it('Should not allow strangers to set the watchlist', async () => {
@@ -265,11 +270,11 @@ describe('ERC20BalanceMonitor', () => {
 
     it('Should revert if the list lengths differ', async () => {
       let tx = bm.connect(owner).setWatchList([watchAddress1], [], [twoLINK])
-      await expect(tx).to.be.revertedWith(INVALID_WATCHLIST_ERR)
+      await expect(tx).to.be.revertedWithCustomError(bm, INVALID_WATCHLIST_ERR)
       tx = bm.connect(owner).setWatchList([watchAddress1], [oneLINK], [])
-      await expect(tx).to.be.revertedWith(INVALID_WATCHLIST_ERR)
+      await expect(tx).to.be.revertedWithCustomError(bm, INVALID_WATCHLIST_ERR)
       tx = bm.connect(owner).setWatchList([], [oneLINK], [twoLINK])
-      await expect(tx).to.be.revertedWith(INVALID_WATCHLIST_ERR)
+      await expect(tx).to.be.revertedWithCustomError(bm, INVALID_WATCHLIST_ERR)
     })
 
     it('Should revert if any of the addresses are empty', async () => {
@@ -280,7 +285,7 @@ describe('ERC20BalanceMonitor', () => {
           [oneLINK, oneLINK],
           [twoLINK, twoLINK],
         )
-      await expect(tx).to.be.revertedWith(INVALID_WATCHLIST_ERR)
+      await expect(tx).to.be.revertedWithCustomError(bm, INVALID_WATCHLIST_ERR)
     })
 
     it('Should revert if any of the top up amounts are 0', async () => {
@@ -291,7 +296,7 @@ describe('ERC20BalanceMonitor', () => {
           [oneLINK, oneLINK],
           [twoLINK, zeroLINK],
         )
-      await expect(tx).to.be.revertedWith(INVALID_WATCHLIST_ERR)
+      await expect(tx).to.be.revertedWithCustomError(bm, INVALID_WATCHLIST_ERR)
     })
   })
 
@@ -586,9 +591,15 @@ describe('ERC20BalanceMonitor', () => {
 
       it('Should only be callable by the keeper registry contract', async () => {
         let performTx = bm.connect(owner).performUpkeep(validPayload)
-        await expect(performTx).to.be.revertedWith(ONLY_KEEPER_ERR)
+        await expect(performTx).to.be.revertedWithCustomError(
+          bm,
+          ONLY_KEEPER_ERR,
+        )
         performTx = bm.connect(stranger).performUpkeep(validPayload)
-        await expect(performTx).to.be.revertedWith(ONLY_KEEPER_ERR)
+        await expect(performTx).to.be.revertedWithCustomError(
+          bm,
+          ONLY_KEEPER_ERR,
+        )
       })
 
       it('Should protect against running out of gas', async () => {

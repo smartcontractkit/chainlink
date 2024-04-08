@@ -154,12 +154,12 @@ func (o *SuggestedPriceEstimator) forceRefresh(ctx context.Context) (err error) 
 
 func (o *SuggestedPriceEstimator) OnNewLongestChain(context.Context, *evmtypes.Head) {}
 
-func (*SuggestedPriceEstimator) GetDynamicFee(_ context.Context, _ uint64, _ *assets.Wei) (fee DynamicFee, chainSpecificGasLimit uint64, err error) {
+func (*SuggestedPriceEstimator) GetDynamicFee(_ context.Context, _ *assets.Wei) (fee DynamicFee, err error) {
 	err = pkgerrors.New("dynamic fees are not implemented for this estimator")
 	return
 }
 
-func (*SuggestedPriceEstimator) BumpDynamicFee(_ context.Context, _ DynamicFee, _ uint64, _ *assets.Wei, _ []EvmPriorAttempt) (bumped DynamicFee, chainSpecificGasLimit uint64, err error) {
+func (*SuggestedPriceEstimator) BumpDynamicFee(_ context.Context, _ DynamicFee, _ *assets.Wei, _ []EvmPriorAttempt) (bumped DynamicFee, err error) {
 	err = pkgerrors.New("dynamic fees are not implemented for this estimator")
 	return
 }
@@ -223,7 +223,6 @@ func (o *SuggestedPriceEstimator) BumpLegacyGas(ctx context.Context, originalFee
 	// If the new suggested price is less than or equal to the max and the buffer puts the new price over the max, return the max price instead
 	// The buffer is added on top of the suggested price during bumping as just a precaution. It is better to resubmit the transaction with the max gas price instead of erroring.
 	newGasPrice = assets.NewWei(bigmath.Min(bufferedPrice, maxGasPriceWei.ToInt()))
-
 	// Return the original price if the refreshed price with the buffer is lower to ensure the bumped gas price is always equal or higher to the previous attempt
 	if originalFee != nil && originalFee.Cmp(newGasPrice) > 0 {
 		return originalFee, chainSpecificGasLimit, nil

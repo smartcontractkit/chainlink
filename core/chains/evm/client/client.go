@@ -95,6 +95,9 @@ type Client interface {
 	PendingCallContract(ctx context.Context, msg ethereum.CallMsg) ([]byte, error)
 
 	IsL2() bool
+
+	// Simulate the transaction prior to sending to catch zk out-of-counters errors ahead of time
+	CheckTxValidity(ctx context.Context, from common.Address, to common.Address, data []byte) *SendError
 }
 
 func ContextWithDefaultTimeout() (ctx context.Context, cancel context.CancelFunc) {
@@ -370,4 +373,8 @@ func (client *client) IsL2() bool {
 
 func (client *client) LatestFinalizedBlock(_ context.Context) (*evmtypes.Head, error) {
 	return nil, pkgerrors.New("not implemented. client was deprecated. New methods are added only to satisfy type constraints while we are migrating to new alternatives")
+}
+
+func (client *client) CheckTxValidity(ctx context.Context, from common.Address, to common.Address, data []byte) *SendError {
+	return NewSendError(pkgerrors.New("not implemented. client was deprecated. New methods are added only to satisfy type constraints while we are migrating to new alternatives"))
 }

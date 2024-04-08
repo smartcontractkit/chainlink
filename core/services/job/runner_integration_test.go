@@ -25,6 +25,7 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
 
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
@@ -226,7 +227,7 @@ func TestRunner(t *testing.T) {
 		assert.Contains(t, err.Error(), "not all bridges exist")
 
 		// Same for ocr2
-		jb2, err := validate.ValidatedOracleSpecToml(config.OCR2(), config.Insecure(), fmt.Sprintf(`
+		jb2, err := validate.ValidatedOracleSpecToml(testutils.Context(t), config.OCR2(), config.Insecure(), fmt.Sprintf(`
 type               = "offchainreporting2"
 pluginType         = "median"
 schemaVersion      = 1
@@ -253,7 +254,7 @@ ds1_multiply [type=multiply times=1.23];
 ds1 -> ds1_parse -> ds1_multiply -> answer1;
 answer1      [type=median index=0];
 """
-`, placeHolderAddress.String(), b.Name.String()))
+`, placeHolderAddress.String(), b.Name.String()), nil)
 		require.NoError(t, err)
 		// Should error creating it because of the juels per fee coin non-existent bridge
 		err = jobORM.CreateJob(&jb2)
@@ -261,7 +262,7 @@ answer1      [type=median index=0];
 		assert.Contains(t, err.Error(), "not all bridges exist")
 
 		// Duplicate bridge names that exist is ok
-		jb3, err := validate.ValidatedOracleSpecToml(config.OCR2(), config.Insecure(), fmt.Sprintf(`
+		jb3, err := validate.ValidatedOracleSpecToml(testutils.Context(t), config.OCR2(), config.Insecure(), fmt.Sprintf(`
 type               = "offchainreporting2"
 pluginType         = "median"
 schemaVersion      = 1
@@ -292,7 +293,7 @@ ds2_multiply [type=multiply times=1.23];
 ds2 -> ds2_parse -> ds2_multiply -> answer1;
 answer1      [type=median index=0];
 """
-`, placeHolderAddress, b.Name.String(), b.Name.String(), b.Name.String()))
+`, placeHolderAddress, b.Name.String(), b.Name.String(), b.Name.String()), nil)
 		require.NoError(t, err)
 		// Should not error with duplicate bridges
 		err = jobORM.CreateJob(&jb3)
@@ -908,7 +909,7 @@ func TestRunner_Success_Callback_AsyncJob(t *testing.T) {
 		require.Empty(t, run.PipelineTaskRuns[1].Error)
 		require.Empty(t, run.PipelineTaskRuns[2].Error)
 		require.Empty(t, run.PipelineTaskRuns[3].Error)
-		require.Equal(t, pipeline.JSONSerializable{Val: []interface{}{"123450000000000000000"}, Valid: true}, run.Outputs)
+		require.Equal(t, jsonserializable.JSONSerializable{Val: []interface{}{"123450000000000000000"}, Valid: true}, run.Outputs)
 		require.Equal(t, pipeline.RunErrors{null.String{NullString: sql.NullString{String: "", Valid: false}}}, run.FatalErrors)
 	})
 	// Delete the job
@@ -1086,7 +1087,7 @@ func TestRunner_Error_Callback_AsyncJob(t *testing.T) {
 		assert.Equal(t, "something exploded in EA", run.PipelineTaskRuns[1].Error.String)
 		assert.True(t, run.PipelineTaskRuns[2].Error.Valid)
 		assert.True(t, run.PipelineTaskRuns[3].Error.Valid)
-		require.Equal(t, pipeline.JSONSerializable{Val: []interface{}{interface{}(nil)}, Valid: true}, run.Outputs)
+		require.Equal(t, jsonserializable.JSONSerializable{Val: []interface{}{interface{}(nil)}, Valid: true}, run.Outputs)
 		require.Equal(t, pipeline.RunErrors{null.String{NullString: sql.NullString{String: "task inputs: too many errors", Valid: true}}}, run.FatalErrors)
 	})
 	// Delete the job

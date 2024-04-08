@@ -280,6 +280,10 @@ func (n *ClNode) Fund(evmClient blockchain.EVMClient, amount *big.Float) error {
 	if err != nil {
 		return err
 	}
+	n.l.Debug().
+		Str("ChainId", evmClient.GetChainID().String()).
+		Str("Address", toAddress).
+		Msg("Funding Chainlink Node")
 	toAddr := common.HexToAddress(toAddress)
 	gasEstimates, err := evmClient.EstimateGas(ethereum.CallMsg{
 		To: &toAddr,

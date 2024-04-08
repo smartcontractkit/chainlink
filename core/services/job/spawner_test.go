@@ -287,6 +287,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 
 		evmRelayer, err := evmrelayer.NewRelayer(lggr, chain, evmrelayer.RelayerOpts{
 			DB:             db,
+			DS:             db,
 			QConfig:        testopts.GeneralConfig.Database(),
 			CSAETHKeystore: keyStore,
 		})
@@ -302,7 +303,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		orm := NewTestORM(t, db, pipeline.NewORM(db, lggr, config.Database(), config.JobPipeline().MaxSuccessfulRuns()), bridges.NewORM(db, lggr, config.Database()), keyStore, config.Database())
 		mailMon := servicetest.Run(t, mailboxtest.NewMonitor(t))
 
-		processConfig := plugins.NewRegistrarConfig(loop.GRPCOpts{}, func(name string) (*plugins.RegisteredLoop, error) { return nil, nil })
+		processConfig := plugins.NewRegistrarConfig(loop.GRPCOpts{}, func(name string) (*plugins.RegisteredLoop, error) { return nil, nil }, func(loopId string) {})
 		ocr2DelegateConfig := ocr2.NewDelegateConfig(config.OCR2(), config.Mercury(), config.Threshold(), config.Insecure(), config.JobPipeline(), config.Database(), processConfig)
 
 		d := ocr2.NewDelegate(nil, orm, nil, nil, nil, nil, nil, monitoringEndpoint, legacyChains, lggr, ocr2DelegateConfig,
