@@ -667,6 +667,7 @@ NoOfTokensInMsg = 1
 AmountPerToken = 1
 TestRunName = 'mainnet-2.7-ccip1.2'
 FailOnFirstErrorInLoad = true
+SkipRequestIfAnotherRequestTriggeredWithin = '40m'
 
 [CCIP.Groups.smoke]
 MsgType = 'WithoutToken'
