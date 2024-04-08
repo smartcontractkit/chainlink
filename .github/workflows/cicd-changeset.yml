@@ -8,7 +8,7 @@ name: Release Preview - Changeset
 on:
   push:
     branches:
-      - develop
+      - re-2428/add-cicd-changeset # TODO change to develop
 
 jobs:
   cd-release:
@@ -17,19 +17,18 @@ jobs:
       id-token: write
       contents: read
     outputs:
-      changesets_published: ${{ steps.cd-release.outputs.published }}
-      changesets_publishedPackages: ${{ steps.cd-release.outputs.publishedPackages }}
+      hasChangesets: ${{ steps.cd-release.outputs.hasChangesets }}
+      changesetPrId: ${{ steps.cd-release.outputs.pullRequestNumber }}
     steps:
       - name: cd-release
         id: cd-release
-        uses: smartcontractkit/.github/actions/cicd-changesets@re-2428/update-cicd-changeset
+        uses: smartcontractkit/.github/actions/cicd-changesets@3c553cf15578c321b73edbe74265e4bde2cb6445 # cicd-changesets@0.3.0
         with:
           # general inputs
           git-user: app-token-issuer-releng[bot]
           git-email: app-token-issuer-releng[bot]@users.noreply.github.com
           pnpm-use-cache: false
           pr-draft: true
-          pr-labels: "DO_NOT_MERGE"
           pr-title: "[DO NOT MERGE] Release Preview - Changeset"
           # aws inputs
           aws-region: ${{ secrets.AWS_REGION }}
