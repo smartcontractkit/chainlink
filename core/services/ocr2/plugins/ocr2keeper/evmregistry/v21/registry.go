@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -92,12 +93,7 @@ func NewEvmRegistry(
 	blockSub *BlockSubscriber,
 	finalityDepth uint32,
 ) *EvmRegistry {
-	mercuryConfig := &MercuryConfig{
-		cred:             mc,
-		Abi:              core.StreamsCompatibleABI,
-		AllowListCache:   cache.New(defaultAllowListExpiration, cleanupInterval),
-		pluginRetryCache: cache.New(defaultPluginRetryExpiration, cleanupInterval),
-	}
+	mercuryConfig := NewMercuryConfig(mc, core.StreamsCompatibleABI)
 	hc := http.DefaultClient
 
 	return &EvmRegistry{
@@ -140,9 +136,16 @@ type MercuryConfig struct {
 	pluginRetryCache *cache.Cache
 }
 
-func NewMercuryConfig(credentials *types.MercuryCredentials, abi abi.ABI) *MercuryConfig {
+func NewMercuryConfig(cred *types.MercuryCredentials, abi abi.ABI) *MercuryConfig {
+	c := &types.MercuryCredentials{}
+	if cred != nil {
+		c.Password = cred.Password
+		c.Username = cred.Username
+		c.URL = strings.TrimRight(cred.URL, "/")
+		c.LegacyURL = strings.TrimRight(cred.LegacyURL, "/")
+	}
 	return &MercuryConfig{
-		cred:             credentials,
+		cred:             c,
 		Abi:              abi,
 		AllowListCache:   cache.New(defaultPluginRetryExpiration, cleanupInterval),
 		pluginRetryCache: cache.New(defaultPluginRetryExpiration, cleanupInterval),

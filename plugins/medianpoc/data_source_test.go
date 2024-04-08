@@ -11,6 +11,7 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 
@@ -34,7 +35,7 @@ func (m *mockPipelineRunner) ExecuteRun(ctx context.Context, spec string, vars t
 
 func TestDataSource(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	expect := int64(3)
+	expect := jsonserializable.JSONSerializable{Val: int64(3), Valid: true}
 	pr := &mockPipelineRunner{
 		results: types.TaskResults{
 			{
@@ -47,7 +48,7 @@ func TestDataSource(t *testing.T) {
 			},
 			{
 				TaskValue: types.TaskValue{
-					Value:      int(4),
+					Value:      jsonserializable.JSONSerializable{Val: int64(4), Valid: true},
 					Error:      nil,
 					IsTerminal: false,
 				},
@@ -63,9 +64,10 @@ func TestDataSource(t *testing.T) {
 	}
 	res, err := ds.Observe(tests.Context(t), ocrtypes.ReportTimestamp{})
 	require.NoError(t, err)
-	assert.Equal(t, big.NewInt(expect), res)
+	expectBN := big.NewInt(expect.Val.(int64))
+	assert.Equal(t, expectBN, res)
 	assert.Equal(t, spec, pr.spec)
-	assert.Equal(t, big.NewInt(expect), ds.current.LatestAnswer)
+	assert.Equal(t, expectBN, ds.current.LatestAnswer)
 }
 
 func TestDataSource_ResultErrors(t *testing.T) {
@@ -94,7 +96,7 @@ func TestDataSource_ResultErrors(t *testing.T) {
 func TestDataSource_ResultNotAnInt(t *testing.T) {
 	lggr := logger.TestLogger(t)
 
-	expect := "string-result"
+	expect := jsonserializable.JSONSerializable{Val: "string-result", Valid: true}
 	pr := &mockPipelineRunner{
 		results: types.TaskResults{
 			{

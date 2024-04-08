@@ -29,6 +29,7 @@ func (lsn *listenerV2) runLogListener(
 		lastProcessedBlock int64
 		startingUp         = true
 	)
+	filterName := lsn.getLogPollerFilterName()
 	ctx, cancel := lsn.chStop.NewCtx()
 	defer cancel()
 	for {
@@ -38,31 +39,30 @@ func (lsn *listenerV2) runLogListener(
 		case <-ticker.C:
 			start := time.Now()
 			lsn.l.Debugw("log listener loop")
-			// Filter registration is idempotent, so we can just call it every time
-			// and retry on errors using the ticker.
-			err := lsn.chain.LogPoller().RegisterFilter(ctx, logpoller.Filter{
-				Name: logpoller.FilterName(
-					"VRFListener",
-					"version", lsn.coordinator.Version(),
-					"keyhash", lsn.job.VRFSpec.PublicKey.MustHash(),
-					"coordinatorAddress", lsn.coordinator.Address()),
-				EventSigs: evmtypes.HashArray{
-					lsn.coordinator.RandomWordsFulfilledTopic(),
-					lsn.coordinator.RandomWordsRequestedTopic(),
-				},
-				Addresses: evmtypes.AddressArray{
-					lsn.coordinator.Address(),
-				},
-			})
-			if err != nil {
-				lsn.l.Errorw("error registering filter in log poller, retrying",
-					"err", err,
-					"elapsed", time.Since(start))
-				continue
+
+			// If filter has not already been successfully registered, register it.
+			if !lsn.chain.LogPoller().HasFilter(filterName) {
+				err := lsn.chain.LogPoller().RegisterFilter(ctx, logpoller.Filter{
+					Name: filterName,
+					EventSigs: evmtypes.HashArray{
+						lsn.coordinator.RandomWordsFulfilledTopic(),
+						lsn.coordinator.RandomWordsRequestedTopic(),
+					},
+					Addresses: evmtypes.AddressArray{
+						lsn.coordinator.Address(),
+					},
+				})
+				if err != nil {
+					lsn.l.Errorw("error registering filter in log poller, retrying",
+						"err", err,
+						"elapsed", time.Since(start))
+					continue
+				}
 			}
 
 			// on startup we want to initialize the last processed block
 			if startingUp {
+				var err error
 				lsn.l.Debugw("initializing last processed block on startup")
 				lastProcessedBlock, err = lsn.initializeLastProcessedBlock(ctx)
 				if err != nil {
@@ -95,6 +95,14 @@ func (lsn *listenerV2) runLogListener(
 			lsn.l.Debugw("log listener loop done", "elapsed", time.Since(start))
 		}
 	}
+}
+
+func (lsn *listenerV2) getLogPollerFilterName() string {
+	return logpoller.FilterName(
+		"VRFListener",
+		"version", lsn.coordinator.Version(),
+		"keyhash", lsn.job.VRFSpec.PublicKey.MustHash(),
+		"coordinatorAddress", lsn.coordinator.Address())
 }
 
 // initializeLastProcessedBlock returns the earliest block number that we need to

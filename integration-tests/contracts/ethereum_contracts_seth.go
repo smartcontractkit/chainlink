@@ -3,9 +3,12 @@ package contracts
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -19,6 +22,9 @@ import (
 	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_coordinator"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_load_test_client"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
@@ -37,11 +43,11 @@ type EthereumOffchainAggregator struct {
 }
 
 func LoadOffchainAggregator(l zerolog.Logger, seth *seth.Client, contractAddress common.Address) (EthereumOffchainAggregator, error) {
-	oAbi, err := offchainaggregator.OffchainAggregatorMetaData.GetAbi()
+	abi, err := offchainaggregator.OffchainAggregatorMetaData.GetAbi()
 	if err != nil {
 		return EthereumOffchainAggregator{}, fmt.Errorf("failed to get OffChain Aggregator ABI: %w", err)
 	}
-	seth.ContractStore.AddABI("OffChainAggregator", *oAbi)
+	seth.ContractStore.AddABI("OffChainAggregator", *abi)
 	seth.ContractStore.AddBIN("OffChainAggregator", common.FromHex(offchainaggregator.OffchainAggregatorMetaData.Bin))
 
 	ocr, err := offchainaggregator.NewOffchainAggregator(contractAddress, seth.Client)
@@ -957,5 +963,192 @@ func (e *EthereumAPIConsumer) CreateRequestTo(
 	times *big.Int,
 ) error {
 	_, err := e.client.Decode(e.consumer.CreateRequestTo(e.client.NewTXOpts(), common.HexToAddress(oracleAddr), jobID, payment, url, path, times))
+	return err
+}
+
+func LoadFunctionsCoordinator(seth *seth.Client, addr string) (FunctionsCoordinator, error) {
+	abi, err := functions_coordinator.FunctionsCoordinatorMetaData.GetAbi()
+	if err != nil {
+		return &EthereumFunctionsCoordinator{}, fmt.Errorf("failed to get FunctionsCoordinator ABI: %w", err)
+	}
+	seth.ContractStore.AddABI("FunctionsCoordinator", *abi)
+	seth.ContractStore.AddBIN("FunctionsCoordinator", common.FromHex(functions_coordinator.FunctionsCoordinatorMetaData.Bin))
+
+	instance, err := functions_coordinator.NewFunctionsCoordinator(common.HexToAddress(addr), seth.Client)
+	if err != nil {
+		return &EthereumFunctionsCoordinator{}, fmt.Errorf("failed to instantiate FunctionsCoordinator instance: %w", err)
+	}
+
+	return &EthereumFunctionsCoordinator{
+		client:   seth,
+		instance: instance,
+		address:  common.HexToAddress(addr),
+	}, err
+}
+
+type EthereumFunctionsCoordinator struct {
+	address  common.Address
+	client   *seth.Client
+	instance *functions_coordinator.FunctionsCoordinator
+}
+
+func (e *EthereumFunctionsCoordinator) GetThresholdPublicKey() ([]byte, error) {
+	return e.instance.GetThresholdPublicKey(e.client.NewCallOpts())
+}
+
+func (e *EthereumFunctionsCoordinator) GetDONPublicKey() ([]byte, error) {
+	return e.instance.GetDONPublicKey(e.client.NewCallOpts())
+}
+
+func (e *EthereumFunctionsCoordinator) Address() string {
+	return e.address.Hex()
+}
+
+func LoadFunctionsRouter(l zerolog.Logger, seth *seth.Client, addr string) (FunctionsRouter, error) {
+	abi, err := functions_router.FunctionsRouterMetaData.GetAbi()
+	if err != nil {
+		return &EthereumFunctionsRouter{}, fmt.Errorf("failed to get FunctionsRouter ABI: %w", err)
+	}
+	seth.ContractStore.AddABI("FunctionsRouter", *abi)
+	seth.ContractStore.AddBIN("FunctionsRouter", common.FromHex(functions_router.FunctionsRouterMetaData.Bin))
+
+	instance, err := functions_router.NewFunctionsRouter(common.HexToAddress(addr), seth.Client)
+	if err != nil {
+		return &EthereumFunctionsRouter{}, fmt.Errorf("failed to instantiate FunctionsRouter instance: %w", err)
+	}
+
+	return &EthereumFunctionsRouter{
+		client:   seth,
+		instance: instance,
+		address:  common.HexToAddress(addr),
+		l:        l,
+	}, err
+}
+
+type EthereumFunctionsRouter struct {
+	address  common.Address
+	client   *seth.Client
+	instance *functions_router.FunctionsRouter
+	l        zerolog.Logger
+}
+
+func (e *EthereumFunctionsRouter) Address() string {
+	return e.address.Hex()
+}
+
+func (e *EthereumFunctionsRouter) CreateSubscriptionWithConsumer(consumer string) (uint64, error) {
+	tx, err := e.client.Decode(e.instance.CreateSubscriptionWithConsumer(e.client.NewTXOpts(), common.HexToAddress(consumer)))
+	if err != nil {
+		return 0, err
+	}
+
+	if tx.Receipt == nil {
+		return 0, errors.New("transaction did not err, but the receipt is nil")
+	}
+	for _, l := range tx.Receipt.Logs {
+		e.l.Info().Interface("Log", common.Bytes2Hex(l.Data)).Send()
+	}
+	topicsMap := map[string]interface{}{}
+
+	fabi, err := abi.JSON(strings.NewReader(functions_router.FunctionsRouterABI))
+	if err != nil {
+		return 0, err
+	}
+	for _, ev := range fabi.Events {
+		e.l.Info().Str("EventName", ev.Name).Send()
+	}
+	topicOneInputs := abi.Arguments{fabi.Events["SubscriptionCreated"].Inputs[0]}
+	topicOneHash := []common.Hash{tx.Receipt.Logs[0].Topics[1:][0]}
+	if err := abi.ParseTopicsIntoMap(topicsMap, topicOneInputs, topicOneHash); err != nil {
+		return 0, fmt.Errorf("failed to decode topic value, err: %w", err)
+	}
+	e.l.Info().Interface("NewTopicsDecoded", topicsMap).Send()
+	if topicsMap["subscriptionId"] == 0 {
+		return 0, fmt.Errorf("failed to decode subscription ID after creation")
+	}
+	return topicsMap["subscriptionId"].(uint64), nil
+}
+
+func DeployFunctionsLoadTestClient(seth *seth.Client, router string) (FunctionsLoadTestClient, error) {
+	operatorAbi, err := functions_load_test_client.FunctionsLoadTestClientMetaData.GetAbi()
+	if err != nil {
+		return &EthereumFunctionsLoadTestClient{}, fmt.Errorf("failed to get FunctionsLoadTestClient ABI: %w", err)
+	}
+	data, err := seth.DeployContract(seth.NewTXOpts(), "FunctionsLoadTestClient", *operatorAbi, common.FromHex(functions_load_test_client.FunctionsLoadTestClientMetaData.Bin), common.HexToAddress(router))
+	if err != nil {
+		return &EthereumFunctionsLoadTestClient{}, fmt.Errorf("FunctionsLoadTestClient instance deployment have failed: %w", err)
+	}
+
+	instance, err := functions_load_test_client.NewFunctionsLoadTestClient(data.Address, seth.Client)
+	if err != nil {
+		return &EthereumFunctionsLoadTestClient{}, fmt.Errorf("failed to instantiate FunctionsLoadTestClient instance: %w", err)
+	}
+
+	return &EthereumFunctionsLoadTestClient{
+		client:   seth,
+		instance: instance,
+		address:  data.Address,
+	}, nil
+}
+
+// LoadFunctionsLoadTestClient returns deployed on given address FunctionsLoadTestClient contract instance
+func LoadFunctionsLoadTestClient(seth *seth.Client, addr string) (FunctionsLoadTestClient, error) {
+	abi, err := functions_load_test_client.FunctionsLoadTestClientMetaData.GetAbi()
+	if err != nil {
+		return &EthereumFunctionsLoadTestClient{}, fmt.Errorf("failed to get FunctionsLoadTestClient ABI: %w", err)
+	}
+	seth.ContractStore.AddABI("FunctionsLoadTestClient", *abi)
+	seth.ContractStore.AddBIN("FunctionsLoadTestClient", common.FromHex(functions_load_test_client.FunctionsLoadTestClientMetaData.Bin))
+
+	instance, err := functions_load_test_client.NewFunctionsLoadTestClient(common.HexToAddress(addr), seth.Client)
+	if err != nil {
+		return &EthereumFunctionsLoadTestClient{}, fmt.Errorf("failed to instantiate FunctionsLoadTestClient instance: %w", err)
+	}
+
+	return &EthereumFunctionsLoadTestClient{
+		client:   seth,
+		instance: instance,
+		address:  common.HexToAddress(addr),
+	}, err
+}
+
+type EthereumFunctionsLoadTestClient struct {
+	address  common.Address
+	client   *seth.Client
+	instance *functions_load_test_client.FunctionsLoadTestClient
+}
+
+func (e *EthereumFunctionsLoadTestClient) Address() string {
+	return e.address.Hex()
+}
+
+func (e *EthereumFunctionsLoadTestClient) GetStats() (*EthereumFunctionsLoadStats, error) {
+	lr, lbody, lerr, total, succeeded, errored, empty, err := e.instance.GetStats(e.client.NewCallOpts())
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumFunctionsLoadStats{
+		LastRequestID: string(Bytes32ToSlice(lr)),
+		LastResponse:  string(lbody),
+		LastError:     string(lerr),
+		Total:         total,
+		Succeeded:     succeeded,
+		Errored:       errored,
+		Empty:         empty,
+	}, nil
+}
+
+func (e *EthereumFunctionsLoadTestClient) ResetStats() error {
+	_, err := e.client.Decode(e.instance.ResetStats(e.client.NewTXOpts()))
+	return err
+}
+
+func (e *EthereumFunctionsLoadTestClient) SendRequest(times uint32, source string, encryptedSecretsReferences []byte, args []string, subscriptionId uint64, jobId [32]byte) error {
+	_, err := e.client.Decode(e.instance.SendRequest(e.client.NewTXOpts(), times, source, encryptedSecretsReferences, args, subscriptionId, jobId))
+	return err
+}
+
+func (e *EthereumFunctionsLoadTestClient) SendRequestWithDONHostedSecrets(times uint32, source string, slotID uint8, slotVersion uint64, args []string, subscriptionId uint64, donID [32]byte) error {
+	_, err := e.client.Decode(e.instance.SendRequestWithDONHostedSecrets(e.client.NewTXOpts(), times, source, slotID, slotVersion, args, subscriptionId, donID))
 	return err
 }

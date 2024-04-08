@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 import {LinkTokenInterface} from "../../shared/interfaces/LinkTokenInterface.sol";
 import {VRFConsumerBase} from "../../vrf/VRFConsumerBase.sol";
 
-// solhint-disable custom-errors
+// solhint-disable gas-custom-errors
 
 contract VRFCoordinatorMock {
   LinkTokenInterface public LINK;

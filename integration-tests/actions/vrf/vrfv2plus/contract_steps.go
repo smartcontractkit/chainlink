@@ -35,6 +35,14 @@ func DeployVRFV2_5Contracts(
 	if err != nil {
 		return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrWaitTXsComplete, err)
 	}
+	batchBHS, err := contractDeployer.DeployBatchBlockhashStore(bhs.Address())
+	if err != nil {
+		return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrDeployBatchBlockHashStore, err)
+	}
+	err = chainClient.WaitForEvents()
+	if err != nil {
+		return nil, fmt.Errorf("%s, batchBHS err %w", vrfcommon.ErrWaitTXsComplete, err)
+	}
 	coordinator, err := contractDeployer.DeployVRFCoordinatorV2_5(bhs.Address())
 	if err != nil {
 		return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrDeployCoordinator, err)
@@ -46,6 +54,7 @@ func DeployVRFV2_5Contracts(
 	return &vrfcommon.VRFContracts{
 		CoordinatorV2Plus: coordinator,
 		BHS:               bhs,
+		BatchBHS:          batchBHS,
 		VRFV2PlusConsumer: nil,
 	}, nil
 }
