@@ -259,7 +259,9 @@ func (a *onchainAllowlist) updateAllowedSendersInBatches(ctx context.Context, to
 	// currentAllowedSenderList will be the starting point from which we will be adding the new allowed senders
 	currentAllowedSenderList := make(map[common.Address]struct{}, 0)
 	if cal := a.allowlist.Load(); cal != nil {
-		currentAllowedSenderList = *cal
+		for k := range *cal {
+			currentAllowedSenderList[k] = struct{}{}
+		}
 	}
 
 	currentAllowedSenderCount, err := tosContract.GetAllowedSendersCount(&bind.CallOpts{
