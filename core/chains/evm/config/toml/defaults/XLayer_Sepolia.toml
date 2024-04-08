@@ -1,0 +1,19 @@
+ChainID = '195'
+FinalityDepth = 500
+NoNewHeadsThreshold = '6m'
+MinIncomingConfirmations = 1
+LogPollInterval = '30s'
+RPCBlockQueryDelay = 15
+RPCDefaultBatchSize = 100
+
+[OCR]
+ContractConfirmations = 1
+
+[Transactions]
+ResendAfterThreshold = '3m'
+
+[GasEstimator.BlockHistory]
+BlockHistorySize = 12
+
+[HeadTracker]
+HistoryDepth = 2000
