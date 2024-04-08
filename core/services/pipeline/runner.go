@@ -16,9 +16,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
-
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -208,8 +208,8 @@ func NewRun(spec Spec, vars Vars) *Run {
 		PruningKey:     spec.JobID,
 		PipelineSpec:   spec,
 		PipelineSpecID: spec.ID,
-		Inputs:         JSONSerializable{Val: vars.vars, Valid: true},
-		Outputs:        JSONSerializable{Val: nil, Valid: false},
+		Inputs:         jsonserializable.JSONSerializable{Val: vars.vars, Valid: true},
+		Outputs:        jsonserializable.JSONSerializable{Val: nil, Valid: false},
 		CreatedAt:      time.Now(),
 	}
 }
@@ -418,7 +418,7 @@ func (r *runner) run(ctx context.Context, pipeline *Pipeline, run *Run, vars Var
 		}
 		run.AllErrors = errors
 		run.FatalErrors = fatalErrors
-		run.Outputs = JSONSerializable{Val: outputs, Valid: true}
+		run.Outputs = jsonserializable.JSONSerializable{Val: outputs, Valid: true}
 
 		if run.HasFatalErrors() {
 			run.State = RunStatusErrored

@@ -13,6 +13,7 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
@@ -105,7 +106,7 @@ func mustInsertPipelineRun(t *testing.T, orm pipeline.ORM) pipeline.Run {
 
 	run := pipeline.Run{
 		State:       pipeline.RunStatusRunning,
-		Outputs:     pipeline.JSONSerializable{},
+		Outputs:     jsonserializable.JSONSerializable{},
 		AllErrors:   pipeline.RunErrors{},
 		FatalErrors: pipeline.RunErrors{},
 		FinishedAt:  null.Time{},
@@ -147,7 +148,7 @@ answer2 [type=bridge name=election_winner index=1];
 		PipelineSpecID: jb.PipelineSpecID,
 		PruningKey:     jb.ID,
 		State:          pipeline.RunStatusRunning,
-		Outputs:        pipeline.JSONSerializable{},
+		Outputs:        jsonserializable.JSONSerializable{},
 		CreatedAt:      time.Now(),
 	}
 
@@ -177,7 +178,7 @@ func TestInsertFinishedRuns(t *testing.T) {
 			FatalErrors:    pipeline.RunErrors{},
 			CreatedAt:      now,
 			FinishedAt:     null.Time{},
-			Outputs:        pipeline.JSONSerializable{},
+			Outputs:        jsonserializable.JSONSerializable{},
 		}
 
 		require.NoError(t, orm.InsertRun(&r))
@@ -196,13 +197,13 @@ func TestInsertFinishedRuns(t *testing.T) {
 				PipelineRunID: r.ID,
 				Type:          "median",
 				DotID:         "answer2",
-				Output:        pipeline.JSONSerializable{Val: 1, Valid: true},
+				Output:        jsonserializable.JSONSerializable{Val: 1, Valid: true},
 				CreatedAt:     now,
 				FinishedAt:    null.TimeFrom(now.Add(200 * time.Millisecond)),
 			},
 		}
 		r.FinishedAt = null.TimeFrom(now.Add(300 * time.Millisecond))
-		r.Outputs = pipeline.JSONSerializable{
+		r.Outputs = jsonserializable.JSONSerializable{
 			Val:   "stuff",
 			Valid: true,
 		}
@@ -325,7 +326,7 @@ func Test_PipelineORM_StoreRun_ShouldUpsert(t *testing.T) {
 			PipelineRunID: run.ID,
 			Type:          "median",
 			DotID:         "answer2",
-			Output:        pipeline.JSONSerializable{Val: 1, Valid: true},
+			Output:        jsonserializable.JSONSerializable{Val: 1, Valid: true},
 			CreatedAt:     now,
 			FinishedAt:    null.TimeFrom(now),
 		},
@@ -356,7 +357,7 @@ func Test_PipelineORM_StoreRun_ShouldUpsert(t *testing.T) {
 			PipelineRunID: run.ID,
 			Type:          "bridge",
 			DotID:         "ds1",
-			Output:        pipeline.JSONSerializable{Val: 2, Valid: true},
+			Output:        jsonserializable.JSONSerializable{Val: 2, Valid: true},
 			CreatedAt:     now,
 			FinishedAt:    null.TimeFrom(now),
 		},
@@ -403,7 +404,7 @@ func Test_PipelineORM_StoreRun_DetectsRestarts(t *testing.T) {
 		PipelineRunID: run.ID,
 		Type:          "bridge",
 		DotID:         "ds1",
-		Output:        pipeline.JSONSerializable{Val: 2, Valid: true},
+		Output:        jsonserializable.JSONSerializable{Val: 2, Valid: true},
 		CreatedAt:     now,
 		FinishedAt:    null.TimeFrom(now),
 	})
@@ -426,7 +427,7 @@ func Test_PipelineORM_StoreRun_DetectsRestarts(t *testing.T) {
 			PipelineRunID: run.ID,
 			Type:          "median",
 			DotID:         "answer2",
-			Output:        pipeline.JSONSerializable{Val: 1, Valid: true},
+			Output:        jsonserializable.JSONSerializable{Val: 1, Valid: true},
 			CreatedAt:     now,
 			FinishedAt:    null.TimeFrom(now),
 		},
@@ -479,7 +480,7 @@ func Test_PipelineORM_StoreRun_UpdateTaskRunResult(t *testing.T) {
 			PipelineRunID: run.ID,
 			Type:          "cbor_parse",
 			DotID:         "ds2",
-			Output:        pipeline.JSONSerializable{Val: cborOutput, Valid: true},
+			Output:        jsonserializable.JSONSerializable{Val: cborOutput, Valid: true},
 			CreatedAt:     now,
 			FinishedAt:    null.TimeFrom(now),
 		},
@@ -489,7 +490,7 @@ func Test_PipelineORM_StoreRun_UpdateTaskRunResult(t *testing.T) {
 			PipelineRunID: run.ID,
 			Type:          "median",
 			DotID:         "answer2",
-			Output:        pipeline.JSONSerializable{Val: 1, Valid: true},
+			Output:        jsonserializable.JSONSerializable{Val: 1, Valid: true},
 			CreatedAt:     now,
 			FinishedAt:    null.TimeFrom(now),
 		},
@@ -519,12 +520,12 @@ func Test_PipelineORM_StoreRun_UpdateTaskRunResult(t *testing.T) {
 	// assert that the task is now updated
 	task := run.ByDotID("ds1")
 	require.True(t, task.FinishedAt.Valid)
-	require.Equal(t, pipeline.JSONSerializable{Val: "foo", Valid: true}, task.Output)
+	require.Equal(t, jsonserializable.JSONSerializable{Val: "foo", Valid: true}, task.Output)
 
 	// assert correct task run serialization
 	task2 := run.ByDotID("ds2")
 	cborOutput["contractAddress"] = "0x8bd112d3f8f92e41c861939545ad387307af9703"
-	require.Equal(t, pipeline.JSONSerializable{Val: cborOutput, Valid: true}, task2.Output)
+	require.Equal(t, jsonserializable.JSONSerializable{Val: cborOutput, Valid: true}, task2.Output)
 }
 
 func Test_PipelineORM_DeleteRun(t *testing.T) {
@@ -550,7 +551,7 @@ func Test_PipelineORM_DeleteRun(t *testing.T) {
 			PipelineRunID: run.ID,
 			Type:          "median",
 			DotID:         "answer2",
-			Output:        pipeline.JSONSerializable{Val: 1, Valid: true},
+			Output:        jsonserializable.JSONSerializable{Val: 1, Valid: true},
 			CreatedAt:     now,
 			FinishedAt:    null.TimeFrom(now),
 		},
@@ -586,14 +587,14 @@ func Test_PipelineORM_DeleteRunsOlderThan(t *testing.T) {
 				PipelineRunID: run.ID,
 				Type:          "median",
 				DotID:         "answer2",
-				Output:        pipeline.JSONSerializable{Val: 1, Valid: true},
+				Output:        jsonserializable.JSONSerializable{Val: 1, Valid: true},
 				CreatedAt:     now,
 				FinishedAt:    null.TimeFrom(now.Add(-1 * time.Second)),
 			},
 		}
 		run.State = pipeline.RunStatusCompleted
 		run.FinishedAt = null.TimeFrom(now.Add(-1 * time.Second))
-		run.Outputs = pipeline.JSONSerializable{Val: 1, Valid: true}
+		run.Outputs = jsonserializable.JSONSerializable{Val: 1, Valid: true}
 		run.AllErrors = pipeline.RunErrors{null.StringFrom("SOMETHING")}
 
 		restart, err := orm.StoreRun(run)
@@ -661,13 +662,13 @@ func Test_GetUnfinishedRuns_Keepers(t *testing.T) {
 		PipelineSpecID: keeperJob.PipelineSpecID,
 		PruningKey:     keeperJob.ID,
 		State:          pipeline.RunStatusRunning,
-		Outputs:        pipeline.JSONSerializable{},
+		Outputs:        jsonserializable.JSONSerializable{},
 		CreatedAt:      time.Now(),
 		PipelineTaskRuns: []pipeline.TaskRun{{
 			ID:        runID1,
 			Type:      pipeline.TaskTypeETHTx,
 			Index:     0,
-			Output:    pipeline.JSONSerializable{},
+			Output:    jsonserializable.JSONSerializable{},
 			CreatedAt: time.Now(),
 			DotID:     "perform_upkeep_tx",
 		}},
@@ -678,13 +679,13 @@ func Test_GetUnfinishedRuns_Keepers(t *testing.T) {
 		PipelineSpecID: keeperJob.PipelineSpecID,
 		PruningKey:     keeperJob.ID,
 		State:          pipeline.RunStatusRunning,
-		Outputs:        pipeline.JSONSerializable{},
+		Outputs:        jsonserializable.JSONSerializable{},
 		CreatedAt:      time.Now(),
 		PipelineTaskRuns: []pipeline.TaskRun{{
 			ID:        runID2,
 			Type:      pipeline.TaskTypeETHCall,
 			Index:     1,
-			Output:    pipeline.JSONSerializable{},
+			Output:    jsonserializable.JSONSerializable{},
 			CreatedAt: time.Now(),
 			DotID:     "check_upkeep_tx",
 		}},
@@ -761,13 +762,13 @@ func Test_GetUnfinishedRuns_DirectRequest(t *testing.T) {
 		PipelineSpecID: drJob.PipelineSpecID,
 		PruningKey:     drJob.ID,
 		State:          pipeline.RunStatusRunning,
-		Outputs:        pipeline.JSONSerializable{},
+		Outputs:        jsonserializable.JSONSerializable{},
 		CreatedAt:      time.Now(),
 		PipelineTaskRuns: []pipeline.TaskRun{{
 			ID:        runningID,
 			Type:      pipeline.TaskTypeHTTP,
 			Index:     0,
-			Output:    pipeline.JSONSerializable{},
+			Output:    jsonserializable.JSONSerializable{},
 			CreatedAt: time.Now(),
 			DotID:     "ds1",
 		}},
@@ -778,13 +779,13 @@ func Test_GetUnfinishedRuns_DirectRequest(t *testing.T) {
 		PipelineSpecID: drJob.PipelineSpecID,
 		PruningKey:     drJob.ID,
 		State:          pipeline.RunStatusSuspended,
-		Outputs:        pipeline.JSONSerializable{},
+		Outputs:        jsonserializable.JSONSerializable{},
 		CreatedAt:      time.Now(),
 		PipelineTaskRuns: []pipeline.TaskRun{{
 			ID:        uuid.New(),
 			Type:      pipeline.TaskTypeHTTP,
 			Index:     1,
-			Output:    pipeline.JSONSerializable{},
+			Output:    jsonserializable.JSONSerializable{},
 			CreatedAt: time.Now(),
 			DotID:     "ds1",
 		}},

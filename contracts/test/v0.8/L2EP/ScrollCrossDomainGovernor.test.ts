@@ -98,7 +98,7 @@ describe('ScrollCrossDomainGovernor', () => {
     it('should not be callable by unknown address', async () => {
       await expect(
         governor.connect(stranger).forward(greeter.address, '0x'),
-      ).to.be.revertedWith('Sender is not the L2 messenger')
+      ).to.be.revertedWith('Sender is not the L2 messenger or owner')
     })
 
     it('should be callable by crossdomain messenger address / L1 owner', async () => {
@@ -162,7 +162,7 @@ describe('ScrollCrossDomainGovernor', () => {
     it('should not be callable by unknown address', async () => {
       await expect(
         governor.connect(stranger).forwardDelegate(multisend.address, '0x'),
-      ).to.be.revertedWith('Sender is not the L2 messenger')
+      ).to.be.revertedWith('Sender is not the L2 messenger or owner')
     })
 
     it('should be callable by crossdomain messenger address / L1 owner', async () => {
