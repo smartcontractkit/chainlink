@@ -38,7 +38,7 @@ contract EtherSenderReceiver is CCIPReceiver, ITypeAndVersion {
   error InsufficientFee(uint256 gotFee, uint256 fee);
   error GasLimitTooLow(uint256 minLimit, uint256 gotLimit);
 
-  string public constant override typeAndVersion = "EtherSenderReceiver 1.5.0-dev";
+  string public constant override typeAndVersion = "EtherSenderReceiver 1.5.0";
 
   /// @notice The wrapped native token address.
   /// @dev If the wrapped native token address changes on the router, this contract will need to be redeployed.
