@@ -11,14 +11,13 @@ on:
       - re-2428/add-cicd-changeset # TODO change to develop
 
 jobs:
-  cd-release:
+  cicd-changeset:
     runs-on: ubuntu-latest
     permissions:
       id-token: write
       contents: read
     steps:
-      - name: cd-release
-        id: cd-release
+      - name: cicd-changeset
         uses: smartcontractkit/.github/actions/cicd-changesets@re-2428/fix-upsert-pr-draft # TODO: pin specific release after testing
         with:
           # general inputs
