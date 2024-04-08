@@ -1,6 +1,7 @@
 package workflows
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/dominikbraun/graph"
@@ -181,6 +182,10 @@ func Parse(yamlWorkflow string) (*workflow, error) {
 			return nil, innerErr
 		}
 		step.dependencies = refs
+
+		if stepRef != keywordTrigger && len(refs) == 0 {
+			return nil, errors.New("all non-trigger steps must have a dependent ref")
+		}
 
 		for _, r := range refs {
 			innerErr = g.AddEdge(r, step.Ref)
