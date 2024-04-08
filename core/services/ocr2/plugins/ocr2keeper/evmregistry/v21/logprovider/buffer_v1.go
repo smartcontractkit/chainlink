@@ -200,17 +200,22 @@ func (b *logBuffer) setUpkeepQueue(uid *big.Int, buf *upkeepLogQueue) {
 	b.queues[uid.String()] = buf
 }
 
-// TODO: separate files
+// TODO (AUTO-9256) separate files
 
+// logTriggerState represents the state of a log in the buffer.
 type logTriggerState uint8
 
 const (
-	logTriggerStateUnknown logTriggerState = iota
-	logTriggerStateSeen
-	logTriggerStateVisited
-	logTriggerStateDropped
+	// the log was dropped due to buffer limits
+	logTriggerStateDropped logTriggerState = iota
+	// the log was enqueued by the buffer
+	logTriggerStateEnqueued
+	// the log was visited/dequeued from the buffer
+	logTriggerStateDequeued
 )
 
+// logTriggerStateEntry represents the state of a log in the buffer and the block number of the log.
+// TODO (AUTO-10013) handling of reorgs might require to store the block hash as well.
 type logTriggerStateEntry struct {
 	state logTriggerState
 	block int64
@@ -276,7 +281,7 @@ func (q *upkeepLogQueue) dequeue(start, end int64, limit int) ([]logpoller.Log, 
 				results = append(results, l)
 				lid := logID(l)
 				if s, ok := q.states[lid]; ok {
-					s.state = logTriggerStateVisited
+					s.state = logTriggerStateDequeued
 					q.states[lid] = s
 				}
 				continue
@@ -315,7 +320,7 @@ func (q *upkeepLogQueue) enqueue(blockThreshold int64, logsToAdd ...logpoller.Lo
 			// q.lggr.Debugw("Skipping known log", "blockThreshold", blockThreshold, "logBlock", log.BlockNumber, "logIndex", log.LogIndex)
 			continue
 		}
-		q.states[lid] = logTriggerStateEntry{state: logTriggerStateSeen, block: log.BlockNumber}
+		q.states[lid] = logTriggerStateEntry{state: logTriggerStateEnqueued, block: log.BlockNumber}
 		added++
 		logs = append(logs, log)
 	}
@@ -399,6 +404,7 @@ func (q *upkeepLogQueue) clean(blockThreshold int64) int {
 	return dropped
 }
 
+// cleanStates removes states that are older than blockThreshold.
 // NOTE: this method is not thread safe and should be called within a lock.
 func (q *upkeepLogQueue) cleanStates(blockThreshold int64) {
 	for lid, s := range q.states {
