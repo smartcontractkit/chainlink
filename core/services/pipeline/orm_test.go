@@ -36,6 +36,32 @@ type ormconfig struct {
 
 func (ormconfig) JobPipelineMaxSuccessfulRuns() uint64 { return 123456 }
 
+type testOnlyORM interface {
+	pipeline.ORM
+	AddJobPipelineSpecWithoutConstraints(jobID, pipelineSpecID int32) error
+}
+
+type testORM struct {
+	pipeline.ORM
+	db *sqlx.DB
+}
+
+func (torm *testORM) AddJobPipelineSpecWithoutConstraints(jobID, pipelineSpecID int32) error {
+	_, err := torm.db.Exec(`SET CONSTRAINTS fk_job_pipeline_spec_job DEFERRED`)
+	if err != nil {
+		return err
+	}
+	_, err = torm.db.Exec(`INSERT INTO job_pipeline_specs (job_id,pipeline_spec_id, is_primary) VALUES ($1, $2, false)`, jobID, pipelineSpecID)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func newTestORM(orm pipeline.ORM, db *sqlx.DB) testOnlyORM {
+	return &testORM{ORM: orm, db: db}
+}
+
 func setupORM(t *testing.T, heavy bool) (db *sqlx.DB, orm pipeline.ORM, jorm job.ORM) {
 	t.Helper()
 
@@ -821,14 +847,12 @@ func Test_Prune(t *testing.T) {
 	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 	db := pgtest.NewSqlxDB(t)
 	porm := pipeline.NewORM(db, lggr, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
+	torm := newTestORM(porm, db)
 
 	ps1 := cltest.MustInsertPipelineSpec(t, db)
 
 	// We need a job_pipeline_specs entry to test the pruning mechanism
-	_, err := db.Exec(`SET CONSTRAINTS fk_job_pipeline_spec_job DEFERRED`)
-	require.NoError(t, err)
-	_, err = db.Exec(`INSERT INTO job_pipeline_specs (job_id,pipeline_spec_id, is_primary) VALUES ($1, $2, false)`, ps1.ID, ps1.ID)
-	require.NoError(t, err)
+	err := torm.AddJobPipelineSpecWithoutConstraints(ps1.ID, ps1.ID)
 
 	jobID := ps1.ID
 
