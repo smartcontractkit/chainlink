@@ -4,12 +4,11 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"regexp"
 	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/google/uuid"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
@@ -36,9 +35,8 @@ type chainReader struct {
 	lp               logpoller.LogPoller
 	client           evmclient.Client
 	contractBindings contractBindings
-	// TODO merge with contract bindings somehow, or leave as a standalone thing?
-	parsed *parsedTypes
-	codec  commontypes.RemoteCodec
+	parsed           *parsedTypes
+	codec            commontypes.RemoteCodec
 	commonservices.StateMachine
 }
 
@@ -75,40 +73,26 @@ func (cr *chainReader) Name() string { return cr.lggr.Name() }
 
 var _ commontypes.ContractTypeProvider = &chainReader{}
 
-func (cr *chainReader) GetLatestValue(ctx context.Context, contract commontypes.BoundContract, method string, params any, returnVal any) error {
-	b, err := cr.contractBindings.GetReadBinding(formatKey(contract.Name, method))
+func (cr *chainReader) GetLatestValue(ctx context.Context, contractName, method string, params any, returnVal any) error {
+	b, err := cr.contractBindings.GetReadBinding(formatKey(contractName, method))
 	if err != nil {
 		return err
 	}
 
-	address, err := validateEthereumAddress(contract.Address)
-	if err != nil {
-		return err
-	}
-
-	return b.GetLatestValue(ctx, address, params, returnVal)
+	return b.GetLatestValue(ctx, params, returnVal)
 }
 
 func (cr *chainReader) Bind(ctx context.Context, bindings []commontypes.BoundContract) error {
 	return cr.contractBindings.Bind(ctx, bindings)
 }
 
-func (cr *chainReader) UnBind(ctx context.Context, bindings []commontypes.BoundContract) error {
-	return cr.contractBindings.Bind(ctx, bindings)
-}
-
-func (cr *chainReader) QueryOne(ctx context.Context, contract commontypes.BoundContract, keyFilter query.KeyFilter, limitAndSort query.LimitAndSort, sequenceDataType any) ([]commontypes.Sequence, error) {
-	b, err := cr.contractBindings.GetReadBinding(keyFilter.Key)
+func (cr *chainReader) QueryOne(ctx context.Context, contractName string, filter query.Filter, limitAndSort query.LimitAndSort, sequenceDataType any) ([]commontypes.Sequence, error) {
+	b, err := cr.contractBindings.GetReadBinding(formatKey(contractName, filter.Key))
 	if err != nil {
 		return nil, err
 	}
 
-	address, err := validateEthereumAddress(contract.Address)
-	if err != nil {
-		return nil, err
-	}
-
-	return b.QueryOne(ctx, address, keyFilter.Filter, limitAndSort, sequenceDataType)
+	return b.QueryOne(ctx, filter, limitAndSort, sequenceDataType)
 }
 
 func (cr *chainReader) init(chainContractReaders map[string]types.ChainContractReader) error {
@@ -141,9 +125,7 @@ func (cr *chainReader) init(chainContractReaders map[string]types.ChainContractR
 
 func (cr *chainReader) Start(ctx context.Context) error {
 	return cr.StartOnce("ChainReader", func() error {
-		// TODO Seems like this is not needed since register requries addresses and addresses are piped through Bind.
-		//return cr.contractBindings.ForEach(ctx, readBinding.Register)
-		return nil
+		return cr.contractBindings.ForEach(ctx, readBinding.Register)
 	})
 }
 
@@ -151,7 +133,7 @@ func (cr *chainReader) Close() error {
 	return cr.StopOnce("ChainReader", func() error {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
-		return cr.contractBindings.ForEach(ctx, readBinding.UnregisterAll)
+		return cr.contractBindings.ForEach(ctx, readBinding.Unregister)
 	})
 }
 
@@ -160,11 +142,7 @@ func (cr *chainReader) HealthReport() map[string]error {
 	return map[string]error{cr.Name(): nil}
 }
 
-func (cr *chainReader) CreateContractType(contractName, methodName string, forEncoding bool) (any, error) {
-	return cr.codec.CreateType(wrapItemType(contractName, methodName, forEncoding), forEncoding)
-}
-
-func (cr *chainReader) CreateContractTypeByKey(key string, forEncoding bool) (any, error) {
+func (cr *chainReader) CreateContractType(key string, forEncoding bool) (any, error) {
 	rb, err := cr.contractBindings.GetReadBinding(key)
 	if err != nil {
 		return nil, err
@@ -187,7 +165,8 @@ func wrapItemType(contractName, methodName string, isParams bool) string {
 }
 
 func (cr *chainReader) addMethod(
-	contractName, methodName string,
+	contractName,
+	methodName string,
 	abi abi.ABI,
 	chainReaderDefinition types.ChainReaderDefinition) error {
 	method, methodExists := abi.Methods[chainReaderDefinition.ChainSpecificName]
@@ -250,12 +229,10 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 		codecTopicInfo: codecTopicInfo,
 		topicsInfo:     make(map[string]topicInfo),
 		eventDataWords: chainReaderDefinition.GenericDataWordNames,
+		id:             wrapItemType(contractName, eventName, false) + uuid.NewString(),
 	}
 
-	for genericDataWordName := range eb.eventDataWords {
-		// this way querying by key/s values comparison can find its bindings
-		cr.contractBindings.AddReadBinding(formatKey(contractName, eventName, genericDataWordName), eb)
-	}
+	cr.contractBindings.AddReadBinding(formatKey(contractName, eventName), eb)
 
 	// set topic mappings for QueryKeys
 	for topicIndex, topic := range event.Inputs {
@@ -270,7 +247,11 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 		cr.contractBindings.AddReadBinding(formatKey(contractName, eventName, genericTopicName), eb)
 	}
 
-	cr.contractBindings.AddReadBinding(formatKey(contractName, eventName), eb)
+	for genericDataWordName := range eb.eventDataWords {
+		// this way querying by key/s values comparison can find its bindings
+		cr.contractBindings.AddReadBinding(formatKey(contractName, eventName, genericDataWordName), eb)
+	}
+
 	return cr.addDecoderDef(contractName, eventName, event.Inputs, chainReaderDefinition)
 }
 
@@ -396,12 +377,4 @@ func setupEventInput(event abi.Event, def types.ChainReaderDefinition) ([]abi.Ar
 	}
 
 	return filterArgs, types.NewCodecEntry(inputArgs, nil, nil), indexArgNames
-}
-
-func validateEthereumAddress(address string) (common.Address, error) {
-	re := regexp.MustCompile("^0x[0-9a-fA-F]{40}$")
-	if !re.MatchString(address) {
-		return common.Address{}, fmt.Errorf("address %s is not a valid ethereum address", address)
-	}
-	return common.HexToAddress(address), nil
 }

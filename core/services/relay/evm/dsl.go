@@ -30,18 +30,18 @@ func (f *EventFilter) Accept(visitor query.Visitor) {
 }
 
 type EventByIndexFilter struct {
-	Address          common.Address
-	EventSig         common.Hash
-	Topic            uint64
-	ValueComparators []query.ValueComparator
+	Address        common.Address
+	EventSig       common.Hash
+	Topic          uint64
+	ValueComparers []query.ValueComparer
 }
 
-func NewEventByIndexFilter(address common.Address, eventSig common.Hash, topicIndex uint64, valueComparators []query.ValueComparator) query.Expression {
+func NewEventByIndexFilter(address common.Address, eventSig common.Hash, topicIndex uint64, valueComparators []query.ValueComparer) query.Expression {
 	var eventByIndexFilter *EventByIndexFilter
 	eventByIndexFilter.Address = address
 	eventByIndexFilter.EventSig = eventSig
 	eventByIndexFilter.Topic = topicIndex
-	eventByIndexFilter.ValueComparators = valueComparators
+	eventByIndexFilter.ValueComparers = valueComparators
 
 	return query.Expression{Primitive: eventByIndexFilter}
 }
@@ -57,10 +57,10 @@ type EventByWordFilter struct {
 	Address          common.Address
 	EventSig         common.Hash
 	WordIndex        uint8
-	ValueComparators []query.ValueComparator
+	ValueComparators []query.ValueComparer
 }
 
-func NewEventByWordFilter(address common.Address, eventSig common.Hash, wordIndex uint8, valueComparators []query.ValueComparator) query.Expression {
+func NewEventByWordFilter(address common.Address, eventSig common.Hash, wordIndex uint8, valueComparators []query.ValueComparer) query.Expression {
 	var eventByIndexFilter *EventByWordFilter
 	eventByIndexFilter.Address = address
 	eventByIndexFilter.EventSig = eventSig
