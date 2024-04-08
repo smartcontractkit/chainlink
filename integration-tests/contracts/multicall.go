@@ -54,6 +54,7 @@ func WaitForSuccessfulTxMined(evmClient blockchain.EVMClient, tx *types.Transact
 
 func MultiCallLogTriggerLoadGen(
 	client *seth.Client,
+	keyNum int,
 	multiCallAddress string,
 	logTriggerAddress []string,
 	logTriggerData [][]byte,
@@ -70,8 +71,14 @@ func MultiCallLogTriggerLoadGen(
 		data := Call{Target: common.HexToAddress(logTriggerAddress[i]), AllowFailure: false, CallData: d}
 		call = append(call, data)
 	}
+
 	// call aggregate3 to group all msg call data and send them in a single transaction
-	return boundContract.Transact(client.NewTXOpts(), "aggregate3", call)
+	decoded, err := client.Decode(boundContract.Transact(client.NewTXKeyOpts(client.AnySyncedKey()), "aggregate3", call))
+	if err != nil {
+		return nil, err
+	}
+
+	return decoded.Transaction, nil
 
 	// err = evmClient.MarkTxAsSentOnL2(tx)
 	// if err != nil {

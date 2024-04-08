@@ -690,6 +690,19 @@ func (l *EthereumLinkToken) TransferAndCall(to string, amount *big.Int, data []b
 	return decodedTx.Transaction, nil
 }
 
+func (l *EthereumLinkToken) TransferAndCallFromKey(to string, amount *big.Int, data []byte, keyNum int) (*types.Transaction, error) {
+	l.l.Info().
+		Str("From", l.client.Addresses[keyNum].Hex()).
+		Str("To", to).
+		Str("Amount", amount.String()).
+		Msg("Transferring and Calling LINK")
+	decodedTx, err := l.client.Decode(l.instance.TransferAndCall(l.client.NewTXKeyOpts(keyNum), common.HexToAddress(to), amount, data))
+	if err != nil {
+		return nil, err
+	}
+	return decodedTx.Transaction, nil
+}
+
 // DeployFluxAggregatorContract deploys the Flux Aggregator Contract on an EVM chain
 func DeployFluxAggregatorContract(
 	seth *seth.Client,

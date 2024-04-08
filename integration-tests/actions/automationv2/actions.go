@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -586,12 +587,40 @@ func (a *AutomationTest) RegisterUpkeeps(upkeepConfigs []UpkeepConfig) ([]common
 	var registrationRequest []byte
 	registrationTxHashes := make([]common.Hash, 0)
 
-	for _, upkeepConfig := range upkeepConfigs {
+	numberOfClients := int(*a.ChainClient.Cfg.EphemeralAddrs)
+
+	if numberOfClients == 0 {
+		numberOfClients = 1
+	}
+
+	type result struct {
+		txHash common.Hash
+		err    error
+	}
+
+	resultCh := make(chan result, numberOfClients)
+	stopCh := make(chan struct{})
+
+	go func() {
+		for r := range resultCh {
+			if r.err != nil {
+				a.Logger.Error().Err(r.err).Msg("failed to register upkeep")
+				err = r.err
+				stopCh <- struct{}{}
+				return
+			} else {
+				registrationTxHashes = append(registrationTxHashes, r.txHash)
+			}
+		}
+	}()
+
+	var registerUpkeep = func(upkeepConfig UpkeepConfig, keyNum int, resultCh chan result) {
 		switch a.RegistrySettings.RegistryVersion {
 		case ethereum.RegistryVersion_2_0:
 			registrarABI, err = keeper_registrar_wrapper2_0.KeeperRegistrarMetaData.GetAbi()
 			if err != nil {
-				return nil, errors.Join(err, fmt.Errorf("failed to get registrar abi"))
+				resultCh <- result{err: errors.Join(err, fmt.Errorf("failed to get registrar abi"))}
+				return
 			}
 			registrationRequest, err = registrarABI.Pack(
 				"register", upkeepConfig.UpkeepName, upkeepConfig.EncryptedEmail,
@@ -600,12 +629,13 @@ func (a *AutomationTest) RegisterUpkeeps(upkeepConfigs []UpkeepConfig) ([]common
 				upkeepConfig.OffchainConfig, upkeepConfig.FundingAmount,
 				a.ChainClient.Addresses[0])
 			if err != nil {
-				return nil, errors.Join(err, fmt.Errorf("failed to pack registrar request"))
+				resultCh <- result{err: errors.Join(err, fmt.Errorf("failed to pack registrar request"))}
 			}
 		case ethereum.RegistryVersion_2_1, ethereum.RegistryVersion_2_2: // 2.1 and 2.2 use the same registrar
 			registrarABI, err = automation_registrar_wrapper2_1.AutomationRegistrarMetaData.GetAbi()
 			if err != nil {
-				return nil, errors.Join(err, fmt.Errorf("failed to get registrar abi"))
+				resultCh <- result{err: errors.Join(err, fmt.Errorf("failed to get registrar abi"))}
+				return
 			}
 			registrationRequest, err = registrarABI.Pack(
 				"register", upkeepConfig.UpkeepName, upkeepConfig.EncryptedEmail,
@@ -614,17 +644,131 @@ func (a *AutomationTest) RegisterUpkeeps(upkeepConfigs []UpkeepConfig) ([]common
 				upkeepConfig.OffchainConfig, upkeepConfig.FundingAmount,
 				a.ChainClient.Addresses[0])
 			if err != nil {
-				return nil, errors.Join(err, fmt.Errorf("failed to pack registrar request"))
+				resultCh <- result{err: errors.Join(err, fmt.Errorf("failed to pack registrar request"))}
+				return
 			}
 		default:
-			return nil, fmt.Errorf("v2.0, v2.1, and v2.2 are the only supported versions")
+			resultCh <- result{err: fmt.Errorf("v2.0, v2.1, and v2.2 are the only supported versions")}
 		}
+		// tx, err := a.LinkToken.TransferAndCallFromKey(a.Registrar.Address(), upkeepConfig.FundingAmount, registrationRequest, keyNum)
 		tx, err := a.LinkToken.TransferAndCall(a.Registrar.Address(), upkeepConfig.FundingAmount, registrationRequest)
 		if err != nil {
-			return nil, errors.Join(err, fmt.Errorf("failed to register upkeep"))
+			resultCh <- result{err: errors.Join(err, fmt.Errorf("client number %d failed to register upkeep %s", keyNum, upkeepConfig.UpkeepContract.Hex()))}
+			return
 		}
-		registrationTxHashes = append(registrationTxHashes, tx.Hash())
+		resultCh <- result{txHash: tx.Hash()}
 	}
+
+	var divideSlice = func(slice []UpkeepConfig, numSlices int) [][]UpkeepConfig {
+		var divided [][]UpkeepConfig
+		sliceLength := len(slice)
+
+		// Calculate the base size of each slice and the remainder
+		baseSize := sliceLength / numSlices
+		remainder := sliceLength % numSlices
+
+		start := 0
+		for i := 0; i < numSlices; i++ {
+			end := start + baseSize
+			if i < remainder { // Distribute the remainder among the first slices
+				end++
+			}
+
+			divided = append(divided, slice[start:end])
+			start = end
+		}
+
+		return divided
+	}
+
+	var wg sync.WaitGroup
+	dividedConfigs := divideSlice(upkeepConfigs, numberOfClients)
+
+	// for i := 1; i <= numberOfClients; i++ {
+	// 	a.Logger.Debug().
+	// 		Int("Client Number", i).
+	// 		Str("Client Address", a.ChainClient.Addresses[i].Hex()).
+	// 		Msg("Transferring LINK to client")
+
+	// 	err := a.LinkToken.Transfer(a.ChainClient.Addresses[i].Hex(), big.NewInt(5e18))
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// }
+
+	// Launching workers
+	for clientNum := 1; clientNum <= numberOfClients; clientNum++ {
+		wg.Add(1)
+		go func(clientNum int) {
+			defer wg.Done()
+			configs := dividedConfigs[clientNum-1]
+
+			a.Logger.Debug().
+				Int("Client Number", clientNum).
+				Int("Number of Configs", len(configs)).
+				Msg("Seth client started to register upkeeps")
+
+			for i := 0; i < len(configs); i++ {
+				select {
+				case <-stopCh:
+					return
+				default:
+					registerUpkeep(configs[i], clientNum, resultCh)
+				}
+			}
+
+			a.Logger.Debug().
+				Int("Client Number", clientNum).
+				Msg("Seth client finished to register upkeeps")
+		}(clientNum)
+	}
+
+	wg.Wait()
+	close(resultCh)
+
+	if err != nil {
+		return nil, err
+	}
+
+	// for _, upkeepConfig := range upkeepConfigs {
+	// 	switch a.RegistrySettings.RegistryVersion {
+	// 	case ethereum.RegistryVersion_2_0:
+	// 		registrarABI, err = keeper_registrar_wrapper2_0.KeeperRegistrarMetaData.GetAbi()
+	// 		if err != nil {
+	// 			return nil, errors.Join(err, fmt.Errorf("failed to get registrar abi"))
+	// 		}
+	// 		registrationRequest, err = registrarABI.Pack(
+	// 			"register", upkeepConfig.UpkeepName, upkeepConfig.EncryptedEmail,
+	// 			upkeepConfig.UpkeepContract, upkeepConfig.GasLimit, upkeepConfig.AdminAddress,
+	// 			upkeepConfig.CheckData,
+	// 			upkeepConfig.OffchainConfig, upkeepConfig.FundingAmount,
+	// 			a.ChainClient.Addresses[0])
+	// 		if err != nil {
+	// 			return nil, errors.Join(err, fmt.Errorf("failed to pack registrar request"))
+	// 		}
+	// 	case ethereum.RegistryVersion_2_1, ethereum.RegistryVersion_2_2: // 2.1 and 2.2 use the same registrar
+	// 		registrarABI, err = automation_registrar_wrapper2_1.AutomationRegistrarMetaData.GetAbi()
+	// 		if err != nil {
+	// 			return nil, errors.Join(err, fmt.Errorf("failed to get registrar abi"))
+	// 		}
+	// 		registrationRequest, err = registrarABI.Pack(
+	// 			"register", upkeepConfig.UpkeepName, upkeepConfig.EncryptedEmail,
+	// 			upkeepConfig.UpkeepContract, upkeepConfig.GasLimit, upkeepConfig.AdminAddress,
+	// 			upkeepConfig.TriggerType, upkeepConfig.CheckData, upkeepConfig.TriggerConfig,
+	// 			upkeepConfig.OffchainConfig, upkeepConfig.FundingAmount,
+	// 			a.ChainClient.Addresses[0])
+	// 		if err != nil {
+	// 			return nil, errors.Join(err, fmt.Errorf("failed to pack registrar request"))
+	// 		}
+	// 	default:
+	// 		return nil, fmt.Errorf("v2.0, v2.1, and v2.2 are the only supported versions")
+	// 	}
+	// 	tx, err := a.LinkToken.TransferAndCall(a.Registrar.Address(), upkeepConfig.FundingAmount, registrationRequest)
+	// 	if err != nil {
+	// 		return nil, errors.Join(err, fmt.Errorf("failed to register upkeep"))
+	// 	}
+	// 	registrationTxHashes = append(registrationTxHashes, tx.Hash())
+	// }
 	return registrationTxHashes, nil
 }
 

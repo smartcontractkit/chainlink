@@ -25,7 +25,12 @@ func MergeSethAndEvmNetworkConfigs(l zerolog.Logger, evmNetwork blockchain.EVMNe
 	for _, conf := range sethConfig.Networks {
 		if evmNetwork.Simulated {
 			if conf.Name == seth.GETH {
-				conf.PrivateKeys = evmNetwork.PrivateKeys
+				// conf.PrivateKeys = evmNetwork.PrivateKeys
+				if len(evmNetwork.PrivateKeys) > 1 && *sethConfig.EphemeralAddrs > 0 {
+					conf.PrivateKeys = evmNetwork.PrivateKeys[:1]
+				} else {
+					conf.PrivateKeys = evmNetwork.PrivateKeys
+				}
 				conf.URLs = evmNetwork.URLs
 				// important since Besu doesn't support EIP-1559, but other EVM clients do
 				conf.EIP1559DynamicFees = evmNetwork.SupportsEIP1559
@@ -108,9 +113,9 @@ func ValidateSethNetworkConfig(cfg *seth.Network) error {
 	if cfg.TxnTimeout.Duration() == 0 {
 		return fmt.Errorf("TxnTimeout needs to be above 0. It's the timeout for a transaction")
 	}
-	if cfg.GasLimit == 0 {
-		return fmt.Errorf("GasLimit needs to be above 0. It's the gas limit for a transaction")
-	}
+	// if cfg.GasLimit == 0 {
+	// 	return fmt.Errorf("GasLimit needs to be above 0. It's the gas limit for a transaction")
+	// }
 	if cfg.EIP1559DynamicFees {
 		if cfg.GasFeeCap == 0 {
 			return fmt.Errorf("GasFeeCap needs to be above 0. It's the maximum fee per gas for a transaction (including tip)")

@@ -25,6 +25,7 @@ type LogTriggerGun struct {
 	addresses        []string
 	multiCallAddress string
 	client           *seth.Client
+	numberOfClients  int
 	logger           zerolog.Logger
 }
 
@@ -44,6 +45,7 @@ func NewLogTriggerUser(
 	logger zerolog.Logger,
 	TriggerConfigs []LogTriggerConfig,
 	client *seth.Client,
+	numberOfClients int,
 	multicallAddress string,
 ) *LogTriggerGun {
 	var data [][]byte
@@ -73,6 +75,7 @@ func NewLogTriggerUser(
 		logger:           logger,
 		multiCallAddress: multicallAddress,
 		client:           client,
+		numberOfClients:  numberOfClients,
 	}
 }
 
@@ -88,16 +91,24 @@ func (m *LogTriggerGun) Call(_ *wasp.Generator) *wasp.Response {
 		}
 		dividedData = append(dividedData, d[i:end])
 	}
-	for _, a := range dividedData {
+
+	// semaphoreCh := make(chan struct{}, m.numberOfClients)
+
+	for i, a := range dividedData {
 		wg.Add(1)
-		go func(a [][]byte, m *LogTriggerGun) *wasp.Response {
+		// semaphoreCh <- struct{}{}
+		go func(a [][]byte, m *LogTriggerGun, i int) *wasp.Response {
 			defer wg.Done()
-			_, err := contracts.MultiCallLogTriggerLoadGen(m.client, m.multiCallAddress, m.addresses, a)
+			// defer func() { <-semaphoreCh }()
+
+			clientIndex := i + 1
+			_, err := contracts.MultiCallLogTriggerLoadGen(m.client, clientIndex, m.multiCallAddress, m.addresses, a)
 			if err != nil {
+				m.logger.Error().Err(err).Msg("Error calling MultiCallLogTriggerLoadGen")
 				return &wasp.Response{Error: err.Error(), Failed: true}
 			}
 			return &wasp.Response{}
-		}(a, m)
+		}(a, m, i)
 	}
 	wg.Wait()
 	return &wasp.Response{}

@@ -1291,6 +1291,10 @@ func (l *LegacyEthereumLinkToken) TransferAndCall(to string, amount *big.Int, da
 	return tx, l.client.ProcessTransaction(tx)
 }
 
+func (l *LegacyEthereumLinkToken) TransferAndCallFromKey(to string, amount *big.Int, data []byte, keyNum int) (*types.Transaction, error) {
+	panic("supported only with Seth")
+}
+
 // LegacyEthereumOffchainAggregator represents the offchain aggregation contract
 // Deprecated: we are moving away from blockchain.EVMClient, use EthereumOffchainAggregator instead
 type LegacyEthereumOffchainAggregator struct {

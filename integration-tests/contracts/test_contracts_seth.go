@@ -80,11 +80,15 @@ func (e *LogEmitterContract) EmitLogString(strings string) (*types.Transaction, 
 }
 
 func DeployLogEmitterContract(l zerolog.Logger, client *seth.Client) (LogEmitter, error) {
+	return DeployLogEmitterContractFromKey(l, client, 0)
+}
+
+func DeployLogEmitterContractFromKey(l zerolog.Logger, client *seth.Client, keyNum int) (LogEmitter, error) {
 	abi, err := le.LogEmitterMetaData.GetAbi()
 	if err != nil {
 		return &LogEmitterContract{}, fmt.Errorf("failed to get LogEmitter ABI: %w", err)
 	}
-	data, err := client.DeployContract(client.NewTXOpts(), "LogEmitter", *abi, common.FromHex(le.LogEmitterMetaData.Bin))
+	data, err := client.DeployContract(client.NewTXKeyOpts(keyNum), "LogEmitter", *abi, common.FromHex(le.LogEmitterMetaData.Bin))
 	if err != nil {
 		return &LogEmitterContract{}, fmt.Errorf("LogEmitter instance deployment have failed: %w", err)
 	}

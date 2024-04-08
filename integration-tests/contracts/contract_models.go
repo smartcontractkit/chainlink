@@ -79,6 +79,7 @@ type LinkToken interface {
 	Transfer(to string, amount *big.Int) error
 	BalanceOf(ctx context.Context, addr string) (*big.Int, error)
 	TransferAndCall(to string, amount *big.Int, data []byte) (*types.Transaction, error)
+	TransferAndCallFromKey(to string, amount *big.Int, data []byte, keyNum int) (*types.Transaction, error)
 	Name(context.Context) (string, error)
 }
 

@@ -10,10 +10,13 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/pkg/errors"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/seth"
 
@@ -426,18 +429,52 @@ Load Config:
 
 	upkeepConfigs := make([]automationv2.UpkeepConfig, 0)
 	loadConfigs := make([]aconfig.Load, 0)
-	// cEVMClient, err := blockchain.ConcurrentEVMClient(testNetwork, testEnvironment, chainClient, l)
-	// require.NoError(t, err, "Error building concurrent chain client")
+
+	type contractData struct {
+		consumerContract contracts.KeeperConsumer
+		triggerContract  contracts.LogEmitter
+		triggerAddress   common.Address
+		loadConfig       aconfig.Load
+	}
+
+	numberOfClients := 1
 
 	for _, u := range loadedTestConfig.Automation.Load {
-		for i := 0; i < *u.NumberOfUpkeeps; i++ {
+		numberOfClients = int(*chainClient.Cfg.EphemeralAddrs)
+
+		if numberOfClients == 0 {
+			numberOfClients = 1
+		}
+
+		l.Debug().
+			Int("Number of Upkeeps", *u.NumberOfUpkeeps).
+			Int("Number of Clients", numberOfClients).
+			Msg("Deployment parallelisation info")
+
+		atomicCounter := atomic.Uint64{}
+
+		errCh := make(chan error, numberOfClients)
+		deployedContractCh := make(chan contractData, numberOfClients)
+
+		var deployContractFn = func(deployedCh chan contractData, errCh chan error, keyNum int) {
+			// consumerContract, err := contracts.DeployAutomationSimpleLogTriggerConsumerFromKey(chainClient, keyNum, *u.IsStreamsLookup)
 			consumerContract, err := contracts.DeployAutomationSimpleLogTriggerConsumer(chainClient, *u.IsStreamsLookup)
-			require.NoError(t, err, "Error deploying automation consumer contract")
-			consumerContracts = append(consumerContracts, consumerContract)
+			if err != nil {
+				errCh <- err
+				return
+			}
+
+			data := contractData{
+				consumerContract: consumerContract,
+			}
+
+			atomicCounter.Add(1)
+
 			l.Debug().
 				Str("Contract Address", consumerContract.Address()).
-				Int("Number", i+1).
+				Int("Number", int(atomicCounter.Load())).
 				Int("Out Of", *u.NumberOfUpkeeps).
+				Int("Key Number", keyNum).
 				Msg("Deployed Automation Log Trigger Consumer Contract")
 
 			loadCfg := aconfig.Load{
@@ -455,22 +492,163 @@ Load Config:
 				loadCfg.Feeds = u.Feeds
 			}
 
-			loadConfigs = append(loadConfigs, loadCfg)
+			data.loadConfig = loadCfg
 
-			if *u.SharedTrigger && i > 0 {
-				triggerAddresses = append(triggerAddresses, triggerAddresses[len(triggerAddresses)-1])
-				continue
+			// deploy only 1 trigger contract if it's a shared trigger
+			if *u.SharedTrigger && atomicCounter.Load() > 0 {
+				deployedCh <- data
+				return
 			}
+
+			// if *u.SharedTrigger && i > 0 {
+			// 	triggerAddresses = append(triggerAddresses, triggerAddresses[len(triggerAddresses)-1])
+			// 	continue
+			// }
+			// triggerContract, err := contracts.DeployLogEmitterContractFromKey(l, chainClient, keyNum)
 			triggerContract, err := contracts.DeployLogEmitterContract(l, chainClient)
-			require.NoError(t, err, "Error deploying log emitter contract")
-			triggerContracts = append(triggerContracts, triggerContract)
-			triggerAddresses = append(triggerAddresses, triggerContract.Address())
+			if err != nil {
+				errCh <- err
+				return
+			}
+
+			data.triggerContract = triggerContract
+			data.triggerAddress = triggerContract.Address()
 			l.Debug().
 				Str("Contract Address", triggerContract.Address().Hex()).
-				Int("Number", i+1).
+				Int("Number", int(atomicCounter.Load())).
 				Int("Out Of", *u.NumberOfUpkeeps).
+				Int("Key Number", keyNum).
 				Msg("Deployed Automation Log Trigger Emitter Contract")
+
+			deployedCh <- data
 		}
+
+		go func(t *testing.T) {
+			for err := range errCh {
+				require.NoError(t, err, "Error deploying test contract")
+			}
+			defer func() {
+				l.Debug().Msg("Closing error channel processing")
+			}()
+		}(t)
+
+		// go func() {
+		// 	defer func() {
+		// 		l.Debug().Msg("Closing deployed contract channel processing")
+		// 	}()
+		// 	for data := range deployedContractCh {
+		// 		if data.triggerContract != nil {
+		// 			triggerContracts = append(triggerContracts, data.triggerContract)
+		// 			triggerAddresses = append(triggerAddresses, data.triggerAddress)
+		// 		}
+		// 		consumerContracts = append(consumerContracts, data.consumerContract)
+		// 		l.Debug().Msg("Appending contract data to arrays")
+		// 		loadConfigs = append(loadConfigs, data.loadConfig)
+		// 	}
+
+		// 	// if there's more than 1 upkeep and it's a shared trigger, then we should use only the first address in triggerAddresses
+		// 	// as triggerAddresses array
+		// 	if *u.SharedTrigger {
+		// 		triggerAddress := triggerAddresses[0]
+		// 		triggerAddresses = make([]common.Address, 0)
+		// 		for i := 0; i < *u.NumberOfUpkeeps; i++ {
+		// 			triggerAddresses = append(triggerAddresses, triggerAddress)
+		// 		}
+		// 	}
+		// }()
+
+		var wg sync.WaitGroup
+		operationsPerClient := *u.NumberOfUpkeeps / numberOfClients
+		extraOperations := *u.NumberOfUpkeeps % numberOfClients
+
+		// Launching workers
+		for clientNum := 1; clientNum <= numberOfClients; clientNum++ {
+			wg.Add(1)
+			go func(clientNum int) {
+				defer wg.Done()
+
+				numTasks := operationsPerClient
+				if clientNum <= extraOperations {
+					numTasks++
+				}
+
+				l.Debug().
+					Int("Client Number", clientNum).
+					Int("Number of Tasks", numTasks).
+					Msg("Seth client started deploying contracts")
+
+				for i := 0; i < numTasks; i++ {
+					deployContractFn(deployedContractCh, errCh, clientNum)
+				}
+
+				l.Debug().
+					Int("Client Number", clientNum).
+					Msg("Seth client finished deploying contracts")
+			}(clientNum)
+		}
+
+		wg.Wait()
+		close(errCh)
+		close(deployedContractCh)
+
+		for data := range deployedContractCh {
+			if data.triggerContract != nil {
+				triggerContracts = append(triggerContracts, data.triggerContract)
+				triggerAddresses = append(triggerAddresses, data.triggerAddress)
+			}
+			consumerContracts = append(consumerContracts, data.consumerContract)
+			l.Debug().Msg("Appending contract data to arrays")
+			loadConfigs = append(loadConfigs, data.loadConfig)
+		}
+
+		// if there's more than 1 upkeep and it's a shared trigger, then we should use only the first address in triggerAddresses
+		// as triggerAddresses array
+		if *u.SharedTrigger {
+			triggerAddress := triggerAddresses[0]
+			triggerAddresses = make([]common.Address, 0)
+			for i := 0; i < *u.NumberOfUpkeeps; i++ {
+				triggerAddresses = append(triggerAddresses, triggerAddress)
+			}
+		}
+
+		// var generateCallData = func(receiver common.Address, amount *big.Int) ([]byte, error) {
+		// 	abi, err := link_token_interface.LinkTokenMetaData.GetAbi()
+		// 	if err != nil {
+		// 		return nil, err
+		// 	}
+		// 	data, err := abi.Pack("transfer", receiver, amount)
+		// 	if err != nil {
+		// 		return nil, err
+		// 	}
+		// 	return data, nil
+		// }
+
+		// Transfer LINK to ephemeral keys
+		// multiCallData := make([][]byte, numberOfClients)
+		// for i := 1; i <= numberOfClients; i++ {
+		// 	data, err := generateCallData(a.ChainClient.Addresses[i], big.NewInt(5e18))
+		// 	require.NoError(t, err, "Error generating call data for LINK transfer")
+		// 	multiCallData = append(multiCallData, data)
+		// }
+
+		// var call []contracts.Call
+		// for _, d := range multiCallData {
+		// 	data := contracts.Call{Target: common.HexToAddress(a.LinkToken.Address()), AllowFailure: false, CallData: d}
+		// 	call = append(call, data)
+		// }
+
+		// multiCallABI, err := abi.JSON(strings.NewReader(contracts.MultiCallABI))
+		// require.NoError(t, err, "Error getting multicall abi")
+		// boundContract := bind.NewBoundContract(multicallAddress, multiCallABI, chainClient.Client, chainClient.Client, chainClient.Client)
+		// // call aggregate3 to group all msg call data and send them in a single transaction
+		// _, err = boundContract.Transact(chainClient.NewTXOpts(), "aggregate3", call)
+		// require.NoError(t, err, "Error transferring LINK to ephemeral keys")
+
+		// for i := 1; i <= numberOfClients; i++ {
+		// 	balance, err := a.LinkToken.BalanceOf(context.Background(), a.ChainClient.Addresses[i].Hex())
+		// 	require.NoError(t, err, "Error getting LINK balance")
+		// 	require.True(t, balance.Cmp(big.NewInt(5e18)) == 0, "Incorrect LINK balance after transferring for ephemeral key %d", i)
+		// }
 	}
 
 	for i, consumerContract := range consumerContracts {
@@ -562,6 +740,15 @@ Load Config:
 		l.Error().Err(err).Msg("Error sending slack notification")
 	}
 
+	for i := 1; i < len(chainClient.Addresses); i++ {
+		_, err = actions_seth.SendFunds(l, chainClient, actions_seth.FundsToSendPayload{
+			ToAddress:  chainClient.Addresses[i],
+			Amount:     big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(10)),
+			PrivateKey: chainClient.PrivateKeys[0],
+		})
+		require.NoError(t, err, "Error sending funds")
+	}
+
 	g, err := wasp.NewGenerator(&wasp.Config{
 		T:           t,
 		LoadType:    wasp.RPS,
@@ -575,6 +762,7 @@ Load Config:
 			l,
 			configs,
 			chainClient,
+			numberOfClients,
 			multicallAddress.Hex(),
 		),
 		CallResultBufLen: 1000,
@@ -649,7 +837,7 @@ Load Config:
 						Interface("FilterQuery", filterQuery).
 						Str("Contract Address", consumerContract.Address()).
 						Str("Timeout", timeout.String()).
-						Msg("Error getting logs")
+						Msg("Error getting consumer contract logs")
 					timeout = time.Duration(math.Min(float64(timeout)*2, float64(2*time.Minute)))
 					continue
 				}
@@ -657,7 +845,8 @@ Load Config:
 					Interface("FilterQuery", filterQuery).
 					Str("Contract Address", consumerContract.Address()).
 					Str("Timeout", timeout.String()).
-					Msg("Collected logs")
+					Int("Number of Logs", len(logsInBatch)).
+					Msg("Collected consumer contract logs")
 				logs = append(logs, logsInBatch...)
 			}
 		}
@@ -711,17 +900,18 @@ Load Config:
 				if err != nil {
 					l.Error().Err(err).
 						Interface("FilterQuery", filterQuery).
-						Str("Contract Address", triggerContract.Address().Hex()).
+						Str("Contract Address", address.Hex()).
 						Str("Timeout", timeout.String()).
-						Msg("Error getting logs")
+						Msg("Error getting trigger contract logs")
 					timeout = time.Duration(math.Min(float64(timeout)*2, float64(2*time.Minute)))
 					continue
 				}
 				l.Debug().
 					Interface("FilterQuery", filterQuery).
-					Str("Contract Address", triggerContract.Address().Hex()).
+					Str("Contract Address", address.Hex()).
 					Str("Timeout", timeout.String()).
-					Msg("Collected logs")
+					Int("Number of Logs", len(logsInBatch)).
+					Msg("Collected trigger contract logs")
 				logs = append(logs, logsInBatch...)
 			}
 		}
@@ -823,6 +1013,41 @@ Test Duration: %s`
 	}
 
 	t.Cleanup(func() {
+		err = chainClient.NonceManager.UpdateNonces()
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		eg, egCtx := errgroup.WithContext(ctx)
+		for i := 1; i < len(chainClient.Addresses); i++ {
+			i := i
+			eg.Go(func() error {
+				balance, err := chainClient.Client.BalanceAt(context.Background(), chainClient.Addresses[i], nil)
+				if err != nil {
+					return err
+				}
+
+				networkTransferFee := chainClient.Cfg.Network.GasPrice * chainClient.Cfg.Network.TransferGasFee
+				fundsToReturn := new(big.Int).Sub(balance, big.NewInt(networkTransferFee))
+
+				if fundsToReturn.Cmp(big.NewInt(0)) <= 0 {
+					l.Debug().
+						Str("Address", chainClient.Addresses[i].Hex()).
+						Msg("Address balance is zero or negative. Skipping funds return")
+
+					return nil
+				}
+
+				l.Info().
+					Str("Key", chainClient.Addresses[i].Hex()).
+					Interface("Balance", balance).
+					Interface("NetworkFee", chainClient.Cfg.Network.GasPrice*21).
+					Interface("ReturnedFunds", fundsToReturn).
+					Msg("KeyFile key balance")
+				return chainClient.TransferETHFromKey(egCtx, i, chainClient.Addresses[0].Hex(), fundsToReturn)
+			})
+		}
+
+		require.NoError(t, eg.Wait(), "Error returning funds to root address")
+
 		if err = actions_seth.TeardownRemoteSuite(t, chainClient, testEnvironment.Cfg.Namespace, chainlinkNodes, nil, &loadedTestConfig); err != nil {
 			l.Error().Err(err).Msg("Error when tearing down remote suite")
 			testEnvironment.Cfg.TTL += time.Hour * 48

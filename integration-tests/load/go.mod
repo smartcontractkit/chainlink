@@ -29,6 +29,8 @@ require (
 	go.uber.org/ratelimit v0.3.0
 )
 
+replace github.com/smartcontractkit/seth => ../../../seth
+
 // avoids ambigious imports of indirect dependencies
 exclude github.com/hashicorp/consul v1.2.1
 
@@ -323,8 +325,6 @@ require (
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/mwitkow/go-conntrack v0.0.0-20190716064945-2f068394615f // indirect
 	github.com/mwitkow/grpc-proxy v0.0.0-20230212185441-f345521cb9c9 // indirect
-	github.com/naoina/go-stringutil v0.1.0 // indirect
-	github.com/naoina/toml v0.1.2-0.20170918210437-9fafd6967416 // indirect
 	github.com/oklog/run v1.1.0 // indirect
 	github.com/oklog/ulid v1.3.1 // indirect
 	github.com/olekukonko/tablewriter v0.0.5 // indirect

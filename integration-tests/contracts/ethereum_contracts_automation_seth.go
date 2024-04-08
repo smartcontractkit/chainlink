@@ -2200,11 +2200,15 @@ func (v *EthereumAutomationSimpleLogCounterConsumer) Counter(ctx context.Context
 }
 
 func DeployAutomationSimpleLogTriggerConsumer(client *seth.Client, isStreamsLookup bool) (KeeperConsumer, error) {
+	return DeployAutomationSimpleLogTriggerConsumerFromKey(client, isStreamsLookup, 0)
+}
+
+func DeployAutomationSimpleLogTriggerConsumerFromKey(client *seth.Client, isStreamsLookup bool, keyNum int) (KeeperConsumer, error) {
 	abi, err := simple_log_upkeep_counter_wrapper.SimpleLogUpkeepCounterMetaData.GetAbi()
 	if err != nil {
 		return &EthereumAutomationSimpleLogCounterConsumer{}, fmt.Errorf("failed to get SimpleLogUpkeepCounter ABI: %w", err)
 	}
-	data, err := client.DeployContract(client.NewTXOpts(), "SimpleLogUpkeepCounter", *abi, common.FromHex(simple_log_upkeep_counter_wrapper.SimpleLogUpkeepCounterMetaData.Bin), isStreamsLookup)
+	data, err := client.DeployContract(client.NewTXKeyOpts(keyNum), "SimpleLogUpkeepCounter", *abi, common.FromHex(simple_log_upkeep_counter_wrapper.SimpleLogUpkeepCounterMetaData.Bin), isStreamsLookup)
 	if err != nil {
 		return &EthereumAutomationSimpleLogCounterConsumer{}, fmt.Errorf("SimpleLogUpkeepCounter instance deployment have failed: %w", err)
 	}
