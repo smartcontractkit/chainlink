@@ -30,3 +30,7 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
           aws-role-arn: ${{ secrets.AWS_OIDC_CHAINLINK_CI_AUTO_PR_TOKEN_ISSUER_ROLE_ARN }}
           aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+          # grafana inputs
+          gc-basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          gc-host: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          gc-org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
