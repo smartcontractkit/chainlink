@@ -38,13 +38,13 @@ consensus:
       aggregation_config:
         "0x1111111111111111111100000000000000000000000000000000000000000000":
           deviation: "0.001"
-          heartbeat: 3600
+          heartbeat: 10
         "0x2222222222222222222200000000000000000000000000000000000000000000":
           deviation: "0.001"
-          heartbeat: 3600
+          heartbeat: 10
         "0x3333333333333333333300000000000000000000000000000000000000000000":
           deviation: "0.001"
-          heartbeat: 3600
+          heartbeat: 10
       encoder: "EVM"
       encoder_config:
         abi: "mercury_reports bytes[]"

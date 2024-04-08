@@ -205,6 +205,7 @@ func (cap *EvmWrite) Execute(ctx context.Context, callback chan<- capabilities.C
 	}
 
 	if rep == nil {
+		cap.lggr.Debugw("Empty report received", "inputs", inputs, "rep", rep)
 		// We received any empty report -- this means we should skip transmission.
 		go func() {
 			// TODO: cast tx.Error to Err (or Value to Value?)
@@ -217,7 +218,7 @@ func (cap *EvmWrite) Execute(ctx context.Context, callback chan<- capabilities.C
 	}
 
 	// evaluate any variables in reqConfig.Params
-	args, err := evaluateParams(reqConfig.Params, rep)
+	args, err := evaluateParams(reqConfig.Params, inputs)
 	if err != nil {
 		return err
 	}
