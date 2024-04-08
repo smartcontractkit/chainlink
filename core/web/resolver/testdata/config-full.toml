@@ -122,7 +122,7 @@ MaxSuccessfulRuns = 123456
 ReaperInterval = '4h0m0s'
 ReaperThreshold = '168h0m0s'
 ResultWriteQueueDepth = 10
-VerboseLogging = true
+VerboseLogging = false
 
 [JobPipeline.HTTPRequest]
 DefaultTimeout = '1m0s'
@@ -341,6 +341,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 13
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
 
 [EVM.OCR]
 ContractConfirmations = 11
@@ -429,6 +430,7 @@ URL = 'http://solana.bar'
 
 [[Starknet]]
 ChainID = 'foobar'
+FeederURL = 'http://feeder.url'
 Enabled = true
 OCR2CachePollPeriod = '6h0m0s'
 OCR2CacheTTL = '3m0s'
@@ -439,3 +441,4 @@ ConfirmationPoll = '42s'
 [[Starknet.Nodes]]
 Name = 'primary'
 URL = 'http://stark.node'
+APIKey = 'key'

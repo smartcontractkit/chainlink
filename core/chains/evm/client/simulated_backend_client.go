@@ -774,6 +774,10 @@ func (c *SimulatedBackendClient) ethGetLogs(ctx context.Context, result interfac
 	}
 }
 
+func (c *SimulatedBackendClient) CheckTxValidity(ctx context.Context, from common.Address, to common.Address, data []byte) *SendError {
+	return nil
+}
+
 func toCallMsg(params map[string]interface{}) ethereum.CallMsg {
 	var callMsg ethereum.CallMsg
 	toAddr, err := interfaceToAddress(params["to"])

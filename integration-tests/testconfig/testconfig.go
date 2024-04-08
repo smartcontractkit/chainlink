@@ -68,6 +68,10 @@ type KeeperTestConfig interface {
 	GetKeeperConfig() *keeper_config.Config
 }
 
+type AutomationTestConfig interface {
+	GetAutomationConfig() *a_config.Config
+}
+
 type OcrTestConfig interface {
 	GetOCRConfig() *ocr_config.Config
 }
@@ -208,6 +212,10 @@ func (c TestConfig) GetChainlinkUpgradeImageConfig() *ctf_config.ChainlinkImageC
 
 func (c TestConfig) GetKeeperConfig() *keeper_config.Config {
 	return c.Keeper
+}
+
+func (c TestConfig) GetAutomationConfig() *a_config.Config {
+	return c.Automation
 }
 
 func (c TestConfig) GetOCRConfig() *ocr_config.Config {

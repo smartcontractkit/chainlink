@@ -4,7 +4,6 @@ pragma solidity 0.8.19;
 import {AutomationRegistryBase2_3} from "./AutomationRegistryBase2_3.sol";
 import {EnumerableSet} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
 import {Address} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
-import {UpkeepFormat} from "../../interfaces/UpkeepTranscoderInterface.sol";
 import {IAutomationForwarder} from "../../interfaces/IAutomationForwarder.sol";
 import {IChainModule} from "../../interfaces/IChainModule.sol";
 import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
@@ -25,7 +24,8 @@ contract AutomationRegistryLogicC2_3 is AutomationRegistryBase2_3 {
     address fastGasFeed,
     address automationForwarderLogic,
     address allowedReadOnlyAddress,
-    PayoutMode payoutMode
+    PayoutMode payoutMode,
+    address wrappedNativeTokenAddress
   )
     AutomationRegistryBase2_3(
       link,
@@ -34,12 +34,13 @@ contract AutomationRegistryLogicC2_3 is AutomationRegistryBase2_3 {
       fastGasFeed,
       automationForwarderLogic,
       allowedReadOnlyAddress,
-      payoutMode
+      payoutMode,
+      wrappedNativeTokenAddress
     )
   {}
 
   // ================================================================
-  // |                       NODE MANAGEMENT                        |
+  // |                         NODE ACTIONS                         |
   // ================================================================
 
   /**
@@ -76,7 +77,7 @@ contract AutomationRegistryLogicC2_3 is AutomationRegistryBase2_3 {
     if (s_transmitterPayees[from] != msg.sender) revert OnlyCallableByPayee();
     uint96 balance = _updateTransmitterBalanceFromPool(from, s_hotVars.totalPremium, uint96(s_transmittersList.length));
     s_transmitters[from].balance = 0;
-    s_reserveAmounts[address(i_link)] = s_reserveAmounts[address(i_link)] - balance;
+    s_reserveAmounts[IERC20(address(i_link))] = s_reserveAmounts[IERC20(address(i_link))] - balance;
     i_link.transfer(to, balance);
     emit PaymentWithdrawn(from, balance, to, msg.sender);
   }
@@ -89,9 +90,7 @@ contract AutomationRegistryLogicC2_3 is AutomationRegistryBase2_3 {
    * @notice sets the privilege config for an upkeep
    */
   function setUpkeepPrivilegeConfig(uint256 upkeepId, bytes calldata newPrivilegeConfig) external {
-    if (msg.sender != s_storage.upkeepPrivilegeManager) {
-      revert OnlyCallableByUpkeepPrivilegeManager();
-    }
+    _onlyPrivilegeManagerAllowed();
     s_upkeepPrivilegeConfig[upkeepId] = newPrivilegeConfig;
     emit UpkeepPrivilegeConfigSet(upkeepId, newPrivilegeConfig);
   }
@@ -145,9 +144,7 @@ contract AutomationRegistryLogicC2_3 is AutomationRegistryBase2_3 {
    * @param newPrivilegeConfig the privileges that this admin has
    */
   function setAdminPrivilegeConfig(address admin, bytes calldata newPrivilegeConfig) external {
-    if (msg.sender != s_storage.upkeepPrivilegeManager) {
-      revert OnlyCallableByUpkeepPrivilegeManager();
-    }
+    _onlyPrivilegeManagerAllowed();
     s_adminPrivilegeConfig[admin] = newPrivilegeConfig;
     emit AdminPrivilegeConfigSet(admin, newPrivilegeConfig);
   }
@@ -159,18 +156,32 @@ contract AutomationRegistryLogicC2_3 is AutomationRegistryBase2_3 {
     _onlyFinanceAdminAllowed();
     if (s_payoutMode == PayoutMode.ON_CHAIN) revert MustSettleOnchain();
 
-    uint256 length = s_transmittersList.length;
-    uint256[] memory balances = new uint256[](length);
+    uint256 activeTransmittersLength = s_transmittersList.length;
+    uint256 deactivatedTransmittersLength = s_deactivatedTransmitters.length();
+    uint256 length = activeTransmittersLength + deactivatedTransmittersLength;
+    uint256[] memory payments = new uint256[](length);
     address[] memory payees = new address[](length);
-    for (uint256 i = 0; i < length; i++) {
+    for (uint256 i = 0; i < activeTransmittersLength; i++) {
       address transmitterAddr = s_transmittersList[i];
-      uint96 balance = _updateTransmitterBalanceFromPool(transmitterAddr, s_hotVars.totalPremium, uint96(length));
-      balances[i] = balance;
+      uint96 balance = _updateTransmitterBalanceFromPool(
+        transmitterAddr,
+        s_hotVars.totalPremium,
+        uint96(activeTransmittersLength)
+      );
+      payments[i] = balance;
       payees[i] = s_transmitterPayees[transmitterAddr];
       s_transmitters[transmitterAddr].balance = 0;
     }
+    for (uint256 i = 0; i < deactivatedTransmittersLength; i++) {
+      address deactivatedAddr = s_deactivatedTransmitters.at(i);
+      Transmitter memory transmitter = s_transmitters[deactivatedAddr];
+      payees[i + activeTransmittersLength] = s_transmitterPayees[deactivatedAddr];
+      payments[i + activeTransmittersLength] = transmitter.balance;
+      s_transmitters[deactivatedAddr].balance = 0;
+    }
+    delete s_deactivatedTransmitters;
 
-    emit NOPsSettledOffchain(payees, balances);
+    emit NOPsSettledOffchain(payees, payments);
   }
 
   /**
@@ -236,6 +247,10 @@ contract AutomationRegistryLogicC2_3 is AutomationRegistryBase2_3 {
     return i_allowedReadOnlyAddress;
   }
 
+  function getWrappedNativeTokenAddress() external view returns (address) {
+    return address(i_wrappedNativeToken);
+  }
+
   function getBillingToken(uint256 upkeepID) external view returns (IERC20) {
     return s_upkeep[upkeepID].billingToken;
   }
@@ -254,10 +269,6 @@ contract AutomationRegistryLogicC2_3 is AutomationRegistryBase2_3 {
 
   function getPayoutMode() external view returns (PayoutMode) {
     return s_payoutMode;
-  }
-
-  function upkeepTranscoderVersion() public pure returns (UpkeepFormat) {
-    return UPKEEP_TRANSCODER_VERSION_BASE;
   }
 
   function upkeepVersion() public pure returns (uint8) {
@@ -489,7 +500,7 @@ contract AutomationRegistryLogicC2_3 is AutomationRegistryBase2_3 {
    */
   function getMinBalanceForUpkeep(uint256 id) public view returns (uint96 minBalance) {
     Upkeep memory upkeep = s_upkeep[id];
-    return getMaxPaymentForGas(_getTriggerType(id), upkeep.performGas, upkeep.billingToken);
+    return getMaxPaymentForGas(id, _getTriggerType(id), upkeep.performGas, upkeep.billingToken);
   }
 
   /**
@@ -497,13 +508,14 @@ contract AutomationRegistryLogicC2_3 is AutomationRegistryBase2_3 {
    * @param gasLimit the gas to calculate payment for
    */
   function getMaxPaymentForGas(
+    uint256 id,
     Trigger triggerType,
     uint32 gasLimit,
     IERC20 billingToken
   ) public view returns (uint96 maxPayment) {
     HotVars memory hotVars = s_hotVars;
     (uint256 fastGasWei, uint256 linkUSD, uint256 nativeUSD) = _getFeedData(hotVars);
-    return _getMaxPayment(hotVars, triggerType, gasLimit, fastGasWei, linkUSD, nativeUSD, billingToken);
+    return _getMaxPayment(id, hotVars, triggerType, gasLimit, fastGasWei, linkUSD, nativeUSD, billingToken);
   }
 
   /**
@@ -549,9 +561,17 @@ contract AutomationRegistryLogicC2_3 is AutomationRegistryBase2_3 {
   }
 
   /**
-   * @notice returns the fallback native price
+   * @notice returns the amount of a particular token that is reserved as
+   * user deposits / NOP payments
    */
-  function getReserveAmount(address billingToken) external view returns (uint256) {
+  function getReserveAmount(IERC20 billingToken) external view returns (uint256) {
     return s_reserveAmounts[billingToken];
+  }
+
+  /**
+   * @notice returns the size of the LINK liquidity pool
+   */
+  function linkAvailableForPayment() public view returns (int256) {
+    return _linkAvailableForPayment();
   }
 }

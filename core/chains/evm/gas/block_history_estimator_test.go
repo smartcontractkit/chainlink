@@ -67,7 +67,6 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 	minGasPrice := assets.NewWeiI(1)
 	maxGasPrice := assets.NewWeiI(100)
 
-	geCfg.LimitMultiplierF = float32(1)
 	geCfg.PriceMinF = minGasPrice
 	geCfg.PriceMaxF = maxGasPrice
 
@@ -112,7 +111,6 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 	t.Run("starts and loads partial history if fetch context times out", func(t *testing.T) {
 		geCfg2 := &gas.MockGasEstimatorConfig{}
 		geCfg2.EIP1559DynamicFeesF = true
-		geCfg2.LimitMultiplierF = float32(1)
 		geCfg2.PriceMinF = minGasPrice
 
 		bhCfg2 := newBlockHistoryConfig()
@@ -188,7 +186,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "has not finished the first gas estimation yet, likely because a failure on start")
 
-		_, _, err = bhe.GetDynamicFee(testutils.Context(t), 100, maxGasPrice)
+		_, err = bhe.GetDynamicFee(testutils.Context(t), maxGasPrice)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "has not finished the first gas estimation yet, likely because a failure on start")
 	})
@@ -211,7 +209,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "has not finished the first gas estimation yet, likely because a failure on start")
 
-		_, _, err = bhe.GetDynamicFee(testutils.Context(t), 100, maxGasPrice)
+		_, err = bhe.GetDynamicFee(testutils.Context(t), maxGasPrice)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "has not finished the first gas estimation yet, likely because a failure on start")
 	})
@@ -252,7 +250,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "has not finished the first gas estimation yet, likely because a failure on start")
 
-		_, _, err = bhe.GetDynamicFee(testutils.Context(t), 100, maxGasPrice)
+		_, err = bhe.GetDynamicFee(testutils.Context(t), maxGasPrice)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "has not finished the first gas estimation yet, likely because a failure on start")
 	})
@@ -1785,7 +1783,6 @@ func TestBlockHistoryEstimator_GetLegacyGas(t *testing.T) {
 	maxGasPrice := assets.NewWeiI(1000000)
 	geCfg := &gas.MockGasEstimatorConfig{}
 	geCfg.EIP1559DynamicFeesF = false
-	geCfg.LimitMultiplierF = float32(1)
 	geCfg.PriceMaxF = maxGasPrice
 	geCfg.PriceMinF = assets.NewWeiI(0)
 
@@ -1828,7 +1825,6 @@ func TestBlockHistoryEstimator_GetLegacyGas(t *testing.T) {
 
 	cfg = gas.NewMockConfig()
 
-	geCfg.LimitMultiplierF = float32(1)
 	geCfg.PriceMaxF = assets.NewWeiI(700)
 	geCfg.PriceMinF = assets.NewWeiI(0)
 
@@ -1867,7 +1863,6 @@ func TestBlockHistoryEstimator_UseDefaultPriceAsFallback(t *testing.T) {
 
 		geCfg := &gas.MockGasEstimatorConfig{}
 		geCfg.EIP1559DynamicFeesF = false
-		geCfg.LimitMultiplierF = float32(1)
 		geCfg.PriceMaxF = assets.NewWeiI(1000000)
 		geCfg.PriceDefaultF = assets.NewWeiI(100)
 
@@ -1917,7 +1912,6 @@ func TestBlockHistoryEstimator_UseDefaultPriceAsFallback(t *testing.T) {
 		bhCfg.EIP1559FeeCapBufferBlocksF = uint16(4)
 		geCfg := &gas.MockGasEstimatorConfig{}
 		geCfg.EIP1559DynamicFeesF = true
-		geCfg.LimitMultiplierF = float32(1)
 		geCfg.PriceMaxF = assets.NewWeiI(1000000)
 		geCfg.PriceDefaultF = assets.NewWeiI(100)
 		geCfg.TipCapDefaultF = assets.NewWeiI(50)
@@ -1952,11 +1946,10 @@ func TestBlockHistoryEstimator_UseDefaultPriceAsFallback(t *testing.T) {
 
 		err := bhe.Start(testutils.Context(t))
 		require.NoError(t, err)
-		fee, limit, err := bhe.GetDynamicFee(testutils.Context(t), 100000, assets.NewWeiI(200))
+		fee, err := bhe.GetDynamicFee(testutils.Context(t), assets.NewWeiI(200))
 		require.NoError(t, err)
 
 		assert.Equal(t, gas.DynamicFee{FeeCap: assets.NewWeiI(114), TipCap: geCfg.TipCapDefault()}, fee)
-		assert.Equal(t, 100000, int(limit))
 	})
 }
 
@@ -1970,7 +1963,6 @@ func TestBlockHistoryEstimator_GetDynamicFee(t *testing.T) {
 	bhCfg.TransactionPercentileF = uint16(35)
 	geCfg := &gas.MockGasEstimatorConfig{}
 	geCfg.EIP1559DynamicFeesF = true
-	geCfg.LimitMultiplierF = float32(1)
 	geCfg.PriceMaxF = maxGasPrice
 	geCfg.TipCapMinF = assets.NewWeiI(0)
 	geCfg.PriceMinF = assets.NewWeiI(0)
@@ -1999,7 +1991,7 @@ func TestBlockHistoryEstimator_GetDynamicFee(t *testing.T) {
 	t.Run("if estimator is missing base fee and gas bumping is enabled", func(t *testing.T) {
 		geCfg.BumpThresholdF = uint64(1)
 
-		_, _, err := bhe.GetDynamicFee(testutils.Context(t), 100000, maxGasPrice)
+		_, err := bhe.GetDynamicFee(testutils.Context(t), maxGasPrice)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "BlockHistoryEstimator: no value for latest block base fee; cannot estimate EIP-1559 base fee. Are you trying to run with EIP1559 enabled on a non-EIP1559 chain?")
 	})
@@ -2007,10 +1999,9 @@ func TestBlockHistoryEstimator_GetDynamicFee(t *testing.T) {
 	t.Run("if estimator is missing base fee and gas bumping is disabled", func(t *testing.T) {
 		geCfg.BumpThresholdF = uint64(0)
 
-		fee, limit, err := bhe.GetDynamicFee(testutils.Context(t), 100000, maxGasPrice)
+		fee, err := bhe.GetDynamicFee(testutils.Context(t), maxGasPrice)
 		require.NoError(t, err)
 		assert.Equal(t, gas.DynamicFee{FeeCap: maxGasPrice, TipCap: assets.NewWeiI(6000)}, fee)
-		assert.Equal(t, 100000, int(limit))
 	})
 
 	h := cltest.Head(1)
@@ -2020,41 +2011,37 @@ func TestBlockHistoryEstimator_GetDynamicFee(t *testing.T) {
 	t.Run("if gas bumping is enabled", func(t *testing.T) {
 		geCfg.BumpThresholdF = uint64(1)
 
-		fee, limit, err := bhe.GetDynamicFee(testutils.Context(t), 100000, maxGasPrice)
+		fee, err := bhe.GetDynamicFee(testutils.Context(t), maxGasPrice)
 		require.NoError(t, err)
 
 		assert.Equal(t, gas.DynamicFee{FeeCap: assets.NewWeiI(186203), TipCap: assets.NewWeiI(6000)}, fee)
-		assert.Equal(t, 100000, int(limit))
 	})
 
 	t.Run("if gas bumping is disabled", func(t *testing.T) {
 		geCfg.BumpThresholdF = uint64(0)
 
-		fee, limit, err := bhe.GetDynamicFee(testutils.Context(t), 100000, maxGasPrice)
+		fee, err := bhe.GetDynamicFee(testutils.Context(t), maxGasPrice)
 		require.NoError(t, err)
 
 		assert.Equal(t, gas.DynamicFee{FeeCap: maxGasPrice, TipCap: assets.NewWeiI(6000)}, fee)
-		assert.Equal(t, 100000, int(limit))
 	})
 
 	t.Run("if gas bumping is enabled and local max gas price set", func(t *testing.T) {
 		geCfg.BumpThresholdF = uint64(1)
 
-		fee, limit, err := bhe.GetDynamicFee(testutils.Context(t), 100000, assets.NewWeiI(180000))
+		fee, err := bhe.GetDynamicFee(testutils.Context(t), assets.NewWeiI(180000))
 		require.NoError(t, err)
 
 		assert.Equal(t, gas.DynamicFee{FeeCap: assets.NewWeiI(180000), TipCap: assets.NewWeiI(6000)}, fee)
-		assert.Equal(t, 100000, int(limit))
 	})
 
 	t.Run("if bump threshold is 0 and local max gas price set", func(t *testing.T) {
 		geCfg.BumpThresholdF = uint64(0)
 
-		fee, limit, err := bhe.GetDynamicFee(testutils.Context(t), 100000, assets.NewWeiI(100))
+		fee, err := bhe.GetDynamicFee(testutils.Context(t), assets.NewWeiI(100))
 		require.NoError(t, err)
 
 		assert.Equal(t, gas.DynamicFee{FeeCap: assets.NewWeiI(100), TipCap: assets.NewWeiI(6000)}, fee)
-		assert.Equal(t, 100000, int(limit))
 	})
 
 	h = cltest.Head(1)
@@ -2064,11 +2051,10 @@ func TestBlockHistoryEstimator_GetDynamicFee(t *testing.T) {
 	t.Run("if gas bumping is enabled and global max gas price lower than local max gas price", func(t *testing.T) {
 		geCfg.BumpThresholdF = uint64(1)
 
-		fee, limit, err := bhe.GetDynamicFee(testutils.Context(t), 100000, assets.NewWeiI(1200000))
+		fee, err := bhe.GetDynamicFee(testutils.Context(t), assets.NewWeiI(1200000))
 		require.NoError(t, err)
 
 		assert.Equal(t, gas.DynamicFee{FeeCap: assets.NewWeiI(1000000), TipCap: assets.NewWeiI(6000)}, fee)
-		assert.Equal(t, 100000, int(limit))
 	})
 }
 
@@ -2379,7 +2365,6 @@ func TestBlockHistoryEstimator_Bumps(t *testing.T) {
 		geCfg.BumpPercentF = 10
 		geCfg.BumpMinF = assets.NewWeiI(150)
 		geCfg.PriceMaxF = maxGasPrice
-		geCfg.LimitMultiplierF = float32(1.1)
 
 		bhe := newBlockHistoryEstimator(t, nil, cfg, geCfg, bhCfg)
 
@@ -2409,7 +2394,6 @@ func TestBlockHistoryEstimator_Bumps(t *testing.T) {
 		geCfg.BumpPercentF = 10
 		geCfg.BumpMinF = assets.NewWeiI(150)
 		geCfg.PriceMaxF = maxGasPrice
-		geCfg.LimitMultiplierF = float32(1.1)
 
 		bhe := newBlockHistoryEstimator(t, nil, cfg, geCfg, bhCfg)
 
@@ -2417,10 +2401,10 @@ func TestBlockHistoryEstimator_Bumps(t *testing.T) {
 			gasPrice, gasLimit, err := bhe.BumpLegacyGas(testutils.Context(t), assets.NewWeiI(42), 100000, maxGasPrice, nil)
 			require.NoError(t, err)
 
-			expectedGasPrice, expectedGasLimit, err := gas.BumpLegacyGasPriceOnly(geCfg, logger.TestSugared(t), nil, assets.NewWeiI(42), 100000, maxGasPrice)
+			expectedGasPrice, err := gas.BumpLegacyGasPriceOnly(geCfg, logger.TestSugared(t), nil, assets.NewWeiI(42), maxGasPrice)
 			require.NoError(t, err)
 
-			assert.Equal(t, expectedGasLimit, gasLimit)
+			assert.Equal(t, 100000, int(gasLimit))
 			assert.Equal(t, expectedGasPrice, gasPrice)
 		})
 
@@ -2431,10 +2415,10 @@ func TestBlockHistoryEstimator_Bumps(t *testing.T) {
 			massive := assets.NewWeiI(100000000000000)
 			gas.SetGasPrice(bhe, massive)
 
-			expectedGasPrice, expectedGasLimit, err := gas.BumpLegacyGasPriceOnly(geCfg, logger.TestSugared(t), massive, assets.NewWeiI(42), 100000, maxGasPrice)
+			expectedGasPrice, err := gas.BumpLegacyGasPriceOnly(geCfg, logger.TestSugared(t), massive, assets.NewWeiI(42), maxGasPrice)
 			require.NoError(t, err)
 
-			assert.Equal(t, expectedGasLimit, gasLimit)
+			assert.Equal(t, 100000, int(gasLimit))
 			assert.Equal(t, expectedGasPrice, gasPrice)
 		})
 
@@ -2444,7 +2428,7 @@ func TestBlockHistoryEstimator_Bumps(t *testing.T) {
 			gasPrice, gasLimit, err := bhe.BumpLegacyGas(testutils.Context(t), assets.NewWeiI(42), 100000, maxGasPrice, nil)
 			require.NoError(t, err)
 
-			assert.Equal(t, 110000, int(gasLimit))
+			assert.Equal(t, 100000, int(gasLimit))
 			assert.Equal(t, assets.NewWeiI(192), gasPrice)
 		})
 
@@ -2454,7 +2438,7 @@ func TestBlockHistoryEstimator_Bumps(t *testing.T) {
 			gasPrice, gasLimit, err := bhe.BumpLegacyGas(testutils.Context(t), assets.NewWeiI(42), 100000, maxGasPrice, nil)
 			require.NoError(t, err)
 
-			assert.Equal(t, 110000, int(gasLimit))
+			assert.Equal(t, 100000, int(gasLimit))
 			assert.Equal(t, assets.NewWeiI(193), gasPrice)
 		})
 
@@ -2491,7 +2475,6 @@ func TestBlockHistoryEstimator_Bumps(t *testing.T) {
 		geCfg.BumpPercentF = 10
 		geCfg.BumpMinF = assets.NewWeiI(150)
 		geCfg.PriceMaxF = maxGasPrice
-		geCfg.LimitMultiplierF = float32(1.1)
 
 		bhe := newBlockHistoryEstimator(t, nil, cfg, geCfg, bhCfg)
 
@@ -2509,7 +2492,7 @@ func TestBlockHistoryEstimator_Bumps(t *testing.T) {
 		attempts := []gas.EvmPriorAttempt{
 			{TxType: 0x2, TxHash: NewEvmHash(), DynamicFee: gas.DynamicFee{TipCap: originalFee.TipCap, FeeCap: originalFee.FeeCap}, BroadcastBeforeBlockNum: testutils.Ptr(int64(0))}}
 
-		_, _, err := bhe.BumpDynamicFee(testutils.Context(t), originalFee, 100000, maxGasPrice, attempts)
+		_, err := bhe.BumpDynamicFee(testutils.Context(t), originalFee, maxGasPrice, attempts)
 		require.Error(t, err)
 		assert.True(t, pkgerrors.Is(err, commonfee.ErrConnectivity))
 		assert.Contains(t, err.Error(), fmt.Sprintf("transaction %s has tip cap of 25 wei, which is above percentile=10%% (percentile tip cap: 1 wei) for blocks 1 thru 1 (checking 1 blocks)", attempts[0].TxHash))
@@ -2524,47 +2507,42 @@ func TestBlockHistoryEstimator_Bumps(t *testing.T) {
 		geCfg.BumpPercentF = 10
 		geCfg.BumpMinF = assets.NewWeiI(150)
 		geCfg.PriceMaxF = maxGasPrice
-		geCfg.LimitMultiplierF = float32(1.1)
 		geCfg.TipCapDefaultF = assets.NewWeiI(52)
 
 		bhe := newBlockHistoryEstimator(t, nil, cfg, geCfg, bhCfg)
 
 		t.Run("when current tip cap is nil", func(t *testing.T) {
 			originalFee := gas.DynamicFee{FeeCap: assets.NewWeiI(100), TipCap: assets.NewWeiI(25)}
-			fee, gasLimit, err := bhe.BumpDynamicFee(testutils.Context(t), originalFee, 100000, maxGasPrice, nil)
+			fee, err := bhe.BumpDynamicFee(testutils.Context(t), originalFee, maxGasPrice, nil)
 			require.NoError(t, err)
 
-			assert.Equal(t, 110000, int(gasLimit))
 			assert.Equal(t, gas.DynamicFee{FeeCap: assets.NewWeiI(250), TipCap: assets.NewWeiI(202)}, fee)
 		})
 		t.Run("ignores current tip cap that is smaller than original fee with bump applied", func(t *testing.T) {
 			gas.SetTipCap(bhe, assets.NewWeiI(201))
 
 			originalFee := gas.DynamicFee{FeeCap: assets.NewWeiI(100), TipCap: assets.NewWeiI(25)}
-			fee, gasLimit, err := bhe.BumpDynamicFee(testutils.Context(t), originalFee, 100000, maxGasPrice, nil)
+			fee, err := bhe.BumpDynamicFee(testutils.Context(t), originalFee, maxGasPrice, nil)
 			require.NoError(t, err)
 
-			assert.Equal(t, 110000, int(gasLimit))
 			assert.Equal(t, gas.DynamicFee{FeeCap: assets.NewWeiI(250), TipCap: assets.NewWeiI(202)}, fee)
 		})
 		t.Run("uses current tip cap that is larger than original fee with bump applied", func(t *testing.T) {
 			gas.SetTipCap(bhe, assets.NewWeiI(203))
 
 			originalFee := gas.DynamicFee{FeeCap: assets.NewWeiI(100), TipCap: assets.NewWeiI(25)}
-			fee, gasLimit, err := bhe.BumpDynamicFee(testutils.Context(t), originalFee, 100000, maxGasPrice, nil)
+			fee, err := bhe.BumpDynamicFee(testutils.Context(t), originalFee, maxGasPrice, nil)
 			require.NoError(t, err)
 
-			assert.Equal(t, 110000, int(gasLimit))
 			assert.Equal(t, gas.DynamicFee{FeeCap: assets.NewWeiI(250), TipCap: assets.NewWeiI(203)}, fee)
 		})
 		t.Run("ignores absurdly large current tip cap", func(t *testing.T) {
 			gas.SetTipCap(bhe, assets.NewWeiI(1000000000000000))
 
 			originalFee := gas.DynamicFee{FeeCap: assets.NewWeiI(100), TipCap: assets.NewWeiI(25)}
-			fee, gasLimit, err := bhe.BumpDynamicFee(testutils.Context(t), originalFee, 100000, maxGasPrice, nil)
+			fee, err := bhe.BumpDynamicFee(testutils.Context(t), originalFee, maxGasPrice, nil)
 			require.NoError(t, err)
 
-			assert.Equal(t, 110000, int(gasLimit))
 			assert.Equal(t, gas.DynamicFee{FeeCap: assets.NewWeiI(250), TipCap: assets.NewWeiI(202)}, fee)
 		})
 
@@ -2572,10 +2550,9 @@ func TestBlockHistoryEstimator_Bumps(t *testing.T) {
 			gas.SetTipCap(bhe, assets.NewWeiI(203))
 
 			originalFee := gas.DynamicFee{FeeCap: assets.NewWeiI(100), TipCap: assets.NewWeiI(990000)}
-			fee, gasLimit, err := bhe.BumpDynamicFee(testutils.Context(t), originalFee, 100000, maxGasPrice, nil)
+			fee, err := bhe.BumpDynamicFee(testutils.Context(t), originalFee, maxGasPrice, nil)
 			require.Error(t, err)
 
-			assert.Equal(t, 0, int(gasLimit))
 			assert.Equal(t, gas.DynamicFee{}, fee)
 			assert.Contains(t, err.Error(), "bumped tip cap of 1.089 mwei would exceed configured max gas price of 1 mwei (original fee: tip cap 990 kwei, fee cap 100 wei)")
 		})
@@ -2584,10 +2561,9 @@ func TestBlockHistoryEstimator_Bumps(t *testing.T) {
 			gas.SetTipCap(bhe, assets.NewWeiI(203))
 
 			originalFee := gas.DynamicFee{FeeCap: assets.NewWeiI(990000), TipCap: assets.NewWeiI(25)}
-			fee, gasLimit, err := bhe.BumpDynamicFee(testutils.Context(t), originalFee, 100000, maxGasPrice, nil)
+			fee, err := bhe.BumpDynamicFee(testutils.Context(t), originalFee, maxGasPrice, nil)
 			require.Error(t, err)
 
-			assert.Equal(t, 0, int(gasLimit))
 			assert.Equal(t, gas.DynamicFee{}, fee)
 			assert.Contains(t, err.Error(), "bumped fee cap of 1.089 mwei would exceed configured max gas price of 1 mwei (original fee: tip cap 25 wei, fee cap 990 kwei)")
 		})

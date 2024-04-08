@@ -10,13 +10,9 @@ import (
 	"strings"
 )
 
-const (
-	DashboardName = "ClementChainlinkCluster"
-)
-
 func main() {
 	cfg := lib.ReadEnvDeployOpts()
-	db := lib.NewDashboard(DashboardName, cfg,
+	db := lib.NewDashboard(cfg.Name, cfg,
 		[]dashboard.Option{
 			dashboard.AutoRefresh("10s"),
 			dashboard.Tags([]string{"generated"}),
@@ -56,12 +52,12 @@ func main() {
 		}
 	}
 	// TODO: refactor as a component later
-	// addWASPRows(db, cfg)
+	addWASPRows(db, cfg)
 	if err := db.Deploy(); err != nil {
 		lib.L.Fatal().Err(err).Msg("failed to deploy the dashboard")
 	}
 	lib.L.Info().
-		Str("Name", DashboardName).
+		Str("Name", db.Name).
 		Str("GrafanaURL", db.DeployOpts.GrafanaURL).
 		Str("GrafanaFolder", db.DeployOpts.GrafanaFolder).
 		Msg("Dashboard deployed")
