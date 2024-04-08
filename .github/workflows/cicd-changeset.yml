@@ -16,6 +16,7 @@ jobs:
     permissions:
       id-token: write
       contents: read
+      pull-requests: write
     outputs:
       hasChangesets: ${{ steps.cd-release.outputs.hasChangesets }}
       changesetPrId: ${{ steps.cd-release.outputs.pullRequestNumber }}
@@ -37,3 +38,5 @@ jobs:
       - name: Set PR to draft
         shell: bash
         run: gh pr ready ${{ steps.cd-release.outputs.changesetPrId }} --undo
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
