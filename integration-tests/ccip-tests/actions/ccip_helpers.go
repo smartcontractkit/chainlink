@@ -454,7 +454,11 @@ func (ccipModule *CCIPCommon) WatchForPriceUpdates(ctx context.Context) error {
 	})
 
 	go func() {
-		defer sub.Unsubscribe()
+		defer func() {
+			sub.Unsubscribe()
+			ccipModule.gasUpdateWatcher = nil
+			ccipModule.gasUpdateWatcherMu = nil
+		}()
 		for {
 			select {
 			case e := <-gasUpdateEvent:
@@ -496,14 +500,14 @@ func (ccipModule *CCIPCommon) UpdateTokenPricesAtRegularInterval(ctx context.Con
 		aggregators = append(aggregators, contract)
 	}
 	go func() {
-		rand.NewSource(new(big.Int).Mul(big.NewInt(1e18), big.NewInt(10)).Uint64())
+		rand.NewSource(uint64(time.Now().UnixNano()))
 		ticker := time.NewTicker(interval)
 		for {
 			select {
 			case <-ticker.C:
 				// randomly choose an aggregator contract from slice of aggregators
 				randomIndex := rand.Intn(len(aggregators))
-				err := aggregators[randomIndex].UpdateRoundData(big.NewInt(int64(rand.Uint64())))
+				err := aggregators[randomIndex].UpdateRoundData(new(big.Int).Add(big.NewInt(1e18), big.NewInt(rand.Int63n(1000))))
 				if err != nil {
 					continue
 				}

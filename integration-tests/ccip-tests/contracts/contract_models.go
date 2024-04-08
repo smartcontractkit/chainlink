@@ -918,7 +918,7 @@ func (a *MockAggregator) UpdateRoundData(answer *big.Int) error {
 	round, err := a.Instance.LatestRound(nil)
 	if err != nil {
 		rand.Seed(uint64(time.Now().UnixNano()))
-		round = big.NewInt(int64(rand.Uint64()))
+		round = big.NewInt(rand.Int63n(2000))
 	}
 	round = new(big.Int).Add(round, big.NewInt(1))
 	tx, err := a.Instance.UpdateRoundData(opts, round, answer, big.NewInt(time.Now().UTC().UnixNano()), big.NewInt(time.Now().UTC().UnixNano()))
