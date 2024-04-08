@@ -853,6 +853,7 @@ func Test_Prune(t *testing.T) {
 
 	// We need a job_pipeline_specs entry to test the pruning mechanism
 	err := torm.AddJobPipelineSpecWithoutConstraints(ps1.ID, ps1.ID)
+	require.NoError(t, err)
 
 	jobID := ps1.ID
 
