@@ -210,11 +210,17 @@ func (r *ExecutionReportingPlugin) getExecutableObservations(ctx context.Context
 				return nil, err
 			}
 
+			inflightAggregateValue, err := getInflightAggregateRateLimit(lggr, inflight, tokenExecData.destTokenPrices, tokenExecData.sourceToDestTokens)
+			if err != nil {
+				lggr.Errorw("Unexpected error computing inflight values", "err", err)
+				return []ccip.ObservedMessage{}, nil
+			}
+
 			batch := r.buildBatch(
 				ctx,
 				rootLggr,
 				rep,
-				inflight,
+				inflightAggregateValue,
 				tokenExecData.rateLimiterTokenBucket.Tokens,
 				tokenExecData.sourceTokenPrices,
 				tokenExecData.destTokenPrices,
@@ -256,18 +262,13 @@ func (r *ExecutionReportingPlugin) buildBatch(
 	ctx context.Context,
 	lggr logger.Logger,
 	report commitReportWithSendRequests,
-	inflight []InflightInternalExecutionReport,
+	inflightAggregateValue *big.Int,
 	aggregateTokenLimit *big.Int,
 	sourceTokenPricesUSD map[cciptypes.Address]*big.Int,
 	destTokenPricesUSD map[cciptypes.Address]*big.Int,
 	gasPrice *big.Int,
 	sourceToDestToken map[cciptypes.Address]cciptypes.Address,
 ) (executableMessages []ccip.ObservedMessage) {
-	inflightAggregateValue, err := inflightAggregates(inflight, destTokenPricesUSD, sourceToDestToken)
-	if err != nil {
-		lggr.Errorw("Unexpected error computing inflight values", "err", err)
-		return []ccip.ObservedMessage{}
-	}
 	// We assume that next observation will start after previous epoch transmission so nonces should be already updated onchain.
 	// Worst case scenario we will try to process the same message again, and it will be skipped but protocol would progress anyway.
 	// We don't use inflightCache here to avoid cases in which inflight cache keeps progressing but due to transmission failures
@@ -305,7 +306,7 @@ func (r *ExecutionReportingPlugin) buildBatch(
 			continue
 		}
 
-		msgValue, err := aggregateTokenValue(destTokenPricesUSD, sourceToDestToken, msg.TokenAmounts)
+		msgValue, err := aggregateTokenValue(lggr, destTokenPricesUSD, sourceToDestToken, msg.TokenAmounts)
 		if err != nil {
 			msgLggr.Errorw("Skipping message unable to compute aggregate value", "err", err)
 			continue
@@ -522,12 +523,14 @@ func (r *ExecutionReportingPlugin) getReportsWithSendRequests(
 	return reportsWithSendReqs, nil
 }
 
-func aggregateTokenValue(destTokenPricesUSD map[cciptypes.Address]*big.Int, sourceToDest map[cciptypes.Address]cciptypes.Address, tokensAndAmount []cciptypes.TokenAmount) (*big.Int, error) {
+func aggregateTokenValue(lggr logger.Logger, destTokenPricesUSD map[cciptypes.Address]*big.Int, sourceToDest map[cciptypes.Address]cciptypes.Address, tokensAndAmount []cciptypes.TokenAmount) (*big.Int, error) {
 	sum := big.NewInt(0)
 	for i := 0; i < len(tokensAndAmount); i++ {
 		price, ok := destTokenPricesUSD[sourceToDest[tokensAndAmount[i].Token]]
 		if !ok {
-			return nil, errors.Errorf("do not have price for source token %v", tokensAndAmount[i].Token)
+			// If we don't have a price for the token, we will assume it's worth 0.
+			lggr.Infof("No price for token %s, assuming 0", tokensAndAmount[i].Token)
+			continue
 		}
 		sum.Add(sum, new(big.Int).Quo(new(big.Int).Mul(price, tokensAndAmount[i].Amount), big.NewInt(1e18)))
 	}
@@ -775,7 +778,8 @@ func (r *ExecutionReportingPlugin) Close() error {
 	return nil
 }
 
-func inflightAggregates(
+func getInflightAggregateRateLimit(
+	lggr logger.Logger,
 	inflight []InflightInternalExecutionReport,
 	destTokenPrices map[cciptypes.Address]*big.Int,
 	sourceToDest map[cciptypes.Address]cciptypes.Address,
@@ -784,7 +788,7 @@ func inflightAggregates(
 
 	for _, rep := range inflight {
 		for _, message := range rep.messages {
-			msgValue, err := aggregateTokenValue(destTokenPrices, sourceToDest, message.TokenAmounts)
+			msgValue, err := aggregateTokenValue(lggr, destTokenPrices, sourceToDest, message.TokenAmounts)
 			if err != nil {
 				return nil, err
 			}

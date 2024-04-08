@@ -254,10 +254,6 @@ func (o *OffRamp) CurrentRateLimiterState(ctx context.Context) (cciptypes.TokenB
 	}, nil
 }
 
-func (o *OffRamp) GetDestinationToken(ctx context.Context, address common.Address) (common.Address, error) {
-	return o.offRampV100.GetDestinationToken(&bind.CallOpts{Context: ctx}, address)
-}
-
 func (o *OffRamp) getDestinationTokensFromSourceTokens(ctx context.Context, tokenAddresses []cciptypes.Address) ([]cciptypes.Address, error) {
 	destTokens := make([]cciptypes.Address, len(tokenAddresses))
 	found := make(map[cciptypes.Address]bool)
