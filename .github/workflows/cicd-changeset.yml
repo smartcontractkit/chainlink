@@ -34,3 +34,6 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
           aws-role-arn: ${{ secrets.AWS_OIDC_CHAINLINK_CI_AUTO_PR_TOKEN_ISSUER_ROLE_ARN }}
           aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+      - name: Set PR to draft
+        shell: bash
+        run: gh pr ready ${{ steps.cd-release.outputs.changesetPrId }} --undo
