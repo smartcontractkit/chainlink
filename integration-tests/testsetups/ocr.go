@@ -171,6 +171,8 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 	require.NotNil(o.t, readSethCfg, "Seth config shouldn't be nil")
 
 	sethCfg := utils.MergeSethAndEvmNetworkConfigs(o.log, network, *readSethCfg)
+	err = utils.ValidateSethNetworkConfig(sethCfg.Network)
+	require.NoError(o.t, err, "Error validating seth network config")
 
 	seth, err := seth.NewClientWithConfig(&sethCfg)
 	require.NoError(o.t, err, "Error creating seth client")
@@ -183,8 +185,7 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 	o.mockServer, err = ctfClient.ConnectMockServer(o.testEnvironment)
 	require.NoError(o.t, err, "Creating mockserver clients shouldn't fail")
 
-	// Deploy LINK
-	linkDeploymentData, err := contracts.DeployLinkTokenContract(seth)
+	linkContract, err := contracts.DeployLinkTokenContract(o.log, seth)
 	require.NoError(o.t, err, "Error deploying LINK contract")
 
 	// Fund Chainlink nodes, excluding the bootstrap node
@@ -197,7 +198,7 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 	if o.OperatorForwarderFlow {
 		var operators []common.Address
 		operators, forwarders, _ = actions_seth.DeployForwarderContracts(
-			o.t, o.seth, linkDeploymentData, len(o.workerNodes),
+			o.t, o.seth, common.HexToAddress(linkContract.Address()), len(o.workerNodes),
 		)
 		require.Equal(o.t, len(o.workerNodes), len(operators), "Number of operators should match number of nodes")
 		require.Equal(o.t, len(o.workerNodes), len(forwarders), "Number of authorized forwarders should match number of nodes")
@@ -216,7 +217,7 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 				o.log,
 				o.seth,
 				*o.Config.OCR.Soak.NumberOfContracts,
-				linkDeploymentData.Address,
+				common.HexToAddress(linkContract.Address()),
 				contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(o.workerNodes),
 				forwarders,
 			)
@@ -226,7 +227,7 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 				o.log,
 				seth,
 				*o.Config.OCR.Soak.NumberOfContracts,
-				linkDeploymentData.Address,
+				common.HexToAddress(linkContract.Address()),
 				contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(o.workerNodes),
 			)
 			require.NoError(o.t, err)
@@ -251,7 +252,7 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 			o.log,
 			o.seth,
 			*ocrTestConfig.GetOCRConfig().Soak.NumberOfContracts,
-			linkDeploymentData.Address,
+			common.HexToAddress(linkContract.Address()),
 			transmitters,
 			ocrOffchainOptions,
 		)

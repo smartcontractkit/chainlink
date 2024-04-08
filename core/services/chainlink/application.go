@@ -20,13 +20,16 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
@@ -48,6 +51,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
+	externalp2p "github.com/smartcontractkit/chainlink/v2/core/services/p2p/wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/periodicbackup"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -74,7 +78,8 @@ type Application interface {
 	GetLogger() logger.SugaredLogger
 	GetAuditLogger() audit.AuditLogger
 	GetHealthChecker() services.Checker
-	GetSqlxDB() *sqlx.DB
+	GetSqlxDB() *sqlx.DB // Deprecated: use GetDB
+	GetDB() sqlutil.DataSource
 	GetConfig() GeneralConfig
 	SetLogLevel(lvl zapcore.Level) error
 	GetKeyStore() keystore.Master
@@ -84,6 +89,7 @@ type Application interface {
 	GetExternalInitiatorManager() webhook.ExternalInitiatorManager
 	GetRelayers() RelayerChainInteroperators
 	GetLoopRegistry() *plugins.LoopRegistry
+	GetLoopRegistrarConfig() plugins.RegistrarConfig
 
 	// V2 Jobs (TOML specified)
 	JobSpawner() job.Spawner
@@ -96,7 +102,7 @@ type Application interface {
 	TxmStorageService() txmgr.EvmTxStore
 	AddJobV2(ctx context.Context, job *job.Job) error
 	DeleteJob(ctx context.Context, jobID int32) error
-	RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta pipeline.JSONSerializable) (int64, error)
+	RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta jsonserializable.JSONSerializable) (int64, error)
 	ResumeJobV2(ctx context.Context, taskID uuid.UUID, result pipeline.Result) error
 	// Testing only
 	RunJobV2(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error)
@@ -140,10 +146,12 @@ type ChainlinkApplication struct {
 	logger                   logger.SugaredLogger
 	AuditLogger              audit.AuditLogger
 	closeLogger              func() error
-	sqlxDB                   *sqlx.DB
+	sqlxDB                   *sqlx.DB // Deprecated: use db instead
+	db                       sqlutil.DataSource
 	secretGenerator          SecretGenerator
 	profiler                 *pyroscope.Profiler
 	loopRegistry             *plugins.LoopRegistry
+	loopRegistrarConfig      plugins.RegistrarConfig
 
 	started     bool
 	startStopMu sync.Mutex
@@ -153,7 +161,8 @@ type ApplicationOpts struct {
 	Config                     GeneralConfig
 	Logger                     logger.Logger
 	MailMon                    *mailbox.Monitor
-	SqlxDB                     *sqlx.DB
+	SqlxDB                     *sqlx.DB // Deprecated: use DB instead
+	DB                         sqlutil.DataSource
 	KeyStore                   keystore.Master
 	RelayerChainInteroperators *CoreRelayerChainInteroperators
 	AuditLogger                audit.AuditLogger
@@ -176,7 +185,7 @@ type ApplicationOpts struct {
 func NewApplication(opts ApplicationOpts) (Application, error) {
 	var srvcs []services.ServiceCtx
 	auditLogger := opts.AuditLogger
-	db := opts.SqlxDB
+	sqlxDB := opts.SqlxDB
 	cfg := opts.Config
 	relayerChainInterops := opts.RelayerChainInteroperators
 	mailMon := opts.MailMon
@@ -186,6 +195,17 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	restrictedHTTPClient := opts.RestrictedHTTPClient
 	unrestrictedHTTPClient := opts.UnrestrictedHTTPClient
 	registry := capabilities.NewRegistry(globalLogger)
+
+	if cfg.Capabilities().Peering().Enabled() {
+		externalPeerWrapper := externalp2p.NewExternalPeerWrapper(keyStore.P2P(), cfg.Capabilities().Peering(), globalLogger)
+		signer := externalPeerWrapper
+		srvcs = append(srvcs, externalPeerWrapper)
+
+		// NOTE: RegistrySyncer will depend on a Relayer when fully implemented
+		dispatcher := remote.NewDispatcher(externalPeerWrapper, signer, registry, globalLogger)
+		registrySyncer := capabilities.NewRegistrySyncer(externalPeerWrapper, registry, dispatcher, globalLogger)
+		srvcs = append(srvcs, dispatcher, registrySyncer)
+	}
 
 	// LOOPs can be created as options, in the  case of LOOP relayers, or
 	// as OCR2 job implementations, in the case of Median today.
@@ -257,12 +277,12 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	srvcs = append(srvcs, mailMon)
 	srvcs = append(srvcs, relayerChainInterops.Services()...)
-	promReporter := promreporter.NewPromReporter(db.DB, legacyEVMChains, globalLogger)
+	promReporter := promreporter.NewPromReporter(sqlxDB.DB, legacyEVMChains, globalLogger)
 	srvcs = append(srvcs, promReporter)
 
 	// Initialize Local Users ORM and Authentication Provider specified in config
 	// BasicAdminUsersORM is initialized and required regardless of separate Authentication Provider
-	localAdminUsersORM := localauth.NewORM(db, cfg.WebServer().SessionTimeout().Duration(), globalLogger, cfg.Database(), auditLogger)
+	localAdminUsersORM := localauth.NewORM(sqlxDB, cfg.WebServer().SessionTimeout().Duration(), globalLogger, cfg.Database(), auditLogger)
 
 	// Initialize Sessions ORM based on environment configured authenticator
 	// localDB auth or remote LDAP auth
@@ -274,26 +294,26 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	case sessions.LDAPAuth:
 		var err error
 		authenticationProvider, err = ldapauth.NewLDAPAuthenticator(
-			db, cfg.Database(), cfg.WebServer().LDAP(), cfg.Insecure().DevWebServer(), globalLogger, auditLogger,
+			sqlxDB, cfg.Database(), cfg.WebServer().LDAP(), cfg.Insecure().DevWebServer(), globalLogger, auditLogger,
 		)
 		if err != nil {
 			return nil, errors.Wrap(err, "NewApplication: failed to initialize LDAP Authentication module")
 		}
-		sessionReaper = ldapauth.NewLDAPServerStateSync(db, cfg.Database(), cfg.WebServer().LDAP(), globalLogger)
+		sessionReaper = ldapauth.NewLDAPServerStateSync(sqlxDB, cfg.Database(), cfg.WebServer().LDAP(), globalLogger)
 	case sessions.LocalAuth:
-		authenticationProvider = localauth.NewORM(db, cfg.WebServer().SessionTimeout().Duration(), globalLogger, cfg.Database(), auditLogger)
-		sessionReaper = localauth.NewSessionReaper(db.DB, cfg.WebServer(), globalLogger)
+		authenticationProvider = localauth.NewORM(sqlxDB, cfg.WebServer().SessionTimeout().Duration(), globalLogger, cfg.Database(), auditLogger)
+		sessionReaper = localauth.NewSessionReaper(sqlxDB.DB, cfg.WebServer(), globalLogger)
 	default:
 		return nil, errors.Errorf("NewApplication: Unexpected 'AuthenticationMethod': %s supported values: %s, %s", authMethod, sessions.LocalAuth, sessions.LDAPAuth)
 	}
 
 	var (
-		pipelineORM    = pipeline.NewORM(db, globalLogger, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
-		bridgeORM      = bridges.NewORM(db, globalLogger, cfg.Database())
-		mercuryORM     = mercury.NewORM(db, globalLogger, cfg.Database())
+		pipelineORM    = pipeline.NewORM(sqlxDB, globalLogger, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
+		bridgeORM      = bridges.NewORM(sqlxDB, globalLogger, cfg.Database())
+		mercuryORM     = mercury.NewORM(sqlxDB, globalLogger, cfg.Database())
 		pipelineRunner = pipeline.NewRunner(pipelineORM, bridgeORM, cfg.JobPipeline(), cfg.WebServer(), legacyEVMChains, keyStore.Eth(), keyStore.VRF(), globalLogger, restrictedHTTPClient, unrestrictedHTTPClient)
-		jobORM         = job.NewORM(db, pipelineORM, bridgeORM, keyStore, globalLogger, cfg.Database())
-		txmORM         = txmgr.NewTxStore(db, globalLogger, cfg.Database())
+		jobORM         = job.NewORM(sqlxDB, pipelineORM, bridgeORM, keyStore, globalLogger, cfg.Database())
+		txmORM         = txmgr.NewTxStore(sqlxDB, globalLogger)
 		streamRegistry = streams.NewRegistry(globalLogger, pipelineRunner)
 	)
 
@@ -313,14 +333,14 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				legacyEVMChains,
 				mailMon),
 			job.Keeper: keeper.NewDelegate(
-				db,
+				sqlxDB,
 				jobORM,
 				pipelineRunner,
 				globalLogger,
 				legacyEVMChains,
 				mailMon),
 			job.VRF: vrf.NewDelegate(
-				db,
+				sqlxDB,
 				keyStore,
 				pipelineRunner,
 				pipelineORM,
@@ -346,7 +366,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			job.Gateway: gateway.NewDelegate(
 				legacyEVMChains,
 				keyStore.Eth(),
-				db,
+				sqlxDB,
 				cfg.Database(),
 				globalLogger),
 			job.Stream: streams.NewDelegate(
@@ -372,7 +392,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			jobORM,
 			pipelineORM,
 			pipelineRunner,
-			db,
+			sqlxDB,
 			legacyEVMChains,
 			globalLogger,
 		)
@@ -385,7 +405,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		if err := ocrcommon.ValidatePeerWrapperConfig(cfg.P2P()); err != nil {
 			return nil, err
 		}
-		peerWrapper = ocrcommon.NewSingletonPeerWrapper(keyStore, cfg.P2P(), cfg.OCR(), cfg.Database(), db, globalLogger)
+		peerWrapper = ocrcommon.NewSingletonPeerWrapper(keyStore, cfg.P2P(), cfg.OCR(), cfg.Database(), sqlxDB, globalLogger)
 		srvcs = append(srvcs, peerWrapper)
 	} else {
 		return nil, fmt.Errorf("P2P stack required for OCR or OCR2")
@@ -393,7 +413,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	if cfg.OCR().Enabled() {
 		delegates[job.OffchainReporting] = ocr.NewDelegate(
-			db,
+			sqlxDB,
 			jobORM,
 			keyStore,
 			pipelineRunner,
@@ -407,12 +427,16 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	} else {
 		globalLogger.Debug("Off-chain reporting disabled")
 	}
+
+	loopRegistrarConfig := plugins.NewRegistrarConfig(opts.GRPCOpts, opts.LoopRegistry.Register, opts.LoopRegistry.Unregister)
+
 	if cfg.OCR2().Enabled() {
 		globalLogger.Debug("Off-chain reporting v2 enabled")
-		registrarConfig := plugins.NewRegistrarConfig(opts.GRPCOpts, opts.LoopRegistry.Register)
-		ocr2DelegateConfig := ocr2.NewDelegateConfig(cfg.OCR2(), cfg.Mercury(), cfg.Threshold(), cfg.Insecure(), cfg.JobPipeline(), cfg.Database(), registrarConfig)
+
+		ocr2DelegateConfig := ocr2.NewDelegateConfig(cfg.OCR2(), cfg.Mercury(), cfg.Threshold(), cfg.Insecure(), cfg.JobPipeline(), cfg.Database(), loopRegistrarConfig)
+
 		delegates[job.OffchainReporting2] = ocr2.NewDelegate(
-			db,
+			sqlxDB,
 			jobORM,
 			bridgeORM,
 			mercuryORM,
@@ -432,7 +456,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			registry,
 		)
 		delegates[job.Bootstrap] = ocrbootstrap.NewDelegateBootstrap(
-			db,
+			sqlxDB,
 			jobORM,
 			peerWrapper,
 			globalLogger,
@@ -450,7 +474,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	for _, c := range legacyEVMChains.Slice() {
 		lbs = append(lbs, c.LogBroadcaster())
 	}
-	jobSpawner := job.NewSpawner(jobORM, cfg.Database(), healthChecker, delegates, db, globalLogger, lbs)
+	jobSpawner := job.NewSpawner(jobORM, cfg.Database(), healthChecker, delegates, sqlxDB, globalLogger, lbs)
 	srvcs = append(srvcs, jobSpawner, pipelineRunner)
 
 	// We start the log poller after the job spawner
@@ -463,11 +487,11 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	var feedsService feeds.Service
 	if cfg.Feature().FeedsManager() {
-		feedsORM := feeds.NewORM(db, opts.Logger, cfg.Database())
+		feedsORM := feeds.NewORM(sqlxDB, opts.Logger, cfg.Database())
 		feedsService = feeds.NewService(
 			feedsORM,
 			jobORM,
-			db,
+			sqlxDB,
 			jobSpawner,
 			keyStore,
 			cfg.Insecure(),
@@ -478,6 +502,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			legacyEVMChains,
 			globalLogger,
 			opts.Version,
+			loopRegistrarConfig,
 		)
 	} else {
 		feedsService = &feeds.NullService{}
@@ -516,8 +541,10 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		secretGenerator:          opts.SecretGenerator,
 		profiler:                 profiler,
 		loopRegistry:             loopRegistry,
+		loopRegistrarConfig:      loopRegistrarConfig,
 
 		sqlxDB: opts.SqlxDB,
+		db:     opts.DB,
 
 		// NOTE: Can keep things clean by putting more things in srvcs instead of manually start/closing
 		srvcs: srvcs,
@@ -584,6 +611,9 @@ func (app *ChainlinkApplication) StopIfStarted() error {
 
 func (app *ChainlinkApplication) GetLoopRegistry() *plugins.LoopRegistry {
 	return app.loopRegistry
+}
+func (app *ChainlinkApplication) GetLoopRegistrarConfig() plugins.RegistrarConfig {
+	return app.loopRegistrarConfig
 }
 
 // Stop allows the application to exit by halting schedules, closing
@@ -724,7 +754,7 @@ func (app *ChainlinkApplication) DeleteJob(ctx context.Context, jobID int32) err
 	return app.jobSpawner.DeleteJob(jobID, pg.WithParentCtx(ctx))
 }
 
-func (app *ChainlinkApplication) RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta pipeline.JSONSerializable) (int64, error) {
+func (app *ChainlinkApplication) RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta jsonserializable.JSONSerializable) (int64, error) {
 	return app.webhookJobRunner.RunJob(ctx, jobUUID, requestBody, meta)
 }
 
@@ -824,6 +854,10 @@ func (app *ChainlinkApplication) GetRelayers() RelayerChainInteroperators {
 
 func (app *ChainlinkApplication) GetSqlxDB() *sqlx.DB {
 	return app.sqlxDB
+}
+
+func (app *ChainlinkApplication) GetDB() sqlutil.DataSource {
+	return app.db
 }
 
 // Returns the configuration to use for creating and authenticating

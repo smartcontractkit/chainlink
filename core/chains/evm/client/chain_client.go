@@ -38,7 +38,8 @@ type chainClient struct {
 		RPCClient,
 		rpc.BatchElem,
 	]
-	logger logger.SugaredLogger
+	logger    logger.SugaredLogger
+	chainType config.ChainType
 }
 
 func NewChainClient(
@@ -51,20 +52,7 @@ func NewChainClient(
 	chainID *big.Int,
 	chainType config.ChainType,
 ) Client {
-	multiNode := commonclient.NewMultiNode[
-		*big.Int,
-		evmtypes.Nonce,
-		common.Address,
-		common.Hash,
-		*types.Transaction,
-		common.Hash,
-		types.Log,
-		ethereum.FilterQuery,
-		*evmtypes.Receipt,
-		*assets.Wei,
-		*evmtypes.Head,
-		RPCClient,
-	](
+	multiNode := commonclient.NewMultiNode(
 		lggr,
 		selectionMode,
 		leaseDuration,
@@ -277,4 +265,17 @@ func (c *chainClient) TransactionReceipt(ctx context.Context, txHash common.Hash
 	}
 	//return rpc.TransactionReceipt(ctx, txHash)
 	return rpc.TransactionReceiptGeth(ctx, txHash)
+}
+
+func (c *chainClient) LatestFinalizedBlock(ctx context.Context) (*evmtypes.Head, error) {
+	return c.multiNode.LatestFinalizedBlock(ctx)
+}
+
+func (c *chainClient) CheckTxValidity(ctx context.Context, from common.Address, to common.Address, data []byte) *SendError {
+	msg := ethereum.CallMsg{
+		From: from,
+		To:   &to,
+		Data: data,
+	}
+	return SimulateTransaction(ctx, c, c.logger, c.chainType, msg)
 }

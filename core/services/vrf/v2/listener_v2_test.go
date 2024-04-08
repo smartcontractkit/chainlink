@@ -40,7 +40,7 @@ func makeTestTxm(t *testing.T, txStore txmgr.TestEvmTxStore, keyStore keystore.M
 	ec := evmtest.NewEthClientMockWithDefaultChain(t)
 	txmConfig := txmgr.NewEvmTxmConfig(evmConfig)
 	txm := txmgr.NewEvmTxm(ec.ConfiguredChainID(), txmConfig, evmConfig.Transactions(), keyStore.Eth(), logger.TestLogger(t), nil, nil,
-		nil, txStore, nil, nil, nil, nil, nil)
+		nil, txStore, nil, nil, nil, nil)
 
 	return txm
 }
@@ -87,7 +87,7 @@ func addEthTx(t *testing.T, txStore txmgr.TestEvmTxStore, from common.Address, s
 		MinConfirmations:  clnull.Uint32{Uint32: 0},
 		PipelineTaskRunID: uuid.NullUUID{},
 	}
-	err = txStore.InsertTx(tx)
+	err = txStore.InsertTx(testutils.Context(t), tx)
 	require.NoError(t, err)
 }
 
@@ -118,7 +118,7 @@ func addConfirmedEthTx(t *testing.T, txStore txmgr.TestEvmTxStore, from common.A
 		BroadcastAt:        &now,
 		InitialBroadcastAt: &now,
 	}
-	err = txStore.InsertTx(tx)
+	err = txStore.InsertTx(testutils.Context(t), tx)
 	require.NoError(t, err)
 }
 
@@ -145,7 +145,7 @@ func addEthTxNativePayment(t *testing.T, txStore txmgr.TestEvmTxStore, from comm
 		MinConfirmations:  clnull.Uint32{Uint32: 0},
 		PipelineTaskRunID: uuid.NullUUID{},
 	}
-	err = txStore.InsertTx(tx)
+	err = txStore.InsertTx(testutils.Context(t), tx)
 	require.NoError(t, err)
 }
 
@@ -175,7 +175,7 @@ func addConfirmedEthTxNativePayment(t *testing.T, txStore txmgr.TestEvmTxStore, 
 		BroadcastAt:        &now,
 		InitialBroadcastAt: &now,
 	}
-	err = txStore.InsertTx(tx)
+	err = txStore.InsertTx(testutils.Context(t), tx)
 	require.NoError(t, err)
 }
 
@@ -196,7 +196,7 @@ func testMaybeSubtractReservedLink(t *testing.T, vrfVersion vrfcommon.Version) {
 		RequestedConfsDelay: 10,
 	}).Toml())
 	require.NoError(t, err)
-	txstore := txmgr.NewTxStore(db, lggr, cfg)
+	txstore := txmgr.NewTxStore(db, lggr)
 	txm := makeTestTxm(t, txstore, ks)
 	chain := evmmocks.NewChain(t)
 	chain.On("TxManager").Return(txm)
@@ -278,7 +278,7 @@ func testMaybeSubtractReservedNative(t *testing.T, vrfVersion vrfcommon.Version)
 		RequestedConfsDelay: 10,
 	}).Toml())
 	require.NoError(t, err)
-	txstore := txmgr.NewTxStore(db, logger.TestLogger(t), cfg)
+	txstore := txmgr.NewTxStore(db, logger.TestLogger(t))
 	txm := makeTestTxm(t, txstore, ks)
 	require.NoError(t, err)
 	chain := evmmocks.NewChain(t)
@@ -353,7 +353,7 @@ func TestMaybeSubtractReservedNativeV2(t *testing.T) {
 		RequestedConfsDelay: 10,
 	}).Toml())
 	require.NoError(t, err)
-	txstore := txmgr.NewTxStore(db, logger.TestLogger(t), cfg)
+	txstore := txmgr.NewTxStore(db, logger.TestLogger(t))
 	txm := makeTestTxm(t, txstore, ks)
 	chain := evmmocks.NewChain(t)
 	chain.On("TxManager").Return(txm).Maybe()

@@ -6,7 +6,7 @@ import (
 	"math/big"
 	"testing"
 
-	caigotypes "github.com/smartcontractkit/caigo/types"
+	"github.com/NethermindEth/juno/core/felt"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
@@ -34,13 +34,15 @@ import (
 func TestStarknetKeyring_TestVector(t *testing.T) {
 	var kr1 OCR2Key
 	bigKey, _ := new(big.Int).SetString("2137244795266879235401249500471353867704187908407744160927664772020405449078", 10)
-	feltKey := caigotypes.BigToFelt(bigKey)
-	err := kr1.Unmarshal(feltKey.Bytes())
+	feltKey, err := new(felt.Felt).SetString(bigKey.String())
+	require.NoError(t, err)
+	bytesKey := feltKey.Bytes()
+	err = kr1.Unmarshal(bytesKey[:])
 	require.NoError(t, err)
 	// kr2, err := NewOCR2Key(cryptorand.Reader)
 	// require.NoError(t, err)
 
-	bytes, err := caigotypes.HexToBytes("0x004acf99cb25a4803916f086440c661295b105a485efdc649ac4de9536da25b")
+	bytes, err := hex.DecodeString("0004acf99cb25a4803916f086440c661295b105a485efdc649ac4de9536da25b")
 	require.NoError(t, err)
 	configDigest, err := ocrtypes.BytesToConfigDigest(bytes)
 	require.NoError(t, err)
@@ -58,44 +60,51 @@ func TestStarknetKeyring_TestVector(t *testing.T) {
 	}
 
 	var report []byte
-	report = append(report, caigotypes.BigToFelt(big.NewInt(1)).Bytes()...)
-	report = append(report, caigotypes.StrToFelt("0x00010203000000000000000000000000000000000000000000000000000000").Bytes()...)
-	report = append(report, caigotypes.BigToFelt(big.NewInt(4)).Bytes()...)
-	report = append(report, caigotypes.BigToFelt(big.NewInt(99)).Bytes()...)
-	report = append(report, caigotypes.BigToFelt(big.NewInt(99)).Bytes()...)
-	report = append(report, caigotypes.BigToFelt(big.NewInt(99)).Bytes()...)
-	report = append(report, caigotypes.BigToFelt(big.NewInt(99)).Bytes()...)
-	report = append(report, caigotypes.BigToFelt(big.NewInt(1)).Bytes()...)
+	b1 := new(felt.Felt).SetUint64(1).Bytes()
+	report = append(report, b1[:]...)
+	b2Bytes, err := hex.DecodeString("00010203000000000000000000000000000000000000000000000000000000")
+	require.NoError(t, err)
+	b2 := new(felt.Felt).SetBytes(b2Bytes).Bytes()
+	report = append(report, b2[:]...)
+	b3 := new(felt.Felt).SetUint64(4).Bytes()
+	report = append(report, b3[:]...)
+	b4 := new(felt.Felt).SetUint64(99).Bytes()
+	report = append(report, b4[:]...)
+	report = append(report, b4[:]...)
+	report = append(report, b4[:]...)
+	report = append(report, b4[:]...)
+	report = append(report, b1[:]...)
 
 	// check that report hash matches expected
 	msg, err := ReportToSigData(ctx, report)
 	require.NoError(t, err)
 
-	expected, err := caigotypes.HexToBytes("0x1332a8dabaabef63b03438ca50760cb9f5c0292cbf015b2395e50e6157df4e3")
+	expected, err := new(felt.Felt).SetString("0x1332a8dabaabef63b03438ca50760cb9f5c0292cbf015b2395e50e6157df4e3")
+	expectedBytes := expected.Bytes()
 	require.NoError(t, err)
-	assert.Equal(t, expected, msg.Bytes())
+	assert.Equal(t, expectedBytes[:], msg.Bytes())
 
 	// check that signature matches expected
 	sig, err := kr1.Sign(ctx, report)
 	require.NoError(t, err)
 
-	pub := caigotypes.BytesToFelt(sig[0:32])
-	r := caigotypes.BytesToFelt(sig[32:64])
-	s := caigotypes.BytesToFelt(sig[64:])
+	pub := new(felt.Felt).SetBytes(sig[0:32])
+	r := new(felt.Felt).SetBytes(sig[32:64])
+	s := new(felt.Felt).SetBytes(sig[64:])
 
 	bigPubExpected, _ := new(big.Int).SetString("1118148281956858477519852250235501663092798578871088714409528077622994994907", 10)
-	feltPubExpected := caigotypes.BigToFelt(bigPubExpected)
+	feltPubExpected := new(felt.Felt).SetBytes(bigPubExpected.Bytes())
 	assert.Equal(t, feltPubExpected, pub)
 
 	bigRExpected, _ := new(big.Int).SetString("2898571078985034687500959842265381508927681132188252715370774777831313601543", 10)
-	feltRExpected := caigotypes.BigToFelt(bigRExpected)
+	feltRExpected := new(felt.Felt).SetBytes(bigRExpected.Bytes())
 	assert.Equal(t, feltRExpected, r)
 
 	// test for malleability
 	otherS, _ := new(big.Int).SetString("1930849708769648077928186998643944706551011476358007177069185543644456022504", 10)
 	bigSExpected, _ := new(big.Int).SetString("1687653079896483135769135784451125398975732275358080312084893914240056843079", 10)
 
-	feltSExpected := caigotypes.BigToFelt(bigSExpected)
+	feltSExpected := new(felt.Felt).SetBytes(bigSExpected.Bytes())
 	assert.NotEqual(t, otherS, s, "signature not in canonical form")
 	assert.Equal(t, feltSExpected, s)
 }

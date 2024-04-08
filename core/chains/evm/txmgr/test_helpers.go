@@ -8,10 +8,9 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 )
 
 func ptr[T any](t T) *T { return &t }
@@ -79,7 +78,7 @@ func (g *TestGasEstimatorConfig) TipCapMin() *assets.Wei     { return assets.New
 func (g *TestGasEstimatorConfig) LimitMax() uint64           { return 0 }
 func (g *TestGasEstimatorConfig) LimitMultiplier() float32   { return 0 }
 func (g *TestGasEstimatorConfig) BumpTxDepth() uint32        { return 42 }
-func (g *TestGasEstimatorConfig) LimitTransfer() uint32      { return 42 }
+func (g *TestGasEstimatorConfig) LimitTransfer() uint64      { return 42 }
 func (g *TestGasEstimatorConfig) PriceMax() *assets.Wei      { return assets.NewWeiI(42) }
 func (g *TestGasEstimatorConfig) PriceMin() *assets.Wei      { return assets.NewWeiI(42) }
 func (g *TestGasEstimatorConfig) Mode() string               { return "FixedPrice" }
@@ -145,7 +144,7 @@ func (c *MockConfig) FinalityTagEnabled() bool          { return c.finalityTagEn
 func (c *MockConfig) RPCDefaultBatchSize() uint32       { return c.RpcDefaultBatchSize }
 
 func MakeTestConfigs(t *testing.T) (*MockConfig, *TestDatabaseConfig, *TestEvmConfig) {
-	db := &TestDatabaseConfig{defaultQueryTimeout: pg.DefaultQueryTimeout}
+	db := &TestDatabaseConfig{defaultQueryTimeout: utils.DefaultQueryTimeout}
 	ec := &TestEvmConfig{BumpThreshold: 42, MaxInFlight: uint32(42), MaxQueued: uint64(0), ReaperInterval: time.Duration(0), ReaperThreshold: time.Duration(0)}
 	config := &MockConfig{EvmConfig: ec}
 	return config, db, ec
