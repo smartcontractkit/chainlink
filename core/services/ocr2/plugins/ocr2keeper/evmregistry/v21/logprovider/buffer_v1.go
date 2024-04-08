@@ -94,7 +94,7 @@ func NewLogBuffer(lggr logger.Logger, lookback, blockRate, logLimit uint32) LogB
 func (b *logBuffer) Enqueue(uid *big.Int, logs ...logpoller.Log) (int, int) {
 	buf, ok := b.getUpkeepQueue(uid)
 	if !ok || buf == nil {
-		buf = newUpkeepLogBuffer(b.lggr, uid, b.opts)
+		buf = newUpkeepLogQueue(b.lggr, uid, b.opts)
 		b.setUpkeepQueue(uid, buf)
 	}
 	latestBlock := latestBlockNumber(logs...)
@@ -237,7 +237,7 @@ type upkeepLogQueue struct {
 	lock   sync.RWMutex
 }
 
-func newUpkeepLogBuffer(lggr logger.Logger, id *big.Int, opts *logBufferOptions) *upkeepLogQueue {
+func newUpkeepLogQueue(lggr logger.Logger, id *big.Int, opts *logBufferOptions) *upkeepLogQueue {
 	maxLogs := int(opts.windowLimit.Load()) * opts.windows() // limit per window * windows
 	return &upkeepLogQueue{
 		lggr:   lggr.With("upkeepID", id.String()),

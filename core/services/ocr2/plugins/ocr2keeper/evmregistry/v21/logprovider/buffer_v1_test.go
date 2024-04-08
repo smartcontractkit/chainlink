@@ -272,7 +272,7 @@ func TestLogEventBufferV1_Enqueue(t *testing.T) {
 
 func TestLogEventBufferV1_UpkeepQueue(t *testing.T) {
 	t.Run("enqueue dequeue", func(t *testing.T) {
-		q := newUpkeepLogBuffer(logger.TestLogger(t), big.NewInt(1), newLogBufferOptions(10, 1, 1))
+		q := newUpkeepLogQueue(logger.TestLogger(t), big.NewInt(1), newLogBufferOptions(10, 1, 1))
 
 		added, dropped := q.enqueue(10, logpoller.Log{BlockNumber: 20, TxHash: common.HexToHash("0x1"), LogIndex: 0})
 		require.Equal(t, 0, dropped)
@@ -284,7 +284,7 @@ func TestLogEventBufferV1_UpkeepQueue(t *testing.T) {
 	})
 
 	t.Run("enqueue with limits", func(t *testing.T) {
-		q := newUpkeepLogBuffer(logger.TestLogger(t), big.NewInt(1), newLogBufferOptions(10, 1, 1))
+		q := newUpkeepLogQueue(logger.TestLogger(t), big.NewInt(1), newLogBufferOptions(10, 1, 1))
 
 		added, dropped := q.enqueue(10,
 			createDummyLogSequence(15, 0, 20, common.HexToHash("0x20"))...,
@@ -294,7 +294,7 @@ func TestLogEventBufferV1_UpkeepQueue(t *testing.T) {
 	})
 
 	t.Run("dequeue with limits", func(t *testing.T) {
-		q := newUpkeepLogBuffer(logger.TestLogger(t), big.NewInt(1), newLogBufferOptions(10, 1, 3))
+		q := newUpkeepLogQueue(logger.TestLogger(t), big.NewInt(1), newLogBufferOptions(10, 1, 3))
 
 		added, dropped := q.enqueue(10,
 			logpoller.Log{BlockNumber: 20, TxHash: common.HexToHash("0x1"), LogIndex: 0},
@@ -312,13 +312,13 @@ func TestLogEventBufferV1_UpkeepQueue(t *testing.T) {
 
 func TestLogEventBufferV1_UpkeepQueue_sizeOfRange(t *testing.T) {
 	t.Run("empty", func(t *testing.T) {
-		q := newUpkeepLogBuffer(logger.TestLogger(t), big.NewInt(1), newLogBufferOptions(10, 1, 1))
+		q := newUpkeepLogQueue(logger.TestLogger(t), big.NewInt(1), newLogBufferOptions(10, 1, 1))
 
 		require.Equal(t, 0, q.sizeOfRange(1, 10))
 	})
 
 	t.Run("happy path", func(t *testing.T) {
-		q := newUpkeepLogBuffer(logger.TestLogger(t), big.NewInt(1), newLogBufferOptions(10, 1, 1))
+		q := newUpkeepLogQueue(logger.TestLogger(t), big.NewInt(1), newLogBufferOptions(10, 1, 1))
 
 		added, dropped := q.enqueue(10, logpoller.Log{BlockNumber: 20, TxHash: common.HexToHash("0x1"), LogIndex: 0})
 		require.Equal(t, 0, dropped)
@@ -330,7 +330,7 @@ func TestLogEventBufferV1_UpkeepQueue_sizeOfRange(t *testing.T) {
 
 func TestLogEventBufferV1_UpkeepQueue_clean(t *testing.T) {
 	t.Run("empty", func(t *testing.T) {
-		q := newUpkeepLogBuffer(logger.TestLogger(t), big.NewInt(1), newLogBufferOptions(10, 1, 1))
+		q := newUpkeepLogQueue(logger.TestLogger(t), big.NewInt(1), newLogBufferOptions(10, 1, 1))
 
 		q.clean(10)
 	})
