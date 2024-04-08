@@ -56,7 +56,7 @@ targets:
         - "$(evm_median.outputs.report)"
     config:
       address: "0x3F3554832c636721F1fD1822Ccca0354576741Ef"
-      params: ["$(inputs.report)"]
+      params: ["$(report)"]
       abi: "receive(report bytes)"
   - type: "write_ethereum-testnet-sepolia"
     inputs:
@@ -64,7 +64,7 @@ targets:
         - "$(evm_median.outputs.report)"
     config:
       address: "0x54e220867af6683aE6DcBF535B4f952cB5116510"
-      params: ["$(inputs.report)"]
+      params: ["$(report)"]
       abi: "receive(report bytes)"
 `
 
