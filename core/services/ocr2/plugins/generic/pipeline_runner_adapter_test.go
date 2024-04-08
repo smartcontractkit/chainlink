@@ -60,7 +60,7 @@ func TestAdapter_Integration(t *testing.T) {
 	)
 	err = keystore.Unlock(cfg.Password().Keystore())
 	require.NoError(t, err)
-	jb, err := ocr2validate.ValidatedOracleSpecToml(cfg.OCR2(), cfg.Insecure(), testspecs.GetOCR2EVMSpecMinimal())
+	jb, err := ocr2validate.ValidatedOracleSpecToml(testutils.Context(t), cfg.OCR2(), cfg.Insecure(), testspecs.GetOCR2EVMSpecMinimal(), nil)
 	require.NoError(t, err)
 
 	const juelsPerFeeCoinSource = `
