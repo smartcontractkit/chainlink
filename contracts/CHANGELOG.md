@@ -2,11 +2,21 @@
 
 ## Unreleased
 
+...
+
+## 1.0.0 - 2024-03-25
+
 - Moved `VRFCoordinatorV2Mock.sol` to src/v0.8/vrf/mocks
 - Moved `VRFCoordinatorMock.sol` to src/v0.8/vrf/mocks
-- Release Functions v1.0.0 contracts. Start dev folder for v1.X (#10941)
-- Add minimumEstimateGasPriceWei to Functions Coordinator config (#10916)
-- Remove redundant Functions Coordinator commitment & request id checks (#10975)
+- Move Functions v1.0.0 contracts out of dev. New dev folder for v1.X (#10941)
+- Release Functions v1.1.0 contracts. Move v1.1.0 out of dev (#11431)
+  - Add minimumEstimateGasPriceWei to Functions Coordinator config (#10916)
+  - Remove redundant Functions Coordinator commitment & request id checks (#10975)
+  - Add L2 fee contract for Arbitrum, Optimism, and Base (#11102 & #11275)
+  - Functions Request IDs are now globally unique (#10891)
+  - Add an event for broken down billing costs (#11185)
+  - Add custom errors to OCR2Base contract (#11249)
+- Updated AutomationBase interface to check for ready only address on polygon
 
 ### Removed
 
@@ -15,7 +25,6 @@
 ## 0.8.0 - 2023-10-04
 
 ### Changed
-
 
 - Add a re-entrancy guard to VRFCoordinatorV2Mock to mimic VRFCoordinatorV2's behavior (#10585)
 - Enhanced support for destination configs in Data Streams verifiers (#10472)
