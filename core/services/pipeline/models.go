@@ -15,6 +15,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
+
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
@@ -45,12 +46,12 @@ func (s *Spec) ParsePipeline() (*Pipeline, error) {
 }
 
 type Run struct {
-	ID             int64            `json:"-"`
-	JobID          int32            `json:"-"`
-	PipelineSpecID int32            `json:"-"`
-	PruningKey     int32            `json:"-"` // This currently refers to the upstream job ID
-	PipelineSpec   Spec             `json:"pipelineSpec"`
-	Meta           JSONSerializable `json:"meta"`
+	ID             int64                             `json:"-"`
+	JobID          int32                             `json:"-"`
+	PipelineSpecID int32                             `json:"-"`
+	PruningKey     int32                             `json:"-"` // This currently refers to the upstream job ID
+	PipelineSpec   Spec                              `json:"pipelineSpec"`
+	Meta           jsonserializable.JSONSerializable `json:"meta"`
 	// The errors are only ever strings
 	// DB example: [null, null, "my error"]
 	AllErrors   RunErrors                         `json:"all_errors"`

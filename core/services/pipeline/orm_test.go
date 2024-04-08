@@ -301,13 +301,13 @@ answer2 [type=bridge name=election_winner index=1];
 			PipelineRunID: run.ID,
 			Type:          "median",
 			DotID:         "answer2",
-			Output:        pipeline.JSONSerializable{Val: 1, Valid: true},
+			Output:        jsonserializable.JSONSerializable{Val: 1, Valid: true},
 			CreatedAt:     now,
 			FinishedAt:    null.TimeFrom(now.Add(200 * time.Millisecond)),
 		},
 	}
 	run.FinishedAt = null.TimeFrom(now.Add(300 * time.Millisecond))
-	run.Outputs = pipeline.JSONSerializable{
+	run.Outputs = jsonserializable.JSONSerializable{
 		Val:   "stuff",
 		Valid: true,
 	}
