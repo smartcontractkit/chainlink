@@ -27,6 +27,7 @@ type AutomationTestConfig interface {
 	tc.GlobalTestConfig
 	tc.CommonTestConfig
 	tc.UpgradeableChainlinkTestConfig
+	tc.AutomationTestConfig
 }
 
 type KeeperBenchmarkTestConfig interface {

@@ -1,0 +1,5 @@
+---
+"chainlink": patch
+---
+
+Remote Trigger
