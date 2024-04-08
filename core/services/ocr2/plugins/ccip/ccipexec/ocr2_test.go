@@ -507,7 +507,7 @@ func TestExecutionReportingPlugin_buildBatch(t *testing.T) {
 	var tt = []struct {
 		name                     string
 		reqs                     []cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta
-		inflight                 []InflightInternalExecutionReport
+		inflight                 *big.Int
 		tokenLimit, destGasPrice *big.Int
 		srcPrices, dstPrices     map[cciptypes.Address]*big.Int
 		offRampNoncesBySender    map[cciptypes.Address]uint64
@@ -517,7 +517,7 @@ func TestExecutionReportingPlugin_buildBatch(t *testing.T) {
 		{
 			name:                  "single message no tokens",
 			reqs:                  []cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta{msg1},
-			inflight:              []InflightInternalExecutionReport{},
+			inflight:              big.NewInt(0),
 			tokenLimit:            big.NewInt(0),
 			destGasPrice:          big.NewInt(10),
 			srcPrices:             map[cciptypes.Address]*big.Int{srcNative: big.NewInt(1)},
@@ -528,7 +528,7 @@ func TestExecutionReportingPlugin_buildBatch(t *testing.T) {
 		{
 			name:                  "executed non finalized messages should be skipped",
 			reqs:                  []cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta{msg2},
-			inflight:              []InflightInternalExecutionReport{},
+			inflight:              big.NewInt(0),
 			tokenLimit:            big.NewInt(0),
 			destGasPrice:          big.NewInt(10),
 			srcPrices:             map[cciptypes.Address]*big.Int{srcNative: big.NewInt(1)},
@@ -539,7 +539,7 @@ func TestExecutionReportingPlugin_buildBatch(t *testing.T) {
 		{
 			name:                  "finalized executed log",
 			reqs:                  []cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta{msg3},
-			inflight:              []InflightInternalExecutionReport{},
+			inflight:              big.NewInt(0),
 			tokenLimit:            big.NewInt(0),
 			destGasPrice:          big.NewInt(10),
 			srcPrices:             map[cciptypes.Address]*big.Int{srcNative: big.NewInt(1)},
@@ -550,7 +550,7 @@ func TestExecutionReportingPlugin_buildBatch(t *testing.T) {
 		{
 			name:                  "dst token price does not exist",
 			reqs:                  []cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta{msg2},
-			inflight:              []InflightInternalExecutionReport{},
+			inflight:              big.NewInt(0),
 			tokenLimit:            big.NewInt(0),
 			destGasPrice:          big.NewInt(10),
 			srcPrices:             map[cciptypes.Address]*big.Int{srcNative: big.NewInt(1)},
@@ -561,7 +561,7 @@ func TestExecutionReportingPlugin_buildBatch(t *testing.T) {
 		{
 			name:                  "src token price does not exist",
 			reqs:                  []cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta{msg2},
-			inflight:              []InflightInternalExecutionReport{},
+			inflight:              big.NewInt(0),
 			tokenLimit:            big.NewInt(0),
 			destGasPrice:          big.NewInt(10),
 			srcPrices:             map[cciptypes.Address]*big.Int{},
@@ -572,7 +572,7 @@ func TestExecutionReportingPlugin_buildBatch(t *testing.T) {
 		{
 			name:         "message with tokens is not executed if limit is reached",
 			reqs:         []cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta{msg4},
-			inflight:     []InflightInternalExecutionReport{},
+			inflight:     big.NewInt(0),
 			tokenLimit:   big.NewInt(2),
 			destGasPrice: big.NewInt(10),
 			srcPrices:    map[cciptypes.Address]*big.Int{srcNative: big.NewInt(1e18)},
@@ -584,14 +584,9 @@ func TestExecutionReportingPlugin_buildBatch(t *testing.T) {
 			expectedSeqNrs:        nil,
 		},
 		{
-			name: "message with tokens is not executed if limit is reached when inflight is full",
-			reqs: []cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta{msg5},
-			inflight: []InflightInternalExecutionReport{
-				{
-					createdAt: time.Now(),
-					messages:  []cciptypes.EVM2EVMMessage{msg4.EVM2EVMMessage},
-				},
-			},
+			name:         "message with tokens is not executed if limit is reached when inflight is full",
+			reqs:         []cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta{msg5},
+			inflight:     new(big.Int).Mul(big.NewInt(1e18), big.NewInt(100)),
 			tokenLimit:   big.NewInt(19),
 			destGasPrice: big.NewInt(10),
 			srcPrices:    map[cciptypes.Address]*big.Int{srcNative: big.NewInt(1e18)},
@@ -645,7 +640,7 @@ func TestExecutionReportingPlugin_buildBatch(t *testing.T) {
 					BlockTimestamp: time.Date(2010, 1, 1, 12, 12, 12, 0, time.UTC),
 				},
 			},
-			inflight:              []InflightInternalExecutionReport{},
+			inflight:              big.NewInt(0),
 			tokenLimit:            big.NewInt(0),
 			destGasPrice:          big.NewInt(10),
 			srcPrices:             map[cciptypes.Address]*big.Int{srcNative: big.NewInt(1)},
@@ -1141,6 +1136,7 @@ func Test_inflightAggregates(t *testing.T) {
 		addrs[i] = cciptypes.Address(utils.RandomAddress().String())
 		tokenAddrs[i] = cciptypes.Address(utils.RandomAddress().String())
 	}
+	lggr := logger.TestLogger(t)
 
 	testCases := []struct {
 		name            string
@@ -1201,7 +1197,7 @@ func Test_inflightAggregates(t *testing.T) {
 			expErr: false,
 		},
 		{
-			name: "missing price",
+			name: "missing price should be 0",
 			inflight: []InflightInternalExecutionReport{
 				{
 					messages: []cciptypes.EVM2EVMMessage{
@@ -1222,7 +1218,8 @@ func Test_inflightAggregates(t *testing.T) {
 			sourceToDest: map[cciptypes.Address]cciptypes.Address{
 				tokenAddrs[2]: tokenAddrs[3],
 			},
-			expErr: true,
+			expInflightAggrVal: big.NewInt(0),
+			expErr:             false,
 		},
 		{
 			name:                       "nothing inflight",
@@ -1237,8 +1234,12 @@ func Test_inflightAggregates(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			inflightAggrVal, err := inflightAggregates(
-				tc.inflight, tc.destTokenPrices, tc.sourceToDest)
+			inflightAggrVal, err := getInflightAggregateRateLimit(
+				lggr,
+				tc.inflight,
+				tc.destTokenPrices,
+				tc.sourceToDest,
+			)
 
 			if tc.expErr {
 				assert.Error(t, err)
