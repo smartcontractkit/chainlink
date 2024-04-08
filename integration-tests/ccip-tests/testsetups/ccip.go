@@ -735,8 +735,8 @@ func CCIPDefaultTestSetUp(
 			return setUpArgs
 		}
 	}
-	_, err = os.Stat(setUpArgs.LaneConfigFile)
-	if err == nil {
+	laneCfgFile, err := os.Stat(setUpArgs.LaneConfigFile)
+	if err == nil && laneCfgFile.Size() > 1 {
 		// remove the existing lane config file
 		err = os.Remove(setUpArgs.LaneConfigFile)
 		require.NoError(t, err, "error while removing existing lane config file - %s", setUpArgs.LaneConfigFile)

@@ -252,32 +252,6 @@ TimeoutForPriceUpdate = '15m'          # Duration to wait for the price update t
 # Could be removed once the pipeline is completely removed.
 WithPipeline = false
 
-# OCR Params
-CommitInflightExpiry = '2m'
-ExecInflightExpiry = '2m'
-
-[CCIP.Groups.smoke.CommitOCRParams]
-DeltaProgress = '2m'
-DeltaResend = '5s'
-DeltaRound = '75s'
-DeltaGrace = '5s'
-MaxDurationQuery = '100ms'
-MaxDurationObservation = '35s'
-MaxDurationReport = '10s'
-MaxDurationShouldAcceptFinalizedReport = '5s'
-MaxDurationShouldTransmitAcceptedReport = '10s'
-
-[CCIP.Groups.smoke.ExecOCRParams]
-DeltaProgress = '100s'
-DeltaResend = '5s'
-DeltaRound = '40s'
-DeltaGrace = '5s'
-MaxDurationQuery = '100ms'
-MaxDurationObservation = '20s'
-MaxDurationReport = '8s'
-MaxDurationShouldAcceptFinalizedReport = '5s'
-MaxDurationShouldTransmitAcceptedReport = '8s'
-
 # uncomment the following if you want to run your tests with specific number of lanes;
 # in this case out of all the possible lane combinations, only the ones with the specified number of lanes will be considered
 # for example, if you have provided CCIP.Env.Networks = ['SIMULATED_1', 'SIMULATED_2', 'SIMULATED_3'] and CCIP.Groups.<test_type>.MaxNoOfLanes = 2,
@@ -326,6 +300,36 @@ TimeoutForPriceUpdate = '15m' # time to wait for price update
 # then only random combinations of 2 lanes from the following will be considered for the test :
 # ['SIMULATED_1', 'SIMULATED_2'], ['SIMULATED_1', 'SIMULATED_3'], ['SIMULATED_2', 'SIMULATED_3']
 #MaxNoOfLanes = <no_of_lanes> # maximum number of lanes to be added in the test; mainly used for scalability tests
+#
+
+# Uncomment the following if you want to run your tests with updated OCR params
+# otherwise test will use default OCR params from -
+# https://github.com/smartcontractkit/ccip/blob/ccip-develop/integration-tests/ccip-tests/contracts/contract_deployer.go#L729-L751
+## OCR Params
+#CommitInflightExpiry = '2m'
+#ExecInflightExpiry = '2m'
+#
+#[CCIP.Groups.load.CommitOCRParams]
+#DeltaProgress = '2m'
+#DeltaResend = '5s'
+#DeltaRound = '75s'
+#DeltaGrace = '5s'
+#MaxDurationQuery = '100ms'
+#MaxDurationObservation = '35s'
+#MaxDurationReport = '10s'
+#MaxDurationShouldAcceptFinalizedReport = '5s'
+#MaxDurationShouldTransmitAcceptedReport = '10s'
+#
+#[CCIP.Groups.load.ExecOCRParams]
+#DeltaProgress = '100s'
+#DeltaResend = '5s'
+#DeltaRound = '40s'
+#DeltaGrace = '5s'
+#MaxDurationQuery = '100ms'
+#MaxDurationObservation = '20s'
+#MaxDurationReport = '8s'
+#MaxDurationShouldAcceptFinalizedReport = '5s'
+#MaxDurationShouldTransmitAcceptedReport = '8s'
 
 [CCIP.Groups.chaos]
 # uncomment the following with specific values of lane combinations to be tested, if you want to run your tests to run only on these specific network pairs

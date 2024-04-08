@@ -729,8 +729,9 @@ func (e *CCIPContractsDeployer) NewMockAggregator(addr common.Address) (*MockAgg
 var OCR2ParamsForCommit = contracts.OffChainAggregatorV2Config{
 	DeltaProgress:                           config.MustNewDuration(2 * time.Minute),
 	DeltaResend:                             config.MustNewDuration(5 * time.Second),
-	DeltaRound:                              config.MustNewDuration(75 * time.Second),
+	DeltaRound:                              config.MustNewDuration(60 * time.Second),
 	DeltaGrace:                              config.MustNewDuration(5 * time.Second),
+	DeltaStage:                              config.MustNewDuration(25 * time.Second),
 	MaxDurationQuery:                        config.MustNewDuration(100 * time.Millisecond),
 	MaxDurationObservation:                  config.MustNewDuration(35 * time.Second),
 	MaxDurationReport:                       config.MustNewDuration(10 * time.Second),
@@ -741,8 +742,9 @@ var OCR2ParamsForCommit = contracts.OffChainAggregatorV2Config{
 var OCR2ParamsForExec = contracts.OffChainAggregatorV2Config{
 	DeltaProgress:                           config.MustNewDuration(100 * time.Second),
 	DeltaResend:                             config.MustNewDuration(5 * time.Second),
-	DeltaRound:                              config.MustNewDuration(40 * time.Second),
+	DeltaRound:                              config.MustNewDuration(30 * time.Second),
 	DeltaGrace:                              config.MustNewDuration(5 * time.Second),
+	DeltaStage:                              config.MustNewDuration(10 * time.Second),
 	MaxDurationQuery:                        config.MustNewDuration(100 * time.Millisecond),
 	MaxDurationObservation:                  config.MustNewDuration(20 * time.Second),
 	MaxDurationReport:                       config.MustNewDuration(8 * time.Second),
