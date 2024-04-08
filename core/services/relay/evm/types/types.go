@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
@@ -113,8 +114,9 @@ type RelayConfig struct {
 	ChainReader            *ChainReaderConfig `json:"chainReader"`
 	Codec                  *CodecConfig       `json:"codec"`
 
-	DefaultTransactionQueueDepth uint32 `json:"DefaultTransactionQueueDepth"`
-	SimulateTransactions         bool   `json:"simulateTransactions"`
+	DefaultQueryTimeout          time.Duration `json:"defaultQueryTimeout"`
+	DefaultTransactionQueueDepth uint32        `json:"defaultTransactionQueueDepth"`
+	SimulateTransactions         bool          `json:"simulateTransactions"`
 
 	// Contract-specific
 	SendingKeys pq.StringArray `json:"sendingKeys"`

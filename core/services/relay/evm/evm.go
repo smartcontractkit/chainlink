@@ -520,8 +520,7 @@ func newOnChainContractTransmitter(ctx context.Context, lggr logger.Logger, rarg
 	if opts.subjectID != nil {
 		subject = *opts.subjectID
 	}
-	scoped := configWatcher.chain.Config()
-	strategy := txmgrcommon.NewQueueingTxStrategy(subject, relayConfig.DefaultTransactionQueueDepth, scoped.Database().DefaultQueryTimeout())
+	strategy := txmgrcommon.NewQueueingTxStrategy(subject, relayConfig.DefaultTransactionQueueDepth, relayConfig.DefaultQueryTimeout)
 
 	var checker txm.TransmitCheckerSpec
 	if relayConfig.SimulateTransactions {
