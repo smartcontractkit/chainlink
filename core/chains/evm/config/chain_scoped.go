@@ -44,10 +44,10 @@ func (c *ChainScoped) BlockEmissionIdleWarningThreshold() time.Duration {
 func (c *ChainScoped) Validate() (err error) {
 	// Most per-chain validation is done on startup, but this combines globals as well.
 	lc := ocrtypes.LocalConfig{
-		ContractConfigConfirmations:            c.EVM().OCR().ContractConfirmations(),
-		ContractTransmitterTransmitTimeout:     c.EVM().OCR().ContractTransmitterTransmitTimeout(),
-		DatabaseTimeout:                        c.EVM().OCR().DatabaseTimeout(),
-		DataSourceGracePeriod:                  c.EVM().OCR().ObservationGracePeriod(),
+		ContractConfigConfirmations:        c.EVM().OCR().ContractConfirmations(),
+		ContractTransmitterTransmitTimeout: c.EVM().OCR().ContractTransmitterTransmitTimeout(),
+		DatabaseTimeout:                    c.EVM().OCR().DatabaseTimeout(),
+		DataSourceGracePeriod:              c.EVM().OCR().ObservationGracePeriod(),
 	}
 	if ocrerr := ocr.SanityCheckLocalConfig(lc); ocrerr != nil {
 		err = multierr.Append(err, ocrerr)
