@@ -18,8 +18,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 )
 
-var promSQLQueryTime = sqlutil.PromSQLQueryTime
-
+// QOpt is deprecated. Use [sqlutil.DataSource] with [sqlutil.QueryHook]s instead.
+//
 // QOpt pattern for ORM methods aims to clarify usage and remove some common footguns, notably:
 //
 // 1. It should be easy and obvious how to pass a parent context or a transaction into an ORM method
@@ -108,6 +108,7 @@ type QConfig interface {
 //
 // This is not the prettiest construct but without macros its about the best we
 // can do.
+// Deprecated: Use a `sqlutil.DataSource` with `sqlutil.QueryHook`s instead
 type Q struct {
 	Queryer
 	ParentCtx    context.Context
@@ -379,5 +380,5 @@ func (q *queryLogger) postSqlLog(ctx context.Context, begin time.Time) {
 		q.logger.Warnw("SLOW SQL QUERY", kvs...)
 	}
 
-	promSQLQueryTime.Observe(pct)
+	sqlutil.PromSQLQueryTime.Observe(pct)
 }

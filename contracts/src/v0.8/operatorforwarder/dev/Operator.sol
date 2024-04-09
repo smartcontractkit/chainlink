@@ -10,15 +10,12 @@ import {OperatorInterface} from "../../interfaces/OperatorInterface.sol";
 import {IOwnable} from "../../shared/interfaces/IOwnable.sol";
 import {WithdrawalInterface} from "./interfaces/WithdrawalInterface.sol";
 import {OracleInterface} from "../../interfaces/OracleInterface.sol";
-import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {SafeCast} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/math/SafeCast.sol";
 
 // @title The Chainlink Operator contract
 // @notice Node operators can deploy this contract to fulfill requests sent to them
-// solhint-disable custom-errors
+// solhint-disable gas-custom-errors
 contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, OperatorInterface, WithdrawalInterface {
-  using Address for address;
-
   struct Commitment {
     bytes31 paramsHash;
     uint8 dataVersion;
@@ -72,7 +69,6 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
     i_linkToken = LinkTokenInterface(link); // external but already deployed and unalterable
   }
 
-  // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
   string public constant typeAndVersion = "Operator 1.0.0";
 
   // @notice Creates the Chainlink request. This is a backwards compatible API
@@ -286,7 +282,7 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
   // @param to address
   // @param data to forward
   function ownerForward(address to, bytes calldata data) external onlyOwner validateNotToLINK(to) {
-    require(to.isContract(), "Must forward to a contract");
+    require(to.code.length != 0, "Must forward to a contract");
     // solhint-disable-next-line avoid-low-level-calls
     (bool status, ) = to.call(data);
     require(status, "Forwarded call failed");
@@ -337,7 +333,7 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
     uint256 payment,
     bytes4 callbackFunc,
     uint256 expiration
-  ) external override {
+  ) public override {
     bytes31 paramsHash = _buildParamsHash(payment, msg.sender, callbackFunc, expiration);
     require(s_commitments[requestId].paramsHash == paramsHash, "Params do not match request ID");
     // solhint-disable-next-line not-rely-on-time
@@ -346,6 +342,8 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
     delete s_commitments[requestId];
     emit CancelOracleRequest(requestId);
 
+    // Free up the escrowed funds, as we're sending them back to the requester
+    s_tokensInEscrow -= payment;
     i_linkToken.transfer(msg.sender, payment);
   }
 
@@ -363,16 +361,7 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
     bytes4 callbackFunc,
     uint256 expiration
   ) external {
-    bytes32 requestId = keccak256(abi.encodePacked(msg.sender, nonce));
-    bytes31 paramsHash = _buildParamsHash(payment, msg.sender, callbackFunc, expiration);
-    require(s_commitments[requestId].paramsHash == paramsHash, "Params do not match request ID");
-    // solhint-disable-next-line not-rely-on-time
-    require(expiration <= block.timestamp, "Request is not expired");
-
-    delete s_commitments[requestId];
-    emit CancelOracleRequest(requestId);
-
-    i_linkToken.transfer(msg.sender, payment);
+    cancelOracleRequest(keccak256(abi.encodePacked(msg.sender, nonce)), payment, callbackFunc, expiration);
   }
 
   // @notice Returns the address of the LINK token

@@ -1,0 +1,74 @@
+{
+    "tests": [
+      {
+        "product": "ocr",
+        "name": "TestOCRBasic",
+        "eth_client": "geth",
+        "docker_image": "ethereum/client-go:latest_stable",
+        "label": "ubuntu-latest"
+      },
+      {
+        "product": "ocr",
+        "name": "TestOCRBasic",
+        "eth_client": "geth",
+        "docker_image": "ethereum/client-go:v1.13.0",
+        "label": "ubuntu-latest"
+      },
+      {
+        "product": "ocr",
+        "name": "TestOCRBasic",
+        "eth_client": "geth",
+        "docker_image": "ethereum/client-go:v1.12.0",
+        "label": "ubuntu-latest"
+      },
+      {
+        "product": "ocr",
+        "name": "TestOCRBasic",
+        "eth_client": "geth",
+        "docker_image": "ethereum/client-go:v1.11.0",
+        "label": "ubuntu-latest"
+      },
+      {
+        "product": "ocr",
+        "name": "TestOCRBasic",
+        "eth_client": "geth",
+        "docker_image": "ethereum/client-go:v1.10.0",
+        "label": "ubuntu-latest"
+      },
+      {
+        "product": "ocr2",
+        "name": "TestOCRv2Request",
+        "eth_client": "geth",
+        "docker_image": "ethereum/client-go:latest_stable",
+        "label": "ubuntu-latest"
+      },
+      {
+        "product": "ocr2",
+        "name": "TestOCRv2Request",
+        "eth_client": "geth",
+        "docker_image": "ethereum/client-go:v1.13.0",
+        "label": "ubuntu-latest"
+      },
+      {
+        "product": "ocr2",
+        "name": "TestOCRv2Request",
+        "eth_client": "geth",
+        "docker_image": "ethereum/client-go:v1.12.0",
+        "label": "ubuntu-latest"
+      },
+      {
+        "product": "ocr2",
+        "name": "TestOCRv2Request",
+        "eth_client": "geth",
+        "docker_image": "ethereum/client-go:v1.11.0",
+        "label": "ubuntu-latest"
+      },
+      {
+        "product": "ocr2",
+        "name": "TestOCRv2Request",
+        "eth_client": "geth",
+        "docker_image": "ethereum/client-go:v1.10.0",
+        "label": "ubuntu-latest"
+      }
+    ]
+}

@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_load_test_with_metrics"
@@ -63,6 +64,9 @@ type VRFCoordinatorV2 interface {
 	GetOwner(ctx context.Context) (common.Address, error)
 	PendingRequestsExist(ctx context.Context, subID uint64) (bool, error)
 	OwnerCancelSubscription(subID uint64) (*types.Transaction, error)
+	ParseSubscriptionCanceled(log types.Log) (*vrf_coordinator_v2.VRFCoordinatorV2SubscriptionCanceled, error)
+	ParseRandomWordsRequested(log types.Log) (*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested, error)
+	ParseLog(log types.Log) (generated.AbigenLog, error)
 	CancelSubscription(subID uint64, to common.Address) (*types.Transaction, error)
 	FindSubscriptionID(subID uint64) (uint64, error)
 	WaitForRandomWordsFulfilledEvent(requestID []*big.Int, timeout time.Duration) (*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled, error)
@@ -164,9 +168,8 @@ type VRFV2Wrapper interface {
 
 type VRFV2PlusWrapper interface {
 	Address() string
-	SetConfig(wrapperGasOverhead uint32, coordinatorGasOverhead uint32, wrapperPremiumPercentage uint8, keyHash [32]byte, maxNumWords uint8, stalenessSeconds uint32, fallbackWeiPerUnitLink *big.Int, fulfillmentFlatFeeLinkPPM uint32, fulfillmentFlatFeeNativePPM uint32) error
+	SetConfig(wrapperGasOverhead uint32, coordinatorGasOverhead uint32, wrapperNativePremiumPercentage uint8, wrapperLinkPremiumPercentage uint8, keyHash [32]byte, maxNumWords uint8, stalenessSeconds uint32, fallbackWeiPerUnitLink *big.Int, fulfillmentFlatFeeNativePPM uint32, fulfillmentFlatFeeLinkDiscountPPM uint32) error
 	GetSubID(ctx context.Context) (*big.Int, error)
-	Migrate(newCoordinator common.Address) error
 	Coordinator(ctx context.Context) (common.Address, error)
 }
 
@@ -175,6 +178,7 @@ type VRFOwner interface {
 	SetAuthorizedSenders(senders []common.Address) error
 	AcceptVRFOwnership() error
 	WaitForRandomWordsForcedEvent(requestIDs []*big.Int, subIds []uint64, senders []common.Address, timeout time.Duration) (*vrf_owner.VRFOwnerRandomWordsForced, error)
+	OwnerCancelSubscription(subID uint64) (*types.Transaction, error)
 }
 
 type VRFConsumer interface {
@@ -206,7 +210,15 @@ type VRFv2Consumer interface {
 
 type VRFv2LoadTestConsumer interface {
 	Address() string
-	RequestRandomness(hash [32]byte, subID uint64, confs uint16, gasLimit uint32, numWords uint32, requestCount uint16) (*types.Transaction, error)
+	RequestRandomness(
+		coordinator VRFCoordinatorV2,
+		keyHash [32]byte,
+		subID uint64,
+		requestConfirmations uint16,
+		callbackGasLimit uint32,
+		numWords uint32,
+		requestCount uint16,
+	) (*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested, error)
 	RequestRandomWordsWithForceFulfill(
 		keyHash [32]byte,
 		requestConfirmations uint16,
@@ -225,7 +237,7 @@ type VRFv2LoadTestConsumer interface {
 type VRFv2WrapperLoadTestConsumer interface {
 	Address() string
 	Fund(ethAmount *big.Float) error
-	RequestRandomness(requestConfirmations uint16, callbackGasLimit uint32, numWords uint32, requestCount uint16) (*types.Transaction, error)
+	RequestRandomness(coordinator VRFCoordinatorV2, requestConfirmations uint16, callbackGasLimit uint32, numWords uint32, requestCount uint16) (*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested, error)
 	GetRequestStatus(ctx context.Context, requestID *big.Int) (vrfv2_wrapper_load_test_consumer.GetRequestStatus, error)
 	GetLastRequestId(ctx context.Context) (*big.Int, error)
 	GetWrapper(ctx context.Context) (common.Address, error)
@@ -345,6 +357,8 @@ type VRFLoadTestMetrics struct {
 	AverageFulfillmentInMillions         *big.Int
 	SlowestFulfillment                   *big.Int
 	FastestFulfillment                   *big.Int
+	P90FulfillmentBlockTime              float64
+	P95FulfillmentBlockTime              float64
 	AverageResponseTimeInSecondsMillions *big.Int
 	SlowestResponseTimeInSeconds         *big.Int
 	FastestResponseTimeInSeconds         *big.Int

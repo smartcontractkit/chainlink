@@ -3,7 +3,6 @@ project_name: ccip
 
 env:
   - ZIG_EXEC={{ if index .Env "ZIG_EXEC"  }}{{ .Env.ZIG_EXEC }}{{ else }}zig{{ end }}
-  - IMAGE_PREFIX={{ if index .Env "IMAGE_PREFIX"  }}{{ .Env.IMAGE_PREFIX }}{{ else }}localhost:5001{{ end }}
   - IMAGE_LABEL_DESCRIPTION="node of the decentralized oracle network, bridging on and off-chain computation"
   - IMAGE_LABEL_LICENSES="MIT"
   - IMAGE_LABEL_SOURCE="https://github.com/smartcontractkit/{{ .ProjectName }}"
@@ -12,7 +11,6 @@ before:
   hooks:
     - go mod tidy
     - ./tools/bin/goreleaser_utils before_hook
-
 
 # See https://goreleaser.com/customization/build/
 builds:
@@ -33,8 +31,9 @@ builds:
       - -buildmode=pie
     ldflags:
       - -s -w -r=$ORIGIN/libs
-      - -X github.com/smartcontractkit/chainlink/v2/core/static.Version={{ .Env.CHAINLINK_VERSION }}
+      - -X github.com/smartcontractkit/chainlink/v2/core/static.Version={{ .Version }}
       - -X github.com/smartcontractkit/chainlink/v2/core/static.Sha={{ .FullCommit }}
+
 # See https://goreleaser.com/customization/docker/
 dockers:
   - id: linux-amd64
@@ -44,42 +43,39 @@ dockers:
     goarch: amd64
     extra_files:
       - tmp/linux_amd64/libs
+      - tmp/linux_amd64/plugins
       - tools/bin/ldd_fix
     build_flag_templates:
       - "--platform=linux/amd64"
       - "--pull"
       - "--build-arg=CHAINLINK_USER=chainlink"
       - "--build-arg=COMMIT_SHA={{ .FullCommit }}"
+      - "--build-arg=CL_MEDIAN_CMD=chainlink-feeds"
+      - "--build-arg=CL_MERCURY_CMD=chainlink-mercury"
+      - "--build-arg=CL_SOLANA_CMD=chainlink-solana"
+      - "--build-arg=CL_STARKNET_CMD=chainlink-starknet"
       - "--label=org.opencontainers.image.created={{ .Date }}"
       - "--label=org.opencontainers.image.description={{ .Env.IMAGE_LABEL_DESCRIPTION }}"
       - "--label=org.opencontainers.image.licenses={{ .Env.IMAGE_LABEL_LICENSES }}"
       - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
       - "--label=org.opencontainers.image.source={{ .Env.IMAGE_LABEL_SOURCE }}"
       - "--label=org.opencontainers.image.title={{ .ProjectName }}"
-      - "--label=org.opencontainers.image.version={{ .Env.CHAINLINK_VERSION }}"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
       - "--label=org.opencontainers.image.url={{ .Env.IMAGE_LABEL_SOURCE }}"
     image_templates:
-      - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}-develop:develop-amd64"
-      - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}-develop:sha-{{ .ShortCommit }}-amd64"
+      - "{{ .Env.IMAGE }}"
+
 # See https://goreleaser.com/customization/docker_manifest/
 docker_manifests:
-  - name_template: "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}-develop:develop"
+  - name_template: "{{ .Env.IMAGE }}"
     image_templates:
-      - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}-develop:develop-amd64"
-  - name_template: "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}-develop:sha-{{ .ShortCommit }}"
-    image_templates:
-      - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}-develop:sha-{{ .ShortCommit }}-amd64"
-
-# See https://goreleaser.com/customization/docker_sign/
-docker_signs:
-  - artifacts: all
-    stdin: "{{ .Env.COSIGN_PASSWORD }}"
+      - "{{ .Env.IMAGE }}"
 
 checksum:
   name_template: "checksums.txt"
 
 snapshot:
-  name_template: "{{ .Env.CHAINLINK_VERSION }}-{{ .ShortCommit }}"
+  name_template: '{{ .Env.CHAINLINK_VERSION }}-{{ .Runtime.Goarch }}-{{ .Now.Format "2006-01-02-15-04-05Z" }}'
 
 changelog:
   sort: asc

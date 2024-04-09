@@ -20,6 +20,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -199,7 +200,7 @@ func TestUSDCReader_callAttestationApiMockError(t *testing.T) {
 			lp := mocks.NewLogPoller(t)
 			usdcReader, _ := ccipdata.NewUSDCReader(lggr, "job_123", mockMsgTransmitter, lp, false)
 			usdcService := NewUSDCTokenDataReader(lggr, usdcReader, attestationURI, test.customTimeoutSeconds, common.Address{}, APIIntervalRateLimitDisabled)
-			lp.On("RegisterFilter", mock.Anything).Return(nil)
+			lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
 			require.NoError(t, usdcReader.RegisterFilters())
 
 			parentCtx, cancel := context.WithTimeout(context.Background(), time.Duration(test.parentTimeoutSeconds)*time.Second)
@@ -211,7 +212,7 @@ func TestUSDCReader_callAttestationApiMockError(t *testing.T) {
 			if test.expectedError != nil {
 				require.True(t, errors.Is(err, test.expectedError))
 			}
-			lp.On("UnregisterFilter", mock.Anything).Return(nil)
+			lp.On("UnregisterFilter", mock.Anything, mock.Anything).Return(nil)
 			require.NoError(t, usdcReader.Close())
 		})
 	}

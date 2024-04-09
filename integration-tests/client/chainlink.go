@@ -125,6 +125,10 @@ func (c *ChainlinkClient) MustCreateJob(spec JobSpec) (*Job, error) {
 	return job, VerifyStatusCodeWithResponse(resp, http.StatusOK)
 }
 
+func (c *ChainlinkClient) GetConfig() ChainlinkConfig {
+	return *c.Config
+}
+
 // CreateJob creates a Chainlink job based on the provided spec struct
 func (c *ChainlinkClient) CreateJob(spec JobSpec) (*Job, *resty.Response, error) {
 	job := &Job{}

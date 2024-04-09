@@ -228,7 +228,7 @@ func jobSpecToCommitPluginConfig(ctx context.Context, lggr logger.Logger, jb job
 		destOffRampReaders = append(destOffRampReaders, destOffRampReader)
 	}
 
-	onRampRouterAddr, err := onRampReader.RouterAddress()
+	onRampRouterAddr, err := onRampReader.RouterAddress(ctx)
 	if err != nil {
 		return nil, nil, nil, err
 	}

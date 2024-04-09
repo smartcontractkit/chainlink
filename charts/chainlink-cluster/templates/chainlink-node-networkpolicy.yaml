@@ -10,7 +10,7 @@ spec:
   policyTypes:
     - Ingress
   ingress:
-    # Allow all ingress traffic between the node pods and from runner pod.
+    # Allow all ingress traffic between the node pods.
     - from:
       - podSelector:
           matchLabels:

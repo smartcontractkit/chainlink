@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclientmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
@@ -139,6 +140,7 @@ func TestCommitOnchainConfig(t *testing.T) {
 
 func TestCommitStoreReaders(t *testing.T) {
 	user, ec := newSim(t)
+	ctx := testutils.Context(t)
 	lggr := logger.TestLogger(t)
 	lpOpts := logpoller.Opts{
 		PollPeriod:               100 * time.Millisecond,
@@ -147,7 +149,7 @@ func TestCommitStoreReaders(t *testing.T) {
 		RpcBatchSize:             2,
 		KeepFinalizedBlocksDepth: 1000,
 	}
-	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.SimulatedChainID, pgtest.NewSqlxDB(t), lggr, pgtest.NewQConfig(true)), ec, lggr, lpOpts)
+	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.SimulatedChainID, pgtest.NewSqlxDB(t), lggr), ec, lggr, lpOpts)
 
 	// Deploy 2 commit store versions
 	onramp1 := utils.RandomAddress()
@@ -242,11 +244,11 @@ func TestCommitStoreReaders(t *testing.T) {
 	commitAndGetBlockTs(ec)
 
 	// Apply report
-	b, err := c10r.EncodeCommitReport(rep)
+	b, err := c10r.EncodeCommitReport(ctx, rep)
 	require.NoError(t, err)
 	_, err = ch.Report(user, b, er)
 	require.NoError(t, err)
-	b, err = c12r.EncodeCommitReport(rep)
+	b, err = c12r.EncodeCommitReport(ctx, rep)
 	require.NoError(t, err)
 	_, err = ch2.Report(user, b, er)
 	require.NoError(t, err)
@@ -282,9 +284,9 @@ func TestCommitStoreReaders(t *testing.T) {
 			require.NotNil(t, cfg)
 
 			// Assert encoding
-			b, err := cr.EncodeCommitReport(rep)
+			b, err := cr.EncodeCommitReport(ctx, rep)
 			require.NoError(t, err)
-			d, err := cr.DecodeCommitReport(b)
+			d, err := cr.DecodeCommitReport(ctx, b)
 			require.NoError(t, err)
 			assert.Equal(t, d, rep)
 
@@ -345,13 +347,20 @@ func TestCommitStoreReaders(t *testing.T) {
 			assert.Equal(t, reps[0].TokenPrices, rep.TokenPrices)
 
 			// Until we detect the config, we'll have empty offchain config
-			assert.Equal(t, cr.OffchainConfig(), cciptypes.CommitOffchainConfig{})
-			newPr, err := cr.ChangeConfig(configs[v][0], configs[v][1])
+			c1, err := cr.OffchainConfig(ctx)
+			require.NoError(t, err)
+			assert.Equal(t, c1, cciptypes.CommitOffchainConfig{})
+			newPr, err := cr.ChangeConfig(ctx, configs[v][0], configs[v][1])
 			require.NoError(t, err)
 			assert.Equal(t, ccipcalc.EvmAddrToGeneric(prs[v]), newPr)
-			assert.Equal(t, commonOffchain, cr.OffchainConfig())
+
+			c2, err := cr.OffchainConfig(ctx)
+			require.NoError(t, err)
+			assert.Equal(t, commonOffchain, c2)
 			// We should be able to query for gas prices now.
-			gp, err := cr.GasPriceEstimator().GetGasPrice(context.Background())
+			gpe, err := cr.GasPriceEstimator(ctx)
+			require.NoError(t, err)
+			gp, err := gpe.GetGasPrice(context.Background())
 			require.NoError(t, err)
 			assert.True(t, gp.Cmp(big.NewInt(0)) > 0)
 		})
@@ -389,7 +398,7 @@ func TestNewCommitStoreReader(t *testing.T) {
 			addr := ccipcalc.EvmAddrToGeneric(utils.RandomAddress())
 			lp := lpmocks.NewLogPoller(t)
 			if tc.expectedErr == "" {
-				lp.On("RegisterFilter", mock.Anything).Return(nil)
+				lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
 			}
 			_, err = factory.NewCommitStoreReader(logger.TestLogger(t), factory.NewEvmVersionFinder(), addr, c, lp, nil, nil)
 			if tc.expectedErr != "" {

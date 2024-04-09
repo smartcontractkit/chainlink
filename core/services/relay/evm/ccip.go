@@ -11,6 +11,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -49,7 +50,7 @@ func chainToUUID(chainID *big.Int) uuid.UUID {
 
 func NewCCIPCommitProvider(ctx context.Context, lggr logger.Logger, chainSet legacyevm.Chain, rargs commontypes.RelayArgs, transmitterID string, ks keystore.Eth) (CCIPCommitProvider, error) {
 	relayOpts := types.NewRelayOpts(rargs)
-	configWatcher, err := newStandardConfigProvider(lggr, chainSet, relayOpts)
+	configWatcher, err := newStandardConfigProvider(ctx, lggr, chainSet, relayOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +98,7 @@ var _ commontypes.Plugin = (*ccipExecutionProvider)(nil)
 func NewCCIPExecutionProvider(ctx context.Context, lggr logger.Logger, chainSet legacyevm.Chain, rargs commontypes.RelayArgs, transmitterID string, ks keystore.Eth) (CCIPExecutionProvider, error) {
 	relayOpts := types.NewRelayOpts(rargs)
 
-	configWatcher, err := newStandardConfigProvider(lggr, chainSet, relayOpts)
+	configWatcher, err := newStandardConfigProvider(ctx, lggr, chainSet, relayOpts)
 	if err != nil {
 		return nil, err
 	}

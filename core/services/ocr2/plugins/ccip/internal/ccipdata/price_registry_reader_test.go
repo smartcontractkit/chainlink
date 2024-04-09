@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmclientmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -78,7 +79,7 @@ func setupPriceRegistryReaderTH(t *testing.T) priceRegReaderTH {
 		KeepFinalizedBlocksDepth: 1000,
 	}
 	// TODO: We should be able to use an in memory log poller ORM here to speed up the tests.
-	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.SimulatedChainID, pgtest.NewSqlxDB(t), lggr, pgtest.NewQConfig(true)), ec, lggr, lpOpts)
+	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.SimulatedChainID, pgtest.NewSqlxDB(t), lggr), ec, lggr, lpOpts)
 
 	feeTokens := []common.Address{utils.RandomAddress(), utils.RandomAddress()}
 	dest := uint64(10)
@@ -259,7 +260,7 @@ func TestNewPriceRegistryReader(t *testing.T) {
 			c.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(b, nil)
 			addr := ccipcalc.EvmAddrToGeneric(utils.RandomAddress())
 			lp := lpmocks.NewLogPoller(t)
-			lp.On("RegisterFilter", mock.Anything).Return(nil).Maybe()
+			lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil).Maybe()
 			_, err = factory.NewPriceRegistryReader(ctx, logger.TestLogger(t), factory.NewEvmVersionFinder(), addr, lp, c)
 			if tc.expectedErr != "" {
 				require.EqualError(t, err, tc.expectedErr)

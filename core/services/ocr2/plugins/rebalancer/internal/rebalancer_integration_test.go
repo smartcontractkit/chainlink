@@ -153,6 +153,7 @@ func setupNodeOCR3(
 			},
 			MailMon: mailMon,
 			DB:      db,
+			SqlxDB:  db,
 		},
 		CSAETHKeystore: keystore,
 	}
@@ -388,9 +389,12 @@ type = "ping-pong"
 			mainChain.Selector)
 		t.Log("Creating rebalancer job with spec:\n", jobSpec)
 		ocrJob2, err2 := validate.ValidatedOracleSpecToml(
+			testutils.Context(t),
 			apps[i].GetConfig().OCR2(),
 			apps[i].GetConfig().Insecure(),
-			jobSpec)
+			jobSpec,
+			nil,
+		)
 		require.NoError(t, err2, "failed to validate rebalancer job")
 		err2 = apps[i].AddJobV2(testutils.Context(t), &ocrJob2)
 		require.NoError(t, err2, "failed to add rebalancer job")

@@ -32,7 +32,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/abiutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/models"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 type l1ToL2Bridge struct {
@@ -87,7 +86,9 @@ func NewL1ToL2Bridge(
 
 	l1FilterName := fmt.Sprintf("ArbitrumL2ToL1Bridge-L1-Rebalancer:%s-Local:%s-Remote:%s",
 		l1RebalancerAddress.String(), localChain.Name, remoteChain.Name)
-	err = l1LogPoller.RegisterFilter(logpoller.Filter{
+	// FIXME Makram please pass the valid context
+	ctx := context.Background()
+	err = l1LogPoller.RegisterFilter(ctx, logpoller.Filter{
 		Addresses: []common.Address{l1RebalancerAddress},
 		Name:      l1FilterName,
 		EventSigs: []common.Hash{
@@ -139,7 +140,7 @@ func NewL1ToL2Bridge(
 
 	l2FilterName := fmt.Sprintf("ArbitrumL2ToL1Bridge-L2-L2Gateway:%s-Rebalancer:%s-Local:%s-Remote:%s",
 		l2Gateway.Hex(), l2RebalancerAddress.Hex(), localChain.Name, remoteChain.Name)
-	err = l2LogPoller.RegisterFilter(logpoller.Filter{
+	err = l2LogPoller.RegisterFilter(ctx, logpoller.Filter{
 		Addresses: []common.Address{
 			l2Gateway,           // emits DepositFinalized
 			l2RebalancerAddress, // emits LiquidityTransferred
@@ -278,6 +279,7 @@ func (l *l1ToL2Bridge) GetTransfers(
 
 func (l *l1ToL2Bridge) getLogs(ctx context.Context, fromTs time.Time) (sendLogs []logpoller.Log, depositFinalizedLogs []logpoller.Log, receiveLogs []logpoller.Log, err error) {
 	sendLogs, err = l.l1LogPoller.IndexedLogsCreatedAfter(
+		ctx,
 		LiquidityTransferredTopic,
 		l.l1Rebalancer.Address(),
 		LiquidityTransferredToChainSelectorTopicIndex,
@@ -286,13 +288,13 @@ func (l *l1ToL2Bridge) getLogs(ctx context.Context, fromTs time.Time) (sendLogs 
 		},
 		fromTs,
 		1,
-		pg.WithParentCtx(ctx),
 	)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, nil, nil, fmt.Errorf("get LiquidityTransferred events from L1 rebalancer: %w", err)
 	}
 
 	depositFinalizedLogs, err = l.l2LogPoller.IndexedLogsCreatedAfter(
+		ctx,
 		DepositFinalizedTopic,
 		l.l2Gateway.Address(),
 		DepositFinalizedToAddressTopicIndex,
@@ -301,13 +303,13 @@ func (l *l1ToL2Bridge) getLogs(ctx context.Context, fromTs time.Time) (sendLogs 
 		},
 		fromTs,
 		logpoller.Finalized,
-		pg.WithParentCtx(ctx),
 	)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, nil, nil, fmt.Errorf("get DepositFinalized events from L2 gateway: %w", err)
 	}
 
 	receiveLogs, err = l.l2LogPoller.IndexedLogsCreatedAfter(
+		ctx,
 		LiquidityTransferredTopic,
 		l.l2RebalancerAddress,
 		LiquidityTransferredFromChainSelectorTopicIndex,
@@ -316,7 +318,6 @@ func (l *l1ToL2Bridge) getLogs(ctx context.Context, fromTs time.Time) (sendLogs 
 		},
 		fromTs,
 		1,
-		pg.WithParentCtx(ctx),
 	)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, nil, nil, fmt.Errorf("get LiquidityTransferred events from L2 rebalancer: %w", err)
@@ -727,8 +728,8 @@ func (l *l1ToL2Bridge) estimateMaxFeePerGasOnL2(ctx context.Context) (*big.Int, 
 
 func (l *l1ToL2Bridge) Close(ctx context.Context) error {
 	return multierr.Combine(
-		l.l2LogPoller.UnregisterFilter(l.l2FilterName),
-		l.l1LogPoller.UnregisterFilter(l.l1FilterName),
+		l.l2LogPoller.UnregisterFilter(ctx, l.l2FilterName),
+		l.l1LogPoller.UnregisterFilter(ctx, l.l1FilterName),
 	)
 }
 

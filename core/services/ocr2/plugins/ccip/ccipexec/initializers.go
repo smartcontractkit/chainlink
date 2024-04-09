@@ -20,6 +20,7 @@ import (
 	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 
@@ -194,7 +195,7 @@ func jobSpecToExecPluginConfig(ctx context.Context, lggr logger.Logger, jb job.J
 	if err != nil {
 		return nil, nil, nil, nil, errors.Wrap(err, "create onramp reader")
 	}
-	dynamicOnRampConfig, err := onRampReader.GetDynamicConfig()
+	dynamicOnRampConfig, err := onRampReader.GetDynamicConfig(ctx)
 	if err != nil {
 		return nil, nil, nil, nil, errors.Wrap(err, "get onramp dynamic config")
 	}

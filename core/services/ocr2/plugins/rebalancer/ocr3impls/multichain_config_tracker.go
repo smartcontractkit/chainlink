@@ -25,7 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/discoverer"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/rebalancer/models"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
 
@@ -146,7 +145,7 @@ func NewMultichainConfigTracker(
 			return nil, fmt.Errorf("no rebalancer found for network selector %d", ch.Selector)
 		}
 		fName := configTrackerFilterName(id, common.Address(address))
-		err2 = lp.RegisterFilter(logpoller.Filter{
+		err2 = lp.RegisterFilter(ctx, logpoller.Filter{
 			Name:      fName,
 			EventSigs: []common.Hash{ConfigSet},
 			Addresses: []common.Address{common.Address(address)},
@@ -230,7 +229,7 @@ func (m *multichainConfigTracker) Replay(ctx context.Context, fromBlock int64) e
 // LatestBlockHeight implements types.ContractConfigTracker.
 // Returns the block height of the master chain.
 func (m *multichainConfigTracker) LatestBlockHeight(ctx context.Context) (blockHeight uint64, err error) {
-	latestBlock, err := m.logPollers[m.masterChain].LatestBlock(pg.WithParentCtx(ctx))
+	latestBlock, err := m.logPollers[m.masterChain].LatestBlock(ctx)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return 0, nil
@@ -249,7 +248,7 @@ func (m *multichainConfigTracker) LatestConfig(ctx context.Context, changedInBlo
 		return ocrtypes.ContractConfig{}, errors.New("cannot call LatestConfig while replaying")
 	}
 
-	lgs, err := m.logPollers[m.masterChain].Logs(int64(changedInBlock), int64(changedInBlock), ConfigSet, m.contractAddresses[m.masterChain], pg.WithParentCtx(ctx))
+	lgs, err := m.logPollers[m.masterChain].Logs(ctx, int64(changedInBlock), int64(changedInBlock), ConfigSet, m.contractAddresses[m.masterChain])
 	if err != nil {
 		return ocrtypes.ContractConfig{}, err
 	}
@@ -272,7 +271,7 @@ func (m *multichainConfigTracker) LatestConfig(ctx context.Context, changedInBlo
 			continue
 		}
 
-		lg, err2 := lp.LatestLogByEventSigWithConfs(ConfigSet, m.contractAddresses[id], 1, pg.WithParentCtx(ctx))
+		lg, err2 := lp.LatestLogByEventSigWithConfs(ctx, ConfigSet, m.contractAddresses[id], 1)
 		if err2 != nil {
 			return ocrtypes.ContractConfig{}, err2
 		}
@@ -295,7 +294,7 @@ func (m *multichainConfigTracker) LatestConfig(ctx context.Context, changedInBlo
 
 // LatestConfigDetails implements types.ContractConfigTracker.
 func (m *multichainConfigTracker) LatestConfigDetails(ctx context.Context) (changedInBlock uint64, configDigest ocrtypes.ConfigDigest, err error) {
-	latest, err := m.logPollers[m.masterChain].LatestLogByEventSigWithConfs(ConfigSet, m.contractAddresses[m.masterChain], 1, pg.WithParentCtx(ctx))
+	latest, err := m.logPollers[m.masterChain].LatestLogByEventSigWithConfs(ctx, ConfigSet, m.contractAddresses[m.masterChain], 1)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return m.callLatestConfigDetails(ctx)

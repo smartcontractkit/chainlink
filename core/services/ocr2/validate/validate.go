@@ -1,10 +1,12 @@
 package validate
 
 import (
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os/exec"
 	"strings"
 
 	"github.com/lib/pq"
@@ -12,8 +14,11 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
+	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	dkgconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/dkg/config"
@@ -24,10 +29,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
+	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
 // ValidatedOracleSpecToml validates an oracle spec that came from TOML
-func ValidatedOracleSpecToml(config OCR2Config, insConf InsecureConfig, tomlString string) (job.Job, error) {
+func ValidatedOracleSpecToml(ctx context.Context, config OCR2Config, insConf InsecureConfig, tomlString string, rc plugins.RegistrarConfig) (job.Job, error) {
 	var jb = job.Job{}
 	var spec job.OCR2OracleSpec
 	tree, err := toml.Load(tomlString)
@@ -63,7 +69,7 @@ func ValidatedOracleSpecToml(config OCR2Config, insConf InsecureConfig, tomlStri
 		}
 	}
 
-	if err = validateSpec(tree, jb); err != nil {
+	if err = validateSpec(ctx, tree, jb, rc); err != nil {
 		return jb, err
 	}
 	if err = validateTimingParameters(config, insConf, spec); err != nil {
@@ -97,7 +103,7 @@ func validateTimingParameters(ocr2Conf OCR2Config, insConf InsecureConfig, spec 
 	return libocr2.SanityCheckLocalConfig(lc)
 }
 
-func validateSpec(tree *toml.Tree, spec job.Job) error {
+func validateSpec(ctx context.Context, tree *toml.Tree, spec job.Job, rc plugins.RegistrarConfig) error {
 	expected, notExpected := ocrcommon.CloneSet(params), ocrcommon.CloneSet(notExpectedParams)
 	if err := ocrcommon.ValidateExplicitlySetKeys(tree, expected, notExpected, "ocr2"); err != nil {
 		return err
@@ -126,7 +132,7 @@ func validateSpec(tree *toml.Tree, spec job.Job) error {
 	case types.LLO:
 		return validateOCR2LLOSpec(spec.OCR2OracleSpec.PluginConfig)
 	case types.GenericPlugin:
-		return validateOCR2GenericPluginSpec(spec.OCR2OracleSpec.PluginConfig)
+		return validateGenericPluginSpec(ctx, spec.OCR2OracleSpec, rc)
 	case "rebalancer":
 		return validateRebalancerSpec(spec.OCR2OracleSpec.PluginConfig)
 	case "":
@@ -178,9 +184,9 @@ func (o *OCR2GenericPluginConfig) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func validateOCR2GenericPluginSpec(jsonConfig job.JSONConfig) error {
+func validateGenericPluginSpec(ctx context.Context, spec *job.OCR2OracleSpec, rc plugins.RegistrarConfig) error {
 	p := OCR2GenericPluginConfig{}
-	err := json.Unmarshal(jsonConfig.Bytes(), &p)
+	err := json.Unmarshal(spec.PluginConfig.Bytes(), &p)
 	if err != nil {
 		return err
 	}
@@ -189,11 +195,60 @@ func validateOCR2GenericPluginSpec(jsonConfig job.JSONConfig) error {
 		return errors.New("generic config invalid: must provide plugin name")
 	}
 
-	if p.TelemetryType == "" {
-		return errors.New("generic config invalid: must provide telemetry type")
+	if p.OCRVersion != 2 && p.OCRVersion != 3 {
+		return errors.New("generic config invalid: only OCR version 2 and 3 are supported")
 	}
 
-	return nil
+	plugEnv := env.NewPlugin(p.PluginName)
+
+	command := p.Command
+	if command == "" {
+		command = plugEnv.Cmd.Get()
+	}
+
+	if command == "" {
+		return errors.New("generic config invalid: no command found")
+	}
+
+	_, err = exec.LookPath(command)
+	if err != nil {
+		return fmt.Errorf("failed to find binary  %q", command)
+	}
+
+	envVars, err := plugins.ParseEnvFile(plugEnv.Env.Get())
+	if err != nil {
+		return fmt.Errorf("failed to parse env file: %w", err)
+	}
+	if len(p.EnvVars) > 0 {
+		for k, v := range p.EnvVars {
+			envVars = append(envVars, k+"="+v)
+		}
+	}
+
+	loopID := fmt.Sprintf("%s-%s-%s", p.PluginName, spec.ContractID, spec.GetID())
+	//Starting and stopping a LOOPP isn't efficient; ideally, we'd initiate the LOOPP once and then reference
+	//it later to conserve resources. This code will be revisited once BCF-3126 is implemented, and we have
+	//the ability to reference the LOOPP for future use.
+	cmdFn, grpcOpts, err := rc.RegisterLOOP(plugins.CmdConfig{
+		ID:  loopID,
+		Cmd: command,
+		Env: envVars,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to register loop: %w", err)
+	}
+	defer rc.UnregisterLOOP(loopID)
+
+	pluginLggr, _ := logger.New()
+	plugin := reportingplugins.NewLOOPPServiceValidation(pluginLggr, grpcOpts, cmdFn)
+
+	err = plugin.Start(ctx)
+	if err != nil {
+		return err
+	}
+	defer plugin.Close()
+
+	return plugin.ValidateConfig(ctx, spec.PluginConfig)
 }
 
 func validateRebalancerSpec(jsonConfig job.JSONConfig) error {

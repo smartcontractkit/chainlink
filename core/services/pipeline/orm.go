@@ -123,7 +123,7 @@ func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, jobPipelineMaxSucce
 }
 
 func (o *orm) Start(_ context.Context) error {
-	return o.StartOnce("pipeline.ORM", func() error {
+	return o.StartOnce("PipelineORM", func() error {
 		var msg string
 		if o.maxSuccessfulRuns == 0 {
 			msg = "Pipeline runs saving is disabled for all jobs: MaxSuccessfulRuns=0"
@@ -136,7 +136,7 @@ func (o *orm) Start(_ context.Context) error {
 }
 
 func (o *orm) Close() error {
-	return o.StopOnce("pipeline.ORM", func() error {
+	return o.StopOnce("PipelineORM", func() error {
 		o.cncl()
 		o.wg.Wait()
 		return nil

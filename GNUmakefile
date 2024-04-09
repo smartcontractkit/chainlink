@@ -27,11 +27,13 @@ gomod: ## Ensure chainlink's go dependencies are installed.
 	go mod download
 
 .PHONY: gomodtidy
-gomodtidy: ## Run go mod tidy on all modules.
+gomodtidy: gomods ## Run go mod tidy on all modules.
 	go mod tidy
 	cd ./core/scripts && go mod tidy
 	cd ./integration-tests && go mod tidy
 	cd ./integration-tests/load && go mod tidy
+	cd ./dashboard-lib && go mod tidy
+	cd ./charts/chainlink-cluster && go mod tidy
 
 .PHONY: godoc
 godoc: ## Install and run godoc
@@ -84,8 +86,13 @@ abigen: ## Build & install abigen.
 	./tools/bin/build_abigen
 
 .PHONY: generate
-generate: abigen codecgen mockery protoc ## Execute all go:generate commands.
+generate: pnpmdep abigen codecgen mockery protoc gomods ## Execute all go:generate commands.
 	go generate -x ./...
+	cd ./core/scripts && go generate -x ./...
+	cd ./integration-tests && go generate -x ./...
+	cd ./integration-tests/load && go generate -x ./...
+	cd ./dashboard-lib && go generate -x ./...
+	cd ./charts/chainlink-cluster && go generate -x ./...
 
 .PHONY: testscripts
 testscripts: chainlink-test ## Install and run testscript against testdata/scripts/* files.
@@ -111,6 +118,10 @@ presubmit: ## Format go files and imports.
 	goimports -w .
 	gofmt -w .
 	go mod tidy
+
+.PHONY: gomods
+gomods: ## Install gomods
+	go install github.com/jmank88/gomods@v0.1.0
 
 .PHONY: mockery
 mockery: $(mockery) ## Install mockery.

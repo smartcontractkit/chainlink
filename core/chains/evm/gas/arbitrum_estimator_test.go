@@ -168,7 +168,7 @@ func TestArbitrumEstimator(t *testing.T) {
 		rpcClient := mocks.NewRPCClient(t)
 		ethClient := mocks.NewETHClient(t)
 		o := gas.NewArbitrumEstimator(logger.Test(t), &arbConfig{}, rpcClient, ethClient)
-		_, _, err := o.GetDynamicFee(testutils.Context(t), gasLimit, maxGasPrice)
+		_, err := o.GetDynamicFee(testutils.Context(t), maxGasPrice)
 		assert.EqualError(t, err, "dynamic fees are not implemented for this estimator")
 	})
 
@@ -180,7 +180,7 @@ func TestArbitrumEstimator(t *testing.T) {
 			FeeCap: assets.NewWeiI(42),
 			TipCap: assets.NewWeiI(5),
 		}
-		_, _, err := o.BumpDynamicFee(testutils.Context(t), fee, gasLimit, maxGasPrice, nil)
+		_, err := o.BumpDynamicFee(testutils.Context(t), fee, maxGasPrice, nil)
 		assert.EqualError(t, err, "dynamic fees are not implemented for this estimator")
 	})
 

@@ -6,16 +6,16 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 )
 
 func TestValidate(t *testing.T) {
-	v1Coordinator := ethkey.EIP55Address("0x1F72B4A5DCf7CC6d2E38423bF2f4BFA7db97d139")
-	v2Coordinator := ethkey.EIP55Address("0x2be990eE17832b59E0086534c5ea2459Aa75E38F")
-	v2PlusCoordinator := ethkey.EIP55Address("0x92B5e28Ac583812874e4271380c7d070C5FB6E6b")
-	fromAddresses := []ethkey.EIP55Address{("0x469aA2CD13e037DC5236320783dCfd0e641c0559")}
+	v1Coordinator := types.EIP55Address("0x1F72B4A5DCf7CC6d2E38423bF2f4BFA7db97d139")
+	v2Coordinator := types.EIP55Address("0x2be990eE17832b59E0086534c5ea2459Aa75E38F")
+	v2PlusCoordinator := types.EIP55Address("0x92B5e28Ac583812874e4271380c7d070C5FB6E6b")
+	fromAddresses := []types.EIP55Address{("0x469aA2CD13e037DC5236320783dCfd0e641c0559")}
 
 	var tests = []struct {
 		name      string
@@ -53,9 +53,9 @@ storeBlockhashesBatchSize = 10
 					os.BlockHeaderFeederSpec.CoordinatorV2PlusAddress)
 				require.Equal(t, int32(2000), os.BlockHeaderFeederSpec.LookbackBlocks)
 				require.Equal(t, int32(500), os.BlockHeaderFeederSpec.WaitBlocks)
-				require.Equal(t, ethkey.EIP55Address("0x3e20Cef636EdA7ba135bCbA4fe6177Bd3cE0aB17"),
+				require.Equal(t, types.EIP55Address("0x3e20Cef636EdA7ba135bCbA4fe6177Bd3cE0aB17"),
 					os.BlockHeaderFeederSpec.BlockhashStoreAddress)
-				require.Equal(t, ethkey.EIP55Address("0xD04E5b2ea4e55AEbe6f7522bc2A69Ec6639bfc63"),
+				require.Equal(t, types.EIP55Address("0xD04E5b2ea4e55AEbe6f7522bc2A69Ec6639bfc63"),
 					os.BlockHeaderFeederSpec.BatchBlockhashStoreAddress)
 				require.Equal(t, 23*time.Second, os.BlockHeaderFeederSpec.PollPeriod)
 				require.Equal(t, 7*time.Second, os.BlockHeaderFeederSpec.RunTimeout)

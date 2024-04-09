@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry_1_0_0"
@@ -23,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/logpollerutil"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/rpclib"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 var (
@@ -152,11 +152,11 @@ func (p *PriceRegistry) Close() error {
 
 func (p *PriceRegistry) GetTokenPriceUpdatesCreatedAfter(ctx context.Context, ts time.Time, confs int) ([]cciptypes.TokenPriceUpdateWithTxMeta, error) {
 	logs, err := p.lp.LogsCreatedAfter(
+		ctx,
 		p.tokenUpdated,
 		p.address,
 		ts,
 		logpoller.Confirmations(confs),
-		pg.WithParentCtx(ctx),
 	)
 	if err != nil {
 		return nil, err
@@ -195,13 +195,13 @@ func (p *PriceRegistry) GetTokenPriceUpdatesCreatedAfter(ctx context.Context, ts
 
 func (p *PriceRegistry) GetGasPriceUpdatesCreatedAfter(ctx context.Context, chainSelector uint64, ts time.Time, confs int) ([]cciptypes.GasPriceUpdateWithTxMeta, error) {
 	logs, err := p.lp.IndexedLogsCreatedAfter(
+		ctx,
 		p.gasUpdated,
 		p.address,
 		1,
 		[]common.Hash{abihelpers.EvmWord(chainSelector)},
 		ts,
 		logpoller.Confirmations(confs),
-		pg.WithParentCtx(ctx),
 	)
 	if err != nil {
 		return nil, err

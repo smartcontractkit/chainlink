@@ -21,11 +21,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
+	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_compatible_utils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/prommetrics"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -50,7 +49,7 @@ var (
 )
 
 // LogTriggerConfig is an alias for log trigger config.
-type LogTriggerConfig automation_utils_2_1.LogTriggerConfig
+type LogTriggerConfig ac.IAutomationV21PlusCommonLogTriggerConfig
 
 type FilterOptions struct {
 	UpkeepID      *big.Int
@@ -62,13 +61,13 @@ type LogTriggersLifeCycle interface {
 	// RegisterFilter registers the filter (if valid) for the given upkeepID.
 	RegisterFilter(ctx context.Context, opts FilterOptions) error
 	// UnregisterFilter removes the filter for the given upkeepID.
-	UnregisterFilter(upkeepID *big.Int) error
+	UnregisterFilter(ctx context.Context, upkeepID *big.Int) error
 }
 type LogEventProvider interface {
 	ocr2keepers.LogEventProvider
 	LogTriggersLifeCycle
 
-	RefreshActiveUpkeeps(ids ...*big.Int) ([]*big.Int, error)
+	RefreshActiveUpkeeps(ctx context.Context, ids ...*big.Int) ([]*big.Int, error)
 
 	Start(context.Context) error
 	io.Closer
@@ -103,9 +102,18 @@ type logEventProvider struct {
 	opts LogTriggersOptions
 
 	currentPartitionIdx uint64
+
+	chainID *big.Int
 }
 
-func NewLogProvider(lggr logger.Logger, poller logpoller.LogPoller, packer LogDataPacker, filterStore UpkeepFilterStore, opts LogTriggersOptions) *logEventProvider {
+func NewLogProvider(lggr logger.Logger, poller logpoller.LogPoller, chainID *big.Int, packer LogDataPacker, filterStore UpkeepFilterStore, opts LogTriggersOptions) *logEventProvider {
+	defaultBlockRate := defaultBlockRateForChain(chainID)
+	defaultLogLimit := defaultLogLimitForChain(chainID)
+
+	// TODO apply these to the log buffer later
+	_ = defaultBlockRate
+	_ = defaultLogLimit
+
 	return &logEventProvider{
 		threadCtrl:  utils.NewThreadControl(),
 		lggr:        lggr.Named("KeepersRegistry.LogEventProvider"),
@@ -114,7 +122,25 @@ func NewLogProvider(lggr logger.Logger, poller logpoller.LogPoller, packer LogDa
 		poller:      poller,
 		opts:        opts,
 		filterStore: filterStore,
+		chainID:     chainID,
 	}
+}
+
+func (p *logEventProvider) SetConfig(cfg ocr2keepers.LogEventProviderConfig) {
+	blockRate := cfg.BlockRate
+	logLimit := cfg.LogLimit
+
+	if blockRate == 0 {
+		blockRate = defaultBlockRateForChain(p.chainID)
+	}
+	if logLimit == 0 {
+		logLimit = defaultLogLimitForChain(p.chainID)
+	}
+
+	p.lggr.With("where", "setConfig").Infow("setting config ", "bockRate", blockRate, "logLimit", logLimit)
+
+	// TODO set block rate and log limit on the buffer
+	//p.buffer.SetConfig(blockRate, logLimit)
 }
 
 func (p *logEventProvider) Start(context.Context) error {
@@ -159,7 +185,7 @@ func (p *logEventProvider) HealthReport() map[string]error {
 }
 
 func (p *logEventProvider) GetLatestPayloads(ctx context.Context) ([]ocr2keepers.UpkeepPayload, error) {
-	latest, err := p.poller.LatestBlock(pg.WithParentCtx(ctx))
+	latest, err := p.poller.LatestBlock(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrHeadNotAvailable, err)
 	}
@@ -198,7 +224,7 @@ func (p *logEventProvider) ReadLogs(pctx context.Context, ids ...*big.Int) error
 	ctx, cancel := context.WithTimeout(pctx, readLogsTimeout)
 	defer cancel()
 
-	latest, err := p.poller.LatestBlock(pg.WithParentCtx(ctx))
+	latest, err := p.poller.LatestBlock(ctx)
 	if err != nil {
 		return fmt.Errorf("%w: %s", ErrHeadNotAvailable, err)
 	}
@@ -380,7 +406,7 @@ func (p *logEventProvider) readLogs(ctx context.Context, latest int64, filters [
 			start = configUpdateBlock
 		}
 		// query logs based on contract address, event sig, and blocks
-		logs, err := p.poller.LogsWithSigs(start, latest, []common.Hash{filter.topics[0]}, common.BytesToAddress(filter.addr), pg.WithParentCtx(ctx))
+		logs, err := p.poller.LogsWithSigs(ctx, start, latest, []common.Hash{filter.topics[0]}, common.BytesToAddress(filter.addr))
 		if err != nil {
 			// cancel limit reservation as we failed to get logs
 			resv.Cancel()
@@ -408,4 +434,26 @@ func (p *logEventProvider) readLogs(ctx context.Context, latest int64, filters [
 	}
 
 	return merr
+}
+
+func defaultBlockRateForChain(chainID *big.Int) uint32 {
+	switch chainID.Int64() {
+	case 42161, 421613, 421614: // Arbitrum
+		return 4
+	default:
+		return 1
+	}
+}
+
+func defaultLogLimitForChain(chainID *big.Int) uint32 {
+	switch chainID.Int64() {
+	case 42161, 421613, 421614: // Arbitrum
+		return 1
+	case 1, 4, 5, 42, 11155111: // Eth
+		return 20
+	case 10, 420, 56, 97, 137, 80001, 43113, 43114, 8453, 84531: // Optimism, BSC, Polygon, Avax, Base
+		return 5
+	default:
+		return 1
+	}
 }

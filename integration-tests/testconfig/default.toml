@@ -8,12 +8,14 @@ log_producer_retry_limit=10
 
 [ChainlinkImage]
 postgres_version="15.6"
+image="public.ecr.aws/chainlink/chainlink"
+version="2.9.1"
 
 [Network]
 selected_networks=["simulated"]
 
 [PrivateEthereumNetwork]
-consensus_type="pow"
+ethereum_version="eth1"
 execution_layer="geth"
 
 [PrivateEthereumNetwork.EthereumChainConfig]
@@ -23,6 +25,9 @@ genesis_delay=15
 validator_count=4
 chain_id=1337
 addresses_to_fund=["0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"]
+
+[PrivateEthereumNetwork.EthereumChainConfig.HardForkEpochs]
+Deneb=500
 
 [Seth]
 # enables automatic tracing of all transactions that are decoded via Decode() method
@@ -59,6 +64,7 @@ name = "Fuji"
 chain_id = "43113"
 transaction_timeout = "3m"
 transfer_gas_fee = 21_000
+gas_limit = 8_000_000
 # legacy transactions
 gas_price = 30_000_000_000
 # EIP-1559 transactions
@@ -73,9 +79,9 @@ transaction_timeout = "3m"
 transfer_gas_fee = 40_000
 gas_limit = 30_000_000
 # legacy transactions
-gas_price = 20_000_000_000
+gas_price = 50_000_000_000
 # EIP-1559 transactions
-# eip_1559_dynamic_fees = true2
+# eip_1559_dynamic_fees = true
 gas_fee_cap = 45_000_000_000
 gas_tip_cap = 10_000_000_000
 
@@ -83,12 +89,13 @@ gas_tip_cap = 10_000_000_000
 name = "Mumbai"
 chain_id = "80001"
 transaction_timeout = "3m"
-transfer_gas_fee = 21_000
+transfer_gas_fee = 40_000
+gas_limit = 6_000_000
 # legacy transactions
 #gas_price = 1_800_000_000
 # EIP-1559 transactions
 eip_1559_dynamic_fees = true
-gas_fee_cap = 1_800_000_000
+gas_fee_cap = 3_800_000_000
 gas_tip_cap = 1_800_000_000
 
 [[Seth.networks]]
@@ -101,5 +108,5 @@ gas_limit = 3_000_000
 gas_price = 50_000_000
 # EIP-1559 transactions
 #eip_1559_dynamic_fees = true
-gas_fee_cap = 1_800_000_000
+gas_fee_cap = 3_800_000_000
 gas_tip_cap = 1_800_000_000

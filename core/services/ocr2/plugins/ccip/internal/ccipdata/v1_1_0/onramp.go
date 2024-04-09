@@ -1,11 +1,13 @@
 package v1_1_0
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp_1_1_0"
@@ -37,7 +39,7 @@ func NewOnRamp(lggr logger.Logger, sourceSelector, destSelector uint64, onRampAd
 	}, nil
 }
 
-func (o *OnRamp) RouterAddress() (cciptypes.Address, error) {
+func (o *OnRamp) RouterAddress(context.Context) (cciptypes.Address, error) {
 	config, err := o.onRamp.GetDynamicConfig(nil)
 	if err != nil {
 		return "", err
@@ -45,7 +47,7 @@ func (o *OnRamp) RouterAddress() (cciptypes.Address, error) {
 	return cciptypes.Address(config.Router.String()), nil
 }
 
-func (o *OnRamp) GetDynamicConfig() (cciptypes.OnRampDynamicConfig, error) {
+func (o *OnRamp) GetDynamicConfig(context.Context) (cciptypes.OnRampDynamicConfig, error) {
 	if o.onRamp == nil {
 		return cciptypes.OnRampDynamicConfig{}, fmt.Errorf("onramp not initialized")
 	}

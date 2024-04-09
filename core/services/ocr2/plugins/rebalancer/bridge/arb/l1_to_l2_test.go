@@ -130,8 +130,8 @@ func Test_l1ToL2Bridge_Close(t *testing.T) {
 			},
 			false,
 			func(t *testing.T, f fields) {
-				f.l1LogPoller.On("UnregisterFilter", f.l1FilterName).Return(nil)
-				f.l2LogPoller.On("UnregisterFilter", f.l2FilterName).Return(nil)
+				f.l1LogPoller.On("UnregisterFilter", mock.Anything, f.l1FilterName).Return(nil)
+				f.l2LogPoller.On("UnregisterFilter", mock.Anything, f.l2FilterName).Return(nil)
 			},
 			func(t *testing.T, f fields) {
 				f.l1LogPoller.AssertExpectations(t)
@@ -151,8 +151,8 @@ func Test_l1ToL2Bridge_Close(t *testing.T) {
 			},
 			true,
 			func(t *testing.T, f fields) {
-				f.l1LogPoller.On("UnregisterFilter", f.l1FilterName).Return(errors.New("unregister error"))
-				f.l2LogPoller.On("UnregisterFilter", f.l2FilterName).Return(nil)
+				f.l1LogPoller.On("UnregisterFilter", mock.Anything, f.l1FilterName).Return(errors.New("unregister error"))
+				f.l2LogPoller.On("UnregisterFilter", mock.Anything, f.l2FilterName).Return(nil)
 			},
 			func(t *testing.T, f fields) {
 				f.l1LogPoller.AssertExpectations(t)
@@ -172,8 +172,8 @@ func Test_l1ToL2Bridge_Close(t *testing.T) {
 			},
 			true,
 			func(t *testing.T, f fields) {
-				f.l1LogPoller.On("UnregisterFilter", f.l1FilterName).Return(nil)
-				f.l2LogPoller.On("UnregisterFilter", f.l2FilterName).Return(errors.New("unregister error"))
+				f.l1LogPoller.On("UnregisterFilter", mock.Anything, f.l1FilterName).Return(nil)
+				f.l2LogPoller.On("UnregisterFilter", mock.Anything, f.l2FilterName).Return(errors.New("unregister error"))
 			},
 			func(t *testing.T, f fields) {
 				f.l1LogPoller.AssertExpectations(t)
@@ -1181,13 +1181,13 @@ func Test_l1ToL2Bridge_getLogs(t *testing.T) {
 			},
 			func(t *testing.T, f fields, a args) {
 				f.l1LogPoller.On("IndexedLogsCreatedAfter",
+					mock.Anything,
 					LiquidityTransferredTopic,
 					l1Rebalancer.Address(),
 					LiquidityTransferredToChainSelectorTopicIndex,
 					[]common.Hash{toHash(remoteSelector)},
 					a.fromTs,
 					logpoller.Confirmations(1),
-					mock.Anything,
 				).Return(nil, errors.New("error"))
 			},
 			func(t *testing.T, f fields) {
@@ -1215,22 +1215,22 @@ func Test_l1ToL2Bridge_getLogs(t *testing.T) {
 			},
 			func(t *testing.T, f fields, a args) {
 				f.l1LogPoller.On("IndexedLogsCreatedAfter",
+					mock.Anything,
 					LiquidityTransferredTopic,
 					l1Rebalancer.Address(),
 					LiquidityTransferredToChainSelectorTopicIndex,
 					[]common.Hash{toHash(remoteSelector)},
 					a.fromTs,
 					logpoller.Confirmations(1),
-					mock.Anything,
 				).Return([]logpoller.Log{{}, {}}, nil)
 				f.l2LogPoller.On("IndexedLogsCreatedAfter",
+					mock.Anything,
 					DepositFinalizedTopic,
 					l2Gateway.Address(),
 					DepositFinalizedToAddressTopicIndex,
 					[]common.Hash{common.HexToHash(l2RebalancerAddress.Hex())},
 					a.fromTs,
 					logpoller.Finalized,
-					mock.Anything,
 				).Return(nil, errors.New("error"))
 			},
 			func(t *testing.T, f fields) {
@@ -1259,31 +1259,31 @@ func Test_l1ToL2Bridge_getLogs(t *testing.T) {
 			},
 			func(t *testing.T, f fields, a args) {
 				f.l1LogPoller.On("IndexedLogsCreatedAfter",
+					mock.Anything,
 					LiquidityTransferredTopic,
 					l1Rebalancer.Address(),
 					LiquidityTransferredToChainSelectorTopicIndex,
 					[]common.Hash{toHash(remoteSelector)},
 					a.fromTs,
 					logpoller.Confirmations(1),
-					mock.Anything,
 				).Return([]logpoller.Log{{}, {}}, nil)
 				f.l2LogPoller.On("IndexedLogsCreatedAfter",
+					mock.Anything,
 					DepositFinalizedTopic,
 					l2Gateway.Address(),
 					DepositFinalizedToAddressTopicIndex,
 					[]common.Hash{common.HexToHash(l2RebalancerAddress.Hex())},
 					a.fromTs,
 					logpoller.Finalized,
-					mock.Anything,
 				).Return([]logpoller.Log{{}, {}}, nil)
 				f.l2LogPoller.On("IndexedLogsCreatedAfter",
+					mock.Anything,
 					LiquidityTransferredTopic,
 					l2RebalancerAddress,
 					LiquidityTransferredFromChainSelectorTopicIndex,
 					[]common.Hash{toHash(localSelector)},
 					a.fromTs,
 					logpoller.Confirmations(1),
-					mock.Anything,
 				).Return(nil, errors.New("error"))
 			},
 			func(t *testing.T, f fields) {
@@ -1312,37 +1312,37 @@ func Test_l1ToL2Bridge_getLogs(t *testing.T) {
 			},
 			func(t *testing.T, f fields, a args) {
 				f.l1LogPoller.On("IndexedLogsCreatedAfter",
+					mock.Anything,
 					LiquidityTransferredTopic,
 					l1Rebalancer.Address(),
 					LiquidityTransferredToChainSelectorTopicIndex,
 					[]common.Hash{toHash(remoteSelector)},
 					a.fromTs,
 					logpoller.Confirmations(1),
-					mock.Anything,
 				).Return([]logpoller.Log{
 					{EventSig: LiquidityTransferredTopic, TxHash: common.HexToHash("0x1")},
 					{EventSig: LiquidityTransferredTopic, TxHash: common.HexToHash("0x2")},
 				}, nil)
 				f.l2LogPoller.On("IndexedLogsCreatedAfter",
+					mock.Anything,
 					DepositFinalizedTopic,
 					l2Gateway.Address(),
 					DepositFinalizedToAddressTopicIndex,
 					[]common.Hash{common.HexToHash(l2RebalancerAddress.Hex())},
 					a.fromTs,
 					logpoller.Finalized,
-					mock.Anything,
 				).Return([]logpoller.Log{
 					{EventSig: DepositFinalizedTopic, TxHash: common.HexToHash("0x3")},
 					{EventSig: DepositFinalizedTopic, TxHash: common.HexToHash("0x4")},
 				}, nil)
 				f.l2LogPoller.On("IndexedLogsCreatedAfter",
+					mock.Anything,
 					LiquidityTransferredTopic,
 					l2RebalancerAddress,
 					LiquidityTransferredFromChainSelectorTopicIndex,
 					[]common.Hash{toHash(localSelector)},
 					a.fromTs,
 					logpoller.Confirmations(1),
-					mock.Anything,
 				).Return([]logpoller.Log{
 					{EventSig: LiquidityTransferredTopic, TxHash: common.HexToHash("0x5")},
 					{EventSig: LiquidityTransferredTopic, TxHash: common.HexToHash("0x6")},

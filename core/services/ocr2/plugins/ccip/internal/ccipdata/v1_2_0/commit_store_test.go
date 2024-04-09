@@ -12,14 +12,17 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 )
 
 func TestCommitReportEncoding(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 	report := cciptypes.CommitStoreReport{
 		TokenPrices: []cciptypes.TokenPrice{
 			{
@@ -48,11 +51,11 @@ func TestCommitReportEncoding(t *testing.T) {
 	c, err := NewCommitStore(logger.TestLogger(t), utils.RandomAddress(), nil, mocks.NewLogPoller(t), nil, nil)
 	assert.NoError(t, err)
 
-	encodedReport, err := c.EncodeCommitReport(report)
+	encodedReport, err := c.EncodeCommitReport(ctx, report)
 	require.NoError(t, err)
 	assert.Greater(t, len(encodedReport), 0)
 
-	decodedReport, err := c.DecodeCommitReport(encodedReport)
+	decodedReport, err := c.DecodeCommitReport(ctx, encodedReport)
 	require.NoError(t, err)
 	require.Equal(t, report, decodedReport)
 }
