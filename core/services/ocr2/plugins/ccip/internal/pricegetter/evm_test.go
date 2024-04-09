@@ -73,8 +73,8 @@ func TestDynamicPriceGetter(t *testing.T) {
 				tokenAddr := cciptypes.Address(tk.String())
 				tokens = append(tokens, tokenAddr)
 				// Expect that token is configured
-				isConfigured, err := pg.IsTokenConfigured(ctx, tokenAddr)
-				require.NoError(t, err)
+				isConfigured, err2 := pg.IsTokenConfigured(ctx, tokenAddr)
+				require.NoError(t, err2)
 				assert.True(t, isConfigured)
 			}
 			prices, err := pg.TokenPricesUSD(ctx, tokens)
