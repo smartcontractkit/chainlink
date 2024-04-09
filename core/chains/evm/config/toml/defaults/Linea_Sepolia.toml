@@ -5,6 +5,7 @@ NoNewHeadsThreshold = '0'
 [GasEstimator]
 EIP1559DynamicFees = true
 BumpPercent = 10
+PriceMin = '1 wei'
 
 [Transactions]
 ResendAfterThreshold = '3m'
