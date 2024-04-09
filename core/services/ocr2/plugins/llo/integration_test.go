@@ -139,7 +139,7 @@ func TestIntegration_LLO(t *testing.T) {
 		offchainPublicKey, _ := hex.DecodeString(strings.TrimPrefix(kb.OnChainPublicKey(), "0x"))
 		oracles = append(oracles, confighelper.OracleIdentityExtra{
 			OracleIdentity: confighelper.OracleIdentity{
-				OnchainPublicKey:  offchainPublicKey,
+				OnchainPublicKey:  offchainPublicKey, // TODO: Onchain, offchain?
 				TransmitAccount:   ocr2types.Account(fmt.Sprintf("%x", transmitter[:])),
 				OffchainPublicKey: kb.OffchainPublicKey(),
 				PeerID:            peerID,
@@ -165,19 +165,21 @@ func TestIntegration_LLO(t *testing.T) {
 	t.Run("receives at least one report per feed from each oracle when EAs are at 100% reliability", func(t *testing.T) {
 		// Expect at least one report per channel from each oracle (keyed by transmitter ID)
 		seen := make(map[ocr2types.Account]map[llotypes.ChannelID]struct{})
+		completedOracles := make(map[ocr2types.Account]struct{})
 
 		for channelID, defn := range channelDefinitions {
 			t.Logf("Expect report for channel ID %x (definition: %#v)", channelID, defn)
 		}
 		for _, o := range oracles {
 			t.Logf("Expect report from oracle %s", o.OracleIdentity.TransmitAccount)
-			seen[o.OracleIdentity.TransmitAccount] = make(map[llotypes.ChannelID]struct{})
+			seen[ocr2types.Account(o.OracleIdentity.OnchainPublicKey)] = make(map[llotypes.ChannelID]struct{})
 		}
-
+		i := 0
 		for req := range reqs {
-			if _, exists := seen[req.TransmitterID()]; !exists {
-				// oracle already reported on all channels; discard
-				continue
+			i++
+			
+			if i > len(oracles)*(len(channelDefinitions)+1) {
+				t.Fatalf("FAIL: received much more reports than expected: %d/%d", i, len(oracles)*len(channelDefinitions))
 			}
 
 			v := make(map[string]interface{})
@@ -227,14 +229,20 @@ func TestIntegration_LLO(t *testing.T) {
 
 			assert.False(t, r.Specimen)
 
+			//if _, exists := seen[req.TransmitterID()]; !exists {continue}
+			if _, exists := seen[req.TransmitterID()]; !exists {
+				t.Fatalf("FAIL: unexpected report from req.TransmitterID %s", req.TransmitterID())
+			}
+
 			seen[req.TransmitterID()][r.ChannelID] = struct{}{}
 			t.Logf("Got report from oracle %s with channel: %x)", req.TransmitterID(), r.ChannelID)
 
 			if _, exists := seen[req.TransmitterID()]; exists && len(seen[req.TransmitterID()]) == len(channelDefinitions) {
 				t.Logf("All channels reported for oracle with transmitterID %s", req.TransmitterID())
-				delete(seen, req.TransmitterID())
+				// delete(seen, req.TransmitterID())
+				completedOracles[req.TransmitterID()] = struct{}{}
 			}
-			if len(seen) == 0 {
+			if len(completedOracles) == len(oracles) { //len(seen) == 0
 				break // saw all oracles; success!
 			}
 
