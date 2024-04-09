@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
@@ -67,7 +68,7 @@ func (rf *CommitReportingPluginFactory) UpdateDynamicReaders(ctx context.Context
 func (rf *CommitReportingPluginFactory) NewReportingPlugin(config types.ReportingPluginConfig) (types.ReportingPlugin, types.ReportingPluginInfo, error) {
 	ctx := context.Background() // todo: consider adding some timeout
 
-	destPriceReg, err := rf.config.commitStore.ChangeConfig(config.OnchainConfig, config.OffchainConfig)
+	destPriceReg, err := rf.config.commitStore.ChangeConfig(ctx, config.OnchainConfig, config.OffchainConfig)
 	if err != nil {
 		return nil, types.ReportingPluginInfo{}, err
 	}
@@ -80,7 +81,15 @@ func (rf *CommitReportingPluginFactory) NewReportingPlugin(config types.Reportin
 		return nil, types.ReportingPluginInfo{}, err
 	}
 
-	pluginOffChainConfig := rf.config.commitStore.OffchainConfig()
+	pluginOffChainConfig, err := rf.config.commitStore.OffchainConfig(ctx)
+	if err != nil {
+		return nil, types.ReportingPluginInfo{}, err
+	}
+
+	gasPriceEstimator, err := rf.config.commitStore.GasPriceEstimator(ctx)
+	if err != nil {
+		return nil, types.ReportingPluginInfo{}, err
+	}
 
 	lggr := rf.config.lggr.Named("CommitReportingPlugin")
 	return &CommitReportingPlugin{
@@ -93,7 +102,7 @@ func (rf *CommitReportingPluginFactory) NewReportingPlugin(config types.Reportin
 			lggr:                    lggr,
 			destPriceRegistryReader: rf.destPriceRegReader,
 			offRampReaders:          rf.config.offRamps,
-			gasPriceEstimator:       rf.config.commitStore.GasPriceEstimator(),
+			gasPriceEstimator:       gasPriceEstimator,
 			offchainConfig:          pluginOffChainConfig,
 			metricsCollector:        rf.config.metricsCollector,
 			chainHealthcheck:        rf.config.chainHealthcheck,

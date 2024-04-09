@@ -68,7 +68,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	clutils "github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
@@ -181,10 +180,10 @@ func (node *Node) EventuallyNodeUsesUpdatedPriceRegistry(t *testing.T, ccipContr
 		ccipContracts.Source.Chain.Commit()
 		ccipContracts.Dest.Chain.Commit()
 		log, err := c.LogPoller().LatestLogByEventSigWithConfs(
+			testutils.Context(t),
 			v1_0_0.UsdPerUnitGasUpdated,
 			ccipContracts.Dest.PriceRegistry.Address(),
 			0,
-			pg.WithParentCtx(testutils.Context(t)),
 		)
 		// err can be transient errors such as sql row set empty
 		if err != nil {
@@ -203,10 +202,10 @@ func (node *Node) EventuallyNodeUsesNewCommitConfig(t *testing.T, ccipContracts 
 		ccipContracts.Source.Chain.Commit()
 		ccipContracts.Dest.Chain.Commit()
 		log, err := c.LogPoller().LatestLogByEventSigWithConfs(
+			testutils.Context(t),
 			evmrelay.OCR2AggregatorLogDecoder.EventSig(),
 			ccipContracts.Dest.CommitStore.Address(),
 			0,
-			pg.WithParentCtx(testutils.Context(t)),
 		)
 		require.NoError(t, err)
 		var latestCfg ccipdata.CommitOnchainConfig
@@ -228,10 +227,10 @@ func (node *Node) EventuallyNodeUsesNewExecConfig(t *testing.T, ccipContracts CC
 		ccipContracts.Source.Chain.Commit()
 		ccipContracts.Dest.Chain.Commit()
 		log, err := c.LogPoller().LatestLogByEventSigWithConfs(
+			testutils.Context(t),
 			evmrelay.OCR2AggregatorLogDecoder.EventSig(),
 			ccipContracts.Dest.OffRamp.Address(),
 			0,
-			pg.WithParentCtx(testutils.Context(t)),
 		)
 		require.NoError(t, err)
 		var latestCfg v1_2_0.ExecOnchainConfig
@@ -253,13 +252,13 @@ func (node *Node) EventuallyHasReqSeqNum(t *testing.T, ccipContracts *CCIPIntegr
 		ccipContracts.Source.Chain.Commit()
 		ccipContracts.Dest.Chain.Commit()
 		lgs, err := c.LogPoller().LogsDataWordRange(
+			testutils.Context(t),
 			v1_2_0.CCIPSendRequestEventSig,
 			onRamp,
 			v1_2_0.CCIPSendRequestSeqNumIndex,
 			abihelpers.EvmWord(uint64(seqNum)),
 			abihelpers.EvmWord(uint64(seqNum)),
 			1,
-			pg.WithParentCtx(testutils.Context(t)),
 		)
 		require.NoError(t, err)
 		t.Log("Send requested", len(lgs))
@@ -280,13 +279,13 @@ func (node *Node) EventuallyHasExecutedSeqNums(t *testing.T, ccipContracts *CCIP
 		ccipContracts.Source.Chain.Commit()
 		ccipContracts.Dest.Chain.Commit()
 		lgs, err := c.LogPoller().IndexedLogsTopicRange(
+			testutils.Context(t),
 			v1_0_0.ExecutionStateChangedEvent,
 			offRamp,
 			v1_0_0.ExecutionStateChangedSeqNrIndex,
 			abihelpers.EvmWord(uint64(minSeqNum)),
 			abihelpers.EvmWord(uint64(maxSeqNum)),
 			1,
-			pg.WithParentCtx(testutils.Context(t)),
 		)
 		require.NoError(t, err)
 		t.Logf("Have executed logs %d want %d", len(lgs), maxSeqNum-minSeqNum+1)
@@ -308,13 +307,13 @@ func (node *Node) ConsistentlySeqNumHasNotBeenExecuted(t *testing.T, ccipContrac
 		ccipContracts.Source.Chain.Commit()
 		ccipContracts.Dest.Chain.Commit()
 		lgs, err := c.LogPoller().IndexedLogsTopicRange(
+			testutils.Context(t),
 			v1_0_0.ExecutionStateChangedEvent,
 			offRamp,
 			v1_0_0.ExecutionStateChangedSeqNrIndex,
 			abihelpers.EvmWord(uint64(seqNum)),
 			abihelpers.EvmWord(uint64(seqNum)),
 			1,
-			pg.WithParentCtx(testutils.Context(t)),
 		)
 		require.NoError(t, err)
 		t.Log("Executed logs", lgs)
@@ -330,7 +329,14 @@ func (node *Node) ConsistentlySeqNumHasNotBeenExecuted(t *testing.T, ccipContrac
 func (node *Node) AddJob(t *testing.T, spec *OCR2TaskJobSpec) {
 	specString, err := spec.String()
 	require.NoError(t, err)
-	ccipJob, err := validate.ValidatedOracleSpecToml(node.App.GetConfig().OCR2(), node.App.GetConfig().Insecure(), specString)
+	ccipJob, err := validate.ValidatedOracleSpecToml(
+		testutils.Context(t),
+		node.App.GetConfig().OCR2(),
+		node.App.GetConfig().Insecure(),
+		specString,
+		// FIXME Ani
+		nil,
+	)
 	require.NoError(t, err)
 	err = node.App.AddJobV2(context.Background(), &ccipJob)
 	require.NoError(t, err)
@@ -445,6 +451,7 @@ func setupNodeCCIP(
 			},
 			MailMon: mailMon,
 			DB:      db,
+			SqlxDB:  db,
 		},
 		CSAETHKeystore: simEthKeyStore,
 	}
@@ -456,7 +463,9 @@ func setupNodeCCIP(
 	}
 	testCtx := testutils.Context(t)
 	// evm alway enabled for backward compatibility
-	initOps := []chainlink.CoreRelayerChainInitFunc{chainlink.InitEVM(testCtx, relayerFactory, evmOpts)}
+	initOps := []chainlink.CoreRelayerChainInitFunc{
+		chainlink.InitEVM(testCtx, relayerFactory, evmOpts),
+	}
 
 	relayChainInterops, err := chainlink.NewCoreRelayerChainInteroperators(initOps...)
 	if err != nil {

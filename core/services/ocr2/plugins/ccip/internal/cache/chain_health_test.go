@@ -291,6 +291,10 @@ func (f *fakeStatusWrapper) IsSourceCursed(context.Context) (bool, error) {
 	return !f.healthy, f.err
 }
 
+func (f *fakeStatusWrapper) Close() error {
+	return nil
+}
+
 func (f *fakeStatusWrapper) set(healthy bool, err error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()

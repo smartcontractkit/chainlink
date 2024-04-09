@@ -112,11 +112,11 @@ func TestLogpollerEventsBased(t *testing.T) {
 		if round.stateLatestBlock > 0 {
 			lp.On(
 				"LatestBlockByEventSigsAddrsWithConfs",
+				mock.Anything,
 				round.stateLatestBlock,
 				observedEvents,
 				[]common.Address{contractAddress},
 				logpoller.Finalized,
-				mock.Anything,
 			).Return(round.latestEventBlock, nil).Once()
 		}
 

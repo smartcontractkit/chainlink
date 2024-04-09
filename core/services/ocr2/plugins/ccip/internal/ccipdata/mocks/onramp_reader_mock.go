@@ -15,9 +15,9 @@ type OnRampReader struct {
 	mock.Mock
 }
 
-// Address provides a mock function with given fields:
-func (_m *OnRampReader) Address() (ccip.Address, error) {
-	ret := _m.Called()
+// Address provides a mock function with given fields: ctx
+func (_m *OnRampReader) Address(ctx context.Context) (ccip.Address, error) {
+	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Address")
@@ -25,17 +25,17 @@ func (_m *OnRampReader) Address() (ccip.Address, error) {
 
 	var r0 ccip.Address
 	var r1 error
-	if rf, ok := ret.Get(0).(func() (ccip.Address, error)); ok {
-		return rf()
+	if rf, ok := ret.Get(0).(func(context.Context) (ccip.Address, error)); ok {
+		return rf(ctx)
 	}
-	if rf, ok := ret.Get(0).(func() ccip.Address); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(context.Context) ccip.Address); ok {
+		r0 = rf(ctx)
 	} else {
 		r0 = ret.Get(0).(ccip.Address)
 	}
 
-	if rf, ok := ret.Get(1).(func() error); ok {
-		r1 = rf()
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -43,9 +43,27 @@ func (_m *OnRampReader) Address() (ccip.Address, error) {
 	return r0, r1
 }
 
-// GetDynamicConfig provides a mock function with given fields:
-func (_m *OnRampReader) GetDynamicConfig() (ccip.OnRampDynamicConfig, error) {
+// Close provides a mock function with given fields:
+func (_m *OnRampReader) Close() error {
 	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for Close")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func() error); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// GetDynamicConfig provides a mock function with given fields: ctx
+func (_m *OnRampReader) GetDynamicConfig(ctx context.Context) (ccip.OnRampDynamicConfig, error) {
+	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetDynamicConfig")
@@ -53,17 +71,17 @@ func (_m *OnRampReader) GetDynamicConfig() (ccip.OnRampDynamicConfig, error) {
 
 	var r0 ccip.OnRampDynamicConfig
 	var r1 error
-	if rf, ok := ret.Get(0).(func() (ccip.OnRampDynamicConfig, error)); ok {
-		return rf()
+	if rf, ok := ret.Get(0).(func(context.Context) (ccip.OnRampDynamicConfig, error)); ok {
+		return rf(ctx)
 	}
-	if rf, ok := ret.Get(0).(func() ccip.OnRampDynamicConfig); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(context.Context) ccip.OnRampDynamicConfig); ok {
+		r0 = rf(ctx)
 	} else {
 		r0 = ret.Get(0).(ccip.OnRampDynamicConfig)
 	}
 
-	if rf, ok := ret.Get(1).(func() error); ok {
-		r1 = rf()
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -157,9 +175,9 @@ func (_m *OnRampReader) IsSourceCursed(ctx context.Context) (bool, error) {
 	return r0, r1
 }
 
-// RouterAddress provides a mock function with given fields:
-func (_m *OnRampReader) RouterAddress() (ccip.Address, error) {
-	ret := _m.Called()
+// RouterAddress provides a mock function with given fields: _a0
+func (_m *OnRampReader) RouterAddress(_a0 context.Context) (ccip.Address, error) {
+	ret := _m.Called(_a0)
 
 	if len(ret) == 0 {
 		panic("no return value specified for RouterAddress")
@@ -167,17 +185,17 @@ func (_m *OnRampReader) RouterAddress() (ccip.Address, error) {
 
 	var r0 ccip.Address
 	var r1 error
-	if rf, ok := ret.Get(0).(func() (ccip.Address, error)); ok {
-		return rf()
+	if rf, ok := ret.Get(0).(func(context.Context) (ccip.Address, error)); ok {
+		return rf(_a0)
 	}
-	if rf, ok := ret.Get(0).(func() ccip.Address); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(context.Context) ccip.Address); ok {
+		r0 = rf(_a0)
 	} else {
 		r0 = ret.Get(0).(ccip.Address)
 	}
 
-	if rf, ok := ret.Get(1).(func() error); ok {
-		r1 = rf()
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(_a0)
 	} else {
 		r1 = ret.Error(1)
 	}

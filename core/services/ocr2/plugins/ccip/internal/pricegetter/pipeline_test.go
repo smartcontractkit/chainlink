@@ -17,6 +17,7 @@ import (
 
 	config2 "github.com/smartcontractkit/chainlink-common/pkg/config"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
@@ -160,6 +161,7 @@ func newTestPipelineGetter(t *testing.T, source string) *pricegetter.PipelineGet
 	cfg.On("MaxRunDuration").Return(time.Second)
 	cfg.On("DefaultHTTPTimeout").Return(*config2.MustNewDuration(time.Second))
 	cfg.On("DefaultHTTPLimit").Return(int64(1024 * 10))
+	cfg.On("VerboseLogging").Return(true)
 	db := pgtest.NewSqlxDB(t)
 	bridgeORM := bridges.NewORM(db, lggr, config.NewTestGeneralConfig(t).Database())
 	runner := pipeline.NewRunner(pipeline.NewORM(db, lggr, config.NewTestGeneralConfig(t).Database(), config.NewTestGeneralConfig(t).JobPipeline().MaxSuccessfulRuns()),

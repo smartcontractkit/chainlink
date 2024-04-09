@@ -17,9 +17,9 @@ type CommitStoreReader struct {
 	mock.Mock
 }
 
-// ChangeConfig provides a mock function with given fields: onchainConfig, offchainConfig
-func (_m *CommitStoreReader) ChangeConfig(onchainConfig []byte, offchainConfig []byte) (ccip.Address, error) {
-	ret := _m.Called(onchainConfig, offchainConfig)
+// ChangeConfig provides a mock function with given fields: ctx, onchainConfig, offchainConfig
+func (_m *CommitStoreReader) ChangeConfig(ctx context.Context, onchainConfig []byte, offchainConfig []byte) (ccip.Address, error) {
+	ret := _m.Called(ctx, onchainConfig, offchainConfig)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ChangeConfig")
@@ -27,17 +27,17 @@ func (_m *CommitStoreReader) ChangeConfig(onchainConfig []byte, offchainConfig [
 
 	var r0 ccip.Address
 	var r1 error
-	if rf, ok := ret.Get(0).(func([]byte, []byte) (ccip.Address, error)); ok {
-		return rf(onchainConfig, offchainConfig)
+	if rf, ok := ret.Get(0).(func(context.Context, []byte, []byte) (ccip.Address, error)); ok {
+		return rf(ctx, onchainConfig, offchainConfig)
 	}
-	if rf, ok := ret.Get(0).(func([]byte, []byte) ccip.Address); ok {
-		r0 = rf(onchainConfig, offchainConfig)
+	if rf, ok := ret.Get(0).(func(context.Context, []byte, []byte) ccip.Address); ok {
+		r0 = rf(ctx, onchainConfig, offchainConfig)
 	} else {
 		r0 = ret.Get(0).(ccip.Address)
 	}
 
-	if rf, ok := ret.Get(1).(func([]byte, []byte) error); ok {
-		r1 = rf(onchainConfig, offchainConfig)
+	if rf, ok := ret.Get(1).(func(context.Context, []byte, []byte) error); ok {
+		r1 = rf(ctx, onchainConfig, offchainConfig)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -45,9 +45,27 @@ func (_m *CommitStoreReader) ChangeConfig(onchainConfig []byte, offchainConfig [
 	return r0, r1
 }
 
-// DecodeCommitReport provides a mock function with given fields: report
-func (_m *CommitStoreReader) DecodeCommitReport(report []byte) (ccip.CommitStoreReport, error) {
-	ret := _m.Called(report)
+// Close provides a mock function with given fields:
+func (_m *CommitStoreReader) Close() error {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for Close")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func() error); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// DecodeCommitReport provides a mock function with given fields: ctx, report
+func (_m *CommitStoreReader) DecodeCommitReport(ctx context.Context, report []byte) (ccip.CommitStoreReport, error) {
+	ret := _m.Called(ctx, report)
 
 	if len(ret) == 0 {
 		panic("no return value specified for DecodeCommitReport")
@@ -55,17 +73,17 @@ func (_m *CommitStoreReader) DecodeCommitReport(report []byte) (ccip.CommitStore
 
 	var r0 ccip.CommitStoreReport
 	var r1 error
-	if rf, ok := ret.Get(0).(func([]byte) (ccip.CommitStoreReport, error)); ok {
-		return rf(report)
+	if rf, ok := ret.Get(0).(func(context.Context, []byte) (ccip.CommitStoreReport, error)); ok {
+		return rf(ctx, report)
 	}
-	if rf, ok := ret.Get(0).(func([]byte) ccip.CommitStoreReport); ok {
-		r0 = rf(report)
+	if rf, ok := ret.Get(0).(func(context.Context, []byte) ccip.CommitStoreReport); ok {
+		r0 = rf(ctx, report)
 	} else {
 		r0 = ret.Get(0).(ccip.CommitStoreReport)
 	}
 
-	if rf, ok := ret.Get(1).(func([]byte) error); ok {
-		r1 = rf(report)
+	if rf, ok := ret.Get(1).(func(context.Context, []byte) error); ok {
+		r1 = rf(ctx, report)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -73,9 +91,9 @@ func (_m *CommitStoreReader) DecodeCommitReport(report []byte) (ccip.CommitStore
 	return r0, r1
 }
 
-// EncodeCommitReport provides a mock function with given fields: report
-func (_m *CommitStoreReader) EncodeCommitReport(report ccip.CommitStoreReport) ([]byte, error) {
-	ret := _m.Called(report)
+// EncodeCommitReport provides a mock function with given fields: ctx, report
+func (_m *CommitStoreReader) EncodeCommitReport(ctx context.Context, report ccip.CommitStoreReport) ([]byte, error) {
+	ret := _m.Called(ctx, report)
 
 	if len(ret) == 0 {
 		panic("no return value specified for EncodeCommitReport")
@@ -83,19 +101,19 @@ func (_m *CommitStoreReader) EncodeCommitReport(report ccip.CommitStoreReport) (
 
 	var r0 []byte
 	var r1 error
-	if rf, ok := ret.Get(0).(func(ccip.CommitStoreReport) ([]byte, error)); ok {
-		return rf(report)
+	if rf, ok := ret.Get(0).(func(context.Context, ccip.CommitStoreReport) ([]byte, error)); ok {
+		return rf(ctx, report)
 	}
-	if rf, ok := ret.Get(0).(func(ccip.CommitStoreReport) []byte); ok {
-		r0 = rf(report)
+	if rf, ok := ret.Get(0).(func(context.Context, ccip.CommitStoreReport) []byte); ok {
+		r0 = rf(ctx, report)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]byte)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(ccip.CommitStoreReport) error); ok {
-		r1 = rf(report)
+	if rf, ok := ret.Get(1).(func(context.Context, ccip.CommitStoreReport) error); ok {
+		r1 = rf(ctx, report)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -103,24 +121,34 @@ func (_m *CommitStoreReader) EncodeCommitReport(report ccip.CommitStoreReport) (
 	return r0, r1
 }
 
-// GasPriceEstimator provides a mock function with given fields:
-func (_m *CommitStoreReader) GasPriceEstimator() ccip.GasPriceEstimatorCommit {
-	ret := _m.Called()
+// GasPriceEstimator provides a mock function with given fields: ctx
+func (_m *CommitStoreReader) GasPriceEstimator(ctx context.Context) (ccip.GasPriceEstimatorCommit, error) {
+	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GasPriceEstimator")
 	}
 
 	var r0 ccip.GasPriceEstimatorCommit
-	if rf, ok := ret.Get(0).(func() ccip.GasPriceEstimatorCommit); ok {
-		r0 = rf()
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context) (ccip.GasPriceEstimatorCommit, error)); ok {
+		return rf(ctx)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context) ccip.GasPriceEstimatorCommit); ok {
+		r0 = rf(ctx)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(ccip.GasPriceEstimatorCommit)
 		}
 	}
 
-	return r0
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 // GetAcceptedCommitReportsGteTimestamp provides a mock function with given fields: ctx, ts, confirmations
@@ -211,9 +239,9 @@ func (_m *CommitStoreReader) GetCommitStoreStaticConfig(ctx context.Context) (cc
 	return r0, r1
 }
 
-// GetExpectedNextSequenceNumber provides a mock function with given fields: _a0
-func (_m *CommitStoreReader) GetExpectedNextSequenceNumber(_a0 context.Context) (uint64, error) {
-	ret := _m.Called(_a0)
+// GetExpectedNextSequenceNumber provides a mock function with given fields: ctx
+func (_m *CommitStoreReader) GetExpectedNextSequenceNumber(ctx context.Context) (uint64, error) {
+	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetExpectedNextSequenceNumber")
@@ -222,16 +250,16 @@ func (_m *CommitStoreReader) GetExpectedNextSequenceNumber(_a0 context.Context) 
 	var r0 uint64
 	var r1 error
 	if rf, ok := ret.Get(0).(func(context.Context) (uint64, error)); ok {
-		return rf(_a0)
+		return rf(ctx)
 	}
 	if rf, ok := ret.Get(0).(func(context.Context) uint64); ok {
-		r0 = rf(_a0)
+		r0 = rf(ctx)
 	} else {
 		r0 = ret.Get(0).(uint64)
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
-		r1 = rf(_a0)
+		r1 = rf(ctx)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -239,9 +267,9 @@ func (_m *CommitStoreReader) GetExpectedNextSequenceNumber(_a0 context.Context) 
 	return r0, r1
 }
 
-// GetLatestPriceEpochAndRound provides a mock function with given fields: _a0
-func (_m *CommitStoreReader) GetLatestPriceEpochAndRound(_a0 context.Context) (uint64, error) {
-	ret := _m.Called(_a0)
+// GetLatestPriceEpochAndRound provides a mock function with given fields: ctx
+func (_m *CommitStoreReader) GetLatestPriceEpochAndRound(ctx context.Context) (uint64, error) {
+	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetLatestPriceEpochAndRound")
@@ -250,16 +278,16 @@ func (_m *CommitStoreReader) GetLatestPriceEpochAndRound(_a0 context.Context) (u
 	var r0 uint64
 	var r1 error
 	if rf, ok := ret.Get(0).(func(context.Context) (uint64, error)); ok {
-		return rf(_a0)
+		return rf(ctx)
 	}
 	if rf, ok := ret.Get(0).(func(context.Context) uint64); ok {
-		r0 = rf(_a0)
+		r0 = rf(ctx)
 	} else {
 		r0 = ret.Get(0).(uint64)
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
-		r1 = rf(_a0)
+		r1 = rf(ctx)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -351,22 +379,32 @@ func (_m *CommitStoreReader) IsDown(ctx context.Context) (bool, error) {
 	return r0, r1
 }
 
-// OffchainConfig provides a mock function with given fields:
-func (_m *CommitStoreReader) OffchainConfig() ccip.CommitOffchainConfig {
-	ret := _m.Called()
+// OffchainConfig provides a mock function with given fields: ctx
+func (_m *CommitStoreReader) OffchainConfig(ctx context.Context) (ccip.CommitOffchainConfig, error) {
+	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for OffchainConfig")
 	}
 
 	var r0 ccip.CommitOffchainConfig
-	if rf, ok := ret.Get(0).(func() ccip.CommitOffchainConfig); ok {
-		r0 = rf()
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context) (ccip.CommitOffchainConfig, error)); ok {
+		return rf(ctx)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context) ccip.CommitOffchainConfig); ok {
+		r0 = rf(ctx)
 	} else {
 		r0 = ret.Get(0).(ccip.CommitOffchainConfig)
 	}
 
-	return r0
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 // VerifyExecutionReport provides a mock function with given fields: ctx, report
