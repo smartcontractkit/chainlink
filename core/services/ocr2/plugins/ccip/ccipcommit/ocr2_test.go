@@ -337,6 +337,7 @@ func TestCommitReportingPlugin_Report(t *testing.T) {
 		name                   string
 		observations           []ccip.CommitObservation
 		f                      int
+		priceGetterConfTokens  []cciptypes.Address
 		gasPriceUpdates        []cciptypes.GasPriceUpdateWithTxMeta
 		tokenDecimals          map[cciptypes.Address]uint8
 		tokenPriceUpdates      []cciptypes.TokenPriceUpdateWithTxMeta
@@ -348,7 +349,8 @@ func TestCommitReportingPlugin_Report(t *testing.T) {
 		expErr                 bool
 	}{
 		{
-			name: "base",
+			name:                  "base",
+			priceGetterConfTokens: []cciptypes.Address{},
 			observations: []ccip.CommitObservation{
 				{Interval: cciptypes.CommitStoreInterval{Min: 1, Max: 1}, SourceGasPriceUSD: gasPrice},
 				{Interval: cciptypes.CommitStoreInterval{Min: 1, Max: 1}, SourceGasPriceUSD: gasPrice},
@@ -383,6 +385,10 @@ func TestCommitReportingPlugin_Report(t *testing.T) {
 		},
 		{
 			name: "multiple offRamps report with token prices",
+			priceGetterConfTokens: []cciptypes.Address{
+				ccipcalc.HexToAddress("2000"),
+				ccipcalc.HexToAddress("3000"),
+			},
 			observations: []ccip.CommitObservation{
 				{
 					Interval:          cciptypes.CommitStoreInterval{Min: 1, Max: 1},
@@ -438,7 +444,8 @@ func TestCommitReportingPlugin_Report(t *testing.T) {
 			expErr: false,
 		},
 		{
-			name: "empty",
+			name:                  "empty",
+			priceGetterConfTokens: []cciptypes.Address{},
 			observations: []ccip.CommitObservation{
 				{Interval: cciptypes.CommitStoreInterval{Min: 0, Max: 0}, SourceGasPriceUSD: big.NewInt(0)},
 				{Interval: cciptypes.CommitStoreInterval{Min: 0, Max: 0}, SourceGasPriceUSD: big.NewInt(0)},
@@ -458,7 +465,8 @@ func TestCommitReportingPlugin_Report(t *testing.T) {
 			expErr: false,
 		},
 		{
-			name: "no leaves",
+			name:                  "no leaves",
+			priceGetterConfTokens: []cciptypes.Address{},
 			observations: []ccip.CommitObservation{
 				{Interval: cciptypes.CommitStoreInterval{Min: 2, Max: 2}, SourceGasPriceUSD: big.NewInt(0)},
 				{Interval: cciptypes.CommitStoreInterval{Min: 2, Max: 2}, SourceGasPriceUSD: big.NewInt(0)},
@@ -469,7 +477,8 @@ func TestCommitReportingPlugin_Report(t *testing.T) {
 			expErr:         true,
 		},
 		{
-			name: "price reporting disabled base case",
+			name:                  "price reporting disabled base case",
+			priceGetterConfTokens: []cciptypes.Address{},
 			observations: []ccip.CommitObservation{
 				{Interval: cciptypes.CommitStoreInterval{Min: 1, Max: 1}, SourceGasPriceUSD: nil},
 				{Interval: cciptypes.CommitStoreInterval{Min: 1, Max: 1}, SourceGasPriceUSD: nil},
@@ -493,7 +502,8 @@ func TestCommitReportingPlugin_Report(t *testing.T) {
 			expErr: false,
 		},
 		{
-			name: "price reporting disabled with invalid observation",
+			name:                  "price reporting disabled with invalid observation",
+			priceGetterConfTokens: []cciptypes.Address{},
 			observations: []ccip.CommitObservation{
 				{Interval: cciptypes.CommitStoreInterval{Min: 1, Max: 1}, SourceGasPriceUSD: big.NewInt(0)},
 				{Interval: cciptypes.CommitStoreInterval{Min: 1, Max: 1}, SourceGasPriceUSD: nil},
@@ -576,6 +586,11 @@ func TestCommitReportingPlugin_Report(t *testing.T) {
 			healthCheck := ccipcachemocks.NewChainHealthcheck(t)
 			healthCheck.On("IsHealthy", ctx).Return(true, nil)
 
+			pricegetter := pricegetter.NewMockPriceGetter(t)
+			for _, confToken := range tc.priceGetterConfTokens {
+				pricegetter.On("IsTokenConfigured", mock.Anything, confToken).Return(true, nil)
+			}
+
 			p := &CommitReportingPlugin{}
 			p.lggr = logger.TestLogger(t)
 			p.destPriceRegistryReader = destPriceRegistryReader
@@ -586,6 +601,7 @@ func TestCommitReportingPlugin_Report(t *testing.T) {
 			p.offchainConfig.GasPriceHeartBeat = gasPriceHeartBeat.Duration()
 			p.commitStoreReader = commitStoreReader
 			p.F = tc.f
+			p.priceGetter = pricegetter
 			p.metricsCollector = ccip.NoopMetricsCollector
 			p.offchainConfig.PriceReportingDisabled = tc.priceReportingDisabled
 			p.chainHealthcheck = healthCheck

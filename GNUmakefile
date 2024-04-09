@@ -149,7 +149,7 @@ telemetry-protobuf: $(telemetry-protobuf) ## Generate telemetry protocol buffers
 config-docs: ## Generate core node configuration documentation
 	go run ./core/config/docs/cmd/generate -o ./docs/
 
-.PHONY: golangci-lint
+.PHONY: golintlangci-
 golangci-lint: ## Run golangci-lint for all issues.
 	[ -d "./golangci-lint" ] || mkdir ./golangci-lint && \
 	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v1.56.2 golangci-lint run --max-issues-per-linter 0 --max-same-issues 0 > ./golangci-lint/$(shell date +%Y-%m-%d_%H:%M:%S).txt
