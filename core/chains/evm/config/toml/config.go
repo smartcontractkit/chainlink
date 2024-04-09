@@ -365,7 +365,7 @@ type Chain struct {
 
 	Transactions   Transactions      `toml:",omitempty"`
 	BalanceMonitor BalanceMonitor    `toml:",omitempty"`
-	ClientErrors   ClientErrorsRegex `toml:",omitempty"`
+	ClientErrors   ClientErrors      `toml:",omitempty"`
 	GasEstimator   GasEstimator      `toml:",omitempty"`
 	HeadTracker    HeadTracker       `toml:",omitempty"`
 	KeySpecific    KeySpecificConfig `toml:",omitempty"`
@@ -435,7 +435,7 @@ func (t *Transactions) setFrom(f *Transactions) {
 	}
 }
 
-type ClientErrorsRegex struct {
+type ClientErrors struct {
 	NonceTooLow                       *string
 	NonceTooHigh                      *string
 	ReplacementTransactionUnderpriced *string
@@ -452,7 +452,7 @@ type ClientErrorsRegex struct {
 	ServiceUnavailable                *string
 }
 
-func (r *ClientErrorsRegex) setFrom(f *ClientErrorsRegex) {
+func (r *ClientErrors) setFrom(f *ClientErrors) {
 	if v := f.NonceTooLow; v != nil {
 		r.NonceTooLow = v
 	}

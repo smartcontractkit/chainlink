@@ -83,7 +83,7 @@ func (e *EVMConfig) Transactions() Transactions {
 }
 
 func (e *EVMConfig) ClientErrors() ClientErrors {
-	return &clientErrorsRegexConfig{c: e.C.ClientErrors}
+	return &clientErrorsConfig{c: e.C.ClientErrors}
 }
 
 func (e *EVMConfig) HeadTracker() HeadTracker {

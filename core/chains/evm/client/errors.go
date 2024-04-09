@@ -253,13 +253,7 @@ var clients = map[string]ClientErrors{
 
 // SetClientErrorRegexes is called on startup to set the client errors from the config
 func SetClientErrorRegexes(errsRegex config.ClientErrors) {
-	if errsRegex != nil {
-		clients["tomlConfig"] = makeClientErrorsFromConfig(errsRegex)
-	}
-}
-
-func makeClientErrorsFromConfig(errsRegex config.ClientErrors) ClientErrors {
-	return ClientErrors{
+	clients["tomlConfig"] = ClientErrors{
 		NonceTooLow:                       regexp.MustCompile(errsRegex.NonceTooLow()),
 		NonceTooHigh:                      regexp.MustCompile(errsRegex.NonceTooHigh()),
 		ReplacementTransactionUnderpriced: regexp.MustCompile(errsRegex.ReplacementTransactionUnderpriced()),

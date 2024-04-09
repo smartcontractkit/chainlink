@@ -489,20 +489,22 @@ func TestClientErrorsConfig(t *testing.T) {
 	})
 	cfg := evmtest.NewChainScopedConfig(t, gcfg)
 
-	assert.Empty(t, cfg.EVM().ClientErrors().NonceTooLow())
-	assert.Empty(t, cfg.EVM().ClientErrors().NonceTooHigh())
-	assert.Empty(t, cfg.EVM().ClientErrors().ReplacementTransactionUnderpriced())
-	assert.Empty(t, cfg.EVM().ClientErrors().LimitReached())
-	assert.Empty(t, cfg.EVM().ClientErrors().TransactionAlreadyInMempool())
-	assert.Empty(t, cfg.EVM().ClientErrors().TerminallyUnderpriced())
-	assert.Empty(t, cfg.EVM().ClientErrors().InsufficientEth())
-	assert.Empty(t, cfg.EVM().ClientErrors().TxFeeExceedsCap())
-	assert.Empty(t, cfg.EVM().ClientErrors().L2FeeTooLow())
-	assert.Empty(t, cfg.EVM().ClientErrors().L2FeeTooHigh())
-	assert.Empty(t, cfg.EVM().ClientErrors().L2Full())
-	assert.Empty(t, cfg.EVM().ClientErrors().TransactionAlreadyMined())
-	assert.Empty(t, cfg.EVM().ClientErrors().Fatal())
-	assert.Empty(t, cfg.EVM().ClientErrors().ServiceUnavailable())
+	assert.Equal(t, "nonce too low", cfg.EVM().ClientErrors().NonceTooLow())
+	assert.Equal(t, "nonce too high", cfg.EVM().ClientErrors().NonceTooHigh())
+	assert.Equal(t, "replacement transaction underpriced",
+		cfg.EVM().ClientErrors().ReplacementTransactionUnderpriced())
+	assert.Equal(t, "limit reached", cfg.EVM().ClientErrors().LimitReached())
+	assert.Equal(t, "transaction already in mempool",
+		cfg.EVM().ClientErrors().TransactionAlreadyInMempool())
+	assert.Equal(t, "terminally underpriced", cfg.EVM().ClientErrors().TerminallyUnderpriced())
+	assert.Equal(t, "infufficient Eth", cfg.EVM().ClientErrors().InsufficientEth())
+	assert.Equal(t, "tx fee exceeds cap", cfg.EVM().ClientErrors().TxFeeExceedsCap())
+	assert.Equal(t, "l2 fee too low", cfg.EVM().ClientErrors().L2FeeTooLow())
+	assert.Equal(t, "l2 fee too high", cfg.EVM().ClientErrors().L2FeeTooHigh())
+	assert.Equal(t, "l2 full", cfg.EVM().ClientErrors().L2Full())
+	assert.Equal(t, "transaction already mined", cfg.EVM().ClientErrors().TransactionAlreadyMined())
+	assert.Equal(t, "fatal", cfg.EVM().ClientErrors().Fatal())
+	assert.Equal(t, "service unavailable", cfg.EVM().ClientErrors().ServiceUnavailable())
 }
 
 func ptr[T any](t T) *T { return &t }
