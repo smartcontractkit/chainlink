@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -234,6 +235,7 @@ var zkEvm = ClientErrors{
 	OutOfCounters: regexp.MustCompile(`(?:: |^)not enough .* counters to continue the execution$`),
 }
 
+var clientsLock = sync.Mutex{}
 var clients = map[string]ClientErrors{
 	"parity":     parity,
 	"geth":       geth,
@@ -253,6 +255,8 @@ var clients = map[string]ClientErrors{
 
 // SetClientErrorRegexes is called on startup to set the client errors from the config
 func SetClientErrorRegexes(errsRegex config.ClientErrors) {
+	clientsLock.Lock()
+	defer clientsLock.Unlock()
 	clients["tomlConfig"] = ClientErrors{
 		NonceTooLow:                       regexp.MustCompile(errsRegex.NonceTooLow()),
 		NonceTooHigh:                      regexp.MustCompile(errsRegex.NonceTooHigh()),
@@ -276,6 +280,9 @@ func (s *SendError) is(errorType int) bool {
 		return false
 	}
 	str := s.CauseStr()
+
+	clientsLock.Lock()
+	defer clientsLock.Unlock()
 	for _, client := range clients {
 		if _, ok := client[errorType]; !ok {
 			continue
@@ -409,6 +416,9 @@ func isFatalSendError(err error) bool {
 		return false
 	}
 	str := pkgerrors.Cause(err).Error()
+
+	clientsLock.Lock()
+	defer clientsLock.Unlock()
 	for _, client := range clients {
 		if _, ok := client[Fatal]; !ok {
 			continue
