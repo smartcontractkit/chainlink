@@ -285,7 +285,8 @@ func (r *EvmRegistry) refreshActiveUpkeeps() error {
 	defer cancel()
 
 	r.lggr.Debugf("Refreshing active upkeeps list")
-	// get active upkeep ids from contract
+	// get active upkeep ids from contract 
+	// comment to trigger CI
 	ids, err := r.getLatestIDsFromContract(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get active upkeep ids from contract during refresh: %s", err)
