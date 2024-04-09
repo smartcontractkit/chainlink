@@ -120,7 +120,7 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 const (
 	simpleWorkflow = `
 triggers:
-  - type: "on_mercury_report"
+  - type: "mercury-trigger"
     config:
       feedlist:
         - "0x1111111111111111111100000000000000000000000000000000000000000000" # ETHUSD
@@ -163,7 +163,7 @@ targets:
 func mockTrigger(t *testing.T) (capabilities.TriggerCapability, capabilities.CapabilityResponse) {
 	mt := &mockTriggerCapability{
 		CapabilityInfo: capabilities.MustNewCapabilityInfo(
-			"on_mercury_report",
+			"mercury-trigger",
 			capabilities.CapabilityTypeTrigger,
 			"issues a trigger when a mercury report is received.",
 			"v1.0.0",
@@ -273,7 +273,7 @@ func TestEngine_ErrorsTheWorkflowIfAStepErrors(t *testing.T) {
 const (
 	multiStepWorkflow = `
 triggers:
-  - type: "on_mercury_report"
+  - type: "mercury-trigger"
     config:
       feedlist:
         - "0x1111111111111111111100000000000000000000000000000000000000000000" # ETHUSD
