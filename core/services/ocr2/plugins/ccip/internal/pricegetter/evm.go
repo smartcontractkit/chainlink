@@ -86,9 +86,9 @@ func (d *DynamicPriceGetter) IsTokenConfigured(ctx context.Context, token ccipty
 		return isAgg, nil
 	} else if _, isStatic := d.cfg.StaticPrices[evmAddr]; isStatic {
 		return isStatic, nil
-	} else {
-		return false, nil
 	}
+
+	return false, nil
 }
 
 // TokenPricesUSD implements the PriceGetter interface.
