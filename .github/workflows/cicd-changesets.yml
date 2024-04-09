@@ -8,7 +8,7 @@ name: Release Preview - Changeset
 on:
   push:
     branches:
-      - re-2428/add-cicd-changeset # TODO change to develop
+      - develop
 
 jobs:
   cicd-changesets:
@@ -18,7 +18,7 @@ jobs:
       contents: read
     steps:
       - name: cicd-changesets
-        uses: smartcontractkit/.github/actions/cicd-changesets@re-2428/update-cicd-changeset-2 # TODO: pin released version
+        uses: smartcontractkit/.github/actions/cicd-changesets@96543c547c121844ca806b995f2b7c187b8c2f95 # cicd-changesets@0.3.2
         with:
           # general inputs
           git-user: app-token-issuer-releng[bot]
