@@ -169,6 +169,7 @@ func TestLogTrigger(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	l.Info().Interface("loadedTestConfig", loadedTestConfig).Msg("Loaded Test Config")
 
 	version := *loadedTestConfig.ChainlinkImage.Version
 	image := *loadedTestConfig.ChainlinkImage.Image
@@ -206,23 +207,6 @@ Load Config:
 	testType := "load"
 	loadDuration := time.Duration(*loadedTestConfig.Automation.General.Duration) * time.Second
 	automationDefaultLinkFunds := big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(10000))) //10000 LINK
-
-	registrySettings := &contracts.KeeperRegistrySettings{
-		PaymentPremiumPPB:    uint32(0),
-		FlatFeeMicroLINK:     uint32(40_000),
-		BlockCountPerTurn:    big.NewInt(100),
-		CheckGasLimit:        uint32(45_000_000), //45M
-		StalenessSeconds:     big.NewInt(90_000),
-		GasCeilingMultiplier: uint16(2),
-		MaxPerformGas:        uint32(5_000_000),
-		MinUpkeepSpend:       big.NewInt(0),
-		FallbackGasPrice:     big.NewInt(2e11),
-		FallbackLinkPrice:    big.NewInt(2e18),
-		MaxCheckDataSize:     uint32(5_000),
-		MaxPerformDataSize:   uint32(5_000),
-		MaxRevertDataSize:    uint32(5_000),
-		RegistryVersion:      contractseth.RegistryVersion_2_1,
-	}
 
 	testEnvironment := environment.New(&environment.Config{
 		TTL: loadDuration.Round(time.Hour) + time.Hour,
@@ -351,39 +335,62 @@ Load Config:
 	require.NoError(t, err, "Error deploying multicall contract")
 
 	a := automationv2.NewAutomationTestK8s(chainClient, contractDeployer, chainlinkNodes)
-	a.RegistrySettings = *registrySettings
+	conf := loadedTestConfig.Automation.AutomationConfig
+	a.RegistrySettings = contracts.KeeperRegistrySettings{
+		PaymentPremiumPPB:    *conf.RegistrySettings.PaymentPremiumPPB,
+		FlatFeeMicroLINK:     *conf.RegistrySettings.FlatFeeMicroLINK,
+		CheckGasLimit:        *conf.RegistrySettings.CheckGasLimit,
+		StalenessSeconds:     conf.RegistrySettings.StalenessSeconds,
+		GasCeilingMultiplier: *conf.RegistrySettings.GasCeilingMultiplier,
+		MaxPerformGas:        *conf.RegistrySettings.MaxPerformGas,
+		MinUpkeepSpend:       conf.RegistrySettings.MinUpkeepSpend,
+		FallbackGasPrice:     conf.RegistrySettings.FallbackGasPrice,
+		FallbackLinkPrice:    conf.RegistrySettings.FallbackLinkPrice,
+		MaxCheckDataSize:     *conf.RegistrySettings.MaxCheckDataSize,
+		MaxPerformDataSize:   *conf.RegistrySettings.MaxPerformDataSize,
+		MaxRevertDataSize:    *conf.RegistrySettings.MaxRevertDataSize,
+		RegistryVersion:      contractseth.RegistryVersion_2_1,
+	}
 	a.RegistrarSettings = contracts.KeeperRegistrarSettings{
 		AutoApproveConfigType: uint8(2),
 		AutoApproveMaxAllowed: math.MaxUint16,
 		MinLinkJuels:          big.NewInt(0),
 	}
 	a.PluginConfig = ocr2keepers30config.OffchainConfig{
-		TargetProbability:    "0.999",
-		TargetInRounds:       1,
-		PerformLockoutWindow: 80_000, // Copied from arbitrum mainnet prod value
-		GasLimitPerReport:    10_300_000,
-		GasOverheadPerUpkeep: 300_000,
-		MinConfirmations:     0,
-		MaxUpkeepBatchSize:   10,
+		TargetProbability:    *conf.PluginConfig.TargetProbability,
+		TargetInRounds:       *conf.PluginConfig.TargetInRounds,
+		PerformLockoutWindow: *conf.PluginConfig.PerformLockoutWindow,
+		GasLimitPerReport:    *conf.PluginConfig.GasLimitPerReport,
+		GasOverheadPerUpkeep: *conf.PluginConfig.GasOverheadPerUpkeep,
+		MinConfirmations:     *conf.PluginConfig.MinConfirmations,
+		MaxUpkeepBatchSize:   *conf.PluginConfig.MaxUpkeepBatchSize,
+		LogProviderConfig: ocr2keepers30config.LogProviderConfig{
+			BlockRate: *conf.PluginConfig.LogProviderConfig.BlockRate,
+			LogLimit:  *conf.PluginConfig.LogProviderConfig.LogLimit,
+		},
 	}
 	a.PublicConfig = ocr3.PublicConfig{
-		DeltaProgress:                           10 * time.Second,
-		DeltaResend:                             15 * time.Second,
-		DeltaInitial:                            500 * time.Millisecond,
-		DeltaRound:                              1000 * time.Millisecond,
-		DeltaGrace:                              200 * time.Millisecond,
-		DeltaCertifiedCommitRequest:             300 * time.Millisecond,
-		DeltaStage:                              15 * time.Second,
-		RMax:                                    24,
-		MaxDurationQuery:                        20 * time.Millisecond,
-		MaxDurationObservation:                  20 * time.Millisecond,
-		MaxDurationShouldAcceptAttestedReport:   1200 * time.Millisecond,
-		MaxDurationShouldTransmitAcceptedReport: 20 * time.Millisecond,
-		F:                                       1,
+		DeltaProgress:                           *conf.PublicConfig.DeltaProgress,
+		DeltaResend:                             *conf.PublicConfig.DeltaResend,
+		DeltaInitial:                            *conf.PublicConfig.DeltaInitial,
+		DeltaRound:                              *conf.PublicConfig.DeltaRound,
+		DeltaGrace:                              *conf.PublicConfig.DeltaGrace,
+		DeltaCertifiedCommitRequest:             *conf.PublicConfig.DeltaCertifiedCommitRequest,
+		DeltaStage:                              *conf.PublicConfig.DeltaStage,
+		RMax:                                    *conf.PublicConfig.RMax,
+		MaxDurationQuery:                        *conf.PublicConfig.MaxDurationQuery,
+		MaxDurationObservation:                  *conf.PublicConfig.MaxDurationObservation,
+		MaxDurationShouldAcceptAttestedReport:   *conf.PublicConfig.MaxDurationShouldAcceptAttestedReport,
+		MaxDurationShouldTransmitAcceptedReport: *conf.PublicConfig.MaxDurationShouldTransmitAcceptedReport,
+		F:                                       *conf.PublicConfig.F,
 	}
 
 	if *loadedTestConfig.Automation.DataStreams.Enabled {
-		a.MercuryCredentialName = "cred1"
+		a.SetMercuryCredentialName("cred1")
+	}
+
+	if *conf.UseLogBufferV1 {
+		a.SetUseLogBufferV1(true)
 	}
 
 	startTimeTestSetup := time.Now()

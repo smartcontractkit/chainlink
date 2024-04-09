@@ -58,6 +58,10 @@ runs:
         only-new-issues: false # disabled for PRs due to unreliability
         args: --out-format colored-line-number,checkstyle:golangci-lint-report.xml
         working-directory: ${{ inputs.go-directory }}
+    - name: Print lint report artifact
+      if: failure()
+      shell: bash
+      run: cat ${{ inputs.go-directory }}/golangci-lint-report.xml
     - name: Store lint report artifact
       if: always()
       uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1

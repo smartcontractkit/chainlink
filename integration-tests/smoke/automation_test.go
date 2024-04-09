@@ -44,23 +44,23 @@ const (
 	defaultAmountOfUpkeeps          = 2
 )
 
-var (
-	automationDefaultRegistryConfig = contracts.KeeperRegistrySettings{
-		PaymentPremiumPPB:    uint32(200000000),
-		FlatFeeMicroLINK:     uint32(0),
-		BlockCountPerTurn:    big.NewInt(10),
-		CheckGasLimit:        uint32(2500000),
-		StalenessSeconds:     big.NewInt(90000),
-		GasCeilingMultiplier: uint16(1),
-		MinUpkeepSpend:       big.NewInt(0),
-		MaxPerformGas:        uint32(5000000),
-		FallbackGasPrice:     big.NewInt(2e11),
-		FallbackLinkPrice:    big.NewInt(2e18),
-		MaxCheckDataSize:     uint32(5000),
-		MaxPerformDataSize:   uint32(5000),
-		MaxRevertDataSize:    uint32(5000),
+func automationDefaultRegistryConfig(c tc.AutomationTestConfig) contracts.KeeperRegistrySettings {
+	registrySettings := c.GetAutomationConfig().AutomationConfig.RegistrySettings
+	return contracts.KeeperRegistrySettings{
+		PaymentPremiumPPB:    *registrySettings.PaymentPremiumPPB,
+		FlatFeeMicroLINK:     *registrySettings.FlatFeeMicroLINK,
+		CheckGasLimit:        *registrySettings.CheckGasLimit,
+		StalenessSeconds:     registrySettings.StalenessSeconds,
+		GasCeilingMultiplier: *registrySettings.GasCeilingMultiplier,
+		MinUpkeepSpend:       registrySettings.MinUpkeepSpend,
+		MaxPerformGas:        *registrySettings.MaxPerformGas,
+		FallbackGasPrice:     registrySettings.FallbackGasPrice,
+		FallbackLinkPrice:    registrySettings.FallbackLinkPrice,
+		MaxCheckDataSize:     *registrySettings.MaxCheckDataSize,
+		MaxPerformDataSize:   *registrySettings.MaxPerformDataSize,
+		MaxRevertDataSize:    *registrySettings.MaxRevertDataSize,
 	}
-)
+}
 
 func TestMain(m *testing.M) {
 	logging.Init()
@@ -121,7 +121,7 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool, automationTestConfig t
 			isMercury := isMercuryV02 || isMercuryV03
 
 			a := setupAutomationTestDocker(
-				t, registryVersion, automationDefaultRegistryConfig, isMercuryV02, isMercuryV03, automationTestConfig,
+				t, registryVersion, automationDefaultRegistryConfig(automationTestConfig), isMercuryV02, isMercuryV03, automationTestConfig,
 			)
 
 			consumers, upkeepIDs := actions.DeployConsumers(
@@ -251,7 +251,7 @@ func TestSetUpkeepTriggerConfig(t *testing.T) {
 			}
 
 			a := setupAutomationTestDocker(
-				t, registryVersion, automationDefaultRegistryConfig, false, false, &config,
+				t, registryVersion, automationDefaultRegistryConfig(config), false, false, &config,
 			)
 
 			consumers, upkeepIDs := actions.DeployConsumers(
@@ -433,7 +433,7 @@ func TestAutomationAddFunds(t *testing.T) {
 				t.Fatal(err)
 			}
 			a := setupAutomationTestDocker(
-				t, registryVersion, automationDefaultRegistryConfig, false, false, &config,
+				t, registryVersion, automationDefaultRegistryConfig(config), false, false, &config,
 			)
 
 			consumers, upkeepIDs := actions.DeployConsumers(
@@ -501,7 +501,7 @@ func TestAutomationPauseUnPause(t *testing.T) {
 				t.Fatal(err)
 			}
 			a := setupAutomationTestDocker(
-				t, registryVersion, automationDefaultRegistryConfig, false, false, &config,
+				t, registryVersion, automationDefaultRegistryConfig(config), false, false, &config,
 			)
 
 			consumers, upkeepIDs := actions.DeployConsumers(
@@ -601,7 +601,7 @@ func TestAutomationRegisterUpkeep(t *testing.T) {
 				t.Fatal(err)
 			}
 			a := setupAutomationTestDocker(
-				t, registryVersion, automationDefaultRegistryConfig, false, false, &config,
+				t, registryVersion, automationDefaultRegistryConfig(config), false, false, &config,
 			)
 
 			consumers, upkeepIDs := actions.DeployConsumers(
@@ -689,7 +689,7 @@ func TestAutomationPauseRegistry(t *testing.T) {
 				t.Fatal(err)
 			}
 			a := setupAutomationTestDocker(
-				t, registryVersion, automationDefaultRegistryConfig, false, false, &config,
+				t, registryVersion, automationDefaultRegistryConfig(config), false, false, &config,
 			)
 
 			consumers, upkeepIDs := actions.DeployConsumers(
@@ -764,7 +764,7 @@ func TestAutomationKeeperNodesDown(t *testing.T) {
 				t.Fatal(err)
 			}
 			a := setupAutomationTestDocker(
-				t, registryVersion, automationDefaultRegistryConfig, false, false, &config,
+				t, registryVersion, automationDefaultRegistryConfig(config), false, false, &config,
 			)
 
 			consumers, upkeepIDs := actions.DeployConsumers(
@@ -868,7 +868,7 @@ func TestAutomationPerformSimulation(t *testing.T) {
 				t.Fatal(err)
 			}
 			a := setupAutomationTestDocker(
-				t, registryVersion, automationDefaultRegistryConfig, false, false, &config,
+				t, registryVersion, automationDefaultRegistryConfig(config), false, false, &config,
 			)
 
 			consumersPerformance, _ := actions.DeployPerformanceConsumers(
@@ -937,7 +937,7 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 				t.Fatal(err)
 			}
 			a := setupAutomationTestDocker(
-				t, registryVersion, automationDefaultRegistryConfig, false, false, &config,
+				t, registryVersion, automationDefaultRegistryConfig(config), false, false, &config,
 			)
 
 			consumersPerformance, upkeepIDs := actions.DeployPerformanceConsumers(
@@ -1013,7 +1013,7 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 			l.Info().Int64("Upkeep counter", existingCntInt).Msg("Upkeep counter when consistently block finished")
 
 			// Now increase checkGasLimit on registry
-			highCheckGasLimit := automationDefaultRegistryConfig
+			highCheckGasLimit := automationDefaultRegistryConfig(config)
 			highCheckGasLimit.CheckGasLimit = uint32(5000000)
 			highCheckGasLimit.RegistryVersion = registryVersion
 
@@ -1061,7 +1061,7 @@ func TestUpdateCheckData(t *testing.T) {
 			}
 
 			a := setupAutomationTestDocker(
-				t, registryVersion, automationDefaultRegistryConfig, false, false, &config,
+				t, registryVersion, automationDefaultRegistryConfig(config), false, false, &config,
 			)
 
 			performDataChecker, upkeepIDs := actions.DeployPerformDataCheckerConsumers(
@@ -1217,36 +1217,38 @@ func setupAutomationTestDocker(
 	require.NoError(t, err, "Error getting evm client")
 
 	a := automationv2.NewAutomationTestDocker(evmClient, env.ContractDeployer, nodeClients)
-	a.MercuryCredentialName = "cred1"
+	a.SetMercuryCredentialName("cred1")
 	a.RegistrySettings = registryConfig
 	a.RegistrarSettings = contracts.KeeperRegistrarSettings{
 		AutoApproveConfigType: uint8(2),
 		AutoApproveMaxAllowed: 1000,
 		MinLinkJuels:          big.NewInt(0),
 	}
+	plCfg := automationTestConfig.GetAutomationConfig().AutomationConfig.PluginConfig
 	a.PluginConfig = ocr2keepers30config.OffchainConfig{
-		TargetProbability:    "0.999",
-		TargetInRounds:       1,
-		PerformLockoutWindow: 3_600_000, // Intentionally set to be higher than in prod for testing purpose
-		GasLimitPerReport:    10_300_000,
-		GasOverheadPerUpkeep: 300_000,
-		MinConfirmations:     0,
-		MaxUpkeepBatchSize:   10,
+		TargetProbability:    *plCfg.TargetProbability,
+		TargetInRounds:       *plCfg.TargetInRounds,
+		PerformLockoutWindow: *plCfg.PerformLockoutWindow,
+		GasLimitPerReport:    *plCfg.GasLimitPerReport,
+		GasOverheadPerUpkeep: *plCfg.GasOverheadPerUpkeep,
+		MinConfirmations:     *plCfg.MinConfirmations,
+		MaxUpkeepBatchSize:   *plCfg.MaxUpkeepBatchSize,
 	}
+	pubCfg := automationTestConfig.GetAutomationConfig().AutomationConfig.PublicConfig
 	a.PublicConfig = ocr3.PublicConfig{
-		DeltaProgress:                           10 * time.Second,
-		DeltaResend:                             15 * time.Second,
-		DeltaInitial:                            500 * time.Millisecond,
-		DeltaRound:                              1000 * time.Millisecond,
-		DeltaGrace:                              200 * time.Millisecond,
-		DeltaCertifiedCommitRequest:             300 * time.Millisecond,
-		DeltaStage:                              30 * time.Second,
-		RMax:                                    24,
-		MaxDurationQuery:                        20 * time.Millisecond,
-		MaxDurationObservation:                  20 * time.Millisecond,
-		MaxDurationShouldAcceptAttestedReport:   1200 * time.Millisecond,
-		MaxDurationShouldTransmitAcceptedReport: 20 * time.Millisecond,
-		F:                                       1,
+		DeltaProgress:                           *pubCfg.DeltaProgress,
+		DeltaResend:                             *pubCfg.DeltaResend,
+		DeltaInitial:                            *pubCfg.DeltaInitial,
+		DeltaRound:                              *pubCfg.DeltaRound,
+		DeltaGrace:                              *pubCfg.DeltaGrace,
+		DeltaCertifiedCommitRequest:             *pubCfg.DeltaCertifiedCommitRequest,
+		DeltaStage:                              *pubCfg.DeltaStage,
+		RMax:                                    *pubCfg.RMax,
+		MaxDurationQuery:                        *pubCfg.MaxDurationQuery,
+		MaxDurationObservation:                  *pubCfg.MaxDurationObservation,
+		MaxDurationShouldAcceptAttestedReport:   *pubCfg.MaxDurationShouldAcceptAttestedReport,
+		MaxDurationShouldTransmitAcceptedReport: *pubCfg.MaxDurationShouldTransmitAcceptedReport,
+		F:                                       *pubCfg.F,
 	}
 
 	a.SetupAutomationDeployment(t)
