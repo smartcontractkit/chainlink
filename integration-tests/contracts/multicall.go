@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
+	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -52,9 +53,11 @@ func WaitForSuccessfulTxMined(evmClient blockchain.EVMClient, tx *types.Transact
 	return nil
 }
 
+var atomicCounter atomic.Int32
+
 func MultiCallLogTriggerLoadGen(
 	client *seth.Client,
-	keyNum int,
+	// keyNum int,
 	multiCallAddress string,
 	logTriggerAddress []string,
 	logTriggerData [][]byte,
@@ -72,14 +75,16 @@ func MultiCallLogTriggerLoadGen(
 		call = append(call, data)
 	}
 
+	// var keyNum int
+	// func() {
+	// 	atomicCounter.Add(1)
+	// 	log.Debug().Int("Counter", int(atomicCounter.Load())).Msg("waiting for key")
+	// 	keyNum = client.AnySyncedKey()
+	// 	log.Debug().Int("Counter", int(atomicCounter.Load())).Int("keyNum", keyNum).Msg("got key")
+	// }()
+
 	// call aggregate3 to group all msg call data and send them in a single transaction
-	decoded, err := client.Decode(boundContract.Transact(client.NewTXKeyOpts(client.AnySyncedKey()), "aggregate3", call))
-	if err != nil {
-		return nil, err
-	}
-
-	return decoded.Transaction, nil
-
+	return boundContract.Transact(client.NewTXKeyOpts(client.AnySyncedKey()), "aggregate3", call)
 	// err = evmClient.MarkTxAsSentOnL2(tx)
 	// if err != nil {
 	// 	return nil, err

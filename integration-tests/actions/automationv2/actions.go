@@ -601,14 +601,18 @@ func (a *AutomationTest) RegisterUpkeeps(upkeepConfigs []UpkeepConfig) ([]common
 	resultCh := make(chan result, numberOfClients)
 	stopCh := make(chan struct{})
 
+	errorz := make([]error, 0)
+
 	go func() {
 		for r := range resultCh {
 			if r.err != nil {
 				a.Logger.Error().Err(r.err).Msg("failed to register upkeep")
-				err = r.err
-				stopCh <- struct{}{}
-				return
+				errorz = append(errorz, r.err)
+				// err = r.err
+				// close(stopCh)
+				// return
 			} else {
+				a.Logger.Debug().Msgf("Registered upkeep")
 				registrationTxHashes = append(registrationTxHashes, r.txHash)
 			}
 		}
@@ -623,11 +627,16 @@ func (a *AutomationTest) RegisterUpkeeps(upkeepConfigs []UpkeepConfig) ([]common
 				return
 			}
 			registrationRequest, err = registrarABI.Pack(
-				"register", upkeepConfig.UpkeepName, upkeepConfig.EncryptedEmail,
-				upkeepConfig.UpkeepContract, upkeepConfig.GasLimit, upkeepConfig.AdminAddress,
+				"register",
+				upkeepConfig.UpkeepName,
+				upkeepConfig.EncryptedEmail,
+				upkeepConfig.UpkeepContract,
+				upkeepConfig.GasLimit,
+				upkeepConfig.AdminAddress,
 				upkeepConfig.CheckData,
-				upkeepConfig.OffchainConfig, upkeepConfig.FundingAmount,
-				a.ChainClient.Addresses[0])
+				upkeepConfig.OffchainConfig,
+				upkeepConfig.FundingAmount,
+				a.ChainClient.Addresses[keyNum])
 			if err != nil {
 				resultCh <- result{err: errors.Join(err, fmt.Errorf("failed to pack registrar request"))}
 			}
@@ -638,11 +647,18 @@ func (a *AutomationTest) RegisterUpkeeps(upkeepConfigs []UpkeepConfig) ([]common
 				return
 			}
 			registrationRequest, err = registrarABI.Pack(
-				"register", upkeepConfig.UpkeepName, upkeepConfig.EncryptedEmail,
-				upkeepConfig.UpkeepContract, upkeepConfig.GasLimit, upkeepConfig.AdminAddress,
-				upkeepConfig.TriggerType, upkeepConfig.CheckData, upkeepConfig.TriggerConfig,
-				upkeepConfig.OffchainConfig, upkeepConfig.FundingAmount,
-				a.ChainClient.Addresses[0])
+				"register",
+				upkeepConfig.UpkeepName,
+				upkeepConfig.EncryptedEmail,
+				upkeepConfig.UpkeepContract,
+				upkeepConfig.GasLimit,
+				upkeepConfig.AdminAddress,
+				upkeepConfig.TriggerType,
+				upkeepConfig.CheckData,
+				upkeepConfig.TriggerConfig,
+				upkeepConfig.OffchainConfig,
+				upkeepConfig.FundingAmount,
+				a.ChainClient.Addresses[keyNum])
 			if err != nil {
 				resultCh <- result{err: errors.Join(err, fmt.Errorf("failed to pack registrar request"))}
 				return
@@ -650,13 +666,18 @@ func (a *AutomationTest) RegisterUpkeeps(upkeepConfigs []UpkeepConfig) ([]common
 		default:
 			resultCh <- result{err: fmt.Errorf("v2.0, v2.1, and v2.2 are the only supported versions")}
 		}
-		// tx, err := a.LinkToken.TransferAndCallFromKey(a.Registrar.Address(), upkeepConfig.FundingAmount, registrationRequest, keyNum)
-		tx, err := a.LinkToken.TransferAndCall(a.Registrar.Address(), upkeepConfig.FundingAmount, registrationRequest)
+		decodedTx, err := a.ChainClient.Decode(a.LinkToken.TransferAndCallFromKey(a.Registrar.Address(), upkeepConfig.FundingAmount, registrationRequest, keyNum))
 		if err != nil {
+			balance, err := a.LinkToken.BalanceOf(context.Background(), a.ChainClient.Addresses[keyNum].Hex())
+			if err == nil {
+				a.Logger.Error().Msgf("Balance of client %d: %s", keyNum, balance.String())
+			} else {
+				a.Logger.Error().Err(err).Msgf("Failed to get balance of client %d", keyNum)
+			}
 			resultCh <- result{err: errors.Join(err, fmt.Errorf("client number %d failed to register upkeep %s", keyNum, upkeepConfig.UpkeepContract.Hex()))}
 			return
 		}
-		resultCh <- result{txHash: tx.Hash()}
+		resultCh <- result{txHash: decodedTx.Transaction.Hash()}
 	}
 
 	var divideSlice = func(slice []UpkeepConfig, numSlices int) [][]UpkeepConfig {
@@ -684,28 +705,37 @@ func (a *AutomationTest) RegisterUpkeeps(upkeepConfigs []UpkeepConfig) ([]common
 	var wg sync.WaitGroup
 	dividedConfigs := divideSlice(upkeepConfigs, numberOfClients)
 
-	// for i := 1; i <= numberOfClients; i++ {
-	// 	a.Logger.Debug().
-	// 		Int("Client Number", i).
-	// 		Str("Client Address", a.ChainClient.Addresses[i].Hex()).
-	// 		Msg("Transferring LINK to client")
+	//TODO think what to do when ephemerals is 0 and there's only root
+	// clientNum has to be 0, not 1, but if there's at least 1 ephemeral, it has to start from 1
 
-	// 	err := a.LinkToken.Transfer(a.ChainClient.Addresses[i].Hex(), big.NewInt(5e18))
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// }
+	automationDefaultLinkFunds := big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(10000))) //10000 LINK
+
+	semaphore := make(chan struct{}, 10)
 
 	// Launching workers
 	for clientNum := 1; clientNum <= numberOfClients; clientNum++ {
 		wg.Add(1)
+		semaphore <- struct{}{}
 		go func(clientNum int) {
 			defer wg.Done()
+			defer func() { <-semaphore }()
 			configs := dividedConfigs[clientNum-1]
+
+			balance, err := a.LinkToken.BalanceOf(context.Background(), a.ChainClient.Addresses[clientNum].Hex())
+			if err != nil {
+				resultCh <- result{err: errors.Join(err, fmt.Errorf("failed to get LINK balance for ephemeral key %d", clientNum))}
+				return
+			}
+			expectedBalance := big.NewInt(0).Mul(automationDefaultLinkFunds, big.NewInt(int64(len(configs))))
+			if balance.Cmp(expectedBalance) < 0 {
+				resultCh <- result{err: fmt.Errorf("ephemeral key %d has insufficient LINK balance, expected %s, got %s", clientNum, expectedBalance.String(), balance.String())}
+				return
+			}
 
 			a.Logger.Debug().
 				Int("Client Number", clientNum).
 				Int("Number of Configs", len(configs)).
+				Int("Balance sufficient to deploy # configs", int(big.NewInt(0).Div(balance, automationDefaultLinkFunds).Int64())).
 				Msg("Seth client started to register upkeeps")
 
 			for i := 0; i < len(configs); i++ {
@@ -726,8 +756,12 @@ func (a *AutomationTest) RegisterUpkeeps(upkeepConfigs []UpkeepConfig) ([]common
 	wg.Wait()
 	close(resultCh)
 
-	if err != nil {
-		return nil, err
+	// if err != nil {
+	// 	return nil, err
+	// }
+
+	if len(errorz) > 0 {
+		return nil, fmt.Errorf("upkeep registration failed. failed: %d | success: %d", len(errorz), len(registrationTxHashes))
 	}
 
 	// for _, upkeepConfig := range upkeepConfigs {

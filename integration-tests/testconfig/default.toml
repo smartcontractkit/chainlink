@@ -34,6 +34,8 @@ Deneb=500
 tracing_enabled = false
 # saves each tracing result to json file in ./traces/<tx_hash>.json
 trace_to_json = false
+# traces also transactions that were reverted
+trace_reverted = true
 # number of addresses to be generated and runtime, if set to 0, no addresses will be generated
 # each generated address will receive a proportion of native tokens from root private key's balance
 # with the value equal to (root_balance / ephemeral_addresses_number) - transfer_fee * ephemeral_addresses_number
@@ -41,7 +43,7 @@ ephemeral_addresses_number = 0
 
 [Seth.nonce_manager]
 key_sync_rate_limit_per_sec = 10
-key_sync_timeout = "2s"
+key_sync_timeout = "100s"
 key_sync_retry_delay = "1s"
 key_sync_retries = 10
 
@@ -51,13 +53,13 @@ chain_id = "1337"
 transaction_timeout = "90s"
 urls = ["ws://localhost:8546"]
 transfer_gas_fee = 21_000
-# gas_limit = 8_000_000
+gas_limit = 15_000_000
 # legacy transactions
-gas_price = 1_000_000_000
+gas_price = 10_000_000_000
 # EIP-1559 transactions
 eip_1559_dynamic_fees = true
-gas_fee_cap = 10_000_000_000
-gas_tip_cap = 3_000_000_000
+gas_fee_cap = 15_000_000_000
+gas_tip_cap = 5_000_000_000
 
 [[Seth.networks]]
 name = "Fuji"

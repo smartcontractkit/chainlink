@@ -92,23 +92,18 @@ func (m *LogTriggerGun) Call(_ *wasp.Generator) *wasp.Response {
 		dividedData = append(dividedData, d[i:end])
 	}
 
-	// semaphoreCh := make(chan struct{}, m.numberOfClients)
-
-	for i, a := range dividedData {
+	for _, a := range dividedData {
 		wg.Add(1)
-		// semaphoreCh <- struct{}{}
-		go func(a [][]byte, m *LogTriggerGun, i int) *wasp.Response {
+		go func(a [][]byte, m *LogTriggerGun) *wasp.Response {
 			defer wg.Done()
-			// defer func() { <-semaphoreCh }()
 
-			clientIndex := i + 1
-			_, err := contracts.MultiCallLogTriggerLoadGen(m.client, clientIndex, m.multiCallAddress, m.addresses, a)
+			_, err := contracts.MultiCallLogTriggerLoadGen(m.client, m.multiCallAddress, m.addresses, a)
 			if err != nil {
 				m.logger.Error().Err(err).Msg("Error calling MultiCallLogTriggerLoadGen")
 				return &wasp.Response{Error: err.Error(), Failed: true}
 			}
 			return &wasp.Response{}
-		}(a, m, i)
+		}(a, m)
 	}
 	wg.Wait()
 	return &wasp.Response{}

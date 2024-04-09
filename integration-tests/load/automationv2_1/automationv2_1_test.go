@@ -16,11 +16,12 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/seth"
 
 	geth "github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pelletier/go-toml/v2"
@@ -54,6 +55,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_compatible_utils"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_emitter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/simple_log_upkeep_counter_wrapper"
 )
@@ -341,6 +343,12 @@ Load Config:
 	multicallAddress, err := contracts.DeployMultiCallContract(chainClient)
 	require.NoError(t, err, "Error deploying multicall contract")
 
+	numberOfClients := int(*chainClient.Cfg.EphemeralAddrs)
+
+	if numberOfClients == 0 {
+		numberOfClients = 1
+	}
+
 	a := automationv2.NewAutomationTestK8s(l, chainClient, chainlinkNodes)
 	conf := loadedTestConfig.Automation.AutomationConfig
 	a.RegistrySettings = contracts.KeeperRegistrySettings{
@@ -435,17 +443,10 @@ Load Config:
 		triggerContract  contracts.LogEmitter
 		triggerAddress   common.Address
 		loadConfig       aconfig.Load
+		clientNum        int
 	}
 
-	numberOfClients := 1
-
 	for _, u := range loadedTestConfig.Automation.Load {
-		numberOfClients = int(*chainClient.Cfg.EphemeralAddrs)
-
-		if numberOfClients == 0 {
-			numberOfClients = 1
-		}
-
 		l.Debug().
 			Int("Number of Upkeeps", *u.NumberOfUpkeeps).
 			Int("Number of Clients", numberOfClients).
@@ -457,8 +458,8 @@ Load Config:
 		deployedContractCh := make(chan contractData, numberOfClients)
 
 		var deployContractFn = func(deployedCh chan contractData, errCh chan error, keyNum int) {
-			// consumerContract, err := contracts.DeployAutomationSimpleLogTriggerConsumerFromKey(chainClient, keyNum, *u.IsStreamsLookup)
-			consumerContract, err := contracts.DeployAutomationSimpleLogTriggerConsumer(chainClient, *u.IsStreamsLookup)
+			consumerContract, err := contracts.DeployAutomationSimpleLogTriggerConsumerFromKey(chainClient, *u.IsStreamsLookup, keyNum)
+			// consumerContract, err := contracts.DeployAutomationSimpleLogTriggerConsumer(chainClient, *u.IsStreamsLookup)
 			if err != nil {
 				errCh <- err
 				return
@@ -504,8 +505,8 @@ Load Config:
 			// 	triggerAddresses = append(triggerAddresses, triggerAddresses[len(triggerAddresses)-1])
 			// 	continue
 			// }
-			// triggerContract, err := contracts.DeployLogEmitterContractFromKey(l, chainClient, keyNum)
-			triggerContract, err := contracts.DeployLogEmitterContract(l, chainClient)
+			triggerContract, err := contracts.DeployLogEmitterContractFromKey(l, chainClient, keyNum)
+			// triggerContract, err := contracts.DeployLogEmitterContract(l, chainClient)
 			if err != nil {
 				errCh <- err
 				return
@@ -523,6 +524,13 @@ Load Config:
 			deployedCh <- data
 		}
 
+		var wgSubmit sync.WaitGroup
+		var wgProcess sync.WaitGroup
+
+		for i := 0; i < *u.NumberOfUpkeeps; i++ {
+			wgProcess.Add(1)
+		}
+
 		go func(t *testing.T) {
 			for err := range errCh {
 				require.NoError(t, err, "Error deploying test contract")
@@ -532,40 +540,27 @@ Load Config:
 			}()
 		}(t)
 
-		// go func() {
-		// 	defer func() {
-		// 		l.Debug().Msg("Closing deployed contract channel processing")
-		// 	}()
-		// 	for data := range deployedContractCh {
-		// 		if data.triggerContract != nil {
-		// 			triggerContracts = append(triggerContracts, data.triggerContract)
-		// 			triggerAddresses = append(triggerAddresses, data.triggerAddress)
-		// 		}
-		// 		consumerContracts = append(consumerContracts, data.consumerContract)
-		// 		l.Debug().Msg("Appending contract data to arrays")
-		// 		loadConfigs = append(loadConfigs, data.loadConfig)
-		// 	}
+		go func() {
+			for data := range deployedContractCh {
+				if data.triggerContract != nil {
+					triggerContracts = append(triggerContracts, data.triggerContract)
+					triggerAddresses = append(triggerAddresses, data.triggerAddress)
+				}
+				consumerContracts = append(consumerContracts, data.consumerContract)
+				l.Debug().Msg("Appending contract data to arrays")
+				loadConfigs = append(loadConfigs, data.loadConfig)
+				wgProcess.Done()
+			}
+		}()
 
-		// 	// if there's more than 1 upkeep and it's a shared trigger, then we should use only the first address in triggerAddresses
-		// 	// as triggerAddresses array
-		// 	if *u.SharedTrigger {
-		// 		triggerAddress := triggerAddresses[0]
-		// 		triggerAddresses = make([]common.Address, 0)
-		// 		for i := 0; i < *u.NumberOfUpkeeps; i++ {
-		// 			triggerAddresses = append(triggerAddresses, triggerAddress)
-		// 		}
-		// 	}
-		// }()
-
-		var wg sync.WaitGroup
 		operationsPerClient := *u.NumberOfUpkeeps / numberOfClients
 		extraOperations := *u.NumberOfUpkeeps % numberOfClients
 
 		// Launching workers
 		for clientNum := 1; clientNum <= numberOfClients; clientNum++ {
-			wg.Add(1)
+			wgSubmit.Add(1)
 			go func(clientNum int) {
-				defer wg.Done()
+				defer wgSubmit.Done()
 
 				numTasks := operationsPerClient
 				if clientNum <= extraOperations {
@@ -579,6 +574,7 @@ Load Config:
 
 				for i := 0; i < numTasks; i++ {
 					deployContractFn(deployedContractCh, errCh, clientNum)
+					l.Debug().Msgf("Finished contract deployment task %d/%d", (i + 1), numTasks)
 				}
 
 				l.Debug().
@@ -587,19 +583,13 @@ Load Config:
 			}(clientNum)
 		}
 
-		wg.Wait()
-		close(errCh)
-		close(deployedContractCh)
+		go func() {
+			wgSubmit.Wait()
+			close(errCh)
+			close(deployedContractCh)
+		}()
 
-		for data := range deployedContractCh {
-			if data.triggerContract != nil {
-				triggerContracts = append(triggerContracts, data.triggerContract)
-				triggerAddresses = append(triggerAddresses, data.triggerAddress)
-			}
-			consumerContracts = append(consumerContracts, data.consumerContract)
-			l.Debug().Msg("Appending contract data to arrays")
-			loadConfigs = append(loadConfigs, data.loadConfig)
-		}
+		wgProcess.Wait()
 
 		// if there's more than 1 upkeep and it's a shared trigger, then we should use only the first address in triggerAddresses
 		// as triggerAddresses array
@@ -611,44 +601,53 @@ Load Config:
 			}
 		}
 
-		// var generateCallData = func(receiver common.Address, amount *big.Int) ([]byte, error) {
-		// 	abi, err := link_token_interface.LinkTokenMetaData.GetAbi()
-		// 	if err != nil {
-		// 		return nil, err
-		// 	}
-		// 	data, err := abi.Pack("transfer", receiver, amount)
-		// 	if err != nil {
-		// 		return nil, err
-		// 	}
-		// 	return data, nil
-		// }
+		var generateCallData = func(receiver common.Address, amount *big.Int) ([]byte, error) {
+			abi, err := link_token_interface.LinkTokenMetaData.GetAbi()
+			if err != nil {
+				return nil, err
+			}
+			data, err := abi.Pack("transfer", receiver, amount)
+			if err != nil {
+				return nil, err
+			}
+			return data, nil
+		}
 
-		// Transfer LINK to ephemeral keys
-		// multiCallData := make([][]byte, numberOfClients)
-		// for i := 1; i <= numberOfClients; i++ {
-		// 	data, err := generateCallData(a.ChainClient.Addresses[i], big.NewInt(5e18))
-		// 	require.NoError(t, err, "Error generating call data for LINK transfer")
-		// 	multiCallData = append(multiCallData, data)
-		// }
+		toTransferToMultiCallContract := big.NewInt(0).Mul(automationDefaultLinkFunds, big.NewInt(int64(*u.NumberOfUpkeeps+numberOfClients)))
+		toTransferPerClient := big.NewInt(0).Mul(automationDefaultLinkFunds, big.NewInt(int64(operationsPerClient+1)))
+		err = a.LinkToken.Transfer(multicallAddress.Hex(), toTransferToMultiCallContract)
+		require.NoError(t, err, "Error transferring LINK to multicall contract")
 
-		// var call []contracts.Call
-		// for _, d := range multiCallData {
-		// 	data := contracts.Call{Target: common.HexToAddress(a.LinkToken.Address()), AllowFailure: false, CallData: d}
-		// 	call = append(call, data)
-		// }
+		balance, err := a.LinkToken.BalanceOf(context.Background(), multicallAddress.Hex())
+		require.NoError(t, err, "Error getting LINK balance")
+		require.Equal(t, toTransferToMultiCallContract, balance, "Incorrect LINK balance of multicall contract")
 
-		// multiCallABI, err := abi.JSON(strings.NewReader(contracts.MultiCallABI))
-		// require.NoError(t, err, "Error getting multicall abi")
-		// boundContract := bind.NewBoundContract(multicallAddress, multiCallABI, chainClient.Client, chainClient.Client, chainClient.Client)
-		// // call aggregate3 to group all msg call data and send them in a single transaction
-		// _, err = boundContract.Transact(chainClient.NewTXOpts(), "aggregate3", call)
-		// require.NoError(t, err, "Error transferring LINK to ephemeral keys")
+		// // Transfer LINK to ephemeral keys
+		multiCallData := make([][]byte, 0)
+		for i := 1; i <= numberOfClients; i++ {
+			data, err := generateCallData(a.ChainClient.Addresses[i], toTransferPerClient)
+			require.NoError(t, err, "Error generating call data for LINK transfer")
+			multiCallData = append(multiCallData, data)
+		}
 
-		// for i := 1; i <= numberOfClients; i++ {
-		// 	balance, err := a.LinkToken.BalanceOf(context.Background(), a.ChainClient.Addresses[i].Hex())
-		// 	require.NoError(t, err, "Error getting LINK balance")
-		// 	require.True(t, balance.Cmp(big.NewInt(5e18)) == 0, "Incorrect LINK balance after transferring for ephemeral key %d", i)
-		// }
+		var call []contracts.Call
+		for _, d := range multiCallData {
+			data := contracts.Call{Target: common.HexToAddress(a.LinkToken.Address()), AllowFailure: false, CallData: d}
+			call = append(call, data)
+		}
+
+		multiCallABI, err := abi.JSON(strings.NewReader(contracts.MultiCallABI))
+		require.NoError(t, err, "Error getting multicall abi")
+		boundContract := bind.NewBoundContract(multicallAddress, multiCallABI, a.ChainClient.Client, a.ChainClient.Client, a.ChainClient.Client)
+		// call aggregate3 to group all msg call data and send them in a single transaction
+		_, err = chainClient.Decode(boundContract.Transact(a.ChainClient.NewTXOpts(), "aggregate3", call))
+		require.NoError(t, err, "Error transferring LINK to ephemeral keys")
+
+		for i := 1; i <= numberOfClients; i++ {
+			balance, err := a.LinkToken.BalanceOf(context.Background(), chainClient.Addresses[i].Hex())
+			require.NoError(t, err, "Error getting LINK balance")
+			require.Equal(t, toTransferPerClient, balance, "Incorrect LINK balance after transferring for ephemeral key %d", i)
+		}
 	}
 
 	for i, consumerContract := range consumerContracts {
@@ -740,14 +739,17 @@ Load Config:
 		l.Error().Err(err).Msg("Error sending slack notification")
 	}
 
-	for i := 1; i < len(chainClient.Addresses); i++ {
-		_, err = actions_seth.SendFunds(l, chainClient, actions_seth.FundsToSendPayload{
-			ToAddress:  chainClient.Addresses[i],
+	for i := 1; i < len(a.ChainClient.Addresses); i++ {
+		_, err = actions_seth.SendFunds(l, a.ChainClient, actions_seth.FundsToSendPayload{
+			ToAddress:  a.ChainClient.Addresses[i],
 			Amount:     big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(10)),
-			PrivateKey: chainClient.PrivateKeys[0],
+			PrivateKey: a.ChainClient.PrivateKeys[0],
 		})
 		require.NoError(t, err, "Error sending funds")
 	}
+
+	err = a.ChainClient.NonceManager.UpdateNonces()
+	require.NoError(t, err, "Error updating nonces")
 
 	g, err := wasp.NewGenerator(&wasp.Config{
 		T:           t,
@@ -761,7 +763,7 @@ Load Config:
 		Gun: NewLogTriggerUser(
 			l,
 			configs,
-			chainClient,
+			a.ChainClient,
 			numberOfClients,
 			multicallAddress.Hex(),
 		),
@@ -830,7 +832,7 @@ Load Config:
 					logsInBatch []types.Log
 				)
 				ctx2, cancel := context.WithTimeout(ctx, timeout)
-				logsInBatch, err = chainClient.Client.FilterLogs(ctx2, filterQuery)
+				logsInBatch, err = a.ChainClient.Client.FilterLogs(ctx2, filterQuery)
 				cancel()
 				if err != nil {
 					l.Error().Err(err).
@@ -858,7 +860,7 @@ Load Config:
 				eventDetails, err := consumerABI.EventByID(log.Topics[0])
 				require.NoError(t, err, "Error getting event details")
 				consumer, err := simple_log_upkeep_counter_wrapper.NewSimpleLogUpkeepCounter(
-					address, chainClient.Client,
+					address, a.ChainClient.Client,
 				)
 				require.NoError(t, err, "Error getting consumer contract")
 				if eventDetails.Name == "PerformingUpkeep" {
@@ -1013,40 +1015,40 @@ Test Duration: %s`
 	}
 
 	t.Cleanup(func() {
-		err = chainClient.NonceManager.UpdateNonces()
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-		eg, egCtx := errgroup.WithContext(ctx)
-		for i := 1; i < len(chainClient.Addresses); i++ {
-			i := i
-			eg.Go(func() error {
-				balance, err := chainClient.Client.BalanceAt(context.Background(), chainClient.Addresses[i], nil)
-				if err != nil {
-					return err
-				}
+		// err = chainClient.NonceManager.UpdateNonces()
+		// ctx, cancel := context.WithCancel(context.Background())
+		// defer cancel()
+		// eg, egCtx := errgroup.WithContext(ctx)
+		// for i := 1; i < len(chainClient.Addresses); i++ {
+		// 	i := i
+		// 	eg.Go(func() error {
+		// 		balance, err := chainClient.Client.BalanceAt(context.Background(), chainClient.Addresses[i], nil)
+		// 		if err != nil {
+		// 			return err
+		// 		}
 
-				networkTransferFee := chainClient.Cfg.Network.GasPrice * chainClient.Cfg.Network.TransferGasFee
-				fundsToReturn := new(big.Int).Sub(balance, big.NewInt(networkTransferFee))
+		// 		networkTransferFee := chainClient.Cfg.Network.GasPrice * chainClient.Cfg.Network.TransferGasFee
+		// 		fundsToReturn := new(big.Int).Sub(balance, big.NewInt(networkTransferFee))
 
-				if fundsToReturn.Cmp(big.NewInt(0)) <= 0 {
-					l.Debug().
-						Str("Address", chainClient.Addresses[i].Hex()).
-						Msg("Address balance is zero or negative. Skipping funds return")
+		// 		if fundsToReturn.Cmp(big.NewInt(0)) <= 0 {
+		// 			l.Debug().
+		// 				Str("Address", chainClient.Addresses[i].Hex()).
+		// 				Msg("Address balance is zero or negative. Skipping funds return")
 
-					return nil
-				}
+		// 			return nil
+		// 		}
 
-				l.Info().
-					Str("Key", chainClient.Addresses[i].Hex()).
-					Interface("Balance", balance).
-					Interface("NetworkFee", chainClient.Cfg.Network.GasPrice*21).
-					Interface("ReturnedFunds", fundsToReturn).
-					Msg("KeyFile key balance")
-				return chainClient.TransferETHFromKey(egCtx, i, chainClient.Addresses[0].Hex(), fundsToReturn)
-			})
-		}
+		// 		l.Info().
+		// 			Str("Key", chainClient.Addresses[i].Hex()).
+		// 			Interface("Balance", balance).
+		// 			Interface("NetworkFee", chainClient.Cfg.Network.GasPrice*21).
+		// 			Interface("ReturnedFunds", fundsToReturn).
+		// 			Msg("KeyFile key balance")
+		// 		return chainClient.TransferETHFromKey(egCtx, i, chainClient.Addresses[0].Hex(), fundsToReturn)
+		// 	})
+		// }
 
-		require.NoError(t, eg.Wait(), "Error returning funds to root address")
+		// require.NoError(t, eg.Wait(), "Error returning funds to root address")
 
 		if err = actions_seth.TeardownRemoteSuite(t, chainClient, testEnvironment.Cfg.Namespace, chainlinkNodes, nil, &loadedTestConfig); err != nil {
 			l.Error().Err(err).Msg("Error when tearing down remote suite")
