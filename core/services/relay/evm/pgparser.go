@@ -17,42 +17,20 @@ func NewPgParser(evmChainID *big.Int) *PgDSLParser {
 	return &PgDSLParser{}
 }
 
-func (v *PgDSLParser) ComparerPrimitive(_ query.ComparerPrimitive) {
-	return
-}
+func (v *PgDSLParser) ComparerPrimitive(_ query.ComparerPrimitive) {}
 
-func (v *PgDSLParser) BlockPrimitive(_ query.BlockPrimitive) {
-	return
-}
+func (v *PgDSLParser) BlockPrimitive(_ query.BlockPrimitive) {}
 
-func (v *PgDSLParser) ConfirmationPrimitive(_ query.ConfirmationsPrimitive) {
-	return
-}
+func (v *PgDSLParser) ConfirmationPrimitive(_ query.ConfirmationsPrimitive) {}
 
-func (v *PgDSLParser) TimestampPrimitive(_ query.TimestampPrimitive) {
-	return
-}
+func (v *PgDSLParser) TimestampPrimitive(_ query.TimestampPrimitive) {}
 
-func (v *PgDSLParser) TxHashPrimitives(_ query.TxHashPrimitive) {
-	return
-}
+func (v *PgDSLParser) TxHashPrimitives(_ query.TxHashPrimitive) {}
 
-func (v *PgDSLParser) VisitEventTopicsByValueFilter(_ *EventByIndexFilter) {
-	return
-}
+func (v *PgDSLParser) VisitEventTopicsByValueFilter(_ *EventByIndexFilter) {}
 
-func (v *PgDSLParser) VisitEventByWordFilter(_ *EventByWordFilter) {
-	return
-}
+func (v *PgDSLParser) VisitEventByWordFilter(_ *EventByWordFilter) {}
 
-func (v *PgDSLParser) VisitEventFilter(_ *EventFilter) {
-	return
-}
+func (v *PgDSLParser) VisitEventFilter(_ *EventFilter) {}
 
-func (v *PgDSLParser) VisitFinalityFilter(_ *FinalityFilter) {
-	return
-}
-
-func (v *PgDSLParser) VisitChainIdFilter(_ *ChainIdFilter) {
-	return
-}
+func (v *PgDSLParser) VisitFinalityFilter(_ *FinalityFilter) {}

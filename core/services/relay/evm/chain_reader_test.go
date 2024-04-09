@@ -50,8 +50,8 @@ const (
 func TestChainReader(t *testing.T) {
 	t.Parallel()
 	it := &chainReaderInterfaceTester{}
-	RunChainReaderInterfaceTests(t, it)
-	RunChainReaderInterfaceTests(t, commontestutils.WrapChainReaderTesterForLoop(it))
+	RunChainReaderGetLatestValueInterfaceTests(t, it)
+	RunChainReaderGetLatestValueInterfaceTests(t, commontestutils.WrapChainReaderTesterForLoop(it))
 
 	t.Run("Dynamically typed topics can be used to filter and have type correct in return", func(t *testing.T) {
 		it.Setup(t)
@@ -70,7 +70,7 @@ func TestChainReader(t *testing.T) {
 
 		input := struct{ Field string }{Field: anyString}
 		tp := cr.(clcommontypes.ContractTypeProvider)
-		output, err := tp.CreateContractType(AnyContractName, triggerWithDynamicTopic, false)
+		output, err := tp.CreateContractType(AnyContractName+"."+triggerWithDynamicTopic, false)
 		require.NoError(t, err)
 		rOutput := reflect.Indirect(reflect.ValueOf(output))
 

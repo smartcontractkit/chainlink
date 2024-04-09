@@ -52,20 +52,20 @@ var _ readBinding = &eventBinding{}
 
 func (e *eventBinding) decodeLogsIntoSequences(ctx context.Context, logs []logpoller.Log, into any) ([]commontypes.Sequence, error) {
 	var sequences []commontypes.Sequence
-	for _, log := range logs {
+	for i := range logs {
 		sequence := commontypes.Sequence{
 			// TODO SequenceCursor, should be combination of block, eventsig, topic and also match a proper db cursor?...
 			Cursor: "TODO",
 			Head: commontypes.Head{
-				Identifier: fmt.Sprint(log.BlockNumber),
-				Hash:       log.BlockHash.Bytes(),
-				Timestamp:  uint64(log.BlockTimestamp.Unix()),
+				Identifier: fmt.Sprint(logs[i].BlockNumber),
+				Hash:       logs[i].BlockHash.Bytes(),
+				Timestamp:  uint64(logs[i].BlockTimestamp.Unix()),
 			},
 			// TODO test this
 			Data: reflect.New(reflect.TypeOf(into).Elem()),
 		}
 
-		if err := e.decodeLog(ctx, &log, sequence.Data); err != nil {
+		if err := e.decodeLog(ctx, &logs[i], sequence.Data); err != nil {
 			return nil, err
 		}
 

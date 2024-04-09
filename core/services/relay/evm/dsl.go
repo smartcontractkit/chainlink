@@ -7,7 +7,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
 
 type EventFilter struct {
@@ -95,16 +94,5 @@ func (f *FinalityFilter) Accept(visitor query.Visitor) {
 	switch v := visitor.(type) {
 	case *PgDSLParser:
 		v.VisitFinalityFilter(f)
-	}
-}
-
-type ChainIdFilter struct {
-	chainId *ubig.Big
-}
-
-func (f *ChainIdFilter) accept(visitor query.Visitor) {
-	switch v := visitor.(type) {
-	case *PgDSLParser:
-		v.VisitChainIdFilter(f)
 	}
 }
