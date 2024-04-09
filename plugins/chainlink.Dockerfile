@@ -14,6 +14,8 @@ ARG COMMIT_SHA
 
 COPY . .
 
+RUN apt-get update && apt-get install -y jq
+
 # Build the golang binaries
 RUN make install-chainlink
 
