@@ -5,8 +5,13 @@ let
   postgresql = postgresql_14;
   nodejs = nodejs-18_x;
   nodePackages = pkgs.nodePackages.override { inherit nodejs; };
+
+  mkShell' = mkShell.override {
+    # The current nix default sdk for macOS fails to compile go projects, so we use a newer one for now.
+    stdenv = if stdenv.isDarwin then overrideSDK stdenv "11.0" else stdenv;
+  };
 in
-mkShell {
+mkShell' {
   nativeBuildInputs = [
     go
     goreleaser
@@ -46,7 +51,6 @@ mkShell {
   ];
   LD_LIBRARY_PATH = "${stdenv.cc.cc.lib}/lib64:$LD_LIBRARY_PATH";
   GOROOT = "${go}/share/go";
-  CGO_ENABLED = 0;
 
   PGDATA = "db";
   CL_DATABASE_URL = "postgresql://chainlink:chainlink@localhost:5432/chainlink_test?sslmode=disable";
