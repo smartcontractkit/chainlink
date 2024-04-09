@@ -8,13 +8,18 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 )
 
-// key is contract-readName
+// key is contractName.readName
 type contractBindings map[string]readBinding
 
 func (b contractBindings) GetReadBinding(key string) (readBinding, error) {
+	tokens := strings.Split(key, ".")
+	if len(tokens) < 2 {
+		return nil, fmt.Errorf("invalid key: %s, key should look like: contractName.readName", key)
+	}
+
 	rb, rbExists := b[key]
 	if !rbExists {
-		return nil, fmt.Errorf("%w: no readbinding by key %s", commontypes.ErrInvalidType, key)
+		return nil, fmt.Errorf("%w: no readbinding by key: %s", commontypes.ErrInvalidType, key)
 	}
 
 	return rb, nil

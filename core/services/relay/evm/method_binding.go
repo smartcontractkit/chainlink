@@ -68,7 +68,7 @@ func (m *methodBinding) QueryOne(_ context.Context, _ query.Filter, _ query.Limi
 	return nil, nil
 }
 
-func (m *methodBinding) Bind(ctx context.Context, binding commontypes.BoundContract) error {
+func (m *methodBinding) Bind(_ context.Context, binding commontypes.BoundContract) error {
 	m.address = common.HexToAddress(binding.Address)
 	m.bound = true
 	return nil

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
@@ -244,12 +245,13 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 			}
 		}
 		// this way querying by key/s values comparison can find its bindings
-		cr.contractBindings.AddReadBinding(formatKey(contractName, eventName, genericTopicName), eb)
+		cr.contractBindings.AddReadBinding(formatKey(contractName, genericTopicName), eb)
 	}
 
+	// set data word mappings for QueryKeys
 	for genericDataWordName := range eb.eventDataWords {
 		// this way querying by key/s values comparison can find its bindings
-		cr.contractBindings.AddReadBinding(formatKey(contractName, eventName, genericDataWordName), eb)
+		cr.contractBindings.AddReadBinding(formatKey(contractName, genericDataWordName), eb)
 	}
 
 	return cr.addDecoderDef(contractName, eventName, event.Inputs, chainReaderDefinition)
@@ -306,16 +308,32 @@ func (cr *chainReader) addDecoderDef(contractName, methodName string, outputs ab
 	return output.Init()
 }
 
-func remapQueryFilter(queryFilter query.Filter) (query.Filter, error) {
+func remapChainAgnosticFilter(address common.Address, eventSig common.Hash, topicsInfo map[string]topicInfo, queryFilter query.Filter) (remappedFilter query.Filter, err error) {
 	var expressions []query.Expression
+	isEventByTopic := false
 	for _, expression := range queryFilter.Expressions {
-		logFilter, err := remapExpression(expression)
-		if err != nil {
-			return query.Filter{}, err
+		var remappedExpression query.Expression
+		if expression.IsPrimitive() {
+			switch expression.Primitive.(type) {
+			case *query.ComparerPrimitive:
+				isEventByTopic = true
+				comparerPrimitive := expression.Primitive.(*query.ComparerPrimitive)
+				remappedExpression = NewEventByIndexFilter(address, eventSig, topicsInfo[queryFilter.Key].topicIndex, comparerPrimitive.ValueComparers)
+			}
+		} else {
+			remappedExpression, err = remapExpression(expression)
+			if err != nil {
+				return query.Filter{}, err
+			}
 		}
-
-		expressions = append(expressions, logFilter)
+		expressions = append(expressions, remappedExpression)
 	}
+
+	if !isEventByTopic {
+		expressions = append(expressions, NewEventFilter(address, eventSig))
+	}
+
+	//topicsInfo[queryFilter.Key]
 	return query.Filter{Expressions: expressions}, nil
 }
 
