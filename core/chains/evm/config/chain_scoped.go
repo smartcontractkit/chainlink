@@ -34,7 +34,7 @@ type ChainScoped struct {
 }
 
 func (c *ChainScoped) EVM() EVM {
-	return c.EVM()
+	return c.evmConfig
 }
 
 func (c *ChainScoped) Nodes() toml.EVMNodes {

@@ -230,7 +230,7 @@ func (client *client) HeaderByHash(ctx context.Context, h common.Hash) (*types.H
 func (client *client) SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (commonclient.SendTxReturnCode, error) {
 	err := client.SendTransaction(ctx, tx)
 	// nil is passed in as the second argument because this code is no longer being used.
-	returnCode := ClassifySendError(err, nil, client.logger, tx, fromAddress, client.pool.ChainType().IsL2())
+	returnCode := ClassifySendError(err, client.logger, tx, fromAddress, client.pool.ChainType().IsL2())
 	return returnCode, err
 }
 

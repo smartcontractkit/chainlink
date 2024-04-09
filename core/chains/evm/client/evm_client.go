@@ -12,7 +12,7 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
-func NewEvmClient(cfg evmconfig.NodePool, errsRegex evmconfig.ClientErrors, chainCfg commonclient.ChainConfig, lggr logger.Logger, chainID *big.Int, nodes []*toml.Node) Client {
+func NewEvmClient(cfg evmconfig.NodePool, chainCfg commonclient.ChainConfig, lggr logger.Logger, chainID *big.Int, nodes []*toml.Node) Client {
 	var empty url.URL
 	var primaries []commonclient.Node[*big.Int, *evmtypes.Head, RPCClient]
 	var sendonlys []commonclient.SendOnlyNode[*big.Int, RPCClient]
@@ -33,5 +33,5 @@ func NewEvmClient(cfg evmconfig.NodePool, errsRegex evmconfig.ClientErrors, chai
 		}
 	}
 	return NewChainClient(lggr, cfg.SelectionMode(), cfg.LeaseDuration(), chainCfg.NodeNoNewHeadsThreshold(),
-		primaries, sendonlys, chainID, chainCfg.ChainType(), errsRegex)
+		primaries, sendonlys, chainID, chainCfg.ChainType())
 }

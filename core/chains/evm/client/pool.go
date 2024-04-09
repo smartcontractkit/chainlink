@@ -400,10 +400,7 @@ func (p *Pool) SendTransaction(ctx context.Context, tx *types.Transaction) error
 				sendCtx, cancel := p.chStop.CtxCancel(ContextWithDefaultTimeout())
 				defer cancel()
 
-				// TODO: Should we fix this type, with plumbing, since it is deprecated?
-				//
-				// I have just passed in nil for now as this code is seemingly unused.
-				err := NewSendError(n.SendTransaction(sendCtx, tx), nil)
+				err := NewSendError(n.SendTransaction(sendCtx, tx))
 				p.logger.Debugw("Sendonly node sent transaction", "name", n.String(), "tx", tx, "err", err)
 				if err == nil || err.IsNonceTooLowError() || err.IsTransactionAlreadyMined() || err.IsTransactionAlreadyInMempool() {
 					// Nonce too low or transaction known errors are expected since

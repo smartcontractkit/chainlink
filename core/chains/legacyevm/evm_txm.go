@@ -51,6 +51,8 @@ func newEvmTxm(
 		estimator = opts.GenGasEstimator(chainID)
 	}
 
+	evmclient.SetClientErrorRegexes(cfg.ClientErrors())
+
 	if opts.GenTxManager == nil {
 		txm, err = txmgr.NewTxm(
 			sqlxDB,

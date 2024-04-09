@@ -376,29 +376,30 @@ func (s *SendError) IsCanceled() bool {
 	return pkgerrors.Is(s.err, context.Canceled)
 }
 
-func NewFatalSendError(e error, errsRegex config.ClientErrors) *SendError {
+// SetClientErrorRegexes is called on startup to set the client errors from the config
+func SetClientErrorRegexes(errsRegex config.ClientErrors) {
+	if errsRegex != nil {
+		clients["tomlConfig"] = makeClientErrorsFromConfig(errsRegex)
+	}
+}
+
+func NewFatalSendError(e error) *SendError {
 	if e == nil {
 		return nil
 	}
-
-	clients["tomlConfig"] = makeClientErrorsFromConfig(errsRegex)
 
 	return &SendError{err: pkgerrors.WithStack(e), fatal: true}
 }
 
-func NewSendErrorS(s string, errsRegex config.ClientErrors) *SendError {
-	return NewSendError(pkgerrors.New(s), errsRegex)
+func NewSendErrorS(s string) *SendError {
+	return NewSendError(pkgerrors.New(s))
 }
 
-func NewSendError(e error, errsRegex config.ClientErrors) *SendError {
+func NewSendError(e error) *SendError {
 	if e == nil {
 		return nil
 	}
-
-	clients["tomlConfig"] = makeClientErrorsFromConfig(errsRegex)
-	fatal := isFatalSendError(e)
-
-	return &SendError{err: pkgerrors.WithStack(e), fatal: fatal}
+	return &SendError{err: pkgerrors.WithStack(e), fatal: isFatalSendError(e)}
 }
 
 func makeClientErrorsFromConfig(errsRegex config.ClientErrors) ClientErrors {
@@ -503,8 +504,8 @@ func ExtractRPCError(baseErr error) (*JsonError, error) {
 	return &jErr, nil
 }
 
-func ClassifySendError(err error, errsRegex config.ClientErrors, lggr logger.SugaredLogger, tx *types.Transaction, fromAddress common.Address, isL2 bool) commonclient.SendTxReturnCode {
-	sendError := NewSendError(err, errsRegex)
+func ClassifySendError(err error, lggr logger.SugaredLogger, tx *types.Transaction, fromAddress common.Address, isL2 bool) commonclient.SendTxReturnCode {
+	sendError := NewSendError(err)
 	if sendError == nil {
 		return commonclient.Successful
 	}
