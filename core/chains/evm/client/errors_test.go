@@ -19,18 +19,35 @@ type errorCase struct {
 	network string
 }
 
+func NewTestClientErrors() evmclient.TestClientErrors {
+	clientErrors := evmclient.TestClientErrors{}
+	clientErrors.SetNonceTooLow("client error nonce too low")
+	clientErrors.SetNonceTooHigh("client error nonce too high")
+	clientErrors.SetReplacementTransactionUnderpriced("client error replacement underpriced")
+	clientErrors.SetLimitReached("client error limit reached")
+	clientErrors.SetTransactionAlreadyInMempool("client error transaction already in mempool")
+	clientErrors.SetTerminallyUnderpriced("client error terminally underpriced")
+	clientErrors.SetInsufficientEth("client error insufficient eth")
+	clientErrors.SetTxFeeExceedsCap("client error tx fee exceeds cap")
+	clientErrors.SetL2FeeTooLow("client error l2 fee too low")
+	clientErrors.SetL2FeeTooHigh("client error l2 fee too high")
+	clientErrors.SetL2Full("client error l2 full")
+	clientErrors.SetTransactionAlreadyMined("client error transaction already mined")
+	clientErrors.SetFatal("client error fatal")
+	clientErrors.SetServiceUnavailable("client error service unavailable")
+	return clientErrors
+}
+
 func Test_Eth_Errors(t *testing.T) {
 	t.Parallel()
 
 	var err *evmclient.SendError
 	randomError := evmclient.NewSendErrorS("some old bollocks")
 
+	clientErrors := NewTestClientErrors()
+	evmclient.SetClientErrorRegexes(&clientErrors)
+
 	t.Run("IsNonceTooLowError", func(t *testing.T) {
-
-		clientErrors := evmclient.TestClientErrors{}
-		clientErrors.SetNonceTooLow("client nonce too low")
-		evmclient.SetClientErrorRegexes(&clientErrors)
-
 		tests := []errorCase{
 			{"nonce too low", true, "Geth"},
 			{"nonce too low: address 0x336394A3219e71D9d9bd18201d34E95C1Bb7122C, tx: 8089 state: 8090", true, "Arbitrum"},
@@ -44,7 +61,7 @@ func Test_Eth_Errors(t *testing.T) {
 			{"call failed: OldNonce", true, "Nethermind"},
 			{"call failed: OldNonce, Current nonce: 22, nonce of rejected tx: 17", true, "Nethermind"},
 			{"nonce too low. allowed nonce range: 427 - 447, actual: 426", true, "zkSync"},
-			{"client nonce too low", true, "tomlConfig"},
+			{"client error nonce too low", true, "tomlConfig"},
 		}
 
 		for _, test := range tests {
@@ -58,7 +75,6 @@ func Test_Eth_Errors(t *testing.T) {
 	})
 
 	t.Run("IsNonceTooHigh", func(t *testing.T) {
-
 		tests := []errorCase{
 			{"call failed: NonceGap", true, "Nethermind"},
 			{"call failed: NonceGap, Future nonce. Expected nonce: 10", true, "Nethermind"},
@@ -66,6 +82,7 @@ func Test_Eth_Errors(t *testing.T) {
 			{"nonce too high", true, "Geth"},
 			{"nonce too high", true, "Erigon"},
 			{"nonce too high. allowed nonce range: 427 - 477, actual: 527", true, "zkSync"},
+			{"client error nonce too high", true, "tomlConfig"},
 		}
 
 		for _, test := range tests {
@@ -81,6 +98,7 @@ func Test_Eth_Errors(t *testing.T) {
 
 		tests := []errorCase{
 			{"transaction already finalized", true, "Harmony"},
+			{"client error transaction already mined", true, "tomlConfig"},
 		}
 
 		for _, test := range tests {
@@ -104,6 +122,7 @@ func Test_Eth_Errors(t *testing.T) {
 			{"Transaction gas price 100wei is too low. There is another transaction with same nonce in the queue with gas price 150wei. Try increasing the gas price or incrementing the nonce.", true, "Parity"},
 			{"There are too many transactions in the queue. Your transaction was dropped due to limit. Try increasing the fee.", false, "Parity"},
 			{"gas price too low", false, "Arbitrum"},
+			{"client error replacement underpriced", true, "tomlConfig"},
 		}
 
 		for _, test := range tests {
@@ -134,6 +153,7 @@ func Test_Eth_Errors(t *testing.T) {
 			{"known transaction. transaction with hash 0x6013…3053 is already in the system", true, "zkSync"},
 			// This seems to be an erroneous message from the zkSync client, we'll have to match it anyway
 			{"ErrorObject { code: ServerError(3), message: \\\"known transaction. transaction with hash 0xf016…ad63 is already in the system\\\", data: Some(RawValue(\\\"0x\\\")) }", true, "zkSync"},
+			{"client error transaction already in mempool", true, "tomlConfig"},
 		}
 		for _, test := range tests {
 			err = evmclient.NewSendErrorS(test.message)
@@ -163,6 +183,7 @@ func Test_Eth_Errors(t *testing.T) {
 			{"intrinsic gas too low", true, "Klaytn"},
 			{"max fee per gas less than block base fee", true, "zkSync"},
 			{"virtual machine entered unexpected state. please contact developers and provide transaction details that caused this error. Error description: The operator included transaction with an unacceptable gas price", true, "zkSync"},
+			{"client error terminally underpriced", true, "tomlConfig"},
 		}
 
 		for _, test := range tests {
@@ -208,6 +229,7 @@ func Test_Eth_Errors(t *testing.T) {
 			{"insufficient funds for gas * price + value + gatewayFee", true, "celo"},
 			{"insufficient balance for transfer", true, "zkSync"},
 			{"insufficient funds for gas + value. balance: 42719769622667482000, fee: 48098250000000, value: 42719769622667482000", true, "celo"},
+			{"client error insufficient eth", true, "tomlConfig"},
 		}
 		for _, test := range tests {
 			err = evmclient.NewSendErrorS(test.message)
@@ -221,6 +243,7 @@ func Test_Eth_Errors(t *testing.T) {
 		tests := []errorCase{
 			{"call failed: 503 Service Unavailable: <html>\r\n<head><title>503 Service Temporarily Unavailable</title></head>\r\n<body>\r\n<center><h1>503 Service Temporarily Unavailable</h1></center>\r\n</body>\r\n</html>\r\n", true, "Nethermind"},
 			{"call failed: 502 Bad Gateway: <html>\r\n<head><title>502 Bad Gateway</title></head>\r\n<body>\r\n<center><h1>502 Bad Gateway</h1></center>\r\n<hr><center>", true, "Arbitrum"},
+			{"client error service unavailable", true, "tomlConfig"},
 		}
 		for _, test := range tests {
 			err = evmclient.NewSendErrorS(test.message)
@@ -241,6 +264,7 @@ func Test_Eth_Errors(t *testing.T) {
 			{"max fee per gas higher than max priority fee per gas", true, "Klaytn"},
 			{"tx fee (1.10 of currency celo) exceeds the configured cap (1.00 celo)", true, "celo"},
 			{"max priority fee per gas higher than max fee per gas", true, "zkSync"},
+			{"client error tx fee exceeds cap", true, "tomlConfig"},
 		}
 		for _, test := range tests {
 			err = evmclient.NewSendErrorS(test.message)
@@ -302,6 +326,9 @@ func Test_Eth_Errors(t *testing.T) {
 
 func Test_Eth_Errors_Fatal(t *testing.T) {
 	t.Parallel()
+
+	clientErrors := NewTestClientErrors()
+	evmclient.SetClientErrorRegexes(&clientErrors)
 
 	tests := []errorCase{
 		{"some old bollocks", false, "none"},
@@ -367,6 +394,7 @@ func Test_Eth_Errors_Fatal(t *testing.T) {
 		{"Failed to serialize transaction: max fee per pubdata byte higher than 2^64-1", true, "zkSync"},
 		{"Failed to serialize transaction: max priority fee per gas higher than 2^64-1", true, "zkSync"},
 		{"Failed to serialize transaction: oversized data. max: 1000000; actual: 1000000", true, "zkSync"},
+		{"client error fatal", true, "tomlConfig"},
 	}
 
 	for _, test := range tests {

@@ -419,6 +419,10 @@ func isFatalSendError(err error) bool {
 		if _, ok := client[Fatal]; !ok {
 			continue
 		}
+		if client[Fatal].String() == "" {
+			// Skip empty regexes.
+			continue
+		}
 		if client[Fatal].MatchString(str) {
 			return true
 		}
