@@ -534,41 +534,51 @@ func (o *orm) InsertWebhookSpec(webhookSpec *WebhookSpec, qopts ...pg.QOpt) erro
 
 func (o *orm) InsertJob(job *Job, qopts ...pg.QOpt) error {
 	q := o.q.WithOpts(qopts...)
-	var query string
+	return q.Transaction(func(querier pg.Queryer) error {
+		var query string
 
-	// if job has id, emplace otherwise insert with a new id.
-	if job.ID == 0 {
-		query = `INSERT INTO jobs (pipeline_spec_id, name, stream_id, schema_version, type, max_task_duration, ocr_oracle_spec_id, ocr2_oracle_spec_id, direct_request_spec_id, flux_monitor_spec_id,
+		// if job has id, emplace otherwise insert with a new id.
+		if job.ID == 0 {
+			query = `INSERT INTO jobs (name, stream_id, schema_version, type, max_task_duration, ocr_oracle_spec_id, ocr2_oracle_spec_id, direct_request_spec_id, flux_monitor_spec_id,
 				keeper_spec_id, cron_spec_id, vrf_spec_id, webhook_spec_id, blockhash_store_spec_id, bootstrap_spec_id, block_header_feeder_spec_id, gateway_spec_id, 
                 legacy_gas_station_server_spec_id, legacy_gas_station_sidecar_spec_id, external_job_id, gas_limit, forwarding_allowed, created_at)
-		VALUES (:pipeline_spec_id, :name, :stream_id, :schema_version, :type, :max_task_duration, :ocr_oracle_spec_id, :ocr2_oracle_spec_id, :direct_request_spec_id, :flux_monitor_spec_id,
+		VALUES (:name, :stream_id, :schema_version, :type, :max_task_duration, :ocr_oracle_spec_id, :ocr2_oracle_spec_id, :direct_request_spec_id, :flux_monitor_spec_id,
 				:keeper_spec_id, :cron_spec_id, :vrf_spec_id, :webhook_spec_id, :blockhash_store_spec_id, :bootstrap_spec_id, :block_header_feeder_spec_id, :gateway_spec_id, 
 		        :legacy_gas_station_server_spec_id, :legacy_gas_station_sidecar_spec_id, :external_job_id, :gas_limit, :forwarding_allowed, NOW())
 		RETURNING *;`
-	} else {
-		query = `INSERT INTO jobs (id, pipeline_spec_id, name, stream_id, schema_version, type, max_task_duration, ocr_oracle_spec_id, ocr2_oracle_spec_id, direct_request_spec_id, flux_monitor_spec_id,
+		} else {
+			query = `INSERT INTO jobs (id, name, stream_id, schema_version, type, max_task_duration, ocr_oracle_spec_id, ocr2_oracle_spec_id, direct_request_spec_id, flux_monitor_spec_id,
 			keeper_spec_id, cron_spec_id, vrf_spec_id, webhook_spec_id, blockhash_store_spec_id, bootstrap_spec_id, block_header_feeder_spec_id, gateway_spec_id, 
                   legacy_gas_station_server_spec_id, legacy_gas_station_sidecar_spec_id, external_job_id, gas_limit, forwarding_allowed, created_at)
-		VALUES (:id, :pipeline_spec_id, :name, :stream_id, :schema_version, :type, :max_task_duration, :ocr_oracle_spec_id, :ocr2_oracle_spec_id, :direct_request_spec_id, :flux_monitor_spec_id,
+		VALUES (:id, :name, :stream_id, :schema_version, :type, :max_task_duration, :ocr_oracle_spec_id, :ocr2_oracle_spec_id, :direct_request_spec_id, :flux_monitor_spec_id,
 				:keeper_spec_id, :cron_spec_id, :vrf_spec_id, :webhook_spec_id, :blockhash_store_spec_id, :bootstrap_spec_id, :block_header_feeder_spec_id, :gateway_spec_id, 
 				:legacy_gas_station_server_spec_id, :legacy_gas_station_sidecar_spec_id, :external_job_id, :gas_limit, :forwarding_allowed, NOW())
 		RETURNING *;`
-	}
-	return q.GetNamed(query, job, job)
+		}
+		err := q.GetNamed(query, job, job)
+		if err != nil {
+			return err
+		}
+
+		// Always inserts the `job_pipeline_specs` record as primary, since this is the first one for the job.
+		sqlStmt := `INSERT INTO job_pipeline_specs (job_id, pipeline_spec_id, is_primary) VALUES ($1, $2, true)`
+		_, err = q.Exec(sqlStmt, job.ID, job.PipelineSpecID)
+		return errors.Wrap(err, "failed to insert job_pipeline_specs relationship")
+	})
 }
 
 // DeleteJob removes a job
 func (o *orm) DeleteJob(id int32, qopts ...pg.QOpt) error {
 	o.lggr.Debugw("Deleting job", "jobID", id)
-	// Added a 1 minute timeout to this query since this can take a long time as data increases.
-	// This was added specifically due to an issue with a database that had a millions of pipeline_runs and pipeline_task_runs
+	// Added a 1-minute timeout to this query since this can take a long time as data increases.
+	// This was added specifically due to an issue with a database that had a million of pipeline_runs and pipeline_task_runs
 	// and this query was taking ~40secs.
 	qopts = append(qopts, pg.WithLongQueryTimeout())
 	q := o.q.WithOpts(qopts...)
 	query := `
 		WITH deleted_jobs AS (
 			DELETE FROM jobs WHERE id = $1 RETURNING
-				pipeline_spec_id,
+				id,
 				ocr_oracle_spec_id,
 				ocr2_oracle_spec_id,
 				keeper_spec_id,
@@ -617,8 +627,11 @@ func (o *orm) DeleteJob(id int32, qopts ...pg.QOpt) error {
 		),
 		deleted_gateway_specs AS (
 			DELETE FROM gateway_specs WHERE id IN (SELECT gateway_spec_id FROM deleted_jobs)
+		),
+		deleted_job_pipeline_specs AS (
+			DELETE FROM job_pipeline_specs WHERE job_id IN (SELECT id FROM deleted_jobs) RETURNING pipeline_spec_id
 		)
-		DELETE FROM pipeline_specs WHERE id IN (SELECT pipeline_spec_id FROM deleted_jobs)`
+		DELETE FROM pipeline_specs WHERE id IN (SELECT pipeline_spec_id FROM deleted_job_pipeline_specs)`
 	res, cancel, err := q.ExecQIter(query, id)
 	defer cancel()
 	if err != nil {
@@ -692,7 +705,10 @@ func (o *orm) FindJobs(offset, limit int) (jobs []Job, count int, err error) {
 			return err
 		}
 
-		sql = `SELECT * FROM jobs ORDER BY created_at DESC, id DESC OFFSET $1 LIMIT $2;`
+		sql = `SELECT jobs.*, job_pipeline_specs.pipeline_spec_id as pipeline_spec_id 
+			FROM jobs
+			    JOIN job_pipeline_specs ON (jobs.id = job_pipeline_specs.job_id)
+			ORDER BY jobs.created_at DESC, jobs.id DESC OFFSET $1 LIMIT $2;`
 		err = tx.Select(&jobs, sql, offset, limit)
 		if err != nil {
 			return err
@@ -807,7 +823,7 @@ func (o *orm) FindJob(ctx context.Context, id int32) (jb Job, err error) {
 // FindJobWithoutSpecErrors returns a job by ID, without loading Spec Errors preloaded
 func (o *orm) FindJobWithoutSpecErrors(id int32) (jb Job, err error) {
 	err = o.q.Transaction(func(tx pg.Queryer) error {
-		stmt := "SELECT * FROM jobs WHERE id = $1 LIMIT 1"
+		stmt := "SELECT jobs.*, job_pipeline_specs.pipeline_spec_id as pipeline_spec_id FROM jobs JOIN job_pipeline_specs ON (jobs.id = job_pipeline_specs.job_id) WHERE jobs.id = $1 LIMIT 1"
 		err = tx.Get(&jb, stmt, id)
 		if err != nil {
 			return errors.Wrap(err, "failed to load job")
@@ -897,7 +913,7 @@ WHERE ocr2spec.id IS NOT NULL OR bs.id IS NOT NULL
 func (o *orm) findJob(jb *Job, col string, arg interface{}, qopts ...pg.QOpt) error {
 	q := o.q.WithOpts(qopts...)
 	err := q.Transaction(func(tx pg.Queryer) error {
-		sql := fmt.Sprintf(`SELECT * FROM jobs WHERE %s = $1 LIMIT 1`, col)
+		sql := fmt.Sprintf(`SELECT jobs.*, job_pipeline_specs.pipeline_spec_id FROM jobs JOIN job_pipeline_specs ON (jobs.id = job_pipeline_specs.job_id) WHERE jobs.%s = $1 AND job_pipeline_specs.is_primary = true LIMIT 1`, col)
 		err := tx.Get(jb, sql, arg)
 		if err != nil {
 			return errors.Wrap(err, "failed to load job")
@@ -917,7 +933,13 @@ func (o *orm) findJob(jb *Job, col string, arg interface{}, qopts ...pg.QOpt) er
 
 func (o *orm) FindJobIDsWithBridge(name string) (jids []int32, err error) {
 	err = o.q.Transaction(func(tx pg.Queryer) error {
-		query := `SELECT jobs.id, dot_dag_source FROM jobs JOIN pipeline_specs ON pipeline_specs.id = jobs.pipeline_spec_id WHERE dot_dag_source ILIKE '%' || $1 || '%' ORDER BY id`
+		query := `SELECT 
+			jobs.id, pipeline_specs.dot_dag_source 
+		FROM jobs
+		    JOIN job_pipeline_specs ON job_pipeline_specs.job_id = jobs.id
+		    JOIN pipeline_specs ON pipeline_specs.id = job_pipeline_specs.pipeline_spec_id
+		WHERE pipeline_specs.dot_dag_source ILIKE '%' || $1 || '%' ORDER BY id`
+
 		var rows *sqlx.Rows
 		rows, err = tx.Queryx(query, name)
 		if err != nil {
@@ -958,7 +980,7 @@ func (o *orm) FindJobIDsWithBridge(name string) (jids []int32, err error) {
 // PipelineRunsByJobsIDs returns pipeline runs for multiple jobs, not preloading data
 func (o *orm) PipelineRunsByJobsIDs(ids []int32) (runs []pipeline.Run, err error) {
 	err = o.q.Transaction(func(tx pg.Queryer) error {
-		stmt := `SELECT pipeline_runs.* FROM pipeline_runs INNER JOIN jobs ON pipeline_runs.pipeline_spec_id = jobs.pipeline_spec_id WHERE jobs.id = ANY($1)
+		stmt := `SELECT pipeline_runs.* FROM pipeline_runs INNER JOIN job_pipeline_specs ON pipeline_runs.pipeline_spec_id = job_pipeline_specs.pipeline_spec_id WHERE jobs.id = ANY($1)
 		ORDER BY pipeline_runs.created_at DESC, pipeline_runs.id DESC;`
 		if err = tx.Select(&runs, stmt, ids); err != nil {
 			return errors.Wrap(err, "error loading runs")
@@ -987,7 +1009,7 @@ func (o *orm) loadPipelineRunIDs(jobID *int32, offset, limit int, tx pg.Queryer)
 
 	var filter string
 	if jobID != nil {
-		filter = fmt.Sprintf("JOIN jobs USING(pipeline_spec_id) WHERE jobs.id = %d AND ", *jobID)
+		filter = fmt.Sprintf("JOIN job_pipeline_specs USING(pipeline_spec_id) WHERE job_pipeline_specs.job_id = %d AND ", *jobID)
 	} else {
 		filter = "WHERE "
 	}
@@ -1132,7 +1154,7 @@ WHERE id = $1
 // CountPipelineRunsByJobID returns the total number of pipeline runs for a job.
 func (o *orm) CountPipelineRunsByJobID(jobID int32) (count int32, err error) {
 	err = o.q.Transaction(func(tx pg.Queryer) error {
-		stmt := "SELECT COUNT(*) FROM pipeline_runs JOIN jobs USING (pipeline_spec_id) WHERE jobs.id = $1"
+		stmt := "SELECT COUNT(*) FROM pipeline_runs JOIN job_pipeline_specs USING (pipeline_spec_id) WHERE job_pipeline_specs.job_id = $1"
 		if err = tx.Get(&count, stmt, jobID); err != nil {
 			return errors.Wrap(err, "error counting runs")
 		}
@@ -1147,7 +1169,7 @@ func (o *orm) FindJobsByPipelineSpecIDs(ids []int32) ([]Job, error) {
 	var jbs []Job
 
 	err := o.q.Transaction(func(tx pg.Queryer) error {
-		stmt := `SELECT * FROM jobs WHERE jobs.pipeline_spec_id = ANY($1) ORDER BY id ASC
+		stmt := `SELECT jobs.*, job_pipeline_specs.pipeline_spec_id FROM jobs JOIN job_pipeline_specs ON (jobs.id = job_pipeline_specs.job_id) WHERE job_pipeline_specs.pipeline_spec_id = ANY($1) ORDER BY jobs.id ASC
 `
 		if err := tx.Select(&jbs, stmt, ids); err != nil {
 			return errors.Wrap(err, "error fetching jobs by pipeline spec IDs")
@@ -1169,7 +1191,7 @@ func (o *orm) FindJobsByPipelineSpecIDs(ids []int32) ([]Job, error) {
 func (o *orm) PipelineRuns(jobID *int32, offset, size int) (runs []pipeline.Run, count int, err error) {
 	var filter string
 	if jobID != nil {
-		filter = fmt.Sprintf("JOIN jobs USING(pipeline_spec_id) WHERE jobs.id = %d", *jobID)
+		filter = fmt.Sprintf("JOIN job_pipeline_specs USING(pipeline_spec_id) WHERE job_pipeline_specs.job_id = %d", *jobID)
 	}
 	err = o.q.Transaction(func(tx pg.Queryer) error {
 		sql := fmt.Sprintf(`SELECT count(*) FROM pipeline_runs %s`, filter)
@@ -1200,7 +1222,7 @@ func (o *orm) loadPipelineRunsRelations(runs []pipeline.Run, tx pg.Queryer) ([]p
 	for specID := range specM {
 		specIDs = append(specIDs, specID)
 	}
-	stmt := `SELECT pipeline_specs.*, jobs.id AS job_id FROM pipeline_specs JOIN jobs ON pipeline_specs.id = jobs.pipeline_spec_id WHERE pipeline_specs.id = ANY($1);`
+	stmt := `SELECT pipeline_specs.*, job_pipeline_specs.job_id AS job_id FROM pipeline_specs JOIN job_pipeline_specs ON pipeline_specs.id = job_pipeline_specs.pipeline_spec_id WHERE pipeline_specs.id = ANY($1);`
 	var specs []pipeline.Spec
 	if err := o.q.Select(&specs, stmt, specIDs); err != nil {
 		return nil, errors.Wrap(err, "error loading specs")
@@ -1247,7 +1269,7 @@ func LoadAllJobsTypes(tx pg.Queryer, jobs []Job) error {
 
 func LoadAllJobTypes(tx pg.Queryer, job *Job) error {
 	return multierr.Combine(
-		loadJobType(tx, job, "PipelineSpec", "pipeline_specs", &job.PipelineSpecID),
+		loadJobPipelineSpec(tx, job, &job.PipelineSpecID),
 		loadJobType(tx, job, "FluxMonitorSpec", "flux_monitor_specs", job.FluxMonitorSpecID),
 		loadJobType(tx, job, "DirectRequestSpec", "direct_request_specs", job.DirectRequestSpecID),
 		loadJobType(tx, job, "OCROracleSpec", "ocr_oracle_specs", job.OCROracleSpecID),
@@ -1284,6 +1306,29 @@ func loadJobType(tx pg.Queryer, job *Job, field, table string, id *int32) error 
 		return errors.Wrapf(err, "failed to load job type %s with id %d", table, *id)
 	}
 	reflect.ValueOf(job).Elem().FieldByName(field).Set(destVal)
+	return nil
+}
+
+func loadJobPipelineSpec(tx pg.Queryer, job *Job, id *int32) error {
+	if id == nil {
+		return nil
+	}
+	pipelineSpecRow := new(pipeline.Spec)
+	if job.PipelineSpec != nil {
+		pipelineSpecRow = job.PipelineSpec
+	}
+	err := tx.Get(
+		pipelineSpecRow,
+		`SELECT pipeline_specs.*, job_pipeline_specs.job_id as job_id
+			FROM pipeline_specs 
+    		JOIN job_pipeline_specs ON(pipeline_specs.id = job_pipeline_specs.pipeline_spec_id)
+        	WHERE job_pipeline_specs.job_id = $1 AND job_pipeline_specs.pipeline_spec_id = $2`,
+		job.ID, *id,
+	)
+	if err != nil {
+		return errors.Wrapf(err, "failed to load job type PipelineSpec with id %d", *id)
+	}
+	job.PipelineSpec = pipelineSpecRow
 	return nil
 }
 
