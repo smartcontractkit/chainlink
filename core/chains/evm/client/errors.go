@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/label"
 )
 
@@ -233,7 +234,48 @@ var zkEvm = ClientErrors{
 	OutOfCounters: regexp.MustCompile(`(?:: |^)not enough .* counters to continue the execution$`),
 }
 
-var clients = []ClientErrors{parity, geth, arbitrum, metis, substrate, avalanche, nethermind, harmony, besu, erigon, klaytn, celo, zkSync, zkEvm}
+var clients = map[string]ClientErrors{
+	"parity":     parity,
+	"geth":       geth,
+	"arbitrum":   arbitrum,
+	"metis":      metis,
+	"substrate":  substrate,
+	"avalanche":  avalanche,
+	"nethermind": nethermind,
+	"harmony":    harmony,
+	"besu":       besu,
+	"erigon":     erigon,
+	"klaytn":     klaytn,
+	"celo":       celo,
+	"zkSync":     zkSync,
+	"zkEvm":      zkEvm,
+}
+
+// SetClientErrorRegexes is called on startup to set the client errors from the config
+func SetClientErrorRegexes(errsRegex config.ClientErrors) {
+	if errsRegex != nil {
+		clients["tomlConfig"] = makeClientErrorsFromConfig(errsRegex)
+	}
+}
+
+func makeClientErrorsFromConfig(errsRegex config.ClientErrors) ClientErrors {
+	return ClientErrors{
+		NonceTooLow:                       regexp.MustCompile(errsRegex.NonceTooLow()),
+		NonceTooHigh:                      regexp.MustCompile(errsRegex.NonceTooHigh()),
+		ReplacementTransactionUnderpriced: regexp.MustCompile(errsRegex.ReplacementTransactionUnderpriced()),
+		LimitReached:                      regexp.MustCompile(errsRegex.LimitReached()),
+		TransactionAlreadyInMempool:       regexp.MustCompile(errsRegex.TransactionAlreadyInMempool()),
+		TerminallyUnderpriced:             regexp.MustCompile(errsRegex.TerminallyUnderpriced()),
+		InsufficientEth:                   regexp.MustCompile(errsRegex.InsufficientEth()),
+		TxFeeExceedsCap:                   regexp.MustCompile(errsRegex.TxFeeExceedsCap()),
+		L2FeeTooLow:                       regexp.MustCompile(errsRegex.L2FeeTooLow()),
+		L2FeeTooHigh:                      regexp.MustCompile(errsRegex.L2FeeTooHigh()),
+		L2Full:                            regexp.MustCompile(errsRegex.L2Full()),
+		TransactionAlreadyMined:           regexp.MustCompile(errsRegex.TransactionAlreadyMined()),
+		Fatal:                             regexp.MustCompile(errsRegex.Fatal()),
+		ServiceUnavailable:                regexp.MustCompile(errsRegex.ServiceUnavailable()),
+	}
+}
 
 func (s *SendError) is(errorType int) bool {
 	if s == nil || s.err == nil {
@@ -242,6 +284,10 @@ func (s *SendError) is(errorType int) bool {
 	str := s.CauseStr()
 	for _, client := range clients {
 		if _, ok := client[errorType]; !ok {
+			continue
+		}
+		if client[errorType].String() == "" {
+			// Skip empty regexes.
 			continue
 		}
 		if client[errorType].MatchString(str) {

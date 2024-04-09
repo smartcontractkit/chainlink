@@ -19,6 +19,73 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
+type TestClientErrors struct {
+	nonceTooLow                       string
+	nonceTooHigh                      string
+	replacementTransactionUnderpriced string
+	limitReached                      string
+	transactionAlreadyInMempool       string
+	terminallyUnderpriced             string
+	insufficientEth                   string
+	txFeeExceedsCap                   string
+	l2FeeTooLow                       string
+	l2FeeTooHigh                      string
+	l2Full                            string
+	transactionAlreadyMined           string
+	fatal                             string
+	serviceUnavailable                string
+}
+
+func (c *TestClientErrors) SetNonceTooLow(s string)  { c.nonceTooLow = s }
+func (c *TestClientErrors) SetNonceTooHigh(s string) { c.nonceTooHigh = s }
+
+func (c *TestClientErrors) SetReplacementTransactionUnderpriced(s string) {
+	c.replacementTransactionUnderpriced = s
+}
+
+func (c *TestClientErrors) SetLimitReached(s string) { c.limitReached = s }
+
+func (c *TestClientErrors) SetTransactionAlreadyInMempool(s string) {
+	c.transactionAlreadyInMempool = s
+}
+
+func (c *TestClientErrors) SetTerminallyUnderpriced(s string) { c.terminallyUnderpriced = s }
+func (c *TestClientErrors) SetInsufficientEth(s string)       { c.insufficientEth = s }
+func (c *TestClientErrors) SetTxFeeExceedsCap(s string)       { c.txFeeExceedsCap = s }
+func (c *TestClientErrors) SetL2FeeTooLow(s string)           { c.l2FeeTooLow = s }
+func (c *TestClientErrors) SetL2FeeTooHigh(s string)          { c.l2FeeTooHigh = s }
+func (c *TestClientErrors) SetL2Full(s string)                { c.l2Full = s }
+
+func (c *TestClientErrors) SetTransactionAlreadyMined(s string) {
+	c.transactionAlreadyMined = s
+}
+
+func (c *TestClientErrors) SetFatal(s string)              { c.fatal = s }
+func (c *TestClientErrors) SetServiceUnavailable(s string) { c.serviceUnavailable = s }
+
+func (c *TestClientErrors) NonceTooLow() string  { return c.nonceTooLow }
+func (c *TestClientErrors) NonceTooHigh() string { return c.nonceTooHigh }
+
+func (c *TestClientErrors) ReplacementTransactionUnderpriced() string {
+	return c.replacementTransactionUnderpriced
+}
+
+func (c *TestClientErrors) LimitReached() string { return c.limitReached }
+
+func (c *TestClientErrors) TransactionAlreadyInMempool() string {
+	return c.transactionAlreadyInMempool
+}
+
+func (c *TestClientErrors) TerminallyUnderpriced() string   { return c.terminallyUnderpriced }
+func (c *TestClientErrors) InsufficientEth() string         { return c.insufficientEth }
+func (c *TestClientErrors) TxFeeExceedsCap() string         { return c.txFeeExceedsCap }
+func (c *TestClientErrors) L2FeeTooLow() string             { return c.l2FeeTooLow }
+func (c *TestClientErrors) L2FeeTooHigh() string            { return c.l2FeeTooHigh }
+func (c *TestClientErrors) L2Full() string                  { return c.l2Full }
+func (c *TestClientErrors) TransactionAlreadyMined() string { return c.transactionAlreadyMined }
+func (c *TestClientErrors) Fatal() string                   { return c.fatal }
+func (c *TestClientErrors) ServiceUnavailable() string      { return c.serviceUnavailable }
+
 type TestNodePoolConfig struct {
 	NodePollFailureThreshold       uint32
 	NodePollInterval               time.Duration

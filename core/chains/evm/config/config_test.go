@@ -478,4 +478,31 @@ func TestNodePoolConfig(t *testing.T) {
 	require.Equal(t, false, cfg.EVM().NodePool().NodeIsSyncingEnabled())
 }
 
+func TestClientErrorsConfig(t *testing.T) {
+	t.Parallel()
+	gcfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		id := ubig.New(big.NewInt(rand.Int63()))
+		c.EVM[0] = &toml.EVMConfig{
+			ChainID: id,
+			Chain:   toml.Defaults(id, &toml.Chain{}),
+		}
+	})
+	cfg := evmtest.NewChainScopedConfig(t, gcfg)
+
+	assert.Empty(t, cfg.EVM().ClientErrors().NonceTooLow())
+	assert.Empty(t, cfg.EVM().ClientErrors().NonceTooHigh())
+	assert.Empty(t, cfg.EVM().ClientErrors().ReplacementTransactionUnderpriced())
+	assert.Empty(t, cfg.EVM().ClientErrors().LimitReached())
+	assert.Empty(t, cfg.EVM().ClientErrors().TransactionAlreadyInMempool())
+	assert.Empty(t, cfg.EVM().ClientErrors().TerminallyUnderpriced())
+	assert.Empty(t, cfg.EVM().ClientErrors().InsufficientEth())
+	assert.Empty(t, cfg.EVM().ClientErrors().TxFeeExceedsCap())
+	assert.Empty(t, cfg.EVM().ClientErrors().L2FeeTooLow())
+	assert.Empty(t, cfg.EVM().ClientErrors().L2FeeTooHigh())
+	assert.Empty(t, cfg.EVM().ClientErrors().L2Full())
+	assert.Empty(t, cfg.EVM().ClientErrors().TransactionAlreadyMined())
+	assert.Empty(t, cfg.EVM().ClientErrors().Fatal())
+	assert.Empty(t, cfg.EVM().ClientErrors().ServiceUnavailable())
+}
+
 func ptr[T any](t T) *T { return &t }

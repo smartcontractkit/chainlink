@@ -17,6 +17,7 @@ import (
 type EVM interface {
 	HeadTracker() HeadTracker
 	BalanceMonitor() BalanceMonitor
+	ClientErrors() ClientErrors
 	Transactions() Transactions
 	GasEstimator() GasEstimator
 	OCR() OCR
@@ -75,6 +76,23 @@ type HeadTracker interface {
 
 type BalanceMonitor interface {
 	Enabled() bool
+}
+
+type ClientErrors interface {
+	NonceTooLow() string
+	NonceTooHigh() string
+	ReplacementTransactionUnderpriced() string
+	LimitReached() string
+	TransactionAlreadyInMempool() string
+	TerminallyUnderpriced() string
+	InsufficientEth() string
+	TxFeeExceedsCap() string
+	L2FeeTooLow() string
+	L2FeeTooHigh() string
+	L2Full() string
+	TransactionAlreadyMined() string
+	Fatal() string
+	ServiceUnavailable() string
 }
 
 type Transactions interface {

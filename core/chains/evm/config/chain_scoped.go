@@ -82,6 +82,10 @@ func (e *EVMConfig) Transactions() Transactions {
 	return &transactionsConfig{c: e.C.Transactions}
 }
 
+func (e *EVMConfig) ClientErrors() ClientErrors {
+	return &clientErrorsRegexConfig{c: e.C.ClientErrors}
+}
+
 func (e *EVMConfig) HeadTracker() HeadTracker {
 	return &headTrackerConfig{c: e.C.HeadTracker}
 }

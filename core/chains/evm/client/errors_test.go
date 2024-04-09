@@ -26,7 +26,10 @@ func Test_Eth_Errors(t *testing.T) {
 	randomError := evmclient.NewSendErrorS("some old bollocks")
 
 	t.Run("IsNonceTooLowError", func(t *testing.T) {
-		assert.False(t, randomError.IsNonceTooLowError())
+
+		clientErrors := evmclient.TestClientErrors{}
+		clientErrors.SetNonceTooLow("client nonce too low")
+		evmclient.SetClientErrorRegexes(&clientErrors)
 
 		tests := []errorCase{
 			{"nonce too low", true, "Geth"},
@@ -41,6 +44,7 @@ func Test_Eth_Errors(t *testing.T) {
 			{"call failed: OldNonce", true, "Nethermind"},
 			{"call failed: OldNonce, Current nonce: 22, nonce of rejected tx: 17", true, "Nethermind"},
 			{"nonce too low. allowed nonce range: 427 - 447, actual: 426", true, "zkSync"},
+			{"client nonce too low", true, "tomlConfig"},
 		}
 
 		for _, test := range tests {
