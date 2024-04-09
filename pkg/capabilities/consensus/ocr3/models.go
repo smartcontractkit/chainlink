@@ -9,7 +9,7 @@ import (
 )
 
 type request struct {
-	Observations values.Value `mapstructure:"-"`
+	Observations *values.List `mapstructure:"-"`
 	ExpiresAt    time.Time
 
 	CallbackCh chan<- capabilities.CapabilityResponse

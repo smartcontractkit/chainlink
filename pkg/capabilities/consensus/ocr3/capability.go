@@ -166,6 +166,7 @@ func (o *capability) Execute(ctx context.Context, callback chan<- capabilities.C
 	if err != nil {
 		return err
 	}
+	o.lggr.Debugw("Execute - adding to store", "workflowID", r.WorkflowID, "workflowExecutionID", r.WorkflowExecutionID, "observations", r.Observations)
 
 	err = o.store.add(ctx, r)
 	if err != nil {
@@ -243,13 +244,18 @@ func (o *capability) unmarshalRequest(ctx context.Context, r capabilities.Capabi
 		return nil, err
 	}
 
+	obsList, ok := r.Inputs.Underlying["observations"].(*values.List)
+	if !ok {
+		return nil, fmt.Errorf("observations must be a list")
+	}
+
 	expiresAt := o.clock.Now().Add(o.requestTimeout)
 	req := &request{
 		RequestCtx:          context.Background(), // TODO: set correct context
 		CallbackCh:          callback,
 		WorkflowExecutionID: r.Metadata.WorkflowExecutionID,
 		WorkflowID:          r.Metadata.WorkflowID,
-		Observations:        r.Inputs.Underlying["observations"],
+		Observations:        obsList,
 		ExpiresAt:           expiresAt,
 	}
 	err = mapstructure.Decode(valuesMap, req)

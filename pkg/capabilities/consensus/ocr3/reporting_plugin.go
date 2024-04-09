@@ -83,8 +83,13 @@ func (r *reportingPlugin) Observation(ctx context.Context, outctx ocr3types.Outc
 
 	obs := &pbtypes.Observations{}
 	for _, rq := range reqs {
+		listProto := values.Proto(rq.Observations).GetListValue()
+		if listProto == nil {
+			r.lggr.Errorw("observations are not a list", "weID", rq.WorkflowExecutionID)
+			continue
+		}
 		r := &pbtypes.Observation{
-			Observation: values.Proto(rq.Observations),
+			Observations: listProto,
 			Id: &pbtypes.Id{
 				WorkflowExecutionId: rq.WorkflowExecutionID,
 				WorkflowId:          rq.WorkflowID,
@@ -119,11 +124,17 @@ func (r *reportingPlugin) Outcome(outctx ocr3types.OutcomeContext, query types.Q
 
 		for _, rq := range obs.Observations {
 			weid := rq.Id.WorkflowExecutionId
+
+			obsList := values.FromListValueProto(rq.Observations)
+			if obsList == nil {
+				r.lggr.Errorw("observations are not a list", "weID", weid, "oracleID", o.Observer)
+				continue
+			}
+
 			if _, ok := m[weid]; !ok {
 				m[weid] = make(map[ocrcommon.OracleID][]values.Value)
 			}
-
-			m[weid][o.Observer] = append(m[weid][o.Observer], values.FromProto(rq.Observation))
+			m[weid][o.Observer] = obsList.Underlying
 		}
 	}
 

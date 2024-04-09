@@ -25,10 +25,12 @@ message Id {
 
 message Observation {
   Id id = 1;
-  values.Value observation = 3;
+  // list of observations defined in inputs.observations
+  values.List observations = 4;
 }
 
 message Observations {
+  // batched observations for multiple workflow execution IDs
   repeated Observation observations = 1;
 }
 

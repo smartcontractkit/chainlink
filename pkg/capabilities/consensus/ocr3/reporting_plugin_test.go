@@ -70,7 +70,7 @@ func TestReportingPlugin_Observation(t *testing.T) {
 	rp, err := newReportingPlugin(s, nil, defaultBatchSize, ocr3types.ReportingPluginConfig{}, lggr)
 	require.NoError(t, err)
 
-	o := values.NewString("hello")
+	o, err := values.NewList([]any{"hello"})
 	require.NoError(t, err)
 
 	eid := uuid.New().String()
@@ -98,7 +98,7 @@ func TestReportingPlugin_Observation(t *testing.T) {
 	fo := obspb.Observations[0]
 	assert.Equal(t, fo.Id.WorkflowExecutionId, eid)
 	assert.Equal(t, fo.Id.WorkflowId, workflowTestID)
-	assert.Equal(t, o, values.FromProto(fo.Observation))
+	assert.Equal(t, o, values.FromListValueProto(fo.Observations))
 }
 
 func TestReportingPlugin_Observation_NoResults(t *testing.T) {
@@ -194,12 +194,13 @@ func TestReportingPlugin_Outcome(t *testing.T) {
 	}
 	qb, err := proto.Marshal(q)
 	require.NoError(t, err)
-	val := values.NewString("hello")
+	o, err := values.NewList([]any{"hello"})
+	require.NoError(t, err)
 	obs := &pbtypes.Observations{
 		Observations: []*pbtypes.Observation{
 			{
-				Id:          id,
-				Observation: values.Proto(val),
+				Id:           id,
+				Observations: values.Proto(o).GetListValue(),
 			},
 		},
 	}

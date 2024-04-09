@@ -49,7 +49,7 @@ func TestOCR3Capability(t *testing.T) {
 
 	require.NoError(t, err)
 
-	obs := map[string]any{"ETH_USD": ethUsdValue}
+	obs := []any{map[string]any{"ETH_USD": ethUsdValue}}
 	inputs, err := values.NewMap(map[string]any{"observations": obs})
 	require.NoError(t, err)
 
@@ -64,7 +64,7 @@ func TestOCR3Capability(t *testing.T) {
 	err = cp.Execute(ctx, callback, executeReq)
 	require.NoError(t, err)
 
-	obsv, err := values.NewMap(obs)
+	obsv, err := values.NewList(obs)
 	require.NoError(t, err)
 
 	// Mock the oracle returning a response
@@ -102,7 +102,7 @@ func TestOCR3Capability_Eviction(t *testing.T) {
 
 	ethUsdValue, err := decimal.NewFromString("1.123456")
 	require.NoError(t, err)
-	inputs, err := values.NewMap(map[string]any{"observations": map[string]any{"ETH_USD": ethUsdValue}})
+	inputs, err := values.NewMap(map[string]any{"observations": []any{map[string]any{"ETH_USD": ethUsdValue}}})
 	require.NoError(t, err)
 
 	rid := uuid.New().String()
