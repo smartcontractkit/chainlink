@@ -118,7 +118,7 @@ type GasEstimator interface {
 	LimitDefault() uint64
 	LimitMax() uint64
 	LimitMultiplier() float32
-	LimitTransfer() uint32
+	LimitTransfer() uint64
 	PriceDefault() *assets.Wei
 	TipCapDefault() *assets.Wei
 	TipCapMin() *assets.Wei
@@ -159,6 +159,7 @@ type NodePool interface {
 	SyncThreshold() uint32
 	LeaseDuration() time.Duration
 	NodeIsSyncingEnabled() bool
+	FinalizedBlockPollInterval() time.Duration
 }
 
 // TODO BCF-2509 does the chainscopedconfig really need the entire app config?

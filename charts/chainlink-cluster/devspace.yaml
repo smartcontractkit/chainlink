@@ -117,6 +117,8 @@ deployments:
             runAsGroup: 999
           web_port: 6688
           p2p_port: 6690
+          # extraEnvVars:
+            # "CL_MEDIAN_CMD": "chainlink-feeds"
           nodes:
             - name: node-1
               image: ${runtime.images.app}
@@ -161,7 +163,14 @@ deployments:
               #        [WebServer.TLS]
               #        HTTPSPort = 0
               # or use overridesToml to override some part of configuration
-              #      overridesToml: |
+              # overridesToml: |
+              # Enable Tracing
+              #   [Tracing]
+              #   Enabled = true
+              #   SamplingRatio = 1.0
+              #   CollectorTarget = 'app-opentelemetry-collector:4317'
+              #   TLSCertPath = ''
+              #   Mode = 'unencrypted'
             - name: node-2
               image: ${runtime.images.app}
             - name: node-3
@@ -208,8 +217,8 @@ deployments:
             runAsUser: 999
             runAsGroup: 999
           version: v1.12.0
-          wsrpc-port: 8546
-          httprpc-port: 8544
+          wsRpcPort: 8546
+          httpRpcPort: 8544
           chains:
             - networkId: 1337
             - networkId: 2337
@@ -355,6 +364,15 @@ deployments:
                         name: mockserver
                         port:
                           number: 1080
+            - host: ${DEVSPACE_NAMESPACE}-grafana.${DEVSPACE_INGRESS_BASE_DOMAIN}
+              http:
+                paths:
+                  - path: /
+                    backend:
+                      service:
+                        name: app-grafana
+                        port:
+                          number: 80
         networkPolicyDefault:
           ingress:
             allowCustomCidrs: true

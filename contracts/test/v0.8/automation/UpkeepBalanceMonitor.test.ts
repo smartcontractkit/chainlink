@@ -27,7 +27,7 @@ const setup = async () => {
   stranger = accounts[1]
 
   const ltFactory = await ethers.getContractFactory(
-    'src/v0.4/LinkToken.sol:LinkToken',
+    'src/v0.8/shared/test/helpers/LinkTokenTestHelper.sol:LinkTokenTestHelper',
     owner,
   )
   linkToken = (await ltFactory.deploy()) as LinkToken
@@ -321,7 +321,10 @@ describe('UpkeepBalanceMonitor', () => {
     it('cannot be called by a non-owner', async () => {
       await expect(
         upkeepBalanceMonitor.connect(stranger).topUp([], [], []),
-      ).to.be.revertedWith('OnlyForwarderOrOwner()')
+      ).to.be.revertedWithCustomError(
+        upkeepBalanceMonitor,
+        'OnlyForwarderOrOwner',
+      )
     })
 
     it('should revert if the contract is paused', async () => {

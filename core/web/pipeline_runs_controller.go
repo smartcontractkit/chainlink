@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -116,7 +117,7 @@ func (prc *PipelineRunsController) Create(c *gin.Context) {
 			return
 		}
 		if canRun {
-			jobRunID, err3 := prc.App.RunWebhookJobV2(c.Request.Context(), jobUUID, string(bodyBytes), pipeline.JSONSerializable{})
+			jobRunID, err3 := prc.App.RunWebhookJobV2(c.Request.Context(), jobUUID, string(bodyBytes), jsonserializable.JSONSerializable{})
 			if errors.Is(err3, webhook.ErrJobNotExists) {
 				jsonAPIError(c, http.StatusNotFound, err3)
 				return

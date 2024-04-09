@@ -41,6 +41,7 @@ type chainClient struct {
 	]
 	logger    logger.SugaredLogger
 	errsRegex evmconfig.ClientErrors
+	chainType config.ChainType
 }
 
 func NewChainClient(
@@ -273,4 +274,13 @@ func (c *chainClient) TransactionReceipt(ctx context.Context, txHash common.Hash
 
 func (c *chainClient) LatestFinalizedBlock(ctx context.Context) (*evmtypes.Head, error) {
 	return c.multiNode.LatestFinalizedBlock(ctx)
+}
+
+func (c *chainClient) CheckTxValidity(ctx context.Context, from common.Address, to common.Address, data []byte) *SendError {
+	msg := ethereum.CallMsg{
+		From: from,
+		To:   &to,
+		Data: data,
+	}
+	return SimulateTransaction(ctx, c, c.logger, c.chainType, msg)
 }

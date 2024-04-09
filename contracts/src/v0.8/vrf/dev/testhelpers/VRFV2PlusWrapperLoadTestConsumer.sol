@@ -103,7 +103,7 @@ contract VRFV2PlusWrapperLoadTestConsumer is VRFV2PlusWrapperConsumerBase, Confi
 
   // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function fulfillRandomWords(uint256 _requestId, uint256[] memory _randomWords) internal override {
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(s_requests[_requestId].paid > 0, "request not found");
     uint256 fulfilmentBlockNumber = ChainSpecificUtil._getBlockNumber();
     uint256 requestDelay = fulfilmentBlockNumber - requestHeights[_requestId];
@@ -143,7 +143,7 @@ contract VRFV2PlusWrapperLoadTestConsumer is VRFV2PlusWrapperConsumerBase, Confi
       uint256 fulfilmentBlockNumber
     )
   {
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(s_requests[_requestId].paid > 0, "request not found");
     RequestStatus memory request = s_requests[_requestId];
     return (
@@ -190,7 +190,7 @@ contract VRFV2PlusWrapperLoadTestConsumer is VRFV2PlusWrapperConsumerBase, Confi
   /// @param amount the amount to withdraw, in wei
   function withdrawNative(uint256 amount) external onlyOwner {
     (bool success, ) = payable(owner()).call{value: amount}("");
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(success, "withdrawNative failed");
   }
 

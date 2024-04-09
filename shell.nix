@@ -1,4 +1,4 @@
-{ pkgs ? import <nixpkgs> { } }:
+{ pkgs }:
 with pkgs;
 let
   go = go_1_21;
@@ -46,6 +46,7 @@ mkShell {
   ];
   LD_LIBRARY_PATH = "${stdenv.cc.cc.lib}/lib64:$LD_LIBRARY_PATH";
   GOROOT = "${go}/share/go";
+  CGO_ENABLED = 0;
 
   PGDATA = "db";
   CL_DATABASE_URL = "postgresql://chainlink:chainlink@localhost:5432/chainlink_test?sslmode=disable";

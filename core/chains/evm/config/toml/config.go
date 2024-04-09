@@ -422,6 +422,7 @@ func (c *Chain) ValidateConfig() (err error) {
 			Msg: "must be greater than or equal to 1",
 		})
 	}
+
 	return
 }
 
@@ -569,7 +570,7 @@ type GasEstimator struct {
 	LimitDefault    *uint64
 	LimitMax        *uint64
 	LimitMultiplier *decimal.Decimal
-	LimitTransfer   *uint32
+	LimitTransfer   *uint64
 	LimitJobType    GasLimitJobType `toml:",omitempty"`
 
 	BumpMin       *assets.Wei
@@ -802,12 +803,13 @@ func (t *HeadTracker) setFrom(f *HeadTracker) {
 }
 
 type NodePool struct {
-	PollFailureThreshold *uint32
-	PollInterval         *commonconfig.Duration
-	SelectionMode        *string
-	SyncThreshold        *uint32
-	LeaseDuration        *commonconfig.Duration
-	NodeIsSyncingEnabled *bool
+	PollFailureThreshold       *uint32
+	PollInterval               *commonconfig.Duration
+	SelectionMode              *string
+	SyncThreshold              *uint32
+	LeaseDuration              *commonconfig.Duration
+	NodeIsSyncingEnabled       *bool
+	FinalizedBlockPollInterval *commonconfig.Duration
 }
 
 func (p *NodePool) setFrom(f *NodePool) {
@@ -828,6 +830,9 @@ func (p *NodePool) setFrom(f *NodePool) {
 	}
 	if v := f.NodeIsSyncingEnabled; v != nil {
 		p.NodeIsSyncingEnabled = v
+	}
+	if v := f.FinalizedBlockPollInterval; v != nil {
+		p.FinalizedBlockPollInterval = v
 	}
 }
 

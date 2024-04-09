@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/caigo"
+	"github.com/NethermindEth/starknet.go/curve"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -138,15 +138,15 @@ func TestStarknetSigner(t *testing.T) {
 
 		adapter := starktxm.NewKeystoreAdapter(lk)
 		baseKs.On("Get", starknetSenderAddr).Return(starkKey, nil)
-		hash, err := caigo.Curve.PedersenHash([]*big.Int{big.NewInt(42)})
+		hash, err := curve.Curve.PedersenHash([]*big.Int{big.NewInt(42)})
 		require.NoError(t, err)
 		r, s, err := adapter.Sign(testutils.Context(t), starknetSenderAddr, hash)
 		require.NoError(t, err)
 		require.NotNil(t, r)
 		require.NotNil(t, s)
 
-		pubx, puby, err := caigo.Curve.PrivateToPoint(starkKey.ToPrivKey())
+		pubx, puby, err := curve.Curve.PrivateToPoint(starkKey.ToPrivKey())
 		require.NoError(t, err)
-		require.True(t, caigo.Curve.Verify(hash, r, s, pubx, puby))
+		require.True(t, curve.Curve.Verify(hash, r, s, pubx, puby))
 	})
 }
