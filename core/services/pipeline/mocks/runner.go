@@ -39,7 +39,7 @@ func (_m *Runner) Close() error {
 }
 
 // ExecuteAndInsertFinishedRun provides a mock function with given fields: ctx, spec, vars, l, saveSuccessfulTaskRuns
-func (_m *Runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec pipeline.Spec, vars pipeline.Vars, l logger.Logger, saveSuccessfulTaskRuns bool) (int64, pipeline.FinalResult, error) {
+func (_m *Runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec pipeline.Spec, vars pipeline.Vars, l logger.Logger, saveSuccessfulTaskRuns bool) (int64, pipeline.TaskRunResults, error) {
 	ret := _m.Called(ctx, spec, vars, l, saveSuccessfulTaskRuns)
 
 	if len(ret) == 0 {
@@ -47,9 +47,9 @@ func (_m *Runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec pipeline
 	}
 
 	var r0 int64
-	var r1 pipeline.FinalResult
+	var r1 pipeline.TaskRunResults
 	var r2 error
-	if rf, ok := ret.Get(0).(func(context.Context, pipeline.Spec, pipeline.Vars, logger.Logger, bool) (int64, pipeline.FinalResult, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, pipeline.Spec, pipeline.Vars, logger.Logger, bool) (int64, pipeline.TaskRunResults, error)); ok {
 		return rf(ctx, spec, vars, l, saveSuccessfulTaskRuns)
 	}
 	if rf, ok := ret.Get(0).(func(context.Context, pipeline.Spec, pipeline.Vars, logger.Logger, bool) int64); ok {
@@ -58,10 +58,12 @@ func (_m *Runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec pipeline
 		r0 = ret.Get(0).(int64)
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, pipeline.Spec, pipeline.Vars, logger.Logger, bool) pipeline.FinalResult); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, pipeline.Spec, pipeline.Vars, logger.Logger, bool) pipeline.TaskRunResults); ok {
 		r1 = rf(ctx, spec, vars, l, saveSuccessfulTaskRuns)
 	} else {
-		r1 = ret.Get(1).(pipeline.FinalResult)
+		if ret.Get(1) != nil {
+			r1 = ret.Get(1).(pipeline.TaskRunResults)
+		}
 	}
 
 	if rf, ok := ret.Get(2).(func(context.Context, pipeline.Spec, pipeline.Vars, logger.Logger, bool) error); ok {

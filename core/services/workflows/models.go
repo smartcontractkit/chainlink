@@ -1,6 +1,7 @@
 package workflows
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/dominikbraun/graph"
@@ -46,6 +47,7 @@ func (w *workflowSpec) steps() []stepDefinition {
 // treated differently due to their nature of being the starting
 // point of a workflow.
 type workflow struct {
+	id string
 	graph.Graph[string, *step]
 
 	triggers []*triggerCapability
@@ -181,6 +183,10 @@ func Parse(yamlWorkflow string) (*workflow, error) {
 			return nil, innerErr
 		}
 		step.dependencies = refs
+
+		if stepRef != keywordTrigger && len(refs) == 0 {
+			return nil, errors.New("all non-trigger steps must have a dependent ref")
+		}
 
 		for _, r := range refs {
 			innerErr = g.AddEdge(r, step.Ref)
