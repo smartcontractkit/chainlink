@@ -180,7 +180,6 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop(ctx
 	}
 }
 
-// GetAbandonedAddresses is called by the resender to resend unconfirmed abandoned transactions
 func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetAbandonedAddresses() []ADDR {
 	tr.lock.Lock()
 	defer tr.lock.Unlock()
