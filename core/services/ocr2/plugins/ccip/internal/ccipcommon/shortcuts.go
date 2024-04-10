@@ -33,22 +33,56 @@ type BackfillArgs struct {
 	SourceStartBlock, DestStartBlock uint64
 }
 
-func GetSortedChainTokens(ctx context.Context, offRamps []ccipdata.OffRampReader, priceRegistry cciptypes.PriceRegistryReader) (chainTokens []cciptypes.Address, err error) {
-	return getSortedChainTokensWithBatchLimit(ctx, offRamps, priceRegistry, offRampBatchSizeLimit)
-}
-
 // GetChainTokens returns union of all tokens supported on the destination chain, including fee tokens from the provided price registry
 // and the bridgeable tokens from all the offRamps living on the chain.
-func getSortedChainTokensWithBatchLimit(ctx context.Context, offRamps []ccipdata.OffRampReader, priceRegistry cciptypes.PriceRegistryReader, batchSize int) (chainTokens []cciptypes.Address, err error) {
+func GetSortedChainTokens(ctx context.Context, offRamps []ccipdata.OffRampReader, priceRegistry cciptypes.PriceRegistryReader) (chainTokens []cciptypes.Address, err error) {
+	destFeeTokens, destBridgeableTokens, err := getTokensWithBatchLimit(ctx, offRamps, priceRegistry, offRampBatchSizeLimit)
+	if err != nil {
+		return nil, fmt.Errorf("get tokens with batch limit: %w", err)
+	}
+	// fee token can overlap with bridgeable tokens
+	// we need to dedup them to arrive at chain token set
+	return flattenedAndSortedChainTokens(destFeeTokens, destBridgeableTokens), nil
+}
+
+// GetFilteredSortedChainTokens returns union of all tokens supported on the destination chain, including fee tokens from the provided price registry
+// and the bridgeable tokens from all the offRamps living on the chain. Bridgeable tokens are only included if they are configured on the pricegetter
+// Fee tokens are not filtered as they must always be priced
+func GetFilteredSortedChainTokens(ctx context.Context, offRamps []ccipdata.OffRampReader, priceRegistry cciptypes.PriceRegistryReader, priceGetter cciptypes.PriceGetter) (chainTokens []cciptypes.Address, excludedTokens []cciptypes.Address, err error) {
+	destFeeTokens, destBridgeableTokens, err := getTokensWithBatchLimit(ctx, offRamps, priceRegistry, offRampBatchSizeLimit)
+	if err != nil {
+		return nil, nil, fmt.Errorf("get tokens with batch limit: %w", err)
+	}
+
+	destTokensWithPrice, destTokensWithoutPrice, err := priceGetter.FilterConfiguredTokens(ctx, destBridgeableTokens)
+	if err != nil {
+		return nil, nil, fmt.Errorf("filter for priced tokens: %w", err)
+	}
+
+	return flattenedAndSortedChainTokens(destFeeTokens, destTokensWithPrice), destTokensWithoutPrice, nil
+}
+
+func flattenedAndSortedChainTokens(slices ...[]cciptypes.Address) (chainTokens []cciptypes.Address) {
+	// same token can be returned by multiple offRamps, and fee token can overlap with bridgeable tokens,
+	// we need to dedup them to arrive at chain token set
+	chainTokens = FlattenUniqueSlice(slices...)
+
+	// return the tokens in deterministic order to aid with testing and debugging
+	sort.Slice(chainTokens, func(i, j int) bool {
+		return chainTokens[i] < chainTokens[j]
+	})
+
+	return chainTokens
+}
+
+func getTokensWithBatchLimit(ctx context.Context, offRamps []ccipdata.OffRampReader, priceRegistry cciptypes.PriceRegistryReader, batchSize int) (destFeeTokens []cciptypes.Address, destBridgeableTokens []cciptypes.Address, err error) {
 	if batchSize == 0 {
-		return nil, fmt.Errorf("batch size must be greater than 0")
+		return nil, nil, fmt.Errorf("batch size must be greater than 0")
 	}
 
 	eg := new(errgroup.Group)
 	eg.SetLimit(batchSize)
 
-	var destFeeTokens []cciptypes.Address
-	var destBridgeableTokens []cciptypes.Address
 	mu := &sync.RWMutex{}
 
 	eg.Go(func() error {
@@ -75,19 +109,11 @@ func getSortedChainTokensWithBatchLimit(ctx context.Context, offRamps []ccipdata
 	}
 
 	if err := eg.Wait(); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	// same token can be returned by multiple offRamps, and fee token can overlap with bridgeable tokens,
-	// we need to dedup them to arrive at chain token set
-	chainTokens = FlattenUniqueSlice(destFeeTokens, destBridgeableTokens)
-
-	// return the tokens in deterministic order to aid with testing and debugging
-	sort.Slice(chainTokens, func(i, j int) bool {
-		return chainTokens[i] < chainTokens[j]
-	})
-
-	return chainTokens, nil
+	// same token can be returned by multiple offRamps
+	return destFeeTokens, flattenedAndSortedChainTokens(destBridgeableTokens), nil
 }
 
 // GetDestinationTokens returns the destination chain fee tokens from the provided price registry

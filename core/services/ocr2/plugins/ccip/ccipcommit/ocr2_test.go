@@ -211,6 +211,10 @@ func TestCommitReportingPlugin_Observation(t *testing.T) {
 			if !tc.priceReportingDisabled && len(tc.tokenPrices) > 0 {
 				queryTokens := ccipcommon.FlattenUniqueSlice([]cciptypes.Address{sourceNativeTokenAddr}, destTokens)
 				priceGet.On("TokenPricesUSD", mock.Anything, queryTokens).Return(tc.tokenPrices, nil)
+				priceGet.On("FilterConfiguredTokens", mock.Anything, destTokens).Return([]cciptypes.Address{
+					bridgedTokens[0],
+					bridgedTokens[1],
+				}, []cciptypes.Address{}, nil)
 			}
 
 			gasPriceEstimator := prices.NewMockGasPriceEstimatorCommit(t)
@@ -303,6 +307,9 @@ func TestCommitReportingPlugin_Report(t *testing.T) {
 		chainHealthcheck := ccipcachemocks.NewChainHealthcheck(t)
 		chainHealthcheck.On("IsHealthy", ctx).Return(true, nil).Maybe()
 		p.chainHealthcheck = chainHealthcheck
+		pricegetter := pricegetter.NewMockPriceGetter(t)
+		pricegetter.On("FilterConfiguredTokens", mock.Anything, mock.Anything).Return([]cciptypes.Address{}, []cciptypes.Address{}, nil)
+		p.priceGetter = pricegetter
 
 		o := ccip.CommitObservation{Interval: cciptypes.CommitStoreInterval{Min: 1, Max: 1}, SourceGasPriceUSD: big.NewInt(0)}
 		obs, err := o.Marshal()
@@ -510,7 +517,7 @@ func TestCommitReportingPlugin_Report(t *testing.T) {
 				gasPriceEstimator.On("Deviates", mock.Anything, mock.Anything, mock.Anything).Return(false, nil)
 			}
 
-			var destTokens []cciptypes.Address
+			destTokens := []cciptypes.Address{}
 			for tk := range tc.tokenDecimals {
 				destTokens = append(destTokens, tk)
 			}
@@ -559,6 +566,9 @@ func TestCommitReportingPlugin_Report(t *testing.T) {
 			healthCheck := ccipcachemocks.NewChainHealthcheck(t)
 			healthCheck.On("IsHealthy", ctx).Return(true, nil)
 
+			pricegetter := pricegetter.NewMockPriceGetter(t)
+			pricegetter.On("FilterConfiguredTokens", mock.Anything, destTokens).Return(destTokens, []cciptypes.Address{}, nil)
+
 			p := &CommitReportingPlugin{}
 			p.lggr = logger.TestLogger(t)
 			p.destPriceRegistryReader = destPriceRegistryReader
@@ -569,6 +579,7 @@ func TestCommitReportingPlugin_Report(t *testing.T) {
 			p.offchainConfig.GasPriceHeartBeat = gasPriceHeartBeat.Duration()
 			p.commitStoreReader = commitStoreReader
 			p.F = tc.f
+			p.priceGetter = pricegetter
 			p.metricsCollector = ccip.NoopMetricsCollector
 			p.offchainConfig.PriceReportingDisabled = tc.priceReportingDisabled
 			p.chainHealthcheck = healthCheck
