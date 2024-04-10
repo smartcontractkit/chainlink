@@ -17,8 +17,6 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
-type headTracker = headtracker.HeadTracker[*evmtypes.Head, common.Hash]
-
 func NewHeadTracker(
 	lggr logger.Logger,
 	ethClient evmclient.Client,

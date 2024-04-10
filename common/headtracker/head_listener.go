@@ -48,7 +48,6 @@ type HeadListener[H types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable] interface
 	HealthReport() map[string]error
 }
 
-
 type headListener[
 	HTH htrktypes.Head[BLOCK_HASH, ID],
 	S types.Subscription,
