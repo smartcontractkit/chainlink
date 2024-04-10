@@ -118,6 +118,6 @@ func (d disabled) LogsDataWordBetween(ctx context.Context, eventSig common.Hash,
 	return nil, ErrDisabled
 }
 
-func (d disabled) FilteredLogs(_ query.Filter, _ query.LimitAndSort) ([]Log, error) {
+func (d disabled) FilteredLogs(_ query.KeyFilter, _ query.LimitAndSort) ([]Log, error) {
 	return nil, nil
 }

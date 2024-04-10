@@ -65,7 +65,7 @@ type LogPoller interface {
 	LogsDataWordGreaterThan(ctx context.Context, eventSig common.Hash, address common.Address, wordIndex int, wordValueMin common.Hash, confs evmtypes.Confirmations) ([]Log, error)
 	LogsDataWordBetween(ctx context.Context, eventSig common.Hash, address common.Address, wordIndexMin, wordIndexMax int, wordValue common.Hash, confs evmtypes.Confirmations) ([]Log, error)
 
-	FilteredLogs(filter query.Filter, limitAndSrt query.LimitAndSort) ([]Log, error)
+	FilteredLogs(filter query.KeyFilter, limitAndSrt query.LimitAndSort) ([]Log, error)
 }
 
 type LogPollerTest interface {
@@ -1344,6 +1344,6 @@ func EvmWord(i uint64) common.Hash {
 	return common.BytesToHash(b)
 }
 
-func (lp *logPoller) FilteredLogs(queryFilter query.Filter, sortAndLimit query.LimitAndSort) ([]Log, error) {
+func (lp *logPoller) FilteredLogs(queryFilter query.KeyFilter, sortAndLimit query.LimitAndSort) ([]Log, error) {
 	return lp.orm.FilteredLogs(queryFilter, sortAndLimit)
 }
