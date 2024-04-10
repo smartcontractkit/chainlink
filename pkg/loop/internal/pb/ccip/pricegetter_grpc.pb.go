@@ -20,16 +20,16 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	PriceGetter_IsTokenConfigured_FullMethodName = "/loop.internal.pb.ccip.PriceGetter/IsTokenConfigured"
-	PriceGetter_TokenPricesUSD_FullMethodName    = "/loop.internal.pb.ccip.PriceGetter/TokenPricesUSD"
-	PriceGetter_Close_FullMethodName             = "/loop.internal.pb.ccip.PriceGetter/Close"
+	PriceGetter_FilterConfiguredTokens_FullMethodName = "/loop.internal.pb.ccip.PriceGetter/FilterConfiguredTokens"
+	PriceGetter_TokenPricesUSD_FullMethodName         = "/loop.internal.pb.ccip.PriceGetter/TokenPricesUSD"
+	PriceGetter_Close_FullMethodName                  = "/loop.internal.pb.ccip.PriceGetter/Close"
 )
 
 // PriceGetterClient is the client API for PriceGetter service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type PriceGetterClient interface {
-	IsTokenConfigured(ctx context.Context, in *TokenConfiguredRequest, opts ...grpc.CallOption) (*TokenConfiguredResponse, error)
+	FilterConfiguredTokens(ctx context.Context, in *FilterConfiguredTokensRequest, opts ...grpc.CallOption) (*FilterConfiguredTokensResponse, error)
 	TokenPricesUSD(ctx context.Context, in *TokenPricesRequest, opts ...grpc.CallOption) (*TokenPricesResponse, error)
 	Close(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
@@ -42,9 +42,9 @@ func NewPriceGetterClient(cc grpc.ClientConnInterface) PriceGetterClient {
 	return &priceGetterClient{cc}
 }
 
-func (c *priceGetterClient) IsTokenConfigured(ctx context.Context, in *TokenConfiguredRequest, opts ...grpc.CallOption) (*TokenConfiguredResponse, error) {
-	out := new(TokenConfiguredResponse)
-	err := c.cc.Invoke(ctx, PriceGetter_IsTokenConfigured_FullMethodName, in, out, opts...)
+func (c *priceGetterClient) FilterConfiguredTokens(ctx context.Context, in *FilterConfiguredTokensRequest, opts ...grpc.CallOption) (*FilterConfiguredTokensResponse, error) {
+	out := new(FilterConfiguredTokensResponse)
+	err := c.cc.Invoke(ctx, PriceGetter_FilterConfiguredTokens_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +73,7 @@ func (c *priceGetterClient) Close(ctx context.Context, in *emptypb.Empty, opts .
 // All implementations must embed UnimplementedPriceGetterServer
 // for forward compatibility
 type PriceGetterServer interface {
-	IsTokenConfigured(context.Context, *TokenConfiguredRequest) (*TokenConfiguredResponse, error)
+	FilterConfiguredTokens(context.Context, *FilterConfiguredTokensRequest) (*FilterConfiguredTokensResponse, error)
 	TokenPricesUSD(context.Context, *TokenPricesRequest) (*TokenPricesResponse, error)
 	Close(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	mustEmbedUnimplementedPriceGetterServer()
@@ -83,8 +83,8 @@ type PriceGetterServer interface {
 type UnimplementedPriceGetterServer struct {
 }
 
-func (UnimplementedPriceGetterServer) IsTokenConfigured(context.Context, *TokenConfiguredRequest) (*TokenConfiguredResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method IsTokenConfigured not implemented")
+func (UnimplementedPriceGetterServer) FilterConfiguredTokens(context.Context, *FilterConfiguredTokensRequest) (*FilterConfiguredTokensResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method FilterConfiguredTokens not implemented")
 }
 func (UnimplementedPriceGetterServer) TokenPricesUSD(context.Context, *TokenPricesRequest) (*TokenPricesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method TokenPricesUSD not implemented")
@@ -105,20 +105,20 @@ func RegisterPriceGetterServer(s grpc.ServiceRegistrar, srv PriceGetterServer) {
 	s.RegisterService(&PriceGetter_ServiceDesc, srv)
 }
 
-func _PriceGetter_IsTokenConfigured_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(TokenConfiguredRequest)
+func _PriceGetter_FilterConfiguredTokens_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FilterConfiguredTokensRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(PriceGetterServer).IsTokenConfigured(ctx, in)
+		return srv.(PriceGetterServer).FilterConfiguredTokens(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: PriceGetter_IsTokenConfigured_FullMethodName,
+		FullMethod: PriceGetter_FilterConfiguredTokens_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(PriceGetterServer).IsTokenConfigured(ctx, req.(*TokenConfiguredRequest))
+		return srv.(PriceGetterServer).FilterConfiguredTokens(ctx, req.(*FilterConfiguredTokensRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -167,8 +167,8 @@ var PriceGetter_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*PriceGetterServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "IsTokenConfigured",
-			Handler:    _PriceGetter_IsTokenConfigured_Handler,
+			MethodName: "FilterConfiguredTokens",
+			Handler:    _PriceGetter_FilterConfiguredTokens_Handler,
 		},
 		{
 			MethodName: "TokenPricesUSD",

@@ -11,21 +11,22 @@ import "google/protobuf/empty.proto";
 // PriceGetter is a service that returns the price of a token in USD. It is a gRPC service adapter for the interface
 // [github.com/smartcontractkit/chainlink-common/chainlink-common/pkg/types/ccip/PriceGetter]
 service PriceGetter {
-    rpc IsTokenConfigured(TokenConfiguredRequest) returns (TokenConfiguredResponse) {}
+    rpc FilterConfiguredTokens(FilterConfiguredTokensRequest) returns (FilterConfiguredTokensResponse) {}
     rpc TokenPricesUSD(TokenPricesRequest) returns (TokenPricesResponse) {}
     rpc Close(google.protobuf.Empty) returns (google.protobuf.Empty) {}
 }
 
-// TokenConfiguredRequest is a request for if a token address is configured to be able to get a price. It is a gRPC adapter for the input arguments of
-// [github.com/smartcontractkit/chainlink-common/chainlink-common/pkg/types/ccip/PriceGetter.IsTokenConfigured]]
-message TokenConfiguredRequest {
-    string token = 1; // Address
+// FilterConfiguredTokensRequest is a request for which tokens of a list of addresses are configured and which aren't.. It is a gRPC adapter for the input arguments of
+// [github.com/smartcontractkit/chainlink-common/chainlink-common/pkg/types/ccip/PriceGetter.FilterConfiguredTokens]
+message FilterConfiguredTokensRequest {
+    repeated string tokens = 1; // []Address
 }
 
-// TokenConfiguredResponse is a response for if a token address is configured to be able to get a price. It is a gRPC adapter for the return values of
-// [github.com/smartcontractkit/chainlink-common/chainlink-common/pkg/types/ccip/PriceGetter.IsTokenConfigured]]
-message TokenConfiguredResponse {
-    bool isConfigured = 1; // bool
+// FilterConfiguredTokensResponse is a response for which tokens of a list of addresses are configured and which aren't. It is a gRPC adapter for the return values of
+// [github.com/smartcontractkit/chainlink-common/chainlink-common/pkg/types/ccip/PriceGetter.FilterConfiguredTokens]
+message FilterConfiguredTokensResponse {
+    repeated string configured = 1; // []Address
+    repeated string unconfigured = 2; // []Address
 }
 
 // TokenPricesRequest is a request for the price of a token in USD. It is a gRPC adapter for the input arguments of

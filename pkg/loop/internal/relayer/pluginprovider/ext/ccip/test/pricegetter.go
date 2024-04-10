@@ -42,14 +42,26 @@ func (s staticPriceGetter) Close() error {
 	return nil
 }
 
-// IsTokenConfigured implements ccip.PriceGetter.
-func (s staticPriceGetter) IsTokenConfigured(ctx context.Context, token cciptypes.Address) (bool, error) {
-	for _, addr := range s.config.Addresses {
-		if addr == token {
-			return true, nil
+// FilterConfiguredTokens implements ccip.PriceGetter.
+func (s staticPriceGetter) FilterConfiguredTokens(ctx context.Context, tokens []cciptypes.Address) (configured []cciptypes.Address, unconfigured []cciptypes.Address, err error) {
+	configured = []cciptypes.Address{}
+	unconfigured = []cciptypes.Address{}
+
+	for _, tk := range tokens {
+		found := false
+		for _, addr := range s.config.Addresses {
+			if addr == tk {
+				found = true
+				configured = append(configured, tk)
+				break
+			}
+		}
+		if !found {
+			unconfigured = append(unconfigured, tk)
 		}
 	}
-	return false, nil
+
+	return configured, unconfigured, nil
 }
 
 // TokenPricesUSD implements ccip.PriceGetter.

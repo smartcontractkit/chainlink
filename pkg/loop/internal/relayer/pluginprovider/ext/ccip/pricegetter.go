@@ -46,16 +46,33 @@ func NewPriceGetterGRPCServer(impl cciptypes.PriceGetter) *PriceGetterGRPCServer
 var _ cciptypes.PriceGetter = (*PriceGetterGRPCClient)(nil)
 var _ ccippb.PriceGetterServer = (*PriceGetterGRPCServer)(nil)
 
-// IsTokenConfigured implements ccip.PriceGetter.
-func (p *PriceGetterGRPCClient) IsTokenConfigured(ctx context.Context, token cciptypes.Address) (bool, error) {
-	// convert the format
-	tk := string(token)
+// FilterConfiguredTokens implements ccip.PriceGetter.
+func (p *PriceGetterGRPCClient) FilterConfiguredTokens(ctx context.Context, tokens []cciptypes.Address) (configured []cciptypes.Address, unconfigured []cciptypes.Address, err error) {
+	configured = []cciptypes.Address{}
+	unconfigured = []cciptypes.Address{}
 
-	resp, err := p.grpc.IsTokenConfigured(ctx, &ccippb.TokenConfiguredRequest{Token: tk})
-	if err != nil {
-		return false, err
+	// convert the format
+	requestedTokens := make([]string, len(tokens))
+	for i, t := range tokens {
+		requestedTokens[i] = string(t)
 	}
-	return resp.IsConfigured, nil
+
+	resp, err := p.grpc.FilterConfiguredTokens(ctx, &ccippb.FilterConfiguredTokensRequest{Tokens: requestedTokens})
+	if err != nil {
+		return nil, nil, err
+	}
+	for _, confTk := range resp.Configured {
+		if len(confTk) > 0 {
+			configured = append(configured, ccip.Address(confTk))
+		}
+	}
+	for _, unconfTk := range resp.Unconfigured {
+		if len(unconfTk) > 0 {
+			unconfigured = append(unconfigured, ccip.Address(unconfTk))
+		}
+	}
+
+	return configured, unconfigured, nil
 }
 
 // TokenPricesUSD implements ccip.PriceGetter.
@@ -81,16 +98,28 @@ func (p *PriceGetterGRPCClient) Close() error {
 	return shutdownGRPCServer(context.Background(), p.grpc)
 }
 
-// IsTokenConfigured implements ccippb.PriceGetterServer.
-func (p *PriceGetterGRPCServer) IsTokenConfigured(ctx context.Context, req *ccippb.TokenConfiguredRequest) (*ccippb.TokenConfiguredResponse, error) {
-	tk := cciptypes.Address(req.Token)
+// FilterConfiguredTokens implements ccippb.PriceGetterServer.
+func (p *PriceGetterGRPCServer) FilterConfiguredTokens(ctx context.Context, req *ccippb.FilterConfiguredTokensRequest) (*ccippb.FilterConfiguredTokensResponse, error) {
+	tokenAddresses := make([]cciptypes.Address, len(req.Tokens))
+	for i, t := range req.Tokens {
+		tokenAddresses[i] = cciptypes.Address(t)
+	}
 
-	isConfigured, err := p.impl.IsTokenConfigured(ctx, tk)
+	configuredTokens, unconfiguredTokens, err := p.impl.FilterConfiguredTokens(ctx, tokenAddresses)
 	if err != nil {
 		return nil, err
 	}
 
-	return &ccippb.TokenConfiguredResponse{IsConfigured: isConfigured}, nil
+	convertedConfTks := make([]string, len(configuredTokens))
+	for _, confTk := range configuredTokens {
+		convertedConfTks = append(convertedConfTks, string(confTk))
+	}
+	convertedUnconfTks := make([]string, len(unconfiguredTokens))
+	for _, unconfTk := range unconfiguredTokens {
+		convertedUnconfTks = append(convertedUnconfTks, string(unconfTk))
+	}
+
+	return &ccippb.FilterConfiguredTokensResponse{Configured: convertedConfTks, Unconfigured: convertedUnconfTks}, nil
 }
 
 // TokenPricesUSD implements ccippb.PriceGetterServer.

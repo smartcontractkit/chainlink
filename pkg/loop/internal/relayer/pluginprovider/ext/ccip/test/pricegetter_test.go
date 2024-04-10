@@ -82,16 +82,19 @@ func TestPriceGetterGRPC(t *testing.T) {
 }
 
 func roundTripPriceGetterTests(ctx context.Context, t *testing.T, client cciptypes.PriceGetter) {
-	t.Run("IsTokenConfigured", func(t *testing.T) {
-		// test token configured
-		isConfigured, err := client.IsTokenConfigured(ctx, PriceGetter.config.Addresses[0])
+	t.Run("FilterConfiguredTokens", func(t *testing.T) {
+		// test token is configured
+		configuredTokens, unconfiguredTokens, err := client.FilterConfiguredTokens(ctx, PriceGetter.config.Addresses)
 		require.NoError(t, err)
-		assert.Equal(t, true, isConfigured)
+		assert.Equal(t, PriceGetter.config.Addresses, configuredTokens)
+		assert.Equal(t, []cciptypes.Address{}, unconfiguredTokens)
 
-		var unconfiguredToken cciptypes.Address = "JK"
-		isConfigured2, err := client.IsTokenConfigured(ctx, unconfiguredToken)
+		var unconfTk cciptypes.Address = "JK"
+		unconfTks := []cciptypes.Address{unconfTk}
+		configuredTokens2, unconfiguredTokens2, err := client.FilterConfiguredTokens(ctx, unconfTks)
 		require.NoError(t, err)
-		assert.Equal(t, false, isConfigured2)
+		assert.Equal(t, []cciptypes.Address{}, configuredTokens2)
+		assert.Equal(t, unconfTks, unconfiguredTokens2)
 	})
 	t.Run("TokenPricesUSD", func(t *testing.T) {
 		// test token prices
