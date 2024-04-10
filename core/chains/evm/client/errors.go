@@ -20,8 +20,9 @@ import (
 
 // fatal means this transaction can never be accepted even with a different nonce or higher gas price
 type SendError struct {
-	fatal bool
-	err   error
+	fatal        bool
+	err          error
+	clientErrors config.ClientErrors
 }
 
 func (s *SendError) Error() string {
@@ -253,11 +254,12 @@ var clients = map[string]ClientErrors{
 	"zkEvm":      zkEvm,
 }
 
-// SetClientErrorRegexes is called on startup to set the client errors from the config
-func SetClientErrorRegexes(errsRegex config.ClientErrors) {
-	clientsLock.Lock()
-	defer clientsLock.Unlock()
-	clients["tomlConfig"] = ClientErrors{
+// clientErrorRegexes returns a map of compiled regexes for each error type
+func clientErrorRegexes(errsRegex config.ClientErrors) ClientErrors {
+	if errsRegex == nil {
+		return ClientErrors{}
+	}
+	return ClientErrors{
 		NonceTooLow:                       regexp.MustCompile(errsRegex.NonceTooLow()),
 		NonceTooHigh:                      regexp.MustCompile(errsRegex.NonceTooHigh()),
 		ReplacementTransactionUnderpriced: regexp.MustCompile(errsRegex.ReplacementTransactionUnderpriced()),
@@ -283,6 +285,9 @@ func (s *SendError) is(errorType int) bool {
 
 	clientsLock.Lock()
 	defer clientsLock.Unlock()
+
+	clients["tomlConfig"] = clientErrorRegexes(s.clientErrors)
+
 	for _, client := range clients {
 		if _, ok := client[errorType]; !ok {
 			continue
@@ -389,29 +394,29 @@ func (s *SendError) IsCanceled() bool {
 	return pkgerrors.Is(s.err, context.Canceled)
 }
 
-func NewFatalSendError(e error) *SendError {
+func NewFatalSendError(e error, clientErrors config.ClientErrors) *SendError {
 	if e == nil {
 		return nil
 	}
-	return &SendError{err: pkgerrors.WithStack(e), fatal: true}
+	return &SendError{err: pkgerrors.WithStack(e), fatal: true, clientErrors: clientErrors}
 }
 
-func NewSendErrorS(s string) *SendError {
-	return NewSendError(pkgerrors.New(s))
+func NewSendErrorS(s string, clientErrors config.ClientErrors) *SendError {
+	return NewSendError(pkgerrors.New(s), clientErrors)
 }
 
-func NewSendError(e error) *SendError {
+func NewSendError(e error, clientErrors config.ClientErrors) *SendError {
 	if e == nil {
 		return nil
 	}
-	fatal := isFatalSendError(e)
-	return &SendError{err: pkgerrors.WithStack(e), fatal: fatal}
+	fatal := isFatalSendError(e, clientErrors)
+	return &SendError{err: pkgerrors.WithStack(e), fatal: fatal, clientErrors: clientErrors}
 }
 
 // Geth/parity returns these errors if the transaction failed in such a way that:
 // 1. It will never be included into a block as a result of this send
 // 2. Resending the transaction at a different gas price will never change the outcome
-func isFatalSendError(err error) bool {
+func isFatalSendError(err error, clientErrors config.ClientErrors) bool {
 	if err == nil {
 		return false
 	}
@@ -419,6 +424,9 @@ func isFatalSendError(err error) bool {
 
 	clientsLock.Lock()
 	defer clientsLock.Unlock()
+
+	clients["tomlConfig"] = clientErrorRegexes(clientErrors)
+
 	for _, client := range clients {
 		if _, ok := client[Fatal]; !ok {
 			continue
@@ -498,8 +506,8 @@ func ExtractRPCError(baseErr error) (*JsonError, error) {
 	return &jErr, nil
 }
 
-func ClassifySendError(err error, lggr logger.SugaredLogger, tx *types.Transaction, fromAddress common.Address, isL2 bool) commonclient.SendTxReturnCode {
-	sendError := NewSendError(err)
+func ClassifySendError(err error, clientErrors config.ClientErrors, lggr logger.SugaredLogger, tx *types.Transaction, fromAddress common.Address, isL2 bool) commonclient.SendTxReturnCode {
+	sendError := NewSendError(err, clientErrors)
 	if sendError == nil {
 		return commonclient.Successful
 	}

@@ -402,7 +402,7 @@ func (p *Pool) SendTransaction(ctx context.Context, tx *types.Transaction) error
 				sendCtx, cancel := p.chStop.CtxCancel(ContextWithDefaultTimeout())
 				defer cancel()
 
-				err := NewSendError(n.SendTransaction(sendCtx, tx))
+				err := NewSendError(n.SendTransaction(sendCtx, tx), nil)
 				p.logger.Debugw("Sendonly node sent transaction", "name", n.String(), "tx", tx, "err", err)
 				if err == nil || err.IsNonceTooLowError() || err.IsTransactionAlreadyMined() || err.IsTransactionAlreadyInMempool() {
 					// Nonce too low or transaction known errors are expected since

@@ -225,7 +225,7 @@ func (client *client) HeaderByHash(ctx context.Context, h common.Hash) (*types.H
 
 func (client *client) SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (commonclient.SendTxReturnCode, error) {
 	err := client.SendTransaction(ctx, tx)
-	returnCode := ClassifySendError(err, client.logger, tx, fromAddress, client.pool.ChainType().IsL2())
+	returnCode := ClassifySendError(err, nil, client.logger, tx, fromAddress, client.pool.ChainType().IsL2())
 	return returnCode, err
 }
 
@@ -376,5 +376,5 @@ func (client *client) LatestFinalizedBlock(_ context.Context) (*evmtypes.Head, e
 }
 
 func (client *client) CheckTxValidity(ctx context.Context, from common.Address, to common.Address, data []byte) *SendError {
-	return NewSendError(pkgerrors.New("not implemented. client was deprecated. New methods are added only to satisfy type constraints while we are migrating to new alternatives"))
+	return NewSendError(pkgerrors.New("not implemented. client was deprecated. New methods are added only to satisfy type constraints while we are migrating to new alternatives"), nil)
 }

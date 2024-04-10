@@ -7,10 +7,11 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 )
 
-func newSendErrorWrapped(s string) *evmclient.SendError {
-	return evmclient.NewSendError(pkgerrors.Wrap(pkgerrors.New(s), "wrapped with some old bollocks"))
+func newSendErrorWrapped(s string, clientErrors config.ClientErrors) *evmclient.SendError {
+	return evmclient.NewSendError(pkgerrors.Wrap(pkgerrors.New(s), "wrapped with some old bollocks"), clientErrors)
 }
 
 type errorCase struct {
@@ -19,33 +20,13 @@ type errorCase struct {
 	network string
 }
 
-func NewTestClientErrors() evmclient.TestClientErrors {
-	clientErrors := evmclient.TestClientErrors{}
-	clientErrors.SetNonceTooLow("client error nonce too low")
-	clientErrors.SetNonceTooHigh("client error nonce too high")
-	clientErrors.SetReplacementTransactionUnderpriced("client error replacement underpriced")
-	clientErrors.SetLimitReached("client error limit reached")
-	clientErrors.SetTransactionAlreadyInMempool("client error transaction already in mempool")
-	clientErrors.SetTerminallyUnderpriced("client error terminally underpriced")
-	clientErrors.SetInsufficientEth("client error insufficient eth")
-	clientErrors.SetTxFeeExceedsCap("client error tx fee exceeds cap")
-	clientErrors.SetL2FeeTooLow("client error l2 fee too low")
-	clientErrors.SetL2FeeTooHigh("client error l2 fee too high")
-	clientErrors.SetL2Full("client error l2 full")
-	clientErrors.SetTransactionAlreadyMined("client error transaction already mined")
-	clientErrors.SetFatal("client error fatal")
-	clientErrors.SetServiceUnavailable("client error service unavailable")
-	return clientErrors
-}
-
 func Test_Eth_Errors(t *testing.T) {
 	t.Parallel()
 
 	var err *evmclient.SendError
-	randomError := evmclient.NewSendErrorS("some old bollocks")
+	randomError := evmclient.NewSendErrorS("some old bollocks", nil)
 
-	clientErrors := NewTestClientErrors()
-	evmclient.SetClientErrorRegexes(&clientErrors)
+	clientErrors := evmclient.NewTestClientErrors()
 
 	t.Run("IsNonceTooLowError", func(t *testing.T) {
 		tests := []errorCase{
@@ -66,9 +47,9 @@ func Test_Eth_Errors(t *testing.T) {
 
 		for _, test := range tests {
 			t.Run(test.network, func(t *testing.T) {
-				err = evmclient.NewSendErrorS(test.message)
+				err = evmclient.NewSendErrorS(test.message, &clientErrors)
 				assert.Equal(t, err.IsNonceTooLowError(), test.expect)
-				err = newSendErrorWrapped(test.message)
+				err = newSendErrorWrapped(test.message, &clientErrors)
 				assert.Equal(t, err.IsNonceTooLowError(), test.expect)
 			})
 		}
@@ -86,9 +67,9 @@ func Test_Eth_Errors(t *testing.T) {
 		}
 
 		for _, test := range tests {
-			err = evmclient.NewSendErrorS(test.message)
+			err = evmclient.NewSendErrorS(test.message, &clientErrors)
 			assert.Equal(t, err.IsNonceTooHighError(), test.expect)
-			err = newSendErrorWrapped(test.message)
+			err = newSendErrorWrapped(test.message, &clientErrors)
 			assert.Equal(t, err.IsNonceTooHighError(), test.expect)
 		}
 	})
@@ -103,9 +84,9 @@ func Test_Eth_Errors(t *testing.T) {
 
 		for _, test := range tests {
 			t.Run(test.network, func(t *testing.T) {
-				err = evmclient.NewSendErrorS(test.message)
+				err = evmclient.NewSendErrorS(test.message, &clientErrors)
 				assert.Equal(t, err.IsTransactionAlreadyMined(), test.expect)
-				err = newSendErrorWrapped(test.message)
+				err = newSendErrorWrapped(test.message, &clientErrors)
 				assert.Equal(t, err.IsTransactionAlreadyMined(), test.expect)
 			})
 		}
@@ -126,9 +107,9 @@ func Test_Eth_Errors(t *testing.T) {
 		}
 
 		for _, test := range tests {
-			err = evmclient.NewSendErrorS(test.message)
+			err = evmclient.NewSendErrorS(test.message, &clientErrors)
 			assert.Equal(t, err.IsReplacementUnderpriced(), test.expect)
-			err = newSendErrorWrapped(test.message)
+			err = newSendErrorWrapped(test.message, &clientErrors)
 			assert.Equal(t, err.IsReplacementUnderpriced(), test.expect)
 		}
 	})
@@ -156,9 +137,9 @@ func Test_Eth_Errors(t *testing.T) {
 			{"client error transaction already in mempool", true, "tomlConfig"},
 		}
 		for _, test := range tests {
-			err = evmclient.NewSendErrorS(test.message)
+			err = evmclient.NewSendErrorS(test.message, &clientErrors)
 			assert.Equal(t, err.IsTransactionAlreadyInMempool(), test.expect)
-			err = newSendErrorWrapped(test.message)
+			err = newSendErrorWrapped(test.message, &clientErrors)
 			assert.Equal(t, err.IsTransactionAlreadyInMempool(), test.expect)
 		}
 	})
@@ -187,9 +168,9 @@ func Test_Eth_Errors(t *testing.T) {
 		}
 
 		for _, test := range tests {
-			err = evmclient.NewSendErrorS(test.message)
+			err = evmclient.NewSendErrorS(test.message, &clientErrors)
 			assert.Equal(t, err.IsTerminallyUnderpriced(), test.expect, "expected %q to match %s for client %s", err, "IsTerminallyUnderpriced", test.network)
-			err = newSendErrorWrapped(test.message)
+			err = newSendErrorWrapped(test.message, &clientErrors)
 			assert.Equal(t, err.IsTerminallyUnderpriced(), test.expect, "expected %q to match %s for client %s", err, "IsTerminallyUnderpriced", test.network)
 		}
 	})
@@ -201,9 +182,9 @@ func Test_Eth_Errors(t *testing.T) {
 			{"Transaction gas price is too low. It does not satisfy your node's minimal gas price (minimal: 100 got: 50). Try increasing the gas price.", false, "Parity"},
 		}
 		for _, test := range tests {
-			err = evmclient.NewSendErrorS(test.message)
+			err = evmclient.NewSendErrorS(test.message, &clientErrors)
 			assert.Equal(t, err.IsTemporarilyUnderpriced(), test.expect)
-			err = newSendErrorWrapped(test.message)
+			err = newSendErrorWrapped(test.message, &clientErrors)
 			assert.Equal(t, err.IsTemporarilyUnderpriced(), test.expect)
 		}
 	})
@@ -232,9 +213,9 @@ func Test_Eth_Errors(t *testing.T) {
 			{"client error insufficient eth", true, "tomlConfig"},
 		}
 		for _, test := range tests {
-			err = evmclient.NewSendErrorS(test.message)
+			err = evmclient.NewSendErrorS(test.message, &clientErrors)
 			assert.Equal(t, err.IsInsufficientEth(), test.expect)
-			err = newSendErrorWrapped(test.message)
+			err = newSendErrorWrapped(test.message, &clientErrors)
 			assert.Equal(t, err.IsInsufficientEth(), test.expect)
 		}
 	})
@@ -246,9 +227,9 @@ func Test_Eth_Errors(t *testing.T) {
 			{"client error service unavailable", true, "tomlConfig"},
 		}
 		for _, test := range tests {
-			err = evmclient.NewSendErrorS(test.message)
+			err = evmclient.NewSendErrorS(test.message, &clientErrors)
 			assert.Equal(t, err.IsServiceUnavailable(), test.expect)
-			err = newSendErrorWrapped(test.message)
+			err = newSendErrorWrapped(test.message, &clientErrors)
 			assert.Equal(t, err.IsServiceUnavailable(), test.expect)
 		}
 	})
@@ -267,57 +248,57 @@ func Test_Eth_Errors(t *testing.T) {
 			{"client error tx fee exceeds cap", true, "tomlConfig"},
 		}
 		for _, test := range tests {
-			err = evmclient.NewSendErrorS(test.message)
+			err = evmclient.NewSendErrorS(test.message, &clientErrors)
 			assert.Equal(t, err.IsTxFeeExceedsCap(), test.expect)
-			err = newSendErrorWrapped(test.message)
+			err = newSendErrorWrapped(test.message, &clientErrors)
 			assert.Equal(t, err.IsTxFeeExceedsCap(), test.expect)
 		}
 
 		assert.False(t, randomError.IsTxFeeExceedsCap())
 		// Nil
-		err = evmclient.NewSendError(nil)
+		err = evmclient.NewSendError(nil, &clientErrors)
 		assert.False(t, err.IsTxFeeExceedsCap())
 	})
 
 	t.Run("L2 Fees errors", func(t *testing.T) {
-		err = evmclient.NewSendErrorS("max fee per gas less than block base fee")
+		err = evmclient.NewSendErrorS("max fee per gas less than block base fee", &clientErrors)
 		assert.False(t, err.IsL2FeeTooHigh())
 		assert.True(t, err.L2FeeTooLow())
-		err = newSendErrorWrapped("max fee per gas less than block base fee")
+		err = newSendErrorWrapped("max fee per gas less than block base fee", &clientErrors)
 		assert.False(t, err.IsL2FeeTooHigh())
 		assert.True(t, err.L2FeeTooLow())
 
-		err = evmclient.NewSendErrorS("queue full")
+		err = evmclient.NewSendErrorS("queue full", &clientErrors)
 		assert.True(t, err.IsL2Full())
-		err = evmclient.NewSendErrorS("sequencer pending tx pool full, please try again")
+		err = evmclient.NewSendErrorS("sequencer pending tx pool full, please try again", &clientErrors)
 		assert.True(t, err.IsL2Full())
 
 		assert.False(t, randomError.IsL2FeeTooHigh())
 		assert.False(t, randomError.L2FeeTooLow())
 		// Nil
-		err = evmclient.NewSendError(nil)
+		err = evmclient.NewSendError(nil, &clientErrors)
 		assert.False(t, err.IsL2FeeTooHigh())
 		assert.False(t, err.L2FeeTooLow())
 	})
 
 	t.Run("Metis gas price errors", func(t *testing.T) {
-		err := evmclient.NewSendErrorS("primary websocket (wss://ws-mainnet.metis.io) call failed: gas price too low: 18000000000 wei, use at least tx.gasPrice = 19500000000 wei")
+		err := evmclient.NewSendErrorS("primary websocket (wss://ws-mainnet.metis.io) call failed: gas price too low: 18000000000 wei, use at least tx.gasPrice = 19500000000 wei", &clientErrors)
 		assert.True(t, err.L2FeeTooLow())
-		err = newSendErrorWrapped("primary websocket (wss://ws-mainnet.metis.io) call failed: gas price too low: 18000000000 wei, use at least tx.gasPrice = 19500000000 wei")
+		err = newSendErrorWrapped("primary websocket (wss://ws-mainnet.metis.io) call failed: gas price too low: 18000000000 wei, use at least tx.gasPrice = 19500000000 wei", &clientErrors)
 		assert.True(t, err.L2FeeTooLow())
 
 		assert.False(t, randomError.L2FeeTooLow())
 		// Nil
-		err = evmclient.NewSendError(nil)
+		err = evmclient.NewSendError(nil, &clientErrors)
 		assert.False(t, err.L2FeeTooLow())
 	})
 
 	t.Run("moonriver errors", func(t *testing.T) {
-		err := evmclient.NewSendErrorS("primary http (http://***REDACTED***:9933) call failed: submit transaction to pool failed: Pool(Stale)")
+		err := evmclient.NewSendErrorS("primary http (http://***REDACTED***:9933) call failed: submit transaction to pool failed: Pool(Stale)", &clientErrors)
 		assert.True(t, err.IsNonceTooLowError())
 		assert.False(t, err.IsTransactionAlreadyInMempool())
 		assert.False(t, err.Fatal())
-		err = evmclient.NewSendErrorS("primary http (http://***REDACTED***:9933) call failed: submit transaction to pool failed: Pool(AlreadyImported)")
+		err = evmclient.NewSendErrorS("primary http (http://***REDACTED***:9933) call failed: submit transaction to pool failed: Pool(AlreadyImported)", &clientErrors)
 		assert.True(t, err.IsTransactionAlreadyInMempool())
 		assert.False(t, err.IsNonceTooLowError())
 		assert.False(t, err.Fatal())
@@ -327,8 +308,7 @@ func Test_Eth_Errors(t *testing.T) {
 func Test_Eth_Errors_Fatal(t *testing.T) {
 	t.Parallel()
 
-	clientErrors := NewTestClientErrors()
-	evmclient.SetClientErrorRegexes(&clientErrors)
+	clientErrors := evmclient.NewTestClientErrors()
 
 	tests := []errorCase{
 		{"some old bollocks", false, "none"},
@@ -399,7 +379,7 @@ func Test_Eth_Errors_Fatal(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.message, func(t *testing.T) {
-			err := evmclient.NewSendError(pkgerrors.New(test.message))
+			err := evmclient.NewSendError(pkgerrors.New(test.message), &clientErrors)
 			assert.Equal(t, test.expect, err.Fatal())
 		})
 	}

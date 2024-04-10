@@ -51,9 +51,6 @@ func newEvmTxm(
 		estimator = opts.GenGasEstimator(chainID)
 	}
 
-	// Allow for custom client errors from toml file
-	evmclient.SetClientErrorRegexes(cfg.ClientErrors())
-
 	if opts.GenTxManager == nil {
 		txm, err = txmgr.NewTxm(
 			sqlxDB,
@@ -61,6 +58,7 @@ func newEvmTxm(
 			cfg,
 			txmgr.NewEvmTxmFeeConfig(cfg.GasEstimator()),
 			cfg.Transactions(),
+			cfg.ClientErrors(),
 			databaseConfig,
 			listenerConfig,
 			client,

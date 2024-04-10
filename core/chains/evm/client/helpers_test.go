@@ -36,6 +36,25 @@ type TestClientErrors struct {
 	serviceUnavailable                string
 }
 
+func NewTestClientErrors() TestClientErrors {
+	clientErrors := TestClientErrors{}
+	clientErrors.SetNonceTooLow("client error nonce too low")
+	clientErrors.SetNonceTooHigh("client error nonce too high")
+	clientErrors.SetReplacementTransactionUnderpriced("client error replacement underpriced")
+	clientErrors.SetLimitReached("client error limit reached")
+	clientErrors.SetTransactionAlreadyInMempool("client error transaction already in mempool")
+	clientErrors.SetTerminallyUnderpriced("client error terminally underpriced")
+	clientErrors.SetInsufficientEth("client error insufficient eth")
+	clientErrors.SetTxFeeExceedsCap("client error tx fee exceeds cap")
+	clientErrors.SetL2FeeTooLow("client error l2 fee too low")
+	clientErrors.SetL2FeeTooHigh("client error l2 fee too high")
+	clientErrors.SetL2Full("client error l2 full")
+	clientErrors.SetTransactionAlreadyMined("client error transaction already mined")
+	clientErrors.SetFatal("client error fatal")
+	clientErrors.SetServiceUnavailable("client error service unavailable")
+	return clientErrors
+}
+
 func (c *TestClientErrors) SetNonceTooLow(s string)  { c.nonceTooLow = s }
 func (c *TestClientErrors) SetNonceTooHigh(s string) { c.nonceTooHigh = s }
 
@@ -186,7 +205,8 @@ func NewChainClientWithTestNode(
 	}
 
 	var chainType commonconfig.ChainType
-	c := NewChainClient(lggr, nodeCfg.SelectionMode(), leaseDuration, noNewHeadsThreshold, primaries, sendonlys, chainID, chainType)
+	clientErrors := NewTestClientErrors()
+	c := NewChainClient(lggr, nodeCfg.SelectionMode(), leaseDuration, noNewHeadsThreshold, primaries, sendonlys, chainID, chainType, &clientErrors)
 	t.Cleanup(c.Close)
 	return c, nil
 }
@@ -202,7 +222,7 @@ func NewChainClientWithEmptyNode(
 	lggr := logger.Test(t)
 
 	var chainType commonconfig.ChainType
-	c := NewChainClient(lggr, selectionMode, leaseDuration, noNewHeadsThreshold, nil, nil, chainID, chainType)
+	c := NewChainClient(lggr, selectionMode, leaseDuration, noNewHeadsThreshold, nil, nil, chainID, chainType, nil)
 	t.Cleanup(c.Close)
 	return c
 }
@@ -228,7 +248,8 @@ func NewChainClientWithMockedRpc(
 	n := commonclient.NewNode[*big.Int, *evmtypes.Head, RPCClient](
 		cfg, clientMocks.ChainConfig{NoNewHeadsThresholdVal: noNewHeadsThreshold}, lggr, *parsed, nil, "eth-primary-node-0", 1, chainID, 1, rpc, "EVM")
 	primaries := []commonclient.Node[*big.Int, *evmtypes.Head, RPCClient]{n}
-	c := NewChainClient(lggr, selectionMode, leaseDuration, noNewHeadsThreshold, primaries, nil, chainID, chainType)
+	clientErrors := NewTestClientErrors()
+	c := NewChainClient(lggr, selectionMode, leaseDuration, noNewHeadsThreshold, primaries, nil, chainID, chainType, &clientErrors)
 	t.Cleanup(c.Close)
 	return c
 }
