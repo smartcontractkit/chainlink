@@ -45,7 +45,8 @@ func (m *methodBinding) GetLatestValue(ctx context.Context, params, returnValue 
 		return fmt.Errorf("%w: method not bound", commontypes.ErrInvalidType)
 	}
 
-	data, err := m.codec.Encode(ctx, params, wrapItemType(m.contractName, m.method, true))
+	methodKey := formatKey(m.contractName, m.method)
+	data, err := m.codec.Encode(ctx, params, wrapItemType(methodKey, true))
 	if err != nil {
 		return err
 	}
@@ -61,7 +62,7 @@ func (m *methodBinding) GetLatestValue(ctx context.Context, params, returnValue 
 		return fmt.Errorf("%w: %w", commontypes.ErrInternal, err)
 	}
 
-	return m.codec.Decode(ctx, bytes, returnValue, wrapItemType(m.contractName, m.method, false))
+	return m.codec.Decode(ctx, bytes, returnValue, wrapItemType(methodKey, false))
 }
 
 func (m *methodBinding) QueryKey(_ context.Context, _ query.KeyFilter, _ query.LimitAndSort, _ any) ([]commontypes.Sequence, error) {
