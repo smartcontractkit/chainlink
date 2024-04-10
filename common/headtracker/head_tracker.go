@@ -53,7 +53,7 @@ type headTracker[
 	services.StateMachine
 	log             logger.SugaredLogger
 	headBroadcaster HeadBroadcaster[HTH, BLOCK_HASH]
-	headSaver       htrktypes.HeadSaver[HTH, BLOCK_HASH]
+	headSaver       HeadSaver[HTH, BLOCK_HASH]
 	mailMon         *mailbox.Monitor
 	client          htrktypes.Client[HTH, S, ID, BLOCK_HASH]
 	chainID         types.ID
@@ -80,7 +80,7 @@ func NewHeadTracker[
 	config htrktypes.Config,
 	htConfig htrktypes.HeadTrackerConfig,
 	headBroadcaster HeadBroadcaster[HTH, BLOCK_HASH],
-	headSaver htrktypes.HeadSaver[HTH, BLOCK_HASH],
+	headSaver HeadSaver[HTH, BLOCK_HASH],
 	mailMon *mailbox.Monitor,
 	getNilHead func() HTH,
 ) HeadTracker[HTH, BLOCK_HASH] {

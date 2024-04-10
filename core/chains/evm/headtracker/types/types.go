@@ -6,13 +6,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink/v2/common/headtracker"
-	"github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
 // HeadSaver maintains chains persisted in DB. All methods are thread-safe.
 type HeadSaver interface {
-	types.HeadSaver[*evmtypes.Head, common.Hash]
+	headtracker.HeadSaver[*evmtypes.Head, common.Hash]
 	// LatestHeadFromDB returns the highest seen head from DB.
 	LatestHeadFromDB(ctx context.Context) (*evmtypes.Head, error)
 }
