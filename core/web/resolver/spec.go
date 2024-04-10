@@ -995,6 +995,10 @@ func (r *WorkflowSpecResolver) Workflow() string {
 	return r.spec.Workflow
 }
 
+func (r *WorkflowSpecResolver) WorkflowOwner() string {
+	return r.spec.WorkflowOwner
+}
+
 func (r *WorkflowSpecResolver) CreatedAt() graphql.Time {
 	return graphql.Time{Time: r.spec.CreatedAt}
 }

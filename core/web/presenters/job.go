@@ -39,6 +39,7 @@ const (
 	BlockHeaderFeederJobSpec JobSpecType = "blockheaderfeeder"
 	BootstrapJobSpec         JobSpecType = "bootstrap"
 	GatewayJobSpec           JobSpecType = "gateway"
+	WorkflowJobSpec          JobSpecType = "workflow"
 )
 
 // DirectRequestSpec defines the spec details of a DirectRequest Job
@@ -430,18 +431,20 @@ func NewGatewaySpec(spec *job.GatewaySpec) *GatewaySpec {
 }
 
 type WorkflowSpec struct {
-	Workflow   string    `json:"workflow"`
-	WorkflowID string    `json:"workflowId"`
-	CreatedAt  time.Time `json:"createdAt"`
-	UpdatedAt  time.Time `json:"updatedAt"`
+	Workflow      string    `json:"workflow"`
+	WorkflowID    string    `json:"workflowId"`
+	WorkflowOwner string    `json:"workflowOwner"`
+	CreatedAt     time.Time `json:"createdAt"`
+	UpdatedAt     time.Time `json:"updatedAt"`
 }
 
 func NewWorkflowSpec(spec *job.WorkflowSpec) *WorkflowSpec {
 	return &WorkflowSpec{
-		Workflow:   spec.Workflow,
-		WorkflowID: spec.WorkflowID,
-		CreatedAt:  spec.CreatedAt,
-		UpdatedAt:  spec.UpdatedAt,
+		Workflow:      spec.Workflow,
+		WorkflowID:    spec.WorkflowID,
+		WorkflowOwner: spec.WorkflowOwner,
+		CreatedAt:     spec.CreatedAt,
+		UpdatedAt:     spec.UpdatedAt,
 	}
 }
 

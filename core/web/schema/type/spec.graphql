@@ -166,6 +166,7 @@ type WorkflowSpec {
     id: ID!
     workflowID: String!
     workflow: String!
+    workflowOwner: String!
     createdAt: Time!
     updatedAt: Time!
 }

@@ -136,6 +136,10 @@ func ValidatedWorkflowSpec(tomlString string) (job.Job, error) {
 		return jb, fmt.Errorf("toml unmarshal error on job: %w", err)
 	}
 
+	if err := spec.Validate(); err != nil {
+		return jb, err
+	}
+
 	jb.WorkflowSpec = &spec
 	if jb.Type != job.Workflow {
 		return jb, fmt.Errorf("unsupported type %s", jb.Type)

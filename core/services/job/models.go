@@ -825,9 +825,27 @@ type LiquidityBalancerSpec struct {
 }
 
 type WorkflowSpec struct {
-	ID         int32     `toml:"-"`
-	WorkflowID string    `toml:"workflowId"`
-	Workflow   string    `toml:"workflow"`
-	CreatedAt  time.Time `toml:"-"`
-	UpdatedAt  time.Time `toml:"-"`
+	ID            int32     `toml:"-"`
+	WorkflowID    string    `toml:"workflowId"`
+	Workflow      string    `toml:"workflow"`
+	WorkflowOwner string    `toml:"workflowOwner"`
+	CreatedAt     time.Time `toml:"-"`
+	UpdatedAt     time.Time `toml:"-"`
+}
+
+const (
+	workflowIDLen    = 64
+	workflowOwnerLen = 40
+)
+
+func (w *WorkflowSpec) Validate() error {
+	if len(w.WorkflowID) != workflowIDLen {
+		return fmt.Errorf("incorrect length for id %s: expected %d, got %d", w.WorkflowID, workflowIDLen, len(w.WorkflowID))
+	}
+
+	if len(w.WorkflowOwner) != workflowOwnerLen {
+		return fmt.Errorf("incorrect length for owner %s: expected %d, got %d", w.WorkflowOwner, workflowOwnerLen, len(w.WorkflowOwner))
+	}
+
+	return nil
 }
