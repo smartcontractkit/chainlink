@@ -165,6 +165,8 @@ type Job struct {
 	LiquidityBalancerSpecID       *int32
 	PipelineSpecID                int32 // This is deprecated in favor of the `job_pipeline_specs` table relationship
 	PipelineSpec                  *pipeline.Spec
+	WorkflowSpecID                *int32
+	WorkflowSpec                  *WorkflowSpec
 	JobSpecErrors                 []SpecError
 	Type                          Type          `toml:"type"`
 	SchemaVersion                 uint32        `toml:"schemaVersion"`
@@ -820,4 +822,12 @@ type LiquidityBalancerSpec struct {
 	ID int32
 
 	LiquidityBalancerConfig string `toml:"liquidityBalancerConfig" db:"liquidity_balancer_config"`
+}
+
+type WorkflowSpec struct {
+	ID         int32     `toml:"-"`
+	WorkflowID string    `toml:"workflowId"`
+	Workflow   string    `toml:"workflow"`
+	CreatedAt  time.Time `toml:"-"`
+	UpdatedAt  time.Time `toml:"-"`
 }
