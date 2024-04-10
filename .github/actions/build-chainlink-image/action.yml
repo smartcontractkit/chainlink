@@ -23,6 +23,7 @@ runs:
   using: composite
   steps:
     - name: Check if image exists
+      if: ${{ inputs.dep_evm_sha != '' }}
       id: check-image
       uses: smartcontractkit/chainlink-github-actions/docker/image-exists@7882cf348cd6a1f6bcf1ee8280185584ebba96e9 # v2.3.10
       with:
@@ -31,7 +32,7 @@ runs:
         AWS_REGION: ${{ inputs.AWS_REGION }}
         AWS_ROLE_TO_ASSUME: ${{ inputs.AWS_ROLE_TO_ASSUME }}
     - name: Build Image
-      if: steps.check-image.outputs.exists == 'false'
+      if: steps.check-image.outputs.exists != 'true'
       uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@7882cf348cd6a1f6bcf1ee8280185584ebba96e9 # v2.3.10
       with:
         cl_repo: smartcontractkit/chainlink
