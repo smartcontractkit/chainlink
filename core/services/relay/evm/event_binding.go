@@ -129,13 +129,13 @@ func (e *eventBinding) GetLatestValue(ctx context.Context, params, into any) err
 	return e.getLatestValueWithFilters(ctx, confs, params, into)
 }
 
-func (e *eventBinding) QueryOne(ctx context.Context, filter query.Filter, limitAndSort query.LimitAndSort, sequenceDataType any) ([]commontypes.Sequence, error) {
-	remappedQf, err := remapChainAgnosticFilter(e.address, e.hash, e.topicsInfo, filter)
+func (e *eventBinding) QueryKey(ctx context.Context, filter query.KeyFilter, limitAndSort query.LimitAndSort, sequenceDataType any) ([]commontypes.Sequence, error) {
+	remappedFilter, err := e.remapFilter(filter)
 	if err != nil {
 		return nil, err
 	}
 
-	logs, err := e.lp.FilteredLogs(remappedQf, limitAndSort)
+	logs, err := e.lp.FilteredLogs(remappedFilter, limitAndSort)
 	if err != nil {
 		return nil, err
 	}

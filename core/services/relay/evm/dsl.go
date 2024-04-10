@@ -28,15 +28,15 @@ func (f *EventFilter) Accept(visitor query.Visitor) {
 	}
 }
 
-type EventByIndexFilter struct {
+type EventByTopicFilter struct {
 	Address        common.Address
 	EventSig       common.Hash
 	Topic          uint64
 	ValueComparers []query.ValueComparer
 }
 
-func NewEventByIndexFilter(address common.Address, eventSig common.Hash, topicIndex uint64, valueComparators []query.ValueComparer) query.Expression {
-	var eventByIndexFilter *EventByIndexFilter
+func NewEventByTopicFilter(address common.Address, eventSig common.Hash, topicIndex uint64, valueComparators []query.ValueComparer) query.Expression {
+	var eventByIndexFilter *EventByTopicFilter
 	eventByIndexFilter.Address = address
 	eventByIndexFilter.EventSig = eventSig
 	eventByIndexFilter.Topic = topicIndex
@@ -45,7 +45,7 @@ func NewEventByIndexFilter(address common.Address, eventSig common.Hash, topicIn
 	return query.Expression{Primitive: eventByIndexFilter}
 }
 
-func (f *EventByIndexFilter) Accept(visitor query.Visitor) {
+func (f *EventByTopicFilter) Accept(visitor query.Visitor) {
 	switch v := visitor.(type) {
 	case *PgDSLParser:
 		v.VisitEventTopicsByValueFilter(f)

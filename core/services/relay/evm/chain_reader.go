@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
@@ -87,13 +86,13 @@ func (cr *chainReader) Bind(ctx context.Context, bindings []commontypes.BoundCon
 	return cr.contractBindings.Bind(ctx, bindings)
 }
 
-func (cr *chainReader) QueryOne(ctx context.Context, contractName string, filter query.Filter, limitAndSort query.LimitAndSort, sequenceDataType any) ([]commontypes.Sequence, error) {
+func (cr *chainReader) QueryKey(ctx context.Context, contractName string, filter query.KeyFilter, limitAndSort query.LimitAndSort, sequenceDataType any) ([]commontypes.Sequence, error) {
 	b, err := cr.contractBindings.GetReadBinding(formatKey(contractName, filter.Key))
 	if err != nil {
 		return nil, err
 	}
 
-	return b.QueryOne(ctx, filter, limitAndSort, sequenceDataType)
+	return b.QueryKey(ctx, filter, limitAndSort, sequenceDataType)
 }
 
 func (cr *chainReader) init(chainContractReaders map[string]types.ChainContractReader) error {
@@ -308,59 +307,53 @@ func (cr *chainReader) addDecoderDef(contractName, methodName string, outputs ab
 	return output.Init()
 }
 
-func remapChainAgnosticFilter(address common.Address, eventSig common.Hash, topicsInfo map[string]topicInfo, queryFilter query.Filter) (remappedFilter query.Filter, err error) {
-	var expressions []query.Expression
-	isEventByTopic := false
-	for _, expression := range queryFilter.Expressions {
-		var remappedExpression query.Expression
-		if expression.IsPrimitive() {
-			switch expression.Primitive.(type) {
-			case *query.ComparerPrimitive:
-				isEventByTopic = true
-				comparerPrimitive := expression.Primitive.(*query.ComparerPrimitive)
-				remappedExpression = NewEventByIndexFilter(address, eventSig, topicsInfo[queryFilter.Key].topicIndex, comparerPrimitive.ValueComparers)
-			}
-		} else {
-			remappedExpression, err = remapExpression(expression)
-			if err != nil {
-				return query.Filter{}, err
-			}
+// remapFilter, changes chain agnostic filters to match evm specific filters.
+func (e *eventBinding) remapFilter(filter query.KeyFilter) (remappedFilter query.KeyFilter, err error) {
+	addEventSigFilter := false
+	for _, expression := range filter.Expressions {
+		remappedExpression, hasComparerPrimitive, err := e.remapExpression(filter.Key, expression)
+		if err != nil {
+			return query.KeyFilter{}, err
 		}
-		expressions = append(expressions, remappedExpression)
+		remappedFilter.Expressions = append(remappedFilter.Expressions, remappedExpression)
+		// comparer primitive maps to event by topic or event by evm data word filters, which means that event sig filter is not needed
+		addEventSigFilter = addEventSigFilter != hasComparerPrimitive
 	}
 
-	if !isEventByTopic {
-		expressions = append(expressions, NewEventFilter(address, eventSig))
+	if addEventSigFilter {
+		remappedFilter.Expressions = append(remappedFilter.Expressions, NewEventFilter(e.address, e.hash))
 	}
-
-	//topicsInfo[queryFilter.Key]
-	return query.Filter{Expressions: expressions}, nil
+	return remappedFilter, nil
 }
 
-// remapExpression, changes some chain agnostic filters to match evm specific filters.
-func remapExpression(expression query.Expression) (query.Expression, error) {
+func (e *eventBinding) remapExpression(key string, expression query.Expression) (remappedExpression query.Expression, hasComparerPrimitive bool, err error) {
 	if !expression.IsPrimitive() {
-		var remappedExpressions []query.Expression
-		for _, expr := range expression.BoolExpression.Expressions {
-			remappedFilter, err := remapExpression(expr)
+		for i := range expression.BoolExpression.Expressions {
+			remappedExpression, hasComparerPrimitive, err = e.remapExpression(key, expression.BoolExpression.Expressions[i])
 			if err != nil {
-				return query.Expression{}, nil
+				return query.Expression{}, false, err
 			}
-			remappedExpressions = append(remappedExpressions, remappedFilter)
+			remappedExpression.BoolExpression.Expressions = append(remappedExpression.BoolExpression.Expressions, remappedExpression)
 		}
 
 		if expression.BoolExpression.BoolOperator == query.AND {
-			return query.And(remappedExpressions...), nil
+			return query.And(remappedExpression.BoolExpression.Expressions...), hasComparerPrimitive, nil
 		}
-		return query.Or(remappedExpressions...), nil
+		return query.Or(remappedExpression.BoolExpression.Expressions...), hasComparerPrimitive, nil
 	}
 
 	// remap chain agnostic primitives to chain specific
 	switch primitive := expression.Primitive.(type) {
 	case *query.ConfirmationsPrimitive:
-		return NewFinalityFilter(primitive)
+		remappedExpression, err = NewFinalityFilter(primitive)
+		return remappedExpression, hasComparerPrimitive, err
+	case *query.ComparerPrimitive:
+		if val, ok := e.eventDataWords[primitive.Name]; ok {
+			return NewEventByWordFilter(e.address, e.hash, val, primitive.ValueComparers), true, nil
+		}
+		return NewEventByTopicFilter(e.address, e.hash, e.topicsInfo[key].topicIndex, primitive.ValueComparers), true, nil
 	default:
-		return expression, nil
+		return expression, hasComparerPrimitive, nil
 	}
 }
 

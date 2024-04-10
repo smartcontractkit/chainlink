@@ -64,7 +64,7 @@ func (m *methodBinding) GetLatestValue(ctx context.Context, params, returnValue 
 	return m.codec.Decode(ctx, bytes, returnValue, wrapItemType(m.contractName, m.method, false))
 }
 
-func (m *methodBinding) QueryOne(_ context.Context, _ query.Filter, _ query.LimitAndSort, _ any) ([]commontypes.Sequence, error) {
+func (m *methodBinding) QueryKey(_ context.Context, _ query.KeyFilter, _ query.LimitAndSort, _ any) ([]commontypes.Sequence, error) {
 	return nil, nil
 }
 

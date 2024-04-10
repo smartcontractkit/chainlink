@@ -27,7 +27,7 @@ func (v *PgDSLParser) TimestampPrimitive(_ query.TimestampPrimitive) {}
 
 func (v *PgDSLParser) TxHashPrimitives(_ query.TxHashPrimitive) {}
 
-func (v *PgDSLParser) VisitEventTopicsByValueFilter(_ *EventByIndexFilter) {}
+func (v *PgDSLParser) VisitEventTopicsByValueFilter(_ *EventByTopicFilter) {}
 
 func (v *PgDSLParser) VisitEventByWordFilter(_ *EventByWordFilter) {}
 
