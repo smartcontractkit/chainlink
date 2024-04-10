@@ -85,10 +85,10 @@ func TestEvmTracker_AddressTracking(t *testing.T) {
 		addrs := tracker.GetAbandonedAddresses()
 		require.NotContains(t, addrs, inProgressAddr)
 		require.NotContains(t, addrs, unstartedAddr)
-		require.Contains(t, addrs, confirmedAddr)
 		require.Contains(t, addrs, unconfirmedAddr)
 	})
 
+	/* TODO: finalized tx state https://smartcontract-it.atlassian.net/browse/BCI-2920
 	t.Run("stop tracking finalized tx", func(t *testing.T) {
 		tracker, txStore, _, _ := newTestEvmTrackerSetup(t)
 		confirmedAddr := cltest.MustGenerateRandomKey(t).Address
@@ -115,27 +115,12 @@ func TestEvmTracker_AddressTracking(t *testing.T) {
 		addrs = tracker.GetAbandonedAddresses()
 		require.NotContains(t, addrs, confirmedAddr)
 	})
+	*/
 }
 
 func TestEvmTracker_ExceedingTTL(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
-
-	t.Run("confirmed but unfinalized transaction still tracked", func(t *testing.T) {
-		tracker, txStore, _, _ := newTestEvmTrackerSetup(t)
-		addr1 := cltest.MustGenerateRandomKey(t).Address
-		_ = mustInsertConfirmedEthTxWithReceipt(t, txStore, addr1, 123, 1)
-
-		err := tracker.Start(ctx)
-		require.NoError(t, err)
-		defer func(tracker *txmgr.Tracker) {
-			err = tracker.Close()
-			require.NoError(t, err)
-		}(tracker)
-
-		time.Sleep(waitTime)
-		require.Contains(t, tracker.GetAbandonedAddresses(), addr1)
-	})
 
 	t.Run("exceeding ttl", func(t *testing.T) {
 		tracker, txStore, _, _ := newTestEvmTrackerSetup(t)

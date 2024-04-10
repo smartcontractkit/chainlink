@@ -270,26 +270,13 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) handleTxesB
 		}
 		if tx == nil {
 			tr.lggr.Warnf("tx with ID %v no longer exists, removing from tracker", id)
-			delete(tr.txCache, tx.ID)
+			delete(tr.txCache, id)
 			continue
 		}
 
 		switch tx.State {
 		case TxConfirmed:
-			if blockHeight == 0 {
-				// blockHeight is 0 on startup, so we can't know if tx is finalized yet
-				continue
-			}
-			// Check if confirmed txes have been finalized on chain such that
-			// the number of reciepts is greater than finality depth
-			finalized, err := tr.txStore.IsTxFinalized(ctx, blockHeight, tx.ID, tr.chainID)
-			if err != nil {
-				tr.lggr.Errorf("failed to check if tx is finalized: %v", err)
-				continue
-			}
-			if finalized {
-				delete(tr.txCache, tx.ID)
-			}
+			// TODO: Handle finalized state https://smartcontract-it.atlassian.net/browse/BCI-2920
 		case TxConfirmedMissingReceipt, TxUnconfirmed:
 			// Keep tracking tx
 		case TxInProgress, TxUnstarted:

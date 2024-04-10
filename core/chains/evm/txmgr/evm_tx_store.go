@@ -1302,18 +1302,16 @@ func (o *evmTxStore) GetAbandonedTransactionsByBatch(ctx context.Context, chainI
 		enabledAddrsBytea = append(enabledAddrsBytea, addr[:])
 	}
 
-	err = o.Transaction(ctx, true, func(orm *evmTxStore) error {
-		query := `SELECT * FROM evm.txes WHERE state <> 'fatal_error' AND evm_chain_id = $1 
+	// TODO: include confirmed txes https://smartcontract-it.atlassian.net/browse/BCI-2920
+	query := `SELECT * FROM evm.txes WHERE state <> 'fatal_error' AND state <> 'confirmed' AND evm_chain_id = $1 
                        AND from_address <> ALL($2) ORDER BY nonce ASC OFFSET $3 LIMIT $4`
 
-		var dbEtxs []DbEthTx
-		if err = orm.q.SelectContext(ctx, &dbEtxs, query, chainID.String(), enabledAddrsBytea, offset, limit); err != nil {
-			return fmt.Errorf("failed to load evm.txes: %w", err)
-		}
-		txes = make([]*Tx, len(dbEtxs))
-		dbEthTxsToEvmEthTxPtrs(dbEtxs, txes)
-		return nil
-	})
+	var dbEtxs []DbEthTx
+	if err = o.q.SelectContext(ctx, &dbEtxs, query, chainID.String(), enabledAddrsBytea, offset, limit); err != nil {
+		return nil, fmt.Errorf("failed to load evm.txes: %w", err)
+	}
+	txes = make([]*Tx, len(dbEtxs))
+	dbEthTxsToEvmEthTxPtrs(dbEtxs, txes)
 
 	return txes, err
 }
