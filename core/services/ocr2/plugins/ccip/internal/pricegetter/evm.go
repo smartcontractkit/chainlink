@@ -74,6 +74,28 @@ func NewDynamicPriceGetter(cfg config.DynamicPriceGetterConfig, evmClients map[u
 	return &priceGetter, nil
 }
 
+// FilterForConfiguredTokens implements the PriceGetter interface.
+// It filters a list of token addresses for only those that have a price resolution rule configured on the PriceGetterConfig
+func (d *DynamicPriceGetter) FilterConfiguredTokens(ctx context.Context, tokens []cciptypes.Address) (configured []cciptypes.Address, unconfigured []cciptypes.Address, err error) {
+	configured = []cciptypes.Address{}
+	unconfigured = []cciptypes.Address{}
+	for _, tk := range tokens {
+		evmAddr, err := ccipcalc.GenericAddrToEvm(tk)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		if _, isAgg := d.cfg.AggregatorPrices[evmAddr]; isAgg {
+			configured = append(configured, tk)
+		} else if _, isStatic := d.cfg.StaticPrices[evmAddr]; isStatic {
+			configured = append(configured, tk)
+		} else {
+			unconfigured = append(unconfigured, tk)
+		}
+	}
+	return configured, unconfigured, nil
+}
+
 // TokenPricesUSD implements the PriceGetter interface.
 // It returns static prices stored in the price getter, and batch calls to aggregators (on per chain) for aggregator-based prices.
 func (d *DynamicPriceGetter) TokenPricesUSD(ctx context.Context, tokens []cciptypes.Address) (map[cciptypes.Address]*big.Int, error) {

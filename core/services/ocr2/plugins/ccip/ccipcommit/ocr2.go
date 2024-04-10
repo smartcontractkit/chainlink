@@ -184,7 +184,9 @@ func (r *CommitReportingPlugin) observePriceUpdates(
 		return nil, nil, nil
 	}
 
-	sortedChainTokens, err := ccipcommon.GetSortedChainTokens(ctx, r.offRampReaders, r.destPriceRegistryReader)
+	sortedChainTokens, filteredChainTokens, err := ccipcommon.GetFilteredSortedChainTokens(ctx, r.offRampReaders, r.destPriceRegistryReader, r.priceGetter)
+	lggr.Debugw("Filtered bridgeable tokens with no configured price getter", filteredChainTokens)
+
 	if err != nil {
 		return nil, nil, fmt.Errorf("get destination tokens: %w", err)
 	}
@@ -324,7 +326,7 @@ func (r *CommitReportingPlugin) Report(ctx context.Context, epochAndRound types.
 
 	parsableObservations := ccip.GetParsableObservations[ccip.CommitObservation](lggr, observations)
 
-	sortedChainTokens, err := ccipcommon.GetSortedChainTokens(ctx, r.offRampReaders, r.destPriceRegistryReader)
+	sortedChainTokens, _, err := ccipcommon.GetFilteredSortedChainTokens(ctx, r.offRampReaders, r.destPriceRegistryReader, r.priceGetter)
 	if err != nil {
 		return false, nil, fmt.Errorf("get destination tokens: %w", err)
 	}
