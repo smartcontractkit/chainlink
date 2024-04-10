@@ -71,10 +71,5 @@ type NewHeadHandler[H Head[BLOCK_HASH], BLOCK_HASH Hashable] func(ctx context.Co
 type HeadBroadcaster[H Head[BLOCK_HASH], BLOCK_HASH Hashable] interface {
 	services.Service
 	BroadcastNewLongestChain(H)
-	HeadBroadcasterRegistry[H, BLOCK_HASH]
-}
-
-//go:generate mockery --quiet --name HeadBroadcaster --output ../mocks/ --case=underscore
-type HeadBroadcasterRegistry[H Head[BLOCK_HASH], BLOCK_HASH Hashable] interface {
 	Subscribe(callback HeadTrackable[H, BLOCK_HASH]) (currentLongestChain H, unsubscribe func())
 }

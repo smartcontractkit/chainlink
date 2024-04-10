@@ -18,7 +18,6 @@ type HeadSaver interface {
 
 // Type Alias for EVM Head Tracker Components
 type (
-	HeadBroadcasterRegistry = commontypes.HeadBroadcasterRegistry[*evmtypes.Head, common.Hash]
 	HeadTracker             = commontypes.HeadTracker[*evmtypes.Head, common.Hash]
 	HeadTrackable           = commontypes.HeadTrackable[*evmtypes.Head, common.Hash]
 	HeadListener            = commontypes.HeadListener[*evmtypes.Head, common.Hash]
