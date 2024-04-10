@@ -1,20 +1,147 @@
 # Changelog Chainlink Core
 
-All notable changes to this project will be documented in this file.
+## 2.11.0 - UNRELEASED
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+### Minor Changes
 
-<!-- unreleased -->
+- [#12348](https://github.com/smartcontractkit/chainlink/pull/12348) [`efead72965`](https://github.com/smartcontractkit/chainlink/commit/efead72965fec7e822a16f4d50cc0e5a27dd4640) Thanks [@reductionista](https://github.com/reductionista)! - Update config for zkevm polygon chains
 
-## [dev]
+- [#12082](https://github.com/smartcontractkit/chainlink/pull/12082) [`608ea0a467`](https://github.com/smartcontractkit/chainlink/commit/608ea0a467ee36e15fdc654a88494ae579d778a6) Thanks [@dhaidashenko](https://github.com/dhaidashenko)! - HeadTracker now respects the `FinalityTagEnabled` config option. If the flag is enabled, HeadTracker backfills blocks up to the latest finalized block provided by the corresponding RPC call. To address potential misconfigurations, `HistoryDepth` is now calculated from the latest finalized block instead of the head. NOTE: Consumers (e.g. TXM and LogPoller) do not fully utilize Finality Tag yet.
 
-### Changed
+- [#12489](https://github.com/smartcontractkit/chainlink/pull/12489) [`3a49094db2`](https://github.com/smartcontractkit/chainlink/commit/3a49094db25036e1948818e4030fca11be748914) Thanks [@kidambisrinivas](https://github.com/kidambisrinivas)! - - Misc VRF V2+ contract changes
 
-- HeadTracker now respects the `FinalityTagEnabled` config option. If the flag is enabled, HeadTracker backfills blocks up to the latest finalized block provided by the corresponding RPC call. To address potential misconfigurations, `HistoryDepth` is now calculated from the latest finalized block instead of the head. NOTE: Consumers (e.g. TXM and LogPoller) do not fully utilize Finality Tag yet.
+  - Reuse struct RequestCommitmentV2Plus from VRFTypes
+  - Fix interface name IVRFCoordinatorV2PlusFulfill in BatchVRFCoordinatorV2Plus to avoid confusion with IVRFCoordinatorV2Plus.sol
+  - Remove unused errors
+  - Rename variables for readability
+  - Fix comments
+  - Minor gas optimisation (++i)
+  - Fix integration tests
 
-...
-<!-- unreleasedstop -->
+- [#12093](https://github.com/smartcontractkit/chainlink/pull/12093) [`3f6d901fe6`](https://github.com/smartcontractkit/chainlink/commit/3f6d901fe676698769cb6713250152e322747145) Thanks [@friedemannf](https://github.com/friedemannf)! - The `xdai` `ChainType` has been renamed to `gnosis` to match the chain's new name. The old value is still supported but has been deprecated and will be removed in v2.13.0.
+
+- [#12503](https://github.com/smartcontractkit/chainlink/pull/12503) [`dc224a2924`](https://github.com/smartcontractkit/chainlink/commit/dc224a29249c83c74a38d9ca9d16fb00e192a4e2) Thanks [@amit-momin](https://github.com/amit-momin)! - Added a tx simulation feature to the chain client to enable testing for zk out-of-counter (OOC) errors
+
+- [#12634](https://github.com/smartcontractkit/chainlink/pull/12634) [`e9e903bf4b`](https://github.com/smartcontractkit/chainlink/commit/e9e903bf4b34099f8b274eb1e0f013b4ab326bb4) Thanks [@ettec](https://github.com/ettec)! - Update keyvalue store to be compatible with the interface required in chainlink common
+
+- [#12496](https://github.com/smartcontractkit/chainlink/pull/12496) [`31350477ae`](https://github.com/smartcontractkit/chainlink/commit/31350477ae51f00e035b1b8c50775e5955258ac1) Thanks [@silaslenihan](https://github.com/silaslenihan)! - Change LimitTransfer gasLimit type from uint32 to uint64
+
+- [#12622](https://github.com/smartcontractkit/chainlink/pull/12622) [`a2bdcf51ef`](https://github.com/smartcontractkit/chainlink/commit/a2bdcf51efc1efbbac21745b260bd130dbb1ce3d) Thanks [@HenryNguyen5](https://github.com/HenryNguyen5)! - Add table support to "type" property for step definitions
+
+- [#12339](https://github.com/smartcontractkit/chainlink/pull/12339) [`96d2fe13b8`](https://github.com/smartcontractkit/chainlink/commit/96d2fe13b8510631bbc92ffd20a4d923b93002e6) Thanks [@dhaidashenko](https://github.com/dhaidashenko)! - Add the `pool_rpc_node_highest_finalized_block` metric that tracks the highest finalized block seen per RPC. If `FinalityTagEnabled = true`, a positive `NodePool.FinalizedBlockPollInterval` is needed to collect the metric. If the finality tag is not enabled, the metric is populated with a calculated latest finalized block based on the latest head and finality depth.
+
+- [#12473](https://github.com/smartcontractkit/chainlink/pull/12473) [`f1d1f249eb`](https://github.com/smartcontractkit/chainlink/commit/f1d1f249ebecb37da7eacbc4cc12e1eb0205f29a) Thanks [@justinkaseman](https://github.com/justinkaseman)! - Copy common transmitter methods into FunctionsContractTransmitter to enable product specific modification
+
+- [#12534](https://github.com/smartcontractkit/chainlink/pull/12534) [`bd532b5e2a`](https://github.com/smartcontractkit/chainlink/commit/bd532b5e2a1bebe8c9fe689d059464c43365ced1) Thanks [@silaslenihan](https://github.com/silaslenihan)! - Extracted Gas Limit Multiplier from gas estimators to WrappedEvmEstimator.
+
+- [#12578](https://github.com/smartcontractkit/chainlink/pull/12578) [`ffd492295f`](https://github.com/smartcontractkit/chainlink/commit/ffd492295f03de8c3b946a003dacbded731d7899) Thanks [@RensR](https://github.com/RensR)! - Remove 0.6 and 0.7 Solidity source code
+
+
+### Patch Changes
+
+- [#12570](https://github.com/smartcontractkit/chainlink/pull/12570) [`2d33524a35`](https://github.com/smartcontractkit/chainlink/commit/2d33524a3539e32ac32a84c4600e6cdfb8e01cf3) Thanks [@samsondav](https://github.com/samsondav)! - VerboseLogging is now turned on by default.
+
+  You may disable if this results in excessive log volume. Disable like so:
+
+  ```
+  [Pipeline]
+  VerboseLogging = false
+  ```
+
+- [#12458](https://github.com/smartcontractkit/chainlink/pull/12458) [`51b134700a`](https://github.com/smartcontractkit/chainlink/commit/51b134700afe6daa1a10692e6365fdbbaf3b1396) Thanks [@HenryNguyen5](https://github.com/HenryNguyen5)! - Add json schema support to workflows
+
+- [#12697](https://github.com/smartcontractkit/chainlink/pull/12697) [`33398b7945`](https://github.com/smartcontractkit/chainlink/commit/33398b7945bd522ef67329d89a4140d88277db0b) Thanks [@samsondav](https://github.com/samsondav)! - Increase default config for postgres max open conns from 20 to 100.
+
+  Also, add autoscaling for mercury jobs. The max open conns limit will be
+  automatically increased to the number of mercury jobs if this exceeds the
+  configured value.
+
+- [#12540](https://github.com/smartcontractkit/chainlink/pull/12540) [`17c037678d`](https://github.com/smartcontractkit/chainlink/commit/17c037678d05c88f28a28a3ac760c742f549d5ec) Thanks [@RyanRHall](https://github.com/RyanRHall)! - change auto 2.3 flat fees from link to USD
+
+- [#12696](https://github.com/smartcontractkit/chainlink/pull/12696) [`ee52be7cf9`](https://github.com/smartcontractkit/chainlink/commit/ee52be7cf90076677b1e96e3b294f284e798194f) Thanks [@KuphJr](https://github.com/KuphJr)! - Remove LogPoller filters for outdated Functions coordinator contracts
+
+- [#12405](https://github.com/smartcontractkit/chainlink/pull/12405) [`2bd210bfa8`](https://github.com/smartcontractkit/chainlink/commit/2bd210bfa8c4705b0981a315cba939b0281d7bf3) Thanks [@jinhoonbang](https://github.com/jinhoonbang)! - Soft delete consumer nonce in VRF coordinator v2.5
+
+- [#12387](https://github.com/smartcontractkit/chainlink/pull/12387) [`42e72d2d26`](https://github.com/smartcontractkit/chainlink/commit/42e72d2d2610d2481c5a9469fc9b49c167d37f79) Thanks [@ogtownsend](https://github.com/ogtownsend)! - Adds prometheus metrics for automation streams error handling
+
+- [#12388](https://github.com/smartcontractkit/chainlink/pull/12388) [`30b73a804d`](https://github.com/smartcontractkit/chainlink/commit/30b73a804dfba394180abe354569dade80a71be5) Thanks [@justinkaseman](https://github.com/justinkaseman)! - Chainlink Functions contracts v1.3 audit findings
+
+- [#12332](https://github.com/smartcontractkit/chainlink/pull/12332) [`89abd726b6`](https://github.com/smartcontractkit/chainlink/commit/89abd726b6c3f29a84e0fc5d230a1324f622755b) Thanks [@Tofel](https://github.com/Tofel)! - Add new pipeline for testing EVM node compatibility on go-ethereum dependency bump
+
+- [#12621](https://github.com/smartcontractkit/chainlink/pull/12621) [`9c2764adbf`](https://github.com/smartcontractkit/chainlink/commit/9c2764adbf3969654795ed2c35c5fb56eaf70785) Thanks [@KuphJr](https://github.com/KuphJr)! - Add GetFilters function to the log_poller
+
+- [#12592](https://github.com/smartcontractkit/chainlink/pull/12592) [`b512ef5a7d`](https://github.com/smartcontractkit/chainlink/commit/b512ef5a7d1bc87d0cbd5357c5c47cc0dcb75e0b) Thanks [@ibrajer](https://github.com/ibrajer)! - Set LINK native feed in VRFV2PlusWrapper to immutable
+
+- [#12404](https://github.com/smartcontractkit/chainlink/pull/12404) [`b74079b672`](https://github.com/smartcontractkit/chainlink/commit/b74079b672f36fb0c241f90ea1e875ea3a9524da) Thanks [@HenryNguyen5](https://github.com/HenryNguyen5)! - Add OCR3 capability contract wrapper
+
+- [#12498](https://github.com/smartcontractkit/chainlink/pull/12498) [`1c576d0e34`](https://github.com/smartcontractkit/chainlink/commit/1c576d0e34d93a6298ddcb662ee89fd04eeda53e) Thanks [@samsondav](https://github.com/samsondav)! - Add new config option Pipeline.VerboseLogging
+
+  VerboseLogging enables detailed logging of pipeline execution steps. This is
+  disabled by default because it increases log volume for pipeline runs, but can
+  be useful for debugging failed runs without relying on the UI or database.
+  Consider enabling this if you disabled run saving by setting MaxSuccessfulRuns
+  to zero.
+
+  Set it like the following example:
+
+  ```
+  [Pipeline]
+  VerboseLogging = true
+  ```
+
+- [#12357](https://github.com/smartcontractkit/chainlink/pull/12357) [`a532accd6a`](https://github.com/smartcontractkit/chainlink/commit/a532accd6ad56195e77a0314b613a1e2b5d4d07a) Thanks [@amirylm](https://github.com/amirylm)! - Added log buffer v1 with improved performance, stability and control over scaling parameters.
+
+  Added a feature flag for using log buffer v1.
+
+- [#12152](https://github.com/smartcontractkit/chainlink/pull/12152) [`a6a2acfe20`](https://github.com/smartcontractkit/chainlink/commit/a6a2acfe2017dc766d401d55627f0c5016c824b9) Thanks [@ferglor](https://github.com/ferglor)! - Calculate blockRate and logLimit defaults in the log provider based on chain ID
+
+- [#12584](https://github.com/smartcontractkit/chainlink/pull/12584) [`c7cacd0710`](https://github.com/smartcontractkit/chainlink/commit/c7cacd0710f5040a46532e6dae7eac1b9eafe645) Thanks [@matYang](https://github.com/matYang)! - L1Oracle handles OP Stack Ecotone encoded l1 gas price
+
+- [#12564](https://github.com/smartcontractkit/chainlink/pull/12564) [`246762ceeb`](https://github.com/smartcontractkit/chainlink/commit/246762ceebba7923641ec00e66ae1aaf59bbcdc2) Thanks [@mateusz-sekara](https://github.com/mateusz-sekara)! - Exposing information about LogPoller finality violation via Healthy method. It's raised whenever LogPoller sees reorg deeper than the finality
+
+- [#12575](https://github.com/smartcontractkit/chainlink/pull/12575) [`23254c4bf5`](https://github.com/smartcontractkit/chainlink/commit/23254c4bf577e84b71bda1d9a8b2c11e7b548267) Thanks [@augustbleeds](https://github.com/augustbleeds)! - update starknet relayer to fix nonce issue. introduces optional api-key for starknet toml config.
+
+- [#12353](https://github.com/smartcontractkit/chainlink/pull/12353) [`07c9f6cadd`](https://github.com/smartcontractkit/chainlink/commit/07c9f6cadd449989b21977af461305ded8e5b2f0) Thanks [@amit-momin](https://github.com/amit-momin)! - Fixed a race condition bug around EVM nonce management, which could cause the Node to skip a nonce and get stuck.
+
+- [#12344](https://github.com/smartcontractkit/chainlink/pull/12344) [`6fa1f5dddc`](https://github.com/smartcontractkit/chainlink/commit/6fa1f5dddc6e257c2223503f1592297ca69521bd) Thanks [@eutopian](https://github.com/eutopian)! - Add rebalancer support for feeds manager ocr2 plugins
+
+- [#12484](https://github.com/smartcontractkit/chainlink/pull/12484) [`590cad6126`](https://github.com/smartcontractkit/chainlink/commit/590cad61269c75a6b22be1f6a73c74adfd1baa40) Thanks [@mateusz-sekara](https://github.com/mateusz-sekara)! - Making LogPoller's replay more robust by backfilling up to finalized block and processing rest in the main loop
+
+- [#12612](https://github.com/smartcontractkit/chainlink/pull/12612) [`d44abe3769`](https://github.com/smartcontractkit/chainlink/commit/d44abe37693d6995377fa1329e433e7fba26885d) Thanks [@RensR](https://github.com/RensR)! - upgraded transmission to 0.8.19
+
+- [#12444](https://github.com/smartcontractkit/chainlink/pull/12444) [`dde7fdff33`](https://github.com/smartcontractkit/chainlink/commit/dde7fdff33cfc0690844cf0a88295bef57e2a269) Thanks [@ogtownsend](https://github.com/ogtownsend)! - Updating prometheus metrics for Automation log triggers
+
+- [#12479](https://github.com/smartcontractkit/chainlink/pull/12479) [`93762ccbd8`](https://github.com/smartcontractkit/chainlink/commit/93762ccbd868b9e227abf3220afb9ad22ba41b92) Thanks [@jinhoonbang](https://github.com/jinhoonbang)! - update solc version for vrf v2.5 coordinators
+
+- [#12337](https://github.com/smartcontractkit/chainlink/pull/12337) [`195b504a93`](https://github.com/smartcontractkit/chainlink/commit/195b504a93b1a241c1981ec21726e4b722d40b2b) Thanks [@samsondav](https://github.com/samsondav)! - Mercury jobs can now broadcast to multiple mercury servers.
+
+  Previously, a single mercury server would be specified in a job spec as so:
+
+  ```toml
+  [pluginConfig]
+  serverURL = "example.com/foo"
+  serverPubKey = "724ff6eae9e900270edfff233e16322a70ec06e1a6e62a81ef13921f398f6c93"
+  ```
+
+  You may now specify multiple mercury servers, as so:
+
+  ```toml
+  [pluginConfig]
+  servers = { "example.com/foo" = "724ff6eae9e900270edfff233e16322a70ec06e1a6e62a81ef13921f398f6c93", "mercury2.example:1234/bar" = "524ff6eae9e900270edfff233e16322a70ec06e1a6e62a81ef13921f398f6c93" }
+  ```
+
+- [#11899](https://github.com/smartcontractkit/chainlink/pull/11899) [`67560b9f1d`](https://github.com/smartcontractkit/chainlink/commit/67560b9f1dc052712a76eeb245fba12f2daf8e8d) Thanks [@DylanTinianov](https://github.com/DylanTinianov)! - Refactor EVM ORMs to remove pg dependency
+
+- [#12531](https://github.com/smartcontractkit/chainlink/pull/12531) [`88e010d604`](https://github.com/smartcontractkit/chainlink/commit/88e010d604682c54c4f99e0a0916f94c0d13ece6) Thanks [@jinhoonbang](https://github.com/jinhoonbang)! - increase num optimizations to 500 for vrf v2.5 coordinator
+
+- [#12375](https://github.com/smartcontractkit/chainlink/pull/12375) [`831aea819d`](https://github.com/smartcontractkit/chainlink/commit/831aea819dd6b3415770cc927c4857a1da4557b5) Thanks [@shileiwill](https://github.com/shileiwill)! - add liquidity pool for automation 2.3
+
+- [#12412](https://github.com/smartcontractkit/chainlink/pull/12412) [`83c8688a14`](https://github.com/smartcontractkit/chainlink/commit/83c8688a14ac04111f999d132673ebaf6a364b4a) Thanks [@poopoothegorilla](https://github.com/poopoothegorilla)! - bump grafana to 1.1.1
+
+- [#12248](https://github.com/smartcontractkit/chainlink/pull/12248) [`e1950769ee`](https://github.com/smartcontractkit/chainlink/commit/e1950769ee3ff2a40ca5772b9634c45f8be241cc) Thanks [@FelixFan1992](https://github.com/FelixFan1992)! - add version support for automation registry 2.\*
+
+
+
 
 ## 2.10.0 - 2024-04-05
 
@@ -53,7 +180,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Environment variables `CL_MEDIAN_ENV`, `CL_SOLANA_ENV`, and `CL_STARKNET_ENV` for setting environment variables in LOOP Plugins with an `.env` file.
   ```
   echo "Foo=Bar" >> median.env
-  echo "Baz=Val" >> median.env  
+  echo "Baz=Val" >> median.env
   CL_MEDIAN_ENV="median.env"
   ```
 
@@ -65,6 +192,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `P2P.V1` is no longer supported and must not be set in TOML configuration in order to boot. Use `P2P.V2` instead. If you are using both, `V1` can simply be removed.
 - Removed `TelemetryIngress.URL` and `TelemetryIngress.ServerPubKey` from TOML configuration, these fields are replaced by `[[TelemetryIngress.Endpoints]]`:
+
 ```toml
   [[TelemetryIngress.Endpoints]]
   Network = '...' # e.g. EVM. Solana, Starknet, Cosmos
@@ -80,45 +208,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added distributed tracing in the OpenTelemetry trace format to the node, currently focused at the LOOPP Plugin development effort. This includes a new set of `Tracing` TOML configurations. The default for collecting traces is off - you must explicitly enable traces and setup a valid OpenTelemetry collector. Refer to `.github/tracing/README.md` for more details.
 - Added a new, optional WebServer authentication option that supports LDAP as a user identity provider. This enables user login access and user roles to be managed and provisioned via a centralized remote server that supports the LDAP protocol, which can be helpful when running multiple nodes. See the documentation for more information and config setup instructions. There is a new `[WebServer].AuthenticationMethod` config option, when set to `ldap` requires the new `[WebServer.LDAP]` config section to be defined, see the reference `docs/core.toml`.
 - New prom metrics for mercury transmit queue:
-    `mercury_transmit_queue_delete_error_count`
-    `mercury_transmit_queue_insert_error_count`
-    `mercury_transmit_queue_push_error_count`
-    Nops should consider alerting on these.
+  `mercury_transmit_queue_delete_error_count`
+  `mercury_transmit_queue_insert_error_count`
+  `mercury_transmit_queue_push_error_count`
+  Nops should consider alerting on these.
 - Mercury now implements a local cache for fetching prices for fees, which ought to reduce latency and load on the mercury server, as well as increasing performance. It is enabled by default and can be configured with the following new config variables:
-    ```
-    [Mercury]
-    
-    # Mercury.Cache controls settings for the price retrieval cache querying a mercury server
-    [Mercury.Cache]
-    # LatestReportTTL controls how "stale" we will allow a price to be e.g. if
-    # set to 1s, a new price will always be fetched if the last result was
-    # from 1 second ago or older.
-    # 
-    # Another way of looking at it is such: the cache will _never_ return a
-    # price that was queried from now-LatestReportTTL or before.
-    # 
-    # Setting to zero disables caching entirely.
-    LatestReportTTL = "1s" # Default
-    # MaxStaleAge is that maximum amount of time that a value can be stale
-    # before it is deleted from the cache (a form of garbage collection).
-    # 
-    # This should generally be set to something much larger than
-    # LatestReportTTL. Setting to zero disables garbage collection.
-    MaxStaleAge = "1h" # Default
-    # LatestReportDeadline controls how long to wait for a response from the
-    # mercury server before retrying. Setting this to zero will wait indefinitely.
-    LatestReportDeadline = "5s" # Default
-    ```
+  ```
+  [Mercury]
+
+  # Mercury.Cache controls settings for the price retrieval cache querying a mercury server
+  [Mercury.Cache]
+  # LatestReportTTL controls how "stale" we will allow a price to be e.g. if
+  # set to 1s, a new price will always be fetched if the last result was
+  # from 1 second ago or older.
+  #
+  # Another way of looking at it is such: the cache will _never_ return a
+  # price that was queried from now-LatestReportTTL or before.
+  #
+  # Setting to zero disables caching entirely.
+  LatestReportTTL = "1s" # Default
+  # MaxStaleAge is that maximum amount of time that a value can be stale
+  # before it is deleted from the cache (a form of garbage collection).
+  #
+  # This should generally be set to something much larger than
+  # LatestReportTTL. Setting to zero disables garbage collection.
+  MaxStaleAge = "1h" # Default
+  # LatestReportDeadline controls how long to wait for a response from the
+  # mercury server before retrying. Setting this to zero will wait indefinitely.
+  LatestReportDeadline = "5s" # Default
+  ```
 - New prom metrics for the mercury cache:
-    `mercury_cache_fetch_failure_count`
-    `mercury_cache_hit_count`
-    `mercury_cache_wait_count`
-    `mercury_cache_miss_count`
+  `mercury_cache_fetch_failure_count`
+  `mercury_cache_hit_count`
+  `mercury_cache_wait_count`
+  `mercury_cache_miss_count`
 - Added new `EVM.OCR` TOML config fields `DeltaCOverride` and `DeltaCJitterOverride` for overriding the config DeltaC.
 - Mercury v0.2 has improved consensus around current block that uses the most recent 5 blocks instead of only the latest one
 - Two new prom metrics for mercury, nops should consider adding alerting on these:
-    - `mercury_insufficient_blocks_count`
-    - `mercury_zero_blocks_count`
+  - `mercury_insufficient_blocks_count`
+  - `mercury_zero_blocks_count`
 - Added new `Mercury.TLS` TOML config field `CertFile` for configuring transport credentials when the node acts as a client and initiates a TLS handshake.
 
 ### Changed
@@ -150,7 +278,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed a bug that caused the Telemetry Manager to report incorrect health
 
 ### Upcoming Required Configuration Changes
+
 Starting in `v2.9.0`:
+
 - `TelemetryIngress.URL` and `TelemetryIngress.ServerPubKey` will no longer be allowed. Any TOML configuration that sets this fields will prevent the node from booting. These fields will be replaced by `[[TelemetryIngress.Endpoints]]`
 - `P2P.V1` will no longer be supported and must not be set in TOML configuration in order to boot. Use `P2P.V2` instead. If you are using both, `V1` can simply be removed.
 
@@ -158,7 +288,7 @@ Starting in `v2.9.0`:
 
 ### Fixed
 
-- Fixed a bug that caused nodes without OCR or OCR2 enabled to fail config validation if `P2P.V2` was not explicitly disabled. With this fix, NOPs will not have to make changes to their config. 
+- Fixed a bug that caused nodes without OCR or OCR2 enabled to fail config validation if `P2P.V2` was not explicitly disabled. With this fix, NOPs will not have to make changes to their config.
 
 ## 2.7.1 - 2023-11-21
 
@@ -172,6 +302,7 @@ Starting in `v2.9.0`:
 
 - Added new configuration field named `LeaseDuration` for `EVM.NodePool` that will periodically check if internal subscriptions are connected to the "best" (as defined by the `SelectionMode`) node and switch to it if necessary. Setting this value to `0s` will disable this feature.
 - Added multichain telemetry support. Each network/chainID pair must be configured using the new fields:
+
 ```toml
 [[TelemetryIngress.Endpoints]]
 Network = '...' # e.g. EVM. Solana, Starknet, Cosmos
@@ -179,7 +310,9 @@ ChainID = '...' # e.g. 1, 5, devnet, mainnet-beta
 URL = '...'
 ServerPubKey = '...'
 ```
+
 These will eventually replace `TelemetryIngress.URL` and `TelemetryIngress.ServerPubKey`. Setting `TelemetryIngress.URL` and `TelemetryIngress.ServerPubKey` alongside `[[TelemetryIngress.Endpoints]]` will prevent the node from booting. Only one way of configuring telemetry endpoints is supported.
+
 - Added bridge_name label to `pipeline_tasks_total_finished` prometheus metric. This should make it easier to see directly what bridge was failing out from the CL NODE perspective.
 
 - LogPoller will now use finality tags to dynamically determine finality on evm chains if `EVM.FinalityTagEnabled=true`, rather than the fixed `EVM.FinalityDepth` specified in toml config
@@ -190,7 +323,9 @@ These will eventually replace `TelemetryIngress.URL` and `TelemetryIngress.Serve
 - `P2P.V2` is now enabled (`Enabled = true`) by default.
 
 ### Upcoming Required Configuration Changes
+
 Starting in `v2.9.0`:
+
 - `TelemetryIngress.URL` and `TelemetryIngress.ServerPubKey` will no longer be allowed. Any TOML configuration that sets this fields will prevent the node from booting. These fields will be replaced by `[[TelemetryIngress.Endpoints]]`
 - `P2P.V1` will no longer be supported and must not be set in TOML configuration in order to boot. Use `P2P.V2` instead. If you are using both, `V1` can simply be removed.
 
