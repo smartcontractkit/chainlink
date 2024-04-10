@@ -4,7 +4,7 @@
   "description": "node of the decentralized oracle network, bridging on and off-chain computation",
   "main": "index.js",
   "scripts": {
-    "ci:changeset:version": "pnpm changeset version && pnpm version patch --no-git-tag"
+    "ci:changeset:version": "pnpm changeset version"
   },
   "private": true,
   "repository": {
