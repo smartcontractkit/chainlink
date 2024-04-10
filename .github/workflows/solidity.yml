@@ -51,7 +51,7 @@ jobs:
       release-version: ${{ steps.release-tag-check.outputs.release-version }}
       pre-release-version: ${{ steps.release-tag-check.outputs.pre-release-version }}
     steps:
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
       - name: Check release tag
         id: release-tag-check
         uses: smartcontractkit/chainlink-github-actions/release/release-tag-check@2031e56eb4edb8115ce8ba07cbbfb457149d865d # v2.3.8
@@ -201,7 +201,7 @@ jobs:
     if: needs.tag-check.outputs.is-pre-release == 'true'
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
 
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
@@ -240,7 +240,7 @@ jobs:
     if: needs.tag-check.outputs.is-release == 'true'
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
 
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
