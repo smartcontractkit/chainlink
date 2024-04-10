@@ -545,8 +545,6 @@ func TestLogPoller_BackupPollAndSaveLogsSkippingLogsThatAreTooOld(t *testing.T) 
 		BackupPollerBlockDelay:   1,
 	}
 	th := SetupTH(t, lpOpts)
-	//header, err := th.Client.HeaderByNumber(ctx, nil)
-	//require.NoError(t, err)
 
 	// Emit some logs in blocks
 	for i := 1; i <= logsBatch; i++ {
@@ -559,7 +557,7 @@ func TestLogPoller_BackupPollAndSaveLogsSkippingLogsThatAreTooOld(t *testing.T) 
 	// 1 -> 2 -> ... -> firstBatchBlock
 	firstBatchBlock := th.PollAndSaveLogs(ctx, 1)
 	// Mark current tip of the chain as finalized (after emitting 10 logs)
-	markBlockAsFinalized(t, th, firstBatchBlock)
+	markBlockAsFinalized(t, th, firstBatchBlock-1)
 
 	// Emit 2nd batch of block
 	for i := 1; i <= logsBatch; i++ {
@@ -571,7 +569,7 @@ func TestLogPoller_BackupPollAndSaveLogsSkippingLogsThatAreTooOld(t *testing.T) 
 	// 1 -> 2 -> ... -> firstBatchBlock (finalized) -> .. -> firstBatchBlock + emitted logs
 	secondBatchBlock := th.PollAndSaveLogs(ctx, firstBatchBlock)
 	// Mark current tip of the block as finalized (after emitting 20 logs)
-	markBlockAsFinalized(t, th, secondBatchBlock)
+	markBlockAsFinalized(t, th, secondBatchBlock-1)
 
 	// Register filter
 	err := th.LogPoller.RegisterFilter(ctx, logpoller.Filter{
@@ -595,8 +593,8 @@ func TestLogPoller_BackupPollAndSaveLogsSkippingLogsThatAreTooOld(t *testing.T) 
 		th.EmitterAddress1,
 	)
 	require.NoError(t, err)
-	require.Len(t, logs, logsBatch+1)
-	require.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000009`), logs[0].Data)
+	require.Len(t, logs, logsBatch)
+	require.Equal(t, hexutil.MustDecode(`0x000000000000000000000000000000000000000000000000000000000000000a`), logs[0].Data)
 }
 
 func TestLogPoller_BlockTimestamps(t *testing.T) {
