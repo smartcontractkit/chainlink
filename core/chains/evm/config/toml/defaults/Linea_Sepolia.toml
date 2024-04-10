@@ -1,5 +1,5 @@
 ChainID = '59141'
-FinalityDepth = 900
+FinalityDepth = 7200
 NoNewHeadsThreshold = '0'
 
 [GasEstimator]
@@ -11,4 +11,4 @@ PriceMin = '1 wei'
 ResendAfterThreshold = '3m'
 
 [HeadTracker]
-HistoryDepth = 1000
+HistoryDepth = 7200
