@@ -391,6 +391,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 			name: "workflow",
 			tomlTemplate: func(_ string) string {
 				id := "15c631d295ef5e32deb99a10ee6804bc4af1385568f9b3363f6552ac6dbb2cef"
+				owner := "00000000000000000000000000000000000000aa"
 				workflow := `
 triggers:
   - type: "mercury-trigger"
@@ -438,7 +439,7 @@ targets:
       params: ["$(report)"]
       abi: "receive(report bytes)"
 `
-				return testspecs.GenerateWorkflowSpec(id, workflow).Toml()
+				return testspecs.GenerateWorkflowSpec(id, owner, workflow).Toml()
 			},
 			assertion: func(t *testing.T, nameAndExternalJobID string, r *http.Response) {
 				require.Equal(t, http.StatusOK, r.StatusCode)
@@ -453,6 +454,7 @@ targets:
 
 				assert.Equal(t, jb.WorkflowSpec.Workflow, resource.WorkflowSpec.Workflow)
 				assert.Equal(t, jb.WorkflowSpec.WorkflowID, resource.WorkflowSpec.WorkflowID)
+				assert.Equal(t, jb.WorkflowSpec.WorkflowOwner, resource.WorkflowSpec.WorkflowOwner)
 			},
 		},
 	}

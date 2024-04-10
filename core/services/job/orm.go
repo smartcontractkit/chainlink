@@ -445,8 +445,8 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			// 'stream' type has no associated spec, nothing to do here
 		case Workflow:
 			var specID int32
-			sql := `INSERT INTO workflow_specs (workflow, workflow_id, created_at, updated_at)
-			VALUES (:workflow, :workflow_id, NOW(), NOW())
+			sql := `INSERT INTO workflow_specs (workflow, workflow_id, workflow_owner, created_at, updated_at)
+			VALUES (:workflow, :workflow_id, :workflow_owner, NOW(), NOW())
 			RETURNING id;`
 			if err := pg.PrepareQueryRowx(tx, sql, &specID, jb.WorkflowSpec); err != nil {
 				return errors.Wrap(err, "failed to create WorkflowSpec for jobSpec")

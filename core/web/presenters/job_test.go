@@ -860,7 +860,7 @@ func TestJob(t *testing.T) {
 					ID:            3,
 					WorkflowID:    "<test-workflow-id>",
 					Workflow:      `<test-workflow-spec>`,
-					WorkflowOwner: "<test-workflow-owner",
+					WorkflowOwner: "<test-workflow-owner>",
 				},
 				PipelineSpec: &pipeline.Spec{
 					ID:           1,

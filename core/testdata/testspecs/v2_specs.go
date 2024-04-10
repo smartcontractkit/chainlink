@@ -872,16 +872,17 @@ func (w WorkflowSpec) Toml() string {
 	return w.toml
 }
 
-func GenerateWorkflowSpec(id, spec string) WorkflowSpec {
+func GenerateWorkflowSpec(id, owner, spec string) WorkflowSpec {
 	template := `
 type = "workflow"
 schemaVersion = 1
 name = "test-spec"
 workflowId = "%s"
+workflowOwner = "%s"
 workflow = """
 %s
 """
 `
-	toml := fmt.Sprintf(template, id, spec)
+	toml := fmt.Sprintf(template, id, owner, spec)
 	return WorkflowSpec{toml: toml}
 }
