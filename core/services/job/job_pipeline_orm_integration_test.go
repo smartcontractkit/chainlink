@@ -10,6 +10,7 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -165,7 +166,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 		require.NoError(t, jobORM.CreateJob(dbSpec))
 
 		var pipelineSpecs []pipeline.Spec
-		sql := `SELECT * FROM pipeline_specs;`
+		sql := `SELECT pipeline_specs.*, job_pipeline_specs.job_id FROM pipeline_specs JOIN job_pipeline_specs ON (pipeline_specs.id = job_pipeline_specs.pipeline_spec_id);`
 		require.NoError(t, db.Select(&pipelineSpecs, sql))
 		require.Len(t, pipelineSpecs, 1)
 		require.Equal(t, dbSpec.PipelineSpecID, pipelineSpecs[0].ID)

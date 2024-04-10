@@ -47,6 +47,7 @@ func (w *workflowSpec) steps() []stepDefinition {
 // treated differently due to their nature of being the starting
 // point of a workflow.
 type workflow struct {
+	id string
 	graph.Graph[string, *step]
 
 	triggers []*triggerCapability
