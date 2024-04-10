@@ -1,0 +1,36 @@
+#
+# This action creates or updates a Release Preview PR that shows which changes are going to be part of the next release
+# when a PR is merged into develop branch
+#
+
+name: Release Preview - Changeset
+
+on:
+  push:
+    branches:
+      - develop
+
+jobs:
+  cicd-changesets:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: cicd-changesets
+        uses: smartcontractkit/.github/actions/cicd-changesets@6da79c7b9f14bec077df2c1ad40d53823b409d9c # cicd-changesets@0.3.3
+        with:
+          # general inputs
+          git-user: app-token-issuer-releng[bot]
+          git-email: app-token-issuer-releng[bot]@users.noreply.github.com
+          pnpm-use-cache: false
+          pr-draft: true
+          pr-title: "[DO NOT MERGE] Release Preview - Changeset"
+          # aws inputs
+          aws-region: ${{ secrets.AWS_REGION }}
+          aws-role-arn: ${{ secrets.AWS_OIDC_CHAINLINK_CI_AUTO_PR_TOKEN_ISSUER_ROLE_ARN }}
+          aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+          # grafana inputs
+          gc-basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          gc-host: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          gc-org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
