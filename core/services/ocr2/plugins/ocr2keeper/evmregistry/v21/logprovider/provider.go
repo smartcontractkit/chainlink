@@ -67,6 +67,7 @@ type LogTriggersLifeCycle interface {
 	// UnregisterFilter removes the filter for the given upkeepID.
 	UnregisterFilter(ctx context.Context, upkeepID *big.Int) error
 }
+
 type LogEventProvider interface {
 	ocr2keepers.LogEventProvider
 	LogTriggersLifeCycle
@@ -83,13 +84,8 @@ type LogEventProviderTest interface {
 	CurrentPartitionIdx() uint64
 }
 
-type LogEventProviderFeatures interface {
-	WithBufferVersion(v BufferVersion)
-}
-
 var _ LogEventProvider = &logEventProvider{}
 var _ LogEventProviderTest = &logEventProvider{}
-var _ LogEventProviderFeatures = &logEventProvider{}
 
 // logEventProvider manages log filters for upkeeps and enables to read the log events.
 type logEventProvider struct {
@@ -106,8 +102,7 @@ type logEventProvider struct {
 	registerLock sync.Mutex
 
 	filterStore UpkeepFilterStore
-	buffer      *logEventBuffer
-	bufferV1    LogBuffer
+	buffer      LogBuffer
 
 	opts LogTriggersOptions
 
@@ -121,8 +116,7 @@ func NewLogProvider(lggr logger.Logger, poller logpoller.LogPoller, chainID *big
 		threadCtrl:  utils.NewThreadControl(),
 		lggr:        lggr.Named("KeepersRegistry.LogEventProvider"),
 		packer:      packer,
-		buffer:      newLogEventBuffer(lggr, int(opts.LookbackBlocks), defaultNumOfLogUpkeeps, defaultFastExecLogsHigh),
-		bufferV1:    NewLogBuffer(lggr, uint32(opts.LookbackBlocks), opts.BlockRate, opts.LogLimit),
+		buffer:      NewLogBuffer(lggr, uint32(opts.LookbackBlocks), opts.BlockRate, opts.LogLimit),
 		poller:      poller,
 		opts:        opts,
 		filterStore: filterStore,
@@ -149,20 +143,7 @@ func (p *logEventProvider) SetConfig(cfg ocr2keepers.LogEventProviderConfig) {
 	atomic.StoreUint32(&p.opts.BlockRate, blockRate)
 	atomic.StoreUint32(&p.opts.LogLimit, logLimit)
 
-	switch p.opts.BufferVersion {
-	case BufferVersionV1:
-		p.bufferV1.SetConfig(uint32(p.opts.LookbackBlocks), blockRate, logLimit)
-	default:
-	}
-}
-
-func (p *logEventProvider) WithBufferVersion(v BufferVersion) {
-	p.lock.Lock()
-	defer p.lock.Unlock()
-
-	p.lggr.Debugw("with buffer version", "version", v)
-
-	p.opts.BufferVersion = v
+	p.buffer.SetConfig(uint32(p.opts.LookbackBlocks), blockRate, logLimit)
 }
 
 func (p *logEventProvider) Start(context.Context) error {
@@ -257,7 +238,7 @@ func (p *logEventProvider) createPayload(id *big.Int, log logpoller.Log) (ocr2ke
 // getBufferDequeueArgs returns the arguments for the buffer to dequeue logs.
 // It adjust the log limit low based on the number of upkeeps to ensure that more upkeeps get slots in the result set.
 func (p *logEventProvider) getBufferDequeueArgs() (blockRate, logLimitLow, maxResults, numOfUpkeeps int) {
-	blockRate, logLimitLow, maxResults, numOfUpkeeps = int(p.opts.BlockRate), int(p.opts.LogLimit), MaxPayloads, p.bufferV1.NumOfUpkeeps()
+	blockRate, logLimitLow, maxResults, numOfUpkeeps = int(p.opts.BlockRate), int(p.opts.LogLimit), MaxPayloads, p.buffer.NumOfUpkeeps()
 	// in case we have more upkeeps than the max results, we reduce the log limit low
 	// so that more upkeeps will get slots in the result set.
 	for numOfUpkeeps > maxResults/logLimitLow {
@@ -285,36 +266,25 @@ func (p *logEventProvider) getLogsFromBuffer(latestBlock int64) []ocr2keepers.Up
 		start = 1
 	}
 
-	switch p.opts.BufferVersion {
-	case BufferVersionV1:
-		// in v1, we use a greedy approach - we keep dequeuing logs until we reach the max results or cover the entire range.
-		blockRate, logLimitLow, maxResults, _ := p.getBufferDequeueArgs()
-		for len(payloads) < maxResults && start <= latestBlock {
-			logs, remaining := p.bufferV1.Dequeue(start, blockRate, logLimitLow, maxResults-len(payloads), DefaultUpkeepSelector)
-			if len(logs) > 0 {
-				p.lggr.Debugw("Dequeued logs", "start", start, "latestBlock", latestBlock, "logs", len(logs))
-			}
-			for _, l := range logs {
-				payload, err := p.createPayload(l.ID, l.Log)
-				if err == nil {
-					payloads = append(payloads, payload)
-				}
-			}
-			if remaining > 0 {
-				p.lggr.Debugw("Remaining logs", "start", start, "latestBlock", latestBlock, "remaining", remaining)
-				// TODO: handle remaining logs in a better way than consuming the entire window, e.g. do not repeat more than x times
-				continue
-			}
-			start += int64(blockRate)
+	// in v1, we use a greedy approach - we keep dequeuing logs until we reach the max results or cover the entire range.
+	blockRate, logLimitLow, maxResults, _ := p.getBufferDequeueArgs()
+	for len(payloads) < maxResults && start <= latestBlock {
+		logs, remaining := p.buffer.Dequeue(start, blockRate, logLimitLow, maxResults-len(payloads), DefaultUpkeepSelector)
+		if len(logs) > 0 {
+			p.lggr.Debugw("Dequeued logs", "start", start, "latestBlock", latestBlock, "logs", len(logs))
 		}
-	default:
-		logs := p.buffer.dequeueRange(start, latestBlock, AllowedLogsPerUpkeep, MaxPayloads)
 		for _, l := range logs {
-			payload, err := p.createPayload(l.upkeepID, l.log)
+			payload, err := p.createPayload(l.ID, l.Log)
 			if err == nil {
 				payloads = append(payloads, payload)
 			}
 		}
+		if remaining > 0 {
+			p.lggr.Debugw("Remaining logs", "start", start, "latestBlock", latestBlock, "remaining", remaining)
+			// TODO: handle remaining logs in a better way than consuming the entire window, e.g. do not repeat more than x times
+			continue
+		}
+		start += int64(blockRate)
 	}
 
 	return payloads
@@ -509,12 +479,7 @@ func (p *logEventProvider) readLogs(ctx context.Context, latest int64, filters [
 		}
 		filteredLogs := filter.Select(logs...)
 
-		switch p.opts.BufferVersion {
-		case BufferVersionV1:
-			p.bufferV1.Enqueue(filter.upkeepID, filteredLogs...)
-		default:
-			p.buffer.enqueue(filter.upkeepID, filteredLogs...)
-		}
+		p.buffer.Enqueue(filter.upkeepID, filteredLogs...)
 		// Update the lastPollBlock for filter in slice this is then
 		// updated into filter store in updateFiltersLastPoll
 		filters[i].lastPollBlock = latest
@@ -524,14 +489,5 @@ func (p *logEventProvider) readLogs(ctx context.Context, latest int64, filters [
 }
 
 func (p *logEventProvider) syncBufferFilters() error {
-	p.lock.RLock()
-	buffVersion := p.opts.BufferVersion
-	p.lock.RUnlock()
-
-	switch buffVersion {
-	case BufferVersionV1:
-		return p.bufferV1.SyncFilters(p.filterStore)
-	default:
-		return nil
-	}
+	return p.buffer.SyncFilters(p.filterStore)
 }

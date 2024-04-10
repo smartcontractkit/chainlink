@@ -1,388 +1,426 @@
 package logprovider
 
 import (
-	"encoding/hex"
+	"math"
 	"math/big"
 	"sort"
 	"sync"
 	"sync/atomic"
-
-	"github.com/smartcontractkit/chainlink-automation/pkg/v3/random"
-	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/prommetrics"
 )
 
-var (
-	// defaultFastExecLogsHigh is the default upper bound / maximum number of logs that Automation is committed to process for each upkeep,
-	// based on available capacity, i.e. if there are no logs from other upkeeps.
-	// Used by Log buffer to limit the number of logs we are saving in memory for each upkeep in a block
-	defaultFastExecLogsHigh = 32
-	// defaultNumOfLogUpkeeps is the default number of log upkeeps supported by the registry.
-	defaultNumOfLogUpkeeps = 50
-)
-
-// fetchedLog holds the log and the ID of the upkeep
-type fetchedLog struct {
-	upkeepID *big.Int
-	log      logpoller.Log
-	// cachedLogID is the cached log identifier, used for sorting.
-	// It is calculated lazily, and cached for performance.
-	cachedLogID string
+type BufferedLog struct {
+	ID  *big.Int
+	Log logpoller.Log
 }
 
-func (l *fetchedLog) getLogID() string {
-	if len(l.cachedLogID) == 0 {
-		ext := ocr2keepers.LogTriggerExtension{
-			Index: uint32(l.log.LogIndex),
-		}
-		copy(ext.TxHash[:], l.log.TxHash[:])
-		copy(ext.BlockHash[:], l.log.BlockHash[:])
-		l.cachedLogID = hex.EncodeToString(ext.LogIdentifier())
+type LogBuffer interface {
+	// Enqueue adds logs to the buffer and might also drop logs if the limit for the
+	// given upkeep was exceeded. Returns the number of logs that were added and number of logs that were  dropped.
+	Enqueue(id *big.Int, logs ...logpoller.Log) (added int, dropped int)
+	// Dequeue pulls logs from the buffer that are within the given block window,
+	// with a maximum number of logs per upkeep and a total maximum number of logs to return.
+	// It also accepts a function to select upkeeps.
+	// Returns logs (associated to upkeeps) and the number of remaining
+	// logs in that window for the involved upkeeps.
+	Dequeue(block int64, blockRate, upkeepLimit, maxResults int, upkeepSelector func(id *big.Int) bool) ([]BufferedLog, int)
+	// SetConfig sets the buffer size and the maximum number of logs to keep for each upkeep.
+	SetConfig(lookback, blockRate, logLimit uint32)
+	// NumOfUpkeeps returns the number of upkeeps that are being tracked by the buffer.
+	NumOfUpkeeps() int
+	// SyncFilters removes upkeeps that are not in the filter store.
+	SyncFilters(filterStore UpkeepFilterStore) error
+}
+
+func DefaultUpkeepSelector(id *big.Int) bool {
+	return true
+}
+
+type logBufferOptions struct {
+	// number of blocks to keep in the buffer
+	lookback *atomic.Uint32
+	// blockRate is the number of blocks per window
+	blockRate *atomic.Uint32
+	// max number of logs to keep in the buffer for each upkeep per window (LogLimit*10)
+	windowLimit *atomic.Uint32
+}
+
+func newLogBufferOptions(lookback, blockRate, logLimit uint32) *logBufferOptions {
+	opts := &logBufferOptions{
+		windowLimit: new(atomic.Uint32),
+		lookback:    new(atomic.Uint32),
+		blockRate:   new(atomic.Uint32),
 	}
-	return l.cachedLogID
+	opts.override(lookback, blockRate, logLimit)
+
+	return opts
 }
 
-// fetchedBlock holds the logs fetched for a block
-type fetchedBlock struct {
-	blockNumber int64
-	// logs is the logs fetched for the block and haven't been visited yet
-	logs []fetchedLog
-	// visited is the logs fetched for the block and have been visited.
-	// We keep them in order to avoid fetching them again.
-	visited []fetchedLog
+func (o *logBufferOptions) override(lookback, blockRate, logLimit uint32) {
+	o.windowLimit.Store(logLimit * 10)
+	o.lookback.Store(lookback)
+	o.blockRate.Store(blockRate)
 }
 
-func (b *fetchedBlock) Append(lggr logger.Logger, fl fetchedLog, maxBlockLogs, maxUpkeepLogs int) (fetchedLog, bool) {
-	has, upkeepLogs := b.has(fl.upkeepID, fl.log)
-	if has {
-		// Skipping known logs
-		return fetchedLog{}, false
-	}
-	// lggr.Debugw("Adding log", "i", i, "blockBlock", currentBlock.blockNumber, "logBlock", log.BlockNumber, "id", id)
-	b.logs = append(b.logs, fl)
-
-	// drop logs if we reached limits.
-	if upkeepLogs+1 > maxUpkeepLogs {
-		// in case we have logs overflow for a particular upkeep, we drop a log of that upkeep,
-		// based on shared, random (per block) order of the logs in the block.
-		b.Sort()
-		var dropped fetchedLog
-		currentLogs := make([]fetchedLog, 0, len(b.logs)-1)
-		for _, l := range b.logs {
-			if dropped.upkeepID == nil && l.upkeepID.Cmp(fl.upkeepID) == 0 {
-				dropped = l
-				continue
-			}
-			currentLogs = append(currentLogs, l)
-		}
-		b.logs = currentLogs
-		return dropped, true
-	} else if len(b.logs)+len(b.visited) > maxBlockLogs {
-		// in case we have logs overflow in the buffer level, we drop a log based on
-		// shared, random (per block) order of the logs in the block.
-		b.Sort()
-		dropped := b.logs[0]
-		b.logs = b.logs[1:]
-		return dropped, true
-	}
-
-	return fetchedLog{}, true
+func (o *logBufferOptions) windows() int {
+	return int(math.Ceil(float64(o.lookback.Load()) / float64(o.blockRate.Load())))
 }
 
-// Has returns true if the block has the log,
-// and the number of logs for that upkeep in the block.
-func (b fetchedBlock) has(id *big.Int, log logpoller.Log) (bool, int) {
-	allLogs := append(b.logs, b.visited...)
-	upkeepLogs := 0
-	for _, l := range allLogs {
-		if l.upkeepID.Cmp(id) != 0 {
-			continue
-		}
-		upkeepLogs++
-		if l.log.BlockHash == log.BlockHash && l.log.TxHash == log.TxHash && l.log.LogIndex == log.LogIndex {
-			return true, upkeepLogs
-		}
-	}
-	return false, upkeepLogs
-}
-
-func (b fetchedBlock) Clone() fetchedBlock {
-	logs := make([]fetchedLog, len(b.logs))
-	copy(logs, b.logs)
-	visited := make([]fetchedLog, len(b.visited))
-	copy(visited, b.visited)
-	return fetchedBlock{
-		blockNumber: b.blockNumber,
-		logs:        logs,
-		visited:     visited,
-	}
-}
-
-// Sort by log identifiers, shuffled using a pseduorandom souce that is shared across all nodes
-// for a given block.
-func (b *fetchedBlock) Sort() {
-	randSeed := random.GetRandomKeySource(nil, uint64(b.blockNumber))
-
-	shuffledLogIDs := make(map[string]string, len(b.logs))
-	for _, log := range b.logs {
-		logID := log.getLogID()
-		shuffledLogIDs[logID] = random.ShuffleString(logID, randSeed)
-	}
-
-	sort.SliceStable(b.logs, func(i, j int) bool {
-		return shuffledLogIDs[b.logs[i].getLogID()] < shuffledLogIDs[b.logs[j].getLogID()]
-	})
-}
-
-// logEventBuffer is a circular/ring buffer of fetched logs.
-// Each entry in the buffer represents a block,
-// and holds the logs fetched for that block.
-type logEventBuffer struct {
+type logBuffer struct {
 	lggr logger.Logger
-	lock sync.RWMutex
-	// size is the number of blocks supported by the buffer
-	size int32
-
-	numOfLogUpkeeps, fastExecLogsHigh uint32
-	// blocks is the circular buffer of fetched blocks
-	blocks []fetchedBlock
-	// latestBlock is the latest block number seen
-	latestBlock int64
+	opts *logBufferOptions
+	// last block number seen by the buffer
+	lastBlockSeen *atomic.Int64
+	// map of upkeep id to its queue
+	queues map[string]*upkeepLogQueue
+	lock   sync.RWMutex
 }
 
-func newLogEventBuffer(lggr logger.Logger, size, numOfLogUpkeeps, fastExecLogsHigh int) *logEventBuffer {
-	return &logEventBuffer{
-		lggr:             lggr.Named("KeepersRegistry.LogEventBuffer"),
-		size:             int32(size),
-		blocks:           make([]fetchedBlock, size),
-		numOfLogUpkeeps:  uint32(numOfLogUpkeeps),
-		fastExecLogsHigh: uint32(fastExecLogsHigh),
+func NewLogBuffer(lggr logger.Logger, lookback, blockRate, logLimit uint32) LogBuffer {
+	return &logBuffer{
+		lggr:          lggr.Named("KeepersRegistry.LogEventBufferV1"),
+		opts:          newLogBufferOptions(lookback, blockRate, logLimit),
+		lastBlockSeen: new(atomic.Int64),
+		queues:        make(map[string]*upkeepLogQueue),
 	}
 }
 
-func (b *logEventBuffer) latestBlockSeen() int64 {
-	return atomic.LoadInt64(&b.latestBlock)
+// Enqueue adds logs to the buffer and might also drop logs if the limit for the
+// given upkeep was exceeded. It will create a new buffer if it does not exist.
+// Returns the number of logs that were added and number of logs that were  dropped.
+func (b *logBuffer) Enqueue(uid *big.Int, logs ...logpoller.Log) (int, int) {
+	buf, ok := b.getUpkeepQueue(uid)
+	if !ok || buf == nil {
+		buf = newUpkeepLogQueue(b.lggr, uid, b.opts)
+		b.setUpkeepQueue(uid, buf)
+	}
+	latestBlock := latestBlockNumber(logs...)
+	if b.lastBlockSeen.Load() < latestBlock {
+		b.lastBlockSeen.Store(latestBlock)
+	}
+	blockThreshold := b.lastBlockSeen.Load() - int64(b.opts.lookback.Load())
+	if blockThreshold <= 0 {
+		blockThreshold = 1
+	}
+	return buf.enqueue(blockThreshold, logs...)
 }
 
-func (b *logEventBuffer) bufferSize() int {
-	return int(atomic.LoadInt32(&b.size))
-}
-
-func (b *logEventBuffer) SetLimits(numOfLogUpkeeps, fastExecLogsHigh int) {
-	atomic.StoreUint32(&b.numOfLogUpkeeps, uint32(numOfLogUpkeeps))
-	atomic.StoreUint32(&b.fastExecLogsHigh, uint32(fastExecLogsHigh))
-}
-
-// enqueue adds logs (if not exist) to the buffer, returning the number of logs added
-// minus the number of logs dropped.
-func (b *logEventBuffer) enqueue(id *big.Int, logs ...logpoller.Log) int {
-	b.lock.Lock()
-	defer b.lock.Unlock()
-
-	lggr := b.lggr.With("id", id.String())
-
-	maxBlockLogs := int(atomic.LoadUint32(&b.fastExecLogsHigh) * atomic.LoadUint32(&b.numOfLogUpkeeps))
-	maxUpkeepLogs := int(atomic.LoadUint32(&b.fastExecLogsHigh))
-
-	latestBlock := b.latestBlockSeen()
-	added, dropped := 0, 0
-
-	for _, log := range logs {
-		if log.BlockNumber == 0 {
-			// invalid log
-			continue
-		}
-		i := b.blockNumberIndex(log.BlockNumber)
-		currentBlock := b.blocks[i]
-		if currentBlock.blockNumber < log.BlockNumber {
-			lggr.Debugw("Got log on a new block", "prevBlock", currentBlock.blockNumber, "newBlock", log.BlockNumber)
-			currentBlock.blockNumber = log.BlockNumber
-			currentBlock.logs = nil
-			currentBlock.visited = nil
-		} else if currentBlock.blockNumber > log.BlockNumber {
-			// not expected to happen
-			lggr.Debugw("Skipping log from old block", "currentBlock", currentBlock.blockNumber, "newBlock", log.BlockNumber)
-			continue
-		}
-		droppedLog, ok := currentBlock.Append(lggr, fetchedLog{upkeepID: id, log: log}, maxBlockLogs, maxUpkeepLogs)
-		if !ok {
-			// Skipping known logs
-			continue
-		}
-		if droppedLog.upkeepID != nil {
-			dropped++
-			lggr.Debugw("Reached log buffer limits, dropping log", "blockNumber", droppedLog.log.BlockNumber,
-				"blockHash", droppedLog.log.BlockHash, "txHash", droppedLog.log.TxHash, "logIndex", droppedLog.log.LogIndex,
-				"upkeepID", droppedLog.upkeepID.String())
-		}
-		added++
-		b.blocks[i] = currentBlock
-
-		if log.BlockNumber > latestBlock {
-			latestBlock = log.BlockNumber
-		}
-	}
-
-	if latestBlock > b.latestBlockSeen() {
-		atomic.StoreInt64(&b.latestBlock, latestBlock)
-	}
-	if added > 0 {
-		lggr.Debugw("Added logs to buffer", "addedLogs", added, "dropped", dropped, "latestBlock", latestBlock)
-		prommetrics.AutomationLogBufferFlow.WithLabelValues(prommetrics.LogBufferFlowDirectionIngress).Add(float64(added))
-		prommetrics.AutomationLogBufferFlow.WithLabelValues(prommetrics.LogBufferFlowDirectionDropped).Add(float64(dropped))
-	}
-
-	return added - dropped
-}
-
-// peek returns the logs in range [latestBlock-blocks, latestBlock]
-func (b *logEventBuffer) peek(blocks int) []fetchedLog {
-	latestBlock := b.latestBlockSeen()
-	if latestBlock == 0 {
-		return nil
-	}
-	if blocks > int(latestBlock) {
-		blocks = int(latestBlock) - 1
-	}
-
-	return b.peekRange(latestBlock-int64(blocks), latestBlock)
-}
-
-// peekRange returns the logs between start and end inclusive.
-func (b *logEventBuffer) peekRange(start, end int64) []fetchedLog {
+// Dequeue greedly pulls logs from the buffers.
+// Returns logs and the number of remaining logs in the buffer.
+func (b *logBuffer) Dequeue(block int64, blockRate, upkeepLimit, maxResults int, upkeepSelector func(id *big.Int) bool) ([]BufferedLog, int) {
 	b.lock.RLock()
 	defer b.lock.RUnlock()
 
-	blocksInRange := b.getBlocksInRange(int(start), int(end))
-
-	var results []fetchedLog
-	for _, block := range blocksInRange {
-		// double checking that we don't have any gaps in the range
-		if block.blockNumber < start || block.blockNumber > end {
-			continue
-		}
-		results = append(results, block.logs...)
-	}
-
-	sort.SliceStable(results, func(i, j int) bool {
-		return results[i].log.BlockNumber < results[j].log.BlockNumber
-	})
-
-	b.lggr.Debugw("Peeked logs", "results", len(results), "start", start, "end", end)
-
-	return results
+	start, end := getBlockWindow(block, blockRate)
+	return b.dequeue(start, end, upkeepLimit, maxResults, upkeepSelector)
 }
 
-// dequeueRange returns the logs between start and end inclusive.
-func (b *logEventBuffer) dequeueRange(start, end int64, upkeepLimit, totalLimit int) []fetchedLog {
+// dequeue pulls logs from the buffers, depends the given selector (upkeepSelector),
+// in block range [start,end] with minimum number of results per upkeep (upkeepLimit)
+// and the maximum number of results (capacity).
+// Returns logs and the number of remaining logs in the buffer for the given range and selector.
+// NOTE: this method is not thread safe and should be called within a lock.
+func (b *logBuffer) dequeue(start, end int64, upkeepLimit, capacity int, upkeepSelector func(id *big.Int) bool) ([]BufferedLog, int) {
+	var result []BufferedLog
+	var remainingLogs int
+	for _, q := range b.queues {
+		if !upkeepSelector(q.id) {
+			// if the upkeep is not selected, skip it
+			continue
+		}
+		logsInRange := q.sizeOfRange(start, end)
+		if logsInRange == 0 {
+			// if there are no logs in the range, skip the upkeep
+			continue
+		}
+		if capacity == 0 {
+			// if there is no more capacity for results, just count the remaining logs
+			remainingLogs += logsInRange
+			continue
+		}
+		if upkeepLimit > capacity {
+			// adjust limit if it is higher than the actual capacity
+			upkeepLimit = capacity
+		}
+		logs, remaining := q.dequeue(start, end, upkeepLimit)
+		for _, l := range logs {
+			result = append(result, BufferedLog{ID: q.id, Log: l})
+			capacity--
+		}
+		remainingLogs += remaining
+	}
+	return result, remainingLogs
+}
+
+func (b *logBuffer) SetConfig(lookback, blockRate, logLimit uint32) {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 
-	blocksInRange := b.getBlocksInRange(int(start), int(end))
-	fetchedBlocks := make([]fetchedBlock, 0, len(blocksInRange))
-	for _, block := range blocksInRange {
-		// Create clone of the blocks as they get processed and update underlying b.blocks
-		fetchedBlocks = append(fetchedBlocks, block.Clone())
+	b.opts.override(lookback, blockRate, logLimit)
+}
+
+func (b *logBuffer) NumOfUpkeeps() int {
+	b.lock.RLock()
+	defer b.lock.RUnlock()
+
+	return len(b.queues)
+}
+
+func (b *logBuffer) SyncFilters(filterStore UpkeepFilterStore) error {
+	b.lock.Lock()
+	defer b.lock.Unlock()
+
+	for upkeepID := range b.queues {
+		uid := new(big.Int)
+		_, ok := uid.SetString(upkeepID, 10)
+		if ok && !filterStore.Has(uid) {
+			// remove upkeep that is not in the filter store
+			delete(b.queues, upkeepID)
+		}
 	}
 
-	// Sort the blocks in reverse order of block number so that latest logs
-	// are preferred while dequeueing.
-	sort.SliceStable(fetchedBlocks, func(i, j int) bool {
-		return fetchedBlocks[i].blockNumber > fetchedBlocks[j].blockNumber
-	})
+	return nil
+}
 
-	logsCount := map[string]int{}
-	totalCount := 0
-	var results []fetchedLog
-	for _, block := range fetchedBlocks {
-		if block.blockNumber < start || block.blockNumber > end {
-			// double checking that we don't have any gaps in the range
-			continue
+func (b *logBuffer) getUpkeepQueue(uid *big.Int) (*upkeepLogQueue, bool) {
+	b.lock.RLock()
+	defer b.lock.RUnlock()
+
+	ub, ok := b.queues[uid.String()]
+	return ub, ok
+}
+
+func (b *logBuffer) setUpkeepQueue(uid *big.Int, buf *upkeepLogQueue) {
+	b.lock.Lock()
+	defer b.lock.Unlock()
+
+	b.queues[uid.String()] = buf
+}
+
+// TODO (AUTO-9256) separate files
+
+// logTriggerState represents the state of a log in the buffer.
+type logTriggerState uint8
+
+const (
+	// the log was dropped due to buffer limits
+	logTriggerStateDropped logTriggerState = iota
+	// the log was enqueued by the buffer
+	logTriggerStateEnqueued
+	// the log was visited/dequeued from the buffer
+	logTriggerStateDequeued
+)
+
+// logTriggerStateEntry represents the state of a log in the buffer and the block number of the log.
+// TODO (AUTO-10013) handling of reorgs might require to store the block hash as well.
+type logTriggerStateEntry struct {
+	state logTriggerState
+	block int64
+}
+
+// upkeepLogQueue is a priority queue for logs associated to a specific upkeep.
+// It keeps track of the logs that were already visited and the capacity of the queue.
+type upkeepLogQueue struct {
+	lggr logger.Logger
+
+	id   *big.Int
+	opts *logBufferOptions
+
+	// logs is the buffer of logs for the upkeep
+	logs []logpoller.Log
+	// states keeps track of the state of the logs that are known to the queue
+	// and the block number they were seen at
+	states map[string]logTriggerStateEntry
+	lock   sync.RWMutex
+}
+
+func newUpkeepLogQueue(lggr logger.Logger, id *big.Int, opts *logBufferOptions) *upkeepLogQueue {
+	maxLogs := int(opts.windowLimit.Load()) * opts.windows() // limit per window * windows
+	return &upkeepLogQueue{
+		lggr:   lggr.With("upkeepID", id.String()),
+		id:     id,
+		opts:   opts,
+		logs:   make([]logpoller.Log, 0, maxLogs),
+		states: make(map[string]logTriggerStateEntry),
+	}
+}
+
+// sizeOfRange returns the number of logs in the buffer that are within the given block range.
+func (q *upkeepLogQueue) sizeOfRange(start, end int64) int {
+	q.lock.RLock()
+	defer q.lock.RUnlock()
+
+	size := 0
+	for _, l := range q.logs {
+		if l.BlockNumber >= start && l.BlockNumber <= end {
+			size++
 		}
-		if totalCount >= totalLimit {
-			// reached total limit, no need to process more blocks
-			break
-		}
-		// Sort the logs in random order that is shared across all nodes.
-		// This ensures that nodes across the network will process the same logs.
-		block.Sort()
-		var remainingLogs, blockResults []fetchedLog
-		for _, log := range block.logs {
-			if totalCount >= totalLimit {
-				remainingLogs = append(remainingLogs, log)
+	}
+	return size
+}
+
+// dequeue pulls logs from the buffer that are within the given block range,
+// with a limit of logs to pull. Returns logs and the number of remaining logs in the buffer.
+func (q *upkeepLogQueue) dequeue(start, end int64, limit int) ([]logpoller.Log, int) {
+	q.lock.Lock()
+	defer q.lock.Unlock()
+
+	if len(q.logs) == 0 {
+		return nil, 0
+	}
+
+	var results []logpoller.Log
+	var remaining int
+	updatedLogs := make([]logpoller.Log, 0)
+	for _, l := range q.logs {
+		if l.BlockNumber >= start && l.BlockNumber <= end {
+			if len(results) < limit {
+				results = append(results, l)
+				lid := logID(l)
+				if s, ok := q.states[lid]; ok {
+					s.state = logTriggerStateDequeued
+					q.states[lid] = s
+				}
 				continue
 			}
-			if logsCount[log.upkeepID.String()] >= upkeepLimit {
-				remainingLogs = append(remainingLogs, log)
-				continue
-			}
-			blockResults = append(blockResults, log)
-			logsCount[log.upkeepID.String()]++
-			totalCount++
+			remaining++
 		}
-		if len(blockResults) == 0 {
-			continue
-		}
-		results = append(results, blockResults...)
-		block.visited = append(block.visited, blockResults...)
-		block.logs = remainingLogs
-		b.blocks[b.blockNumberIndex(block.blockNumber)] = block
+		updatedLogs = append(updatedLogs, l)
 	}
 
 	if len(results) > 0 {
-		b.lggr.Debugw("Dequeued logs", "results", len(results), "start", start, "end", end)
-		prommetrics.AutomationLogBufferFlow.WithLabelValues(prommetrics.LogBufferFlowDirectionEgress).Add(float64(len(results)))
+		q.logs = updatedLogs
+		q.lggr.Debugw("Dequeued logs", "start", start, "end", end, "limit", limit, "results", len(results), "remaining", remaining)
 	}
 
-	return results
+	prommetrics.AutomationLogBufferFlow.WithLabelValues(prommetrics.LogBufferFlowDirectionEgress).Add(float64(len(results)))
+
+	return results, remaining
 }
 
-// getBlocksInRange returns the blocks between start and end.
-// NOTE: this function should be called with the lock held
-func (b *logEventBuffer) getBlocksInRange(start, end int) []fetchedBlock {
-	var blocksInRange []fetchedBlock
-	start, end = b.blockRangeToIndices(start, end)
-	if start == -1 || end == -1 {
-		// invalid range
-		return blocksInRange
-	}
-	if start <= end {
-		// Normal range, need to return indices from start to end(inclusive)
-		return b.blocks[start : end+1]
-	}
-	// in case we get circular range such as [0, 1, end, ... , start, ..., size-1]
-	// we need to return the blocks in two ranges: [0, end](inclusive) and [start, size-1]
-	blocksInRange = append(blocksInRange, b.blocks[start:]...)
-	blocksInRange = append(blocksInRange, b.blocks[:end+1]...)
+// enqueue adds logs to the buffer and might also drop logs if the limit for the
+// given upkeep was exceeded. Additionally, it will drop logs that are older than blockThreshold.
+// Returns the number of logs that were added and number of logs that were  dropped.
+func (q *upkeepLogQueue) enqueue(blockThreshold int64, logsToAdd ...logpoller.Log) (int, int) {
+	q.lock.Lock()
+	defer q.lock.Unlock()
 
-	return blocksInRange
+	logs := q.logs
+	var added int
+	for _, log := range logsToAdd {
+		if log.BlockNumber < blockThreshold {
+			// q.lggr.Debugw("Skipping log from old block", "blockThreshold", blockThreshold, "logBlock", log.BlockNumber, "logIndex", log.LogIndex)
+			continue
+		}
+		lid := logID(log)
+		if _, ok := q.states[lid]; ok {
+			// q.lggr.Debugw("Skipping known log", "blockThreshold", blockThreshold, "logBlock", log.BlockNumber, "logIndex", log.LogIndex)
+			continue
+		}
+		q.states[lid] = logTriggerStateEntry{state: logTriggerStateEnqueued, block: log.BlockNumber}
+		added++
+		logs = append(logs, log)
+	}
+	q.logs = logs
+
+	var dropped int
+	if added > 0 {
+		q.orderLogs()
+		dropped = q.clean(blockThreshold)
+		q.lggr.Debugw("Enqueued logs", "added", added, "dropped", dropped, "blockThreshold", blockThreshold, "q size", len(q.logs), "visited size", len(q.states))
+	}
+
+	prommetrics.AutomationLogBufferFlow.WithLabelValues(prommetrics.LogBufferFlowDirectionIngress).Add(float64(added))
+	prommetrics.AutomationLogBufferFlow.WithLabelValues(prommetrics.LogBufferFlowDirectionDropped).Add(float64(dropped))
+
+	return added, dropped
 }
 
-// blockRangeToIndices returns the normalized range of start to end block range,
-// to indices aligned with buffer size. Note ranges inclusive of start, end indices.
-func (b *logEventBuffer) blockRangeToIndices(start, end int) (int, int) {
-	latest := b.latestBlockSeen()
-	if end > int(latest) {
-		// Limit end of range to latest block seen
-		end = int(latest)
-	}
-	if end < start || start == 0 || end == 0 {
-		// invalid range
-		return -1, -1
-	}
-	size := b.bufferSize()
-	if end-start >= size {
-		// If range requires more than buffer size blocks, only to return
-		// last size blocks as that's the max the buffer stores.
-		start = (end - size) + 1
-	}
-	return b.blockNumberIndex(int64(start)), b.blockNumberIndex(int64(end))
+// orderLogs sorts the logs in the buffer.
+// NOTE: this method is not thread safe and should be called within a lock.
+func (q *upkeepLogQueue) orderLogs() {
+	// sort logs by block number, tx hash and log index
+	// to keep the q sorted and to ensure that logs can be
+	// grouped by block windows for the cleanup
+	sort.SliceStable(q.logs, func(i, j int) bool {
+		return LogSorter(q.logs[i], q.logs[j])
+	})
 }
 
-// blockNumberIndex returns the index of the block in the buffer
-func (b *logEventBuffer) blockNumberIndex(bn int64) int {
-	return int(bn-1) % b.bufferSize()
+// clean removes logs that are older than blockThreshold and drops logs if the limit for the
+// given upkeep was exceeded. Returns the number of logs that were dropped.
+// NOTE: this method is not thread safe and should be called within a lock.
+func (q *upkeepLogQueue) clean(blockThreshold int64) int {
+	var dropped, expired int
+	blockRate := int(q.opts.blockRate.Load())
+	windowLimit := int(q.opts.windowLimit.Load())
+	updated := make([]logpoller.Log, 0)
+	// helper variables to keep track of the current window capacity
+	currentWindowCapacity, currentWindowStart := 0, int64(0)
+	for _, l := range q.logs {
+		if blockThreshold > l.BlockNumber { // old log, removed
+			prommetrics.AutomationLogBufferFlow.WithLabelValues(prommetrics.LogBufferFlowDirectionExpired).Inc()
+			// q.lggr.Debugw("Expiring old log", "blockNumber", l.BlockNumber, "blockThreshold", blockThreshold, "logIndex", l.LogIndex)
+			logid := logID(l)
+			delete(q.states, logid)
+			expired++
+			continue
+		}
+		start, _ := getBlockWindow(l.BlockNumber, blockRate)
+		if start != currentWindowStart {
+			// new window, reset capacity
+			currentWindowStart = start
+			currentWindowCapacity = 0
+		}
+		currentWindowCapacity++
+		// if capacity has been reached, drop the log
+		if currentWindowCapacity > windowLimit {
+			lid := logID(l)
+			if s, ok := q.states[lid]; ok {
+				s.state = logTriggerStateDropped
+				q.states[lid] = s
+			}
+			dropped++
+			prommetrics.AutomationLogBufferFlow.WithLabelValues(prommetrics.LogBufferFlowDirectionDropped).Inc()
+			q.lggr.Debugw("Reached log buffer limits, dropping log", "blockNumber", l.BlockNumber,
+				"blockHash", l.BlockHash, "txHash", l.TxHash, "logIndex", l.LogIndex, "len updated", len(updated),
+				"currentWindowStart", currentWindowStart, "currentWindowCapacity", currentWindowCapacity,
+				"maxLogsPerWindow", windowLimit, "blockRate", blockRate)
+			continue
+		}
+		updated = append(updated, l)
+	}
+
+	if dropped > 0 || expired > 0 {
+		q.lggr.Debugw("Cleaned logs", "dropped", dropped, "expired", expired, "blockThreshold", blockThreshold, "len updated", len(updated), "len before", len(q.logs))
+		q.logs = updated
+	}
+
+	q.cleanStates(blockThreshold)
+
+	return dropped
+}
+
+// cleanStates removes states that are older than blockThreshold.
+// NOTE: this method is not thread safe and should be called within a lock.
+func (q *upkeepLogQueue) cleanStates(blockThreshold int64) {
+	for lid, s := range q.states {
+		if s.block <= blockThreshold {
+			delete(q.states, lid)
+		}
+	}
+}
+
+// getBlockWindow returns the start and end block of the window for the given block.
+func getBlockWindow(block int64, blockRate int) (start int64, end int64) {
+	windowSize := int64(blockRate)
+	if windowSize == 0 {
+		return block, block
+	}
+	start = block - (block % windowSize)
+	end = start + windowSize - 1
+	return
 }
