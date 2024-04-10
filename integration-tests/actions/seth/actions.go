@@ -3,8 +3,12 @@ package actions_seth
 import (
 	"context"
 	"crypto/ecdsa"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"math/big"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -385,11 +389,65 @@ func TeardownRemoteSuite(
 		l.Warn().Msgf("Error deleting jobs %+v", err)
 	}
 
-	if err = ReturnFunds(l, client, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(chainlinkNodes)); err != nil {
+	if err = ReturnFundsFromNodes(l, client, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(chainlinkNodes)); err != nil {
 		l.Error().Err(err).Str("Namespace", namespace).
 			Msg("Error attempting to return funds from chainlink nodes to network's default wallet. " +
 				"Environment is left running so you can try manually!")
 	}
+
+	if !client.Cfg.IsSimulatedNetwork() {
+		if err := ReturnFundFromEphemeralKeys(l, client); err != nil {
+			l.Error().Err(err).Str("Namespace", namespace).
+				Msg("Error attempting to return funds from ephemeral keys to root key")
+
+			pkStrings := []string{}
+			for _, pk := range client.PrivateKeys {
+				// Convert the D field (private key) to a byte slice of length 32
+				privateKeyBytes := pk.D.Bytes()
+				// Ensure the byte slice is exactly 32 bytes long, as required for Ethereum
+				privateKeyBytes32 := make([]byte, 32)
+				copy(privateKeyBytes32[32-len(privateKeyBytes):], privateKeyBytes)
+
+				// Convert to a hexadecimal string
+				privateKeyHex := hex.EncodeToString(privateKeyBytes32)
+
+				pkStrings = append(pkStrings, "0x"+privateKeyHex)
+			}
+
+			privateKeyJson, jsonErr := json.Marshal(pkStrings)
+			if jsonErr != nil {
+				l.Error().
+					Err(jsonErr).
+					Msg("Error marshalling private keys to JSON. Funds are left in ephemeral keys")
+
+				return err
+			}
+
+			fileName := "ephemeral_addresses_private_keys.json"
+			writeErr := os.WriteFile(fileName, privateKeyJson, 0644)
+			if writeErr != nil {
+				l.Error().
+					Err(writeErr).
+					Msg("Error writing ephemeral addresses private keys to file. Funds are left in ephemeral keys")
+
+				return err
+			}
+			absolutePath, pathErr := filepath.Abs(fileName)
+			if pathErr != nil {
+				l.Error().
+					Err(pathErr).
+					Str("FileName", fileName).
+					Msg("Error getting absolute path of file with private keys. Try looking for it yourself.")
+
+				return err
+			}
+
+			l.Info().
+				Str("Filepath", absolutePath).
+				Msg("Private keys for ephemeral addresses are saved in the file. You can use them to return funds manually.")
+		}
+	}
+
 	return err
 }
 

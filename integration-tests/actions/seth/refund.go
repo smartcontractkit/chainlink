@@ -16,6 +16,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/smartcontractkit/seth"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 
@@ -228,10 +229,10 @@ func (r *OvershotTransferRetrier) Retry(ctx context.Context, logger zerolog.Logg
 	return txErr
 }
 
-// ReturnFunds returns funds from the given chainlink nodes to the default network wallet. It will use a variety
+// ReturnFundsFromNodes returns funds from the given chainlink nodes to the default network wallet. It will use a variety
 // of strategies to attempt to return funds, including retrying with less funds if the transaction fails due to
 // insufficient funds, and retrying with a higher gas limit if the transaction fails due to gas too low.
-func ReturnFunds(log zerolog.Logger, seth *seth.Client, chainlinkNodes []contracts.ChainlinkNodeWithKeysAndAddress) error {
+func ReturnFundsFromNodes(log zerolog.Logger, seth *seth.Client, chainlinkNodes []contracts.ChainlinkNodeWithKeysAndAddress) error {
 	if seth == nil {
 		return fmt.Errorf("Seth client is nil, unable to return funds from chainlink nodes")
 	}
@@ -261,52 +262,16 @@ func ReturnFunds(log zerolog.Logger, seth *seth.Client, chainlinkNodes []contrac
 				return err
 			}
 
-			publicKey := decryptedKey.PrivateKey.Public()
-			publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
-			if !ok {
-				return errors.New("error casting public key to ECDSA")
-			}
-			fromAddress := crypto.PubkeyToAddress(*publicKeyECDSA)
-
-			balance, err := seth.Client.BalanceAt(context.Background(), fromAddress, nil)
+			err = sendAllFundsIfPossible(log, seth, decryptedKey.PrivateKey)
 			if err != nil {
-				return err
-			}
-
-			var totalGasCost *big.Int
-			if seth.Cfg.Network.EIP1559DynamicFees {
-				totalGasCost = new(big.Int).Mul(big.NewInt(0).SetInt64(seth.Cfg.Network.TransferGasFee), big.NewInt(0).SetInt64(seth.Cfg.Network.GasFeeCap))
-			} else {
-				totalGasCost = new(big.Int).Mul(big.NewInt(0).SetInt64(seth.Cfg.Network.TransferGasFee), big.NewInt(0).SetInt64(seth.Cfg.Network.GasPrice))
-			}
-
-			toSend := new(big.Int).Sub(balance, totalGasCost)
-
-			if toSend.Cmp(big.NewInt(0)) <= 0 {
-				log.Warn().
-					Str("Address", fromAddress.String()).
-					Str("Estimated total cost", totalGasCost.String()).
-					Str("Balance", balance.String()).
-					Str("To send", toSend.String()).
-					Msg("Not enough balance to cover gas cost. Skipping return.")
+				publicKey := decryptedKey.PrivateKey.Public()
+				publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
+				if !ok {
+					return errors.New("error casting public key to ECDSA")
+				}
+				fromAddress := crypto.PubkeyToAddress(*publicKeyECDSA)
 
 				failedReturns = append(failedReturns, fromAddress)
-				continue
-			}
-
-			payload := FundsToSendPayload{ToAddress: seth.Addresses[0], Amount: toSend, PrivateKey: decryptedKey.PrivateKey}
-
-			_, err = SendFunds(log, seth, payload)
-			if err != nil {
-				handler := OvershotTransferRetrier{maxRetries: 10, nextRetrier: &InsufficientFundTransferRetrier{maxRetries: 10, nextRetrier: &GasTooLowTransferRetrier{maxGasLimit: uint64(seth.Cfg.Network.TransferGasFee * 10)}}}
-				err = handler.Retry(context.Background(), log, seth, err, payload, 0)
-				if err != nil {
-					log.Error().
-						Err(err).
-						Str("Address", fromAddress.String()).
-						Msg("Failed to return funds from Chainlink node to default network wallet")
-					failedReturns = append(failedReturns, fromAddress)
-				}
 			}
 		}
 	}
@@ -318,4 +283,74 @@ func ReturnFunds(log zerolog.Logger, seth *seth.Client, chainlinkNodes []contrac
 	log.Info().Msg("Successfully returned funds from all Chainlink nodes to default network wallets")
 
 	return nil
+}
+
+func sendAllFundsIfPossible(log zerolog.Logger, client *seth.Client, fromPrivateKey *ecdsa.PrivateKey) error {
+	publicKey := fromPrivateKey.Public()
+	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
+	if !ok {
+		return errors.New("error casting public key to ECDSA")
+	}
+	fromAddress := crypto.PubkeyToAddress(*publicKeyECDSA)
+
+	balance, err := client.Client.BalanceAt(context.Background(), fromAddress, nil)
+	if err != nil {
+		return err
+	}
+
+	var totalGasCost *big.Int
+	if client.Cfg.Network.EIP1559DynamicFees {
+		totalGasCost = new(big.Int).Mul(big.NewInt(0).SetInt64(client.Cfg.Network.TransferGasFee), big.NewInt(0).SetInt64(client.Cfg.Network.GasFeeCap))
+	} else {
+		totalGasCost = new(big.Int).Mul(big.NewInt(0).SetInt64(client.Cfg.Network.TransferGasFee), big.NewInt(0).SetInt64(client.Cfg.Network.GasPrice))
+	}
+
+	toSend := new(big.Int).Sub(balance, totalGasCost)
+
+	if toSend.Cmp(big.NewInt(0)) <= 0 {
+		log.Warn().
+			Str("Address", fromAddress.String()).
+			Str("Estimated total cost", totalGasCost.String()).
+			Str("Balance", balance.String()).
+			Str("To send", toSend.String()).
+			Msg("Not enough balance to cover gas cost. Skipping return.")
+
+		return errors.New("not enough balance to cover gas cost")
+	}
+
+	payload := FundsToSendPayload{ToAddress: client.Addresses[0], Amount: toSend, PrivateKey: fromPrivateKey}
+
+	_, err = SendFunds(log, client, payload)
+	if err != nil {
+		handler := OvershotTransferRetrier{maxRetries: 10, nextRetrier: &InsufficientFundTransferRetrier{maxRetries: 10, nextRetrier: &GasTooLowTransferRetrier{maxGasLimit: uint64(client.Cfg.Network.TransferGasFee * 10)}}}
+		err = handler.Retry(context.Background(), log, client, err, payload, 0)
+		if err != nil {
+			log.Error().
+				Err(err).
+				Str("Address", fromAddress.String()).
+				Msg("Failed to return funds from Chainlink node to default network wallet")
+
+			return err
+		}
+	}
+
+	return nil
+}
+
+// ReturnFundFromEphemeralKeys returns funds from all ephemeral keys to the root key wallet
+// using a variefy of retry strategies.
+func ReturnFundFromEphemeralKeys(l zerolog.Logger, client *seth.Client) error {
+	err := client.NonceManager.UpdateNonces()
+	if err != nil {
+		return err
+	}
+	eg := errgroup.Group{}
+	for i := 1; i < len(client.Addresses); i++ {
+		i := i
+		eg.Go(func() error {
+			return sendAllFundsIfPossible(l, client, client.PrivateKeys[i])
+		})
+	}
+
+	return eg.Wait()
 }

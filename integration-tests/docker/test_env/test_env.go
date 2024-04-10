@@ -297,7 +297,7 @@ func (te *CLClusterTestEnv) returnFunds() error {
 	}
 
 	for _, sethClient := range te.sethClients {
-		if err := actions_seth.ReturnFunds(te.l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(te.ClCluster.NodeAPIs())); err != nil {
+		if err := actions_seth.ReturnFundsFromNodes(te.l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(te.ClCluster.NodeAPIs())); err != nil {
 			te.l.Error().Err(err).Msg("Error returning funds from node")
 		}
 	}

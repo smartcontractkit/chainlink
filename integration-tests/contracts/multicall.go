@@ -57,7 +57,6 @@ var atomicCounter atomic.Int32
 
 func MultiCallLogTriggerLoadGen(
 	client *seth.Client,
-	// keyNum int,
 	multiCallAddress string,
 	logTriggerAddress []string,
 	logTriggerData [][]byte,
@@ -75,18 +74,16 @@ func MultiCallLogTriggerLoadGen(
 		call = append(call, data)
 	}
 
-	// var keyNum int
-	// func() {
-	// 	atomicCounter.Add(1)
-	// 	log.Debug().Int("Counter", int(atomicCounter.Load())).Msg("waiting for key")
-	// 	keyNum = client.AnySyncedKey()
-	// 	log.Debug().Int("Counter", int(atomicCounter.Load())).Int("keyNum", keyNum).Msg("got key")
-	// }()
+	var keyNum int
+
+	// if *client.Cfg.EphemeralAddrs == 0 {
+	// 	keyNum = 0
+	// } else if *client.Cfg.EphemeralAddrs == 1 {
+	// 	keyNum = 1
+	// } else {
+	keyNum = client.AnySyncedKey()
+	// }
 
 	// call aggregate3 to group all msg call data and send them in a single transaction
-	return boundContract.Transact(client.NewTXKeyOpts(client.AnySyncedKey()), "aggregate3", call)
-	// err = evmClient.MarkTxAsSentOnL2(tx)
-	// if err != nil {
-	// 	return nil, err
-	// }
+	return boundContract.Transact(client.NewTXKeyOpts(keyNum), "aggregate3", call)
 }

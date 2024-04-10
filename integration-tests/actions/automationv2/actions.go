@@ -29,8 +29,6 @@ import (
 	ocr2keepers20config "github.com/smartcontractkit/chainlink-automation/pkg/v2/config"
 	ocr2keepers30config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_registrar_wrapper2_1"
 
@@ -44,6 +42,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 
 	ctfTestEnv "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
+	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 )
 
 type NodeDetails struct {
@@ -586,102 +585,7 @@ func (a *AutomationTest) RegisterUpkeeps(multicallAddress common.Address, upkeep
 	var err error
 	var registrationRequest []byte
 	registrationTxHashes := make([]common.Hash, 0)
-
-	// var generateCallData = func(upkeepConfig UpkeepConfig) ([]byte, error) {
-	// 	switch a.RegistrySettings.RegistryVersion {
-	// 	case ethereum.RegistryVersion_2_0:
-	// 		registrarABI, err = keeper_registrar_wrapper2_0.KeeperRegistrarMetaData.GetAbi()
-	// 		if err != nil {
-	// 			return []byte{}, errors.Join(err, fmt.Errorf("failed to get registrar abi"))
-	// 		}
-	// 		registrationRequest, err = registrarABI.Pack(
-	// 			"register",
-	// 			upkeepConfig.UpkeepName,
-	// 			upkeepConfig.EncryptedEmail,
-	// 			upkeepConfig.UpkeepContract,
-	// 			upkeepConfig.GasLimit,
-	// 			upkeepConfig.AdminAddress,
-	// 			upkeepConfig.CheckData,
-	// 			upkeepConfig.OffchainConfig,
-	// 			upkeepConfig.FundingAmount,
-	// 			a.ChainClient.Addresses[0])
-	// 		if err != nil {
-	// 			return []byte{}, errors.Join(err, fmt.Errorf("failed to pack registrar request"))
-	// 		}
-	// 	case ethereum.RegistryVersion_2_1, ethereum.RegistryVersion_2_2: // 2.1 and 2.2 use the same registrar
-	// 		registrarABI, err = automation_registrar_wrapper2_1.AutomationRegistrarMetaData.GetAbi()
-	// 		if err != nil {
-	// 			return []byte{}, errors.Join(err, fmt.Errorf("failed to get registrar abi"))
-	// 		}
-	// 		registrationRequest, err = registrarABI.Pack(
-	// 			"register",
-	// 			upkeepConfig.UpkeepName,
-	// 			upkeepConfig.EncryptedEmail,
-	// 			upkeepConfig.UpkeepContract,
-	// 			upkeepConfig.GasLimit,
-	// 			upkeepConfig.AdminAddress,
-	// 			upkeepConfig.TriggerType,
-	// 			upkeepConfig.CheckData,
-	// 			upkeepConfig.TriggerConfig,
-	// 			upkeepConfig.OffchainConfig,
-	// 			upkeepConfig.FundingAmount,
-	// 			a.ChainClient.Addresses[0])
-	// 		if err != nil {
-	// 			return []byte{}, errors.Join(err, fmt.Errorf("failed to pack registrar request"))
-	// 		}
-	// 	default:
-	// 		return []byte{}, fmt.Errorf("v2.0, v2.1, and v2.2 are the only supported versions")
-	// 	}
-
-	// 	var callData []byte
-	// 	linkTokenABI, err := link_token_interface.LinkTokenMetaData.GetAbi()
-	// 	if err != nil {
-	// 		return []byte{}, errors.Join(err, fmt.Errorf("failed to get link token abi"))
-	// 	}
-
-	// 	callData, err = linkTokenABI.Pack("transferAndCall", common.HexToAddress(a.Registrar.Address()), upkeepConfig.FundingAmount, registrationRequest)
-	// 	if err != nil {
-	// 		return []byte{}, errors.Join(err, fmt.Errorf("failed to pack link token transfer and call"))
-	// 	}
-
-	// 	return callData, nil
-	// }
-
-	// // // Transfer LINK to ephemeral keys
-	// multiCallData := make([][]byte, 0)
-	// for i := 0; i < len(upkeepConfigs); i++ {
-	// 	data, err := generateCallData(upkeepConfigs[i])
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// 	multiCallData = append(multiCallData, data)
-	// }
-
-	// var call []contracts.Call
-	// for _, d := range multiCallData {
-	// 	data := contracts.Call{Target: common.HexToAddress(a.LinkToken.Address()), AllowFailure: false, CallData: d}
-	// 	call = append(call, data)
-	// }
-
-	// multiCallABI, err := abi.JSON(strings.NewReader(contracts.MultiCallABI))
-	// if err != nil {
-	// 	return nil, errors.Join(err, fmt.Errorf("failed to get multicall abi"))
-	// }
-	// boundContract := bind.NewBoundContract(multicallAddress, multiCallABI, a.ChainClient.Client, a.ChainClient.Client, a.ChainClient.Client)
-	// // call aggregate3 to group all msg call data and send them in a single transaction
-	// decodedTx, err := a.ChainClient.Decode(boundContract.Transact(a.ChainClient.NewTXOpts(), "aggregate3", call))
-	// if err != nil {
-	// 	return nil, errors.Join(err, fmt.Errorf("failed to aggregate calls"))
-	// }
-
-	// registrationTxHashes = append(registrationTxHashes, decodedTx.Transaction.Hash())
-	// return registrationTxHashes, nil
-
-	numberOfClients := int(*a.ChainClient.Cfg.EphemeralAddrs)
-
-	if numberOfClients == 0 {
-		numberOfClients = 1
-	}
+	concurrency := a.GetConcurrency()
 
 	type result struct {
 		txHash    common.Hash
@@ -690,10 +594,9 @@ func (a *AutomationTest) RegisterUpkeeps(multicallAddress common.Address, upkeep
 		clientNum *int
 	}
 
-	resultCh := make(chan result, numberOfClients)
-	stopCh := make(chan struct{})
+	resultCh := make(chan result, concurrency)
 
-	var wgSubmit sync.WaitGroup
+	// waits for all upkeep registrations to be processed
 	var wgProcesses sync.WaitGroup
 
 	for range upkeepConfigs {
@@ -701,26 +604,21 @@ func (a *AutomationTest) RegisterUpkeeps(multicallAddress common.Address, upkeep
 	}
 
 	failedRegistrations := make([]result, 0)
-	okRegistrations := make(map[int]int, 0)
+	successfulRegistrations := make(map[int]int, 0)
 
-	// errorz := make([]error, 0)
-
+	// process results of each upkeep registration attempt
 	go func() {
 		for r := range resultCh {
 			if r.err != nil {
-				a.Logger.Error().Err(r.err).Msg("failed to register upkeep")
+				a.Logger.Error().Err(r.err).Msg("Failed to register upkeep")
 				failedRegistrations = append(failedRegistrations, r)
-				// errorz = append(errorz, r.err)
-				// err = r.err
-				// close(stopCh)
-				// return
 			} else {
-				a.Logger.Debug().Msgf("Registered upkeep")
+				a.Logger.Trace().Msg("Registered upkeep")
 				registrationTxHashes = append(registrationTxHashes, r.txHash)
-				if _, ok := okRegistrations[*r.clientNum]; !ok {
-					okRegistrations[*r.clientNum] = 1
+				if _, ok := successfulRegistrations[*r.clientNum]; !ok {
+					successfulRegistrations[*r.clientNum] = 1
 				} else {
-					okRegistrations[*r.clientNum]++
+					successfulRegistrations[*r.clientNum]++
 				}
 			}
 			wgProcesses.Done()
@@ -776,42 +674,28 @@ func (a *AutomationTest) RegisterUpkeeps(multicallAddress common.Address, upkeep
 			resultCh <- result{err: fmt.Errorf("v2.0, v2.1, and v2.2 are the only supported versions")}
 		}
 
-		attempt := 0
-		var decodedTx *seth.DecodedTransaction
-		for {
-			if attempt > 3 {
-				resultCh <- result{
-					err:       fmt.Errorf("failed to register upkeep %s after 3 attempts", upkeepConfig.UpkeepContract.Hex()),
-					clientNum: &keyNum,
-					config:    &upkeepConfig,
-				}
-				return
-			}
-
-			decodedTx, err = a.ChainClient.Decode(a.LinkToken.TransferAndCallFromKey(a.Registrar.Address(), upkeepConfig.FundingAmount, registrationRequest, keyNum))
-			if err == nil {
-				break
-			}
-			attempt++
+		decodedTx, err := a.ChainClient.Decode(a.LinkToken.TransferAndCallFromKey(a.Registrar.Address(), upkeepConfig.FundingAmount, registrationRequest, keyNum))
+		if err != nil {
+			resultCh <- result{err: errors.Join(err, fmt.Errorf("client number %d failed to register upkeep %s", keyNum, upkeepConfig.UpkeepContract.Hex())), clientNum: &keyNum, config: &upkeepConfig}
+			return
 		}
 
-		// if err != nil {
-		// 	resultCh <- result{err: errors.Join(err, fmt.Errorf("client number %d failed to register upkeep %s", keyNum, upkeepConfig.UpkeepContract.Hex()))}
-		// 	return
-		// }
 		resultCh <- result{txHash: decodedTx.Transaction.Hash(), clientNum: &keyNum}
 	}
 
-	var divideSlice = func(slice []UpkeepConfig, numSlices int) [][]UpkeepConfig {
+	// divide upkeepConfigs into slices of (ideally) equal size based on the concurrency count
+	var divideSlice = func(slice []UpkeepConfig, concurrency int) [][]UpkeepConfig {
 		var divided [][]UpkeepConfig
-		sliceLength := len(slice)
+		if concurrency == 1 {
+			return [][]UpkeepConfig{slice}
+		}
 
-		// Calculate the base size of each slice and the remainder
-		baseSize := sliceLength / numSlices
-		remainder := sliceLength % numSlices
+		sliceLength := len(slice)
+		baseSize := sliceLength / concurrency
+		remainder := sliceLength % concurrency
 
 		start := 0
-		for i := 0; i < numSlices; i++ {
+		for i := 0; i < concurrency; i++ {
 			end := start + baseSize
 			if i < remainder { // Distribute the remainder among the first slices
 				end++
@@ -824,76 +708,37 @@ func (a *AutomationTest) RegisterUpkeeps(multicallAddress common.Address, upkeep
 		return divided
 	}
 
-	dividedConfigs := divideSlice(upkeepConfigs, numberOfClients)
+	dividedConfigs := divideSlice(upkeepConfigs, concurrency)
 
-	dividedTotal := 0
-	for _, slice := range dividedConfigs {
-		dividedTotal += len(slice)
-	}
-
-	if dividedTotal != len(upkeepConfigs) {
-		return nil, fmt.Errorf("failed to divide upkeep configs")
-	}
-
-	// TODO think what to do when ephemerals is 0 and there's only root
-	// clientNum has to be 0, not 1, but if there's at least 1 ephemeral, it has to start from 1
-
-	automationDefaultLinkFunds := big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(10000))) //10000 LINK
-
-	// semaphore := make(chan struct{}, 10)
-
-	// Launching workers
-	for clientNum := 1; clientNum <= numberOfClients; clientNum++ {
-		wgSubmit.Add(1)
-		// semaphore <- struct{}{}
-		go func(clientNum int) {
-			defer wgSubmit.Done()
-			// defer func() { <-semaphore }()
-			configs := dividedConfigs[clientNum-1]
-
-			balance, err := a.LinkToken.BalanceOf(context.Background(), a.ChainClient.Addresses[clientNum].Hex())
-			if err != nil {
-				resultCh <- result{err: errors.Join(err, fmt.Errorf("failed to get LINK balance for ephemeral key %d", clientNum))}
-				return
-			}
-			expectedBalance := big.NewInt(0).Mul(automationDefaultLinkFunds, big.NewInt(int64(len(configs))))
-			if balance.Cmp(expectedBalance) < 0 {
-				resultCh <- result{err: fmt.Errorf("ephemeral key %d has insufficient LINK balance, expected %s, got %s", clientNum, expectedBalance.String(), balance.String())}
-				return
-			}
+	for clientNum := 1; clientNum <= concurrency; clientNum++ {
+		go func(key int) {
+			configs := dividedConfigs[key-1]
 
 			a.Logger.Debug().
-				Int("Client Number", clientNum).
+				Int("Key Number", key).
 				Int("Number of Configs", len(configs)).
-				Int("Balance sufficient to deploy # configs", int(big.NewInt(0).Div(balance, automationDefaultLinkFunds).Int64())).
-				Msg("Seth client started to register upkeeps")
+				Msg("Started to register upkeeps")
 
 			for i := 0; i < len(configs); i++ {
-				select {
-				case <-stopCh:
-					return
-				default:
-					registerUpkeep(configs[i], clientNum, resultCh)
-				}
+				registerUpkeep(configs[i], key, resultCh)
+				a.Logger.Trace().
+					Int("Key Number", key).
+					Str("Done/Total", fmt.Sprintf("%d/%d", (i+1), len(configs))).
+					Msg("Registered upkeep")
 			}
 
 			a.Logger.Debug().
-				Int("Client Number", clientNum).
-				Msg("Seth client finished to register upkeeps")
+				Int("Key Number", key).
+				Msg("Finished to register upkeeps")
 		}(clientNum)
 	}
 
-	go func() {
-		wgSubmit.Wait()
-		close(resultCh)
-	}()
-
 	wgProcesses.Wait()
+	close(resultCh)
 
-	// if err != nil {
-	// 	return nil, err
-	// }
-
+	// due to reasons unknown with high concurrency, some upkeeps fail to register
+	// but when retried, they succeed; this might indicate a problem with Registrar contract
+	// as the call that fails is from link token contract to registrar contract
 	if len(failedRegistrations) > 0 {
 		failedByClient := make(map[int]int)
 		for _, failed := range failedRegistrations {
@@ -906,7 +751,7 @@ func (a *AutomationTest) RegisterUpkeeps(multicallAddress common.Address, upkeep
 
 		for clientNum, failed := range failedByClient {
 			successful := 0
-			if v, ok := okRegistrations[clientNum]; ok {
+			if v, ok := successfulRegistrations[clientNum]; ok {
 				successful = v
 			}
 
@@ -922,11 +767,9 @@ func (a *AutomationTest) RegisterUpkeeps(multicallAddress common.Address, upkeep
 		for _, failed := range failedRegistrations {
 			registerUpkeep(*failed.config, *failed.clientNum, resultCh)
 		}
-
 		close(resultCh)
 
 		retryErrs := make([]error, 0)
-
 		for r := range resultCh {
 			if r.err != nil {
 				retryErrs = append(retryErrs, r.err)
@@ -944,49 +787,6 @@ func (a *AutomationTest) RegisterUpkeeps(multicallAddress common.Address, upkeep
 			Msg("Managed to register failed upkeeps")
 	}
 
-	// if len(errorz) > 0 {
-	// 	return nil, fmt.Errorf("upkeep registration failed. failed: %d | success: %d", len(errorz), len(registrationTxHashes))
-	// }
-
-	// for _, upkeepConfig := range upkeepConfigs {
-	// 	switch a.RegistrySettings.RegistryVersion {
-	// 	case ethereum.RegistryVersion_2_0:
-	// 		registrarABI, err = keeper_registrar_wrapper2_0.KeeperRegistrarMetaData.GetAbi()
-	// 		if err != nil {
-	// 			return nil, errors.Join(err, fmt.Errorf("failed to get registrar abi"))
-	// 		}
-	// 		registrationRequest, err = registrarABI.Pack(
-	// 			"register", upkeepConfig.UpkeepName, upkeepConfig.EncryptedEmail,
-	// 			upkeepConfig.UpkeepContract, upkeepConfig.GasLimit, upkeepConfig.AdminAddress,
-	// 			upkeepConfig.CheckData,
-	// 			upkeepConfig.OffchainConfig, upkeepConfig.FundingAmount,
-	// 			a.ChainClient.Addresses[0])
-	// 		if err != nil {
-	// 			return nil, errors.Join(err, fmt.Errorf("failed to pack registrar request"))
-	// 		}
-	// 	case ethereum.RegistryVersion_2_1, ethereum.RegistryVersion_2_2: // 2.1 and 2.2 use the same registrar
-	// 		registrarABI, err = automation_registrar_wrapper2_1.AutomationRegistrarMetaData.GetAbi()
-	// 		if err != nil {
-	// 			return nil, errors.Join(err, fmt.Errorf("failed to get registrar abi"))
-	// 		}
-	// 		registrationRequest, err = registrarABI.Pack(
-	// 			"register", upkeepConfig.UpkeepName, upkeepConfig.EncryptedEmail,
-	// 			upkeepConfig.UpkeepContract, upkeepConfig.GasLimit, upkeepConfig.AdminAddress,
-	// 			upkeepConfig.TriggerType, upkeepConfig.CheckData, upkeepConfig.TriggerConfig,
-	// 			upkeepConfig.OffchainConfig, upkeepConfig.FundingAmount,
-	// 			a.ChainClient.Addresses[0])
-	// 		if err != nil {
-	// 			return nil, errors.Join(err, fmt.Errorf("failed to pack registrar request"))
-	// 		}
-	// 	default:
-	// 		return nil, fmt.Errorf("v2.0, v2.1, and v2.2 are the only supported versions")
-	// 	}
-	// 	tx, err := a.LinkToken.TransferAndCall(a.Registrar.Address(), upkeepConfig.FundingAmount, registrationRequest)
-	// 	if err != nil {
-	// 		return nil, errors.Join(err, fmt.Errorf("failed to register upkeep"))
-	// 	}
-	// 	registrationTxHashes = append(registrationTxHashes, tx.Hash())
-	// }
 	return registrationTxHashes, nil
 }
 
@@ -1094,5 +894,8 @@ func (a *AutomationTest) LoadAutomationDeployment(t *testing.T, linkTokenAddress
 	require.NoError(t, err, "Error loading registrar contract")
 
 	a.AddJobsAndSetConfig(t)
+}
 
+func (a *AutomationTest) GetConcurrency() int {
+	return int(*a.ChainClient.Cfg.EphemeralAddrs)
 }
