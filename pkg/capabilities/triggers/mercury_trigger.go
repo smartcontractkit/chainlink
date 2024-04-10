@@ -13,6 +13,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/mercury"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 )
 
@@ -30,16 +31,18 @@ type MercuryTriggerService struct {
 	feedIDsForTriggerID map[string][]mercury.FeedID
 	triggerIDsForFeedID map[mercury.FeedID]map[string]bool
 	mu                  sync.Mutex
+	lggr                logger.Logger
 }
 
 var _ capabilities.TriggerCapability = (*MercuryTriggerService)(nil)
 
-func NewMercuryTriggerService() *MercuryTriggerService {
+func NewMercuryTriggerService(lggr logger.Logger) *MercuryTriggerService {
 	return &MercuryTriggerService{
 		CapabilityInfo:      mercuryInfo,
 		chans:               map[string]chan<- capabilities.CapabilityResponse{},
 		feedIDsForTriggerID: make(map[string][]mercury.FeedID),
 		triggerIDsForFeedID: make(map[mercury.FeedID]map[string]bool),
+		lggr:                logger.Named(lggr, "MercuryTriggerService"),
 	}
 }
 
@@ -55,8 +58,9 @@ func (o *MercuryTriggerService) ProcessReport(reports []FeedReport) error {
 	defer o.mu.Unlock()
 
 	currentTime := time.Now()
-	unixTimestampMillis := currentTime.UnixNano() / int64(time.Millisecond)
+	unixTimestampMillis := currentTime.UnixMilli()
 	triggerIDsToReports := make(map[string][]int)
+	o.lggr.Debugw("ProcessReport", "nReports", len(reports))
 
 	for reportIndex, report := range reports {
 		for triggerID := range o.triggerIDsForFeedID[mercury.FeedIDFromBytes(report.FeedID)] {
@@ -72,7 +76,6 @@ func (o *MercuryTriggerService) ProcessReport(reports []FeedReport) error {
 	// and send it to the channel associated with the trigger id.
 	for triggerID, reportIDs := range triggerIDsToReports {
 		reportList := make([]mercury.FeedReport, 0)
-		reportMap := make(map[string]any)
 		for _, reportID := range reportIDs {
 			rep := reports[reportID]
 			feedID := mercury.FeedIDFromBytes(rep.FeedID)
@@ -83,30 +86,35 @@ func (o *MercuryTriggerService) ProcessReport(reports []FeedReport) error {
 				ObservationTimestamp: rep.ObservationTimestamp,
 			}
 			reportList = append(reportList, mercRep)
-			reportMap[feedID.String()] = mercRep
+		}
+
+		val, err := mercury.Codec{}.Wrap(reportList)
+		if err != nil {
+			return err
 		}
 
 		triggerEvent := capabilities.TriggerEvent{
-			TriggerType:    "mercury",
-			ID:             GenerateTriggerEventID(reportList),
-			Timestamp:      strconv.FormatInt(unixTimestampMillis, 10),
-			BatchedPayload: reportMap,
+			TriggerType: "mercury",
+			ID:          GenerateTriggerEventID(reportList),
+			Timestamp:   strconv.FormatInt(unixTimestampMillis, 10),
+			Payload:     val,
 		}
 
-		val, err := mercury.Codec{}.WrapMercuryTriggerEvent(triggerEvent)
+		eventVal, err := values.Wrap(triggerEvent)
 		if err != nil {
 			return err
 		}
 
 		// Create a new CapabilityResponse with the MercuryTriggerEvent
 		capabilityResponse := capabilities.CapabilityResponse{
-			Value: val,
+			Value: eventVal,
 		}
 
 		ch, ok := o.chans[triggerID]
 		if !ok {
 			return fmt.Errorf("no registration for %s", triggerID)
 		}
+		o.lggr.Debugw("ProcessReport pushing event", "triggerID", triggerID, "nReports", len(reportList), "eventID", triggerEvent.ID)
 		ch <- capabilityResponse
 	}
 	return nil
@@ -241,27 +249,34 @@ func ExampleOutput() (values.Value, error) {
 	feedOne := "0x111111111111111111110000000000000000000000000000000000000000"
 	feedTwo := "0x222222222222222222220000000000000000000000000000000000000000"
 
-	feeds := map[string]any{
-		feedOne: mercury.FeedReport{
+	reportSet := []mercury.FeedReport{
+		{
 			FeedID:               feedOne,
 			FullReport:           []byte("hello"),
 			BenchmarkPrice:       100,
 			ObservationTimestamp: 123,
 		},
-		feedTwo: mercury.FeedReport{
+		{
 			FeedID:               feedTwo,
 			FullReport:           []byte("world"),
 			BenchmarkPrice:       100,
 			ObservationTimestamp: 123,
 		},
 	}
-	event := capabilities.TriggerEvent{
-		TriggerType:    "mercury",
-		ID:             "123",
-		Timestamp:      "2024-01-17T04:00:10Z",
-		BatchedPayload: feeds,
+
+	val, err := mercury.Codec{}.Wrap(reportSet)
+	if err != nil {
+		return val, err
 	}
-	return mercury.Codec{}.WrapMercuryTriggerEvent(event)
+
+	event := capabilities.TriggerEvent{
+		TriggerType: "mercury",
+		ID:          "123",
+		Timestamp:   "2024-01-17T04:00:10Z",
+		Payload:     val,
+	}
+
+	return values.Wrap(event)
 }
 
 func ValidateConfig(config values.Value) error {

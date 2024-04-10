@@ -28,11 +28,11 @@ type feedConfig struct {
 
 //go:generate mockery --quiet --name MercuryCodec --output ./mocks/ --case=underscore
 type MercuryCodec interface {
-	// validate each report and convert to ReportSet struct
-	Unwrap(raw values.Value) (mercury.ReportSet, error)
+	// validate each report and convert to a list of Mercury reports
+	Unwrap(raw values.Value) ([]mercury.FeedReport, error)
 
 	// validate each report and convert to Value
-	Wrap(reportSet mercury.ReportSet) (values.Value, error)
+	Wrap(reports []mercury.FeedReport) (values.Value, error)
 }
 
 type dataFeedsAggregator struct {
@@ -47,25 +47,25 @@ var _ types.Aggregator = (*dataFeedsAggregator)(nil)
 // Metadata is a map of feedID -> (timestamp, price) representing onchain state (see DataFeedsOutcomeMetadata proto)
 func (a *dataFeedsAggregator) Aggregate(previousOutcome *types.AggregationOutcome, observations map[ocrcommon.OracleID][]values.Value) (*types.AggregationOutcome, error) {
 	// find latest valid Mercury report for each feed ID
-	latestReportPerFeed := make(map[mercury.FeedID]mercury.Report)
+	latestReportPerFeed := make(map[mercury.FeedID]mercury.FeedReport)
 	for nodeID, nodeObservations := range observations {
 		// we only expect a single observation per node - new Mercury data
-		if len(nodeObservations) == 0 {
+		if len(nodeObservations) == 0 || nodeObservations[0] == nil {
 			a.lggr.Warnf("node %d contributed with empty observations", nodeID)
 			continue
 		}
 		if len(nodeObservations) > 1 {
 			a.lggr.Warnf("node %d contributed with more than one observation", nodeID)
 		}
-		mercuryReportSet, err := a.mercuryCodec.Unwrap(nodeObservations[0])
+		mercuryReports, err := a.mercuryCodec.Unwrap(nodeObservations[0])
 		if err != nil {
 			a.lggr.Errorf("node %d contributed with invalid Mercury reports: %v", nodeID, err)
 			continue
 		}
-		for feedID, report := range mercuryReportSet.Reports {
-			latest, ok := latestReportPerFeed[feedID]
-			if !ok || report.Info.Timestamp > latest.Info.Timestamp {
-				latestReportPerFeed[feedID] = report
+		for _, report := range mercuryReports {
+			latest, ok := latestReportPerFeed[mercury.FeedID(report.FeedID)]
+			if !ok || report.ObservationTimestamp > latest.ObservationTimestamp {
+				latestReportPerFeed[mercury.FeedID(report.FeedID)] = report
 			}
 		}
 	}
@@ -82,8 +82,8 @@ func (a *dataFeedsAggregator) Aggregate(previousOutcome *types.AggregationOutcom
 		currentState.FeedInfo = make(map[string]*DataFeedsMercuryReportInfo)
 		for feedID := range a.config.Feeds {
 			currentState.FeedInfo[feedID.String()] = &DataFeedsMercuryReportInfo{
-				Timestamp: 0, // will always trigger an update
-				Price:     0.0,
+				ObservationTimestamp: 0, // will always trigger an update
+				BenchmarkPrice:       0,
 			}
 		}
 	}
@@ -101,10 +101,10 @@ func (a *dataFeedsAggregator) Aggregate(previousOutcome *types.AggregationOutcom
 			continue
 		}
 		config := a.config.Feeds[feedID]
-		if latestReport.Info.Timestamp-previousReportInfo.Timestamp > uint32(config.Heartbeat) ||
-			deviation(previousReportInfo.Price, latestReport.Info.Price) > config.Deviation.InexactFloat64() {
-			previousReportInfo.Timestamp = latestReport.Info.Timestamp
-			previousReportInfo.Price = latestReport.Info.Price
+		if latestReport.ObservationTimestamp-previousReportInfo.ObservationTimestamp > int64(config.Heartbeat) ||
+			deviation(previousReportInfo.BenchmarkPrice, latestReport.BenchmarkPrice) > config.Deviation.InexactFloat64() {
+			previousReportInfo.ObservationTimestamp = latestReport.ObservationTimestamp
+			previousReportInfo.BenchmarkPrice = latestReport.BenchmarkPrice
 			reportsNeedingUpdate = append(reportsNeedingUpdate, latestReport.FullReport)
 		}
 	}
@@ -128,15 +128,16 @@ func (a *dataFeedsAggregator) Aggregate(previousOutcome *types.AggregationOutcom
 	}, nil
 }
 
-func deviation(old, new float64) float64 {
-	diff := math.Abs(new - old)
-	if old == 0.0 {
+func deviation(old, new int64) float64 {
+	oldF := float64(old)
+	diff := math.Abs(float64(new - old))
+	if oldF == 0.0 {
 		if diff == 0.0 {
 			return 0.0
 		}
 		return math.MaxFloat64
 	}
-	return diff / old
+	return diff / oldF
 }
 
 func NewDataFeedsAggregator(config values.Map, mercuryCodec MercuryCodec, lggr logger.Logger) (types.Aggregator, error) {

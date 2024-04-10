@@ -15,22 +15,24 @@ type MercuryCodec struct {
 }
 
 // Unwrap provides a mock function with given fields: raw
-func (_m *MercuryCodec) Unwrap(raw values.Value) (mercury.ReportSet, error) {
+func (_m *MercuryCodec) Unwrap(raw values.Value) ([]mercury.FeedReport, error) {
 	ret := _m.Called(raw)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Unwrap")
 	}
 
-	var r0 mercury.ReportSet
+	var r0 []mercury.FeedReport
 	var r1 error
-	if rf, ok := ret.Get(0).(func(values.Value) (mercury.ReportSet, error)); ok {
+	if rf, ok := ret.Get(0).(func(values.Value) ([]mercury.FeedReport, error)); ok {
 		return rf(raw)
 	}
-	if rf, ok := ret.Get(0).(func(values.Value) mercury.ReportSet); ok {
+	if rf, ok := ret.Get(0).(func(values.Value) []mercury.FeedReport); ok {
 		r0 = rf(raw)
 	} else {
-		r0 = ret.Get(0).(mercury.ReportSet)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]mercury.FeedReport)
+		}
 	}
 
 	if rf, ok := ret.Get(1).(func(values.Value) error); ok {
@@ -42,9 +44,9 @@ func (_m *MercuryCodec) Unwrap(raw values.Value) (mercury.ReportSet, error) {
 	return r0, r1
 }
 
-// Wrap provides a mock function with given fields: reportSet
-func (_m *MercuryCodec) Wrap(reportSet mercury.ReportSet) (values.Value, error) {
-	ret := _m.Called(reportSet)
+// Wrap provides a mock function with given fields: reports
+func (_m *MercuryCodec) Wrap(reports []mercury.FeedReport) (values.Value, error) {
+	ret := _m.Called(reports)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Wrap")
@@ -52,19 +54,19 @@ func (_m *MercuryCodec) Wrap(reportSet mercury.ReportSet) (values.Value, error) 
 
 	var r0 values.Value
 	var r1 error
-	if rf, ok := ret.Get(0).(func(mercury.ReportSet) (values.Value, error)); ok {
-		return rf(reportSet)
+	if rf, ok := ret.Get(0).(func([]mercury.FeedReport) (values.Value, error)); ok {
+		return rf(reports)
 	}
-	if rf, ok := ret.Get(0).(func(mercury.ReportSet) values.Value); ok {
-		r0 = rf(reportSet)
+	if rf, ok := ret.Get(0).(func([]mercury.FeedReport) values.Value); ok {
+		r0 = rf(reports)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(values.Value)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(mercury.ReportSet) error); ok {
-		r1 = rf(reportSet)
+	if rf, ok := ret.Get(1).(func([]mercury.FeedReport) error); ok {
+		r1 = rf(reports)
 	} else {
 		r1 = ret.Error(1)
 	}

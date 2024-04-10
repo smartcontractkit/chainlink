@@ -8,6 +8,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/mercury"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 )
@@ -21,7 +22,7 @@ var (
 )
 
 func TestMercuryTrigger(t *testing.T) {
-	ts := NewMercuryTriggerService()
+	ts := NewMercuryTriggerService(logger.Nop())
 	ctx := tests.Context(t)
 	require.NotNil(t, ts)
 
@@ -71,12 +72,11 @@ func TestMercuryTrigger(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, callback, 1)
 	msg := <-callback
-	unwrapped, err := mercury.Codec{}.UnwrapMercuryTriggerEvent(msg.Value)
-	require.NoError(t, err)
-	assert.Equal(t, "mercury", unwrapped.TriggerType)
-	assert.Equal(t, GenerateTriggerEventID(mfr), unwrapped.ID)
-	assert.Len(t, unwrapped.BatchedPayload, 1)
-	assert.Equal(t, mfr[0], unwrapped.BatchedPayload[feedOne])
+	triggerEvent, reports := upwrapTriggerEvent(t, msg.Value)
+	assert.Equal(t, "mercury", triggerEvent.TriggerType)
+	assert.Equal(t, GenerateTriggerEventID(mfr), triggerEvent.ID)
+	assert.Len(t, reports, 1)
+	assert.Equal(t, mfr[0], reports[0])
 
 	// Unregister the trigger and check that events no longer go on the callback
 	require.NoError(t, ts.UnregisterTrigger(ctx, cr))
@@ -86,7 +86,7 @@ func TestMercuryTrigger(t *testing.T) {
 }
 
 func TestMultipleMercuryTriggers(t *testing.T) {
-	ts := NewMercuryTriggerService()
+	ts := NewMercuryTriggerService(logger.Nop())
 	ctx := tests.Context(t)
 	require.NotNil(t, ts)
 
@@ -209,25 +209,25 @@ func TestMultipleMercuryTriggers(t *testing.T) {
 	assert.Len(t, callback2, 1)
 
 	msg := <-callback1
-	unwrapped, _ := mercury.Codec{}.UnwrapMercuryTriggerEvent(msg.Value)
-	assert.Equal(t, "mercury", unwrapped.TriggerType)
+	triggerEvent, reports := upwrapTriggerEvent(t, msg.Value)
+	assert.Equal(t, "mercury", triggerEvent.TriggerType)
 	payload := make([]mercury.FeedReport, 0)
 	payload = append(payload, mfr1[0], mfr1[1], mfr1[3])
-	assert.Equal(t, GenerateTriggerEventID(payload), unwrapped.ID)
-	assert.Len(t, unwrapped.BatchedPayload, 3)
-	assert.Equal(t, mfr1[0], unwrapped.BatchedPayload[feedOne])
-	assert.Equal(t, mfr1[1], unwrapped.BatchedPayload[feedThree])
-	assert.Equal(t, mfr1[3], unwrapped.BatchedPayload[feedFour])
+	assert.Equal(t, GenerateTriggerEventID(payload), triggerEvent.ID)
+	assert.Len(t, reports, 3)
+	assert.Equal(t, mfr1[0], reports[0])
+	assert.Equal(t, mfr1[1], reports[1])
+	assert.Equal(t, mfr1[3], reports[2])
 
 	msg = <-callback2
-	unwrapped, _ = mercury.Codec{}.UnwrapMercuryTriggerEvent(msg.Value)
-	assert.Equal(t, "mercury", unwrapped.TriggerType)
+	triggerEvent, reports = upwrapTriggerEvent(t, msg.Value)
+	assert.Equal(t, "mercury", triggerEvent.TriggerType)
 	payload = make([]mercury.FeedReport, 0)
 	payload = append(payload, mfr1[1], mfr1[2]) // Because GenerateTriggerEventID sorts the reports by feedID, this works
-	assert.Equal(t, GenerateTriggerEventID(payload), unwrapped.ID)
-	assert.Len(t, unwrapped.BatchedPayload, 2)
-	assert.Equal(t, mfr1[2], unwrapped.BatchedPayload[feedTwo])
-	assert.Equal(t, mfr1[1], unwrapped.BatchedPayload[feedThree])
+	assert.Equal(t, GenerateTriggerEventID(payload), triggerEvent.ID)
+	assert.Len(t, reports, 2)
+	assert.Equal(t, mfr1[1], reports[0])
+	assert.Equal(t, mfr1[2], reports[1])
 
 	require.NoError(t, ts.UnregisterTrigger(ctx, cr1))
 	fr2 := []FeedReport{
@@ -252,18 +252,28 @@ func TestMultipleMercuryTriggers(t *testing.T) {
 	assert.Len(t, callback2, 1)
 
 	msg = <-callback2
-	unwrapped, err = mercury.Codec{}.UnwrapMercuryTriggerEvent(msg.Value)
+	triggerEvent, reports = upwrapTriggerEvent(t, msg.Value)
 	require.NoError(t, err)
-	assert.Equal(t, "mercury", unwrapped.TriggerType)
+	assert.Equal(t, "mercury", triggerEvent.TriggerType)
 	payload = make([]mercury.FeedReport, 0)
 	payload = append(payload, mfr2[0])
-	assert.Equal(t, GenerateTriggerEventID(payload), unwrapped.ID)
-	assert.Len(t, unwrapped.BatchedPayload, 1)
-	assert.Equal(t, mfr2[0], unwrapped.BatchedPayload[feedThree])
+	assert.Equal(t, GenerateTriggerEventID(payload), triggerEvent.ID)
+	assert.Len(t, reports, 1)
+	assert.Equal(t, mfr2[0], reports[0])
 
 	require.NoError(t, ts.UnregisterTrigger(ctx, cr2))
 	err = ts.ProcessReport(fr1)
 	assert.NoError(t, err)
 	assert.Len(t, callback1, 0)
 	assert.Len(t, callback2, 0)
+}
+
+func upwrapTriggerEvent(t *testing.T, wrappedEvent values.Value) (capabilities.TriggerEvent, []mercury.FeedReport) {
+	event := capabilities.TriggerEvent{}
+	err := wrappedEvent.UnwrapTo(&event)
+	require.NoError(t, err)
+	require.NotNil(t, event.Payload)
+	mercuryReports, err := mercury.Codec{}.Unwrap(event.Payload)
+	require.NoError(t, err)
+	return event, mercuryReports
 }

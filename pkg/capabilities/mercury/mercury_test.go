@@ -5,8 +5,14 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/mercury"
+)
+
+const (
+	testFeedID               = mercury.FeedID("0x1111111111111111111100000000000000000000000000000000000000000000")
+	testFullReport           = "0x1234"
+	testBenchmarkPrice       = int64(2)
+	testObservationTimestamp = int64(3)
 )
 
 func TestFeedID_Validate(t *testing.T) {
@@ -27,31 +33,18 @@ func TestFeedID_Validate(t *testing.T) {
 }
 
 func TestCodec(t *testing.T) {
-	// Test WrapMercuryTriggerEvent
-	const testID = "test-id-1"
-	const testTimestamp = "2021-01-01T00:00:00Z"
-	var testFeedID = mercury.FeedID("0x1111111111111111111100000000000000000000000000000000000000000000")
-	const testFullReport = "0x1234"
-	const testBenchmarkPrice = int64(2)
-	const testObservationTimestamp = int64(3)
-	te := capabilities.TriggerEvent{
-		TriggerType: "mercury",
-		ID:          testID,
-		Timestamp:   testTimestamp,
-		BatchedPayload: map[string]any{
-			testFeedID.String(): mercury.FeedReport{
-				FeedID:               string(testFeedID),
-				FullReport:           []byte(testFullReport),
-				BenchmarkPrice:       testBenchmarkPrice,
-				ObservationTimestamp: testObservationTimestamp,
-			},
+	feeds := []mercury.FeedReport{
+		{
+			FeedID:               string(testFeedID),
+			FullReport:           []byte(testFullReport),
+			BenchmarkPrice:       testBenchmarkPrice,
+			ObservationTimestamp: testObservationTimestamp,
 		},
 	}
-	wrappedTE, err := mercury.Codec{}.WrapMercuryTriggerEvent(te)
+	wrapped, err := mercury.Codec{}.Wrap(feeds)
 	require.NoError(t, err)
 
-	// Test UnwrapMercuryTriggerEvent
-	unwrappedTE, err := mercury.Codec{}.UnwrapMercuryTriggerEvent(wrappedTE)
+	unwrapped, err := mercury.Codec{}.Unwrap(wrapped)
 	require.NoError(t, err)
-	require.Equal(t, te, unwrappedTE)
+	require.Equal(t, feeds, unwrapped)
 }

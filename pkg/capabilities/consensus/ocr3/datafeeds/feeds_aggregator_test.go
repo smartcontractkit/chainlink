@@ -10,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/libocr/commontypes"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/datafeeds"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/datafeeds/mocks"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/mercury"
@@ -25,6 +26,10 @@ var (
 )
 
 func TestDataFeedsAggregator_Aggregate_TwoRounds(t *testing.T) {
+	mockTriggerEvent, err := values.Wrap(capabilities.TriggerEvent{
+		Payload: &values.Map{},
+	})
+	require.NoError(t, err)
 	config := getConfig(t, feedIDA.String(), deviationA, heartbeatA)
 	codec := mocks.NewMercuryCodec(t)
 	agg, err := datafeeds.NewDataFeedsAggregator(*config, codec, logger.Nop())
@@ -42,22 +47,19 @@ func TestDataFeedsAggregator_Aggregate_TwoRounds(t *testing.T) {
 	require.Equal(t, 1, len(newState.FeedInfo))
 	_, ok := newState.FeedInfo[feedIDA.String()]
 	require.True(t, ok)
-	require.Equal(t, 0.0, newState.FeedInfo[feedIDA.String()].Price)
+	require.Equal(t, int64(0), newState.FeedInfo[feedIDA.String()].BenchmarkPrice)
 
 	// second round, non-empty previous Outcome, one observation
-	latestMercuryReports := mercury.ReportSet{
-		Reports: map[mercury.FeedID]mercury.Report{
-			feedIDA: {
-				Info: mercury.ReportInfo{
-					Timestamp: 1,
-					Price:     1.0,
-				},
-				FullReport: mercuryFullReportA,
-			},
+	latestMercuryReports := []mercury.FeedReport{
+		{
+			FeedID:               feedIDA.String(),
+			ObservationTimestamp: 1,
+			BenchmarkPrice:       100,
+			FullReport:           mercuryFullReportA,
 		},
 	}
 	codec.On("Unwrap", mock.Anything).Return(latestMercuryReports, nil)
-	outcome, err = agg.Aggregate(outcome, map[commontypes.OracleID][]values.Value{1: {nil}})
+	outcome, err = agg.Aggregate(outcome, map[commontypes.OracleID][]values.Value{1: {mockTriggerEvent}})
 	require.NoError(t, err)
 	require.True(t, outcome.ShouldReport)
 
@@ -67,7 +69,7 @@ func TestDataFeedsAggregator_Aggregate_TwoRounds(t *testing.T) {
 	require.Equal(t, 1, len(newState.FeedInfo))
 	_, ok = newState.FeedInfo[feedIDA.String()]
 	require.True(t, ok)
-	require.Equal(t, 1.0, newState.FeedInfo[feedIDA.String()].Price)
+	require.Equal(t, int64(100), newState.FeedInfo[feedIDA.String()].BenchmarkPrice)
 
 	// validate encodable outcome
 	val := values.FromMapValueProto(outcome.EncodableOutcome)

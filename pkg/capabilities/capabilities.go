@@ -76,10 +76,11 @@ type CapabilityRequest struct {
 }
 
 type TriggerEvent struct {
-	TriggerType    string
-	ID             string
-	Timestamp      string
-	BatchedPayload map[string]any
+	TriggerType string
+	ID          string
+	Timestamp   string
+	// Trigger-specific payload
+	Payload values.Value
 }
 
 type RegisterToWorkflowRequest struct {

@@ -9,6 +9,7 @@ message DataFeedsOutcomeMetadata {
 }
 
 message DataFeedsMercuryReportInfo {
-  uint32 timestamp = 1;
-  double price = 2;
+  reserved 1, 2;
+  int64 observation_timestamp = 3;
+  int64 benchmark_price = 4;
 }
