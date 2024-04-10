@@ -18,7 +18,7 @@ jobs:
       contents: read
     steps:
       - name: cicd-changesets
-        uses: smartcontractkit/.github/actions/cicd-changesets@96543c547c121844ca806b995f2b7c187b8c2f95 # cicd-changesets@0.3.2
+        uses: smartcontractkit/.github/actions/cicd-changesets@6da79c7b9f14bec077df2c1ad40d53823b409d9c # cicd-changesets@0.3.3
         with:
           # general inputs
           git-user: app-token-issuer-releng[bot]
