@@ -53,9 +53,9 @@ chain_id = "1337"
 transaction_timeout = "90s"
 urls = ["ws://localhost:8546"]
 transfer_gas_fee = 21_000
-gas_limit = 15_000_000
+gas_limit = 14_000_000
 # legacy transactions
-gas_price = 10_000_000_000
+gas_price = 1_000_000_000
 # EIP-1559 transactions
 eip_1559_dynamic_fees = true
 gas_fee_cap = 15_000_000_000

@@ -51,6 +51,8 @@ replace (
 	k8s.io/api => k8s.io/api v0.25.11
 	k8s.io/client-go => k8s.io/client-go v0.25.11
 	k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20230303024457-afdc3dddf62d
+	github.com/smartcontractkit/seth => ../../seth
+	github.com/smartcontractkit/chainlink-testing-framework  => ../../../chainlink-testing-framework
 )
 
 require (

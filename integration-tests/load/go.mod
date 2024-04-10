@@ -27,12 +27,11 @@ require (
 	github.com/stretchr/testify v1.9.0
 	github.com/wiremock/go-wiremock v1.9.0
 	go.uber.org/ratelimit v0.3.0
-	golang.org/x/sync v0.6.0
 )
 
 replace (
-	github.com/smartcontractkit/chainlink-testing-framework => ../../../chainlink-testing-framework
 	github.com/smartcontractkit/seth => ../../../seth
+	github.com/smartcontractkit/chainlink-testing-framework  => ../../../chainlink-testing-framework
 )
 
 // avoids ambigious imports of indirect dependencies
@@ -451,6 +450,7 @@ require (
 	golang.org/x/mod v0.15.0 // indirect
 	golang.org/x/net v0.21.0 // indirect
 	golang.org/x/oauth2 v0.17.0 // indirect
+	golang.org/x/sync v0.6.0 // indirect
 	golang.org/x/sys v0.18.0 // indirect
 	golang.org/x/term v0.18.0 // indirect
 	golang.org/x/text v0.14.0 // indirect

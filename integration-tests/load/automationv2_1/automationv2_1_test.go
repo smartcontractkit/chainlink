@@ -446,6 +446,11 @@ Load Config:
 		clientNum        int
 	}
 
+	expectedTotalUpkeepCount := 0
+	for _, u := range loadedTestConfig.Automation.Load {
+		expectedTotalUpkeepCount += *u.NumberOfUpkeeps
+	}
+
 	for _, u := range loadedTestConfig.Automation.Load {
 		l.Debug().
 			Int("Number of Upkeeps", *u.NumberOfUpkeeps).
@@ -622,7 +627,7 @@ Load Config:
 		require.NoError(t, err, "Error getting LINK balance")
 		require.Equal(t, toTransferToMultiCallContract, balance, "Incorrect LINK balance of multicall contract")
 
-		// // Transfer LINK to ephemeral keys
+		// Transfer LINK to ephemeral keys
 		multiCallData := make([][]byte, 0)
 		for i := 1; i <= numberOfClients; i++ {
 			data, err := generateCallData(a.ChainClient.Addresses[i], toTransferPerClient)
@@ -649,6 +654,8 @@ Load Config:
 			require.Equal(t, toTransferPerClient, balance, "Incorrect LINK balance after transferring for ephemeral key %d", i)
 		}
 	}
+
+	require.Equal(t, expectedTotalUpkeepCount, len(consumerContracts), "Incorrect number of consumer contracts deployed")
 
 	for i, consumerContract := range consumerContracts {
 		logTriggerConfigStruct := ac.IAutomationV21PlusCommonLogTriggerConfig{
@@ -694,11 +701,13 @@ Load Config:
 		upkeepConfigs = append(upkeepConfigs, upkeepConfig)
 	}
 
-	registrationTxHashes, err := a.RegisterUpkeeps(upkeepConfigs)
+	require.Equal(t, expectedTotalUpkeepCount, len(upkeepConfigs), "Incorrect number of upkeep configs created")
+	registrationTxHashes, err := a.RegisterUpkeeps(multicallAddress, upkeepConfigs)
 	require.NoError(t, err, "Error registering upkeeps")
 
 	upkeepIds, err := a.ConfirmUpkeepsRegistered(registrationTxHashes)
 	require.NoError(t, err, "Error confirming upkeeps registered")
+	require.Equal(t, expectedTotalUpkeepCount, len(upkeepIds), "Incorrect number of upkeeps registered")
 
 	l.Info().Msg("Successfully registered all Automation Upkeeps")
 	l.Info().Interface("Upkeep IDs", upkeepIds).Msg("Upkeeps Registered")
@@ -742,7 +751,7 @@ Load Config:
 	for i := 1; i < len(a.ChainClient.Addresses); i++ {
 		_, err = actions_seth.SendFunds(l, a.ChainClient, actions_seth.FundsToSendPayload{
 			ToAddress:  a.ChainClient.Addresses[i],
-			Amount:     big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(10)),
+			Amount:     big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(100)),
 			PrivateKey: a.ChainClient.PrivateKeys[0],
 		})
 		require.NoError(t, err, "Error sending funds")

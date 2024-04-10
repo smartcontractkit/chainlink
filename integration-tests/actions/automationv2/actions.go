@@ -581,11 +581,101 @@ func calculateOCR3ConfigArgs(a *AutomationTest, S []int, oracleIdentities []conf
 	)
 }
 
-func (a *AutomationTest) RegisterUpkeeps(upkeepConfigs []UpkeepConfig) ([]common.Hash, error) {
+func (a *AutomationTest) RegisterUpkeeps(multicallAddress common.Address, upkeepConfigs []UpkeepConfig) ([]common.Hash, error) {
 	var registrarABI *abi.ABI
 	var err error
 	var registrationRequest []byte
 	registrationTxHashes := make([]common.Hash, 0)
+
+	// var generateCallData = func(upkeepConfig UpkeepConfig) ([]byte, error) {
+	// 	switch a.RegistrySettings.RegistryVersion {
+	// 	case ethereum.RegistryVersion_2_0:
+	// 		registrarABI, err = keeper_registrar_wrapper2_0.KeeperRegistrarMetaData.GetAbi()
+	// 		if err != nil {
+	// 			return []byte{}, errors.Join(err, fmt.Errorf("failed to get registrar abi"))
+	// 		}
+	// 		registrationRequest, err = registrarABI.Pack(
+	// 			"register",
+	// 			upkeepConfig.UpkeepName,
+	// 			upkeepConfig.EncryptedEmail,
+	// 			upkeepConfig.UpkeepContract,
+	// 			upkeepConfig.GasLimit,
+	// 			upkeepConfig.AdminAddress,
+	// 			upkeepConfig.CheckData,
+	// 			upkeepConfig.OffchainConfig,
+	// 			upkeepConfig.FundingAmount,
+	// 			a.ChainClient.Addresses[0])
+	// 		if err != nil {
+	// 			return []byte{}, errors.Join(err, fmt.Errorf("failed to pack registrar request"))
+	// 		}
+	// 	case ethereum.RegistryVersion_2_1, ethereum.RegistryVersion_2_2: // 2.1 and 2.2 use the same registrar
+	// 		registrarABI, err = automation_registrar_wrapper2_1.AutomationRegistrarMetaData.GetAbi()
+	// 		if err != nil {
+	// 			return []byte{}, errors.Join(err, fmt.Errorf("failed to get registrar abi"))
+	// 		}
+	// 		registrationRequest, err = registrarABI.Pack(
+	// 			"register",
+	// 			upkeepConfig.UpkeepName,
+	// 			upkeepConfig.EncryptedEmail,
+	// 			upkeepConfig.UpkeepContract,
+	// 			upkeepConfig.GasLimit,
+	// 			upkeepConfig.AdminAddress,
+	// 			upkeepConfig.TriggerType,
+	// 			upkeepConfig.CheckData,
+	// 			upkeepConfig.TriggerConfig,
+	// 			upkeepConfig.OffchainConfig,
+	// 			upkeepConfig.FundingAmount,
+	// 			a.ChainClient.Addresses[0])
+	// 		if err != nil {
+	// 			return []byte{}, errors.Join(err, fmt.Errorf("failed to pack registrar request"))
+	// 		}
+	// 	default:
+	// 		return []byte{}, fmt.Errorf("v2.0, v2.1, and v2.2 are the only supported versions")
+	// 	}
+
+	// 	var callData []byte
+	// 	linkTokenABI, err := link_token_interface.LinkTokenMetaData.GetAbi()
+	// 	if err != nil {
+	// 		return []byte{}, errors.Join(err, fmt.Errorf("failed to get link token abi"))
+	// 	}
+
+	// 	callData, err = linkTokenABI.Pack("transferAndCall", common.HexToAddress(a.Registrar.Address()), upkeepConfig.FundingAmount, registrationRequest)
+	// 	if err != nil {
+	// 		return []byte{}, errors.Join(err, fmt.Errorf("failed to pack link token transfer and call"))
+	// 	}
+
+	// 	return callData, nil
+	// }
+
+	// // // Transfer LINK to ephemeral keys
+	// multiCallData := make([][]byte, 0)
+	// for i := 0; i < len(upkeepConfigs); i++ {
+	// 	data, err := generateCallData(upkeepConfigs[i])
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// 	multiCallData = append(multiCallData, data)
+	// }
+
+	// var call []contracts.Call
+	// for _, d := range multiCallData {
+	// 	data := contracts.Call{Target: common.HexToAddress(a.LinkToken.Address()), AllowFailure: false, CallData: d}
+	// 	call = append(call, data)
+	// }
+
+	// multiCallABI, err := abi.JSON(strings.NewReader(contracts.MultiCallABI))
+	// if err != nil {
+	// 	return nil, errors.Join(err, fmt.Errorf("failed to get multicall abi"))
+	// }
+	// boundContract := bind.NewBoundContract(multicallAddress, multiCallABI, a.ChainClient.Client, a.ChainClient.Client, a.ChainClient.Client)
+	// // call aggregate3 to group all msg call data and send them in a single transaction
+	// decodedTx, err := a.ChainClient.Decode(boundContract.Transact(a.ChainClient.NewTXOpts(), "aggregate3", call))
+	// if err != nil {
+	// 	return nil, errors.Join(err, fmt.Errorf("failed to aggregate calls"))
+	// }
+
+	// registrationTxHashes = append(registrationTxHashes, decodedTx.Transaction.Hash())
+	// return registrationTxHashes, nil
 
 	numberOfClients := int(*a.ChainClient.Cfg.EphemeralAddrs)
 
@@ -594,27 +684,46 @@ func (a *AutomationTest) RegisterUpkeeps(upkeepConfigs []UpkeepConfig) ([]common
 	}
 
 	type result struct {
-		txHash common.Hash
-		err    error
+		txHash    common.Hash
+		err       error
+		config    *UpkeepConfig
+		clientNum *int
 	}
 
 	resultCh := make(chan result, numberOfClients)
 	stopCh := make(chan struct{})
 
-	errorz := make([]error, 0)
+	var wgSubmit sync.WaitGroup
+	var wgProcesses sync.WaitGroup
+
+	for range upkeepConfigs {
+		wgProcesses.Add(1)
+	}
+
+	failedRegistrations := make([]result, 0)
+	okRegistrations := make(map[int]int, 0)
+
+	// errorz := make([]error, 0)
 
 	go func() {
 		for r := range resultCh {
 			if r.err != nil {
 				a.Logger.Error().Err(r.err).Msg("failed to register upkeep")
-				errorz = append(errorz, r.err)
+				failedRegistrations = append(failedRegistrations, r)
+				// errorz = append(errorz, r.err)
 				// err = r.err
 				// close(stopCh)
 				// return
 			} else {
 				a.Logger.Debug().Msgf("Registered upkeep")
 				registrationTxHashes = append(registrationTxHashes, r.txHash)
+				if _, ok := okRegistrations[*r.clientNum]; !ok {
+					okRegistrations[*r.clientNum] = 1
+				} else {
+					okRegistrations[*r.clientNum]++
+				}
 			}
+			wgProcesses.Done()
 		}
 	}()
 
@@ -666,18 +775,31 @@ func (a *AutomationTest) RegisterUpkeeps(upkeepConfigs []UpkeepConfig) ([]common
 		default:
 			resultCh <- result{err: fmt.Errorf("v2.0, v2.1, and v2.2 are the only supported versions")}
 		}
-		decodedTx, err := a.ChainClient.Decode(a.LinkToken.TransferAndCallFromKey(a.Registrar.Address(), upkeepConfig.FundingAmount, registrationRequest, keyNum))
-		if err != nil {
-			balance, err := a.LinkToken.BalanceOf(context.Background(), a.ChainClient.Addresses[keyNum].Hex())
-			if err == nil {
-				a.Logger.Error().Msgf("Balance of client %d: %s", keyNum, balance.String())
-			} else {
-				a.Logger.Error().Err(err).Msgf("Failed to get balance of client %d", keyNum)
+
+		attempt := 0
+		var decodedTx *seth.DecodedTransaction
+		for {
+			if attempt > 3 {
+				resultCh <- result{
+					err:       fmt.Errorf("failed to register upkeep %s after 3 attempts", upkeepConfig.UpkeepContract.Hex()),
+					clientNum: &keyNum,
+					config:    &upkeepConfig,
+				}
+				return
 			}
-			resultCh <- result{err: errors.Join(err, fmt.Errorf("client number %d failed to register upkeep %s", keyNum, upkeepConfig.UpkeepContract.Hex()))}
-			return
+
+			decodedTx, err = a.ChainClient.Decode(a.LinkToken.TransferAndCallFromKey(a.Registrar.Address(), upkeepConfig.FundingAmount, registrationRequest, keyNum))
+			if err == nil {
+				break
+			}
+			attempt++
 		}
-		resultCh <- result{txHash: decodedTx.Transaction.Hash()}
+
+		// if err != nil {
+		// 	resultCh <- result{err: errors.Join(err, fmt.Errorf("client number %d failed to register upkeep %s", keyNum, upkeepConfig.UpkeepContract.Hex()))}
+		// 	return
+		// }
+		resultCh <- result{txHash: decodedTx.Transaction.Hash(), clientNum: &keyNum}
 	}
 
 	var divideSlice = func(slice []UpkeepConfig, numSlices int) [][]UpkeepConfig {
@@ -702,23 +824,31 @@ func (a *AutomationTest) RegisterUpkeeps(upkeepConfigs []UpkeepConfig) ([]common
 		return divided
 	}
 
-	var wg sync.WaitGroup
 	dividedConfigs := divideSlice(upkeepConfigs, numberOfClients)
 
-	//TODO think what to do when ephemerals is 0 and there's only root
+	dividedTotal := 0
+	for _, slice := range dividedConfigs {
+		dividedTotal += len(slice)
+	}
+
+	if dividedTotal != len(upkeepConfigs) {
+		return nil, fmt.Errorf("failed to divide upkeep configs")
+	}
+
+	// TODO think what to do when ephemerals is 0 and there's only root
 	// clientNum has to be 0, not 1, but if there's at least 1 ephemeral, it has to start from 1
 
 	automationDefaultLinkFunds := big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(10000))) //10000 LINK
 
-	semaphore := make(chan struct{}, 10)
+	// semaphore := make(chan struct{}, 10)
 
 	// Launching workers
 	for clientNum := 1; clientNum <= numberOfClients; clientNum++ {
-		wg.Add(1)
-		semaphore <- struct{}{}
+		wgSubmit.Add(1)
+		// semaphore <- struct{}{}
 		go func(clientNum int) {
-			defer wg.Done()
-			defer func() { <-semaphore }()
+			defer wgSubmit.Done()
+			// defer func() { <-semaphore }()
 			configs := dividedConfigs[clientNum-1]
 
 			balance, err := a.LinkToken.BalanceOf(context.Background(), a.ChainClient.Addresses[clientNum].Hex())
@@ -753,16 +883,70 @@ func (a *AutomationTest) RegisterUpkeeps(upkeepConfigs []UpkeepConfig) ([]common
 		}(clientNum)
 	}
 
-	wg.Wait()
-	close(resultCh)
+	go func() {
+		wgSubmit.Wait()
+		close(resultCh)
+	}()
+
+	wgProcesses.Wait()
 
 	// if err != nil {
 	// 	return nil, err
 	// }
 
-	if len(errorz) > 0 {
-		return nil, fmt.Errorf("upkeep registration failed. failed: %d | success: %d", len(errorz), len(registrationTxHashes))
+	if len(failedRegistrations) > 0 {
+		failedByClient := make(map[int]int)
+		for _, failed := range failedRegistrations {
+			if _, ok := failedByClient[*failed.clientNum]; ok {
+				failedByClient[*failed.clientNum]++
+			} else {
+				failedByClient[*failed.clientNum] = 1
+			}
+		}
+
+		for clientNum, failed := range failedByClient {
+			successful := 0
+			if v, ok := okRegistrations[clientNum]; ok {
+				successful = v
+			}
+
+			a.Logger.Error().
+				Int("Client Number", clientNum).
+				Str("Client address", a.ChainClient.Addresses[clientNum].Hex()).
+				Int("Failed Registrations", failed).
+				Int("Successful Registrations", successful).
+				Msg("Failed to register upkeeps")
+		}
+
+		resultCh = make(chan result, len(failedRegistrations))
+		for _, failed := range failedRegistrations {
+			registerUpkeep(*failed.config, *failed.clientNum, resultCh)
+		}
+
+		close(resultCh)
+
+		retryErrs := make([]error, 0)
+
+		for r := range resultCh {
+			if r.err != nil {
+				retryErrs = append(retryErrs, r.err)
+			} else {
+				registrationTxHashes = append(registrationTxHashes, r.txHash)
+			}
+		}
+
+		if len(retryErrs) > 0 {
+			return nil, fmt.Errorf("failed registrations: %d | successful registrations: %d | failed registrations retries: %d | successful registrations retries: %d", len(failedRegistrations), len(registrationTxHashes), len(retryErrs), len(failedRegistrations)-len(retryErrs))
+		}
+
+		a.Logger.Warn().
+			Int("Failed Registrations", len(failedRegistrations)).
+			Msg("Managed to register failed upkeeps")
 	}
+
+	// if len(errorz) > 0 {
+	// 	return nil, fmt.Errorf("upkeep registration failed. failed: %d | success: %d", len(errorz), len(registrationTxHashes))
+	// }
 
 	// for _, upkeepConfig := range upkeepConfigs {
 	// 	switch a.RegistrySettings.RegistryVersion {
