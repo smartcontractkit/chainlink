@@ -2,11 +2,11 @@ package workflows
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"sync"
 	"time"
-
-	"github.com/google/uuid"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -17,9 +17,8 @@ import (
 
 const (
 	// NOTE: max 32 bytes per ID - consider enforcing exactly 32 bytes?
-	mockedWorkflowID  = "aaaaaaaaaa0000000000000000000000"
-	mockedExecutionID = "bbbbbbbbbb0000000000000000000000"
-	mockedTriggerID   = "cccccccccc0000000000000000000000"
+	mockedTriggerID  = "cccccccccc0000000000000000000000"
+	mockedWorkflowID = "15c631d295ef5e32deb99a10ee6804bc4af1385568f9b3363f6552ac6dbb2cef"
 )
 
 // Engine handles the lifecycle of a single workflow and its executions.
@@ -95,7 +94,7 @@ LOOP:
 					return nil
 				}
 
-				// If the capability is already cached, that means we've already registered it
+				// If the capability already exists, that means we've already registered it
 				if s.capability != nil {
 					return nil
 				}
@@ -122,14 +121,14 @@ LOOP:
 
 				reg := capabilities.RegisterToWorkflowRequest{
 					Metadata: capabilities.RegistrationMetadata{
-						WorkflowID: mockedWorkflowID,
+						WorkflowID: e.workflow.id,
 					},
 					Config: s.config,
 				}
 
 				innerErr = cc.RegisterToWorkflow(ctx, reg)
 				if innerErr != nil {
-					return fmt.Errorf("failed to register to workflow: %+v", reg)
+					return fmt.Errorf("failed to register to workflow (%+v): %w", reg, innerErr)
 				}
 
 				s.capability = cc
@@ -177,7 +176,7 @@ func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability) erro
 
 	triggerRegRequest := capabilities.CapabilityRequest{
 		Metadata: capabilities.RequestMetadata{
-			WorkflowID: mockedWorkflowID,
+			WorkflowID: e.workflow.id,
 		},
 		Config: tc,
 		Inputs: triggerInputs,
@@ -217,7 +216,20 @@ func (e *Engine) loop(ctx context.Context) {
 				continue
 			}
 
-			err := e.startExecution(ctx, resp.Value)
+			te := &capabilities.TriggerEvent{}
+			err := resp.Value.UnwrapTo(te)
+			if err != nil {
+				e.logger.Errorf("could not unwrap trigger event", resp.Err)
+				continue
+			}
+
+			executionID, err := generateExecutionID(e.workflow.id, te.ID)
+			if err != nil {
+				e.logger.Errorf("could not generate execution ID", resp.Err)
+				continue
+			}
+
+			err = e.startExecution(ctx, executionID, resp.Value)
 			if err != nil {
 				e.logger.Errorf("failed to start execution: %w", err)
 			}
@@ -245,9 +257,23 @@ func (e *Engine) loop(ctx context.Context) {
 	}
 }
 
+func generateExecutionID(workflowID, eventID string) (string, error) {
+	s := sha256.New()
+	_, err := s.Write([]byte(workflowID))
+	if err != nil {
+		return "", err
+	}
+
+	_, err = s.Write([]byte(eventID))
+	if err != nil {
+		return "", err
+	}
+
+	return hex.EncodeToString(s.Sum(nil)), nil
+}
+
 // startExecution kicks off a new workflow execution when a trigger event is received.
-func (e *Engine) startExecution(ctx context.Context, event values.Value) error {
-	executionID := uuid.New().String()
+func (e *Engine) startExecution(ctx context.Context, executionID string, event values.Value) error {
 	e.logger.Debugw("executing on a trigger event", "event", event, "executionID", executionID)
 	ec := &executionState{
 		steps: map[string]*stepState{
@@ -258,7 +284,7 @@ func (e *Engine) startExecution(ctx context.Context, event values.Value) error {
 				status: statusCompleted,
 			},
 		},
-		workflowID:  mockedWorkflowID,
+		workflowID:  e.workflow.id,
 		executionID: executionID,
 		status:      statusStarted,
 	}
@@ -375,6 +401,7 @@ func (e *Engine) queueIfReady(state executionState, step *step) {
 }
 
 func (e *Engine) finishExecution(ctx context.Context, executionID string, status string) error {
+	e.logger.Infow("finishing execution", "executionID", executionID, "status", status)
 	err := e.executionStates.updateStatus(ctx, executionID, status)
 	if err != nil {
 		return err
@@ -404,11 +431,11 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 
 	inputs, outputs, err := e.executeStep(ctx, msg)
 	if err != nil {
-		e.logger.Errorf("error executing step request: %w", err, "executionID", msg.state.executionID, "stepRef", msg.stepRef)
+		e.logger.Errorf("error executing step request: %s", err, "executionID", msg.state.executionID, "stepRef", msg.stepRef)
 		stepState.outputs.err = err
 		stepState.status = statusErrored
 	} else {
-		e.logger.Debugw("step executed successfully", "executionID", msg.state.executionID, "stepRef", msg.stepRef, "outputs", outputs)
+		e.logger.Infow("step executed successfully", "executionID", msg.state.executionID, "stepRef", msg.stepRef, "outputs", outputs)
 		stepState.outputs.value = outputs
 		stepState.status = statusCompleted
 	}
@@ -479,7 +506,7 @@ func (e *Engine) deregisterTrigger(ctx context.Context, t *triggerCapability) er
 	}
 	deregRequest := capabilities.CapabilityRequest{
 		Metadata: capabilities.RequestMetadata{
-			WorkflowID: mockedWorkflowID,
+			WorkflowID: e.workflow.id,
 		},
 		Inputs: triggerInputs,
 		Config: t.config,
@@ -511,7 +538,7 @@ func (e *Engine) Close() error {
 
 			reg := capabilities.UnregisterFromWorkflowRequest{
 				Metadata: capabilities.RegistrationMetadata{
-					WorkflowID: mockedWorkflowID,
+					WorkflowID: e.workflow.id,
 				},
 				Config: s.config,
 			}
@@ -533,6 +560,7 @@ func (e *Engine) Close() error {
 
 type Config struct {
 	Spec             string
+	WorkflowID       string
 	Lggr             logger.Logger
 	Registry         types.CapabilitiesRegistry
 	MaxWorkerLimit   int
@@ -571,6 +599,8 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 	if err != nil {
 		return nil, err
 	}
+
+	workflow.id = cfg.WorkflowID
 
 	// Instantiate semaphore to put a limit on the number of workers
 	newWorkerCh := make(chan struct{}, cfg.MaxWorkerLimit)
