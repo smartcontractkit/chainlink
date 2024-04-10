@@ -221,10 +221,17 @@ func TestGetFilteredChainTokens(t *testing.T) {
 			priceRegistry := ccipdatamocks.NewPriceRegistryReader(t)
 			priceRegistry.On("GetFeeTokens", ctx).Return(tc.feeTokens, nil).Once()
 
-			priceGet := pricegetter.NewMockPriceGetter(t)
+			cfgTokens := []cciptypes.Address{}
+			uncfgTokens := []cciptypes.Address{}
 			for i, token := range tokens {
-				priceGet.On("IsTokenConfigured", mock.Anything, token).Return(tc.tokenHasPriceGetter[i], nil).Maybe()
+				if tc.tokenHasPriceGetter[i] {
+					cfgTokens = append(cfgTokens, token)
+				} else {
+					uncfgTokens = append(uncfgTokens, token)
+				}
 			}
+			priceGet := pricegetter.NewMockPriceGetter(t)
+			priceGet.On("FilterConfiguredTokens", mock.Anything, tokens).Return(cfgTokens, uncfgTokens, nil)
 
 			var offRamps []ccipdata.OffRampReader
 			for _, destTokens := range tc.destTokens {

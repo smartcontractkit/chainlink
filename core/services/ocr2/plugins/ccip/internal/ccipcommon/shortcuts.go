@@ -54,31 +54,12 @@ func GetFilteredSortedChainTokens(ctx context.Context, offRamps []ccipdata.OffRa
 		return nil, nil, fmt.Errorf("get tokens with batch limit: %w", err)
 	}
 
-	destTokensWithPrice, destTokensWithoutPrice, err := filterForPricedTokens(ctx, destBridgeableTokens, priceGetter)
+	destTokensWithPrice, destTokensWithoutPrice, err := priceGetter.FilterConfiguredTokens(ctx, destBridgeableTokens)
 	if err != nil {
 		return nil, nil, fmt.Errorf("filter for priced tokens: %w", err)
 	}
 
 	return flattenedAndSortedChainTokens(destFeeTokens, destTokensWithPrice), destTokensWithoutPrice, nil
-}
-
-func filterForPricedTokens(ctx context.Context, chainTokens []cciptypes.Address, priceGetter cciptypes.PriceGetter) (tokensWithPrice []cciptypes.Address, tokensWithoutPrice []cciptypes.Address, err error) {
-	tokensWithPrice = []cciptypes.Address{}
-	tokensWithoutPrice = []cciptypes.Address{}
-
-	for _, token := range chainTokens {
-		isConfigured, err := priceGetter.IsTokenConfigured(ctx, token)
-		if err != nil {
-			return nil, nil, fmt.Errorf("unable to check if token configured: %w", err)
-		}
-		if isConfigured {
-			tokensWithPrice = append(tokensWithPrice, token)
-		} else {
-			tokensWithoutPrice = append(tokensWithoutPrice, token)
-		}
-	}
-
-	return tokensWithPrice, tokensWithoutPrice, nil
 }
 
 func flattenedAndSortedChainTokens(slices ...[]cciptypes.Address) (chainTokens []cciptypes.Address) {

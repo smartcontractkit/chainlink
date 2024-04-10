@@ -34,32 +34,43 @@ func (_m *MockPriceGetter) Close() error {
 	return r0
 }
 
-// IsTokenConfigured provides a mock function with given fields: ctx, token
-func (_m *MockPriceGetter) IsTokenConfigured(ctx context.Context, token ccip.Address) (bool, error) {
-	ret := _m.Called(ctx, token)
+// FilterConfiguredTokens provides a mock function with given fields: ctx, tokens
+func (_m *MockPriceGetter) FilterConfiguredTokens(ctx context.Context, tokens []ccip.Address) ([]ccip.Address, []ccip.Address, error) {
+	ret := _m.Called(ctx, tokens)
 
 	if len(ret) == 0 {
-		panic("no return value specified for IsTokenConfigured")
+		panic("no return value specified for FilterConfiguredTokens")
 	}
 
-	var r0 bool
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, ccip.Address) (bool, error)); ok {
-		return rf(ctx, token)
+	var r0 []ccip.Address
+	var r1 []ccip.Address
+	var r2 error
+	if rf, ok := ret.Get(0).(func(context.Context, []ccip.Address) ([]ccip.Address, []ccip.Address, error)); ok {
+		return rf(ctx, tokens)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, ccip.Address) bool); ok {
-		r0 = rf(ctx, token)
+	if rf, ok := ret.Get(0).(func(context.Context, []ccip.Address) []ccip.Address); ok {
+		r0 = rf(ctx, tokens)
 	} else {
-		r0 = ret.Get(0).(bool)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]ccip.Address)
+		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, ccip.Address) error); ok {
-		r1 = rf(ctx, token)
+	if rf, ok := ret.Get(1).(func(context.Context, []ccip.Address) []ccip.Address); ok {
+		r1 = rf(ctx, tokens)
 	} else {
-		r1 = ret.Error(1)
+		if ret.Get(1) != nil {
+			r1 = ret.Get(1).([]ccip.Address)
+		}
 	}
 
-	return r0, r1
+	if rf, ok := ret.Get(2).(func(context.Context, []ccip.Address) error); ok {
+		r2 = rf(ctx, tokens)
+	} else {
+		r2 = ret.Error(2)
+	}
+
+	return r0, r1, r2
 }
 
 // TokenPricesUSD provides a mock function with given fields: ctx, tokens

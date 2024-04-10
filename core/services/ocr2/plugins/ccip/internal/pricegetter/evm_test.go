@@ -62,11 +62,12 @@ func TestDynamicPriceGetter(t *testing.T) {
 			}
 			require.NoError(t, err)
 			ctx := testutils.Context(t)
-			// Check unconfigured token
+			// Check configured token
 			unconfiguredTk := cciptypes.Address(utils.RandomAddress().String())
-			isConfigured, err := pg.IsTokenConfigured(ctx, unconfiguredTk)
+			cfgTokens, uncfgTokens, err := pg.FilterConfiguredTokens(ctx, []cciptypes.Address{unconfiguredTk})
 			require.NoError(t, err)
-			assert.False(t, isConfigured)
+			assert.Equal(t, []cciptypes.Address{}, cfgTokens)
+			assert.Equal(t, []cciptypes.Address{unconfiguredTk}, uncfgTokens)
 			// Build list of tokens to query.
 			tokens := make([]cciptypes.Address, 0, len(test.param.expectedTokenPrices))
 			for tk := range test.param.expectedTokenPrices {
