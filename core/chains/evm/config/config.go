@@ -147,7 +147,5 @@ type NodePool interface {
 //
 //go:generate mockery --quiet --name ChainScopedConfig --output ./mocks/ --case=underscore
 type ChainScopedConfig interface {
-	Validate() error
-
 	EVM() EVM
 }
