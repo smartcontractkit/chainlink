@@ -154,7 +154,6 @@ func TestGetFilteredChainTokens(t *testing.T) {
 		name                   string
 		feeTokens              []cciptypes.Address
 		destTokens             [][]cciptypes.Address
-		tokenHasPriceGetter    [numTokens]bool
 		expectedChainTokens    []cciptypes.Address
 		expectedFilteredTokens []cciptypes.Address
 	}{
@@ -162,7 +161,6 @@ func TestGetFilteredChainTokens(t *testing.T) {
 			name:                   "empty",
 			feeTokens:              []cciptypes.Address{},
 			destTokens:             [][]cciptypes.Address{{}},
-			tokenHasPriceGetter:    [numTokens]bool{false, false, false, false, false, false},
 			expectedChainTokens:    []cciptypes.Address{},
 			expectedFilteredTokens: []cciptypes.Address{},
 		},
@@ -172,9 +170,8 @@ func TestGetFilteredChainTokens(t *testing.T) {
 			destTokens: [][]cciptypes.Address{
 				{tokens[1], tokens[2], tokens[3]},
 			},
-			tokenHasPriceGetter:    [numTokens]bool{true, true, true, true, false, false},
 			expectedChainTokens:    []cciptypes.Address{tokens[0], tokens[1], tokens[2], tokens[3]},
-			expectedFilteredTokens: []cciptypes.Address{},
+			expectedFilteredTokens: []cciptypes.Address{tokens[4], tokens[5]},
 		},
 		{
 			name:      "multiple offRamps with distinct tokens",
@@ -184,7 +181,6 @@ func TestGetFilteredChainTokens(t *testing.T) {
 				{tokens[3], tokens[4]},
 				{tokens[5]},
 			},
-			tokenHasPriceGetter:    [numTokens]bool{true, true, true, true, true, true},
 			expectedChainTokens:    []cciptypes.Address{tokens[0], tokens[1], tokens[2], tokens[3], tokens[4], tokens[5]},
 			expectedFilteredTokens: []cciptypes.Address{},
 		},
@@ -196,7 +192,6 @@ func TestGetFilteredChainTokens(t *testing.T) {
 				{tokens[0], tokens[2], tokens[3], tokens[4], tokens[5]},
 				{tokens[5]},
 			},
-			tokenHasPriceGetter:    [numTokens]bool{true, true, true, true, true, true},
 			expectedChainTokens:    []cciptypes.Address{tokens[0], tokens[1], tokens[2], tokens[3], tokens[4], tokens[5]},
 			expectedFilteredTokens: []cciptypes.Address{},
 		},
@@ -208,7 +203,6 @@ func TestGetFilteredChainTokens(t *testing.T) {
 				{tokens[0], tokens[2], tokens[3], tokens[4], tokens[5]},
 				{tokens[5]},
 			},
-			tokenHasPriceGetter:    [numTokens]bool{true, true, true, true, true, false},
 			expectedChainTokens:    []cciptypes.Address{tokens[0], tokens[1], tokens[2], tokens[3], tokens[4]},
 			expectedFilteredTokens: []cciptypes.Address{tokens[5]},
 		},
@@ -221,17 +215,8 @@ func TestGetFilteredChainTokens(t *testing.T) {
 			priceRegistry := ccipdatamocks.NewPriceRegistryReader(t)
 			priceRegistry.On("GetFeeTokens", ctx).Return(tc.feeTokens, nil).Once()
 
-			cfgTokens := []cciptypes.Address{}
-			uncfgTokens := []cciptypes.Address{}
-			for i, token := range tokens {
-				if tc.tokenHasPriceGetter[i] {
-					cfgTokens = append(cfgTokens, token)
-				} else {
-					uncfgTokens = append(uncfgTokens, token)
-				}
-			}
 			priceGet := pricegetter.NewMockPriceGetter(t)
-			priceGet.On("FilterConfiguredTokens", mock.Anything, tokens).Return(cfgTokens, uncfgTokens, nil)
+			priceGet.On("FilterConfiguredTokens", mock.Anything, mock.Anything).Return(tc.expectedChainTokens, tc.expectedFilteredTokens, nil)
 
 			var offRamps []ccipdata.OffRampReader
 			for _, destTokens := range tc.destTokens {
