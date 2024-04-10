@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+
 	"regexp"
-	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -22,7 +22,7 @@ import (
 type SendError struct {
 	fatal        bool
 	err          error
-	clientErrors config.ClientErrors
+	clientErrors ClientErrors
 }
 
 func (s *SendError) Error() string {
@@ -236,23 +236,7 @@ var zkEvm = ClientErrors{
 	OutOfCounters: regexp.MustCompile(`(?:: |^)not enough .* counters to continue the execution$`),
 }
 
-var clientsLock = sync.Mutex{}
-var clients = map[string]ClientErrors{
-	"parity":     parity,
-	"geth":       geth,
-	"arbitrum":   arbitrum,
-	"metis":      metis,
-	"substrate":  substrate,
-	"avalanche":  avalanche,
-	"nethermind": nethermind,
-	"harmony":    harmony,
-	"besu":       besu,
-	"erigon":     erigon,
-	"klaytn":     klaytn,
-	"celo":       celo,
-	"zkSync":     zkSync,
-	"zkEvm":      zkEvm,
-}
+var clients = []ClientErrors{parity, geth, arbitrum, metis, substrate, avalanche, nethermind, harmony, besu, erigon, klaytn, celo, zkSync, zkEvm}
 
 // clientErrorRegexes returns a map of compiled regexes for each error type
 func clientErrorRegexes(errsRegex config.ClientErrors) ClientErrors {
@@ -283,17 +267,14 @@ func (s *SendError) is(errorType int) bool {
 	}
 	str := s.CauseStr()
 
-	clientsLock.Lock()
-	defer clientsLock.Unlock()
-
-	clients["tomlConfig"] = clientErrorRegexes(s.clientErrors)
+	if _, ok := s.clientErrors[errorType]; ok {
+		if s.clientErrors[errorType].MatchString(str) {
+			return true
+		}
+	}
 
 	for _, client := range clients {
 		if _, ok := client[errorType]; !ok {
-			continue
-		}
-		if client[errorType].String() == "" {
-			// Skip empty regexes.
 			continue
 		}
 		if client[errorType].MatchString(str) {
@@ -398,7 +379,7 @@ func NewFatalSendError(e error, clientErrors config.ClientErrors) *SendError {
 	if e == nil {
 		return nil
 	}
-	return &SendError{err: pkgerrors.WithStack(e), fatal: true, clientErrors: clientErrors}
+	return &SendError{err: pkgerrors.WithStack(e), fatal: true, clientErrors: clientErrorRegexes(clientErrors)}
 }
 
 func NewSendErrorS(s string, clientErrors config.ClientErrors) *SendError {
@@ -409,30 +390,28 @@ func NewSendError(e error, clientErrors config.ClientErrors) *SendError {
 	if e == nil {
 		return nil
 	}
-	fatal := isFatalSendError(e, clientErrors)
-	return &SendError{err: pkgerrors.WithStack(e), fatal: fatal, clientErrors: clientErrors}
+	errRegexes := clientErrorRegexes(clientErrors)
+	fatal := isFatalSendError(e, errRegexes)
+	return &SendError{err: pkgerrors.WithStack(e), fatal: fatal, clientErrors: errRegexes}
 }
 
 // Geth/parity returns these errors if the transaction failed in such a way that:
 // 1. It will never be included into a block as a result of this send
 // 2. Resending the transaction at a different gas price will never change the outcome
-func isFatalSendError(err error, clientErrors config.ClientErrors) bool {
+func isFatalSendError(err error, clientErrors ClientErrors) bool {
 	if err == nil {
 		return false
 	}
 	str := pkgerrors.Cause(err).Error()
 
-	clientsLock.Lock()
-	defer clientsLock.Unlock()
-
-	clients["tomlConfig"] = clientErrorRegexes(clientErrors)
+	if _, ok := clientErrors[Fatal]; ok {
+		if clientErrors[Fatal].MatchString(str) {
+			return true
+		}
+	}
 
 	for _, client := range clients {
 		if _, ok := client[Fatal]; !ok {
-			continue
-		}
-		if client[Fatal].String() == "" {
-			// Skip empty regexes.
 			continue
 		}
 		if client[Fatal].MatchString(str) {
