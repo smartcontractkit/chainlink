@@ -74,21 +74,26 @@ func NewDynamicPriceGetter(cfg config.DynamicPriceGetterConfig, evmClients map[u
 	return &priceGetter, nil
 }
 
-// IsTokenConfigured implements the PriceGetter interface.
-// It returns if a token has a price resolution rule configured on the PriceGetterConfig
-func (d *DynamicPriceGetter) IsTokenConfigured(ctx context.Context, token cciptypes.Address) (bool, error) {
-	evmAddr, err := ccipcalc.GenericAddrToEvm(token)
-	if err != nil {
-		return false, err
-	}
+// FilterForConfiguredTokens implements the PriceGetter interface.
+// It filters a list of token addresses for only those that have a price resolution rule configured on the PriceGetterConfig
+func (d *DynamicPriceGetter) FilterConfiguredTokens(ctx context.Context, tokens []cciptypes.Address) (configured []cciptypes.Address, unconfigured []cciptypes.Address, err error) {
+	configured = []cciptypes.Address{}
+	unconfigured = []cciptypes.Address{}
+	for _, tk := range tokens {
+		evmAddr, err := ccipcalc.GenericAddrToEvm(tk)
+		if err != nil {
+			return nil, nil, err
+		}
 
-	if _, isAgg := d.cfg.AggregatorPrices[evmAddr]; isAgg {
-		return isAgg, nil
-	} else if _, isStatic := d.cfg.StaticPrices[evmAddr]; isStatic {
-		return isStatic, nil
+		if _, isAgg := d.cfg.AggregatorPrices[evmAddr]; isAgg {
+			configured = append(configured, tk)
+		} else if _, isStatic := d.cfg.StaticPrices[evmAddr]; isStatic {
+			configured = append(configured, tk)
+		} else {
+			unconfigured = append(unconfigured, tk)
+		}
 	}
-
-	return false, nil
+	return configured, unconfigured, nil
 }
 
 // TokenPricesUSD implements the PriceGetter interface.

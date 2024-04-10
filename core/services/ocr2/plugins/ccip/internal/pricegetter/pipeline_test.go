@@ -57,15 +57,11 @@ func TestDataSource(t *testing.T) {
 
 	priceGetter := newTestPipelineGetter(t, source)
 
-	// Link token is configured
-	hasLinkToken, err := priceGetter.IsTokenConfigured(context.Background(), linkTokenAddress)
+	// USDC & LINK are configured
+	confTokens, _, err := priceGetter.FilterConfiguredTokens(context.Background(), []cciptypes.Address{linkTokenAddress, usdcTokenAddress})
 	require.NoError(t, err)
-	assert.True(t, hasLinkToken)
-
-	// USDC token is configured
-	hasUSDCToken, err := priceGetter.IsTokenConfigured(context.Background(), usdcTokenAddress)
-	require.NoError(t, err)
-	assert.True(t, hasUSDCToken)
+	assert.Equal(t, linkTokenAddress, confTokens[0])
+	assert.Equal(t, usdcTokenAddress, confTokens[1])
 
 	// Ask for all prices present in spec.
 	prices, err := priceGetter.TokenPricesUSD(context.Background(), []cciptypes.Address{
