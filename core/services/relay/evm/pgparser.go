@@ -31,6 +31,6 @@ func (v *PgDSLParser) VisitEventTopicsByValueFilter(_ *EventByTopicFilter) {}
 
 func (v *PgDSLParser) VisitEventByWordFilter(_ *EventByWordFilter) {}
 
-func (v *PgDSLParser) VisitEventFilter(_ *EventFilter) {}
+func (v *PgDSLParser) VisitEventBySigFilter(_ *EventBySigFilter) {}
 
 func (v *PgDSLParser) VisitFinalityFilter(_ *FinalityFilter) {}

@@ -313,7 +313,7 @@ func (e *eventBinding) remapFilter(filter query.KeyFilter) (remappedFilter query
 	}
 
 	if addEventSigFilter {
-		remappedFilter.Expressions = append(remappedFilter.Expressions, NewEventFilter(e.address, e.hash))
+		remappedFilter.Expressions = append(remappedFilter.Expressions, NewEventBySigFilter(e.address, e.hash))
 	}
 	return remappedFilter, nil
 }

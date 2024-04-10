@@ -9,22 +9,22 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
-type EventFilter struct {
+type EventBySigFilter struct {
 	Address  common.Address
 	EventSig common.Hash
 }
 
-func NewEventFilter(address common.Address, eventSig common.Hash) query.Expression {
-	var searchEventFilter *EventFilter
+func NewEventBySigFilter(address common.Address, eventSig common.Hash) query.Expression {
+	var searchEventFilter *EventBySigFilter
 	searchEventFilter.Address = address
 	searchEventFilter.EventSig = eventSig
 	return query.Expression{Primitive: searchEventFilter}
 }
 
-func (f *EventFilter) Accept(visitor query.Visitor) {
+func (f *EventBySigFilter) Accept(visitor query.Visitor) {
 	switch v := visitor.(type) {
 	case *PgDSLParser:
-		v.VisitEventFilter(f)
+		v.VisitEventBySigFilter(f)
 	}
 }
 
