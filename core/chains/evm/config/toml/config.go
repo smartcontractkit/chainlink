@@ -772,7 +772,7 @@ type NodePool struct {
 	LeaseDuration              *commonconfig.Duration
 	NodeIsSyncingEnabled       *bool
 	FinalizedBlockPollInterval *commonconfig.Duration
-	ClientErrors               ClientErrors `toml:",omitempty"`
+	Errors                     ClientErrors `toml:",omitempty"`
 }
 
 func (p *NodePool) setFrom(f *NodePool) {
@@ -797,7 +797,7 @@ func (p *NodePool) setFrom(f *NodePool) {
 	if v := f.FinalizedBlockPollInterval; v != nil {
 		p.FinalizedBlockPollInterval = v
 	}
-	p.ClientErrors.setFrom(&f.ClientErrors)
+	p.Errors.setFrom(&f.Errors)
 }
 
 type OCR struct {

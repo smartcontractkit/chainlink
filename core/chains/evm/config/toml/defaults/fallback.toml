@@ -64,7 +64,7 @@ LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 
-[NodePool.ClientErrors]
+[NodePool.Errors]
 NonceTooLow = '(: |^)nonce too low'
 NonceTooHigh = '(: |^)nonce too high'
 ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'

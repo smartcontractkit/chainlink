@@ -355,7 +355,7 @@ FinalizedBlockPollInterval = '5s' # Default
 
 # Client errors enable the node to provide custom regex patterns to match against error messages
 # from RPCs.
-[EVM.NodePool.ClientErrors]
+[EVM.NodePool.Errors]
 NonceTooLow = '(: |^)nonce too low'
 NonceTooHigh = '(: |^)nonce too high'
 ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
