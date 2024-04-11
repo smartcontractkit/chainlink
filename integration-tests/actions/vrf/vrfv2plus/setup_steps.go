@@ -294,7 +294,6 @@ func SetupVRFV2PlusWrapperEnvironment(
 
 	err = wrapperContracts.VRFV2PlusWrapper.SetConfig(
 		*vrfv2PlusConfig.WrapperGasOverhead,
-		*vrfv2PlusConfig.WrapperGasOverheadPerWord,
 		*vrfv2PlusConfig.CoordinatorGasOverhead,
 		*vrfv2PlusConfig.CoordinatorGasOverheadPerWord,
 		//todo - introduce separate config for Wrapper Premium Percentage
