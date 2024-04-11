@@ -154,6 +154,7 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
     ) revert MigrationNotPermitted();
     if (s_storage.transcoder == ZERO_ADDRESS) revert TranscoderNotSet();
     if (ids.length == 0) revert ArrayHasNoEntries();
+
     IERC20 billingToken;
     uint256 balanceToTransfer;
     uint256 id;
@@ -163,6 +164,7 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
     bytes[] memory checkDatas = new bytes[](ids.length);
     bytes[] memory triggerConfigs = new bytes[](ids.length);
     bytes[] memory offchainConfigs = new bytes[](ids.length);
+
     for (uint256 idx = 0; idx < ids.length; idx++) {
       id = ids[idx];
       upkeep = s_upkeep[id];
@@ -178,9 +180,13 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
         billingToken.safeTransfer(destination, balanceToTransfer);
         billingToken = upkeep.billingToken;
         balanceToTransfer = upkeep.balance;
+      } else if (idx != 0) {
+        balanceToTransfer += upkeep.balance;
       }
+
       _requireAdminAndNotCancelled(id);
       upkeep.forwarder.updateRegistry(destination);
+
       upkeeps[idx] = upkeep;
       admins[idx] = s_upkeepAdmin[id];
       checkDatas[idx] = s_checkData[id];
@@ -201,6 +207,7 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
         billingToken.safeTransfer(destination, balanceToTransfer);
       }
     }
+
     bytes memory encodedUpkeeps = abi.encode(
       ids,
       upkeeps,
