@@ -29,7 +29,7 @@ require (
 	github.com/smartcontractkit/chainlink-vrf v0.0.0-20231120191722-fef03814f868
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/libocr v0.0.0-20240326191951-2bbe9382d052
-	github.com/smartcontractkit/seth v0.1.2
+	github.com/smartcontractkit/seth v0.1.4-0.20240411101134-24b924fc5f68
 	github.com/smartcontractkit/wasp v0.4.7-0.20240328221214-00cd8313cfd4
 	github.com/spf13/cobra v1.8.0
 	github.com/stretchr/testify v1.9.0
@@ -47,8 +47,6 @@ require (
 exclude github.com/hashicorp/consul v1.2.1
 
 replace (
-	github.com/smartcontractkit/chainlink-testing-framework => ../../chainlink-testing-framework
-	github.com/smartcontractkit/seth => ../../seth
 	// Pin K8s versions as their updates are highly disruptive and go mod keeps wanting to update them
 	k8s.io/api => k8s.io/api v0.25.11
 	k8s.io/client-go => k8s.io/client-go v0.25.11

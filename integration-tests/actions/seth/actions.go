@@ -395,6 +395,7 @@ func TeardownRemoteSuite(
 				"Environment is left running so you can try manually!")
 	}
 
+	// This is a failsafe, we should never use ephemeral keys on live networks
 	if !client.Cfg.IsSimulatedNetwork() {
 		if err := ReturnFundFromEphemeralKeys(l, client); err != nil {
 			l.Error().Err(err).Str("Namespace", namespace).
