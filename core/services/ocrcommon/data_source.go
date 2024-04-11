@@ -19,6 +19,7 @@ import (
 	serializablebig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/median/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -103,8 +104,8 @@ func NewInMemoryDataSource(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, l
 	}
 }
 
-const defaultCacheFreshness = time.Minute * 5
-const defaultCacheFreshnessAlert = time.Hour * 24
+const defaultUpdateInterval = time.Minute * 5
+const defaultStalenessAlertThreshold = time.Hour * 24
 const dataSourceCacheKey = "dscache"
 
 type DataSourceCacheService interface {
@@ -113,22 +114,27 @@ type DataSourceCacheService interface {
 	median.DataSource
 }
 
-func NewInMemoryDataSourceCache(ds median.DataSource, kvStore job.KVStore, cacheFreshness time.Duration) (DataSourceCacheService, error) {
+func NewInMemoryDataSourceCache(ds median.DataSource, kvStore job.KVStore, cacheCfg config.JuelsPerFeeCoinCache) (DataSourceCacheService, error) {
 	inMemoryDS, ok := ds.(*inMemoryDataSource)
 	if !ok {
 		return nil, errors.Errorf("unsupported data source type: %T, only inMemoryDataSource supported", ds)
 	}
 
-	if cacheFreshness == 0 {
-		cacheFreshness = defaultCacheFreshness
+	updateInterval, stalenessAlertThreshold := cacheCfg.UpdateInterval.Duration(), cacheCfg.StalenessAlertThreshold.Duration()
+	if updateInterval == 0 {
+		updateInterval = defaultUpdateInterval
+	}
+	if stalenessAlertThreshold == 0 {
+		stalenessAlertThreshold = defaultStalenessAlertThreshold
 	}
 
 	dsCache := &inMemoryDataSourceCache{
-		kvStore:            kvStore,
-		cacheFreshness:     cacheFreshness,
-		inMemoryDataSource: inMemoryDS,
-		chStop:             make(chan struct{}),
-		chDone:             make(chan struct{}),
+		inMemoryDataSource:      inMemoryDS,
+		kvStore:                 kvStore,
+		updateInterval:          updateInterval,
+		stalenessAlertThreshold: stalenessAlertThreshold,
+		chStop:                  make(chan struct{}),
+		chDone:                  make(chan struct{}),
 	}
 	return dsCache, nil
 }
@@ -231,16 +237,18 @@ func (ds *inMemoryDataSource) Observe(ctx context.Context, timestamp ocr2types.R
 // If cache update is overdue Observe defaults to standard inMemoryDataSource behaviour.
 type inMemoryDataSourceCache struct {
 	*inMemoryDataSource
-	// cacheFreshness indicates duration between cache updates.
-	// Even if updates fail, previous values are returned.
-	cacheFreshness  time.Duration
-	mu              sync.RWMutex
-	chStop          services.StopChan
-	chDone          chan struct{}
-	latestUpdateErr error
-	latestTrrs      pipeline.TaskRunResults
-	latestResult    pipeline.FinalResult
-	kvStore         job.KVStore
+	// updateInterval indicates duration between cache updates.
+	// Even if update fail, previous values are returned.
+	updateInterval time.Duration
+	// stalenessAlertThreshold indicates duration before logs raise severity level because of stale cache.
+	stalenessAlertThreshold time.Duration
+	mu                      sync.RWMutex
+	chStop                  services.StopChan
+	chDone                  chan struct{}
+	latestUpdateErr         error
+	latestTrrs              pipeline.TaskRunResults
+	latestResult            pipeline.FinalResult
+	kvStore                 job.KVStore
 }
 
 func (ds *inMemoryDataSourceCache) Start(context.Context) error {
@@ -256,7 +264,7 @@ func (ds *inMemoryDataSourceCache) Close() error {
 
 // updater periodically updates data source cache.
 func (ds *inMemoryDataSourceCache) updater() {
-	ticker := time.NewTicker(ds.cacheFreshness)
+	ticker := time.NewTicker(ds.updateInterval)
 	updateCache := func() {
 		ctx, cancel := ds.chStop.CtxCancel(context.WithTimeout(context.Background(), time.Second*10))
 		defer cancel()
@@ -356,8 +364,8 @@ func (ds *inMemoryDataSourceCache) Observe(ctx context.Context, timestamp ocr2ty
 			return nil, fmt.Errorf("failed to unmarshal result time pair bytes, err: %w", err)
 		}
 
-		if time.Since(resTime.Time) >= defaultCacheFreshnessAlert {
-			ds.lggr.Errorf("cache hasn't been updated for over %v, latestUpdateErr is: %v", defaultCacheFreshnessAlert, ds.latestUpdateErr)
+		if time.Since(resTime.Time) >= ds.stalenessAlertThreshold {
+			ds.lggr.Errorf("cache hasn't been updated for over %v, latestUpdateErr is: %v", ds.stalenessAlertThreshold, ds.latestUpdateErr)
 		}
 		return resTime.Result.ToInt(), nil
 	}
