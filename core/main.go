@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 )
 
+// Test
 func init() {
 	// check version
 	if static.Version == static.Unset {
