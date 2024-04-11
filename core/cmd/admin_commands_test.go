@@ -33,8 +33,8 @@ func TestShell_CreateUser(t *testing.T) {
 		role  string
 		err   string
 	}{
-		{"Invalid request", "//", "", "parseResponse error"},
-		{"No params", "", "", "Invalid role"},
+		{"Invalid email", "//", "", "mail: missing '@' or angle-addr"},
+		{"No params", "", "", "Must enter an email"},
 		{"No email", "", "view", "Must enter an email"},
 		{"User exists", cltest.APIEmailAdmin, "admin", fmt.Sprintf(`user with email %s already exists`, cltest.APIEmailAdmin)},
 		{"Valid params", cltest.MustRandomUser(t).Email, "view", ""},
