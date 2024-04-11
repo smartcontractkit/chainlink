@@ -641,7 +641,7 @@ func (v *EthereumKeeperRegistry) CancelUpkeep(id *big.Int) error {
 
 	txHash := "none"
 	if err == nil {
-		txHash = tx.Receipt.TxHash.Hex()
+		txHash = tx.Hash
 	}
 
 	v.l.Info().
