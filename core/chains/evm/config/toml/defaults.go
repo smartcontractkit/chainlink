@@ -167,7 +167,6 @@ func (c *Chain) SetFrom(f *Chain) {
 
 	c.Transactions.setFrom(&f.Transactions)
 	c.BalanceMonitor.setFrom(&f.BalanceMonitor)
-	c.ClientErrors.setFrom(&f.ClientErrors)
 	c.GasEstimator.setFrom(&f.GasEstimator)
 
 	if ks := f.KeySpecific; ks != nil {

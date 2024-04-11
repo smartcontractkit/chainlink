@@ -82,10 +82,6 @@ func (e *EVMConfig) Transactions() Transactions {
 	return &transactionsConfig{c: e.C.Transactions}
 }
 
-func (e *EVMConfig) ClientErrors() ClientErrors {
-	return &clientErrorsConfig{c: e.C.ClientErrors}
-}
-
 func (e *EVMConfig) HeadTracker() HeadTracker {
 	return &headTrackerConfig{c: e.C.HeadTracker}
 }
@@ -171,6 +167,10 @@ func (e *EVMConfig) MinIncomingConfirmations() uint32 {
 
 func (e *EVMConfig) NodePool() NodePool {
 	return &NodePoolConfig{C: e.C.NodePool}
+}
+
+func (e *EVMConfig) ClientErrors() ClientErrors {
+	return &clientErrorsConfig{c: e.C.NodePool.ClientErrors}
 }
 
 func (e *EVMConfig) NodeNoNewHeadsThreshold() time.Duration {
