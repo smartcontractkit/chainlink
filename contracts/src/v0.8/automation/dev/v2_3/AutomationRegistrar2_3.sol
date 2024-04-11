@@ -76,8 +76,8 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
 
   struct PendingRequest {
     address admin;
-    IERC20 billingToken;
     uint96 balance;
+    IERC20 billingToken;
   }
   /**
    * @member upkeepContract address to perform upkeep on
@@ -383,8 +383,8 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
     } else {
       s_pendingRequests[hash] = PendingRequest({
         admin: params.adminAddress,
-        billingToken: params.billingToken,
-        balance: params.amount
+        balance: params.amount,
+        billingToken: params.billingToken
       });
     }
 

@@ -10,7 +10,6 @@ import {Chainable} from "../../Chainable.sol";
 import {IERC677Receiver} from "../../../shared/interfaces/IERC677Receiver.sol";
 import {OCR2Abstract} from "../../../shared/ocr2/OCR2Abstract.sol";
 import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
  * @notice Registry for adding work for Chainlink nodes to perform on client
@@ -20,7 +19,6 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
   using Address for address;
   using EnumerableSet for EnumerableSet.UintSet;
   using EnumerableSet for EnumerableSet.AddressSet;
-  using SafeERC20 for IERC20;
 
   /**
    * @notice versions:

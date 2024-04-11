@@ -170,7 +170,7 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
       upkeep = s_upkeep[id];
 
       if (idx == 0) {
-        billingToken = s_upkeep[id].billingToken;
+        billingToken = upkeep.billingToken;
         balanceToTransfer = upkeep.balance;
       }
 
@@ -200,13 +200,10 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable {
       delete s_proposedAdmin[id];
       s_upkeepIDs.remove(id);
       emit UpkeepMigrated(id, upkeep.balance, destination);
-
-      // always transfer the rolling sum at the end of the array
-      if (idx == ids.length - 1) {
-        s_reserveAmounts[billingToken] = s_reserveAmounts[billingToken] - balanceToTransfer;
-        billingToken.safeTransfer(destination, balanceToTransfer);
-      }
     }
+    // always transfer the rolling sum in the end
+    s_reserveAmounts[billingToken] = s_reserveAmounts[billingToken] - balanceToTransfer;
+    billingToken.safeTransfer(destination, balanceToTransfer);
 
     bytes memory encodedUpkeeps = abi.encode(
       ids,
