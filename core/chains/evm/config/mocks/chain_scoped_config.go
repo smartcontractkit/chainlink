@@ -32,24 +32,6 @@ func (_m *ChainScopedConfig) EVM() config.EVM {
 	return r0
 }
 
-// Validate provides a mock function with given fields:
-func (_m *ChainScopedConfig) Validate() error {
-	ret := _m.Called()
-
-	if len(ret) == 0 {
-		panic("no return value specified for Validate")
-	}
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func() error); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
 // NewChainScopedConfig creates a new instance of ChainScopedConfig. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func NewChainScopedConfig(t interface {
