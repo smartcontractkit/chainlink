@@ -47,7 +47,6 @@ require (
 exclude github.com/hashicorp/consul v1.2.1
 
 replace (
-	github.com/smartcontractkit/seth => ../../seth
 	// Pin K8s versions as their updates are highly disruptive and go mod keeps wanting to update them
 	k8s.io/api => k8s.io/api v0.25.11
 	k8s.io/client-go => k8s.io/client-go v0.25.11
