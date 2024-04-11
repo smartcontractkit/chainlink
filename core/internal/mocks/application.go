@@ -329,6 +329,26 @@ func (_m *Application) GetLogger() logger.SugaredLogger {
 	return r0
 }
 
+// GetLoopRegistrarConfig provides a mock function with given fields:
+func (_m *Application) GetLoopRegistrarConfig() plugins.RegistrarConfig {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetLoopRegistrarConfig")
+	}
+
+	var r0 plugins.RegistrarConfig
+	if rf, ok := ret.Get(0).(func() plugins.RegistrarConfig); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(plugins.RegistrarConfig)
+		}
+	}
+
+	return r0
+}
+
 // GetLoopRegistry provides a mock function with given fields:
 func (_m *Application) GetLoopRegistry() *plugins.LoopRegistry {
 	ret := _m.Called()
