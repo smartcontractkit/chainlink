@@ -5,7 +5,6 @@ interface IVRFV2PlusWrapper {
   event FulfillmentTxSizeSet(uint32 size);
   event ConfigSet(
     uint32 wrapperGasOverhead,
-    uint16 wrapperGasOverheadPerWord,
     uint32 coordinatorGasOverhead,
     uint16 coordinatorGasOverheadPerWord,
     uint8 coordinatorNativePremiumPercentage,

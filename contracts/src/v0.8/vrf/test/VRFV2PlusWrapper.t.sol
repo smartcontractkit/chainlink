@@ -84,10 +84,9 @@ contract VRFV2PlusWrapperTest is BaseTest {
 
   function setConfigWrapper() internal {
     vm.expectEmit(false, false, false, true, address(s_wrapper));
-    emit ConfigSet(wrapperGasOverhead, 0, coordinatorGasOverhead, 0, 0, 0, vrfKeyHash, 10, 1, 50000000000000000, 0, 0);
+    emit ConfigSet(wrapperGasOverhead, coordinatorGasOverhead, 0, 0, 0, vrfKeyHash, 10, 1, 50000000000000000, 0, 0);
     s_wrapper.setConfig(
       wrapperGasOverhead, // wrapper gas overhead
-      0, // wrapper gas overhead per word
       coordinatorGasOverhead, // coordinator gas overhead
       0, // coordinator gas overhead per word
       0, // native premium percentage,
@@ -105,7 +104,6 @@ contract VRFV2PlusWrapperTest is BaseTest {
       ,
       ,
       uint32 _wrapperGasOverhead,
-      uint16 _wrapperGasOverheadPerWord,
       uint32 _coordinatorGasOverhead,
       uint16 _coordinatorGasOverheadPerWord,
       uint8 _coordinatorNativePremiumPercentage,
@@ -114,7 +112,6 @@ contract VRFV2PlusWrapperTest is BaseTest {
       uint8 _maxNumWords
     ) = s_wrapper.getConfig();
     assertEq(_wrapperGasOverhead, wrapperGasOverhead);
-    assertEq(0, _wrapperGasOverheadPerWord);
     assertEq(_coordinatorGasOverhead, coordinatorGasOverhead);
     assertEq(0, _coordinatorGasOverheadPerWord);
     assertEq(0, _coordinatorNativePremiumPercentage);
@@ -140,7 +137,6 @@ contract VRFV2PlusWrapperTest is BaseTest {
   event FulfillmentTxSizeSet(uint32 size);
   event ConfigSet(
     uint32 wrapperGasOverhead,
-    uint16 wrapperGasOverheadPerWord,
     uint32 coordinatorGasOverhead,
     uint16 coordinatorGasOverheadPerWord,
     uint8 coordinatorNativePremiumPercentage,
@@ -281,7 +277,6 @@ contract VRFV2PlusWrapperTest is BaseTest {
     vm.expectRevert(abi.encodeWithSelector(VRFV2PlusWrapper.LinkDiscountTooHigh.selector, uint32(501), uint32(500)));
     s_wrapper.setConfig(
       wrapperGasOverhead, // wrapper gas overhead
-      0, // wrapper gas overhead per word
       coordinatorGasOverhead, // coordinator gas overhead
       0, // coordinator gas overhead per word
       0, // native premium percentage,
@@ -299,7 +294,6 @@ contract VRFV2PlusWrapperTest is BaseTest {
     // Test that setting link discount flat fee equal to native flat fee does not revert
     s_wrapper.setConfig(
       wrapperGasOverhead, // wrapper gas overhead
-      0, // wrapper gas overhead per word
       coordinatorGasOverhead, // coordinator gas overhead
       0, // coordinator gas overhead per word
       0, // native premium percentage,
@@ -320,7 +314,6 @@ contract VRFV2PlusWrapperTest is BaseTest {
     );
     s_wrapper.setConfig(
       wrapperGasOverhead, // wrapper gas overhead
-      0, // wrapper gas overhead per word
       coordinatorGasOverhead, // coordinator gas overhead
       0, // coordinator gas overhead per word
       156, // native premium percentage,
@@ -341,7 +334,6 @@ contract VRFV2PlusWrapperTest is BaseTest {
     );
     s_wrapper.setConfig(
       wrapperGasOverhead, // wrapper gas overhead
-      0, // wrapper gas overhead per word
       coordinatorGasOverhead, // coordinator gas overhead
       0, // coordinator gas overhead per word
       15, // native premium percentage,

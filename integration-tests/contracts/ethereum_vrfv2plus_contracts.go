@@ -76,7 +76,6 @@ func (v *EthereumVRFV2PlusWrapper) SetConfig(wrapperGasOverhead uint32,
 	tx, err := v.wrapper.SetConfig(
 		opts,
 		wrapperGasOverhead,
-		wrapperGasOverheadPerWord,
 		coordinatorGasOverhead,
 		coordinatorGasOverheadPerWord,
 		wrapperNativePremiumPercentage,

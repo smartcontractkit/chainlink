@@ -1189,7 +1189,6 @@ func main() {
 		cmd := flag.NewFlagSet("wrapper-configure", flag.ExitOnError)
 		wrapperAddress := cmd.String("wrapper-address", "", "address of the VRFV2Wrapper contract")
 		wrapperGasOverhead := cmd.Uint("wrapper-gas-overhead", 50_000, "amount of gas overhead in wrapper fulfillment")
-		wrapperGasOverheadPerWord := cmd.Uint("wrapper-gas-overhead-per-word", 0, "amount of gas overhead in wrapper fulfillment")
 		coordinatorGasOverhead := cmd.Uint("coordinator-gas-overhead", 52_000, "amount of gas overhead in coordinator fulfillment")
 		coordinatorGasOverheadPerWord := cmd.Uint("coordinator-gas-overhead-per-word", 0, "amount of gas overhead in coordinator fulfillment")
 		wrapperNativePremiumPercentage := cmd.Uint("wrapper-native-premium-percentage", 25, "gas premium charged by wrapper for native payment")
@@ -1205,7 +1204,6 @@ func main() {
 		v2plusscripts.WrapperConfigure(e,
 			common.HexToAddress(*wrapperAddress),
 			*wrapperGasOverhead,
-			*wrapperGasOverheadPerWord,
 			*coordinatorGasOverhead,
 			*coordinatorGasOverheadPerWord,
 			*wrapperNativePremiumPercentage,

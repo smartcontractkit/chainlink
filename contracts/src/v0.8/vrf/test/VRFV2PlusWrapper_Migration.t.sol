@@ -101,7 +101,6 @@ contract VRFV2PlusWrapper_MigrationTest is BaseTest {
   function setConfigWrapper() internal {
     s_wrapper.setConfig(
       wrapperGasOverhead, // wrapper gas overhead
-      0, // wrapper gas overhead per word
       coordinatorGasOverhead, // coordinator gas overhead
       0, // coordinator gas overhead per word
       0, // native premium percentage,
@@ -119,7 +118,6 @@ contract VRFV2PlusWrapper_MigrationTest is BaseTest {
       ,
       ,
       uint32 _wrapperGasOverhead,
-      uint16 _wrapperGasOverheadPerWord,
       uint32 _coordinatorGasOverhead,
       uint16 _coordinatorGasOverheadPerWord,
       uint8 _coordinatorNativePremiumPercentage,
@@ -128,7 +126,6 @@ contract VRFV2PlusWrapper_MigrationTest is BaseTest {
       uint8 _maxNumWords
     ) = s_wrapper.getConfig();
     assertEq(_wrapperGasOverhead, wrapperGasOverhead);
-    assertEq(0, _wrapperGasOverheadPerWord);
     assertEq(_coordinatorGasOverhead, coordinatorGasOverhead);
     assertEq(0, _coordinatorGasOverheadPerWord);
     assertEq(0, _coordinatorNativePremiumPercentage);
