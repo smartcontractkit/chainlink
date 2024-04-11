@@ -18,23 +18,17 @@ func main() {
 			dashboard.Tags([]string{"generated"}),
 		},
 	)
-	db.Add(
-		core_don.New(
-			core_don.Props{
-				PrometheusDataSource: cfg.DataSources.Prometheus,
-				PlatformOpts:         core_don.PlatformPanelOpts(cfg.Platform),
-			},
-		),
-	)
-	if cfg.Platform == "kubernetes" {
+	if len(cfg.PanelsIncluded) == 1 || cfg.PanelsIncluded["core"] {
 		db.Add(
-			k8spods.New(
-				k8spods.Props{
+			core_don.New(
+				core_don.Props{
 					PrometheusDataSource: cfg.DataSources.Prometheus,
-					LokiDataSource:       cfg.DataSources.Loki,
+					PlatformOpts:         core_don.PlatformPanelOpts(cfg.Platform),
 				},
 			),
 		)
+		// TODO: refactor as a component later
+		addWASPRows(db, cfg)
 	}
 	if cfg.PanelsIncluded["ocr"] || cfg.PanelsIncluded["ocr2"] || cfg.PanelsIncluded["ocr3"] {
 		for key := range cfg.PanelsIncluded {
@@ -51,8 +45,16 @@ func main() {
 			}
 		}
 	}
-	// TODO: refactor as a component later
-	addWASPRows(db, cfg)
+	if cfg.Platform == "kubernetes" {
+		db.Add(
+			k8spods.New(
+				k8spods.Props{
+					PrometheusDataSource: cfg.DataSources.Prometheus,
+					LokiDataSource:       cfg.DataSources.Loki,
+				},
+			),
+		)
+	}
 	if err := db.Deploy(); err != nil {
 		lib.L.Fatal().Err(err).Msg("failed to deploy the dashboard")
 	}

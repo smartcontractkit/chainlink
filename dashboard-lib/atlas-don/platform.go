@@ -15,28 +15,20 @@ type PlatformOpts struct {
 func PlatformPanelOpts(platform string) PlatformOpts {
 	po := PlatformOpts{
 		LabelFilters: map[string]string{
-			"instance": `=~"${instance}"`,
-			"commit":   `=~"${commit:pipe}"`,
-			"contract": `=~"${contract}"`,
+			"contract":     `=~"${contract}"`,
+			"feed_id_name": `=~"${feed_id_name}"`,
 		},
 	}
 	switch platform {
 	case "kubernetes":
-		po.LabelFilters = map[string]string{
-			// TODO: sometimes I can see my PodMonitor selector, sometimes I don't
-			// TODO: is it prometheus-operator issue or do we really need "job" selector for k8s?
-			// TODO: works without it
-			"job":       `=~"${job}"`,
-			"namespace": `=~"${namespace}"`,
-			"pod":       `=~"${pod}"`,
-		}
+		po.LabelFilters["namespace"] = `=~"${namespace}"`
+		po.LabelFilters["job"] = `=~"${job}"`
+		po.LabelFilters["pod"] = `=~"${pod}"`
 		po.LabelFilter = "job"
 		po.LegendString = "pod"
 		break
 	case "docker":
-		po.LabelFilters = map[string]string{
-			"instance": `=~"${instance}"`,
-		}
+		po.LabelFilters["instance"] = `=~"${instance}"`
 		po.LabelFilter = "instance"
 		po.LegendString = "instance"
 		break
