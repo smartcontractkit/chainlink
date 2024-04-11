@@ -1650,7 +1650,7 @@ func (e *EthereumContractDeployer) DeployKeeperConsumerBenchmark() (AutomationCo
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumAutomationConsumerBenchmark{
+	return &LegacyEthereumAutomationConsumerBenchmark{
 		client:   e.client,
 		consumer: instance.(*automation_consumer_benchmark.AutomationConsumerBenchmark),
 		address:  address,
@@ -1668,7 +1668,7 @@ func (e *EthereumContractDeployer) LoadKeeperConsumerBenchmark(address common.Ad
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumAutomationConsumerBenchmark{
+	return &LegacyEthereumAutomationConsumerBenchmark{
 		address:  &address,
 		client:   e.client,
 		consumer: instance.(*automation_consumer_benchmark.AutomationConsumerBenchmark),

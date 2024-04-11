@@ -2136,19 +2136,19 @@ func (v *LegacyEthereumKeeperPerformDataCheckerConsumer) SetExpectedData(_ conte
 	return v.client.ProcessTransaction(tx)
 }
 
-// EthereumAutomationConsumerBenchmark represents a more complicated keeper consumer contract, one intended only for
+// LegacyEthereumAutomationConsumerBenchmark represents a more complicated keeper consumer contract, one intended only for
 // Benchmark tests.
-type EthereumAutomationConsumerBenchmark struct {
+type LegacyEthereumAutomationConsumerBenchmark struct {
 	client   blockchain.EVMClient
 	consumer *automation_consumer_benchmark.AutomationConsumerBenchmark
 	address  *common.Address
 }
 
-func (v *EthereumAutomationConsumerBenchmark) Address() string {
+func (v *LegacyEthereumAutomationConsumerBenchmark) Address() string {
 	return v.address.Hex()
 }
 
-func (v *EthereumAutomationConsumerBenchmark) Fund(ethAmount *big.Float) error {
+func (v *LegacyEthereumAutomationConsumerBenchmark) Fund(ethAmount *big.Float) error {
 	gasEstimates, err := v.client.EstimateGas(geth.CallMsg{})
 	if err != nil {
 		return err
@@ -2156,7 +2156,7 @@ func (v *EthereumAutomationConsumerBenchmark) Fund(ethAmount *big.Float) error {
 	return v.client.Fund(v.address.Hex(), ethAmount, gasEstimates)
 }
 
-func (v *EthereumAutomationConsumerBenchmark) CheckEligible(ctx context.Context, id *big.Int, _range *big.Int, firstEligibleBuffer *big.Int) (bool, error) {
+func (v *LegacyEthereumAutomationConsumerBenchmark) CheckEligible(ctx context.Context, id *big.Int, _range *big.Int, firstEligibleBuffer *big.Int) (bool, error) {
 	opts := &bind.CallOpts{
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
 		Context: ctx,
@@ -2165,7 +2165,7 @@ func (v *EthereumAutomationConsumerBenchmark) CheckEligible(ctx context.Context,
 	return eligible, err
 }
 
-func (v *EthereumAutomationConsumerBenchmark) GetUpkeepCount(ctx context.Context, id *big.Int) (*big.Int, error) {
+func (v *LegacyEthereumAutomationConsumerBenchmark) GetUpkeepCount(ctx context.Context, id *big.Int) (*big.Int, error) {
 	opts := &bind.CallOpts{
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
 		Context: ctx,

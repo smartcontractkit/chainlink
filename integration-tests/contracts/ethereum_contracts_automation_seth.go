@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/arbitrum_module"
 	acutils "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_compatible_utils"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_consumer_benchmark"
 	automationForwarderLogic "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_forwarder_logic"
 	registrar21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_registrar_wrapper2_1"
 	registrylogica22 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_registry_logic_a_wrapper_2_2"
@@ -2219,6 +2220,58 @@ func DeployAutomationSimpleLogTriggerConsumerFromKey(client *seth.Client, isStre
 	}
 
 	return &EthereumAutomationSimpleLogCounterConsumer{
+		client:   client,
+		consumer: instance,
+		address:  &data.Address,
+	}, err
+}
+
+// EthereumAutomationConsumerBenchmark represents a more complicated keeper consumer contract, one intended only for
+// Benchmark tests.
+type EthereumAutomationConsumerBenchmark struct {
+	client   *seth.Client
+	consumer *automation_consumer_benchmark.AutomationConsumerBenchmark
+	address  *common.Address
+}
+
+func (v *EthereumAutomationConsumerBenchmark) Address() string {
+	return v.address.Hex()
+}
+
+func (v *EthereumAutomationConsumerBenchmark) Fund(_ *big.Float) error {
+	panic("do not use this function, use actions_seth.SendFunds instead")
+}
+
+func (v *EthereumAutomationConsumerBenchmark) CheckEligible(ctx context.Context, id *big.Int, _range *big.Int, firstEligibleBuffer *big.Int) (bool, error) {
+	return v.consumer.CheckEligible(&bind.CallOpts{
+		From:    v.client.Addresses[0],
+		Context: ctx,
+	}, id, _range, firstEligibleBuffer)
+}
+
+func (v *EthereumAutomationConsumerBenchmark) GetUpkeepCount(ctx context.Context, id *big.Int) (*big.Int, error) {
+	return v.consumer.GetCountPerforms(&bind.CallOpts{
+		From:    v.client.Addresses[0],
+		Context: ctx,
+	}, id)
+}
+
+func DeployKeeperConsumerBenchmark(client *seth.Client) (AutomationConsumerBenchmark, error) {
+	abi, err := automation_consumer_benchmark.AutomationConsumerBenchmarkMetaData.GetAbi()
+	if err != nil {
+		return &EthereumAutomationConsumerBenchmark{}, fmt.Errorf("failed to get AutomationConsumerBenchmark ABI: %w", err)
+	}
+	data, err := client.DeployContract(client.NewTXOpts(), "AutomationConsumerBenchmark", *abi, common.FromHex(automation_consumer_benchmark.AutomationConsumerBenchmarkMetaData.Bin))
+	if err != nil {
+		return &EthereumAutomationConsumerBenchmark{}, fmt.Errorf("AutomationConsumerBenchmark instance deployment have failed: %w", err)
+	}
+
+	instance, err := automation_consumer_benchmark.NewAutomationConsumerBenchmark(data.Address, wrappers.MustNewWrappedContractBackend(nil, client))
+	if err != nil {
+		return &EthereumAutomationConsumerBenchmark{}, fmt.Errorf("failed to instantiate AutomationConsumerBenchmark instance: %w", err)
+	}
+
+	return &EthereumAutomationConsumerBenchmark{
 		client:   client,
 		consumer: instance,
 		address:  &data.Address,

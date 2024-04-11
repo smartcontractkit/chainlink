@@ -141,6 +141,7 @@ type ChainlinkNodeWithKeysAndAddress interface {
 	MustReadP2PKeys() (*client.P2PKeys, error)
 	ExportEVMKeysForChain(string) ([]*client.ExportedEVMKey, error)
 	PrimaryEthAddress() (string, error)
+	EthAddresses() ([]string, error)
 }
 
 type ChainlinkNodeWithForwarder interface {

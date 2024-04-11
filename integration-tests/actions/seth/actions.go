@@ -56,8 +56,61 @@ func FundChainlinkNodes(
 	privateKey *ecdsa.PrivateKey,
 	amount *big.Float,
 ) error {
+	keyAddressFn := func(cl contracts.ChainlinkNodeWithKeysAndAddress) (string, error) {
+		return cl.PrimaryEthAddress()
+	}
+	return fundChainlinkNodesAtAnyKey(logger, client, nodes, privateKey, amount, keyAddressFn)
+}
+
+// FundChainlinkNodesAtKeyIndexFromRootAddress sends native token amount (expressed in human-scale) to each Chainlink Node
+// from root private key.It returns an error if any of the transactions failed. It sends the funds to
+// node address at keyIndex.
+func FundChainlinkNodesAtKeyIndexFromRootAddress(
+	logger zerolog.Logger,
+	client *seth.Client,
+	nodes []contracts.ChainlinkNodeWithKeysAndAddress,
+	amount *big.Float,
+	keyIndex int,
+) error {
+	if len(client.PrivateKeys) == 0 {
+		return errors.Wrap(errors.New(seth.ErrNoKeyLoaded), fmt.Sprintf("requested key: %d", 0))
+	}
+
+	return FundChainlinkNodesAtKeyIndex(logger, client, nodes, client.PrivateKeys[0], amount, keyIndex)
+}
+
+// FundChainlinkNodesAtKeyIndex sends native token amount (expressed in human-scale) to each Chainlink Node
+// from private key's address. It returns an error if any of the transactions failed. It sends the funds to
+// node address at keyIndex.
+func FundChainlinkNodesAtKeyIndex(
+	logger zerolog.Logger,
+	client *seth.Client,
+	nodes []contracts.ChainlinkNodeWithKeysAndAddress,
+	privateKey *ecdsa.PrivateKey,
+	amount *big.Float,
+	keyIndex int,
+) error {
+	keyAddressFn := func(cl contracts.ChainlinkNodeWithKeysAndAddress) (string, error) {
+		toAddress, err := cl.EthAddresses()
+		if err != nil {
+			return "", err
+		}
+		return toAddress[keyIndex], nil
+	}
+	return fundChainlinkNodesAtAnyKey(logger, client, nodes, privateKey, amount, keyAddressFn)
+}
+
+func fundChainlinkNodesAtAnyKey(
+	logger zerolog.Logger,
+	client *seth.Client,
+	nodes []contracts.ChainlinkNodeWithKeysAndAddress,
+	privateKey *ecdsa.PrivateKey,
+	amount *big.Float,
+	keyAddressFn func(contracts.ChainlinkNodeWithKeysAndAddress) (string, error),
+) error {
 	for _, cl := range nodes {
-		toAddress, err := cl.PrimaryEthAddress()
+		toAddress, err := keyAddressFn(cl)
+		// toAddress, err := cl.PrimaryEthAddress()
 		if err != nil {
 			return err
 		}
