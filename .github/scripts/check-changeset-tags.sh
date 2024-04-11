@@ -22,19 +22,19 @@ CHANGESET_FILE_PATH=$1
 tags_list=( "#nops" "#added" "#changed" "#removed" "#updated" "#deprecation_notice" "#breaking_change" "#db_update" "#wip" )
 has_tags=false
 
-if [[ -f "$CHANGESET_FILE_PATH" ]]; then
-  while IFS= read -r line; do
-    for tag in "${tags_list[@]}"; do
-      if [[ "$line" == *"$tag"* ]]; then
-        echo "Found tag: $tag in $CHANGESET_FILE_PATH"
-        has_tags=true
-      fi
-    done
-  done < "$CHANGESET_FILE_PATH"
-else
+if [[ ! -f "$CHANGESET_FILE_PATH" ]]; then
   echo "Error: File '$CHANGESET_FILE_PATH' does not exist."
   exit 1
 fi
+
+while IFS= read -r line; do
+  for tag in "${tags_list[@]}"; do
+    if [[ "$line" == *"$tag"* ]]; then
+      echo "Found tag: $tag in $CHANGESET_FILE_PATH"
+      has_tags=true
+    fi
+  done
+done < "$CHANGESET_FILE_PATH"
 
 if [[ "$has_tags" == false ]]; then
   echo "Error: No tags found in $CHANGESET_FILE_PATH"

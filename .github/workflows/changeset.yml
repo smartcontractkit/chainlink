@@ -8,6 +8,18 @@ on: pull_request
 
 jobs:
   changeset:
+    env:
+      TAGS: |
+        #nops : For any feature that is NOP facing and needs to be in the official Release Notes for the release.
+        #added : For any new functionality added.
+        #changed : For any change to the existing functionality. 
+        #removed : For any functionality/config that is removed.
+        #updated : For any functionality that is updated.
+        #deprecation_notice : For any upcoming deprecation functionality.
+        #breaking_change : For any functionality that requires manual action for the node to boot.
+        #db_update : For any feature that introduces updates to database schema.
+        #wip : For any change that is not ready yet and external communication about it should be held off till it is feature complete.
+
     # For security reasons, GITHUB_TOKEN is read-only on forks, so we cannot leave comments on PRs.
     # This check skips the job if it is detected we are running on a fork.
     if: ${{ github.event.pull_request.head.repo.full_name == 'smartcontractkit/chainlink' }}
@@ -53,15 +65,7 @@ jobs:
           message: |
             I see you updated files related to `core`. Please run `pnpm changeset` in the root directory to add a changeset as well as in the text include at least one of the following tags:
             ```
-            #nops : For any feature that is NOP facing and needs to be in the official Release Notes for the release.
-            #added : For any new functionality added.
-            #changed : For any change to the existing functionality. 
-            #removed : For any functionality/config that is removed.
-            #updated : For any functionality that is updated.
-            #deprecation_notice : For any upcoming deprecation functionality.
-            #breaking_change : For any functionality that requires manual action for the node to boot.
-            #db_update : For any feature that introduces updates to database schema.
-            #wip : For any change that is not ready yet and external communication about it should be held off till it is feature complete.
+            ${{ env.TAGS }}
             ```
           reactions: eyes
           comment_tag: changeset-core
@@ -106,15 +110,7 @@ jobs:
           message: |
             I see you added a changeset file but it does not contain a tag. Please edit the text include at least one of the following tags:
             ```
-            #nops : For any feature that is NOP facing and needs to be in the official Release Notes for the release.
-            #added : For any new functionality added.
-            #changed : For any change to the existing functionality. 
-            #removed : For any functionality/config that is removed.
-            #updated : For any functionality that is updated.
-            #deprecation_notice : For any upcoming deprecation functionality.
-            #breaking_change : For any functionality that requires manual action for the node to boot.
-            #db_update : For any feature that introduces updates to database schema.
-            #wip : For any change that is not ready yet and external communication about it should be held off till it is feature complete.
+            ${{ env.TAGS }}
             ```
           reactions: eyes
           comment_tag: changeset-core-tags
