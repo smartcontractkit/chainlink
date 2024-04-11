@@ -112,6 +112,8 @@ type logEventProvider struct {
 	opts LogTriggersOptions
 
 	currentPartitionIdx uint64
+	currentIteration    int
+	iterations          int
 
 	chainID *big.Int
 }
@@ -289,23 +291,36 @@ func (p *logEventProvider) getLogsFromBuffer(latestBlock int64) []ocr2keepers.Up
 	case BufferVersionV1:
 		// in v1, we use a greedy approach - we keep dequeuing logs until we reach the max results or cover the entire range.
 		blockRate, logLimitLow, maxResults, _ := p.getBufferDequeueArgs()
-		for len(payloads) < maxResults && start <= latestBlock {
-			logs, remaining := p.bufferV1.Dequeue(start, blockRate, logLimitLow, maxResults-len(payloads), DefaultUpkeepSelector)
-			if len(logs) > 0 {
-				p.lggr.Debugw("Dequeued logs", "start", start, "latestBlock", latestBlock, "logs", len(logs))
-			}
-			for _, l := range logs {
-				payload, err := p.createPayload(l.ID, l.Log)
-				if err == nil {
-					payloads = append(payloads, payload)
+
+		if p.currentIteration == 0 {
+			p.iterations = (p.bufferV1.NumOfUpkeeps() / logLimitLow) / maxResults
+		}
+
+		if p.currentIteration < p.iterations {
+			for len(payloads) < maxResults && start <= latestBlock {
+				logs, remaining := p.bufferV1.Dequeue(start, blockRate, logLimitLow, maxResults-len(payloads), func(id *big.Int) bool {
+					return big.NewInt(0).Mod(id, big.NewInt(int64(p.iterations))).Int64() == int64(p.currentIteration)
+				})
+
+				if len(logs) > 0 {
+					p.lggr.Debugw("Dequeued logs", "start", start, "latestBlock", latestBlock, "logs", len(logs))
 				}
+				for _, l := range logs {
+					payload, err := p.createPayload(l.ID, l.Log)
+					if err == nil {
+						payloads = append(payloads, payload)
+					}
+				}
+				if remaining > 0 {
+					p.lggr.Debugw("Remaining logs", "start", start, "latestBlock", latestBlock, "remaining", remaining)
+					// TODO: handle remaining logs in a better way than consuming the entire window, e.g. do not repeat more than x times
+					continue
+				}
+				start += int64(blockRate)
 			}
-			if remaining > 0 {
-				p.lggr.Debugw("Remaining logs", "start", start, "latestBlock", latestBlock, "remaining", remaining)
-				// TODO: handle remaining logs in a better way than consuming the entire window, e.g. do not repeat more than x times
-				continue
-			}
-			start += int64(blockRate)
+			p.currentIteration++
+		} else {
+			p.currentIteration = 0
 		}
 	default:
 		logs := p.buffer.dequeueRange(start, latestBlock, AllowedLogsPerUpkeep, MaxPayloads)
