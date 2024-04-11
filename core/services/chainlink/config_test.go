@@ -493,22 +493,6 @@ func TestConfig_Marshal(t *testing.T) {
 				BalanceMonitor: evmcfg.BalanceMonitor{
 					Enabled: ptr(true),
 				},
-				ClientErrors: evmcfg.ClientErrors{
-					NonceTooLow:                       ptr[string]("nonce too low"),
-					NonceTooHigh:                      ptr[string]("nonce too high"),
-					ReplacementTransactionUnderpriced: ptr[string]("replacement transaction underpriced"),
-					LimitReached:                      ptr[string]("limit reached"),
-					TransactionAlreadyInMempool:       ptr[string]("transaction already in mempool"),
-					TerminallyUnderpriced:             ptr[string]("terminally underpriced"),
-					InsufficientEth:                   ptr[string]("infufficient Eth"),
-					TxFeeExceedsCap:                   ptr[string]("tx fee exceeds cap"),
-					L2FeeTooLow:                       ptr[string]("l2 fee too low"),
-					L2FeeTooHigh:                      ptr[string]("l2 fee too high"),
-					L2Full:                            ptr[string]("l2 full"),
-					TransactionAlreadyMined:           ptr[string]("transaction already mined"),
-					Fatal:                             ptr[string]("fatal"),
-					ServiceUnavailable:                ptr[string]("service unavailable"),
-				},
 				BlockBackfillDepth:   ptr[uint32](100),
 				BlockBackfillSkip:    ptr(true),
 				ChainType:            ptr("Optimism"),
@@ -599,6 +583,22 @@ func TestConfig_Marshal(t *testing.T) {
 					LeaseDuration:              &zeroSeconds,
 					NodeIsSyncingEnabled:       ptr(true),
 					FinalizedBlockPollInterval: &second,
+					Errors: evmcfg.ClientErrors{
+						NonceTooLow:                       ptr[string]("(: |^)nonce too low"),
+						NonceTooHigh:                      ptr[string]("(: |^)nonce too high"),
+						ReplacementTransactionUnderpriced: ptr[string]("(: |^)replacement transaction underpriced"),
+						LimitReached:                      ptr[string]("(: |^)limit reached"),
+						TransactionAlreadyInMempool:       ptr[string]("(: |^)transaction already in mempool"),
+						TerminallyUnderpriced:             ptr[string]("(: |^)terminally underpriced"),
+						InsufficientEth:                   ptr[string]("(: |^)infufficient Eth"),
+						TxFeeExceedsCap:                   ptr[string]("(: |^)tx fee exceeds cap"),
+						L2FeeTooLow:                       ptr[string]("(: |^)l2 fee too low"),
+						L2FeeTooHigh:                      ptr[string]("(: |^)l2 fee too high"),
+						L2Full:                            ptr[string]("(: |^)l2 full"),
+						TransactionAlreadyMined:           ptr[string]("(: |^)transaction already mined"),
+						Fatal:                             ptr[string]("(: |^)fatal"),
+						ServiceUnavailable:                ptr[string]("(: |^)service unavailable"),
+					},
 				},
 				OCR: evmcfg.OCR{
 					ContractConfirmations:              ptr[uint16](11),
@@ -987,22 +987,6 @@ ResendAfterThreshold = '1h0m0s'
 [EVM.BalanceMonitor]
 Enabled = true
 
-[EVM.ClientErrors]
-NonceTooLow = 'nonce too low'
-NonceTooHigh = 'nonce too high'
-ReplacementTransactionUnderpriced = 'replacement transaction underpriced'
-LimitReached = 'limit reached'
-TransactionAlreadyInMempool = 'transaction already in mempool'
-TerminallyUnderpriced = 'terminally underpriced'
-InsufficientEth = 'infufficient Eth'
-TxFeeExceedsCap = 'tx fee exceeds cap'
-L2FeeTooLow = 'l2 fee too low'
-L2FeeTooHigh = 'l2 fee too high'
-L2Full = 'l2 full'
-TransactionAlreadyMined = 'transaction already mined'
-Fatal = 'fatal'
-ServiceUnavailable = 'service unavailable'
-
 [EVM.GasEstimator]
 Mode = 'SuggestedPrice'
 PriceDefault = '9.223372036854775807 ether'
@@ -1056,6 +1040,22 @@ SyncThreshold = 13
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = true
 FinalizedBlockPollInterval = '1s'
+
+[EVM.NodePool.Errors]
+NonceTooLow = '(: |^)nonce too low'
+NonceTooHigh = '(: |^)nonce too high'
+ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
+LimitReached = '(: |^)limit reached'
+TransactionAlreadyInMempool = '(: |^)transaction already in mempool'
+TerminallyUnderpriced = '(: |^)terminally underpriced'
+InsufficientEth = '(: |^)infufficient Eth'
+TxFeeExceedsCap = '(: |^)tx fee exceeds cap'
+L2FeeTooLow = '(: |^)l2 fee too low'
+L2FeeTooHigh = '(: |^)l2 fee too high'
+L2Full = '(: |^)l2 full'
+TransactionAlreadyMined = '(: |^)transaction already mined'
+Fatal = '(: |^)fatal'
+ServiceUnavailable = '(: |^)service unavailable'
 
 [EVM.OCR]
 ContractConfirmations = 11
