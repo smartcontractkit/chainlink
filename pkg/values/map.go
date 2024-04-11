@@ -92,48 +92,50 @@ func mapValueToMap(f reflect.Type, t reflect.Type, data any) (any, error) {
 	return data, nil
 }
 
+func baseTypesEqual(f reflect.Type, t reflect.Type) bool {
+	if f.Kind() == reflect.Pointer {
+		f = f.Elem()
+	}
+
+	if t.Kind() == reflect.Pointer {
+		t = t.Elem()
+	}
+
+	return f == t
+}
+
+// unwrapsValues takes a value of type `f` and tries to convert it to a value of type `t`
 func unwrapsValues(f reflect.Type, t reflect.Type, data any) (any, error) {
+	// First, check if t and f have the same base type. If they do,
+	// we don't need to do anything further. `mapstructure` will
+	// automatically convert between values and pointers to get the right result.
+	if baseTypesEqual(f, t) {
+		return data, nil
+	}
+
 	valueType := reflect.TypeOf((*Value)(nil)).Elem()
-	if f.Implements(valueType) {
+
+	// Next, if f is a `Value`, we'll try to transform it to `t`,
+	// but only if `t` is not itself a `Value`.
+	// This avoids the following cases which we handle differently:
+	// - f and t are the same concrete value type -- handled above.
+	// - data is a concrete value and t represents the `Value` interface type.
+	//   This is compatible and we'll handle it on line 137 by returning `data`.
+	// - f and t are different concrete value types -- we can't handle that
+	//   here, so we'll just return data untransformed.
+	// In all other cases, we want to rely on data's UnwrapTo implementation
+	// to try to get the right result.
+	if f.Implements(valueType) && !t.Implements(valueType) {
 		dv := data.(Value)
-		unw, err := Unwrap(dv)
+
+		n := reflect.New(t).Interface()
+		err := dv.UnwrapTo(n)
 		if err != nil {
-			return data, nil
+			return nil, err
 		}
 
-		switch t {
-		case reflect.TypeOf(unw):
-			return unw, nil
-
-		// Handle integer types exceptionally;
-		// This is because ints are handled as int64s
-		// in the values library.
-		// TODO: refactor this so that we inspect the destination type
-		// and just call UnwrapTo using an instantiated pointer of that type.
-		case reflect.TypeOf(int(0)):
-			var i int
-			err := dv.UnwrapTo(&i)
-			if err != nil {
-				return nil, err
-			}
-
-			return i, nil
-		case reflect.TypeOf(uint(0)):
-			var i uint
-			err := dv.UnwrapTo(&i)
-			if err != nil {
-				return nil, err
-			}
-
-			return i, nil
-		case reflect.TypeOf(uint64(0)):
-			var i uint
-			err := dv.UnwrapTo(&i)
-			if err != nil {
-				return nil, err
-			}
-
-			return i, nil
+		if reflect.TypeOf(n).Elem() == t {
+			return n, nil
 		}
 	}
 

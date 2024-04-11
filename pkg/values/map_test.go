@@ -27,6 +27,9 @@ type testStruct struct {
 	Decimal      decimal.Decimal
 	DecimalValue *Decimal
 
+	List      []string
+	ListValue *List
+
 	Map      map[string]any
 	MapValue *Map
 }
@@ -36,6 +39,10 @@ func TestMap_UnwrapTo(t *testing.T) {
 		"foo": "bar",
 	}
 	mv, err := NewMap(im)
+	require.NoError(t, err)
+
+	l := []string{"a", "b", "c"}
+	lv, err := Wrap(l)
 	require.NoError(t, err)
 
 	expected := &testStruct{
@@ -55,6 +62,9 @@ func TestMap_UnwrapTo(t *testing.T) {
 
 		Decimal:      decimal.NewFromFloat(1.00),
 		DecimalValue: NewDecimal(decimal.NewFromFloat(1.00)),
+
+		List:      l,
+		ListValue: lv.(*List),
 
 		Map:      im,
 		MapValue: mv,
@@ -77,6 +87,9 @@ func TestMap_UnwrapTo(t *testing.T) {
 
 		"decimal":      decimal.NewFromFloat32(1.00),
 		"decimalValue": NewDecimal(decimal.NewFromFloat(1.00)),
+
+		"list":      []string{"a", "b", "c"},
+		"listValue": lv,
 
 		"map":      im,
 		"mapValue": mv,
