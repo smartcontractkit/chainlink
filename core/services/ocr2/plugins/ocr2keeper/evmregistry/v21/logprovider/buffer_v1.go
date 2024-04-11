@@ -75,9 +75,8 @@ type logBuffer struct {
 	// last block number seen by the buffer
 	lastBlockSeen *atomic.Int64
 	// map of upkeep id to its queue
-	queues     map[string]*upkeepLogQueue
-	startBlock *int64
-	lock       sync.RWMutex
+	queues map[string]*upkeepLogQueue
+	lock   sync.RWMutex
 }
 
 func NewLogBuffer(lggr logger.Logger, lookback, blockRate, logLimit uint32) LogBuffer {
