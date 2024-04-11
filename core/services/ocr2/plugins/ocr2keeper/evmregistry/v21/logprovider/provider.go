@@ -114,6 +114,7 @@ type logEventProvider struct {
 	currentPartitionIdx uint64
 	currentIteration    int
 	iterations          int
+	previousStartWindow *int64
 
 	chainID *big.Int
 }
@@ -292,6 +293,14 @@ func (p *logEventProvider) getLogsFromBuffer(latestBlock int64) []ocr2keepers.Up
 		// in v1, we use a greedy approach - we keep dequeuing logs until we reach the max results or cover the entire range.
 		blockRate, logLimitLow, maxResults, _ := p.getBufferDequeueArgs()
 
+		windowStart, windowEnd := getBlockWindow(start, blockRate)
+		if p.previousStartWindow != nil {
+			if windowStart != *p.previousStartWindow {
+				p.currentIteration = 0
+				p.previousStartWindow = &windowStart
+			}
+		}
+
 		if p.currentIteration == 0 {
 			p.iterations = (p.bufferV1.NumOfUpkeeps() / logLimitLow) / maxResults
 		}
@@ -301,7 +310,7 @@ func (p *logEventProvider) getLogsFromBuffer(latestBlock int64) []ocr2keepers.Up
 		}
 
 		for len(payloads) < maxResults && start <= latestBlock {
-			logs, remaining := p.bufferV1.Dequeue(start, blockRate, logLimitLow, maxResults-len(payloads), upkeepSelectorFn)
+			logs, remaining := p.bufferV1.Dequeue(windowStart, windowEnd, logLimitLow, maxResults-len(payloads), upkeepSelectorFn)
 
 			if len(logs) > 0 {
 				p.lggr.Debugw("Dequeued logs", "start", start, "latestBlock", latestBlock, "logs", len(logs))

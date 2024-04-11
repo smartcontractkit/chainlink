@@ -26,7 +26,7 @@ type LogBuffer interface {
 	// It also accepts a function to select upkeeps.
 	// Returns logs (associated to upkeeps) and the number of remaining
 	// logs in that window for the involved upkeeps.
-	Dequeue(block int64, blockRate, upkeepLimit, maxResults int, upkeepSelector func(id *big.Int) bool) ([]BufferedLog, int)
+	Dequeue(block, blockRate int64, upkeepLimit, maxResults int, upkeepSelector func(id *big.Int) bool) ([]BufferedLog, int)
 	// SetConfig sets the buffer size and the maximum number of logs to keep for each upkeep.
 	SetConfig(lookback, blockRate, logLimit uint32)
 	// NumOfUpkeeps returns the number of upkeeps that are being tracked by the buffer.
@@ -75,8 +75,9 @@ type logBuffer struct {
 	// last block number seen by the buffer
 	lastBlockSeen *atomic.Int64
 	// map of upkeep id to its queue
-	queues map[string]*upkeepLogQueue
-	lock   sync.RWMutex
+	queues     map[string]*upkeepLogQueue
+	startBlock *int64
+	lock       sync.RWMutex
 }
 
 func NewLogBuffer(lggr logger.Logger, lookback, blockRate, logLimit uint32) LogBuffer {
@@ -110,11 +111,10 @@ func (b *logBuffer) Enqueue(uid *big.Int, logs ...logpoller.Log) (int, int) {
 
 // Dequeue greedly pulls logs from the buffers.
 // Returns logs and the number of remaining logs in the buffer.
-func (b *logBuffer) Dequeue(block int64, blockRate, upkeepLimit, maxResults int, upkeepSelector func(id *big.Int) bool) ([]BufferedLog, int) {
+func (b *logBuffer) Dequeue(start, end int64, upkeepLimit, maxResults int, upkeepSelector func(id *big.Int) bool) ([]BufferedLog, int) {
 	b.lock.RLock()
 	defer b.lock.RUnlock()
 
-	start, end := getBlockWindow(block, blockRate)
 	return b.dequeue(start, end, upkeepLimit, maxResults, upkeepSelector)
 }
 
