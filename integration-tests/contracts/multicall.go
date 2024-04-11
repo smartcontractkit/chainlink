@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
-	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -53,8 +52,6 @@ func WaitForSuccessfulTxMined(evmClient blockchain.EVMClient, tx *types.Transact
 	return nil
 }
 
-var atomicCounter atomic.Int32
-
 func MultiCallLogTriggerLoadGen(
 	client *seth.Client,
 	multiCallAddress string,
@@ -73,17 +70,6 @@ func MultiCallLogTriggerLoadGen(
 		data := Call{Target: common.HexToAddress(logTriggerAddress[i]), AllowFailure: false, CallData: d}
 		call = append(call, data)
 	}
-
-	var keyNum int
-
-	// if *client.Cfg.EphemeralAddrs == 0 {
-	// 	keyNum = 0
-	// } else if *client.Cfg.EphemeralAddrs == 1 {
-	// 	keyNum = 1
-	// } else {
-	keyNum = client.AnySyncedKey()
-	// }
-
 	// call aggregate3 to group all msg call data and send them in a single transaction
-	return boundContract.Transact(client.NewTXKeyOpts(keyNum), "aggregate3", call)
+	return boundContract.Transact(client.NewTXKeyOpts(client.AnySyncedKey()), "aggregate3", call)
 }

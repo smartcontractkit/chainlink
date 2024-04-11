@@ -580,7 +580,7 @@ func calculateOCR3ConfigArgs(a *AutomationTest, S []int, oracleIdentities []conf
 	)
 }
 
-func (a *AutomationTest) RegisterUpkeeps(multicallAddress common.Address, upkeepConfigs []UpkeepConfig) ([]common.Hash, error) {
+func (a *AutomationTest) RegisterUpkeeps(upkeepConfigs []UpkeepConfig) ([]common.Hash, error) {
 	var registrarABI *abi.ABI
 	var err error
 	var registrationRequest []byte
@@ -596,9 +596,7 @@ func (a *AutomationTest) RegisterUpkeeps(multicallAddress common.Address, upkeep
 
 	resultCh := make(chan result, concurrency)
 
-	// waits for all upkeep registrations to be processed
 	var wgProcesses sync.WaitGroup
-
 	for range upkeepConfigs {
 		wgProcesses.Add(1)
 	}
@@ -742,11 +740,7 @@ func (a *AutomationTest) RegisterUpkeeps(multicallAddress common.Address, upkeep
 	if len(failedRegistrations) > 0 {
 		failedByClient := make(map[int]int)
 		for _, failed := range failedRegistrations {
-			if _, ok := failedByClient[*failed.clientNum]; ok {
-				failedByClient[*failed.clientNum]++
-			} else {
-				failedByClient[*failed.clientNum] = 1
-			}
+			failedByClient[*failed.clientNum]++
 		}
 
 		for clientNum, failed := range failedByClient {

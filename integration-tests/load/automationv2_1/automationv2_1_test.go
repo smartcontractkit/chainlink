@@ -325,7 +325,8 @@ Load Config:
 	readSethCfg := loadedTestConfig.GetSethConfig()
 	require.NotNil(t, readSethCfg, "Seth config shouldn't be nil")
 
-	sethCfg := utils.MergeSethAndEvmNetworkConfigs(l, testNetwork, *readSethCfg)
+	sethCfg, err := utils.MergeSethAndEvmNetworkConfigs(testNetwork, *readSethCfg)
+	require.NoError(t, err, "Error merging seth and evm network configs")
 	err = utils.ValidateSethNetworkConfig(sethCfg.Network)
 	require.NoError(t, err, "Error validating seth network config")
 
@@ -500,7 +501,7 @@ Load Config:
 	}
 
 	require.Equal(t, expectedTotalUpkeepCount, len(upkeepConfigs), "Incorrect number of upkeep configs created")
-	registrationTxHashes, err := a.RegisterUpkeeps(multicallAddress, upkeepConfigs)
+	registrationTxHashes, err := a.RegisterUpkeeps(upkeepConfigs)
 	require.NoError(t, err, "Error registering upkeeps")
 
 	upkeepIds, err := a.ConfirmUpkeepsRegistered(registrationTxHashes)

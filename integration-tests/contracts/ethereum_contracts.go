@@ -1291,7 +1291,7 @@ func (l *LegacyEthereumLinkToken) TransferAndCall(to string, amount *big.Int, da
 	return tx, l.client.ProcessTransaction(tx)
 }
 
-func (l *LegacyEthereumLinkToken) TransferAndCallFromKey(to string, amount *big.Int, data []byte, keyNum int) (*types.Transaction, error) {
+func (l *LegacyEthereumLinkToken) TransferAndCallFromKey(_ string, _ *big.Int, _ []byte, _ int) (*types.Transaction, error) {
 	panic("supported only with Seth")
 }
 

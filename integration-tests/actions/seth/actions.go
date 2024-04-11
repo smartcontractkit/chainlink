@@ -467,7 +467,7 @@ func TeardownRemoteSuite(
 			}
 
 			fileName := "ephemeral_addresses_private_keys.json"
-			writeErr := os.WriteFile(fileName, privateKeyJson, 0644)
+			writeErr := os.WriteFile(fileName, privateKeyJson, 0600)
 			if writeErr != nil {
 				l.Error().
 					Err(writeErr).

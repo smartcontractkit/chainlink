@@ -102,12 +102,6 @@ func ValidateSethNetworkConfig(cfg *seth.Network) error {
 	if cfg.TxnTimeout.Duration() == 0 {
 		return fmt.Errorf("TxnTimeout needs to be above 0. It's the timeout for a transaction")
 	}
-<<<<<<< HEAD
-	// if cfg.GasLimit == 0 {
-	// 	return fmt.Errorf("GasLimit needs to be above 0. It's the gas limit for a transaction")
-	// }
-=======
->>>>>>> develop
 	if cfg.EIP1559DynamicFees {
 		if cfg.GasFeeCap == 0 {
 			return fmt.Errorf("GasFeeCap needs to be above 0. It's the maximum fee per gas for a transaction (including tip)")

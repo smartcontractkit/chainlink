@@ -14,13 +14,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
 	"github.com/slack-go/slack"
+	"github.com/smartcontractkit/seth"
 
 	reportModel "github.com/smartcontractkit/chainlink-testing-framework/testreporters"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	aconfig "github.com/smartcontractkit/chainlink/integration-tests/testconfig/automation"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
-	"github.com/smartcontractkit/seth"
 )
 
 func extraBlockWithText(text string) slack.Block {
@@ -92,7 +92,6 @@ func deployConsumerAndTriggerContracts(l zerolog.Logger, loadConfig aconfig.Load
 		triggerContract  contracts.LogEmitter
 		triggerAddress   common.Address
 		loadConfig       aconfig.Load
-		clientNum        int
 		err              error
 	}
 
@@ -149,10 +148,6 @@ func deployConsumerAndTriggerContracts(l zerolog.Logger, loadConfig aconfig.Load
 			return
 		}
 
-		// if *loadConfig.SharedTrigger && i > 0 {
-		// 	triggerAddresses = append(triggerAddresses, triggerAddresses[len(triggerAddresses)-1])
-		// 	continue
-		// }
 		triggerContract, err := contracts.DeployLogEmitterContractFromKey(l, chainClient, keyNum)
 		if err != nil {
 			data.err = err
@@ -172,9 +167,7 @@ func deployConsumerAndTriggerContracts(l zerolog.Logger, loadConfig aconfig.Load
 		deployedCh <- data
 	}
 
-	// var wgSubmit sync.WaitGroup
 	var wgProcess sync.WaitGroup
-
 	for i := 0; i < *loadConfig.NumberOfUpkeeps; i++ {
 		wgProcess.Add(1)
 	}
