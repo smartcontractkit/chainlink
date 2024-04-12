@@ -2,11 +2,11 @@
 gomodtidy:
 	go mod tidy
 
-.PHONY: godoc
-godoc:
-	go install golang.org/x/tools/cmd/godoc@latest
-	# http://localhost:6060/pkg/github.com/smartcontractkit/chainlink-common/
-	godoc -http=:6060
+.PHONY: docs
+docs:
+	go install golang.org/x/pkgsite/cmd/pkgsite@latest
+	# http://localhost:8080/pkg/github.com/smartcontractkit/chainlink-common/pkg/
+	pkgsite
 
 PHONY: install-protoc
 install-protoc:
