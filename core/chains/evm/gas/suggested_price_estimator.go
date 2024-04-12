@@ -59,8 +59,7 @@ type SuggestedPriceEstimator struct {
 
 // NewSuggestedPriceEstimator returns a new Estimator which uses the suggested gas price.
 func NewSuggestedPriceEstimator(lggr logger.Logger, client feeEstimatorClient, cfg suggestedPriceConfig, chainType config.ChainType) EvmEstimator {
-	var l1Oracle rollups.L1Oracle
-	l1Oracle = rollups.NewL1GasOracle(lggr, client, chainType)
+	l1Oracle := rollups.NewL1GasOracle(lggr, client, chainType)
 
 	return &SuggestedPriceEstimator{
 		client:         client,
