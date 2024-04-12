@@ -119,13 +119,13 @@ func TestExecutionReportingPlugin_Observation(t *testing.T) {
 			senderNonce:       9,
 			sendRequests: []cciptypes.EVM2EVMMessageWithTxMeta{
 				{
-					EVM2EVMMessage: cciptypes.EVM2EVMMessage{SequenceNumber: 10},
+					EVM2EVMMessage: cciptypes.EVM2EVMMessage{SequenceNumber: 10, GasLimit: big.NewInt(0)},
 				},
 				{
-					EVM2EVMMessage: cciptypes.EVM2EVMMessage{SequenceNumber: 11},
+					EVM2EVMMessage: cciptypes.EVM2EVMMessage{SequenceNumber: 11, GasLimit: big.NewInt(0)},
 				},
 				{
-					EVM2EVMMessage: cciptypes.EVM2EVMMessage{SequenceNumber: 12},
+					EVM2EVMMessage: cciptypes.EVM2EVMMessage{SequenceNumber: 12, GasLimit: big.NewInt(0)},
 				},
 			},
 		},
@@ -460,11 +460,7 @@ func TestExecutionReportingPlugin_buildReport(t *testing.T) {
 }
 
 func TestExecutionReportingPlugin_buildBatch(t *testing.T) {
-	//_, _ := testhelpers.SetupChain(t)
 	offRamp, _ := testhelpers.NewFakeOffRamp(t)
-	// We do this just to have the parsing available.
-	//onRamp, err := evm_2_evm_onramp.NewEVM2EVMOnRamp(common.HexToAddress("0x1"), c)
-	//require.NoError(t, err)
 	lggr := logger.TestLogger(t)
 
 	sender1 := ccipcalc.HexToAddress("0xa")
@@ -513,6 +509,7 @@ func TestExecutionReportingPlugin_buildBatch(t *testing.T) {
 		offRampNoncesBySender    map[cciptypes.Address]uint64
 		srcToDestTokens          map[cciptypes.Address]cciptypes.Address
 		expectedSeqNrs           []ccip.ObservedMessage
+		expectedStates           []messageExecStatus
 	}{
 		{
 			name:                  "single message no tokens",
@@ -524,6 +521,7 @@ func TestExecutionReportingPlugin_buildBatch(t *testing.T) {
 			dstPrices:             map[cciptypes.Address]*big.Int{destNative: big.NewInt(1)},
 			offRampNoncesBySender: map[cciptypes.Address]uint64{sender1: 0},
 			expectedSeqNrs:        []ccip.ObservedMessage{{SeqNr: uint64(1)}},
+			expectedStates:        []messageExecStatus{newMessageExecState(msg1.SequenceNumber, msg1.MessageID, AddedToBatch)},
 		},
 		{
 			name:                  "executed non finalized messages should be skipped",
@@ -534,7 +532,7 @@ func TestExecutionReportingPlugin_buildBatch(t *testing.T) {
 			srcPrices:             map[cciptypes.Address]*big.Int{srcNative: big.NewInt(1)},
 			dstPrices:             map[cciptypes.Address]*big.Int{destNative: big.NewInt(1)},
 			offRampNoncesBySender: map[cciptypes.Address]uint64{sender1: 0},
-			expectedSeqNrs:        nil,
+			expectedStates:        []messageExecStatus{newMessageExecState(msg2.SequenceNumber, msg2.MessageID, AlreadyExecuted)},
 		},
 		{
 			name:                  "finalized executed log",
@@ -545,29 +543,29 @@ func TestExecutionReportingPlugin_buildBatch(t *testing.T) {
 			srcPrices:             map[cciptypes.Address]*big.Int{srcNative: big.NewInt(1)},
 			dstPrices:             map[cciptypes.Address]*big.Int{destNative: big.NewInt(1)},
 			offRampNoncesBySender: map[cciptypes.Address]uint64{sender1: 0},
-			expectedSeqNrs:        nil,
+			expectedStates:        []messageExecStatus{newMessageExecState(msg3.SequenceNumber, msg3.MessageID, AlreadyExecuted)},
 		},
 		{
 			name:                  "dst token price does not exist",
-			reqs:                  []cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta{msg2},
+			reqs:                  []cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta{msg1},
 			inflight:              big.NewInt(0),
 			tokenLimit:            big.NewInt(0),
 			destGasPrice:          big.NewInt(10),
 			srcPrices:             map[cciptypes.Address]*big.Int{srcNative: big.NewInt(1)},
 			dstPrices:             map[cciptypes.Address]*big.Int{},
 			offRampNoncesBySender: map[cciptypes.Address]uint64{sender1: 0},
-			expectedSeqNrs:        nil,
+			expectedStates:        []messageExecStatus{newMessageExecState(msg1.SequenceNumber, msg1.MessageID, TokenNotInDestTokenPrices)},
 		},
 		{
 			name:                  "src token price does not exist",
-			reqs:                  []cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta{msg2},
+			reqs:                  []cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta{msg1},
 			inflight:              big.NewInt(0),
 			tokenLimit:            big.NewInt(0),
 			destGasPrice:          big.NewInt(10),
 			srcPrices:             map[cciptypes.Address]*big.Int{},
 			dstPrices:             map[cciptypes.Address]*big.Int{destNative: big.NewInt(1)},
 			offRampNoncesBySender: map[cciptypes.Address]uint64{sender1: 0},
-			expectedSeqNrs:        nil,
+			expectedStates:        []messageExecStatus{newMessageExecState(msg1.SequenceNumber, msg1.MessageID, TokenNotInSrcTokenPrices)},
 		},
 		{
 			name:         "message with tokens is not executed if limit is reached",
@@ -581,7 +579,7 @@ func TestExecutionReportingPlugin_buildBatch(t *testing.T) {
 				srcNative: destNative,
 			},
 			offRampNoncesBySender: map[cciptypes.Address]uint64{sender1: 0},
-			expectedSeqNrs:        nil,
+			expectedStates:        []messageExecStatus{newMessageExecState(msg4.SequenceNumber, msg4.MessageID, AggregateTokenLimitExceeded)},
 		},
 		{
 			name:         "message with tokens is not executed if limit is reached when inflight is full",
@@ -594,8 +592,86 @@ func TestExecutionReportingPlugin_buildBatch(t *testing.T) {
 			srcToDestTokens: map[cciptypes.Address]cciptypes.Address{
 				srcNative: destNative,
 			},
+			offRampNoncesBySender: map[cciptypes.Address]uint64{sender1: 1},
+			expectedStates:        []messageExecStatus{newMessageExecState(msg5.SequenceNumber, msg5.MessageID, AggregateTokenLimitExceeded)},
+		},
+		{
+			name:                  "skip when nonce doesn't match chain value",
+			reqs:                  []cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta{msg1},
+			inflight:              big.NewInt(0),
+			tokenLimit:            big.NewInt(0),
+			destGasPrice:          big.NewInt(10),
+			srcPrices:             map[cciptypes.Address]*big.Int{srcNative: big.NewInt(1)},
+			dstPrices:             map[cciptypes.Address]*big.Int{destNative: big.NewInt(1)},
+			offRampNoncesBySender: map[cciptypes.Address]uint64{sender1: 123},
+			expectedStates:        []messageExecStatus{newMessageExecState(msg1.SequenceNumber, msg1.MessageID, InvalidNonce)},
+		},
+		{
+			name:                  "skip when nonce not found",
+			reqs:                  []cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta{msg1},
+			inflight:              big.NewInt(0),
+			tokenLimit:            big.NewInt(0),
+			destGasPrice:          big.NewInt(10),
+			srcPrices:             map[cciptypes.Address]*big.Int{srcNative: big.NewInt(1)},
+			dstPrices:             map[cciptypes.Address]*big.Int{destNative: big.NewInt(1)},
+			offRampNoncesBySender: map[cciptypes.Address]uint64{},
+			expectedStates:        []messageExecStatus{newMessageExecState(msg1.SequenceNumber, msg1.MessageID, MissingNonce)},
+		},
+		{
+			name: "skip when batch gas limit is reached",
+			reqs: []cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta{
+				{
+					EVM2EVMMessage: cciptypes.EVM2EVMMessage{
+						SequenceNumber: 10,
+						FeeTokenAmount: big.NewInt(1e9),
+						Sender:         sender1,
+						Nonce:          1,
+						GasLimit:       big.NewInt(1),
+						Data:           bytes.Repeat([]byte{'a'}, 1000),
+						FeeToken:       srcNative,
+						MessageID:      [32]byte{},
+					},
+					BlockTimestamp: time.Date(2010, 1, 1, 12, 12, 12, 0, time.UTC),
+				},
+				{
+					EVM2EVMMessage: cciptypes.EVM2EVMMessage{
+						SequenceNumber: 11,
+						FeeTokenAmount: big.NewInt(1e9),
+						Sender:         sender1,
+						Nonce:          2,
+						GasLimit:       big.NewInt(math.MaxInt64),
+						Data:           bytes.Repeat([]byte{'a'}, 1000),
+						FeeToken:       srcNative,
+						MessageID:      [32]byte{},
+					},
+					BlockTimestamp: time.Date(2010, 1, 1, 12, 12, 12, 0, time.UTC),
+				},
+				{
+					EVM2EVMMessage: cciptypes.EVM2EVMMessage{
+						SequenceNumber: 12,
+						FeeTokenAmount: big.NewInt(1e9),
+						Sender:         sender1,
+						Nonce:          3,
+						GasLimit:       big.NewInt(1),
+						Data:           bytes.Repeat([]byte{'a'}, 1000),
+						FeeToken:       srcNative,
+						MessageID:      [32]byte{},
+					},
+					BlockTimestamp: time.Date(2010, 1, 1, 12, 12, 12, 0, time.UTC),
+				},
+			},
+			inflight:              big.NewInt(0),
+			tokenLimit:            big.NewInt(0),
+			destGasPrice:          big.NewInt(10),
+			srcPrices:             map[cciptypes.Address]*big.Int{srcNative: big.NewInt(1)},
+			dstPrices:             map[cciptypes.Address]*big.Int{destNative: big.NewInt(1)},
 			offRampNoncesBySender: map[cciptypes.Address]uint64{sender1: 0},
-			expectedSeqNrs:        nil,
+			expectedSeqNrs:        []ccip.ObservedMessage{{SeqNr: uint64(10)}},
+			expectedStates: []messageExecStatus{
+				newMessageExecState(10, [32]byte{}, AddedToBatch),
+				newMessageExecState(11, [32]byte{}, InsufficientRemainingBatchGas),
+				newMessageExecState(12, [32]byte{}, InvalidNonce),
+			},
 		},
 		{
 			name: "some messages skipped after hitting max batch data len",
@@ -631,7 +707,7 @@ func TestExecutionReportingPlugin_buildBatch(t *testing.T) {
 						SequenceNumber: 12,
 						FeeTokenAmount: big.NewInt(1e9),
 						Sender:         sender1,
-						Nonce:          2,
+						Nonce:          3,
 						GasLimit:       big.NewInt(1),
 						Data:           bytes.Repeat([]byte{'a'}, 1000),
 						FeeToken:       srcNative,
@@ -646,7 +722,12 @@ func TestExecutionReportingPlugin_buildBatch(t *testing.T) {
 			srcPrices:             map[cciptypes.Address]*big.Int{srcNative: big.NewInt(1)},
 			dstPrices:             map[cciptypes.Address]*big.Int{destNative: big.NewInt(1)},
 			offRampNoncesBySender: map[cciptypes.Address]uint64{sender1: 0},
-			expectedSeqNrs:        []ccip.ObservedMessage{{SeqNr: uint64(10)}, {SeqNr: uint64(12)}},
+			expectedSeqNrs:        []ccip.ObservedMessage{{SeqNr: uint64(10)}},
+			expectedStates: []messageExecStatus{
+				newMessageExecState(10, [32]byte{}, AddedToBatch),
+				newMessageExecState(11, [32]byte{}, InsufficientRemainingBatchDataLength),
+				newMessageExecState(12, [32]byte{}, InvalidNonce),
+			},
 		},
 	}
 
@@ -677,7 +758,7 @@ func TestExecutionReportingPlugin_buildBatch(t *testing.T) {
 				gasPriceEstimator: gasPriceEstimator,
 			}
 
-			seqNrs := plugin.buildBatch(
+			seqNrs, execStates := plugin.buildBatch(
 				context.Background(),
 				lggr,
 				commitReportWithSendRequests{sendRequestsWithMeta: tc.reqs},
@@ -688,7 +769,17 @@ func TestExecutionReportingPlugin_buildBatch(t *testing.T) {
 				tc.destGasPrice,
 				tc.srcToDestTokens,
 			)
-			assert.Equal(t, tc.expectedSeqNrs, seqNrs)
+			if tc.expectedSeqNrs == nil {
+				assert.Len(t, seqNrs, 0)
+			} else {
+				assert.Equal(t, tc.expectedSeqNrs, seqNrs)
+			}
+
+			if tc.expectedStates == nil {
+				assert.Len(t, execStates, 0)
+			} else {
+				assert.Equal(t, tc.expectedStates, execStates)
+			}
 		})
 	}
 }

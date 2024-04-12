@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
@@ -131,4 +133,63 @@ func getCommitReportForSeqNum(ctx context.Context, commitStoreReader ccipdata.Co
 	}
 
 	return acceptedReports[0].CommitStoreReport, nil
+}
+
+type messageStatus string
+
+const (
+	AlreadyExecuted                      messageStatus = "already_executed"
+	SenderAlreadySkipped                 messageStatus = "sender_already_skipped"
+	MessageMaxGasCalcError               messageStatus = "message_max_gas_calc_error"
+	InsufficientRemainingBatchDataLength messageStatus = "insufficient_remaining_batch_data_length"
+	InsufficientRemainingBatchGas        messageStatus = "insufficient_remaining_batch_gas"
+	MissingNonce                         messageStatus = "missing_nonce"
+	InvalidNonce                         messageStatus = "invalid_nonce"
+	AggregateTokenValueComputeError      messageStatus = "aggregate_token_value_compute_error"
+	AggregateTokenLimitExceeded          messageStatus = "aggregate_token_limit_exceeded"
+	TokenDataNotReady                    messageStatus = "token_data_not_ready"
+	TokenDataFetchError                  messageStatus = "token_data_fetch_error"
+	TokenNotInDestTokenPrices            messageStatus = "token_not_in_dest_token_prices"
+	TokenNotInSrcTokenPrices             messageStatus = "token_not_in_src_token_prices"
+	InsufficientRemainingFee             messageStatus = "insufficient_remaining_fee"
+	AddedToBatch                         messageStatus = "added_to_batch"
+)
+
+type messageExecStatus struct {
+	SeqNr     uint64
+	MessageId string
+	Status    messageStatus
+}
+
+func newMessageExecState(seqNr uint64, messageId cciptypes.Hash, status messageStatus) messageExecStatus {
+	return messageExecStatus{
+		SeqNr:     seqNr,
+		MessageId: hexutil.Encode(messageId[:]),
+		Status:    status,
+	}
+}
+
+type batchBuildContainer struct {
+	batch    []ccip.ObservedMessage
+	statuses []messageExecStatus
+}
+
+func newBatchBuildContainer(capacity int) *batchBuildContainer {
+	return &batchBuildContainer{
+		batch:    make([]ccip.ObservedMessage, 0, capacity),
+		statuses: make([]messageExecStatus, 0, capacity),
+	}
+}
+
+func (m *batchBuildContainer) skip(msg cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta, status messageStatus) {
+	m.addState(msg, status)
+}
+
+func (m *batchBuildContainer) addToBatch(msg cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta, tokenData [][]byte) {
+	m.addState(msg, AddedToBatch)
+	m.batch = append(m.batch, ccip.NewObservedMessage(msg.SequenceNumber, tokenData))
+}
+
+func (m *batchBuildContainer) addState(msg cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta, state messageStatus) {
+	m.statuses = append(m.statuses, newMessageExecState(msg.SequenceNumber, msg.MessageID, state))
 }
