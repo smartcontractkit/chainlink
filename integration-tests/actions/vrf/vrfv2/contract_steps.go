@@ -588,7 +588,7 @@ func RequestRandomnessWithForceFulfillAndWaitForFulfillment(
 	subTopUpAmount *big.Int,
 	linkAddress common.Address,
 	randomWordsFulfilledEventTimeout time.Duration,
-) (*vrf_coordinator_v2.VRFCoordinatorV2ConfigSet, *contracts.CoordinatorRandomWordsFulfilled, *vrf_owner.VRFOwnerRandomWordsForced, error) {
+) (*contracts.CoordinatorConfigSet, *contracts.CoordinatorRandomWordsFulfilled, *vrf_owner.VRFOwnerRandomWordsForced, error) {
 	logRandRequest(l, consumer.Address(), coordinator.Address(), 0, minimumConfirmations, callbackGasLimit, numberOfWords, randomnessRequestCountPerRequest, randomnessRequestCountPerRequestDeviation, vrfv2KeyData.KeyHash)
 	randomWordsRequestedEvent, err := consumer.RequestRandomWordsWithForceFulfill(
 		coordinator,
@@ -650,7 +650,7 @@ func RequestRandomnessWithForceFulfillAndWaitForFulfillment(
 		randWordsForcedEventChannel <- randomWordsForcedEvent
 	}()
 
-	var configSetEvent *vrf_coordinator_v2.VRFCoordinatorV2ConfigSet
+	var configSetEvent *contracts.CoordinatorConfigSet
 	var randomWordsFulfilledEvent *contracts.CoordinatorRandomWordsFulfilled
 	var randomWordsForcedEvent *vrf_owner.VRFOwnerRandomWordsForced
 	for i := 0; i < 3; i++ {
