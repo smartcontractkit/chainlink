@@ -10,7 +10,6 @@ import {Chainable} from "../../Chainable.sol";
 import {IERC677Receiver} from "../../../shared/interfaces/IERC677Receiver.sol";
 import {OCR2Abstract} from "../../../shared/ocr2/OCR2Abstract.sol";
 import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
-import {SafeCast} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/math/SafeCast.sol";
 
 /**
  * @notice Registry for adding work for Chainlink nodes to perform on client
@@ -226,37 +225,6 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
     s_transmitters[msg.sender].balance += transmitVars.totalReimbursement;
     s_hotVars.totalPremium += transmitVars.totalPremium;
     s_reserveAmounts[IERC20(address(i_link))] += transmitVars.totalReimbursement + transmitVars.totalPremium;
-  }
-
-  /**
-   * @notice adds fund to an upkeep
-   * @param id the upkeepID
-   * @param amount the amount of funds to add, in the upkeep's billing token
-   */
-  function addFunds(uint256 id, uint96 amount) external payable {
-    Upkeep memory upkeep = s_upkeep[id];
-    if (upkeep.maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
-
-    if (msg.value != 0) {
-      if (upkeep.billingToken != IERC20(i_wrappedNativeToken)) {
-        revert InvalidToken();
-      }
-      amount = SafeCast.toUint96(msg.value);
-    }
-
-    s_upkeep[id].balance = upkeep.balance + amount;
-    s_reserveAmounts[upkeep.billingToken] = s_reserveAmounts[upkeep.billingToken] + amount;
-
-    if (msg.value == 0) {
-      // ERC20 payment
-      bool success = upkeep.billingToken.transferFrom(msg.sender, address(this), amount);
-      if (!success) revert TransferFailed();
-    } else {
-      // native payment
-      i_wrappedNativeToken.deposit{value: amount}();
-    }
-
-    emit FundsAdded(id, msg.sender, amount);
   }
 
   /**
