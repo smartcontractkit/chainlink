@@ -65,8 +65,11 @@ func ReadEnvDeployOpts() EnvConfig {
 	panelsIncludedString := os.Getenv("PANELS_INCLUDED")
 	panelsIncludedArray := strings.Split(panelsIncludedString, ",")
 	panelsIncluded := make(map[string]bool)
-	for _, panelName := range panelsIncludedArray {
-		panelsIncluded[panelName] = true
+
+	if panelsIncludedString != "" {
+		for _, panelName := range panelsIncludedArray {
+			panelsIncluded[panelName] = true
+		}
 	}
 
 	ba := os.Getenv("GRAFANA_BASIC_AUTH")

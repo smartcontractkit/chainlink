@@ -18,7 +18,7 @@ func main() {
 			dashboard.Tags([]string{"generated"}),
 		},
 	)
-	if len(cfg.PanelsIncluded) == 1 || cfg.PanelsIncluded["core"] {
+	if len(cfg.PanelsIncluded) == 0 || cfg.PanelsIncluded["core"] {
 		db.Add(
 			core_don.New(
 				core_don.Props{
