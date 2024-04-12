@@ -26,7 +26,6 @@ import (
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 )
 
-//go:generate mockery --quiet --name OptimismL1Oracle --output ./mocks/ --case=underscore --structname OptimismL1Oracle
 type OptimismL1Oracle interface {
 	L1Oracle
 	GetDAGasPrice(ctx context.Context) (*big.Int, error)
@@ -86,6 +85,8 @@ const (
 	// GasOracleAddress is the address of the precompiled contract that exists on Kroma chain.
 	// This is the case for Kroma.
 	KromaGasOracleAddress = "0x4200000000000000000000000000000000000005"
+	// ScrollGasOracleAddress is the address of the precompiled contract that exists on Scroll chain.
+	ScrollGasOracleAddress = "0x5300000000000000000000000000000000000002"
 )
 
 func NewOpStackL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType config.ChainType) OptimismL1Oracle {
@@ -95,6 +96,8 @@ func NewOpStackL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainTy
 		precompileAddress = OPGasOracleAddress
 	case config.ChainKroma:
 		precompileAddress = KromaGasOracleAddress
+	case config.ChainScroll:
+		precompileAddress = ScrollGasOracleAddress
 	default:
 		panic(fmt.Sprintf("Received unspported chaintype %s", chainType))
 	}

@@ -30,7 +30,7 @@ func TestL1Oracle(t *testing.T) {
 	t.Run("Unsupported ChainType returns nil", func(t *testing.T) {
 		ethClient := mocks.NewL1OracleClient(t)
 
-		assert.Panicsf(t, func() { NewL1GasOracle(logger.Test(t), ethClient, config.ChainCelo) }, "Received unspported chaintype %s", config.ChainCelo)
+		assert.Nil(t, NewL1GasOracle(logger.Test(t), ethClient, config.ChainCelo))
 	})
 }
 
@@ -154,7 +154,20 @@ func TestL1Oracle_GasPrice(t *testing.T) {
 		l1GasPriceMethodAbi, err := abi.JSON(strings.NewReader(L1BaseFeeAbiString))
 		require.NoError(t, err)
 
+		isEcotoneAbiString, err := abi.JSON(strings.NewReader(OPIsEcotoneAbiString))
+		require.NoError(t, err)
+
 		ethClient := mocks.NewL1OracleClient(t)
+		ethClient.On("CallContract", mock.Anything, mock.IsType(ethereum.CallMsg{}), mock.IsType(&big.Int{})).Run(func(args mock.Arguments) {
+			callMsg := args.Get(1).(ethereum.CallMsg)
+			blockNumber := args.Get(2).(*big.Int)
+			var payload []byte
+			payload, err = isEcotoneAbiString.Pack("isEcotone")
+			require.NoError(t, err)
+			require.Equal(t, payload, callMsg.Data)
+			assert.Nil(t, blockNumber)
+		}).Return(nil, errors.New("not ecotone")).Once()
+
 		ethClient.On("CallContract", mock.Anything, mock.IsType(ethereum.CallMsg{}), mock.IsType(&big.Int{})).Run(func(args mock.Arguments) {
 			callMsg := args.Get(1).(ethereum.CallMsg)
 			blockNumber := args.Get(2).(*big.Int)

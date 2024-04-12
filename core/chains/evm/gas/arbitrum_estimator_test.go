@@ -48,6 +48,7 @@ func TestArbitrumEstimator(t *testing.T) {
 	const maxGasLimit uint64 = 500_000
 	calldata := []byte{0x00, 0x00, 0x01, 0x02, 0x03}
 	const gasLimit uint64 = 80000
+	const gasPriceBufferPercentage = 50
 	const bumpPercent = 10
 	var bumpMin = assets.NewWei(big.NewInt(1))
 
@@ -80,7 +81,8 @@ func TestArbitrumEstimator(t *testing.T) {
 		servicetest.RunHealthy(t, o)
 		gasPrice, chainSpecificGasLimit, err := o.GetLegacyGas(testutils.Context(t), calldata, gasLimit, maxGasPrice)
 		require.NoError(t, err)
-		assert.Equal(t, assets.NewWeiI(42), gasPrice)
+		// Expected price for a standard l2_suggested_estimator would be 42, but we add a fixed gasPriceBufferPercentage.
+		assert.Equal(t, assets.NewWeiI(42).AddPercentage(gasPriceBufferPercentage), gasPrice)
 		assert.Equal(t, gasLimit, chainSpecificGasLimit)
 	})
 
@@ -204,7 +206,8 @@ func TestArbitrumEstimator(t *testing.T) {
 		gasPrice, chainSpecificGasLimit, err := o.GetLegacyGas(testutils.Context(t), calldata, gasLimit, maxGasPrice)
 		require.NoError(t, err)
 		require.NotNil(t, gasPrice)
-		assert.Equal(t, "42 wei", gasPrice.String())
+		// Again, a normal l2_suggested_estimator would return 42, but arbitrum_estimator adds a buffer.
+		assert.Equal(t, "63 wei", gasPrice.String())
 		assert.Equal(t, expLimit, chainSpecificGasLimit, "expected %d but got %d", expLimit, chainSpecificGasLimit)
 	})
 

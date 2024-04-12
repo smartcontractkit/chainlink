@@ -130,9 +130,8 @@ type BlockHistoryEstimator struct {
 func NewBlockHistoryEstimator(lggr logger.Logger, ethClient feeEstimatorClient, cfg chainConfig, eCfg estimatorGasEstimatorConfig, bhCfg BlockHistoryConfig, chainID big.Int) EvmEstimator {
 	ctx, cancel := context.WithCancel(context.Background())
 	var l1Oracle rollups.L1Oracle
-	if rollups.IsRollupWithL1Support(cfg.ChainType()) {
-		l1Oracle = rollups.NewL1GasOracle(lggr, ethClient, cfg.ChainType())
-	}
+	l1Oracle = rollups.NewL1GasOracle(lggr, ethClient, cfg.ChainType())
+
 	b := &BlockHistoryEstimator{
 		ethClient: ethClient,
 		chainID:   chainID,

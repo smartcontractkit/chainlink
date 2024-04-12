@@ -39,14 +39,15 @@ func IsRollupWithL1Support(chainType config.ChainType) bool {
 }
 
 func NewL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType config.ChainType) L1Oracle {
+	if !IsRollupWithL1Support(chainType) {
+		return nil
+	}
 	var l1Oracle L1Oracle
 	switch chainType {
-	case config.ChainOptimismBedrock, config.ChainKroma:
+	case config.ChainOptimismBedrock, config.ChainKroma, config.ChainScroll:
 		l1Oracle = NewOpStackL1GasOracle(lggr, ethClient, chainType)
 	case config.ChainArbitrum:
 		l1Oracle = NewArbitrumL1GasOracle(lggr, ethClient)
-	case config.ChainScroll:
-		l1Oracle = NewScrollL1GasOracle(lggr, ethClient)
 	default:
 		panic(fmt.Sprintf("Received unspported chaintype %s", chainType))
 	}

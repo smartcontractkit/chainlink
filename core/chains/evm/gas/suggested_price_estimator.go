@@ -33,12 +33,16 @@ type suggestedPriceConfig interface {
 	BumpMin() *assets.Wei
 }
 
+type suggestedPriceEstimatorClient interface {
+	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
+}
+
 // SuggestedPriceEstimator is an Estimator which uses the suggested gas price from eth_gasPrice.
 type SuggestedPriceEstimator struct {
 	services.StateMachine
 
 	cfg        suggestedPriceConfig
-	client     feeEstimatorClient
+	client     suggestedPriceEstimatorClient
 	pollPeriod time.Duration
 	logger     logger.Logger
 
@@ -56,9 +60,8 @@ type SuggestedPriceEstimator struct {
 // NewSuggestedPriceEstimator returns a new Estimator which uses the suggested gas price.
 func NewSuggestedPriceEstimator(lggr logger.Logger, client feeEstimatorClient, cfg suggestedPriceConfig, chainType config.ChainType) EvmEstimator {
 	var l1Oracle rollups.L1Oracle
-	if rollups.IsRollupWithL1Support(chainType) {
-		l1Oracle = rollups.NewL1GasOracle(lggr, client, chainType)
-	}
+	l1Oracle = rollups.NewL1GasOracle(lggr, client, chainType)
+
 	return &SuggestedPriceEstimator{
 		client:         client,
 		pollPeriod:     10 * time.Second,
