@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 
+	"github.com/smartcontractkit/chainlink/v2/common/config"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups"
@@ -31,7 +32,7 @@ type arbitrumEstimator struct {
 
 	EvmEstimator // *SuggestedPriceEstimator
 
-	client     ethClient
+	client     feeEstimatorClient
 	pollPeriod time.Duration
 	logger     logger.Logger
 
@@ -47,14 +48,14 @@ type arbitrumEstimator struct {
 	l1Oracle rollups.ArbL1GasOracle
 }
 
-func NewArbitrumEstimator(lggr logger.Logger, cfg ArbConfig, ethClient ethClient) EvmEstimator {
+func NewArbitrumEstimator(lggr logger.Logger, cfg ArbConfig, ethClient feeEstimatorClient) EvmEstimator {
 	lggr = logger.Named(lggr, "ArbitrumEstimator")
 
 	l1Oracle := rollups.NewArbitrumL1GasOracle(lggr, ethClient)
 
 	return &arbitrumEstimator{
 		cfg:            cfg,
-		EvmEstimator:   NewSuggestedPriceEstimator(lggr, ethClient, cfg, "arbitrum"),
+		EvmEstimator:   NewSuggestedPriceEstimator(lggr, ethClient, cfg, config.ChainArbitrum),
 		client:         ethClient,
 		pollPeriod:     10 * time.Second,
 		logger:         lggr,

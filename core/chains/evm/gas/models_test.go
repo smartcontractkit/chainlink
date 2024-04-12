@@ -10,9 +10,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups"
 	rollupMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
@@ -62,11 +64,11 @@ func TestWrappedEvmEstimator(t *testing.T) {
 		assert.Nil(t, l1Oracle)
 
 		// expect l1Oracle
-		oracle := rollupMocks.NewL1Oracle(t)
+		oracle := rollups.NewL1GasOracle(lggr, nil, config.ChainOptimismBedrock)
+		// cast oracle to L1Oracle interface
 		estimator = gas.NewWrappedEvmEstimator(lggr, getEst, false, oracle, geCfg)
 
 		evmEstimator.On("L1Oracle").Return(oracle).Once()
-
 		l1Oracle = estimator.L1Oracle()
 		assert.Equal(t, oracle, l1Oracle)
 	})

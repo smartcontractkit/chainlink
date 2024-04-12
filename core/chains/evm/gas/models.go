@@ -20,7 +20,6 @@ import (
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/common/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
-	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/label"
@@ -43,15 +42,17 @@ type EvmFeeEstimator interface {
 	GetMaxCost(ctx context.Context, amount assets.Eth, calldata []byte, feeLimit uint64, maxFeePrice *assets.Wei, opts ...feetypes.Opt) (*big.Int, error)
 }
 
-//go:generate mockery --quiet --name ethClient --output ./mocks/ --case=underscore --structname ETHClient
-type ethClient interface {
+//go:generate mockery --quiet --name feeEstimatorClient --output ./mocks/ --case=underscore --structname FeeEstimatorClient
+type feeEstimatorClient interface {
 	CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error)
 	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
 	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
+	ConfiguredChainID() *big.Int
+	HeadByNumber(ctx context.Context, n *big.Int) (*evmtypes.Head, error)
 }
 
 // NewEstimator returns the estimator for a given config
-func NewEstimator(lggr logger.Logger, ethClient evmclient.Client, cfg Config, geCfg evmconfig.GasEstimator) EvmFeeEstimator {
+func NewEstimator(lggr logger.Logger, ethClient feeEstimatorClient, cfg Config, geCfg evmconfig.GasEstimator) EvmFeeEstimator {
 	bh := geCfg.BlockHistory()
 	s := geCfg.Mode()
 	lggr.Infow(fmt.Sprintf("Initializing EVM gas estimator in mode: %s", s),

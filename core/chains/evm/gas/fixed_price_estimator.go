@@ -10,7 +10,6 @@ import (
 	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
-	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
@@ -21,7 +20,7 @@ type fixedPriceEstimator struct {
 	config   fixedPriceEstimatorConfig
 	bhConfig fixedPriceEstimatorBlockHistoryConfig
 	lggr     logger.SugaredLogger
-	l1Oracle *rollups.L1Oracle
+	l1Oracle rollups.L1Oracle
 }
 type bumpConfig interface {
 	LimitMultiplier() float32
@@ -47,12 +46,12 @@ type fixedPriceEstimatorBlockHistoryConfig interface {
 
 // NewFixedPriceEstimator returns a new "FixedPrice" estimator which will
 // always use the config default values for gas prices and limits
-func NewFixedPriceEstimator(cfg fixedPriceEstimatorConfig, ethClient evmclient.Client, bhCfg fixedPriceEstimatorBlockHistoryConfig, lggr logger.Logger, chainType config.ChainType) EvmEstimator {
+func NewFixedPriceEstimator(cfg fixedPriceEstimatorConfig, ethClient feeEstimatorClient, bhCfg fixedPriceEstimatorBlockHistoryConfig, lggr logger.Logger, chainType config.ChainType) EvmEstimator {
 	var l1Oracle rollups.L1Oracle
 	if rollups.IsRollupWithL1Support(chainType) {
 		l1Oracle = rollups.NewL1GasOracle(lggr, ethClient, chainType)
 	}
-	return &fixedPriceEstimator{cfg, bhCfg, logger.Sugared(logger.Named(lggr, "FixedPriceEstimator")), &l1Oracle}
+	return &fixedPriceEstimator{cfg, bhCfg, logger.Sugared(logger.Named(lggr, "FixedPriceEstimator")), l1Oracle}
 }
 
 func (f *fixedPriceEstimator) Start(context.Context) error {
@@ -137,7 +136,7 @@ func (f *fixedPriceEstimator) BumpDynamicFee(
 }
 
 func (f *fixedPriceEstimator) L1Oracle() rollups.L1Oracle {
-	return *f.l1Oracle
+	return f.l1Oracle
 }
 
 func (f *fixedPriceEstimator) Name() string                                          { return f.lggr.Name() }

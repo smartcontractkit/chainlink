@@ -32,17 +32,14 @@ type scrollL1Oracle struct {
 	logger     logger.SugaredLogger
 	chainType  config.ChainType
 
-	l1GasPriceAddress   string
+	l1OracleAddress     string
 	gasPriceMethod      string
 	l1GasPriceMethodAbi abi.ABI
 	l1GasPriceMu        sync.RWMutex
 	l1GasPrice          priceEntry
 
-	l1GasCostAddress   string
 	gasCostMethod      string
 	l1GasCostMethodAbi abi.ABI
-
-	priceReader daPriceReader
 
 	chInitialised chan struct{}
 	chStop        services.StopChan
@@ -66,14 +63,13 @@ func NewScrollL1GasOracle(lggr logger.Logger, ethClient l1OracleClient) L1Oracle
 }
 
 func newScrollL1GasOracle(lggr logger.Logger, ethClient l1OracleClient) L1Oracle {
-	var l1GasPriceAddress, gasPriceMethod, l1GasCostAddress, gasCostMethod string
+	var l1OracleAddress, gasPriceMethod, gasCostMethod string
 	var l1GasPriceMethodAbi, l1GasCostMethodAbi abi.ABI
 	var gasPriceErr, gasCostErr error
 
-	l1GasPriceAddress = ScrollGasOracleAddress
+	l1OracleAddress = ScrollGasOracleAddress
 	gasPriceMethod = ScrollGasOracle_l1BaseFee
 	l1GasPriceMethodAbi, gasPriceErr = abi.JSON(strings.NewReader(L1BaseFeeAbiString))
-	l1GasCostAddress = ScrollGasOracleAddress
 	gasCostMethod = ScrollGasOracle_getL1Fee
 	l1GasCostMethodAbi, gasCostErr = abi.JSON(strings.NewReader(GetL1FeeAbiString))
 
@@ -90,14 +86,11 @@ func newScrollL1GasOracle(lggr logger.Logger, ethClient l1OracleClient) L1Oracle
 		logger:     logger.Sugared(logger.Named(lggr, "L1GasOracle(scroll)")),
 		chainType:  "scroll",
 
-		l1GasPriceAddress:   l1GasPriceAddress,
+		l1OracleAddress:     l1OracleAddress,
 		gasPriceMethod:      gasPriceMethod,
 		l1GasPriceMethodAbi: l1GasPriceMethodAbi,
-		l1GasCostAddress:    l1GasCostAddress,
 		gasCostMethod:       gasCostMethod,
 		l1GasCostMethodAbi:  l1GasCostMethodAbi,
-
-		priceReader: nil,
 
 		chInitialised: make(chan struct{}),
 		chStop:        make(chan struct{}),
@@ -169,13 +162,8 @@ func (o *scrollL1Oracle) refreshWithError() (t *time.Timer, err error) {
 }
 
 func (o *scrollL1Oracle) fetchL1GasPrice(ctx context.Context) (price *big.Int, err error) {
-	// if dedicated priceReader exists, use the reader
-	if o.priceReader != nil {
-		return o.priceReader.GetDAGasPrice(ctx)
-	}
-
 	var callData, b []byte
-	precompile := common.HexToAddress(o.l1GasPriceAddress)
+	precompile := common.HexToAddress(o.l1OracleAddress)
 	callData, err = o.l1GasPriceMethodAbi.Pack(o.gasPriceMethod)
 	if err != nil {
 		errMsg := "failed to pack calldata for scroll L1 gas price method"
@@ -247,7 +235,7 @@ func (o *scrollL1Oracle) GetGasCost(ctx context.Context, tx *gethtypes.Transacti
 		return nil, fmt.Errorf("L1 gas cost not supported for this chain: %s", o.chainType)
 	}
 
-	precompile := common.HexToAddress(o.l1GasCostAddress)
+	precompile := common.HexToAddress(o.l1OracleAddress)
 	b, err = o.client.CallContract(ctx, ethereum.CallMsg{
 		To:   &precompile,
 		Data: callData,

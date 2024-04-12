@@ -38,7 +38,7 @@ type SuggestedPriceEstimator struct {
 	services.StateMachine
 
 	cfg        suggestedPriceConfig
-	client     ethClient
+	client     feeEstimatorClient
 	pollPeriod time.Duration
 	logger     logger.Logger
 
@@ -50,11 +50,11 @@ type SuggestedPriceEstimator struct {
 	chStop         services.StopChan
 	chDone         chan struct{}
 
-	l1Oracle *rollups.L1Oracle
+	l1Oracle rollups.L1Oracle
 }
 
 // NewSuggestedPriceEstimator returns a new Estimator which uses the suggested gas price.
-func NewSuggestedPriceEstimator(lggr logger.Logger, client ethClient, cfg suggestedPriceConfig, chainType config.ChainType) EvmEstimator {
+func NewSuggestedPriceEstimator(lggr logger.Logger, client feeEstimatorClient, cfg suggestedPriceConfig, chainType config.ChainType) EvmEstimator {
 	var l1Oracle rollups.L1Oracle
 	if rollups.IsRollupWithL1Support(chainType) {
 		l1Oracle = rollups.NewL1GasOracle(lggr, client, chainType)
@@ -68,7 +68,7 @@ func NewSuggestedPriceEstimator(lggr logger.Logger, client ethClient, cfg sugges
 		chInitialised:  make(chan struct{}),
 		chStop:         make(chan struct{}),
 		chDone:         make(chan struct{}),
-		l1Oracle:       &l1Oracle,
+		l1Oracle:       l1Oracle,
 	}
 }
 
@@ -77,7 +77,7 @@ func (o *SuggestedPriceEstimator) Name() string {
 }
 
 func (o *SuggestedPriceEstimator) L1Oracle() rollups.L1Oracle {
-	return *o.l1Oracle
+	return o.l1Oracle
 }
 
 func (o *SuggestedPriceEstimator) Start(context.Context) error {

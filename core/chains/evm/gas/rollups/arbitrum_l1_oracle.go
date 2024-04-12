@@ -48,8 +48,6 @@ type arbitrumL1Oracle struct {
 	gasCostMethod      string
 	l1GasCostMethodAbi abi.ABI
 
-	priceReader daPriceReader
-
 	chInitialised chan struct{}
 	chStop        services.StopChan
 	chDone        chan struct{}
@@ -100,7 +98,7 @@ func newArbitrumL1GasOracle(lggr logger.Logger, ethClient l1OracleClient) ArbL1G
 		client:     ethClient,
 		pollPeriod: PollPeriod,
 		logger:     logger.Sugared(logger.Named(lggr, "L1GasOracle(arbitrum)")),
-		chainType:  "arbitrum",
+		chainType:  config.ChainArbitrum,
 
 		l1GasPriceAddress:   l1GasPriceAddress,
 		gasPriceMethod:      gasPriceMethod,
@@ -108,8 +106,6 @@ func newArbitrumL1GasOracle(lggr logger.Logger, ethClient l1OracleClient) ArbL1G
 		l1GasCostAddress:    l1GasCostAddress,
 		gasCostMethod:       gasCostMethod,
 		l1GasCostMethodAbi:  l1GasCostMethodAbi,
-
-		priceReader: nil,
 
 		chInitialised: make(chan struct{}),
 		chStop:        make(chan struct{}),
@@ -181,11 +177,6 @@ func (o *arbitrumL1Oracle) refreshWithError() (t *time.Timer, err error) {
 }
 
 func (o *arbitrumL1Oracle) fetchL1GasPrice(ctx context.Context) (price *big.Int, err error) {
-	// if dedicated priceReader exists, use the reader
-	if o.priceReader != nil {
-		return o.priceReader.GetDAGasPrice(ctx)
-	}
-
 	var callData, b []byte
 	precompile := common.HexToAddress(o.l1GasPriceAddress)
 	callData, err = o.l1GasPriceMethodAbi.Pack(o.gasPriceMethod)

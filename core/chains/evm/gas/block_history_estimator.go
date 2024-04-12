@@ -24,7 +24,6 @@ import (
 	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
-	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
@@ -98,7 +97,7 @@ type estimatorGasEstimatorConfig interface {
 //go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore
 type BlockHistoryEstimator struct {
 	services.StateMachine
-	ethClient evmclient.Client
+	ethClient feeEstimatorClient
 	chainID   big.Int
 	config    chainConfig
 	eConfig   estimatorGasEstimatorConfig
@@ -122,13 +121,13 @@ type BlockHistoryEstimator struct {
 
 	logger logger.SugaredLogger
 
-	l1Oracle *rollups.L1Oracle
+	l1Oracle rollups.L1Oracle
 }
 
 // NewBlockHistoryEstimator returns a new BlockHistoryEstimator that listens
 // for new heads and updates the base gas price dynamically based on the
 // configured percentile of gas prices in that block
-func NewBlockHistoryEstimator(lggr logger.Logger, ethClient evmclient.Client, cfg chainConfig, eCfg estimatorGasEstimatorConfig, bhCfg BlockHistoryConfig, chainID big.Int) EvmEstimator {
+func NewBlockHistoryEstimator(lggr logger.Logger, ethClient feeEstimatorClient, cfg chainConfig, eCfg estimatorGasEstimatorConfig, bhCfg BlockHistoryConfig, chainID big.Int) EvmEstimator {
 	ctx, cancel := context.WithCancel(context.Background())
 	var l1Oracle rollups.L1Oracle
 	if rollups.IsRollupWithL1Support(cfg.ChainType()) {
@@ -148,7 +147,7 @@ func NewBlockHistoryEstimator(lggr logger.Logger, ethClient evmclient.Client, cf
 		ctx:       ctx,
 		ctxCancel: cancel,
 		logger:    logger.Sugared(logger.Named(lggr, "BlockHistoryEstimator")),
-		l1Oracle:  &l1Oracle,
+		l1Oracle:  l1Oracle,
 	}
 
 	return b
@@ -239,7 +238,7 @@ func (b *BlockHistoryEstimator) Start(ctx context.Context) error {
 }
 
 func (b *BlockHistoryEstimator) L1Oracle() rollups.L1Oracle {
-	return *b.l1Oracle
+	return b.l1Oracle
 }
 
 func (b *BlockHistoryEstimator) Close() error {

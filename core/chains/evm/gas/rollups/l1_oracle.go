@@ -22,11 +22,6 @@ type l1OracleClient interface {
 	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
 }
 
-//go:generate mockery --quiet --name daPriceReader --output ./mocks/ --case=underscore --structname DAPriceReader
-type daPriceReader interface {
-	GetDAGasPrice(ctx context.Context) (*big.Int, error)
-}
-
 type priceEntry struct {
 	price     *assets.Wei
 	timestamp time.Time
@@ -46,9 +41,7 @@ func IsRollupWithL1Support(chainType config.ChainType) bool {
 func NewL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType config.ChainType) L1Oracle {
 	var l1Oracle L1Oracle
 	switch chainType {
-	case config.ChainOptimismBedrock:
-		l1Oracle = NewOpStackL1GasOracle(lggr, ethClient, chainType)
-	case config.ChainKroma:
+	case config.ChainOptimismBedrock, config.ChainKroma:
 		l1Oracle = NewOpStackL1GasOracle(lggr, ethClient, chainType)
 	case config.ChainArbitrum:
 		l1Oracle = NewArbitrumL1GasOracle(lggr, ethClient)
