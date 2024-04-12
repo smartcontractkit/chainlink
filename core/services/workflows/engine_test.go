@@ -14,6 +14,7 @@ import (
 	coreCap "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
 const hardcodedWorkflow = `
@@ -148,10 +149,13 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 	require.NoError(t, reg.Add(ctx, target2))
 
 	lggr := logger.TestLogger(t)
+	peerID := p2ptypes.PeerID{}
 	cfg := Config{
 		Lggr:     lggr,
 		Registry: reg,
 		Spec:     hardcodedWorkflow,
+		DONInfo:  nil,
+		PeerID:   func() *p2ptypes.PeerID { return &peerID },
 	}
 	eng, err := NewEngine(cfg)
 	require.NoError(t, err)
@@ -308,10 +312,13 @@ func TestEngine_ErrorsTheWorkflowIfAStepErrors(t *testing.T) {
 	require.NoError(t, reg.Add(ctx, mockFailingConsensus()))
 	require.NoError(t, reg.Add(ctx, mockTarget()))
 
+	peerID := p2ptypes.PeerID{}
 	cfg := Config{
 		Lggr:     logger.TestLogger(t),
 		Registry: reg,
 		Spec:     simpleWorkflow,
+		DONInfo:  nil,
+		PeerID:   func() *p2ptypes.PeerID { return &peerID },
 	}
 	eng, err := NewEngine(cfg)
 	require.NoError(t, err)
@@ -413,10 +420,13 @@ func TestEngine_MultiStepDependencies(t *testing.T) {
 	action, out := mockAction()
 	require.NoError(t, reg.Add(ctx, action))
 
+	peerID := p2ptypes.PeerID{}
 	cfg := Config{
 		Lggr:     logger.TestLogger(t),
 		Registry: reg,
 		Spec:     multiStepWorkflow,
+		DONInfo:  nil,
+		PeerID:   func() *p2ptypes.PeerID { return &peerID },
 	}
 	eng, err := NewEngine(cfg)
 	require.NoError(t, err)
