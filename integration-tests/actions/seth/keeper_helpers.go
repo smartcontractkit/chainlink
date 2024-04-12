@@ -225,6 +225,9 @@ func RegisterUpkeepContractsWithCheckData(t *testing.T, client *seth.Client, lin
 	l := logging.GetTestLogger(t)
 	registrationTxHashes := make([]common.Hash, 0)
 	upkeepIds := make([]*big.Int, 0)
+
+	//TODO this should be parallelised, if we use this code at all
+
 	for contractCount, upkeepAddress := range upkeepAddresses {
 		req, err := registrar.EncodeRegisterRequest(
 			fmt.Sprintf("upkeep_%d", contractCount+1),
@@ -240,6 +243,7 @@ func RegisterUpkeepContractsWithCheckData(t *testing.T, client *seth.Client, lin
 			isMercury,
 		)
 		require.NoError(t, err, "Encoding the register request shouldn't fail")
+
 		tx, err := linkToken.TransferAndCall(registrar.Address(), linkFunds, req)
 		require.NoError(t, err, "Error registering the upkeep consumer to the registrar")
 		l.Debug().

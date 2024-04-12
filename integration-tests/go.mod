@@ -29,8 +29,8 @@ require (
 	github.com/smartcontractkit/chainlink-vrf v0.0.0-20231120191722-fef03814f868
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/libocr v0.0.0-20240326191951-2bbe9382d052
-	github.com/smartcontractkit/seth v0.1.6-0.20240411143917-cf6e935e88ad
-	github.com/smartcontractkit/wasp v0.4.7-0.20240328221214-00cd8313cfd4
+	github.com/smartcontractkit/seth v0.1.6-0.20240412102808-9318194c2d33
+	github.com/smartcontractkit/wasp v0.4.7
 	github.com/spf13/cobra v1.8.0
 	github.com/stretchr/testify v1.9.0
 	github.com/test-go/testify v1.1.4

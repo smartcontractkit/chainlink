@@ -143,7 +143,7 @@ func deployConsumerAndTriggerContracts(l zerolog.Logger, loadConfig aconfig.Load
 		data.loadConfig = loadCfg
 
 		// deploy only 1 trigger contract if it's a shared trigger
-		if *loadConfig.SharedTrigger && atomicCounter.Load() > 0 {
+		if *loadConfig.SharedTrigger && atomicCounter.Load() > 1 {
 			deployedCh <- data
 			return
 		}
@@ -201,6 +201,10 @@ func deployConsumerAndTriggerContracts(l zerolog.Logger, loadConfig aconfig.Load
 				numTasks++
 			}
 
+			if numTasks == 0 {
+				return
+			}
+
 			l.Debug().
 				Int("Key Number", key).
 				Int("Number of Tasks", numTasks).
@@ -234,6 +238,9 @@ func deployConsumerAndTriggerContracts(l zerolog.Logger, loadConfig aconfig.Load
 	// if there's more than 1 upkeep and it's a shared trigger, then we should use only the first address in triggerAddresses
 	// as triggerAddresses array
 	if *loadConfig.SharedTrigger {
+		if len(data.TriggerAddresses) == 0 {
+			return DeploymentData{}, errors.New("No trigger addresses found")
+		}
 		triggerAddress := data.TriggerAddresses[0]
 		data.TriggerAddresses = make([]common.Address, 0)
 		for i := 0; i < *loadConfig.NumberOfUpkeeps; i++ {

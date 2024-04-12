@@ -89,15 +89,12 @@ func (m *LogTriggerGun) Call(_ *wasp.Generator) *wasp.Response {
 		dividedData = append(dividedData, d[i:end])
 	}
 
-	m.logger.Info().Msgf("Divided data into %d chunks", len(dividedData))
-
 	for _, a := range dividedData {
 		wg.Add(1)
 		go func(a [][]byte, m *LogTriggerGun) *wasp.Response {
-			m.logger.Info().Msgf("Calling MultiCallLogTriggerLoadGen with %d calls", len(a))
 			defer wg.Done()
 
-			_, err := m.client.Decode(contracts.MultiCallLogTriggerLoadGen(m.client, m.multiCallAddress, m.addresses, a))
+			_, err := contracts.MultiCallLogTriggerLoadGen(m.client, m.multiCallAddress, m.addresses, a)
 			if err != nil {
 				m.logger.Error().Err(err).Msg("Error calling MultiCallLogTriggerLoadGen")
 				return &wasp.Response{Error: err.Error(), Failed: true}

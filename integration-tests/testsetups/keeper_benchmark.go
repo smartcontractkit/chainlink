@@ -176,7 +176,6 @@ func (k *KeeperBenchmarkTest) Setup(env *environment.Environment, config tt.Keep
 
 	for index := range inputs.RegistryVersions {
 		k.log.Info().Int("Index", index).Msg("Starting Test Setup")
-
 		k.DeployBenchmarkKeeperContracts(index)
 	}
 

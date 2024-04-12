@@ -672,13 +672,13 @@ func (a *AutomationTest) RegisterUpkeeps(upkeepConfigs []UpkeepConfig) ([]common
 			resultCh <- result{err: fmt.Errorf("v2.0, v2.1, and v2.2 are the only supported versions")}
 		}
 
-		decodedTx, err := a.ChainClient.Decode(a.LinkToken.TransferAndCallFromKey(a.Registrar.Address(), upkeepConfig.FundingAmount, registrationRequest, keyNum))
+		tx, err := a.LinkToken.TransferAndCallFromKey(a.Registrar.Address(), upkeepConfig.FundingAmount, registrationRequest, keyNum)
 		if err != nil {
 			resultCh <- result{err: errors.Join(err, fmt.Errorf("client number %d failed to register upkeep %s", keyNum, upkeepConfig.UpkeepContract.Hex())), clientNum: &keyNum, config: &upkeepConfig}
 			return
 		}
 
-		resultCh <- result{txHash: decodedTx.Transaction.Hash(), clientNum: &keyNum}
+		resultCh <- result{txHash: tx.Hash(), clientNum: &keyNum}
 	}
 
 	// divide upkeepConfigs into slices of (ideally) equal size based on the concurrency count
@@ -711,6 +711,10 @@ func (a *AutomationTest) RegisterUpkeeps(upkeepConfigs []UpkeepConfig) ([]common
 	for clientNum := 1; clientNum <= concurrency; clientNum++ {
 		go func(key int) {
 			configs := dividedConfigs[key-1]
+
+			if len(configs) == 0 {
+				return
+			}
 
 			a.Logger.Debug().
 				Int("Key Number", key).

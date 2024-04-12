@@ -62,7 +62,7 @@ transaction_timeout = "30s"
 # gas limits
 transfer_gas_fee = 21_000
 # gas limit should be explicitly set only if you are connecting to a node that's incapable of estimating gas limit itself (should only happen for very old versions)
-# gas_limit = 8_000_000
+gas_limit = 8_000_000
 
 # manual settings, used when gas_estimation_enabled is false or when it fails
 # legacy transactions
