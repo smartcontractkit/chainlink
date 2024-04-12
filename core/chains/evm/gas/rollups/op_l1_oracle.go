@@ -239,7 +239,7 @@ func (o *optimismL1Oracle) refreshWithError() (t *time.Timer, err error) {
 	ctx, cancel := o.chStop.CtxCancel(evmclient.ContextWithDefaultTimeout())
 	defer cancel()
 
-	price, err := o.fetchL1GasPrice(ctx)
+	price, err := o.GetDAGasPrice(ctx)
 	if err != nil {
 		return t, err
 	}
@@ -248,10 +248,6 @@ func (o *optimismL1Oracle) refreshWithError() (t *time.Timer, err error) {
 	defer o.l1GasPriceMu.Unlock()
 	o.l1GasPrice = priceEntry{price: assets.NewWei(price), timestamp: time.Now()}
 	return
-}
-
-func (o *optimismL1Oracle) fetchL1GasPrice(ctx context.Context) (price *big.Int, err error) {
-	return o.GetDAGasPrice(ctx)
 }
 
 func (o *optimismL1Oracle) GasPrice(_ context.Context) (l1GasPrice *assets.Wei, err error) {
