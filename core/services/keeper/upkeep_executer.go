@@ -60,7 +60,7 @@ type UpkeepExecuter struct {
 	ethClient              evmclient.Client
 	config                 UpkeepExecuterConfig
 	executionQueue         chan struct{}
-	headBroadcaster        httypes.HeadBroadcasterRegistry
+	headBroadcaster        httypes.HeadBroadcaster
 	gasEstimator           gas.EvmFeeEstimator
 	job                    job.Job
 	mailbox                *mailbox.Mailbox[*evmtypes.Head]
