@@ -137,7 +137,8 @@ contract StructFactory {
 
   function generateDynamicOnRampConfig(
     address router,
-    address priceRegistry
+    address priceRegistry,
+    address tokenAdminRegistry
   ) internal pure returns (EVM2EVMOnRamp.DynamicConfig memory) {
     return EVM2EVMOnRamp.DynamicConfig({
       router: router,
@@ -149,7 +150,8 @@ contract StructFactory {
       destDataAvailabilityMultiplierBps: DEST_GAS_DATA_AVAILABILITY_MULTIPLIER_BPS,
       priceRegistry: priceRegistry,
       maxDataBytes: MAX_DATA_SIZE,
-      maxPerMsgGasLimit: MAX_GAS_LIMIT
+      maxPerMsgGasLimit: MAX_GAS_LIMIT,
+      tokenAdminRegistry: tokenAdminRegistry
     });
   }
 

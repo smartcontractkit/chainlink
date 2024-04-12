@@ -34,20 +34,22 @@ contract CCIPClientExample_sanity is EVM2EVMOnRampSetup {
     exampleContract.sendDataPayFeeToken(DEST_CHAIN_SELECTOR, abi.encode(toAddress), bytes("hello"));
 
     // Can send data tokens
+    address sourceToken = s_sourceTokens[1];
     assertEq(
-      address(s_onRamp.getPoolBySourceToken(DEST_CHAIN_SELECTOR, IERC20(s_sourceTokens[1]))), address(s_sourcePools[1])
+      address(s_onRamp.getPoolBySourceToken(DEST_CHAIN_SELECTOR, IERC20(sourceToken))),
+      address(s_sourcePoolByToken[sourceToken])
     );
-    deal(s_sourceTokens[1], OWNER, 100 ether);
-    IERC20(s_sourceTokens[1]).approve(address(exampleContract), 1 ether);
+    deal(sourceToken, OWNER, 100 ether);
+    IERC20(sourceToken).approve(address(exampleContract), 1 ether);
     Client.EVMTokenAmount[] memory tokenAmounts = new Client.EVMTokenAmount[](1);
-    tokenAmounts[0] = Client.EVMTokenAmount({token: s_sourceTokens[1], amount: 1 ether});
+    tokenAmounts[0] = Client.EVMTokenAmount({token: sourceToken, amount: 1 ether});
     exampleContract.sendDataAndTokens(DEST_CHAIN_SELECTOR, abi.encode(toAddress), bytes("hello"), tokenAmounts);
     // Tokens transferred from owner to router then burned in pool.
-    assertEq(IERC20(s_sourceTokens[1]).balanceOf(OWNER), 99 ether);
-    assertEq(IERC20(s_sourceTokens[1]).balanceOf(address(s_sourceRouter)), 0);
+    assertEq(IERC20(sourceToken).balanceOf(OWNER), 99 ether);
+    assertEq(IERC20(sourceToken).balanceOf(address(s_sourceRouter)), 0);
 
     // Can send just tokens
-    IERC20(s_sourceTokens[1]).approve(address(exampleContract), 1 ether);
+    IERC20(sourceToken).approve(address(exampleContract), 1 ether);
     exampleContract.sendTokens(DEST_CHAIN_SELECTOR, abi.encode(toAddress), tokenAmounts);
 
     // Can receive

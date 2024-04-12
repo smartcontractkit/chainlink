@@ -24,7 +24,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/lock_release_token_pool"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_admin_registry"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -33,6 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/lock_release_token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/maybe_revert_message_receiver"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_arm_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_usdc_token_messenger"
@@ -547,6 +548,41 @@ func (e *CCIPContractsDeployer) DeployPriceRegistry(tokens []common.Address) (*P
 	}, err
 }
 
+func (e *CCIPContractsDeployer) DeployTokenAdminRegistry() (*TokenAdminRegistry, error) {
+	address, _, instance, err := e.evmClient.DeployContract("PriceRegistry", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return token_admin_registry.DeployTokenAdminRegistry(auth, wrappers.MustNewWrappedContractBackend(e.evmClient, nil))
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &TokenAdminRegistry{
+		client:     e.evmClient,
+		Instance:   instance.(*token_admin_registry.TokenAdminRegistry),
+		EthAddress: *address,
+	}, err
+}
+
+func (e *CCIPContractsDeployer) NewTokenAdminRegistry(addr common.Address) (
+	*TokenAdminRegistry,
+	error,
+) {
+	ins, err := token_admin_registry.NewTokenAdminRegistry(addr, wrappers.MustNewWrappedContractBackend(e.evmClient, nil))
+	log.Info().
+		Str("Contract Address", addr.Hex()).
+		Str("Contract Name", "TokenAdminRegistry").
+		Str("From", e.evmClient.GetDefaultWallet().Address()).
+		Str("Network Name", e.evmClient.GetNetworkConfig().Name).
+		Msg("New contract")
+	return &TokenAdminRegistry{
+		client:     e.evmClient,
+		Instance:   ins,
+		EthAddress: addr,
+	}, err
+}
+
 func (e *CCIPContractsDeployer) NewOnRamp(addr common.Address) (
 	*OnRamp,
 	error,
@@ -567,16 +603,14 @@ func (e *CCIPContractsDeployer) NewOnRamp(addr common.Address) (
 
 func (e *CCIPContractsDeployer) DeployOnRamp(
 	sourceChainSelector, destChainSelector uint64,
-	tokensAndPools []evm_2_evm_onramp.InternalPoolUpdate,
-	arm, router, priceRegistry common.Address,
+	arm,
+	router,
+	priceRegistry,
+	tokenAdminRegistry common.Address,
 	opts RateLimiterConfig,
 	feeTokenConfig []evm_2_evm_onramp.EVM2EVMOnRampFeeTokenConfigArgs,
 	tokenTransferFeeConfig []evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigArgs,
-	linkTokenAddress common.Address,
-) (
-	*OnRamp,
-	error,
-) {
+	linkTokenAddress common.Address) (*OnRamp, error) {
 	address, _, instance, err := e.evmClient.DeployContract("OnRamp", func(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
@@ -604,8 +638,8 @@ func (e *CCIPContractsDeployer) DeployOnRamp(
 				PriceRegistry:                     priceRegistry,
 				MaxDataBytes:                      50000,
 				MaxPerMsgGasLimit:                 4_000_000,
+				TokenAdminRegistry:                tokenAdminRegistry,
 			},
-			tokensAndPools,
 			evm_2_evm_onramp.RateLimiterConfig{
 				Capacity: opts.Capacity,
 				Rate:     opts.Rate,
@@ -643,7 +677,7 @@ func (e *CCIPContractsDeployer) NewOffRamp(addr common.Address) (
 	}, err
 }
 
-func (e *CCIPContractsDeployer) DeployOffRamp(sourceChainSelector, destChainSelector uint64, commitStore, onRamp common.Address, sourceToken, pools []common.Address, opts RateLimiterConfig, armProxy common.Address) (*OffRamp, error) {
+func (e *CCIPContractsDeployer) DeployOffRamp(sourceChainSelector, destChainSelector uint64, commitStore, onRamp common.Address, opts RateLimiterConfig, armProxy common.Address) (*OffRamp, error) {
 	address, _, instance, err := e.evmClient.DeployContract("OffRamp Contract", func(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
@@ -659,8 +693,6 @@ func (e *CCIPContractsDeployer) DeployOffRamp(sourceChainSelector, destChainSele
 				PrevOffRamp:         common.Address{},
 				ArmProxy:            armProxy,
 			},
-			sourceToken,
-			pools,
 			evm_2_evm_offramp.RateLimiterConfig{
 				IsEnabled: true,
 				Capacity:  opts.Capacity,
@@ -729,9 +761,8 @@ func (e *CCIPContractsDeployer) NewMockAggregator(addr common.Address) (*MockAgg
 var OCR2ParamsForCommit = contracts.OffChainAggregatorV2Config{
 	DeltaProgress:                           config.MustNewDuration(2 * time.Minute),
 	DeltaResend:                             config.MustNewDuration(5 * time.Second),
-	DeltaRound:                              config.MustNewDuration(60 * time.Second),
+	DeltaRound:                              config.MustNewDuration(75 * time.Second),
 	DeltaGrace:                              config.MustNewDuration(5 * time.Second),
-	DeltaStage:                              config.MustNewDuration(25 * time.Second),
 	MaxDurationQuery:                        config.MustNewDuration(100 * time.Millisecond),
 	MaxDurationObservation:                  config.MustNewDuration(35 * time.Second),
 	MaxDurationReport:                       config.MustNewDuration(10 * time.Second),
@@ -742,9 +773,8 @@ var OCR2ParamsForCommit = contracts.OffChainAggregatorV2Config{
 var OCR2ParamsForExec = contracts.OffChainAggregatorV2Config{
 	DeltaProgress:                           config.MustNewDuration(100 * time.Second),
 	DeltaResend:                             config.MustNewDuration(5 * time.Second),
-	DeltaRound:                              config.MustNewDuration(30 * time.Second),
+	DeltaRound:                              config.MustNewDuration(40 * time.Second),
 	DeltaGrace:                              config.MustNewDuration(5 * time.Second),
-	DeltaStage:                              config.MustNewDuration(10 * time.Second),
 	MaxDurationQuery:                        config.MustNewDuration(100 * time.Millisecond),
 	MaxDurationObservation:                  config.MustNewDuration(20 * time.Second),
 	MaxDurationReport:                       config.MustNewDuration(8 * time.Second),

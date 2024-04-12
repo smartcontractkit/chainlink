@@ -101,7 +101,7 @@ var (
 	ApprovedAmountToRouter           = new(big.Int).Mul(big.NewInt(1e18), big.NewInt(1))
 	ApprovedFeeAmountToRouter        = new(big.Int).Mul(big.NewInt(int64(GasFeeMultiplier)), big.NewInt(1e5))
 	GasFeeMultiplier          uint64 = 12e17
-	LinkToUSD                        = big.NewInt(6e18)
+	LinkToUSD                        = new(big.Int).Mul(big.NewInt(1e18), big.NewInt(20))
 	WrappedNativeToUSD               = new(big.Int).Mul(big.NewInt(1e18), big.NewInt(1.7e3))
 )
 
@@ -136,6 +136,7 @@ type CCIPCommon struct {
 	ARM                          *contracts.ARM // populate only if the ARM contracts is not a mock and can be used to verify various ARM events; keep this nil for mock ARM
 	Router                       *contracts.Router
 	PriceRegistry                *contracts.PriceRegistry
+	TokenAdminRegistry           *contracts.TokenAdminRegistry
 	WrappedNative                common.Address
 	MulticallEnabled             bool
 	MulticallContract            common.Address
@@ -329,6 +330,11 @@ func (ccipModule *CCIPCommon) LoadContractAddresses(conf *laneconfig.LaneConfig)
 				}
 			}
 			ccipModule.PriceAggregators = priceAggrs
+		}
+		if common.IsHexAddress(conf.TokenAdminRegistry) {
+			ccipModule.TokenAdminRegistry = &contracts.TokenAdminRegistry{
+				EthAddress: common.HexToAddress(conf.TokenAdminRegistry),
+			}
 		}
 	}
 }
@@ -587,15 +593,16 @@ func (ccipModule *CCIPCommon) WriteLaneConfig(conf *laneconfig.LaneConfig) {
 		priceAggrs[k.Hex()] = v.ContractAddress.Hex()
 	}
 	conf.CommonContracts = laneconfig.CommonContracts{
-		FeeToken:         ccipModule.FeeToken.Address(),
-		BridgeTokens:     btAddresses,
-		BridgeTokenPools: btpAddresses,
-		ARM:              ccipModule.ARMContract.Hex(),
-		Router:           ccipModule.Router.Address(),
-		PriceRegistry:    ccipModule.PriceRegistry.Address(),
-		PriceAggregators: priceAggrs,
-		WrappedNative:    ccipModule.WrappedNative.Hex(),
-		Multicall:        ccipModule.MulticallContract.Hex(),
+		FeeToken:           ccipModule.FeeToken.Address(),
+		BridgeTokens:       btAddresses,
+		BridgeTokenPools:   btpAddresses,
+		ARM:                ccipModule.ARMContract.Hex(),
+		Router:             ccipModule.Router.Address(),
+		PriceRegistry:      ccipModule.PriceRegistry.Address(),
+		PriceAggregators:   priceAggrs,
+		WrappedNative:      ccipModule.WrappedNative.Hex(),
+		Multicall:          ccipModule.MulticallContract.Hex(),
+		TokenAdminRegistry: ccipModule.TokenAdminRegistry.Address(),
 	}
 	if ccipModule.TokenTransmitter != nil {
 		conf.CommonContracts.TokenTransmitter = ccipModule.TokenTransmitter.ContractAddress.Hex()
@@ -897,6 +904,41 @@ func (ccipModule *CCIPCommon) DeployContracts(noOfTokens int,
 		}
 	}
 
+	if ccipModule.TokenAdminRegistry == nil {
+		if ccipModule.ExistingDeployment {
+			return fmt.Errorf("token admin registry contract address is not provided in lane config")
+		}
+		// deploy token admin registry
+		ccipModule.TokenAdminRegistry, err = cd.DeployTokenAdminRegistry()
+		if err != nil {
+			return fmt.Errorf("deploying token admin registry shouldn't fail %w", err)
+		}
+		err = ccipModule.ChainClient.WaitForEvents()
+		if err != nil {
+			return fmt.Errorf("error in waiting for token admin registry deployment %w", err)
+		}
+
+		if len(ccipModule.BridgeTokens) != len(ccipModule.BridgeTokenPools) {
+			return fmt.Errorf("tokens number %d and pools number %d do not match", len(ccipModule.BridgeTokens), len(ccipModule.BridgeTokenPools))
+		}
+		// add all pools to registry
+		for i, pool := range ccipModule.BridgeTokenPools {
+			token := ccipModule.BridgeTokens[i]
+			err := ccipModule.TokenAdminRegistry.SetAdminAndRegisterPool(token.ContractAddress, pool.EthAddress)
+			if err != nil {
+				return fmt.Errorf("error setting up token %s and pool %s on TokenAdminRegistry : %w", token.Address(), pool.Address(), err)
+			}
+		}
+		err = ccipModule.ChainClient.WaitForEvents()
+		if err != nil {
+			return fmt.Errorf("error in waiting for token admin registry set up with tokens and pools %w", err)
+		}
+	} else {
+		ccipModule.TokenAdminRegistry, err = cd.NewTokenAdminRegistry(ccipModule.TokenAdminRegistry.EthAddress)
+		if err != nil {
+			return fmt.Errorf("getting new token admin registry contract shouldn't fail %w", err)
+		}
+	}
 	log.Info().Msg("finished deploying common contracts")
 	err = ccipModule.SetRemoteChainsOnPools()
 	if err != nil {
@@ -1118,14 +1160,9 @@ func (sourceCCIP *SourceCCIPModule) LoadContracts(conf *laneconfig.LaneConfig) {
 	}
 }
 
-func (sourceCCIP *SourceCCIPModule) SyncPoolsAndTokens() error {
-	var tokensAndPools []evm_2_evm_onramp.InternalPoolUpdate
+func (sourceCCIP *SourceCCIPModule) SetTokenTransferFeeConfig() error {
 	var tokenTransferFeeConfig []evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigArgs
 	for i, token := range sourceCCIP.Common.BridgeTokens {
-		tokensAndPools = append(tokensAndPools, evm_2_evm_onramp.InternalPoolUpdate{
-			Token: token.ContractAddress,
-			Pool:  sourceCCIP.Common.BridgeTokenPools[i].EthAddress,
-		})
 		destByteOverhead := uint32(0)
 		destGasOverhead := uint32(29_000)
 		if sourceCCIP.Common.BridgeTokenPools[i].USDCPool != nil {
@@ -1145,10 +1182,7 @@ func (sourceCCIP *SourceCCIPModule) SyncPoolsAndTokens() error {
 	if err != nil {
 		return fmt.Errorf("setting token transfer fee config shouldn't fail %w", err)
 	}
-	err = sourceCCIP.OnRamp.ApplyPoolUpdates(tokensAndPools)
-	if err != nil {
-		return fmt.Errorf("applying pool updates shouldn't fail %w", err)
-	}
+
 	return nil
 }
 
@@ -1164,11 +1198,39 @@ func (sourceCCIP *SourceCCIPModule) DeployContracts(lane *laneconfig.LaneConfig)
 		return fmt.Errorf("getting chain selector shouldn't fail %w", err)
 	}
 
+	// update prices for price registry. It might be omitted in future
+	if !sourceCCIP.Common.ExistingDeployment {
+		var tokenUpdates []price_registry.InternalTokenPriceUpdate
+		for _, token := range sourceCCIP.Common.BridgeTokens {
+			tokenUpdates = append(tokenUpdates, price_registry.InternalTokenPriceUpdate{
+				SourceToken: token.ContractAddress,
+				UsdPerToken: LinkToUSD,
+			})
+		}
+		tokenUpdates = append(tokenUpdates, price_registry.InternalTokenPriceUpdate{
+			SourceToken: sourceCCIP.Common.WrappedNative,
+			UsdPerToken: WrappedNativeToUSD,
+		}, price_registry.InternalTokenPriceUpdate{
+			SourceToken: sourceCCIP.Common.FeeToken.EthAddress,
+			UsdPerToken: LinkToUSD,
+		})
+		err := sourceCCIP.Common.PriceRegistry.UpdatePrices(price_registry.InternalPriceUpdates{
+			TokenPriceUpdates: tokenUpdates,
+			GasPriceUpdates: []price_registry.InternalGasPriceUpdate{
+				{
+					DestChainSelector: sourceCCIP.DestChainSelector,
+					UsdPerUnitGas:     big.NewInt(20000e9),
+				},
+			},
+		})
+		if err != nil {
+			return fmt.Errorf("error updating prices %w in price registry", err)
+		}
+	}
 	if sourceCCIP.OnRamp == nil {
 		if sourceCCIP.Common.ExistingDeployment {
 			return fmt.Errorf("existing deployment is set to true but no onramp address is provided")
 		}
-		var tokensAndPools []evm_2_evm_onramp.InternalPoolUpdate
 		var tokenTransferFeeConfig []evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigArgs
 
 		sourceCCIP.SrcStartBlock, err = sourceCCIP.Common.ChainClient.LatestBlockNumber(context.Background())
@@ -1178,10 +1240,10 @@ func (sourceCCIP *SourceCCIPModule) DeployContracts(lane *laneconfig.LaneConfig)
 		sourceCCIP.OnRamp, err = contractDeployer.DeployOnRamp(
 			sourceChainSelector,
 			sourceCCIP.DestChainSelector,
-			tokensAndPools,
 			*sourceCCIP.Common.ARMContract,
 			sourceCCIP.Common.Router.EthAddress,
 			sourceCCIP.Common.PriceRegistry.EthAddress,
+			sourceCCIP.Common.TokenAdminRegistry.EthAddress,
 			sourceCCIP.Common.RateLimiterConfig,
 			[]evm_2_evm_onramp.EVM2EVMOnRampFeeTokenConfigArgs{
 				{
@@ -1198,10 +1260,7 @@ func (sourceCCIP *SourceCCIPModule) DeployContracts(lane *laneconfig.LaneConfig)
 					PremiumMultiplierWeiPerEth: 1e18,
 					Enabled:                    true,
 				},
-			},
-			tokenTransferFeeConfig,
-			sourceCCIP.Common.FeeToken.EthAddress,
-		)
+			}, tokenTransferFeeConfig, sourceCCIP.Common.FeeToken.EthAddress)
 
 		if err != nil {
 			return fmt.Errorf("onRamp deployment shouldn't fail %w", err)
@@ -1219,7 +1278,7 @@ func (sourceCCIP *SourceCCIPModule) DeployContracts(lane *laneconfig.LaneConfig)
 		}
 
 		// now sync the pools and tokens
-		err := sourceCCIP.SyncPoolsAndTokens()
+		err := sourceCCIP.SetTokenTransferFeeConfig()
 		if err != nil {
 			return err
 		}
@@ -1494,6 +1553,7 @@ func (sourceCCIP *SourceCCIPModule) SendRequest(
 	}
 	fee, err := sourceCCIP.Common.Router.GetFee(destChainSelector, msg)
 	if err != nil {
+		log.Info().Interface("Msg", msg).Msg("Ccip msg")
 		reason, _ := blockchain.RPCErrorFromError(err)
 		if reason != "" {
 			return common.Hash{}, d, nil, fmt.Errorf("failed getting the fee: %s", reason)
@@ -1607,20 +1667,6 @@ func (destCCIP *DestCCIPModule) LoadContracts(conf *laneconfig.LaneConfig) {
 	}
 }
 
-func (destCCIP *DestCCIPModule) SyncTokensAndPools(srcTokens []*contracts.ERC20Token) error {
-	var sourceTokens, pools []common.Address
-
-	for _, token := range srcTokens {
-		sourceTokens = append(sourceTokens, common.HexToAddress(token.Address()))
-	}
-
-	for i := range destCCIP.Common.BridgeTokenPools {
-		pools = append(pools, destCCIP.Common.BridgeTokenPools[i].EthAddress)
-	}
-
-	return destCCIP.OffRamp.SyncTokensAndPools(sourceTokens, pools)
-}
-
 // DeployContracts deploys all CCIP contracts specific to the destination chain
 func (destCCIP *DestCCIPModule) DeployContracts(
 	sourceCCIP SourceCCIPModule,
@@ -1638,6 +1684,23 @@ func (destCCIP *DestCCIPModule) DeployContracts(
 	if err != nil {
 		return fmt.Errorf("getting latest block number shouldn't fail %w", err)
 	}
+	if !destCCIP.Common.ExistingDeployment && len(sourceCCIP.Common.BridgeTokenPools) != len(destCCIP.Common.BridgeTokenPools) {
+		return fmt.Errorf("source and destination token pool number does not match")
+	}
+	// set remote pools
+	if !destCCIP.Common.ExistingDeployment {
+		for i, pool := range sourceCCIP.Common.BridgeTokenPools {
+			err := pool.SetRemotePool(destChainSelector, destCCIP.Common.BridgeTokenPools[i].EthAddress)
+			if err != nil {
+				return fmt.Errorf("error setting remote pools %w", err)
+			}
+		}
+		err = sourceCCIP.Common.ChainClient.WaitForEvents()
+		if err != nil {
+			return fmt.Errorf("waiting for setting remote pools shouldn't fail %w", err)
+		}
+	}
+
 	if destCCIP.CommitStore == nil {
 		if destCCIP.Common.ExistingDeployment {
 			return fmt.Errorf("commit store address not provided in lane config")
@@ -1682,7 +1745,7 @@ func (destCCIP *DestCCIPModule) DeployContracts(
 			destChainSelector,
 			destCCIP.CommitStore.EthAddress,
 			sourceCCIP.OnRamp.EthAddress,
-			[]common.Address{}, []common.Address{}, destCCIP.Common.RateLimiterConfig, *destCCIP.Common.ARMContract)
+			destCCIP.Common.RateLimiterConfig, *destCCIP.Common.ARMContract)
 		if err != nil {
 			return fmt.Errorf("deploying offramp shouldn't fail %w", err)
 		}
@@ -1695,15 +1758,6 @@ func (destCCIP *DestCCIPModule) DeployContracts(
 		_, err = destCCIP.Common.Router.AddOffRamp(destCCIP.OffRamp.EthAddress, destCCIP.SourceChainSelector)
 		if err != nil {
 			return fmt.Errorf("setting offramp as fee updater shouldn't fail %w", err)
-		}
-
-		err = destCCIP.SyncTokensAndPools(sourceCCIP.Common.BridgeTokens)
-		if err != nil {
-			return fmt.Errorf("syncing tokens and pools shouldn't fail %w", err)
-		}
-		err = destCCIP.Common.ChainClient.WaitForEvents()
-		if err != nil {
-			return fmt.Errorf("waiting for events on destination contract shouldn't fail %w", err)
 		}
 
 		err = destCCIP.Common.ChainClient.WaitForEvents()

@@ -69,6 +69,6 @@ contract BurnFromMintTokenPool_lockOrBurn is BurnFromMintTokenPoolSetup {
   function testChainNotAllowedReverts() public {
     uint64 wrongChainSelector = 8838833;
     vm.expectRevert(abi.encodeWithSelector(TokenPool.ChainNotAllowed.selector, wrongChainSelector));
-    s_pool.releaseOrMint(bytes(""), OWNER, 1, wrongChainSelector, bytes(""));
+    s_pool.releaseOrMint(bytes(""), OWNER, 1, wrongChainSelector, generateSourceTokenData(), bytes(""));
   }
 }

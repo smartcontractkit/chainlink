@@ -3,7 +3,9 @@ pragma solidity 0.8.19;
 
 import {ILiquidityContainer} from "../../rebalancer/interfaces/ILiquidityContainer.sol";
 import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
+import {IPool} from "../interfaces/pools/IPool.sol";
 
+import {Pool} from "../libraries/Pool.sol";
 import {RateLimiter} from "../libraries/RateLimiter.sol";
 import {TokenPool} from "./TokenPool.sol";
 
@@ -68,7 +70,7 @@ contract LockReleaseTokenPool is TokenPool, ILiquidityContainer, ITypeAndVersion
   {
     _consumeOutboundRateLimit(remoteChainSelector, amount);
     emit Locked(msg.sender, amount);
-    return "";
+    return Pool._generatePoolReturnDataV1(getRemotePool(remoteChainSelector), "");
   }
 
   /// @notice Release tokens from the pool to the recipient
@@ -81,11 +83,14 @@ contract LockReleaseTokenPool is TokenPool, ILiquidityContainer, ITypeAndVersion
     address receiver,
     uint256 amount,
     uint64 remoteChainSelector,
+    IPool.SourceTokenData memory sourceTokenData,
     bytes memory
-  ) external virtual override onlyOffRamp(remoteChainSelector) whenHealthy {
+  ) external virtual override onlyOffRamp(remoteChainSelector) whenHealthy returns (address) {
+    _validateSourceCaller(remoteChainSelector, sourceTokenData.sourcePoolAddress);
     _consumeInboundRateLimit(remoteChainSelector, amount);
     getToken().safeTransfer(receiver, amount);
     emit Released(msg.sender, receiver, amount);
+    return address(i_token);
   }
 
   /// @notice returns the lock release interface flag used for EIP165 identification.

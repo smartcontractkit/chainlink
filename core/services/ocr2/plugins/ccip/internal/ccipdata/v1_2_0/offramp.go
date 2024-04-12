@@ -18,7 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp_1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
@@ -30,11 +30,11 @@ import (
 )
 
 var (
-	abiOffRamp                        = abihelpers.MustParseABI(evm_2_evm_offramp.EVM2EVMOffRampABI)
+	abiOffRamp                        = abihelpers.MustParseABI(evm_2_evm_offramp_1_2_0.EVM2EVMOffRampABI)
 	_          ccipdata.OffRampReader = &OffRamp{}
 )
 
-type ExecOnchainConfig evm_2_evm_offramp.EVM2EVMOffRampDynamicConfig
+type ExecOnchainConfig evm_2_evm_offramp_1_2_0.EVM2EVMOffRampDynamicConfig
 
 func (d ExecOnchainConfig) AbiString() string {
 	return `
@@ -123,7 +123,7 @@ func (c JSONExecOffchainConfig) Validate() error {
 // OffRamp In 1.2 we have a different estimator impl
 type OffRamp struct {
 	*v1_0_0.OffRamp
-	offRampV120 evm_2_evm_offramp.EVM2EVMOffRampInterface
+	offRampV120 evm_2_evm_offramp_1_2_0.EVM2EVMOffRampInterface
 }
 
 func (o *OffRamp) CurrentRateLimiterState(ctx context.Context) (cciptypes.TokenBucketRateLimit, error) {
@@ -190,15 +190,15 @@ func (o *OffRamp) ChangeConfig(ctx context.Context, onchainConfigBytes []byte, o
 }
 
 func EncodeExecutionReport(ctx context.Context, args abi.Arguments, report cciptypes.ExecReport) ([]byte, error) {
-	var msgs []evm_2_evm_offramp.InternalEVM2EVMMessage
+	var msgs []evm_2_evm_offramp_1_2_0.InternalEVM2EVMMessage
 	for _, msg := range report.Messages {
-		var ta []evm_2_evm_offramp.ClientEVMTokenAmount
+		var ta []evm_2_evm_offramp_1_2_0.ClientEVMTokenAmount
 		for _, tokenAndAmount := range msg.TokenAmounts {
 			evmAddrs, err := ccipcalc.GenericAddrsToEvm(tokenAndAmount.Token)
 			if err != nil {
 				return nil, err
 			}
-			ta = append(ta, evm_2_evm_offramp.ClientEVMTokenAmount{
+			ta = append(ta, evm_2_evm_offramp_1_2_0.ClientEVMTokenAmount{
 				Token:  evmAddrs[0],
 				Amount: tokenAndAmount.Amount,
 			})
@@ -209,7 +209,7 @@ func EncodeExecutionReport(ctx context.Context, args abi.Arguments, report ccipt
 			return nil, err
 		}
 
-		msgs = append(msgs, evm_2_evm_offramp.InternalEVM2EVMMessage{
+		msgs = append(msgs, evm_2_evm_offramp_1_2_0.InternalEVM2EVMMessage{
 			SourceChainSelector: msg.SourceChainSelector,
 			Sender:              evmAddrs[0],
 			Receiver:            evmAddrs[1],
@@ -227,7 +227,7 @@ func EncodeExecutionReport(ctx context.Context, args abi.Arguments, report ccipt
 		})
 	}
 
-	rep := evm_2_evm_offramp.InternalExecutionReport{
+	rep := evm_2_evm_offramp_1_2_0.InternalExecutionReport{
 		Messages:          msgs,
 		OffchainTokenData: report.OffchainTokenData,
 		Proofs:            report.Proofs,
@@ -325,7 +325,7 @@ func NewOffRamp(lggr logger.Logger, addr common.Address, ec client.Client, lp lo
 		return nil, err
 	}
 
-	offRamp, err := evm_2_evm_offramp.NewEVM2EVMOffRamp(addr, ec)
+	offRamp, err := evm_2_evm_offramp_1_2_0.NewEVM2EVMOffRamp(addr, ec)
 	if err != nil {
 		return nil, err
 	}

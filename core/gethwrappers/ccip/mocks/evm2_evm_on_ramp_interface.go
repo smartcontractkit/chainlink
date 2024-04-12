@@ -74,36 +74,6 @@ func (_m *EVM2EVMOnRampInterface) Address() common.Address {
 	return r0
 }
 
-// ApplyPoolUpdates provides a mock function with given fields: opts, removes, adds
-func (_m *EVM2EVMOnRampInterface) ApplyPoolUpdates(opts *bind.TransactOpts, removes []evm_2_evm_onramp.InternalPoolUpdate, adds []evm_2_evm_onramp.InternalPoolUpdate) (*types.Transaction, error) {
-	ret := _m.Called(opts, removes, adds)
-
-	if len(ret) == 0 {
-		panic("no return value specified for ApplyPoolUpdates")
-	}
-
-	var r0 *types.Transaction
-	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, []evm_2_evm_onramp.InternalPoolUpdate, []evm_2_evm_onramp.InternalPoolUpdate) (*types.Transaction, error)); ok {
-		return rf(opts, removes, adds)
-	}
-	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, []evm_2_evm_onramp.InternalPoolUpdate, []evm_2_evm_onramp.InternalPoolUpdate) *types.Transaction); ok {
-		r0 = rf(opts, removes, adds)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*types.Transaction)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(*bind.TransactOpts, []evm_2_evm_onramp.InternalPoolUpdate, []evm_2_evm_onramp.InternalPoolUpdate) error); ok {
-		r1 = rf(opts, removes, adds)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // CurrentRateLimiterState provides a mock function with given fields: opts
 func (_m *EVM2EVMOnRampInterface) CurrentRateLimiterState(opts *bind.CallOpts) (evm_2_evm_onramp.RateLimiterTokenBucket, error) {
 	ret := _m.Called(opts)

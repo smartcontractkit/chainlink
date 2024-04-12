@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
+import {Pool} from "../../libraries/Pool.sol";
 import {RateLimiter} from "../../libraries/RateLimiter.sol";
 import {TokenPool} from "../../pools/TokenPool.sol";
 
@@ -22,7 +23,7 @@ contract CustomTokenPool is TokenPool {
     bytes calldata
   ) external override whenHealthy onlyOnRamp(remoteChainSelector) returns (bytes memory) {
     emit SynthBurned(amount);
-    return "";
+    return Pool._generatePoolReturnDataV1(getRemotePool(remoteChainSelector), "");
   }
 
   /// @notice Release tokens from the pool to the recipient
@@ -32,8 +33,10 @@ contract CustomTokenPool is TokenPool {
     address,
     uint256 amount,
     uint64 remoteChainSelector,
+    SourceTokenData memory,
     bytes memory
-  ) external override whenHealthy onlyOffRamp(remoteChainSelector) {
+  ) external override whenHealthy onlyOffRamp(remoteChainSelector) returns (address) {
     emit SynthMinted(amount);
+    return address(i_token);
   }
 }

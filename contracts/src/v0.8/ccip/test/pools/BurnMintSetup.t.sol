@@ -16,6 +16,8 @@ contract BurnMintSetup is RouterSetup {
   address internal s_burnMintOffRamp = makeAddr("burn_mint_offRamp");
   address internal s_burnMintOnRamp = makeAddr("burn_mint_onRamp");
 
+  address internal s_remoteBurnMintPool = makeAddr("remote_burn_mint_pool");
+
   function setUp() public virtual override {
     RouterSetup.setUp();
 
@@ -26,6 +28,7 @@ contract BurnMintSetup is RouterSetup {
     TokenPool.ChainUpdate[] memory chains = new TokenPool.ChainUpdate[](1);
     chains[0] = TokenPool.ChainUpdate({
       remoteChainSelector: DEST_CHAIN_SELECTOR,
+      remotePoolAddress: abi.encode(s_remoteBurnMintPool),
       allowed: true,
       outboundRateLimiterConfig: getOutboundRateLimiterConfig(),
       inboundRateLimiterConfig: getInboundRateLimiterConfig()

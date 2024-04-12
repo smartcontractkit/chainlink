@@ -2,6 +2,9 @@
 pragma solidity ^0.8.0;
 
 import {IBurnMintERC20} from "../../../shared/token/ERC20/IBurnMintERC20.sol";
+import {IPool} from "../../interfaces/pools/IPool.sol";
+
+import {Pool} from "../../libraries/Pool.sol";
 import {BurnMintTokenPool} from "../../pools/BurnMintTokenPool.sol";
 
 contract MaybeRevertingBurnMintTokenPool is BurnMintTokenPool {
@@ -47,7 +50,7 @@ contract MaybeRevertingBurnMintTokenPool is BurnMintTokenPool {
     _consumeOutboundRateLimit(remoteChainSelector, amount);
     IBurnMintERC20(address(i_token)).burn(amount);
     emit Burned(msg.sender, amount);
-    return s_sourceTokenData;
+    return Pool._generatePoolReturnDataV1(getRemotePool(remoteChainSelector), s_sourceTokenData);
   }
 
   /// @notice Reverts depending on the value of `s_revertReason`
@@ -56,8 +59,10 @@ contract MaybeRevertingBurnMintTokenPool is BurnMintTokenPool {
     address receiver,
     uint256 amount,
     uint64 remoteChainSelector,
+    IPool.SourceTokenData memory sourceTokenData,
     bytes memory
-  ) external virtual override whenHealthy onlyOffRamp(remoteChainSelector) {
+  ) external virtual override whenHealthy onlyOffRamp(remoteChainSelector) returns (address) {
+    _validateSourceCaller(remoteChainSelector, sourceTokenData.sourcePoolAddress);
     bytes memory revertReason = s_revertReason;
     if (revertReason.length != 0) {
       assembly {
@@ -67,5 +72,6 @@ contract MaybeRevertingBurnMintTokenPool is BurnMintTokenPool {
     _consumeInboundRateLimit(remoteChainSelector, amount);
     IBurnMintERC20(address(i_token)).mint(receiver, amount);
     emit Minted(msg.sender, receiver, amount);
+    return address(i_token);
   }
 }

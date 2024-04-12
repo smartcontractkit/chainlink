@@ -40,6 +40,73 @@ contract TokenPool_constructor is TokenPoolSetup {
   }
 }
 
+contract TokenPool_getRemotePool is TokenPoolSetup {
+  function test_getRemotePool_Success() public {
+    uint64 chainSelector = 123124;
+    address remotePool = makeAddr("remotePool");
+
+    // Zero indicates nothing is set
+    assertEq(0, s_tokenPool.getRemotePool(chainSelector).length);
+
+    TokenPool.ChainUpdate[] memory chainUpdates = new TokenPool.ChainUpdate[](1);
+    chainUpdates[0] = TokenPool.ChainUpdate({
+      remoteChainSelector: chainSelector,
+      remotePoolAddress: abi.encode(remotePool),
+      allowed: true,
+      outboundRateLimiterConfig: getOutboundRateLimiterConfig(),
+      inboundRateLimiterConfig: getInboundRateLimiterConfig()
+    });
+    s_tokenPool.applyChainUpdates(chainUpdates);
+
+    assertEq(remotePool, abi.decode(s_tokenPool.getRemotePool(chainSelector), (address)));
+  }
+}
+
+contract TokenPool_setRemotePool is TokenPoolSetup {
+  event RemotePoolSet(uint64 indexed remoteChainSelector, bytes previousPoolAddress, bytes remotePoolAddress);
+
+  function test_setRemotePool_Success() public {
+    uint64 chainSelector = DEST_CHAIN_SELECTOR;
+    address initialPool = makeAddr("remotePool");
+    // The new pool is a non-evm pool, as it doesn't fit in the normal 160 bits
+    bytes memory newPool = abi.encode(type(uint256).max);
+
+    TokenPool.ChainUpdate[] memory chainUpdates = new TokenPool.ChainUpdate[](1);
+    chainUpdates[0] = TokenPool.ChainUpdate({
+      remoteChainSelector: chainSelector,
+      remotePoolAddress: abi.encode(initialPool),
+      allowed: true,
+      outboundRateLimiterConfig: getOutboundRateLimiterConfig(),
+      inboundRateLimiterConfig: getInboundRateLimiterConfig()
+    });
+    s_tokenPool.applyChainUpdates(chainUpdates);
+
+    vm.expectEmit();
+    emit RemotePoolSet(chainSelector, abi.encode(initialPool), newPool);
+
+    s_tokenPool.setRemotePool(chainSelector, newPool);
+
+    assertEq(keccak256(newPool), keccak256(s_tokenPool.getRemotePool(chainSelector)));
+  }
+
+  // Reverts
+
+  function test_setRemotePool_NonExistentChain_Reverts() public {
+    uint64 chainSelector = 123124;
+    bytes memory remotePool = abi.encode(makeAddr("remotePool"));
+
+    vm.expectRevert(abi.encodeWithSelector(TokenPool.NonExistentChain.selector, chainSelector));
+    s_tokenPool.setRemotePool(chainSelector, remotePool);
+  }
+
+  function test_setRemotePool_OnlyOwner_Reverts() public {
+    vm.startPrank(STRANGER);
+
+    vm.expectRevert("Only callable by owner");
+    s_tokenPool.setRemotePool(123124, abi.encode(makeAddr("remotePool")));
+  }
+}
+
 contract TokenPool_applyChainUpdates is TokenPoolSetup {
   event ChainAdded(
     uint64 chainSelector, RateLimiter.Config outboundRateLimiterConfig, RateLimiter.Config inboundRateLimiterConfig
@@ -75,12 +142,14 @@ contract TokenPool_applyChainUpdates is TokenPoolSetup {
     TokenPool.ChainUpdate[] memory chainUpdates = new TokenPool.ChainUpdate[](2);
     chainUpdates[0] = TokenPool.ChainUpdate({
       remoteChainSelector: 1,
+      remotePoolAddress: abi.encode(address(1)),
       allowed: true,
       outboundRateLimiterConfig: outboundRateLimit1,
       inboundRateLimiterConfig: inboundRateLimit1
     });
     chainUpdates[1] = TokenPool.ChainUpdate({
       remoteChainSelector: 2,
+      remotePoolAddress: abi.encode(address(1)),
       allowed: true,
       outboundRateLimiterConfig: outboundRateLimit2,
       inboundRateLimiterConfig: inboundRateLimit2
@@ -108,6 +177,7 @@ contract TokenPool_applyChainUpdates is TokenPoolSetup {
     uint64 strangerChainSelector = 120938;
     chainRemoves[0] = TokenPool.ChainUpdate({
       remoteChainSelector: strangerChainSelector,
+      remotePoolAddress: abi.encode(address(1)),
       allowed: false,
       outboundRateLimiterConfig: RateLimiter.Config({isEnabled: false, capacity: 0, rate: 0}),
       inboundRateLimiterConfig: RateLimiter.Config({isEnabled: false, capacity: 0, rate: 0})
@@ -151,6 +221,7 @@ contract TokenPool_applyChainUpdates is TokenPoolSetup {
     TokenPool.ChainUpdate[] memory chainUpdates = new TokenPool.ChainUpdate[](1);
     chainUpdates[0] = TokenPool.ChainUpdate({
       remoteChainSelector: 1,
+      remotePoolAddress: abi.encode(address(1)),
       allowed: true,
       outboundRateLimiterConfig: outboundRateLimit,
       inboundRateLimiterConfig: inboundRateLimit
@@ -174,6 +245,7 @@ contract TokenPool_applyChainUpdates is TokenPoolSetup {
     TokenPool.ChainUpdate[] memory chainUpdates = new TokenPool.ChainUpdate[](1);
     chainUpdates[0] = TokenPool.ChainUpdate({
       remoteChainSelector: 1,
+      remotePoolAddress: abi.encode(address(1)),
       allowed: false,
       outboundRateLimiterConfig: outboundRateLimit,
       inboundRateLimiterConfig: inboundRateLimit
@@ -187,6 +259,7 @@ contract TokenPool_applyChainUpdates is TokenPoolSetup {
     TokenPool.ChainUpdate[] memory chainUpdates = new TokenPool.ChainUpdate[](1);
     chainUpdates[0] = TokenPool.ChainUpdate({
       remoteChainSelector: 1,
+      remotePoolAddress: abi.encode(address(1)),
       allowed: true,
       outboundRateLimiterConfig: RateLimiter.Config({isEnabled: true, capacity: 0, rate: 0}),
       inboundRateLimiterConfig: RateLimiter.Config({isEnabled: true, capacity: 100e22, rate: 1e12})
@@ -264,6 +337,7 @@ contract TokenPool_setChainRateLimiterConfig is TokenPoolSetup {
     s_remoteChainSelector = 123124;
     chainUpdates[0] = TokenPool.ChainUpdate({
       remoteChainSelector: s_remoteChainSelector,
+      remotePoolAddress: abi.encode(address(2)),
       allowed: true,
       outboundRateLimiterConfig: getOutboundRateLimiterConfig(),
       inboundRateLimiterConfig: getInboundRateLimiterConfig()
@@ -342,6 +416,7 @@ contract TokenPool_onlyOnRamp is TokenPoolSetup {
     TokenPool.ChainUpdate[] memory chainUpdate = new TokenPool.ChainUpdate[](1);
     chainUpdate[0] = TokenPool.ChainUpdate({
       remoteChainSelector: chainSelector,
+      remotePoolAddress: abi.encode(address(1)),
       allowed: true,
       outboundRateLimiterConfig: getOutboundRateLimiterConfig(),
       inboundRateLimiterConfig: getInboundRateLimiterConfig()
@@ -371,6 +446,7 @@ contract TokenPool_onlyOnRamp is TokenPoolSetup {
     TokenPool.ChainUpdate[] memory chainUpdate = new TokenPool.ChainUpdate[](1);
     chainUpdate[0] = TokenPool.ChainUpdate({
       remoteChainSelector: chainSelector,
+      remotePoolAddress: abi.encode(address(1)),
       allowed: true,
       outboundRateLimiterConfig: getOutboundRateLimiterConfig(),
       inboundRateLimiterConfig: getInboundRateLimiterConfig()
@@ -387,6 +463,7 @@ contract TokenPool_onlyOnRamp is TokenPoolSetup {
 
     chainUpdate[0] = TokenPool.ChainUpdate({
       remoteChainSelector: chainSelector,
+      remotePoolAddress: abi.encode(address(1)),
       allowed: false,
       outboundRateLimiterConfig: RateLimiter.Config({isEnabled: false, capacity: 0, rate: 0}),
       inboundRateLimiterConfig: RateLimiter.Config({isEnabled: false, capacity: 0, rate: 0})
@@ -408,6 +485,7 @@ contract TokenPool_onlyOnRamp is TokenPoolSetup {
     TokenPool.ChainUpdate[] memory chainUpdate = new TokenPool.ChainUpdate[](1);
     chainUpdate[0] = TokenPool.ChainUpdate({
       remoteChainSelector: chainSelector,
+      remotePoolAddress: abi.encode(address(1)),
       allowed: true,
       outboundRateLimiterConfig: getOutboundRateLimiterConfig(),
       inboundRateLimiterConfig: getInboundRateLimiterConfig()
@@ -430,6 +508,7 @@ contract TokenPool_onlyOffRamp is TokenPoolSetup {
     TokenPool.ChainUpdate[] memory chainUpdate = new TokenPool.ChainUpdate[](1);
     chainUpdate[0] = TokenPool.ChainUpdate({
       remoteChainSelector: chainSelector,
+      remotePoolAddress: abi.encode(address(1)),
       allowed: true,
       outboundRateLimiterConfig: getOutboundRateLimiterConfig(),
       inboundRateLimiterConfig: getInboundRateLimiterConfig()
@@ -459,6 +538,7 @@ contract TokenPool_onlyOffRamp is TokenPoolSetup {
     TokenPool.ChainUpdate[] memory chainUpdate = new TokenPool.ChainUpdate[](1);
     chainUpdate[0] = TokenPool.ChainUpdate({
       remoteChainSelector: chainSelector,
+      remotePoolAddress: abi.encode(address(1)),
       allowed: true,
       outboundRateLimiterConfig: getOutboundRateLimiterConfig(),
       inboundRateLimiterConfig: getInboundRateLimiterConfig()
@@ -475,6 +555,7 @@ contract TokenPool_onlyOffRamp is TokenPoolSetup {
 
     chainUpdate[0] = TokenPool.ChainUpdate({
       remoteChainSelector: chainSelector,
+      remotePoolAddress: abi.encode(address(1)),
       allowed: false,
       outboundRateLimiterConfig: RateLimiter.Config({isEnabled: false, capacity: 0, rate: 0}),
       inboundRateLimiterConfig: RateLimiter.Config({isEnabled: false, capacity: 0, rate: 0})
@@ -496,6 +577,7 @@ contract TokenPool_onlyOffRamp is TokenPoolSetup {
     TokenPool.ChainUpdate[] memory chainUpdate = new TokenPool.ChainUpdate[](1);
     chainUpdate[0] = TokenPool.ChainUpdate({
       remoteChainSelector: chainSelector,
+      remotePoolAddress: abi.encode(address(1)),
       allowed: true,
       outboundRateLimiterConfig: getOutboundRateLimiterConfig(),
       inboundRateLimiterConfig: getInboundRateLimiterConfig()
@@ -523,7 +605,6 @@ contract TokenPoolWithAllowListSetup is TokenPoolSetup {
   }
 }
 
-/// @notice #getAllowListEnabled
 contract TokenPoolWithAllowList_getAllowListEnabled is TokenPoolWithAllowListSetup {
   function testGetAllowListEnabledSuccess() public {
     assertTrue(s_tokenPool.getAllowListEnabled());
@@ -547,7 +628,6 @@ contract TokenPoolWithAllowList_setRouter is TokenPoolWithAllowListSetup {
   }
 }
 
-/// @notice #getAllowList
 contract TokenPoolWithAllowList_getAllowList is TokenPoolWithAllowListSetup {
   function testGetAllowListSuccess() public {
     address[] memory setAddresses = s_tokenPool.getAllowList();
@@ -557,7 +637,6 @@ contract TokenPoolWithAllowList_getAllowList is TokenPoolWithAllowListSetup {
   }
 }
 
-/// @notice #setAllowList
 contract TokenPoolWithAllowList_applyAllowListUpdates is TokenPoolWithAllowListSetup {
   event AllowListAdd(address sender);
   event AllowListRemove(address sender);

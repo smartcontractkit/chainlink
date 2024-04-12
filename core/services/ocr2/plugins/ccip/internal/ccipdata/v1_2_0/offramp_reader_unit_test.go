@@ -8,8 +8,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
-	mock_contracts "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp_1_2_0"
+	mock_contracts "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/mocks/v1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 )
@@ -18,7 +18,7 @@ func TestGetRouter(t *testing.T) {
 	routerAddr := utils.RandomAddress()
 
 	mockOffRamp := mock_contracts.NewEVM2EVMOffRampInterface(t)
-	mockOffRamp.On("GetDynamicConfig", mock.Anything).Return(evm_2_evm_offramp.EVM2EVMOffRampDynamicConfig{
+	mockOffRamp.On("GetDynamicConfig", mock.Anything).Return(evm_2_evm_offramp_1_2_0.EVM2EVMOffRampDynamicConfig{
 		Router: routerAddr,
 	}, nil)
 

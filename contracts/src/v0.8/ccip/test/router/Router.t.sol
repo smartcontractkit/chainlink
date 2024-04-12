@@ -332,6 +332,10 @@ contract Router_ccipSend is EVM2EVMOnRampSetup {
     for (uint256 i = 0; i < s_sourceTokens.length; ++i) {
       vm.assume(address(s_sourceTokens[i]) != wrongToken);
     }
+
+    for (uint256 i = 0; i < s_destTokens.length; ++i) {
+      vm.assume(address(s_destTokens[i]) != wrongToken);
+    }
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
     Client.EVMTokenAmount[] memory tokenAmounts = new Client.EVMTokenAmount[](1);
     tokenAmounts[0] = Client.EVMTokenAmount({token: wrongToken, amount: 1});
@@ -677,12 +681,15 @@ contract Router_setWrappedNative is EVM2EVMOnRampSetup {
 /// @notice #getSupportedTokens
 contract Router_getSupportedTokens is EVM2EVMOnRampSetup {
   function testGetSupportedTokensSuccess() public {
-    assertEq(s_sourceTokens, s_sourceRouter.getSupportedTokens(DEST_CHAIN_SELECTOR));
-  }
+    address[] memory supportedTokens = s_sourceRouter.getSupportedTokens(DEST_CHAIN_SELECTOR);
+    assertEq(s_sourceTokens[0], supportedTokens[0]);
+    assertEq(s_sourceTokens[1], supportedTokens[1]);
 
-  function testUnknownChainSuccess() public {
-    address[] memory supportedTokens = s_sourceRouter.getSupportedTokens(DEST_CHAIN_SELECTOR + 10);
-    assertEq(0, supportedTokens.length);
+    // The function will return every single token configured on the registry.
+    // Due to source and dest being emulated on the same "fake chain", both
+    // will be present in the supported tokens.
+    assertEq(s_destTokens[0], supportedTokens[2]);
+    assertEq(s_destTokens[1], supportedTokens[3]);
   }
 }
 

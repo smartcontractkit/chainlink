@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testsetups"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/lock_release_token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_pool"
@@ -108,11 +109,11 @@ func TestSmokeCCIPRateLimit(t *testing.T) {
 	// if we are running in simulated or in testnet mode, we can set the rate limit to test friendly values
 	// For mainnet, we need to set this as false to avoid changing the deployed contract config
 	SetRateLimit := true
-	AggregatedRateLimitCapacity := new(big.Int).Mul(big.NewInt(1e18), big.NewInt(100))
-	AggregatedRateLimitRate := big.NewInt(1e18)
+	AggregatedRateLimitCapacity := new(big.Int).Mul(big.NewInt(1e18), big.NewInt(30))
+	AggregatedRateLimitRate := big.NewInt(1e17)
 
-	TokenPoolRateLimitCapacity := new(big.Int).Mul(big.NewInt(1e18), big.NewInt(10))
-	TokenPoolRateLimitRate := big.NewInt(1e17)
+	TokenPoolRateLimitCapacity := new(big.Int).Mul(big.NewInt(1e18), big.NewInt(1))
+	TokenPoolRateLimitRate := big.NewInt(1e16)
 
 	for _, test := range tests {
 		tc := test
@@ -259,14 +260,13 @@ func TestSmokeCCIPRateLimit(t *testing.T) {
 
 			// try to send again with amount more than the amount refilled by rate and
 			// this should fail, as the refill rate is not enough to refill the capacity
-			tokensTobeSent = new(big.Int).Mul(AggregatedRateLimitRate, big.NewInt(5))
-			src.TransferAmount[0] = tokensTobeSent
-			tc.lane.Logger.Info().Str("tokensTobeSent", tokensTobeSent.String()).Msg("More than Aggregated Rate")
+			src.TransferAmount[0] = new(big.Int).Mul(AggregatedRateLimitRate, big.NewInt(10))
 			failedTx, _, _, err = tc.lane.Source.SendRequest(
 				tc.lane.Dest.ReceiverDapp.EthAddress,
 				actions.TokenTransfer, "msg with token more than aggregated rate",
 				big.NewInt(600_000), // gas limit
 			)
+			tc.lane.Logger.Info().Str("tokensTobeSent", src.TransferAmount[0].String()).Msg("More than Aggregated Rate")
 			require.NoError(t, err)
 			require.Error(t, tc.lane.Source.Common.ChainClient.WaitForEvents())
 			errReason, v, err = tc.lane.Source.Common.ChainClient.RevertReasonFromTx(failedTx, evm_2_evm_onramp.EVM2EVMOnRampABI)
@@ -308,11 +308,25 @@ func TestSmokeCCIPRateLimit(t *testing.T) {
 			require.NoError(t, err)
 			require.True(t, rlOnPool.IsEnabled, "Token Pool rate limiter should be enabled")
 
-			// wait for the AggregateCapacity to be refilled
-			time.Sleep(1 * time.Minute)
-
 			// try to send more than token pool capacity - should fail
 			tokensTobeSent = new(big.Int).Add(TokenPoolRateLimitCapacity, big.NewInt(2))
+
+			// wait for the AggregateCapacity to be refilled
+			onRampState, err := src.OnRamp.Instance.CurrentRateLimiterState(nil)
+			if err != nil {
+				return
+			}
+			if AggregatedRateLimitCapacity.Cmp(onRampState.Capacity) > 0 {
+				capacityTobeFilled := new(big.Int).Sub(AggregatedRateLimitCapacity, onRampState.Capacity)
+				durationTofill := time.Duration(new(big.Int).Div(capacityTobeFilled, AggregatedRateLimitRate).Int64())
+				tc.lane.Logger.Info().
+					Dur("wait duration", durationTofill).
+					Str("current capacity", onRampState.Capacity.String()).
+					Str("tokensTobeSent", tokensTobeSent.String()).
+					Msg("Waiting for aggregated capacity to be available")
+				time.Sleep(durationTofill * time.Second)
+			}
+
 			src.TransferAmount[0] = tokensTobeSent
 			tc.lane.Logger.Info().Str("tokensTobeSent", tokensTobeSent.String()).Msg("More than Token Pool Capacity")
 
@@ -344,7 +358,7 @@ func TestSmokeCCIPRateLimit(t *testing.T) {
 
 			// try to send again with amount more than the amount refilled by token pool rate and
 			// this should fail, as the refill rate is not enough to refill the capacity
-			tokensTobeSent = new(big.Int).Mul(TokenPoolRateLimitRate, big.NewInt(50))
+			tokensTobeSent = new(big.Int).Mul(TokenPoolRateLimitRate, big.NewInt(10))
 			tc.lane.Logger.Info().Str("tokensTobeSent", tokensTobeSent.String()).Msg("More than TokenPool Rate")
 			src.TransferAmount[0] = tokensTobeSent
 			// approve the tokens

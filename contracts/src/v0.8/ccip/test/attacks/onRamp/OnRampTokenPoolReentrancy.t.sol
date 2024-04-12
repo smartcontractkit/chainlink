@@ -3,6 +3,7 @@ pragma solidity 0.8.19;
 
 import {Client} from "../../../libraries/Client.sol";
 import {Internal} from "../../../libraries/Internal.sol";
+import {TokenPool} from "../../../pools/TokenPool.sol";
 import {EVM2EVMOnRampSetup} from "../../onRamp/EVM2EVMOnRampSetup.t.sol";
 import {FacadeClient} from "./FacadeClient.sol";
 import {ReentrantMaliciousTokenPool} from "./ReentrantMaliciousTokenPool.sol";
@@ -29,14 +30,25 @@ contract OnRampTokenPoolReentrancy is EVM2EVMOnRampSetup {
       address(s_facadeClient), s_sourceToken, address(s_mockARM), address(s_sourceRouter)
     );
 
+    TokenPool.ChainUpdate[] memory chainUpdates = new TokenPool.ChainUpdate[](1);
+    chainUpdates[0] = TokenPool.ChainUpdate({
+      remoteChainSelector: DEST_CHAIN_SELECTOR,
+      remotePoolAddress: abi.encode(s_destPoolBySourceToken[s_sourceTokens[0]]),
+      allowed: true,
+      outboundRateLimiterConfig: getOutboundRateLimiterConfig(),
+      inboundRateLimiterConfig: getInboundRateLimiterConfig()
+    });
+    s_maliciousTokenPool.applyChainUpdates(chainUpdates);
+    s_sourcePoolByToken[address(s_sourceToken)] = address(s_maliciousTokenPool);
+
     Internal.PoolUpdate[] memory removes = new Internal.PoolUpdate[](1);
     removes[0].token = address(s_sourceToken);
-    removes[0].pool = address(s_sourcePools[0]);
+    removes[0].pool = address(s_sourcePoolByToken[address(s_sourceToken)]);
     Internal.PoolUpdate[] memory adds = new Internal.PoolUpdate[](1);
     adds[0].token = address(s_sourceToken);
     adds[0].pool = address(s_maliciousTokenPool);
 
-    s_onRamp.applyPoolUpdates(removes, adds);
+    s_tokenAdminRegistry.setPool(address(s_sourceToken), address(s_maliciousTokenPool));
 
     s_sourceToken.transfer(address(s_facadeClient), 1e18);
     s_feeToken.transfer(address(s_facadeClient), 1e18);

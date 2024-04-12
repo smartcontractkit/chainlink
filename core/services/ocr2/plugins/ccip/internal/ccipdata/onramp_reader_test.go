@@ -375,13 +375,11 @@ func setupOnRampV1_5_0(t *testing.T, user *bind.TransactOpts, bc *client.Simulat
 			Weight: 1,
 		},
 	}
-	var tokenAndPool []evm_2_evm_onramp.InternalPoolUpdate
 	onRampAddress, transaction, _, err := evm_2_evm_onramp.DeployEVM2EVMOnRamp(
 		user,
 		bc,
 		staticConfig,
 		dynamicConfig,
-		tokenAndPool,
 		rateLimiterConfig,
 		feeTokenConfigs,
 		tokenTransferConfigArgs,

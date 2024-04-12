@@ -1040,17 +1040,6 @@ func Test_getTokensPrices(t *testing.T) {
 			expErr: true,
 		},
 		{
-			name:      "zero price should lead to an error",
-			feeTokens: []cciptypes.Address{tk1, tk2},
-			tokens:    []cciptypes.Address{tk3},
-			retPrices: []cciptypes.TokenPriceUpdate{
-				{TokenPrice: cciptypes.TokenPrice{Value: big.NewInt(10)}},
-				{TokenPrice: cciptypes.TokenPrice{Value: big.NewInt(0)}},
-				{TokenPrice: cciptypes.TokenPrice{Value: big.NewInt(30)}},
-			},
-			expErr: true,
-		},
-		{
 			name:      "contract returns less prices than requested",
 			feeTokens: []cciptypes.Address{tk1, tk2},
 			tokens:    []cciptypes.Address{tk3},

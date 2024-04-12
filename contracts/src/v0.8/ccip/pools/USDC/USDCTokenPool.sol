@@ -2,9 +2,11 @@
 pragma solidity 0.8.19;
 
 import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
+import {IPool} from "../../interfaces/pools/IPool.sol";
 import {IMessageTransmitter} from "./IMessageTransmitter.sol";
 import {ITokenMessenger} from "./ITokenMessenger.sol";
 
+import {Pool} from "../../libraries/Pool.sol";
 import {TokenPool} from "../TokenPool.sol";
 
 import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
@@ -129,18 +131,20 @@ contract USDCTokenPool is TokenPool, ITypeAndVersion {
       amount, domain.domainIdentifier, receiver, address(i_token), domain.allowedCaller
     );
     emit Burned(msg.sender, amount);
-    return abi.encode(SourceTokenDataPayload({nonce: nonce, sourceDomain: i_localDomainIdentifier}));
+    return Pool._generatePoolReturnDataV1(
+      getRemotePool(remoteChainSelector),
+      abi.encode(SourceTokenDataPayload({nonce: nonce, sourceDomain: i_localDomainIdentifier}))
+    );
   }
 
   /// @notice Mint tokens from the pool to the recipient
   /// @param receiver Recipient address
   /// @param amount Amount to mint
-  /// @param extraData Encoded return data from `lockOrBurn` and offchain attestation data
-  /// @dev sourceTokenData is part of the verified message and passed directly from
+  /// @param sourceTokenData is part of the verified message and passed directly from
   /// the offramp so it is guaranteed to be what the lockOrBurn pool released on the
   /// source chain. It contains (nonce, sourceDomain) which is guaranteed by CCTP
   /// to be unique.
-  /// offchainTokenData is untrusted (can be supplied by manual execution), but we assert
+  /// @param offchainTokenData is untrusted (can be supplied by manual execution), but we assert
   /// that (nonce, sourceDomain) is equal to the message's (nonce, sourceDomain) and
   /// receiveMessage will assert that Attestation contains a valid attestation signature
   /// for that message, including its (nonce, sourceDomain). This way, the only
@@ -151,19 +155,22 @@ contract USDCTokenPool is TokenPool, ITypeAndVersion {
     address receiver,
     uint256 amount,
     uint64 remoteChainSelector,
-    bytes memory extraData
-  ) external override onlyOffRamp(remoteChainSelector) {
+    IPool.SourceTokenData memory sourceTokenData,
+    bytes memory offchainTokenData
+  ) external override onlyOffRamp(remoteChainSelector) returns (address) {
     _consumeInboundRateLimit(remoteChainSelector, amount);
-    (bytes memory sourceData, bytes memory offchainTokenData) = abi.decode(extraData, (bytes, bytes));
-    SourceTokenDataPayload memory sourceTokenData = abi.decode(sourceData, (SourceTokenDataPayload));
+    _validateSourceCaller(remoteChainSelector, sourceTokenData.sourcePoolAddress);
+    SourceTokenDataPayload memory sourceTokenDataPayload =
+      abi.decode(sourceTokenData.extraData, (SourceTokenDataPayload));
     MessageAndAttestation memory msgAndAttestation = abi.decode(offchainTokenData, (MessageAndAttestation));
 
-    _validateMessage(msgAndAttestation.message, sourceTokenData);
+    _validateMessage(msgAndAttestation.message, sourceTokenDataPayload);
 
     if (!i_messageTransmitter.receiveMessage(msgAndAttestation.message, msgAndAttestation.attestation)) {
       revert UnlockingUSDCFailed();
     }
     emit Minted(msg.sender, receiver, amount);
+    return address(i_token);
   }
 
   /// @notice Validates the USDC encoded message against the given parameters.

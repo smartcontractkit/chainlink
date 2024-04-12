@@ -276,7 +276,6 @@ func setupOffRampV1_2_0(t *testing.T, user *bind.TransactOpts, bc *client.Simula
 }
 
 func setupOffRampV1_5_0(t *testing.T, user *bind.TransactOpts, bc *client.SimulatedBackendClient) common.Address {
-
 	onRampAddr := utils.RandomAddress()
 	armAddr := deployMockArm(t, user, bc)
 	csAddr := deployCommitStore(t, user, bc, onRampAddr, armAddr)
@@ -290,15 +289,13 @@ func setupOffRampV1_5_0(t *testing.T, user *bind.TransactOpts, bc *client.Simula
 		PrevOffRamp:         common.Address{},
 		ArmProxy:            armAddr,
 	}
-	sourceTokens := []common.Address{}
-	pools := []common.Address{}
 	rateLimiterConfig := evm_2_evm_offramp.RateLimiterConfig{
 		IsEnabled: false,
 		Capacity:  big.NewInt(0),
 		Rate:      big.NewInt(0),
 	}
 
-	offRampAddr, tx, offRamp, err := evm_2_evm_offramp.DeployEVM2EVMOffRamp(user, bc, staticConfig, sourceTokens, pools, rateLimiterConfig)
+	offRampAddr, tx, offRamp, err := evm_2_evm_offramp.DeployEVM2EVMOffRamp(user, bc, staticConfig, rateLimiterConfig)
 	bc.Commit()
 	require.NoError(t, err)
 	ccipdata.AssertNonRevert(t, tx, bc, user)

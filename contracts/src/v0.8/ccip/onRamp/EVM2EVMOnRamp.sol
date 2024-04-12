@@ -6,13 +6,14 @@ import {IARM} from "../interfaces/IARM.sol";
 import {IEVM2AnyOnRamp} from "../interfaces/IEVM2AnyOnRamp.sol";
 import {IEVM2AnyOnRampClient} from "../interfaces/IEVM2AnyOnRampClient.sol";
 import {IPriceRegistry} from "../interfaces/IPriceRegistry.sol";
+import {ITokenAdminRegistry} from "../interfaces/ITokenAdminRegistry.sol";
 import {ILinkAvailable} from "../interfaces/automation/ILinkAvailable.sol";
 import {IPool} from "../interfaces/pools/IPool.sol";
 
-import {EnumerableMapAddresses} from "../../shared/enumerable/EnumerableMapAddresses.sol";
 import {AggregateRateLimiter} from "../AggregateRateLimiter.sol";
 import {Client} from "../libraries/Client.sol";
 import {Internal} from "../libraries/Internal.sol";
+import {Pool} from "../libraries/Pool.sol";
 import {RateLimiter} from "../libraries/RateLimiter.sol";
 import {USDPriceWith18Decimals} from "../libraries/USDPriceWith18Decimals.sol";
 
@@ -27,7 +28,6 @@ import {EnumerableMap} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts
 contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, ITypeAndVersion {
   using SafeERC20 for IERC20;
   using EnumerableMap for EnumerableMap.AddressToUintMap;
-  using EnumerableMapAddresses for EnumerableMapAddresses.AddressToAddressMap;
   using USDPriceWith18Decimals for uint224;
 
   error InvalidExtraArgsTag();
@@ -93,6 +93,7 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
     address priceRegistry; //                    │ Price registry address
     uint32 maxDataBytes; //                      │ Maximum payload data size in bytes
     uint32 maxPerMsgGasLimit; // ────────────────╯ Maximum gas limit for messages targeting EVMs
+    address tokenAdminRegistry; //                 Token admin registry address
   }
 
   /// @dev Struct to hold the execution fee configuration for a fee token
@@ -171,8 +172,6 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
   DynamicConfig internal s_dynamicConfig;
   /// @dev (address nop => uint256 weight)
   EnumerableMap.AddressToUintMap internal s_nops;
-  /// @dev source token => token pool
-  EnumerableMapAddresses.AddressToAddressMap private s_poolsBySourceToken;
 
   /// @dev The execution fee token config that can be set by the owner or fee admin
   mapping(address token => FeeTokenConfig feeTokenConfig) internal s_feeTokenConfig;
@@ -196,7 +195,6 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
   constructor(
     StaticConfig memory staticConfig,
     DynamicConfig memory dynamicConfig,
-    Internal.PoolUpdate[] memory tokensAndPools,
     RateLimiter.Config memory rateLimiterConfig,
     FeeTokenConfigArgs[] memory feeTokenConfigs,
     TokenTransferFeeConfigArgs[] memory tokenTransferFeeConfigArgs,
@@ -224,9 +222,6 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
     _setFeeTokenConfig(feeTokenConfigs);
     _setTokenTransferFeeConfig(tokenTransferFeeConfigArgs);
     _setNops(nopsAndWeights);
-
-    // Set new tokens and pools
-    _applyPoolUpdates(new Internal.PoolUpdate[](0), tokensAndPools);
   }
 
   // ================================================================
@@ -314,7 +309,7 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
       feeTokenAmount: feeTokenAmount,
       data: message.data,
       tokenAmounts: message.tokenAmounts,
-      sourceTokenData: new bytes[](numberOfTokens), // will be filled in later
+      sourceTokenData: new bytes[](numberOfTokens), // will be populated below
       messageId: ""
     });
 
@@ -322,7 +317,8 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
     // There should be no state changes after external call to TokenPools.
     for (uint256 i = 0; i < numberOfTokens; ++i) {
       Client.EVMTokenAmount memory tokenAndAmount = message.tokenAmounts[i];
-      bytes memory tokenData = getPoolBySourceToken(destChainSelector, IERC20(tokenAndAmount.token)).lockOrBurn(
+      IPool sourcePool = getPoolBySourceToken(destChainSelector, IERC20(tokenAndAmount.token));
+      bytes memory encodedReturnData = sourcePool.lockOrBurn(
         originalSender,
         message.receiver,
         tokenAndAmount.amount,
@@ -330,15 +326,27 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
         bytes("") // any future extraArgs component would be added here
       );
 
-      // Since the DON has to pay for the tokenData to be included on the destination chain, we cap the length of the tokenData.
+      //      bytes4 tag = bytes4(encodedReturnData);
+      //      if (tag != Pool.POOL_RETURN_DATA_V1_TAG) revert InvalidTokenPoolConfig();
+
+      Pool.PoolReturnDataV1 memory poolReturnData = abi.decode(encodedReturnData, (Pool.PoolReturnDataV1));
+      // Since the DON has to pay for the extraData to be included on the destination chain, we cap the length of the extraData.
       // This prevents gas bomb attacks on the NOPs. We use destBytesOverhead as a proxy to cap the number of bytes we accept.
-      // As destBytesOverhead accounts for tokenData + offchainData, this caps the worst case abuse to the number of bytes reserved for offchainData.
+      // As destBytesOverhead accounts for extraData + offchainData, this caps the worst case abuse to the number of bytes reserved for offchainData.
       // It therefore fully mitigates gas bombs for most tokens, as most tokens don't use offchainData.
-      if (tokenData.length > s_tokenTransferFeeConfig[tokenAndAmount.token].destBytesOverhead) {
+      if (poolReturnData.destPoolData.length > s_tokenTransferFeeConfig[tokenAndAmount.token].destBytesOverhead) {
         revert SourceTokenDataTooLarge(tokenAndAmount.token);
       }
+      // Since this is an EVM2EVM message, the pool address should be exactly 32 bytes
+      if (poolReturnData.destPoolAddress.length != 32) revert InvalidAddress(poolReturnData.destPoolAddress);
 
-      newMessage.sourceTokenData[i] = tokenData;
+      newMessage.sourceTokenData[i] = abi.encode(
+        IPool.SourceTokenData({
+          sourcePoolAddress: abi.encode(sourcePool),
+          destPoolAddress: poolReturnData.destPoolAddress,
+          extraData: poolReturnData.destPoolData
+        })
+      );
     }
 
     // Hash only after the sourceTokenData has been set
@@ -435,52 +443,13 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
   // ================================================================
 
   /// @inheritdoc IEVM2AnyOnRampClient
-  function getSupportedTokens(uint64 /*destChainSelector*/ ) external view returns (address[] memory) {
-    address[] memory sourceTokens = new address[](s_poolsBySourceToken.length());
-    for (uint256 i = 0; i < sourceTokens.length; ++i) {
-      (sourceTokens[i],) = s_poolsBySourceToken.at(i);
-    }
-    return sourceTokens;
+  function getPoolBySourceToken(uint64, /*destChainSelector*/ IERC20 sourceToken) public view returns (IPool) {
+    return IPool(ITokenAdminRegistry(s_dynamicConfig.tokenAdminRegistry).getPool(address(sourceToken)));
   }
 
   /// @inheritdoc IEVM2AnyOnRampClient
-  function getPoolBySourceToken(uint64, /*destChainSelector*/ IERC20 sourceToken) public view returns (IPool) {
-    if (!s_poolsBySourceToken.contains(address(sourceToken))) revert UnsupportedToken(sourceToken);
-    return IPool(s_poolsBySourceToken.get(address(sourceToken)));
-  }
-
-  /// @inheritdoc IEVM2AnyOnRamp
-  /// @dev This method can only be called by the owner of the contract.
-  function applyPoolUpdates(Internal.PoolUpdate[] memory removes, Internal.PoolUpdate[] memory adds) external onlyOwner {
-    _applyPoolUpdates(removes, adds);
-  }
-
-  function _applyPoolUpdates(Internal.PoolUpdate[] memory removes, Internal.PoolUpdate[] memory adds) internal {
-    for (uint256 i = 0; i < removes.length; ++i) {
-      address token = removes[i].token;
-      address pool = removes[i].pool;
-
-      if (!s_poolsBySourceToken.contains(token)) revert PoolDoesNotExist(token);
-      if (s_poolsBySourceToken.get(token) != pool) revert TokenPoolMismatch();
-
-      if (s_poolsBySourceToken.remove(token)) {
-        emit PoolRemoved(token, pool);
-      }
-    }
-
-    for (uint256 i = 0; i < adds.length; ++i) {
-      address token = adds[i].token;
-      address pool = adds[i].pool;
-
-      if (token == address(0) || pool == address(0)) revert InvalidTokenPoolConfig();
-      if (token != address(IPool(pool).getToken())) revert TokenPoolMismatch();
-
-      if (s_poolsBySourceToken.set(token, pool)) {
-        emit PoolAdded(token, pool);
-      } else {
-        revert PoolAlreadyAdded();
-      }
-    }
+  function getSupportedTokens(uint64 /*destChainSelector*/ ) external view returns (address[] memory) {
+    return ITokenAdminRegistry(s_dynamicConfig.tokenAdminRegistry).getAllConfiguredTokens();
   }
 
   // ================================================================
@@ -611,7 +580,9 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
       TokenTransferFeeConfig memory transferFeeConfig = s_tokenTransferFeeConfig[tokenAmount.token];
 
       // Validate if the token is supported, do not calculate fee for unsupported tokens.
-      if (!s_poolsBySourceToken.contains(tokenAmount.token)) revert UnsupportedToken(IERC20(tokenAmount.token));
+      if (address(getPoolBySourceToken(i_destChainSelector, IERC20(tokenAmount.token))) == address(0)) {
+        revert UnsupportedToken(IERC20(tokenAmount.token));
+      }
 
       uint256 bpsFeeUSDWei = 0;
       // Only calculate bps fee if ratio is greater than 0. Ratio of 0 means no bps fee for a token.

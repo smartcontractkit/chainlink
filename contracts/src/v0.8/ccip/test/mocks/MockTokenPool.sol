@@ -19,12 +19,25 @@ contract MockTokenPool is IPool {
     uint64,
     bytes calldata
   ) external pure override returns (bytes memory) {
-    return "";
+    return bytes("");
   }
 
-  function releaseOrMint(bytes memory, address, uint256, uint64, bytes memory) external override {}
+  function releaseOrMint(
+    bytes memory,
+    address,
+    uint256,
+    uint64,
+    IPool.SourceTokenData memory,
+    bytes memory
+  ) external view override returns (address) {
+    return address(i_token);
+  }
 
   function getToken() public view override returns (IERC20 token) {
     return IERC20(i_token);
+  }
+
+  function getRemotePool(uint64) public pure override returns (bytes memory) {
+    return abi.encode(address(1));
   }
 }
