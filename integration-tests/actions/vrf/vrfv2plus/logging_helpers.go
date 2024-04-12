@@ -48,8 +48,8 @@ func LogRandomnessRequestedEventUpgraded(
 
 func LogRandomWordsFulfilledEventUpgraded(
 	l zerolog.Logger,
-	coordinator contracts.VRFCoordinatorV2PlusUpgradedVersion,
-	randomWordsFulfilledEvent *vrf_v2plus_upgraded_version.VRFCoordinatorV2PlusUpgradedVersionRandomWordsFulfilled,
+	coordinator contracts.Coordinator,
+	randomWordsFulfilledEvent *contracts.CoordinatorRandomWordsFulfilled,
 	isNativeBilling bool,
 ) {
 	l.Debug().
@@ -57,7 +57,7 @@ func LogRandomWordsFulfilledEventUpgraded(
 		Bool("Native Billing", isNativeBilling).
 		Str("Total Payment in Juels", randomWordsFulfilledEvent.Payment.String()).
 		Str("TX Hash", randomWordsFulfilledEvent.Raw.TxHash.String()).
-		Str("Subscription ID", randomWordsFulfilledEvent.SubID.String()).
+		Str("Subscription ID", randomWordsFulfilledEvent.SubId.(*big.Int).String()).
 		Str("Request ID", randomWordsFulfilledEvent.RequestId.String()).
 		Bool("Success", randomWordsFulfilledEvent.Success).
 		Msg("RandomWordsFulfilled Event (TX metadata)")
@@ -65,15 +65,15 @@ func LogRandomWordsFulfilledEventUpgraded(
 
 func LogRandomnessRequestedEvent(
 	l zerolog.Logger,
-	coordinator contracts.VRFCoordinatorV2_5,
-	randomWordsRequestedEvent *vrf_coordinator_v2_5.VRFCoordinatorV25RandomWordsRequested,
+	coordinator contracts.Coordinator,
+	randomWordsRequestedEvent *contracts.CoordinatorRandomWordsRequested,
 	isNativeBilling bool,
 ) {
 	l.Info().
 		Str("Coordinator", coordinator.Address()).
 		Bool("Native Billing", isNativeBilling).
 		Str("Request ID", randomWordsRequestedEvent.RequestId.String()).
-		Str("Subscription ID", randomWordsRequestedEvent.SubId.String()).
+		Str("Subscription ID", randomWordsRequestedEvent.SubId).
 		Str("Sender Address", randomWordsRequestedEvent.Sender.String()).
 		Str("Keyhash", fmt.Sprintf("0x%x", randomWordsRequestedEvent.KeyHash)).
 		Uint32("Callback Gas Limit", randomWordsRequestedEvent.CallbackGasLimit).
@@ -87,8 +87,8 @@ func LogRandomnessRequestedEvent(
 
 func LogRandomWordsFulfilledEvent(
 	l zerolog.Logger,
-	coordinator contracts.VRFCoordinatorV2_5,
-	randomWordsFulfilledEvent *vrf_coordinator_v2_5.VRFCoordinatorV25RandomWordsFulfilled,
+	coordinator contracts.Coordinator,
+	randomWordsFulfilledEvent *contracts.CoordinatorRandomWordsFulfilled,
 	isNativeBilling bool,
 ) {
 	l.Info().
@@ -96,7 +96,7 @@ func LogRandomWordsFulfilledEvent(
 		Str("Coordinator", coordinator.Address()).
 		Str("Total Payment", randomWordsFulfilledEvent.Payment.String()).
 		Str("TX Hash", randomWordsFulfilledEvent.Raw.TxHash.String()).
-		Str("Subscription ID", randomWordsFulfilledEvent.SubId.String()).
+		Str("Subscription ID", randomWordsFulfilledEvent.SubId.(*big.Int).String()).
 		Str("Request ID", randomWordsFulfilledEvent.RequestId.String()).
 		Bool("Success", randomWordsFulfilledEvent.Success).
 		Uint64("BlockNumber", randomWordsFulfilledEvent.Raw.BlockNumber).
@@ -128,7 +128,7 @@ func LogFulfillmentDetailsLinkBilling(
 	wrapperConsumerJuelsBalanceBeforeRequest *big.Int,
 	wrapperConsumerJuelsBalanceAfterRequest *big.Int,
 	consumerStatus vrfv2plus_wrapper_load_test_consumer.GetRequestStatus,
-	randomWordsFulfilledEvent *vrf_coordinator_v2_5.VRFCoordinatorV25RandomWordsFulfilled,
+	randomWordsFulfilledEvent *contracts.CoordinatorRandomWordsFulfilled,
 ) {
 	l.Info().
 		Str("Consumer Balance Before Request (Link)", (*commonassets.Link)(wrapperConsumerJuelsBalanceBeforeRequest).Link()).
@@ -149,7 +149,7 @@ func LogFulfillmentDetailsNativeBilling(
 	wrapperConsumerBalanceBeforeRequestWei *big.Int,
 	wrapperConsumerBalanceAfterRequestWei *big.Int,
 	consumerStatus vrfv2plus_wrapper_load_test_consumer.GetRequestStatus,
-	randomWordsFulfilledEvent *vrf_coordinator_v2_5.VRFCoordinatorV25RandomWordsFulfilled,
+	randomWordsFulfilledEvent *contracts.CoordinatorRandomWordsFulfilled,
 ) {
 	l.Info().
 		Str("Consumer Balance Before Request", assets.FormatWei(wrapperConsumerBalanceBeforeRequestWei)).

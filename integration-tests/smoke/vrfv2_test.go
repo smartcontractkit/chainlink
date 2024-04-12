@@ -24,6 +24,7 @@ import (
 	vrfcommon "github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/common"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/vrfv2"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
@@ -878,8 +879,10 @@ func TestVRFV2WithBHS(t *testing.T) {
 		err = vrfv2.FundSubscriptions(testEnv, chainID, big.NewFloat(*configCopy.VRFv2.General.SubscriptionFundingAmountLink), vrfContracts.LinkToken, vrfContracts.CoordinatorV2, subIDsForBHS)
 		require.NoError(t, err, "error funding subscriptions")
 		randomWordsFulfilledEvent, err := vrfContracts.CoordinatorV2.WaitForRandomWordsFulfilledEvent(
-			[]*big.Int{randomWordsRequestedEvent.RequestId},
-			time.Second*30,
+			contracts.RandomWordsFulfilledEventFilter{
+				RequestIds: []*big.Int{randomWordsRequestedEvent.RequestId},
+				Timeout:    configCopy.VRFv2.General.RandomWordsFulfilledEventTimeout.Duration,
+			},
 		)
 		require.NoError(t, err, "error waiting for randomness fulfilled event")
 		vrfv2.LogRandomWordsFulfilledEvent(l, vrfContracts.CoordinatorV2, randomWordsFulfilledEvent)

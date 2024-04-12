@@ -23,13 +23,13 @@ func LogSubDetails(l zerolog.Logger, subscription vrf_coordinator_v2.GetSubscrip
 
 func LogRandomnessRequestedEvent(
 	l zerolog.Logger,
-	coordinator contracts.VRFCoordinatorV2,
-	randomWordsRequestedEvent *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested,
+	coordinator contracts.Coordinator,
+	randomWordsRequestedEvent *contracts.CoordinatorRandomWordsRequested,
 ) {
 	l.Info().
 		Str("Coordinator", coordinator.Address()).
 		Str("Request ID", randomWordsRequestedEvent.RequestId.String()).
-		Uint64("Subscription ID", randomWordsRequestedEvent.SubId).
+		Str("Subscription ID", randomWordsRequestedEvent.SubId).
 		Str("Sender Address", randomWordsRequestedEvent.Sender.String()).
 		Str("Keyhash", fmt.Sprintf("0x%x", randomWordsRequestedEvent.KeyHash)).
 		Uint32("Callback Gas Limit", randomWordsRequestedEvent.CallbackGasLimit).
@@ -43,8 +43,8 @@ func LogRandomnessRequestedEvent(
 
 func LogRandomWordsFulfilledEvent(
 	l zerolog.Logger,
-	coordinator contracts.VRFCoordinatorV2,
-	randomWordsFulfilledEvent *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled,
+	coordinator contracts.Coordinator,
+	randomWordsFulfilledEvent *contracts.CoordinatorRandomWordsFulfilled,
 ) {
 	l.Info().
 		Str("Coordinator", coordinator.Address()).
