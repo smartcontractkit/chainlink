@@ -453,7 +453,7 @@ func (v *EthereumVRFCoordinatorV2) ParseSubscriptionCanceled(log types.Log) (*vr
 func (v *EthereumVRFCoordinatorV2) ParseRandomWordsRequested(log types.Log) (*CoordinatorRandomWordsRequested, error) {
 	requested, err := v.coordinator.ParseRandomWordsRequested(log)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse RandomWordsRequested event: %v", err)
+		return nil, fmt.Errorf("failed to parse RandomWordsRequested event: %w", err)
 	}
 
 	return &CoordinatorRandomWordsRequested{
