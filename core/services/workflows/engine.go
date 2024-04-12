@@ -67,13 +67,13 @@ func (e *Engine) init(ctx context.Context) {
 	ticker := time.NewTicker(time.Duration(retrySec) * time.Second)
 	defer ticker.Stop()
 
-	initSuccessful := true
 LOOP:
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
+			initSuccessful := true
 			// Resolve the underlying capability for each trigger
 			for _, t := range e.workflow.triggers {
 				tg, err := e.registry.GetTrigger(ctx, t.Type)
@@ -82,8 +82,10 @@ LOOP:
 					e.logger.Errorf("failed to get trigger capability: %s, retrying in %d seconds", err, retrySec)
 					continue
 				}
-
 				t.trigger = tg
+			}
+			if !initSuccessful {
+				continue
 			}
 
 			// Walk the graph and register each step's capability to this workflow
