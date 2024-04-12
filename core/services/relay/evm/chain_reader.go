@@ -342,9 +342,9 @@ func (e *eventBinding) remapExpression(key string, expression query.Expression) 
 		return remappedExpression, hasComparerPrimitive, err
 	case *query.ComparerPrimitive:
 		if val, ok := e.eventDataWords[primitive.Name]; ok {
-			return NewEventByWordFilter(e.address, e.hash, val, primitive.ValueComparers), true, nil
+			return NewEventByWordFilter(e.hash, val, primitive.ValueComparers), true, nil
 		}
-		return NewEventByTopicFilter(e.address, e.hash, e.topicsInfo[key].topicIndex, primitive.ValueComparers), true, nil
+		return NewEventByTopicFilter(e.hash, e.topicsInfo[key].topicIndex, primitive.ValueComparers), true, nil
 	default:
 		return expression, hasComparerPrimitive, nil
 	}
