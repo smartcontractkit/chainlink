@@ -2,5 +2,5 @@
 "chainlink": minor
 ---
 
-Gas Estimator L1GasOracle refactor
-Removed cmd/arbgas
+#changed Gas Estimator L1Oracles to be chain specific
+#removed cmd/arbgas
