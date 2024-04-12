@@ -10,22 +10,23 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/chaos"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/cdk8s/blockscout"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
+	"github.com/smartcontractkit/seth"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
+	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
+	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
@@ -125,6 +126,7 @@ func TestAutomationChaos(t *testing.T) {
 	l := logging.GetTestLogger(t)
 
 	registryVersions := map[string]eth_contracts.KeeperRegistryVersion{
+		// TODO is this correct? Action used to to configure OCR doesn't support registry 2.0 ¯\_(ツ)_/¯
 		"registry_2_0": eth_contracts.RegistryVersion_2_0,
 		"registry_2_1": eth_contracts.RegistryVersion_2_1,
 		"registry_2_2": eth_contracts.RegistryVersion_2_2,
@@ -218,12 +220,13 @@ func TestAutomationChaos(t *testing.T) {
 							Test:            t,
 						}).
 						AddHelm(testCase.networkChart).
-						AddHelm(testCase.clChart).
-						AddChart(blockscout.New(&blockscout.Props{
-							Name:    "geth-blockscout",
-							WsURL:   network.URL,
-							HttpURL: network.HTTPURLs[0],
-						}))
+						AddHelm(testCase.clChart)
+						// AddHelm(testCase.clChart).
+						// AddChart(blockscout.New(&blockscout.Props{
+						// 	Name:    "geth-blockscout",
+						// 	WsURL:   network.URL,
+						// 	HttpURL: network.HTTPURLs[0],
+						// })
 					err = testEnvironment.Run()
 					require.NoError(t, err, "Error setting up test environment")
 					if testEnvironment.WillUseRemoteRunner() {
@@ -237,39 +240,48 @@ func TestAutomationChaos(t *testing.T) {
 					err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, "instance=node-", 2, 5, ChaosGroupMajorityPlus)
 					require.NoError(t, err)
 
-					chainClient, err := blockchain.NewEVMClient(network, testEnvironment, l)
-					require.NoError(t, err, "Error connecting to blockchain")
-					contractDeployer, err := contracts.NewContractDeployer(chainClient, l)
-					require.NoError(t, err, "Error building contract deployer")
-
 					chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
 					require.NoError(t, err, "Error connecting to Chainlink nodes")
-					chainClient.ParallelTransactions(true)
+
+					network = utils.MustReplaceSimulatedNetworkUrlWithK8(l, network, *testEnvironment)
+					readSethCfg := config.GetSethConfig()
+					require.NotNil(t, readSethCfg, "Seth config shouldn't be nil")
+
+					sethCfg, err := utils.MergeSethAndEvmNetworkConfigs(network, *readSethCfg)
+					require.NoError(t, err, "Error merging seth and evm network configs")
+
+					if sethCfg.IsSimulatedNetwork() {
+						require.Equal(t, int(*sethCfg.EphemeralAddrs), 0, "You must not use ephemeral addresses on a simulated network. Please update '[Seth] ephemeral_addresses_number = 0' field in the TOML config file", *sethCfg.EphemeralAddrs)
+						// take only the first key, all others are not funded in genesis and will crash the test ¯\_(ツ)_/¯
+						sethCfg.Network.PrivateKeys = sethCfg.Network.PrivateKeys[0:1]
+					}
+
+					err = utils.ValidateSethNetworkConfig(sethCfg.Network)
+					require.NoError(t, err, "Error validating seth network config")
+
+					chainClient, err := seth.NewClientWithConfig(&sethCfg)
+					require.NoError(t, err, "Error creating seth client")
 
 					// Register cleanup for any test
 					t.Cleanup(func() {
-						if chainClient != nil {
-							chainClient.GasStats().PrintStats()
-						}
-						err := actions.TeardownSuite(t, testEnvironment, chainlinkNodes, nil, zapcore.PanicLevel, &config, chainClient)
+						err := actions_seth.TeardownSuite(t, chainClient, testEnvironment, chainlinkNodes, nil, zapcore.PanicLevel, &config)
 						require.NoError(t, err, "Error tearing down environment")
 					})
 
-					txCost, err := chainClient.EstimateCostForChainlinkOperations(1000)
+					txCost, err := actions_seth.EstimateCostForChainlinkOperations(l, chainClient, network, 1000)
 					require.NoError(t, err, "Error estimating cost for Chainlink Operations")
-					err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, txCost)
+					err = actions_seth.FundChainlinkNodesFromRootAddress(l, chainClient, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(chainlinkNodes), txCost)
 					require.NoError(t, err, "Error funding Chainlink nodes")
 
-					linkToken, err := contractDeployer.DeployLinkTokenContract()
+					linkToken, err := contracts.DeployLinkTokenContract(l, chainClient)
 					require.NoError(t, err, "Error deploying LINK token")
 
-					registry, registrar := actions.DeployAutoOCRRegistryAndRegistrar(
+					registry, registrar := actions_seth.DeployAutoOCRRegistryAndRegistrar(
 						t,
+						chainClient,
 						rv,
 						defaultOCRRegistryConfig,
 						linkToken,
-						contractDeployer,
-						chainClient,
 					)
 
 					// Fund the registry with LINK
@@ -287,11 +299,10 @@ func TestAutomationChaos(t *testing.T) {
 					} else {
 						err = registry.SetConfigTypeSafe(ocrConfig)
 					}
-					require.NoError(t, err, "Registry config should be be set successfully")
-					require.NoError(t, chainClient.WaitForEvents(), "Waiting for config to be set")
+					require.NoError(t, err, "Error setting OCR config")
 
-					consumersConditional, upkeepidsConditional := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, numberOfUpkeeps, big.NewInt(defaultLinkFunds), defaultUpkeepGasLimit, false, false)
-					consumersLogtrigger, upkeepidsLogtrigger := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, numberOfUpkeeps, big.NewInt(defaultLinkFunds), defaultUpkeepGasLimit, true, false)
+					consumersConditional, upkeepidsConditional := actions_seth.DeployConsumers(t, chainClient, registry, registrar, linkToken, numberOfUpkeeps, big.NewInt(defaultLinkFunds), defaultUpkeepGasLimit, false, false)
+					consumersLogtrigger, upkeepidsLogtrigger := actions_seth.DeployConsumers(t, chainClient, registry, registrar, linkToken, numberOfUpkeeps, big.NewInt(defaultLinkFunds), defaultUpkeepGasLimit, true, false)
 
 					consumers := append(consumersConditional, consumersLogtrigger...)
 					upkeepIDs := append(upkeepidsConditional, upkeepidsLogtrigger...)

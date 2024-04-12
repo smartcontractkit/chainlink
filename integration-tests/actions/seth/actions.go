@@ -19,7 +19,10 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/smartcontractkit/seth"
 	"github.com/test-go/testify/require"
+	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_factory"
@@ -465,6 +468,43 @@ func ConfigureOCRv2AggregatorContracts(
 	return nil
 }
 
+// TeardownSuite tears down networks/clients and environment and creates a logs folder for failed tests in the
+// specified path. Can also accept a testreporter (if one was used) to log further results
+func TeardownSuite(
+	t *testing.T,
+	chainClient *seth.Client,
+	env *environment.Environment,
+	chainlinkNodes []*client.ChainlinkK8sClient,
+	optionalTestReporter testreporters.TestReporter, // Optionally pass in a test reporter to log further metrics
+	failingLogLevel zapcore.Level, // Examines logs after the test, and fails the test if any Chainlink logs are found at or above provided level
+	grafnaUrlProvider testreporters.GrafanaURLProvider,
+) error {
+	l := logging.GetTestLogger(t)
+	if err := testreporters.WriteTeardownLogs(t, env, optionalTestReporter, failingLogLevel, grafnaUrlProvider); err != nil {
+		return fmt.Errorf("Error dumping environment logs, leaving environment running for manual retrieval, err: %w", err)
+	}
+	// Delete all jobs to stop depleting the funds
+	err := DeleteAllJobs(chainlinkNodes)
+	if err != nil {
+		l.Warn().Msgf("Error deleting jobs %+v", err)
+	}
+
+	if chainlinkNodes != nil && len(chainlinkNodes) > 0 {
+		if err := ReturnFundsFromNodes(l, chainClient, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(chainlinkNodes)); err != nil {
+			// This printed line is required for tests that use real funds to propagate the failure
+			// out to the system running the test. Do not remove
+			fmt.Println(environment.FAILED_FUND_RETURN)
+			l.Error().Err(err).Str("Namespace", env.Cfg.Namespace).
+				Msg("Error attempting to return funds from chainlink nodes to network's default wallet. " +
+					"Environment is left running so you can try manually!")
+		}
+	} else {
+		l.Info().Msg("Successfully returned funds from chainlink nodes to default network wallets")
+	}
+
+	return env.Shutdown()
+}
+
 // TeardownRemoteSuite sends a report and returns funds from chainlink nodes to network's default wallet
 func TeardownRemoteSuite(
 	t *testing.T,
@@ -760,4 +800,36 @@ func WatchNewFluxRound(
 			}
 		}
 	}
+}
+
+func EstimateCostForChainlinkOperations(l zerolog.Logger, client *seth.Client, network blockchain.EVMNetwork, amountOfOperations int) (*big.Float, error) {
+	bigAmountOfOperations := big.NewInt(int64(amountOfOperations))
+	estimations := client.CalculateGasEstimations(client.NewDefaultGasEstimationRequest())
+
+	// https://ethereum.stackexchange.com/questions/19665/how-to-calculate-transaction-fee
+	// total gas limit = chainlink gas limit + gas limit buffer
+	gasLimit := network.GasEstimationBuffer + network.ChainlinkTransactionLimit
+	// gas cost for TX = total gas limit * estimated gas price
+
+	var gasPriceInWei *big.Int
+	if client.Cfg.Network.EIP1559DynamicFees {
+		gasPriceInWei = estimations.GasFeeCap
+	} else {
+		gasPriceInWei = estimations.GasPrice
+	}
+
+	gasCostPerOperationWei := big.NewInt(1).Mul(big.NewInt(1).SetUint64(gasLimit), gasPriceInWei)
+	gasCostPerOperationETH := conversions.WeiToEther(gasCostPerOperationWei)
+	// total Wei needed for all TXs = total value for TX * number of TXs
+	totalWeiForAllOperations := big.NewInt(1).Mul(gasCostPerOperationWei, bigAmountOfOperations)
+	totalEthForAllOperations := conversions.WeiToEther(totalWeiForAllOperations)
+
+	l.Debug().
+		Int("Number of Operations", amountOfOperations).
+		Uint64("Gas Limit per Operation", gasLimit).
+		Str("Value per Operation (ETH)", gasCostPerOperationETH.String()).
+		Str("Total (ETH)", totalEthForAllOperations.String()).
+		Msg("Calculated ETH for Chainlink Operations")
+
+	return totalEthForAllOperations, nil
 }
