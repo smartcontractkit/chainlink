@@ -75,8 +75,9 @@ type logBuffer struct {
 	// last block number seen by the buffer
 	lastBlockSeen *atomic.Int64
 	// map of upkeep id to its queue
-	queues map[string]*upkeepLogQueue
-	lock   sync.RWMutex
+	queues      map[string]*upkeepLogQueue
+	lock        sync.RWMutex
+	blockHashes map[int64]string
 }
 
 func NewLogBuffer(lggr logger.Logger, lookback, blockRate, logLimit uint32) LogBuffer {
@@ -85,6 +86,7 @@ func NewLogBuffer(lggr logger.Logger, lookback, blockRate, logLimit uint32) LogB
 		opts:          newLogBufferOptions(lookback, blockRate, logLimit),
 		lastBlockSeen: new(atomic.Int64),
 		queues:        make(map[string]*upkeepLogQueue),
+		blockHashes:   make(map[int64]string),
 	}
 }
 
@@ -97,7 +99,25 @@ func (b *logBuffer) Enqueue(uid *big.Int, logs ...logpoller.Log) (int, int) {
 		buf = newUpkeepLogQueue(b.lggr, uid, b.opts)
 		b.setUpkeepQueue(uid, buf)
 	}
-	latestBlock := latestBlockNumber(logs...)
+
+	latestBlock, reorg := b.latestBlockNumber(logs...)
+	if len(reorg) > 0 {
+		for upkeepID, queue := range b.queues {
+			logs := queue.logs
+			for i := len(logs) - 1; i >= 0; i-- {
+				for blockNumber := range reorg {
+					if blockNumber == logs[i].BlockNumber {
+						logs = append(logs[:i], logs[i+1:]...)
+						break
+					}
+				}
+			}
+
+			queue.logs = logs
+			b.queues[upkeepID] = queue
+		}
+	}
+
 	if b.lastBlockSeen.Load() < latestBlock {
 		b.lastBlockSeen.Store(latestBlock)
 	}
@@ -235,16 +255,19 @@ type upkeepLogQueue struct {
 	// and the block number they were seen at
 	states map[string]logTriggerStateEntry
 	lock   sync.RWMutex
+
+	blockHashes map[int64]string
 }
 
 func newUpkeepLogQueue(lggr logger.Logger, id *big.Int, opts *logBufferOptions) *upkeepLogQueue {
 	maxLogs := int(opts.windowLimit.Load()) * opts.windows() // limit per window * windows
 	return &upkeepLogQueue{
-		lggr:   lggr.With("upkeepID", id.String()),
-		id:     id,
-		opts:   opts,
-		logs:   make([]logpoller.Log, 0, maxLogs),
-		states: make(map[string]logTriggerStateEntry),
+		lggr:        lggr.With("upkeepID", id.String()),
+		id:          id,
+		opts:        opts,
+		logs:        make([]logpoller.Log, 0, maxLogs),
+		states:      make(map[string]logTriggerStateEntry),
+		blockHashes: make(map[int64]string),
 	}
 }
 
@@ -310,11 +333,13 @@ func (q *upkeepLogQueue) enqueue(blockThreshold int64, logsToAdd ...logpoller.Lo
 
 	logs := q.logs
 	var added int
+
 	for _, log := range logsToAdd {
 		if log.BlockNumber < blockThreshold {
 			// q.lggr.Debugw("Skipping log from old block", "blockThreshold", blockThreshold, "logBlock", log.BlockNumber, "logIndex", log.LogIndex)
 			continue
 		}
+
 		lid := logID(log)
 		if _, ok := q.states[lid]; ok {
 			// q.lggr.Debugw("Skipping known log", "blockThreshold", blockThreshold, "logBlock", log.BlockNumber, "logIndex", log.LogIndex)

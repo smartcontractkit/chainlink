@@ -58,12 +58,19 @@ func logID(l logpoller.Log) string {
 }
 
 // latestBlockNumber returns the latest block number from the given logs
-func latestBlockNumber(logs ...logpoller.Log) int64 {
+func (b *logBuffer) latestBlockNumber(logs ...logpoller.Log) (int64, map[int64]bool) {
 	var latest int64
+	reorg := map[int64]bool{}
 	for _, l := range logs {
+		if hash, ok := b.blockHashes[l.BlockNumber]; ok {
+			if hash != l.BlockHash.String() {
+				reorg[l.BlockNumber] = true
+			}
+		}
+		b.blockHashes[l.BlockNumber] = l.BlockHash.String()
 		if l.BlockNumber > latest {
 			latest = l.BlockNumber
 		}
 	}
-	return latest
+	return latest, reorg
 }
