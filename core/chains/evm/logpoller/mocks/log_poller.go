@@ -42,7 +42,7 @@ func (_m *LogPoller) Close() error {
 }
 
 // FilteredLogs provides a mock function with given fields: filter, limitAndSrt
-func (_m *LogPoller) FilteredLogs(filter query.Filter, limitAndSrt query.LimitAndSort) ([]logpoller.Log, error) {
+func (_m *LogPoller) FilteredLogs(filter query.KeyFilter, limitAndSrt query.LimitAndSort) ([]logpoller.Log, error) {
 	ret := _m.Called(filter, limitAndSrt)
 
 	if len(ret) == 0 {
@@ -51,10 +51,10 @@ func (_m *LogPoller) FilteredLogs(filter query.Filter, limitAndSrt query.LimitAn
 
 	var r0 []logpoller.Log
 	var r1 error
-	if rf, ok := ret.Get(0).(func(query.Filter, query.LimitAndSort) ([]logpoller.Log, error)); ok {
+	if rf, ok := ret.Get(0).(func(query.KeyFilter, query.LimitAndSort) ([]logpoller.Log, error)); ok {
 		return rf(filter, limitAndSrt)
 	}
-	if rf, ok := ret.Get(0).(func(query.Filter, query.LimitAndSort) []logpoller.Log); ok {
+	if rf, ok := ret.Get(0).(func(query.KeyFilter, query.LimitAndSort) []logpoller.Log); ok {
 		r0 = rf(filter, limitAndSrt)
 	} else {
 		if ret.Get(0) != nil {
@@ -62,7 +62,7 @@ func (_m *LogPoller) FilteredLogs(filter query.Filter, limitAndSrt query.LimitAn
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(query.Filter, query.LimitAndSort) error); ok {
+	if rf, ok := ret.Get(1).(func(query.KeyFilter, query.LimitAndSort) error); ok {
 		r1 = rf(filter, limitAndSrt)
 	} else {
 		r1 = ret.Error(1)
