@@ -37,7 +37,7 @@ func main() {
 					atlas_don.New(
 						atlas_don.Props{
 							PrometheusDataSource: cfg.DataSources.Prometheus,
-							PlatformOpts:         atlas_don.PlatformPanelOpts(cfg.Platform),
+							PlatformOpts:         atlas_don.PlatformPanelOpts(cfg.Platform, key),
 							OcrVersion:           key,
 						},
 					),

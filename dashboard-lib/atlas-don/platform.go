@@ -12,11 +12,15 @@ type PlatformOpts struct {
 }
 
 // PlatformPanelOpts generate different queries for "docker" and "k8s" deployment platforms
-func PlatformPanelOpts(platform string) PlatformOpts {
+func PlatformPanelOpts(platform string, ocrVersion string) PlatformOpts {
+	variableFeedId := "feed_id_name"
+	if ocrVersion == "ocr2" {
+		variableFeedId = "feed_id"
+	}
 	po := PlatformOpts{
 		LabelFilters: map[string]string{
 			"contract":     `=~"${contract}"`,
-			"feed_id_name": `=~"${feed_id_name}"`,
+			variableFeedId: `=~"${` + variableFeedId + `}"`,
 		},
 	}
 	switch platform {

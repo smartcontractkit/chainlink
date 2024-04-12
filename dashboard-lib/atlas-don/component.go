@@ -18,6 +18,11 @@ type Props struct {
 }
 
 func vars(p Props) []dashboard.Option {
+	variableFeedId := "feed_id_name"
+	if p.OcrVersion == "ocr2" {
+		variableFeedId = "feed_id"
+	}
+
 	return []dashboard.Option{
 		dashboard.VariableAsQuery(
 			"contract",
@@ -28,11 +33,11 @@ func vars(p Props) []dashboard.Option {
 			query.Sort(query.NumericalAsc),
 		),
 		dashboard.VariableAsQuery(
-			"feed_id_name",
+			variableFeedId,
 			query.DataSource(p.PrometheusDataSource),
 			query.Multiple(),
 			query.IncludeAll(),
-			query.Request(fmt.Sprintf(`label_values(`+p.OcrVersion+`_contract_config_f{job="$job", contract="$contract"}, %s)`, "feed_id_name")),
+			query.Request(fmt.Sprintf(`label_values(`+p.OcrVersion+`_contract_config_f{job="$job", contract="$contract"}, %s)`, variableFeedId)),
 			query.Sort(query.NumericalAsc),
 		),
 	}
@@ -214,112 +219,141 @@ func ocrContractConfigNodes(p Props) []dashboard.Option {
 }
 
 func priceReporting(p Props) []dashboard.Option {
-	return []dashboard.Option{
-		dashboard.Row("Price Reporting",
-			row.Collapse(),
-			row.WithTimeSeries(
-				"Ask observation in MessageObserve sent",
-				timeseries.Span(12),
-				timeseries.Legend(timeseries.ToTheRight),
-				timeseries.DataSource(p.PrometheusDataSource),
-				timeseries.WithPrometheusTarget(
-					``+p.OcrVersion+`_telemetry_observation_ask{contract=~"${contract}", feed_id_name=~"${feed_id_name}", job=~"${job}"}`,
-					prometheus.Legend("{{oracle}}"),
-				),
-			),
-			row.WithTimeSeries(
-				"Price observation in MessageObserve sent",
-				timeseries.Span(12),
-				timeseries.Legend(timeseries.ToTheRight),
-				timeseries.DataSource(p.PrometheusDataSource),
-				timeseries.WithPrometheusTarget(
-					``+p.OcrVersion+`_telemetry_observation{contract=~"${contract}", feed_id_name=~"${feed_id_name}", job=~"${job}"}`,
-					prometheus.Legend("{{oracle}}"),
-				),
-			),
-			row.WithTimeSeries(
-				"Bid observation in MessageObserve sent",
-				timeseries.Span(12),
-				timeseries.Legend(timeseries.ToTheRight),
-				timeseries.DataSource(p.PrometheusDataSource),
-				timeseries.WithPrometheusTarget(
-					``+p.OcrVersion+`_telemetry_observation_bid{contract=~"${contract}", feed_id_name=~"${feed_id_name}", job=~"${job}"}`,
-					prometheus.Legend("{{oracle}}"),
-				),
-			),
-			row.WithTimeSeries(
-				"Ask MessagePropose observations",
-				timeseries.Span(12),
-				timeseries.Legend(timeseries.ToTheRight),
-				timeseries.DataSource(p.PrometheusDataSource),
-				timeseries.WithPrometheusTarget(
-					``+p.OcrVersion+`_telemetry_message_propose_observation_ask{contract=~"${contract}", feed_id_name=~"${feed_id_name}", job=~"${job}"}`,
-					prometheus.Legend("{{oracle}}"),
-				),
-			),
-			row.WithTimeSeries(
-				"Price MessagePropose observations",
-				timeseries.Span(12),
-				timeseries.Legend(timeseries.ToTheRight),
-				timeseries.DataSource(p.PrometheusDataSource),
-				timeseries.WithPrometheusTarget(
-					``+p.OcrVersion+`_telemetry_message_propose_observation{contract=~"${contract}", feed_id_name=~"${feed_id_name}", job=~"${job}"}`,
-					prometheus.Legend("{{oracle}}"),
-				),
-			),
-			row.WithTimeSeries(
-				"Bid MessagePropose observations",
-				timeseries.Span(12),
-				timeseries.Legend(timeseries.ToTheRight),
-				timeseries.DataSource(p.PrometheusDataSource),
-				timeseries.WithPrometheusTarget(
-					``+p.OcrVersion+`_telemetry_message_propose_observation_bid{contract=~"${contract}", feed_id_name=~"${feed_id_name}", job=~"${job}"}`,
-					prometheus.Legend("{{oracle}}"),
-				),
-			),
-			row.WithTimeSeries(
-				"Total number of observations included in MessagePropose",
-				timeseries.Span(12),
-				timeseries.Description("How often is a node's observation included in the report?"),
-				timeseries.Legend(timeseries.ToTheRight),
-				timeseries.Axis(
-					axis.Min(0),
-				),
-				timeseries.DataSource(p.PrometheusDataSource),
-				timeseries.WithPrometheusTarget(
-					`rate(`+p.OcrVersion+`_telemetry_message_propose_observation_total{contract=~"${contract}", feed_id_name=~"${feed_id_name}", job=~"${job}"}[5m])`,
-					prometheus.Legend("{{oracle}}"),
-				),
-			),
-			row.WithTimeSeries(
-				"Total MessageObserve sent",
-				timeseries.Span(12),
-				timeseries.Description("From an individual node's perspective, how often are they sending an observation?"),
-				timeseries.Legend(timeseries.ToTheRight),
-				timeseries.Axis(
-					axis.Min(0),
-				),
-				timeseries.DataSource(p.PrometheusDataSource),
-				timeseries.WithPrometheusTarget(
-					`rate(`+p.OcrVersion+`_telemetry_message_observe_total{contract=~"${contract}", feed_id_name=~"${feed_id_name}", job=~"${job}"}[5m])`,
-					prometheus.Legend("{{oracle}}"),
-				),
-			),
-			row.WithTimeSeries(
-				"P2P messages received",
-				timeseries.Span(12),
-				timeseries.Height("600px"),
-				timeseries.Description("From an individual node's perspective, how many messages are they receiving from other nodes? Uses ocr_telemetry_p2p_received_total"),
-				timeseries.Axis(
-					axis.Min(0),
-				),
-				timeseries.DataSource(p.PrometheusDataSource),
-				timeseries.WithPrometheusTarget(
-					`sum by (sender, receiver) (increase(`+p.OcrVersion+`_telemetry_p2p_received_total{job=~"${job}"}"}[5m]))`,
-					prometheus.Legend("{{sender}} > {{receiver}}"),
-				),
-			),
+	telemetryObservationAsk := row.WithTimeSeries(
+		"Ask observation in MessageObserve sent",
+		timeseries.Span(12),
+		timeseries.Legend(timeseries.ToTheRight),
+		timeseries.DataSource(p.PrometheusDataSource),
+		timeseries.WithPrometheusTarget(
+			``+p.OcrVersion+`_telemetry_observation_ask{contract=~"${contract}", feed_id_name=~"${feed_id_name}", job=~"${job}"}`,
+			prometheus.Legend("{{oracle}}"),
 		),
+	)
+
+	telemetryObservation := row.WithTimeSeries(
+		"Price observation in MessageObserve sent",
+		timeseries.Span(12),
+		timeseries.Legend(timeseries.ToTheRight),
+		timeseries.DataSource(p.PrometheusDataSource),
+		timeseries.WithPrometheusTarget(
+			``+p.OcrVersion+`_telemetry_observation{contract=~"${contract}", feed_id_name=~"${feed_id_name}", job=~"${job}"}`,
+			prometheus.Legend("{{oracle}}"),
+		),
+	)
+
+	telemetryObservationBid := row.WithTimeSeries(
+		"Bid observation in MessageObserve sent",
+		timeseries.Span(12),
+		timeseries.Legend(timeseries.ToTheRight),
+		timeseries.DataSource(p.PrometheusDataSource),
+		timeseries.WithPrometheusTarget(
+			``+p.OcrVersion+`_telemetry_observation_bid{contract=~"${contract}", feed_id_name=~"${feed_id_name}", job=~"${job}"}`,
+			prometheus.Legend("{{oracle}}"),
+		),
+	)
+
+	telemetryMessageProposeObservationAsk := row.WithTimeSeries(
+		"Ask MessagePropose observations",
+		timeseries.Span(12),
+		timeseries.Legend(timeseries.ToTheRight),
+		timeseries.DataSource(p.PrometheusDataSource),
+		timeseries.WithPrometheusTarget(
+			``+p.OcrVersion+`_telemetry_message_propose_observation_ask{contract=~"${contract}", feed_id_name=~"${feed_id_name}", job=~"${job}"}`,
+			prometheus.Legend("{{oracle}}"),
+		),
+	)
+
+	telemetryMessageProposeObservation := row.WithTimeSeries(
+		"Price MessagePropose observations",
+		timeseries.Span(12),
+		timeseries.Legend(timeseries.ToTheRight),
+		timeseries.DataSource(p.PrometheusDataSource),
+		timeseries.WithPrometheusTarget(
+			``+p.OcrVersion+`_telemetry_message_propose_observation{contract=~"${contract}", feed_id_name=~"${feed_id_name}", job=~"${job}"}`,
+			prometheus.Legend("{{oracle}}"),
+		),
+	)
+
+	telemetryMessageProposeObservationBid := row.WithTimeSeries(
+		"Bid MessagePropose observations",
+		timeseries.Span(12),
+		timeseries.Legend(timeseries.ToTheRight),
+		timeseries.DataSource(p.PrometheusDataSource),
+		timeseries.WithPrometheusTarget(
+			``+p.OcrVersion+`_telemetry_message_propose_observation_bid{contract=~"${contract}", feed_id_name=~"${feed_id_name}", job=~"${job}"}`,
+			prometheus.Legend("{{oracle}}"),
+		),
+	)
+
+	telemetryMessageProposeObservationTotal := row.WithTimeSeries(
+		"Total number of observations included in MessagePropose",
+		timeseries.Span(12),
+		timeseries.Description("How often is a node's observation included in the report?"),
+		timeseries.Legend(timeseries.ToTheRight),
+		timeseries.Axis(
+			axis.Min(0),
+		),
+		timeseries.DataSource(p.PrometheusDataSource),
+		timeseries.WithPrometheusTarget(
+			`rate(`+p.OcrVersion+`_telemetry_message_propose_observation_total{contract=~"${contract}", feed_id_name=~"${feed_id_name}", job=~"${job}"}[5m])`,
+			prometheus.Legend("{{oracle}}"),
+		),
+	)
+
+	telemetryMessageObserveTotal := row.WithTimeSeries(
+		"Total MessageObserve sent",
+		timeseries.Span(12),
+		timeseries.Description("From an individual node's perspective, how often are they sending an observation?"),
+		timeseries.Legend(timeseries.ToTheRight),
+		timeseries.Axis(
+			axis.Min(0),
+		),
+		timeseries.DataSource(p.PrometheusDataSource),
+		timeseries.WithPrometheusTarget(
+			`rate(`+p.OcrVersion+`_telemetry_message_observe_total{contract=~"${contract}", feed_id_name=~"${feed_id_name}", job=~"${job}"}[5m])`,
+			prometheus.Legend("{{oracle}}"),
+		),
+	)
+
+	telemetryP2PReceivedTotal := row.WithTimeSeries(
+		"P2P messages received",
+		timeseries.Span(12),
+		timeseries.Height("600px"),
+		timeseries.Description("From an individual node's perspective, how many messages are they receiving from other nodes? Uses ocr_telemetry_p2p_received_total"),
+		timeseries.Axis(
+			axis.Min(0),
+		),
+		timeseries.DataSource(p.PrometheusDataSource),
+		timeseries.WithPrometheusTarget(
+			`sum by (sender, receiver) (increase(`+p.OcrVersion+`_telemetry_p2p_received_total{job=~"${job}"}[5m]))`,
+			prometheus.Legend("{{sender}} > {{receiver}}"),
+		),
+	)
+
+	panels := []row.Option{
+		row.Collapse(),
+	}
+
+	switch p.OcrVersion {
+	case "ocr":
+		break
+	case "ocr2":
+		break
+	case "ocr3":
+		panels = append(panels, telemetryObservationAsk)
+		panels = append(panels, telemetryObservation)
+		panels = append(panels, telemetryObservationBid)
+		panels = append(panels, telemetryMessageProposeObservationAsk)
+		panels = append(panels, telemetryMessageProposeObservation)
+		panels = append(panels, telemetryMessageProposeObservationBid)
+		panels = append(panels, telemetryMessageProposeObservationTotal)
+		panels = append(panels, telemetryMessageObserveTotal)
+		panels = append(panels, telemetryP2PReceivedTotal)
+		break
+	}
+
+	return []dashboard.Option{
+		dashboard.Row("Price Reporting", panels...),
 	}
 }
 
