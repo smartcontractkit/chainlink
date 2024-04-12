@@ -19,6 +19,8 @@ jobs:
         #breaking_change : For any functionality that requires manual action for the node to boot.
         #db_update : For any feature that introduces updates to database schema.
         #wip : For any change that is not ready yet and external communication about it should be held off till it is feature complete.
+        #bugfix - For bug fixes.
+        #internal - For changesets that need to be excluded from the final changelog.
 
     # For security reasons, GITHUB_TOKEN is read-only on forks, so we cannot leave comments on PRs.
     # This check skips the job if it is detected we are running on a fork.

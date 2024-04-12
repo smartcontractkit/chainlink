@@ -12,6 +12,8 @@
 # #breaking_change : For any functionality that requires manual action for the node to boot.
 # #db_update : For any feature that introduces updates to database schema.
 # #wip : For any change that is not ready yet and external communication about it should be held off till it is feature complete.
+# #bugfix - For bug fixes.
+# #internal - For changesets that need to be excluded from the final changelog.
 
 if [ $# -eq 0 ]; then
   echo "Error: No changeset file path provided."
@@ -19,7 +21,7 @@ if [ $# -eq 0 ]; then
 fi
 
 CHANGESET_FILE_PATH=$1
-tags_list=( "#nops" "#added" "#changed" "#removed" "#updated" "#deprecation_notice" "#breaking_change" "#db_update" "#wip" )
+tags_list=( "#nops" "#added" "#changed" "#removed" "#updated" "#deprecation_notice" "#breaking_change" "#db_update" "#wip" "#bugfix" "#internal" )
 has_tags=false
 
 if [[ ! -f "$CHANGESET_FILE_PATH" ]]; then
