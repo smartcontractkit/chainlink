@@ -19,7 +19,7 @@ func sendSlackNotification(header string, l zerolog.Logger, config *tc.TestConfi
 	startingTime string, endingTime string, extraBlocks []slack.Block, msgOption slack.MsgOption) (string, error) {
 	slackClient := slack.New(reportModel.SlackAPIKey)
 
-	headerText := ":chainlink-keepers: Automation Load Test " + header + " :white_check_mark:"
+	headerText := ":chainlink-keepers: Automation Load Test " + header
 
 	grafanaUrl, err := config.GetGrafanaBaseURL()
 	if err != nil {

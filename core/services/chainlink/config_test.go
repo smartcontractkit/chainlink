@@ -186,8 +186,9 @@ var (
 				Chain: stkcfg.Chain{
 					ConfirmationPoll: commoncfg.MustNewDuration(time.Hour),
 				},
+				FeederURL: commoncfg.MustParseURL("http://feeder.url"),
 				Nodes: []*stkcfg.Node{
-					{Name: ptr("primary"), URL: commoncfg.MustParseURL("http://stark.node")},
+					{Name: ptr("primary"), URL: commoncfg.MustParseURL("http://stark.node"), APIKey: ptr("key")},
 				},
 			},
 		},
@@ -370,7 +371,7 @@ func TestConfig_Marshal(t *testing.T) {
 		ReaperInterval:            commoncfg.MustNewDuration(4 * time.Hour),
 		ReaperThreshold:           commoncfg.MustNewDuration(7 * 24 * time.Hour),
 		ResultWriteQueueDepth:     ptr[uint32](10),
-		VerboseLogging:            ptr(true),
+		VerboseLogging:            ptr(false),
 		HTTPRequest: toml.JobPipelineHTTPRequest{
 			MaxSize:        ptr[utils.FileSize](100 * utils.MB),
 			DefaultTimeout: commoncfg.MustNewDuration(time.Minute),
@@ -575,12 +576,13 @@ func TestConfig_Marshal(t *testing.T) {
 				},
 
 				NodePool: evmcfg.NodePool{
-					PollFailureThreshold: ptr[uint32](5),
-					PollInterval:         &minute,
-					SelectionMode:        &selectionMode,
-					SyncThreshold:        ptr[uint32](13),
-					LeaseDuration:        &zeroSeconds,
-					NodeIsSyncingEnabled: ptr(true),
+					PollFailureThreshold:       ptr[uint32](5),
+					PollInterval:               &minute,
+					SelectionMode:              &selectionMode,
+					SyncThreshold:              ptr[uint32](13),
+					LeaseDuration:              &zeroSeconds,
+					NodeIsSyncingEnabled:       ptr(true),
+					FinalizedBlockPollInterval: &second,
 				},
 				OCR: evmcfg.OCR{
 					ContractConfirmations:              ptr[uint16](11),
@@ -653,8 +655,9 @@ func TestConfig_Marshal(t *testing.T) {
 				TxTimeout:           commoncfg.MustNewDuration(13 * time.Second),
 				ConfirmationPoll:    commoncfg.MustNewDuration(42 * time.Second),
 			},
+			FeederURL: commoncfg.MustParseURL("http://feeder.url"),
 			Nodes: []*stkcfg.Node{
-				{Name: ptr("primary"), URL: commoncfg.MustParseURL("http://stark.node")},
+				{Name: ptr("primary"), URL: commoncfg.MustParseURL("http://stark.node"), APIKey: ptr("key")},
 			},
 		},
 	}
@@ -846,7 +849,7 @@ MaxSuccessfulRuns = 123456
 ReaperInterval = '4h0m0s'
 ReaperThreshold = '168h0m0s'
 ResultWriteQueueDepth = 10
-VerboseLogging = true
+VerboseLogging = false
 
 [JobPipeline.HTTPRequest]
 DefaultTimeout = '1m0s'
@@ -1020,6 +1023,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 13
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = true
+FinalizedBlockPollInterval = '1s'
 
 [EVM.OCR]
 ContractConfirmations = 11
@@ -1108,6 +1112,7 @@ URL = 'http://solana.bar'
 `},
 		{"Starknet", Config{Starknet: full.Starknet}, `[[Starknet]]
 ChainID = 'foobar'
+FeederURL = 'http://feeder.url'
 Enabled = true
 OCR2CachePollPeriod = '6h0m0s'
 OCR2CacheTTL = '3m0s'
@@ -1118,6 +1123,7 @@ ConfirmationPoll = '42s'
 [[Starknet.Nodes]]
 Name = 'primary'
 URL = 'http://stark.node'
+APIKey = 'key'
 `},
 		{"Mercury", Config{Core: toml.Core{Mercury: full.Mercury}}, `[Mercury]
 [Mercury.Cache]
@@ -1140,6 +1146,7 @@ CertFile = '/path/to/cert.pem'
 
 			require.NoError(t, config.DecodeTOML(strings.NewReader(s), &got))
 			ts, err := got.TOMLString()
+
 			require.NoError(t, err)
 			assert.Equal(t, tt.config, got, diff.Diff(s, ts))
 		})
@@ -1545,6 +1552,7 @@ func TestConfig_SetFrom(t *testing.T) {
 				require.NoError(t, c.SetFrom(&f))
 			}
 			ts, err := c.TOMLString()
+
 			require.NoError(t, err)
 			assert.Equal(t, tt.exp, ts)
 		})

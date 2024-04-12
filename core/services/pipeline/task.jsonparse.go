@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -109,7 +110,7 @@ func (t *JSONParseTask) Run(_ context.Context, l logger.Logger, vars Vars, input
 		}
 	}
 
-	decoded, err = reinterpetJsonNumbers(decoded)
+	decoded, err = jsonserializable.ReinterpretJSONNumbers(decoded)
 	if err != nil {
 		return Result{Error: multierr.Combine(ErrBadInput, err)}, runInfo
 	}

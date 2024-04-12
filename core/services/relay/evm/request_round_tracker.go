@@ -9,19 +9,17 @@ import (
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 
-	"github.com/jmoiron/sqlx"
-
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	offchain_aggregator_wrapper "github.com/smartcontractkit/chainlink/v2/core/internal/gethwrappers2/generated/offchainaggregator"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 // RequestRoundTracker subscribes to new request round logs.
@@ -35,7 +33,7 @@ type RequestRoundTracker struct {
 	jobID            int32
 	lggr             logger.SugaredLogger
 	odb              RequestRoundDB
-	q                pg.Q
+	ds               sqlutil.DataSource
 	blockTranslator  ocrcommon.BlockTranslator
 
 	// Start/Stop lifecycle
@@ -56,10 +54,9 @@ func NewRequestRoundTracker(
 	logBroadcaster log.Broadcaster,
 	jobID int32,
 	lggr logger.Logger,
-	db *sqlx.DB,
+	ds sqlutil.DataSource,
 	odb RequestRoundDB,
 	chain ocrcommon.Config,
-	qConfig pg.QConfig,
 ) (o *RequestRoundTracker) {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &RequestRoundTracker{
@@ -70,7 +67,7 @@ func NewRequestRoundTracker(
 		jobID:            jobID,
 		lggr:             logger.Sugared(lggr),
 		odb:              odb,
-		q:                pg.NewQ(db, lggr, qConfig),
+		ds:               ds,
 		blockTranslator:  ocrcommon.NewBlockTranslator(chain, ethClient, lggr),
 		ctx:              ctx,
 		ctxCancel:        cancel,
@@ -79,9 +76,9 @@ func NewRequestRoundTracker(
 
 // Start must be called before logs can be delivered
 // It ought to be called before starting OCR
-func (t *RequestRoundTracker) Start() error {
+func (t *RequestRoundTracker) Start(ctx context.Context) error {
 	return t.StartOnce("RequestRoundTracker", func() (err error) {
-		t.latestRoundRequested, err = t.odb.LoadLatestRoundRequested()
+		t.latestRoundRequested, err = t.odb.LoadLatestRoundRequested(ctx)
 		if err != nil {
 			return errors.Wrap(err, "RequestRoundTracker#Start: failed to load latest round requested")
 		}
@@ -141,8 +138,9 @@ func (t *RequestRoundTracker) HandleLog(lb log.Broadcast) {
 			return
 		}
 		if IsLaterThan(raw, t.latestRoundRequested.Raw) {
-			err = t.q.Transaction(func(q pg.Queryer) error {
-				if err = t.odb.SaveLatestRoundRequested(q, *rr); err != nil {
+			ctx := context.TODO() //TODO https://smartcontract-it.atlassian.net/browse/BCF-2887
+			err = t.odb.Transact(ctx, func(tx RequestRoundDB) error {
+				if err = tx.SaveLatestRoundRequested(ctx, *rr); err != nil {
 					return err
 				}
 				return t.logBroadcaster.MarkConsumed(t.ctx, lb)

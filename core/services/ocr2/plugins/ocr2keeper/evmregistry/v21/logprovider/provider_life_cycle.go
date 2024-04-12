@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"golang.org/x/time/rate"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 )
@@ -84,8 +83,7 @@ func (p *logEventProvider) RegisterFilter(ctx context.Context, opts FilterOption
 		filter = *currentFilter
 	} else { // new filter
 		filter = upkeepFilter{
-			upkeepID:     upkeepID,
-			blockLimiter: rate.NewLimiter(p.opts.BlockRateLimit, p.opts.BlockLimitBurst),
+			upkeepID: upkeepID,
 		}
 	}
 	filter.lastPollBlock = 0

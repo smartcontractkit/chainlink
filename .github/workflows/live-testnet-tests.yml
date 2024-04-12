@@ -70,8 +70,9 @@ jobs:
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@0281b09807758be1dcc41651e44e62b353808c47 # v2.1.0
+        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
         with:
+          id: live-testnet-build-chainlink
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
@@ -100,8 +101,9 @@ jobs:
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@0281b09807758be1dcc41651e44e62b353808c47 # v2.1.0
+        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
         with:
+          id: live-testnet-build-test-image
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
@@ -112,7 +114,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       - name: Build Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-tests@5bee84d30d90295010bda68b0cd46be3a1eea917 # v2.3.9
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-tests@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
         with:
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -270,7 +272,7 @@ jobs:
         with:
           name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@5bee84d30d90295010bda68b0cd46be3a1eea917 # v2.3.9
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -288,7 +290,7 @@ jobs:
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
       - name: Print failed test summary
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@5bee84d30d90295010bda68b0cd46be3a1eea917 # v2.3.9
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
         with:
           test_directory: "./"
 
@@ -343,7 +345,7 @@ jobs:
         with:
           name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@5bee84d30d90295010bda68b0cd46be3a1eea917 # v2.3.9
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -361,7 +363,7 @@ jobs:
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
       - name: Print failed test summary
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@5bee84d30d90295010bda68b0cd46be3a1eea917 # v2.3.9
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
         with:
           test_directory: "./"
 
@@ -416,7 +418,7 @@ jobs:
         with:
           name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@5bee84d30d90295010bda68b0cd46be3a1eea917 # v2.3.9
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -434,7 +436,7 @@ jobs:
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
       - name: Print failed test summary
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@5bee84d30d90295010bda68b0cd46be3a1eea917 # v2.3.9
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
         with:
           test_directory: "./"
 
@@ -489,7 +491,7 @@ jobs:
         with:
           name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@5bee84d30d90295010bda68b0cd46be3a1eea917 # v2.3.9
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -507,7 +509,7 @@ jobs:
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
       - name: Print failed test summary
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@5bee84d30d90295010bda68b0cd46be3a1eea917 # v2.3.9
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
         with:
           test_directory: "./"
 
@@ -558,7 +560,7 @@ jobs:
         with:
           name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@5bee84d30d90295010bda68b0cd46be3a1eea917 # v2.3.9
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -576,7 +578,7 @@ jobs:
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
       - name: Print failed test summary
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@5bee84d30d90295010bda68b0cd46be3a1eea917 # v2.3.9
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
         with:
           test_directory: "./"
 
@@ -631,7 +633,7 @@ jobs:
         with:
           name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@5bee84d30d90295010bda68b0cd46be3a1eea917 # v2.3.9
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -649,7 +651,7 @@ jobs:
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
       - name: Print failed test summary
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@5bee84d30d90295010bda68b0cd46be3a1eea917 # v2.3.9
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
         with:
           test_directory: "./"
 
@@ -704,7 +706,7 @@ jobs:
         with:
           name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@5bee84d30d90295010bda68b0cd46be3a1eea917 # v2.3.9
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -722,7 +724,7 @@ jobs:
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
       - name: Print failed test summary
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@5bee84d30d90295010bda68b0cd46be3a1eea917 # v2.3.9
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
         with:
           test_directory: "./"
 
@@ -777,7 +779,7 @@ jobs:
         with:
           name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@5bee84d30d90295010bda68b0cd46be3a1eea917 # v2.3.9
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -795,7 +797,7 @@ jobs:
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
       - name: Print failed test summary
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@5bee84d30d90295010bda68b0cd46be3a1eea917 # v2.3.9
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
         with:
           test_directory: "./"
 
@@ -846,7 +848,7 @@ jobs:
         with:
           name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@5bee84d30d90295010bda68b0cd46be3a1eea917 # v2.3.9
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -864,7 +866,7 @@ jobs:
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
       - name: Print failed test summary
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@5bee84d30d90295010bda68b0cd46be3a1eea917 # v2.3.9
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
         with:
           test_directory: "./"
 
@@ -915,7 +917,7 @@ jobs:
         with:
           name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@5bee84d30d90295010bda68b0cd46be3a1eea917 # v2.3.9
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -933,7 +935,7 @@ jobs:
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
       - name: Print failed test summary
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@5bee84d30d90295010bda68b0cd46be3a1eea917 # v2.3.9
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
         with:
           test_directory: "./"
 
@@ -984,7 +986,7 @@ jobs:
         with:
           name: tests
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@5bee84d30d90295010bda68b0cd46be3a1eea917 # v2.3.9
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
         with:
           test_command_to_run: ./tests -test.timeout 30m -test.count=1 -test.parallel=1 -test.run ${{ matrix.test }}
           binary_name: tests
@@ -1002,6 +1004,6 @@ jobs:
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
       - name: Print failed test summary
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@5bee84d30d90295010bda68b0cd46be3a1eea917 # v2.3.9
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
         with:
           test_directory: "./"

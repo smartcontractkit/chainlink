@@ -24,6 +24,7 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
@@ -406,6 +407,7 @@ func MustInsertKeeperJob(t *testing.T, db *sqlx.DB, korm keeper.ORM, from evmtyp
 	jrm := job.NewORM(db, prm, btORM, nil, tlg, cfg.Database())
 	err = jrm.InsertJob(&jb)
 	require.NoError(t, err)
+	jb.PipelineSpec.JobID = jb.ID
 	return jb
 }
 
@@ -414,13 +416,13 @@ func MustInsertKeeperRegistry(t *testing.T, db *sqlx.DB, korm keeper.ORM, ethKey
 	from := key.EIP55Address
 	t.Helper()
 	contractAddress := NewEIP55Address()
-	job := MustInsertKeeperJob(t, db, korm, from, contractAddress)
+	jb := MustInsertKeeperJob(t, db, korm, from, contractAddress)
 	registry := keeper.Registry{
 		ContractAddress:   contractAddress,
 		BlockCountPerTurn: blockCountPerTurn,
 		CheckGas:          150_000,
 		FromAddress:       from,
-		JobID:             job.ID,
+		JobID:             jb.ID,
 		KeeperIndex:       keeperIndex,
 		NumKeepers:        numKeepers,
 		KeeperIndexMap: map[evmtypes.EIP55Address]int32{
@@ -429,7 +431,7 @@ func MustInsertKeeperRegistry(t *testing.T, db *sqlx.DB, korm keeper.ORM, ethKey
 	}
 	err := korm.UpsertRegistry(&registry)
 	require.NoError(t, err)
-	return registry, job
+	return registry, jb
 }
 
 func MustInsertUpkeepForRegistry(t *testing.T, db *sqlx.DB, cfg pg.QConfig, registry keeper.Registry) keeper.UpkeepRegistration {
@@ -451,20 +453,20 @@ func MustInsertUpkeepForRegistry(t *testing.T, db *sqlx.DB, cfg pg.QConfig, regi
 }
 
 func MustInsertPipelineRun(t *testing.T, db *sqlx.DB) (run pipeline.Run) {
-	require.NoError(t, db.Get(&run, `INSERT INTO pipeline_runs (state,pipeline_spec_id,created_at) VALUES ($1, 0, NOW()) RETURNING *`, pipeline.RunStatusRunning))
+	require.NoError(t, db.Get(&run, `INSERT INTO pipeline_runs (state,pipeline_spec_id,pruning_key,created_at) VALUES ($1, 0, 0, NOW()) RETURNING *`, pipeline.RunStatusRunning))
 	return run
 }
 
-func MustInsertPipelineRunWithStatus(t *testing.T, db *sqlx.DB, pipelineSpecID int32, status pipeline.RunStatus) (run pipeline.Run) {
+func MustInsertPipelineRunWithStatus(t *testing.T, db *sqlx.DB, pipelineSpecID int32, status pipeline.RunStatus, jobID int32) (run pipeline.Run) {
 	var finishedAt *time.Time
-	var outputs pipeline.JSONSerializable
+	var outputs jsonserializable.JSONSerializable
 	var allErrors pipeline.RunErrors
 	var fatalErrors pipeline.RunErrors
 	now := time.Now()
 	switch status {
 	case pipeline.RunStatusCompleted:
 		finishedAt = &now
-		outputs = pipeline.JSONSerializable{
+		outputs = jsonserializable.JSONSerializable{
 			Val:   "foo",
 			Valid: true,
 		}
@@ -477,7 +479,7 @@ func MustInsertPipelineRunWithStatus(t *testing.T, db *sqlx.DB, pipelineSpecID i
 	default:
 		t.Fatalf("unknown status: %s", status)
 	}
-	require.NoError(t, db.Get(&run, `INSERT INTO pipeline_runs (state,pipeline_spec_id,finished_at,outputs,all_errors,fatal_errors,created_at) VALUES ($1, $2, $3, $4, $5, $6, NOW()) RETURNING *`, status, pipelineSpecID, finishedAt, outputs, allErrors, fatalErrors))
+	require.NoError(t, db.Get(&run, `INSERT INTO pipeline_runs (state,pipeline_spec_id,pruning_key,finished_at,outputs,all_errors,fatal_errors,created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW()) RETURNING *`, status, pipelineSpecID, jobID, finishedAt, outputs, allErrors, fatalErrors))
 	return run
 }
 

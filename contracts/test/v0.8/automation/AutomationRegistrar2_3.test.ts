@@ -1,9 +1,15 @@
 import { ethers } from 'hardhat'
-import { ContractFactory, Contract, BigNumberish, BytesLike } from 'ethers'
+import {
+  BigNumber,
+  BigNumberish,
+  BytesLike,
+  Contract,
+  ContractFactory,
+  Signer,
+} from 'ethers'
 import { assert, expect } from 'chai'
-import { evmRevert } from '../../test-helpers/matchers'
+import { evmRevert, evmRevertCustomError } from '../../test-helpers/matchers'
 import { getUsers, Personas } from '../../test-helpers/setup'
-import { BigNumber, Signer } from 'ethers'
 import { MockV3Aggregator__factory as MockV3AggregatorFactory } from '../../../typechain/factories/MockV3Aggregator__factory'
 import { UpkeepMock__factory as UpkeepMockFactory } from '../../../typechain/factories/UpkeepMock__factory'
 import { ChainModuleBase__factory as ChainModuleBaseFactory } from '../../../typechain/factories/ChainModuleBase__factory'
@@ -35,7 +41,7 @@ before(async () => {
   personas = (await getUsers()).personas
 
   linkTokenFactory = await ethers.getContractFactory(
-    'src/v0.4/LinkToken.sol:LinkToken',
+    'src/v0.8/shared/test/helpers/LinkTokenTestHelper.sol:LinkTokenTestHelper',
   )
   mockV3AggregatorFactory = (await ethers.getContractFactory(
     'src/v0.8/tests/MockV3Aggregator.sol:MockV3Aggregator',
@@ -45,9 +51,9 @@ before(async () => {
 
 const errorMsgs = {
   onlyOwner: 'revert Only callable by owner',
-  onlyAdmin: 'OnlyAdminOrOwner()',
-  hashPayload: 'HashMismatch()',
-  requestNotFound: 'RequestNotFound()',
+  onlyAdmin: 'OnlyAdminOrOwner',
+  hashPayload: 'HashMismatch',
+  requestNotFound: 'RequestNotFound',
 }
 
 describe('AutomationRegistrar2_3', () => {
@@ -240,11 +246,12 @@ describe('AutomationRegistrar2_3', () => {
 
   describe('#onTokenTransfer', () => {
     it('reverts if not called by the LINK token', async () => {
-      await evmRevert(
+      await evmRevertCustomError(
         registrar
           .connect(someAddress)
           .onTokenTransfer(await someAddress.getAddress(), 0, '0x'),
-        'OnlyLink()',
+        registrar,
+        'OnlyLink',
       )
     })
 
@@ -263,11 +270,12 @@ describe('AutomationRegistrar2_3', () => {
         billingToken: linkToken.address,
       })
 
-      await evmRevert(
+      await evmRevertCustomError(
         linkToken
           .connect(requestSender)
           .transferAndCall(registrar.address, amount, abiEncodedBytes),
-        'InvalidAdminAddress()',
+        registrar,
+        'InvalidAdminAddress',
       )
     })
 
@@ -640,7 +648,7 @@ describe('AutomationRegistrar2_3', () => {
           maxAllowedAutoApprove,
         )
 
-      await evmRevert(
+      await evmRevertCustomError(
         registrar.connect(requestSender).registerUpkeep({
           name: upkeepName,
           upkeepContract: mock.address,
@@ -654,7 +662,8 @@ describe('AutomationRegistrar2_3', () => {
           encryptedEmail: emptyBytes,
           billingToken: linkToken.address,
         }),
-        'InsufficientPayment()',
+        registrar,
+        'InsufficientPayment',
       )
     })
 
@@ -675,7 +684,7 @@ describe('AutomationRegistrar2_3', () => {
         .connect(owner)
         .setConfigTypeSafe(keepers, keepers, 1, onchainConfig, 1, '0x', [], [])
 
-      await evmRevert(
+      await evmRevertCustomError(
         registrar.connect(requestSender).registerUpkeep({
           name: upkeepName,
           upkeepContract: mock.address,
@@ -689,7 +698,8 @@ describe('AutomationRegistrar2_3', () => {
           encryptedEmail: emptyBytes,
           billingToken: linkToken.address,
         }),
-        'InvalidBillingToken()',
+        registrar,
+        'InvalidBillingToken',
       )
     })
 
@@ -864,7 +874,7 @@ describe('AutomationRegistrar2_3', () => {
         },
         '0x000000000000000000000000322813fd9a801c5507c9de605d63cea4f2ce6c44',
       )
-      await evmRevert(tx, errorMsgs.requestNotFound)
+      await evmRevertCustomError(tx, registrar, errorMsgs.requestNotFound)
     })
 
     it('reverts if any member of the payload changes', async () => {
@@ -910,7 +920,7 @@ describe('AutomationRegistrar2_3', () => {
         await expect(
           tx,
           `expected ${JSON.stringify(field)} to cause failure, but succeeded`,
-        ).to.be.revertedWith(errorMsgs.hashPayload)
+        ).to.be.revertedWithCustomError(registrar, errorMsgs.hashPayload)
       }
     })
 
@@ -967,7 +977,7 @@ describe('AutomationRegistrar2_3', () => {
         },
         hash,
       )
-      await evmRevert(tx, errorMsgs.requestNotFound)
+      await evmRevertCustomError(tx, registrar, errorMsgs.requestNotFound)
     })
   })
 
@@ -1002,15 +1012,11 @@ describe('AutomationRegistrar2_3', () => {
         .transferAndCall(registrar.address, amount, abiEncodedBytes)
       const receipt = await tx.wait()
       hash = receipt.logs[2].topics[1]
-      // submit duplicate request (increase balance)
-      await linkToken
-        .connect(requestSender)
-        .transferAndCall(registrar.address, amount, abiEncodedBytes)
     })
 
     it('reverts if not called by the admin / owner', async () => {
       const tx = registrar.connect(stranger).cancel(hash)
-      await evmRevert(tx, errorMsgs.onlyAdmin)
+      await evmRevertCustomError(tx, registrar, errorMsgs.onlyAdmin)
     })
 
     it('reverts if the hash does not exist', async () => {
@@ -1019,14 +1025,14 @@ describe('AutomationRegistrar2_3', () => {
         .cancel(
           '0x000000000000000000000000322813fd9a801c5507c9de605d63cea4f2ce6c44',
         )
-      await evmRevert(tx, errorMsgs.requestNotFound)
+      await evmRevertCustomError(tx, registrar, errorMsgs.requestNotFound)
     })
 
     it('refunds the total request balance to the admin address if owner cancels', async () => {
       const before = await linkToken.balanceOf(await admin.getAddress())
       const tx = await registrar.connect(registrarOwner).cancel(hash)
       const after = await linkToken.balanceOf(await admin.getAddress())
-      assert.isTrue(after.sub(before).eq(amount.mul(BigNumber.from(2))))
+      assert.isTrue(after.sub(before).eq(amount.mul(BigNumber.from(1))))
       await expect(tx).to.emit(registrar, 'RegistrationRejected')
     })
 
@@ -1034,14 +1040,14 @@ describe('AutomationRegistrar2_3', () => {
       const before = await linkToken.balanceOf(await admin.getAddress())
       const tx = await registrar.connect(admin).cancel(hash)
       const after = await linkToken.balanceOf(await admin.getAddress())
-      assert.isTrue(after.sub(before).eq(amount.mul(BigNumber.from(2))))
+      assert.isTrue(after.sub(before).eq(amount.mul(BigNumber.from(1))))
       await expect(tx).to.emit(registrar, 'RegistrationRejected')
     })
 
     it('deletes the request hash', async () => {
       await registrar.connect(registrarOwner).cancel(hash)
       let tx = registrar.connect(registrarOwner).cancel(hash)
-      await evmRevert(tx, errorMsgs.requestNotFound)
+      await evmRevertCustomError(tx, registrar, errorMsgs.requestNotFound)
       tx = registrar.connect(registrarOwner).approve(
         {
           name: upkeepName,
@@ -1058,7 +1064,7 @@ describe('AutomationRegistrar2_3', () => {
         },
         hash,
       )
-      await evmRevert(tx, errorMsgs.requestNotFound)
+      await evmRevertCustomError(tx, registrar, errorMsgs.requestNotFound)
     })
   })
 })
