@@ -2,6 +2,8 @@ package ocr3
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 
 	ocrcommon "github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
@@ -59,7 +61,7 @@ func (r *reportingPlugin) Query(ctx context.Context, outctx ocr3types.OutcomeCon
 	}
 
 	r.lggr.Debugw("Query complete", "len", len(ids))
-	return proto.Marshal(&pbtypes.Query{
+	return proto.MarshalOptions{Deterministic: true}.Marshal(&pbtypes.Query{
 		Ids: ids,
 	})
 }
@@ -100,7 +102,7 @@ func (r *reportingPlugin) Observation(ctx context.Context, outctx ocr3types.Outc
 	}
 
 	r.lggr.Debugw("Observation complete", "len", len(obs.Observations), "queryLen", len(queryReq.Ids))
-	return proto.Marshal(obs)
+	return proto.MarshalOptions{Deterministic: true}.Marshal(obs)
 }
 
 func (r *reportingPlugin) ValidateObservation(outctx ocr3types.OutcomeContext, query types.Query, ao types.AttributedObservation) error {
@@ -175,14 +177,14 @@ func (r *reportingPlugin) Outcome(outctx ocr3types.OutcomeContext, query types.Q
 			continue
 		}
 
-		agg, err := r.r.getAggregator(weid.WorkflowId)
-		if err != nil {
+		agg, err2 := r.r.getAggregator(weid.WorkflowId)
+		if err2 != nil {
 			r.lggr.Errorw("could not retrieve aggregator for workflow", "error", err, "workflowID", weid.WorkflowId)
 			continue
 		}
 
-		outcome, err := agg.Aggregate(workflowOutcome, obs)
-		if err != nil {
+		outcome, err2 := agg.Aggregate(workflowOutcome, obs)
+		if err2 != nil {
 			r.lggr.Errorw("error aggregating outcome", "error", err, "workflowID", weid.WorkflowId)
 			return nil, err
 		}
@@ -196,8 +198,12 @@ func (r *reportingPlugin) Outcome(outctx ocr3types.OutcomeContext, query types.Q
 		o.Outcomes[weid.WorkflowId] = outcome
 	}
 
-	r.lggr.Debugw("Outcome complete", "len", len(o.Outcomes), "nCurrentReports", len(o.CurrentReports))
-	return proto.Marshal(o)
+	rawOutcome, err := proto.MarshalOptions{Deterministic: true}.Marshal(o)
+	h := sha256.New()
+	h.Write(rawOutcome)
+	outcomeHash := h.Sum(nil)
+	r.lggr.Debugw("Outcome complete", "len", len(o.Outcomes), "nCurrentReports", len(o.CurrentReports), "outcomeHash", hex.EncodeToString(outcomeHash), "err", err)
+	return rawOutcome, err
 }
 
 func (r *reportingPlugin) Reports(seqNr uint64, outcome ocr3types.Outcome) ([]ocr3types.ReportWithInfo[[]byte], error) {
@@ -239,7 +245,7 @@ func (r *reportingPlugin) Reports(seqNr uint64, outcome ocr3types.Outcome) ([]oc
 			}
 		}
 
-		p, err := proto.Marshal(info)
+		p, err := proto.MarshalOptions{Deterministic: true}.Marshal(info)
 		if err != nil {
 			r.lggr.Errorw("could not marshal id into ReportWithInfo", "error", err, "workflowID", id.WorkflowId, "shouldReport", info.ShouldReport)
 			continue

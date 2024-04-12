@@ -18,11 +18,11 @@ const (
 )
 
 func MarshalCapabilityRequest(req capabilities.CapabilityRequest) ([]byte, error) {
-	return proto.Marshal(CapabilityRequestToProto(req))
+	return proto.MarshalOptions{Deterministic: true}.Marshal(CapabilityRequestToProto(req))
 }
 
 func MarshalCapabilityResponse(resp capabilities.CapabilityResponse) ([]byte, error) {
-	return proto.Marshal(CapabilityResponseToProto(resp))
+	return proto.MarshalOptions{Deterministic: true}.Marshal(CapabilityResponseToProto(resp))
 }
 
 func UnmarshalCapabilityRequest(raw []byte) (capabilities.CapabilityRequest, error) {

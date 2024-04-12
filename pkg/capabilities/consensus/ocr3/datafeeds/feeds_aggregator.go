@@ -3,6 +3,7 @@ package datafeeds
 import (
 	"fmt"
 	"math"
+	"sort"
 
 	"github.com/shopspring/decimal"
 	ocrcommon "github.com/smartcontractkit/libocr/commontypes"
@@ -89,7 +90,14 @@ func (a *dataFeedsAggregator) Aggregate(previousOutcome *types.AggregationOutcom
 	}
 
 	reportsNeedingUpdate := []any{} // [][]byte
-	for feedID, previousReportInfo := range currentState.FeedInfo {
+	allIds := []string{}
+	for feedID := range currentState.FeedInfo {
+		allIds = append(allIds, feedID)
+	}
+	// ensure deterministic order of reportsNeedingUpdate
+	sort.Slice(allIds, func(i, j int) bool { return allIds[i] < allIds[j] })
+	for _, feedID := range allIds {
+		previousReportInfo := currentState.FeedInfo[feedID]
 		feedID, err := mercury.NewFeedID(feedID)
 		if err != nil {
 			a.lggr.Errorf("could not convert %s to feedID", feedID)
@@ -109,7 +117,7 @@ func (a *dataFeedsAggregator) Aggregate(previousOutcome *types.AggregationOutcom
 		}
 	}
 
-	marshalledState, err := proto.Marshal(currentState)
+	marshalledState, err := proto.MarshalOptions{Deterministic: true}.Marshal(currentState)
 	if err != nil {
 		return nil, err
 	}
