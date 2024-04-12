@@ -1,11 +1,15 @@
 package contracts
 
 import (
+	"fmt"
 	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
 )
 
 type Coordinator interface {
@@ -69,4 +73,26 @@ type CoordinatorRandomWordsRequested struct {
 	ExtraArgs                   []byte
 	Sender                      common.Address
 	Raw                         types.Log
+}
+
+func parseRequestRandomnessLogs(coordinator Coordinator, logs []*types.Log) (*CoordinatorRandomWordsRequested, error) {
+	var randomWordsRequestedEvent *CoordinatorRandomWordsRequested
+	var err error
+	for _, eventLog := range logs {
+		for _, topic := range eventLog.Topics {
+			if topic.Cmp(vrf_coordinator_v2_5.VRFCoordinatorV25RandomWordsRequested{}.Topic()) == 0 {
+				randomWordsRequestedEvent, err = coordinator.ParseRandomWordsRequested(*eventLog)
+				if err != nil {
+					return nil, fmt.Errorf("parse RandomWordsRequested log failed, err: %w", err)
+				}
+			}
+			if topic.Cmp(vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{}.Topic()) == 0 {
+				randomWordsRequestedEvent, err = coordinator.ParseRandomWordsRequested(*eventLog)
+				if err != nil {
+					return nil, fmt.Errorf("parse RandomWordsRequested log failed, err: %w", err)
+				}
+			}
+		}
+	}
+	return randomWordsRequestedEvent, nil
 }
