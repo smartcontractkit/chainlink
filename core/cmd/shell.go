@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log/slog"
 	"net"
 	"net/http"
 	"net/url"
@@ -56,12 +55,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
-
-func init() {
-	// hack to undo geth's disruption of the std default logger
-	// remove with geth v1.13.10
-	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, nil)))
-}
 
 var (
 	initGlobalsOnce sync.Once
