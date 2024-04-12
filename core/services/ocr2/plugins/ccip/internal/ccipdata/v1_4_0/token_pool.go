@@ -3,14 +3,14 @@ package v1_4_0
 import (
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/burn_mint_token_pool"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/burn_mint_token_pool_1_4_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/rpclib"
 )
 
 var (
-	poolABI = abihelpers.MustParseABI(burn_mint_token_pool.BurnMintTokenPoolABI)
+	poolABI = abihelpers.MustParseABI(burn_mint_token_pool_1_4_0.BurnMintTokenPoolABI)
 )
 
 var _ ccipdata.TokenPoolReader = &TokenPool{}

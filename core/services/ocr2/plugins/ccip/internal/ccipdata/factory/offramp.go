@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -22,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_5_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
@@ -60,8 +62,17 @@ func initOrCloseOffRampReader(lggr logger.Logger, versionFinder VersionFinder, a
 			return nil, offRamp.Close()
 		}
 		return offRamp, offRamp.RegisterFilters(pgOpts...)
-	case ccipdata.V1_2_0, ccipdata.V1_5_0:
+	case ccipdata.V1_2_0:
 		offRamp, err := v1_2_0.NewOffRamp(lggr, evmAddr, destClient, lp, estimator, destMaxGasPrice)
+		if err != nil {
+			return nil, err
+		}
+		if closeReader {
+			return nil, offRamp.Close()
+		}
+		return offRamp, offRamp.RegisterFilters(pgOpts...)
+	case ccipdata.V1_5_0:
+		offRamp, err := v1_5_0.NewOffRamp(lggr, evmAddr, destClient, lp, estimator, destMaxGasPrice)
 		if err != nil {
 			return nil, err
 		}

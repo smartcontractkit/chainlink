@@ -71,6 +71,10 @@ func EncodeAbiStruct[T AbiDefined](decoded T) ([]byte, error) {
 	return utils.ABIEncode(decoded.AbiString(), decoded)
 }
 
+func EncodeAddress(address common.Address) ([]byte, error) {
+	return utils.ABIEncode(`[{"type":"address"}]`, address)
+}
+
 func DecodeAbiStruct[T AbiDefinedValid](encoded []byte) (T, error) {
 	var empty T
 

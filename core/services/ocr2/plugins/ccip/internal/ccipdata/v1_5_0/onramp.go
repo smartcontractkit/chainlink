@@ -48,8 +48,6 @@ func init() {
 
 var _ ccipdata.OnRampReader = &OnRamp{}
 
-// Significant change in 1.2:
-// - CCIPSendRequested event signature has changed
 type OnRamp struct {
 	onRamp                           *evm_2_evm_onramp.EVM2EVMOnRamp
 	address                          common.Address
