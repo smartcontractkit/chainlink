@@ -68,10 +68,10 @@ func Test_PipelineRunner_ExecuteTaskRuns(t *testing.T) {
 	bridgeFeedURL, err := url.ParseRequestURI(s1.URL)
 	require.NoError(t, err)
 
-	_, bt := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: bridgeFeedURL.String()}, cfg.Database())
+	_, bt := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: bridgeFeedURL.String()})
 
 	btORM := bridgesMocks.NewORM(t)
-	btORM.On("FindBridge", bt.Name).Return(*bt, nil).Once()
+	btORM.On("FindBridge", mock.Anything, bt.Name).Return(*bt, nil).Once()
 
 	// 2. Setup success HTTP
 	s2 := httptest.NewServer(fakePriceResponder(t, btcUSDPairing, decimal.NewFromInt(9600), "", nil))
@@ -254,7 +254,7 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 				cfg.Database())
 			defer ds1.Close()
 
-			btORM.On("FindBridge", bridge.Name).Return(bridge, nil).Once()
+			btORM.On("FindBridge", mock.Anything, bridge.Name).Return(bridge, nil).Once()
 
 			// 2. Setup success HTTP
 			ds2 := httptest.NewServer(fakeExternalAdapter(t, expectedRequestDS2, map[string]interface{}{
@@ -272,7 +272,7 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 			submit, submitBt := makeBridge(t, db, expectedRequestSubmit, map[string]interface{}{"ok": true}, cfg.Database())
 			defer submit.Close()
 
-			btORM.On("FindBridge", submitBt.Name).Return(submitBt, nil).Once()
+			btORM.On("FindBridge", mock.Anything, submitBt.Name).Return(submitBt, nil).Once()
 
 			runner, _ := newRunner(t, db, btORM, cfg)
 			specStr := taskRunWithVars{
@@ -629,7 +629,7 @@ func Test_PipelineRunner_AsyncJob_Basic(t *testing.T) {
 	require.NoError(t, err)
 
 	cfg := configtest.NewTestGeneralConfig(t)
-	_, bt := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: bridgeFeedURL.String()}, cfg.Database())
+	_, bt := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: bridgeFeedURL.String()})
 
 	// 2. Setup success HTTP
 	s2 := httptest.NewServer(fakePriceResponder(t, btcUSDPairing, decimal.NewFromInt(9600), "", nil))
@@ -641,7 +641,7 @@ func Test_PipelineRunner_AsyncJob_Basic(t *testing.T) {
 	defer s5.Close()
 
 	btORM := bridgesMocks.NewORM(t)
-	btORM.On("FindBridge", bt.Name).Return(*bt, nil)
+	btORM.On("FindBridge", mock.Anything, bt.Name).Return(*bt, nil)
 	r, orm := newRunner(t, db, btORM, cfg)
 
 	s := fmt.Sprintf(`
@@ -755,7 +755,7 @@ func Test_PipelineRunner_AsyncJob_InstantRestart(t *testing.T) {
 	require.NoError(t, err)
 
 	cfg := configtest.NewTestGeneralConfig(t)
-	_, bt := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: bridgeFeedURL.String()}, cfg.Database())
+	_, bt := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: bridgeFeedURL.String()})
 
 	// 2. Setup success HTTP
 	s2 := httptest.NewServer(fakePriceResponder(t, btcUSDPairing, decimal.NewFromInt(9600), "", nil))
@@ -767,7 +767,7 @@ func Test_PipelineRunner_AsyncJob_InstantRestart(t *testing.T) {
 	defer s5.Close()
 
 	btORM := bridgesMocks.NewORM(t)
-	btORM.On("FindBridge", bt.Name).Return(*bt, nil)
+	btORM.On("FindBridge", mock.Anything, bt.Name).Return(*bt, nil)
 
 	r, orm := newRunner(t, db, btORM, cfg)
 
