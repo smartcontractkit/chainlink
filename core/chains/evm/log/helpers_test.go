@@ -94,7 +94,7 @@ func newBroadcasterHelperWithEthClient(t *testing.T, ethClient evmclient.Client,
 	db := pgtest.NewSqlxDB(t)
 	orm := log.NewORM(db, cltest.FixtureChainID)
 	lb := log.NewTestBroadcaster(orm, ethClient, config.EVM(), lggr, highestSeenHead, mailMon)
-	kst := cltest.NewKeyStore(t, db, globalConfig.Database())
+	kst := cltest.NewKeyStore(t, db)
 
 	cc := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{
 		Client:         ethClient,

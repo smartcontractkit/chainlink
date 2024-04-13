@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
@@ -65,11 +66,12 @@ func TestOCRKeyBundlePresenter_RenderTable(t *testing.T) {
 
 func TestShell_ListOCRKeyBundles(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	app := startNewApplicationV2(t, nil)
 	client, r := app.NewShellAndRenderer()
 
-	key, err := app.GetKeyStore().OCR().Create()
+	key, err := app.GetKeyStore().OCR().Create(ctx)
 	require.NoError(t, err)
 
 	requireOCRKeyCount(t, app, 1)
@@ -101,11 +103,12 @@ func TestShell_CreateOCRKeyBundle(t *testing.T) {
 
 func TestShell_DeleteOCRKeyBundle(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	app := startNewApplicationV2(t, nil)
 	client, r := app.NewShellAndRenderer()
 
-	key, err := app.GetKeyStore().OCR().Create()
+	key, err := app.GetKeyStore().OCR().Create(ctx)
 	require.NoError(t, err)
 
 	requireOCRKeyCount(t, app, 1)
@@ -128,11 +131,12 @@ func TestShell_DeleteOCRKeyBundle(t *testing.T) {
 
 func TestShell_ImportExportOCRKey(t *testing.T) {
 	defer deleteKeyExportFile(t)
+	ctx := testutils.Context(t)
 
 	app := startNewApplicationV2(t, nil)
 	client, _ := app.NewShellAndRenderer()
 
-	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
+	require.NoError(t, app.KeyStore.OCR().Add(ctx, cltest.DefaultOCRKey))
 
 	keys := requireOCRKeyCount(t, app, 1)
 	key := keys[0]
@@ -164,7 +168,7 @@ func TestShell_ImportExportOCRKey(t *testing.T) {
 	require.NoError(t, client.ExportOCRKey(c))
 	require.NoError(t, utils.JustError(os.Stat(keyName)))
 
-	require.NoError(t, utils.JustError(app.GetKeyStore().OCR().Delete(key.ID())))
+	require.NoError(t, utils.JustError(app.GetKeyStore().OCR().Delete(ctx, key.ID())))
 	requireOCRKeyCount(t, app, 0)
 
 	set = flag.NewFlagSet("test OCR import", 0)
