@@ -588,6 +588,7 @@ type User struct {
 
 func (ta *TestApplication) NewHTTPClient(user *User) HTTPClientCleaner {
 	ta.t.Helper()
+	ctx := testutils.Context(ta.t)
 
 	if user == nil {
 		user = &User{}
@@ -604,7 +605,7 @@ func (ta *TestApplication) NewHTTPClient(user *User) HTTPClientCleaner {
 	u, err := clsessions.NewUser(user.Email, Password, user.Role)
 	require.NoError(ta.t, err)
 
-	err = ta.BasicAdminUsersORM().CreateUser(&u)
+	err = ta.BasicAdminUsersORM().CreateUser(ctx, &u)
 	require.NoError(ta.t, err)
 
 	sessionID := ta.MustSeedNewSession(user.Email)

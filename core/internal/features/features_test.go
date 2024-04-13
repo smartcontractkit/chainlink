@@ -259,6 +259,7 @@ observationSource   = """
 
 func TestIntegration_AuthToken(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
@@ -268,8 +269,8 @@ func TestIntegration_AuthToken(t *testing.T) {
 	key, secret := uuid.New().String(), uuid.New().String()
 	apiToken := auth.Token{AccessKey: key, Secret: secret}
 	orm := app.AuthenticationProvider()
-	require.NoError(t, orm.CreateUser(&mockUser))
-	require.NoError(t, orm.SetAuthToken(&mockUser, &apiToken))
+	require.NoError(t, orm.CreateUser(ctx, &mockUser))
+	require.NoError(t, orm.SetAuthToken(ctx, &mockUser, &apiToken))
 
 	url := app.Server.URL + "/users"
 	headers := make(map[string]string)

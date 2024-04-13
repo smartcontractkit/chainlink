@@ -646,11 +646,12 @@ func TestShell_RunOCRJob_JobNotFound(t *testing.T) {
 
 func TestShell_AutoLogin(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	app := startNewApplicationV2(t, nil)
 
 	user := cltest.MustRandomUser(t)
-	require.NoError(t, app.BasicAdminUsersORM().CreateUser(&user))
+	require.NoError(t, app.BasicAdminUsersORM().CreateUser(ctx, &user))
 
 	sr := sessions.SessionRequest{
 		Email:    user.Email,
@@ -674,11 +675,12 @@ func TestShell_AutoLogin(t *testing.T) {
 
 func TestShell_AutoLogin_AuthFails(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	app := startNewApplicationV2(t, nil)
 
 	user := cltest.MustRandomUser(t)
-	require.NoError(t, app.BasicAdminUsersORM().CreateUser(&user))
+	require.NoError(t, app.BasicAdminUsersORM().CreateUser(ctx, &user))
 
 	sr := sessions.SessionRequest{
 		Email:    user.Email,
