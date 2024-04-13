@@ -337,7 +337,6 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 
 			b.te.rpcProviders[networkConfig.ChainID] = &rpcProvider
 			b.te.EVMNetworks = append(b.te.EVMNetworks, &networkConfig)
-
 		}
 		err = b.te.StartClCluster(b.clNodeConfig, b.clNodesCount, b.secretsConfig, b.testConfig, b.clNodesOpts...)
 		if err != nil {

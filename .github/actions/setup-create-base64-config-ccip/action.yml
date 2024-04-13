@@ -4,6 +4,8 @@ description: A composite action that creates a base64-encoded config to be used 
 inputs:
   runId:
     description: The run id
+  existingNamespace:
+    description: If test needs to run against already deployed namespace
   testLogCollect:
     description: Whether to always collect logs, even for passing tests
     default: "false"
@@ -13,6 +15,11 @@ inputs:
     description: The chainlink image to use
     default: "public.ecr.aws/chainlink/chainlink"
   chainlinkVersion:
+    description: The git commit sha to use for the image tag
+  upgradeImage:
+    description: The chainlink image to upgrade to
+    default: ""
+  upgradeVersion:
     description: The git commit sha to use for the image tag
   lokiEndpoint:
     description: Loki push endpoint
@@ -37,9 +44,12 @@ runs:
       id: base64-config-override
       env:
         RUN_ID: ${{ inputs.runId }}
+        EXISTING_NAMESPACE: ${{ inputs.existingNamespace }}
         TEST_LOG_COLLECT: ${{ inputs.testLogCollect }}
         CHAINLINK_IMAGE: ${{ inputs.chainlinkImage }}
         CHAINLINK_VERSION: ${{ inputs.chainlinkVersion }}
+        UPGRADE_IMAGE: ${{ inputs.upgradeImage }}
+        UPGRADE_VERSION: ${{ inputs.upgradeVersion }}
         LOKI_ENDPOINT: ${{ inputs.lokiEndpoint }}
         LOKI_TENANT_ID: ${{ inputs.lokiTenantId }}
         LOKI_BASIC_AUTH: ${{ inputs.lokiBasicAuth }}
@@ -116,12 +126,17 @@ runs:
         cat << EOF > config.toml
         [CCIP]
         [CCIP.Env]
+        EnvToConnect="$EXISTING_NAMESPACE"
         [CCIP.Env.NewCLCluster]
         [CCIP.Env.NewCLCluster.Common]
         [CCIP.Env.NewCLCluster.Common.ChainlinkImage]
         image="$CHAINLINK_IMAGE"
         version="$CHAINLINK_VERSION"
 
+        [CCIP.Env.NewCLCluster.Common.ChainlinkUpgradeImage]
+        image="$UPGRADE_IMAGE"
+        version="$UPGRADE_VERSION"
+        
         $custom_nodes_toml
 
         [CCIP.Env.Logging]
@@ -139,6 +154,13 @@ runs:
         [CCIP.Env.Logging.Grafana]
         base_url="$GRAFANA_URL"
         dashboard_url="$GRAFANA_DASHBOARD_URL"
+        
+        [CCIP.Groups.load]
+        TestRunName = '$EXISTING_NAMESPACE'
+        
+        [CCIP.Groups.smoke]
+        TestRunName = '$EXISTING_NAMESPACE'
+        
         EOF
 
         BASE64_CCIP_SECRETS_CONFIG=$(cat config.toml | base64 -w 0)

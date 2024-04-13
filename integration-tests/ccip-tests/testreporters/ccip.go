@@ -375,9 +375,8 @@ func (r *CCIPTestReporter) WriteReport(folderPath string) error {
 	}
 	if len(r.FailedLanes) > 0 {
 		r.logger.Info().Interface("List of Failed Lanes", r.FailedLanes).Msg("Failed Lanes")
-	} else {
-		r.logger.Info().Msg("All Lanes Passed")
 	}
+
 	// if grafanaURLProvider is set, we don't want to write the report in a file
 	// the report will be shared in terms of grafana dashboard link
 	if r.grafanaURLProvider != nil {

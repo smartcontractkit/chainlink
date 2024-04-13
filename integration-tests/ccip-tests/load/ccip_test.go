@@ -36,7 +36,6 @@ func TestLoadCCIPStableRPS(t *testing.T) {
 // TestLoadCCIPWithUpgradeNodeVersion starts all nodes with a specific version, triggers load and then upgrades the node version as the load is running
 func TestLoadCCIPWithUpgradeNodeVersion(t *testing.T) {
 	t.Parallel()
-	t.Skipf("skipping this test until we have a better way to find the right onchain-offchain version pair")
 	lggr := logging.GetTestLogger(t)
 	testArgs := NewLoadArgs(t, lggr)
 	testArgs.Setup()
@@ -55,8 +54,11 @@ func TestLoadCCIPWithUpgradeNodeVersion(t *testing.T) {
 	// sleep for 30s to let load run for a while
 	time.Sleep(30 * time.Second)
 	// upgrade node version for few nodes
-	err := testsetups.UpgradeNodes(testArgs.lggr, 2, 3, testArgs.TestCfg, testArgs.TestSetupArgs.Env)
+	err := testsetups.UpgradeNodes(testArgs.t, testArgs.lggr, testArgs.TestCfg, testArgs.TestSetupArgs.Env)
 	require.NoError(t, err)
+	// after upgrade send a request to all lanes as a sanity check
+	testArgs.SanityCheck()
+	// now wait for the load to finish
 	testArgs.Wait()
 }
 

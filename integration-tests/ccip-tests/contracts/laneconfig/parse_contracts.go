@@ -4,7 +4,9 @@ import (
 	_ "embed"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
+	"path/filepath"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -208,6 +210,16 @@ func WriteLanesToJSON(path string, lanes *Lanes) error {
 	if err != nil {
 		return err
 	}
+	// Get the directory part of the file path.
+	dir := filepath.Dir(path)
+	// Check if the directory exists.
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		// The directory does not exist, create it.
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return fmt.Errorf("failed to create directory: %w", err)
+		}
+	}
+
 	f, err := os.Create(path)
 	if err != nil {
 		return err

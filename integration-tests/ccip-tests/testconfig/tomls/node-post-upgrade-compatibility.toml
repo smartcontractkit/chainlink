@@ -1,0 +1,33 @@
+[CCIP]
+[CCIP.Deployments]
+DataFile = 'lane-config/.*.json'
+
+[CCIP.Env]
+[CCIP.Env.NewCLCluster]
+NoOfNodes = 6
+
+[[CCIP.Env.NewCLCluster.Nodes]]
+Name = 'node-1'
+
+[[CCIP.Env.NewCLCluster.Nodes]]
+Name = 'node-2'
+
+[[CCIP.Env.NewCLCluster.Nodes]]
+Name = 'node-3'
+NeedsUpgrade = true
+
+[[CCIP.Env.NewCLCluster.Nodes]]
+Name = 'node-4'
+NeedsUpgrade = true
+
+[[CCIP.Env.NewCLCluster.Nodes]]
+Name = 'node-5'
+
+[[CCIP.Env.NewCLCluster.Nodes]]
+Name = 'node-6'
+NeedsUpgrade = true
+
+[CCIP.Groups]
+[CCIP.Groups.load]
+LocalCluster = false
+ExistingDeployment = true

@@ -3,6 +3,7 @@ package testsetups
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -12,21 +13,22 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/cdk8s/blockscout"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/mockserver-cfg"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctftestenv "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/cdk8s/blockscout"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/reorg"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	k8config "github.com/smartcontractkit/chainlink-testing-framework/k8s/config"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/types/config/node"
-	integrationclient "github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	integrationnodes "github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
@@ -81,6 +83,79 @@ func setNodeConfig(nets []blockchain.EVMNetwork, nodeConfig, commonChain string,
 	}
 	tomlStr, err := tomlCfg.TOMLString()
 	return tomlCfg, tomlStr, err
+}
+
+func ChainlinkPropsForUpdate(
+	t *testing.T,
+	testInputs *CCIPTestConfig,
+) (map[string]any, int) {
+	updateProps := make(map[string]any)
+	upgradeImage := pointer.GetString(testInputs.EnvInput.NewCLCluster.Common.ChainlinkUpgradeImage.Image)
+	upgradeTag := pointer.GetString(testInputs.EnvInput.NewCLCluster.Common.ChainlinkUpgradeImage.Version)
+	noOfNodesToUpgrade := 0
+	if len(testInputs.EnvInput.NewCLCluster.Nodes) > 0 {
+		var nodesMap []map[string]any
+		for _, clNode := range testInputs.EnvInput.NewCLCluster.Nodes {
+			if !pointer.GetBool(clNode.NeedsUpgrade) {
+				continue
+			}
+			upgradeImage = pointer.GetString(clNode.ChainlinkUpgradeImage.Image)
+			upgradeTag = pointer.GetString(clNode.ChainlinkUpgradeImage.Version)
+			if upgradeImage == "" || upgradeTag == "" {
+				continue
+			}
+			nodeConfig := clNode.BaseConfigTOML
+			commonChainConfig := clNode.CommonChainConfigTOML
+			chainConfigByChain := clNode.ChainConfigTOMLByChain
+			if nodeConfig == "" {
+				nodeConfig = testInputs.EnvInput.NewCLCluster.Common.BaseConfigTOML
+			}
+			if commonChainConfig == "" {
+				commonChainConfig = testInputs.EnvInput.NewCLCluster.Common.CommonChainConfigTOML
+			}
+			if chainConfigByChain == nil {
+				chainConfigByChain = testInputs.EnvInput.NewCLCluster.Common.ChainConfigTOMLByChain
+			}
+
+			_, tomlStr, err := setNodeConfig(
+				testInputs.SelectedNetworks,
+				nodeConfig, commonChainConfig, chainConfigByChain,
+			)
+			require.NoError(t, err)
+			nodesMap = append(nodesMap, map[string]any{
+				"name": clNode.Name,
+				"chainlink": map[string]any{
+					"image": map[string]any{
+						"image":   upgradeImage,
+						"version": upgradeTag,
+					},
+				},
+				"toml": tomlStr,
+			})
+			noOfNodesToUpgrade++
+		}
+		updateProps["nodes"] = nodesMap
+	} else {
+		if upgradeImage == "" || upgradeTag == "" {
+			return nil, 0
+		}
+		updateProps["chainlink"] = map[string]interface{}{
+			"image": map[string]interface{}{
+				"image":   upgradeImage,
+				"version": upgradeTag,
+			},
+		}
+		_, tomlStr, err := setNodeConfig(
+			testInputs.SelectedNetworks,
+			testInputs.EnvInput.NewCLCluster.Common.BaseConfigTOML,
+			testInputs.EnvInput.NewCLCluster.Common.CommonChainConfigTOML,
+			testInputs.EnvInput.NewCLCluster.Common.ChainConfigTOMLByChain,
+		)
+		require.NoError(t, err)
+		updateProps["toml"] = tomlStr
+		noOfNodesToUpgrade = pointer.GetInt(testInputs.EnvInput.NewCLCluster.NoOfNodes)
+	}
+	return updateProps, noOfNodesToUpgrade
 }
 
 func ChainlinkChart(
@@ -305,34 +380,32 @@ func DeployLocalCluster(
 // UpgradeNodes restarts chainlink nodes in the given range with upgrade image
 // startIndex and endIndex are inclusive
 func UpgradeNodes(
+	t *testing.T,
 	lggr zerolog.Logger,
-	startIndex int,
-	endIndex int,
 	testInputs *CCIPTestConfig,
 	ccipEnv *actions.CCIPTestEnv,
 ) error {
 	lggr.Info().
-		Int("Start Index", startIndex).
-		Int("End Index", endIndex).
 		Msg("Upgrading node version")
 	// if the test is running on local docker
 	if pointer.GetBool(testInputs.TestGroupInput.LocalCluster) {
 		env := ccipEnv.LocalCluster
 		for i, clNode := range env.ClCluster.Nodes {
-			if i <= startIndex || i >= endIndex {
-				upgradeImage := pointer.GetString(testInputs.EnvInput.NewCLCluster.Common.ChainlinkUpgradeImage.Image)
-				upgradeTag := pointer.GetString(testInputs.EnvInput.NewCLCluster.Common.ChainlinkUpgradeImage.Version)
-				// if individual node upgrade image is provided, use that
-				if len(testInputs.EnvInput.NewCLCluster.Nodes) > 0 {
-					if i < len(testInputs.EnvInput.NewCLCluster.Nodes) {
-						upgradeImage = pointer.GetString(testInputs.EnvInput.NewCLCluster.Nodes[i].ChainlinkUpgradeImage.Image)
-						upgradeTag = pointer.GetString(testInputs.EnvInput.NewCLCluster.Nodes[i].ChainlinkUpgradeImage.Version)
-					}
+			upgradeImage := pointer.GetString(testInputs.EnvInput.NewCLCluster.Common.ChainlinkUpgradeImage.Image)
+			upgradeTag := pointer.GetString(testInputs.EnvInput.NewCLCluster.Common.ChainlinkUpgradeImage.Version)
+			// if individual node upgrade image is provided, use that
+			if len(testInputs.EnvInput.NewCLCluster.Nodes) > 0 {
+				if i < len(testInputs.EnvInput.NewCLCluster.Nodes) {
+					upgradeImage = pointer.GetString(testInputs.EnvInput.NewCLCluster.Nodes[i].ChainlinkUpgradeImage.Image)
+					upgradeTag = pointer.GetString(testInputs.EnvInput.NewCLCluster.Nodes[i].ChainlinkUpgradeImage.Version)
 				}
-				err := clNode.UpgradeVersion(upgradeImage, upgradeTag)
-				if err != nil {
-					return err
-				}
+			}
+			if upgradeImage == "" || upgradeTag == "" {
+				continue
+			}
+			err := clNode.UpgradeVersion(upgradeImage, upgradeTag)
+			if err != nil {
+				return err
 			}
 		}
 	} else {
@@ -341,30 +414,24 @@ func UpgradeNodes(
 		if k8Env == nil {
 			return errors.New("k8s environment is nil, cannot restart nodes")
 		}
-		nodeClients := ccipEnv.CLNodes
-		if len(nodeClients) == 0 {
-			return errors.New("ChainlinkK8sClients are nil, cannot restart nodes")
+		props, noOfNodesToUpgrade := ChainlinkPropsForUpdate(t, testInputs)
+		chartName := ccipEnv.CLNodes[0].ChartName
+		// explicitly set the env var into false to allow manifest update
+		// if tests are run in remote runner, it might be set to true to disable manifest update
+		err := os.Setenv(k8config.EnvVarNoManifestUpdate, "false")
+		if err != nil {
+			return err
 		}
-		var clientsToUpgrade []*integrationclient.ChainlinkK8sClient
-		for i, clNode := range nodeClients {
-			if i <= startIndex || i >= endIndex {
-				upgradeImage := testInputs.EnvInput.NewCLCluster.Common.ChainlinkUpgradeImage.Image
-				upgradeTag := testInputs.EnvInput.NewCLCluster.Common.ChainlinkUpgradeImage.Version
-				// if individual node upgrade image is provided, use that
-				if len(testInputs.EnvInput.NewCLCluster.Nodes) > 0 {
-					if i < len(testInputs.EnvInput.NewCLCluster.Nodes) {
-						upgradeImage = testInputs.EnvInput.NewCLCluster.Nodes[i].ChainlinkUpgradeImage.Image
-						upgradeTag = testInputs.EnvInput.NewCLCluster.Nodes[i].ChainlinkUpgradeImage.Version
-					}
-				}
-				clientsToUpgrade = append(clientsToUpgrade, clNode)
-				err := clNode.UpgradeVersion(k8Env, pointer.GetString(upgradeImage), pointer.GetString(upgradeTag))
-				if err != nil {
-					return err
-				}
-			}
+		k8Env.Cfg.NoManifestUpdate = false
+		lggr.Info().
+			Str("Chart Name", chartName).
+			Interface("Upgrade Details", props).
+			Msg("Upgrading Chainlink Node")
+		k8Env, err = k8Env.UpdateHelm(chartName, props)
+		if err != nil {
+			return err
 		}
-		err := k8Env.RunUpdated(len(clientsToUpgrade))
+		err = k8Env.RunUpdated(noOfNodesToUpgrade)
 		// Run the new environment and wait for changes to show
 		if err != nil {
 			return err

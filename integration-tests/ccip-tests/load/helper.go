@@ -103,12 +103,10 @@ func (l *LoadArgs) setSchedule() {
 
 func (l *LoadArgs) SanityCheck() {
 	for _, lane := range l.TestSetupArgs.Lanes {
-		lane.ForwardLane.RecordStateBeforeTransfer()
-		err := lane.ForwardLane.SendRequests(1, l.TestCfg.TestGroupInput.MsgType, big.NewInt(600_000))
+		err := lane.ForwardLane.SendRequests(1, actions.DataOnlyTransfer, big.NewInt(600_000))
 		require.NoError(l.t, err)
 		lane.ForwardLane.ValidateRequests(true)
-		lane.ReverseLane.RecordStateBeforeTransfer()
-		err = lane.ReverseLane.SendRequests(1, l.TestCfg.TestGroupInput.MsgType, big.NewInt(600_000))
+		err = lane.ReverseLane.SendRequests(1, actions.DataOnlyTransfer, big.NewInt(600_000))
 		require.NoError(l.t, err)
 		lane.ReverseLane.ValidateRequests(true)
 	}

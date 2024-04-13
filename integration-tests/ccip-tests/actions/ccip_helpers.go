@@ -2677,7 +2677,7 @@ func (lane *CCIPLane) ValidateRequests(successfulExecution bool) {
 	}
 	// Asserting balances reliably work only for simulated private chains. The testnet contract balances might get updated by other transactions
 	// verify the fee amount is deducted from sender, added to receiver token balances and
-	if len(lane.Source.TransferAmount) > 0 {
+	if len(lane.Source.TransferAmount) > 0 && len(lane.Source.Common.BridgeTokens) > 0 {
 		lane.Source.UpdateBalance(int64(lane.NumberOfReq), lane.TotalFee, lane.Balance)
 		lane.Dest.UpdateBalance(lane.Source.TransferAmount, int64(lane.NumberOfReq), lane.Balance)
 	}

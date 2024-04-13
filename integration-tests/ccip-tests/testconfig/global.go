@@ -5,6 +5,7 @@ import (
 	_ "embed"
 	"encoding/base64"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/AlekSi/pointer"
@@ -75,17 +76,30 @@ func (c *Config) TOMLString() string {
 	return buf.String()
 }
 
-func DecodeConfig(rawConfig string) (*Config, error) {
-	c := &Config{}
+func DecodeConfig(rawConfig string, c any) error {
 	d, err := base64.StdEncoding.DecodeString(rawConfig)
 	if err != nil {
-		return nil, errors.Wrap(err, ErrReadConfig)
+		return errors.Wrap(err, ErrReadConfig)
 	}
 	err = toml.Unmarshal(d, c)
 	if err != nil {
-		return nil, errors.Wrap(err, ErrUnmarshalConfig)
+		return errors.Wrap(err, ErrUnmarshalConfig)
 	}
-	return c, nil
+	return nil
+}
+
+// EncodeConfigAndSetEnv encodes the given struct to base64
+// and sets env var ( if not empty) with the encoded base64 string
+func EncodeConfigAndSetEnv(c any, envVar string) (string, error) {
+	srcBytes, err := toml.Marshal(c)
+	if err != nil {
+		return "", err
+	}
+	encodedStr := base64.StdEncoding.EncodeToString(srcBytes)
+	if envVar == "" {
+		return encodedStr, nil
+	}
+	return encodedStr, os.Setenv(envVar, encodedStr)
 }
 
 func NewConfig() (*Config, error) {
@@ -101,7 +115,7 @@ func NewConfig() (*Config, error) {
 	// load config from env var if specified
 	rawConfig, _ := osutil.GetEnv(OVERIDECONFIG)
 	if rawConfig != "" {
-		override, err = DecodeConfig(rawConfig)
+		err = DecodeConfig(rawConfig, &override)
 		if err != nil {
 			return nil, fmt.Errorf("failed to decode override config: %w", err)
 		}
@@ -124,7 +138,7 @@ func NewConfig() (*Config, error) {
 		// load config from env var if specified for secrets
 		secretRawConfig, _ := osutil.GetEnv(SECRETSCONFIG)
 		if secretRawConfig != "" {
-			secrets, err = DecodeConfig(secretRawConfig)
+			err = DecodeConfig(secretRawConfig, &secrets)
 			if err != nil {
 				return nil, fmt.Errorf("failed to decode secrets config: %w", err)
 			}
@@ -152,6 +166,7 @@ func NewConfig() (*Config, error) {
 // It contains generic DON and networks config which can be applied to all product based tests.
 type Common struct {
 	EnvUser                 string                               `toml:",omitempty"`
+	EnvToConnect            *string                              `toml:",omitempty"`
 	TTL                     *config.Duration                     `toml:",omitempty"`
 	ExistingCLCluster       *CLCluster                           `toml:",omitempty"` // ExistingCLCluster is the existing chainlink cluster to use, if specified it will be used instead of creating a new one
 	Mockserver              *string                              `toml:",omitempty"`
@@ -356,11 +371,9 @@ func (c *ChainlinkDeployment) Validate() error {
 	return nil
 }
 
-type CRIBNode struct {
-}
-
 type Node struct {
 	Name                   string                          `toml:",omitempty"`
+	NeedsUpgrade           *bool                           `toml:",omitempty"`
 	ChainlinkImage         *ctfconfig.ChainlinkImageConfig `toml:"ChainlinkImage"`
 	ChainlinkUpgradeImage  *ctfconfig.ChainlinkImageConfig `toml:"ChainlinkUpgradeImage"`
 	BaseConfigTOML         string                          `toml:",omitempty"`
@@ -370,6 +383,7 @@ type Node struct {
 	DBTag                  string                          `toml:",omitempty"`
 }
 
+// Merge merges non-empty values
 func (n *Node) Merge(from *Node) {
 	if from == nil || n == nil {
 		return
@@ -392,20 +406,22 @@ func (n *Node) Merge(from *Node) {
 			n.ChainlinkImage.Version = from.ChainlinkImage.Version
 		}
 	}
-
-	if n.ChainlinkUpgradeImage == nil {
-		if from.ChainlinkUpgradeImage != nil {
-			n.ChainlinkUpgradeImage = &ctfconfig.ChainlinkImageConfig{
-				Image:   from.ChainlinkUpgradeImage.Image,
-				Version: from.ChainlinkUpgradeImage.Version,
+	// merge upgrade image only if the nodes is marked as NeedsUpgrade to true
+	if pointer.GetBool(n.NeedsUpgrade) {
+		if n.ChainlinkUpgradeImage == nil {
+			if from.ChainlinkUpgradeImage != nil {
+				n.ChainlinkUpgradeImage = &ctfconfig.ChainlinkImageConfig{
+					Image:   from.ChainlinkUpgradeImage.Image,
+					Version: from.ChainlinkUpgradeImage.Version,
+				}
 			}
-		}
-	} else {
-		if n.ChainlinkUpgradeImage.Image == nil && from.ChainlinkUpgradeImage != nil {
-			n.ChainlinkUpgradeImage.Image = from.ChainlinkUpgradeImage.Image
-		}
-		if n.ChainlinkUpgradeImage.Version == nil && from.ChainlinkUpgradeImage != nil {
-			n.ChainlinkUpgradeImage.Version = from.ChainlinkUpgradeImage.Version
+		} else {
+			if n.ChainlinkUpgradeImage.Image == nil && from.ChainlinkUpgradeImage != nil {
+				n.ChainlinkUpgradeImage.Image = from.ChainlinkUpgradeImage.Image
+			}
+			if n.ChainlinkUpgradeImage.Version == nil && from.ChainlinkUpgradeImage != nil {
+				n.ChainlinkUpgradeImage.Version = from.ChainlinkUpgradeImage.Version
+			}
 		}
 	}
 

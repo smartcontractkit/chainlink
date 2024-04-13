@@ -4,17 +4,22 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/AlekSi/pointer"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
-
-	ctfK8config "github.com/smartcontractkit/chainlink-testing-framework/k8s/config"
+	testutils "github.com/smartcontractkit/ccip/integration-tests/ccip-tests/utils"
 
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/config"
+	ctfK8config "github.com/smartcontractkit/chainlink-testing-framework/k8s/config"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+)
+
+const (
+	CONTRACTS_OVERRIDE_CONFIG = "BASE64_CCIP_CONFIG_OVERRIDE_CONTRACTS"
 )
 
 type CCIPTestConfig struct {
@@ -58,6 +63,7 @@ type CCIPTestConfig struct {
 	ExecInflightExpiry                         *config.Duration                      `toml:",omitempty"`
 	OptimizeSpace                              *bool                                 `toml:",omitempty"`
 	SkipRequestIfAnotherRequestTriggeredWithin *config.Duration                      `toml:",omitempty"`
+	StoreLaneConfig                            *bool                                 `toml:",omitempty"`
 }
 
 func (c *CCIPTestConfig) SetTestRunName(name string) {
@@ -110,14 +116,57 @@ func (c *CCIPTestConfig) Validate() error {
 }
 
 type CCIPContractConfig struct {
-	Data string `toml:",omitempty"`
+	DataFile *string `toml:",omitempty"`
+	Data     string  `toml:",omitempty"`
 }
 
-func (c *CCIPContractConfig) ContractsData() []byte {
-	if c == nil || c.Data == "" {
-		return nil
+func (c *CCIPContractConfig) DataFilePath() string {
+	return pointer.GetString(c.DataFile)
+}
+
+// ContractsData reads the contract config passed in TOML
+// CCIPContractConfig can accept contract config in string mentioned in Data field
+// It also accepts DataFile. Data takes precedence over DataFile
+// If you are providing contract config in DataFile, this will read the content of the file
+// and set it to CONTRACTS_OVERRIDE_CONFIG env var in base 64 encoded format.
+// This comes handy while running tests in remote runner. It ensures that you won't have to deal with copying the
+// DataFile to remote runner pod. Instead, you can pass the base64ed content of the file with the help of
+// an env var.
+func (c *CCIPContractConfig) ContractsData() ([]byte, error) {
+	// check if CONTRACTS_OVERRIDE_CONFIG is provided
+	// load config from env var if specified for contracts
+	rawConfig := os.Getenv(CONTRACTS_OVERRIDE_CONFIG)
+	if rawConfig != "" {
+		err := DecodeConfig(rawConfig, &c)
+		if err != nil {
+			return nil, err
+		}
 	}
-	return []byte(c.Data)
+	if c == nil {
+		return nil, nil
+	}
+	if c.Data != "" {
+		return []byte(c.Data), nil
+	}
+	// if DataFilePath is given, update c.Data with the content of file so that we can set CONTRACTS_OVERRIDE_CONFIG
+	// to pass the file content to remote runner with override config var
+	if c.DataFilePath() != "" {
+		// if there is regex provided in filepath, reformat the filepath with actual filepath matching the regex
+		filePath, err := testutils.FirstFileFromMatchingPath(c.DataFilePath())
+		if err != nil {
+			return nil, fmt.Errorf("error finding contract config file %s: %w", c.DataFilePath(), err)
+		}
+		dataContent, err := os.ReadFile(filePath)
+		if err != nil {
+			return dataContent, fmt.Errorf("error reading contract config file %s : %w", filePath, err)
+		}
+		c.Data = string(dataContent)
+		// encode it to base64 and set to CONTRACTS_OVERRIDE_CONFIG so that the same content can be passed to remote runner
+		// we add TEST_ prefix to CONTRACTS_OVERRIDE_CONFIG to ensure the env var is ported to remote runner.
+		_, err = EncodeConfigAndSetEnv(c, fmt.Sprintf("TEST_%s", CONTRACTS_OVERRIDE_CONFIG))
+		return dataContent, err
+	}
+	return nil, nil
 }
 
 type CCIP struct {
