@@ -38,6 +38,7 @@ drop index if exists evm.evm_logs_idx_data_word_one;
 drop index if exists evm.evm_logs_idx_data_word_two;
 drop index if exists evm.evm_logs_idx_data_word_three;
 drop index if exists evm.evm_logs_idx_data_word_four;
+drop index if exists evm.evm_logs_idx_data_word_five;
 drop index if exists evm.evm_logs_idx_topic_two;
 drop index if exists evm.evm_logs_idx_topic_three;
 drop index if exists evm.evm_logs_idx_topic_four;
