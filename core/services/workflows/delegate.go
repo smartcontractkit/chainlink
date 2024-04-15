@@ -46,7 +46,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		d.logger.Errorw("could not initialize writes", err)
 	}
 
-	trigger := triggers.NewMercuryTriggerService()
+	trigger := triggers.NewMercuryTriggerService(0, d.logger)
 	err = d.registry.Add(context.Background(), trigger)
 	if err != nil {
 		d.logger.Errorw("could not add mercury trigger to registry", err)
@@ -91,22 +91,22 @@ func mercuryEventLoop(trigger *triggers.MercuryTriggerService, logger logger.Log
 	}
 }
 
-func emitReports(logger logger.Logger, trigger *triggers.MercuryTriggerService, t int64, prices []int64) ([]triggers.FeedReport, error) {
-	reports := []triggers.FeedReport{
+func emitReports(logger logger.Logger, trigger *triggers.MercuryTriggerService, t int64, prices []int64) ([]mercury.FeedReport, error) {
+	reports := []mercury.FeedReport{
 		{
-			FeedID:               mercury.FeedID("0x1111111111111111111100000000000000000000000000000000000000000000").Bytes(),
+			FeedID:               "0x1111111111111111111100000000000000000000000000000000000000000000",
 			FullReport:           []byte(fmt.Sprintf(`{ "feed": "ETH", "price": %d }`, prices[0])),
 			BenchmarkPrice:       prices[0],
 			ObservationTimestamp: t,
 		},
 		{
-			FeedID:               mercury.FeedID("0x2222222222222222222200000000000000000000000000000000000000000000").Bytes(),
+			FeedID:               "0x2222222222222222222200000000000000000000000000000000000000000000",
 			FullReport:           []byte(fmt.Sprintf(`{ "feed": "LINK", "price": %d }`, prices[1])),
 			BenchmarkPrice:       prices[1],
 			ObservationTimestamp: t,
 		},
 		{
-			FeedID:               mercury.FeedID("0x3333333333333333333300000000000000000000000000000000000000000000").Bytes(),
+			FeedID:               "0x3333333333333333333300000000000000000000000000000000000000000000",
 			FullReport:           []byte(fmt.Sprintf(`{ "feed": "BTC", "price": %d }`, prices[2])),
 			BenchmarkPrice:       prices[2],
 			ObservationTimestamp: t,
