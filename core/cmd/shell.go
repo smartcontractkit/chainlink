@@ -28,6 +28,7 @@ import (
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/jmoiron/sqlx"
 
@@ -272,6 +273,7 @@ func handleNodeVersioning(ctx context.Context, db *sqlx.DB, appLggr logger.Logge
 
 	// Migrate the database
 	if cfg.MigrateDatabase() {
+		migrate.Rollback(ctx, db.DB, appLggr, null.IntFrom(231))
 		if err = migrate.Migrate(ctx, db.DB, appLggr); err != nil {
 			return fmt.Errorf("initializeORM#Migrate: %w", err)
 		}
