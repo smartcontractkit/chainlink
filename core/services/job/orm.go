@@ -75,7 +75,7 @@ type ORM interface {
 	FindJobWithoutSpecErrors(id int32) (jb Job, err error)
 
 	FindTaskResultByRunIDAndTaskName(runID int64, taskName string, qopts ...pg.QOpt) ([]byte, error)
-	AssertBridgesExist(p pipeline.Pipeline) error
+	AssertBridgesExist(ctx context.Context, p pipeline.Pipeline) error
 }
 
 type ORMConfig interface {
@@ -108,7 +108,7 @@ func (o *orm) Close() error {
 	return nil
 }
 
-func (o *orm) AssertBridgesExist(p pipeline.Pipeline) error {
+func (o *orm) AssertBridgesExist(ctx context.Context, p pipeline.Pipeline) error {
 	var bridgeNames = make(map[bridges.BridgeName]struct{})
 	var uniqueBridges []bridges.BridgeName
 	for _, task := range p.Tasks {
@@ -127,7 +127,7 @@ func (o *orm) AssertBridgesExist(p pipeline.Pipeline) error {
 		}
 	}
 	if len(uniqueBridges) != 0 {
-		_, err := o.bridgeORM.FindBridges(uniqueBridges)
+		_, err := o.bridgeORM.FindBridges(ctx, uniqueBridges)
 		if err != nil {
 			return err
 		}
@@ -141,7 +141,8 @@ func (o *orm) AssertBridgesExist(p pipeline.Pipeline) error {
 func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 	q := o.q.WithOpts(qopts...)
 	p := jb.Pipeline
-	if err := o.AssertBridgesExist(p); err != nil {
+	ctx := context.TODO() // TODO https://smartcontract-it.atlassian.net/browse/BCF-2887
+	if err := o.AssertBridgesExist(ctx, p); err != nil {
 		return err
 	}
 
@@ -278,7 +279,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 				if err2 != nil {
 					return err2
 				}
-				if err2 = o.AssertBridgesExist(*feePipeline); err2 != nil {
+				if err2 = o.AssertBridgesExist(ctx, *feePipeline); err2 != nil {
 					return err2
 				}
 			}
