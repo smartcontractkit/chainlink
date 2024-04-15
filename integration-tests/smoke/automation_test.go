@@ -911,7 +911,7 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 				a.Registry,
 				a.Registrar,
 				a.LinkToken,
-				defaultAmountOfUpkeeps,
+				1,
 				big.NewInt(automationDefaultLinkFunds),
 				automationDefaultUpkeepGasLimit,
 				10000,   // How many blocks this upkeep will be eligible from first upkeep block
