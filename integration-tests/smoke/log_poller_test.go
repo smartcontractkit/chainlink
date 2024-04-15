@@ -286,7 +286,7 @@ func prepareEnvironment(l zerolog.Logger, t *testing.T, testConfig *tc.TestConfi
 		upKeepsNeeded = *cfg.General.Contracts * len(cfg.General.EventsToEmit)
 	)
 
-	chainClient, _, linkToken, registry, registrar, testEnv, network := logpoller.SetupLogPollerTestDocker(
+	chainClient, _, linkToken, registry, registrar, testEnv, _ := logpoller.SetupLogPollerTestDocker(
 		t,
 		ethereum.RegistryVersion_2_1,
 		logpoller.DefaultOCRRegistryConfig,
@@ -315,7 +315,7 @@ func prepareEnvironment(l zerolog.Logger, t *testing.T, testConfig *tc.TestConfi
 	l.Info().Msg("No duplicate upkeep IDs found. OK!")
 
 	// Deploy Log Emitter contracts
-	logEmitters := logpoller.UploadLogEmitterContractsAndWaitForFinalisation(l, t, chainClient, testConfig, *network)
+	logEmitters := logpoller.UploadLogEmitterContracts(l, t, chainClient, testConfig)
 	err = logpoller.AssertContractAddressUniquneness(logEmitters)
 	require.NoError(t, err, "Error asserting contract addresses uniqueness")
 	l.Info().Msg("No duplicate contract addresses found. OK!")

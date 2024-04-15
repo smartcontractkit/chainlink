@@ -18,7 +18,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	geth_types "github.com/ethereum/go-ethereum/core/types"
 	"github.com/jmoiron/sqlx"
-	"github.com/onsi/gomega"
 	"github.com/rs/zerolog"
 	"github.com/scylladb/go-reflectx"
 	"github.com/stretchr/testify/require"
@@ -32,7 +31,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
@@ -1244,8 +1242,8 @@ func SetupLogPollerTestDocker(
 	return chainClient, nodeClients, linkToken, registry, registrar, env, &network
 }
 
-// UploadLogEmitterContractsAndWaitForFinalisation uploads the configured number of log emitter contracts and waits for the upload blocks to be finalised
-func UploadLogEmitterContractsAndWaitForFinalisation(l zerolog.Logger, t *testing.T, client *seth.Client, testConfig *tc.TestConfig, network blockchain.EVMNetwork) []*contracts.LogEmitter {
+// UploadLogEmitterContracts uploads the configured number of log emitter contracts
+func UploadLogEmitterContracts(l zerolog.Logger, t *testing.T, client *seth.Client, testConfig *tc.TestConfig) []*contracts.LogEmitter {
 	logEmitters := make([]*contracts.LogEmitter, 0)
 	for i := 0; i < *testConfig.LogPoller.General.Contracts; i++ {
 		logEmitter, err := contracts.DeployLogEmitterContract(l, client)
@@ -1254,26 +1252,6 @@ func UploadLogEmitterContractsAndWaitForFinalisation(l zerolog.Logger, t *testin
 		l.Info().Str("Contract address", logEmitter.Address().Hex()).Msg("Log emitter contract deployed")
 		time.Sleep(200 * time.Millisecond)
 	}
-
-	afterUploadBlock, err := client.Client.BlockNumber(testcontext.Get(t))
-	require.NoError(t, err, "Error getting latest block number")
-
-	gom := gomega.NewGomegaWithT(t)
-	gom.Eventually(func(g gomega.Gomega) {
-		targetBlockNumber := int64(afterUploadBlock + 1)
-		finalized, err := actions_seth.GetLatestFinalizedBlockHeader(testcontext.Get(t), client, network)
-		if err != nil {
-			l.Warn().Err(err).Msg("Error checking if contract were uploaded. Retrying...")
-			return
-		}
-		finalizedBlockNumber := finalized.Number.Int64()
-
-		if finalizedBlockNumber < targetBlockNumber {
-			l.Debug().Int64("Finalized block", finalized.Number.Int64()).Int64("After upload block", int64(afterUploadBlock+1)).Msg("Waiting for contract upload to finalise")
-		}
-
-		g.Expect(finalizedBlockNumber >= targetBlockNumber).To(gomega.BeTrue(), "Contract upload did not finalize in time")
-	}, "2m", "10s").Should(gomega.Succeed())
 
 	return logEmitters
 }

@@ -244,7 +244,7 @@ func deployConsumerAndTriggerContracts(l zerolog.Logger, loadConfig aconfig.Load
 		}
 	}
 
-	sendErr := actions_seth.SendLinkFundsToDepolymentAddresses(chainClient, concurrency, *loadConfig.NumberOfUpkeeps, operationsPerClient, multicallAddress, automationDefaultLinkFunds, linkToken)
+	sendErr := actions_seth.SendLinkFundsToDeploymentAddresses(chainClient, concurrency, *loadConfig.NumberOfUpkeeps, operationsPerClient, multicallAddress, automationDefaultLinkFunds, linkToken)
 	if sendErr != nil {
 		return DeploymentData{}, sendErr
 	}

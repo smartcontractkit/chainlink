@@ -1216,7 +1216,7 @@ func (e *EthereumFunctionsRouter) Address() string {
 }
 
 func (e *EthereumFunctionsRouter) CreateSubscriptionWithConsumer(consumer string) (uint64, error) {
-	tx, err := e.client.Decode(e.instance.CreateSubscriptionWithConsumer(e.client.NewTXOpts(), common.HexToAddress(consumer)))
+	tx, err := e.client.DecodeAlways(e.instance.CreateSubscriptionWithConsumer(e.client.NewTXOpts(), common.HexToAddress(consumer)))
 	if err != nil {
 		return 0, err
 	}

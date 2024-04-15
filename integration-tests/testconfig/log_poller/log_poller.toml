@@ -6,6 +6,9 @@ consensus_layer="prysm"
 seconds_per_slot=4
 slots_per_epoch=2
 
+[Seth]
+ephemeral_addresses_number = 50
+
 # product defaults
 [LogPoller]
 [LogPoller.General]

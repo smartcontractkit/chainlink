@@ -42,11 +42,15 @@ tracing_level = "reverted"
 # number of addresses to be generated and runtime, if set to 0, no addresses will be generated
 # each generated address will receive a proportion of native tokens from root private key's balance
 # with the value equal to (root_balance / ephemeral_addresses_number) - transfer_fee * ephemeral_addresses_number
-ephemeral_addresses_number = 0
+ephemeral_addresses_number = 10
 
 # If enabled we will panic when getting transaction options if current key/address has a pending transaction
 # That's because the one we are about to send would get queued, possibly for a very long time
-pending_nonce_protection_enabled = false
+pending_nonce_protection_enabled = true
+
+ephemeral_addresses_funding = "10_000_000_000_000_000_000"
+
+root_key_funds_buffer = 1000
 
 [Seth.nonce_manager]
 key_sync_rate_limit_per_sec = 10

@@ -70,13 +70,7 @@ func DeployKeeperContracts(
 	}
 
 	registrar := DeployKeeperRegistrar(t, client, registryVersion, linkToken, registrarSettings, registry)
-	upkeeps := DeployKeeperConsumers(t, client, numberOfUpkeeps, false, false)
-
-	var upkeepsAddresses []string
-	for _, upkeep := range upkeeps {
-		upkeepsAddresses = append(upkeepsAddresses, upkeep.Address())
-	}
-	upkeepIds := RegisterUpkeepContracts(t, client, linkToken, linkFundsForEachUpkeep, upkeepGasLimit, registry, registrar, numberOfUpkeeps, upkeepsAddresses, false, false)
+	upkeeps, upkeepIds := DeployConsumers(t, client, registry, registrar, linkToken, numberOfUpkeeps, linkFundsForEachUpkeep, upkeepGasLimit, false, false)
 
 	return registry, registrar, upkeeps, upkeepIds
 }
@@ -251,13 +245,10 @@ func RegisterUpkeepContractsWithCheckData(t *testing.T, client *seth.Client, lin
 	}
 
 	var wgProcesses sync.WaitGroup
-	for range upkeepAddresses {
-		wgProcesses.Add(1)
-	}
+	wgProcesses.Add(len(upkeepAddresses))
 
-	var deplymentErr error
+	deplymentErrors := []error{}
 	deploymentCh := make(chan result, numberOfContracts)
-	stopCh := make(chan struct{})
 
 	atomicCounter := atomic.Uint64{}
 
@@ -283,6 +274,17 @@ func RegisterUpkeepContractsWithCheckData(t *testing.T, client *seth.Client, lin
 			return
 		}
 
+		balance, err := linkToken.BalanceOf(context.Background(), client.Addresses[keyNum].Hex())
+		if err != nil {
+			channel <- result{err: fmt.Errorf("Failed to get LINK balance of %s: %w", client.Addresses[keyNum].Hex(), err)}
+			return
+		}
+
+		if balance.Cmp(linkFunds) < 0 {
+			channel <- result{err: fmt.Errorf("Not enough LINK balance for %s. Has: %s. Needs: %s", client.Addresses[keyNum].Hex(), balance.String(), linkFunds.String())}
+			return
+		}
+
 		tx, err := linkToken.TransferAndCallFromKey(registrar.Address(), linkFunds, req, keyNum)
 		channel <- result{tx: tx, err: err}
 	}
@@ -292,9 +294,9 @@ func RegisterUpkeepContractsWithCheckData(t *testing.T, client *seth.Client, lin
 		for r := range deploymentCh {
 			if r.err != nil {
 				l.Error().Err(r.err).Msg("Failed to register upkeep")
-				deplymentErr = r.err
-				close(stopCh)
-				return
+				deplymentErrors = append(deplymentErrors, r.err)
+				wgProcesses.Done()
+				continue
 			}
 
 			registrationTxHashes = append(registrationTxHashes, r.tx.Hash())
@@ -315,21 +317,16 @@ func RegisterUpkeepContractsWithCheckData(t *testing.T, client *seth.Client, lin
 				Msg("Preparing to register upkeeps")
 
 			for i := 0; i < len(configs); i++ {
-				select {
-				case <-stopCh:
-					return
-				default:
-					registerUpkeepFn(deploymentCh, key, configs[i])
-					l.Trace().
-						Int("Key Number", key).
-						Str("Done/Total", fmt.Sprintf("%d/%d", (i+1), len(configs))).
-						Msg("Registered upkeep")
-				}
+				registerUpkeepFn(deploymentCh, key, configs[i])
+				l.Trace().
+					Int("Key Number", key).
+					Str("Done/Total", fmt.Sprintf("%d/%d", (i+1), len(configs))).
+					Msg("Registered upkeep")
 			}
 
 			l.Debug().
 				Int("Key Number", key).
-				Msg("Finished to register upkeeps")
+				Msg("Finished registering upkeeps")
 		}(clientNum)
 	}
 
@@ -338,35 +335,7 @@ func RegisterUpkeepContractsWithCheckData(t *testing.T, client *seth.Client, lin
 	wgProcesses.Wait()
 	close(deploymentCh)
 
-	require.NoError(t, deplymentErr, "Error registering upkeeps")
-
-	// for contractCount, upkeepAddress := range upkeepAddresses {
-	// 	req, err := registrar.EncodeRegisterRequest(
-	// 		fmt.Sprintf("upkeep_%d", contractCount+1),
-	// 		[]byte("test@mail.com"),
-	// 		upkeepAddress,
-	// 		upkeepGasLimit,
-	// 		client.Addresses[0].Hex(), // upkeep Admin
-	// 		checkData[contractCount],
-	// 		linkFunds,
-	// 		0,
-	// 		client.Addresses[0].Hex(),
-	// 		isLogTrigger,
-	// 		isMercury,
-	// 	)
-	// 	require.NoError(t, err, "Encoding the register request shouldn't fail")
-
-	// 	tx, err := linkToken.TransferAndCall(registrar.Address(), linkFunds, req)
-	// 	require.NoError(t, err, "Error registering the upkeep consumer to the registrar")
-	// 	l.Debug().
-	// 		Str("Contract Address", upkeepAddress).
-	// 		Int("Number", contractCount+1).
-	// 		Int("Out Of", numberOfContracts).
-	// 		Str("TxHash", tx.Hash().String()).
-	// 		Str("Check Data", hexutil.Encode(checkData[contractCount])).
-	// 		Msg("Registered Keeper Consumer Contract")
-	// 	registrationTxHashes = append(registrationTxHashes, tx.Hash())
-	// }
+	require.Equal(t, 0, len(deplymentErrors), "Failed to register some upkeeps")
 
 	// Fetch the upkeep IDs
 	for _, txHash := range registrationTxHashes {
