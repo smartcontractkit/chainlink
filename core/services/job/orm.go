@@ -444,7 +444,14 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 		case Stream:
 			// 'stream' type has no associated spec, nothing to do here
 		case Workflow:
-			// 'workflow' type has no associated spec, nothing to do here
+			var specID int32
+			sql := `INSERT INTO workflow_specs (workflow, workflow_id, workflow_owner, created_at, updated_at)
+			VALUES (:workflow, :workflow_id, :workflow_owner, NOW(), NOW())
+			RETURNING id;`
+			if err := pg.PrepareQueryRowx(tx, sql, &specID, jb.WorkflowSpec); err != nil {
+				return errors.Wrap(err, "failed to create WorkflowSpec for jobSpec")
+			}
+			jb.WorkflowSpecID = &specID
 		default:
 			o.lggr.Panicf("Unsupported jb.Type: %v", jb.Type)
 		}
@@ -542,18 +549,18 @@ func (o *orm) InsertJob(job *Job, qopts ...pg.QOpt) error {
 		if job.ID == 0 {
 			query = `INSERT INTO jobs (name, stream_id, schema_version, type, max_task_duration, ocr_oracle_spec_id, ocr2_oracle_spec_id, direct_request_spec_id, flux_monitor_spec_id,
 				keeper_spec_id, cron_spec_id, vrf_spec_id, webhook_spec_id, blockhash_store_spec_id, bootstrap_spec_id, block_header_feeder_spec_id, gateway_spec_id, 
-                legacy_gas_station_server_spec_id, legacy_gas_station_sidecar_spec_id, external_job_id, gas_limit, forwarding_allowed, created_at)
+                legacy_gas_station_server_spec_id, legacy_gas_station_sidecar_spec_id, workflow_spec_id, external_job_id, gas_limit, forwarding_allowed, created_at)
 		VALUES (:name, :stream_id, :schema_version, :type, :max_task_duration, :ocr_oracle_spec_id, :ocr2_oracle_spec_id, :direct_request_spec_id, :flux_monitor_spec_id,
 				:keeper_spec_id, :cron_spec_id, :vrf_spec_id, :webhook_spec_id, :blockhash_store_spec_id, :bootstrap_spec_id, :block_header_feeder_spec_id, :gateway_spec_id, 
-		        :legacy_gas_station_server_spec_id, :legacy_gas_station_sidecar_spec_id, :external_job_id, :gas_limit, :forwarding_allowed, NOW())
+				:legacy_gas_station_server_spec_id, :legacy_gas_station_sidecar_spec_id, :workflow_spec_id, :external_job_id, :gas_limit, :forwarding_allowed, NOW())
 		RETURNING *;`
 		} else {
 			query = `INSERT INTO jobs (id, name, stream_id, schema_version, type, max_task_duration, ocr_oracle_spec_id, ocr2_oracle_spec_id, direct_request_spec_id, flux_monitor_spec_id,
 			keeper_spec_id, cron_spec_id, vrf_spec_id, webhook_spec_id, blockhash_store_spec_id, bootstrap_spec_id, block_header_feeder_spec_id, gateway_spec_id, 
-                  legacy_gas_station_server_spec_id, legacy_gas_station_sidecar_spec_id, external_job_id, gas_limit, forwarding_allowed, created_at)
+                  legacy_gas_station_server_spec_id, legacy_gas_station_sidecar_spec_id, workflow_spec_id, external_job_id, gas_limit, forwarding_allowed, created_at)
 		VALUES (:id, :name, :stream_id, :schema_version, :type, :max_task_duration, :ocr_oracle_spec_id, :ocr2_oracle_spec_id, :direct_request_spec_id, :flux_monitor_spec_id,
 				:keeper_spec_id, :cron_spec_id, :vrf_spec_id, :webhook_spec_id, :blockhash_store_spec_id, :bootstrap_spec_id, :block_header_feeder_spec_id, :gateway_spec_id, 
-				:legacy_gas_station_server_spec_id, :legacy_gas_station_sidecar_spec_id, :external_job_id, :gas_limit, :forwarding_allowed, NOW())
+				:legacy_gas_station_server_spec_id, :legacy_gas_station_sidecar_spec_id, :workflow_spec_id, :external_job_id, :gas_limit, :forwarding_allowed, NOW())
 		RETURNING *;`
 		}
 		err := q.GetNamed(query, job, job)
@@ -591,7 +598,8 @@ func (o *orm) DeleteJob(id int32, qopts ...pg.QOpt) error {
 				blockhash_store_spec_id,
 				bootstrap_spec_id,
 				block_header_feeder_spec_id,
-				gateway_spec_id
+				gateway_spec_id,
+				workflow_spec_id
 		),
 		deleted_oracle_specs AS (
 			DELETE FROM ocr_oracle_specs WHERE id IN (SELECT ocr_oracle_spec_id FROM deleted_jobs)
@@ -628,6 +636,9 @@ func (o *orm) DeleteJob(id int32, qopts ...pg.QOpt) error {
 		),
 		deleted_gateway_specs AS (
 			DELETE FROM gateway_specs WHERE id IN (SELECT gateway_spec_id FROM deleted_jobs)
+		),
+		deleted_workflow_specs AS (
+			DELETE FROM workflow_specs WHERE id in (SELECT workflow_spec_id FROM deleted_jobs)
 		),
 		deleted_job_pipeline_specs AS (
 			DELETE FROM job_pipeline_specs WHERE job_id IN (SELECT id FROM deleted_jobs) RETURNING pipeline_spec_id
@@ -1285,6 +1296,7 @@ func LoadAllJobTypes(tx pg.Queryer, job *Job) error {
 		loadJobType(tx, job, "LegacyGasStationSidecarSpec", "legacy_gas_station_sidecar_specs", job.LegacyGasStationSidecarSpecID),
 		loadJobType(tx, job, "BootstrapSpec", "bootstrap_specs", job.BootstrapSpecID),
 		loadJobType(tx, job, "GatewaySpec", "gateway_specs", job.GatewaySpecID),
+		loadJobType(tx, job, "WorkflowSpec", "workflow_specs", job.WorkflowSpecID),
 	)
 }
 
