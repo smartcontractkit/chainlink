@@ -5,14 +5,17 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/seth"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	test_utils "github.com/smartcontractkit/chainlink/integration-tests/utils"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
@@ -226,35 +229,144 @@ func RegisterUpkeepContractsWithCheckData(t *testing.T, client *seth.Client, lin
 	registrationTxHashes := make([]common.Hash, 0)
 	upkeepIds := make([]*big.Int, 0)
 
-	//TODO this should be parallelised, if we use this code at all
+	concurrency := int(*client.Cfg.EphemeralAddrs)
 
-	for contractCount, upkeepAddress := range upkeepAddresses {
+	//TODO deal with the case when there are no ephemral addresses
+
+	type config struct {
+		address string
+		data    []byte
+	}
+
+	require.Equal(t, len(upkeepAddresses), len(checkData), "Number of upkeep addresses and check data should be the same")
+	configs := make([]config, 0)
+
+	for i := 0; i < len(upkeepAddresses); i++ {
+		configs = append(configs, config{address: upkeepAddresses[i], data: checkData[i]})
+	}
+
+	type result struct {
+		tx  *types.Transaction
+		err error
+	}
+
+	var wgProcesses sync.WaitGroup
+	for range upkeepAddresses {
+		wgProcesses.Add(1)
+	}
+
+	var deplymentErr error
+	deploymentCh := make(chan result, numberOfContracts)
+	stopCh := make(chan struct{})
+
+	atomicCounter := atomic.Uint64{}
+
+	var registerUpkeepFn = func(channel chan result, keyNum int, config config) {
+		atomicCounter.Add(1)
+
 		req, err := registrar.EncodeRegisterRequest(
-			fmt.Sprintf("upkeep_%d", contractCount+1),
+			fmt.Sprintf("upkeep_%d", atomicCounter.Load()),
 			[]byte("test@mail.com"),
-			upkeepAddress,
+			config.address,
 			upkeepGasLimit,
 			client.Addresses[0].Hex(), // upkeep Admin
-			checkData[contractCount],
+			config.data,
 			linkFunds,
 			0,
-			client.Addresses[0].Hex(),
+			client.Addresses[keyNum].Hex(),
 			isLogTrigger,
 			isMercury,
 		)
-		require.NoError(t, err, "Encoding the register request shouldn't fail")
 
-		tx, err := linkToken.TransferAndCall(registrar.Address(), linkFunds, req)
-		require.NoError(t, err, "Error registering the upkeep consumer to the registrar")
-		l.Debug().
-			Str("Contract Address", upkeepAddress).
-			Int("Number", contractCount+1).
-			Int("Out Of", numberOfContracts).
-			Str("TxHash", tx.Hash().String()).
-			Str("Check Data", hexutil.Encode(checkData[contractCount])).
-			Msg("Registered Keeper Consumer Contract")
-		registrationTxHashes = append(registrationTxHashes, tx.Hash())
+		if err != nil {
+			channel <- result{err: err}
+			return
+		}
+
+		tx, err := linkToken.TransferAndCallFromKey(registrar.Address(), linkFunds, req, keyNum)
+		channel <- result{tx: tx, err: err}
 	}
+
+	go func() {
+		defer l.Debug().Msg("Finished listening to results of registering upkeeps")
+		for r := range deploymentCh {
+			if r.err != nil {
+				l.Error().Err(r.err).Msg("Failed to register upkeep")
+				deplymentErr = r.err
+				close(stopCh)
+				return
+			}
+
+			registrationTxHashes = append(registrationTxHashes, r.tx.Hash())
+			l.Trace().Msg("Pushed upkeep address to data array")
+			wgProcesses.Done()
+		}
+	}()
+
+	dividedConfigs := test_utils.DivideSlice(configs, concurrency)
+
+	for clientNum := 1; clientNum <= concurrency; clientNum++ {
+		go func(key int) {
+			configs := dividedConfigs[key-1]
+
+			l.Trace().
+				Int("Key Number", key).
+				Int("Upkeeps to register", len(configs)).
+				Msg("Preparing to register upkeeps")
+
+			for i := 0; i < len(configs); i++ {
+				select {
+				case <-stopCh:
+					return
+				default:
+					registerUpkeepFn(deploymentCh, key, configs[i])
+					l.Trace().
+						Int("Key Number", key).
+						Str("Done/Total", fmt.Sprintf("%d/%d", (i+1), len(configs))).
+						Msg("Registered upkeep")
+				}
+			}
+
+			l.Debug().
+				Int("Key Number", key).
+				Msg("Finished to register upkeeps")
+		}(clientNum)
+	}
+
+	l.Warn().Msg("Waiting for all upkeeps to be registered")
+
+	wgProcesses.Wait()
+	close(deploymentCh)
+
+	require.NoError(t, deplymentErr, "Error registering upkeeps")
+
+	// for contractCount, upkeepAddress := range upkeepAddresses {
+	// 	req, err := registrar.EncodeRegisterRequest(
+	// 		fmt.Sprintf("upkeep_%d", contractCount+1),
+	// 		[]byte("test@mail.com"),
+	// 		upkeepAddress,
+	// 		upkeepGasLimit,
+	// 		client.Addresses[0].Hex(), // upkeep Admin
+	// 		checkData[contractCount],
+	// 		linkFunds,
+	// 		0,
+	// 		client.Addresses[0].Hex(),
+	// 		isLogTrigger,
+	// 		isMercury,
+	// 	)
+	// 	require.NoError(t, err, "Encoding the register request shouldn't fail")
+
+	// 	tx, err := linkToken.TransferAndCall(registrar.Address(), linkFunds, req)
+	// 	require.NoError(t, err, "Error registering the upkeep consumer to the registrar")
+	// 	l.Debug().
+	// 		Str("Contract Address", upkeepAddress).
+	// 		Int("Number", contractCount+1).
+	// 		Int("Out Of", numberOfContracts).
+	// 		Str("TxHash", tx.Hash().String()).
+	// 		Str("Check Data", hexutil.Encode(checkData[contractCount])).
+	// 		Msg("Registered Keeper Consumer Contract")
+	// 	registrationTxHashes = append(registrationTxHashes, tx.Hash())
+	// }
 
 	// Fetch the upkeep IDs
 	for _, txHash := range registrationTxHashes {
@@ -283,33 +395,92 @@ func DeployKeeperConsumers(t *testing.T, client *seth.Client, numberOfContracts 
 	l := logging.GetTestLogger(t)
 	keeperConsumerContracts := make([]contracts.KeeperConsumer, 0)
 
-	for contractCount := 0; contractCount < numberOfContracts; contractCount++ {
-		// Deploy consumer
+	concurrency := int(*client.Cfg.EphemeralAddrs)
+
+	//TODO deal with the case when there are no ephemral addresses
+
+	type result struct {
+		contract contracts.KeeperConsumer
+		err      error
+	}
+
+	var deplymentErr error
+	deploymentCh := make(chan result, numberOfContracts)
+	stopCh := make(chan struct{})
+
+	var deployContractFn = func(channel chan result, keyNum int) {
 		var keeperConsumerInstance contracts.KeeperConsumer
 		var err error
 
 		if isMercury && isLogTrigger {
 			// v2.1 only: Log triggered based contract with Mercury enabled
-			keeperConsumerInstance, err = contracts.DeployAutomationLogTriggeredStreamsLookupUpkeepConsumer(client)
+			keeperConsumerInstance, err = contracts.DeployAutomationLogTriggeredStreamsLookupUpkeepConsumerFromKey(client, keyNum)
 		} else if isMercury {
 			// v2.1 only: Conditional based contract with Mercury enabled
-			keeperConsumerInstance, err = contracts.DeployAutomationStreamsLookupUpkeepConsumer(client, big.NewInt(1000), big.NewInt(5), false, true, false) // 1000 block test range
+			keeperConsumerInstance, err = contracts.DeployAutomationStreamsLookupUpkeepConsumerFromKey(client, keyNum, big.NewInt(1000), big.NewInt(5), false, true, false) // 1000 block test range
 		} else if isLogTrigger {
 			// v2.1 only: Log triggered based contract without Mercury
-			keeperConsumerInstance, err = contracts.DeployAutomationLogTriggerConsumer(client, big.NewInt(1000)) // 1000 block test range
+			keeperConsumerInstance, err = contracts.DeployAutomationLogTriggerConsumerFromKey(client, keyNum, big.NewInt(1000)) // 1000 block test range
 		} else {
 			// v2.0 and v2.1: Conditional based contract without Mercury
-			keeperConsumerInstance, err = contracts.DeployUpkeepCounter(client, big.NewInt(999999), big.NewInt(5))
+			keeperConsumerInstance, err = contracts.DeployUpkeepCounterFromKey(client, keyNum, big.NewInt(999999), big.NewInt(5))
 		}
 
-		require.NoError(t, err, "Deploying Consumer instance %d shouldn't fail", contractCount+1)
-		keeperConsumerContracts = append(keeperConsumerContracts, keeperConsumerInstance)
-		l.Debug().
-			Str("Contract Address", keeperConsumerInstance.Address()).
-			Int("Number", contractCount+1).
-			Int("Out Of", numberOfContracts).
-			Msg("Deployed Keeper Consumer Contract")
+		require.NoError(t, err, "Deploying Consumer shouldn't fail")
+
+		channel <- result{contract: keeperConsumerInstance, err: nil}
 	}
+
+	var wgProcess sync.WaitGroup
+	for i := 0; i < numberOfContracts; i++ {
+		wgProcess.Add(1)
+	}
+
+	go func() {
+		defer l.Debug().Msg("Finished listening to results of deploying consumer contracts")
+		for contractData := range deploymentCh {
+			if contractData.err != nil {
+				l.Error().Err(contractData.err).Msg("Error deploying customer contract")
+				deplymentErr = contractData.err
+				close(stopCh)
+				return
+			}
+			if contractData.contract != nil {
+				keeperConsumerContracts = append(keeperConsumerContracts, contractData.contract)
+				l.Debug().
+					Str("Contract Address", contractData.contract.Address()).
+					Int("Number", len(keeperConsumerContracts)).
+					Int("Out Of", numberOfContracts).
+					Msg("Deployed Keeper Consumer Contract")
+			}
+			wgProcess.Done()
+		}
+	}()
+
+	operationsPerClient := numberOfContracts / concurrency
+	extraOperations := numberOfContracts % concurrency
+
+	for clientNum := 1; clientNum <= concurrency; clientNum++ {
+		go func(key int) {
+			numTasks := operationsPerClient
+			if key <= extraOperations {
+				numTasks++
+			}
+			for i := 0; i < numTasks; i++ {
+				select {
+				case <-stopCh:
+					return
+				default:
+					deployContractFn(deploymentCh, key)
+				}
+			}
+		}(clientNum)
+	}
+
+	wgProcess.Wait()
+	close(deploymentCh)
+
+	require.NoError(t, deplymentErr, "Error deploying consumer contracts")
 	l.Info().Msg("Successfully deployed all Keeper Consumer Contracts")
 
 	return keeperConsumerContracts

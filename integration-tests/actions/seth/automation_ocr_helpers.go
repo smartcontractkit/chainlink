@@ -27,15 +27,28 @@ func DeployAutoOCRRegistryAndRegistrar(
 	return registry, registrar
 }
 
-func DeployConsumers(t *testing.T, client *seth.Client, registry contracts.KeeperRegistry, registrar contracts.KeeperRegistrar, linkToken contracts.LinkToken, numberOfUpkeeps int, linkFundsForEachUpkeep *big.Int, upkeepGasLimit uint32, isLogTrigger bool, isMercury bool) ([]contracts.KeeperConsumer, []*big.Int) {
-	upkeeps := DeployKeeperConsumers(t, client, numberOfUpkeeps, isLogTrigger, isMercury)
+// DeployConsumers deploys and registers keeper consumers. If ephemeral addresses are enabled, it will deploy and register the consumers from ephemeral addresses, but each upkpeep will be registered with root key address as the admin. Which means
+// that functions like setting upkeep configuration, pausing, unpausing, etc. will be done by the root key address.
+func DeployConsumers(t *testing.T, chainClient *seth.Client, registry contracts.KeeperRegistry, registrar contracts.KeeperRegistrar, linkToken contracts.LinkToken, numberOfUpkeeps int, linkFundsForEachUpkeep *big.Int, upkeepGasLimit uint32, isLogTrigger bool, isMercury bool) ([]contracts.KeeperConsumer, []*big.Int) {
+	concurrency := int(*chainClient.Cfg.EphemeralAddrs)
+	operationsPerAddress := numberOfUpkeeps / concurrency
+
+	multicallAddress, err := contracts.DeployMultiCallContract(chainClient)
+	require.NoError(t, err, "Error deploying multicall contract")
+
+	err = SendLinkFundsToDepolymentAddresses(chainClient, concurrency, numberOfUpkeeps, operationsPerAddress, multicallAddress, linkFundsForEachUpkeep, linkToken)
+	require.NoError(t, err, "Sending link funds to deployment addresses shouldn't fail")
+
+	upkeeps := DeployKeeperConsumers(t, chainClient, numberOfUpkeeps, isLogTrigger, isMercury)
+	require.Equal(t, numberOfUpkeeps, len(upkeeps), "Number of upkeeps should match")
 	var upkeepsAddresses []string
 	for _, upkeep := range upkeeps {
 		upkeepsAddresses = append(upkeepsAddresses, upkeep.Address())
 	}
 	upkeepIds := RegisterUpkeepContracts(
-		t, client, linkToken, linkFundsForEachUpkeep, upkeepGasLimit, registry, registrar, numberOfUpkeeps, upkeepsAddresses, isLogTrigger, isMercury,
+		t, chainClient, linkToken, linkFundsForEachUpkeep, upkeepGasLimit, registry, registrar, numberOfUpkeeps, upkeepsAddresses, isLogTrigger, isMercury,
 	)
+	require.Equal(t, numberOfUpkeeps, len(upkeepIds), "Number of upkeepIds should match")
 	return upkeeps, upkeepIds
 }
 

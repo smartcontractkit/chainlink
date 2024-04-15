@@ -90,3 +90,16 @@ func (e *LegacyLogEmitterContract) EmitLogIntIndexed(payload int) (*types.Transa
 func (e *LegacyLogEmitterContract) EmitLogString(strings string) (*types.Transaction, error) {
 	return e.EmitLogStrings([]string{strings})
 }
+
+func (e *LegacyLogEmitterContract) EmitLogIntsFromKey(_ []int, _ int) (*types.Transaction, error) {
+	panic("only Seth-based contracts support this method")
+}
+func (e *LegacyLogEmitterContract) EmitLogIntsIndexedFromKey(_ []int, _ int) (*types.Transaction, error) {
+	panic("only Seth-based contracts support this method")
+}
+func (e *LegacyLogEmitterContract) EmitLogIntMultiIndexedFromKey(_ int, _ int, _ int, _ int) (*types.Transaction, error) {
+	panic("only Seth-based contracts support this method")
+}
+func (e *LegacyLogEmitterContract) EmitLogStringsFromKey(_ []string, _ int) (*types.Transaction, error) {
+	panic("only Seth-based contracts support this method")
+}

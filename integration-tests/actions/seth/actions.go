@@ -9,12 +9,16 @@ import (
 	"math/big"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/smartcontractkit/seth"
@@ -25,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_factory"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
@@ -489,7 +494,7 @@ func TeardownSuite(
 		l.Warn().Msgf("Error deleting jobs %+v", err)
 	}
 
-	if chainlinkNodes != nil && len(chainlinkNodes) > 0 {
+	if chainlinkNodes != nil {
 		if err := ReturnFundsFromNodes(l, chainClient, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(chainlinkNodes)); err != nil {
 			// This printed line is required for tests that use real funds to propagate the failure
 			// out to the system running the test. Do not remove
@@ -832,4 +837,101 @@ func EstimateCostForChainlinkOperations(l zerolog.Logger, client *seth.Client, n
 		Msg("Calculated ETH for Chainlink Operations")
 
 	return totalEthForAllOperations, nil
+}
+
+func GetLatestFinalizedBlockHeader(ctx context.Context, client *seth.Client, network blockchain.EVMNetwork) (*types.Header, error) {
+	if network.FinalityTag {
+		return client.Client.HeaderByNumber(ctx, big.NewInt(rpc.FinalizedBlockNumber.Int64()))
+	}
+	if network.FinalityDepth == 0 {
+		return nil, fmt.Errorf("finality depth is 0 and finality tag is not enabled")
+	}
+	header, err := client.Client.HeaderByNumber(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	latestBlockNumber := header.Number.Uint64()
+	finalizedBlockNumber := latestBlockNumber - network.FinalityDepth
+	return client.Client.HeaderByNumber(ctx, big.NewInt(int64(finalizedBlockNumber)))
+}
+
+func SendLinkFundsToDepolymentAddresses(
+	chainClient *seth.Client,
+	concurrency,
+	totalUpkeeps,
+	operationsPerAddress int,
+	multicallAddress common.Address,
+	linkAmountPerUpkeep *big.Int,
+	linkToken contracts.LinkToken,
+) error {
+	var generateCallData = func(receiver common.Address, amount *big.Int) ([]byte, error) {
+		abi, err := link_token_interface.LinkTokenMetaData.GetAbi()
+		if err != nil {
+			return nil, err
+		}
+		data, err := abi.Pack("transfer", receiver, amount)
+		if err != nil {
+			return nil, err
+		}
+		return data, nil
+	}
+
+	if *chainClient.Cfg.EphemeralAddrs == 0 {
+		return nil
+	}
+
+	toTransferToMultiCallContract := big.NewInt(0).Mul(linkAmountPerUpkeep, big.NewInt(int64(totalUpkeeps+concurrency)))
+	toTransferPerClient := big.NewInt(0).Mul(linkAmountPerUpkeep, big.NewInt(int64(operationsPerAddress+1)))
+	err := linkToken.Transfer(multicallAddress.Hex(), toTransferToMultiCallContract)
+	if err != nil {
+		return errors.Wrapf(err, "Error transferring LINK to multicall contract")
+	}
+
+	balance, err := linkToken.BalanceOf(context.Background(), multicallAddress.Hex())
+	if err != nil {
+		return errors.Wrapf(err, "Error getting LINK balance of multicall contract")
+	}
+
+	if toTransferToMultiCallContract.Cmp(balance) != 0 {
+		return fmt.Errorf("Incorrect LINK balance of multicall contract. Expected: %s. Got: %s", toTransferToMultiCallContract.String(), balance.String())
+	}
+
+	// Transfer LINK to ephemeral keys
+	multiCallData := make([][]byte, 0)
+	for i := 1; i <= concurrency; i++ {
+		data, err := generateCallData(chainClient.Addresses[i], toTransferPerClient)
+		if err != nil {
+			return errors.Wrapf(err, "Error generating call data for LINK transfer")
+		}
+		multiCallData = append(multiCallData, data)
+	}
+
+	var call []contracts.Call
+	for _, d := range multiCallData {
+		data := contracts.Call{Target: common.HexToAddress(linkToken.Address()), AllowFailure: false, CallData: d}
+		call = append(call, data)
+	}
+
+	multiCallABI, err := abi.JSON(strings.NewReader(contracts.MultiCallABI))
+	if err != nil {
+		return errors.Wrapf(err, "Error getting Multicall contract ABI")
+	}
+	boundContract := bind.NewBoundContract(multicallAddress, multiCallABI, chainClient.Client, chainClient.Client, chainClient.Client)
+	// call aggregate3 to group all msg call data and send them in a single transaction
+	_, err = chainClient.Decode(boundContract.Transact(chainClient.NewTXOpts(), "aggregate3", call))
+	if err != nil {
+		return errors.Wrapf(err, "Error calling Multicall contract")
+	}
+
+	for i := 1; i <= concurrency; i++ {
+		balance, err := linkToken.BalanceOf(context.Background(), chainClient.Addresses[i].Hex())
+		if err != nil {
+			return errors.Wrapf(err, "Error getting LINK balance of ephemeral key %d", i)
+		}
+		if toTransferPerClient.Cmp(balance) != 0 {
+			return fmt.Errorf("Incorrect LINK balance after transferring for ephemeral key %d. Expected: %s. Got: %s", i, toTransferPerClient.String(), balance.String())
+		}
+	}
+
+	return nil
 }

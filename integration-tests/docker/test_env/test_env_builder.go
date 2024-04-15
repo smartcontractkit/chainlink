@@ -55,7 +55,7 @@ type CLTestEnvBuilder struct {
 	cleanUpType             CleanUpType
 	cleanUpCustomFn         func()
 	chainOptionsFn          []ChainOption
-	evmClientNetworkOption  []EVMClientNetworkOption
+	evmNetworkOption        []EVMNetworkOption
 	privateEthereumNetworks []*test_env.EthereumNetwork
 	testConfig              tc.GlobalTestConfig
 
@@ -202,11 +202,11 @@ func (b *CLTestEnvBuilder) WithChainOptions(opts ...ChainOption) *CLTestEnvBuild
 	return b
 }
 
-type EVMClientNetworkOption = func(*blockchain.EVMNetwork) *blockchain.EVMNetwork
+type EVMNetworkOption = func(*blockchain.EVMNetwork) *blockchain.EVMNetwork
 
-func (b *CLTestEnvBuilder) EVMClientNetworkOptions(opts ...EVMClientNetworkOption) *CLTestEnvBuilder {
-	b.evmClientNetworkOption = make([]EVMClientNetworkOption, 0)
-	b.evmClientNetworkOption = append(b.evmClientNetworkOption, opts...)
+func (b *CLTestEnvBuilder) EVMNetworkOptions(opts ...EVMNetworkOption) *CLTestEnvBuilder {
+	b.evmNetworkOption = make([]EVMNetworkOption, 0)
+	b.evmNetworkOption = append(b.evmNetworkOption, opts...)
 
 	return b
 }
@@ -326,6 +326,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 				if err != nil {
 					return nil, err
 				}
+
 				err = utils.ValidateSethNetworkConfig(sethCfg.Network)
 				if err != nil {
 					return nil, err
@@ -394,8 +395,8 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 	}
 
 	if !b.isNonEVM {
-		if b.evmClientNetworkOption != nil && len(b.evmClientNetworkOption) > 0 {
-			for _, fn := range b.evmClientNetworkOption {
+		if b.evmNetworkOption != nil && len(b.evmNetworkOption) > 0 {
+			for _, fn := range b.evmNetworkOption {
 				fn(&networkConfig)
 			}
 		}

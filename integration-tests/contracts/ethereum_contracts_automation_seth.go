@@ -1845,12 +1845,12 @@ func (v *EthereumAutomationLogTriggeredStreamsLookupUpkeepConsumer) Counter(ctx 
 	})
 }
 
-func DeployAutomationLogTriggeredStreamsLookupUpkeepConsumer(client *seth.Client) (KeeperConsumer, error) {
+func DeployAutomationLogTriggeredStreamsLookupUpkeepConsumerFromKey(client *seth.Client, keyNum int) (KeeperConsumer, error) {
 	abi, err := log_triggered_streams_lookup_wrapper.LogTriggeredStreamsLookupMetaData.GetAbi()
 	if err != nil {
 		return &EthereumAutomationLogTriggeredStreamsLookupUpkeepConsumer{}, fmt.Errorf("failed to get LogTriggeredStreamsLookupUpkeep ABI: %w", err)
 	}
-	data, err := client.DeployContract(client.NewTXOpts(), "LogTriggeredStreamsLookupUpkeep", *abi, common.FromHex(log_triggered_streams_lookup_wrapper.LogTriggeredStreamsLookupMetaData.Bin), false, false, false)
+	data, err := client.DeployContract(client.NewTXKeyOpts(keyNum), "LogTriggeredStreamsLookupUpkeep", *abi, common.FromHex(log_triggered_streams_lookup_wrapper.LogTriggeredStreamsLookupMetaData.Bin), false, false, false)
 	if err != nil {
 		return &EthereumAutomationLogTriggeredStreamsLookupUpkeepConsumer{}, fmt.Errorf("LogTriggeredStreamsLookupUpkeep instance deployment have failed: %w", err)
 	}
@@ -1865,6 +1865,10 @@ func DeployAutomationLogTriggeredStreamsLookupUpkeepConsumer(client *seth.Client
 		consumer: instance,
 		address:  &data.Address,
 	}, nil
+}
+
+func DeployAutomationLogTriggeredStreamsLookupUpkeepConsumer(client *seth.Client) (KeeperConsumer, error) {
+	return DeployAutomationLogTriggeredStreamsLookupUpkeepConsumerFromKey(client, 0)
 }
 
 type EthereumAutomationStreamsLookupUpkeepConsumer struct {
@@ -1889,12 +1893,12 @@ func (v *EthereumAutomationStreamsLookupUpkeepConsumer) Counter(ctx context.Cont
 	})
 }
 
-func DeployAutomationStreamsLookupUpkeepConsumer(client *seth.Client, testRange *big.Int, interval *big.Int, useArbBlock bool, staging bool, verify bool) (KeeperConsumer, error) {
+func DeployAutomationStreamsLookupUpkeepConsumerFromKey(client *seth.Client, keyNum int, testRange *big.Int, interval *big.Int, useArbBlock bool, staging bool, verify bool) (KeeperConsumer, error) {
 	abi, err := streams_lookup_upkeep_wrapper.StreamsLookupUpkeepMetaData.GetAbi()
 	if err != nil {
 		return &EthereumAutomationStreamsLookupUpkeepConsumer{}, fmt.Errorf("failed to get StreamsLookupUpkeep ABI: %w", err)
 	}
-	data, err := client.DeployContract(client.NewTXOpts(), "StreamsLookupUpkeep", *abi, common.FromHex(streams_lookup_upkeep_wrapper.StreamsLookupUpkeepMetaData.Bin),
+	data, err := client.DeployContract(client.NewTXKeyOpts(keyNum), "StreamsLookupUpkeep", *abi, common.FromHex(streams_lookup_upkeep_wrapper.StreamsLookupUpkeepMetaData.Bin),
 		testRange,
 		interval,
 		useArbBlock,
@@ -1915,6 +1919,10 @@ func DeployAutomationStreamsLookupUpkeepConsumer(client *seth.Client, testRange 
 		consumer: instance,
 		address:  &data.Address,
 	}, err
+}
+
+func DeployAutomationStreamsLookupUpkeepConsumer(client *seth.Client, testRange *big.Int, interval *big.Int, useArbBlock bool, staging bool, verify bool) (KeeperConsumer, error) {
+	return DeployAutomationStreamsLookupUpkeepConsumerFromKey(client, 0, testRange, interval, useArbBlock, staging, verify)
 }
 
 type EthereumAutomationLogCounterConsumer struct {
@@ -1939,12 +1947,12 @@ func (v *EthereumAutomationLogCounterConsumer) Counter(ctx context.Context) (*bi
 	})
 }
 
-func DeployAutomationLogTriggerConsumer(client *seth.Client, testInterval *big.Int) (KeeperConsumer, error) {
+func DeployAutomationLogTriggerConsumerFromKey(client *seth.Client, keyNum int, testInterval *big.Int) (KeeperConsumer, error) {
 	abi, err := log_upkeep_counter_wrapper.LogUpkeepCounterMetaData.GetAbi()
 	if err != nil {
 		return &EthereumAutomationLogCounterConsumer{}, fmt.Errorf("failed to get LogUpkeepCounter ABI: %w", err)
 	}
-	data, err := client.DeployContract(client.NewTXOpts(), "LogUpkeepCounter", *abi, common.FromHex(log_upkeep_counter_wrapper.LogUpkeepCounterMetaData.Bin), testInterval)
+	data, err := client.DeployContract(client.NewTXKeyOpts(keyNum), "LogUpkeepCounter", *abi, common.FromHex(log_upkeep_counter_wrapper.LogUpkeepCounterMetaData.Bin), testInterval)
 	if err != nil {
 		return &EthereumAutomationLogCounterConsumer{}, fmt.Errorf("LogUpkeepCounter instance deployment have failed: %w", err)
 	}
@@ -1959,6 +1967,10 @@ func DeployAutomationLogTriggerConsumer(client *seth.Client, testInterval *big.I
 		consumer: instance,
 		address:  &data.Address,
 	}, err
+}
+
+func DeployAutomationLogTriggerConsumer(client *seth.Client, testInterval *big.Int) (KeeperConsumer, error) {
+	return DeployAutomationLogTriggerConsumerFromKey(client, 0, testInterval)
 }
 
 // EthereumUpkeepCounter represents keeper consumer (upkeep) counter contract
@@ -1992,12 +2004,12 @@ func (v *EthereumUpkeepCounter) Start() error {
 	return nil
 }
 
-func DeployUpkeepCounter(client *seth.Client, testRange *big.Int, interval *big.Int) (UpkeepCounter, error) {
+func DeployUpkeepCounterFromKey(client *seth.Client, keyNum int, testRange *big.Int, interval *big.Int) (UpkeepCounter, error) {
 	abi, err := upkeep_counter_wrapper.UpkeepCounterMetaData.GetAbi()
 	if err != nil {
 		return &EthereumUpkeepCounter{}, fmt.Errorf("failed to get UpkeepCounter ABI: %w", err)
 	}
-	data, err := client.DeployContract(client.NewTXOpts(), "UpkeepCounter", *abi, common.FromHex(upkeep_counter_wrapper.UpkeepCounterMetaData.Bin), testRange, interval)
+	data, err := client.DeployContract(client.NewTXKeyOpts(keyNum), "UpkeepCounter", *abi, common.FromHex(upkeep_counter_wrapper.UpkeepCounterMetaData.Bin), testRange, interval)
 	if err != nil {
 		return &EthereumUpkeepCounter{}, fmt.Errorf("UpkeepCounter instance deployment have failed: %w", err)
 	}
@@ -2012,6 +2024,10 @@ func DeployUpkeepCounter(client *seth.Client, testRange *big.Int, interval *big.
 		consumer: instance,
 		address:  &data.Address,
 	}, err
+}
+
+func DeployUpkeepCounter(client *seth.Client, testRange *big.Int, interval *big.Int) (UpkeepCounter, error) {
+	return DeployUpkeepCounterFromKey(client, 0, testRange, interval)
 }
 
 // EthereumUpkeepPerformCounterRestrictive represents keeper consumer (upkeep) counter contract

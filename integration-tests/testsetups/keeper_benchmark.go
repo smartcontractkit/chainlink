@@ -19,13 +19,13 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/slack-go/slack"
+	"github.com/smartcontractkit/seth"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	reportModel "github.com/smartcontractkit/chainlink-testing-framework/testreporters"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
-	"github.com/smartcontractkit/seth"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
@@ -151,7 +151,7 @@ func (k *KeeperBenchmarkTest) Setup(env *environment.Environment, config tt.Keep
 	c := inputs.Contracts
 
 	if common.IsHexAddress(c.LinkTokenAddress) {
-		contracts.LoadLinkTokenContract(k.log, k.chainClient, common.HexToAddress(c.LinkTokenAddress))
+		_, err = contracts.LoadLinkTokenContract(k.log, k.chainClient, common.HexToAddress(c.LinkTokenAddress))
 		require.NoError(k.t, err, "Loading Link Token Contract shouldn't fail")
 	} else {
 		k.linkToken, err = contracts.DeployLinkTokenContract(k.log, k.chainClient)
@@ -159,7 +159,7 @@ func (k *KeeperBenchmarkTest) Setup(env *environment.Environment, config tt.Keep
 	}
 
 	if common.IsHexAddress(c.EthFeedAddress) {
-		contracts.LoadMockETHLINKFeed(k.chainClient, common.HexToAddress(c.EthFeedAddress))
+		_, err = contracts.LoadMockETHLINKFeed(k.chainClient, common.HexToAddress(c.EthFeedAddress))
 		require.NoError(k.t, err, "Loading ETH-Link feed Contract shouldn't fail")
 	} else {
 		k.ethFeed, err = contracts.DeployMockETHLINKFeed(k.chainClient, big.NewInt(2e18))
@@ -626,17 +626,7 @@ func (k *KeeperBenchmarkTest) DeployBenchmarkKeeperContracts(index int) {
 			RegistrarAddr:   actions.ZeroAddress.Hex(),
 			Settings:        *k.Inputs.KeeperRegistrySettings,
 		})
-		// registry = actions.DeployKeeperRegistry(k.t, k.contractDeployer, k.chainClient,
-		// 	&contracts.KeeperRegistryOpts{
-		// 		RegistryVersion: registryVersion,
-		// 		LinkAddr:        k.linkToken.Address(),
-		// 		ETHFeedAddr:     k.ethFeed.Address(),
-		// 		GasFeedAddr:     k.gasFeed.Address(),
-		// 		TranscoderAddr:  actions.ZeroAddress.Hex(),
-		// 		RegistrarAddr:   actions.ZeroAddress.Hex(),
-		// 		Settings:        *k.Inputs.KeeperRegistrySettings,
-		// 	},
-		// )
+		require.NoError(k.t, err, "Deploying registry contract shouldn't fail")
 
 		// Fund the registry with 1 LINK * amount of AutomationConsumerBenchmark contracts
 		err := k.linkToken.Transfer(registry.Address(), big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(k.Inputs.Upkeeps.NumberOfUpkeeps))))
@@ -650,7 +640,7 @@ func (k *KeeperBenchmarkTest) DeployBenchmarkKeeperContracts(index int) {
 		}
 
 		registrar, err = contracts.DeployKeeperRegistrar(k.chainClient, registryVersion, k.linkToken.Address(), registrarSettings)
-		// registrar = actions.DeployKeeperRegistrar(k.t, registryVersion, k.linkToken, registrarSettings, k.contractDeployer, k.chainClient, registry)
+		require.NoError(k.t, err, "Funding keeper registrar contract shouldn't fail")
 	} else { // OCR automation - v2.X
 		registry, registrar = actions_seth.DeployAutoOCRRegistryAndRegistrar(
 			k.t, k.chainClient, registryVersion, *k.Inputs.KeeperRegistrySettings, k.linkToken,
@@ -660,6 +650,7 @@ func (k *KeeperBenchmarkTest) DeployBenchmarkKeeperContracts(index int) {
 		err := k.linkToken.Transfer(registry.Address(), big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(k.Inputs.Upkeeps.NumberOfUpkeeps))))
 		require.NoError(k.t, err, "Funding keeper registry contract shouldn't fail")
 		ocrConfig, err := actions.BuildAutoOCR2ConfigVars(k.t, k.chainlinkNodes[1:], *k.Inputs.KeeperRegistrySettings, registrar.Address(), k.Inputs.DeltaStage, registry.ChainModuleAddress(), registry.ReorgProtectionEnabled())
+		require.NoError(k.t, err, "Building OCR config shouldn't fail")
 		k.log.Debug().Interface("KeeperRegistrySettings", *k.Inputs.KeeperRegistrySettings).Interface("OCRConfig", ocrConfig).Msg("Config")
 		require.NoError(k.t, err, "Error building OCR config vars")
 		if registryVersion == ethereum.RegistryVersion_2_0 {
@@ -668,7 +659,6 @@ func (k *KeeperBenchmarkTest) DeployBenchmarkKeeperContracts(index int) {
 			err = registry.SetConfigTypeSafe(ocrConfig)
 		}
 		require.NoError(k.t, err, "Registry config should be be set successfully")
-
 	}
 
 	consumer := k.DeployKeeperConsumersBenchmark()

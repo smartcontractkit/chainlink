@@ -35,6 +35,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
+	test_utils "github.com/smartcontractkit/chainlink/integration-tests/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registrar_wrapper2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -681,32 +682,7 @@ func (a *AutomationTest) RegisterUpkeeps(upkeepConfigs []UpkeepConfig) ([]common
 		resultCh <- result{txHash: tx.Hash(), clientNum: &keyNum}
 	}
 
-	// divide upkeepConfigs into slices of (ideally) equal size based on the concurrency count
-	var divideSlice = func(slice []UpkeepConfig, concurrency int) [][]UpkeepConfig {
-		var divided [][]UpkeepConfig
-		if concurrency == 1 {
-			return [][]UpkeepConfig{slice}
-		}
-
-		sliceLength := len(slice)
-		baseSize := sliceLength / concurrency
-		remainder := sliceLength % concurrency
-
-		start := 0
-		for i := 0; i < concurrency; i++ {
-			end := start + baseSize
-			if i < remainder { // Distribute the remainder among the first slices
-				end++
-			}
-
-			divided = append(divided, slice[start:end])
-			start = end
-		}
-
-		return divided
-	}
-
-	dividedConfigs := divideSlice(upkeepConfigs, concurrency)
+	dividedConfigs := test_utils.DivideSlice[UpkeepConfig](upkeepConfigs, concurrency)
 
 	for clientNum := 1; clientNum <= concurrency; clientNum++ {
 		go func(key int) {

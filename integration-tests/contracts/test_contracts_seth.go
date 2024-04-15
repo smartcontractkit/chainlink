@@ -24,12 +24,29 @@ func (e *LogEmitterContract) Address() common.Address {
 	return e.address
 }
 
-func (e *LogEmitterContract) EmitLogInts(ints []int) (*types.Transaction, error) {
+func (e *LogEmitterContract) EmitLogIntsFromKey(ints []int, keyNum int) (*types.Transaction, error) {
 	bigInts := make([]*big.Int, len(ints))
 	for i, v := range ints {
 		bigInts[i] = big.NewInt(int64(v))
 	}
-	tx, err := e.client.Decode(e.instance.EmitLog1(e.client.NewTXOpts(), bigInts))
+	tx, err := e.client.Decode(e.instance.EmitLog1(e.client.NewTXKeyOpts(keyNum), bigInts))
+	if err != nil {
+		return nil, err
+	}
+
+	return tx.Transaction, nil
+}
+
+func (e *LogEmitterContract) EmitLogInts(ints []int) (*types.Transaction, error) {
+	return e.EmitLogIntsFromKey(ints, 0)
+}
+
+func (e *LogEmitterContract) EmitLogIntsIndexedFromKey(ints []int, keyNum int) (*types.Transaction, error) {
+	bigInts := make([]*big.Int, len(ints))
+	for i, v := range ints {
+		bigInts[i] = big.NewInt(int64(v))
+	}
+	tx, err := e.client.Decode(e.instance.EmitLog2(e.client.NewTXKeyOpts(keyNum), bigInts))
 	if err != nil {
 		return nil, err
 	}
@@ -38,11 +55,11 @@ func (e *LogEmitterContract) EmitLogInts(ints []int) (*types.Transaction, error)
 }
 
 func (e *LogEmitterContract) EmitLogIntsIndexed(ints []int) (*types.Transaction, error) {
-	bigInts := make([]*big.Int, len(ints))
-	for i, v := range ints {
-		bigInts[i] = big.NewInt(int64(v))
-	}
-	tx, err := e.client.Decode(e.instance.EmitLog2(e.client.NewTXOpts(), bigInts))
+	return e.EmitLogIntsIndexedFromKey(ints, 0)
+}
+
+func (e *LogEmitterContract) EmitLogIntMultiIndexedFromKey(ints int, ints2 int, count int, keyNum int) (*types.Transaction, error) {
+	tx, err := e.client.Decode(e.instance.EmitLog4(e.client.NewTXKeyOpts(keyNum), big.NewInt(int64(ints)), big.NewInt(int64(ints2)), big.NewInt(int64(count))))
 	if err != nil {
 		return nil, err
 	}
@@ -51,20 +68,19 @@ func (e *LogEmitterContract) EmitLogIntsIndexed(ints []int) (*types.Transaction,
 }
 
 func (e *LogEmitterContract) EmitLogIntMultiIndexed(ints int, ints2 int, count int) (*types.Transaction, error) {
-	tx, err := e.client.Decode(e.instance.EmitLog4(e.client.NewTXOpts(), big.NewInt(int64(ints)), big.NewInt(int64(ints2)), big.NewInt(int64(count))))
+	return e.EmitLogIntMultiIndexedFromKey(ints, ints2, count, 0)
+}
+
+func (e *LogEmitterContract) EmitLogStringsFromKey(strings []string, keyNum int) (*types.Transaction, error) {
+	tx, err := e.client.Decode(e.instance.EmitLog3(e.client.NewTXKeyOpts(keyNum), strings))
 	if err != nil {
 		return nil, err
 	}
-
 	return tx.Transaction, nil
 }
 
 func (e *LogEmitterContract) EmitLogStrings(strings []string) (*types.Transaction, error) {
-	tx, err := e.client.Decode(e.instance.EmitLog3(e.client.NewTXOpts(), strings))
-	if err != nil {
-		return nil, err
-	}
-	return tx.Transaction, nil
+	return e.EmitLogStringsFromKey(strings, 0)
 }
 
 func (e *LogEmitterContract) EmitLogInt(payload int) (*types.Transaction, error) {
