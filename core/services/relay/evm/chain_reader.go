@@ -75,7 +75,7 @@ func (cr *chainReader) Name() string { return cr.lggr.Name() }
 var _ commontypes.ContractTypeProvider = &chainReader{}
 
 func (cr *chainReader) GetLatestValue(ctx context.Context, contractName, method string, params any, returnVal any) error {
-	b, err := cr.contractBindings.GetReadBinding(formatKey(contractName, method))
+	b, err := cr.contractBindings.GetReadBinding(contractName, method)
 	if err != nil {
 		return err
 	}
@@ -88,7 +88,7 @@ func (cr *chainReader) Bind(ctx context.Context, bindings []commontypes.BoundCon
 }
 
 func (cr *chainReader) QueryKey(ctx context.Context, contractName string, filter query.KeyFilter, limitAndSort query.LimitAndSort, sequenceDataType any) ([]commontypes.Sequence, error) {
-	b, err := cr.contractBindings.GetReadBinding(formatKey(contractName, filter.Key))
+	b, err := cr.contractBindings.GetReadBinding(contractName, filter.Key)
 	if err != nil {
 		return nil, err
 	}
@@ -171,13 +171,13 @@ func (cr *chainReader) addMethod(
 			chainReaderDefinition.ChainSpecificName)
 	}
 
-	methodKey := formatKey(contractName, methodName)
-	cr.contractBindings.AddReadBinding(methodKey, &methodBinding{
+	cr.contractBindings.AddReadBinding(contractName, methodName, &methodBinding{
 		contractName: contractName,
 		method:       methodName,
 		client:       cr.client,
 	})
 
+	methodKey := formatKey(contractName, methodName)
 	if err := cr.addEncoderDef(methodKey, method.Inputs, method.ID, chainReaderDefinition); err != nil {
 		return err
 	}
@@ -225,7 +225,7 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 		id:             wrapItemType(readKey, false) + uuid.NewString(),
 	}
 
-	cr.contractBindings.AddReadBinding(formatKey(contractName, eventName), eb)
+	cr.contractBindings.AddReadBinding(contractName, eventName, eb)
 
 	// set topic mappings for QueryKeys
 	for topicIndex, topic := range event.Inputs {
@@ -237,13 +237,13 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 			}
 		}
 		// this way querying by key/s values comparison can find its bindings
-		cr.contractBindings.AddReadBinding(formatKey(contractName, genericTopicName), eb)
+		cr.contractBindings.AddReadBinding(contractName, genericTopicName, eb)
 	}
 
 	// set data word mappings for QueryKeys
 	for genericDataWordName := range eb.eventDataWords {
 		// this way querying by key/s values comparison can find its bindings
-		cr.contractBindings.AddReadBinding(formatKey(contractName, genericDataWordName), eb)
+		cr.contractBindings.AddReadBinding(contractName, genericDataWordName, eb)
 	}
 
 	return cr.addDecoderDef(readKey, event.Inputs, chainReaderDefinition)

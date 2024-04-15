@@ -47,7 +47,7 @@ const (
 	triggerWithAllTopics    = "TriggeredWithFourTopics"
 )
 
-func TestChainReader(t *testing.T) {
+func TestChainReaderGetLatestValue(t *testing.T) {
 	t.Parallel()
 	it := &chainReaderInterfaceTester{}
 	RunChainReaderGetLatestValueInterfaceTests(t, it)
