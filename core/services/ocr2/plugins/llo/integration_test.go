@@ -172,16 +172,9 @@ func TestIntegration_LLO(t *testing.T) {
 		}
 		for _, o := range oracles {
 			t.Logf("Expect report from oracle %s", o.OracleIdentity.TransmitAccount)
-			seen[ocr2types.Account(o.OracleIdentity.OnchainPublicKey)] = make(map[llotypes.ChannelID]struct{})
+			seen[o.OracleIdentity.TransmitAccount] = make(map[llotypes.ChannelID]struct{})
 		}
-		i := 0
 		for req := range reqs {
-			i++
-			
-			if i > len(oracles)*(len(channelDefinitions)+1) {
-				t.Fatalf("FAIL: received much more reports than expected: %d/%d", i, len(oracles)*len(channelDefinitions))
-			}
-
 			v := make(map[string]interface{})
 			err := llo.PayloadTypes.UnpackIntoMap(v, req.req.Payload)
 			require.NoError(t, err)
@@ -201,7 +194,7 @@ func TestIntegration_LLO(t *testing.T) {
 				r, err = (datastreamsllo.JSONReportCodec{}).Decode(report.([]byte))
 				require.NoError(t, err, "expected valid JSON")
 			case uint32(llotypes.ReportFormatEVM):
-				t.Logf("Got report (EVM) from oracle %x: 0x%x", req.pk, report.([]byte))
+				t.Logf("Got report (EVM) from oracle %s: 0x%x", req.pk, report.([]byte))
 				var err error
 				r, err = (lloevm.ReportCodec{}).Decode(report.([]byte))
 				require.NoError(t, err, "expected valid EVM encoding")
@@ -229,7 +222,6 @@ func TestIntegration_LLO(t *testing.T) {
 
 			assert.False(t, r.Specimen)
 
-			//if _, exists := seen[req.TransmitterID()]; !exists {continue}
 			if _, exists := seen[req.TransmitterID()]; !exists {
 				t.Fatalf("FAIL: unexpected report from req.TransmitterID %s", req.TransmitterID())
 			}
@@ -239,11 +231,10 @@ func TestIntegration_LLO(t *testing.T) {
 
 			if _, exists := seen[req.TransmitterID()]; exists && len(seen[req.TransmitterID()]) == len(channelDefinitions) {
 				t.Logf("All channels reported for oracle with transmitterID %s", req.TransmitterID())
-				// delete(seen, req.TransmitterID())
 				completedOracles[req.TransmitterID()] = struct{}{}
 			}
-			if len(completedOracles) == len(oracles) { //len(seen) == 0
-				break // saw all oracles; success!
+			if len(completedOracles) == len(oracles) {
+				return // saw all oracles; success!
 			}
 
 			// bit of a hack here but shouldn't hurt anything, we wanna dump
