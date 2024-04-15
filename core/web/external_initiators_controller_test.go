@@ -12,7 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
@@ -26,8 +25,7 @@ func TestValidateExternalInitiator(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := pgtest.NewQConfig(true)
-	orm := bridges.NewORM(db, logger.TestLogger(t), cfg)
+	orm := bridges.NewORM(db)
 
 	url := cltest.WebURL(t, "https://a.web.url")
 
@@ -37,7 +35,7 @@ func TestValidateExternalInitiator(t *testing.T) {
 		URL:  &url,
 	}
 
-	assert.NoError(t, orm.CreateExternalInitiator(&exi))
+	assert.NoError(t, orm.CreateExternalInitiator(testutils.Context(t), &exi))
 
 	tests := []struct {
 		name      string
@@ -55,10 +53,11 @@ func TestValidateExternalInitiator(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			ctx := testutils.Context(t)
 			var exr bridges.ExternalInitiatorRequest
 
 			assert.NoError(t, json.Unmarshal([]byte(test.input), &exr))
-			result := web.ValidateExternalInitiator(&exr, orm)
+			result := web.ValidateExternalInitiator(ctx, &exr, orm)
 
 			cltest.AssertError(t, test.wantError, result)
 		})
@@ -77,7 +76,7 @@ func TestExternalInitiatorsController_Index(t *testing.T) {
 	client := app.NewHTTPClient(nil)
 
 	db := app.GetSqlxDB()
-	borm := bridges.NewORM(db, logger.TestLogger(t), app.GetConfig().Database())
+	borm := bridges.NewORM(db)
 
 	eiFoo := cltest.MustInsertExternalInitiatorWithOpts(t, borm, cltest.ExternalInitiatorOpts{
 		NamePrefix:    "foo",
@@ -217,7 +216,7 @@ func TestExternalInitiatorsController_Delete(t *testing.T) {
 	exi := bridges.ExternalInitiator{
 		Name: "abracadabra",
 	}
-	err := app.BridgeORM().CreateExternalInitiator(&exi)
+	err := app.BridgeORM().CreateExternalInitiator(testutils.Context(t), &exi)
 	require.NoError(t, err)
 
 	client := app.NewHTTPClient(nil)
