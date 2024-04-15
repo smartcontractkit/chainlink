@@ -43,6 +43,7 @@ import (
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	lp_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/log_poller"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
+	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	cltypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -235,7 +236,7 @@ func getStringSlice(length int) []string {
 }
 
 // emitEvents emits events from the provided log emitter concurrently according to the provided config
-func emitEvents(ctx context.Context, l zerolog.Logger, client *seth.Client, keyNumRanges []int, logEmitter *contracts.LogEmitter, cfg *lp_config.Config, wg *sync.WaitGroup, results chan LogEmitterChannel) {
+func emitEvents(ctx context.Context, l zerolog.Logger, client *seth.Client, logEmitter *contracts.LogEmitter, cfg *lp_config.Config, wg *sync.WaitGroup, results chan LogEmitterChannel) {
 	address := (*logEmitter).Address().String()
 	defer wg.Done()
 
@@ -246,7 +247,7 @@ func emitEvents(ctx context.Context, l zerolog.Logger, client *seth.Client, keyN
 		executionGroup.Add(1)
 	}
 
-	var emitAllEvents = func(keyNum int) {
+	var emitAllEvents = func() {
 		defer executionGroup.Done()
 		current := atomicCounter.Add(1)
 
@@ -260,13 +261,13 @@ func emitEvents(ctx context.Context, l zerolog.Logger, client *seth.Client, keyN
 				var err error
 				switch event.Name {
 				case "Log1":
-					_, err = client.Decode((*logEmitter).EmitLogIntsFromKey(getIntSlice(*cfg.General.EventsPerTx), keyNum))
+					_, err = client.Decode((*logEmitter).EmitLogIntsFromKey(getIntSlice(*cfg.General.EventsPerTx), client.AnySyncedKey()))
 				case "Log2":
-					_, err = client.Decode((*logEmitter).EmitLogIntsIndexedFromKey(getIntSlice(*cfg.General.EventsPerTx), keyNum))
+					_, err = client.Decode((*logEmitter).EmitLogIntsIndexedFromKey(getIntSlice(*cfg.General.EventsPerTx), client.AnySyncedKey()))
 				case "Log3":
-					_, err = client.Decode((*logEmitter).EmitLogStringsFromKey(getStringSlice(*cfg.General.EventsPerTx), keyNum))
+					_, err = client.Decode((*logEmitter).EmitLogStringsFromKey(getStringSlice(*cfg.General.EventsPerTx), client.AnySyncedKey()))
 				case "Log4":
-					_, err = client.Decode((*logEmitter).EmitLogIntMultiIndexedFromKey(1, 1, *cfg.General.EventsPerTx, keyNum))
+					_, err = client.Decode((*logEmitter).EmitLogIntMultiIndexedFromKey(1, 1, *cfg.General.EventsPerTx, client.AnySyncedKey()))
 				default:
 					err = fmt.Errorf("unknown event name: %s", event.Name)
 				}
@@ -286,7 +287,7 @@ func emitEvents(ctx context.Context, l zerolog.Logger, client *seth.Client, keyN
 		}
 	}
 
-	clientNumber := (keyNumRanges[1] - keyNumRanges[0] + 1)
+	clientNumber := int(*client.Cfg.EphemeralAddrs)
 	emissionsPerClient := *cfg.LoopedConfig.ExecutionCount / clientNumber
 	extraEmissions := *cfg.LoopedConfig.ExecutionCount % clientNumber
 
@@ -305,7 +306,7 @@ func emitEvents(ctx context.Context, l zerolog.Logger, client *seth.Client, keyN
 			}
 
 			for idx := 0; idx < numTasks; idx++ {
-				emitAllEvents(keyNumRanges[0] + key)
+				emitAllEvents()
 			}
 		}(i)
 	}
@@ -869,37 +870,10 @@ func runLoopedGenerator(t *testing.T, cfg *lp_config.Config, client *seth.Client
 	ctx, cancelFn := context.WithCancel(context.Background())
 	defer cancelFn()
 
-	keysPerEmitter := int(*client.Cfg.EphemeralAddrs) / len(logEmitters)
-	if keysPerEmitter == 0 {
-		return 0, fmt.Errorf("not enough keys for the number of emitters. Need at least %d ephemeral addresses, but got %d", len(logEmitters), *client.Cfg.EphemeralAddrs)
-	}
-
-	var divideClients = func(numClients int, numContracts int) [][]int {
-		results := make([][]int, numContracts)
-		clientsPerContract := numClients / numContracts
-		extraClients := numClients % numContracts
-
-		startIndex := 0
-		for i := 0; i < numContracts; i++ {
-			endIndex := startIndex + clientsPerContract - 1
-			// Distribute extra clients one by one until all are assigned
-			if extraClients > 0 {
-				endIndex++
-				extraClients--
-			}
-			// Prepare the result string
-			results[i] = []int{startIndex, endIndex}
-			startIndex = endIndex + 1
-		}
-		return results
-	}
-
-	keyNumRanges := divideClients(int(*client.Cfg.EphemeralAddrs), len(logEmitters))
-
 	for i := 0; i < len(logEmitters); i++ {
 		wg.Add(1)
 		go func(idx int) {
-			emitEvents(ctx, l, client, keyNumRanges[idx], logEmitters[idx], cfg, wg, emitterCh)
+			emitEvents(ctx, l, client, logEmitters[idx], cfg, wg, emitterCh)
 		}(i)
 	}
 
@@ -1215,7 +1189,8 @@ func SetupLogPollerTestDocker(
 	chainClient, err := env.GetSethClient(selectedNetwork.ChainID)
 	require.NoError(t, err, "Error getting seth client")
 
-	require.GreaterOrEqual(t, int(*chainClient.Cfg.EphemeralAddrs), *testConfig.LogPoller.General.Contracts, "You need to have at least as many ephemeral addresses as log emitting contracts")
+	err = utils.ValidateAddressesTypeAndNumber(chainClient.Cfg, *testConfig.LogPoller.General.Contracts)
+	require.NoError(t, err, "Error validating Seth addresses types and number")
 
 	nodeClients := env.ClCluster.NodeAPIs()
 	workerNodes := nodeClients[1:]
