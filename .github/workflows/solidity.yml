@@ -16,10 +16,10 @@ jobs:
       is-release: ${{ steps.release-tag-check.outputs.is-release }}
       is-pre-release: ${{ steps.release-tag-check.outputs.is-pre-release }}
     steps:
-      - uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
+      - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
       - name: Check release tag
         id: release-tag-check
-        uses: smartcontractkit/chainlink-github-actions/release/release-tag-check@main
+        uses: smartcontractkit/chainlink-github-actions/release/release-tag-check@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
         env:
           # Match semver git tags with a "contracts-ccip/" prefix.
           RELEASE_REGEX: '^contracts-ccip/v[0-9]+\.[0-9]+\.[0-9]+$'
@@ -67,10 +67,10 @@ jobs:
       release-version: ${{ steps.release-tag-check.outputs.release-version }}
       pre-release-version: ${{ steps.release-tag-check.outputs.pre-release-version }}
     steps:
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
       - name: Check release tag
         id: release-tag-check
-        uses: smartcontractkit/chainlink-github-actions/release/release-tag-check@2031e56eb4edb8115ce8ba07cbbfb457149d865d # v2.3.8
+        uses: smartcontractkit/chainlink-github-actions/release/release-tag-check@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
         env:
           # Match semver git tags with a "contracts-" prefix.
           RELEASE_REGEX: '^contracts-v[0-9]+\.[0-9]+\.[0-9]+$'
@@ -217,7 +217,7 @@ jobs:
     if: needs.tag-check.outputs.is-pre-release == 'true'
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
 
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
@@ -238,8 +238,9 @@ jobs:
 
       - name: Collect Metrics
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@0281b09807758be1dcc41651e44e62b353808c47 # v2.1.0
+        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
         with:
+          id: ccip-solidity-publish-beta
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
@@ -256,7 +257,7 @@ jobs:
     if: needs.tag-check.outputs.is-release == 'true'
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
 
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
@@ -283,8 +284,9 @@ jobs:
 
       - name: Collect Metrics
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@0281b09807758be1dcc41651e44e62b353808c47 # v2.1.0
+        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
         with:
+          id: ccip-solidity-publish-prod
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
