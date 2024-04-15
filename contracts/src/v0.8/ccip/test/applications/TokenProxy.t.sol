@@ -26,14 +26,14 @@ contract TokenProxySetup is EVM2EVMOnRampSetup {
 }
 
 contract TokenProxy_constructor is TokenProxySetup {
-  function testConstructor() public {
+  function test_Constructor() public view {
     assertEq(address(s_tokenProxy.getRouter()), address(s_sourceRouter));
     assertEq(address(s_tokenProxy.getToken()), address(s_transferToken));
   }
 }
 
 contract TokenProxy_getFee is TokenProxySetup {
-  function testGetFeeSuccess() public {
+  function test_GetFee_Success() public view {
     Client.EVMTokenAmount[] memory tokens = new Client.EVMTokenAmount[](1);
     tokens[0] = Client.EVMTokenAmount({token: address(s_transferToken), amount: 1e18});
 
@@ -52,7 +52,7 @@ contract TokenProxy_getFee is TokenProxySetup {
 
   // Reverts
 
-  function testGetFeeInvalidTokenReverts() public {
+  function test_GetFeeInvalidToken_Revert() public {
     Client.EVM2AnyMessage memory message = Client.EVM2AnyMessage({
       receiver: abi.encode(s_tokenProxy),
       data: "",
@@ -66,7 +66,7 @@ contract TokenProxy_getFee is TokenProxySetup {
     s_tokenProxy.getFee(DEST_CHAIN_SELECTOR, message);
   }
 
-  function testGetFeeNoDataAllowedReverts() public {
+  function test_GetFeeNoDataAllowed_Revert() public {
     Client.EVMTokenAmount[] memory tokens = new Client.EVMTokenAmount[](1);
     tokens[0] = Client.EVMTokenAmount({token: address(s_transferToken), amount: 1e18});
 
@@ -83,7 +83,7 @@ contract TokenProxy_getFee is TokenProxySetup {
     s_tokenProxy.getFee(DEST_CHAIN_SELECTOR, message);
   }
 
-  function testGetFeeGasShouldBeZeroReverts() public {
+  function test_GetFeeGasShouldBeZero_Revert() public {
     Client.EVMTokenAmount[] memory tokens = new Client.EVMTokenAmount[](1);
     tokens[0] = Client.EVMTokenAmount({token: address(s_transferToken), amount: 1e18});
 
@@ -102,7 +102,7 @@ contract TokenProxy_getFee is TokenProxySetup {
 }
 
 contract TokenProxy_ccipSend is TokenProxySetup {
-  function testCcipSendSuccess() public {
+  function test_CcipSend_Success() public {
     vm.pauseGasMetering();
     Client.EVMTokenAmount[] memory tokens = new Client.EVMTokenAmount[](1);
     tokens[0] = Client.EVMTokenAmount({token: address(s_transferToken), amount: 1e18});
@@ -126,7 +126,7 @@ contract TokenProxy_ccipSend is TokenProxySetup {
     s_tokenProxy.ccipSend(DEST_CHAIN_SELECTOR, message);
   }
 
-  function testCcipSendNativeSuccess() public {
+  function test_CcipSendNative_Success() public {
     vm.pauseGasMetering();
     Client.EVMTokenAmount[] memory tokens = new Client.EVMTokenAmount[](1);
     tokens[0] = Client.EVMTokenAmount({token: address(s_transferToken), amount: 1e18});
@@ -152,7 +152,7 @@ contract TokenProxy_ccipSend is TokenProxySetup {
 
   // Reverts
 
-  function testCcipSendInsufficientAllowanceReverts() public {
+  function test_CcipSendInsufficientAllowance_Revert() public {
     Client.EVMTokenAmount[] memory tokens = new Client.EVMTokenAmount[](1);
     tokens[0] = Client.EVMTokenAmount({token: address(s_transferToken), amount: 1e18});
 
@@ -168,7 +168,7 @@ contract TokenProxy_ccipSend is TokenProxySetup {
     s_tokenProxy.ccipSend(DEST_CHAIN_SELECTOR, message);
   }
 
-  function testCcipSendInvalidTokenReverts() public {
+  function test_CcipSendInvalidToken_Revert() public {
     Client.EVMTokenAmount[] memory tokens = new Client.EVMTokenAmount[](1);
     tokens[0] = Client.EVMTokenAmount({token: address(s_feeToken), amount: 1e18});
 
@@ -181,7 +181,7 @@ contract TokenProxy_ccipSend is TokenProxySetup {
     s_tokenProxy.ccipSend(DEST_CHAIN_SELECTOR, message);
   }
 
-  function testCcipSendNoDataAllowedReverts() public {
+  function test_CcipSendNoDataAllowed_Revert() public {
     Client.EVMTokenAmount[] memory tokens = new Client.EVMTokenAmount[](1);
     tokens[0] = Client.EVMTokenAmount({token: address(s_transferToken), amount: 1e18});
 
@@ -195,7 +195,7 @@ contract TokenProxy_ccipSend is TokenProxySetup {
     s_tokenProxy.ccipSend(DEST_CHAIN_SELECTOR, message);
   }
 
-  function testCcipSendGasShouldBeZeroReverts() public {
+  function test_CcipSendGasShouldBeZero_Revert() public {
     Client.EVMTokenAmount[] memory tokens = new Client.EVMTokenAmount[](1);
     tokens[0] = Client.EVMTokenAmount({token: address(s_transferToken), amount: 1e18});
 

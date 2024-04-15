@@ -42,7 +42,7 @@ contract SelfFundedPingPongDappSetup is EVM2EVMOnRampSetup {
 contract SelfFundedPingPong_ccipReceive is SelfFundedPingPongDappSetup {
   event Funded();
 
-  function test_FundingSuccess() public {
+  function test_Funding_Success() public {
     Client.Any2EVMMessage memory message = Client.Any2EVMMessage({
       messageId: bytes32("a"),
       sourceChainSelector: DEST_CHAIN_SELECTOR,
@@ -70,7 +70,7 @@ contract SelfFundedPingPong_ccipReceive is SelfFundedPingPongDappSetup {
     }
   }
 
-  function test_FundingIfNotANopReverts() public {
+  function test_FundingIfNotANop_Revert() public {
     EVM2EVMOnRamp.NopAndWeight[] memory nopsAndWeights = new EVM2EVMOnRamp.NopAndWeight[](0);
     s_onRamp.setNops(nopsAndWeights);
 

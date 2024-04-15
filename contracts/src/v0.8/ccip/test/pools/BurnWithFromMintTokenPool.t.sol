@@ -22,7 +22,7 @@ contract BurnWithFromMintTokenPoolSetup is BurnMintSetup {
 }
 
 contract BurnWithFromMintTokenPool_lockOrBurn is BurnWithFromMintTokenPoolSetup {
-  function testSetupSuccess() public {
+  function test_Setup_Success() public view {
     assertEq(address(s_burnMintERC677), address(s_pool.getToken()));
     assertEq(address(s_mockARM), s_pool.getArmProxy());
     assertEq(false, s_pool.getAllowListEnabled());
@@ -30,7 +30,7 @@ contract BurnWithFromMintTokenPool_lockOrBurn is BurnWithFromMintTokenPoolSetup 
     assertEq("BurnWithFromMintTokenPool 1.4.0", s_pool.typeAndVersion());
   }
 
-  function testPoolBurnSuccess() public {
+  function test_PoolBurn_Success() public {
     uint256 burnAmount = 20_000e18;
 
     deal(address(s_burnMintERC677), address(s_pool), burnAmount);
@@ -56,7 +56,7 @@ contract BurnWithFromMintTokenPool_lockOrBurn is BurnWithFromMintTokenPoolSetup 
   }
 
   // Should not burn tokens if cursed.
-  function testPoolBurnRevertNotHealthyReverts() public {
+  function test_PoolBurnRevertNotHealthy_Revert() public {
     s_mockARM.voteToCurse(bytes32(0));
     uint256 before = s_burnMintERC677.balanceOf(address(s_pool));
     vm.startPrank(s_burnMintOnRamp);
@@ -67,7 +67,7 @@ contract BurnWithFromMintTokenPool_lockOrBurn is BurnWithFromMintTokenPoolSetup 
     assertEq(s_burnMintERC677.balanceOf(address(s_pool)), before);
   }
 
-  function testChainNotAllowedReverts() public {
+  function test_ChainNotAllowed_Revert() public {
     uint64 wrongChainSelector = 8838833;
     vm.expectRevert(abi.encodeWithSelector(TokenPool.ChainNotAllowed.selector, wrongChainSelector));
     s_pool.releaseOrMint(bytes(""), OWNER, 1, wrongChainSelector, generateSourceTokenData(), bytes(""));

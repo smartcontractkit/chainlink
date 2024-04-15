@@ -63,13 +63,13 @@ contract LockReleaseTokenPoolSetup is RouterSetup {
 }
 
 contract LockReleaseTokenPool_setRebalancer is LockReleaseTokenPoolSetup {
-  function testSetRebalancerSuccess() public {
+  function test_SetRebalancer_Success() public {
     assertEq(address(s_lockReleaseTokenPool.getRebalancer()), OWNER);
     s_lockReleaseTokenPool.setRebalancer(STRANGER);
     assertEq(address(s_lockReleaseTokenPool.getRebalancer()), STRANGER);
   }
 
-  function testSetRebalancerReverts() public {
+  function test_SetRebalancer_Revert() public {
     vm.startPrank(STRANGER);
 
     vm.expectRevert("Only callable by owner");
@@ -83,7 +83,7 @@ contract LockReleaseTokenPool_lockOrBurn is LockReleaseTokenPoolSetup {
   event Locked(address indexed sender, uint256 amount);
   event TokensConsumed(uint256 tokens);
 
-  function testFuzz_LockOrBurnNoAllowListSuccess(uint256 amount) public {
+  function test_Fuzz_LockOrBurnNoAllowList_Success(uint256 amount) public {
     amount = bound(amount, 1, getOutboundRateLimiterConfig().capacity);
     vm.startPrank(s_allowedOnRamp);
 
@@ -95,7 +95,7 @@ contract LockReleaseTokenPool_lockOrBurn is LockReleaseTokenPoolSetup {
     s_lockReleaseTokenPool.lockOrBurn(STRANGER, bytes(""), amount, DEST_CHAIN_SELECTOR, bytes(""));
   }
 
-  function testLockOrBurnWithAllowListSuccess() public {
+  function test_LockOrBurnWithAllowList_Success() public {
     uint256 amount = 100;
     vm.startPrank(s_allowedOnRamp);
 
@@ -112,7 +112,7 @@ contract LockReleaseTokenPool_lockOrBurn is LockReleaseTokenPoolSetup {
     s_lockReleaseTokenPoolWithAllowList.lockOrBurn(s_allowedList[1], bytes(""), amount, DEST_CHAIN_SELECTOR, bytes(""));
   }
 
-  function testLockOrBurnWithAllowListReverts() public {
+  function test_LockOrBurnWithAllowList_Revert() public {
     vm.startPrank(s_allowedOnRamp);
 
     vm.expectRevert(abi.encodeWithSelector(SenderNotAllowed.selector, STRANGER));
@@ -120,7 +120,7 @@ contract LockReleaseTokenPool_lockOrBurn is LockReleaseTokenPoolSetup {
     s_lockReleaseTokenPoolWithAllowList.lockOrBurn(STRANGER, bytes(""), 100, DEST_CHAIN_SELECTOR, bytes(""));
   }
 
-  function testPoolBurnRevertNotHealthyReverts() public {
+  function test_PoolBurnRevertNotHealthy_Revert() public {
     // Should not burn tokens if cursed.
     s_mockARM.voteToCurse(bytes32(0));
     uint256 before = s_token.balanceOf(address(s_lockReleaseTokenPoolWithAllowList));
@@ -153,7 +153,7 @@ contract LockReleaseTokenPool_releaseOrMint is LockReleaseTokenPoolSetup {
     s_lockReleaseTokenPoolWithAllowList.applyChainUpdates(chainUpdate);
   }
 
-  function test_ReleaseOrMintSuccess() public {
+  function test_ReleaseOrMint_Success() public {
     vm.startPrank(s_allowedOffRamp);
 
     uint256 amount = 100;
@@ -178,7 +178,7 @@ contract LockReleaseTokenPool_releaseOrMint is LockReleaseTokenPoolSetup {
     );
   }
 
-  function testFuzz_ReleaseOrMintSuccess(address recipient, uint256 amount) public {
+  function test_Fuzz_ReleaseOrMint_Success(address recipient, uint256 amount) public {
     // Since the owner already has tokens this would break the checks
     vm.assume(recipient != OWNER);
     vm.assume(recipient != address(0));
@@ -219,7 +219,7 @@ contract LockReleaseTokenPool_releaseOrMint is LockReleaseTokenPoolSetup {
     );
   }
 
-  function testChainNotAllowedReverts() public {
+  function test_ChainNotAllowed_Revert() public {
     address notAllowedRemotePoolAddress = address(1);
 
     TokenPool.ChainUpdate[] memory chainUpdate = new TokenPool.ChainUpdate[](1);
@@ -250,7 +250,7 @@ contract LockReleaseTokenPool_releaseOrMint is LockReleaseTokenPoolSetup {
     );
   }
 
-  function testPoolMintNotHealthyReverts() public {
+  function test_PoolMintNotHealthy_Revert() public {
     // Should not mint tokens if cursed.
     s_mockARM.voteToCurse(bytes32(0));
     uint256 before = s_token.balanceOf(OWNER);
@@ -264,7 +264,7 @@ contract LockReleaseTokenPool_releaseOrMint is LockReleaseTokenPoolSetup {
 }
 
 contract LockReleaseTokenPool_canAcceptLiquidity is LockReleaseTokenPoolSetup {
-  function test_CanAcceptLiquiditySuccess() public {
+  function test_CanAcceptLiquidity_Success() public {
     assertEq(true, s_lockReleaseTokenPool.canAcceptLiquidity());
 
     s_lockReleaseTokenPool =
@@ -274,7 +274,7 @@ contract LockReleaseTokenPool_canAcceptLiquidity is LockReleaseTokenPoolSetup {
 }
 
 contract LockReleaseTokenPool_provideLiquidity is LockReleaseTokenPoolSetup {
-  function testFuzz_ProvideLiquiditySuccess(uint256 amount) public {
+  function test_Fuzz_ProvideLiquidity_Success(uint256 amount) public {
     uint256 balancePre = s_token.balanceOf(OWNER);
     s_token.approve(address(s_lockReleaseTokenPool), amount);
 
@@ -286,20 +286,20 @@ contract LockReleaseTokenPool_provideLiquidity is LockReleaseTokenPoolSetup {
 
   // Reverts
 
-  function test_UnauthorizedReverts() public {
+  function test_Unauthorized_Revert() public {
     vm.startPrank(STRANGER);
     vm.expectRevert(abi.encodeWithSelector(LockReleaseTokenPool.Unauthorized.selector, STRANGER));
 
     s_lockReleaseTokenPool.provideLiquidity(1);
   }
 
-  function testFuzz_ExceedsAllowance(uint256 amount) public {
+  function test_Fuzz_ExceedsAllowance(uint256 amount) public {
     vm.assume(amount > 0);
     vm.expectRevert("ERC20: insufficient allowance");
     s_lockReleaseTokenPool.provideLiquidity(amount);
   }
 
-  function testLiquidityNotAcceptedReverts() public {
+  function test_LiquidityNotAccepted_Revert() public {
     s_lockReleaseTokenPool =
       new LockReleaseTokenPool(s_token, new address[](0), address(s_mockARM), false, address(s_sourceRouter));
 
@@ -309,7 +309,7 @@ contract LockReleaseTokenPool_provideLiquidity is LockReleaseTokenPoolSetup {
 }
 
 contract LockReleaseTokenPool_withdrawalLiquidity is LockReleaseTokenPoolSetup {
-  function testFuzz_WithdrawalLiquiditySuccess(uint256 amount) public {
+  function test_Fuzz_WithdrawalLiquidity_Success(uint256 amount) public {
     uint256 balancePre = s_token.balanceOf(OWNER);
     s_token.approve(address(s_lockReleaseTokenPool), amount);
     s_lockReleaseTokenPool.provideLiquidity(amount);
@@ -321,14 +321,14 @@ contract LockReleaseTokenPool_withdrawalLiquidity is LockReleaseTokenPoolSetup {
 
   // Reverts
 
-  function test_UnauthorizedReverts() public {
+  function test_Unauthorized_Revert() public {
     vm.startPrank(STRANGER);
     vm.expectRevert(abi.encodeWithSelector(LockReleaseTokenPool.Unauthorized.selector, STRANGER));
 
     s_lockReleaseTokenPool.withdrawLiquidity(1);
   }
 
-  function testInsufficientLiquidityReverts() public {
+  function test_InsufficientLiquidity_Revert() public {
     uint256 maxUint256 = 2 ** 256 - 1;
     s_token.approve(address(s_lockReleaseTokenPool), maxUint256);
     s_lockReleaseTokenPool.provideLiquidity(maxUint256);
@@ -343,7 +343,7 @@ contract LockReleaseTokenPool_withdrawalLiquidity is LockReleaseTokenPoolSetup {
 }
 
 contract LockReleaseTokenPool_supportsInterface is LockReleaseTokenPoolSetup {
-  function testSupportsInterfaceSuccess() public {
+  function test_SupportsInterface_Success() public view {
     assertTrue(s_lockReleaseTokenPool.supportsInterface(s_lockReleaseTokenPool.getLockReleaseInterfaceId()));
     assertTrue(s_lockReleaseTokenPool.supportsInterface(type(IPool).interfaceId));
     assertTrue(s_lockReleaseTokenPool.supportsInterface(type(IERC165).interfaceId));
@@ -372,7 +372,7 @@ contract LockReleaseTokenPool_setChainRateLimiterConfig is LockReleaseTokenPoolS
     s_lockReleaseTokenPool.applyChainUpdates(chainUpdates);
   }
 
-  function testFuzz_SetChainRateLimiterConfigSuccess(uint128 capacity, uint128 rate, uint32 newTime) public {
+  function test_Fuzz_SetChainRateLimiterConfig_Success(uint128 capacity, uint128 rate, uint32 newTime) public {
     // Cap the lower bound to 4 so 4/2 is still >= 2
     vm.assume(capacity >= 4);
     // Cap the lower bound to 2 so 2/2 is still >= 1
@@ -415,7 +415,7 @@ contract LockReleaseTokenPool_setChainRateLimiterConfig is LockReleaseTokenPoolS
     assertEq(bucket.lastUpdated, newTime);
   }
 
-  function testOnlyOwnerOrRateLimitAdminReverts() public {
+  function test_OnlyOwnerOrRateLimitAdmin_Revert() public {
     address rateLimiterAdmin = address(28973509103597907);
 
     s_lockReleaseTokenPool.setRateLimitAdmin(rateLimiterAdmin);
@@ -435,7 +435,7 @@ contract LockReleaseTokenPool_setChainRateLimiterConfig is LockReleaseTokenPoolS
 
   // Reverts
 
-  function testOnlyOwnerReverts() public {
+  function test_OnlyOwner_Revert() public {
     vm.startPrank(STRANGER);
 
     vm.expectRevert(abi.encodeWithSelector(LockReleaseTokenPool.Unauthorized.selector, STRANGER));
@@ -444,7 +444,7 @@ contract LockReleaseTokenPool_setChainRateLimiterConfig is LockReleaseTokenPoolS
     );
   }
 
-  function testNonExistentChainReverts() public {
+  function test_NonExistentChain_Revert() public {
     uint64 wrongChainSelector = 9084102894;
 
     vm.expectRevert(abi.encodeWithSelector(TokenPool.NonExistentChain.selector, wrongChainSelector));
@@ -455,7 +455,7 @@ contract LockReleaseTokenPool_setChainRateLimiterConfig is LockReleaseTokenPoolS
 }
 
 contract LockReleaseTokenPool_setRateLimitAdmin is LockReleaseTokenPoolSetup {
-  function testSetRateLimitAdminSuccess() public {
+  function test_SetRateLimitAdmin_Success() public {
     assertEq(address(0), s_lockReleaseTokenPool.getRateLimitAdmin());
     s_lockReleaseTokenPool.setRateLimitAdmin(OWNER);
     assertEq(OWNER, s_lockReleaseTokenPool.getRateLimitAdmin());
@@ -463,7 +463,7 @@ contract LockReleaseTokenPool_setRateLimitAdmin is LockReleaseTokenPoolSetup {
 
   // Reverts
 
-  function testSetRateLimitAdminReverts() public {
+  function test_SetRateLimitAdmin_Revert() public {
     vm.startPrank(STRANGER);
 
     vm.expectRevert("Only callable by owner");

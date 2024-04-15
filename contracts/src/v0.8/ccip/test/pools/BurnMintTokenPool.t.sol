@@ -25,14 +25,14 @@ contract BurnMintTokenPoolSetup is BurnMintSetup {
 }
 
 contract BurnMintTokenPool_lockOrBurn is BurnMintTokenPoolSetup {
-  function testSetupSuccess() public {
+  function test_Setup_Success() public view {
     assertEq(address(s_burnMintERC677), address(s_pool.getToken()));
     assertEq(address(s_mockARM), s_pool.getArmProxy());
     assertEq(false, s_pool.getAllowListEnabled());
     assertEq("BurnMintTokenPool 1.4.0", s_pool.typeAndVersion());
   }
 
-  function testPoolBurnSuccess() public {
+  function test_PoolBurn_Success() public {
     uint256 burnAmount = 20_000e18;
 
     deal(address(s_burnMintERC677), address(s_pool), burnAmount);
@@ -58,7 +58,7 @@ contract BurnMintTokenPool_lockOrBurn is BurnMintTokenPoolSetup {
   }
 
   // Should not burn tokens if cursed.
-  function testPoolBurnRevertNotHealthyReverts() public {
+  function test_PoolBurnRevertNotHealthy_Revert() public {
     s_mockARM.voteToCurse(bytes32(0));
     uint256 before = s_burnMintERC677.balanceOf(address(s_pool));
     vm.startPrank(s_burnMintOnRamp);
@@ -69,7 +69,7 @@ contract BurnMintTokenPool_lockOrBurn is BurnMintTokenPoolSetup {
     assertEq(s_burnMintERC677.balanceOf(address(s_pool)), before);
   }
 
-  function testChainNotAllowedReverts() public {
+  function test_ChainNotAllowed_Revert() public {
     uint64 wrongChainSelector = 8838833;
 
     vm.expectRevert(abi.encodeWithSelector(TokenPool.ChainNotAllowed.selector, wrongChainSelector));
@@ -78,7 +78,7 @@ contract BurnMintTokenPool_lockOrBurn is BurnMintTokenPoolSetup {
 }
 
 contract BurnMintTokenPool_releaseOrMint is BurnMintTokenPoolSetup {
-  function testPoolMintSuccess() public {
+  function test_PoolMint_Success() public {
     uint256 amount = 1e19;
 
     vm.startPrank(s_burnMintOffRamp);
@@ -101,7 +101,7 @@ contract BurnMintTokenPool_releaseOrMint is BurnMintTokenPoolSetup {
     assertEq(s_burnMintERC677.balanceOf(OWNER), amount);
   }
 
-  function testPoolMintNotHealthyReverts() public {
+  function test_PoolMintNotHealthy_Revert() public {
     // Should not mint tokens if cursed.
     s_mockARM.voteToCurse(bytes32(0));
     uint256 before = s_burnMintERC677.balanceOf(OWNER);
@@ -113,7 +113,7 @@ contract BurnMintTokenPool_releaseOrMint is BurnMintTokenPoolSetup {
     assertEq(s_burnMintERC677.balanceOf(OWNER), before);
   }
 
-  function testChainNotAllowedReverts() public {
+  function test_ChainNotAllowed_Revert() public {
     uint64 wrongChainSelector = 8838833;
 
     vm.expectRevert(abi.encodeWithSelector(TokenPool.ChainNotAllowed.selector, wrongChainSelector));

@@ -62,7 +62,7 @@ contract OnRampTokenPoolReentrancy is EVM2EVMOnRampSetup {
   /// In this case, Facade's second call would produce an EVM2EVM msg with a lower sequence number.
   /// The issue was fixed by moving state updates and event construction to before TokenPool calls.
   /// This test is kept to verify message sequence expectations are not broken.
-  function testSuccess() public {
+  function test_Success() public {
     uint256 amount = 1;
 
     Client.EVMTokenAmount[] memory tokenAmounts = new Client.EVMTokenAmount[](1);
