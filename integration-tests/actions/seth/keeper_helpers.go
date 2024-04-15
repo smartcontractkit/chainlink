@@ -224,8 +224,7 @@ func RegisterUpkeepContractsWithCheckData(t *testing.T, client *seth.Client, lin
 	upkeepIds := make([]*big.Int, 0)
 
 	concurrency := int(*client.Cfg.EphemeralAddrs)
-
-	//TODO deal with the case when there are no ephemral addresses
+	require.GreaterOrEqual(t, concurrency, 1, "You need at least 1 ephemeral address to deploy consumers. Please set them in TOML config: `[Seth] ephemeral_addresses_number = 10`")
 
 	type config struct {
 		address string
@@ -365,8 +364,7 @@ func DeployKeeperConsumers(t *testing.T, client *seth.Client, numberOfContracts 
 	keeperConsumerContracts := make([]contracts.KeeperConsumer, 0)
 
 	concurrency := int(*client.Cfg.EphemeralAddrs)
-
-	//TODO deal with the case when there are no ephemral addresses
+	require.GreaterOrEqual(t, concurrency, 1, "You need at least 1 ephemeral address to deploy consumers. Please set them in TOML config: `[Seth] ephemeral_addresses_number = 10`")
 
 	type result struct {
 		contract contracts.KeeperConsumer

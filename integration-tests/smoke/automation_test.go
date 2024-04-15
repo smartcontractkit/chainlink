@@ -77,14 +77,10 @@ func TestMain(m *testing.M) {
 }
 
 func TestAutomationBasic(t *testing.T) {
-	config, err := tc.GetConfig("Smoke", tc.Automation)
-	if err != nil {
-		t.Fatal(err)
-	}
-	SetupAutomationBasic(t, false, &config)
+	SetupAutomationBasic(t, false)
 }
 
-func SetupAutomationBasic(t *testing.T, nodeUpgrade bool, automationTestConfig types.AutomationTestConfig) {
+func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 	t.Parallel()
 
 	registryVersions := map[string]ethereum.KeeperRegistryVersion{
@@ -105,11 +101,14 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool, automationTestConfig t
 		name := n
 		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
-			cfg := tc.MustCopy(automationTestConfig)
 			t.Parallel()
 			l := logging.GetTestLogger(t)
 
-			var err error
+			cfg, err := tc.GetConfig("Smoke", tc.Automation)
+			if err != nil {
+				t.Fatal(err)
+			}
+
 			if nodeUpgrade {
 				if cfg.GetChainlinkUpgradeImageConfig() == nil {
 					t.Fatal("[ChainlinkUpgradeImage] must be set in TOML config to upgrade nodes")
@@ -123,7 +122,7 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool, automationTestConfig t
 			isMercury := isMercuryV02 || isMercuryV03
 
 			a := setupAutomationTestDocker(
-				t, registryVersion, automationDefaultRegistryConfig(automationTestConfig), isMercuryV02, isMercuryV03, automationTestConfig,
+				t, registryVersion, automationDefaultRegistryConfig(cfg), isMercuryV02, isMercuryV03, &cfg,
 			)
 
 			consumers, upkeepIDs := actions_seth.DeployConsumers(
