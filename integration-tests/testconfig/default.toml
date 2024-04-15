@@ -48,8 +48,6 @@ ephemeral_addresses_number = 10
 # That's because the one we are about to send would get queued, possibly for a very long time
 pending_nonce_protection_enabled = true
 
-ephemeral_addresses_funding = "10_000_000_000_000_000_000"
-
 root_key_funds_buffer = 1000
 
 [Seth.nonce_manager]
