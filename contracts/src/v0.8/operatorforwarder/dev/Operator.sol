@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.19;
+pragma solidity ^0.8.19;
 
 import {AuthorizedReceiver} from "./AuthorizedReceiver.sol";
 import {LinkTokenReceiver} from "./LinkTokenReceiver.sol";
@@ -281,12 +281,24 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
     return _fundsAvailable();
   }
 
+  // @notice Checks if a given address is a contract
+  // @dev Uses EVM assembly to get the code size at the provided address, which helps determine if it is a contract
+  // @param addr The address to check
+  // @return true if the address is a contract, false otherwise
+  function isContract(address addr) internal view returns (bool) {
+      uint size;
+      assembly {
+          size := extcodesize(addr)
+      }
+      return size > 0;
+  }
+
   // @notice Forward a call to another contract
   // @dev Only callable by the owner
   // @param to address
   // @param data to forward
   function ownerForward(address to, bytes calldata data) external onlyOwner validateNotToLINK(to) {
-    require(to.isContract(), "Must forward to a contract");
+    require(isContract(to), "Must forward to a contract");
     // solhint-disable-next-line avoid-low-level-calls
     (bool status, ) = to.call(data);
     require(status, "Forwarded call failed");
