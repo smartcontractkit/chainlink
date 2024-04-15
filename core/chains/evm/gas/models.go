@@ -76,11 +76,6 @@ func NewEstimator(lggr logger.Logger, ethClient feeEstimatorClient, cfg Config, 
 	)
 	df := geCfg.EIP1559DynamicFees()
 
-	// create l1Oracle only if it is supported for the chain
-	var l1Oracle rollups.L1Oracle
-	if rollups.IsRollupWithL1Support(cfg.ChainType()) {
-		l1Oracle = rollups.NewL1GasOracle(lggr, ethClient, cfg.ChainType())
-	}
 	var newEstimator func(logger.Logger) EvmEstimator
 	switch s {
 	case "Arbitrum":
@@ -105,7 +100,7 @@ func NewEstimator(lggr logger.Logger, ethClient feeEstimatorClient, cfg Config, 
 			return NewFixedPriceEstimator(geCfg, ethClient, bh, lggr, cfg.ChainType())
 		}
 	}
-	return NewWrappedEvmEstimator(lggr, newEstimator, df, l1Oracle, geCfg)
+	return NewEvmFeeEstimator(lggr, newEstimator, df, geCfg)
 }
 
 // DynamicFee encompasses both FeeCap and TipCap for EIP1559 transactions
@@ -171,34 +166,32 @@ func (fee EvmFee) ValidDynamic() bool {
 	return fee.DynamicFeeCap != nil && fee.DynamicTipCap != nil
 }
 
-// WrappedEvmEstimator provides a struct that wraps the EVM specific dynamic and legacy estimators into one estimator that conforms to the generic FeeEstimator
-type WrappedEvmEstimator struct {
+// evmFeeEstimator provides a struct that wraps the EVM specific dynamic and legacy estimators into one estimator that conforms to the generic FeeEstimator
+type evmFeeEstimator struct {
 	services.StateMachine
 	lggr logger.Logger
 	EvmEstimator
 	EIP1559Enabled bool
-	l1Oracle       rollups.L1Oracle
 	geCfg          GasEstimatorConfig
 }
 
-var _ EvmFeeEstimator = (*WrappedEvmEstimator)(nil)
+var _ EvmFeeEstimator = (*evmFeeEstimator)(nil)
 
-func NewWrappedEvmEstimator(lggr logger.Logger, newEstimator func(logger.Logger) EvmEstimator, eip1559Enabled bool, l1Oracle rollups.L1Oracle, geCfg GasEstimatorConfig) EvmFeeEstimator {
+func NewEvmFeeEstimator(lggr logger.Logger, newEstimator func(logger.Logger) EvmEstimator, eip1559Enabled bool, geCfg GasEstimatorConfig) EvmFeeEstimator {
 	lggr = logger.Named(lggr, "WrappedEvmEstimator")
-	return &WrappedEvmEstimator{
+	return &evmFeeEstimator{
 		lggr:           lggr,
 		EvmEstimator:   newEstimator(lggr),
 		EIP1559Enabled: eip1559Enabled,
-		l1Oracle:       l1Oracle,
 		geCfg:          geCfg,
 	}
 }
 
-func (e *WrappedEvmEstimator) Name() string {
+func (e *evmFeeEstimator) Name() string {
 	return e.lggr.Name()
 }
 
-func (e *WrappedEvmEstimator) Start(ctx context.Context) error {
+func (e *evmFeeEstimator) Start(ctx context.Context) error {
 	return e.StartOnce(e.Name(), func() error {
 		if err := e.EvmEstimator.Start(ctx); err != nil {
 			return pkgerrors.Wrap(err, "failed to start EVMEstimator")
@@ -212,7 +205,7 @@ func (e *WrappedEvmEstimator) Start(ctx context.Context) error {
 		return nil
 	})
 }
-func (e *WrappedEvmEstimator) Close() error {
+func (e *evmFeeEstimator) Close() error {
 	return e.StopOnce(e.Name(), func() error {
 		var errEVM, errOracle error
 
@@ -229,12 +222,13 @@ func (e *WrappedEvmEstimator) Close() error {
 	})
 }
 
-func (e *WrappedEvmEstimator) Ready() error {
+func (e *evmFeeEstimator) Ready() error {
 	var errEVM, errOracle error
 
 	errEVM = e.EvmEstimator.Ready()
-	if e.l1Oracle != nil {
-		errOracle = e.l1Oracle.Ready()
+	l1Oracle := e.L1Oracle()
+	if l1Oracle != nil {
+		errOracle = l1Oracle.Ready()
 	}
 
 	if errEVM != nil {
@@ -243,21 +237,23 @@ func (e *WrappedEvmEstimator) Ready() error {
 	return errOracle
 }
 
-func (e *WrappedEvmEstimator) HealthReport() map[string]error {
+func (e *evmFeeEstimator) HealthReport() map[string]error {
 	report := map[string]error{e.Name(): e.Healthy()}
 	services.CopyHealth(report, e.EvmEstimator.HealthReport())
-	if e.l1Oracle != nil {
-		services.CopyHealth(report, e.l1Oracle.HealthReport())
+	
+	l1Oracle := e.L1Oracle()
+	if l1Oracle != nil {
+		services.CopyHealth(report, l1Oracle.HealthReport())
 	}
 
 	return report
 }
 
-func (e *WrappedEvmEstimator) L1Oracle() rollups.L1Oracle {
+func (e *evmFeeEstimator) L1Oracle() rollups.L1Oracle {
 	return e.EvmEstimator.L1Oracle()
 }
 
-func (e *WrappedEvmEstimator) GetFee(ctx context.Context, calldata []byte, feeLimit uint64, maxFeePrice *assets.Wei, opts ...feetypes.Opt) (fee EvmFee, chainSpecificFeeLimit uint64, err error) {
+func (e *evmFeeEstimator) GetFee(ctx context.Context, calldata []byte, feeLimit uint64, maxFeePrice *assets.Wei, opts ...feetypes.Opt) (fee EvmFee, chainSpecificFeeLimit uint64, err error) {
 	// get dynamic fee
 	if e.EIP1559Enabled {
 		var dynamicFee DynamicFee
@@ -281,7 +277,7 @@ func (e *WrappedEvmEstimator) GetFee(ctx context.Context, calldata []byte, feeLi
 	return
 }
 
-func (e *WrappedEvmEstimator) GetMaxCost(ctx context.Context, amount assets.Eth, calldata []byte, feeLimit uint64, maxFeePrice *assets.Wei, opts ...feetypes.Opt) (*big.Int, error) {
+func (e *evmFeeEstimator) GetMaxCost(ctx context.Context, amount assets.Eth, calldata []byte, feeLimit uint64, maxFeePrice *assets.Wei, opts ...feetypes.Opt) (*big.Int, error) {
 	fees, gasLimit, err := e.GetFee(ctx, calldata, feeLimit, maxFeePrice, opts...)
 	if err != nil {
 		return nil, err
@@ -299,7 +295,7 @@ func (e *WrappedEvmEstimator) GetMaxCost(ctx context.Context, amount assets.Eth,
 	return amountWithFees, nil
 }
 
-func (e *WrappedEvmEstimator) BumpFee(ctx context.Context, originalFee EvmFee, feeLimit uint64, maxFeePrice *assets.Wei, attempts []EvmPriorAttempt) (bumpedFee EvmFee, chainSpecificFeeLimit uint64, err error) {
+func (e *evmFeeEstimator) BumpFee(ctx context.Context, originalFee EvmFee, feeLimit uint64, maxFeePrice *assets.Wei, attempts []EvmPriorAttempt) (bumpedFee EvmFee, chainSpecificFeeLimit uint64, err error) {
 	// validate only 1 fee type is present
 	if (!originalFee.ValidDynamic() && originalFee.Legacy == nil) || (originalFee.ValidDynamic() && originalFee.Legacy != nil) {
 		err = pkgerrors.New("only one dynamic or legacy fee can be defined")

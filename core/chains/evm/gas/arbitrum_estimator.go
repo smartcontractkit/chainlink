@@ -32,7 +32,6 @@ type arbitrumEstimator struct {
 
 	EvmEstimator // *SuggestedPriceEstimator
 
-	client     feeEstimatorClient
 	pollPeriod time.Duration
 	logger     logger.Logger
 
@@ -56,7 +55,6 @@ func NewArbitrumEstimator(lggr logger.Logger, cfg ArbConfig, ethClient feeEstima
 	return &arbitrumEstimator{
 		cfg:            cfg,
 		EvmEstimator:   NewSuggestedPriceEstimator(lggr, ethClient, cfg, config.ChainArbitrum),
-		client:         ethClient,
 		pollPeriod:     10 * time.Second,
 		logger:         lggr,
 		chForceRefetch: make(chan (chan struct{})),

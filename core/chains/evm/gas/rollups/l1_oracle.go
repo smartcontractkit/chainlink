@@ -8,13 +8,26 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 )
+
+// L1Oracle provides interface for fetching L1-specific fee components if the chain is an L2.
+// For example, on Optimistic Rollups, this oracle can return rollup-specific l1BaseFee
+//
+//go:generate mockery --quiet --name L1Oracle --output ./mocks/ --case=underscore
+type L1Oracle interface {
+	services.Service
+
+	GasPrice(ctx context.Context) (*assets.Wei, error)
+	GetGasCost(ctx context.Context, tx *types.Transaction, blockNum *big.Int) (*assets.Wei, error)
+}
 
 //go:generate mockery --quiet --name l1OracleClient --output ./mocks/ --case=underscore --structname L1OracleClient
 type l1OracleClient interface {
