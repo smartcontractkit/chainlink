@@ -732,7 +732,7 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 	}
 
 	// Check that the bridges exist
-	if err = s.jobORM.AssertBridgesExist(j.Pipeline); err != nil {
+	if err = s.jobORM.AssertBridgesExist(ctx, j.Pipeline); err != nil {
 		logger.Errorw("Failed to approve job spec due to bridge check", "err", err.Error())
 
 		return errors.Wrap(err, "failed to approve job spec due to bridge check")

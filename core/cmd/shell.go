@@ -248,7 +248,7 @@ func handleNodeVersioning(ctx context.Context, db *sqlx.DB, appLggr logger.Logge
 
 	if static.Version != static.Unset {
 		var appv, dbv *semver.Version
-		appv, dbv, err = versioning.CheckVersion(db, appLggr, static.Version)
+		appv, dbv, err = versioning.CheckVersion(ctx, db, appLggr, static.Version)
 		if err != nil {
 			// Exit immediately and don't touch the database if the app version is too old
 			return fmt.Errorf("CheckVersion: %w", err)
@@ -280,7 +280,7 @@ func handleNodeVersioning(ctx context.Context, db *sqlx.DB, appLggr logger.Logge
 	// Update to latest version
 	if static.Version != static.Unset {
 		version := versioning.NewNodeVersion(static.Version)
-		if err = verORM.UpsertNodeVersion(version); err != nil {
+		if err = verORM.UpsertNodeVersion(ctx, version); err != nil {
 			return fmt.Errorf("UpsertNodeVersion: %w", err)
 		}
 	}
