@@ -9,28 +9,28 @@ drop index if exists evm.evm_logs_idx_topic_three;
 drop index if exists evm.evm_logs_idx_topic_four;
 
 create index evm_logs_idx_data_word_one
-    on evm.logs (evm_chain_id, address, event_sig, "substring"(data, 1, 32));
+    on evm.logs (address, event_sig, evm_chain_id, "substring"(data, 1, 32));
 
 create index evm_logs_idx_data_word_two
-    on evm.logs (evm_chain_id, address, event_sig, "substring"(data, 33, 32));
+    on evm.logs (address, event_sig, evm_chain_id, "substring"(data, 33, 32));
 
 create index evm_logs_idx_data_word_three
-    on evm.logs (evm_chain_id, address, event_sig, "substring"(data, 65, 32));
+    on evm.logs (address, event_sig, evm_chain_id, "substring"(data, 65, 32));
 
 create index evm_logs_idx_data_word_four
-    on evm.logs (evm_chain_id, address, event_sig, "substring"(data, 97, 32));
+    on evm.logs (address, event_sig, evm_chain_id, "substring"(data, 97, 32));
 
 create index evm_logs_idx_data_word_five
-    on evm.logs (evm_chain_id, address, event_sig, "substring"(data, 129, 32));
+    on evm.logs (address, event_sig, evm_chain_id, "substring"(data, 129, 32));
 
 create index evm_logs_idx_topic_two
-    on evm.logs (evm_chain_id, address, event_sig, (topics[2]));
+    on evm.logs (address, event_sig, evm_chain_id, (topics[2]));
 
 create index evm_logs_idx_topic_three
-    on evm.logs (evm_chain_id, address, event_sig, (topics[3]));
+    on evm.logs (address, event_sig, evm_chain_id, (topics[3]));
 
 create index evm_logs_idx_topic_four
-    on evm.logs (evm_chain_id, address, event_sig, (topics[4]));
+    on evm.logs (address, event_sig,evm_chain_id,  (topics[4]));
 
 -- +goose Down
 
