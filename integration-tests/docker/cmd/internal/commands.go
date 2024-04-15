@@ -6,11 +6,12 @@ import (
 	"syscall"
 
 	"github.com/rs/zerolog/log"
+	"github.com/spf13/cobra"
+
 	ctf_test_env "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	"github.com/smartcontractkit/chainlink/integration-tests/testconfig"
-	"github.com/spf13/cobra"
 )
 
 var NodeCountFlag = "node-count"
@@ -18,7 +19,7 @@ var NodeCountFlag = "node-count"
 var StartNodesCmd = &cobra.Command{
 	Use:   "start-nodes",
 	Short: "Start Chainlink nodes",
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		nodeCount, err := cmd.Flags().GetInt(NodeCountFlag)
 		if err != nil {
 			return err
