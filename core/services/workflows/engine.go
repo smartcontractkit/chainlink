@@ -513,7 +513,15 @@ func (e *Engine) deregisterTrigger(ctx context.Context, t *triggerCapability) er
 		Inputs: triggerInputs,
 		Config: t.config,
 	}
-	return t.trigger.UnregisterTrigger(ctx, deregRequest)
+
+	// if t.trigger == nil, then we haven't initialized the workflow
+	// yet, and can safely consider the trigger deregistered with
+	// no further action.
+	if t.trigger != nil {
+		return t.trigger.UnregisterTrigger(ctx, deregRequest)
+	}
+
+	return nil
 }
 
 func (e *Engine) Close() error {
@@ -543,6 +551,13 @@ func (e *Engine) Close() error {
 					WorkflowID: e.workflow.id,
 				},
 				Config: s.config,
+			}
+
+			// if capability is nil, then we haven't initialized
+			// the workflow yet and can safely consider it deregistered
+			// with no further action.
+			if s.capability == nil {
+				return nil
 			}
 
 			innerErr := s.capability.UnregisterFromWorkflow(ctx, reg)
