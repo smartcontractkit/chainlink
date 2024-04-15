@@ -375,6 +375,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     uint32 gasFeePPB;
     uint24 flatFeeMilliCents; // min fee is $0.00001, max fee is $167
     AggregatorV3Interface priceFeed;
+    uint8 decimals;
     // 1st word, read in calculating BillingTokenPaymentParams
     uint256 fallbackPrice;
     // 2nd word only read if stale
@@ -395,6 +396,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
    * @dev this is a memory-only struct, so struct packing is less important
    */
   struct BillingTokenPaymentParams {
+    uint8 decimals;
     uint32 gasFeePPB;
     uint24 flatFeeMilliCents;
     uint256 priceUSD;
@@ -426,8 +428,8 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
 
   /**
    * @notice struct containing receipt information about a payment or cost estimation
-   * @member gasCharge the amount to charge a user for gas spent
-   * @member premium the premium charged to the user, shared between all nodes
+   * @member gasCharge the amount to charge a user for gas spent using the billing token's native decimals
+   * @member premium the premium charged to the user, shared between all nodes, using the billing token's native decimals
    * @member gasReimbursementJuels the amount to reimburse a node for gas spent
    * @member premiumJuels the premium paid to NOPs, shared between all nodes
    */
@@ -633,6 +635,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     BillingConfig storage config = s_billingConfigs[billingToken];
     paymentParams.flatFeeMilliCents = config.flatFeeMilliCents;
     paymentParams.gasFeePPB = config.gasFeePPB;
+    paymentParams.decimals = config.decimals;
     (, int256 feedValue, , uint256 timestamp, ) = config.priceFeed.latestRoundData();
     if (
       feedValue <= 0 ||
@@ -660,6 +663,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     HotVars memory hotVars,
     PaymentParams memory paymentParams
   ) internal view returns (PaymentReceipt memory receipt) {
+    uint8 decimals = paymentParams.billingTokenParams.decimals;
     uint256 gasWei = paymentParams.fastGasWei * hotVars.gasCeilingMultiplier;
     // in case it's actual execution use actual gas price, capped by fastGasWei * gasCeilingMultiplier
     if (paymentParams.isTransaction && tx.gasprice < gasWei) {
@@ -669,13 +673,29 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     uint256 gasPaymentHexaicosaUSD = (gasWei *
       (paymentParams.gasLimit + paymentParams.gasOverhead) +
       paymentParams.l1CostWei) * paymentParams.nativeUSD; // gasPaymentHexaicosaUSD has an extra 8 zeros because of decimals on nativeUSD feed
-    receipt.gasCharge = SafeCast.toUint96(gasPaymentHexaicosaUSD / paymentParams.billingTokenParams.priceUSD); // has units of attoBillingToken, or "wei"
+
+    uint96 gasCharge18Decimals = SafeCast.toUint96(gasPaymentHexaicosaUSD / paymentParams.billingTokenParams.priceUSD); // has units of attoBillingToken, or "wei"
+    receipt.gasCharge = gasCharge18Decimals;
+    if (decimals < 18) {
+      receipt.gasCharge = SafeCast.toUint96(gasCharge18Decimals / (10 ** (18 - decimals)));
+    } else if (decimals > 18) {
+      receipt.gasCharge = SafeCast.toUint96(gasCharge18Decimals * (10 ** (decimals - 18)));
+    }
+
     receipt.gasReimbursementJuels = SafeCast.toUint96(gasPaymentHexaicosaUSD / paymentParams.linkUSD);
     uint256 flatFeeHexaicosaUSD = uint256(paymentParams.billingTokenParams.flatFeeMilliCents) * 1e21; // 1e13 for milliCents to attoUSD and 1e8 for attoUSD to hexaicosaUSD
     uint256 premiumHexaicosaUSD = ((((gasWei * paymentParams.gasLimit) + paymentParams.l1CostWei) *
       paymentParams.billingTokenParams.gasFeePPB *
       paymentParams.nativeUSD) / 1e9) + flatFeeHexaicosaUSD;
-    receipt.premium = SafeCast.toUint96(premiumHexaicosaUSD / paymentParams.billingTokenParams.priceUSD);
+
+    uint96 premium18Decimals = SafeCast.toUint96(premiumHexaicosaUSD / paymentParams.billingTokenParams.priceUSD); // has units of attoBillingToken, or "wei"
+    receipt.premium = premium18Decimals;
+    if (decimals < 18) {
+      receipt.premium = SafeCast.toUint96(premium18Decimals / (10 ** (18 - decimals)));
+    } else if (decimals > 18) {
+      receipt.premium = SafeCast.toUint96(premium18Decimals * (10 ** (decimals - 18)));
+    }
+
     receipt.premiumJuels = SafeCast.toUint96(premiumHexaicosaUSD / paymentParams.linkUSD);
 
     return receipt;
@@ -975,7 +995,9 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
 
     PaymentReceipt memory receipt = _calculatePaymentAmount(hotVars, paymentParams);
 
+    // balance is in the token's native decimals
     uint96 balance = upkeep.balance;
+    // payment is in the token's native decimals
     uint96 payment = receipt.gasCharge + receipt.premium;
 
     // this shouldn't happen, but in rare edge cases, we charge the full balance in case the user
@@ -1063,6 +1085,11 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
     for (uint256 i = 0; i < billingTokens.length; i++) {
       IERC20 token = billingTokens[i];
       BillingConfig memory config = billingConfigs[i];
+
+      // most ERC20 tokens are 18 decimals, we support tokens with up to 24 decimals
+      if (config.decimals > 24) {
+        revert InvalidToken();
+      }
 
       // if LINK is a billing option, payout mode must be ON_CHAIN
       if (address(token) == address(i_link) && mode == PayoutMode.OFF_CHAIN) {

@@ -353,7 +353,8 @@ contract SetConfig is SetUp {
       flatFeeMilliCents: 20_000,
       priceFeed: 0x2222222222222222222222222222222222222222,
       fallbackPrice: 2_000_000_000, // $20
-      minSpend: 100_000
+      minSpend: 100_000,
+      decimals: 18
     });
 
     bytes memory onchainConfigBytes = abi.encode(cfg);
@@ -425,14 +426,16 @@ contract SetConfig is SetUp {
       flatFeeMilliCents: 20_001,
       priceFeed: 0x2222222222222222222222222222222222222221,
       fallbackPrice: 100,
-      minSpend: 100
+      minSpend: 100,
+      decimals: 18
     });
     billingConfigs[1] = AutomationRegistryBase2_3.BillingConfig({
       gasFeePPB: 5_002,
       flatFeeMilliCents: 20_002,
       priceFeed: 0x2222222222222222222222222222222222222222,
       fallbackPrice: 200,
-      minSpend: 200
+      minSpend: 200,
+      decimals: 18
     });
 
     bytes memory onchainConfigBytesWithBilling = abi.encode(cfg, billingTokens, billingConfigs);
@@ -485,7 +488,8 @@ contract SetConfig is SetUp {
       flatFeeMilliCents: 20_001,
       priceFeed: 0x2222222222222222222222222222222222222221,
       fallbackPrice: 100,
-      minSpend: 100
+      minSpend: 100,
+      decimals: 18
     });
 
     bytes memory onchainConfigBytesWithBilling1 = abi.encode(cfg, billingTokens1, billingConfigs1);
@@ -501,7 +505,8 @@ contract SetConfig is SetUp {
       flatFeeMilliCents: 20_002,
       priceFeed: 0x2222222222222222222222222222222222222222,
       fallbackPrice: 200,
-      minSpend: 200
+      minSpend: 200,
+      decimals: 18
     });
 
     bytes memory onchainConfigBytesWithBilling2 = abi.encode(cfg, billingTokens2, billingConfigs2);
@@ -559,14 +564,16 @@ contract SetConfig is SetUp {
       flatFeeMilliCents: 20_001,
       priceFeed: 0x2222222222222222222222222222222222222221,
       fallbackPrice: 100,
-      minSpend: 100
+      minSpend: 100,
+      decimals: 18
     });
     billingConfigs[1] = AutomationRegistryBase2_3.BillingConfig({
       gasFeePPB: 5_002,
       flatFeeMilliCents: 20_002,
       priceFeed: 0x2222222222222222222222222222222222222222,
       fallbackPrice: 200,
-      minSpend: 200
+      minSpend: 200,
+      decimals: 18
     });
 
     bytes memory onchainConfigBytesWithBilling = abi.encode(cfg, billingTokens, billingConfigs);
@@ -593,7 +600,8 @@ contract SetConfig is SetUp {
       flatFeeMilliCents: 20_000,
       priceFeed: 0x2222222222222222222222222222222222222222,
       fallbackPrice: 2_000_000_000, // $20
-      minSpend: 100_000
+      minSpend: 100_000,
+      decimals: 18
     });
 
     // deploy registry with OFF_CHAIN payout mode
@@ -628,7 +636,8 @@ contract SetConfig is SetUp {
       flatFeeMilliCents: 20_000,
       priceFeed: 0x2222222222222222222222222222222222222222,
       fallbackPrice: 2_000_000_000, // $20
-      minSpend: 100_000
+      minSpend: 100_000,
+      decimals: 18
     });
 
     bytes memory onchainConfigBytes = abi.encode(cfg);
@@ -1042,7 +1051,8 @@ contract NOPsSettlement is SetUp {
       flatFeeMilliCents: 2_000, // 2 cents
       priceFeed: address(USDTOKEN_USD_FEED),
       fallbackPrice: 100_000_000, // $1
-      minSpend: 1000000000000000000 // 1 USD
+      minSpend: 1000000000000000000, // 1 USD
+      decimals: 18
     });
 
     address[] memory registrars = new address[](1);

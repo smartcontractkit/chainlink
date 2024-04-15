@@ -173,21 +173,24 @@ contract BaseTest is Test {
       flatFeeMilliCents: DEFAULT_FLAT_FEE_MILLI_CENTS, // 2 cents
       priceFeed: address(USDTOKEN_USD_FEED),
       fallbackPrice: 100_000_000, // $1
-      minSpend: 1000000000000000000 // 1 USD
+      minSpend: 1000000000000000000, // 1 USD
+      decimals: 18
     });
     billingTokenConfigs[1] = AutomationRegistryBase2_3.BillingConfig({
       gasFeePPB: DEFAULT_GAS_FEE_PPB, // 15%
       flatFeeMilliCents: DEFAULT_FLAT_FEE_MILLI_CENTS, // 2 cents
       priceFeed: address(NATIVE_USD_FEED),
       fallbackPrice: 100_000_000, // $1
-      minSpend: 5000000000000000000 // 5 Native
+      minSpend: 5000000000000000000, // 5 Native
+      decimals: 18
     });
     billingTokenConfigs[2] = AutomationRegistryBase2_3.BillingConfig({
       gasFeePPB: DEFAULT_GAS_FEE_PPB, // 10%
       flatFeeMilliCents: DEFAULT_FLAT_FEE_MILLI_CENTS, // 2 cents
       priceFeed: address(LINK_USD_FEED),
       fallbackPrice: 1_000_000_000, // $10
-      minSpend: 1000000000000000000 // 1 LINK
+      minSpend: 1000000000000000000, // 1 LINK
+      decimals: 18
     });
 
     if (payoutMode == AutoBase.PayoutMode.OFF_CHAIN) {
