@@ -99,10 +99,10 @@ func NewBridgeType(t testing.TB, opts BridgeOpts) (*bridges.BridgeTypeAuthentica
 // MustCreateBridge creates a bridge
 // Be careful not to specify a name here unless you ABSOLUTELY need to
 // This is because name is a unique index and identical names used across transactional tests will lock/deadlock
-func MustCreateBridge(t testing.TB, db *sqlx.DB, opts BridgeOpts, cfg pg.QConfig) (bta *bridges.BridgeTypeAuthentication, bt *bridges.BridgeType) {
+func MustCreateBridge(t testing.TB, db *sqlx.DB, opts BridgeOpts) (bta *bridges.BridgeTypeAuthentication, bt *bridges.BridgeType) {
 	bta, bt = NewBridgeType(t, opts)
-	orm := bridges.NewORM(db, logger.TestLogger(t), cfg)
-	err := orm.CreateBridgeType(bt)
+	orm := bridges.NewORM(db)
+	err := orm.CreateBridgeType(testutils.Context(t), bt)
 	require.NoError(t, err)
 	return bta, bt
 }
@@ -403,7 +403,7 @@ func MustInsertKeeperJob(t *testing.T, db *sqlx.DB, korm keeper.ORM, from evmtyp
 	cfg := configtest.NewTestGeneralConfig(t)
 	tlg := logger.TestLogger(t)
 	prm := pipeline.NewORM(db, tlg, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
-	btORM := bridges.NewORM(db, tlg, cfg.Database())
+	btORM := bridges.NewORM(db)
 	jrm := job.NewORM(db, prm, btORM, nil, tlg, cfg.Database())
 	err = jrm.InsertJob(&jb)
 	require.NoError(t, err)
@@ -545,6 +545,7 @@ type ExternalInitiatorOpts struct {
 }
 
 func MustInsertExternalInitiatorWithOpts(t *testing.T, orm bridges.ORM, opts ExternalInitiatorOpts) (ei bridges.ExternalInitiator) {
+	ctx := testutils.Context(t)
 	var prefix string
 	if opts.NamePrefix != "" {
 		prefix = opts.NamePrefix
@@ -561,7 +562,7 @@ func MustInsertExternalInitiatorWithOpts(t *testing.T, orm bridges.ORM, opts Ext
 	hashedSecret, err := auth.HashedSecret(token, ei.Salt)
 	require.NoError(t, err)
 	ei.HashedSecret = hashedSecret
-	err = orm.CreateExternalInitiator(&ei)
+	err = orm.CreateExternalInitiator(ctx, &ei)
 	require.NoError(t, err)
 	return ei
 }
