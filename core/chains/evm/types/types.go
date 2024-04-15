@@ -3,7 +3,9 @@ package types
 import (
 	"database/sql/driver"
 	"encoding/json"
+	"log/slog"
 	"math/big"
+	"os"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -17,6 +19,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
+
+func init() {
+	// This is a hack to undo geth's disruption of the std default logger.
+	// To be removed after upgrading geth to v1.13.10.
+	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, nil)))
+}
 
 type Configs interface {
 	Chains(ids ...string) ([]types.ChainStatus, int, error)

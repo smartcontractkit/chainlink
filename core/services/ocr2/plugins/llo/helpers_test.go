@@ -304,6 +304,7 @@ fromBlock = 1`,
 }
 
 func addOCRJobs(t *testing.T, streams []Stream, serverPubKey ed25519.PublicKey, serverURL string, verifierAddress common.Address, bootstrapPeerID string, bootstrapNodePort int, nodes []Node, configStoreAddress common.Address, clientPubKeys []ed25519.PublicKey, chainID *big.Int, fromBlock int) {
+	ctx := testutils.Context(t)
 	createBridge := func(name string, i int, p *big.Int, borm bridges.ORM) (bridgeName string) {
 		bridge := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 			b, err := io.ReadAll(req.Body)
@@ -319,7 +320,7 @@ func addOCRJobs(t *testing.T, streams []Stream, serverPubKey ed25519.PublicKey, 
 		t.Cleanup(bridge.Close)
 		u, _ := url.Parse(bridge.URL)
 		bridgeName = fmt.Sprintf("bridge-%s-%d", name, i)
-		require.NoError(t, borm.CreateBridgeType(&bridges.BridgeType{
+		require.NoError(t, borm.CreateBridgeType(ctx, &bridges.BridgeType{
 			Name: bridges.BridgeName(bridgeName),
 			URL:  models.WebURL(*u),
 		}))

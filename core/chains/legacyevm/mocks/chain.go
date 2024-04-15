@@ -8,8 +8,6 @@ import (
 	common "github.com/ethereum/go-ethereum/common"
 	client "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 
-	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
-
 	config "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 
 	context "context"
@@ -17,6 +15,8 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 
 	gas "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
+
+	headtracker "github.com/smartcontractkit/chainlink/v2/common/headtracker"
 
 	log "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 
@@ -165,19 +165,19 @@ func (_m *Chain) GetChainStatus(ctx context.Context) (types.ChainStatus, error) 
 }
 
 // HeadBroadcaster provides a mock function with given fields:
-func (_m *Chain) HeadBroadcaster() commontypes.HeadBroadcaster[*evmtypes.Head, common.Hash] {
+func (_m *Chain) HeadBroadcaster() headtracker.HeadBroadcaster[*evmtypes.Head, common.Hash] {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for HeadBroadcaster")
 	}
 
-	var r0 commontypes.HeadBroadcaster[*evmtypes.Head, common.Hash]
-	if rf, ok := ret.Get(0).(func() commontypes.HeadBroadcaster[*evmtypes.Head, common.Hash]); ok {
+	var r0 headtracker.HeadBroadcaster[*evmtypes.Head, common.Hash]
+	if rf, ok := ret.Get(0).(func() headtracker.HeadBroadcaster[*evmtypes.Head, common.Hash]); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(commontypes.HeadBroadcaster[*evmtypes.Head, common.Hash])
+			r0 = ret.Get(0).(headtracker.HeadBroadcaster[*evmtypes.Head, common.Hash])
 		}
 	}
 
@@ -185,19 +185,19 @@ func (_m *Chain) HeadBroadcaster() commontypes.HeadBroadcaster[*evmtypes.Head, c
 }
 
 // HeadTracker provides a mock function with given fields:
-func (_m *Chain) HeadTracker() commontypes.HeadTracker[*evmtypes.Head, common.Hash] {
+func (_m *Chain) HeadTracker() headtracker.HeadTracker[*evmtypes.Head, common.Hash] {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for HeadTracker")
 	}
 
-	var r0 commontypes.HeadTracker[*evmtypes.Head, common.Hash]
-	if rf, ok := ret.Get(0).(func() commontypes.HeadTracker[*evmtypes.Head, common.Hash]); ok {
+	var r0 headtracker.HeadTracker[*evmtypes.Head, common.Hash]
+	if rf, ok := ret.Get(0).(func() headtracker.HeadTracker[*evmtypes.Head, common.Hash]); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(commontypes.HeadTracker[*evmtypes.Head, common.Hash])
+			r0 = ret.Get(0).(headtracker.HeadTracker[*evmtypes.Head, common.Hash])
 		}
 	}
 

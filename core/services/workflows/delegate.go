@@ -143,19 +143,19 @@ func emitReports(logger logger.Logger, trigger *triggers.MercuryTriggerService, 
 	reports := []triggers.FeedReport{
 		{
 			FeedID:               mercury.FeedID("0x1111111111111111111100000000000000000000000000000000000000000000").Bytes(),
-			FullReport:           []byte{},
+			FullReport:           []byte(fmt.Sprintf(`{ "feed": "ETH", "price": %d }`, prices[0])),
 			BenchmarkPrice:       prices[0],
 			ObservationTimestamp: t,
 		},
 		{
 			FeedID:               mercury.FeedID("0x2222222222222222222200000000000000000000000000000000000000000000").Bytes(),
-			FullReport:           []byte{},
+			FullReport:           []byte(fmt.Sprintf(`{ "feed": "LINK", "price": %d }`, prices[1])),
 			BenchmarkPrice:       prices[1],
 			ObservationTimestamp: t,
 		},
 		{
 			FeedID:               mercury.FeedID("0x3333333333333333333300000000000000000000000000000000000000000000").Bytes(),
-			FullReport:           []byte{},
+			FullReport:           []byte(fmt.Sprintf(`{ "feed": "BTC", "price": %d }`, prices[2])),
 			BenchmarkPrice:       prices[2],
 			ObservationTimestamp: t,
 		},

@@ -30,7 +30,7 @@ func TestJobKVStore(t *testing.T) {
 	lggr := logger.TestLogger(t)
 
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config.Database(), config.JobPipeline().MaxSuccessfulRuns())
-	bridgesORM := bridges.NewORM(db, logger.TestLogger(t), config.Database())
+	bridgesORM := bridges.NewORM(db)
 
 	jobID := int32(1337)
 	kvStore := job.NewKVStore(jobID, db, config.Database(), lggr)

@@ -14,7 +14,7 @@ import (
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	commonmocks "github.com/smartcontractkit/chainlink/v2/common/mocks"
+	htmocks "github.com/smartcontractkit/chainlink/v2/common/headtracker/mocks"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	logmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
@@ -46,7 +46,7 @@ func mustNewFilterer(t *testing.T, address gethCommon.Address) *ocr2aggregator.O
 type contractTrackerUni struct {
 	db                  *mocks.RequestRoundDB
 	lb                  *logmocks.Broadcaster
-	hb                  *commonmocks.HeadBroadcaster[*evmtypes.Head, common.Hash]
+	hb                  *htmocks.HeadBroadcaster[*evmtypes.Head, common.Hash]
 	ec                  *evmclimocks.Client
 	requestRoundTracker *evm.RequestRoundTracker
 }
@@ -78,7 +78,7 @@ func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrack
 	}
 	uni.db = mocks.NewRequestRoundDB(t)
 	uni.lb = logmocks.NewBroadcaster(t)
-	uni.hb = commonmocks.NewHeadBroadcaster[*evmtypes.Head, common.Hash](t)
+	uni.hb = htmocks.NewHeadBroadcaster[*evmtypes.Head, common.Hash](t)
 	uni.ec = evmclimocks.NewClient(t)
 
 	db := pgtest.NewSqlxDB(t)

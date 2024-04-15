@@ -23,6 +23,7 @@ contract SetUp is BaseTest {
   bytes internal constant offchainConfigBytes = abi.encode(1234, ZERO_ADDRESS);
 
   uint256 linkUpkeepID;
+  uint256 linkUpkeepID2;
   uint256 usdUpkeepID;
   uint256 nativeUpkeepID;
 
@@ -57,6 +58,17 @@ contract SetUp is BaseTest {
       ""
     );
 
+    linkUpkeepID2 = registry.registerUpkeep(
+      address(TARGET1),
+      config.maxPerformGas,
+      UPKEEP_ADMIN,
+      uint8(Trigger.CONDITION),
+      address(linkToken),
+      "",
+      "",
+      ""
+    );
+
     usdUpkeepID = registry.registerUpkeep(
       address(TARGET1),
       config.maxPerformGas,
@@ -81,6 +93,7 @@ contract SetUp is BaseTest {
 
     vm.startPrank(OWNER);
     registry.addFunds(linkUpkeepID, registry.getMinBalanceForUpkeep(linkUpkeepID));
+    registry.addFunds(linkUpkeepID2, registry.getMinBalanceForUpkeep(linkUpkeepID2));
     registry.addFunds(usdUpkeepID, registry.getMinBalanceForUpkeep(usdUpkeepID));
     registry.addFunds(nativeUpkeepID, registry.getMinBalanceForUpkeep(nativeUpkeepID));
     vm.stopPrank();
@@ -160,21 +173,21 @@ contract AddFunds is SetUp {
   function test_movesFundFromCorrectToken() public {
     vm.startPrank(UPKEEP_ADMIN);
 
-    uint256 startBalanceLINK = linkToken.balanceOf(address(registry));
-    uint256 startBalanceUSDToken = usdToken.balanceOf(address(registry));
+    uint256 startLINKRegistryBalance = linkToken.balanceOf(address(registry));
+    uint256 startUSDRegistryBalance = usdToken.balanceOf(address(registry));
     uint256 startLinkUpkeepBalance = registry.getBalance(linkUpkeepID);
     uint256 startUSDUpkeepBalance = registry.getBalance(usdUpkeepID);
 
     registry.addFunds(linkUpkeepID, 1);
-    assertEq(registry.getBalance(linkUpkeepID), startBalanceLINK + 1);
-    assertEq(registry.getBalance(usdUpkeepID), startBalanceUSDToken);
-    assertEq(linkToken.balanceOf(address(registry)), startLinkUpkeepBalance + 1);
+    assertEq(registry.getBalance(linkUpkeepID), startLinkUpkeepBalance + 1);
+    assertEq(registry.getBalance(usdUpkeepID), startUSDRegistryBalance);
+    assertEq(linkToken.balanceOf(address(registry)), startLINKRegistryBalance + 1);
     assertEq(usdToken.balanceOf(address(registry)), startUSDUpkeepBalance);
 
     registry.addFunds(usdUpkeepID, 2);
-    assertEq(registry.getBalance(linkUpkeepID), startBalanceLINK + 1);
-    assertEq(registry.getBalance(usdUpkeepID), startBalanceUSDToken + 2);
-    assertEq(linkToken.balanceOf(address(registry)), startLinkUpkeepBalance + 1);
+    assertEq(registry.getBalance(linkUpkeepID), startLinkUpkeepBalance + 1);
+    assertEq(registry.getBalance(usdUpkeepID), startUSDRegistryBalance + 2);
+    assertEq(linkToken.balanceOf(address(registry)), startLINKRegistryBalance + 1);
     assertEq(usdToken.balanceOf(address(registry)), startUSDUpkeepBalance + 2);
   }
 
@@ -1013,12 +1026,15 @@ contract NOPsSettlement is SetUp {
   function _configureWithNewTransmitters(Registry registry, Registrar registrar) internal {
     IERC20[] memory billingTokens = new IERC20[](1);
     billingTokens[0] = IERC20(address(usdToken));
+
     uint256[] memory minRegistrationFees = new uint256[](billingTokens.length);
     minRegistrationFees[0] = 100000000000000000000; // 100 USD
+
     address[] memory billingTokenAddresses = new address[](billingTokens.length);
     for (uint256 i = 0; i < billingTokens.length; i++) {
       billingTokenAddresses[i] = address(billingTokens[i]);
     }
+
     AutomationRegistryBase2_3.BillingConfig[]
       memory billingTokenConfigs = new AutomationRegistryBase2_3.BillingConfig[](billingTokens.length);
     billingTokenConfigs[0] = AutomationRegistryBase2_3.BillingConfig({
@@ -1029,9 +1045,9 @@ contract NOPsSettlement is SetUp {
       minSpend: 1000000000000000000 // 1 USD
     });
 
-    address[] memory registrars;
-    registrars = new address[](1);
+    address[] memory registrars = new address[](1);
     registrars[0] = address(registrar);
+
     AutomationRegistryBase2_3.OnchainConfig memory cfg = AutomationRegistryBase2_3.OnchainConfig({
       checkGasLimit: 5_000_000,
       stalenessSeconds: 90_000,
@@ -1050,6 +1066,7 @@ contract NOPsSettlement is SetUp {
       reorgProtectionEnabled: true,
       financeAdmin: FINANCE_ADMIN
     });
+
     registry.setConfigTypeSafe(
       SIGNERS,
       NEW_TRANSMITTERS,
@@ -1060,6 +1077,7 @@ contract NOPsSettlement is SetUp {
       billingTokenAddresses,
       billingTokenConfigs
     );
+
     registry.setPayees(NEW_PAYEES);
   }
 }
@@ -1379,6 +1397,7 @@ contract MigrateReceive is SetUp {
     super.setUp();
     (newRegistry, ) = deployAndConfigureRegistryAndRegistrar(AutoBase.PayoutMode.ON_CHAIN);
     idsToMigrate.push(linkUpkeepID);
+    idsToMigrate.push(linkUpkeepID2);
     idsToMigrate.push(usdUpkeepID);
     idsToMigrate.push(nativeUpkeepID);
     registry.setPeerRegistryMigrationPermission(address(newRegistry), 1);
@@ -1440,10 +1459,11 @@ contract MigrateReceive is SetUp {
     registry.setUpkeepCheckData(nativeUpkeepID, randomBytes(25));
 
     // record previous state
-    uint256[] memory prevUpkeepBalances = new uint256[](3);
+    uint256[] memory prevUpkeepBalances = new uint256[](4);
     prevUpkeepBalances[0] = registry.getBalance(linkUpkeepID);
-    prevUpkeepBalances[1] = registry.getBalance(usdUpkeepID);
-    prevUpkeepBalances[2] = registry.getBalance(nativeUpkeepID);
+    prevUpkeepBalances[1] = registry.getBalance(linkUpkeepID2);
+    prevUpkeepBalances[2] = registry.getBalance(usdUpkeepID);
+    prevUpkeepBalances[3] = registry.getBalance(nativeUpkeepID);
     uint256[] memory prevReserveBalances = new uint256[](3);
     prevReserveBalances[0] = registry.getReserveAmount(address(linkToken));
     prevReserveBalances[1] = registry.getReserveAmount(address(usdToken));
@@ -1452,42 +1472,53 @@ contract MigrateReceive is SetUp {
     prevTokenBalances[0] = linkToken.balanceOf(address(registry));
     prevTokenBalances[1] = usdToken.balanceOf(address(registry));
     prevTokenBalances[2] = weth.balanceOf(address(registry));
-    bytes[] memory prevUpkeepData = new bytes[](3);
+    bytes[] memory prevUpkeepData = new bytes[](4);
     prevUpkeepData[0] = abi.encode(registry.getUpkeep(linkUpkeepID));
-    prevUpkeepData[1] = abi.encode(registry.getUpkeep(usdUpkeepID));
-    prevUpkeepData[2] = abi.encode(registry.getUpkeep(nativeUpkeepID));
-    bytes[] memory prevUpkeepTriggerData = new bytes[](3);
+    prevUpkeepData[1] = abi.encode(registry.getUpkeep(linkUpkeepID2));
+    prevUpkeepData[2] = abi.encode(registry.getUpkeep(usdUpkeepID));
+    prevUpkeepData[3] = abi.encode(registry.getUpkeep(nativeUpkeepID));
+    bytes[] memory prevUpkeepTriggerData = new bytes[](4);
     prevUpkeepTriggerData[0] = registry.getUpkeepTriggerConfig(linkUpkeepID);
-    prevUpkeepTriggerData[1] = registry.getUpkeepTriggerConfig(usdUpkeepID);
-    prevUpkeepTriggerData[2] = registry.getUpkeepTriggerConfig(nativeUpkeepID);
+    prevUpkeepTriggerData[1] = registry.getUpkeepTriggerConfig(linkUpkeepID2);
+    prevUpkeepTriggerData[2] = registry.getUpkeepTriggerConfig(usdUpkeepID);
+    prevUpkeepTriggerData[3] = registry.getUpkeepTriggerConfig(nativeUpkeepID);
 
     // event expectations
     vm.expectEmit(address(registry));
     emit UpkeepMigrated(linkUpkeepID, prevUpkeepBalances[0], address(newRegistry));
     vm.expectEmit(address(registry));
-    emit UpkeepMigrated(usdUpkeepID, prevUpkeepBalances[1], address(newRegistry));
+    emit UpkeepMigrated(linkUpkeepID2, prevUpkeepBalances[1], address(newRegistry));
     vm.expectEmit(address(registry));
-    emit UpkeepMigrated(nativeUpkeepID, prevUpkeepBalances[2], address(newRegistry));
+    emit UpkeepMigrated(usdUpkeepID, prevUpkeepBalances[2], address(newRegistry));
+    vm.expectEmit(address(registry));
+    emit UpkeepMigrated(nativeUpkeepID, prevUpkeepBalances[3], address(newRegistry));
     vm.expectEmit(address(newRegistry));
     emit UpkeepReceived(linkUpkeepID, prevUpkeepBalances[0], address(registry));
     vm.expectEmit(address(newRegistry));
-    emit UpkeepReceived(usdUpkeepID, prevUpkeepBalances[1], address(registry));
+    emit UpkeepReceived(linkUpkeepID2, prevUpkeepBalances[1], address(registry));
     vm.expectEmit(address(newRegistry));
-    emit UpkeepReceived(nativeUpkeepID, prevUpkeepBalances[2], address(registry));
+    emit UpkeepReceived(usdUpkeepID, prevUpkeepBalances[2], address(registry));
+    vm.expectEmit(address(newRegistry));
+    emit UpkeepReceived(nativeUpkeepID, prevUpkeepBalances[3], address(registry));
 
     // do the thing
     registry.migrateUpkeeps(idsToMigrate, address(newRegistry));
 
     // assert upkeep balances have been migrated
     assertEq(registry.getBalance(linkUpkeepID), 0);
+    assertEq(registry.getBalance(linkUpkeepID2), 0);
     assertEq(registry.getBalance(usdUpkeepID), 0);
     assertEq(registry.getBalance(nativeUpkeepID), 0);
     assertEq(newRegistry.getBalance(linkUpkeepID), prevUpkeepBalances[0]);
-    assertEq(newRegistry.getBalance(usdUpkeepID), prevUpkeepBalances[1]);
-    assertEq(newRegistry.getBalance(nativeUpkeepID), prevUpkeepBalances[2]);
+    assertEq(newRegistry.getBalance(linkUpkeepID2), prevUpkeepBalances[1]);
+    assertEq(newRegistry.getBalance(usdUpkeepID), prevUpkeepBalances[2]);
+    assertEq(newRegistry.getBalance(nativeUpkeepID), prevUpkeepBalances[3]);
 
     // assert reserve balances have been adjusted
-    assertEq(newRegistry.getReserveAmount(address(linkToken)), newRegistry.getBalance(linkUpkeepID));
+    assertEq(
+      newRegistry.getReserveAmount(address(linkToken)),
+      newRegistry.getBalance(linkUpkeepID) + newRegistry.getBalance(linkUpkeepID2)
+    );
     assertEq(newRegistry.getReserveAmount(address(usdToken)), newRegistry.getBalance(usdUpkeepID));
     assertEq(newRegistry.getReserveAmount(address(weth)), newRegistry.getBalance(nativeUpkeepID));
     assertEq(
@@ -1503,8 +1534,11 @@ contract MigrateReceive is SetUp {
       prevReserveBalances[2] - registry.getReserveAmount(address(weth))
     );
 
-    // assert token have been transfered
-    assertEq(linkToken.balanceOf(address(newRegistry)), newRegistry.getBalance(linkUpkeepID));
+    // assert token have been transferred
+    assertEq(
+      linkToken.balanceOf(address(newRegistry)),
+      newRegistry.getBalance(linkUpkeepID) + newRegistry.getBalance(linkUpkeepID2)
+    );
     assertEq(usdToken.balanceOf(address(newRegistry)), newRegistry.getBalance(usdUpkeepID));
     assertEq(weth.balanceOf(address(newRegistry)), newRegistry.getBalance(nativeUpkeepID));
     assertEq(linkToken.balanceOf(address(registry)), prevTokenBalances[0] - linkToken.balanceOf(address(newRegistry)));
@@ -1513,11 +1547,13 @@ contract MigrateReceive is SetUp {
 
     // assert upkeep data matches
     assertEq(prevUpkeepData[0], abi.encode(newRegistry.getUpkeep(linkUpkeepID)));
-    assertEq(prevUpkeepData[1], abi.encode(newRegistry.getUpkeep(usdUpkeepID)));
-    assertEq(prevUpkeepData[2], abi.encode(newRegistry.getUpkeep(nativeUpkeepID)));
+    assertEq(prevUpkeepData[1], abi.encode(newRegistry.getUpkeep(linkUpkeepID2)));
+    assertEq(prevUpkeepData[2], abi.encode(newRegistry.getUpkeep(usdUpkeepID)));
+    assertEq(prevUpkeepData[3], abi.encode(newRegistry.getUpkeep(nativeUpkeepID)));
     assertEq(prevUpkeepTriggerData[0], newRegistry.getUpkeepTriggerConfig(linkUpkeepID));
-    assertEq(prevUpkeepTriggerData[1], newRegistry.getUpkeepTriggerConfig(usdUpkeepID));
-    assertEq(prevUpkeepTriggerData[2], newRegistry.getUpkeepTriggerConfig(nativeUpkeepID));
+    assertEq(prevUpkeepTriggerData[1], newRegistry.getUpkeepTriggerConfig(linkUpkeepID2));
+    assertEq(prevUpkeepTriggerData[2], newRegistry.getUpkeepTriggerConfig(usdUpkeepID));
+    assertEq(prevUpkeepTriggerData[3], newRegistry.getUpkeepTriggerConfig(nativeUpkeepID));
 
     vm.stopPrank();
   }
