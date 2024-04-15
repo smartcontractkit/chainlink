@@ -76,6 +76,7 @@ type FinalityFilter struct {
 }
 
 func NewFinalityFilter(filter *query.ConfirmationsPrimitive) (query.Expression, error) {
+	// TODO chain agnostic confidence levels that map to evm finality
 	switch filter.ConfirmationLevel {
 	case query.Finalized:
 		return query.Expression{Primitive: &FinalityFilter{evmtypes.Finalized}}, nil
