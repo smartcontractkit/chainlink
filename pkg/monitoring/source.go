@@ -24,3 +24,8 @@ type SourceFactory interface {
 	// GetType should return a namespace for all the source instances produced by this factory.
 	GetType() string
 }
+
+type NetworkSourceFactory interface {
+	NewSource(chainConfig ChainConfig, nodeConfig []NodeConfig) (Source, error)
+	GetType() string
+}
