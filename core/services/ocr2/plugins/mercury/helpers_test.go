@@ -8,24 +8,27 @@ import (
 	"fmt"
 	"math/big"
 	"net"
+	"os"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/stretchr/testify/assert"
+	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 	"google.golang.org/grpc"
 	grpc_creds "google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/metadata"
 
 	"github.com/smartcontractkit/wsrpc"
 	"github.com/smartcontractkit/wsrpc/credentials"
 	"github.com/smartcontractkit/wsrpc/peer"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2/chains/evmutil"
+	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
@@ -49,8 +52,12 @@ import (
 var _ pb.MercuryServer = &mercuryServer{}
 
 type request struct {
-	pk  credentials.StaticSizedPublicKey
+	pk  string
 	req *pb.TransmitRequest
+}
+
+func (r request) TransmitterID() ocr2types.Account {
+	return ocr2types.Account(r.pk)
 }
 
 type mercuryServer struct {
@@ -59,19 +66,37 @@ type mercuryServer struct {
 	t           *testing.T
 	buildReport func() []byte
 
+	// tls fields are for grpc client testing
+	tlsCertFile    *string
+	tlsPrivKeyFile *string
+
 	pb.UnimplementedMercuryServer
 }
 
-func NewMercuryServer(t *testing.T, privKey ed25519.PrivateKey, reqsCh chan request, buildReport func() []byte) *mercuryServer {
-	return &mercuryServer{privKey, reqsCh, t, buildReport, pb.UnimplementedMercuryServer{}}
+func NewMercuryServer(t *testing.T, privKey ed25519.PrivateKey, reqsCh chan request, buildReport func() []byte, tlsCertFile *string, tlsKeyFile *string) *mercuryServer {
+	return &mercuryServer{privKey, reqsCh, t, buildReport, tlsCertFile, tlsKeyFile, pb.UnimplementedMercuryServer{}}
 }
 
 func (s *mercuryServer) Transmit(ctx context.Context, req *pb.TransmitRequest) (*pb.TransmitResponse, error) {
-	p, ok := peer.FromContext(ctx)
-	if !ok {
-		return nil, errors.New("could not extract public key")
+	var peerID string
+
+	if s.tlsCertFile != nil {
+		md, ok := metadata.FromIncomingContext(ctx)
+		if !ok {
+			return nil, errors.New("could not extract public key from grpc outgoing context")
+		}
+		peerID = md.Get("peer-id")[0]
+	} else {
+	
+		p, ok := peer.FromContext(ctx)
+		if !ok {
+			return nil, errors.New("could not extract public key")
+		}
+
+		peerID = fmt.Sprintf("%x", p.PublicKey)
 	}
-	r := request{p.PublicKey, req}
+	
+	r := request{peerID, req}
 	s.reqsCh <- r
 
 	return &pb.TransmitResponse{
@@ -81,11 +106,23 @@ func (s *mercuryServer) Transmit(ctx context.Context, req *pb.TransmitRequest) (
 }
 
 func (s *mercuryServer) LatestReport(ctx context.Context, lrr *pb.LatestReportRequest) (*pb.LatestReportResponse, error) {
-	p, ok := peer.FromContext(ctx)
-	if !ok {
-		return nil, errors.New("could not extract public key")
+	var peerID string
+
+	if s.tlsCertFile != nil {
+		md, ok := metadata.FromIncomingContext(ctx)
+		if !ok {
+			return nil, errors.New("could not extract public key from grpc outgoing context")
+		}
+		peerID = md.Get("peer-id")[0]
+	} else {
+		p, ok := peer.FromContext(ctx)
+		if !ok {
+			return nil, errors.New("could not extract public key")
+		}
+		peerID = fmt.Sprintf("%x", p.PublicKey)
 	}
-	s.t.Logf("mercury server got latest report from %x for feed id 0x%x", p.PublicKey, lrr.FeedId)
+	s.t.Logf("mercury server got latest report from %v for feed id 0x%x", peerID, lrr.FeedId)
+	
 
 	out := new(pb.LatestReportResponse)
 	out.Report = new(pb.Report)
@@ -100,9 +137,18 @@ func (s *mercuryServer) LatestReport(ctx context.Context, lrr *pb.LatestReportRe
 	return out, nil
 }
 
+// Routes start logic based on TLS attributes of srv
 func startMercuryServer(t *testing.T, srv *mercuryServer, pubKeys []ed25519.PublicKey) (serverURL string) {
-	// Set up the wsrpc server
-	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	if srv.tlsCertFile != nil {
+		return startMercuryGrpcServer(t, srv)
+	}
+	return startMercuryWsrpcServer(t, srv, pubKeys)
+}
+
+// Set up the wsrpc server
+func startMercuryWsrpcServer(t *testing.T, srv *mercuryServer, pubKeys []ed25519.PublicKey) (serverURL string) {
+	port := freeport.GetOne(t)
+	lis, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%v", port))
 	if err != nil {
 		t.Fatalf("[MAIN] failed to listen: %v", err)
 	}
@@ -119,32 +165,34 @@ func startMercuryServer(t *testing.T, srv *mercuryServer, pubKeys []ed25519.Publ
 	return
 }
 
+// Set up the grpc server
 func startMercuryGrpcServer(t *testing.T, srv *mercuryServer) (serverURL string) {
-	// Set up the wsrpc server
-	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	port := freeport.GetOne(t)
+	serverUrl := fmt.Sprintf("127.0.0.1:%v", port)
+	lis, err := net.Listen("tcp", serverUrl)
+	t.Cleanup(func() {lis.Close()})
 	if err != nil {
-		t.Fatalf("[MAIN] failed to listen: %v", err)
+		t.Fatalf("FAIL: startMercuryGrpcServer failed to listen: %v", err)
 	}
-
-
-	serverURL = lis.Addr().String()
-
-	serverCreds, err := grpc_creds.NewServerTLSFromFile("./fixtures/domain.pem", "./fixtures/domain.key")
-	require.NoError(t, err)
-	s := grpc.NewServer( 
+	t.Logf("serverUrl: %s, tlsCertFile: %s, tlsKeyFile: %s", serverUrl, *srv.tlsCertFile, *srv.tlsPrivKeyFile)
+	serverCreds, err := grpc_creds.NewServerTLSFromFile(*srv.tlsCertFile, *srv.tlsPrivKeyFile)
+	if err != nil {
+		t.Fatalf("FAIL: startMercuryGrpcServer failed to create server creds: %v", err)
+	}
+	s := grpc.NewServer(
 		grpc.Creds(
 			serverCreds,
 		),
 	)
 
-	// Register mercury implementation with the wsrpc server
+	// Register mercury implementation with the grpc server
 	pb.RegisterGrpcMercuryServer(s, srv)
 
 	// Start serving
 	go s.Serve(lis)
 	t.Cleanup(s.Stop)
 
-	return
+	return serverUrl
 }
 
 type Feed struct {
@@ -182,13 +230,15 @@ func (node *Node) AddBootstrapJob(t *testing.T, spec string) {
 	require.NoError(t, err)
 }
 
+// setupNode sets up a chainlink node with the given port, database name, simulated backend, and key
 func setupNode(
 	t *testing.T,
 	port int,
 	dbName string,
 	backend *backends.SimulatedBackend,
 	csaKey csakey.KeyV2,
-) (app chainlink.Application, peerID string, clientPubKey credentials.StaticSizedPublicKey, ocr2kb ocr2key.KeyBundle, observedLogs *observer.ObservedLogs) {
+	tlsCertFile string, // "" for using WSRPC, uses GRPC otherwise
+) (app cltest.TestApplication, peerID string, clientPubKey credentials.StaticSizedPublicKey, ocr2kb ocr2key.KeyBundle, observedLogs *observer.ObservedLogs) {
 	k := big.NewInt(int64(port)) // keys unique to port
 	p2pKey := p2pkey.MustNewV2XXXTestingOnly(k)
 	rdr := keystest.NewRandReaderFromSeed(int64(port))
@@ -235,16 +285,17 @@ func setupNode(
 		c.P2P.V2.ListenAddresses = &p2paddresses
 		c.P2P.V2.DeltaDial = commonconfig.MustNewDuration(500 * time.Millisecond)
 		c.P2P.V2.DeltaReconcile = commonconfig.MustNewDuration(5 * time.Second)
+
+		// [Mercury.TLS]
+		// CertFile = '$TLS_CERT_FILE'
+		c.Mercury.TLS.CertFile = &tlsCertFile
 	})
 
 	lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
-	app = cltest.NewApplicationWithConfigV2OnSimulatedBlockchain(t, config, backend, p2pKey, ocr2kb, csaKey, lggr.Named(dbName))
+	app = *cltest.NewApplicationWithConfigV2OnSimulatedBlockchain(t, config, backend, p2pKey, ocr2kb, csaKey, lggr.Named(dbName))
+	os.Setenv("CHAINLINK_MERCURY_USE_GRPC", "true")
 	err := app.Start(testutils.Context(t))
 	require.NoError(t, err)
-
-	t.Cleanup(func() {
-		assert.NoError(t, app.Stop())
-	})
 
 	return app, p2pKey.PeerID().Raw(), csaKey.StaticSizedPublicKey(), ocr2kb, observedLogs
 }

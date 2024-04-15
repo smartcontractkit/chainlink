@@ -134,8 +134,12 @@ type pool struct {
 }
 
 func NewPool(lggr logger.Logger, cacheCfg cache.Config, tlsCertFile *string) Pool {
+	lggrName := "Mercury.WSRPCPool"
+	if tlsCertFile != nil {
+		lggrName = "Mercury.GRPCPool"
+	}
 	return &pool{
-		lggr:        lggr.Named("Mercury.WSRPCPool"),
+		lggr:        lggr.Named(lggrName),
 		connections: make(map[string]map[credentials.StaticSizedPublicKey]*connection),
 		cacheSet:    cache.NewCacheSet(lggr, cacheCfg),
 		newClient:   NewClient,
@@ -188,6 +192,7 @@ func (p *pool) newConnection(lggr logger.Logger, clientPrivKey csakey.KeyV2, ser
 		serverPubKey:  serverPubKey,
 		serverURL:     serverURL,
 		pool:          p,
+		tlsCertFile:   p.tlsCertFile,
 	}
 }
 

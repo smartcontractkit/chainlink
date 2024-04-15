@@ -52,7 +52,7 @@ func (c *mercuryClient) Transmit(ctx context.Context, in *TransmitRequest) (*Tra
 
 func (c *mercuryGrpcClient) Transmit(ctx context.Context, in *TransmitRequest) (*TransmitResponse, error) {
 	out := new(TransmitResponse)
-	err := c.cc.Invoke(ctx, "Transmit", in, out)
+	err := c.cc.Invoke(ctx, "/pb.Mercury/Transmit", in, out)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +70,7 @@ func (c *mercuryClient) LatestReport(ctx context.Context, in *LatestReportReques
 
 func (c *mercuryGrpcClient) LatestReport(ctx context.Context, in *LatestReportRequest) (*LatestReportResponse, error) {
 	out := new(LatestReportResponse)
-	err := c.cc.Invoke(ctx, "LatestReport", in, out)
+	err := c.cc.Invoke(ctx, "/pb.Mercury/LatestReport", in, out)
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +129,7 @@ func _Mercury_Transmit_Grpc_Handler(srv interface{}, ctx context.Context, dec fu
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/pb_grpc.Mercury/Transmit",
+		FullMethod: "/pb.Mercury/Transmit",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(MercuryServer).Transmit(ctx, req.(*TransmitRequest))
@@ -150,7 +150,17 @@ func _Mercury_LatestReport_Grpc_Handler(srv interface{}, ctx context.Context, de
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	return srv.(MercuryServer).LatestReport(ctx, in)
+	if interceptor == nil {
+		return srv.(MercuryServer).LatestReport(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pb.Mercury/LatestReport",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MercuryServer).LatestReport(ctx, req.(*LatestReportRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 // Mercury_ServiceDesc is the wsrpc.ServiceDesc for Mercury service.
@@ -175,7 +185,7 @@ var Mercury_ServiceDesc = wsrpc.ServiceDesc{
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var Mercury_ServiceDesc_Grpc = grpc.ServiceDesc{
-	ServiceName: "pb_grpc.Mercury",
+	ServiceName: "pb.Mercury",
 	HandlerType: (*MercuryServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{

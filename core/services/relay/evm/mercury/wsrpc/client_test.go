@@ -11,6 +11,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -268,6 +270,111 @@ func Test_Start_Dial(t *testing.T) {
 		}
 	}
 }
+
+
+
+type TestMercuryServer struct {
+    pb.UnimplementedMercuryServer
+	testLatestReportResponse pb.LatestReportResponse
+}
+
+func (s *TestMercuryServer) LatestReport(ctx context.Context, req *pb.LatestReportRequest) (*pb.LatestReportResponse, error) {
+    return &s.testLatestReportResponse, nil
+}
+
+func (s *TestMercuryServer) Transmit(ctx context.Context, req *pb.TransmitRequest) (*pb.TransmitResponse, error) {
+    return &pb.TransmitResponse{}, nil
+}
+
+func TestIntegration_GRPC(t *testing.T) {
+	port := freeport.GetOne(t)
+	serverUrl := fmt.Sprintf("127.0.0.1:%v", port)
+	lis, err := net.Listen("tcp", serverUrl)
+	if err != nil {
+		t.Fatalf("failed to listen: %v", err)
+	}
+	var serverOpts []grpc.ServerOption
+	grpcServer := grpc.NewServer(serverOpts...)
+	mercuryServer := TestMercuryServer{
+		testLatestReportResponse: pb.LatestReportResponse{
+			Report: &pb.Report{
+				CurrentBlockNumber: 1,
+			},
+		},
+	}
+
+	pb.RegisterGrpcMercuryServer(grpcServer, &mercuryServer)
+	go grpcServer.Serve(lis)
+	t.Cleanup(grpcServer.Stop)
+
+	clientOpts := []grpc.DialOption{
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	}
+	conn, err := grpc.Dial(serverUrl, clientOpts...)
+	if err != nil {
+		t.Fatalf("Failed to dial server: %v", err)
+	}
+	defer conn.Close()
+
+	client := pb.NewMercuryGrpcClient(conn)
+
+	latestReportCtx, cancel := context.WithTimeout(testutils.Context(t), 500*time.Second)
+	defer cancel()
+	resp, err2 := client.LatestReport(latestReportCtx, &pb.LatestReportRequest{})
+	require.NoError(t, err2)
+
+	t.Logf("LatestReport Response: %v", resp)
+	require.EqualValues(t, mercuryServer.testLatestReportResponse.String(), resp.String())
+}
+
+func TestIntegration_GRPCWithCreds(t *testing.T) {
+	// Read in self signed certificate
+	serverCreds, err := credentials.NewServerTLSFromFile("./fixtures/domain.pem", "./fixtures/domain.key")
+	require.NoError(t, err)
+
+	// Start the gRPC server with TLS credentials
+	port := freeport.GetOne(t)
+	serverUrl := fmt.Sprintf("127.0.0.1:%v", port)
+	lis, err := net.Listen("tcp", serverUrl)
+	if err != nil {
+		t.Fatalf("failed to listen: %v", err)
+	}
+	t.Cleanup(func(){ lis.Close() })
+
+	grpcServer := grpc.NewServer(grpc.Creds(serverCreds))
+	mercuryServer := TestMercuryServer{
+		testLatestReportResponse: pb.LatestReportResponse{
+			Report: &pb.Report{
+				CurrentBlockNumber: 1,
+			},
+		},
+	}
+	pb.RegisterGrpcMercuryServer(grpcServer, &mercuryServer)
+
+	t.Cleanup(func(){ grpcServer.Stop() })
+
+	// Use the server certificate for client TLS credentials
+	clientCreds, err := credentials.NewClientTLSFromFile("./fixtures/domain.pem", "")
+	require.NoError(t, err)
+
+	// Dial the gRPC server with TLS credentials
+	conn, err := grpc.Dial(serverUrl, grpc.WithTransportCredentials(clientCreds))
+	if err != nil {
+		t.Fatalf("Failed to dial server: %v", err)
+	}
+	defer conn.Close()
+
+	client := pb.NewMercuryGrpcClient(conn)
+
+	// Make a gRPC call to the server
+	latestReportCtx := testutils.Context(t)
+	resp, err := client.LatestReport(latestReportCtx, &pb.LatestReportRequest{})
+	require.NoError(t, err)
+
+	t.Logf("LatestReport Response: %v", resp.String())
+	require.EqualValues(t, mercuryServer.testLatestReportResponse.String(), resp.String())
+}
+
 
 // TODO:
 // * figure out if I want a mode where the client can dial the grpc server without a cert bundle

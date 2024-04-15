@@ -90,13 +90,13 @@ func NewAdaptedGrpcClientConn(conn *grpc.ClientConn) *AdapatedGrpcClientConn {
 }
 
 func (a *AdapatedGrpcClientConn) WaitForReady(ctx context.Context) bool {
-	if (a.GetState() == grpc_connectivity.Ready) {
+	if a.GetState() == grpc_connectivity.Ready {
 		// Outside block incase the state is Ready on the first call
 		return true
 	}
-	
+
 	if a.WaitForStateChange(ctx, a.GetState()) {
-		if (a.GetState() == grpc_connectivity.Shutdown) {
+		if a.GetState() == grpc_connectivity.Shutdown {
 			return false
 		}
 		return a.WaitForReady(ctx)
@@ -138,11 +138,12 @@ func NewClient(lggr logger.Logger, clientPrivKey csakey.KeyV2, serverPubKey []by
 }
 
 func newClient(lggr logger.Logger, clientPrivKey csakey.KeyV2, serverPubKey []byte, serverURL string, cacheSet cache.CacheSet, tlsCertFile *string) *client {
+
 	return &client{
 		csaKey:                     clientPrivKey,
 		serverPubKey:               serverPubKey,
 		serverURL:                  serverURL,
-		logger:                     lggr.Named("WSRPC").Named(serverURL).With("serverURL", serverURL),
+		logger:                     lggr.Named("Client").Named(serverURL),
 		chResetTransport:           make(chan struct{}, 1),
 		cacheSet:                   cacheSet,
 		chStop:                     make(services.StopChan),
@@ -151,7 +152,7 @@ func newClient(lggr logger.Logger, clientPrivKey csakey.KeyV2, serverPubKey []by
 		dialSuccessCountMetric:     dialSuccessCount.WithLabelValues(serverURL),
 		dialErrorCountMetric:       dialErrorCount.WithLabelValues(serverURL),
 		connectionResetCountMetric: connectionResetCount.WithLabelValues(serverURL),
-		tlsCertFile: 			    tlsCertFile,
+		tlsCertFile:                tlsCertFile,
 	}
 }
 
@@ -162,9 +163,10 @@ func (w *client) Start(ctx context.Context) error {
 	}
 
 	return w.StartOnce(name, func() (err error) {
+		// TODO: this is unecessarily restrictive, the consumer can decide.
 		// NOTE: This is not a mistake, dial is non-blocking so it should use a
 		// background context, not the Start context
-		if err = w.chooseDial(context.Background()); err != nil {
+		if err = w.chooseDial(ctx); err != nil {
 			return err
 		}
 		w.cache, err = w.cacheSet.Get(ctx, w)
@@ -174,14 +176,15 @@ func (w *client) Start(ctx context.Context) error {
 		w.wg.Add(1)
 		go w.runloop()
 		return nil
-	})}
+	})
+}
 
 // chooseDial chooses between dialing via wsrpc or grpc connection
 func (w *client) chooseDial(ctx context.Context) error {
 	if w.tlsCertFile != nil {
 		return w.dialGrpc(ctx)
 	}
-	return w.dial(ctx)
+	return w.dialWsrpc(ctx)
 }
 
 // chooseDial chooses between dialing via wsrpc or grpc connection
@@ -189,7 +192,7 @@ func (w *client) chooseBlockingDial(ctx context.Context) error {
 	if w.tlsCertFile != nil {
 		return w.dialGrpc(ctx, grpc.WithBlock())
 	}
-	return w.dial(ctx, wsrpc.WithBlock())
+	return w.dialWsrpc(ctx, wsrpc.WithBlock())
 }
 
 // NOTE: Dial is non-blocking, and will retry on an exponential backoff
@@ -198,7 +201,7 @@ func (w *client) chooseBlockingDial(ctx context.Context) error {
 //
 // Any transmits made while client is still trying to dial will fail
 // with error.
-func (w *client) dial(ctx context.Context, opts ...wsrpc.DialOption) error {
+func (w *client) dialWsrpc(ctx context.Context, opts ...wsrpc.DialOption) error {
 	w.dialCountMetric.Inc()
 	conn, err := wsrpc.DialWithContext(ctx, w.serverURL,
 		append(opts,
@@ -225,20 +228,20 @@ func (w *client) dial(ctx context.Context, opts ...wsrpc.DialOption) error {
 // Any transmits made while client is still trying to dial will fail
 // with error.
 func (c *client) dialGrpc(ctx context.Context, opts ...grpc.DialOption) error {
-
 	if c.tlsCertFile == nil {
-		conn, err := grpc.DialContext(ctx, c.serverURL,
+		conn, err := grpc.Dial(c.serverURL,
 			append(opts,
 				grpc.WithTransportCredentials(
 					insecure.NewCredentials(),
 				),
+				//grpc.WithBlock(),
 			)...,
 		)
-		
+
 		if err != nil {
 			c.dialErrorCountMetric.Inc()
 			setLivenessMetric(false)
-			return errors.Wrap(err, "failed to dial wsrpc client")
+			return errors.Wrap(err, "failed to dial grpc client")
 		}
 		c.dialSuccessCountMetric.Inc()
 		setLivenessMetric(true)
@@ -263,13 +266,14 @@ func (c *client) dialGrpc(ctx context.Context, opts ...grpc.DialOption) error {
 			grpc.WithTransportCredentials(
 				credentials.NewClientTLSFromCert(cp, ""),
 			),
+			grpc.WithBlock(),
 		)...,
 	)
 
 	if err != nil {
 		c.dialErrorCountMetric.Inc()
 		setLivenessMetric(false)
-		return errors.Wrap(err, "failed to dial wsrpc client")
+		return errors.Wrap(err, "failed to dial grpc client")
 	}
 	c.dialSuccessCountMetric.Inc()
 	setLivenessMetric(true)
@@ -323,7 +327,8 @@ func (w *client) resetTransport() {
 func (w *client) Close() error {
 	return w.StopOnce("WSRPC Client", func() error {
 		close(w.chStop)
-		err := w.conn.Close(); if err != nil {
+		err := w.conn.Close()
+		if err != nil {
 			w.logger.Errorw("Failed to close connection", "err", err)
 		}
 		w.wg.Wait()
