@@ -5,6 +5,9 @@ on:
   push:
     tags:
       - "*"
+    branches:
+      - ccip-develop
+      - "release/**"
   workflow_dispatch:
 
 env:
@@ -291,7 +294,7 @@ jobs:
 
   start-slack-thread:
     name: Start Slack Thread
-    if: ${{ always() && (needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch') && needs.*.result != 'skipped' && needs.*.result != 'cancelled' }}
+    if: ${{ (needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch' || github.event_name == 'push' ) && needs.*.result != 'skipped' && needs.*.result != 'cancelled' }}
     environment: integration
     outputs:
       thread_ts: ${{ steps.slack.outputs.thread_ts }}

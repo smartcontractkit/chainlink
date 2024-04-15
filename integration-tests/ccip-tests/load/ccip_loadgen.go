@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
 
@@ -224,7 +225,7 @@ func (c *CCIPE2ELoad) Call(_ *wasp.Generator) *wasp.Response {
 		sendTx, err = sourceCCIP.Common.Router.CCIPSend(destChainSelector, msg, nil)
 	} else {
 		// add a bit buffer to fee
-		sendTx, err = sourceCCIP.Common.Router.CCIPSend(destChainSelector, msg, new(big.Int).Add(big.NewInt(1e2), fee))
+		sendTx, err = sourceCCIP.Common.Router.CCIPSend(destChainSelector, msg, new(big.Int).Add(big.NewInt(1e5), fee))
 	}
 	if err != nil {
 		stats.UpdateState(lggr, 0, testreporters.TX, time.Since(startTime), testreporters.Failure)
@@ -256,6 +257,24 @@ func (c *CCIPE2ELoad) Call(_ *wasp.Generator) *wasp.Response {
 	var gasUsed uint64
 	if rcpt != nil {
 		gasUsed = rcpt.GasUsed
+	}
+	if rcpt.Status != types.ReceiptStatusSuccessful {
+		stats.UpdateState(lggr, 0, testreporters.TX, startTime.Sub(txConfirmationTime), testreporters.Failure,
+			testreporters.TransactionStats{
+				Fee:                fee.String(),
+				GasUsed:            gasUsed,
+				TxHash:             sendTx.Hash().Hex(),
+				NoOfTokensSent:     len(msg.TokenAmounts),
+				MessageBytesLength: len(msg.Data),
+			})
+		errReason, v, err := c.Lane.Source.Common.ChainClient.RevertReasonFromTx(rcpt.TxHash, evm_2_evm_onramp.EVM2EVMOnRampABI)
+		if err != nil {
+			errReason = "could not decode"
+		}
+		res.Error = fmt.Sprintf("ccip-send request receipt is not successful, errReason=%s, args =%v", errReason, v)
+		res.Failed = true
+		res.Data = stats.StatusByPhase
+		return res
 	}
 	stats.UpdateState(lggr, 0, testreporters.TX, startTime.Sub(txConfirmationTime), testreporters.Success,
 		testreporters.TransactionStats{
